@@ -402,3 +402,8 @@ FodyWeavers.xsd
 *.vcxproj.filters
 imgui.ini
 *.sln
+
+# Local CMake/CTest/Ninja products. Reconstruction plans, receipts, reports,
+# and candidate ELFs under build/ remain governed disposable artifacts.
+/build/host-tools/
+/build/Testing/

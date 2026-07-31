@@ -1,0 +1,4 @@
+interface:
+  display_name: "soCOM Tool Maintainer"
+  short_description: "Maintain reconstruction tooling safely"
+  default_prompt: "Use $socom-tool-maintainer to change soCOM tools, schemas, skills, roles, or workflow infrastructure."

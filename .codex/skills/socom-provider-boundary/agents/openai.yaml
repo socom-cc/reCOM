@@ -1,0 +1,4 @@
+interface:
+  display_name: "soCOM Provider Boundary"
+  short_description: "Classify PS2 provider contributions"
+  default_prompt: "Use $socom-provider-boundary to classify a soCOM runtime, SDK, standard-library, or middleware contribution."

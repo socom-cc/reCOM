@@ -1,0 +1,26 @@
+{
+  "issues": [
+    {
+      "details": "The pinned upstream compiler identity is verified, but native compilation requires a valid FLEXlm license.dat which is not present in the upstream archive. The workspace neither provides nor bypasses a license.",
+      "id": "socom:issue:metrowerks-flexlm-license",
+      "kind": "blocker",
+      "reported_at": "2026-07-30T00:00:00Z",
+      "reported_by": "workspace-bootstrap",
+      "resolution": null,
+      "status": "open",
+      "summary": "Native Metrowerks compile probes require a valid FLEXlm license"
+    },
+    {
+      "details": "The reference contains ten relocation records with numeric type 123. Their Metrowerks/Sony semantics must be proven before linked-byte acceptance. See relocation indices 32125 and 37417-37425 in .agent/REFERENCE_CENSUS.json.",
+      "id": "socom:issue:mips-relocation-type-123",
+      "kind": "blocker",
+      "reported_at": "2026-07-30T00:00:00Z",
+      "reported_by": "workspace-bootstrap",
+      "resolution": null,
+      "status": "open",
+      "summary": "Relocation type 123 semantics remain unresolved"
+    }
+  ],
+  "revision": 1,
+  "schema_version": 1
+}

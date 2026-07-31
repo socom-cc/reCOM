@@ -1,0 +1,4 @@
+interface:
+  display_name: "soCOM Metrowerks Final Build"
+  short_description: "Build and verify the final PS2 ELF"
+  default_prompt: "Use $socom-metrowerks-final-build to diagnose or validate the exact Metrowerks/R5900 final soCOM build."

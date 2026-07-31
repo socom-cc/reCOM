@@ -1,0 +1,268 @@
+{
+  "$id": "socom:schema:reconstruction-progress:v3",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "blockers": {
+      "items": {
+        "$ref": "#/$defs/entity"
+      },
+      "type": "array"
+    },
+    "owners": {
+      "items": {
+        "$ref": "#/$defs/entity"
+      },
+      "type": "array"
+    },
+    "project": {
+      "const": "soCOM"
+    },
+    "policy": {
+      "additionalProperties": true,
+      "properties": {
+        "expected_revision_required": {
+          "const": true
+        },
+        "ghidra_writer_limit": {
+          "const": 1
+        },
+        "manual_json_edits_forbidden": {
+          "const": true
+        }
+      },
+      "required": [
+        "expected_revision_required",
+        "ghidra_writer_limit",
+        "manual_json_edits_forbidden"
+      ],
+      "type": "object"
+    },
+    "revision": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "migration_history": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "type": "string"
+          },
+          "from_schema": {
+            "type": "integer"
+          },
+          "to_schema": {
+            "const": 3
+          },
+          "tracker_revision": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "from_schema",
+          "to_schema",
+          "tracker_revision",
+          "at"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": 3
+    },
+    "stage_order": {
+      "const": [
+        "reference-census",
+        "debug-metadata-import",
+        "ghidra-reconstruction",
+        "source-correlation",
+        "authored-function-order",
+        "authored-call-contract",
+        "authored-byte-match",
+        "full-function-order",
+        "linked-byte-match",
+        "final-validation"
+      ]
+    },
+    "stages": {
+      "items": {
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "pattern": "^socom:stage:",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "active",
+              "accepted"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status"
+        ],
+        "type": "object"
+      },
+      "maxItems": 10,
+      "minItems": 10,
+      "type": "array"
+    },
+    "tracker_id": {
+      "const": "socom:tracker:main"
+    },
+    "work_items": {
+      "items": {
+        "additionalProperties": true,
+        "properties": {
+          "dependencies": {
+            "items": {
+              "pattern": "^socom:(?:work|debug-batch):",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "pattern": "^socom:(?:work|debug-batch):",
+            "type": "string"
+          },
+          "lease": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "kind": {
+            "enum": [
+              "debug-import-plan-foundation",
+              "debug-import-apply-foundation",
+              "debug-import-plan-batch",
+              "debug-import-apply-batch",
+              "stage-seed"
+            ]
+          },
+          "resources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "blocked",
+              "ready",
+              "in_progress",
+              "awaiting_acceptance",
+              "accepted"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "stage",
+          "status",
+          "dependencies",
+          "lease"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "verification_targets": {
+      "contains": {
+        "additionalProperties": true,
+        "properties": {
+          "compiler": {
+            "const": "default"
+          },
+          "current_receipt_sha256": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "const": "socom:verification:ghidra-program"
+          },
+          "kind": {
+            "const": "ghidra-program"
+          },
+          "language": {
+            "const": "r5900:LE:32:default"
+          },
+          "program": {
+            "const": "socom.elf"
+          },
+          "program_path": {
+            "const": "/socom.elf"
+          },
+          "project": {
+            "const": "soCOM"
+          },
+          "receipt_history": {
+            "type": "array"
+          },
+          "source_sha256": {
+            "const": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "project",
+          "program",
+          "program_path",
+          "source_sha256",
+          "language",
+          "compiler",
+          "current_receipt_sha256",
+          "receipt_history"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "tracker_id",
+    "revision",
+    "migration_history",
+    "project",
+    "policy",
+    "stage_order",
+    "stages",
+    "work_items",
+    "verification_targets",
+    "blockers"
+  ],
+  "title": "soCOM reconstruction tracker",
+  "type": "object",
+  "$defs": {
+    "entity": {
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "pattern": "^socom:",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    }
+  }
+}

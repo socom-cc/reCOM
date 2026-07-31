@@ -1,0 +1,13 @@
+{
+  "architecture": "MIPS/R5900",
+  "compiler_comment": "MW MIPS C Compiler (2.4.1.01)",
+  "endianness": "little",
+  "entry": 1310736,
+  "format": "ELF32",
+  "id": "socom:binary:scus-972.05",
+  "path": "support/socom.elf",
+  "platform": "PlayStation 2",
+  "product_code": "SCUS-972.05",
+  "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a"
+}
+

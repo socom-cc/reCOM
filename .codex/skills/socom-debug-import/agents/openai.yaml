@@ -1,0 +1,4 @@
+interface:
+  display_name: "soCOM DWARF Import"
+  short_description: "Plan and validate DWARF imports"
+  default_prompt: "Use $socom-debug-import to build and review a soCOM DWARF import plan."

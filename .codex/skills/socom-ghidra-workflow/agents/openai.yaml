@@ -1,0 +1,9 @@
+interface:
+  display_name: "soCOM Ghidra Read-Only Evidence"
+  short_description: "Inspect the live soCOM Ghidra program"
+  default_prompt: "Use $socom-ghidra-workflow to inspect project soCOM program socom.elf without changing or saving it."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "ghidra"
+      description: "Read the explicitly targeted live Ghidra program."

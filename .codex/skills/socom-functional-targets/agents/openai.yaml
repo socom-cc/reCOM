@@ -1,0 +1,4 @@
+interface:
+  display_name: "soCOM Functional Targets"
+  short_description: "Build focused behavior verification"
+  default_prompt: "Use $socom-functional-targets to create or run a focused soCOM behavioral verification target."

@@ -1,0 +1,26 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "host-tools",
+      "displayName": "soCOM host-side tooling",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/host-tools"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "host-tools",
+      "configurePreset": "host-tools",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}
+

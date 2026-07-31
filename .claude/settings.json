@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest:*)",
+      "Bash(cmake:*)",
+      "Bash(ctest:*)"
+    ],
+    "deny": [
+      "Edit(/.agent/RECONSTRUCTION_PROGRESS.json)",
+      "Edit(/.agent/REFERENCE_CENSUS.json)",
+      "Edit(/.agent/WORKSPACE_ISSUES.json)",
+      "Edit(/support/**)"
+    ]
+  }
+}

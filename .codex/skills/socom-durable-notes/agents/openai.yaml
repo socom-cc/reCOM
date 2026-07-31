@@ -1,0 +1,4 @@
+interface:
+  display_name: "soCOM Durable Notes"
+  short_description: "Preserve reusable reconstruction facts"
+  default_prompt: "Use $socom-durable-notes to record a reusable soCOM reconstruction fact in its canonical durable location."

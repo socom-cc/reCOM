@@ -1,0 +1,4 @@
+interface:
+  display_name: "soCOM Workspace Audit"
+  short_description: "Audit workspace and agent surfaces"
+  default_prompt: "Use $socom-workspace-audit to validate the soCOM workspace and its reconstruction tools."

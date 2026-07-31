@@ -1,0 +1,76 @@
+{
+  "$id": "socom:schema:workspace-issues:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "issues": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "details": {
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^socom:(?:issue|workspace-issue):",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "problem",
+              "request",
+              "blocker"
+            ]
+          },
+          "reported_at": {
+            "type": "string"
+          },
+          "reported_by": {
+            "type": "string"
+          },
+          "resolution": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "status": {
+            "enum": [
+              "open",
+              "resolved"
+            ]
+          },
+          "summary": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "summary",
+          "details",
+          "reported_by",
+          "reported_at",
+          "resolution"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "revision": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": 1
+    }
+  },
+  "required": [
+    "schema_version",
+    "revision",
+    "issues"
+  ],
+  "title": "soCOM workspace issue ledger",
+  "type": "object"
+}

@@ -1,0 +1,321 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse
+
+import pytest
+
+from tools._socom import ghidra
+from tools._socom.util import SocomError
+
+
+def test_bridge_supplies_explicit_program(monkeypatch) -> None:
+    captured = {}
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self):
+            return json.dumps({"ok": True}).encode("utf-8")
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        captured["timeout"] = timeout
+        return Response()
+
+    monkeypatch.setattr(ghidra, "urlopen", fake_urlopen)
+    bridge = ghidra.GhidraBridge("http://127.0.0.1:8089", timeout=7)
+    assert bridge.request("get_metadata") == {"ok": True}
+    assert parse_qs(urlparse(captured["url"]).query)["program"] == ["socom.elf"]
+    assert captured["timeout"] == 7
+
+
+def test_receipt_scope_is_canonical_and_rejects_unknown_fields(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "scope.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "functions": ["0x00140d00", "0x140d00"],
+                "types": ["/project/CGame", "/project/CGame"],
+                "globals": ["0x00476fe8"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert ghidra.load_receipt_scope(path) == {
+        "functions": ["0x140d00"],
+        "types": ["/project/CGame"],
+        "globals": ["0x476fe8"],
+    }
+
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "functions": [],
+                "types": [],
+                "globals": [],
+                "host_project_path": "forbidden",
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(SocomError, match="unknown fields"):
+        ghidra.load_receipt_scope(path)
+
+
+def test_receipt_scope_rejects_empty_scope(tmp_path: Path) -> None:
+    path = tmp_path / "scope.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "functions": [],
+                "types": [],
+                "globals": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        SocomError,
+        match="must name at least one function, type, or global",
+    ):
+        ghidra.load_receipt_scope(path)
+
+
+def test_semantic_receipt_is_deterministic_and_scoped(
+    monkeypatch, root: Path
+) -> None:
+    preflight = {
+        "ok": True,
+        "errors": [],
+        "analysis": {"analyzed": True, "analyzing": False},
+        "counts": {
+            "function_count": 1,
+            "symbol_count": 2,
+            "data_type_count": 1,
+            "memory_block_count": 1,
+        },
+        "bookmark_profile": {
+            "count": 0,
+            "by_type": {},
+            "by_category": {},
+            "error_or_warning_count": 0,
+        },
+        "sentinel": [],
+    }
+    functions = [{"address": "00140d00", "name": "main"}]
+    types = [
+        {
+            "name": "CGame",
+            "category": "project",
+            "size": 16,
+            "path": "/project/CGame",
+        }
+    ]
+    data = [
+        {
+            "address": "00476fe8",
+            "name": "g_game",
+            "type": "CGame *",
+            "size": 4,
+        }
+    ]
+
+    class FakeBridge:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def request(self, endpoint, **_parameters):
+            if endpoint == "disassemble_function":
+                return "00140d00: addiu sp,sp,-0x30\n"
+            if endpoint == "get_function_by_address":
+                return "Function: main at 00140d00\n"
+            if endpoint == "audit_global":
+                return {
+                    "address": "00476fe8",
+                    "name": "g_game",
+                    "type": "CGame *",
+                    "length": 4,
+                    "plate_comment": "accepted fact",
+                    "xref_count": 3,
+                    "issues": ["not-authority"],
+                    "fully_documented": False,
+                }
+            raise AssertionError(endpoint)
+
+    monkeypatch.setattr(ghidra, "live_preflight", lambda *_args, **_kwargs: preflight)
+    monkeypatch.setattr(ghidra, "GhidraBridge", FakeBridge)
+    monkeypatch.setattr(ghidra, "_function_index", lambda _bridge: functions)
+    monkeypatch.setattr(ghidra, "_type_index", lambda _bridge: types)
+    monkeypatch.setattr(ghidra, "_data_index", lambda _bridge: data)
+
+    scope = {
+        "functions": ["0x140d00"],
+        "types": ["/project/CGame"],
+        "globals": ["0x476fe8"],
+    }
+    first = ghidra.semantic_receipt(root, scope=scope)
+    second = ghidra.semantic_receipt(root, scope=scope)
+    assert first == second
+    assert first["receipt"]["scoped_facts"]["functions"][0]["name"] == "main"
+    assert first["receipt"]["scoped_facts"]["types"][0]["path"] == "/project/CGame"
+    assert first["receipt"]["scoped_facts"]["globals"][0]["name"] == "g_game"
+    assert set(first["receipt"]["scoped_facts"]["globals"][0]) == {
+        "address",
+        "name",
+        "type",
+        "length",
+        "comment",
+        "xref_count",
+    }
+
+
+def test_qualified_receipt_scope_preserves_overlay_and_validates_case(
+    monkeypatch, root: Path
+) -> None:
+    preflight = {
+        "ok": True,
+        "errors": [],
+        "analysis": {"analyzed": True, "analyzing": False},
+        "counts": {},
+        "bookmark_profile": {},
+        "sentinel": [],
+    }
+    calls = []
+
+    class FakeBridge:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def request(self, endpoint, **parameters):
+            calls.append((endpoint, parameters))
+            if endpoint == "get_address_spaces":
+                return {
+                    "address_spaces": [
+                        {"name": "ram", "is_overlay": False},
+                        {"name": ".comment", "is_overlay": True},
+                    ]
+                }
+            if endpoint == "audit_global":
+                return {
+                    "address": ".comment::00000000",
+                    "name": "ElfComment[0]",
+                    "type": "string-utf8",
+                    "length": 30,
+                    "plate_comment": "",
+                    "xref_count": 1,
+                }
+            raise AssertionError(endpoint)
+
+    monkeypatch.setattr(ghidra, "live_preflight", lambda *_args, **_kwargs: preflight)
+    monkeypatch.setattr(ghidra, "GhidraBridge", FakeBridge)
+    monkeypatch.setattr(ghidra, "_function_index", lambda _bridge: [])
+    monkeypatch.setattr(ghidra, "_type_index", lambda _bridge: [])
+    monkeypatch.setattr(ghidra, "_data_index", lambda _bridge: [])
+    scope = {"functions": [], "types": [], "globals": [".comment::0"]}
+    result = ghidra.semantic_receipt(root, scope=scope)
+    assert result["receipt"]["scoped_facts"]["globals"][0]["address"] == ".comment::00000000"
+    audit_call = next(row for row in calls if row[0] == "audit_global")
+    assert audit_call[1]["address"] == ".comment::0"
+    assert audit_call[1]["strict_mode"] == "off"
+
+    bad_scope = {"functions": [], "types": [], "globals": [".Comment::0"]}
+    with pytest.raises(SocomError, match="unknown or mis-cased"):
+        ghidra.semantic_receipt(root, scope=bad_scope)
+
+
+def test_qualified_function_receipt_uses_direct_qualified_calls(
+    monkeypatch, root: Path
+) -> None:
+    preflight = {
+        "ok": True,
+        "errors": [],
+        "analysis": {},
+        "counts": {},
+        "bookmark_profile": {},
+        "sentinel": [],
+    }
+    calls = []
+
+    class FakeBridge:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def request(self, endpoint, **parameters):
+            calls.append((endpoint, parameters))
+            if endpoint == "get_address_spaces":
+                return {"address_spaces": [{"name": ".text", "is_overlay": True}]}
+            if endpoint == "disassemble_function":
+                return ".text::00000010: jr ra\n"
+            if endpoint == "get_function_by_address":
+                return "Function: overlay_fn at .text::00000010\n"
+            raise AssertionError(endpoint)
+
+    monkeypatch.setattr(ghidra, "live_preflight", lambda *_args, **_kwargs: preflight)
+    monkeypatch.setattr(ghidra, "GhidraBridge", FakeBridge)
+    monkeypatch.setattr(ghidra, "_function_index", lambda _bridge: [])
+    monkeypatch.setattr(ghidra, "_type_index", lambda _bridge: [])
+    monkeypatch.setattr(ghidra, "_data_index", lambda _bridge: [])
+    scope = {"functions": [".text::10"], "types": [], "globals": []}
+    result = ghidra.semantic_receipt(root, scope=scope)
+    fact = result["receipt"]["scoped_facts"]["functions"][0]
+    assert fact["address"] == ".text::00000010"
+    assert fact["disassembly"][0]["address"] == ".text::00000010"
+    assert {
+        parameters["address"]
+        for endpoint, parameters in calls
+        if endpoint in {"disassemble_function", "get_function_by_address"}
+    } == {".text::10"}
+
+
+def test_data_overlap_uses_first_strict_reset_and_address_space_inventory(
+    monkeypatch, root: Path
+) -> None:
+    monkeypatch.setattr(
+        ghidra,
+        "live_preflight",
+        lambda *_args, **_kwargs: {"ok": True, "errors": []},
+    )
+
+    class FakeBridge:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def paged_text(self, endpoint):
+            assert endpoint == "list_data_items"
+            return [
+                "outer @ 00000100 [byte[16]] (16 bytes)",
+                "alias @ 00000100 [byte[4]] (4 bytes)",
+                "inner @ 00000108 [byte[4]] (4 bytes)",
+                "overlay0 @ 00000000 [byte[4]] (4 bytes)",
+                "overlay1 @ 00000008 [byte[4]] (4 bytes)",
+            ]
+
+        def request(self, endpoint, **_parameters):
+            assert endpoint == "get_address_spaces"
+            return {
+                "address_spaces": [
+                    {"name": "ram", "is_overlay": False},
+                    {"name": ".debug", "is_overlay": True},
+                    {"name": ".line", "is_overlay": True},
+                ]
+            }
+
+    monkeypatch.setattr(ghidra, "GhidraBridge", FakeBridge)
+    report = ghidra.data_overlaps(root)
+    assert report["physical_item_count"] == 3
+    assert report["excluded_overlay_item_count"] == 2
+    assert report["overlay_address_space_count"] == 2
+    assert report["finding_count"] == 1
+    assert "overlay_group_count" not in report

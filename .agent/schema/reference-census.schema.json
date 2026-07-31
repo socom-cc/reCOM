@@ -1,0 +1,118 @@
+{
+  "$id": "socom:schema:reference-census:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "comments": {
+      "contains": {
+        "const": "MW MIPS C Compiler (2.4.1.01)"
+      },
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "debug": {
+      "properties": {
+        "compile_unit_count": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "die_count": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "die_count",
+        "compile_unit_count"
+      ],
+      "type": "object"
+    },
+    "elf_header": {
+      "properties": {
+        "data_encoding": {
+          "const": 1
+        },
+        "elf_class": {
+          "const": 1
+        },
+        "machine": {
+          "const": 8
+        },
+        "section_count": {
+          "const": 12
+        }
+      },
+      "required": [
+        "elf_class",
+        "data_encoding",
+        "machine",
+        "section_count"
+      ],
+      "type": "object"
+    },
+    "reference": {
+      "properties": {
+        "id": {
+          "const": "socom:binary:scus-972.05"
+        },
+        "path": {
+          "const": "support/socom.elf"
+        },
+        "sha256": {
+          "const": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a"
+        }
+      },
+      "required": [
+        "id",
+        "path",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "relocation_summary": {
+      "properties": {
+        "count": {
+          "const": 115142
+        }
+      },
+      "required": [
+        "count"
+      ],
+      "type": "object"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "sections": {
+      "maxItems": 12,
+      "minItems": 12,
+      "type": "array"
+    },
+    "symbol_summary": {
+      "properties": {
+        "count": {
+          "const": 21894
+        }
+      },
+      "required": [
+        "count"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "reference",
+    "elf_header",
+    "sections",
+    "symbol_summary",
+    "relocation_summary",
+    "debug",
+    "comments"
+  ],
+  "title": "soCOM immutable reference census",
+  "type": "object"
+}
+

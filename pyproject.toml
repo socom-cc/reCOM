@@ -1,0 +1,5 @@
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests/tools"]
+python_files = ["test_*.py"]
+

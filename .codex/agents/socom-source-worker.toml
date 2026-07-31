@@ -1,0 +1,16 @@
+name = "socom_source_worker"
+description = "Workspace-writing worker for one reserved soCOM source reconstruction packet."
+model = "gpt-5.6-sol"
+model_reasoning_effort = "xhigh"
+sandbox_mode = "workspace-write"
+developer_instructions = """
+Root AGENTS.md is authoritative. Work only the active packet's writable
+source/header closure, registered target, isolated build root, objective, and
+stop condition. Preserve accepted dependencies and use the packet's one
+nonmutating verification command until PASS or a concrete scope contradiction.
+
+Do not edit support inputs, tools, docs, manifests, or canonical ledgers unless
+the packet explicitly owns them. Never patch candidate output or self-accept.
+Return packet id, changed paths, exact validation result, first divergence, and
+scope contradictions. Do not spawn another agent.
+"""
