@@ -178,3 +178,24 @@ def test_import_plan_has_dependency_safe_application_order(plan) -> None:
         "reanalyze_and_review",
         "save_program_through_live_handoff",
     ]
+
+
+def test_batch_plans_mark_function_objects_and_carry_referenced_types(root) -> None:
+    from tools._socom.tracker import load_tracker
+
+    tracker = load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
+    item = next(row for row in tracker["work_items"] if row["id"] == "socom:debug-batch:873c518eab3c45871ed4")
+    plan = build_import_plan(root, {"work_item_id": item["id"], "selection": item["selection"], **item["batch"]})
+    rows = {row["address"]: row for row in plan["variables"] if row["status"] == "function-object"}
+    # Subroutine-typed global_variable DIEs at compiler-generated member
+    # function entries describe code; they never become globals.
+    assert set(rows) == {0x1747E0, 0x177990, 0x178CC0, 0x178D50, 0x17BBD0, 0x17C4D0}
+    assert "0x1747e0" not in plan["receipt_scope"]["globals"]
+    referenced = {row["evidence"]["die_offset"] for row in plan["types"] if row.get("referenced_only")}
+    ranges = item["batch"]["die_ranges"]
+    assert referenced and not any(start <= offset < end for offset in referenced for start, end in ranges)
+    by_die = {row["evidence"]["die_offset"]: row for row in plan["types"]}
+    for function in plan["functions"]:
+        for parameter in function["parameters"]:
+            offset = (parameter["type"] or {}).get("die_offset")
+            assert offset is None or offset in by_die

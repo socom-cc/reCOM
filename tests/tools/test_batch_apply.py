@@ -77,6 +77,7 @@ class _FakeBridge:
         self.functions = dict(names)
         self.signatures: dict[str, str] = {}
         self.globals = {row["address"]: {"name": row["current_name"], "type": "", "length": 0} for row in program["globals"]}
+        self.code: set[str] = set()
         self.calls: list[tuple[str, dict]] = []
 
     def post_json(self, endpoint, **body):
@@ -104,7 +105,13 @@ class _FakeBridge:
         address = parameters.get("address")
         if endpoint == "audit_global":
             row = self.globals[address]
-            return {**row, "length": 528 if row["type"] == "COurGame" else row["length"], "address": address}
+            return {
+                **row,
+                "length": 528 if row["type"] == "COurGame" else row["length"],
+                "address": address,
+                "is_code_address": address in self.code,
+                "is_function_entry": False,
+            }
         if endpoint == "get_function_by_address":
             name = self.functions[address]
             lines = [f"Function: {name} at {int(address, 16):08x}"]
@@ -149,3 +156,102 @@ def test_batch_executor_skips_ambiguous_types_and_refuses_drift(program: dict) -
         batch_apply.execute_batch_program(
             copy.deepcopy(program), _FakeBridge(program, drifted), type_index=lambda: index, function_names=lambda: drifted
         )
+
+
+def test_batch_executor_skips_identical_types_and_taken_names_and_refuses_code(program: dict) -> None:
+    program = copy.deepcopy(program)
+    for row in program["globals"]:
+        if row["address"] != "0x476f60":
+            row["size"] = None
+    names = {row["address"]: row["current_name"] for row in program["functions"]}
+    index = [{"name": "COurGame"}, {"name": "CGameState"}, {"name": "CMission"}]
+    bridge = _FakeBridge(program, names)
+    bridge.globals["0x476f60"]["type"] = "COurGame"  # a previous batch typed theGame
+    result = batch_apply.execute_batch_program(
+        copy.deepcopy(program),
+        bridge,
+        type_index=lambda: index,
+        function_names=lambda: names,
+        global_names=lambda: {"CGameState::__vt": {"0x999990"}},
+    )
+    assert {"address": "0x476f60", "action": "type", "type": "COurGame"} in result["unchanged"]
+    assert not any(body.get("address") == "0x476f60" for endpoint, body in bridge.calls if endpoint == "apply_data_type")
+    clash = [row for row in result["skipped"] if row["address"] == "0x4714d0" and row["action"] == "rename"]
+    assert clash and clash[0]["reason"] == "name already used at 0x999990"
+    assert bridge.globals["0x4714d0"]["name"] == "__vt__10CGameState"
+    code = _FakeBridge(program, names)
+    code.code.add("0x4bc600")
+    with pytest.raises(SocomError, match="0x4bc600 is code"):
+        batch_apply.execute_batch_program(
+            copy.deepcopy(program), code, type_index=lambda: index, function_names=lambda: names
+        )
+
+
+def test_batch_program_folds_unit_copies_and_refuses_code_globals(root: Path, batch_plan_path: Path, tmp_path: Path) -> None:
+    plan = json.loads(batch_plan_path.read_text(encoding="utf-8"))
+    the_game = next(row for row in plan["variables"] if row["name"] == "theGame")
+    same = copy.deepcopy(the_game)
+    same["evidence"] = dict(same["evidence"], die_offset=999_999)
+    path = tmp_path / "same.json"
+    path.write_text(json.dumps(dict(plan, variables=[*plan["variables"], same])), encoding="utf-8")
+    folded = {row["address"]: row for row in batch_apply.build_batch_program(root, path)["globals"]}
+    assert folded["0x476f60"]["type"] == "COurGame"
+    other = dict(copy.deepcopy(the_game), type={"die_offset": None, "fund_type": 7, "modifiers": []})
+    path.write_text(json.dumps(dict(plan, variables=[*plan["variables"], other])), encoding="utf-8")
+    disagree = {row["address"]: row for row in batch_apply.build_batch_program(root, path)["globals"]}["0x476f60"]
+    assert disagree["type"] is None and "disagree" in disagree["type_skip"]
+    inside = dict(copy.deepcopy(the_game), address=0x140464, name="bogus")
+    path.write_text(json.dumps(dict(plan, variables=[*plan["variables"], inside])), encoding="utf-8")
+    with pytest.raises(SocomError, match="inside function"):
+        batch_apply.build_batch_program(root, path)
+
+
+def test_batch_types_complete_open_arrays_from_symbol_sizes(program: dict) -> None:
+    types = batch_apply._Types(
+        {
+            "types": [
+                {"evidence": {"die_offset": 1}, "kind": "enumeration_type", "byte_size": 1, "ghidra_path": "/project/EQUIP_ITEM"},
+                {
+                    "evidence": {"die_offset": 2},
+                    "kind": "array_type",
+                    "byte_size": None,
+                    "ghidra_path": None,
+                    "array": {"dimensions": [["fund", 10, 0, -1]], "element": {"die_offset": 1, "fund_type": None, "modifiers": []}},
+                },
+                {
+                    "evidence": {"die_offset": 3},
+                    "kind": "array_type",
+                    "byte_size": None,
+                    "ghidra_path": None,
+                    "array": {"dimensions": [["fund", 10, 0, 3]], "element": {"die_offset": None, "fund_type": 1, "modifiers": ["pointer_to"]}},
+                },
+            ]
+        }
+    )
+    open_array = {"die_offset": 2, "fund_type": None, "modifiers": []}
+    # aiDeployList__11CSealCtrlAi: DWARF EQUIP_ITEM[0..-1], .symtab size 11.
+    assert types.render(open_array, 11) == ("EQUIP_ITEM[11]", None)
+    assert types.byte_size(open_array, 11) == 11
+    assert types.render(open_array)[0] is None and "open extent" in types.render(open_array)[1]
+    # extern EQUIP_ITEM (*p)[]: the 4-byte symbol is the pointer, not the array.
+    pointer_to_open = dict(open_array, modifiers=["pointer_to"])
+    assert types.render(pointer_to_open, 4)[0] is None
+    pointers = {"die_offset": 3, "fund_type": None, "modifiers": []}
+    assert types.render(pointers) == ("char *[4]", None) and types.byte_size(pointers) == 16
+    const = {"die_offset": None, "fund_type": 8, "modifiers": ["const"]}
+    assert types.render(const)[0] is None and "'const'" in types.render(const)[1]
+
+
+def test_batch_executor_skips_undefined_multidimensional_arrays(program: dict) -> None:
+    program = copy.deepcopy(program)
+    for row in program["globals"]:
+        row["size"] = None
+        if row["address"] == "0x476f60":
+            row["type"] = "COurGame[2][3]"
+    names = {row["address"]: row["current_name"] for row in program["functions"]}
+    index = [{"name": "COurGame"}, {"name": "CGameState"}]
+    result = batch_apply.execute_batch_program(
+        program, _FakeBridge(program, names), type_index=lambda: index, function_names=lambda: names
+    )
+    reasons = [row["reason"] for row in result["skipped"] if row["address"] == "0x476f60"]
+    assert reasons and "multi-dimensional" in reasons[0]

@@ -418,8 +418,31 @@
       "resolution": null,
       "status": "open",
       "summary": "Type names with commas cannot be spelled through the bridge, blocking basic_string prototypes"
+    },
+    {
+      "details": "Planning batch 10 (socom:debug-batch:873c518eab3c45871ed4) showed three defects before any apply. (1) Metrowerks emits global_variable DIEs of subroutine type at the entries of compiler-generated member functions (__ct/__dt of C2DOrderItem, CMD_TABLE, CSubMenu at 0x1747e0, 0x177990, 0x178cc0, 0x178d50, 0x17bbd0, 0x17c4d0); the plan marked them present globals and the batch program would have applied @subroutine data with clear_existing at those entries (clearing their instructions) and renamed the functions through rename_label. (2) Each global repeats once per declaring compile unit (theMission, _impure_ptr, goptarg, ...), giving duplicate program entries. (3) Function parameter and return types reference type DIEs in other compile units, which the plan omitted, so 13 of 21 prototypes skipped with 'DIE outside the plan'.",
+      "id": "socom:workspace-issue:08cb3567b622ab73f75b",
+      "kind": "problem",
+      "reported_at": "2026-10-07T21:04:59Z",
+      "reported_by": "socom-dwarf-importer",
+      "resolution": {
+        "resolved_at": "2026-10-07T21:04:59Z",
+        "summary": "import_plan marks subroutine-typed objects at FUNC entries status function-object (never present or in receipt globals) and adds referenced_only type rows for out-of-batch DIEs named by functions and present variables (with members, following unnamed array elements). build_batch_program folds per-unit rows by address (types must agree), refuses globals inside a function or of function type, and lists only status absent in absent_variables; execute_batch_program refuses addresses audit_global reports as code, leaves globals that already have the type and length (unchanged), and skips global renames whose readable name is used at another address (.symtab names, live function and defined-data names, this run's names). Batch 001's plan and program regenerate byte-identically (plan 5668ec79, program e43be2c1). Tests cover each case; DWARF_IMPORT.md and GHIDRA.md document them."
+      },
+      "status": "resolved",
+      "summary": "Batch plans typed function-entry objects as globals and lacked cross-unit types"
+    },
+    {
+      "details": "Batch 10 review (tracker revision 42): recoResult at 0x48a040 is typed by a 56-byte anonymous class rendered @class@d37844a018, which has no match in the live program (GET list_data_types), so the batch apply will record a skip instead of typing it. Find why the accepted foundation apply omitted this structural class (and whether other anonymous classes are missing) and add it through a governed type apply.",
+      "id": "socom:workspace-issue:c047a89a6b75a57feafa",
+      "kind": "problem",
+      "reported_at": "2026-10-07T21:20:09Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Type foundation did not create anonymous class @class@d37844a018 used by recoResult"
     }
   ],
-  "revision": 50,
+  "revision": 53,
   "schema_version": 1
 }

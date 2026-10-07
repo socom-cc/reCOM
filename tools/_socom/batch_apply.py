@@ -13,7 +13,10 @@ apply therefore:
 * types each placed global with its DWARF type, replacing auto-analysis data;
 * records, and does not apply, anything the bridge cannot spell: type names
   with commas or ``&``, names that are not unique ignoring case, member-less
-  anonymous RTTI/vtable records, and functions without receiver evidence.
+  anonymous RTTI/vtable records, and functions without receiver evidence;
+* folds the per-compile-unit DIEs of one global into one entry, refuses a
+  plan that places or types a global as code, skips a type the live global
+  already has, and keeps a global's symbol when its readable name is taken.
 
 ``build_batch_program`` is file-only and deterministic.  ``execute_batch_program``
 mutates the live program under the batch apply item's ``ghidra-writer`` lease.
@@ -60,6 +63,9 @@ BUILTINS = {
     "bool": "bool", "wchar_t": "wchar_t",
 }
 UNSPELLABLE = re.compile(r"[,&]")
+# DWARF 1 modifiers spelled as one pointer level (references are pointers in
+# the Metrowerks ABI); const and volatile have no rendering here.
+POINTER_MODIFIERS = {"pointer_to", "reference_to"}
 
 
 def symbol_name(readable: str) -> str:
@@ -97,11 +103,63 @@ class _Types:
             if row.get("qualified_name") and row.get("ghidra_path")
         }
 
-    def render(self, descriptor: dict[str, Any] | None) -> tuple[str | None, str | None]:
+    def byte_size(self, descriptor: dict[str, Any] | None, extent: int | None = None) -> int | None:
+        """Size in bytes, or None when the evidence does not fix it.
+
+        ``extent`` (the .symtab size) completes an array whose outermost
+        dimension DWARF leaves open ([0..-1]).
+        """
+
+        if descriptor is None:
+            return None
+        if descriptor.get("modifiers"):
+            return 4 if all(m in POINTER_MODIFIERS for m in descriptor["modifiers"]) else None
+        if descriptor.get("die_offset") is None:
+            fund = FUND_TYPES.get(descriptor.get("fund_type"))
+            return fund.size if fund else None
+        row = self.by_die.get(descriptor["die_offset"])
+        if row is None:
+            return None
+        if row["kind"] == "array_type" and not row.get("ghidra_path"):
+            counts = self.array_counts(row, extent)
+            element = self.byte_size(row["array"]["element"])
+            if counts is None or element is None:
+                return None
+            total = element
+            for count in counts:
+                total *= count
+            return total
+        if row.get("byte_size") is not None:
+            return row["byte_size"]
+        if row["kind"] == "typedef":
+            return self.byte_size(row.get("type"))
+        return None
+
+    def array_counts(self, row: dict[str, Any], extent: int | None = None) -> list[int] | None:
+        counts = [int(dim[3]) - int(dim[2]) + 1 for dim in row["array"]["dimensions"]]
+        if all(count > 0 for count in counts):
+            return counts
+        if counts[0] > 0 or any(count <= 0 for count in counts[1:]) or not extent:
+            return None
+        inner = self.byte_size(row["array"]["element"])
+        if inner is None:
+            return None
+        for count in counts[1:]:
+            inner *= count
+        if inner <= 0 or extent % inner:
+            return None
+        return [extent // inner, *counts[1:]]
+
+    def render(
+        self, descriptor: dict[str, Any] | None, extent: int | None = None
+    ) -> tuple[str | None, str | None]:
         """Return (type name, None) or (None, reason)."""
 
         if descriptor is None:
             return "void", None
+        if descriptor.get("modifiers"):
+            # The symbol's size is the pointer's, not the pointed-to array's.
+            extent = None
         if descriptor.get("die_offset") is None:
             fund = FUND_TYPES.get(descriptor.get("fund_type"))
             if fund is None:
@@ -122,11 +180,15 @@ class _Types:
                 element, reason = self.render(row["array"]["element"])
                 if element is None:
                     return None, reason
-                counts = [int(dim[3]) - int(dim[2]) + 1 for dim in row["array"]["dimensions"]]
+                counts = self.array_counts(row, extent)
+                if counts is None:
+                    return None, f"array DIE 0x{row['evidence']['die_offset']:x} has an open extent the symbol does not fix"
                 name = element + "".join(f"[{count}]" for count in counts)
             else:
                 return None, f"{row['kind']} DIE 0x{row['evidence']['die_offset']:x} has no Ghidra type"
-        for _ in descriptor.get("modifiers") or []:
+        for modifier in descriptor.get("modifiers") or []:
+            if modifier not in POINTER_MODIFIERS:
+                return None, f"modifier {modifier!r} has no spelling here"
             name = f"{name} *"
         if UNSPELLABLE.search(name):
             return None, f"type name {name!r} contains characters the bridge cannot parse"
@@ -297,19 +359,57 @@ def build_batch_program(root: Path, plan_path: Path) -> dict[str, Any]:
         if name and names[name] > 1:
             entry["notes"].append(f"readable name {name!r} is not unique in the batch")
 
-    globals_ = []
+    functions_by_start = sorted(
+        (symbol.value, symbol.value + symbol.size, symbol.name)
+        for symbol in symbols
+        if symbol.type_name == "FUNC" and symbol.size
+    )
+
+    def inside_function(address: int) -> str | None:
+        for start, end, name in functions_by_start:
+            if start <= address < end:
+                return name
+        return None
+
+    # Metrowerks repeats a global's DIE in each compile unit that declares
+    # it; every row at one address must spell the same Ghidra type.
+    object_sizes: dict[int, set[int]] = {}
+    for symbol in symbols:
+        if symbol.type_name == "OBJECT" and symbol.value and symbol.size:
+            object_sizes.setdefault(symbol.value, set()).add(symbol.size)
+    by_address: dict[int, list[dict[str, Any]]] = {}
     for row in sorted(plan["variables"], key=lambda item: (item["address"] or 0, item["name"])):
-        if row["status"] != "present":
-            continue
+        if row["status"] == "present":
+            by_address.setdefault(row["address"], []).append(row)
+    globals_ = []
+    for address, rows in by_address.items():
+        row = rows[0]
+        owner = inside_function(address)
+        if owner is not None:
+            raise SocomError(f"plan places global {row['name']!r} at 0x{address:x} inside function {owner}")
         mangled = next((name for name in row["symbols"] if demangle(name)), None)
         current = row["symbols"][0] if len(row["symbols"]) == 1 else (mangled or row["name"])
         readable = symbol_name(
             row["symbol_qualified_names"][0] if row["symbol_qualified_names"] else row["name"]
         )
-        type_name, reason = types.render(row["type"])
+        sizes = object_sizes.get(address, set())
+        extent = next(iter(sizes)) if len(sizes) == 1 else None
+        rendered = sorted({types.render(item["type"], extent) for item in rows}, key=repr)
+        type_name, reason = rendered[0]
+        if len(rendered) > 1:
+            type_name, reason = None, f"DWARF rows disagree on the type: {[name or why for name, why in rendered]}"
+        if type_name and type_name.startswith("@subroutine@"):
+            raise SocomError(f"plan types global {row['name']!r} at 0x{address:x} as a function")
         size = None
-        if row["type"] and row["type"].get("die_offset") is not None and not row["type"].get("modifiers"):
-            size = types.by_die[row["type"]["die_offset"]].get("byte_size")
+        descriptor = row["type"]
+        if descriptor and descriptor.get("die_offset") is not None and not descriptor.get("modifiers"):
+            target = types.by_die[descriptor["die_offset"]]
+            if target["kind"] == "array_type" and not target.get("ghidra_path"):
+                size = types.byte_size(descriptor, extent)
+            else:
+                size = target.get("byte_size")
+        if type_name and size is not None and extent is not None and size != extent:
+            type_name, reason = None, f"DWARF extent {size} differs from the .symtab size {extent}"
         globals_.append(
             {
                 "address": f"0x{row['address']:x}",
@@ -324,7 +424,9 @@ def build_batch_program(root: Path, plan_path: Path) -> dict[str, Any]:
                 "placement": row["placement"],
             }
         )
-    absent = sorted(row["name"] for row in plan["variables"] if row["status"] != "present")
+    # Function objects (status function-object) describe code, not data;
+    # the plan records them and the program leaves them out.
+    absent = sorted(row["name"] for row in plan["variables"] if row["status"] == "absent")
     relative_plan = plan_path.resolve()
     try:
         relative_plan = relative_plan.relative_to(root.resolve())
@@ -394,6 +496,7 @@ def execute_batch_program(
     *,
     type_index: Callable[[], list[dict[str, Any]]],
     function_names: Callable[[], dict[str, str]],
+    global_names: Callable[[], dict[str, set[str]]] = lambda: {},
     log: Callable[[str], None] = lambda _message: None,
 ) -> dict[str, Any]:
     """Apply a batch program and verify every applied name, prototype, and type."""
@@ -420,12 +523,18 @@ def execute_batch_program(
 
     # Names the bridge cannot resolve unambiguously become recorded skips.
     counts: dict[str, int] = {}
+    defined: set[str] = set()
     for row in type_index():
         key = row["name"].casefold()
         counts[key] = counts.get(key, 0) + 1
+        defined.add(row["name"])
     builtin_names = set(BUILTINS.values()) | {fund.ghidra for fund in FUND_TYPES.values()}
 
     def ambiguous(type_name: str) -> str | None:
+        # The bridge builds one array level from "name[count]"; deeper arrays
+        # resolve only if a type of exactly that name exists.
+        if type_name.count("[") > 1 and type_name not in defined:
+            return f"multi-dimensional array {type_name!r} is not defined in the program"
         base = _base_type(type_name)
         if base in builtin_names:
             return None
@@ -484,10 +593,21 @@ def execute_batch_program(
 
     log(f"globals: {len(program['globals'])}")
     applied_globals = []
+    unchanged: list[dict[str, Any]] = []
+    # Names in use, by address ("0x..."), including this run's function renames.
+    taken = global_names()
+    for function_address, function_name in existing.items():
+        taken.setdefault(function_name, set()).add(function_address)
+    for applied in applied_functions:
+        taken.setdefault(applied["name"], set()).add(applied["address"])
     for entry in program["globals"]:
         address = entry["address"]
         audit = bridge.request("audit_global", address=address, strict_mode="off")
-        live_name = audit.get("name") if isinstance(audit, dict) else None
+        if not isinstance(audit, dict):
+            raise SocomError(f"audit_global failed at {address}: {audit!r}")
+        if audit.get("is_code_address") or audit.get("is_function_entry"):
+            raise SocomError(f"global at {address} is code in the live program")
+        live_name = audit.get("name")
         if live_name != entry["current_name"]:
             raise SocomError(f"global at {address} is {live_name!r}, expected {entry['current_name']!r}")
         type_name = entry["type"]
@@ -497,7 +617,9 @@ def execute_batch_program(
             type_name = None
         elif entry["type_skip"]:
             skipped.append({"address": address, "action": "type", "reason": entry["type_skip"]})
-        if type_name:
+        if type_name and audit.get("type") == type_name and (not entry["size"] or audit.get("length") == entry["size"]):
+            unchanged.append({"address": address, "action": "type", "type": type_name})
+        elif type_name:
             post(
                 "apply_data_type",
                 lambda response: "error" not in str(response).lower() and "fail" not in str(response).lower(),
@@ -507,7 +629,16 @@ def execute_batch_program(
                 strict_mode="off",
             )
         name = entry["current_name"]
-        if entry["rename"]:
+        rename = entry["rename"]
+        if rename:
+            holders = taken.get(entry["readable_name"], set()) - {address}
+            if holders:
+                skipped.append(
+                    {"address": address, "action": "rename", "reason": f"name already used at {sorted(holders)[0]}"}
+                )
+                rename = False
+        if rename:
+            taken.setdefault(entry["readable_name"], set()).add(address)
             post(
                 "rename_label",
                 status_ok,
@@ -555,5 +686,6 @@ def execute_batch_program(
         "bridge_call_count": len(steps),
         "functions": applied_functions,
         "globals": applied_globals,
+        "unchanged": unchanged,
         "skipped": skipped,
     }

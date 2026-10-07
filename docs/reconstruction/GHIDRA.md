@@ -201,7 +201,13 @@ python tools/socom.py ghidra apply-batch `
   (`CGameState::~CGameState`, `operator_new[]`,
   `zdb::CTexManager::m_texmanager`) when unique; Ghidra symbols cannot hold
   whitespace, so spaces after commas are dropped and others become `_`. The
-  mangled symbol stays as a secondary label.
+  mangled symbol stays as a secondary label. A name already used at another
+  address (any `.symtab` name, any live function or defined data name, or
+  one this run assigned) is not reused: file-local copies such as the six
+  `__RTTI__10CGameState` objects keep their mangled names after the first.
+  The bridge has no complete read-only symbol listing (`list_globals` filters
+  heuristically), so a renamed label on bytes without defined data is not
+  seen.
 - **Prototypes.** `__stdcall` with an explicit `this`, built from DWARF
   return and parameter records; parameters DWARF omits come from the mangled
   signature, and destructors gain the hidden `short __dtor_flags`. A method
@@ -209,6 +215,20 @@ python tools/socom.py ghidra apply-batch `
   class's vtable (`__vt__10CGameState` holds the seven parameterless
   `CGameState` virtuals). Methods without that evidence keep their signature.
 - **Globals.** Placed objects take their DWARF type over auto-analysis data.
+  The per-unit rows of one global fold into one entry and must agree on the
+  type. `apply_data_type` with `clear_existing` clears from the address to
+  the larger of the new type and the existing code unit, so the program
+  refuses a global inside a function or of function type, the executor
+  refuses an address `audit_global` reports as code, and a global that
+  already has the type and length is left alone (`unchanged`). Arrays are
+  spelled `element[count]` (the bridge builds one level, only for a count
+  above 0): an outermost extent DWARF leaves open (`aiDeployList`,
+  `EQUIP_ITEM[0..-1]`) is completed from the `.symtab` size
+  (`EQUIP_ITEM[11]`), every array carries its byte length for read-back, a
+  global whose DWARF extent differs from its `.symtab` size is left untyped,
+  and a multi-dimensional array applies only if a type of exactly that name
+  exists. Only pointer and reference modifiers are spelled (`*`); `const` and
+  `volatile` are recorded skips.
 - **Recorded skips.** Type names with commas or `&` (STL), names not unique
   ignoring case, member-less anonymous RTTI/vtable records, and absent
   objects are left as they are and listed in the report.

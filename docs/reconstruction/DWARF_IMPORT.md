@@ -51,7 +51,19 @@ Variable rows cover compile-unit-level objects only. Each decodes its
 `DW_OP_ADDR` address, its `PT_LOAD` placement (initialized or zero-fill), its
 `.symtab` aliases, and demangled symbol names. Objects at address 0 or outside
 every load image are `absent` (the linker did not place them); `present`
-addresses form the receipt scope's `globals`.
+addresses form the receipt scope's `globals`. Metrowerks also emits a
+`global_variable` of subroutine type at the entry of some compiler-generated
+member functions (`__ct__12C2DOrderItemFv` at 0x178cc0); such a row is a
+`function-object`, which describes code and never becomes a global. The same
+global repeats once per compile unit that declares it (`theMission`); every
+row is kept, and the batch program folds them.
+
+DWARF 1 references type DIEs in other compile units. A batch plan therefore
+also carries, marked `referenced_only`, each out-of-batch type row its
+functions' returns, parameters, and locals and its present variables name
+(with members, following unnamed array elements), so the apply can spell
+them; the foundation already defined them, and their Ghidra paths join the
+receipt scope.
 
 Tracker schema 3 represents these as two different leases. A
 `debug-import-plan-*` item is owned by the DWARF importer and can write only its

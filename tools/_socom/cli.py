@@ -40,6 +40,7 @@ from .issues import (
 from .reference import query_relocations
 from .ghidra import (
     GhidraBridge,
+    _data_index,
     _function_index,
     _type_index,
     data_overlaps,
@@ -566,6 +567,22 @@ def _require_accepted_plan(
     return plan_path
 
 
+def _global_names(root: Path, bridge: GhidraBridge) -> dict[str, set[str]]:
+    """Symbol names in use, by address: every ELF .symtab name plus the
+    primary name of every defined data item (which carries earlier batches'
+    renames).  The bridge has no complete read-only symbol listing, so a
+    renamed label on bytes without defined data is not seen here."""
+
+    names: dict[str, set[str]] = {}
+    for symbol in Elf32File(root / "support" / "socom.elf").symbols():
+        if symbol.name and symbol.value:
+            names.setdefault(symbol.name, set()).add(f"0x{symbol.value:x}")
+    for row in _data_index(bridge):
+        if row.get("name") and "::" not in str(row["address"]).replace("0x", ""):
+            names.setdefault(row["name"], set()).add(f"0x{int(str(row['address']), 16):x}")
+    return names
+
+
 def _ghidra_apply_batch(arguments: argparse.Namespace) -> int:
     root = _root(arguments)
     program_path = Path(arguments.program)
@@ -596,6 +613,7 @@ def _ghidra_apply_batch(arguments: argparse.Namespace) -> int:
                 for row in _function_index(bridge)
                 if "::" not in row["address"]
             },
+            global_names=lambda: _global_names(root, bridge),
             log=lambda message: print(message, file=sys.stderr, flush=True),
         )
     except BatchFailure as failure:

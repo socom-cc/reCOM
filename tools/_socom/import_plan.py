@@ -386,14 +386,25 @@ def _in_function(die: Die, parents: dict[int, int], by_offset: dict[int, Die]) -
     )
 
 
+def _function_entries(elf: Elf32File) -> set[int]:
+    return {symbol.value for symbol in elf.symbols() if symbol.type_name == "FUNC" and symbol.value}
+
+
 def _variable_rows(
     elf: Elf32File,
     dies: tuple[Die, ...],
     parents: dict[int, int],
     by_offset: dict[int, Die],
     symbols: dict[int, list[str]],
+    function_entries: set[int],
 ) -> list[dict[str, Any]]:
-    """Compile-unit-level variables; function locals stay with their function."""
+    """Compile-unit-level variables; function locals stay with their function.
+
+    Metrowerks also emits a global_variable of subroutine type at the entry
+    of some compiler-generated member functions (__ct__12C2DOrderItemFv).
+    Those describe the function, not data: they are marked function-object
+    and never become present globals.
+    """
 
     rows = []
     for die in dies:
@@ -407,6 +418,20 @@ def _variable_rows(
         address = storage["address"] if storage and storage["kind"] == "address" else None
         placement = _placement(elf, address) if address else None
         names = symbols.get(address, []) if address else []
+        descriptor = type_descriptor(type_ref(die))
+        target = by_offset.get((descriptor or {}).get("die_offset"))
+        function_object = bool(
+            address in function_entries
+            and target is not None
+            and target.tag_name == "subroutine_type"
+            and not (descriptor or {}).get("modifiers")
+        )
+        if function_object:
+            status = "function-object"
+        else:
+            # Address 0 or an address outside every PT_LOAD image means
+            # the linker did not place this object.
+            status = "present" if placement else "absent"
         rows.append(
             {
                 "id": stable_id("variable-plan", die.offset, die.string("name") or ""),
@@ -419,19 +444,68 @@ def _variable_rows(
                 "compile_unit_offset": scope["compile_unit_offset"],
                 "compile_unit_path": scope["compile_unit_path"],
                 "kind": die.tag_name,
-                "type": type_descriptor(type_ref(die)),
+                "type": descriptor,
                 "location": _attribute_value(raw),
                 "storage": storage,
                 "address": address,
                 "placement": placement,
                 "symbols": names,
-                # Address 0 or an address outside every PT_LOAD image means
-                # the linker did not place this object.
-                "status": "present" if placement else "absent",
+                "status": status,
                 "evidence": _die_evidence(die),
             }
         )
     return rows
+
+
+def _referenced_types(
+    dies: tuple[Die, ...],
+    parents: dict[int, int],
+    by_offset: dict[int, Die],
+    identities: TypeIdentities,
+    selected: set[int],
+    descriptors: list[dict[str, Any] | None],
+) -> list[dict[str, Any]]:
+    """Type rows outside the batch that its functions and variables name.
+
+    Metrowerks DWARF 1 references type DIEs in other compile units.  A batch
+    apply only spells these types (the foundation defined them), so the plan
+    carries each referenced row with its members, following unnamed array
+    elements, and marks it referenced_only.
+    """
+
+    children: dict[int, list[Die]] = collections.defaultdict(list)
+    for die in dies:
+        if die.offset in parents:
+            children[parents[die.offset]].append(die)
+    pending = sorted(
+        {
+            row["die_offset"]
+            for row in descriptors
+            if row and row.get("die_offset") is not None and row["die_offset"] not in selected
+        }
+    )
+    seen: set[int] = set()
+    rows: list[dict[str, Any]] = []
+    while pending:
+        offset = pending.pop(0)
+        if offset in seen or offset in selected or offset not in by_offset:
+            continue
+        seen.add(offset)
+        die = by_offset[offset]
+        if die.tag not in TYPE_TAGS:
+            continue
+        group = (die, *children.get(offset, []))
+        row = next(
+            item
+            for item in _type_rows(group, parents, by_offset, identities)
+            if item["evidence"]["die_offset"] == offset
+        )
+        row["referenced_only"] = True
+        rows.append(row)
+        element = (row.get("array") or {}).get("element") or {}
+        if not row.get("ghidra_path") and element.get("die_offset") is not None:
+            pending.append(element["die_offset"])
+    return sorted(rows, key=lambda row: row["evidence"]["die_offset"])
 
 
 def _conflicts(
@@ -500,8 +574,21 @@ def build_import_plan(root: Path, batch: dict[str, Any] | None = None) -> dict[s
     symbols = {} if types_only else _symbol_index(elf)
     functions = [] if types_only else _function_rows(selected, parents, by_offset, symbols)
     variables = [] if types_only else _variable_rows(
-        elf, selected, parents, by_offset, symbols
+        elf, selected, parents, by_offset, symbols, _function_entries(elf)
     )
+    if not types_only:
+        descriptors = [
+            descriptor
+            for row in functions
+            for descriptor in (
+                row["return_type"],
+                *(item["type"] for item in row["parameters"]),
+                *(item["type"] for item in row["locals"]),
+            )
+        ] + [row["type"] for row in variables if row["status"] == "present"]
+        types += _referenced_types(
+            dies, parents, by_offset, identities, {die.offset for die in selected}, descriptors
+        )
     conflicts = _conflicts(types, identities)
     selected_classes = {row["structural_class"] for row in types}
     identity_rows = [
