@@ -378,8 +378,48 @@
       "resolution": null,
       "status": "open",
       "summary": "mips_flow has latent modelling gaps and the zero-fill guard tests the LO16 symbol, not its target"
+    },
+    {
+      "details": "From the batch 001 acceptance (tracker revision 40). (N1) execute_batch_program checks function renames for clashes but not global renames, although GHIDRA.md promises collision-safe names; __RTTI__5CGame (2 copies) and __RTTI__10CGameState (6 copies) are file-local objects, so later batches would create duplicate CGame::__RTTI / CGameState::__RTTI labels unchecked. (N3) mangled secondary labels are trusted from create_label's status and not read back, and their recorded source changes from IMPORTED to USER_DEFINED. (N4) the fake bridge accepts every call; no test covers create_label failure, a global clash, an in-batch duplicate name, or apply_data_type failure, and apply_data_type success is judged by absent 'error'/'fail' text. (N7) _Types.render turns every DWARF modifier into a pointer instead of rejecting const/volatile as type_apply does (safe for this ELF, which has only pointer/reference modifiers). Batch 001 itself is unaffected: the verifier confirmed all 29 names unique and all 29 mangled labels live.",
+      "id": "socom:workspace-issue:94e4adac3ad93b2add29",
+      "kind": "problem",
+      "reported_at": "2026-10-07T20:44:28Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Batch apply lacks a global rename clash check, label read-back, and failure-path tests"
+    },
+    {
+      "details": "From the batch 001 acceptance (tracker revision 40). readable_function_name renders std::basic_string<...>::basic_string for the constructor at 0x1415f0 and also for overloads at 0x14d890 and 0x14d9c0; later batches will be refused the name (name already used) and keep only the mangled name. Decide a lossless, collision-safe overload spelling before those batches apply.",
+      "id": "socom:workspace-issue:94d561641de39778a761",
+      "kind": "problem",
+      "reported_at": "2026-10-07T20:44:28Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Readable function names drop parameter signatures, so overloads compete for one name"
+    },
+    {
+      "details": "From the batch 001 acceptance (tracker revision 40). restore-accepted replays only debug-import-apply-foundation items; it already has no route for socom:work:ghidra-zero-fill-memory, and accepted debug-import-apply-batch items add a second kind. A fresh-import recovery today would stop at the first of them. Add replay routes (map-zero-fill, apply-batch from the accepted program) that must reproduce each accepted receipt.",
+      "id": "socom:workspace-issue:014521cbfde1e3558dae",
+      "kind": "problem",
+      "reported_at": "2026-10-07T20:44:28Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "ghidra restore-accepted cannot replay zero-fill or batch apply items"
+    },
+    {
+      "details": "From the batch 001 acceptance (tracker revision 40). Prototypes and data types whose type names contain ',' (template arguments such as basic_string<char, std::char_traits<char>, std::allocator<char>>) are recorded skips because set_function_prototype/apply_data_type parse names textually. Batch 001 skipped 3 prototypes (0x1410f0, 0x141410, 0x1415f0); they keep 'undefined (void)' signatures. Needs a governed spelling route (e.g. a collision-safe typedef alias) that preserves the original qualified name as evidence.",
+      "id": "socom:workspace-issue:06c2c23d0b97ea106927",
+      "kind": "problem",
+      "reported_at": "2026-10-07T20:44:29Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Type names with commas cannot be spelled through the bridge, blocking basic_string prototypes"
     }
   ],
-  "revision": 46,
+  "revision": 50,
   "schema_version": 1
 }

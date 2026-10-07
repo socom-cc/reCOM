@@ -96,7 +96,7 @@ class _FakeBridge:
             return "Applied"
         if endpoint == "rename_label":
             self.globals[body["address"]]["name"] = body["new_name"]
-            return "Success"
+            return {"status": "success", "message": "Renamed"}
         raise AssertionError(endpoint)
 
     def request(self, endpoint, **parameters):

@@ -510,7 +510,7 @@ def execute_batch_program(
         if entry["rename"]:
             post(
                 "rename_label",
-                lambda response: "success" in str(response).lower(),
+                status_ok,
                 address=address,
                 old_name=entry["current_name"],
                 new_name=entry["readable_name"],
