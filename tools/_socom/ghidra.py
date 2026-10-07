@@ -12,22 +12,24 @@ from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from .constants import EXPECTED_ENTRY, REFERENCE_SHA256
+from .constants import EXPECTED_ENTRY, EXPECTED_GHIDRA_VERSION, REFERENCE_SHA256
+from .type_apply import parse_enum_values, parse_struct_layout
 from .util import SocomError, canonical_json, load_json, sha256_file
 
 DEFAULT_GHIDRA_URL = "http://127.0.0.1:8089"
 SOCOM_PROJECT = "soCOM"
 SOCOM_PROGRAM = "socom.elf"
 SOCOM_PROGRAM_PATH = "/socom.elf"
-EXPECTED_GHIDRA_VERSION = "12.1.2"
 EXPECTED_LANGUAGE = "r5900:LE:32:default"
 EXPECTED_COMPILER = "default"
 EXPECTED_IMAGE_BASE = "00100000"
 EXPECTED_ADDRESS_SIZE = 32
+PROGRAM_INFORMATION_GROUP = "Program Information"
+EXECUTABLE_SHA256_OPTION = "Executable SHA256"
 BASELINE_FUNCTION_COUNT = 9_715
 BASELINE_SYMBOL_COUNT = 24_194
 BASELINE_DATA_TYPE_COUNT = 210
-BASELINE_MEMORY_BLOCK_COUNT = 26
+BASELINE_MEMORY_BLOCK_COUNT = 27
 EXPECTED_SENTINEL = (
     "addiu sp,sp,-0x30",
     "sd ra,0x20(sp)",
@@ -51,13 +53,6 @@ _DISASSEMBLY_RE = re.compile(
 _FUNCTION_DETAILS_RE = re.compile(
     r"^Function:\s+(.*?)\s+at\s+((?:[^:]+::)?[0-9a-fA-F]+)\s*$"
 )
-
-
-def _normalized_path(value: str) -> str:
-    normalized = value.replace("\\", "/")
-    if re.match(r"^/[A-Za-z]:/", normalized):
-        normalized = normalized[1:]
-    return normalized.rstrip("/").casefold()
 
 
 def _portable_address(value: str) -> str:
@@ -102,7 +97,7 @@ def _validate_qualified_addresses(
     }
     unknown = sorted(
         {value.split("::", 1)[0] for value in qualified} - names,
-        key=str.casefold,
+        key=lambda value: (value.casefold(), value),
     )
     if unknown:
         raise SocomError(
@@ -172,6 +167,29 @@ class GhidraBridge:
             data = urlencode(query).encode("utf-8")
         try:
             request = Request(url, data=data, method=method.upper())
+            with urlopen(request, timeout=self.timeout) as response:
+                text = response.read().decode("utf-8")
+        except Exception as exc:
+            raise SocomError(f"Ghidra bridge request failed: {url}: {exc}") from exc
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            return text
+
+    def post_json(self, endpoint: str, **body: object) -> Any:
+        """POST a JSON body; some endpoints read the program from the body."""
+
+        url = f"{self.base_url}/{endpoint.lstrip('/')}?" + urlencode(
+            {"program": self.program}
+        )
+        payload = json.dumps({"program": self.program, **body}).encode("utf-8")
+        try:
+            request = Request(
+                url,
+                data=payload,
+                method="POST",
+                headers={"Content-Type": "application/json"},
+            )
             with urlopen(request, timeout=self.timeout) as response:
                 text = response.read().decode("utf-8")
         except Exception as exc:
@@ -317,6 +335,19 @@ def _bookmark_profile(value: Any) -> dict[str, Any]:
     }
 
 
+def _program_option(value: Any, name: str) -> Any:
+    if not isinstance(value, dict) or not isinstance(value.get("options"), list):
+        raise SocomError("Ghidra program-option response is not an object")
+    return next(
+        (
+            row.get("value")
+            for row in value["options"]
+            if isinstance(row, dict) and row.get("name") == name
+        ),
+        None,
+    )
+
+
 def _baseline_required(root: Path) -> bool:
     path = root / ".agent" / "RECONSTRUCTION_PROGRESS.json"
     if not path.is_file():
@@ -351,6 +382,9 @@ def live_preflight(
         project = bridge.project_files()
         programs = bridge.request("list_open_programs", include_program=False)
         info = bridge.request("get_current_program_info")
+        options = bridge.request(
+            "get_program_options", group=PROGRAM_INFORMATION_GROUP
+        )
         analysis = bridge.request("analysis_status")
         entries = bridge.request("get_entry_points")
         bookmarks = bridge.request("list_bookmarks")
@@ -410,11 +444,17 @@ def live_preflight(
         errors.append(
             f"reference SHA-256 is {source_hash}, expected {REFERENCE_SHA256}"
         )
-    if _normalized_path(str(info.get("executable_path", ""))) != _normalized_path(
-        str(expected_source.resolve())
-    ):
+    # Ghidra records the image hash at import. The recorded import path names
+    # whichever machine imported the project, so it is not identity evidence.
+    try:
+        program_hash = _program_option(options, EXECUTABLE_SHA256_OPTION)
+    except SocomError as exc:
+        errors.append(str(exc))
+        program_hash = None
+    if not isinstance(program_hash, str) or program_hash.casefold() != REFERENCE_SHA256:
         errors.append(
-            "program executable path does not identify support/socom.elf"
+            f"program executable SHA-256 is {program_hash!r}, "
+            f"expected {REFERENCE_SHA256}"
         )
     expected_fields = {
         "name": SOCOM_PROGRAM,
@@ -486,6 +526,7 @@ def live_preflight(
         "program": info.get("name"),
         "program_path": info.get("path"),
         "source_sha256": source_hash,
+        "program_executable_sha256": program_hash,
         "language": info.get("language"),
         "compiler": info.get("compiler"),
         "address_size": info.get("address_size"),
@@ -566,12 +607,64 @@ def load_receipt_scope(path: Path) -> dict[str, list[str]]:
                 ) from exc
         else:
             normalized = [row.strip() for row in rows]
-        result[key] = sorted(set(normalized), key=str.casefold)
+        # Exact spelling breaks casefold ties so receipts are reproducible
+        # across processes.
+        result[key] = sorted(set(normalized), key=lambda value: (value.casefold(), value))
     if not any(result.values()):
         raise SocomError(
             "receipt scope must name at least one function, type, or global"
         )
     return result
+
+
+def _reported_name(text: Any) -> str | None:
+    if not isinstance(text, str) or ": " not in text:
+        return None
+    return text.splitlines()[0].split(": ", 1)[1].strip()
+
+
+def _scoped_type_facts(
+    bridge: GhidraBridge, row: dict[str, Any], name_counts: Counter
+) -> dict[str, Any]:
+    """Add component layout or enum values only when the read-back is exact.
+
+    The bridge resolves bare names, ignores case, and truncates names at
+    ``&``.  A name that is not unique ignoring case is marked
+    ``ambiguous-name``; a read-back whose reported name or size differs is
+    ``mismatched-readback``; an unresolvable name is ``unreadable-name``;
+    unions and function definitions are ``no-component-readback``.
+    """
+
+    facts = dict(row)
+    if name_counts[row["name"].casefold()] != 1:
+        facts["detail"] = "ambiguous-name"
+        return facts
+    layout_text = bridge.request("get_struct_layout", struct_name=row["name"])
+    layout = parse_struct_layout(layout_text)
+    if layout is not None:
+        if _reported_name(layout_text) == row["name"] and layout["size"] == row["size"]:
+            facts["layout"] = layout
+        else:
+            facts["detail"] = "mismatched-readback"
+        return facts
+    enum_text = bridge.request("get_enum_values", enum_name=row["name"])
+    values = parse_enum_values(enum_text)
+    if values is not None:
+        if _reported_name(enum_text) == row["name"] and values["size"] == row["size"]:
+            facts["enum"] = values
+        else:
+            facts["detail"] = "mismatched-readback"
+        return facts
+    if (
+        isinstance(layout_text, str)
+        and layout_text.startswith("Data type is not a structure")
+        and isinstance(enum_text, str)
+        and enum_text.startswith("Data type is not an enumeration")
+    ):
+        facts["detail"] = "no-component-readback"
+    else:
+        facts["detail"] = "unreadable-name"
+    return facts
 
 
 def semantic_receipt(
@@ -630,6 +723,7 @@ def semantic_receipt(
             }
         )
 
+    name_counts = Counter(row["name"].casefold() for row in types)
     scoped_types = []
     for value in canonical_scope["types"]:
         matches = types_by_name.get(value, [])
@@ -638,7 +732,7 @@ def semantic_receipt(
                 f"receipt scope type must resolve exactly once: {value} "
                 f"(matches={len(matches)})"
             )
-        scoped_types.append(matches[0])
+        scoped_types.append(_scoped_type_facts(bridge, matches[0], name_counts))
 
     scoped_globals = []
     for value in canonical_scope["globals"]:

@@ -7,8 +7,10 @@ than speculative code patterns.
 ## Accepted workspace facts
 
 - The reference is little-endian ELF32 MIPS with entry point `0x140010`.
-- The live Ghidra program uses `r5900:LE:32:default`; the fresh import reports
-  9,715 functions, 24,194 symbols, 210 data types, and 26 memory blocks.
+- The live Ghidra program uses `r5900:LE:32:default`; the fresh Ghidra 12.1.4
+  import reports 9,715 functions, 24,194 symbols, 210 data types, and 27
+  memory blocks. The earlier 12.1.2 import reported 26 memory blocks with
+  identical function and type index digests.
 - Bootstrap analysis has 716 Analysis bookmarks (713 Address Table and three
   Non-Returning Function) and no Error or Warning bookmarks.
 - Metrowerks DWARF 1 synthetic `@...` type spellings are not globally unique.

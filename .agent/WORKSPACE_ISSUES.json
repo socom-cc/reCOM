@@ -19,8 +19,281 @@
       "resolution": null,
       "status": "open",
       "summary": "Relocation type 123 semantics remain unresolved"
+    },
+    {
+      "details": "debug import-plan for socom:work:debug-type-foundation reports 40 blocking conflicts. 22 of them (CAppCamera, CAssetLib, CCamera, CE3Config, CExitMenu, CGridAtom, CHUD, CLoadMenu, CMD_TABLE, CMenuStateMenu, CMPExitMenu, CNodeAction, CNodeEx, CPickup, CSealUnit, CSnd, CSndInstance, CSubMenu, CValve, DiIntersect, Source, TASK_SELECT) differ only because some compile units emit a class_type with byte_size 0 and no members (an incomplete declaration) beside exactly one complete layout. _conflicts() in tools/_socom/import_plan.py compares (kind, byte_size, members) and so treats the declaration as a second layout. Declarations should be planned as forward declarations of the unique complete definition, not as conflicts.",
+      "id": "socom:workspace-issue:163f64c97d02b85cedab",
+      "kind": "problem",
+      "reported_at": "2026-10-06T16:41:03Z",
+      "reported_by": "socom-dwarf-importer",
+      "resolution": {
+        "resolved_at": "2026-10-06T17:20:34Z",
+        "summary": "tools/_socom/type_identity.py treats size-0, member-less class records as forward declarations; die_identity maps them to the unique complete structural class of that name (or an explicit symbol, spelling, or opaque identity). The foundation plan's 22 declaration-only conflicts are gone."
+      },
+      "status": "resolved",
+      "summary": "DWARF planner reports size-0 class declarations as incompatible with their definitions"
+    },
+    {
+      "details": "18 of the 40 foundation-plan conflicts are distinct complete types sharing a DWARF 1 spelling: template instantiations (vector, __vector_imp, compressed_pair, compressed_pair_imp, deque, cdeque, generic_iterator, iterator, node, node_base, pair, basic_filebuf, ctype) and nested or provider types that Metrowerks DWARF 1 emits at compile-unit level without their container (AI_PARAMS has three unrelated layouts in camera.cpp alone; LOD is a 12-byte class and a 1-byte enum; entry, SequenceEntry, _reent 748 vs 752). Identity is the bare name, and compatibility ignores member types, so same-layout instantiations such as vector<int> and vector<CFoo*> are silently unified even where no conflict is reported. Mangled .symtab names recover the qualification, e.g. SetDefaults__Q28CZWeapon9AI_PARAMSF10EQUIP_ITEM (CZWeapon::AI_PARAMS), Q310Metrowerks14range_map<w,w>5entry, Q28Particle16SequenceEntry<f>, Q23std46vector<8AnimType,...>. The planner needs structural identity (member types resolved recursively) plus Metrowerks-demangled qualification from member-function symbols before the foundation plan can be conflict-free.",
+      "id": "socom:workspace-issue:df33c3da192d868cebc1",
+      "kind": "problem",
+      "reported_at": "2026-10-06T16:41:03Z",
+      "reported_by": "socom-dwarf-importer",
+      "resolution": {
+        "resolved_at": "2026-10-06T17:20:34Z",
+        "summary": "Import plan schema 3 groups type DIEs into structural classes (member types, array elements, and enum elements included; pointees by name) and names each class from DWARF method this/parameter links, R5900 call-site this tracking, unique demangled .symtab candidates, or unique spelling. Unproven or contradictory classes get deterministic provisional names under /project/unresolved/ (owner-approved 2026-10-06). The foundation plan has 0 blocking conflicts: 140 method, 146 call-site, 173 symbol, 178 spelling, 108 provisional."
+      },
+      "status": "resolved",
+      "summary": "DWARF planner identity collapses template instantiations and flattened nested types"
+    },
+    {
+      "details": "_debug_import_plan clears functions and variables for selection=types, but build_import_plan has already filled receipt_scope.functions (879 addresses for socom:work:debug-type-foundation). The apply item's receipt scope would then claim functions the plan never changes; receipt scopes must be limited to the leased scope.",
+      "id": "socom:workspace-issue:a08b663d17d7a41ec814",
+      "kind": "problem",
+      "reported_at": "2026-10-06T16:41:04Z",
+      "reported_by": "socom-dwarf-importer",
+      "resolution": {
+        "resolved_at": "2026-10-06T17:20:35Z",
+        "summary": "build_import_plan now omits functions, variables, and receipt_scope.functions for selection=types; receipt_scope.types lists Ghidra paths."
+      },
+      "status": "resolved",
+      "summary": "Types-only import plans keep function addresses in their receipt scope"
+    },
+    {
+      "details": "Independent review of socom:work:debug-type-foundation (handoff at tracker revision 9) found wrong template names. F1: class socom:type-class:2664c3e891c7b52d9f0a (raw queue) took the sole .symtab candidate std::queue<member-function pointer,...>; JoinRoom__13CZOnlineLobbyFPCc proves it is queue<CZOnlineLobby::LOBBY_STATE> (addiu a0,s3,0x64 then deque<LOBBY_STATE>::push_back). Inlined instantiations never reach .symtab, so a sole symbol candidate does not prove a template name. F2: socom:type-class:d4bacb1e4c865019715b (raw stack) was named stack<unsigned int> while CRdrEditor::addint shows deque<CRDRNodeVec*>; _call_evidence silently dropped the ambiguous candidates. F3: MSL deque<T> stores void** so all instantiations share one structural class; class 0aa8bf129b24d47ebd50 was named deque<LOBBY_STATE> although 9 of its 12 DIEs are deque<void const*> base subobjects. Template names must attach only to DIEs the evidence reaches, ambiguity must be a contradiction, and a member or base that contradicts its owner's template arguments must block.",
+      "id": "socom:workspace-issue:6358b44d3c05ef6cd20b",
+      "kind": "problem",
+      "reported_at": "2026-10-06T18:07:16Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": {
+        "resolved_at": "2026-10-06T18:29:21Z",
+        "summary": "type_identity.py no longer infers template names from symbols: shared spellings (several qualified candidates or a template base) get names only on DIEs that method or call-site evidence reaches, across every compile-unit copy of the caller's class; ambiguous call-site receivers are contradictions; a member or base that contradicts its owner's template arguments is a blocking conflict. queue and stack are now provisional, and class 0aa8bf129b24d47ebd50 names only its 3 reached DIEs deque<CZOnlineLobby::LOBBY_STATE> while the 9 base subobjects stay provisional. Symbol candidates now include qualified names inside template arguments."
+      },
+      "status": "resolved",
+      "summary": "Import-plan identity names layout-identical template instantiations from partial evidence"
+    },
+    {
+      "details": "F4: _type_rows and _function_rows use Die.integer() for mod_user_def_type and mod_fund_type, which are blocks, so 11,944 member mod_user_def_type and 2,625 mod_fund_type references are null; user_def_type offsets and fund_type codes share one untagged type_reference field; array rows carry no decoded element type. The apply item needs typed references.",
+      "id": "socom:workspace-issue:3a5f58dea0f0bf90ed12",
+      "kind": "problem",
+      "reported_at": "2026-10-06T18:07:17Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": {
+        "resolved_at": "2026-10-06T18:29:21Z",
+        "summary": "Import plan schema 4 replaces type_reference fields with descriptors {modifiers, die_offset, fund_type} for members, type rows, parameters, locals, returns, and variables, and decodes array dimensions and element types. All 14,569 modified member types keep their modifiers; no member type is null."
+      },
+      "status": "resolved",
+      "summary": "Import-plan type references drop modifiers and mix DIE offsets with fundamental types"
+    },
+    {
+      "details": "F5 three-operand mult/multu write rd; F6 REGIMM bltzal/bgezal(l) write ra; F7 branch-likely delay slots are applied on the fall-through path where they are annulled; F8 unconditional b (beq zero,zero) does not end the block; F9 intra-function j and BC0/BC2 targets are not merge points; F10 a0 is assumed to be this for every qualified function, including those DWARF shows have no this. Measured impact on the current plan: none, but the tracer must be correct before more evidence depends on it.",
+      "id": "socom:workspace-issue:5ff8c9be699c7e21e5ed",
+      "kind": "problem",
+      "reported_at": "2026-10-06T18:07:17Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": {
+        "resolved_at": "2026-10-06T18:29:21Z",
+        "summary": "The R5900 tracer treats mult/multu as writing rd, REGIMM link branches as calls writing ra, annuls branch-likely delay slots on fall-through, ends blocks at unconditional b, treats intra-function j and BC0/BC1/BC2 targets as merge points, and skips callers and callees that DWARF shows without this. Unit tests cover each form."
+      },
+      "status": "resolved",
+      "summary": "R5900 call-site tracer misdecodes several instruction forms"
+    },
+    {
+      "details": "An awaiting_acceptance item can only be accepted. When independent review of socom:work:debug-type-foundation found defects, no registered command could return it for rework while recording the findings.",
+      "id": "socom:workspace-issue:1540ca75898df96ff42b",
+      "kind": "problem",
+      "reported_at": "2026-10-06T18:07:17Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": {
+        "resolved_at": "2026-10-06T18:29:21Z",
+        "summary": "Added progress work reject: an independent reviewer returns an awaiting_acceptance item to ready with a reason and evidence; the rejected handoff, its evidence, and any Ghidra receipt move to review_history; handoff owners cannot reject. Used by socom-verifier at tracker revision 10."
+      },
+      "status": "resolved",
+      "summary": "Tracker has no governed route to reject a handoff"
+    },
+    {
+      "details": "F11 resolution does not signal when the round cap is reached without convergence; F12 mwdemangle renders pointers to functions as R (*)(...)* and member-function pointers awkwardly, and these strings become Ghidra paths; F13 tests do not cover branch-likely, three-operand mult, b ending a block, or template contradictions; tests/tools/test_cli.py test_progress_next_accepts_trailing_json hard-codes the next work item and fails whenever tracker state moves on.",
+      "id": "socom:workspace-issue:18fbe5795de81079ea6d",
+      "kind": "problem",
+      "reported_at": "2026-10-06T18:07:17Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": {
+        "resolved_at": "2026-10-06T18:29:21Z",
+        "summary": "Resolution raises when it does not converge within 16 rounds; function and member-function pointers render as declarators (void (C::*)(args)); tests cover branch-likely, three-operand mult, b ending a block, j merge points, template arguments, and review regressions; test_progress_next compares against the tracker's own next_work. The independence audit no longer mistakes this workspace's tests/tools/*.py paths for foreign tool entry points."
+      },
+      "status": "resolved",
+      "summary": "Identity resolution, rendering, and tests need fail-closed and coverage fixes"
+    },
+    {
+      "details": "Second review of socom:work:debug-type-foundation (accepted at tracker revision 14) found latent tracer risks with no effect on the accepted plan. (1) Metrowerks passes the hidden struct-return pointer in a0 and this in a1 (getloc__Q23std8ios_baseCFv: jal ...; lw a1,0x20(a1)); mangling does not mark static methods; only 753 of 5,963 qualified functions in main have DWARF, so 7,198 of 8,308 call records come from callers whose receiver register cannot be confirmed (type_identity.py:547-566). (2) For self-call path (0,) only the owner DIE is excluded, so a same-spelling base at offset 0 (MSL deque<T*> derives from deque<void const*>) could take the derived name (type_identity.py:604-609); 0 of 2,341 such records produce a candidate today. (3) is_template_name inspects only the last component, so symbol inference can still name types nested in class templates (type_identity.py:206; test_import_plan.py:80-85); the only instance, std::__red_black_tree<1>::anchor, is correct. (4) The template-argument self-check covers only by-value members whose spelling equals an argument base and skips cv-qualified arguments (type_identity.py:795-825).",
+      "id": "socom:workspace-issue:3fa40b9353594ca270cd",
+      "kind": "problem",
+      "reported_at": "2026-10-06T19:14:23Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Call-site tracer can misread a0 for struct returns, unmarked static methods, and same-spelling bases"
+    },
+    {
+      "details": "Second-review low findings: (5) no unit test exercises _template_argument_conflicts, ambiguity-to-contradiction, or the self-call exclusion, and the integration test does not assert stack is provisional; (6) reject_work compares the unstripped reviewer to the handoff owner but stores reviewer.strip(), so a space-padded owner name passes and is recorded as a self-rejection; reject also accepts empty evidence (tracker.py:956-963); (7) the independence-audit lookbehind exempts any path ending in tests/tools/*.py, not only this repository's (source.py:27).",
+      "id": "socom:workspace-issue:a74cd63859dd303546a5",
+      "kind": "problem",
+      "reported_at": "2026-10-06T19:14:23Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Review follow-ups: identity test gaps, reject owner comparison, and test-path exemption breadth"
+    },
+    {
+      "details": "live_preflight in tools/_socom/ghidra.py compares get_current_program_info.executable_path (Ghidra's Program Information 'Executable Location', fixed at import) with the absolute path of this checkout's support/socom.elf. Moving the workspace or the soCOM project to another machine or checkout root fails preflight with 'program executable path does not identify support/socom.elf' although the program is unchanged: on the second workstation the semantic receipt equals the baseline 76e6ddc1...6e96c and the stored 'Executable SHA256' option equals the reference 00c9cee7...3d4f8a. The check binds identity to a machine-specific path, contrary to the portability rule in AGENTS.md, and blocks every live Ghidra item. Identity should come from the stored Executable SHA256, not the import path.",
+      "id": "socom:workspace-issue:97dc8eac340bead164b2",
+      "kind": "problem",
+      "reported_at": "2026-10-06T21:33:44Z",
+      "reported_by": "socom-tool-maintainer",
+      "resolution": {
+        "resolved_at": "2026-10-06T21:41:47Z",
+        "summary": "live_preflight now reads the Program Information option group (get_program_options) and requires the stored 'Executable SHA256' to equal the reference SHA-256; the import path ('Executable Location' / executable_path) is no longer compared, and the report exposes program_executable_sha256. Tests cover a foreign import path with the reference hash (passes) and a missing or foreign hash (fails). docs/reconstruction/GHIDRA.md updated. On the second workstation: ghidra preflight --strict ok, doctor --infrastructure-only --ghidra ok, tools suite 96 passed with only the known GUIDANCE.md surface failure."
+      },
+      "status": "resolved",
+      "summary": "Ghidra live preflight requires the program's recorded import path to equal this checkout"
+    },
+    {
+      "details": "The GhidraMCP delete_data_type endpoint documents 'Fails if the type is referenced', but deleting /undefined1[12] (a baseline type applied to defined data) succeeded and cleared 269 data items: the semantic receipt data index fell from 51,523 to 51,254 while the type index still matched after the array type was recreated. The unsaved program was reverted by closing without saving and reopening; the receipt again equals 76e6ddc1...6e96c. Any tool or worker that deletes Ghidra types must restrict deletion to types it created in the same run, never pre-existing names, and must confirm cleanup with a full semantic receipt rather than the type list alone.",
+      "id": "socom:workspace-issue:86eb4e80d9f2cf6d0f49",
+      "kind": "problem",
+      "reported_at": "2026-10-06T22:31:56Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "Bridge delete_data_type clears data applications instead of refusing referenced types"
+    },
+    {
+      "details": "_scoped_type_facts in tools/_socom/ghidra.py treated only identical-case names as ambiguous and recorded whatever get_struct_layout returned. The bridge ignores case and truncates names at '&', so the handoff receipt for socom:work:debug-type-foundation-apply recorded LINE_DATA's 20-byte layout for /project/line_data (4 bytes) and Action's 2-byte layout for /project/CAiMap/action (40 bytes), and two '&' names silently became size-only. Found by socom-verifier; the item was rejected at tracker revision 19.",
+      "id": "socom:workspace-issue:011b14139c30d085614e",
+      "kind": "problem",
+      "reported_at": "2026-10-07T01:31:36Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": {
+        "resolved_at": "2026-10-07T01:31:46Z",
+        "summary": "_scoped_type_facts now counts names ignoring case (ambiguous-name), records a layout or enum only when the bridge reports the requested name and size (else mismatched-readback), marks unresolvable names unreadable-name and unions/function definitions no-component-readback. tests/tools/test_ghidra.py covers each case including line_data/LINE_DATA; GHIDRA.md documents the case-insensitive lookup and '&' truncation."
+      },
+      "status": "resolved",
+      "summary": "Scoped receipt facts trusted case-insensitive and truncated bridge lookups"
+    },
+    {
+      "details": "The schema 4 plan records only the return type of subroutine_type rows. 19 of the 20 subroutine types reached from the type foundation have 1-3 formal_parameter children in the raw DWARF (e.g. DIE 0x1851 has a parameter at 0x1861), so socom:work:debug-type-foundation-apply created /project/anonymous/@subroutine@* function definitions with unspecified (...) parameters. The planner should record parameter descriptors and a later reviewed apply should refine those 20 definitions.",
+      "id": "socom:workspace-issue:69c8f521812171015162",
+      "kind": "problem",
+      "reported_at": "2026-10-07T01:31:36Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Import plan omits formal parameters of subroutine types"
+    },
+    {
+      "details": "The GhidraMCP bridge exposes no read endpoint for union components or function-definition signatures (get_struct_layout refuses unions). ghidra apply-types and the semantic receipt can only check their sizes (detail no-component-readback), so 8 unions and 20 function definitions of the type foundation are verified only through the deterministic apply program.",
+      "id": "socom:workspace-issue:2d3f8fe633469e254359",
+      "kind": "request",
+      "reported_at": "2026-10-07T01:31:36Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Read-back for union members and function-definition signatures"
+    },
+    {
+      "details": "Enum element values are decoded signed at the enum width, which preserves the bit patterns but yields 48 negative values, e.g. 1-byte EQUIP_ITEM has EQUIP_NONE=-1 beside EQUIP_HEAVYWEAPON=-116 (0x8c, i.e. 140 if unsigned). Settle each enum's signedness from load/compare evidence (lb/lbu, slt/sltu) before relying on the displayed values.",
+      "id": "socom:workspace-issue:c3a2ea73daa14872f830",
+      "kind": "problem",
+      "reported_at": "2026-10-07T01:31:37Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Signedness of one-byte enum values is not settled by code evidence"
+    },
+    {
+      "details": "Fund type 0xA510 is proven 16 bytes wide and 16-byte aligned and is applied as uint16, but DWARF 1 carries no typedef for it; 'unsigned' rests on the member name _word128::u128 and the SDK spelling u_long128. Confirm signedness from code evidence or a typed provider header.",
+      "id": "socom:workspace-issue:4d52efa4d12485565445",
+      "kind": "problem",
+      "reported_at": "2026-10-07T01:31:37Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Signedness of the 128-bit fundamental type 0xA510 rests on a member name"
+    },
+    {
+      "details": "Metrowerks DWARF 1 does not list the vtable pointer as a member, so the type foundation leaves those bytes undefined (e.g. std::ios_base bytes 0-4, C2D bytes 12-15) and six vtable-only classes are 4 undefined bytes (CIO, CPtItr, CZMapItem, std::exception, zdb::CNodeEx, zdb::CTextureRelocMgr). Model vtable pointers from vtable/RTTI evidence in ghidra-reconstruction.",
+      "id": "socom:workspace-issue:b4e1abd2b1dabb90eab2",
+      "kind": "problem",
+      "reported_at": "2026-10-07T01:31:37Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Vtable pointers are not modelled in applied class layouts"
+    },
+    {
+      "details": "The 66 composites built by #pragma pack(1) C imports (bitfield and 128-bit layouts) are packed structures with alignment 1; the receipt does not record packing, and later edits through the bridge would repack them at 1. Record packing in receipts or convert them to non-packed layouts once the bridge allows it.",
+      "id": "socom:workspace-issue:db9447d51c8437d0987d",
+      "kind": "problem",
+      "reported_at": "2026-10-07T01:31:37Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "C-imported composites are packed with alignment 1"
+    },
+    {
+      "details": "Only digests of the 210-type baseline index are stored, so an independent reviewer cannot confirm that pre-existing types were left unchanged except through the apply's own before/after check. Keep a portable baseline type listing (or per-row digests) with the ghidra-program verification target.",
+      "id": "socom:workspace-issue:9feb957aa7df354da063",
+      "kind": "request",
+      "reported_at": "2026-10-07T01:31:38Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Retain the baseline Ghidra type listing for independent comparison"
+    },
+    {
+      "details": "The accepted receipt 2b4eea98...2b9d for socom:work:debug-type-foundation-apply records no members for 45 of 840 scoped types: 17 names that are not unique ignoring case (line_data/LINE_DATA, CAiMap/action/Action, nested node, entry, iterator, sentry, generic_iterator<1>, two @union@0x4), 2 names the bridge truncates at '&' (Metrowerks alloc_ptr and compressed_pair_imp over list_deleter node&), and 26 unions/function definitions. Members of these types are checked only at apply time under temporary names. A path-addressed or ID-addressed read endpoint is needed to bind them in receipts (extends socom:workspace-issue:2d3f8fe633469e254359).",
+      "id": "socom:workspace-issue:76952369b3bef0f24d64",
+      "kind": "problem",
+      "reported_at": "2026-10-07T02:30:24Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "45 scoped types are bound only by name, size, and path in Ghidra receipts"
+    },
+    {
+      "details": "tests/tools/test_ghidra.py::test_scoped_type_facts_record_only_exact_readbacks covers ambiguous, unreadable, union and name-mismatch cases, but not a read-back with the right name and a different size, nor an enum read-back reporting another name or size.",
+      "id": "socom:workspace-issue:d223468b47614808b0f6",
+      "kind": "problem",
+      "reported_at": "2026-10-07T02:30:25Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Scoped-fact test lacks size-mismatch and enum-mismatch read-back cases"
+    },
+    {
+      "details": "27 type paths in the accepted foundation plan have several DWARF rows with identical layouts whose members or bases point to different identities (e.g. /project/Sequence with three vector bases, /project/unresolved/compressed_pair@*). The apply uses the first row deterministically. This comes from the plan's structural identity merging; review whether such paths should split or record the variant member identities.",
+      "id": "socom:workspace-issue:ba5122d0d0d292667f2f",
+      "kind": "problem",
+      "reported_at": "2026-10-07T02:30:25Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Merged plan identities hide member-identity differences between layout-identical rows"
+    },
+    {
+      "details": "_ghidra_preflight passed strict_baseline=True for --strict, so the bootstrap counts (210 data types) were enforced even after progress advance-live-ghidra moved socom:verification:ghidra-program to live-reconstruction (1453 data types after the type foundation). AGENTS.md enforces bootstrap counts only while the target is bootstrap-r5900, and the mandated pre-work check would have failed permanently.",
+      "id": "socom:workspace-issue:fd8334a954c6ccf69689",
+      "kind": "problem",
+      "reported_at": "2026-10-07T02:36:09Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": {
+        "resolved_at": "2026-10-07T02:36:09Z",
+        "summary": "--strict now passes strict_baseline=None so the tracker target decides (counts bind only during bootstrap-r5900); plain preflight passes False. tests/tools/test_ghidra.py::test_strict_preflight_defers_bootstrap_counts_to_tracker; live test_live_ghidra_preflight_is_explicitly_targeted passes at tracker revision 22."
+      },
+      "status": "resolved",
+      "summary": "ghidra preflight --strict enforced bootstrap counts after live reconstruction"
     }
   ],
-  "revision": 1,
+  "revision": 36,
   "schema_version": 1
 }

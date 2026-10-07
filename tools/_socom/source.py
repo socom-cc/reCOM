@@ -21,8 +21,10 @@ PROJECT_SPECIFIC_PATTERNS = {
         r"@(?!socom-)[a-z][a-z0-9_-]*-(?:anchor|artifact)\b",
         re.IGNORECASE,
     ),
+    # This workspace's own test modules live under tests/tools/ and are not
+    # foreign entry points.
     "foreign reconstruction CLI": re.compile(
-        r"tools[/\\](?!socom\.py\b)[a-z][a-z0-9_-]*\.py\b",
+        r"(?<!tests/)(?<!tests\\)tools[/\\](?!socom\.py\b)[a-z][a-z0-9_-]*\.py\b",
         re.IGNORECASE,
     ),
 }

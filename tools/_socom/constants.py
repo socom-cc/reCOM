@@ -19,6 +19,10 @@ EXPECTED_SYMBOL_COUNT = 21_894
 EXPECTED_RELOCATION_COUNT = 115_142
 EXPECTED_COMPILER_COMMENT = "MW MIPS C Compiler (2.4.1.01)"
 
+# Pinned Ghidra release for the canonical soCOM program. A change requires a
+# fresh import and `progress rebaseline-live-ghidra` before semantic work.
+EXPECTED_GHIDRA_VERSION = "12.1.4"
+
 TOOLCHAIN_ID = "mwcps2-2.4-001213"
 TOOLCHAIN_ARCHIVE_URL = (
     "https://github.com/decompme/compilers/releases/download/compilers/"

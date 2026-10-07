@@ -7,7 +7,13 @@ import datetime as dt
 from pathlib import Path
 from typing import Any
 
-from .constants import PRIMARY_STAGE_CHAIN, SCHEMA_VERSION, STAGES, TRACKER_ID
+from .constants import (
+    EXPECTED_GHIDRA_VERSION,
+    PRIMARY_STAGE_CHAIN,
+    SCHEMA_VERSION,
+    STAGES,
+    TRACKER_ID,
+)
 from .locking import exclusive_state_lock
 from .source import source_owners
 from .util import SocomError, atomic_write_json, load_json, stable_id
@@ -312,7 +318,7 @@ def initialize_tracker(root: Path, census: dict[str, Any]) -> dict[str, Any]:
                 "source_sha256": census["reference"]["sha256"],
                 "language": "r5900:LE:32:default",
                 "compiler": "default",
-                "ghidra_version": "12.1.2",
+                "ghidra_version": EXPECTED_GHIDRA_VERSION,
                 "image_base": "00100000",
                 "status": "unreceipted-r5900",
                 "baseline_receipt_sha256": None,
@@ -450,7 +456,7 @@ def audit_tracker(
             "program_path": "/socom.elf",
             "language": "r5900:LE:32:default",
             "compiler": "default",
-            "ghidra_version": "12.1.2",
+            "ghidra_version": EXPECTED_GHIDRA_VERSION,
             "image_base": "00100000",
         }
         for key, expected in required_target.items():
@@ -930,6 +936,144 @@ def accept_ghidra_work(
     )
 
 
+def reject_work(
+    tracker: dict[str, Any],
+    item_id: str,
+    reviewer: str,
+    reason: str,
+    evidence: list[str],
+) -> None:
+    """Return a handed-off item for rework, keeping the rejected handoff."""
+
+    item = _work_by_id(tracker).get(item_id)
+    if not item:
+        raise SocomError(f"unknown work item: {item_id}")
+    if item["status"] != "awaiting_acceptance":
+        raise SocomError(f"{item_id} is {item['status']}, not awaiting_acceptance")
+    handoff = item.get("handoff") or {}
+    if not reviewer.strip():
+        raise SocomError("reviewer must not be empty")
+    if handoff.get("owner") == reviewer:
+        raise SocomError(f"{item_id} cannot be rejected by handoff owner {reviewer}")
+    if not reason.strip():
+        raise SocomError("rejection reason must not be empty")
+    record = {
+        "handoff": handoff,
+        "handoff_evidence": item.get("evidence", []),
+        "rejected_by": reviewer.strip(),
+        "rejected_at": _iso(_utc_now()),
+        "reason": reason.strip(),
+        "evidence": sorted(set(evidence)),
+    }
+    if "ghidra_receipt" in item:
+        record["ghidra_receipt"] = item.pop("ghidra_receipt")
+    item.setdefault("review_history", []).append(record)
+    item["status"] = "ready"
+    item["handoff"] = None
+    item["evidence"] = []
+
+
+def rebaseline_ghidra_target(
+    tracker: dict[str, Any],
+    recorder: str,
+    evidence: list[str],
+    *,
+    ghidra_version: str,
+    receipt_sha256: str,
+    receipt: dict[str, Any],
+) -> dict[str, Any]:
+    """Record a fresh-import baseline receipt after a Ghidra version re-pin.
+
+    Only the untouched bootstrap import may be rebaselined, and function/type
+    index digests must survive the version change.  Other differences are
+    recorded explicitly in the appended history entry.
+    """
+
+    targets = [
+        row
+        for row in tracker.get("verification_targets", [])
+        if row.get("id") == "socom:verification:ghidra-program"
+    ]
+    if len(targets) != 1:
+        raise SocomError("tracker must contain exactly one Ghidra verification target")
+    target = targets[0]
+    if target.get("status") != "bootstrap-r5900":
+        raise SocomError(
+            "Ghidra rebaseline is limited to the bootstrap import; "
+            f"target status is {target.get('status')!r}"
+        )
+    live_work = [
+        row["id"]
+        for row in tracker["work_items"]
+        if "ghidra-writer" in row.get("resources", [])
+        and (
+            row.get("lease")
+            or row["status"] in {"in_progress", "awaiting_acceptance", "accepted"}
+        )
+    ]
+    if live_work:
+        raise SocomError(
+            f"Ghidra rebaseline requires no leased or accepted writer work: {live_work!r}"
+        )
+    previous_version = target.get("ghidra_version")
+    if previous_version == ghidra_version:
+        raise SocomError(f"Ghidra target is already pinned to {ghidra_version}")
+    history = target.get("receipt_history")
+    if not isinstance(history, list) or not history:
+        raise SocomError("Ghidra rebaseline requires a recorded baseline receipt")
+    if not recorder.strip():
+        raise SocomError("rebaseline recorder must not be empty")
+    if not evidence:
+        raise SocomError("Ghidra rebaseline requires evidence")
+    if len(receipt_sha256) != 64:
+        raise SocomError("Ghidra receipt SHA-256 is invalid")
+
+    previous = history[-1]
+    comparison = {}
+    for name in ("functions", "types", "data"):
+        before = previous.get("indexes", {}).get(name, {})
+        after = receipt["indexes"][name]
+        comparison[name] = {
+            "count_equal": before.get("count") == after["count"],
+            "sha256_equal": before.get("sha256") == after["sha256"],
+        }
+    changed = [
+        name for name in ("functions", "types") if not comparison[name]["sha256_equal"]
+    ]
+    if changed:
+        raise SocomError(
+            "Ghidra rebaseline changes semantic index digests "
+            f"{changed!r}; review the new import before re-pinning"
+        )
+    previous_counts = previous.get("counts", {})
+    count_deltas = {
+        key: {"before": previous_counts.get(key), "after": value}
+        for key, value in sorted(receipt["counts"].items())
+        if previous_counts.get(key) != value
+    }
+    entry = {
+        "tracker_revision": tracker["revision"] + 1,
+        "work_item_id": None,
+        "kind": "ghidra-version-rebaseline",
+        "ghidra_version": ghidra_version,
+        "previous_ghidra_version": previous_version,
+        "previous_receipt_sha256": previous.get("receipt_sha256"),
+        "receipt_sha256": receipt_sha256,
+        "counts": receipt["counts"],
+        "indexes": receipt["indexes"],
+        "index_comparison": comparison,
+        "count_deltas": count_deltas,
+        "recorded_by": recorder.strip(),
+        "recorded_at": _iso(_utc_now()),
+        "evidence": sorted(set(evidence)),
+    }
+    target["ghidra_version"] = ghidra_version
+    target["baseline_receipt_sha256"] = receipt_sha256
+    target["current_receipt_sha256"] = receipt_sha256
+    history.append(entry)
+    return entry
+
+
 def release_work(tracker: dict[str, Any], item_id: str, owner: str) -> None:
     item = _work_by_id(tracker).get(item_id)
     if not item or item["status"] != "in_progress" or not item.get("lease"):
@@ -1088,6 +1232,8 @@ def work_packet(
         skill = "socom-ghidra-reconstruction"
         validation = [
             "python tools/socom.py ghidra preflight --strict",
+            "python tools/socom.py debug apply-program --plan <accepted-plan> --output build/apply/<item>.json",
+            "python tools/socom.py ghidra apply-types --program build/apply/<item>.json --item <item> --owner <owner> --scope-output build/receipts/<item>-scope.json --report-output build/apply/<item>-report.json",
             "python tools/socom.py ghidra receipt --scope <reviewed-scope>",
         ]
         handoff = "python tools/socom.py progress handoff-live-ghidra"

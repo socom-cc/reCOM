@@ -9,6 +9,14 @@ from typing import Any
 from .constants import REFERENCE_SHA256
 from .dwarf1 import Dwarf1Debug, Die, TYPE_TAGS
 from .elf import Elf32File
+from .mwdemangle import split_qualified
+from .type_identity import (
+    TypeIdentities,
+    ghidra_path,
+    parse_subscr,
+    type_descriptor,
+    type_ref,
+)
 from .util import stable_id
 
 FUNCTION_TAGS = {0x0003, 0x0006, 0x0014, 0x001D}
@@ -99,10 +107,24 @@ def _scope_identity(
     }
 
 
+def _array_descriptor(die: Die) -> dict[str, Any] | None:
+    if die.tag_name != "array_type":
+        return None
+    subscript = die.attribute("subscr_data")
+    dims, element = parse_subscr(
+        subscript.value if subscript and isinstance(subscript.value, bytes) else b""
+    )
+    return {
+        "dimensions": [list(dimension) for dimension in dims],
+        "element": type_descriptor(element),
+    }
+
+
 def _type_rows(
     dies: tuple[Die, ...],
     parents: dict[int, int],
     by_offset: dict[int, Die],
+    identities: TypeIdentities,
 ) -> list[dict[str, Any]]:
     by_parent: dict[int, list[Die]] = collections.defaultdict(list)
     for die in dies:
@@ -115,6 +137,38 @@ def _type_rows(
             continue
         scope = _scope_identity(die, parents, by_offset)
         name = scope["raw_name"]
+        resolved = identities.die_identity(die.offset)
+        if resolved is not None:
+            # Metrowerks DWARF 1 drops namespaces, enclosing classes, and
+            # template arguments; the evidence-backed identity restores them.
+            if resolved["resolution"].startswith("provisional"):
+                scope_path = scope["scope_path"]
+            else:
+                scope_path = split_qualified(resolved["qualified_name"])[:-1]
+            scope.update(
+                {
+                    "qualified_name": resolved["qualified_name"],
+                    "identity": resolved["qualified_name"],
+                    "scope_path": scope_path,
+                }
+            )
+            identity_fields = {
+                "ghidra_path": resolved["ghidra_path"],
+                "identity_resolution": resolved["resolution"],
+                "declaration": resolved["declaration"],
+            }
+        elif scope["anonymous"]:
+            identity_fields = {
+                "ghidra_path": None,
+                "identity_resolution": "anonymous",
+                "declaration": False,
+            }
+        else:
+            identity_fields = {
+                "ghidra_path": ghidra_path(scope["qualified_name"]),
+                "identity_resolution": "dwarf-name",
+                "declaration": False,
+            }
         children = by_parent.get(die.offset, [])
         members = [
             {
@@ -129,11 +183,7 @@ def _type_rows(
                     if child.attribute("location")
                     else None
                 ),
-                "type_reference": (
-                    child.integer("user_def_type")
-                    or child.integer("mod_user_def_type")
-                    or child.integer("fund_type")
-                ),
+                "type": type_descriptor(type_ref(child)),
             }
             for child in children
             if child.tag_name in {"member", "inheritance"}
@@ -147,13 +197,12 @@ def _type_rows(
                     else "define"
                 ),
                 **scope,
+                **identity_fields,
+                "structural_class": identities.structural_class[die.offset],
                 "kind": die.tag_name,
                 "byte_size": die.integer("byte_size"),
-                "type_reference": (
-                    die.integer("user_def_type")
-                    or die.integer("mod_user_def_type")
-                    or die.integer("fund_type")
-                ),
+                "type": type_descriptor(type_ref(die)),
+                "array": _array_descriptor(die),
                 "members": members,
                 "evidence": _die_evidence(die),
             }
@@ -182,11 +231,7 @@ def _function_rows(
             {
                 "name": child.string("name"),
                 "die_offset": child.offset,
-                "type_reference": (
-                    child.integer("user_def_type")
-                    or child.integer("mod_user_def_type")
-                    or child.integer("fund_type")
-                ),
+                "type": type_descriptor(type_ref(child)),
                 "location": _attribute_value(
                     child.attribute("location").value
                     if child.attribute("location")
@@ -200,11 +245,7 @@ def _function_rows(
             {
                 "name": child.string("name"),
                 "die_offset": child.offset,
-                "type_reference": (
-                    child.integer("user_def_type")
-                    or child.integer("mod_user_def_type")
-                    or child.integer("fund_type")
-                ),
+                "type": type_descriptor(type_ref(child)),
                 "location": _attribute_value(
                     child.attribute("location").value
                     if child.attribute("location")
@@ -225,11 +266,7 @@ def _function_rows(
                 "compile_unit_path": scope["compile_unit_path"],
                 "low_pc": die.integer("low_pc"),
                 "high_pc": die.integer("high_pc"),
-                "return_type_reference": (
-                    die.integer("user_def_type")
-                    or die.integer("mod_user_def_type")
-                    or die.integer("fund_type")
-                ),
+                "return_type": type_descriptor(type_ref(die)),
                 "parameters": parameters,
                 "locals": locals_,
                 "evidence": _die_evidence(die),
@@ -238,41 +275,52 @@ def _function_rows(
     return result
 
 
-def _conflicts(types: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    grouped: dict[str, list[dict[str, Any]]] = collections.defaultdict(list)
+def _conflicts(
+    types: list[dict[str, Any]], identities: TypeIdentities
+) -> list[dict[str, Any]]:
+    """Distinct structures that share one qualified identity."""
+
+    by_class: dict[str, list[str]] = collections.defaultdict(list)
     for row in types:
-        if row["qualified_name"] and not row["anonymous"]:
-            grouped[str(row["identity"])].append(row)
+        by_class[row["structural_class"]].append(row["id"])
     conflicts = []
-    for name, rows in sorted(grouped.items(), key=lambda item: item[0].casefold()):
-        layouts = {
-            (
-                row["kind"],
-                row["byte_size"],
-                tuple(
-                    (
-                        member["name"],
-                        member["byte_size"],
-                        member["bit_offset"],
-                        member["bit_size"],
-                        member["location"],
-                    )
-                    for member in row["members"]
+    for conflict in identities.conflicts:
+        conflicts.append(
+            {
+                **conflict,
+                "id": stable_id(
+                    "import-conflict", conflict["qualified_name"], conflict["reason"]
                 ),
-            )
-            for row in rows
-        }
-        if len(layouts) > 1:
+                "type_plan_ids": [
+                    row_id
+                    for key in conflict["structural_classes"]
+                    for row_id in by_class.get(key, [])
+                ],
+                "status": "blocking",
+            }
+        )
+    dwarf_named: dict[str, set[str]] = collections.defaultdict(set)
+    rows_by_name: dict[str, list[str]] = collections.defaultdict(list)
+    for row in types:
+        if row["identity_resolution"] == "dwarf-name":
+            dwarf_named[str(row["qualified_name"])].add(row["structural_class"])
+            rows_by_name[str(row["qualified_name"])].append(row["id"])
+    for name, keys in dwarf_named.items():
+        if len(keys) > 1:
             conflicts.append(
                 {
                     "id": stable_id("import-conflict", name),
                     "qualified_name": name,
                     "reason": "incompatible DWARF definitions",
-                    "type_plan_ids": [row["id"] for row in rows],
+                    "structural_classes": sorted(keys),
+                    "type_plan_ids": rows_by_name[name],
                     "status": "blocking",
                 }
             )
-    return conflicts
+    return sorted(
+        conflicts,
+        key=lambda row: (row["qualified_name"].casefold(), row["qualified_name"], row["reason"]),
+    )
 
 
 def build_import_plan(root: Path, batch: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -287,9 +335,11 @@ def build_import_plan(root: Path, batch: dict[str, Any] | None = None) -> dict[s
         )
     else:
         selected = dies
-    types = _type_rows(selected, parents, by_offset)
-    functions = _function_rows(selected, parents, by_offset)
-    variables = [
+    identities = TypeIdentities(elf, dies, parents)
+    types = _type_rows(selected, parents, by_offset, identities)
+    types_only = (batch or {}).get("selection") == "types"
+    functions = [] if types_only else _function_rows(selected, parents, by_offset)
+    variables = [] if types_only else [
         {
             "id": stable_id("variable-plan", die.offset, die.string("name") or ""),
             "name": die.string("name"),
@@ -304,11 +354,7 @@ def build_import_plan(root: Path, batch: dict[str, Any] | None = None) -> dict[s
                 "compile_unit_path"
             ],
             "kind": die.tag_name,
-            "type_reference": (
-                die.integer("user_def_type")
-                or die.integer("mod_user_def_type")
-                or die.integer("fund_type")
-            ),
+            "type": type_descriptor(type_ref(die)),
             "location": _attribute_value(
                 die.attribute("location").value if die.attribute("location") else None
             ),
@@ -317,24 +363,27 @@ def build_import_plan(root: Path, batch: dict[str, Any] | None = None) -> dict[s
         for die in selected
         if die.tag in VARIABLE_TAGS and die.string("name")
     ]
-    conflicts = _conflicts(types)
+    conflicts = _conflicts(types, identities)
+    selected_classes = {row["structural_class"] for row in types}
+    identity_rows = [
+        identity
+        for identity in identities.identities
+        if identity["structural_class"] in selected_classes
+    ]
     receipt_scope = {
         "schema_version": 1,
         "functions": sorted(
             {f"0x{row['low_pc']:x}" for row in functions if row.get("low_pc")}
         ),
         "types": sorted(
-            {
-                str(row["qualified_name"])
-                for row in types
-                if row.get("qualified_name") and not row.get("anonymous")
-            },
-            key=str.casefold,
+            {str(row["ghidra_path"]) for row in types if row.get("ghidra_path")},
+            # Exact spelling breaks casefold ties (LINE_DATA vs line_data).
+            key=lambda path: (path.casefold(), path),
         ),
         "globals": [],
     }
     return {
-        "schema_version": 2,
+        "schema_version": 4,
         "kind": "socom-ghidra-import-plan",
         "mutation_performed": False,
         "target": {
@@ -357,6 +406,7 @@ def build_import_plan(root: Path, batch: dict[str, Any] | None = None) -> dict[s
             "reanalyze_and_review",
             "save_program_through_live_handoff",
         ],
+        "identities": identity_rows,
         "types": types,
         "functions": functions,
         "variables": variables,
@@ -366,5 +416,16 @@ def build_import_plan(root: Path, batch: dict[str, Any] | None = None) -> dict[s
             "function_count": len(functions),
             "variable_count": len(variables),
             "blocking_conflict_count": len(conflicts),
+            "structural_class_count": len(selected_classes),
+            "identity_resolution_counts": dict(
+                sorted(
+                    collections.Counter(
+                        identity["resolution"] for identity in identity_rows
+                    ).items()
+                )
+            ),
+            "provisional_identity_count": sum(
+                1 for identity in identity_rows if identity["resolution"] == "provisional"
+            ),
         },
     }

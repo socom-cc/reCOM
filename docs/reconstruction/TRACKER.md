@@ -27,7 +27,10 @@ writers fail closed. A lock covers read/check/live-operation/write, and JSON
 replacement is atomic.
 
 Leases expire to `ready` and never imply completion. Handoff owners cannot
-self-accept. `ghidra-writer` is exclusive. Generic handoff/acceptance rejects
+self-accept. A reviewer who finds defects runs `progress work reject` with a
+reason and evidence; the item returns to `ready`, and the rejected handoff,
+its evidence, and any Ghidra receipt move to the item's `review_history`.
+Handoff owners cannot reject their own work. `ghidra-writer` is exclusive. Generic handoff/acceptance rejects
 items that own it. Undecomposed `stage-seed` items remain blocked and cannot be
 claimed, handed off, or accepted.
 
@@ -54,6 +57,11 @@ receipt, saves `socom.elf` exactly once, proves the receipt remains stable, and
 moves the item to `awaiting_acceptance`. `progress advance-live-ghidra`
 recomputes the stored scope without saving, compares the digest, accepts with a
 different owner, and appends target history.
+
+`progress rebaseline-live-ghidra` records a fresh-import baseline after a
+Ghidra version re-pin. It is limited to the untouched bootstrap target and
+requires unchanged function and type index digests; other deltas are recorded
+in the appended history entry.
 
 Receipts are evidence, not acceptance. They cover portable target facts,
 analysis/bookmarks, the assembly sentinel, full function/type/data index

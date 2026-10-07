@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 import copy
 
+from tools._socom.constants import EXPECTED_GHIDRA_VERSION
 from tools._socom.locking import exclusive_state_lock
 from tools._socom.tracker import (
     accept_ghidra_work,
@@ -17,6 +18,8 @@ from tools._socom.tracker import (
     migrate_tracker,
     mutate,
     next_work,
+    rebaseline_ghidra_target,
+    reject_work,
     work_packet,
 )
 from tools._socom.util import SocomError, atomic_write_json
@@ -283,3 +286,173 @@ def test_stage_seed_cannot_be_claimed_or_accepted(root: Path, census: dict) -> N
     seed["status"] = "ready"
     with pytest.raises(SocomError, match="undecomposed stage seed"):
         claim_work(tracker, seed["id"], "worker", 30)
+
+
+def _bootstrap_ghidra_tracker(root: Path, census: dict) -> dict:
+    tracker = initialize_tracker(root, census)
+    target = next(
+        row
+        for row in tracker["verification_targets"]
+        if row["id"] == "socom:verification:ghidra-program"
+    )
+    target["ghidra_version"] = "0.0.0-previous"
+    target["status"] = "bootstrap-r5900"
+    target["baseline_receipt_sha256"] = "c" * 64
+    target["current_receipt_sha256"] = "c" * 64
+    target["receipt_history"] = [
+        {
+            "tracker_revision": 1,
+            "work_item_id": None,
+            "receipt_sha256": "c" * 64,
+            "counts": {"function_count": 2, "memory_block_count": 26},
+            "indexes": {
+                "functions": {"count": 2, "sha256": "f" * 64},
+                "types": {"count": 1, "sha256": "e" * 64},
+                "data": {"count": 3, "sha256": "d" * 64},
+            },
+        }
+    ]
+    return tracker
+
+
+def _rebaseline_receipt(*, functions: str = "f" * 64, data: str = "a" * 64) -> dict:
+    return {
+        "counts": {"function_count": 2, "memory_block_count": 27},
+        "indexes": {
+            "functions": {"count": 2, "sha256": functions},
+            "types": {"count": 1, "sha256": "e" * 64},
+            "data": {"count": 3, "sha256": data},
+        },
+    }
+
+
+def test_ghidra_rebaseline_records_version_and_explicit_deltas(
+    tmp_path: Path, root: Path, census: dict
+) -> None:
+    path = tmp_path / "tracker.json"
+    atomic_write_json(path, _bootstrap_ghidra_tracker(root, census))
+    updated = mutate(
+        path,
+        1,
+        lambda tracker: rebaseline_ghidra_target(
+            tracker,
+            "reviewer",
+            ["fresh-import.json"],
+            ghidra_version=EXPECTED_GHIDRA_VERSION,
+            receipt_sha256="9" * 64,
+            receipt=_rebaseline_receipt(),
+        ),
+    )
+    target = next(
+        row
+        for row in updated["verification_targets"]
+        if row["id"] == "socom:verification:ghidra-program"
+    )
+    assert target["ghidra_version"] == EXPECTED_GHIDRA_VERSION
+    assert target["status"] == "bootstrap-r5900"
+    assert target["baseline_receipt_sha256"] == "9" * 64
+    assert target["current_receipt_sha256"] == "9" * 64
+    assert len(target["receipt_history"]) == 2
+    entry = target["receipt_history"][-1]
+    assert entry["tracker_revision"] == updated["revision"] == 2
+    assert entry["kind"] == "ghidra-version-rebaseline"
+    assert entry["previous_ghidra_version"] == "0.0.0-previous"
+    assert entry["previous_receipt_sha256"] == "c" * 64
+    assert entry["index_comparison"]["functions"]["sha256_equal"] is True
+    assert entry["index_comparison"]["data"] == {
+        "count_equal": True,
+        "sha256_equal": False,
+    }
+    assert entry["count_deltas"] == {
+        "memory_block_count": {"before": 26, "after": 27}
+    }
+    assert audit_tracker(updated) == []
+
+
+def test_ghidra_rebaseline_refuses_changed_semantic_indexes(
+    root: Path, census: dict
+) -> None:
+    tracker = _bootstrap_ghidra_tracker(root, census)
+    with pytest.raises(SocomError, match="semantic index digests"):
+        rebaseline_ghidra_target(
+            tracker,
+            "reviewer",
+            ["fresh-import.json"],
+            ghidra_version=EXPECTED_GHIDRA_VERSION,
+            receipt_sha256="9" * 64,
+            receipt=_rebaseline_receipt(functions="0" * 64),
+        )
+
+
+def test_ghidra_rebaseline_refuses_live_work_and_same_version(
+    root: Path, census: dict
+) -> None:
+    arguments = {
+        "ghidra_version": EXPECTED_GHIDRA_VERSION,
+        "receipt_sha256": "9" * 64,
+        "receipt": _rebaseline_receipt(),
+    }
+    tracker = _bootstrap_ghidra_tracker(root, census)
+    apply_id = "socom:work:debug-type-foundation-apply"
+    next(row for row in tracker["work_items"] if row["id"] == apply_id)[
+        "status"
+    ] = "ready"
+    claim_work(tracker, apply_id, "writer", 30)
+    with pytest.raises(SocomError, match="writer work"):
+        rebaseline_ghidra_target(tracker, "reviewer", ["e.json"], **arguments)
+
+    tracker = _bootstrap_ghidra_tracker(root, census)
+    target = next(
+        row
+        for row in tracker["verification_targets"]
+        if row["id"] == "socom:verification:ghidra-program"
+    )
+    target["status"] = "live-reconstruction"
+    with pytest.raises(SocomError, match="limited to the bootstrap"):
+        rebaseline_ghidra_target(tracker, "reviewer", ["e.json"], **arguments)
+
+    target["status"] = "bootstrap-r5900"
+    target["ghidra_version"] = EXPECTED_GHIDRA_VERSION
+    with pytest.raises(SocomError, match="already pinned"):
+        rebaseline_ghidra_target(tracker, "reviewer", ["e.json"], **arguments)
+
+
+def test_reviewer_rejection_returns_handoff_for_rework(
+    tmp_path: Path, root: Path, census: dict
+) -> None:
+    path = tmp_path / "tracker.json"
+    atomic_write_json(path, initialize_tracker(root, census))
+    item = "socom:work:debug-type-foundation"
+    mutate(path, 1, lambda tracker: claim_work(tracker, item, "planner", 30))
+    mutate(
+        path,
+        2,
+        lambda tracker: handoff_work(tracker, item, "planner", "plan ready", ["plan.json"]),
+    )
+    with pytest.raises(SocomError, match="handoff owner"):
+        mutate(path, 3, lambda tracker: reject_work(tracker, item, "planner", "no", []))
+    with pytest.raises(SocomError, match="reason must not be empty"):
+        mutate(path, 3, lambda tracker: reject_work(tracker, item, "reviewer", " ", []))
+    rejected = mutate(
+        path,
+        3,
+        lambda tracker: reject_work(
+            tracker, item, "reviewer", "wrong template names", ["review.md"]
+        ),
+    )
+    row = next(row for row in rejected["work_items"] if row["id"] == item)
+    assert row["status"] == "ready"
+    assert row["handoff"] is None
+    assert row["evidence"] == []
+    record = row["review_history"][-1]
+    assert record["rejected_by"] == "reviewer"
+    assert record["handoff"]["owner"] == "planner"
+    assert record["handoff_evidence"] == ["plan.json"]
+    assert record["evidence"] == ["review.md"]
+    assert audit_tracker(rejected) == []
+    reclaimed = mutate(path, 4, lambda tracker: claim_work(tracker, item, "planner", 30))
+    assert next(row for row in reclaimed["work_items"] if row["id"] == item)[
+        "status"
+    ] == "in_progress"
+    with pytest.raises(SocomError, match="not awaiting_acceptance"):
+        reject_work(reclaimed, item, "reviewer", "again", [])

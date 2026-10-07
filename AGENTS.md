@@ -141,7 +141,7 @@ side.
 
 ## Ghidra workflow
 
-The supported baseline is Ghidra `12.1.2`, language
+The supported baseline is Ghidra `12.1.4`, language
 `r5900:LE:32:default`, compiler specification `default`, image base
 `00100000`, and entry point `00140010`. The Emotion Engine Reloaded extension
 supplies the R5900 language. The live bridge is normally reached at
@@ -154,7 +154,8 @@ Error/Warning bookmarks, and an assembly sentinel in `main`. Bootstrap counts
 are enforced only while the tracker target remains `bootstrap-r5900`. The
 bridge does not expose its running build version, so preflight reports the
 required version and locally installed user profiles without claiming a live
-server-version check.
+server-version check. A Ghidra version re-pin requires a fresh import and
+`progress rebaseline-live-ghidra` before any semantic work.
 
 Every program-sensitive MCP or HTTP operation must include
 `program=socom.elf`. Connect to project `soCOM`; never open or switch programs

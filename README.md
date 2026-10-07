@@ -30,7 +30,7 @@ target facts live in the tracker; disposable receipt files belong under
 | Entry point | `0x140010` |
 | SHA-256 | `00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a` |
 | Compiler comment | `MW MIPS C Compiler (2.4.1.01)` |
-| Ghidra baseline | `12.1.2`, `r5900:LE:32:default`, compiler `default` |
+| Ghidra baseline | `12.1.4`, `r5900:LE:32:default`, compiler `default` |
 
 The workspace census identifies 12 ELF sections, 21,894 symbol-table entries,
 115,142 relocations, 289 `.mwcats` records, 116,691 DWARF 1 DIEs, 959 compile
@@ -85,9 +85,9 @@ deferred until their real producers and compiler/provider prerequisites exist.
 <!-- SOCOM_PROGRESS_BEGIN -->
 ### Generated progress snapshot
 
-- Tracker revision: `4`
-- Next work item: `socom:work:debug-type-foundation`
-- Work items: 90 total (1 ready, 0 active, 0 awaiting acceptance, 0 accepted, 89 dependency-blocked)
+- Tracker revision: `22`
+- Next work item: `socom:debug-batch:cb1cc66c6e35fc967c25`
+- Work items: 90 total (40 ready, 0 active, 0 awaiting acceptance, 2 accepted, 48 dependency-blocked)
 - Open blockers: 3
 - Provisional source owners still unverified: 316
 

@@ -5,6 +5,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+from tools._socom.constants import EXPECTED_GHIDRA_VERSION
+from tools._socom.tracker import load_tracker, next_work
+
 
 def _run(root: Path, *arguments: str) -> tuple[int, dict]:
     completed = subprocess.run(
@@ -27,7 +30,12 @@ def test_progress_next_accepts_trailing_json(root: Path) -> None:
         )
     )
     assert result["revision"] == tracker["revision"]
-    assert result["work_items"][0]["id"] == "socom:work:debug-type-foundation"
+    expected = next_work(
+        load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
+    )[:1]
+    assert [row["id"] for row in result["work_items"]] == [
+        row["id"] for row in expected
+    ]
 
 
 def test_reference_verify(root: Path) -> None:
@@ -82,7 +90,7 @@ def test_live_ghidra_preflight_is_explicitly_targeted(root: Path) -> None:
     assert result["language"] == "r5900:LE:32:default"
     assert result["entry_point"] == "00140010"
     assert result["active_ui_program_required"] is False
-    assert result["required_ghidra_version"] == "12.1.2"
+    assert result["required_ghidra_version"] == EXPECTED_GHIDRA_VERSION
     assert "local_profile_versions" in result
     assert "ghidra_version" not in result
 

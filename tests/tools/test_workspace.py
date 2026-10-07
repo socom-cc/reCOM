@@ -18,6 +18,17 @@ def test_workspace_is_independent(root: Path) -> None:
     assert audit_independence(root) == []
 
 
+def test_independence_flags_foreign_tool_entry_points_but_not_own_tests(
+    tmp_path: Path,
+) -> None:
+    foreign = "python " + "Tooling/" + "tools/" + "recoil" + ".py --workspace ../Rebuild"
+    own_test = "tests/" + "tools/" + "test_cli" + ".py"
+    (tmp_path / "README.md").write_text(f"{foreign}\n{own_test}\n", encoding="utf-8")
+    findings = audit_independence(tmp_path)
+    assert [row["rule"] for row in findings] == ["foreign reconstruction CLI"]
+    assert findings[0]["line"] == 1
+
+
 def test_independence_rejects_machine_specific_paths(tmp_path: Path) -> None:
     windows_home = "C:" + "\\" + "Users" + "\\" + "ExampleUser" + "\\tool"
     windows_tool = "D:" + "\\" + "Tools" + "\\ghidra"
@@ -227,7 +238,7 @@ def _leaf_commands(parser: argparse.ArgumentParser, prefix: tuple[str, ...] = ()
 
 def test_command_registry_exactly_matches_parser() -> None:
     registered = {row.path for row in COMMAND_SPECS}
-    assert len(registered) == len(COMMAND_SPECS) == 81
+    assert len(registered) == len(COMMAND_SPECS) == 85
     assert _leaf_commands(build_parser()) == registered
 
 

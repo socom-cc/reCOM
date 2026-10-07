@@ -187,13 +187,17 @@ def workflow_contracts(root: Path, commands: list[dict[str, Any]]) -> dict[str, 
         "progress work heartbeat": True,
         "progress work handoff": True,
         "progress work accept": True,
+        "progress work reject": True,
         "progress work release": True,
         "progress audit": False,
         "progress next": False,
         "ghidra preflight": False,
         "ghidra receipt": True,
+        "debug apply-program": False,
+        "ghidra apply-types": True,
         "progress handoff-live-ghidra": True,
         "progress advance-live-ghidra": True,
+        "progress rebaseline-live-ghidra": True,
     }
     for command, mutates in expected.items():
         row = by_command.get(command)
@@ -205,8 +209,10 @@ def workflow_contracts(root: Path, commands: list[dict[str, Any]]) -> dict[str, 
         "doctor": ("optional", False),
         "ghidra preflight": ("required", False),
         "ghidra receipt": ("required", False),
+        "ghidra apply-types": ("required", True),
         "progress handoff-live-ghidra": ("required", True),
         "progress advance-live-ghidra": ("required", False),
+        "progress rebaseline-live-ghidra": ("required", False),
     }
     for command, (requirement, mutates_live) in ghidra_contracts.items():
         row = by_command.get(command)

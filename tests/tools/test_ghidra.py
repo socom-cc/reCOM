@@ -35,6 +35,97 @@ def test_bridge_supplies_explicit_program(monkeypatch) -> None:
     assert captured["timeout"] == 7
 
 
+def _preflight_bridge(executable_sha256: str | None):
+    # Any import location other than this checkout's support/socom.elf.
+    foreign_import = "/srv/other-checkout/support/socom.elf"
+
+    class FakeBridge:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def schema(self):
+            return {"tools": []}
+
+        def project_files(self):
+            return {
+                "project_name": "soCOM",
+                "files": [
+                    {
+                        "name": "socom.elf",
+                        "path": "/socom.elf",
+                        "content_type": "Program",
+                    }
+                ],
+            }
+
+        def request(self, endpoint, **parameters):
+            if endpoint == "list_open_programs":
+                return {"programs": [{"name": "socom.elf", "path": "/socom.elf"}]}
+            if endpoint == "get_current_program_info":
+                return {
+                    "name": "socom.elf",
+                    "path": "/socom.elf",
+                    "executable_path": foreign_import,
+                    "language": ghidra.EXPECTED_LANGUAGE,
+                    "compiler": ghidra.EXPECTED_COMPILER,
+                    "address_size": ghidra.EXPECTED_ADDRESS_SIZE,
+                    "image_base": ghidra.EXPECTED_IMAGE_BASE,
+                }
+            if endpoint == "get_program_options":
+                assert parameters == {"group": "Program Information"}
+                options = [{"name": "Executable Location", "value": foreign_import}]
+                if executable_sha256 is not None:
+                    options.append(
+                        {"name": "Executable SHA256", "value": executable_sha256}
+                    )
+                return {"group": "Program Information", "options": options}
+            if endpoint == "analysis_status":
+                return {"analyzed": True, "analyzing": False}
+            if endpoint == "get_entry_points":
+                return "ENTRYPOINT @ 00140010 [Label] [external entry]\n"
+            if endpoint == "list_bookmarks":
+                return {"bookmarks": []}
+            if endpoint == "disassemble_function":
+                return "".join(
+                    f"{0x140D00 + 4 * index:08x}: {instruction}\n"
+                    for index, instruction in enumerate(ghidra.EXPECTED_SENTINEL)
+                )
+            raise AssertionError(endpoint)
+
+    return FakeBridge
+
+
+def test_preflight_identifies_program_by_hash_not_import_path(
+    monkeypatch, root: Path
+) -> None:
+    monkeypatch.setattr(
+        ghidra, "GhidraBridge", _preflight_bridge(ghidra.REFERENCE_SHA256)
+    )
+    monkeypatch.setattr(
+        ghidra, "_local_profile_versions", lambda: [ghidra.EXPECTED_GHIDRA_VERSION]
+    )
+    report = ghidra.live_preflight(root, strict_baseline=False)
+    assert report["errors"] == []
+    assert report["ok"] is True
+    assert report["program_executable_sha256"] == ghidra.REFERENCE_SHA256
+
+
+@pytest.mark.parametrize("executable_sha256", [None, "0" * 64])
+def test_preflight_rejects_missing_or_foreign_executable_hash(
+    monkeypatch, root: Path, executable_sha256: str | None
+) -> None:
+    monkeypatch.setattr(ghidra, "GhidraBridge", _preflight_bridge(executable_sha256))
+    monkeypatch.setattr(
+        ghidra, "_local_profile_versions", lambda: [ghidra.EXPECTED_GHIDRA_VERSION]
+    )
+    report = ghidra.live_preflight(root, strict_baseline=False)
+    assert report["ok"] is False
+    assert report["errors"] == [
+        f"program executable SHA-256 is {executable_sha256!r}, "
+        f"expected {ghidra.REFERENCE_SHA256}"
+    ]
+
+
 def test_receipt_scope_is_canonical_and_rejects_unknown_fields(
     tmp_path: Path,
 ) -> None:
@@ -70,6 +161,29 @@ def test_receipt_scope_is_canonical_and_rejects_unknown_fields(
     )
     with pytest.raises(SocomError, match="unknown fields"):
         ghidra.load_receipt_scope(path)
+
+
+def test_receipt_scope_order_is_independent_of_input_and_case_ties(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "scope.json"
+    orders = []
+    for types in (
+        ["/project/line_data", "/project/LINE_DATA", "/project/CGame"],
+        ["/project/LINE_DATA", "/project/CGame", "/project/line_data"],
+    ):
+        path.write_text(
+            json.dumps(
+                {"schema_version": 1, "functions": [], "types": types, "globals": []}
+            ),
+            encoding="utf-8",
+        )
+        orders.append(ghidra.load_receipt_scope(path)["types"])
+    assert orders[0] == orders[1] == [
+        "/project/CGame",
+        "/project/LINE_DATA",
+        "/project/line_data",
+    ]
 
 
 def test_receipt_scope_rejects_empty_scope(tmp_path: Path) -> None:
@@ -152,6 +266,12 @@ def test_semantic_receipt_is_deterministic_and_scoped(
                     "issues": ["not-authority"],
                     "fully_documented": False,
                 }
+            if endpoint == "get_struct_layout":
+                return (
+                    "Structure: CGame\nSize: 16 bytes\nAlignment: 1\n\nLayout:\n"
+                    "Offset | Size | Type | Name\n-------|------|------|-----\n"
+                    "     0 |    4 | int                  | m_state\n"
+                )
             raise AssertionError(endpoint)
 
     monkeypatch.setattr(ghidra, "live_preflight", lambda *_args, **_kwargs: preflight)
@@ -170,6 +290,11 @@ def test_semantic_receipt_is_deterministic_and_scoped(
     assert first == second
     assert first["receipt"]["scoped_facts"]["functions"][0]["name"] == "main"
     assert first["receipt"]["scoped_facts"]["types"][0]["path"] == "/project/CGame"
+    # Scoped types bind their component layout, not only name and size.
+    assert first["receipt"]["scoped_facts"]["types"][0]["layout"] == {
+        "size": 16,
+        "components": [[0, 4, "int", "m_state"]],
+    }
     assert first["receipt"]["scoped_facts"]["globals"][0]["name"] == "g_game"
     assert set(first["receipt"]["scoped_facts"]["globals"][0]) == {
         "address",
@@ -179,6 +304,70 @@ def test_semantic_receipt_is_deterministic_and_scoped(
         "comment",
         "xref_count",
     }
+
+
+def test_strict_preflight_defers_bootstrap_counts_to_tracker(monkeypatch, root: Path) -> None:
+    import argparse
+
+    from tools._socom import cli
+
+    seen = []
+
+    def fake(_root, **kwargs):
+        seen.append(kwargs["strict_baseline"])
+        return {"ok": True, "errors": []}
+
+    monkeypatch.setattr(cli, "live_preflight", fake)
+    for strict in (True, False):
+        arguments = argparse.Namespace(root=str(root), bridge_url=None, strict=strict)
+        assert cli._ghidra_preflight(arguments) == 0
+    # --strict lets the tracker decide (counts bind only during bootstrap);
+    # the plain check never enforces bootstrap counts.
+    assert seen == [None, False]
+
+
+def test_scoped_type_facts_record_only_exact_readbacks() -> None:
+    from collections import Counter
+
+    def layout(name: str, size: int) -> str:
+        return (
+            f"Structure: {name}\nSize: {size} bytes\nAlignment: 1\n\nLayout:\n"
+            "Offset | Size | Type | Name\n-------|------|------|-----\n"
+            "     0 |    4 | int                  | m_x\n"
+        )
+
+    class FakeBridge:
+        def request(self, endpoint, **parameters):
+            name = parameters.get("struct_name") or parameters.get("enum_name")
+            if endpoint == "get_struct_layout":
+                if name == "line_data":
+                    # The bridge ignores case and answers with another type.
+                    return layout("LINE_DATA", 20)
+                if name == "CGame":
+                    return layout("CGame", 16)
+                if name.startswith("alloc_ptr"):
+                    return "Structure not found: alloc_ptr<node"
+                return f"Data type is not a structure: {name}"
+            if name == "GAME_NAME":
+                return "Enumeration: GAME_NAME\nSize: 1 bytes\n\nValues:\nName | Value\n-----|------\nnameFTS | 1 (0x1)\n"
+            if name.startswith("alloc_ptr"):
+                return "Enumeration not found: alloc_ptr<node"
+            return f"Data type is not an enumeration: {name}"
+
+    def row(name, size):
+        return {"name": name, "category": "project", "size": size, "path": f"/project/{name}"}
+
+    rows = [row("CGame", 16), row("line_data", 4), row("Unique", 4), row("GAME_NAME", 1), row("alloc_ptr<node&, x>", 8), row("_word128", 16)]
+    counts = Counter(value["name"].casefold() for value in rows + [row("LINE_DATA", 20)])
+    facts = {value["name"]: ghidra._scoped_type_facts(FakeBridge(), value, counts) for value in rows}
+    assert facts["CGame"]["layout"]["components"] == [[0, 4, "int", "m_x"]]
+    assert facts["line_data"]["detail"] == "ambiguous-name" and "layout" not in facts["line_data"]
+    assert facts["GAME_NAME"]["enum"] == {"size": 1, "values": [["nameFTS", 1]]}
+    assert facts["alloc_ptr<node&, x>"]["detail"] == "unreadable-name"
+    assert facts["_word128"]["detail"] == "no-component-readback"
+    # A unique name whose read-back reports another type is never recorded.
+    mismatch = ghidra._scoped_type_facts(FakeBridge(), row("line_data", 4), Counter({"line_data": 1}))
+    assert mismatch["detail"] == "mismatched-readback" and "layout" not in mismatch
 
 
 def test_qualified_receipt_scope_preserves_overlay_and_validates_case(

@@ -19,7 +19,9 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py debug graph` | debug | no | none | no | Build the scoped DWARF import graph without mutating Ghidra. |
 | `python tools/socom.py debug conflicts list` | debug | no | none | no | List scoped blocking DWARF definition conflicts. |
 | `python tools/socom.py debug import-plan` | debug | no | none | no | Build a deterministic scoped Ghidra import plan. |
+| `python tools/socom.py debug apply-program` | debug | no | none | no | Translate an accepted type plan into deterministic Ghidra type operations. |
 | `python tools/socom.py ghidra preflight` | ghidra | no | required | no | Verify project soCOM and the explicit socom.elf program. |
+| `python tools/socom.py ghidra apply-types` | ghidra | yes | required | yes | Apply a translated type program under the item's writer lease and verify it. |
 | `python tools/socom.py ghidra data-overlap` | ghidra | no | required | no | Report overlapping Ghidra data roots. |
 | `python tools/socom.py ghidra receipt` | ghidra | yes | required | no | Create a portable deterministic semantic receipt. |
 | `python tools/socom.py audit agent-surface` | audit | no | none | no | Audit command, skill, role, and harness alignment. |
@@ -69,10 +71,12 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py progress migrate` | progress | yes | none | no | Migrate canonical tracker state to the current schema. |
 | `python tools/socom.py progress handoff-live-ghidra` | progress | yes | required | yes | Save and hand off a leased Ghidra item with a stable semantic receipt. |
 | `python tools/socom.py progress advance-live-ghidra` | progress | yes | required | no | Accept a Ghidra handoff only when its live semantic receipt is unchanged. |
+| `python tools/socom.py progress rebaseline-live-ghidra` | progress | yes | required | no | Record a fresh-import baseline receipt after a Ghidra version re-pin. |
 | `python tools/socom.py progress work claim` | progress | yes | none | no | Claim ready work with a bounded lease. |
 | `python tools/socom.py progress work heartbeat` | progress | yes | none | no | Renew an owned work lease. |
 | `python tools/socom.py progress work handoff` | progress | yes | none | no | Submit work and evidence for independent acceptance. |
 | `python tools/socom.py progress work accept` | progress | yes | none | no | Independently accept handed-off work. |
+| `python tools/socom.py progress work reject` | progress | yes | none | no | Independently return handed-off work for rework with findings. |
 | `python tools/socom.py progress work release` | progress | yes | none | no | Release an owned work lease. |
 | `python tools/socom.py progress work leases` | progress | no | none | no | Show all active leases and exclusive resources. |
 | `python tools/socom.py progress work packet` | progress | no | none | no | Render the exact contract for an actively leased item. |

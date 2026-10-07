@@ -336,7 +336,7 @@ def debug_summary(dies: tuple[Die, ...]) -> dict[str, object]:
                 }
             )
 
-    original_paths = sorted(source_paths, key=str.casefold)
+    original_paths = sorted(source_paths, key=lambda path: (path.casefold(), path))
     original_zdev = [
         path
         for path in original_paths
@@ -349,7 +349,7 @@ def debug_summary(dies: tuple[Die, ...]) -> dict[str, object]:
         "compile_units": compile_units,
         "named_type_count": len(named_types),
         "named_types": named_types,
-        "producer_strings": sorted(producers, key=str.casefold),
+        "producer_strings": sorted(producers, key=lambda value: (value.casefold(), value)),
         "source_path_count": len(original_paths),
         "source_paths": original_paths,
         "z_dev_source_path_count": len(original_zdev),

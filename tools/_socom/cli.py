@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
 import os
 import platform
@@ -15,7 +16,13 @@ from typing import Any, Callable
 from . import audits
 from .capabilities import CAPABILITIES, capability_document
 from .census import build_census, require_valid_census, verify_census
-from .constants import STAGES, agent_dir, tracker_path, workspace_root
+from .constants import (
+    EXPECTED_GHIDRA_VERSION,
+    STAGES,
+    agent_dir,
+    tracker_path,
+    workspace_root,
+)
 from .doctor import run_doctor
 from .dwarf1 import Dwarf1Debug, Dwarf1Line, debug_summary, line_summary
 from .elf import Elf32File
@@ -33,11 +40,13 @@ from .issues import (
 from .reference import query_relocations
 from .ghidra import (
     GhidraBridge,
+    _type_index,
     data_overlaps,
     live_preflight,
     load_receipt_scope,
     semantic_receipt,
 )
+from .type_apply import ApplyFailure, build_apply_program, execute_apply_program
 from .source import (
     audit_docblocks,
     audit_independence,
@@ -61,8 +70,11 @@ from .tracker import (
     migrate_tracker,
     mutate,
     next_work,
+    rebaseline_ghidra_target,
+    reject_work,
     release_work,
     require_ghidra_lease,
+    require_revision,
     work_packet,
 )
 from .util import (
@@ -345,7 +357,9 @@ def _ghidra_preflight(arguments: argparse.Namespace) -> int:
     report = live_preflight(
         _root(arguments),
         bridge_url=arguments.bridge_url,
-        strict_baseline=True if arguments.strict else None,
+        # Bootstrap counts bind only while the tracker target is
+        # bootstrap-r5900; accepted live reconstruction changes them.
+        strict_baseline=None if arguments.strict else False,
     )
     _emit(report)
     return 0 if report["ok"] else 1
@@ -385,6 +399,122 @@ def _ghidra_receipt(arguments: argparse.Namespace) -> int:
             raise SocomError("Ghidra receipts may only be written under build/") from exc
         atomic_write_json(output, report)
     _emit(report)
+    return 0
+
+
+def _build_path(root: Path, value: str, what: str) -> Path:
+    path = Path(value)
+    if not path.is_absolute():
+        path = root / path
+    try:
+        path.resolve().relative_to((root / "build").resolve())
+    except ValueError as exc:
+        raise SocomError(f"{what} may only be written under build/") from exc
+    return path
+
+
+def _debug_apply_program(arguments: argparse.Namespace) -> int:
+    root = _root(arguments)
+    plan_path = Path(arguments.plan)
+    if not plan_path.is_absolute():
+        plan_path = root / plan_path
+    program = build_apply_program(root, plan_path)
+    if arguments.output:
+        atomic_write_json(_build_path(root, arguments.output, "apply programs"), program)
+    _emit(
+        {
+            "kind": program["kind"],
+            "mutation_performed": False,
+            "plan": program["plan"],
+            "summary": program["summary"],
+            "omissions": program["omissions"],
+            "output": arguments.output,
+        }
+    )
+    return 0
+
+
+def _ghidra_apply_types(arguments: argparse.Namespace) -> int:
+    root = _root(arguments)
+    program_path = Path(arguments.program)
+    if not program_path.is_absolute():
+        program_path = root / program_path
+    program = load_json(program_path)
+    scope_output = _build_path(root, arguments.scope_output, "receipt scopes")
+    report_output = _build_path(root, arguments.report_output, "apply reports")
+
+    tracker = load_tracker(tracker_path(root))
+    item = require_ghidra_lease(tracker, arguments.item, arguments.owner)
+    plan_info = program.get("plan") or {}
+    plan_item_id = plan_info.get("work_item_id")
+    if plan_item_id not in item.get("dependencies", []):
+        raise SocomError(f"{arguments.item} does not depend on plan item {plan_item_id}")
+    plan_item = next(
+        (row for row in tracker["work_items"] if row["id"] == plan_item_id), None
+    )
+    if not plan_item or plan_item.get("status") != "accepted":
+        raise SocomError(f"plan item {plan_item_id} is not accepted")
+    plan_sha256 = str(plan_info.get("sha256", ""))
+    cited = [
+        text
+        for text in plan_item.get("evidence", [])
+        + ((plan_item.get("handoff") or {}).get("evidence") or [])
+        if isinstance(text, str)
+    ]
+    if len(plan_sha256) != 64 or not any(plan_sha256 in text for text in cited):
+        raise SocomError("the accepted plan item does not cite this plan's SHA-256")
+    plan_path = root / plan_info["path"]
+    if sha256_file(plan_path) != plan_sha256:
+        raise SocomError("the plan file no longer matches the apply program")
+    if canonical_json(build_apply_program(root, plan_path)) != canonical_json(program):
+        raise SocomError("the apply program is stale or edited; regenerate it")
+
+    preflight = live_preflight(
+        root, bridge_url=arguments.bridge_url, strict_baseline=False
+    )
+    if not preflight["ok"]:
+        _emit({"ok": False, "preflight": preflight})
+        return 1
+    bridge = GhidraBridge(arguments.bridge_url, timeout=300.0)
+    try:
+        result = execute_apply_program(
+            program,
+            bridge,
+            type_index=lambda: _type_index(bridge),
+            log=lambda message: print(message, file=sys.stderr, flush=True),
+        )
+    except ApplyFailure as failure:
+        report = {
+            "kind": "socom-ghidra-type-apply-report",
+            "schema_version": 1,
+            "ok": False,
+            "work_item_id": arguments.item,
+            "error": str(failure),
+            "completed_steps": failure.completed_steps,
+            "details": failure.details,
+            "recovery": "close socom.elf without saving and reopen it before retrying",
+        }
+        atomic_write_json(report_output, report)
+        _emit({key: value for key, value in report.items() if key != "details"})
+        return 1
+    atomic_write_json(scope_output, program["receipt_scope"])
+    report = {
+        "kind": "socom-ghidra-type-apply-report",
+        "schema_version": 1,
+        "work_item_id": arguments.item,
+        "owner": arguments.owner,
+        "program_sha256": hashlib.sha256(
+            canonical_json(program).encode("utf-8")
+        ).hexdigest(),
+        "plan": program["plan"],
+        "result": result,
+        "decisions": program["decisions"],
+        "omissions": program["omissions"],
+        "summary": program["summary"],
+        "scope_output": scope_output.relative_to(root).as_posix(),
+    }
+    atomic_write_json(report_output, report)
+    _emit({"ok": True, **report})
     return 0
 
 
@@ -651,6 +781,19 @@ def _work_accept(arguments: argparse.Namespace) -> int:
     )
 
 
+def _work_reject(arguments: argparse.Namespace) -> int:
+    return _mutate_work(
+        arguments,
+        lambda tracker: reject_work(
+            tracker,
+            arguments.item,
+            arguments.reviewer,
+            arguments.reason,
+            arguments.evidence,
+        ),
+    )
+
+
 def _work_release(arguments: argparse.Namespace) -> int:
     return _mutate_work(
         arguments,
@@ -782,6 +925,60 @@ def _advance_live_ghidra(arguments: argparse.Namespace) -> int:
             "receipt_sha256": captured["receipt_sha256"],
             "saved_program": False,
             "work_item": item,
+        }
+    )
+    return 0
+
+
+def _rebaseline_live_ghidra(arguments: argparse.Namespace) -> int:
+    root = _root(arguments)
+    captured: dict[str, Any] = {}
+
+    def record_baseline(tracker: dict[str, Any]) -> None:
+        preflight = live_preflight(
+            root, bridge_url=arguments.bridge_url, strict_baseline=True
+        )
+        if not preflight["ok"]:
+            raise SocomError(
+                "strict live Ghidra preflight failed:\n- "
+                + "\n- ".join(preflight["errors"])
+            )
+        current = semantic_receipt(root, bridge_url=arguments.bridge_url)
+        entry = rebaseline_ghidra_target(
+            tracker,
+            arguments.recorder,
+            arguments.evidence,
+            ghidra_version=EXPECTED_GHIDRA_VERSION,
+            receipt_sha256=current["receipt_sha256"],
+            receipt=current["receipt"],
+        )
+        captured.update(entry)
+
+    if arguments.dry_run:
+        tracker = load_tracker(tracker_path(root))
+        require_revision(tracker, arguments.expected_revision)
+        preview = copy.deepcopy(tracker)
+        record_baseline(preview)
+        errors = audit_tracker(preview)
+        _emit(
+            {
+                "ok": not errors,
+                "dry_run": True,
+                "revision": tracker["revision"],
+                "history_entry": captured,
+                "errors": errors,
+            }
+        )
+        return 0 if not errors else 1
+    updated = mutate(tracker_path(root), arguments.expected_revision, record_baseline)
+    write_snapshot(root, updated)
+    _emit(
+        {
+            "ok": True,
+            "dry_run": False,
+            "revision": updated["revision"],
+            "history_entry": captured,
+            "saved_program": False,
         }
     )
     return 0
@@ -1330,7 +1527,16 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec("debug graph", "debug", "Build the scoped DWARF import graph without mutating Ghidra."),
     _spec("debug conflicts list", "debug", "List scoped blocking DWARF definition conflicts."),
     _spec("debug import-plan", "debug", "Build a deterministic scoped Ghidra import plan."),
+    _spec("debug apply-program", "debug", "Translate an accepted type plan into deterministic Ghidra type operations."),
     _spec("ghidra preflight", "ghidra", "Verify project soCOM and the explicit socom.elf program.", ghidra_requirement="required"),
+    _spec(
+        "ghidra apply-types",
+        "ghidra",
+        "Apply a translated type program under the item's writer lease and verify it.",
+        mutates=True,
+        ghidra_requirement="required",
+        mutates_ghidra=True,
+    ),
     _spec("ghidra data-overlap", "ghidra", "Report overlapping Ghidra data roots.", ghidra_requirement="required"),
     _spec("ghidra receipt", "ghidra", "Create a portable deterministic semantic receipt.", mutates=True, ghidra_requirement="required"),
     _spec("audit agent-surface", "audit", "Audit command, skill, role, and harness alignment."),
@@ -1392,10 +1598,18 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
         mutates=True,
         ghidra_requirement="required",
     ),
+    _spec(
+        "progress rebaseline-live-ghidra",
+        "progress",
+        "Record a fresh-import baseline receipt after a Ghidra version re-pin.",
+        mutates=True,
+        ghidra_requirement="required",
+    ),
     _spec("progress work claim", "progress", "Claim ready work with a bounded lease.", mutates=True),
     _spec("progress work heartbeat", "progress", "Renew an owned work lease.", mutates=True),
     _spec("progress work handoff", "progress", "Submit work and evidence for independent acceptance.", mutates=True),
     _spec("progress work accept", "progress", "Independently accept handed-off work.", mutates=True),
+    _spec("progress work reject", "progress", "Independently return handed-off work for rework with findings.", mutates=True),
     _spec("progress work release", "progress", "Release an owned work lease.", mutates=True),
     _spec("progress work leases", "progress", "Show all active leases and exclusive resources."),
     _spec("progress work packet", "progress", "Render the exact contract for an actively leased item."),
@@ -1499,6 +1713,10 @@ def build_parser() -> argparse.ArgumentParser:
     plan.add_argument("--output")
     plan.add_argument("--rows", action="store_true")
     plan.set_defaults(handler=_debug_import_plan)
+    apply_program = debug_commands.add_parser("apply-program")
+    apply_program.add_argument("--plan", required=True)
+    apply_program.add_argument("--output")
+    apply_program.set_defaults(handler=_debug_apply_program)
 
     ghidra = commands.add_parser("ghidra")
     ghidra_commands = ghidra.add_subparsers(dest="ghidra_command", required=True)
@@ -1516,6 +1734,14 @@ def build_parser() -> argparse.ArgumentParser:
     receipt.add_argument("--output")
     receipt.add_argument("--bridge-url")
     receipt.set_defaults(handler=_ghidra_receipt)
+    apply_types = ghidra_commands.add_parser("apply-types")
+    apply_types.add_argument("--program", required=True)
+    apply_types.add_argument("--item", required=True)
+    apply_types.add_argument("--owner", required=True)
+    apply_types.add_argument("--scope-output", required=True)
+    apply_types.add_argument("--report-output", required=True)
+    apply_types.add_argument("--bridge-url")
+    apply_types.set_defaults(handler=_ghidra_apply_types)
 
     audit_group = commands.add_parser("audit")
     audit_commands = audit_group.add_subparsers(dest="audit_name", required=True)
@@ -1635,6 +1861,13 @@ def build_parser() -> argparse.ArgumentParser:
     advance.add_argument("--evidence", action="append", default=[])
     advance.add_argument("--bridge-url")
     advance.set_defaults(handler=_advance_live_ghidra)
+    rebaseline = progress_commands.add_parser("rebaseline-live-ghidra")
+    rebaseline.add_argument("--expected-revision", type=int, required=True)
+    rebaseline.add_argument("--recorder", required=True)
+    rebaseline.add_argument("--evidence", action="append", default=[])
+    rebaseline.add_argument("--dry-run", action="store_true")
+    rebaseline.add_argument("--bridge-url")
+    rebaseline.set_defaults(handler=_rebaseline_live_ghidra)
 
     work = progress_commands.add_parser("work")
     work_commands = work.add_subparsers(dest="work_command", required=True)
@@ -1659,6 +1892,13 @@ def build_parser() -> argparse.ArgumentParser:
             sub.add_argument("--accepter", required=True)
             sub.add_argument("--evidence", action="append", default=[])
         sub.set_defaults(handler=handler)
+    reject = work_commands.add_parser("reject")
+    reject.add_argument("--item", required=True)
+    reject.add_argument("--expected-revision", type=int, required=True)
+    reject.add_argument("--reviewer", required=True)
+    reject.add_argument("--reason", required=True)
+    reject.add_argument("--evidence", action="append", default=[])
+    reject.set_defaults(handler=_work_reject)
     leases = work_commands.add_parser("leases")
     leases.set_defaults(handler=_progress_work_leases)
     packet = work_commands.add_parser("packet")
