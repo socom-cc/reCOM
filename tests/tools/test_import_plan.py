@@ -4,7 +4,7 @@ import collections
 
 import pytest
 
-from tools._socom.import_plan import build_import_plan
+from tools._socom.import_plan import build_import_plan, decode_location, parameter_storage
 from tools._socom.type_identity import is_template_name
 
 
@@ -123,6 +123,49 @@ def test_types_only_selection_has_no_function_receipt_scope(root) -> None:
     assert plan["variables"] == []
     assert plan["receipt_scope"]["functions"] == []
     assert "/project/zdb/CNode" in plan["receipt_scope"]["types"]
+
+
+def test_locations_decode_registers_frames_and_addresses() -> None:
+    assert decode_location("0110000000") == {"kind": "register", "register": 16, "register_name": "s0"}
+    assert decode_location("021d000000042800000007") == {
+        "kind": "frame", "register": 29, "register_name": "sp", "offset": 40,
+    }
+    assert decode_location("03606f4700") == {"kind": "address", "address": 0x476F60}
+    assert decode_location("ff") == {"kind": "invalid", "raw": "ff"}
+    assert decode_location(None) is None
+
+
+def test_parameter_storage_rejects_impossible_entry_registers() -> None:
+    def param(register):
+        return {"storage": {"kind": "register", "register": register}}
+
+    assert parameter_storage([param(2), param(2)]) == "conflicting"
+    assert parameter_storage([param(2)]) == "not-entry-storage"
+    assert parameter_storage([param(16), param(17)]) == "recorded"
+    assert parameter_storage([]) == "recorded"
+
+
+def test_functions_and_variables_carry_decoded_evidence(plan) -> None:
+    functions = {row["low_pc"]: row for row in plan["functions"] if row["low_pc"]}
+    release = functions[0x140460]
+    assert release["qualified_name"] == "_zmalloc<four>::release"
+    assert release["dwarf_qualified_name"] == "release"
+    assert release["mangled_name"] == "release__15_zmalloc<4four>FPv"
+    assert release["parameter_storage"] == "conflicting"
+    start = functions[0x140550]
+    assert start["qualified_name"] == "COurGame::StartEngine"
+    time = next(row for row in start["locals"] if row["name"] == "time")
+    assert time["storage"] == {"kind": "frame", "register": 29, "register_name": "sp", "offset": 40}
+    assert time["block"] == [0x140550, 0x140680]
+    # Function locals stay with their function, never as free variables.
+    variables = {row["name"]: row for row in plan["variables"]}
+    assert "time" not in variables and "ptr" not in variables
+    assert variables["theGame"]["status"] == "present"
+    assert variables["theGame"]["placement"] == {"segment": 0, "initialized": False}
+    assert variables["gopt"]["placement"]["initialized"] is True
+    assert variables["__RTTI__8CZWeapon"]["status"] == "absent"
+    assert "0x476f60" in plan["receipt_scope"]["globals"]
+    assert "0x0" not in plan["receipt_scope"]["globals"]
 
 
 def test_import_plan_has_dependency_safe_application_order(plan) -> None:

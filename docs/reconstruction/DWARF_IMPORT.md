@@ -35,6 +35,24 @@ element type. A reviewed
 Ghidra writer applies the plan; the Python planner never opens or saves the
 program.
 
+Function rows keep the raw DWARF name and scope (`dwarf_qualified_name`) and
+take `qualified_name` from the demangled Metrowerks name (attribute `0x2000`),
+because DWARF 1 drops the enclosing class; `symbols` lists the `.symtab`
+aliases at `low_pc`. Parameters and locals carry their raw location block and
+a decoded `storage` (`register` with its R5900 name, `frame` base register and
+offset, `address`, or `expression`). Locals are collected through lexical
+blocks and keep the block's pc range. `parameter_storage` is `conflicting`
+when two parameters claim one register and `not-entry-storage` when one claims
+`v0`, which cannot carry an incoming argument
+(`release__15_zmalloc<4four>FPv` reads `a0`/`a1` while DWARF records both in
+`v0`); only `recorded` storage describes parameter homes.
+
+Variable rows cover compile-unit-level objects only. Each decodes its
+`DW_OP_ADDR` address, its `PT_LOAD` placement (initialized or zero-fill), its
+`.symtab` aliases, and demangled symbol names. Objects at address 0 or outside
+every load image are `absent` (the linker did not place them); `present`
+addresses form the receipt scope's `globals`.
+
 Tracker schema 3 represents these as two different leases. A
 `debug-import-plan-*` item is owned by the DWARF importer and can write only its
 deterministic file under `build/import-plans`. After independent acceptance,

@@ -923665,7 +923665,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 22,
+  "revision": 25,
   "schema_version": 3,
   "semantic_spans": [],
   "stage_order": [
@@ -1451408,6 +1451408,10 @@
       "title": "Apply the reviewed global DWARF type plan in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-07T03:15:34Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 1,
         "compile_unit_ids": [
@@ -1451566,8 +1451570,27 @@
       "dependencies": [
         "socom:work:debug-type-foundation-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "function rows equal the raw DIEs field by field (name, low/high pc, attribute 0x2000, return/parameter/local descriptors, raw location, decoded storage, block ranges) and .symtab aliases (FUNC size = high-low); verify asm bodies equal [low_pc, high_pc) for all 22; demangled scopes agree with the this-pointee identities (_zmalloc<four>, _zmalloc<twelve>, COurGame, CGameState, std::basic_string<char, ...>)",
+        "independent ELF32/DWARF 1 reader (not tools/_socom/dwarf1.py): batch die_ranges equal the first 24 compile-unit sibling ranges 0..164826, contiguous, paths equal the tracker descriptor; 3835 non-null DIEs = selected_die_count; all 22 subprogram DIEs, their 19 formal_parameters, 6 locals (all under lexical blocks) and all 24 CU-level variables are represented; no other function or variable DIE in range",
+        "non-blocking, for the apply item: DWARF parameter lists are incomplete against mangled signatures in 10 of 22 functions (7 CGameState virtuals list no this/f/i; both __dt omit the hidden short flag in a1; basic_string::__ct omits const allocator&), so prototypes must come from the mangled name and ABI; 12 RTTI/vtable variables are typed by member-less anonymous @anonN structs with no ghidra_path; frame offsets are post-prologue sp-relative and the frame size is only raw in attr_0x2010; the planner decodes the Metrowerks 0x80 FPR atom as invalid (218 locations outside this batch)",
+        "parameter_storage: 13 recorded, 7 not-entry-storage, 2 conflicting. verify asm release__15_zmalloc<4four>FPv reads this from a0 and _ptr from a1 (lw v0,0x0(a0); sltu v0,a1,v0) while DWARF records both in v0; verify asm StopEngine__8COurGameFv never reads a0 while DWARF records this in v0 -> v0 parameter records are not entry storage",
+        "planner rework for batch plans (tools/_socom/import_plan.py; types-only output unchanged: the foundation plan regenerates as 047bb41d...5241): function qualified_name from the demangled 0x2000 name (DWARF 1 drops the class; e.g. 0x140460 release -> _zmalloc<four>::release, 0x140bc0 __dt -> CGameState::__dt), raw dwarf_qualified_name kept, .symtab aliases; locals collected through lexical blocks with block ranges; parameter/local location blocks decoded to register/frame/address storage",
+        "python tools/socom.py debug conflicts list --batch socom:debug-batch:cb1cc66c6e35fc967c25 -> ok, 0 conflicts",
+        "python tools/socom.py debug import-plan --batch socom:debug-batch:cb1cc66c6e35fc967c25 --output build/import-plans/socom-debug-batch-cb1cc66c6e35fc967c25.json -> sha256 5668ec79c62c5218c5efe0aada8c41cce98d313ccc300c67fbea417da049cb82 (two runs identical)",
+        "reproduced: debug import-plan --batch socom:debug-batch:cb1cc66c6e35fc967c25 -> sha256 5668ec79c62c5218c5efe0aada8c41cce98d313ccc300c67fbea417da049cb82 in two runs and under PYTHONHASHSEED=4242, identical to the handed-off file; debug conflicts list --batch -> count 0; debug import-plan --batch socom:work:debug-type-foundation -> 047bb41d6e3b9f9b915320dac12bd287b592f3b56cf239c7dbacf7d5071f5241 (types-only output unchanged)",
+        "storage vs asm: recorded homes match prologue moves (CGameState::__dt move s0,a0; main move s1,a0 + move s0,a1; __nw move s0,a0; basic_string reserve move s3,a0 + move s2,a1, __dt move s1,a0, __ct move s0,a0; StartEngine time sp+0x28 = addiu a0,sp,0x28 after addiu sp,sp,-0x30, result s0 = move s0,zero); both release read a0/a1 while DWARF has v0 twice (conflicting); the 7 not-entry-storage functions read or forward a0 (StopPlay/StartPlay j CGame::StopPlay/StartPlay, StopEngine/StartEngine jal CGame::StopEngine/StartEngine with a0 untouched, __dla/__dl beq a0, __nwa j _new_vec__FUiPCci)",
+        "tests/tools: 109 passed, 1 known failure (GUIDANCE.md surface); progress audit --strict ok at revision 24; ghidra preflight --strict ok",
+        "tests: tests/tools/test_import_plan.py (locations, parameter storage, function/variable evidence) 11 passed; full tools suite 109 passed with only the known GUIDANCE.md surface failure; audits docs, independence, agent-surface, workflow-contracts, current-metadata, progress --strict ok",
+        "types: all 28 referenced type DIEs resolve to plan rows; 16 carry ghidra_path and match live sizes; read-only ghidra receipt over the full plan scope (22 functions, 418 types, 17 globals) resolved every type exactly once (375 layouts, 41 enums, 2 no-component-readback) and every function and global address",
+        "variables: 24 rows equal raw DW_OP_ADDR, PT_LOAD 0 placement (0x100000, file to 0x475600, memory to 0x5e7f00), .symtab aliases, and symbol size = type byte_size for all 17 present; receipt_scope.globals equals exactly those 17 addresses; the 7 absent rows have DW_OP_ADDR 0. Same-name STB_LOCAL copies exist elsewhere but belong to other translation units: c_szCornerBoxesTx/c_szHudScrollArrowTex copies are each claimed by another CU's DWARF address; the RTTI copies are referenced only from code with no DWARF function (CZWeapon: 0x1f5068, 0x2a88f4, 0x2ab278, 0x318c34, 0x3193a4) and none lies in main.cpp's data run 0x444480-0x4445a0 holding its placed RTTI",
+        "variables: compile-unit-level only (function locals stay with their function); DW_OP_ADDR decoded; placement from PT_LOAD 0 (va 0x100000, file to 0x475600, memory to 0x5e7f00): e.g. theGame 0x476f60 zero-fill, gopt 0x438750 initialized; absent at address 0: __RTTI__8CZWeapon, __RTTI__11CZFTSWeapon, __RTTI__Q23zdb15tag_NODE_PARAMS, __RTTI__Q23zdb5CNode, __RTTI__Q23zdb6CModel, c_szCornerBoxesTx, c_szHudScrollArrowTex"
+      ],
+      "handoff": {
+        "owner": "socom-dwarf-importer",
+        "submitted_at": "2026-10-07T02:58:36Z",
+        "summary": "DWARF compile-unit batch 001 plan (24 units, DIE 0-164826) is conflict-free: 22 functions with demangled class-qualified names, 6 locals from lexical blocks, 24 compile-unit-level variables (17 present, 7 absent at address 0), 710 type rows whose 418 Ghidra paths were all applied by the accepted type foundation. Receipt scope: 22 functions, 17 globals, 418 types."
+      },
       "id": "socom:debug-batch:cb1cc66c6e35fc967c25",
       "kind": "debug-import-plan-batch",
       "lease": null,
@@ -1451576,7 +1451599,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan DWARF compile-unit batch 001 (24 units)"
     },
     {
@@ -1451749,7 +1451772,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed DWARF compile-unit batch 001 (24 units)"
     },
     {

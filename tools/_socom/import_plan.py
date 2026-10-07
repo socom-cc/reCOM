@@ -9,7 +9,7 @@ from typing import Any
 from .constants import REFERENCE_SHA256
 from .dwarf1 import Dwarf1Debug, Die, TYPE_TAGS
 from .elf import Elf32File
-from .mwdemangle import split_qualified
+from .mwdemangle import demangle, readable_qualified, split_qualified
 from .type_identity import (
     TypeIdentities,
     ghidra_path,
@@ -22,6 +22,79 @@ from .util import stable_id
 FUNCTION_TAGS = {0x0003, 0x0006, 0x0014, 0x001D}
 VARIABLE_TAGS = {0x0007, 0x000C}
 COMPOSITE_TAGS = {0x0002, 0x0013, 0x0017}
+
+MIPS_GPR_NAMES = (
+    "zero", "at", "v0", "v1", "a0", "a1", "a2", "a3",
+    "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7",
+    "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7",
+    "t8", "t9", "k0", "k1", "gp", "sp", "fp", "ra",
+)
+# DWARF 1 location atoms: REG, BASEREG, ADDR, CONST carry a 4-byte operand.
+_LOCATION_OPERAND_ATOMS = {0x01: "reg", 0x02: "basereg", 0x03: "addr", 0x04: "const"}
+_LOCATION_PLAIN_ATOMS = {0x05: "deref2", 0x06: "deref4", 0x07: "add"}
+
+
+def _register(number: int) -> dict[str, Any]:
+    name = MIPS_GPR_NAMES[number] if 0 <= number < len(MIPS_GPR_NAMES) else None
+    return {"register": number, "register_name": name}
+
+
+def decode_location(value: Any) -> dict[str, Any] | None:
+    """Decode a DWARF 1 location block into register, frame, or address form."""
+
+    if value is None:
+        return None
+    block = bytes.fromhex(value) if isinstance(value, str) else bytes(value)
+    atoms: list[tuple[str, int | None]] = []
+    index = 0
+    while index < len(block):
+        op = block[index]
+        index += 1
+        if op in _LOCATION_OPERAND_ATOMS:
+            if index + 4 > len(block):
+                return {"kind": "invalid", "raw": block.hex()}
+            operand = int.from_bytes(block[index : index + 4], "little", signed=op == 0x04)
+            index += 4
+            atoms.append((_LOCATION_OPERAND_ATOMS[op], operand))
+        elif op in _LOCATION_PLAIN_ATOMS:
+            atoms.append((_LOCATION_PLAIN_ATOMS[op], None))
+        else:
+            return {"kind": "invalid", "raw": block.hex()}
+    if len(atoms) == 1 and atoms[0][0] == "reg":
+        return {"kind": "register", **_register(int(atoms[0][1]))}
+    if len(atoms) == 1 and atoms[0][0] == "addr":
+        return {"kind": "address", "address": int(atoms[0][1])}
+    if [atom[0] for atom in atoms] == ["basereg", "const", "add"]:
+        return {"kind": "frame", **_register(int(atoms[0][1])), "offset": int(atoms[1][1])}
+    return {"kind": "expression", "atoms": [list(atom) for atom in atoms]}
+
+
+def _symbol_index(elf: Elf32File) -> dict[int, list[str]]:
+    names: dict[int, set[str]] = collections.defaultdict(set)
+    for symbol in elf.symbols():
+        if symbol.name and symbol.type_name in ("FUNC", "OBJECT", "NOTYPE") and symbol.value:
+            names[symbol.value].add(symbol.name)
+    return {address: sorted(values) for address, values in names.items()}
+
+
+def _placement(elf: Elf32File, address: int) -> dict[str, Any] | None:
+    """Locate an address in a PT_LOAD image; zero-fill lies past the file bytes."""
+
+    for segment in elf.load_segments():
+        start = segment.virtual_address
+        if start <= address < start + segment.memory_size:
+            return {
+                "segment": segment.index,
+                "initialized": address < start + segment.file_size,
+            }
+    return None
+
+
+def _symbol_identity(mangled: str | None) -> str | None:
+    parsed = demangle(mangled) if mangled else None
+    if not parsed:
+        return None
+    return readable_qualified([*parsed["qualifier"], parsed["name"]])
 
 
 def _parent_map(dies: tuple[Die, ...]) -> dict[int, int]:
@@ -210,10 +283,45 @@ def _type_rows(
     return result
 
 
+def parameter_storage(parameters: list[dict[str, Any]]) -> str:
+    """Classify recorded parameter locations as usable homes or not.
+
+    Two parameters cannot share one register, and v0 cannot carry an incoming
+    R5900 argument (`release__15_zmalloc<4four>FPv` reads a0/a1 while DWARF
+    records both parameters in v0).
+    """
+
+    registers = [
+        row["storage"]["register"]
+        for row in parameters
+        if row["storage"] and row["storage"]["kind"] == "register"
+    ]
+    if len(registers) != len(set(registers)):
+        return "conflicting"
+    if 2 in registers:
+        return "not-entry-storage"
+    return "recorded"
+
+
+def _storage_row(die: Die, block: list[int] | None = None) -> dict[str, Any]:
+    raw = die.attribute("location").value if die.attribute("location") else None
+    row = {
+        "name": die.string("name"),
+        "die_offset": die.offset,
+        "type": type_descriptor(type_ref(die)),
+        "location": _attribute_value(raw),
+        "storage": decode_location(raw),
+    }
+    if block is not None:
+        row["block"] = block
+    return row
+
+
 def _function_rows(
     dies: tuple[Die, ...],
     parents: dict[int, int],
     by_offset: dict[int, Die],
+    symbols: dict[int, list[str]],
 ) -> list[dict[str, Any]]:
     by_parent: dict[int, list[Die]] = collections.defaultdict(list)
     for die in dies:
@@ -228,51 +336,102 @@ def _function_rows(
             continue
         children = by_parent.get(die.offset, [])
         parameters = [
-            {
-                "name": child.string("name"),
-                "die_offset": child.offset,
-                "type": type_descriptor(type_ref(child)),
-                "location": _attribute_value(
-                    child.attribute("location").value
-                    if child.attribute("location")
-                    else None
-                ),
-            }
+            _storage_row(child)
             for child in children
             if child.tag_name == "formal_parameter"
         ]
-        locals_ = [
-            {
-                "name": child.string("name"),
-                "die_offset": child.offset,
-                "type": type_descriptor(type_ref(child)),
-                "location": _attribute_value(
-                    child.attribute("location").value
-                    if child.attribute("location")
-                    else None
-                ),
-            }
-            for child in children
-            if child.tag_name == "local_variable"
-        ]
+        # Metrowerks nests locals in lexical blocks; keep each block's range.
+        locals_: list[dict[str, Any]] = []
+
+        def collect(offset: int, block: list[int] | None) -> None:
+            for child in by_parent.get(offset, []):
+                if child.tag_name == "local_variable":
+                    locals_.append(_storage_row(child, block))
+                elif child.tag_name == "lexical_block":
+                    collect(child.offset, [child.integer("low_pc"), child.integer("high_pc")])
+
+        collect(die.offset, None)
         scope = _scope_identity(die, parents, by_offset)
+        mangled = die.string("attr_0x2000")
+        low_pc = die.integer("low_pc")
         result.append(
             {
                 "id": stable_id("function-plan", die.offset, name or ""),
                 "name": name,
-                "qualified_name": scope["qualified_name"],
+                # Metrowerks DWARF 1 drops the enclosing class; the mangled
+                # name keeps it.
+                "qualified_name": _symbol_identity(mangled) or scope["qualified_name"],
+                "dwarf_qualified_name": scope["qualified_name"],
+                "mangled_name": mangled,
+                "symbols": symbols.get(low_pc, []) if low_pc is not None else [],
                 "scope_path": scope["scope_path"],
                 "compile_unit_offset": scope["compile_unit_offset"],
                 "compile_unit_path": scope["compile_unit_path"],
-                "low_pc": die.integer("low_pc"),
+                "low_pc": low_pc,
                 "high_pc": die.integer("high_pc"),
                 "return_type": type_descriptor(type_ref(die)),
                 "parameters": parameters,
+                "parameter_storage": parameter_storage(parameters),
                 "locals": locals_,
                 "evidence": _die_evidence(die),
             }
         )
     return result
+
+
+def _in_function(die: Die, parents: dict[int, int], by_offset: dict[int, Die]) -> bool:
+    return any(
+        by_offset[offset].tag in FUNCTION_TAGS
+        for offset in _ancestor_offsets(die, parents, by_offset)
+    )
+
+
+def _variable_rows(
+    elf: Elf32File,
+    dies: tuple[Die, ...],
+    parents: dict[int, int],
+    by_offset: dict[int, Die],
+    symbols: dict[int, list[str]],
+) -> list[dict[str, Any]]:
+    """Compile-unit-level variables; function locals stay with their function."""
+
+    rows = []
+    for die in dies:
+        if die.tag not in VARIABLE_TAGS or not die.string("name"):
+            continue
+        if _in_function(die, parents, by_offset):
+            continue
+        scope = _scope_identity(die, parents, by_offset)
+        raw = die.attribute("location").value if die.attribute("location") else None
+        storage = decode_location(raw)
+        address = storage["address"] if storage and storage["kind"] == "address" else None
+        placement = _placement(elf, address) if address else None
+        names = symbols.get(address, []) if address else []
+        rows.append(
+            {
+                "id": stable_id("variable-plan", die.offset, die.string("name") or ""),
+                "name": die.string("name"),
+                "qualified_name": scope["qualified_name"],
+                "symbol_qualified_names": sorted(
+                    {value for name in names if (value := _symbol_identity(name))}
+                ),
+                "scope_path": scope["scope_path"],
+                "compile_unit_offset": scope["compile_unit_offset"],
+                "compile_unit_path": scope["compile_unit_path"],
+                "kind": die.tag_name,
+                "type": type_descriptor(type_ref(die)),
+                "location": _attribute_value(raw),
+                "storage": storage,
+                "address": address,
+                "placement": placement,
+                "symbols": names,
+                # Address 0 or an address outside every PT_LOAD image means
+                # the linker did not place this object.
+                "status": "present" if placement else "absent",
+                "evidence": _die_evidence(die),
+            }
+        )
+    return rows
 
 
 def _conflicts(
@@ -338,31 +497,11 @@ def build_import_plan(root: Path, batch: dict[str, Any] | None = None) -> dict[s
     identities = TypeIdentities(elf, dies, parents)
     types = _type_rows(selected, parents, by_offset, identities)
     types_only = (batch or {}).get("selection") == "types"
-    functions = [] if types_only else _function_rows(selected, parents, by_offset)
-    variables = [] if types_only else [
-        {
-            "id": stable_id("variable-plan", die.offset, die.string("name") or ""),
-            "name": die.string("name"),
-            "qualified_name": _scope_identity(die, parents, by_offset)[
-                "qualified_name"
-            ],
-            "scope_path": _scope_identity(die, parents, by_offset)["scope_path"],
-            "compile_unit_offset": _scope_identity(die, parents, by_offset)[
-                "compile_unit_offset"
-            ],
-            "compile_unit_path": _scope_identity(die, parents, by_offset)[
-                "compile_unit_path"
-            ],
-            "kind": die.tag_name,
-            "type": type_descriptor(type_ref(die)),
-            "location": _attribute_value(
-                die.attribute("location").value if die.attribute("location") else None
-            ),
-            "evidence": _die_evidence(die),
-        }
-        for die in selected
-        if die.tag in VARIABLE_TAGS and die.string("name")
-    ]
+    symbols = {} if types_only else _symbol_index(elf)
+    functions = [] if types_only else _function_rows(selected, parents, by_offset, symbols)
+    variables = [] if types_only else _variable_rows(
+        elf, selected, parents, by_offset, symbols
+    )
     conflicts = _conflicts(types, identities)
     selected_classes = {row["structural_class"] for row in types}
     identity_rows = [
@@ -380,7 +519,12 @@ def build_import_plan(root: Path, batch: dict[str, Any] | None = None) -> dict[s
             # Exact spelling breaks casefold ties (LINE_DATA vs line_data).
             key=lambda path: (path.casefold(), path),
         ),
-        "globals": [],
+        "globals": [
+            f"0x{address:x}"
+            for address in sorted(
+                {row["address"] for row in variables if row["status"] == "present"}
+            )
+        ],
     }
     return {
         "schema_version": 4,

@@ -292,8 +292,58 @@
       },
       "status": "resolved",
       "summary": "ghidra preflight --strict enforced bootstrap counts after live reconstruction"
+    },
+    {
+      "details": "Metrowerks DWARF 1 location atom 0x80 names a floating-point register (80 14000000 = f20; Tick__10OrdersMenuFf at 0x174b54 executes mov.S f20,f12). decode_location in tools/_socom/import_plan.py returns kind invalid for it, affecting 218 parameter/local locations outside batch 001.",
+      "id": "socom:workspace-issue:483c04ae1bb081f70fc1",
+      "kind": "problem",
+      "reported_at": "2026-10-07T03:16:42Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Planner decodes Metrowerks floating-point register locations as invalid"
+    },
+    {
+      "details": "210 local_variable DIEs inside functions carry DW_OP_ADDR locations (function statics). They stay in the function's locals with address storage but are not listed in receipt_scope.globals, so a batch apply would not bind them. Batch 001 has none.",
+      "id": "socom:workspace-issue:36d1df5e195e0275cb8f",
+      "kind": "problem",
+      "reported_at": "2026-10-07T03:16:42Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Function-level static locals with fixed addresses never reach receipt globals"
+    },
+    {
+      "details": "In batch 001, 10 of 22 functions list fewer formal parameters than their mangled signatures: the 7 CGameState virtuals have no parameter DIEs (no this, Tick's float, OnPush/OnPop's int); both __dt omit the hidden short destructor flag in a1 (move s1,a1 then 16-bit sign extension); basic_string::__ct omits const allocator&. parameter_storage still reports recorded for empty or partial lists. Prototypes for the apply must come from the mangled signature and the Metrowerks calling convention, with DWARF names and types where they exist.",
+      "id": "socom:workspace-issue:7069650f789566fcebcf",
+      "kind": "problem",
+      "reported_at": "2026-10-07T03:16:43Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "DWARF parameter lists are incomplete for Metrowerks functions"
+    },
+    {
+      "details": "12 batch 001 variables (__RTTI__* and __vt__*; 7 present: __RTTI__5CGame, __RTTI__8COurGame, __RTTI__10CGameState, four __vt__ tables) reference member-less anonymous @anonN structure DIEs with no ghidra_path, so the plan offers no Ghidra type to apply. A typing policy for Metrowerks RTTI and vtable objects is needed before applying globals.",
+      "id": "socom:workspace-issue:8230174f79e82e17619e",
+      "kind": "problem",
+      "reported_at": "2026-10-07T03:16:43Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "RTTI and vtable globals are typed by member-less anonymous structures"
+    },
+    {
+      "details": "Applying batch plans (functions and globals) needs: entry-relative stack offsets (frame size only in raw attribute 0x2010, e.g. 011d000000043000000007 = sp+0x30, while locals are post-prologue sp-relative); prototypes from mangled signatures plus calling convention including hidden parameters; a naming choice between DWARF spellings and demangled names for static members while preserving mangled aliases; and rules for replacing current live data (__RTTI__8COurGame/__RTTI__10CGameState are 4-byte pointers, gopt is undefined1, vtables undefined1[N], zero-fill globals have no data). Also: variable qualified_name keeps the raw DWARF spelling while the demangled form is only in symbol_qualified_names, and symbols lists zero-size linker markers such as __static_init_end.",
+      "id": "socom:workspace-issue:19bf949fcb39cfb17513",
+      "kind": "request",
+      "reported_at": "2026-10-07T03:16:43Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Batch apply needs frame size, prototype policy, and live-data retyping rules"
     }
   ],
-  "revision": 36,
+  "revision": 41,
   "schema_version": 1
 }
