@@ -441,8 +441,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Type foundation did not create anonymous class @class@d37844a018 used by recoResult"
+    },
+    {
+      "details": "Batch 10 acceptance (tracker revision 46). (1) Metrowerks DWARF 1 parameter records omit const that the mangled signature keeps, e.g. getopt__FiPCPcPCc is applied as (int, char * *, char *) instead of (int, char * const *, const char *); the mangled secondary label preserves it, but prototypes should reconcile cv-qualifiers from the mangled name once the bridge can spell them. (2) Derived arrays of builtin elements created by apply_data_type (char *[4], char[30]) resolve into the root/builtin category rather than a stable project category; decide whether derived types need a governed category.",
+      "id": "socom:workspace-issue:997ec8205de0a9c20d2d",
+      "kind": "problem",
+      "reported_at": "2026-10-07T22:19:16Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Applied prototypes drop const that mangled names carry; derived types land in the root category"
     }
   ],
-  "revision": 53,
+  "revision": 54,
   "schema_version": 1
 }
