@@ -13,7 +13,9 @@ from .constants import (
     SCHEMA_VERSION,
     STAGES,
     TRACKER_ID,
+    ZERO_FILL_MEMORY_ID,
 )
+
 from .locking import exclusive_state_lock
 from .source import source_owners
 from .util import SocomError, atomic_write_json, load_json, stable_id
@@ -26,6 +28,25 @@ WORK_STATUSES = {
     "accepted",
 }
 STAGE_STATUSES = {"pending", "active", "accepted"}
+
+GHIDRA_WRITER_RESOURCES = ["ghidra:soCOM/socom.elf", "ghidra-writer"]
+
+
+def _zero_fill_memory_item(foundation_apply_id: str) -> dict[str, Any]:
+    return {
+        "id": ZERO_FILL_MEMORY_ID,
+        "stage": "debug-metadata-import",
+        "kind": "ghidra-memory-map",
+        "title": "Map the zero-fill load image in Ghidra",
+        "status": "blocked",
+        "dependencies": [foundation_apply_id],
+        "resources": list(GHIDRA_WRITER_RESOURCES),
+        "selection": None,
+        "batch": None,
+        "lease": None,
+        "handoff": None,
+        "evidence": [],
+    }
 
 
 def _utc_now() -> dt.datetime:
@@ -113,7 +134,8 @@ def initialize_tracker(root: Path, census: dict[str, Any]) -> dict[str, Any]:
             "lease": None,
             "handoff": None,
             "evidence": [],
-        }
+        },
+        _zero_fill_memory_item(foundation_apply_id),
     ]
     batch_apply_ids = []
     for batch in batches:
@@ -147,7 +169,7 @@ def initialize_tracker(root: Path, census: dict[str, Any]) -> dict[str, Any]:
                     f"Apply reviewed DWARF batch {batch['batch_number']:03d} in Ghidra"
                 ),
                 "status": "blocked",
-                "dependencies": [batch["id"]],
+                "dependencies": [batch["id"], ZERO_FILL_MEMORY_ID],
                 "resources": ["ghidra:soCOM/socom.elf", "ghidra-writer"],
                 "selection": "all",
                 "batch": batch,
@@ -508,14 +530,27 @@ def audit_tracker(
             if item.get("dependencies") != expected_dependencies:
                 errors.append(f"{item_id} plan dependencies differ from contract")
         if str(kind).startswith("debug-import-apply-"):
-            required_resources = {"ghidra:soCOM/socom.elf", "ghidra-writer"}
+            required_resources = set(GHIDRA_WRITER_RESOURCES)
             if resources != required_resources:
                 errors.append(f"{item_id} apply resources differ from Ghidra contract")
-            if len(item.get("dependencies", [])) != 1:
-                errors.append(f"{item_id} apply item must depend on exactly one plan")
             expected_plan = str(item_id).removesuffix("-apply")
-            if item.get("dependencies") != [expected_plan]:
-                errors.append(f"{item_id} does not depend on matching plan {expected_plan}")
+            # Batch applies also wait for the zero-fill image their globals use.
+            expected_dependencies = (
+                [expected_plan, ZERO_FILL_MEMORY_ID]
+                if kind == "debug-import-apply-batch"
+                else [expected_plan]
+            )
+            if item.get("dependencies") != expected_dependencies:
+                errors.append(
+                    f"{item_id} dependencies differ from {expected_dependencies}"
+                )
+        if kind == "ghidra-memory-map":
+            if item_id != ZERO_FILL_MEMORY_ID:
+                errors.append(f"{item_id} is an unexpected memory-map item")
+            if resources != set(GHIDRA_WRITER_RESOURCES):
+                errors.append(f"{item_id} memory-map resources differ from Ghidra contract")
+            if item.get("dependencies") != ["socom:work:debug-type-foundation-apply"]:
+                errors.append(f"{item_id} must depend only on the type foundation apply")
         if kind == "stage-seed" and status != "blocked":
             errors.append(f"{item_id} undecomposed stage seed must remain blocked")
         missing = set(item.get("dependencies", [])) - known
@@ -576,8 +611,12 @@ def audit_tracker(
         if str(item.get("kind", "")).startswith("debug-import-apply-")
     ]
     for item in apply_items:
-        if not set(item.get("dependencies", [])) <= plan_ids:
+        if not set(item.get("dependencies", [])) - {ZERO_FILL_MEMORY_ID} <= plan_ids:
             errors.append(f"{item['id']} does not depend on its reviewed plan")
+    if [item["id"] for item in items if item.get("kind") == "ghidra-memory-map"] != [
+        ZERO_FILL_MEMORY_ID
+    ]:
+        errors.append(f"tracker must hold exactly one {ZERO_FILL_MEMORY_ID} item")
     if {
         f"{item['id']}-apply"
         for item in items
@@ -1084,6 +1123,114 @@ def release_work(tracker: dict[str, Any], item_id: str, owner: str) -> None:
     item["lease"] = None
 
 
+def _migrate_2_to_3(updated: dict[str, Any]) -> None:
+    """Split debug import items into file-only plans and Ghidra applies."""
+
+    old_items = updated["work_items"]
+    new_items: list[dict[str, Any]] = []
+    foundation_id = "socom:work:debug-type-foundation"
+    foundation_apply_id = f"{foundation_id}-apply"
+    apply_ids: list[str] = []
+    for item in old_items:
+        kind = item.get("kind")
+        if kind not in {"debug-import-foundation", "debug-import-batch"}:
+            continue
+        is_foundation = kind == "debug-import-foundation"
+        plan = copy.deepcopy(item)
+        plan["kind"] = (
+            "debug-import-plan-foundation" if is_foundation else "debug-import-plan-batch"
+        )
+        plan["title"] = (
+            "Plan and reconcile the global DWARF type graph"
+            if is_foundation
+            else str(plan["title"]).replace("Import DWARF", "Plan DWARF")
+        )
+        plan["dependencies"] = [] if is_foundation else [foundation_apply_id]
+        plan["resources"] = ["build/import-plans"]
+        plan["status"] = "ready" if is_foundation else "blocked"
+        new_items.append(plan)
+
+        apply_id = foundation_apply_id if is_foundation else f"{item['id']}-apply"
+        apply_ids.append(apply_id)
+        apply = copy.deepcopy(item)
+        apply["id"] = apply_id
+        apply["kind"] = (
+            "debug-import-apply-foundation" if is_foundation else "debug-import-apply-batch"
+        )
+        apply["title"] = (
+            "Apply the reviewed global DWARF type plan in Ghidra"
+            if is_foundation
+            else str(item["title"]).replace("Import DWARF", "Apply reviewed DWARF")
+        )
+        apply["status"] = "blocked"
+        apply["dependencies"] = [item["id"]]
+        apply["resources"] = ["ghidra:soCOM/socom.elf", "ghidra-writer"]
+        apply["lease"] = None
+        apply["handoff"] = None
+        apply.pop("accepted", None)
+        apply.pop("ghidra_receipt", None)
+        new_items.append(apply)
+
+    for item in old_items:
+        if item.get("kind") in {"debug-import-foundation", "debug-import-batch"}:
+            continue
+        migrated = copy.deepcopy(item)
+        if migrated.get("id") == "socom:work:ghidra-reconstruction-seed":
+            migrated["dependencies"] = list(apply_ids)
+        migrated["status"] = "blocked" if migrated.get("kind") == "stage-seed" else migrated["status"]
+        new_items.append(migrated)
+    updated["work_items"] = new_items
+    if not any(
+        row.get("id") == "socom:blocker:deferred-stage-producers"
+        for row in updated.get("blockers", [])
+    ):
+        updated.setdefault("blockers", []).append(
+            {
+                "id": "socom:blocker:deferred-stage-producers",
+                "kind": "missing-stage-producer",
+                "status": "open",
+                "summary": (
+                    "Later build stages remain closed until a real native producer "
+                    "and stage-specific acceptance route are registered."
+                ),
+                "blocks": [
+                    "authored-function-order",
+                    "authored-call-contract",
+                    "authored-byte-match",
+                    "full-function-order",
+                    "linked-byte-match",
+                    "final-validation",
+                ],
+                "evidence": ["docs/reconstruction/TOOL_COVERAGE.md"],
+            }
+        )
+    updated["schema_version"] = 3
+
+
+def _migrate_3_to_4(updated: dict[str, Any]) -> None:
+    """Add the zero-fill memory-map item that every batch apply waits for."""
+
+    items = updated["work_items"]
+    foundation_apply_id = "socom:work:debug-type-foundation-apply"
+    if not any(row.get("id") == ZERO_FILL_MEMORY_ID for row in items):
+        index = next(
+            position for position, row in enumerate(items) if row.get("id") == foundation_apply_id
+        )
+        items.insert(index + 1, _zero_fill_memory_item(foundation_apply_id))
+    for row in items:
+        if row.get("kind") != "debug-import-apply-batch":
+            continue
+        if row["status"] in {"in_progress", "awaiting_acceptance", "accepted"}:
+            # Applied globals would have used memory this schema adds.
+            raise SocomError(f"{row['id']} started before the zero-fill memory item existed")
+        if ZERO_FILL_MEMORY_ID not in row["dependencies"]:
+            row["dependencies"] = [*row["dependencies"], ZERO_FILL_MEMORY_ID]
+        # Readiness refresh only promotes; a new unmet dependency re-blocks.
+        if row["status"] == "ready":
+            row["status"] = "blocked"
+    updated["schema_version"] = 4
+
+
 def migrate_tracker(path: Path, expected_revision: int) -> dict[str, Any]:
     """Migrate the tracker to the current schema under its normal lock."""
 
@@ -1092,7 +1239,7 @@ def migrate_tracker(path: Path, expected_revision: int) -> dict[str, Any]:
         require_revision(current, expected_revision)
         if current.get("schema_version") == SCHEMA_VERSION:
             return current
-        if current.get("schema_version") != 2:
+        if current.get("schema_version") not in (2, 3):
             raise SocomError(
                 f"no migration path from schema {current.get('schema_version')}"
             )
@@ -1108,94 +1255,23 @@ def migrate_tracker(path: Path, expected_revision: int) -> dict[str, Any]:
                 + repr(active)
             )
         updated = copy.deepcopy(current)
-        old_items = updated["work_items"]
-        new_items: list[dict[str, Any]] = []
-        foundation_id = "socom:work:debug-type-foundation"
-        foundation_apply_id = f"{foundation_id}-apply"
-        apply_ids: list[str] = []
-        for item in old_items:
-            kind = item.get("kind")
-            if kind not in {"debug-import-foundation", "debug-import-batch"}:
-                continue
-            is_foundation = kind == "debug-import-foundation"
-            plan = copy.deepcopy(item)
-            plan["kind"] = (
-                "debug-import-plan-foundation" if is_foundation else "debug-import-plan-batch"
-            )
-            plan["title"] = (
-                "Plan and reconcile the global DWARF type graph"
-                if is_foundation
-                else str(plan["title"]).replace("Import DWARF", "Plan DWARF")
-            )
-            plan["dependencies"] = [] if is_foundation else [foundation_apply_id]
-            plan["resources"] = ["build/import-plans"]
-            plan["status"] = "ready" if is_foundation else "blocked"
-            new_items.append(plan)
-
-            apply_id = foundation_apply_id if is_foundation else f"{item['id']}-apply"
-            apply_ids.append(apply_id)
-            apply = copy.deepcopy(item)
-            apply["id"] = apply_id
-            apply["kind"] = (
-                "debug-import-apply-foundation" if is_foundation else "debug-import-apply-batch"
-            )
-            apply["title"] = (
-                "Apply the reviewed global DWARF type plan in Ghidra"
-                if is_foundation
-                else str(item["title"]).replace("Import DWARF", "Apply reviewed DWARF")
-            )
-            apply["status"] = "blocked"
-            apply["dependencies"] = [item["id"]]
-            apply["resources"] = ["ghidra:soCOM/socom.elf", "ghidra-writer"]
-            apply["lease"] = None
-            apply["handoff"] = None
-            apply.pop("accepted", None)
-            apply.pop("ghidra_receipt", None)
-            new_items.append(apply)
-
-        for item in old_items:
-            if item.get("kind") in {"debug-import-foundation", "debug-import-batch"}:
-                continue
-            migrated = copy.deepcopy(item)
-            if migrated.get("id") == "socom:work:ghidra-reconstruction-seed":
-                migrated["dependencies"] = list(apply_ids)
-            migrated["status"] = "blocked" if migrated.get("kind") == "stage-seed" else migrated["status"]
-            new_items.append(migrated)
-        updated["work_items"] = new_items
-        if not any(
-            row.get("id") == "socom:blocker:deferred-stage-producers"
-            for row in updated.get("blockers", [])
-        ):
-            updated.setdefault("blockers", []).append(
+        updated["revision"] += 1
+        steps = []
+        if updated["schema_version"] == 2:
+            _migrate_2_to_3(updated)
+            steps.append((2, 3))
+        if updated["schema_version"] == 3:
+            _migrate_3_to_4(updated)
+            steps.append((3, 4))
+        for from_schema, to_schema in steps:
+            updated.setdefault("migration_history", []).append(
                 {
-                    "id": "socom:blocker:deferred-stage-producers",
-                    "kind": "missing-stage-producer",
-                    "status": "open",
-                    "summary": (
-                        "Later build stages remain closed until a real native producer "
-                        "and stage-specific acceptance route are registered."
-                    ),
-                    "blocks": [
-                        "authored-function-order",
-                        "authored-call-contract",
-                        "authored-byte-match",
-                        "full-function-order",
-                        "linked-byte-match",
-                        "final-validation",
-                    ],
-                    "evidence": ["docs/reconstruction/TOOL_COVERAGE.md"],
+                    "from_schema": from_schema,
+                    "to_schema": to_schema,
+                    "tracker_revision": updated["revision"],
+                    "at": _iso(_utc_now()),
                 }
             )
-        updated["schema_version"] = SCHEMA_VERSION
-        updated["revision"] += 1
-        updated.setdefault("migration_history", []).append(
-            {
-                "from_schema": 2,
-                "to_schema": SCHEMA_VERSION,
-                "tracker_revision": updated["revision"],
-                "at": _iso(_utc_now()),
-            }
-        )
         _refresh_ready_and_stages(updated)
         if errors := audit_tracker(updated):
             raise SocomError("tracker migration rejected:\n- " + "\n- ".join(errors))
@@ -1230,11 +1306,35 @@ def work_packet(
     elif kind.startswith("debug-import-apply-"):
         role = "socom-ghidra-reconstructor"
         skill = "socom-ghidra-reconstruction"
+        translate, apply = (
+            ("batch-program", "apply-batch")
+            if kind == "debug-import-apply-batch"
+            else ("apply-program", "apply-types")
+        )
         validation = [
             "python tools/socom.py ghidra preflight --strict",
-            "python tools/socom.py debug apply-program --plan <accepted-plan> --output build/apply/<item>.json",
-            "python tools/socom.py ghidra apply-types --program build/apply/<item>.json --item <item> --owner <owner> --scope-output build/receipts/<item>-scope.json --report-output build/apply/<item>-report.json",
+            f"python tools/socom.py debug {translate} --plan <accepted-plan> --output build/apply/<item>.json",
+            f"python tools/socom.py ghidra {apply} --program build/apply/<item>.json --item <item> --owner <owner> --scope-output build/receipts/<item>-scope.json --report-output build/apply/<item>-report.json",
             "python tools/socom.py ghidra receipt --scope <reviewed-scope>",
+        ]
+        handoff = "python tools/socom.py progress handoff-live-ghidra"
+        allowed_paths = []
+        ghidra_scope = {
+            "project": "soCOM",
+            "program": "socom.elf",
+            "program_path": "/socom.elf",
+            "receipt_scope_required": True,
+        }
+    elif kind == "ghidra-memory-map":
+        role = "socom-ghidra-reconstructor"
+        skill = "socom-ghidra-reconstruction"
+        slug = item_id.replace(":", "-")
+        validation = [
+            "python tools/socom.py ghidra preflight --strict",
+            f"python tools/socom.py ghidra map-zero-fill --item {item_id} --owner <owner> "
+            f"--scope-output build/receipts/{slug}-scope.json "
+            f"--report-output build/apply/{slug}-report.json",
+            f"python tools/socom.py ghidra receipt --scope build/receipts/{slug}-scope.json",
         ]
         handoff = "python tools/socom.py progress handoff-live-ghidra"
         allowed_paths = []

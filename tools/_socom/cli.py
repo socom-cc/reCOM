@@ -40,12 +40,15 @@ from .issues import (
 from .reference import query_relocations
 from .ghidra import (
     GhidraBridge,
+    _function_index,
     _type_index,
     data_overlaps,
     live_preflight,
     load_receipt_scope,
+    map_zero_fill,
     semantic_receipt,
 )
+from .batch_apply import BatchFailure, build_batch_program, execute_batch_program
 from .type_apply import ApplyFailure, build_apply_program, execute_apply_program
 from .source import (
     audit_docblocks,
@@ -515,6 +518,228 @@ def _ghidra_apply_types(arguments: argparse.Namespace) -> int:
     }
     atomic_write_json(report_output, report)
     _emit({"ok": True, **report})
+    return 0
+
+
+def _debug_batch_program(arguments: argparse.Namespace) -> int:
+    root = _root(arguments)
+    plan_path = Path(arguments.plan)
+    if not plan_path.is_absolute():
+        plan_path = root / plan_path
+    program = build_batch_program(root, plan_path)
+    if arguments.output:
+        atomic_write_json(_build_path(root, arguments.output, "batch programs"), program)
+    _emit(
+        {
+            "kind": program["kind"],
+            "mutation_performed": False,
+            "plan": program["plan"],
+            "summary": program["summary"],
+            "output": arguments.output,
+        }
+    )
+    return 0
+
+
+def _require_accepted_plan(
+    root: Path, tracker: dict[str, Any], item: dict[str, Any], program: dict[str, Any]
+) -> Path:
+    plan_info = program.get("plan") or {}
+    plan_item_id = plan_info.get("work_item_id")
+    if plan_item_id not in item.get("dependencies", []):
+        raise SocomError(f"{item['id']} does not depend on plan item {plan_item_id}")
+    plan_item = next((row for row in tracker["work_items"] if row["id"] == plan_item_id), None)
+    if not plan_item or plan_item.get("status") != "accepted":
+        raise SocomError(f"plan item {plan_item_id} is not accepted")
+    plan_sha256 = str(plan_info.get("sha256", ""))
+    cited = [
+        text
+        for text in plan_item.get("evidence", [])
+        + ((plan_item.get("handoff") or {}).get("evidence") or [])
+        if isinstance(text, str)
+    ]
+    if len(plan_sha256) != 64 or not any(plan_sha256 in text for text in cited):
+        raise SocomError("the accepted plan item does not cite this plan's SHA-256")
+    plan_path = root / plan_info["path"]
+    if sha256_file(plan_path) != plan_sha256:
+        raise SocomError("the plan file no longer matches the program")
+    return plan_path
+
+
+def _ghidra_apply_batch(arguments: argparse.Namespace) -> int:
+    root = _root(arguments)
+    program_path = Path(arguments.program)
+    if not program_path.is_absolute():
+        program_path = root / program_path
+    program = load_json(program_path)
+    scope_output = _build_path(root, arguments.scope_output, "receipt scopes")
+    report_output = _build_path(root, arguments.report_output, "apply reports")
+    tracker = load_tracker(tracker_path(root))
+    item = require_ghidra_lease(tracker, arguments.item, arguments.owner)
+    if item.get("kind") != "debug-import-apply-batch":
+        raise SocomError(f"{arguments.item} is not a batch apply item")
+    plan_path = _require_accepted_plan(root, tracker, item, program)
+    if canonical_json(build_batch_program(root, plan_path)) != canonical_json(program):
+        raise SocomError("the batch program is stale or edited; regenerate it")
+    preflight = live_preflight(root, bridge_url=arguments.bridge_url, strict_baseline=False)
+    if not preflight["ok"]:
+        _emit({"ok": False, "preflight": preflight})
+        return 1
+    bridge = GhidraBridge(arguments.bridge_url, timeout=300.0)
+    try:
+        result = execute_batch_program(
+            program,
+            bridge,
+            type_index=lambda: _type_index(bridge),
+            function_names=lambda: {
+                f"0x{int(row['address'], 16):x}": row["name"]
+                for row in _function_index(bridge)
+                if "::" not in row["address"]
+            },
+            log=lambda message: print(message, file=sys.stderr, flush=True),
+        )
+    except BatchFailure as failure:
+        report = {
+            "kind": "socom-ghidra-batch-apply-report",
+            "schema_version": 1,
+            "ok": False,
+            "work_item_id": arguments.item,
+            "error": str(failure),
+            "completed_steps": failure.completed_steps,
+            "details": failure.details,
+            "recovery": "close socom.elf without saving and reopen it before retrying",
+        }
+        atomic_write_json(report_output, report)
+        _emit({key: value for key, value in report.items() if key != "details"})
+        return 1
+    atomic_write_json(scope_output, program["receipt_scope"])
+    report = {
+        "kind": "socom-ghidra-batch-apply-report",
+        "schema_version": 1,
+        "work_item_id": arguments.item,
+        "owner": arguments.owner,
+        "program_sha256": hashlib.sha256(canonical_json(program).encode("utf-8")).hexdigest(),
+        "plan": program["plan"],
+        "summary": program["summary"],
+        "absent_variables": program["absent_variables"],
+        "result": result,
+        "scope_output": scope_output.relative_to(root).as_posix(),
+    }
+    atomic_write_json(report_output, report)
+    _emit({"ok": True, **{key: value for key, value in report.items() if key != "result"}, "skipped": result["skipped"], "bridge_call_count": result["bridge_call_count"]})
+    return 0
+
+
+def _ghidra_restore_accepted(arguments: argparse.Namespace) -> int:
+    """Rebuild accepted live semantics on a fresh baseline import, provably.
+
+    Used after a saved defect: the program must first equal the recorded
+    baseline import receipt; each accepted Ghidra apply is then replayed from
+    its accepted plan and must reproduce its accepted receipt exactly.
+    """
+
+    root = _root(arguments)
+    report_output = _build_path(root, arguments.report_output, "restore reports")
+    tracker = load_tracker(tracker_path(root))
+    require_ghidra_lease(tracker, arguments.item, arguments.owner)
+    target = next(
+        row
+        for row in tracker["verification_targets"]
+        if row["id"] == "socom:verification:ghidra-program"
+    )
+    current = semantic_receipt(root, bridge_url=arguments.bridge_url)
+    if current["receipt_sha256"] != target["baseline_receipt_sha256"]:
+        raise SocomError(
+            "the live program is not the recorded baseline import "
+            f"({current['receipt_sha256']} != {target['baseline_receipt_sha256']})"
+        )
+    replayed = []
+    bridge = GhidraBridge(arguments.bridge_url, timeout=300.0)
+    for item in tracker["work_items"]:
+        if item.get("status") != "accepted" or "ghidra-writer" not in item.get("resources", []):
+            continue
+        if item["kind"] != "debug-import-apply-foundation":
+            raise SocomError(f"no replay route for accepted {item['kind']} item {item['id']}")
+        plan_id = item["dependencies"][0]
+        plan_path = root / "build" / "import-plans" / f"{plan_id.replace(':', '-')}.json"
+        program = build_apply_program(root, plan_path)
+        _require_accepted_plan(root, tracker, item, program)
+        program_sha256 = hashlib.sha256(canonical_json(program).encode("utf-8")).hexdigest()
+        if program_sha256 not in json.dumps(item):
+            raise SocomError(f"{item['id']} never cited apply program {program_sha256}")
+        print(f"replaying {item['id']}", file=sys.stderr, flush=True)
+        result = execute_apply_program(
+            program,
+            bridge,
+            type_index=lambda: _type_index(bridge),
+            log=lambda message: print(message, file=sys.stderr, flush=True),
+        )
+        stored = item["ghidra_receipt"]
+        receipt = semantic_receipt(root, bridge_url=arguments.bridge_url, scope=stored["scope"])
+        if receipt["receipt_sha256"] != stored["receipt_sha256"]:
+            raise SocomError(
+                f"replaying {item['id']} gives receipt {receipt['receipt_sha256']}, "
+                f"accepted {stored['receipt_sha256']}"
+            )
+        replayed.append(
+            {
+                "work_item_id": item["id"],
+                "program_sha256": program_sha256,
+                "receipt_sha256": receipt["receipt_sha256"],
+                "bridge_call_count": result["bridge_call_count"],
+            }
+        )
+    report = {
+        "kind": "socom-ghidra-restore-report",
+        "schema_version": 1,
+        "work_item_id": arguments.item,
+        "owner": arguments.owner,
+        "baseline_receipt_sha256": target["baseline_receipt_sha256"],
+        "replayed": replayed,
+    }
+    atomic_write_json(report_output, report)
+    _emit({"ok": True, **report})
+    return 0
+
+
+def _ghidra_map_zero_fill(arguments: argparse.Namespace) -> int:
+    root = _root(arguments)
+    scope_output = _build_path(root, arguments.scope_output, "receipt scopes")
+    report_output = _build_path(root, arguments.report_output, "memory-map reports")
+    tracker = load_tracker(tracker_path(root))
+    item = require_ghidra_lease(tracker, arguments.item, arguments.owner)
+    if item.get("kind") != "ghidra-memory-map":
+        raise SocomError(f"{arguments.item} is not a ghidra-memory-map item")
+    try:
+        report = map_zero_fill(
+            root,
+            bridge_url=arguments.bridge_url,
+            log=lambda message: print(message, file=sys.stderr, flush=True),
+        )
+    except SocomError as failure:
+        report = {
+            "kind": "socom-ghidra-memory-map-report",
+            "schema_version": 1,
+            "ok": False,
+            "work_item_id": arguments.item,
+            "error": str(failure),
+            "recovery": "close socom.elf without saving and reopen it before retrying",
+        }
+        atomic_write_json(report_output, report)
+        _emit(report)
+        return 1
+    atomic_write_json(scope_output, report["receipt_scope"])
+    result = {
+        "kind": "socom-ghidra-memory-map-report",
+        "schema_version": 1,
+        "work_item_id": arguments.item,
+        "owner": arguments.owner,
+        **{key: value for key, value in report.items() if key != "receipt_scope"},
+        "receipt_scope_global_count": len(report["receipt_scope"]["globals"]),
+        "scope_output": scope_output.relative_to(root).as_posix(),
+    }
+    atomic_write_json(report_output, result)
+    _emit(result)
     return 0
 
 
@@ -1528,7 +1753,32 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec("debug conflicts list", "debug", "List scoped blocking DWARF definition conflicts."),
     _spec("debug import-plan", "debug", "Build a deterministic scoped Ghidra import plan."),
     _spec("debug apply-program", "debug", "Translate an accepted type plan into deterministic Ghidra type operations."),
+    _spec("debug batch-program", "debug", "Translate an accepted DWARF batch plan into deterministic Ghidra function and global operations."),
     _spec("ghidra preflight", "ghidra", "Verify project soCOM and the explicit socom.elf program.", ghidra_requirement="required"),
+    _spec(
+        "ghidra apply-batch",
+        "ghidra",
+        "Apply a translated batch program (names, prototypes, globals) under the item's writer lease and verify it.",
+        mutates=True,
+        ghidra_requirement="required",
+        mutates_ghidra=True,
+    ),
+    _spec(
+        "ghidra restore-accepted",
+        "ghidra",
+        "Replay accepted Ghidra applies on a fresh baseline import and prove their receipts reproduce.",
+        mutates=True,
+        ghidra_requirement="required",
+        mutates_ghidra=True,
+    ),
+    _spec(
+        "ghidra map-zero-fill",
+        "ghidra",
+        "Map the ELF load image's zero fill in Ghidra under the item's writer lease.",
+        mutates=True,
+        ghidra_requirement="required",
+        mutates_ghidra=True,
+    ),
     _spec(
         "ghidra apply-types",
         "ghidra",
@@ -1717,6 +1967,10 @@ def build_parser() -> argparse.ArgumentParser:
     apply_program.add_argument("--plan", required=True)
     apply_program.add_argument("--output")
     apply_program.set_defaults(handler=_debug_apply_program)
+    batch_program = debug_commands.add_parser("batch-program")
+    batch_program.add_argument("--plan", required=True)
+    batch_program.add_argument("--output")
+    batch_program.set_defaults(handler=_debug_batch_program)
 
     ghidra = commands.add_parser("ghidra")
     ghidra_commands = ghidra.add_subparsers(dest="ghidra_command", required=True)
@@ -1734,6 +1988,27 @@ def build_parser() -> argparse.ArgumentParser:
     receipt.add_argument("--output")
     receipt.add_argument("--bridge-url")
     receipt.set_defaults(handler=_ghidra_receipt)
+    apply_batch = ghidra_commands.add_parser("apply-batch")
+    apply_batch.add_argument("--program", required=True)
+    apply_batch.add_argument("--item", required=True)
+    apply_batch.add_argument("--owner", required=True)
+    apply_batch.add_argument("--scope-output", required=True)
+    apply_batch.add_argument("--report-output", required=True)
+    apply_batch.add_argument("--bridge-url")
+    apply_batch.set_defaults(handler=_ghidra_apply_batch)
+    restore = ghidra_commands.add_parser("restore-accepted")
+    restore.add_argument("--item", required=True)
+    restore.add_argument("--owner", required=True)
+    restore.add_argument("--report-output", required=True)
+    restore.add_argument("--bridge-url")
+    restore.set_defaults(handler=_ghidra_restore_accepted)
+    zero_fill = ghidra_commands.add_parser("map-zero-fill")
+    zero_fill.add_argument("--item", required=True)
+    zero_fill.add_argument("--owner", required=True)
+    zero_fill.add_argument("--scope-output", required=True)
+    zero_fill.add_argument("--report-output", required=True)
+    zero_fill.add_argument("--bridge-url")
+    zero_fill.set_defaults(handler=_ghidra_map_zero_fill)
     apply_types = ghidra_commands.add_parser("apply-types")
     apply_types.add_argument("--program", required=True)
     apply_types.add_argument("--item", required=True)

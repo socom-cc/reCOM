@@ -5,8 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 
 PROJECT_NAME = "soCOM"
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 TRACKER_ID = "socom:tracker:main"
+# Ghidra's import mapped only the file-backed part of PT_LOAD 0; batch applies
+# that type globals wait for the zero-fill tail to be mapped.
+ZERO_FILL_MEMORY_ID = "socom:work:ghidra-zero-fill-memory"
 REFERENCE_ID = "socom:binary:scus-972.05"
 
 REFERENCE_SHA256 = (

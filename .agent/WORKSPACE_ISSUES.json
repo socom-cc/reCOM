@@ -342,8 +342,44 @@
       "resolution": null,
       "status": "open",
       "summary": "Batch apply needs frame size, prototype policy, and live-data retyping rules"
+    },
+    {
+      "details": "map_zero_fill called the bridge's run_analysis, which runs AutoAnalysisManager.reAnalyzeAll over all initialized memory (not incremental analysis as claimed). The handoff at tracker revision 30 saved its effects: 25 four-byte string literals typed as pointers into .bss (e.g. @3845 'POS' at 0x449bf0), a false 42-entry Address Table at 0x2045e580, +221 data rows and +12 Address Table bookmarks outside main.bss. The item was rejected at revision 31; Ghidra's undo history was cleared by the save, so the program must be restored from a fresh baseline import.",
+      "id": "socom:workspace-issue:0d248402307d09853656",
+      "kind": "problem",
+      "reported_at": "2026-10-07T04:30:47Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": {
+        "resolved_at": "2026-10-07T04:30:47Z",
+        "summary": "map_zero_fill runs no analyzer: it adds only relocation-proven references (16,333: R_MIPS_LO16 paired with the latest HI16 of the same symbol, R_MIPS_GPREL16 from the .reginfo gp, R_MIPS_32 words), typed by opcode, and fails if the function index, data outside the new block, or bookmarks change. New ghidra restore-accepted replays accepted applies on a fresh baseline import and requires their accepted receipts to reproduce. GHIDRA.md records that run_analysis and reanalyze re-analyze all initialized memory."
+      },
+      "status": "resolved",
+      "summary": "ghidra map-zero-fill ran a full reanalysis that invented pointers and was saved"
+    },
+    {
+      "details": "relocation_references paired each R_MIPS_LO16 with the most recent R_MIPS_HI16 of its symbol in .relmain order. Metrowerks interleaves HI16s of one section symbol across functions (e.g. .bss@0x58a248 upper halves 0x59 and 0x5b) and lists some after their LO16, so three saved references were false: 0x411dac and 0x411db4 -> 0x5aa268 and 0x412c7c -> 0x5aa25c instead of RelUdpTopOfPendingSendBuffer 0x58a268 and CommID 0x58a25c. Found by socom-verifier; rejected at tracker revision 34.",
+      "id": "socom:workspace-issue:754c61578f9cfe7f159b",
+      "kind": "problem",
+      "reported_at": "2026-10-07T07:57:07Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": {
+        "resolved_at": "2026-10-07T07:57:07Z",
+        "summary": "tools/_socom/mips_flow.py pairs each LO16 with the lui whose write of its base register reaches the site (intra-function CFG with delay slots, annulled branch-likely slots, always-taken b, call clobbers after the delay slot, dead padding, jump-table targets, addu/move index arithmetic; unsized crt0 uses label spans). 24,221 of 24,231 LO16s resolve; the 10 unresolved relocate .data/.rodata symbols, and an unresolved LO16 of a zero-fill symbol fails the step. Against the old pairing only the three B3 sites change among the 10,542 zero-fill LO16s. map-zero-fill reconciles an existing block's references. Tests cover the three sites, crt0, delay-slot call clobbers, dead padding, and reconciliation."
+      },
+      "status": "resolved",
+      "summary": "Zero-fill references paired LO16 with the latest same-symbol HI16 in relocation order"
+    },
+    {
+      "details": "Non-blocking findings from the third zero-fill review (accepted at tracker revision 37); none changes any current target, and an independent conservative model agrees on all 24,231 LO16 targets. N1: no return edge after a likely call-branch's delay slot (the ELF has no REGIMM call-branches); syscall (165 sites) is not treated as clobbering; unknown opcodes write no register; _dead skips any predecessor-less code (e.g. landing pads), not only nops. N2: relocation_references fails an unresolved LO16 only when its relocation symbol lies in the zero fill, not when some candidate target could; the ten current unresolved sites were checked by hand (two SetAiMode jump-table merges, lui 0x45 -> 0x451dc0; eight _vf*printf_r stack spills, lui 0x46 -> 0x467080/0x467270). Revisit before mips_flow pairs references outside the zero fill.",
+      "id": "socom:workspace-issue:ae3dc430e6bbcb9bc2f6",
+      "kind": "problem",
+      "reported_at": "2026-10-07T08:39:16Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "mips_flow has latent modelling gaps and the zero-fill guard tests the LO16 symbol, not its target"
     }
   ],
-  "revision": 41,
+  "revision": 46,
   "schema_version": 1
 }

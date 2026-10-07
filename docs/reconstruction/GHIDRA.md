@@ -131,6 +131,16 @@ The GhidraMCP bridge has behaviors that silently corrupt work:
   `X`). Each import must define only the types it intends to replace.
 - **Union read-back.** `get_struct_layout` refuses unions; only their size is
   readable.
+- **`disassemble_bytes` is a write.** It opens a "Disassemble Bytes"
+  transaction and runs `DisassembleCommand`; on already-analyzed code it
+  re-triggered analysis that added eight `PARAM` references into `.bss`. Read
+  instructions with `disassemble_function` or `verify asm`.
+- **Analysis endpoints reanalyze everything.** `run_analysis` and `reanalyze`
+  both call `reAnalyzeAll` over all initialized memory. After `.bss` was
+  mapped, that typed 25 four-byte string literals (e.g. `@3845` "POS") as
+  pointers and invented a 42-entry address table. Add evidence-backed
+  references instead; never run analysis without a reviewed reason and a
+  before/after diff of data, bookmarks, and references outside the target.
 
 If a mistake reaches the live program, close `socom.elf` without saving and
 reopen it; nothing persists until `progress handoff-live-ghidra` saves.
@@ -166,6 +176,115 @@ little-endian layout, counted from the least-significant bit
 (`__ct__8CAiEventFv` writes `m_visible`, recorded at location 24 with
 `bit_offset` 16, through bit 0 of byte 26). The written scope then feeds
 `progress handoff-live-ghidra`.
+
+### Applying a reviewed batch plan
+
+Batch plans carry functions and placed globals; the types they use were
+created by the type foundation. `debug batch-program` translates an accepted
+batch plan (file-only, deterministic) and `ghidra apply-batch` applies it
+under the batch apply item's lease with the same plan-provenance checks as
+`apply-types`:
+
+```powershell
+python tools/socom.py debug batch-program `
+  --plan build/import-plans/<plan>.json `
+  --output build/apply/<item>.json
+python tools/socom.py ghidra apply-batch `
+  --program build/apply/<item>.json `
+  --item <socom:debug-batch:...-apply> `
+  --owner <lease-owner> `
+  --scope-output build/receipts/<item>-scope.json `
+  --report-output build/apply/<item>-report.json
+```
+
+- **Names.** Functions and globals take readable demangled names
+  (`CGameState::~CGameState`, `operator_new[]`,
+  `zdb::CTexManager::m_texmanager`) when unique; Ghidra symbols cannot hold
+  whitespace, so spaces after commas are dropped and others become `_`. The
+  mangled symbol stays as a secondary label.
+- **Prototypes.** `__stdcall` with an explicit `this`, built from DWARF
+  return and parameter records; parameters DWARF omits come from the mangled
+  signature, and destructors gain the hidden `short __dtor_flags`. A method
+  has a receiver only when DWARF records `this` or its address is in its
+  class's vtable (`__vt__10CGameState` holds the seven parameterless
+  `CGameState` virtuals). Methods without that evidence keep their signature.
+- **Globals.** Placed objects take their DWARF type over auto-analysis data.
+- **Recorded skips.** Type names with commas or `&` (STL), names not unique
+  ignoring case, member-less anonymous RTTI/vtable records, and absent
+  objects are left as they are and listed in the report.
+
+Every applied name, prototype (`Signature:` line), and global type and length
+is read back before the report is written.
+
+### Mapping the zero-fill load image
+
+The ELF has no `.bss` section header; `PT_LOAD` 0 covers 0x100000-0x5e7eff in
+memory but only 0x100000-0x4755ff in the file, and the import mapped only the
+file-backed part. Objects such as `theGame` (0x476f60) therefore had no memory,
+no data, and no code references. Under the `socom:work:ghidra-zero-fill-memory`
+lease:
+
+```powershell
+python tools/socom.py ghidra map-zero-fill `
+  --item socom:work:ghidra-zero-fill-memory `
+  --owner <lease-owner> `
+  --scope-output build/receipts/<item>-scope.json `
+  --report-output build/apply/<item>-report.json
+```
+
+The command derives each zero-fill range from the `PT_LOAD` headers, refuses
+any overlap with an existing block, and creates an uninitialized block named
+after the segment's block (`main.bss`) with the segment's permissions. It runs
+no analyzer. It adds only the references the relocations prove:
+
+- `R_MIPS_LO16` pairs with the `lui` whose write of the LO16's base register
+  reaches the site (`tools/_socom/mips_flow.py`). Metrowerks interleaves the
+  HI16s of one section symbol across functions and lists some after their
+  LO16, so relocation order is not pairing: `lw v1,-0x5d98(s4)` at 0x411dac
+  reads `s4 = lui 0x59` (0x411cfc), target 0x58a268, although the latest
+  same-symbol HI16 holds 0x5b. The intra-function graph models delay slots,
+  annulled branch-likely slots, always-taken `b`, call clobbers after the
+  call's delay slot, dead padding after unconditional transfers, jump-table
+  targets, and `addu`/`move` index arithmetic; unsized startup code uses the
+  span between code labels. An unresolved LO16 whose symbol lies in the zero
+  fill fails the step. The ten unresolved sites relocate `.data`/`.rodata`
+  symbols only: eight read a `%hi` register reloaded from a stack spill
+  (`_vf*printf_r`), and two sit where two jump tables' targets merge
+  (`CSealCtrlAi::SetAiMode`, every candidate `lui 0x45`).
+- `R_MIPS_GPREL16` is relative to the `.reginfo` `$gp` (0x47cbf0).
+- `R_MIPS_32` words hold the address.
+
+That is 16,333 references (10,542 LO16, 5,727 GPREL16, 64 words), typed READ,
+WRITE, or DATA by the referencing opcode. When the block already exists as
+this step created it, the command reconciles instead: it reads every
+reference into the zero fill (read-only `get_bulk_xrefs` over every byte of
+the block, failing unless every address is answered), removes those the
+relocations do not prove, that carry another type, or that duplicate a proven
+pair, and adds missing ones. In both modes it then sweeps again and fails
+unless the live references into the zero fill equal the relocation-proven set
+exactly. It also fails if the function index, the data outside the new block,
+or the bookmarks change. Its receipt scope lists every `.symtab`
+object in the mapped range, so the handoff receipt binds their names and
+reference counts.
+
+### Restoring the accepted state
+
+A saved defect is repaired from a fresh baseline import, not by hand: rename
+the damaged `/socom.elf`, import `support/socom.elf` as `/socom.elf` with the
+`r5900:LE:32:default` language and default analysis, then, under any writer
+lease:
+
+```powershell
+python tools/socom.py ghidra restore-accepted `
+  --item <leased writer item> `
+  --owner <lease-owner> `
+  --report-output build/apply/<item>-restore.json
+```
+
+The command requires the unscoped receipt to equal the tracker's recorded
+baseline import, replays each accepted Ghidra apply from its accepted plan,
+and requires each replay to reproduce that item's accepted receipt exactly.
+It does not save; the leased item's handoff does.
 
 ## Ghidra version re-pin
 

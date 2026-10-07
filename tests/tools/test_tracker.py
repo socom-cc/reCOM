@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import copy
 
-from tools._socom.constants import EXPECTED_GHIDRA_VERSION
+from tools._socom.constants import EXPECTED_GHIDRA_VERSION, ZERO_FILL_MEMORY_ID
 from tools._socom.locking import exclusive_state_lock
 from tools._socom.tracker import (
     accept_ghidra_work,
@@ -224,7 +224,7 @@ def _legacy_tracker(root: Path, census: dict) -> dict:
     legacy_items = []
     plan_ids = []
     for row in tracker["work_items"]:
-        if row["kind"].startswith("debug-import-apply-"):
+        if row["kind"].startswith("debug-import-apply-") or row["kind"] == "ghidra-memory-map":
             continue
         item = copy.deepcopy(row)
         if item["kind"] == "debug-import-plan-foundation":
@@ -257,16 +257,73 @@ def test_tracker_v2_migration_splits_plans_and_apply_items(
     path = tmp_path / "tracker.json"
     atomic_write_json(path, _legacy_tracker(root, census))
     migrated = migrate_tracker(path, 3)
-    assert migrated["schema_version"] == 3
+    assert migrated["schema_version"] == 4
     assert migrated["revision"] == 4
-    assert len(migrated["migration_history"]) == 1
+    assert [(row["from_schema"], row["to_schema"]) for row in migrated["migration_history"]] == [
+        (2, 3),
+        (3, 4),
+    ]
     plans = [row for row in migrated["work_items"] if "-plan-" in row["kind"]]
     applies = [row for row in migrated["work_items"] if "-apply-" in row["kind"]]
     assert len(plans) == len(applies) == 41
     assert all("ghidra-writer" not in row["resources"] for row in plans)
     assert all("ghidra-writer" in row["resources"] for row in applies)
+    assert all(
+        row["dependencies"][-1] == ZERO_FILL_MEMORY_ID
+        for row in applies
+        if row["kind"] == "debug-import-apply-batch"
+    )
     assert audit_tracker(migrated) == []
     assert migrate_tracker(path, 4)["revision"] == 4
+
+
+def test_tracker_v3_migration_adds_zero_fill_memory_item(
+    tmp_path: Path, root: Path, census: dict
+) -> None:
+    tracker = initialize_tracker(root, census)
+    tracker["work_items"] = [
+        row for row in tracker["work_items"] if row["kind"] != "ghidra-memory-map"
+    ]
+    receipt = {"receipt_sha256": "a" * 64, "scope": {"functions": [], "types": [], "globals": []}, "saved": True}
+    for row in tracker["work_items"]:
+        if row["kind"] == "debug-import-apply-batch":
+            row["dependencies"] = [row["dependencies"][0]]
+        if row["id"] in ("socom:work:debug-type-foundation", "socom:work:debug-type-foundation-apply"):
+            row["status"] = "accepted"
+        if row["id"] == "socom:work:debug-type-foundation-apply":
+            row["ghidra_receipt"] = receipt
+    first_plan = next(row for row in tracker["work_items"] if row["kind"] == "debug-import-plan-batch")
+    first_plan["status"] = "accepted"
+    first_apply = next(row for row in tracker["work_items"] if row["id"] == f"{first_plan['id']}-apply")
+    first_apply["status"] = "ready"
+    tracker["schema_version"] = 3
+    tracker["revision"] = 7
+    path = tmp_path / "tracker.json"
+    atomic_write_json(path, tracker)
+    migrated = migrate_tracker(path, 7)
+    assert migrated["schema_version"] == 4
+    assert [(row["from_schema"], row["to_schema"]) for row in migrated["migration_history"]] == [(3, 4)]
+    items = {row["id"]: row for row in migrated["work_items"]}
+    memory = items[ZERO_FILL_MEMORY_ID]
+    assert memory["status"] == "ready"
+    assert memory["resources"] == ["ghidra:soCOM/socom.elf", "ghidra-writer"]
+    order = [row["id"] for row in migrated["work_items"]]
+    assert order.index(ZERO_FILL_MEMORY_ID) == order.index("socom:work:debug-type-foundation-apply") + 1
+    # A batch apply that was ready waits again for the zero-fill image.
+    assert items[first_apply["id"]]["status"] == "blocked"
+    assert items[first_apply["id"]]["dependencies"] == [first_plan["id"], ZERO_FILL_MEMORY_ID]
+    assert audit_tracker(migrated) == []
+
+
+def test_memory_map_item_has_a_ghidra_writer_packet(root: Path, census: dict) -> None:
+    tracker = initialize_tracker(root, census)
+    memory = next(row for row in tracker["work_items"] if row["id"] == ZERO_FILL_MEMORY_ID)
+    memory["status"] = "ready"
+    claim_work(tracker, ZERO_FILL_MEMORY_ID, "writer", 30)
+    packet = work_packet(tracker, ZERO_FILL_MEMORY_ID, "writer")
+    assert packet["role"] == "socom-ghidra-reconstructor"
+    assert any("ghidra map-zero-fill" in line for line in packet["validation"])
+    assert packet["handoff"].endswith("handoff-live-ghidra")
 
 
 def test_tracker_migration_refuses_active_lease(

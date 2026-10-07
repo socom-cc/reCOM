@@ -20,7 +20,11 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py debug conflicts list` | debug | no | none | no | List scoped blocking DWARF definition conflicts. |
 | `python tools/socom.py debug import-plan` | debug | no | none | no | Build a deterministic scoped Ghidra import plan. |
 | `python tools/socom.py debug apply-program` | debug | no | none | no | Translate an accepted type plan into deterministic Ghidra type operations. |
+| `python tools/socom.py debug batch-program` | debug | no | none | no | Translate an accepted DWARF batch plan into deterministic Ghidra function and global operations. |
 | `python tools/socom.py ghidra preflight` | ghidra | no | required | no | Verify project soCOM and the explicit socom.elf program. |
+| `python tools/socom.py ghidra apply-batch` | ghidra | yes | required | yes | Apply a translated batch program (names, prototypes, globals) under the item's writer lease and verify it. |
+| `python tools/socom.py ghidra restore-accepted` | ghidra | yes | required | yes | Replay accepted Ghidra applies on a fresh baseline import and prove their receipts reproduce. |
+| `python tools/socom.py ghidra map-zero-fill` | ghidra | yes | required | yes | Map the ELF load image's zero fill in Ghidra under the item's writer lease. |
 | `python tools/socom.py ghidra apply-types` | ghidra | yes | required | yes | Apply a translated type program under the item's writer lease and verify it. |
 | `python tools/socom.py ghidra data-overlap` | ghidra | no | required | no | Report overlapping Ghidra data roots. |
 | `python tools/socom.py ghidra receipt` | ghidra | yes | required | no | Create a portable deterministic semantic receipt. |

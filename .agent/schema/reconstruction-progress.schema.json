@@ -1,5 +1,5 @@
 {
-  "$id": "socom:schema:reconstruction-progress:v3",
+  "$id": "socom:schema:reconstruction-progress:v4",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": true,
   "properties": {
@@ -53,7 +53,10 @@
             "type": "integer"
           },
           "to_schema": {
-            "const": 3
+            "enum": [
+              3,
+              4
+            ]
           },
           "tracker_revision": {
             "type": "integer"
@@ -70,7 +73,7 @@
       "type": "array"
     },
     "schema_version": {
-      "const": 3
+      "const": 4
     },
     "stage_order": {
       "const": [

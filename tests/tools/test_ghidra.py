@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import collections
 import json
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -304,6 +305,150 @@ def test_semantic_receipt_is_deterministic_and_scoped(
         "comment",
         "xref_count",
     }
+
+
+def _zero_fill_bridge(*, mapped: bool = False, drift: bool = False, block: str = "main.bss", live=None):
+    """A bridge with a real reference store; live is a set of (from, to, type)."""
+
+    calls = []
+    segments = "main: 00100000 - 004755ff\nheap: 005e7f00 - 005e7f03\n"
+
+    class FakeBridge:
+        def __init__(self, *_args, **_kwargs):
+            self.created = mapped
+            self.refs = set(live or ())
+
+        def request(self, endpoint, **parameters):
+            calls.append((endpoint, parameters))
+            if endpoint == "list_segments":
+                extra = f"{block}: 00475600 - 005e7eff\n" if self.created else ""
+                return segments + extra
+            if endpoint == "get_current_program_info":
+                return {"function_count": 2, "symbol_count": 1, "data_type_count": 1, "memory_block_count": 27 + self.created}
+            if endpoint == "read_memory":
+                return {"error": "Unable to read bytes"}
+            if endpoint == "list_functions":
+                return "main at 00140d00\n"
+            if endpoint == "list_bookmarks":
+                return {"bookmarks": [{"type": "Analysis", "category": "Address Table"}]}
+            raise AssertionError(endpoint)
+
+        def paged_text(self, endpoint, **_parameters):
+            assert endpoint == "list_data_items"
+            rows = ["gopt @ 00438750 [undefined1] (1 bytes)"]
+            if drift and self.refs:
+                # An analyzer-style change outside the zero fill.
+                rows.append("@3845 @ 00449bf0 [pointer] (4 bytes)")
+            return rows
+
+        def post_json(self, endpoint, **body):
+            if endpoint != "get_bulk_xrefs":
+                calls.append((endpoint, body))
+            if endpoint == "create_memory_block":
+                self.created = True
+                return {"success": True, "start": "00475600", "end": "005e7eff"}
+            if endpoint == "add_memory_reference":
+                self.refs.add((int(body["from_address"], 16), int(body["to_address"], 16), body["ref_type"]))
+                return {"status": "success"}
+            if endpoint == "remove_reference":
+                key = (int(body["from_address"], 16), int(body["to_address"], 16))
+                self.refs = {ref for ref in self.refs if ref[:2] != key}
+                return {"status": "success", "removed": 1}
+            if endpoint == "get_bulk_xrefs":
+                wanted = body["addresses"].split(",")
+                by_target = {}
+                for source, target, kind in self.refs:
+                    by_target.setdefault(target, []).append({"from": f"{source:08x}", "type": kind})
+                return {address: by_target.get(int(address, 16), []) for address in wanted}
+            raise AssertionError(endpoint)
+
+    return FakeBridge, calls
+
+
+def test_relocation_references_cover_only_proven_zero_fill_targets(root: Path) -> None:
+    references = ghidra.relocation_references(root, ghidra.zero_fill_ranges(root))
+    kinds = collections.Counter(row["relocation"] for row in references)
+    assert kinds == {"R_MIPS_LO16": 10542, "R_MIPS_GPREL16": 5727, "R_MIPS_32": 64}
+    assert all(0x475600 <= row["to"] < 0x5E7F00 for row in references)
+    # main loads theGame through a lui/addiu pair completed at 0x140db0.
+    assert {"from": 0x140DB0, "to": 0x476F60, "ref_type": "DATA", "operand_index": 2, "relocation": "R_MIPS_LO16"} in references
+    targets = {row["from"]: row["to"] for row in references}
+    # HI16s of the .bss section symbol interleave across functions; dataflow
+    # pairs SendPendingMessages' lw with s4 = lui 0x59, not the latest HI16.
+    assert targets[0x411DAC] == targets[0x411DB4] == 0x58A268
+    assert targets[0x412C7C] == 0x58A25C
+    # crt0's _start has no sized function symbol.
+    assert targets[0x1401B8] == 0x476D80
+
+
+def test_zero_fill_mapping_adds_relocation_references_without_analysis(
+    monkeypatch, root: Path
+) -> None:
+    bridge, calls = _zero_fill_bridge()
+    monkeypatch.setattr(ghidra, "GhidraBridge", bridge)
+    monkeypatch.setattr(ghidra, "live_preflight", lambda *_args, **_kwargs: {"ok": True, "errors": []})
+    report = ghidra.map_zero_fill(root)
+    create = next(body for endpoint, body in calls if endpoint == "create_memory_block")
+    # PT_LOAD 0: file bytes end at 0x475600, memory at 0x5e7f00, flags RWX.
+    assert create["name"] == "main.bss"
+    assert create["address"] == "0x475600" and create["size"] == 0x172900
+    assert (create["read"], create["write"], create["execute"]) == (True, True, True)
+    endpoints = {endpoint for endpoint, _ in calls}
+    assert not endpoints & {"run_analysis", "reanalyze"}
+    added = [body for endpoint, body in calls if endpoint == "add_memory_reference"]
+    assert len(added) == report["reference_count"] == 16333
+    assert {"from_address": "0x140db0", "to_address": "0x476f60", "ref_type": "DATA", "source_type": "IMPORTED", "operand_index": 2} in added
+    assert report["blocks"][0]["end"] == "0x5e7eff"
+    assert "0x476f60" in report["receipt_scope"]["globals"]  # theGame
+    assert all(0x475600 <= int(value, 16) < 0x5E7F00 for value in report["receipt_scope"]["globals"])
+
+
+def test_zero_fill_mapping_refuses_overlap_and_outside_changes(
+    monkeypatch, root: Path
+) -> None:
+    monkeypatch.setattr(ghidra, "live_preflight", lambda *_args, **_kwargs: {"ok": True, "errors": []})
+    bridge, _calls = _zero_fill_bridge(mapped=True, block="bss")
+    monkeypatch.setattr(ghidra, "GhidraBridge", bridge)
+    with pytest.raises(SocomError, match="overlaps blocks"):
+        ghidra.map_zero_fill(root)
+    bridge, _calls = _zero_fill_bridge(drift=True)
+    monkeypatch.setattr(ghidra, "GhidraBridge", bridge)
+    with pytest.raises(SocomError, match="data outside the zero fill changed"):
+        ghidra.map_zero_fill(root)
+
+
+def test_zero_fill_mapping_reconciles_an_existing_block(monkeypatch, root: Path) -> None:
+    monkeypatch.setattr(ghidra, "live_preflight", lambda *_args, **_kwargs: {"ok": True, "errors": []})
+    references = ghidra.relocation_references(root, ghidra.zero_fill_ranges(root))
+    live = {(row["from"], row["to"], row["ref_type"]) for row in references}
+    live.discard((0x411DAC, 0x58A268, "READ"))
+    live.add((0x411DAC, 0x5AA268, "READ"))  # the wrong pairing a previous run saved
+    live.add((0x15FB74, 0x47AE80, "PARAM"))  # analysis noise without a relocation
+    live.add((0x412C7C, 0x58A25C, "PARAM"))  # a second reference on a proven pair
+    bridge, calls = _zero_fill_bridge(mapped=True, live=live)
+    monkeypatch.setattr(ghidra, "GhidraBridge", bridge)
+    report = ghidra.map_zero_fill(root)
+    assert report["mode"] == "reconcile"
+    assert {(row["from"], row["to"]) for row in report["removed_references"]} == {
+        ("0x15fb74", "0x47ae80"),
+        ("0x411dac", "0x5aa268"),
+        ("0x412c7c", "0x58a25c"),
+    }
+    assert report["reconciled_additions"] == [
+        {"from": "0x411dac", "to": "0x58a268"},
+        {"from": "0x412c7c", "to": "0x58a25c"},
+    ]
+    assert not any(endpoint == "create_memory_block" for endpoint, _ in calls)
+
+
+def test_zero_fill_sweep_requires_every_address_answered() -> None:
+    class Partial:
+        def post_json(self, endpoint, **body):
+            assert endpoint == "get_bulk_xrefs"
+            return {address: [] for address in body["addresses"].split(",")[1:]}
+
+    with pytest.raises(SocomError, match="did not answer every address"):
+        ghidra.zero_fill_references_live(Partial(), [{"start": 0x475600, "size": 8}])
 
 
 def test_strict_preflight_defers_bootstrap_counts_to_tracker(monkeypatch, root: Path) -> None:

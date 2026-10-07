@@ -8,11 +8,13 @@ import os
 import re
 from collections import Counter
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from .constants import EXPECTED_ENTRY, EXPECTED_GHIDRA_VERSION, REFERENCE_SHA256
+from .elf import Elf32File
+from .mips_flow import lo16_targets
 from .type_apply import parse_enum_values, parse_struct_layout
 from .util import SocomError, canonical_json, load_json, sha256_file
 
@@ -615,6 +617,342 @@ def load_receipt_scope(path: Path) -> dict[str, list[str]]:
             "receipt scope must name at least one function, type, or global"
         )
     return result
+
+
+_SEGMENT_RE = re.compile(r"^([^:]+):\s+([0-9a-fA-F]+)\s+-\s+([0-9a-fA-F]+)\s*$")
+PF_X, PF_W, PF_R = 1, 2, 4
+
+
+def zero_fill_ranges(root: Path) -> list[dict[str, Any]]:
+    """Return each PT_LOAD tail past its file bytes (the image's zero fill)."""
+
+    elf = Elf32File(root / "support" / "socom.elf")
+    ranges = []
+    for segment in elf.load_segments():
+        if segment.memory_size <= segment.file_size:
+            continue
+        ranges.append(
+            {
+                "segment": segment.index,
+                "segment_start": segment.virtual_address,
+                "start": segment.virtual_address + segment.file_size,
+                "size": segment.memory_size - segment.file_size,
+                "read": bool(segment.flags & PF_R),
+                "write": bool(segment.flags & PF_W),
+                "execute": bool(segment.flags & PF_X),
+            }
+        )
+    return ranges
+
+
+def _memory_blocks(bridge: GhidraBridge) -> list[dict[str, Any]]:
+    text = bridge.request("list_segments", limit=1000)
+    if not isinstance(text, str):
+        raise SocomError("Ghidra memory block listing is unavailable")
+    blocks = []
+    for line in _nonempty_lines(text):
+        match = _SEGMENT_RE.match(line)
+        if match:
+            blocks.append(
+                {"name": match.group(1), "start": int(match.group(2), 16), "end": int(match.group(3), 16)}
+            )
+    return blocks
+
+
+# R5900 load/store opcodes carry the address in operand 1 (imm(base));
+# immediate arithmetic carries it in operand 2.
+_LOAD_OPCODES = {0x1A, 0x1B, 0x1E, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x31, 0x36, 0x37}
+_STORE_OPCODES = {0x1F, 0x28, 0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x39, 0x3E, 0x3F}
+_IMMEDIATE_OPCODES = {0x08, 0x09, 0x0D, 0x18, 0x19}
+
+
+def _sign16(value: int) -> int:
+    return value - 0x10000 if value & 0x8000 else value
+
+
+def relocation_references(root: Path, ranges: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """References into the zero fill that the ELF relocations prove.
+
+    R_MIPS_LO16 completes the lui whose write of its base register reaches
+    the site (mips_flow.lo16_targets), R_MIPS_GPREL16 is relative to the
+    .reginfo $gp value, and R_MIPS_32 is a data word holding the address.
+    Nothing is inferred from bytes alone.
+    """
+
+    elf = Elf32File(root / "support" / "socom.elf")
+    segment = next(elf.load_segments())
+
+    def word(address: int) -> int:
+        offset = segment.offset + address - segment.virtual_address
+        return int.from_bytes(elf.data[offset : offset + 4], "little")
+
+    gp = int.from_bytes(elf.section_data(".reginfo")[20:24], "little")
+
+    def inside(address: int) -> bool:
+        return any(row["start"] <= address < row["start"] + row["size"] for row in ranges)
+
+    def instruction_reference(site: int, target: int, relocation: str) -> dict[str, Any]:
+        opcode = word(site) >> 26
+        if opcode in _LOAD_OPCODES:
+            ref_type, operand = "READ", 1
+        elif opcode in _STORE_OPCODES:
+            ref_type, operand = "WRITE", 1
+        elif opcode in _IMMEDIATE_OPCODES:
+            ref_type, operand = "DATA", 2
+        else:
+            raise SocomError(f"{relocation} at 0x{site:x} has unsupported opcode 0x{opcode:02x}")
+        return {"from": site, "to": target, "ref_type": ref_type, "operand_index": operand, "relocation": relocation}
+
+    # LO16s pair with the HI16 whose lui reaches their base register; the
+    # toolchain interleaves HI16s of one section symbol across functions.
+    lo16 = lo16_targets(elf)
+    symbols = list(elf.symbols())
+    references = []
+    for relocation in elf.relocations(".relmain"):
+        name = relocation.type_name
+        if name == "R_MIPS_LO16":
+            pairing = lo16[relocation.offset]
+            target = pairing["target"]
+            if target is None:
+                if inside(symbols[relocation.symbol_index].value):
+                    raise SocomError(
+                        f"R_MIPS_LO16 at 0x{relocation.offset:x} for a zero-fill symbol is unresolved: "
+                        + pairing["reason"]
+                    )
+                continue
+            if inside(target):
+                references.append(instruction_reference(relocation.offset, target, name))
+        elif name == "R_MIPS_GPREL16":
+            target = (gp + _sign16(word(relocation.offset) & 0xFFFF)) & 0xFFFFFFFF
+            if inside(target):
+                references.append(instruction_reference(relocation.offset, target, name))
+        elif name == "R_MIPS_32":
+            target = word(relocation.offset)
+            if inside(target):
+                references.append(
+                    {"from": relocation.offset, "to": target, "ref_type": "DATA", "operand_index": 0, "relocation": name}
+                )
+    return sorted(references, key=lambda row: (row["from"], row["to"], row["operand_index"]))
+
+
+def zero_fill_references_live(bridge: "GhidraBridge", ranges: list[dict[str, Any]], chunk: int = 4000) -> dict[tuple[int, int], list[str]]:
+    """Every live reference into the zero fill, by (from, to), with each one's type.
+
+    get_bulk_xrefs is read-only (ReferenceManager.getReferencesTo for each
+    address); every byte of each range is queried and every queried address
+    must be answered.  A (from, to) pair carrying several references lists
+    each type.  The import's external entry-point markers are not memory
+    references and are skipped.
+    """
+
+    live: dict[tuple[int, int], list[str]] = {}
+    for row in ranges:
+        for first in range(row["start"], row["start"] + row["size"], chunk):
+            last = min(first + chunk, row["start"] + row["size"])
+            requested = [f"0x{address:x}" for address in range(first, last)]
+            response = bridge.post_json("get_bulk_xrefs", addresses=",".join(requested))
+            if not isinstance(response, dict) or set(response) != set(requested):
+                raise SocomError(f"get_bulk_xrefs did not answer every address in 0x{first:x}-0x{last - 1:x}")
+            for key, references in response.items():
+                for reference in references or []:
+                    source = str(reference.get("from", ""))
+                    if source == "Entry Point":
+                        continue
+                    live.setdefault((int(source, 16), int(key, 16)), []).append(str(reference.get("type")))
+    return {key: sorted(types) for key, types in live.items()}
+
+
+def _outside(rows: list[dict[str, Any]], ranges: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Rows whose address lies outside every zero-fill range (overlays included)."""
+
+    kept = []
+    for row in rows:
+        value = str(row.get("address", ""))
+        if "::" not in value:
+            address = int(value, 16)
+            if any(item["start"] <= address < item["start"] + item["size"] for item in ranges):
+                continue
+        kept.append(row)
+    return kept
+
+
+def map_zero_fill(
+    root: Path,
+    *,
+    bridge_url: str | None = None,
+    log: Callable[[str], None] = lambda _message: None,
+) -> dict[str, Any]:
+    """Map each PT_LOAD zero-fill tail as an uninitialized block with proven references.
+
+    The import mapped only file-backed bytes, so .bss objects such as theGame
+    had no memory and no code references.  No analyzer runs: the bridge's
+    run_analysis and reanalyze re-analyze all initialized memory and invent
+    pointers from string bytes.  Only relocation-proven references are added,
+    and any change outside the new blocks to data, bookmarks, or functions
+    fails the step.
+    """
+
+    preflight = live_preflight(root, bridge_url=bridge_url, strict_baseline=False)
+    if not preflight["ok"]:
+        raise SocomError("live Ghidra preflight failed:\n- " + "\n- ".join(preflight["errors"]))
+    bridge = GhidraBridge(bridge_url, timeout=300.0)
+    ranges = zero_fill_ranges(root)
+    if not ranges:
+        raise SocomError("the reference ELF has no zero-fill load image")
+    references = relocation_references(root, ranges)
+    before_info = bridge.request("get_current_program_info")
+    before_functions = _function_index(bridge)
+    before_data = _outside(_data_index(bridge), ranges)
+    before_bookmarks = _bookmark_profile(bridge.request("list_bookmarks"))
+    blocks = _memory_blocks(bridge)
+    created = []
+    reconciling = []
+    for row in ranges:
+        start, end = row["start"], row["start"] + row["size"] - 1
+        owner = next((block["name"] for block in blocks if block["start"] == row["segment_start"]), None)
+        name = f"{owner}.bss" if owner else f"load{row['segment']}.bss"
+        overlapping = [block for block in blocks if block["start"] <= end and start <= block["end"]]
+        if overlapping == [{"name": name, "start": start, "end": end}]:
+            # Already mapped by this step: reconcile references instead.
+            reconciling.append(name)
+            created.append(
+                {"name": name, "start": f"0x{start:x}", "end": f"0x{end:x}", **{k: row[k] for k in ("segment", "read", "write", "execute")}}
+            )
+            continue
+        if overlapping:
+            raise SocomError(
+                f"zero-fill range 0x{start:x}-0x{end:x} overlaps blocks {[block['name'] for block in overlapping]}"
+            )
+        response = bridge.post_json(
+            "create_memory_block",
+            name=name,
+            address=f"0x{start:x}",
+            size=row["size"],
+            read=row["read"],
+            write=row["write"],
+            execute=row["execute"],
+            volatile=False,
+            comment=(
+                f"Zero fill of PT_LOAD {row['segment']} (memory size beyond file size); "
+                "socom.elf has no .bss section header"
+            ),
+        )
+        if not (
+            isinstance(response, dict)
+            and response.get("success") is True
+            and int(str(response.get("start")), 16) == start
+            and int(str(response.get("end")), 16) == end
+        ):
+            raise SocomError(f"creating {name} failed: {response!r}")
+        log(f"mapped {name} 0x{start:x}-0x{end:x}")
+        created.append(
+            {"name": name, "start": f"0x{start:x}", "end": f"0x{end:x}", **{k: row[k] for k in ("segment", "read", "write", "execute")}}
+        )
+    after_blocks = _memory_blocks(bridge)
+    for block in created:
+        if not any(
+            row["name"] == block["name"]
+            and row["start"] == int(block["start"], 16)
+            and row["end"] == int(block["end"], 16)
+            for row in after_blocks
+        ):
+            raise SocomError(f"{block['name']} is not mapped as created")
+        probe = bridge.request("read_memory", address=block["start"], length=1)
+        if not (isinstance(probe, dict) and "error" in probe):
+            raise SocomError(f"{block['name']} is initialized; zero fill must be uninitialized")
+    def add(reference: dict[str, Any]) -> None:
+        response = bridge.post_json(
+            "add_memory_reference",
+            from_address=f"0x{reference['from']:x}",
+            to_address=f"0x{reference['to']:x}",
+            ref_type=reference["ref_type"],
+            source_type="IMPORTED",
+            operand_index=reference["operand_index"],
+        )
+        if not (isinstance(response, dict) and response.get("status") == "success"):
+            raise SocomError(f"add_memory_reference failed for {reference}: {response!r}")
+
+    added: list[dict[str, Any]] = []
+    removed: list[dict[str, Any]] = []
+    expected = {(row["from"], row["to"]): row for row in references}
+    if reconciling:
+        log("reconciling every reference into the zero fill against the relocations")
+        live = zero_fill_references_live(bridge, ranges)
+        for (source, target), types in sorted(live.items()):
+            wanted = expected.get((source, target))
+            if wanted is None or types != [wanted["ref_type"]]:
+                response = bridge.post_json("remove_reference", from_address=f"0x{source:x}", to_address=f"0x{target:x}")
+                if not (isinstance(response, dict) and response.get("status") == "success"):
+                    raise SocomError(f"remove_reference failed for 0x{source:x}->0x{target:x}: {response!r}")
+                removed.append({"from": source, "to": target, "types": types})
+        present = {key for key in live if key in expected and live[key] == [expected[key]["ref_type"]]}
+        for key, reference in sorted(expected.items()):
+            if key not in present:
+                add(reference)
+                added.append(reference)
+    else:
+        log(f"adding {len(references)} relocation-proven references")
+        for index, reference in enumerate(references, start=1):
+            if index % 2000 == 0:
+                log(f"  {index}/{len(references)}")
+            add(reference)
+            added.append(reference)
+    log("sweeping every reference into the zero fill")
+    final = zero_fill_references_live(bridge, ranges)
+    unexpected = sorted(key for key in final if key not in expected or final[key] != [expected[key]["ref_type"]])
+    missing = sorted(key for key in expected if key not in final)
+    if unexpected or missing:
+        raise SocomError(
+            "references into the zero fill differ from the relocations: "
+            f"{len(unexpected)} unproven or mistyped (e.g. {[(hex(a), hex(b)) for a, b in unexpected[:3]]}), "
+            f"{len(missing)} missing (e.g. {[(hex(a), hex(b)) for a, b in missing[:3]]})"
+        )
+    after_info = bridge.request("get_current_program_info")
+    problems = []
+    if _function_index(bridge) != before_functions:
+        problems.append("the function index changed")
+    if _outside(_data_index(bridge), ranges) != before_data:
+        problems.append("data outside the zero fill changed")
+    if _bookmark_profile(bridge.request("list_bookmarks")) != before_bookmarks:
+        problems.append("bookmarks changed")
+    if problems:
+        raise SocomError("mapping changed existing program state: " + "; ".join(problems))
+    elf = Elf32File(root / "support" / "socom.elf")
+    globals_ = sorted(
+        {
+            symbol.value
+            for symbol in elf.symbols()
+            if symbol.type_name in ("OBJECT", "NOTYPE")
+            and symbol.name
+            and any(row["start"] <= symbol.value < row["start"] + row["size"] for row in ranges)
+        }
+    )
+    counts = ("function_count", "symbol_count", "data_type_count", "memory_block_count")
+    by_relocation: dict[str, int] = {}
+    for reference in references:
+        by_relocation[reference["relocation"]] = by_relocation.get(reference["relocation"], 0) + 1
+    return {
+        "ok": True,
+        "mode": "reconcile" if reconciling else "create",
+        "blocks": created,
+        "added_reference_count": len(added),
+        "removed_references": [
+            {"from": f"0x{row['from']:x}", "to": f"0x{row['to']:x}", "types": row["types"]} for row in removed
+        ],
+        "reconciled_additions": (
+            [{"from": f"0x{row['from']:x}", "to": f"0x{row['to']:x}"} for row in added] if reconciling else []
+        ),
+        "reference_count": len(references),
+        "references_by_relocation": dict(sorted(by_relocation.items())),
+        "counts_before": {key: before_info.get(key) for key in counts},
+        "counts_after": {key: after_info.get(key) for key in counts},
+        "receipt_scope": {
+            "schema_version": 1,
+            "functions": [],
+            "types": [],
+            "globals": [f"0x{address:x}" for address in globals_],
+        },
+    }
 
 
 def _reported_name(text: Any) -> str | None:

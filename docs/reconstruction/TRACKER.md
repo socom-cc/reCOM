@@ -1,7 +1,7 @@
 # Tracker model
 
 `.agent/RECONSTRUCTION_PROGRESS.json` is canonical generated state. It uses
-schema version 3 and a compare-and-swap revision. Manual edits are forbidden.
+schema version 4 and a compare-and-swap revision. Manual edits are forbidden.
 
 The tracker separates immutable binaries and physical blocks, symbols and
 relocations, semantic spans and types, source owners and physical artifacts,
@@ -37,13 +37,17 @@ claimed, handed off, or accepted.
 DWARF work is split into file-only `debug-import-plan-*` items and live
 `debug-import-apply-*` items. Plan items use the DWARF importer and write only
 under `build/import-plans`; apply items depend on their reviewed plan and alone
-own the explicit Ghidra program plus `ghidra-writer` resources. Work packets
-render the exact role, skill, paths, program, validation, and handoff route for
-an active lease.
+own the explicit Ghidra program plus `ghidra-writer` resources. Batch apply
+items also depend on `socom:work:ghidra-zero-fill-memory`, a writer item that
+maps the load image's zero fill (Ghidra's import mapped only file-backed
+bytes, so `.bss` globals had no memory). Work packets render the exact role,
+skill, paths, program, validation, and handoff route for an active lease.
 
 Schema upgrades use `progress migrate --expected-revision <revision>`. The
-command refuses active leases or pending handoffs, records migration history,
-and becomes a no-op at the current schema.
+command refuses active leases or pending handoffs, applies each schema step in
+order (2 to 3 splits plan and apply items; 3 to 4 adds the zero-fill memory
+item and re-blocks batch applies that now wait for it), records one migration
+history entry per step, and becomes a no-op at the current schema.
 
 ## Ghidra target and receipts
 
