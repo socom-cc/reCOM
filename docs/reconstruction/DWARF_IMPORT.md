@@ -63,7 +63,10 @@ also carries, marked `referenced_only`, each out-of-batch type row its
 functions' returns, parameters, and locals and its present variables name
 (with members, following unnamed array elements), so the apply can spell
 them; the foundation already defined them, and their Ghidra paths join the
-receipt scope.
+receipt scope. When a function's DWARF parameter list is shorter than its
+mangled signature, each class the mangled signature names joins the same way
+through one DIE of its structural class, provided exactly one identity
+carries that name.
 
 Tracker schema 3 represents these as two different leases. A
 `debug-import-plan-*` item is owned by the DWARF importer and can write only its

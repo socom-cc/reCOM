@@ -255,3 +255,38 @@ def test_batch_executor_skips_undefined_multidimensional_arrays(program: dict) -
     )
     reasons = [row["reason"] for row in result["skipped"] if row["address"] == "0x476f60"]
     assert reasons and "multi-dimensional" in reasons[0]
+
+
+BATCH_11 = "socom:debug-batch:1c9907d6eef3a9fccef6"
+
+
+def test_parameter_shapes_compare_depth_kind_and_names() -> None:
+    compatible = batch_apply._compatible
+    font = (1, "class", None, 52, frozenset({"C2DFont"}))
+    assert compatible(font, (1, "class", None, None, frozenset({"C2DFont"})))
+    assert not compatible(font, (1, "class", None, None, frozenset({"zdb::CWorld"})))
+    assert not compatible(font, (0, "class", None, None, frozenset({"C2DFont"})))
+    # DWARF spells bool as a one-byte fundamental.
+    assert compatible((0, "builtin", "uchar", 1, frozenset()), (0, "builtin", "bool", 1, frozenset()))
+    assert not compatible((1, "builtin", "char", 1, frozenset()), (0, "builtin", "int", 4, frozenset()))
+    assert compatible(None, font) and compatible(font, None)
+
+
+def test_partial_dwarf_parameters_align_to_the_mangled_signature(root: Path, tmp_path: Path) -> None:
+    tracker = load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
+    item = next(row for row in tracker["work_items"] if row["id"] == BATCH_11)
+    plan = build_import_plan(root, {"work_item_id": item["id"], "selection": item["selection"], **item["batch"]})
+    path = tmp_path / "batch-011.json"
+    path.write_text(json.dumps(plan), encoding="utf-8")
+    functions = {row["address"]: row for row in batch_apply.build_batch_program(root, path)["functions"]}
+    # LoadTextures__10OrdersMenuFPQ23zdb6CWorldP7C2DFont: DWARF records only font.
+    load = functions["0x1772a0"]["prototype"]["parameters"]
+    assert [(p["name"], p["type"]) for p in load] == [("this", "OrdersMenu *"), ("param_2", "CWorld *"), ("font", "C2DFont *")]
+    # HandleRecoCmd__10OrdersMenuFiiiiPc: three of four ints recorded, so
+    # only lastString has one possible position.
+    reco = functions["0x176e60"]["prototype"]["parameters"]
+    assert [p["type"] for p in reco] == ["OrdersMenu *", "int", "int", "int", "int", "char *"]
+    assert [p["name"] for p in reco][1:] == ["param_2", "param_3", "param_4", "param_5", "lastString"]
+    # A class named only by the mangled signature reaches the plan.
+    parse = functions["0x174a70"]["prototype"]["parameters"]
+    assert parse[1]["type"] == "_zrdr *"

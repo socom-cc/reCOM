@@ -451,8 +451,21 @@
       "resolution": null,
       "status": "open",
       "summary": "Applied prototypes drop const that mangled names carry; derived types land in the root category"
+    },
+    {
+      "details": "Planning batch 11 (socom:debug-batch:1c9907d6eef3a9fccef6) before any apply. (1) build_batch_program mapped DWARF parameter i to mangled position i, but Metrowerks DWARF omits parameters anywhere: LoadTextures__10OrdersMenuFPQ23zdb6CWorldP7C2DFont records only font, giving (C2DFont *, C2DFont *) instead of (CWorld *, C2DFont *); HandleRecoCmd__10OrdersMenuFiiiiPc records three of four ints and lastString, giving (int, int, int, char *, char *). (2) render_demangled read a class parameter's 'qualifier' while mwdemangle reports 'components', so every class-typed mangled-filled parameter skipped as class ''. (3) Classes named only by the mangled signature had no identity in the plan (_zrdr, _zanim_cmd_hdr, zdb::CWorld). Batches 001 and 10 had no partial DWARF lists (checked), so their applied prototypes are unaffected.",
+      "id": "socom:workspace-issue:d0b8b6b989a0a41945eb",
+      "kind": "problem",
+      "reported_at": "2026-10-07T22:46:15Z",
+      "reported_by": "socom-dwarf-importer",
+      "resolution": {
+        "resolved_at": "2026-10-07T22:46:15Z",
+        "summary": "build_batch_program places DWARF parameters as an ordered subsequence of the mangled signature allowed by pointer depth and class name or builtin width (_Types.shape/mangled_shape/_compatible); a DWARF parameter keeps its name and type only where every placement agrees, other positions take the mangled type, and no placement is a recorded skip. render_demangled reads components. import_plan adds a referenced_only row for each class a short-DWARF function's mangled signature names, when exactly one identity carries the name. Batch 001 and 10 plans and programs regenerate byte-identically; batch 11 yields 23 of 24 prototypes with LoadTextures (this, CWorld *, C2DFont *font) and HandleRecoCmd (this, int x4, char *lastString). Tests cover the shapes and both functions."
+      },
+      "status": "resolved",
+      "summary": "Batch programs assumed DWARF lists the leading parameters and dropped mangled class parameters"
     }
   ],
-  "revision": 54,
+  "revision": 56,
   "schema_version": 1
 }

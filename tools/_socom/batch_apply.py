@@ -24,6 +24,7 @@ mutates the live program under the batch apply item's ``ghidra-writer`` lease.
 
 from __future__ import annotations
 
+import itertools
 import re
 from pathlib import Path
 from typing import Any, Callable
@@ -66,6 +67,28 @@ UNSPELLABLE = re.compile(r"[,&]")
 # DWARF 1 modifiers spelled as one pointer level (references are pointers in
 # the Metrowerks ABI); const and volatile have no rendering here.
 POINTER_MODIFIERS = {"pointer_to", "reference_to"}
+# Builtin widths for comparing DWARF and mangled parameter shapes.
+BUILTIN_SIZES = {fund.ghidra: fund.size for fund in FUND_TYPES.values()} | {"bool": 1}
+
+
+def _squash(name: str) -> str:
+    return re.sub(r"\s+", "", name)
+
+
+def _compatible(dwarf: tuple | None, mangled: tuple | None) -> bool:
+    """Whether a DWARF parameter can stand at a mangled position.
+
+    Shapes are (pointer depth, kind, builtin name, size, class names).  An
+    unknown shape on either side cannot contradict; a known mismatch does.
+    """
+
+    if dwarf is None or mangled is None:
+        return True
+    if dwarf[0] != mangled[0] or dwarf[1] != mangled[1]:
+        return False
+    if mangled[1] == "builtin":
+        return dwarf[2] == mangled[2] or (dwarf[3] is not None and dwarf[3] == mangled[3])
+    return mangled[4] <= dwarf[4]
 
 
 def symbol_name(readable: str) -> str:
@@ -194,6 +217,43 @@ class _Types:
             return None, f"type name {name!r} contains characters the bridge cannot parse"
         return name, None
 
+    def shape(self, descriptor: dict[str, Any] | None, depth: int = 0, names: frozenset = frozenset(), hops: int = 0) -> tuple | None:
+        """Comparable shape of a DWARF type, following typedefs."""
+
+        if descriptor is None:
+            return (depth, "builtin", "void", 0, names)
+        modifiers = descriptor.get("modifiers") or []
+        if any(modifier not in POINTER_MODIFIERS for modifier in modifiers):
+            return None
+        depth += len(modifiers)
+        if descriptor.get("die_offset") is None:
+            fund = FUND_TYPES.get(descriptor.get("fund_type"))
+            return (depth, "builtin", fund.ghidra, fund.size, names) if fund else None
+        row = self.by_die.get(descriptor["die_offset"])
+        if row is None:
+            return None
+        if row.get("qualified_name"):
+            names = names | {_squash(str(row["qualified_name"]))}
+        if row["kind"] == "typedef" and hops < 16:
+            return self.shape(row.get("type"), depth, names, hops + 1)
+        if row["kind"] in ("class_type", "structure_type", "union_type", "enumeration_type"):
+            return (depth, "class", None, row.get("byte_size"), names)
+        return None
+
+    @staticmethod
+    def mangled_shape(value: dict[str, Any]) -> tuple | None:
+        modifiers = value.get("modifiers") or []
+        if any(modifier not in ("P", "R", "C") for modifier in modifiers):
+            return None
+        depth = sum(1 for modifier in modifiers if modifier in ("P", "R"))
+        if value.get("kind") == "builtin":
+            name = BUILTINS.get(value.get("name"))
+            return (depth, "builtin", name, BUILTIN_SIZES.get(name), frozenset()) if name else None
+        if value.get("kind") == "class":
+            qualified = "::".join(readable_component(part) for part in value.get("components", []))
+            return (depth, "class", None, None, frozenset({_squash(qualified)}))
+        return None
+
     def render_demangled(self, value: dict[str, Any]) -> tuple[str | None, str | None]:
         modifiers = value.get("modifiers") or []
         if value.get("kind") == "builtin":
@@ -201,7 +261,8 @@ class _Types:
             if name is None:
                 return None, f"builtin {value.get('name')!r}"
         elif value.get("kind") == "class":
-            qualified = "::".join(readable_component(part) for part in value.get("qualifier", []))
+            # mwdemangle reports a class parameter's name parts as components.
+            qualified = "::".join(readable_component(part) for part in value.get("components", []))
             path = self.by_qualified.get(qualified)
             if path is None:
                 return None, f"class {qualified!r} has no identity in the plan"
@@ -314,10 +375,35 @@ def build_batch_program(root: Path, plan_path: Path) -> dict[str, Any]:
                 mangled_params = []
             if parsed and len(explicit) > len(mangled_params):
                 skip = skip or "DWARF lists more parameters than the mangled signature"
+            # Metrowerks DWARF may omit parameters anywhere in the list
+            # (LoadTextures__10OrdersMenuFPQ23zdb6CWorldP7C2DFont records only
+            # font). Place DWARF parameters as an ordered subsequence of the
+            # mangled signature that their types allow; a parameter keeps its
+            # DWARF name and type only where every placement agrees.
+            owner: dict[int, int] = {}
+            if parsed:
+                shapes = [types.shape(item["type"]) for item in explicit]
+                targets = [types.mangled_shape(value) for value in mangled_params]
+                placements = [
+                    combo
+                    for combo in itertools.combinations(range(len(mangled_params)), len(explicit))
+                    if all(_compatible(shapes[i], targets[j]) for i, j in enumerate(combo))
+                ]
+                if not placements:
+                    skip = skip or "DWARF parameters do not align with the mangled signature"
+                for index in range(len(explicit)):
+                    spots = {combo[index] for combo in placements}
+                    if len(spots) == 1:
+                        owner[spots.pop()] = index
+                if 0 < len(explicit) < len(mangled_params):
+                    notes.append(f"DWARF records {len(explicit)} of {len(mangled_params)} mangled parameters")
+            else:
+                owner = {index: index for index in range(len(explicit))}
             for index, value in enumerate(mangled_params if parsed else explicit):
-                if index < len(explicit):
-                    name, reason = types.render(explicit[index]["type"])
-                    pname = explicit[index]["name"] or f"param_{len(params) + 1}"
+                if index in owner:
+                    item = explicit[owner[index]]
+                    name, reason = types.render(item["type"])
+                    pname = item["name"] or f"param_{len(params) + 1}"
                     source = "dwarf"
                 else:
                     name, reason = types.render_demangled(value)

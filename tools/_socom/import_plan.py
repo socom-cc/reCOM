@@ -9,7 +9,7 @@ from typing import Any
 from .constants import REFERENCE_SHA256
 from .dwarf1 import Dwarf1Debug, Die, TYPE_TAGS
 from .elf import Elf32File
-from .mwdemangle import demangle, readable_qualified, split_qualified
+from .mwdemangle import demangle, readable_component, readable_qualified, split_qualified
 from .type_identity import (
     TypeIdentities,
     ghidra_path,
@@ -508,6 +508,32 @@ def _referenced_types(
     return sorted(rows, key=lambda row: row["evidence"]["die_offset"])
 
 
+def _mangled_parameter_classes(functions: list[dict[str, Any]]) -> set[str]:
+    """Classes that only the mangled signature names.
+
+    When DWARF lists fewer parameters than the Metrowerks mangled name, the
+    batch apply fills the missing positions (anywhere in the list) from the
+    mangled signature; a class there has no DWARF descriptor for the
+    referenced-type closure to follow.
+    """
+
+    names: set[str] = set()
+    for row in functions:
+        parsed = demangle(row["mangled_name"]) if row.get("mangled_name") else None
+        params = list((parsed or {}).get("params") or [])
+        if params == [{"modifiers": [], "kind": "builtin", "name": "void"}]:
+            params = []
+        dwarf = row["parameters"]
+        explicit = len(dwarf) - (1 if dwarf and dwarf[0]["name"] == "this" else 0)
+        if explicit >= len(params):
+            continue
+        # DWARF may omit any parameter, so every mangled class may be needed.
+        for value in params:
+            if value.get("kind") == "class":
+                names.add("::".join(readable_component(part) for part in value.get("components", [])))
+    return names
+
+
 def _conflicts(
     types: list[dict[str, Any]], identities: TypeIdentities
 ) -> list[dict[str, Any]]:
@@ -586,6 +612,21 @@ def build_import_plan(root: Path, batch: dict[str, Any] | None = None) -> dict[s
                 *(item["type"] for item in row["locals"]),
             )
         ] + [row["type"] for row in variables if row["status"] == "present"]
+        # A class named only by a mangled parameter joins through one DIE of
+        # its structural class, when exactly one identity carries the name.
+        carried = {row["structural_class"] for row in types}
+        by_name: dict[str, list[dict[str, Any]]] = collections.defaultdict(list)
+        for identity in identities.identities:
+            by_name[identity["qualified_name"]].append(identity)
+        first_die: dict[str, int] = {}
+        for offset, key in sorted(identities.structural_class.items()):
+            first_die.setdefault(key, offset)
+        for name in sorted(_mangled_parameter_classes(functions)):
+            matches = by_name.get(name, [])
+            if len(matches) == 1 and matches[0]["structural_class"] not in carried:
+                offset = first_die.get(matches[0]["structural_class"])
+                if offset is not None:
+                    descriptors.append({"die_offset": offset, "fund_type": None, "modifiers": []})
         types += _referenced_types(
             dies, parents, by_offset, identities, {die.offset for die in selected}, descriptors
         )

@@ -210,7 +210,13 @@ python tools/socom.py ghidra apply-batch `
   seen.
 - **Prototypes.** `__stdcall` with an explicit `this`, built from DWARF
   return and parameter records; parameters DWARF omits come from the mangled
-  signature, and destructors gain the hidden `short __dtor_flags`. A method
+  signature, and destructors gain the hidden `short __dtor_flags`. DWARF may
+  omit a parameter anywhere (`LoadTextures__10OrdersMenuFPQ23zdb6CWorldP7C2DFont`
+  records only `font`), so DWARF parameters are placed as an ordered
+  subsequence of the mangled signature that their pointer depth and class
+  name or builtin width allow; a DWARF parameter keeps its name and type only
+  where every placement agrees, other positions take the mangled type, and a
+  list with no placement is a recorded skip. A method
   has a receiver only when DWARF records `this` or its address is in its
   class's vtable (`__vt__10CGameState` holds the seven parameterless
   `CGameState` virtuals). Methods without that evidence keep their signature.
