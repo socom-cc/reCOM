@@ -923671,7 +923671,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 52,
+  "revision": 55,
   "schema_version": 4,
   "semantic_spans": [],
   "stage_order": [
@@ -1463046,6 +1463046,10 @@
       "title": "Apply reviewed DWARF compile-unit batch 011 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-08T03:14:28Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 12,
         "compile_unit_ids": [
@@ -1463204,8 +1463208,20 @@
       "dependencies": [
         "socom:work:debug-type-foundation-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "assembly (own R5900 decoder, delay-slot/likely-aware liveness and must-reach return analysis): every executed prototype's argument registers cover the incoming registers read (Load a0,f12 passed to fptosi,f13-f15; Tick/SetTrans a0,f12; SetupContextDisplay a0,a1 tested by beq; SetupTuples/RefreshContext a0,a1; dtors a1 sign-extended 16 bits = short __dtor_flags); all 6 constructors and 3 destructors return the incoming a0 in v0 on every path (void *); SetupContextDisplay returns slt 0/1 in v0 (uchar). SetupTuple 0x17ac50 and EnableTuples 0x17aed0 never read a0, take col from a1 (move s5,a1), and their only caller SetupTuples passes this (fp) in a0 and col in a1 with 8 stack doublewords for SetupTuple: the assembly proves a receiver; the program's no-receiver skip is fail-closed (no vtable slot or data word references either function)",
+        "file-only batch-program preview build/apply/socom-debug-batch-714ab6915532344ceec7-apply.json sha256 195f204a585ab911b4a899b55a2baaa5835ada1c9dc3a6b9358a0c5d0367db9b: 22 renames (the two __list_deleter generic_iterator<1> overloads at 0x17bba0/0x17bbb0 share one readable name, issue 94d56164), 20 prototypes; skips: 2 comma type names (0x178e40, 0x17bbc0; issue 06c2c23d), 2 without receiver evidence (OrdersMenu::SetupTuple 0x17ac50, EnableTuples 0x17aed0: no DWARF this, not in a vtable); the executor will additionally skip 0x17bba0/0x17bbb0 prototypes because generic_iterator<1> (2) and node (3) are ambiguous live. No partial DWARF parameter lists in this batch",
+        "live read-only (GET program=socom.elf): all 24 function names equal current_name with default undefined(void) signatures; OrdersMenu, CSubMenu, C2DOrderItem, CMD_TABLE, C2DString each resolve exactly once ignoring case; generic_iterator<1> (2) and node (3) make 0x17bba0/0x17bbb0 recorded executor skips; the 0x17bbc0 readable name std::__list_deleter<void_const*,std::allocator<void_const*>>::tail is already used by the non-const overload tail__...Fv at 0x173510 (batch 10), so the executor will record a rename skip there: expect 21 live renames, not 22 (issue 94d56164); no other rename clash. wchar_t->ushort reviewed against the binary: all 30 DWARF parameters aligned with a mangled w are FT 0x6 unsigned short; schar width 1 is inert today (no mangled Sc parameters)",
+        "own DWARF 1 reader (scratch, not tools/_socom): all 24 function rows equal the raw DIEs field by field (name, tag, low/high pc, attr 0x2008 mangled name, return/parameter/local descriptors and modifiers, raw locations, decoded register/frame storage, lexical-block ranges, parameter_storage class, .symtab aliases); DWARF bounds equal .symtab FUNC sizes and live Ghidra bodies; the 25 referenced_only type rows are exactly the 25 type DIEs the functions' returns/parameters/locals name (no mangled-class joins needed: no function has fewer DWARF than mangled parameters); all 25 scope paths exist live exactly once with the plan byte sizes",
+        "plan build/import-plans/socom-debug-batch-714ab6915532344ceec7.json sha256 63f7aa8bf12d7735ca59dbff0bd60522f38e662ade41e054a2f34ca82877b29d from python tools/socom.py debug import-plan --batch socom:debug-batch:714ab6915532344ceec7; debug conflicts list --batch: 0; all 25 scope type paths exist live (compared by path)",
+        "plan build/import-plans/socom-debug-batch-714ab6915532344ceec7.json sha256 63f7aa8bf12d7735ca59dbff0bd60522f38e662ade41e054a2f34ca82877b29d regenerates byte-identically with the current tools AND with the HEAD (fdf55a9) tools; batch-program from it regenerates 195f204a585ab911b4a899b55a2baaa5835ada1c9dc3a6b9358a0c5d0367db9b under both, so the uncommitted tool changes do not affect batch 12. Batch 001/10/11 plans (5668ec79, 4b9c8da3, 5293ac65) and programs (e43be2c1, 550b1b31, f6e0cf25) regenerate byte-identically and equal the hashes recorded on their accepted items. die_ranges equal the tracker batch and the 24 compile-unit boundaries [756664,769379) (contiguous with batch 11 end and batch 13 start); 220 non-null DIEs; 24 global_subroutine DIEs, no global_variable DIEs; debug conflicts list --batch: 0; progress audit --strict ok; audits workspace/docs/issues/independence/provenance/current-metadata/workflow-contracts/agent-surface/retired-surface ok; tests/tools 132 passed, 1 known GUIDANCE.md failure",
+        "tool changes before planning (issue socom:workspace-issue:0c7a39d7a64e97d8c731 items 1-2): mangled wchar_t spells ushort (DWARF evidence for MSL wide-char parameters) and schar has width 1 in the alignment check; a class named only by a mangled signature joins through a DIE whose own identity is that name. Batch 001, 10 and 11 plans and programs regenerate byte-identically; tests/tools 132 passed with only the known GUIDANCE.md failure; all audits ok"
+      ],
+      "handoff": {
+        "owner": "socom-dwarf-importer",
+        "submitted_at": "2026-10-08T02:48:23Z",
+        "summary": "DWARF compile-unit batch 12 plan (FTS orders.cpp/orders.h, ztwod.h inlines, MSL list) is conflict-free: 24 functions (incl. the C2DOrderItem/CMD_TABLE/CSubMenu constructors and destructors that batch 10 recorded as function objects), no variables, 25 type rows all referenced_only. Receipt scope: 24 functions, 0 globals, 25 types, all live."
+      },
       "id": "socom:debug-batch:714ab6915532344ceec7",
       "kind": "debug-import-plan-batch",
       "lease": null,
@@ -1463214,7 +1463230,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan DWARF compile-unit batch 012 (24 units)"
     },
     {
@@ -1463388,7 +1463404,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed DWARF compile-unit batch 012 (24 units)"
     },
     {

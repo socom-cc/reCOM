@@ -614,19 +614,31 @@ def build_import_plan(root: Path, batch: dict[str, Any] | None = None) -> dict[s
         ] + [row["type"] for row in variables if row["status"] == "present"]
         # A class named only by a mangled parameter joins through one DIE of
         # its structural class, when exactly one identity carries the name.
+        # Identity rows cover every name of a carried structural class, so a
+        # carried class needs no extra row (it is referenced, not changed).
         carried = {row["structural_class"] for row in types}
         by_name: dict[str, list[dict[str, Any]]] = collections.defaultdict(list)
         for identity in identities.identities:
             by_name[identity["qualified_name"]].append(identity)
-        first_die: dict[str, int] = {}
+        by_class: dict[str, list[int]] = collections.defaultdict(list)
         for offset, key in sorted(identities.structural_class.items()):
-            first_die.setdefault(key, offset)
+            by_class[key].append(offset)
         for name in sorted(_mangled_parameter_classes(functions)):
             matches = by_name.get(name, [])
-            if len(matches) == 1 and matches[0]["structural_class"] not in carried:
-                offset = first_die.get(matches[0]["structural_class"])
-                if offset is not None:
-                    descriptors.append({"die_offset": offset, "fund_type": None, "modifiers": []})
+            if len(matches) != 1 or matches[0]["structural_class"] in carried:
+                continue
+            # A structural class can carry several names; take a DIE whose
+            # own identity is the wanted one.
+            offset = next(
+                (
+                    candidate
+                    for candidate in by_class.get(matches[0]["structural_class"], [])
+                    if (identities.die_identity(candidate) or {}).get("qualified_name") == name
+                ),
+                None,
+            )
+            if offset is not None:
+                descriptors.append({"die_offset": offset, "fund_type": None, "modifiers": []})
         types += _referenced_types(
             dies, parents, by_offset, identities, {die.offset for die in selected}, descriptors
         )

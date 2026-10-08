@@ -290,3 +290,10 @@ def test_partial_dwarf_parameters_align_to_the_mangled_signature(root: Path, tmp
     # A class named only by the mangled signature reaches the plan.
     parse = functions["0x174a70"]["prototype"]["parameters"]
     assert parse[1]["type"] == "_zrdr *"
+
+
+def test_mangled_wchar_t_matches_dwarf_unsigned_short() -> None:
+    shape = batch_apply._Types.mangled_shape({"modifiers": ["P"], "kind": "builtin", "name": "wchar_t"})
+    assert shape == (1, "builtin", "ushort", 2, frozenset())
+    assert batch_apply._compatible((1, "builtin", "ushort", 2, frozenset()), shape)
+    assert batch_apply._compatible((0, "builtin", "schar", 1, frozenset()), batch_apply._Types.mangled_shape({"modifiers": [], "kind": "builtin", "name": "signed char"}))

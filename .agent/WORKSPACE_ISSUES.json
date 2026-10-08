@@ -484,8 +484,18 @@
       "resolution": null,
       "status": "open",
       "summary": "bool is spelled uchar from DWARF but bool from mangled names; derived types stay outside receipt scopes"
+    },
+    {
+      "details": "Batch 12 plan review (tracker revision 55). (1) OrdersMenu::SetupTuple (0x17ac50) and EnableTuples (0x17aed0) are skipped for lack of receiver evidence (no DWARF this, not in a vtable), but the assembly proves a receiver: neither reads a0 yet each takes col from a1 (move s5,a1), and the only caller SetupTuples passes this (fp) in a0 and col in a1, with 8 stack doublewords for SetupTuple's 16 arguments. Receiver evidence could include caller argument setup and the first argument register a method actually reads. (2) DWARF fundamental type 0x2 (signed char) appears on 78 local 'init' variables and has no FUND_TYPES entry; inert while batch programs do not apply locals.",
+      "id": "socom:workspace-issue:ea5d645f5e49b451bc7b",
+      "kind": "problem",
+      "reported_at": "2026-10-08T03:15:21Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Receiver evidence ignores callers and argument-register use; DWARF fundamental 0x2 has no mapping"
     }
   ],
-  "revision": 58,
+  "revision": 59,
   "schema_version": 1
 }

@@ -61,14 +61,17 @@ BUILTINS = {
     "short": "short", "unsigned short": "ushort", "int": "int", "unsigned int": "uint",
     "long": "longlong", "unsigned long": "ulonglong", "long long": "longlong",
     "unsigned long long": "ulonglong", "float": "float", "double": "double",
-    "bool": "bool", "wchar_t": "wchar_t",
+    "bool": "bool",
+    # Metrowerks EE wchar_t is two bytes: DWARF spells the MSL wide-char
+    # parameters unsigned short where the mangled name has 'w'.
+    "wchar_t": "ushort",
 }
 UNSPELLABLE = re.compile(r"[,&]")
 # DWARF 1 modifiers spelled as one pointer level (references are pointers in
 # the Metrowerks ABI); const and volatile have no rendering here.
 POINTER_MODIFIERS = {"pointer_to", "reference_to"}
 # Builtin widths for comparing DWARF and mangled parameter shapes.
-BUILTIN_SIZES = {fund.ghidra: fund.size for fund in FUND_TYPES.values()} | {"bool": 1}
+BUILTIN_SIZES = {fund.ghidra: fund.size for fund in FUND_TYPES.values()} | {"bool": 1, "schar": 1}
 
 
 def _squash(name: str) -> str:
