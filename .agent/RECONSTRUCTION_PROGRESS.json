@@ -923671,7 +923671,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 49,
+  "revision": 52,
   "schema_version": 4,
   "semantic_spans": [],
   "stage_order": [
@@ -1449377,7 +1449377,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "974166c70fc6f95dad3f4ffda974af78b9e4aab33c47e449da16e6b54706d104",
+      "current_receipt_sha256": "d78fddff4b807b5e791701dfdb3eb52ca0773e8160e6949998c86c1d9a2786bf",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -1449568,6 +1449568,31 @@
           "receipt_sha256": "974166c70fc6f95dad3f4ffda974af78b9e4aab33c47e449da16e6b54706d104",
           "tracker_revision": 46,
           "work_item_id": "socom:debug-batch:873c518eab3c45871ed4-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1471,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 24382
+          },
+          "indexes": {
+            "data": {
+              "count": 51541,
+              "sha256": "4812fcec2812632e2fcaa23571060a5dc5317dfa77d5ab8fb8c50c12f7b8a974"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "1b0c47ca793dd0007b812f5d62173a908b8d690134ab78240c6a24c573088b5a"
+            },
+            "types": {
+              "count": 1471,
+              "sha256": "7864de8a794599f5dcaaacd16976d24707daa1f2625a0c25086c722477cd6f08"
+            }
+          },
+          "receipt_sha256": "d78fddff4b807b5e791701dfdb3eb52ca0773e8160e6949998c86c1d9a2786bf",
+          "tracker_revision": 52,
+          "work_item_id": "socom:debug-batch:1c9907d6eef3a9fccef6-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -1462738,6 +1462763,10 @@
       "title": "Plan DWARF compile-unit batch 011 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-08T02:31:58Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 11,
         "compile_unit_ids": [
@@ -1462897,8 +1462926,113 @@
         "socom:debug-batch:1c9907d6eef3a9fccef6",
         "socom:work:ghidra-zero-fill-memory"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "bool resolution checked before the run: Ghidra 12.1.4 DataTypeParser.findDataType (Base.jar) consults BuiltInDataTypeManager and DataTypeUtilities.getCPrimitiveDataType first, so TickZAnimCmd's bool * parsed; it added builtin/bool and builtin/bool * (issue 0c7a39d7 notes the root-category placement)",
+        "ghidra-receipt-sha256:d78fddff4b807b5e791701dfdb3eb52ca0773e8160e6949998c86c1d9a2786bf",
+        "ghidra-save:explicit-program",
+        "independent primary evidence (own ELF32/DWARF1 reader, Metrowerks demangler and R5900 delay-slot liveness, no tools imports): all 24 live names equal the demangled .symtab FUNC names, each with exactly one USER_DEFINED mangled label at its entry (get_function_labels); all 23 Signature lines equal exactly the prototype derived from DWARF returns and parameters, the receiver (DWARF this for 16, __vt__3C2D words 0x472bb8..0x472be8 with R_MIPS_32 relocations for Parse/HandlePad/SetActive/SetNormal/ParseZAnimCmd/TickZAnimCmd/GetZAnimCmdType/SetMapOffset) and the mangled signature with DWARF parameters placed only where unique; no function reads an undeclared argument register (Tick and OrdersMenu::HandlePad read f12); declared-but-unread: LoadTextures a1 (overwritten at 0x1772c4, CWorld * kept from the mangled name, font=a2->s0), HandleRecoCmd a1 (overwritten at 0x176ea0; a2, a3->s2, t0->s1, t1->sp+0xac=lastString); non-void returns all define v0; every type name spelled resolves exactly once ignoring case to the intended /project path; 0x1777b0 keeps 'undefined ...(void)'",
+        "judgement: the 0x1777b0 prototype skip (second() accessor; DWARF this type compressed_pair_imp<...> contains commas) is a recorded, reported bridge limitation tracked by open issue 06c2c23d, not a silent choice; /bool (Ghidra 1-byte boolean, root category like /uchar) and the two pointer types are parser-derived and bound by the type-index digest, matching the derived-type precedent of batches 001 and 10. Non-blocking: C++ bool is spelled uchar where DWARF supplies it (FT 0x3) but bool where only the mangled name does (TickZAnimCmd bool *); HandleRecoCmd DWARF names subjectID/verbID/objectID are placeable at param_3..param_5 by register reads (issue 0c7a39d7); const from mangled names is dropped (issue 997ec820)",
+        "live: ghidra preflight --strict ok, analysis idle before and after a full read-only sweep; ghidra receipt over the stored scope reproduces d78fddff4b807b5e791701dfdb3eb52ca0773e8160e6949998c86c1d9a2786bf (data 51541 4812fcec..., functions 9715 1b0c47ca..., types 1471 7864de8a...); all 21 scoped types carry layout or enum read-back; symbol count 24310 -> 24382 = 24 labels + 48 parameter symbols of the 23 prototypes",
+        "no change outside the batch versus accepted batch 10 (receipt 974166c7): live function index with the 24 batch names reverted hashes to 397225a2..., data index equals 4812fcec...; type index minus /bool, /bool * and /project/C2DAnimCmdHdr * hashes to fa8f3ae5... (no other row added, removed or changed); bookmarks, all 28 memory blocks and a full get_bulk_xrefs sweep of every block including overlays (183,630 references) equal the batch 10 acceptance snapshot whose function/data/type indexes authenticate against 974166c7; references into main.bss equal the 16,333 relocation-proven set (GPREL16 and R_MIPS_32 subsets recomputed independently); recomputed receipts over the stored scopes of batch 10, batch 001 and the type foundation reproduce their accepted scoped facts exactly, and the zero-fill scope differs only at 41 globals whose facts equal the accepted batch 001/10 receipts",
+        "pre-apply snapshot equal to the accepted batch 10 state in every index (functions, data, types, bookmarks, all 183,619 references, 16 blocks); after the apply: analysis idle; functions differ only at the 24 batch entries; data, bookmarks, memory blocks and all 183,619 references identical; types 1468 -> 1471 adding only builtin/bool, builtin/bool *, project/C2DAnimCmdHdr *",
+        "pre-handoff receipt d78fddff4b807b5e791701dfdb3eb52ca0773e8160e6949998c86c1d9a2786bf: data 51541 4812fcec..., functions 9715 1b0c47ca..., types 1471 7864de8a...; bookmarks Address Table 713, Non-Returning 3; scope 24 functions, 0 globals, 21 types with no read-back markers",
+        "python tools/socom.py ghidra apply-batch: program build/apply/socom-debug-batch-1c9907d6eef3a9fccef6-apply.json sha256 f6e0cf2580449dd21eed74991f8505dbc268da4838d9961e1e03cd89cb141f05 (regenerated from the accepted plan at commit 0b463d3), 71 bridge calls (24 renames + 24 labels + 23 prototypes), every name and Signature line read back equal; report build/apply/socom-debug-batch-1c9907d6eef3a9fccef6-apply-report.json sha256 2742fbd05e2df949116caabb5746b0a71b37382fa71189fe71f134f9dbac70fd",
+        "tracker and provenance: progress audit --strict ok at revision 51, no leases; item awaiting_acceptance; stored scope equals build/receipts/socom-debug-batch-1c9907d6eef3a9fccef6-apply-scope.json and the accepted plan's receipt_scope (24 functions, 0 globals, 21 types); debug import-plan regenerates the accepted plan byte-identically (sha256 5293ac650befb9278cf1725ee105e21613ac70d502609710a0831decbaefd899) and debug batch-program from it regenerates the applied program byte-identically (f6e0cf2580449dd21eed74991f8505dbc268da4838d9961e1e03cd89cb141f05); tools/tests unchanged since 0b463d3; doctor --infrastructure-only --ghidra ok; audit agent-surface/retired-surface/capability-coverage/workflow-contracts --strict ok; tests/tools 131 passed, only test_workspace_has_only_the_ghidra_analysis_surface fails (untracked GUIDANCE.md)"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "d78fddff4b807b5e791701dfdb3eb52ca0773e8160e6949998c86c1d9a2786bf",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x174a70",
+            "0x174a80",
+            "0x174a90",
+            "0x174aa0",
+            "0x174ab0",
+            "0x174ac0",
+            "0x174ad0",
+            "0x174af0",
+            "0x174b00",
+            "0x174b10",
+            "0x174b20",
+            "0x174b30",
+            "0x174e40",
+            "0x175420",
+            "0x175a50",
+            "0x175cf0",
+            "0x175ff0",
+            "0x176ce0",
+            "0x176cf0",
+            "0x176d60",
+            "0x176e60",
+            "0x177290",
+            "0x1772a0",
+            "0x1777b0"
+          ],
+          "globals": [],
+          "types": [
+            "/project/_zanim_cmd_hdr",
+            "/project/_zrdr",
+            "/project/C2D",
+            "/project/C2DAnimCmdHdr",
+            "/project/C2DFont",
+            "/project/CAiEvent",
+            "/project/CEntity",
+            "/project/CPad",
+            "/project/CPnt3D",
+            "/project/CSealUnit",
+            "/project/CSnd",
+            "/project/CZSealBody",
+            "/project/KEY_STATE",
+            "/project/Metrowerks/details/compressed_pair_imp<std::allocator<std::__list_deleter<void const*, std::allocator<void const*>>::node>, std::__list_deleter<void const*, std::allocator<void const*>>::node_base, 1>",
+            "/project/OrdersMenu",
+            "/project/std/__list_deleter<void const*, std::allocator<void const*>>/node_base",
+            "/project/std/basic_string<char, std::char_traits<char>, std::allocator<char>>/CharArray",
+            "/project/unresolved/EVENT@35c2195558",
+            "/project/zdb/CAssetLib",
+            "/project/zdb/CTextureRelocMgr",
+            "/project/zdb/CWorld"
+          ]
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1471,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 24382
+          },
+          "indexes": {
+            "data": {
+              "count": 51541,
+              "sha256": "4812fcec2812632e2fcaa23571060a5dc5317dfa77d5ab8fb8c50c12f7b8a974"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "1b0c47ca793dd0007b812f5d62173a908b8d690134ab78240c6a24c573088b5a"
+            },
+            "types": {
+              "count": 1471,
+              "sha256": "7864de8a794599f5dcaaacd16976d24707daa1f2625a0c25086c722477cd6f08"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-08T02:06:00Z",
+        "summary": "Applied accepted batch 11 (plan sha256 5293ac65...d899) once: 24 functions renamed to readable demangled names with mangled secondary labels and 23 prototypes set, including the realigned LoadTextures (this, CWorld *param_2, C2DFont *font) and HandleRecoCmd (this, int x4, char *lastString). One recorded skip: the compressed_pair_imp<...> constructor (comma type name, issue 06c2c23d). No globals. A full before/after snapshot shows no change outside the batch except three derived types."
+      },
       "id": "socom:debug-batch:1c9907d6eef3a9fccef6-apply",
       "kind": "debug-import-apply-batch",
       "lease": null,
@@ -1462908,7 +1463042,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply reviewed DWARF compile-unit batch 011 (24 units)"
     },
     {

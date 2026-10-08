@@ -464,8 +464,28 @@
       },
       "status": "resolved",
       "summary": "Batch programs assumed DWARF lists the leading parameters and dropped mangled class parameters"
+    },
+    {
+      "details": "Batch 11 plan review (tracker revision 49), non-blocking for batch 11. (1) batch_apply._compatible rejects 22 of 405 full-length mangled/DWARF lists binary-wide: 20 MSL wide-char functions because DWARF spells wchar_t as ushort and BUILTIN_SIZES has no wchar_t/schar width, and __list_deleter::erase/insert (0x17c580, 0x17c630) because DWARF records the by-value iterator as pointer_to with a provisional name; those prototypes would now skip instead of applying by index, and in a partial list a wchar_t could be uniquely placed on a wrong 2-byte position. (2) import_plan first_die takes the first DIE of a structural class rather than one whose identity carries the wanted name, and does nothing when the class is already carried, so for classes shared by several names (compressed_pair_imp has 3 identities) the scope could list another name's path; batch 11's picks (_zanim_cmd_hdr, _zrdr, zdb::CWorld) are correct. (3) Placement uses itertools.combinations; worst case today is 55 combinations. (4) HandleRecoCmd keeps param_2..param_5 although the assembly identifies subjectID/verbID/objectID at positions 3-5; ambiguous placements could use argument-register reads to name parameters. (5) bool resolves through Ghidra's built-in type manager (DataTypeParser.findDataType), adding a root /bool type outside the receipt scope.",
+      "id": "socom:workspace-issue:0c7a39d7a64e97d8c731",
+      "kind": "problem",
+      "reported_at": "2026-10-08T01:49:32Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Parameter alignment rejects wchar_t and by-value iterator placements; mangled-class DIE choice ignores the name"
+    },
+    {
+      "details": "Batch 11 apply acceptance (tracker revision 52). (1) Where DWARF supplies a boolean (fundamental 0x3) prototypes use uchar (C2D::SetCanHandleInput, SetUseFrameBufferAlpha, OrdersMenu::AllCollapse); where only the mangled signature does, they use Ghidra bool (C2D::TickZAnimCmd bool *). Both are one byte; settle one spelling consistent with the Metrowerks ABI. (2) Derived pointer/array types created by applies (batch 001: 3, batch 10: 12, batch 11: /bool, /bool *, /project/C2DAnimCmdHdr *) are bound only by the unscoped type-index digest, not listed in receipt scopes as AGENTS.md function-workflow step 9 asks for changed types.",
+      "id": "socom:workspace-issue:876cb28cf2de8bfc2fef",
+      "kind": "problem",
+      "reported_at": "2026-10-08T02:32:49Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "bool is spelled uchar from DWARF but bool from mangled names; derived types stay outside receipt scopes"
     }
   ],
-  "revision": 56,
+  "revision": 58,
   "schema_version": 1
 }
