@@ -55,7 +55,8 @@
           "to_schema": {
             "enum": [
               3,
-              4
+              4,
+              5
             ]
           },
           "tracker_revision": {
@@ -73,7 +74,7 @@
       "type": "array"
     },
     "schema_version": {
-      "const": 4
+      "const": 5
     },
     "stage_order": {
       "const": [
@@ -149,6 +150,8 @@
               "debug-import-apply-foundation",
               "debug-import-plan-batch",
               "debug-import-apply-batch",
+              "ghidra-memory-map",
+              "ghidra-repair",
               "stage-seed"
             ]
           },

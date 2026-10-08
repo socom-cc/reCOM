@@ -238,7 +238,7 @@ def _leaf_commands(parser: argparse.ArgumentParser, prefix: tuple[str, ...] = ()
 
 def test_command_registry_exactly_matches_parser() -> None:
     registered = {row.path for row in COMMAND_SPECS}
-    assert len(registered) == len(COMMAND_SPECS) == 89
+    assert len(registered) == len(COMMAND_SPECS) == 90
     assert _leaf_commands(build_parser()) == registered
 
 
@@ -248,8 +248,8 @@ def test_tracker_file_is_valid_and_source_is_unverified(root: Path) -> None:
     assert all(owner["status"] == "unverified" for owner in tracker["owners"])
     assert len(tracker["symbols"]) == 21_894
     assert len(tracker["relocations"]) == 115_142
-    assert tracker["schema_version"] == 4
-    assert len(tracker["work_items"]) == 91
+    assert tracker["schema_version"] == 5
+    assert len(tracker["work_items"]) == 92
     assert len(
         [row for row in tracker["work_items"] if "-plan-" in row["kind"]]
     ) == 41

@@ -235,6 +235,13 @@ python tools/socom.py ghidra apply-batch `
   and a multi-dimensional array applies only if a type of exactly that name
   exists. Only pointer and reference modifiers are spelled (`*`); `const` and
   `volatile` are recorded skips.
+- **Thunks.** A function whose whole body is `j target` or `b target` with a
+  `nop` delay slot is a Ghidra thunk, and a thunk shares its target's
+  signature: setting one changes the target. The program therefore records a
+  thunk's prototype as a skip (it is still renamed). Batch 001 predates this
+  rule and set `COurGame::StopPlay`/`StartPlay` (0x140500/0x140510), which
+  gave `StopPlay__5CGameFv`/`StartPlay__5CGameFv` (no DWARF) `COurGame * this`;
+  see "Governed repairs".
 - **Recorded skips.** Type names with commas or `&` (STL), names not unique
   ignoring case, member-less anonymous RTTI/vtable records, and absent
   objects are left as they are and listed in the report.
@@ -293,6 +300,31 @@ or the bookmarks change. Its receipt scope lists every `.symtab`
 object in the mapped range, so the handoff receipt binds their names and
 reference counts.
 
+### Governed repairs
+
+When an accepted apply changed live state outside its scope and no later
+batch will correct it, a `ghidra-repair` item (added by a tracker migration)
+restores it under its own writer lease:
+
+```powershell
+python tools/socom.py ghidra repair-signatures `
+  --item <socom:work:ghidra-repair-...> `
+  --owner <lease-owner> `
+  --scope-output build/receipts/<item>-scope.json `
+  --report-output build/apply/<item>-report.json
+```
+
+The spec in `tools/_socom/repairs.py` names each target, the exact wrong state
+the live program must still show (any other state is refused before a write),
+and the state to restore. The thunk repair restores `StopPlay__5CGameFv` and
+`StartPlay__5CGameFv` to `undefined __stdcall NAME(void)`: batch 001's
+before-snapshot shows the import-time `undefined NAME(void)` with an unknown
+calling convention, but `set_function_prototype` accepts only `__stdcall` and
+`__thiscall` (it refused `unknown` after applying the signature), so the
+repair keeps the compiler spec's default convention. It reads back both
+targets and both thunks and scopes all four functions for the handoff
+receipt.
+
 ### Restoring the accepted state
 
 A saved defect is repaired from a fresh baseline import, not by hand: rename
@@ -308,9 +340,13 @@ python tools/socom.py ghidra restore-accepted `
 ```
 
 The command requires the unscoped receipt to equal the tracker's recorded
-baseline import, replays each accepted Ghidra apply from its accepted plan,
-and requires each replay to reproduce that item's accepted receipt exactly.
-It does not save; the leased item's handoff does.
+baseline import, replays each accepted type-foundation apply from its
+accepted plan, and requires each replay to reproduce that item's accepted
+receipt exactly. It does not save; the leased item's handoff does. It has no
+replay route yet for the zero-fill memory map, batch applies, or repairs
+(issue `014521cb`), and batch 001's accepted program no longer regenerates
+once the thunk guard skips its two thunk prototypes, so a full replay past
+the foundation is not yet possible.
 
 ## Ghidra version re-pin
 

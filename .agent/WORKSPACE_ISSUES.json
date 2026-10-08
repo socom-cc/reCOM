@@ -494,8 +494,41 @@
       "resolution": null,
       "status": "open",
       "summary": "Receiver evidence ignores callers and argument-register use; DWARF fundamental 0x2 has no mapping"
+    },
+    {
+      "details": "Found by the batch 12 apply verifier (tracker revision 58). COurGame::StopPlay (0x140500) and StartPlay (0x140510) are `j 0x20e790 / j 0x20e7a0; nop`, which Ghidra models as thunks sharing their targets' signatures. Batch 001 set `void COurGame::StopPlay(COurGame * this)` on the thunks, so StopPlay__5CGameFv (0x20e790) and StartPlay__5CGameFv (0x20e7a0) now read `void __stdcall NAME(COurGame * this)`. Both targets have no DWARF record, so no batch will correct them. Receipts bind function names (index) and scoped details only, and the owner's snapshots captured signatures only for batch functions, so neither caught it. Batches 10-12 applied no prototype through a thunk (C2D::GetZAnimCmdType's tail call sets a0 in its delay slot and is not a thunk).",
+      "id": "socom:workspace-issue:7fb9ffdf09c37e70a052",
+      "kind": "problem",
+      "reported_at": "2026-10-08T12:30:44Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": {
+        "resolved_at": "2026-10-08T21:30:07Z",
+        "summary": "Governed repair socom:work:ghidra-repair-batch-001-thunk-signatures (tracker schema 4->5 at revision 59, accepted by socom-verifier at revision 63, receipt 721a4437) restored StopPlay__5CGameFv and StartPlay__5CGameFv to undefined __stdcall NAME(void) (the bridge cannot set the import-time unknown convention; user decision). build_batch_program now records a thunk's prototype as a skip (_thunk_target: body j/b target; nop); the verifier's ELF-wide survey found the guard catches exactly the four DWARF-backed thunks, including BitmapReticule::Off/On (0x3ce4c0/0x3ce4d0) a later batch would have reached. Evidence for the proper CGame signatures is in issue 66b96708."
+      },
+      "status": "resolved",
+      "summary": "Batch 001 prototypes on two thunks rewrote CGame::StopPlay/StartPlay signatures"
+    },
+    {
+      "details": "The thunk repair (socom:work:ghidra-repair-batch-001-thunk-signatures) restored StopPlay__5CGameFv (0x20e790) and StartPlay__5CGameFv (0x20e7a0) to undefined __stdcall NAME(void) by user decision. Evidence for the proper signatures, for the ghidra-reconstruction stage: both sit in __vt__5CGame (slots 4 and 3); COurGame::StopPlay/StartPlay (DWARF void) are COurGame's thunks to them, and an override keeps its base's return type; StopPlay's body is `jr ra; sb zero,4(a0)` (no v0 write, a0 is this); StartPlay stores 1 to this+4, loads this->+8 into a1 and tail-jumps to 0x20be00 with a2=0. Supported: void __stdcall NAME(CGame * this) for both.",
+      "id": "socom:workspace-issue:66b967080ef4b0d188b0",
+      "kind": "problem",
+      "reported_at": "2026-10-08T21:06:14Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "CGame::StopPlay/StartPlay can take evidence-backed void (CGame * this) signatures"
+    },
+    {
+      "details": "Repair acceptance (tracker revision 63). Ghidra flags 40 thunks (list_functions_enhanced isThunk). _thunk_target catches the 8-byte `j/b target; nop` shape only; 10 more live thunks sit inside symbols of 48-112 bytes (e.g. 0x193cd0 find<...CAiPath...> `b +8; nop`, 0x2241e0), where a branch target became a separate FUN_ function inside the symbol's extent: function-boundary defects for the reconstruction stage. None has DWARF, so no batch is affected today. A sturdier guard would refuse prototypes on any function that is a thunk in the live program. Also: the repair likely leaves a user-defined signature source where the import state was default/analysis (not measurable through the bridge).",
+      "id": "socom:workspace-issue:0311696968cc9ec31233",
+      "kind": "problem",
+      "reported_at": "2026-10-08T21:30:07Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Thunk guard recognises only 8-byte j/b thunks; Ghidra has 10 boundary-split thunks"
     }
   ],
-  "revision": 59,
+  "revision": 63,
   "schema_version": 1
 }

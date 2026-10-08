@@ -257,11 +257,12 @@ def test_tracker_v2_migration_splits_plans_and_apply_items(
     path = tmp_path / "tracker.json"
     atomic_write_json(path, _legacy_tracker(root, census))
     migrated = migrate_tracker(path, 3)
-    assert migrated["schema_version"] == 4
+    assert migrated["schema_version"] == 5
     assert migrated["revision"] == 4
     assert [(row["from_schema"], row["to_schema"]) for row in migrated["migration_history"]] == [
         (2, 3),
         (3, 4),
+        (4, 5),
     ]
     plans = [row for row in migrated["work_items"] if "-plan-" in row["kind"]]
     applies = [row for row in migrated["work_items"] if "-apply-" in row["kind"]]
@@ -301,8 +302,8 @@ def test_tracker_v3_migration_adds_zero_fill_memory_item(
     path = tmp_path / "tracker.json"
     atomic_write_json(path, tracker)
     migrated = migrate_tracker(path, 7)
-    assert migrated["schema_version"] == 4
-    assert [(row["from_schema"], row["to_schema"]) for row in migrated["migration_history"]] == [(3, 4)]
+    assert migrated["schema_version"] == 5
+    assert [(row["from_schema"], row["to_schema"]) for row in migrated["migration_history"]] == [(3, 4), (4, 5)]
     items = {row["id"]: row for row in migrated["work_items"]}
     memory = items[ZERO_FILL_MEMORY_ID]
     assert memory["status"] == "ready"
@@ -313,6 +314,52 @@ def test_tracker_v3_migration_adds_zero_fill_memory_item(
     assert items[first_apply["id"]]["status"] == "blocked"
     assert items[first_apply["id"]]["dependencies"] == [first_plan["id"], ZERO_FILL_MEMORY_ID]
     assert audit_tracker(migrated) == []
+
+
+def test_tracker_v4_migration_adds_the_thunk_signature_repair(
+    tmp_path: Path, root: Path, census: dict
+) -> None:
+    from tools._socom.repairs import BATCH_001_APPLY_ID, THUNK_REPAIR_ID
+
+    tracker = initialize_tracker(root, census)
+    assert not any(row["id"] == THUNK_REPAIR_ID for row in tracker["work_items"])
+    tracker["schema_version"] = 4
+    tracker["revision"] = 9
+    path = tmp_path / "tracker.json"
+    atomic_write_json(path, tracker)
+    # Without an accepted batch 001 apply there is nothing to repair.
+    untouched = migrate_tracker(path, 9)
+    assert untouched["schema_version"] == 5
+    assert not any(row["id"] == THUNK_REPAIR_ID for row in untouched["work_items"])
+    receipt = {"receipt_sha256": "a" * 64, "scope": {"functions": [], "types": [], "globals": []}, "saved": True}
+    batch_plan = BATCH_001_APPLY_ID.removesuffix("-apply")
+    for row in tracker["work_items"]:
+        if row["id"] in (
+            "socom:work:debug-type-foundation",
+            "socom:work:debug-type-foundation-apply",
+            ZERO_FILL_MEMORY_ID,
+            batch_plan,
+            BATCH_001_APPLY_ID,
+        ):
+            row["status"] = "accepted"
+            if "ghidra-writer" in row["resources"]:
+                row["ghidra_receipt"] = receipt
+    atomic_write_json(path, tracker)
+    migrated = migrate_tracker(path, 9)
+    assert migrated["schema_version"] == 5
+    assert [(row["from_schema"], row["to_schema"]) for row in migrated["migration_history"]] == [(4, 5)]
+    order = [row["id"] for row in migrated["work_items"]]
+    assert order.index(THUNK_REPAIR_ID) == order.index(BATCH_001_APPLY_ID) + 1
+    repair = next(row for row in migrated["work_items"] if row["id"] == THUNK_REPAIR_ID)
+    # Its only dependency, batch 001's apply, is accepted.
+    assert repair["kind"] == "ghidra-repair" and repair["status"] == "ready"
+    assert repair["dependencies"] == [BATCH_001_APPLY_ID]
+    assert repair["resources"] == ["ghidra:soCOM/socom.elf", "ghidra-writer"]
+    assert audit_tracker(migrated) == []
+    claim_work(migrated, THUNK_REPAIR_ID, "writer", 30)
+    packet = work_packet(migrated, THUNK_REPAIR_ID, "writer")
+    assert any("ghidra repair-signatures" in line for line in packet["validation"])
+    assert packet["handoff"].endswith("handoff-live-ghidra")
 
 
 def test_memory_map_item_has_a_ghidra_writer_packet(root: Path, census: dict) -> None:

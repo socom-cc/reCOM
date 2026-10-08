@@ -1,7 +1,7 @@
 # Tracker model
 
 `.agent/RECONSTRUCTION_PROGRESS.json` is canonical generated state. It uses
-schema version 4 and a compare-and-swap revision. Manual edits are forbidden.
+schema version 5 and a compare-and-swap revision. Manual edits are forbidden.
 
 The tracker separates immutable binaries and physical blocks, symbols and
 relocations, semantic spans and types, source owners and physical artifacts,
@@ -40,14 +40,20 @@ under `build/import-plans`; apply items depend on their reviewed plan and alone
 own the explicit Ghidra program plus `ghidra-writer` resources. Batch apply
 items also depend on `socom:work:ghidra-zero-fill-memory`, a writer item that
 maps the load image's zero fill (Ghidra's import mapped only file-backed
-bytes, so `.bss` globals had no memory). Work packets render the exact role,
-skill, paths, program, validation, and handoff route for an active lease.
+bytes, so `.bss` globals had no memory). A `ghidra-repair` writer item restores
+accepted live state that an accepted apply changed outside its scope and no
+later batch will correct; its spec (targets, the exact wrong state, the state
+to restore) lives in `tools/_socom/repairs.py`. Work packets render the exact
+role, skill, paths, program, validation, and handoff route for an active lease.
 
 Schema upgrades use `progress migrate --expected-revision <revision>`. The
 command refuses active leases or pending handoffs, applies each schema step in
 order (2 to 3 splits plan and apply items; 3 to 4 adds the zero-fill memory
-item and re-blocks batch applies that now wait for it), records one migration
-history entry per step, and becomes a no-op at the current schema.
+item and re-blocks batch applies that now wait for it; 4 to 5 adds the repair
+of the signatures batch 001 changed through thunks), records one migration
+history entry per step, and becomes a no-op at the current schema. A fresh
+tracker at schema 5 has no repair item: with the thunk guard, nothing needs
+repairing.
 
 ## Ghidra target and receipts
 

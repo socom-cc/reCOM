@@ -29,6 +29,7 @@ from .elf import Elf32File
 from .functional import list_targets, run_target
 from .final_catalog import final_elf_catalog
 from .import_plan import build_import_plan
+from .repairs import repair_signatures
 from .guards import GUARDS, run_guard, source_placement
 from .issues import (
     add_issue,
@@ -758,6 +759,52 @@ def _ghidra_map_zero_fill(arguments: argparse.Namespace) -> int:
     }
     atomic_write_json(report_output, result)
     _emit(result)
+    return 0
+
+
+def _ghidra_repair_signatures(arguments: argparse.Namespace) -> int:
+    root = _root(arguments)
+    scope_output = _build_path(root, arguments.scope_output, "receipt scopes")
+    report_output = _build_path(root, arguments.report_output, "repair reports")
+    tracker = load_tracker(tracker_path(root))
+    item = require_ghidra_lease(tracker, arguments.item, arguments.owner)
+    if item.get("kind") != "ghidra-repair":
+        raise SocomError(f"{arguments.item} is not a ghidra-repair item")
+    preflight = live_preflight(root, bridge_url=arguments.bridge_url, strict_baseline=False)
+    if not preflight["ok"]:
+        _emit({"ok": False, "preflight": preflight})
+        return 1
+    try:
+        result = repair_signatures(
+            arguments.item,
+            GhidraBridge(arguments.bridge_url, timeout=300.0),
+            log=lambda message: print(message, file=sys.stderr, flush=True),
+        )
+    except SocomError as failure:
+        report = {
+            "kind": "socom-ghidra-repair-report",
+            "schema_version": 1,
+            "ok": False,
+            "work_item_id": arguments.item,
+            "error": str(failure),
+            "recovery": "close socom.elf without saving and reopen it before retrying",
+        }
+        atomic_write_json(report_output, report)
+        _emit(report)
+        return 1
+    atomic_write_json(scope_output, result["receipt_scope"])
+    report = {
+        "kind": "socom-ghidra-repair-report",
+        "schema_version": 1,
+        "ok": True,
+        "work_item_id": arguments.item,
+        "owner": arguments.owner,
+        "functions": result["functions"],
+        "bridge_call_count": result["bridge_call_count"],
+        "scope_output": scope_output.relative_to(root).as_posix(),
+    }
+    atomic_write_json(report_output, report)
+    _emit(report)
     return 0
 
 
@@ -1790,6 +1837,14 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
         mutates_ghidra=True,
     ),
     _spec(
+        "ghidra repair-signatures",
+        "ghidra",
+        "Restore function signatures a recorded repair names, under the repair item's writer lease.",
+        mutates=True,
+        ghidra_requirement="required",
+        mutates_ghidra=True,
+    ),
+    _spec(
         "ghidra map-zero-fill",
         "ghidra",
         "Map the ELF load image's zero fill in Ghidra under the item's writer lease.",
@@ -2027,6 +2082,13 @@ def build_parser() -> argparse.ArgumentParser:
     zero_fill.add_argument("--report-output", required=True)
     zero_fill.add_argument("--bridge-url")
     zero_fill.set_defaults(handler=_ghidra_map_zero_fill)
+    repair = ghidra_commands.add_parser("repair-signatures")
+    repair.add_argument("--item", required=True)
+    repair.add_argument("--owner", required=True)
+    repair.add_argument("--scope-output", required=True)
+    repair.add_argument("--report-output", required=True)
+    repair.add_argument("--bridge-url")
+    repair.set_defaults(handler=_ghidra_repair_signatures)
     apply_types = ghidra_commands.add_parser("apply-types")
     apply_types.add_argument("--program", required=True)
     apply_types.add_argument("--item", required=True)

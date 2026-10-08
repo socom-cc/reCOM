@@ -297,3 +297,24 @@ def test_mangled_wchar_t_matches_dwarf_unsigned_short() -> None:
     assert shape == (1, "builtin", "ushort", 2, frozenset())
     assert batch_apply._compatible((1, "builtin", "ushort", 2, frozenset()), shape)
     assert batch_apply._compatible((0, "builtin", "schar", 1, frozenset()), batch_apply._Types.mangled_shape({"modifiers": [], "kind": "builtin", "name": "signed char"}))
+
+
+def test_thunk_prototypes_are_skipped(program: dict) -> None:
+    functions = {row["address"]: row for row in program["functions"]}
+    # COurGame::StopPlay is `j StopPlay__5CGameFv; nop`: a Ghidra thunk whose
+    # signature is its target's.
+    stop = functions["0x140500"]
+    assert stop["prototype"] is None and stop["prototype_skip"].startswith("thunk of 0x20e790")
+    assert stop["rename"] is True
+
+
+def test_thunk_target_needs_a_bare_jump_and_nop(root: Path) -> None:
+    from tools._socom.elf import Elf32File
+
+    elf = Elf32File(root / "support" / "socom.elf")
+    assert batch_apply._thunk_target(elf, 0x140500, 8) == 0x20E790
+    # BitmapReticule::Off: a DWARF-backed thunk a later batch would reach.
+    assert batch_apply._thunk_target(elf, 0x3CE4C0, 8) is not None
+    # C2D::GetZAnimCmdType tail-calls with a0 set in its delay slot.
+    assert batch_apply._thunk_target(elf, 0x174B10, 8) is None
+    assert batch_apply._thunk_target(elf, 0x140500, 12) is None

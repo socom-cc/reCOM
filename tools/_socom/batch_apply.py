@@ -302,6 +302,29 @@ def _vtable_members(elf: Elf32File, symbols: list[Any]) -> dict[int, list[str]]:
     return members
 
 
+def _thunk_target(elf: Elf32File, address: int, size: int | None) -> int | None:
+    """Target of a function whose whole body is `j target` or `b target`; nop.
+
+    Ghidra makes such a function a thunk, and a thunk shares its target's
+    signature: batch 001's COurGame::StopPlay prototype rewrote
+    StopPlay__5CGameFv at 0x20e790.
+    """
+
+    if size != 8:
+        return None
+    segment = next(elf.load_segments())
+    offset = segment.offset + address - segment.virtual_address
+    first = int.from_bytes(elf.data[offset : offset + 4], "little")
+    second = int.from_bytes(elf.data[offset + 4 : offset + 8], "little")
+    if second != 0:
+        return None
+    if first >> 26 == 0x02:
+        return ((address + 4) & 0xF0000000) | ((first & 0x03FFFFFF) << 2)
+    if first >> 26 == 0x04 and (first >> 16) & 0x3FF == 0:
+        return address + 4 + ((((first & 0xFFFF) ^ 0x8000) - 0x8000) << 2)
+    return None
+
+
 def _vtable_class(name: str) -> str | None:
     parsed = demangle(name)
     if not parsed or parsed.get("params") is not None:
@@ -325,6 +348,7 @@ def build_batch_program(root: Path, plan_path: Path) -> dict[str, Any]:
     vtables = _vtable_members(elf, symbols)
     types = _Types(plan)
 
+    function_sizes = {symbol.value: symbol.size for symbol in symbols if symbol.type_name == "FUNC" and symbol.size}
     functions = []
     names: dict[str, int] = {}
     for row in sorted(plan["functions"], key=lambda item: item["low_pc"] or 0):
@@ -428,6 +452,10 @@ def build_batch_program(root: Path, plan_path: Path) -> dict[str, Any]:
                     "sources": [p["source"] for p in params],
                     "calling_convention": CALLING_CONVENTION,
                 }
+        target = _thunk_target(elf, row["low_pc"], function_sizes.get(row["low_pc"]))
+        if prototype is not None and target is not None:
+            prototype = None
+            skip = f"thunk of 0x{target:x}; Ghidra gives a thunk its target's signature"
         if readable:
             names[readable] = names.get(readable, 0) + 1
         functions.append(

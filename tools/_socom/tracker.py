@@ -17,6 +17,7 @@ from .constants import (
 )
 
 from .locking import exclusive_state_lock
+from .repairs import REPAIRS
 from .source import source_owners
 from .util import SocomError, atomic_write_json, load_json, stable_id
 
@@ -40,6 +41,26 @@ def _zero_fill_memory_item(foundation_apply_id: str) -> dict[str, Any]:
         "title": "Map the zero-fill load image in Ghidra",
         "status": "blocked",
         "dependencies": [foundation_apply_id],
+        "resources": list(GHIDRA_WRITER_RESOURCES),
+        "selection": None,
+        "batch": None,
+        "lease": None,
+        "handoff": None,
+        "evidence": [],
+    }
+
+
+def _repair_item(item_id: str) -> dict[str, Any]:
+    """A governed repair of accepted live state (specs in repairs.REPAIRS)."""
+
+    spec = REPAIRS[item_id]
+    return {
+        "id": item_id,
+        "stage": "debug-metadata-import",
+        "kind": "ghidra-repair",
+        "title": spec["title"],
+        "status": "blocked",
+        "dependencies": list(spec["dependencies"]),
         "resources": list(GHIDRA_WRITER_RESOURCES),
         "selection": None,
         "batch": None,
@@ -551,6 +572,15 @@ def audit_tracker(
                 errors.append(f"{item_id} memory-map resources differ from Ghidra contract")
             if item.get("dependencies") != ["socom:work:debug-type-foundation-apply"]:
                 errors.append(f"{item_id} must depend only on the type foundation apply")
+        if kind == "ghidra-repair":
+            spec = REPAIRS.get(str(item_id))
+            if spec is None:
+                errors.append(f"{item_id} is a repair item without a recorded repair")
+            else:
+                if resources != set(GHIDRA_WRITER_RESOURCES):
+                    errors.append(f"{item_id} repair resources differ from Ghidra contract")
+                if item.get("dependencies") != spec["dependencies"]:
+                    errors.append(f"{item_id} dependencies differ from {spec['dependencies']}")
         if kind == "stage-seed" and status != "blocked":
             errors.append(f"{item_id} undecomposed stage seed must remain blocked")
         missing = set(item.get("dependencies", [])) - known
@@ -1231,6 +1261,27 @@ def _migrate_3_to_4(updated: dict[str, Any]) -> None:
     updated["schema_version"] = 4
 
 
+def _migrate_4_to_5(updated: dict[str, Any]) -> None:
+    """Add the repair of the signatures batch 001 changed through thunks."""
+
+    from .repairs import BATCH_001_APPLY_ID, THUNK_REPAIR_ID
+
+    items = updated["work_items"]
+    index = next(
+        (position for position, row in enumerate(items) if row.get("id") == BATCH_001_APPLY_ID),
+        None,
+    )
+    # Only a tracker whose batch 001 apply was accepted (before the thunk
+    # guard) holds the defect; any other tracker has nothing to repair.
+    if (
+        index is not None
+        and items[index].get("status") == "accepted"
+        and not any(row.get("id") == THUNK_REPAIR_ID for row in items)
+    ):
+        items.insert(index + 1, _repair_item(THUNK_REPAIR_ID))
+    updated["schema_version"] = 5
+
+
 def migrate_tracker(path: Path, expected_revision: int) -> dict[str, Any]:
     """Migrate the tracker to the current schema under its normal lock."""
 
@@ -1239,7 +1290,7 @@ def migrate_tracker(path: Path, expected_revision: int) -> dict[str, Any]:
         require_revision(current, expected_revision)
         if current.get("schema_version") == SCHEMA_VERSION:
             return current
-        if current.get("schema_version") not in (2, 3):
+        if current.get("schema_version") not in (2, 3, 4):
             raise SocomError(
                 f"no migration path from schema {current.get('schema_version')}"
             )
@@ -1263,6 +1314,9 @@ def migrate_tracker(path: Path, expected_revision: int) -> dict[str, Any]:
         if updated["schema_version"] == 3:
             _migrate_3_to_4(updated)
             steps.append((3, 4))
+        if updated["schema_version"] == 4:
+            _migrate_4_to_5(updated)
+            steps.append((4, 5))
         for from_schema, to_schema in steps:
             updated.setdefault("migration_history", []).append(
                 {
@@ -1325,13 +1379,14 @@ def work_packet(
             "program_path": "/socom.elf",
             "receipt_scope_required": True,
         }
-    elif kind == "ghidra-memory-map":
+    elif kind in ("ghidra-memory-map", "ghidra-repair"):
         role = "socom-ghidra-reconstructor"
         skill = "socom-ghidra-reconstruction"
         slug = item_id.replace(":", "-")
+        command = "map-zero-fill" if kind == "ghidra-memory-map" else "repair-signatures"
         validation = [
             "python tools/socom.py ghidra preflight --strict",
-            f"python tools/socom.py ghidra map-zero-fill --item {item_id} --owner <owner> "
+            f"python tools/socom.py ghidra {command} --item {item_id} --owner <owner> "
             f"--scope-output build/receipts/{slug}-scope.json "
             f"--report-output build/apply/{slug}-report.json",
             f"python tools/socom.py ghidra receipt --scope build/receipts/{slug}-scope.json",
