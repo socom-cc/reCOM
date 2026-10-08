@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 63,
+  "revision": 66,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1463664,6 +1463664,10 @@
       "title": "Apply reviewed DWARF compile-unit batch 012 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-08T21:55:02Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 13,
         "compile_unit_ids": [
@@ -1463822,8 +1463826,22 @@
       "dependencies": [
         "socom:work:debug-type-foundation-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "file-only batch-program preview build/apply/socom-debug-batch-d73cfb813babeb1ce7f8-apply.json sha256 23cb7e244744fc85774331fe951a07f82f2eb12c307eb0044ef9e8fc8890efbd: 23 renames, 15 prototypes (skips: OrdersMenu::OnRecoCmd no receiver evidence; 7 comma template type names); 45 globals, 39 typed (executor will additionally skip load_thread_stack's @class@40b9ef5743, absent live like issue c047a89a, and TexPhase int[3][17] unless defined live), 26 renames (CGameState::__RTTI at 0x448d40 will be skipped: name used at 0x444578)",
+        "globals: all 45 DWARF types/sizes equal .symtab sizes (assetWait DWARF uint[0..-1] completed to uint[17]=68; TexPhase int[0..2][0..16]=204; m_pads CPad*[2]=8; load_thread_stack @class 69632); no other .symtab symbol inside any extent; binary-wide only _gp (0x47cbf0, NOTYPE EER27/_gp) among 983 present DWARF variable rows lacks a sized OBJECT symbol. Read-only live dry run of execute_batch_program (GETs only: list_functions/list_data_types/list_data_items/audit_global/get_function_by_address; every POST intercepted locally): no abort; 22 function renames + 15 prototypes; 20 global renames, 24 apply_data_type, 12 types unchanged; recorded skips: 8 prototypes, _gp, @class@40b9ef5743 (absent live), int[3][17] (undefined), CGameState::__RTTI rename (used at 0x444578), and 0x17d660 rename (readable name already at 0x1735a0, the non-const second Fv overload); 5 recurring globals unchanged; all 23 live functions are baseline mangled, non-thunk, bodies equal FUNC sizes; no global is code",
+        "independent ELF32/DWARF 1 reader (own parser, not tools/_socom): .debug has 959 CUs; plan die_ranges equal CUs 288-311 exactly (24 consecutive, source paths equal), 4719 DIEs = selected_die_count; 23 CU-level subprogram DIEs with low_pc = plan functions (low/high_pc, FUNC sizes, mangled 0x2000 names, .symtab aliases, return/parameter types and locations, 12 locals incl. lexical blocks all equal); 70 CU-level variable DIEs = plan rows (addresses, types, symbols, PT_LOAD placement): 46 present at 45 addresses (pBuffer_MotionRdr twice), 11 absent at address 0 (7 RTTI, c_szCornerBoxesTx, c_szHudScrollArrowTex, bMulti, bMaster), 13 function-objects of subroutine_type at FUNC symbols; 905 in-range type DIEs = non-referenced_only rows; the 10 referenced_only rows are exactly the out-of-range types named by batch functions/params/locals/present variables; 503 scope type paths all exist live",
+        "plan build/import-plans/socom-debug-batch-d73cfb813babeb1ce7f8.json sha256 00910fbecb35f0931aa0ef2338d2cbff340110bccf44944e166f21f62a37e23a from python tools/socom.py debug import-plan --batch socom:debug-batch:d73cfb813babeb1ce7f8; debug conflicts list --batch: 0; all 503 scope type paths exist live",
+        "pre-handoff read-only audit (list_data_types, list_functions, audit_global per global): live function names equal current names; no thunks; every prototype type unique live; every global's live name is its current name or, for 5 globals renamed by batches 001/10 (CGameState::__vt, CCinematicState::__vt, CInput::m_pads, CVideo::m_defaultFrameRate, zdb::CTexManager::m_texmanager), its readable name; no global is code",
+        "prototypes vs assembly (capstone on ELF bytes): HandleMoving a0 this, f12 dT; Draw a0 this, a1 camera; CMD_TABLE/CCoreState dtors a0 this, a1 sign-extended short flags (dsll32/dsra32 16), return this in v0; CCoreState ctor stores a0 at sp+0x1c (DWARF frame loc) and returns it; Load a1 async; Tick f12 dT, uchar return in v0; Init returns v0=1; SetActive a0 this, a1 flag, returns bool v0; Unload/UnInit/auxUnload a0 this; PreInit/PreUnInit are jr ra/nop listed in __vt__10CCoreState slots 3 and 6 (receiver by vtable); LoadThreadEntry ignores a0 and its DWARF function-object subroutine_type 893762 has one void* parameter, matching FPv; OnRecoCmd is static (stores a0-a3 into recoResult 0x48a040.., passes t0 to sprintf with %s), so its recorded prototype skip is conservative",
+        "reproduced: debug import-plan --batch socom:debug-batch:d73cfb813babeb1ce7f8 regenerates plan sha256 00910fbecb35f0931aa0ef2338d2cbff340110bccf44944e166f21f62a37e23a byte-identically; debug batch-program from it regenerates build/apply/socom-debug-batch-d73cfb813babeb1ce7f8-apply.json sha256 23cb7e244744fc85774331fe951a07f82f2eb12c307eb0044ef9e8fc8890efbd byte-identically; debug conflicts list --batch: 0; progress audit --strict ok; doctor --infrastructure-only --ghidra ok; support/socom.elf sha256 00c9cee7...4f8a",
+        "tool change review: batch_apply label-only skip and renamed-before rule are correct for this batch; batch 10/11/12 programs regenerate byte-identically (550b1b31..., f6e0cf25..., 195f204a...); batch 001 regenerates to 42105220... differing from accepted e43be2c1... only by the two thunk prototype skips (0x140500/0x140510); tests/tools: 140 passed. Non-blocking notes: handoff says 39 typed but program typed_global_count is 38; live function renames will be 22 not 23 (0x17d660 recorded skip); the label-only rule also matches an address with no symbols (all([])), unreachable binary-wide today",
+        "tool fixes before handoff (issue socom:workspace-issue:b809f0e4768a82125d92, resolved): the executor treats an already-renamed recurring global as unchanged instead of aborting; _gp at 0x47cbf0 (only zero-size NOTYPE labels EER27/_gp, no OBJECT) is a recorded skip; batch 10-12 programs regenerate byte-identically; tests/tools 140 passed, 0 failed; all audits ok"
+      ],
+      "handoff": {
+        "owner": "socom-dwarf-importer",
+        "submitted_at": "2026-10-08T21:41:27Z",
+        "summary": "DWARF compile-unit batch 13 plan (FTS orders.cpp tail, st_core.cpp CCoreState, fts_state.h, znode.h, MSL list) is conflict-free: 23 functions, 70 variable rows (46 present at 45 addresses, 11 absent, 13 function objects), 915 type rows incl. 10 referenced_only. Receipt scope: 23 functions, 45 globals, 503 types, all live."
+      },
       "id": "socom:debug-batch:d73cfb813babeb1ce7f8",
       "kind": "debug-import-plan-batch",
       "lease": null,
@@ -1463832,7 +1463850,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan DWARF compile-unit batch 013 (24 units)"
     },
     {
@@ -1464006,7 +1464024,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed DWARF compile-unit batch 013 (24 units)"
     },
     {

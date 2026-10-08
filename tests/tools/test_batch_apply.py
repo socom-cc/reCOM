@@ -308,6 +308,43 @@ def test_thunk_prototypes_are_skipped(program: dict) -> None:
     assert stop["rename"] is True
 
 
+def test_globals_renamed_by_an_earlier_batch_are_unchanged(program: dict) -> None:
+    program = copy.deepcopy(program)
+    for row in program["globals"]:
+        if row["address"] != "0x476f60":
+            row["size"] = None
+    names = {row["address"]: row["current_name"] for row in program["functions"]}
+    bridge = _FakeBridge(program, names)
+    # zdb::CTexManager::m_texmanager was renamed when its first unit applied.
+    bridge.globals["0x50eb00"]["name"] = "zdb::CTexManager::m_texmanager"
+    index = [{"name": "COurGame"}, {"name": "CGameState"}, {"name": "CTexManager"}]
+    result = batch_apply.execute_batch_program(program, bridge, type_index=lambda: index, function_names=lambda: names)
+    assert {"address": "0x50eb00", "action": "rename", "name": "zdb::CTexManager::m_texmanager"} in result["unchanged"]
+    assert not any(
+        body.get("address") == "0x50eb00" for endpoint, body in bridge.calls if endpoint in ("rename_label", "create_label")
+    )
+    with pytest.raises(SocomError, match="expected 'gopt'"):
+        drifted = _FakeBridge(program, names)
+        drifted.globals["0x438750"]["name"] = "something_else"
+        batch_apply.execute_batch_program(program, drifted, type_index=lambda: index, function_names=lambda: names)
+
+
+def test_linker_labels_are_not_typed_as_globals(root: Path, batch_plan_path: Path, tmp_path: Path) -> None:
+    plan = json.loads(batch_plan_path.read_text(encoding="utf-8"))
+    gp = dict(
+        copy.deepcopy(next(row for row in plan["variables"] if row["name"] == "theGame")),
+        name="_gp",
+        address=0x47CBF0,
+        symbols=["EER27", "_gp"],
+        symbol_qualified_names=[],
+        type={"die_offset": None, "fund_type": 20, "modifiers": ["pointer_to"]},
+    )
+    path = tmp_path / "gp.json"
+    path.write_text(json.dumps(dict(plan, variables=[*plan["variables"], gp])), encoding="utf-8")
+    entry = {row["address"]: row for row in batch_apply.build_batch_program(root, path)["globals"]}["0x47cbf0"]
+    assert entry["skip"].startswith("only zero-size linker labels") and not entry["rename"] and entry["type"] is None
+
+
 def test_thunk_target_needs_a_bare_jump_and_nop(root: Path) -> None:
     from tools._socom.elf import Elf32File
 

@@ -490,6 +490,10 @@ def build_batch_program(root: Path, plan_path: Path) -> dict[str, Any]:
 
     # Metrowerks repeats a global's DIE in each compile unit that declares
     # it; every row at one address must spell the same Ghidra type.
+    labels: dict[int, list[Any]] = {}
+    for symbol in symbols:
+        if symbol.value:
+            labels.setdefault(symbol.value, []).append(symbol)
     object_sizes: dict[int, set[int]] = {}
     for symbol in symbols:
         if symbol.type_name == "OBJECT" and symbol.value and symbol.size:
@@ -527,20 +531,25 @@ def build_batch_program(root: Path, plan_path: Path) -> dict[str, Any]:
                 size = target.get("byte_size")
         if type_name and size is not None and extent is not None and size != extent:
             type_name, reason = None, f"DWARF extent {size} differs from the .symtab size {extent}"
-        globals_.append(
-            {
-                "address": f"0x{row['address']:x}",
-                "dwarf_name": row["name"],
-                "symbols": row["symbols"],
-                "current_name": current,
-                "readable_name": readable,
-                "rename": readable != current,
-                "type": type_name,
-                "type_skip": reason,
-                "size": size,
-                "placement": row["placement"],
-            }
-        )
+        entry = {
+            "address": f"0x{row['address']:x}",
+            "dwarf_name": row["name"],
+            "symbols": row["symbols"],
+            "current_name": current,
+            "readable_name": readable,
+            "rename": readable != current,
+            "type": type_name,
+            "type_skip": reason,
+            "size": size,
+            "placement": row["placement"],
+        }
+        if address not in object_sizes and labels.get(address) and all(
+            symbol.type_name == "NOTYPE" and not symbol.size for symbol in labels[address]
+        ):
+            # `extern void *_gp` names the linker's small-data base: only
+            # zero-size labels (EER27, _gp) sit there, no data object.
+            entry.update({"rename": False, "type": None, "skip": "only zero-size linker labels at this address, no data object"})
+        globals_.append(entry)
     # Function objects (status function-object) describe code, not data;
     # the plan records them and the program leaves them out.
     absent = sorted(row["name"] for row in plan["variables"] if row["status"] == "absent")
@@ -719,13 +728,19 @@ def execute_batch_program(
         taken.setdefault(applied["name"], set()).add(applied["address"])
     for entry in program["globals"]:
         address = entry["address"]
+        if entry.get("skip"):
+            skipped.append({"address": address, "action": "global", "reason": entry["skip"]})
+            continue
         audit = bridge.request("audit_global", address=address, strict_mode="off")
         if not isinstance(audit, dict):
             raise SocomError(f"audit_global failed at {address}: {audit!r}")
         if audit.get("is_code_address") or audit.get("is_function_entry"):
             raise SocomError(f"global at {address} is code in the live program")
         live_name = audit.get("name")
-        if live_name != entry["current_name"]:
+        # A global declared in several compile units recurs in later batches;
+        # an earlier batch may already have given it its readable name.
+        renamed_before = entry["rename"] and live_name == entry["readable_name"]
+        if live_name != entry["current_name"] and not renamed_before:
             raise SocomError(f"global at {address} is {live_name!r}, expected {entry['current_name']!r}")
         type_name = entry["type"]
         reason = ambiguous(type_name) if type_name else None
@@ -747,6 +762,10 @@ def execute_batch_program(
             )
         name = entry["current_name"]
         rename = entry["rename"]
+        if renamed_before:
+            unchanged.append({"address": address, "action": "rename", "name": entry["readable_name"]})
+            name = entry["readable_name"]
+            rename = False
         if rename:
             holders = taken.get(entry["readable_name"], set()) - {address}
             if holders:

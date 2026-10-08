@@ -527,8 +527,21 @@
       "resolution": null,
       "status": "open",
       "summary": "Thunk guard recognises only 8-byte j/b thunks; Ghidra has 10 boundary-split thunks"
+    },
+    {
+      "details": "Pre-handoff audit of batch 13 (socom:debug-batch:d73cfb813babeb1ce7f8), before any Ghidra write. (1) Five globals renamed by batches 001/10 recur in batch 13 because other compile units declare them (CGameState::__vt, CCinematicState::__vt, CInput::m_pads, CVideo::m_defaultFrameRate, zdb::CTexManager::m_texmanager); the executor's live-name check expected their mangled names and would have raised after the function steps, leaving a partly applied program. (2) DWARF in st_core.cpp declares `_gp` (void *) at 0x47cbf0, where only zero-size NOTYPE labels EER27 (live primary) and _gp sit; the program expected live name _gp and would also have aborted, and typing the linker's small-data base as data would be wrong. Neither surfaced in batches 001-12.",
+      "id": "socom:workspace-issue:b809f0e4768a82125d92",
+      "kind": "problem",
+      "reported_at": "2026-10-08T21:36:03Z",
+      "reported_by": "socom-dwarf-importer",
+      "resolution": {
+        "resolved_at": "2026-10-08T21:36:03Z",
+        "summary": "execute_batch_program accepts a global whose live name already equals its readable name (recorded as unchanged, no rename or label calls); build_batch_program marks globals at addresses with only zero-size NOTYPE labels and no OBJECT symbol as a recorded skip (not typed, not renamed). Batch 001-12 programs are unchanged by these rules (batch 001 differs only by the earlier thunk skips). The owner's pre-handoff preview audit now checks every global's live name and code status via read-only audit_global. Tests: test_globals_renamed_by_an_earlier_batch_are_unchanged, test_linker_labels_are_not_typed_as_globals."
+      },
+      "status": "resolved",
+      "summary": "Batch 13 apply would have aborted on previously renamed globals and the _gp linker label"
     }
   ],
-  "revision": 63,
+  "revision": 65,
   "schema_version": 1
 }

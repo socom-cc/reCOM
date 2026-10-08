@@ -226,7 +226,12 @@ python tools/socom.py ghidra apply-batch `
   the larger of the new type and the existing code unit, so the program
   refuses a global inside a function or of function type, the executor
   refuses an address `audit_global` reports as code, and a global that
-  already has the type and length is left alone (`unchanged`). Arrays are
+  already has the type and length is left alone (`unchanged`). A global
+  declared in several compile units recurs in later batches; one an earlier
+  batch already renamed keeps that name (`unchanged`) instead of failing the
+  live-name check. An address holding only zero-size `NOTYPE` labels (no
+  `OBJECT` symbol), such as `extern void *_gp` at 0x47cbf0 with `EER27`, is a
+  linker symbol rather than a data object and is a recorded skip. Arrays are
   spelled `element[count]` (the bridge builds one level, only for a count
   above 0): an outermost extent DWARF leaves open (`aiDeployList`,
   `EQUIP_ITEM[0..-1]`) is completed from the `.symtab` size
