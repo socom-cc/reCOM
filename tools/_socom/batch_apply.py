@@ -209,7 +209,10 @@ class _Types:
                 counts = self.array_counts(row, extent)
                 if counts is None:
                     return None, f"array DIE 0x{row['evidence']['die_offset']:x} has an open extent the symbol does not fix"
-                name = element + "".join(f"[{count}]" for count in counts)
+                # C and Ghidra spell the outermost extent first: DWARF's
+                # TexPhase is 17 elements of int[3], i.e. int[17][3].
+                base, inner = re.match(r"^(.*?)((?:\[\d+\])*)$", element).groups()
+                name = base + "".join(f"[{count}]" for count in counts) + inner
             else:
                 return None, f"{row['kind']} DIE 0x{row['evidence']['die_offset']:x} has no Ghidra type"
         for modifier in descriptor.get("modifiers") or []:

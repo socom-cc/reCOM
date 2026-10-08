@@ -238,6 +238,29 @@ def test_batch_types_complete_open_arrays_from_symbol_sizes(program: dict) -> No
     assert types.render(pointer_to_open, 4)[0] is None
     pointers = {"die_offset": 3, "fund_type": None, "modifiers": []}
     assert types.render(pointers) == ("char *[4]", None) and types.byte_size(pointers) == 16
+    nested = batch_apply._Types(
+        {
+            "types": [
+                {
+                    "evidence": {"die_offset": 4},
+                    "kind": "array_type",
+                    "byte_size": None,
+                    "ghidra_path": None,
+                    "array": {"dimensions": [["fund", 10, 0, 2]], "element": {"die_offset": None, "fund_type": 8, "modifiers": []}},
+                },
+                {
+                    "evidence": {"die_offset": 5},
+                    "kind": "array_type",
+                    "byte_size": None,
+                    "ghidra_path": None,
+                    "array": {"dimensions": [["fund", 10, 0, 16]], "element": {"die_offset": 4, "fund_type": None, "modifiers": []}},
+                },
+            ]
+        }
+    )
+    # zdb::CTexManager::TexPhase: 17 elements of int[3], spelled outer first.
+    assert nested.render({"die_offset": 5, "fund_type": None, "modifiers": []}) == ("int[17][3]", None)
+    assert nested.byte_size({"die_offset": 5, "fund_type": None, "modifiers": []}) == 204
     const = {"die_offset": None, "fund_type": 8, "modifiers": ["const"]}
     assert types.render(const)[0] is None and "'const'" in types.render(const)[1]
 

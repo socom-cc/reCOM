@@ -540,8 +540,41 @@
       },
       "status": "resolved",
       "summary": "Batch 13 apply would have aborted on previously renamed globals and the _gp linker label"
+    },
+    {
+      "details": "Batch 13 apply acceptance (tracker revision 69). _Types.render appended the outer DWARF extent after the rendered element, so zdb::CTexManager::TexPhase (17 elements of int[3]) became int[3][17], while the type foundation (type_apply._render) and Ghidra spell the outer extent first (int[17][3]). No live harm: neither spelling existed and the executor skipped it as an undefined multi-dimensional array. Had a type of the transposed name existed, a same-length transposed array would have applied and passed length read-back.",
+      "id": "socom:workspace-issue:674210a770031e808cb6",
+      "kind": "problem",
+      "reported_at": "2026-10-08T22:36:41Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": {
+        "resolved_at": "2026-10-08T22:36:41Z",
+        "summary": "render splits the rendered element into base and inner extents and places the outer count first (int[17][3]); test_batch_types_complete_open_arrays_from_symbol_sizes covers it. Batch 10-12 programs regenerate byte-identically; batch 13's program differs only at TexPhase (0x50eb30), which the live apply skipped, so its applied state is unaffected."
+      },
+      "status": "resolved",
+      "summary": "Batch programs spelled nested arrays innermost-first"
+    },
+    {
+      "details": "Batch 13 (tracker revision 69): load_thread_stack at 0x48a0d0 (69,632 bytes; members pad0, stack, pad1) is typed by an anonymous class rendered @class@40b9ef5743 that has no live match, so the apply recorded a skip. Same gap as recoResult's @class@d37844a018 (issue c047a89a); both suggest the foundation omitted some anonymous classes referenced only by variables.",
+      "id": "socom:workspace-issue:22868f48450fb623d8f6",
+      "kind": "problem",
+      "reported_at": "2026-10-08T22:36:41Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Type foundation did not create anonymous class @class@40b9ef5743 used by load_thread_stack"
+    },
+    {
+      "details": "Batch 13 apply acceptance (tracker revision 69): sending '&' as %2526 lets get_function_labels and get_struct_layout resolve full names containing '&', which could remove the unreadable-name receipt markers (issue 76952369). The same double decoding is a hazard for any name containing a literal %xx sequence; GhidraBridge requests should encode deliberately, with tests, before relying on it.",
+      "id": "socom:workspace-issue:c3b74189b46f715a6401",
+      "kind": "problem",
+      "reported_at": "2026-10-08T22:36:41Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Bridge GET parameters are URL-decoded twice"
     }
   ],
-  "revision": 65,
+  "revision": 69,
   "schema_version": 1
 }
