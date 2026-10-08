@@ -923671,7 +923671,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 55,
+  "revision": 58,
   "schema_version": 4,
   "semantic_spans": [],
   "stage_order": [
@@ -1449377,7 +1449377,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "d78fddff4b807b5e791701dfdb3eb52ca0773e8160e6949998c86c1d9a2786bf",
+      "current_receipt_sha256": "98ff9cf89c283f353c22693797538ee56b457f4a7dfd4b2b785e55cddd82cec8",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -1449593,6 +1449593,31 @@
           "receipt_sha256": "d78fddff4b807b5e791701dfdb3eb52ca0773e8160e6949998c86c1d9a2786bf",
           "tracker_revision": 52,
           "work_item_id": "socom:debug-batch:1c9907d6eef3a9fccef6-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1472,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 24433
+          },
+          "indexes": {
+            "data": {
+              "count": 51541,
+              "sha256": "4812fcec2812632e2fcaa23571060a5dc5317dfa77d5ab8fb8c50c12f7b8a974"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "dd7187a65945a428bb3b703441e9c4f158a3a1f7ae157ecbfa6d249795a01018"
+            },
+            "types": {
+              "count": 1472,
+              "sha256": "035f6125b14f68f0900020c1a7a6216747972063f73e04b7e73585e6916a1e2c"
+            }
+          },
+          "receipt_sha256": "98ff9cf89c283f353c22693797538ee56b457f4a7dfd4b2b785e55cddd82cec8",
+          "tracker_revision": 58,
+          "work_item_id": "socom:debug-batch:714ab6915532344ceec7-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -1463234,6 +1463259,10 @@
       "title": "Plan DWARF compile-unit batch 012 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-08T03:59:30Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 12,
         "compile_unit_ids": [
@@ -1463393,8 +1463422,117 @@
         "socom:debug-batch:714ab6915532344ceec7",
         "socom:work:ghidra-zero-fill-memory"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "21 renames: each readable name is unique among live functions, defined data and .symtab, and each renamed function keeps its mangled name as a USER_DEFINED label; 0x17bba0, 0x17bbb0 and 0x17bbc0 keep their mangled names (0x17bbc0's readable name is held by the non-const tail__...Fv at 0x173510); the 6 skipped prototypes are 'undefined NAME(void)' before and after; all 24 bodies unchanged",
+        "ghidra-receipt-sha256:98ff9cf89c283f353c22693797538ee56b457f4a7dfd4b2b785e55cddd82cec8",
+        "ghidra-save:explicit-program",
+        "judgement: skips are fail-closed recorded skips under GHIDRA.md: comma type names at 0x178e40 and 0x17bbc0 (issue 06c2c23d); no receiver evidence at 0x17ac50 and 0x17aed0, although the assembly leaves a0 unread with col in a1 and SetupTuples passes this in a0 (issue ea5d645f); ambiguous generic_iterator<1>/node types and a shared readable name at 0x17bba0/0x17bbb0 (issues 94d56164, 76952369); the derived pointer project/C2DString * is required by C2DString::SetTrans and points to the accepted 136-byte C2DString; the ambiguous-name markers equal the accepted foundation receipt; tests/tools 132 passed with only the known GUIDANCE.md failure",
+        "live: ghidra preflight --strict ok (analysis idle, 716 Analysis bookmarks, 0 Error/Warning, 28 blocks); ghidra receipt over the stored scope reproduces 98ff9cf89c283f353c22693797538ee56b457f4a7dfd4b2b785e55cddd82cec8 (data 51541 4812fcec, functions 9715 dd7187a6, types 1472 035f6125)",
+        "no change outside the batch versus accepted batch 11 (receipt d78fddff): owner's before snapshot authenticated by its function (1b0c47ca) and data (4812fcec) digests; live function index with the 21 renamed rows reverted digests to 1b0c47ca793dd0007b812f5d62173a908b8d690134ab78240c6a24c573088b5a; live type index minus /project/C2DString * digests to 7864de8a794599f5dcaaacd16976d24707daa1f2625a0c25086c722477cd6f08; data unchanged; bookmarks and the 16 physical blocks identical; full get_bulk_xrefs sweep of all 28 blocks: 183,619 physical references identical to the authenticated before snapshot plus the 11 overlay header references; main.bss references equal the 16,333 relocation-proven set; symbol count +51 = 21 labels + 30 parameters; the 25 scoped type facts are identical to the accepted foundation (2b4eea98), batch 10 (974166c7) and batch 11 (d78fddff) receipts; no thunk targets a batch function",
+        "pre-apply snapshot equal to the accepted batch 11 state in every index (functions, data, types, bookmarks, all 183,619 references, 16 blocks); after the apply: analysis idle; functions differ only at the 21 renamed batch entries (the 3 unrenamed batch functions keep their names and signatures); data, bookmarks, memory blocks and all 183,619 references identical; types 1471 -> 1472 adding only project/C2DString *",
+        "pre-handoff receipt 98ff9cf89c283f353c22693797538ee56b457f4a7dfd4b2b785e55cddd82cec8: data 51541 4812fcec..., functions 9715 dd7187a6..., types 1472 035f6125...; bookmarks Address Table 713, Non-Returning 3; scope 24 functions, 0 globals, 25 types; read-back markers only ambiguous-name on generic_iterator<1> and node (known bridge limit, issue 76952369)",
+        "primary evidence (independent ELF32/.symtab and DWARF 1 reader, own R5900 decoder with delay-slot and branch-likely aware must-def analysis, Tick jump table at 0x448ce0 resolved to its 8 targets): DIEs [756664,769379) hold 24 global_subroutines, 220 non-null DIEs, no global_variable; each .symtab FUNC (single alias) equals the DWARF bounds and the live body; the 18 live Signature lines equal the DWARF return and parameter records and the mangled signatures; registers read before definition: Load a0,f13,f14,f15 with f12 forwarded unchanged into the first call; Tick, both SetTrans a0,f12; SetupContextDisplay a0,a1 (beq a1) returning slt 0/1; SetupTuples and RefreshContext a0,a1; all others a0 only; both destructors move a1 to a saved register and test it with dsll32/dsra32 16 then blez (short __dtor_flags); all 4 constructors and 2 destructors return the incoming a0 in v0 on every return path (void *)",
+        "python tools/socom.py ghidra apply-batch: program build/apply/socom-debug-batch-714ab6915532344ceec7-apply.json sha256 195f204a585ab911b4a899b55a2baaa5835ada1c9dc3a6b9358a0c5d0367db9b (regenerated from the accepted plan at commit 5b67fca), 60 bridge calls (21 renames + 21 labels + 18 prototypes), every name and Signature line read back equal; report build/apply/socom-debug-batch-714ab6915532344ceec7-apply-report.json sha256 6d056feb45f11ba5dfb5ac088bad131bd703bbd7c65d3b061b196585555cdf8e; skips exactly as the plan review predicted",
+        "tracker: progress audit --strict ok at revision 57; plan item socom:debug-batch:714ab6915532344ceec7 accepted; debug import-plan regenerates build/import-plans/socom-debug-batch-714ab6915532344ceec7.json byte-identically (sha256 63f7aa8bf12d7735ca59dbff0bd60522f38e662ade41e054a2f34ca82877b29d) and debug batch-program from it regenerates build/apply/socom-debug-batch-714ab6915532344ceec7-apply.json byte-identically (sha256 195f204a585ab911b4a899b55a2baaa5835ada1c9dc3a6b9358a0c5d0367db9b) at HEAD 5b67fca with no tool diffs; stored scope equals build/receipts/socom-debug-batch-714ab6915532344ceec7-apply-scope.json and the plan receipt_scope (24 functions, 0 globals, 25 types)"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "98ff9cf89c283f353c22693797538ee56b457f4a7dfd4b2b785e55cddd82cec8",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x1777c0",
+            "0x177830",
+            "0x177990",
+            "0x177a20",
+            "0x177bc0",
+            "0x177f60",
+            "0x1780c0",
+            "0x178cc0",
+            "0x178d50",
+            "0x178e40",
+            "0x178eb0",
+            "0x1792c0",
+            "0x1798c0",
+            "0x179da0",
+            "0x17ac50",
+            "0x17aed0",
+            "0x17b000",
+            "0x17bba0",
+            "0x17bbb0",
+            "0x17bbc0",
+            "0x17bbd0",
+            "0x17bbf0",
+            "0x17bf40",
+            "0x17bfa0"
+          ],
+          "globals": [],
+          "types": [
+            "/project/_zrdr",
+            "/project/C2DOrderItem",
+            "/project/C2DString",
+            "/project/CAiMap/name",
+            "/project/CAiMap/names",
+            "/project/CAiMapLoc",
+            "/project/CEntity",
+            "/project/CEntityList",
+            "/project/CMD_TABLE",
+            "/project/CNodeAction",
+            "/project/CPnt3D",
+            "/project/CSealUnit",
+            "/project/CSubMenu",
+            "/project/CZAnim",
+            "/project/CZSealBody",
+            "/project/EQUIP_ITEM",
+            "/project/FT_COMMAND",
+            "/project/MultiplayerMsg",
+            "/project/OrdersMenu",
+            "/project/std/__list_deleter<void const*, std::allocator<void const*>>",
+            "/project/std/__list_deleter<void const*, std::allocator<void const*>>/generic_iterator<1>",
+            "/project/std/__list_deleter<void const*, std::allocator<void const*>>/node",
+            "/project/std/__list_deleter<void const*, std::allocator<void const*>>/node_base",
+            "/project/std/basic_string<char, std::char_traits<char>, std::allocator<char>>",
+            "/project/unresolved/generic_iterator@8655c66ed0"
+          ]
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1472,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 24433
+          },
+          "indexes": {
+            "data": {
+              "count": 51541,
+              "sha256": "4812fcec2812632e2fcaa23571060a5dc5317dfa77d5ab8fb8c50c12f7b8a974"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "dd7187a65945a428bb3b703441e9c4f158a3a1f7ae157ecbfa6d249795a01018"
+            },
+            "types": {
+              "count": 1472,
+              "sha256": "035f6125b14f68f0900020c1a7a6216747972063f73e04b7e73585e6916a1e2c"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-08T03:32:14Z",
+        "summary": "Applied accepted batch 12 (plan sha256 63f7aa8b...b29d) once: 21 functions renamed with mangled secondary labels and 18 prototypes set (incl. OrdersMenu::Load's four floats, the OrdersMenu/CSubMenu destructors with short __dtor_flags, and six constructors returning void *). Recorded skips: 2 comma type names, SetupTuple/EnableTuples without receiver evidence (issue ea5d645f), 2 generic_iterator<1> overloads (ambiguous live types; readable name shared), and the const tail overload rename (name used at 0x173510). A full before/after snapshot shows no change outside the batch except one derived type."
+      },
       "id": "socom:debug-batch:714ab6915532344ceec7-apply",
       "kind": "debug-import-apply-batch",
       "lease": null,
@@ -1463404,7 +1463542,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply reviewed DWARF compile-unit batch 012 (24 units)"
     },
     {
