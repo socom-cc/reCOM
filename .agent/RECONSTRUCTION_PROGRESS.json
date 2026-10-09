@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 75,
+  "revision": 79,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1449383,7 +1449383,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "610e4332de5be0318b8554f77d54a5cc7189f8467ee00bceb61ce3a0a39bf277",
+      "current_receipt_sha256": "f69a513a5865a88292dc971fc6686f3ba4b0abb6b3359b9734c480c23ed027bd",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -1449699,6 +1449699,31 @@
           "receipt_sha256": "610e4332de5be0318b8554f77d54a5cc7189f8467ee00bceb61ce3a0a39bf277",
           "tracker_revision": 75,
           "work_item_id": "socom:debug-batch:1791d0faee0ad2d6713e-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1478,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 24553
+          },
+          "indexes": {
+            "data": {
+              "count": 51562,
+              "sha256": "37df9b2cf46f06137c954f91ee43d6299727738a481f13ee9c3d0d0f68498fad"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "76aaabcb89bf60227c14d7010c1660aa0408c73d38fb5b581fc329da67cbe29a"
+            },
+            "types": {
+              "count": 1478,
+              "sha256": "2763f21b18afea7c67407c188073802e908e1ba906b7b5a8d8e04158e401e2f3"
+            }
+          },
+          "receipt_sha256": "f69a513a5865a88292dc971fc6686f3ba4b0abb6b3359b9734c480c23ed027bd",
+          "tracker_revision": 79,
+          "work_item_id": "socom:work:ghidra-repair-file-local-copy-names"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -1465338,6 +1465363,101 @@
       "stage": "debug-metadata-import",
       "status": "accepted",
       "title": "Apply reviewed DWARF compile-unit batch 014 (24 units)"
+    },
+    {
+      "accepted": {
+        "at": "2026-10-09T03:57:41Z",
+        "by": "socom-verifier"
+      },
+      "batch": null,
+      "dependencies": [
+        "socom:debug-batch:cb1cc66c6e35fc967c25-apply",
+        "socom:debug-batch:873c518eab3c45871ed4-apply",
+        "socom:debug-batch:d73cfb813babeb1ce7f8-apply",
+        "socom:debug-batch:1791d0faee0ad2d6713e-apply"
+      ],
+      "evidence": [
+        "before/after snapshot: pre-repair state equal to the accepted batch 14 state in every index; after: analysis idle; function index, types, bookmarks, memory blocks and all 183,619 references identical; exactly 10 data rows changed, only in name, at the 10 repaired addresses (sizes and types unchanged); the 8 RTTI copies carry 0 references",
+        "ghidra-receipt-sha256:f69a513a5865a88292dc971fc6686f3ba4b0abb6b3359b9734c480c23ed027bd",
+        "ghidra-save:explicit-program",
+        "judgement: the canonical copy is chosen from primary relocation evidence, not batch order; every copy keeps its mangled name and each readable name is used once (lossless, collision-safe); names with no canonical copy stay mangled. Non-blocking, routed to the controller: function file-local copies (IOPRebootHandler, find<...CModel...>) are not covered by the rule yet; _canonical_rtti does not require the R_MIPS_32 type; repair_labels does not pre-check the mangled secondary label; add-repair keeps no history entry",
+        "live: list_globals include_all_sections finds none of the 10 readable names; each address has exactly one label, the mangled name, primary per audit_global; types/lengths unchanged (undefined8/8 x8, __nInit/1, __wInit/1); CGameState::__RTTI at 0x444578 intact. Full read-only snapshot (GETs + get_bulk_xrefs over 28 blocks) vs the batch 14 verifier snapshot authenticated by batch 14's function/data/type digests: functions, all 9715 function details/signatures, 1478 types, 716 bookmarks, segments and all 183,630 references identical; exactly 10 data rows differ, only in name, at the 10 addresses",
+        "own ELF32 reader (no tools imports): 254 __RTTI__ names, 55 with >1 copy, 240 canonical (word 0 of the unique __vt__ carries one R_MIPS_32 to a copy), no duplicated vtables; CGame 0x444498 (vt->0x44ee28), C2D 0x448a38 (vt->0x459278), C2DBitmap 0x448a78 (vt->0x459548), CNode 0x44c980 (vt->0x44f6e0) are non-canonical; C2DFade/std::list<C2D*>/C2Dlist/tag_NODE_PARAMS have no vtable; __msl_ios_base_ninit/winit__3std have 27 LOCAL copies each and no canonical notion. Regenerating all 6 accepted batch programs at HEAD (plans/programs/reports hash-authenticated against tracker evidence): withdrawn renames that the reports show applied are exactly the 10 spec rows (0x448d40 withdrawn but never applied); the only other duplicated-name rename standing is canonical 0x444578; all 60 live '::' labels are canonical or single-copy",
+        "pre-handoff receipt f69a513a5865a88292dc971fc6686f3ba4b0abb6b3359b9734c480c23ed027bd: data 51562 37df9b2c..., functions 9715 76aaabcb..., types 1478 2763f21b... (function and type indexes equal batch 14's); scope 10 globals; tests/tools 144 passed; all audits ok",
+        "progress add-repair inserted the item at revision 76 after its four accepted dependencies; python tools/socom.py ghidra repair-labels: all 10 starting states (primary name = recorded readable name, not code) checked before the first write; 10 delete_label calls each returned deleted_names == [readable]; each address reads back the mangled primary name with its data type unchanged; report build/apply/socom-work-ghidra-repair-file-local-copy-names-report.json sha256 04ebf2f2a1177ae2f742393556a73eb1fa6987531cbb92e42f0e1320c61af7d6",
+        "receipt: ghidra receipt on the stored scope reproduces f69a513a5865a88292dc971fc6686f3ba4b0abb6b3359b9734c480c23ed027bd twice (before and after test fix fed1d2d); preflight --strict ok, analysis idle; function index 9715 76aaabcb... and type index 1478 2763f21b... equal batch 14's; data 51562 9000816f... -> 37df9b2c...; symbol count 24563 -> 24553",
+        "rule and tooling at commit 45fa55f: _canonical_rtti maps __RTTI__X to the copy word 0 of the unique __vt__X (R_MIPS_32-relocated) points to (240 of 254 RTTI names resolve; vtables are never duplicated); build_batch_program sets rename False with rename_skip on every other copy of a duplicated name; the repair spec equals exactly the 10 applied renames that rule withdraws (checked against the accepted batch 001/10/11/12/13/14 reports)",
+        "tracker: progress audit --strict ok at revision 78; kind ghidra-repair, dependencies = REPAIRS spec (batch 001/10/13/14 applies, all accepted; batches 11/12 withdraw nothing); stored scope == build/receipts scope file (10 globals); report sha256 04ebf2f2...d7d6; tests/tools 144 passed at fed1d2d (test_workspace now counts ghidra-repair items against REPAIRS; earlier 1 failure from the hard-coded 92 is resolved); audits ok except pre-existing final-elf-catalog coverage; doctor ok"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "f69a513a5865a88292dc971fc6686f3ba4b0abb6b3359b9734c480c23ed027bd",
+        "saved": true,
+        "scope": {
+          "functions": [],
+          "globals": [
+            "0x444498",
+            "0x4489b8",
+            "0x4489e8",
+            "0x448a08",
+            "0x448a38",
+            "0x448a78",
+            "0x44c958",
+            "0x44c980",
+            "0x4756d8",
+            "0x4756dc"
+          ],
+          "types": []
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1478,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 24553
+          },
+          "indexes": {
+            "data": {
+              "count": 51562,
+              "sha256": "37df9b2cf46f06137c954f91ee43d6299727738a481f13ee9c3d0d0f68498fad"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "76aaabcb89bf60227c14d7010c1660aa0408c73d38fb5b581fc329da67cbe29a"
+            },
+            "types": {
+              "count": 1478,
+              "sha256": "2763f21b18afea7c67407c188073802e908e1ba906b7b5a8d8e04158e401e2f3"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-09T03:27:36Z",
+        "summary": "Returned 10 non-canonical file-local copies that batches 001, 10, 13 and 14 had given readable names to their mangled names: 8 RTTI copies their class vtable does not reference (CGame, C2DFade, std::list<C2D*>, C2Dlist, C2D, C2DBitmap, zdb::tag_NODE_PARAMS, zdb::CNode) and the per-unit statics std::__msl_ios_base_ninit/winit. Each readable label was deleted by exact name, leaving the mangled label primary; data types are unchanged. Batch programs now rename only canonical copies (commit 45fa55f)."
+      },
+      "id": "socom:work:ghidra-repair-file-local-copy-names",
+      "kind": "ghidra-repair",
+      "lease": null,
+      "resources": [
+        "ghidra:soCOM/socom.elf",
+        "ghidra-writer"
+      ],
+      "selection": null,
+      "stage": "debug-metadata-import",
+      "status": "accepted",
+      "title": "Return non-canonical file-local copies to their mangled names"
     },
     {
       "batch": {
