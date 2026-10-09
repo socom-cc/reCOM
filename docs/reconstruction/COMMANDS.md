@@ -22,6 +22,8 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py debug apply-program` | debug | no | none | no | Translate an accepted type plan into deterministic Ghidra type operations. |
 | `python tools/socom.py debug batch-program` | debug | no | none | no | Translate an accepted DWARF batch plan into deterministic Ghidra function and global operations. |
 | `python tools/socom.py ghidra preflight` | ghidra | no | required | no | Verify project soCOM and the explicit socom.elf program. |
+| `python tools/socom.py ghidra preflight-batch` | ghidra | no | required | no | Dry-run a batch program against live Ghidra: every read and pre-write check, no writes. |
+| `python tools/socom.py ghidra fingerprint` | ghidra | yes | required | no | Fingerprint every function signature, data item, type, block and reference; optionally diff two. |
 | `python tools/socom.py ghidra apply-batch` | ghidra | yes | required | yes | Apply a translated batch program (names, prototypes, globals) under the item's writer lease and verify it. |
 | `python tools/socom.py ghidra restore-accepted` | ghidra | yes | required | yes | Replay accepted Ghidra applies on a fresh baseline import and prove their receipts reproduce. |
 | `python tools/socom.py ghidra repair-labels` | ghidra | yes | required | yes | Delete the readable labels a recorded label repair names, under the repair item's writer lease. |

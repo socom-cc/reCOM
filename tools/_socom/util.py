@@ -95,3 +95,11 @@ def repo_relative(path: Path, root: Path) -> str:
         return path.resolve().relative_to(root.resolve()).as_posix()
     except ValueError as exc:
         raise SocomError(f"path must remain inside workspace: {path}") from exc
+
+
+def file_key(path: Path) -> tuple[str, int, int]:
+    """Identity of a file's current contents for in-process caches."""
+
+    resolved = Path(path).resolve()
+    stat = resolved.stat()
+    return str(resolved), stat.st_size, stat.st_mtime_ns

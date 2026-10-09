@@ -72,7 +72,23 @@ Use:
 python tools/socom.py verify asm main
 python tools/socom.py ghidra data-overlap
 python tools/socom.py ghidra receipt
+python tools/socom.py ghidra fingerprint --output build/fingerprints/<name>.json
 ```
+
+`ghidra fingerprint` records the whole program, not a scope: every
+function's name, thunk/external flags and `get_function_by_address` details
+(signature, entry, body), every defined data item, every type, bookmarks, all
+memory blocks including overlays, and every reference into any block, with a
+digest per section. It is evidence beside the semantic receipt, not part of
+it, and catches what a scoped receipt cannot see, such as a thunk prototype
+rewriting its target's signature. With `--compare <earlier.json>` it reports
+the differences by section (`--diff-output` writes them in full). It uses
+only GETs and the read-only `get_bulk_xrefs`; a run takes about four minutes,
+almost all of it the reference sweep over the 32 MiB IOP RAM and RAM mirror
+blocks. The bridge serializes requests, so the sweep is one stream of
+16,000-address calls (about 600,000 addresses per second sustained; larger
+calls and concurrent streams were measured slower). Run it with no other
+bridge traffic: a concurrent sweep has timed out.
 
 Read-only work may inspect functions, disassembly, decompilation, p-code,
 callers/callees, xrefs, symbols, data, types, bookmarks, options, and address
@@ -196,6 +212,16 @@ python tools/socom.py ghidra apply-batch `
   --scope-output build/receipts/<item>-scope.json `
   --report-output build/apply/<item>-report.json
 ```
+
+`ghidra preflight-batch --program build/apply/<item>.json --output
+build/preflight/<item>.json` is the read-only rehearsal: it needs no lease,
+checks that the program regenerates from its plan file, runs live preflight,
+and drives the same executor with every live read and pre-write check
+(current names, rename clashes, type resolution, code-address refusal) while
+a read-only bridge refuses any POST. It reports the exact calls an apply
+would make, the skips and unchanged entries, the plan item's status, and any
+write outside the receipt scope or scope entry missing from the program. An
+apply should only be claimed after its preflight is clean.
 
 - **Names.** Functions and globals take readable demangled names
   (`CGameState::~CGameState`, `operator_new[]`,

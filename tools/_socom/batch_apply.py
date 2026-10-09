@@ -259,7 +259,9 @@ class _Types:
             return False
         row = self.by_die.get(descriptor["die_offset"])
         if row is None:
-            return False
+            # A missing top-level row already fails rendering; a typedef whose
+            # target is missing could hide a class, so fail closed.
+            return hops > 0
         if row["kind"] == "typedef" and hops < 16:
             return self.composite(row.get("type"), hops + 1)
         return row["kind"] in ("class_type", "structure_type", "union_type")
@@ -829,8 +831,13 @@ def execute_batch_program(
     function_names: Callable[[], dict[str, str]],
     global_names: Callable[[], dict[str, set[str]]] = lambda: {},
     log: Callable[[str], None] = lambda _message: None,
+    dry_run: bool = False,
 ) -> dict[str, Any]:
-    """Apply a batch program and verify every applied name, prototype, and type."""
+    """Apply a batch program and verify every applied name, prototype, and type.
+
+    With dry_run every live read and pre-write check runs, but no write is
+    sent: each would-be bridge call is recorded and the read-back is skipped.
+    """
 
     if program.get("kind") != BATCH_PROGRAM_KIND or program.get("schema_version") != BATCH_PROGRAM_SCHEMA:
         raise SocomError("not a schema 1 batch apply program")
@@ -838,6 +845,9 @@ def execute_batch_program(
     skipped: list[dict[str, Any]] = []
 
     def post(endpoint: str, ok: Callable[[Any], bool], **body: Any) -> Any:
+        if dry_run:
+            steps.append({"endpoint": endpoint, "body": body, "response": None})
+            return None
         response = bridge.post_json(endpoint, **body)
         steps.append({"endpoint": endpoint, "body": body, "response": response})
         if not ok(response):
@@ -994,6 +1004,22 @@ def execute_batch_program(
             post("create_label", status_ok, address=address, name=entry["current_name"])
             name = entry["readable_name"]
         applied_globals.append({"address": address, "name": name, "type": type_name, "size": entry["size"]})
+
+    if dry_run:
+        counts: dict[str, int] = {}
+        for step in steps:
+            counts[step["endpoint"]] = counts.get(step["endpoint"], 0) + 1
+        return {
+            "ok": True,
+            "dry_run": True,
+            "bridge_call_count": len(steps),
+            "planned_calls": dict(sorted(counts.items())),
+            "steps": steps,
+            "functions": applied_functions,
+            "globals": applied_globals,
+            "unchanged": unchanged,
+            "skipped": skipped,
+        }
 
     log("verifying")
     mismatches: list[dict[str, Any]] = []

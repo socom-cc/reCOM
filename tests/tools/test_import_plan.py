@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import collections
+from pathlib import Path
 
 import pytest
 
@@ -199,3 +200,11 @@ def test_batch_plans_mark_function_objects_and_carry_referenced_types(root) -> N
         for parameter in function["parameters"]:
             offset = (parameter["type"] or {}).get("die_offset")
             assert offset is None or offset in by_die
+
+
+def test_debug_model_is_parsed_once_per_elf_contents(root: Path) -> None:
+    from tools._socom import import_plan
+    from tools._socom.util import file_key
+
+    key = file_key(root / "support" / "socom.elf")
+    assert import_plan._debug_model(key) is import_plan._debug_model(key)

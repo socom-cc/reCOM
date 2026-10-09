@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import os
@@ -16,7 +17,7 @@ from .constants import EXPECTED_ENTRY, EXPECTED_GHIDRA_VERSION, REFERENCE_SHA256
 from .elf import Elf32File
 from .mips_flow import lo16_targets
 from .type_apply import parse_enum_values, parse_struct_layout
-from .util import SocomError, canonical_json, load_json, sha256_file
+from .util import SocomError, canonical_json, file_key, load_json, sha256_file
 
 DEFAULT_GHIDRA_URL = "http://127.0.0.1:8089"
 SOCOM_PROJECT = "soCOM"
@@ -574,7 +575,8 @@ def _type_index(bridge: GhidraBridge) -> list[dict[str, Any]]:
 
 
 def _data_index(bridge: GhidraBridge) -> list[dict[str, Any]]:
-    return _parse_data(bridge.paged_text("list_data_items"))
+    # Large pages return the same rows about 15x faster (2.3s vs 39s).
+    return _parse_data(bridge.paged_text("list_data_items", page_size=20_000))
 
 
 def load_receipt_scope(path: Path) -> dict[str, list[str]]:
@@ -670,6 +672,13 @@ def _sign16(value: int) -> int:
     return value - 0x10000 if value & 0x8000 else value
 
 
+@functools.lru_cache(maxsize=2)
+def _lo16_targets_cached(key: tuple[str, int, int]) -> dict[int, dict[str, Any]]:
+    """Whole-ELF LO16 dataflow pairing, cached per file contents (read-only)."""
+
+    return lo16_targets(Elf32File(Path(key[0])))
+
+
 def relocation_references(root: Path, ranges: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """References into the zero fill that the ELF relocations prove.
 
@@ -705,7 +714,7 @@ def relocation_references(root: Path, ranges: list[dict[str, Any]]) -> list[dict
 
     # LO16s pair with the HI16 whose lui reaches their base register; the
     # toolchain interleaves HI16s of one section symbol across functions.
-    lo16 = lo16_targets(elf)
+    lo16 = _lo16_targets_cached(file_key(root / "support" / "socom.elf"))
     symbols = list(elf.symbols())
     references = []
     for relocation in elf.relocations(".relmain"):

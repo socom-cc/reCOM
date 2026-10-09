@@ -51,6 +51,7 @@ from .ghidra import (
     semantic_receipt,
 )
 from .batch_apply import BatchFailure, build_batch_program, execute_batch_program
+from .fingerprint import compare_fingerprints, program_fingerprint
 from .type_apply import ApplyFailure, build_apply_program, execute_apply_program
 from .source import (
     audit_docblocks,
@@ -583,6 +584,154 @@ def _global_names(root: Path, bridge: GhidraBridge) -> dict[str, set[str]]:
         if row.get("name") and "::" not in str(row["address"]).replace("0x", ""):
             names.setdefault(row["name"], set()).add(f"0x{int(str(row['address']), 16):x}")
     return names
+
+
+class _ReadOnlyBridge:
+    """Bridge view for dry runs: GETs pass through; every POST is refused."""
+
+    def __init__(self, bridge: GhidraBridge) -> None:
+        self._bridge = bridge
+
+    def request(self, endpoint: str, **params: Any) -> Any:
+        return self._bridge.request(endpoint, **params)
+
+    def post_json(self, endpoint: str, **body: Any) -> Any:
+        raise SocomError(f"dry run attempted a bridge write: {endpoint}")
+
+
+def _batch_scope_problems(program: dict[str, Any], result: dict[str, Any]) -> list[str]:
+    scope = program["receipt_scope"]
+    problems = []
+    functions = {int(value, 16) for value in scope.get("functions", [])}
+    globals_ = {int(value, 16) for value in scope.get("globals", [])}
+    for step in result["steps"]:
+        address = step["body"].get("address") or step["body"].get("function_address")
+        if address is None:
+            continue
+        value = int(str(address), 16)
+        if value not in functions and value not in globals_:
+            problems.append(f"{step['endpoint']} writes 0x{value:x} outside the receipt scope")
+    program_functions = {int(row["address"], 16) for row in program["functions"]}
+    program_globals = {int(row["address"], 16) for row in program.get("globals", [])}
+    for value in sorted(functions - program_functions):
+        problems.append(f"scope function 0x{value:x} is not in the program")
+    for value in sorted(globals_ - program_globals):
+        problems.append(f"scope global 0x{value:x} is not in the program")
+    return problems
+
+
+def _ghidra_preflight_batch(arguments: argparse.Namespace) -> int:
+    """Dry-run a batch program against live Ghidra without writing anything."""
+
+    root = _root(arguments)
+    program_path = Path(arguments.program)
+    if not program_path.is_absolute():
+        program_path = root / program_path
+    program = load_json(program_path)
+    output = _build_path(root, arguments.output, "batch preflight reports") if arguments.output else None
+    errors: list[str] = []
+    plan_info = program.get("plan") or {}
+    plan_path = root / str(plan_info.get("path", ""))
+    if not plan_path.is_file() or sha256_file(plan_path) != plan_info.get("sha256"):
+        errors.append("the plan file is missing or no longer matches the program")
+    elif canonical_json(build_batch_program(root, plan_path)) != canonical_json(program):
+        errors.append("the batch program is stale or edited; regenerate it")
+    tracker = load_tracker(tracker_path(root))
+    plan_item = next((row for row in tracker["work_items"] if row["id"] == plan_info.get("work_item_id")), None)
+    preflight = live_preflight(root, bridge_url=arguments.bridge_url, strict_baseline=False)
+    if not preflight["ok"]:
+        errors.extend(preflight["errors"])
+    result: dict[str, Any] | None = None
+    if not errors:
+        bridge = GhidraBridge(arguments.bridge_url, timeout=300.0)
+        before = bridge.request("analysis_status")
+        try:
+            result = execute_batch_program(
+                program,
+                _ReadOnlyBridge(bridge),
+                type_index=lambda: _type_index(bridge),
+                function_names=lambda: {
+                    f"0x{int(row['address'], 16):x}": row["name"]
+                    for row in _function_index(bridge)
+                    if "::" not in row["address"]
+                },
+                global_names=lambda: _global_names(root, bridge),
+                log=lambda message: print(message, file=sys.stderr, flush=True),
+                dry_run=True,
+            )
+        except SocomError as failure:
+            errors.append(f"the apply would refuse or fail: {failure}")
+        after = bridge.request("analysis_status")
+        if before != after:
+            errors.append(f"analysis state changed during the dry run: {before!r} -> {after!r}")
+        if result is not None:
+            errors.extend(_batch_scope_problems(program, result))
+    report = {
+        "kind": "socom-ghidra-batch-preflight",
+        "schema_version": 1,
+        "ok": not errors,
+        "errors": errors,
+        "program_sha256": hashlib.sha256(canonical_json(program).encode("utf-8")).hexdigest(),
+        "plan": plan_info,
+        "plan_item_status": (plan_item or {}).get("status"),
+        "summary": program.get("summary"),
+    }
+    if result is not None:
+        report.update(
+            {
+                "bridge_call_count": result["bridge_call_count"],
+                "planned_calls": result["planned_calls"],
+                "skipped": result["skipped"],
+                "unchanged": result["unchanged"],
+                "steps": result["steps"],
+            }
+        )
+    if output:
+        atomic_write_json(output, report)
+    _emit({key: value for key, value in report.items() if key != "steps"})
+    return 0 if report["ok"] else 1
+
+
+def _ghidra_fingerprint(arguments: argparse.Namespace) -> int:
+    """Fingerprint all of live socom.elf; optionally diff it against an earlier one."""
+
+    root = _root(arguments)
+    output = _build_path(root, arguments.output, "Ghidra fingerprints")
+    baseline = None
+    if arguments.compare:
+        compare_path = Path(arguments.compare)
+        if not compare_path.is_absolute():
+            compare_path = root / compare_path
+        baseline = load_json(compare_path)
+    fingerprint = program_fingerprint(
+        root,
+        bridge_url=arguments.bridge_url,
+        log=lambda message: print(message, file=sys.stderr, flush=True),
+    )
+    atomic_write_json(output, fingerprint)
+    report: dict[str, Any] = {
+        "ok": True,
+        "output": output.relative_to(root).as_posix(),
+        "fingerprint_sha256": fingerprint["fingerprint_sha256"],
+        "counts": fingerprint["counts"],
+        "digests": fingerprint["digests"],
+    }
+    if baseline is not None:
+        diff = compare_fingerprints(baseline, fingerprint)
+        if arguments.diff_output:
+            atomic_write_json(_build_path(root, arguments.diff_output, "fingerprint diffs"), diff)
+        report["diff"] = {
+            "identical": diff["identical"],
+            "sections_changed": diff["sections_changed"],
+            "functions_changed": len(diff["functions"]),
+            "data": {key: len(value) for key, value in diff["data"].items()},
+            "types": {key: len(value) for key, value in diff["types"].items()},
+            "references": {key: len(value) for key, value in diff["references"].items()},
+            "bookmarks_equal": diff["bookmarks_equal"],
+            "blocks_equal": diff["blocks_equal"],
+        }
+    _emit(report)
+    return 0
 
 
 def _ghidra_apply_batch(arguments: argparse.Namespace) -> int:
@@ -1835,6 +1984,19 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec("debug batch-program", "debug", "Translate an accepted DWARF batch plan into deterministic Ghidra function and global operations."),
     _spec("ghidra preflight", "ghidra", "Verify project soCOM and the explicit socom.elf program.", ghidra_requirement="required"),
     _spec(
+        "ghidra preflight-batch",
+        "ghidra",
+        "Dry-run a batch program against live Ghidra: every read and pre-write check, no writes.",
+        ghidra_requirement="required",
+    ),
+    _spec(
+        "ghidra fingerprint",
+        "ghidra",
+        "Fingerprint every function signature, data item, type, block and reference; optionally diff two.",
+        mutates=True,
+        ghidra_requirement="required",
+    ),
+    _spec(
         "ghidra apply-batch",
         "ghidra",
         "Apply a translated batch program (names, prototypes, globals) under the item's writer lease and verify it.",
@@ -2089,6 +2251,17 @@ def build_parser() -> argparse.ArgumentParser:
     receipt.add_argument("--output")
     receipt.add_argument("--bridge-url")
     receipt.set_defaults(handler=_ghidra_receipt)
+    preflight_batch = ghidra_commands.add_parser("preflight-batch")
+    preflight_batch.add_argument("--program", required=True)
+    preflight_batch.add_argument("--output")
+    preflight_batch.add_argument("--bridge-url")
+    preflight_batch.set_defaults(handler=_ghidra_preflight_batch)
+    fingerprint = ghidra_commands.add_parser("fingerprint")
+    fingerprint.add_argument("--output", required=True)
+    fingerprint.add_argument("--compare")
+    fingerprint.add_argument("--diff-output")
+    fingerprint.add_argument("--bridge-url")
+    fingerprint.set_defaults(handler=_ghidra_fingerprint)
     apply_batch = ghidra_commands.add_parser("apply-batch")
     apply_batch.add_argument("--program", required=True)
     apply_batch.add_argument("--item", required=True)

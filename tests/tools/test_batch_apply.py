@@ -142,6 +142,69 @@ def test_batch_executor_renames_types_and_verifies(program: dict) -> None:
     assert ("0x1410f0", "prototype") in reasons and ("0x4714d0", "type") in reasons
 
 
+def test_batch_executor_dry_run_records_the_same_calls_without_writing(program: dict) -> None:
+    program = copy.deepcopy(program)
+    for row in program["globals"]:
+        if row["address"] != "0x476f60":
+            row["size"] = None
+    names = {row["address"]: row["current_name"] for row in program["functions"]}
+    index = [{"name": name, "path": f"/project/{name}"} for name in ("COurGame", "CGameState", "_options", "CMission")]
+    real = _FakeBridge(program, names)
+    applied = batch_apply.execute_batch_program(copy.deepcopy(program), real, type_index=lambda: index, function_names=lambda: names)
+
+    class _NoWrites(_FakeBridge):
+        def post_json(self, endpoint, **body):
+            raise AssertionError(f"dry run wrote {endpoint}")
+
+    dry = batch_apply.execute_batch_program(
+        copy.deepcopy(program), _NoWrites(program, names), type_index=lambda: index, function_names=lambda: names, dry_run=True
+    )
+    writes = [(endpoint, body) for endpoint, body in real.calls if endpoint not in ("audit_global", "get_function_by_address")]
+    assert dry["dry_run"] is True and dry["bridge_call_count"] == applied["bridge_call_count"] == len(writes)
+    assert [(step["endpoint"], step["body"]) for step in dry["steps"]] == writes
+    assert dry["skipped"] == applied["skipped"] and dry["unchanged"] == applied["unchanged"]
+    assert sum(dry["planned_calls"].values()) == len(writes)
+
+
+def test_batch_scope_check_flags_writes_outside_and_scope_beyond_the_program() -> None:
+    from tools._socom import cli
+
+    program = {
+        "receipt_scope": {"functions": ["0x140460", "0x140500"], "globals": ["0x476f60"]},
+        "functions": [{"address": "0x140460"}],
+        "globals": [{"address": "0x476f60"}],
+    }
+    result = {
+        "steps": [
+            {"endpoint": "rename_function_by_address", "body": {"function_address": "0x140460"}},
+            {"endpoint": "apply_data_type", "body": {"address": "0x476f60"}},
+            {"endpoint": "create_label", "body": {"address": "0x476f64"}},
+        ]
+    }
+    assert cli._batch_scope_problems(program, result) == [
+        "create_label writes 0x476f64 outside the receipt scope",
+        "scope function 0x140500 is not in the program",
+    ]
+
+
+def test_composite_typedef_with_a_missing_target_fails_closed() -> None:
+    types = batch_apply._Types(
+        {
+            "types": [
+                {"kind": "typedef", "type": {"die_offset": 0x99}, "evidence": {"die_offset": 0x10}},
+                {"kind": "structure_type", "evidence": {"die_offset": 0x20}},
+                {"kind": "typedef", "type": {"die_offset": 0x20}, "evidence": {"die_offset": 0x30}},
+                {"kind": "enumeration_type", "evidence": {"die_offset": 0x40}},
+            ]
+        }
+    )
+    assert types.composite({"die_offset": 0x10}) is True
+    assert types.composite({"die_offset": 0x30}) is True
+    assert types.composite({"die_offset": 0x40}) is False
+    assert types.composite({"die_offset": 0x77}) is False
+    assert types.composite({"die_offset": 0x30, "modifiers": ["P"]}) is False
+
+
 def test_batch_executor_skips_ambiguous_types_and_refuses_drift(program: dict) -> None:
     names = {row["address"]: row["current_name"] for row in program["functions"]}
     bridge = _FakeBridge(program, names)

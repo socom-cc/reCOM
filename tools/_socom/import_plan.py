@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import collections
+import functools
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +18,7 @@ from .type_identity import (
     type_descriptor,
     type_ref,
 )
-from .util import stable_id
+from .util import file_key, stable_id
 
 FUNCTION_TAGS = {0x0003, 0x0006, 0x0014, 0x001D}
 VARIABLE_TAGS = {0x0007, 0x000C}
@@ -582,11 +583,23 @@ def _conflicts(
     )
 
 
-def build_import_plan(root: Path, batch: dict[str, Any] | None = None) -> dict[str, Any]:
-    elf = Elf32File(root / "support" / "socom.elf")
+@functools.lru_cache(maxsize=2)
+def _debug_model(key: tuple[str, int, int]) -> tuple[Any, ...]:
+    """Parsed DWARF and type identities of one ELF file, cached per contents.
+
+    Parsing .debug and partitioning structural classes take tens of seconds;
+    every plan for the same immutable ELF shares them read-only.
+    """
+
+    elf = Elf32File(Path(key[0]))
     dies = Dwarf1Debug(elf.section_data(".debug")).parse(strict=True)
     parents = _parent_map(dies)
     by_offset = {die.offset: die for die in dies}
+    return elf, dies, parents, by_offset, TypeIdentities(elf, dies, parents)
+
+
+def build_import_plan(root: Path, batch: dict[str, Any] | None = None) -> dict[str, Any]:
+    elf, dies, parents, by_offset, identities = _debug_model(file_key(root / "support" / "socom.elf"))
     if batch and batch.get("die_ranges"):
         ranges = [(int(a), int(b)) for a, b in batch["die_ranges"]]
         selected = tuple(
@@ -594,7 +607,6 @@ def build_import_plan(root: Path, batch: dict[str, Any] | None = None) -> dict[s
         )
     else:
         selected = dies
-    identities = TypeIdentities(elf, dies, parents)
     types = _type_rows(selected, parents, by_offset, identities)
     types_only = (batch or {}).get("selection") == "types"
     symbols = {} if types_only else _symbol_index(elf)
