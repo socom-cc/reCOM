@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 82,
+  "revision": 85,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1449383,7 +1449383,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "f69a513a5865a88292dc971fc6686f3ba4b0abb6b3359b9734c480c23ed027bd",
+      "current_receipt_sha256": "becce5d07f821e633d2874ce2cefb260c4e759249376003c7ff9c19e05602d3e",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -1449724,6 +1449724,31 @@
           "receipt_sha256": "f69a513a5865a88292dc971fc6686f3ba4b0abb6b3359b9734c480c23ed027bd",
           "tracker_revision": 79,
           "work_item_id": "socom:work:ghidra-repair-file-local-copy-names"
+        },
+        {
+          "counts": {
+            "data_type_count": 1479,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 24601
+          },
+          "indexes": {
+            "data": {
+              "count": 51562,
+              "sha256": "37df9b2cf46f06137c954f91ee43d6299727738a481f13ee9c3d0d0f68498fad"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "50c1cb58ad4946abd3ce676eb46cfac715d81879ebfa28b4b1602db48c81fb68"
+            },
+            "types": {
+              "count": 1479,
+              "sha256": "d21582eb7475bef29392690d5ff6c597cdae7d82dbdceed47a96c884bd2cd3b2"
+            }
+          },
+          "receipt_sha256": "becce5d07f821e633d2874ce2cefb260c4e759249376003c7ff9c19e05602d3e",
+          "tracker_revision": 85,
+          "work_item_id": "socom:debug-batch:9c183e460114bb7cb4a5-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -1465645,6 +1465670,10 @@
       "title": "Plan DWARF compile-unit batch 015 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-09T06:55:30Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 15,
         "compile_unit_ids": [
@@ -1465804,8 +1465833,102 @@
         "socom:debug-batch:9c183e460114bb7cb4a5",
         "socom:work:ghidra-zero-fill-memory"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "applied facts: the 24 functions read back their readable zdb::CCamera::* names and get_function_labels shows exactly the mangled .symtab FUNC alias as secondary USER_DEFINED label at each; the 11 Signature lines equal the program; own DWARF 1 reader (24 CUs, DIE 1028792-1039321) and mangled signatures agree on every type; delay-slot-aware liveness over the ELF bytes: CanSeeRegion/Set*CanSeeRegions read a0,a1; TestFOV a0-a3 and returns v0 in {0,1,2} (1-byte enum tag_ZVIS_FOV, no struct return); find_convex_hull_xz a0-a2, int v0; UpdateFrustum a0; SetNear/Mid/Far/HalfHorizontal a0,f12; SetHalfVertical reads a0 only but all 3 callers (0x1be6b8, 0x1be7fc, 0x1bea80) load f12, so the mangled float param_2 is right; theta_x_z reads a1-a3,t0 (instance, DWARF omits this) and the 12 Cmd* handlers keep undefined NAME(void), only the name changed",
+        "ghidra-receipt-sha256:becce5d07f821e633d2874ce2cefb260c4e759249376003c7ff9c19e05602d3e",
+        "ghidra-save:explicit-program",
+        "live: doctor --infrastructure-only --ghidra ok; ghidra preflight --strict ok; analysis idle before and after; ghidra receipt over the stored scope reproduces becce5d07f821e633d2874ce2cefb260c4e759249376003c7ff9c19e05602d3e (data 51562 37df9b2c..., functions 9715 50c1cb58..., types 1479 d21582eb...); all 12 scoped type facts (CCamera, tag_ZVIS_FOV size 1 values 0-3, PNT4D, CPnt3D, _zrdr, _zanim_cmd_hdr, 6 _camera_* cmds) equal every earlier stored receipt that scoped them",
+        "no change outside the batch versus the accepted file-local copy repair state: verifier-owned full read-only snapshot (GETs plus get_bulk_xrefs over all 28 blocks) vs the repair verifier snapshot authenticated against receipt f69a513a indexes (76aaabcb/37df9b2c/2763f21b, 716 bookmarks): function names differ only at the 24 batch entries; of 9,715 get_function_by_address details exactly 24 differ, all batch entries, entries and bodies unchanged; thunk/external flags identical (40 thunks); data unchanged (0 removed/0 added); types 1478 -> 1479 adding only /project/PNT4D *; bookmarks, memory blocks and all 183,630 references identical; main.bss references equal the 16,333 relocation-proven set; symbol count 24553 -> 24601 = 24 labels + 24 parameters; snapshot indexes equal the handoff receipt",
+        "pre-apply snapshot equal to the accepted file-local copy repair state in every index (functions, data, types, bookmarks, all 183,619 references, 16 blocks); after: analysis idle; functions differ only at the 24 batch entries; no data change; bookmarks, memory blocks and all 183,619 references identical; types 1478 -> 1479 adding only project/PNT4D *",
+        "pre-handoff receipt becce5d07f821e633d2874ce2cefb260c4e759249376003c7ff9c19e05602d3e: indexes data 51562 37df9b2c..., functions 9715 50c1cb58..., types 1479 d21582eb...; scope 24 functions, 0 globals, 12 types",
+        "python tools/socom.py ghidra apply-batch: program build/apply/socom-debug-batch-9c183e460114bb7cb4a5-apply.json sha256 fa27ea13f1e88d3340a5a89fddf79ce8dddcdc7ec53aa13c646eed8ebba4fe3d (regenerated from the accepted plan at commit 95708a6), 59 bridge calls (24 renames, 24 labels, 11 prototypes) exactly as the plan verifier's intercepted dry run predicted; every name and Signature line read back equal (first enum return: tag_ZVIS_FOV __stdcall zdb::CCamera::TestFOV(...)); report sha256 056228a3088e7dbb3f56565984eda1b4051db3a2b85160726b2390b0134999a0",
+        "tracker: progress audit --strict ok at revision 84, no leases; item awaiting_acceptance by socom-ghidra-reconstructor; plan item socom:debug-batch:9c183e460114bb7cb4a5 accepted (revision 82) citing plan sha256 18f9e878eaf10dc80c4ad33ea5f6616c5704f589de408f2bcbcf78c2267f4f8c; debug import-plan --batch regenerates that plan and debug batch-program regenerates program fa27ea13f1e88d3340a5a89fddf79ce8dddcdc7ec53aa13c646eed8ebba4fe3d byte-identically (tools at 95708a6); stored scope == build/receipts scope file == program receipt_scope (24 functions, 0 globals, 12 types); report sha256 056228a3088e7dbb3f56565984eda1b4051db3a2b85160726b2390b0134999a0 cites plan and program; tests/tools 145 passed"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "becce5d07f821e633d2874ce2cefb260c4e759249376003c7ff9c19e05602d3e",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x1e4c80",
+            "0x1e4cc0",
+            "0x1e4cf0",
+            "0x1e4d20",
+            "0x1e4e00",
+            "0x1e4f00",
+            "0x1e5180",
+            "0x1e5410",
+            "0x1e5420",
+            "0x1e5450",
+            "0x1e5460",
+            "0x1e54f0",
+            "0x1e5570",
+            "0x1e61c0",
+            "0x1e6300",
+            "0x1e7270",
+            "0x1e7280",
+            "0x1e72f0",
+            "0x1e7320",
+            "0x1e73f0",
+            "0x1e7400",
+            "0x1e7470",
+            "0x1e74b0",
+            "0x1e7530"
+          ],
+          "globals": [],
+          "types": [
+            "/project/_camera_control_cmd",
+            "/project/_camera_param_1d_data",
+            "/project/_camera_param_2d_data",
+            "/project/_camera_param_3d_data",
+            "/project/_camera_params_cmd",
+            "/project/_camera_set_regions_cmd",
+            "/project/_zanim_cmd_hdr",
+            "/project/_zrdr",
+            "/project/CPnt3D",
+            "/project/PNT4D",
+            "/project/zdb/CCamera",
+            "/project/zdb/tag_ZVIS_FOV"
+          ]
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1479,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 24601
+          },
+          "indexes": {
+            "data": {
+              "count": 51562,
+              "sha256": "37df9b2cf46f06137c954f91ee43d6299727738a481f13ee9c3d0d0f68498fad"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "50c1cb58ad4946abd3ce676eb46cfac715d81879ebfa28b4b1602db48c81fb68"
+            },
+            "types": {
+              "count": 1479,
+              "sha256": "d21582eb7475bef29392690d5ff6c597cdae7d82dbdceed47a96c884bd2cd3b2"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-09T04:39:26Z",
+        "summary": "Applied accepted batch 15 (plan sha256 18f9e878...4f8c) once: 24 zdb::CCamera functions renamed with mangled secondary labels and 11 prototypes set (CanSeeRegion, Set*CanSeeRegions, TestFOV returning the enum tag_ZVIS_FOV, find_convex_hull_xz, UpdateFrustum, SetNear/Mid/FarClip, SetHalf*FOVRadians). 13 recorded receiver skips (theta_x_z, a method whose DWARF omits this, and 12 static Cmd* handlers; issue bdcbeb4a). A full before/after snapshot shows no change outside the batch except one derived type."
+      },
       "id": "socom:debug-batch:9c183e460114bb7cb4a5-apply",
       "kind": "debug-import-apply-batch",
       "lease": null,
@@ -1465815,7 +1465938,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply reviewed DWARF compile-unit batch 015 (24 units)"
     },
     {
