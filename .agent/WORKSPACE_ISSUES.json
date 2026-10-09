@@ -629,8 +629,18 @@
       },
       "status": "resolved",
       "summary": "Batch programs would apply by-value class returns whose Ghidra storage contradicts the Metrowerks ABI"
+    },
+    {
+      "details": "User request (2026-10-09): when a class's base is laid out as a component of the derived struct, name it after the base type only (e.g. CGame), not super_CGame. The prefix comes from tools/_socom/type_apply.py (inheritance members named \"super_\" + identifier). Apply in later batches or stages: new base components should use the bare name; components the accepted type foundation already created need a governed rename (field rename with read-back and independent verification, checking for member-name collisions), e.g. in the ghidra-reconstruction stage.",
+      "id": "socom:workspace-issue:195a41ae7d3e17b8b686",
+      "kind": "problem",
+      "reported_at": "2026-10-09T20:41:36Z",
+      "reported_by": "user-request",
+      "resolution": null,
+      "status": "open",
+      "summary": "Name base-class components by the base type, not super_<Base>"
     }
   ],
-  "revision": 76,
+  "revision": 77,
   "schema_version": 1
 }
