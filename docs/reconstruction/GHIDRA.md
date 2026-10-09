@@ -207,8 +207,10 @@ python tools/socom.py ghidra apply-batch `
   unit, e.g. six `__RTTI__10CGameState` and 24 `__RTTI__3C2D` objects) take
   the readable name only when canonical: the RTTI copy that word 0 of the
   class's single `__vt__` (an `R_MIPS_32` relocation) points to. Other copies,
-  and copies of names with no canonical copy (`__msl_ios_base_ninit__3std`),
-  keep their mangled names (`rename_skip`).
+  and copies of names with no canonical copy (`__msl_ios_base_ninit__3std`,
+  and the functions `IOPRebootHandler__FQ211CIOPManager...` and
+  `find<...CModel...>`, three copies each), keep their mangled names
+  (`rename_skip`).
   The bridge has no complete read-only symbol listing (`list_globals` filters
   heuristically), so a renamed label on bytes without defined data is not
   seen.

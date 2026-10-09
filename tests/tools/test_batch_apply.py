@@ -342,6 +342,22 @@ def test_only_the_vtable_rtti_copy_takes_the_readable_name(program: dict) -> Non
     assert globals_["0x4444b0"]["rename"]
 
 
+def test_functions_with_file_local_copies_keep_mangled_names(root: Path, batch_plan_path: Path, tmp_path: Path) -> None:
+    plan = json.loads(batch_plan_path.read_text(encoding="utf-8"))
+    mangled = "IOPRebootHandler__FQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv"
+    row = dict(
+        copy.deepcopy(next(f for f in plan["functions"] if f["low_pc"] == 0x140D00)),
+        low_pc=0x2EE360,
+        mangled_name=mangled,
+        name="IOPRebootHandler",
+        parameters=[],
+    )
+    path = tmp_path / "copies.json"
+    path.write_text(json.dumps(dict(plan, functions=[*plan["functions"], row])), encoding="utf-8")
+    entry = {f["address"]: f for f in batch_apply.build_batch_program(root, path)["functions"]}["0x2ee360"]
+    assert entry["rename"] is False and entry["rename_skip"] == "file-local copies share this name"
+
+
 def test_globals_renamed_by_an_earlier_batch_are_unchanged(program: dict) -> None:
     program = copy.deepcopy(program)
     for row in program["globals"]:

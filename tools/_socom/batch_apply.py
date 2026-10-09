@@ -319,7 +319,7 @@ def _canonical_rtti(elf: Elf32File, symbols: list[Any]) -> dict[str, int]:
     R_MIPS_32 relocation to the copy the class actually uses.
     """
 
-    relocated = {row.offset for row in elf.relocations(".relmain")}
+    relocated = {row.offset for row in elf.relocations(".relmain") if row.type_name == "R_MIPS_32"}
     addresses: dict[str, set[int]] = {}
     for symbol in symbols:
         if symbol.type_name == "OBJECT" and symbol.value:
@@ -503,9 +503,18 @@ def build_batch_program(root: Path, plan_path: Path) -> dict[str, Any]:
                 "notes": notes,
             }
         )
+    function_copies: dict[str, set[int]] = {}
+    for symbol in symbols:
+        if symbol.type_name == "FUNC" and symbol.value:
+            function_copies.setdefault(symbol.name, set()).add(symbol.value)
     for entry in functions:
         name = entry["readable_name"]
         entry["rename"] = bool(name and name != entry["current_name"] and names[name] == 1)
+        if entry["rename"] and len(function_copies.get(entry["current_name"], set())) > 1:
+            # File-local copies (IOPRebootHandler__FQ211CIOPManager... x3) have
+            # no canonical copy; all keep the mangled name.
+            entry["rename"] = False
+            entry["rename_skip"] = "file-local copies share this name"
         if name and names[name] > 1:
             entry["notes"].append(f"readable name {name!r} is not unique in the batch")
 
@@ -726,6 +735,8 @@ def execute_batch_program(
         if live_name != entry["current_name"]:
             raise SocomError(f"function at {address} is {live_name!r}, expected {entry['current_name']!r}")
         name = entry["current_name"]
+        if entry.get("rename_skip"):
+            skipped.append({"address": address, "action": "rename", "reason": entry["rename_skip"]})
         if entry["rename"]:
             clash = [other for other, value in existing.items() if value == entry["readable_name"] and other != address]
             if clash:
