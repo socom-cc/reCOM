@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 91,
+  "revision": 94,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1466867,6 +1466867,10 @@
       "title": "Apply reviewed DWARF compile-unit batch 016 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-09T20:24:51Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 17,
         "compile_unit_ids": [
@@ -1467025,8 +1467029,17 @@
       "dependencies": [
         "socom:work:debug-type-foundation-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "Independent re-review at tools HEAD d54d652 (no local tool/test/doc changes). Plan build/import-plans/socom-debug-batch-e168f5ec330b2d69ef33.json sha256 0883fad029676f343004bcbefb5fa1fcb2eaf8e9c5df1466db6f010478e82f1a regenerates byte-identically; preview build/apply/socom-debug-batch-e168f5ec330b2d69ef33-apply.json sha256 2c36f871d118b4717691a637c36f753a742f5348f7a66b516982825d14f7b9c2 regenerates byte-identically (build/verify-b17/prog17-head.json). Plan covers exactly the 24 DIE ranges (3586 DIEs, 23 functions, 25 variables, 626 in-range types + 17 referenced_only); an independent DWARF 1 reader matches all 23 function, 25 variable and 643 type rows. Prototypes checked against mangled names, DWARF and R5900 assembly: this in a0, floats in f12 independent of GPRs, dtor short flags in a1 and this returned in v0, ctor CWorld* in a1 unused and cam in a2, FTSTick float passed in f12 by its only caller; the six receiver skips are static (Cmd* registered as plain function pointers via CZAnimMain::AddCmd, RegisterAnimCommands and CameraZoom Tick/OnGoal/HandleNewZoom never read a0). By-value returns: Metrowerks passes the result pointer in a0 ahead of this at every size and does not return it in v0 (all four callers of 0x1ead60/0x1eafc0 pass a stack buffer in a0); Ghidra 12.1.4's r5900 __stdcall would add __return_storage_ptr__ and v0 output. The HEAD guard skips both prototypes (renames kept). Guard reviewed: direct descriptors not in the plan, and const/volatile, already fail render; the typedef path is unreachable because .debug has no TAG_typedef DIEs. Old (8881e7d) and HEAD batch programs for all 10 batch plans differ only at batch 17 0x1ead60/0x1eafc0. Whole-ELF DWARF ground truth: 25 functions with by-value composite return/param, none with a prototype in any program; no prototype keeps a non-enum by-value type; enum prototypes are kept (zdb::CCamera::TestFOV returns tag_ZVIS_FOV, Update takes tag_ZCAM_TYPE). 18 globals match DWARF/.symtab and live audit_global (none code, names current). Dry run with all writes intercepted, read-only GETs live: ok, 93 writes (23 renames, 33 labels, 13 prototypes, 14 data types, 10 label renames), 10 recorded skips, 5 unchanged; no read-back mismatch even when modelling Ghidra's hidden-return signature. progress audit --strict ok rev 93; audits workflow-contracts/issues/docs/agent-surface/current-metadata ok; pytest tests/tools 147 passed.",
+        "file-only batch-program preview build/apply/socom-debug-batch-e168f5ec330b2d69ef33-apply.json sha256 fffcb89c3222c1d654fea3cb2bfca0b127eb0b9d0c540258e8f55d5c56f2d533 at tools commit 8881e7d: 23 renames, 15 prototypes; skips: 2 comma template names, 6 without receiver evidence (CAppCamera Cmd*/RegisterAnimCommands, CameraZoom::Tick/OnGoal/HandleNewZoom); 18 globals all typed (incl. zdb::CVisual::m_basefog_near float, m_basefog_color CPnt4D), 11 renames. FIRST struct returns by value: CAppCamera::GetThirdPersonCamPos and GetFirstPersonCamPos return CPnt3D (12 bytes) per DWARF; please check the Metrowerks structure-return convention in the assembly against the storage Ghidra's __stdcall would assign",
+        "plan build/import-plans/socom-debug-batch-e168f5ec330b2d69ef33.json sha256 0883fad029676f343004bcbefb5fa1fcb2eaf8e9c5df1466db6f010478e82f1a from python tools/socom.py debug import-plan --batch socom:debug-batch:e168f5ec330b2d69ef33; debug conflicts list --batch: 0; all 384 scope type paths exist live",
+        "pre-handoff read-only audit (list_data_types, list_functions, audit_global per global): live names equal current or earlier readable names; no thunks; no file-local copies renamed; no void-return contradictions; every prototype type resolves once live; no global is code; no problems"
+      ],
+      "handoff": {
+        "owner": "socom-dwarf-importer",
+        "submitted_at": "2026-10-09T16:34:50Z",
+        "summary": "DWARF compile-unit batch 17 plan (camera.cpp CAppCamera, thezoom.cpp CameraZoom, zmath_matrix.h, MSL vector) is conflict-free: 23 functions, 25 variable rows (18 present, 7 absent), 643 type rows incl. 17 referenced_only. Receipt scope: 23 functions, 18 globals, 384 types, all live."
+      },
       "id": "socom:debug-batch:e168f5ec330b2d69ef33",
       "kind": "debug-import-plan-batch",
       "lease": null,
@@ -1467035,7 +1467048,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan DWARF compile-unit batch 017 (24 units)"
     },
     {
@@ -1467209,7 +1467222,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed DWARF compile-unit batch 017 (24 units)"
     },
     {
