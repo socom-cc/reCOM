@@ -593,8 +593,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Readable RTTI names go to whichever file-local copy a batch reaches first, not the vtable's copy"
+    },
+    {
+      "details": "Batch 15 plan review (tracker revision 82). zdb::CCamera::theta_x_z (0x1e4e00) is an instance method although DWARF lists all four mangled parameters and no this: it reads p1/p2 from a1/a2 and angle/dist from a3/t0, never a0, and its only caller find_convex_hull_xz (0x1e5098) passes a0 = fp = this. So 'DWARF lists the full mangled list without this' does not prove static. The 12 Cmd* handlers (0x1e5570..0x1e7530) are static members: a0 is the command header or reader, the camera comes from zdb::CWorld::m_world+0xc0, and their only references are address loads in RegisterAnimCommands passed to CZAnimMain::AddCmd, whose mangled parameters are plain function pointers. A receiver rule could use caller argument flow and function-pointer registration (see also issue ea5d645f).",
+      "id": "socom:workspace-issue:bdcbeb4ae6fb31ffd315",
+      "kind": "problem",
+      "reported_at": "2026-10-09T04:22:34Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Receiver evidence for batch 15's skipped zdb::CCamera functions"
     }
   ],
-  "revision": 71,
+  "revision": 72,
   "schema_version": 1
 }

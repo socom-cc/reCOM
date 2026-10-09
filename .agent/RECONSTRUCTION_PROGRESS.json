@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 79,
+  "revision": 82,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1465460,6 +1465460,10 @@
       "title": "Return non-canonical file-local copies to their mangled names"
     },
     {
+      "accepted": {
+        "at": "2026-10-09T04:21:51Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 15,
         "compile_unit_ids": [
@@ -1465618,8 +1465622,17 @@
       "dependencies": [
         "socom:work:debug-type-foundation-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "Independent review at tools eedd57c (clean tree), revision 81, progress audit --strict ok. (1) Plan sha256 18f9e878...4f8c regenerates byte-identically; batch-program from the canonical plan path regenerates fa27ea13...fe3d byte-identically; debug conflicts list --batch: 0. Own ELF32/DWARF1 reader: the 24 die_ranges are the exact contiguous extents of the 24 zcam_main.cpp CUs (959 CUs total), 185 non-null DIEs = selected_die_count, 24 global_subroutines, 0 global_variable and 0 type DIEs in range. (2) All 24 rows match DWARF and ELF (DIE offset, name, mangled 0x2000 name, low/high pc, a single unique .symtab FUNC alias whose size equals high-low, parameter names/types/locations, returns, local counts): 0 diffs. Every referenced type DIE is covered by the 13 referenced_only rows; the extra _zanim_cmd_hdr row (DIE 56939) is the documented mangled-signature join for CmdTickGetRegions/CmdTickIndoorsTest. (3) Capstone disassembly plus callers: CanSeeRegion/Set*CanSeeRegions read this=a0, region=a1; TestFOV reads this=a0, bbox8=a1 (to sceVu0ClipBBox), clipWord=a2 (null to stack temp), testGuardBand=a3, and returns v0 in {0,1,2} = 1-byte enum tag_ZVIS_FOV {CLIP, ALL_IN, ALL_OUT, NUM}, so there is no struct return; find_convex_hull_xz reads a0/a1/a2 and returns int v0; UpdateFrustum reads a0; SetNear/Mid/FarClip and SetHalfHorizontalFOVRadians store f12 at this+off; SetHalfVerticalFOVRadians ignores f12, but all callers (zAnimCameraTick/Begin) load f12, so the mangled float param_2 is correct. The r5900.cspec __stdcall assigns floats to f12-f19 independently of a0-t3, so all 11 previews match the registers. Skips: theta_x_z is an INSTANCE method (reads a1,a2,a3,t0; its only caller find_convex_hull_xz passes a0=fp=this) while DWARF omits this; the 12 Cmd* handlers are STATIC (a0 = hdr/rdr; the camera comes from CWorld::m_world+0xc0; their only refs are %lo address materializations passed to CZAnimMain::AddCmd, whose mangled params are plain non-member function pointers). They correctly stay skipped. (4) Dry run of execute_batch_program against the live bridge with every POST intercepted (GETs list_functions/list_data_types/list_data_items/get_function_by_address only): all 24 live names equal current_name, no rename clashes, all prototype types resolve exactly once (CCamera, PNT4D, CPnt3D, tag_ZVIS_FOV size 1), 59 well-formed POSTs (24 rename + 24 label + 11 prototype); live bodies equal the DWARF ranges 24/24; the read-back format matches the accepted batch 1791d0fa CCamera methods. Plugin set_function_prototype uses FunctionSignatureParser(programDTM, null), the same name lookup as earlier struct types. pytest tests/tools: 145 passed. Non-blocking: TestFOV is the first enum-typed prototype through this route (read-back fails closed); theta_x_z needs a this-receiver rule later.",
+        "file-only batch-program preview build/apply/socom-debug-batch-9c183e460114bb7cb4a5-apply.json sha256 fa27ea13f1e88d3340a5a89fddf79ce8dddcdc7ec53aa13c646eed8ebba4fe3d at tools commit eedd57c: 24 renames, 11 prototypes (CanSeeRegion, Set*Regions, TestFOV -> tag_ZVIS_FOV, find_convex_hull_xz, UpdateFrustum, Set*Clip, SetHalf*FOVRadians); 13 recorded skips for no receiver evidence (theta_x_z and the 12 Cmd*Params/Regions/IndoorsTest/ControlSwitch/Acquire/Release handlers: no DWARF this, no vtable slot; possibly static callbacks, not proven)",
+        "plan build/import-plans/socom-debug-batch-9c183e460114bb7cb4a5.json sha256 18f9e878eaf10dc80c4ad33ea5f6616c5704f589de408f2bcbcf78c2267f4f8c from python tools/socom.py debug import-plan --batch socom:debug-batch:9c183e460114bb7cb4a5 (byte-identical to the copy prepared before the claim); debug conflicts list --batch: 0; all 12 scope type paths exist live",
+        "pre-handoff read-only audit (list_data_types, list_functions): live function names equal current names; no thunks; no file-local copies; every prototype type resolves once live; no problems"
+      ],
+      "handoff": {
+        "owner": "socom-dwarf-importer",
+        "submitted_at": "2026-10-09T04:05:52Z",
+        "summary": "DWARF compile-unit batch 15 plan (zcam_main.cpp zdb::CCamera continued) is conflict-free: 24 functions, no variables, 13 type rows, all referenced_only. Receipt scope: 24 functions, 0 globals, 12 types, all live."
+      },
       "id": "socom:debug-batch:9c183e460114bb7cb4a5",
       "kind": "debug-import-plan-batch",
       "lease": null,
@@ -1465628,7 +1465641,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan DWARF compile-unit batch 015 (24 units)"
     },
     {
@@ -1465802,7 +1465815,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed DWARF compile-unit batch 015 (24 units)"
     },
     {
