@@ -573,8 +573,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Bridge GET parameters are URL-decoded twice"
+    },
+    {
+      "details": "Batch 14 plan review (tracker revision 72). ai::plot_tick (0x17de80) is a namespace function: ai has no DWARF type, vtable, RTTI or constructor, sibling ai functions use the free-function convention (elevate__2aiFR6CPnt3Dff: reference in a0, floats in f12/f13), and the only caller CHUD::StatusLine (0x3da664) passes a float in f12 and a bool in a0, so the contract is void (float, bool); the batch tool skips it because a mangled qualifier cannot distinguish namespace from class when DWARF records no parameters. std::__vector_pod<unsigned int>::reserve (0x17dd70) is skipped for its comma template name (issue 06c2c23d); its contract is void (this in a0, unsigned int n in a1). Apply both once namespace detection and comma spelling exist.",
+      "id": "socom:workspace-issue:d96cdc410c63a1ef4ba4",
+      "kind": "problem",
+      "reported_at": "2026-10-09T01:59:44Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Assembly-proven contracts for skipped prototypes ai::plot_tick and __vector_pod::reserve"
     }
   ],
-  "revision": 69,
+  "revision": 70,
   "schema_version": 1
 }

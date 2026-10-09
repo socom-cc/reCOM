@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 69,
+  "revision": 72,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1464689,6 +1464689,10 @@
       "title": "Apply reviewed DWARF compile-unit batch 013 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-09T01:59:02Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 14,
         "compile_unit_ids": [
@@ -1464847,8 +1464851,20 @@
       "dependencies": [
         "socom:work:debug-type-foundation-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "file-only batch-program preview build/apply/socom-debug-batch-1791d0faee0ad2d6713e-apply.json sha256 1fce4d1fd0bade4653dad88ffdfacb6fe50f7bcbf4cfcb58bd6332444bb5de62: 20 renames (the two zdb::CCamera::InsideMidPlane overloads 0x1e4910/0x1e4b10 share a readable name, so neither is renamed), 20 prototypes (skips: 0x17dd70 comma template name; ai::plot_tick 0x17de80 no receiver evidence, DWARF 0 of 2 parameters); 14 globals, 9 typed (5 member-less RTTI/vtable records), 11 renames; tools at commit dee93aa",
+        "independent review at tools commit dee93aa (no tool/test/doc changes): plan build/import-plans/socom-debug-batch-1791d0faee0ad2d6713e.json sha256 1ecd96efea0160407d5167534a62ae0d9f6f06b311efdbd22c3a580afe313018 and batch-program preview build/apply/socom-debug-batch-1791d0faee0ad2d6713e-apply.json sha256 1fce4d1fd0bade4653dad88ffdfacb6fe50f7bcbf4cfcb58bd6332444bb5de62 both regenerate byte-identically; conflicts list --batch 0; progress audit --strict ok at revision 71; 140 tool tests pass",
+        "live read-only (preflight strict ok; GETs only): 22 function names equal current names, no readable-name clashes; all 11 non-builtin type names resolve exactly once ignoring case, uint16 * builtin live; audit_global: every global has its current name or, for m_world, the earlier readable name; none is code; m_world/ZAnim/zVid already carry CWorld */CZAnimMain(452)/_zvid_public(128); unit_z clear_existing covers DAT_0044f564/8 within its 12 bytes (GhidraMCP-6.0.0 DataTypeService clears max(type, unit) length); executor dry-run with POSTs intercepted passed every pre-write check: 20 renames + 20 prototypes + 10 global renames + 30 labels + 6 apply_data_type; only intercepted entries differed at read-back",
+        "own ELF/DWARF1 reader: die_ranges are 24 contiguous exact CU boundaries (CU index 312-335, 972474-1028792, matching tracker); 1329 DIEs; 22 low_pc subprograms and 26 variables equal the plan rows field by field (pc range, attr 0x2008 mangled name, params/locals name+type+location, return, .symtab aliases, placement); 257 in-range type DIEs equal plan rows plus 3 referenced_only (CCoreState, CCinematicState, std::__vector_pod<uint>); 12 function objects are FUNC symbols in main (zdb::CCamera::Cmd*), excluded from globals; 14 present globals match .symtab size and DWARF byte_size, no overlap",
+        "plan build/import-plans/socom-debug-batch-1791d0faee0ad2d6713e.json sha256 1ecd96efea0160407d5167534a62ae0d9f6f06b311efdbd22c3a580afe313018 from python tools/socom.py debug import-plan --batch socom:debug-batch:1791d0faee0ad2d6713e; debug conflicts list --batch: 0; all 164 scope type paths exist live",
+        "pre-handoff read-only audit (list_data_types, list_functions, audit_global per global): live function names equal current names; no thunks; every prototype type unique live; every global's live name is its current name or an earlier batch's readable name (zdb::CWorld::m_world, zVid, ZAnim recur); no global is code; no problems found",
+        "prototypes vs assembly: this in a0, then a1/a2 and f12 (Tick dT f12->f20, TestFOG/TestLandmarkFOG radius f12); returns v0 bool/uint/pointer, f0 float (GetZ/GetScaledZSquared/GetScaledRangeSquared); CMatrix::operator() returns a0+a1*16+a2*4 as float*; ~CCinematicState sign-extends a1 short flag, deletes if >0, returns this; vtable receivers OnPush slot 8 of __vt__10CCoreState, IsCell slot 11 of __vt__Q23zdb5CNode; no thunks. ai is a namespace (no DWARF type, vtable, RTTI or ctor; free templates; sibling elevate passes ref in a0, floats in f12/f13); sole caller CHUD::StatusLine 0x3da664 passes float f12 and bool a0, so the plot_tick skip is conservative, not wrong"
+      ],
+      "handoff": {
+        "owner": "socom-dwarf-importer",
+        "submitted_at": "2026-10-08T22:43:40Z",
+        "summary": "DWARF compile-unit batch 14 plan (st_core.cpp CCoreState/CCinematicState tail, zcam_main.cpp zdb::CCamera, aidemo.cpp, zmath_matrix.h, znode.h, MSL vector) is conflict-free: 22 functions, 26 variable rows (14 present, 12 function objects), 260 type rows incl. 3 referenced_only. Receipt scope: 22 functions, 14 globals, 164 types, all live."
+      },
       "id": "socom:debug-batch:1791d0faee0ad2d6713e",
       "kind": "debug-import-plan-batch",
       "lease": null,
@@ -1464857,7 +1464873,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan DWARF compile-unit batch 014 (24 units)"
     },
     {
@@ -1465031,7 +1465047,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed DWARF compile-unit batch 014 (24 units)"
     },
     {
