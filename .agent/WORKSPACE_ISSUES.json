@@ -616,8 +616,21 @@
       },
       "status": "resolved",
       "summary": "Batch programs applied DWARF void returns that the assembly contradicts"
+    },
+    {
+      "details": "Batch 17 plan review (tracker revision 93), before any apply: CAppCamera::GetThirdPersonCamPos (0x1ead60) and GetFirstPersonCamPos (0x1eafc0) return CPnt3D (12 bytes). Metrowerks passes the result pointer in a0 ahead of this (all four callers pass a stack buffer in a0, this/cam in a1) and does not return it in v0; Ghidra 12.1.4's r5900 __stdcall hides only results over 8 bytes (f0 4-byte, v0 1-8 byte output slots), returns the hidden pointer in v0, and get_function_by_address would read back an extra __return_storage_ptr__ parameter, so the apply would fail read-back after 95 writes. The verifier's survey of all 22 DWARF by-value class returns shows the a0 convention at every size (4-byte CZNewHudMap::GetScrollPermissions, 8-byte std::ios_base::getloc), so a size threshold would not suffice.",
+      "id": "socom:workspace-issue:79513d8c09d966838a4c",
+      "kind": "problem",
+      "reported_at": "2026-10-09T17:04:13Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": {
+        "resolved_at": "2026-10-09T17:04:14Z",
+        "summary": "build_batch_program records a skip (rename still applied) for any prototype with a by-value class, struct or union return or parameter: DWARF descriptors via _Types.composite (typedefs followed, enums excluded) and mangled-only class parameters via _Types.mangled_composite unless the identity is an enumeration. Across batches 001 and 10-17 only batch 17's two functions change; batch 13's std::list erase/insert were already skipped for comma names; no applied prototype has a by-value composite return or parameter, so no repair is needed. A future decision could model the Metrowerks convention explicitly. Test test_by_value_class_returns_are_skipped; GHIDRA.md documents the rule."
+      },
+      "status": "resolved",
+      "summary": "Batch programs would apply by-value class returns whose Ghidra storage contradicts the Metrowerks ABI"
     }
   ],
-  "revision": 74,
+  "revision": 76,
   "schema_version": 1
 }

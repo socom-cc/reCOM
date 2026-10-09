@@ -226,7 +226,13 @@ python tools/socom.py ghidra apply-batch `
   function DWARF declares `void` whose direct caller reads `v0` or `f0` right
   after the call (before any write of it or control transfer) is a recorded
   contradiction skip, writing neither side (`sceVu0ClipBBox` returns its clip
-  mask to `TestFOV`). A method
+  mask to `TestFOV`). A by-value class, struct or union return or parameter is
+  a recorded skip: Metrowerks passes a class result as a hidden pointer in
+  `a0` ahead of `this` at every size and need not return it in `v0`
+  (`CAppCamera::GetThirdPersonCamPos` returns `CPnt3D`), while Ghidra's r5900
+  `__stdcall` hides only results over 8 bytes, returns that pointer in `v0`,
+  and reads back an extra `__return_storage_ptr__` parameter. Enums are
+  scalars and unaffected. A method
   has a receiver only when DWARF records `this` or its address is in its
   class's vtable (`__vt__10CGameState` holds the seven parameterless
   `CGameState` virtuals). Methods without that evidence keep their signature.

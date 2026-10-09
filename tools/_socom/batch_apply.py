@@ -129,6 +129,11 @@ class _Types:
             for row in plan.get("identities", [])
             if row.get("qualified_name") and row.get("ghidra_path")
         }
+        self.kinds = {
+            row["qualified_name"]: row.get("kind")
+            for row in plan.get("identities", [])
+            if row.get("qualified_name")
+        }
 
     def byte_size(self, descriptor: dict[str, Any] | None, extent: int | None = None) -> int | None:
         """Size in bytes, or None when the evidence does not fix it.
@@ -246,6 +251,26 @@ class _Types:
         if row["kind"] in ("class_type", "structure_type", "union_type", "enumeration_type"):
             return (depth, "class", None, row.get("byte_size"), names)
         return None
+
+    def composite(self, descriptor: dict[str, Any] | None, hops: int = 0) -> bool:
+        """Whether a DWARF type is a class, struct or union passed by value."""
+
+        if not descriptor or descriptor.get("modifiers") or descriptor.get("die_offset") is None:
+            return False
+        row = self.by_die.get(descriptor["die_offset"])
+        if row is None:
+            return False
+        if row["kind"] == "typedef" and hops < 16:
+            return self.composite(row.get("type"), hops + 1)
+        return row["kind"] in ("class_type", "structure_type", "union_type")
+
+    def mangled_composite(self, value: dict[str, Any]) -> bool:
+        """A mangled by-value class parameter that is not known to be an enum."""
+
+        if value.get("kind") != "class" or set(value.get("modifiers") or []) & {"P", "R"}:
+            return False
+        qualified = "::".join(readable_component(part) for part in value.get("components", []))
+        return self.kinds.get(qualified) != "enumeration_type"
 
     @staticmethod
     def mangled_shape(value: dict[str, Any]) -> tuple | None:
@@ -587,6 +612,17 @@ def build_batch_program(root: Path, plan_path: Path) -> dict[str, Any]:
                     "sources": [p["source"] for p in params],
                     "calling_convention": CALLING_CONVENTION,
                 }
+        if prototype is not None and (
+            types.composite(row.get("return_type"))
+            or any(types.composite(item["type"]) for item in dwarf_params)
+            or any(types.mangled_composite(value) for value in ((parsed or {}).get("params") or []))
+        ):
+            # Metrowerks passes a by-value class result as a hidden pointer in
+            # a0 ahead of this (every size) and does not return it in v0;
+            # Ghidra's r5900 __stdcall only hides results over 8 bytes and
+            # returns that pointer in v0. Neither model fits, so skip.
+            prototype = None
+            skip = "by-value class, struct or union return or parameter: Ghidra's storage does not match the Metrowerks ABI"
         if prototype is not None and prototype["return_type"] == "void":
             used = _return_read_site(elf, calls, ends, row["low_pc"])
             if used is not None:

@@ -342,6 +342,23 @@ def test_only_the_vtable_rtti_copy_takes_the_readable_name(program: dict) -> Non
     assert globals_["0x4444b0"]["rename"]
 
 
+def test_by_value_class_returns_are_skipped(root: Path, tmp_path: Path) -> None:
+    tracker = load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
+    item = next(row for row in tracker["work_items"] if row["id"] == "socom:debug-batch:e168f5ec330b2d69ef33")
+    plan = build_import_plan(root, {"work_item_id": item["id"], "selection": item["selection"], **item["batch"]})
+    path = tmp_path / "batch-017.json"
+    path.write_text(json.dumps(plan), encoding="utf-8")
+    functions = {row["address"]: row for row in batch_apply.build_batch_program(root, path)["functions"]}
+    # CAppCamera::GetThirdPersonCamPos returns CPnt3D: Metrowerks passes the
+    # result pointer in a0 ahead of this; Ghidra would model it differently.
+    third = functions["0x1ead60"]
+    assert third["prototype"] is None and third["prototype_skip"].startswith("by-value class")
+    assert third["rename"]
+    assert functions["0x1eafc0"]["prototype"] is None
+    # Pointer returns and enum returns are unaffected.
+    assert functions["0x1ec580"]["prototype"]["return_type"] == "IntersectStruct *"
+
+
 def test_void_returns_contradicted_by_a_caller_are_detected(root: Path) -> None:
     from tools._socom.elf import Elf32File
 
