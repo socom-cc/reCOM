@@ -583,8 +583,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Assembly-proven contracts for skipped prototypes ai::plot_tick and __vector_pod::reserve"
+    },
+    {
+      "details": "Batch 14 apply acceptance (tracker revision 75). File-local RTTI objects are duplicated per compile unit; the clash guard gives the readable name to the first copy any batch renames. zdb::CNode::__RTTI went to 0x44c980 (0 references) while __vt__Q23zdb5CNode points to 0x44f6e0 (7 other copies keep mangled names); zdb::tag_NODE_PARAMS::__RTTI likewise went to one of 9 copies. Batch 001's CGameState::__RTTI (0x444578) happens to be the vtable's copy. A better rule: give the readable name only to the copy the class vtable's first word (R_MIPS_32-relocated RTTI pointer) references, keep mangled names on the others, and repair the copies already renamed.",
+      "id": "socom:workspace-issue:28c1bee3eca09559f5b2",
+      "kind": "problem",
+      "reported_at": "2026-10-09T02:34:01Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Readable RTTI names go to whichever file-local copy a batch reaches first, not the vtable's copy"
     }
   ],
-  "revision": 70,
+  "revision": 71,
   "schema_version": 1
 }
