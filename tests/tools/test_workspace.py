@@ -249,7 +249,13 @@ def test_tracker_file_is_valid_and_source_is_unverified(root: Path) -> None:
     assert len(tracker["symbols"]) == 21_894
     assert len(tracker["relocations"]) == 115_142
     assert tracker["schema_version"] == 5
-    assert len(tracker["work_items"]) == 92
+    # Governed repairs join through migrations and `progress add-repair`;
+    # every one must be a recorded spec.
+    from tools._socom.repairs import REPAIRS
+
+    repairs = [row["id"] for row in tracker["work_items"] if row["kind"] == "ghidra-repair"]
+    assert set(repairs) <= set(REPAIRS)
+    assert len(tracker["work_items"]) - len(repairs) == 91
     assert len(
         [row for row in tracker["work_items"] if "-plan-" in row["kind"]]
     ) == 41
