@@ -599,9 +599,15 @@ class _ReadOnlyBridge:
         raise SocomError(f"dry run attempted a bridge write: {endpoint}")
 
 
-def _batch_scope_problems(program: dict[str, Any], result: dict[str, Any]) -> list[str]:
+def _batch_scope_problems(
+    program: dict[str, Any], result: dict[str, Any], live_types: set[str] | None = None
+) -> list[str]:
     scope = program["receipt_scope"]
     problems = []
+    if live_types is not None:
+        for path in scope.get("types", []):
+            if path not in live_types:
+                problems.append(f"scope type {path} does not exist live")
     functions = {int(value, 16) for value in scope.get("functions", [])}
     globals_ = {int(value, 16) for value in scope.get("globals", [])}
     for step in result["steps"]:
@@ -665,7 +671,8 @@ def _ghidra_preflight_batch(arguments: argparse.Namespace) -> int:
         if before != after:
             errors.append(f"analysis state changed during the dry run: {before!r} -> {after!r}")
         if result is not None:
-            errors.extend(_batch_scope_problems(program, result))
+            live_types = {row["path"] for row in _type_index(bridge) if row.get("path")}
+            errors.extend(_batch_scope_problems(program, result, live_types))
     report = {
         "kind": "socom-ghidra-batch-preflight",
         "schema_version": 1,

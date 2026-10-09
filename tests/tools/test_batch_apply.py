@@ -185,6 +185,8 @@ def test_batch_scope_check_flags_writes_outside_and_scope_beyond_the_program() -
         "create_label writes 0x476f64 outside the receipt scope",
         "scope function 0x140500 is not in the program",
     ]
+    program["receipt_scope"]["types"] = ["/project/A", "/project/B"]
+    assert cli._batch_scope_problems(program, result, {"/project/A"})[0] == "scope type /project/B does not exist live"
 
 
 def test_composite_typedef_with_a_missing_target_fails_closed() -> None:

@@ -220,7 +220,8 @@ and drives the same executor with every live read and pre-write check
 (current names, rename clashes, type resolution, code-address refusal) while
 a read-only bridge refuses any POST. It reports the exact calls an apply
 would make, the skips and unchanged entries, the plan item's status, and any
-write outside the receipt scope or scope entry missing from the program. An
+write outside the receipt scope, scope entry missing from the program, or
+scope type that does not exist live. An
 apply should only be claimed after its preflight is clean.
 
 - **Names.** Functions and globals take readable demangled names
