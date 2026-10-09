@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 85,
+  "revision": 88,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1465942,6 +1465942,10 @@
       "title": "Apply reviewed DWARF compile-unit batch 015 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-09T15:53:17Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 16,
         "compile_unit_ids": [
@@ -1466100,8 +1466104,17 @@
       "dependencies": [
         "socom:work:debug-type-foundation-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "file-only batch-program preview build/apply/socom-debug-batch-0fc8fa490062caf6dc27-apply.json sha256 e74579724ccb8750e1855bdcdf6c3f9bda4edd6fa58e8994ae9af39519a88051 at tools commit 0b331ef: 21 renames, 18 prototypes (zdb::CCamera ctor/dtor/Update/GetFogVisibility, CAppCamera camera modes, CSealCtrl::IsPlayer via __vt__9CSealCtrl, _OutsideGuardBand, sceVu0ClipBBox); skips: CEntity::GetEntityList, zdb::CCamera::GetDynamicsControl (no receiver evidence); 29 globals, 27 typed (CAppCamera RTTI/vtable untyped), 8 renames; many globals recur from earlier batches",
+        "independent review at tools b44cafa: plan build/import-plans/socom-debug-batch-0fc8fa490062caf6dc27.json sha256 af2bc985d71ae104ed9caf14da8b5b76c24e83574813ded081adcb7e5953d521 regenerates byte-identically; 24 DIE ranges 1039321-1231256 contiguous with batches 15/17; own ELF/DWARF1 reader matches all 21 function rows (pc ranges = live bodies, params/locations/returns), 39 variable rows (29 present = .symtab sizes, no overlap; 8 absent at addr 0; 2 function objects), 819 in-batch type DIEs; 427 scope types live once, no conflicts; preview build/apply/socom-debug-batch-0fc8fa490062caf6dc27-apply.json sha256 513b0cea538d8768ec974ed1abe48174a977be6c53b734cd00bc452674c41901 regenerates identically and differs from the reviewed e7457972 only by the sceVu0ClipBBox (0x1e87e0) void-return contradiction skip (TestFOV stores v0 at 0x1e4d64); 17 prototypes checked against mangled names, DWARF and assembly (a0..a3/t0, f12 floats, v0/f0 returns, dtor short flag, APLookAt a1=m_track CEntity*); the 3 receiver skips are static in the assembly; intercepted dry run: no refusals, 83 writes, all 39 read-back mismatches explained; 146 tests pass",
+        "plan build/import-plans/socom-debug-batch-0fc8fa490062caf6dc27.json sha256 af2bc985d71ae104ed9caf14da8b5b76c24e83574813ded081adcb7e5953d521 from python tools/socom.py debug import-plan --batch socom:debug-batch:0fc8fa490062caf6dc27; debug conflicts list --batch: 0; all 427 scope type paths exist live",
+        "pre-handoff read-only audit (list_data_types, list_functions, audit_global per global): live names equal current or earlier readable names; no thunks; no file-local copies renamed; every prototype type resolves once live; no global is code; no problems"
+      ],
+      "handoff": {
+        "owner": "socom-dwarf-importer",
+        "submitted_at": "2026-10-09T15:12:18Z",
+        "summary": "DWARF compile-unit batch 16 plan (zcamera: camera.cpp, fov.cpp, zcam_main.cpp, zcam_update.cpp, zcamera.h; zentity.h, zseal.h) is conflict-free: 21 functions, 39 variable rows (29 present, 8 absent, 2 function objects), 820 type rows. Receipt scope: 21 functions, 29 globals, 427 types, all live."
+      },
       "id": "socom:debug-batch:0fc8fa490062caf6dc27",
       "kind": "debug-import-plan-batch",
       "lease": null,
@@ -1466110,7 +1466123,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan DWARF compile-unit batch 016 (24 units)"
     },
     {
@@ -1466284,7 +1466297,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed DWARF compile-unit batch 016 (24 units)"
     },
     {
