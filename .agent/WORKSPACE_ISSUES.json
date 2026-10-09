@@ -603,8 +603,21 @@
       "resolution": null,
       "status": "open",
       "summary": "Receiver evidence for batch 15's skipped zdb::CCamera functions"
+    },
+    {
+      "details": "Batch 16 plan review (tracker revision 87), before any apply: DWARF DIE 0x10149c declares sceVu0ClipBBox (0x1e87e0) void, but it sets v0 = 0x3f, folds eight vclipw/cfc2 clip flags into v0 and a0, and returns v0 | (a0 << 8); its only caller TestFOV (0x1e4d5c) stores v0 into *clipWord at 0x1e4d64. Executed instruction semantics outrank DWARF (AGENTS.md), so applying void would write the lower-ranked side over the contract batch 15's TestFOV relies on.",
+      "id": "socom:workspace-issue:f88f9f161d7d9fe75a0b",
+      "kind": "problem",
+      "reported_at": "2026-10-09T15:39:05Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": {
+        "resolved_at": "2026-10-09T15:39:05Z",
+        "summary": "build_batch_program now records a contradiction skip (no prototype written) when DWARF says void and a direct caller reads v0 or f0 after the call's delay slot before writing it or transferring control (_return_read_site with an R5900 read set, _reads). The scan stops at branches, so it can miss uses but not invent them; a first version miscounted mov.s's unused ft field as an f0 read and flagged OrdersMenu::ScrollBack, which the R5900 operand forms now exclude. Across batches 001 and 10-16 only sceVu0ClipBBox is flagged: no applied prototype contradicts its callers under this check. Tests: test_void_returns_contradicted_by_a_caller_are_detected; GHIDRA.md documents the rule."
+      },
+      "status": "resolved",
+      "summary": "Batch programs applied DWARF void returns that the assembly contradicts"
     }
   ],
-  "revision": 72,
+  "revision": 74,
   "schema_version": 1
 }

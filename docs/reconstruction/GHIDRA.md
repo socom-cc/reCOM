@@ -222,7 +222,11 @@ python tools/socom.py ghidra apply-batch `
   subsequence of the mangled signature that their pointer depth and class
   name or builtin width allow; a DWARF parameter keeps its name and type only
   where every placement agrees, other positions take the mangled type, and a
-  list with no placement is a recorded skip. A method
+  list with no placement is a recorded skip. Executed code outranks DWARF: a
+  function DWARF declares `void` whose direct caller reads `v0` or `f0` right
+  after the call (before any write of it or control transfer) is a recorded
+  contradiction skip, writing neither side (`sceVu0ClipBBox` returns its clip
+  mask to `TestFOV`). A method
   has a receiver only when DWARF records `this` or its address is in its
   class's vtable (`__vt__10CGameState` holds the seven parameterless
   `CGameState` virtuals). Methods without that evidence keep their signature.

@@ -342,6 +342,23 @@ def test_only_the_vtable_rtti_copy_takes_the_readable_name(program: dict) -> Non
     assert globals_["0x4444b0"]["rename"]
 
 
+def test_void_returns_contradicted_by_a_caller_are_detected(root: Path) -> None:
+    from tools._socom.elf import Elf32File
+
+    elf = Elf32File(root / "support" / "socom.elf")
+    # TestFOV calls sceVu0ClipBBox (DWARF void) and stores v0 into *clipWord.
+    assert batch_apply._return_read_site(elf, {0x1E87E0: [0x1E4D5C]}, {0x1E4D5C: 0x1E4E00}, 0x1E87E0) == (
+        0x1E4D5C,
+        0x1E4D64,
+        "v0",
+    )
+    # After OrdersMenu::ScrollBack the caller runs mov.s $f12,$f20: ft is an
+    # unused 0, not a read of f0.
+    assert batch_apply._return_read_site(elf, {0x174E40: [0x176C58]}, {0x176C58: 0x176CE0}, 0x174E40) is None
+    assert batch_apply._reads(0x4600A306) == (set(), {20})
+    assert batch_apply._reads(0xAE620000) == ({2, 19}, set())
+
+
 def test_functions_with_file_local_copies_keep_mangled_names(root: Path, batch_plan_path: Path, tmp_path: Path) -> None:
     plan = json.loads(batch_plan_path.read_text(encoding="utf-8"))
     mangled = "IOPRebootHandler__FQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv"

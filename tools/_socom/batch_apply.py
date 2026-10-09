@@ -31,6 +31,7 @@ from typing import Any, Callable
 
 from .constants import REFERENCE_SHA256
 from .elf import Elf32File
+from .mips_flow import decode
 from .mwdemangle import demangle, readable_component
 from .type_apply import FUND_TYPES, VOID_FUND, _hex10
 from .util import SocomError, load_json, sha256_file
@@ -335,6 +336,98 @@ def _canonical_rtti(elf: Elf32File, symbols: list[Any]) -> dict[str, int]:
     return canonical
 
 
+_LOADS = {0x1A, 0x1B, 0x1E, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x31, 0x36, 0x37}
+_STORES = {0x1F, 0x28, 0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x3F}
+
+
+def _reads(insn: int) -> tuple[set[int], set[int]]:
+    """(GPRs, FPRs) an R5900 instruction reads; conservative for odd forms."""
+
+    op, rs, rt = insn >> 26, (insn >> 21) & 31, (insn >> 16) & 31
+    fs, ft = (insn >> 11) & 31, rt
+    if op in (0x00, 0x1C):  # SPECIAL, MMI
+        return {rs, rt} - {0}, set()
+    if op in (0x01, 0x06, 0x07, 0x16, 0x17):  # REGIMM, blez/bgtz(l)
+        return {rs} - {0}, set()
+    if op in (0x04, 0x05, 0x14, 0x15):  # beq/bne(l)
+        return {rs, rt} - {0}, set()
+    if op in (0x02, 0x03, 0x0F):  # j, jal, lui
+        return set(), set()
+    if op in _LOADS:
+        return ({rs, rt} if op in (0x22, 0x26, 0x1A, 0x1B) else {rs}) - {0}, set()
+    if op in _STORES:
+        return {rs, rt} - {0}, set()
+    if op == 0x39:  # swc1 ft, off(base)
+        return {rs} - {0}, {ft}
+    if op == 0x3E:  # sqc2
+        return {rs} - {0}, set()
+    if op == 0x11:  # COP1
+        if rs in (0x04, 0x06):  # mtc1 / ctc1 read a GPR
+            return {rt} - {0}, set()
+        if rs == 0x00:  # mfc1 reads fs
+            return set(), {fs}
+        funct = insn & 0x3F
+        if rs == 0x14:  # W format: cvt.s.w fd, fs
+            return set(), {fs}
+        if rs == 0x10:  # S format
+            if funct in (0x05, 0x06, 0x07, 0x24):  # abs/mov/neg/cvt.w: fs only
+                return set(), {fs}
+            if funct == 0x04:  # R5900 sqrt.s fd, ft
+                return set(), {ft}
+            return set(), {fs, ft}
+        return set(), set()
+    if op == 0x12:  # COP2 qmtc2 / ctc2
+        return ({rt} if rs in (0x05, 0x06) else set()) - {0}, set()
+    if 0x08 <= op <= 0x0E or op in (0x18, 0x19):  # immediate ALU
+        return {rs} - {0}, set()
+    return set(), set()
+
+
+def _writes_f0(insn: int) -> bool:
+    op, rs = insn >> 26, (insn >> 21) & 31
+    if op == 0x31:  # lwc1
+        return (insn >> 16) & 31 == 0
+    if op == 0x11 and rs == 0x04:  # mtc1 rt -> fs
+        return (insn >> 11) & 31 == 0
+    if op == 0x11 and rs in (0x10, 0x14):  # fd
+        return (insn >> 6) & 31 == 0
+    return False
+
+
+def _return_read_site(
+    elf: Elf32File, calls: dict[int, list[int]], ends: dict[int, int], target: int
+) -> tuple[int, int, str] | None:
+    """A call site whose caller reads v0 or f0 after calling `target`.
+
+    The scan runs from the instruction after the call's delay slot to the
+    first write of the register or control transfer, so it can miss a use
+    but does not invent one.
+    """
+
+    for site in calls.get(target, []):
+        end = ends.get(site)
+        if end is None:
+            continue
+        live = {"v0": True, "f0": True}
+        address = site + 8
+        while address < end and any(live.values()):
+            insn = _word(elf, address)
+            gprs, fprs = _reads(insn)
+            if live["v0"] and 2 in gprs:
+                return site, address, "v0"
+            if live["f0"] and 0 in fprs:
+                return site, address, "f0"
+            kind = decode(insn, address)["kind"]
+            if kind != "plain":
+                break
+            if 2 in decode(insn, address)["writes"]:
+                live["v0"] = False
+            if _writes_f0(insn):
+                live["f0"] = False
+            address += 4
+    return None
+
+
 def _thunk_target(elf: Elf32File, address: int, size: int | None) -> int | None:
     """Target of a function whose whole body is `j target` or `b target`; nop.
 
@@ -382,6 +475,15 @@ def build_batch_program(root: Path, plan_path: Path) -> dict[str, Any]:
     types = _Types(plan)
 
     function_sizes = {symbol.value: symbol.size for symbol in symbols if symbol.type_name == "FUNC" and symbol.size}
+    # Direct call sites and their caller's end, for return-value contradictions.
+    calls: dict[int, list[int]] = {}
+    ends: dict[int, int] = {}
+    for start, size in sorted(function_sizes.items()):
+        for site in range(start, start + size, 4):
+            insn = _word(elf, site)
+            if insn >> 26 == 0x03:
+                calls.setdefault(((site + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2), []).append(site)
+                ends[site] = start + size
     functions = []
     names: dict[str, int] = {}
     for row in sorted(plan["functions"], key=lambda item: item["low_pc"] or 0):
@@ -485,6 +587,16 @@ def build_batch_program(root: Path, plan_path: Path) -> dict[str, Any]:
                     "sources": [p["source"] for p in params],
                     "calling_convention": CALLING_CONVENTION,
                 }
+        if prototype is not None and prototype["return_type"] == "void":
+            used = _return_read_site(elf, calls, ends, row["low_pc"])
+            if used is not None:
+                # Executed code outranks DWARF: record the contradiction and
+                # write neither side (sceVu0ClipBBox returns its clip mask).
+                prototype = None
+                skip = (
+                    f"DWARF returns void but the caller's call at 0x{used[0]:x} reads {used[2]} "
+                    f"at 0x{used[1]:x}"
+                )
         target = _thunk_target(elf, row["low_pc"], function_sizes.get(row["low_pc"]))
         if prototype is not None and target is not None:
             prototype = None
