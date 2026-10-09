@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 97,
+  "revision": 100,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1467740,6 +1467740,10 @@
       "title": "Apply reviewed DWARF compile-unit batch 017 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-09T21:55:15Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 18,
         "compile_unit_ids": [
@@ -1467898,8 +1467902,23 @@
       "dependencies": [
         "socom:work:debug-type-foundation-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "cache review (a6a106e): one Python process calling the public CLI main() rebuilt plans 18, 001, 17, 16, 001, 18 in that order, each equal to its accepted sha256 (5a1c5b4a..., 5668ec79..., 0883fad0..., af2bc985...); _debug_model/TypeIdentities/frozen Die are only read after construction (_layouts is a pure memo). composite() fail-closed change: batch programs 11, 12, 15, 16, 17 regenerate byte-identically at HEAD; 10, 13, 14, 001 differ only by earlier documented rules (file-local copy rename skips, thunk prototype skips, batch 13 int[3][17]->int[17][3]), with no by-value or prototype change.",
+        "file-only batch-program preview build/apply/socom-debug-batch-06bc89fdc92b67da98bc-apply.json sha256 1ed09ee607ff7e7536d216f932ecad782c93de1b353a0cd9d4540cc1a76895d3 at tools commit fbf9ea0: 23 renames, 17 prototypes (CExitState ctor/Init/Tick/UnInit, CEntityItr::GetSeal/Advance, 11 CSealStats getters); prototype skips: 5 without receiver evidence (CameraZoom::HandleZoomIn/SetGoal/AttachHud/AttachSeal, @unnamed@st_exit_cpp@::SetRoundStatUiVars), 1 by-value iterator parameter (std::list<CEntity*>::generic_iterator<1> ctor, 0x321240); globals: 7 __vt__/__RTTI__ structures have no Ghidra type (type skips), 2 non-canonical RTTI copies and 2 shared std ios_base init flags keep mangled names",
+        "globals: placements match PT_LOAD 0 (RTTI/vt initialized, others zero fill); .symtab sizes equal type sizes (__nInit 1, __wInit 1, CZAnimZAR* 4, CUIVarManager 32868, CSTable 28; live types unique under /project with these sizes); no .symtab symbol and no live defined data inside any typed extent. Word 0 of __vt__10CExitState/__vt__9CExitMenu (R_MIPS_32) points to the only __RTTI__10CExitState/__RTTI__9CExitMenu copies; __vt__10CGameState -> 0x444578 and __vt__9CGameMenu -> 0x460fc0, so 0x45a978 (1 of 6) and 0x45aad8 (1 of 5) keep mangled names; ios_base ninit/winit have 27 file-local copies each; all non-zero vtable words relocated; 7 vt/RTTI DWARF structures are member-less @anon records; 5 absent RTTI variables have DW_OP_ADDR 0. The 7 unchanged entries equal live audit_global/list_data_items (types and lengths, CGameState::__vt and CEntity::m_list names).",
+        "independent review at tools HEAD fbf9ea0 (clean tools/tests/docs), revision 99, progress audit --strict ok, no leases; 154 tool tests pass. Plan build/import-plans/socom-debug-batch-06bc89fdc92b67da98bc.json sha256 5a1c5b4aac4baaa628418a1d8ad50be27034457cb44c2c8d14ed825d1f3c73d3 regenerates byte-identically; debug batch-program from the canonical plan path regenerates preview 1ed09ee607ff7e7536d216f932ecad782c93de1b353a0cd9d4540cc1a76895d3 byte-identically; debug conflicts list --batch: 0.",
+        "own ELF32/DWARF1 reader (no tools/_socom imports): 24 CU ranges 1388814-1528273 contiguous with batch 17 (ends 1388814) and 19 (starts 1528273), each ending at its CU sibling; 3233 non-null DIEs = plan selected_die_count; the 23 function DIEs with low_pc and the 22 CU-level variable DIEs equal the plan's sets; every function has exactly one .symtab FUNC of the mangled name with size = high_pc-low_pc, and the live get_function_by_address entry/body equals DWARF bounds; current live names equal the program's current_name.",
+        "own ghidra preflight-batch run (build/verify-b18/preflight.json) equals the handed-off report 1e937bde... except plan_item_status (awaiting_acceptance vs in_progress): ok, 0 errors, 78 calls = 23 rename_function_by_address + 28 create_label (23 functions + 5 globals) + 17 set_function_prototype + 5 rename_label + 5 apply_data_type, matching my expected apply; 17 skips, 7 unchanged; all 32 write addresses lie inside the 23-function/17-global scope; all 399 scope type paths exist live (list_data_types, all categories), none duplicated, no .conflict types; 30 readable names unique against .symtab, live functions and live data, case-insensitively. Non-blocking: SetRoundStatUiVars (0x320b60) is a file-static anonymous-namespace function whose DWARF iPrimCompl/i2ndCompl at sp+0xac/0xa8 match the a0/a1 spills and the caller in Init, so its prototype skip is conservative; 2 scope types share the bare name generic_iterator<1> (receipt ambiguous-name).",
+        "plan build/import-plans/socom-debug-batch-06bc89fdc92b67da98bc.json sha256 5a1c5b4aac4baaa628418a1d8ad50be27034457cb44c2c8d14ed825d1f3c73d3 from python tools/socom.py debug import-plan --batch socom:debug-batch:06bc89fdc92b67da98bc; debug conflicts list --batch: 0",
+        "prototypes vs DWARF, mangled names and assembly (live disassemble_function; r5900.cspec __stdcall f12-f19 independent of a0-t0): CSealStats getters 'jr ra; lw v0,off(a0)' int; GetSeal a0 -> v0 pointer (DWARF CZSealBody&); Advance a0->s0, void, all 6 direct call sites write a0/v0 via the next jal without reading v0/f0; UnInit/Init/Tick reached only from __vt__10CExitState+28/+16/+20 (R_MIPS_32); Tick a0->s0, f12->f20, move v0,zero (uchar); Init a0->s2, every exit li v0,1; ctor stores a0 at sp+0x14 (DWARF frame loc) and returns it in v0 (void*). Skips justified: CameraZoom HandleZoomIn/SetGoal read only f12 and  globals, AttachHud/AttachSeal store a0 to  (static, DWARF has no this); 0x321240 takes the by-value generic_iterator in a1 (DWARF frame sp+12). No batch function is a thunk and no 8-byte j/b thunk targets one; no applied prototype has a by-value class, comma type or destructor.",
+        "python tools/socom.py ghidra preflight-batch (read-only dry run, new at a6a106e/fbf9ea0) report build/preflight/socom-debug-batch-06bc89fdc92b67da98bc.json sha256 1e937bde20ff07a0633429198953b021b69a59e3a6af5e68c5af46a9449fe623: ok, no errors; 78 bridge calls (23 rename_function_by_address, 28 create_label, 17 set_function_prototype, 5 apply_data_type, 5 rename_label); 17 skips, 7 entries already in place (theGame, ZAnim, CEntity::m_list, theMission, _impure_ptr types; CGameState::__vt and CEntity::m_list names); no write outside the receipt scope; all 399 scope types exist live",
+        "scratch pre-handoff audit (live names, audit_global per global, thunks, file-local copies, void-return contradictions, type resolution, rename clashes) agrees: no problems"
+      ],
+      "handoff": {
+        "owner": "socom-dwarf-importer",
+        "submitted_at": "2026-10-09T21:40:37Z",
+        "summary": "DWARF compile-unit batch 18 plan (st_exit.cpp CExitState/CExitMenu, CSealStats, CEntityItr, last CameraZoom methods, MSL list iterator) is conflict-free: 23 functions, 17 present globals (5 absent variables). Receipt scope: 23 functions, 17 globals, 399 types, all live."
+      },
       "id": "socom:debug-batch:06bc89fdc92b67da98bc",
       "kind": "debug-import-plan-batch",
       "lease": null,
@@ -1467908,7 +1467927,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan DWARF compile-unit batch 018 (24 units)"
     },
     {
@@ -1468082,7 +1468101,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed DWARF compile-unit batch 018 (24 units)"
     },
     {
