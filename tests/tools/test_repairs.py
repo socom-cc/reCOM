@@ -48,3 +48,43 @@ def test_repair_refuses_any_other_starting_state() -> None:
     assert bridge.calls == []
     with pytest.raises(SocomError, match="no recorded repair"):
         repairs.repair_signatures("socom:work:unknown", bridge)
+
+
+class _LabelBridge:
+    def __init__(self, renamed: bool = True) -> None:
+        spec = repairs.REPAIRS[repairs.COPY_NAMES_REPAIR_ID]["labels"]
+        self.labels = {row["address"]: ([row["readable"], row["mangled"]] if renamed else [row["mangled"]]) for row in spec}
+        self.calls: list[tuple[str, dict]] = []
+
+    def request(self, endpoint, **parameters):
+        assert endpoint == "audit_global"
+        return {"name": self.labels[parameters["address"]][0], "type": "undefined8", "is_code_address": False}
+
+    def post_json(self, endpoint, **body):
+        self.calls.append((endpoint, body))
+        assert endpoint == "delete_label" and body["name"]
+        names = self.labels[body["address"]]
+        deleted = [name for name in names if name == body["name"]]
+        self.labels[body["address"]] = [name for name in names if name != body["name"]]
+        return {"success": True, "deleted_count": len(deleted), "deleted_names": deleted}
+
+
+def test_label_repair_deletes_only_the_readable_labels() -> None:
+    bridge = _LabelBridge()
+    result = repairs.repair_labels(repairs.COPY_NAMES_REPAIR_ID, bridge)
+    assert len(bridge.calls) == 10
+    assert all(body["name"] for _, body in bridge.calls)
+    first = result["labels"][0]
+    assert first == {"address": "0x444498", "before": "CGame::__RTTI", "after": "__RTTI__5CGame", "type": "undefined8"}
+    assert result["receipt_scope"]["globals"][0] == "0x444498" and len(result["receipt_scope"]["globals"]) == 10
+
+
+def test_label_repair_refuses_any_other_starting_state() -> None:
+    bridge = _LabelBridge(renamed=False)
+    with pytest.raises(SocomError, match="not the recorded"):
+        repairs.repair_labels(repairs.COPY_NAMES_REPAIR_ID, bridge)
+    assert bridge.calls == []
+    with pytest.raises(SocomError, match="not a label repair"):
+        repairs.repair_labels(repairs.THUNK_REPAIR_ID, bridge)
+    with pytest.raises(SocomError, match="not a signature repair"):
+        repairs.repair_signatures(repairs.COPY_NAMES_REPAIR_ID, bridge)

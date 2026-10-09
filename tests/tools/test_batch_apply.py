@@ -331,6 +331,17 @@ def test_thunk_prototypes_are_skipped(program: dict) -> None:
     assert stop["rename"] is True
 
 
+def test_only_the_vtable_rtti_copy_takes_the_readable_name(program: dict) -> None:
+    globals_ = {row["address"]: row for row in program["globals"]}
+    # __RTTI__10CGameState has six file-local copies; __vt__10CGameState's
+    # first word points at 0x444578.
+    assert globals_["0x444578"]["rename"] and "rename_skip" not in globals_["0x444578"]
+    cgame = globals_["0x444498"]
+    assert not cgame["rename"] and cgame["rename_skip"] == "file-local copy; the class vtable references 0x44ee28"
+    # A single copy keeps its readable name.
+    assert globals_["0x4444b0"]["rename"]
+
+
 def test_globals_renamed_by_an_earlier_batch_are_unchanged(program: dict) -> None:
     program = copy.deepcopy(program)
     for row in program["globals"]:

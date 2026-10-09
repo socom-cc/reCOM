@@ -43,7 +43,8 @@ maps the load image's zero fill (Ghidra's import mapped only file-backed
 bytes, so `.bss` globals had no memory). A `ghidra-repair` writer item restores
 accepted live state that an accepted apply changed outside its scope and no
 later batch will correct; its spec (targets, the exact wrong state, the state
-to restore) lives in `tools/_socom/repairs.py`. Work packets render the exact
+to restore) lives in `tools/_socom/repairs.py`; `progress add-repair` inserts
+one once every apply it corrects is accepted. Work packets render the exact
 role, skill, paths, program, validation, and handoff route for an active lease.
 
 Schema upgrades use `progress migrate --expected-revision <revision>`. The

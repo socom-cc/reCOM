@@ -362,6 +362,29 @@ def test_tracker_v4_migration_adds_the_thunk_signature_repair(
     assert packet["handoff"].endswith("handoff-live-ghidra")
 
 
+def test_add_repair_waits_for_every_corrected_apply(root: Path, census: dict) -> None:
+    from tools._socom.repairs import COPY_NAMES_REPAIR_ID, REPAIRS
+    from tools._socom.tracker import add_repair_item
+
+    tracker = initialize_tracker(root, census)
+    with pytest.raises(SocomError, match="not accepted"):
+        add_repair_item(tracker, COPY_NAMES_REPAIR_ID)
+    dependencies = REPAIRS[COPY_NAMES_REPAIR_ID]["dependencies"]
+    for row in tracker["work_items"]:
+        if row["id"] in dependencies:
+            row["status"] = "accepted"
+    add_repair_item(tracker, COPY_NAMES_REPAIR_ID)
+    order = [row["id"] for row in tracker["work_items"]]
+    assert order.index(COPY_NAMES_REPAIR_ID) == max(order.index(dep) for dep in dependencies) + 1
+    with pytest.raises(SocomError, match="already in the tracker"):
+        add_repair_item(tracker, COPY_NAMES_REPAIR_ID)
+    repair = next(row for row in tracker["work_items"] if row["id"] == COPY_NAMES_REPAIR_ID)
+    repair["status"] = "ready"
+    claim_work(tracker, COPY_NAMES_REPAIR_ID, "writer", 30)
+    packet = work_packet(tracker, COPY_NAMES_REPAIR_ID, "writer")
+    assert any("ghidra repair-labels" in line for line in packet["validation"])
+
+
 def test_memory_map_item_has_a_ghidra_writer_packet(root: Path, census: dict) -> None:
     tracker = initialize_tracker(root, census)
     memory = next(row for row in tracker["work_items"] if row["id"] == ZERO_FILL_MEMORY_ID)

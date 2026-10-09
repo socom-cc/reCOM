@@ -203,8 +203,12 @@ python tools/socom.py ghidra apply-batch `
   whitespace, so spaces after commas are dropped and others become `_`. The
   mangled symbol stays as a secondary label. A name already used at another
   address (any `.symtab` name, any live function or defined data name, or
-  one this run assigned) is not reused: file-local copies such as the six
-  `__RTTI__10CGameState` objects keep their mangled names after the first.
+  one this run assigned) is not reused. File-local copies (one per compile
+  unit, e.g. six `__RTTI__10CGameState` and 24 `__RTTI__3C2D` objects) take
+  the readable name only when canonical: the RTTI copy that word 0 of the
+  class's single `__vt__` (an `R_MIPS_32` relocation) points to. Other copies,
+  and copies of names with no canonical copy (`__msl_ios_base_ninit__3std`),
+  keep their mangled names (`rename_skip`).
   The bridge has no complete read-only symbol listing (`list_globals` filters
   heuristically), so a renamed label on bytes without defined data is not
   seen.
@@ -318,6 +322,15 @@ python tools/socom.py ghidra repair-signatures `
   --scope-output build/receipts/<item>-scope.json `
   --report-output build/apply/<item>-report.json
 ```
+
+A repair item enters the tracker through the thunk migration or through
+`progress add-repair --item <id> --expected-revision <n>`, which requires every
+apply it corrects to be accepted. Label repairs run with
+`ghidra repair-labels` (same arguments): each readable label is removed with
+`delete_label` naming it exactly (without a name the endpoint deletes every
+label at the address), so the mangled label becomes primary again; the
+command requires `deleted_names` to be exactly that label and reads the
+primary name and data type back.
 
 The spec in `tools/_socom/repairs.py` names each target, the exact wrong state
 the live program must still show (any other state is refused before a write),

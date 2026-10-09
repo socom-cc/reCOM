@@ -29,7 +29,7 @@ from .elf import Elf32File
 from .functional import list_targets, run_target
 from .final_catalog import final_elf_catalog
 from .import_plan import build_import_plan
-from .repairs import repair_signatures
+from .repairs import REPAIRS, repair_labels, repair_signatures
 from .guards import GUARDS, run_guard, source_placement
 from .issues import (
     add_issue,
@@ -72,6 +72,7 @@ from .tracker import (
     heartbeat_work,
     initialize_tracker,
     load_tracker,
+    add_repair_item,
     migrate_tracker,
     mutate,
     next_work,
@@ -762,7 +763,7 @@ def _ghidra_map_zero_fill(arguments: argparse.Namespace) -> int:
     return 0
 
 
-def _ghidra_repair_signatures(arguments: argparse.Namespace) -> int:
+def _ghidra_repair(arguments: argparse.Namespace, kind: str, run: Callable[..., dict[str, Any]]) -> int:
     root = _root(arguments)
     scope_output = _build_path(root, arguments.scope_output, "receipt scopes")
     report_output = _build_path(root, arguments.report_output, "repair reports")
@@ -770,12 +771,14 @@ def _ghidra_repair_signatures(arguments: argparse.Namespace) -> int:
     item = require_ghidra_lease(tracker, arguments.item, arguments.owner)
     if item.get("kind") != "ghidra-repair":
         raise SocomError(f"{arguments.item} is not a ghidra-repair item")
+    if REPAIRS.get(arguments.item, {}).get("kind") != kind:
+        raise SocomError(f"{arguments.item} is not a {kind} repair")
     preflight = live_preflight(root, bridge_url=arguments.bridge_url, strict_baseline=False)
     if not preflight["ok"]:
         _emit({"ok": False, "preflight": preflight})
         return 1
     try:
-        result = repair_signatures(
+        result = run(
             arguments.item,
             GhidraBridge(arguments.bridge_url, timeout=300.0),
             log=lambda message: print(message, file=sys.stderr, flush=True),
@@ -799,13 +802,24 @@ def _ghidra_repair_signatures(arguments: argparse.Namespace) -> int:
         "ok": True,
         "work_item_id": arguments.item,
         "owner": arguments.owner,
-        "functions": result["functions"],
-        "bridge_call_count": result["bridge_call_count"],
+        **{key: value for key, value in result.items() if key != "receipt_scope"},
         "scope_output": scope_output.relative_to(root).as_posix(),
     }
     atomic_write_json(report_output, report)
     _emit(report)
     return 0
+
+
+def _ghidra_repair_signatures(arguments: argparse.Namespace) -> int:
+    return _ghidra_repair(arguments, "signatures", repair_signatures)
+
+
+def _ghidra_repair_labels(arguments: argparse.Namespace) -> int:
+    return _ghidra_repair(arguments, "labels", repair_labels)
+
+
+def _progress_add_repair(arguments: argparse.Namespace) -> int:
+    return _mutate_work(arguments, lambda tracker: add_repair_item(tracker, arguments.item))
 
 
 def _verify_asm(arguments: argparse.Namespace) -> int:
@@ -1837,6 +1851,14 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
         mutates_ghidra=True,
     ),
     _spec(
+        "ghidra repair-labels",
+        "ghidra",
+        "Delete the readable labels a recorded label repair names, under the repair item's writer lease.",
+        mutates=True,
+        ghidra_requirement="required",
+        mutates_ghidra=True,
+    ),
+    _spec(
         "ghidra repair-signatures",
         "ghidra",
         "Restore function signatures a recorded repair names, under the repair item's writer lease.",
@@ -1906,6 +1928,12 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec("progress snapshot", "progress", "Check or update the README progress snapshot.", mutates=True),
     _spec("progress report", "progress", "Render an on-demand progress report."),
     _spec("progress migrate", "progress", "Migrate canonical tracker state to the current schema.", mutates=True),
+    _spec(
+        "progress add-repair",
+        "progress",
+        "Add a recorded Ghidra repair item once the applies it corrects are accepted.",
+        mutates=True,
+    ),
     _spec(
         "progress handoff-live-ghidra",
         "progress",
@@ -2089,6 +2117,13 @@ def build_parser() -> argparse.ArgumentParser:
     repair.add_argument("--report-output", required=True)
     repair.add_argument("--bridge-url")
     repair.set_defaults(handler=_ghidra_repair_signatures)
+    repair_labels_parser = ghidra_commands.add_parser("repair-labels")
+    repair_labels_parser.add_argument("--item", required=True)
+    repair_labels_parser.add_argument("--owner", required=True)
+    repair_labels_parser.add_argument("--scope-output", required=True)
+    repair_labels_parser.add_argument("--report-output", required=True)
+    repair_labels_parser.add_argument("--bridge-url")
+    repair_labels_parser.set_defaults(handler=_ghidra_repair_labels)
     apply_types = ghidra_commands.add_parser("apply-types")
     apply_types.add_argument("--program", required=True)
     apply_types.add_argument("--item", required=True)
@@ -2200,6 +2235,10 @@ def build_parser() -> argparse.ArgumentParser:
     migrate = progress_commands.add_parser("migrate")
     migrate.add_argument("--expected-revision", type=int, required=True)
     migrate.set_defaults(handler=_progress_migrate)
+    add_repair = progress_commands.add_parser("add-repair")
+    add_repair.add_argument("--item", required=True)
+    add_repair.add_argument("--expected-revision", type=int, required=True)
+    add_repair.set_defaults(handler=_progress_add_repair)
     live_handoff = progress_commands.add_parser("handoff-live-ghidra")
     live_handoff.add_argument("--item", required=True)
     live_handoff.add_argument("--expected-revision", type=int, required=True)

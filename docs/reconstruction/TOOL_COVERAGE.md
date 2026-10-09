@@ -6,12 +6,12 @@ inapplicable means the capability would encode the wrong executable format or AB
 
 | Capability | Status | Commands or blocker | Rationale |
 | --- | --- | --- | --- |
-| `control-plane` | active | `commands`, `progress audit`, `progress migrate`, `progress work packet`, `issue audit` | Canonical CAS-protected state, migration, work contracts, and discovery. |
+| `control-plane` | active | `commands`, `progress audit`, `progress migrate`, `progress add-repair`, `progress work packet`, `issue audit` | Canonical CAS-protected state, migration, work contracts, and discovery. |
 | `dual-harness` | active | `audit agent-surface` | Claude and Codex expose paired roles and skills. |
 | `elf-evidence` | active | `reference census`, `reference verify`, `reference relocations` | ELF32 MIPS evidence is parsed locally. |
 | `dwarf-planning` | active | `debug graph`, `debug import-plan`, `debug apply-program`, `debug batch-program` | DWARF plans and their Ghidra type translations are deterministic and file-only. |
 | `ghidra-read` | active | `ghidra preflight`, `ghidra receipt`, `verify asm` | Every program-sensitive request explicitly targets socom.elf. |
-| `ghidra-write` | active | `ghidra apply-types`, `ghidra apply-batch`, `ghidra map-zero-fill`, `ghidra repair-signatures`, `ghidra restore-accepted`, `progress handoff-live-ghidra`, `progress advance-live-ghidra` | A single writer lease and semantic receipt govern type application and saves. |
+| `ghidra-write` | active | `ghidra apply-types`, `ghidra apply-batch`, `ghidra map-zero-fill`, `ghidra repair-signatures`, `ghidra repair-labels`, `ghidra restore-accepted`, `progress handoff-live-ghidra`, `progress advance-live-ghidra` | A single writer lease and semantic receipt govern type application and saves. |
 | `source-trace` | active | `source artifacts`, `audit docblocks`, `audit source-trace` | Source annotations are parsed and cross-checked once. |
 | `source-guards` | active | `guard raw-offset`, `guard provider`, `guard original-symbol` | Current source reconstruction hazards fail closed. |
 | `candidate-comparison` | active | `verify linked-byte`, `verify final-elf` | Candidate comparison is diagnostic until acceptance prerequisites exist. |

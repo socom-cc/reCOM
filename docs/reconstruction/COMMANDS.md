@@ -24,6 +24,7 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py ghidra preflight` | ghidra | no | required | no | Verify project soCOM and the explicit socom.elf program. |
 | `python tools/socom.py ghidra apply-batch` | ghidra | yes | required | yes | Apply a translated batch program (names, prototypes, globals) under the item's writer lease and verify it. |
 | `python tools/socom.py ghidra restore-accepted` | ghidra | yes | required | yes | Replay accepted Ghidra applies on a fresh baseline import and prove their receipts reproduce. |
+| `python tools/socom.py ghidra repair-labels` | ghidra | yes | required | yes | Delete the readable labels a recorded label repair names, under the repair item's writer lease. |
 | `python tools/socom.py ghidra repair-signatures` | ghidra | yes | required | yes | Restore function signatures a recorded repair names, under the repair item's writer lease. |
 | `python tools/socom.py ghidra map-zero-fill` | ghidra | yes | required | yes | Map the ELF load image's zero fill in Ghidra under the item's writer lease. |
 | `python tools/socom.py ghidra apply-types` | ghidra | yes | required | yes | Apply a translated type program under the item's writer lease and verify it. |
@@ -74,6 +75,7 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py progress snapshot` | progress | yes | none | no | Check or update the README progress snapshot. |
 | `python tools/socom.py progress report` | progress | no | none | no | Render an on-demand progress report. |
 | `python tools/socom.py progress migrate` | progress | yes | none | no | Migrate canonical tracker state to the current schema. |
+| `python tools/socom.py progress add-repair` | progress | yes | none | no | Add a recorded Ghidra repair item once the applies it corrects are accepted. |
 | `python tools/socom.py progress handoff-live-ghidra` | progress | yes | required | yes | Save and hand off a leased Ghidra item with a stable semantic receipt. |
 | `python tools/socom.py progress advance-live-ghidra` | progress | yes | required | no | Accept a Ghidra handoff only when its live semantic receipt is unchanged. |
 | `python tools/socom.py progress rebaseline-live-ghidra` | progress | yes | required | no | Record a fresh-import baseline receipt after a Ghidra version re-pin. |

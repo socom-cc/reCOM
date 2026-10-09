@@ -70,6 +70,23 @@ def _repair_item(item_id: str) -> dict[str, Any]:
     }
 
 
+def add_repair_item(tracker: dict[str, Any], item_id: str) -> None:
+    """Insert a recorded repair once every apply it corrects is accepted."""
+
+    spec = REPAIRS.get(item_id)
+    if spec is None:
+        raise SocomError(f"{item_id} has no recorded repair")
+    items = tracker["work_items"]
+    if any(row.get("id") == item_id for row in items):
+        raise SocomError(f"{item_id} is already in the tracker")
+    by_id = _work_by_id(tracker)
+    for dependency in spec["dependencies"]:
+        if by_id.get(dependency, {}).get("status") != "accepted":
+            raise SocomError(f"{item_id} repairs {dependency}, which is not accepted")
+    index = max(position for position, row in enumerate(items) if row.get("id") in spec["dependencies"])
+    items.insert(index + 1, _repair_item(item_id))
+
+
 def _utc_now() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc)
 
@@ -1383,7 +1400,11 @@ def work_packet(
         role = "socom-ghidra-reconstructor"
         skill = "socom-ghidra-reconstruction"
         slug = item_id.replace(":", "-")
-        command = "map-zero-fill" if kind == "ghidra-memory-map" else "repair-signatures"
+        command = (
+            "map-zero-fill"
+            if kind == "ghidra-memory-map"
+            else "repair-labels" if REPAIRS.get(item_id, {}).get("kind") == "labels" else "repair-signatures"
+        )
         validation = [
             "python tools/socom.py ghidra preflight --strict",
             f"python tools/socom.py ghidra {command} --item {item_id} --owner <owner> "

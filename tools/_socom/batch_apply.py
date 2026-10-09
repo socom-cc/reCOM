@@ -305,6 +305,36 @@ def _vtable_members(elf: Elf32File, symbols: list[Any]) -> dict[int, list[str]]:
     return members
 
 
+def _word(elf: Elf32File, address: int) -> int:
+    segment = next(elf.load_segments())
+    offset = segment.offset + address - segment.virtual_address
+    return int.from_bytes(elf.data[offset : offset + 4], "little")
+
+
+def _canonical_rtti(elf: Elf32File, symbols: list[Any]) -> dict[str, int]:
+    """`__RTTI__X` name -> the copy its class vtable's first word points to.
+
+    Metrowerks emits a file-local RTTI copy per compile unit (24 of
+    __RTTI__3C2D) but each vtable once; word 0 of `__vt__X` carries an
+    R_MIPS_32 relocation to the copy the class actually uses.
+    """
+
+    relocated = {row.offset for row in elf.relocations(".relmain")}
+    addresses: dict[str, set[int]] = {}
+    for symbol in symbols:
+        if symbol.type_name == "OBJECT" and symbol.value:
+            addresses.setdefault(symbol.name, set()).add(symbol.value)
+    canonical: dict[str, int] = {}
+    for name, places in addresses.items():
+        if not name.startswith("__vt__") or len(places) != 1:
+            continue
+        table = next(iter(places))
+        rtti = "__RTTI__" + name[len("__vt__") :]
+        if table in relocated and _word(elf, table) in addresses.get(rtti, set()):
+            canonical[rtti] = _word(elf, table)
+    return canonical
+
+
 def _thunk_target(elf: Elf32File, address: int, size: int | None) -> int | None:
     """Target of a function whose whole body is `j target` or `b target`; nop.
 
@@ -494,9 +524,13 @@ def build_batch_program(root: Path, plan_path: Path) -> dict[str, Any]:
     # Metrowerks repeats a global's DIE in each compile unit that declares
     # it; every row at one address must spell the same Ghidra type.
     labels: dict[int, list[Any]] = {}
+    copies: dict[str, set[int]] = {}
     for symbol in symbols:
         if symbol.value:
             labels.setdefault(symbol.value, []).append(symbol)
+        if symbol.value and symbol.type_name == "OBJECT":
+            copies.setdefault(symbol.name, set()).add(symbol.value)
+    canonical_rtti = _canonical_rtti(elf, symbols)
     object_sizes: dict[int, set[int]] = {}
     for symbol in symbols:
         if symbol.type_name == "OBJECT" and symbol.value and symbol.size:
@@ -546,6 +580,17 @@ def build_batch_program(root: Path, plan_path: Path) -> dict[str, Any]:
             "size": size,
             "placement": row["placement"],
         }
+        if entry["rename"] and len(copies.get(current, set())) > 1 and canonical_rtti.get(current) != address:
+            # File-local copies share one mangled name; only the copy the
+            # class vtable references takes the readable name.
+            entry["rename"] = False
+            if current in canonical_rtti:
+                entry["rename_skip"] = f"file-local copy; the class vtable references 0x{canonical_rtti[current]:x}"
+            elif current.startswith("__RTTI__"):
+                entry["rename_skip"] = "file-local RTTI copies share this name and no vtable references one"
+            else:
+                entry["rename_skip"] = "file-local copies share this name"
+
         if address not in object_sizes and labels.get(address) and all(
             symbol.type_name == "NOTYPE" and not symbol.size for symbol in labels[address]
         ):
@@ -765,6 +810,8 @@ def execute_batch_program(
             )
         name = entry["current_name"]
         rename = entry["rename"]
+        if entry.get("rename_skip"):
+            skipped.append({"address": address, "action": "rename", "reason": entry["rename_skip"]})
         if renamed_before:
             unchanged.append({"address": address, "action": "rename", "name": entry["readable_name"]})
             name = entry["readable_name"]
