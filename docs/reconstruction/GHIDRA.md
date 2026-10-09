@@ -83,12 +83,15 @@ digest per section. It is evidence beside the semantic receipt, not part of
 it, and catches what a scoped receipt cannot see, such as a thunk prototype
 rewriting its target's signature. With `--compare <earlier.json>` it reports
 the differences by section (`--diff-output` writes them in full). It uses
-only GETs and the read-only `get_bulk_xrefs`; a run takes about four minutes,
-almost all of it the reference sweep over the 32 MiB IOP RAM and RAM mirror
-blocks. The bridge serializes requests, so the sweep is one stream of
-16,000-address calls (about 600,000 addresses per second sustained; larger
-calls and concurrent streams were measured slower). Run it with no other
-bridge traffic: a concurrent sweep has timed out.
+only GETs and the read-only `get_bulk_xrefs`; a run takes about six and a
+half minutes (396 s and 399 s around batch 18), almost all of it the
+reference sweep over about 111 million addresses, most of them in the 32 MiB
+IOP RAM and RAM mirror blocks. The bridge serializes requests, so the sweep is
+one stream of 16,000-address calls: a single block sweeps at about 460,000
+addresses per second (overlay blocks about half that), larger calls and
+concurrent streams were measured slower, and a full run averages less than
+any one block. Run it with no other bridge traffic: a concurrent sweep has
+timed out.
 
 Read-only work may inspect functions, disassembly, decompilation, p-code,
 callers/callees, xrefs, symbols, data, types, bookmarks, options, and address

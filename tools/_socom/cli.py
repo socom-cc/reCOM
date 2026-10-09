@@ -9,6 +9,7 @@ import json
 import os
 import platform
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -710,10 +711,11 @@ def _ghidra_fingerprint(arguments: argparse.Namespace) -> int:
         if not compare_path.is_absolute():
             compare_path = root / compare_path
         baseline = load_json(compare_path)
+    started = time.monotonic()
     fingerprint = program_fingerprint(
         root,
         bridge_url=arguments.bridge_url,
-        log=lambda message: print(message, file=sys.stderr, flush=True),
+        log=lambda message: print(f"[{time.monotonic() - started:7.1f}s] {message}", file=sys.stderr, flush=True),
     )
     atomic_write_json(output, fingerprint)
     report: dict[str, Any] = {
