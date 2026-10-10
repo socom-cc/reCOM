@@ -639,8 +639,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Name base-class components by the base type, not super_<Base>"
+    },
+    {
+      "details": "Batch 18 review: @unnamed@st_exit_cpp@::SetRoundStatUiVars (0x320b60) is a file-static function in an anonymous namespace, not a method. Its two int parameters are spilled from a0/a1 to sp+0xac/0xa8, exactly the DWARF locations, and CExitState::Init passes two ints, so void(int,int) is fully supported. batch_apply treats the @unnamed@ qualifier like a class and skips the prototype for lack of receiver evidence: conservative, not wrong. More follow (st_mpexit, hud_scorepopup). Proposed rule: an @unnamed@<file>@ qualifier is namespace scope, so the function has no receiver and DWARF parameters apply directly; add a test and re-review the affected batches' skips.",
+      "id": "socom:workspace-issue:fd70c05137acabd79df5",
+      "kind": "problem",
+      "reported_at": "2026-10-09T21:56:41Z",
+      "reported_by": "socom-verifier",
+      "resolution": null,
+      "status": "open",
+      "summary": "File-static functions in @unnamed@<file>@ namespaces are skipped as having no receiver evidence"
     }
   ],
-  "revision": 77,
+  "revision": 78,
   "schema_version": 1
 }
