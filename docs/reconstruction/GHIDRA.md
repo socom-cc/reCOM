@@ -135,6 +135,16 @@ The GhidraMCP bridge has behaviors that silently corrupt work:
   names into Hungarian form (`m_b` becomes `pM_b`) and no request parameter
   overrides it. Disable the option and use the plugin's *Restart Server* action
   before any type work.
+- **GET values are decoded twice.** The bridge URL-decodes a GET query and
+  then splits it again, so a literal `=`, `&`, `%` or `+` in a value is cut
+  short or rewritten: `get_function_labels` for
+  `std::_RefCountedPtr<...>::operator=` looks up `...::operator`, and
+  `search_functions name_pattern=operator=` searches for `operator`.
+  Percent-encoding such a value twice (`%253D` on the wire) reads it exactly.
+  `GhidraBridge.request` encodes once, so the two live types whose names
+  contain `&` (Metrowerks `alloc_ptr<...&...>` and `compressed_pair_imp<...&...>`)
+  are recorded as `unreadable-name` in receipts rather than misread. Read by
+  address where possible; JSON POST bodies (every write) are unaffected.
 - **Deletion clears data.** `delete_data_type` documents that it refuses
   referenced types, but it removes types applied to data and clears those data
   items. Never delete a type that existed before the current run, and confirm
