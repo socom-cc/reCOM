@@ -120,7 +120,9 @@ def readable_function_name(mangled: str | None, fallback: str | None) -> str | N
     elif base == "__dt" and class_name:
         base = f"~{class_name}"
     else:
-        base = OPERATORS.get(base, base)
+        # A function template's own arguments are mangled like a qualifier's:
+        # __use_facet<Q23std8ctype<c>> reads std::__use_facet<std::ctype<char>>.
+        base = readable_component(OPERATORS.get(base, base))
     return symbol_name("::".join([*qualifier, base]))
 
 

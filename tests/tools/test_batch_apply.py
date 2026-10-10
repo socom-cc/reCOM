@@ -29,6 +29,14 @@ def program(root: Path, batch_plan_path: Path) -> dict:
     return batch_apply.build_batch_program(root, batch_plan_path)
 
 
+def test_function_template_arguments_are_demangled_in_readable_names() -> None:
+    mangled = "__use_facet<Q23std14codecvt<w,c,i>>__3stdFRCQ23std6localeQ23std12__chooser<1>"
+    assert batch_apply.readable_function_name(mangled, None) == "std::__use_facet<std::codecvt<wchar_t,char,int>>"
+    assert batch_apply.readable_function_name("__use_facet<Q23std8ctype<c>>__3stdFRCQ23std6locale", None) == (
+        "std::__use_facet<std::ctype<char>>"
+    )
+
+
 def test_readable_names_follow_metrowerks_special_names() -> None:
     name = batch_apply.readable_function_name
     assert name("__dt__10CGameStateFv", "__dt") == "CGameState::~CGameState"
