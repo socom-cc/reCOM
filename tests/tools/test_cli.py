@@ -136,3 +136,16 @@ def test_current_final_catalog_fails_closed_without_crashing(root: Path) -> None
     assert code == 1
     assert result["complete"] is False
     assert result["loaded_file_gaps"]
+
+
+def test_cli_output_is_utf8_when_piped(root) -> None:
+    import subprocess
+    import sys
+
+    # The error echoes the unknown id, so non-ASCII must survive as UTF-8.
+    result = subprocess.run(
+        [sys.executable, str(root / "tools" / "socom.py"), "progress", "show", "socom:work:—missing—"],
+        capture_output=True,
+        cwd=root,
+    )
+    assert "socom:work:—missing—" in result.stdout.decode("utf-8")
