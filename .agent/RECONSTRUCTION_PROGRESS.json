@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 127,
+  "revision": 130,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1476316,6 +1476316,10 @@
       "title": "Apply reviewed DWARF compile-unit batch 004 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-10T15:33:26Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 5,
         "compile_unit_ids": [
@@ -1476474,8 +1476478,24 @@
       "dependencies": [
         "socom:work:debug-type-foundation-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "24 functions: each mangled name is exactly one FUNC .symtab symbol, at its low_pc with size high_pc-low_pc, so no file-local copies; live get_function_by_address name equals the mangled name and Body equals [low_pc, high_pc) at all 24; get_function_labels shows no extra label; no thunk (the 8-byte bodies are jr ra with li v0,1 in the delay slot; getloc 7 and showmanyc 6/10 instructions); 13 bodies contain a 16-byte stub with no fall-through or branch into it (jal __unexpected 0x1432d0, addiu a0,fp,0x40..0x90, b self, nop) that Ghidra leaves undisassembled inside the body; pre-existing and irrelevant to renames.",
+        "coverage by an independent stdlib ELF32/DWARF 1 walk (not tools/_socom) of support/socom.elf (sha256 00c9cee7...4f8a): the 24 die_ranges 213948-224467 are 24 contiguous whole compile units (each starts at a compile_unit DIE whose sibling is the range end; batch 4 ends and batch 6 starts at the boundaries); they hold 128 non-null DIEs (24 compile_unit, 24 global_subroutine, 38 formal_parameter, 24 lexical_block, 18 local_variable) = plan selected_die_count 128, 38 parameters and 18 locals; no global_variable and no type DIE in range, so 0 variables and all 9 plan types referenced_only (CU 179396); each of the 24 global_subroutine DIE offsets, low_pc/high_pc and mangled names (attr 0x2000) equals a plan function row.",
+        "file-only batch-program preview build/apply/socom-debug-batch-d45098ea2778e6b6de07-apply.json sha256 678d2f464de16a4a745b904ad7b98cd36a7cd8a8581c7fcfe3aeb0c87e9ce594",
+        "live: ghidra preflight --strict ok before and after review with byte-identical reports (soCOM /socom.elf, r5900:LE:32:default, source sha256 matches, analyzed, 716 Analysis bookmarks, 0 Error/Warning, 9715 functions, 24974 symbols, 1495 types); my own ghidra preflight-batch rerun (build/verify-b05/preflight-batch.json): ok, 0 errors, 48 bridge calls = 24 rename_function_by_address + 24 create_label, matching my expectation of 2 calls per rename with no prototype or global calls; 24 prototype skips, 0 unchanged; identical to the handed-off report ba0bd810... except plan_item_status (in_progress then awaiting_acceptance now); all 9 receipt-scope types exist live at their exact paths with the plan's byte sizes.",
+        "plan build/import-plans/socom-debug-batch-d45098ea2778e6b6de07.json sha256 42481aaa5c3c5b5cb535d826d910ca9c734b38fc676a56a573e63dc96a53b62a from python tools/socom.py debug import-plan --batch socom:debug-batch:d45098ea2778e6b6de07 (tools HEAD 6696655); debug conflicts list --batch: 0",
+        "preview content: 24 readable renames with mangled secondary labels; all 24 prototypes are recorded skips: 21 comma type names (basic_filebuf/basic_streambuf/_RefCountedPtr receivers), 3 classes without a plan identity (std::codecvt<wchar_t, char, int> x2, std::codecvt<char, char, int>); 1 provisional identity, named by no write",
+        "prototype skips justified: 21 receivers are DWARF this pointers to basic_filebuf<char|wchar_t, char_traits>, basic_streambuf<wchar_t, char_traits<wchar_t>> or _RefCountedPtr<__locale_imp<1>, _Single<...>>, all comma type names the bridge splits; the 3 codecvt do_encoding/do_always_noconv rows have no DWARF this and take the receiver from the vtable (independent .relmain R_MIPS_32 words: __vt__Q23std14codecvt<c,c,i> 0x471748 -> 0x146f70, __vt__Q23std14codecvt<w,c,i> 0x47171c -> 0x147c70 and 0x471718 -> 0x147f00); the class has no plan identity, and the live types /project/std/codecvt<char, char, int> and <wchar_t, char, int> contain commas, so a prototype would be skipped either way. The provisional /project/unresolved/fpos@f689822cdb (16 B, single symbol candidate std::fpos<int>, template-base spelling) appears only in the receipt scope; no write spells it.",
+        "python tools/socom.py ghidra preflight-batch report build/preflight/socom-debug-batch-d45098ea2778e6b6de07.json sha256 ba0bd81046fd77f687ffcce75347ee9a82bf9761e5739c9e0c1c0d376cc72915: ok=True, errors=0; 48 bridge calls (24 create_label, 24 rename_function_by_address); 24 skips; 0 unchanged; no write outside the receipt scope; all scope types exist live",
+        "readable names: the 24 are unique ignoring case among themselves, absent ignoring case from all 21894 .symtab names, the 9715 live function names and the 51617 live data rows (list_data_items), and from every readable name in the 14 earlier batch programs (batches 1-4 and 10-19), none of which touches these addresses; each (member, class) pair has exactly one .symtab symbol, so no overload demangles to the same readable name: the only _RefCountedPtr<__locale_imp<1>,_Single<...>> __as is 0x148bc0, distinct from the two constructors 0x144b80 (batch 2) and 0x14cea0 (later batch) and the destructor 0x144cd0 (batch 3); no readable name contains whitespace.",
+        "tests: uv pytest tests/tools 160 passed; audit independence ok. Only GETs and registered read-only commands touched the bridge; nothing was saved or written. Non-blocking: std::_RefCountedPtr<...>::operator= would be the first live readable name containing '='; the apply read-back must confirm it. 0x14cea0 demangles to the same readable constructor name as 0x144b80 and must be a rename skip when its later batch applies.",
+        "tracker: progress audit --strict ok at revision 129 (before and after review); item awaiting_acceptance; no active leases; tools and tests unchanged since 6ecd7e5 (HEAD 6696655, clean worktree for tools/tests). Plan build/import-plans/socom-debug-batch-d45098ea2778e6b6de07.json sha256 42481aaa5c3c5b5cb535d826d910ca9c734b38fc676a56a573e63dc96a53b62a regenerated byte-identically by debug import-plan (build/verify-b05/plan.json); batch-program preview build/apply/socom-debug-batch-d45098ea2778e6b6de07-apply.json sha256 678d2f464de16a4a745b904ad7b98cd36a7cd8a8581c7fcfe3aeb0c87e9ce594 regenerated byte-identically (build/verify-b05/program.json); debug conflicts list --batch: count 0; plan batch die_ranges and compile_unit_ids equal the tracker item's."
+      ],
+      "handoff": {
+        "owner": "socom-dwarf-importer",
+        "submitted_at": "2026-10-10T15:20:15Z",
+        "summary": "DWARF compile-unit batch 5 plan (MSL C++ basic_filebuf<char>/<wchar_t> members, codecvt do_encoding/do_always_noconv, basic_streambuf<wchar_t>::getloc, _RefCountedPtr) is conflict-free: 24 functions, no globals. Receipt scope: 24 functions, 9 types, all live."
+      },
       "id": "socom:debug-batch:d45098ea2778e6b6de07",
       "kind": "debug-import-plan-batch",
       "lease": null,
@@ -1476484,7 +1476504,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan DWARF compile-unit batch 005 (24 units)"
     },
     {
@@ -1476658,7 +1476678,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed DWARF compile-unit batch 005 (24 units)"
     },
     {
