@@ -220,6 +220,46 @@ def test_executor_refuses_an_unparseable_prototype_before_writing(program: dict)
     assert bridge.calls == []
 
 
+def test_globals_typed_differently_by_an_accepted_apply_are_conflicts(program: dict) -> None:
+    program = copy.deepcopy(program)
+    for row in program["globals"]:
+        if row["address"] != "0x476f60":
+            row["size"] = None
+    names = {row["address"]: row["current_name"] for row in program["functions"]}
+    index = [{"name": name, "path": f"/project/{name}"} for name in ("COurGame", "CGameState", "_options", "CMission", "COurGameOld")]
+
+    def run(accepted: frozenset[str]) -> tuple[dict, _FakeBridge]:
+        bridge = _FakeBridge(program, names)
+        bridge.globals["0x476f60"]["type"] = "COurGameOld"
+        result = batch_apply.execute_batch_program(
+            copy.deepcopy(program), bridge, type_index=lambda: index, function_names=lambda: names,
+            dry_run=True, accepted_globals=accepted,
+        )
+        return result, bridge
+
+    result, _ = run(frozenset({"0x476f60"}))
+    conflicts = [row for row in result["skipped"] if row["address"] == "0x476f60" and row["action"] == "type"]
+    assert conflicts and "conflicts with 'COurGameOld'" in conflicts[0]["reason"]
+    assert not any(step["body"].get("address") == "0x476f60" and step["endpoint"] == "apply_data_type" for step in result["steps"])
+    # Outside any accepted scope, or over an undefined placeholder, the type applies.
+    result, _ = run(frozenset())
+    assert any(step["body"].get("address") == "0x476f60" and step["endpoint"] == "apply_data_type" for step in result["steps"])
+
+
+def test_accepted_scope_globals_come_from_accepted_applies_only() -> None:
+    from tools._socom import cli
+
+    tracker = {
+        "work_items": [
+            {"id": "a-apply", "status": "accepted", "ghidra_receipt": {"scope": {"globals": ["0x0043bf74", ".debug::10"]}}},
+            {"id": "b-apply", "status": "awaiting_acceptance", "ghidra_receipt": {"scope": {"globals": ["0x476f60"]}}},
+            {"id": "c-apply", "status": "accepted", "ghidra_receipt": {"scope": {"globals": ["0x475604"]}}},
+            {"id": "d", "status": "accepted"},
+        ]
+    }
+    assert cli._accepted_scope_globals(tracker, "c-apply") == frozenset({"0x43bf74"})
+
+
 def test_composite_typedef_with_a_missing_target_fails_closed() -> None:
     types = batch_apply._Types(
         {

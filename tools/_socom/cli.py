@@ -600,6 +600,19 @@ class _ReadOnlyBridge:
         raise SocomError(f"dry run attempted a bridge write: {endpoint}")
 
 
+def _accepted_scope_globals(tracker: dict[str, Any], exclude: str | None) -> frozenset[str]:
+    """Globals in the stored receipt scope of every accepted Ghidra apply."""
+
+    addresses: set[str] = set()
+    for item in tracker["work_items"]:
+        if item["id"] == exclude or item.get("status") != "accepted":
+            continue
+        for value in ((item.get("ghidra_receipt") or {}).get("scope") or {}).get("globals", []):
+            if "::" not in value:
+                addresses.add(f"0x{int(value, 16):x}")
+    return frozenset(addresses)
+
+
 def _batch_scope_problems(
     program: dict[str, Any], result: dict[str, Any], live_types: set[str] | None = None
 ) -> list[str]:
@@ -665,6 +678,9 @@ def _ghidra_preflight_batch(arguments: argparse.Namespace) -> int:
                 global_names=lambda: _global_names(root, bridge),
                 log=lambda message: print(message, file=sys.stderr, flush=True),
                 dry_run=True,
+                accepted_globals=_accepted_scope_globals(
+                    tracker, f"{plan_info.get('work_item_id')}-apply"
+                ),
             )
         except SocomError as failure:
             errors.append(f"the apply would refuse or fail: {failure}")
@@ -775,6 +791,7 @@ def _ghidra_apply_batch(arguments: argparse.Namespace) -> int:
             },
             global_names=lambda: _global_names(root, bridge),
             log=lambda message: print(message, file=sys.stderr, flush=True),
+            accepted_globals=_accepted_scope_globals(tracker, arguments.item),
         )
     except BatchFailure as failure:
         report = {

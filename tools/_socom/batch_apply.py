@@ -838,6 +838,7 @@ def execute_batch_program(
     global_names: Callable[[], dict[str, set[str]]] = lambda: {},
     log: Callable[[str], None] = lambda _message: None,
     dry_run: bool = False,
+    accepted_globals: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
     """Apply a batch program and verify every applied name, prototype, and type.
 
@@ -984,6 +985,26 @@ def execute_batch_program(
             type_name = None
         elif entry["type_skip"]:
             skipped.append({"address": address, "action": "type", "reason": entry["type_skip"]})
+        live_type = str(audit.get("type") or "")
+        if (
+            type_name
+            and address in accepted_globals
+            and live_type
+            and live_type != type_name
+            and not live_type.startswith("undefined")
+        ):
+            # Compile units can describe one global differently (_impure_ptr
+            # is _reent@1aa0a63ac4 * in most units, _reent@b152c1df75 * in
+            # MSL's iostream units). Accepted state is not overwritten by
+            # whichever batch runs last: the contradiction is recorded.
+            skipped.append(
+                {
+                    "address": address,
+                    "action": "type",
+                    "reason": f"conflicts with {live_type!r} from an earlier accepted apply",
+                }
+            )
+            type_name = None
         if type_name and audit.get("type") == type_name and (not entry["size"] or audit.get("length") == entry["size"]):
             unchanged.append({"address": address, "action": "type", "type": type_name})
         elif type_name:

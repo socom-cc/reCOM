@@ -300,6 +300,13 @@ apply should only be claimed after its preflight is clean.
   (`basic_streambuf<wchar_t, std::char_traits<wchar_t>> *`), and the
   executor refuses, before any write, a program that still spells one: the
   bridge splits a prototype's parameters at commas.
+- **Cross-batch type conflicts.** A global declared in several compile units
+  recurs in later batches, and units can describe it differently
+  (`_impure_ptr` is `_reent@1aa0a63ac4 *`, 752 bytes, in most units but
+  `_reent@b152c1df75 *`, 748 bytes, in MSL's iostream units). When a global
+  is in the stored receipt scope of an earlier accepted apply and its live
+  type is defined and different, the new type is a recorded conflict skip;
+  accepted state is never overwritten by whichever batch runs last.
 
 Every applied name, prototype (`Signature:` line), and global type and length
 is read back before the report is written.
