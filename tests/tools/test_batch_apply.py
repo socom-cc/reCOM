@@ -597,6 +597,18 @@ def test_entry_argument_reads_contradict_undeclared_parameters(root: Path) -> No
     assert batch_apply._declared_argument_registers({"parameters": []}) == (set(), set())
 
 
+def test_entry_read_model_handles_vu_loads_regimm_and_conditional_moves() -> None:
+    # lqc2 vf1, 0(a0) loads a VU register: no general register is written.
+    assert batch_apply._writes(0xD8810000) == (set(), set())
+    # mtsab t5, 0 (REGIMM rt=0x18) is not a branch; bltz/bgezal are.
+    assert not batch_apply._is_control_transfer(0x05B80000)
+    assert batch_apply._is_control_transfer(0x04800004)  # bltz a0
+    assert batch_apply._is_control_transfer(0x04910004)  # bgezal a0 (links ra)
+    assert batch_apply._writes(0x04910004) == ({31}, set())
+    # movz v0, a1, a2 may keep v0: no definite write.
+    assert batch_apply._writes(0x00A6100A) == (set(), set())
+
+
 def test_adjustor_thunks_with_void_dwarf_are_skipped(root: Path, tmp_path: Path) -> None:
     tracker = load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
     item = next(row for row in tracker["work_items"] if row["id"] == "socom:debug-batch:b6704b7329debaa2ba1f")

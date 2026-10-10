@@ -468,14 +468,20 @@ def _writes(insn: int) -> tuple[set[int], set[int]]:
 
     op, rs, rt = insn >> 26, (insn >> 21) & 31, (insn >> 16) & 31
     rd, fd = (insn >> 11) & 31, (insn >> 6) & 31
+    if op == 0x00 and insn & 0x3F in (0x0A, 0x0B):  # movz/movn may keep rd
+        return set(), set()
     if op in (0x00, 0x1C):  # SPECIAL, MMI: rd (jalr links rd)
         return {rd} - {0}, set()
+    if op == 0x01:  # REGIMM: only the linking branches write ra
+        return ({31} if rt in (0x10, 0x11, 0x12, 0x13) else set()), set()
     if op == 0x03:  # jal
         return {31}, set()
     if 0x08 <= op <= 0x0F or op in (0x18, 0x19):  # immediate ALU, lui
         return {rt} - {0}, set()
     if op == 0x31:  # lwc1
         return set(), {rt}
+    if op == 0x36:  # lqc2 loads a VU register
+        return set(), set()
     if op in _LOADS:
         return {rt} - {0}, set()
     if op == 0x11:  # COP1
@@ -497,7 +503,9 @@ def _is_control_transfer(insn: int) -> bool:
         return insn & 0x3F in (0x08, 0x09)  # jr, jalr
     if op == 0x11:
         return (insn >> 21) & 31 == 0x08  # bc1
-    return op in (0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x14, 0x15, 0x16, 0x17)
+    if op == 0x01:  # REGIMM: branches only, not traps or mtsab/mtsah
+        return (insn >> 16) & 31 in (0x00, 0x01, 0x02, 0x03, 0x10, 0x11, 0x12, 0x13)
+    return op in (0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x14, 0x15, 0x16, 0x17)
 
 
 ARGUMENT_GPRS = (4, 5, 6, 7, 8, 9, 10, 11)  # a0-a3, t0-t3
@@ -522,6 +530,13 @@ def _entry_argument_reads(elf: Elf32File, address: int, size: int | None) -> tup
     while pc < limit:
         insn = _word(elf, pc)
         read_g, read_f = _reads(insn)
+        op = insn >> 26
+        if op == 0x00 and insn & 0x3F in (0x0A, 0x0B):  # movz/movn read rd
+            read_g = read_g | ({(insn >> 11) & 31} - {0})
+        elif op == 0x10 and (insn >> 21) & 31 == 0x04:  # mtc0 reads rt
+            read_g = read_g | ({(insn >> 16) & 31} - {0})
+        elif op == 0x2F:  # cache reads its base
+            read_g = read_g | ({(insn >> 21) & 31} - {0})
         gprs |= {reg for reg in read_g if reg in ARGUMENT_GPRS and reg not in written_g}
         fprs |= {reg for reg in read_f if reg in ARGUMENT_FPRS and reg not in written_f}
         wrote_g, wrote_f = _writes(insn)
