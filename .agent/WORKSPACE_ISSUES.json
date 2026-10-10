@@ -669,8 +669,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Conservative parameter placement drops DWARF parameter names the code supports"
+    },
+    {
+      "details": "DWARF describes struct _reent as _reent@1aa0a63ac4 (752 bytes) in the game's units and as _reent@b152c1df75 (748 bytes) in the MSL iostream units, which the debug paths place in the second Metrowerks install (the 2.4 front end; the batch 2 review found two MSL installs). _impure_ptr (0x43bf74) is typed _reent@1aa0a63ac4 * by accepted batches 001, 18 and others; batch 3 records a conflict skip instead of retyping it (commit 00ad07e). The user notes both structures come with the toolchain/runtime rather than the game's authored code and were ignored in their earlier manual reverse-engineering, so this is low priority: keep the accepted typing and the conflict skip; if needed later, settle it in ghidra-reconstruction or provider classification from the unit that defines _impure_ptr's storage and any field access at offsets 748-751.",
+      "id": "socom:workspace-issue:4e071940403f0c1f610e",
+      "kind": "problem",
+      "reported_at": "2026-10-10T13:34:43Z",
+      "reported_by": "socom-dwarf-importer",
+      "resolution": null,
+      "status": "open",
+      "summary": "Two runtime _reent layouts (752 and 748 bytes) disagree on _impure_ptr's type"
     }
   ],
-  "revision": 80,
+  "revision": 81,
   "schema_version": 1
 }

@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 115,
+  "revision": 118,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1475214,6 +1475214,10 @@
       "title": "Apply reviewed DWARF compile-unit batch 040 (23 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-10T13:49:28Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 3,
         "compile_unit_ids": [
@@ -1475372,8 +1475376,26 @@
       "dependencies": [
         "socom:work:debug-type-foundation-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "23 functions: one FUNC .symtab symbol each, size = DWARF high_pc-low_pc = live body; no file-local copies; no thunks (the 8-byte streambuf methods are jr ra with v0 set in the delay slot); readable names unique in the batch and absent from .symtab, from the 9715 live function names and 51610 live data names (ignoring case), and from every earlier batch program and repair report",
+        "55 globals: placement matches PT_LOAD 0 (file bytes end at 0x475600). The 7 typed globals are 4-byte .symtab objects in the zero fill with no live data, referenced only by word lw/sw GPREL16 at offset 0: ninit_cnt_s/winit_cnt_s int, id_count_s uint (compared with sltu), 4 locale id objects as /project/std/locale/id (4 B, the only live 'id' ignoring case); the next .symtab object starts at +4, so clear_existing touches only the object. 39 vtable/RTTI rows are anonymous member-less structure_type DIEs (recorded skips). Canonical-copy rule rechecked from vtable word 0 and its R_MIPS_32: the ios_base, exception and locale::facet RTTI copies keep mangled names (canonical 0x444818, 0x444608, 0x444888) and ctype_base has no vtable; the 12 unchanged names are batch 2 renames live only at their own address; the 8 stream objects skip comma type names",
+        "6 prototypes checked against ELF disassembly: the __locale_imp<1>, locale::facet, __nInit and __wInit destructors copy a0 (this) into the DWARF-recorded s-register, sign-extend a1 as a 16-bit flag (dsll32/dsra32 16) and return this in v0; the __nInit/__wInit constructors return this in v0; so void * __stdcall(T * this[, short __dtor_flags]) fits. Each type resolves once ignoring case live (/project/std/__locale_imp<1> 16 B, /project/std/locale/facet 8, /project/std/__nInit 1, /project/std/__wInit 1). All 17 skips spell a receiver type with a comma (16 basic_filebuf/basic_streambuf, 1 _RefCountedPtr dtor); no applied prototype spells a comma or ampersand",
+        "_impure_ptr 0x43bf74: live type _reent@1aa0a63ac4 * (752 B), in the accepted receipt scopes of batches 001, 010, 013 and 018, whose programs all typed it that way; batch 3's _reent@b152c1df75 * (748 B, provisional) is a recorded conflict skip (socom:workspace-issue:4e071940403f0c1f610e; the handoff's a4d88b6d no longer exists in the ledger). No applied name or type depends on any of the 19 provisional identities",
+        "coverage by an independent walk with tools/_socom/dwarf1.py: the item's 24 die_ranges are exactly 24 compile units holding 570 DIEs (= plan selected_die_count); the 23 global_subroutines with low_pc are the plan's 23 functions; the 63 CU-level variables (42 global, 21 file-static) are the plan's 63 rows; 153 in-range type rows plus 3 referenced_only (_RefCountedPtr<__locale_imp<1>>, locale::facet, __locale_imp<1>)",
+        "file-only batch-program preview build/apply/socom-debug-batch-c433a303fc78c05392db-apply.json sha256 77e65e061717f0b1f97448988c09e430b72a06317ee3163a1ed3100b73214d7a at tools commit 00ad07e: 23 renames, 6 prototypes (__locale_imp<1> and facet destructors, __nInit/__wInit ctors and dtors); 17 prototype skips, all comma type names (basic_filebuf/basic_streambuf members, _RefCountedPtr dtor); globals: 7 typed (ninit_cnt_s, winit_cnt_s, id_count_s, 4 locale id objects), 38 vtable/RTTI renames, 12 names already applied by batch 2 (unchanged), 8 std stream types skipped (comma names), 29 vtable/RTTI structures without a Ghidra type, 4 file-local RTTI copies keep mangled names",
+        "ghidra preflight --strict ok; my own ghidra preflight-batch run (build/verify-b03/preflight.json) equals the handed-off report afa3fd56bfc617abbf59be53852ec4a071db306f6f570bc3efa7539007955f87 except plan_item_status: ok, no errors, 135 calls = 23 rename_function_by_address + 23 create_label + 6 set_function_prototype + 38 rename_label (31 vtable/RTTI + 7 counter/id objects) + 38 create_label + 7 apply_data_type, all inside the receipt scope (23 functions, 55 globals, 68 types, all live); 69 skips = 17 prototype + 39 vtable/RTTI type + 8 comma type + 1 conflict + 4 file-local rename",
+        "non-blocking corrections to the handoff wording: 39 (not 29) untyped vtable/RTTI rows; the 38 global renames are 31 vtable/RTTI plus 7 counter/id objects; the plan has 55 (not 53) present globals",
+        "plan build/import-plans/socom-debug-batch-c433a303fc78c05392db.json sha256 328ed68a2face764e413652bb9853cedcb4bda056ab768865ab11facd4ee1357 from python tools/socom.py debug import-plan --batch socom:debug-batch:c433a303fc78c05392db; debug conflicts list --batch: 0; 19 provisional identities",
+        "plan build/import-plans/socom-debug-batch-c433a303fc78c05392db.json sha256 328ed68a2face764e413652bb9853cedcb4bda056ab768865ab11facd4ee1357 regenerates byte-identically at tools HEAD 93f4457 (debug import-plan --batch); debug batch-program from it regenerates build/apply/socom-debug-batch-c433a303fc78c05392db-apply.json sha256 77e65e061717f0b1f97448988c09e430b72a06317ee3163a1ed3100b73214d7a byte-identically; debug conflicts list --batch count 0; progress audit --strict ok at revision 117",
+        "python tools/socom.py ghidra preflight-batch report build/preflight/socom-debug-batch-c433a303fc78c05392db.json sha256 afa3fd56bfc617abbf59be53852ec4a071db306f6f570bc3efa7539007955f87: ok, no errors; 135 bridge calls (23 rename_function_by_address, 61 create_label, 6 set_function_prototype, 7 apply_data_type, 38 rename_label); 69 skips incl. the _impure_ptr conflict; 12 unchanged; no write outside the receipt scope; all 68 scope types exist live",
+        "the first preview exposed two tool defects, both fixed before handoff: (1) vtable-receiver prototypes spelled comma type names (7 basic_streambuf methods) that the bridge would split mid-apply; every prototype spelling is now checked and the executor refuses such a program before writing (commit 8238a76); (2) _impure_ptr would have been retyped from the accepted _reent@1aa0a63ac4 * (752 bytes) to _reent@b152c1df75 * (748 bytes, MSL iostream units); a global in an accepted apply's stored scope with a different defined live type is now a recorded conflict skip (commit 00ad07e; issue a4d88b6d). Rebuilding every earlier program with and without the first fix differs only in batch 3; no earlier program retyped an accepted global",
+        "tool commits 8238a76, 00ad07e and 93f4457 reviewed: every batch program built with fa4958f tools and with HEAD tools differs only in batch 3's 7 vtable-receiver methods; across the accepted programs 17 globals are typed by more than one batch, always identically, and batch 3's only overlap with an accepted typed global is _impure_ptr; pytest tests/tools 160 passed; audit independence ok; issue audit ok"
+      ],
+      "handoff": {
+        "owner": "socom-dwarf-importer",
+        "submitted_at": "2026-10-10T03:21:22Z",
+        "summary": "DWARF compile-unit batch 3 plan (MSL C++ iostream provider units: iostream.cpp, fstream, streambuf, localeimp, RefCountedPtrArray.h — __locale_imp, locale::facet, __nInit/__wInit, basic_filebuf and basic_streambuf members, stream vtables/RTTI, locale ids) is conflict-free: 23 functions, 53 present globals (2 absent). Receipt scope: 23 functions, 55 globals, 68 types, all live."
+      },
       "id": "socom:debug-batch:c433a303fc78c05392db",
       "kind": "debug-import-plan-batch",
       "lease": null,
@@ -1475382,7 +1475404,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan DWARF compile-unit batch 003 (24 units)"
     },
     {
@@ -1475556,7 +1475578,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed DWARF compile-unit batch 003 (24 units)"
     },
     {
