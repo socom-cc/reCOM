@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 142,
+  "revision": 145,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1449383,7 +1449383,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "c16192c1de793cfe7e09ebe6ac9fbad485163d1c017cda9ce92d05f6fcaa2346",
+      "current_receipt_sha256": "045d2ae783a702d29cfcdb15a8a4279ae69bf0071e445e5fb7af3cd30bf26b4a",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -1449974,6 +1449974,31 @@
           "receipt_sha256": "c16192c1de793cfe7e09ebe6ac9fbad485163d1c017cda9ce92d05f6fcaa2346",
           "tracker_revision": 139,
           "work_item_id": "socom:debug-batch:d0dc8987e5999c0d10d4-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1496,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 25081
+          },
+          "indexes": {
+            "data": {
+              "count": 51617,
+              "sha256": "8b912298678bcccebc92c1c9018c3913ee368909a1ef381dad075ee071ff1e10"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "dc963e6860321ae2b23075432460f222c209211899366207fe415bb739d64c2f"
+            },
+            "types": {
+              "count": 1496,
+              "sha256": "3856cfcbbcfa26fa5b64a5ddc6b7f04084b395849e8a4ab8a734c69402520ebb"
+            }
+          },
+          "receipt_sha256": "045d2ae783a702d29cfcdb15a8a4279ae69bf0071e445e5fb7af3cd30bf26b4a",
+          "tracker_revision": 145,
+          "work_item_id": "socom:debug-batch:ec962713a730d9183ccf-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -1477493,6 +1477518,10 @@
       "title": "Plan DWARF compile-unit batch 007 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-10T19:31:36Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 7,
         "compile_unit_ids": [
@@ -1477652,8 +1477681,106 @@
         "socom:debug-batch:ec962713a730d9183ccf",
         "socom:work:ghidra-zero-fill-memory"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "applied names: the 15 renamed entries have exactly the program readable names (get_function_by_address Function lines), get_function_labels shows exactly one label each, the program mangled name with Source USER_DEFINED, and search_functions by the mangled name finds no function; the 9 kept entries (do_is, do_toupper, do_tolower, do_narrow overload pairs and do_widen 0x14aef0) keep the mangled name as primary, get_function_labels reports no labels, search by mangled name finds exactly that entry, and no readable name sits at those addresses (std::ctype<wchar_t>::do_widen exists only at 0x1465c0, batch 4); no name contains = & % or + so single-encoded GETs read them exactly",
+        "applied prototypes: all 14 live Signature lines equal the strings built from the program prototypes: __stdcall, this first as ctype<wchar_t> * (13) or __locale_imp<1> * (replace: facet * f, uint id, void), wchar_t spelled ushort, mask uchar m, ctor void * with uint refs, dtor void * with short __dtor_flags, do_is uchar, do_toupper/do_tolower ushort, do_widen char * (low, high, ushort * dest), do_narrow char (ushort c, char dfault), array do_narrow ushort * with five parameters; the 10 prototype-skipped entries keep undefined NAME(void), equal to the batch 6 fingerprint line with only the name substituted; Entry and Body lines unchanged for all 24",
+        "code (live disassemble_function): ctor stores a1 at this+4 and returns this; dtor sign-extends the 16-bit flag in a1 (dsll32/dsra32 0x10) and returns this; do_is stores c with sh a2, masks m with andi 0xff and returns sltu 0/1; array do_is, do_scan_is, do_scan_not, do_toupper, do_tolower step 2-byte pointers and return the high or cursor pointer; do_widen loads lb from low, stores sh into dest a3 and returns a2; do_narrow masks andi 0xffff and returns the sign-extended low byte or a2; array do_narrow takes dfault in a3 and dest in t0 (move s0,t0; sb v0,0(s0)) and calls vtable slot 0x34 with a0 = this and a1 = lhu; the installed r5900.cspec __stdcall integer entries are a0-a3 then t0-t3 (wchar_size 2) and the plugin applies set_function_prototype through ApplyFunctionSignatureCmd, which in Ghidra 12.1.4 updates with FunctionUpdateType.DYNAMIC_STORAGE_FORMAL_PARAMS (javap of the installed jars), so the fifth integer argument is t0; replace bumps the facet refcount at a1+4, compares a2 with this+4 and never sets v0",
+        "ghidra fingerprint after (build/fingerprints/b07-after.json sha256 9a9cd4c5f27c68ce023f99e5f0cf9898abc845e15f71eee934759c86d87da610; diff build/fingerprints/b07-diff.json sha256 8cce8f69b15cb488cd2bc00c3c9b760c9ce5d31faffd44081021700dbbb44538): functions changed only at exactly the 24 batch entries: 15 with name and details (renamed, incl. the 5 renamed with prototypes) and 9 with details only (prototype applied, mangled name kept: 8 overloads and do_widen); references (183630), data (51617), blocks and bookmarks identical; types +1, none removed: /project/std/ctype<wchar_t> * (size 4, the this-pointer type set_function_prototype creates for the ctype<wchar_t> members)",
+        "ghidra fingerprint before (build/fingerprints/b07-before.json sha256 27c296a525c55468e17e4a7d28af688b48e91bb7044f935f2a6bac91f4eeb9b4) is identical in every section to the previous accepted after-fingerprint build/fingerprints/b06-after.json (which that batch's verifier's own live fingerprint equalled): 9715 functions, 51617 data, 1495 types, bookmarks, 28 blocks, 183630 references",
+        "ghidra-receipt-sha256:045d2ae783a702d29cfcdb15a8a4279ae69bf0071e445e5fb7af3cd30bf26b4a",
+        "ghidra-save:explicit-program",
+        "live: ghidra preflight --strict ok before and after the checks with byte-identical reports (soCOM /socom.elf, r5900:LE:32:default, source sha256 matches, analyzed and not analyzing, 716 Analysis bookmarks, no Error/Warning, 1496 types, 9715 functions, 28 blocks); symbol_count 25081 = batch 6's 25022 + 15 mangled labels + 44 parameter symbols of the 14 prototypes; ghidra receipt over the stored scope reproduces 045d2ae783a702d29cfcdb15a8a4279ae69bf0071e445e5fb7af3cd30bf26b4a twice with byte-identical output (build/verify-acc07/receipt.json, receipt-final.json)",
+        "pre-handoff receipt 045d2ae783a702d29cfcdb15a8a4279ae69bf0071e445e5fb7af3cd30bf26b4a: data 51617 8b912298..., functions 9715 dc963e68..., types 1496 3856cfcb...; scope 24 functions, 0 globals, 11 types; read-back markers: ambiguous-name x2",
+        "python tools/socom.py ghidra apply-batch: program build/apply/socom-debug-batch-ec962713a730d9183ccf-apply.json sha256 f12086c187a57aab64b7ae7276e6b6f3fa61f53d2fd1473ad058719706dae00d (regenerated from the accepted plan at commit b36f8e4), 44 bridge calls exactly as ghidra preflight-batch predicted after the claim (15 create_label, 15 rename_function_by_address, 14 set_function_prototype); 11 recorded skips; every name, Signature line, global type and length read back equal; report sha256 9bd11cb841faf1ca82017e2f24b97d0da9365ce1790b8c769ff06a797d72b1ff",
+        "tests: uv pytest tests/tools 158 passed with the bridge URL pointed at a closed port plus the 3 live-bridge CLI tests (doctor, preflight, verify asm) passed against the bridge, 161 total; audit independence ok. Only GETs (get_function_by_address, get_function_labels, search_functions, list_bookmarks, disassemble_function) and registered read-only commands (ghidra preflight, receipt, fingerprint with read-only get_bulk_xrefs) touched the bridge, never concurrently with the fingerprint; nothing was saved or written. Non-blocking: parameter storage was not read directly (get_function_variables decompiles) and rests on the cspec, the apply command's dynamic storage and the code; the fingerprint records bookmarks only as a profile and types only as path and size, so the full bookmark list and the all-types receipt cover those; const qualifiers are dropped under the documented rule; overload naming and the lower_bound skip reason stay with open issues socom:workspace-issue:94d561641de39778a761 and socom:workspace-issue:6ec4362defaf7bd4b38b",
+        "tracker: progress audit --strict ok at revision 144 before and after the checks; item awaiting_acceptance, no leases; handoff owner socom-ghidra-reconstructor; the last ghidra-writer item accepted before this handoff (19:17:29Z) is batch 6 apply (18:47:12Z, receipt c16192c1de793cfe7e09ebe6ac9fbad485163d1c017cda9ce92d05f6fcaa2346) and no other writer item was handed off or accepted in between; plan item socom:debug-batch:ec962713a730d9183ccf accepted citing plan sha256 1a8632e827339ff56824f5d72913131e3ef61005142c514f4ba69bdcb7751426; at HEAD b36f8e4 (tools, tests and agent surfaces unchanged since 7824644) debug import-plan regenerates that plan and debug batch-program regenerates build/apply/socom-debug-batch-ec962713a730d9183ccf-apply.json sha256 f12086c187a57aab64b7ae7276e6b6f3fa61f53d2fd1473ad058719706dae00d byte-identically (build/verify-acc07/plan.json, program.json); stored receipt scope equals the scope file and the program receipt_scope (24 functions, 0 globals, 11 types); apply report sha256 9bd11cb841faf1ca82017e2f24b97d0da9365ce1790b8c769ff06a797d72b1ff cites that program: ok, 44 bridge calls, 11 skips (10 prototype, 1 rename: do_widen 0x14aef0 name already used at 0x1465c0), 0 unchanged",
+        "types and bookmarks: full list_bookmarks (716 rows: address, type, category, comment) identical to the batch 6 verifier capture build/verify-acc06/bookmarks-now.json; ghidra receipt over the 840-type scope of every non-pointer, non-array /project type (all 840 live) reproduces every type fact of build/verify-acc06/alltypes-receipt.json (795 full layouts; 26 no-component-readback, 17 ambiguous-name, 2 unreadable-name markers unchanged), so no existing layout changed; the 11 scope types equal that capture and the receipt's two ambiguous-name markers are the two range_map<...>/entry types (bare name entry), pre-existing read-back limits",
+        "whole program: my own ghidra fingerprint build/verify-acc07/fp-now.json is byte-identical to build/fingerprints/b07-after.json (sha256 9a9cd4c5f27c68ce023f99e5f0cf9898abc845e15f71eee934759c86d87da610) and its --compare diff against b06-after.json (sha256 27c296a525c55468e17e4a7d28af688b48e91bb7044f935f2a6bac91f4eeb9b4, byte-identical to the batch 6 verifier's own live fp-now.json cited in that acceptance, and to b07-before.json) is byte-identical to b07-diff.json (sha256 8cce8f69b15cb488cd2bc00c3c9b760c9ce5d31faffd44081021700dbbb44538); own offline comparison: 28 blocks, all 51617 data rows, all 183630 references and the bookmark profile identical; the 9715 function addresses are unchanged and only the 24 batch entries changed, only in their Function and Signature lines; types: none removed, one added, /project/std/ctype<wchar_t> * (size 4), the pointer Ghidra creates for the first ctype<wchar_t> * this parameter (facet * and __locale_imp<1> * already existed from earlier destructor prototypes; exactly the 13 batch ctype<wchar_t> members use it)"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "045d2ae783a702d29cfcdb15a8a4279ae69bf0071e445e5fb7af3cd30bf26b4a",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x14a6c0",
+            "0x14a750",
+            "0x14a790",
+            "0x14a7a0",
+            "0x14aa10",
+            "0x14ab20",
+            "0x14ac00",
+            "0x14ac40",
+            "0x14acb0",
+            "0x14ad30",
+            "0x14adb0",
+            "0x14ade0",
+            "0x14ae50",
+            "0x14ae80",
+            "0x14aef0",
+            "0x14af30",
+            "0x14af60",
+            "0x14aff0",
+            "0x14b060",
+            "0x14b0d0",
+            "0x14b140",
+            "0x14b330",
+            "0x14b510",
+            "0x14b590"
+          ],
+          "globals": [],
+          "types": [
+            "/project/Metrowerks/range_map<wchar_t, unsigned char>",
+            "/project/Metrowerks/range_map<wchar_t, unsigned char>/entry",
+            "/project/Metrowerks/range_map<wchar_t, wchar_t>",
+            "/project/Metrowerks/range_map<wchar_t, wchar_t>/entry",
+            "/project/result",
+            "/project/std/__locale_imp<1>",
+            "/project/std/__vector_deleter<Metrowerks::range_map<wchar_t, unsigned char>::entry, std::allocator<Metrowerks::range_map<wchar_t, unsigned char>::entry>>",
+            "/project/std/__vector_deleter<Metrowerks::range_map<wchar_t, wchar_t>::entry, std::allocator<Metrowerks::range_map<wchar_t, wchar_t>::entry>>",
+            "/project/std/__vector_pod<unsigned int, std::allocator<unsigned int>>",
+            "/project/std/ctype<wchar_t>",
+            "/project/std/locale/facet"
+          ]
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1496,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 25081
+          },
+          "indexes": {
+            "data": {
+              "count": 51617,
+              "sha256": "8b912298678bcccebc92c1c9018c3913ee368909a1ef381dad075ee071ff1e10"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "dc963e6860321ae2b23075432460f222c209211899366207fe415bb739d64c2f"
+            },
+            "types": {
+              "count": 1496,
+              "sha256": "3856cfcbbcfa26fa5b64a5ddc6b7f04084b395849e8a4ab8a734c69402520ebb"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-10T19:17:29Z",
+        "summary": "Applied accepted batch 7 (plan sha256 1a8632e8...1426) once: 15 MSL functions renamed to readable names with mangled secondary labels; 14 prototypes (ctype<wchar_t> constructor/destructor and do_* members with wchar_t spelled ushort, __locale_imp<1>::replace), incl. the 8 overloaded do_is/do_toupper/do_tolower/do_narrow members and do_widen, which keep their mangled names. Recorded skips: 10 prototypes (comma type names, codecvt<wchar_t> without plan identity, namespace-scope lower_bound templates) and the do_widen rename (name taken at 0x1465c0). Ghidra side effect: 1 this-pointer type."
+      },
       "id": "socom:debug-batch:ec962713a730d9183ccf-apply",
       "kind": "debug-import-apply-batch",
       "lease": null,
@@ -1477663,7 +1477790,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply reviewed DWARF compile-unit batch 007 (24 units)"
     },
     {
