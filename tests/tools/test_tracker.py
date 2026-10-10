@@ -583,3 +583,19 @@ def test_reviewer_rejection_returns_handoff_for_rework(
     ] == "in_progress"
     with pytest.raises(SocomError, match="not awaiting_acceptance"):
         reject_work(reclaimed, item, "reviewer", "again", [])
+
+
+def test_next_work_orders_batches_numerically() -> None:
+    from tools._socom.tracker import next_work
+
+    def batch(number: int) -> dict:
+        return {
+            "id": f"socom:debug-batch:{number:020x}",
+            "stage": "debug-metadata-import",
+            "status": "ready",
+            "lease": None,
+            "batch": {"batch_number": number},
+        }
+
+    tracker = {"work_items": [batch(20), batch(2), batch(10), batch(3), batch(1)]}
+    assert [item["batch"]["batch_number"] for item in next_work(tracker)] == [1, 2, 3, 10, 20]

@@ -778,7 +778,7 @@ def next_work(tracker: dict[str, Any]) -> list[dict[str, Any]]:
         ready,
         key=lambda item: (
             stage_rank[item["stage"]],
-            str(item.get("batch", {}).get("batch_number", 0) if item.get("batch") else 0),
+            int((item.get("batch") or {}).get("batch_number") or 0),
             item["id"],
         ),
     )
