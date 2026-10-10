@@ -649,8 +649,18 @@
       "resolution": null,
       "status": "open",
       "summary": "File-static functions in @unnamed@<file>@ namespaces are skipped as having no receiver evidence"
+    },
+    {
+      "details": "Batch 18 apply review: the fingerprint's types section is path|size and its bookmarks section is the count profile, so a layout or enum change in an existing type, or a bookmark moved between addresses, would not show in a fingerprint diff. The verifier covered the gap with the receipt's scoped type layouts and a full list_bookmarks read (716 rows). Proposed: schema 2 records every bookmark row and a per-type layout digest (members, offsets, sizes, enum values) where the bridge can read it in bulk; compare refuses mixed schemas.",
+      "id": "socom:workspace-issue:5d602dad601bd67ce7ec",
+      "kind": "problem",
+      "reported_at": "2026-10-10T01:17:14Z",
+      "reported_by": "socom-verifier",
+      "resolution": null,
+      "status": "open",
+      "summary": "ghidra fingerprint records types as path and size and bookmarks as a profile only"
     }
   ],
-  "revision": 78,
+  "revision": 79,
   "schema_version": 1
 }

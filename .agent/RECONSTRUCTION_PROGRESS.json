@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 103,
+  "revision": 106,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1468635,6 +1468635,10 @@
       "title": "Apply reviewed DWARF compile-unit batch 018 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-10T01:34:56Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 19,
         "compile_unit_ids": [
@@ -1468793,8 +1468797,21 @@
       "dependencies": [
         "socom:work:debug-type-foundation-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "file-only batch-program preview build/apply/socom-debug-batch-c9f83d18c1262234b19d-apply.json sha256 e2dff12f2316bd59b2cd5b2b7cd4c05d013902ca3493054c2eb46933ed6d1842: 23 renames, 20 prototypes (recoInit/recoInit2/recoTick/recoGetNumHeads float return, cbrecoResult/cbrecoNotify GSAPI callbacks, ...); prototype skips: 3 inline methods whose class has no identity in the plan (CExitMenu::GetReaderFileName, CGameMenu::MyTick, CGameMenu::PrepControls); globals: 20 typed (incl. recoNumWords longlong[3], energy int[10000], InternalRecoParams/InternalAGCParams, a second MultiplayerMsgStrings copy at 0x530ca0), 1 rename (__vt__7CFileIO -> CFileIO::__vt, untyped: its structure has no Ghidra type)",
+        "globals: PT_LOAD 0 file-backed end 0x475600 matches initialized flags; .symtab sizes equal type sizes (recoParams/InternalRecoParams 12, recoNumWords long[3] DWARF FT 0xb = longlong[3] 24 with ld/sd stride 8, RecoGcdData/RecoCtxData/RecoWrdData uint*[3] 12, RecoContexts void*[3] 12, energy int[10000] 40000 with index wrap at 0x2710, CSTable 28, InternalAGCParams 16, scalars 1/4); relocation offsets land on members (recoParams 0/4/8, AGCParams 0/4/8/12/13) and GPREL16 sites on offset 0; live layouts of CSTable, InternalRecoParams, InternalAGCParams, _GSAPI_RESULT and enum _GSAPI_NOTIFY_TYPE equal the DWARF. clear_existing safe: only DAT_0043b794 (undefined4 inside recoParams' own extent) is cleared; zero-fill targets hold no data; no .symtab symbol inside any extent. MultiplayerMsgStrings 0x530ca0 is the reco.cpp LOCAL copy (one of 80, constructed by __sinit_reco.cpp), typed CSTable like the copies at 0x511e70/0x476ef0 in earlier batches, no rename. __vt__7CFileIO is the only copy (word 0 R_MIPS_32 to __RTTI__7CFileIO, 12 relocated method words), renamed to CFileIO::__vt per the X::__vt precedent and left untyped (DWARF type is member-less @anon3).",
+        "independent review at tools HEAD 34b62cb (clean tools/tests/docs), revision 105, progress audit --strict ok, no leases; 154 tool tests pass. Plan build/import-plans/socom-debug-batch-c9f83d18c1262234b19d.json sha256 086239260990e6880b8f2a1acd84e822aff9ef09fccdb3156611b7b3a5acf263 regenerates byte-identically; debug batch-program from the canonical plan path regenerates preview e2dff12f2316bd59b2cd5b2b7cd4c05d013902ca3493054c2eb46933ed6d1842 byte-identically; debug conflicts list --batch: 0; plan and program receipt scopes equal (23 functions, 21 globals, 21 types).",
+        "own ELF32/DWARF1 reader (no tools/_socom imports): tracker and plan die_ranges identical, 24 contiguous ranges 1528273-1541360, each a compile_unit ending at its sibling; 254 non-null DIEs = plan selected_die_count; the 23 subprogram DIEs with low_pc and the 34 CU-level variable DIEs equal the plan rows (21 present, 11 absent at DW_OP_ADDR 0, 2 function-object rows for cbrecoNotify/cbrecoResult). All 23 Ghidra bodies equal DWARF [low_pc, high_pc) and the single .symtab FUNC size; every function has exactly one mangled .symtab name (no extern C linkage), none is a j/b thunk, and no readable name or CFileIO::__vt occurs in .symtab or live defined data (51587 rows) at another address.",
+        "own ghidra preflight-batch rerun (build/verify-b19/preflight.json): ok, no errors, 88 calls (23 rename_function_by_address, 24 create_label, 20 set_function_prototype, 20 apply_data_type, 1 rename_label), 4 skips (3 prototypes, 1 vt type), 0 unchanged; steps identical to the handed-off report; all 21 globals audit as data with the expected current names; all scope types exist live. 6 provisional identities (vector, __vector_imp, compressed_pair, compressed_pair_imp, allocator, compile_assert) are not named by any applied prototype or global type; only CSTable's pre-existing foundation base component uses vector@2db35e5b0b.",
+        "plan build/import-plans/socom-debug-batch-c9f83d18c1262234b19d.json sha256 086239260990e6880b8f2a1acd84e822aff9ef09fccdb3156611b7b3a5acf263 from python tools/socom.py debug import-plan --batch socom:debug-batch:c9f83d18c1262234b19d (tools HEAD 34b62cb); debug conflicts list --batch: 0; 6 provisional identities",
+        "prototypes vs code: recoGetNumHeads is jr ra / lwc1 f0,-0x63b8(gp) (recoNumHeads) and its caller 0x3d5a10 consumes f0 (sub.s/mul.s); cbrecoResult moves a0->s4 (hEngine) and a2->s3 (pResult), cbrecoNotify does andi a1,0xff (1-byte enum, 9-entry jump table = 9 enum values) and stores a2 into energy; GSAPI invokes the result callback (gsapi_Init stores it at 0x43b818) at 0x3370b0 with a0=engine, a1=uint, a2=s0+52, a3=uint, and the notify callback (0x43b81c) with constant types in a1, and the DWARF subroutine_type DIEs 0x17646b/0x1764c4 give (void*, _GSAPI_NOTIFY_TYPE, uint, uint) and (void*, uint, _GSAPI_RESULT*, uint), matching both prototypes and the mangled signatures. Void returns checked at every direct call site (recoGetFirstWordID 1, recoEnableWord 3, recoDisableAllWords 1, recoTick 1, recoGrabMemory 1) and after every callback jalr: no v0/f0 read before a write or call. int/uchar returns write v0 before every jr ra; recoSetContextByCol reads a0; recoEnableWord/recoDisableAllWords keep mangled int params (a1 stored to sp+0x1c, a0 unused). Skips justified: 3 vtable-only inline methods (CExitMenu::GetReaderFileName, CGameMenu::MyTick(float), CGameMenu::PrepControls) whose class has no plan identity; no by-value class, comma name, thunk or void contradiction is applied.",
+        "python tools/socom.py ghidra preflight-batch report build/preflight/socom-debug-batch-c9f83d18c1262234b19d.json sha256 c549eef973cd62d9bfea5aadce3bdd61208dfa70d659d5058cb36f8d656f9f16: ok, no errors; 88 bridge calls (23 rename_function_by_address, 24 create_label, 20 set_function_prototype, 20 apply_data_type, 1 rename_label); 4 skips; no write outside the receipt scope; all 21 scope types exist live"
+      ],
+      "handoff": {
+        "owner": "socom-dwarf-importer",
+        "submitted_at": "2026-10-10T01:18:32Z",
+        "summary": "DWARF compile-unit batch 19 plan (reco.cpp voice recognition: 20 reco* C functions and GSAPI callbacks; inline CExitMenu/CGameMenu methods) is conflict-free: 23 functions, 21 present globals (11 absent variables). Receipt scope: 23 functions, 21 globals, 21 types, all live."
+      },
       "id": "socom:debug-batch:c9f83d18c1262234b19d",
       "kind": "debug-import-plan-batch",
       "lease": null,
@@ -1468803,7 +1468820,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan DWARF compile-unit batch 019 (24 units)"
     },
     {
@@ -1468977,7 +1468994,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed DWARF compile-unit batch 019 (24 units)"
     },
     {
