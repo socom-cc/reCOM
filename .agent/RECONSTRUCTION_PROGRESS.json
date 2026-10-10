@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 112,
+  "revision": 115,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1449383,7 +1449383,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "a44bb7789b39b7492ea054a110aeb8d1194625ac703dc242804a9aa13297ba7f",
+      "current_receipt_sha256": "842f520612a56c58151f7b9f7b6cd155611f2636bf3bf5c5c36a8f2426954564",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -1449849,6 +1449849,31 @@
           "receipt_sha256": "a44bb7789b39b7492ea054a110aeb8d1194625ac703dc242804a9aa13297ba7f",
           "tracker_revision": 109,
           "work_item_id": "socom:debug-batch:c9f83d18c1262234b19d-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1492,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 24879
+          },
+          "indexes": {
+            "data": {
+              "count": 51610,
+              "sha256": "f060415ed9da67706cb4ca6a93ed565602587c66e8dfeb00bcc700ad3f98a362"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "ecc4133da6dc02a4ece00552339e1c7e0781a74b9460434d1cf9590bf1097060"
+            },
+            "types": {
+              "count": 1492,
+              "sha256": "0c7b0328062b7c1368e55550815be5b0c648f41532b0a2bfabee68ff7c5cc89a"
+            }
+          },
+          "receipt_sha256": "842f520612a56c58151f7b9f7b6cd155611f2636bf3bf5c5c36a8f2426954564",
+          "tracker_revision": 115,
+          "work_item_id": "socom:debug-batch:581792cc68291427c414-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -1461405,6 +1461430,10 @@
       "title": "Plan DWARF compile-unit batch 002 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-10T03:06:48Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 2,
         "compile_unit_ids": [
@@ -1461564,8 +1461593,149 @@
         "socom:debug-batch:581792cc68291427c414",
         "socom:work:ghidra-zero-fill-memory"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "double storage: no read-only non-decompiling bridge endpoint reports parameter storage (GhidraMCP 6.0.0 jar: get_function_variables, analyze_function_complete and get_function_documentation all decompile), so it was established from the apply path: set_function_prototype uses ApplyFunctionSignatureCmd, which in Ghidra 12.1.4 Base.jar calls updateFunction with DYNAMIC_STORAGE_FORMAL_PARAMS; the installed r5900.cspec (sha256 2f21a895437108d60f3ce706319b5807040b1d0b1b0769ae7ab3b93d2e0c6ef4, no rule elements) gives __stdcall f12-f19 maxsize 4 and a0-t3 maxsize 8, and ParamListStandard.assignAddressFallback with ParamEntry.getAddrBySlot skips an 8-byte double past the float entries, so left/right are a0:8/a1:8; dpcmp 0x16e1c0 stores both with sd, and all 17 _dpf* call sites pass 64-bit values in a0/a1 (dsll32-built constants, gp-relative ld, fptodp v0 results, zero) and test v0 as int",
+        "functions vs own ELF32/DWARF 1 reader and capstone disassembly: get_function_labels shows exactly the mangled USER_DEFINED label at the entry of each of the 19 renamed functions and none at _dpfgt/_dpflt/_dpfeq; the 15 live Signature lines equal the program and the DWARF return and parameter names/types (mangled FUi, Fv, FPCc with const dropped, FPv, CFv; destructor hidden short); code: acquire reads a0/a1 and returns void* (5+5 callers test v0); ctors, CMenuState ctor and ~ios_base return this; ~ios_base sign-extends a1 bits 0-15 and its 6 base-dtor callers pass a1 0; ios_base::init stores a1 at this+0x24; what returns lw v0,4(a0); every direct caller of the five void functions (0x141854, 0x141914, 0x469f58, 0x141c40, 0x141cb4, 0x1463c0, 0x146520, 0x146848, 0x146b68) writes v0 or calls before any v0 read",
+        "ghidra fingerprint after (build/fingerprints/b02-after.json sha256 4b64d4c501ee930b85fd211048a40562f923f68ee975302f03174b46d6cb4527; diff build/fingerprints/b02-diff.json sha256 37acf11f5f67d3e27649e02e03208d147825ac1caabe3da2f83eb448d3f1844f): functions changed only at the 22 batch entries (the 3 non-renamed double compares changed signature only); references 183630 identical; blocks and bookmarks identical; data -7/+15, every row inside a batch global extent (7 vtable/RTTI renames, 8 newly typed stream objects); types +3, none removed: /project/std/ios_base *, /project/std/ios_base/failure *, /project/CMenuState * (this-pointer types created by set_function_prototype)",
+        "ghidra fingerprint before (build/fingerprints/b02-before.json sha256 80e58d400df670f476e9e258d19b969b2ca1cb76a8d5f93730331b4d3fe49c06) is identical in every section to batch 19's accepted after-fingerprint build/fingerprints/b19-after.json (which the batch 19 verifier's own live fingerprint equalled): 9715 functions, 51602 data, 1489 types, bookmarks, 28 blocks, 183630 references",
+        "ghidra preflight --strict ok (analysis idle, 716 Analysis bookmarks, 0 error/warning, 9715 functions, 1492 types, 28 blocks); ghidra receipt over the stored scope reproduces 842f520612a56c58151f7b9f7b6cd155611f2636bf3bf5c5c36a8f2426954564 and is byte-identical to build/receipts/socom-debug-batch-581792cc68291427c414-apply-prehandoff.json; symbol count 24819 (batch 19 receipt) to 24879 = 34 mangled labels + 26 parameter symbols of the 15 prototypes",
+        "ghidra-receipt-sha256:842f520612a56c58151f7b9f7b6cd155611f2636bf3bf5c5c36a8f2426954564",
+        "ghidra-save:explicit-program",
+        "globals: audit_global type and length equal DWARF and .symtab sizes for the 8 streams (cin/wcin 104; cout/clog/cerr/wcout/wclog/wcerr 88); each variable's DWARF type DIE equals its plan identity (171154 basic_istream@79dedcebec, 172472 basic_ostream@c2b9bc22d1, 173359 basic_istream@540aa989ac, 171302 basic_ostream@f5a2ddea89) and the char/wchar_t split holds (basic_ios DIE 174889 fill_ char, 172332 fill_ ushort); each applied type name resolves once ignoring case among 1492 live types. list_globals shows the readable primary plus the mangled label at all 15 renamed globals and only __RTTI__Q23std9exception at 0x444848; the 8 vtable/RTTI objects keep undefined8/undefined1[N]. Full list_bookmarks (716: 713 Address Table, 3 Non-Returning Function; address, category, comment, type) equals the batch 19 verifier's list",
+        "independent review at tools HEAD d1a3ac6 (tools/tests/docs/.codex/.claude clean), revision 114: progress audit --strict ok, no leases; doctor --infrastructure-only --ghidra ok; 155 tool tests pass. Plan build/import-plans/socom-debug-batch-581792cc68291427c414.json regenerates byte-identically from debug import-plan (sha256 7870f82ae33d572d05a17a06c193fa1960da783644d6be88c58d1dfe4507514f; plan item accepted and cited by the program and report); debug batch-program regenerates build/apply/socom-debug-batch-581792cc68291427c414-apply.json byte-identically (sha256 d6b4bba923bafd5ebc2a7f0ead12e16c690879bf4687b395f50cce78fcd4a7f8); the stored receipt scope equals the scope file and the program receipt_scope (22 functions, 16 globals, 39 types)",
+        "non-blocking: the double parameter storage is derived as above rather than read live, because every storage-reporting endpoint decompiles; the type-foundation scope file lists the same 840 types as its stored scope in a different order (pre-existing, unrelated to this batch)",
+        "own ghidra fingerprint build/verify-acc02/fp-now.json (426 s, no other bridge traffic; fingerprint 6bab9382...) is byte-identical to the handoff's b02-after.json (sha256 4b64d4c5...), and its comparison with batch 19's accepted b19-after.json (sha256 80e58d40..., equal to the batch 19 verifier's own fingerprint per its acceptance) is byte-identical to b02-diff.json (37acf11f...): 183630 references identical; 28 blocks and bookmark profile identical; functions changed only at the 22 batch entries (name and/or Signature line; Entry, Body, thunk/external flags unchanged); data -7/+15, all at batch addresses (7 vtable/RTTI renames with unchanged type and length, 8 newly typed streams), 0x444848 untouched; types +3, none removed, no size change anywhere: /project/std/ios_base *, /project/std/ios_base/failure *, /project/CMenuState * (this-pointer types beside their unique bases); no .conflict types",
+        "pre-handoff receipt 842f520612a56c58151f7b9f7b6cd155611f2636bf3bf5c5c36a8f2426954564: data 51610 f060415e..., functions 9715 ecc4133d..., types 1492 0c7b0328...; scope 22 functions, 16 globals, 39 types; read-back markers: none",
+        "python tools/socom.py ghidra apply-batch: program build/apply/socom-debug-batch-581792cc68291427c414-apply.json sha256 d6b4bba923bafd5ebc2a7f0ead12e16c690879bf4687b395f50cce78fcd4a7f8 (regenerated from the accepted plan at commit d1a3ac6), 91 bridge calls exactly as ghidra preflight-batch predicted after the claim (19 rename_function_by_address, 34 create_label, 15 set_function_prototype, 8 apply_data_type, 15 rename_label); every name, Signature line, global type and length read back equal; report sha256 afcf1966c90e44e3300f2d6a7e4c196234b61e87fad3cc1937ddba0f20a45f50",
+        "types: authenticated all 15 accepted ghidra-writer prehandoff receipts (sha256 of canonical receipt JSON equals each tracker receipt hash); a live receipt over the union of their scoped types (840) gives every type the same size, layout or enum and detail as its latest accepted receipt (795 layout/enum read-back, 26 no-component-readback, 17 ambiguous-name, 2 unreadable-name), including all 39 batch scope types"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "842f520612a56c58151f7b9f7b6cd155611f2636bf3bf5c5c36a8f2426954564",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x141710",
+            "0x1417a0",
+            "0x141830",
+            "0x141870",
+            "0x1418f0",
+            "0x141930",
+            "0x1419b0",
+            "0x141a20",
+            "0x141d00",
+            "0x141f20",
+            "0x142090",
+            "0x142140",
+            "0x142160",
+            "0x142180",
+            "0x1449b0",
+            "0x144a80",
+            "0x144a90",
+            "0x144aa0",
+            "0x144b70",
+            "0x144b80",
+            "0x144bc0",
+            "0x144c40"
+          ],
+          "globals": [
+            "0x444818",
+            "0x444848",
+            "0x444860",
+            "0x444888",
+            "0x471510",
+            "0x471530",
+            "0x471540",
+            "0x471550",
+            "0x477180",
+            "0x4771f0",
+            "0x477250",
+            "0x4772b0",
+            "0x477310",
+            "0x477380",
+            "0x4773e0",
+            "0x477440"
+          ],
+          "types": [
+            "/project/_MSLstring",
+            "/project/_zmalloc<four>",
+            "/project/_zmalloc<twelve>",
+            "/project/CGameState",
+            "/project/CMenuState",
+            "/project/event",
+            "/project/fmtflags",
+            "/project/four",
+            "/project/Init",
+            "/project/iostate",
+            "/project/std/__locale_imp<1>",
+            "/project/std/__vector_pod<unsigned int, std::allocator<unsigned int>>",
+            "/project/std/_RefCountedPtr<char, std::_Array<char>>",
+            "/project/std/_RefCountedPtr<std::__locale_imp<1>, std::_Single<std::__locale_imp<1>>>",
+            "/project/std/basic_streambuf<char, std::char_traits<char>>",
+            "/project/std/basic_streambuf<wchar_t, std::char_traits<wchar_t>>",
+            "/project/std/basic_string<char, std::char_traits<char>, std::allocator<char>>",
+            "/project/std/basic_string<char, std::char_traits<char>, std::allocator<char>>/CharArray",
+            "/project/std/exception",
+            "/project/std/ios_base",
+            "/project/std/ios_base/failure",
+            "/project/std/locale",
+            "/project/std/locale/facet",
+            "/project/twelve",
+            "/project/unresolved/__vector_imp@897b056bcc",
+            "/project/unresolved/_EmptyMemberOpt@6a0491c16e",
+            "/project/unresolved/_EmptyMemberOpt@6f5d001726",
+            "/project/unresolved/allocator@fcc7a85d51",
+            "/project/unresolved/basic_ios@9f5ffb6bd9",
+            "/project/unresolved/basic_ios@f2995a069a",
+            "/project/unresolved/basic_istream@540aa989ac",
+            "/project/unresolved/basic_istream@79dedcebec",
+            "/project/unresolved/basic_ostream@c2b9bc22d1",
+            "/project/unresolved/basic_ostream@f5a2ddea89",
+            "/project/unresolved/compile_assert@042f6a98d7",
+            "/project/unresolved/compressed_pair@30d44a8521",
+            "/project/unresolved/compressed_pair_imp@2aa399c6cd",
+            "/project/unresolved/pair@445b2acfe8",
+            "/project/unresolved/vector@2db35e5b0b"
+          ]
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1492,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 24879
+          },
+          "indexes": {
+            "data": {
+              "count": 51610,
+              "sha256": "f060415ed9da67706cb4ca6a93ed565602587c66e8dfeb00bcc700ad3f98a362"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "ecc4133da6dc02a4ece00552339e1c7e0781a74b9460434d1cf9590bf1097060"
+            },
+            "types": {
+              "count": 1492,
+              "sha256": "0c7b0328062b7c1368e55550815be5b0c648f41532b0a2bfabee68ff7c5cc89a"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-10T02:47:18Z",
+        "summary": "Applied accepted batch 2 (plan sha256 7870f82a...514f) once: 19 functions renamed with mangled secondary labels and 15 prototypes (_zmalloc<four>/<twelve> acquire, ctor, init_page; CGameState::SetName; CMenuState ctor; CharArray::reserve; ios_base dtor/init; ios_base::failure::what; _dpfgt/_dpflt/_dpfeq double compares), 8 std stream globals typed and renamed (std::cin/cout/clog/cerr, wide streams), 7 vtable/RTTI renames. Recorded skips: 5 comma type names, 1 class without plan identity, 1 without receiver evidence, 8 untyped vtable/RTTI structures, 1 non-canonical exception RTTI copy. Ghidra side effects: 3 this-pointer types."
+      },
       "id": "socom:debug-batch:581792cc68291427c414-apply",
       "kind": "debug-import-apply-batch",
       "lease": null,
@@ -1461575,7 +1461745,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply reviewed DWARF compile-unit batch 002 (24 units)"
     },
     {
