@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 106,
+  "revision": 109,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1449383,7 +1449383,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "fa548230c027243d2094fafde559ab163595a37e30d84e43fcd14f0b2fa47993",
+      "current_receipt_sha256": "a44bb7789b39b7492ea054a110aeb8d1194625ac703dc242804a9aa13297ba7f",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -1449824,6 +1449824,31 @@
           "receipt_sha256": "fa548230c027243d2094fafde559ab163595a37e30d84e43fcd14f0b2fa47993",
           "tracker_revision": 103,
           "work_item_id": "socom:debug-batch:06bc89fdc92b67da98bc-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1489,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 24819
+          },
+          "indexes": {
+            "data": {
+              "count": 51602,
+              "sha256": "5cae397baf31b856e7ba1458e5397f1fb0fe6982b5bee00aa3cfcac31805f4d7"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "7771c555852be370579c836869f885ee81cb7c91b25c3f1754a44158cd2e533d"
+            },
+            "types": {
+              "count": 1489,
+              "sha256": "f60defba822437fe4bd771dea440549143b890375e305668bc7e94e49ca93491"
+            }
+          },
+          "receipt_sha256": "a44bb7789b39b7492ea054a110aeb8d1194625ac703dc242804a9aa13297ba7f",
+          "tracker_revision": 109,
+          "work_item_id": "socom:debug-batch:c9f83d18c1262234b19d-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -1468824,6 +1468849,10 @@
       "title": "Plan DWARF compile-unit batch 019 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-10T02:09:17Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 19,
         "compile_unit_ids": [
@@ -1468983,8 +1469012,136 @@
         "socom:debug-batch:c9f83d18c1262234b19d",
         "socom:work:ghidra-zero-fill-memory"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "applied functions vs own ELF32/DWARF1 reader and capstone disassembly of support/socom.elf: the 23 primary names are the readable names, unique among live functions and not .symtab names elsewhere; get_function_labels shows exactly the mangled USER_DEFINED label at each entry (cbrecoNotify also keeps its switchD/caseD analysis labels). Bodies equal DWARF low_pc..high_pc and the .symtab sizes; no function is a j/b thunk. The 20 Signature lines equal the program and the mangled argument lists, returns follow DWARF: recoGetNumHeads is jr ra / lwc1 f0 and its caller consumes f0 (sub.s at 0x3d5a38); every int/uchar function writes v0 before each jr ra; recoGetWordID, recoGetNextWordID, recoGetFirstWordID, recoSetContextByCol read a0; cbrecoResult keeps a0 and a2 (s4, s3; reads pResult+8 = pWordIds); cbrecoNotify does andi a1,0xff into a 9-entry jump table (9-value 1-byte enum) and stores a2 into energy; recoEnableWord stores a1 at sp+0x1c (the DWARF wordID location) and ignores a0; void callees' callers (0x335ed8, 0x17af18, 0x17af54/74/94, 0x17cd18, 0x2f4e60) and the GSAPI result-callback jalr at 0x3370b0 never read v0/f0 after the call.",
+        "applied globals: audit_global type and length equal DWARF types and .symtab sizes for all 20 typed globals (InternalRecoParams 12; longlong[3] 24 for DWARF signed long[0..2], 8 bytes each per .symtab 24; uint *[3] x3 12; void *[3] 12; int[10000] 40000; CSTable 28; InternalAGCParams 16; uchar x5 1; int x3, float, void *, uint * 4); 0x43b790-0x475470 are file-backed and 0x476834-0x530d00 zero-fill in PT_LOAD 0 as planned; no .symtab object lies inside any extent. 0x472dd0 shows CFileIO::__vt primary plus the __vt__7CFileIO label, still undefined1[56] (recorded skip: anonymous structure DIE 0x17623e). Skipped prototypes keep their prior state: CExitMenu::GetReaderFileName, CGameMenu::MyTick and CGameMenu::PrepControls are still undefined NAME(void), only renamed; the 11 absent variables are untouched.",
+        "full list_bookmarks now (716: 713 Address Table, 3 Non-Returning Function; address, category, comment, type) equals the batch 18 verifier's list. A receipt over the 840 types scoped by all 27 authenticated earlier receipt files (type foundation, zero-fill, repairs, batches 1-18) gives every type the same size, layout or enum and detail as its latest accepted receipt, including all 21 batch-19 scope types; the type names this batch applies (InternalRecoParams, InternalAGCParams, CSTable, _GSAPI_RESULT, _GSAPI_NOTIFY_TYPE, the four arrays) each resolve once ignoring case.",
+        "ghidra fingerprint after (build/fingerprints/b19-after.json sha256 80e58d400df670f476e9e258d19b969b2ca1cb76a8d5f93730331b4d3fe49c06; diff build/fingerprints/b19-diff.json sha256 962f0a778e903539b524f341317a6fe71d7f3f4d389eb8235667f47075de3bfb): functions changed only at the 23 batch entries; references 183630 identical; blocks and bookmarks identical; data -6/+21, every row inside a batch global extent (the removed rows are the undefined placeholders and the old __vt__7CFileIO name); types +5, none removed: /int[10000], /longlong[3], /uint *[3], /void *[3] (array types Ghidra creates when apply_data_type first uses them) and /project/_GSAPI_RESULT * (created by the cbrecoResult prototype)",
+        "ghidra fingerprint before (build/fingerprints/b19-before.json sha256 f20c9845238e67bd0a929612c94f238dd76bb1aaca3c665b86926323ab9f6a80) is identical in every section to batch 18's accepted after-fingerprint build/fingerprints/b18-after.json (which the batch 18 verifier's own live fingerprint equalled): 9715 functions, 51587 data, 1484 types, bookmarks, 28 blocks, 183630 references",
+        "ghidra preflight --strict ok (analysis idle, 716 Analysis bookmarks, 0 error/warning, 9715 functions, 1489 types, 28 blocks); ghidra receipt over the stored scope reproduces a44bb7789b39b7492ea054a110aeb8d1194625ac703dc242804a9aa13297ba7f and is byte-identical to build/receipts/socom-debug-batch-c9f83d18c1262234b19d-apply-prehandoff.json; symbol count 24780 (batch 18 receipt) to 24819, matching 24 mangled labels + 15 parameter symbols of the 8 prototypes with parameters.",
+        "ghidra-receipt-sha256:a44bb7789b39b7492ea054a110aeb8d1194625ac703dc242804a9aa13297ba7f",
+        "ghidra-save:explicit-program",
+        "independent review at tools HEAD 2eb8cd0 (tools/tests/docs clean), revision 108, progress audit --strict ok, no leases; 154 tool tests pass. Plan build/import-plans/socom-debug-batch-c9f83d18c1262234b19d.json sha256 086239260990e6880b8f2a1acd84e822aff9ef09fccdb3156611b7b3a5acf263 regenerates byte-identically from debug import-plan and the accepted plan item cites it; debug batch-program regenerates the apply program e2dff12f2316bd59b2cd5b2b7cd4c05d013902ca3493054c2eb46933ed6d1842 byte-identically; the stored receipt scope equals the scope file and the plan receipt_scope (23 functions, 21 globals, 21 types, same order); apply report 40a2d321a... lists 88 calls and exactly the 4 recorded skips.",
+        "non-blocking: cbrecoNotify param_3 (DWARF wParam, a2) and recoEnableWord param_2 (DWARF wordID, a1) keep placeholder names (open issue d4a5966a); four threshold functions return an unwritten callee-saved register when recoInited is 0 (recoThresholdDown s0, recoThresholdUp s1, recoSpeechThresholdDown s0, recoSpeechThresholdUp s0; source behaviour, int return still correct); CExitMenu::GetReaderFileName returns a char pointer in v0 per DWARF and code, left for a later governed prototype once CExitMenu has a plan identity.",
+        "own ghidra fingerprint build/verify-acc19/fp-now.json (481 s, no other bridge traffic; fingerprint a4acce08...) is byte-identical to the handoff's b19-after.json (sha256 80e58d40...). Against the batch 18 verifier's fingerprint build/verify-acc18/fp-now.json (b355a323..., recorded in batch 18 acceptance): 183630 references identical as a multiset; 28 blocks and bookmark profile identical; functions changed only at the 23 batch entries (name and Signature line; Entry, Body, thunk/external flags unchanged); types +5, none removed: /int[10000], /longlong[3], /uint *[3], /void *[3] (arrays created by apply_data_type) and /project/_GSAPI_RESULT * (cbrecoResult prototype); data -6/+21, every row at a batch global address within its extent (removed: undefined4 recoParams and DAT_0043b794, undefined1[24] recoNumWords, undefined1[12] RecoGcdData, undefined1 RECO_DBG_PRINT, and the __vt__7CFileIO row renamed); no other data row overlaps a batch extent.",
+        "pre-handoff receipt a44bb7789b39b7492ea054a110aeb8d1194625ac703dc242804a9aa13297ba7f: data 51602 5cae397b..., functions 9715 7771c555..., types 1489 f60defba...; scope 23 functions, 21 globals, 21 types; read-back markers:  (known bridge limits, issue 76952369)",
+        "python tools/socom.py ghidra apply-batch: program build/apply/socom-debug-batch-c9f83d18c1262234b19d-apply.json sha256 e2dff12f2316bd59b2cd5b2b7cd4c05d013902ca3493054c2eb46933ed6d1842 (regenerated from the accepted plan at commit 2eb8cd0), 88 bridge calls exactly as ghidra preflight-batch predicted after the claim (23 rename_function_by_address, 24 create_label, 20 set_function_prototype, 20 apply_data_type, 1 rename_label); every name, Signature line, global type and length read back equal; report sha256 40a2d321acb2736a1f4dd8e70c3c53a88ea7b65f3fe8b1720c28d9d145e6f652"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "a44bb7789b39b7492ea054a110aeb8d1194625ac703dc242804a9aa13297ba7f",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x321310",
+            "0x321320",
+            "0x321330",
+            "0x335cc0",
+            "0x335de0",
+            "0x335f60",
+            "0x3360a0",
+            "0x3360b0",
+            "0x336120",
+            "0x336210",
+            "0x3362d0",
+            "0x336360",
+            "0x3363b0",
+            "0x336440",
+            "0x336470",
+            "0x336560",
+            "0x336650",
+            "0x336730",
+            "0x336820",
+            "0x336940",
+            "0x3369e0",
+            "0x336be0",
+            "0x336d90"
+          ],
+          "globals": [
+            "0x43b790",
+            "0x43b7a0",
+            "0x43b7b8",
+            "0x472dd0",
+            "0x475470",
+            "0x476834",
+            "0x476838",
+            "0x47683c",
+            "0x476840",
+            "0x476844",
+            "0x476848",
+            "0x47684c",
+            "0x476850",
+            "0x47685c",
+            "0x476880",
+            "0x530ca0",
+            "0x530cc0",
+            "0x530cd0",
+            "0x530ce0",
+            "0x530cf0",
+            "0x530d00"
+          ],
+          "types": [
+            "/project/_FILECD",
+            "/project/_GSAPI_NOTIFY_TYPE",
+            "/project/_GSAPI_RESULT",
+            "/project/_GSAPI_RESULTTYPE",
+            "/project/_GSAPI_WORDIDLIST",
+            "/project/CFileCD",
+            "/project/CFileIO",
+            "/project/CIO",
+            "/project/CSTable",
+            "/project/InternalAGCParams",
+            "/project/InternalRecoParams",
+            "/project/Metrowerks/details/compressed_pair_imp<std::allocator<unsigned int>, unsigned int, 1>",
+            "/project/RecoGender",
+            "/project/RecoParams",
+            "/project/std/__vector_pod<unsigned int, std::allocator<unsigned int>>",
+            "/project/unresolved/__vector_imp@897b056bcc",
+            "/project/unresolved/allocator@fcc7a85d51",
+            "/project/unresolved/compile_assert@042f6a98d7",
+            "/project/unresolved/compressed_pair@30d44a8521",
+            "/project/unresolved/vector@2db35e5b0b",
+            "/project/zdb/CTextureRelocMgr"
+          ]
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1489,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 24819
+          },
+          "indexes": {
+            "data": {
+              "count": 51602,
+              "sha256": "5cae397baf31b856e7ba1458e5397f1fb0fe6982b5bee00aa3cfcac31805f4d7"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "7771c555852be370579c836869f885ee81cb7c91b25c3f1754a44158cd2e533d"
+            },
+            "types": {
+              "count": 1489,
+              "sha256": "f60defba822437fe4bd771dea440549143b890375e305668bc7e94e49ca93491"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-10T01:52:41Z",
+        "summary": "Applied accepted batch 19 (plan sha256 08623926...f263) once: 23 functions renamed with mangled secondary labels and 20 prototypes (reco* voice-recognition functions, cbrecoResult/cbrecoNotify GSAPI callbacks, recoGetNumHeads float return), 20 global types and 1 global rename (CFileIO::__vt, untyped). Recorded skips: 3 inline CExitMenu/CGameMenu methods without a class identity in the plan, the CFileIO vtable structure type. Ghidra side effects: 4 array types and 1 pointer type derived from the applied types."
+      },
       "id": "socom:debug-batch:c9f83d18c1262234b19d-apply",
       "kind": "debug-import-apply-batch",
       "lease": null,
@@ -1468994,7 +1469151,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply reviewed DWARF compile-unit batch 019 (24 units)"
     },
     {

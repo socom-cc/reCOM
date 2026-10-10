@@ -659,8 +659,18 @@
       "resolution": null,
       "status": "open",
       "summary": "ghidra fingerprint records types as path and size and bookmarks as a profile only"
+    },
+    {
+      "details": "Batch 19 plan review: cbrecoNotify's wParam is a2 (stored into energy[]) but the apply writes uint param_3; recoEnableWord's wordID is a1 (sw a1,0x1c(sp) matches its DWARF location sp+28) but the apply writes int param_2. cbrecoNotify's parameter_storage is 'conflicting' (DWARF places both parameters in v0) yet its prototype holds via the mangled signature and the DWARF subroutine type record. The types are right; only names are lost. Proposed: when a DWARF stack location equals the entry spill slot of the ABI register the mangled position assigns, keep the DWARF name; add tests and re-review affected earlier batches' placeholder names.",
+      "id": "socom:workspace-issue:d4a5966aa24b5ad098e6",
+      "kind": "problem",
+      "reported_at": "2026-10-10T01:36:10Z",
+      "reported_by": "socom-verifier",
+      "resolution": null,
+      "status": "open",
+      "summary": "Conservative parameter placement drops DWARF parameter names the code supports"
     }
   ],
-  "revision": 79,
+  "revision": 80,
   "schema_version": 1
 }
