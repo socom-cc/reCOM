@@ -241,19 +241,29 @@ def test_globals_typed_differently_by_an_accepted_apply_are_conflicts(program: d
     conflicts = [row for row in result["skipped"] if row["address"] == "0x476f60" and row["action"] == "type"]
     assert conflicts and "conflicts with 'COurGameOld'" in conflicts[0]["reason"]
     assert not any(step["body"].get("address") == "0x476f60" and step["endpoint"] == "apply_data_type" for step in result["steps"])
-    # Outside any accepted scope, or over an undefined placeholder, the type applies.
+    # Outside any accepted scope, or over an undefined placeholder or a type
+    # Ghidra's analysis chose, the type applies.
     result, _ = run(frozenset())
+    assert any(step["body"].get("address") == "0x476f60" and step["endpoint"] == "apply_data_type" for step in result["steps"])
+    bridge = _FakeBridge(program, names)
+    bridge.globals["0x476f60"]["type"] = "pointer"
+    result = batch_apply.execute_batch_program(
+        copy.deepcopy(program), bridge, type_index=lambda: index, function_names=lambda: names,
+        dry_run=True, accepted_globals=frozenset({"0x476f60"}),
+    )
     assert any(step["body"].get("address") == "0x476f60" and step["endpoint"] == "apply_data_type" for step in result["steps"])
 
 
 def test_accepted_scope_globals_come_from_accepted_applies_only() -> None:
     from tools._socom import cli
 
+    batch = "debug-import-apply-batch"
     tracker = {
         "work_items": [
-            {"id": "a-apply", "status": "accepted", "ghidra_receipt": {"scope": {"globals": ["0x0043bf74", ".debug::10"]}}},
-            {"id": "b-apply", "status": "awaiting_acceptance", "ghidra_receipt": {"scope": {"globals": ["0x476f60"]}}},
-            {"id": "c-apply", "status": "accepted", "ghidra_receipt": {"scope": {"globals": ["0x475604"]}}},
+            {"id": "a-apply", "kind": batch, "status": "accepted", "ghidra_receipt": {"scope": {"globals": ["0x0043bf74", ".debug::10"]}}},
+            {"id": "b-apply", "kind": batch, "status": "awaiting_acceptance", "ghidra_receipt": {"scope": {"globals": ["0x476f60"]}}},
+            {"id": "c-apply", "kind": batch, "status": "accepted", "ghidra_receipt": {"scope": {"globals": ["0x475604"]}}},
+            {"id": "zero-fill", "kind": "ghidra-memory-map", "status": "accepted", "ghidra_receipt": {"scope": {"globals": ["0x475608"]}}},
             {"id": "d", "status": "accepted"},
         ]
     }

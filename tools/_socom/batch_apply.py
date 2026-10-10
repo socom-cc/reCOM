@@ -68,6 +68,11 @@ BUILTINS = {
     "wchar_t": "ushort",
 }
 UNSPELLABLE = re.compile(r"[,&]")
+# Types Ghidra's own analysis gives data; no DWARF rendering produces them,
+# so they never mark a global as typed by an accepted batch.
+ANALYSIS_TYPES = frozenset(
+    {"pointer", "pointer32", "pointer64", "addr", "byte", "word", "dword", "qword", "string", "unicode", "TerminatedCString", "TerminatedUnicode"}
+)
 # DWARF 1 modifiers spelled as one pointer level (references are pointers in
 # the Metrowerks ABI); const and volatile have no rendering here.
 POINTER_MODIFIERS = {"pointer_to", "reference_to"}
@@ -992,6 +997,7 @@ def execute_batch_program(
             and live_type
             and live_type != type_name
             and not live_type.startswith("undefined")
+            and live_type not in ANALYSIS_TYPES
         ):
             # Compile units can describe one global differently (_impure_ptr
             # is _reent@1aa0a63ac4 * in most units, _reent@b152c1df75 * in
