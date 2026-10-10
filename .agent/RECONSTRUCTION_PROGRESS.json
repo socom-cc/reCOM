@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 136,
+  "revision": 139,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1449383,7 +1449383,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "dd5a784ea767d8f0a515aa33e24ee749a0b4e9b5ea548ab20fba5c3b3cfd16f2",
+      "current_receipt_sha256": "c16192c1de793cfe7e09ebe6ac9fbad485163d1c017cda9ce92d05f6fcaa2346",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -1449949,6 +1449949,31 @@
           "receipt_sha256": "dd5a784ea767d8f0a515aa33e24ee749a0b4e9b5ea548ab20fba5c3b3cfd16f2",
           "tracker_revision": 133,
           "work_item_id": "socom:debug-batch:d45098ea2778e6b6de07-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1495,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 25022
+          },
+          "indexes": {
+            "data": {
+              "count": 51617,
+              "sha256": "8b912298678bcccebc92c1c9018c3913ee368909a1ef381dad075ee071ff1e10"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "9f56aadc3dc0d4a71194e0a709166950f686ca7a7bf5446eb0d44fce4e9a5bea"
+            },
+            "types": {
+              "count": 1495,
+              "sha256": "0504ce4f6b5f085bed33e498cf18175d0a72b544af1baabd6e45715937ae8945"
+            }
+          },
+          "receipt_sha256": "c16192c1de793cfe7e09ebe6ac9fbad485163d1c017cda9ce92d05f6fcaa2346",
+          "tracker_revision": 139,
+          "work_item_id": "socom:debug-batch:d0dc8987e5999c0d10d4-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -1476998,6 +1477023,10 @@
       "title": "Plan DWARF compile-unit batch 006 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-10T18:47:12Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 6,
         "compile_unit_ids": [
@@ -1477157,8 +1477186,107 @@
         "socom:debug-batch:d0dc8987e5999c0d10d4",
         "socom:work:ghidra-zero-fill-memory"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "ambiguous-name markers: the receipt's two markers are /project/std/basic_ostream<char, std::char_traits<char>>/sentry and /project/std/basic_ostream<wchar_t, std::char_traits<wchar_t>>/sentry (size 8 each), the only two live types whose bare name is sentry; both facts equal the batch 5 verifier's all-types receipt, so they are pre-existing read-back limits, not changes; the other 11 scope types have full layout or enum read-back identical to batch 5",
+        "applied facts: the 24 live primary names equal the program readable names exactly (get_function_by_address Function and Signature lines), including std::__use_facet<std::ctype<char>>, <std::ctype<wchar_t>>, <std::codecvt<char,char,int>> and <std::codecvt<wchar_t,char,int>>; an independent minimal Metrowerks demangler reproduces all 24 readable names from the mangled names; each name unique ignoring case among 9715 live function names and absent from 51617 data names; get_function_labels by readable name shows exactly one label per entry, the program mangled name with Source USER_DEFINED; search_functions by each mangled name finds no function; no name contains = & % or + so single-encoded GETs read them exactly; every Signature line equals its batch 5 accepted fingerprint line with only the name substituted (undefined NAME(void), all 24 prototypes skipped), Entry, Body, thunk and external unchanged (build/verify-acc06/live-functions.json)",
+        "ghidra fingerprint after (build/fingerprints/b06-after.json sha256 27c296a525c55468e17e4a7d28af688b48e91bb7044f935f2a6bac91f4eeb9b4; diff build/fingerprints/b06-diff.json sha256 ec9dd12363d9c801385fc005b61a3c00b760ed9aa9bb7e655327e4f2aca45000): functions changed only at exactly the 24 batch entries (name and details); data, types (1495), references (183630), blocks and bookmarks all identical",
+        "ghidra fingerprint before (build/fingerprints/b06-before.json sha256 866c75aa3bca504670503a19d08f16c27b7d217d3978c03446f65ce58a09d679) is identical in every section to the previous accepted after-fingerprint build/fingerprints/b05-after.json (which that batch's verifier's own live fingerprint equalled): 9715 functions, 51617 data, 1495 types, bookmarks, 28 blocks, 183630 references",
+        "ghidra-receipt-sha256:c16192c1de793cfe7e09ebe6ac9fbad485163d1c017cda9ce92d05f6fcaa2346",
+        "ghidra-save:explicit-program",
+        "live: ghidra preflight --strict ok before and after the checks with byte-identical reports (soCOM /socom.elf, r5900:LE:32:default, source sha256 matches, analyzed and not analyzing, 716 Analysis bookmarks, no Error/Warning; symbol_count 25022 = batch 5's 24998 + the 24 created labels); ghidra receipt over the stored scope reproduces c16192c1de793cfe7e09ebe6ac9fbad485163d1c017cda9ce92d05f6fcaa2346 twice with byte-identical output (build/verify-acc06/receipt.json, receipt-final.json); data index 51617 8b912298... and types index 1495 0504ce4f... equal batch 5's accepted receipt",
+        "pre-handoff receipt c16192c1de793cfe7e09ebe6ac9fbad485163d1c017cda9ce92d05f6fcaa2346: data 51617 8b912298..., functions 9715 9f56aadc..., types 1495 0504ce4f...; scope 24 functions, 0 globals, 13 types; read-back markers: ambiguous-name x2",
+        "python tools/socom.py ghidra apply-batch: program build/apply/socom-debug-batch-d0dc8987e5999c0d10d4-apply.json sha256 2abbbdbc944f326758ef8998086a94e05e0447f253d9a9b9204d34967e0d0dc7 (regenerated from the accepted plan at commit 410dd07), 48 bridge calls exactly as ghidra preflight-batch predicted after the claim (24 create_label, 24 rename_function_by_address); 24 recorded skips; every name, Signature line, global type and length read back equal; report sha256 9e5fe3d84f024b82a577f9b38248a94a661d0deef9bf6ed929abd5ab179c476c",
+        "tests: uv pytest tests/tools 158 passed with the bridge URL pointed at a closed port plus the 3 live-bridge CLI tests (doctor, preflight, verify asm) passed against the bridge, 161 total; audit independence ok. Only GETs and registered read-only commands touched the bridge; nothing was saved or written. Non-blocking: the four __use_facet prototype skips carry the imprecise reason 'no evidence whether the method has a receiver' (open issue socom:workspace-issue:6ec4362defaf7bd4b38b); skipping is safe",
+        "tracker: progress audit --strict ok at revision 138 before and after the checks; item awaiting_acceptance, no leases; no other ghidra-writer item was handed off or accepted between batch 5 apply acceptance (16:01:52Z) and this handoff (16:38:53Z); plan item socom:debug-batch:d0dc8987e5999c0d10d4 accepted citing plan sha256 f7197f46c3f4ea73ecd2792f3c29634695a34b10527f46a5ac05cb34f6b8d996; tools, tests and agent surfaces unchanged since 7824644 (HEAD 410dd07 touches only tracker, issues and README; clean worktree for them); debug import-plan regenerates the plan and debug batch-program regenerates build/apply/socom-debug-batch-d0dc8987e5999c0d10d4-apply.json sha256 2abbbdbc944f326758ef8998086a94e05e0447f253d9a9b9204d34967e0d0dc7 byte-identically (build/verify-acc06/plan.json, program.json); stored receipt scope equals the scope file and the program receipt_scope (24 functions, 0 globals, 13 types); apply report sha256 9e5fe3d84f024b82a577f9b38248a94a661d0deef9bf6ed929abd5ab179c476c cites that program, ok, 48 bridge calls, 24 prototype skips, 0 unchanged",
+        "types and bookmarks: full list_bookmarks (716 rows: address, type, category, comment) identical to the batch 5 verifier capture build/verify-acc05/bookmarks-now.json; ghidra receipt over the 840-type scope of every non-pointer, non-array /project type reproduces every type fact of build/verify-acc05/alltypes-receipt.json (795 full layouts; 26 no-component-readback, 17 ambiguous-name, 2 unreadable-name markers unchanged); no type added or removed",
+        "whole program: my own ghidra fingerprint build/verify-acc06/fp-now.json is byte-identical to build/fingerprints/b06-after.json (sha256 27c296a525c55468e17e4a7d28af688b48e91bb7044f935f2a6bac91f4eeb9b4) and its --compare diff against b05-after.json (sha256 866c75aa3bca504670503a19d08f16c27b7d217d3978c03446f65ce58a09d679, the after-fingerprint cited by batch 5's acceptance and byte-identical to that verifier's live fp-now.json and to b06-before.json) is byte-identical to b06-diff.json (sha256 ec9dd12363d9c801385fc005b61a3c00b760ed9aa9bb7e655327e4f2aca45000); own offline comparison: 28 blocks, all 51617 data rows, all 1495 type path/size rows, all 183630 references and the bookmark profile identical; functions changed only at exactly the 24 batch entries and only by the name substitution"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "c16192c1de793cfe7e09ebe6ac9fbad485163d1c017cda9ce92d05f6fcaa2346",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x148d20",
+            "0x148ec0",
+            "0x148f80",
+            "0x149110",
+            "0x1492c0",
+            "0x149480",
+            "0x149560",
+            "0x149640",
+            "0x149720",
+            "0x149800",
+            "0x149810",
+            "0x149820",
+            "0x149830",
+            "0x1499f0",
+            "0x149ba0",
+            "0x149d30",
+            "0x149ed0",
+            "0x149ee0",
+            "0x14a200",
+            "0x14a520",
+            "0x14a530",
+            "0x14a570",
+            "0x14a5d0",
+            "0x14a630"
+          ],
+          "globals": [],
+          "types": [
+            "/project/result",
+            "/project/std/basic_filebuf<char, std::char_traits<char>>",
+            "/project/std/basic_filebuf<wchar_t, std::char_traits<wchar_t>>",
+            "/project/std/basic_ostream<char, std::char_traits<char>>",
+            "/project/std/basic_ostream<char, std::char_traits<char>>/sentry",
+            "/project/std/basic_ostream<wchar_t, std::char_traits<wchar_t>>",
+            "/project/std/basic_ostream<wchar_t, std::char_traits<wchar_t>>/sentry",
+            "/project/std/codecvt<char, char, int>",
+            "/project/std/codecvt<wchar_t, char, int>",
+            "/project/std/ctype<wchar_t>",
+            "/project/std/locale",
+            "/project/std/locale/facet",
+            "/project/unresolved/ctype@d012e8e612"
+          ]
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1495,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 25022
+          },
+          "indexes": {
+            "data": {
+              "count": 51617,
+              "sha256": "8b912298678bcccebc92c1c9018c3913ee368909a1ef381dad075ee071ff1e10"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "9f56aadc3dc0d4a71194e0a709166950f686ca7a7bf5446eb0d44fce4e9a5bea"
+            },
+            "types": {
+              "count": 1495,
+              "sha256": "0504ce4f6b5f085bed33e498cf18175d0a72b544af1baabd6e45715937ae8945"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-10T16:38:53Z",
+        "summary": "Applied accepted batch 6 (plan sha256 f7197f46...d996) once: 24 MSL basic_filebuf read/write helpers, codecvt members, basic_ostream sentry constructors and std::__use_facet<...> templates renamed to readable names (template arguments demangled, commit 7824644) with mangled secondary labels; all 24 prototypes recorded skips (20 comma type names, 4 namespace-scope templates without receiver evidence, issue 6ec4362d). No globals, no types."
+      },
       "id": "socom:debug-batch:d0dc8987e5999c0d10d4-apply",
       "kind": "debug-import-apply-batch",
       "lease": null,
@@ -1477168,7 +1477296,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply reviewed DWARF compile-unit batch 006 (24 units)"
     },
     {
