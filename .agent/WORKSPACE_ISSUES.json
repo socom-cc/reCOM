@@ -699,8 +699,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Bridge GET values are decoded twice; =, &, % and + in names are misread"
+    },
+    {
+      "details": "Batch 6 plan review: the batch builder treats any demangled qualifier as a possible class, so namespace-scope free functions get the prototype skip 'no evidence whether the method has a receiver'. Examples: the four std::__use_facet<...> function templates (batch 6; a0 is the const locale&, a1 an unread empty __chooser<1> tag passed by value) and @unnamed@st_exit_cpp@::SetRoundStatUiVars (batch 18, issue fd70c05137acabd79df5). Skipping is safe but loses prototypes and the reason is imprecise. Proposed: when the qualifier resolves to a namespace (no class identity anywhere in the DWARF, e.g. std or @unnamed@<file>@) the function has no receiver and DWARF parameters apply directly, subject to the existing by-value, comma and provisional-type rules; re-review the affected batches' skips when it lands.",
+      "id": "socom:workspace-issue:6ec4362defaf7bd4b38b",
+      "kind": "problem",
+      "reported_at": "2026-10-10T16:21:11Z",
+      "reported_by": "socom-verifier",
+      "resolution": null,
+      "status": "open",
+      "summary": "Namespace-scope free functions are skipped as possible methods without receiver evidence"
     }
   ],
-  "revision": 83,
+  "revision": 84,
   "schema_version": 1
 }

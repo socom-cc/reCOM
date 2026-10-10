@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 133,
+  "revision": 136,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1476806,6 +1476806,10 @@
       "title": "Apply reviewed DWARF compile-unit batch 005 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-10T16:20:24Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 6,
         "compile_unit_ids": [
@@ -1476964,8 +1476968,24 @@
       "dependencies": [
         "socom:work:debug-type-foundation-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "commit 7824644 reviewed (the handoff text 1ac... means this commit): building all 16 batch programs in-process with the old and new readable_function_name differs only in the four batch 6 __use_facet readable names; operator spellings (operator<, operator<<, operator>>, operator->) pass readable_component unchanged",
+        "file-only batch-program preview build/apply/socom-debug-batch-d0dc8987e5999c0d10d4-apply.json sha256 2abbbdbc944f326758ef8998086a94e05e0447f253d9a9b9204d34967e0d0dc7",
+        "ghidra preflight --strict ok; my ghidra preflight-batch rerun (build/verify-b06/preflight.json) ok=True, errors 0, 48 bridge calls exactly as expected (24 rename_function_by_address strict_mode off + 24 create_label with the mangled name, in program order), 24 prototype skips, 0 unchanged; identical to the owner's report sha256 3321b8e1d4eb04a00f0cc5f922d7e1ec8fccf9f097c7ea1e2f7e6d89636be009 apart from plan_item_status; no Ghidra mutation (GETs and registered read-only commands only)",
+        "independent DWARF 1 walk of the item's 24 contiguous DIE ranges (224467-236417): 24 compile units, 24 top-level global_subroutine DIEs, 51 formal_parameter, 24 lexical_block, 54 local_variable (177 DIEs = plan selected_die_count), no unit-level variables; the 24 (low_pc, high_pc, mangled name, DIE offset) rows equal the plan's functions; plan die_ranges and compile_unit_ids equal the item's; all 22 type rows are referenced_only",
+        "independent ELF .symtab and demangling check of all 24 functions: one GLOBAL FUNC symbol each in section main, symtab size = DWARF high_pc - low_pc = live get_function_by_address body, no file-local copies, no j/b+nop thunks; my own demangling equals every readable name, including the four function templates std::__use_facet<std::ctype<char>>, <std::ctype<wchar_t>>, <std::codecvt<char,char,int>>, <std::codecvt<wchar_t,char,int>>; each name unique against .symtab, live list_functions (9715 rows), live data (51617 rows), case-folded variants, and the readable names of the 15 other batch programs; live namespaces are only switchD_* so qualified names stay flat global symbols as in earlier batches",
+        "plan build/import-plans/socom-debug-batch-d0dc8987e5999c0d10d4.json sha256 f7197f46c3f4ea73ecd2792f3c29634695a34b10527f46a5ac05cb34f6b8d996 from python tools/socom.py debug import-plan --batch socom:debug-batch:d0dc8987e5999c0d10d4 (tools HEAD 7824644); debug conflicts list --batch: 0",
+        "plan build/import-plans/socom-debug-batch-d0dc8987e5999c0d10d4.json sha256 f7197f46c3f4ea73ecd2792f3c29634695a34b10527f46a5ac05cb34f6b8d996 regenerates byte-identically at tools HEAD 7824644 (debug import-plan into build/verify-b06); batch-program from it regenerates build/apply/socom-debug-batch-d0dc8987e5999c0d10d4-apply.json sha256 2abbbdbc944f326758ef8998086a94e05e0447f253d9a9b9204d34967e0d0dc7 byte-identically; progress audit --strict ok at revision 135; debug conflicts list --batch count 0; audit independence ok; tests/tools 161 passed",
+        "preview content: 24 readable renames with mangled secondary labels; all 24 prototypes are recorded skips: 20 comma type names (basic_filebuf, codecvt, basic_ostream receivers), 4 std::__use_facet templates without receiver evidence (file-scope function templates); 3 provisional identities, named by no write",
+        "prototype skips justified: 20 receivers spell comma type names (basic_filebuf, basic_ostream sentry, codecvt; codecvt do_* receivers confirmed in __vt__Q23std14codecvt<c,c,i> at 0x471730 and <w,c,i> at 0x471700); the 4 __use_facet templates are namespace-scope functions: a0 const locale& moved to s1, a1 never read, callers pass the empty __chooser<1> tag by value as lb a1 from a 1-byte stack slot, so a prototype would hit the by-value class rule, two would also spell codecvt commas, and the ctype<char> return DIE 192773 is provisional; the recorded reason (no receiver evidence) is imprecise wording, not unsafe",
+        "python tools/socom.py ghidra preflight-batch report build/preflight/socom-debug-batch-d0dc8987e5999c0d10d4.json sha256 3321b8e1d4eb04a00f0cc5f922d7e1ec8fccf9f097c7ea1e2f7e6d89636be009: ok=True, errors=0; 48 bridge calls (24 create_label, 24 rename_function_by_address); 24 skips; 0 unchanged; no write outside the receipt scope; all scope types exist live",
+        "the first preview named the four __use_facet templates with mangled template arguments (std::__use_facet<Q23std8ctype<c>>); commit 1ac... at HEAD demangles a function template's own arguments (std::__use_facet<std::ctype<char>>); rebuilding all 16 batch programs with and without it differs only in those four names"
+      ],
+      "handoff": {
+        "owner": "socom-dwarf-importer",
+        "submitted_at": "2026-10-10T16:10:19Z",
+        "summary": "DWARF compile-unit batch 6 plan (MSL C++ basic_filebuf<char>/<wchar_t> read/write helpers, codecvt members, basic_ostream sentry constructors, std::__use_facet function templates) is conflict-free: 24 functions, no globals. Receipt scope: 24 functions, 13 types, all live."
+      },
       "id": "socom:debug-batch:d0dc8987e5999c0d10d4",
       "kind": "debug-import-plan-batch",
       "lease": null,
@@ -1476974,7 +1476994,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan DWARF compile-unit batch 006 (24 units)"
     },
     {
@@ -1477148,7 +1477168,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed DWARF compile-unit batch 006 (24 units)"
     },
     {
