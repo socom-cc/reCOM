@@ -77,9 +77,12 @@ python tools/socom.py ghidra fingerprint --output build/fingerprints/<name>.json
 
 `ghidra fingerprint` records the whole program, not a scope: every
 function's name, thunk/external flags and `get_function_by_address` details
-(signature, entry, body), every defined data item, every type, bookmarks, all
-memory blocks including overlays, and every reference into any block, with a
-digest per section. It is evidence beside the semantic receipt, not part of
+(signature, entry, body), every defined data item, every type's path and
+size (not its layout), the bookmark profile (counts by type and category, not
+each bookmark), all memory blocks including overlays, and every reference
+into any block, with a digest per section. Verifiers cover layouts with an
+all-types receipt and bookmarks with a full `list_bookmarks` read (issue
+5d602dad tracks recording both). It is evidence beside the semantic receipt, not part of
 it, and catches what a scoped receipt cannot see, such as a thunk prototype
 rewriting its target's signature. With `--compare <earlier.json>` it reports
 the differences by section (`--diff-output` writes them in full). It uses
