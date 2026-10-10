@@ -689,8 +689,18 @@
       "resolution": null,
       "status": "open",
       "summary": "std stream objects carry provisional structural types while MSL names the same classes"
+    },
+    {
+      "details": "Batch 5 apply review: the bridge URL-decodes GET query values twice, so a literal =, &, % or + in a value is cut short or rewritten (get_function_labels for the readable name std::_RefCountedPtr<...>::operator= answers 'Function not found: ...::operator'; search_functions name_pattern=operator= searches for 'operator'). Encoding the value twice (%253D on the wire) reads it exactly. GhidraBridge.request encodes once; the receipt's name-keyed get_struct_layout/get_enum_values reads therefore mark the two live types whose names contain & (Metrowerks alloc_ptr<...&...> and details::compressed_pair_imp<...&...>) as unreadable-name, failing closed rather than misreading. Writes use JSON POST bodies and are unaffected; functions and globals are read by address. Fixing the encoding (double-encode GET values, after confirming every GET endpoint the tools use double-decodes) makes those types readable and so changes the receipt of any accepted scope that contains them (e.g. the type foundation); it needs a receipt-schema or rebaseline plan so restore-accepted replays still reproduce. Documented under GHIDRA.md Bridge hazards.",
+      "id": "socom:workspace-issue:1989ea5b811d3dd7959e",
+      "kind": "problem",
+      "reported_at": "2026-10-10T16:03:38Z",
+      "reported_by": "socom-verifier",
+      "resolution": null,
+      "status": "open",
+      "summary": "Bridge GET values are decoded twice; =, &, % and + in names are misread"
     }
   ],
-  "revision": 82,
+  "revision": 83,
   "schema_version": 1
 }
