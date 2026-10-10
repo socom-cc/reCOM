@@ -583,6 +583,34 @@ def test_linker_labels_are_not_typed_as_globals(root: Path, batch_plan_path: Pat
     assert entry["skip"].startswith("only zero-size linker labels") and not entry["rename"] and entry["type"] is None
 
 
+def test_entry_argument_reads_contradict_undeclared_parameters(root: Path) -> None:
+    from tools._socom.elf import Elf32File
+
+    elf = Elf32File(root / "support" / "socom.elf")
+    # @8@72@__dt__Q23std39basic_ostream<c,...>Fv adjusts this: lw t9,0x48(a0);
+    # addiu a0,a0,-8; j dtor; addu a0,a0,t9. DWARF calls it void(void).
+    assert batch_apply._entry_argument_reads(elf, 0x14CA80, 16) == ({4}, set())
+    # CAppCamera::TickCameraWiggle(this, float dT, CCamera *cam): a0, a1, f12.
+    assert batch_apply._entry_argument_reads(elf, 0x1EA710, 64) == ({4, 5}, {12})
+    prototype = {"parameters": [{"type": "CAppCamera *"}, {"type": "float"}, {"type": "CCamera *"}]}
+    assert batch_apply._declared_argument_registers(prototype) == ({4, 5}, {12})
+    assert batch_apply._declared_argument_registers({"parameters": []}) == (set(), set())
+
+
+def test_adjustor_thunks_with_void_dwarf_are_skipped(root: Path, tmp_path: Path) -> None:
+    tracker = load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
+    item = next(row for row in tracker["work_items"] if row["id"] == "socom:debug-batch:b6704b7329debaa2ba1f")
+    plan = build_import_plan(root, {"work_item_id": item["id"], "selection": item["selection"], **item["batch"]})
+    path = tmp_path / "batch-008.json"
+    path.write_text(json.dumps(plan), encoding="utf-8")
+    functions = {row["address"]: row for row in batch_apply.build_batch_program(root, path)["functions"]}
+    for address in ("0x14ca80", "0x14ca90", "0x14caa0", "0x14cab0"):
+        assert functions[address]["prototype"] is None
+        assert functions[address]["prototype_skip"] == "the entry block reads a0, which the prototype does not declare"
+    # A full DWARF prototype that reads exactly its parameters still applies.
+    assert functions["0x14cc70"]["prototype"]["return_type"] == "void *"
+
+
 def test_thunk_target_needs_a_bare_jump_and_nop(root: Path) -> None:
     from tools._socom.elf import Elf32File
 

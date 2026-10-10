@@ -269,7 +269,12 @@ apply should only be claimed after its preflight is clean.
   function DWARF declares `void` whose direct caller reads `v0` or `f0` right
   after the call (before any write of it or control transfer) is a recorded
   contradiction skip, writing neither side (`sceVu0ClipBBox` returns its clip
-  mask to `TestFOV`). A by-value class, struct or union return or parameter is
+  mask to `TestFOV`). Likewise a prototype is skipped when the function's
+  entry block (up to its first branch and delay slot) reads an argument
+  register, `a0`-`t3` or `f12`-`f19`, before writing it and the prototype does
+  not declare that register: Metrowerks' `@8@72@__dt__...` this-adjusting
+  thunks read `a0` though DWARF records them as `void` with no parameters.
+  A by-value class, struct or union return or parameter is
   a recorded skip: Metrowerks passes a class result as a hidden pointer in
   `a0` ahead of `this` at every size and need not return it in `v0`
   (`CAppCamera::GetThirdPersonCamPos` returns `CPnt3D`), while Ghidra's r5900

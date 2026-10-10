@@ -370,6 +370,7 @@ def _canonical_rtti(elf: Elf32File, symbols: list[Any]) -> dict[str, int]:
     return canonical
 
 
+REGISTER_NAMES = {4: "a0", 5: "a1", 6: "a2", 7: "a3", 8: "t0", 9: "t1", 10: "t2", 11: "t3"}
 _LOADS = {0x1A, 0x1B, 0x1E, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x31, 0x36, 0x37}
 _STORES = {0x1F, 0x28, 0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x3F}
 
@@ -460,6 +461,94 @@ def _return_read_site(
                 live["f0"] = False
             address += 4
     return None
+
+
+def _writes(insn: int) -> tuple[set[int], set[int]]:
+    """(GPRs, FPRs) an R5900 instruction writes; reads after a write are not arguments."""
+
+    op, rs, rt = insn >> 26, (insn >> 21) & 31, (insn >> 16) & 31
+    rd, fd = (insn >> 11) & 31, (insn >> 6) & 31
+    if op in (0x00, 0x1C):  # SPECIAL, MMI: rd (jalr links rd)
+        return {rd} - {0}, set()
+    if op == 0x03:  # jal
+        return {31}, set()
+    if 0x08 <= op <= 0x0F or op in (0x18, 0x19):  # immediate ALU, lui
+        return {rt} - {0}, set()
+    if op == 0x31:  # lwc1
+        return set(), {rt}
+    if op in _LOADS:
+        return {rt} - {0}, set()
+    if op == 0x11:  # COP1
+        if rs in (0x00, 0x02):  # mfc1 / cfc1
+            return {rt} - {0}, set()
+        if rs == 0x04:  # mtc1
+            return set(), {rd}
+        if rs in (0x10, 0x14):  # S / W arithmetic and conversions
+            return set(), {fd}
+        return set(), set()
+    if op == 0x12 and rs in (0x01, 0x02):  # qmfc2 / cfc2
+        return {rt} - {0}, set()
+    return set(), set()
+
+
+def _is_control_transfer(insn: int) -> bool:
+    op = insn >> 26
+    if op == 0x00:
+        return insn & 0x3F in (0x08, 0x09)  # jr, jalr
+    if op == 0x11:
+        return (insn >> 21) & 31 == 0x08  # bc1
+    return op in (0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x14, 0x15, 0x16, 0x17)
+
+
+ARGUMENT_GPRS = (4, 5, 6, 7, 8, 9, 10, 11)  # a0-a3, t0-t3
+ARGUMENT_FPRS = tuple(range(12, 20))  # f12-f19
+
+
+def _entry_argument_reads(elf: Elf32File, address: int, size: int | None) -> tuple[set[int], set[int]]:
+    """Argument registers the entry block reads before writing them.
+
+    The block runs from the entry to the first control transfer and its
+    delay slot; every read there of a0-t3 or f12-f19 not yet written is an
+    incoming argument.
+    """
+
+    gprs: set[int] = set()
+    fprs: set[int] = set()
+    written_g: set[int] = set()
+    written_f: set[int] = set()
+    limit = address + (size or 64)
+    pc = address
+    transfer_at = None
+    while pc < limit:
+        insn = _word(elf, pc)
+        read_g, read_f = _reads(insn)
+        gprs |= {reg for reg in read_g if reg in ARGUMENT_GPRS and reg not in written_g}
+        fprs |= {reg for reg in read_f if reg in ARGUMENT_FPRS and reg not in written_f}
+        wrote_g, wrote_f = _writes(insn)
+        written_g |= wrote_g
+        written_f |= wrote_f
+        if transfer_at is not None:
+            break
+        if _is_control_transfer(insn):
+            transfer_at = pc
+        pc += 4
+    return gprs, fprs
+
+
+def _declared_argument_registers(prototype: dict[str, Any]) -> tuple[set[int], set[int]]:
+    """Registers Ghidra's r5900 __stdcall assigns a prototype's parameters.
+
+    Floats (4 bytes) take f12-f19 independently; every other parameter takes
+    the next of a0-t3 (doubles and long longs fit one 64-bit GPR).
+    """
+
+    gpr = fpr = 0
+    for param in prototype["parameters"]:
+        if param["type"] == "float":
+            fpr += 1
+        else:
+            gpr += 1
+    return set(ARGUMENT_GPRS[:gpr]), set(ARGUMENT_FPRS[:fpr])
 
 
 def _thunk_target(elf: Elf32File, address: int, size: int | None) -> int | None:
@@ -652,6 +741,20 @@ def build_batch_program(root: Path, plan_path: Path) -> dict[str, Any]:
         if prototype is not None and target is not None:
             prototype = None
             skip = f"thunk of 0x{target:x}; Ghidra gives a thunk its target's signature"
+        if prototype is not None:
+            # Executed code outranks DWARF: an argument register the entry
+            # block reads before writing is a parameter the prototype must
+            # declare (the @8@72@__dt__ this-adjusting thunks read a0 but
+            # DWARF records them as void with no parameters).
+            read_g, read_f = _entry_argument_reads(elf, row["low_pc"], function_sizes.get(row["low_pc"]))
+            declared_g, declared_f = _declared_argument_registers(prototype)
+            extra = sorted(read_g - declared_g) + sorted(read_f - declared_f)
+            if extra:
+                prototype = None
+                spelled = ", ".join(
+                    (f"f{reg}" if reg >= 12 and reg in read_f - declared_f else REGISTER_NAMES[reg]) for reg in extra
+                )
+                skip = f"the entry block reads {spelled}, which the prototype does not declare"
         if readable:
             names[readable] = names.get(readable, 0) + 1
         functions.append(
