@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 118,
+  "revision": 121,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1449383,7 +1449383,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "842f520612a56c58151f7b9f7b6cd155611f2636bf3bf5c5c36a8f2426954564",
+      "current_receipt_sha256": "7960c54b861f25056c0afe41669f6dc5ba1537a697c2d1f2aa23beca237c12c3",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -1449874,6 +1449874,31 @@
           "receipt_sha256": "842f520612a56c58151f7b9f7b6cd155611f2636bf3bf5c5c36a8f2426954564",
           "tracker_revision": 115,
           "work_item_id": "socom:debug-batch:581792cc68291427c414-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1495,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 24950
+          },
+          "indexes": {
+            "data": {
+              "count": 51617,
+              "sha256": "8b419a1ddba7a8598c5f4421e08401d8ddd59c56d416dfa6df9d629126139b03"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "ebf05b4f1707edfb8ce9c3d0235c9982af0c8aa573cc097b37e7282404c13ef3"
+            },
+            "types": {
+              "count": 1495,
+              "sha256": "0504ce4f6b5f085bed33e498cf18175d0a72b544af1baabd6e45715937ae8945"
+            }
+          },
+          "receipt_sha256": "7960c54b861f25056c0afe41669f6dc5ba1537a697c2d1f2aa23beca237c12c3",
+          "tracker_revision": 121,
+          "work_item_id": "socom:debug-batch:c433a303fc78c05392db-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -1475408,6 +1475433,10 @@
       "title": "Plan DWARF compile-unit batch 003 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-10T14:29:31Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 3,
         "compile_unit_ids": [
@@ -1475567,8 +1475596,219 @@
         "socom:debug-batch:c433a303fc78c05392db",
         "socom:work:ghidra-zero-fill-memory"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "corrected counts from the plan review: 55 present globals (the plan handoff said 53), 38 global renames = 31 vtable/RTTI + 7 counter/id objects, 39 untyped vtable/RTTI rows; the _reent conflict issue is socom:workspace-issue:4e071940403f0c1f610e. Tool commit 6ecd7e5 (after this apply) limits the conflict rule to batch-apply scopes and ignores analysis-assigned types; it does not change this batch's outcome",
+        "functions: each of the 23 addresses has one FUNC .symtab symbol whose size equals the DWARF high_pc-low_pc and the live body; get_function_labels shows the mangled name as the one extra USER_DEFINED label at each entry; readable names collide with no .symtab, live function or live data name at another address (checked against b02-after). The 6 prototypes match DWARF (return void *, this pointer to the class, DWARF this register s4/s0/s0/s1/s0/s1) and the mangled Fv signatures plus the hidden destructor short; raw ELF words show a0 copied to that register, a1 sign-extended as 16 bits (dsll32/dsra32 16) in the 4 destructors, no a1 read in the 2 constructors, and v0 = this on every path to the single jr ra",
+        "ghidra fingerprint after (build/fingerprints/b03-after.json sha256 b1b92f238c7484c452dd3055ac0cae549a739c0e709f8dc002ecc5faa30ac8ce; diff build/fingerprints/b03-diff.json sha256 30525afdab9c9b97cc520e14251f0f893ed0663e180766d5b1523ec34fdeb095): functions changed only at the 23 batch entries; references 183630 identical; blocks and bookmarks identical; data -34/+41, every row inside a batch global extent (31 vtable/RTTI and 7 counter/id renames, 7 newly typed globals); types +3, none removed: /project/std/__nInit *, /project/std/__wInit *, /project/std/locale/facet * (this-pointer types created by set_function_prototype)",
+        "ghidra fingerprint before (build/fingerprints/b03-before.json sha256 4b64d4c501ee930b85fd211048a40562f923f68ee975302f03174b46d6cb4527) is identical in every section to batch 2's accepted after-fingerprint build/fingerprints/b02-after.json (which the batch 2 verifier's own live fingerprint equalled): 9715 functions, 51610 data, 1492 types, bookmarks, 28 blocks, 183630 references",
+        "ghidra-receipt-sha256:7960c54b861f25056c0afe41669f6dc5ba1537a697c2d1f2aa23beca237c12c3",
+        "ghidra-save:explicit-program",
+        "globals: 7 typed globals are 4-byte .symtab objects in the zero fill that had no live data before; live int/int/uint/id x4, length 4 each, matching DWARF signed int/signed int/unsigned int/class id (4 B, member id_); int, uint and id are unique bare type names live; 38 renames: list_globals shows each readable name only at its own address and the mangled name exactly at its .symtab address set; canonical-copy rule rechecked from vtable word 0 R_MIPS_32 targets (logic_error 0x444e38 canonical and renamed; ios_base 0x444818, exception 0x444608, facet 0x444888 canonical so the batch copies keep mangled names and carry no readable label; ctype_base has no vtable); the 12 unchanged names are batch 2 renames at their own address",
+        "live: ghidra preflight --strict ok (analyzed, not analyzing, 716 bookmarks, no Error/Warning); ghidra receipt over the stored scope reproduces 7960c54b861f25056c0afe41669f6dc5ba1537a697c2d1f2aa23beca237c12c3 (build/verify-acc03/receipt.json); the 4 ambiguous-name markers are the two entry types (Metrowerks range_map<wchar_t, unsigned char>::entry 6 B, range_map<wchar_t, wchar_t>::entry 8 B) and the two sentry types (basic_ostream<char>::sentry, basic_ostream<wchar_t>::sentry, 8 B), each pair sharing its bare name only with the other (already listed in issue 76952369)",
+        "pre-handoff receipt 7960c54b861f25056c0afe41669f6dc5ba1537a697c2d1f2aa23beca237c12c3: data 51617 8b419a1d..., functions 9715 ebf05b4f..., types 1495 0504ce4f...; scope 23 functions, 55 globals, 68 types; read-back markers: ambiguous-name x4",
+        "python tools/socom.py ghidra apply-batch: program build/apply/socom-debug-batch-c433a303fc78c05392db-apply.json sha256 77e65e061717f0b1f97448988c09e430b72a06317ee3163a1ed3100b73214d7a (regenerated from the accepted plan at commit 8a87bfc), 135 bridge calls exactly as ghidra preflight-batch predicted after the claim (23 rename_function_by_address, 61 create_label, 6 set_function_prototype, 7 apply_data_type, 38 rename_label); 69 recorded skips incl. _impure_ptr as a cross-batch conflict (live _reent@1aa0a63ac4 * kept); every name, Signature line, global type and length read back equal; report sha256 513c0cde16d9fbf8aebf2846a6be5d0186368e8ed1aece9a136dbc5aa84b1475",
+        "skips keep prior state: _impure_ptr still _reent@1aa0a63ac4 * length 4 (in the accepted batch-apply scopes of batches 001, 010, 013, 018), the 8 std streams keep batch 2's basic_istream@79dedcebec/@540aa989ac and basic_ostream@c2b9bc22d1/@f5a2ddea89 types (104/88 B), the 4 non-canonical RTTI copies and 39 member-less @anon vtable/RTTI DIEs have unchanged data. Tool commit 6ecd7e5 does not change this apply's calls: before the apply the 7 typed zero-fill globals had no live type, so neither rule could skip them, and _impure_ptr's live DWARF type is not an analysis type and sits in 4 batch-apply scopes, so both rules skip it; no other program global carries a type",
+        "tests: uv run pytest tests/tools 160 passed; audit independence ok; issue audit ok",
+        "tracker: progress audit --strict ok at revision 120; item awaiting_acceptance, no leases; plan item socom:debug-batch:c433a303fc78c05392db accepted (committed revision 118) citing plan sha256 328ed68a2face764e413652bb9853cedcb4bda056ab768865ab11facd4ee1357; at tools HEAD 6ecd7e5 debug import-plan regenerates the plan and debug batch-program regenerates the program build/apply/socom-debug-batch-c433a303fc78c05392db-apply.json sha256 77e65e061717f0b1f97448988c09e430b72a06317ee3163a1ed3100b73214d7a byte-identically (build/verify-acc03/plan.json, program.json); stored receipt scope equals the scope file and the program receipt_scope (23 functions, 55 globals, 68 types)",
+        "types: the 3 new types are /project/std/__nInit *, /project/std/__wInit *, /project/std/locale/facet * (4 B), the this-pointer types of the 5 applied __nInit/__wInit/facet prototypes (__locale_imp<1> * already existed); a receipt over batch 2's verifier all-types scope (840 project types) reproduces every recorded type fact of build/verify-acc02/alltypes-receipt.json exactly (795 full layouts; markers 17 ambiguous, 26 no-component-readback, 2 unreadable unchanged); full list_bookmarks (716 rows with address, type, category, comment) identical to the batch 2 verifier capture",
+        "whole program: my own ghidra fingerprint build/verify-acc03/fp-now.json is byte-identical to build/fingerprints/b03-after.json (sha256 b1b92f238c7484c452dd3055ac0cae549a739c0e709f8dc002ecc5faa30ac8ce); b02-after.json equals the batch 2 verifier's live fingerprint build/verify-acc02/fp-now.json (sha256 4b64d4c5...4527); my diff against it (build/verify-acc03/fp-now-vs-b02.json) equals b03-diff.json: blocks (28) and all 183630 references identical; functions changed only at the 23 batch entries (name and signature lines, entry/body/thunk/external unchanged; the 17 prototype skips change only the name); data -34/+41, all inside batch .symtab extents (31 vtable/RTTI renames, 3 Ghidra PTR_ labels at 0x4716ac/b0/b4 inside the basic_streambuf<char> vtable that follow the renamed uflow/pbackfail/xsputn, 7 new typed zero-fill globals); types +3 none removed"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "7960c54b861f25056c0afe41669f6dc5ba1537a697c2d1f2aa23beca237c12c3",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x144cd0",
+            "0x144d50",
+            "0x144e80",
+            "0x144ed0",
+            "0x145160",
+            "0x1451e0",
+            "0x145400",
+            "0x145690",
+            "0x145710",
+            "0x145990",
+            "0x145a60",
+            "0x145ad0",
+            "0x145ae0",
+            "0x145af0",
+            "0x145b00",
+            "0x145b10",
+            "0x145b20",
+            "0x145b30",
+            "0x145b40",
+            "0x145ba0",
+            "0x145bb0",
+            "0x145bc0",
+            "0x145cf0"
+          ],
+          "globals": [
+            "0x43bf74",
+            "0x4448d8",
+            "0x444928",
+            "0x444948",
+            "0x4449a8",
+            "0x4449f0",
+            "0x444a48",
+            "0x444ad0",
+            "0x444af8",
+            "0x444b58",
+            "0x444b98",
+            "0x444be8",
+            "0x444c50",
+            "0x444ca8",
+            "0x444cc8",
+            "0x444ce8",
+            "0x444d28",
+            "0x444d60",
+            "0x444d88",
+            "0x444e38",
+            "0x444e58",
+            "0x471510",
+            "0x471530",
+            "0x471540",
+            "0x471550",
+            "0x471560",
+            "0x471578",
+            "0x471590",
+            "0x4715b0",
+            "0x4715f0",
+            "0x471630",
+            "0x471648",
+            "0x471660",
+            "0x471680",
+            "0x4716c0",
+            "0x471700",
+            "0x471730",
+            "0x471760",
+            "0x4717a0",
+            "0x4717b0",
+            "0x475604",
+            "0x475608",
+            "0x475634",
+            "0x47563c",
+            "0x475660",
+            "0x475664",
+            "0x475668",
+            "0x477180",
+            "0x4771f0",
+            "0x477250",
+            "0x4772b0",
+            "0x477310",
+            "0x477380",
+            "0x4773e0",
+            "0x477440"
+          ],
+          "types": [
+            "/project/__sbuf",
+            "/project/__sFILE",
+            "/project/_atexit",
+            "/project/_Bigint",
+            "/project/_glue",
+            "/project/_MSLstring",
+            "/project/event",
+            "/project/fmtflags",
+            "/project/Init",
+            "/project/iostate",
+            "/project/Metrowerks/range_map<wchar_t, unsigned char>",
+            "/project/Metrowerks/range_map<wchar_t, unsigned char>/entry",
+            "/project/Metrowerks/range_map<wchar_t, wchar_t>",
+            "/project/Metrowerks/range_map<wchar_t, wchar_t>/entry",
+            "/project/result",
+            "/project/std/__locale_imp<1>",
+            "/project/std/__nInit",
+            "/project/std/__vector_deleter<Metrowerks::range_map<wchar_t, unsigned char>::entry, std::allocator<Metrowerks::range_map<wchar_t, unsigned char>::entry>>",
+            "/project/std/__vector_deleter<Metrowerks::range_map<wchar_t, wchar_t>::entry, std::allocator<Metrowerks::range_map<wchar_t, wchar_t>::entry>>",
+            "/project/std/__vector_imp<Metrowerks::range_map<wchar_t, unsigned char>::entry, std::allocator<Metrowerks::range_map<wchar_t, unsigned char>::entry>, 0>",
+            "/project/std/__vector_imp<Metrowerks::range_map<wchar_t, wchar_t>::entry, std::allocator<Metrowerks::range_map<wchar_t, wchar_t>::entry>, 0>",
+            "/project/std/__vector_pod<unsigned int, std::allocator<unsigned int>>",
+            "/project/std/__wInit",
+            "/project/std/_RefCountedPtr<char, std::_Array<char>>",
+            "/project/std/_RefCountedPtr<std::__locale_imp<1>, std::_Single<std::__locale_imp<1>>>",
+            "/project/std/basic_filebuf<char, std::char_traits<char>>",
+            "/project/std/basic_filebuf<wchar_t, std::char_traits<wchar_t>>",
+            "/project/std/basic_istream<char, std::char_traits<char>>",
+            "/project/std/basic_istream<wchar_t, std::char_traits<wchar_t>>",
+            "/project/std/basic_ostream<char, std::char_traits<char>>",
+            "/project/std/basic_ostream<char, std::char_traits<char>>/sentry",
+            "/project/std/basic_ostream<wchar_t, std::char_traits<wchar_t>>",
+            "/project/std/basic_ostream<wchar_t, std::char_traits<wchar_t>>/sentry",
+            "/project/std/basic_streambuf<char, std::char_traits<char>>",
+            "/project/std/basic_streambuf<wchar_t, std::char_traits<wchar_t>>",
+            "/project/std/basic_string<char, std::char_traits<char>, std::allocator<char>>",
+            "/project/std/basic_string<char, std::char_traits<char>, std::allocator<char>>/CharArray",
+            "/project/std/codecvt<char, char, int>",
+            "/project/std/codecvt<wchar_t, char, int>",
+            "/project/std/codecvt_base",
+            "/project/std/ctype<wchar_t>",
+            "/project/std/ctype_base",
+            "/project/std/exception",
+            "/project/std/ios_base",
+            "/project/std/ios_base/failure",
+            "/project/std/ios_base/openmode",
+            "/project/std/ios_base/seekdir",
+            "/project/std/length_error",
+            "/project/std/locale",
+            "/project/std/locale/facet",
+            "/project/std/locale/id",
+            "/project/std/logic_error",
+            "/project/tm",
+            "/project/unresolved/__vector_imp@897b056bcc",
+            "/project/unresolved/_EmptyMemberOpt@6a0491c16e",
+            "/project/unresolved/_EmptyMemberOpt@6f5d001726",
+            "/project/unresolved/_reent@b152c1df75",
+            "/project/unresolved/allocator@fcc7a85d51",
+            "/project/unresolved/basic_ios@9f5ffb6bd9",
+            "/project/unresolved/basic_ios@f2995a069a",
+            "/project/unresolved/compile_assert@042f6a98d7",
+            "/project/unresolved/compressed_pair@30d44a8521",
+            "/project/unresolved/compressed_pair_imp@2aa399c6cd",
+            "/project/unresolved/ctype@d012e8e612",
+            "/project/unresolved/fpos@f689822cdb",
+            "/project/unresolved/pair@445b2acfe8",
+            "/project/unresolved/vector@2db35e5b0b",
+            "/project/unresolved/vector@9b221167bc"
+          ]
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1495,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 24950
+          },
+          "indexes": {
+            "data": {
+              "count": 51617,
+              "sha256": "8b419a1ddba7a8598c5f4421e08401d8ddd59c56d416dfa6df9d629126139b03"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "ebf05b4f1707edfb8ce9c3d0235c9982af0c8aa573cc097b37e7282404c13ef3"
+            },
+            "types": {
+              "count": 1495,
+              "sha256": "0504ce4f6b5f085bed33e498cf18175d0a72b544af1baabd6e45715937ae8945"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-10T14:11:22Z",
+        "summary": "Applied accepted batch 3 (plan sha256 328ed68a...1357) once: 23 MSL iostream functions renamed with mangled secondary labels and 6 prototypes (__locale_imp<1> and locale::facet destructors, __nInit/__wInit constructors and destructors), 7 globals typed (ninit/winit counters, id_count_s, 4 locale id objects), 38 globals renamed (31 vtable/RTTI, 7 counters/ids); 12 names from batch 2 unchanged. Recorded skips: 17 comma-named prototypes, 8 comma-named stream types, 39 untyped vtable/RTTI structures, 4 file-local RTTI copies, and _impure_ptr's type as a cross-batch conflict. Ghidra side effects: 3 this-pointer types."
+      },
       "id": "socom:debug-batch:c433a303fc78c05392db-apply",
       "kind": "debug-import-apply-batch",
       "lease": null,
@@ -1475578,7 +1475818,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply reviewed DWARF compile-unit batch 003 (24 units)"
     },
     {

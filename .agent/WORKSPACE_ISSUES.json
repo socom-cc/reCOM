@@ -679,8 +679,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Two runtime _reent layouts (752 and 748 bytes) disagree on _impure_ptr's type"
+    },
+    {
+      "details": "Batch 3 apply review: the eight std stream objects (std::cin, cout, clog, cerr and the wide streams) have two equal-size type identities. Batch 2 typed them with provisional structural classes such as /project/unresolved/basic_istream@79dedcebec and basic_ostream@c2b9bc22d1 (104 and 88 bytes); MSL's iostream unit in batch 3 names the same classes /project/std/basic_istream<char, std::char_traits<char>> and similar. Batch 3 skipped them only because comma type names cannot be spelled through the bridge. If that limit is lifted, the cross-batch conflict rule keeps batch 2's typing, but the two identities should be reconciled into one in ghidra-reconstruction (compare layouts member by member, keep the qualified name). Related: the _reent layouts (socom:workspace-issue:4e071940403f0c1f610e) and comma names (socom:workspace-issue:06c2c23d0b97ea106927).",
+      "id": "socom:workspace-issue:b51f7195ae6cbc66c2d5",
+      "kind": "problem",
+      "reported_at": "2026-10-10T14:30:23Z",
+      "reported_by": "socom-verifier",
+      "resolution": null,
+      "status": "open",
+      "summary": "std stream objects carry provisional structural types while MSL names the same classes"
     }
   ],
-  "revision": 81,
+  "revision": 82,
   "schema_version": 1
 }
