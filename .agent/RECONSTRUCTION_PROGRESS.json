@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 109,
+  "revision": 112,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1461214,6 +1461214,10 @@
       "title": "Restore the CGame signatures batch 001 changed through COurGame thunks"
     },
     {
+      "accepted": {
+        "at": "2026-10-10T02:30:45Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 2,
         "compile_unit_ids": [
@@ -1461372,8 +1461376,23 @@
       "dependencies": [
         "socom:work:debug-type-foundation-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "double ABI check: _dpfgt (0x142140) passes a0/a1 unchanged to dpcmp (0x16e1c0), which stores them with sd a0,0x40(sp) / sd a1,0x48(sp) as 64-bit soft-float doubles; the installed Ghidra 12.1.4 r5900.cspec float pentries take at most 4 bytes and a0-t3 take up to 8, so double parameters land in a0 and a1, matching; result int in v0 (slt v0,zero,v0)",
+        "file-only batch-program preview build/apply/socom-debug-batch-581792cc68291427c414-apply.json sha256 d6b4bba923bafd5ebc2a7f0ead12e16c690879bf4687b395f50cce78fcd4a7f8: 19 renames (the three C double compares _dpfgt/_dpflt/_dpfeq keep their names), 15 prototypes; prototype skips: 5 with comma type names the bridge cannot parse (basic_streambuf setbuf x2, _RefCountedPtr ctor/dtor x3), 1 class without plan identity (CharArray::makeUnique), 1 without receiver evidence (std::allocator<char>::allocate); globals: 8 typed (std::cin/cout/clog/cerr and wide streams, renamed), 8 vtable/RTTI structures without a Ghidra type, 1 non-canonical exception RTTI copy keeps its mangled name",
+        "functions: all 22 live bodies equal their single .symtab copy's size, live signatures are still undefined(void), none is a thunk (setbuf x2 and failure::what are jr ra leaves). Code vs prototypes: _zmalloc<four>/<twelve>::acquire read a0/a1 and return void* in v0; both ctors store a1 at this+0x10 and return move v0,s0; init_page x2, CGameState::SetName, CharArray::reserve and ios_base::init are void and no direct jal caller (0x141854, 0x141914, 0x469f58 in __sinit_main.cpp, 0x141c40/0x141cb4, 0x1463c0/0x146520/0x146848/0x146b68) reads v0 before writing it; CMenuState ctor spills a0 to 0x34(sp) (the DWARF sp storage) and returns lw v0,0x34(sp); ~ios_base sign-extends a1 bits 0-15 (dsll32/dsra32 0x10), deletes when >0, returns this and stores __vt__Q23std8ios_base at +0, so short __dtor_flags fits; ios_base::init stores a1 at this+0x24 and sets badbit when a1 is 0, so void* sb matches the mangled FPv, DWARF and MSL's non-template ios_base; failure::what returns lw v0,4(a0). Doubles: the installed Ghidra 12.1.4 emotionengine-reloaded r5900.cspec __stdcall has f12-f19 pentries maxsize 4 and a0-t3 maxsize 8, so double left/right fall back to a0/a1; dpcmp 0x16e1c0 stores both with sd; callers pass 64-bit values in a0/a1 (dsll32-built constant at 0x1c79f8, fptodp v0 results) and test v0 as int.",
+        "globals: canonical RTTI holds: word 0 of each single __vt__ (R_MIPS_32) points to 0x444818 (ios_base, 1 of 2), 0x444860 (failure, only copy), 0x444888 (locale::facet, 1 of 3); __vt__Q23std9exception points to 0x444608, so 0x444848 (1 of 5) correctly keeps its mangled name; method words relocated, word 1 zero. The 8 vt/RTTI DWARF types are anonymous @anon records with no Ghidra type (type skips; live data stays undefined8/undefined1[N]). Streams: zero-fill placement (above file-backed end 0x475600), .symtab sizes 104/88 equal live basic_istream/basic_ostream sizes, no .symtab symbol and no live data item inside or adjacent to any extent, live length 0; audit_global returns is_code_address for code (probed at 0x141710), so the executor's code refusal is effective and clear_existing touches only each object's own extent.",
+        "independent review at tools HEAD 9e1f56b (clean tools/tests/docs), revision 111, progress audit --strict ok, no leases; doctor --infrastructure-only --ghidra ok; ghidra preflight --strict ok; audit workflow-contracts/agent-surface --strict ok; 155 tool tests pass. Plan build/import-plans/socom-debug-batch-581792cc68291427c414.json sha256 7870f82ae33d572d05a17a06c193fa1960da783644d6be88c58d1dfe4507514f regenerates byte-identically; debug batch-program regenerates preview build/apply/socom-debug-batch-581792cc68291427c414-apply.json sha256 d6b4bba923bafd5ebc2a7f0ead12e16c690879bf4687b395f50cce78fcd4a7f8 byte-identically; debug conflicts list --batch: 0 rows. Plan die_ranges/compile_unit_ids/source_paths equal the item's 24 ranges; an independent DWARF 1 walk of .debug over those ranges finds exactly the plan's 22 subprograms with low_pc and 17 CU-level variables (the __dt function-object at 0x1448d0 is correctly not a global).",
+        "non-blocking notes: (a) allocate__Q23std12allocator<c>FUiPCv (0x142090) is filed under MSL Include/memory but reads main.cpp STB_LOCAL twelve_pool (0x476f10) and four_pool (0x476f30), so it is an authored allocator customization rather than plain MSL provider code (settle in source-correlation); it reads n from a1 and overwrites a0 unread, which supports a receiver the tool cannot yet prove. (b) the copy ctor at 0x144b80 takes std::_RefCountedPtr<std::__locale_imp<1>,std::_Single<std::__locale_imp<1>>>::_RefCountedPtr, which its overload at 0x14cea0 (FPQ23std15__locale_imp<1>) demangles to as well; the later batch will skip that rename and keep the mangled name. (c) MSL paths come from two installs: cw301 headers instantiated in the game objects (string, memory, gcc_wrapper.c) and 2.4_FE_Based_4.2.5 for prebuilt ios.cpp, streambuf, ios and RefCountedPtrArray.h, which is provider-provenance evidence.",
+        "plan build/import-plans/socom-debug-batch-581792cc68291427c414.json sha256 7870f82ae33d572d05a17a06c193fa1960da783644d6be88c58d1dfe4507514f from python tools/socom.py debug import-plan --batch socom:debug-batch:581792cc68291427c414 (tools HEAD 9e1f56b); debug conflicts list --batch: 0; 15 provisional identities",
+        "provisional identities (15): no applied name or prototype depends on one; only the 8 stream globals' types do (basic_istream@79dedcebec cin, @540aa989ac wcin, basic_ostream@c2b9bc22d1 cout/clog/cerr, @f5a2ddea89 wcout/wclog/wcerr), taken directly from each variable's DWARF type DIE; the char/wchar_t split is consistent (basic_ios@f2995a069a fill_ char vs basic_ios@9f5ffb6bd9 fill_ FT 0x6 ushort, tiestr_ to the matching ostream) and the live layouts agree. My preflight-batch rerun (build/verify-b02/preflight.json): ok, no errors, 91 calls (19 rename_function_by_address, 34 create_label, 15 set_function_prototype, 8 apply_data_type, 15 rename_label), 16 skips; steps, skips and summary identical to the handed-off report (only plan_item_status differs).",
+        "python tools/socom.py ghidra preflight-batch report build/preflight/socom-debug-batch-581792cc68291427c414.json sha256 ebb0bb7d79aaaf9c55ce89debd7df0cff8f4b9a7dda5997dea01f8450ef42fdb: ok, no errors; 91 bridge calls (19 rename_function_by_address, 34 create_label, 15 set_function_prototype, 8 apply_data_type, 15 rename_label); 16 skips; no write outside the receipt scope; all 39 scope types exist live",
+        "skips: 5 comma type names (basic_streambuf setbuf x2, _RefCountedPtr copy ctor/dtor/ctor, all returning this), makeUnique (std::allocator<CharArray>& has no plan identity; it returns CharArray* in v0, not by value), allocator<char>::allocate (DWARF has no this; conservative skip). No applied prototype has a by-value class, comma or ampersand type; every spelled base type resolves exactly once ignoring case among 1489 live types with the expected size (CharArray 16, ios_base 64, failure 12, _zmalloc<four>/<twelve> 32, CGameState 8, CMenuState 100). Readable names: no exact .symtab collision; none of the 34 matches any of 9715 live function or 51602 live data names ignoring case; names with :: inside template arguments already round-trip on 30 live functions."
+      ],
+      "handoff": {
+        "owner": "socom-dwarf-importer",
+        "submitted_at": "2026-10-10T02:14:19Z",
+        "summary": "DWARF compile-unit batch 2 plan (main.cpp with _zmalloc<four>/<twelve> pools, CGameState/CMenuState; MSL basic_string CharArray, ios_base, basic_streambuf, _RefCountedPtr, std::cin/cout/cerr/clog and wide streams; gcc_wrapper.c double compares) is conflict-free: 22 functions, 16 present globals. Receipt scope: 22 functions, 16 globals, 39 types, all live."
+      },
       "id": "socom:debug-batch:581792cc68291427c414",
       "kind": "debug-import-plan-batch",
       "lease": null,
@@ -1461382,7 +1461401,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan DWARF compile-unit batch 002 (24 units)"
     },
     {
@@ -1461556,7 +1461575,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed DWARF compile-unit batch 002 (24 units)"
     },
     {
