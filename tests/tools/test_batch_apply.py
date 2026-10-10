@@ -189,6 +189,37 @@ def test_batch_scope_check_flags_writes_outside_and_scope_beyond_the_program() -
     assert cli._batch_scope_problems(program, result, {"/project/A"})[0] == "scope type /project/B does not exist live"
 
 
+def test_vtable_receivers_with_unparseable_type_names_are_skipped(root: Path, tmp_path: Path) -> None:
+    tracker = load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
+    item = next(row for row in tracker["work_items"] if row["id"] == "socom:debug-batch:c433a303fc78c05392db")
+    plan = build_import_plan(root, {"work_item_id": item["id"], "selection": item["selection"], **item["batch"]})
+    path = tmp_path / "batch-003.json"
+    path.write_text(json.dumps(plan), encoding="utf-8")
+    functions = {row["address"]: row for row in batch_apply.build_batch_program(root, path)["functions"]}
+    # basic_streambuf<wchar_t>::sync has its receiver from the vtable, whose
+    # class name has a comma the bridge would split the prototype at.
+    sync = functions["0x145af0"]
+    assert sync["receiver"].startswith("vtable:") and sync["prototype"] is None
+    assert "cannot parse" in sync["prototype_skip"] and sync["rename"]
+    assert not any(
+        batch_apply.UNSPELLABLE.search(param["type"])
+        for row in functions.values()
+        if row["prototype"]
+        for param in row["prototype"]["parameters"]
+    )
+
+
+def test_executor_refuses_an_unparseable_prototype_before_writing(program: dict) -> None:
+    program = copy.deepcopy(program)
+    entry = next(row for row in program["functions"] if row.get("prototype"))
+    entry["prototype"]["parameters"][0]["type"] = "basic_streambuf<char, std::char_traits<char>> *"
+    names = {row["address"]: row["current_name"] for row in program["functions"]}
+    bridge = _FakeBridge(program, names)
+    with pytest.raises(SocomError, match="cannot parse"):
+        batch_apply.execute_batch_program(program, bridge, type_index=lambda: [], function_names=lambda: names)
+    assert bridge.calls == []
+
+
 def test_composite_typedef_with_a_missing_target_fails_closed() -> None:
     types = batch_apply._Types(
         {

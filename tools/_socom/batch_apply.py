@@ -607,6 +607,12 @@ def build_batch_program(root: Path, plan_path: Path) -> dict[str, Any]:
             return_type, reason = types.render(row.get("return_type"))
             if return_type is None:
                 skip = skip or reason
+            # Every spelling is checked here, whatever its source: a vtable
+            # receiver (basic_streambuf<wchar_t, std::char_traits<wchar_t>> *)
+            # is not rendered through render().
+            unspellable = next((p["type"] for p in params if UNSPELLABLE.search(p["type"])), None)
+            if unspellable is not None:
+                skip = skip or f"type name {unspellable!r} contains characters the bridge cannot parse"
             if skip is None:
                 prototype = {
                     "return_type": return_type,
@@ -883,6 +889,18 @@ def execute_batch_program(
         if found != 1:
             return f"type name {base!r} resolves {found} times ignoring case"
         return None
+
+    # The bridge splits a prototype at commas; refuse before any write.
+    for entry in program["functions"]:
+        prototype = entry.get("prototype")
+        if not prototype:
+            continue
+        for type_name in (prototype["return_type"], *(param["type"] for param in prototype["parameters"])):
+            if UNSPELLABLE.search(type_name):
+                raise SocomError(
+                    f"prototype for {entry['address']} spells {type_name!r}, which the bridge cannot parse; "
+                    "regenerate the program"
+                )
 
     existing = function_names()
     log(f"functions: {len(program['functions'])}")
