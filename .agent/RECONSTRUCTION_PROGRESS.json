@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 151,
+  "revision": 154,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1461899,6 +1461899,10 @@
       "title": "Apply reviewed DWARF compile-unit batch 002 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-11T00:07:37Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 9,
         "compile_unit_ids": [
@@ -1462057,8 +1462061,28 @@
       "dependencies": [
         "socom:work:debug-type-foundation-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "15 prototype skips confirmed: 14 receivers whose names contain commas (basic_string x10, _RefCountedPtr, __vector_deleter swap and ctor, __vector_imp operator[]) and std::swap<unsigned_int> without receiver evidence",
+        "cross-batch: none of the 12 to-be-typed addresses is in an earlier accepted batch apply scope (only the zero-fill map scope, which types nothing); the 12 unchanged entries equal live state (types of gopt, _impure_ptr, appCamera, m_world, theMission, m_assets, thePipe, m_texmanager; names of m_world, m_assets, m_texmanager, TexPhase); TexPhase int[17][3] (DWARF outer 0..16 of int[0..2], 204 bytes) stays a not-defined skip and is untyped live; no write uses a provisional identity (every written type resolves by method/call-site/symbol evidence or is a builtin)",
+        "file-only batch-program preview build/apply/socom-debug-batch-02dc33eec1e272662fba-apply.json sha256 d3542c56d27521fd93d4cde80f508d3f3b7fc670ce845f5eb55531c5689bc69b",
+        "functions: all 23 live bodies equal .symtab start+size; no batch mangled name at a second address; none is a j/b thunk; live names are the mangled originals; the 3 rename skips are distinct overloads already holding the readable name (0x14cdc0 do_tolower(char) from batch 8, 0x144b80 _RefCountedPtr copy ctor from batch 2, 0x173500 generic_iterator<0>(node*) ctor); 6 in-batch overloads (do_widen x2, do_narrow x2, basic_string ctor x2) keep mangled names; the 21 readable names (14 functions, 7 globals) are correct demangles, mutually unique and absent from .symtab",
+        "ghidra preflight --strict ok; my ghidra preflight-batch rerun (build/verify-b09/preflight.json) equals the handoff report build/preflight/socom-debug-batch-02dc33eec1e272662fba.json in every field except plan_item_status: ok, 0 errors, 62 calls (8 set_function_prototype, 14 rename_function_by_address, 12 apply_data_type, 7 rename_label, 21 create_label), 21 skips, 12 unchanged; tests/tools 164 passed; audit independence ok; doctor --infrastructure-only --ghidra ok; progress audit --strict ok at revision 153",
+        "globals: all 21 in PT_LOAD 0 (gopt and _impure_ptr file-backed, the rest zero fill); .symtab OBJECT sizes equal type sizes (__nInit/__wInit 1, CSTable 28, CZAR 164, CTickLightList 12, pointers 4); no foreign .symtab symbol inside any extent; references are HI16/LO16 pairs or GPREL16 only; bare type names resolve live exactly once to the DWARF identity paths (/project/zdb/CWorld for theWorld and m_world, /project/zdb/CTexHandle, /project/zdb/CNode, /project/zdb/CNodeUniverse, /project/CSTable, /project/zar/CZAR, /project/std/ctype<char>, and generic_iterator<0> and node_base under /project/std/__list_deleter<void const*, std::allocator<void const*>>); byte-wise audit_global over all 234 bytes of the 12 to-be-typed extents found no defined data or code (only the reference label DAT_0047e8f0 inside archive), so clear_existing is safe",
+        "independent ELF32/DWARF 1 reader (own parser, not tools/_socom): .debug has 959 CUs; item die_ranges equal CUs 192-215 exactly (24 consecutive, source paths equal); 3467 non-null DIEs = selected_die_count; 23 CU-level subprograms with low_pc = plan functions; 29 CU-level variables = 21 present (= program globals) + 8 absent at address 0 (5 __RTTI__ copies, _index, c_szCornerBoxesTx, c_szHudScrollArrowTex)",
+        "non-blocking: the handoff narrative lists theWorld as unchanged and m_world/m_assets as typed, but the program types theWorld (live untyped) and leaves m_world/m_assets unchanged (counts are right); the std::swap<unsigned_int> prototype skip is conservative (DWARF records exactly a and b, code reads only a0/a1); overload readable names depend on batch order; accepted batch 13's stored program no longer regenerates at HEAD (TexPhase int[3][17] -> int[17][3] and 3 later file-local rename skips), with no live effect",
+        "plan build/import-plans/socom-debug-batch-02dc33eec1e272662fba.json sha256 d479606de5be6796ce5ffb323f9a390618bede9175b129d37cf2a8a3725b915e from python tools/socom.py debug import-plan --batch socom:debug-batch:02dc33eec1e272662fba (tools HEAD 99dc028); debug conflicts list --batch: 0",
+        "preview content: 14 function renames (3 rename skips: do_tolower array overload and _RefCountedPtr ctor whose readable names batches 8 and 2 took, and a generic_iterator<0> ctor whose name is live at 0x173500; 6 overloads keep mangled names); 8 prototypes (ctype<char> do_tolower array form, do_widen/do_narrow overload pairs, LoadWorld(char *) -> uchar, UnloadTheWorld(void), generic_iterator<0> ctor); 15 prototype skips (comma type names; std::swap without receiver evidence); globals: 12 typed (incl. zdb::CVisual::m_specMapTexture/m_lightMapTexture/m_envFrontMapTexture/m_envBackMapTexture as CTexHandle *, zdb::CWorld::m_world, CSnd::m_listener, zdb::CLight::m_tick_list, zdb::CAssetMgr::m_assets) and 7 renamed; 12 entries already applied by earlier batches (gopt, _impure_ptr, theWorld, appCamera, theMission, ...); TexPhase int[17][3] stays a recorded skip (not defined live); 2 shared ios_base flags keep mangled names; 51 provisional identities",
+        "prototypes vs assembly, DWARF and mangled signatures: do_tolower(low,high) 0x14cde0 this a0 (lw 0xc(a0)), low a1, high a2, returns a2; do_widen(c) 0x14ce20 and do_narrow(c,dfault) 0x14ce60 are jr ra / move v0,a1; do_widen(low,high,to) 0x14ce30 memcpy(a3,a1,a2-a1) returns a2; do_narrow(low,high,dfault,to) 0x14ce70 memcpy(t0,a1,a2-a1) returns a2 and the 12.1.4 r5900 cspec __stdcall allocates a0-a3 then t0-t3, so to = param 5 = t0 (DWARF omits dfault; only placement 1,2,4 fits); vtable receivers proven by __vt__Q23std8ctype<c> 0x4717c0 +0x14..+0x28 R_MIPS_32 words; LoadWorld moves a0 to s0 (DWARF database in s0) and returns s5 (andi 0xff, or 1) or 0, caller testLoad tests bne v0 and CMenuState::Init ignores v0; UnloadTheWorld entry reads only sp/gp and its callers testUnload (li v0,1) and CMenuState::UnInit (next jal) never read v0; generic_iterator<0> ctor 0x1734d0 is sw a1,0(a0) / move v0,a0 (void * this per DWARF); every entry block reads only declared argument registers",
+        "python tools/socom.py ghidra preflight-batch report build/preflight/socom-debug-batch-02dc33eec1e272662fba.json sha256 144e0703994b29565d67bb18f4fe327481293fb503095b4750360af330305a05: ok=True, errors=0; 62 bridge calls (12 apply_data_type, 21 create_label, 14 rename_function_by_address, 7 rename_label, 8 set_function_prototype); 21 skips; 12 unchanged; no write outside the receipt scope; all scope types exist live",
+        "reproduced at tools HEAD 99dc028 (tools/tests unchanged since 53883f8): debug import-plan --batch regenerates build/import-plans/socom-debug-batch-02dc33eec1e272662fba.json sha256 d479606de5be6796ce5ffb323f9a390618bede9175b129d37cf2a8a3725b915e byte-identically; debug batch-program from it regenerates build/apply/socom-debug-batch-02dc33eec1e272662fba-apply.json sha256 d3542c56d27521fd93d4cde80f508d3f3b7fc670ce845f5eb55531c5689bc69b byte-identically; debug conflicts list --batch: 0 rows; plan and program receipt scopes identical (23 functions, 21 globals, 407 types)",
+        "the tool changes since batch 8's plan review (53883f8, entry-read model) change no batch program; rebuilding all 18 earlier programs at HEAD is byte-identical",
+        "zdb::CVisual statics: the four texture handles are 4-byte GLOBAL OBJECTs among the other CVisual statics (m_dmaChain 0x4765f4 .. m_adjustBilinearRange 0x47663c); DWARF types them pointer to zdb::CTexHandle; LoadWorld walks CAssetLib::m_textures and stores the element whose CTexHandle::m_name (+0) matches light_map, specular_map, env_front_map, env_back_map into 0x47661c, 0x476610, 0x476628, 0x47662c; UnloadTheWorld zeroes all four; m_lightMapTexture is passed as the CTexHandle * argument of zdb::CDynTexList::Add and zdb::CWorld::AddTextureAssetCharacterAll and read via +0xc (CTexHandle::m_texture) in CLightMap ctor, _Copy and CWorld::AddLightMap: CTexHandle * is correct"
+      ],
+      "handoff": {
+        "owner": "socom-dwarf-importer",
+        "submitted_at": "2026-10-10T20:34:39Z",
+        "summary": "DWARF compile-unit batch 9 plan (database.cpp LoadWorld/UnloadTheWorld and its globals; MSL ctype<char> do_tolower/do_widen/do_narrow, basic_string<char> members, _RefCountedPtr ctor, __vector_deleter/__vector_imp, __list_deleter generic_iterator, std::swap) is conflict-free: 23 functions, 21 present globals (8 absent). Receipt scope: 23 functions, 21 globals, 407 types, all live."
+      },
       "id": "socom:debug-batch:02dc33eec1e272662fba",
       "kind": "debug-import-plan-batch",
       "lease": null,
@@ -1462067,7 +1462091,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan DWARF compile-unit batch 009 (24 units)"
     },
     {
@@ -1462241,7 +1462265,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed DWARF compile-unit batch 009 (24 units)"
     },
     {
