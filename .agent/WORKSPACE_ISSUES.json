@@ -709,8 +709,28 @@
       "resolution": null,
       "status": "open",
       "summary": "Namespace-scope free functions are skipped as possible methods without receiver evidence"
+    },
+    {
+      "details": "zdb::CTexManager::TexPhase (0x50eb30, 204 bytes) is DWARF int[17][3]. The batch executor skips it in batches 13 and 9 because the bridge builds one array level from 'name[count]' and the program defines no type named int[17][3]. Typing it needs the nested array type created first (a governed type change: create int[3] then an array of 17 of it, or a typedef), then apply_data_type. Other multi-dimensional globals will hit the same skip; collect them in ghidra-reconstruction.",
+      "id": "socom:workspace-issue:c6b36e6bb2d14e86be49",
+      "kind": "problem",
+      "reported_at": "2026-10-15T11:19:44Z",
+      "reported_by": "socom-verifier",
+      "resolution": null,
+      "status": "open",
+      "summary": "Multi-dimensional array globals stay untyped (TexPhase int[17][3])"
+    },
+    {
+      "details": "Batch 9 apply review: seven basic_string/_RefCountedPtr functions contain exception-cleanup code that Ghidra never disassembled (e.g. 0x14ceec-0x14cf0c inside 0x14cea0); the code includes calls that would add references if disassembled. Pre-existing (the reference set equals batch 8's). Disassembling is a write that adds references (disassemble_bytes is a write, see GHIDRA.md Bridge hazards), so it needs a governed item with a fingerprint diff: enumerate undisassembled ranges inside function bodies (e.g. from .symtab sizes vs live instruction counts, which the batch 8 review also saw at 0x14b6c0 and others) in ghidra-reconstruction.",
+      "id": "socom:workspace-issue:5a223be619c6b6d3ec72",
+      "kind": "problem",
+      "reported_at": "2026-10-15T11:19:44Z",
+      "reported_by": "socom-verifier",
+      "resolution": null,
+      "status": "open",
+      "summary": "Exception-cleanup blocks inside MSL functions are not disassembled"
     }
   ],
-  "revision": 84,
+  "revision": 86,
   "schema_version": 1
 }
