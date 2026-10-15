@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 157,
+  "revision": 160,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1470064,6 +1470064,10 @@
       "title": "Apply reviewed DWARF compile-unit batch 019 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-15T11:38:00Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 20,
         "compile_unit_ids": [
@@ -1470222,8 +1470226,23 @@
       "dependencies": [
         "socom:work:debug-type-foundation-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "DIE coverage: plan batch equals the tracker batch (24 contiguous compile-unit ranges); an independent DWARF 1 parse of .debug finds exactly the plan's 22 unit-level subroutines with low_pc, 70 unit-level variables and 1634 type DIEs inside the ranges (8328 DIEs = selected_die_count); 49 present variable rows fold to the 43 scope globals, 17 absent rows sit at address 0, 4 function-object rows stay out of the globals",
+        "file-only batch-program preview build/apply/socom-debug-batch-a14216ac76a44ec475d6-apply.json sha256 6b4e1f7c677d49a9f5644c21f583aab4151884385876d1f231c39b397035fa38",
+        "functions: all 22 boundaries agree across DWARF low/high_pc, .symtab size and the live body; none is a live thunk (list_functions_enhanced, 40 thunks program-wide; 0x3788a0, 0x3788b0 and 0x379230 are j with a lw a0 delay slot); readable names are unique against .symtab and the 9715 live function names; 0x3798e0 is the st_menu.cpp static IOPRebootHandler (444 bytes, local bind; 0x2ee360 and 0x322150 are distinct bodies), its rename is skipped and its by-address prototype touches only it",
+        "ghidra preflight-batch rerun on the preview: ok, 0 errors, 102 calls (12 apply_data_type, 35 create_label, 21 rename_function_by_address, 14 rename_label, 20 set_function_prototype), identical to report sha256 a7fdcd6aa7e438d2ac8e4f2cf4641bf64873267feb8274aa51d305cc04010446 except plan_item_status, and equal to the hand count 21x2 + 20 + 12 + 14x2; pytest tests/tools 164 passed; audit independence ok",
+        "globals: each typed extent equals its .symtab size and ends before the next symbol (version uint 4 with no relocation, __nInit/__wInit 1, three pointers 4, CIOPManager 12, CSTable 28 twice, CDblBufTextureRelocator 28); live lengths are 0 or 4 so clear_existing clears nothing outside the object; RTTI renames only where the class vtable word 0 relocates to that copy (CGameState 0x444578 and CGameMenu 0x460fc0 are canonical elsewhere); the 21 unchanged entries equal live audit_global; no typed address carries a defined type from an earlier accepted apply; the __vt__10CGameState skip comes from two untyped anonymous rows; m_camera is unchanged and correct: DWARF CCamera * (1312 bytes) is the only live CCamera, /project/zdb/CCamera, and its uses read offsets 0x130 to 0x4f0 and call zdb::CCamera::Update on the stored pointer",
+        "independent regeneration at tools HEAD 52ec421: debug import-plan reproduces build/import-plans/socom-debug-batch-a14216ac76a44ec475d6.json byte-identically (plan sha256 c8f6a3e88e8ddae7e9f1df1fef965530f62e0d303c678720d572895aae5fd168) and debug batch-program from it reproduces build/apply/socom-debug-batch-a14216ac76a44ec475d6-apply.json byte-identically (sha256 6b4e1f7c677d49a9f5644c21f583aab4151884385876d1f231c39b397035fa38); progress audit --strict ok at revision 159; debug conflicts list --batch: 0 rows",
+        "plan build/import-plans/socom-debug-batch-a14216ac76a44ec475d6.json sha256 c8f6a3e88e8ddae7e9f1df1fef965530f62e0d303c678720d572895aae5fd168 from python tools/socom.py debug import-plan --batch socom:debug-batch:a14216ac76a44ec475d6 (tools HEAD 52ec421); debug conflicts list --batch: 0",
+        "preview content: 21 function renames (the IOPRebootHandler file-local copy keeps its mangled name); 20 prototypes (CMenuState Init/Tick/UnInit/OnPush/OnPop/RunEventAnim/SetSkipMenu/MPEG controls, CLoadState Init/Tick/UnInit/AbortLoad, CE3Config/CE3MissionPlayers::Parse(_zrdr *), CSaferStr::operator=(char *), IOPRebootHandler, GetReaderFileName, recoIsRecognizing/recoUnInit); 2 prototype skips (ActionItem::GetEvent without receiver evidence, a comma __tree type); globals: 28 typed or renamed incl. zdb::CVisual::m_camera (CCamera *), CRdrArchive::version, the st_menu/st_load file-local asset libraries and g_relocDblBuf; 21 entries applied by earlier batches unchanged; vtable/RTTI structures without a Ghidra type and file-local copies keep their state; every prototype passes the entry-read check; 71 provisional identities",
+        "prototypes vs code: entry blocks read only declared registers (both Tick move f12 to f20 and the r5900 cspec passes floats in f12-f19; SetSkipMenu andi a1 0xff; AbortLoad, CSaferStr::operator= and both Parse read a1; IOPRebootHandler andi a0 0xff with 1-byte RebootPhase/RebootMode unique under /project/CIOPManager); uchar returns set v0 (RunEventAnim, both Init, both Tick, IOPRebootHandler) and match live CGameState::Init/Tick; no direct caller of a void prototype reads v0 after the call (Restart/HaltBackgroundMPEG, SetSkipMenu x2, AbortLoad x2, operator= x3, Parse x2); recoIsRecognizing callers read v0 as int; no write uses a provisional identity; skips correct (GetEvent has no DWARF this and ActionItem has no vtable; __tree destructor spells a comma type)",
+        "python tools/socom.py ghidra preflight-batch report build/preflight/socom-debug-batch-a14216ac76a44ec475d6.json sha256 a7fdcd6aa7e438d2ac8e4f2cf4641bf64873267feb8274aa51d305cc04010446: ok=True, errors=0; 102 bridge calls (12 apply_data_type, 35 create_label, 21 rename_function_by_address, 14 rename_label, 20 set_function_prototype); 27 skips; 21 unchanged; no write outside the receipt scope; all scope types exist live"
+      ],
+      "handoff": {
+        "owner": "socom-dwarf-importer",
+        "submitted_at": "2026-10-15T11:21:34Z",
+        "summary": "DWARF compile-unit batch 20 plan (st_menu.cpp CMenuState/CMenuStateMenu, st_load.cpp CLoadState with CE3Config/CE3MissionPlayers parsing, reco.cpp recoIsRecognizing/recoUnInit, CSaferStr::operator=, an IOPRebootHandler file-local copy, MSL __tree) is conflict-free: 22 functions, 26 present globals (17 absent). Receipt scope: 22 functions, 43 globals, 501 types, all live."
+      },
       "id": "socom:debug-batch:a14216ac76a44ec475d6",
       "kind": "debug-import-plan-batch",
       "lease": null,
@@ -1470232,7 +1470251,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan DWARF compile-unit batch 020 (24 units)"
     },
     {
@@ -1470406,7 +1470425,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed DWARF compile-unit batch 020 (24 units)"
     },
     {
