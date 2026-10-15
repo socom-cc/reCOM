@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 181,
+  "revision": 184,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1473596,6 +1473596,10 @@
       "title": "Apply reviewed DWARF compile-unit batch 023 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-15T17:59:22Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 24,
         "compile_unit_ids": [
@@ -1473754,8 +1473758,25 @@
       "dependencies": [
         "socom:work:debug-type-foundation-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "4 prototype skips confirmed: vector<bool>::reference ctor, test_bit and swap spell 'vector<bool, std::allocator<bool>> *' (comma; their code reads a0/a1(/a2) as DWARF orders them); num_words reads only a0 as capacity and has no receiver (static-shaped), so its no-receiver-evidence skip loses nothing wrong",
+        "allocator<unsigned long> * spelling resolves: GhidraMCP-6.0.0 FunctionService.parseFunctionSignatureAndApply strips only __cdecl/__stdcall/__thiscall/__fastcall/__vectorcall and calls new FunctionSignatureParser(programDtm, null).parse(null, text). In Ghidra 12.1.4 Base.jar (javap plus raw constant pool): addParameter splits at max(lastIndexOf(' '), lastIndexOf('*'))+1, giving name 'this' and type 'allocator<unsigned long> *' (its whole-text attempt meets the same ' * this' modifier text as every earlier 'X * this'); DataTypeParser.parse collapses whitespace with replaceAll('\\s+', ' ') (the constant is one space, not empty); getBaseString skips characters inside <> and stops at '*', giving base 'allocator<unsigned long>'; findDataType asks the program DTM findDataTypes(name) and succeeds on a single match; the live type index has exactly one type named allocator<unsigned long> ignoring case (/project/std, size 1); the apply's Signature read-back would fail closed otherwise",
+        "file-only batch-program preview build/apply/socom-debug-batch-8ef2ce4eb765fae0b022-apply.json sha256 c73c6df9c965a90da5edbe423e775c439f5eeb0e55aadcc8c41278a98ce9df7b",
+        "first prototype whose type name has a space inside template brackets (allocator<unsigned long> * this); from FunctionSignatureParser bytecode (Ghidra 12.1.4): addParameter splits the parameter name at the last space or '*', so the type text stays 'allocator<unsigned long> *', and resolveDataType passes it to DataTypeParser.parse, which resolves space-containing names (unsigned long) and template names (_zmalloc<four> *, generic_iterator<0> * applied earlier); the apply's read-back would catch any misparse",
+        "functions: live get_function_by_address bodies equal DWARF [low_pc, high_pc) for all 24; each mangled name has exactly one .symtab symbol (size = DWARF range) and is the only symbol at its address; none is a thunk; the 24 readable names are distinct (also ignoring case), absent from .symtab and unused by any live function (search_functions; positive control CZObjectiveList::MissionEndCleanup found); Draw and Tick are slots +0xc and +0x24 of __vt__15CZObjectiveList (0x474520) and have only data references",
+        "ghidra preflight --strict ok; my own ghidra preflight-batch rerun (build/verify-b24/preflight-batch.json) is ok with 0 errors and 68 bridge calls (24 rename_function_by_address, 24 create_label, 20 set_function_prototype = 24+24+20 expected), the same 4 skips and 0 unchanged, identical to the handed-off report sha256 2a9bf52fd48e6be0992540eecaa76e3a3167107d8db4f196644f0783433006af except plan_item_status (in_progress then, awaiting_acceptance now); tests/tools 164 passed; audit independence ok",
+        "independent review by socom-verifier at tools HEAD 5521710 (tool code unchanged since 53883f8, no uncommitted tools/tests changes): plan build/import-plans/socom-debug-batch-8ef2ce4eb765fae0b022.json sha256 efee7638d7452b3f23b344298fa74d1ae7e6838266ddd02aa47576aa9953feb9 regenerates byte-identically (debug import-plan); preview build/apply/socom-debug-batch-8ef2ce4eb765fae0b022-apply.json sha256 c73c6df9c965a90da5edbe423e775c439f5eeb0e55aadcc8c41278a98ce9df7b regenerates byte-identically (debug batch-program); debug conflicts list --batch: 0; progress audit --strict ok at revision 183",
+        "plan build/import-plans/socom-debug-batch-8ef2ce4eb765fae0b022.json sha256 efee7638d7452b3f23b344298fa74d1ae7e6838266ddd02aa47576aa9953feb9 from python tools/socom.py debug import-plan --batch socom:debug-batch:8ef2ce4eb765fae0b022 (tools HEAD 5521710); debug conflicts list --batch: 0",
+        "plan coverage: plan die_ranges equal the tracker item's; an independent DWARF 1 walk of .debug over the 24 ranges finds 148 DIEs (24 compile_unit, 24 global_subroutine with low_pc, 37 formal_parameter, 24 lexical_block, 39 local_variable, no global_variable) = selected_die_count 148; the 24 subprogram DIE offsets and low_pcs equal the plan's functions; receipt scope (24 functions, 0 globals, 11 types) is identical in plan and preview",
+        "preview content (generated from the preflight report): 24 function renames; 20 prototypes (std::allocator<unsigned_long>::allocator; CZObjectiveList ctor, Init, Tick(float), Draw(CCamera *), GetObjective(int)/GetCurrentObjective/GetCurrentObjectiveRetainer -> CMissionObjectiveCam *, Select/Previous/Next objective members, SetCurColor(int), IsAnySelectable -> uchar, ResolveIndex(int, int *) -> uchar, FreeList(uchar), RefreshStatics, RefreshList, AddObjective(CMissionObjectiveCam *, float) -> uchar); 4 prototype skips (3 comma vector<bool> type names, vector<bool>::num_words without receiver evidence); every prototype passes the entry-read check; 2 provisional identities",
+        "prototypes vs executed code: a delay-slot-aware first-read scan of every full body finds argument-register reads only within the declared parameters (a0 receivers; GetObjective/SetCurColor a1 int; Draw a1 camera; ResolveIndex a1 int and a2 int * stored through; FreeList a1 tested only as a flag; Tick and AddObjective copy f12 to f20; AddObjective a1 reference). Returns: the CZObjectiveList ctor reloads this into v0; the allocator<unsigned long> ctor is jr ra / move v0,a0 and MissionEndCleanup passes its v0 on as a1; GetObjective/GetCurrentObjective/GetCurrentObjectiveRetainer return pointers every caller stores or dereferences; IsAnySelectable and AddObjective return 0/1 and their callers branch on v0; ResolveIndex's caller masks v0 with andi 0xff; no direct caller of a void function reads v0 or f0 before a write or call, and Draw/Tick leave v0 unset. Types agree with the mangled signatures (Fi, FPQ23zdb7CCamera, CFiPi, Fb, Ff, FRC20CMissionObjectiveCamf, CFv/Fv)",
+        "python tools/socom.py ghidra preflight-batch report build/preflight/socom-debug-batch-8ef2ce4eb765fae0b022.json sha256 2a9bf52fd48e6be0992540eecaa76e3a3167107d8db4f196644f0783433006af: ok=True, errors=0; 68 bridge calls (24 create_label, 24 rename_function_by_address, 20 set_function_prototype); 4 skips; 0 unchanged; no write outside the receipt scope; all scope types exist live"
+      ],
+      "handoff": {
+        "owner": "socom-dwarf-importer",
+        "submitted_at": "2026-10-15T17:43:16Z",
+        "summary": "DWARF compile-unit batch 24 plan (hud_objectives.cpp CZObjectiveList members; MSL memory allocator<unsigned long> ctor and vector<bool> members) is conflict-free: 24 functions, no globals. Receipt scope: 24 functions, 11 types, all live."
+      },
       "id": "socom:debug-batch:8ef2ce4eb765fae0b022",
       "kind": "debug-import-plan-batch",
       "lease": null,
@@ -1473764,7 +1473785,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan DWARF compile-unit batch 024 (24 units)"
     },
     {
@@ -1473938,7 +1473959,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed DWARF compile-unit batch 024 (24 units)"
     },
     {
