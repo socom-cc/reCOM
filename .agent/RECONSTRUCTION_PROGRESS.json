@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 184,
+  "revision": 187,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1449383,7 +1449383,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "f2f4dab065ce81b638e5b6b8fe58366882e84ee756a8d84de07a9dcda692ecd0",
+      "current_receipt_sha256": "ba00958ef31ee193d70bd88a28e32aa2c632dafede29ffc6b0707b476b3ad34d",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -1450149,6 +1450149,31 @@
           "receipt_sha256": "f2f4dab065ce81b638e5b6b8fe58366882e84ee756a8d84de07a9dcda692ecd0",
           "tracker_revision": 181,
           "work_item_id": "socom:debug-batch:91f84ef5953bf2a98139-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1514,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 25484
+          },
+          "indexes": {
+            "data": {
+              "count": 51665,
+              "sha256": "74e50c537fc50901904536934db02983f4d66fad67c5f01ffc8750fc8cc8002f"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "2610f99921cb4e1b94682dc4c345d9db768436d81332371acfb859715948e3a0"
+            },
+            "types": {
+              "count": 1514,
+              "sha256": "5a74df3114c9f60753c39504b45c276c405154ddb461fcfe1ef0ac34f8c49d33"
+            }
+          },
+          "receipt_sha256": "ba00958ef31ee193d70bd88a28e32aa2c632dafede29ffc6b0707b476b3ad34d",
+          "tracker_revision": 187,
+          "work_item_id": "socom:debug-batch:8ef2ce4eb765fae0b022-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -1473789,6 +1473814,10 @@
       "title": "Plan DWARF compile-unit batch 024 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-15T21:15:49Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 24,
         "compile_unit_ids": [
@@ -1473948,8 +1473977,107 @@
         "socom:debug-batch:8ef2ce4eb765fae0b022",
         "socom:work:ghidra-zero-fill-memory"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "applied facts: all 24 live names equal the program readable names; get_function_labels shows exactly one other label per function, the mangled name, Source USER_DEFINED; search_functions finds each readable name at exactly its own address and no function still named with the mangled name; all 20 live Signature lines equal the program prototypes exactly, including void * __stdcall std::allocator<unsigned_long>::allocator(allocator<unsigned long> * this); the 4 skips (vector<bool> reference ctor, test_bit, swap: comma type name; num_words: no receiver evidence) keep their prior undefined NAME(void) signature with only the name changed",
+        "ghidra fingerprint after (build/fingerprints/b24-after.json sha256 1d05b12b9bdd436c3b1d81ac0bd9cb3f1311224c9eba213c367d302ba6ce7715; diff build/fingerprints/b24-diff.json sha256 dae3f2056b5708aa8af7a5df99134376548fa79925cdf1ca34759e27c8203cb2): functions changed only at exactly the 24 batch entries; data (51665), references (183630), blocks and bookmarks identical; types +1, none removed: /project/std/allocator<unsigned long> * (size 4, the this-pointer type set_function_prototype created for the allocator constructor; live signature 'void * __stdcall std::allocator<unsigned_long>::allocator(allocator<unsigned long> * this)')",
+        "ghidra fingerprint before (build/fingerprints/b24-before.json sha256 885deb46c1a3d2ff895515c70c1a71a83291edda8850a80504d7dac984213096) is identical in every section to the previous accepted after-fingerprint build/fingerprints/b23-after.json (which that batch's verifier's own live fingerprint equalled): 9715 functions, 51665 data, 1513 types, bookmarks, 28 blocks, 183630 references",
+        "ghidra-receipt-sha256:ba00958ef31ee193d70bd88a28e32aa2c632dafede29ffc6b0707b476b3ad34d",
+        "ghidra-save:explicit-program",
+        "independent review by socom-verifier at tools HEAD abcd61a (no tools/tests change since 53883f8, clean against HEAD), tracker revision 186: progress audit --strict ok before and after; item awaiting_acceptance with no lease and no active leases; handoff owner socom-ghidra-reconstructor differs from accepter; plan item socom:debug-batch:8ef2ce4eb765fae0b022 accepted and cites plan sha256 efee7638d7452b3f23b344298fa74d1ae7e6838266ddd02aa47576aa9953feb9",
+        "layouts and bookmarks: ghidra receipt over all 840 non-pointer, non-array /project types (build/verify-acc24/alltypes-receipt.json) reproduces every type fact of build/verify-acc23/alltypes-receipt.json (795 full layouts, 26 no-component-readback, 17 ambiguous-name, 2 unreadable-name), so no existing layout changed; full list_bookmarks (716 rows: 713 Address Table, 3 Non-Returning Function) identical to the batch 23 verifier read",
+        "own live ghidra fingerprint build/verify-acc24/fp-now.json (21:05-21:14Z, no other bridge traffic) is byte-identical to the handed-off build/fingerprints/b24-after.json (sha256 1d05b12b...7715); compared offline with the batch 23 verifier own fingerprint build/verify-acc23/fp-now.json (= b23-after = b24-before, sha256 885deb46...3096): blocks (28), bookmark profile, data (51665, 0 added, 0 removed) and references (183630, multiset equal) identical; exactly the 24 batch functions changed, only name and details, Entry/Body lines and thunk/external flags unchanged; types +1, none removed: /project/std/allocator<unsigned long> * (size 4, the this-pointer type set_function_prototype creates, like the batch 23 /project/CZObjectiveList *)",
+        "pre-handoff receipt ba00958ef31ee193d70bd88a28e32aa2c632dafede29ffc6b0707b476b3ad34d: data 51665 74e50c53..., functions 9715 2610f999..., types 1514 5a74df31...; scope 24 functions, 0 globals, 11 types; read-back markers: none",
+        "prototypes vs code: delay-slot-aware dataflow over the receipt disassembly (build/verify-acc24/codeflow.json) finds argument registers read before write only within each declared parameter list (a0 receivers; GetObjective/SetCurColor a1; Draw a1; ResolveIndex a1,a2; FreeList a1; Tick f12; AddObjective a1,f12); every non-void prototype writes v0 on every return path (allocator move v0,a0; ctor saves a0 at 0x2c(sp) on entry, never overwrites that slot, and reloads it into v0; getters load or zero v0; IsAnySelectable/ResolveIndex/AddObjective li/move v0); an ELF jal scan (build/verify-acc24/callers.json) finds no direct caller reading v0 after any of the 10 directly called void functions (Draw and Tick have no jal sites), while callers of all 7 value-returning ones read v0",
+        "provenance: debug import-plan --batch regenerates the plan byte-identically (build/verify-acc24/plan-regen.json sha256 efee7638...feb9); debug batch-program regenerates the program byte-identically (build/verify-acc24/program-regen.json sha256 c73c6df9c965a90da5edbe423e775c439f5eeb0e55aadcc8c41278a98ce9df7b); debug conflicts list --batch: 0; stored receipt scope equals build/receipts/socom-debug-batch-8ef2ce4eb765fae0b022-apply-scope.json (sha256 f68d069a...9ef4) and the plan and program receipt_scope (24 functions, 0 globals, 11 types); apply report sha256 43a11742...6e2f cites the program and plan SHA-256, 68 bridge calls, 4 prototype skips, 0 unchanged",
+        "python tools/socom.py ghidra apply-batch: program build/apply/socom-debug-batch-8ef2ce4eb765fae0b022-apply.json sha256 c73c6df9c965a90da5edbe423e775c439f5eeb0e55aadcc8c41278a98ce9df7b (regenerated from the accepted plan at commit abcd61a), 68 bridge calls exactly as ghidra preflight-batch predicted after the claim (24 create_label, 24 rename_function_by_address, 20 set_function_prototype); 4 recorded skips; every name, Signature line, global type and length read back equal; report sha256 43a11742170ef279165d755bdfb9113a0b9bf9579955d10cb85f027c70382e6f",
+        "receipt: ghidra receipt over the stored scope reproduces ba00958ef31ee193d70bd88a28e32aa2c632dafede29ffc6b0707b476b3ad34d (data 51665 74e50c53..., functions 9715 2610f999..., types 1514 5a74df31...; no read-back markers; all 11 scoped types carry component layouts); ghidra preflight --strict ok at start and end, analysis idle, 0 Error/Warning bookmarks",
+        "tests and method: uv pytest tests/tools 164 passed; audit independence ok. Only GETs (get_function_by_address, get_function_labels, search_functions, list_bookmarks, get_type_size; values percent-encoded twice) and registered read-only commands (ghidra preflight, receipt, fingerprint with read-only get_bulk_xrefs) touched the bridge, the fingerprint alone; nothing was saved or written. Non-blocking: the 45 marked types are covered by path and size only, as in batch 23",
+        "type resolution: every prototype type name is unique ignoring case in the live type list; get_type_size resolves allocator<unsigned long> to /project/std/allocator<unsigned long> (1 byte) and its pointer to /project/std/allocator<unsigned long> * (4), CZObjectiveList to /project (2512), CMissionObjectiveCam to /project (80), CCamera to /project/zdb/CCamera (1312), uchar/int/float/void * to the builtins"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "ba00958ef31ee193d70bd88a28e32aa2c632dafede29ffc6b0707b476b3ad34d",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x3bfb80",
+            "0x3bfc70",
+            "0x3bfd60",
+            "0x3bfd70",
+            "0x3bfe60",
+            "0x3bff60",
+            "0x3bfff0",
+            "0x3c01b0",
+            "0x3c0460",
+            "0x3c0640",
+            "0x3c0650",
+            "0x3c0960",
+            "0x3c09f0",
+            "0x3c0a80",
+            "0x3c0ab0",
+            "0x3c0c80",
+            "0x3c0c90",
+            "0x3c1c40",
+            "0x3c2080",
+            "0x3c21c0",
+            "0x3c2210",
+            "0x3c24e0",
+            "0x3c2710",
+            "0x3c2740"
+          ],
+          "globals": [],
+          "types": [
+            "/project/C2DBitmap",
+            "/project/C2DString",
+            "/project/CMissionObjectiveCam",
+            "/project/CMissionObjectiveCamList",
+            "/project/CPnt3D",
+            "/project/CZObjectiveList",
+            "/project/std/allocator<unsigned long>",
+            "/project/std/vector<bool, std::allocator<bool>>",
+            "/project/std/vector<bool, std::allocator<bool>>/reference",
+            "/project/unresolved/generic_iterator@8655c66ed0",
+            "/project/zdb/CCamera"
+          ]
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1514,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 25484
+          },
+          "indexes": {
+            "data": {
+              "count": 51665,
+              "sha256": "74e50c537fc50901904536934db02983f4d66fad67c5f01ffc8750fc8cc8002f"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "2610f99921cb4e1b94682dc4c345d9db768436d81332371acfb859715948e3a0"
+            },
+            "types": {
+              "count": 1514,
+              "sha256": "5a74df3114c9f60753c39504b45c276c405154ddb461fcfe1ef0ac34f8c49d33"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-15T18:18:49Z",
+        "summary": "Applied accepted batch 24 (plan sha256 efee7638...feb9) once: 24 functions renamed with mangled secondary labels; 20 prototypes (std::allocator<unsigned_long>::allocator with receiver allocator<unsigned long> *, the first prototype type with a space inside template brackets, read back exactly; CZObjectiveList ctor, Init, Tick, Draw, the objective getters returning CMissionObjectiveCam *, selection and navigation members, SetCurColor, IsAnySelectable, ResolveIndex, FreeList, RefreshStatics, RefreshList, AddObjective). Recorded skips: 3 comma-named vector<bool> prototypes and vector<bool>::num_words without receiver evidence. No globals. Ghidra side effect: 1 this-pointer type."
+      },
       "id": "socom:debug-batch:8ef2ce4eb765fae0b022-apply",
       "kind": "debug-import-apply-batch",
       "lease": null,
@@ -1473959,7 +1474087,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply reviewed DWARF compile-unit batch 024 (24 units)"
     },
     {
