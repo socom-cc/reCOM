@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 193,
+  "revision": 196,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1475071,6 +1475071,10 @@
       "title": "Apply reviewed DWARF compile-unit batch 025 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-15T22:32:25Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 26,
         "compile_unit_ids": [
@@ -1475229,8 +1475233,27 @@
       "dependencies": [
         "socom:work:debug-type-foundation-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "file-only batch-program preview build/apply/socom-debug-batch-32e0b260489e0e188556-apply.json sha256 53593000f604610a6814bdd738e450a911759a2fdb9c12745db9c85f0317abcd",
+        "first multi-dimensional array globals applied: six CZLineMap statics typed float[2][4] (outermost extent first, as fixed for batch 13); the live program defines both /float[2][4] and /float[4][2] (32 bytes each), so the executor's multi-dimensional rule lets the exact name through and the apply's read-back compares the exact type name; every prototype passes the entry-read check; 67 provisional identities (the hud_linemap g_mapLineProps/g_mapPolyProps statics take the structural map@f8f3a1610e type)",
+        "functions: all 22 .symtab FUNC sizes equal DWARF high_pc and the live Ghidra bodies; mangled names unique with no overloads or copies; no j/b stub or thunk targets them; the 22 readable function names and 19 readable label names are unused live (search_functions and list_globals, positive controls returned hits)",
+        "ghidra preflight --strict ok; ghidra preflight-batch rerun identical to the handed-off report apart from item status: ok, 115 calls (14 apply_data_type, 41 create_label, 22 rename_function_by_address, 19 rename_label, 19 set_function_prototype), 18 skips, 30 unchanged, matching an independent count; pytest tests/tools 164 passed; audit independence ok",
+        "globals: the 14 type writes land on undefined4 or undefined bytes with no other .symtab symbol or relocation inside the extent; sizes equal .symtab (TypeBombStatus 32, CCompass 12, CSTable 28 x2, map@f8f3a1610e 16 x2, float[2][4] 32 x6, float 4 x2 with initial bytes 0.75f and 60.0f); no write address is in an earlier batch apply scope (zero-fill scope only); all 30 unchanged entries match live audit_global; canonical RTTI rule holds (__vt__15CZMPBombMapItem word 0 relocates to 0x465558, CZMapItem's to 0x465288 so 0x465540 and 0x465648 keep mangled names); _linedata skip correct (LINE_DATA and line_data collide)",
+        "independent DWARF 1 walk of the 24 DIE ranges finds exactly the plan's 22 subprograms with code and 64 CU-level variables (44 placed rows fold to 43 addresses, 16 absent, 4 function-object __ct/__dt rows at code); every plan row lies inside the item's ranges",
+        "map@f8f3a1610e is unique, 16 bytes, a provisional class applied by value as batch 2 did for the std streams; non-blocking: its live tree_ member is typed from the st_load.cpp row (std::__tree of pair<CSaferStr const, CE3MissionPlayers>) while this batch's DWARF gives std::__tree of pair<int const, LINE_DATA>, an instance of open issue ba5122d0",
+        "multi-dimensional statics: DWARF DIEs 0x2dcf15, 0x2f076e, 0x2f8769, 0x2e0516, 0x2f1976, 0x2f985d are array[0..1] of DIE 0x2ef453 = array[0..3] of float, i.e. float[2][4]; CZLineMap::Clip forms only base+0 and base+0x10 for each static, copies row 1 as four lwc1/swc1 floats and row 0 by lq/sq (16-byte row stride, not 8); GhidraMCP 6.0.0 ServiceUtils.resolveDataType tries dtm.getDataType(slash + name) before the one-level name[count] parse (which would fail on 2][4); Ghidra 12.1.4 DataTypeUtilities.getArrayDimensions names arrays outer count first, so live /float[2][4] (32 bytes) is 2 x float[4]; float[2][4] is unique ignoring case; read-back carries length 32",
+        "plan build/import-plans/socom-debug-batch-32e0b260489e0e188556.json sha256 8db504078a797dd0defca9a34be81aa18fa255563acae8677ee5d767bb9a0590 and preview build/apply/socom-debug-batch-32e0b260489e0e188556-apply.json sha256 53593000f604610a6814bdd738e450a911759a2fdb9c12745db9c85f0317abcd regenerate byte-identically at tools HEAD 35127d2 (debug import-plan, debug batch-program); debug conflicts list --batch: 0; progress audit --strict ok at revision 195",
+        "plan build/import-plans/socom-debug-batch-32e0b260489e0e188556.json sha256 8db504078a797dd0defca9a34be81aa18fa255563acae8677ee5d767bb9a0590 from python tools/socom.py debug import-plan --batch socom:debug-batch:32e0b260489e0e188556 (tools HEAD 35127d2); debug conflicts list --batch: 0",
+        "preview content generated from the preflight report by a script: calls 115 {'apply_data_type': 14, 'create_label': 41, 'rename_function_by_address': 22, 'rename_label': 19, 'set_function_prototype': 19} functions renamed 22; prototypes 19: CZNewHudMap::SwitchToCompassMap, CZNewHudMap::SwitchMapToFullScreen, CZNewHudMap::CalcNewMatrix, CZNewHudMap::CalcDrawPos, CZNewHudMap::SetWorldWidth, CZNewHudMap::SetMapScreenPos, CZNewHudMap::RefreshBackground, _TransformPointXYZ, CZNewHudMap::UninitMap, CZNewHudMap::InitMap, CZNewHudMap::ReInit, CZNewHudMap::GetZoomOut, CZNewHudMap::~CZNewHudMap, CZNewHudMap::CZNewHudMap, @unnamed@hud_newhudmap_cpp@::COverlayLine::COverlayLine, CZMPBombMapItem::Draw, CZMPBombMapItem::Tick, CZMPBombMapItem::CZMPBombMapItem, CZLineMap::~CZLineMap globals typed 14: CAiMap::action::offset_length (float), @unnamed@hud_linemap_cpp@::g_fPulseTrans (float), CZBombState::m_BombStatus (TypeBombStatus), CZSealBody::m_compass (CCompass), MultiplayerMsgStrings (CSTable), MultiplayerMsgStrings (CSTable), @unnamed@hud_linemap_cpp@::g_mapLineProps (map@f8f3a1610e), @unnamed@hud_linemap_cpp@::g_mapPolyProps (map@f8f3a1610e), CZLineMap::m_pi (float[2][4]), CZLineMap::m_rgbi (float[2][4]), CZLineMap::m_uvi (float[2][4]), CZLineMap::m_po (float[2][4]), CZLineMap::m_rgbo (float[2][4]), CZLineMap::m_uvo (float[2][4]) global labels renamed 19: CAiMap::action::offset_length, CZMPBombMapItem::__RTTI, CZLineMap::__RTTI, CPtItr::__RTTI, @unnamed@hud_linemap_cpp@::CAiLinePtItr::__RTTI, CZMPBombMapItem::__vt, CZLineMap::__vt, @unnamed@hud_linemap_cpp@::CAiLinePtItr::__vt, @unnamed@hud_linemap_cpp@::g_fPulseTrans, CZBombState::m_BombStatus, CZSealBody::m_compass, @unnamed@hud_linemap_cpp@::g_mapLineProps, @unnamed@hud_linemap_cpp@::g_mapPolyProps, CZLineMap::m_pi, CZLineMap::m_rgbi, CZLineMap::m_uvi, CZLineMap::m_po, CZLineMap::m_rgbo, CZLineMap::m_uvo unchanged 30: type _impure_ptr, rename UIVarMixin::__vt, rename CPlainBmp::__vt, rename CZMapItem::__vt, type CZMPBombMapItem::m_U1, rename CZMPBombMapItem::m_U1, type CZMPBombMapItem::m_V1, rename CZMPBombMapItem::m_V1, type theHUD, type CZMPBombMapItem::m_mpbombtex, rename CZMPBombMapItem::m_mpbombtex, type CZMPBombMapItem::m_U0, rename CZMPBombMapItem::m_U0, type CZMPBombMapItem::m_V0, rename CZMPBombMapItem::m_V0, type CZMPBombMapItem::m_explosiontex, rename CZMPBombMapItem::m_explosiontex, type CZMPBombMapItem::m_explosionU0, rename CZMPBombMapItem::m_explosionU0, type CZMPBombMapItem::m_explosionV0, rename CZMPBombMapItem::m_explosionV0, type CZMPBombMapItem::m_explosionU1, rename CZMPBombMapItem::m_explosionU1, type CZMPBombMapItem::m_explosionV1, rename CZMPBombMapItem::m_explosionV1, type AiMaps, type CEntity::m_list, rename CEntity::m_list, type theMission, type theNetwork skips 18: 2 x prototype: no evidence whether the method has a receiver; 2 x rename: file-local copy; the class vtable references 0x465288; 1 x prototype: by-value class, struct or union return or parameter: Ghidra's storage ; 1 x type: structure_type DIE 0x2ce2dd has no Ghidra type; 1 x type: structure_type DIE 0x2da418 has no Ghidra type; 1 x type: type name 'LINE_DATA' resolves 2 times ignoring case; 1 x type: structure_type DIE 0x2f7c23 has no Ghidra type; 1 x type: structure_type DIE 0x2e5f38 has no Ghidra type; 1 x type: structure_type DIE 0x2f7da0 has no Ghidra type; 1 x type: structure_type DIE 0x2e2f67 has no Ghidra type; 1 x type: structure_type DIE 0x2e70d8 has no Ghidra type; 1 x type: structure_type DIE 0x2f199c has no Ghidra type; 1 x type: DWARF rows disagree on the type: ['structure_type DIE 0x2ce4d8 has no ; 1 x type: structure_type DIE 0x2caa44 has no Ghidra type; 1 x type: structure_type DIE 0x2ebc1f has no Ghidra type; 1 x type: structure_type DIE 0x2fa1d4 has no Ghidra type ",
+        "prototypes vs code: entry blocks read only declared registers (SetMapScreenPos a0 and f12-f15; CalcDrawPos a0,f12 returning f0, callers read f0; GetZoomOut returns f0, read by SetViewCone mul.S; _TransformPointXYZ lqc2 from a0 and sqc2 to a1, vf4-vf7 are preloaded VU0 state; Tick a0,a1,f12 returning v0 0 or 1; constructors return this in v0; both destructors sign-extend a1 to 16 bits before the delete test and return this); no direct caller of the 10 directly called void functions reads v0 or f0 after the call; Draw and Tick are __vt__15CZMPBombMapItem slots +0x10 and +0xc",
+        "python tools/socom.py ghidra preflight-batch report build/preflight/socom-debug-batch-32e0b260489e0e188556.json sha256 2810239df680bd0c5fe00eeffa6ec17587f44b3b76e7bc66b51ca876b73c3626: ok=True, errors=0; 115 bridge calls (14 apply_data_type, 41 create_label, 22 rename_function_by_address, 19 rename_label, 19 set_function_prototype); 18 skips; 30 unchanged; no write outside the receipt scope; all scope types exist live",
+        "skips confirmed: GetScrollPermissions returns CScrollBools by value and reads a0,a1; MapWorldPointToUV has no DWARF this, conflicting storage and a by-value CPnt3D return; SetupNorthIndicator is an @unnamed@ file-static (open issue fd70c051)"
+      ],
+      "handoff": {
+        "owner": "socom-dwarf-importer",
+        "submitted_at": "2026-10-15T22:11:12Z",
+        "summary": "DWARF compile-unit batch 26 plan (hud_newhudmap.cpp CZNewHudMap setup, matrix and map members, ctor/dtor, COverlayLine ctor, SetupNorthIndicator; hud_bombmapitem.cpp CZMPBombMapItem; hud_linemap.cpp CZLineMap dtor and statics; zmath_matrix.h _TransformPointXYZ) is conflict-free: 22 functions, 43 global addresses. Receipt scope: 22 functions, 43 globals, 433 types, all live."
+      },
       "id": "socom:debug-batch:32e0b260489e0e188556",
       "kind": "debug-import-plan-batch",
       "lease": null,
@@ -1475239,7 +1475262,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan DWARF compile-unit batch 026 (24 units)"
     },
     {
@@ -1475413,7 +1475436,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed DWARF compile-unit batch 026 (24 units)"
     },
     {
