@@ -729,8 +729,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Exception-cleanup blocks inside MSL functions are not disassembled"
+    },
+    {
+      "details": "Batch 26 plan review: the provisional structural type map@f8f3a1610e (16 bytes) applied to @unnamed@hud_linemap_cpp@::g_mapLineProps and g_mapPolyProps has a tree_ member built from the st_load.cpp row std::__tree<pair<CSaferStr const, CE3MissionPlayers>, ...>, while this batch's DWARF (DIE 0x2e7198, member DIE 0x2de745, resolved by method evidence) says these statics are std::map<int, LINE_DATA>. Size and layout agree; only the nested member's type name is misleading because one structural class stands for several template instantiations of the same shape. Concrete instance of socom:workspace-issue:ba5122d0 (structural class naming); resolve in ghidra-reconstruction by splitting per-instantiation types or naming the shared shape neutrally.",
+      "id": "socom:workspace-issue:3a93def033fabff61aaa",
+      "kind": "problem",
+      "reported_at": "2026-10-15T22:33:44Z",
+      "reported_by": "socom-verifier",
+      "resolution": null,
+      "status": "open",
+      "summary": "Shared structural map type carries another instantiation's member names (hud_linemap statics)"
     }
   ],
-  "revision": 86,
+  "revision": 87,
   "schema_version": 1
 }
