@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 163,
+  "revision": 166,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1471090,6 +1471090,10 @@
       "title": "Apply reviewed DWARF compile-unit batch 020 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-15T12:28:29Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 21,
         "compile_unit_ids": [
@@ -1471248,8 +1471252,23 @@
       "dependencies": [
         "socom:work:debug-type-foundation-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "coverage: plan die_ranges equal the 24 item ranges; an independent DWARF walk finds 4192 DIEs (= selected_die_count), 23 global_subroutine DIEs with low_pc and 69 CU-level variables, each set equal to the plan rows; 55 provisional identities, none used by any write (the only provisional type, _reent@1aa0a63ac4 *, belongs to the unchanged _impure_ptr entry)",
+        "file-only batch-program preview build/apply/socom-debug-batch-1a4121b21118e7abbde8-apply.json sha256 fcf27c95e014e877a5a9870b68beb70fa48408088ba13e4800c805f4f4079690",
+        "functions: all 23 live bodies equal .symtab sizes and DWARF low/high_pc, mangled names unique in .symtab, no thunks, live signatures still default and current names mangled; readable names unused live; argument registers read by each body equal the declared registers for all 16 prototypes (dtor a0/a1, a1 sign-extended 16-bit, returns this in v0; ctor a0, returns this; MyTick a0 + f12; DoRangeText a0-a2 with andi 0xff on menustate, live MENU_STATE 1 byte = DWARF byte_size; Add2D a0-a3; IsOn lbu into v0 and all 4 callers branch on v0); GetReaderFileName/MyTick/PrepControls are slots of __vt__9CLoadMenu, the dtor of __vt__10CLoadState; no direct caller of a void function reads v0/f0 before writing it; the 7 skips are the comma-named __tree/compressed_pair_imp receivers",
+        "globals: the 12 apply_data_type targets match .symtab sizes (c_szCornerBoxesTx char * with R_MIPS_32 to a string, g_fElemsFadeInTime float = -1.0 with no relocation and lwc1/swc1 xrefs, __nInit/__wInit 1, five CTexture * read/written by lw/sw, CSTable 28, CPnt4D 16 read by lwc1, C2DBitmap 128); the only live data in each range is the same-address same-length unit (pointer, undefined4) or none, so clear_existing reaches nothing else and no cross-batch conflict applies; the 29 new label names are unused live; RTTI canonical rule holds (word 0 of __vt__3C2D/__vt__9C2DString/__vt__9C2DBitmap points to 0x459278/0x459460/0x459548, no vtable for C2DFade/C2Dlist/list<C2D *>, the six renamed RTTI are single copies referenced by their vtables); all 17 unchanged entries equal live state",
+        "non-blocking: handoff evidence lists CInput::m_pads among the 12 apply_data_type, but it is one of the 17 unchanged entries (already CPad *[2] and renamed live); the 12 typed are c_szCornerBoxesTx, g_fElemsFadeInTime, both ios_base init objects, the five map-item textures, MultiplayerMsgStrings, CHUD::m_hud_textcolor and X_WeaponBackground",
+        "plan build/import-plans/socom-debug-batch-1a4121b21118e7abbde8.json sha256 2f68f586f394fcefbbba0e6ec72234603fcf2273204d17d9c1a6de5b81c8ae79 from python tools/socom.py debug import-plan --batch socom:debug-batch:1a4121b21118e7abbde8 (tools HEAD 3292590); debug conflicts list --batch: 0",
+        "preview content: 23 function renames; 16 prototypes (CLoadState ctor/dtor, CLoadMenu::MyTick(float)/PrepControls/GetReaderFileName, CHUD DoRangeText(CZSealBody *, MENU_STATE)/SetupAmmoCount/SetupFiremode/Add2D/SwitchToCompassMap/SwitchToFullScreenMap/ZoomIn/ZoomOut/IsOn/Off/On); 7 prototype skips (comma __tree/compressed_pair_imp type names); globals: 12 apply_data_type (incl. CInput::m_pads CPad *[2], the map-item textures CTexture *, CHUD::m_hud_textcolor CPnt4D, hud_main's file-local g_fElemsFadeInTime float) and 29 label renames; 17 entries applied by earlier batches unchanged; vtable/RTTI structures without a Ghidra type and file-local copies keep their state; every prototype passes the entry-read check; 55 provisional identities",
+        "python tools/socom.py ghidra preflight-batch report build/preflight/socom-debug-batch-1a4121b21118e7abbde8.json sha256 7a7258a460f6435c4da2f040d36043fa14140dd970ccd1cacb24ea82e6642f88: ok=True, errors=0; 132 bridge calls (12 apply_data_type, 52 create_label, 23 rename_function_by_address, 29 rename_label, 16 set_function_prototype); 47 skips; 17 unchanged; no write outside the receipt scope; all scope types exist live",
+        "rehearsal: ghidra preflight --strict ok; ghidra preflight-batch rerun ok, 0 errors, 132 calls (12 apply_data_type, 52 create_label, 23 rename_function_by_address, 29 rename_label, 16 set_function_prototype) = expected 23x2 + 16 + 12 + 29x2, 47 skips, 17 unchanged, identical to the handed-off report except plan_item_status; every write lies inside the 23/53/440 receipt scope and a read-only scoped receipt of that scope succeeds; pytest tests/tools 164 passed; audit independence ok",
+        "tracker: progress audit --strict ok at revision 165, item awaiting_acceptance, no leases; tools/tests unchanged since 53883f8; at HEAD 3292590 debug import-plan regenerates build/import-plans/socom-debug-batch-1a4121b21118e7abbde8.json byte-identically (sha256 2f68f586f394fcefbbba0e6ec72234603fcf2273204d17d9c1a6de5b81c8ae79) and debug batch-program regenerates the preview byte-identically (sha256 fcf27c95e014e877a5a9870b68beb70fa48408088ba13e4800c805f4f4079690); debug conflicts list --batch: 0 rows"
+      ],
+      "handoff": {
+        "owner": "socom-dwarf-importer",
+        "submitted_at": "2026-10-15T12:11:17Z",
+        "summary": "DWARF compile-unit batch 21 plan (st_load.cpp CLoadState ctor/dtor and CLoadMenu; hud_main.cpp CHUD members; MSL __tree and compressed_pair_imp members for the CE3MissionPlayers map; HUD globals) is conflict-free: 23 functions, 53 global addresses (9 absent variables). Receipt scope: 23 functions, 53 globals, 440 types, all live."
+      },
       "id": "socom:debug-batch:1a4121b21118e7abbde8",
       "kind": "debug-import-plan-batch",
       "lease": null,
@@ -1471258,7 +1471277,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan DWARF compile-unit batch 021 (24 units)"
     },
     {
@@ -1471432,7 +1471451,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed DWARF compile-unit batch 021 (24 units)"
     },
     {
