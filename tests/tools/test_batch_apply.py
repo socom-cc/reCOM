@@ -354,6 +354,21 @@ def test_batch_program_folds_unit_copies_and_refuses_code_globals(root: Path, ba
     path.write_text(json.dumps(dict(plan, variables=[*plan["variables"], other])), encoding="utf-8")
     disagree = {row["address"]: row for row in batch_apply.build_batch_program(root, path)["globals"]}["0x476f60"]
     assert disagree["type"] is None and "disagree" in disagree["type_skip"]
+    void_typedef = {
+        "evidence": {"die_offset": 999_001}, "kind": "typedef", "ghidra_path": "/project/VOIDT", "byte_size": None,
+        "type": {"die_offset": None, "fund_type": 0x14, "modifiers": []}, "array": None, "members": [],
+    }
+    unsized = {
+        "evidence": {"die_offset": 999_002}, "kind": "array_type", "ghidra_path": None, "byte_size": None, "members": [],
+        "array": {"dimensions": [["fund", 10, 0, 5]], "element": {"die_offset": 999_001, "fund_type": None, "modifiers": []}},
+    }
+    variables = [
+        dict(row, type={"die_offset": 999_002, "fund_type": None, "modifiers": []}) if row is the_game else row
+        for row in plan["variables"]
+    ]
+    path.write_text(json.dumps(dict(plan, types=[*plan["types"], void_typedef, unsized], variables=variables)), encoding="utf-8")
+    unsized_row = {row["address"]: row for row in batch_apply.build_batch_program(root, path)["globals"]}["0x476f60"]
+    assert unsized_row["type"] is None and "no computable DWARF extent" in unsized_row["type_skip"]
     inside = dict(copy.deepcopy(the_game), address=0x140464, name="bogus")
     path.write_text(json.dumps(dict(plan, variables=[*plan["variables"], inside])), encoding="utf-8")
     with pytest.raises(SocomError, match="inside function"):

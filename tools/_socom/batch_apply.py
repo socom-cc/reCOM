@@ -859,6 +859,10 @@ def build_batch_program(root: Path, plan_path: Path) -> dict[str, Any]:
             target = types.by_die[descriptor["die_offset"]]
             if target["kind"] == "array_type" and not target.get("ghidra_path"):
                 size = types.byte_size(descriptor, extent)
+                if type_name and size is None:
+                    # An element whose size DWARF does not fix (a typedef of
+                    # void, say) leaves nothing to compare with .symtab.
+                    type_name, reason = None, f"array DIE 0x{descriptor['die_offset']:x} has no computable DWARF extent"
             else:
                 size = target.get("byte_size")
         if type_name and size is not None and extent is not None and size != extent:
