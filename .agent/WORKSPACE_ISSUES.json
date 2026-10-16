@@ -739,8 +739,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Shared structural map type carries another instantiation's member names (hud_linemap statics)"
+    },
+    {
+      "details": "Batch 32 (plan accepted at tracker revision 232, apply at 235). @unnamed@st_mpexit_cpp@::c_arrStatFuncs (0x466910) is DWARF array DIE 0x42c57a, bounds 0..5, element fundamental type FT_void (0x14), over a 72-byte .symtab LOCAL OBJECT whose initial bytes are zero. __sinit_st_mpexit.cpp copies six 12-byte {0, -1, &CSealStats::Get* const} records into it, and TickMpStats walks k = 0..5 in 12-byte steps passing &c_arrStatFuncs[k] to __ptmf_scall, so each element is a Metrowerks pointer to member function (this delta, vtable index, function address). Tools 822a98b make void-element arrays a recorded type skip, so the global keeps an analysis undefined8 over its first 8 bytes. In ghidra-reconstruction: define a PTMF structure (12 bytes: int this_delta, int vtbl_index, function pointer) with evidence from __ptmf_scall and the __sinit stores, type c_arrStatFuncs as PTMF[6], and look for other void-typed DWARF objects or members that hide PTMFs (the type foundation already types void members as undefined1 runs and records them as omissions).",
+      "id": "socom:workspace-issue:089f4507a8180448f1a7",
+      "kind": "problem",
+      "reported_at": "2026-10-16T20:53:26Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Metrowerks pointer-to-member-function data has no Ghidra type (DWARF writes void elements)"
     }
   ],
-  "revision": 87,
+  "revision": 88,
   "schema_version": 1
 }
