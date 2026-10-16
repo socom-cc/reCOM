@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 202,
+  "revision": 205,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1449383,7 +1449383,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "a391f3c3920b7a37b2264bc7139f1efcb39bbd57020f1aca38f01c040d556224",
+      "current_receipt_sha256": "4087b29e3af71b4dd2578bd433c1d4b778d74067834addbe056710e139e149e1",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -1450224,6 +1450224,31 @@
           "receipt_sha256": "a391f3c3920b7a37b2264bc7139f1efcb39bbd57020f1aca38f01c040d556224",
           "tracker_revision": 199,
           "work_item_id": "socom:debug-batch:32e0b260489e0e188556-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1523,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 25716
+          },
+          "indexes": {
+            "data": {
+              "count": 51708,
+              "sha256": "94a5efa439f8cf3eb0b5b70c0b8c4158aec7e5f0a3ad33d8329ad3da344f6b98"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "ea3e7e1f1fdab550b261e75085c76e3f38d32a348f861b7158fa55b165e4e6c8"
+            },
+            "types": {
+              "count": 1523,
+              "sha256": "8f96fd53fa97d3612038b4ebf322ddb39f4f907acc96a382b10d516e24cd17c2"
+            }
+          },
+          "receipt_sha256": "4087b29e3af71b4dd2578bd433c1d4b778d74067834addbe056710e139e149e1",
+          "tracker_revision": 205,
+          "work_item_id": "socom:debug-batch:cb3be3e375bf8b83dc80-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -1476225,6 +1476250,10 @@
       "title": "Plan DWARF compile-unit batch 027 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-16T10:57:13Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 27,
         "compile_unit_ids": [
@@ -1476384,8 +1476413,126 @@
         "socom:debug-batch:cb3be3e375bf8b83dc80",
         "socom:work:ghidra-zero-fill-memory"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "applied functions (get_function_by_address, get_function_labels, search_functions; values percent-encoded twice): all 22 renamed entries carry the readable primary name, unique as a function name (one exact search hit), with exactly one label, the mangled name, Source USER_DEFINED, and the mangled name is no longer a function name; the 17 live Signature lines equal the program prototypes exactly, including 'void __stdcall CZLineMap::TickLine(CZLineMap * this, line * line, float fPulseTrans, uchar bDim)', the SetupPolygon equivalent and 'float __stdcall hudGetTacMapPulseTrans(void)'; the 7 skips (0x3c8b10 WorldToDraw, 0x3cabe0 GetPt by-value returns; 0x3c9200 tail, 0x3cac10 find_or_insert, 0x3cad10 find with comma receiver types; 0x3c91f0/0x3c9210 ambiguous node/iterator) keep 'undefined NAME(void)'; 0x3c91f0 and 0x3c9210 keep their mangled names with no label; every body equals its .symtab FUNC size, each mangled name occurs once in .symtab and no symbol lies inside a body (build/verify-acc27/elffacts.json, live.json)",
+        "fingerprint: own live ghidra fingerprint build/verify-acc27/fp-now.json (10:42:27-10:50:09Z, no other bridge traffic) is byte-identical to the handed-off build/fingerprints/b27-after.json (sha256 9066dc91deea42295b9a14a77f7c62b1fa90054a0891c2227f980cf61fdc3cd4); b27-before.json is byte-identical to b26-after.json and the batch 26 verifier own build/verify-acc26/fp-now.json (sha256 e2ef699e...a21e, cited in the accepted batch 26 evidence). Offline comparison with that accepted state (build/verify-acc27/cmp-acc26-vs-now.json): functions changed exactly at the 22 renamed entries, only name and Function/Signature lines (Entry/Body lines and thunk/external flags unchanged), none outside them, the 2 unrenamed const_iterator ctors (0x3c91f0, 0x3c9210) unchanged; data (51708), references (183630, multiset equal), blocks (28) and bookmark profile identical; types 1521 -> 1523, none removed, added /project/C2DLine * and /project/@unnamed@hud_linemap_cpp@/CAiLinePtItr * (4 bytes each; the LineTo return and the CAiLinePtItr receiver); every other prototype type (CZLineMap *, zdb/CCamera *, CZNewHudMap *, CAiMap *, CAiMap/line *, CPnt3D *, _zrdr *, uchar, float) pre-existed",
+        "first parameter named like its own type: TickLine (0x3c8cc0) and SetupPolygon (0x3c9950) read back exactly as 'void __stdcall CZLineMap::TickLine(CZLineMap * this, line * line, float fPulseTrans, uchar bDim)' and the SetupPolygon equivalent; hudGetTacMapPulseTrans reads back 'float __stdcall hudGetTacMapPulseTrans(void)'",
+        "ghidra fingerprint after (build/fingerprints/b27-after.json sha256 9066dc91deea42295b9a14a77f7c62b1fa90054a0891c2227f980cf61fdc3cd4; diff build/fingerprints/b27-diff.json sha256 b8b093d4eb0b7c1f398b0e04ff332c09b87d1ff37f03eac7e9dd05310d28fc6c): functions changed only at exactly the 22 renamed batch entries (name and Function/Signature lines; Entry/Body lines and thunk/external flags unchanged; the 2 unrenamed const_iterator ctors unchanged); data, references (183630), blocks (28) and bookmarks identical; types +2, none removed: /project/C2DLine * (return type of CZLineMap::LineTo) and /project/@unnamed@hud_linemap_cpp@/CAiLinePtItr * (this-pointer of the CAiLinePtItr methods), both 4 bytes, created by set_function_prototype",
+        "ghidra fingerprint before (build/fingerprints/b27-before.json sha256 e2ef699e60f0631ee1e095ad6682daa841feb9be6bc73536d28b27a79298a21e) is identical in every section to the previous accepted after-fingerprint build/fingerprints/b26-after.json (which that batch's verifier's own live fingerprint equalled): 9715 functions, 51708 data, 1521 types, bookmarks, 28 blocks, 183630 references",
+        "ghidra-receipt-sha256:4087b29e3af71b4dd2578bd433c1d4b778d74067834addbe056710e139e149e1",
+        "ghidra-save:explicit-program",
+        "pre-handoff receipt 4087b29e3af71b4dd2578bd433c1d4b778d74067834addbe056710e139e149e1: data 51708 94a5efa4..., functions 9715 ea3e7e1f..., types 1523 8f96fd53...; scope 24 functions, 0 globals, 30 types; read-back markers: ambiguous-name x3",
+        "prototypes vs code (receipt disassembly, r5900 cspec __stdcall: floats f12-f19 and integers a0-a3/t0-t3 allocated independently, float return f0 else v0; path-sensitive must-write dataflow, build/verify-acc27/callers.json): no applied function reads an undeclared argument register (Draw/Clip a0,a1; TickWayPoints/TickRegions a0,a1,a2; TickLines/TickLine/SetupPolygon a0,a1,a2,f12; TickAnchors a0,f12; Tick a0,a1, f12 at 0x3c95e8; FindValid/IsValid/Advance/ctor/hudAddPolyType/hudAddLineType a0; LineTo a0, forwarding a1; hudGetTacMapPulseTrans none); the ELF jal scan equals Ghidra's call references (33 jal sites, no j); returns: LineTo v0 read at all 5 sites, the ctor v0 read by InitMap at 0x3c5ef4, hudGetTacMapPulseTrans (jr ra / lwc1 f0, matching the raw ELF words) f0 read by SetViewCone at 0x3dbdfc, IsValid (__vt CAiLinePtItr +0x10, sltu v0) tested by beq/bne v0 after the jalr in FindValid and Advance, Tick (__vt__9CZLineMap +0xc) sets v0 0 on both paths to its jr ra; no v0/f0 read after any of the 12 direct calls to the 9 directly called void functions; skips hold: WorldToDraw reads a0 (result), a1, a2 and GetPt reads a1 then stores through a0",
+        "python tools/socom.py ghidra apply-batch: program build/apply/socom-debug-batch-cb3be3e375bf8b83dc80-apply.json sha256 cb79d7d8270363ebbd293c9b0fc2b7d2be077d864175d5e5738972caa54ac8ff (regenerated from the accepted plan at commit 6bf4456), 61 bridge calls exactly as ghidra preflight-batch predicted after the claim (22 create_label, 22 rename_function_by_address, 17 set_function_prototype); 7 recorded skips; every name, Signature line, global type and length read back equal; report sha256 81a9c3024780140788b503a7e9dd2af11e8702cf288d9e6c92e0134deb8c826c",
+        "receipt: ghidra receipt over the stored scope reproduces 4087b29e3af71b4dd2578bd433c1d4b778d74067834addbe056710e139e149e1 (data 51708 94a5efa4..., functions 9715 ea3e7e1f..., types 1523 8f96fd53..., symbols 25716, 28 blocks); markers ambiguous-name x3, all pre-existing name collisions: /project/LINE_DATA (vs /project/line_data), the LINE_DATA tree's iterator (vs std::vector<bool>::iterator) and node (vs the CSaferStr tree node and std::__list_deleter node); the other 27 scoped types read back layouts or enum values; ghidra preflight --strict ok at start and end, analysis idle, 716 Analysis bookmarks, 0 Error/Warning",
+        "tests and method: uv pytest tests/tools 164 passed; audit independence ok; support/socom.elf sha256 unchanged. Only GETs (get_function_by_address, get_function_labels, search_functions, get_type_size, list_bookmarks, disassemble_function; values percent-encoded twice) and registered read-only commands (ghidra preflight, receipt, fingerprint alone on the bridge, verify asm) touched Ghidra; nothing was written or saved and no tracked file was edited. Non-blocking: the 3 STL-tree member prototypes and 2 const_iterator ctor prototypes stay unset until the bridge can spell comma receiver types and the node/iterator names are unique; the 2 overloaded ctors keep mangled names by design",
+        "tracker and provenance: progress audit --strict ok at revision 204 at start and end, no leases; item awaiting_acceptance handed off by socom-ghidra-reconstructor; dependencies accepted (plan item socom:debug-batch:cb3be3e375bf8b83dc80 by socom-verifier 2026-10-16T10:24:40Z citing plan sha256 31f7e108d5b67ca08da109d47ba534e5f99d65d3c9432e1d8131aac5d692fac7; socom:work:ghidra-zero-fill-memory); at HEAD 6bf4456 (tools/tests clean, unchanged since 53883f8) debug import-plan regenerates build/import-plans/socom-debug-batch-cb3be3e375bf8b83dc80.json and debug batch-program regenerates build/apply/socom-debug-batch-cb3be3e375bf8b83dc80-apply.json (sha256 cb79d7d8270363ebbd293c9b0fc2b7d2be077d864175d5e5738972caa54ac8ff) byte-identically (build/verify-acc27/plan-regen.json, program-regen.json); debug conflicts list --batch: 0; the stored receipt scope equals build/receipts/socom-debug-batch-cb3be3e375bf8b83dc80-apply-scope.json (sha256 7d7eaf2f1d89d9f961497229afa73bd347048149a00e948822b83229d8fa4c6d) and the program receipt_scope (24 functions, 0 globals, 30 types); report sha256 81a9c3024780140788b503a7e9dd2af11e8702cf288d9e6c92e0134deb8c826c cites the same plan and program, 61 calls, 7 skips; post-claim preflight build/preflight/socom-debug-batch-cb3be3e375bf8b83dc80-claimed.json (sha256 e283a368659ea3dceca795539b67fb41b9e4a25467bc3ab74facf3f9f02220d6) lists the same 61 calls (22 rename_function_by_address, 22 create_label, 17 set_function_prototype) and skips",
+        "types, symbols and bookmarks: a ghidra receipt over all 840 non-pointer, non-array /project types (scope built from my fingerprint, equal to the batch 26 verifier's scope; build/verify-acc27/alltypes-receipt.json) equals the batch 26 verifier all-types receipt fact for fact (714 layouts, 81 enums, 26 no-component-readback, 17 ambiguous-name, 2 unreadable-name), so no existing layout changed; get_type_size resolves line -> /project/CAiMap/line (16) and line * -> /project/CAiMap/line * uniquely, while node resolves to std::__list_deleter node (12), confirming the 0x3c91f0 skip avoided a wrong binding; symbol count 25659 -> 25716 (+57) = 22 create_label + 35 parameter symbols of the 17 prototypes; full list_bookmarks (716 rows: 713 Address Table, 3 Non-Returning Function) identical to the batch 26 verifier read",
+        "write lists generated from the post-claim preflight report: calls 61 {'create_label': 22, 'rename_function_by_address': 22, 'set_function_prototype': 17}\nfunctions renamed 22; prototypes 17: CZLineMap::Draw, CZLineMap::Clip, CZLineMap::TickWayPoints, CZLineMap::TickRegions, CZLineMap::TickLines, CZLineMap::TickLine, @unnamed@hud_linemap_cpp@::CAiLinePtItr::FindValid, @unnamed@hud_linemap_cpp@::CAiLinePtItr::IsValid, CZLineMap::TickAnchors, CZLineMap::Tick, CZLineMap::SetupPolygon, CZLineMap::LineTo, CZLineMap::CZLineMap, hudGetTacMapPulseTrans, hudAddPolyType, hudAddLineType, @unnamed@hud_linemap_cpp@::CAiLinePtItr::Advance\nglobals typed 0: \nglobal labels renamed 0: \nunchanged 0: \nskips 7: 3 x prototype: type name '__tree<std::pair<int const, LINE_DATA>, std::map<int, LINE_; 2 x prototype: by-value class, struct or union return or parameter: Ghidra's storage ; 1 x prototype: type name 'node' resolves 3 times ignoring case; 1 x prototype: type name 'iterator' resolves 2 times ignoring case"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "4087b29e3af71b4dd2578bd433c1d4b778d74067834addbe056710e139e149e1",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x3c74d0",
+            "0x3c76e0",
+            "0x3c7a70",
+            "0x3c86b0",
+            "0x3c8b10",
+            "0x3c8be0",
+            "0x3c8cc0",
+            "0x3c90f0",
+            "0x3c91c0",
+            "0x3c91f0",
+            "0x3c9200",
+            "0x3c9210",
+            "0x3c9220",
+            "0x3c9590",
+            "0x3c9950",
+            "0x3ca5e0",
+            "0x3ca850",
+            "0x3ca970",
+            "0x3ca980",
+            "0x3caa50",
+            "0x3cab20",
+            "0x3cabe0",
+            "0x3cac10",
+            "0x3cad10"
+          ],
+          "globals": [],
+          "types": [
+            "/project/@unnamed@hud_linemap_cpp@/CAiLinePtItr",
+            "/project/_zrdr",
+            "/project/C2DLine",
+            "/project/C2DPoly",
+            "/project/C2DString",
+            "/project/CAiMap",
+            "/project/CAiMap/line",
+            "/project/CAiMap/name",
+            "/project/CAiMap/names",
+            "/project/CAiMap/region",
+            "/project/CAiMapLoc",
+            "/project/CCompassAnchor",
+            "/project/CEntityList",
+            "/project/CMissionObjectiveCam",
+            "/project/CPlainBmp",
+            "/project/CPnt3D",
+            "/project/CZLineMap",
+            "/project/CZNewHudMap",
+            "/project/CZSealBody",
+            "/project/LINE_DATA",
+            "/project/LINE_TYPES",
+            "/project/PNT2D",
+            "/project/std/__red_black_tree<1>/anchor",
+            "/project/std/__tree<std::pair<int const, LINE_DATA>, std::map<int, LINE_DATA, std::less<int>, std::allocator<std::pair<int const, LINE_DATA>>>::value_compare, std::allocator<std::pair<int const, LINE_DATA>>>",
+            "/project/std/__tree<std::pair<int const, LINE_DATA>, std::map<int, LINE_DATA, std::less<int>, std::allocator<std::pair<int const, LINE_DATA>>>::value_compare, std::allocator<std::pair<int const, LINE_DATA>>>/const_iterator",
+            "/project/std/__tree<std::pair<int const, LINE_DATA>, std::map<int, LINE_DATA, std::less<int>, std::allocator<std::pair<int const, LINE_DATA>>>::value_compare, std::allocator<std::pair<int const, LINE_DATA>>>/iterator",
+            "/project/std/__tree<std::pair<int const, LINE_DATA>, std::map<int, LINE_DATA, std::less<int>, std::allocator<std::pair<int const, LINE_DATA>>>::value_compare, std::allocator<std::pair<int const, LINE_DATA>>>/node",
+            "/project/std/pair<int const, LINE_DATA>",
+            "/project/unresolved/generic_iterator@8655c66ed0",
+            "/project/zdb/CCamera"
+          ]
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1523,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 25716
+          },
+          "indexes": {
+            "data": {
+              "count": 51708,
+              "sha256": "94a5efa439f8cf3eb0b5b70c0b8c4158aec7e5f0a3ad33d8329ad3da344f6b98"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "ea3e7e1f1fdab550b261e75085c76e3f38d32a348f861b7158fa55b165e4e6c8"
+            },
+            "types": {
+              "count": 1523,
+              "sha256": "8f96fd53fa97d3612038b4ebf322ddb39f4f907acc96a382b10d516e24cd17c2"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-16T10:41:02Z",
+        "summary": "Applied accepted batch 27 (plan sha256 31f7e108...fac7) once: 22 functions renamed with mangled secondary labels and 17 prototypes (CZLineMap Draw/Clip/TickWayPoints/TickRegions/TickLines/TickLine/TickAnchors/Tick/SetupPolygon/LineTo/ctor; CAiLinePtItr FindValid/IsValid/Advance; hudGetTacMapPulseTrans, hudAddPolyType, hudAddLineType); no globals. Recorded skips (7): 2 by-value class returns (CZNewHudMap::WorldToDraw, CAiLinePtItr::GetPt), 3 LINE_DATA tree members with unparseable receiver types, 2 const_iterator ctor prototypes with ambiguous node/iterator names (both ctors keep mangled names as overloads). Ghidra side effects: 2 pointer types."
+      },
       "id": "socom:debug-batch:cb3be3e375bf8b83dc80-apply",
       "kind": "debug-import-apply-batch",
       "lease": null,
@@ -1476395,7 +1476542,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply reviewed DWARF compile-unit batch 027 (24 units)"
     },
     {
