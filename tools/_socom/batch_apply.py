@@ -219,6 +219,11 @@ class _Types:
                 element, reason = self.render(row["array"]["element"])
                 if element is None:
                     return None, reason
+                if element == "void":
+                    # Metrowerks writes void for elements DWARF 1 cannot
+                    # describe: c_arrStatFuncs is void[0..5] over 72 .symtab
+                    # bytes, six 12-byte pointers to member functions.
+                    return None, f"array DIE 0x{row['evidence']['die_offset']:x} has element type void"
                 counts = self.array_counts(row, extent)
                 if counts is None:
                     return None, f"array DIE 0x{row['evidence']['die_offset']:x} has an open extent the symbol does not fix"

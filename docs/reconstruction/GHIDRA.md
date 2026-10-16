@@ -312,7 +312,10 @@ apply should only be claimed after its preflight is clean.
   gave `StopPlay__5CGameFv`/`StartPlay__5CGameFv` (no DWARF) `COurGame * this`;
   see "Governed repairs".
 - **Recorded skips.** Type names with commas or `&` (STL), names not unique
-  ignoring case, member-less anonymous RTTI/vtable records, and absent
+  ignoring case, member-less anonymous RTTI/vtable records, arrays whose
+  DWARF element type is `void` (Metrowerks' spelling for elements DWARF 1
+  cannot describe: `c_arrStatFuncs` is `void[0..5]` over 72 bytes of
+  12-byte member-function pointers), and absent
   objects are left as they are and listed in the report. The comma check
   covers every prototype spelling, including a receiver taken from a vtable
   (`basic_streambuf<wchar_t, std::char_traits<wchar_t>> *`), and the

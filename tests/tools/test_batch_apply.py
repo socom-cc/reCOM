@@ -417,6 +417,22 @@ def test_batch_types_complete_open_arrays_from_symbol_sizes(program: dict) -> No
     assert nested.byte_size({"die_offset": 5, "fund_type": None, "modifiers": []}) == 204
     const = {"die_offset": None, "fund_type": 8, "modifiers": ["const"]}
     assert types.render(const)[0] is None and "'const'" in types.render(const)[1]
+    voids = batch_apply._Types(
+        {
+            "types": [
+                {
+                    "evidence": {"die_offset": 6},
+                    "kind": "array_type",
+                    "byte_size": None,
+                    "ghidra_path": None,
+                    "array": {"dimensions": [["fund", 10, 0, 5]], "element": {"die_offset": None, "fund_type": 0x14, "modifiers": []}},
+                },
+            ]
+        }
+    )
+    # c_arrStatFuncs: DWARF void[0..5] over 72 .symtab bytes (member-function pointers).
+    void_array = {"die_offset": 6, "fund_type": None, "modifiers": []}
+    assert voids.render(void_array, 72) == (None, "array DIE 0x6 has element type void")
 
 
 def test_batch_executor_skips_undefined_multidimensional_arrays(program: dict) -> None:
