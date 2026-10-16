@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 199,
+  "revision": 202,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1476032,6 +1476032,10 @@
       "title": "Apply reviewed DWARF compile-unit batch 026 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-16T10:24:40Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 27,
         "compile_unit_ids": [
@@ -1476190,8 +1476194,25 @@
       "dependencies": [
         "socom:work:debug-type-foundation-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "expected skips: 2 by-value returns (CZNewHudMap::WorldToDraw, CAiLinePtItr::GetPt), 3 tree members whose receiver type name the bridge cannot parse (tail, find<int>, find_or_insert<int,LINE_DATA>), 2 const_iterator ctor prototypes whose node/iterator parameter names are ambiguous live; the two const_iterator ctors (0x3c91f0, 0x3c9210) are overloads sharing one readable name, so both keep their mangled names (rename false); templated std::__tree readable names follow the batch 21/23 CSaferStr tree precedent (spaces as underscores)",
+        "file-only batch-program preview build/apply/socom-debug-batch-cb3be3e375bf8b83dc80-apply.json sha256 cb79d7d8270363ebbd293c9b0fc2b7d2be077d864175d5e5738972caa54ac8ff",
+        "functions: each of the 24 .symtab FUNC sizes equals DWARF high_pc-low_pc and the live get_function_by_address body; every live name is still the mangled symbol with the default undefined NAME(void) signature; each mangled name occurs once in .symtab with no symbol inside any body; the 22 readable names to apply equal no .symtab name and are unused live (search_functions finds none, positive controls CZNewHudMap::SwitchToCompassMap and CZLineMap::~CZLineMap hit; list_globals include_all_sections finds only the batch-26 CZLineMap/CAiLinePtItr statics, __vt and __RTTI labels); no body is a j/b stub and no j or b in any executable section targets a batch entry; the two const_iterator ctors 0x3c91f0 (node*) and 0x3c9210 (iterator const&) share one readable name and keep their mangled names (rename false); tree names follow the live CSaferStr tree spelling (int_const)",
+        "ghidra preflight-batch rerun to build/verify-pl27/preflight-batch.json is identical to the handed-off report (sha256 d2f73526...) apart from plan_item_status (in_progress then, awaiting_acceptance now): ok, 0 errors, 61 calls (22 create_label, 22 rename_function_by_address, 17 set_function_prototype), 7 skips, 0 unchanged; every write address is in the 24-function receipt scope; each create_label restores the mangled name of a renamed function; all 30 scope types exist live and none has a .conflict variant",
+        "independent DWARF 1 walk of the 24 DIE ranges (each opens with its compile_unit whose sibling is the range end) finds 195 non-null DIEs (= plan selected_die_count): 24 CUs, 24 subprograms with low_pc (20 global_subroutine, 4 subroutine) all at CU level, 47 formal_parameter, 24 lexical_block, 76 local_variable all inside lexical blocks, no CU-level variables (plan variables 0); the 24 low_pc/high_pc/mangled names equal the plan's function rows; all 24 function, 47 parameter and 76 local rows have DIE offsets inside the ranges; the 32 type rows are all referenced_only, reached from function return/param/local descriptors, and their 30 ghidra_paths equal the receipt-scope types",
+        "plan build/import-plans/socom-debug-batch-cb3be3e375bf8b83dc80.json sha256 31f7e108d5b67ca08da109d47ba534e5f99d65d3c9432e1d8131aac5d692fac7 and preview build/apply/socom-debug-batch-cb3be3e375bf8b83dc80-apply.json sha256 cb79d7d8270363ebbd293c9b0fc2b7d2be077d864175d5e5738972caa54ac8ff regenerate byte-identically at tools HEAD fd3464d (debug import-plan; debug batch-program from the stored plan; a program built from the regenerated copy differs only in plan.path); plan schema 4, mutation_performed false, target pins soCOM /socom.elf r5900:LE:32:default and the reference sha256; debug conflicts list --batch: 0; progress audit --strict ok at revision 201; ghidra preflight --strict ok",
+        "plan build/import-plans/socom-debug-batch-cb3be3e375bf8b83dc80.json sha256 31f7e108d5b67ca08da109d47ba534e5f99d65d3c9432e1d8131aac5d692fac7 from python tools/socom.py debug import-plan --batch socom:debug-batch:cb3be3e375bf8b83dc80 (tools HEAD fd3464d); debug conflicts list --batch: 0",
+        "prototypes vs code (17 applied): every entry block reads only declared registers with independent GPR/FPR allocation (TickLines/TickLine/SetupPolygon a0,a1,a2 plus f12; TickAnchors a0,f12; Tick a0,a1, f12 read at 0x3c95e8; LineTo passes a1 through to its first call); hudGetTacMapPulseTrans is jr ra / lwc1 f0 and SetViewCone reads f0 in the delay slot at 0x3dbdfc; IsValid returns sltu in v0 and is __vt__Q225@unnamed@hud_linemap_cpp@12CAiLinePtItr +0x10, read by beq/bne v0 after the jalr in FindValid and Advance (slots +0x8, +0xc are Advance, GetPt); Tick returns v0 0 on both exits and is __vt__9CZLineMap +0xc (Draw +0x10, Clip +0x18); LineTo returns s0 in v0, read by move s3/s2,v0 at all 5 call sites; the ctor reloads this into v0 and InitMap reads v0 at 0x3c5ef4; no v0/f0 read after any of the 12 direct calls to the 9 directly called void functions (Tick x7, TickLines x2, TickLine, hudInit x2); 'line' resolves once live (/project/CAiMap/line, 16 bytes, DWARF DIE 0x2e1e4f) and every other parameter/return base type resolves once; Ghidra 12.1.4 FunctionSignatureParser splits 'line * line' into name line and type line * (the whole-argument parse fails on '* line')",
+        "python tools/socom.py ghidra preflight-batch report build/preflight/socom-debug-batch-cb3be3e375bf8b83dc80.json sha256 d2f73526ab5b620a78b0dcbce4f62c6fa1d8ff65b9e7228c6c89c13744c3c7a1: ok=True, errors=0; 61 bridge calls (22 create_label, 22 rename_function_by_address, 17 set_function_prototype); 7 skips; 0 unchanged; no write outside the receipt scope; all scope types exist live",
+        "skips confirmed (7): WorldToDraw returns CPnt3D (12 bytes) and GetPt returns PNT2D (8 bytes) by value through hidden a0 ahead of this in a1 (FindValid and Advance pass a0=sp+0x30, a1=the hud map, a2=this+0x10); tail, find_or_insert<int,LINE_DATA> and find<int> take a receiver spelled __tree<...> with commas; live types named node resolve 3 times (this tree, the CSaferStr tree, __list_deleter) and iterator 2 times (this tree, vector<bool>) ignoring case, so the const_iterator ctor prototypes are left; the code agrees with both ctor prototypes (store a1 or [a1] to [a0], return a0) and find<int> also returns its 4-byte iterator by value through a0",
+        "uv run --no-project --python 3.11 --with pytest -- python -m pytest tests/tools -q -p no:cacheprovider: 164 passed; python tools/socom.py audit independence ok; support/socom.elf sha256 unchanged",
+        "write lists generated from the preflight report: calls 61 {'create_label': 22, 'rename_function_by_address': 22, 'set_function_prototype': 17}\nfunctions renamed 22; prototypes 17: CZLineMap::Draw, CZLineMap::Clip, CZLineMap::TickWayPoints, CZLineMap::TickRegions, CZLineMap::TickLines, CZLineMap::TickLine, @unnamed@hud_linemap_cpp@::CAiLinePtItr::FindValid, @unnamed@hud_linemap_cpp@::CAiLinePtItr::IsValid, CZLineMap::TickAnchors, CZLineMap::Tick, CZLineMap::SetupPolygon, CZLineMap::LineTo, CZLineMap::CZLineMap, hudGetTacMapPulseTrans, hudAddPolyType, hudAddLineType, @unnamed@hud_linemap_cpp@::CAiLinePtItr::Advance\nglobals typed 0: \nglobal labels renamed 0: \nunchanged 0: \nskips 7: 3 x prototype: type name '__tree<std::pair<int const, LINE_DATA>, std::map<int, LINE_; 2 x prototype: by-value class, struct or union return or parameter: Ghidra's storage ; 1 x prototype: type name 'node' resolves 3 times ignoring case; 1 x prototype: type name 'iterator' resolves 2 times ignoring case"
+      ],
+      "handoff": {
+        "owner": "socom-dwarf-importer",
+        "submitted_at": "2026-10-16T10:08:40Z",
+        "summary": "DWARF compile-unit batch 27 plan (hud_linemap.cpp CZLineMap Draw/Clip/Tick* members, SetupPolygon, LineTo, ctor; @unnamed@ CAiLinePtItr helpers; hudGetTacMapPulseTrans, hudAddPolyType, hudAddLineType; hud.h CZNewHudMap::WorldToDraw; MSL tree<pair<int const, LINE_DATA>> const_iterator ctors, tail, find, find_or_insert) is conflict-free: 24 functions, no globals or variables. Receipt scope: 24 functions, 0 globals, 30 types, all live."
+      },
       "id": "socom:debug-batch:cb3be3e375bf8b83dc80",
       "kind": "debug-import-plan-batch",
       "lease": null,
@@ -1476200,7 +1476221,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan DWARF compile-unit batch 027 (24 units)"
     },
     {
@@ -1476374,7 +1476395,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed DWARF compile-unit batch 027 (24 units)"
     },
     {
