@@ -723,3 +723,12 @@ def test_thunk_target_needs_a_bare_jump_and_nop(root: Path) -> None:
     # C2D::GetZAnimCmdType tail-calls with a0 set in its delay slot.
     assert batch_apply._thunk_target(elf, 0x174B10, 8) is None
     assert batch_apply._thunk_target(elf, 0x140500, 12) is None
+
+
+def test_data_alias_problem_covers_the_bridge_well_known_table() -> None:
+    # apply_data_type maps these through GhidraMCP's well-known-type table.
+    for name in ("uint16[512]", "int16", "uint16 *", "uint16_t", "size_t", "BOOL", "WORD *", "Bool[3]", "qword"):
+        assert batch_apply._data_alias_problem(name), name
+    # The builtins batch programs mean resolve to themselves; project types are untouched.
+    for name in ("int", "uint", "char *", "uchar", "ushort[2]", "float[180]", "double", "void *", "longlong", "ulonglong", "CSTable", "PNT2D"):
+        assert batch_apply._data_alias_problem(name) is None, name

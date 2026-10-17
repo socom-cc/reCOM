@@ -164,8 +164,10 @@ The GhidraMCP bridge has behaviors that silently corrupt work:
   8192 bytes) as `ushort[512]`; the apply's read-back caught it before any
   save. `get_type_size` and `set_function_prototype` resolve `/uint16`
   correctly (`GetVuMtxSet` reads back `uint16 *`), so batch programs skip
-  only global types spelled with `int16`/`uint16`, and the executor refuses
-  any program that still has one.
+  global types whose base name (ignoring `*` and `[n]`) is in that table,
+  matched ignoring case, unless it is the builtin the program means (`int`,
+  `uint`, `short`, `ushort`, `longlong`, `char`, `uchar`, `float`, `double`,
+  `void`); the executor refuses any program that still has one.
 - **Retyping drops names.** `modify_struct_field_type` clears the component
   name; `modify_struct_field` with both `new_type` and `new_name` keeps it.
 - **C imports replace by name.** `import_data_types` replaces any existing

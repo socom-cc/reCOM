@@ -69,10 +69,38 @@ BUILTINS = {
 }
 UNSPELLABLE = re.compile(r"[,&]")
 # apply_data_type resolves names through GhidraMCP 6.0.0's well-known-type
-# table (int16 -> short, uint16 -> ushort) before Ghidra's 16-byte builtins
-# of the same name: batch 35 typed g_buffer (uint16[512], 8192 bytes) as
-# ushort[512]. Prototypes are unaffected (GetVuMtxSet reads back uint16 *).
-DATA_ALIASED = re.compile(r"(?<![\w@])u?int16(?![\w@])")
+# table (ServiceUtils.resolveWellKnownType, matched ignoring case, also for
+# array elements and pointees) before the program's own types: batch 35
+# typed g_buffer (uint16[512], 8192 bytes) as ushort[512]. Names whose table
+# entry is the builtin the program means are safe; any other table name
+# (uint16, int16, word, bool, size_t, a project typedef BOOL, ...) is not.
+# Prototypes are unaffected (GetVuMtxSet reads back uint16 *).
+BRIDGE_WELL_KNOWN = frozenset({
+    "int", "uint", "short", "ushort", "long", "ulong", "longlong", "long long", "char", "uchar",
+    "float", "double", "bool", "boolean", "void", "byte", "sbyte", "word", "dword", "qword",
+    "int8_t", "int8", "uint8_t", "uint8", "int16_t", "int16", "uint16_t", "uint16",
+    "int32_t", "int32", "uint32_t", "uint32", "int64_t", "int64", "uint64_t", "uint64",
+    "size_t", "unsigned int", "unsigned short", "unsigned long", "unsigned char", "signed char",
+})
+BRIDGE_SAME_BUILTIN = frozenset({"int", "uint", "short", "ushort", "longlong", "char", "uchar", "float", "double", "void"})
+
+
+def _data_alias_problem(type_name: str) -> str | None:
+    """Why apply_data_type would not apply ``type_name`` as spelled, or None."""
+
+    base = type_name
+    while (match := re.match(r"^(.*?)\s*(\*|\[\d+\])$", base)):
+        base = match.group(1)
+    key = base.strip().lower()
+    if key in ("int16", "uint16"):
+        # Wording kept from 4044fb7 so accepted programs regenerate unchanged.
+        return f"type name {type_name!r} uses int16/uint16, which apply_data_type resolves to a 2-byte type"
+    if key in BRIDGE_WELL_KNOWN and base.strip() not in BRIDGE_SAME_BUILTIN:
+        return (
+            f"type name {type_name!r} uses {base.strip()!r}, which apply_data_type resolves through the "
+            "bridge's well-known-type table to a different type (uint16 becomes a 2-byte ushort)"
+        )
+    return None
 # Types Ghidra's own analysis gives data; no DWARF rendering produces them,
 # so they never mark a global as typed by an accepted batch.
 ANALYSIS_TYPES = frozenset(
@@ -872,8 +900,8 @@ def build_batch_program(root: Path, plan_path: Path) -> dict[str, Any]:
                     type_name, reason = None, f"array DIE 0x{descriptor['die_offset']:x} has no computable DWARF extent"
             else:
                 size = target.get("byte_size")
-        if type_name and DATA_ALIASED.search(type_name):
-            type_name, reason = None, f"type name {type_name!r} uses int16/uint16, which apply_data_type resolves to a 2-byte type"
+        if type_name and _data_alias_problem(type_name):
+            type_name, reason = None, _data_alias_problem(type_name)
         if type_name and size is not None and extent is not None and size != extent:
             type_name, reason = None, f"DWARF extent {size} differs from the .symtab size {extent}"
         entry = {
@@ -1047,10 +1075,10 @@ def execute_batch_program(
                 )
 
     for entry in program["globals"]:
-        if entry.get("type") and DATA_ALIASED.search(entry["type"]):
+        if entry.get("type") and _data_alias_problem(entry["type"]):
             raise SocomError(
                 f"global {entry['address']} is typed {entry['type']!r}, which apply_data_type would resolve "
-                "to a 2-byte type; regenerate the program"
+                "to a different type; regenerate the program"
             )
 
     existing = function_names()
