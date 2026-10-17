@@ -749,8 +749,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Metrowerks pointer-to-member-function data has no Ghidra type (DWARF writes void elements)"
+    },
+    {
+      "details": "Batch 35 (apply accepted at tracker revision 253). libpttclient.cpp g_buffer (0x5630c0, .symtab 8192 bytes) and g_buffer_hb (0x5650c0, 32768 bytes) are DWARF arrays of fundamental 0xA510 (u_long128), rendered uint16[512] and uint16[2048]; Ghidra's builtin /uint16 is 16 bytes. GhidraMCP 6.0.0 apply_data_type resolves names through ServiceUtils.resolveWellKnownType first (uint16 -> UnsignedShortDataType, 2 bytes), so the first batch 35 apply wrote ushort[512]/ushort[2048]; read-back caught it, the unsaved program was closed without saving, and tools 4044fb7/49edd7a now skip global types whose base name is in that table. Both globals have no data item. To type them, use a path the bridge resolves exactly (for example a /project typedef of the 16-byte builtin, or an endpoint that resolves /uint16 by path), apply under a governed item, and read back length 8192/32768. The same table also affects set_local_variable_type, set_variables and create_* endpoints.",
+      "id": "socom:workspace-issue:31f03f6fa288e6b46951",
+      "kind": "problem",
+      "reported_at": "2026-10-17T06:05:56Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "u_long128 globals g_buffer and g_buffer_hb are untyped: apply_data_type aliases uint16 to ushort"
     }
   ],
-  "revision": 88,
+  "revision": 89,
   "schema_version": 1
 }
