@@ -851,7 +851,9 @@ def build_batch_program(root: Path, plan_path: Path) -> dict[str, Any]:
         type_name, reason = rendered[0]
         if len(rendered) > 1:
             type_name, reason = None, f"DWARF rows disagree on the type: {[name or why for name, why in rendered]}"
-        if type_name and type_name.startswith("@subroutine@"):
+        if type_name and type_name.startswith("@subroutine@") and not type_name.endswith("*"):
+            # A pointer to a function type is data: g_syncCallback is
+            # void (**)() and is called through two loads.
             raise SocomError(f"plan types global {row['name']!r} at 0x{address:x} as a function")
         size = None
         descriptor = row["type"]

@@ -369,6 +369,24 @@ def test_batch_program_folds_unit_copies_and_refuses_code_globals(root: Path, ba
     path.write_text(json.dumps(dict(plan, types=[*plan["types"], void_typedef, unsized], variables=variables)), encoding="utf-8")
     unsized_row = {row["address"]: row for row in batch_apply.build_batch_program(root, path)["globals"]}["0x476f60"]
     assert unsized_row["type"] is None and "no computable DWARF extent" in unsized_row["type_skip"]
+    function_type = {
+        "evidence": {"die_offset": 999_003}, "kind": "subroutine_type", "ghidra_path": None, "byte_size": None,
+        "structural_class": "socom:type-class:427123976b517c446fad", "members": [], "array": None,
+        "type": {"die_offset": None, "fund_type": 0x14, "modifiers": []},
+    }
+    for modifiers, expected in ((["pointer_to", "pointer_to"], "@subroutine@427123976b * *"), ([], None)):
+        variables = [
+            dict(row, type={"die_offset": 999_003, "fund_type": None, "modifiers": modifiers}) if row is the_game else row
+            for row in plan["variables"]
+        ]
+        path.write_text(json.dumps(dict(plan, types=[*plan["types"], function_type], variables=variables)), encoding="utf-8")
+        if expected is None:
+            with pytest.raises(SocomError, match="as a function"):
+                batch_apply.build_batch_program(root, path)
+        else:
+            # g_syncCallback: void (**)(), a pointer to a function pointer, is data.
+            row = {item["address"]: item for item in batch_apply.build_batch_program(root, path)["globals"]}["0x476f60"]
+            assert row["type"] == expected
     inside = dict(copy.deepcopy(the_game), address=0x140464, name="bogus")
     path.write_text(json.dumps(dict(plan, variables=[*plan["variables"], inside])), encoding="utf-8")
     with pytest.raises(SocomError, match="inside function"):
