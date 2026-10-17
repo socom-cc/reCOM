@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 244,
+  "revision": 247,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1449383,7 +1449383,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "895f003b023f94b794e2e5ef4debe23b2072704d6cefed0ae72e726108c07141",
+      "current_receipt_sha256": "13ca89b3a1be4303f8dc6763ca8d47c675e255d23d0b7373597b85e917b28bc5",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -1450399,6 +1450399,31 @@
           "receipt_sha256": "895f003b023f94b794e2e5ef4debe23b2072704d6cefed0ae72e726108c07141",
           "tracker_revision": 241,
           "work_item_id": "socom:debug-batch:6224969bae2ccf3abd40-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1540,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 26146
+          },
+          "indexes": {
+            "data": {
+              "count": 51754,
+              "sha256": "61b0639cb0b272b8565414cd165533ab38e1c3185fa946f0289d41bc455cdf2a"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "7856adb633765b5f85f3fca7c731a069a0988bcb0fdc91b448c0ec8eae430042"
+            },
+            "types": {
+              "count": 1540,
+              "sha256": "83de90e1e6bd2885d89e6a58d3f9638ac279906ccd0ae6b4697f9b24265cc7f3"
+            }
+          },
+          "receipt_sha256": "13ca89b3a1be4303f8dc6763ca8d47c675e255d23d0b7373597b85e917b28bc5",
+          "tracker_revision": 247,
+          "work_item_id": "socom:debug-batch:1d674b57556b5376aefb-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -1486114,6 +1486139,10 @@
       "title": "Plan DWARF compile-unit batch 034 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-17T01:50:35Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 34,
         "compile_unit_ids": [
@@ -1486273,8 +1486302,92 @@
         "socom:debug-batch:1d674b57556b5376aefb",
         "socom:work:ghidra-zero-fill-memory"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "applied functions (get_function_by_address, get_function_labels, search_functions; values percent-encoded twice; build/verify-acc34/live.json, livecheck.json, labelcheck.log): all 14 carry the readable primary name (bsynz_, chanwr_0_, chanwr_, chanrd_, dcbias_, decode_, deemp_, difmag_, dyptrk_, encode_, energy_, pow_ii, r_sign, i_nint), distinct, each exactly one exact search_functions hit at its own address, the mangled name no longer a function name, and exactly one label, at the entry, the mangled name with Source USER_DEFINED (no other label in any body); the 14 live Signature lines equal the program prototypes exactly, e.g. 'int __stdcall bsynz_(float * coef, int * ip, int * iv, float * sout, float * rms, float * ratio, float * g2pass, lpc10_decoder_state * st)'; 'int __stdcall decode_(int * ipitv, int * irms, int * irc, int * voice, int * pitch, float * rms, float * rc, lpc10_decoder_state * st)'; 'int __stdcall difmag_(float * speech, int * lpita, int * tau, int * ltau, int * maxlag, float * amdf, int * minptr, int * maxptr)'; 'float __stdcall r_sign(float * a, float * b)'; no batch function is a thunk or external; every Entry/Body equals the .symtab GLOBAL FUNC extent (84 to 4060 bytes), each mangled name occurs once in .symtab, no readable name is a .symtab name and no symbol lies inside a body (build/verify-acc34/elffacts.json); all 3288 instructions of the 14 bodies equal the plan verifier's pre-apply disassembly (build/verify-pl34/live_functions.json)",
+        "applied globals (audit_global strict_mode off, list_globals include_all_sections min_xrefs 0, read_memory, get_xrefs_to, fingerprint rows, own ELF reader): c__2 0x4755a8 and c__2 0x4755ac are int, length 4, the .symtab LOCAL 4-byte OBJECT size, live bytes 02000000 and 02000000 equal the ELF initial bytes (value 2); no other live data row, .symtab symbol or relocation lies inside either extent; xrefs unchanged (0x4755a8: 2, 003edb9c, 003edc1c; 0x4755ac: 1, 003eec48; exactly the ELF R_MIPS_GPREL16 sites naming those symbols, build/verify-acc34/retcheck.log); contrl_ 0x5754d0 keeps name contrl_ (audit_global, list_globals) with no data item, every data row in its 12-byte extent unchanged, and no type (audit type '' length 0, 41 xrefs, equal to the batch 33 verifier's receipt fact), zero fill (read_memory fails), and get_type_size confirms @class@8541c0e5b6 is not defined, so the executor-time type skip wrote nothing there",
+        "fingerprint: own live ghidra fingerprint build/verify-acc34/fp-now.json (2026-10-17T01:35:55Z-2026-10-17T01:41:43Z, no other bridge traffic, rc 0, fingerprint_sha256 4a99e4062f7d991a...) is byte-identical to the handed-off build/fingerprints/b34-after.json (sha256 c73e1639ca4216dd233b0028b070e141226fd7b8ec02fd26dd5422eead618527); b34-before.json is byte-identical to b33-after.json and the batch 33 verifier's own build/verify-acc33/fp-now.json (sha256 67bab524f4e64a401012f1445207d8a5180536414ba19859eb02a1cf504e5451). Offline comparison with that accepted state (build/verify-acc34/cmp-acc33-vs-fpnow.json): functions 9715, same address list, changed exactly at the 14 batch entries and only in name and Function/Signature lines (Entry/Body lines and thunk/external flags unchanged); data 51754 -> 51754, -2/+2: the 2 prior undefined4 items at 0x4755a8/0x4755ac replaced by int (4 bytes, name c__2), nothing else; references (183630, list equal), blocks (28), bookmark profile and analysis state identical; types 1539 -> 1540, none removed, added only /project/lpc10_decoder_state * (4)",
+        "ghidra fingerprint after (build/fingerprints/b34-after.json sha256 c73e1639ca4216dd233b0028b070e141226fd7b8ec02fd26dd5422eead618527; diff build/fingerprints/b34-diff.json sha256 b059423adb04ab89faf8d559ed0676924a35998fc7c594295c80ab5b37c9b8f1): data and function rows classified by build/batch-helpers/explain_diff.py from the diff, the post-claim preflight and the program: functions changed 14; equal to renamed set: True;   2 + typed global;   2 - prior item at typed address (undefined4);typed globals with no prior data item: 0;references {'added': [], 'removed': []}, blocks_equal True, bookmarks_equal True;types added ['/project/lpc10_decoder_state *|4'], removed [];every row explained; the new type /project/lpc10_decoder_state * (4 bytes) is the parameter pointer type set_function_prototype created for bsynz_, decode_ and deemp_ (st)",
+        "ghidra fingerprint before (build/fingerprints/b34-before.json sha256 67bab524f4e64a401012f1445207d8a5180536414ba19859eb02a1cf504e5451) is identical in every section to the previous accepted after-fingerprint build/fingerprints/b33-after.json (which that batch's verifier's own live fingerprint equalled): 9715 functions, 51754 data, 1539 types, bookmarks, 28 blocks, 183630 references",
+        "ghidra-receipt-sha256:13ca89b3a1be4303f8dc6763ca8d47c675e255d23d0b7373597b85e917b28bc5",
+        "ghidra-save:explicit-program",
+        "pre-handoff receipt 13ca89b3a1be4303f8dc6763ca8d47c675e255d23d0b7373597b85e917b28bc5: data 51754 61b0639c..., functions 9715 7856adb6..., types 1540 83de90e1...; scope 14 functions, 3 globals, 2 types; read-back markers: none",
+        "prototypes vs code (receipt disassembly; r5900 __stdcall, integer a0-a3/t0-t3 and float f12-f19 allocated independently; path-sensitive must-write dataflow with delay slots, branch-likely annulment and call clobbers; build/verify-acc34/flow.py, protocheck.json): every applied function's entry block and whole body read exactly the declared argument registers and no other (a0 a1 a2 a3 t0 t1 t2 t3 for bsynz_, decode_, difmag_; a0 a1 a2 a3 t0 t1 t2 for chanwr_0_, dyptrk_, encode_; a0 a1 a2 a3 t0 t1 for chanwr_; a0 a1 a2 a3 t0 for chanrd_; a0 a1 a2 for dcbias_, deemp_, energy_; a0 a1 for pow_ii, r_sign; a0 for i_nint); no f12-f19 read; all 13 int functions write v0 on every path to their single jr ra (the 9 f2c subroutines bsynz_, chanwr_0_, dcbias_, decode_, deemp_, difmag_, dyptrk_, encode_ and energy_ by a move v0,zero that dominates it, chanwr_0_ on both its exit paths; chanwr_ and chanrd_ write no v0 after their jal chanwr_0_; pow_ii returns its computed v0; i_nint the v0 of its final jal 0x16e2c8; build/verify-acc34/retcheck.log) and r_sign (float) writes f0 on every path (lwc1 f0,0xc(sp) before jr ra; v0 only a scratch pointer); registers left unwritten at calls reach no consumer: chanwr_0_ and pow_ii read only their declared registers, the undefined-signature callees read only what the caller wrote (ham84_ a0-a2, median_ a0-a2, random_ a0, fptosi f12, fptodp f12) and sqrtf tail-jumps to __ieee754_sqrtf, which reads only f12 and writes f0 on every path (live disassembly, calleereads.json, tailcheck.json); the ELF has 29 jal sites (no j, no R_MIPS_32 word) into batch entries inside 13 live callers whose full disassembly I read; no batch function is void; int v0 is read after the call at every site of i_nint, pow_ii and is not read at any site of bsynz_, chanrd_, chanwr_, chanwr_0_, dcbias_, decode_, deemp_, difmag_, dyptrk_, encode_, energy_ (f2c subroutines returning 0; chanwr_ and chanrd_ return chanwr_0_'s v0 unchanged); all 3 r_sign sites read f0 first (onset_ swc1, vparms_ swc1 and c.eq.S) and none reads v0/v1; no int site reads f0/f1",
+        "python tools/socom.py ghidra apply-batch: program build/apply/socom-debug-batch-1d674b57556b5376aefb-apply.json sha256 8fd24ead5af873c45b8461b4692da55f06b1494496881b7e997ee27fe1a76157 (regenerated from the accepted plan at commit c8f1709), 44 bridge calls exactly as ghidra preflight-batch predicted after the claim (2 apply_data_type, 14 create_label, 14 rename_function_by_address, 14 set_function_prototype); 1 recorded skips; every name, Signature line, global type and length read back equal; report sha256 b7bb8597c0d68da3bd0434ed0afa010e613cd03e0aeb6237f93bb9432f63e760",
+        "receipt: ghidra receipt over the stored scope reproduces 13ca89b3a1be4303f8dc6763ca8d47c675e255d23d0b7373597b85e917b28bc5 and is byte-identical to build/receipts/socom-debug-batch-1d674b57556b5376aefb-apply-prehandoff.json (data 51754 61b0639c..., functions 9715 7856adb6..., types 1540 83de90e1..., symbols 26146, 28 blocks); both scoped types read back layouts (lpc10_decoder_state 3072 bytes, lpc10_encoder_state 9540 bytes) equal to my all-types receipt; no read-back markers",
+        "tests and method: uv pytest tests/tools 164 passed; audit independence ok; support/socom.elf sha256 unchanged. Only GETs (get_function_by_address, get_function_labels, search_functions, audit_global, list_globals, get_type_size, list_bookmarks, disassemble_function, read_memory, get_xrefs_to; values percent-encoded twice; program=socom.elf) and registered read-only commands (ghidra preflight, receipt, fingerprint alone on the bridge) touched Ghidra; nothing was written or saved and no tracked file was edited. Non-blocking: contrl_ stays untyped because the anonymous f2c common-block class @class@8541c0e5b6 was never created (as issues c047a89a/22868f48, also recorded at batch 33); the 9 f2c subroutines' DWARF int return is always 0 and no caller reads it",
+        "tracker and provenance: progress audit --strict ok at revision 246 at start and end, no leases; item awaiting_acceptance, handed off by socom-ghidra-reconstructor; dependencies accepted (plan item socom:debug-batch:1d674b57556b5376aefb by socom-verifier at 2026-10-17T01:16:11Z; socom:work:ghidra-zero-fill-memory); at HEAD c8f1709 (tools at 7cc1656; 7cc1656..c8f1709 touches only the tracker and README snapshot, working tree clean for tools/tests/docs) debug import-plan regenerates build/import-plans/socom-debug-batch-1d674b57556b5376aefb.json (sha256 8af0760a68ce5b42cbb90f9a5f1b879352ca6a1316762d6199ea6cb1797b1f88) and debug batch-program regenerates build/apply/socom-debug-batch-1d674b57556b5376aefb-apply.json (sha256 8fd24ead5af873c45b8461b4692da55f06b1494496881b7e997ee27fe1a76157) byte-identically; debug conflicts list --batch: 0; stored scope build/receipts/socom-debug-batch-1d674b57556b5376aefb-apply-scope.json (sha256 d92be0fe2ad482ffdd071f57660cfdcc501e2037518569b42b3301e24e880a1a) equals the program receipt_scope and the tracker scope (14 functions, 3 globals, 2 types); report sha256 b7bb8597c0d68da3bd0434ed0afa010e613cd03e0aeb6237f93bb9432f63e760 cites the same plan and program, ok, 44 calls, read-back of all 14 functions and 3 globals equals the program (contrl_ reads back no type); its skips (1: type contrl_, '@class@8541c0e5b6' resolves 0 times) and unchanged (0) equal the post-claim preflight build/preflight/socom-debug-batch-1d674b57556b5376aefb-claimed.json (sha256 d2d8d9ae1e63be34ef54cd2552009ca0deabacfd997a8f99d5014205abf894ee, plan_item_status accepted, ok, 0 errors, identical to the plan-time preflight sha256 9f00863f8a6c5f307942f86eee8a4ce993a963eb43682eb2f372d3c4aa868753 apart from plan_item_status), whose 44 calls (2 apply_data_type, 14 create_label, 14 rename_function_by_address, 14 set_function_prototype) equal as a multiset the steps I derived from the program, all inside the scope, strict_mode off, no comma inside any prototype parameter type; the apply log records ok, the same call count and skips (build/verify-acc34/reportcheck.py)",
+        "types, symbols and bookmarks: a ghidra receipt over all 840 non-pointer, non-array /project types (scope built from my fingerprint, list-equal to the batch 33 verifier's) equals the batch 33 verifier's all-types receipt fact for fact (714 layouts, 81 enums, 26 no-component-readback, 17 ambiguous-name, 2 unreadable-name), so no existing layout changed; get_type_size resolves lpc10_decoder_state 3072, lpc10_encoder_state 9540, and the pointer types lpc10_decoder_state * (new) and lpc10_encoder_state * at 4 bytes; symbol count 26062 -> 26146 (+84) = 14 create_label + 70 parameter symbols of the 14 prototypes; full list_bookmarks (716 rows: 713 Address Table, 3 Non-Returning Function, 0 Error/Warning) identical to the batch 33 verifier read; ghidra preflight --strict ok at start and end with identical reports, analysis idle",
+        "write and skip lists generated from the post-claim preflight report: calls 44 {'apply_data_type': 2, 'create_label': 14, 'rename_function_by_address': 14, 'set_function_prototype': 14}\nfunctions renamed 14; prototypes 14: bsynz_, chanwr_0_, chanwr_, chanrd_, dcbias_, decode_, deemp_, difmag_, dyptrk_, encode_, energy_, pow_ii, r_sign, i_nint\nglobals typed 2: c__2 (int), c__2 (int)\nglobal labels renamed 0: \nunchanged 0: \nskips 1: 1 x type: type name '@class@8541c0e5b6' resolves 0 times ignoring case\nskips by action: 1 type\n  type skips: contrl_"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "13ca89b3a1be4303f8dc6763ca8d47c675e255d23d0b7373597b85e917b28bc5",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x3ebe70",
+            "0x3ec850",
+            "0x3ecbd0",
+            "0x3ecc30",
+            "0x3ecc90",
+            "0x3ecda0",
+            "0x3edd80",
+            "0x3edf10",
+            "0x3ee180",
+            "0x3ee790",
+            "0x3eeec0",
+            "0x3eefb0",
+            "0x3ef0b0",
+            "0x3ef160"
+          ],
+          "globals": [
+            "0x4755a8",
+            "0x4755ac",
+            "0x5754d0"
+          ],
+          "types": [
+            "/project/lpc10_decoder_state",
+            "/project/lpc10_encoder_state"
+          ]
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1540,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 26146
+          },
+          "indexes": {
+            "data": {
+              "count": 51754,
+              "sha256": "61b0639cb0b272b8565414cd165533ab38e1c3185fa946f0289d41bc455cdf2a"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "7856adb633765b5f85f3fca7c731a069a0988bcb0fdc91b448c0ec8eae430042"
+            },
+            "types": {
+              "count": 1540,
+              "sha256": "83de90e1e6bd2885d89e6a58d3f9638ac279906ccd0ae6b4697f9b24265cc7f3"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-17T01:34:41Z",
+        "summary": "Applied accepted batch 34 (plan sha256 8af0760a..., libpttclient LPC-10 codec) once: 14 functions renamed with mangled secondary labels and 14 prototypes (bsynz_, chanwr_0_, chanwr_, chanrd_, dcbias_, decode_, deemp_, difmag_, dyptrk_, encode_, energy_, pow_ii, r_sign, i_nint); 2 globals typed (the decode.c and encode.c c__2 int constants). Recorded skip (1): contrl_, whose anonymous @class@8541c0e5b6 is absent live. Ghidra side effect: 1 pointer type."
+      },
       "id": "socom:debug-batch:1d674b57556b5376aefb-apply",
       "kind": "debug-import-apply-batch",
       "lease": null,
@@ -1486284,7 +1486397,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply reviewed DWARF compile-unit batch 034 (24 units)"
     },
     {
