@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 250,
+  "revision": 253,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1449383,7 +1449383,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "13ca89b3a1be4303f8dc6763ca8d47c675e255d23d0b7373597b85e917b28bc5",
+      "current_receipt_sha256": "93727c79e5713d929616430aa3bbcc1eb9d6a64c755068f9cebf3b3f4d6fe803",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -1450424,6 +1450424,31 @@
           "receipt_sha256": "13ca89b3a1be4303f8dc6763ca8d47c675e255d23d0b7373597b85e917b28bc5",
           "tracker_revision": 247,
           "work_item_id": "socom:debug-batch:1d674b57556b5376aefb-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1542,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 26198
+          },
+          "indexes": {
+            "data": {
+              "count": 51767,
+              "sha256": "6530b2c3d004ad414dbe7cac22f7f936cf4d9cf0ab40eb21a558e58d86137258"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "ac65f126f40c0728fc547d873db64aeb5a89a79727d0103341ed0c43f07f1e5d"
+            },
+            "types": {
+              "count": 1542,
+              "sha256": "3d8b196ccd2907e57cd20d387659607b3595df79e309507e1a219fd09deb0123"
+            }
+          },
+          "receipt_sha256": "93727c79e5713d929616430aa3bbcc1eb9d6a64c755068f9cebf3b3f4d6fe803",
+          "tracker_revision": 253,
+          "work_item_id": "socom:debug-batch:7b7faee2b4ac6a53319d-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -1486600,6 +1486625,10 @@
       "title": "Plan DWARF compile-unit batch 035 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-17T03:51:15Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 35,
         "compile_unit_ids": [
@@ -1486759,8 +1486788,122 @@
         "socom:debug-batch:7b7faee2b4ac6a53319d",
         "socom:work:ghidra-zero-fill-memory"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "decision on the program differing from the plan-reviewed one: acceptable without plan re-review. The accepted plan (sha256 9801b825...) is unchanged and regenerates byte-identically at HEAD; the program is its deterministic translation and the change only subtracts: the claimed preflight's 68 steps equal the plan-time preflight's 70 (program 0d60066e...) minus exactly apply_data_type 0x5630c0 uint16[512] and 0x5650c0 uint16[2048], same order and bodies, nothing added; the receipt scope (19 functions, 16 globals, 8 types) is unchanged and still binds both globals in their batch 34 state (bare labels, no data item, xrefs 35/11). Removing a write cannot introduce unreviewed state, while applying it through this bridge would have written ushort[512]/ushort[2048] (1024/4096 bytes) against .symtab sizes 8192/32768, contradicting the plan review (uint16 is the 16-byte u_long128, DWARF 0xA510). The skip is recorded like the accepted executor-time skips (g_syncCallback here, contrl_ in batch 34); typing these two globals stays open follow-up work",
+        "fingerprint: own ghidra fingerprint, run alone on the bridge 2026-10-17T03:29:47Z to 2026-10-17T03:36:24Z, is byte-identical to build/fingerprints/b35-after.json (file sha256 7760e84599fbc83c8ad8094915f77c4bd95c378bb16eb17100f64b43ecb74e0a, fingerprint_sha256 4017ca609cde4a00f8673acd924352a5187040fb87f3e166401331cbd06a0da9); offline against the accepted batch 34 state build/fingerprints/b34-after.json: 9715 functions, changed exactly the 19 program functions (18 renamed, scePcGetCounter0 signature only), entries and bodies unchanged; data rows 51754 -> 51767, +13/-0 exactly at the 13 typed globals; references 183630, 28 blocks, bookmark profile and analysis identical; types 1540 -> 1542, +/float[180]|720 and /int[54]|216, none removed or resized; all-types receipt over the 840 /project types equals the batch 34 verifier's (0 differing; {'ambiguous-name': 17, 'enum': 81, 'layout': 714, 'no-component-readback': 26, 'unreadable-name': 2})",
+        "first attempt and recovery: build/fingerprints/b35-reopen.json, build/fingerprints/b35-before.json, build/fingerprints/b34-after.json and the batch 34 verifier's build/verify-acc34/fp-now.json are byte-identical (sha256 c73e1639...), so no first-attempt write persisted and the apply started from the accepted batch 34 state; cause confirmed by javap of com.xebyte.core.ServiceUtils in %APPDATA%\\ghidra\\ghidra_12.1.4_PUBLIC\\Extensions\\GhidraMCP\\lib\\GhidraMCP-6.0.0.jar (sha256 b652a23b...): resolveDataType calls resolveWellKnownType first, which lowercases the name and looks it up in a 42-key table mapping int16/int16_t to ShortDataType and uint16/uint16_t to UnsignedShortDataType, and resolves 'elem[n]' by recursing on elem; DataTypeService.applyDataType calls resolveDataType, getTypeSize uses findDataTypeByNameInAllCategories, and set_function_prototype parses with Ghidra's FunctionSignatureParser(dtm, null); live get_type_size uint16 answers /uint16 16 bytes and zdb::CCamera::GetVuMtxSet (0x1e44b0) reads back 'uint16 * __stdcall zdb::CCamera::GetVuMtxSet(CCamera * this)'",
+        "first attempt and recovery: the first apply-batch run with the plan-reviewed program (sha256 0d60066e...) made all 70 calls and then failed read-back with '2 applied entries differ from the program' (g_buffer and g_buffer_hb read back as ushort[512]/1024 bytes and ushort[2048]/4096 bytes instead of uint16[512]/8192 and uint16[2048]/32768); nothing was saved; the user closed socom.elf without saving and reopened it; ghidra fingerprint build/fingerprints/b35-reopen.json then equalled build/fingerprints/b34-after.json byte for byte (sha256 c73e1639...), so every first-attempt write was discarded; cause: GhidraMCP 6.0.0 ServiceUtils.resolveDataType consults resolveWellKnownType (int16 -> short, uint16 -> ushort) before Ghidra's 16-byte builtins, while get_type_size and set_function_prototype resolve /uint16 (16 bytes; zdb::CCamera::GetVuMtxSet reads back 'uint16 *')",
+        "functions: the 18 renamed functions carry readable primary names, unique exactly and ignoring case over 9715 functions and absent from .symtab (search_functions exact hit 1 each, 0 function hits for the mangled name), each with its mangled name as the only label (USER_DEFINED) at the entry; scePcGetCounter0 keeps its name and has no labels; all 19 Signature lines equal the program prototypes (__stdcall); bodies equal the .symtab FUNC sizes (12 to 1744 bytes)",
+        "ghidra fingerprint after (build/fingerprints/b35-after.json sha256 7760e84599fbc83c8ad8094915f77c4bd95c378bb16eb17100f64b43ecb74e0a; diff build/fingerprints/b35-diff.json sha256 9e6721f298326e60ae6d2ba69b324dd606865e1bb43308220612d8836b25d027): data and function rows classified by build/batch-helpers/explain_diff.py from the diff, the post-claim preflight and the program: functions changed 19; equal to renamed-or-prototyped set: True (18 renamed, 1 prototype-only);  13 + typed global;typed globals with no prior data item: 13;references {'added': [], 'removed': []}, blocks_equal True, bookmarks_equal True;types added ['/float[180]|720', '/int[54]|216'], removed [];every row explained; the two new types are the root-category array types apply_data_type created for g_bits (int[54]) and g_speech (float[180])",
+        "ghidra fingerprint before (build/fingerprints/b35-before.json sha256 c73e1639ca4216dd233b0028b070e141226fd7b8ec02fd26dd5422eead618527) is identical in every section to the previous accepted after-fingerprint build/fingerprints/b34-after.json (which that batch's verifier's own live fingerprint equalled): 9715 functions, 51754 data, 1540 types, bookmarks, 28 blocks, 183630 references",
+        "ghidra-receipt-sha256:93727c79e5713d929616430aa3bbcc1eb9d6a64c755068f9cebf3b3f4d6fe803",
+        "ghidra-save:explicit-program",
+        "globals: the 13 typed globals read back (audit_global, list_globals, fingerprint) with the program type at the .symtab length: int x3 4, uchar x2 1, void * 4, PTT_SyncReason 1, lpc10_encoder_state * 4, lpc10_decoder_state * 4, _sif_client_data x2 40, int[54] 216, float[180] 720, no other data inside any extent and no data there in the batch 34 state; g_syncCallback, g_buffer and g_buffer_hb have no data item before or after (audit type '' length 0, list_globals '[Label] (undefined)'), so g_buffer/g_buffer_hb are not ushort arrays; no global renamed",
+        "non-blocking: g_buffer/g_buffer_hb stay untyped and no open workspace issue tracks typing them (related open issue 4d52efa4 concerns 0xA510 signedness); the plugin's alias table also serves set_local_variable_type, set_variables and the create_* type endpoints, and is matched ignoring case with more keys than the guard covers (e.g. /stddef.h/size_t, 8 bytes live, would resolve to uint), none hit by any current program",
+        "pre-handoff receipt 93727c79e5713d929616430aa3bbcc1eb9d6a64c755068f9cebf3b3f4d6fe803: data 51767 6530b2c3..., functions 9715 ac65f126..., types 1542 3d8b196c...; scope 19 functions, 16 globals, 8 types; read-back markers: none",
+        "prototypes vs code: each entry block (to the first transfer and its delay slot) reads exactly the declared argument registers (a0-a2 ham84_, PTT_Sync, PTT_JoinGame; a0-a3 hp100_, invert_; a0-a3,t0 irc2pc_, ivfilt_; a0-a1 PTT_Init, PTT_PermitWANAddress; a0 PTT_Heartbeat; none in the other 10); every int-returning function writes v0 or takes it from a call on every path to jr ra (scePcGetCounter0: mfpc v0,PCR0); the 46 jal sites (= 46 R_MIPS_26 relocations = 46 live UNCONDITIONAL_CALL refs, no j) reach 17 int-returning functions, 26 read v0 after the call and none reads v1, f0 or f1; the void SIF end callbacks have no jal, j, R_MIPS_26 or R_MIPS_32 reference, only PARAM refs (_PTT_HeartbeatCallback 2, _PTT_SyncCallback 9), each an addiu t3 (8th argument, end_func) ahead of a jal sceSifCallRpc",
+        "python tools/socom.py ghidra apply-batch: program build/apply/socom-debug-batch-7b7faee2b4ac6a53319d-apply.json sha256 d909284f4ed971b0c7e253377851398fba1cdeda6f7b010ee71542ed92572995 (regenerated from the accepted plan at commit 6e36051 with tools 4044fb7), 68 bridge calls exactly as ghidra preflight-batch predicted after the claim (13 apply_data_type, 18 create_label, 18 rename_function_by_address, 19 set_function_prototype); 3 recorded skips; every name, Signature line, global type and length read back equal; report sha256 b48b6feee3edc03673c90e0a1a058c141ab8e6ef28edd3719438d188c60ef492",
+        "receipt: ghidra receipt --scope build/receipts/socom-debug-batch-7b7faee2b4ac6a53319d-apply-scope.json reproduces 93727c79e5713d929616430aa3bbcc1eb9d6a64c755068f9cebf3b3f4d6fe803 (19 functions, 16 globals, 8 types; data 51767, functions 9715, types 1542; 7 layouts and the PTT_SyncReason enum read back, no markers); the pre-handoff receipt file carries the same sha256",
+        "symbols 26146 -> 26198, delta 52 = 18 create_label + 34 new parameter symbols; full list_bookmarks read: 716 (713 Address Table, 3 Non-Returning Function), 0 Error/Warning, identical to the batch 34 verifier's read; ghidra preflight --strict ok at start and end",
+        "tests: uv pytest tests/tools 165 passed; audit independence ok, 0 findings",
+        "tool change 4044fb7 reviewed (git show): the DATA_ALIASED regex turns a global type spelled int16/uint16 into a recorded type_skip in build_batch_program, and execute_batch_program raises before any write on a program that still has one; prototypes untouched; new tests cover the skip and the refusal. All 35 stored batch plans rebuilt with git-archive copies of tools at 5593c1b and 4044fb7 (build/verify-acc35/progs-*): 34 programs byte-identical; batch 35 differs only at 0x5630c0 g_buffer and 0x5650c0 g_buffer_hb (type uint16[512]/uint16[2048] -> null with type_skip) and summary.typed_global_count 16 -> 14 (functions, receipt_scope, other keys equal); the 5593c1b build is the plan-reviewed 0d60066e..., the 4044fb7 build is the applied d909284f...; no global type in any of the 35 rebuilt programs is captured by the plugin's case-insensitive alias table",
+        "tool change 4044fb7: global types spelled with int16/uint16 become a recorded type skip and execute_batch_program refuses any program that still has one; rebuilding all 35 batch programs with and without the change alters only this batch, at g_buffer and g_buffer_hb (type -> skip) and its summary counts; functions identical; pytest tests/tools 165 passed (one new test); audit independence ok; the re-run program sha256 d909284f... makes 68 calls (13 apply_data_type, 18 create_label, 18 rename_function_by_address, 19 set_function_prototype)",
+        "tracker/provenance: progress audit --strict ok at revision 252 at start and end, no leases; plan item socom:debug-batch:7b7faee2b4ac6a53319d accepted at revision 250 (committed 6e36051) by a different owner than the handoff; at HEAD 4044fb7 debug import-plan reproduces the plan (9801b825...) and debug batch-program reproduces the program (d909284f...) byte-identically; debug conflicts list --batch: 0; claimed preflight (sha256 20adb4e7...) ok with the plan accepted: 68 steps {'apply_data_type': 13, 'create_label': 18, 'rename_function_by_address': 18, 'set_function_prototype': 19} equal the multiset derived from the program, all inside the stored scope; apply report (b48b6fee...) and apply log: ok, 68 calls, skips equal the preflight's (type: 0x476c90, 0x5630c0, 0x5650c0)",
+        "write and skip lists generated from the post-claim preflight report: calls 68 {'apply_data_type': 13, 'create_label': 18, 'rename_function_by_address': 18, 'set_function_prototype': 19}\nfunctions renamed 18; prototypes 19: ham84_, hp100_, invert_, irc2pc_, ivfilt_, PTT_Init, PTT_Destroy, _PTT_HeartbeatCallback, PTT_HeartbeatPrepare, PTT_Heartbeat, scePcGetCounter0, PTT_IsNewCallOk, _PTT_SyncCallback, PTT_Sync, PTT_Status, PTT_QueryWANAddress, PTT_PermitWANAddress, PTT_JoinGame, PTT_LeaveGame\nglobals typed 13: g_permitSemaphore (int), g_syncSemaphore (int), g_heartbeatSemaphore (int), g_wasPrepared (uchar), g_isInitialized (uchar), g_syncCalldata (void *), g_syncReason (PTT_SyncReason), g_encoderState (lpc10_encoder_state *), g_decoderState (lpc10_decoder_state *), g_cd (_sif_client_data), g_cd_hb (_sif_client_data), g_bits (int[54]), g_speech (float[180])\nglobal labels renamed 0: \nunchanged 0: \nskips 3: 1 x type: type name '@subroutine@427123976b' resolves 0 times ignoring case; 1 x type: type name 'uint16[512]' uses int16/uint16, which apply_data_type resol; 1 x type: type name 'uint16[2048]' uses int16/uint16, which apply_data_type reso\nskips by action: 3 type\n  type skips: g_syncCallback, g_buffer, g_buffer_hb"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "93727c79e5713d929616430aa3bbcc1eb9d6a64c755068f9cebf3b3f4d6fe803",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x3ef230",
+            "0x3ef370",
+            "0x3ef560",
+            "0x3efa20",
+            "0x3efc40",
+            "0x3efee0",
+            "0x3f0110",
+            "0x3f0290",
+            "0x3f02c0",
+            "0x3f0370",
+            "0x3f0a40",
+            "0x3f0a50",
+            "0x3f0ae0",
+            "0x3f0b30",
+            "0x3f0c00",
+            "0x3f0cc0",
+            "0x3f0d80",
+            "0x3f0e60",
+            "0x3f0f80"
+          ],
+          "globals": [
+            "0x476c7c",
+            "0x476c80",
+            "0x476c84",
+            "0x476c88",
+            "0x476c8c",
+            "0x476c90",
+            "0x476c94",
+            "0x476c98",
+            "0x476c9c",
+            "0x476ca0",
+            "0x5630c0",
+            "0x5650c0",
+            "0x56d0c0",
+            "0x56d0f0",
+            "0x56d120",
+            "0x56d200"
+          ],
+          "types": [
+            "/project/_sif_client_data",
+            "/project/_sif_queue_data",
+            "/project/_sif_rpc_data",
+            "/project/_sif_serve_data",
+            "/project/lpc10_decoder_state",
+            "/project/lpc10_encoder_state",
+            "/project/PTT_SyncReason",
+            "/project/SemaParam"
+          ]
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1542,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 26198
+          },
+          "indexes": {
+            "data": {
+              "count": 51767,
+              "sha256": "6530b2c3d004ad414dbe7cac22f7f936cf4d9cf0ab40eb21a558e58d86137258"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "ac65f126f40c0728fc547d873db64aeb5a89a79727d0103341ed0c43f07f1e5d"
+            },
+            "types": {
+              "count": 1542,
+              "sha256": "3d8b196ccd2907e57cd20d387659607b3595df79e309507e1a219fd09deb0123"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-17T03:28:51Z",
+        "summary": "Applied accepted batch 35 (plan sha256 from commit 6e36051; program regenerated with tools 4044fb7) once after a discarded first attempt: 18 functions renamed with mangled secondary labels and 19 prototypes (libpttclient LPC-10 tail ham84_/hp100_/invert_/irc2pc_/ivfilt_, PTT_* client API and its two SIF RPC end callbacks, scePcGetCounter0 prototype only); 13 globals typed (semaphores, flags, sync state, codec state pointers, SIF client data, bit and speech buffers). Recorded skips (3): g_syncCallback (@subroutine@427123976b absent live), g_buffer and g_buffer_hb (uint16 arrays the bridge's apply_data_type would type as ushort). Ghidra side effects: 2 array types."
+      },
       "id": "socom:debug-batch:7b7faee2b4ac6a53319d-apply",
       "kind": "debug-import-apply-batch",
       "lease": null,
@@ -1486770,7 +1486913,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply reviewed DWARF compile-unit batch 035 (24 units)"
     },
     {
