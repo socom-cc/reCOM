@@ -387,6 +387,18 @@ def test_batch_program_folds_unit_copies_and_refuses_code_globals(root: Path, ba
             # g_syncCallback: void (**)(), a pointer to a function pointer, is data.
             row = {item["address"]: item for item in batch_apply.build_batch_program(root, path)["globals"]}["0x476f60"]
             assert row["type"] == expected
+    wide = {
+        "evidence": {"die_offset": 999_004}, "kind": "array_type", "ghidra_path": None, "byte_size": None, "members": [],
+        "array": {"dimensions": [["fund", 10, 0, 511]], "element": {"die_offset": None, "fund_type": 0xA510, "modifiers": []}},
+    }
+    variables = [
+        dict(row, type={"die_offset": 999_004, "fund_type": None, "modifiers": []}) if row is the_game else row
+        for row in plan["variables"]
+    ]
+    path.write_text(json.dumps(dict(plan, types=[*plan["types"], wide], variables=variables)), encoding="utf-8")
+    wide_row = {row["address"]: row for row in batch_apply.build_batch_program(root, path)["globals"]}["0x476f60"]
+    # g_buffer (batch 35): apply_data_type would write ushort[512] over 8192 bytes.
+    assert wide_row["type"] is None and "apply_data_type" in wide_row["type_skip"]
     inside = dict(copy.deepcopy(the_game), address=0x140464, name="bogus")
     path.write_text(json.dumps(dict(plan, variables=[*plan["variables"], inside])), encoding="utf-8")
     with pytest.raises(SocomError, match="inside function"):
@@ -466,6 +478,23 @@ def test_batch_types_complete_open_arrays_from_symbol_sizes(program: dict) -> No
     # c_arrStatFuncs: DWARF void[0..5] over 72 .symtab bytes (member-function pointers).
     void_array = {"die_offset": 6, "fund_type": None, "modifiers": []}
     assert voids.render(void_array, 72) == (None, "array DIE 0x6 has element type void")
+    # g_buffer: DWARF u_long128 (0xA510) [0..511]. render() spells it for
+    # prototypes (which resolve uint16 correctly); globals skip it, see
+    # test_batch_program_folds_unit_copies_and_refuses_code_globals.
+    wide = batch_apply._Types(
+        {
+            "types": [
+                {
+                    "evidence": {"die_offset": 7},
+                    "kind": "array_type",
+                    "byte_size": None,
+                    "ghidra_path": None,
+                    "array": {"dimensions": [["fund", 10, 0, 511]], "element": {"die_offset": None, "fund_type": 0xA510, "modifiers": []}},
+                },
+            ]
+        }
+    )
+    assert wide.render({"die_offset": 7, "fund_type": None, "modifiers": []}, 8192) == ("uint16[512]", None)
 
 
 def test_batch_executor_skips_undefined_multidimensional_arrays(program: dict) -> None:
@@ -481,6 +510,18 @@ def test_batch_executor_skips_undefined_multidimensional_arrays(program: dict) -
     )
     reasons = [row["reason"] for row in result["skipped"] if row["address"] == "0x476f60"]
     assert reasons and "multi-dimensional" in reasons[0]
+
+
+def test_batch_executor_refuses_bridge_aliased_global_types(program: dict) -> None:
+    program = copy.deepcopy(program)
+    for row in program["globals"]:
+        if row["address"] == "0x476f60":
+            row["type"] = "uint16[2]"
+    names = {row["address"]: row["current_name"] for row in program["functions"]}
+    with pytest.raises(SocomError, match="apply_data_type would resolve"):
+        batch_apply.execute_batch_program(
+            program, _FakeBridge(program, names), type_index=lambda: [], function_names=lambda: names
+        )
 
 
 BATCH_11 = "socom:debug-batch:1c9907d6eef3a9fccef6"

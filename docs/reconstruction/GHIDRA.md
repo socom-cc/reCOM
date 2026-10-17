@@ -156,6 +156,16 @@ The GhidraMCP bridge has behaviors that silently corrupt work:
   and truncate names at `&`; category paths are not accepted. A lookup can
   silently answer with a different type (`line_data` returns `LINE_DATA`), so
   read layouts while names are unique and compare the reported name and size.
+- **Data types resolve through an alias table.** `apply_data_type` (and every
+  endpoint using `ServiceUtils.resolveDataType`) checks a well-known-type
+  table before Ghidra's builtins, mapping `int16`/`uint16` to 2-byte
+  `short`/`ushort` although Ghidra's builtins of those names are 16 bytes
+  (DWARF 0xA510, `u_long128`). Batch 35 typed `g_buffer` (`uint16[512]`,
+  8192 bytes) as `ushort[512]`; the apply's read-back caught it before any
+  save. `get_type_size` and `set_function_prototype` resolve `/uint16`
+  correctly (`GetVuMtxSet` reads back `uint16 *`), so batch programs skip
+  only global types spelled with `int16`/`uint16`, and the executor refuses
+  any program that still has one.
 - **Retyping drops names.** `modify_struct_field_type` clears the component
   name; `modify_struct_field` with both `new_type` and `new_name` keeps it.
 - **C imports replace by name.** `import_data_types` replaces any existing
