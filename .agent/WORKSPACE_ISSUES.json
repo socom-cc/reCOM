@@ -759,8 +759,18 @@
       "resolution": null,
       "status": "open",
       "summary": "u_long128 globals g_buffer and g_buffer_hb are untyped: apply_data_type aliases uint16 to ushort"
+    },
+    {
+      "details": "Batch 38 apply review (tracker revision 272). CInGameWeaponSel::SetItemPos (0x3f8fa0) dispatches through an 8-word jump table at 0x467e80 ('jr v1' at 0x3f8fec) whose words carry R_MIPS_32 relocations to targets inside the function, but Ghidra has no caseD_ labels and no COMPUTED_JUMP references for it; the state predates the batch (the batch 37 fingerprint shows the same). Other functions (CWeaponSel::HudTick 0x465d00, voicin_ @147) were recovered by analysis. In ghidra-reconstruction: enumerate every jr through a relocated word table (R_MIPS_32 words targeting the same function) from the ELF, compare with live references and labels, and add the missing switch references as an evidence-driven governed write (not reanalysis), with a fingerprint diff.",
+      "id": "socom:workspace-issue:01a1ff6489a742c5f5a8",
+      "kind": "problem",
+      "reported_at": "2026-10-18T22:02:52Z",
+      "reported_by": "socom-verifier-findings",
+      "resolution": null,
+      "status": "open",
+      "summary": "Unrecovered switch tables: computed jumps without case labels or COMPUTED_JUMP references"
     }
   ],
-  "revision": 89,
+  "revision": 90,
   "schema_version": 1
 }
