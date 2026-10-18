@@ -85,16 +85,16 @@ deferred until their real producers and compiler/provider prerequisites exist.
 <!-- SOCOM_PROGRESS_BEGIN -->
 ### Generated progress snapshot
 
-- Tracker revision: `281`
-- Next work item: `socom:debug-batch:8d5548ea9353c8df4fba-apply`
-- Work items: 93 total (1 ready, 0 active, 0 awaiting acceptance, 84 accepted, 8 dependency-blocked)
+- Tracker revision: `284`
+- Next work item: `none`
+- Work items: 93 total (0 ready, 0 active, 0 awaiting acceptance, 85 accepted, 8 dependency-blocked)
 - Open blockers: 3
 - Provisional source owners still unverified: 316
 
 | Stage | Status |
 | --- | --- |
 | `reference-census` | accepted |
-| `debug-metadata-import` | active |
+| `debug-metadata-import` | accepted |
 | `ghidra-reconstruction` | pending |
 | `source-correlation` | pending |
 | `authored-function-order` | pending |
