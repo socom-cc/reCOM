@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 275,
+  "revision": 278,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1449383,7 +1449383,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "1b02aaeb5e4cf9a7c7cf56a2aab57c7979c68986e9a652eef2c43609425843bd",
+      "current_receipt_sha256": "a15a13ade61614e599c06d1db3d555f7a380c8223502c58e769a0f7fce51394d",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -1450524,6 +1450524,31 @@
           "receipt_sha256": "1b02aaeb5e4cf9a7c7cf56a2aab57c7979c68986e9a652eef2c43609425843bd",
           "tracker_revision": 272,
           "work_item_id": "socom:debug-batch:30d4ca90b03ebfe8aa61-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1546,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 26466
+          },
+          "indexes": {
+            "data": {
+              "count": 51776,
+              "sha256": "ebcae600f46d7fec3ba1b4b851300f066c42c4329ee6862e77b7e0bb478b921a"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "dd047e60e9a3dd3f2273387c5e3c09dac3b75a3efdec3ec085cdf7ef1bd75d32"
+            },
+            "types": {
+              "count": 1546,
+              "sha256": "f2d53b33be3f43864b088a50779c48e46137150c33d0b1d189278656eecb4be9"
+            }
+          },
+          "receipt_sha256": "a15a13ade61614e599c06d1db3d555f7a380c8223502c58e769a0f7fce51394d",
+          "tracker_revision": 278,
+          "work_item_id": "socom:debug-batch:617b33709aa21ed4f88d-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -1483075,6 +1483100,10 @@
       "title": "Plan DWARF compile-unit batch 039 (24 units)"
     },
     {
+      "accepted": {
+        "at": "2026-10-18T22:51:14Z",
+        "by": "socom-verifier"
+      },
       "batch": {
         "batch_number": 39,
         "compile_unit_ids": [
@@ -1483234,8 +1483263,200 @@
         "socom:debug-batch:617b33709aa21ed4f88d",
         "socom:work:ghidra-zero-fill-memory"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "fingerprint: own ghidra fingerprint, run alone on the bridge 2026-10-18T22:36:13Z to 2026-10-18T22:43:07Z (rc 0), is byte-identical to build/fingerprints/b39-after.json (file sha256 769a796be40a7812b6c8f2693223c4c1c188b718e8170b1ff6cc907d0d78d107, fingerprint_sha256 76f51dba182dc2a85465fe58e421ff9a7f5d6abafa1f33cc041b0589372845b0; --compare identical); offline against the accepted batch 38 state build/verify-acc38/fp-now.json (== b38-after == b39-before, d57ed349...): 9715 functions, changed exactly the 23 program functions, each only in its Function and Signature lines (old 'undefined MANGLED(void)'), entries and bodies unchanged; data 51775 -> 51776, -2/+3: 0x585fd0 MultiplayerMsgStrings CSTable 28 added (zero fill, no prior data item, nothing inside or over its extent before or after) and the 0x468730/0x468778 undefined8 rows re-listed under CFader::__RTTI/CFlashFX::__RTTI (address, size and type unchanged); the other 8 program globals' rows identical; references 183630, 28 blocks, bookmark profile and analysis identical; types 1543 -> 1546, only /project/CFader *, /project/CFlashFX * and /project/CFlashFXVector * (4 bytes) added, the this-pointer types set_function_prototype created (CInGameWeaponSel * existed since batch 38), existing rows identical and in order; all-types receipt over the 840 /project non-pointer non-array types equals the batch 38 verifier's (0 differing; {'ambiguous-name': 17, 'enum': 81, 'layout': 714, 'no-component-readback': 26, 'unreadable-name': 2}); only the data, functions and types digests changed",
+        "functions: the 23 functions carry readable primary names (13 CInGameWeaponSel::, 3 CFlashFXVector::, 3 CFlashFX::, 4 CFader::), unique exactly and ignoring case over 9715 functions, absent from .symtab and data names (search_functions exact hit 1 each, 'No functions matching' for each mangled name), each with its mangled name as the single USER_DEFINED label, at the entry, and no other label; the 23 Signature lines equal the program prototypes (__stdcall, wholly from DWARF) exactly in the live read, the fingerprint and the receipt; bodies equal the single GLOBAL FUNC .symtab size (40 to 2660 bytes) with no symbol inside; none is a thunk",
+        "ghidra fingerprint after (build/fingerprints/b39-after.json sha256 769a796be40a7812b6c8f2693223c4c1c188b718e8170b1ff6cc907d0d78d107; diff build/fingerprints/b39-diff.json sha256 0a357e4559fed950180d3a6c77d064aa7198ac25864b2d45ae25b6e8c40f457e): data and function rows classified by build/batch-helpers/explain_diff.py from the diff, the post-claim preflight and the program: functions changed 23; equal to renamed-or-prototyped set: True (23 renamed, 0 prototype-only);   2 + relabel row (data unchanged);   1 + typed global;   2 - old label row of a relabelled item;     + relabel: CFader::__RTTI undefined8, CFlashFX::__RTTI undefined8;typed globals with no prior data item: 1;references {'added': [], 'removed': []}, blocks_equal True, bookmarks_equal True;types added ['/project/CFlashFX *|4', '/project/CFader *|4', '/project/CFlashFXVector *|4'], removed [];every row explained; the three new types /project/CFlashFX *, /project/CFader * and /project/CFlashFXVector * (4 bytes each) are this-pointers set_function_prototype created for those classes' members",
+        "ghidra fingerprint before (build/fingerprints/b39-before.json sha256 d57ed3491213037b97b17c5150f25af762dd1b0fbe42c81da80150a736c9cc42) is identical in every section to the previous accepted after-fingerprint build/fingerprints/b38-after.json (which that batch's verifier's own live fingerprint equalled): 9715 functions, 51775 data, 1543 types, bookmarks, 28 blocks, 183630 references",
+        "ghidra-receipt-sha256:a15a13ade61614e599c06d1db3d555f7a380c8223502c58e769a0f7fce51394d",
+        "ghidra-save:explicit-program",
+        "globals: MultiplayerMsgStrings 0x585fd0 reads back (audit_global, list_globals, fingerprint, receipt) as CSTable length 28 = its LOCAL 28-byte .symtab OBJECT (one of 80 same-name copies), name unchanged, 1 xref; CFader::__RTTI 0x468730 and CFlashFX::__RTTI 0x468778 are primary (audit_global) with __RTTI__6CFader/__RTTI__8CFlashFX listed at the same address (list_globals), still undefined8 length 8 (type skips), each the sole .symtab copy and the target of the R_MIPS_32 word 0 of __vt__6CFader 0x474a00/__vt__8CFlashFX 0x4749a0, readable names unique (ignoring case) across data, functions and .symtab; live CSTable 28, CFader 160, CFlashFX 192, CFlashFXVector 12, CInGameWeaponSel 4448 bytes; the 3 unchanged entries (_impure_ptr _reent@1aa0a63ac4 * 4, 312 xrefs; CFlashFX::__vt and CFader::__vt undefined1[92]) equal the batch 38 fingerprint rows and their latest earlier verifier receipt rows (batches 38, 21, 21); the 9 type skips keep undefined8 (7 RTTI copies) and undefined1[92] (2 vtables) and the 5 rename skips keep their mangled primary names with no readable label at the address, rows identical to batch 38",
+        "non-blocking: the 9 member-less anonymous vtable/RTTI structure DIEs stay untyped pending open issue 8230174f; the 5 non-canonical RTTI copies keep mangled names by the canonical-copy rule; indirect (jalr t9 / jr t9) virtual callees were not resolved to signatures; no scoped function reads v0 or f0 after any of its jalr calls",
+        "pre-handoff receipt a15a13ade61614e599c06d1db3d555f7a380c8223502c58e769a0f7fce51394d: data 51776 ebcae600..., functions 9715 dd047e60..., types 1546 f2d53b33...; scope 23 functions, 11 globals, 92 types; read-back markers: no-component-readback x1",
+        "prototypes vs code: entry blocks and a whole-body path-sensitive first-touch scan (delay slots, branch-likely annulment, call clobbers; integer a0-t3 and float f12-f19 counted independently) read exactly the declared argument registers (a0 x10; a0 f12 x9; a0 a1 f12 x1; a0 a1 a2 x1; a0 a1 x1; a0 f12 f13 f14 x1), no undeclared one; undeclared registers left unwritten at calls reach no direct callee's parameter (unknown-signature callees checked by mangled name: GetHUDOwner__4CHUDFv, Load__9C2DBitmapFffffPQ23zdb10CTexHandle, GetColor__7C2DPolyFv, GetTexHandle__Q23zdb10CAssetListFPCc, two Fv constructors, IsOn__3C2DCFv); CFader::SetBrightness is a frameless leaf ending in an indirect tail call (lw t9 0xc(a0), lw t9 0x20(t9), jr t9) with a0 = this and f12 recomputed; the void * constructor writes v0 on every path to its single jr ra; the 27 jal sites (= 27 R_MIPS_26 = 27 live UNCONDITIONAL_CALL, no j) reach 20 of the 23 (CFader::Tick, CFlashFX::Reset, CFlashFX::Tick only through 3 R_MIPS_32 vtable slots); none of the 26 sites of the 19 void callees reads v0 or f0 after the call, no site reads v1, the constructor's one caller does not read v0, and every caller whose exit an unwritten v0/f0 reaches is itself void",
+        "python tools/socom.py ghidra apply-batch: program build/apply/socom-debug-batch-617b33709aa21ed4f88d-apply.json sha256 bb3b1bb242c1e7f2aa92ba94ea7397b5ad845063af45ee7633692b416a7e7977 (regenerated from the accepted plan at commit f916629 with tools 49edd7a), 74 bridge calls exactly as ghidra preflight-batch predicted after the claim (1 apply_data_type, 25 create_label, 23 rename_function_by_address, 2 rename_label, 23 set_function_prototype); 14 recorded skips; every name, Signature line, global type and length read back equal; report sha256 e227e07de5585be81de0cfaf2f17357c41a58aa5bbcac5e2259bdec5fca95ec7",
+        "receipt: ghidra receipt --scope build/receipts/socom-debug-batch-617b33709aa21ed4f88d-apply-scope.json reproduces a15a13ade61614e599c06d1db3d555f7a380c8223502c58e769a0f7fce51394d (23 functions, 11 globals, 92 types: 86 layouts, 5 enums, no-component-readback x1 = /project/_word128, pre-existing and identical in the batch 38 verifier's all-types receipt; data 51776 ebcae600..., functions 9715 dd047e60..., types 1546 f2d53b33...; symbols 26466) and equals the stored pre-handoff receipt in full; the tracker carries the same sha256",
+        "symbols 26401 -> 26466, delta 65 = 25 create_label + 40 new parameter symbols (2 rename_label add none; 26401 at the batch 38 verifier's receipt); full list_bookmarks read: 716 (713 Address Table, 3 Non-Returning Function), 0 Error/Warning, identical to the batch 38 verifier's read; ghidra preflight --strict ok at start and end (1546 types, 9715 functions, 28 blocks, 26466 symbols)",
+        "tests: uv pytest tests/tools 166 passed; audit independence ok, 0 findings; support/socom.elf sha256 unchanged; verification used bridge GETs (audit_global, disassemble_function, get_function_by_address, get_function_labels, get_type_size, list_bookmarks, list_globals, search_functions) and read-only registered commands only; scratch build/verify-acc39/",
+        "tracker/provenance: progress audit --strict ok at revision 277 at start and end, no leases, apply row unchanged during verification and the only tracker row changed since HEAD f916629; plan item socom:debug-batch:617b33709aa21ed4f88d accepted (socom-verifier, 2026-10-18T22:18:00Z, committed in f916629) by a different owner than the handoff (socom-ghidra-reconstructor); at HEAD f916629 (tools and tests last changed 49edd7a, no uncommitted tools/tests/docs changes) debug import-plan reproduces the plan (715b8205...) and debug batch-program the program (bb3b1bb2...) byte-identically; debug conflicts list --batch: 0 rows; the post-claim preflight (9aa091e3...) is ok with the plan accepted and equals the plan-time preflight (b406690a...) and the plan verifier's rerun (998c89d2...) in every key but plan_item_status; its 74 steps {'apply_data_type': 1, 'create_label': 25, 'rename_function_by_address': 23, 'rename_label': 2, 'set_function_prototype': 23} equal the multiset derived from the program (each rename_label before the create_label re-adding the mangled name), all inside the stored scope; apply report (e227e07d...) and apply log: ok, 74 calls, the 14 skips and 3 unchanged entries equal the preflight's; read-back covers all 23 functions and 11 globals",
+        "write and skip lists generated from the post-claim preflight report: calls 74 {'apply_data_type': 1, 'create_label': 25, 'rename_function_by_address': 23, 'rename_label': 2, 'set_function_prototype': 23}\nfunctions renamed 23; prototypes 23: CInGameWeaponSel::SelectWeapon, CInGameWeaponSel::OnScrollUp, CInGameWeaponSel::OnScrollDown, CInGameWeaponSel::AfterCloseFirst, CInGameWeaponSel::HandleScrollDownState, CInGameWeaponSel::HandleScrollUpState, CInGameWeaponSel::PulseSelectionArrows, CInGameWeaponSel::HandleOpenState, CInGameWeaponSel::OnOpen, CInGameWeaponSel::Clear, CInGameWeaponSel::UnInit, CInGameWeaponSel::Init, CInGameWeaponSel::CInGameWeaponSel, CFlashFXVector::Reset, CFlashFXVector::Draw, CFlashFXVector::Tick, CFlashFX::Tick, CFlashFX::Reset, CFlashFX::Flash, CFader::SetBrightness, CFader::SetMinBrightness, CFader::FadeIn, CFader::Tick\nglobals typed 1: MultiplayerMsgStrings (CSTable)\nglobal labels renamed 2: CFader::__RTTI, CFlashFX::__RTTI\nunchanged 3: type _impure_ptr, rename CFlashFX::__vt, rename CFader::__vt\nskips 14: 3 x rename: file-local RTTI copies share this name and no vtable references one; 1 x type: structure_type DIE 0x48a932 has no Ghidra type; 1 x type: structure_type DIE 0x48dd07 has no Ghidra type; 1 x type: structure_type DIE 0x48b275 has no Ghidra type; 1 x type: structure_type DIE 0x48e3fa has no Ghidra type; 1 x rename: file-local copy; the class vtable references 0x459278; 1 x type: structure_type DIE 0x48c6c8 has no Ghidra type; 1 x rename: file-local copy; the class vtable references 0x459548; 1 x type: structure_type DIE 0x488c14 has no Ghidra type; 1 x type: structure_type DIE 0x48cae4 has no Ghidra type; 1 x type: structure_type DIE 0x489081 has no Ghidra type; 1 x type: structure_type DIE 0x48c721 has no Ghidra type\nskips by action: 5 rename, 9 type\n  rename skips: C2DFade::__RTTI, std::list<C2D*,std::allocator<C2D*>>::__RTTI, C2Dlist::__RTTI, C2D::__RTTI, C2DBitmap::__RTTI\n  type skips: C2DFade::__RTTI, std::list<C2D*,std::allocator<C2D*>>::__RTTI, C2Dlist::__RTTI, C2D::__RTTI, C2DBitmap::__RTTI, CFader::__RTTI, CFlashFX::__RTTI, CFlashFX::__vt, CFader::__vt"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "a15a13ade61614e599c06d1db3d555f7a380c8223502c58e769a0f7fce51394d",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x3fa8c0",
+            "0x3fab30",
+            "0x3fadc0",
+            "0x3fb040",
+            "0x3fb100",
+            "0x3fb470",
+            "0x3fb7f0",
+            "0x3fba70",
+            "0x3fbcb0",
+            "0x3fc360",
+            "0x3fc450",
+            "0x3fc5c0",
+            "0x3fd030",
+            "0x402fe0",
+            "0x403080",
+            "0x403120",
+            "0x4031a0",
+            "0x403440",
+            "0x403490",
+            "0x4034f0",
+            "0x403560",
+            "0x403590",
+            "0x4035d0"
+          ],
+          "globals": [
+            "0x43bf74",
+            "0x468620",
+            "0x468658",
+            "0x468678",
+            "0x4686a8",
+            "0x4686e8",
+            "0x468730",
+            "0x468778",
+            "0x4749a0",
+            "0x474a00",
+            "0x585fd0"
+          ],
+          "types": [
+            "/project/__sbuf",
+            "/project/__sFILE",
+            "/project/_atexit",
+            "/project/_Bigint",
+            "/project/_glue",
+            "/project/_tag_SAVE_CAMERA_PARAMS",
+            "/project/_word128",
+            "/project/_zanim_cmd_hdr",
+            "/project/_zrdr",
+            "/project/C2D",
+            "/project/C2D/CLibList",
+            "/project/C2DAnimCmdHdr",
+            "/project/C2DBitmap",
+            "/project/C2DFade",
+            "/project/C2DFont",
+            "/project/C2Dlist",
+            "/project/CBBox",
+            "/project/CCharacterType",
+            "/project/CFader",
+            "/project/CFlashFX",
+            "/project/CFlashFXVector",
+            "/project/CInGameWeaponSel",
+            "/project/CLoadImage",
+            "/project/CMatrix",
+            "/project/CPad",
+            "/project/CPnt3D",
+            "/project/CPnt4D",
+            "/project/CQuat",
+            "/project/CRefList",
+            "/project/CSTable",
+            "/project/CTexPalList",
+            "/project/CUIVariable",
+            "/project/CZSealBody",
+            "/project/CZWeapon",
+            "/project/EQUIP_ITEM",
+            "/project/FADE_DIRECTION",
+            "/project/Metrowerks/details/compressed_pair_imp<std::allocator<std::__list_deleter<void const*, std::allocator<void const*>>::node>, std::__list_deleter<void const*, std::allocator<void const*>>::node_base, 1>",
+            "/project/Metrowerks/details/compressed_pair_imp<std::allocator<unsigned int>, unsigned int, 1>",
+            "/project/Metrowerks/details/compressed_pair_imp<std::allocator<void const*>, unsigned int, 1>",
+            "/project/PALETTE_PARAMS",
+            "/project/PNT2D",
+            "/project/PNT3D",
+            "/project/PNT4D",
+            "/project/sceGifTag",
+            "/project/sceGsBitbltbuf",
+            "/project/sceGsLoadImage",
+            "/project/sceGsMiptbp1",
+            "/project/sceGsMiptbp2",
+            "/project/sceGsTex0",
+            "/project/sceGsTrxdir",
+            "/project/sceGsTrxpos",
+            "/project/sceGsTrxreg",
+            "/project/std/__list_deleter<void const*, std::allocator<void const*>>",
+            "/project/std/__list_imp<void const*, std::allocator<void const*>>",
+            "/project/std/__vector_pod<unsigned int, std::allocator<unsigned int>>",
+            "/project/tag_FrameSetup",
+            "/project/tag_RECT",
+            "/project/tag_ZCAM_MTX_SET",
+            "/project/TEXTURE_PARAMS",
+            "/project/tm",
+            "/project/UIVAR_LONGEVITY",
+            "/project/unresolved/__vector_imp@897b056bcc",
+            "/project/unresolved/_reent@1aa0a63ac4",
+            "/project/unresolved/allocator@fcc7a85d51",
+            "/project/unresolved/compile_assert@042f6a98d7",
+            "/project/unresolved/compressed_pair@0e99d7e8c1",
+            "/project/unresolved/compressed_pair@30d44a8521",
+            "/project/unresolved/generic_iterator@c60c02a8fa",
+            "/project/unresolved/list@2d8767d80f",
+            "/project/unresolved/node@278e60d287",
+            "/project/unresolved/node_base@86f71ff0ff",
+            "/project/unresolved/vector@2db35e5b0b",
+            "/project/ZCAM_CLIP_DATA",
+            "/project/zdb/_RenderPhase",
+            "/project/zdb/CAssetLib",
+            "/project/zdb/CCamera",
+            "/project/zdb/CDIVector",
+            "/project/zdb/CGridAtom",
+            "/project/zdb/CModel",
+            "/project/zdb/CModelVector",
+            "/project/zdb/CNode",
+            "/project/zdb/CNodeEx",
+            "/project/zdb/CNodeVector",
+            "/project/zdb/CTexHandle",
+            "/project/zdb/CTexList",
+            "/project/zdb/CTexPalette",
+            "/project/zdb/CTexture",
+            "/project/zdb/CVisualVector",
+            "/project/zdb/CWorld",
+            "/project/zdb/tag_CAMERA_PARAMS",
+            "/project/zdb/tag_NODE_PARAMS",
+            "/project/zdb/tag_ZCAM_TYPE"
+          ]
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1546,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 26466
+          },
+          "indexes": {
+            "data": {
+              "count": 51776,
+              "sha256": "ebcae600f46d7fec3ba1b4b851300f066c42c4329ee6862e77b7e0bb478b921a"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "dd047e60e9a3dd3f2273387c5e3c09dac3b75a3efdec3ec085cdf7ef1bd75d32"
+            },
+            "types": {
+              "count": 1546,
+              "sha256": "f2d53b33be3f43864b088a50779c48e46137150c33d0b1d189278656eecb4be9"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-18T22:35:00Z",
+        "summary": "Applied accepted batch 39 (hud_ingame_weaponsel.cpp remaining CInGameWeaponSel members and ctor; hud_fader.cpp CFlashFXVector, CFlashFX, CFader members) once: 23 functions renamed with mangled secondary labels and 23 prototypes; 1 global typed (file-local MultiplayerMsgStrings CSTable copy) and 2 RTTI labels renamed (CFader::__RTTI, CFlashFX::__RTTI); 3 unchanged. Recorded skips (14): 9 member-less vtable/RTTI structures, 5 non-canonical RTTI copies. Ghidra side effects: 3 this-pointer types."
+      },
       "id": "socom:debug-batch:617b33709aa21ed4f88d-apply",
       "kind": "debug-import-apply-batch",
       "lease": null,
@@ -1483245,7 +1483466,7 @@
       ],
       "selection": "all",
       "stage": "debug-metadata-import",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply reviewed DWARF compile-unit batch 039 (24 units)"
     },
     {
