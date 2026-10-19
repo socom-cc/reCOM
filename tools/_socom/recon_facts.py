@@ -357,12 +357,16 @@ def _describe_def(ctx: _Context, flow: _Flow, definition: Any) -> str:
         return "entry"
     previous = flow.fn.decoded.get(definition - 4, {})
     if previous.get("kind") in ("call", "call-branch") and definition not in (flow.start,):
+        # The definition is a call's delay slot whose exit carries the callee's
+        # clobbers; unless the slot itself writes the register, the value is the
+        # callee's result.
         call = ctx.code.word(definition - 4)
-        if call >> 26 == 0x03:
-            target = ((definition) & 0xF0000000) | ((call & 0x03FFFFFF) << 2)
-            own = _writes(ctx.code.word(definition))
-            if not own[0] and not own[1]:
-                return f"ret({ctx.label(target)})"
+        callee = (
+            ctx.label(((definition) & 0xF0000000) | ((call & 0x03FFFFFF) << 2))
+            if call >> 26 == 0x03
+            else f"indirect {disasm(call, definition - 4)}"
+        )
+        return f"ret({callee})"
     return f"{ctx.text(definition)}@0x{definition:x}"
 
 
@@ -505,10 +509,16 @@ def function_facts(ctx: _Context, start: int, caller_limit: int = 24, evidence: 
         slot = site + 4
         setup = []
         for reg in regs:
-            defs = sorted(_describe_def(ctx, flow, d) for d in flow.entering_callee(slot, GPR.index(reg)))
+            defs = sorted(
+                f"{ctx.text(d)}@0x{d:x}" if d == slot else _describe_def(ctx, flow, d)
+                for d in flow.entering_callee(slot, GPR.index(reg))
+            )
             setup.append(f"{reg}={'|'.join(defs)}")
         for reg in fregs:
-            defs = sorted(_describe_def(ctx, flow, d) for d in flow.entering_callee(slot, int(reg[1:]), fpr=True))
+            defs = sorted(
+                f"{ctx.text(d)}@0x{d:x}" if d == slot else _describe_def(ctx, flow, d)
+                for d in flow.entering_callee(slot, int(reg[1:]), fpr=True)
+            )
             setup.append(f"{reg}={'|'.join(defs)}")
         use = "tail call" if kind == "tail" else _use_after_call(ctx, caller, site, fpr=False)
         fuse = "" if kind == "tail" or not sets_f0 else _use_after_call(ctx, caller, site, fpr=True)
