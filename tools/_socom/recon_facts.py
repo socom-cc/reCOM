@@ -737,9 +737,15 @@ def object_refs(ctx: _Context, key: str) -> str:
     if key.lower().startswith("0x"):
         address = int(key, 16)
     else:
-        address = next((a for a, n in ctx.names.items() if n == key), None)
-        if address is None:
-            return f"{key}: no symbol of that name"
+        matches = sorted(
+            {s.value for s in ctx.elf.symbols() if s.name == key and s.type_name == "OBJECT" and s.size}
+        )
+        if not matches:
+            return f"{key}: no sized OBJECT symbol of that name"
+        if len(matches) > 1:
+            # File-local names (@NNNN) repeat across compile units; each copy is its own object.
+            return "\n\n".join(object_refs(ctx, f"0x{value:x}") for value in matches)
+        address = matches[0]
     start = max((s for s in ctx.object_starts if s <= address), default=None)
     if start is None or address >= start + ctx.objects[start][0]:
         return f"{key}: not inside a sized OBJECT symbol"
