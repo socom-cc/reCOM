@@ -548,3 +548,46 @@ def _context_cached(key: tuple[str, int, int], root: str) -> _Context:
 
 def context(root: Path) -> _Context:
     return _context_cached(file_key(root / "support" / "socom.elf"), str(root))
+
+
+# -- live reads (read-only bridge GETs) ---------------------------------------
+
+
+def live_signatures(addresses: list[int], bridge_url: str | None = None) -> str:
+    """Live name and signature of each function, one line each."""
+
+    from .batch_apply import _FUNCTION_LINE, _SIGNATURE_LINE
+    from .ghidra import GhidraBridge
+
+    bridge = GhidraBridge(bridge_url)
+    lines = []
+    for address in addresses:
+        text = bridge.request("get_function_by_address", address=f"0x{address:x}")
+        rows = text.splitlines() if isinstance(text, str) else []
+        function = next((m for line in rows if (m := _FUNCTION_LINE.match(line))), None)
+        signature = next((m for line in rows if (m := _SIGNATURE_LINE.match(line))), None)
+        lines.append(
+            f"0x{address:x} {function.group(1) if function else '<no live function>'} :: "
+            f"{signature.group(1) if signature else '-'}"
+        )
+    return "\n".join(lines)
+
+
+def type_matches(names: list[str], bridge_url: str | None = None) -> str:
+    """For each type name: every live type of that name (ignoring case), with path and size."""
+
+    from .ghidra import GhidraBridge, _type_index
+
+    rows = _type_index(GhidraBridge(bridge_url, timeout=300.0))
+    by_name: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        by_name.setdefault(row["name"].casefold(), []).append(row)
+    lines = []
+    for name in names:
+        base = name.strip().rstrip("*").strip()
+        found = by_name.get(base.casefold(), [])
+        verdict = "unique" if len(found) == 1 else ("missing" if not found else f"AMBIGUOUS x{len(found)}")
+        lines.append(
+            f"{name}: {verdict}" + ("" if not found else " - " + "; ".join(f"{r['path']} ({r['size']})" for r in found[:6]))
+        )
+    return "\n".join(lines)
