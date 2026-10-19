@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import datetime as dt
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -16,10 +17,11 @@ from .constants import (
     ZERO_FILL_MEMORY_ID,
 )
 
+from .ghidra import normalize_receipt_scope
 from .locking import exclusive_state_lock
 from .repairs import REPAIRS
 from .source import source_owners
-from .util import SocomError, atomic_write_json, load_json, stable_id
+from .util import SocomError, atomic_write_json, canonical_json, load_json, stable_id
 
 WORK_STATUSES = {
     "blocked",
@@ -720,6 +722,25 @@ def audit_tracker(
             errors.append(
                 "stored stage status differs from dependency-derived stage status"
             )
+        for row in stage_rows:
+            baseline = row.get("baseline")
+            if not baseline:
+                continue
+            name = row.get("name")
+            if row.get("status") != "accepted":
+                errors.append(f"stage {name} records a baseline but is not accepted")
+            try:
+                expected_scope = scope_sha256(stage_live_scope(tracker, name))
+            except SocomError as failure:
+                errors.append(f"stage {name} baseline scope is unavailable: {failure}")
+            else:
+                if baseline.get("scope_sha256") != expected_scope:
+                    errors.append(
+                        f"stage {name} baseline scope differs from its live item scopes"
+                    )
+            citation = f"ghidra-receipt-sha256:{baseline.get('receipt_sha256')}"
+            if citation not in row.get("accepted_evidence", []):
+                errors.append(f"stage {name} accepted evidence omits its baseline receipt")
         if census is not None:
             if tracker.get("reference") != census.get("reference"):
                 errors.append("tracker reference identity differs from reference census")
@@ -1158,6 +1179,108 @@ def rebaseline_ghidra_target(
     target["current_receipt_sha256"] = receipt_sha256
     history.append(entry)
     return entry
+
+
+def stage_live_scope(tracker: dict[str, Any], stage: str) -> dict[str, list[str]]:
+    """Return the union of the stored receipt scopes of a stage's live items."""
+
+    live = [
+        item
+        for item in tracker["work_items"]
+        if item["stage"] == stage and "ghidra-writer" in item.get("resources", [])
+    ]
+    if not live:
+        raise SocomError(f"stage {stage} has no Ghidra writer items")
+    union: dict[str, list[str]] = {"functions": [], "types": [], "globals": []}
+    for item in live:
+        scope = (item.get("ghidra_receipt") or {}).get("scope")
+        if item["status"] != "accepted" or not isinstance(scope, dict):
+            raise SocomError(f"{item['id']} has no accepted Ghidra receipt scope")
+        for key in union:
+            union[key].extend(scope.get(key, []))
+    return normalize_receipt_scope({"schema_version": 1, **union})
+
+
+def scope_sha256(scope: dict[str, list[str]]) -> str:
+    return hashlib.sha256(
+        canonical_json({"schema_version": 1, **scope}).encode("utf-8")
+    ).hexdigest()
+
+
+def record_stage_baseline(
+    tracker: dict[str, Any],
+    stage: str,
+    recorder: str,
+    evidence: list[str],
+    *,
+    receipt_sha256: str,
+    receipt: dict[str, Any],
+) -> dict[str, Any]:
+    """Record the live semantic receipt over an accepted stage's union scope.
+
+    The receipt must have been computed over ``stage_live_scope`` while no
+    Ghidra writer was leased or awaiting acceptance.  A stage records one
+    baseline; later stages build on it.
+    """
+
+    row = next((row for row in tracker["stages"] if row["name"] == stage), None)
+    if row is None:
+        raise SocomError(f"unknown stage: {stage}")
+    stage_items = [item for item in tracker["work_items"] if item["stage"] == stage]
+    if not stage_items or any(item["status"] != "accepted" for item in stage_items):
+        raise SocomError(f"stage {stage} has work that is not accepted")
+    if row.get("baseline"):
+        raise SocomError(f"stage {stage} already records a baseline")
+    pending = [
+        item["id"]
+        for item in tracker["work_items"]
+        if "ghidra-writer" in item.get("resources", [])
+        and item["status"] in {"in_progress", "awaiting_acceptance"}
+    ]
+    if pending:
+        raise SocomError(f"stage baseline requires no active Ghidra writer: {pending!r}")
+    recorder = recorder.strip()
+    if not recorder:
+        raise SocomError("baseline recorder must not be empty")
+    owners = {
+        (item.get("handoff") or {}).get("owner") for item in stage_items
+    } - {None}
+    if recorder in owners:
+        raise SocomError(f"baseline recorder {recorder} handed off work in {stage}")
+    if not evidence:
+        raise SocomError("stage baseline requires evidence")
+    if len(receipt_sha256) != 64:
+        raise SocomError("Ghidra receipt SHA-256 is invalid")
+    scope = stage_live_scope(tracker, stage)
+    target = next(
+        (
+            row
+            for row in tracker.get("verification_targets", [])
+            if row.get("id") == "socom:verification:ghidra-program"
+        ),
+        {},
+    )
+    baseline = {
+        "kind": "ghidra-semantic-receipt",
+        "tracker_revision": tracker["revision"] + 1,
+        "receipt_sha256": receipt_sha256,
+        "scope_sha256": scope_sha256(scope),
+        "scope_counts": {key: len(value) for key, value in scope.items()},
+        "live_item_count": sum(
+            "ghidra-writer" in item.get("resources", []) for item in stage_items
+        ),
+        "target_receipt_sha256": target.get("current_receipt_sha256"),
+        "counts": receipt["counts"],
+        "indexes": receipt["indexes"],
+        "recorded_by": recorder,
+        "recorded_at": _iso(_utc_now()),
+        "evidence": sorted(set(evidence)),
+    }
+    row["baseline"] = baseline
+    row.setdefault("accepted_evidence", []).append(
+        f"ghidra-receipt-sha256:{receipt_sha256}"
+    )
+    return baseline
 
 
 def release_work(tracker: dict[str, Any], item_id: str, owner: str) -> None:

@@ -599,3 +599,77 @@ def test_next_work_orders_batches_numerically() -> None:
 
     tracker = {"work_items": [batch(20), batch(2), batch(10), batch(3), batch(1)]}
     assert [item["batch"]["batch_number"] for item in next_work(tracker)] == [1, 2, 3, 10, 20]
+
+
+def _stage2_tracker(root: Path) -> dict:
+    from tools._socom.tracker import load_tracker
+
+    return load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
+
+
+def test_stage_baseline_records_the_union_of_accepted_writer_scopes(root: Path) -> None:
+    from tools._socom.tracker import record_stage_baseline, stage_live_scope
+
+    tracker = _stage2_tracker(root)
+    if not tracker["stages"][1].get("status") == "accepted" or tracker["stages"][1].get("baseline"):
+        pytest.skip("workspace tracker is not at the unrecorded stage-2 close-out")
+    stage = "debug-metadata-import"
+    scope = stage_live_scope(tracker, stage)
+    assert {key: len(value) for key, value in scope.items()} == {
+        "functions": 881,
+        "types": 840,
+        "globals": 3103,
+    }
+    receipt = _rebaseline_receipt()
+    with pytest.raises(SocomError, match="handed off work"):
+        record_stage_baseline(
+            tracker, stage, "socom-dwarf-importer", ["r.md"],
+            receipt_sha256="9" * 64, receipt=receipt,
+        )
+    with pytest.raises(SocomError, match="requires evidence"):
+        record_stage_baseline(
+            tracker, stage, "socom-verifier", [], receipt_sha256="9" * 64, receipt=receipt
+        )
+    with pytest.raises(SocomError, match="not accepted"):
+        record_stage_baseline(
+            tracker, "ghidra-reconstruction", "socom-verifier", ["r.md"],
+            receipt_sha256="9" * 64, receipt=receipt,
+        )
+    entry = record_stage_baseline(
+        tracker, stage, "socom-verifier", ["r.md"], receipt_sha256="9" * 64, receipt=receipt
+    )
+    assert entry["scope_counts"] == {"functions": 881, "types": 840, "globals": 3103}
+    assert entry["live_item_count"] == 44
+    assert tracker["stages"][1]["accepted_evidence"] == ["ghidra-receipt-sha256:" + "9" * 64]
+    assert audit_tracker(tracker, strict=True) == []
+    with pytest.raises(SocomError, match="already records a baseline"):
+        record_stage_baseline(
+            tracker, stage, "socom-verifier", ["r.md"], receipt_sha256="9" * 64, receipt=receipt
+        )
+
+    tampered = copy.deepcopy(tracker)
+    tampered["stages"][1]["baseline"]["scope_sha256"] = "0" * 64
+    assert any("baseline scope differs" in e for e in audit_tracker(tampered, strict=True))
+    tampered = copy.deepcopy(tracker)
+    tampered["stages"][1]["accepted_evidence"] = []
+    assert any("omits its baseline receipt" in e for e in audit_tracker(tampered, strict=True))
+
+
+def test_stage_baseline_refuses_an_active_writer(root: Path, census: dict) -> None:
+    from tools._socom.tracker import record_stage_baseline
+
+    tracker = initialize_tracker(root, census)
+    for row in tracker["work_items"]:
+        if row["stage"] == "debug-metadata-import":
+            row["status"] = "accepted"
+    seed = next(
+        row for row in tracker["work_items"] if row["id"] == "socom:work:ghidra-reconstruction-seed"
+    )
+    seed["kind"] = "test-writer"
+    seed["resources"] = ["ghidra:soCOM/socom.elf", "ghidra-writer"]
+    seed["status"] = "awaiting_acceptance"
+    with pytest.raises(SocomError, match="no active Ghidra writer"):
+        record_stage_baseline(
+            tracker, "debug-metadata-import", "reviewer", ["r.md"],
+            receipt_sha256="9" * 64, receipt=_rebaseline_receipt(),
+        )

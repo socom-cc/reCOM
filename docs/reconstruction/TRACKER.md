@@ -74,6 +74,16 @@ Ghidra version re-pin. It is limited to the untouched bootstrap target and
 requires unchanged function and type index digests; other deltas are recorded
 in the appended history entry.
 
+`progress record-stage-baseline --stage <name>` records, once, the live
+receipt over the union of an accepted stage's writer-item scopes, as the
+baseline the next stage builds on. It needs every item in the stage accepted,
+no writer in progress or awaiting acceptance, evidence, and a recorder who
+handed off none of the stage's work. It reads Ghidra without saving. The stage
+row stores the receipt digest, the union scope's digest and counts, and the
+receipt's counts and indexes, and its `accepted_evidence` cites the receipt.
+The strict audit recomputes the union scope from the items and requires the
+same digest. `--dry-run` reports the entry without writing.
+
 Receipts are evidence, not acceptance. They cover portable target facts,
 analysis/bookmarks, the assembly sentinel, full function/type/data index
 digests, and exact scoped facts.

@@ -580,7 +580,12 @@ def _data_index(bridge: GhidraBridge) -> list[dict[str, Any]]:
 
 
 def load_receipt_scope(path: Path) -> dict[str, list[str]]:
-    value = load_json(path)
+    return normalize_receipt_scope(load_json(path))
+
+
+def normalize_receipt_scope(value: Any) -> dict[str, list[str]]:
+    """Validate a schema-1 receipt scope and return its canonical lists."""
+
     if not isinstance(value, dict) or value.get("schema_version") != 1:
         raise SocomError("receipt scope must be a schema_version 1 object")
     allowed = {"schema_version", "functions", "types", "globals"}

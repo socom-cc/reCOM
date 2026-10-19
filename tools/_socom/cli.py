@@ -79,6 +79,8 @@ from .tracker import (
     mutate,
     next_work,
     rebaseline_ghidra_target,
+    record_stage_baseline,
+    stage_live_scope,
     reject_work,
     release_work,
     require_ghidra_lease,
@@ -1469,6 +1471,54 @@ def _rebaseline_live_ghidra(arguments: argparse.Namespace) -> int:
     return 0
 
 
+def _record_stage_baseline(arguments: argparse.Namespace) -> int:
+    root = _root(arguments)
+    captured: dict[str, Any] = {}
+
+    def record_baseline(tracker: dict[str, Any]) -> None:
+        scope = stage_live_scope(tracker, arguments.stage)
+        current = semantic_receipt(root, bridge_url=arguments.bridge_url, scope=scope)
+        entry = record_stage_baseline(
+            tracker,
+            arguments.stage,
+            arguments.recorder,
+            arguments.evidence,
+            receipt_sha256=current["receipt_sha256"],
+            receipt=current["receipt"],
+        )
+        captured.update(entry)
+
+    if arguments.dry_run:
+        tracker = load_tracker(tracker_path(root))
+        require_revision(tracker, arguments.expected_revision)
+        preview = copy.deepcopy(tracker)
+        record_baseline(preview)
+        preview["revision"] += 1
+        errors = audit_tracker(preview, strict=True)
+        _emit(
+            {
+                "ok": not errors,
+                "dry_run": True,
+                "revision": tracker["revision"],
+                "baseline": captured,
+                "errors": errors,
+            }
+        )
+        return 0 if not errors else 1
+    updated = mutate(tracker_path(root), arguments.expected_revision, record_baseline)
+    write_snapshot(root, updated)
+    _emit(
+        {
+            "ok": True,
+            "dry_run": False,
+            "revision": updated["revision"],
+            "baseline": captured,
+            "saved_program": False,
+        }
+    )
+    return 0
+
+
 def _progress_report(arguments: argparse.Namespace) -> int:
     tracker = load_tracker(tracker_path(_root(arguments)))
     counts: dict[str, int] = {}
@@ -2150,6 +2200,13 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
         mutates=True,
         ghidra_requirement="required",
     ),
+    _spec(
+        "progress record-stage-baseline",
+        "progress",
+        "Record an accepted stage's live receipt over the union of its writer scopes.",
+        mutates=True,
+        ghidra_requirement="required",
+    ),
     _spec("progress work claim", "progress", "Claim ready work with a bounded lease.", mutates=True),
     _spec("progress work heartbeat", "progress", "Renew an owned work lease.", mutates=True),
     _spec("progress work handoff", "progress", "Submit work and evidence for independent acceptance.", mutates=True),
@@ -2467,6 +2524,14 @@ def build_parser() -> argparse.ArgumentParser:
     rebaseline.add_argument("--dry-run", action="store_true")
     rebaseline.add_argument("--bridge-url")
     rebaseline.set_defaults(handler=_rebaseline_live_ghidra)
+    stage_baseline = progress_commands.add_parser("record-stage-baseline")
+    stage_baseline.add_argument("--stage", required=True)
+    stage_baseline.add_argument("--expected-revision", type=int, required=True)
+    stage_baseline.add_argument("--recorder", required=True)
+    stage_baseline.add_argument("--evidence", action="append", default=[])
+    stage_baseline.add_argument("--dry-run", action="store_true")
+    stage_baseline.add_argument("--bridge-url")
+    stage_baseline.set_defaults(handler=_record_stage_baseline)
 
     work = progress_commands.add_parser("work")
     work_commands = work.add_subparsers(dest="work_command", required=True)

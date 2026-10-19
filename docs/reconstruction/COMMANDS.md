@@ -81,6 +81,7 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py progress handoff-live-ghidra` | progress | yes | required | yes | Save and hand off a leased Ghidra item with a stable semantic receipt. |
 | `python tools/socom.py progress advance-live-ghidra` | progress | yes | required | no | Accept a Ghidra handoff only when its live semantic receipt is unchanged. |
 | `python tools/socom.py progress rebaseline-live-ghidra` | progress | yes | required | no | Record a fresh-import baseline receipt after a Ghidra version re-pin. |
+| `python tools/socom.py progress record-stage-baseline` | progress | yes | required | no | Record an accepted stage's live receipt over the union of its writer scopes. |
 | `python tools/socom.py progress work claim` | progress | yes | none | no | Claim ready work with a bounded lease. |
 | `python tools/socom.py progress work heartbeat` | progress | yes | none | no | Renew an owned work lease. |
 | `python tools/socom.py progress work handoff` | progress | yes | none | no | Submit work and evidence for independent acceptance. |
