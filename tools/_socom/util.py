@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, BinaryIO
 
@@ -57,10 +58,28 @@ def atomic_write_json(path: Path, data: Any) -> None:
             stream.write(canonical_json(data))
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        _replace(temporary, path)
     finally:
         if temporary.exists():
             temporary.unlink()
+
+
+def _replace(temporary: Path, path: Path, attempts: int = 40) -> None:
+    """os.replace, retried while Windows denies it because a reader holds the file open.
+
+    Writers are already serialized by the tracker lock; a concurrent reader
+    (another agent loading the tracker) makes the rename fail with
+    PermissionError until it closes the file.
+    """
+
+    for attempt in range(attempts):
+        try:
+            os.replace(temporary, path)
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.25)
 
 
 def atomic_write_text(path: Path, text: str) -> None:
@@ -74,7 +93,7 @@ def atomic_write_text(path: Path, text: str) -> None:
             stream.write(text)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        _replace(temporary, path)
     finally:
         if temporary.exists():
             temporary.unlink()
