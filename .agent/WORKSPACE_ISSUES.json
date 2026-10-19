@@ -789,8 +789,18 @@
       "resolution": null,
       "status": "open",
       "summary": "recon entry-argument scan stops at the first branch, so arguments first read later are missed"
+    },
+    {
+      "details": "Stage 3 planners leave these ELF FUNC symbols unresolved because the live Ghidra function does not match the .symtab extent: 0x193cd0 and 0x1972d0 (112-byte symbols, live bodies end after 12 bytes), 0x1a2750 and 0x1a2ad0 (group 021), find<CModel**,CModel*> copies 0x2241e0, 0x229fc0, 0x231330 and find<CTarget*,CEntity*> 0x1f01f0 (48-byte symbols split after three instructions into a separate FUN_ at +0xc), find<CTexPalette**> 0x2fb5b0; and CWeaponSel::SetItemPos 0x3d10a0 and CInGameWeaponSel::SetItemPos 0x3f8fa0 have no live function at all, so xref-based caller scans miss their calls. A boundary-repair item (create/resize functions to the .symtab extents with read-back and reanalysis limited to those bodies) is needed before these groups can be finished; the planners' group notes hold the per-function evidence.",
+      "id": "socom:workspace-issue:f4ec073c15fc4e605daf",
+      "kind": "problem",
+      "reported_at": "2026-10-19T07:55:39Z",
+      "reported_by": "socom-tool-maintainer",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage 3 found live function-boundary defects that need a governed boundary repair"
     }
   ],
-  "revision": 92,
+  "revision": 93,
   "schema_version": 1
 }
