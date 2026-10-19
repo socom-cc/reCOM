@@ -769,8 +769,28 @@
       "resolution": null,
       "status": "open",
       "summary": "Unrecovered switch tables: computed jumps without case labels or COMPUTED_JUMP references"
+    },
+    {
+      "details": "set_function_prototype passes the text to Ghidra FunctionSignatureParser with no original signature, so it splits parameters at every comma and resolves each type by bare name (DataTypeParser findDataTypes; several non-equivalent matches return nothing). MSL template receivers (__vector_imp, compressed_pair_imp, __list_deleter) and names such as node (3 types), generic_iterator<1> (2) and action stay unresolved: wave 1 left 30 of group 2 and most game-group functions without prototypes. ServiceUtils.resolveDataType accepts full category paths, but its only prototype-adjacent users (set_parameter_type, set_variables) decompile and may commit decompiler parameters (commitParamsToDatabase), so they need a measured probe before use. Options: a probed path-based second step, unique comma-free typedef aliases created by a reviewed type item, or a bridge endpoint that builds the FunctionDefinition from resolved paths.",
+      "id": "socom:workspace-issue:d73db800fb4980a48ef4",
+      "kind": "problem",
+      "reported_at": "2026-10-19T04:04:58Z",
+      "reported_by": "socom-tool-maintainer",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage 3 prototypes cannot name template types with commas, '&' types, or names shared by several types"
+    },
+    {
+      "details": "_entry_argument_reads (batch_apply.py) scans only the entry block up to the first control transfer and its delay slot. Review of stage 3 group 5 found sceVu0DropShadowMatrix (0x152b30) reading f14 before any write at 0x152b58, 0x152b6c and 0x152c14, after the first branch, so recon evidence and recon validate both missed a parameter. A path-sensitive scan (argument registers read before written on some path from entry, over the function's CFG) would catch these; reviewers currently do whole-body scans by hand. Stage 2 programs must keep the current rule so accepted programs regenerate.",
+      "id": "socom:workspace-issue:a16c16aec940f8cfc8c1",
+      "kind": "problem",
+      "reported_at": "2026-10-19T04:29:37Z",
+      "reported_by": "socom-tool-maintainer",
+      "resolution": null,
+      "status": "open",
+      "summary": "recon entry-argument scan stops at the first branch, so arguments first read later are missed"
     }
   ],
-  "revision": 90,
+  "revision": 92,
   "schema_version": 1
 }
