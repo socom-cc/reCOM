@@ -1553,9 +1553,16 @@ def _recon_facts(arguments: argparse.Namespace) -> int:
     evidence: dict[int, Any] = {}
     if arguments.item:
         slug = arguments.item.removesuffix("-apply").replace("socom:", "socom-").replace(":", "-")
-        path = root / "build" / "recon-plans" / f"{slug}-evidence.json"
+        paths = [root / "build" / "recon-plans" / f"{slug}-evidence.json"]
+    else:
+        # Single functions: use whichever group evidence file already holds them.
+        paths = sorted((root / "build" / "recon-plans").glob("*-evidence.json"))
+    wanted = set(_recon_addresses(root, arguments))
+    for path in paths:
         if path.is_file():
-            evidence = {int(row["address"], 16): row for row in load_json(path)["functions"]}
+            for row in load_json(path)["functions"]:
+                if int(row["address"], 16) in wanted:
+                    evidence[int(row["address"], 16)] = row
     blocks = [
         function_facts(ctx, address, caller_limit=arguments.callers, evidence=evidence.get(address))
         for address in _recon_addresses(root, arguments)
