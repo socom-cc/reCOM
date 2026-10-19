@@ -97,3 +97,13 @@ def test_result_use_skips_fpu_compares_and_follows_branches(ctx) -> None:
     # Reviewer-verified read of f0 in a branch delay slot after the call at 0x2ab498.
     caller = max(start for start in ctx.size if start <= 0x2AB498)
     assert "mul.s f0,f0,f20@0x2ab4bc" in _use_after_call(ctx, caller, 0x2AB498, True)
+
+
+def test_stack_and_forwarded_arguments(ctx) -> None:
+    from tools._socom.recon_facts import forwarded_arguments, stack_argument_reads
+
+    # Build_Tree_ForChinese_TreeCtx reads a ninth argument at 192(sp) with a 192-byte frame.
+    assert stack_argument_reads(ctx, 0x345CD0)[0].startswith("+0x0 (lw v1,192(sp)@0x345d1c)")
+    # ExtAudioGetSamples passes a0/a1 through to an indirect call.
+    rows = forwarded_arguments(ctx, 0x337B90, set())
+    assert rows and rows[0].startswith("a0,a1,") and "jalr v0@0x337ba4" in rows[0]

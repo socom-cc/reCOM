@@ -363,6 +363,70 @@ def argument_reads(ctx: _Context, start: int) -> dict[str, list[int]]:
     return found
 
 
+_SP_LOADS = {0x1A, 0x1B, 0x1E, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x31, 0x36, 0x37}
+
+
+def stack_argument_reads(ctx: _Context, start: int) -> list[str]:
+    """Loads from the caller's outgoing argument area (offsets at or above the frame size).
+
+    The frame is the first ``addiu sp,sp,-N`` in the function; a load through
+    sp before it, or at offset >= N after it, reads an incoming stack argument.
+    """
+
+    end = start + ctx.size[start]
+    frame = None
+    found: list[str] = []
+    for pc in range(start, end, 4):
+        insn = ctx.code.word(pc)
+        op, rs, rt = insn >> 26, (insn >> 21) & 31, (insn >> 16) & 31
+        if frame is None and op in (0x09, 0x19) and rs == 29 and rt == 29 and insn & 0x8000:
+            frame = -_s16(insn & 0xFFFF)
+            continue
+        if op in _SP_LOADS and rs == 29:
+            offset = _s16(insn & 0xFFFF)
+            incoming = offset - (frame or 0)
+            if incoming >= 0:
+                found.append(f"+0x{incoming:x} ({ctx.text(pc)}@0x{pc:x})")
+    return found[:8]
+
+
+def forwarded_arguments(ctx: _Context, start: int, read: set[str]) -> list[str]:
+    """Argument registers still holding their entry value at a call they feed.
+
+    Indirect calls and tail jumps count every argument register; a direct call
+    counts the registers its callee reads.  Registers already listed as read
+    are omitted.
+    """
+
+    flow = ctx.flow(start)
+    rows = []
+    for pc in range(start, flow.end, 4):
+        row = flow.fn.decoded.get(pc, {})
+        insn = ctx.code.word(pc)
+        target = None
+        if row.get("kind") == "call" and insn >> 26 == 0x03:
+            target = ((pc + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2)
+            wanted = set(argument_reads(ctx, target)) if target in ctx.size and target != start else set()
+        elif row.get("kind") == "call" or (insn >> 26 == 0x00 and insn & 0x3F == 0x08 and (insn >> 21) & 31 != 31):
+            wanted = {GPR[r] for r in ARG_GPRS} | {f"f{r}" for r in ARG_FPRS}
+        elif insn >> 26 == 0x02:
+            target = ((pc + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2)
+            if start <= target < flow.end:
+                continue
+            wanted = set(argument_reads(ctx, target)) if target in ctx.size else {GPR[r] for r in ARG_GPRS}
+        else:
+            continue
+        passed = []
+        for name in sorted(wanted - read, key=lambda n: (n.startswith("f"), int(n[1:]) if n.startswith("f") else GPR.index(n))):
+            fpr = name.startswith("f")
+            register = int(name[1:]) if fpr else GPR.index(name)
+            if "entry" in flow.entering_callee(pc + 4, register, fpr):
+                passed.append(name)
+        if passed:
+            rows.append(f"{','.join(passed)} -> {ctx.text(pc)}@0x{pc:x}")
+    return rows[:6]
+
+
 def _describe_def(ctx: _Context, flow: _Flow, definition: Any) -> str:
     if definition == "entry":
         return "entry"
@@ -538,6 +602,12 @@ def function_facts(ctx: _Context, start: int, caller_limit: int = 24, evidence: 
         "args read before write (any path): "
         + (", ".join(f"{reg}@" + ",".join(f"0x{pc:x}" for pc in sites[:3]) for reg, sites in reads.items()) or "none")
     )
+    stack = stack_argument_reads(ctx, start)
+    if stack:
+        lines.append("stack args read (incoming offset): " + ", ".join(stack))
+    forwarded = forwarded_arguments(ctx, start, set(reads))
+    if forwarded:
+        lines.append("args passed through unchanged to calls: " + "; ".join(forwarded))
     exits = return_sources(ctx, start)
     lines.extend(f"exit {text}" for text in exits)
     sets_f0 = any("f0<-" in text and "f0<-entry" not in text for text in exits)
