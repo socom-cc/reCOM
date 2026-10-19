@@ -799,8 +799,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Stage 3 found live function-boundary defects that need a governed boundary repair"
+    },
+    {
+      "details": "Issue socom:workspace-issue:f4ec073c15fc4e605daf says 0x3d10a0 and 0x3f8fa0 have no live Ghidra function. Reviewer socom-verifier-r9 and the group 56 revision confirmed both exist live and contain their call sites; the false impression came from get_function_by_address returning 'No function found' for addresses inside a body (it only resolves entry addresses). The other boundary defects listed there stand.",
+      "id": "socom:workspace-issue:f7c64594a402f208bf95",
+      "kind": "problem",
+      "reported_at": "2026-10-19T13:03:16Z",
+      "reported_by": "socom-tool-maintainer",
+      "resolution": null,
+      "status": "open",
+      "summary": "Correction to issue f4ec073c: CWeaponSel::SetItemPos and CInGameWeaponSel::SetItemPos do have live functions"
     }
   ],
-  "revision": 93,
+  "revision": 94,
   "schema_version": 1
 }
