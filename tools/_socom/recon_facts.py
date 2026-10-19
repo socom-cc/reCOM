@@ -427,7 +427,7 @@ def forwarded_arguments(ctx: _Context, start: int, read: set[str]) -> list[str]:
     return rows[:6]
 
 
-def _describe_def(ctx: _Context, flow: _Flow, definition: Any) -> str:
+def _describe_def(ctx: _Context, flow: _Flow, definition: Any, result_register: bool = True) -> str:
     if definition == "entry":
         return "entry"
     previous = flow.fn.decoded.get(definition - 4, {})
@@ -441,7 +441,7 @@ def _describe_def(ctx: _Context, flow: _Flow, definition: Any) -> str:
             if call >> 26 == 0x03
             else f"indirect {disasm(call, definition - 4)}"
         )
-        return f"ret({callee})"
+        return f"ret({callee})" if result_register else f"clobbered-by({callee})"
     return f"{ctx.text(definition)}@0x{definition:x}"
 
 
@@ -635,16 +635,16 @@ def function_facts(ctx: _Context, start: int, caller_limit: int = 24, evidence: 
         setup = []
         for reg in regs:
             defs = sorted({
-                f"{ctx.text(d)}@0x{d:x}" if d == slot else _describe_def(ctx, flow, d)
+                f"{ctx.text(d)}@0x{d:x}" if d == slot else _describe_def(ctx, flow, d, result_register=GPR.index(reg) in (2, 3))
                 for d in flow.entering_callee(slot, GPR.index(reg))
             })
             # A register the callee does not read is shown only when the caller set it explicitly.
-            if reg not in reads and any(d == "entry" or d.startswith("ret(") for d in defs):
+            if reg not in reads and any(d == "entry" or d.startswith(("ret(", "clobbered-by(")) for d in defs):
                 continue
             setup.append(f"{reg}={'|'.join(defs)}")
         for reg in fregs:
             defs = sorted({
-                f"{ctx.text(d)}@0x{d:x}" if d == slot else _describe_def(ctx, flow, d)
+                f"{ctx.text(d)}@0x{d:x}" if d == slot else _describe_def(ctx, flow, d, result_register=reg in ("f0", "f1"))
                 for d in flow.entering_callee(slot, int(reg[1:]), fpr=True)
             })
             setup.append(f"{reg}={'|'.join(defs)}")
