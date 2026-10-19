@@ -76,6 +76,7 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py ghidra check-recon-apply` | ghidra | yes | required | no | Run the stage 3 apply verifier's checklist read-only and print evidence lines. |
 | `python tools/socom.py recon facts` | recon | no | none | no | Print compact ELF-derived call-contract facts for functions or a group. |
 | `python tools/socom.py recon asm` | recon | no | none | no | Print annotated ELF disassembly of functions. |
+| `python tools/socom.py recon dwarf` | recon | no | none | no | Print DWARF 1 entries by offset with their children. |
 | `python tools/socom.py recon refs` | recon | no | none | no | Print a data object's relocated slots and every code access to it. |
 | `python tools/socom.py recon live` | recon | no | required | no | Print live Ghidra names and signatures of functions or a group. |
 | `python tools/socom.py recon types` | recon | no | required | no | Print every live Ghidra type matching each name, ignoring case. |

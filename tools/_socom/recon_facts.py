@@ -774,3 +774,70 @@ def object_refs(ctx: _Context, key: str) -> str:
         for label in sorted(by_function):
             lines.append(f"  {label}: " + "; ".join(by_function[label][:8]) + (" ..." if len(by_function[label]) > 8 else ""))
     return "\n".join(lines)
+
+
+# -- DWARF 1 entries ------------------------------------------------------------
+
+
+@lru_cache(maxsize=1)
+def _dies_cached(key: tuple[str, int, int], path: str) -> tuple[Any, ...]:
+    from .dwarf1 import Dwarf1Debug
+
+    return Dwarf1Debug(Elf32File(Path(path)).section_data(".debug")).parse(strict=False)
+
+
+def _attr_text(attribute: Any) -> str:
+    from .type_apply import FUND_TYPES
+
+    value = attribute.value
+    if attribute.name == "fund_type" and isinstance(value, int):
+        fund = FUND_TYPES.get(value)
+        return f"fund_type=0x{value:x}({fund.ghidra if fund else '?'})"
+    if isinstance(value, bytes) and attribute.name in ("mod_fund_type", "mod_u_d_type") and len(value) >= 2:
+        # Modifier bytes, then a 2-byte fundamental type or a 4-byte DIE reference.
+        width = 2 if attribute.name == "mod_fund_type" else 4
+        mods = {1: "*", 2: "&", 3: "const", 4: "volatile"}
+        modifiers = " ".join(mods.get(b, f"mod{b}") for b in reversed(value[:-width]))
+        base = int.from_bytes(value[-width:], "little")
+        if width == 2:
+            fund = FUND_TYPES.get(base)
+            base_text = fund.ghidra if fund else f"fund0x{base:x}"
+        else:
+            base_text = f"die0x{base:x}"
+        return f"{attribute.name}={base_text} {modifiers}".rstrip()
+    if isinstance(value, bytes):
+        return f"{attribute.name}={value.hex()}"
+    if isinstance(value, int) and attribute.form_name in ("ref", "addr"):
+        return f"{attribute.name}=0x{value:x}"
+    return f"{attribute.name}={value}"
+
+
+def dwarf_entries(root: Path, offsets: list[int], depth: int = 1) -> str:
+    """A DWARF 1 entry by offset, with its children (``depth`` levels), compactly."""
+
+    path = root / "support" / "socom.elf"
+    dies = _dies_cached(file_key(path), str(path))
+    by_offset = {die.offset: index for index, die in enumerate(dies)}
+    lines = []
+    for offset in offsets:
+        index = by_offset.get(offset)
+        if index is None:
+            lines.append(f"0x{offset:x}: no DWARF entry starts there")
+            continue
+
+        def show(i: int, level: int) -> int:
+            die = dies[i]
+            attrs = " ".join(_attr_text(a) for a in die.attributes if a.name != "sibling")
+            lines.append(f"{'  ' * level}0x{die.offset:x} {die.tag_name} {attrs}")
+            sibling = die.integer("sibling")
+            j = i + 1
+            if level < depth and sibling:
+                while j < len(dies) and dies[j].offset < sibling:
+                    j = show(j, level + 1)
+                return j
+            while sibling and j < len(dies) and dies[j].offset < sibling:
+                j += 1
+            return j
+
+        show(index, 0)
+    return "\n".join(lines)
