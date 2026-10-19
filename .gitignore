@@ -407,3 +407,7 @@ imgui.ini
 # and candidate ELFs under build/ remain governed disposable artifacts.
 /build/host-tools/
 /build/Testing/
+
+# Locally supplied compiler licenses (FLEXlm). Never commit or distribute.
+license.dat
+*.lic
