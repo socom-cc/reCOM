@@ -238,7 +238,7 @@ def _leaf_commands(parser: argparse.ArgumentParser, prefix: tuple[str, ...] = ()
 
 def test_command_registry_exactly_matches_parser() -> None:
     registered = {row.path for row in COMMAND_SPECS}
-    assert len(registered) == len(COMMAND_SPECS) == 109
+    assert len(registered) == len(COMMAND_SPECS) == 110
     assert _leaf_commands(build_parser()) == registered
 
 
@@ -246,9 +246,11 @@ def test_tracker_file_is_valid_and_source_is_unverified(root: Path) -> None:
     tracker = load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
     assert audit_tracker(tracker) == []
     assert all(owner["status"] == "unverified" for owner in tracker["owners"])
-    assert len(tracker["symbols"]) == 21_894
-    assert len(tracker["relocations"]) == 115_142
-    assert tracker["schema_version"] == 5
+    census = json.loads((root / ".agent" / "REFERENCE_CENSUS.json").read_text(encoding="utf-8"))
+    assert len(census["symbols"]) == 21_894
+    assert len(census["relocations"]) == 115_142
+    assert "symbols" not in tracker and "relocations" not in tracker
+    assert tracker["schema_version"] == 6
     # Governed repairs join through migrations and `progress add-repair`;
     # every one must be a recorded spec.
     from tools._socom.repairs import REPAIRS

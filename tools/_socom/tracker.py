@@ -263,27 +263,6 @@ def initialize_tracker(root: Path, census: dict[str, Any]) -> dict[str, Any]:
         if stage != "authored-byte-match":
             previous_dependencies = [item_id]
 
-    section_by_index = {section["index"]: section for section in census["sections"]}
-    symbols = [
-        {
-            **row,
-            "section": section_by_index.get(row["section_index"], {}).get("name"),
-            "reconstruction": {
-                "boundary": "unverified",
-                "identity": "reference-evidence",
-                "prototype": "unverified",
-                "return_type": "unverified",
-                "parameters": "unverified",
-                "callee_contracts": "unverified",
-                "receiver_and_locals": "unverified",
-                "globals_and_data": "unverified",
-                "source_path": "unverified",
-                "decompilation_consistency": "unverified",
-            },
-        }
-        for row in census.get("symbols", [])
-    ]
-
     stage_rows = []
     for stage in STAGES:
         if stage == "reference-census":
@@ -343,8 +322,8 @@ def initialize_tracker(root: Path, census: dict[str, Any]) -> dict[str, Any]:
             for segment in census["program_headers"]
         ],
         "semantic_spans": [],
-        "symbols": symbols,
-        "relocations": census.get("relocations", []),
+        # Symbols and relocations are immutable reference evidence: they live
+        # only in the reference census (schema 6), not in the mutable tracker.
         "output_sections": census["sections"],
         "storage_contributions": [
             {
@@ -495,6 +474,9 @@ def audit_tracker(
         errors.append("revision must be a positive integer")
     if not isinstance(tracker.get("migration_history"), list):
         errors.append("migration_history must be a list")
+    for moved in ("symbols", "relocations"):
+        if moved in tracker and (tracker.get("schema_version") or 0) >= 6:
+            errors.append(f"{moved} belong to the reference census, not the tracker (schema 6)")
     if tracker.get("stage_order") != list(STAGES):
         errors.append("stage_order differs from the canonical ten-stage pipeline")
     stage_rows = tracker.get("stages", [])
@@ -724,8 +706,6 @@ def audit_tracker(
             "binaries",
             "physical_blocks",
             "semantic_spans",
-            "symbols",
-            "relocations",
             "output_sections",
             "storage_contributions",
             "owners",
@@ -783,14 +763,6 @@ def audit_tracker(
         if census is not None:
             if tracker.get("reference") != census.get("reference"):
                 errors.append("tracker reference identity differs from reference census")
-            if len(tracker.get("symbols", [])) != len(census.get("symbols", [])):
-                errors.append("tracker symbol population differs from reference census")
-            if len(tracker.get("relocations", [])) != len(
-                census.get("relocations", [])
-            ):
-                errors.append(
-                    "tracker relocation population differs from reference census"
-                )
             census_sections = census.get("sections", [])
             if tracker.get("output_sections") != census_sections:
                 errors.append("tracker output sections differ from reference census")
@@ -850,18 +822,19 @@ def next_work(tracker: dict[str, Any]) -> list[dict[str, Any]]:
     )
 
 
-def find_rows(tracker: dict[str, Any], query: str) -> list[dict[str, Any]]:
+def find_rows(
+    tracker: dict[str, Any], query: str, census: dict[str, Any] | None = None
+) -> list[dict[str, Any]]:
+    """Rows whose text contains ``query``; symbols come from the reference census."""
+
     folded = query.casefold()
     result = []
-    for collection in (
-        "symbols",
-        "owners",
-        "types",
-        "work_items",
-        "blockers",
-        "evidence",
-    ):
-        for row in tracker.get(collection, []):
+    sources = [("symbols", (census or {}).get("symbols", []))] + [
+        (collection, tracker.get(collection, []))
+        for collection in ("owners", "types", "work_items", "blockers", "evidence")
+    ]
+    for collection, rows in sources:
+        for row in rows:
             if folded in str(row).casefold():
                 result.append({"collection": collection, "row": row})
     return result
@@ -1560,6 +1533,18 @@ def _migrate_4_to_5(updated: dict[str, Any]) -> None:
     updated["schema_version"] = 5
 
 
+def _migrate_5_to_6(updated: dict[str, Any]) -> None:
+    """Drop the tracker's copies of the census symbols and relocations.
+
+    They are immutable reference evidence (91% of the schema 5 file); no
+    tracker operation ever changed them, and the reference census keeps them.
+    """
+
+    updated.pop("symbols", None)
+    updated.pop("relocations", None)
+    updated["schema_version"] = 6
+
+
 def migrate_tracker(path: Path, expected_revision: int) -> dict[str, Any]:
     """Migrate the tracker to the current schema under its normal lock."""
 
@@ -1568,7 +1553,7 @@ def migrate_tracker(path: Path, expected_revision: int) -> dict[str, Any]:
         require_revision(current, expected_revision)
         if current.get("schema_version") == SCHEMA_VERSION:
             return current
-        if current.get("schema_version") not in (2, 3, 4):
+        if current.get("schema_version") not in (2, 3, 4, 5):
             raise SocomError(
                 f"no migration path from schema {current.get('schema_version')}"
             )
@@ -1595,6 +1580,9 @@ def migrate_tracker(path: Path, expected_revision: int) -> dict[str, Any]:
         if updated["schema_version"] == 4:
             _migrate_4_to_5(updated)
             steps.append((4, 5))
+        if updated["schema_version"] == 5:
+            _migrate_5_to_6(updated)
+            steps.append((5, 6))
         for from_schema, to_schema in steps:
             updated.setdefault("migration_history", []).append(
                 {

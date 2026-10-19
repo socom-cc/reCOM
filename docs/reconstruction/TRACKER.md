@@ -1,11 +1,20 @@
 # Tracker model
 
 `.agent/RECONSTRUCTION_PROGRESS.json` is canonical generated state. It uses
-schema version 5 and a compare-and-swap revision. Manual edits are forbidden.
+schema version 6 and a compare-and-swap revision. Manual edits are forbidden.
 
-The tracker separates immutable binaries and physical blocks, symbols and
-relocations, semantic spans and types, source owners and physical artifacts,
-verification targets, work items, blockers, evidence, and tombstones.
+The tracker separates immutable binaries and physical blocks, semantic spans
+and types, source owners and physical artifacts, verification targets, work
+items, blockers, evidence, and tombstones. Symbols and relocations are
+immutable reference evidence and live only in `.agent/REFERENCE_CENSUS.json`
+(schema 6 dropped the tracker's copies, which were 91% of its size and never
+changed).
+
+`python tools/socom.py progress sql "<SELECT ...>"` queries a derived,
+read-only SQLite cache (`build/cache/progress.sqlite`, never committed) built
+from the tracker, census and issue ledger; it is rebuilt automatically when
+any of them changes. Tables: `work_items`, `stages`, `symbols`,
+`relocations`, `issues`, `meta`. Canonical state stays in the JSON files.
 
 ## Reads
 
@@ -51,9 +60,10 @@ Schema upgrades use `progress migrate --expected-revision <revision>`. The
 command refuses active leases or pending handoffs, applies each schema step in
 order (2 to 3 splits plan and apply items; 3 to 4 adds the zero-fill memory
 item and re-blocks batch applies that now wait for it; 4 to 5 adds the repair
-of the signatures batch 001 changed through thunks), records one migration
+of the signatures batch 001 changed through thunks; 5 to 6 drops the
+tracker's copies of the census symbols and relocations), records one migration
 history entry per step, and becomes a no-op at the current schema. A fresh
-tracker at schema 5 has no repair item: with the thunk guard, nothing needs
+tracker has no thunk repair item: with the thunk guard, nothing needs
 repairing.
 
 ## Ghidra target and receipts

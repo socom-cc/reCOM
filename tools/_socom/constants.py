@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 PROJECT_NAME = "soCOM"
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 TRACKER_ID = "socom:tracker:main"
 # Ghidra's import mapped only the file-backed part of PT_LOAD 0; batch applies
 # that type globals wait for the zero-fill tail to be mapped.

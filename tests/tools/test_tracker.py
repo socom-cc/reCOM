@@ -283,12 +283,13 @@ def test_tracker_v2_migration_splits_plans_and_apply_items(
     path = tmp_path / "tracker.json"
     atomic_write_json(path, _legacy_tracker(root, census))
     migrated = migrate_tracker(path, 3)
-    assert migrated["schema_version"] == 5
+    assert migrated["schema_version"] == 6
     assert migrated["revision"] == 4
     assert [(row["from_schema"], row["to_schema"]) for row in migrated["migration_history"]] == [
         (2, 3),
         (3, 4),
         (4, 5),
+        (5, 6),
     ]
     plans = [row for row in migrated["work_items"] if "-plan-" in row["kind"]]
     applies = [row for row in migrated["work_items"] if "-apply-" in row["kind"]]
@@ -328,8 +329,8 @@ def test_tracker_v3_migration_adds_zero_fill_memory_item(
     path = tmp_path / "tracker.json"
     atomic_write_json(path, tracker)
     migrated = migrate_tracker(path, 7)
-    assert migrated["schema_version"] == 5
-    assert [(row["from_schema"], row["to_schema"]) for row in migrated["migration_history"]] == [(3, 4), (4, 5)]
+    assert migrated["schema_version"] == 6
+    assert [(row["from_schema"], row["to_schema"]) for row in migrated["migration_history"]] == [(3, 4), (4, 5), (5, 6)]
     items = {row["id"]: row for row in migrated["work_items"]}
     memory = items[ZERO_FILL_MEMORY_ID]
     assert memory["status"] == "ready"
@@ -355,7 +356,7 @@ def test_tracker_v4_migration_adds_the_thunk_signature_repair(
     atomic_write_json(path, tracker)
     # Without an accepted batch 001 apply there is nothing to repair.
     untouched = migrate_tracker(path, 9)
-    assert untouched["schema_version"] == 5
+    assert untouched["schema_version"] == 6
     assert not any(row["id"] == THUNK_REPAIR_ID for row in untouched["work_items"])
     receipt = {"receipt_sha256": "a" * 64, "scope": {"functions": [], "types": [], "globals": []}, "saved": True}
     batch_plan = BATCH_001_APPLY_ID.removesuffix("-apply")
@@ -372,8 +373,8 @@ def test_tracker_v4_migration_adds_the_thunk_signature_repair(
                 row["ghidra_receipt"] = receipt
     atomic_write_json(path, tracker)
     migrated = migrate_tracker(path, 9)
-    assert migrated["schema_version"] == 5
-    assert [(row["from_schema"], row["to_schema"]) for row in migrated["migration_history"]] == [(4, 5)]
+    assert migrated["schema_version"] == 6
+    assert [(row["from_schema"], row["to_schema"]) for row in migrated["migration_history"]] == [(4, 5), (5, 6)]
     order = [row["id"] for row in migrated["work_items"]]
     assert order.index(THUNK_REPAIR_ID) == order.index(BATCH_001_APPLY_ID) + 1
     repair = next(row for row in migrated["work_items"] if row["id"] == THUNK_REPAIR_ID)
@@ -691,3 +692,22 @@ def test_stage_baseline_refuses_an_active_writer(root: Path, census: dict) -> No
             tracker, "debug-metadata-import", "reviewer", ["r.md"],
             receipt_sha256="9" * 64, receipt=_rebaseline_receipt(),
         )
+
+
+def test_tracker_v5_migration_moves_symbols_and_relocations_to_the_census(
+    tmp_path: Path, root: Path, census: dict
+) -> None:
+    tracker = initialize_tracker(root, census)
+    assert "symbols" not in tracker and "relocations" not in tracker
+    legacy = dict(tracker, schema_version=5, revision=11)
+    legacy["symbols"] = [dict(row) for row in census["symbols"][:3]]
+    legacy["relocations"] = [dict(row) for row in census["relocations"][:3]]
+    path = tmp_path / "tracker.json"
+    atomic_write_json(path, legacy)
+    migrated = migrate_tracker(path, 11)
+    assert migrated["schema_version"] == 6
+    assert "symbols" not in migrated and "relocations" not in migrated
+    assert [(row["from_schema"], row["to_schema"]) for row in migrated["migration_history"]] == [(5, 6)]
+    assert audit_tracker(migrated) == []
+    # A schema 6 tracker may not carry them again.
+    assert any("reference census" in error for error in audit_tracker(dict(migrated, symbols=[])))

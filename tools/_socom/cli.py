@@ -1190,9 +1190,28 @@ def _progress_status(arguments: argparse.Namespace) -> int:
     return 0
 
 
+def _progress_sql(arguments: argparse.Namespace) -> int:
+    """One read-only SELECT over build/cache/progress.sqlite, as compact text or JSON."""
+
+    from .progress_cache import query
+
+    result = query(_root(arguments), arguments.statement, arguments.limit)
+    if arguments.format == "json":
+        _emit(result)
+        return 0
+    sys.stdout.reconfigure(encoding="utf-8")
+    print("\t".join(result["columns"]))
+    for row in result["rows"]:
+        print("\t".join("" if value is None else str(value) for value in row))
+    if result["truncated"]:
+        print(f"... (truncated at {arguments.limit} rows; use --limit)")
+    return 0
+
+
 def _progress_find(arguments: argparse.Namespace) -> int:
-    tracker = load_tracker(tracker_path(_root(arguments)))
-    rows = find_rows(tracker, arguments.query)[: arguments.limit]
+    root = _root(arguments)
+    tracker = load_tracker(tracker_path(root))
+    rows = find_rows(tracker, arguments.query, load_json(_census_path(root)))[: arguments.limit]
     _emit({"count": len(rows), "rows": rows})
     return 0
 
@@ -2540,6 +2559,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec("progress show", "progress", "Show the tracker or one exact entity."),
     _spec("progress status", "progress", "Show derived stage, lease, and next-work status."),
     _spec("progress find", "progress", "Search unified reconstruction entities."),
+    _spec("progress sql", "progress", "Query the derived read-only SQLite cache of tracker, census and issues."),
     _spec("progress audit", "progress", "Audit tracker structure and strict derived invariants."),
     _spec("progress snapshot", "progress", "Check or update the README progress snapshot.", mutates=True),
     _spec("progress report", "progress", "Render an on-demand progress report."),
@@ -2930,6 +2950,11 @@ def build_parser() -> argparse.ArgumentParser:
     find.add_argument("query")
     find.add_argument("--limit", type=int, default=50)
     find.set_defaults(handler=_progress_find)
+    sql = progress_commands.add_parser("sql")
+    sql.add_argument("statement")
+    sql.add_argument("--limit", type=int, default=200)
+    sql.add_argument("--format", choices=("text", "json"), default="text")
+    sql.set_defaults(handler=_progress_sql)
     audit = progress_commands.add_parser("audit")
     audit.add_argument("--strict", action="store_true")
     audit.set_defaults(handler=_progress_audit)

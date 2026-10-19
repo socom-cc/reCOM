@@ -85,6 +85,7 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py progress show` | progress | no | none | no | Show the tracker or one exact entity. |
 | `python tools/socom.py progress status` | progress | no | none | no | Show derived stage, lease, and next-work status. |
 | `python tools/socom.py progress find` | progress | no | none | no | Search unified reconstruction entities. |
+| `python tools/socom.py progress sql` | progress | no | none | no | Query the derived read-only SQLite cache of tracker, census and issues. |
 | `python tools/socom.py progress audit` | progress | no | none | no | Audit tracker structure and strict derived invariants. |
 | `python tools/socom.py progress snapshot` | progress | yes | none | no | Check or update the README progress snapshot. |
 | `python tools/socom.py progress report` | progress | no | none | no | Render an on-demand progress report. |
