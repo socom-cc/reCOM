@@ -639,7 +639,7 @@ def function_facts(ctx: _Context, start: int, caller_limit: int = 24, evidence: 
                 for d in flow.entering_callee(slot, GPR.index(reg))
             })
             # A register the callee does not read is shown only when the caller set it explicitly.
-            if reg not in reads and any(d == "entry" or d.startswith(("ret(", "clobbered-by(")) for d in defs):
+            if reg != "a0" and reg not in reads and any(d == "entry" or d.startswith(("ret(", "clobbered-by(")) for d in defs):
                 continue
             setup.append(f"{reg}={'|'.join(defs)}")
         for reg in fregs:
