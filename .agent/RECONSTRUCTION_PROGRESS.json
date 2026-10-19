@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 286,
+  "revision": 330,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1489378,8 +1489378,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-77fd04ac72066c8ff1e4.json sha256:3f404862ed4a662d2cc5a866722e0dce347687bb3917e733936a20a7eb0305a0"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-l1",
+        "submitted_at": "2026-10-19T03:16:33Z",
+        "summary": "28 prototypes, 4 unresolved, 0 globals; provider signature-only (MW C++ runtime + stage-2 DWARF CGameState/_zmalloc restated); ghidra preflight-batch rejects recon programs (expects schema 4 import plan)"
+      },
       "id": "socom:recon-group:77fd04ac72066c8ff1e4",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1489388,7 +1489394,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 001 (height 0, 32 functions)"
     },
     {
@@ -1489495,8 +1489501,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-fbddaecff747ac0bc271.json sha256:033b4bbd647d89b56a325e666a49bf9b5c7f41ffd80db259542045cceb669ea5"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-l1",
+        "submitted_at": "2026-10-19T03:18:12Z",
+        "summary": "2 prototypes, 30 unresolved, 0 globals; provider signature-only (MSL streambuf/filebuf/codecvt receivers carry , in their type names; vtable-only, no direct callers)"
+      },
       "id": "socom:recon-group:fbddaecff747ac0bc271",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1489505,7 +1489517,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 002 (height 0, 32 functions)"
     },
     {
@@ -1489612,8 +1489624,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-6284cb70afd4bc9c38e0.json sha256:61fd9a4bf619202cd51c14e70e1645d0a901812e603233a9c62cbd731ab9e4e1"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-l1",
+        "submitted_at": "2026-10-19T03:20:11Z",
+        "summary": "18 prototypes, 14 unresolved, 0 globals; provider signature-only (MSL ctype stage-2 prototypes restated; libgraph sceGs* from libgraph.h with void * for missing sceGs struct types; comma/reference MSL templates unresolved)"
+      },
       "id": "socom:recon-group:6284cb70afd4bc9c38e0",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1489622,7 +1489640,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 003 (height 0, 32 functions)"
     },
     {
@@ -1489729,8 +1489747,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-3f6099065c7acb8b7fc2.json sha256:c25346c138082150521f6ebdee978115b9bb812253388e14f6ce8e7bec4ee68e"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-l1",
+        "submitted_at": "2026-10-19T03:22:16Z",
+        "summary": "31 prototypes, 1 unresolved, 0 globals; provider signature-only (libdma/libpkt per Sony headers, devfont/devcons internals from asm; void * for missing sceDmaEnv/sceGifPacket/sceVif1Packet/u_long128 types; 64-bit GS data as ulonglong)"
+      },
       "id": "socom:recon-group:3f6099065c7acb8b7fc2",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1489739,7 +1489763,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 004 (height 0, 32 functions)"
     },
     {
@@ -1489846,8 +1489870,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-55d8613084e5da337fe4.json sha256:4cbff48d08fc9e13da2f79d2e039acf7386cda0ab6cd6bd7ad64bd5e4b32975c"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-l1",
+        "submitted_at": "2026-10-19T03:23:43Z",
+        "summary": "29 prototypes, 3 unresolved, 0 globals; provider signature-only (libvu0.h/libpkt.h prototypes; sceVu0 vector/matrix as float */int *; u_long128-by-value and VU-register helpers unresolved)"
+      },
       "id": "socom:recon-group:55d8613084e5da337fe4",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1489856,7 +1489886,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 005 (height 0, 32 functions)"
     },
     {
@@ -1489963,8 +1489993,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-5846478067cd92a3b3e5.json sha256:8c3802bf683441a466f551e685a560bb33514e2ea9e2532615e6d285f762c92c"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-l1",
+        "submitted_at": "2026-10-19T03:25:23Z",
+        "summary": "27 prototypes, 5 unresolved, 0 globals; provider signature-only (libvu0.h prototypes; libmpeg IDCT kernels take a0 context only; libmpeg internals with unproven argument roles unresolved)"
+      },
       "id": "socom:recon-group:5846478067cd92a3b3e5",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1489973,7 +1490009,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 006 (height 0, 32 functions)"
     },
     {
@@ -1490080,8 +1490116,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-ad58857770d8d744aecc.json sha256:6117508db12b08df79e7e2bcb7e00666e4f595f7babf4220fd23750c3d9100c7"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-l1",
+        "submitted_at": "2026-10-19T03:27:08Z",
+        "summary": "29 prototypes, 3 unresolved, 0 globals; provider signature-only (libmpeg.h/libipu.h prototypes with void * for missing sceMpeg type; 64-bit EE long as longlong; DispCenterOffX/Y header-vs-asm contradiction noted)"
+      },
       "id": "socom:recon-group:ad58857770d8d744aecc",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1490090,7 +1490132,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 007 (height 0, 32 functions)"
     },
     {
@@ -1490197,8 +1490239,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-fad6cea575f93240d299.json sha256:86c76b60a93d0ad0e1b7ff2ab60e7e2fae60e47e2d51210d26e661a0a32e3deb; recon validate ok; recon program ok (27 prototypes); ghidra preflight-batch refuses recon programs (requires schema 4 import plan) - tooling gap"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-l2",
+        "submitted_at": "2026-10-19T03:14:41Z",
+        "summary": "27 prototypes, 5 unresolved (RFU reserved syscalls), 0 globals; provider signature-only (eekernel.h syscall stubs)"
+      },
       "id": "socom:recon-group:fad6cea575f93240d299",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1490207,7 +1490255,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 008 (height 0, 32 functions)"
     },
     {
@@ -1490314,8 +1490362,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-a4fa663115a989272496.json sha256:3bbf5eedd2ee285ac201bf1f915619c0474ca7151812308e9fd460be16c5496c; recon validate ok; recon program ok; ghidra preflight-batch refuses recon programs (requires schema 4 import plan) - tooling gap"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-l2",
+        "submitted_at": "2026-10-19T03:15:45Z",
+        "summary": "31 prototypes, 1 unresolved (JoinThread syscall 0x3b), 0 globals; provider signature-only (eekernel.h thread/alarm/DMAC syscall stubs)"
+      },
       "id": "socom:recon-group:a4fa663115a989272496",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1490324,7 +1490378,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 009 (height 0, 32 functions)"
     },
     {
@@ -1490431,8 +1490485,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-73096b0ca6b6749f84e0.json sha256:466e7d8ba509da805bcbe4ba4bf533f809cb0d36c80d61d4d8c57de1cc7b2ce7; recon validate ok; recon program ok; ghidra preflight-batch refuses recon programs (requires schema 4 import plan) - tooling gap"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-l2",
+        "submitted_at": "2026-10-19T03:16:50Z",
+        "summary": "14 prototypes, 18 unresolved (RFU/event-flag/GS H-V param syscalls without callers), 0 globals; provider signature-only (eekernel.h semaphore/heap/OSD syscall stubs)"
+      },
       "id": "socom:recon-group:73096b0ca6b6749f84e0",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1490441,7 +1490501,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 010 (height 0, 32 functions)"
     },
     {
@@ -1490548,8 +1490608,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-0dd42227a0859f235f4a.json sha256:a70609033d8e07af66353e9762636a41352d1d2090f344667f4388457078e6fe; recon validate ok; recon program ok; ghidra preflight-batch refuses recon programs (requires schema 4 import plan) - tooling gap"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-l2",
+        "submitted_at": "2026-10-19T03:18:30Z",
+        "summary": "30 prototypes, 2 unresolved (RFU116, varargs _print), 0 globals; provider signature-only (eekernel.h/sifdev.h syscall stubs)"
+      },
       "id": "socom:recon-group:0dd42227a0859f235f4a",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1490558,7 +1490624,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 011 (height 0, 32 functions)"
     },
     {
@@ -1490665,8 +1490731,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-a07f5644d837b2e410c3.json sha256:8042cc602b81a52d4555b4e6b49d6ff704dd5f473f519528063205c84e998e03; recon validate ok; recon program ok; ghidra preflight-batch refuses recon programs (requires schema 4 import plan) - tooling gap"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-l2",
+        "submitted_at": "2026-10-19T03:20:19Z",
+        "summary": "29 prototypes, 3 unresolved (ioctl varargs; lseek/fstat keep live newlib signatures with non-project typedefs), 0 globals; provider signature-only"
+      },
       "id": "socom:recon-group:a07f5644d837b2e410c3",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1490675,7 +1490747,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 012 (height 0, 32 functions)"
     },
     {
@@ -1490782,8 +1490854,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-9d1d0f983fcb3ede4672.json sha256:665c3a2a262265ad5c5b08652103368cf5d31bd699973dd8c2a3c9ef690327d1; recon validate ok; recon program ok; ghidra preflight-batch refuses recon programs (requires schema 4 import plan) - tooling gap"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-l2",
+        "submitted_at": "2026-10-19T03:21:45Z",
+        "summary": "29 prototypes, 3 unresolved (kernel exception-vector handlers), 0 globals; provider signature-only (SIF cmd/RPC, TLB syscalls, DIntr/EIntr)"
+      },
       "id": "socom:recon-group:9d1d0f983fcb3ede4672",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1490792,7 +1490870,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 013 (height 0, 32 functions)"
     },
     {
@@ -1490899,8 +1490977,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-65646487301d60040d16.json sha256:e88bb150fe7226c8a3d4aa70873b97f310b9ba6ba760bcc7edb62ec12c13c71e; recon validate ok; recon program ok; ghidra preflight-batch refuses recon programs (requires schema 4 import plan) - tooling gap"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-l2",
+        "submitted_at": "2026-10-19T03:22:58Z",
+        "summary": "31 prototypes, 1 unresolved (__muldi3: dead t1 entry read blocks documented libgcc prototype), 0 globals; provider signature-only (kernel setup/Copy stubs, newlib libm, libgcc di3)"
+      },
       "id": "socom:recon-group:65646487301d60040d16",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1490909,7 +1490993,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 014 (height 0, 32 functions)"
     },
     {
@@ -1491016,8 +1491100,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-4bd54e541f5d9b1d9d49.json sha256:a7a3de1514bf22ba678a48de20b154eb8d44db281300c6107b58f2425b2c7b03"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g1",
+        "submitted_at": "2026-10-19T03:18:06Z",
+        "summary": "10 prototypes, 22 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:4bd54e541f5d9b1d9d49",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1491026,7 +1491116,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 015 (height 0, 32 functions)"
     },
     {
@@ -1491133,8 +1491223,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-0bc0c825454acd55a0fa.json sha256:43cb3c4cc26d895c361dc042b716faa4cc27e7f6ba9778b322a052dce1a5ebae"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g1",
+        "submitted_at": "2026-10-19T03:20:49Z",
+        "summary": "19 prototypes, 13 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:0bc0c825454acd55a0fa",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1491143,7 +1491239,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 016 (height 0, 32 functions)"
     },
     {
@@ -1491250,8 +1491346,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-2fc51b3215a4c44f8cfb.json sha256:13271cd74524354283454f533cb9ea19a66fe0badcb1c1a97e40e4f066dcd752"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g1",
+        "submitted_at": "2026-10-19T03:24:14Z",
+        "summary": "3 prototypes, 29 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:2fc51b3215a4c44f8cfb",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1491260,7 +1491362,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 017 (height 0, 32 functions)"
     },
     {
@@ -1491367,8 +1491469,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-ade4d72eda7a402bce96.json sha256:a73c7113f366693cdd8a3f3e55f73106bd684726059c57098fd53ed49716b86e"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g1",
+        "submitted_at": "2026-10-19T03:26:42Z",
+        "summary": "7 prototypes, 25 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:ade4d72eda7a402bce96",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1491377,7 +1491485,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 018 (height 0, 32 functions)"
     },
     {
@@ -1491484,8 +1491592,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-91f5b239be312ee36366.json sha256:d9eb7fbf556068025d9fb08207324a1d6905a0a7ef6d3a8adce32186e4c94f26"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g1",
+        "submitted_at": "2026-10-19T03:27:44Z",
+        "summary": "0 prototypes, 32 unresolved, 0 globals (all MSL template receivers with commas or untyped/ambiguous classes)"
+      },
       "id": "socom:recon-group:91f5b239be312ee36366",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1491494,7 +1491608,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 019 (height 0, 32 functions)"
     },
     {
@@ -1491601,8 +1491715,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-16c84908d92126493d4e.json sha256:fe3d56fd12ce34672a774bf29ed845d9872681b219f6443a44a0ce1ba4df29f5"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g1",
+        "submitted_at": "2026-10-19T03:30:39Z",
+        "summary": "6 prototypes, 26 unresolved, 0 globals; boundary defects at 0x193cd0 and 0x1972d0"
+      },
       "id": "socom:recon-group:16c84908d92126493d4e",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1491611,7 +1491731,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 020 (height 0, 32 functions)"
     },
     {
@@ -1491718,8 +1491838,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-ba3d6b20d6275485252b.json sha256:2c119ac9b65114dce34d854cd38d4301370f1b67d15add67d4dddf1e6ed9a6d7"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g1",
+        "submitted_at": "2026-10-19T03:33:23Z",
+        "summary": "14 prototypes, 18 unresolved, 0 globals; boundary defects at 0x1a2750 and 0x1a2ad0"
+      },
       "id": "socom:recon-group:ba3d6b20d6275485252b",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1491728,7 +1491854,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 021 (height 0, 32 functions)"
     },
     {
@@ -1491835,8 +1491961,14 @@
         "recursive_components": []
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-778683336be739014d34.json sha256:fa6c106a4a8a7d38908e8cd73c05ad4d15c0e5cb9079749b84f57e25f4d44ca9"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g1",
+        "submitted_at": "2026-10-19T03:36:03Z",
+        "summary": "15 prototypes, 17 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:778683336be739014d34",
       "kind": "recon-plan-group",
       "lease": null,
@@ -1491845,7 +1491977,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 022 (height 0, 32 functions)"
     },
     {
