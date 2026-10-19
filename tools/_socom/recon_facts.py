@@ -403,13 +403,16 @@ def return_sources(ctx: _Context, start: int) -> list[str]:
 
 
 def _use_after_call(ctx: _Context, caller: int, site: int, fpr: bool) -> str:
-    """First use of v0 (or f0) after a call returns; follows unconditional b/j in the caller."""
+    """Uses of v0 (or f0) after a call returns, over every path of the caller.
+
+    Each path ends at the first read (reported), a write (overwritten), a
+    call (clobbered), or the caller's return.  Reads are listed first.
+    """
 
     end = caller + ctx.size[caller]
     register = 0 if fpr else 2
-    decoded = ctx.flow(caller).fn.decoded
-    pc = site + 8
-    seen: set[int] = set()
+    flow = ctx.flow(caller)
+    decoded = flow.fn.decoded
 
     def reads(at: int) -> bool:
         read_g, read_f = _reads_at(ctx, at, end)
@@ -419,31 +422,54 @@ def _use_after_call(ctx: _Context, caller: int, site: int, fpr: bool) -> str:
         insn = ctx.code.word(at)
         return (register in _fpr_writes(insn)) if fpr else (register in _writes(insn)[0])
 
-    while caller <= pc < end and pc not in seen and len(seen) < 512:
+    uses: list[str] = []
+    ends: set[str] = set()
+    seen: set[int] = set()
+    stack = [site + 8]
+    while stack and len(seen) < 1024:
+        pc = stack.pop()
+        if pc in seen or not caller <= pc < end:
+            continue
         seen.add(pc)
         insn = ctx.code.word(pc)
         if reads(pc):
-            return f"{ctx.text(pc)}@0x{pc:x}"
+            uses.append(f"{ctx.text(pc)}@0x{pc:x}")
+            continue
         if writes(pc):
-            return f"overwritten@0x{pc:x}"
+            ends.add("overwritten")
+            continue
         row = decoded[pc]
         if row["kind"] == "plain":
-            pc += 4
+            stack.append(pc + 4)
             continue
         slot = pc + 4
         if slot < end and reads(slot):
-            return f"{ctx.text(slot)}@0x{slot:x} (delay slot of {ctx.text(pc)})"
-        if slot < end and writes(slot):
-            return f"overwritten@0x{slot:x} (delay slot)"
-        if insn == JR_RA:
-            return f"returned by caller@0x{pc:x}"
-        if row["kind"] == "jump" and row["target"] is not None and caller <= row["target"] < end:
-            pc = row["target"]
+            uses.append(f"{ctx.text(slot)}@0x{slot:x} (delay slot)")
             continue
-        if row["kind"] == "call":
-            return f"unused; clobbered by {ctx.text(pc)}@0x{pc:x}"
-        return f"unused before {ctx.text(pc)}@0x{pc:x}"
-    return "unused"
+        if slot < end and writes(slot):
+            ends.add("overwritten")
+            continue
+        if insn == JR_RA:
+            ends.add("returned by caller")
+        elif row["kind"] == "call":
+            ends.add("clobbered by a call")
+        elif row["kind"] == "jump":
+            if row["target"] is not None:
+                stack.append(row["target"])
+            else:
+                ends.add("indirect jump")
+        elif row["kind"] in ("branch", "call-branch"):
+            if row["target"] is not None:
+                stack.append(row["target"])
+            stack.append(slot + 4)
+        else:
+            ends.add(f"{row['kind']}")
+    if uses:
+        shown = sorted(set(uses), key=lambda text: int(text.split("@0x")[1].split()[0], 16))
+        return "; ".join(shown[:4]) + (f" (+{len(shown) - 4} more)" if len(shown) > 4 else "") + (
+            f" | other paths: {', '.join(sorted(ends))}" if ends else ""
+        )
+    return "unused: " + (", ".join(sorted(ends)) or "no path")
 
 
 def call_sites(ctx: _Context, target: int) -> list[tuple[int, int, str]]:

@@ -96,4 +96,4 @@ def test_result_use_skips_fpu_compares_and_follows_branches(ctx) -> None:
     assert _fpr_writes(0x4600A03E) == frozenset()
     # Reviewer-verified read of f0 in a branch delay slot after the call at 0x2ab498.
     caller = max(start for start in ctx.size if start <= 0x2AB498)
-    assert _use_after_call(ctx, caller, 0x2AB498, True).startswith("mul.s f0,f0,f20@0x2ab4bc")
+    assert "mul.s f0,f0,f20@0x2ab4bc" in _use_after_call(ctx, caller, 0x2AB498, True)
