@@ -167,7 +167,8 @@ def check_recon_apply(
 
     from .fingerprint import compare_fingerprints, program_fingerprint
     from .ghidra import live_preflight, load_receipt_scope, semantic_receipt
-    from .tracker import audit_tracker, load_tracker, tracker_path
+    from .constants import tracker_path
+    from .tracker import audit_tracker, load_tracker
     from .util import atomic_write_json
 
     paths = recon_apply_paths(root, item_id, label, prev)
