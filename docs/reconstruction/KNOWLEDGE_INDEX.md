@@ -10,6 +10,7 @@ without becoming a second progress system.
 | Unified tracker and issue ledger | [TRACKER.md](TRACKER.md) |
 | Ghidra safety, receipts, and completion rules | [GHIDRA.md](GHIDRA.md) |
 | DWARF 1 graph and import planning | [DWARF_IMPORT.md](DWARF_IMPORT.md) |
+| Stage 3 groups, plans, and applies | [RECONSTRUCTION.md](RECONSTRUCTION.md) |
 | Compiler identity and readiness | [TOOLCHAIN.md](TOOLCHAIN.md) |
 | Final ELF catalog and acceptance boundary | [FINAL_ELF.md](FINAL_ELF.md) |
 | Agent/role launch protocol | [AGENT_LAUNCH_CHECKLIST.md](AGENT_LAUNCH_CHECKLIST.md) |

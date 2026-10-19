@@ -601,51 +601,32 @@ def test_next_work_orders_batches_numerically() -> None:
     assert [item["batch"]["batch_number"] for item in next_work(tracker)] == [1, 2, 3, 10, 20]
 
 
-def _stage2_tracker(root: Path) -> dict:
-    from tools._socom.tracker import load_tracker
-
-    return load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
-
-
-def test_stage_baseline_records_the_union_of_accepted_writer_scopes(root: Path) -> None:
+def test_stage_baseline_records_the_union_of_accepted_writer_scopes(stage2_tracker: dict) -> None:
     from tools._socom.tracker import record_stage_baseline, stage_live_scope
 
-    tracker = _stage2_tracker(root)
-    if not tracker["stages"][1].get("status") == "accepted" or tracker["stages"][1].get("baseline"):
-        pytest.skip("workspace tracker is not at the unrecorded stage-2 close-out")
+    tracker = stage2_tracker
     stage = "debug-metadata-import"
+    writers = [row for row in tracker["work_items"] if row["stage"] == stage and "ghidra-writer" in row["resources"]]
+    # Two items naming one function count it once.
+    writers[1]["ghidra_receipt"]["scope"]["functions"] = list(writers[0]["ghidra_receipt"]["scope"]["functions"])
     scope = stage_live_scope(tracker, stage)
-    assert {key: len(value) for key, value in scope.items()} == {
-        "functions": 881,
-        "types": 840,
-        "globals": 3103,
-    }
+    assert len(scope["functions"]) == len(writers) - 1
     receipt = _rebaseline_receipt()
     with pytest.raises(SocomError, match="handed off work"):
-        record_stage_baseline(
-            tracker, stage, "socom-dwarf-importer", ["r.md"],
-            receipt_sha256="9" * 64, receipt=receipt,
-        )
+        record_stage_baseline(tracker, stage, "worker", ["r.md"], receipt_sha256="9" * 64, receipt=receipt)
     with pytest.raises(SocomError, match="requires evidence"):
-        record_stage_baseline(
-            tracker, stage, "socom-verifier", [], receipt_sha256="9" * 64, receipt=receipt
-        )
+        record_stage_baseline(tracker, stage, "reviewer", [], receipt_sha256="9" * 64, receipt=receipt)
     with pytest.raises(SocomError, match="not accepted"):
         record_stage_baseline(
-            tracker, "ghidra-reconstruction", "socom-verifier", ["r.md"],
-            receipt_sha256="9" * 64, receipt=receipt,
+            tracker, "ghidra-reconstruction", "reviewer", ["r.md"], receipt_sha256="9" * 64, receipt=receipt
         )
-    entry = record_stage_baseline(
-        tracker, stage, "socom-verifier", ["r.md"], receipt_sha256="9" * 64, receipt=receipt
-    )
-    assert entry["scope_counts"] == {"functions": 881, "types": 840, "globals": 3103}
-    assert entry["live_item_count"] == 44
+    entry = record_stage_baseline(tracker, stage, "reviewer", ["r.md"], receipt_sha256="9" * 64, receipt=receipt)
+    assert entry["scope_counts"] == {"functions": len(writers) - 1, "types": 0, "globals": 0}
+    assert entry["live_item_count"] == len(writers)
     assert tracker["stages"][1]["accepted_evidence"] == ["ghidra-receipt-sha256:" + "9" * 64]
     assert audit_tracker(tracker, strict=True) == []
     with pytest.raises(SocomError, match="already records a baseline"):
-        record_stage_baseline(
-            tracker, stage, "socom-verifier", ["r.md"], receipt_sha256="9" * 64, receipt=receipt
-        )
+        record_stage_baseline(tracker, stage, "reviewer", ["r.md"], receipt_sha256="9" * 64, receipt=receipt)
 
     tampered = copy.deepcopy(tracker)
     tampered["stages"][1]["baseline"]["scope_sha256"] = "0" * 64
@@ -653,6 +634,17 @@ def test_stage_baseline_records_the_union_of_accepted_writer_scopes(root: Path) 
     tampered = copy.deepcopy(tracker)
     tampered["stages"][1]["accepted_evidence"] = []
     assert any("omits its baseline receipt" in e for e in audit_tracker(tampered, strict=True))
+
+
+def test_workspace_stage2_baseline_matches_its_writer_scopes(root: Path) -> None:
+    from tools._socom.tracker import load_tracker, scope_sha256, stage_live_scope
+
+    tracker = load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
+    baseline = tracker["stages"][1]["baseline"]
+    scope = stage_live_scope(tracker, "debug-metadata-import")
+    assert baseline["scope_counts"] == {"functions": 881, "types": 840, "globals": 3103}
+    assert baseline["scope_sha256"] == scope_sha256(scope)
+    assert baseline["receipt_sha256"] == "19ea3466aa8e7bc308605b4b23160f95a3c87ed859493d0eab2e63320527f1ab"
 
 
 def test_stage_baseline_refuses_an_active_writer(root: Path, census: dict) -> None:

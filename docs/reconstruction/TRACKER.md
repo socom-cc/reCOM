@@ -84,6 +84,13 @@ receipt's counts and indexes, and its `accepted_evidence` cites the receipt.
 The strict audit recomputes the union scope from the items and requires the
 same digest. `--dry-run` reports the entry without writing.
 
+`progress decompose-stage --stage ghidra-reconstruction` replaces the stage 3
+seed with callee-first `recon-plan-group`/`recon-apply-group` pairs and turns
+the seed into a `stage-gate` that waits for every apply; see
+[RECONSTRUCTION.md](RECONSTRUCTION.md). The stage row records the
+decomposition's graph digest, group size, and counts, and the audit holds the
+items to it. `progress stage-scope` writes an accepted stage's union scope.
+
 Receipts are evidence, not acceptance. They cover portable target facts,
 analysis/bookmarks, the assembly sentinel, full function/type/data index
 digests, and exact scoped facts.

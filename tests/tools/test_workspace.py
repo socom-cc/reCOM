@@ -206,7 +206,7 @@ def test_agent_roles_are_discoverable_and_paired(root: Path) -> None:
     codex = {path.stem: path for path in (root / ".codex" / "agents").glob("*.toml")}
     claude = {path.stem: path for path in (root / ".claude" / "agents").glob("*.md")}
     assert codex.keys() == claude.keys()
-    assert len(codex) == 12
+    assert len(codex) == 13
     for path in codex.values():
         value = tomllib.loads(path.read_text(encoding="utf-8"))
         assert value["model"] in {"gpt-5.6-sol", "gpt-5.6-terra"}
@@ -238,7 +238,7 @@ def _leaf_commands(parser: argparse.ArgumentParser, prefix: tuple[str, ...] = ()
 
 def test_command_registry_exactly_matches_parser() -> None:
     registered = {row.path for row in COMMAND_SPECS}
-    assert len(registered) == len(COMMAND_SPECS) == 95
+    assert len(registered) == len(COMMAND_SPECS) == 102
     assert _leaf_commands(build_parser()) == registered
 
 

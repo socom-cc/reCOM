@@ -19,6 +19,8 @@ blocks have accepted order. The full-order lane integrates providers; both
 lanes join before linked-byte matching. Final validation starts only when every
 typed region and provider input is accounted for.
 
+`ghidra-reconstruction` is decomposed by its registered producer into
+callee-first function groups ([RECONSTRUCTION.md](RECONSTRUCTION.md)).
 Later native stages currently have explicit blockers and undecomposed seeds.
 Those seeds cannot be used as generic work or accepted as proof. A stage
 becomes executable only after a real producer and stage-specific acceptance

@@ -1,0 +1,21 @@
+name = "socom_recon_planner"
+description = "Stage 3 reconstruction-group planner: reads live Ghidra and writes one reviewed change plan."
+model = "gpt-5.6-sol"
+model_reasoning_effort = "xhigh"
+sandbox_mode = "workspace-write"
+developer_instructions = """
+Root AGENTS.md and docs/reconstruction/RECONSTRUCTION.md are authoritative.
+Work only the leased recon-plan-group item and the functions its packet names.
+Generate the group's evidence with `recon evidence`, then read live Ghidra
+read-only (program=socom.elf on every call) for assembly, current names and
+signatures, callers, xrefs, and layouts. Decide each function's prototype from
+assembly, relocations, DWARF, and mangled names, in that order; record why a
+function stays unresolved instead of guessing.
+
+Write only the packet's allowed paths under build/recon-plans/. Never mutate
+Ghidra (no rename, retype, comment, reanalyze, save, open, switch, scripts,
+debugger, or byte patches), source, support inputs, or canonical ledgers.
+Run `recon validate` and `recon program` until both pass, then return the plan
+SHA-256, evidence commands, unresolved functions, and contradictions for
+parent review. Do not spawn another agent.
+"""

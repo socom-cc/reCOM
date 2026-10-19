@@ -52,6 +52,7 @@ from .ghidra import (
     semantic_receipt,
 )
 from .batch_apply import BatchFailure, build_batch_program, execute_batch_program
+from .recon import RECON_GROUP_SIZE, build_recon_program, group_evidence, recon_groups, validate_recon_plan
 from .fingerprint import compare_fingerprints, program_fingerprint
 from .type_apply import ApplyFailure, build_apply_program, execute_apply_program
 from .source import (
@@ -80,7 +81,10 @@ from .tracker import (
     next_work,
     rebaseline_ghidra_target,
     record_stage_baseline,
+    refresh_ready_and_stages,
+    scope_sha256,
     stage_live_scope,
+    decompose_reconstruction,
     reject_work,
     release_work,
     require_ghidra_lease,
@@ -613,7 +617,7 @@ def _accepted_scope_globals(tracker: dict[str, Any], exclude: str | None) -> fro
     for item in tracker["work_items"]:
         if item["id"] == exclude or item.get("status") != "accepted":
             continue
-        if item.get("kind") != "debug-import-apply-batch":
+        if item.get("kind") not in ("debug-import-apply-batch", "recon-apply-group"):
             continue
         for value in ((item.get("ghidra_receipt") or {}).get("scope") or {}).get("globals", []):
             if "::" not in value:
@@ -1471,6 +1475,218 @@ def _rebaseline_live_ghidra(arguments: argparse.Namespace) -> int:
     return 0
 
 
+def _recon_graph(arguments: argparse.Namespace) -> int:
+    root = _root(arguments)
+    groups = recon_groups(root, arguments.group_size)
+    if arguments.output:
+        atomic_write_json(_build_path(root, arguments.output, "reconstruction graphs"), groups)
+    _emit(
+        {
+            "mutation_performed": False,
+            **{key: value for key, value in groups.items() if key != "groups"},
+            "group_count": len(groups["groups"]),
+            "ready_group_count": sum(1 for row in groups["groups"] if not row["callee_groups"]),
+            "output": arguments.output,
+        }
+    )
+    return 0
+
+
+def _recon_evidence(arguments: argparse.Namespace) -> int:
+    root = _root(arguments)
+    output = _build_path(root, arguments.output, "reconstruction evidence")
+    evidence = group_evidence(root, load_tracker(tracker_path(root)), arguments.item)
+    atomic_write_json(output, evidence)
+    _emit(
+        {
+            "mutation_performed": False,
+            "work_item_id": arguments.item,
+            "group_sha256": evidence["group_sha256"],
+            "function_count": len(evidence["functions"]),
+            "output": output.relative_to(root).as_posix(),
+            "sha256": sha256_file(output),
+        }
+    )
+    return 0
+
+
+def _recon_validate(arguments: argparse.Namespace) -> int:
+    root = _root(arguments)
+    plan_path = Path(arguments.plan)
+    if not plan_path.is_absolute():
+        plan_path = root / plan_path
+    problems = validate_recon_plan(root, load_tracker(tracker_path(root)), load_json(plan_path))
+    _emit(
+        {
+            "ok": not problems,
+            "mutation_performed": False,
+            "plan": arguments.plan,
+            "sha256": sha256_file(plan_path),
+            "problems": problems,
+        }
+    )
+    return 0 if not problems else 1
+
+
+def _recon_program(arguments: argparse.Namespace) -> int:
+    root = _root(arguments)
+    plan_path = Path(arguments.plan)
+    if not plan_path.is_absolute():
+        plan_path = root / plan_path
+    program = build_recon_program(root, load_tracker(tracker_path(root)), plan_path)
+    if arguments.output:
+        atomic_write_json(_build_path(root, arguments.output, "reconstruction programs"), program)
+    _emit(
+        {
+            "kind": program["kind"],
+            "mutation_performed": False,
+            "plan": program["plan"],
+            "summary": program["summary"],
+            "program_sha256": hashlib.sha256(canonical_json(program).encode("utf-8")).hexdigest(),
+            "output": arguments.output,
+        }
+    )
+    return 0
+
+
+def _ghidra_apply_recon(arguments: argparse.Namespace) -> int:
+    root = _root(arguments)
+    program_path = Path(arguments.program)
+    if not program_path.is_absolute():
+        program_path = root / program_path
+    program = load_json(program_path)
+    scope_output = _build_path(root, arguments.scope_output, "receipt scopes")
+    report_output = _build_path(root, arguments.report_output, "apply reports")
+    tracker = load_tracker(tracker_path(root))
+    item = require_ghidra_lease(tracker, arguments.item, arguments.owner)
+    if item.get("kind") != "recon-apply-group":
+        raise SocomError(f"{arguments.item} is not a reconstruction apply item")
+    plan_path = _require_accepted_plan(root, tracker, item, program)
+    if canonical_json(build_recon_program(root, tracker, plan_path)) != canonical_json(program):
+        raise SocomError("the reconstruction program is stale or edited; regenerate it")
+    preflight = live_preflight(root, bridge_url=arguments.bridge_url, strict_baseline=False)
+    if not preflight["ok"]:
+        _emit({"ok": False, "preflight": preflight})
+        return 1
+    bridge = GhidraBridge(arguments.bridge_url, timeout=300.0)
+    # A plan may deliberately retype a global an earlier apply typed; it says so.
+    replaced = {row["address"] for row in program["globals"] if row.get("replaces_accepted")}
+    accepted = _accepted_scope_globals(tracker, arguments.item) - replaced
+    try:
+        result = execute_batch_program(
+            program,
+            _ReadOnlyBridge(bridge) if arguments.dry_run else bridge,
+            type_index=lambda: _type_index(bridge),
+            function_names=lambda: {
+                f"0x{int(row['address'], 16):x}": row["name"]
+                for row in _function_index(bridge)
+                if "::" not in row["address"]
+            },
+            global_names=lambda: _global_names(root, bridge),
+            log=lambda message: print(message, file=sys.stderr, flush=True),
+            dry_run=arguments.dry_run,
+            accepted_globals=frozenset(accepted),
+        )
+    except BatchFailure as failure:
+        report = {
+            "kind": "socom-ghidra-recon-apply-report",
+            "schema_version": 1,
+            "ok": False,
+            "work_item_id": arguments.item,
+            "error": str(failure),
+            "completed_steps": failure.completed_steps,
+            "details": failure.details,
+            "recovery": "close socom.elf without saving and reopen it before retrying",
+        }
+        atomic_write_json(report_output, report)
+        _emit({key: value for key, value in report.items() if key != "details"})
+        return 1
+    if not arguments.dry_run:
+        atomic_write_json(scope_output, program["receipt_scope"])
+    report = {
+        "kind": "socom-ghidra-recon-apply-report",
+        "schema_version": 1,
+        "ok": True,
+        "dry_run": arguments.dry_run,
+        "work_item_id": arguments.item,
+        "owner": arguments.owner,
+        "program_sha256": hashlib.sha256(canonical_json(program).encode("utf-8")).hexdigest(),
+        "plan": program["plan"],
+        "summary": program["summary"],
+        "result": result,
+        "scope_output": None if arguments.dry_run else scope_output.relative_to(root).as_posix(),
+    }
+    atomic_write_json(report_output, report)
+    summary = {key: value for key, value in report.items() if key != "result"}
+    summary["skipped"] = result["skipped"]
+    summary["bridge_call_count"] = result["bridge_call_count"]
+    _emit(summary)
+    return 0
+
+
+def _progress_decompose_stage(arguments: argparse.Namespace) -> int:
+    root = _root(arguments)
+    if arguments.stage != "ghidra-reconstruction":
+        raise SocomError(f"no registered producer decomposes {arguments.stage}")
+    groups = recon_groups(root)
+    captured: dict[str, Any] = {}
+
+    def decompose(tracker: dict[str, Any]) -> None:
+        captured.update(decompose_reconstruction(tracker, groups))
+
+    if arguments.dry_run:
+        tracker = load_tracker(tracker_path(root))
+        require_revision(tracker, arguments.expected_revision)
+        preview = copy.deepcopy(tracker)
+        decompose(preview)
+        refresh_ready_and_stages(preview)
+        preview["revision"] += 1
+        errors = audit_tracker(preview, strict=True)
+        ready = next_work(copy.deepcopy(preview))
+        _emit(
+            {
+                "ok": not errors,
+                "dry_run": True,
+                "revision": tracker["revision"],
+                "decomposition": captured,
+                "ready_count": len(ready),
+                "ready_sample": [row["id"] for row in ready[:5]],
+                "errors": errors,
+            }
+        )
+        return 0 if not errors else 1
+    updated = mutate(tracker_path(root), arguments.expected_revision, decompose)
+    write_snapshot(root, updated)
+    _emit(
+        {
+            "ok": True,
+            "dry_run": False,
+            "revision": updated["revision"],
+            "decomposition": captured,
+            "ready_count": len(next_work(copy.deepcopy(updated))),
+        }
+    )
+    return 0
+
+
+def _progress_stage_scope(arguments: argparse.Namespace) -> int:
+    root = _root(arguments)
+    scope = stage_live_scope(load_tracker(tracker_path(root)), arguments.stage)
+    body = {"schema_version": 1, **scope}
+    if arguments.output:
+        atomic_write_json(_build_path(root, arguments.output, "receipt scopes"), body)
+    _emit(
+        {
+            "mutation_performed": False,
+            "stage": arguments.stage,
+            "counts": {key: len(value) for key, value in scope.items()},
+            "scope_sha256": scope_sha256(scope),
+            "output": arguments.output,
+        }
+    )
+    return 0
+
+
 def _record_stage_baseline(arguments: argparse.Namespace) -> int:
     root = _root(arguments)
     captured: dict[str, Any] = {}
@@ -2087,6 +2303,14 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
         mutates_ghidra=True,
     ),
     _spec(
+        "ghidra apply-recon",
+        "ghidra",
+        "Apply a reviewed reconstruction group program under the item's writer lease and verify it.",
+        mutates=True,
+        ghidra_requirement="required",
+        mutates_ghidra=True,
+    ),
+    _spec(
         "ghidra restore-accepted",
         "ghidra",
         "Replay accepted Ghidra applies on a fresh baseline import and prove their receipts reproduce.",
@@ -2163,6 +2387,10 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec("docs readme-progress", "docs", "Check or update the generated README progress snapshot.", mutates=True),
     _spec("docs command-index", "docs", "Check or update the generated complete command index.", mutates=True),
     _spec("docs capability-coverage", "docs", "Check or update the generated tool coverage inventory.", mutates=True),
+    _spec("recon graph", "recon", "Build the deterministic callee-first function groups from the ELF."),
+    _spec("recon evidence", "recon", "Write a reconstruction group's file-only planning evidence.", mutates=True),
+    _spec("recon validate", "recon", "Check a reconstruction plan against its group and the ELF."),
+    _spec("recon program", "recon", "Translate a valid reconstruction plan into an apply program.", mutates=True),
     _spec("progress init", "progress", "Initialize unified reconstruction state.", mutates=True),
     _spec("progress next", "progress", "Select ready work from the canonical stage graph."),
     _spec("progress show", "progress", "Show the tracker or one exact entity."),
@@ -2200,6 +2428,13 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
         mutates=True,
         ghidra_requirement="required",
     ),
+    _spec(
+        "progress decompose-stage",
+        "progress",
+        "Replace a stage seed with its registered producer's work items.",
+        mutates=True,
+    ),
+    _spec("progress stage-scope", "progress", "Write the union of an accepted stage's writer receipt scopes."),
     _spec(
         "progress record-stage-baseline",
         "progress",
@@ -2291,6 +2526,23 @@ def build_parser() -> argparse.ArgumentParser:
     relocations.add_argument("--limit", type=int, default=100)
     relocations.set_defaults(handler=_reference_relocations)
 
+    recon = commands.add_parser("recon")
+    recon_commands = recon.add_subparsers(dest="recon_command", required=True)
+    recon_graph = recon_commands.add_parser("graph")
+    recon_graph.add_argument("--group-size", type=int, default=RECON_GROUP_SIZE)
+    recon_graph.add_argument("--output")
+    recon_graph.set_defaults(handler=_recon_graph)
+    recon_evidence = recon_commands.add_parser("evidence")
+    recon_evidence.add_argument("--item", required=True)
+    recon_evidence.add_argument("--output", required=True)
+    recon_evidence.set_defaults(handler=_recon_evidence)
+    recon_validate = recon_commands.add_parser("validate")
+    recon_validate.add_argument("--plan", required=True)
+    recon_validate.set_defaults(handler=_recon_validate)
+    recon_program = recon_commands.add_parser("program")
+    recon_program.add_argument("--plan", required=True)
+    recon_program.add_argument("--output")
+    recon_program.set_defaults(handler=_recon_program)
     debug = commands.add_parser("debug")
     debug_commands = debug.add_subparsers(dest="debug_command", required=True)
     inspect = debug_commands.add_parser("inspect")
@@ -2359,6 +2611,15 @@ def build_parser() -> argparse.ArgumentParser:
     apply_batch.add_argument("--report-output", required=True)
     apply_batch.add_argument("--bridge-url")
     apply_batch.set_defaults(handler=_ghidra_apply_batch)
+    apply_recon = ghidra_commands.add_parser("apply-recon")
+    apply_recon.add_argument("--program", required=True)
+    apply_recon.add_argument("--item", required=True)
+    apply_recon.add_argument("--owner", required=True)
+    apply_recon.add_argument("--scope-output", required=True)
+    apply_recon.add_argument("--report-output", required=True)
+    apply_recon.add_argument("--dry-run", action="store_true")
+    apply_recon.add_argument("--bridge-url")
+    apply_recon.set_defaults(handler=_ghidra_apply_recon)
     restore = ghidra_commands.add_parser("restore-accepted")
     restore.add_argument("--item", required=True)
     restore.add_argument("--owner", required=True)
@@ -2532,6 +2793,15 @@ def build_parser() -> argparse.ArgumentParser:
     stage_baseline.add_argument("--dry-run", action="store_true")
     stage_baseline.add_argument("--bridge-url")
     stage_baseline.set_defaults(handler=_record_stage_baseline)
+    decompose_stage = progress_commands.add_parser("decompose-stage")
+    decompose_stage.add_argument("--stage", required=True)
+    decompose_stage.add_argument("--expected-revision", type=int, required=True)
+    decompose_stage.add_argument("--dry-run", action="store_true")
+    decompose_stage.set_defaults(handler=_progress_decompose_stage)
+    stage_scope = progress_commands.add_parser("stage-scope")
+    stage_scope.add_argument("--stage", required=True)
+    stage_scope.add_argument("--output")
+    stage_scope.set_defaults(handler=_progress_stage_scope)
 
     work = progress_commands.add_parser("work")
     work_commands = work.add_subparsers(dest="work_command", required=True)

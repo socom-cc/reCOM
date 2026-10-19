@@ -33,6 +33,9 @@ WORK_STATUSES = {
 STAGE_STATUSES = {"pending", "active", "accepted"}
 
 GHIDRA_WRITER_RESOURCES = ["ghidra:soCOM/socom.elf", "ghidra-writer"]
+RECON_STAGE = "ghidra-reconstruction"
+RECON_SEED_ID = "socom:work:ghidra-reconstruction-seed"
+RECON_PLAN_RESOURCES = ["build/recon-plans"]
 
 
 def _zero_fill_memory_item(foundation_apply_id: str) -> dict[str, Any]:
@@ -542,7 +545,7 @@ def audit_tracker(
     for item in items:
         item_id = item.get("id")
         if not isinstance(item_id, str) or not item_id.startswith(
-            ("socom:work:", "socom:debug-batch:")
+            ("socom:work:", "socom:debug-batch:", "socom:recon-group:")
         ):
             errors.append(f"invalid work item ID: {item_id!r}")
         status = item.get("status")
@@ -602,6 +605,21 @@ def audit_tracker(
                     errors.append(f"{item_id} dependencies differ from {spec['dependencies']}")
         if kind == "stage-seed" and status != "blocked":
             errors.append(f"{item_id} undecomposed stage seed must remain blocked")
+        if kind == "recon-plan-group":
+            if resources != set(RECON_PLAN_RESOURCES):
+                errors.append(f"{item_id} plan resources are not file-only")
+            if not all(
+                str(dep).startswith("socom:recon-group:") and str(dep).endswith("-apply")
+                for dep in item.get("dependencies", [])
+            ):
+                errors.append(f"{item_id} plan may depend only on reconstruction apply items")
+        if kind == "recon-apply-group":
+            if resources != set(GHIDRA_WRITER_RESOURCES):
+                errors.append(f"{item_id} apply resources differ from Ghidra contract")
+            if item.get("dependencies") != [str(item_id).removesuffix("-apply")]:
+                errors.append(f"{item_id} must depend only on its plan")
+        if kind == "stage-gate" and resources:
+            errors.append(f"{item_id} stage gate must not own resources")
         missing = set(item.get("dependencies", [])) - known
         if missing:
             errors.append(f"{item_id} has missing dependencies {sorted(missing)}")
@@ -676,10 +694,31 @@ def audit_tracker(
         (item for item in items if item.get("id") == "socom:work:ghidra-reconstruction-seed"),
         None,
     )
-    if reconstruction_seed is not None and set(reconstruction_seed.get("dependencies", [])) != {
-        item["id"] for item in apply_items
-    }:
-        errors.append("Ghidra reconstruction seed does not depend on all debug apply items")
+    recon_plans = [item for item in items if item.get("kind") == "recon-plan-group"]
+    recon_applies = [item for item in items if item.get("kind") == "recon-apply-group"]
+    if {f"{item['id']}-apply" for item in recon_plans} != {item["id"] for item in recon_applies}:
+        errors.append("reconstruction plan/apply item pairing is incomplete")
+    if reconstruction_seed is not None:
+        seed_dependencies = set(reconstruction_seed.get("dependencies", []))
+        if reconstruction_seed.get("kind") == "stage-seed":
+            if recon_plans or seed_dependencies != {item["id"] for item in apply_items}:
+                errors.append("Ghidra reconstruction seed does not depend on all debug apply items")
+        elif reconstruction_seed.get("kind") == "stage-gate":
+            if not recon_applies or seed_dependencies != {item["id"] for item in recon_applies}:
+                errors.append("Ghidra reconstruction gate does not depend on all reconstruction apply items")
+        else:
+            errors.append(f"{RECON_SEED_ID} has unexpected kind {reconstruction_seed.get('kind')!r}")
+    recon_stage = next((row for row in stage_rows if row.get("name") == RECON_STAGE), {})
+    decomposition = recon_stage.get("decomposition")
+    if recon_plans and (
+        not isinstance(decomposition, dict) or decomposition.get("group_count") != len(recon_plans)
+    ):
+        errors.append(f"{RECON_STAGE} decomposition record differs from its plan items")
+    if decomposition and any(
+        (item.get("batch") or {}).get("graph_sha256") != decomposition.get("graph_sha256")
+        for item in recon_plans + recon_applies
+    ):
+        errors.append(f"{RECON_STAGE} items cite a different function graph")
     if strict:
         required_collections = (
             "binaries",
@@ -789,6 +828,12 @@ def _refresh_ready_and_stages(tracker: dict[str, Any]) -> None:
             stage["status"] = "active"
         else:
             stage["status"] = "pending"
+
+
+def refresh_ready_and_stages(tracker: dict[str, Any]) -> None:
+    """Derive ready items and stage status, as every mutation does."""
+
+    _refresh_ready_and_stages(tracker)
 
 
 def next_work(tracker: dict[str, Any]) -> list[dict[str, Any]]:
@@ -1283,6 +1328,99 @@ def record_stage_baseline(
     return baseline
 
 
+def decompose_reconstruction(tracker: dict[str, Any], groups: dict[str, Any]) -> dict[str, Any]:
+    """Replace the stage 3 seed with callee-first group items and a stage gate.
+
+    ``groups`` is ``recon.recon_groups`` output.  Each group gets a file-only
+    plan item, which waits for the apply items of the groups holding its
+    callees, and a live apply item, which waits for its plan.  The seed keeps
+    its ID (later stages depend on it) and becomes the stage gate: ordinary
+    reviewed work that waits for every apply item.
+    """
+
+    previous = next(row for row in tracker["stages"] if row["name"] == "debug-metadata-import")
+    if previous.get("status") != "accepted" or not previous.get("baseline"):
+        raise SocomError("decomposition needs debug-metadata-import accepted with a recorded baseline")
+    stage = next(row for row in tracker["stages"] if row["name"] == RECON_STAGE)
+    if stage.get("decomposition"):
+        raise SocomError(f"{RECON_STAGE} is already decomposed")
+    items = tracker["work_items"]
+    seed_position = next(
+        (position for position, row in enumerate(items) if row["id"] == RECON_SEED_ID), None
+    )
+    if seed_position is None or items[seed_position].get("kind") != "stage-seed":
+        raise SocomError(f"{RECON_SEED_ID} is not an undecomposed stage seed")
+    if any(row["stage"] == RECON_STAGE and row["id"] != RECON_SEED_ID for row in items):
+        raise SocomError(f"{RECON_STAGE} already has work items")
+    if not groups.get("groups"):
+        raise SocomError("decomposition needs at least one group")
+
+    created = []
+    apply_ids = []
+    for group in groups["groups"]:
+        batch = {
+            "batch_number": group["group_number"],
+            "group_number": group["group_number"],
+            "height": group["height"],
+            "function_count": len(group["functions"]),
+            "functions": list(group["functions"]),
+            "recursive_components": [list(row) for row in group["recursive_components"]],
+            "graph_sha256": groups["graph_sha256"],
+        }
+        apply_id = f"{group['id']}-apply"
+        apply_ids.append(apply_id)
+        created.append(
+            {
+                "id": group["id"],
+                "stage": RECON_STAGE,
+                "kind": "recon-plan-group",
+                "title": (
+                    f"Plan reconstruction group {group['group_number']:03d} "
+                    f"(height {group['height']}, {len(group['functions'])} functions)"
+                ),
+                "status": "blocked",
+                "dependencies": [f"{callee}-apply" for callee in group["callee_groups"]],
+                "resources": list(RECON_PLAN_RESOURCES),
+                "selection": "functions",
+                "batch": batch,
+                "lease": None,
+                "handoff": None,
+                "evidence": [],
+            }
+        )
+        created.append(
+            {
+                "id": apply_id,
+                "stage": RECON_STAGE,
+                "kind": "recon-apply-group",
+                "title": f"Apply reviewed reconstruction group {group['group_number']:03d} in Ghidra",
+                "status": "blocked",
+                "dependencies": [group["id"]],
+                "resources": list(GHIDRA_WRITER_RESOURCES),
+                "selection": "functions",
+                "batch": copy.deepcopy(batch),
+                "lease": None,
+                "handoff": None,
+                "evidence": [],
+            }
+        )
+    seed = items[seed_position]
+    seed["kind"] = "stage-gate"
+    seed["title"] = f"Review and close {RECON_STAGE}"
+    seed["dependencies"] = apply_ids
+    items[seed_position:seed_position] = created
+    decomposition = {
+        "producer": "recon-function-graph",
+        "graph_sha256": groups["graph_sha256"],
+        "group_size": groups["group_size"],
+        "group_count": len(groups["groups"]),
+        "function_count": groups["function_count"],
+        "tracker_revision": tracker["revision"] + 1,
+    }
+    stage["decomposition"] = decomposition
+    return decomposition
+
+
 def release_work(tracker: dict[str, Any], item_id: str, owner: str) -> None:
     item = _work_by_id(tracker).get(item_id)
     if not item or item["status"] != "in_progress" or not item.get("lease"):
@@ -1542,6 +1680,69 @@ def work_packet(
             "program": "socom.elf",
             "program_path": "/socom.elf",
             "receipt_scope_required": True,
+        }
+    elif kind == "recon-plan-group":
+        role = "socom-recon-planner"
+        skill = "socom-ghidra-workflow"
+        slug = item_id.replace(":", "-")
+        evidence = f"build/recon-plans/{slug}-evidence.json"
+        plan = f"build/recon-plans/{slug}.json"
+        validation = [
+            f"python tools/socom.py recon evidence --item {item_id} --output {evidence}",
+            "python tools/socom.py ghidra preflight --strict",
+            f"python tools/socom.py recon validate --plan {plan}",
+            f"python tools/socom.py recon program --plan {plan} --output build/apply/{slug}-apply.json",
+        ]
+        handoff = "python tools/socom.py progress work handoff (cite the plan SHA-256)"
+        allowed_paths = [evidence, plan]
+        ghidra_scope = {
+            "project": "soCOM",
+            "program": "socom.elf",
+            "program_path": "/socom.elf",
+            "read_only": True,
+        }
+    elif kind == "recon-apply-group":
+        role = "socom-ghidra-reconstructor"
+        skill = "socom-ghidra-reconstruction"
+        slug = item_id.replace(":", "-")
+        plan = f"build/recon-plans/{item_id.removesuffix('-apply').replace(':', '-')}.json"
+        validation = [
+            "python tools/socom.py ghidra preflight --strict",
+            f"python tools/socom.py recon program --plan {plan} --output build/apply/{slug}.json",
+            f"python tools/socom.py ghidra apply-recon --program build/apply/{slug}.json --item {item_id} "
+            f"--owner <owner> --scope-output build/receipts/{slug}-scope.json "
+            f"--report-output build/apply/{slug}-report.json --dry-run",
+            f"python tools/socom.py ghidra apply-recon --program build/apply/{slug}.json --item {item_id} "
+            f"--owner <owner> --scope-output build/receipts/{slug}-scope.json "
+            f"--report-output build/apply/{slug}-report.json",
+            f"python tools/socom.py ghidra receipt --scope build/receipts/{slug}-scope.json",
+        ]
+        handoff = "python tools/socom.py progress handoff-live-ghidra"
+        allowed_paths = []
+        ghidra_scope = {
+            "project": "soCOM",
+            "program": "socom.elf",
+            "program_path": "/socom.elf",
+            "receipt_scope_required": True,
+        }
+    elif kind == "stage-gate":
+        role = "socom-verifier"
+        skill = "socom-validation"
+        scope = f"build/closeout-{item['stage']}/stage-scope.json"
+        validation = [
+            "python tools/socom.py progress audit --strict",
+            "python tools/socom.py ghidra preflight --strict",
+            f"python tools/socom.py progress stage-scope --stage {item['stage']} --output {scope}",
+            f"python tools/socom.py ghidra receipt --scope {scope}",
+            f"after acceptance: python tools/socom.py progress record-stage-baseline --stage {item['stage']} ...",
+        ]
+        handoff = "python tools/socom.py progress work handoff"
+        allowed_paths = [f"build/closeout-{item['stage']}/"]
+        ghidra_scope = {
+            "project": "soCOM",
+            "program": "socom.elf",
+            "program_path": "/socom.elf",
+            "read_only": True,
         }
     else:
         raise SocomError(f"{item_id} has no registered work-packet contract")

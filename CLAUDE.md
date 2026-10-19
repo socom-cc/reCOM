@@ -16,6 +16,7 @@ Claude agent types use hyphens; canonical role names use underscores:
 | `socom_ghidra_fact_mapper` | `socom-ghidra-fact-mapper` |
 | `socom_ghidra_reconstructor` | `socom-ghidra-reconstructor` |
 | `socom_dwarf_importer` | `socom-dwarf-importer` |
+| `socom_recon_planner` | `socom-recon-planner` |
 | `socom_reference_mapper` | `socom-reference-mapper` |
 | `socom_provider_data_classifier` | `socom-provider-data-classifier` |
 | `socom_scaffold_auditor` | `socom-scaffold-auditor` |

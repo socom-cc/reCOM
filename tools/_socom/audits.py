@@ -333,7 +333,7 @@ def pipeline_reachability(root: Path, commands: list[dict[str, Any]]) -> dict[st
     active_producers = {
         "reference-census": {"reference census", "reference verify"},
         "debug-metadata-import": {"debug import-plan", "progress work packet"},
-        "ghidra-reconstruction": {"progress handoff-live-ghidra", "ghidra receipt"},
+        "ghidra-reconstruction": {"progress decompose-stage", "ghidra apply-recon"},
         "source-correlation": {"audit source-trace", "source artifacts"},
     }
     tracker = load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")

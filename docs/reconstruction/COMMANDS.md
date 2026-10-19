@@ -25,6 +25,7 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py ghidra preflight-batch` | ghidra | no | required | no | Dry-run a batch program against live Ghidra: every read and pre-write check, no writes. |
 | `python tools/socom.py ghidra fingerprint` | ghidra | yes | required | no | Fingerprint every function signature, data item, type, block and reference; optionally diff two. |
 | `python tools/socom.py ghidra apply-batch` | ghidra | yes | required | yes | Apply a translated batch program (names, prototypes, globals) under the item's writer lease and verify it. |
+| `python tools/socom.py ghidra apply-recon` | ghidra | yes | required | yes | Apply a reviewed reconstruction group program under the item's writer lease and verify it. |
 | `python tools/socom.py ghidra restore-accepted` | ghidra | yes | required | yes | Replay accepted Ghidra applies on a fresh baseline import and prove their receipts reproduce. |
 | `python tools/socom.py ghidra repair-labels` | ghidra | yes | required | yes | Delete the readable labels a recorded label repair names, under the repair item's writer lease. |
 | `python tools/socom.py ghidra repair-signatures` | ghidra | yes | required | yes | Restore function signatures a recorded repair names, under the repair item's writer lease. |
@@ -68,6 +69,10 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py docs readme-progress` | docs | yes | none | no | Check or update the generated README progress snapshot. |
 | `python tools/socom.py docs command-index` | docs | yes | none | no | Check or update the generated complete command index. |
 | `python tools/socom.py docs capability-coverage` | docs | yes | none | no | Check or update the generated tool coverage inventory. |
+| `python tools/socom.py recon graph` | recon | no | none | no | Build the deterministic callee-first function groups from the ELF. |
+| `python tools/socom.py recon evidence` | recon | yes | none | no | Write a reconstruction group's file-only planning evidence. |
+| `python tools/socom.py recon validate` | recon | no | none | no | Check a reconstruction plan against its group and the ELF. |
+| `python tools/socom.py recon program` | recon | yes | none | no | Translate a valid reconstruction plan into an apply program. |
 | `python tools/socom.py progress init` | progress | yes | none | no | Initialize unified reconstruction state. |
 | `python tools/socom.py progress next` | progress | no | none | no | Select ready work from the canonical stage graph. |
 | `python tools/socom.py progress show` | progress | no | none | no | Show the tracker or one exact entity. |
@@ -81,6 +86,8 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py progress handoff-live-ghidra` | progress | yes | required | yes | Save and hand off a leased Ghidra item with a stable semantic receipt. |
 | `python tools/socom.py progress advance-live-ghidra` | progress | yes | required | no | Accept a Ghidra handoff only when its live semantic receipt is unchanged. |
 | `python tools/socom.py progress rebaseline-live-ghidra` | progress | yes | required | no | Record a fresh-import baseline receipt after a Ghidra version re-pin. |
+| `python tools/socom.py progress decompose-stage` | progress | yes | none | no | Replace a stage seed with its registered producer's work items. |
+| `python tools/socom.py progress stage-scope` | progress | no | none | no | Write the union of an accepted stage's writer receipt scopes. |
 | `python tools/socom.py progress record-stage-baseline` | progress | yes | required | no | Record an accepted stage's live receipt over the union of its writer scopes. |
 | `python tools/socom.py progress work claim` | progress | yes | none | no | Claim ready work with a bounded lease. |
 | `python tools/socom.py progress work heartbeat` | progress | yes | none | no | Renew an owned work lease. |

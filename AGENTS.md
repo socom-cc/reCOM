@@ -330,7 +330,8 @@ with identical discovery frontmatter.
 Codex role definitions live in `.codex/agents` and paired Claude definitions
 in `.claude/agents`. Ghidra read-only and writer roles are
 `socom-ghidra-fact-mapper` and `socom-ghidra-reconstructor`; DWARF planning is
-`socom-dwarf-importer`. Roles do not launch nested agents. The controlling
+`socom-dwarf-importer`; stage 3 group planning is `socom-recon-planner`
+([RECONSTRUCTION.md](docs/reconstruction/RECONSTRUCTION.md)). Roles do not launch nested agents. The controlling
 agent owns scheduling, issue routing, integration, and acceptance.
 
 ## Source matching and done criteria
