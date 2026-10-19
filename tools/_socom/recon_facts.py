@@ -463,6 +463,11 @@ def return_sources(ctx: _Context, start: int) -> list[str]:
             target = ((pc + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2)
             if not (start <= target < flow.end):
                 rows.append(f"tail j@0x{pc:x} -> {ctx.label(target)}")
+        elif insn >> 26 == 0x00 and insn & 0x3F == 0x08:
+            # jr <reg> other than ra: an indirect tail call, or a switch when the
+            # function's own jump-table targets follow it.
+            switch = any(start <= t < flow.end for t in ctx.table_targets)
+            rows.append(f"{ctx.text(pc)}@0x{pc:x}: {'switch or ' if switch else ''}indirect tail call (result is the callee's)")
     return rows
 
 
