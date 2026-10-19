@@ -264,10 +264,9 @@ class _Flow:
         self.gwrites: dict[int, frozenset[int]] = {}
         self.fwrites: dict[int, frozenset[int]] = {}
         for pc in range(start, end, 4):
-            wrote_g, wrote_f = _writes(ctx.code.word(pc))
             after_call = self.fn.decoded.get(pc - 4, {}).get("kind") in ("call", "call-branch")
             self.gwrites[pc] = self.fn.exit_writes[pc]
-            self.fwrites[pc] = frozenset(wrote_f) | (FPR_CLOBBERED if after_call else frozenset())
+            self.fwrites[pc] = _fpr_writes(ctx.code.word(pc)) | (FPR_CLOBBERED if after_call else frozenset())
 
     def reachable(self, pc: int) -> bool:
         return pc == self.start or bool(self.fn.predecessors.get(pc))
@@ -312,10 +311,22 @@ class _Flow:
     def entering_callee(self, slot: int, register: int, fpr: bool = False) -> set[Any]:
         """Definitions a callee sees: the call's delay slot ran, the callee has not."""
 
-        own_g, own_f = _writes(self.ctx.code.word(slot))
+        own_g = _writes(self.ctx.code.word(slot))[0]
+        own_f = _fpr_writes(self.ctx.code.word(slot))
         if register in (own_f if fpr else own_g):
             return {slot}
         return self.defs(slot, register, fpr)
+
+
+_FPU_NO_FD = frozenset({0x18, 0x19, 0x1A, 0x1E, 0x1F}) | frozenset(range(0x30, 0x40))
+
+
+def _fpr_writes(insn: int) -> frozenset[int]:
+    """FPRs an instruction writes; compares and ACC ops (adda/suba/mula/madda/msuba) write none."""
+
+    if insn >> 26 == 0x11 and (insn >> 21) & 31 == 0x10 and insn & 0x3F in _FPU_NO_FD:
+        return frozenset()
+    return frozenset(_writes(insn)[1])
 
 
 def _reads_at(ctx: _Context, pc: int, end: int) -> tuple[set[int], set[int]]:
@@ -392,33 +403,46 @@ def return_sources(ctx: _Context, start: int) -> list[str]:
 
 
 def _use_after_call(ctx: _Context, caller: int, site: int, fpr: bool) -> str:
-    """First use of v0 (or f0) after a call returns, scanning linearly to a transfer."""
+    """First use of v0 (or f0) after a call returns; follows unconditional b/j in the caller."""
 
     end = caller + ctx.size[caller]
     register = 0 if fpr else 2
+    decoded = ctx.flow(caller).fn.decoded
     pc = site + 8
-    while pc < end:
+    seen: set[int] = set()
+
+    def reads(at: int) -> bool:
+        read_g, read_f = _reads_at(ctx, at, end)
+        return (register in read_f) if fpr else (register in read_g)
+
+    def writes(at: int) -> bool:
+        insn = ctx.code.word(at)
+        return (register in _fpr_writes(insn)) if fpr else (register in _writes(insn)[0])
+
+    while caller <= pc < end and pc not in seen and len(seen) < 512:
+        seen.add(pc)
         insn = ctx.code.word(pc)
-        read_g, read_f = _reads_at(ctx, pc, end)
-        if (register in read_f) if fpr else (register in read_g):
+        if reads(pc):
             return f"{ctx.text(pc)}@0x{pc:x}"
-        wrote_g, wrote_f = _writes(insn)
-        if (register in wrote_f) if fpr else (register in wrote_g):
+        if writes(pc):
             return f"overwritten@0x{pc:x}"
-        kind = ctx.flow(caller).fn.decoded[pc]["kind"]
-        if kind != "plain":
-            # The delay slot runs first; check it, then stop.
-            slot = pc + 4
-            if slot < end:
-                read_g, read_f = _reads_at(ctx, slot, end)
-                if (register in read_f) if fpr else (register in read_g):
-                    return f"{ctx.text(slot)}@0x{slot:x} (delay slot of {ctx.text(pc)})"
-            if insn == JR_RA:
-                return f"returned by caller@0x{pc:x}"
-            if kind == "call":
-                return f"unused; clobbered by {ctx.text(pc)}@0x{pc:x}"
-            return f"unused before {ctx.text(pc)}@0x{pc:x}"
-        pc += 4
+        row = decoded[pc]
+        if row["kind"] == "plain":
+            pc += 4
+            continue
+        slot = pc + 4
+        if slot < end and reads(slot):
+            return f"{ctx.text(slot)}@0x{slot:x} (delay slot of {ctx.text(pc)})"
+        if slot < end and writes(slot):
+            return f"overwritten@0x{slot:x} (delay slot)"
+        if insn == JR_RA:
+            return f"returned by caller@0x{pc:x}"
+        if row["kind"] == "jump" and row["target"] is not None and caller <= row["target"] < end:
+            pc = row["target"]
+            continue
+        if row["kind"] == "call":
+            return f"unused; clobbered by {ctx.text(pc)}@0x{pc:x}"
+        return f"unused before {ctx.text(pc)}@0x{pc:x}"
     return "unused"
 
 

@@ -87,3 +87,13 @@ def test_diff_explanation_accepts_restated_and_flags_extras(root: Path) -> None:
     problems, _summary = explain_recon_diff(root, diff, before, steps, result)
     assert any("extra ['0x150000']" in p for p in problems)
     assert any("neither a pointer nor an array" in p for p in problems)
+
+
+def test_result_use_skips_fpu_compares_and_follows_branches(ctx) -> None:
+    from tools._socom.recon_facts import _fpr_writes, _use_after_call
+
+    # c.le.s f20,f0 writes the condition flag, not f0.
+    assert _fpr_writes(0x4600A03E) == frozenset()
+    # Reviewer-verified read of f0 in a branch delay slot after the call at 0x2ab498.
+    caller = max(start for start in ctx.size if start <= 0x2AB498)
+    assert _use_after_call(ctx, caller, 0x2AB498, True).startswith("mul.s f0,f0,f20@0x2ab4bc")
