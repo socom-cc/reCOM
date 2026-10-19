@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 284,
+  "revision": 285,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -923702,7 +923702,48 @@
       "status": "accepted"
     },
     {
-      "accepted_evidence": [],
+      "accepted_evidence": [
+        "ghidra-receipt-sha256:19ea3466aa8e7bc308605b4b23160f95a3c87ed859493d0eab2e63320527f1ab"
+      ],
+      "baseline": {
+        "counts": {
+          "data_type_count": 1550,
+          "function_count": 9715,
+          "memory_block_count": 28,
+          "symbol_count": 26537
+        },
+        "evidence": [
+          "build/closeout-s2/stage-baseline-dryrun.json",
+          "build/closeout-s2/verifier/REPORT.md union receipt 19ea3466aa8e7bc308605b4b23160f95a3c87ed859493d0eab2e63320527f1ab"
+        ],
+        "indexes": {
+          "data": {
+            "count": 51795,
+            "sha256": "08be81383e6f54cd8673ff49ea6932f67951e7ab8784244b95aa8eb15e0dbdff"
+          },
+          "functions": {
+            "count": 9715,
+            "sha256": "37a10981d2374e2d60b8f0a98601aa372b8c7767f9ce04016ba13b09f9d429fa"
+          },
+          "types": {
+            "count": 1550,
+            "sha256": "be436294b40e37f4d83a2b237277a3508869581d149ab70ca3cd70bd7590ff25"
+          }
+        },
+        "kind": "ghidra-semantic-receipt",
+        "live_item_count": 44,
+        "receipt_sha256": "19ea3466aa8e7bc308605b4b23160f95a3c87ed859493d0eab2e63320527f1ab",
+        "recorded_at": "2026-10-19T01:19:58Z",
+        "recorded_by": "socom-controller",
+        "scope_counts": {
+          "functions": 881,
+          "globals": 3103,
+          "types": 840
+        },
+        "scope_sha256": "b8af2938ef1379df3b4915ee832a3bf050b32a840d0211b99bb89c877ee4edfc",
+        "target_receipt_sha256": "f5fd0bf778f311dd6a2f150eb940111927f025f17bf9b4b2fc1e181c36c4d200",
+        "tracker_revision": 285
+      },
       "id": "socom:stage:debug-metadata-import",
       "name": "debug-metadata-import",
       "status": "accepted"
