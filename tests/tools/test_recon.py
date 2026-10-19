@@ -259,3 +259,49 @@ def test_plan_validation_refuses_defects(root: Path, decomposed: dict, change, m
     plan = _plan(tracker, 1, root)
     change(plan)
     assert any(message in problem for problem in validate_recon_plan(root, tracker, plan))
+
+
+def test_completed_partial_loads_are_writes_not_argument_reads(root: Path) -> None:
+    from tools._socom.batch_apply import _entry_argument_reads
+    from tools._socom.elf import Elf32File
+
+    elf = Elf32File(root / "support" / "socom.elf")
+    # sceDmaGetEnv loads a1/a2 with ldl/ldr pairs before using them.
+    assert _entry_argument_reads(elf, 0x150018, 56) == ({4, 5, 6}, set())
+    assert _entry_argument_reads(elf, 0x150018, 56, pair_partial_loads=True) == ({4}, set())
+
+
+def test_c_spellings_of_builtins_are_refused(root: Path, decomposed: dict) -> None:
+    plan = _plan(decomposed, 1, root)
+    plan["functions"][0].update(
+        unresolved=[], prototype={"return_type": "unsigned int", "parameters": [], "evidence": ["x"]}
+    )
+    assert any("write the Ghidra builtin uint" in problem for problem in validate_recon_plan(root, decomposed, plan))
+
+
+def test_dead_entry_reads_need_a_real_read_and_reach_the_notes(tmp_path: Path, root: Path, decomposed: dict) -> None:
+    item = next(
+        row
+        for row in decomposed["work_items"]
+        if row["kind"] == "recon-plan-group" and "0x16bad8" in row["batch"]["functions"]
+    )
+    plan = _plan(decomposed, item["batch"]["group_number"], root)
+    entry = next(row for row in plan["functions"] if row["address"] == "0x16bad8")
+    prototype = {
+        "return_type": "longlong",
+        "parameters": [{"name": "a", "type": "longlong"}, {"name": "b", "type": "longlong"}],
+        "evidence": ["libgcc __muldi3"],
+    }
+    entry.update(unresolved=[], prototype=prototype)
+    assert validate_recon_plan(root, decomposed, plan) == [
+        "function 0x16bad8 reads argument registers ['t1'] that the prototype does not declare"
+    ]
+    prototype["dead_entry_reads"] = [{"register": "t2", "site": "0x16bb14", "evidence": ["x"]}]
+    problems = validate_recon_plan(root, decomposed, plan)
+    assert any("'t2' is not an argument register the entry block reads" in problem for problem in problems)
+    prototype["dead_entry_reads"] = [{"register": "t1", "site": "0x16bb14", "evidence": ["cleared at 0x16bb28"]}]
+    assert validate_recon_plan(root, decomposed, plan) == []
+    path = tmp_path / "plan.json"
+    atomic_write_json(path, plan)
+    row = next(row for row in build_recon_program(root, decomposed, path)["functions"] if row["address"] == "0x16bad8")
+    assert row["notes"] == ["entry read of t1 at 0x16bb14 is dead: cleared at 0x16bb28"]

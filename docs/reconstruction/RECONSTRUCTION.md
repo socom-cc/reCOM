@@ -97,12 +97,51 @@ The planner then reads live Ghidra (read-only) and writes the plan:
 }
 ```
 
+### Type spelling rules
+
+- Write fundamental types as the Ghidra builtins the DWARF import uses:
+  `uint`, `ushort`, `uchar`, `schar`, `longlong`, `ulonglong` (EE `long` is
+  64-bit). The executor accepts only builtin names, so a C spelling such as
+  `unsigned int` or `long long` would resolve to nothing and the prototype
+  would be skipped; `recon validate` refuses them.
+- A type name must resolve to exactly one program type, ignoring case.
+  `ghidra preflight-batch --program build/apply/<slug>-apply.json` dry-runs
+  the program against live Ghidra and lists every skip; run it before
+  handoff.
+- Do not use `void *` as a placeholder. Use it only where the original
+  declaration is `void *` or the pointee is untyped. When the right type is a
+  struct or function-pointer type the program does not have yet, leave the
+  function unresolved and name the missing type, so a later type item can
+  add it.
+- The bridge parses prototypes with Ghidra's `FunctionSignatureParser`, which
+  splits at every comma and looks types up by bare name. Template names with
+  `,`, names with `&`, and names shared by several types therefore stay
+  unresolved for now.
+
+### Dead entry reads
+
+The entry-block scan treats a partial load completed by its partner (`lwl` +
+`lwr`, `ldl` + `ldr` at the canonical offsets) as a write. A read that the
+code later masks off entirely (for example the 64-bit insert idiom in
+`__muldi3`) can be declared on the prototype:
+
+```json
+"dead_entry_reads": [
+  {"register": "t1", "site": "0x16bb14", "evidence": ["and t1,t1,a1 keeps the high half; and t1,t1,a3 at 0x16bb28 clears it"]}
+]
+```
+
+`recon validate` accepts a row only when the entry block reads that register
+and the site is inside the function; the reviewer checks the evidence. The
+row is copied into the program's notes.
+
 `recon validate` refuses a plan unless:
 
 - it names its item and the decomposed group's digest, and targets this ELF;
 - every group function appears exactly once, with the live `current_name`
   and either a prototype with evidence or the reasons it stays unresolved;
-- every type is spellable through the bridge (no `,` or `&`);
+- every type is spellable through the bridge (no `,` or `&`, builtins by
+  their Ghidra names);
 - parameter names are identifiers and do not repeat;
 - the prototype declares every argument register the entry block reads
   (under `__stdcall`, floats take `f12`-`f19` and everything else the next of

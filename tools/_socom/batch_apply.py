@@ -550,12 +550,56 @@ ARGUMENT_GPRS = (4, 5, 6, 7, 8, 9, 10, 11)  # a0-a3, t0-t3
 ARGUMENT_FPRS = tuple(range(12, 20))  # f12-f19
 
 
-def _entry_argument_reads(elf: Elf32File, address: int, size: int | None) -> tuple[set[int], set[int]]:
+# Partial loads merge into rt; a left/right pair at the canonical
+# little-endian offsets (left = right + 3 for lwl/lwr, + 7 for ldl/ldr)
+# replaces every byte, so the pair writes rt without reading it.
+_PARTIAL_LOAD_PARTNER = {0x22: (0x26, 3), 0x26: (0x22, -3), 0x1A: (0x1B, 7), 0x1B: (0x1A, -7)}
+
+
+def _completed_partial_load(elf: Elf32File, pc: int, limit: int) -> bool:
+    """Whether the partial load at ``pc`` is completed by its partner in the block.
+
+    The partner must load the same rt from the same base before anything
+    else reads or writes rt or writes the base.
+    """
+
+    insn = _word(elf, pc)
+    op, base, rt = insn >> 26, (insn >> 21) & 31, (insn >> 16) & 31
+    partner, delta = _PARTIAL_LOAD_PARTNER[op]
+    offset = ((insn & 0xFFFF) ^ 0x8000) - 0x8000
+    if rt == base or rt == 0:
+        return False
+    if _is_control_transfer(insn):
+        return False
+    scan = pc + 4
+    transfer_seen = False
+    while scan < limit:
+        other = _word(elf, scan)
+        other_op, other_base, other_rt = other >> 26, (other >> 21) & 31, (other >> 16) & 31
+        other_offset = ((other & 0xFFFF) ^ 0x8000) - 0x8000
+        if other_op == partner and other_rt == rt and other_base == base and offset - other_offset == delta:
+            return True
+        read_g, _read_f = _reads(other)
+        wrote_g, _wrote_f = _writes(other)
+        if rt in read_g or rt in wrote_g or base in wrote_g:
+            return False
+        if transfer_seen:
+            return False
+        transfer_seen = _is_control_transfer(other)
+        scan += 4
+    return False
+
+
+def _entry_argument_reads(
+    elf: Elf32File, address: int, size: int | None, *, pair_partial_loads: bool = False
+) -> tuple[set[int], set[int]]:
     """Argument registers the entry block reads before writing them.
 
     The block runs from the entry to the first control transfer and its
     delay slot; every read there of a0-t3 or f12-f19 not yet written is an
-    incoming argument.
+    incoming argument.  With ``pair_partial_loads`` (stage 3) a partial load
+    completed by its partner is a write, not a read, of its rt; stage 2
+    programs keep the original rule so accepted programs regenerate.
     """
 
     gprs: set[int] = set()
@@ -569,6 +613,8 @@ def _entry_argument_reads(elf: Elf32File, address: int, size: int | None) -> tup
         insn = _word(elf, pc)
         read_g, read_f = _reads(insn)
         op = insn >> 26
+        if pair_partial_loads and op in _PARTIAL_LOAD_PARTNER and _completed_partial_load(elf, pc, limit):
+            read_g = read_g - {(insn >> 16) & 31}
         if op == 0x00 and insn & 0x3F in (0x0A, 0x0B):  # movz/movn read rd
             read_g = read_g | ({(insn >> 11) & 31} - {0})
         elif op == 0x10 and (insn >> 21) & 31 == 0x04:  # mtc0 reads rt

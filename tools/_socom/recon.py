@@ -38,8 +38,10 @@ from typing import Any
 from .batch_apply import (
     BATCH_PROGRAM_KIND,
     BATCH_PROGRAM_SCHEMA,
+    BUILTINS,
     CALLING_CONVENTION,
     UNSPELLABLE,
+    _base_type,
     _data_alias_problem,
     _declared_argument_registers,
     _entry_argument_reads,
@@ -471,7 +473,7 @@ def group_evidence(root: Path, tracker: dict[str, Any], item_id: str) -> dict[st
         function = by_start[address]
         mangled = next((name for name in function["names"] if demangle(name)), None)
         parsed = demangle(mangled) if mangled else None
-        gprs, fprs = _entry_argument_reads(elf, address, function["size"])
+        gprs, fprs = _entry_argument_reads(elf, address, function["size"], pair_partial_loads=True)
         unit = member_units[address]
         thunk = _thunk_target(elf, address, function["size"])
         rows.append(
@@ -526,12 +528,56 @@ def tracker_stage(tracker: dict[str, Any]) -> dict[str, Any]:
 # -- plans and programs ----------------------------------------------------
 
 
+# C spellings of fundamental types and the Ghidra builtin each must be written
+# as (the names the DWARF import gives them).  The batch executor accepts only
+# builtin names, so a C spelling would resolve to nothing and be skipped.
+C_SPELLINGS = {name: ghidra for name, ghidra in BUILTINS.items() if name != ghidra}
+C_SPELLINGS["ulong"] = "ulonglong or uint (EE long is 64-bit; say which width the code uses)"
+_REGISTER_NUMBERS = {name: number for number, name in ARGUMENT_GPR_NAMES.items()}
+
+
 def _type_problem(type_name: Any) -> str | None:
     if not isinstance(type_name, str) or not type_name.strip():
         return "type must be a non-empty string"
     if UNSPELLABLE.search(type_name):
         return f"type {type_name!r} contains ',' or '&', which the bridge cannot spell"
+    base = _base_type(type_name)
+    if base in C_SPELLINGS:
+        return f"type {type_name!r} spells {base!r} in C; write the Ghidra builtin {C_SPELLINGS[base]}"
     return None
+
+
+def _dead_entry_reads(
+    rows: Any, address: int, size: int | None, gprs: set[int], fprs: set[int]
+) -> tuple[set[int], set[int], list[str]]:
+    """Entry reads a plan proves dead, as (GPRs, FPRs, problems).
+
+    Each row names the register, the instruction that reads it inside the
+    function, and evidence that no bit of the incoming value survives.  A row
+    for a register the entry block does not read is stale and refused.
+    """
+
+    dead_g: set[int] = set()
+    dead_f: set[int] = set()
+    problems: list[str] = []
+    for row in rows or []:
+        register = str((row or {}).get("register", ""))
+        site = str((row or {}).get("site", ""))
+        if not (row or {}).get("evidence"):
+            problems.append(f"dead entry read {register!r} needs evidence")
+        try:
+            site_value = int(site, 16)
+        except ValueError:
+            site_value = None
+        if site_value is None or not (address <= site_value < address + (size or 0)):
+            problems.append(f"dead entry read {register!r} needs a site inside the function")
+        if register in _REGISTER_NUMBERS and _REGISTER_NUMBERS[register] in gprs:
+            dead_g.add(_REGISTER_NUMBERS[register])
+        elif re.fullmatch(r"f(1[2-9])", register) and int(register[1:]) in fprs:
+            dead_f.add(int(register[1:]))
+        else:
+            problems.append(f"dead entry read {register!r} is not an argument register the entry block reads")
+    return dead_g, dead_f, problems
 
 
 def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any]) -> list[str]:
@@ -595,7 +641,14 @@ def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any
         if len(set(names)) != len(names):
             problems.append(f"{where} parameter names repeat")
         if all(isinstance(param.get("type"), str) for param in parameters):
-            gprs, fprs = _entry_argument_reads(elf, int(address, 16), sizes.get(int(address, 16)))
+            gprs, fprs = _entry_argument_reads(
+                elf, int(address, 16), sizes.get(int(address, 16)), pair_partial_loads=True
+            )
+            dead_g, dead_f, dead_problems = _dead_entry_reads(
+                prototype.get("dead_entry_reads"), int(address, 16), sizes.get(int(address, 16)), gprs, fprs
+            )
+            problems.extend(f"{where} {problem}" for problem in dead_problems)
+            gprs, fprs = gprs - dead_g, fprs - dead_f
             declared_g, declared_f = _declared_argument_registers({"parameters": parameters})
             if not gprs <= declared_g or not fprs <= declared_f:
                 missing = sorted(ARGUMENT_GPR_NAMES[reg] for reg in gprs - declared_g) + sorted(
@@ -664,7 +717,11 @@ def build_recon_program(root: Path, tracker: dict[str, Any], plan_path: Path) ->
                     else None
                 ),
                 "prototype_skip": "; ".join(entry.get("unresolved") or []) or None,
-                "notes": list(entry.get("notes") or []),
+                "notes": list(entry.get("notes") or [])
+                + [
+                    f"entry read of {row['register']} at {row['site']} is dead: {'; '.join(row['evidence']) if isinstance(row['evidence'], list) else row['evidence']}"
+                    for row in ((prototype or {}).get("dead_entry_reads") or [])
+                ],
             }
         )
     globals_ = []

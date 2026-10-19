@@ -52,7 +52,7 @@ from .ghidra import (
     semantic_receipt,
 )
 from .batch_apply import BatchFailure, build_batch_program, execute_batch_program
-from .recon import RECON_GROUP_SIZE, build_recon_program, group_evidence, recon_groups, validate_recon_plan
+from .recon import RECON_GROUP_SIZE, RECON_PLAN_KIND, build_recon_program, group_evidence, recon_groups, validate_recon_plan
 from .fingerprint import compare_fingerprints, program_fingerprint
 from .type_apply import ApplyFailure, build_apply_program, execute_apply_program
 from .source import (
@@ -664,12 +664,25 @@ def _ghidra_preflight_batch(arguments: argparse.Namespace) -> int:
     errors: list[str] = []
     plan_info = program.get("plan") or {}
     plan_path = root / str(plan_info.get("path", ""))
+    tracker = load_tracker(tracker_path(root))
+    recon = False
     if not plan_path.is_file() or sha256_file(plan_path) != plan_info.get("sha256"):
         errors.append("the plan file is missing or no longer matches the program")
-    elif canonical_json(build_batch_program(root, plan_path)) != canonical_json(program):
-        errors.append("the batch program is stale or edited; regenerate it")
-    tracker = load_tracker(tracker_path(root))
+    else:
+        # Stage 3 plans regenerate through the reconstruction builder.
+        recon = load_json(plan_path).get("kind") == RECON_PLAN_KIND
+        try:
+            rebuilt = build_recon_program(root, tracker, plan_path) if recon else build_batch_program(root, plan_path)
+        except SocomError as failure:
+            errors.append(f"the program does not regenerate from its plan: {failure}")
+        else:
+            if canonical_json(rebuilt) != canonical_json(program):
+                errors.append("the batch program is stale or edited; regenerate it")
     plan_item = next((row for row in tracker["work_items"] if row["id"] == plan_info.get("work_item_id")), None)
+    accepted = _accepted_scope_globals(tracker, f"{plan_info.get('work_item_id')}-apply")
+    if recon:
+        # The same exemption apply-recon grants a deliberate correction.
+        accepted = frozenset(accepted - {row["address"] for row in program.get("globals", []) if row.get("replaces_accepted")})
     preflight = live_preflight(root, bridge_url=arguments.bridge_url, strict_baseline=False)
     if not preflight["ok"]:
         errors.extend(preflight["errors"])
@@ -690,9 +703,7 @@ def _ghidra_preflight_batch(arguments: argparse.Namespace) -> int:
                 global_names=lambda: _global_names(root, bridge),
                 log=lambda message: print(message, file=sys.stderr, flush=True),
                 dry_run=True,
-                accepted_globals=_accepted_scope_globals(
-                    tracker, f"{plan_info.get('work_item_id')}-apply"
-                ),
+                accepted_globals=frozenset(accepted),
             )
         except SocomError as failure:
             errors.append(f"the apply would refuse or fail: {failure}")

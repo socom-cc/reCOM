@@ -255,12 +255,19 @@ def test_tracker_file_is_valid_and_source_is_unverified(root: Path) -> None:
 
     repairs = [row["id"] for row in tracker["work_items"] if row["kind"] == "ghidra-repair"]
     assert set(repairs) <= set(REPAIRS)
-    assert len(tracker["work_items"]) - len(repairs) == 91
+    # Stage 3 adds one plan and one apply item per reconstruction group.
+    groups = (next(row for row in tracker["stages"] if row["name"] == "ghidra-reconstruction").get("decomposition") or {}).get(
+        "group_count", 0
+    )
+    assert groups == 329
+    recon = [row for row in tracker["work_items"] if row["kind"] in ("recon-plan-group", "recon-apply-group")]
+    assert len(recon) == 2 * groups
+    assert len(tracker["work_items"]) - len(repairs) - len(recon) == 91
     assert len(
-        [row for row in tracker["work_items"] if "-plan-" in row["kind"]]
+        [row for row in tracker["work_items"] if "-plan-" in row["kind"] and row not in recon]
     ) == 41
     assert len(
-        [row for row in tracker["work_items"] if "-apply-" in row["kind"]]
+        [row for row in tracker["work_items"] if "-apply-" in row["kind"] and row not in recon]
     ) == 41
 
 
