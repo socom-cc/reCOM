@@ -634,16 +634,19 @@ def function_facts(ctx: _Context, start: int, caller_limit: int = 24, evidence: 
         slot = site + 4
         setup = []
         for reg in regs:
-            defs = sorted(
+            defs = sorted({
                 f"{ctx.text(d)}@0x{d:x}" if d == slot else _describe_def(ctx, flow, d)
                 for d in flow.entering_callee(slot, GPR.index(reg))
-            )
+            })
+            # A register the callee does not read is shown only when the caller set it explicitly.
+            if reg not in reads and any(d == "entry" or d.startswith("ret(") for d in defs):
+                continue
             setup.append(f"{reg}={'|'.join(defs)}")
         for reg in fregs:
-            defs = sorted(
+            defs = sorted({
                 f"{ctx.text(d)}@0x{d:x}" if d == slot else _describe_def(ctx, flow, d)
                 for d in flow.entering_callee(slot, int(reg[1:]), fpr=True)
-            )
+            })
             setup.append(f"{reg}={'|'.join(defs)}")
         use = "tail call" if kind == "tail" else _use_after_call(ctx, caller, site, fpr=False)
         fuse = "" if kind == "tail" or not sets_f0 else _use_after_call(ctx, caller, site, fpr=True)
