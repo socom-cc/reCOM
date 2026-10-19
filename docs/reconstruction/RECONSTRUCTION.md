@@ -118,6 +118,15 @@ The planner then reads live Ghidra (read-only) and writes the plan:
   `,`, names with `&`, and names shared by several types therefore stay
   unresolved for now.
 
+### Incomplete call contracts
+
+A prototype must carry the whole call contract (AGENTS.md). Leave a function
+unresolved, recording the parts that are proven, when the contract includes
+something a prototype here cannot express: VU0 register inputs (callers load
+`vf` registers before the call, e.g. `_TransformPoint`), varargs (the plan
+format has no varargs field), a by-value class result returned through a
+hidden pointer, or a function-boundary defect in the live program.
+
 ### Return width
 
 A caller that tests or uses `v0` without narrowing it proves nothing about
