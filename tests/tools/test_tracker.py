@@ -186,13 +186,39 @@ def test_generic_handoff_rejects_ghidra_writer(root: Path, census: dict) -> None
 
 
 def test_tracker_mutation_fails_closed_while_locked(
-    tmp_path: Path, root: Path, census: dict
+    tmp_path: Path, root: Path, census: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from tools._socom import locking
+
+    monkeypatch.setattr(locking, "LOCK_WAIT_SECONDS", 0.5)
     path = tmp_path / "tracker.json"
     atomic_write_json(path, initialize_tracker(root, census))
     with exclusive_state_lock(path):
         with pytest.raises(SocomError, match="state lock exists"):
             mutate(path, 1, lambda tracker: None)
+
+
+def test_tracker_mutation_waits_for_a_briefly_held_lock(
+    tmp_path: Path, root: Path, census: dict
+) -> None:
+    import threading
+    import time
+
+    path = tmp_path / "tracker.json"
+    atomic_write_json(path, initialize_tracker(root, census))
+    held = threading.Event()
+
+    def hold() -> None:
+        with exclusive_state_lock(path):
+            held.set()
+            time.sleep(0.6)
+
+    holder = threading.Thread(target=hold)
+    holder.start()
+    held.wait()
+    updated = mutate(path, 1, lambda tracker: None)
+    holder.join()
+    assert updated["revision"] == 2
 
 
 def test_work_packets_enforce_active_owner_and_plan_apply_contract(

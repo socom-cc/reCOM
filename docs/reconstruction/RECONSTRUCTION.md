@@ -118,6 +118,19 @@ The planner then reads live Ghidra (read-only) and writes the plan:
   `,`, names with `&`, and names shared by several types therefore stay
   unresolved for now.
 
+### Return width
+
+A caller that tests or uses `v0` without narrowing it proves nothing about
+the return width: Metrowerks returns `bool`/`uchar` zero-extended, so callers
+of `_zmalloc<four>::release` (DWARF `uchar`) test `bne v0,zero` directly.
+Type a 0/1 or byte result as `uchar` (or `bool` where a declaration says
+bool) only on positive evidence: `andi 0xff` at a call site or merge, a
+DWARF-typed override or base, or the returned member's own type. Otherwise
+leave the width unresolved; never infer `int` from the absence of narrowing.
+Spell a one-byte boolean `bool` only where a declaration says bool (a header,
+a mangled `b`, a DWARF-typed base or override); otherwise `uchar`, which is
+how the DWARF import renders this compiler's bool.
+
 ### Dead entry reads
 
 The entry-block scan treats a partial load completed by its partner (`lwl` +
