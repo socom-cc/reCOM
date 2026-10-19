@@ -809,8 +809,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Correction to issue f4ec073c: CWeaponSel::SetItemPos and CInGameWeaponSel::SetItemPos do have live functions"
+    },
+    {
+      "details": "Stage 3 planner g18 found that live prototypes of strlen, strncmp, strncpy, strncat and strncasecmp (and possibly others) use /stddef.h/size_t, which is 8 bytes in socom.elf, while the PS2 EE ABI size_t is a 32-bit unsigned int. Group 88's plan restates those prototypes with uint. A sweep of every live prototype and global using size_t (and other 64-bit-long-based typedefs from Ghidra's C archives) is needed, plus a decision on redefining or replacing the typedef through a governed type item.",
+      "id": "socom:workspace-issue:0c8462c966006708b926",
+      "kind": "problem",
+      "reported_at": "2026-10-19T15:41:34Z",
+      "reported_by": "socom-tool-maintainer",
+      "resolution": null,
+      "status": "open",
+      "summary": "The only size_t in the program is Ghidra's 8-byte /stddef.h/size_t; the EE size_t is 32-bit"
     }
   ],
-  "revision": 94,
+  "revision": 95,
   "schema_version": 1
 }
