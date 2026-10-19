@@ -715,9 +715,14 @@ def type_matches(names: list[str], bridge_url: str | None = None) -> str:
         base = name.strip().rstrip("*").strip()
         found = by_name.get(base.casefold(), [])
         verdict = "unique" if len(found) == 1 else ("missing" if not found else f"AMBIGUOUS x{len(found)}")
-        lines.append(
-            f"{name}: {verdict}" + ("" if not found else " - " + "; ".join(f"{r['path']} ({r['size']})" for r in found[:6]))
-        )
+        line = f"{name}: {verdict}" + ("" if not found else " - " + "; ".join(f"{r['path']} ({r['size']})" for r in found[:6]))
+        if "<" not in base:
+            # A bare template name: list its specializations, which have their own names.
+            prefix = base.casefold() + "<"
+            specs = sorted({row["name"] for key, rows_ in by_name.items() if key.startswith(prefix) for row in rows_})
+            if specs:
+                line += f"; specializations ({len(specs)}): " + "; ".join(specs[:8]) + (" ..." if len(specs) > 8 else "")
+        lines.append(line)
     return "\n".join(lines)
 
 
