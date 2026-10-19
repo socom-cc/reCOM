@@ -1529,7 +1529,21 @@ def _recon_addresses(root: Path, arguments: argparse.Namespace) -> list[int]:
         if item is None or item.get("kind") != "recon-plan-group":
             raise SocomError(f"{arguments.item} is not a reconstruction group item")
         return [int(value, 16) for value in item["batch"]["functions"]]
-    return [int(value, 16) for value in arguments.function]
+    addresses = []
+    for value in arguments.function:
+        try:
+            addresses.append(int(value, 16))
+        except ValueError:
+            # A symbol name: every sized FUNC symbol of that name.
+            from .elf import Elf32File
+
+            found = sorted(
+                {s.value for s in Elf32File(root / "support" / "socom.elf").symbols() if s.name == value and s.type_name == "FUNC" and s.size}
+            )
+            if not found:
+                raise SocomError(f"{value} is neither an address nor a sized FUNC symbol")
+            addresses.extend(found)
+    return addresses
 
 
 def _recon_text(root: Path, arguments: argparse.Namespace, text: str) -> int:
