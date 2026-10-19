@@ -626,7 +626,7 @@ def function_facts(ctx: _Context, start: int, caller_limit: int = 24, evidence: 
             + "; ".join(f"{ctx.text(pc)}@0x{pc:x} in {ctx.label(ctx.owner(pc)) if ctx.owner(pc) else '?'}" for pc in taken[:8])
         )
     sites = call_sites(ctx, start)
-    regs = sorted({reg for reg in reads if reg.startswith(("a", "t"))} | {"a0"}, key=lambda r: GPR.index(r))
+    regs = sorted({reg for reg in reads if reg.startswith(("a", "t"))} | {"a0", "a1", "a2", "a3"}, key=lambda r: GPR.index(r))
     fregs = sorted({reg for reg in reads if reg.startswith("f")}, key=lambda r: int(r[1:]))
     lines.append(f"call sites: {len(sites)} ({sum(1 for s in sites if s[2] == 'tail')} tail)")
     for caller, site, kind in sites[:caller_limit]:
