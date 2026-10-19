@@ -1578,6 +1578,14 @@ def _recon_asm(arguments: argparse.Namespace) -> int:
     return _recon_text(root, arguments, "\n\n".join(function_asm(ctx, address) for address in _recon_addresses(root, arguments)))
 
 
+def _recon_refs(arguments: argparse.Namespace) -> int:
+    from .recon_facts import context, object_refs
+
+    root = _root(arguments)
+    ctx = context(root)
+    return _recon_text(root, arguments, "\n\n".join(object_refs(ctx, key) for key in arguments.object))
+
+
 def _recon_live(arguments: argparse.Namespace) -> int:
     from .recon_facts import live_signatures
 
@@ -2501,6 +2509,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     ),
     _spec("recon facts", "recon", "Print compact ELF-derived call-contract facts for functions or a group."),
     _spec("recon asm", "recon", "Print annotated ELF disassembly of functions."),
+    _spec("recon refs", "recon", "Print a data object's relocated slots and every code access to it."),
     _spec("recon live", "recon", "Print live Ghidra names and signatures of functions or a group.", ghidra_requirement="required"),
     _spec("recon types", "recon", "Print every live Ghidra type matching each name, ignoring case.", ghidra_requirement="required"),
     _spec("progress init", "progress", "Initialize unified reconstruction state.", mutates=True),
@@ -2666,6 +2675,10 @@ def build_parser() -> argparse.ArgumentParser:
     recon_asm.add_argument("--function", nargs="+", required=True)
     recon_asm.add_argument("--output")
     recon_asm.set_defaults(handler=_recon_asm)
+    recon_refs = recon_commands.add_parser("refs")
+    recon_refs.add_argument("--object", nargs="+", required=True)
+    recon_refs.add_argument("--output")
+    recon_refs.set_defaults(handler=_recon_refs)
     recon_live = recon_commands.add_parser("live")
     recon_live_target = recon_live.add_mutually_exclusive_group(required=True)
     recon_live_target.add_argument("--item")

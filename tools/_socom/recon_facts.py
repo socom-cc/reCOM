@@ -719,3 +719,47 @@ def type_matches(names: list[str], bridge_url: str | None = None) -> str:
             f"{name}: {verdict}" + ("" if not found else " - " + "; ".join(f"{r['path']} ({r['size']})" for r in found[:6]))
         )
     return "\n".join(lines)
+
+
+def object_refs(ctx: _Context, key: str) -> str:
+    """Slots and accesses of one data object (by symbol name or address).
+
+    Lists each relocated word inside the object (vtable/table slots with the
+    function or object they point to), then every code access to the object
+    grouped by containing function, from relocations.
+    """
+
+    if key.lower().startswith("0x"):
+        address = int(key, 16)
+    else:
+        address = next((a for a, n in ctx.names.items() if n == key), None)
+        if address is None:
+            return f"{key}: no symbol of that name"
+    start = max((s for s in ctx.object_starts if s <= address), default=None)
+    if start is None or address >= start + ctx.objects[start][0]:
+        return f"{key}: not inside a sized OBJECT symbol"
+    size, name = ctx.objects[start]
+    lines = [f"## {name} @0x{start:x} [{size} bytes]"]
+    slots = []
+    for target, sites in ctx.word32.items():
+        for site in sites:
+            if start <= site < start + size:
+                slots.append((site, target))
+    if slots:
+        lines.append(f"relocated words ({len(slots)}):")
+        lines.extend(f"  +0x{site - start:x}: {ctx.label(target)}" for site, target in sorted(slots)[:120])
+    by_function: dict[str, list[str]] = {}
+    for row in ctx.refs:
+        if row["target"] is None:
+            continue
+        target = int(row["target"], 16)
+        if start <= target < start + size:
+            site = int(row["site"], 16)
+            owner = ctx.owner(site)
+            label = ctx.label(owner) if owner is not None else "?"
+            by_function.setdefault(label, []).append(f"+0x{target - start:x} {row['access']} {ctx.text(site)}@0x{site:x}")
+    if by_function:
+        lines.append(f"code accesses ({sum(len(v) for v in by_function.values())} in {len(by_function)} functions):")
+        for label in sorted(by_function):
+            lines.append(f"  {label}: " + "; ".join(by_function[label][:8]) + (" ..." if len(by_function[label]) > 8 else ""))
+    return "\n".join(lines)
