@@ -29,6 +29,8 @@ def test_argument_reads_follow_every_path(ctx) -> None:
     assert 0x152B58 in reads["f14"]
     # Completed ldl/ldr pairs are writes: sceDmaGetEnv reads only a0.
     assert set(argument_reads(ctx, 0x150018)) == {"a0"}
+    # A loop branching back to the start keeps the implicit entry edge (C2DString::Load).
+    assert {"a0", "f12"} <= set(argument_reads(ctx, 0x302480))
 
 
 def test_return_sources_see_delay_slots(ctx) -> None:

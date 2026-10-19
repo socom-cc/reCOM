@@ -276,7 +276,9 @@ class _Flow:
         """Definitions of the register reaching ``site`` (before it runs); 'entry' if live-in."""
 
         writes = self.fwrites if fpr else self.gwrites
-        found: set[Any] = set()
+        # The function start always has the implicit entry edge, even when a
+        # loop also branches back to it.
+        found: set[Any] = {"entry"} if site == self.start else set()
         seen: set[int] = set()
         stack = list(self.fn.predecessors.get(site, ()))
         if not stack:
@@ -289,6 +291,8 @@ class _Flow:
             if register in writes[pc]:
                 found.add(pc)
                 continue
+            if pc == self.start:
+                found.add("entry")
             previous = self.fn.predecessors.get(pc)
             if not previous:
                 if pc == self.start or not self.fn._dead(pc):
@@ -485,7 +489,7 @@ def function_facts(ctx: _Context, start: int, caller_limit: int = 24, evidence: 
     sets_f0 = any("f0<-" in text and "f0<-entry" not in text for text in exits)
     slots = [f"{ctx.object_for(site) or f'0x{site:x}'}" for site in ctx.word32.get(start, ())]
     if slots:
-        lines.append(f"word refs ({len(slots)}): " + ", ".join(slots[:12]) + (" ..." if len(slots) > 12 else ""))
+        lines.append(f"word refs ({len(slots)}): " + ", ".join(slots[:40]) + (f" ... ({len(slots) - 40} more)" if len(slots) > 40 else ""))
     taken = ctx.addr_taken.get(start, ())
     if taken:
         lines.append(
