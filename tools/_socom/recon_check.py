@@ -45,6 +45,18 @@ def recon_apply_paths(root: Path, item_id: str, label: str, prev: str) -> dict[s
     }
 
 
+def _relocated_words(elf: Elf32File) -> dict[int, int]:
+    """R_MIPS_32 relocation sites and the address each relocated word holds."""
+
+    segment = next(elf.load_segments())
+    words = {}
+    for relocation in elf.relocations(".relmain"):
+        if relocation.type_name == "R_MIPS_32":
+            offset = segment.offset + relocation.offset - segment.virtual_address
+            words[relocation.offset] = int.from_bytes(elf.data[offset : offset + 4], "little")
+    return words
+
+
 def explain_recon_diff(
     root: Path, diff: dict[str, Any], before: dict[str, Any], steps: list[dict[str, Any]], result: dict[str, Any]
 ) -> tuple[list[str], dict[str, Any]]:
@@ -116,8 +128,24 @@ def explain_recon_diff(
         if d["address"] in derived or address in typed or address in relabel or any(t < address < t + 64 for t in typed):
             continue
         problems.append(f"unexplained removed data {d}")
-    if diff["references"]["added"] or diff["references"]["removed"] or not diff["blocks_equal"] or not diff["bookmarks_equal"]:
-        problems.append(f"references/blocks/bookmarks changed: {diff['references']}")
+    # Typing a global as pointer data makes Ghidra add a DATA reference from each
+    # pointer word; such a reference is explained when it starts inside a global
+    # this plan typed and an R_MIPS_32 relocation at that word holds its target.
+    sizes_by_address = {int(g["address"], 16): (g.get("size") or 4) for g in result.get("globals", [])}
+    relocated = _relocated_words(elf)
+    derived_refs = []
+    other_refs = []
+    for ref in diff["references"]["added"]:
+        source, target = int(str(ref[0]), 16), int(str(ref[1]), 16)
+        inside = any(a <= source < a + sizes_by_address.get(a, 4) for a in typed)
+        if inside and len(ref) > 2 and ref[2] == "DATA" and relocated.get(source) == target:
+            derived_refs.append(ref)
+        else:
+            other_refs.append(ref)
+    if other_refs or diff["references"]["removed"] or not diff["blocks_equal"] or not diff["bookmarks_equal"]:
+        problems.append(
+            f"references/blocks/bookmarks changed: added {other_refs[:8]}, removed {diff['references']['removed'][:8]}"
+        )
     for t in diff["types"]["added"]:
         path = t.rsplit("|", 1)[0]
         if not (path.endswith("*") or path.endswith("]")):
@@ -134,6 +162,7 @@ def explain_recon_diff(
         "data_added": len(diff["data"]["added"]),
         "data_removed": len(diff["data"]["removed"]),
         "types_added": list(diff["types"]["added"]),
+        "derived_references": len(derived_refs),
     }
     return problems, summary
 
@@ -144,7 +173,12 @@ def diff_note(summary: dict[str, Any]) -> str:
         f"{len(summary['changed'])} functions changed: {summary['prototyped'] - len(summary['restated'])} prototyped"
         f"{renamed} group functions, entry/body/thunk unchanged; data +{summary['data_added']}/-{summary['data_removed']}"
         f" explained ({summary['typed_globals']} typed globals); types added {len(summary['types_added'])}"
-        " (pointer/array only); references, blocks and bookmarks unchanged"
+        " (pointer/array only); "
+        + (
+            f"{summary['derived_references']} DATA references added from pointer words of typed globals, each matching its R_MIPS_32 relocation; other references, blocks and bookmarks unchanged"
+            if summary.get("derived_references")
+            else "references, blocks and bookmarks unchanged"
+        )
     )
     if summary["restated"]:
         note += f"; {len(summary['restated'])} restated prototype(s) already live and unchanged ({', '.join(summary['restated'])})"

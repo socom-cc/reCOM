@@ -107,3 +107,25 @@ def test_stack_and_forwarded_arguments(ctx) -> None:
     # ExtAudioGetSamples passes a0/a1 through to an indirect call.
     rows = forwarded_arguments(ctx, 0x337B90, set())
     assert rows and rows[0].startswith("a0,a1,") and "jalr v0@0x337ba4" in rows[0]
+
+
+def test_diff_explanation_accepts_relocation_backed_pointer_references(root: Path) -> None:
+    steps = [{"endpoint": "apply_data_type", "body": {"address": "0x44d0d0", "type_name": "char *[32]"}}]
+    result = {"functions": [], "globals": [{"address": "0x44d0d0", "size": 128, "type": "char *[32]"}]}
+    diff = {
+        "functions": [],
+        "data": {
+            "added": [{"address": "0044d0d0", "name": "c", "size": 128, "type": "char *[32]"}],
+            "removed": [{"address": "0044d0d0", "name": "c", "size": 128, "type": "undefined1[128]"}],
+        },
+        "types": {"added": ["/char *[32]|128"], "removed": []},
+        # The word at 0x44d0d0 is relocated (R_MIPS_32) to 0x44ced0.
+        "references": {"added": [["0044d0d0", "0x44ced0", "DATA"]], "removed": []},
+        "blocks_equal": True,
+        "bookmarks_equal": True,
+    }
+    problems, summary = explain_recon_diff(root, diff, {"functions": []}, steps, result)
+    assert problems == [] and summary["derived_references"] == 1
+    diff["references"]["added"].append(["0044d0d0", "0x44cee0", "DATA"])
+    problems, _summary = explain_recon_diff(root, diff, {"functions": []}, steps, result)
+    assert any("references/blocks/bookmarks changed" in p for p in problems)
