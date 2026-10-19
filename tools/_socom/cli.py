@@ -1521,6 +1521,56 @@ def _recon_evidence(arguments: argparse.Namespace) -> int:
     return 0
 
 
+def _recon_addresses(root: Path, arguments: argparse.Namespace) -> list[int]:
+    if getattr(arguments, "item", None):
+        tracker = load_tracker(tracker_path(root))
+        item_id = arguments.item.removesuffix("-apply")
+        item = next((row for row in tracker["work_items"] if row["id"] == item_id), None)
+        if item is None or item.get("kind") != "recon-plan-group":
+            raise SocomError(f"{arguments.item} is not a reconstruction group item")
+        return [int(value, 16) for value in item["batch"]["functions"]]
+    return [int(value, 16) for value in arguments.function]
+
+
+def _recon_text(root: Path, arguments: argparse.Namespace, text: str) -> int:
+    """Write facts/asm text to --output (repository build/ path) or stdout."""
+
+    if arguments.output:
+        output = _build_path(root, arguments.output, "reconstruction facts")
+        atomic_write_text(output, text + "\n")
+        print(f"wrote {output.relative_to(root).as_posix()} ({len(text.splitlines())} lines)")
+    else:
+        sys.stdout.reconfigure(encoding="utf-8")
+        print(text)
+    return 0
+
+
+def _recon_facts(arguments: argparse.Namespace) -> int:
+    from .recon_facts import context, function_facts
+
+    root = _root(arguments)
+    ctx = context(root)
+    evidence: dict[int, Any] = {}
+    if arguments.item:
+        slug = arguments.item.removesuffix("-apply").replace("socom:", "socom-").replace(":", "-")
+        path = root / "build" / "recon-plans" / f"{slug}-evidence.json"
+        if path.is_file():
+            evidence = {int(row["address"], 16): row for row in load_json(path)["functions"]}
+    blocks = [
+        function_facts(ctx, address, caller_limit=arguments.callers, evidence=evidence.get(address))
+        for address in _recon_addresses(root, arguments)
+    ]
+    return _recon_text(root, arguments, "\n\n".join(blocks))
+
+
+def _recon_asm(arguments: argparse.Namespace) -> int:
+    from .recon_facts import context, function_asm
+
+    root = _root(arguments)
+    ctx = context(root)
+    return _recon_text(root, arguments, "\n\n".join(function_asm(ctx, address) for address in _recon_addresses(root, arguments)))
+
+
 def _recon_validate(arguments: argparse.Namespace) -> int:
     root = _root(arguments)
     plan_path = Path(arguments.plan)
@@ -1558,6 +1608,25 @@ def _recon_program(arguments: argparse.Namespace) -> int:
         }
     )
     return 0
+
+
+def _ghidra_check_recon_apply(arguments: argparse.Namespace) -> int:
+    from .recon_check import check_recon_apply
+
+    root = _root(arguments)
+    result = check_recon_apply(
+        root,
+        arguments.item,
+        arguments.label,
+        arguments.prev,
+        fingerprint_output=_build_path(root, arguments.fingerprint_output, "fingerprints"),
+        bridge_url=arguments.bridge_url,
+        log=lambda message: print(message, file=sys.stderr, flush=True),
+    )
+    if arguments.output:
+        atomic_write_json(_build_path(root, arguments.output, "apply checks"), result)
+    _emit(result)
+    return 0 if result["ok"] else 1
 
 
 def _ghidra_apply_recon(arguments: argparse.Namespace) -> int:
@@ -2402,6 +2471,15 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec("recon evidence", "recon", "Write a reconstruction group's file-only planning evidence.", mutates=True),
     _spec("recon validate", "recon", "Check a reconstruction plan against its group and the ELF."),
     _spec("recon program", "recon", "Translate a valid reconstruction plan into an apply program.", mutates=True),
+    _spec(
+        "ghidra check-recon-apply",
+        "ghidra",
+        "Run the stage 3 apply verifier's checklist read-only and print evidence lines.",
+        mutates=True,
+        ghidra_requirement="required",
+    ),
+    _spec("recon facts", "recon", "Print compact ELF-derived call-contract facts for functions or a group."),
+    _spec("recon asm", "recon", "Print annotated ELF disassembly of functions."),
     _spec("progress init", "progress", "Initialize unified reconstruction state.", mutates=True),
     _spec("progress next", "progress", "Select ready work from the canonical stage graph."),
     _spec("progress show", "progress", "Show the tracker or one exact entity."),
@@ -2554,6 +2632,17 @@ def build_parser() -> argparse.ArgumentParser:
     recon_program.add_argument("--plan", required=True)
     recon_program.add_argument("--output")
     recon_program.set_defaults(handler=_recon_program)
+    recon_facts = recon_commands.add_parser("facts")
+    recon_facts_target = recon_facts.add_mutually_exclusive_group(required=True)
+    recon_facts_target.add_argument("--item")
+    recon_facts_target.add_argument("--function", nargs="+")
+    recon_facts.add_argument("--callers", type=int, default=12)
+    recon_facts.add_argument("--output")
+    recon_facts.set_defaults(handler=_recon_facts)
+    recon_asm = recon_commands.add_parser("asm")
+    recon_asm.add_argument("--function", nargs="+", required=True)
+    recon_asm.add_argument("--output")
+    recon_asm.set_defaults(handler=_recon_asm)
     debug = commands.add_parser("debug")
     debug_commands = debug.add_subparsers(dest="debug_command", required=True)
     inspect = debug_commands.add_parser("inspect")
@@ -2631,6 +2720,14 @@ def build_parser() -> argparse.ArgumentParser:
     apply_recon.add_argument("--dry-run", action="store_true")
     apply_recon.add_argument("--bridge-url")
     apply_recon.set_defaults(handler=_ghidra_apply_recon)
+    check_recon = ghidra_commands.add_parser("check-recon-apply")
+    check_recon.add_argument("--item", required=True)
+    check_recon.add_argument("--label", required=True)
+    check_recon.add_argument("--prev", required=True)
+    check_recon.add_argument("--fingerprint-output", required=True)
+    check_recon.add_argument("--output")
+    check_recon.add_argument("--bridge-url")
+    check_recon.set_defaults(handler=_ghidra_check_recon_apply)
     restore = ghidra_commands.add_parser("restore-accepted")
     restore.add_argument("--item", required=True)
     restore.add_argument("--owner", required=True)

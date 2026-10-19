@@ -73,6 +73,9 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py recon evidence` | recon | yes | none | no | Write a reconstruction group's file-only planning evidence. |
 | `python tools/socom.py recon validate` | recon | no | none | no | Check a reconstruction plan against its group and the ELF. |
 | `python tools/socom.py recon program` | recon | yes | none | no | Translate a valid reconstruction plan into an apply program. |
+| `python tools/socom.py ghidra check-recon-apply` | ghidra | yes | required | no | Run the stage 3 apply verifier's checklist read-only and print evidence lines. |
+| `python tools/socom.py recon facts` | recon | no | none | no | Print compact ELF-derived call-contract facts for functions or a group. |
+| `python tools/socom.py recon asm` | recon | no | none | no | Print annotated ELF disassembly of functions. |
 | `python tools/socom.py progress init` | progress | yes | none | no | Initialize unified reconstruction state. |
 | `python tools/socom.py progress next` | progress | no | none | no | Select ready work from the canonical stage graph. |
 | `python tools/socom.py progress show` | progress | no | none | no | Show the tracker or one exact entity. |
