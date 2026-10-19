@@ -923677,7 +923677,7 @@
       "type": "R_MIPS_26"
     }
   ],
-  "revision": 450,
+  "revision": 451,
   "schema_version": 5,
   "semantic_spans": [],
   "stage_order": [
@@ -1449432,7 +1449432,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "fdbce3f4c1e682844dc36425c59c2c96a438dfef29bf4cfb1459a5a41ed1ea44",
+      "current_receipt_sha256": "5916c73e3ee3fbf796f4288577a36ba8ca0d70cc1ccbf72c80ff5f2ed0c6cfff",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -1450648,6 +1450648,31 @@
           "receipt_sha256": "fdbce3f4c1e682844dc36425c59c2c96a438dfef29bf4cfb1459a5a41ed1ea44",
           "tracker_revision": 425,
           "work_item_id": "socom:recon-group:fbddaecff747ac0bc271-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1550,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 26541
+          },
+          "indexes": {
+            "data": {
+              "count": 51795,
+              "sha256": "08be81383e6f54cd8673ff49ea6932f67951e7ab8784244b95aa8eb15e0dbdff"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "37a10981d2374e2d60b8f0a98601aa372b8c7767f9ce04016ba13b09f9d429fa"
+            },
+            "types": {
+              "count": 1550,
+              "sha256": "be436294b40e37f4d83a2b237277a3508869581d149ab70ca3cd70bd7590ff25"
+            }
+          },
+          "receipt_sha256": "5916c73e3ee3fbf796f4288577a36ba8ca0d70cc1ccbf72c80ff5f2ed0c6cfff",
+          "tracker_revision": 451,
+          "work_item_id": "socom:recon-group:4bd54e541f5d9b1d9d49-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -1491540,6 +1491565,10 @@
       "title": "Plan reconstruction group 015 (height 0, 32 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-10-19T05:52:39Z",
+        "by": "socom-verifier-a2"
+      },
       "batch": {
         "batch_number": 15,
         "function_count": 32,
@@ -1491586,12 +1491615,20 @@
         "socom:recon-group:4bd54e541f5d9b1d9d49"
       ],
       "evidence": [
+        "apply report build/apply/socom-recon-group-4bd54e541f5d9b1d9d49-apply-report.json (sha256 764a027bafed771b7f0e80e963205433af49e8407d91ac92fe4a65c39857d7c2): 10 bridge calls; rebuilt from its per-function result they equal the 10 set_function_prototype steps of the post-claim dry run build/preflight-recon/socom-recon-group-4bd54e541f5d9b1d9d49-apply-claimed.json exactly, all at scope addresses; 22 skips and empty unchanged list equal; no renames, globals or other endpoints",
         "fingerprint after build/fingerprints/g015-after.json sha256 fca2190a0a7ad5bbe4329f2a3037f4b317162d692e69dda1503466e1bf1bae2e; diff build/fingerprints/g015-diff.json sha256 e9dfa84ce3d9fe08ad614c4c41be5de35fe3b4be5297940076bbc01bd3e550ca: 2 functions changed, exactly the 2 prototyped group functions, entry/body/thunk unchanged; data +0/-0 explained; types added 0 (pointer/array only); references, blocks and bookmarks unchanged; 8 restated prototype(s) already live and unchanged (0x1734d0, 0x1735b0, 0x174a70, 0x174a80, 0x174a90, 0x174aa0, 0x174ab0, 0x174ac0)",
         "fingerprint before build/fingerprints/g015-before.json sha256 69ecba2b78c6456acaef4e4a31954b5b6cf5ac0856dd3007697fe81c24758a79 identical to build/fingerprints/g002-after.json: 9715 functions, 51795 data, 1550 types",
+        "g015 before->after recomputed independently: only 0x16ea00 (undefined _sceCd_Poff_Intr(void) -> void __stdcall _sceCd_Poff_Intr(void)) and 0x172ac0 (undefined std::swap<unsigned_int>(void) -> void __stdcall std::swap<unsigned_int>(uint * a, uint * b)) changed, Signature line only; data, types, references, blocks, bookmarks, analysis and counts equal; 0x1734d0, 0x1735b0, 0x174a70, 0x174a80, 0x174a90, 0x174aa0, 0x174ab0, 0x174ac0 already carried exactly the planned Signature in g015-before and stayed unchanged; their receipt facts (details and disassembly) equal stage-2 batch prehandoff receipts 02dc33eec1e272662fba, 1c9907d6eef3a9fccef6 and 873c518eab3c45871ed4",
         "ghidra apply-recon: plan build/recon-plans/socom-recon-group-4bd54e541f5d9b1d9d49.json sha256 a7a3de1514bf22ba678a48de20b154eb8d44db281300c6107b58f2425b2c7b03 (accepted; plan-tools commit 00ea11b); program build/apply/socom-recon-group-4bd54e541f5d9b1d9d49-apply.json sha256 b821d86fcfc2cffa2d256d46f0100602faa7c8525a713bdee3debf2fee1b6f4e regenerated equal to the stored program; 10 bridge calls exactly as the post-claim dry run predicted (10 set_function_prototype); 22 recorded skips; every name and Signature line read back equal; report sha256 764a027bafed771b7f0e80e963205433af49e8407d91ac92fe4a65c39857d7c2",
+        "ghidra preflight --strict ok: errors [], socom.elf r5900:LE:32:default, image 00100000, entry 00140010, 9715 functions, 1550 types, 28 blocks, 716 Analysis bookmarks with 0 Error/Warning, main sentinel present",
+        "ghidra receipt --scope over the stored scope reproduced receipt sha256 5916c73e3ee3fbf796f4288577a36ba8ca0d70cc1ccbf72c80ff5f2ed0c6cfff exactly (receipt body equal to the prehandoff receipt)",
         "ghidra-receipt-sha256:5916c73e3ee3fbf796f4288577a36ba8ca0d70cc1ccbf72c80ff5f2ed0c6cfff",
         "ghidra-save:explicit-program",
-        "pre-handoff receipt 5916c73e3ee3fbf796f4288577a36ba8ca0d70cc1ccbf72c80ff5f2ed0c6cfff over build/receipts/socom-recon-group-4bd54e541f5d9b1d9d49-apply-scope.json (32 functions, 0 globals)"
+        "live GET get_function_by_address read-back (program=socom.elf) of all 32 group functions: the 10 prototyped Signature lines equal the plan prototypes under __stdcall; the 22 unresolved functions keep the g015-before name and Signature; every Entry/Body equals g015-before",
+        "plan build/recon-plans/socom-recon-group-4bd54e541f5d9b1d9d49.json sha256 a7a3de1514bf22ba678a48de20b154eb8d44db281300c6107b58f2425b2c7b03 equals the accepted plan item's evidence; recon validate ok (0 problems); recon program regenerated build/verifier-a2/regen-apply.json byte-identical to build/apply/socom-recon-group-4bd54e541f5d9b1d9d49-apply.json (sha256 b821d86fcfc2cffa2d256d46f0100602faa7c8525a713bdee3debf2fee1b6f4e); stored scope build/receipts/socom-recon-group-4bd54e541f5d9b1d9d49-apply-scope.json (32 functions, 0 globals, 0 types) equals the program receipt_scope, the tracker group function list and the stored ghidra_receipt scope",
+        "pre-handoff receipt 5916c73e3ee3fbf796f4288577a36ba8ca0d70cc1ccbf72c80ff5f2ed0c6cfff over build/receipts/socom-recon-group-4bd54e541f5d9b1d9d49-apply-scope.json (32 functions, 0 globals)",
+        "progress audit --strict ok (0 errors) at r450",
+        "verifier fingerprint build/verifier-a2/fp-now.json (file sha256 fca2190a0a7ad5bbe4329f2a3037f4b317162d692e69dda1503466e1bf1bae2e, fingerprint_sha256 52940ecac91d2dd99565d7b89832c7f0c6221fa2eea1c9183a53b2fa51ef6a49) identical to build/fingerprints/g015-after.json: 0 functions changed, data/types/references +0/-0, blocks and bookmarks equal; g015-before is byte-identical to g002-after (sha256 69ecba2b78c6456acaef4e4a31954b5b6cf5ac0856dd3007697fe81c24758a79)"
       ],
       "ghidra_receipt": {
         "receipt_sha256": "5916c73e3ee3fbf796f4288577a36ba8ca0d70cc1ccbf72c80ff5f2ed0c6cfff",
@@ -1491682,7 +1491719,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Apply reviewed reconstruction group 015 in Ghidra"
     },
     {
