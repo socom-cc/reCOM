@@ -39,7 +39,11 @@ Leases expire to `ready` and never imply completion. Handoff owners cannot
 self-accept. A reviewer who finds defects runs `progress work reject` with a
 reason and evidence; the item returns to `ready`, and the rejected handoff,
 its evidence, and any Ghidra receipt move to the item's `review_history`.
-Handoff owners cannot reject their own work. `ghidra-writer` is exclusive. Generic handoff/acceptance rejects
+Handoff owners cannot reject their own work. An accepted reconstruction plan
+whose apply has not started can be returned with `progress work reopen` (a
+reason is required; the acceptance and handoff move to `review_history`, the
+plan becomes `ready` and its apply `blocked`). An apply that started or
+finished is corrected through a governed repair instead. `ghidra-writer` is exclusive. Generic handoff/acceptance rejects
 items that own it. Undecomposed `stage-seed` items remain blocked and cannot be
 claimed, handed off, or accepted.
 

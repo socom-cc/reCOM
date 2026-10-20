@@ -106,6 +106,7 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py progress work handoff` | progress | yes | none | no | Submit work and evidence for independent acceptance. |
 | `python tools/socom.py progress work accept` | progress | yes | none | no | Independently accept handed-off work. |
 | `python tools/socom.py progress work reject` | progress | yes | none | no | Independently return handed-off work for rework with findings. |
+| `python tools/socom.py progress work reopen` | progress | yes | none | no | Return an accepted reconstruction plan whose apply has not started for re-planning, with the reason. |
 | `python tools/socom.py progress work release` | progress | yes | none | no | Release an owned work lease. |
 | `python tools/socom.py progress work leases` | progress | no | none | no | Show all active leases and exclusive resources. |
 | `python tools/socom.py progress work packet` | progress | no | none | no | Render the exact contract for an actively leased item. |

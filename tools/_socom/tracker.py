@@ -1110,6 +1110,60 @@ def reject_work(
     item["evidence"] = []
 
 
+def reopen_work(
+    tracker: dict[str, Any],
+    item_id: str,
+    reviewer: str,
+    reason: str,
+    evidence: list[str],
+) -> None:
+    """Return an accepted reconstruction plan for re-planning before it applies.
+
+    Only a recon-plan-group whose apply item has not started (ready or
+    blocked) can be reopened; what is already in Ghidra is corrected through
+    a governed repair instead.  The acceptance and handoff are kept in the
+    review history, the plan becomes ready and its apply blocked again.
+    """
+
+    by_id = _work_by_id(tracker)
+    item = by_id.get(item_id)
+    if not item:
+        raise SocomError(f"unknown work item: {item_id}")
+    if item.get("kind") != "recon-plan-group":
+        raise SocomError(f"{item_id} is not a reconstruction plan item")
+    if item["status"] != "accepted":
+        raise SocomError(f"{item_id} is {item['status']}, not accepted")
+    apply = by_id.get(f"{item_id}-apply")
+    if apply is None or apply.get("status") not in ("ready", "blocked"):
+        raise SocomError(
+            f"{item_id}-apply is {apply.get('status') if apply else 'missing'}: an apply that started "
+            "or finished is corrected through a governed repair, not by reopening its plan"
+        )
+    handoff = item.get("handoff") or {}
+    if not reviewer.strip():
+        raise SocomError("reviewer must not be empty")
+    if handoff.get("owner") == reviewer:
+        raise SocomError(f"{item_id} cannot be reopened by its handoff owner {reviewer}")
+    if not reason.strip():
+        raise SocomError("reopen reason must not be empty")
+    item.setdefault("review_history", []).append(
+        {
+            "handoff": handoff,
+            "handoff_evidence": item.get("evidence", []),
+            "accepted": item.get("accepted"),
+            "reopened_by": reviewer.strip(),
+            "reopened_at": _iso(_utc_now()),
+            "reason": reason.strip(),
+            "evidence": sorted(set(evidence)),
+        }
+    )
+    item["status"] = "ready"
+    item["handoff"] = None
+    item.pop("accepted", None)
+    item["evidence"] = []
+    apply["status"] = "blocked"
+
+
 def rebaseline_ghidra_target(
     tracker: dict[str, Any],
     recorder: str,

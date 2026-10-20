@@ -711,3 +711,24 @@ def test_tracker_v5_migration_moves_symbols_and_relocations_to_the_census(
     assert audit_tracker(migrated) == []
     # A schema 6 tracker may not carry them again.
     assert any("reference census" in error for error in audit_tracker(dict(migrated, symbols=[])))
+
+
+def test_reopen_returns_an_unapplied_accepted_plan() -> None:
+    from tools._socom.tracker import reopen_work
+
+    plan = {"id": "socom:recon-group:abc", "kind": "recon-plan-group", "status": "accepted",
+            "handoff": {"owner": "planner"}, "accepted": {"by": "reviewer", "at": "2026-10-20T00:00:00Z"},
+            "evidence": ["plan sha"]}
+    apply = {"id": "socom:recon-group:abc-apply", "kind": "recon-apply-group", "status": "ready"}
+    tracker = {"work_items": [plan, apply]}
+    with pytest.raises(SocomError, match="handoff owner"):
+        reopen_work(tracker, plan["id"], "planner", "reason", [])
+    reopen_work(tracker, plan["id"], "controller", "void rows v6 cannot confirm", ["audit"])
+    assert plan["status"] == "ready" and "accepted" not in plan and plan["handoff"] is None
+    assert apply["status"] == "blocked"
+    history = plan["review_history"][-1]
+    assert history["reopened_by"] == "controller" and history["accepted"]["by"] == "reviewer"
+    # An apply that started or finished is corrected by a repair instead.
+    plan["status"], apply["status"] = "accepted", "accepted"
+    with pytest.raises(SocomError, match="governed repair"):
+        reopen_work(tracker, plan["id"], "controller", "reason", [])

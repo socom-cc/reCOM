@@ -6,7 +6,7 @@ from typing import Any
 
 
 CAPABILITIES: tuple[dict[str, Any], ...] = (
-    {"id": "control-plane", "status": "active", "commands": ["commands", "progress audit", "progress migrate", "progress add-repair", "progress work packet", "issue audit"], "reason": "Canonical CAS-protected state, migration, work contracts, and discovery."},
+    {"id": "control-plane", "status": "active", "commands": ["commands", "progress audit", "progress migrate", "progress add-repair", "progress work reopen", "progress work packet", "issue audit"], "reason": "Canonical CAS-protected state, migration, work contracts, and discovery."},
     {"id": "dual-harness", "status": "active", "commands": ["audit agent-surface"], "reason": "Claude and Codex expose paired roles and skills."},
     {"id": "elf-evidence", "status": "active", "commands": ["reference census", "reference verify", "reference relocations"], "reason": "ELF32 MIPS evidence is parsed locally."},
     {"id": "dwarf-planning", "status": "active", "commands": ["debug graph", "debug import-plan", "debug apply-program", "debug batch-program"], "reason": "DWARF plans and their Ghidra type translations are deterministic and file-only."},

@@ -6,7 +6,7 @@ inapplicable means the capability would encode the wrong executable format or AB
 
 | Capability | Status | Commands or blocker | Rationale |
 | --- | --- | --- | --- |
-| `control-plane` | active | `commands`, `progress audit`, `progress migrate`, `progress add-repair`, `progress work packet`, `issue audit` | Canonical CAS-protected state, migration, work contracts, and discovery. |
+| `control-plane` | active | `commands`, `progress audit`, `progress migrate`, `progress add-repair`, `progress work reopen`, `progress work packet`, `issue audit` | Canonical CAS-protected state, migration, work contracts, and discovery. |
 | `dual-harness` | active | `audit agent-surface` | Claude and Codex expose paired roles and skills. |
 | `elf-evidence` | active | `reference census`, `reference verify`, `reference relocations` | ELF32 MIPS evidence is parsed locally. |
 | `dwarf-planning` | active | `debug graph`, `debug import-plan`, `debug apply-program`, `debug batch-program` | DWARF plans and their Ghidra type translations are deterministic and file-only. |

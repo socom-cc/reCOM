@@ -86,6 +86,7 @@ from .tracker import (
     stage_live_scope,
     decompose_reconstruction,
     reject_work,
+    reopen_work,
     release_work,
     require_ghidra_lease,
     require_revision,
@@ -1402,6 +1403,19 @@ def _work_reject(arguments: argparse.Namespace) -> int:
     return _mutate_work(
         arguments,
         lambda tracker: reject_work(
+            tracker,
+            arguments.item,
+            arguments.reviewer,
+            arguments.reason,
+            arguments.evidence,
+        ),
+    )
+
+
+def _work_reopen(arguments: argparse.Namespace) -> int:
+    return _mutate_work(
+        arguments,
+        lambda tracker: reopen_work(
             tracker,
             arguments.item,
             arguments.reviewer,
@@ -2781,6 +2795,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec("progress work handoff", "progress", "Submit work and evidence for independent acceptance.", mutates=True),
     _spec("progress work accept", "progress", "Independently accept handed-off work.", mutates=True),
     _spec("progress work reject", "progress", "Independently return handed-off work for rework with findings.", mutates=True),
+    _spec("progress work reopen", "progress", "Return an accepted reconstruction plan whose apply has not started for re-planning, with the reason.", mutates=True),
     _spec("progress work release", "progress", "Release an owned work lease.", mutates=True),
     _spec("progress work leases", "progress", "Show all active leases and exclusive resources."),
     _spec("progress work packet", "progress", "Render the exact contract for an actively leased item."),
@@ -3238,6 +3253,13 @@ def build_parser() -> argparse.ArgumentParser:
     reject.add_argument("--reason", required=True)
     reject.add_argument("--evidence", action="append", default=[])
     reject.set_defaults(handler=_work_reject)
+    reopen = work_commands.add_parser("reopen")
+    reopen.add_argument("--item", required=True)
+    reopen.add_argument("--expected-revision", type=int, required=True)
+    reopen.add_argument("--reviewer", required=True)
+    reopen.add_argument("--reason", required=True)
+    reopen.add_argument("--evidence", action="append", default=[])
+    reopen.set_defaults(handler=_work_reopen)
     leases = work_commands.add_parser("leases")
     leases.set_defaults(handler=_progress_work_leases)
     packet = work_commands.add_parser("packet")
