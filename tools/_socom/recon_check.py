@@ -173,10 +173,25 @@ def explain_recon_diff(
         problems.append(
             f"references/blocks/bookmarks changed: added {other_refs[:8]}, removed {diff['references']['removed'][:8]}"
         )
+    # Ghidra copies a built-in type (schar, ushort, ...) into the program's root
+    # category the first time a prototype uses it.
+    from .batch_apply import BUILTINS
+
+    used_spellings = set()
+    for row in result.get("functions", []):
+        prototype = row.get("prototype") or {}
+        for text in [prototype.get("return_type") or ""] + [p.get("type") or "" for p in prototype.get("parameters") or []]:
+            used_spellings.add(text.replace("*", "").strip())
+    builtins_added = []
     for t in diff["types"]["added"]:
         path = t.rsplit("|", 1)[0]
-        if not (path.endswith("*") or path.endswith("]")):
-            problems.append(f"new type is neither a pointer nor an array: {t}")
+        name = path.lstrip("/")
+        if path.endswith("*") or path.endswith("]"):
+            continue
+        if path.count("/") == 1 and name in set(BUILTINS.values()) and name in used_spellings:
+            builtins_added.append(name)
+            continue
+        problems.append(f"new type is neither a pointer nor an array: {t}")
     if diff["types"]["removed"]:
         problems.append(f"types removed: {diff['types']['removed']}")
     summary = {
@@ -185,6 +200,7 @@ def explain_recon_diff(
         "renamed": len(renamed),
         "restated": sorted(map(hex, restated)),
         "thunks": sorted(map(hex, mirrored)),
+        "builtins_added": sorted(builtins_added),
         "split_targets": sorted(map(hex, split)),
         "typed_globals": len(typed),
         "data_added": len(diff["data"]["added"]),
@@ -210,6 +226,8 @@ def diff_note(summary: dict[str, Any]) -> str:
     )
     if summary["restated"]:
         note += f"; {len(summary['restated'])} restated prototype(s) already live and unchanged ({', '.join(summary['restated'])})"
+    if summary.get("builtins_added"):
+        note += "; Ghidra built-in type(s) first used by a planned prototype (" + ", ".join(summary["builtins_added"]) + ")"
     if summary.get("split_targets"):
         note += (
             "; Ghidra-split thunk target(s) inside a prototyped thunk's ELF function share its signature ("
