@@ -1041,8 +1041,19 @@ def prototype_text(prototype: dict[str, Any]) -> str:
     return f"{prototype['return_type']} socom_prototype({params})"
 
 
+_DEFAULT_PARAM = re.compile(r"param_\d+")
+
+
+def _shown_name(name: str, position: int) -> str:
+    """Ghidra treats param_N as a default name and numbers it by position (1-based)."""
+
+    return f"param_{position}" if _DEFAULT_PARAM.fullmatch(name or "") else name
+
+
 def expected_signature(prototype: dict[str, Any], name: str) -> str:
-    params = ", ".join(f"{p['type']} {p['name']}" for p in prototype["parameters"]) or "void"
+    params = ", ".join(
+        f"{p['type']} {_shown_name(p['name'], index)}" for index, p in enumerate(prototype["parameters"], 1)
+    ) or "void"
     return f"{prototype['return_type']} {prototype['calling_convention']} {name}({params})"
 
 

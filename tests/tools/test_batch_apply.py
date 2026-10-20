@@ -776,3 +776,10 @@ def test_readable_names_program_is_deterministic(root: Path) -> None:
     assert rows["0x227200"]["readable_name"] == "zdb::CNode::SetPosition"
     assert "0x140500" not in rows  # thunk of CGame::StopPlay
     assert "0x2241e0" in first["summary"]["file_local_copies_skipped"]
+
+
+def test_default_parameter_names_follow_ghidra_positions() -> None:
+    prototype = {"return_type": "CSched_Task *", "calling_convention": "__stdcall",
+                 "parameters": [{"name": "this", "type": "CSched_Manager *"}, {"name": "param_1", "type": "uint"}]}
+    # Ghidra renumbers a default name by position: the parameter after this is param_2.
+    assert batch_apply.expected_signature(prototype, "GetTask").endswith("(CSched_Manager * this, uint param_2)")
