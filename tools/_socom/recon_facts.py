@@ -583,6 +583,7 @@ def return_sources(ctx: _Context, start: int) -> list[str]:
                 for register, fpr, name in ((2, False, "v0"), (0, True, "f0")):
                     how = callee_preserves(ctx, target, register, fpr)
                     if how == "none":
+                        parts.append(f"{name}<-ret({ctx.label(target)})")
                         continue
                     before = _through_calls(ctx, flow, flow.after(pc + 4, register, fpr), register, fpr)
                     shown = sorted(_describe_def(ctx, flow, d) for d in before)
