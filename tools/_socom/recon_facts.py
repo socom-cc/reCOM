@@ -498,17 +498,11 @@ def callee_preserves(ctx: _Context, target: int, register: int, fpr: bool = Fals
             continue
         insn = ctx.code.word(pc)
         if insn == JR_RA:
-            for d in flow.after(pc + 4, register, fpr):
+            # The same look-through as the exit trace: past calls that leave the
+            # register alone, to whatever really reaches the return.
+            for d in _through_calls(ctx, flow, flow.after(pc + 4, register, fpr), register, fpr):
                 if d == "entry":
                     kept = True
-                    continue
-                prev = flow.fn.decoded.get(d - 4, {})
-                call = ctx.code.word(d - 4)
-                own = _fpr_writes(ctx.code.word(d)) if fpr else _writes(ctx.code.word(d))[0]
-                if prev.get("kind") in ("call", "call-branch") and call >> 26 == 0x03 and register not in own:
-                    inner = callee_preserves(ctx, ((d) & 0xF0000000) | ((call & 0x03FFFFFF) << 2), register, fpr, depth + 1)
-                    kept = kept or inner in ("all", "some")
-                    written = written or inner in ("some", "none")
                 else:
                     written = True
         elif insn >> 26 == 0x02 or (insn >> 26 == 0x00 and insn & 0x3F == 0x08 and (insn >> 21) & 31 != 31):
@@ -652,7 +646,16 @@ def _use_after_call(ctx: _Context, caller: int, site: int, fpr: bool) -> str:
         if insn == JR_RA:
             ends.add("returned by caller")
         elif row["kind"] == "call":
-            ends.add("clobbered by a call")
+            # A callee that leaves the register alone on some path passes the
+            # value through to the code after the call.
+            how = (
+                callee_preserves(ctx, ((pc + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2), register, fpr)
+                if insn >> 26 == 0x03 else "none"
+            )
+            if how in ("all", "some"):
+                stack.append(slot + 4)
+            if how in ("some", "none"):
+                ends.add("clobbered by a call")
         elif row["kind"] == "jump":
             if row["target"] is not None:
                 stack.append(row["target"])

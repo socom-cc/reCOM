@@ -43,10 +43,10 @@ from .batch_apply import (
 from .constants import REFERENCE_SHA256
 from .mwdemangle import demangle
 from .recon import RECON_PLAN_KIND, RECON_SCHEMA, group_evidence
-from .recon_facts import GPR, _use_after_call, argument_reads, call_sites, context, return_sources
+from .recon_facts import GPR, JR_RA, _reads_at, _through_calls, _use_after_call, argument_reads, call_sites, callee_preserves, context, return_sources
 from .util import SocomError, canonical_json
 
-DRAFT_RULES_VERSION = 5
+DRAFT_RULES_VERSION = 6
 
 
 class _TypeIndex:
@@ -137,53 +137,84 @@ def _exits_unset(ctx: Any, start: int) -> tuple[bool, list[str]]:
 
 
 def _exits_pass_through(ctx: Any, start: int) -> tuple[bool, list[str]]:
-    """Every exit leaves v0 and f0 unset or holding a callee's result, and some exit
-    holds one (the user's 2026-10-20 decision: `void f() { g(); }` is void when no
-    caller reads v0)."""
+    """Every value v0 and f0 can hold at a return is dead as a result.
+
+    Allowed: nothing (entry), a callee's result (user decision 2026-10-20),
+    or a scratch value that some other instruction in the function reads (it
+    was a temporary: stored, moved to the FPU, passed on, used as a base --
+    second user decision 2026-10-20).  A value computed only to be returned
+    (a lone `li v0,0` before `jr ra`) is not.
+    """
 
     rows = return_sources(ctx, start)
-
-    def ok(text: str) -> bool:
-        return all(part.strip() == "entry" or part.strip().startswith("ret(") for part in text.split("|"))
-
-    good = bool(rows)
-    for row in rows:
-        if row.startswith("tail j@"):
-            # The callee's result, unless it may leave v0/f0 alone: then the
-            # values before the jump reach the caller too (listed after ':').
-            if ": " in row:
-                for part in row.split(": ", 1)[1].split("; "):
-                    good = good and ok(part.split("<-", 1)[1])
+    flow = ctx.flow(start)
+    used: set[tuple[Any, int, bool]] = set()
+    for pc in range(start, flow.end, 4):
+        if not flow.reachable(pc):
             continue
-        if not row.startswith("jr ra@") or "v0<-" not in row:
-            return False, rows
-        v0 = row.split("v0<-", 1)[1].split("; f0<-", 1)[0]
-        f0 = row.split("; f0<-", 1)[1] if "; f0<-" in row else "entry"
-        good = good and ok(v0) and ok(f0)
-    return good, rows
+        read_g, read_f = _reads_at(ctx, pc, flow.end)
+        for register, fpr, reads in ((2, False, read_g), (0, True, read_f)):
+            if register in reads:
+                for d in _through_calls(ctx, flow, flow.defs(pc, register, fpr), register, fpr):
+                    used.add((d, register, fpr))
+
+    def dead(definitions: set[Any], register: int, fpr: bool) -> bool:
+        for d in definitions:
+            if d == "entry" or (d, register, fpr) in used:
+                continue
+            prev = flow.fn.decoded.get(d - 4, {})
+            if prev.get("kind") in ("call", "call-branch"):
+                continue  # a callee's result
+            return False
+        return True
+
+    for pc in range(start, flow.end, 4):
+        if not flow.reachable(pc):
+            continue
+        insn = ctx.code.word(pc)
+        if insn == JR_RA:
+            sources = [(2, False), (0, True)]
+        elif insn >> 26 == 0x02:
+            target = ((pc + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2)
+            if start <= target < flow.end:
+                continue
+            # The callee's result, plus what reaches the jump where it may leave the register.
+            sources = [(r, f) for r, f in ((2, False), (0, True)) if callee_preserves(ctx, target, r, f) != "none"]
+        elif insn >> 26 == 0x00 and insn & 0x3F == 0x08:
+            return False, rows  # indirect jump: unknown
+        else:
+            continue
+        for register, fpr in sources:
+            definitions = _through_calls(ctx, flow, flow.after(pc + 4, register, fpr), register, fpr)
+            if not dead(definitions, register, fpr):
+                return False, rows
+    return bool(rows), rows
 
 
 def _callers_ignore_v0(ctx: Any, start: int, depth: int = 0, seen: frozenset[int] = frozenset()) -> tuple[bool, int]:
-    """No code ever reads the value this function leaves in v0.
+    """No code ever reads the value this function leaves in v0 or f0.
 
-    Every direct call site leaves v0 unread on every path.  A caller that
-    returns it instead passes the question on: its own call sites must ignore
-    v0 too, and nothing may take its address.  Chains are followed six deep; a
-    cycle reads nothing new.
+    Every direct call site leaves both unread on every path.  A caller that
+    returns the value (or tail-calls this function) passes the question on:
+    its own call sites must ignore it too, and nothing may take its address.
+    Chains are followed six deep; a cycle reads nothing new.
     """
 
     sites = call_sites(ctx, start)
     if depth > 6:
         return False, len(sites)
+    # Only a register this function can leave a value in matters: a caller
+    # reading f0 after calling a function that never writes f0 reads its own.
+    checked = [fpr for fpr, register in ((False, 2), (True, 0)) if callee_preserves(ctx, start, register, fpr) != "all"]
     for caller, site, kind in sites:
-        if kind == "tail":
-            return False, len(sites)
-        use = _use_after_call(ctx, caller, site, fpr=False)
-        if not use.startswith("unused:"):
-            return False, len(sites)
-        if "returned by caller" in use:
-            if caller in seen:
-                continue
+        passes_on = kind == "tail"
+        if not passes_on:
+            for fpr in checked:
+                use = _use_after_call(ctx, caller, site, fpr=fpr)
+                if not use.startswith("unused:"):
+                    return False, len(sites)
+                passes_on = passes_on or "returned by caller" in use
+        if passes_on and caller not in seen:
             if ctx.addr_taken.get(caller) or ctx.word32.get(caller):
                 return False, len(sites)
             if not _callers_ignore_v0(ctx, caller, depth + 1, seen | {start})[0]:
@@ -332,7 +363,7 @@ def draft_function(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIn
         + (", ".join(f"{r}@{_sites(s)}" for r, s in reads.items()) or "none") + "; all declared",
         (f"every exit leaves v0 and f0 unset or holding a callee's result ({len(exits)} exits) and all "
          f"{len(call_sites(ctx, address))} direct call sites leave v0 unread (callee-result pass-through, "
-         "decision of 2026-10-20)" if pass_through else
+         "or scratch value decisions of 2026-10-20)" if pass_through else
          f"every exit leaves v0 and f0 unset ({len(exits)} jr ra)" if not sinit else
          f"static initializer: {len(exits)} jr ra, no direct call sites; the runtime calls it through the "
          "void (**)(void) .p__sinit table (__initialize_cpp_rts) and never reads v0"),
@@ -386,24 +417,34 @@ def _decision(row: dict[str, Any]) -> Any:
 def check_drafted_rows(draft: dict[str, Any], plan: dict[str, Any]) -> list[str]:
     """Problems where a plan disagrees with a fresh draft.
 
-    A row carrying ``draft_rule`` must equal its draft exactly.  A hand-written
-    row that the rules now decide (rules gained a case after the plan was
-    written) must agree in substance: unresolved, or the same return and
-    parameter types; its evidence wording and parameter names may differ.
+    A row carrying ``draft_rule`` must still be decided by the rules, with the
+    same rule, name and decision (return and parameter types and names, or
+    unresolved); evidence wording may differ between rule versions.  A
+    hand-written row that the rules now decide must agree in substance, except
+    that a hand-written unresolved row is accepted where the rules have since
+    gained a case (unresolved is incomplete, never unsafe).
     """
 
     fresh = {row["address"]: row for row in draft["functions"] if row.get("draft_rule")}
     rows = {row.get("address"): row for row in plan.get("functions", [])}
     problems = []
-    keys = ("current_name", "prototype", "unresolved", "draft_rule")
+
+    def named(row: dict[str, Any]) -> Any:
+        prototype = row.get("prototype")
+        if not prototype:
+            return "unresolved"
+        return (prototype.get("return_type"), tuple((p.get("name"), p.get("type")) for p in prototype.get("parameters") or []))
+
     for address, row in fresh.items():
         planned = rows.get(address)
         if planned is None:
             problems.append(f"{address}: drafted ({row['draft_rule']}) but missing from the plan")
         elif planned.get("draft_rule"):
-            if any(canonical_json(planned.get(k)) != canonical_json(row.get(k)) for k in keys):
+            if (planned.get("draft_rule"), planned.get("current_name"), named(planned)) != (
+                row["draft_rule"], row.get("current_name"), named(row)
+            ):
                 problems.append(f"{address}: differs from its {row['draft_rule']} draft")
-        elif _decision(planned) != _decision(row):
+        elif _decision(planned) != _decision(row) and _decision(planned) != "unresolved":
             problems.append(
                 f"{address}: hand-written row disagrees with its {row['draft_rule']} draft "
                 f"({_decision(planned)} vs {_decision(row)})"

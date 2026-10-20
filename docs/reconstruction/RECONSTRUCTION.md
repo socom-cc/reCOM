@@ -193,8 +193,17 @@ value to its own callers passes the question on: its call sites must leave
 `v0` unread in turn, and nothing may take its address (followed six levels
 deep). `recon facts` follows `v0` through callees that leave
 it untouched (also at tail-call exits, rules version 5), so a leftover that is really the function's own value shows
-as such. Any other leftover keeps the return unresolved: a copy,
-arithmetic, or a constant.
+as such. A scratch value also allows `void` (second decision of 2026-10-20): a
+copy, constant or arithmetic result left in `v0` or `f0` that another
+instruction in the function also reads (it was stored, moved to the FPU,
+passed on, or used as a base) is a temporary, under the same caller
+conditions. A value computed only to be returned (a lone `li v0,0` before
+`jr ra`) keeps the return unresolved. The caller conditions apply to `v0`
+and to `f0`, for each register the function can leave a value in, and a
+caller that tail-calls the function passes the question on like one that
+returns its value (rules version 6). `recon facts` follows a value past
+calls that may leave it untouched, so a caller that reads it after such a
+call counts as a reader.
 
 A function whose every exit returns a relocated pointer to a NUL-terminated
 string (`recon bytes` shows the word's target and its text) returns

@@ -74,13 +74,22 @@ def test_hand_written_rows_are_checked_in_substance(ctx) -> None:
 
 
 def test_callee_result_pass_through_is_void(ctx) -> None:
-    # CSealCtrlAi::AllStop leaves a callee's result in v0 that no caller reads.
-    row = {"address": "0x264d30", "elf_names": ["AllStop__11CSealCtrlAiFb"], "stage2": None, "thunk_target": None}
-    drafted = draft_function(ctx, row, "CSealCtrlAi::AllStop", _types("CSealCtrlAi"))
+    # zVid_ZTestOnWriteSet leaves zSysSprGetPacket's result in v0 (through
+    # zSysFifoKick); its only caller tail-calls it and RenderWorld overwrites v0.
+    row = {"address": "0x307920", "elf_names": ["zVid_ZTestOnWriteSet__Fb"], "stage2": None, "thunk_target": None}
+    drafted = draft_function(ctx, row, "zVid_ZTestOnWriteSet", _types())
     assert drafted["draft_rule"] == "P-void"
-    assert [p["type"] for p in drafted["prototype"]["parameters"]] == ["CSealCtrlAi *", "bool"]
-    assert "pass-through" in " ".join(drafted["prototype"]["evidence"])
-    # SetPosition's v0 is returned by zAnimObjectMotionFromToBegin, a callback whose
-    # address is stored: someone may read it through the pointer, so it stays open.
-    row = {"address": "0x227200", "elf_names": ["SetPosition__Q23zdb5CNodeFfff"], "stage2": None, "thunk_target": None}
-    assert draft_function(ctx, row, "zdb::CNode::SetPosition", _types("CNode"))["draft"] == "open"
+    assert [p["type"] for p in drafted["prototype"]["parameters"]] == ["bool"]
+    # CSealCtrlAi::AllStop can leave a callee's f0 that the virtual OnCommand
+    # returns onward, and SetPosition's v0 reaches a stored callback: both open.
+    for address, name, cls in ((0x264d30, "AllStop__11CSealCtrlAiFb", "CSealCtrlAi"), (0x227200, "SetPosition__Q23zdb5CNodeFfff", "CNode")):
+        row = {"address": f"0x{address:x}", "elf_names": [name], "stage2": None, "thunk_target": None}
+        assert draft_function(ctx, row, name, _types(cls))["draft"] == "open"
+
+
+def test_scratch_value_in_f0_is_dead(ctx) -> None:
+    # zdb::CVisual::NodeSetup leaves a mul.s product in f0 that it also stores
+    # to m_GlobalLightScale (second decision of 2026-10-20).
+    from tools._socom.recon_draft import _exits_pass_through
+
+    assert _exits_pass_through(ctx, 0x30C6D0)[0]
