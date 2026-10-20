@@ -138,3 +138,10 @@ def test_object_bytes_shows_relocated_strings(ctx) -> None:
     assert "inside gpszVersion (0x43d7b8, 4 bytes)" in text
     assert "reloc 0x43d7b8 -> 0x468ab0 'rt_crypt version: 1.01.0002'" in text
     assert "string at 0x468ab0: 'rt_crypt version: 1.01.0002'" in object_bytes(ctx, 0x468AB0, 32)
+
+
+def test_syscall_stubs_show_live_arguments(ctx) -> None:
+    from tools._socom.recon_facts import forwarded_arguments, syscall_arguments
+
+    assert syscall_arguments(ctx, 0x15B2C0) == ["syscall v1=-26@0x15b2c4: entry values reaching it a0,a1,a2,a3,t0,t1,t2,t3"]
+    assert forwarded_arguments(ctx, 0x15C1A0, set())[0].startswith("a0,a1,a2,a3,t0,t1,t2,t3 -> jal _iEnableIntc")

@@ -390,6 +390,46 @@ def stack_argument_reads(ctx: _Context, start: int) -> list[str]:
     return found[:8]
 
 
+def _syscalls(ctx: _Context, start: int) -> list[tuple[int, int | None]]:
+    """(pc, call number) for each syscall in a function; the number when a
+    reaching ``li v1,N`` (addiu v1,zero,N) sets it."""
+
+    flow = ctx.flow(start)
+    found = []
+    for pc in range(start, flow.end, 4):
+        if ctx.code.word(pc) & 0xFC00003F != 0x0000000C:
+            continue
+        number = None
+        definitions = flow.defs(pc, 3)
+        if len(definitions) == 1:
+            (site,) = definitions
+            if isinstance(site, int):
+                insn = ctx.code.word(site)
+                if insn >> 26 == 0x09 and (insn >> 21) & 31 == 0:
+                    number = insn & 0xFFFF
+                    number -= 0x10000 if number & 0x8000 else 0
+        found.append((pc, number))
+    return found
+
+
+def syscall_arguments(ctx: _Context, start: int) -> list[str]:
+    """Each syscall with the argument registers still holding entry values at it.
+
+    The kernel reads the a-registers its call number takes; which ones is not
+    visible here, so a register listed may or may not be an argument.
+    """
+
+    flow = ctx.flow(start)
+    rows = []
+    for pc, number in _syscalls(ctx, start):
+        live = [GPR[r] for r in ARG_GPRS if "entry" in flow.defs(pc, r)]
+        rows.append(
+            f"syscall{'' if number is None else f' v1={number}'}@0x{pc:x}: entry values reaching it "
+            + (",".join(live) or "none")
+        )
+    return rows
+
+
 def forwarded_arguments(ctx: _Context, start: int, read: set[str]) -> list[str]:
     """Argument registers still holding their entry value at a call they feed.
 
@@ -407,6 +447,9 @@ def forwarded_arguments(ctx: _Context, start: int, read: set[str]) -> list[str]:
         if row.get("kind") == "call" and insn >> 26 == 0x03:
             target = ((pc + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2)
             wanted = set(argument_reads(ctx, target)) if target in ctx.size and target != start else set()
+            if target in ctx.size and target != start and _syscalls(ctx, target):
+                # A syscall stub: the kernel may read any a-register still live.
+                wanted |= {GPR[r] for r in ARG_GPRS if "entry" in ctx.flow(target).defs(_syscalls(ctx, target)[0][0], r)}
         elif row.get("kind") == "call" or (insn >> 26 == 0x00 and insn & 0x3F == 0x08 and (insn >> 21) & 31 != 31):
             wanted = {GPR[r] for r in ARG_GPRS} | {f"f{r}" for r in ARG_FPRS}
         elif insn >> 26 == 0x02:
@@ -613,6 +656,8 @@ def function_facts(ctx: _Context, start: int, caller_limit: int = 24, evidence: 
     forwarded = forwarded_arguments(ctx, start, set(reads))
     if forwarded:
         lines.append("args passed through unchanged to calls: " + "; ".join(forwarded))
+    for text in syscall_arguments(ctx, start):
+        lines.append(text + " (the call number decides which the kernel reads)")
     exits = return_sources(ctx, start)
     lines.extend(f"exit {text}" for text in exits)
     sets_f0 = any("f0<-" in text and "f0<-entry" not in text for text in exits)
