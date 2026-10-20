@@ -129,3 +129,12 @@ def test_diff_explanation_accepts_relocation_backed_pointer_references(root: Pat
     diff["references"]["added"].append(["0044d0d0", "0x44cee0", "DATA"])
     problems, _summary = explain_recon_diff(root, diff, {"functions": []}, steps, result)
     assert any("references/blocks/bookmarks changed" in p for p in problems)
+
+
+def test_object_bytes_shows_relocated_strings(ctx) -> None:
+    from tools._socom.recon_facts import object_bytes
+
+    text = object_bytes(ctx, 0x43D7B8)
+    assert "inside gpszVersion (0x43d7b8, 4 bytes)" in text
+    assert "reloc 0x43d7b8 -> 0x468ab0 'rt_crypt version: 1.01.0002'" in text
+    assert "string at 0x468ab0: 'rt_crypt version: 1.01.0002'" in object_bytes(ctx, 0x468AB0, 32)

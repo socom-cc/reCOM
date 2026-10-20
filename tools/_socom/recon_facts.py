@@ -841,3 +841,60 @@ def dwarf_entries(root: Path, offsets: list[int], depth: int = 1) -> str:
 
         show(index, 0)
     return "\n".join(lines)
+
+
+def object_bytes(ctx: _Context, address: int, length: int | None = None) -> str:
+    """Initialized bytes at an address (.rodata, .data, ...), with relocated words and strings.
+
+    Each relocated word (R_MIPS_32) is shown with its target, and a target that
+    starts a NUL-terminated printable string is shown as that string.
+    """
+
+    section = next(
+        (s for s in ctx.elf.sections if s.address and s.address <= address < s.address + s.size and s.flags & 2),
+        None,
+    )
+    if section is None:
+        return f"0x{address:x}: not in an allocated section"
+    data = ctx.elf.section_data(section)
+    start = bisect.bisect_right(ctx.object_starts, address) - 1
+    owner = ctx.object_starts[start] if start >= 0 else None
+    if owner is not None and address >= owner + ctx.objects[owner][0]:
+        owner = None
+    if length is None:
+        length = (owner + ctx.objects[owner][0] - address) if owner is not None else 64
+    length = max(1, min(length, section.address + section.size - address, 4096))
+    lines = [f"0x{address:x} {section.name} length {length}"
+             + (f"; inside {ctx.objects[owner][1]} (0x{owner:x}, {ctx.objects[owner][0]} bytes)" if owner is not None else "")]
+    if not data:
+        lines.append("  (no file bytes: zero-initialized)")
+        return "\n".join(lines)
+    slots = {slot for targets in ctx.word32.values() for slot in targets}
+    target_of = {slot: target for target, list_ in ctx.word32.items() for slot in list_}
+
+    def string_at(target: int) -> str | None:
+        holder = next((s for s in ctx.elf.sections if s.address <= target < s.address + s.size and s.flags & 2), None)
+        raw = ctx.elf.section_data(holder) if holder is not None else b""
+        if not raw:
+            return None
+        offset = target - holder.address
+        end = raw.find(b"\0", offset, offset + 256)
+        text = raw[offset:end] if end >= 0 else b""
+        if end > offset and all(32 <= c < 127 or c in (9, 10, 13) for c in text):
+            return text.decode("ascii")
+        return None
+
+    base = address - section.address
+    for row in range(0, length, 16):
+        chunk = data[base + row : base + min(row + 16, length)]
+        ascii_ = "".join(chr(c) if 32 <= c < 127 else "." for c in chunk)
+        lines.append(f"  {address + row:08x}  {chunk.hex(' '):<47}  {ascii_}")
+    for slot in sorted(s for s in slots if address <= s < address + length):
+        target = target_of[slot]
+        text = string_at(target)
+        name = ctx.names.get(target)
+        lines.append(f"  reloc 0x{slot:x} -> 0x{target:x}" + (f" {name}" if name else "") + (f" {text!r}" if text is not None else ""))
+    text = string_at(address)
+    if text is not None:
+        lines.append(f"  string at 0x{address:x}: {text!r} ({len(text)} chars + NUL)")
+    return "\n".join(lines)

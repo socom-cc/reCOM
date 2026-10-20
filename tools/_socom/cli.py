@@ -1707,6 +1707,23 @@ def _recon_asm(arguments: argparse.Namespace) -> int:
     return _recon_text(root, arguments, "\n\n".join(function_asm(ctx, address) for address in _recon_addresses(root, arguments)))
 
 
+def _recon_bytes(arguments: argparse.Namespace) -> int:
+    from .recon_facts import context, object_bytes
+
+    root = _root(arguments)
+    ctx = context(root)
+    texts = []
+    for value in arguments.address:
+        try:
+            addresses = [int(value, 16)]
+        except ValueError:
+            addresses = sorted(a for a, name in ctx.names.items() if name == value)
+            if not addresses:
+                raise SocomError(f"no FUNC or OBJECT symbol named {value!r}")
+        texts += [object_bytes(ctx, address, arguments.length) for address in addresses]
+    return _recon_text(root, arguments, "\n\n".join(texts))
+
+
 def _recon_dwarf(arguments: argparse.Namespace) -> int:
     from .recon_facts import dwarf_entries
 
@@ -2661,6 +2678,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     ),
     _spec("recon facts", "recon", "Print compact ELF-derived call-contract facts for functions or a group."),
     _spec("recon asm", "recon", "Print annotated ELF disassembly of functions."),
+    _spec("recon bytes", "recon", "Print initialized bytes at an address or symbol, with relocated words and strings."),
     _spec("recon dwarf", "recon", "Print DWARF 1 entries by offset with their children."),
     _spec("recon refs", "recon", "Print a data object's relocated slots and every code access to it."),
     _spec("recon live", "recon", "Print live Ghidra names and signatures of functions or a group.", ghidra_requirement="required"),
@@ -2829,6 +2847,11 @@ def build_parser() -> argparse.ArgumentParser:
     recon_asm.add_argument("--function", nargs="+", required=True)
     recon_asm.add_argument("--output")
     recon_asm.set_defaults(handler=_recon_asm)
+    recon_bytes = recon_commands.add_parser("bytes")
+    recon_bytes.add_argument("--address", nargs="+", required=True)
+    recon_bytes.add_argument("--length", type=int)
+    recon_bytes.add_argument("--output")
+    recon_bytes.set_defaults(handler=_recon_bytes)
     recon_dwarf = recon_commands.add_parser("dwarf")
     recon_dwarf.add_argument("--die", nargs="+", required=True)
     recon_dwarf.add_argument("--depth", type=int, default=1)

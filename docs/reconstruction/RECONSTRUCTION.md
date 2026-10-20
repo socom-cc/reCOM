@@ -140,6 +140,18 @@ Spell a one-byte boolean `bool` only where a declaration says bool (a header,
 a mangled `b`, a DWARF-typed base or override); otherwise `uchar`, which is
 how the DWARF import renders this compiler's bool.
 
+`void` needs every exit to leave no value in `v0` and no override to return
+one. One kind of leftover `v0` still allows `void`: the only definition
+reaching the exit is a `lui v0` used solely as the base register of later
+loads or stores (`lui v0,%hi(x); sw a0,%lo(x)(v0)`). This holds only when no
+call site reads `v0` after the call. Any other leftover keeps the return
+unresolved: a copy, arithmetic, or a callee's result.
+
+A function whose every exit returns a relocated pointer to a NUL-terminated
+string (`recon bytes` shows the word's target and its text) returns
+`char *`. The binary cannot show whether the pointee is `const`, so the plan
+does not record it.
+
 ### Dead entry reads
 
 The entry-block scan treats a partial load completed by its partner (`lwl` +
