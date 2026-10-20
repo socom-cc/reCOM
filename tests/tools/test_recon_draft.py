@@ -35,9 +35,6 @@ def test_void_method_from_its_mangled_signature(ctx) -> None:
     assert drafted["draft_rule"] == "P-void"
     assert [p["type"] for p in drafted["prototype"]["parameters"]] == ["CNode *", "int"]
     assert drafted["prototype"]["return_type"] == "void"
-    # SetPosition ends after an indirect call, so v0 holds that call's result: open.
-    row = {"address": "0x227200", "elf_names": ["SetPosition__Q23zdb5CNodeFfff"], "stage2": None, "thunk_target": None}
-    assert draft_function(ctx, row, "zdb::CNode::SetPosition", _types("CNode"))["draft"] == "open"
 
 
 def test_missing_parameter_class_is_unresolved(ctx) -> None:
@@ -74,3 +71,16 @@ def test_hand_written_rows_are_checked_in_substance(ctx) -> None:
     assert check_drafted_rows({"functions": [drafted]}, {"functions": [hand]}) == []
     hand["prototype"]["return_type"] = "int"
     assert "disagrees" in check_drafted_rows({"functions": [drafted]}, {"functions": [hand]})[0]
+
+
+def test_callee_result_pass_through_is_void(ctx) -> None:
+    # CSealCtrlAi::AllStop leaves a callee's result in v0 that no caller reads.
+    row = {"address": "0x264d30", "elf_names": ["AllStop__11CSealCtrlAiFb"], "stage2": None, "thunk_target": None}
+    drafted = draft_function(ctx, row, "CSealCtrlAi::AllStop", _types("CSealCtrlAi"))
+    assert drafted["draft_rule"] == "P-void"
+    assert [p["type"] for p in drafted["prototype"]["parameters"]] == ["CSealCtrlAi *", "bool"]
+    assert "pass-through" in " ".join(drafted["prototype"]["evidence"])
+    # SetPosition's v0 is returned by zAnimObjectMotionFromToBegin, a callback whose
+    # address is stored: someone may read it through the pointer, so it stays open.
+    row = {"address": "0x227200", "elf_names": ["SetPosition__Q23zdb5CNodeFfff"], "stage2": None, "thunk_target": None}
+    assert draft_function(ctx, row, "zdb::CNode::SetPosition", _types("CNode"))["draft"] == "open"

@@ -43,10 +43,10 @@ from .batch_apply import (
 from .constants import REFERENCE_SHA256
 from .mwdemangle import demangle
 from .recon import RECON_PLAN_KIND, RECON_SCHEMA, group_evidence
-from .recon_facts import GPR, argument_reads, call_sites, context, return_sources
+from .recon_facts import GPR, _use_after_call, argument_reads, call_sites, context, return_sources
 from .util import SocomError, canonical_json
 
-DRAFT_RULES_VERSION = 3
+DRAFT_RULES_VERSION = 4
 
 
 class _TypeIndex:
@@ -136,6 +136,56 @@ def _exits_unset(ctx: Any, start: int) -> tuple[bool, list[str]]:
     return ok, rows
 
 
+def _exits_pass_through(ctx: Any, start: int) -> tuple[bool, list[str]]:
+    """Every exit leaves v0 and f0 unset or holding a callee's result, and some exit
+    holds one (the user's 2026-10-20 decision: `void f() { g(); }` is void when no
+    caller reads v0)."""
+
+    rows = return_sources(ctx, start)
+
+    def ok(text: str) -> bool:
+        return all(part.strip() == "entry" or part.strip().startswith("ret(") for part in text.split("|"))
+
+    good = bool(rows)
+    for row in rows:
+        if row.startswith("tail j@"):
+            continue
+        if not row.startswith("jr ra@") or "v0<-" not in row:
+            return False, rows
+        v0 = row.split("v0<-", 1)[1].split("; f0<-", 1)[0]
+        f0 = row.split("; f0<-", 1)[1] if "; f0<-" in row else "entry"
+        good = good and ok(v0) and ok(f0)
+    return good, rows
+
+
+def _callers_ignore_v0(ctx: Any, start: int, depth: int = 0, seen: frozenset[int] = frozenset()) -> tuple[bool, int]:
+    """No code ever reads the value this function leaves in v0.
+
+    Every direct call site leaves v0 unread on every path.  A caller that
+    returns it instead passes the question on: its own call sites must ignore
+    v0 too, and nothing may take its address.  Chains are followed six deep; a
+    cycle reads nothing new.
+    """
+
+    sites = call_sites(ctx, start)
+    if depth > 6:
+        return False, len(sites)
+    for caller, site, kind in sites:
+        if kind == "tail":
+            return False, len(sites)
+        use = _use_after_call(ctx, caller, site, fpr=False)
+        if not use.startswith("unused:"):
+            return False, len(sites)
+        if "returned by caller" in use:
+            if caller in seen:
+                continue
+            if ctx.addr_taken.get(caller) or ctx.word32.get(caller):
+                return False, len(sites)
+            if not _callers_ignore_v0(ctx, caller, depth + 1, seen | {start})[0]:
+                return False, len(sites)
+    return True, len(sites)
+
+
 def _sites(values: list[int]) -> str:
     return ",".join(f"0x{pc:x}" for pc in values[:3])
 
@@ -222,6 +272,12 @@ def draft_function(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIn
         return open_row
     sinit = live_name.startswith("__sinit_") and not parsed
     unset, exits = _exits_unset(ctx, address)
+    pass_through = False
+    if not unset and not sinit:
+        through, exits_through = _exits_pass_through(ctx, address)
+        ignored, site_count = _callers_ignore_v0(ctx, address)
+        if through and ignored and site_count:
+            unset, exits, pass_through = True, exits_through, True
     if sinit:
         # A static initializer's type is fixed by the runtime, not by its body:
         # __initialize_cpp_rts calls each through the void (**)(void) .p__sinit
@@ -269,7 +325,10 @@ def draft_function(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIn
         + f" gives parameters ({', '.join(rendered) or 'void'})",
         "argument registers read on any path: "
         + (", ".join(f"{r}@{_sites(s)}" for r, s in reads.items()) or "none") + "; all declared",
-        (f"every exit leaves v0 and f0 unset ({len(exits)} jr ra)" if not sinit else
+        (f"every exit leaves v0 and f0 unset or holding a callee's result ({len(exits)} exits) and all "
+         f"{len(call_sites(ctx, address))} direct call sites leave v0 unread (callee-result pass-through, "
+         "decision of 2026-10-20)" if pass_through else
+         f"every exit leaves v0 and f0 unset ({len(exits)} jr ra)" if not sinit else
          f"static initializer: {len(exits)} jr ra, no direct call sites; the runtime calls it through the "
          "void (**)(void) .p__sinit table (__initialize_cpp_rts) and never reads v0"),
         "no word refs or address-taken sites" if not live_name.startswith("__sinit_")

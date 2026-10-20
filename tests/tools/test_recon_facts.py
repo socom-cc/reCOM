@@ -145,3 +145,13 @@ def test_syscall_stubs_show_live_arguments(ctx) -> None:
 
     assert syscall_arguments(ctx, 0x15B2C0) == ["syscall v1=-26@0x15b2c4: entry values reaching it a0,a1,a2,a3,t0,t1,t2,t3"]
     assert forwarded_arguments(ctx, 0x15C1A0, set())[0].startswith("a0,a1,a2,a3,t0,t1,t2,t3 -> jal _iEnableIntc")
+
+
+def test_v0_is_traced_through_callees_that_leave_it(ctx) -> None:
+    from tools._socom.recon_facts import return_sources
+
+    # CZBodyAnimBlend::Clear's own li v0,-1 reaches its exit past a call that never writes v0.
+    assert return_sources(ctx, 0x1DF920)[0].startswith("jr ra@0x1dfa28: v0<-li v0,-1@0x1df924;")
+    # SetMultiplier writes v0 on some paths only: both values reach CopyValues' exit.
+    row = return_sources(ctx, 0x1E1D20)[0]
+    assert "lbu v0,35(a1)@0x1e1d88" in row and "ret(SetMultiplier__10CZBodyAnimFb@0x1e1bf0)" in row

@@ -117,7 +117,8 @@ row `"draft": "open"` for the planner:
   `jr ra` to leave v0 and f0 unset, no VU0 instructions, and no word refs or
   address-taken sites (so no override or callback contract applies). A
   method's receiver must be proven by a const method, or by a register read
-  beyond the parameters.
+  beyond the parameters. Exits may also hold a callee's result when the
+  "Return width" pass-through conditions hold (rules version 4).
 - A `__sinit_*` static initializer is `P-void` as `void (void)` whatever v0
   holds at its exits. It must have no mangled name, no argument reads, no
   direct call sites, only `jr ra` exits, and its `.p__sinit` table word as its
@@ -180,8 +181,20 @@ how the DWARF import renders this compiler's bool.
 one. One kind of leftover `v0` still allows `void`: the only definition
 reaching the exit is a `lui v0` used solely as the base register of later
 loads or stores (`lui v0,%hi(x); sw a0,%lo(x)(v0)`). This holds only when no
-call site reads `v0` after the call. Any other leftover keeps the return
-unresolved: a copy, arithmetic, or a callee's result.
+call site reads `v0` after the call.
+
+A callee's result left in `v0` also allows `void` (decision of 2026-10-20).
+`void f() { g(); }` and an unused `int f() { return g(); }` compile
+identically, so this is a choice the caller decides. It applies when every
+exit's `v0` and `f0` hold nothing or a callee's result (a `jal`/`jalr` or a
+tail `j`), every direct call site leaves `v0` unread on every path, and nothing takes
+the function's address or stores it in a table. A caller that returns the
+value to its own callers passes the question on: its call sites must leave
+`v0` unread in turn, and nothing may take its address (followed six levels
+deep). `recon facts` follows `v0` through callees that leave
+it untouched, so a leftover that is really the function's own value shows
+as such. Any other leftover keeps the return unresolved: a copy,
+arithmetic, or a constant.
 
 A function whose every exit returns a relocated pointer to a NUL-terminated
 string (`recon bytes` shows the word's target and its text) returns

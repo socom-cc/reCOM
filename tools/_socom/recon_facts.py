@@ -470,6 +470,76 @@ def forwarded_arguments(ctx: _Context, start: int, read: set[str]) -> list[str]:
     return rows[:6]
 
 
+_PRESERVES: dict[tuple[int, int, bool], str] = {}
+
+
+def callee_preserves(ctx: _Context, target: int, register: int, fpr: bool = False, depth: int = 0) -> str:
+    """How a direct callee treats ``register``: "all" paths leave it as found,
+    "some" do, or "none" (every return writes it).  Unknown targets, tail
+    jumps and deep chains count as "none" for their paths."""
+
+    key = (target, register, fpr)
+    if key in _PRESERVES:
+        return _PRESERVES[key]
+    if target not in ctx.size or depth > 6:
+        return "none"
+    _PRESERVES[key] = "none"  # recursion guard
+    flow = ctx.flow(target)
+    kept = written = False
+    for pc in range(target, flow.end, 4):
+        if not flow.reachable(pc):
+            continue
+        insn = ctx.code.word(pc)
+        if insn == JR_RA:
+            for d in flow.after(pc + 4, register, fpr):
+                if d == "entry":
+                    kept = True
+                    continue
+                prev = flow.fn.decoded.get(d - 4, {})
+                call = ctx.code.word(d - 4)
+                own = _fpr_writes(ctx.code.word(d)) if fpr else _writes(ctx.code.word(d))[0]
+                if prev.get("kind") in ("call", "call-branch") and call >> 26 == 0x03 and register not in own:
+                    inner = callee_preserves(ctx, ((d) & 0xF0000000) | ((call & 0x03FFFFFF) << 2), register, fpr, depth + 1)
+                    kept = kept or inner in ("all", "some")
+                    written = written or inner in ("some", "none")
+                else:
+                    written = True
+        elif insn >> 26 == 0x02 or (insn >> 26 == 0x00 and insn & 0x3F == 0x08 and (insn >> 21) & 31 != 31):
+            written = True  # tail jumps: the result is another function's
+    result = "all" if kept and not written else "some" if kept else "none"
+    _PRESERVES[key] = result
+    return result
+
+
+def _through_calls(ctx: _Context, flow: _Flow, definitions: set[Any], register: int, fpr: bool) -> set[Any]:
+    """Look through calls whose callee may leave the register untouched.
+
+    "all": the call's clobber is replaced by the definitions before it;
+    "some": both the callee's result and those earlier definitions reach.
+    """
+
+    out: set[Any] = set()
+    stack = list(definitions)
+    seen: set[Any] = set()
+    while stack:
+        d = stack.pop()
+        if d in seen:
+            continue
+        seen.add(d)
+        if d != "entry" and d not in (flow.start,):
+            prev = flow.fn.decoded.get(d - 4, {})
+            call = ctx.code.word(d - 4)
+            own = _fpr_writes(ctx.code.word(d)) if fpr else _writes(ctx.code.word(d))[0]
+            if prev.get("kind") in ("call", "call-branch") and call >> 26 == 0x03 and register not in own:
+                how = callee_preserves(ctx, ((d) & 0xF0000000) | ((call & 0x03FFFFFF) << 2), register, fpr)
+                if how in ("all", "some"):
+                    stack.extend(flow.defs(d - 4, register, fpr))
+                    if how == "all":
+                        continue
+        out.add(d)
+    return out
+
+
 def _describe_def(ctx: _Context, flow: _Flow, definition: Any, result_register: bool = True) -> str:
     if definition == "entry":
         return "entry"
@@ -499,8 +569,10 @@ def return_sources(ctx: _Context, start: int) -> list[str]:
             continue
         if insn == JR_RA:
             slot = pc + 4
-            v0 = sorted(_describe_def(ctx, flow, d) for d in flow.after(slot, 2))
-            f0 = sorted(_describe_def(ctx, flow, d) for d in flow.after(slot, 0, fpr=True))
+            v0 = sorted(_describe_def(ctx, flow, d) for d in _through_calls(ctx, flow, flow.after(slot, 2), 2, False))
+            f0 = sorted(
+                _describe_def(ctx, flow, d) for d in _through_calls(ctx, flow, flow.after(slot, 0, fpr=True), 0, True)
+            )
             rows.append(f"jr ra@0x{pc:x}: v0<-{' | '.join(v0) or '-'}; f0<-{' | '.join(f0) or '-'}")
         elif insn >> 26 == 0x02:
             target = ((pc + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2)
