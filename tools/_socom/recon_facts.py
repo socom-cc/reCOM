@@ -354,11 +354,14 @@ def argument_reads(ctx: _Context, start: int) -> dict[str, list[int]]:
         if not flow.reachable(pc):
             continue
         read_g, read_f = _reads_at(ctx, pc, flow.end)
+        # A read after a call that the code does not reload relies on the
+        # callee leaving the register alone (hand-written helpers such as
+        # _sceVu0ecossin): follow it through such callees.
         for reg in sorted(read_g & set(ARG_GPRS)):
-            if "entry" in flow.defs(pc, reg):
+            if "entry" in _through_calls(ctx, flow, flow.defs(pc, reg), reg, False):
                 found.setdefault(GPR[reg], []).append(pc)
         for reg in sorted(read_f & set(ARG_FPRS)):
-            if "entry" in flow.defs(pc, reg, fpr=True):
+            if "entry" in _through_calls(ctx, flow, flow.defs(pc, reg, fpr=True), reg, True):
                 found.setdefault(f"f{reg}", []).append(pc)
     return found
 
@@ -482,6 +485,10 @@ def callee_preserves(ctx: _Context, target: int, register: int, fpr: bool = Fals
     if key in _PRESERVES:
         return _PRESERVES[key]
     if target not in ctx.size or depth > 6:
+        return "none"
+    if not fpr and register in (2, 3) and _syscalls(ctx, target):
+        # The kernel returns its result in v0 (and v1): a syscall stub writes them.
+        _PRESERVES[key] = "none"
         return "none"
     _PRESERVES[key] = "none"  # recursion guard
     flow = ctx.flow(target)

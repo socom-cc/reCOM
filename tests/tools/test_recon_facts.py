@@ -165,3 +165,15 @@ def test_tail_call_exits_show_values_the_callee_leaves(ctx) -> None:
         "tail j@0x196904 -> clear__Q23std58__vector_deleter<9CAiMapLoc,Q23std21allocator<9CAiMapLoc>>Fv@0x188e40: "
         "v0<-entry; f0<-entry"
     ]
+
+
+def test_syscall_stubs_write_v0_and_preserving_helpers_keep_arguments(ctx) -> None:
+    from tools._socom.recon_facts import argument_reads, return_sources
+
+    # CB_DelayTh returns iSignalSema's (kernel) result, not its entry v0.
+    assert return_sources(ctx, next(a for a, n in ctx.names.items() if n == "CB_DelayTh")) == [
+        "jr ra@0x16e4ac: v0<-ret(iSignalSema@0x15b550); f0<-entry"
+    ]
+    # sceVu0RotMatrixX reads a0/a1 after jal _sceVu0ecossin, which leaves them alone.
+    reads = argument_reads(ctx, 0x152688)
+    assert {"f12", "a0", "a1"} <= set(reads)
