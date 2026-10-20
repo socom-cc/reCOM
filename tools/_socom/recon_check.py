@@ -88,7 +88,34 @@ def explain_recon_diff(
             want = expected[target].replace(f" {names[target]}(", f" {r['after']['name']}(", 1)
             if want in r["after"]["details"]:
                 mirrored.add(address)
-    accounted = changed - mirrored
+    # The reverse: Ghidra split one ELF function into a thunk (its first
+    # instruction `b`/`j` into its own body) and a target function holding the
+    # rest.  A prototype set on the planned thunk is shared by that target, which
+    # lies inside the planned function's ELF bytes (std::find<UIVarMixin**> at
+    # 0x39e3f0 -> FUN_0039e3fc, group 76).
+    from .recon import _code_word
+
+    word = _code_word(elf)
+    split = set()
+    for r in diff["functions"]:
+        address = int(r["address"], 16)
+        if address in renamed | protos or r["before"]["thunk"] or r["after"]["thunk"]:
+            continue
+        for planned in protos:
+            if planned not in expected or not before_rows.get(planned, {}).get("thunk"):
+                continue
+            if not planned < address < planned + (sizes.get(planned) or 0):
+                continue
+            insn = word(planned)
+            branch = (
+                planned + 4 + (((insn & 0xFFFF) ^ 0x8000) - 0x8000) * 4 if insn >> 16 == 0x1000
+                else ((planned + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2) if insn >> 26 == 0x02
+                else None
+            )
+            want = expected[planned].replace(f" {names[planned]}(", f" {r['after']['name']}(", 1)
+            if branch == address and want in r["after"]["details"]:
+                split.add(address)
+    accounted = changed - mirrored - split
     wanted = (renamed | protos) - restated
     if accounted != wanted:
         problems.append(
@@ -158,6 +185,7 @@ def explain_recon_diff(
         "renamed": len(renamed),
         "restated": sorted(map(hex, restated)),
         "thunks": sorted(map(hex, mirrored)),
+        "split_targets": sorted(map(hex, split)),
         "typed_globals": len(typed),
         "data_added": len(diff["data"]["added"]),
         "data_removed": len(diff["data"]["removed"]),
@@ -182,6 +210,11 @@ def diff_note(summary: dict[str, Any]) -> str:
     )
     if summary["restated"]:
         note += f"; {len(summary['restated'])} restated prototype(s) already live and unchanged ({', '.join(summary['restated'])})"
+    if summary.get("split_targets"):
+        note += (
+            "; Ghidra-split thunk target(s) inside a prototyped thunk's ELF function share its signature ("
+            + ", ".join(summary["split_targets"]) + ")"
+        )
     if summary["thunks"]:
         note += f"; thunk(s) outside the scope now show their prototyped target's signature ({', '.join(summary['thunks'])})"
     return note
