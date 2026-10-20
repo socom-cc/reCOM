@@ -155,3 +155,13 @@ def test_v0_is_traced_through_callees_that_leave_it(ctx) -> None:
     # SetMultiplier writes v0 on some paths only: both values reach CopyValues' exit.
     row = return_sources(ctx, 0x1E1D20)[0]
     assert "lbu v0,35(a1)@0x1e1d88" in row and "ret(SetMultiplier__10CZBodyAnimFb@0x1e1bf0)" in row
+
+
+def test_tail_call_exits_show_values_the_callee_leaves(ctx) -> None:
+    from tools._socom.recon_facts import return_sources
+
+    # CAiPathStats::reset tail-calls a clear() that never writes v0 or f0.
+    assert return_sources(ctx, 0x1968E0) == [
+        "tail j@0x196904 -> clear__Q23std58__vector_deleter<9CAiMapLoc,Q23std21allocator<9CAiMapLoc>>Fv@0x188e40: "
+        "v0<-entry; f0<-entry"
+    ]

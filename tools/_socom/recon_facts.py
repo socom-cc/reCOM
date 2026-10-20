@@ -577,7 +577,16 @@ def return_sources(ctx: _Context, start: int) -> list[str]:
         elif insn >> 26 == 0x02:
             target = ((pc + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2)
             if not (start <= target < flow.end):
-                rows.append(f"tail j@0x{pc:x} -> {ctx.label(target)}")
+                text = f"tail j@0x{pc:x} -> {ctx.label(target)}"
+                parts = []
+                for register, fpr, name in ((2, False, "v0"), (0, True, "f0")):
+                    how = callee_preserves(ctx, target, register, fpr)
+                    if how == "none":
+                        continue
+                    before = _through_calls(ctx, flow, flow.after(pc + 4, register, fpr), register, fpr)
+                    shown = sorted(_describe_def(ctx, flow, d) for d in before)
+                    parts.append(f"{name}<-{'ret(' + ctx.label(target) + ') | ' if how == 'some' else ''}{' | '.join(shown)}")
+                rows.append(text + (": " + "; ".join(parts) if parts else ""))
         elif insn >> 26 == 0x00 and insn & 0x3F == 0x08:
             # jr <reg> other than ra: an indirect tail call, or a switch when the
             # function's own jump-table targets follow it.

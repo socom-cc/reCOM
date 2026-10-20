@@ -192,7 +192,7 @@ the function's address or stores it in a table. A caller that returns the
 value to its own callers passes the question on: its call sites must leave
 `v0` unread in turn, and nothing may take its address (followed six levels
 deep). `recon facts` follows `v0` through callees that leave
-it untouched, so a leftover that is really the function's own value shows
+it untouched (also at tail-call exits, rules version 5), so a leftover that is really the function's own value shows
 as such. Any other leftover keeps the return unresolved: a copy,
 arithmetic, or a constant.
 

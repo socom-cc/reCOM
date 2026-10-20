@@ -46,7 +46,7 @@ from .recon import RECON_PLAN_KIND, RECON_SCHEMA, group_evidence
 from .recon_facts import GPR, _use_after_call, argument_reads, call_sites, context, return_sources
 from .util import SocomError, canonical_json
 
-DRAFT_RULES_VERSION = 4
+DRAFT_RULES_VERSION = 5
 
 
 class _TypeIndex:
@@ -149,6 +149,11 @@ def _exits_pass_through(ctx: Any, start: int) -> tuple[bool, list[str]]:
     good = bool(rows)
     for row in rows:
         if row.startswith("tail j@"):
+            # The callee's result, unless it may leave v0/f0 alone: then the
+            # values before the jump reach the caller too (listed after ':').
+            if ": " in row:
+                for part in row.split(": ", 1)[1].split("; "):
+                    good = good and ok(part.split("<-", 1)[1])
             continue
         if not row.startswith("jr ra@") or "v0<-" not in row:
             return False, rows
