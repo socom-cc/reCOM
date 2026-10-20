@@ -13,12 +13,13 @@ WITH statement and opens the database read-only.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from contextlib import closing
 from pathlib import Path
 from typing import Any
 
-from .util import SocomError, load_json, sha256_file
+from .util import _replace, SocomError, load_json, sha256_file
 
 CACHE_RELATIVE = Path("build") / "cache" / "progress.sqlite"
 SCHEMA = """
@@ -72,7 +73,8 @@ def _build(root: Path, path: Path, hashes: dict[str, str]) -> None:
     census = load_json(sources["census"]) if sources["census"].is_file() else {}
     issues = load_json(sources["issues"]) if sources["issues"].is_file() else {}
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".tmp")
+    # One temporary file per process: concurrent rebuilds do not collide.
+    temporary = path.with_name(f"{path.stem}.{os.getpid()}.tmp")
     temporary.unlink(missing_ok=True)
     with closing(sqlite3.connect(temporary)) as connection:
         connection.executescript(SCHEMA)
@@ -115,7 +117,14 @@ def _build(root: Path, path: Path, hashes: dict[str, str]) -> None:
             ],
         )
         connection.commit()
-    temporary.replace(path)
+    try:
+        _replace(temporary, path)
+    except PermissionError:
+        # A reader holds the old file open; another process may already have
+        # installed an equal rebuild.
+        temporary.unlink(missing_ok=True)
+        if not _fresh(path, hashes):
+            raise
 
 
 def ensure_cache(root: Path) -> Path:
