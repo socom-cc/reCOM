@@ -819,8 +819,18 @@
       "resolution": null,
       "status": "open",
       "summary": "The only size_t in the program is Ghidra's 8-byte /stddef.h/size_t; the EE size_t is 32-bit"
+    },
+    {
+      "details": "Accepted plans typed _sceIDC void although its exit leaves slti v0,a2,4096 in v0; iInvalidDCache's void rests on it (reviewer socom-reviewer-r87, group 97 review). RECONSTRUCTION.md 'Return width' (commit c681e69) now allows void only with no v0 at exit or a lui v0 used solely as a load/store base. A cleanup item should re-check accepted void prototypes against that rule (recon facts exit lines) and route corrections through a governed repair.",
+      "id": "socom:workspace-issue:a6cc247240c710e05bee",
+      "kind": "problem",
+      "reported_at": "2026-10-20T01:49:07Z",
+      "reported_by": "socom-controller",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage 3: void typed before the void rule was settled (_sceIDC, iInvalidDCache)"
     }
   ],
-  "revision": 95,
+  "revision": 96,
   "schema_version": 1
 }
