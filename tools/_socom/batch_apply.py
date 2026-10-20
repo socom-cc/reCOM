@@ -1067,6 +1067,7 @@ def execute_batch_program(
         raise SocomError("not a schema 1 batch apply program")
     steps: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
+    unchanged: list[dict[str, Any]] = []
 
     def post(endpoint: str, ok: Callable[[Any], bool], **body: Any) -> Any:
         if dry_run:
@@ -1133,13 +1134,27 @@ def execute_batch_program(
     for entry in program["functions"]:
         address = entry["address"]
         live_name = existing.get(address)
-        if live_name != entry["current_name"]:
-            raise SocomError(f"function at {address} is {live_name!r}, expected {entry['current_name']!r}")
         name = entry["current_name"]
+        if live_name != entry["current_name"]:
+            # The readable-names repair renames a function to the readable form
+            # of its recorded mangled name; plans written before it still name
+            # the mangled form.  Only that exact derivation is equivalent.
+            if live_name is not None and live_name == readable_function_name(entry["current_name"], None):
+                name = live_name
+            else:
+                raise SocomError(f"function at {address} is {live_name!r}, expected {entry['current_name']!r}")
         if entry.get("rename_skip"):
             skipped.append({"address": address, "action": "rename", "reason": entry["rename_skip"]})
-        if entry["rename"]:
-            clash = [other for other, value in existing.items() if value == entry["readable_name"] and other != address]
+        if entry["rename"] and name == entry["readable_name"]:
+            unchanged.append({"address": address, "action": "rename", "name": name})
+        elif entry["rename"]:
+            # A program may allow overloads to share a readable name (each keeps
+            # its distinct mangled label); otherwise a name in use elsewhere is skipped.
+            clash = (
+                []
+                if program.get("shared_names")
+                else [other for other, value in existing.items() if value == entry["readable_name"] and other != address]
+            )
             if clash:
                 skipped.append({"address": address, "action": "rename", "reason": f"name already used at {clash[0]}"})
             else:
@@ -1179,7 +1194,6 @@ def execute_batch_program(
 
     log(f"globals: {len(program['globals'])}")
     applied_globals = []
-    unchanged: list[dict[str, Any]] = []
     # Names in use, by address ("0x..."), including this run's function renames.
     taken = global_names()
     for function_address, function_name in existing.items():

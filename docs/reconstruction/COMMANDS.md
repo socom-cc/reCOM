@@ -28,6 +28,8 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py ghidra apply-recon` | ghidra | yes | required | yes | Apply a reviewed reconstruction group program under the item's writer lease and verify it. |
 | `python tools/socom.py ghidra restore-accepted` | ghidra | yes | required | yes | Replay accepted Ghidra applies on a fresh baseline import and prove their receipts reproduce. |
 | `python tools/socom.py ghidra repair-labels` | ghidra | yes | required | yes | Delete the readable labels a recorded label repair names, under the repair item's writer lease. |
+| `python tools/socom.py ghidra check-names-repair` | ghidra | yes | required | no | Run the names repair verifier's checklist read-only and print evidence lines. |
+| `python tools/socom.py ghidra repair-names` | ghidra | yes | required | yes | Give mangled functions their readable names (names repair), with --dry-run, under the writer lease. |
 | `python tools/socom.py ghidra repair-signatures` | ghidra | yes | required | yes | Restore function signatures a recorded repair names, under the repair item's writer lease. |
 | `python tools/socom.py ghidra map-zero-fill` | ghidra | yes | required | yes | Map the ELF load image's zero fill in Ghidra under the item's writer lease. |
 | `python tools/socom.py ghidra apply-types` | ghidra | yes | required | yes | Apply a translated type program under the item's writer lease and verify it. |

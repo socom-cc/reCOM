@@ -61,7 +61,7 @@ def _repair_item(item_id: str) -> dict[str, Any]:
     spec = REPAIRS[item_id]
     return {
         "id": item_id,
-        "stage": "debug-metadata-import",
+        "stage": spec.get("stage", "debug-metadata-import"),
         "kind": "ghidra-repair",
         "title": spec["title"],
         "status": "blocked",
@@ -88,8 +88,17 @@ def add_repair_item(tracker: dict[str, Any], item_id: str) -> None:
     for dependency in spec["dependencies"]:
         if by_id.get(dependency, {}).get("status") != "accepted":
             raise SocomError(f"{item_id} repairs {dependency}, which is not accepted")
-    index = max(position for position, row in enumerate(items) if row.get("id") in spec["dependencies"])
-    items.insert(index + 1, _repair_item(item_id))
+    positions = [position for position, row in enumerate(items) if row.get("id") in spec["dependencies"]]
+    if positions:
+        items.insert(max(positions) + 1, _repair_item(item_id))
+    else:
+        items.append(_repair_item(item_id))
+    if spec.get("stage") == RECON_STAGE:
+        # A stage 3 repair is part of the stage: its gate waits for it too.
+        gate = by_id.get(RECON_SEED_ID)
+        if gate is None or gate.get("kind") != "stage-gate":
+            raise SocomError(f"{item_id} needs the decomposed {RECON_STAGE} gate")
+        gate["dependencies"] = list(gate.get("dependencies", [])) + [item_id]
 
 
 def _utc_now() -> dt.datetime:
@@ -686,7 +695,10 @@ def audit_tracker(
             if recon_plans or seed_dependencies != {item["id"] for item in apply_items}:
                 errors.append("Ghidra reconstruction seed does not depend on all debug apply items")
         elif reconstruction_seed.get("kind") == "stage-gate":
-            if not recon_applies or seed_dependencies != {item["id"] for item in recon_applies}:
+            stage_repairs = {
+                item["id"] for item in items if item.get("kind") == "ghidra-repair" and item.get("stage") == RECON_STAGE
+            }
+            if not recon_applies or seed_dependencies != {item["id"] for item in recon_applies} | stage_repairs:
                 errors.append("Ghidra reconstruction gate does not depend on all reconstruction apply items")
         else:
             errors.append(f"{RECON_SEED_ID} has unexpected kind {reconstruction_seed.get('kind')!r}")
@@ -1652,7 +1664,9 @@ def work_packet(
         command = (
             "map-zero-fill"
             if kind == "ghidra-memory-map"
-            else "repair-labels" if REPAIRS.get(item_id, {}).get("kind") == "labels" else "repair-signatures"
+            else {"labels": "repair-labels", "names": "repair-names"}.get(
+                REPAIRS.get(item_id, {}).get("kind"), "repair-signatures"
+            )
         )
         validation = [
             "python tools/socom.py ghidra preflight --strict",

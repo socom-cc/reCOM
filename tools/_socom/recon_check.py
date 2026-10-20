@@ -303,3 +303,161 @@ def check_recon_apply(
         "checks": checks,
         "evidence": [f"check-recon-apply {row['name']}: {row['detail']}" for row in checks],
     }
+
+
+# -- the readable-names repair -----------------------------------------------
+
+
+def explain_names_diff(
+    root: Path, diff: dict[str, Any], program: dict[str, Any], result: dict[str, Any]
+) -> tuple[list[str], dict[str, Any]]:
+    """(problems, summary) for the readable-names repair's fingerprint diff.
+
+    Every changed function must be a planned rename (or a thunk whose renamed
+    target it mirrors) whose only changes are its name in the Function and
+    Signature lines; nothing else in the program may change.
+    """
+
+    unchanged = {int(row["address"], 16) for row in result.get("unchanged", []) if row.get("action") == "rename"}
+    planned = {int(row["address"], 16): row for row in program["functions"]}
+    renamed = {a: row for a, row in planned.items() if a not in unchanged}
+    elf = Elf32File(root / "support" / "socom.elf")
+    sizes = {row["start"]: row["size"] for row in _functions(elf)}
+    problems: list[str] = []
+    mirrored = []
+    for r in diff["functions"]:
+        address = int(r["address"], 16)
+        before_name, after_name = r["before"]["name"], r["after"]["name"]
+        if address in renamed:
+            want = renamed[address]["readable_name"]
+            if after_name != want or before_name != renamed[address]["current_name"]:
+                problems.append(f"{r['address']}: {before_name!r} -> {after_name!r}, planned -> {want!r}")
+        else:
+            target = _thunk_target(elf, address, sizes.get(address))
+            if not (r["before"]["thunk"] and r["after"]["thunk"] and target in renamed):
+                problems.append(f"{r['address']}: changed but neither renamed nor a thunk of a renamed function")
+                continue
+            mirrored.append(f"0x{address:x}")
+        expected = [line.replace(before_name, after_name, 1) if line.startswith(("Function:", "Signature:")) else line
+                    for line in r["before"]["details"]]
+        if expected != r["after"]["details"] or r["before"]["thunk"] != r["after"]["thunk"]:
+            problems.append(f"{r['address']}: more than the name changed")
+    changed = {int(r["address"], 16) for r in diff["functions"]}
+    missing = sorted(set(renamed) - changed)
+    if missing:
+        problems.append(f"{len(missing)} planned renames show no change, e.g. {[hex(a) for a in missing[:5]]}")
+    if diff["data"]["added"] or diff["data"]["removed"] or diff["types"]["added"] or diff["types"]["removed"]:
+        problems.append("data or types changed")
+    if diff["references"]["added"] or diff["references"]["removed"] or not diff["blocks_equal"] or not diff["bookmarks_equal"]:
+        problems.append("references, blocks or bookmarks changed")
+    summary = {
+        "renamed": len(renamed),
+        "already_readable": len(unchanged),
+        "mirrored_thunks": mirrored,
+        "changed_rows": len(diff["functions"]),
+    }
+    return problems, summary
+
+
+def names_note(summary: dict[str, Any]) -> str:
+    return (
+        f"{summary['renamed']} functions renamed to their readable names ({summary['already_readable']} already readable, "
+        f"unchanged); {len(summary['mirrored_thunks'])} thunks now show their renamed target's name; only Function and "
+        "Signature names changed; data, types, references, blocks and bookmarks unchanged"
+    )
+
+
+def check_names_repair(
+    root: Path,
+    label: str,
+    prev: str,
+    *,
+    fingerprint_output: Path,
+    bridge_url: str | None = None,
+    log: Callable[[str], None] = lambda _message: None,
+) -> dict[str, Any]:
+    """The verifier's checklist for the readable-names repair; read-only against Ghidra."""
+
+    from .constants import tracker_path
+    from .fingerprint import compare_fingerprints, program_fingerprint
+    from .ghidra import live_preflight, load_receipt_scope, semantic_receipt
+    from .readable_names import READABLE_NAMES_REPAIR_ID, readable_names_program
+    from .tracker import audit_tracker, load_tracker
+    from .util import atomic_write_json
+
+    slug = READABLE_NAMES_REPAIR_ID.replace(":", "-")
+    paths = {
+        "report": root / f"build/apply/{slug}-report.json",
+        "dryrun": root / f"build/apply/{slug}-dryrun.json",
+        "scope": root / f"build/receipts/{slug}-scope.json",
+        "before": root / f"build/fingerprints/{label}-before.json",
+        "after": root / f"build/fingerprints/{label}-after.json",
+        "diff": root / f"build/fingerprints/{label}-diff.json",
+        "prev_after": root / f"build/fingerprints/{prev}-after.json",
+    }
+    for key, path in paths.items():
+        if not path.is_file():
+            raise SocomError(f"missing {key}: {path.relative_to(root).as_posix()}")
+    checks: list[dict[str, Any]] = []
+
+    def check(name: str, ok: bool, detail: str) -> None:
+        checks.append({"name": name, "ok": bool(ok), "detail": detail})
+        log(f"{'ok ' if ok else 'FAIL'} {name}: {detail}")
+
+    tracker = load_tracker(tracker_path(root))
+    item = next((row for row in tracker["work_items"] if row["id"] == READABLE_NAMES_REPAIR_ID), None)
+    if item is None:
+        raise SocomError(f"{READABLE_NAMES_REPAIR_ID} is not in the tracker")
+    check("status", item["status"] == "awaiting_acceptance", f"item {item['status']}")
+    handoff_receipt = next(
+        (m.group(1) for e in item.get("evidence", []) for m in [re.search(r"ghidra-receipt-sha256:\s*([0-9a-f]{64})", e)] if m),
+        None,
+    )
+    report, dryrun = load_json(paths["report"]), load_json(paths["dryrun"])
+    program = readable_names_program(root)
+    stored = load_json(root / report["program"])
+    check("program", canonical_json(program) == canonical_json(stored) and report.get("program_sha256") == program["program_sha256"],
+          f"program {program['program_sha256']} regenerates {'identically' if canonical_json(program) == canonical_json(stored) else 'DIFFERENTLY'} from the ELF")
+    scope = load_json(paths["scope"])
+    check("scope", scope == program["receipt_scope"], f"stored scope ({len(scope['functions'])} functions) {'equals' if scope == program['receipt_scope'] else 'DIFFERS from'} the program's")
+    preflight = live_preflight(root, bridge_url=bridge_url, strict_baseline=False)
+    check("preflight", preflight["ok"], "live preflight ok" if preflight["ok"] else f"errors: {preflight['errors']}")
+    receipt = semantic_receipt(root, bridge_url=bridge_url, scope=load_receipt_scope(paths["scope"]))
+    check("receipt", handoff_receipt is not None and receipt["receipt_sha256"] == handoff_receipt,
+          f"receipt {receipt['receipt_sha256']} vs handoff {handoff_receipt}")
+    log("fingerprint (several minutes)")
+    fingerprint = program_fingerprint(root, bridge_url=bridge_url, log=log)
+    atomic_write_json(fingerprint_output, fingerprint)
+    now_vs_after = compare_fingerprints(load_json(paths["after"]), fingerprint)
+    check("fingerprint", now_vs_after["identical"], f"verifier fingerprint {fingerprint['fingerprint_sha256']} {'identical to' if now_vs_after['identical'] else 'DIFFERS from'} {label}-after")
+    before = load_json(paths["before"])
+    chain = compare_fingerprints(load_json(paths["prev_after"]), before)
+    check("chain", chain["identical"], f"{label}-before {'identical to' if chain['identical'] else 'DIFFERS from'} {prev}-after")
+    recomputed = compare_fingerprints(before, load_json(paths["after"]))
+    check("diff", canonical_json(recomputed) == canonical_json(load_json(paths["diff"])), "recomputed diff equals the stored diff")
+    result = report.get("result") or {}
+    problems, summary = explain_names_diff(root, recomputed, program, result)
+    check("explain", not problems, names_note(summary) if not problems else "; ".join(problems[:6]))
+    live = {int(r["address"], 16): r["name"] for r in fingerprint["functions"]}
+    wrong = [row["address"] for row in program["functions"] if live.get(int(row["address"], 16)) != row["readable_name"]]
+    check("readback", not wrong, f"all {len(program['functions'])} planned functions show their readable names" if not wrong else f"{len(wrong)} differ, e.g. {wrong[:5]}")
+    planned_steps = (dryrun.get("result") or {}).get("bridge_call_count")
+    targets = {int(row["address"], 16) for row in program["functions"]}
+    outside = [
+        s for s in (dryrun.get("result") or {}).get("steps", [])
+        if int(str(s["body"].get("address") or s["body"].get("function_address")), 16) not in targets
+    ]
+    check("calls", report.get("ok") and result.get("bridge_call_count") == planned_steps and not outside,
+          f"{result.get('bridge_call_count')} bridge calls; dry run planned {planned_steps}; {len(outside)} outside the program")
+    errors = audit_tracker(tracker)
+    check("audit", not errors, f"strict tracker audit ok at revision {tracker['revision']}" if not errors else "; ".join(errors[:3]))
+    return {
+        "kind": "socom-names-repair-check",
+        "ok": all(row["ok"] for row in checks),
+        "mutation_performed": False,
+        "item": READABLE_NAMES_REPAIR_ID,
+        "revision": tracker["revision"],
+        "receipt_sha256": receipt["receipt_sha256"],
+        "checks": checks,
+        "evidence": [f"check-names-repair {row['name']}: {row['detail']}" for row in checks],
+    }

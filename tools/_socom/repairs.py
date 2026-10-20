@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from .batch_apply import _FUNCTION_LINE, _SIGNATURE_LINE
+from .readable_names import READABLE_NAMES_REPAIR_ID
 from .util import SocomError
 
 BATCH_001_APPLY_ID = "socom:debug-batch:cb1cc66c6e35fc967c25-apply"
@@ -32,6 +33,16 @@ COPY_NAMES_REPAIR_ID = "socom:work:ghidra-repair-file-local-copy-names"
 # restores `undefined __stdcall NAME(void)`: no return type or parameters,
 # with the compiler spec's default convention every applied function uses.
 REPAIRS: dict[str, dict[str, Any]] = {
+    # Stage 3: give the functions that still carry Metrowerks mangled names
+    # the readable names stage 2 gave DWARF functions (user decision
+    # 2026-10-19: overloads share their readable name). The program is
+    # computed from the ELF by readable_names.readable_names_program.
+    READABLE_NAMES_REPAIR_ID: {
+        "kind": "names",
+        "stage": "ghidra-reconstruction",
+        "title": "Give functions with mangled names their readable qualified names",
+        "dependencies": [],
+    },
     THUNK_REPAIR_ID: {
         "kind": "signatures",
         "title": "Restore the CGame signatures batch 001 changed through COurGame thunks",

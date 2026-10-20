@@ -1008,6 +1008,102 @@ def _ghidra_repair(arguments: argparse.Namespace, kind: str, run: Callable[..., 
     return 0
 
 
+def _ghidra_check_names_repair(arguments: argparse.Namespace) -> int:
+    from .recon_check import check_names_repair
+
+    root = _root(arguments)
+    result = check_names_repair(
+        root,
+        arguments.label,
+        arguments.prev,
+        fingerprint_output=_build_path(root, arguments.fingerprint_output, "fingerprints"),
+        bridge_url=arguments.bridge_url,
+        log=lambda message: print(message, file=sys.stderr, flush=True),
+    )
+    if arguments.output:
+        atomic_write_json(_build_path(root, arguments.output, "repair checks"), result)
+    _emit(result)
+    return 0 if result["ok"] else 1
+
+
+def _ghidra_repair_names(arguments: argparse.Namespace) -> int:
+    """Rename mangled functions to their readable names (REPAIRS kind "names")."""
+
+    from .readable_names import readable_names_program
+
+    root = _root(arguments)
+    scope_output = _build_path(root, arguments.scope_output, "receipt scopes")
+    report_output = _build_path(root, arguments.report_output, "repair reports")
+    tracker = load_tracker(tracker_path(root))
+    item = require_ghidra_lease(tracker, arguments.item, arguments.owner)
+    if item.get("kind") != "ghidra-repair" or REPAIRS.get(arguments.item, {}).get("kind") != "names":
+        raise SocomError(f"{arguments.item} is not a names repair")
+    preflight = live_preflight(root, bridge_url=arguments.bridge_url, strict_baseline=False)
+    if not preflight["ok"]:
+        _emit({"ok": False, "preflight": preflight})
+        return 1
+    program = readable_names_program(root)
+    program_path = report_output.with_name(report_output.stem + "-program.json")
+    atomic_write_json(program_path, program)
+    bridge = GhidraBridge(arguments.bridge_url, timeout=300.0)
+    try:
+        result = execute_batch_program(
+            program,
+            _ReadOnlyBridge(bridge) if arguments.dry_run else bridge,
+            type_index=lambda: _type_index(bridge),
+            function_names=lambda: {
+                f"0x{int(row['address'], 16):x}": row["name"]
+                for row in _function_index(bridge)
+                if "::" not in row["address"]
+            },
+            log=lambda message: print(message, file=sys.stderr, flush=True),
+            dry_run=arguments.dry_run,
+        )
+    except (BatchFailure, SocomError) as failure:
+        report = {
+            "kind": "socom-ghidra-repair-report",
+            "schema_version": 1,
+            "ok": False,
+            "dry_run": arguments.dry_run,
+            "work_item_id": arguments.item,
+            "error": str(failure),
+            "recovery": "a dry run wrote nothing; after a real run close socom.elf without saving and reopen it",
+        }
+        atomic_write_json(report_output, report)
+        _emit(report)
+        return 1
+    if not arguments.dry_run:
+        atomic_write_json(scope_output, program["receipt_scope"])
+    report = {
+        "kind": "socom-ghidra-repair-report",
+        "schema_version": 1,
+        "ok": True,
+        "dry_run": arguments.dry_run,
+        "work_item_id": arguments.item,
+        "owner": arguments.owner,
+        "program": program_path.relative_to(root).as_posix(),
+        "program_sha256": program["program_sha256"],
+        "summary": program["summary"],
+        "result": result,
+        "scope_output": None if arguments.dry_run else scope_output.relative_to(root).as_posix(),
+    }
+    atomic_write_json(report_output, report)
+    _emit(
+        {
+            key: value
+            for key, value in report.items()
+            if key not in ("result", "summary")
+        }
+        | {
+            "bridge_call_count": result["bridge_call_count"],
+            "unchanged": len(result.get("unchanged", [])),
+            "skipped": len(result.get("skipped", [])),
+            "renamed_planned": program["summary"]["function_count"],
+        }
+    )
+    return 0
+
+
 def _ghidra_repair_signatures(arguments: argparse.Namespace) -> int:
     return _ghidra_repair(arguments, "signatures", repair_signatures)
 
@@ -2477,6 +2573,21 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
         mutates_ghidra=True,
     ),
     _spec(
+        "ghidra check-names-repair",
+        "ghidra",
+        "Run the names repair verifier's checklist read-only and print evidence lines.",
+        mutates=True,
+        ghidra_requirement="required",
+    ),
+    _spec(
+        "ghidra repair-names",
+        "ghidra",
+        "Give mangled functions their readable names (names repair), with --dry-run, under the writer lease.",
+        mutates=True,
+        ghidra_requirement="required",
+        mutates_ghidra=True,
+    ),
+    _spec(
         "ghidra repair-signatures",
         "ghidra",
         "Restore function signatures a recorded repair names, under the repair item's writer lease.",
@@ -2837,6 +2948,21 @@ def build_parser() -> argparse.ArgumentParser:
     zero_fill.add_argument("--report-output", required=True)
     zero_fill.add_argument("--bridge-url")
     zero_fill.set_defaults(handler=_ghidra_map_zero_fill)
+    check_names = ghidra_commands.add_parser("check-names-repair")
+    check_names.add_argument("--label", required=True)
+    check_names.add_argument("--prev", required=True)
+    check_names.add_argument("--fingerprint-output", required=True)
+    check_names.add_argument("--output")
+    check_names.add_argument("--bridge-url")
+    check_names.set_defaults(handler=_ghidra_check_names_repair)
+    repair_names_parser = ghidra_commands.add_parser("repair-names")
+    repair_names_parser.add_argument("--item", required=True)
+    repair_names_parser.add_argument("--owner", required=True)
+    repair_names_parser.add_argument("--scope-output", required=True)
+    repair_names_parser.add_argument("--report-output", required=True)
+    repair_names_parser.add_argument("--dry-run", action="store_true")
+    repair_names_parser.add_argument("--bridge-url")
+    repair_names_parser.set_defaults(handler=_ghidra_repair_names)
     repair = ghidra_commands.add_parser("repair-signatures")
     repair.add_argument("--item", required=True)
     repair.add_argument("--owner", required=True)

@@ -191,6 +191,28 @@ calls an apply would make. The receipt scope is every group function and every
 planned global. Hand off with `progress handoff-live-ghidra`; acceptance is
 `progress advance-live-ghidra` by someone else.
 
+## Repair item: readable function names
+
+`socom:work:ghidra-repair-readable-function-names` gives every function that
+still carries a Metrowerks mangled name the readable qualified name stage 2
+gives DWARF functions (`SetPosition__Q23zdb5CNodeFfff` becomes
+`zdb::CNode::SetPosition`), and keeps the mangled name as a label. The program
+is computed from the ELF alone (`ghidra repair-names`, with `--dry-run`):
+
+- overloads share their readable name (decision of 2026-10-19); each keeps its
+  distinct mangled label, and signatures tell them apart;
+- a mangled name on several addresses (file-local copies) and thunks are left
+  alone;
+- nothing but names changes. `ghidra check-names-repair` is the verifier's
+  read-only checklist: only Function and Signature names may differ from the
+  previous fingerprint.
+
+Plans written before the repair still name the mangled form in
+`current_name`. The executor accepts the live name only when it equals that
+name's exact readable form.
+
+The stage gate depends on stage 3 repairs as well as every apply.
+
 ## Stage gate
 
 Role `socom-verifier`, once every apply is accepted. The reviewer writes the

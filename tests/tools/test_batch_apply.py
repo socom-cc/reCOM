@@ -732,3 +732,47 @@ def test_data_alias_problem_covers_the_bridge_well_known_table() -> None:
     # The builtins batch programs mean resolve to themselves; project types are untouched.
     for name in ("int", "uint", "char *", "uchar", "ushort[2]", "float[180]", "double", "void *", "longlong", "ulonglong", "CSTable", "PNT2D"):
         assert batch_apply._data_alias_problem(name) is None, name
+
+
+def test_shared_readable_names_and_the_readable_equivalence() -> None:
+    def entry(address: str, current: str, readable: str, rename: bool = True) -> dict:
+        return {"address": address, "current_name": current, "readable_name": readable, "rename": rename,
+                "prototype": None, "prototype_skip": None, "notes": []}
+
+    program = {
+        "kind": batch_apply.BATCH_PROGRAM_KIND, "schema_version": batch_apply.BATCH_PROGRAM_SCHEMA,
+        "shared_names": True, "globals": [], "absent_variables": [],
+        "functions": [
+            entry("0x1", "SetScale__Q23zdb5CNodeFf", "zdb::CNode::SetScale"),
+            entry("0x2", "SetScale__Q23zdb5CNodeFP6CPnt3D", "zdb::CNode::SetScale"),
+            entry("0x3", "GetScale__Q23zdb5CNodeFv", "zdb::CNode::GetScale"),
+        ],
+    }
+    names = {"0x1": "SetScale__Q23zdb5CNodeFf", "0x2": "SetScale__Q23zdb5CNodeFP6CPnt3D", "0x3": "zdb::CNode::GetScale"}
+    bridge = _FakeBridge(program, names)
+    result = batch_apply.execute_batch_program(program, bridge, type_index=lambda: [], function_names=lambda: dict(names))
+    # Both overloads take the shared name; the already-readable one is unchanged.
+    assert bridge.functions["0x1"] == bridge.functions["0x2"] == "zdb::CNode::SetScale"
+    assert result["unchanged"] == [{"address": "0x3", "action": "rename", "name": "zdb::CNode::GetScale"}]
+    labels = sorted(body["name"] for endpoint, body in bridge.calls if endpoint == "create_label")
+    assert labels == ["SetScale__Q23zdb5CNodeFP6CPnt3D", "SetScale__Q23zdb5CNodeFf"]
+    # A plan written before the rename still names the mangled form: only its
+    # exact readable form is accepted as the same function.
+    later = {**program, "shared_names": False, "functions": [entry("0x3", "GetScale__Q23zdb5CNodeFv", "GetScale__Q23zdb5CNodeFv", rename=False)]}
+    batch_apply.execute_batch_program(later, _FakeBridge(later, names), type_index=lambda: [], function_names=lambda: dict(names))
+    with pytest.raises(SocomError, match="expected"):
+        batch_apply.execute_batch_program(
+            later, _FakeBridge(later, {"0x3": "Something::Else"}), type_index=lambda: [],
+            function_names=lambda: {"0x3": "Something::Else"},
+        )
+
+
+def test_readable_names_program_is_deterministic(root: Path) -> None:
+    from tools._socom.readable_names import readable_names_program
+
+    first, second = readable_names_program(root), readable_names_program(root)
+    assert first == second and first["shared_names"] is True
+    rows = {row["address"]: row for row in first["functions"]}
+    assert rows["0x227200"]["readable_name"] == "zdb::CNode::SetPosition"
+    assert "0x140500" not in rows  # thunk of CGame::StopPlay
+    assert "0x2241e0" in first["summary"]["file_local_copies_skipped"]
