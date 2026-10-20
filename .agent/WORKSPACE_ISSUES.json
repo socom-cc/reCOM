@@ -829,8 +829,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Stage 3: void typed before the void rule was settled (_sceIDC, iInvalidDCache)"
+    },
+    {
+      "details": "Accepted plans type void where f0 holds a scratch constant at exit (sceVu0DropShadowMatrix; group 95: sceVu0RotMatrixX/Y/Z, sceVu0NormalLightMatrix with pi/2 or 0.0 in f0). RECONSTRUCTION.md 'Return width' (rules v5) keeps copies/arithmetic/constants in v0 or f0 unresolved; the user's 2026-10-20 decision allowed only callee-result pass-through. Audit together with the earlier void-residue issue (_sceIDC): either correct these through a governed repair or ask the user to extend the rule to dead scratch values in f0.",
+      "id": "socom:workspace-issue:8ea11e5d37b3c309baf2",
+      "kind": "problem",
+      "reported_at": "2026-10-20T22:20:50Z",
+      "reported_by": "socom-controller",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage 3: accepted void prototypes with a scratch constant left in f0"
     }
   ],
-  "revision": 96,
+  "revision": 97,
   "schema_version": 1
 }
