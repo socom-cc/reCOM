@@ -346,8 +346,25 @@ def explain_names_diff(
     missing = sorted(set(renamed) - changed)
     if missing:
         problems.append(f"{len(missing)} planned renames show no change, e.g. {[hex(a) for a in missing[:5]]}")
-    if diff["data"]["added"] or diff["data"]["removed"] or diff["types"]["added"] or diff["types"]["removed"]:
-        problems.append("data or types changed")
+    # Ghidra names an undefined pointer word after its target (PTR_<target>_<addr>);
+    # renaming the target renames the label.  Only exact pairs are derived.
+    old_to_new = {row["current_name"]: row["readable_name"] for row in renamed.values()}
+    added = {(row["address"], row["size"], row["type"]): row["name"] for row in diff["data"]["added"]}
+    derived = []
+    leftover = []
+    for row in diff["data"]["removed"]:
+        key = (row["address"], row["size"], row["type"])
+        name, suffix = row["name"], f"_{row['address']}"
+        target = name[4:-len(suffix)] if name.startswith("PTR_") and name.endswith(suffix) else None
+        if target in old_to_new and added.get(key) == f"PTR_{old_to_new[target]}{suffix}":
+            derived.append(row["address"])
+            del added[key]
+        else:
+            leftover.append(row)
+    if leftover or added:
+        problems.append(f"data changed beyond derived PTR_ labels: {len(leftover)} removed, {len(added)} added")
+    if diff["types"]["added"] or diff["types"]["removed"]:
+        problems.append("types changed")
     if diff["references"]["added"] or diff["references"]["removed"] or not diff["blocks_equal"] or not diff["bookmarks_equal"]:
         problems.append("references, blocks or bookmarks changed")
     summary = {
@@ -355,6 +372,7 @@ def explain_names_diff(
         "already_readable": len(unchanged),
         "mirrored_thunks": mirrored,
         "changed_rows": len(diff["functions"]),
+        "derived_pointer_labels": derived,
     }
     return problems, summary
 
@@ -362,8 +380,9 @@ def explain_names_diff(
 def names_note(summary: dict[str, Any]) -> str:
     return (
         f"{summary['renamed']} functions renamed to their readable names ({summary['already_readable']} already readable, "
-        f"unchanged); {len(summary['mirrored_thunks'])} thunks now show their renamed target's name; only Function and "
-        "Signature names changed; data, types, references, blocks and bookmarks unchanged"
+        f"unchanged); {len(summary['mirrored_thunks'])} thunks now show their renamed target's name; "
+        f"{len(summary['derived_pointer_labels'])} derived PTR_ labels follow their renamed targets; only Function and "
+        "Signature names changed otherwise; types, references, blocks and bookmarks unchanged"
     )
 
 
