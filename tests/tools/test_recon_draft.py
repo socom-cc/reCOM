@@ -95,9 +95,14 @@ def test_scratch_value_in_f0_is_dead(ctx) -> None:
     assert _exits_pass_through(ctx, 0x30C6D0)[0]
 
 
-def test_void_verdict_names_the_blocking_reader(ctx) -> None:
+def test_void_verdict_names_the_blocking_chain(ctx) -> None:
     from tools._socom.recon_draft import void_verdict
 
     assert "VERDICT void" in void_verdict(ctx, 0x307920)
-    text = void_verdict(ctx, 0x1DC6A0)  # PushAnim: Climb reads it through BlendedClimb
-    assert "VERDICT open: v0 read at 0x2758b8 in Climb" in text and "BlendedClimb" in text
+    # PushAnim only tail-jumps to RTList::Add, which leaves v0 and f0 alone.
+    assert "VERDICT void" in void_verdict(ctx, 0x1DC6A0)
+    # _sceFsSigSema tail-jumps to the SignalSema syscall (v0 = kernel result); its
+    # callers never read v0, and f0 is not checked through sceOpen's v0.
+    assert "VERDICT void" in void_verdict(ctx, 0x15F260)
+    text = void_verdict(ctx, 0x227200)  # SetPosition: v0 reaches a stored callback
+    assert "VERDICT open" in text and "address is taken" in text

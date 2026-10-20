@@ -46,7 +46,7 @@ from .recon import RECON_PLAN_KIND, RECON_SCHEMA, group_evidence
 from .recon_facts import GPR, JR_RA, _reads_at, _through_calls, _use_after_call, argument_reads, call_sites, callee_preserves, context, return_sources
 from .util import SocomError, canonical_json
 
-DRAFT_RULES_VERSION = 6
+DRAFT_RULES_VERSION = 7
 
 
 class _TypeIndex:
@@ -191,34 +191,41 @@ def _exits_pass_through(ctx: Any, start: int) -> tuple[bool, list[str]]:
     return bool(rows), rows
 
 
-def _callers_ignore_v0(ctx: Any, start: int, depth: int = 0, seen: frozenset[int] = frozenset()) -> tuple[bool, int]:
+def _callers_ignore_v0(
+    ctx: Any, start: int, depth: int = 0, seen: frozenset[int] = frozenset(), registers: tuple | None = None
+) -> tuple[bool, int]:
     """No code ever reads the value this function leaves in v0 or f0.
 
-    Every direct call site leaves both unread on every path.  A caller that
-    returns the value (or tail-calls this function) passes the question on:
-    its own call sites must ignore it too, and nothing may take its address.
-    Chains are followed six deep; a cycle reads nothing new.
+    Every direct call site leaves the register unread on every path.  A caller
+    that returns it (or tail-calls this function) passes the question on for
+    that same register: its own call sites must leave it unread too, and
+    nothing may take its address.  Chains are followed six deep; a cycle reads
+    nothing new.
     """
 
     sites = call_sites(ctx, start)
     if depth > 6:
         return False, len(sites)
-    # Only a register this function can leave a value in matters: a caller
-    # reading f0 after calling a function that never writes f0 reads its own.
-    checked = [fpr for fpr, register in ((False, 2), (True, 0)) if callee_preserves(ctx, start, register, fpr) != "all"]
+    if registers is None:
+        # Only a register this function can leave a value in matters: a caller
+        # reading f0 after calling a function that never writes f0 reads its own.
+        registers = tuple(
+            (fpr, register) for fpr, register in ((False, 2), (True, 0))
+            if callee_preserves(ctx, start, register, fpr) != "all"
+        )
     for caller, site, kind in sites:
-        passes_on = kind == "tail"
-        if not passes_on:
-            for fpr in checked:
+        for fpr, register in registers:
+            passes_on = kind == "tail"
+            if not passes_on:
                 use = _use_after_call(ctx, caller, site, fpr=fpr)
                 if not use.startswith("unused:"):
                     return False, len(sites)
-                passes_on = passes_on or "returned by caller" in use
-        if passes_on and caller not in seen:
-            if ctx.addr_taken.get(caller) or ctx.word32.get(caller):
-                return False, len(sites)
-            if not _callers_ignore_v0(ctx, caller, depth + 1, seen | {start})[0]:
-                return False, len(sites)
+                passes_on = "returned by caller" in use
+            if passes_on and caller not in seen:
+                if ctx.addr_taken.get(caller) or ctx.word32.get(caller):
+                    return False, len(sites)
+                if not _callers_ignore_v0(ctx, caller, depth + 1, seen | {start}, ((fpr, register),))[0]:
+                    return False, len(sites)
     return True, len(sites)
 
 
@@ -480,34 +487,34 @@ def void_verdict(ctx: Any, start: int) -> str:
         lines.append("VERDICT open: the function's address is taken or stored in a table")
         return "\n".join(lines)
 
-    def walk(function: int, chain: list[str], depth: int, seen: frozenset[int]) -> str | None:
+    def walk(function: int, chain: list[str], depth: int, seen: frozenset[int], checked: list) -> str | None:
         if depth > 6:
             return "chain deeper than six levels: " + " -> ".join(chain)
-        checked = [
-            (fpr, name)
-            for fpr, register, name in ((False, 2, "v0"), (True, 0, "f0"))
-            if callee_preserves(ctx, function, register, fpr) != "all"
-        ]
         for caller, site, kind in call_sites(ctx, function):
-            passes_on = kind == "tail"
-            if not passes_on:
-                for fpr, name in checked:
+            for fpr, name in checked:
+                passes_on = kind == "tail"
+                if not passes_on:
                     use = _use_after_call(ctx, caller, site, fpr=fpr)
                     if not use.startswith("unused:"):
                         return f"{name} read at 0x{site:x} in {ctx.label(caller)}: {use[:120]} (chain: {' -> '.join(chain)})"
-                    passes_on = passes_on or "returned by caller" in use
-            if passes_on and caller not in seen:
-                if ctx.addr_taken.get(caller) or ctx.word32.get(caller):
-                    return (
-                        f"passed on by {ctx.label(caller)}, whose address is taken or stored in a table "
-                        f"(chain: {' -> '.join(chain + [ctx.label(caller)])})"
-                    )
-                found = walk(caller, chain + [ctx.label(caller)], depth + 1, seen | {function})
-                if found:
-                    return found
+                    passes_on = "returned by caller" in use
+                if passes_on and caller not in seen:
+                    if ctx.addr_taken.get(caller) or ctx.word32.get(caller):
+                        return (
+                            f"{name} passed on by {ctx.label(caller)}, whose address is taken or stored in a table "
+                            f"(chain: {' -> '.join(chain + [ctx.label(caller)])})"
+                        )
+                    found = walk(caller, chain + [ctx.label(caller)], depth + 1, seen | {function}, [(fpr, name)])
+                    if found:
+                        return found
         return None
 
-    blocker = walk(start, [label], 0, frozenset())
+    first = [
+        (fpr, name)
+        for fpr, register, name in ((False, 2, "v0"), (True, 0, "f0"))
+        if callee_preserves(ctx, start, register, fpr) != "all"
+    ]
+    blocker = walk(start, [label], 0, frozenset(), first)
     sites = len(call_sites(ctx, start))
     if blocker:
         lines.append(f"VERDICT open: {blocker}")

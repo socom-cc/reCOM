@@ -505,8 +505,23 @@ def callee_preserves(ctx: _Context, target: int, register: int, fpr: bool = Fals
                     kept = True
                 else:
                     written = True
-        elif insn >> 26 == 0x02 or (insn >> 26 == 0x00 and insn & 0x3F == 0x08 and (insn >> 21) & 31 != 31):
-            written = True  # tail jumps: the result is another function's
+        elif insn >> 26 == 0x02:
+            jump = ((pc + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2)
+            if target <= jump < flow.end:
+                continue  # a jump inside the function
+            # A tail call: the callee's result, or what reaches the jump where
+            # the callee leaves the register alone.
+            inner = callee_preserves(ctx, jump, register, fpr)
+            if inner in ("some", "none"):
+                written = True
+            if inner in ("all", "some"):
+                for d in _through_calls(ctx, flow, flow.after(pc + 4, register, fpr), register, fpr):
+                    if d == "entry":
+                        kept = True
+                    else:
+                        written = True
+        elif insn >> 26 == 0x00 and insn & 0x3F == 0x08 and (insn >> 21) & 31 != 31:
+            written = True  # indirect tail jump: unknown
     result = "all" if kept and not written else "some" if kept else "none"
     _PRESERVES[key] = result
     return result
