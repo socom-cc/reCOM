@@ -752,7 +752,12 @@ def function_facts(ctx: _Context, start: int, caller_limit: int = 24, evidence: 
         lines.append(text + " (the call number decides which the kernel reads)")
     exits = return_sources(ctx, start)
     lines.extend(f"exit {text}" for text in exits)
-    sets_f0 = any("f0<-" in text and "f0<-entry" not in text for text in exits)
+    # f0 matters at call sites when some exit can leave a value other than entry.
+    sets_f0 = any(
+        any(part.strip() != "entry" for part in text.split("f0<-", 1)[1].split("|"))
+        for text in exits
+        if "f0<-" in text
+    )
     slots = [f"{ctx.object_for(site) or f'0x{site:x}'}" for site in ctx.word32.get(start, ())]
     if slots:
         lines.append(f"word refs ({len(slots)}): " + ", ".join(slots[:40]) + (f" ... ({len(slots) - 40} more)" if len(slots) > 40 else ""))
