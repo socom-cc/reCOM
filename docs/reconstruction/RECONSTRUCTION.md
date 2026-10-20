@@ -117,13 +117,19 @@ row `"draft": "open"` for the planner:
   `jr ra` to leave v0 and f0 unset, no VU0 instructions, and no word refs or
   address-taken sites (so no override or callback contract applies). A
   method's receiver must be proven by a const method, or by a register read
-  beyond the parameters. A `__sinit_*` function qualifies with only its
-  `.p__sinit` word.
+  beyond the parameters.
+- A `__sinit_*` static initializer is `P-void` as `void (void)` whatever v0
+  holds at its exits. It must have no mangled name, no argument reads, no
+  direct call sites, only `jr ra` exits, and its `.p__sinit` table word as its
+  only reference. The runtime fixes the contract: `__initialize_cpp_rts`
+  calls each one through the `void (**)(void)` table and never reads v0, so a
+  `__register_global_object` result left in v0 is residue (rules version 3).
 
 Rows keep their `draft_rule`. Planners do not edit them.
 `recon draft --check <plan>` re-derives them and fails on any difference, or
 on a row claiming a rule the tools did not apply. Reviewers run it and then
-review only the open rows. Before adoption, the rules (version 2) reproduced
+review only the open rows. A row written by hand that the rules
+now decide must agree in substance: unresolved, or the same types. Before adoption, the rules (version 2) reproduced
 the decision of all 95 accepted plans for every row they decided: 868 of
 3031 functions, with no mismatch.
 

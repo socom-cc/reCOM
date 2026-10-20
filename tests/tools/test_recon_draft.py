@@ -55,3 +55,22 @@ def test_check_catches_an_edited_drafted_row(ctx) -> None:
     assert check_drafted_rows(draft, plan) == []
     plan["functions"][0]["prototype"]["parameters"][1]["type"] = "uint"
     assert check_drafted_rows(draft, plan) == ["0x226110: differs from its P-void draft"]
+
+
+def test_static_initializer_is_void_whatever_v0_holds(ctx) -> None:
+    # __sinit_zrdr_archive.cpp ends with v0 = __register_global_object's result,
+    # but the runtime calls it through the void (**)(void) .p__sinit table.
+    row = {"address": "0x46b9d0", "elf_names": ["__sinit_zrdr_archive.cpp"], "stage2": None, "thunk_target": None}
+    drafted = draft_function(ctx, row, "__sinit_zrdr_archive.cpp", _types())
+    assert drafted["draft_rule"] == "P-void"
+    assert drafted["prototype"]["parameters"] == [] and drafted["prototype"]["return_type"] == "void"
+
+
+def test_hand_written_rows_are_checked_in_substance(ctx) -> None:
+    row = {"address": "0x46b9d0", "elf_names": ["__sinit_zrdr_archive.cpp"], "stage2": None, "thunk_target": None}
+    drafted = draft_function(ctx, row, "__sinit_zrdr_archive.cpp", _types())
+    hand = {"address": "0x46b9d0", "current_name": "__sinit_zrdr_archive.cpp",
+            "prototype": {"return_type": "void", "parameters": [], "evidence": ["written before rules v3"]}}
+    assert check_drafted_rows({"functions": [drafted]}, {"functions": [hand]}) == []
+    hand["prototype"]["return_type"] = "int"
+    assert "disagrees" in check_drafted_rows({"functions": [drafted]}, {"functions": [hand]})[0]

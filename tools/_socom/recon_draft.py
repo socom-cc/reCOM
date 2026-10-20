@@ -21,8 +21,10 @@ P-void   a void prototype from the mangled signature, when every parameter
          takes the function's address or stores it in a table (so no override
          or callback contract applies), and a method's receiver is proven: a
          const method, or an argument register read beyond the declared
-         parameters that the receiver accounts for.  ``__sinit_*`` functions
-         qualify with their own .p__sinit table word.
+         parameters that the receiver accounts for.  ``__sinit_*`` static initializers
+         (no mangled name, no argument reads, no direct call sites, only their
+         .p__sinit table word, jr ra exits) are void(void) whatever v0 holds:
+         the runtime's table type fixes their contract.
 """
 
 from __future__ import annotations
@@ -41,10 +43,10 @@ from .batch_apply import (
 from .constants import REFERENCE_SHA256
 from .mwdemangle import demangle
 from .recon import RECON_PLAN_KIND, RECON_SCHEMA, group_evidence
-from .recon_facts import GPR, argument_reads, context, return_sources
+from .recon_facts import GPR, argument_reads, call_sites, context, return_sources
 from .util import SocomError, canonical_json
 
-DRAFT_RULES_VERSION = 2
+DRAFT_RULES_VERSION = 3
 
 
 class _TypeIndex:
@@ -218,11 +220,17 @@ def draft_function(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIn
     # P-void
     if _uses_vu0(ctx, address):
         return open_row
+    sinit = live_name.startswith("__sinit_") and not parsed
     unset, exits = _exits_unset(ctx, address)
+    if sinit:
+        # A static initializer's type is fixed by the runtime, not by its body:
+        # __initialize_cpp_rts calls each through the void (**)(void) .p__sinit
+        # table and never reads v0, so a callee result left in v0 is residue.
+        unset = bool(exits) and all(row.startswith("jr ra@") for row in exits) and not call_sites(ctx, address)
     if not unset:
         return open_row
     slots = [ctx.object_for(site) or f"0x{site:x}" for site in ctx.word32.get(address, ())]
-    if live_name.startswith("__sinit_"):
+    if sinit:
         if not slots or any(not str(slot).startswith(".p__sinit") for slot in slots):
             return open_row
         slots = []
@@ -261,7 +269,9 @@ def draft_function(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIn
         + f" gives parameters ({', '.join(rendered) or 'void'})",
         "argument registers read on any path: "
         + (", ".join(f"{r}@{_sites(s)}" for r, s in reads.items()) or "none") + "; all declared",
-        f"every exit leaves v0 and f0 unset ({len(exits)} jr ra)",
+        (f"every exit leaves v0 and f0 unset ({len(exits)} jr ra)" if not sinit else
+         f"static initializer: {len(exits)} jr ra, no direct call sites; the runtime calls it through the "
+         "void (**)(void) .p__sinit table (__initialize_cpp_rts) and never reads v0"),
         "no word refs or address-taken sites" if not live_name.startswith("__sinit_")
         else "referenced only by its own .p__sinit table word",
     ]
@@ -302,20 +312,38 @@ def draft_plan(root: Path, tracker: dict[str, Any], item_id: str, bridge_url: st
     }
 
 
+def _decision(row: dict[str, Any]) -> Any:
+    prototype = row.get("prototype")
+    if not prototype:
+        return "unresolved"
+    return (prototype.get("return_type"), tuple(p.get("type") for p in prototype.get("parameters") or []))
+
+
 def check_drafted_rows(draft: dict[str, Any], plan: dict[str, Any]) -> list[str]:
-    """Problems where a plan's drafted rows differ from a fresh draft."""
+    """Problems where a plan disagrees with a fresh draft.
+
+    A row carrying ``draft_rule`` must equal its draft exactly.  A hand-written
+    row that the rules now decide (rules gained a case after the plan was
+    written) must agree in substance: unresolved, or the same return and
+    parameter types; its evidence wording and parameter names may differ.
+    """
 
     fresh = {row["address"]: row for row in draft["functions"] if row.get("draft_rule")}
-    problems = []
     rows = {row.get("address"): row for row in plan.get("functions", [])}
+    problems = []
+    keys = ("current_name", "prototype", "unresolved", "draft_rule")
     for address, row in fresh.items():
         planned = rows.get(address)
         if planned is None:
             problems.append(f"{address}: drafted ({row['draft_rule']}) but missing from the plan")
-            continue
-        keys = ("current_name", "prototype", "unresolved", "draft_rule")
-        if any(canonical_json(planned.get(k)) != canonical_json(row.get(k)) for k in keys):
-            problems.append(f"{address}: differs from its {row['draft_rule']} draft")
+        elif planned.get("draft_rule"):
+            if any(canonical_json(planned.get(k)) != canonical_json(row.get(k)) for k in keys):
+                problems.append(f"{address}: differs from its {row['draft_rule']} draft")
+        elif _decision(planned) != _decision(row):
+            problems.append(
+                f"{address}: hand-written row disagrees with its {row['draft_rule']} draft "
+                f"({_decision(planned)} vs {_decision(row)})"
+            )
     for address, row in rows.items():
         if row.get("draft_rule") and address not in fresh:
             problems.append(f"{address}: claims {row['draft_rule']} but the rules leave it open")
