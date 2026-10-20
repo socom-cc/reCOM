@@ -97,6 +97,36 @@ The planner then reads live Ghidra (read-only) and writes the plan:
 }
 ```
 
+### Drafted rows
+
+`recon draft --item <plan-item> --output build/recon-plans/<slug>.json` starts
+the plan. It decides the rows that a fixed rule settles, and marks every other
+row `"draft": "open"` for the planner:
+
+- `U-type`: unresolved. A mangled parameter class, or the class of a receiver
+  proven by a const method or a constructor/destructor, is absent from the
+  live program, names several live types, or contains `,` or `&`. A type that
+  exists only as a provisional `NAME@hash` copy or in another case stays open.
+- `U-vararg`: unresolved. The mangled signature ends in `...`.
+- `P-stage2`: the stage 2 DWARF prototype is restated. This requires every
+  type to name one live type, every argument register read on any path to be
+  declared, no VU0 instructions, and, for `void`, every exit to leave v0 and
+  f0 unset.
+- `P-void`: a `void` prototype from the mangled signature. This requires
+  every parameter type to resolve, the read registers to be declared, every
+  `jr ra` to leave v0 and f0 unset, no VU0 instructions, and no word refs or
+  address-taken sites (so no override or callback contract applies). A
+  method's receiver must be proven by a const method, or by a register read
+  beyond the parameters. A `__sinit_*` function qualifies with only its
+  `.p__sinit` word.
+
+Rows keep their `draft_rule`. Planners do not edit them.
+`recon draft --check <plan>` re-derives them and fails on any difference, or
+on a row claiming a rule the tools did not apply. Reviewers run it and then
+review only the open rows. Before adoption, the rules (version 2) reproduced
+the decision of all 95 accepted plans for every row they decided: 868 of
+3031 functions, with no mismatch.
+
 ### Type spelling rules
 
 - Write fundamental types as the Ghidra builtins the DWARF import uses:
