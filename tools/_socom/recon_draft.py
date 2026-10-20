@@ -205,7 +205,7 @@ def draft_function(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIn
     stage2 = row.get("stage2") or {}
     stage2_prototype = stage2.get("prototype") if isinstance(stage2, dict) else None
     if row.get("thunk_target"):
-        return open_row
+        return {**open_row, "open_reason": 'thunk: Ghidra derives its signature from the target'}
     params = list((parsed or {}).get("params") or [])
     if params == [{"modifiers": [], "kind": "builtin", "name": "void"}]:
         params = []
@@ -219,7 +219,7 @@ def draft_function(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIn
     if stage2_prototype:
         spellings = [stage2_prototype["return_type"]] + [p["type"] for p in stage2_prototype["parameters"]]
         if _uses_vu0(ctx, address) or not all(types.spells(text) for text in spellings):
-            return open_row
+            return {**open_row, "open_reason": 'stage 2 prototype: VU0 instructions or a type name that is not exactly one live type'}
         gprs, fprs, reads = _read_registers(ctx, address)
         declared_g, declared_f = _declared_argument_registers(stage2_prototype)
         if gprs <= declared_g and fprs <= declared_f:
@@ -240,11 +240,11 @@ def draft_function(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIn
                         + ([f"every exit leaves v0 and f0 unset ({len(exits)} jr ra)"] if stage2_prototype["return_type"] == "void" else []),
                     },
                 }
-        return open_row
+        return {**open_row, "open_reason": 'stage 2 prototype: an argument register read is undeclared, or void with a value left in v0/f0'}
 
     if not parsed:
         if not live_name.startswith("__sinit_"):
-            return open_row
+            return {**open_row, "open_reason": 'no mangled signature and no stage 2 prototype'}
         params = []
 
     # U-type: parameter classes, then a proven receiver's class.
@@ -265,16 +265,16 @@ def draft_function(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIn
         receiver_type, reason = types.resolve(_class_name(qualifier))
         if receiver_type is None:
             if reason is None:
-                return open_row
+                return {**open_row, "open_reason": 'receiver class exists only as a NAME@hash copy or in another case'}
             problems.append(f"receiver: {reason}")
     if problems:
         return {**base, "prototype": None, "draft_rule": "U-type", "unresolved": problems}
     if planner or special:
-        return open_row
+        return {**open_row, "open_reason": 'a parameter needs a planner (function pointer, unknown modifier, NAME@hash or case-variant class) or a constructor/destructor'}
 
     # P-void
     if _uses_vu0(ctx, address):
-        return open_row
+        return {**open_row, "open_reason": 'VU0 instructions: register contracts need a planner'}
     sinit = live_name.startswith("__sinit_") and not parsed
     unset, exits = _exits_unset(ctx, address)
     pass_through = False
@@ -289,14 +289,14 @@ def draft_function(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIn
         # table and never reads v0, so a callee result left in v0 is residue.
         unset = bool(exits) and all(row.startswith("jr ra@") for row in exits) and not call_sites(ctx, address)
     if not unset:
-        return open_row
+        return {**open_row, "open_reason": 'return: v0/f0 hold a value at some exit (own value, or a callee result that some code may read)'}
     slots = [ctx.object_for(site) or f"0x{site:x}" for site in ctx.word32.get(address, ())]
     if sinit:
         if not slots or any(not str(slot).startswith(".p__sinit") for slot in slots):
-            return open_row
+            return {**open_row, "open_reason": 'static initializer referenced other than by its .p__sinit word'}
         slots = []
     if slots or ctx.addr_taken.get(address):
-        return open_row
+        return {**open_row, "open_reason": 'address taken or stored in a table: an override or callback contract may apply'}
     parameters = [{"name": f"param_{index}", "type": name} for index, name in enumerate(rendered, 1)]
     gprs, fprs, reads = _read_registers(ctx, address)
     declared_g, declared_f = _declared_argument_registers({"parameters": parameters})
@@ -313,18 +313,18 @@ def draft_function(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIn
                 + " beyond the declared parameters, which the receiver accounts for"
             )
         else:
-            return open_row
+            return {**open_row, "open_reason": 'receiver unproven: not a const method and no register read beyond the parameters'}
         receiver_type, reason = types.resolve(_class_name(qualifier))
         if receiver_type is None:
             if reason is None:
-                return open_row
+                return {**open_row, "open_reason": 'receiver class exists only as a NAME@hash copy or in another case'}
             return {**base, "prototype": None, "draft_rule": "U-type", "unresolved": [f"receiver: {reason}"]}
         parameters = [{"name": "this", "type": f"{receiver_type} *"}] + [
             {"name": f"param_{index + 1}", "type": p["type"]} for index, p in enumerate(parameters, 1)
         ]
         declared_g, declared_f = _declared_argument_registers({"parameters": parameters})
     if not (gprs <= declared_g and fprs <= declared_f):
-        return open_row
+        return {**open_row, "open_reason": 'an argument register read on some path is not declared by the mangled signature'}
     evidence = [
         (f"mangled signature {mangled}" if mangled else f"{live_name}: static initializer, no mangled signature")
         + f" gives parameters ({', '.join(rendered) or 'void'})",
