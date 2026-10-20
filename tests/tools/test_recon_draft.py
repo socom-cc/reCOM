@@ -93,3 +93,11 @@ def test_scratch_value_in_f0_is_dead(ctx) -> None:
     from tools._socom.recon_draft import _exits_pass_through
 
     assert _exits_pass_through(ctx, 0x30C6D0)[0]
+
+
+def test_void_verdict_names_the_blocking_reader(ctx) -> None:
+    from tools._socom.recon_draft import void_verdict
+
+    assert "VERDICT void" in void_verdict(ctx, 0x307920)
+    text = void_verdict(ctx, 0x1DC6A0)  # PushAnim: Climb reads it through BlendedClimb
+    assert "VERDICT open: v0 read at 0x2758b8 in Climb" in text and "BlendedClimb" in text

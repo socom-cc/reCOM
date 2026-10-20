@@ -453,3 +453,66 @@ def check_drafted_rows(draft: dict[str, Any], plan: dict[str, Any]) -> list[str]
         if row.get("draft_rule") and address not in fresh:
             problems.append(f"{address}: claims {row['draft_rule']} but the rules leave it open")
     return problems
+
+
+def void_verdict(ctx: Any, start: int) -> str:
+    """Why rules v6 does or does not let a function be void: exits, then callers.
+
+    Prints the first blocking exit value or reader, with the caller chain that
+    leads to it, so a planner or reviewer need not walk the callers by hand.
+    """
+
+    label = ctx.label(start)
+    lines = [f"## {label}"]
+    unset, rows = _exits_unset(ctx, start)
+    if unset:
+        lines.append("exits: v0 and f0 unset at every exit -> void needs no caller check")
+        return "\n".join(lines)
+    dead, rows = _exits_pass_through(ctx, start)
+    lines.extend(f"exit {row}" for row in rows)
+    if not dead:
+        lines.append(
+            "VERDICT open: some exit can return a value that is neither a callee's result nor a "
+            "scratch value with another use in the function (or an indirect jump)"
+        )
+        return "\n".join(lines)
+    if ctx.addr_taken.get(start) or ctx.word32.get(start):
+        lines.append("VERDICT open: the function's address is taken or stored in a table")
+        return "\n".join(lines)
+
+    def walk(function: int, chain: list[str], depth: int, seen: frozenset[int]) -> str | None:
+        if depth > 6:
+            return "chain deeper than six levels: " + " -> ".join(chain)
+        checked = [
+            (fpr, name)
+            for fpr, register, name in ((False, 2, "v0"), (True, 0, "f0"))
+            if callee_preserves(ctx, function, register, fpr) != "all"
+        ]
+        for caller, site, kind in call_sites(ctx, function):
+            passes_on = kind == "tail"
+            if not passes_on:
+                for fpr, name in checked:
+                    use = _use_after_call(ctx, caller, site, fpr=fpr)
+                    if not use.startswith("unused:"):
+                        return f"{name} read at 0x{site:x} in {ctx.label(caller)}: {use[:120]} (chain: {' -> '.join(chain)})"
+                    passes_on = passes_on or "returned by caller" in use
+            if passes_on and caller not in seen:
+                if ctx.addr_taken.get(caller) or ctx.word32.get(caller):
+                    return (
+                        f"passed on by {ctx.label(caller)}, whose address is taken or stored in a table "
+                        f"(chain: {' -> '.join(chain + [ctx.label(caller)])})"
+                    )
+                found = walk(caller, chain + [ctx.label(caller)], depth + 1, seen | {function})
+                if found:
+                    return found
+        return None
+
+    blocker = walk(start, [label], 0, frozenset())
+    sites = len(call_sites(ctx, start))
+    if blocker:
+        lines.append(f"VERDICT open: {blocker}")
+    elif not sites:
+        lines.append("VERDICT open: no direct call sites (pass-through needs at least one)")
+    else:
+        lines.append(f"VERDICT void: {sites} direct call sites; no code reads the leftover")
+    return "\n".join(lines)

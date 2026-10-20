@@ -79,6 +79,7 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py recon facts` | recon | no | none | no | Print compact ELF-derived call-contract facts for functions or a group. |
 | `python tools/socom.py recon asm` | recon | no | none | no | Print annotated ELF disassembly of functions. |
 | `python tools/socom.py recon draft` | recon | no | required | no | Draft a plan's rule-decided rows from facts and live types, or --check a plan's drafted rows. |
+| `python tools/socom.py recon void` | recon | no | none | no | Print the rules-v6 void verdict of functions: exit values and the first blocking caller chain. |
 | `python tools/socom.py recon bytes` | recon | no | none | no | Print initialized bytes at an address or symbol, with relocated words and strings. |
 | `python tools/socom.py recon dwarf` | recon | no | none | no | Print DWARF 1 entries by offset with their children. |
 | `python tools/socom.py recon refs` | recon | no | none | no | Print a data object's relocated slots and every code access to it. |

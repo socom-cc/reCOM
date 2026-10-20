@@ -1761,6 +1761,16 @@ def _recon_draft(arguments: argparse.Namespace) -> int:
     return 0
 
 
+def _recon_void(arguments: argparse.Namespace) -> int:
+    from .recon_draft import void_verdict
+    from .recon_facts import context
+
+    root = _root(arguments)
+    ctx = context(root)
+    texts = [void_verdict(ctx, address) for address in _recon_addresses(root, arguments)]
+    return _recon_text(root, arguments, "\n\n".join(texts))
+
+
 def _recon_bytes(arguments: argparse.Namespace) -> int:
     from .recon_facts import context, object_bytes
 
@@ -2733,6 +2743,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec("recon facts", "recon", "Print compact ELF-derived call-contract facts for functions or a group."),
     _spec("recon asm", "recon", "Print annotated ELF disassembly of functions."),
     _spec("recon draft", "recon", "Draft a plan's rule-decided rows from facts and live types, or --check a plan's drafted rows.", ghidra_requirement="required"),
+    _spec("recon void", "recon", "Print the rules-v6 void verdict of functions: exit values and the first blocking caller chain."),
     _spec("recon bytes", "recon", "Print initialized bytes at an address or symbol, with relocated words and strings."),
     _spec("recon dwarf", "recon", "Print DWARF 1 entries by offset with their children."),
     _spec("recon refs", "recon", "Print a data object's relocated slots and every code access to it."),
@@ -2909,6 +2920,10 @@ def build_parser() -> argparse.ArgumentParser:
     recon_draft.add_argument("--check")
     recon_draft.add_argument("--bridge-url")
     recon_draft.set_defaults(handler=_recon_draft)
+    recon_void = recon_commands.add_parser("void")
+    recon_void.add_argument("--function", nargs="+", required=True)
+    recon_void.add_argument("--output")
+    recon_void.set_defaults(handler=_recon_void)
     recon_bytes = recon_commands.add_parser("bytes")
     recon_bytes.add_argument("--address", nargs="+", required=True)
     recon_bytes.add_argument("--length", type=int)
