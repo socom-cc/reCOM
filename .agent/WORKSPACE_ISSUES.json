@@ -839,8 +839,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Stage 3: accepted void prototypes with a scratch constant left in f0"
+    },
+    {
+      "details": "Rules v6 (commit d61b815) and the recon facts fixes found 78 applied void rows (and 26 in unapplied plans, now reopened: groups 86, 90, 95, 96, 98, 100, 108, 110, 111, 112) whose exits leave a value some caller may read. 52 cite a DWARF/stage 2 void declaration, 24 an SDK/runtime header, 12 a callback type or override; about 14 rest on the leftover rules alone (e.g. PushAnim 0x1dc6a0 and 0x1dff50 in group 103; SetApplyMultipassEffects 0x225850, 0x225a10, 0x225e80, 0x225fb0, 0x227330 in group 106). User decision 2026-10-20: hold, reopen, fix; the applied rows get one governed repair item with its own verifier after an audit separates declared voids (keep, but record the contradiction where a caller provably reads the value) from rule-only voids (correct to the proven type or restore). Audit list: scratchpad void_audit.txt; rerun with recon_draft._exits_pass_through/_callers_ignore_v0.",
+      "id": "socom:workspace-issue:e3cacd8593458db0e04c",
+      "kind": "problem",
+      "reported_at": "2026-10-20T23:09:23Z",
+      "reported_by": "socom-controller",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage 3: applied void prototypes that rules v6 cannot confirm need a governed repair"
     }
   ],
-  "revision": 97,
+  "revision": 98,
   "schema_version": 1
 }
