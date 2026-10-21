@@ -866,8 +866,11 @@
       "kind": "problem",
       "reported_at": "2026-10-21T07:55:38Z",
       "reported_by": "socom-controller",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-21T20:59:28Z",
+        "summary": "Implemented in rules v11 (commit 9a557c7): recon void and the drafter read the function-pointer parameter type from the callee's mangled name at the argument register a callback is passed in, end chains at callbacks whose declared result is void or in the other register class, and treat void-declared callbacks with no direct callers as void. RefreshAwareCounters/TickInFirefight-style chains are now decided by the tool."
+      },
+      "status": "resolved",
       "summary": "recon void: stop caller chains at callbacks with a declared non-float callback type"
     },
     {
@@ -941,6 +944,6 @@
       "summary": "Revisit pass: voids that rest on an address-taken empty body (CPlainBmp::UpdateUIVar and dependents)"
     }
   ],
-  "revision": 107,
+  "revision": 108,
   "schema_version": 1
 }
