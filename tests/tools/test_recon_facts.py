@@ -188,3 +188,11 @@ def test_result_copied_to_a_saved_register_shows_its_later_use(ctx) -> None:
 
     use = _use_after_call(ctx, 0x41FA48, 0x41FAFC, False)
     assert "move s5,v0@0x41fb04 -> s5: bltz s5,0x41fb60@0x41fb08" in use
+
+
+def test_dwarf_entries_by_name(root: Path) -> None:
+    from tools._socom.recon_facts import dwarf_entries
+
+    text = dwarf_entries(root, [], 0, ["theNetwork", "NoSuchName"])
+    assert "global_variable" in text and "name=theNetwork" in text
+    assert "NoSuchName: no DWARF entry has that name" in text

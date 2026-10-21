@@ -1002,13 +1002,23 @@ def _attr_text(attribute: Any) -> str:
     return f"{attribute.name}={value}"
 
 
-def dwarf_entries(root: Path, offsets: list[int], depth: int = 1) -> str:
-    """A DWARF 1 entry by offset, with its children (``depth`` levels), compactly."""
+def dwarf_entries(root: Path, offsets: list[int], depth: int = 1, names: list[str] | None = None) -> str:
+    """A DWARF 1 entry by offset or exact name, with its children (``depth`` levels), compactly.
+
+    A name selects every entry with that ``name`` attribute (globals, functions,
+    types), so a global's record can be found without knowing its offset.
+    """
 
     path = root / "support" / "socom.elf"
     dies = _dies_cached(file_key(path), str(path))
     by_offset = {die.offset: index for index, die in enumerate(dies)}
     lines = []
+    if names:
+        wanted = set(names)
+        found = [die.offset for die in dies if die.string("name") in wanted]
+        missing = wanted - {dies[by_offset[o]].string("name") for o in found}
+        lines.extend(f"{name}: no DWARF entry has that name" for name in sorted(missing))
+        offsets = list(offsets) + found
     for offset in offsets:
         index = by_offset.get(offset)
         if index is None:
