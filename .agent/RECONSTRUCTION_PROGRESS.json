@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 1116,
+  "revision": 1124,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -2842,7 +2842,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "3469da8efb0143c6e75530a5641d8476b9dd5361163828e603d965a7d57ec519",
+      "current_receipt_sha256": "da5ddd28c80a85ec19cc4aaa8a13ef0015297a1d17f46c16313bd507d6d8f3c9",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -6483,6 +6483,31 @@
           "receipt_sha256": "3469da8efb0143c6e75530a5641d8476b9dd5361163828e603d965a7d57ec519",
           "tracker_revision": 1116,
           "work_item_id": "socom:recon-group:ed6298474b0919b8d703-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1627,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 34656
+          },
+          "indexes": {
+            "data": {
+              "count": 51811,
+              "sha256": "e9bb9cca57b4106474e48b84e15682238285aa08ba9fe09483755a59710e308d"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1627,
+              "sha256": "e3426b2ae6a5b99302e2bb91835797696432d93ed0277b4de04157ad3ebf4957"
+            }
+          },
+          "receipt_sha256": "da5ddd28c80a85ec19cc4aaa8a13ef0015297a1d17f46c16313bd507d6d8f3c9",
+          "tracker_revision": 1124,
+          "work_item_id": "socom:recon-group:1c2d173d734ccd54382c-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -69439,6 +69464,10 @@
       "title": "Plan reconstruction group 107 (height 1, 32 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-10-21T04:40:14Z",
+        "by": "socom-verifier-a107"
+      },
       "batch": {
         "batch_number": 107,
         "function_count": 32,
@@ -69484,8 +69513,107 @@
       "dependencies": [
         "socom:recon-group:1c2d173d734ccd54382c"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "check-recon-apply audit: strict tracker audit ok at revision 1119",
+        "check-recon-apply calls: 14 apply bridge calls; dry run planned 14 (set_function_prototype), 0 outside the scope",
+        "check-recon-apply chain: g107-before identical to g105-after",
+        "check-recon-apply diff: recomputed g107 before/after diff equals the stored diff",
+        "check-recon-apply explain: 14 functions changed: 14 prototyped group functions, entry/body/thunk unchanged; data +0/-0 explained (0 typed globals); types added 1 (pointer/array only); references, blocks and bookmarks unchanged",
+        "check-recon-apply fingerprint: verifier fingerprint a97840eca30152a6b05e563940a531a5c8415e088624716cc73ee349b50659bf identical to g107-after",
+        "check-recon-apply plan: plan sha256 60872046d1dbb513ee38f28556990481a03b4960ad4fbc2a833a6be4b3de9220 cited by the accepted plan item",
+        "check-recon-apply preflight: live preflight ok",
+        "check-recon-apply program: program sha256 b3dd1f124abb90242e3cddda5dc1520afe3695d8e6a318e32425b5e63e443094 regenerates identically from the plan",
+        "check-recon-apply readback: live signatures of 14 prototyped functions equal the plan; 18 unresolved unchanged",
+        "check-recon-apply receipt: receipt over the stored scope da5ddd28c80a85ec19cc4aaa8a13ef0015297a1d17f46c16313bd507d6d8f3c9 vs handoff da5ddd28c80a85ec19cc4aaa8a13ef0015297a1d17f46c16313bd507d6d8f3c9",
+        "check-recon-apply scope: stored scope (32 functions, 0 globals) equals the program's receipt_scope",
+        "check-recon-apply status: apply awaiting_acceptance, plan accepted",
+        "fingerprint after build/fingerprints/g107-after.json sha256 af46432e3c27c1e026df13bb3b7c79fb6816d068441ad8010ce24af1c20bd2d0; diff build/fingerprints/g107-diff.json sha256 2902fa55903caeaf0d9c4647c129e548a4d5fad84ff14577666bbe2f3f7675f9: 14 functions changed: 14 prototyped group functions, entry/body/thunk unchanged; data +0/-0 explained (0 typed globals); types added 1 (pointer/array only); references, blocks and bookmarks unchanged",
+        "fingerprint before build/fingerprints/g107-before.json is the previous apply's verifier fingerprint build/verifier-socom-verifier-a105/fp-now.json (identical to build/fingerprints/g105-after.json), reused because the g105 receipt still reproduced live before this apply: 9715 functions, 51811 data, 1626 types",
+        "ghidra apply-recon: plan build/recon-plans/socom-recon-group-1c2d173d734ccd54382c.json sha256 60872046d1dbb513ee38f28556990481a03b4960ad4fbc2a833a6be4b3de9220 (accepted; plan-tools commit 00ea11b); program build/apply/socom-recon-group-1c2d173d734ccd54382c-apply.json sha256 b3dd1f124abb90242e3cddda5dc1520afe3695d8e6a318e32425b5e63e443094 regenerated equal to the stored program; 14 bridge calls exactly as the post-claim dry run predicted (14 set_function_prototype); 18 recorded skips; every name and Signature line read back equal; report sha256 aa4acb5e89b2b5db32e4b83bfb8912a7320aac73e801d95a32208bbdf2b2ae15",
+        "ghidra-receipt-sha256:da5ddd28c80a85ec19cc4aaa8a13ef0015297a1d17f46c16313bd507d6d8f3c9",
+        "ghidra-save:explicit-program",
+        "pre-handoff receipt da5ddd28c80a85ec19cc4aaa8a13ef0015297a1d17f46c16313bd507d6d8f3c9 over build/receipts/socom-recon-group-1c2d173d734ccd54382c-apply-scope.json (32 functions, 0 globals)"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "da5ddd28c80a85ec19cc4aaa8a13ef0015297a1d17f46c16313bd507d6d8f3c9",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x228850",
+            "0x229510",
+            "0x2297f0",
+            "0x229870",
+            "0x22af80",
+            "0x22b2d0",
+            "0x22dfa0",
+            "0x22ebf0",
+            "0x22fa80",
+            "0x230590",
+            "0x230c40",
+            "0x231580",
+            "0x2316d0",
+            "0x236720",
+            "0x236750",
+            "0x237130",
+            "0x237ab0",
+            "0x23cce0",
+            "0x23d570",
+            "0x23db90",
+            "0x23dca0",
+            "0x23dd80",
+            "0x23de80",
+            "0x240380",
+            "0x240460",
+            "0x2404f0",
+            "0x240a60",
+            "0x2413e0",
+            "0x2416d0",
+            "0x245c90",
+            "0x245d10",
+            "0x245e00"
+          ],
+          "globals": [],
+          "types": []
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1627,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 34656
+          },
+          "indexes": {
+            "data": {
+              "count": 51811,
+              "sha256": "e9bb9cca57b4106474e48b84e15682238285aa08ba9fe09483755a59710e308d"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1627,
+              "sha256": "e3426b2ae6a5b99302e2bb91835797696432d93ed0277b4de04157ad3ebf4957"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-21T04:33:52Z",
+        "summary": "Group 107 plan: 14 prototypes, 18 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:1c2d173d734ccd54382c-apply",
       "kind": "recon-apply-group",
       "lease": null,
@@ -69495,7 +69623,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply reviewed reconstruction group 107 in Ghidra"
     },
     {
@@ -72840,6 +72968,10 @@
       "title": "Apply reviewed reconstruction group 128 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-21T04:38:50Z",
+        "by": "socom-reviewer-r129"
+      },
       "batch": {
         "batch_number": 129,
         "function_count": 32,
@@ -72900,22 +73032,40 @@
         "socom:recon-group:d68e2ddf0a4ad7ba6958-apply",
         "socom:recon-group:ecac473814544479a966-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-67724088d146d30b56a4.json sha256:d411194815ce9b4eec505847e75cfeafe3a8bdd9034cbd420e30c1b74674c431; recon validate ok; recon draft --check ok; preflight-batch ok (17 set_function_prototype calls)",
+        "plan sha256:d411194815ce9b4eec505847e75cfeafe3a8bdd9034cbd420e30c1b74674c431; recon validate ok; recon program equals build/apply; preflight-batch ok with 15 skips = the 15 unresolved; recon draft --check ok (5 drafted, 27 open); r129 findings fixed: GetLocationDelta uint (exits unsigned: sltu abs-diff of 13-bit uint fields, lw of ai::_max<unsigned int>), GetBlendMode unresolved on width (constants 0/1/2, sw to int* proves nothing); other 30 rows unchanged: HandleMoving void on DWARF fund_type 20 equals live, zAnimWhileTick/IfTick bool via AddCmd t0 bool(*)(hdr,float*), std::sort and PrintPath unresolved"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g35",
+        "submitted_at": "2026-10-21T04:37:30Z",
+        "summary": "17 prototypes, 15 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:67724088d146d30b56a4",
       "kind": "recon-plan-group",
-      "lease": {
-        "claimed_at": "2026-10-21T04:16:42Z",
-        "expires_at": "2026-10-21T06:16:42Z",
-        "heartbeat_at": "2026-10-21T04:16:42Z",
-        "owner": "socom-recon-planner-g35"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-recon-planner-g35",
+            "submitted_at": "2026-10-21T04:28:05Z",
+            "summary": "18 prototypes, 14 unresolved, 0 globals"
+          },
+          "handoff_evidence": [
+            "plan build/recon-plans/socom-recon-group-67724088d146d30b56a4.json sha256:fabcfcf808ca7ccab1c81759ebbaac768a974ac1a715c2e5c9b004424e2f72b5; recon validate ok; recon draft --check ok; preflight-batch ok (18 set_function_prototype calls)"
+          ],
+          "reason": "Plan sha256 fabcfcf8...f72b5: validate ok, program equals build/apply, preflight-batch ok (14 skips = the 14 unresolved), draft --check ok; 25 other open rows checked and fine (HandleMoving void on DWARF fund_type 20 equals live; zAnimWhileTick/IfTick bool via AddCmd t0 bool(*)(hdr,float*), 12 accepted siblings; std::sort and PrintPath unresolved correctly). TWO FINDINGS. (1) 0x199610 CAiMaps::GetLocationDelta returns int without positive evidence. Every exit value is unsigned-typed: sltu-based abs diff of 13-bit uint fields (0x199664/0x1997cc) plus addu (0x1996a8, 0x199810), or lw v0,0(v0) at 0x199830 of ai::_max<unsigned int> (const uint& result). The caller slti at,fp,2 (0x265bf8) after move fp,v0 (0x26507c) only shows the caller's own local is int; a uint return converted to an int local compiles identically, so it is not evidence for the callee's return type, and the 'no narrowing' argument is the inference the Return width rule forbids. Fix: either uint (the returned value's own type, as accepted for GetAwareCounter) or unresolved on signedness, recording width 32 proven. (2) 0x1b47b0 CZAnimBlendMode::GetBlendMode returns int from constants only (li 0/1/2 at 0x1b47f4,0x1b4828,0x1b485c-0x1b4908). The callers' sw v0,0(s4/s3/s2/s1) into int* out-parameters is an unnarrowed use, which the rule says proves nothing about width (a uchar return stores identically); constant-only returns stay unresolved on width, as the planner already did for LeadTargetG, GetRandomLoc, CenterRegion. No DWARF, no member type, no andi. Fix: unresolved (return width unproven; proven parts: static, a0 = _zrdr*, constants 0/1/2). Tool gap: recon void v7 stays open for PrintPath/HandleMoving-style chains through a vtable slot whose base (CSealCtrl::Dump 0x2694f0, void in accepted group 0c23b08b) is already typed void.",
+          "rejected_at": "2026-10-21T04:35:57Z",
+          "rejected_by": "socom-reviewer-r129"
+        }
+      ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "accepted",
       "title": "Plan reconstruction group 129 (height 2, 32 functions)"
     },
     {
@@ -72975,7 +73125,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 129 in Ghidra"
     },
     {
