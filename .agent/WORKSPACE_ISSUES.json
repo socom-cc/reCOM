@@ -869,8 +869,18 @@
       "resolution": null,
       "status": "open",
       "summary": "recon void: stop caller chains at callbacks with a declared non-float callback type"
+    },
+    {
+      "details": "Group 7a0af2cb (applied, g114) left C2D::Draw 0x300c70 unresolved because no base or override of vtable slot +0xc had a DWARF record. The group 138 planner found override BitmapReticule::Draw 0x3d04e0 has a DWARF record declaring void (fund_type 20), so the slot's contract is void and C2D::Draw can be re-planned in the stage 3 revisit of unresolved rows. Do not reopen the applied group; include it in the governed revisit.",
+      "id": "socom:workspace-issue:97ea613ee30694e73df7",
+      "kind": "problem",
+      "reported_at": "2026-10-21T10:30:24Z",
+      "reported_by": "socom-controller",
+      "resolution": null,
+      "status": "open",
+      "summary": "Revisit pass: C2D::Draw 0x300c70 (group 7a0af2cb) can be void from its override's DWARF"
     }
   ],
-  "revision": 100,
+  "revision": 101,
   "schema_version": 1
 }
