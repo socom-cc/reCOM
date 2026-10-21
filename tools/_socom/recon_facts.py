@@ -447,6 +447,7 @@ def forwarded_arguments(ctx: _Context, start: int, read: set[str]) -> list[str]:
         row = flow.fn.decoded.get(pc, {})
         insn = ctx.code.word(pc)
         target = None
+        unknown = False
         if row.get("kind") == "call" and insn >> 26 == 0x03:
             target = ((pc + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2)
             wanted = set(argument_reads(ctx, target)) if target in ctx.size and target != start else set()
@@ -455,11 +456,13 @@ def forwarded_arguments(ctx: _Context, start: int, read: set[str]) -> list[str]:
                 wanted |= {GPR[r] for r in ARG_GPRS if "entry" in ctx.flow(target).defs(_syscalls(ctx, target)[0][0], r)}
         elif row.get("kind") == "call" or (insn >> 26 == 0x00 and insn & 0x3F == 0x08 and (insn >> 21) & 31 != 31):
             wanted = {GPR[r] for r in ARG_GPRS} | {f"f{r}" for r in ARG_FPRS}
+            unknown = True
         elif insn >> 26 == 0x02:
             target = ((pc + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2)
             if start <= target < flow.end:
                 continue
-            wanted = set(argument_reads(ctx, target)) if target in ctx.size else {GPR[r] for r in ARG_GPRS}
+            unknown = target not in ctx.size
+            wanted = set(argument_reads(ctx, target)) if not unknown else {GPR[r] for r in ARG_GPRS}
         else:
             continue
         passed = []
@@ -469,7 +472,8 @@ def forwarded_arguments(ctx: _Context, start: int, read: set[str]) -> list[str]:
             if "entry" in flow.entering_callee(pc + 4, register, fpr):
                 passed.append(name)
         if passed:
-            rows.append(f"{','.join(passed)} -> {ctx.text(pc)}@0x{pc:x}")
+            note = " (indirect: still at entry value; whether the callee reads it is unknown)" if unknown else ""
+            rows.append(f"{','.join(passed)} -> {ctx.text(pc)}@0x{pc:x}{note}")
     return rows[:6]
 
 

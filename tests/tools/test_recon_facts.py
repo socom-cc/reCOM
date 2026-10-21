@@ -107,6 +107,8 @@ def test_stack_and_forwarded_arguments(ctx) -> None:
     # ExtAudioGetSamples passes a0/a1 through to an indirect call.
     rows = forwarded_arguments(ctx, 0x337B90, set())
     assert rows and rows[0].startswith("a0,a1,") and "jalr v0@0x337ba4" in rows[0]
+    # An indirect callee's reads are unknown, and the row says so.
+    assert "whether the callee reads it is unknown" in rows[0]
 
 
 def test_diff_explanation_accepts_relocation_backed_pointer_references(root: Path) -> None:
