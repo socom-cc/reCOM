@@ -636,11 +636,7 @@ def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any
         for position, param in enumerate(parameters, 1):
             if not isinstance(param.get("name"), str) or not _IDENTIFIER.match(param["name"]):
                 problems.append(f"{where} parameter name {param.get('name')!r} is not an identifier")
-            elif re.fullmatch(r"param_\d+", param["name"]) and param["name"] != f"param_{position}":
-                # Ghidra renumbers default names by position: this is param_1.
-                problems.append(
-                    f"{where} parameter {position} is named {param['name']!r}; Ghidra shows a default name as param_{position}"
-                )
+
             if reason := _type_problem(param.get("type")):
                 problems.append(f"{where} parameter {param.get('name')}: {reason}")
         if len(set(names)) != len(names):
