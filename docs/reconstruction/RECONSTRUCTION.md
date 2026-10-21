@@ -206,8 +206,11 @@ calls that may leave it untouched, so a caller that reads it after such a
 call counts as a reader. A chain stops at a caller whose DWARF record
 declares an explicit `void` return: code compiled against that declaration
 never reads the value, even when the caller's address is taken (rules
-version 8). `recon void --function` prints the verdict and the blocking
-chain.
+version 8). A chain also stops where the caller's DWARF record declares a
+return in the other register class: an integer or pointer return (read from
+v0) ends an f0 chain, and a `float` return (read from f0) ends a v0 chain
+(rules version 10). `recon void --function` prints the verdict and the
+blocking chain.
 
 A function whose every exit returns a relocated pointer to a NUL-terminated
 string (`recon bytes` shows the word's target and its text) returns

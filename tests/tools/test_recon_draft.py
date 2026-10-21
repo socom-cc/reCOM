@@ -124,3 +124,12 @@ def test_planned_types_come_from_this_plan_first(tmp_path) -> None:
     tracker = {"work_items": []}
     assert _planned_types(tmp_path, tracker, plan, "0x300c30") == ("void", ("C2D *",))
     assert _planned_types(tmp_path, tracker, plan, "0x300c50") is None
+
+
+def test_declared_return_class_cuts_the_other_register(ctx) -> None:
+    # COurGame::StartEngine is DWARF-declared to return an integer (v0), so f0
+    # left by a callee dies there; v0 does not.
+    from tools._socom.recon_draft import _declared_drop
+
+    assert _declared_drop(ctx, 0x140550, True)
+    assert not _declared_drop(ctx, 0x140550, False)

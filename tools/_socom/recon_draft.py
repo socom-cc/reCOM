@@ -46,7 +46,7 @@ from .recon import RECON_PLAN_KIND, RECON_SCHEMA, group_evidence
 from .recon_facts import GPR, JR_RA, _reads_at, _through_calls, _use_after_call, argument_reads, call_sites, callee_preserves, context, return_sources
 from .util import SocomError, canonical_json
 
-DRAFT_RULES_VERSION = 9
+DRAFT_RULES_VERSION = 10
 
 
 class _TypeIndex:
@@ -214,6 +214,63 @@ def _dwarf_void(ctx: Any) -> frozenset[int]:
     return _DWARF_VOID[key]
 
 
+_DWARF_RETURNS: dict[int, dict[int, str]] = {}
+_GPR_FUNDS = frozenset((0x1, 0x3, 0x5, 0x6, 0x8, 0x9, 0xB, 0xC, 0x8208, 0xA510))
+
+
+def _dwarf_returns(ctx: Any) -> dict[int, str]:
+    """Entry address -> the return register class its DWARF record declares.
+
+    "void" (FT_void), "gpr" (an integer or a pointer/reference: returned in v0),
+    or "float" (FT_float: returned in f0).  Double, structs and anything the
+    records disagree on are left out.
+    """
+
+    key = id(ctx)
+    if key not in _DWARF_RETURNS:
+        from .recon_facts import _dies_cached
+
+        path = ctx.elf.path if hasattr(ctx.elf, "path") else None
+        found: dict[int, set[str]] = {}
+        if path is not None:
+            st = Path(path).stat()
+            for die in _dies_cached((str(path), st.st_size, int(st.st_mtime)), str(path)):
+                if die.tag_name not in ("global_subroutine", "subroutine", "member_function"):
+                    continue
+                low = die.integer("low_pc")
+                if not low:
+                    continue
+                fund = die.integer("fund_type")
+                kind = None
+                if fund == 0x14:
+                    kind = "void"
+                elif fund == 0xE:
+                    kind = "float"
+                elif fund in _GPR_FUNDS:
+                    kind = "gpr"
+                else:
+                    for name, width in (("mod_fund_type", 2), ("mod_u_d_type", 4)):
+                        item = die.attribute(name)
+                        value = getattr(item, "value", None)
+                        if isinstance(value, bytes) and len(value) > width and any(b in (1, 2) for b in value[:-width]):
+                            kind = "gpr"  # a pointer or reference
+                found.setdefault(low, set()).add(kind or "other")
+        _DWARF_RETURNS[key] = {low: next(iter(kinds)) for low, kinds in found.items() if len(kinds) == 1}
+    return _DWARF_RETURNS[key]
+
+
+def _declared_drop(ctx: Any, caller: int, fpr: bool) -> bool:
+    """The caller's DWARF return cannot carry this register to its own callers.
+
+    Declared void carries nothing; a declared integer/pointer return is read
+    from v0, so f0 left by a callee dies there; a declared float return is read
+    from f0, so v0 dies there (rules version 10).
+    """
+
+    kind = _dwarf_returns(ctx).get(caller)
+    return kind == "void" or (fpr and kind == "gpr") or (not fpr and kind == "float")
+
+
 def _callers_ignore_v0(
     ctx: Any, start: int, depth: int = 0, seen: frozenset[int] = frozenset(), registers: tuple | None = None
 ) -> tuple[bool, int]:
@@ -245,8 +302,8 @@ def _callers_ignore_v0(
                     return False, len(sites)
                 passes_on = "returned by caller" in use
             if passes_on and caller not in seen:
-                if caller in _dwarf_void(ctx):
-                    continue  # declared void: code compiled against it never reads the value
+                if caller in _dwarf_void(ctx) or _declared_drop(ctx, caller, fpr):
+                    continue  # its declared return never carries this register to its callers
                 if ctx.addr_taken.get(caller) or ctx.word32.get(caller):
                     return False, len(sites)
                 if not _callers_ignore_v0(ctx, caller, depth + 1, seen | {start}, ((fpr, register),))[0]:
@@ -525,8 +582,8 @@ def void_verdict(ctx: Any, start: int) -> str:
                         return f"{name} read at 0x{site:x} in {ctx.label(caller)}: {use[:120]} (chain: {' -> '.join(chain)})"
                     passes_on = "returned by caller" in use
                 if passes_on and caller not in seen:
-                    if caller in _dwarf_void(ctx):
-                        continue  # declared void (DWARF): its callers never read the value
+                    if caller in _dwarf_void(ctx) or _declared_drop(ctx, caller, fpr):
+                        continue  # declared return (DWARF) never carries this register to its callers
                     if ctx.addr_taken.get(caller) or ctx.word32.get(caller):
                         return (
                             f"{name} passed on by {ctx.label(caller)}, whose address is taken or stored in a table "
