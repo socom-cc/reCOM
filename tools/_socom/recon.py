@@ -580,6 +580,24 @@ def _dead_entry_reads(
     return dead_g, dead_f, problems
 
 
+def _planned_types(root: Path, tracker: dict[str, Any], plan: dict[str, Any], address: str) -> tuple | None:
+    """(return, parameter types) planned for ``address`` in this plan or an accepted one."""
+
+    candidates = [plan]
+    for item in tracker["work_items"]:
+        if item.get("kind") == "recon-plan-group" and item.get("status") == "accepted" and address in item["batch"]["functions"]:
+            slug = item["id"].replace("socom:", "socom-").replace(":", "-")
+            path = root / "build" / "recon-plans" / f"{slug}.json"
+            if path.is_file():
+                candidates.append(load_json(path))
+    for candidate in candidates:
+        for row in candidate.get("functions", []):
+            if row.get("address") == address and row.get("prototype"):
+                prototype = row["prototype"]
+                return (prototype.get("return_type"), tuple(p.get("type") for p in prototype.get("parameters") or []))
+    return None
+
+
 def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any]) -> list[str]:
     """Structural and evidence checks a reviewer can rerun.  Returns problems."""
 
@@ -641,6 +659,21 @@ def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any
                 problems.append(f"{where} parameter {param.get('name')}: {reason}")
         if len(set(names)) != len(names):
             problems.append(f"{where} parameter names repeat")
+        target = _thunk_target(elf, int(address, 16), sizes.get(int(address, 16)))
+        if target is not None:
+            # Ghidra makes a whole-body `j target` a thunk, and a thunk shares its
+            # target's signature: a prototype set on it rewrites the target
+            # (C2DString::On rewrote C2D::On in group 114).  Allow only the
+            # target's own planned types.
+            wanted = _planned_types(root, tracker, plan, f"0x{target:x}")
+            mine = (prototype.get("return_type"), tuple(p.get("type") for p in parameters))
+            if wanted is None:
+                problems.append(
+                    f"{where} is a thunk of 0x{target:x} with no planned prototype; a prototype here would rewrite "
+                    "the target: mark it unresolved"
+                )
+            elif mine != wanted:
+                problems.append(f"{where} is a thunk of 0x{target:x}: its prototype must equal the target's {wanted}")
         if all(isinstance(param.get("type"), str) for param in parameters):
             gprs, fprs = _entry_argument_reads(
                 elf, int(address, 16), sizes.get(int(address, 16)), pair_partial_loads=True

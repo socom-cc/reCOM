@@ -106,3 +106,12 @@ def test_void_verdict_names_the_blocking_chain(ctx) -> None:
     assert "VERDICT void" in void_verdict(ctx, 0x15F260)
     text = void_verdict(ctx, 0x227200)  # SetPosition: v0 reaches a stored callback
     assert "VERDICT open" in text and "address is taken" in text
+
+
+def test_planned_types_come_from_this_plan_first(tmp_path) -> None:
+    from tools._socom.recon import _planned_types
+
+    plan = {"functions": [{"address": "0x300c30", "prototype": {"return_type": "void", "parameters": [{"name": "this", "type": "C2D *"}]}}]}
+    tracker = {"work_items": []}
+    assert _planned_types(tmp_path, tracker, plan, "0x300c30") == ("void", ("C2D *",))
+    assert _planned_types(tmp_path, tracker, plan, "0x300c50") is None
