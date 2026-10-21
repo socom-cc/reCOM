@@ -203,7 +203,11 @@ and to `f0`, for each register the function can leave a value in, and a
 caller that tail-calls the function passes the question on like one that
 returns its value (rules version 6). `recon facts` follows a value past
 calls that may leave it untouched, so a caller that reads it after such a
-call counts as a reader.
+call counts as a reader. A chain stops at a caller whose DWARF record
+declares an explicit `void` return: code compiled against that declaration
+never reads the value, even when the caller's address is taken (rules
+version 8). `recon void --function` prints the verdict and the blocking
+chain.
 
 A function whose every exit returns a relocated pointer to a NUL-terminated
 string (`recon bytes` shows the word's target and its text) returns

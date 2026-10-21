@@ -46,7 +46,7 @@ from .recon import RECON_PLAN_KIND, RECON_SCHEMA, group_evidence
 from .recon_facts import GPR, JR_RA, _reads_at, _through_calls, _use_after_call, argument_reads, call_sites, callee_preserves, context, return_sources
 from .util import SocomError, canonical_json
 
-DRAFT_RULES_VERSION = 7
+DRAFT_RULES_VERSION = 8
 
 
 class _TypeIndex:
@@ -191,6 +191,29 @@ def _exits_pass_through(ctx: Any, start: int) -> tuple[bool, list[str]]:
     return bool(rows), rows
 
 
+_DWARF_VOID: dict[int, frozenset[int]] = {}
+
+
+def _dwarf_void(ctx: Any) -> frozenset[int]:
+    """Entry addresses whose DWARF record declares an explicit void return (FT_void, 20)."""
+
+    key = id(ctx)
+    if key not in _DWARF_VOID:
+        from .recon_facts import _dies_cached
+
+        path = ctx.elf.path if hasattr(ctx.elf, "path") else None
+        found: set[int] = set()
+        if path is not None:
+            st = Path(path).stat()
+            for die in _dies_cached((str(path), st.st_size, int(st.st_mtime)), str(path)):
+                if die.tag_name in ("global_subroutine", "subroutine", "member_function"):
+                    low = die.integer("low_pc")
+                    if low and die.integer("fund_type") == 20:
+                        found.add(low)
+        _DWARF_VOID[key] = frozenset(found)
+    return _DWARF_VOID[key]
+
+
 def _callers_ignore_v0(
     ctx: Any, start: int, depth: int = 0, seen: frozenset[int] = frozenset(), registers: tuple | None = None
 ) -> tuple[bool, int]:
@@ -222,6 +245,8 @@ def _callers_ignore_v0(
                     return False, len(sites)
                 passes_on = "returned by caller" in use
             if passes_on and caller not in seen:
+                if caller in _dwarf_void(ctx):
+                    continue  # declared void: code compiled against it never reads the value
                 if ctx.addr_taken.get(caller) or ctx.word32.get(caller):
                     return False, len(sites)
                 if not _callers_ignore_v0(ctx, caller, depth + 1, seen | {start}, ((fpr, register),))[0]:
@@ -499,6 +524,8 @@ def void_verdict(ctx: Any, start: int) -> str:
                         return f"{name} read at 0x{site:x} in {ctx.label(caller)}: {use[:120]} (chain: {' -> '.join(chain)})"
                     passes_on = "returned by caller" in use
                 if passes_on and caller not in seen:
+                    if caller in _dwarf_void(ctx):
+                        continue  # declared void (DWARF): its callers never read the value
                     if ctx.addr_taken.get(caller) or ctx.word32.get(caller):
                         return (
                             f"{name} passed on by {ctx.label(caller)}, whose address is taken or stored in a table "
