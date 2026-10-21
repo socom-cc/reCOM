@@ -929,8 +929,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Type pass: live signatures that disagree with the binary (SHA, ftell FILE)"
+    },
+    {
+      "details": "Accepted plan group cf8ba2fbc35aecaf8c47 typed CPlainBmp::UpdateUIVar 0x393830 void from its empty body although its address is taken (vtable); the standard since group 69 (and the group 120 review, 2026-10-21) is that an address-taken empty body alone does not make a function void. The group 120 adjustor 0x394ad0 CPlainBmp::@128@UpdateUIVar was typed void by restating that target. Also: live exit(int)/_exit(int) have no accepted plan behind them (exit forwards to _exit, which overwrites a0), and sceSifMInitRpc's callers pass a0=0 but its body never reads a0. In the revisit, re-derive 0x393830's return from a declaration or the slot contract (UpdateDependents slot 0xc family); if unproven, reopen and make it and 0x394ad0 unresolved. Tool gap: recon asm cannot disassemble an unsized NOTYPE code symbol (_exit 0x1401d0).",
+      "id": "socom:workspace-issue:f41b902d9b4c031a719f",
+      "kind": "problem",
+      "reported_at": "2026-10-21T17:49:26Z",
+      "reported_by": "socom-controller",
+      "resolution": null,
+      "status": "open",
+      "summary": "Revisit pass: voids that rest on an address-taken empty body (CPlainBmp::UpdateUIVar and dependents)"
     }
   ],
-  "revision": 106,
+  "revision": 107,
   "schema_version": 1
 }
