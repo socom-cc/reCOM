@@ -977,12 +977,17 @@ def object_refs(ctx: _Context, key: str) -> str:
 
     if key.lower().startswith("0x"):
         address = int(key, 16)
+        if address in ctx.size:
+            return _function_refs(ctx, address)
     else:
         matches = sorted(
             {s.value for s in ctx.elf.symbols() if s.name == key and s.type_name == "OBJECT" and s.size}
         )
         if not matches:
-            return f"{key}: no sized OBJECT symbol of that name"
+            functions = sorted({s.value for s in ctx.elf.symbols() if s.name == key and s.value in ctx.size})
+            if functions:
+                return "\n\n".join(_function_refs(ctx, value) for value in functions)
+            return f"{key}: no sized OBJECT or FUNC symbol of that name"
         if len(matches) > 1:
             # File-local names (@NNNN) repeat across compile units; each copy is its own object.
             return "\n\n".join(object_refs(ctx, f"0x{value:x}") for value in matches)
@@ -999,7 +1004,9 @@ def object_refs(ctx: _Context, key: str) -> str:
                 slots.append((site, target))
     if slots:
         lines.append(f"relocated words ({len(slots)}):")
-        lines.extend(f"  +0x{site - start:x}: {ctx.label(target)}" for site, target in sorted(slots)[:120])
+        lines.extend(f"  +0x{site - start:x}: {ctx.label(target)}" for site, target in sorted(slots)[:400])
+        if len(slots) > 400:
+            lines.append(f"  ... {len(slots) - 400} more")
     by_function: dict[str, list[str]] = {}
     for row in ctx.refs:
         if row["target"] is None:
@@ -1014,6 +1021,28 @@ def object_refs(ctx: _Context, key: str) -> str:
         lines.append(f"code accesses ({sum(len(v) for v in by_function.values())} in {len(by_function)} functions):")
         for label in sorted(by_function):
             lines.append(f"  {label}: " + "; ".join(by_function[label][:8]) + (" ..." if len(by_function[label]) > 8 else ""))
+    return "\n".join(lines)
+
+
+def _function_refs(ctx: _Context, address: int) -> str:
+    """Everything that refers to a function: table words, address formation, calls."""
+
+    lines = [f"## {ctx.label(address)} [function]"]
+    words = []
+    for site in ctx.word32.get(address, ()):
+        start = max((s for s in ctx.object_starts if s <= site), default=None)
+        if start is not None and site < start + ctx.objects[start][0]:
+            words.append(f"{ctx.objects[start][1]}+0x{site - start:x}")
+        else:
+            words.append(f"0x{site:x}")
+    lines.append(f"relocated words ({len(words)}): " + (", ".join(words) or "none"))
+    taken = [
+        f"{ctx.label(ctx.owner(site)) if ctx.owner(site) is not None else '?'}: {ctx.text(site)}@0x{site:x}"
+        for site in ctx.addr_taken.get(address, ())
+    ]
+    lines.append(f"address formed in code ({len(taken)}): " + ("; ".join(taken) or "none"))
+    calls = [f"{kind} 0x{site:x} in {ctx.label(caller)}" for caller, site, kind in call_sites(ctx, address)]
+    lines.append(f"direct call sites ({len(calls)}): " + ("; ".join(calls[:24]) or "none") + (" ..." if len(calls) > 24 else ""))
     return "\n".join(lines)
 
 

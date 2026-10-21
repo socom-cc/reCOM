@@ -228,3 +228,13 @@ def test_copy_into_an_argument_register_is_that_calls_argument(ctx) -> None:
     # GetRdrArrayInt's result is moved to a1 and passed to CInit<int,0>::operator=.
     use = _use_after_call(ctx, 0x3A7940, 0x3A85D8, False)
     assert "move a1,v0@0x3a85e0 -> a1: passed as a1 to" in use
+
+
+def test_refs_of_a_function(ctx) -> None:
+    from tools._socom.recon_facts import object_refs
+
+    # zar::CKey::fixupKey: its address is formed once in WriteDirectory (passed
+    # to CSTable::Pack) and it calls itself.
+    text = object_refs(ctx, "0x1d8600")
+    assert "[function]" in text and "address formed in code (1): WriteDirectory" in text
+    assert "call 0x1d86a8 in fixupKey" in text
