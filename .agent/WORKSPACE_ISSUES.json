@@ -859,8 +859,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Stage 3 void re-audit (rules v7) narrows issue e3cacd85 to one suspect"
+    },
+    {
+      "details": "Reviewers of groups 104 and 129 note that functions registered as callbacks (AddTask's PFfPv_b = bool (*)(float, void *), CZAnimMain::AddCmd's tick type, CValve::AddCallback's PFP6CValvePv_v) are dispatched through a declared type whose return lives in v0 (bool) or nowhere (void), so f0 left by them is never read, and for void callback types v0 neither. recon void / the drafter currently block the chain at the address-taken callback. Refinement: when every address-taken site passes the function as an argument to a callee whose mangled parameter at that position is a function-pointer type, treat the registers that type does not return in as dead at that link. Would decide e.g. RefreshAwareCounters 0x1f0220 and TickInFirefight 0x1f2b30 (group 104). Safe to defer: affected rows stay unresolved.",
+      "id": "socom:workspace-issue:36059e151f1542ad420f",
+      "kind": "problem",
+      "reported_at": "2026-10-21T07:55:38Z",
+      "reported_by": "socom-controller",
+      "resolution": null,
+      "status": "open",
+      "summary": "recon void: stop caller chains at callbacks with a declared non-float callback type"
     }
   ],
-  "revision": 99,
+  "revision": 100,
   "schema_version": 1
 }
