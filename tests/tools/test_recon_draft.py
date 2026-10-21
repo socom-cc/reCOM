@@ -133,3 +133,17 @@ def test_declared_return_class_cuts_the_other_register(ctx) -> None:
 
     assert _declared_drop(ctx, 0x140550, True)
     assert not _declared_drop(ctx, 0x140550, False)
+
+
+def test_declared_callback_types_decide_callback_returns(ctx) -> None:
+    from tools._socom.recon_draft import _callback_returns, void_verdict
+
+    callbacks = _callback_returns(ctx)
+    # Passed as AddCmd's parse callback `_zanim_cmd_hdr *(*)(_zrdr *)` (a2, after
+    # the receiver): returns a pointer in v0, so f0 left in it is dead.
+    assert callbacks[0x1ABCF0] == "gpr"
+    # Passed as zNetConnect's `void (*)(int, int, const char *)`.
+    assert callbacks[0x204260] == "void"
+    assert "only called through a declared void callback type" in void_verdict(ctx, 0x204260)
+    # Ln's f0 chain ends at that pointer-returning loader.
+    assert "VERDICT void" in void_verdict(ctx, 0x220750)

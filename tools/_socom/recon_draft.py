@@ -46,7 +46,7 @@ from .recon import RECON_PLAN_KIND, RECON_SCHEMA, group_evidence
 from .recon_facts import GPR, JR_RA, _reads_at, _through_calls, _use_after_call, argument_reads, call_sites, callee_preserves, context, return_sources
 from .util import SocomError, canonical_json
 
-DRAFT_RULES_VERSION = 10
+DRAFT_RULES_VERSION = 11
 
 
 class _TypeIndex:
@@ -271,6 +271,133 @@ def _declared_drop(ctx: Any, caller: int, fpr: bool) -> bool:
     return kind == "void" or (fpr and kind == "gpr") or (not fpr and kind == "float")
 
 
+_CALLBACKS: dict[int, dict[int, str]] = {}
+_GPR_BUILTINS = frozenset(("char", "signed char", "unsigned char", "short", "unsigned short", "int",
+                           "unsigned int", "long", "unsigned long", "long long", "unsigned long long", "bool", "wchar_t"))
+
+
+def _result_class(result: dict[str, Any] | None) -> str | None:
+    """Register class of a demangled function type's result: void, gpr (v0) or float (f0)."""
+
+    if not isinstance(result, dict):
+        return None
+    if any(m in ("P", "R") for m in result.get("modifiers") or []):
+        return "gpr"
+    if result.get("kind") != "builtin":
+        return None
+    name = result.get("name")
+    if name == "void":
+        return "void"
+    if name == "float":
+        return "float"
+    return "gpr" if name in _GPR_BUILTINS else None
+
+
+def _callback_returns(ctx: Any) -> dict[int, str]:
+    """Function -> return class declared by the callback parameter it is passed as.
+
+    A function whose address is formed in code (never stored in a table) and
+    always passed straight to a direct call, in an argument register whose
+    position in the callee's mangled parameters is a function pointer, is
+    only ever called through that declared type (rules version 11).
+    """
+
+    key = id(ctx)
+    if key in _CALLBACKS:
+        return _CALLBACKS[key]
+    from .recon_facts import _writes
+
+    found: dict[int, str] = {}
+    gpr_position = {4: 0, 5: 1, 6: 2, 7: 3, 8: 4, 9: 5, 10: 6, 11: 7}
+    for function, sites in ctx.addr_taken.items():
+        if function not in ctx.size or ctx.word32.get(function):
+            continue
+        kinds: set[str | None] = set()
+        for site in sites:
+            owner = ctx.owner(site)
+            if owner is None:
+                kinds.add(None)
+                break
+            written = _writes(ctx.code.word(site))[0]
+            flow = ctx.flow(owner)
+            kind = None
+            for pc in range(max(owner, site - 4), min(site + 64, owner + ctx.size[owner]), 4):
+                insn = ctx.code.word(pc)
+                if insn >> 26 != 0x03:
+                    continue
+                registers = [r for r in written if r in gpr_position and flow.entering_callee(pc + 4, r) == {site}]
+                if len(registers) != 1:
+                    break
+                callee = ((pc + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2)
+                parsed = next((demangle(n) for n in _function_names(ctx).get(callee, ()) if demangle(n)), None)
+                if not parsed:
+                    break
+                params = parsed.get("params") or []
+                if any(
+                    p.get("kind") == "builtin" and not p.get("modifiers")
+                    and p.get("name") in ("float", "double", "long long", "unsigned long long")
+                    for p in params
+                ):
+                    break  # FPR or 64-bit arguments shift the register positions
+                position = gpr_position[registers[0]]
+
+                def code_address(register: int) -> bool | None:
+                    # True: a function address or zero; False: something else; None: unknown.
+                    defs = flow.entering_callee(pc + 4, register)
+                    if len(defs) != 1:
+                        return None
+                    (where,) = defs
+                    if not isinstance(where, int):
+                        return None
+                    row = ctx.ref_at.get(where)
+                    if row and row.get("target") is not None:
+                        return int(row["target"], 16) in ctx.size
+                    word = ctx.code.word(where)
+                    if word >> 26 == 0 and word & 0x3F in (0x21, 0x25, 0x2D) and (word >> 21) & 31 == 0 and (word >> 16) & 31 == 0:
+                        return True  # move rd,zero: a null callback
+                    return None
+
+                candidates = set()
+                for offset in ((0, 1) if parsed.get("qualifier") else (0,)):
+                    index = position - offset
+                    if not (0 <= index < len(params) and params[index].get("kind") == "function"):
+                        continue
+                    # Every argument register must fit this reading: function-pointer
+                    # parameters get code addresses (or zero), others do not.
+                    fits = True
+                    for register, slot in gpr_position.items():
+                        argument = slot - offset
+                        if argument < 0 or argument >= len(params):
+                            continue
+                        seen = code_address(register)
+                        if seen is None:
+                            continue
+                        if seen != (params[argument].get("kind") == "function"):
+                            fits = False
+                            break
+                    if fits:
+                        candidates.add(_result_class(params[index].get("result")))
+                if len(candidates) == 1:
+                    kind = candidates.pop()
+                break
+            kinds.add(kind)
+        if len(kinds) == 1 and None not in kinds:
+            found[function] = kinds.pop()
+    _CALLBACKS[key] = found
+    return found
+
+
+def _function_names(ctx: Any) -> dict[int, list[str]]:
+    return {row["start"]: row["names"] for row in ctx.functions}
+
+
+def _callback_drops(ctx: Any, function: int, fpr: bool) -> bool:
+    """The function's declared callback type never hands this register to its caller."""
+
+    kind = _callback_returns(ctx).get(function)
+    return kind == "void" or (fpr and kind == "gpr") or (not fpr and kind == "float")
+
+
 def _callers_ignore_v0(
     ctx: Any, start: int, depth: int = 0, seen: frozenset[int] = frozenset(), registers: tuple | None = None
 ) -> tuple[bool, int]:
@@ -304,7 +431,7 @@ def _callers_ignore_v0(
             if passes_on and caller not in seen:
                 if caller in _dwarf_void(ctx) or _declared_drop(ctx, caller, fpr):
                     continue  # its declared return never carries this register to its callers
-                if ctx.addr_taken.get(caller) or ctx.word32.get(caller):
+                if (ctx.addr_taken.get(caller) or ctx.word32.get(caller)) and not _callback_drops(ctx, caller, fpr):
                     return False, len(sites)
                 if not _callers_ignore_v0(ctx, caller, depth + 1, seen | {start}, ((fpr, register),))[0]:
                     return False, len(sites)
@@ -401,7 +528,7 @@ def draft_function(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIn
     if not unset and not sinit:
         through, exits_through = _exits_pass_through(ctx, address)
         ignored, site_count = _callers_ignore_v0(ctx, address)
-        if through and ignored and site_count:
+        if through and ignored and (site_count or _callback_returns(ctx).get(address) == "void"):
             unset, exits, pass_through = True, exits_through, True
     if sinit:
         # A static initializer's type is fixed by the runtime, not by its body:
@@ -416,7 +543,7 @@ def draft_function(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIn
         if not slots or any(not str(slot).startswith(".p__sinit") for slot in slots):
             return {**open_row, "open_reason": 'static initializer referenced other than by its .p__sinit word'}
         slots = []
-    if slots or ctx.addr_taken.get(address):
+    if slots or (ctx.addr_taken.get(address) and _callback_returns(ctx).get(address) != "void"):
         return {**open_row, "open_reason": 'address taken or stored in a table: an override or callback contract may apply'}
     parameters = [{"name": f"param_{index}", "type": name} for index, name in enumerate(rendered, 1)]
     gprs, fprs, reads = _read_registers(ctx, address)
@@ -574,7 +701,7 @@ def void_verdict(ctx: Any, start: int) -> str:
             "scratch value with another use in the function (or an indirect jump)"
         )
         return "\n".join(lines)
-    if ctx.addr_taken.get(start) or ctx.word32.get(start):
+    if (ctx.addr_taken.get(start) or ctx.word32.get(start)) and _callback_returns(ctx).get(start) != "void":
         lines.append("VERDICT open: the function's address is taken or stored in a table")
         return "\n".join(lines)
 
@@ -592,7 +719,7 @@ def void_verdict(ctx: Any, start: int) -> str:
                 if passes_on and caller not in seen:
                     if caller in _dwarf_void(ctx) or _declared_drop(ctx, caller, fpr):
                         continue  # declared return (DWARF) never carries this register to its callers
-                    if ctx.addr_taken.get(caller) or ctx.word32.get(caller):
+                    if (ctx.addr_taken.get(caller) or ctx.word32.get(caller)) and not _callback_drops(ctx, caller, fpr):
                         return (
                             f"{name} passed on by {ctx.label(caller)}, whose address is taken or stored in a table "
                             f"(chain: {' -> '.join(chain + [ctx.label(caller)])})"
@@ -611,6 +738,8 @@ def void_verdict(ctx: Any, start: int) -> str:
     sites = len(call_sites(ctx, start))
     if blocker:
         lines.append(f"VERDICT open: {blocker}")
+    elif not sites and _callback_returns(ctx).get(start) == "void":
+        lines.append("VERDICT void: no direct call sites; only called through a declared void callback type")
     elif not sites:
         lines.append("VERDICT open: no direct call sites (pass-through needs at least one)")
     else:

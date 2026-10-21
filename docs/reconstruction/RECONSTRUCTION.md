@@ -209,8 +209,16 @@ never reads the value, even when the caller's address is taken (rules
 version 8). A chain also stops where the caller's DWARF record declares a
 return in the other register class: an integer or pointer return (read from
 v0) ends an f0 chain, and a `float` return (read from f0) ends a v0 chain
-(rules version 10). `recon void --function` prints the verdict and the
-blocking chain.
+(rules version 10). A function whose address is only formed in code and
+passed straight to a direct call is a callback: when the callee's mangled
+parameter at that argument register is a function pointer, its declared
+result type is the callback's contract. A chain ends at such a callback
+when the declared result is `void` or lives in the other register class,
+and a callback declared `void` with no direct callers is `void` by that
+declaration (rules version 11). Which argument register maps to which
+parameter is settled by requiring every argument register to fit the
+reading (function addresses only where the parameter is a function pointer).
+`recon void --function` prints the verdict and the blocking chain.
 
 A function whose every exit returns a relocated pointer to a NUL-terminated
 string (`recon bytes` shows the word's target and its text) returns
