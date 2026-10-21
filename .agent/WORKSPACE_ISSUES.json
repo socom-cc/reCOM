@@ -879,8 +879,28 @@
       "resolution": null,
       "status": "open",
       "summary": "Revisit pass: C2D::Draw 0x300c70 (group 7a0af2cb) can be void from its override's DWARF"
+    },
+    {
+      "details": "Planners of groups 136 and 138 decided virtual overrides void from the slot contract: other overrides of the same virtual (same mangled method in classes derived from the same base, same vtable offset) carry DWARF FT_void records (e.g. C2D slot +0xc Draw(CCamera *): PoseBitmap, CLetterBox, CZPauseTest, CZHudMissionCams, BitmapReticule). recon void and the drafter only stop a chain at a caller with its own DWARF void, so callers like MakePacket 0x302780 stay open through C2DString::Draw 0x302700. Refinement (belongs with the vtable modelling in the type pass): derive a per-slot contract from the class hierarchy and vtables, and treat a DWARF-void slot as a chain stop and as a P-void source for overrides. Revisit rows: C2D::Draw 0x300c70 (issue 97ea613e), MakePacket 0x302780, C2DBitmap::Draw(CMatrix const &) 0x303830 (base C2D::Draw 0x1ff970 accepted void).",
+      "id": "socom:workspace-issue:fcacdbb28286491df515",
+      "kind": "problem",
+      "reported_at": "2026-10-21T11:07:28Z",
+      "reported_by": "socom-controller",
+      "resolution": null,
+      "status": "open",
+      "summary": "recon void: stop caller chains at virtuals whose slot has DWARF-declared void overrides"
+    },
+    {
+      "details": "Group 7a0af2cb (applied) left C2DBitmap::MakePacket 0x3031c0 unresolved, like C2D::Draw 0x300c70 (issue 97ea613e), on the premise that no base or override of slot +0xc has a DWARF record. The group 136 review showed five DWARF-void overrides of Draw(zdb::CCamera *) at slot +0xc (PoseBitmap 0x3d9560, CLetterBox 0x3bd3c0, CZPauseTest 0x3be7d0, CZHudMissionCams 0x403c50, BitmapReticule 0x3d04e0) and 12 DWARF records of that method, all void. Re-plan this row in the governed revisit, with the slot rule of issue fcacdbb2.",
+      "id": "socom:workspace-issue:1a505ca43ff26b9a8f69",
+      "kind": "problem",
+      "reported_at": "2026-10-21T11:17:03Z",
+      "reported_by": "socom-controller",
+      "resolution": null,
+      "status": "open",
+      "summary": "Revisit pass: C2DBitmap::MakePacket 0x3031c0 (group 7a0af2cb) premise now false"
     }
   ],
-  "revision": 101,
+  "revision": 103,
   "schema_version": 1
 }
