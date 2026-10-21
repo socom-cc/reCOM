@@ -1050,11 +1050,17 @@ def _shown_name(name: str, position: int) -> str:
     return f"param_{position}" if _DEFAULT_PARAM.fullmatch(name or "") else name
 
 
+def _shown_type(text: str) -> str:
+    """Ghidra prints each pointer level separately: char ** reads back as char * *."""
+
+    return re.sub(r"\s*\*", " *", text or "").strip()
+
+
 def expected_signature(prototype: dict[str, Any], name: str) -> str:
     params = ", ".join(
-        f"{p['type']} {_shown_name(p['name'], index)}" for index, p in enumerate(prototype["parameters"], 1)
+        f"{_shown_type(p['type'])} {_shown_name(p['name'], index)}" for index, p in enumerate(prototype["parameters"], 1)
     ) or "void"
-    return f"{prototype['return_type']} {prototype['calling_convention']} {name}({params})"
+    return f"{_shown_type(prototype['return_type'])} {prototype['calling_convention']} {name}({params})"
 
 
 def execute_batch_program(

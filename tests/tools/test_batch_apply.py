@@ -783,3 +783,12 @@ def test_default_parameter_names_follow_ghidra_positions() -> None:
                  "parameters": [{"name": "this", "type": "CSched_Manager *"}, {"name": "param_1", "type": "uint"}]}
     # Ghidra renumbers a default name by position: the parameter after this is param_2.
     assert batch_apply.expected_signature(prototype, "GetTask").endswith("(CSched_Manager * this, uint param_2)")
+
+
+def test_pointer_levels_are_compared_as_ghidra_prints_them() -> None:
+    prototype = {"return_type": "char *", "calling_convention": "__stdcall",
+                 "parameters": [{"name": "filename", "type": "char *"}, {"name": "argc", "type": "int"},
+                                {"name": "argv", "type": "char **"}]}
+    assert batch_apply.expected_signature(prototype, "SetArg") == (
+        "char * __stdcall SetArg(char * filename, int argc, char * * argv)"
+    )
