@@ -899,8 +899,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Revisit pass: C2DBitmap::MakePacket 0x3031c0 (group 7a0af2cb) premise now false"
+    },
+    {
+      "details": "A scan of build/recon-plans finds 190 prototyped rows in 18 plans whose evidence cites a PS2 SDK header (eekernel.h 118, libvu0.h 39, sifdev.h 20, sifrpc.h 9, sifcmd.h 6, libdma.h 4, libpad.h 2, and one each of libgraph/libcdvd/libmc/libipu/libpc). No SDK header exists in the repository or the local CodeWarrior install, so these citations are recalled declarations, not reproducible evidence (group 128 review, 2026-10-21). Many rows also carry asm proof (syscall stubs, argument reads, caller uses); none is known to be wrong. Planner brief now forbids recalled headers for new plans. Revisit: re-verify each of the 190 rows against asm/caller/DWARF/accepted-type evidence, or against SDK headers if the user can supply them locally (read-only, path never recorded); rows whose contract is not independently proven become unresolved through governed reopen. Plans: 0dd42227 28, a4fa6631 30, 55d86130 26, fad6cea5 18, a07f5644 16, c41d88af 14, 73096b0c 10, ecac4738 9, 5846478 7, 8b6893a9 7, 90150f2e 7, 9d1d0f98 6, 8905e7dd 4, dd539e7a 3, 3f609906 2, 6284cb70 1, ad588577 1, d50ff4e8 1.",
+      "id": "socom:workspace-issue:b8acf0d94704f638d7af",
+      "kind": "problem",
+      "reported_at": "2026-10-21T12:52:14Z",
+      "reported_by": "socom-controller",
+      "resolution": null,
+      "status": "open",
+      "summary": "190 applied prototypes cite PS2 SDK headers that are not in the workspace"
     }
   ],
-  "revision": 103,
+  "revision": 104,
   "schema_version": 1
 }
