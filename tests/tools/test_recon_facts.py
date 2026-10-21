@@ -196,3 +196,6 @@ def test_dwarf_entries_by_name(root: Path) -> None:
     text = dwarf_entries(root, [], 0, ["theNetwork", "NoSuchName"])
     assert "global_variable" in text and "name=theNetwork" in text
     assert "NoSuchName: no DWARF entry has that name" in text
+    # theNetwork lives at 0x511ea0; by address finds the same records.
+    by_address = dwarf_entries(root, [], 0, None, [0x511EA0, 0x439540])
+    assert "name=theNetwork" in by_address and "0x439540: no DWARF entry is located there" in by_address

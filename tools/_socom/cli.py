@@ -1792,10 +1792,12 @@ def _recon_dwarf(arguments: argparse.Namespace) -> int:
     from .recon_facts import dwarf_entries
 
     root = _root(arguments)
-    if not arguments.die and not arguments.name:
-        raise SystemExit("socom recon dwarf: give --die and/or --name")
+    if not arguments.die and not arguments.name and not arguments.address:
+        raise SystemExit("socom recon dwarf: give --die, --name and/or --address")
     offsets = [int(value, 16) if value.lower().startswith("0x") else int(value) for value in arguments.die or ()]
-    return _recon_text(root, arguments, dwarf_entries(root, offsets, arguments.depth, arguments.name))
+    return _recon_text(root, arguments, dwarf_entries(
+        root, offsets, arguments.depth, arguments.name, [int(value, 16) for value in arguments.address or ()]
+    ))
 
 
 def _recon_refs(arguments: argparse.Namespace) -> int:
@@ -2935,6 +2937,7 @@ def build_parser() -> argparse.ArgumentParser:
     recon_dwarf_target = recon_dwarf.add_argument_group()
     recon_dwarf_target.add_argument("--die", nargs="+")
     recon_dwarf_target.add_argument("--name", nargs="+")
+    recon_dwarf_target.add_argument("--address", nargs="+")
     recon_dwarf.add_argument("--depth", type=int, default=1)
     recon_dwarf.add_argument("--output")
     recon_dwarf.set_defaults(handler=_recon_dwarf)

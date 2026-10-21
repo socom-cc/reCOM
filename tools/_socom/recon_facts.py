@@ -1002,11 +1002,15 @@ def _attr_text(attribute: Any) -> str:
     return f"{attribute.name}={value}"
 
 
-def dwarf_entries(root: Path, offsets: list[int], depth: int = 1, names: list[str] | None = None) -> str:
-    """A DWARF 1 entry by offset or exact name, with its children (``depth`` levels), compactly.
+def dwarf_entries(
+    root: Path, offsets: list[int], depth: int = 1, names: list[str] | None = None, addresses: list[int] | None = None
+) -> str:
+    """A DWARF 1 entry by offset, exact name or address, with its children (``depth`` levels), compactly.
 
     A name selects every entry with that ``name`` attribute (globals, functions,
-    types), so a global's record can be found without knowing its offset.
+    types); an address selects every entry whose static location
+    (``DW_OP_ADDR``) or ``low_pc`` is that address, so a global's or a
+    function's record can be found without knowing its offset.
     """
 
     path = root / "support" / "socom.elf"
@@ -1019,6 +1023,18 @@ def dwarf_entries(root: Path, offsets: list[int], depth: int = 1, names: list[st
         missing = wanted - {dies[by_offset[o]].string("name") for o in found}
         lines.extend(f"{name}: no DWARF entry has that name" for name in sorted(missing))
         offsets = list(offsets) + found
+    if addresses:
+        for address in addresses:
+            location = b"" + address.to_bytes(4, "little")
+            found = [
+                die.offset for die in dies
+                if die.integer("low_pc") == address
+                or (isinstance(getattr(die.attribute("location"), "value", None), bytes)
+                    and die.attribute("location").value == location)
+            ]
+            if not found:
+                lines.append(f"0x{address:x}: no DWARF entry is located there")
+            offsets = list(offsets) + found
     for offset in offsets:
         index = by_offset.get(offset)
         if index is None:
