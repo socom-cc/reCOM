@@ -195,7 +195,7 @@ def test_dwarf_entries_by_name(root: Path) -> None:
 
     text = dwarf_entries(root, [], 0, ["theNetwork", "NoSuchName"])
     assert "global_variable" in text and "name=theNetwork" in text
-    assert "NoSuchName: no DWARF entry has that name" in text
+    assert "NoSuchName: no DWARF entry or ELF symbol has that name" in text
     # theNetwork lives at 0x511ea0; by address finds the same records.
     by_address = dwarf_entries(root, [], 0, None, [0x511EA0, 0x439540])
     assert "name=theNetwork" in by_address and "0x439540: no DWARF entry is located there" in by_address
@@ -206,3 +206,25 @@ def test_jump_table_switch_is_not_an_exit(ctx) -> None:
     # 0x24e034); its cases stay in the function, so only jr ra is an exit.
     rows = return_sources(ctx, 0x24DF40)
     assert rows and all(row.startswith("jr ra@") for row in rows)
+
+
+def test_jump_table_is_bounded_by_its_range_check(ctx) -> None:
+    # CInGameWeaponSel::SetItemPos: `sltiu at,a1,8` bounds table @3616, which
+    # other relocated words follow; only jr ra is an exit.
+    rows = return_sources(ctx, 0x3F8FA0)
+    assert rows and all(row.startswith("jr ra@") for row in rows)
+
+
+def test_call_sites_include_self_recursion(ctx) -> None:
+    from tools._socom.recon_facts import call_sites
+
+    # CalcNrNodes10 calls itself at 0x3458dc; the call graph leaves that out.
+    assert (0x345778, 0x3458DC, "call") in call_sites(ctx, 0x345778)
+
+
+def test_copy_into_an_argument_register_is_that_calls_argument(ctx) -> None:
+    from tools._socom.recon_facts import _use_after_call
+
+    # GetRdrArrayInt's result is moved to a1 and passed to CInit<int,0>::operator=.
+    use = _use_after_call(ctx, 0x3A7940, 0x3A85D8, False)
+    assert "move a1,v0@0x3a85e0 -> a1: passed as a1 to" in use

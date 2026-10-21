@@ -633,15 +633,25 @@ def _is_switch(ctx: _Context, flow: Any, start: int, pc: int) -> bool:
     defs = flow.defs(pc, register, False)
     if not defs or any(not isinstance(d, int) or ctx.code.word(d) >> 26 != 0x23 for d in defs):
         return False
-    for at in range(max(start, pc - 32), pc):
+    # The bounds check (`sltiu rt,rs,N`) before the jump gives the table length;
+    # without it, the table runs while its relocated words point inside.
+    bound = None
+    for at in range(max(start, pc - 64), pc, 4):
+        insn = ctx.code.word(at)
+        if insn >> 26 == 0x0B:
+            bound = insn & 0xFFFF
+    for at in range(max(start, pc - 32), pc, 4):
         row = ctx.ref_at.get(at)
         if not row or row.get("target") is None:
             continue
         table = int(row["target"], 16)
         entries = []
-        while table + 4 * len(entries) in ctx.reloc32 and len(entries) < 1024:
-            entries.append(ctx.code.word(table + 4 * len(entries)))
-        if entries and all(start <= target < flow.end for target in entries):
+        while table + 4 * len(entries) in ctx.reloc32 and len(entries) < (bound or 1024):
+            target = ctx.code.word(table + 4 * len(entries))
+            if bound is None and not start <= target < flow.end:
+                break
+            entries.append(target)
+        if entries and (bound is None or len(entries) == bound) and all(start <= t < flow.end for t in entries):
             return True
     return False
 
@@ -723,6 +733,10 @@ def _use_scan(ctx: _Context, caller: int, start: int, register: int, fpr: bool, 
             continue
         if insn == JR_RA:
             ends.add("returned by caller" if register in (0, 2) else "caller returns")
+        elif row["kind"] == "call" and not fpr and 4 <= register <= 11:
+            # A copy in an argument register reaching a call is that call's argument.
+            callee = ((pc + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2) if insn >> 26 == 0x03 else None
+            uses.append(f"passed as {GPR[register]} to {ctx.label(callee) if callee else ctx.text(pc)}@0x{pc:x}")
         elif row["kind"] == "call":
             # A callee that leaves the register alone on some path passes the
             # value through to the code after the call.
@@ -762,6 +776,13 @@ def call_sites(ctx: _Context, target: int) -> list[tuple[int, int, str]]:
         for site in ctx.graph["call_sites"].get((caller, target), ()):
             kind = "call" if ctx.code.word(site) >> 26 == 0x03 else "tail"
             rows.append((caller, site, kind))
+    if target in ctx.size and target not in ctx.graph["callers"].get(target, ()):
+        # The call graph leaves out recursion: a jal to the function's own entry
+        # from inside it is a call site whose use of the result counts too.
+        for pc in range(target, target + ctx.size[target], 4):
+            insn = ctx.code.word(pc)
+            if insn >> 26 == 0x03 and ((pc + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2) == target:
+                rows.append((target, pc, "call"))
     return sorted(rows, key=lambda row: row[1])
 
 
@@ -1051,7 +1072,12 @@ def dwarf_entries(
         wanted = set(names)
         found = [die.offset for die in dies if die.string("name") in wanted]
         missing = wanted - {dies[by_offset[o]].string("name") for o in found}
-        lines.extend(f"{name}: no DWARF entry has that name" for name in sorted(missing))
+        if missing:
+            # A mangled or other ELF symbol name: look its records up by address.
+            symbols = {sym.name: sym.value for sym in Elf32File(path).symbols() if sym.name in missing and sym.value}
+            addresses = list(addresses or []) + list(symbols.values())
+            missing -= set(symbols)
+        lines.extend(f"{name}: no DWARF entry or ELF symbol has that name" for name in sorted(missing))
         offsets = list(offsets) + found
     if addresses:
         for address in addresses:

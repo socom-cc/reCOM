@@ -552,6 +552,8 @@ def void_verdict(ctx: Any, start: int) -> str:
     leads to it, so a planner or reviewer need not walk the callers by hand.
     """
 
+    if start not in ctx.size:
+        return f"## 0x{start:x}: not the start of a sized FUNC symbol"
     label = ctx.label(start)
     lines = [f"## {label}"]
     unset, rows = _exits_unset(ctx, start)
