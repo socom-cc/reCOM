@@ -849,8 +849,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Stage 3: applied void prototypes that rules v6 cannot confirm need a governed repair"
+    },
+    {
+      "details": "Rules v6 had two false-positive sources (caller chains switched register; tail jumps counted as writing the register), fixed in rules v7. Re-auditing every accepted void with v7: no applied void has a caller that reads the leftover. 56 applied rows are unconfirmed only because a chain reaches a virtual or address-taken function, 12 end in an indirect (virtual) tail call (jr t9) - both are conservative, not evidence of error. One suspect remains: CAiMap::GetDirVec 0x187d90 (group 18) ends with move v0,a1 and probably returns its CPnt3D & argument. The governed repair for e3cacd85 should cover GetDirVec and re-check the 68 unconfirmed rows against declarations; rows the buggy v6 made unresolved in reopened plans (e.g. setD3_CHCR, VSync, UpdatePointFlags, WasHit) can be upgraded in a later revisit. Audit list: scratchpad void_audit_v7.txt.",
+      "id": "socom:workspace-issue:31fd5c5f621a90a1943c",
+      "kind": "problem",
+      "reported_at": "2026-10-20T23:29:05Z",
+      "reported_by": "socom-controller",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage 3 void re-audit (rules v7) narrows issue e3cacd85 to one suspect"
     }
   ],
-  "revision": 98,
+  "revision": 99,
   "schema_version": 1
 }
