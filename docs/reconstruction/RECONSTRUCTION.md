@@ -121,8 +121,8 @@ row `"draft": "open"` for the planner:
   "Return width" pass-through conditions hold (rules version 4).
 - A `__sinit_*` static initializer is `P-void` as `void (void)` whatever v0
   holds at its exits. It must have no mangled name, no argument reads, no
-  direct call sites, only `jr ra` exits, and its `.p__sinit` table word as its
-  only reference. The runtime fixes the contract: `__initialize_cpp_rts`
+  direct call sites, only `jr ra` or tail-jump exits (rules version 9), and
+  its `.p__sinit` table word as its only reference. The runtime fixes the contract: `__initialize_cpp_rts`
   calls each one through the `void (**)(void)` table and never reads v0, so a
   `__register_global_object` result left in v0 is residue (rules version 3).
 

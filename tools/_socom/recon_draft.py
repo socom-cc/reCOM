@@ -23,8 +23,8 @@ P-void   a void prototype from the mangled signature, when every parameter
          const method, or an argument register read beyond the declared
          parameters that the receiver accounts for.  ``__sinit_*`` static initializers
          (no mangled name, no argument reads, no direct call sites, only their
-         .p__sinit table word, jr ra exits) are void(void) whatever v0 holds:
-         the runtime's table type fixes their contract.
+         .p__sinit table word, jr ra or tail-jump exits) are void(void) whatever
+         v0 holds: the runtime's table type fixes their contract.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ from .recon import RECON_PLAN_KIND, RECON_SCHEMA, group_evidence
 from .recon_facts import GPR, JR_RA, _reads_at, _through_calls, _use_after_call, argument_reads, call_sites, callee_preserves, context, return_sources
 from .util import SocomError, canonical_json
 
-DRAFT_RULES_VERSION = 8
+DRAFT_RULES_VERSION = 9
 
 
 class _TypeIndex:
@@ -350,7 +350,8 @@ def draft_function(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIn
         # A static initializer's type is fixed by the runtime, not by its body:
         # __initialize_cpp_rts calls each through the void (**)(void) .p__sinit
         # table and never reads v0, so a callee result left in v0 is residue.
-        unset = bool(exits) and all(row.startswith("jr ra@") for row in exits) and not call_sites(ctx, address)
+        # The exit form does not matter (tail-jump exits too, review of group 125).
+        unset = bool(exits) and all(row.startswith(("jr ra@", "tail j@")) for row in exits) and not call_sites(ctx, address)
     if not unset:
         return {**open_row, "open_reason": 'return: v0/f0 hold a value at some exit (own value, or a callee result that some code may read)'}
     slots = [ctx.object_for(site) or f"0x{site:x}" for site in ctx.word32.get(address, ())]
@@ -397,7 +398,7 @@ def draft_function(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIn
          f"{len(call_sites(ctx, address))} direct call sites leave v0 unread (callee-result pass-through, "
          "or scratch value decisions of 2026-10-20)" if pass_through else
          f"every exit leaves v0 and f0 unset ({len(exits)} jr ra)" if not sinit else
-         f"static initializer: {len(exits)} jr ra, no direct call sites; the runtime calls it through the "
+         f"static initializer: {len(exits)} exit(s), no direct call sites; the runtime calls it through the "
          "void (**)(void) .p__sinit table (__initialize_cpp_rts) and never reads v0"),
         "no word refs or address-taken sites" if not live_name.startswith("__sinit_")
         else "referenced only by its own .p__sinit table word",

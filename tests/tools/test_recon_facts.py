@@ -177,3 +177,12 @@ def test_syscall_stubs_write_v0_and_preserving_helpers_keep_arguments(ctx) -> No
     # sceVu0RotMatrixX reads a0/a1 after jal _sceVu0ecossin, which leaves them alone.
     reads = argument_reads(ctx, 0x152688)
     assert {"f12", "a0", "a1"} <= set(reads)
+
+
+def test_result_copied_to_a_saved_register_shows_its_later_use(ctx) -> None:
+    # NetObjectFullUpdatePacketHandler keeps FindFreeLocalObject's result in s5
+    # and tests it signed two instructions later (review of group 124).
+    from tools._socom.recon_facts import _use_after_call
+
+    use = _use_after_call(ctx, 0x41FA48, 0x41FAFC, False)
+    assert "move s5,v0@0x41fb04 -> s5: bltz s5,0x41fb60@0x41fb08" in use

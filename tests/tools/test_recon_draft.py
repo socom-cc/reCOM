@@ -63,6 +63,15 @@ def test_static_initializer_is_void_whatever_v0_holds(ctx) -> None:
     assert drafted["prototype"]["parameters"] == [] and drafted["prototype"]["return_type"] == "void"
 
 
+def test_static_initializer_with_a_tail_jump_exit_is_void(ctx) -> None:
+    # __sinit_ai_map.cpp ends `j __ct__7CAiCellFv` (a0 set in the delay slot);
+    # the exit form does not change the .p__sinit table contract.
+    row = {"address": "0x46a2e0", "elf_names": ["__sinit_ai_map.cpp"], "stage2": None, "thunk_target": None}
+    drafted = draft_function(ctx, row, "__sinit_ai_map.cpp", _types())
+    assert drafted["draft_rule"] == "P-void"
+    assert drafted["prototype"]["return_type"] == "void"
+
+
 def test_hand_written_rows_are_checked_in_substance(ctx) -> None:
     row = {"address": "0x46b9d0", "elf_names": ["__sinit_zrdr_archive.cpp"], "stage2": None, "thunk_target": None}
     drafted = draft_function(ctx, row, "__sinit_zrdr_archive.cpp", _types())

@@ -612,15 +612,35 @@ def return_sources(ctx: _Context, start: int) -> list[str]:
     return rows
 
 
+_SAVED_GPRS = frozenset((16, 17, 18, 19, 20, 21, 22, 23, 30))
+
+
+def _gpr_copy(insn: int, register: int) -> int | None:
+    """Destination of a plain copy of ``register`` (move/addu/or/daddu with zero)."""
+
+    if insn >> 26 or (insn & 0x3F) not in (0x21, 0x25, 0x2D) or (insn >> 6) & 0x1F:
+        return None
+    rs, rt, rd = (insn >> 21) & 0x1F, (insn >> 16) & 0x1F, (insn >> 11) & 0x1F
+    if rd and rd != register and {rs, rt} == {register, 0}:
+        return rd
+    return None
+
+
 def _use_after_call(ctx: _Context, caller: int, site: int, fpr: bool) -> str:
     """Uses of v0 (or f0) after a call returns, over every path of the caller.
 
     Each path ends at the first read (reported), a write (overwritten), a
-    call (clobbered), or the caller's return.  Reads are listed first.
+    call (clobbered), or the caller's return.  Reads are listed first.  When
+    the read is a plain copy into another GPR (``move s5,v0``), that copy's
+    first uses are shown after it, so a later signed test or narrowing of the
+    saved value is visible without a second scan.
     """
 
+    return _use_scan(ctx, caller, site + 8, 0 if fpr else 2, fpr, follow=not fpr)
+
+
+def _use_scan(ctx: _Context, caller: int, start: int, register: int, fpr: bool, follow: bool) -> str:
     end = caller + ctx.size[caller]
-    register = 0 if fpr else 2
     flow = ctx.flow(caller)
     decoded = flow.fn.decoded
 
@@ -635,7 +655,15 @@ def _use_after_call(ctx: _Context, caller: int, site: int, fpr: bool) -> str:
     uses: list[str] = []
     ends: set[str] = set()
     seen: set[int] = set()
-    stack = [site + 8]
+    stack = [start]
+
+    def copied(at: int) -> str:
+        # Follow one plain register copy (not copies of copies) to its first uses.
+        target = _gpr_copy(ctx.code.word(at), register) if follow else None
+        if target is None:
+            return ""
+        return f" -> {GPR[target]}: " + _use_scan(ctx, caller, at + 4, target, False, follow=False)
+
     while stack and len(seen) < 1024:
         pc = stack.pop()
         if pc in seen or not caller <= pc < end:
@@ -643,7 +671,7 @@ def _use_after_call(ctx: _Context, caller: int, site: int, fpr: bool) -> str:
         seen.add(pc)
         insn = ctx.code.word(pc)
         if reads(pc):
-            uses.append(f"{ctx.text(pc)}@0x{pc:x}")
+            uses.append(f"{ctx.text(pc)}@0x{pc:x}{copied(pc)}")
             continue
         if writes(pc):
             ends.add("overwritten")
@@ -660,11 +688,12 @@ def _use_after_call(ctx: _Context, caller: int, site: int, fpr: bool) -> str:
             ends.add("overwritten")
             continue
         if insn == JR_RA:
-            ends.add("returned by caller")
+            ends.add("returned by caller" if register in (0, 2) else "caller returns")
         elif row["kind"] == "call":
             # A callee that leaves the register alone on some path passes the
             # value through to the code after the call.
             how = (
+                "all" if not fpr and register in _SAVED_GPRS else
                 callee_preserves(ctx, ((pc + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2), register, fpr)
                 if insn >> 26 == 0x03 else "none"
             )
