@@ -919,8 +919,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Revisit pass: CTSpecial::Tick 0x2b6150 (group 79a2017d) is a static AddCmd tick callback"
+    },
+    {
+      "details": "Planner of group 149 (2026-10-21) found live signatures that contradict the code: (1) SHA has a live prototype of 3 parameters returning uchar *, but its body reads 4 argument registers and recon void gives void; (2) ftell's live parameter names /stdio.h/FILE (160 bytes, the MSL layout) while the body dereferences newlib's __sFILE (88 bytes), so two distinct FILE types are in play. Also: rt_comm_platform2_get_avail_bytes_to_read 0x405298 a0 is a signed handle in group 45c70e8b but sceBInetGetAvailBytesToRead (group 4ef73f28) reads the same value as a socket record (lw 52(a0)). Resolve in the type pass: identify where the SHA prototype came from (stage 2 import or an accepted plan) and correct it through a governed change; decide which FILE each libc unit uses; settle the handle/record contradiction.",
+      "id": "socom:workspace-issue:1878dd7f32dcf0a8cd39",
+      "kind": "problem",
+      "reported_at": "2026-10-21T17:28:17Z",
+      "reported_by": "socom-controller",
+      "resolution": null,
+      "status": "open",
+      "summary": "Type pass: live signatures that disagree with the binary (SHA, ftell FILE)"
     }
   ],
-  "revision": 105,
+  "revision": 106,
   "schema_version": 1
 }
