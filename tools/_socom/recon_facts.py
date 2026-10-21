@@ -197,9 +197,11 @@ class _Context:
         relocations = list(self.elf.relocations(".relmain"))
         self.table_targets = {self.code.word(r.offset) for r in relocations if r.type_name == "R_MIPS_32"}
         self.word32: dict[int, list[int]] = {}
+        self.reloc32: set[int] = set()
         for relocation in relocations:
             if relocation.type_name == "R_MIPS_32":
                 self.word32.setdefault(self.code.word(relocation.offset), []).append(relocation.offset)
+                self.reloc32.add(relocation.offset)
         self.refs = code_data_references(root)
         self.ref_at = {int(row["site"], 16): row for row in self.refs}
         self.addr_taken: dict[int, list[int]] = {}
@@ -609,11 +611,39 @@ def return_sources(ctx: _Context, start: int) -> list[str]:
                     parts.append(f"{name}<-{'ret(' + ctx.label(target) + ') | ' if how == 'some' else ''}{' | '.join(shown)}")
                 rows.append(text + (": " + "; ".join(parts) if parts else ""))
         elif insn >> 26 == 0x00 and insn & 0x3F == 0x08:
-            # jr <reg> other than ra: an indirect tail call, or a switch when the
-            # function's own jump-table targets follow it.
+            # jr <reg> other than ra: a proven switch stays inside the function
+            # (its cases are reached through the jump table and their own exits
+            # are listed); anything else may be an indirect tail call.
+            if _is_switch(ctx, flow, start, pc):
+                continue
             switch = any(start < t < flow.end for t in ctx.table_targets)
             rows.append(f"{ctx.text(pc)}@0x{pc:x}: {'switch or ' if switch else ''}indirect tail call (result is the callee's)")
     return rows
+
+
+def _is_switch(ctx: _Context, flow: Any, start: int, pc: int) -> bool:
+    """``jr <reg>`` at ``pc`` jumps through a jump table of this function.
+
+    Proven when the register is loaded (``lw``) on every path, and within the
+    eight instructions before the jump the code forms the relocated address of
+    a table whose relocated words all point inside this function.
+    """
+
+    register = (ctx.code.word(pc) >> 21) & 0x1F
+    defs = flow.defs(pc, register, False)
+    if not defs or any(not isinstance(d, int) or ctx.code.word(d) >> 26 != 0x23 for d in defs):
+        return False
+    for at in range(max(start, pc - 32), pc):
+        row = ctx.ref_at.get(at)
+        if not row or row.get("target") is None:
+            continue
+        table = int(row["target"], 16)
+        entries = []
+        while table + 4 * len(entries) in ctx.reloc32 and len(entries) < 1024:
+            entries.append(ctx.code.word(table + 4 * len(entries)))
+        if entries and all(start <= target < flow.end for target in entries):
+            return True
+    return False
 
 
 _SAVED_GPRS = frozenset((16, 17, 18, 19, 20, 21, 22, 23, 30))

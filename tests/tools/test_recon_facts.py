@@ -199,3 +199,10 @@ def test_dwarf_entries_by_name(root: Path) -> None:
     # theNetwork lives at 0x511ea0; by address finds the same records.
     by_address = dwarf_entries(root, [], 0, None, [0x511EA0, 0x439540])
     assert "name=theNetwork" in by_address and "0x439540: no DWARF entry is located there" in by_address
+
+
+def test_jump_table_switch_is_not_an_exit(ctx) -> None:
+    # CZSealBody::SetCurZoomState switches through table @4315 (jr v1 at
+    # 0x24e034); its cases stay in the function, so only jr ra is an exit.
+    rows = return_sources(ctx, 0x24DF40)
+    assert rows and all(row.startswith("jr ra@") for row in rows)
