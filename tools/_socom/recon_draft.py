@@ -562,6 +562,12 @@ def void_verdict(ctx: Any, start: int) -> str:
         return "\n".join(lines)
     dead, rows = _exits_pass_through(ctx, start)
     lines.extend(f"exit {row}" for row in rows)
+    if not rows:
+        lines.append(
+            "VERDICT open: the function has no exit (it never returns), so no return value is observable; "
+            "a return type needs a declaration"
+        )
+        return "\n".join(lines)
     if not dead:
         lines.append(
             "VERDICT open: some exit can return a value that is neither a callee's result nor a "
