@@ -909,8 +909,18 @@
       "resolution": null,
       "status": "open",
       "summary": "190 applied prototypes cite PS2 SDK headers that are not in the workspace"
+    },
+    {
+      "details": "Group 79a2017dc0c59b293e62 (applied, g135) left CTSpecial::Tick 0x2b6150 unresolved as 'receiver type CTSpecial missing'. The group 146 planner found the CT* task functions are registered through CZAnimMain::AddCmd, whose mangled tick parameter is a plain function pointer bool (*)(_zanim_cmd_hdr *, float *), so these are static callbacks with no receiver (precedents CTSound::End, CftsPlayer::CmdTickControls; group 146 types 8 such Tick rows). Re-plan 0x2b6150 in the governed revisit after confirming its registration site and a0 use.",
+      "id": "socom:workspace-issue:038d68b9a779fad8acad",
+      "kind": "problem",
+      "reported_at": "2026-10-21T16:36:03Z",
+      "reported_by": "socom-controller",
+      "resolution": null,
+      "status": "open",
+      "summary": "Revisit pass: CTSpecial::Tick 0x2b6150 (group 79a2017d) is a static AddCmd tick callback"
     }
   ],
-  "revision": 104,
+  "revision": 105,
   "schema_version": 1
 }
