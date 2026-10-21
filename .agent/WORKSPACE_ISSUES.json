@@ -942,8 +942,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Revisit pass: voids that rest on an address-taken empty body (CPlainBmp::UpdateUIVar and dependents)"
+    },
+    {
+      "details": "DWARF 1 has no bool type, so Metrowerks records spell bool as uchar, and stage-2 restatements carried uchar into plans although the mangled signature says b (bool). The drafter keeps the mangled bool since 2026-10-21 (rules v12/v13). Applied rows to correct through the governed revisit: 0x174ad0 C2D::SetUseFrameBufferAlpha (isFrameAlpha) in 0bc0c825454acd55a0fa; 0x17d2b0 zdb::CNode::SetActive (flag) in 0bc0c825454acd55a0fa; 0x1ea420 CAppCamera::WiggleEcho (flag) in 1ede07c57660e4b2ed28; 0x3c86b0 CZLineMap::TickRegions (bDim) in 257cacf214b37ee42c13; 0x3c7a70 CZLineMap::TickWayPoints (bDim) in 455a435719b247230fcf; 0x174aa0 C2D::SetCanHandleInput (val) in 4bd54e541f5d9b1d9d49; 0x14cc70 std::ctype<char>::ctype (del) in 6284cb70afd4bc9c38e0; 0x3793d0 CMenuState::SetSkipMenu (flag) in c42f2a6c629330b1f8e5; 0x1e4d20 zdb::CCamera::TestFOV (testGuardBand) in fc34f6139880c0de2a1d.",
+      "id": "socom:workspace-issue:01fc243005e049340bb7",
+      "kind": "problem",
+      "reported_at": "2026-10-21T23:26:41Z",
+      "reported_by": "socom-controller",
+      "resolution": null,
+      "status": "open",
+      "summary": "Revisit pass: 9 applied rows type a mangled bool parameter as uchar"
     }
   ],
-  "revision": 108,
+  "revision": 109,
   "schema_version": 1
 }
