@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 1097,
+  "revision": 1106,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -2842,7 +2842,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "02a45b45b6b0b25929e869e543a6d2c1e8a0ca49a7dc9d2e27b85492448ae901",
+      "current_receipt_sha256": "b4d7b102e5b27ff2acfc2c9ac88a9ecbdffe1572a3af9fc3e628aadb85507d1e",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -6383,6 +6383,31 @@
           "receipt_sha256": "02a45b45b6b0b25929e869e543a6d2c1e8a0ca49a7dc9d2e27b85492448ae901",
           "tracker_revision": 1097,
           "work_item_id": "socom:recon-group:ecac473814544479a966-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1621,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 34489
+          },
+          "indexes": {
+            "data": {
+              "count": 51811,
+              "sha256": "e9bb9cca57b4106474e48b84e15682238285aa08ba9fe09483755a59710e308d"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1621,
+              "sha256": "eca90cbb1dd76afbb38f58624d2db674e7eed3568da484a2ae67827a9a431a4a"
+            }
+          },
+          "receipt_sha256": "b4d7b102e5b27ff2acfc2c9ac88a9ecbdffe1572a3af9fc3e628aadb85507d1e",
+          "tracker_revision": 1106,
+          "work_item_id": "socom:recon-group:7a0af2cbf6db2fda4bf6-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -70300,7 +70325,7 @@
     },
     {
       "accepted": {
-        "at": "2026-10-20T23:21:15Z",
+        "at": "2026-10-21T02:53:48Z",
         "by": "socom-reviewer-r113"
       },
       "batch": {
@@ -70360,12 +70385,12 @@
         "socom:recon-group:e6d8e21625ffe55e1cc2-apply"
       ],
       "evidence": [
-        "plan build/recon-plans/socom-recon-group-7a0af2cbf6db2fda4bf6.json sha256:2fd77af34abe2f21e3c84ab161bb8f11fc55e42059ff35b62b47f95c5ac3343c; recon draft rules v6; recon validate ok; recon draft --check ok; preflight-batch ok (14 set_function_prototype)",
-        "plan sha256:2fd77af34abe2f21e3c84ab161bb8f11fc55e42059ff35b62b47f95c5ac3343c; recon validate ok; recon draft --check ok (11 drafted, 21 open); recon program equals build/apply file; preflight-batch ok, 18 skips = the 18 unresolved. Re-review of the r113 rejection under rules v6: CFileCD::Find _FILECD * (_FILECD 16 bytes name +0; CFileIO::Open stores the result into CFileCD::m_toc at 0x305918); C2DBitmapPoly::GetTrans float (pure tail jump 0x2fe2c0 to C2DPoly::GetTrans 0x301620, lwc1 f0,60(a0), accepted float in group 055); Draw2DLine void by the scratch rule (v0 read by sra at 0x300170/0x300180, f0 stored by swc1 0x30011c; 8 of 10 call sites leave v0/f0 unread, the chain DrawAutoReticle -> CZSealBody::CheckDIShoot and DrawTaskLine -> CHUD::StatusLine -> CCoreState::Tick ends unread, no word refs); SetUV 0x2fe410, Draw3DLine (chain to CTurret::Tick slot +0x14) and CBufferIO::Release (CBufferIO absent) unresolved. Program diff against the reviewed version shows only these 4 prototype rows plus the 3 reason texts changed."
+        "plan build/recon-plans/socom-recon-group-7a0af2cbf6db2fda4bf6.json sha256:722ec0645e4c9075069e8261bea15a742553c0c3d16e367775c8123f975a61af; thunk rows 0x302db0/0x302dc0 state the target's void (C2D *); recon validate ok (9fa8813); recon draft --check ok; preflight-batch ok (14 set_function_prototype)",
+        "plan sha256:722ec0645e4c9075069e8261bea15a742553c0c3d16e367775c8123f975a61af; recon validate ok (thunk check included); recon draft --check ok (11 drafted, 21 open); recon program equals build/apply file; preflight-batch ok, 18 skips = the 18 unresolved. Re-review: program diff against the previously accepted version changes only 0x302db0 C2DString::On and 0x302dc0 C2DString::Off, receiver C2DString * -> C2D *, return void unchanged; both are whole-body j thunks (j On__3C2DFv 0x300c30 / j Off__3C2DFv 0x300c50 with nop delay slot, asm checked) and the rows now equal C2D::On/Off's accepted void (C2D *) from group 53f99d95d9a556c703ba. Other 30 rows, globals and summary (14 prototypes, 18 unresolved) identical."
       ],
       "handoff": {
         "owner": "socom-recon-planner-g30",
-        "submitted_at": "2026-10-20T23:15:51Z",
+        "submitted_at": "2026-10-21T02:52:27Z",
         "summary": "14 prototypes, 18 unresolved, 0 globals"
       },
       "id": "socom:recon-group:7a0af2cbf6db2fda4bf6",
@@ -70388,6 +70413,27 @@
           "reason": "Plan sha256 57651244...975fae reviewed (validate ok, draft --check ok, recon program equals apply file, preflight skips = the 19 unresolved). One finding, an unresolved row whose facts prove a full contract with unique spellable types.\n0x304f70 CFileCD::Find(char const*): not unresolved; return _FILECD *, one parameter char * name (static, a0 = name as already proven). The reason 'no live type describes that entry' is wrong: /project/_FILECD (unique, 16 bytes: char * name at +0, uint startSector +4, uint endSector +8, uint sectorSize +12; get_struct_layout) is the 16-byte TOC entry whose word 0 is the name compared by strcmp (lw a1,0(v0) 0x304fb4; stride addiu s2,s2,16 0x304fd0). CFileCD::m_toc at +0 of /project/CFileCD (20 bytes) is typed _FILECD *, and the one caller that keeps the result stores it there: CFileIO::Open allocates the 20-byte CFileCD (li a0,20 0x3058c8; move s0,v0), calls Find (jal 0x305910), sw v0,0(s0) (0x305918), then reads lw v1,4(v1) = startSector and lw v0,12(v0) = sectorSize through that member (0x305934, 0x30595c). Callers 0x2ee200/0x2ee260 (CSnd::Init) and 0x335b90 only test v0, consistent with a pointer.\nChecked and not findings: C2DString::On/Off void (accepted base C2D::On/Off 0x300c30/0x300c50, group 53f99d95d9a556c703ba accepted with these overrides listed; all exits tail-jump, v0/f0 <- entry); C2DBitmap::MakePacket unresolved is right (C2DBitmap::Draw 0x303900 fills slot +0xc of __vt__9C2DBitmap, next calls C2D::Draw 0x3039a4 which leaves v0 untouched on a path, so the MakePacket result can reach the exit of a slot whose overrides return values); C2D::Draw, C2DBitmapPoly::Draw, C2DTriFan::Draw unresolved (slot +0xc, overrides return values, no DWARF); constructors typed void * with a0 receiver per the program convention; Draw2DLine/Draw3DLine unresolved only for scratch leftovers (pending rule extension); CFileIO::fwrite unresolved return (sum of two untyped virtual results, no narrowing proof).",
           "rejected_at": "2026-10-20T22:51:22Z",
           "rejected_by": "socom-reviewer-r113"
+        },
+        {
+          "accepted": {
+            "at": "2026-10-20T23:21:15Z",
+            "by": "socom-reviewer-r113"
+          },
+          "evidence": [
+            "g114 diff: extra changed functions 0x300c30, 0x300c50, 0x3ce4c0, 0x3ce4d0 (C2D * -> C2DString *)"
+          ],
+          "handoff": {
+            "owner": "socom-recon-planner-g30",
+            "submitted_at": "2026-10-20T23:15:51Z",
+            "summary": "14 prototypes, 18 unresolved, 0 globals"
+          },
+          "handoff_evidence": [
+            "plan build/recon-plans/socom-recon-group-7a0af2cbf6db2fda4bf6.json sha256:2fd77af34abe2f21e3c84ab161bb8f11fc55e42059ff35b62b47f95c5ac3343c; recon draft rules v6; recon validate ok; recon draft --check ok; preflight-batch ok (14 set_function_prototype)",
+            "plan sha256:2fd77af34abe2f21e3c84ab161bb8f11fc55e42059ff35b62b47f95c5ac3343c; recon validate ok; recon draft --check ok (11 drafted, 21 open); recon program equals build/apply file; preflight-batch ok, 18 skips = the 18 unresolved. Re-review of the r113 rejection under rules v6: CFileCD::Find _FILECD * (_FILECD 16 bytes name +0; CFileIO::Open stores the result into CFileCD::m_toc at 0x305918); C2DBitmapPoly::GetTrans float (pure tail jump 0x2fe2c0 to C2DPoly::GetTrans 0x301620, lwc1 f0,60(a0), accepted float in group 055); Draw2DLine void by the scratch rule (v0 read by sra at 0x300170/0x300180, f0 stored by swc1 0x30011c; 8 of 10 call sites leave v0/f0 unread, the chain DrawAutoReticle -> CZSealBody::CheckDIShoot and DrawTaskLine -> CHUD::StatusLine -> CCoreState::Tick ends unread, no word refs); SetUV 0x2fe410, Draw3DLine (chain to CTurret::Tick slot +0x14) and CBufferIO::Release (CBufferIO absent) unresolved. Program diff against the reviewed version shows only these 4 prototype rows plus the 3 reason texts changed."
+          ],
+          "reason": "Apply of this plan rewrote C2D::On/Off: 0x302db0 C2DString::On and 0x302dc0 C2DString::Off are whole-body j thunks of C2D::On 0x300c30 / C2D::Off 0x300c50, and a prototype set on a Ghidra thunk is shared by its target, so C2D::On/Off (and the BitmapReticule thunks) became void (C2DString * this). The apply was stopped before saving. Re-plan: mark both thunk rows unresolved (thunk of C2D::On/Off; shares the target's signature) or give them exactly the target's planned types void (C2D *); recon validate now enforces this.",
+          "reopened_at": "2026-10-21T02:48:50Z",
+          "reopened_by": "socom-controller-audit"
         }
       ],
       "selection": "functions",
@@ -70396,6 +70442,10 @@
       "title": "Plan reconstruction group 114 (height 1, 32 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-10-21T03:30:36Z",
+        "by": "socom-verifier-a114"
+      },
       "batch": {
         "batch_number": 114,
         "function_count": 32,
@@ -70441,8 +70491,109 @@
       "dependencies": [
         "socom:recon-group:7a0af2cbf6db2fda4bf6"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "check-recon-apply audit: strict tracker audit ok at revision 1105",
+        "check-recon-apply calls: 14 apply bridge calls; dry run planned 14 (set_function_prototype), 0 outside the scope",
+        "check-recon-apply chain: g114-before identical to g098-after",
+        "check-recon-apply diff: recomputed g114 before/after diff equals the stored diff",
+        "check-recon-apply explain: 12 functions changed: 12 prototyped group functions, entry/body/thunk unchanged; data +0/-0 explained (0 typed globals); types added 0 (pointer/array only); references, blocks and bookmarks unchanged; 2 restated prototype(s) already live and unchanged (0x302db0, 0x302dc0)",
+        "check-recon-apply fingerprint: verifier fingerprint 17e11cb6f704f6556e8734e8301dcb497d930671f17ff0a92951294b981a4889 identical to g114-after",
+        "check-recon-apply plan: plan sha256 722ec0645e4c9075069e8261bea15a742553c0c3d16e367775c8123f975a61af cited by the accepted plan item",
+        "check-recon-apply preflight: live preflight ok",
+        "check-recon-apply program: program sha256 a6a3d2fe29672d353a208d17474646dc699c90a5f856507ec248ff671f184e22 regenerates identically from the plan",
+        "check-recon-apply readback: live signatures of 14 prototyped functions equal the plan; 18 unresolved unchanged",
+        "check-recon-apply receipt: receipt over the stored scope b4d7b102e5b27ff2acfc2c9ac88a9ecbdffe1572a3af9fc3e628aadb85507d1e vs handoff b4d7b102e5b27ff2acfc2c9ac88a9ecbdffe1572a3af9fc3e628aadb85507d1e",
+        "check-recon-apply scope: stored scope (32 functions, 0 globals) equals the program's receipt_scope",
+        "check-recon-apply status: apply awaiting_acceptance, plan accepted",
+        "fingerprint after build/fingerprints/g114-after.json sha256 d757e5e0f9cebaba9200e432ae30924aaa02b5d52ce29af8fa7edc0a75de6c21; diff build/fingerprints/g114-diff.json sha256 4cce147abeee99a12d386e38cbf59378c78900753990da69c448b068804680d6: 12 functions changed: 12 prototyped group functions, entry/body/thunk unchanged; data +0/-0 explained (0 typed globals); types added 0 (pointer/array only); references, blocks and bookmarks unchanged; 2 restated prototype(s) already live and unchanged (0x302db0, 0x302dc0)",
+        "fingerprint before build/fingerprints/g114-before.json is the previous accepted fingerprint build/fingerprints/g098-after.json (interrupted-apply recovery): 9715 functions, 51811 data, 1621 types",
+        "ghidra apply-recon: plan build/recon-plans/socom-recon-group-7a0af2cbf6db2fda4bf6.json sha256 722ec0645e4c9075069e8261bea15a742553c0c3d16e367775c8123f975a61af (accepted; plan-tools commit 00ea11b); program build/apply/socom-recon-group-7a0af2cbf6db2fda4bf6-apply.json sha256 a6a3d2fe29672d353a208d17474646dc699c90a5f856507ec248ff671f184e22 regenerated equal to the stored program; 14 bridge calls exactly as the post-claim dry run predicted (14 set_function_prototype); 18 recorded skips; every name and Signature line read back equal; report sha256 01cbacf91587f4c11847137550d84030b13a25716c696d1f5ab555f7c5790773",
+        "ghidra-receipt-sha256:b4d7b102e5b27ff2acfc2c9ac88a9ecbdffe1572a3af9fc3e628aadb85507d1e",
+        "ghidra-save:explicit-program",
+        "independent check: C2D::On 0x300c30, C2D::Off 0x300c50, C2DString On/Off thunks 0x302db0/0x302dc0 and BitmapReticule thunks 0x3ce4c0/0x3ce4d0 are identical in g114-after and g098-after (all void (C2D * this)); only the 12 prototyped group functions changed",
+        "interrupted apply recovered: before the re-apply the live program differed from build/fingerprints/g098-after.json only in 14 of this plan's 14 planned prototypes, 4 thunk-linked function(s) of its thunk rows and 0 pointer type(s) (diff build/fingerprints/g114-interrupted-diff.json sha256 508c6d01538a9835acabc36fd5cbcf364607498591cebc5bd8f31ee35013d0b6), left by an earlier apply of this plan that failed its read-back (saved, or recovered in place unsaved); fingerprint before is therefore the previous accepted fingerprint",
+        "pre-handoff receipt b4d7b102e5b27ff2acfc2c9ac88a9ecbdffe1572a3af9fc3e628aadb85507d1e over build/receipts/socom-recon-group-7a0af2cbf6db2fda4bf6-apply-scope.json (32 functions, 0 globals)"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "b4d7b102e5b27ff2acfc2c9ac88a9ecbdffe1572a3af9fc3e628aadb85507d1e",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x2f9ca0",
+            "0x2f9f20",
+            "0x2fa1f0",
+            "0x2fb9a0",
+            "0x2fca70",
+            "0x2fcb40",
+            "0x2fe2c0",
+            "0x2fe320",
+            "0x2fe380",
+            "0x2fe410",
+            "0x2fe5e0",
+            "0x2fe6f0",
+            "0x2ff3b0",
+            "0x2fff40",
+            "0x3001b0",
+            "0x300980",
+            "0x300c70",
+            "0x300e90",
+            "0x3016d0",
+            "0x302db0",
+            "0x302dc0",
+            "0x3031c0",
+            "0x3039c0",
+            "0x303cd0",
+            "0x303d70",
+            "0x304010",
+            "0x304230",
+            "0x304270",
+            "0x3042d0",
+            "0x304560",
+            "0x304ad0",
+            "0x304f70"
+          ],
+          "globals": [],
+          "types": []
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1621,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 34489
+          },
+          "indexes": {
+            "data": {
+              "count": 51811,
+              "sha256": "e9bb9cca57b4106474e48b84e15682238285aa08ba9fe09483755a59710e308d"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1621,
+              "sha256": "eca90cbb1dd76afbb38f58624d2db674e7eed3568da484a2ae67827a9a431a4a"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-21T03:21:52Z",
+        "summary": "Group 114 plan: 14 prototypes, 18 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:7a0af2cbf6db2fda4bf6-apply",
       "kind": "recon-apply-group",
       "lease": null,
@@ -70452,7 +70603,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply reviewed reconstruction group 114 in Ghidra"
     },
     {
