@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 1522,
+  "revision": 1529,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -2842,7 +2842,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "72b75fa6adc6021f3bb66613a1fd41ac9d394543174843bf95d4fc5520103126",
+      "current_receipt_sha256": "d0d94e2793079c829a966b66f376e7d08d25913b65c1543c857c534b57286f5e",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -8283,6 +8283,31 @@
           "receipt_sha256": "72b75fa6adc6021f3bb66613a1fd41ac9d394543174843bf95d4fc5520103126",
           "tracker_revision": 1522,
           "work_item_id": "socom:recon-group:cef79b47d224fcce0f15-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1646,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 35930
+          },
+          "indexes": {
+            "data": {
+              "count": 51811,
+              "sha256": "e9bb9cca57b4106474e48b84e15682238285aa08ba9fe09483755a59710e308d"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1646,
+              "sha256": "a60617874991aec79fda1b033aec235b78ad4dc2f2a968398ebe89a522567317"
+            }
+          },
+          "receipt_sha256": "d0d94e2793079c829a966b66f376e7d08d25913b65c1543c857c534b57286f5e",
+          "tracker_revision": 1529,
+          "work_item_id": "socom:recon-group:8309d7700b75021c37a7-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -88417,22 +88442,23 @@
         "socom:recon-group:ec16777626959e0f315e-apply",
         "socom:recon-group:ecac473814544479a966-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-3310cc8e2d86ed4f44a9.json sha256:7f05f42975037ff2e34b49122097e0d64595a1939eb2de478c751e427daa7ad9; recon validate ok; recon draft --check ok; preflight-batch ok (7 calls)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g83",
+        "submitted_at": "2026-10-22T02:38:58Z",
+        "summary": "7 prototypes, 25 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:3310cc8e2d86ed4f44a9",
       "kind": "recon-plan-group",
-      "lease": {
-        "claimed_at": "2026-10-22T02:15:52Z",
-        "expires_at": "2026-10-22T04:15:52Z",
-        "heartbeat_at": "2026-10-22T02:15:52Z",
-        "owner": "socom-recon-planner-g83"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 170 (height 7, 32 functions)"
     },
     {
@@ -88579,22 +88605,23 @@
         "socom:recon-group:e6d8e21625ffe55e1cc2-apply",
         "socom:recon-group:ecac473814544479a966-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-c0fb9a80914bba84e64a.json sha256:5c6fb51c3e7ca2527f408333aa874df71c4a752f4f37e954d8020baab23e391c; recon validate ok; recon draft --check ok; preflight-batch ok (17 calls)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g83",
+        "submitted_at": "2026-10-22T02:39:04Z",
+        "summary": "17 prototypes, 15 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:c0fb9a80914bba84e64a",
       "kind": "recon-plan-group",
-      "lease": {
-        "claimed_at": "2026-10-22T02:15:57Z",
-        "expires_at": "2026-10-22T04:15:57Z",
-        "heartbeat_at": "2026-10-22T02:15:57Z",
-        "owner": "socom-recon-planner-g83"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 171 (height 7, 32 functions)"
     },
     {
@@ -88752,6 +88779,10 @@
       "title": "Plan reconstruction group 172 (height 7, 32 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-10-22T02:42:07Z",
+        "by": "socom-verifier-a172"
+      },
       "batch": {
         "batch_number": 172,
         "function_count": 32,
@@ -88797,8 +88828,107 @@
       "dependencies": [
         "socom:recon-group:8309d7700b75021c37a7"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "check-recon-apply audit: strict tracker audit ok at revision 1524",
+        "check-recon-apply calls: 10 apply bridge calls; dry run planned 10 (set_function_prototype), 0 outside the scope",
+        "check-recon-apply chain: g172-before identical to g169-after",
+        "check-recon-apply diff: recomputed g172 before/after diff equals the stored diff",
+        "check-recon-apply explain: 10 functions changed: 10 prototyped group functions, entry/body/thunk unchanged; data +0/-0 explained (0 typed globals); types added 0 (pointer/array only); references, blocks and bookmarks unchanged",
+        "check-recon-apply fingerprint: verifier fingerprint 7a9c3beecb4db747f0f404d8b05d256b2728fb3d7616f694f86afa0d900b02b5 identical to g172-after",
+        "check-recon-apply plan: plan sha256 e44375f912ac92a6614cf09b96010018f6fe222ab3e136d926f73ab7bd64ece6 cited by the accepted plan item",
+        "check-recon-apply preflight: live preflight ok",
+        "check-recon-apply program: program sha256 d9402dee0765694591ffd2bc6fce9f2c881dca9b5f15e49f21e38f9c5caae007 regenerates identically from the plan",
+        "check-recon-apply readback: live signatures of 10 prototyped functions equal the plan; 22 unresolved unchanged",
+        "check-recon-apply receipt: receipt over the stored scope d0d94e2793079c829a966b66f376e7d08d25913b65c1543c857c534b57286f5e vs handoff d0d94e2793079c829a966b66f376e7d08d25913b65c1543c857c534b57286f5e",
+        "check-recon-apply scope: stored scope (32 functions, 0 globals) equals the program's receipt_scope",
+        "check-recon-apply status: apply awaiting_acceptance, plan accepted",
+        "fingerprint after build/fingerprints/g172-after.json sha256 59353e6ad61fc68bd284e21be7fdf5c5ba9f492788e7c9f5bdba5ddc9616c4af; diff build/fingerprints/g172-diff.json sha256 9703edc90d4cf22d948cb8cd9446c854a5f7eed60daccf4764b58d16a4a134e6: 10 functions changed: 10 prototyped group functions, entry/body/thunk unchanged; data +0/-0 explained (0 typed globals); types added 0 (pointer/array only); references, blocks and bookmarks unchanged",
+        "fingerprint before build/fingerprints/g172-before.json is the previous apply's verifier fingerprint build/verifier-socom-verifier-a169/fp-now.json (identical to build/fingerprints/g169-after.json), reused because the g169 receipt still reproduced live before this apply: 9715 functions, 51811 data, 1646 types",
+        "ghidra apply-recon: plan build/recon-plans/socom-recon-group-8309d7700b75021c37a7.json sha256 e44375f912ac92a6614cf09b96010018f6fe222ab3e136d926f73ab7bd64ece6 (accepted; plan-tools commit 00ea11b); program build/apply/socom-recon-group-8309d7700b75021c37a7-apply.json sha256 d9402dee0765694591ffd2bc6fce9f2c881dca9b5f15e49f21e38f9c5caae007 regenerated equal to the stored program; 10 bridge calls exactly as the post-claim dry run predicted (10 set_function_prototype); 22 recorded skips; every name and Signature line read back equal; report sha256 f8e6aabd712324df4b56e26e65f500e91ed9e88bcf8e5f2d73c57914f07028f0",
+        "ghidra-receipt-sha256:d0d94e2793079c829a966b66f376e7d08d25913b65c1543c857c534b57286f5e",
+        "ghidra-save:explicit-program",
+        "pre-handoff receipt d0d94e2793079c829a966b66f376e7d08d25913b65c1543c857c534b57286f5e over build/receipts/socom-recon-group-8309d7700b75021c37a7-apply-scope.json (32 functions, 0 globals)"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "d0d94e2793079c829a966b66f376e7d08d25913b65c1543c857c534b57286f5e",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x2bfba0",
+            "0x2d8d50",
+            "0x2d96c0",
+            "0x2e2e00",
+            "0x2f5b50",
+            "0x2f5ca0",
+            "0x2f74d0",
+            "0x2f7600",
+            "0x2f9ab0",
+            "0x302dd0",
+            "0x3060f0",
+            "0x3062b0",
+            "0x307550",
+            "0x308ac0",
+            "0x312e20",
+            "0x3176c0",
+            "0x31e6c0",
+            "0x3202c0",
+            "0x3375b0",
+            "0x337b10",
+            "0x33a738",
+            "0x33a768",
+            "0x3403f0",
+            "0x341c00",
+            "0x3448f0",
+            "0x348170",
+            "0x348f98",
+            "0x34d618",
+            "0x34d640",
+            "0x34f200",
+            "0x351a10",
+            "0x3521a0"
+          ],
+          "globals": [],
+          "types": []
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1646,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 35930
+          },
+          "indexes": {
+            "data": {
+              "count": 51811,
+              "sha256": "e9bb9cca57b4106474e48b84e15682238285aa08ba9fe09483755a59710e308d"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1646,
+              "sha256": "a60617874991aec79fda1b033aec235b78ad4dc2f2a968398ebe89a522567317"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-22T02:33:22Z",
+        "summary": "Group 172 plan: 10 prototypes, 22 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:8309d7700b75021c37a7-apply",
       "kind": "recon-apply-group",
       "lease": null,
@@ -88808,7 +88938,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply reviewed reconstruction group 172 in Ghidra"
     },
     {
@@ -88879,13 +89009,18 @@
       "handoff": null,
       "id": "socom:recon-group:14e2e46391f7cf50fe68",
       "kind": "recon-plan-group",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-22T02:34:13Z",
+        "expires_at": "2026-10-22T04:34:13Z",
+        "heartbeat_at": "2026-10-22T02:34:13Z",
+        "owner": "socom-recon-planner-g84"
+      },
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan reconstruction group 173 (height 7, 32 functions)"
     },
     {
@@ -89005,13 +89140,18 @@
       "handoff": null,
       "id": "socom:recon-group:1388aea14b25f7520e43",
       "kind": "recon-plan-group",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-22T02:34:18Z",
+        "expires_at": "2026-10-22T04:34:18Z",
+        "heartbeat_at": "2026-10-22T02:34:18Z",
+        "owner": "socom-recon-planner-g84"
+      },
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan reconstruction group 174 (height 7, 32 functions)"
     },
     {
