@@ -952,8 +952,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Revisit pass: 9 applied rows type a mangled bool parameter as uchar"
+    },
+    {
+      "details": "Extends issue b8acf0d9 (SDK headers). 31 prototyped rows in build/recon-plans cite C-library headers (string.h 19, stdlib.h 5, stdio.h 3, ctype.h 2, locale.h 1, errno.h 1) in plans d50ff4e8 (15), c303bf35 (8), 44afe7af (4), dd539e7a (2), 606e6cd8 (1), 2ba2620e (1, pending review). The local Metrowerks install ships MSL_C sources, which count as a local runtime source; newlib's headers (the __sFILE/_reent library) are not in the workspace, so a newlib citation is a recalled declaration. In the revisit, classify each citation (MSL source present locally vs recalled newlib) and re-prove recalled ones from asm, callers, DWARF or accepted live types (e.g. accepted fflush int in 44afe7af).",
+      "id": "socom:workspace-issue:149f4064a7b56ede0cbd",
+      "kind": "problem",
+      "reported_at": "2026-10-22T00:12:30Z",
+      "reported_by": "socom-controller",
+      "resolution": null,
+      "status": "open",
+      "summary": "Revisit pass: 31 planned rows cite C-library headers; confirm each is a local runtime source"
     }
   ],
-  "revision": 109,
+  "revision": 110,
   "schema_version": 1
 }
