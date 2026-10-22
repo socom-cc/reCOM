@@ -965,8 +965,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Revisit pass: 31 planned rows cite C-library headers; confirm each is a local runtime source"
+    },
+    {
+      "details": "Accepted group 037 typed CNode::DeleteChildren 0x226320 void from its mangled name and 'v0 not set', but its exits hold v0 as the entry value or an indirect jalr result, its address is in vtables (slot +0x20), and no DWARF record exists for any DeleteChildren, so recon void says VERDICT open. The group 190 review (2026-10-22) rejected an override typed void on this base. Re-derive in the revisit (slot contract or virtual call-site reads); if unproven, reopen and make it unresolved. Tool gap noted by the reviewer: no command lists virtual call sites per vtable slot, so callers reading v0 after a slot call cannot be enumerated.",
+      "id": "socom:workspace-issue:45c88ab309b397107ca0",
+      "kind": "problem",
+      "reported_at": "2026-10-22T11:54:34Z",
+      "reported_by": "socom-controller",
+      "resolution": null,
+      "status": "open",
+      "summary": "Revisit pass: CNode::DeleteChildren 0x226320 void (group 037) has no declaration"
     }
   ],
-  "revision": 111,
+  "revision": 112,
   "schema_version": 1
 }
