@@ -995,8 +995,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Type pass: speech middleware (TOS, CASR, GSAPI, queue, heap, DP) has no record types, leaving whole groups unresolved"
+    },
+    {
+      "details": "Stage 3 void rule (drafter/recon void): a callee whose v0 is only returned by its callers is judged void by recursing to those callers' readers. The chain does not consider that the passing caller also returns its own constants or values on other exits, so at source level it returns the callee's value (type mismatch: void result returned from a value-returning function). Seen in group 202 review: 0x4052e0 rt_comm_platform_get_remote_ip judged void; its only caller rt_comm_get_remote_ip (0x404ba0) has no call sites but also returns 2, 10 and 12. Accepted as void under current rules; revisit if the caller is typed. Reviewer socom-verifier-r19.",
+      "id": "socom:workspace-issue:d2bedd68c5ca6d42541e",
+      "kind": "problem",
+      "reported_at": "2026-10-22T22:38:16Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "recon void pass-on chain ignores a returning caller's own value exits"
     }
   ],
-  "revision": 114,
+  "revision": 115,
   "schema_version": 1
 }
