@@ -46,7 +46,7 @@ from .recon import RECON_PLAN_KIND, RECON_SCHEMA, group_evidence
 from .recon_facts import GPR, JR_RA, _reads_at, _through_calls, _use_after_call, argument_reads, call_sites, callee_preserves, context, return_sources
 from .util import SocomError, canonical_json
 
-DRAFT_RULES_VERSION = 13
+DRAFT_RULES_VERSION = 14
 
 
 class _TypeIndex:
@@ -335,10 +335,16 @@ def _callback_returns(ctx: Any) -> dict[int, str]:
                 params = parsed.get("params") or []
                 if any(
                     p.get("kind") == "builtin" and not p.get("modifiers")
-                    and p.get("name") in ("float", "double", "long long", "unsigned long long")
+                    and p.get("name") in ("double", "long long", "unsigned long long")
                     for p in params
                 ):
-                    break  # FPR or 64-bit arguments shift the register positions
+                    break  # 64-bit arguments shift the register positions
+                # A plain float travels in an FPR (f12...) and takes no GPR slot
+                # (AddTask(name, PFfPv_b tick, float, void *): tick in a2).
+                params = [
+                    p for p in params
+                    if not (p.get("kind") == "builtin" and not p.get("modifiers") and p.get("name") == "float")
+                ]
                 position = gpr_position[registers[0]]
 
                 def code_address(register: int) -> bool | None:
@@ -385,6 +391,94 @@ def _callback_returns(ctx: Any) -> dict[int, str]:
             found[function] = kinds.pop()
     _CALLBACKS[key] = found
     return found
+
+
+def _copy_source(insn: int) -> int | None:
+    """Source register of a plain copy (move/addu/or/daddu with zero), else None."""
+
+    if insn >> 26 or (insn & 0x3F) not in (0x21, 0x25, 0x2D) or (insn >> 6) & 0x1F:
+        return None
+    rs, rt = (insn >> 21) & 0x1F, (insn >> 16) & 0x1F
+    if rt == 0:
+        return rs
+    if rs == 0:
+        return rt
+    return None
+
+
+def _returns_this(ctx: Any, start: int) -> bool:
+    """Every exit returns the entry a0 (this), through plain register copies."""
+
+    flow = ctx.flow(start)
+    exits = 0
+    for pc in range(start, flow.end, 4):
+        if not flow.reachable(pc):
+            continue
+        insn = ctx.code.word(pc)
+        if insn == JR_RA:
+            exits += 1
+            if not _traces_to_a0_register(ctx, flow, flow.after(pc + 4, 2), 2, 4):
+                return False
+        elif insn >> 26 == 0x02 or (insn >> 26 == 0x00 and insn & 0x3F == 0x08):
+            return False  # tail jumps and register jumps: not a plain return of this
+    return exits > 0
+
+
+def _a1_short(ctx: Any, start: int) -> str | None:
+    """How a1 (the destructor flags) is used: unread, or sign-extended from 16 bits."""
+
+    flow = ctx.flow(start)
+    reads = argument_reads(ctx, start)
+    if "a1" not in reads:
+        return "a1 unread"
+    for pc in range(start, flow.end, 4):
+        insn = ctx.code.word(pc)
+        if insn >> 26 == 0 and (insn & 0x3F) in (0x00, 0x3C) and (insn >> 6) & 0x1F == 16:
+            rt = (insn >> 16) & 0x1F
+            if _traces_to_a0_register(ctx, flow, flow.defs(pc, rt), rt, 5):
+                return f"a1 sign-extended from 16 bits ({ctx.text(pc)}@0x{pc:x})"
+    return None
+
+
+def _traces_to_a0_register(ctx: Any, flow: Any, defs: set[Any], register: int, wanted: int, depth: int = 0) -> bool:
+    """Definitions are the entry value of `wanted`, through plain copies."""
+
+    if not defs or depth > 6:
+        return False
+    for d in defs:
+        if d == "entry":
+            if register != wanted:
+                return False
+            continue
+        if not isinstance(d, int):
+            return False
+        source = _copy_source(ctx.code.word(d))
+        if source is None or not _traces_to_a0_register(ctx, flow, flow.defs(d, source), source, wanted, depth + 1):
+            return False
+    return True
+
+
+def _destructor_evidence(ctx: Any, start: int) -> list[str] | None:
+    """Evidence for the Metrowerks destructor contract `void *(X *this, short flags)` (rules v14).
+
+    Every DWARF __dt record in the program declares a `void *` return, the
+    local CPlusLib.h declares the flags argument as short, and the body must
+    agree: only a0/a1 read, a1 unread or sign-extended from 16 bits, and every
+    exit returning the entry a0.
+    """
+
+    reads = set(argument_reads(ctx, start))
+    if not reads <= {"a0", "a1"}:
+        return None
+    flags = _a1_short(ctx, start)
+    if flags is None or not _returns_this(ctx, start):
+        return None
+    return [
+        "Metrowerks destructor convention: every DWARF __dt record declares a void * return; "
+        "the local CPlusLib.h DTORARG_TYPE is short",
+        f"argument registers read: {', '.join(sorted(reads)) or 'none'}; {flags}",
+        "every exit returns the entry a0 (this) through plain register copies",
+    ]
 
 
 def _stage2_parameters(stage2_prototype: dict[str, Any], mangled_params: list[dict[str, Any]]) -> list[dict[str, str]]:
@@ -666,12 +760,34 @@ def draft_function(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIn
             problems.append(f"receiver: {reason}")
     if problems:
         return {**base, "prototype": None, "draft_rule": "U-type", "unresolved": problems}
+    if (
+        not planner and (parsed or {}).get("name") == "__dt" and receiver_type and not params
+        and not _uses_vu0(ctx, address)
+    ):
+        dtor = _destructor_evidence(ctx, address)
+        if dtor:
+            return {
+                **base,
+                "draft_rule": "P-dtor",
+                "prototype": {
+                    "return_type": "void *",
+                    "parameters": [
+                        {"name": "this", "type": f"{receiver_type} *"},
+                        {"name": "__dtor_flags", "type": "short"},
+                    ],
+                    "evidence": dtor,
+                },
+            }
     if planner or special:
         return {**open_row, "open_reason": 'a parameter needs a planner (function pointer, unknown modifier, NAME@hash or case-variant class) or a constructor/destructor'}
 
     # P-void
     if _uses_vu0(ctx, address):
         return {**open_row, "open_reason": 'VU0 instructions: register contracts need a planner'}
+    if _dwarf_returns(ctx).get(address) in ("gpr", "float", "other"):
+        # A declared non-void return (a struct may come back through a hidden a0
+        # and leave v0 untouched) is never void, whatever the exits show.
+        return {**open_row, "open_reason": 'DWARF declares a non-void return (possibly a struct returned through a hidden pointer)'}
     sinit = live_name.startswith("__sinit_") and not parsed
     unset, exits = _exits_unset(ctx, address)
     pass_through = False
@@ -833,6 +949,13 @@ def void_verdict(ctx: Any, start: int) -> str:
         return f"## 0x{start:x}: not the start of a sized FUNC symbol"
     label = ctx.label(start)
     lines = [f"## {label}"]
+    declared = _dwarf_returns(ctx).get(start)
+    if declared in ("gpr", "float", "other"):
+        lines.append(
+            f"VERDICT open: the DWARF record declares a non-void return ({declared}; a struct may be "
+            "returned through a hidden a0 and leave v0 untouched)"
+        )
+        return "\n".join(lines)
     unset, rows = _exits_unset(ctx, start)
     if unset:
         lines.append("exits: v0 and f0 unset at every exit -> void needs no caller check")

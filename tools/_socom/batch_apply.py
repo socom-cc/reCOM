@@ -573,16 +573,32 @@ def _completed_partial_load(elf: Elf32File, pc: int, limit: int) -> bool:
         return False
     scan = pc + 4
     transfer_seen = False
+    # The compiler may rebuild the base between the halves (lui at,hi; addu
+    # at,at,v1 again): that is the same address when the rebuilding words
+    # repeat the ones just before the first half and their inputs are unchanged.
+    rebuild: list[int] = []
+    written: set[int] = set()
     while scan < limit:
         other = _word(elf, scan)
         other_op, other_base, other_rt = other >> 26, (other >> 21) & 31, (other >> 16) & 31
         other_offset = ((other & 0xFFFF) ^ 0x8000) - 0x8000
         if other_op == partner and other_rt == rt and other_base == base and offset - other_offset == delta:
-            return True
+            if not rebuild:
+                return True
+            before = [_word(elf, pc - 4 * (len(rebuild) - index)) for index in range(len(rebuild))]
+            inputs = set().union(*(set(_reads(word)[0]) for word in rebuild)) - {base, 0}
+            return before == rebuild and not (inputs & written)
         read_g, _read_f = _reads(other)
         wrote_g, _wrote_f = _writes(other)
-        if rt in read_g or rt in wrote_g or base in wrote_g:
+        if rt in read_g or rt in wrote_g:
             return False
+        if base in wrote_g:
+            # Only plain address arithmetic may rebuild the base.
+            if not (other_op in (0x0F, 0x09) or (other_op == 0 and other & 0x3F in (0x21, 0x2D))):
+                return False
+            rebuild.append(other)
+        else:
+            written |= set(wrote_g)
         if transfer_seen:
             return False
         transfer_seen = _is_control_transfer(other)

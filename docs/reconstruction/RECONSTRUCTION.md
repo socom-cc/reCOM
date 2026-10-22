@@ -124,6 +124,14 @@ row `"draft": "open"` for the planner:
   (FT_void) or the leftover is provably unread (rules version 12). DWARF 1
   has no `bool`, so the records spell it `uchar`; a parameter the mangled
   signature declares `b` keeps `bool`.
+- A destructor (`__dt`) is `P-dtor` as `void * (X * this, short
+  __dtor_flags)`: every DWARF `__dt` record declares a `void *` return and
+  the local Metrowerks CPlusLib.h declares the flags argument `short`; the
+  body must read only a0/a1, leave a1 unread or sign-extend it from 16 bits,
+  and return the entry a0 at every exit. A function whose DWARF record
+  declares any non-void return (including a struct returned through a hidden
+  pointer, which leaves v0 untouched) is never drafted `void` (rules
+  version 14).
 - A `__sinit_*` static initializer is `P-void` as `void (void)` whatever v0
   holds at its exits. It must have no mangled name, no argument reads, no
   direct call sites, only `jr ra` or tail-jump exits (rules version 9), and

@@ -169,3 +169,29 @@ def test_vtable_slot_contract_from_a_dwarf_typed_override(ctx) -> None:
     assert slots[0x20E6B0] == "gpr"
     # zSysReset's f0 chain ends there (review of group 162).
     assert "VERDICT void" in void_verdict(ctx, 0x2F49D0)
+
+
+def test_destructors_follow_the_metrowerks_convention(ctx) -> None:
+    # CPad::~CPad: a1 sign-extended from 16 bits, every exit returns this.
+    row = {"address": "0x21b240", "elf_names": ["__dt__4CPadFv"], "stage2": None, "thunk_target": None}
+    drafted = draft_function(ctx, row, "CPad::~CPad", _types("CPad"))
+    assert drafted["draft_rule"] == "P-dtor"
+    prototype = drafted["prototype"]
+    assert prototype["return_type"] == "void *"
+    assert [p["type"] for p in prototype["parameters"]] == ["CPad *", "short"]
+
+
+def test_declared_non_void_return_is_never_drafted_void(ctx) -> None:
+    from tools._socom.recon_draft import _dwarf_returns, void_verdict
+
+    # Any function whose DWARF record declares a struct (other) return is open.
+    other = next(a for a, kind in _dwarf_returns(ctx).items() if kind == "other" and a in ctx.size)
+    assert "declares a non-void return" in void_verdict(ctx, other)
+
+
+def test_float_arguments_take_no_gpr_slot_in_callback_positions(ctx) -> None:
+    from tools._socom.recon_draft import void_verdict
+
+    # CVideo::Clear's f0 chain ends at fadeToEndMissionTick, passed in a2 to
+    # CSched_Manager::AddTask(name, PFfPv_b, float, void *) (planner of group 183).
+    assert "VERDICT void" in void_verdict(ctx, 0x307870)

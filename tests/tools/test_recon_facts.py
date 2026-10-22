@@ -238,3 +238,10 @@ def test_refs_of_a_function(ctx) -> None:
     text = object_refs(ctx, "0x1d8600")
     assert "[function]" in text and "address formed in code (1): WriteDirectory" in text
     assert "call 0x1d86a8 in fixupKey" in text
+
+
+def test_partial_load_pair_with_a_rebuilt_base_is_a_write(ctx) -> None:
+    # rt_rel_udp_get_metrics: ldl/ldr a2 and a3 pairs with `lui at; addu at,at,v1`
+    # repeated between the halves fully overwrite a2/a3 (planner of group 186).
+    reads = argument_reads(ctx, 0x4142E0)
+    assert set(reads) == {"a0", "a1"}
