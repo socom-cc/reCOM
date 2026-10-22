@@ -46,7 +46,7 @@ from .recon import RECON_PLAN_KIND, RECON_SCHEMA, group_evidence
 from .recon_facts import GPR, JR_RA, _reads_at, _through_calls, _use_after_call, argument_reads, call_sites, callee_preserves, context, return_sources
 from .util import SocomError, canonical_json
 
-DRAFT_RULES_VERSION = 16
+DRAFT_RULES_VERSION = 17
 
 
 class _TypeIndex:
@@ -669,12 +669,12 @@ def _callers_ignore_v0(
     Every direct call site leaves the register unread on every path.  A caller
     that returns it (or tail-calls this function) passes the question on for
     that same register: its own call sites must leave it unread too, and
-    nothing may take its address.  Chains are followed six deep; a cycle reads
+    nothing may take its address.  Chains are followed twelve deep (rules version 17); a cycle reads
     nothing new.
     """
 
     sites = call_sites(ctx, start)
-    if depth > 6:
+    if depth > 12:
         return False, len(sites)
     if registers is None:
         # Only a register this function can leave a value in matters: a caller
@@ -1010,8 +1010,8 @@ def void_verdict(ctx: Any, start: int) -> str:
         return "\n".join(lines)
 
     def walk(function: int, chain: list[str], depth: int, seen: frozenset[int], checked: list) -> str | None:
-        if depth > 6:
-            return "chain deeper than six levels: " + " -> ".join(chain)
+        if depth > 12:
+            return "chain deeper than twelve levels: " + " -> ".join(chain)
         for caller, site, kind in call_sites(ctx, function):
             for fpr, name in checked:
                 passes_on = kind == "tail"

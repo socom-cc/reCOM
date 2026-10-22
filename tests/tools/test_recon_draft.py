@@ -213,3 +213,11 @@ def test_destructor_callers_end_an_f0_chain(ctx) -> None:
     # returns this (void *) in v0 by the Metrowerks convention (rules
     # version 16; planner of group 188).
     assert "VERDICT void" in void_verdict(ctx, 0x1DD520)
+
+
+def test_void_chains_are_followed_twelve_levels(ctx) -> None:
+    from tools._socom.recon_draft import void_verdict
+
+    # FreeCtxInfo's v0 passes through seven callers before every reader drops
+    # it (planner of group 193); six levels left it open (rules version 17).
+    assert "VERDICT void" in void_verdict(ctx, 0x33F260)

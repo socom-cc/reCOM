@@ -203,8 +203,8 @@ exit's `v0` and `f0` hold nothing or a callee's result (a `jal`/`jalr` or a
 tail `j`), every direct call site leaves `v0` unread on every path, and nothing takes
 the function's address or stores it in a table. A caller that returns the
 value to its own callers passes the question on: its call sites must leave
-`v0` unread in turn, and nothing may take its address (followed six levels
-deep). `recon facts` follows `v0` through callees that leave
+`v0` unread in turn, and nothing may take its address (followed twelve levels
+deep, rules version 17). `recon facts` follows `v0` through callees that leave
 it untouched (also at tail-call exits, rules version 5), so a leftover that is really the function's own value shows
 as such. A scratch value also allows `void` (second decision of 2026-10-20): a
 copy, constant or arithmetic result left in `v0` or `f0` that another
