@@ -46,7 +46,7 @@ from .recon import RECON_PLAN_KIND, RECON_SCHEMA, group_evidence
 from .recon_facts import GPR, JR_RA, _reads_at, _through_calls, _use_after_call, argument_reads, call_sites, callee_preserves, context, return_sources
 from .util import SocomError, canonical_json
 
-DRAFT_RULES_VERSION = 14
+DRAFT_RULES_VERSION = 15
 
 
 class _TypeIndex:
@@ -72,6 +72,18 @@ class _TypeIndex:
         if found[0]["name"] != name:
             return None, None  # only a differently-cased type: a planner decides
         return name, None
+
+    def nested_in(self, name: str, parent: str) -> bool:
+        """The unique live type `name` sits directly under a category named `parent`."""
+
+        found = self.by_name.get(name.casefold(), [])
+        if len(found) != 1:
+            return False
+        segments = [s for s in str(found[0].get("path", "")).split("/") if s]
+        if len(segments) < 2:
+            return False
+        squash = lambda text: "".join(text.split())  # noqa: E731 - spacing differs between spellings
+        return squash(segments[-2]) == squash(parent)
 
     def spells(self, text: str) -> bool:
         """Every type in a rendered spelling ('CFoo * *', 'uint') names exactly one live type."""
@@ -108,9 +120,17 @@ def _render(value: dict[str, Any], types: _TypeIndex) -> tuple[str | None, str |
         if name is None:
             return None, f"builtin {value.get('name')!r} has no Ghidra spelling", False
     elif value.get("kind") == "class":
-        name, reason = types.resolve(_class_name(value.get("components") or []))
+        components = value.get("components") or []
+        name, reason = types.resolve(_class_name(components))
         if name is None:
             return None, reason or "class type needs a planner", reason is not None
+        if len(components) > 1 and not types.nested_in(name, readable_component(components[-2])):
+            # A nested name (generic_iterator<0>, CharArray) may exist under another
+            # parent, e.g. a different template instance (planner of group 182).
+            return None, (
+                f"nested type {name!r} of {readable_component(components[-2])!r} is absent "
+                "(the live type of that name belongs to another parent)"
+            ), True
     else:
         return None, f"{value.get('kind')} parameter needs a planner", False
     for modifier in modifiers:

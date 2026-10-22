@@ -195,3 +195,12 @@ def test_float_arguments_take_no_gpr_slot_in_callback_positions(ctx) -> None:
     # CVideo::Clear's f0 chain ends at fadeToEndMissionTick, passed in a2 to
     # CSched_Manager::AddTask(name, PFfPv_b, float, void *) (planner of group 183).
     assert "VERDICT void" in void_verdict(ctx, 0x307870)
+
+
+def test_nested_type_must_sit_under_its_mangled_parent() -> None:
+    types = _TypeIndex([
+        {"name": "generic_iterator<0>", "path": "/project/std/__list_deleter<void const*, std::allocator<void const*>>/generic_iterator<0>", "size": 4},
+        {"name": "CharArray", "path": "/project/std/basic_string<char, std::char_traits<char>, std::allocator<char>>/CharArray", "size": 16},
+    ])
+    assert not types.nested_in("generic_iterator<0>", "__list_deleter<CPnt3D, std::allocator<CPnt3D>>")
+    assert types.nested_in("CharArray", "basic_string<char,std::char_traits<char>,std::allocator<char>>")
