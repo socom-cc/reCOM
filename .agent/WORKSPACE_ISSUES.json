@@ -985,8 +985,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Revisit pass: 9 applied constructors typed X * against the program's void * convention"
+    },
+    {
+      "details": "Plain-C speech-recognition middleware has no mangled names and no DWARF, and its record types (TOS instance/system, tosBlock, tosBaseBlock, QUEUE/tosQueue, HEAP 28-byte record, CASR recognizer, GSAPI context and _GSAPI_RESULT, DP/backtrace records, mtx) are missing live. Stage 3 groups 193, 194, 200, 205, 206 and 207 (2026-10-22) left nearly every row unresolved for this reason; each row records the proven offsets, argument roles and recon void verdicts. 28 Construct* block factories referenced only from InitialProcs share one contract once the TOS instance and block types exist. gsapi_Init also needs a callback type (void *, uint, _GSAPI_RESULT *, uint). Recover these layouts from field accesses in the type pass, then re-plan the rows.",
+      "id": "socom:workspace-issue:c068bc00fdeabb5641b7",
+      "kind": "problem",
+      "reported_at": "2026-10-22T17:48:09Z",
+      "reported_by": "socom-controller",
+      "resolution": null,
+      "status": "open",
+      "summary": "Type pass: speech middleware (TOS, CASR, GSAPI, queue, heap, DP) has no record types, leaving whole groups unresolved"
     }
   ],
-  "revision": 113,
+  "revision": 114,
   "schema_version": 1
 }
