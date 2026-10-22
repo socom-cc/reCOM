@@ -119,6 +119,11 @@ row `"draft": "open"` for the planner:
   method's receiver must be proven by a const method, or by a register read
   beyond the parameters. Exits may also hold a callee's result when the
   "Return width" pass-through conditions hold (rules version 4).
+- A stage 2 prototype returning `void` is restated even when v0 or f0 holds
+  a value at an exit, when its DWARF record declares an explicit `void`
+  (FT_void) or the leftover is provably unread (rules version 12). DWARF 1
+  has no `bool`, so the records spell it `uchar`; a parameter the mangled
+  signature declares `b` keeps `bool`.
 - A `__sinit_*` static initializer is `P-void` as `void (void)` whatever v0
   holds at its exits. It must have no mangled name, no argument reads, no
   direct call sites, only `jr ra` or tail-jump exits (rules version 9), and
@@ -217,7 +222,12 @@ when the declared result is `void` or lives in the other register class,
 and a callback declared `void` with no direct callers is `void` by that
 declaration (rules version 11). Which argument register maps to which
 parameter is settled by requiring every argument register to fit the
-reading (function addresses only where the parameter is a function pointer).
+reading (function addresses only where the parameter is a function pointer). A
+virtual function referenced only from vtables takes its slot's contract:
+classes linked by DWARF inheritance form a family, functions at the same
+vtable offset with the same method name are one virtual, and when the DWARF
+records among them agree on one return class (and none disagrees) every
+function in the slot has it (rules version 13).
 `recon void --function` prints the verdict and the blocking chain.
 
 A function whose every exit returns a relocated pointer to a NUL-terminated

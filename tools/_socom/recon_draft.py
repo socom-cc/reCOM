@@ -46,7 +46,7 @@ from .recon import RECON_PLAN_KIND, RECON_SCHEMA, group_evidence
 from .recon_facts import GPR, JR_RA, _reads_at, _through_calls, _use_after_call, argument_reads, call_sites, callee_preserves, context, return_sources
 from .util import SocomError, canonical_json
 
-DRAFT_RULES_VERSION = 11
+DRAFT_RULES_VERSION = 13
 
 
 class _TypeIndex:
@@ -387,6 +387,144 @@ def _callback_returns(ctx: Any) -> dict[int, str]:
     return found
 
 
+def _stage2_parameters(stage2_prototype: dict[str, Any], mangled_params: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Stage 2 parameters, with a mangled `bool` (b) kept where DWARF 1 says uchar.
+
+    DWARF 1 has no bool type, so the Metrowerks records spell bool as uchar;
+    the mangled signature still says bool (review of group 128: AllCollapse).
+    """
+
+    rows = [{"name": p["name"], "type": p["type"]} for p in stage2_prototype["parameters"]]
+    explicit = [row for row in rows if row["name"] != "this"]
+    if len(explicit) == len(mangled_params):
+        for row, mangled in zip(explicit, mangled_params):
+            if (
+                row["type"] == "uchar"
+                and mangled.get("kind") == "builtin"
+                and mangled.get("name") == "bool"
+                and not mangled.get("modifiers")
+            ):
+                row["type"] = "bool"
+    return rows
+
+
+_SLOTS: dict[int, dict[int, str]] = {}
+
+
+def _vtable_class(name: str) -> str | None:
+    """Readable class name of a `__vt__<mangled class>` symbol."""
+
+    if not name.startswith("__vt__"):
+        return None
+    parsed = demangle("x__" + name[len("__vt__"):] + "Fv")
+    if not parsed or not parsed.get("qualifier"):
+        return None
+    return "::".join(parsed["qualifier"])
+
+
+def _slot_returns(ctx: Any) -> dict[int, str]:
+    """Virtual function -> return class declared for its vtable slot (rules version 13).
+
+    Classes linked by DWARF inheritance form a family.  Functions stored at
+    the same offset of the family's vtables, with the same method name, are
+    one virtual function: C++ gives every override the base's return type.
+    When the DWARF records among them declare one return class (void, v0 or
+    f0) and none disagrees, every function in the slot has that contract.
+    """
+
+    key = id(ctx)
+    if key in _SLOTS:
+        return _SLOTS[key]
+    from .recon_facts import _dies_cached
+
+    path = ctx.elf.path if hasattr(ctx.elf, "path") else None
+    found: dict[int, str] = {}
+    if path is None:
+        _SLOTS[key] = found
+        return found
+    st = Path(path).stat()
+    dies = _dies_cached((str(path), st.st_size, int(st.st_mtime)), str(path))
+    by_offset = {die.offset: die for die in dies}
+    # Union-find over class names linked by inheritance.
+    parent: dict[str, str] = {}
+
+    def root(name: str) -> str:
+        while parent.setdefault(name, name) != name:
+            parent[name] = parent[parent[name]]
+            name = parent[name]
+        return name
+
+    current = None
+    for die in dies:
+        if die.tag_name in ("class_type", "structure_type"):
+            current = die.string("name")
+        elif die.tag_name == "inheritance" and current:
+            base = by_offset.get(die.integer("user_def_type") or -1)
+            base_name = base.string("name") if base is not None else None
+            if base_name:
+                parent[root(current)] = root(base_name)
+    # Vtable words: (family, offset) -> functions.
+    names = _function_names(ctx)
+    slots: dict[tuple[str, int], set[int]] = {}
+    for symbol in ctx.elf.symbols():
+        cls = _vtable_class(symbol.name or "")
+        if not cls or not symbol.size:
+            continue
+        family = root(cls.split("::")[-1])
+        for offset in range(0, symbol.size, 4):
+            site = symbol.value + offset
+            if site in ctx.reloc32:
+                target = ctx.code.word(site)
+                if target in ctx.size:
+                    slots.setdefault((family, offset), set()).add(target)
+    declared = _dwarf_returns(ctx)
+    for functions in slots.values():
+        methods = set()
+        for function in functions:
+            parsed = next((demangle(n) for n in names.get(function, ()) if demangle(n)), None)
+            methods.add(parsed.get("name") if parsed else None)
+        if len(methods) != 1 or None in methods:
+            continue  # not provably one virtual function
+        kinds = {declared[f] for f in functions if f in declared}
+        if len(kinds) == 1 and "other" not in kinds:
+            kind = kinds.pop()
+            for function in functions:
+                if found.get(function, kind) != kind:
+                    found[function] = "conflict"
+                else:
+                    found[function] = kind
+    _SLOTS[key] = {f: k for f, k in found.items() if k != "conflict"}
+    return _SLOTS[key]
+
+
+def _only_in_vtables(ctx: Any, function: int) -> bool:
+    """Every reference to the function is a vtable word (no code address formation)."""
+
+    if ctx.addr_taken.get(function):
+        return False
+    sites = ctx.word32.get(function, ())
+    return bool(sites) and all((ctx.object_for(site) or "").startswith("__vt__") for site in sites)
+
+
+def _contract_drops(ctx: Any, function: int, fpr: bool) -> bool:
+    """A declared callback or vtable-slot contract never hands this register on."""
+
+    if _callback_drops(ctx, function, fpr):
+        return True
+    if not _only_in_vtables(ctx, function):
+        return False
+    kind = _slot_returns(ctx).get(function)
+    return kind == "void" or (fpr and kind == "gpr") or (not fpr and kind == "float")
+
+
+def _declared_void(ctx: Any, function: int) -> bool:
+    """Referenced only through a contract (callback type or vtable slot) declared void."""
+
+    if _callback_returns(ctx).get(function) == "void":
+        return True
+    return _only_in_vtables(ctx, function) and _slot_returns(ctx).get(function) == "void"
+
+
 def _function_names(ctx: Any) -> dict[int, list[str]]:
     return {row["start"]: row["names"] for row in ctx.functions}
 
@@ -431,7 +569,7 @@ def _callers_ignore_v0(
             if passes_on and caller not in seen:
                 if caller in _dwarf_void(ctx) or _declared_drop(ctx, caller, fpr):
                     continue  # its declared return never carries this register to its callers
-                if (ctx.addr_taken.get(caller) or ctx.word32.get(caller)) and not _callback_drops(ctx, caller, fpr):
+                if (ctx.addr_taken.get(caller) or ctx.word32.get(caller)) and not _contract_drops(ctx, caller, fpr):
                     return False, len(sites)
                 if not _callers_ignore_v0(ctx, caller, depth + 1, seen | {start}, ((fpr, register),))[0]:
                     return False, len(sites)
@@ -471,20 +609,32 @@ def draft_function(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIn
         declared_g, declared_f = _declared_argument_registers(stage2_prototype)
         if gprs <= declared_g and fprs <= declared_f:
             unset, exits = _exits_unset(ctx, address)
-            if stage2_prototype["return_type"] != "void" or unset:
+            declared_void = stage2_prototype["return_type"] == "void" and address in _dwarf_void(ctx)
+            if stage2_prototype["return_type"] == "void" and not unset and not declared_void:
+                # A leftover nobody reads (callee result or scratch, all readers checked).
+                through, through_exits = _exits_pass_through(ctx, address)
+                ignored, site_count = _callers_ignore_v0(ctx, address)
+                if through and ignored and site_count and not (ctx.addr_taken.get(address) or ctx.word32.get(address)):
+                    unset, exits = True, through_exits
+            if stage2_prototype["return_type"] != "void" or unset or declared_void:
                 return {
                     **base,
                     "draft_rule": "P-stage2",
                     "prototype": {
                         "return_type": stage2_prototype["return_type"],
-                        "parameters": [{"name": p["name"], "type": p["type"]} for p in stage2_prototype["parameters"]],
+                        "parameters": _stage2_parameters(stage2_prototype, params),
                         "evidence": [
                             f"stage 2 prototype from DWARF (receiver {stage2.get('receiver') or 'none'}) restated",
                             "argument registers read on any path: "
                             + (", ".join(f"{r}@{_sites(s)}" for r, s in reads.items()) or "none")
                             + "; all declared",
                         ]
-                        + ([f"every exit leaves v0 and f0 unset ({len(exits)} jr ra)"] if stage2_prototype["return_type"] == "void" else []),
+                        + (
+                            ["the DWARF record declares an explicit void return (FT_void): a value left in v0/f0 is residue"]
+                            if declared_void else
+                            [f"every exit leaves v0 and f0 unset or an unread leftover ({len(exits)} exits)"]
+                            if stage2_prototype["return_type"] == "void" else []
+                        ),
                     },
                 }
         return {**open_row, "open_reason": 'stage 2 prototype: an argument register read is undeclared, or void with a value left in v0/f0'}
@@ -528,7 +678,7 @@ def draft_function(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIn
     if not unset and not sinit:
         through, exits_through = _exits_pass_through(ctx, address)
         ignored, site_count = _callers_ignore_v0(ctx, address)
-        if through and ignored and (site_count or _callback_returns(ctx).get(address) == "void"):
+        if through and ignored and (site_count or _declared_void(ctx, address)):
             unset, exits, pass_through = True, exits_through, True
     if sinit:
         # A static initializer's type is fixed by the runtime, not by its body:
@@ -543,7 +693,7 @@ def draft_function(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIn
         if not slots or any(not str(slot).startswith(".p__sinit") for slot in slots):
             return {**open_row, "open_reason": 'static initializer referenced other than by its .p__sinit word'}
         slots = []
-    if slots or (ctx.addr_taken.get(address) and _callback_returns(ctx).get(address) != "void"):
+    if (slots or ctx.addr_taken.get(address)) and not _declared_void(ctx, address):
         return {**open_row, "open_reason": 'address taken or stored in a table: an override or callback contract may apply'}
     parameters = [{"name": f"param_{index}", "type": name} for index, name in enumerate(rendered, 1)]
     gprs, fprs, reads = _read_registers(ctx, address)
@@ -701,7 +851,7 @@ def void_verdict(ctx: Any, start: int) -> str:
             "scratch value with another use in the function (or an indirect jump)"
         )
         return "\n".join(lines)
-    if (ctx.addr_taken.get(start) or ctx.word32.get(start)) and _callback_returns(ctx).get(start) != "void":
+    if (ctx.addr_taken.get(start) or ctx.word32.get(start)) and not _declared_void(ctx, start):
         lines.append("VERDICT open: the function's address is taken or stored in a table")
         return "\n".join(lines)
 
@@ -719,7 +869,7 @@ def void_verdict(ctx: Any, start: int) -> str:
                 if passes_on and caller not in seen:
                     if caller in _dwarf_void(ctx) or _declared_drop(ctx, caller, fpr):
                         continue  # declared return (DWARF) never carries this register to its callers
-                    if (ctx.addr_taken.get(caller) or ctx.word32.get(caller)) and not _callback_drops(ctx, caller, fpr):
+                    if (ctx.addr_taken.get(caller) or ctx.word32.get(caller)) and not _contract_drops(ctx, caller, fpr):
                         return (
                             f"{name} passed on by {ctx.label(caller)}, whose address is taken or stored in a table "
                             f"(chain: {' -> '.join(chain + [ctx.label(caller)])})"
@@ -738,8 +888,8 @@ def void_verdict(ctx: Any, start: int) -> str:
     sites = len(call_sites(ctx, start))
     if blocker:
         lines.append(f"VERDICT open: {blocker}")
-    elif not sites and _callback_returns(ctx).get(start) == "void":
-        lines.append("VERDICT void: no direct call sites; only called through a declared void callback type")
+    elif not sites and _declared_void(ctx, start):
+        lines.append("VERDICT void: no direct call sites; only called through a contract (callback type or vtable slot) declared void")
     elif not sites:
         lines.append("VERDICT open: no direct call sites (pass-through needs at least one)")
     else:

@@ -144,6 +144,28 @@ def test_declared_callback_types_decide_callback_returns(ctx) -> None:
     assert callbacks[0x1ABCF0] == "gpr"
     # Passed as zNetConnect's `void (*)(int, int, const char *)`.
     assert callbacks[0x204260] == "void"
-    assert "only called through a declared void callback type" in void_verdict(ctx, 0x204260)
+    assert "only called through a contract (callback type or vtable slot) declared void" in void_verdict(ctx, 0x204260)
     # Ln's f0 chain ends at that pointer-returning loader.
     assert "VERDICT void" in void_verdict(ctx, 0x220750)
+
+
+def test_stage2_void_with_an_explicit_dwarf_void_is_restated(ctx) -> None:
+    # CHUD::SetupFiremode: its DWARF record says FT_void; a leftover in v0/f0
+    # does not contradict a declared void (rules version 12).
+    stage2 = {"receiver": "dwarf-this", "prototype": {"return_type": "void", "parameters": [
+        {"name": "this", "type": "CHUD *"}, {"name": "seal", "type": "CZSealBody *"}]}}
+    row = {"address": "0x3b7ce0", "elf_names": ["SetupFiremode__4CHUDFP10CZSealBody"], "stage2": stage2, "thunk_target": None}
+    drafted = draft_function(ctx, row, "CHUD::SetupFiremode", _types("CHUD", "CZSealBody"))
+    assert drafted["draft_rule"] == "P-stage2"
+    assert any("explicit void return" in line for line in drafted["prototype"]["evidence"])
+
+
+def test_vtable_slot_contract_from_a_dwarf_typed_override(ctx) -> None:
+    from tools._socom.recon_draft import _slot_returns, void_verdict
+
+    slots = _slot_returns(ctx)
+    # CGame::StartEngine shares __vt__+0x14 with COurGame::StartEngine, whose
+    # DWARF record returns uchar: callers through the vtable read v0, not f0.
+    assert slots[0x20E6B0] == "gpr"
+    # zSysReset's f0 chain ends there (review of group 162).
+    assert "VERDICT void" in void_verdict(ctx, 0x2F49D0)
