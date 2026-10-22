@@ -235,7 +235,9 @@ virtual function referenced only from vtables takes its slot's contract:
 classes linked by DWARF inheritance form a family, functions at the same
 vtable offset with the same method name are one virtual, and when the DWARF
 records among them agree on one return class (and none disagrees) every
-function in the slot has it (rules version 13).
+function in the slot has it (rules version 13). A `__dt` destructor that
+keeps the Metrowerks contract returns `this` in v0, so an f0 chain ends there
+(rules version 16).
 `recon void --function` prints the verdict and the blocking chain.
 
 A function whose every exit returns a relocated pointer to a NUL-terminated

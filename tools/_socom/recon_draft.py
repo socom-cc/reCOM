@@ -46,7 +46,7 @@ from .recon import RECON_PLAN_KIND, RECON_SCHEMA, group_evidence
 from .recon_facts import GPR, JR_RA, _reads_at, _through_calls, _use_after_call, argument_reads, call_sites, callee_preserves, context, return_sources
 from .util import SocomError, canonical_json
 
-DRAFT_RULES_VERSION = 15
+DRAFT_RULES_VERSION = 16
 
 
 class _TypeIndex:
@@ -288,7 +288,18 @@ def _declared_drop(ctx: Any, caller: int, fpr: bool) -> bool:
     """
 
     kind = _dwarf_returns(ctx).get(caller)
+    if kind is None and fpr and _is_destructor(ctx, caller):
+        # Metrowerks destructors return this (void *) in v0 (rules version 16):
+        # nothing reads an f0 left by their callees (zBoneUnloadAll, group 188).
+        return True
     return kind == "void" or (fpr and kind == "gpr") or (not fpr and kind == "float")
+
+
+def _is_destructor(ctx: Any, function: int) -> bool:
+    """A __dt destructor whose body keeps the Metrowerks contract."""
+
+    names = _function_names(ctx).get(function, ())
+    return any(name.startswith("__dt__") for name in names) and _destructor_evidence(ctx, function) is not None
 
 
 _CALLBACKS: dict[int, dict[int, str]] = {}

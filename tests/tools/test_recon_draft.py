@@ -204,3 +204,12 @@ def test_nested_type_must_sit_under_its_mangled_parent() -> None:
     ])
     assert not types.nested_in("generic_iterator<0>", "__list_deleter<CPnt3D, std::allocator<CPnt3D>>")
     assert types.nested_in("CharArray", "basic_string<char,std::char_traits<char>,std::allocator<char>>")
+
+
+def test_destructor_callers_end_an_f0_chain(ctx) -> None:
+    from tools._socom.recon_draft import void_verdict
+
+    # zBoneUnloadAll's f0 chain ends at CScriptArchive::~CScriptArchive, which
+    # returns this (void *) in v0 by the Metrowerks convention (rules
+    # version 16; planner of group 188).
+    assert "VERDICT void" in void_verdict(ctx, 0x1DD520)
