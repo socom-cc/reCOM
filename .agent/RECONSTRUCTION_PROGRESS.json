@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 1476,
+  "revision": 1478,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -86534,23 +86534,33 @@
         "socom:recon-group:f6bdf5f8fd506f5f9047-apply",
         "socom:recon-group:fe5f3b0ac9beaf35a1e5-apply"
       ],
-      "evidence": [
-        "plan build/recon-plans/socom-recon-group-2ba2620e9d6db6c30608.json sha256:d2502521e662ba9899cff36f6f4bd25793073477766c09340fb312f10b7fe670; recon validate ok; recon draft --check ok (11 drafted, 21 open filled); preflight-batch ok (11 set_function_prototype calls; skips = the 21 unresolved rows)"
-      ],
-      "handoff": {
-        "owner": "socom-recon-planner-g76",
-        "submitted_at": "2026-10-22T00:11:22Z",
-        "summary": "11 prototypes, 21 unresolved, 0 globals"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:recon-group:2ba2620e9d6db6c30608",
       "kind": "recon-plan-group",
       "lease": null,
       "resources": [
         "build/recon-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-recon-planner-g76",
+            "submitted_at": "2026-10-22T00:11:22Z",
+            "summary": "11 prototypes, 21 unresolved, 0 globals"
+          },
+          "handoff_evidence": [
+            "plan build/recon-plans/socom-recon-group-2ba2620e9d6db6c30608.json sha256:d2502521e662ba9899cff36f6f4bd25793073477766c09340fb312f10b7fe670; recon validate ok; recon draft --check ok (11 drafted, 21 open filled); preflight-batch ok (11 set_function_prototype calls; skips = the 21 unresolved rows)"
+          ],
+          "reason": "One finding: 0x3e0550 fclose 'int fclose(__sFILE *)' return width unproven. Its int rests on (a) the accepted fflush int (group 44afe7af: 'width from the header declaration (int)', a recalled stdio.h, not acceptable; fflush's own exits are li -1 / zero / _fwalk result and its callers only test v0 with bne) and (b) the signed compare slt v0,v1,v0 (v1=-1) at 0x3e05dc, which types the _close hook result (DWARF int, DIE 0x1d516), not fclose's own return. s1 (move s1,zero / move s1,v0 from fflush / movz s1,-1) is only moved to v0 at 0x3e063c, never compared, narrowed or widened; both callers (0x1abfd8, 0x1c7884) overwrite v0 unread; no DWARF record; recon void VERDICT open. -1/0/status with no narrowing does not exclude uint or 64-bit long. Fix: make the fclose row unresolved on return width (receiver __sFILE * and a0 proven; cite that fflush's int is header-only), or add independent positive evidence. All other rows verified: validate ok, recon program equals apply file, preflight skips == the 21 unresolved, draft --check ok; CalcF2 void(float *, float *, uchar) ok (recon void VERDICT void; andi s1,a2,0xff at 0x3504d0; swc1 a0 / lwc1 a1 element accesses); CTeamMateNames::Tick restatement ok (explicit DWARF void, VERDICT void, lqc2 vf4-vf8 at 0x3de848-0x3de860 precede cop2 VMULAx/VMADDAy/VMADDAz/VMADDw reading them, sqc2 vf9 stores, no VU read before write); unresolved rows consistent (CMemCardIO/CMemCard/CUIListBox types missing; void verdicts open as cited).",
+          "rejected_at": "2026-10-22T00:19:19Z",
+          "rejected_by": "socom-reviewer-r163"
+        }
+      ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan reconstruction group 163 (height 5, 32 functions)"
     },
     {
@@ -86614,6 +86624,10 @@
       "title": "Apply reviewed reconstruction group 163 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-22T00:19:08Z",
+        "by": "socom-reviewer-r163"
+      },
       "batch": {
         "batch_number": 164,
         "function_count": 16,
@@ -86660,7 +86674,8 @@
         "socom:recon-group:f758fb41aefddaf2449b-apply"
       ],
       "evidence": [
-        "plan build/recon-plans/socom-recon-group-1feefa6539b795cba1da.json sha256:f78b22364fe420792f59f1f8321bb70b60fda7dd0e6f5f1d5c988359e5d22a7a; recon validate ok; recon draft --check ok (2 drafted, 14 open filled); preflight-batch ok (4 set_function_prototype calls; skips = the 12 unresolved rows)"
+        "plan build/recon-plans/socom-recon-group-1feefa6539b795cba1da.json sha256:f78b22364fe420792f59f1f8321bb70b60fda7dd0e6f5f1d5c988359e5d22a7a; recon validate ok; recon draft --check ok (2 drafted, 14 open filled); preflight-batch ok (4 set_function_prototype calls; skips = the 12 unresolved rows)",
+        "plan sha256:f78b22364fe420792f59f1f8321bb70b60fda7dd0e6f5f1d5c988359e5d22a7a; recon validate ok; recon program equals build/apply apply file; preflight-batch ok with 4 prototype calls and skips equal to the 12 unresolved; recon draft --check ok (open rows 14 reviewed). __sread/__swrite int(void *, char *, int) match the __sFILE _read/_write member types (DIEs 0x18a1e/0x1a229, fund_type int, void*/char*/int) stored by std at 0x3e078c/0x3e0790 (sw v0,32(a0); sw v1,36(a0)), a0-a2 read, results sign-extended dsra32. 12 unresolved rows: recon void verdicts open or param types missing as cited (recon types _reent, RT_CIRC_BUF missing)."
       ],
       "handoff": {
         "owner": "socom-recon-planner-g76",
@@ -86675,7 +86690,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan reconstruction group 164 (height 5, 16 functions)"
     },
     {
@@ -86719,7 +86734,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 164 in Ghidra"
     },
     {
