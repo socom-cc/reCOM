@@ -1005,8 +1005,18 @@
       "resolution": null,
       "status": "open",
       "summary": "recon void pass-on chain ignores a returning caller's own value exits"
+    },
+    {
+      "details": "Group 210 planning: ai::PathPlanAbort and CZSealBody::ClearStack stay unresolved because the f0 pass-on chain reaches a vtable override and only terminates on DWARF-declared returns. Missed terminators: (1) a passing function that returns its own v0 value (CAiSRescued::Tick, sltu v0 at an exit); (2) a virtual slot whose base has an accepted live void prototype (CEntity::Tick for CZSealBody::Tick at __vt__10CZSealBody+0x14); (3) a callee left in f0 that returns in v0 (CAiPath::Clear, CZSealBody::PopBlend). Conservative (no wrong verdicts), but leaves decidable rows open. Planner socom-recon-planner-g111.",
+      "id": "socom:workspace-issue:054cd5f1b47c355e103e",
+      "kind": "problem",
+      "reported_at": "2026-10-22T22:49:53Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "recon void f0 chain stops only at DWARF-declared returns"
     }
   ],
-  "revision": 115,
+  "revision": 116,
   "schema_version": 1
 }
