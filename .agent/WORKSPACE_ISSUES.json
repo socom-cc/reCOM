@@ -975,8 +975,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Revisit pass: CNode::DeleteChildren 0x226320 void (group 037) has no declaration"
+    },
+    {
+      "details": "All 70 DWARF __ct records in socom.elf declare mod_fund_type void * (group 189/192 review, 2026-10-22, sampled every __ct__ symbol with recon dwarf --address). 43 accepted no-DWARF constructors are void *, but 9 are typed X *: CSealCtrl, CSealUnit, CZWeaponList, CZAmmoList, PlacedExplosive, CBlink, CLook, CSaveManager, CZFTSWeapon. Retype them to void * through a governed reopen in the revisit pass. A drafter rule for constructors (void * when every exit returns entry a0) would stop new splits.",
+      "id": "socom:workspace-issue:8892c260bea2f9e35aa5",
+      "kind": "problem",
+      "reported_at": "2026-10-22T13:39:30Z",
+      "reported_by": "socom-controller",
+      "resolution": null,
+      "status": "open",
+      "summary": "Revisit pass: 9 applied constructors typed X * against the program's void * convention"
     }
   ],
-  "revision": 112,
+  "revision": 113,
   "schema_version": 1
 }
