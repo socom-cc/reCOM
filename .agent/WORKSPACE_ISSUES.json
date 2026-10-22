@@ -1015,8 +1015,18 @@
       "resolution": null,
       "status": "open",
       "summary": "recon void f0 chain stops only at DWARF-declared returns"
+    },
+    {
+      "details": "Group 208/209 planning (socom-recon-planner-g112): (1) _strtod_r's switch jump jr a0 at 0x3e6714 (jump table 0x466fb0) is listed as an indirect call with registers passed through, instead of an intra-function switch. (2) rt_comm_get_remote_ip's a0 is not shown as passed through to rt_comm_get_valid_channel, which passes it on again; pass-through appears to be followed one level only.",
+      "id": "socom:workspace-issue:ab986d082fc71e819536",
+      "kind": "problem",
+      "reported_at": "2026-10-22T23:08:34Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "recon facts: switch jr reported as indirect call; argument pass-through followed one level"
     }
   ],
-  "revision": 116,
+  "revision": 117,
   "schema_version": 1
 }
