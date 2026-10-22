@@ -889,8 +889,11 @@
       "kind": "problem",
       "reported_at": "2026-10-21T11:07:28Z",
       "reported_by": "socom-controller",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-22T01:38:53Z",
+        "summary": "Implemented in rules v13 (commit 0231d7a): vtable slot contracts from DWARF-typed overrides within inheritance families end void chains and declare slot functions void. Slots with no DWARF record (e.g. C2D::Draw(const CMatrix&) at +0x10) stay open by design; the revisit rows in issues 97ea613e/1a505ca4 can now be re-drafted."
+      },
+      "status": "resolved",
       "summary": "recon void: stop caller chains at virtuals whose slot has DWARF-declared void overrides"
     },
     {
@@ -964,6 +967,6 @@
       "summary": "Revisit pass: 31 planned rows cite C-library headers; confirm each is a local runtime source"
     }
   ],
-  "revision": 110,
+  "revision": 111,
   "schema_version": 1
 }
