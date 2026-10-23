@@ -518,10 +518,33 @@ python tools/socom.py recon type-plan affected --plan build/type-plans/zdb-cvisu
   unproven receiver whose member and static readings differ). DWARF 1
   parameter lists cannot settle registers (they omit unnamed parameters) and
   all but nine DWARF subprograms have mangled names, so DWARF only proves
-  receivers. Live prototypes are not read; the evidence stays ELF-only so
+  receivers. A by-value parameter whose mangled class is a DWARF
+  enumeration (no composite of that name) is a scalar in one GPR and
+  settles the registers after it. Live prototypes are not read; the evidence stays ELF-only so
   `validate` can regenerate its digest. A store of zero and a word copied through an
   FPR prove neither int nor float. Accesses whose base cannot be proven are
   counted per function as unattributed.
+- Every function is analyzed, callees first, so pointers held outside the
+  class family are attributed too (`held@<load>` and `return@<call>` roots;
+  the function row gives each proof, and `type-plan show` prints it for
+  cited sites): a 4-byte load of a DWARF member or global typed as a
+  pointer to a family class, from a pointer typed as its holder (this, a
+  mangled parameter or another holder; every DWARF record of the holder
+  must agree); an element of pointer storage whose DWARF type lost the
+  element type (`std::vector<T *>` stores `unsigned int *data_`), typed when
+  code passes that storage plus an index as a mangled `T **` or `T *&`
+  parameter (`holders.element_storage`, keyed by the innermost
+  non-template DWARF record such as `CVisualVector+0x8`; disagreeing proofs
+  refuse the storage); a call result when every exit of the callee returns
+  NULL or a pointer of one proven class (`holders.typed_returns`); and a
+  function-local static read back after a store, when only that function's
+  direct loads and stores reference it. A call whose callee returns its
+  entry a0 plus k on every exit yields the caller's a0 plus k. A pointer met
+  at different offsets on joining paths (a loop pointer) is that pointer plus
+  an index. Loads from family objects keep their own attribution. Holders
+  without DWARF layouts (a declaration-only record such as
+  `tag_DelayedNode`), casts after a runtime type test, virtual-call results
+  and `__dynamic_cast` results are not typed.
 - The plan (format in `tools/_socom/type_plan.py`) gives each type its
   qualified name, category (`/project/<namespaces>`), size, alignment, bases
   at their RTTI offsets (component named by the bare base type name), the

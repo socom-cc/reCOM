@@ -18,12 +18,38 @@ needs:
 * derived classes (their RTTI lists this class) and the this-adjustment their
   constructors pass to the base constructor;
 * every access relative to a pointer proven to be the class: ``this`` in
-  members, typed (mangled) pointer/reference parameters, and allocation
-  results.  Values are followed through register copies, stack spills and
-  reloads, constant offsets, loads (a loaded value used as a base is a
-  dereferenced pointer; an index added to it is an indexed dereference), and
-  calls (an argument register holding the pointer or a loaded field is
-  matched to the callee's mangled parameter type).
+  members, typed (mangled) pointer/reference parameters, allocation results,
+  and pointers held outside the family (below).  Values are followed through
+  register copies, stack spills and reloads, constant offsets, loads (a
+  loaded value used as a base is a dereferenced pointer; an index added to it
+  is an indexed dereference), and calls (an argument register holding the
+  pointer or a loaded field is matched to the callee's mangled parameter
+  type).  A loop pointer (one base at different constant offsets on joining
+  paths) is that base plus an unknown index.
+
+Holders (``_Holders``) prove class pointers stored outside the family, from
+the ELF and DWARF only, every one with a cited proof:
+
+* a 4-byte load of a DWARF member (bases and by-value members followed, all
+  DWARF records of the holder class agreeing) or DWARF global whose type is a
+  pointer to a class, from a pointer typed as that holder class (``this``, a
+  mangled parameter, or another holder);
+* an element of pointer storage whose DWARF type lost its element type (the
+  ``__vector_pod`` ``data_`` of ``std::vector<T *>`` is ``unsigned int *``):
+  the element class is proven when code passes that storage, plus an index,
+  as a mangled ``T **`` (or ``T *&``) parameter, keyed by the innermost
+  non-template DWARF record holding it (``CVisualVector+0x8``), with any
+  disagreement refusing the key;
+* a call result, when every exit of the callee returns NULL or a pointer of
+  one proven class, or returns its entry a0 plus a constant (``data()``,
+  constructors);
+* a function-local static read back after the function stored a proven
+  pointer in it, when the ELF references it only from that function's
+  direct loads and stores.
+
+A by-value parameter whose mangled name is a class but whose DWARF records
+are only enumerations is a scalar in its register, so it settles the
+registers after it.
 
 Every call row says what the callee takes in its register: ``parameter_type``
 (the mangled parameter, or the receiver), ``no_parameter`` (the parameter list
@@ -45,6 +71,7 @@ cannot prove are counted per function as unattributed, so gaps stay visible.
 
 from __future__ import annotations
 
+import bisect
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -56,7 +83,7 @@ from .recon_facts import GPR, _dies_cached, _fpr_writes, argument_reads, context
 from .util import SocomError, file_key
 
 LAYOUT_KIND = "socom-type-layout-evidence"
-LAYOUT_SCHEMA = 1
+LAYOUT_SCHEMA = 2
 
 # Memory opcodes: (width, kind, signed, store, fpr).  kind: int, float,
 # int64, int128, vu (lqc2/sqc2 vector registers), partial (lwl/lwr/...).
@@ -112,7 +139,11 @@ NEUTRAL_KINDS = frozenset({"zero", "fpr-copy", "partial"})
 # an entry argument register; ("res", site) a call's v0; ("ld", address,
 # width, kind, signed) a loaded value; ("ix", pointer) a pointer plus an
 # unknown index; ("bits", source, ops) bit operations on a loaded value (kept
-# only for bitfield evidence).
+# only for bitfield evidence); ("hold", source, (shape, class)) a pointer a
+# holder proves, where source is the ("ld", ...) term of a typed load (so
+# the same load on two paths joins), ("elem", storage) for any element of a
+# typed storage hold, or ("res", site) of a typed call result: shape "ptr"
+# points to the class, "array" to storage of class pointers.
 
 _ZERO = (("const",), 0)
 
@@ -153,7 +184,29 @@ def _is_const(value: Any) -> bool:
 
 
 def _pointer_candidate(value: Any) -> bool:
-    return value is not None and value[0][0] in ("ld", "arg", "res", "ix")
+    return value is not None and value[0][0] in ("ld", "arg", "res", "ix", "hold")
+
+
+def _index_base(value: Any) -> Any:
+    """The pointer an indexed value starts from: an ix term's pointer, else the pointer value itself."""
+
+    term = value[0]
+    if term[0] == "ix":
+        return term[1]
+    if term[0] in ("ld", "arg", "res", "hold"):
+        return value
+    return None
+
+
+def _widen(left: Any, right: Any) -> Any:
+    """Join of two different values: one pointer at different offsets is that pointer plus an index."""
+
+    if left is None or right is None:
+        return None
+    a, b = _index_base(left), _index_base(right)
+    if a is None or b is None or a[0] != b[0]:
+        return None
+    return (("ix", (a[0], min(a[1], b[1]))), 0)
 
 
 def _index(left: Any, right: Any) -> Any:
@@ -296,12 +349,16 @@ def _float_param(value: dict[str, Any]) -> bool:
     return value.get("kind") == "builtin" and value.get("name") == "float" and not _levels(value)
 
 
-def parameter_registers(params: list[dict[str, Any]] | None, has_this: bool) -> tuple[list[tuple[str, dict]], bool]:
+def parameter_registers(
+    params: list[dict[str, Any]] | None, has_this: bool, scalars: frozenset[tuple[str, ...]] = frozenset()
+) -> tuple[list[tuple[str, dict]], bool]:
     """(register, mangled type) per parameter under the EE convention.
 
     Floats take f12-f19 and everything else the next of a0-t3.  Mapping stops
     (complete=False) at a by-value class, an array, varargs, or when the
     registers run out, because those parameters' registers are not settled.
+    ``scalars`` are mangled class names proven to be enumerations (DWARF),
+    which take one GPR like any integer.
     """
 
     values = list(params or [])
@@ -312,7 +369,7 @@ def parameter_registers(params: list[dict[str, Any]] | None, has_this: bool) -> 
     for value in values:
         if value.get("kind") == "builtin" and value.get("name") == "...":
             return rows, False
-        if _by_value_aggregate(value):
+        if _by_value_aggregate(value) and not (value.get("kind") == "class" and tuple(value["components"]) in scalars):
             return rows, False
         if _float_param(value):
             if fpr >= 8:
@@ -330,8 +387,9 @@ def parameter_registers(params: list[dict[str, Any]] | None, has_this: bool) -> 
 class _Symbols:
     """Function and object symbols with their demangled identities."""
 
-    def __init__(self, ctx: Any) -> None:
+    def __init__(self, ctx: Any, scalars: frozenset[tuple[str, ...]] = frozenset()) -> None:
         self.ctx = ctx
+        self.scalars = scalars
         self.functions: dict[int, dict[str, Any]] = {}
         self.objects: list[dict[str, Any]] = []
         for symbol in ctx.elf.symbols():
@@ -435,7 +493,7 @@ class _Receivers:
             elif slots:
                 result = f"virtual: slot {slots[0]}"
             else:
-                static_rows, complete = parameter_registers(parsed.get("params"), has_this=False)
+                static_rows, complete = parameter_registers(parsed.get("params"), False, self.symbols.scalars)
                 if complete:
                     static_gprs = {name for name, _value in static_rows if not name.startswith("f")}
                     reads = argument_reads(self.ctx, address)
@@ -470,6 +528,7 @@ class CallParameters:
         self.symbols = symbols
         self.receivers = receivers
         self._cache: dict[int, tuple[list[tuple[dict[str, str], bool]], str | None]] = {}
+        self._values: dict[int, list[dict[str, dict]]] = {}
 
     def readings(self, callee: int | None) -> tuple[list[tuple[dict[str, str], bool]], str | None]:
         """[(register -> type, complete)] per reading, or [] and why no reading exists."""
@@ -490,15 +549,29 @@ class CallParameters:
             qualified = bool(parsed.get("qualifier"))
             proven = qualified and self.receivers.proof(callee) is not None
             readings = []
+            values: list[dict[str, dict]] = []
             for has_this in ((True,) if proven else (True, False) if qualified else (False,)):
-                rows, complete = parameter_registers(parsed["params"], has_this)
+                rows, complete = parameter_registers(parsed["params"], has_this, self.symbols.scalars)
                 types = {register: render_type(value) for register, value in rows}
                 if has_this:
                     types["a0"] = f"{_qualified(parsed['qualifier'])} * (receiver)"
                 readings.append((types, complete))
+                values.append({register: value for register, value in rows})
+            self._values[callee] = values
             result = (readings, None)
         self._cache[callee] = result
         return result
+
+    def value_of(self, callee: int | None, register: str) -> dict[str, Any] | None:
+        """The mangled parameter type every reading gives ``register``, else None."""
+
+        readings, missing = self.readings(callee)
+        if missing:
+            return None
+        found = [values.get(register) for values in self._values.get(callee, [])]
+        if not found or any(value is None or value != found[0] for value in found):
+            return None
+        return found[0]
 
     def of(self, callee: int | None, register: str) -> dict[str, Any]:
         """``{"parameter_type": T}``, ``{"no_parameter": True}`` or ``{"parameter_unknown": reason}``."""
@@ -529,9 +602,27 @@ class CallParameters:
 
 
 def _join(left: dict | None, right: dict) -> dict:
+    """Values every path agrees on; a pointer met at different offsets becomes that pointer plus an index."""
+
     if left is None:
         return dict(right)
-    return {key: value for key, value in left.items() if value is not None and right.get(key) == value}
+    result = {}
+    for key, value in left.items():
+        other = right.get(key)
+        if value is None or other is None:
+            continue
+        if other == value:
+            result[key] = value
+        elif isinstance(key, tuple) and key[0] in ("s", "g"):
+            if value[1] == other[1]:
+                widened = _widen(value[0], other[0])
+                if widened is not None:
+                    result[key] = (widened, value[1])
+        else:
+            widened = _widen(value, other)
+            if widened is not None:
+                result[key] = widened
+    return result
 
 
 class _Analysis:
@@ -542,10 +633,14 @@ class _Analysis:
     keeps a value only when every visited predecessor agrees.
     """
 
-    def __init__(self, ctx: Any, symbols: _Symbols, start: int) -> None:
+    def __init__(self, ctx: Any, symbols: _Symbols, start: int, env: Any = None) -> None:
         self.ctx = ctx
         self.symbols = symbols
         self.start = start
+        # Holder typing (``_Holders``): typed loads, typed call results and
+        # private statics.  ``holds`` records where each hold term came from.
+        self.env = env
+        self.holds: dict[tuple, tuple] = {}
         self.flow = ctx.flow(start)
         self.fn = self.flow.fn
         self.end = self.flow.end
@@ -688,13 +783,23 @@ class _Analysis:
             low = min(escaped)
             for key in [key for key in state if isinstance(key, tuple) and key[0] == "s" and key[1] + state[key][1] > low]:
                 del state[key]
+        for key in [key for key in state if isinstance(key, tuple) and key[0] == "g"]:
+            del state[key]  # the callee may write a static (a recursive call writes its own)
         a0 = state.get(4)
         for register in _CALL_CLOBBERED_GPRS:
             state.pop(register, None)
         for register in range(0, 20):
             state.pop(("f", register), None)
+        fact = self.env.returns.get(callee) if self.env is not None and callee is not None else None
         parsed = self.symbols.parsed(callee)
-        if parsed.get("name") == "__ct" and a0 is not None and callee in self.ctx.size and _ctor_returns_this(self.ctx, callee):
+        if fact is not None and fact[0] == "this" and a0 is not None and _add(a0, fact[1]) is not None:
+            # Every exit of the callee returns its entry a0 plus a constant.
+            state[2] = _add(a0, fact[1])
+        elif fact is not None and fact[0] == "type":
+            term = ("hold", ("res", site), fact[1])
+            self.holds[term] = ("return", site, callee)
+            state[2] = (term, 0)
+        elif parsed.get("name") == "__ct" and a0 is not None and callee in self.ctx.size and _ctor_returns_this(self.ctx, callee):
             # A Metrowerks constructor returns this (every exit returns the entry a0).
             state[2] = a0
         else:
@@ -708,27 +813,47 @@ class _Analysis:
         dest = ("f", rt) if fpr else rt
         base = self._get(before, rs)
         address = (("sym",), target) if target is not None else _add(base, simm)
+        private = (
+            address is not None and address[0] == ("sym",) and self.env is not None
+            and self.env.private_static(self.start, address[1])
+        )
         if store:
             value = before.get(dest) if fpr else self._get(before, rt)
-            if address is not None and address[0] == ("sp",):
+            if address is not None and (address[0] == ("sp",) or private):
+                space = "s" if address[0] == ("sp",) else "g"
                 low, high = address[1], address[1] + width
-                for key in [key for key in state if isinstance(key, tuple) and key[0] == "s"]:
+                for key in [key for key in state if isinstance(key, tuple) and key[0] == space]:
                     if key[1] < high and key[1] + state[key][1] > low:
                         del state[key]
                 if kind != "partial" and value is not None and _depth(value) <= _MAX_DEPTH:
-                    state[("s", low)] = (value, width)
+                    state[(space, low)] = (value, width)
             if record:
                 if not fpr and rt == 0:
                     kind = "zero"
                 self._record_memory(pc, address, width, kind, signed, True, value, None)
             return
         loaded: Any = None
-        if address is not None and address[0] == ("sp",):
-            slot = before.get(("s", address[1]))
-            if slot is not None and slot[1] == width and kind != "partial":
+        if address is not None and (address[0] == ("sp",) or private) and (
+            slot := before.get(("s" if address[0] == ("sp",) else "g", address[1]))
+        ) is not None:
+            if slot[1] == width and kind != "partial":
                 loaded = slot[0]
+        elif address is not None and address[0] == ("sp",):
+            pass
         elif address is not None and kind not in ("partial", "vu"):
-            loaded = (("ld", address, width, kind, signed), 0)
+            source = ("ld", address, width, kind, signed)
+            desc = self.env.load(self.start, address, width, kind) if self.env is not None and not fpr else None
+            if desc is not None:
+                # Every element of one typed storage is the same value class, whatever its index: a loop
+                # pointer's first pass (storage + 0) and its widened passes (storage + index) then agree.
+                storage = address[0][1][0] if address[0][0] == "ix" else address[0]
+                term = ("hold", ("elem", storage) if storage[0] == "hold" and storage[2][0] == "array" else source, desc)
+                if record:
+                    sites = self.holds.get(term, ("load", (), address))[1]
+                    self.holds[term] = ("load", tuple(sorted(set(sites) | {pc})), address)
+                loaded = (term, 0)
+            else:
+                loaded = (source, 0)
         if kind != "vu":
             self._set(state, dest, loaded)
         if record:
@@ -888,7 +1013,8 @@ class _Family:
     def __init__(self, root: Path, name: str, with_derived: bool) -> None:
         self.root = root
         self.ctx = context(root)
-        self.symbols = _Symbols(self.ctx)
+        self.leaves, self.templates = class_leaves(root)
+        self.symbols = _Symbols(self.ctx, dwarf_scalars(root, self.leaves))
         self.receivers = _Receivers(self.ctx, self.symbols, dwarf_subprograms(root))
         components = tuple(split_qualified(name))
         mangled_qualifier(list(components))
@@ -1022,6 +1148,558 @@ class _Family:
         }
 
 
+# -- holders: class pointers stored outside the family -----------------------
+
+_JR_RA = 0x03E00008
+_POINTER, _CONST, _VOLATILE = 1, 3, 4
+
+
+def _dwarf_address(die: Any) -> int | None:
+    attribute = die.attribute("location")
+    value = attribute.value if attribute else None
+    # DW_OP_ADDR <u32>: a static location.
+    if isinstance(value, bytes) and len(value) == 5 and value[0] == 0x03:
+        return int.from_bytes(value[1:5], "little")
+    return None
+
+
+def class_leaves(root: Path) -> tuple[dict[str, frozenset[tuple[str, ...]]], frozenset[str]]:
+    """(leaf name -> qualified classes the mangled symbols name, leaf names of templates).
+
+    DWARF 1 names drop qualifiers and template arguments, so a DWARF record
+    names a class only through its leaf, and only when exactly one mangled
+    class has that leaf and no template does.
+    """
+
+    from .type_plan_evidence import _mentioned_cached
+
+    path = root / "support" / "socom.elf"
+    leaves: dict[str, set[tuple[str, ...]]] = defaultdict(set)
+    templates: set[str] = set()
+    for name in _mentioned_cached(file_key(path), str(path)):
+        components = tuple(split_qualified(name))
+        for part in components:
+            if "<" in part:
+                templates.add(template_base(part))
+        if components:
+            leaves[components[-1]].add(components)
+    return {leaf: frozenset(values) for leaf, values in leaves.items()}, frozenset(templates)
+
+
+def dwarf_scalars(root: Path, leaves: dict[str, frozenset[tuple[str, ...]]]) -> frozenset[tuple[str, ...]]:
+    """Mangled class names whose every DWARF record of that leaf is an enumeration (no composite).
+
+    A typedef names an enumeration when it refers to one (``typedef enum {...} NAME``); a typedef of
+    anything else counts against the name.
+    """
+
+    from .type_plan_evidence import COMPOSITE_TAGS, TypeEvidence
+
+    dwarf = TypeEvidence(root).dwarf
+    enums, composites = set(), set()
+    for die in dwarf.dies:
+        name = die.string("name")
+        if not name:
+            continue
+        if die.tag_name == "typedef":
+            target = dwarf.die(die.integer("user_def_type")) if die.integer("user_def_type") is not None else None
+            (enums if target is not None and target.tag_name == "enumeration_type" else composites).add(name)
+        elif die.tag_name == "enumeration_type":
+            enums.add(name)
+        elif die.tag_name in COMPOSITE_TAGS:
+            composites.add(name)
+    found = set()
+    for leaf in enums - composites:
+        names = leaves.get(leaf, frozenset())
+        if len(names) == 1:
+            found.update(names)
+    return frozenset(found)
+
+
+def _class_text(cls: tuple[str, ...]) -> str:
+    return _qualified(cls)
+
+
+def _hold_site(info: tuple) -> int:
+    """The first load site of a typed load, or the call site of a typed result."""
+
+    return info[1][0] if info[0] == "load" else info[1]
+
+
+def _copy_source(insn: int, register: int) -> int | None:
+    """The source GPR when ``insn`` copies one GPR into ``register`` unchanged (move/addu/daddu/or/por with zero)."""
+
+    op, rs, rt, rd = insn >> 26, (insn >> 21) & 31, (insn >> 16) & 31, (insn >> 11) & 31
+    if rd != register:
+        return None
+    if op == 0x00 and insn & 0x3F in (0x21, 0x2D, 0x25) and (insn >> 6) & 31 == 0 and 0 in (rs, rt) and (rs, rt) != (0, 0):
+        return rt if rs == 0 else rs
+    if op == 0x1C and insn & 0x3F == 0x29 and (insn >> 6) & 31 == 0x12 and rt == 0 and rs != 0:
+        return rs
+    return None
+
+
+class _Holders:
+    """Class pointers held outside the family, each with its proof (see the module docstring).
+
+    A type is ``(shape, class)``: shape "ptr" points to the class, "array"
+    to storage of pointers to it.  Classes are qualified tuples; a DWARF
+    record names one by its leaf (``class_ref``).
+    """
+
+    def __init__(self, family: _Family, parameters: CallParameters) -> None:
+        from .type_plan_evidence import TypeEvidence
+
+        self.family = family
+        self.ctx = family.ctx
+        self.symbols = family.symbols
+        self.receivers = family.receivers
+        self.parameters = parameters
+        self.dwarf = TypeEvidence(family.root).dwarf
+        self.leaves, self.templates = family.leaves, family.templates
+        # (DWARF record, offset) of pointer storage -> element class and proofs.
+        self.elements: dict[tuple[str, int], dict[str, Any]] = {}
+        self.element_conflicts: dict[tuple[str, int], dict[str, list[str]]] = {}
+        # function -> ("this", k) or ("type", (shape, class)); the proof text of each typed return.
+        self.returns: dict[int, tuple] = {}
+        self.return_proofs: dict[int, str] = {}
+        self._entries: dict[int, dict[int, tuple[tuple[str, ...], str]]] = {}
+        self._members: dict[tuple[str, int], Any] = {}
+        self._private: dict[tuple[int, int], bool] = {}
+        self._ref_targets = sorted(self.ctx.addr_taken)
+        self._data_targets = sorted(self.ctx.word32)
+        globals_at: dict[int, list[Any]] = defaultdict(list)
+        for die in self.dwarf.dies:
+            if die.tag_name == "global_variable":
+                address = _dwarf_address(die)
+                if address is not None:
+                    globals_at[address].append(die)
+        self._globals = dict(globals_at)
+        objects = []
+        for address, dies in sorted(self._globals.items()):
+            records = {self._composite(die.integer("user_def_type")) for die in dies}
+            if len(records) == 1 and None not in records:
+                record = records.pop()
+                cls = self.class_ref(record.string("name") or "")
+                size = record.integer("byte_size") or 0
+                if cls is not None and size > 0:
+                    objects.append((address, address + size, cls, dies[0]))
+        self._objects = objects
+        self._object_starts = [row[0] for row in objects]
+
+    # -- classes ---------------------------------------------------------
+
+    def class_ref(self, leaf: str) -> tuple[str, ...] | None:
+        """The class a DWARF leaf name denotes, or None when templates or several classes share it."""
+
+        if not leaf or "<" in leaf or leaf in self.templates:
+            return None
+        names = self.leaves.get(leaf)
+        if not names:
+            return (leaf,)  # a DWARF-only class
+        if len(names) != 1:
+            return None
+        only = next(iter(names))
+        return None if any("<" in part for part in only) else only
+
+    def dwarf_leaf(self, cls: tuple[str, ...]) -> str | None:
+        """The DWARF leaf of a holder class with complete records (never a family class)."""
+
+        if not cls or cls in self.family.classes or self.class_ref(cls[-1]) != tuple(cls):
+            return None
+        return cls[-1] if any((die.integer("byte_size") or 0) > 0 for die in self.dwarf.records(cls[-1])) else None
+
+    def _composite(self, offset: int | None) -> Any:
+        from .type_plan_evidence import COMPOSITE_TAGS
+
+        seen = set()
+        while offset is not None and offset not in seen:
+            seen.add(offset)
+            record = self.dwarf.die(offset)
+            if record is None:
+                return None
+            if record.tag_name in COMPOSITE_TAGS:
+                return record
+            if record.tag_name != "typedef":
+                return None
+            offset = record.integer("user_def_type")
+        return None
+
+    def _pointer(self, die: Any, depth: int = 0) -> tuple[str, Any] | None:
+        """("class", leaf) / ("fund", code) when the DWARF type of ``die`` is a single-level pointer."""
+
+        for name, width in (("mod_user_def_type", 4), ("mod_fund_type", 2)):
+            attribute = die.attribute(name)
+            value = attribute.value if attribute else None
+            if isinstance(value, bytes) and len(value) > width:
+                modifiers = value[:-width]
+                if modifiers.count(_POINTER) != 1 or any(item not in (_POINTER, _CONST, _VOLATILE) for item in modifiers):
+                    return None
+                target = int.from_bytes(value[-width:], "little")
+                if width == 2:
+                    return ("fund", target)
+                record = self._composite(target)
+                return ("class", record.string("name")) if record is not None and record.string("name") else None
+        target = die.integer("user_def_type")
+        if target is not None and depth < 8:
+            record = self.dwarf.die(target)
+            if record is not None and record.tag_name == "typedef":
+                return self._pointer(record, depth + 1)
+        return None
+
+    # -- DWARF members -----------------------------------------------------
+
+    def _walk(self, die: Any, offset: int, depth: int = 0) -> list[tuple[tuple, tuple]]:
+        from .type_plan_evidence import _location
+
+        name = die.string("name") or ""
+        hits = []
+        for child in self.dwarf.children(die):
+            if child.tag_name not in ("member", "inheritance") or child.attribute("bit_size") is not None:
+                continue
+            location = _location(child)
+            if location is None or location > offset:
+                continue
+            target = self.dwarf.by_value(child)
+            label = child.string("name") if child.tag_name == "member" else f"<base {target.string('name') if target else '?'}>"
+            if child.tag_name == "member" and location == offset:
+                pointer = self._pointer(child)
+                if pointer is not None:
+                    hits.append((((name, label, offset),), pointer))
+                    continue
+            if target is not None and depth < 16 and location <= offset < location + (target.integer("byte_size") or 0):
+                for path, pointer in self._walk(target, offset - location, depth + 1):
+                    hits.append((((name, label, offset),) + path, pointer))
+        return hits
+
+    def member(self, cls: tuple[str, ...], offset: int | None) -> dict[str, Any] | None:
+        """The pointer member at ``offset`` of a holder class, when every DWARF record of it agrees."""
+
+        leaf = self.dwarf_leaf(cls) if offset is not None and offset >= 0 else None
+        if leaf is None:
+            return None
+        key = (leaf, offset)
+        if key not in self._members:
+            found = set()
+            for die in self.dwarf.records(leaf):
+                if (die.integer("byte_size") or 0) <= 0:
+                    continue
+                hits = self._walk(die, offset)
+                found.add(hits[0] if len(hits) == 1 else None)
+            result = None
+            if len(found) == 1 and None not in found:
+                path, pointer = found.pop()
+                storage = next(
+                    ((record, inner) for record, _label, inner in reversed(path) if record not in self.templates),
+                    (path[0][0], path[0][2]),
+                )
+                result = {"path": path, "pointer": pointer, "storage": storage}
+            self._members[key] = result
+        return self._members[key]
+
+    def member_text(self, cls: tuple[str, ...], offset: int, hit: dict[str, Any]) -> str:
+        names = ".".join(label for _record, label, _offset in hit["path"] if not label.startswith("<base "))
+        storage = hit["storage"]
+        inner = f" ({storage[0]}+{_hex(storage[1])})" if hit["pointer"][0] == "fund" and storage != (cls[-1], offset) else ""
+        return f"DWARF {_class_text(cls)}+{_hex(offset)} {names}{inner}"
+
+    # -- statics -------------------------------------------------------------
+
+    def global_pointer(self, address: int) -> tuple[str, tuple[str, ...]] | None:
+        dies = self._globals.get(address, [])
+        found = {self._pointer(die) for die in dies}
+        if len(found) != 1 or None in found:
+            return None
+        kind, leaf = found.pop()
+        cls = self.class_ref(leaf) if kind == "class" else None
+        return ("ptr", cls) if cls is not None else None
+
+    def global_object(self, address: int) -> tuple[tuple[str, ...], int, Any] | None:
+        """(class, start, DWARF record) of the DWARF global object of class type containing ``address``."""
+
+        position = bisect.bisect_right(self._object_starts, address) - 1
+        if position >= 0:
+            start, end, cls, die = self._objects[position]
+            if address < end:
+                return cls, start, die
+        return None
+
+    def private_static(self, function: int, address: int) -> bool:
+        """A static the ELF references only from ``function``'s direct loads and stores (no data relocation)."""
+
+        position = bisect.bisect_right(self.ctx.object_starts, address) - 1
+        if position < 0:
+            return False
+        start = self.ctx.object_starts[position]
+        size = self.ctx.objects[start][0]
+        if address >= start + size:
+            return False
+        key = (function, start)
+        if key not in self._private:
+            low = bisect.bisect_left(self._ref_targets, start)
+            high = bisect.bisect_left(self._ref_targets, start + size)
+            sites = [site for target in self._ref_targets[low:high] for site in self.ctx.addr_taken[target]]
+            data = bisect.bisect_left(self._data_targets, start) < bisect.bisect_left(self._data_targets, start + size)
+            self._private[key] = bool(sites) and not data and all(
+                self.ctx.owner(site) == function and self.ctx.code.word(site) >> 26 in _MEMORY for site in sites
+            )
+        return self._private[key]
+
+    # -- typing ----------------------------------------------------------------
+
+    def entry(self, function: int) -> dict[int, tuple[tuple[str, ...], str]]:
+        """Entry registers holding a class pointer: the proven receiver and single-level pointer parameters."""
+
+        if function not in self._entries:
+            parsed = self.symbols.parsed(function)
+            rows: dict[int, tuple[tuple[str, ...], str]] = {}
+            if parsed and parsed.get("params") is not None:
+                qualified = bool(parsed.get("qualifier"))
+                proof = self.receivers.proof(function) if qualified else None
+                if not qualified or proof is not None:
+                    if proof is not None:
+                        rows[4] = (tuple(parsed["qualifier"]), f"this ({proof})")
+                    registers, _complete = parameter_registers(parsed.get("params"), proof is not None, self.symbols.scalars)
+                    for register, value in registers:
+                        cls = _pointee_class(value)
+                        if cls is not None and not register.startswith("f"):
+                            rows.setdefault(GPR.index(register), (cls, f"parameter {register} ({render_type(value)})"))
+            self._entries[function] = rows
+        return self._entries[function]
+
+    def type_of(self, function: int, value: Any) -> tuple[tuple[str, tuple[str, ...]], int | None] | None:
+        """((shape, class), offset) of a pointer value, or None; an array element's offset is None when indexed."""
+
+        if value is None:
+            return None
+        term, k = value
+        if term[0] == "arg":
+            row = self.entry(function).get(term[1])
+            return (("ptr", row[0]), k) if row else None
+        if term[0] == "hold":
+            return term[2], k
+        if term[0] == "ix":
+            inner = self.type_of(function, term[1])
+            return (inner[0], None) if inner is not None and inner[0][0] == "array" else None
+        if term == ("sym",):
+            found = self.global_object(k)
+            return (("ptr", found[0]), k - found[1]) if found else None
+        return None
+
+    def load(self, function: int, address: Any, width: int, kind: str) -> tuple[str, tuple[str, ...]] | None:
+        """The type a 4-byte load from ``address`` holds, or None (family objects keep their own loads)."""
+
+        if width != 4 or kind != "int" or address is None:
+            return None
+        if address[0] == ("sym",):
+            typed = self.global_pointer(address[1])
+            if typed is not None:
+                return typed
+        found = self.type_of(function, address)
+        if found is None:
+            return None
+        (shape, cls), offset = found
+        if shape == "array":
+            return ("ptr", cls) if offset is None or (offset >= 0 and offset % 4 == 0) else None
+        hit = self.member(cls, offset)
+        if hit is None:
+            return None
+        kind_, target = hit["pointer"]
+        if kind_ == "class":
+            ref = self.class_ref(target)
+            return ("ptr", ref) if ref is not None else None
+        fact = self.elements.get(hit["storage"])
+        return ("array", fact["class"]) if fact is not None else None
+
+    # -- element facts -----------------------------------------------------------
+
+    def storage(self, function: int, value: Any) -> tuple[tuple[str, int], str] | None:
+        """Pointer storage (DWARF pointer-to-fundamental member) a value points into, with its description."""
+
+        term, k = value
+        pointer, aligned = (term[1], k % 4 == 0) if term[0] == "ix" else (value, True)
+        inner, offset = pointer
+        if inner[0] != "ld" or inner[2] != 4 or inner[3] != "int" or not aligned or offset % 4 or (term[0] != "ix" and k < 0):
+            return None
+        found = self.type_of(function, inner[1])
+        if found is None or found[0][0] != "ptr" or found[1] is None:
+            return None
+        cls, member_offset = found[0][1], found[1]
+        hit = self.member(cls, member_offset)
+        if hit is None or hit["pointer"][0] != "fund":
+            return None
+        index = "an index" if term[0] == "ix" else _hex(k + offset)
+        return hit["storage"], f"{self.member_text(cls, member_offset, hit)} + {index}"
+
+    def discover_elements(self, analyses: dict[int, _Analysis]) -> None:
+        """Element classes of pointer storage passed as a mangled ``T **`` / ``T *&`` parameter."""
+
+        found: dict[tuple[str, int], dict[tuple[str, ...], set[str]]] = defaultdict(lambda: defaultdict(set))
+        for function, analysis in sorted(analyses.items()):
+            for call in analysis.calls:
+                for register, value in sorted(call["arguments"].items(), key=lambda item: _register_order(item[0])):
+                    if register.startswith("f"):
+                        continue
+                    mangled = self.parameters.value_of(call["callee"], register)
+                    if not mangled or mangled.get("kind") != "class" or len(_levels(mangled)) != 2 or _levels(mangled)[-1] != "P":
+                        continue
+                    located = self.storage(function, value)
+                    if located is None:
+                        continue
+                    key, text = located
+                    found[key][tuple(mangled["components"])].add(
+                        f"{text} passed as {register} ({render_type(mangled)}) of {self.symbols.readable(call['callee'])} "
+                        f"@0x{call['site']:x} in {self.symbols.readable(function)}"
+                    )
+        for key, classes in sorted(found.items()):
+            if len(classes) == 1:
+                cls, proofs = next(iter(classes.items()))
+                self.elements[key] = {"class": cls, "proofs": sorted(proofs)}
+            else:
+                self.element_conflicts[key] = {_class_text(cls): sorted(proofs) for cls, proofs in sorted(classes.items())}
+
+    # -- returns -------------------------------------------------------------------
+
+    def compute_return(self, function: int, analysis: _Analysis, roots: dict[Any, tuple]) -> None:
+        """Record what every exit of ``function`` returns: its entry a0 plus k, or NULL / one proven class."""
+
+        flow = analysis.flow
+        exits = []
+        for pc in range(function, analysis.end, 4):
+            row = flow.fn.decoded.get(pc) or {}
+            if not flow.reachable(pc):
+                continue
+            insn = self.ctx.code.word(pc)
+            if insn == _JR_RA:
+                exits.append(pc)
+            elif row.get("kind") == "jr" or (
+                row.get("kind") == "jump" and row.get("target") is not None and not (function <= row["target"] < analysis.end)
+            ):
+                return  # a tail transfer returns what another function returns
+        if not exits:
+            return
+        values: list[Any] = []
+        for pc in exits:
+            found = self._values(analysis, flow.after(pc + 4, 2), 2)
+            if found is None:
+                return
+            values.extend(found)
+        offsets = {value[1] for value in values if value[0] == ("arg", 4)}
+        if all(value[0] == ("arg", 4) for value in values) and len(offsets) == 1:
+            self.returns[function] = ("this", offsets.pop())
+            return
+        typed: list[tuple[tuple[str, tuple[str, ...]], str]] = []
+        nulls = False
+        for value in values:
+            if value == _ZERO:
+                nulls = True
+            elif value[1] == 0 and value[0] in roots:
+                typed.append((("ptr", roots[value[0]][0]), roots[value[0]][2]))
+            else:
+                found = self.type_of(function, value)
+                if found is None or found[1] != 0:
+                    return
+                typed.append((found[0], self.value_proof(function, analysis, value)))
+        if not typed:
+            return
+        shapes = {item[0] for item in typed}
+        if len(shapes) > 1:
+            classes = {cls for shape, cls in shapes}
+            if {shape for shape, _cls in shapes} != {"ptr"} or not classes <= set(self.family.classes):
+                return
+            common = [cls for cls in classes if all(self.family.derives(other, cls) for other in classes)]
+            if len(common) != 1:
+                return
+            shapes = {("ptr", common[0])}
+        shape = shapes.pop()
+        proofs = sorted({proof for _shape, proof in typed})
+        self.returns[function] = ("type", shape)
+        self.return_proofs[function] = (
+            f"{self.symbols.readable(function)} returns {'NULL or ' if nulls else ''}"
+            + ("a pointer into storage of " if shape[0] == "array" else "a ")
+            + f"{_class_text(shape[1])}* at every exit: "
+            + "; ".join(proofs)
+        )
+
+    def _values(self, analysis: _Analysis, definitions: set[Any], register: int, depth: int = 0) -> list[Any] | None:
+        """Every value ``register`` can hold given its reaching definitions, or None if one is unknown.
+
+        A definition whose proven value the joins lost, but which is a plain
+        register copy, contributes the values of its source's reaching
+        definitions (paths meeting with different allocations, say).
+        """
+
+        values: list[Any] = []
+        for definition in sorted(definitions, key=str):
+            if definition == "entry" or definition not in analysis.states:
+                return None
+            value = analysis._transfer(definition, analysis.states[definition], record=False).get(register)
+            if value is None:
+                source = _copy_source(self.ctx.code.word(definition), register)
+                if source is None or depth >= 8 or analysis._call_kind(definition):
+                    return None
+                inner = self._values(analysis, analysis.flow.defs(definition, source), source, depth + 1)
+                if inner is None:
+                    return None
+                values.extend(inner)
+            else:
+                values.append(value)
+        return values
+
+    # -- proofs ----------------------------------------------------------------------
+
+    def value_proof(self, function: int, analysis: _Analysis, value: Any, depth: int = 0) -> str:
+        """Why a pointer value has the type ``type_of`` gives it."""
+
+        term = value[0]
+        if depth > 12:
+            return "..."
+        if term[0] == "arg":
+            row = self.entry(function).get(term[1])
+            return row[1] if row else f"entry {GPR[term[1]]}"
+        if term[0] == "ix":
+            return self.value_proof(function, analysis, term[1], depth + 1)
+        if term == ("sym",):
+            found = self.global_object(value[1])
+            return f"DWARF global {found[2].string('name')} ({_class_text(found[0])}) @0x{found[1]:x}" if found else "static"
+        if term[0] == "hold":
+            return self.hold_proof(function, analysis, term, depth + 1)
+        return "unknown"
+
+    def hold_proof(self, function: int, analysis: _Analysis, term: tuple, depth: int = 0) -> str:
+        """Why a hold term has its type: the typed member, element storage, global or call, and its base."""
+
+        info = analysis.holds.get(term)
+        shape, cls = term[2]
+        if info is None:
+            return f"{shape} {_class_text(cls)}"
+        if info[0] == "return":
+            return f"result of {self.symbols.readable(info[2])} @0x{info[1]:x} [{self.return_proofs.get(info[2], '?')}]"
+        at = "/".join(f"0x{pc:x}" for pc in info[1])
+        address = info[2]
+        if address[0] == ("sym",) and self.global_pointer(address[1]) is not None:
+            names = sorted({die.string("name") or "?" for die in self._globals.get(address[1], [])})
+            return f"DWARF global {'/'.join(names)} ({_class_text(cls)}*) loaded @{at}"
+        found = self.type_of(function, address)
+        if found is None:
+            return f"{shape} {_class_text(cls)} loaded @{at}"
+        (base_shape, base_cls), offset = found
+        base = self.value_proof(function, analysis, address, depth + 1)
+        if base_shape == "array":
+            return f"element {_class_text(cls)}* loaded @{at} from [{base}]"
+        hit = self.member(base_cls, offset)
+        what = self.member_text(base_cls, offset, hit) if hit else f"{_class_text(base_cls)}+{_hex(offset or 0)}"
+        if shape == "array":
+            fact = self.elements.get(hit["storage"]) if hit else None
+            elements = (
+                f"; elements {_class_text(cls)}* because {fact['proofs'][0]}"
+                + (f" (+{len(fact['proofs']) - 1} more)" if len(fact["proofs"]) > 1 else "")
+                if fact else ""
+            )
+            return f"{what} (storage of {_class_text(cls)}*{elements}) loaded @{at} from [{base}]"
+        return f"{what} ({_class_text(cls)}*) loaded @{at} from [{base}]"
+
+
 # -- attribution -------------------------------------------------------------
 
 
@@ -1093,7 +1771,7 @@ class _Collector:
                             }
                         )
                 continue
-            rows, _complete = parameter_registers(parsed.get("params"), has_this)
+            rows, _complete = parameter_registers(parsed.get("params"), has_this, self.symbols.scalars)
             for register, value in rows:
                 cls = _pointee_class(value)
                 if cls in classes and not register.startswith("f"):
@@ -1111,13 +1789,51 @@ class _Collector:
         for ctor in sorted(self.ctor_class):
             targets.update(self.ctx.graph["callers"].get(ctor, ()))
         self.entry_roots = entry_roots
-        for address in sorted(targets):
-            if address not in self.ctx.size:
+        self.targets = targets
+        self.holders = _Holders(self.family, self.parameters)
+        # Element classes of pointer storage first: every typed load below depends on them.
+        two_level = sorted(
+            address for address, row in self.symbols.functions.items()
+            if any(value.get("kind") == "class" and len(_levels(value)) == 2 for value in (row.get("parsed") or {}).get("params") or [])
+        )
+        callers = sorted({caller for callee in two_level for caller in self.ctx.graph["callers"].get(callee, ())})
+        self.holders.discover_elements(
+            {address: _Analysis(self.ctx, self.symbols, address, self.holders) for address in callers if address in self.ctx.size}
+        )
+        # Every function, callees first, so a caller sees what its callees return.
+        graph = self.ctx.graph
+        order = sorted(range(len(graph["components"])), key=lambda number: (graph["height"][number], graph["components"][number][0]))
+        for number in order:
+            for address in sorted(graph["components"][number]):
+                if address not in self.ctx.size:
+                    continue
+                analysis = _Analysis(self.ctx, self.symbols, address, self.holders)
+                roots = self._roots(address, analysis)
+                self.holders.compute_return(address, analysis, roots)
+                if address in targets or roots:
+                    analysis.states = {}
+                    self.analyses[address] = analysis
+                    self.roots[address] = roots
+                    for call in analysis.calls:
+                        self.calls_by_site[call["site"]] = call["callee"]
+
+    def _roots(self, address: int, analysis: _Analysis) -> dict[Any, tuple[tuple[str, ...], str, str]]:
+        """Typed roots of one function: entry roots, constructed allocations, and family pointers holders prove."""
+
+        roots = dict(self.entry_roots.get(address, {}))
+        for call in analysis.calls:
+            if call["callee"] not in self.ctor_class:
                 continue
-            analysis = _Analysis(self.ctx, self.symbols, address)
-            self.analyses[address] = analysis
-            for call in analysis.calls:
-                self.calls_by_site[call["site"]] = call["callee"]
+            a0 = call["arguments"].get("a0")
+            if a0 is None or a0[1] != 0 or a0[0][0] != "res":
+                continue
+            self._construction(address, analysis, roots, call, a0[0])
+        for term, info in sorted(analysis.holds.items(), key=lambda item: (_hold_site(item[1]), str(item[0]))):
+            shape, cls = term[2]
+            if shape == "ptr" and cls in self.family.classes and term not in roots:
+                short = f"{'held' if info[0] == 'load' else 'return'}@0x{_hold_site(info):x}"
+                roots[term] = (cls, short, self.holders.hold_proof(address, analysis, term))
+        return roots
 
     def param_type(self, function: int, register: str) -> str | None:
         if function not in self.param_types:
@@ -1126,7 +1842,7 @@ class _Collector:
             if parsed:
                 has_this = bool(parsed.get("qualifier")) and self.receivers.proof(function) is not None
                 if not parsed.get("qualifier") or has_this:
-                    rows, _complete = parameter_registers(parsed.get("params"), has_this)
+                    rows, _complete = parameter_registers(parsed.get("params"), has_this, self.symbols.scalars)
                     types = {name: render_type(value) for name, value in rows}
                     if has_this:
                         types["a0"] = f"{_qualified(parsed['qualifier'])} * this"
@@ -1168,16 +1884,6 @@ class _Collector:
 
     def _attribute(self) -> None:
         for address, analysis in sorted(self.analyses.items()):
-            roots = dict(self.entry_roots.get(address, {}))
-            for call in analysis.calls:
-                if call["callee"] not in self.ctor_class:
-                    continue
-                a0 = call["arguments"].get("a0")
-                if a0 is None or a0[1] != 0 or a0[0][0] != "res":
-                    continue
-                self._construction(address, analysis, roots, call, a0[0])
-            self.roots[address] = roots
-        for address, analysis in sorted(self.analyses.items()):
             for event in analysis.memory:
                 self._memory_site(address, event)
             for call in analysis.calls:
@@ -1191,11 +1897,11 @@ class _Collector:
                 "roots": sorted(
                     (
                         {
-                            "register": GPR[term[1]] if term[0] == "arg" else f"call@0x{term[1]:x}",
+                            "register": GPR[term[1]] if term[0] == "arg" else short if term[0] == "hold" else f"call@0x{term[1]:x}",
                             "class": _qualified(cls),
                             "proof": how,
                         }
-                        for term, (cls, _short, how) in roots.items()
+                        for term, (cls, short, how) in roots.items()
                     ),
                     key=lambda row: (row["register"], row["class"]),
                 ),
@@ -1409,6 +2115,16 @@ def _describe(value: Any, collector: _Collector, function: int) -> str:
         return f"entry f{term[1]}" + (f" ({typed})" if typed else "")
     if term[0] == "res":
         return f"result of {collector.symbols.readable(collector.calls_by_site.get(term[1]))} @0x{term[1]:x}" + suffix
+    if term[0] == "hold":
+        shape, cls = term[2]
+        what = "pointer into storage of" if shape == "array" else "typed"
+        if term[1][0] == "res":
+            source = f"result of {collector.symbols.readable(collector.calls_by_site.get(term[1][1]))} @0x{term[1][1]:x}"
+        elif term[1][0] == "elem":
+            source = f"element of {_describe((term[1][1], 0), collector, function)}"
+        else:
+            source = f"loaded from {collector.where(term[1][1], function)}"
+        return f"{what} {_qualified(cls)}* ({source})" + suffix
     if term[0] == "ld":
         return f"loaded {term[2]}-byte {term[3]} from {collector.where(term[1], function)}" + (f", {suffix}" if k else "")
     if term[0] == "ix":
@@ -1591,6 +2307,7 @@ def class_layout(root: Path, name: str, with_derived: bool = False) -> dict[str,
             }
         )
     analyzed = [collector.functions[address] for address in sorted(collector.functions)]
+    holders = collector.holders
     return {
         "kind": LAYOUT_KIND,
         "schema_version": LAYOUT_SCHEMA,
@@ -1599,6 +2316,26 @@ def class_layout(root: Path, name: str, with_derived: bool = False) -> dict[str,
         "with_derived": with_derived,
         "classes": classes,
         "functions": analyzed,
+        "holders": {
+            "element_storage": [
+                {"storage": f"{record}+{_hex(offset)}", "element": f"{_qualified(row['class'])}*", "proofs": row["proofs"]}
+                for (record, offset), row in sorted(holders.elements.items())
+            ],
+            "element_conflicts": [
+                {"storage": f"{record}+{_hex(offset)}", "elements": row}
+                for (record, offset), row in sorted(holders.element_conflicts.items())
+            ],
+            "typed_returns": [
+                {
+                    "function": _hex(address),
+                    "name": family.symbols.readable(address),
+                    "returns": f"{_qualified(fact[1][1])}*",
+                    "proof": holders.return_proofs[address],
+                }
+                for address, fact in sorted(holders.returns.items())
+                if fact[0] == "type" and fact[1][0] == "ptr" and fact[1][1] in family.classes
+            ],
+        },
         "summary": {
             "class_count": len(classes),
             "function_count": len(analyzed),
@@ -1616,10 +2353,23 @@ def class_layout(root: Path, name: str, with_derived: bool = False) -> dict[str,
             "typed roots: single-level pointer/reference parameters of a family class in the mangled signature; "
             "call results passed to a family constructor, typed as the most derived of that constructor's class "
             "and any family vtable the function stores into the object",
+            "holder roots (held@load site, return@call site; each function row gives the proof): a 4-byte load "
+            "of a DWARF member or global typed as a pointer to a family class, from a pointer typed as its holder "
+            "class (this, a mangled parameter or another holder; every DWARF record of the holder agreeing); an "
+            "element of pointer storage whose DWARF type lost the element type (std::vector<T *> data_ is "
+            "unsigned int *), typed by code passing that storage plus an index as a mangled T ** or T *& "
+            "parameter (holders.element_storage; disagreeing proofs refuse the storage); a call result when every "
+            "exit of the callee returns NULL or a pointer of one proven class (holders.typed_returns); a "
+            "function-local static read back after a store, when only that function's direct loads and stores "
+            "reference it",
+            "every function is analyzed, callees first; loads from family objects keep their own attribution",
             "values follow register copies, constant offsets, stack spills and reloads (a call that receives a "
-            "stack address forgets the slots at or above it), loads, and calls (EE ABI clobbers; a constructor "
-            "returns this when every exit returns its entry a0)",
-            "joins keep a value only when every path agrees; an access whose base is unknown is unattributed",
+            "stack address forgets the slots at or above it), loads, and calls (EE ABI clobbers; a call returns "
+            "the caller's a0 plus k when every exit of the callee returns its entry a0 plus k)",
+            "a by-value parameter whose mangled class is a DWARF enumeration (no composite record of that name) "
+            "takes one GPR, so it settles the registers after it",
+            "joins keep a value only when every path agrees, except that one pointer at different offsets "
+            "becomes that pointer plus an index; an access whose base is unknown is unattributed",
             "kind 'zero' is a GPR store of constant 0 and 'fpr-copy' a word moved through an FPR that no float "
             "instruction reads: neither proves int or float",
             "object-passed rows pass the object pointer itself (offset 0, no load); they are listed per class, "
@@ -1732,6 +2482,18 @@ def render_layout(report: dict[str, Any]) -> str:
         if cls["unresolved"]:
             lines.append(f"unresolved ({len(cls['unresolved'])}):")
             lines.extend(f"  {row['function']} {row['name']}: {row['reason']}" for row in cls["unresolved"])
+    holders = report.get("holders") or {}
+    lines.append("")
+    lines.append("## holders")
+    for row in holders.get("element_storage", []):
+        lines.append(f"element storage {row['storage']}: {row['element']}")
+        lines.extend(f"      because {proof}" for proof in row["proofs"])
+    for row in holders.get("element_conflicts", []):
+        lines.append(f"element storage {row['storage']}: REFUSED, proofs disagree")
+        for element, proofs in row["elements"].items():
+            lines.extend(f"      {element}*: {proof}" for proof in proofs)
+    for row in holders.get("typed_returns", []):
+        lines.append(f"typed return {row['function']} {row['name']} -> {row['returns']}: {row['proof']}")
     lines.append("")
     lines.append("## functions analyzed")
     for row in report["functions"]:

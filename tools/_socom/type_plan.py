@@ -1491,12 +1491,64 @@ def render_type_plan(
             lines += ["", "Unresolved:", ""]
             lines.extend(f"- {_cell(text)}" for text in unresolved)
 
+    held = _holder_proofs(plan, layout)
+    if held:
+        lines += [
+            "",
+            "## Holder proofs",
+            "",
+            "Cited sites whose object pointer is held outside the class family, with the proof `recon layout` "
+            "gives for the root (typed DWARF member or global, typed pointer storage, or typed call result):",
+            "",
+        ]
+        lines.extend(
+            f"- {_code(site)} in {_code(function)}, root {_code(root)}: {_cell(proof)}" for site, function, root, proof in held
+        )
+
     lines += ["", "## Validation", ""]
     lines.append("validation: ok" if not problems else f"validation: {len(problems)} problem(s)")
     if problems:
         lines.append("")
         lines.extend(f"- {_cell(text)}" for text in problems)
     return "\n".join(lines) + "\n"
+
+
+HOLDER_ROOTS = ("held@", "return@")
+
+
+def _cited_sites(value: Any) -> set[str]:
+    """Every site string any ``evidence`` list of the plan cites."""
+
+    found: set[str] = set()
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key == "evidence" and isinstance(item, list):
+                found.update(text for text in item if isinstance(text, str))
+            else:
+                found |= _cited_sites(item)
+    elif isinstance(value, list):
+        for item in value:
+            found |= _cited_sites(item)
+    return found
+
+
+def _holder_proofs(plan: dict[str, Any], layout: dict[str, Any]) -> list[tuple[str, str, str, str]]:
+    """(site, function, root, proof) of each cited site whose root is a holder (``held@`` / ``return@``)."""
+
+    proofs = {
+        (row["function"], root["register"]): root["proof"]
+        for row in layout.get("functions") or [] for root in row.get("roots") or []
+    }
+    cited = _cited_sites(plan.get("types") or [])
+    rows = set()
+    for cls in layout.get("classes") or []:
+        rows_of_class = [site for entry in cls.get("offsets") or [] for site in entry.get("sites") or []]
+        for site in rows_of_class + list(cls.get("object_passes") or []):
+            root = str(site.get("root", ""))
+            if site.get("site") in cited and root.startswith(HOLDER_ROOTS):
+                proof = proofs.get((site.get("function"), root), "proof missing from the layout's function roots")
+                rows.add((site["site"], str(site.get("function_name", "")), root, proof))
+    return sorted(rows, key=lambda row: (int(row[0], 16), row[1], row[2]))
 
 
 def _end_claims(model: _Plan, layout: dict[str, Any]) -> dict[tuple[str, int], list[str]]:

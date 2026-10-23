@@ -7,6 +7,9 @@ import pytest
 from tools._socom.type_layout import (
     CallParameters,
     _Family,
+    _const,
+    _copy_source,
+    _join,
     class_layout,
     mangled_qualifier,
     parameter_registers,
@@ -162,7 +165,11 @@ def test_member_operators_and_dwarf_this_prove_receivers(root: Path) -> None:
     family = _Family(root, "zdb::CVisual", with_derived=True)
     # compile_assert<1>::__as reads only a0, but an operator= is never static.
     assert family.receivers.proof(0x1FC760).startswith("member operator=")
-    assert family.receivers.proof(0x1E7F30) == "DWARF formal parameter this"  # zdb::CCamera::Update
+    assert family.receivers.proof(0x37E560) == "DWARF formal parameter this"  # CLoadState::AbortLoad(char const*)
+    # zdb::CCamera::Update(zdb::tag_ZCAM_TYPE): the by-value parameter is a DWARF enumeration, so a static
+    # reading settles to a0 alone and the a1 read proves the receiver.
+    assert ("zdb", "tag_ZCAM_TYPE") in family.symbols.scalars
+    assert family.receivers.proof(0x1E7F30).startswith("reads a1 at 0x1e7f34, beyond the 1 GPR parameter(s)")
     parameters = CallParameters(family.symbols, family.receivers)
     assert parameters.of(0x1FC760, "a1") == {"parameter_type": "Metrowerks::compile_assert<1> const&"}
     # An unproven receiver types a register where the member and static readings agree.
@@ -170,3 +177,85 @@ def test_member_operators_and_dwarf_this_prove_receivers(root: Path) -> None:
     assert parameters.of(0x30F050, "a3") == {"parameter_unknown": "receiver unproven: _word128* if a member, no parameter if static"}
     assert parameters.of(0x229510, "a1") == {"no_parameter": True}
     assert parameters.of(None, "a0") == {"parameter_unknown": "indirect call: the callee is not known"}
+
+
+def _sites_at(report: dict, name: str, offset: int) -> dict:
+    return {site["site"]: site for site in _offset(_class(report, name), offset)["sites"]}
+
+
+def _function_roots(report: dict, address: str) -> dict:
+    row = next(row for row in report["functions"] if row["function"] == address)
+    return {root["register"]: root for root in row["roots"]}
+
+
+def test_enumeration_parameters_settle_the_registers_after_them() -> None:
+    params = demangle("RenderVisual__5CPipeFPQ23zdb5CNodeQ23zdb12tag_ZVIS_FOV")["params"]
+    rows, complete = parameter_registers(params, has_this=False)
+    assert not complete and [name for name, _value in rows] == ["a0"]
+    rows, complete = parameter_registers(params, False, frozenset({("zdb", "tag_ZVIS_FOV")}))
+    assert complete and [name for name, _value in rows] == ["a0", "a1"]
+
+
+def test_joins_widen_loop_pointers_and_register_copies_are_recognized() -> None:
+    this = (("arg", 4), 0)
+    # One pointer at two offsets is that pointer plus an index, from the lower offset.
+    assert _join({5: (("arg", 4), 0x30)}, {5: (("arg", 4), 0x34)}) == {5: (("ix", (("arg", 4), 0x30)), 0)}
+    widened = (("ix", (("arg", 4), 0x30)), 0)
+    assert _join({5: widened}, {5: (widened[0], 4)}) == {5: widened}
+    assert _join({5: _const(1)}, {5: _const(2)}) == {}  # constants never widen
+    assert _join({5: this}, {5: (("arg", 5), 0)}) == {}  # different pointers never meet
+    assert _join({("s", 8): (this, 4)}, {("s", 8): ((("arg", 4), 4), 4)}) == {("s", 8): ((("ix", this), 0), 4)}
+    assert _copy_source(0x02002025, 4) == 16  # or a0,s0,zero (move a0,s0)
+    assert _copy_source(0x0200202D, 4) == 16  # daddu a0,s0,zero
+    assert _copy_source(0x02002025, 5) is None and _copy_source(0x02112021, 4) is None  # other target; addu a0,s0,s1
+
+
+def test_holders_type_vector_elements_from_typed_storage_passes(cvisual: dict) -> None:
+    storage = {row["storage"]: row for row in cvisual["holders"]["element_storage"]}
+    visuals = storage["CVisualVector+0x8"]
+    assert visuals["element"] == "zdb::CVisual*"
+    # DeleteVisual passes this->m_visual.data_ + an index as remove_copy's zdb::CVisual** a1.
+    assert any(
+        proof.startswith("DWARF zdb::CNode+0x8c m_visual.data_ (CVisualVector+0x8) + an index passed as a1 (zdb::CVisual**)")
+        and proof.endswith("@0x227a48 in zdb::CNode::DeleteVisual(zdb::CVisual*, bool)")
+        for proof in visuals["proofs"]
+    )
+    assert storage["CNodeVector+0x8"]["element"] == "zdb::CNode*"
+    assert not cvisual["holders"]["element_conflicts"]
+
+
+def test_holder_roots_attribute_outside_accesses_with_their_proofs(cvisual: dict) -> None:
+    # CPipe::RenderVisual(CNode*, tag_ZVIS_FOV): the enumeration settles a1 = CNode*; s0 = an element of
+    # node->m_visual, loaded at the loop head.
+    lod = _sites_at(cvisual, "zdb::CVisual", 0x5)
+    assert (lod["0x242574"]["root"], lod["0x242574"]["access"]) == ("held@0x242570", "load")
+    proof = _function_roots(cvisual, "0x2424f0")["held@0x242570"]["proof"]
+    assert proof.startswith("element zdb::CVisual* loaded @0x242570 from [DWARF zdb::CNode+0x8c m_visual.data_ (CVisualVector+0x8)")
+    assert proof.endswith("loaded @0x24255c/0x2428ac from [parameter a1 (zdb::CNode*)]]")
+    assert _sites_at(cvisual, "zdb::CVisual", 0x0)["0x2427b8"]["field_bits"] == "0x800"
+    # CPipe::RenderWorld: CNode::GetFirstVisual() returns NULL or an element of this->m_visual.
+    stamp = _sites_at(cvisual, "zdb::CVisual", 0x1C)["0x244bb0"]
+    assert (stamp["root"], stamp["access"], stamp["constant"]) == ("return@0x244ba0", "store", -3)
+    typed = {row["function"]: row for row in cvisual["holders"]["typed_returns"]}
+    assert typed["0x229460"]["returns"] == "zdb::CVisual*"
+    assert typed["0x229460"]["proof"].startswith("zdb::CNode::GetFirstVisual(void) returns NULL or a zdb::CVisual* at every exit")
+    # Create returns one of four allocations through register copies; their common base is CVisual.
+    assert typed["0x30e100"]["returns"] == "zdb::CVisual*"
+    # Children's visuals: an element of this->m_child (CNodeVector storage), then an element of its m_visual.
+    multipass = _sites_at(cvisual, "zdb::CVisual", 0x1)["0x225944"]
+    assert (multipass["root"], multipass["access"]) == ("held@0x225918", "store")
+    assert "CNodeVector+0x8" in _function_roots(cvisual, "0x225850")["held@0x225918"]["proof"]
+    # Particle::CreateVisuals: the constructor returns this through a stack reload, so the allocation stays typed.
+    assert _sites_at(cvisual, "zdb::CVisual", 0x1)["0x23375c"]["root"] == "new@0x2335d0"
+    assert "## holders" in render_layout(cvisual) and "element storage CVisualVector+0x8: zdb::CVisual*" in render_layout(cvisual)
+
+
+def test_holders_leave_untyped_holders_and_look_alikes_unattributed(cvisual: dict) -> None:
+    attributed = {site["site"] for cls in cvisual["classes"] for row in cls["offsets"] for site in row["sites"]}
+    attributed |= {site["site"] for cls in cvisual["classes"] for site in cls["object_passes"]}
+    # CPipe::CAlpha::Render reads its visual from tag_DelayedNode+0x44, but DWARF only declares tag_DelayedNode;
+    # CNode::__dt's vptr load is a CDI of m_di; CRipple::Tick stores through CVisData::SelectVertex's result;
+    # Destruction_Instance::Create's t0 follows a by-value CPnt3D, so its register is not settled; CGrid and
+    # CRipple read fields of their own this.
+    for site in ("0x241ddc", "0x241de0", "0x226518", "0x231fbc", "0x2367e4", "0x2367e8", "0x2367ec", "0x212138", "0x231e34"):
+        assert site not in attributed, site

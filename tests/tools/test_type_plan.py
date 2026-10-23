@@ -1150,3 +1150,29 @@ def test_bulk_copies_of_a_whole_object_prove_neither_width_nor_type() -> None:
     partial = _copy_layout(sites[:6])
     problems = validate_type_plan(Path("."), None, _copy_plan(partial, fields, []), partial)
     assert any("0x200004 (store w4, a member-wise copy) contradicts the 1-byte uchar" in text for text in problems), problems
+
+
+def test_show_prints_the_holder_proof_of_each_cited_outside_site() -> None:
+    proof = "element zdb::CTest* loaded @0xfc from [DWARF zdb::CHolder+0x8 m_items.data_ (storage of zdb::CTest*)]"
+    layout = {
+        "classes": [
+            {
+                "class": "zdb::CTest",
+                "offsets": [
+                    {
+                        "offset": 4,
+                        "sites": [
+                            {"site": "0x100", "function": "0x200", "function_name": "Outside(zdb::CHolder*)", "root": "held@0xfc"},
+                            {"site": "0x104", "function": "0x300", "function_name": "zdb::CTest::Get(void)", "root": "this"},
+                            {"site": "0x108", "function": "0x200", "function_name": "Outside(zdb::CHolder*)", "root": "held@0xfc"},
+                        ],
+                    }
+                ],
+                "object_passes": [],
+            }
+        ],
+        "functions": [{"function": "0x200", "roots": [{"register": "held@0xfc", "class": "zdb::CTest", "proof": proof}]}],
+    }
+    plan = {"types": [{"name": "zdb::CTest", "fields": [{"name": "m_x", "evidence": ["0x104", "0x100"]}]}]}
+    # Only cited sites with a holder root are listed (0x108 is not cited, 0x104 is reached through this).
+    assert plans._holder_proofs(plan, layout) == [("0x100", "Outside(zdb::CHolder*)", "held@0xfc", proof)]
