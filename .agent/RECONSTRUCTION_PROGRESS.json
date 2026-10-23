@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 1836,
+  "revision": 1840,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -102082,22 +102082,23 @@
         "socom:recon-group:fad6cea575f93240d299-apply",
         "socom:recon-group:fe5f3b0ac9beaf35a1e5-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-8370c0e2e816c3d0cb22.json sha256:5a45ff1688ed9c4b659c0e12aa374add8d1a86e8e5c9bb94a47e6749fff3c40d; recon validate ok; recon draft --check ok; preflight-batch ok (15 set_function_prototype)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g119",
+        "submitted_at": "2026-10-23T04:04:25Z",
+        "summary": "15 prototypes, 17 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:8370c0e2e816c3d0cb22",
       "kind": "recon-plan-group",
-      "lease": {
-        "claimed_at": "2026-10-23T03:41:05Z",
-        "expires_at": "2026-10-23T05:41:05Z",
-        "heartbeat_at": "2026-10-23T03:41:05Z",
-        "owner": "socom-recon-planner-g119"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 221 (height 15, 32 functions)"
     },
     {
@@ -102229,22 +102230,23 @@
         "socom:recon-group:e1dd876e1c61b29ea9f1-apply",
         "socom:recon-group:f758fb41aefddaf2449b-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-10af7db15104089bc334.json sha256:a15aa141f82350046484b7dbefb882a2c122c5bc74a1ae4dfa6be394bbce9d3d; recon validate ok; recon draft --check ok; preflight-batch ok (2 set_function_prototype)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g119",
+        "submitted_at": "2026-10-23T04:04:31Z",
+        "summary": "2 prototypes, 30 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:10af7db15104089bc334",
       "kind": "recon-plan-group",
-      "lease": {
-        "claimed_at": "2026-10-23T03:41:34Z",
-        "expires_at": "2026-10-23T05:41:34Z",
-        "heartbeat_at": "2026-10-23T03:41:34Z",
-        "owner": "socom-recon-planner-g119"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 222 (height 15, 32 functions)"
     },
     {
@@ -102308,6 +102310,10 @@
       "title": "Apply reviewed reconstruction group 222 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-23T04:00:35Z",
+        "by": "socom-verifier-r28"
+      },
       "batch": {
         "batch_number": 223,
         "function_count": 1,
@@ -102325,7 +102331,8 @@
         "socom:recon-group:a07f5644d837b2e410c3-apply"
       ],
       "evidence": [
-        "plan build/recon-plans/socom-recon-group-aa215b40d024a2117832.json sha256:6a3d38668e8467026e200fe1ab7da13fdf23e5d8baf000a672c59d80c78d93dc; recon validate ok; recon draft --check ok; preflight-batch ok (0 calls)"
+        "plan build/recon-plans/socom-recon-group-aa215b40d024a2117832.json sha256:6a3d38668e8467026e200fe1ab7da13fdf23e5d8baf000a672c59d80c78d93dc; recon validate ok; recon draft --check ok; preflight-batch ok (0 calls)",
+        "plan sha256:6a3d38668e8467026e200fe1ab7da13fdf23e5d8baf000a672c59d80c78d93dc matches; recon validate ok; recon draft --check ok (0 drafted, 1 open); recon program equals build/apply (dd7d2061...); preflight-batch ok, 0 calls, skip = 0x4263b8 only. dmaIOP 0x4263b8 unresolved confirmed from asm: a0 (sw a0,0(sp) 0x4263e0) and a1 (sw a1,4(sp) 0x4263e4) are only stored into the stack record passed to sceSifSetDma (live undefined sceSifSetDma(void)), never dereferenced; sole caller 0x426078 passes its own pass-through a0 and lw 0(m_rpcBuf 0x5b1680, NOTYPE size 0, no DWARF), so pointer vs uint unproven; a3 only bne s1,zero 0x426438, caller passes zero, width unproven. a2 int is proven (%d at 0x469de8 via move a1,s0 0x426418), but the default-live-signature partial needs every parameter typed, so no partial row; recon void open (v0 = move v0,s0 copy of sceSifSetDma result); no DWARF, no refs besides the one call. Consistent with group 4ef73f28 precedent."
       ],
       "handoff": {
         "owner": "socom-recon-planner-g120",
@@ -102340,7 +102347,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan reconstruction group 223 (height 15, 1 functions)"
     },
     {
@@ -102369,7 +102376,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 223 in Ghidra"
     },
     {
@@ -119576,22 +119583,23 @@
         "socom:recon-group:65646487301d60040d16-apply",
         "socom:recon-group:c303bf35fc79d316c103-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-work-recon-repair-001.json sha256:beaab808de8ac66ede0e065d8a0c1b2ee41b05e5ace9ae9b78e023ca76a88a93; recon validate ok; recon draft --check ok; recon program ok (program sha256:3e21763aa82735b1f6a45a2cab47736f54e2036f8e954d092ba5b4260b01108c); preflight-batch ok (6 set_function_prototype, 0 skipped)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-r001",
+        "submitted_at": "2026-10-23T04:00:18Z",
+        "summary": "6 prototypes, 0 unresolved, 0 globals"
+      },
       "id": "socom:work:recon-repair-001",
       "kind": "recon-repair-plan",
-      "lease": {
-        "claimed_at": "2026-10-23T03:49:26Z",
-        "expires_at": "2026-10-23T05:49:26Z",
-        "heartbeat_at": "2026-10-23T03:49:26Z",
-        "owner": "socom-recon-planner-r001"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan recon repair 001 (6 functions of applied groups)"
     },
     {
