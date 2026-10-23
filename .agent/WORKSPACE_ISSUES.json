@@ -1025,8 +1025,18 @@
       "resolution": null,
       "status": "open",
       "summary": "recon facts: switch jr reported as indirect call; argument pass-through followed one level"
+    },
+    {
+      "details": "Group 216 planning (socom-recon-planner-g116): __assert's live signature uses glibc parameter order (__assertion, __file, __line) while the asm and its format string make a0 the file, a1 the line, a2 the expression; vfprintf's live signature names /stdio.h/FILE (160 bytes) instead of /project/__sFILE (88 bytes). Their recon rows stay unresolved, so the contradicting signatures remain live. These came from Ghidra's library signatures, not program evidence; they need a governed correction (repair or a plan rule that replaces contradicted library signatures) rather than being left in place.",
+      "id": "socom:workspace-issue:1c4711a62eb4d2daecec",
+      "kind": "problem",
+      "reported_at": "2026-10-23T01:14:57Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "Live Ghidra library signatures contradict the asm on unresolved rows"
     }
   ],
-  "revision": 117,
+  "revision": 118,
   "schema_version": 1
 }
