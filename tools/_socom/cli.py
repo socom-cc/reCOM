@@ -1816,6 +1816,27 @@ def _recon_live(arguments: argparse.Namespace) -> int:
     return _recon_text(root, arguments, live_signatures(_recon_addresses(root, arguments), arguments.bridge_url))
 
 
+def _recon_contradictions(arguments: argparse.Namespace) -> int:
+    """List group functions whose live signature contradicts the ELF facts (read-only)."""
+
+    from .recon_scan import contradictions_text, fingerprint_inputs, live_contradictions
+
+    root = _root(arguments)
+    signatures = type_paths = None
+    if arguments.fingerprint:
+        signatures, type_paths = fingerprint_inputs(load_json(_build_path(root, arguments.fingerprint, "fingerprints")))
+    result = live_contradictions(
+        root,
+        load_tracker(tracker_path(root)),
+        groups=arguments.groups,
+        signatures=signatures,
+        type_paths=type_paths,
+        bridge_url=arguments.bridge_url,
+        log=lambda message: print(message, file=sys.stderr, flush=True),
+    )
+    return _recon_text(root, arguments, contradictions_text(result))
+
+
 def _recon_types(arguments: argparse.Namespace) -> int:
     from .recon_facts import type_matches
 
@@ -2754,6 +2775,12 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec("recon refs", "recon", "Print a data object's relocated slots and every code access to it."),
     _spec("recon live", "recon", "Print live Ghidra names and signatures of functions or a group.", ghidra_requirement="required"),
     _spec("recon types", "recon", "Print every live Ghidra type matching each name, ignoring case.", ghidra_requirement="required"),
+    _spec(
+        "recon contradictions",
+        "recon",
+        "List group functions whose live signature contradicts the ELF facts, with each owning group's apply state.",
+        ghidra_requirement="optional",
+    ),
     *type_plan_cli.specs(_spec),
     _spec("progress init", "progress", "Initialize unified reconstruction state.", mutates=True),
     _spec("progress next", "progress", "Select ready work from the canonical stage graph."),
@@ -2959,6 +2986,12 @@ def build_parser() -> argparse.ArgumentParser:
     recon_types.add_argument("--output")
     recon_types.add_argument("--bridge-url")
     recon_types.set_defaults(handler=_recon_types)
+    recon_contradictions = recon_commands.add_parser("contradictions")
+    recon_contradictions.add_argument("--groups", choices=("applied", "all"), default="all")
+    recon_contradictions.add_argument("--fingerprint", help="read signatures and types from a stored fingerprint, not live")
+    recon_contradictions.add_argument("--output")
+    recon_contradictions.add_argument("--bridge-url")
+    recon_contradictions.set_defaults(handler=_recon_contradictions)
     debug = commands.add_parser("debug")
     debug_commands = debug.add_subparsers(dest="debug_command", required=True)
     inspect = debug_commands.add_parser("inspect")

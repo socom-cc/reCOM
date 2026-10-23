@@ -40,13 +40,16 @@ from .batch_apply import (
     BATCH_PROGRAM_SCHEMA,
     BUILTINS,
     CALLING_CONVENTION,
+    UNDEFINED_TYPES,
     UNSPELLABLE,
     _base_type,
     _data_alias_problem,
     _declared_argument_registers,
     _entry_argument_reads,
+    _shown_type,
     _thunk_target,
     build_batch_program,
+    parse_signature,
 )
 from .constants import REFERENCE_SHA256
 from .elf import Elf32File
@@ -580,6 +583,155 @@ def _dead_entry_reads(
     return dead_g, dead_f, problems
 
 
+_JR = 0x08
+_BRANCH_OPS = frozenset({0x04, 0x05, 0x06, 0x07, 0x14, 0x15, 0x16, 0x17})
+_REGIMM_BRANCHES = frozenset({0x00, 0x01, 0x02, 0x03, 0x10, 0x11, 0x12, 0x13})
+
+
+def noreturn_problem(elf: Elf32File, sizes: dict[int, int], address: int, _seen: set[int] | None = None) -> str | None:
+    """Why the ELF does not prove that ``address`` never returns, or None.
+
+    Proven when the body has no ``jr`` (``jr ra`` returns; any other register
+    is an unproven target), every branch stays in the body, every ``j`` either
+    stays in the body or tail-calls a function proven the same way, and the
+    body cannot run past its end: the transfer before the last delay slot is
+    a ``j``, an unconditional ``b``, or a ``jal`` to a proven no-return
+    function.  Tail jumps that cycle with no other exit never return.
+    """
+
+    seen = set() if _seen is None else _seen
+    if address in seen:
+        return None
+    seen.add(address)
+    size = sizes.get(address)
+    if not size or size < 8:
+        return f"0x{address:x} is not a sized function of two or more instructions"
+    word = _code_word(elf)
+    end = address + size
+
+    def target_of(pc: int, insn: int) -> int:
+        return ((pc + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2)
+
+    for pc in range(address, end, 4):
+        insn = word(pc)
+        op = insn >> 26
+        if op == 0x00 and insn & 0x3F == _JR:
+            register = (insn >> 21) & 31
+            return (
+                f"jr ra at 0x{pc:x} returns"
+                if register == 31
+                else f"jr ${register} at 0x{pc:x} jumps to an unproven target"
+            )
+        is_branch = (
+            op in _BRANCH_OPS
+            or (op == 0x01 and (insn >> 16) & 31 in _REGIMM_BRANCHES)
+            or (op == 0x11 and (insn >> 21) & 31 == 0x08)
+        )
+        if is_branch:
+            target = pc + 4 + ((((insn & 0xFFFF) ^ 0x8000) - 0x8000) << 2)
+            if not address <= target < end:
+                return f"branch at 0x{pc:x} leaves the body for 0x{target:x}"
+        if op == 0x02:
+            target = target_of(pc, insn)
+            if address <= target < end:
+                continue
+            if target not in sizes:
+                return f"j at 0x{pc:x} leaves for 0x{target:x}, which is not a function start"
+            if why := noreturn_problem(elf, sizes, target, seen):
+                return f"j at 0x{pc:x} tail-calls 0x{target:x}, which is not proven no-return ({why})"
+    last = word(end - 8)
+    op = last >> 26
+    if op == 0x02 or (op in (0x04, 0x14) and (last >> 16) & 0x3FF == 0):
+        return None
+    if op == 0x03:
+        target = target_of(end - 8, last)
+        if target not in sizes:
+            return f"the body ends with jal 0x{target:x}, which is not a function start, so it may run past its end"
+        if why := noreturn_problem(elf, sizes, target, seen):
+            return f"the body ends with a call to 0x{target:x}, which is not proven no-return ({why})"
+        return None
+    return f"the body may run past its end (0x{end:x}): no jump or no-return call before the last delay slot"
+
+
+# Keys a partial prototype may carry; a complete prototype carries none.
+PARTIAL_KEYS = ("contradiction", "live_signature", "noreturn", "noreturn_evidence", "partial", "varargs", "varargs_evidence")
+
+
+def _contradicted(live: dict[str, Any], parameters: list[dict[str, Any]], varargs: bool) -> list[str]:
+    """How a parsed live signature contradicts the planned parameters.
+
+    A live ``undefined*`` parameter type claims nothing; Ghidra's default
+    signature (no convention, ``undefined`` return, no parameters) claims
+    nothing at all.
+    """
+
+    if live["default"]:
+        return []
+    found = []
+    planned = [_shown_type(str(param.get("type"))) for param in parameters]
+    if len(live["parameters"]) != len(planned):
+        found.append(f"count: the live signature has {len(live['parameters'])} parameters, the proof {len(planned)}")
+    if live["varargs"] != varargs:
+        found.append(f"varargs: the live signature {'has' if live['varargs'] else 'lacks'} '...'")
+    for position, ((live_type, live_name), want) in enumerate(zip(live["parameters"], planned), 1):
+        if _base_type(live_type) not in UNDEFINED_TYPES and live_type != want:
+            found.append(f"type: parameter {position} is {live_type} {live_name} live, {want} by the proof")
+    return found
+
+
+def _partial_problems(
+    prototype: dict[str, Any], unresolved: list[Any], elf: Elf32File, sizes: dict[int, int], address: int
+) -> list[str]:
+    """Shape and proof checks of a partial prototype (decision of 2026-10-22).
+
+    The row sets its proven parameters and leaves the return ``undefined``;
+    it is allowed only where the live signature contradicts those parameters.
+    """
+
+    problems = []
+    if prototype.get("return_type") != "undefined":
+        problems.append("partial prototype: the return stays 'undefined' (Ghidra's unknown, left for the decompiler)")
+    if prototype.get("calling_convention") != CALLING_CONVENTION:
+        problems.append(f"partial prototype needs calling_convention {CALLING_CONVENTION!r}")
+    varargs = prototype.get("varargs")
+    if not isinstance(varargs, bool):
+        problems.append("partial prototype needs varargs true or false")
+    if not unresolved:
+        problems.append("partial prototype needs the reasons its return stays unresolved (unresolved)")
+    if not prototype.get("contradiction"):
+        problems.append("partial prototype needs the contradiction with the live signature it replaces")
+    parameters = prototype.get("parameters") if isinstance(prototype.get("parameters"), list) else []
+    for param in parameters:
+        if not param.get("evidence"):
+            problems.append(f"partial prototype parameter {param.get('name')!r} needs evidence")
+        if isinstance(param.get("type"), str) and _base_type(param["type"]) == "undefined":
+            problems.append(f"parameter {param.get('name')}: 'undefined' is Ghidra's 1-byte default; an unproven type is undefined1/2/4/8")
+    if varargs is True:
+        if not parameters:
+            problems.append("varargs needs a fixed parameter: the bridge reads '...' only after a comma")
+        if not prototype.get("varargs_evidence"):
+            problems.append("varargs needs varargs_evidence")
+    if "noreturn" in prototype and not isinstance(prototype["noreturn"], bool):
+        problems.append("noreturn must be true or false")
+    if prototype.get("noreturn") is True:
+        if not prototype.get("noreturn_evidence"):
+            problems.append("noreturn needs noreturn_evidence")
+        if why := noreturn_problem(elf, sizes, address):
+            problems.append(f"noreturn is not proven by the ELF: {why}")
+    live = parse_signature(prototype.get("live_signature"))
+    if live is None:
+        problems.append("partial prototype needs live_signature: the Signature line get_function_by_address prints")
+    elif all(isinstance(param.get("type"), str) for param in parameters) and isinstance(varargs, bool):
+        if live["default"]:
+            problems.append("the live signature is Ghidra's default and claims nothing: leave the row unresolved")
+        elif not _contradicted(live, parameters, varargs):
+            problems.append(
+                "the live signature does not contradict the proven parameters (count, order or type): "
+                "a partial prototype is not allowed"
+            )
+    return problems
+
+
 def _planned_types(root: Path, tracker: dict[str, Any], plan: dict[str, Any], address: str) -> tuple | None:
     """(return, parameter types) planned for ``address`` in this plan or an accepted one."""
 
@@ -640,12 +792,25 @@ def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any
             if not unresolved:
                 problems.append(f"{where} needs a prototype or the reasons it is unresolved")
             continue
-        if unresolved:
-            problems.append(f"{where} has both a prototype and unresolved reasons")
-        if not prototype.get("evidence"):
-            problems.append(f"{where} prototype needs evidence")
-        if reason := _type_problem(prototype.get("return_type")):
-            problems.append(f"{where} return: {reason}")
+        partial = prototype.get("partial", False) is True
+        if partial:
+            # The return stays unresolved: `unresolved` says why (decision of 2026-10-22).
+            problems.extend(
+                f"{where} {problem}"
+                for problem in _partial_problems(prototype, unresolved, elf, sizes, int(address, 16))
+            )
+        else:
+            if prototype.get("partial", False) is not False:
+                problems.append(f"{where} partial must be true or absent")
+            if unresolved:
+                problems.append(f"{where} has both a prototype and unresolved reasons")
+            if not prototype.get("evidence"):
+                problems.append(f"{where} prototype needs evidence")
+            if reason := _type_problem(prototype.get("return_type")):
+                problems.append(f"{where} return: {reason}")
+            extra = [key for key in PARTIAL_KEYS if key != "partial" and key in prototype]
+            if extra:
+                problems.append(f"{where} {', '.join(extra)}: only a partial prototype carries these")
         parameters = prototype.get("parameters")
         if not isinstance(parameters, list):
             problems.append(f"{where} parameters must be a list")
@@ -657,10 +822,15 @@ def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any
 
             if reason := _type_problem(param.get("type")):
                 problems.append(f"{where} parameter {param.get('name')}: {reason}")
+        for type_name in [prototype.get("return_type")] + [param.get("type") for param in parameters]:
+            if not partial and isinstance(type_name, str) and _base_type(type_name) in UNDEFINED_TYPES:
+                problems.append(f"{where} {type_name!r} is Ghidra's unknown type: only a partial prototype may use it")
         if len(set(names)) != len(names):
             problems.append(f"{where} parameter names repeat")
         target = _thunk_target(elf, int(address, 16), sizes.get(int(address, 16)))
-        if target is not None:
+        if target is not None and partial:
+            problems.append(f"{where} is a thunk of 0x{target:x}: a thunk shares its target's signature, so plan the target")
+        elif target is not None:
             # Ghidra makes a whole-body `j target` a thunk, and a thunk shares its
             # target's signature: a prototype set on it rewrites the target
             # (C2DString::On rewrote C2D::On in group 114).  Allow only the
@@ -684,6 +854,10 @@ def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any
             problems.extend(f"{where} {problem}" for problem in dead_problems)
             gprs, fprs = gprs - dead_g, fprs - dead_f
             declared_g, declared_f = _declared_argument_registers({"parameters": parameters})
+            if partial and prototype.get("varargs") is True:
+                # Registers after the fixed parameters carry the variadic arguments.
+                gprs = {reg for reg in gprs if reg in declared_g or reg < max(declared_g, default=3)}
+                fprs = {reg for reg in fprs if reg in declared_f or reg < max(declared_f, default=11)}
             if not gprs <= declared_g or not fprs <= declared_f:
                 missing = sorted(ARGUMENT_GPR_NAMES[reg] for reg in gprs - declared_g) + sorted(
                     f"f{reg}" for reg in fprs - declared_f
@@ -734,30 +908,50 @@ def build_recon_program(root: Path, tracker: dict[str, Any], plan_path: Path) ->
     for entry in sorted(plan["functions"], key=lambda row: int(row["address"], 16)):
         rename = entry.get("rename")
         prototype = entry.get("prototype")
-        functions.append(
-            {
-                "address": entry["address"],
-                "current_name": entry["current_name"],
-                "readable_name": rename["name"] if rename else entry["current_name"],
-                "rename": bool(rename) and rename["name"] != entry["current_name"],
-                "prototype": (
-                    {
-                        "calling_convention": CALLING_CONVENTION,
-                        "parameters": [{"name": param["name"], "type": param["type"]} for param in prototype["parameters"]],
-                        "return_type": prototype["return_type"],
-                        "sources": ["recon-plan"],
-                    }
-                    if prototype
-                    else None
-                ),
-                "prototype_skip": "; ".join(entry.get("unresolved") or []) or None,
-                "notes": list(entry.get("notes") or [])
-                + [
-                    f"entry read of {row['register']} at {row['site']} is dead: {'; '.join(row['evidence']) if isinstance(row['evidence'], list) else row['evidence']}"
-                    for row in ((prototype or {}).get("dead_entry_reads") or [])
-                ],
-            }
-        )
+        out = {
+            "address": entry["address"],
+            "current_name": entry["current_name"],
+            "readable_name": rename["name"] if rename else entry["current_name"],
+            "rename": bool(rename) and rename["name"] != entry["current_name"],
+            "prototype": (
+                {
+                    "calling_convention": CALLING_CONVENTION,
+                    "parameters": [{"name": param["name"], "type": param["type"]} for param in prototype["parameters"]],
+                    "return_type": prototype["return_type"],
+                    "sources": ["recon-plan"],
+                }
+                if prototype
+                else None
+            ),
+            "prototype_skip": "; ".join(entry.get("unresolved") or []) or None,
+            "notes": list(entry.get("notes") or [])
+            + [
+                f"entry read of {row['register']} at {row['site']} is dead: {'; '.join(row['evidence']) if isinstance(row['evidence'], list) else row['evidence']}"
+                for row in ((prototype or {}).get("dead_entry_reads") or [])
+            ],
+        }
+        if prototype and prototype.get("partial"):
+            # The prototype is applied; the return stays undefined, for the
+            # reasons the row's `unresolved` records.
+            out["prototype"].update(
+                {"partial": True, "varargs": prototype["varargs"], "live_signature": prototype["live_signature"]}
+            )
+            out["prototype_skip"] = None
+            out["return_unresolved"] = "; ".join(entry["unresolved"])
+            out["notes"].append(
+                f"partial prototype replacing the live signature {prototype['live_signature']!r}: "
+                + "; ".join(_texts(prototype["contradiction"]))
+            )
+            if prototype.get("noreturn"):
+                # set_function_no_return exists, but a no-return change wakes
+                # Ghidra's Call-Fixup Installer (a function-modifier analyzer),
+                # which clears and repairs the flow after every call site.
+                out["prototype"]["noreturn_proven"] = True
+                out["notes"].append(
+                    "proven no-return, not applied (it would clear flow at call sites): "
+                    + "; ".join(_texts(prototype["noreturn_evidence"]))
+                )
+        functions.append(out)
     globals_ = []
     for entry in sorted(plan.get("globals", []), key=lambda row: int(row["address"], 16)):
         rename = entry.get("rename")
@@ -780,7 +974,8 @@ def build_recon_program(root: Path, tracker: dict[str, Any], plan_path: Path) ->
         pass
     scope_functions = sorted({row["address"] for row in functions}, key=lambda value: (value.casefold(), value))
     scope_globals = sorted({row["address"] for row in globals_}, key=lambda value: (value.casefold(), value))
-    return {
+    partial_count = sum(1 for row in functions if (row["prototype"] or {}).get("partial"))
+    program = {
         "kind": BATCH_PROGRAM_KIND,
         "schema_version": BATCH_PROGRAM_SCHEMA,
         "mutation_performed": False,
@@ -803,3 +998,11 @@ def build_recon_program(root: Path, tracker: dict[str, Any], plan_path: Path) ->
             "renamed_global_count": sum(1 for row in globals_ if row["rename"]),
         },
     }
+    if partial_count:
+        # Absent otherwise, so programs without partial rows keep their bytes.
+        program["summary"]["partial_prototype_count"] = partial_count
+    return program
+
+
+def _texts(value: Any) -> list[str]:
+    return [str(item) for item in value] if isinstance(value, list) else [str(value)]

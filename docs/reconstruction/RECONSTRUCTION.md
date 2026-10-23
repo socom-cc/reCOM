@@ -173,8 +173,8 @@ the decision of all 95 accepted plans for every row they decided: 868 of
 A prototype must carry the whole call contract (AGENTS.md). Leave a function
 unresolved, recording the parts that are proven, when the contract includes
 something a prototype here cannot express: VU0 register inputs (callers load
-`vf` registers before the call, e.g. `_TransformPoint`), varargs (the plan
-format has no varargs field), a by-value class result returned through a
+`vf` registers before the call, e.g. `_TransformPoint`), varargs (only a
+partial row carries the varargs flag), a by-value class result returned through a
 hidden pointer, or a function-boundary defect in the live program.
 
 ### Return width
@@ -245,6 +245,63 @@ string (`recon bytes` shows the word's target and its text) returns
 `char *`. The binary cannot show whether the pointee is `const`, so the plan
 does not record it.
 
+### Partial prototypes
+
+Some live signatures come from Ghidra's library type archives (glibc parameter
+order, the 160-byte `/stdio.h/FILE`) and contradict the code, while the return
+cannot be proven (`__assert` never returns; `vfprintf`'s width is unobserved).
+An unresolved row would keep the wrong signature, and callers would decompile
+with wrong arguments. Such a row sets its proven parameters and leaves the
+return `undefined` (decision of 2026-10-22):
+
+```json
+"prototype": {
+  "partial": true, "return_type": "undefined", "calling_convention": "__stdcall",
+  "varargs": false, "noreturn": true,
+  "parameters": [
+    {"name": "file", "type": "char *", "evidence": ["move a3,a0 at 0x3def4c: the second %s"]},
+    {"name": "line", "type": "int", "evidence": ["move t0,a1 at 0x3def44: the %d"]},
+    {"name": "failedexpr", "type": "char *", "evidence": ["a2 passes through as the first %s"]}
+  ],
+  "live_signature": "void __stdcall __assert(char * __assertion, char * __file, int __line)",
+  "contradiction": ["glibc order: the code makes a1 the line and a2 the expression"],
+  "noreturn_evidence": ["no jr; the only exit tail-jumps to abort (j at 0x3def64)"]
+},
+"unresolved": ["return: the function never returns, so no value is observable"]
+```
+
+- `recon validate` allows it only where `live_signature` (verbatim from
+  `recon live`) contradicts the parameters: another count, varargs, or a type
+  at some position. A live `undefined*` type, or Ghidra's default
+  `undefined f(void)`, claims nothing. Every parameter needs evidence,
+  `unresolved` says why the return stays open, and a thunk cannot be partial.
+  The apply refuses before any write when the live signature has changed.
+- The bridge sends `undefined socom_prototype(...)`. Ghidra's
+  FunctionSignatureParser resolves `undefined` to DataType.DEFAULT, and the
+  decompiler keeps such a return unlocked. A register whose type nothing proves
+  may be `undefined4` or `undefined8`; no complete row uses these types.
+- `varargs: true` needs `varargs_evidence` and a fixed parameter. It appends
+  `, ...`, which the parser turns into Ghidra's varargs flag, and registers
+  after the fixed parameters may then be read. A `va_list` is an ordinary
+  parameter: type it from a live type the evidence supports, or `undefined4`.
+- `noreturn: true` needs `noreturn_evidence` and the proof `recon validate`
+  takes from the ELF: no `jr` in the body, branches stay inside it, and every
+  `j` (or a final `jal`) enters a function proven the same way. It is recorded
+  but not applied. The bridge's `set_function_no_return` changes a function
+  modifier, and that wakes Ghidra's Call-Fixup Installer (a default-enabled
+  function-modifier analyzer), which clears and repairs the flow after every
+  call site; routine work never clears flow. `set_function_prototype` leaves
+  the flag as it was, and the read-back expects it so.
+- `recon draft --check` accepts a partial row only where the draft is
+  unresolved (U-type, U-vararg).
+
+`recon contradictions [--groups applied|all] --output build/facts/contradictions.txt`
+lists group functions whose live signature contradicts the facts: argument
+reads it does not declare, a mangled signature of another count or shape, an
+applied prototype that drifted, or a reviewed row that records it as wrong.
+Each comes with its group and whether that group is applied, for a governed
+repair. `--fingerprint <file>` reads a stored fingerprint instead of Ghidra.
+
 ### Dead entry reads
 
 The entry-block scan treats a partial load completed by its partner (`lwl` +
@@ -273,6 +330,7 @@ row is copied into the program's notes.
 - the prototype declares every argument register the entry block reads
   (under `__stdcall`, floats take `f12`-`f19` and everything else the next of
   `a0`-`t3`);
+- a partial prototype carries the proof "Partial prototypes" lists;
 - each global changes something, has evidence, is not a type that
   `apply_data_type` would resolve to a different type, and is referenced by
   one of the group's functions.
@@ -291,7 +349,8 @@ Role `socom-ghidra-reconstructor`, under the exclusive writer lease.
 format; `ghidra apply-recon` checks that the plan item is accepted and cites
 the plan's digest, that the program regenerates from the plan, and that live
 preflight passes, then applies through the batch executor, which reads back
-every name, prototype, and global. `--dry-run` sends no writes and reports the
+every name, prototype, and global (a partial row's live signature must still
+be the one its plan replaces). `--dry-run` sends no writes and reports the
 calls an apply would make. The receipt scope is every group function and every
 planned global. Hand off with `progress handoff-live-ghidra`; acceptance is
 `progress advance-live-ghidra` by someone else.
@@ -343,8 +402,9 @@ python tools/socom.py recon type-plan affected --plan build/type-plans/zdb-cvisu
 - `recon layout` lists, per class, its RTTI records and base list
   (Metrowerks `type_info_base_list`: base and offset), vtable slots,
   members with the proof that a0 is `this` (constructor, destructor, const,
-  vtable slot, or an argument register read beyond a static function's
-  parameters; others are listed unresolved), allocation sizes
+  vtable slot, an argument register read beyond a static function's
+  parameters, a member operator other than new/delete, or a DWARF `this`
+  formal parameter; others are listed unresolved), allocation sizes
   (`operator new(N)` reaching a constructor; the most derived of the
   constructor's class and any family vtable stored into the object), derived
   constructors' this-adjustment, and every access proven relative to the
@@ -352,7 +412,16 @@ python tools/socom.py recon type-plan affected --plan build/type-plans/zdb-cvisu
   spills, loads, indexes and calls. Each offset shows widths, kinds,
   signedness, pointer use, typed callees, constants, vtable stores and
   bitfield masks, with every site; conflicts and accesses beyond the
-  allocation size are flagged. A store of zero and a word copied through an
+  allocation size are flagged. Every call row records what the callee takes
+  in that register: `parameter_type` (mangled parameter or receiver),
+  `no_parameter` (the settled parameter list does not use it), or
+  `parameter_unknown` with the reason (indirect call, no mangled parameter
+  list, registers not settled past a by-value class or varargs, or an
+  unproven receiver whose member and static readings differ). DWARF 1
+  parameter lists cannot settle registers (they omit unnamed parameters) and
+  all but nine DWARF subprograms have mangled names, so DWARF only proves
+  receivers. Live prototypes are not read; the evidence stays ELF-only so
+  `validate` can regenerate its digest. A store of zero and a word copied through an
   FPR prove neither int nor float. Accesses whose base cannot be proven are
   counted per function as unattributed.
 - The plan (format in `tools/_socom/type_plan.py`) gives each type its
@@ -398,7 +467,15 @@ python tools/socom.py recon type-plan affected --plan build/type-plans/zdb-cvisu
   (`Metrowerks::compile_assert<1>` after `CVisual::m_dynTexList`'s second
   vector, `0x30df0c`) belongs to that member, not to the next field; a call
   that no sub-object explains is a problem, unless it lies inside a by-value
-  live type without a DWARF record.
+  live type without a DWARF record. DWARF 1 names drop template arguments, so
+  records of one name can disagree (a pointer `vector`'s `__vector_imp` ends
+  in `compile_assert<1>` at +0xc, a class `vector`'s does not); such a
+  sub-object counts only when the records the DWARF import named with the
+  live type's path (an instantiation's `source`) have it, read on first need
+  from the type identities (about 20 s). An address pass whose parameter type
+  is `parameter_unknown` is a problem unless the `notes` or `unresolved`
+  text of a member whose extent holds the address (end included) cites the
+  site (`0x30f454`, or a range containing it).
 - `recon type-plan validate` regenerates the evidence and refuses a plan
   whose layout digest differs, a field without a matching access, a size
   that differs from allocations, overlaps or uncovered bytes, accessed

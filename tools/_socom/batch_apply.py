@@ -83,6 +83,13 @@ BRIDGE_WELL_KNOWN = frozenset({
     "size_t", "unsigned int", "unsigned short", "unsigned long", "unsigned char", "signed char",
 })
 BRIDGE_SAME_BUILTIN = frozenset({"int", "uint", "short", "ushort", "longlong", "char", "uchar", "float", "double", "void"})
+# Ghidra's unknown types, allowed only in a stage 3 partial prototype.  The
+# bridge parses with FunctionSignatureParser(program DTM, no service), whose
+# DataTypeParser resolves the bare name ``undefined`` to DataType.DEFAULT when
+# no type has that name, and Ghidra's FunctionPrototype leaves a DEFAULT
+# return unlocked (outputlock = DataType.DEFAULT != returntype), so the
+# decompiler still infers it.  undefined1-8 are built-in fixed-size unknowns.
+UNDEFINED_TYPES = frozenset({"undefined", "undefined1", "undefined2", "undefined4", "undefined8"})
 
 
 def _data_alias_problem(type_name: str) -> str | None:
@@ -1051,10 +1058,18 @@ def _base_type(name: str) -> str:
 
 
 def prototype_text(prototype: dict[str, Any]) -> str:
-    """Prototype string for set_function_prototype; the name is parse-only."""
+    """Prototype string for set_function_prototype; the name is parse-only.
 
-    params = ", ".join(f"{p['type']} {p['name']}" for p in prototype["parameters"]) or "void"
-    return f"{prototype['return_type']} socom_prototype({params})"
+    A varargs prototype ends in ``, ...``: FunctionSignatureParser sets
+    varargs when the text after the last comma is ``...`` (so at least one
+    fixed parameter is needed), and ApplyFunctionSignatureCmd copies the flag
+    to the function on every call.
+    """
+
+    params = ", ".join(f"{p['type']} {p['name']}" for p in prototype["parameters"])
+    if prototype.get("varargs"):
+        params += ", ..."
+    return f"{prototype['return_type']} socom_prototype({params or 'void'})"
 
 
 _DEFAULT_PARAM = re.compile(r"param_\d+")
@@ -1073,10 +1088,61 @@ def _shown_type(text: str) -> str:
 
 
 def expected_signature(prototype: dict[str, Any], name: str) -> str:
+    """The Signature line get_function_by_address prints after the apply.
+
+    Ghidra's FunctionDefinitionDataType prints a varargs list as ``, ...`` and
+    a no-return function with a leading ``noreturn``; ``live_noreturn`` marks
+    a partial prototype whose function already had the flag (the apply never
+    changes it).
+    """
+
     params = ", ".join(
         f"{_shown_type(p['type'])} {_shown_name(p['name'], index)}" for index, p in enumerate(prototype["parameters"], 1)
-    ) or "void"
-    return f"{_shown_type(prototype['return_type'])} {prototype['calling_convention']} {name}({params})"
+    )
+    if prototype.get("varargs"):
+        params += ", ..."
+    prefix = "noreturn " if prototype.get("live_noreturn") else ""
+    return f"{prefix}{_shown_type(prototype['return_type'])} {prototype['calling_convention']} {name}({params or 'void'})"
+
+
+def parse_signature(signature: Any) -> dict[str, Any] | None:
+    """The parts of a Signature line as get_function_by_address prints it.
+
+    ``[noreturn ]<return> [<convention> ]<name>(<type> <name>, ...[, ...])``;
+    a signature without a convention (``undefined FUN_x(void)``) is Ghidra's
+    default.  Types keep Ghidra's spelling (``char * *``).  None when the text
+    does not parse (a parameter type spelled with commas, say).
+    """
+
+    if not isinstance(signature, str) or not signature.endswith(")") or "(" not in signature:
+        return None
+    noreturn = signature.startswith("noreturn ")
+    text = signature[len("noreturn ") :] if noreturn else signature
+    open_at = text.rfind("(")
+    head, inside = text[:open_at].split(), text[open_at + 1 : -1].strip()
+    if len(head) < 2:
+        return None
+    name, prefix = head[-1], head[:-1]
+    convention = prefix.pop() if len(prefix) > 1 and prefix[-1].startswith("__") else None
+    parameters: list[tuple[str, str]] = []
+    varargs = False
+    if inside not in ("", "void"):
+        pieces = [piece.strip() for piece in inside.split(",")]
+        varargs = pieces[-1] == "..."
+        for piece in pieces[:-1] if varargs else pieces:
+            found = re.match(r"^(.*\S)\s+([A-Za-z_][A-Za-z0-9_]*)$", piece)
+            if found is None:
+                return None
+            parameters.append((_shown_type(found.group(1)), found.group(2)))
+    return {
+        "noreturn": noreturn,
+        "return_type": _shown_type(" ".join(prefix)),
+        "calling_convention": convention,
+        "name": name,
+        "parameters": parameters,
+        "varargs": varargs,
+        "default": convention is None and " ".join(prefix) == "undefined" and not parameters and not varargs,
+    }
 
 
 def execute_batch_program(
@@ -1129,13 +1195,13 @@ def execute_batch_program(
         defined.add(row["name"])
     builtin_names = set(BUILTINS.values()) | {fund.ghidra for fund in FUND_TYPES.values()}
 
-    def ambiguous(type_name: str) -> str | None:
+    def ambiguous(type_name: str, partial: bool = False) -> str | None:
         # The bridge builds one array level from "name[count]"; deeper arrays
         # resolve only if a type of exactly that name exists.
         if type_name.count("[") > 1 and type_name not in defined:
             return f"multi-dimensional array {type_name!r} is not defined in the program"
         base = _base_type(type_name)
-        if base in builtin_names:
+        if base in builtin_names or (partial and base in UNDEFINED_TYPES):
             return None
         found = counts.get(base.casefold(), 0)
         if found != 1:
@@ -1160,6 +1226,25 @@ def execute_batch_program(
                 f"global {entry['address']} is typed {entry['type']!r}, which apply_data_type would resolve "
                 "to a different type; regenerate the program"
             )
+
+    # A partial prototype (stage 3) replaces a live signature its plan proved
+    # wrong.  Before any write, the function must still show exactly that
+    # signature; its no-return flag is kept (set_function_prototype never
+    # changes it) and read back as it is.
+    live_noreturn: dict[str, bool] = {}
+    for entry in program["functions"]:
+        prototype = entry.get("prototype")
+        if not prototype or not prototype.get("partial"):
+            continue
+        text = bridge.request("get_function_by_address", address=entry["address"])
+        lines = text.splitlines() if isinstance(text, str) else []
+        signature = next((match.group(1) for line in lines if (match := _SIGNATURE_LINE.match(line))), None)
+        if signature != prototype.get("live_signature"):
+            raise SocomError(
+                f"partial prototype for {entry['address']} replaces the live signature "
+                f"{prototype.get('live_signature')!r}, but the function shows {signature!r}; replan the row"
+            )
+        live_noreturn[entry["address"]] = signature.startswith("noreturn ")
 
     existing = function_names()
     log(f"functions: {len(program['functions'])}")
@@ -1202,11 +1287,12 @@ def execute_batch_program(
                 name = entry["readable_name"]
         prototype = entry["prototype"]
         if prototype:
+            partial = bool(prototype.get("partial"))
             reasons = [
                 reason
                 for reason in (
-                    ambiguous(prototype["return_type"]),
-                    *(ambiguous(param["type"]) for param in prototype["parameters"]),
+                    ambiguous(prototype["return_type"], partial),
+                    *(ambiguous(param["type"], partial) for param in prototype["parameters"]),
                 )
                 if reason
             ]
@@ -1221,6 +1307,8 @@ def execute_batch_program(
                     prototype=prototype_text(prototype),
                     calling_convention=prototype["calling_convention"],
                 )
+                if live_noreturn.get(address):
+                    prototype = {**prototype, "live_noreturn": True}
         elif entry["prototype_skip"]:
             skipped.append({"address": address, "action": "prototype", "reason": entry["prototype_skip"]})
         applied_functions.append({"address": address, "name": name, "prototype": prototype})

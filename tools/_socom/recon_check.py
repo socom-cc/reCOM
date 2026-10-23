@@ -174,19 +174,26 @@ def explain_recon_diff(
             f"references/blocks/bookmarks changed: added {other_refs[:8]}, removed {diff['references']['removed'][:8]}"
         )
     # Ghidra copies a built-in type (schar, ushort, ...) into the program's root
-    # category the first time a prototype uses it.
-    from .batch_apply import BUILTINS
+    # category the first time a prototype uses it; a partial prototype may use
+    # the built-in unknowns (undefined4, ...).
+    from .batch_apply import BUILTINS, UNDEFINED_TYPES
 
     used_spellings = set()
+    partial_used = set()
     for row in result.get("functions", []):
         prototype = row.get("prototype") or {}
         for text in [prototype.get("return_type") or ""] + [p.get("type") or "" for p in prototype.get("parameters") or []]:
             used_spellings.add(text.replace("*", "").strip())
+            if prototype.get("partial"):
+                partial_used.add(text.replace("*", "").strip())
     builtins_added = []
     for t in diff["types"]["added"]:
         path = t.rsplit("|", 1)[0]
         name = path.lstrip("/")
         if path.endswith("*") or path.endswith("]"):
+            continue
+        if path.count("/") == 1 and name in UNDEFINED_TYPES and name in partial_used:
+            builtins_added.append(name)
             continue
         if path.count("/") == 1 and name in set(BUILTINS.values()) and name in used_spellings:
             builtins_added.append(name)
@@ -327,9 +334,11 @@ def check_recon_apply(
         else:
             if details != {int(r['address'], 16): r for r in before["functions"]}.get(address, {}).get("details"):
                 readback_problems.append(f"{row['address']} (unresolved) changed")
+    partial = sum(1 for r in result.get("functions", []) if (r.get("prototype") or {}).get("partial"))
     check("readback", not readback_problems,
           f"live signatures of {sum(1 for r in result.get('functions', []) if r.get('prototype'))} prototyped functions equal the plan; "
-          f"{sum(1 for r in result.get('functions', []) if not r.get('prototype'))} unresolved unchanged"
+          + (f"{partial} of them partial (return left undefined, no-return flag as it was); " if partial else "")
+          + f"{sum(1 for r in result.get('functions', []) if not r.get('prototype'))} unresolved unchanged"
           if not readback_problems else "; ".join(readback_problems))
     planned = [(s["endpoint"], canonical_json(s["body"])) for s in claimed.get("steps", [])]
     calls_ok = report.get("ok") and result.get("bridge_call_count") == len(planned) and claimed.get("ok")

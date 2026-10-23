@@ -85,6 +85,7 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py recon refs` | recon | no | none | no | Print a data object's relocated slots and every code access to it. |
 | `python tools/socom.py recon live` | recon | no | required | no | Print live Ghidra names and signatures of functions or a group. |
 | `python tools/socom.py recon types` | recon | no | required | no | Print every live Ghidra type matching each name, ignoring case. |
+| `python tools/socom.py recon contradictions` | recon | no | optional | no | List group functions whose live signature contradicts the ELF facts, with each owning group's apply state. |
 | `python tools/socom.py recon layout` | recon | yes | none | no | Write ELF-derived layout evidence of a class (and its bases and derived classes): every proven access per offset. |
 | `python tools/socom.py recon type-plan validate` | recon | no | none | no | Check a code-derived type plan against regenerated layout evidence. |
 | `python tools/socom.py recon type-plan show` | recon | no | none | no | Render a code-derived type plan as a review table with its validation. |

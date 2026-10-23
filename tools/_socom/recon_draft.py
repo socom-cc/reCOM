@@ -958,6 +958,14 @@ def check_drafted_rows(draft: dict[str, Any], plan: dict[str, Any]) -> list[str]
                 row["draft_rule"], row.get("current_name"), named(row)
             ):
                 problems.append(f"{address}: differs from its {row['draft_rule']} draft")
+        elif (planned.get("prototype") or {}).get("partial") is True:
+            # A partial row leaves the return unresolved, so it may replace an
+            # unresolved draft (U-type, U-vararg), never a decided prototype.
+            if _decision(row) != "unresolved":
+                problems.append(
+                    f"{address}: partial row where the rules decide a complete prototype ({row['draft_rule']}); "
+                    "use the drafted row"
+                )
         elif _decision(planned) != _decision(row) and _decision(planned) != "unresolved":
             problems.append(
                 f"{address}: hand-written row disagrees with its {row['draft_rule']} draft "
