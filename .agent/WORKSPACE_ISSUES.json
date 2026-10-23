@@ -1035,8 +1035,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Live Ghidra library signatures contradict the asm on unresolved rows"
+    },
+    {
+      "details": "Group 223 planning (socom-recon-planner-g120): the accepted sceSifDmaStat row (group 0dd42227) cites a sifdev.h declaration recalled from memory, which the current planner/reviewer briefs do not accept as evidence (AGENTS.md: immutable ELF/DWARF/symbols and exact-compiler probes only). Audit accepted plan rows whose stated proof is a recalled header or library declaration rather than ELF facts, and correct any unsupported row through a recon repair.",
+      "id": "socom:workspace-issue:b277fc2a704060e3d75c",
+      "kind": "problem",
+      "reported_at": "2026-10-23T03:49:07Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "Accepted recon rows may rest on recalled SDK declarations"
     }
   ],
-  "revision": 118,
+  "revision": 119,
   "schema_version": 1
 }
