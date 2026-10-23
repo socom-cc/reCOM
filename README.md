@@ -85,9 +85,9 @@ deferred until their real producers and compiler/provider prerequisites exist.
 <!-- SOCOM_PROGRESS_BEGIN -->
 ### Generated progress snapshot
 
-- Tracker revision: `1807`
+- Tracker revision: `1810`
 - Next work item: `socom:work:type-plan-zdb-cvisual`
-- Work items: 754 total (3 ready, 0 active, 0 awaiting acceptance, 516 accepted, 235 dependency-blocked)
+- Work items: 754 total (2 ready, 0 active, 0 awaiting acceptance, 517 accepted, 235 dependency-blocked)
 - Open blockers: 3
 - Provisional source owners still unverified: 316
 
