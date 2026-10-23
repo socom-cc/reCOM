@@ -22,7 +22,9 @@ parent review.
 For a leased recon-type-plan item, write the code-derived type plan under
 build/type-plans/ from `recon layout` evidence only: every field cites access
 sites, invented names are marked invented-provisional after surveying
-neighbouring DWARF names, and anything unproven goes to unresolved. Run
-`recon type-plan validate`, `show`, and `program` until they pass. Do not
-spawn another agent.
+neighbouring DWARF names, and anything unproven goes to unresolved. A proven
+name without layout evidence is a forward declaration, and a missing template
+instantiation copies a live instantiation's layout; never type a member with a
+placeholder or a wrong type instead. Run `recon type-plan validate`, `show`,
+`live`, and `program` until they pass. Do not spawn another agent.
 """

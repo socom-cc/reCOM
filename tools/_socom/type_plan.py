@@ -27,9 +27,43 @@ Plan format (``kind`` socom-code-type-plan, schema 1)::
          "padding": [], "outside_accesses": [], "unresolved": []},
         {"name": "zdb::CVisual_vtbl", "kind": "vtable", "category": "/project/zdb",
          "name_provenance": "invented-provisional", "size": 0, "opaque": true,
-         "opaque_reason": "slot return types are not encoded in the mangled names"}
+         "opaque_reason": "slot return types are not encoded in the mangled names"},
+        {"name": "zdb::tag_DETAIL_PARAMS", "kind": "forward", "category": "/project/zdb",
+         "name_provenance": "mangled-symbol",
+         "name_evidence": ["VuDetailMap__Q23zdb7CVisualFP8_word128PQ23zdb17tag_DETAIL_PARAMS"],
+         "reason": "reached only through CVisual+0x60; its record layout is not planned"},
+        {"name": "std::__vector_deleter<zdb::CMesh::CMeshLOD, std::allocator<zdb::CMesh::CMeshLOD>>",
+         "kind": "class", "category": "/project/std", "name_provenance": "mangled-symbol",
+         "name_evidence": ["data__Q23std80__vector_deleter<Q33zdb5CMesh8CMeshLOD,Q23std32allocator<Q33zdb5CMesh8CMeshLOD>>Fv"],
+         "size": 12, "alignment": 4,
+         "instantiation": {
+           "source": "/project/std/__vector_deleter<zdb::CLOD_band, std::allocator<zdb::CLOD_band>>",
+           "arguments": [{"from": "zdb::CLOD_band", "to": "zdb::CMesh::CMeshLOD"}],
+           "source_size": 12,
+           "source_layout": [[0, 4, "compressed_pair@30d44a8521", "capacity_"], [4, 4, "uint", "size_"],
+                             [8, 4, "CLOD_band *", "data_"]]},
+         "fields": [{"offset": 0, "size": 4, "type": "/project/unresolved/compressed_pair@30d44a8521",
+                     "name": "capacity_", "provenance": "template-copy"}, "..."]}
       ]
     }
+
+A ``forward`` type is a declaration only: a qualified name proven by mangled
+symbols (the type is a member qualifier, parameter type or template argument),
+an RTTI object or a DWARF record, with no size, bases or fields.  It may only be
+pointed to; the program creates it first, as an empty structure (as the DWARF
+import created declaration-only types), and the live check refuses one whose
+name already exists.
+
+An ``instantiation`` copies the layout of an existing live instantiation of
+the same template (same namespace and template name; the plan's name is the
+source's with each argument ``from`` replaced by ``to``).  ``source_layout``
+records the source exactly as ``get_struct_layout`` reports it; each row
+becomes a base (a ``super_<identifier>`` component) or a ``template-copy``
+field of the same name, offset and size, typed as the source member with the
+arguments substituted (so ``CLOD_band *`` becomes ``zdb::CMesh::CMeshLOD *``).
+A DWARF record of the template must have the same members and bases; the live
+check compares ``source_layout`` with the live source.  Accesses inside the
+instantiation are checked against the copied members like any other field.
 
 Type spellings: Ghidra builtins (``uint``, ``uchar``, ``longlong``, ``uint16``
 ...), ``undefined1/2/4/8`` only where every access is neutral, plan types by
@@ -38,6 +72,13 @@ their qualified name, and existing live types by their full Ghidra path
 ``*`` pointers and ``[n]`` arrays follow the base.  A field with
 ``bit_offset``/``bit_size`` is a bitfield (least-significant-bit position in
 its little-endian storage unit at ``offset``/``size``).
+
+A call that passes an object address as a class pointer or reference (a
+constructor or method receiver) proves a sub-object of that class there.  The
+validator matches each such call against the plan's sub-objects (plan types,
+and the DWARF bases and members of by-value live types, empty bases at an
+object's end included), so a call on a sub-object belongs to that sub-object,
+and one that no sub-object explains is a problem.
 """
 
 from __future__ import annotations
@@ -50,9 +91,18 @@ from typing import Any
 
 from .batch_apply import BUILTIN_SIZES
 from .constants import REFERENCE_SHA256
-from .mwdemangle import split_qualified
-from .type_apply import ANON_FIELD_PREFIX, APPLY_PROGRAM_KIND, APPLY_PROGRAM_SCHEMA, C_IDENTIFIER, C_RESERVED, TEMP_PREFIX
+from .mwdemangle import readable_component, split_qualified, template_base
+from .type_apply import (
+    ANON_FIELD_PREFIX,
+    APPLY_PROGRAM_KIND,
+    APPLY_PROGRAM_SCHEMA,
+    C_IDENTIFIER,
+    C_RESERVED,
+    TEMP_PREFIX,
+    _identifier,
+)
 from .type_layout import NEUTRAL_KINDS, class_layout
+from .type_plan_evidence import CXX_BUILTINS, TypeEvidence, leaf_name, normalized, parameter_class, substitute
 from .util import SocomError, canonical_json, load_json, sha256_file
 
 TYPE_PLAN_KIND = "socom-code-type-plan"
@@ -60,12 +110,25 @@ TYPE_PLAN_SCHEMA = 1
 TYPE_PLAN_PREFIX = "socom:work:type-plan-"
 TYPE_PLAN_RESOURCES = ["build/type-plans"]
 INVENTED = "invented-provisional"
-NAME_PROVENANCES = ("elf-symbol", INVENTED)
-FIELD_PROVENANCES = (INVENTED, "elf-string", "elf-symbol")
+TEMPLATE_NAME = "template-instantiation"
+TEMPLATE_COPY = "template-copy"
+NAME_PROOFS = ("mangled-symbol", "rtti", "dwarf")
+NAME_PROVENANCES = ("elf-symbol", *NAME_PROOFS, TEMPLATE_NAME, INVENTED)
+FIELD_PROVENANCES = (INVENTED, "elf-string", "elf-symbol", TEMPLATE_COPY)
+TYPE_KINDS = ("class", "struct", "vtable", "forward")
+PROVENANCE_KEY = (
+    ("elf-symbol", "the name of a layout class (.symtab member qualifier and RTTI)"),
+    ("mangled-symbol", "named by the cited mangled ELF symbols (member qualifier, parameter type or template argument)"),
+    ("rtti", "named by the cited RTTI object"),
+    ("dwarf", "named by the cited DWARF record (its leaf name)"),
+    (TEMPLATE_NAME, "the source instantiation's name with the plan's template arguments substituted"),
+    (TEMPLATE_COPY, "a member name copied from the source instantiation"),
+    ("elf-string", "a member name from an ELF string (cited in name_evidence)"),
+    (INVENTED, "invented by the planner; review before use"),
+)
 VPTR_NAME = "__vt"
 FIELD_NAME = re.compile(r"^m_[a-z][A-Za-z0-9]*$")
 HELPER_NAME = re.compile(r"^tag_[A-Za-z0-9_]+$")
-_TYPE = re.compile(r"^(?P<base>[^\[\]*]+?)\s*(?P<stars>(?:\*\s*)*)(?P<arrays>(?:\[\d+\])*)$")
 UNDEFINED_SIZES = {"undefined1": 1, "undefined2": 2, "undefined4": 4, "undefined8": 8}
 SIZES = {name: size for name, size in BUILTIN_SIZES.items() if size} | UNDEFINED_SIZES
 SIGNED = frozenset({"char", "schar", "short", "int", "longlong"})
@@ -79,10 +142,16 @@ C_SPELLING = {
 DECISIONS = (
     "Types come from a reviewed code-derived plan: every field, base and vptr cites ELF layout evidence "
     "(recon layout); invented names are marked invented-provisional in the plan.",
-    "A base class is a component at its RTTI base-list offset named by the bare base type name; the "
-    "vtable pointer is a component named __vt.",
+    "A base class is a component at its RTTI base-list offset named by the bare base type name (template "
+    "arguments dropped); the vtable pointer is a component named __vt.",
     "A vtable type whose slot function types are not all proven is created opaque (an empty struct) so the "
     "vptr can point to it without a void * placeholder.",
+    "A forward declaration (a name proven by mangled symbols, RTTI or DWARF, without layout evidence) is "
+    "created first as an empty structure, as the DWARF import created declaration-only types; it is only "
+    "pointed to.",
+    "A template instantiation copies the members of an existing live instantiation of the same template "
+    "with the template arguments substituted; the dry run proves the source's live layout equals the copy's "
+    "recorded source layout.",
     "Composites with bitfields or 128-bit members are created by one self-contained #pragma pack(1) C "
     "import, with unnamed padding for gaps; others use explicit field offsets.",
     "Existing live types are referenced by bare name; the dry run proves each resolves to exactly the "
@@ -120,45 +189,162 @@ def expected_category(name: str) -> str:
 
 
 def parse_type(text: Any) -> dict[str, Any] | None:
+    """Split ``base * *[n]`` into base, pointer count and array extents (template arguments stay in the base)."""
+
     if not isinstance(text, str):
         return None
-    match = _TYPE.match(text.strip())
-    if not match:
+    rest = text.strip()
+    arrays: list[int] = []
+    while True:
+        match = re.search(r"\[(\d+)\]\s*$", rest)
+        if not match:
+            break
+        arrays.insert(0, int(match.group(1)))
+        rest = rest[: match.start()].rstrip()
+    pointers = 0
+    while rest.endswith("*"):
+        pointers += 1
+        rest = rest[:-1].rstrip()
+    depth = 0
+    for char in rest:
+        if char == "<":
+            depth += 1
+        elif char == ">":
+            depth -= 1
+        elif char in "[]" or (char == "*" and depth == 0):
+            return None
+    if not rest or depth:
         return None
-    base = match.group("base").strip()
-    if not base:
-        return None
-    return {
-        "base": base,
-        "pointers": match.group("stars").count("*"),
-        "arrays": [int(count) for count in re.findall(r"\[(\d+)\]", match.group("arrays"))],
-    }
+    return {"base": rest, "pointers": pointers, "arrays": arrays}
+
+
+def _base_component_name(type_name: Any) -> str:
+    """A base component's name: the bare base type name, template arguments dropped."""
+
+    return template_base(_leaf(str(type_name)))
+
+
+def _count(parsed: dict[str, Any]) -> int:
+    count = 1
+    for value in parsed["arrays"]:
+        count *= value
+    return count
 
 
 class _Plan:
-    """Plan types by name, with sizes, alignments and evidence windows."""
+    """Plan types by name, with sizes, alignments, evidence windows and sub-objects."""
 
-    def __init__(self, plan: dict[str, Any]) -> None:
+    def __init__(self, plan: dict[str, Any], evidence: TypeEvidence | None = None) -> None:
         self.plan = plan
+        self.evidence = evidence
         self.types: dict[str, dict[str, Any]] = {}
         for row in plan.get("types") or []:
             if isinstance(row, dict) and isinstance(row.get("name"), str):
                 self.types.setdefault(row["name"], row)
+        self.normalized_types = {normalized(name): name for name in self.types}
+
+    def kind(self, name: str) -> Any:
+        return (self.types.get(name) or {}).get("kind")
 
     def size_of(self, parsed: dict[str, Any] | None, declared: Any = None) -> int | None:
         if parsed is None:
             return None
-        count = 1
-        for value in parsed["arrays"]:
-            count *= value
+        count = _count(parsed)
         if parsed["pointers"]:
             return 4 * count
         base = parsed["base"]
         if base in SIZES:
             return SIZES[base] * count
-        if base in self.types and isinstance(self.types[base].get("size"), int):
+        if base in self.types and self.kind(base) != "forward" and isinstance(self.types[base].get("size"), int):
             return self.types[base]["size"] * count
         return declared if isinstance(declared, int) else None
+
+    def bare(self, text: Any) -> str | None:
+        """The spelling Ghidra's layout read-back gives a plan type spelling (leaf names, ``X *``)."""
+
+        parsed = parse_type(text)
+        if parsed is None:
+            return None
+        base = parsed["base"]
+        if base in self.types:
+            leaf = _leaf(base)
+        elif base.startswith("/"):
+            leaf = base.rsplit("/", 1)[1]
+        else:
+            leaf = base
+        return leaf + " *" * parsed["pointers"] + "".join(f"[{count}]" for count in parsed["arrays"])
+
+    def subobjects(self, text: Any, size: Any, depth: int = 0) -> tuple[list[tuple[int, str, str]], list[tuple[int, int]]]:
+        """Class sub-objects of a by-value type spelling: (offset, name, match mode), and unknown regions.
+
+        Plan types give their bases and composite members (qualified names);
+        a live type gives itself (its leaf name) and, from DWARF, every base
+        and by-value member (DWARF names, template arguments dropped).  A
+        live type without a DWARF record is an unknown region.
+        """
+
+        parsed = parse_type(text)
+        if parsed is None or parsed["pointers"] or depth > 24:
+            return [], []
+        base = parsed["base"]
+        if parsed["arrays"]:
+            count = _count(parsed)
+            element = {"base": base, "pointers": 0, "arrays": []}
+            stride = self.size_of(element, size // count if isinstance(size, int) and count else None)
+            if not stride or count > 4096:
+                return [], ([(0, size)] if isinstance(size, int) else [])
+            inner, unknown = self.subobjects(base, stride, depth + 1)
+            return (
+                [(index * stride + offset, name, mode) for index in range(count) for offset, name, mode in inner],
+                [(index * stride + low, index * stride + high) for index in range(count) for low, high in unknown],
+            )
+        if base in SIZES or base == "void":
+            return [], []
+        row = self.types.get(base)
+        if row is not None:
+            if row.get("kind") in ("forward", "vtable"):
+                return [], []
+            entries: list[tuple[int, str, str]] = [(0, base, "qualified")]
+            unknown: list[tuple[int, int]] = []
+            for offset, extent, role, entry in self.components(row):
+                if role not in ("base", "field") or not isinstance(offset, int):
+                    continue
+                inner, gaps = self.subobjects(entry.get("type"), extent, depth + 1)
+                entries.extend((offset + inner_offset, name, mode) for inner_offset, name, mode in inner)
+                unknown.extend((offset + low, offset + high) for low, high in gaps)
+            if row.get("instantiation") is not None and self.evidence is not None:
+                # Empty bases (allocator, compile_assert) are omitted from copied layouts; DWARF keeps them.
+                found = self.evidence.nested(_leaf(base), row.get("size") if isinstance(row.get("size"), int) else None)
+                entries.extend((offset, name, "base") for offset, name in sorted(found or ()))
+            return entries, unknown
+        if base.startswith("/"):
+            leaf = base.rsplit("/", 1)[1]
+            entries = [(0, leaf, "leaf")]
+            found = self.evidence.nested(leaf, size if isinstance(size, int) else None) if self.evidence else None
+            if found is None:
+                return entries, ([(0, size)] if isinstance(size, int) else [])
+            return entries + [(offset, name, "base") for offset, name in sorted(found)], []
+        return [], []
+
+    def references(self) -> dict[str, list[str]]:
+        """Plan type name -> where it is named through a pointer (fields, vptrs, instantiation arguments)."""
+
+        found: dict[str, list[str]] = defaultdict(list)
+        for name, row in self.types.items():
+            for field in row.get("fields") or []:
+                parsed = parse_type(field.get("type"))
+                if parsed and parsed["pointers"] and parsed["base"] in self.types:
+                    found[parsed["base"]].append(f"{name}.{field.get('name')}")
+            vptr = row.get("vptr")
+            parsed = parse_type(vptr.get("type")) if isinstance(vptr, dict) else None
+            if parsed and parsed["pointers"] and parsed["base"] in self.types:
+                found[parsed["base"]].append(f"{name}.{VPTR_NAME}")
+            spec = row.get("instantiation")
+            for argument in (spec.get("arguments") or []) if isinstance(spec, dict) else []:
+                target = self.normalized_types.get(normalized(str((argument or {}).get("to", ""))))
+                if target:
+                    found[target].append(f"{name} template argument")
+        return found
 
     def align_of(self, parsed: dict[str, Any] | None) -> int | None:
         if parsed is None:
@@ -181,7 +367,7 @@ class _Plan:
 
         result = []
         for base in row.get("bases") or []:
-            size = self.size_of(parse_type(base.get("type")))
+            size = self.size_of(parse_type(base.get("type")), base.get("size"))
             result.append((base.get("offset"), size, "base", base))
         vptr = row.get("vptr")
         if isinstance(vptr, dict):
@@ -268,6 +454,21 @@ def _compatible(site: dict[str, Any], parsed: dict[str, Any], size: int | None) 
     return kind == "int"
 
 
+_STORED_PARAMETER = re.compile(r"^entry [a-z0-9]+ \((?P<type>.+)\)$")
+
+
+def _stored_parameter_type(site: dict[str, Any]) -> str | None:
+    """The pointer type of a typed entry parameter stored unchanged (``entry a1 (zdb::CMesh*)``), else None."""
+
+    match = _STORED_PARAMETER.match(str(site.get("value", ""))) if site.get("access") == "store" else None
+    if not match:
+        return None
+    text = match.group("type").removesuffix(" this").strip()
+    if "void" in text or not text.endswith(("*", "&")):
+        return None
+    return text
+
+
 def _strength(site: dict[str, Any]) -> bool:
     """A site that says more than its width (not a neutral store or copy)."""
 
@@ -309,14 +510,20 @@ def validate_type_plan(
     for row in layout["classes"]:
         offsets = {entry["offset"]: list(entry["sites"]) for entry in row["offsets"]}
         index[row["class"]] = offsets
-    model = _Plan(plan)
+    model = _Plan(plan, TypeEvidence(root))
     names = [row.get("name") for row in plan.get("types") or []]
     if len(names) != len(set(names)):
         problems.append("type names repeat")
+    paths = [f"{row.get('category')}/{_leaf(str(row.get('name')))}".casefold() for row in plan.get("types") or []]
+    if len(paths) != len(set(paths)):
+        problems.append("Ghidra paths repeat (ignoring case)")
     if class_name not in model.types:
         problems.append(f"the plan does not define the requested class {class_name}")
     invented = False
     windows = model.windows(set(by_class))
+    claims, claim_problems = _subobject_claims(model, by_class, index)
+    problems.extend(claim_problems)
+    references = model.references()
     for row in plan.get("types") or []:
         name = row.get("name")
         where = f"type {name}"
@@ -324,8 +531,8 @@ def validate_type_plan(
             problems.append("a type has no name")
             continue
         kind = row.get("kind")
-        if kind not in ("class", "struct", "vtable"):
-            problems.append(f"{where}: kind must be class, struct or vtable")
+        if kind not in TYPE_KINDS:
+            problems.append(f"{where}: kind must be one of {list(TYPE_KINDS)}")
             continue
         provenance = row.get("name_provenance")
         if provenance not in NAME_PROVENANCES:
@@ -333,6 +540,10 @@ def validate_type_plan(
         leaf = _leaf(name)
         if provenance == "elf-symbol" and name not in by_class:
             problems.append(f"{where}: elf-symbol names must be a class in the layout evidence")
+        if provenance in NAME_PROOFS:
+            problems.extend(model.evidence.name_problems(name, provenance, row.get("name_evidence"), where, forward=kind == "forward"))
+        if provenance == TEMPLATE_NAME and row.get("instantiation") is None:
+            problems.append(f"{where}: a {TEMPLATE_NAME} name belongs to a type with an instantiation")
         if provenance == INVENTED:
             invented = True
             if kind == "struct" and not HELPER_NAME.match(leaf):
@@ -350,7 +561,12 @@ def validate_type_plan(
         if kind == "vtable":
             problems.extend(_vtable_problems(row, by_class, where))
             continue
-        problems.extend(_type_problems(model, row, where, by_class, index, windows.get(name, set())))
+        if kind == "forward":
+            problems.extend(_forward_problems(row, where, by_class, references))
+            continue
+        problems.extend(_type_problems(model, row, where, by_class, index, windows.get(name, set()), claims))
+        if row.get("instantiation") is not None:
+            problems.extend(_instantiation_problems(model, row, where))
     if invented and not plan.get("naming_survey"):
         problems.append("invented names need a naming_survey of neighbouring zdb DWARF names")
     for row in plan.get("types") or []:
@@ -358,6 +574,203 @@ def validate_type_plan(
             parsed = parse_type(field.get("type"))
             if parsed and parsed["base"].startswith("/") and not parsed["base"].startswith("/project/"):
                 problems.append(f"type {row.get('name')} field {field.get('name')}: live types are /project paths")
+    return problems
+
+
+def _names_match(target: str, name: str, mode: str) -> bool:
+    if mode == "qualified":
+        return normalized(target) == normalized(name)
+    if mode == "leaf":
+        return normalized(leaf_name(target)) == normalized(name)
+    return template_base(leaf_name(target)) == name
+
+
+def _subobject_claims(
+    model: _Plan, by_class: dict[str, Any], index: dict[str, dict[int, list[dict[str, Any]]]]
+) -> tuple[set[tuple[str, int, str, Any]], list[str]]:
+    """Match every class-typed address pass to a sub-object of the plan.
+
+    A call that passes ``this+N`` as ``T *`` or ``T &`` (a constructor or
+    method on that address) proves a ``T`` object at ``+N``.  Such a site
+    is claimed by the plan's ``T`` sub-object at ``+N`` and is then not a
+    field access; an empty base at the end of an object (``compile_assert``
+    after a vector) is claimed by that object, not by the next field.  A
+    site that no sub-object explains is a problem unless it lies inside a
+    by-value live type without a DWARF record.  Returns the claimed
+    (class, offset, site, register) keys and the problems.
+    """
+
+    claims: set[tuple[str, int, str, Any]] = set()
+    problems: list[str] = []
+    for cls in sorted(by_class):
+        row = model.types.get(cls)
+        if row is None or row.get("kind") not in ("class", "struct") or not isinstance(row.get("size"), int):
+            continue
+        size = row["size"]
+        entries, unknown = model.subobjects(cls, size)
+        at: dict[int, list[tuple[str, str]]] = defaultdict(list)
+        for offset, name, mode in entries:
+            at[offset].append((name, mode))
+        for offset, sites in sorted(index.get(cls, {}).items()):
+            if offset >= size:
+                continue  # beyond the size: outside_accesses
+            for site in sites:
+                if site.get("access") != "address-passed" or site.get("indexed"):
+                    continue
+                target = parameter_class(site.get("parameter_type"))
+                if target is None:
+                    continue
+                if any(_names_match(target, name, mode) for name, mode in at.get(offset, ())):
+                    claims.add((cls, offset, site["site"], site.get("register")))
+                    continue
+                if any(low <= offset <= high for low, high in unknown):
+                    continue  # inside (or at the end of) a live type whose sub-objects DWARF does not give
+                problems.append(
+                    f"type {cls}: {site['site']} passes this+{_hex(offset)} as {site.get('parameter_type')} "
+                    f"({site.get('callee')}), but the plan has no {target} sub-object at +{_hex(offset)}"
+                )
+    return claims, problems
+
+
+def _claimed(claims: set[tuple[str, int, str, Any]], cls: str, offset: int, site: dict[str, Any]) -> bool:
+    return (cls, offset, site["site"], site.get("register")) in claims
+
+
+def _spelling_problem(model: _Plan, text: Any, label: str, *, pointer_only_forward: bool = True) -> str | None:
+    """A type spelling names a builtin, a plan type or a /project live path; forwards only by pointer."""
+
+    parsed = parse_type(text)
+    if parsed is None:
+        return f"{label}: type {text!r} is not a type spelling"
+    base = parsed["base"]
+    if base in model.types:
+        if pointer_only_forward and model.kind(base) == "forward" and not parsed["pointers"]:
+            return f"{label}: {base} is a forward declaration; it can only be pointed to"
+        return None
+    if base in SIZES or base.startswith("/project/") or (base == "void" and parsed["pointers"]):
+        return None
+    return (
+        f"{label}: type base {base} is not a Ghidra builtin, a plan type or forward declaration, "
+        "or a /project live path"
+    )
+
+
+def _forward_problems(row: dict[str, Any], where: str, by_class: dict[str, Any], references: dict[str, list[str]]) -> list[str]:
+    problems = []
+    if row.get("name_provenance") not in NAME_PROOFS:
+        problems.append(f"{where}: a forward declaration's name is proven by {' / '.join(NAME_PROOFS)} name_evidence")
+    layout_keys = [
+        key for key in ("size", "alignment", "bases", "vptr", "fields", "padding", "outside_accesses", "instantiation", "size_evidence")
+        if row.get(key) not in (None, [], {})
+    ]
+    if layout_keys:
+        problems.append(f"{where}: a forward declaration has no layout ({', '.join(layout_keys)})")
+    if not row.get("reason"):
+        problems.append(f"{where}: a forward declaration records why no layout is planned (reason)")
+    if row["name"] in by_class:
+        problems.append(f"{where}: the layout evidence covers this class; plan its layout instead of forward-declaring it")
+    if not references.get(row["name"]):
+        problems.append(f"{where}: no plan member points to this forward declaration")
+    return problems
+
+
+def _instantiation_problems(model: _Plan, row: dict[str, Any], where: str) -> list[str]:
+    spec = row["instantiation"]
+    if not isinstance(spec, dict):
+        return [f"{where}: instantiation is an object"]
+    source = spec.get("source")
+    if not isinstance(source, str) or not source.startswith("/project/") or source.count("/") < 2:
+        return [f"{where}: instantiation.source is the /project path of an existing live instantiation"]
+    problems: list[str] = []
+    category, source_leaf = source.rsplit("/", 1)
+    leaf = _leaf(row["name"])
+    template = template_base(leaf)
+    if category.startswith(("/project/unresolved", "/project/anonymous")):
+        problems.append(f"{where}: {source} has no resolved template identity; copy a named instantiation")
+    if "<" not in leaf or template_base(source_leaf) != template:
+        problems.append(f"{where}: {source} is not an instantiation of the template {template}")
+    if category != row.get("category"):
+        problems.append(f"{where}: the source lies in {category}, not in the template's namespace {row.get('category')}")
+    arguments = spec.get("arguments")
+    pairs: list[tuple[str, str]] = []
+    if not isinstance(arguments, list) or not arguments or not all(
+        isinstance(item, dict) and isinstance(item.get("from"), str) and isinstance(item.get("to"), str)
+        and item["from"] and item["to"] and item["from"] != item["to"]
+        for item in arguments
+    ):
+        problems.append(f"{where}: instantiation.arguments lists the substituted template arguments as {{from, to}}")
+    else:
+        pairs = [(item["from"], item["to"]) for item in arguments]
+        renamed = substitute(source_leaf, pairs)
+        if renamed != leaf:
+            problems.append(f"{where}: substituting the arguments into {source_leaf} gives {renamed}, not {leaf}")
+    if row.get("name_provenance") not in (TEMPLATE_NAME, "mangled-symbol"):
+        problems.append(f"{where}: an instantiation's name_provenance is {TEMPLATE_NAME} (or mangled-symbol)")
+    if row.get("name_provenance") == TEMPLATE_NAME:
+        for _source, target in pairs:
+            if normalized(target) not in model.normalized_types and target not in CXX_BUILTINS:
+                problems.append(
+                    f"{where}: template argument {target} is neither a plan type nor a builtin; cite a mangled "
+                    "symbol that names this instantiation instead"
+                )
+    size, rows = spec.get("source_size"), spec.get("source_layout")
+    if size != row.get("size"):
+        problems.append(f"{where}: instantiation.source_size {size} differs from the size {row.get('size')}")
+    if not isinstance(rows, list) or not rows or not all(
+        isinstance(item, list) and len(item) == 4 and isinstance(item[0], int) and isinstance(item[1], int)
+        and isinstance(item[2], str) and isinstance(item[3], str)
+        for item in rows
+    ):
+        return problems + [f"{where}: instantiation.source_layout lists the source's [offset, size, type, name] rows"]
+    components = {offset: (extent, role, entry) for offset, extent, role, entry in model.components(row) if role != "padding"}
+    members: set[tuple[int, str]] = set()
+    bases: set[int] = set()
+    for offset, extent, source_type, source_name in rows:
+        parsed = parse_type(source_type)
+        if parsed is None or re.search(r"(?<!:):(?!:)", source_type):
+            problems.append(f"{where}: source member {source_name} ({source_type}) cannot be copied (bitfields are not supported)")
+            continue
+        expected = (
+            substitute(parsed["base"], pairs, bare=True)
+            + " *" * parsed["pointers"]
+            + "".join(f"[{count}]" for count in parsed["arrays"])
+        )
+        is_base = not parsed["pointers"] and not parsed["arrays"] and source_name == "super_" + _identifier(parsed["base"])
+        component = components.get(offset)
+        if is_base:
+            bases.add(offset)
+        else:
+            members.add((offset, source_name))
+        if component is None:
+            problems.append(f"{where}: the source's {source_name} at +{_hex(offset)} is not copied")
+            continue
+        found_extent, role, entry = component
+        wanted_role = "base" if is_base else "field"
+        if role != wanted_role or found_extent != extent:
+            problems.append(f"{where}: +{_hex(offset)} copies the source's {source_name} as a {extent}-byte {wanted_role}")
+            continue
+        if not is_base and (entry.get("name") != source_name or entry.get("provenance") != TEMPLATE_COPY):
+            problems.append(f"{where}: +{_hex(offset)} keeps the source member name {source_name} ({TEMPLATE_COPY})")
+        copied = model.bare(entry.get("type"))
+        if copied is None or normalized(copied) != normalized(expected):
+            problems.append(
+                f"{where}: +{_hex(offset)} is {entry.get('type')} ({copied}), but the source's {source_type} with the "
+                f"arguments substituted is {expected}"
+            )
+    copied_offsets = {item[0] for item in rows}
+    for offset, (_extent, role, entry) in sorted(components.items(), key=lambda item: item[0] if isinstance(item[0], int) else -1):
+        if role in ("vptr", "bits"):
+            problems.append(f"{where}: an instantiation copies plain members only (no {role} at {offset})")
+        elif offset not in copied_offsets:
+            problems.append(f"{where}: {role} {entry.get('name') or entry.get('type')} at {offset} is not in the source layout")
+    if isinstance(size, int) and model.evidence is not None and not model.evidence.layout_matches(template, size, members, bases):
+        problems.append(
+            f"{where}: no DWARF record of {template} ({size} bytes) has the source layout's members "
+            f"{sorted(members)} and bases at {sorted(bases)}"
+        )
+    for field in row.get("fields") or []:
+        if field.get("provenance") == TEMPLATE_COPY and (field.get("offset"), field.get("name")) not in members:
+            problems.append(f"{where} field {field.get('name')}: a {TEMPLATE_COPY} name is a source member at its offset")
     return problems
 
 
@@ -395,6 +808,7 @@ def _type_problems(
     by_class: dict[str, Any],
     index: dict[str, dict[int, list[dict[str, Any]]]],
     windows: set[tuple[str, int]],
+    claims: set[tuple[str, int, str, Any]],
 ) -> list[str]:
     problems: list[str] = []
     name = row["name"]
@@ -413,7 +827,7 @@ def _type_problems(
             problems.append(f"{where}: size {_hex(size)} differs from the allocation evidence {_hex(sizes[0])}")
         elif not sizes and not row.get("size_evidence"):
             problems.append(f"{where}: no allocation proves the size; cite size_evidence")
-    elif not row.get("size_evidence"):
+    elif not row.get("size_evidence") and row.get("instantiation") is None:
         problems.append(f"{where}: cite size_evidence")
     if not windows:
         problems.append(f"{where}: no layout evidence reaches this type (not a layout class and not embedded in one)")
@@ -457,9 +871,11 @@ def _type_problems(
     for offset, extent, role, entry in components:
         if role == "base":
             problems.extend(_base_problems(model, row, entry, by_class, where))
-            base_name = _leaf(str(entry.get("type", "")))
+            base_name = _base_component_name(entry.get("type", ""))
             if entry.get("name") not in (None, base_name):
                 problems.append(f"{where}: the base component is named {base_name}, the bare base type name")
+            if base_name in names:
+                problems.append(f"{where}: two components are named {base_name}")
             names.add(base_name)
         elif role == "vptr":
             problems.extend(_vptr_problems(model, row, entry, layout_row, index, where))
@@ -467,6 +883,8 @@ def _type_problems(
         elif role == "padding":
             for cls, delta in sorted(windows):
                 for site_offset, site in _sites_in(index.get(cls, {}), delta + offset - 15, delta + offset + extent):
+                    if _claimed(claims, cls, site_offset, site):
+                        continue  # a sub-object's own call (an empty base at its end)
                     if site_offset + _site_extent(site) > delta + offset:
                         problems.append(
                             f"{where}: padding {_hex(offset)}+{_hex(extent)} is accessed at {cls}+{_hex(site_offset)} ({site['site']})"
@@ -483,9 +901,12 @@ def _type_problems(
             problems.append(f"{label}: provenance must be one of {list(FIELD_PROVENANCES)}")
         elif provenance == INVENTED and not FIELD_NAME.match(str(field_name)):
             problems.append(f"{label}: invented member names are m_ followed by camelCase")
+        elif provenance == TEMPLATE_COPY:
+            if row.get("instantiation") is None:
+                problems.append(f"{label}: {TEMPLATE_COPY} names belong to instantiation members")
         elif provenance != INVENTED and not field.get("name_evidence"):
             problems.append(f"{label}: a non-invented name cites name_evidence")
-        problems.extend(_field_problems(model, field, label, index, windows))
+        problems.extend(_field_problems(model, field, label, index, windows, claims))
 
     # Every access in this type's windows lands on a component; beyond the size it is listed.
     outside = {str(entry.get("site")) for entry in row.get("outside_accesses") or [] if entry.get("reason")}
@@ -502,7 +923,13 @@ def _type_problems(
 def _base_problems(model: _Plan, row: dict[str, Any], entry: dict[str, Any], by_class: dict[str, Any], where: str) -> list[str]:
     problems = []
     base = entry.get("type")
-    if base not in model.types:
+    if base in model.types:
+        if model.kind(base) in ("forward", "vtable"):
+            problems.append(f"{where}: base {base} is a {model.kind(base)} type")
+    elif isinstance(base, str) and base.startswith("/project/") and row.get("instantiation") is not None:
+        if not isinstance(entry.get("size"), int):
+            problems.append(f"{where}: the live base {base} needs its size")
+    else:
         problems.append(f"{where}: base {base} is not a plan type")
     layout_row = by_class.get(row["name"])
     if layout_row is not None:
@@ -540,15 +967,18 @@ def _vptr_problems(
 
 def _field_problems(
     model: _Plan, field: dict[str, Any], label: str, index: dict[str, dict[int, list[dict[str, Any]]]],
-    windows: set[tuple[str, int]],
+    windows: set[tuple[str, int]], claims: set[tuple[str, int, str, Any]],
 ) -> list[str]:
     problems: list[str] = []
     parsed = parse_type(field.get("type"))
     offset, size = field.get("offset"), field.get("size")
     if parsed is None or parsed["base"] == "void" and not parsed["pointers"]:
         return [f"{label}: type {field.get('type')!r} is not a type spelling"]
+    spelling = _spelling_problem(model, field.get("type"), label)
+    if spelling:
+        problems.append(spelling)
     if not isinstance(offset, int) or not isinstance(size, int):
-        return [f"{label}: offset and size are integers"]
+        return problems + [f"{label}: offset and size are integers"]
     computed = model.size_of(parsed, None)
     bitfield = "bit_size" in field or "bit_offset" in field
     if computed is not None and computed != size:
@@ -564,18 +994,31 @@ def _field_problems(
         problems.append(f"{label}: a live type needs its size")
     composite = model.composite(parsed) and not parsed["arrays"]
     evidence = field.get("evidence") or []
-    if not evidence:
+    if not evidence and field.get("provenance") != TEMPLATE_COPY:
         problems.append(f"{label}: cite at least one evidence site")
-    # Candidate sites: the field's extent in every window.
+    # Candidate sites: the field's extent in every window.  A site a sub-object
+    # claims (a call on an empty base at the end of the previous member) is
+    # that sub-object's, not this field's.
     candidates: list[tuple[str, int, dict[str, Any]]] = []
+    claimed: dict[str, dict[str, Any]] = {}
     for cls, delta in sorted(windows):
         for site_offset, site in _sites_in(index.get(cls, {}), delta + offset, delta + offset + size):
+            if not composite and _claimed(claims, cls, site_offset, site):
+                claimed[site["site"]] = site
+                continue
             candidates.append((cls, site_offset - delta, site))
     by_site: dict[str, list[tuple[str, int, dict[str, Any]]]] = defaultdict(list)
     for cls, relative, site in candidates:
         by_site[site["site"]].append((cls, relative, site))
     for cited in evidence:
-        if cited not in by_site:
+        if cited in by_site:
+            continue
+        if cited in claimed:
+            problems.append(
+                f"{label}: evidence {cited} passes the address of a {parameter_class(claimed[cited].get('parameter_type'))} "
+                "sub-object that lies there, not this field"
+            )
+        else:
             problems.append(f"{label}: evidence {cited} is not an access within +{_hex(offset)}..+{_hex(offset + size - 1)}")
     if composite or parsed["arrays"]:
         return problems  # inner accesses belong to the member type; extent checks above
@@ -603,9 +1046,16 @@ def _field_problems(
     if base in UNDEFINED_SIZES and strong:
         problems.append(f"{label}: {base} is a placeholder but {strong[0]['site']} proves more")
     if base == "void" and parsed["pointers"] == 1:
-        typed = sorted({site.get("parameter_type") for site in strong if site.get("parameter_type") and "void" not in site["parameter_type"]})
+        # The field's value passed as a typed parameter (an address pass types the field's storage instead).
+        typed = sorted(
+            {
+                site["parameter_type"] for site in strong
+                if site.get("access") == "value-passed" and site.get("parameter_type") and "void" not in site["parameter_type"]
+            }
+            | {stored for _cls, _relative, site in exact if (stored := _stored_parameter_type(site))}
+        )
         if typed:
-            problems.append(f"{label}: void * is a placeholder; the evidence passes it as {typed[0]}")
+            problems.append(f"{label}: void * is a placeholder; the evidence passes or stores it as {typed[0]}")
         if any(site.get("access", "").startswith("deref") for site in strong) and not field.get("unresolved"):
             problems.append(f"{label}: void * is dereferenced; type the pointee or record why in unresolved")
     if not parsed["pointers"] and any(site.get("pointer") for _cls, relative, site in exact):
@@ -616,64 +1066,250 @@ def _field_problems(
 # -- review table -------------------------------------------------------------
 
 
-def render_type_plan(plan: dict[str, Any], layout: dict[str, Any], problems: list[str]) -> str:
+def _cell(text: Any) -> str:
+    """Free text for a Markdown table cell: pipes escaped, line breaks kept, ``<`` not read as HTML."""
+
+    value = str(text).replace("\\", "\\\\").replace("|", "\\|").replace("<", "\\<")
+    return "<br>".join(part.strip() for part in value.splitlines()) if value else ""
+
+
+def _code(text: Any) -> str:
+    """Inline code for a Markdown table cell."""
+
+    value = str(text).replace("|", "\\|")
+    if not value:
+        return ""
+    return f"``{value}``" if "`" in value else f"`{value}`"
+
+
+def _texts(value: Any) -> list[str]:
+    if value is None or value == "" or value == []:
+        return []
+    if isinstance(value, list):
+        return [str(item) for item in value if item not in (None, "")]
+    return [str(value)]
+
+
+def _sample_cell(evidence: list[str], sites: dict[str, dict[str, Any]], limit: int = 3) -> str:
+    samples = []
+    for site in evidence[:limit]:
+        found = sites.get(site)
+        if found:
+            samples.append(f"{_code(site)} {_code(found.get('insn', ''))} in {_code(found.get('function_name', ''))}")
+        else:
+            samples.append(f"{_code(site)} (not in the evidence)")
+    if len(evidence) > limit:
+        samples.append(f"+{len(evidence) - limit} more")
+    return "<br>".join(samples)
+
+
+def _name_evidence_cell(row: dict[str, Any], evidence: TypeEvidence | None) -> str:
+    items = []
+    for text in _texts(row.get("name_evidence")):
+        readable = evidence.readable(text) if evidence is not None and row.get("name_provenance") == "mangled-symbol" else None
+        items.append(_code(text) + (f" = {_code(readable)}" if readable and readable != text else ""))
+    return "<br>".join(items)
+
+
+def _path_of(row: dict[str, Any]) -> str:
+    return f"{row.get('category')}/{_leaf(str(row.get('name')))}"
+
+
+def render_type_plan(
+    plan: dict[str, Any], layout: dict[str, Any], problems: list[str], evidence: TypeEvidence | None = None
+) -> str:
+    """The plan as a Markdown review: overview, forward declarations, invented names, one table per type.
+
+    With ``evidence`` (the reference ELF), mangled name evidence is shown
+    demangled and calls an empty base at a member's end receives are noted
+    on that member.
+    """
+
     sites: dict[str, dict[str, Any]] = {}
-    for cls in layout["classes"]:
+    for cls in layout.get("classes") or []:
         for row in cls["offsets"]:
             for site in row["sites"]:
                 sites.setdefault(site["site"], site)
-    model = _Plan(plan)
+    model = _Plan(plan, evidence)
+    spec = plan.get("layout") or {}
+    types = [row for row in plan.get("types") or [] if isinstance(row, dict)]
+    forwards = [row for row in types if row.get("kind") == "forward"]
+    defined = [row for row in types if row.get("kind") != "forward"]
+    instantiations = [row for row in defined if row.get("instantiation") is not None]
+    end_claims = _end_claims(model, layout) if evidence is not None else {}
     lines = [
-        f"# code-derived type plan {plan.get('work_item_id')}",
-        f"layout {plan.get('layout', {}).get('class')} (with derived: {bool(plan.get('layout', {}).get('with_derived'))}) "
-        f"sha256 {plan.get('layout', {}).get('sha256')}",
-        "provenance: elf-symbol = name from .symtab/RTTI; invented-provisional = invented, review before use",
+        f"# Code-derived type plan `{plan.get('work_item_id')}`",
+        "",
+        "| Item | Value |",
+        "|---|---|",
+        f"| Layout evidence | {_code(spec.get('class'))}{' with its derived classes' if spec.get('with_derived') else ''}, "
+        f"sha256 {_code(spec.get('sha256'))} |",
+        f"| Validation | {'**ok**' if not problems else f'**{len(problems)} problem(s)**, listed under Validation'} |",
+        f"| Types | {len(defined)} defined ({len(instantiations)} template instantiations), {len(forwards)} forward declarations |",
+        "",
+        "Name provenance:",
+        "",
     ]
-    for survey in plan.get("naming_survey") or []:
-        lines.append(f"naming survey: {survey}")
-    for row in plan.get("types") or []:
-        lines.append("")
+    lines.extend(f"- `{key}`: {text}" for key, text in PROVENANCE_KEY)
+    if plan.get("naming_survey"):
+        lines += ["", "## Naming survey", ""]
+        lines.extend(f"- {_cell(text)}" for text in plan["naming_survey"])
+
+    lines += ["", "## Forward declarations", ""]
+    if forwards:
+        lines += [
+            "| Type | Ghidra path | Name proof | Name evidence | Pointed to by | Why no layout |",
+            "|---|---|---|---|---|---|",
+        ]
+        references = model.references()
+        for row in forwards:
+            pointed = "<br>".join(_code(text) for text in references.get(str(row.get("name")), []))
+            lines.append(
+                f"| {_code(row.get('name'))} | {_code(_path_of(row))} | {_code(row.get('name_provenance'))} | "
+                f"{_name_evidence_cell(row, evidence)} | {pointed} | {_cell(row.get('reason', ''))} |"
+            )
+    else:
+        lines.append("None.")
+
+    lines += ["", "## Invented provisional names", ""]
+    invented = []
+    for row in types:
+        if row.get("name_provenance") == INVENTED:
+            invented.append((_code(row.get("name")), f"{row.get('kind')} name", "", _cell("; ".join(_texts(row.get("notes"))))))
+        for field in row.get("fields") or []:
+            if field.get("provenance") != INVENTED:
+                continue
+            where = f"+{_hex(field['offset'])}" if isinstance(field.get("offset"), int) else str(field.get("offset"))
+            if "bit_offset" in field:
+                where += f" bit {field.get('bit_offset')}:{field.get('bit_size')}"
+            notes = "; ".join(_texts(field.get("notes")) + _texts(field.get("unresolved")))
+            invented.append((_code(field.get("name")), f"member of {_code(row.get('name'))} at {where}", _code(field.get("type")), _cell(notes)))
+    if invented:
+        lines += ["| Name | Where | Type | Notes |", "|---|---|---|---|"]
+        lines.extend(f"| {name} | {where} | {type_text} | {notes} |" for name, where, type_text, notes in invented)
+    else:
+        lines.append("None.")
+
+    lines += ["", "## Types"]
+    for row in defined:
+        lines += ["", f"### {_code(row.get('name'))} ({row.get('kind')})", ""]
+        size = row.get("size")
         lines.append(
-            f"## {row.get('name')} [{row.get('kind')}] {row.get('category')}/{_leaf(str(row.get('name')))} "
-            f"size {_hex(row['size']) if isinstance(row.get('size'), int) else row.get('size')} align {row.get('alignment')} "
-            f"name {row.get('name_provenance')}"
+            f"- Ghidra path {_code(_path_of(row))}, size {_hex(size) if isinstance(size, int) else size}, "
+            f"alignment {row.get('alignment')}, name {_code(row.get('name_provenance'))}"
         )
+        if row.get("name_evidence"):
+            lines.append(f"- Name evidence: {_name_evidence_cell(row, evidence).replace('<br>', '; ')}")
         for text in row.get("size_evidence") or []:
-            lines.append(f"  size evidence: {text}")
+            lines.append(f"- Size evidence: {_cell(text)}")
         if row.get("kind") == "vtable" and row.get("opaque"):
-            lines.append(f"  opaque: {row.get('opaque_reason')}")
-        lines.append("  offset  size  type                                      name                      provenance             evidence  sample sites")
-        rows = []
+            lines.append(f"- Opaque: {_cell(row.get('opaque_reason'))}")
+        for text in _texts(row.get("notes")):
+            lines.append(f"- Note: {_cell(text)}")
+        copied = row.get("instantiation")
+        if isinstance(copied, dict):
+            arguments = ", ".join(
+                f"{_code(item.get('from'))} → {_code(item.get('to'))}" for item in copied.get("arguments") or [] if isinstance(item, dict)
+            )
+            lines.append(f"- Copied from {_code(copied.get('source'))} ({copied.get('source_size')} bytes), arguments {arguments}")
+            if isinstance(copied.get("source_layout"), list):
+                lines += ["", "| Source offset | Size | Source type | Source name |", "|---:|---:|---|---|"]
+                for item in copied["source_layout"]:
+                    if isinstance(item, list) and len(item) == 4:
+                        offset = _hex(item[0]) if isinstance(item[0], int) else item[0]
+                        lines.append(f"| {offset} | {item[1]} | {_code(item[2])} | {_code(item[3])} |")
+        if row.get("kind") == "vtable" and row.get("opaque"):
+            continue
+        lines += [
+            "",
+            "| Offset | Size | Type | Name | Provenance | Evidence | Sample sites | Notes |",
+            "|---:|---:|---|---|---|---:|---|---|",
+        ]
+        table = []
         for offset, extent, role, entry in model.components(row):
             if role == "base":
-                rows.append((offset, extent, entry.get("type"), _leaf(str(entry.get("type"))), "rtti base", entry.get("evidence") or []))
+                notes = _texts(entry.get("notes")) + end_claims.get((str(row.get("name")), offset), [])
+                name = _base_component_name(entry.get("type", ""))
+                table.append((offset, extent, entry.get("type"), name, "base", entry.get("evidence") or [], notes))
             elif role == "vptr":
-                rows.append((offset, 4, entry.get("type"), VPTR_NAME, "user decision", entry.get("evidence") or []))
+                table.append((offset, 4, entry.get("type"), VPTR_NAME, "vptr", entry.get("evidence") or [], _texts(entry.get("notes"))))
             elif role == "padding":
-                rows.append((offset, extent, "(padding)", "", "no access", []))
+                table.append((offset, extent, "(padding)", "", "no access", [], _texts(entry.get("reason")) + _texts(entry.get("notes"))))
             elif role == "bits":
                 for field in sorted(entry, key=lambda item: item.get("bit_offset", 0)):
-                    bits = f"{field.get('type')}:{field.get('bit_size')}@bit{field.get('bit_offset')}"
-                    rows.append((offset, extent, bits, field.get("name"), field.get("provenance"), field.get("evidence") or []))
+                    bits = f"{field.get('type')}:{field.get('bit_size')} @ bit {field.get('bit_offset')}"
+                    notes = _texts(field.get("notes")) + [f"unresolved: {text}" for text in _texts(field.get("unresolved"))]
+                    table.append((offset, extent, bits, field.get("name"), field.get("provenance"), field.get("evidence") or [], notes))
             else:
-                rows.append((offset, extent, entry.get("type"), entry.get("name"), entry.get("provenance"), entry.get("evidence") or []))
-        for offset, extent, type_name, name, provenance, evidence in sorted(rows, key=lambda item: (item[0] if isinstance(item[0], int) else -1, str(item[3]))):
-            samples = []
-            for site in evidence[:3]:
-                found = sites.get(site)
-                samples.append(f"{site} {found['insn']}" if found else f"{site} (not in evidence)")
+                notes = (
+                    _texts(entry.get("notes"))
+                    + [f"unresolved: {text}" for text in _texts(entry.get("unresolved"))]
+                    + end_claims.get((str(row.get("name")), offset), [])
+                )
+                table.append((offset, extent, entry.get("type"), entry.get("name"), entry.get("provenance"), entry.get("evidence") or [], notes))
+        for offset, extent, type_text, name, provenance, cited, notes in sorted(
+            table, key=lambda item: (item[0] if isinstance(item[0], int) else -1, str(item[3]))
+        ):
             lines.append(
-                f"  {_hex(offset) if isinstance(offset, int) else offset!s:>6}  {_hex(extent) if isinstance(extent, int) else extent!s:>4}  "
-                f"{str(type_name):<40}  {str(name):<24}  {str(provenance):<21}  {len(evidence):>8}  {'; '.join(samples)}"
+                f"| {_hex(offset) if isinstance(offset, int) else offset} | {_hex(extent) if isinstance(extent, int) else extent} | "
+                f"{_code(type_text)} | {_code(name)} | {provenance or ''} | {len(cited)} | {_sample_cell(list(cited), sites)} | "
+                f"{'<br>'.join(_cell(text) for text in notes)} |"
             )
-        for entry in row.get("outside_accesses") or []:
-            lines.append(f"  outside access {entry.get('site')}: {entry.get('reason')}")
-        for text in row.get("unresolved") or []:
-            lines.append(f"  unresolved: {text}")
-    lines.append("")
-    lines.append(f"validation: {'ok' if not problems else f'{len(problems)} problem(s)'}")
-    lines.extend(f"  - {text}" for text in problems)
+        outside = row.get("outside_accesses") or []
+        if outside:
+            lines += ["", "Accesses beyond the size:", ""]
+            lines.extend(f"- {_code(entry.get('site'))}: {_cell(entry.get('reason'))}" for entry in outside)
+        unresolved = _texts(row.get("unresolved"))
+        if unresolved:
+            lines += ["", "Unresolved:", ""]
+            lines.extend(f"- {_cell(text)}" for text in unresolved)
+
+    lines += ["", "## Validation", ""]
+    lines.append("validation: ok" if not problems else f"validation: {len(problems)} problem(s)")
+    if problems:
+        lines.append("")
+        lines.extend(f"- {_cell(text)}" for text in problems)
     return "\n".join(lines) + "\n"
+
+
+def _end_claims(model: _Plan, layout: dict[str, Any]) -> dict[tuple[str, int], list[str]]:
+    """(plan type, component offset) -> calls that an empty base at the component's end receives."""
+
+    by_class = {row["class"]: row for row in layout.get("classes") or []}
+    index = {row["class"]: {entry["offset"]: list(entry["sites"]) for entry in row["offsets"]} for row in layout.get("classes") or []}
+    claims, _problems = _subobject_claims(model, by_class, index)
+    if not claims:
+        return {}
+    sites = {
+        (cls, offset, site["site"], site.get("register")): site
+        for cls, offsets in index.items() for offset, rows in offsets.items() for site in rows
+    }
+    windows = model.windows(set(by_class))
+    notes: dict[tuple[str, int], set[str]] = defaultdict(set)
+    for name, row in model.types.items():
+        if row.get("kind") not in ("class", "struct"):
+            continue
+        for offset, extent, role, entry in model.components(row):
+            if role not in ("base", "field") or not isinstance(offset, int) or not isinstance(extent, int):
+                continue
+            if not model.composite(parse_type(entry.get("type"))):
+                continue
+            inner, _unknown = model.subobjects(entry.get("type"), extent)
+            at_end = [(inner_name, mode) for inner_offset, inner_name, mode in inner if inner_offset == extent]
+            if not at_end:
+                continue
+            for cls, delta in windows.get(name, ()):
+                for key in claims:
+                    if key[0] != cls or key[1] != delta + offset + extent:
+                        continue
+                    site = sites[key]
+                    target = parameter_class(site.get("parameter_type"))
+                    if target and any(_names_match(target, inner_name, mode) for inner_name, mode in at_end):
+                        notes[(name, offset)].add(
+                            f"{site['site']} ({site.get('callee')}) calls this member's empty {target} at its end "
+                            f"(+{_hex(extent)}), not the next member"
+                        )
+    return {key: sorted(values) for key, values in notes.items()}
 
 
 # -- program ------------------------------------------------------------------
@@ -714,16 +1350,20 @@ def build_type_plan_program(
             spelled += " " + " ".join("*" for _ in range(parsed["pointers"]))
         return spelled + "".join(f"[{count}]" for count in parsed["arrays"])
 
-    # By-value dependencies first (bases and composite members); pointers do not order.
-    dependencies: dict[str, set[str]] = {name: set() for name in model.types}
+    # Forward declarations first; then by-value dependencies first (bases and
+    # composite members); pointers do not order.
+    forwards = sorted((name for name in model.types if model.kind(name) == "forward"), key=lambda name: paths[name])
+    dependencies: dict[str, set[str]] = {name: set() for name in model.types if name not in forwards}
     for name, row in model.types.items():
+        if name in forwards:
+            continue
         for _offset, _size, role, entry in model.components(row):
             if role in ("base", "field"):
                 parsed = parse_type(entry.get("type"))
                 if parsed and not parsed["pointers"] and parsed["base"] in model.types:
                     dependencies[name].add(parsed["base"])
-    order: list[str] = []
-    remaining = {name: set(values) for name, values in dependencies.items()}
+    order: list[str] = list(forwards)
+    remaining = {name: set(values) - set(forwards) for name, values in dependencies.items()}
     while remaining:
         ready = sorted((name for name, values in remaining.items() if not values), key=lambda name: paths[name])
         if not ready:
@@ -746,6 +1386,10 @@ def build_type_plan_program(
             "kind": "struct",
             "structural_class": None,
         }
+        if row["kind"] == "forward":
+            entry.update(route="empty", size=None, expected_layout=[], declaration=True)
+            entries.append(entry)
+            continue
         if row["kind"] == "vtable" and row.get("opaque"):
             entry.update(route="empty", size=None, expected_layout=[])
             entries.append(entry)
@@ -753,7 +1397,7 @@ def build_type_plan_program(
         members = []
         for offset, extent, role, item in model.components(row):
             if role == "base":
-                members.append({"offset": offset, "size": extent, "name": _leaf(item["type"]), "type": render(item["type"])})
+                members.append({"offset": offset, "size": extent, "name": _base_component_name(item["type"]), "type": render(item["type"])})
             elif role == "vptr":
                 members.append({"offset": offset, "size": 4, "name": VPTR_NAME, "type": render(item["type"])})
             elif role == "field":
@@ -789,6 +1433,19 @@ def build_type_plan_program(
     routes: dict[str, int] = defaultdict(int)
     for entry in entries:
         routes[entry["route"]] += 1
+    layout_sources = sorted(
+        (
+            {
+                "type": paths[name],
+                "source": row["instantiation"]["source"],
+                "size": row["instantiation"]["source_size"],
+                "layout": row["instantiation"]["source_layout"],
+            }
+            for name, row in model.types.items()
+            if row.get("instantiation") is not None
+        ),
+        key=lambda item: item["type"],
+    )
     return {
         "kind": APPLY_PROGRAM_KIND,
         "schema_version": APPLY_PROGRAM_SCHEMA,
@@ -804,6 +1461,7 @@ def build_type_plan_program(
         "categories": sorted(categories, key=lambda path: (path.count("/"), path)),
         "types": entries,
         "external_types": sorted(external),
+        "layout_sources": layout_sources,
         "omissions": [],
         "receipt_scope": {"schema_version": 1, "functions": [], "types": sorted(entry["path"] for entry in entries), "globals": []},
         "summary": {
@@ -811,6 +1469,8 @@ def build_type_plan_program(
             "routes": dict(sorted(routes.items())),
             "external_type_count": len(external),
             "category_count": len(categories),
+            "forward_declaration_count": len(forwards),
+            "instantiation_count": len(layout_sources),
         },
     }
 
@@ -878,25 +1538,62 @@ def _bit_line(offset: int, bit: int, width: int, type_name: str, name: str) -> l
     return [offset + bit // 8, (bit % 8 + width + 7) // 8, f"{type_name}:{width}", name]
 
 
-def live_type_problems(program: dict[str, Any], type_index: list[dict[str, Any]]) -> list[str]:
-    """Read-only checks before an apply: targets absent, live references unique and at their paths."""
+def live_type_problems(
+    program: dict[str, Any],
+    type_index: list[dict[str, Any]],
+    layout_of: Any = None,
+) -> list[str]:
+    """Read-only checks before an apply.
+
+    Targets are absent and no live type shares a target's name (ignoring
+    case), so later bare-name references stay unambiguous; a forward
+    declaration's name also has no identity-unresolved ``<name>@<hash>``
+    variant.  Live references and instantiation sources resolve to exactly
+    their paths, and ``layout_of(leaf)`` (the parsed ``get_struct_layout``
+    read-back) of each source equals the recorded source layout.
+    """
 
     problems = []
     by_name: dict[str, list[str]] = defaultdict(list)
+    by_folded: dict[str, list[str]] = defaultdict(list)
     paths = set()
     for row in type_index:
         by_name[row["name"]].append(row["path"])
+        by_folded[row["name"].casefold()].append(row["path"])
         paths.add(row["path"])
     for entry in program["types"]:
         if entry["path"] in paths:
             problems.append(f"{entry['path']} already exists")
         if by_name.get(entry["temp"]):
             problems.append(f"temporary name {entry['temp']} already exists")
+        folded = (entry.get("name") or entry["path"].rsplit("/", 1)[1]).casefold()
+        elsewhere = sorted(path for path in by_folded.get(folded, []) if path != entry["path"])
+        if elsewhere:
+            problems.append(f"{entry['path']}: live types of the same name exist at {elsewhere}")
+        if entry.get("declaration"):
+            variants = sorted(path for name, found in by_folded.items() if name.startswith(folded + "@") for path in found)
+            if variants:
+                problems.append(f"forward declaration {entry['path']}: identity-unresolved live variants {variants} exist; reference one instead")
     for path in program.get("external_types", []):
         leaf = path.rsplit("/", 1)[1]
         found = by_name.get(leaf, [])
         if found != [path]:
             problems.append(f"live type {leaf} resolves to {found or 'nothing'}, not exactly {path}")
+    for source in program.get("layout_sources", []):
+        leaf = source["source"].rsplit("/", 1)[1]
+        found = sorted(by_folded.get(leaf.casefold(), []))
+        if found != [source["source"]]:
+            problems.append(f"instantiation source {leaf} resolves to {found or 'nothing'} (ignoring case), not exactly {source['source']}")
+            continue
+        if "&" in leaf:
+            problems.append(f"instantiation source {leaf}: the bridge truncates names at '&', so its layout cannot be read back")
+            continue
+        if layout_of is None:
+            continue
+        live = layout_of(leaf)
+        recorded = {"size": source["size"], "components": source["layout"]}
+        if live != recorded:
+            problems.append(f"instantiation source {source['source']}: the live layout {live} differs from the plan's source layout {recorded}")
     if any(name.startswith(TEMP_PREFIX) for name in by_name):
         problems.append("the program already contains temporary apply types")
     return problems
@@ -919,7 +1616,12 @@ def affected_groups(root: Path, tracker: dict[str, Any], classes: list[str], pla
 
     ctx = context(root)
     symbols = _Symbols(ctx)
-    wanted = {tuple(split_qualified(name)) for name in classes}
+
+    def readable_key(components: Any) -> tuple[str, ...]:
+        # Readable components without spaces: template instantiations compare with their mangled spelling.
+        return tuple(normalized(readable_component(part)) for part in components or ())
+
+    wanted = {tuple(normalized(part) for part in split_qualified(name)) for name in classes}
     readable = {name: name for name in classes}
     group_of: dict[str, dict[str, Any]] = {}
     for item in tracker.get("work_items", []):
@@ -933,10 +1635,10 @@ def affected_groups(root: Path, tracker: dict[str, Any], classes: list[str], pla
         if not parsed:
             continue
         mentions = set()
-        if tuple(parsed.get("qualifier") or ()) in wanted:
+        if readable_key(parsed.get("qualifier")) in wanted:
             mentions.add("receiver")
         for value in _flatten(parsed.get("params") or []):
-            if value.get("kind") == "class" and tuple(value.get("components") or ()) in wanted:
+            if value.get("kind") == "class" and readable_key(value.get("components")) in wanted:
                 mentions.add("parameter")
         if not mentions:
             continue
@@ -1024,7 +1726,13 @@ def _flatten(values: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def plan_classes(plan: dict[str, Any]) -> list[str]:
-    return sorted(row["name"] for row in plan.get("types") or [] if row.get("kind") in ("class", "struct") and row.get("name_provenance") == "elf-symbol")
+    """Proven (not invented) names of the plan's classes, structs and forward declarations."""
+
+    return sorted(
+        row["name"]
+        for row in plan.get("types") or []
+        if row.get("kind") in ("class", "struct", "forward") and row.get("name_provenance") in ("elf-symbol", *NAME_PROOFS)
+    )
 
 
 __all__ = [

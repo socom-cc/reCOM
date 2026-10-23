@@ -329,7 +329,8 @@ instruction evidence only, as a reviewed type plan and a governed apply:
 python tools/socom.py progress add-type-plan --class zdb::CVisual --with-derived --expected-revision <n>
 python tools/socom.py recon layout --class zdb::CVisual --with-derived --output build/type-plans/zdb-cvisual-layout.txt
 python tools/socom.py recon type-plan validate --plan build/type-plans/zdb-cvisual.json
-python tools/socom.py recon type-plan show --plan build/type-plans/zdb-cvisual.json
+python tools/socom.py recon type-plan show --plan build/type-plans/zdb-cvisual.json --output build/type-plans/zdb-cvisual-review.md
+python tools/socom.py recon type-plan live --plan build/type-plans/zdb-cvisual.json
 python tools/socom.py recon type-plan program --plan build/type-plans/zdb-cvisual.json --output build/apply/<item>.json
 python tools/socom.py ghidra apply-type-plan --program build/apply/<item>.json --item <apply-item> --owner <owner> --scope-output build/receipts/<item>-scope.json --report-output build/apply/<item>-report.json --dry-run
 python tools/socom.py recon type-plan affected --plan build/type-plans/zdb-cvisual.json
@@ -361,23 +362,70 @@ python tools/socom.py recon type-plan affected --plan build/type-plans/zdb-cvisu
   proven), fields with evidence sites, padding, accesses beyond the size with
   reasons, and unresolved notes. Invented names are `C`/`tag_`/`m_` names
   marked `invented-provisional`, after a naming survey of neighbouring
-  DWARF classes.
+  DWARF classes. Every type spelling is a Ghidra builtin, a plan type or a
+  `/project/...` live path.
+- Names a type plan does not invent are proven: `elf-symbol` (a layout
+  class), or `name_evidence` for `mangled-symbol` (mangled `.symtab` names in
+  which the type is a member qualifier, a parameter type or a template
+  argument), `rtti` (the `__RTTI__` object) or `dwarf` (a record of that leaf
+  name). Nested helper types (`zdb::CMesh::CMeshLOD`, category
+  `/project/zdb/CMesh`) are planned like any other type when evidence
+  reaches them by value.
+- A `forward` type declares a proven name without layout evidence
+  (`zdb::tag_DETAIL_PARAMS`, named only by `VuDetailMap`/`VuBatchProgram`
+  parameters): no size, bases or fields, a `reason`, and at least one plan
+  member pointing to it; it is never used by value or as a base. The program
+  creates forward declarations first, as empty structures (the route the
+  DWARF import used for declaration-only types and the opaque vtables use).
+- A template instantiation that no live type provides
+  (`std::vector<zdb::CMesh::CMeshLOD, ...>`, its `__vector_imp` and
+  `__vector_deleter`) gives `instantiation`: the live `source` of the same
+  template and namespace, the `arguments` (`from` -> `to`) whose substitution
+  turns the source's name into the plan's, and the source's
+  `get_struct_layout` rows (`source_size`, `source_layout`). Each row becomes
+  a base (a stage-2 `super_<identifier>` component; the plan names it by the
+  base type without template arguments) or a `template-copy` field with the
+  source member's name, offset and size, typed as the source member with the
+  arguments substituted (`CLOD_band *` becomes `zdb::CMesh::CMeshLOD *`;
+  members that do not mention an argument are copied unchanged). A DWARF
+  record of the template must have the same members and bases. Copied
+  members need no cited evidence, but every access inside the instantiation
+  must agree with them; a vector is never flattened into words.
+- A call that passes `this+N` as `T *` or `T &` proves a `T` sub-object at
+  `+N`. Validation matches every such call against the plan's sub-objects:
+  plan types, and the DWARF bases and by-value members of live types, empty
+  bases included. A call on an empty base at a member's end
+  (`Metrowerks::compile_assert<1>` after `CVisual::m_dynTexList`'s second
+  vector, `0x30df0c`) belongs to that member, not to the next field; a call
+  that no sub-object explains is a problem, unless it lies inside a by-value
+  live type without a DWARF record.
 - `recon type-plan validate` regenerates the evidence and refuses a plan
   whose layout digest differs, a field without a matching access, a size
   that differs from allocations, overlaps or uncovered bytes, accessed
   padding, contradicted widths, kinds or signedness, placeholders
-  (`void *`, `undefinedN`, byte arrays) where the evidence is stronger, or a
-  base the RTTI does not list. Evidence for a base's fields may come from
-  any class that embeds it. `show` prints the review table.
-- `recon type-plan program` writes the type apply program (temporary names,
-  read-back of every layout, then category moves and renames); `ghidra
-  apply-type-plan` applies it with the type executor under the writer lease
-  after checking the accepted plan's digest and, read-only, that no target
-  exists and every live type it names resolves to exactly one path
-  (`--dry-run` stops there). Hand off with `progress handoff-live-ghidra`.
+  (`void *`, `undefinedN`, byte arrays) where the evidence is stronger (a
+  typed pointer passed or a typed pointer parameter stored), unproven names,
+  or a base the RTTI does not list. Evidence for a base's fields may come
+  from any class that embeds it. `show` prints a Markdown review: forward
+  declarations, every invented-provisional name, and per type a table of
+  offset, size, type, name, provenance, evidence count, sample sites
+  (instruction and function) and notes (field notes and unresolved text),
+  then outside accesses, unresolved notes and the validation result.
+- `recon type-plan live` runs the apply's read-only live checks before
+  handoff: no target exists, no live type shares a target's name (ignoring
+  case), no forward-declared name has a live or `<name>@<hash>` variant, and
+  every referenced live type and instantiation source resolves to exactly
+  one path, each source's live layout equal to its recorded `source_layout`.
+- `recon type-plan program` writes the type apply program (forward
+  declarations first, temporary names, read-back of every layout, then
+  category moves and renames); `ghidra apply-type-plan` applies it with the
+  type executor under the writer lease after checking the accepted plan's
+  digest and repeating the live checks (`--dry-run` stops there). Hand off
+  with `progress handoff-live-ghidra`.
 - After the apply, `recon type-plan affected` lists the groups whose rows
-  were left unresolved for these classes (`replan` before their apply,
-  `after-apply` once applied) and the groups not yet planned.
+  were left unresolved for the plan's proven names (classes, structs and
+  forward declarations; `replan` before their apply, `after-apply` once
+  applied) and the groups not yet planned.
 
 ## Stage gate
 

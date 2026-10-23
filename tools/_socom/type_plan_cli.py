@@ -27,6 +27,14 @@ def specs(spec: Any) -> tuple[Any, ...]:
         spec("recon type-plan validate", "recon", "Check a code-derived type plan against regenerated layout evidence."),
         spec("recon type-plan show", "recon", "Render a code-derived type plan as a review table with its validation."),
         spec(
+            "recon type-plan live",
+            "recon",
+            "Check a valid code-derived type plan against the live program, read-only: no target or forward-declared "
+            "name exists, and every referenced live type and instantiation source resolves exactly once with the "
+            "recorded layout.",
+            ghidra_requirement="required",
+        ),
+        spec(
             "recon type-plan program",
             "recon",
             "Translate a valid code-derived type plan into a type apply program.",
@@ -70,6 +78,10 @@ def register(recon_commands: Any, ghidra_commands: Any, progress_commands: Any) 
     show.add_argument("--plan", required=True)
     show.add_argument("--output")
     show.set_defaults(handler=_type_plan_show)
+    live = type_plan_commands.add_parser("live")
+    live.add_argument("--plan", required=True)
+    live.add_argument("--bridge-url")
+    live.set_defaults(handler=_type_plan_live)
     program = type_plan_commands.add_parser("program")
     program.add_argument("--plan", required=True)
     program.add_argument("--output", required=True)
@@ -173,14 +185,49 @@ def _type_plan_validate(arguments: argparse.Namespace) -> int:
 def _type_plan_show(arguments: argparse.Namespace) -> int:
     from .cli import _build_path
     from .type_plan import render_type_plan, validate_type_plan
+    from .type_plan_evidence import TypeEvidence
     from .util import atomic_write_text
 
     root, _plan_path, plan, layout, tracker = _load_plan(arguments)
     problems = validate_type_plan(root, tracker, plan, layout) if layout["classes"] else ["layout.class is missing"]
-    text = render_type_plan(plan, layout, problems)
+    text = render_type_plan(plan, layout, problems, TypeEvidence(root))
     if arguments.output:
         atomic_write_text(_build_path(root, arguments.output, "type plan reviews"), text)
     sys.stdout.write(text)
+    return 0 if not problems else 1
+
+
+def _live_layout_reader(bridge: Any) -> Any:
+    from .type_apply import parse_struct_layout
+
+    return lambda leaf: parse_struct_layout(bridge.request("get_struct_layout", struct_name=leaf))
+
+
+def _type_plan_live(arguments: argparse.Namespace) -> int:
+    from .cli import _emit
+    from .ghidra import GhidraBridge, _type_index
+    from .type_plan import build_type_plan_program, live_type_problems
+    from .util import sha256_file
+
+    root, plan_path, _plan, layout, tracker = _load_plan(arguments)
+    program = build_type_plan_program(root, tracker, plan_path, layout)
+    bridge = GhidraBridge(arguments.bridge_url, timeout=300.0)
+    problems = live_type_problems(program, _type_index(bridge), _live_layout_reader(bridge))
+    _emit(
+        {
+            "ok": not problems,
+            "mutation_performed": False,
+            "plan": arguments.plan,
+            "sha256": sha256_file(plan_path),
+            "checked": {
+                "types": len(program["types"]),
+                "forward_declarations": sum(1 for entry in program["types"] if entry.get("declaration")),
+                "external_types": len(program["external_types"]),
+                "layout_sources": len(program["layout_sources"]),
+            },
+            "live_problems": problems,
+        }
+    )
     return 0 if not problems else 1
 
 
@@ -262,7 +309,7 @@ def _ghidra_apply_type_plan(arguments: argparse.Namespace) -> int:
         "plan": program["plan"],
         "summary": program["summary"],
     }
-    problems = live_type_problems(program, _type_index(bridge))
+    problems = live_type_problems(program, _type_index(bridge), _live_layout_reader(bridge))
     if problems or arguments.dry_run:
         report = {**base, "ok": not problems, "live_problems": problems, "writes": 0}
         atomic_write_json(report_output, report)

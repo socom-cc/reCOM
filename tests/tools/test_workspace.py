@@ -238,7 +238,7 @@ def _leaf_commands(parser: argparse.ArgumentParser, prefix: tuple[str, ...] = ()
 
 def test_command_registry_exactly_matches_parser() -> None:
     registered = {row.path for row in COMMAND_SPECS}
-    assert len(registered) == len(COMMAND_SPECS) == 123
+    assert len(registered) == len(COMMAND_SPECS) == 124
     assert _leaf_commands(build_parser()) == registered
 
 
@@ -264,7 +264,12 @@ def test_tracker_file_is_valid_and_source_is_unverified(root: Path) -> None:
     assert groups == 329
     recon = [row for row in tracker["work_items"] if row["kind"] in ("recon-plan-group", "recon-apply-group")]
     assert len(recon) == 2 * groups
-    assert len(tracker["work_items"]) - len(repairs) - len(recon) == 91
+    # Code-derived type plans join through `progress add-type-plan`: a plan and an apply item per class.
+    from tools._socom.tracker import TYPE_APPLY_KIND, TYPE_PLAN_KIND
+
+    type_plans = [row for row in tracker["work_items"] if row["kind"] in (TYPE_PLAN_KIND, TYPE_APPLY_KIND)]
+    assert len([row for row in type_plans if row["kind"] == TYPE_PLAN_KIND]) * 2 == len(type_plans)
+    assert len(tracker["work_items"]) - len(repairs) - len(recon) - len(type_plans) == 91
     assert len(
         [row for row in tracker["work_items"] if "-plan-" in row["kind"] and row not in recon]
     ) == 41

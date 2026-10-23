@@ -136,6 +136,11 @@ def test_type_spelling_parser() -> None:
     assert parse_type("zdb::CVisual * *") == {"base": "zdb::CVisual", "pointers": 2, "arrays": []}
     assert parse_type("/project/_word128 *[4]") == {"base": "/project/_word128", "pointers": 1, "arrays": [4]}
     assert parse_type("") is None
+    # Template arguments stay in the base, pointer arguments included.
+    assert parse_type("std::vector<zdb::CTexPalette*, std::allocator<zdb::CTexPalette*>> *") == {
+        "base": "std::vector<zdb::CTexPalette*, std::allocator<zdb::CTexPalette*>>", "pointers": 1, "arrays": [],
+    }
+    assert parse_type("a*b") is None and parse_type("X<int") is None
 
 
 def test_valid_synthetic_plan_passes_and_renders() -> None:
@@ -477,3 +482,378 @@ def test_apply_command_checks_the_contract_then_runs_the_type_executor(
     calls = len(bridges)
     code, result = run("ghidra", "apply-type-plan", *common)
     assert code == 2 and "stale or edited" in result["error"] and len(bridges) == calls
+
+
+# -- forward declarations, sub-object attribution, template instantiations ------
+
+DETAIL = "zdb::tag_DETAIL_PARAMS"
+DETAIL_SYMBOLS = [
+    "VuDetailMap__Q23zdb7CVisualFP8_word128PQ23zdb17tag_DETAIL_PARAMS",
+    "VuBatchProgram__Q23zdb7CVisualFP8_word128P16tag_ObjectHeaderPQ23zdb17tag_DETAIL_PARAMS",
+]
+LOD = "zdb::CMesh::CMeshLOD"
+VEC = f"std::vector<{LOD}, std::allocator<{LOD}>>"
+IMP = f"std::__vector_imp<{LOD}, std::allocator<{LOD}>, 0>"
+DEL = f"std::__vector_deleter<{LOD}, std::allocator<{LOD}>>"
+SEQ = "Particle::SequenceEntry<float>"
+
+
+def _forward(name: str = DETAIL, symbols: list[str] | None = None, **extra) -> dict:
+    return {
+        "name": name, "kind": "forward", "category": plans.expected_category(name), "name_provenance": "mangled-symbol",
+        "name_evidence": list(DETAIL_SYMBOLS if symbols is None else symbols), "reason": "no layout evidence", **extra,
+    }
+
+
+def _forward_plan(layout: dict) -> dict:
+    plan = _plan(layout)
+    _types(plan)["zdb::CTest"]["fields"][0]["type"] = f"{DETAIL} *"
+    plan["types"].append(_forward())
+    return plan
+
+
+def test_forward_declarations_are_proven_pointer_targets_created_first(root: Path, tmp_path: Path) -> None:
+    layout = _layout()
+    plan = _forward_plan(layout)
+    assert validate_type_plan(root, None, plan, layout) == []
+
+    def problems(mutate) -> list[str]:
+        broken = copy.deepcopy(plan)
+        mutate(broken)
+        return validate_type_plan(root, None, broken, layout)
+
+    expected = [
+        (lambda p: _types(p)["zdb::CTest"]["fields"][0].update(type=DETAIL), "can only be pointed to"),
+        (lambda p: _types(p)[DETAIL].update(name_evidence=["Init__Q23zdb14CMeshDecalPoolFUiUi"]), "does not name zdb::tag_DETAIL_PARAMS"),
+        (lambda p: _types(p)[DETAIL].update(name_evidence=["NoSuchSymbol__Fv"]), "is not an ELF symbol"),
+        (lambda p: _types(p)[DETAIL].update(name_provenance="invented-provisional"), "a forward declaration's name is proven"),
+        (lambda p: _types(p)[DETAIL].update(size=16, fields=[]), "has no layout (size)"),
+        (lambda p: _types(p)[DETAIL].pop("reason"), "records why no layout is planned"),
+        (lambda p: _types(p)["zdb::CTest"]["fields"][0].update(type="zdb::tag_TEST *"), "no plan member points to"),
+        (lambda p: p["types"].remove(_types(p)[DETAIL]), "type base zdb::tag_DETAIL_PARAMS is not a Ghidra builtin"),
+    ]
+    for mutate, text in expected:
+        found = problems(mutate)
+        assert any(text in item for item in found), (text, found)
+
+    path = tmp_path / "plan.json"
+    path.write_text(json.dumps(plan), encoding="utf-8")
+    program = build_type_plan_program(root, None, path, layout)
+    first = program["types"][0]
+    assert first["path"] == "/project/zdb/tag_DETAIL_PARAMS" and first["declaration"] is True
+    assert first["route"] == "empty" and first["size"] is None and first["expected_layout"] == []
+    assert program["summary"]["forward_declaration_count"] == 1
+    test_entry = next(entry for entry in program["types"] if entry["path"] == "/project/zdb/CTest")
+    assert next(field for field in test_entry["fields"] if field["name"] == "m_next")["type"] == f"{first['temp']} *"
+    bridge = _Bridge(program)
+    assert type_apply.execute_apply_program(program, bridge, type_index=bridge.index)["ok"] is True
+    created = [body["name"] for endpoint, body in bridge.calls if endpoint == "create_struct"]
+    assert created[0] == first["temp"]  # created first, as an empty structure
+
+    # Live: the name must not exist anywhere, nor as an identity-unresolved variant.
+    assert live_type_problems(program, []) == []
+    for row in ({"name": "tag_DETAIL_PARAMS", "path": "/project/other/tag_DETAIL_PARAMS"},
+                {"name": "tag_DETAIL_PARAMS@0123456789", "path": "/project/unresolved/tag_DETAIL_PARAMS@0123456789"}):
+        assert any("tag_DETAIL_PARAMS" in text for text in live_type_problems(program, [row])), row
+
+
+def _subobject_layout() -> dict:
+    """zdb::CTest (0x20): a CDynTexList at +0x4 whose second vector's empty compile_assert base ends at +0x1c."""
+
+    sites = [
+        _site("0x100000", 0x0, "load", width=4, kind="int"),
+        _site("0x100004", 0x4, "address-passed", register="a0", parameter_type="zdb::CDynTexList * (receiver)",
+              callee="zdb::CDynTexList::Add(zdb::CTexHandle*, bool)"),
+        _site("0x100008", 0x10, "address-passed", register="a0", parameter_type="Metrowerks::compile_assert<1> * (receiver)",
+              callee="Metrowerks::compile_assert<1>::__ct(void)"),
+        _site("0x10000c", 0x1c, "address-passed", register="a0", parameter_type="Metrowerks::compile_assert<1> * (receiver)",
+              callee="Metrowerks::compile_assert<1>::__ct(void)"),
+        _site("0x100010", 0x1c, "load", width=4, kind="int"),
+        _site("0x100014", 0x1c, "deref-load", pointer=True, pointee_width=2, pointee_kind="int", through="+0x8"),
+    ]
+    rows: dict[int, list[dict]] = {}
+    for site in sites:
+        rows.setdefault(site["offset"], []).append(site)
+    return {
+        "kind": "socom-type-layout-evidence", "schema_version": 1, "class": "zdb::CTest", "with_derived": False,
+        "classes": [{
+            "class": "zdb::CTest", "role": "requested", "size_evidence": [0x20], "bases": [], "vtable": None,
+            "offsets": [{"offset": offset, "sites": rows[offset], "conflicts": []} for offset in sorted(rows)], "object_passes": [],
+        }],
+    }
+
+
+def _subobject_plan(layout: dict, pointer: str = f"{DETAIL} *") -> dict:
+    return {
+        "kind": "socom-code-type-plan", "schema_version": 1, "work_item_id": type_plan_item_id("zdb::CTest"),
+        "target": {"source_sha256": REFERENCE_SHA256},
+        "layout": {"class": "zdb::CTest", "with_derived": False, "sha256": layout_sha256(layout)},
+        "naming_survey": ["test fixture"],
+        "types": [
+            {
+                "name": "zdb::CTest", "kind": "class", "category": "/project/zdb", "name_provenance": "elf-symbol",
+                "size": 0x20, "alignment": 4,
+                "fields": [
+                    _field(0, 4, "uint", "m_flags", ["0x100000"]),
+                    _field(4, 0x18, "/project/zdb/CDynTexList", "m_lists", ["0x100004"]),
+                    _field(0x1c, 4, pointer, "m_detail", ["0x100010", "0x100014"], unresolved="pointee not planned"),
+                ],
+            },
+            _forward(),
+        ],
+    }
+
+
+def test_a_call_on_an_empty_base_at_an_objects_end_belongs_to_that_object(root: Path) -> None:
+    from tools._socom.type_plan_evidence import TypeEvidence
+
+    # DWARF: CDynTexList (24 bytes) holds two 12-byte vectors whose __vector_imp has an
+    # empty compile_assert base at +0xc, so one lies at +0x18, the object's end.
+    nested = TypeEvidence(root).nested("CDynTexList", 24)
+    assert {(0, "CDynTexList"), (0xC, "compile_assert"), (0x18, "compile_assert")} <= nested
+    layout = _subobject_layout()
+    plan = _subobject_plan(layout)
+    # Regression: the compile_assert<1> constructor at +0x1c (0x10000c) was attributed to the
+    # pointer field m_detail, which then failed against the receiver type.
+    assert validate_type_plan(root, None, plan, layout) == []
+    problems = validate_type_plan(root, None, _subobject_plan(layout, "void *"), layout)
+    assert not any("compile_assert" in text for text in problems), problems
+    # Citing the claimed call as the field's evidence is refused.
+    cited = copy.deepcopy(plan)
+    _types(cited)["zdb::CTest"]["fields"][2]["evidence"].append("0x10000c")
+    assert any("sub-object that lies there, not this field" in text for text in validate_type_plan(root, None, cited, layout))
+    # Without the CDynTexList the calls on +0x4, +0x10 and +0x1c have no sub-object and are problems.
+    flat = copy.deepcopy(plan)
+    _types(flat)["zdb::CTest"]["fields"][1] = _field(4, 0x18, "undefined4[6]", "m_words", ["0x100004"])
+    problems = validate_type_plan(root, None, flat, layout)
+    for offset in ("0x4", "0x10", "0x1c"):
+        assert any(f"passes this+{offset} as" in text and "sub-object" in text for text in problems), (offset, problems)
+    rendered = render_type_plan(plan, layout, [], TypeEvidence(root))
+    assert "0x10000c" in rendered and "calls this member's empty Metrowerks::compile_assert\\<1> at its end (+0x18)" in rendered
+
+
+def _instantiation_layout() -> dict:
+    """zdb::CTest (0x10): a uint, then std::vector<zdb::CMesh::CMeshLOD> at +0x4."""
+
+    sites = [
+        _site("0x100000", 0x0, "load", width=4, kind="int"),
+        _site("0x100004", 0x4, "address-passed", register="a0", parameter_type=f"{IMP} * (receiver)", callee=f"{IMP}::reserve(unsigned int)"),
+        _site("0x100008", 0x4, "address-passed", register="a0", callee="first(void)",
+              parameter_type=f"Metrowerks::details::compressed_pair_imp<std::allocator<{LOD}>, unsigned int, 1> * (receiver)"),
+        _site("0x10000c", 0x8, "load", width=4, kind="int"),
+        _site("0x100010", 0xC, "deref-load", pointer=True, pointee_width=4, pointee_kind="int", through="+0x4"),
+    ]
+    rows: dict[int, list[dict]] = {}
+    for site in sites:
+        rows.setdefault(site["offset"], []).append(site)
+    return {
+        "kind": "socom-type-layout-evidence", "schema_version": 1, "class": "zdb::CTest", "with_derived": False,
+        "classes": [{
+            "class": "zdb::CTest", "role": "requested", "size_evidence": [0x10], "bases": [], "vtable": None,
+            "offsets": [{"offset": offset, "sites": rows[offset], "conflicts": []} for offset in sorted(rows)], "object_passes": [],
+        }],
+    }
+
+
+def _instantiation_plan(layout: dict) -> dict:
+    copy_field = lambda offset, type_name, name, evidence: {  # noqa: E731
+        "offset": offset, "size": 4, "type": type_name, "name": name, "provenance": "template-copy", "evidence": evidence,
+    }
+    return {
+        "kind": "socom-code-type-plan", "schema_version": 1, "work_item_id": type_plan_item_id("zdb::CTest"),
+        "target": {"source_sha256": REFERENCE_SHA256},
+        "layout": {"class": "zdb::CTest", "with_derived": False, "sha256": layout_sha256(layout)},
+        "naming_survey": ["test fixture"],
+        "types": [
+            {
+                "name": "zdb::CTest", "kind": "class", "category": "/project/zdb", "name_provenance": "elf-symbol",
+                "size": 0x10, "alignment": 4,
+                "fields": [_field(0, 4, "uint", "m_flags", ["0x100000"]), _field(4, 12, VEC, "m_lods", ["0x100004"])],
+            },
+            {
+                "name": VEC, "kind": "class", "category": "/project/std", "name_provenance": "template-instantiation",
+                "size": 12, "alignment": 4, "bases": [{"type": IMP, "offset": 0}],
+                "instantiation": {
+                    "source": f"/project/std/vector<{SEQ}, std::allocator<{SEQ}>>", "arguments": [{"from": SEQ, "to": LOD}],
+                    "source_size": 12,
+                    "source_layout": [[0, 12, f"__vector_imp<{SEQ}, std::allocator<{SEQ}>, 0>",
+                                       "super_vector_imp_Particle_SequenceEntry_float_std_allocator_Particle_SequenceEntry_float_0"]],
+                },
+            },
+            {
+                "name": IMP, "kind": "class", "category": "/project/std", "name_provenance": "mangled-symbol",
+                "name_evidence": ["reserve__Q23std78__vector_imp<Q33zdb5CMesh8CMeshLOD,Q23std32allocator<Q33zdb5CMesh8CMeshLOD>,0>FUi"],
+                "size": 12, "alignment": 4, "bases": [{"type": DEL, "offset": 0}],
+                "instantiation": {
+                    "source": "/project/std/__vector_imp<zdb::CLOD_band, std::allocator<zdb::CLOD_band>, 0>",
+                    "arguments": [{"from": "zdb::CLOD_band", "to": LOD}], "source_size": 12,
+                    "source_layout": [[0, 12, "__vector_deleter<zdb::CLOD_band, std::allocator<zdb::CLOD_band>>",
+                                       "super_vector_deleter_zdb_CLOD_band_std_allocator_zdb_CLOD_band"]],
+                },
+            },
+            {
+                "name": DEL, "kind": "class", "category": "/project/std", "name_provenance": "mangled-symbol",
+                "name_evidence": ["data__Q23std80__vector_deleter<Q33zdb5CMesh8CMeshLOD,Q23std32allocator<Q33zdb5CMesh8CMeshLOD>>Fv"],
+                "size": 12, "alignment": 4,
+                "instantiation": {
+                    "source": "/project/std/__vector_deleter<zdb::CLOD_band, std::allocator<zdb::CLOD_band>>",
+                    "arguments": [{"from": "zdb::CLOD_band", "to": LOD}], "source_size": 12,
+                    "source_layout": [[0, 4, "compressed_pair@30d44a8521", "capacity_"], [4, 4, "uint", "size_"], [8, 4, "CLOD_band *", "data_"]],
+                },
+                "fields": [
+                    copy_field(0, "/project/unresolved/compressed_pair@30d44a8521", "capacity_", []),
+                    copy_field(4, "uint", "size_", ["0x10000c"]),
+                    copy_field(8, f"{LOD} *", "data_", ["0x100010"]),
+                ],
+            },
+            _forward(LOD, ["insert__Q23std78__vector_imp<Q33zdb5CMesh8CMeshLOD,Q23std32allocator<Q33zdb5CMesh8CMeshLOD>,0>FPQ33zdb5CMesh8CMeshLODUiRCQ33zdb5CMesh8CMeshLOD"]),
+        ],
+    }
+
+
+def test_template_instantiations_copy_a_live_layout_with_substituted_arguments(root: Path, tmp_path: Path) -> None:
+    layout = _instantiation_layout()
+    plan = _instantiation_plan(layout)
+    assert validate_type_plan(root, None, plan, layout) == []
+
+    def problems(mutate) -> list[str]:
+        broken = copy.deepcopy(plan)
+        mutate(broken)
+        return validate_type_plan(root, None, broken, layout)
+
+    def rename_member(p: dict) -> None:
+        _types(p)[DEL]["instantiation"]["source_layout"][1][3] = "count_"
+        _types(p)[DEL]["fields"][1]["name"] = "count_"
+
+    def flatten(p: dict) -> None:
+        _types(p)["zdb::CTest"]["fields"][1:] = [
+            _field(4, 4, "uint", "m_capacity", ["0x100004"]), _field(8, 4, "uint", "m_count", ["0x10000c"]),
+            _field(12, 4, f"{LOD} *", "m_data", ["0x100010"]),
+        ]
+        p["types"] = [row for row in p["types"] if not row["name"].startswith("std::")]
+
+    expected = [
+        (flatten, f"passes this+0x4 as {IMP} * (receiver)"),
+        (rename_member, "no DWARF record of __vector_deleter (12 bytes)"),
+        (lambda p: _types(p)[DEL]["fields"][2].update(type="/project/zdb/CLOD_band *"), "with the arguments substituted is CMeshLOD *"),
+        (lambda p: _types(p)[DEL]["fields"][1].update(type="float"), "contradicts float"),
+        (lambda p: _types(p)[VEC]["instantiation"]["arguments"][0].update(to="zdb::CMesh::COther"), "gives vector<zdb::CMesh::COther"),
+        (lambda p: _types(p)[VEC]["instantiation"].update(source="/project/std/__vector_imp<zdb::CLOD_band, std::allocator<zdb::CLOD_band>, 0>"),
+         "is not an instantiation of the template vector"),
+        (lambda p: _types(p)[DEL]["fields"][1].update(provenance="invented-provisional", name="m_size"), "keeps the source member name size_"),
+        (lambda p: _types(p)[IMP]["bases"][0].update(name=DEL), "named __vector_deleter, the bare base type name"),
+    ]
+    for mutate, text in expected:
+        found = problems(mutate)
+        assert any(text in item for item in found), (text, found)
+
+    path = tmp_path / "plan.json"
+    path.write_text(json.dumps(plan), encoding="utf-8")
+    program = build_type_plan_program(root, None, path, layout)
+    entries = {entry["path"]: entry for entry in program["types"]}
+    vector = entries[f"/project/std/vector<{LOD}, std::allocator<{LOD}>>"]
+    assert [field["name"] for field in vector["fields"]] == ["__vector_imp"]
+    assert [source["source"] for source in program["layout_sources"]] == [
+        "/project/std/__vector_deleter<zdb::CLOD_band, std::allocator<zdb::CLOD_band>>",
+        "/project/std/__vector_imp<zdb::CLOD_band, std::allocator<zdb::CLOD_band>, 0>",
+        f"/project/std/vector<{SEQ}, std::allocator<{SEQ}>>",
+    ]
+    bridge = _Bridge(program)
+    assert type_apply.execute_apply_program(program, bridge, type_index=bridge.index)["ok"] is True
+
+    # Live: each source resolves exactly once and its read-back equals the recorded layout.
+    index = [{"name": source["source"].rsplit("/", 1)[1], "path": source["source"]} for source in program["layout_sources"]]
+    index.append({"name": "compressed_pair@30d44a8521", "path": "/project/unresolved/compressed_pair@30d44a8521"})
+    recorded = {source["source"].rsplit("/", 1)[1]: {"size": source["size"], "components": source["layout"]} for source in program["layout_sources"]}
+    assert live_type_problems(program, index, recorded.get) == []
+    changed = dict(recorded)
+    changed[index[0]["name"]] = {"size": 12, "components": [[0, 12, "x", "y"]]}
+    assert any("differs from the plan's source layout" in text for text in live_type_problems(program, index, changed.get))
+    assert any("resolves to nothing" in text for text in live_type_problems(program, index[1:], recorded.get))
+
+
+def test_void_pointer_placeholders_for_stored_typed_parameters_are_refused() -> None:
+    layout = _layout()
+    layout["classes"][0]["offsets"].append(
+        {"offset": 0x18, "sites": [_site("0x100018", 0x18, "store", width=4, kind="int", value="entry a1 (zdb::CMesh*)")], "conflicts": []}
+    )
+    plan = _plan(layout)
+    test = _types(plan)["zdb::CTest"]
+    test["padding"] = [{"offset": 0x1C, "size": 4, "reason": "no access"}]
+    test["fields"].append(_field(0x18, 4, "void *", "m_mesh", ["0x100018"]))
+    assert any("stores it as zdb::CMesh*" in text for text in validate_type_plan(Path("."), None, plan, layout))
+
+
+def test_show_is_a_markdown_review_with_notes_samples_forwards_and_invented_names(root: Path) -> None:
+    layout = _layout()
+    for row in layout["classes"][0]["offsets"]:
+        for site in row["sites"]:
+            site["insn"] = f"insn-{site['site']}"
+    plan = _forward_plan(layout)
+    test = _types(plan)["zdb::CTest"]
+    test["fields"][1]["notes"] = "scale for vector<T> | proven by 0x100010"
+    test["fields"][0]["unresolved"] = "the pointee record layout is not planned"
+    test["unresolved"] = ["the meaning of m_unknown is not proven"]
+    text = render_type_plan(plan, layout, [])
+    assert "## Forward declarations" in text and "| `zdb::tag_DETAIL_PARAMS` | `/project/zdb/tag_DETAIL_PARAMS` |" in text
+    assert "`zdb::CTest.m_next`" in text
+    assert "## Invented provisional names" in text and "| `m_scale` | member of `zdb::CTest` at +0x10 | `float` |" in text
+    assert "| Offset | Size | Type | Name | Provenance | Evidence | Sample sites | Notes |" in text
+    assert "`0x100010` `insn-0x100010` in `zdb::CTest::f(void)`" in text
+    assert "scale for vector\\<T> \\| proven by 0x100010" in text
+    assert "unresolved: the pointee record layout is not planned" in text
+    assert "- the meaning of m_unknown is not proven" in text
+    assert text.rstrip().endswith("validation: ok")
+    # With the ELF, mangled name evidence is shown demangled.
+    from tools._socom.type_plan_evidence import TypeEvidence
+
+    assert "zdb::CVisual::VuDetailMap(_word128*, zdb::tag_DETAIL_PARAMS*)" in render_type_plan(plan, layout, [], TypeEvidence(root))
+
+
+def test_evidence_helpers_parse_parameters_and_substitute_arguments() -> None:
+    from tools._socom.type_plan_evidence import parameter_class, substitute
+
+    assert parameter_class("zdb::CDynTexList * (receiver)") == "zdb::CDynTexList"
+    assert parameter_class("std::__vector_pod<unsigned int, std::allocator<unsigned int>> const&") == (
+        "std::__vector_pod<unsigned int, std::allocator<unsigned int>>"
+    )
+    assert parameter_class("unsigned int*") is None and parameter_class("void*") is None
+    assert parameter_class("zdb::CTexHandle**") is None and parameter_class("void (*)(int)") is None
+    pairs = [(SEQ, LOD)]
+    assert substitute(f"__vector_imp<{SEQ}, std::allocator<{SEQ}>, 0>", pairs) == f"__vector_imp<{LOD}, std::allocator<{LOD}>, 0>"
+    assert substitute("CLOD_band", [("zdb::CLOD_band", LOD)], bare=True) == "CMeshLOD"
+    assert substitute("uint", [("unsigned int", "zdb::CKey")], bare=True) == "CKey"
+    # A builtin is not replaced inside a longer builtin.
+    assert substitute("vector<unsigned int, std::allocator<unsigned int>>", [("int", "short")]) == "vector<unsigned int, std::allocator<unsigned int>>"
+
+
+@pytest.fixture(scope="module")
+def cvisual_alone(root: Path) -> dict:
+    return class_layout(root, "zdb::CVisual")
+
+
+def test_real_compile_assert_call_after_the_dyn_tex_list_is_not_the_detail_pointer(root: Path, cvisual_alone: dict) -> None:
+    """Regression: CVisual::__ct's compile_assert<1> call at +0x60 (0x30df0c) is m_dynTexList's end."""
+
+    from tools._socom.type_plan import _Plan, _subobject_claims
+    from tools._socom.type_plan_evidence import TypeEvidence
+
+    plan = {
+        "types": [
+            {"name": "zdb::tag_VIS_PARAMS", "kind": "struct", "size": 24, "alignment": 4, "fields": []},
+            {
+                "name": "zdb::CVisual", "kind": "class", "size": 0x68, "alignment": 4,
+                "bases": [{"type": "zdb::tag_VIS_PARAMS", "offset": 0}],
+                "fields": [
+                    {"offset": 0x48, "size": 0x18, "type": "/project/zdb/CDynTexList", "name": "m_dynTexList"},
+                    {"offset": 0x60, "size": 4, "type": f"{DETAIL} *", "name": "m_detailParams"},
+                ],
+            },
+        ]
+    }
+    by_class = {row["class"]: row for row in cvisual_alone["classes"]}
+    index = {row["class"]: {entry["offset"]: list(entry["sites"]) for entry in row["offsets"]} for row in cvisual_alone["classes"]}
+    claims, problems = _subobject_claims(_Plan(plan, TypeEvidence(root)), by_class, index)
+    assert ("zdb::CVisual", 0x60, "0x30df0c", "a0") in claims
+    assert ("zdb::CVisual", 0x54, "0x30def4", "a0") in claims
+    assert not any("+0x60" in text or "+0x54" in text or "+0x48" in text for text in problems), problems

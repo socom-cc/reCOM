@@ -88,6 +88,7 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py recon layout` | recon | yes | none | no | Write ELF-derived layout evidence of a class (and its bases and derived classes): every proven access per offset. |
 | `python tools/socom.py recon type-plan validate` | recon | no | none | no | Check a code-derived type plan against regenerated layout evidence. |
 | `python tools/socom.py recon type-plan show` | recon | no | none | no | Render a code-derived type plan as a review table with its validation. |
+| `python tools/socom.py recon type-plan live` | recon | no | required | no | Check a valid code-derived type plan against the live program, read-only: no target or forward-declared name exists, and every referenced live type and instantiation source resolves exactly once with the recorded layout. |
 | `python tools/socom.py recon type-plan program` | recon | yes | none | no | Translate a valid code-derived type plan into a type apply program. |
 | `python tools/socom.py recon type-plan affected` | recon | no | none | no | List the reconstruction groups whose functions name a planned class, and which rows were left unresolved for it. |
 | `python tools/socom.py ghidra apply-type-plan` | ghidra | yes | required | yes | Apply a reviewed code-derived type program under the item's writer lease and verify it (--dry-run: read-only checks). |
