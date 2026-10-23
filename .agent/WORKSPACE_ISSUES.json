@@ -1055,8 +1055,18 @@
       "resolution": null,
       "status": "open",
       "summary": "recon draft leaves non-const methods open when the receiver class is missing"
+    },
+    {
+      "details": "Group 229/230 review (socom-verifier-r35): classes such as CGraph exist live only as 1-byte forward declarations imported from declaration-only DWARF records (four size-0 class entries). recon type-plan live and the apply dry run refuse any plan type whose name already exists live, so a later code-derived layout for CGraph (or similar forwards) cannot fill the existing declaration. Add a governed 'fill forward' path that replaces only a live declaration-only placeholder of the same path, refusing any live type with members.",
+      "id": "socom:workspace-issue:d314a84b0924d16de117",
+      "kind": "problem",
+      "reported_at": "2026-10-23T19:04:42Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "Type plans cannot fill an existing forward-declared live type"
     }
   ],
-  "revision": 120,
+  "revision": 121,
   "schema_version": 1
 }
