@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 1814,
+  "revision": 1820,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -101131,6 +101131,10 @@
       "title": "Apply reviewed reconstruction group 216 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-23T03:23:44Z",
+        "by": "socom-verifier-r27"
+      },
       "batch": {
         "batch_number": 217,
         "function_count": 32,
@@ -101212,8 +101216,15 @@
         "socom:recon-group:fb77cf69c604c9542575-apply",
         "socom:recon-group:ff0934ce49f96fe5dec5-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-eb70620a2384b7e16f0e.json sha256:ce280316af64325cd308582961ed1dfa4388f1296dc10917f011bee5462bb8eb; recon validate ok; recon draft --check ok (2 drafted); preflight-batch ok (4 set_function_prototype calls, 28 skips = unresolved rows)",
+        "plan sha256:ce280316af64325cd308582961ed1dfa4388f1296dc10917f011bee5462bb8eb; recon validate ok; recon program equals build/apply apply.json; recon draft --check ok (2 drafted, 30 open); preflight-batch ok (4 set_function_prototype, 28 skips = the 28 unresolved rows). OnSetTtySpeedFactor/OnSetCounterSpeedFactor: mangled (C2DAnimCmdHdr *, float *), a0 only read, C2DAnimCmdHdr unique; only UICommandTable+0x8 reader zAnimUIMenuTick jalr at 0x1d0270/0x1d02c0 then andi v0,v0,0xff at 0x1d027c/0x1d02cc -> uchar (slots +0x614/+0x620 = 12n+8), matching live precedents 0x1d69c0/0x1d6f00. 28 unresolved: a0 record types missing (recon types TOS..CTXINFO, DPGENUW, DYNPROG, IsoWordTokenDp, NBEST: missing), returns unproven per facts/recon void"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g118",
+        "submitted_at": "2026-10-23T03:15:50Z",
+        "summary": "4 prototypes, 28 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:eb70620a2384b7e16f0e",
       "kind": "recon-plan-group",
       "lease": null,
@@ -101222,7 +101233,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 217 (height 14, 32 functions)"
     },
     {
@@ -101282,10 +101293,14 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 217 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-23T03:23:58Z",
+        "by": "socom-verifier-r27"
+      },
       "batch": {
         "batch_number": 218,
         "function_count": 23,
@@ -101341,8 +101356,15 @@
         "socom:recon-group:f36b094a00c909ab0de8-apply",
         "socom:recon-group:f758fb41aefddaf2449b-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-247f36d5fb21688ccf1c.json sha256:cf18060f790a746fc4ab0fac048274983e6dcf761341d22e8e4dda24bb898808; recon validate ok; recon draft --check ok (0 drafted); preflight-batch ok (6 set_function_prototype calls, 17 skips = unresolved rows)",
+        "plan sha256:cf18060f790a746fc4ab0fac048274983e6dcf761341d22e8e4dda24bb898808; recon validate ok; recon program equals build/apply apply.json; recon draft --check ok (0 drafted, 23 open); preflight-batch ok (6 set_function_prototype incl. 1 partial, 17 skips = the 17 unresolved rows). fprintf partial: live 'int __stdcall fprintf(FILE * __stream, char * __format, ...)' with FILE unique /stdio.h/FILE -> _IO_FILE (160 bytes, +84 inside 8-byte _offset, +12 char * _IO_read_base) disproven: vfprintf move s0,a0 at 0x3e8ca8, lw/sw pointer +84 at 0x3e8cac/0x3e8cc0 passed as _vfprintf_r a0 (0x3e8cdc); vsprintf stack stream sh 520,12(sp) 0x3eb0e0, sw _impure_ptr,84(sp) 0x3eb0f0; /project/__sFILE unique 88 bytes, +12 short _flags, +84 _data; fmt a1 passes to vfprintf/_vfprintf_r a2; a2,a3,t0-t3 spilled with addiu a2,sp,80 as vfprintf a2; return left undefined (vfprintf width unresolved). Five @N@__dt stubs: j full dtor with addiu a0,a0,-N; slots __vt__10CSliderBar+0x70, __vt__9CCheckBox+0x70, __vt__12CPopUpDialog+0x64, __vt__11CScrollText+0x84 = sub-table+8 like __vt__10UIVarMixin+0x8, target dtors store sub-tables and DetachUIVar at +N (UIVarMixin unique 8); CUIVarManager::@12@__dt: DWARF 0x162e92 inherits CSaveModule (0x163d8d) at +0x0c, __vt__13CUIVarManager+0x10 = sub-table+8 like __vt__11CSaveModule+0x8, full dtor sw vt+8 at 12(s1) 0x39e084 and addiu a0,s1,12 -> __dt__11CSaveModuleFv 0x39e0a4 (CSaveModule unique 24); a1 passed to targets which dsll32/dsra32 it, targets return entry a0. 17 unresolved: record types missing or return unproven per recon void"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g118",
+        "submitted_at": "2026-10-23T03:15:56Z",
+        "summary": "6 prototypes (1 partial), 17 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:247f36d5fb21688ccf1c",
       "kind": "recon-plan-group",
       "lease": null,
@@ -101351,7 +101373,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 218 (height 14, 23 functions)"
     },
     {
@@ -101402,7 +101424,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 218 in Ghidra"
     },
     {
