@@ -66,6 +66,9 @@ BUILTINS = {
     # Metrowerks EE wchar_t is two bytes: DWARF spells the MSL wide-char
     # parameters unsigned short where the mangled name has 'w'.
     "wchar_t": "ushort",
+    # The 128-bit type code '1' (mwdemangle.INT128_SPELLING), spelled as
+    # the DWARF import spells fundamental 0xA510.
+    "uint16": "uint16",
 }
 UNSPELLABLE = re.compile(r"[,&]")
 # apply_data_type resolves names through GhidraMCP 6.0.0's well-known-type

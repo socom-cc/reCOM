@@ -1,4 +1,45 @@
-"""Demangle Metrowerks CodeWarrior (cfront-style) C++ symbol names."""
+"""Demangle Metrowerks CodeWarrior (cfront-style) C++ symbol names.
+
+The 128-bit type code ``1``
+---------------------------
+Metrowerks' R5900 compiler mangles its 128-bit integer (the EE quadword,
+DWARF 1 fundamental type 0xA510) as the one-character type code ``1``.  In a
+type position a ``1`` that no digit follows is that type, not the length of
+a one-character class name.  Evidence in socom.elf:
+
+- ``zSysAddDMA__FP1P1`` takes two pointers: ``lq v1,0(a1)``,
+  ``sq v1,0(a0)`` and returns ``a0 + 16`` (0x2f5d20).
+- ``ReplaceTextureData__Q23zdb8CVisDataFP1`` ends right after ``P1``, so no
+  class name follows it; its body copies quadwords (``lq v1,0(a1)``,
+  0x310730).  ``zSysSprGetPacket__FPP1`` is a pointer to a pointer.
+- ``TakeDrawPacket__23CDblBufTextureRelocatorFP1Ui`` forwards a1 and a2 to
+  ``zSysFifoKick__FP1Ui`` (0x3805f0): ``P1Ui`` is (quadword *, unsigned
+  int), not a class ``U`` followed by ``i``.
+- ``MakeChain__Q23zdb12CGSTexBufferFP1i`` is (quadword *, int): its callers
+  set a2 and store its result into ``CGSTexBuffer::m_chainp``, whose DWARF
+  type is a pointer to 0xA510 (0x2f9c24/0x2f9c34).
+- ``std::__vector_imp<1, std::allocator<1>, 0>::resize__...FUiRC1`` steps
+  its elements 16 bytes at a time (``sll v1,a2,4``, 0x2fcbb0); DWARF types
+  three ``__vector_deleter`` records' ``data_`` as a pointer to 0xA510.
+
+DWARF has no other 128-bit fundamental type and no symbol spells ``U1`` or
+``S1``, so the code has one signedness: unsigned, like 0xA510.  The ELF has
+no one-character global class (no ``__1X`` qualifier, no one-character
+DWARF type name).  A nested one-character name sits inside a ``Q`` qualifier
+and keeps its length prefix (``Q210PadBtnFunc1_`` is ``PadBtnFunc::_``), as
+does a ``1`` followed by a digit (``10PadBtnFunc``, ``12CGSTexBuffer``).
+
+The type renders as ``uint16``, the spelling the DWARF import already gives
+0xA510 (``type_apply.FUND_TYPES``): the live program's 16-byte builtin
+``/uint16``.  The SDK spelling ``u_long128`` and ``long128`` are not live
+types, and ``_word128`` is a union class with its own mangled name
+(``8_word128``).
+
+A bare template argument ``1`` stays the literal ``1``: the type
+(``__vector_imp<1, std::allocator<1>, 0>``) and the value
+(``compile_assert<1>``, ``__locale_imp<1>``) are spelled the same, so
+readable class names keep the mangled spelling.
+"""
 
 from __future__ import annotations
 
@@ -18,6 +59,11 @@ BUILTINS = {
     "w": "wchar_t",
     "e": "...",
 }
+# The 128-bit integer's type code and its project spelling (see the module
+# docstring).  It is not in BUILTINS: ``1`` is also the first digit of a
+# length, and ``U``/``S`` do not combine with it.
+INT128_CODE = "1"
+INT128_SPELLING = "uint16"
 MODIFIER_SPELLINGS = {"P": "*", "R": "&", "C": " const", "V": " volatile"}
 
 
@@ -84,6 +130,9 @@ class _Parser:
         if code in BUILTINS:
             self.take()
             return {"modifiers": modifiers, "kind": "builtin", "name": BUILTINS[code]}
+        if code == INT128_CODE and not self.text[self.pos + 1 : self.pos + 2].isdigit():
+            self.take()
+            return {"modifiers": modifiers, "kind": "builtin", "name": INT128_SPELLING}
         if code == "Q" or code.isdigit():
             return {"modifiers": modifiers, "kind": "class", "components": self.qualified()}
         if code == "F":

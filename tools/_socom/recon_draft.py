@@ -304,7 +304,8 @@ def _is_destructor(ctx: Any, function: int) -> bool:
 
 _CALLBACKS: dict[int, dict[int, str]] = {}
 _GPR_BUILTINS = frozenset(("char", "signed char", "unsigned char", "short", "unsigned short", "int",
-                           "unsigned int", "long", "unsigned long", "long long", "unsigned long long", "bool", "wchar_t"))
+                           "unsigned int", "long", "unsigned long", "long long", "unsigned long long", "bool", "wchar_t",
+                           "uint16"))
 
 
 def _result_class(result: dict[str, Any] | None) -> str | None:

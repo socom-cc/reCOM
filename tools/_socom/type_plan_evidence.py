@@ -48,7 +48,7 @@ CXX_BUILTINS = frozenset(
     {
         "void", "bool", "char", "signed char", "unsigned char", "short", "unsigned short", "int", "unsigned int",
         "long", "unsigned long", "long long", "unsigned long long", "float", "double", "long double", "wchar_t",
-        "unsigned wchar_t", "...",
+        "unsigned wchar_t", "...", "uint16",
     }
 )
 # Ghidra builtin names the type import uses for C++ builtins (EE long is 64-bit).
@@ -56,7 +56,7 @@ GHIDRA_BUILTIN = {
     "bool": "bool", "char": "char", "signed char": "schar", "unsigned char": "uchar", "short": "short",
     "unsigned short": "ushort", "int": "int", "unsigned int": "uint", "long": "longlong",
     "unsigned long": "ulonglong", "long long": "longlong", "unsigned long long": "ulonglong", "float": "float",
-    "double": "double", "wchar_t": "wchar_t",
+    "double": "double", "wchar_t": "wchar_t", "uint16": "uint16",
 }
 # Name boundaries; a builtin is not matched inside a longer builtin ("int" in "unsigned int").
 _NAME_BOUNDARY_BEFORE = r"(?<![A-Za-z0-9_:])(?<!unsigned )(?<!signed )(?<!long )"
