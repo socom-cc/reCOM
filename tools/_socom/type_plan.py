@@ -162,7 +162,8 @@ PROVENANCE_KEY = (
     (INVENTED, "invented by the planner; review before use"),
 )
 VPTR_NAME = "__vt"
-FIELD_NAME = re.compile(r"^m_[a-z][A-Za-z0-9]*$")
+# Invented member names: m_ + lower snake_case (user rule, 2026-10-23), e.g. m_ref_count, m_vtype.
+FIELD_NAME = re.compile(r"^m_[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
 HELPER_NAME = re.compile(r"^tag_[A-Za-z0-9_]+$")
 UNDEFINED_SIZES = {"undefined1": 1, "undefined2": 2, "undefined4": 4, "undefined8": 8}
 SIZES = {name: size for name, size in BUILTIN_SIZES.items() if size} | UNDEFINED_SIZES
@@ -1076,7 +1077,7 @@ def _type_problems(
         if provenance not in FIELD_PROVENANCES:
             problems.append(f"{label}: provenance must be one of {list(FIELD_PROVENANCES)}")
         elif provenance == INVENTED and not FIELD_NAME.match(str(field_name)):
-            problems.append(f"{label}: invented member names are m_ followed by camelCase")
+            problems.append(f"{label}: invented member names are m_ followed by lower snake_case")
         elif provenance == TEMPLATE_COPY:
             if row.get("instantiation") is None:
                 problems.append(f"{label}: {TEMPLATE_COPY} names belong to instantiation members")
