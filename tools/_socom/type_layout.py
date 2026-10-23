@@ -25,6 +25,19 @@ needs:
   calls (an argument register holding the pointer or a loaded field is
   matched to the callee's mangled parameter type).
 
+Every call row says what the callee takes in its register: ``parameter_type``
+(the mangled parameter, or the receiver), ``no_parameter`` (the parameter list
+is settled and that register is not in it), or ``parameter_unknown`` with the
+reason (an indirect call, a symbol without a mangled parameter list, registers
+not settled past a by-value class or varargs, or an unproven receiver whose
+static and member readings differ).  A member's receiver is proven by its
+kind (constructor, destructor, const method, vtable slot, a member operator
+other than new/delete, which C++ never makes static), a DWARF ``this`` formal
+parameter, or an argument register read beyond a static function's
+parameters.  DWARF parameter lists add no types: DWARF 1 lists only named
+parameters, so it cannot settle registers, and all but nine DWARF
+subprograms (main, thunks, C wrappers) have mangled names that list them.
+
 Nothing is inferred from names or Ghidra: a site is listed only when the
 instruction semantics prove its base.  Accesses whose base the analysis
 cannot prove are counted per function as unattributed, so gaps stay visible.
@@ -36,7 +49,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from .batch_apply import _reads, _writes
+from .batch_apply import OPERATORS, _reads, _writes
 from .constants import REFERENCE_SHA256
 from .mwdemangle import demangle, readable_qualified, render_type, split_qualified, template_base
 from .recon_facts import GPR, _dies_cached, _fpr_writes, argument_reads, context
@@ -75,6 +88,8 @@ _MEMORY = {
     0x2D: (8, "partial", None, True, False),  # sdr
 }
 _CALL_CLOBBERED_GPRS = (1, 2, 3, *range(4, 16), 24, 25, 31)
+# Member operators are never static ([over.oper]); operator new/delete are.
+_MEMBER_OPERATORS = frozenset(name for name in OPERATORS if name not in ("__nw", "__nwa", "__dl", "__dla"))
 _SP = 29
 _MAX_DEPTH = 3
 _ALLOCATORS = ("__nw", "__nwa")
@@ -364,12 +379,34 @@ def _encoded(components: list[str]) -> str:
         return ""
 
 
+def dwarf_subprograms(root: Path) -> dict[int, bool]:
+    """Entry address of every DWARF subprogram -> whether its first formal parameter is ``this``.
+
+    DWARF 1 omits unnamed (and some unused) parameters, so a missing ``this``
+    proves nothing; a present one proves a non-static member.
+    """
+
+    from .type_plan_evidence import TypeEvidence
+
+    dwarf = TypeEvidence(root).dwarf
+    found: dict[int, bool] = {}
+    for die in dwarf.dies:
+        if die.tag_name not in ("subroutine", "global_subroutine") or not die.integer("low_pc"):
+            continue
+        first = next((child for child in dwarf.children(die) if child.tag_name == "formal_parameter"), None)
+        found[die.integer("low_pc")] = found.get(die.integer("low_pc"), False) or (
+            first is not None and first.string("name") == "this"
+        )
+    return found
+
+
 class _Receivers:
     """Proof that a member function's a0 is ``this``."""
 
-    def __init__(self, ctx: Any, symbols: _Symbols) -> None:
+    def __init__(self, ctx: Any, symbols: _Symbols, dwarf: dict[int, bool] | None = None) -> None:
         self.ctx = ctx
         self.symbols = symbols
+        self.dwarf = dwarf or {}
         self.vtable_slots: dict[int, list[str]] = defaultdict(list)
         for row in symbols.objects:
             if row["name"].startswith("__vt__") and row["size"]:
@@ -411,8 +448,81 @@ class _Receivers:
                             f"reads {beyond[0]} at 0x{min(reads[beyond[0]]):x}, beyond the {len(static_gprs)} GPR "
                             "parameter(s) a static function with this signature takes"
                         )
+            if result is None and parsed["name"] in _MEMBER_OPERATORS:
+                result = f"member {OPERATORS[parsed['name']]} (C++ member operators other than new/delete are never static)"
+            if result is None and self.dwarf.get(address):
+                result = "DWARF formal parameter this"
         self._cache[address] = result
         return result
+
+
+class CallParameters:
+    """What a callee takes in each argument register, from its mangled signature and receiver proof.
+
+    A proven member or a free function has one register reading.  A member
+    whose receiver is unproven has two (member and static); a register's
+    type is derivable only where they agree.
+    """
+
+    UNSETTLED = "parameter registers are not settled past a by-value class, array, varargs or the last argument register"
+
+    def __init__(self, symbols: _Symbols, receivers: _Receivers) -> None:
+        self.symbols = symbols
+        self.receivers = receivers
+        self._cache: dict[int, tuple[list[tuple[dict[str, str], bool]], str | None]] = {}
+
+    def readings(self, callee: int | None) -> tuple[list[tuple[dict[str, str], bool]], str | None]:
+        """[(register -> type, complete)] per reading, or [] and why no reading exists."""
+
+        if callee is None:
+            return [], "indirect call: the callee is not known"
+        if callee in self._cache:
+            return self._cache[callee]
+        parsed = self.symbols.parsed(callee)
+        if not parsed or parsed.get("params") is None:
+            result: tuple[list[tuple[dict[str, str], bool]], str | None] = (
+                [],
+                "no mangled parameter list; its DWARF subprogram lists only named parameters"
+                if callee in self.receivers.dwarf
+                else "no mangled parameter list or DWARF subprogram",
+            )
+        else:
+            qualified = bool(parsed.get("qualifier"))
+            proven = qualified and self.receivers.proof(callee) is not None
+            readings = []
+            for has_this in ((True,) if proven else (True, False) if qualified else (False,)):
+                rows, complete = parameter_registers(parsed["params"], has_this)
+                types = {register: render_type(value) for register, value in rows}
+                if has_this:
+                    types["a0"] = f"{_qualified(parsed['qualifier'])} * (receiver)"
+                readings.append((types, complete))
+            result = (readings, None)
+        self._cache[callee] = result
+        return result
+
+    def of(self, callee: int | None, register: str) -> dict[str, Any]:
+        """``{"parameter_type": T}``, ``{"no_parameter": True}`` or ``{"parameter_unknown": reason}``."""
+
+        readings, missing = self.readings(callee)
+        if missing:
+            return {"parameter_unknown": missing}
+        outcomes = []
+        for types, complete in readings:
+            if register in types:
+                outcomes.append(("type", types[register]))
+            else:
+                outcomes.append(("none" if complete else "unsettled", ""))
+        if len(set(outcomes)) == 1:
+            kind, text = outcomes[0]
+            if kind == "type":
+                return {"parameter_type": text}
+            if kind == "none":
+                return {"no_parameter": True}
+            return {"parameter_unknown": self.UNSETTLED}
+        member, static = (
+            text if kind == "type" else "no parameter" if kind == "none" else "not settled" for kind, text in outcomes
+        )
+        return {"parameter_unknown": f"receiver unproven: {member} if a member, {static} if static"}
 
 
 # -- per-function dataflow -------------------------------------------------
@@ -779,7 +889,7 @@ class _Family:
         self.root = root
         self.ctx = context(root)
         self.symbols = _Symbols(self.ctx)
-        self.receivers = _Receivers(self.ctx, self.symbols)
+        self.receivers = _Receivers(self.ctx, self.symbols, dwarf_subprograms(root))
         components = tuple(split_qualified(name))
         mangled_qualifier(list(components))
         self.requested = components
@@ -938,6 +1048,7 @@ class _Collector:
         self.analyses: dict[int, _Analysis] = {}
         self.roots: dict[int, dict[Any, tuple[tuple[str, ...], str, str]]] = {}
         self.param_types: dict[int, dict[str, str]] = {}
+        self.parameters = CallParameters(self.symbols, self.receivers)
         self.unresolved: dict[tuple[str, ...], list[dict[str, Any]]] = defaultdict(list)
         self.allocations: dict[tuple[str, ...], list[dict[str, Any]]] = defaultdict(list)
         self.constructions: dict[tuple[str, ...], list[dict[str, Any]]] = defaultdict(list)
@@ -1202,10 +1313,6 @@ class _Collector:
 
     def _call_sites(self, function: int, call: dict[str, Any]) -> None:
         callee = call["callee"]
-        parsed = self.symbols.parsed(callee)
-        has_this = bool(parsed.get("qualifier")) and self.receivers.proof(callee) is not None
-        rows, _complete = parameter_registers(parsed.get("params"), has_this) if parsed else ([], False)
-        param_of = dict(rows)
         callee_name = self.symbols.readable(callee) if callee is not None else "indirect"
         tail = True if call["kind"] == "tail" else None
         pointer = call["pointer"]
@@ -1225,16 +1332,11 @@ class _Collector:
                     },
                 )
         for register, value in sorted(call["arguments"].items(), key=lambda item: _register_order(item[0])):
-            if register == "a0" and has_this:
-                typed = f"{_qualified(parsed['qualifier'])} * (receiver)"
-            elif register in param_of:
-                typed = render_type(param_of[register])
-            else:
-                typed = None
+            parameter = self.parameters.of(callee, register)
             located = None if value[0][0] == "ld" and value[1] == 0 else self._locate(function, value)
             if located is not None:
                 cls, offset, root, path = located
-                fields = {"callee": callee_name, "register": register, "parameter_type": typed, "tail": tail}
+                fields = {"callee": callee_name, "register": register, **parameter, "tail": tail}
                 if path and isinstance(path[0], int):
                     fields.update(access="pointer-passed", through=_path_text(path[1:]) + f"+{_hex(offset)}")
                     self._add(cls, path[0], {**self._site_row(function, call["site"], root, **fields), "pointer": True})
@@ -1254,10 +1356,7 @@ class _Collector:
                 continue
             cls, offset, root, path = loaded
             term = value[0]
-            fields = {
-                "access": "value-passed", "callee": callee_name, "register": register, "parameter_type": typed,
-                "tail": tail,
-            }
+            fields = {"access": "value-passed", "callee": callee_name, "register": register, **parameter, "tail": tail}
             if path and isinstance(path[0], int):
                 fields.update(through=_path_text(path[1:]) + f"+{_hex(offset)}", pointee_width=term[2], pointee_kind=term[3])
                 self._add(cls, path[0], {**self._site_row(function, call["site"], root, **fields), "pointer": True})
@@ -1509,7 +1608,11 @@ def class_layout(root: Path, name: str, with_derived: bool = False) -> dict[str,
         },
         "method": [
             "a0 is this only in members whose receiver is proven (constructor, destructor, const, vtable slot, "
-            "or an argument register read beyond a static function's parameters)",
+            "an argument register read beyond a static function's parameters, a member operator other than "
+            "new/delete, or a DWARF this parameter)",
+            "every call row records the callee's parameter_type for its register, no_parameter when the settled "
+            "parameter list does not use the register, or parameter_unknown with the reason (an unproven receiver "
+            "is typed only where its member and static readings agree)",
             "typed roots: single-level pointer/reference parameters of a family class in the mangled signature; "
             "call results passed to a family constructor, typed as the most derived of that constructor's class "
             "and any family vtable the function stores into the object",
@@ -1532,9 +1635,11 @@ def _site_text(site: dict[str, Any]) -> str:
             detail.append(f"{key}={site[key]}")
     if site.get("signed") is not None:
         detail.append(f"signed={str(site['signed']).lower()}")
-    for key in ("through", "value", "copy_of", "use", "bits", "field_bits", "register", "parameter_type"):
+    for key in ("through", "value", "copy_of", "use", "bits", "field_bits", "register", "parameter_type", "parameter_unknown"):
         if site.get(key):
             detail.append(f"{key}={site[key]}")
+    if site.get("no_parameter"):
+        detail.append("no_parameter")
     if str(site.get("access", "")).endswith("passed"):
         detail.append(f"callee={site['callee']}")
     if site.get("bitfield"):

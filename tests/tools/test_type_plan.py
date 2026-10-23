@@ -632,6 +632,101 @@ def test_a_call_on_an_empty_base_at_an_objects_end_belongs_to_that_object(root: 
     assert "0x10000c" in rendered and "calls this member's empty Metrowerks::compile_assert\\<1> at its end (+0x18)" in rendered
 
 
+def test_an_address_pass_without_a_derivable_parameter_type_must_be_explained(root: Path) -> None:
+    layout = _subobject_layout()
+    untyped = _site("0x100018", 0x10, "address-passed", register="a1", callee="indirect",
+                    parameter_unknown="indirect call: the callee is not known")
+    layout["classes"][0]["offsets"][2]["sites"].append(untyped)
+    plan = _subobject_plan(layout)
+    problems = validate_type_plan(root, None, plan, layout)
+    assert any(
+        "0x100018 passes this+0x10 in a1 to indirect, whose parameter type is not derivable "
+        "(indirect call: the callee is not known)" in text for text in problems
+    ), problems
+    # A note of the member that holds +0x10 citing the site (or a range holding it) explains it.
+    for note in ("0x100018 passes the inner vector to a function pointer", "copied at 0x100010-0x10001c"):
+        explained = copy.deepcopy(plan)
+        _types(explained)["zdb::CTest"]["fields"][1]["notes"] = note
+        assert validate_type_plan(root, None, explained, layout) == [], note
+    # A register the callee does not take is not evidence.
+    untyped.pop("parameter_unknown")
+    untyped["no_parameter"] = True
+    plan["layout"]["sha256"] = layout_sha256(layout)
+    assert validate_type_plan(root, None, plan, layout) == []
+
+
+VECTOR_POD = "/project/std/__vector_pod<unsigned int, std::allocator<unsigned int>>"
+POINTER_VECTOR = "/project/std/vector<zdb::CTexPalette *, std::allocator<zdb::CTexPalette *>>"
+
+
+def _vector_layout() -> dict:
+    """zdb::CTest (0x14): a uint, a 12-byte vector at +0x4 assigned member-wise, then a uint at +0x10."""
+
+    sites = [
+        _site("0x100000", 0x0, "load", width=4, kind="int"),
+        _site("0x100004", 0x4, "address-passed", register="a1", parameter_type="std::__vector_pod<unsigned int, std::allocator<unsigned int>> const&",
+              callee="std::__vector_pod<unsigned int, std::allocator<unsigned int>>::__as(std::__vector_pod<unsigned int, std::allocator<unsigned int>> const&)"),
+        _site("0x100008", 0x10, "address-passed", register="a1", parameter_type="Metrowerks::compile_assert<1> const&",
+              callee="Metrowerks::compile_assert<1>::__as(Metrowerks::compile_assert<1> const&)"),
+        _site("0x10000c", 0x10, "load", width=4, kind="int"),
+    ]
+    rows: dict[int, list[dict]] = {}
+    for site in sites:
+        rows.setdefault(site["offset"], []).append(site)
+    return {
+        "kind": "socom-type-layout-evidence", "schema_version": 1, "class": "zdb::CTest", "with_derived": False,
+        "classes": [{
+            "class": "zdb::CTest", "role": "requested", "size_evidence": [0x14], "bases": [], "vtable": None,
+            "offsets": [{"offset": offset, "sites": rows[offset], "conflicts": []} for offset in sorted(rows)], "object_passes": [],
+        }],
+    }
+
+
+def _vector_plan(layout: dict, vector: str) -> dict:
+    return {
+        "kind": "socom-code-type-plan", "schema_version": 1, "work_item_id": type_plan_item_id("zdb::CTest"),
+        "target": {"source_sha256": REFERENCE_SHA256},
+        "layout": {"class": "zdb::CTest", "with_derived": False, "sha256": layout_sha256(layout)},
+        "naming_survey": ["test fixture"],
+        "types": [{
+            "name": "zdb::CTest", "kind": "class", "category": "/project/zdb", "name_provenance": "elf-symbol",
+            "size": 0x14, "alignment": 4,
+            "fields": [
+                _field(0, 4, "uint", "m_flags", ["0x100000"]),
+                _field(4, 12, vector, "m_items", ["0x100004"]),
+                _field(0x10, 4, "uint", "m_count", ["0x10000c"]),
+            ],
+        }],
+    }
+
+
+def test_a_pointer_vector_owns_the_compile_assert_at_its_end_by_dwarf_path(root: Path) -> None:
+    from tools._socom.type_plan_evidence import TypeEvidence
+
+    evidence = TypeEvidence(root)
+    # DWARF 1 names every vector instantiation "vector": the 12-byte records disagree, so the
+    # empty compile_assert<1> at +0xc is only possible by name, and the import's path decides.
+    assert (0xC, "compile_assert") in evidence.possible("vector", 12)
+    assert (0xC, "compile_assert") not in evidence.nested("vector", 12)
+    assert (0xC, "compile_assert") in evidence.nested_path(POINTER_VECTOR, 12)
+    assert (0xC, "compile_assert") not in evidence.nested_path(
+        "/project/std/__vector_imp<zdb::CLOD_band, std::allocator<zdb::CLOD_band>, 0>", 12
+    )
+    layout = _vector_layout()
+    plan = _vector_plan(layout, POINTER_VECTOR)
+    assert validate_type_plan(root, None, plan, layout) == []
+    rendered = render_type_plan(plan, layout, [], evidence)
+    assert "calls this member's empty Metrowerks::compile_assert\\<1> at its end (+0xc)" in rendered
+    # Regression: a __vector_pod has no compile_assert<1>, so the member-wise assignment's call
+    # on the vector's end is a problem rather than unchecked.
+    problems = validate_type_plan(root, None, _vector_plan(layout, VECTOR_POD), layout)
+    assert any(
+        "0x100008 passes this+0x10 as Metrowerks::compile_assert<1> const&" in text
+        and "no Metrowerks::compile_assert<1> sub-object at +0x10" in text
+        for text in problems
+    ), problems
+
+
 def _instantiation_layout() -> dict:
     """zdb::CTest (0x10): a uint, then std::vector<zdb::CMesh::CMeshLOD> at +0x4."""
 

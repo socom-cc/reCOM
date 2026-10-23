@@ -12,7 +12,12 @@ validator stays file-only:
   every base and by-value member at its offset, empty bases included
   (``Metrowerks::compile_assert<1>`` sits at the end of a 12-byte
   ``__vector_imp``), so a constructor call on such an address belongs to the
-  enclosing object, not to the field that follows it (``nested``);
+  enclosing object, not to the field that follows it (``nested``).  DWARF 1
+  drops template arguments, so records of one name can disagree
+  (``vector<T *>`` keeps ``compile_assert`` at +0xc, ``vector<CLOD_band>``
+  does not); a sub-object only some of them have (``possible``) is confirmed
+  from the records the DWARF import named with the full Ghidra path
+  (``nested_path``, built on first use from the type identities);
 * does a DWARF record of a template have the member layout a plan copies
   from a live instantiation (``layout_matches``)?
 
@@ -138,6 +143,7 @@ class _Dwarf:
             if die.tag_name in COMPOSITE_TAGS and name:
                 self.by_name[name].append(die)
         self._nested: dict[int, frozenset[tuple[int, str]]] = {}
+        self._possible: dict[tuple[str, int | None], frozenset[tuple[int, str]]] = {}
         self._children: dict[int, list[Any]] = {}
 
     def die(self, offset: int) -> Any | None:
@@ -215,11 +221,27 @@ class _Dwarf:
         records = self.records(name, size)
         if not records or size is None:
             return None
+        return self.common(records)
+
+    def common(self, records: list[Any]) -> frozenset[tuple[int, str]]:
         result = None
         for die in records:
             nested = self.nested_of(die)
             result = nested if result is None else result & nested
-        return result
+        return result or frozenset()
+
+    def possible(self, name: str, size: int | None) -> frozenset[tuple[int, str]]:
+        """Sub-objects some, but not all, DWARF records ``name`` of ``size`` bytes have."""
+
+        key = (name, size)
+        if key not in self._possible:
+            records = self.records(name, size)
+            union: set[tuple[int, str]] = set()
+            if len(records) > 1 and size is not None:
+                for die in records:
+                    union.update(self.nested_of(die))
+            self._possible[key] = frozenset(union) - self.common(records) if union else frozenset()
+        return self._possible[key]
 
     def member_layout(self, die: Any) -> tuple[frozenset[tuple[int, str]], frozenset[int]]:
         """(offset, name) of the data members and offsets of the non-empty bases of one record."""
@@ -244,6 +266,27 @@ def _dwarf_cached(key: tuple[str, int, int], path: str) -> _Dwarf:
     from .recon_facts import _dies_cached
 
     return _Dwarf(_dies_cached(key, path))
+
+
+@lru_cache(maxsize=2)
+def _records_by_path(key: tuple[str, int, int]) -> dict[str, tuple[int, ...]]:
+    """Normalized Ghidra path -> offsets of the complete composite DIEs the DWARF import names so.
+
+    The type identities (method, call-site and symbol evidence) take tens
+    of seconds, so callers ask only when records of one DWARF name disagree.
+    """
+
+    from .import_plan import _debug_model
+
+    _elf, dies, _parents, _by_offset, identities = _debug_model(key)
+    found: dict[str, list[int]] = defaultdict(list)
+    for die in dies:
+        if die.tag_name not in COMPOSITE_TAGS or not die.string("name"):
+            continue
+        identity = identities.die_identity(die.offset)
+        if identity and not identity["declaration"]:
+            found[normalized(identity["ghidra_path"])].append(die.offset)
+    return {path: tuple(offsets) for path, offsets in found.items()}
 
 
 @lru_cache(maxsize=2)
@@ -360,6 +403,21 @@ class TypeEvidence:
         """DWARF sub-objects of a type by its DWARF name (template arguments and ``@hash`` dropped)."""
 
         return self.dwarf.nested(template_base(name).split("@", 1)[0], size)
+
+    def possible(self, name: str, size: int | None) -> frozenset[tuple[int, str]]:
+        """Sub-objects only some DWARF records of that name have (see ``nested_path``)."""
+
+        return self.dwarf.possible(template_base(name).split("@", 1)[0], size)
+
+    def nested_path(self, path: str, size: int | None) -> frozenset[tuple[int, str]] | None:
+        """DWARF sub-objects of the records the DWARF import named ``path`` (a /project Ghidra path); None without one."""
+
+        offsets = _records_by_path(file_key(self.path)).get(normalized(path), ())
+        records = [
+            die for offset in offsets
+            if (die := self.dwarf.die(offset)) is not None and (size is None or die.integer("byte_size") == size)
+        ]
+        return self.dwarf.common(records) if records else None
 
     def layout_matches(self, template: str, size: int, members: set[tuple[int, str]], bases: set[int]) -> list[int]:
         """Offsets of DWARF records ``template`` of ``size`` bytes with exactly these members and bases."""

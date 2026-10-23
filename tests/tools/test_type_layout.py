@@ -5,6 +5,8 @@ from pathlib import Path
 import pytest
 
 from tools._socom.type_layout import (
+    CallParameters,
+    _Family,
     class_layout,
     mangled_qualifier,
     parameter_registers,
@@ -127,3 +129,44 @@ def test_layout_is_deterministic_and_renders(root: Path, cvisual: dict) -> None:
     assert 0x20 in index["zdb::CVisual"]
     with pytest.raises(SocomError):
         class_layout(root, "zdb::NoSuchClass")
+
+
+def _call_rows(report: dict) -> list[dict]:
+    return [
+        site
+        for cls in report["classes"]
+        for site in [row for entry in cls["offsets"] for row in entry["sites"]] + cls["object_passes"]
+        if site["access"].endswith("-passed")
+    ]
+
+
+def test_every_call_row_types_its_register_or_says_why_not(cvisual: dict) -> None:
+    rows = {(site["site"], site["register"]): site for site in _call_rows(cvisual)}
+    for site in rows.values():
+        assert sum(key in site for key in ("parameter_type", "no_parameter", "parameter_unknown")) == 1, site
+    # Regression: Clone's inlined vector assignments pass the end of each pointer vector to
+    # compile_assert<1>::__as, a member operator whose a1 was left untyped.
+    for site, offset in (("0x30f454", 0x30), ("0x30f46c", 0x3C), ("0x30f484", 0x48)):
+        row = rows[(site, "a1")]
+        assert (row["offset"], row["parameter_type"]) == (offset, "Metrowerks::compile_assert<1> const&")
+    assert rows[("0x30f490", "a1")]["parameter_type"].startswith("std::vector<zdb::CTexHandle*")
+    # SetMeshBuffer's receiver is unproven: its a0 reading is not guessed from the static form.
+    assert rows[("0x30f860", "a0")]["parameter_unknown"] == (
+        "receiver unproven: zdb::CMesh * (receiver) if a member, _word128* if static"
+    )
+    assert rows[("0x30f59c", "a1")]["parameter_unknown"] == "no mangled parameter list or DWARF subprogram"  # memcpy
+    assert rows[("0x24295c", "a2")]["no_parameter"] is True  # CNode::GetMesh(void) takes only its receiver
+
+
+def test_member_operators_and_dwarf_this_prove_receivers(root: Path) -> None:
+    family = _Family(root, "zdb::CVisual", with_derived=True)
+    # compile_assert<1>::__as reads only a0, but an operator= is never static.
+    assert family.receivers.proof(0x1FC760).startswith("member operator=")
+    assert family.receivers.proof(0x1E7F30) == "DWARF formal parameter this"  # zdb::CCamera::Update
+    parameters = CallParameters(family.symbols, family.receivers)
+    assert parameters.of(0x1FC760, "a1") == {"parameter_type": "Metrowerks::compile_assert<1> const&"}
+    # An unproven receiver types a register where the member and static readings agree.
+    assert parameters.of(0x30F050, "a1") == {"parameter_type": "_word128*"}
+    assert parameters.of(0x30F050, "a3") == {"parameter_unknown": "receiver unproven: _word128* if a member, no parameter if static"}
+    assert parameters.of(0x229510, "a1") == {"no_parameter": True}
+    assert parameters.of(None, "a0") == {"parameter_unknown": "indirect call: the callee is not known"}

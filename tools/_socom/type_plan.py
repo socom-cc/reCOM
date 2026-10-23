@@ -78,7 +78,14 @@ constructor or method receiver) proves a sub-object of that class there.  The
 validator matches each such call against the plan's sub-objects (plan types,
 and the DWARF bases and members of by-value live types, empty bases at an
 object's end included), so a call on a sub-object belongs to that sub-object,
-and one that no sub-object explains is a problem.
+and one that no sub-object explains is a problem.  DWARF records of a
+template share one name; a sub-object only some of them have counts when the
+records the DWARF import named with the live type's path (an instantiation's
+source path) have it.  A call whose parameter type the layout could not derive
+(``parameter_unknown``) is a problem unless the notes or unresolved text of a
+member whose extent holds the address (its end included) cite the call site
+(``0x30f454``, or a range ``0x30f450-0x30f488``); a register the callee does
+not take (``no_parameter``) is not evidence.
 """
 
 from __future__ import annotations
@@ -274,13 +281,15 @@ class _Plan:
             leaf = base
         return leaf + " *" * parsed["pointers"] + "".join(f"[{count}]" for count in parsed["arrays"])
 
-    def subobjects(self, text: Any, size: Any, depth: int = 0) -> tuple[list[tuple[int, str, str]], list[tuple[int, int]]]:
+    def subobjects(self, text: Any, size: Any, depth: int = 0) -> tuple[list[tuple[int, str, Any]], list[tuple[int, int]]]:
         """Class sub-objects of a by-value type spelling: (offset, name, match mode), and unknown regions.
 
         Plan types give their bases and composite members (qualified names);
         a live type gives itself (its leaf name) and, from DWARF, every base
         and by-value member (DWARF names, template arguments dropped).  A
-        live type without a DWARF record is an unknown region.
+        sub-object only some same-named DWARF records have carries the mode
+        ``("dwarf", path, size, offset)`` for ``matches`` to confirm.  A live
+        type without a DWARF record is an unknown region.
         """
 
         parsed = parse_type(text)
@@ -312,19 +321,66 @@ class _Plan:
                 inner, gaps = self.subobjects(entry.get("type"), extent, depth + 1)
                 entries.extend((offset + inner_offset, name, mode) for inner_offset, name, mode in inner)
                 unknown.extend((offset + low, offset + high) for low, high in gaps)
-            if row.get("instantiation") is not None and self.evidence is not None:
+            spec = row.get("instantiation")
+            if isinstance(spec, dict) and self.evidence is not None:
                 # Empty bases (allocator, compile_assert) are omitted from copied layouts; DWARF keeps them.
-                found = self.evidence.nested(_leaf(base), row.get("size") if isinstance(row.get("size"), int) else None)
+                own = row.get("size") if isinstance(row.get("size"), int) else None
+                found = self.evidence.nested(_leaf(base), own)
                 entries.extend((offset, name, "base") for offset, name in sorted(found or ()))
+                source_size = spec.get("source_size") if isinstance(spec.get("source_size"), int) else own
+                if isinstance(spec.get("source"), str):
+                    entries.extend(
+                        (offset, name, ("dwarf", spec["source"], source_size, offset))
+                        for offset, name in sorted(self.evidence.possible(_leaf(base), own))
+                    )
             return entries, unknown
         if base.startswith("/"):
             leaf = base.rsplit("/", 1)[1]
             entries = [(0, leaf, "leaf")]
-            found = self.evidence.nested(leaf, size if isinstance(size, int) else None) if self.evidence else None
+            known = size if isinstance(size, int) else None
+            found = self.evidence.nested(leaf, known) if self.evidence else None
             if found is None:
                 return entries, ([(0, size)] if isinstance(size, int) else [])
-            return entries + [(offset, name, "base") for offset, name in sorted(found)], []
+            entries.extend((offset, name, "base") for offset, name in sorted(found))
+            entries.extend((offset, name, ("dwarf", base, known, offset)) for offset, name in sorted(self.evidence.possible(leaf, known)))
+            return entries, []
         return [], []
+
+    def matches(self, target: str, name: str, mode: Any) -> bool:
+        """Whether a parameter class names a sub-object entry; a DWARF-possible entry is confirmed by path."""
+
+        if not isinstance(mode, tuple):
+            return _names_match(target, name, mode)
+        _kind, path, size, offset = mode
+        if self.evidence is None or not _names_match(target, name, "base"):
+            return False
+        precise = self.evidence.nested_path(path, size)
+        return precise is not None and (offset, name) in precise
+
+    def names(self, target: str, entries: Any) -> bool:
+        """Whether any (name, mode) entry matches; definite entries first, so a DWARF path is read only when needed."""
+
+        entries = list(entries)
+        ordered = [entry for entry in entries if not isinstance(entry[1], tuple)] + [entry for entry in entries if isinstance(entry[1], tuple)]
+        return any(self.matches(target, name, mode) for name, mode in ordered)
+
+    def notes_at(self, name: str, offset: int, depth: int = 0) -> list[str]:
+        """Notes and unresolved text of every base or field whose extent holds ``offset`` (its end included)."""
+
+        row = self.types.get(name)
+        if row is None or depth > 24:
+            return []
+        texts: list[str] = []
+        for start, extent, role, entry in self.components(row):
+            if role not in ("base", "field") or not isinstance(start, int) or not isinstance(extent, int):
+                continue
+            if not start <= offset <= start + extent:
+                continue
+            texts.extend(_texts(entry.get("notes")) + _texts(entry.get("unresolved")))
+            parsed = parse_type(entry.get("type"))
+            if parsed and not parsed["pointers"] and not parsed["arrays"] and parsed["base"] in self.types:
+                texts.extend(self.notes_at(parsed["base"], offset - start, depth + 1))
+        return texts
 
     def references(self) -> dict[str, list[str]]:
         """Plan type name -> where it is named through a pointer (fields, vptrs, instantiation arguments)."""
@@ -608,19 +664,28 @@ def _subobject_claims(
             continue
         size = row["size"]
         entries, unknown = model.subobjects(cls, size)
-        at: dict[int, list[tuple[str, str]]] = defaultdict(list)
+        at: dict[int, list[tuple[str, Any]]] = defaultdict(list)
         for offset, name, mode in entries:
             at[offset].append((name, mode))
         for offset, sites in sorted(index.get(cls, {}).items()):
             if offset >= size:
                 continue  # beyond the size: outside_accesses
             for site in sites:
-                if site.get("access") != "address-passed" or site.get("indexed"):
+                if site.get("access") != "address-passed" or site.get("indexed") or site.get("no_parameter"):
+                    continue
+                if not site.get("parameter_type"):
+                    if not _cites(model.notes_at(cls, offset), site["site"]):
+                        problems.append(
+                            f"type {cls}: {site['site']} passes this+{_hex(offset)} in {site.get('register')} to "
+                            f"{site.get('callee')}, whose parameter type is not derivable "
+                            f"({site.get('parameter_unknown') or 'not recorded'}); explain it in the notes of the member "
+                            f"at +{_hex(offset)}, citing {site['site']}"
+                        )
                     continue
                 target = parameter_class(site.get("parameter_type"))
                 if target is None:
                     continue
-                if any(_names_match(target, name, mode) for name, mode in at.get(offset, ())):
+                if model.names(target, at.get(offset, ())):
                     claims.add((cls, offset, site["site"], site.get("register")))
                     continue
                 if any(low <= offset <= high for low, high in unknown):
@@ -634,6 +699,22 @@ def _subobject_claims(
 
 def _claimed(claims: set[tuple[str, int, str, Any]], cls: str, offset: int, site: dict[str, Any]) -> bool:
     return (cls, offset, site["site"], site.get("register")) in claims
+
+
+_CITATION = re.compile(r"0x([0-9a-fA-F]+)(?:\s*[-\u2013]\s*0x([0-9a-fA-F]+))?")
+
+
+def _cites(texts: list[str], site: str) -> bool:
+    """Whether a text cites the site address, alone or inside an address range."""
+
+    wanted = int(site, 16)
+    for text in texts:
+        for match in _CITATION.finditer(text):
+            low = int(match.group(1), 16)
+            high = int(match.group(2), 16) if match.group(2) else low
+            if low <= wanted <= high:
+                return True
+    return False
 
 
 def _spelling_problem(model: _Plan, text: Any, label: str, *, pointer_only_forward: bool = True) -> str | None:
@@ -1304,7 +1385,7 @@ def _end_claims(model: _Plan, layout: dict[str, Any]) -> dict[tuple[str, int], l
                         continue
                     site = sites[key]
                     target = parameter_class(site.get("parameter_type"))
-                    if target and any(_names_match(target, inner_name, mode) for inner_name, mode in at_end):
+                    if target and model.names(target, at_end):
                         notes[(name, offset)].add(
                             f"{site['site']} ({site.get('callee')}) calls this member's empty {target} at its end "
                             f"(+{_hex(extent)}), not the next member"
