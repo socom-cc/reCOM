@@ -47,6 +47,13 @@ Plan format (``kind`` socom-code-type-plan, schema 1)::
       ]
     }
 
+A plain struct named only by mangled parameter types (no member function,
+vtable, RTTI or DWARF record; ``recon layout --struct``) has ``"struct": true``
+in ``layout`` and in its tracker item's batch.  Its layout row lists the
+naming symbols (``name_evidence``), so the plan names it ``mangled-symbol``
+(never ``elf-symbol``) and cites them; caller-built objects add evidence
+(``type_layout``), and its size is cited in ``size_evidence``.
+
 A ``forward`` type is a declaration only: a qualified name proven by mangled
 symbols (the type is a member qualifier, parameter type or template argument),
 an RTTI object or a DWARF record, with no size, bases or fields.  It may only be
@@ -205,6 +212,12 @@ def type_plan_item_id(class_name: str) -> str:
 
 def layout_sha256(layout: dict[str, Any]) -> str:
     return hashlib.sha256(canonical_json(layout).encode("utf-8")).hexdigest()
+
+
+def plan_layout(root: Path, spec: dict[str, Any]) -> dict[str, Any]:
+    """Regenerate the layout evidence a plan's ``layout`` spec names (class, derived scope, plain struct)."""
+
+    return class_layout(root, str(spec.get("class")), bool(spec.get("with_derived")), struct=bool(spec.get("struct")))
 
 
 def _hex(value: int) -> str:
@@ -579,12 +592,14 @@ def validate_type_plan(
         item = next((row for row in tracker.get("work_items", []) if row.get("id") == plan.get("work_item_id")), None)
         if item is None or item.get("kind") != "recon-type-plan":
             problems.append(f"{plan.get('work_item_id')} is not a recon-type-plan item in the tracker")
-        elif (item.get("batch") or {}).get("class") != class_name or bool((item.get("batch") or {}).get("with_derived")) != bool(
-            spec.get("with_derived")
+        elif (
+            (item.get("batch") or {}).get("class") != class_name
+            or bool((item.get("batch") or {}).get("with_derived")) != bool(spec.get("with_derived"))
+            or bool((item.get("batch") or {}).get("struct")) != bool(spec.get("struct"))
         ):
-            problems.append(f"{plan.get('work_item_id')} plans a different class or derived scope")
+            problems.append(f"{plan.get('work_item_id')} plans a different class, derived scope or struct mode")
     if layout is None:
-        layout = class_layout(root, class_name, bool(spec.get("with_derived")))
+        layout = plan_layout(root, spec)
     if spec.get("sha256") != layout_sha256(layout):
         problems.append(
             f"layout.sha256 differs from the regenerated recon layout evidence ({layout_sha256(layout)}); "
@@ -626,6 +641,8 @@ def validate_type_plan(
         leaf = _leaf(name)
         if provenance == "elf-symbol" and name not in by_class:
             problems.append(f"{where}: elf-symbol names must be a class in the layout evidence")
+        if provenance == "elf-symbol" and "name_evidence" in (by_class.get(name) or {}):
+            problems.append(f"{where}: a plain struct is named by mangled parameter types; cite them as mangled-symbol name_evidence")
         if provenance in NAME_PROOFS:
             problems.extend(model.evidence.name_problems(name, provenance, row.get("name_evidence"), where, forward=kind == "forward"))
         if provenance == TEMPLATE_NAME and row.get("instantiation") is None:
@@ -1362,7 +1379,8 @@ def render_type_plan(
         "",
         "| Item | Value |",
         "|---|---|",
-        f"| Layout evidence | {_code(spec.get('class'))}{' with its derived classes' if spec.get('with_derived') else ''}, "
+        f"| Layout evidence | {_code(spec.get('class'))}{' with its derived classes' if spec.get('with_derived') else ''}"
+        f"{' (plain struct)' if spec.get('struct') else ''}, "
         f"sha256 {_code(spec.get('sha256'))} |",
         f"| Validation | {'**ok**' if not problems else f'**{len(problems)} problem(s)**, listed under Validation'} |",
         f"| Types | {len(defined)} defined ({len(instantiations)} template instantiations), {len(forwards)} forward declarations |",

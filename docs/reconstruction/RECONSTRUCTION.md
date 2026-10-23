@@ -581,6 +581,34 @@ python tools/socom.py recon type-plan affected --plan build/type-plans/zdb-cvisu
   without DWARF layouts (a declaration-only record such as
   `tag_DelayedNode`), casts after a runtime type test, virtual-call results
   and `__dynamic_cast` results are not typed.
+- A plain struct has no member function, vtable, RTTI or DWARF record; only
+  mangled parameter types name it (`tag_ObjectHeader`, the `a2` of
+  `zdb::CVisual::VuObjectSetup` and both `VuBatchProgram`s). Lay it out with
+  `recon layout --class tag_ObjectHeader --struct` (and plan it with
+  `progress add-type-plan --class tag_ObjectHeader --struct`; the batch
+  records `"struct": true`, the plan's `layout` spec too). `--struct` refuses
+  a name with members, a vtable, RTTI or a DWARF record, and one no mangled
+  `S *` / `S &` parameter names. Its roots are those parameters in every
+  function, followed as for classes. A function that passes, as such a
+  parameter, an address it can name at every use (its own frame `sp+N`, a
+  symbol-table object, a call result or an entry argument, plus N) builds or
+  reads the struct there: its own accesses to `base+N+k` before and after the
+  call are attributed at `+k` (`built@<pass sites>` roots), inside a region
+  that ends at the next address of that base the function passes or stores
+  (another object), the frame top or a saved-register slot, the object's end,
+  or the `operator new` size. `caller_built.regions` lists every region with
+  its bound; a region whose address is also passed as a different type (the
+  slot is reused), that nothing bounds, or that a loaded or indexed pointer
+  addresses is refused, and its accesses, and any access that passes a
+  region's end, is indexed from its start or lies where a lower object of
+  known size may extend, are listed in `caller_built.flagged` instead of
+  attributed. `size_bounds` gives the largest attributed extent, the region
+  bounds (room before the next object: an upper bound, not a size proof),
+  `operator new` sizes whose result is passed as the struct (these are its
+  `size_evidence`), same-offset copies and indexed sites. The plan names the
+  struct `mangled-symbol` with the symbols of its `name_evidence`. Class
+  layouts never use caller-built regions, so their evidence and digests do
+  not change.
 - The plan (format in `tools/_socom/type_plan.py`) gives each type its
   qualified name, category (`/project/<namespaces>`), size, alignment, bases
   at their RTTI offsets (component named by the bare base type name), the

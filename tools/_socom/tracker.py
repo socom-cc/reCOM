@@ -109,19 +109,23 @@ TYPE_PLAN_RESOURCES = ["build/type-plans"]
 TYPE_PLAN_PREFIX = "socom:work:type-plan-"
 
 
-def add_type_plan_items(tracker: dict[str, Any], class_name: str, with_derived: bool) -> list[str]:
+def add_type_plan_items(tracker: dict[str, Any], class_name: str, with_derived: bool, struct: bool = False) -> list[str]:
     """Insert a code-derived type plan item and its live apply item into stage 3.
 
     The plan is file-only (``build/type-plans``) and has no dependencies: its
     evidence comes from the immutable ELF.  The apply alone owns
     ``ghidra-writer`` and waits for the accepted plan.  Both join the stage 3
-    gate, as stage 3 repairs do.
+    gate, as stage 3 repairs do.  ``struct`` plans a plain struct named only by
+    mangled parameter types (``recon layout --struct``): the batch records
+    ``"struct": true``; the item kinds and gate are the same.
     """
 
     from .type_plan import type_plan_item_id
 
     if not class_name.strip():
         raise SocomError("the class name must not be empty")
+    if struct and with_derived:
+        raise SocomError("a plain struct has no derived classes; drop --with-derived")
     plan_id = type_plan_item_id(class_name)
     apply_id = f"{plan_id}-apply"
     items = tracker["work_items"]
@@ -133,12 +137,15 @@ def add_type_plan_items(tracker: dict[str, Any], class_name: str, with_derived: 
         raise SocomError(f"{plan_id} needs the decomposed {RECON_STAGE} gate")
     if gate.get("status") == "accepted":
         raise SocomError(f"the {RECON_STAGE} gate is already accepted")
-    batch = {"class": class_name, "with_derived": bool(with_derived)}
+    batch: dict[str, Any] = {"class": class_name, "with_derived": bool(with_derived)}
+    if struct:
+        batch["struct"] = True
     plan = {
         "id": plan_id,
         "stage": RECON_STAGE,
         "kind": TYPE_PLAN_KIND,
-        "title": f"Plan the code-derived layout of {class_name}" + (" and its derived classes" if with_derived else ""),
+        "title": f"Plan the code-derived layout of {'the plain struct ' if struct else ''}{class_name}"
+        + (" and its derived classes" if with_derived else ""),
         "status": "blocked",
         "dependencies": [],
         "resources": list(TYPE_PLAN_RESOURCES),
@@ -819,6 +826,8 @@ def audit_tracker(
                 errors.append(f"{item_id} type plan must not depend on other items")
             if not str(item_id).startswith(TYPE_PLAN_PREFIX) or str(item_id).endswith("-apply"):
                 errors.append(f"{item_id} is not a type plan ID")
+            if (item.get("batch") or {}).get("struct") and (item.get("batch") or {}).get("with_derived"):
+                errors.append(f"{item_id} plans a plain struct with derived classes")
         if kind == TYPE_APPLY_KIND:
             if resources != set(GHIDRA_WRITER_RESOURCES):
                 errors.append(f"{item_id} apply resources differ from Ghidra contract")
@@ -2060,7 +2069,7 @@ def work_packet(
         skill = "socom-ghidra-workflow"
         slug = item_id.removeprefix(TYPE_PLAN_PREFIX)
         batch = item.get("batch") or {}
-        derived = " --with-derived" if batch.get("with_derived") else ""
+        derived = " --with-derived" if batch.get("with_derived") else " --struct" if batch.get("struct") else ""
         layout = f"build/type-plans/{slug}-layout"
         plan = f"build/type-plans/{slug}.json"
         validation = [

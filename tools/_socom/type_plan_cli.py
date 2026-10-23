@@ -21,7 +21,9 @@ def specs(spec: Any) -> tuple[Any, ...]:
         spec(
             "recon layout",
             "recon",
-            "Write ELF-derived layout evidence of a class (and its bases and derived classes): every proven access per offset.",
+            "Write ELF-derived layout evidence of a class (and its bases and derived classes), or with --struct of a "
+            "plain struct named only by mangled parameter types (its callers' own objects included): every proven "
+            "access per offset.",
             mutates=True,
         ),
         spec("recon type-plan validate", "recon", "Check a code-derived type plan against regenerated layout evidence."),
@@ -66,6 +68,7 @@ def register(recon_commands: Any, ghidra_commands: Any, progress_commands: Any) 
     layout = recon_commands.add_parser("layout")
     layout.add_argument("--class", dest="class_name", required=True)
     layout.add_argument("--with-derived", action="store_true")
+    layout.add_argument("--struct", action="store_true", help="a plain struct named only by mangled parameter types")
     layout.add_argument("--output", required=True)
     layout.set_defaults(handler=_recon_layout)
 
@@ -91,6 +94,7 @@ def register(recon_commands: Any, ghidra_commands: Any, progress_commands: Any) 
     target.add_argument("--class", dest="class_name")
     target.add_argument("--plan")
     affected.add_argument("--with-derived", action="store_true")
+    affected.add_argument("--struct", action="store_true", help="--class names a plain struct (recon layout --struct)")
     affected.add_argument("--output")
     affected.set_defaults(handler=_type_plan_affected)
 
@@ -107,6 +111,7 @@ def register(recon_commands: Any, ghidra_commands: Any, progress_commands: Any) 
     add = progress_commands.add_parser("add-type-plan")
     add.add_argument("--class", dest="class_name", required=True)
     add.add_argument("--with-derived", action="store_true")
+    add.add_argument("--struct", action="store_true", help="a plain struct named only by mangled parameter types")
     add.add_argument("--expected-revision", type=int, required=True)
     add.add_argument("--dry-run", action="store_true")
     add.set_defaults(handler=_progress_add_type_plan)
@@ -125,7 +130,7 @@ def _recon_layout(arguments: argparse.Namespace) -> int:
 
     root = _root(arguments)
     output = _build_path(root, arguments.output, "layout evidence")
-    report = class_layout(root, arguments.class_name, arguments.with_derived)
+    report = class_layout(root, arguments.class_name, arguments.with_derived, struct=arguments.struct)
     if output.suffix == ".json":
         atomic_write_json(output, report)
     else:
@@ -135,6 +140,7 @@ def _recon_layout(arguments: argparse.Namespace) -> int:
             "mutation_performed": False,
             "class": report["class"],
             "with_derived": report["with_derived"],
+            **({"struct": True} if report.get("struct") else {}),
             "layout_sha256": layout_sha256(report),
             "summary": report["summary"],
             "classes": [
@@ -151,14 +157,14 @@ def _load_plan(arguments: argparse.Namespace) -> tuple[Path, Path, dict[str, Any
     from .cli import _root
     from .constants import tracker_path
     from .tracker import load_tracker
-    from .type_layout import class_layout
+    from .type_plan import plan_layout
     from .util import load_json
 
     root = _root(arguments)
     plan_path = _path(root, arguments.plan)
     plan = load_json(plan_path)
     spec = plan.get("layout") or {}
-    layout = class_layout(root, str(spec.get("class")), bool(spec.get("with_derived"))) if spec.get("class") else {"classes": []}
+    layout = plan_layout(root, spec) if spec.get("class") else {"classes": []}
     return root, plan_path, plan, layout, load_tracker(tracker_path(root))
 
 
@@ -266,7 +272,7 @@ def _type_plan_affected(arguments: argparse.Namespace) -> int:
     if arguments.plan:
         classes = plan_classes(load_json(_path(root, arguments.plan)))
     else:
-        family = _Family(root, arguments.class_name, arguments.with_derived)
+        family = _Family(root, arguments.class_name, arguments.with_derived, struct=arguments.struct)
         classes = sorted(readable_qualified(list(cls)) for cls in family.classes)
     report = affected_groups(root, load_tracker(tracker_path(root)), classes)
     if arguments.output:
@@ -350,9 +356,14 @@ def _progress_add_type_plan(arguments: argparse.Namespace) -> int:
 
     root = _root(arguments)
     captured: list[str] = []
+    if arguments.struct:
+        from .type_layout import _Family
+
+        # The name must qualify (no member, vtable, RTTI or DWARF record; a mangled T * / T & parameter names it).
+        _Family(root, arguments.class_name, arguments.with_derived, struct=True)
 
     def add(tracker: dict[str, Any]) -> None:
-        captured.extend(add_type_plan_items(tracker, arguments.class_name, arguments.with_derived))
+        captured.extend(add_type_plan_items(tracker, arguments.class_name, arguments.with_derived, struct=arguments.struct))
 
     if arguments.dry_run:
         tracker = load_tracker(tracker_path(root))

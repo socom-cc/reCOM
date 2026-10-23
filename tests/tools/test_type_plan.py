@@ -367,6 +367,81 @@ def test_type_plan_items_join_the_stage_gate(decomposed: dict) -> None:
     assert any("recon layout --class zdb::CVisual --with-derived" in line for line in packet["validation"])
 
 
+def test_struct_type_plan_items_record_struct_mode(decomposed: dict) -> None:
+    with pytest.raises(SocomError, match="no derived classes"):
+        add_type_plan_items(decomposed, "tag_ObjectHeader", True, struct=True)
+    ids = add_type_plan_items(decomposed, "tag_ObjectHeader", False, struct=True)
+    assert ids == ["socom:work:type-plan-tag-objectheader", "socom:work:type-plan-tag-objectheader-apply"]
+    refresh_ready_and_stages(decomposed)
+    assert audit_tracker(decomposed, strict=True) == []
+    by_id = {row["id"]: row for row in decomposed["work_items"]}
+    plan, apply = by_id[ids[0]], by_id[ids[1]]
+    assert plan["batch"] == apply["batch"] == {"class": "tag_ObjectHeader", "with_derived": False, "struct": True}
+    assert (plan["kind"], apply["kind"], apply["dependencies"]) == (TYPE_PLAN_KIND, TYPE_APPLY_KIND, [ids[0]])
+    assert plan["title"] == "Plan the code-derived layout of the plain struct tag_ObjectHeader"
+    assert set(ids) <= set(by_id[RECON_SEED_ID]["dependencies"])
+    claim_work(decomposed, ids[0], "planner", 30)
+    packet = work_packet(decomposed, ids[0], "planner")
+    assert (
+        "python tools/socom.py recon layout --class tag_ObjectHeader --struct --output build/type-plans/tag-objectheader-layout.json"
+        in packet["validation"]
+    )
+    broken = copy.deepcopy(decomposed)
+    next(row for row in broken["work_items"] if row["id"] == ids[0])["batch"]["with_derived"] = True
+    assert any("plain struct with derived classes" in text for text in audit_tracker(broken))
+
+
+def _struct_layout() -> dict:
+    sites = [
+        _site("0x30c340", 0x4, "store", width=4, kind="int", root="param a2"),
+        _site("0x30ae58", 0x8, "store", width=4, kind="int", root="built@0x30adf4"),
+        _site("0x30c6a4", 0xC, "store", width=4, kind="zero", constant=0, root="param a2"),
+    ]
+    return {
+        "kind": "socom-type-layout-evidence", "schema_version": 2, "class": "tag_ObjectHeader", "with_derived": False,
+        "struct": True,
+        "classes": [{
+            "class": "tag_ObjectHeader", "role": "requested", "size_evidence": [], "bases": [], "vtable": None,
+            "offsets": [{"offset": site["offset"], "sites": [site], "conflicts": []} for site in sites], "object_passes": [],
+            "name_evidence": ["VuObjectSetup__Q23zdb7CVisualFP8_word128P16tag_ObjectHeader"],
+        }],
+    }
+
+
+def _struct_plan(layout: dict, provenance: str = "mangled-symbol") -> dict:
+    return {
+        "kind": "socom-code-type-plan", "schema_version": 1,
+        "work_item_id": type_plan_item_id("tag_ObjectHeader"),
+        "target": {"source_sha256": REFERENCE_SHA256},
+        "layout": {"class": "tag_ObjectHeader", "with_derived": False, "struct": True, "sha256": layout_sha256(layout)},
+        "naming_survey": ["test fixture"],
+        "types": [{
+            "name": "tag_ObjectHeader", "kind": "struct", "category": "/project", "name_provenance": provenance,
+            "name_evidence": ["VuObjectSetup__Q23zdb7CVisualFP8_word128P16tag_ObjectHeader"],
+            "size": 0x20, "alignment": 4, "size_evidence": ["caller-built region bound 0x20 (a1 = header + 0x20)"],
+            "fields": [
+                _field(4, 4, "uint", "m_program_qwc", ["0x30c340"]),
+                _field(8, 4, "uint", "m_extra_qwc", ["0x30ae58"]),
+                _field(0xC, 4, "uint", "m_flags", ["0x30c6a4"]),
+            ],
+            "padding": [{"offset": 0, "size": 4, "reason": "test"}, {"offset": 0x10, "size": 0x10, "reason": "test"}],
+        }],
+    }
+
+
+def test_struct_plans_name_the_struct_by_its_mangled_parameters(root: Path, decomposed: dict) -> None:
+    layout = _struct_layout()
+    plan = _struct_plan(layout)
+    add_type_plan_items(decomposed, "tag_ObjectHeader", False, struct=True)
+    assert validate_type_plan(root, decomposed, plan, layout) == []
+    problems = validate_type_plan(root, decomposed, _struct_plan(layout, "elf-symbol"), layout)
+    assert any("a plain struct is named by mangled parameter types" in text for text in problems)
+    not_struct = copy.deepcopy(decomposed)
+    next(row for row in not_struct["work_items"] if row["id"] == plan["work_item_id"])["batch"].pop("struct")
+    assert any("different class, derived scope or struct mode" in text for text in validate_type_plan(root, not_struct, plan, layout))
+    assert "(plain struct)" in render_type_plan(plan, layout, [], None)
+
+
 def test_audit_rejects_broken_type_plan_items(decomposed: dict) -> None:
     ids = add_type_plan_items(decomposed, "zdb::CVisual", False)
     broken = copy.deepcopy(decomposed)

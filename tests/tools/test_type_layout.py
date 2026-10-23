@@ -259,3 +259,156 @@ def test_holders_leave_untyped_holders_and_look_alikes_unattributed(cvisual: dic
     # CRipple read fields of their own this.
     for site in ("0x241ddc", "0x241de0", "0x226518", "0x231fbc", "0x2367e4", "0x2367e8", "0x2367ec", "0x212138", "0x231e34"):
         assert site not in attributed, site
+
+
+# -- plain structs (struct mode) ------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def object_header(root: Path) -> dict:
+    return class_layout(root, "tag_ObjectHeader", struct=True)
+
+
+def test_struct_mode_lays_out_a_name_proven_only_by_parameter_types(root: Path, object_header: dict) -> None:
+    assert object_header["struct"] is True and object_header["with_derived"] is False
+    (row,) = object_header["classes"]
+    assert (row["class"], row["role"], row["members"], row["vtable"], row["rtti"]) == ("tag_ObjectHeader", "requested", [], None, [])
+    assert row["name_evidence"] == [
+        "VuBatchProgram_Decals__Q23zdb7CVisualFP8_word128P16tag_ObjectHeader",
+        "VuBatchProgram__Q23zdb7CVisualFP8_word128P16tag_ObjectHeaderPQ23zdb17tag_DETAIL_PARAMS",
+        "VuObjectSetup__Q23zdb7CVisualFP8_word128P16tag_ObjectHeader",
+    ]
+    assert [entry["offset"] for entry in row["offsets"]] == [0x0, 0x4, 0x8, 0xC, 0x10]
+    # Callee side: the typed a2 parameter (the program qword count, then bit 0 of +0xc).
+    assert _sites_at(object_header, "tag_ObjectHeader", 0x4)["0x30c340"]["root"] == "param a2"
+    bitfield = _sites_at(object_header, "tag_ObjectHeader", 0xC)["0x30c6b4"]
+    assert bitfield["bitfield"]["field_mask"] == "0x1" and bitfield["root"] == "param a2"
+    # VuObjectSetup's s0 is a1 (_word128 *), not the header: its word 0 = 63 store is not header evidence.
+    assert "0x30c398" not in _sites_at(object_header, "tag_ObjectHeader", 0x0)
+    # Caller side: VuUpdate passes zSysSprGetPacket()+0x10 as a2 and +0x30 as a1 (_word128 *).
+    zero = _sites_at(object_header, "tag_ObjectHeader", 0x10)["0x30a96c"]
+    assert (zero["width"], zero["kind"], zero["root"]) == (16, "zero", "built@0x30a978")
+    count = _sites_at(object_header, "tag_ObjectHeader", 0x8)["0x30ae58"]
+    assert (count["access"], count["width"], count["root"]) == ("store", 4, "built@0x30adf4")
+    regions = row["caller_built"]["regions"]
+    assert len(regions) == 8 and {region["status"] for region in regions} == {"attributed"}
+    assert {region["extent_bound"] for region in regions} == {0x20}
+    assert all("passed as a1 (_word128 *)" in region["bound"] for region in regions)
+    assert row["caller_built"]["flagged"] == []
+    bounds = row["size_bounds"]
+    assert (bounds["largest_attributed_extent"], bounds["region_bounds"], bounds["allocation_sizes"]) == (0x20, [0x20], [])
+    roots = _function_roots(object_header, "0x30a900")
+    assert roots["built@0x30a978"]["proof"].startswith("result of zSysSprGetPacket(uint16**) @0x30a954+0x10 passed as a2")
+    text = render_layout(object_header)
+    assert "(plain struct)" in text and "caller-built regions (8):" in text and "flagged, not attributed (0):" in text
+    assert canonical_json(class_layout(root, "tag_ObjectHeader", struct=True)) == canonical_json(object_header)
+
+
+def test_struct_mode_refuses_names_it_does_not_cover(root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from tools._socom import type_layout
+
+    with pytest.raises(SocomError, match=r"lay it out as a plain struct \(--struct\)"):
+        _Family(root, "tag_ObjectHeader", with_derived=False)
+    with pytest.raises(SocomError, match="lay it out as a class"):
+        _Family(root, "zdb::CVisual", with_derived=False, struct=True)
+    with pytest.raises(SocomError, match="no derived classes"):
+        _Family(root, "tag_ObjectHeader", with_derived=True, struct=True)
+    with pytest.raises(SocomError, match="no mangled function parameter"):
+        _Family(root, "tag_NoSuchStruct", with_derived=False, struct=True)
+    monkeypatch.setattr(type_layout, "dwarf_sizes", lambda _root: {"tag_ObjectHeader": [32]})
+    with pytest.raises(SocomError, match="DWARF has a record"):
+        _Family(root, "tag_ObjectHeader", with_derived=False, struct=True)
+
+
+class _FakeCtx:
+    object_starts = [0x500000]
+    objects = {0x500000: (0x30, "g_object")}
+
+    def object_for(self, address: int) -> str:
+        return f"g_object+0x{address - 0x500000:x}"
+
+    def label(self, address: int) -> str:
+        return f"0x{address:x}"
+
+    def text(self, site: int) -> str:
+        return f"insn@{site:x}"
+
+
+class _FakeSymbols:
+    def readable(self, address: int | None) -> str:
+        return f"f_{address:x}" if address is not None else "indirect"
+
+    def parsed(self, address: int | None) -> dict:
+        return {"name": "__nw", "qualifier": []} if address == 0x100 else {}
+
+
+def _fake_collector() -> object:
+    from collections import defaultdict
+    from types import SimpleNamespace
+
+    from tools._socom.type_layout import _Collector
+
+    collector = object.__new__(_Collector)
+    collector.family = SimpleNamespace(requested=("tag_S",), root=Path("."))
+    collector.ctx, collector.symbols = _FakeCtx(), _FakeSymbols()
+    collector.allocations = defaultdict(list)
+    collector.region_rows, collector.flagged, collector.regions = [], [], {}
+    collector._sizes = {"CPnt3D": [12]}
+    return collector
+
+
+def _pass(site: int, register: str, key: tuple | None) -> dict:
+    return {"site": site, "register": register, "callee": 0x200, "type": key}
+
+
+def _event(site: int, address: tuple, width: int, store: bool = False) -> dict:
+    return {"site": site, "address": address, "width": width, "kind": "int", "signed": None, "store": store, "value": None, "loaded": None}
+
+
+def _no_flow(**fields: object) -> object:
+    from types import SimpleNamespace
+
+    return SimpleNamespace(**{"calls": [], "memory": [], "frame": [], "flow": None, **fields})
+
+
+def test_caller_built_regions_are_bounded_or_refused_and_flag_what_they_cannot_attribute() -> None:
+    struct, point, sp = ("class", ("tag_S",)), ("class", ("CPnt3D",)), ("sp",)
+    collector = _fake_collector()
+    # A frame object at entry sp-0x40, bounded by a CPnt3D passed at sp-0x20; a CPnt3D at sp-0x48 overlaps +0x0..+0x4.
+    points = {-0x48: [_pass(0x10, "a1", point)], -0x40: [_pass(0x20, "a0", struct)], -0x20: [_pass(0x20, "a1", point)]}
+    collector._region(0x1000, _no_flow(), sp, -0x40, points)
+    (row,) = collector.region_rows
+    assert (row["status"], row["extent_bound"], row["ambiguous_below"]) == ("attributed", 0x20, 4)
+    assert row["bound"] == "entry sp-0x20 passed as a1 (CPnt3D *) of f_200 @0x20"
+    cls, offset, root, path = collector._region_at(0x1000, (sp, -0x38))
+    assert (cls, offset, path) == (("tag_S",), 8, [])
+    assert collector._admit(0x1000, 0x30, root, [], 8, 4, "load")
+    assert not collector._admit(0x1000, 0x34, root, [], 0x1C, 8, "store")  # passes the region end
+    assert not collector._admit(0x1000, 0x38, root, [], 0, 4, "store")  # where the lower CPnt3D may extend
+    assert not collector._admit(0x1000, 0x3C, root, ["[i]"], 8, 4, "load")  # indexed from its start
+    assert [flag["site"] for flag in collector.flagged] == ["0x34", "0x38", "0x3c"]
+    assert collector._region_at(0x1000, (sp, -0x20)) is None
+    # The same address also passed as another type: the slot is reused, nothing is attributed, its accesses are flagged.
+    collector = _fake_collector()
+    reused = {-0x40: [_pass(0x40, "a0", struct), _pass(0x48, "a0", point)], -0x20: [_pass(0x40, "a1", None)]}
+    collector._region(0x1000, _no_flow(frame=[_event(0x44, (sp, -0x3C), 4)]), sp, -0x40, reused)
+    assert collector.region_rows[0]["status"] == "refused" and "also passed as CPnt3D *" in collector.region_rows[0]["reason"]
+    assert collector.regions == {} and [(flag["site"], flag["offset"]) for flag in collector.flagged] == [("0x44", 4)]
+    # A call result that nothing bounds is refused; operator new(0x18) bounds one and is its size evidence.
+    collector = _fake_collector()
+    unbounded = ("res", 0x60)
+    analysis = _no_flow(calls=[{"site": 0x60, "callee": 0x300, "arguments": {}}], memory=[_event(0x70, (unbounded, 0x40), 4, True)])
+    collector._region(0x1000, analysis, unbounded, 0, {0: [_pass(0x68, "a1", struct)]})
+    assert collector.region_rows[0]["status"] == "refused" and "nothing bounds" in collector.region_rows[0]["reason"]
+    assert [(flag["site"], flag["offset"]) for flag in collector.flagged] == [("0x70", 0x40)]
+    allocated = ("res", 0x80)
+    analysis = _no_flow(calls=[{"site": 0x80, "callee": 0x100, "arguments": {"a0": (("const",), 0x18)}}])
+    collector._region(0x1000, analysis, allocated, 0, {0: [_pass(0x88, "a0", struct)]})
+    assert (collector.region_rows[1]["extent_bound"], collector.region_rows[1]["bound"]) == (0x18, "operator new(0x18) @0x80")
+    assert [row["size"] for row in collector.allocations[("tag_S",)]] == [0x18]
+    # A global object ends at its symbol's size; an address in the caller's frame is refused.
+    collector = _fake_collector()
+    collector._region(0x1000, _no_flow(), ("sym", 0x500000), 0x500010, {0x500010: [_pass(0x90, "a0", struct)]})
+    assert (collector.region_rows[0]["extent_bound"], collector.region_rows[0]["bound"]) == (0x20, "the end of g_object (0x30 bytes)")
+    collector._region(0x1000, _no_flow(), sp, 0x8, {0x8: [_pass(0x98, "a0", struct)]})
+    assert collector.region_rows[1]["status"] == "refused" and "caller's frame" in collector.region_rows[1]["reason"]

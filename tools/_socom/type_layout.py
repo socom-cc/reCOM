@@ -64,6 +64,22 @@ parameters.  DWARF parameter lists add no types: DWARF 1 lists only named
 parameters, so it cannot settle registers, and all but nine DWARF
 subprograms (main, thunks, C wrappers) have mangled names that list them.
 
+A plain struct (``class_layout(..., struct=True)``, ``recon layout --struct``)
+has no member function, vtable, RTTI or DWARF record; a mangled pointer or
+reference parameter type is its only name proof.  Its roots are those
+parameters in every function, followed as above, plus caller-built objects
+(``_Collector._caller_built``): a function that passes its own frame address
+sp+N, a symbol-table object's address, a call result or an entry argument
+(plus N) as that parameter has its own accesses to base+N+k attributed at
++k, before and after the call, inside a region bounded by the next address
+of that base the function passes or stores (another object), the frame top
+or a saved-register slot, the object's end, or the operator new size.  A
+region whose address is also passed as another type, or that nothing
+bounds, is refused; its accesses, and accesses that pass a region's end, are
+indexed from its start or lie where a lower object of known size may
+extend, are flagged instead of attributed.  Class layouts never use these
+regions, so their reports are unchanged.
+
 Nothing is inferred from names or Ghidra: a site is listed only when the
 instruction semantics prove its base.  Accesses whose base the analysis
 cannot prove are counted per function as unattributed, so gaps stay visible.
@@ -115,6 +131,11 @@ _MEMORY = {
     0x2D: (8, "partial", None, True, False),  # sdr
 }
 _CALL_CLOBBERED_GPRS = (1, 2, 3, *range(4, 16), 24, 25, 31)
+# Byte sizes of builtin pointees (an object a T * parameter proves at its address); double is left out.
+_POINTEE_SIZES = {
+    "bool": 1, "char": 1, "signed char": 1, "unsigned char": 1, "short": 2, "unsigned short": 2, "wchar_t": 2,
+    "int": 4, "unsigned int": 4, "long": 4, "unsigned long": 4, "float": 4, "long long": 8, "unsigned long long": 8,
+}
 # Member operators are never static ([over.oper]); operator new/delete are.
 _MEMBER_OPERATORS = frozenset(name for name in OPERATORS if name not in ("__nw", "__nwa", "__dl", "__dla"))
 _SP = 29
@@ -339,6 +360,21 @@ def _pointee_class(value: dict[str, Any]) -> tuple[str, ...] | None:
     if value.get("kind") != "class" or len(_levels(value)) != 1:
         return None
     return tuple(value["components"])
+
+
+def _nested(values: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Mangled type values and the types nested in them (function parameters and results, array elements)."""
+
+    result = []
+    for value in values:
+        result.append(value)
+        if value.get("kind") == "function":
+            result.extend(_nested(list(value.get("params") or []) + ([value["result"]] if value.get("result") else [])))
+        elif value.get("kind") == "array" and value.get("element"):
+            result.extend(_nested([value["element"]]))
+        elif value.get("kind") == "member_pointer" and value.get("pointee"):
+            result.extend(_nested([value["pointee"]]))
+    return result
 
 
 def _by_value_aggregate(value: dict[str, Any]) -> bool:
@@ -657,6 +693,9 @@ class _Analysis:
         self.states: dict[int, dict] = {start: entry}
         self.calls: list[dict[str, Any]] = []
         self.memory: list[dict[str, Any]] = []
+        # Accesses to the frame (sp+k) and to relocated addresses: no class root reaches them; caller-built
+        # struct regions (``_Collector._caller_built``) do.
+        self.frame: list[dict[str, Any]] = []
         self.uses: list[dict[str, Any]] = []
         self.unattributed: list[int] = []
         self._run()
@@ -865,7 +904,13 @@ class _Analysis:
         if address is None:
             self.unattributed.append(pc)
             return
-        if address[0] in (("sp",), ("sym",), ("const",)):
+        if address[0] in (("sp",), ("sym",)):
+            self.frame.append(
+                {"site": pc, "address": address, "width": width, "kind": kind, "signed": signed, "store": store,
+                 "value": value, "loaded": loaded}
+            )
+            return
+        if address[0] == ("const",):
             return
         self.memory.append(
             {"site": pc, "address": address, "width": width, "kind": kind, "signed": signed, "store": store,
@@ -945,7 +990,7 @@ class _Analysis:
             for register, value in call["arguments"].items():
                 if register.startswith("f") and value[0][0] == "ld":
                     float_used.add(value[0])
-        for event in self.memory:
+        for event in self.memory + self.frame:
             if event["kind"] != "float":
                 continue
             if not event["store"] and event["loaded"] is not None and event["loaded"][0] not in float_used:
@@ -1008,9 +1053,15 @@ def dwarf_sizes(root: Path) -> dict[str, list[int]]:
 
 
 class _Family:
-    """The classes whose layout evidence is collected."""
+    """The classes whose layout evidence is collected.
 
-    def __init__(self, root: Path, name: str, with_derived: bool) -> None:
+    ``struct=True`` lays out a plain struct: a name with no member function,
+    RTTI, vtable or DWARF record, proven only by mangled parameter types.  Its
+    family is that one type; ``name_evidence`` lists the mangled symbols whose
+    parameters name it.
+    """
+
+    def __init__(self, root: Path, name: str, with_derived: bool, struct: bool = False) -> None:
         self.root = root
         self.ctx = context(root)
         self.leaves, self.templates = class_leaves(root)
@@ -1019,10 +1070,18 @@ class _Family:
         components = tuple(split_qualified(name))
         mangled_qualifier(list(components))
         self.requested = components
+        self.struct = struct
+        self.name_evidence: list[str] = []
         self.rtti = self._rtti_index()
         members = self._members_by_class()
-        if not members.get(components) and components not in self.rtti["by_class"]:
-            raise SocomError(f"{name}: no member function or RTTI record has that qualifier")
+        if struct:
+            self._require_struct(name, components, members, with_derived)
+        elif not members.get(components) and components not in self.rtti["by_class"]:
+            hint = (
+                "; it is named only by mangled parameter types: lay it out as a plain struct (--struct)"
+                if self._parameter_symbols(components)[1] else ""
+            )
+            raise SocomError(f"{name}: no member function or RTTI record has that qualifier{hint}")
         classes: dict[tuple[str, ...], str] = {components: "requested"}
         pending = [components]
         while pending:
@@ -1042,6 +1101,39 @@ class _Family:
             table = self.vtable_object(cls)
             if table is not None:
                 self.vtable_class[table["address"]] = cls
+
+    def _parameter_symbols(self, components: tuple[str, ...]) -> tuple[list[str], list[str]]:
+        """(every mangled function symbol whose parameter types name the class, those with a T * / T & root)."""
+
+        named, roots = set(), set()
+        for row in self.symbols.functions.values():
+            parsed = row.get("parsed")
+            if not parsed or not parsed.get("params"):
+                continue
+            values = _nested(parsed["params"])
+            if any(value.get("kind") == "class" and tuple(value.get("components") or ()) == components for value in values):
+                named.add(row["mangled"])
+                if any(_pointee_class(value) == components for value in parsed["params"]):
+                    roots.add(row["mangled"])
+        return sorted(named), sorted(roots)
+
+    def _require_struct(
+        self, name: str, components: tuple[str, ...], members: dict[tuple[str, ...], list[int]], with_derived: bool
+    ) -> None:
+        if with_derived:
+            raise SocomError(f"{name}: a plain struct has no RTTI, so it has no derived classes (drop --with-derived)")
+        if members.get(components) or components in self.rtti["by_class"] or self.vtable_object(components) is not None:
+            raise SocomError(f"{name}: member functions, a vtable or RTTI name it; lay it out as a class (without --struct)")
+        sizes = dwarf_sizes(self.root).get(components[-1], [])
+        if any(size > 0 for size in sizes):
+            raise SocomError(f"{name}: DWARF has a record of {components[-1]} ({sizes}); the debug import owns it")
+        named, roots = self._parameter_symbols(components)
+        if not roots:
+            raise SocomError(
+                f"{name}: no mangled function parameter is a pointer or reference to it"
+                + (f" (named only inside other types by {', '.join(named[:4])})" if named else "")
+            )
+        self.name_evidence = named
 
     # RTTI: type_info_struct {char *tname; type_info_base_list *baselist;}
     # and type_info_base_list {type_info_struct *baseti; int offset;},
@@ -1703,6 +1795,15 @@ class _Holders:
 # -- attribution -------------------------------------------------------------
 
 
+_NOT_A_BASE = {
+    "sym": "the relocated address lies in no symbol-table object, so nothing bounds the object there",
+    "const": "a constant address: nothing bounds the object there",
+    "ld": "a loaded pointer: the same address expression need not hold the same pointer at its other uses",
+    "hold": "a loaded pointer: the same address expression need not hold the same pointer at its other uses",
+    "ix": "an indexed pointer: its index differs between uses",
+}
+
+
 def _register_order(name: str) -> tuple[int, int]:
     return (1, int(name[1:])) if name.startswith("f") else (0, GPR.index(name))
 
@@ -1733,6 +1834,12 @@ class _Collector:
         self.sites: dict[tuple[str, ...], list[dict[str, Any]]] = defaultdict(list)
         self.object_passes: dict[tuple[str, ...], list[dict[str, Any]]] = defaultdict(list)
         self.functions: dict[int, dict[str, Any]] = {}
+        # Caller-built struct objects (struct mode only): function -> base -> [(start, end, root)], the
+        # region rows, and the accesses flagged instead of attributed.
+        self.regions: dict[int, dict[tuple, list[tuple[int, int, tuple]]]] = {}
+        self.region_rows: list[dict[str, Any]] = []
+        self.flagged: list[dict[str, Any]] = []
+        self._sizes: dict[str, list[int]] | None = None
         self._select()
         self._attribute()
 
@@ -1810,7 +1917,8 @@ class _Collector:
                 analysis = _Analysis(self.ctx, self.symbols, address, self.holders)
                 roots = self._roots(address, analysis)
                 self.holders.compute_return(address, analysis, roots)
-                if address in targets or roots:
+                built = self._caller_built(address, analysis, roots) if self.family.struct else False
+                if address in targets or roots or built:
                     analysis.states = {}
                     self.analyses[address] = analysis
                     self.roots[address] = roots
@@ -1834,6 +1942,289 @@ class _Collector:
                 short = f"{'held' if info[0] == 'load' else 'return'}@0x{_hold_site(info):x}"
                 roots[term] = (cls, short, self.holders.hold_proof(address, analysis, term))
         return roots
+
+    # -- caller-built struct objects (struct mode) ---------------------------------
+    #
+    # A function that passes, as a mangled ``S *`` / ``S &`` parameter, an
+    # address it can name at every use (its own frame sp+N, a symbol-table
+    # object, a call result or an entry argument, each plus N) builds or reads
+    # an S there.  Its own accesses to base+N+k are S accesses at +k, within a
+    # region that ends at the next address of that base the function passes or
+    # stores (another object), and also at the frame top or a saved-register
+    # slot (frame), the object's end (symbol) or the operator new size (call
+    # result).  A region is refused when the same address is also passed as a
+    # different type (the slot is reused), or when no bound exists; its
+    # accesses, and any access that straddles the region end, is indexed from
+    # its start, or lies where a lower object of known size may extend, are
+    # flagged instead of attributed.
+
+    def _base_of(self, value: Any) -> tuple | None:
+        """What a caller-built object's address is relative to: ("sp",), ("sym", object start), a res or arg term."""
+
+        if value is None:
+            return None
+        term, k = value
+        if term == ("sp",):
+            return term
+        if term == ("sym",):
+            position = bisect.bisect_right(self.ctx.object_starts, k) - 1
+            if position >= 0:
+                start = self.ctx.object_starts[position]
+                if k < start + self.ctx.objects[start][0]:
+                    return ("sym", start)
+            return None
+        if term[0] in ("res", "arg"):
+            return term
+        return None
+
+    @staticmethod
+    def _pass_type(mangled: dict[str, Any] | None) -> tuple | None:
+        """The object a parameter type proves at the passed address; None when untyped (unknown, void *, scalar)."""
+
+        if not mangled or not _levels(mangled):
+            return None
+        if len(_levels(mangled)) > 1:
+            return ("pointer", render_type(mangled))
+        if mangled.get("kind") == "class":
+            return ("class", tuple(mangled["components"]))
+        if mangled.get("kind") == "builtin":
+            return None if mangled.get("name") == "void" else ("builtin", mangled["name"])
+        return ("other", render_type(mangled))
+
+    def _type_size(self, key: tuple) -> int | None:
+        if key[0] == "pointer":
+            return 4
+        if key[0] == "builtin":
+            return _POINTEE_SIZES.get(key[1])
+        if key[0] == "class":
+            if self._sizes is None:
+                self._sizes = dwarf_sizes(self.family.root)
+            known = self._sizes.get(template_base(key[1][-1]))
+            return known[0] if known and len(known) == 1 and known[0] > 0 else None
+        return None
+
+    @staticmethod
+    def _type_text(key: tuple) -> str:
+        if key[0] == "class":
+            return f"{_qualified(key[1])} *"
+        if key[0] == "builtin":
+            return f"{key[1]} *"
+        return str(key[1])
+
+    def _point_text(self, base: tuple, k: int, analysis: _Analysis) -> str:
+        if base == ("sp",):
+            return f"entry sp{'+' if k >= 0 else '-'}0x{abs(k):x}"
+        if base[0] == "sym":
+            return f"&{self.ctx.object_for(k) or self.ctx.label(k)}"
+        if base[0] == "res":
+            call = next((row for row in analysis.calls if row["site"] == base[1]), None)
+            name = self.symbols.readable(call["callee"]) if call else "?"
+            return f"result of {name} @0x{base[1]:x}" + (f"+{_hex(k)}" if k else "")
+        return f"entry {GPR[base[1]]}" + (f"+{_hex(k)}" if k else "")
+
+    def _pass_text(self, row: dict[str, Any]) -> str:
+        if row["register"] is None:
+            return f"stored @0x{row['site']:x}"
+        what = self._type_text(row["type"]) if row["type"] is not None else "an untyped parameter"
+        return f"passed as {row['register']} ({what}) of {self.symbols.readable(row['callee'])} @0x{row['site']:x}"
+
+    def _save_slots(self, analysis: _Analysis) -> list[int]:
+        """Frame slots holding a callee-saved register's (or ra's) entry value."""
+
+        slots = set()
+        for event in analysis.frame:
+            if not event["store"] or event["address"][0] != ("sp",):
+                continue
+            insn = self.ctx.code.word(event["site"])
+            op, rt = insn >> 26, (insn >> 16) & 31
+            if op in (0x2B, 0x3F, 0x1F) and (16 <= rt <= 23 or rt in (30, 31)):
+                saved = analysis.flow.defs(event["site"], rt) == {"entry"}
+            elif op == 0x39 and rt >= 20:
+                saved = analysis.flow.defs(event["site"], rt, fpr=True) == {"entry"}
+            else:
+                saved = False
+            if saved:
+                slots.add(event["address"][1])
+        return sorted(slots)
+
+    def _allocation(self, analysis: _Analysis, site: int) -> tuple[int, dict[str, Any]] | None:
+        """(size, call) when the call at ``site`` is operator new with a constant size."""
+
+        call = next((row for row in analysis.calls if row["site"] == site), None)
+        parsed = self.symbols.parsed(call["callee"]) if call else {}
+        if parsed.get("name") != "__nw" or parsed.get("qualifier"):
+            return None
+        size = call["arguments"].get("a0")
+        return (size[1], call) if _is_const(size) and size[1] > 0 else None
+
+    def _caller_built(self, function: int, analysis: _Analysis, roots: dict[Any, tuple]) -> bool:
+        """Record the regions of ``function``'s own objects it passes as the struct; whether it has any."""
+
+        wanted = ("class", self.family.requested)
+        points: dict[tuple, dict[int, list[dict[str, Any]]]] = defaultdict(lambda: defaultdict(list))
+        found = False
+        for call in analysis.calls:
+            for register, value in sorted(call["arguments"].items(), key=lambda item: _register_order(item[0])):
+                if register.startswith("f") or value[0] in roots or self.parameters.of(call["callee"], register).get("no_parameter"):
+                    continue
+                key = self._pass_type(self.parameters.value_of(call["callee"], register))
+                base = self._base_of(value)
+                if base is None:
+                    if key == wanted:
+                        found = True
+                        self.region_rows.append(
+                            {
+                                "function": _hex(function),
+                                "function_name": self.symbols.readable(function),
+                                "object": _describe(value, self, function),
+                                "passes": [self._pass_text({"site": call["site"], "register": register, "callee": call["callee"], "type": key})],
+                                "status": "refused",
+                                "reason": _NOT_A_BASE.get(value[0][0], _NOT_A_BASE["ld"]),
+                            }
+                        )
+                    continue
+                points[base][value[1]].append({"site": call["site"], "register": register, "callee": call["callee"], "type": key})
+        for event in analysis.memory + analysis.frame:
+            value = event["value"]
+            if event["store"] and value is not None and value[0] not in roots:
+                base = self._base_of(value)
+                if base is not None:
+                    points[base][value[1]].append({"site": event["site"], "register": None, "callee": None, "type": None})
+        for base in sorted(points, key=str):
+            for start in sorted(points[base]):
+                if any(row["type"] == wanted for row in points[base][start]):
+                    found = True
+                    self._region(function, analysis, base, start, points[base])
+        return found
+
+    def _region(self, function: int, analysis: _Analysis, base: tuple, start: int, points: dict[int, list[dict[str, Any]]]) -> None:
+        wanted = ("class", self.family.requested)
+        passes = sorted(points[start], key=lambda row: (row["site"], row["register"] or ""))
+        own = [row for row in passes if row["type"] == wanted]
+        others = sorted({self._type_text(row["type"]) for row in passes if row["type"] not in (None, wanted)})
+        bounds: list[tuple[int, str]] = []
+        above = [point for point in points if point > start]
+        if above:
+            nearest = min(above)
+            bounds.append((nearest, f"{self._point_text(base, nearest, analysis)} {self._pass_text(points[nearest][0])}"))
+        allocation = None
+        if base == ("sp",):
+            bounds.append((0, "the frame top (entry sp)"))
+            bounds.extend(
+                (slot, f"the saved-register slot entry sp-0x{-slot:x}") for slot in self._save_slots(analysis) if slot > start
+            )
+        elif base[0] == "sym":
+            size, name = self.ctx.objects[base[1]]
+            bounds.append((base[1] + size, f"the end of {name} ({_hex(size)} bytes)"))
+        elif base[0] == "res":
+            allocation = self._allocation(analysis, base[1])
+            if allocation is not None:
+                bounds.append((allocation[0], f"operator new({_hex(allocation[0])}) @0x{base[1]:x}"))
+        end, bound = min(bounds) if bounds else (None, None)
+        low, overlaps = start, []
+        for point in sorted(points):
+            if point >= start:
+                break
+            for row in points[point]:
+                if row["type"] in (None, wanted):
+                    continue
+                size = self._type_size(row["type"])
+                if size is not None and point + size > start:
+                    low = max(low, point + size)
+                    overlaps.append(f"{self._point_text(base, point, analysis)} {self._pass_text(row)} ({size} bytes)")
+        row: dict[str, Any] = {
+            "function": _hex(function),
+            "function_name": self.symbols.readable(function),
+            "object": self._point_text(base, start, analysis),
+            "passes": [self._pass_text(item) for item in passes],
+        }
+        reason = None
+        if others:
+            reason = f"the address is also passed as {', '.join(others)}: the slot holds different typed objects"
+        elif base == ("sp",) and start >= 0:
+            reason = "the address lies in the caller's frame (incoming stack arguments)"
+        elif end is None:
+            reason = "nothing bounds the region: no other object of this base is passed or stored above it"
+        elif end <= start or low >= end:
+            reason = f"objects below it may extend over all of it: {'; '.join(overlaps)}" if overlaps else "empty region"
+        if end is not None and end > start:
+            row.update(extent_bound=end - start, bound=bound)
+        if low > start:
+            row.update(ambiguous_below=low - start, overlaps=overlaps)
+        if reason is not None:
+            row.update(status="refused", reason=reason)
+            self.region_rows.append(row)
+            limit = end if end is not None and end > start else None
+            for event in sorted(analysis.memory + analysis.frame, key=lambda item: item["site"]):
+                address = event["address"]
+                if self._base_of(address) == base and address[1] >= start and (limit is None or address[1] < limit):
+                    self._flag(function, event["site"], address[1] - start, event["width"], "load/store", reason)
+            return
+        sites = ", ".join(f"0x{item['site']:x}" for item in own)
+        proof = (
+            f"{row['object']} " + "; ".join(self._pass_text(item) for item in own)
+            + f"; region +0x0..+{_hex(end - start)} bounded by {bound}"
+            + (f"; +0x0..+{_hex(low - start)} ambiguous ({'; '.join(overlaps)})" if low > start else "")
+        )
+        root = (self.family.requested, f"built@{sites}", proof, start, end, low)
+        row["status"] = "attributed"
+        self.region_rows.append(row)
+        self.regions.setdefault(function, {}).setdefault(base, []).append((start, end, root))
+        if allocation is not None and start == 0:
+            size, call = allocation
+            self.allocations[self.family.requested].append(
+                {
+                    "function": _hex(function),
+                    "function_name": self.symbols.readable(function),
+                    "allocation_site": _hex(base[1]),
+                    "allocator": self.symbols.readable(call["callee"]),
+                    "size": size,
+                    "constructor_site": _hex(own[0]["site"]),
+                    "constructor": self.symbols.readable(own[0]["callee"]),
+                    "vtable_stores": [],
+                }
+            )
+
+    def _flag(self, function: int, site: int, offset: int, width: int, access: str, reason: str) -> None:
+        self.flagged.append(
+            {
+                "function": _hex(function),
+                "function_name": self.symbols.readable(function),
+                "site": _hex(site),
+                "insn": self.ctx.text(site).split("  ;")[0],
+                "offset": offset,
+                "width": width,
+                "access": access,
+                "reason": reason,
+            }
+        )
+
+    def _region_at(self, function: int, address: Any) -> tuple | None:
+        regions = self.regions.get(function)
+        base = self._base_of(address) if regions else None
+        for start, end, root in (regions or {}).get(base, ()):
+            if start <= address[1] < end:
+                return root[0], address[1] - start, root, []
+        return None
+
+    def _admit(self, function: int, site: int, root: tuple, path: list[Any], offset: int, width: int, access: str) -> bool:
+        """Whether an access located through a caller-built region may be attributed; flag it otherwise."""
+
+        if len(root) < 6:
+            return True
+        start, end, low = root[3], root[4], root[5]
+        deref = bool(path) and isinstance(path[0], int)
+        at, extent = (path[0], 4) if deref else (offset, width)
+        if path and path[0] == "[i]":
+            reason = "indexed from the caller-built object: the index may leave it"
+        elif at + extent > end - start:
+            reason = f"+{_hex(at)}..+{_hex(at + extent)} passes the region end +{_hex(end - start)}"
+        elif at < low - start:
+            reason = f"inside +0x0..+{_hex(low - start)}, where a lower object may extend"
+        else:
+            return True
+        self._flag(function, site, at, extent, access, reason)
+        return False
 
     def param_type(self, function: int, register: str) -> str | None:
         if function not in self.param_types:
@@ -1863,6 +2254,9 @@ class _Collector:
         root = self.roots.get(function, {}).get(term)
         if root is not None:
             return root[0], k, root, []
+        region = self._region_at(function, address) if self.regions else None
+        if region is not None:
+            return region
         if term[0] == "ld":
             inner = self._locate(function, term[1])
             if inner is not None:
@@ -1886,23 +2280,32 @@ class _Collector:
         for address, analysis in sorted(self.analyses.items()):
             for event in analysis.memory:
                 self._memory_site(address, event)
+            if address in self.regions:
+                for event in analysis.frame:
+                    self._memory_site(address, event)
             for call in analysis.calls:
                 self._call_sites(address, call)
             for use in analysis.uses:
                 self._use_site(address, use)
             roots = self.roots.get(address, {})
+            built = [
+                {"register": root[1], "class": _qualified(root[0]), "proof": root[2]}
+                for _base, items in sorted(self.regions.get(address, {}).items(), key=lambda item: str(item[0]))
+                for _start, _end, root in items
+            ]
             self.functions[address] = {
                 "function": _hex(address),
                 "name": self.symbols.readable(address),
                 "roots": sorted(
-                    (
+                    [
                         {
                             "register": GPR[term[1]] if term[0] == "arg" else short if term[0] == "hold" else f"call@0x{term[1]:x}",
                             "class": _qualified(cls),
                             "proof": how,
                         }
                         for term, (cls, short, how) in roots.items()
-                    ),
+                    ]
+                    + built,
                     key=lambda row: (row["register"], row["class"]),
                 ),
                 "unattributed_accesses": [_hex(site) for site in analysis.unattributed],
@@ -1982,6 +2385,8 @@ class _Collector:
         if located is None:
             return
         cls, offset, root, path = located
+        if not self._admit(function, event["site"], root, path, offset, event["width"], "store" if event["store"] else "load"):
+            return
         value = event["value"]
         fields: dict[str, Any] = {"access": "store" if event["store"] else "load"}
         if event["store"]:
@@ -2024,7 +2429,10 @@ class _Collector:
         pointer = call["pointer"]
         if pointer is not None and callee is None:
             located = self._locate(function, pointer)
-            if located is not None and located[3] and isinstance(located[3][0], int):
+            if (
+                located is not None and located[3] and isinstance(located[3][0], int)
+                and self._admit(function, call["site"], located[2], located[3], located[1], 4, "indirect-call")
+            ):
                 cls, offset, root, path = located
                 self._add(
                     cls,
@@ -2042,6 +2450,8 @@ class _Collector:
             located = None if value[0][0] == "ld" and value[1] == 0 else self._locate(function, value)
             if located is not None:
                 cls, offset, root, path = located
+                if not self._admit(function, call["site"], root, path, offset, 0, f"passed in {register}"):
+                    continue
                 fields = {"callee": callee_name, "register": register, **parameter, "tail": tail}
                 if path and isinstance(path[0], int):
                     fields.update(access="pointer-passed", through=_path_text(path[1:]) + f"+{_hex(offset)}")
@@ -2062,6 +2472,8 @@ class _Collector:
                 continue
             cls, offset, root, path = loaded
             term = value[0]
+            if not self._admit(function, call["site"], root, path, offset, term[2], f"value passed in {register}"):
+                continue
             fields = {"access": "value-passed", "callee": callee_name, "register": register, **parameter, "tail": tail}
             if path and isinstance(path[0], int):
                 fields.update(through=_path_text(path[1:]) + f"+{_hex(offset)}", pointee_width=term[2], pointee_kind=term[3])
@@ -2078,6 +2490,8 @@ class _Collector:
         if located is None:
             return
         cls, offset, root, path = located
+        if not self._admit(function, use["site"], root, path, offset, source[2], f"use ({use['how']})"):
+            return
         fields: dict[str, Any] = {"access": "use", "use": use["how"]}
         if term[0] == "bits":
             fields["bits"] = " ".join(f"{op} {_hex(arg) if isinstance(arg, int) else arg}" for op, arg in term[2])
@@ -2235,10 +2649,79 @@ def _summaries(rows: list[dict[str, Any]], sizes: dict[str, list[int]], size: in
     return result
 
 
-def class_layout(root: Path, name: str, with_derived: bool = False) -> dict[str, Any]:
-    """Deterministic layout evidence for ``name``, its RTTI bases and (optionally) derived classes."""
+def _struct_size_bounds(row: dict[str, Any], collector: _Collector) -> dict[str, Any]:
+    """Size evidence of a plain struct: attributed extent, caller-built region bounds, allocations, copies."""
 
-    family = _Family(root, name, with_derived)
+    extent, extent_sites = 0, []
+    indexed: set[str] = set()
+    copies: dict[str, set[tuple[int, int]]] = defaultdict(set)
+    for entry in row["offsets"]:
+        for site in entry["sites"]:
+            if site.get("indexed"):
+                indexed.add(site["site"])
+                continue
+            if site.get("pointer"):
+                width = 4
+            elif site["access"] in DIRECT_ACCESSES and site.get("width"):
+                width = site["width"]
+            else:
+                continue
+            end = entry["offset"] + width
+            if end > extent:
+                extent, extent_sites = end, []
+            if end == extent:
+                extent_sites.append(site["site"])
+            if site.get("copy_of") == f"{row['class']}+{_hex(entry['offset'])}" and site.get("width"):
+                copies[site["function"]].add((entry["offset"], entry["offset"] + site["width"]))
+    copy_rows = []
+    for function, spans in sorted(copies.items()):
+        cursor = 0
+        for low, high in sorted(spans):
+            if low > cursor:
+                break
+            cursor = max(cursor, high)
+        if cursor:
+            copy_rows.append({"function": function, "covers": f"+0x0..+{_hex(cursor)}"})
+    regions = [region for region in collector.region_rows if region["status"] == "attributed"]
+    bounds = sorted({region["extent_bound"] for region in regions})
+    return {
+        "largest_attributed_extent": extent,
+        "largest_extent_sites": sorted(set(extent_sites), key=lambda text: int(text, 16)),
+        "region_bounds": bounds,
+        "smallest_region_bound": bounds[0] if bounds else None,
+        "allocation_sizes": row["size_evidence"],
+        "copies": copy_rows,
+        "indexed_sites": sorted(indexed, key=lambda text: int(text, 16)),
+        "note": "a region bound is the room before the next object the caller passes or stores (an upper bound "
+        "on what can be attributed there, not a size proof); allocation_sizes are operator new sizes whose result "
+        "is passed as the struct",
+    }
+
+
+STRUCT_METHOD = [
+    "struct mode: the name has no member function, vtable, RTTI or DWARF record; roots are the mangled pointer "
+    "and reference parameters of the struct in every function (name_evidence lists every symbol naming it)",
+    "caller-built objects (built@<pass sites> roots; caller_built.regions): a function passing its own "
+    "frame address sp+N, a symbol-table object's address, a call result or an entry argument, plus N, as a "
+    "struct parameter has its accesses to base+N+k attributed at +k, before and after the call, inside a "
+    "region that ends at the next address of that base it passes or stores (another object), the frame top "
+    "or a saved-register slot, the object's end, or the operator new size",
+    "a region is refused when the same address is also passed as a different type (the slot is reused) or "
+    "nothing bounds it; loaded or indexed pointers are not bases; accesses in refused regions, accesses "
+    "passing the region end, indexed from its start, or lying where a lower object of known size may "
+    "extend are listed in caller_built.flagged, not attributed",
+]
+
+
+def class_layout(root: Path, name: str, with_derived: bool = False, struct: bool = False) -> dict[str, Any]:
+    """Deterministic layout evidence for ``name``, its RTTI bases and (optionally) derived classes.
+
+    ``struct=True`` lays out a plain struct named only by mangled parameter types (``_Family``), with
+    caller-built objects; the report then carries ``"struct": true`` and the struct's ``name_evidence``,
+    ``caller_built`` and ``size_bounds``.  Class reports are unchanged.
+    """
+
+    family = _Family(root, name, with_derived, struct)
     collector = _Collector(family)
     sizes = dwarf_sizes(root)
     classes = []
@@ -2306,9 +2789,17 @@ def class_layout(root: Path, name: str, with_derived: bool = False) -> dict[str,
                 "unresolved": sorted(collector.unresolved.get(cls, []), key=lambda row: (row["function"], row["reason"])),
             }
         )
+    if family.struct:
+        row = classes[0]
+        row["name_evidence"] = family.name_evidence
+        row["caller_built"] = {
+            "regions": sorted(collector.region_rows, key=lambda item: (int(item["function"], 16), item["object"], item["passes"])),
+            "flagged": sorted(collector.flagged, key=lambda item: (int(item["function"], 16), int(item["site"], 16), item["offset"], item["access"])),
+        }
+        row["size_bounds"] = _struct_size_bounds(row, collector)
     analyzed = [collector.functions[address] for address in sorted(collector.functions)]
     holders = collector.holders
-    return {
+    report = {
         "kind": LAYOUT_KIND,
         "schema_version": LAYOUT_SCHEMA,
         "target": {"source_sha256": REFERENCE_SHA256},
@@ -2376,6 +2867,10 @@ def class_layout(root: Path, name: str, with_derived: bool = False) -> dict[str,
             "not as field evidence",
         ],
     }
+    if family.struct:
+        report["struct"] = True
+        report["method"] = STRUCT_METHOD + report["method"]
+    return report
 
 
 def _site_text(site: dict[str, Any]) -> str:
@@ -2399,10 +2894,40 @@ def _site_text(site: dict[str, Any]) -> str:
     return f"{site['site']} {site['insn']} | {' '.join(detail)} | {site['root']} in {site['function_name']}"
 
 
+def _struct_lines(cls: dict[str, Any]) -> list[str]:
+    lines = [f"name evidence ({len(cls['name_evidence'])}): " + ", ".join(cls["name_evidence"])]
+    built = cls["caller_built"]
+    lines.append(f"caller-built regions ({len(built['regions'])}):")
+    for row in built["regions"]:
+        extent = f" +0x0..+{_hex(row['extent_bound'])} bounded by {row['bound']}" if row.get("extent_bound") else ""
+        ambiguous = f"; +0x0..+{_hex(row['ambiguous_below'])} ambiguous ({'; '.join(row['overlaps'])})" if row.get("ambiguous_below") else ""
+        lines.append(f"  {row['status'].upper()} {row['object']} in {row['function_name']}:{extent}{ambiguous}")
+        lines.extend(f"      {text}" for text in row["passes"])
+        if row.get("reason"):
+            lines.append(f"      reason: {row['reason']}")
+    lines.append(f"flagged, not attributed ({len(built['flagged'])}):")
+    lines.extend(
+        f"  {row['site']} {row['insn']} | +{_hex(row['offset'])} w{row['width']} {row['access']}: {row['reason']} | in {row['function_name']}"
+        for row in built["flagged"]
+    )
+    bounds = cls["size_bounds"]
+    lines.append(
+        f"size bounds: largest attributed extent {_hex(bounds['largest_attributed_extent'])} "
+        f"({', '.join(bounds['largest_extent_sites']) or 'no site'}); region bounds "
+        f"{', '.join(_hex(value) for value in bounds['region_bounds']) or 'none'}; allocations "
+        f"{', '.join(_hex(value) for value in bounds['allocation_sizes']) or 'none'}; copies "
+        f"{'; '.join(row['function'] + ' ' + row['covers'] for row in bounds['copies']) or 'none'}; indexed sites "
+        f"{', '.join(bounds['indexed_sites']) or 'none'}"
+    )
+    lines.append(f"  ({bounds['note']})")
+    return lines
+
+
 def render_layout(report: dict[str, Any]) -> str:
     summary = report["summary"]
     lines = [
-        f"# code-derived layout evidence: {report['class']}" + (" (with derived classes)" if report["with_derived"] else ""),
+        f"# code-derived layout evidence: {report['class']}" + (" (with derived classes)" if report["with_derived"] else "")
+        + (" (plain struct)" if report.get("struct") else ""),
         f"functions analyzed {summary['function_count']}, attributed sites {summary['site_count']}, "
         f"unattributed accesses {summary['unattributed_access_count']}",
     ]
@@ -2482,6 +3007,8 @@ def render_layout(report: dict[str, Any]) -> str:
         if cls["unresolved"]:
             lines.append(f"unresolved ({len(cls['unresolved'])}):")
             lines.extend(f"  {row['function']} {row['name']}: {row['reason']}" for row in cls["unresolved"])
+        if "caller_built" in cls:
+            lines.extend(_struct_lines(cls))
     holders = report.get("holders") or {}
     lines.append("")
     lines.append("## holders")
