@@ -95,7 +95,12 @@ constructor, or such a copy inlined: a same-width value moved unchanged
 between the same offset of two objects) are width-only evidence: they prove
 the unit's width, not int, float, sign or pointer, so a member they alone
 type stays ``undefinedN``.  A bulk copy (one function's same-width chunks
-tiling a whole planned object) proves neither; ``show`` labels both.
+tiling a whole planned object) proves neither; ``show`` labels both.  So
+does a bulk zero-fill: one function's stores of the constant zero into one
+object that tile an extent wholly covering more than one planned member, or
+a zero store wider than the member it hits (``sq zero`` over four words),
+prove only that the extent is written, not the width or type of what they
+cover; a zero store exactly matching one member is still its width evidence.
 
 A call that passes an object address as a class pointer or reference (a
 constructor or method receiver) proves a sub-object of that class there.  The
@@ -137,6 +142,7 @@ from .type_plan_evidence import (
     BULK,
     CXX_BUILTINS,
     MEMBER_WISE,
+    ZERO_FILL,
     TypeEvidence,
     copy_accesses,
     leaf_name,
@@ -144,6 +150,7 @@ from .type_plan_evidence import (
     parameter_class,
     substitute,
     void_pointer_argument,
+    zero_fills,
 )
 from .util import SocomError, canonical_json, load_json, sha256_file
 
@@ -621,7 +628,7 @@ def validate_type_plan(
         problems.append(f"the plan does not define the requested class {class_name}")
     invented = False
     windows = model.windows(set(by_class))
-    copies = copy_accesses(layout["classes"], _extents(model, windows))
+    copies = _neutral_accesses(model, layout["classes"], windows)
     claims, claim_problems = _subobject_claims(model, by_class, index)
     problems.extend(claim_problems)
     references = model.references()
@@ -690,6 +697,45 @@ def _extents(model: _Plan, windows: dict[str, set[tuple[str, int]]]) -> dict[str
             for cls, delta in sorted(places):
                 extents[cls].append((delta, size))
     return extents
+
+
+def _leaves(model: _Plan, windows: dict[str, set[tuple[str, int]]]) -> dict[str, list[tuple[int, int, int]]]:
+    """Per layout class, the (offset, size, element size) of every planned leaf member.
+
+    A leaf is a scalar, pointer, array, bitfield unit, or a by-value type
+    the plan does not lay out (a live type); a by-value plan type
+    contributes its own members through its windows instead.  The element
+    size is an array's element's (the size otherwise).
+    """
+
+    leaves: dict[str, set[tuple[int, int, int]]] = defaultdict(set)
+    for name, places in windows.items():
+        row = model.types.get(name)
+        if row is None or row.get("kind") not in ("class", "struct"):
+            continue
+        for field in row.get("fields") or []:
+            offset, size = field.get("offset"), field.get("size")
+            parsed = parse_type(field.get("type"))
+            if not isinstance(offset, int) or not isinstance(size, int) or size <= 0 or parsed is None:
+                continue
+            if model.composite(parsed) and model.kind(parsed["base"]) in ("class", "struct"):
+                continue  # the member type's own fields are the leaves
+            count = _count(parsed)
+            element = size // count if count > 1 and size % count == 0 else size
+            for cls, delta in places:
+                leaves[cls].add((delta + offset, size, element))
+    return {cls: sorted(values) for cls, values in leaves.items()}
+
+
+def _neutral_accesses(
+    model: _Plan, classes: list[dict[str, Any]], windows: dict[str, set[tuple[str, int]]]
+) -> dict[tuple[str, int, str, str], str]:
+    """(class, offset, site, access) -> ``member-wise`` or ``bulk`` (copies) or ``zero-fill``."""
+
+    kinds = copy_accesses(classes, _extents(model, windows))
+    for key in zero_fills(classes, _leaves(model, windows)):
+        kinds.setdefault(key, ZERO_FILL)
+    return kinds
 
 
 def _copy_key(cls: str, offset: int, site: dict[str, Any]) -> tuple[str, int, str, str]:
@@ -1077,8 +1123,8 @@ def _type_problems(
                 for site_offset, site in _sites_in(index.get(cls, {}), delta + offset - 15, delta + offset + extent):
                     if _claimed(claims, cls, site_offset, site):
                         continue  # a sub-object's own call (an empty base at its end)
-                    if copies.get(_copy_key(cls, site_offset, site)) == BULK:
-                        continue  # a bulk copy moves padding with the members
+                    if copies.get(_copy_key(cls, site_offset, site)) in (BULK, ZERO_FILL):
+                        continue  # a bulk copy or zero-fill writes padding with the members
                     if site_offset + _site_extent(site) > delta + offset:
                         problems.append(
                             f"{where}: padding {_hex(offset)}+{_hex(extent)} is accessed at {cls}+{_hex(site_offset)} ({site['site']})"
@@ -1217,7 +1263,7 @@ def _field_problems(
         problems.append(f"{label}: cite at least one evidence site")
     # Candidate sites: the field's extent in every window.  A site a sub-object
     # claims (a call on an empty base at the end of the previous member) is
-    # that sub-object's, not this field's.  Each carries its copy kind, if any.
+    # that sub-object's, not this field's.  Each carries its copy or zero-fill kind, if any.
     candidates: list[tuple[str, int, dict[str, Any], str | None]] = []
     claimed: dict[str, dict[str, Any]] = {}
     for cls, delta in sorted(windows):
@@ -1245,8 +1291,8 @@ def _field_problems(
         problems.append(f"{label}: no cited evidence site accesses the field's first byte")
     width_size = size
     for cls, relative, site, copy_kind in candidates:
-        if copy_kind == BULK:
-            continue  # a bulk copy's chunks are the copy's, not this member's
+        if copy_kind in (BULK, ZERO_FILL):
+            continue  # a bulk copy's or zero-fill's chunks are the bulk access's, not this member's
         if relative != offset:
             if not bitfield and site.get("access") != "address-passed":
                 problems.append(f"{label}: {site['site']} accesses +{_hex(relative)} inside the scalar field ({cls})")
@@ -1329,7 +1375,7 @@ def _sample_cell(
             kind = (copied or {}).get(site)
             samples.append(
                 f"{_code(site)} {_code(found.get('insn', ''))} in {_code(found.get('function_name', ''))}"
-                + (f" ({kind} copy)" if kind else "")
+                + (f" ({kind})" if kind == ZERO_FILL else f" ({kind} copy)" if kind else "")
             )
         else:
             samples.append(f"{_code(site)} (not in the evidence)")
@@ -1610,11 +1656,11 @@ def _end_claims(model: _Plan, layout: dict[str, Any]) -> dict[tuple[str, int], l
 
 
 def _copy_notes(model: _Plan, layout: dict[str, Any]) -> tuple[dict[tuple[str, int], list[str]], dict[str, str]]:
-    """(plan type, member offset) -> notes naming the copies inside the member, and site -> copy kind."""
+    """(plan type, member offset) -> notes naming the copies and zero-fills inside the member, and site -> kind."""
 
     classes = layout.get("classes") or []
     windows = model.windows({row["class"] for row in classes})
-    copies = copy_accesses(classes, _extents(model, windows))
+    copies = _neutral_accesses(model, classes, windows)
     copied: dict[str, str] = {}
     by_place: dict[tuple[str, int], list[tuple[str, str, str]]] = defaultdict(list)
     for (cls, offset, site, access), kind in copies.items():
@@ -1635,7 +1681,8 @@ def _copy_notes(model: _Plan, layout: dict[str, Any]) -> tuple[dict[tuple[str, i
                     for site, access, kind in by_place.get((cls, position), ()):
                         found[kind].add(f"{site} {access}")
             texts = [
-                f"{kind} copy ({'width-only evidence' if kind != BULK else 'neither width nor type evidence'}): "
+                (kind if kind == ZERO_FILL else f"{kind} copy")
+                + f" ({'width-only evidence' if kind == MEMBER_WISE else 'neither width nor type evidence'}): "
                 + ", ".join(sorted(found[kind]))
                 for kind in sorted(found)
             ]

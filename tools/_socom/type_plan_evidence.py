@@ -23,9 +23,10 @@ validator stays file-only:
 * is a template argument a type the ELF names (``names_type``: a mangled
   symbol names it, or a DWARF composite record has its leaf name)?
 
-Two layout-evidence helpers need no ELF: ``void_pointer_argument`` finds a
-``void *`` template argument in a type spelling, and ``copy_accesses``
-classifies the loads and stores of compiler-style copies (see there).
+Three layout-evidence helpers need no ELF: ``void_pointer_argument`` finds a
+``void *`` template argument in a type spelling, ``copy_accesses``
+classifies the loads and stores of compiler-style copies, and
+``zero_fills`` finds the zero stores of a bulk clear (see there).
 
 Nothing here reads Ghidra.
 """
@@ -134,6 +135,7 @@ def void_pointer_argument(text: Any) -> bool:
 _LOADED = re.compile(r"^loaded (\d+)-byte ")
 MEMBER_WISE = "member-wise"
 BULK = "bulk"
+ZERO_FILL = "zero-fill"
 
 
 def _copy_source(site: dict[str, Any], offset: int) -> str | None:
@@ -205,6 +207,68 @@ def copy_accesses(
                         kinds[key].add(BULK if offset in bulk else MEMBER_WISE)
     # A load or store that is also part of a member-wise copy keeps its width evidence.
     return {key: MEMBER_WISE if MEMBER_WISE in found else BULK for key, found in kinds.items()}
+
+
+def zero_store(site: dict[str, Any]) -> bool:
+    """Whether a site stores the constant zero (``sq/sd/sw/sh/sb zero``, or a register holding 0) of a known width."""
+
+    width = site.get("width")
+    return (
+        site.get("access") == "store" and not site.get("pointer") and isinstance(width, int) and width > 0
+        and (site.get("kind") == "zero" or ("constant" in site and site["constant"] == 0))
+    )
+
+
+def zero_fills(
+    classes: list[dict[str, Any]], leaves: dict[str, list[tuple[int, int, int]]]
+) -> set[tuple[str, int, str, str]]:
+    """(class, offset, site, access) of the zero stores that are a bulk zero-fill.
+
+    One function's zero stores into one object (one root) that tile a
+    contiguous extent are one fill.  ``leaves`` gives, per layout class,
+    the (offset, size, element size) of every planned leaf member (a
+    scalar, pointer, array or bitfield unit, or a by-value type the plan
+    does not lay out; the element size is an array's element's).  A zero
+    store is a fill when its fill wholly covers more than one leaf, or when
+    it is wider than the leaf its first byte hits (``sq zero`` over four
+    words); a fill proves only that the extent is written, not the width or
+    type of the members it covers.  A zero store exactly matching a leaf,
+    or one element of an array leaf, is a member-wise clear: that member's
+    width evidence, never a fill.
+    """
+
+    by_object: dict[tuple[str, Any, Any], list[tuple[int, int, str]]] = defaultdict(list)
+    for row in classes:
+        for entry in row.get("offsets") or []:
+            for site in entry.get("sites") or []:
+                if zero_store(site):
+                    by_object[(row["class"], site.get("function"), site.get("root"))].append(
+                        (entry["offset"], site["width"], site["site"])
+                    )
+    found: set[tuple[str, int, str, str]] = set()
+    for (cls, _function, _root), stores in by_object.items():
+        fields = sorted({(low, size) for low, size, _element in leaves.get(cls, ())})
+        exact = set(fields) | {
+            (low + index * element, element)
+            for low, size, element in leaves.get(cls, ()) if 0 < element < size
+            for index in range(size // element)
+        }
+        runs: list[list[Any]] = []  # [start, end, stores]
+        for offset, width, site in sorted(stores):
+            if runs and offset <= runs[-1][1]:
+                runs[-1][1] = max(runs[-1][1], offset + width)
+                runs[-1][2].append((offset, width, site))
+            else:
+                runs.append([offset, offset + width, [(offset, width, site)]])
+        for start, end, members in runs:
+            covered = sum(1 for low, size in fields if start <= low and low + size <= end)
+            for offset, width, site in members:
+                if (offset, width) in exact:
+                    continue  # a member-wise clear: the member's width evidence
+                hit = [size for low, size in fields if low <= offset < low + size]
+                if covered > 1 or (hit and width > min(hit)):
+                    found.add((cls, offset, site, "store"))
+    return found
 
 
 def substitute(text: str, arguments: list[tuple[str, str]], bare: bool = False) -> str:
@@ -562,6 +626,7 @@ __all__ = [
     "CXX_BUILTINS",
     "GHIDRA_BUILTIN",
     "MEMBER_WISE",
+    "ZERO_FILL",
     "TypeEvidence",
     "copy_accesses",
     "leaf_name",
@@ -570,4 +635,6 @@ __all__ = [
     "substitute",
     "template_argument_texts",
     "void_pointer_argument",
+    "zero_fills",
+    "zero_store",
 ]

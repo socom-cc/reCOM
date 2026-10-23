@@ -1227,6 +1227,192 @@ def test_bulk_copies_of_a_whole_object_prove_neither_width_nor_type() -> None:
     assert any("0x200004 (store w4, a member-wise copy) contradicts the 1-byte uchar" in text for text in problems), problems
 
 
+# -- zero-fill evidence ------------------------------------------------------
+
+_CLEAR = {"kind": "zero", "constant": 0, "value": "const 0"}
+
+
+def _zero(site: str, offset: int, width: int, function: str, **fields) -> dict:
+    """A store of the constant zero (``sq/sd/sw/sh zero``) into this."""
+
+    return _site(site, offset, "store", width=width, function=function, function_name=f"zdb::CTest::Clear{function}(void)",
+                 **{**_CLEAR, **fields})
+
+
+def _not_zero(sites: list[dict], names: set[str]) -> list[dict]:
+    """The same sites with the named zero stores turned into stores of an unknown int."""
+
+    changed = []
+    for site in sites:
+        if site["site"] in names:
+            site = {key: value for key, value in site.items() if key not in ("constant",)} | {"kind": "int", "value": "unknown"}
+        changed.append(site)
+    return changed
+
+
+def test_zero_fills_prove_only_that_the_extent_is_written() -> None:
+    from tools._socom.type_plan_evidence import zero_fills
+
+    typed = [_site(f"0x1000{offset:02x}", offset, "load", width=4, kind="int") for offset in (0x0, 0x4, 0x8, 0xC, 0x10)]
+    fills = [
+        _zero("0x300000", 0x0, 16, "0x300000"),  # sq zero over four words
+        _zero("0x300004", 0x10, 8, "0x300000"),  # sd zero over a word and the tail padding
+        _zero("0x300104", 0x4, 4, "0x300100"),  # sw zero exactly matching a word: width evidence
+        _zero("0x300108", 0x8, 2, "0x300100"), _zero("0x30010a", 0xA, 2, "0x300100"),  # sh zero tiling two words
+        _zero("0x30010c", 0xC, 2, "0x300100"), _zero("0x30010e", 0xE, 2, "0x300100"),
+    ]
+    layout = _copy_layout(typed + fills, size=0x18)
+    fields = [_field(offset, 4, "uint", f"m_word{offset:x}", [f"0x1000{offset:02x}"]) for offset in (0x0, 0x4, 0x8, 0xC, 0x10)]
+    padding = [{"offset": 0x14, "size": 4, "reason": "only the zero-fill writes it"}]
+    plan = _copy_plan(layout, fields, padding)
+    # Regression: the 16- and 8-byte clears contradicted the 4-byte members they cover, and the sd its padding.
+    assert validate_type_plan(Path("."), None, plan, layout) == []
+    leaves = {"zdb::CTest": [(offset, 4, 4) for offset in (0x0, 0x4, 0x8, 0xC, 0x10)]}
+    assert zero_fills(layout["classes"], leaves) == {
+        ("zdb::CTest", offset, site, "store")
+        for offset, site in ((0x0, "0x300000"), (0x10, "0x300004"), (0x8, "0x300108"), (0xA, "0x30010a"),
+                             (0xC, "0x30010c"), (0xE, "0x30010e"))
+    }
+    # A zeroed register is a zero store too; a store of another constant is not.
+    zeroed = _site("0x300200", 0x0, "store", width=8, kind="int", constant=0, function="0x300200")
+    other = _site("0x300300", 0x0, "store", width=8, kind="int", constant=1, function="0x300300")
+    assert zero_fills(_copy_layout([zeroed, other])["classes"], leaves) == {("zdb::CTest", 0, "0x300200", "store")}
+    # Halfword clears of the elements of a two-halfword array are member-wise, not a fill; of a word they are one.
+    halfwords = _copy_layout([_zero("0x300600", 0x0, 2, "0x300600"), _zero("0x300602", 0x2, 2, "0x300600"),
+                              _zero("0x300604", 0x4, 4, "0x300600")])
+    assert zero_fills(halfwords["classes"], {"zdb::CTest": [(0, 4, 2), (4, 4, 4)]}) == set()
+    assert zero_fills(halfwords["classes"], {"zdb::CTest": [(0, 4, 4), (4, 4, 4)]}) == {
+        ("zdb::CTest", 0, "0x300600", "store"), ("zdb::CTest", 2, "0x300602", "store"),
+    }
+    # Without the zero, the wide stores are width evidence again.
+    moved = _copy_layout(_not_zero(typed + fills, {"0x300000", "0x300004"}), size=0x18)
+    problems = validate_type_plan(Path("."), None, _copy_plan(moved, fields, padding), moved)
+    assert any("m_word0: 0x300000 (store w16 int) contradicts uint" in text for text in problems), problems
+    assert any("m_word10: 0x300004 (store w8 int) contradicts uint" in text for text in problems), problems
+    assert any("padding 0x14+0x4 is accessed at zdb::CTest+0x10 (0x300004)" in text for text in problems), problems
+    # A narrower zero store is still width evidence unless its fill wholly covers more than one member.
+    halves = _copy_layout(typed + [_zero("0x300400", 0x10, 2, "0x300400"), _zero("0x300402", 0x12, 2, "0x300400")], size=0x18)
+    problems = validate_type_plan(Path("."), None, _copy_plan(halves, fields, padding), halves)
+    assert any("m_word10: 0x300400 (store w2 zero) contradicts uint" in text for text in problems), problems
+    assert any("0x300402 accesses +0x12 inside the scalar field" in text for text in problems), problems
+    # A zero store of the padding alone is an access of the padding.
+    alone = _copy_layout(typed + [_zero("0x300500", 0x14, 4, "0x300500")], size=0x18)
+    problems = validate_type_plan(Path("."), None, _copy_plan(alone, fields, padding), alone)
+    assert any("padding 0x14+0x4 is accessed at zdb::CTest+0x14 (0x300500)" in text for text in problems), problems
+    # show keeps the zero-fills visible; the exact clear is not one.
+    cited = copy.deepcopy(plan)
+    _types(cited)["zdb::CTest"]["fields"][0]["evidence"].append("0x300000")
+    _types(cited)["zdb::CTest"]["fields"][1]["evidence"].append("0x300104")
+    text = render_type_plan(cited, layout, [])
+    assert "zero-fill (neither width nor type evidence): 0x300000 store" in text
+    assert "zero-fill (neither width nor type evidence): 0x300108 store, 0x30010a store" in text
+    assert "zero-fill (neither width nor type evidence): 0x30010c store, 0x30010e store" in text
+    assert "`0x300000` `x` in `zdb::CTest::Clear0x300000(void)` (zero-fill)" in text
+    assert "`0x300104` `x` in `zdb::CTest::Clear0x300100(void)` |" in text
+
+
+def _object_header_layout(sites: list[dict] | None = None) -> dict:
+    return {
+        "kind": "socom-type-layout-evidence", "schema_version": 2, "class": "tag_ObjectHeader", "with_derived": False,
+        "struct": True,
+        "classes": [{
+            "class": "tag_ObjectHeader", "role": "requested", "size_evidence": [], "bases": [], "vtable": None,
+            "offsets": [
+                {"offset": offset, "sites": [site for site in sites if site["offset"] == offset], "conflicts": []}
+                for offset in sorted({site["offset"] for site in sites})
+            ],
+            "object_passes": [], "name_evidence": ["VuObjectSetup__Q23zdb7CVisualFP8_word128P16tag_ObjectHeader"],
+        }],
+    }
+
+
+def _object_header_sites() -> list[dict]:
+    """The tag_ObjectHeader evidence: VuUpdate clears each header with two ``sq zero``, then fills it in."""
+
+    update = {"function": "0x30a900", "function_name": "zdb::CVisual::VuUpdate(float)"}
+    setup = {"function": "0x30c350", "function_name": "zdb::CVisual::VuObjectSetup(_word128*, tag_ObjectHeader*)",
+             "root": "param a2"}
+    first, second = {"root": "built@0x30a978", **update}, {"root": "built@0x30ac78", **update}
+    return [
+        _site("0x30a968", 0x0, "store", width=16, insn="sq zero,16(v0)", **first, **_CLEAR),
+        _site("0x30a96c", 0x10, "store", width=16, insn="sq zero,32(v0)", **first, **_CLEAR),
+        _site("0x30ac68", 0x0, "store", width=16, insn="sq zero,16(v0)", **second, **_CLEAR),
+        _site("0x30ac6c", 0x10, "store", width=16, insn="sq zero,32(v0)", **second, **_CLEAR),
+        _site("0x30acc0", 0x0, "store", width=4, insn="sw zero,0(s2)", **second, **_CLEAR),
+        _site("0x30aa94", 0x4, "store", width=4, kind="int", insn="sw v0,4(s0)", value="unknown", **first),
+        _site("0x30ae50", 0x8, "load", width=4, kind="int", insn="lw v1,8(s3)", root="built@0x30adf4", **update),
+        _site("0x30c6a4", 0xC, "store", width=4, insn="sw zero,12(s2)", **setup, **_CLEAR),
+        _site("0x30c6a8", 0xC, "load", width=1, kind="int", signed=False, insn="lbu a1,12(s2)", **setup),
+        _site("0x30c6b4", 0xC, "store", width=1, kind="int", insn="sb v1,12(s2)", **setup,
+              bitfield={"dynamic": False, "field_mask": "0x1", "ops": "and 0xfe or 0x1", "set": "0x1"}),
+        _site("0x30ada0", 0x10, "store", width=4, kind="int", insn="sw v1,16(s2)", value="unknown", **second),
+    ]
+
+
+def _object_header_plan(layout: dict, unit: int) -> dict:
+    """Four-byte members; the flag bit at +0xc in a ``unit``-byte (4: uint, 1: uchar) storage unit."""
+
+    flag = _field(0xC, unit, "uint" if unit == 4 else "uchar", "m_flag", ["0x30c6a4", "0x30c6b4"], bit_offset=0, bit_size=1)
+    padding = [{"offset": 0xC + unit, "size": 4 - unit, "reason": "test"}] if unit < 4 else []
+    return {
+        "kind": "socom-code-type-plan", "schema_version": 1,
+        "work_item_id": type_plan_item_id("tag_ObjectHeader"),
+        "target": {"source_sha256": REFERENCE_SHA256},
+        "layout": {"class": "tag_ObjectHeader", "with_derived": False, "struct": True, "sha256": layout_sha256(layout)},
+        "naming_survey": ["test fixture"],
+        "types": [{
+            "name": "tag_ObjectHeader", "kind": "struct", "category": "/project", "name_provenance": "mangled-symbol",
+            "name_evidence": ["VuObjectSetup__Q23zdb7CVisualFP8_word128P16tag_ObjectHeader"],
+            "size": 0x20, "alignment": 4, "size_evidence": ["caller-built region bound 0x20 (a1 = header + 0x20)"],
+            "fields": [
+                _field(0x0, 4, "uint", "m_word", ["0x30acc0", "0x30a968"]),
+                _field(0x4, 4, "uint", "m_program_qwc", ["0x30aa94"]),
+                _field(0x8, 4, "uint", "m_extra_qwc", ["0x30ae50"]),
+                flag,
+                _field(0x10, 4, "uint", "m_light_count", ["0x30ada0"]),
+            ],
+            "padding": padding + [{"offset": 0x14, "size": 0xC, "reason": "only VuUpdate's sq zero clear writes it"}],
+        }],
+    }
+
+
+def test_the_object_header_clear_is_a_zero_fill_not_member_widths(root: Path) -> None:
+    sites = _object_header_sites()
+    layout = _object_header_layout(sites)
+    for unit in (4, 1):
+        # Regression: VuUpdate's sq zero clears gave widths [4, 16] at +0x0/+0x10 (and [1, 4] at +0xc).
+        assert validate_type_plan(root, None, _object_header_plan(layout, unit), layout) == [], unit
+    clears = {"0x30a968", "0x30a96c", "0x30ac68", "0x30ac6c", "0x30c6a4"}
+    moved = _object_header_layout(_not_zero(sites, clears))
+    problems = validate_type_plan(root, None, _object_header_plan(moved, 1), moved)
+    for text in (
+        "m_word: 0x30a968 (store w16 int) contradicts uint",
+        "m_word: 0x30ac68 (store w16 int) contradicts uint",
+        "m_light_count: 0x30a96c (store w16 int) contradicts uint",
+        "padding 0xd+0x3 is accessed at tag_ObjectHeader+0x0 (0x30a968)",
+        "padding 0x14+0xc is accessed at tag_ObjectHeader+0x10 (0x30a96c)",
+    ):
+        assert any(text in problem for problem in problems), (text, problems)
+    # The word clear at +0xc is wider than a 1-byte flag unit: a fill, unless it stores something other than zero.
+    moved = _object_header_layout(_not_zero(sites, {"0x30c6a4"}))
+    problems = validate_type_plan(root, None, _object_header_plan(moved, 1), moved)
+    assert problems == ["type tag_ObjectHeader: padding 0xd+0x3 is accessed at tag_ObjectHeader+0xc (0x30c6a4)"], problems
+    # A word clear over two halfwords is wider than the member it hits: a fill, not a contradiction.
+    halves = _object_header_plan(layout, 4)
+    _types(halves)["tag_ObjectHeader"]["fields"][0:1] = [
+        _field(0x0, 2, "ushort", "m_low", ["0x30acc0"]), _field(0x2, 2, "ushort", "m_high", ["0x30acc0"]),
+    ]
+    problems = validate_type_plan(root, None, halves, layout)
+    assert not any("0x30acc0 (store w4 zero) contradicts" in text for text in problems), problems  # wider: a fill
+    text = render_type_plan(_object_header_plan(layout, 1), layout, [])
+    assert "zero-fill (neither width nor type evidence): 0x30a968 store, 0x30ac68 store" in text
+    assert "zero-fill (neither width nor type evidence): 0x30a96c store, 0x30ac6c store" in text
+    assert "zero-fill (neither width nor type evidence): 0x30c6a4 store" in text
+    assert "`0x30a968` `sq zero,16(v0)` in `zdb::CVisual::VuUpdate(float)` (zero-fill)" in text
+    assert "`0x30acc0` `sw zero,0(s2)` in `zdb::CVisual::VuUpdate(float)`<br>" in text
+    assert "zero-fill (neither width nor type evidence): 0x30c6a4" not in render_type_plan(_object_header_plan(layout, 4), layout, [])
+
+
 def test_show_prints_the_holder_proof_of_each_cited_outside_site() -> None:
     proof = "element zdb::CTest* loaded @0xfc from [DWARF zdb::CHolder+0x8 m_items.data_ (storage of zdb::CTest*)]"
     layout = {
