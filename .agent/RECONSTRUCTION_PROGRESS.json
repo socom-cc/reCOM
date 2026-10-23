@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 1861,
+  "revision": 1873,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -101775,6 +101775,10 @@
       "title": "Apply reviewed reconstruction group 218 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-23T17:08:15Z",
+        "by": "socom-verifier-r32"
+      },
       "batch": {
         "batch_number": 219,
         "function_count": 32,
@@ -101855,8 +101859,15 @@
         "socom:recon-group:dd539e7a1bdad09e4222-apply",
         "socom:recon-group:eb70620a2384b7e16f0e-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-677aae36765c53f89521.json sha256:3e15757a5bb61d4b00dca4020477a5d7b3ba8f227de4b13d9ad956d30fa6956c; recon validate ok; recon draft --check ok (9 drafted, 23 open); recon program equals build/apply (sha256:e7afd110e48ea2ec671e081da441f778766f0abd1c33ddce72733005658bd244); preflight-batch ok (21 set_function_prototype, 11 skips = the 11 unresolved rows). Open rows checked against recon facts: 9 complete rows (SetupTuple receiver from the 8 incoming stack slots incl. +0x38 and DWARF oID at sp+0x80, explicit DWARF void, recon void verdict void; OnRecoCmd static, a0-t0 read, DWARF void, verdict void; uchar widths from caller andi 0xff at 0x23fd00, 0x263920/0x2a9ca8 and the UICommandTable call site 0x1d027c/0x1d02cc; Ascii2Sjis ushort from andi 0xffff; char * returns are the char * parameter or the sprintf buffer). 4 partial rows against default live signatures, every parameter typed from mangled names or asm (PS2FileName static: CFileIO::Open passes its a1 name in a0, body reads a0-a2 only); recon void open for all four (PS2FileName: v0 unread at all 9 call sites, f0 chain ends at UIMC_Init in UICommandTable). Unresolved: PersistentGame missing (recon types) with receiver proven by a0-a2 read for 2 mangled parameters; others missing/unspellable types, varargs or recon void open.",
+        "plan build/recon-plans/socom-recon-group-677aae36765c53f89521.json sha256:3e15757a5bb61d4b00dca4020477a5d7b3ba8f227de4b13d9ad956d30fa6956c; recon validate ok; recon draft --check ok; preflight-batch ok (21 set_function_prototype)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g121",
+        "submitted_at": "2026-10-23T17:00:03Z",
+        "summary": "21 prototypes, 11 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:677aae36765c53f89521",
       "kind": "recon-plan-group",
       "lease": null,
@@ -101865,7 +101876,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 219 (height 15, 32 functions)"
     },
     {
@@ -101925,10 +101936,14 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 219 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-23T17:08:28Z",
+        "by": "socom-verifier-r32"
+      },
       "batch": {
         "batch_number": 220,
         "function_count": 32,
@@ -102014,8 +102029,15 @@
         "socom:recon-group:fe5f3b0ac9beaf35a1e5-apply",
         "socom:recon-group:ff0934ce49f96fe5dec5-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-37a7bf42e3de24c9aaf4.json sha256:902f0d0d7e905bd0b8373300f6b94f2dd8b8f57ca953a49f015a6a90ec2cb106; recon validate ok; recon draft --check ok (0 drafted, 32 open); recon program equals build/apply (sha256:bf7683e60aaaf97457aed52c53fac320f30567cdc0890a1ea7d01c03a7ceab88); preflight-batch ok (2 set_function_prototype, 30 skips = the 30 unresolved rows). CUIVariable::Format: static (a0 is the _zrdr node, the recursive call passes a child element in a0; a3 unread), returns its char * a1 (move v0,s2 at 0x39e7b8; s2 = a1, never rewritten). Partial MediusGetBuildTimeStamp: live default signature, a0 sprintf's destination, recon void open (constant 0 only). Unresolved: C2DClock and C2DCounter missing (recon types) with receivers proven by reads beyond the mangled parameters (a0+a1 for 1 parameter; a3 read for 3 parameters; a0+f12 for Ff) and vtable slots; the rest are undeclared CASR/ASR SPI/TOS/lgAud/Medius symbols with untyped records or unproven widths.",
+        "plan build/recon-plans/socom-recon-group-37a7bf42e3de24c9aaf4.json sha256:902f0d0d7e905bd0b8373300f6b94f2dd8b8f57ca953a49f015a6a90ec2cb106; recon validate ok; recon draft --check ok; preflight-batch ok (2 set_function_prototype)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g121",
+        "submitted_at": "2026-10-23T17:00:10Z",
+        "summary": "2 prototypes, 30 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:37a7bf42e3de24c9aaf4",
       "kind": "recon-plan-group",
       "lease": null,
@@ -102024,7 +102046,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 220 (height 15, 32 functions)"
     },
     {
@@ -102089,7 +102111,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 220 in Ghidra"
     },
     {
@@ -103142,8 +103164,14 @@
         "socom:recon-group:f758fb41aefddaf2449b-apply",
         "socom:recon-group:fe5f3b0ac9beaf35a1e5-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-cf1cd7e2dedf1b8f2b87.json sha256:c97f1200f5f7662654075b0e6a41e30990913c6a0463c89c7428891ecb1ac896; recon validate ok; recon draft --check ok; preflight-batch ok (11 set_function_prototype calls)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g122",
+        "submitted_at": "2026-10-23T16:57:56Z",
+        "summary": "11 prototypes, 21 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:cf1cd7e2dedf1b8f2b87",
       "kind": "recon-plan-group",
       "lease": null,
@@ -103152,7 +103180,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 226 (height 16, 32 functions)"
     },
     {
@@ -103247,8 +103275,14 @@
         "socom:recon-group:dd539e7a1bdad09e4222-apply",
         "socom:recon-group:fe5f3b0ac9beaf35a1e5-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-8879eb295251182e984d.json sha256:3bbb6f2ce8845c288169e143eda23a3b89021acd344468991e4db0afacec2bd0; recon validate ok; recon draft --check ok; preflight-batch ok (0 calls)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g122",
+        "submitted_at": "2026-10-23T16:57:57Z",
+        "summary": "0 prototypes, 5 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:8879eb295251182e984d",
       "kind": "recon-plan-group",
       "lease": null,
@@ -103257,7 +103291,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 227 (height 16, 5 functions)"
     },
     {
@@ -119832,21 +119866,16 @@
         "with_derived": true
       },
       "dependencies": [],
-      "evidence": [
-        "m_lod_band uchar: CPipe::RenderVisual loads +0x5 of CNode::m_visual elements with lbu (0x242574, 0x242590), 0 skips the LOD test (0x242578), else bounds it unsigned against CPipe::m_world->m_LOD_Object size (sltu 0x2425ac) and passes band data_ + (value-1)*32 to CVisual::DrawLOD (0x2425b8-0x2425dc); CPipe::RenderNodeShadow the same (lbu 0x242c10, sltu 0x242c34, DrawLOD 0x242c78); cited in notes (outside the layout evidence)",
-        "m_render_mode (+0x1c): values 3 (ctors, Clone, Read bit 10 clear), -2 (Read bit 10 set), -3 written by CPipe::RenderWorld on each cell's first visual before Render (0x244bb0, 0x244ea0); VuBatchProgram ==3 full program list (ids 114/48/60/56/116 only there, 0x30bdd4-0x30bddc vs short list 0x30c250-0x30c314), VuObjectSetup ==-2 header word 0 = 63 (0x30c370-0x30c3a4); m_unk06/m_unk07 notes record that the search over all ELF functions (build/facts/cvisual-unknown-fields.md) found no decision read",
-        "plan build/type-plans/zdb-cvisual.json sha256 115d0ca02d56380e8b5bb64a25a39e46375d64e6faccbd47bee6ae5c8bc24d11; layout build/type-plans/zdb-cvisual-layout.json sha256 c772c27d6368766807181bda403d76ed8ac74e2ec625f40cbff4eb6df2527da1 (validate regenerated the same digest; txt 16282b62699ba01a630e8050aef8131b7b29e97ab9fb51bf5da90059a6c5ea93)",
-        "recon type-plan validate ok, problems []; recon type-plan live ok, live_problems [] (types 17, forward_declarations 4, external_types 6, layout_sources 7, template_arguments 1); recon type-plan show ok -> build/type-plans/zdb-cvisual-review.md sha256 57879b4532f2074c4250de8c0f3e19eb9e4a8fa99f91c39d6ce0f11caf8ec48f; recon type-plan program -> build/apply/socom-work-type-plan-zdb-cvisual-apply.json program_sha256 7b4321d2a83746d4bc498fa235ff0b333b77a2d0e5bb61bbc7618b142de4720d (types 17, categories 4, routes c 1 empty 5 fields 11, instantiations 7, forwards 4)",
-        "renames: m_ref_count, m_render_mode, m_alloc_blocks, m_dyn_tex_list, m_detail_params, m_detail_cnt, m_light_map_enable, m_ambient_light_enable, m_global_light_enable, m_multipass_enable, m_shadow_map_enable, m_lod_band, m_matrix_id, m_tex_reloc_mgr, m_clone_src, m_mesh_decals, m_mtx_count; naming survey records the user rule. recon type-plan affected --plan: classes 11, functions 91, groups 38 (replan candidates 22, unplanned 16), unresolved_for_type 49"
-      ],
-      "handoff": {
-        "owner": "socom-recon-planner-t003",
-        "submitted_at": "2026-10-23T16:35:53Z",
-        "summary": "Code-derived type plan, user review changes: invented member names m_ + lower snake_case (user rule; m_vtype unsplit, positional names kept); tag_VIS_PARAMS +0x5 m_lod_band (uchar), +0x6/+0x7 m_unk06/m_unk07 undefined1; CVisual +0x1c m_render_mode; 17 types (tag_VIS_PARAMS 21 fields, CVisual 8, CVisual_vtbl opaque, CSubMesh 2, C2DVisual 2, CMesh 5, 7 instantiations, 4 forwards)"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:type-plan-zdb-cvisual",
       "kind": "recon-type-plan",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-23T16:57:04Z",
+        "expires_at": "2026-10-23T18:57:04Z",
+        "heartbeat_at": "2026-10-23T16:57:04Z",
+        "owner": "socom-recon-planner-t003"
+      },
       "resources": [
         "build/type-plans"
       ],
@@ -119935,11 +119964,32 @@
           "reason": "User review 2026-10-23: naming changes and new field evidence",
           "rejected_at": "2026-10-23T16:24:06Z",
           "rejected_by": "socom-ghidra-reconstructor"
+        },
+        {
+          "evidence": [
+            "User-approved names: bit 0 m_transparent, bit 1 m_fog_enable, bit 8 m_bumpmap, bit 11 m_alpha_blend (new field), bit 13 m_adjust_bilinear (new field), bit 14 m_apply_multipass, bit 16 m_apply_decals.",
+            "build/facts/cvisual-unknown-fields.md (word +0x0 section): new outside uses for bits 0, 1, 8, 11, 13, 14, 16; bit 8 is written by Particle::CreateVisuals 0x233690 (contradicts the plan note); bit 16 gates CNode::ApplyDecal 0x225480 (contradicts 'use not proven')."
+          ],
+          "handoff": {
+            "owner": "socom-recon-planner-t003",
+            "submitted_at": "2026-10-23T16:35:53Z",
+            "summary": "Code-derived type plan, user review changes: invented member names m_ + lower snake_case (user rule; m_vtype unsplit, positional names kept); tag_VIS_PARAMS +0x5 m_lod_band (uchar), +0x6/+0x7 m_unk06/m_unk07 undefined1; CVisual +0x1c m_render_mode; 17 types (tag_VIS_PARAMS 21 fields, CVisual 8, CVisual_vtbl opaque, CSubMesh 2, C2DVisual 2, CMesh 5, 7 instantiations, 4 forwards)"
+          },
+          "handoff_evidence": [
+            "m_lod_band uchar: CPipe::RenderVisual loads +0x5 of CNode::m_visual elements with lbu (0x242574, 0x242590), 0 skips the LOD test (0x242578), else bounds it unsigned against CPipe::m_world->m_LOD_Object size (sltu 0x2425ac) and passes band data_ + (value-1)*32 to CVisual::DrawLOD (0x2425b8-0x2425dc); CPipe::RenderNodeShadow the same (lbu 0x242c10, sltu 0x242c34, DrawLOD 0x242c78); cited in notes (outside the layout evidence)",
+            "m_render_mode (+0x1c): values 3 (ctors, Clone, Read bit 10 clear), -2 (Read bit 10 set), -3 written by CPipe::RenderWorld on each cell's first visual before Render (0x244bb0, 0x244ea0); VuBatchProgram ==3 full program list (ids 114/48/60/56/116 only there, 0x30bdd4-0x30bddc vs short list 0x30c250-0x30c314), VuObjectSetup ==-2 header word 0 = 63 (0x30c370-0x30c3a4); m_unk06/m_unk07 notes record that the search over all ELF functions (build/facts/cvisual-unknown-fields.md) found no decision read",
+            "plan build/type-plans/zdb-cvisual.json sha256 115d0ca02d56380e8b5bb64a25a39e46375d64e6faccbd47bee6ae5c8bc24d11; layout build/type-plans/zdb-cvisual-layout.json sha256 c772c27d6368766807181bda403d76ed8ac74e2ec625f40cbff4eb6df2527da1 (validate regenerated the same digest; txt 16282b62699ba01a630e8050aef8131b7b29e97ab9fb51bf5da90059a6c5ea93)",
+            "recon type-plan validate ok, problems []; recon type-plan live ok, live_problems [] (types 17, forward_declarations 4, external_types 6, layout_sources 7, template_arguments 1); recon type-plan show ok -> build/type-plans/zdb-cvisual-review.md sha256 57879b4532f2074c4250de8c0f3e19eb9e4a8fa99f91c39d6ce0f11caf8ec48f; recon type-plan program -> build/apply/socom-work-type-plan-zdb-cvisual-apply.json program_sha256 7b4321d2a83746d4bc498fa235ff0b333b77a2d0e5bb61bbc7618b142de4720d (types 17, categories 4, routes c 1 empty 5 fields 11, instantiations 7, forwards 4)",
+            "renames: m_ref_count, m_render_mode, m_alloc_blocks, m_dyn_tex_list, m_detail_params, m_detail_cnt, m_light_map_enable, m_ambient_light_enable, m_global_light_enable, m_multipass_enable, m_shadow_map_enable, m_lod_band, m_matrix_id, m_tex_reloc_mgr, m_clone_src, m_mesh_decals, m_mtx_count; naming survey records the user rule. recon type-plan affected --plan: classes 11, functions 91, groups 38 (replan candidates 22, unplanned 16), unresolved_for_type 49"
+          ],
+          "reason": "User review 2026-10-23: flag names from the whole-ELF field search",
+          "rejected_at": "2026-10-23T16:56:34Z",
+          "rejected_by": "socom-ghidra-reconstructor"
         }
       ],
       "selection": "types",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "in_progress",
       "title": "Plan the code-derived layout of zdb::CVisual and its derived classes"
     },
     {

@@ -1045,8 +1045,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Accepted recon rows may rest on recalled SDK declarations"
+    },
+    {
+      "details": "Group 219 planning (socom-recon-planner-g121): recon draft leaves PersistentGame::Parse, C2DClock::UpdateUIVar and two C2DCounter methods as open rows although their receiver class is absent from the live program, where the U-type rule would decide them; planners mark them unresolved by hand. Related f0-chain gap (existing issue 054cd5f1): recon void does not stop an f0 chain at UICommandTable handlers, whose accepted prototypes return uchar in v0 and whose dispatcher narrows with andi 0xff (0x1d027c, 0x1d02cc); this blocks void for zsys_MemoryReport 0x2f4490 and CFileIO::PS2FileName 0x305ae0.",
+      "id": "socom:workspace-issue:65c696fbd8532b0cedbb",
+      "kind": "problem",
+      "reported_at": "2026-10-23T17:00:36Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "recon draft leaves non-const methods open when the receiver class is missing"
     }
   ],
-  "revision": 119,
+  "revision": 120,
   "schema_version": 1
 }
