@@ -138,6 +138,15 @@ row `"draft": "open"` for the planner:
   its `.p__sinit` table word as its only reference. The runtime fixes the contract: `__initialize_cpp_rts`
   calls each one through the `void (**)(void)` table and never reads v0, so a
   `__register_global_object` result left in v0 is residue (rules version 3).
+- `P-slot-void`: a `void` prototype for a virtual function whose vtable slot
+  family is void (rules version 18; see "Return width"). It takes only rows
+  the older rules leave open. A stage 2 prototype returning `void` is
+  restated; otherwise the mangled signature gives the parameters, and the
+  vtable slot proves the receiver (a function stored in a vtable is a virtual
+  member, so a0 is `this`). Every parameter type must resolve, the read
+  registers must be declared, and there must be no VU0 instructions. A
+  this-adjusting `@N@` stub stays open, because its receiver is the base part
+  at +N.
 
 Rows keep their `draft_rule`. Planners do not edit them.
 `recon draft --check <plan>` re-derives them and fails on any difference, or
@@ -239,7 +248,34 @@ records among them agree on one return class (and none disagrees) every
 function in the slot has it (rules version 13). A `__dt` destructor that
 keeps the Metrowerks contract returns `this` in v0, so an f0 chain ends there
 (rules version 16).
-`recon void --function` prints the verdict and the blocking chain.
+
+A vtable slot family is void as a whole when one override proves it
+(decision of 2026-10-23, "Yes, with a conflict check"; rules version 18). C++
+gives every override the base's return type. The family is every function
+in one virtual function's vtable slots. Each `__vt__` table is split into
+blocks: an RTTI header word, the complete-object offset, then the slots. A
+block starts at the table's start and at each relocated word that names an
+`__RTTI__` record. Slot i of a class's block at subobject offset N is slot i
+of the primary block of every base that the class's RTTI base list places at
+N. A `@N@` stub joins the overrider it jumps to, and a function stored in
+several slots joins all of them. One member must prove void with its own
+body: every exit is `jr ra` with v0 and f0 unset, its argument reads fit its
+mangled signature (so it is no struct returned through a hidden a0), and no
+DWARF record declares a return. If no member writes a value that a caller
+reads, `recon void` gives VERDICT void for every member. A member blocks the
+rule in four cases. Its DWARF record declares a non-void return. An exit
+holds its own value: not a callee's result (an indirect tail call counts as
+one) and not a scratch value. It leaves a value and its address is formed in
+code or stored outside vtables. Or a direct caller reads what it leaves,
+followed through callers that return it as above; a caller in the same
+family hands the value to the slot, which ends that chain. This walk uses
+the version 17 contracts, not other families' verdicts. Members whose
+method names differ are not provably one virtual, so they decide nothing. A
+void family also ends other functions' chains, like a declared slot
+contract. `recon void --function` prints the verdict and the blocking chain.
+For a function stored in vtables it also prints the family, the override
+that proves void, and each blocking override with its reader. `--rules 17`
+(also on `recon draft`) gives the earlier verdicts.
 
 A function whose every exit returns a relocated pointer to a NUL-terminated
 string (`recon bytes` shows the word's target and its text) returns

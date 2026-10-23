@@ -90,10 +90,17 @@ def test_callee_result_pass_through_is_void(ctx) -> None:
     assert drafted["draft_rule"] == "P-void"
     assert [p["type"] for p in drafted["prototype"]["parameters"]] == ["bool"]
     # CSealCtrlAi::AllStop can leave a callee's f0 that the virtual OnCommand
-    # returns onward, and SetPosition's v0 reaches a stored callback: both open.
+    # returns onward, and SetPosition's v0 reaches a stored callback: both open
+    # under rules version 17.
     for address, name, cls in ((0x264d30, "AllStop__11CSealCtrlAiFb", "CSealCtrlAi"), (0x227200, "SetPosition__Q23zdb5CNodeFfff", "CNode")):
         row = {"address": f"0x{address:x}", "elf_names": [name], "stage2": None, "thunk_target": None}
-        assert draft_function(ctx, row, name, _types(cls))["draft"] == "open"
+        assert draft_function(ctx, row, name, _types(cls), rules=17)["draft"] == "open"
+    # Rules version 18: OnCommand's slot family is void (CSealCtrl::OnCommand
+    # has an empty body), so AllStop's f0 chain ends there.
+    row = {"address": "0x264d30", "elf_names": ["AllStop__11CSealCtrlAiFb"], "stage2": None, "thunk_target": None}
+    assert draft_function(ctx, row, "AllStop", _types("CSealCtrlAi"))["draft_rule"] == "P-void"
+    row = {"address": "0x227200", "elf_names": ["SetPosition__Q23zdb5CNodeFfff"], "stage2": None, "thunk_target": None}
+    assert draft_function(ctx, row, "SetPosition", _types("CNode"))["draft"] == "open"
 
 
 def test_scratch_value_in_f0_is_dead(ctx) -> None:
@@ -221,3 +228,137 @@ def test_void_chains_are_followed_twelve_levels(ctx) -> None:
     # FreeCtxInfo's v0 passes through seven callers before every reader drops
     # it (planner of group 193); six levels left it open (rules version 17).
     assert "VERDICT void" in void_verdict(ctx, 0x33F260)
+
+
+# -- rules version 18: vtable slot families (decision of 2026-10-23) ----------
+
+UPDATE_UI_VAR = {
+    0x393830: "UpdateUIVar__9CPlainBmpFP11CUIVariable",
+    0x393b90: "UpdateUIVar__9CCheckBoxFP11CUIVariable",
+    0x390f10: "UpdateUIVar__17CRenderableStringFP11CUIVariable",
+    0x3853f0: "UpdateUIVar__8C2DClockFP11CUIVariable",
+    0x394b20: "@136@UpdateUIVar__8C2DClockFP11CUIVariable",
+}
+
+
+def _fresh_verdicts(ctx, monkeypatch) -> None:
+    from tools._socom import recon_draft
+
+    monkeypatch.setitem(recon_draft._FAMILY_VERDICTS, id(ctx), {})
+
+
+def test_slot_family_spans_secondary_vtables_and_stubs(ctx) -> None:
+    from tools._socom.recon_draft import slot_families
+
+    # UIVarMixin::UpdateUIVar is slot 1 of the block each derived vtable keeps
+    # for its UIVarMixin part (__vt__9CPlainBmp+0x5c, __vt__8C2DClock+0x7c);
+    # the @N@ stubs there join the overriders in the primary blocks.
+    family = slot_families(ctx)[0x393830]
+    assert set(UPDATE_UI_VAR) <= set(family.members)
+    assert family.method == "UpdateUIVar"
+    assert slot_families(ctx)[0x394b20] is family
+    assert "@8@72@__dt" not in str(slot_families(ctx)[0x1449B0].methods)  # @N@M@ virtual-base stubs
+
+
+def test_slot_family_void_gives_every_override_void(ctx) -> None:
+    from tools._socom.recon_draft import slot_family_verdict, void_verdict
+
+    verdict = slot_family_verdict(ctx, 0x390f10)
+    assert verdict["void"] and 0x393830 in verdict["witnesses"] and not verdict["blockers"]
+    for address in UPDATE_UI_VAR:
+        assert "VERDICT void: its vtable slot family is void (rules version 18)" in void_verdict(ctx, address)
+    # Rules version 17: the empty CCheckBox body gets no VERDICT line and the
+    # pass-through overrides stay open on their vtable words.
+    assert "VERDICT" not in void_verdict(ctx, 0x393b90, rules=17)
+    old = void_verdict(ctx, 0x390f10, rules=17)
+    assert "VERDICT open" in old and "address is taken" in old and "slot family" not in old
+
+
+def test_slot_family_conflict_blocks_the_rule(ctx, monkeypatch) -> None:
+    from tools._socom import recon_draft
+
+    real = recon_draft._dwarf_returns(ctx)
+    monkeypatch.setattr(recon_draft, "_dwarf_returns", lambda c: {**real, 0x3853F0: "gpr"})
+    _fresh_verdicts(ctx, monkeypatch)
+    verdict = recon_draft.slot_family_verdict(ctx, 0x393b90)
+    assert not verdict["void"]
+    assert (0x3853F0, "its DWARF record declares a non-void return (gpr)") in verdict["blockers"]
+    text = recon_draft.void_verdict(ctx, 0x390f10)
+    assert "slot family blocked by UpdateUIVar__8C2DClockFP11CUIVariable@0x3853f0" in text
+    assert "VERDICT open" in text and "VERDICT void" not in text
+
+
+def test_slot_family_own_value_blocks_the_rule(ctx, monkeypatch) -> None:
+    from tools._socom import recon_draft
+
+    real = recon_draft._exit_value_problem
+
+    def problem(c, start, indirect_tail_calls=False):
+        found, rows = real(c, start, indirect_tail_calls)
+        return ("v0<-li v0,1@0x390f98 at the exit jr ra@0x390f9c", rows) if start == 0x390F10 else (found, rows)
+
+    monkeypatch.setattr(recon_draft, "_exit_value_problem", problem)
+    _fresh_verdicts(ctx, monkeypatch)
+    verdict = recon_draft.slot_family_verdict(ctx, 0x393830)
+    assert not verdict["void"]
+    (member, reason), = verdict["blockers"]
+    assert member == 0x390F10 and "its own value" in reason and "callers through the slot read it" in reason
+
+
+def test_slot_family_reader_blocks_the_rule(ctx, monkeypatch) -> None:
+    from tools._socom import recon_draft
+
+    real = recon_draft._use_after_call
+
+    def use(c, caller, site, fpr):
+        # Pretend a direct caller of C2DClock::UpdateUIVar reads v0.
+        return "sltu v0,zero,v0@0x10" if not fpr and caller == 0x394b20 else real(c, caller, site, fpr)
+
+    monkeypatch.setattr(recon_draft, "_use_after_call", use)
+    monkeypatch.setattr(recon_draft, "call_sites", lambda c, f: [(0x394b20, 0x394b20, "call")] if f == 0x3853F0 else [])
+    _fresh_verdicts(ctx, monkeypatch)
+    verdict = recon_draft.slot_family_verdict(ctx, 0x393830)
+    assert not verdict["void"]
+    assert any(member == 0x3853F0 and reason.startswith("v0 read at 0x394b20") for member, reason in verdict["blockers"])
+
+
+def test_slot_void_draft_rule(ctx) -> None:
+    types = _types("CCheckBox", "CUIVariable", "CRenderableString", "C2DClock")
+    rows = {
+        address: {"address": f"0x{address:x}", "elf_names": [name], "stage2": None, "thunk_target": None}
+        for address, name in UPDATE_UI_VAR.items()
+    }
+    # The empty CCheckBox body: its vtable slot proves the receiver.
+    drafted = draft_function(ctx, rows[0x393b90], "CCheckBox::UpdateUIVar", types)
+    assert drafted["draft_rule"] == "P-slot-void"
+    assert drafted["prototype"]["return_type"] == "void"
+    assert [p["type"] for p in drafted["prototype"]["parameters"]] == ["CCheckBox *", "CUIVariable *"]
+    assert any("receiver: stored in vtable slot __vt__9CCheckBox+0x78" in line for line in drafted["prototype"]["evidence"])
+    # A callee's result left in v0 (an indirect jalr) is covered by the family verdict.
+    assert draft_function(ctx, rows[0x390f10], "CRenderableString::UpdateUIVar", types)["draft_rule"] == "P-slot-void"
+    # A @N@ stub stays open: its receiver is the UIVarMixin part at +136.
+    stub = draft_function(ctx, rows[0x394b20], "C2DClock::@136@UpdateUIVar", types)
+    assert stub["draft"] == "open" and "base part at +N" in stub["open_reason"]
+    # Rules version 17 leaves all of them open.
+    for address, row in rows.items():
+        assert draft_function(ctx, row, "x", types, rules=17)["draft"] == "open"
+
+
+def test_partial_row_where_the_slot_family_decides_void_fails_the_check(ctx) -> None:
+    row = {"address": "0x390f10", "elf_names": [UPDATE_UI_VAR[0x390f10]], "stage2": None, "thunk_target": None}
+    drafted = draft_function(ctx, row, "CRenderableString::UpdateUIVar", _types("CRenderableString", "CUIVariable"))
+    partial = {"address": "0x390f10", "current_name": "CRenderableString::UpdateUIVar",
+               "prototype": {"partial": True, "return_type": "undefined", "parameters": []}}
+    assert "use the drafted row" in check_drafted_rows({"functions": [drafted]}, {"functions": [partial]})[0]
+    void_row = {"address": "0x390f10", "current_name": "CRenderableString::UpdateUIVar",
+                "prototype": {"return_type": "void", "parameters": copy.deepcopy(drafted["prototype"]["parameters"])}}
+    assert check_drafted_rows({"functions": [drafted]}, {"functions": [void_row]}) == []
+
+
+def test_rules_version_must_be_known(ctx) -> None:
+    from tools._socom.recon_draft import RULES_VERSIONS, void_verdict
+    from tools._socom.util import SocomError
+
+    assert RULES_VERSIONS == (17, 18)
+    with pytest.raises(SocomError):
+        void_verdict(ctx, 0x393b90, rules=6)

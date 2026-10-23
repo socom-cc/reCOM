@@ -1731,12 +1731,13 @@ def _recon_draft(arguments: argparse.Namespace) -> int:
     tracker = load_tracker(tracker_path(root))
     if arguments.check:
         plan = load_json(_build_path(root, arguments.check, "reconstruction plans"))
-        draft = draft_plan(root, tracker, plan["work_item_id"], arguments.bridge_url)
+        draft = draft_plan(root, tracker, plan["work_item_id"], arguments.bridge_url, arguments.rules)
         problems = check_drafted_rows(draft, plan)
         drafted = sum(1 for row in plan.get("functions", []) if row.get("draft_rule"))
         _emit({
             "ok": not problems,
             "mutation_performed": False,
+            "rules_version": arguments.rules,
             "drafted_rows": drafted,
             "open_rows": len(plan.get("functions", [])) - drafted,
             "problems": problems,
@@ -1744,7 +1745,7 @@ def _recon_draft(arguments: argparse.Namespace) -> int:
         return 0 if not problems else 1
     if not arguments.item or not arguments.output:
         raise SocomError("recon draft needs --item and --output (or --check <plan>)")
-    draft = draft_plan(root, tracker, arguments.item.removesuffix("-apply"), arguments.bridge_url)
+    draft = draft_plan(root, tracker, arguments.item.removesuffix("-apply"), arguments.bridge_url, arguments.rules)
     output = _build_path(root, arguments.output, "reconstruction plans")
     atomic_write_json(output, draft)
     rules: dict[str, int] = {}
@@ -1768,7 +1769,7 @@ def _recon_void(arguments: argparse.Namespace) -> int:
 
     root = _root(arguments)
     ctx = context(root)
-    texts = [void_verdict(ctx, address) for address in _recon_addresses(root, arguments)]
+    texts = [void_verdict(ctx, address, arguments.rules) for address in _recon_addresses(root, arguments)]
     return _recon_text(root, arguments, "\n\n".join(texts))
 
 
@@ -2769,7 +2770,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec("recon facts", "recon", "Print compact ELF-derived call-contract facts for functions or a group."),
     _spec("recon asm", "recon", "Print annotated ELF disassembly of functions."),
     _spec("recon draft", "recon", "Draft a plan's rule-decided rows from facts and live types, or --check a plan's drafted rows.", ghidra_requirement="required"),
-    _spec("recon void", "recon", "Print the rules-v6 void verdict of functions: exit values and the first blocking caller chain."),
+    _spec("recon void", "recon", "Print the void verdict of functions: exit values, the first blocking caller chain, and the vtable slot family verdict."),
     _spec("recon bytes", "recon", "Print initialized bytes at an address or symbol, with relocated words and strings."),
     _spec("recon dwarf", "recon", "Print DWARF 1 entries by offset with their children."),
     _spec("recon refs", "recon", "Print a data object's relocated slots and every code access to it."),
@@ -2948,15 +2949,19 @@ def build_parser() -> argparse.ArgumentParser:
     recon_asm.add_argument("--function", nargs="+", required=True)
     recon_asm.add_argument("--output")
     recon_asm.set_defaults(handler=_recon_asm)
+    from .recon_draft import DRAFT_RULES_VERSION, RULES_VERSIONS
+
     recon_draft = recon_commands.add_parser("draft")
     recon_draft.add_argument("--item")
     recon_draft.add_argument("--output")
     recon_draft.add_argument("--check")
     recon_draft.add_argument("--bridge-url")
+    recon_draft.add_argument("--rules", type=int, choices=RULES_VERSIONS, default=DRAFT_RULES_VERSION)
     recon_draft.set_defaults(handler=_recon_draft)
     recon_void = recon_commands.add_parser("void")
     recon_void.add_argument("--function", nargs="+", required=True)
     recon_void.add_argument("--output")
+    recon_void.add_argument("--rules", type=int, choices=RULES_VERSIONS, default=DRAFT_RULES_VERSION)
     recon_void.set_defaults(handler=_recon_void)
     recon_bytes = recon_commands.add_parser("bytes")
     recon_bytes.add_argument("--address", nargs="+", required=True)
