@@ -7,21 +7,27 @@ live signature makes a claim the facts disprove:
 
 * ``registers``: an argument register the code reads before writing it, on
   some path, that the live signature does not declare (``recon facts``
-  ``argument_reads``; dead entry reads an accepted plan declares are dropped,
-  and a varargs signature covers registers after its fixed parameters);
+  ``argument_reads``).  Dropped: dead entry reads and ``dead_reads`` sites an
+  accepted plan or repair declares, reads ``recon_dead`` proves masked
+  before use, and registers after a varargs signature's fixed parameters;
 * ``count`` / ``type``: the Metrowerks mangled signature has another
   parameter count or varargs, or a parameter of another shape: pointer depth,
   float versus integer register, builtin width, or a scalar where the mangled
   type is a class (class names are not compared);
-* ``drift``: an applied group's plan set a prototype that the live signature
-  no longer shows;
-* ``recorded``: a reviewed plan row records that the live signature is wrong.
+* ``drift``: an applied group's plan (or the newest applied recon repair of
+  the function) set a prototype that the live signature no longer shows;
+* ``recorded``: a reviewed plan row records that the live signature is wrong
+  (a contradiction, a disagreement, a wrong width or a different type; a
+  remark that a signature is unproven or where it came from is not one).
 
-Ghidra's default signature (``undefined FUN(void)``, no convention) claims
-nothing and ``undefined*`` parameter types claim no type.  Live types whose
-only definition lies outside ``/project`` (Ghidra's archives) are listed as
-``library types``; they are not a contradiction by themselves.  Nothing is
-written to Ghidra or the tracker.
+Ghidra's default signature (``undefined FUN(void)``, no convention) and the
+convention-only placeholder ``undefined __stdcall FUN(void)`` (the signature
+repairs restore) claim nothing, and ``undefined*`` parameter types claim no
+type.  A thunk (a whole-body ``j``/``b``) shows its target's signature, so it
+is not checked against its own facts; thunks that would conflict are listed
+separately.  Live types whose only definition lies outside ``/project``
+(Ghidra's archives) are listed as ``library types``; they are not a
+contradiction by themselves.  Nothing is written to Ghidra or the tracker.
 """
 
 from __future__ import annotations
@@ -38,7 +44,9 @@ from .batch_apply import (
     _base_type,
     _declared_argument_registers,
     _SIGNATURE_LINE,
+    _thunk_target,
     _Types,
+    claims_nothing,
     expected_signature,
     parse_signature,
 )
@@ -48,9 +56,12 @@ from .util import SocomError, load_json
 APPLIED_STATUSES = frozenset({"accepted", "awaiting_acceptance"})
 _GPR = {4: "a0", 5: "a1", 6: "a2", 7: "a3", 8: "t0", 9: "t1", 10: "t2", 11: "t3"}
 _REGISTER = {name: number for number, name in _GPR.items()} | {f"f{n}": 100 + n for n in range(12, 20)}
-# Wording a reviewed plan uses when it records a wrong live signature.
+# Wording a reviewed plan uses when it records a wrong live signature: a
+# contradiction, a disagreement, a wrong width or a different type.  Remarks
+# that a signature is unproven ("no evidence") or where it came from ("library
+# type archive") record no contradiction.
 _RECORDED = re.compile(
-    r"live (?:signature|prototype)[^;]*?(?:contradict|disagree|wrong width|no (?:program )?evidence|library type archive|glibc)"
+    r"live (?:signature|prototype)[^;]*?(?:contradict|disagree|wrong width|\(\d+ bytes\), not )"
     r"|(?:contradict|disagree|different \d+-byte type|wrong width)[^;]*?live (?:signature|prototype)"
     r"|in the live (?:signature|prototype) is a different",
     re.IGNORECASE,
@@ -60,6 +71,7 @@ _BUILTIN_NAMES = frozenset(BUILTINS.values()) | frozenset(BUILTIN_SIZES)
 
 def _slug(item_id: str) -> str:
     return item_id.replace("socom:", "socom-").replace(":", "-")
+
 
 
 def _live_shape(type_name: str) -> tuple | None:
@@ -122,7 +134,18 @@ def _mangled_conflicts(names: list[str], live: dict[str, Any]) -> list[str]:
     return found
 
 
-def _register_conflicts(reads: dict[str, list[int]], live: dict[str, Any], dead: set[str]) -> list[str]:
+def _register_conflicts(
+    reads: dict[str, list[int]],
+    live: dict[str, Any],
+    dead: set[str],
+    dead_sites: dict[str, set[int]] | None = None,
+    masked: Callable[[str, int], bool] | None = None,
+    explained: list[str] | None = None,
+) -> list[str]:
+    """Undeclared argument reads.  ``dead`` registers (entry block) and
+    ``dead_sites`` (any path) are declared dead by a plan; ``masked(register,
+    site)`` proves a read dead; ``explained`` collects the reads so dropped."""
+
     declared_g, declared_f = _declared_argument_registers({"parameters": [{"type": t} for t, _ in live["parameters"]]})
     declared = declared_g | {100 + reg for reg in declared_f}
     found = []
@@ -135,8 +158,17 @@ def _register_conflicts(reads: dict[str, list[int]], live: dict[str, Any], dead:
             or (number >= 100 and number - 100 > max(declared_f, default=11))
         ):
             continue
+        declared_dead = (dead_sites or {}).get(register, set())
+        remaining = [site for site in sites if site not in declared_dead]
+        proven = [site for site in remaining if masked is not None and masked(register, site)]
+        remaining = [site for site in remaining if site not in proven]
+        if explained is not None:
+            explained.extend(f"{register}@0x{site:x} declared dead" for site in sites if site in declared_dead)
+            explained.extend(f"{register}@0x{site:x} masked" for site in proven)
+        if not remaining:
+            continue
         found.append(
-            f"registers: {register} is read before any write (0x{sites[0]:x}) but the live signature declares "
+            f"registers: {register} is read before any write (0x{remaining[0]:x}) but the live signature declares "
             f"{len(live['parameters'])} parameter(s)"
         )
     return found
@@ -149,7 +181,7 @@ def _planned_signature(prototype: dict[str, Any]) -> dict[str, Any]:
                 "calling_convention": CALLING_CONVENTION,
                 "parameters": prototype.get("parameters") or [],
                 "return_type": prototype.get("return_type") or "",
-                "varargs": prototype.get("partial") and prototype.get("varargs"),
+                "varargs": prototype.get("varargs") is True,
             },
             "planned",
         )
@@ -193,6 +225,21 @@ def live_contradictions(
         }
         for value in plan["batch"]["functions"]:
             owner[int(value, 16)] = info
+    # Recon repairs of each function, oldest first.
+    repairs: dict[int, list[dict[str, Any]]] = {}
+    repair_plans = sorted((row for row in tracker["work_items"] if row.get("kind") == "recon-repair-plan"), key=lambda row: row["id"])
+    for plan in repair_plans:
+        apply = items.get(f"{plan['id']}-apply") or {}
+        info = {
+            "repair": plan["id"],
+            "repair_number": plan["batch"].get("repair_number"),
+            "plan_status": plan.get("status"),
+            "apply_status": apply.get("status"),
+            "applied": apply.get("status") in APPLIED_STATUSES,
+            "plan_path": root / "build" / "recon-plans" / f"{_slug(plan['id'])}.json",
+        }
+        for value in plan["batch"]["functions"]:
+            repairs.setdefault(int(value, 16), []).append(info)
     wanted = sorted(address for address, info in owner.items() if groups == "all" or info["applied"])
     rows_by_plan: dict[Path, dict[int, dict[str, Any]]] = {}
 
@@ -229,38 +276,82 @@ def live_contradictions(
                 found = next((m.group(1) for line in lines if (m := _SIGNATURE_LINE.match(line))), None)
                 if found is not None:
                     signatures[address] = found
+    from .recon_dead import GPR_NUMBERS, masked_read_problem
+
     ctx = context(root)
     names = {row["start"]: row["names"] for row in ctx.functions}
+
+    def masked(start: int) -> Callable[[str, int], bool]:
+        return lambda register, site: register in GPR_NUMBERS and masked_read_problem(ctx, start, GPR_NUMBERS[register], site) is None
+
     rows = []
+    thunks = []
+    thunk_count = 0
+    claim_count = 0
+    explained_count = 0
     library_typed = 0
     for address in wanted:
         info = owner[address]
         signature = signatures.get(address)
         live = parse_signature(signature)
-        if live is None or live["default"]:
+        if live is None or claims_nothing(live):
             continue
-        row = plan_row(info, address)
+        group_row = plan_row(info, address)
+        # The newest applied repair whose plan is accepted supersedes the
+        # group's row; a repair not applied yet is listed with the row.
+        repaired = [r for r in repairs.get(address, []) if r["applied"] and r["plan_status"] == "accepted"]
+        latest = repaired[-1] if repaired else None
+        row = plan_row(latest, address) if latest else group_row
+        effective = latest or info
         prototype = (row or {}).get("prototype") or None
-        dead = {
-            str(entry.get("register"))
-            for entry in ((prototype or {}).get("dead_entry_reads") or [])
-            if info["plan_status"] == "accepted"
-        }
-        kinds = _register_conflicts(argument_reads(ctx, address), live, dead)
+        accepted_rows = ([group_row] if info["plan_status"] == "accepted" else []) + [
+            plan_row(r, address) for r in repairs.get(address, []) if r["plan_status"] == "accepted"
+        ]
+        accepted_prototypes = [(r or {}).get("prototype") or {} for r in accepted_rows]
+        dead = {str(entry.get("register")) for p in accepted_prototypes for entry in (p.get("dead_entry_reads") or [])}
+        dead_sites: dict[str, set[int]] = {}
+        for p in accepted_prototypes:
+            for entry in p.get("dead_reads") or []:
+                try:
+                    dead_sites.setdefault(str(entry.get("register")), set()).add(int(str(entry.get("site")), 16))
+                except ValueError:
+                    continue
+        explained: list[str] = []
+        kinds = _register_conflicts(argument_reads(ctx, address), live, dead, dead_sites, masked(address), explained)
         kinds += _mangled_conflicts(names.get(address, []), live)
-        if prototype and info["applied"] and info["plan_status"] == "accepted":
+        if prototype and effective["applied"] and effective["plan_status"] == "accepted":
             want = _planned_signature(prototype)
             if want and (
                 [t for t, _ in want["parameters"]] != [t for t, _ in live["parameters"]]
                 or want["return_type"] != live["return_type"]
                 or want["varargs"] != live["varargs"]
             ):
-                kinds.append(f"drift: the applied plan sets {want['return_type']} ({', '.join(t for t, _ in want['parameters']) or 'void'})")
+                source = f"repair {latest['repair_number']:03d}" if latest else "the applied plan"
+                kinds.append(f"drift: {source} sets {want['return_type']} ({', '.join(t for t, _ in want['parameters']) or 'void'})")
         for reason in (row or {}).get("unresolved") or []:
             if isinstance(reason, str) and (match := _RECORDED.search(reason)):
                 start = max(0, match.start() - 40)
-                kinds.append(f"recorded ({info['plan_status']} plan): ...{reason[start : match.end() + 60]}...")
+                kinds.append(f"recorded ({effective['plan_status']} plan): ...{reason[start : match.end() + 60]}...")
                 break
+        target = _thunk_target(ctx.elf, address, ctx.size.get(address))
+        if target is not None:
+            # A thunk shows its target's signature: no row of its own can repair it.
+            thunk_count += 1
+            if kinds:
+                thunks.append(
+                    {
+                        "address": f"0x{address:x}",
+                        "name": live["name"],
+                        "signature": signature,
+                        "target": f"0x{target:x}",
+                        "target_name": ctx.label(target),
+                        "group_number": info["group_number"],
+                        "would_flag": kinds,
+                    }
+                )
+            continue
+        claim_count += 1
+        explained_count += len(explained)
         library = sorted(
             {
                 f"{_base_type(t)} ({', '.join(paths)})"
@@ -291,8 +382,13 @@ def live_contradictions(
                 "plan_status": info["plan_status"],
                 "apply_status": info["apply_status"],
                 "applied": info["applied"],
-                "row": state if info["plan_path"].is_file() else "no plan file",
+                "row": state if effective["plan_path"].is_file() else "no plan file",
+                "repairs": [
+                    {key: r[key] for key in ("repair", "repair_number", "plan_status", "apply_status", "applied")}
+                    for r in repairs.get(address, [])
+                ],
                 "contradictions": kinds,
+                "explained_reads": explained,
                 "library_types": library,
             }
         )
@@ -305,13 +401,17 @@ def live_contradictions(
         "mutation_performed": False,
         "groups": groups,
         "scanned": len(wanted),
-        "with_live_claims": sum(1 for a in wanted if (p := parse_signature(signatures.get(a))) and not p["default"]),
+        # Thunks are counted apart: they show their target's signature.
+        "with_live_claims": claim_count,
         "contradiction_count": len(rows),
         "applied_count": sum(1 for row in rows if row["applied"]),
         # The live signature is a prototype this project planned, not an unproven one.
         "planned_prototype_count": sum(1 for row in rows if row["row"] in ("prototype", "partial")),
         "kinds": dict(sorted(kinds_count.items())),
         "library_typed_count": library_typed,
+        "explained_read_count": explained_count,
+        "thunk_count": thunk_count,
+        "thunks": thunks,
         "functions": rows,
     }
 
@@ -324,6 +424,10 @@ def contradictions_text(result: dict[str, Any]) -> str:
         "# by kind: " + (", ".join(f"{kind} {count}" for kind, count in result["kinds"].items()) or "none")
         + f"; {result['planned_prototype_count']} of the signatures are prototypes a plan set, the rest unproven",
         f"# {result['library_typed_count']} scanned signatures use a type defined only outside /project (Ghidra's archives)",
+        f"# {result.get('explained_read_count', 0)} undeclared any-path reads are dead (proven masked, or declared "
+        "by an accepted plan's dead_reads) and not listed",
+        f"# {result.get('thunk_count', 0)} thunks with live claims show their target's signature and are not checked; "
+        f"{len(result.get('thunks', []))} would conflict (listed at the end)",
     ]
     for row in result["functions"]:
         lines.append("")
@@ -332,9 +436,22 @@ def contradictions_text(result: dict[str, Any]) -> str:
             f"  group {row['group_number']} {row['group']}: plan {row['plan_status']}, apply {row['apply_status']}"
             f" ({'applied' if row['applied'] else 'not applied'}); row {row['row']}"
         )
+        for repair in row.get("repairs", []):
+            lines.append(
+                f"  repair {repair['repair_number']:03d} {repair['repair']}: plan {repair['plan_status']}, apply "
+                f"{repair['apply_status']} ({'applied' if repair['applied'] else 'not applied'})"
+            )
         lines.extend(f"  {text}" for text in row["contradictions"])
         if row["library_types"]:
             lines.append("  library types: " + "; ".join(row["library_types"]))
+    if result.get("thunks"):
+        lines.append("")
+        lines.append("# thunks: not contradictions, a thunk shows its target's signature (plan the target instead)")
+        for row in result["thunks"]:
+            lines.append(
+                f"{row['address']} {row['name']} -> {row['target_name']} (group {row['group_number']}) :: {row['signature']}"
+            )
+            lines.extend(f"  would flag {text}" for text in row["would_flag"])
     return "\n".join(lines)
 
 

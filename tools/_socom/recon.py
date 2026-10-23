@@ -49,6 +49,8 @@ from .batch_apply import (
     _shown_type,
     _thunk_target,
     build_batch_program,
+    claims_nothing,
+    expected_signature,
     parse_signature,
 )
 from .constants import REFERENCE_SHA256
@@ -63,6 +65,13 @@ RECON_PLAN_KIND = "socom-ghidra-recon-plan"
 RECON_SCHEMA = 1
 RECON_PLAN_KINDS = ("recon-plan-group", "recon-apply-group")
 GROUP_PREFIX = "socom:recon-group:"
+# A recon repair corrects prototypes of functions in applied groups: a
+# file-only plan in the recon plan row format and a live apply item.
+REPAIR_PLAN_KIND = "recon-repair-plan"
+REPAIR_APPLY_KIND = "recon-repair-apply"
+REPAIR_PREFIX = "socom:work:recon-repair-"
+PLAN_ITEM_KINDS = ("recon-plan-group", REPAIR_PLAN_KIND)
+APPLY_ITEM_KINDS = ("recon-apply-group", REPAIR_APPLY_KIND)
 ARGUMENT_GPR_NAMES = {4: "a0", 5: "a1", 6: "a2", 7: "a3", 8: "t0", 9: "t1", 10: "t2", 11: "t3"}
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -296,6 +305,20 @@ def group_sha256(batch: dict[str, Any]) -> str:
     return hashlib.sha256(canonical_json(identity).encode("utf-8")).hexdigest()
 
 
+def repair_sha256(batch: dict[str, Any]) -> str:
+    """Digest identifying one recon repair's function list (a plan's ``group_sha256``)."""
+
+    identity = {key: batch[key] for key in ("repair_number", "functions", "groups", "graph_sha256")}
+    return hashlib.sha256(canonical_json(identity).encode("utf-8")).hexdigest()
+
+
+def plan_digest(item: dict[str, Any]) -> str:
+    """The ``group_sha256`` a plan for this group or repair item must cite."""
+
+    batch = item["batch"]
+    return repair_sha256(batch) if item.get("kind") == REPAIR_PLAN_KIND else group_sha256(batch)
+
+
 # -- evidence --------------------------------------------------------------
 
 
@@ -395,7 +418,7 @@ def group_evidence(root: Path, tracker: dict[str, Any], item_id: str) -> dict[st
     from .census import build_census
 
     item = next((row for row in tracker["work_items"] if row["id"] == item_id), None)
-    if item is None or item.get("kind") != "recon-plan-group":
+    if item is None or item.get("kind") not in PLAN_ITEM_KINDS:
         raise SocomError(f"{item_id} is not a reconstruction plan item")
     batch = item["batch"]
     graph = function_graph(root)
@@ -508,13 +531,15 @@ def group_evidence(root: Path, tracker: dict[str, Any], item_id: str) -> dict[st
                 **(outcomes.get(address) or {"batch": None, "dwarf": None, "stage2": None}),
             }
         )
+    repair = {"groups": dict(batch["groups"])} if item.get("kind") == REPAIR_PLAN_KIND else {}
     return {
         "kind": RECON_EVIDENCE_KIND,
         "schema_version": RECON_SCHEMA,
         "mutation_performed": False,
         "work_item_id": item_id,
-        "group_sha256": group_sha256(batch),
-        "height": batch["height"],
+        "group_sha256": plan_digest(item),
+        "height": batch.get("height"),
+        **repair,
         "anomalies": [
             row
             for row in graph["anomalies"]
@@ -661,11 +686,11 @@ def _contradicted(live: dict[str, Any], parameters: list[dict[str, Any]], vararg
     """How a parsed live signature contradicts the planned parameters.
 
     A live ``undefined*`` parameter type claims nothing; Ghidra's default
-    signature (no convention, ``undefined`` return, no parameters) claims
+    signature (``undefined f(void)``, with or without a convention) claims
     nothing at all.
     """
 
-    if live["default"]:
+    if claims_nothing(live):
         return []
     found = []
     planned = [_shown_type(str(param.get("type"))) for param in parameters]
@@ -679,13 +704,29 @@ def _contradicted(live: dict[str, Any], parameters: list[dict[str, Any]], vararg
     return found
 
 
+def _varargs_problems(prototype: dict[str, Any], parameters: list[Any]) -> list[str]:
+    """A ``varargs: true`` prototype (partial or complete) needs its evidence and a fixed parameter."""
+
+    if prototype.get("varargs") is not True:
+        return []
+    problems = []
+    if not parameters:
+        problems.append("varargs needs a fixed parameter: the bridge reads '...' only after a comma")
+    if not prototype.get("varargs_evidence"):
+        problems.append("varargs needs varargs_evidence")
+    return problems
+
+
 def _partial_problems(
     prototype: dict[str, Any], unresolved: list[Any], elf: Elf32File, sizes: dict[int, int], address: int
 ) -> list[str]:
     """Shape and proof checks of a partial prototype (decision of 2026-10-22).
 
     The row sets its proven parameters and leaves the return ``undefined``;
-    it is allowed only where the live signature contradicts those parameters.
+    it is allowed where the live signature contradicts those parameters, or
+    where the live signature is Ghidra's default and claims nothing
+    (``undefined f(void)``, with or without a convention; decision of
+    2026-10-22 "Yes, extend it"): then every parameter needs a proven type.
     """
 
     problems = []
@@ -698,7 +739,9 @@ def _partial_problems(
         problems.append("partial prototype needs varargs true or false")
     if not unresolved:
         problems.append("partial prototype needs the reasons its return stays unresolved (unresolved)")
-    if not prototype.get("contradiction"):
+    live = parse_signature(prototype.get("live_signature"))
+    default = live is not None and claims_nothing(live)
+    if not prototype.get("contradiction") and not default:
         problems.append("partial prototype needs the contradiction with the live signature it replaces")
     parameters = prototype.get("parameters") if isinstance(prototype.get("parameters"), list) else []
     for param in parameters:
@@ -706,11 +749,12 @@ def _partial_problems(
             problems.append(f"partial prototype parameter {param.get('name')!r} needs evidence")
         if isinstance(param.get("type"), str) and _base_type(param["type"]) == "undefined":
             problems.append(f"parameter {param.get('name')}: 'undefined' is Ghidra's 1-byte default; an unproven type is undefined1/2/4/8")
-    if varargs is True:
-        if not parameters:
-            problems.append("varargs needs a fixed parameter: the bridge reads '...' only after a comma")
-        if not prototype.get("varargs_evidence"):
-            problems.append("varargs needs varargs_evidence")
+        elif default and isinstance(param.get("type"), str) and _base_type(param["type"]) in UNDEFINED_TYPES:
+            problems.append(
+                f"parameter {param.get('name')}: replacing Ghidra's default signature needs every parameter typed; "
+                "a register whose type nothing proves leaves the row unresolved"
+            )
+    problems.extend(_varargs_problems(prototype, parameters))
     if "noreturn" in prototype and not isinstance(prototype["noreturn"], bool):
         problems.append("noreturn must be true or false")
     if prototype.get("noreturn") is True:
@@ -718,13 +762,10 @@ def _partial_problems(
             problems.append("noreturn needs noreturn_evidence")
         if why := noreturn_problem(elf, sizes, address):
             problems.append(f"noreturn is not proven by the ELF: {why}")
-    live = parse_signature(prototype.get("live_signature"))
     if live is None:
         problems.append("partial prototype needs live_signature: the Signature line get_function_by_address prints")
     elif all(isinstance(param.get("type"), str) for param in parameters) and isinstance(varargs, bool):
-        if live["default"]:
-            problems.append("the live signature is Ghidra's default and claims nothing: leave the row unresolved")
-        elif not _contradicted(live, parameters, varargs):
+        if not default and not _contradicted(live, parameters, varargs):
             problems.append(
                 "the live signature does not contradict the proven parameters (count, order or type): "
                 "a partial prototype is not allowed"
@@ -736,18 +777,75 @@ def _planned_types(root: Path, tracker: dict[str, Any], plan: dict[str, Any], ad
     """(return, parameter types) planned for ``address`` in this plan or an accepted one."""
 
     candidates = [plan]
-    for item in tracker["work_items"]:
-        if item.get("kind") == "recon-plan-group" and item.get("status") == "accepted" and address in item["batch"]["functions"]:
-            slug = item["id"].replace("socom:", "socom-").replace(":", "-")
-            path = root / "build" / "recon-plans" / f"{slug}.json"
-            if path.is_file():
-                candidates.append(load_json(path))
+    accepted = [
+        item
+        for item in tracker["work_items"]
+        if item.get("kind") in PLAN_ITEM_KINDS and item.get("status") == "accepted" and address in item["batch"]["functions"]
+    ]
+    # The newest accepted repair's row supersedes older repairs and the group's row.
+    repairs = sorted((item for item in accepted if item["kind"] == REPAIR_PLAN_KIND), key=lambda row: row["id"], reverse=True)
+    for item in repairs + [item for item in accepted if item["kind"] != REPAIR_PLAN_KIND]:
+        path = plan_path_for(root, item["id"])
+        if path.is_file():
+            candidates.append(load_json(path))
     for candidate in candidates:
         for row in candidate.get("functions", []):
             if row.get("address") == address and row.get("prototype"):
                 prototype = row["prototype"]
                 return (prototype.get("return_type"), tuple(p.get("type") for p in prototype.get("parameters") or []))
     return None
+
+
+def plan_path_for(root: Path, item_id: str) -> Path:
+    """The plan file of a group or repair plan item (``build/recon-plans/<slug>.json``)."""
+
+    slug = item_id.removesuffix("-apply").replace("socom:", "socom-").replace(":", "-")
+    return root / "build" / "recon-plans" / f"{slug}.json"
+
+
+def _restates_live(prototype: dict[str, Any], live: dict[str, Any]) -> bool:
+    """Whether the planned prototype is the live signature already (names included)."""
+
+    planned = {
+        "calling_convention": CALLING_CONVENTION,
+        "parameters": [{"name": p.get("name"), "type": p.get("type")} for p in prototype.get("parameters") or []],
+        "return_type": prototype.get("return_type") or "",
+        "varargs": prototype.get("varargs") is True,
+    }
+    return parse_signature(expected_signature(planned, live["name"])) == {**live, "noreturn": False}
+
+
+def _repair_row_problems(entry: dict[str, Any], batch: dict[str, Any], address: str) -> list[str]:
+    """What a recon repair row adds to a group row: the group it corrects and why."""
+
+    problems = []
+    group = batch.get("groups", {}).get(address)
+    if entry.get("group") != group:
+        problems.append(f"repair row must cite its group {group!r} (group), not {entry.get('group')!r}")
+    reasons = entry.get("repair")
+    if not isinstance(reasons, list) or not reasons or not all(isinstance(r, str) and r.strip() for r in reasons):
+        problems.append("repair row needs `repair`: why the live state its group left is wrong")
+    prototype = entry.get("prototype")
+    if not isinstance(prototype, dict):
+        return problems + ["a repair row sets a prototype; a row left unresolved repairs nothing"]
+    live = parse_signature(prototype.get("live_signature"))
+    if live is None:
+        problems.append("repair row needs prototype.live_signature: the Signature line get_function_by_address prints")
+    elif isinstance(prototype.get("parameters"), list) and _restates_live(prototype, live) and not prototype.get("dead_reads"):
+        problems.append("the prototype is the live signature already: a repair must change it (or declare dead_reads)")
+    return problems
+
+
+def _dead_read_rows(root: Path, address: int, rows: Any, cache: dict[str, Any]) -> list[str]:
+    """Problems of a prototype's any-path ``dead_reads`` rows (recon_dead)."""
+
+    from .recon_dead import dead_read_problems
+    from .recon_facts import argument_reads, context
+
+    if "ctx" not in cache:
+        cache["ctx"] = context(root)
+    ctx = cache["ctx"]
+    return dead_read_problems(ctx, address, rows, argument_reads(ctx, address))[1]
 
 
 def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any]) -> list[str]:
@@ -759,11 +857,18 @@ def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any
     if (plan.get("target") or {}).get("source_sha256") != REFERENCE_SHA256:
         problems.append("plan targets a different program")
     item = next((row for row in tracker["work_items"] if row["id"] == plan.get("work_item_id")), None)
-    if item is None or item.get("kind") != "recon-plan-group":
+    if item is None or item.get("kind") not in PLAN_ITEM_KINDS:
         return problems + [f"{plan.get('work_item_id')} is not a reconstruction plan item"]
     batch = item["batch"]
-    if plan.get("group_sha256") != group_sha256(batch):
-        problems.append("plan group_sha256 differs from the decomposed group")
+    repair = item.get("kind") == REPAIR_PLAN_KIND
+    if plan.get("group_sha256") != plan_digest(item):
+        problems.append(
+            "plan group_sha256 differs from the repair's function list" if repair
+            else "plan group_sha256 differs from the decomposed group"
+        )
+    if repair and plan.get("globals"):
+        problems.append("a recon repair corrects function prototypes only: globals must be empty")
+    facts: dict[str, Any] = {}
     elf = Elf32File(root / "support" / "socom.elf")
     sizes = {row["start"]: row["size"] for row in _functions(elf)}
 
@@ -776,8 +881,10 @@ def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any
             problems.append(f"{where} appears twice")
         seen.add(address)
         if address not in expected:
-            problems.append(f"{where} is not in the group")
+            problems.append(f"{where} is not in the {'repair' if repair else 'group'}")
             continue
+        if repair:
+            problems.extend(f"{where} {problem}" for problem in _repair_row_problems(entry, batch, address))
         if not isinstance(entry.get("current_name"), str) or not entry["current_name"]:
             problems.append(f"{where} needs the live current_name")
         rename = entry.get("rename")
@@ -808,7 +915,15 @@ def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any
                 problems.append(f"{where} prototype needs evidence")
             if reason := _type_problem(prototype.get("return_type")):
                 problems.append(f"{where} return: {reason}")
-            extra = [key for key in PARTIAL_KEYS if key != "partial" and key in prototype]
+            # A repair row names the live signature it replaces, partial or not;
+            # a complete prototype may be varargs when its return is decided
+            # (decision of 2026-10-22: fprintf, whose 271 callers never read v0).
+            allowed = {"partial", "varargs", "varargs_evidence"} | ({"live_signature"} if repair else set())
+            extra = [key for key in PARTIAL_KEYS if key in prototype and key not in allowed]
+            if "varargs" in prototype and not isinstance(prototype["varargs"], bool):
+                problems.append(f"{where} varargs must be true or false")
+            if isinstance(prototype.get("parameters"), list):
+                problems.extend(f"{where} {problem}" for problem in _varargs_problems(prototype, prototype["parameters"]))
             if extra:
                 problems.append(f"{where} {', '.join(extra)}: only a partial prototype carries these")
         parameters = prototype.get("parameters")
@@ -853,8 +968,13 @@ def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any
             )
             problems.extend(f"{where} {problem}" for problem in dead_problems)
             gprs, fprs = gprs - dead_g, fprs - dead_f
+            if prototype.get("dead_reads") is not None:
+                problems.extend(
+                    f"{where} {problem}"
+                    for problem in _dead_read_rows(root, int(address, 16), prototype["dead_reads"], facts)
+                )
             declared_g, declared_f = _declared_argument_registers({"parameters": parameters})
-            if partial and prototype.get("varargs") is True:
+            if prototype.get("varargs") is True:
                 # Registers after the fixed parameters carry the variadic arguments.
                 gprs = {reg for reg in gprs if reg in declared_g or reg < max(declared_g, default=3)}
                 fprs = {reg for reg in fprs if reg in declared_f or reg < max(declared_f, default=11)}
@@ -904,6 +1024,7 @@ def build_recon_program(root: Path, tracker: dict[str, Any], plan_path: Path) ->
     problems = validate_recon_plan(root, tracker, plan)
     if problems:
         raise SocomError("the reconstruction plan is invalid:\n- " + "\n- ".join(problems))
+    repair = str(plan["work_item_id"]).startswith(REPAIR_PREFIX)
     functions = []
     for entry in sorted(plan["functions"], key=lambda row: int(row["address"], 16)):
         rename = entry.get("rename")
@@ -930,6 +1051,19 @@ def build_recon_program(root: Path, tracker: dict[str, Any], plan_path: Path) ->
                 for row in ((prototype or {}).get("dead_entry_reads") or [])
             ],
         }
+        if prototype and not prototype.get("partial") and prototype.get("varargs") is True:
+            # Absent otherwise, so programs without varargs rows keep their bytes.
+            out["prototype"]["varargs"] = True
+            out["notes"].append("varargs: " + "; ".join(_texts(prototype["varargs_evidence"])))
+        if prototype and prototype.get("dead_reads"):
+            from .recon_dead import dead_read_note
+
+            out["notes"].extend(dead_read_note(row) for row in prototype["dead_reads"])
+        if repair:
+            # The apply refuses unless the function still shows the signature
+            # the row replaces (a partial row records it below as well).
+            out["prototype"]["live_signature"] = prototype["live_signature"]
+            out["notes"].append(f"repair of {entry['group']}: " + "; ".join(_texts(entry["repair"])))
         if prototype and prototype.get("partial"):
             # The prototype is applied; the return stays undefined, for the
             # reasons the row's `unresolved` records.
@@ -940,7 +1074,7 @@ def build_recon_program(root: Path, tracker: dict[str, Any], plan_path: Path) ->
             out["return_unresolved"] = "; ".join(entry["unresolved"])
             out["notes"].append(
                 f"partial prototype replacing the live signature {prototype['live_signature']!r}: "
-                + "; ".join(_texts(prototype["contradiction"]))
+                + "; ".join(_texts(prototype.get("contradiction") or "it is Ghidra's default and claims nothing"))
             )
             if prototype.get("noreturn"):
                 # set_function_no_return exists, but a no-return change wakes

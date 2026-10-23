@@ -10,7 +10,12 @@ show a prototyped target's signature, typed and relabelled globals, derived
 program provenance, scope, live preflight, receipt reproduction, a fresh
 fingerprint compared with the handoff's after-fingerprint, the diff
 explanation, the apply calls against the post-claim dry run, and the strict
-tracker audit.  It returns data-derived evidence lines; the accepter decides.
+tracker audit.  For a recon repair it also proves the ``limit``: the diff
+changes only the repair's listed functions (and thunks or Ghidra-split
+targets that show a listed function's new signature), the scope and every
+apply call name only them, the program types no global, and every listed
+function took its prototype.  It returns data-derived evidence lines; the
+accepter decides.
 """
 
 from __future__ import annotations
@@ -21,7 +26,7 @@ from typing import Any, Callable
 
 from .batch_apply import _thunk_target, expected_signature
 from .elf import Elf32File
-from .recon import _functions, build_recon_program
+from .recon import REPAIR_PLAN_KIND, _functions, build_recon_program
 from .util import SocomError, canonical_json, load_json, sha256_file
 
 
@@ -245,6 +250,51 @@ def diff_note(summary: dict[str, Any]) -> str:
     return note
 
 
+def repair_limit(
+    plan_item: dict[str, Any],
+    program: dict[str, Any],
+    scope: dict[str, Any],
+    diff: dict[str, Any],
+    summary: dict[str, Any],
+    steps: list[dict[str, Any]],
+    result: dict[str, Any],
+) -> tuple[str, bool, str]:
+    """The ``limit`` check of a recon repair: nothing but its listed functions changed."""
+
+    listed = {int(value, 16) for value in plan_item["batch"]["functions"]}
+    changed = {int(row["address"], 16) for row in diff["functions"]}
+    derived = {int(value, 16) for value in summary.get("thunks", []) + summary.get("split_targets", [])}
+    outside = sorted(changed - listed - derived)
+    stepped = {int(str(step["body"].get("address") or step["body"].get("function_address")), 16) for step in steps}
+    scope_ok = (
+        {int(value, 16) for value in scope.get("functions", [])} == listed
+        and not scope.get("globals")
+        and not scope.get("types")
+    )
+    untouched = sorted(
+        int(row["address"], 16) for row in result.get("functions", []) if not row.get("prototype")
+    )
+    problems = []
+    if outside:
+        problems.append(f"functions outside the repair changed: {[hex(value) for value in outside]}")
+    if stepped - listed:
+        problems.append(f"apply calls outside the repair: {[hex(value) for value in sorted(stepped - listed)]}")
+    if not scope_ok:
+        problems.append("the receipt scope is not exactly the listed functions")
+    if program.get("globals"):
+        problems.append("the repair program types globals")
+    if untouched or {int(row["address"], 16) for row in result.get("functions", [])} != listed:
+        problems.append(f"listed functions without their prototype: {[hex(value) for value in untouched]}")
+    number = plan_item["batch"].get("repair_number")
+    detail = (
+        f"repair {number:03d}: of {len(listed)} listed functions {len(changed & listed)} changed and "
+        f"{len(listed - changed)} restated; {len(derived)} thunk(s) or split target(s) show a listed function's new "
+        f"signature; nothing else changed; the scope and all {len(steps)} apply calls name only listed functions; no globals"
+        if not problems else "; ".join(problems)
+    )
+    return "limit", not problems, detail
+
+
 def check_recon_apply(
     root: Path,
     item_id: str,
@@ -322,6 +372,9 @@ def check_recon_apply(
     result = report.get("result") or {}
     problems, summary = explain_recon_diff(root, recomputed, before, claimed.get("steps", []), result)
     check("explain", not problems, diff_note(summary) if not problems else "; ".join(problems))
+    if plan_item.get("kind") == REPAIR_PLAN_KIND:
+        name, ok, detail = repair_limit(plan_item, program, scope, recomputed, summary, claimed.get("steps", []), result)
+        check(name, ok, detail)
     live = {int(r["address"], 16): r for r in fingerprint["functions"]}
     readback_problems = []
     for row in result.get("functions", []):

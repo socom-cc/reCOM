@@ -961,11 +961,17 @@ def check_drafted_rows(draft: dict[str, Any], plan: dict[str, Any]) -> list[str]
         elif (planned.get("prototype") or {}).get("partial") is True:
             # A partial row leaves the return unresolved, so it may replace an
             # unresolved draft (U-type, U-vararg), never a decided prototype.
+            # Open rows (the rules decided nothing) are not in `fresh`: a partial
+            # row is accepted there too, its proof checked by recon validate.
             if _decision(row) != "unresolved":
                 problems.append(
                     f"{address}: partial row where the rules decide a complete prototype ({row['draft_rule']}); "
                     "use the drafted row"
                 )
+        elif row["draft_rule"] == "U-vararg" and (planned.get("prototype") or {}).get("varargs") is True:
+            # A complete varargs row whose return the planner decided (decision
+            # of 2026-10-22: a void verdict or a proven width) replaces U-vararg.
+            pass
         elif _decision(planned) != _decision(row) and _decision(planned) != "unresolved":
             problems.append(
                 f"{address}: hand-written row disagrees with its {row['draft_rule']} draft "

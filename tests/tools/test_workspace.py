@@ -238,7 +238,7 @@ def _leaf_commands(parser: argparse.ArgumentParser, prefix: tuple[str, ...] = ()
 
 def test_command_registry_exactly_matches_parser() -> None:
     registered = {row.path for row in COMMAND_SPECS}
-    assert len(registered) == len(COMMAND_SPECS) == 125
+    assert len(registered) == len(COMMAND_SPECS) == 127
     assert _leaf_commands(build_parser()) == registered
 
 
@@ -269,7 +269,12 @@ def test_tracker_file_is_valid_and_source_is_unverified(root: Path) -> None:
 
     type_plans = [row for row in tracker["work_items"] if row["kind"] in (TYPE_PLAN_KIND, TYPE_APPLY_KIND)]
     assert len([row for row in type_plans if row["kind"] == TYPE_PLAN_KIND]) * 2 == len(type_plans)
-    assert len(tracker["work_items"]) - len(repairs) - len(recon) - len(type_plans) == 91
+    # Recon repairs join through `progress add-recon-repair`: a plan and an apply item each.
+    from tools._socom.recon import REPAIR_APPLY_KIND, REPAIR_PLAN_KIND
+
+    recon_repairs = [row for row in tracker["work_items"] if row["kind"] in (REPAIR_PLAN_KIND, REPAIR_APPLY_KIND)]
+    assert len([row for row in recon_repairs if row["kind"] == REPAIR_PLAN_KIND]) * 2 == len(recon_repairs)
+    assert len(tracker["work_items"]) - len(repairs) - len(recon) - len(type_plans) - len(recon_repairs) == 91
     assert len(
         [row for row in tracker["work_items"] if "-plan-" in row["kind"] and row not in recon]
     ) == 41

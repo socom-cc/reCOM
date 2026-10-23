@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import datetime as dt
 import hashlib
+import re
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,7 @@ from .constants import (
 
 from .ghidra import normalize_receipt_scope
 from .locking import exclusive_state_lock
+from .recon import REPAIR_APPLY_KIND, REPAIR_PLAN_KIND, REPAIR_PREFIX
 from .repairs import REPAIRS
 from .source import source_owners
 from .util import SocomError, atomic_write_json, canonical_json, load_json, stable_id
@@ -155,6 +157,118 @@ def add_type_plan_items(tracker: dict[str, Any], class_name: str, with_derived: 
         "dependencies": [plan_id],
         "resources": list(GHIDRA_WRITER_RESOURCES),
         "selection": "types",
+        "batch": copy.deepcopy(batch),
+        "lease": None,
+        "handoff": None,
+        "evidence": [],
+    }
+    position = next(index for index, row in enumerate(items) if row.get("id") == RECON_SEED_ID)
+    items[position:position] = [plan, apply]
+    gate["dependencies"] = list(gate.get("dependencies", [])) + [plan_id, apply_id]
+    return [plan_id, apply_id]
+
+
+RECON_REPAIR_ID = re.compile(r"^socom:work:recon-repair-(\d{3,})$")
+
+
+def add_recon_repair_items(tracker: dict[str, Any], functions: list[str]) -> list[str]:
+    """Insert a numbered recon repair: a file-only plan item and its live apply item.
+
+    The repair corrects prototypes of functions whose reconstruction group is
+    applied and accepted (``progress work reopen`` covers plans whose apply has
+    not run).  The plan (kind ``recon-repair-plan``, ``build/recon-plans``)
+    depends on the apply items of the groups it corrects and of any accepted
+    earlier repair of the same functions; the apply (``recon-repair-apply``)
+    alone owns ``ghidra-writer`` and waits for the accepted plan.  Both join
+    the stage 3 gate.  A function already in an unfinished repair is refused.
+    """
+
+    if not functions:
+        raise SocomError("a recon repair needs at least one function")
+    addresses = []
+    for value in functions:
+        try:
+            addresses.append(f"0x{int(str(value), 16):x}")
+        except ValueError:
+            raise SocomError(f"{value!r} is not a hex function address") from None
+    if len(set(addresses)) != len(addresses):
+        raise SocomError("a function is listed twice")
+    addresses.sort(key=lambda value: int(value, 16))
+    items = tracker["work_items"]
+    by_id = _work_by_id(tracker)
+    gate = by_id.get(RECON_SEED_ID)
+    if gate is None or gate.get("kind") != "stage-gate":
+        raise SocomError(f"a recon repair needs the decomposed {RECON_STAGE} gate")
+    if gate.get("status") == "accepted":
+        raise SocomError(f"the {RECON_STAGE} gate is already accepted")
+    group_of = {
+        address: row
+        for row in items
+        if row.get("kind") == "recon-plan-group"
+        for address in row["batch"]["functions"]
+    }
+    dependencies: set[str] = set()
+    groups: dict[str, str] = {}
+    problems = []
+    for address in addresses:
+        group = group_of.get(address)
+        if group is None:
+            problems.append(f"{address} is not a function of any reconstruction group")
+            continue
+        apply = by_id.get(f"{group['id']}-apply") or {}
+        number = group["batch"].get("group_number")
+        if group.get("status") != "accepted" or apply.get("status") != "accepted":
+            problems.append(
+                f"{address} belongs to group {number:03d} (plan {group.get('status')}, apply {apply.get('status')}): "
+                "a repair corrects applied and accepted groups only; reopen a plan whose apply has not run"
+            )
+            continue
+        groups[address] = group["id"]
+        dependencies.add(apply["id"])
+        for row in items:
+            if row.get("kind") != REPAIR_PLAN_KIND or address not in row["batch"]["functions"]:
+                continue
+            earlier = by_id.get(f"{row['id']}-apply") or {}
+            if earlier.get("status") != "accepted":
+                problems.append(f"{address} is in the unfinished repair {row['id']} (apply {earlier.get('status')})")
+            else:
+                dependencies.add(earlier["id"])
+    if problems:
+        raise SocomError("cannot add the recon repair:\n- " + "\n- ".join(problems))
+    numbers = [int(match.group(1)) for row in items if (match := RECON_REPAIR_ID.match(str(row.get("id"))))]
+    number = max(numbers, default=0) + 1
+    plan_id = f"{REPAIR_PREFIX}{number:03d}"
+    apply_id = f"{plan_id}-apply"
+    decomposition = next((row for row in tracker["stages"] if row["name"] == RECON_STAGE), {}).get("decomposition") or {}
+    batch = {
+        "repair_number": number,
+        "functions": addresses,
+        "groups": groups,
+        "graph_sha256": decomposition.get("graph_sha256"),
+    }
+    plan = {
+        "id": plan_id,
+        "stage": RECON_STAGE,
+        "kind": REPAIR_PLAN_KIND,
+        "title": f"Plan recon repair {number:03d} ({len(addresses)} functions of applied groups)",
+        "status": "blocked",
+        "dependencies": sorted(dependencies),
+        "resources": list(RECON_PLAN_RESOURCES),
+        "selection": "functions",
+        "batch": batch,
+        "lease": None,
+        "handoff": None,
+        "evidence": [],
+    }
+    apply = {
+        "id": apply_id,
+        "stage": RECON_STAGE,
+        "kind": REPAIR_APPLY_KIND,
+        "title": f"Apply reviewed recon repair {number:03d} in Ghidra",
+        "status": "blocked",
+        "dependencies": [plan_id],
+        "resources": list(GHIDRA_WRITER_RESOURCES),
+        "selection": "functions",
         "batch": copy.deepcopy(batch),
         "lease": None,
         "handoff": None,
@@ -674,6 +788,30 @@ def audit_tracker(
                 errors.append(f"{item_id} apply resources differ from Ghidra contract")
             if item.get("dependencies") != [str(item_id).removesuffix("-apply")]:
                 errors.append(f"{item_id} must depend only on its plan")
+        if kind == REPAIR_PLAN_KIND:
+            batch = item.get("batch") or {}
+            if not RECON_REPAIR_ID.match(str(item_id)):
+                errors.append(f"{item_id} is not a recon repair plan ID")
+            if resources != set(RECON_PLAN_RESOURCES):
+                errors.append(f"{item_id} repair plan resources are not file-only")
+            functions = batch.get("functions") or []
+            if not functions or functions != sorted(set(functions), key=lambda value: int(value, 16)):
+                errors.append(f"{item_id} must list its functions once each, in address order")
+            if set(batch.get("groups") or {}) != set(functions):
+                errors.append(f"{item_id} must name the group of every function it repairs")
+            wanted = {f"{group}-apply" for group in (batch.get("groups") or {}).values()}
+            dependencies = set(item.get("dependencies", []))
+            if not wanted <= dependencies or not all(
+                str(dep).endswith("-apply")
+                and (str(dep).startswith("socom:recon-group:") or RECON_REPAIR_ID.match(str(dep).removesuffix("-apply")))
+                for dep in dependencies
+            ):
+                errors.append(f"{item_id} must depend on the applies of the groups it repairs (and earlier repairs only)")
+        if kind == REPAIR_APPLY_KIND:
+            if resources != set(GHIDRA_WRITER_RESOURCES):
+                errors.append(f"{item_id} apply resources differ from Ghidra contract")
+            if item.get("dependencies") != [str(item_id).removesuffix("-apply")]:
+                errors.append(f"{item_id} must depend only on its repair plan")
         if kind == TYPE_PLAN_KIND:
             if resources != set(TYPE_PLAN_RESOURCES):
                 errors.append(f"{item_id} type plan resources are not file-only")
@@ -767,6 +905,11 @@ def audit_tracker(
     if {f"{item['id']}-apply" for item in recon_plans} != {item["id"] for item in recon_applies}:
         errors.append("reconstruction plan/apply item pairing is incomplete")
     type_items = {item["id"] for item in items if item.get("kind") in (TYPE_PLAN_KIND, TYPE_APPLY_KIND)}
+    recon_repairs = {item["id"] for item in items if item.get("kind") in (REPAIR_PLAN_KIND, REPAIR_APPLY_KIND)}
+    if {f"{item['id']}-apply" for item in items if item.get("kind") == REPAIR_PLAN_KIND} != {
+        item["id"] for item in items if item.get("kind") == REPAIR_APPLY_KIND
+    }:
+        errors.append("recon repair plan/apply item pairing is incomplete")
     if {f"{item['id']}-apply" for item in items if item.get("kind") == TYPE_PLAN_KIND} != {
         item["id"] for item in items if item.get("kind") == TYPE_APPLY_KIND
     }:
@@ -780,7 +923,9 @@ def audit_tracker(
             stage_repairs = {
                 item["id"] for item in items if item.get("kind") == "ghidra-repair" and item.get("stage") == RECON_STAGE
             }
-            if not recon_applies or seed_dependencies != {item["id"] for item in recon_applies} | stage_repairs | type_items:
+            if not recon_applies or seed_dependencies != (
+                {item["id"] for item in recon_applies} | stage_repairs | type_items | recon_repairs
+            ):
                 errors.append("Ghidra reconstruction gate does not depend on all reconstruction apply items")
         else:
             errors.append(f"{RECON_SEED_ID} has unexpected kind {reconstruction_seed.get('kind')!r}")
@@ -1219,7 +1364,8 @@ def reopen_work(
     if apply is None or apply.get("status") not in ("ready", "blocked"):
         raise SocomError(
             f"{item_id}-apply is {apply.get('status') if apply else 'missing'}: an apply that started "
-            "or finished is corrected through a governed repair, not by reopening its plan"
+            "or finished is corrected through a governed repair (progress add-recon-repair once it is "
+            "accepted), not by reopening its plan"
         )
     handoff = item.get("handoff") or {}
     if not reviewer.strip():
@@ -1853,6 +1999,52 @@ def work_packet(
             f"python tools/socom.py ghidra apply-recon --program build/apply/{slug}.json --item {item_id} "
             f"--owner <owner> --scope-output build/receipts/{slug}-scope.json "
             f"--report-output build/apply/{slug}-report.json",
+            f"python tools/socom.py ghidra receipt --scope build/receipts/{slug}-scope.json",
+        ]
+        handoff = "python tools/socom.py progress handoff-live-ghidra"
+        allowed_paths = []
+        ghidra_scope = {
+            "project": "soCOM",
+            "program": "socom.elf",
+            "program_path": "/socom.elf",
+            "receipt_scope_required": True,
+        }
+    elif kind == REPAIR_PLAN_KIND:
+        role = "socom-recon-planner"
+        skill = "socom-ghidra-workflow"
+        slug = item_id.replace(":", "-")
+        evidence = f"build/recon-plans/{slug}-evidence.json"
+        plan = f"build/recon-plans/{slug}.json"
+        validation = [
+            f"python tools/socom.py recon evidence --item {item_id} --output {evidence}",
+            f"python tools/socom.py recon live --item {item_id}",
+            "python tools/socom.py ghidra preflight --strict",
+            f"python tools/socom.py recon validate --plan {plan}",
+            f"python tools/socom.py recon program --plan {plan} --output build/apply/{slug}-apply.json",
+            f"python tools/socom.py ghidra preflight-batch --program build/apply/{slug}-apply.json",
+        ]
+        handoff = "python tools/socom.py progress work handoff (cite the plan SHA-256)"
+        allowed_paths = [evidence, plan]
+        ghidra_scope = {
+            "project": "soCOM",
+            "program": "socom.elf",
+            "program_path": "/socom.elf",
+            "read_only": True,
+        }
+    elif kind == REPAIR_APPLY_KIND:
+        role = "socom-ghidra-reconstructor"
+        skill = "socom-ghidra-reconstruction"
+        slug = item_id.replace(":", "-")
+        plan = f"build/recon-plans/{item_id.removesuffix('-apply').replace(':', '-')}.json"
+        apply_args = (
+            f"--program build/apply/{slug}.json --item {item_id} --owner <owner> "
+            f"--scope-output build/receipts/{slug}-scope.json --report-output build/apply/{slug}-report.json"
+        )
+        validation = [
+            "python tools/socom.py ghidra preflight --strict",
+            f"python tools/socom.py recon program --plan {plan} --output build/apply/{slug}.json",
+            f"python tools/socom.py ghidra apply-recon {apply_args} --dry-run",
+            f"python tools/socom.py ghidra apply-recon {apply_args}",
             f"python tools/socom.py ghidra receipt --scope build/receipts/{slug}-scope.json",
         ]
         handoff = "python tools/socom.py progress handoff-live-ghidra"

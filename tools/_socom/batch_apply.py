@@ -418,6 +418,7 @@ def _canonical_rtti(elf: Elf32File, symbols: list[Any]) -> dict[str, int]:
 REGISTER_NAMES = {4: "a0", 5: "a1", 6: "a2", 7: "a3", 8: "t0", 9: "t1", 10: "t2", 11: "t3"}
 _LOADS = {0x1A, 0x1B, 0x1E, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x31, 0x36, 0x37}
 _STORES = {0x1F, 0x28, 0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x3F}
+_SHIFT_IMMEDIATE = frozenset({0x00, 0x02, 0x03, 0x38, 0x3A, 0x3B, 0x3C, 0x3E, 0x3F})
 
 
 def _reads(insn: int) -> tuple[set[int], set[int]]:
@@ -425,6 +426,10 @@ def _reads(insn: int) -> tuple[set[int], set[int]]:
 
     op, rs, rt = insn >> 26, (insn >> 21) & 31, (insn >> 16) & 31
     fs, ft = (insn >> 11) & 31, rt
+    if op == 0x00 and insn & 0x3F in _SHIFT_IMMEDIATE:
+        # sll/srl/sra/dsll/dsrl/dsra(32) read only rt; rs is a reserved field
+        # (nonzero only in data decoded as code, such as _copyRefImage's mask).
+        return {rt} - {0}, set()
     if op in (0x00, 0x1C):  # SPECIAL, MMI
         return {rs, rt} - {0}, set()
     if op in (0x01, 0x06, 0x07, 0x16, 0x17):  # REGIMM, blez/bgtz(l)
@@ -1145,6 +1150,19 @@ def parse_signature(signature: Any) -> dict[str, Any] | None:
     }
 
 
+def claims_nothing(live: dict[str, Any]) -> bool:
+    """A parsed signature that declares nothing: Ghidra's default or the repair placeholder.
+
+    ``undefined FUN(void)`` (no convention) and ``undefined __stdcall
+    FUN(void)`` (what the signature repairs restore) have no return, no
+    parameters and no varargs.
+    """
+
+    return bool(live["default"]) or (
+        live["return_type"] == "undefined" and not live["parameters"] and not live["varargs"]
+    )
+
+
 def execute_batch_program(
     program: dict[str, Any],
     bridge: Any,
@@ -1227,22 +1245,23 @@ def execute_batch_program(
                 "to a different type; regenerate the program"
             )
 
-    # A partial prototype (stage 3) replaces a live signature its plan proved
-    # wrong.  Before any write, the function must still show exactly that
-    # signature; its no-return flag is kept (set_function_prototype never
-    # changes it) and read back as it is.
+    # A partial prototype (stage 3) or a recon repair row replaces a live
+    # signature its plan proved wrong.  Before any write, the function must
+    # still show exactly that signature; its no-return flag is kept
+    # (set_function_prototype never changes it) and read back as it is.
     live_noreturn: dict[str, bool] = {}
     for entry in program["functions"]:
         prototype = entry.get("prototype")
-        if not prototype or not prototype.get("partial"):
+        if not prototype or not (prototype.get("partial") or "live_signature" in prototype):
             continue
         text = bridge.request("get_function_by_address", address=entry["address"])
         lines = text.splitlines() if isinstance(text, str) else []
         signature = next((match.group(1) for line in lines if (match := _SIGNATURE_LINE.match(line))), None)
         if signature != prototype.get("live_signature"):
             raise SocomError(
-                f"partial prototype for {entry['address']} replaces the live signature "
-                f"{prototype.get('live_signature')!r}, but the function shows {signature!r}; replan the row"
+                f"{'partial prototype' if prototype.get('partial') else 'prototype'} for {entry['address']} "
+                f"replaces the live signature {prototype.get('live_signature')!r}, but the function shows "
+                f"{signature!r}; replan the row"
             )
         live_noreturn[entry["address"]] = signature.startswith("noreturn ")
 

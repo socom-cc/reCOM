@@ -55,7 +55,7 @@ from .batch_apply import BatchFailure, build_batch_program, execute_batch_progra
 from .recon import RECON_GROUP_SIZE, RECON_PLAN_KIND, build_recon_program, group_evidence, recon_groups, validate_recon_plan
 from .fingerprint import compare_fingerprints, program_fingerprint
 from .type_apply import ApplyFailure, build_apply_program, execute_apply_program
-from . import type_plan_cli
+from . import recon_repair_cli, type_plan_cli
 from .source import (
     audit_docblocks,
     audit_independence,
@@ -1656,8 +1656,8 @@ def _recon_addresses(root: Path, arguments: argparse.Namespace) -> list[int]:
         tracker = load_tracker(tracker_path(root))
         item_id = arguments.item.removesuffix("-apply")
         item = next((row for row in tracker["work_items"] if row["id"] == item_id), None)
-        if item is None or item.get("kind") != "recon-plan-group":
-            raise SocomError(f"{arguments.item} is not a reconstruction group item")
+        if item is None or item.get("kind") not in ("recon-plan-group", "recon-repair-plan"):
+            raise SocomError(f"{arguments.item} is not a reconstruction group or recon repair item")
         return [int(value, 16) for value in item["batch"]["functions"]]
     addresses = []
     for value in arguments.function:
@@ -1912,8 +1912,8 @@ def _ghidra_apply_recon(arguments: argparse.Namespace) -> int:
     report_output = _build_path(root, arguments.report_output, "apply reports")
     tracker = load_tracker(tracker_path(root))
     item = require_ghidra_lease(tracker, arguments.item, arguments.owner)
-    if item.get("kind") != "recon-apply-group":
-        raise SocomError(f"{arguments.item} is not a reconstruction apply item")
+    if item.get("kind") not in ("recon-apply-group", "recon-repair-apply"):
+        raise SocomError(f"{arguments.item} is not a reconstruction or recon repair apply item")
     plan_path = _require_accepted_plan(root, tracker, item, program)
     if canonical_json(build_recon_program(root, tracker, plan_path)) != canonical_json(program):
         raise SocomError("the reconstruction program is stale or edited; regenerate it")
@@ -2658,7 +2658,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec(
         "ghidra apply-recon",
         "ghidra",
-        "Apply a reviewed reconstruction group program under the item's writer lease and verify it.",
+        "Apply a reviewed reconstruction group or recon repair program under the item's writer lease and verify it.",
         mutates=True,
         ghidra_requirement="required",
         mutates_ghidra=True,
@@ -2782,6 +2782,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
         ghidra_requirement="optional",
     ),
     *type_plan_cli.specs(_spec),
+    *recon_repair_cli.specs(_spec),
     _spec("progress init", "progress", "Initialize unified reconstruction state.", mutates=True),
     _spec("progress next", "progress", "Select ready work from the canonical stage graph."),
     _spec("progress show", "progress", "Show the tracker or one exact entity."),
@@ -3281,6 +3282,7 @@ def build_parser() -> argparse.ArgumentParser:
     stage_scope.set_defaults(handler=_progress_stage_scope)
 
     type_plan_cli.register(recon_commands, ghidra_commands, progress_commands)
+    recon_repair_cli.register(recon_commands, progress_commands)
     work = progress_commands.add_parser("work")
     work_commands = work.add_subparsers(dest="work_command", required=True)
     for name, handler in (

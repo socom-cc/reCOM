@@ -173,8 +173,9 @@ the decision of all 95 accepted plans for every row they decided: 868 of
 A prototype must carry the whole call contract (AGENTS.md). Leave a function
 unresolved, recording the parts that are proven, when the contract includes
 something a prototype here cannot express: VU0 register inputs (callers load
-`vf` registers before the call, e.g. `_TransformPoint`), varargs (only a
-partial row carries the varargs flag), a by-value class result returned through a
+`vf` registers before the call, e.g. `_TransformPoint`), varargs whose
+`va_list` or ellipsis cannot be expressed (see "Partial prototypes" for the
+varargs flag), a by-value class result returned through a
 hidden pointer, or a function-boundary defect in the live program.
 
 ### Return width
@@ -270,12 +271,19 @@ return `undefined` (decision of 2026-10-22):
 "unresolved": ["return: the function never returns, so no value is observable"]
 ```
 
-- `recon validate` allows it only where `live_signature` (verbatim from
+- `recon validate` allows it where `live_signature` (verbatim from
   `recon live`) contradicts the parameters: another count, varargs, or a type
-  at some position. A live `undefined*` type, or Ghidra's default
-  `undefined f(void)`, claims nothing. Every parameter needs evidence,
-  `unresolved` says why the return stays open, and a thunk cannot be partial.
-  The apply refuses before any write when the live signature has changed.
+  at some position. A live `undefined*` type claims nothing. Every parameter
+  needs evidence, `unresolved` says why the return stays open, and a thunk
+  cannot be partial. The apply refuses before any write when the live
+  signature has changed.
+- It is also allowed where the live signature is Ghidra's default and claims
+  nothing: `undefined f(void)`, or `undefined __stdcall f(void)` (the
+  placeholder the signature repairs restore) (decision of 2026-10-22, "Yes,
+  extend it"). Then `contradiction` is optional and every parameter needs a
+  proven type: an `undefinedN` parameter leaves the row unresolved
+  (`_printf_r` and `_sprintf_r` wait for `_reent`; `__svfscanf`, with three
+  proven parameters, is partial).
 - The bridge sends `undefined socom_prototype(...)`. Ghidra's
   FunctionSignatureParser resolves `undefined` to DataType.DEFAULT, and the
   decompiler keeps such a return unlocked. A register whose type nothing proves
@@ -284,6 +292,11 @@ return `undefined` (decision of 2026-10-22):
   `, ...`, which the parser turns into Ghidra's varargs flag, and registers
   after the fixed parameters may then be read. A `va_list` is an ordinary
   parameter: type it from a live type the evidence supports, or `undefined4`.
+- A complete row may also set `varargs: true` (with `varargs_evidence`) when
+  every fixed parameter is proven and the existing rules decide the return: a
+  `recon void` verdict of void (`fprintf`: none of its 271 callers reads v0)
+  or a proven width (decision of 2026-10-22). `recon draft --check` accepts
+  it where the draft is U-vararg; U-vararg stays the draft rule for the rest.
 - `noreturn: true` needs `noreturn_evidence` and the proof `recon validate`
   takes from the ELF: no `jr` in the body, branches stay inside it, and every
   `j` (or a final `jal`) enters a function proven the same way. It is recorded
@@ -292,15 +305,33 @@ return `undefined` (decision of 2026-10-22):
   function-modifier analyzer), which clears and repairs the flow after every
   call site; routine work never clears flow. `set_function_prototype` leaves
   the flag as it was, and the read-back expects it so.
-- `recon draft --check` accepts a partial row only where the draft is
-  unresolved (U-type, U-vararg).
+- `recon draft --check` accepts a partial row where the draft is unresolved
+  (U-type, U-vararg) or open (the rules decided nothing), never where the
+  draft decides a prototype.
 
 `recon contradictions [--groups applied|all] --output build/facts/contradictions.txt`
 lists group functions whose live signature contradicts the facts: argument
 reads it does not declare, a mangled signature of another count or shape, an
-applied prototype that drifted, or a reviewed row that records it as wrong.
-Each comes with its group and whether that group is applied, for a governed
-repair. `--fingerprint <file>` reads a stored fingerprint instead of Ghidra.
+applied prototype that drifted, or a reviewed row that records it as wrong (a
+contradiction, a disagreement, a wrong width or a different type; a remark
+that a signature is unproven or comes from a library archive is not one).
+Each comes with its group, whether that group is applied, and its recon
+repairs; the newest applied repair supersedes the group's row. Both default
+forms above claim nothing. Reads that "Dead entry reads" below proves masked,
+or that an accepted plan or repair declares dead, are not listed. A thunk
+shows its target's signature, so it is not checked against its own facts;
+thunks that would conflict are listed at the end. `--fingerprint <file>`
+reads a stored fingerprint instead of Ghidra.
+
+`recon partial-candidates [--groups applied|all] --output build/facts/partial-candidates.txt`
+(read-only, `--fingerprint` as above) lists unresolved rows of accepted plans
+whose live signature claims nothing and whose parameters the facts prove: the
+stage 2 DWARF parameters, or the mangled signature's with a receiver proven as
+the draft rules prove it, every type exactly one live type, every argument
+read declared (masked reads dropped); no thunk, VU0, constructor or
+destructor. Each row names its route: a recon repair for an applied group, a
+re-plan (`progress work reopen`) before the apply. A partial row still needs
+per-parameter evidence and review.
 
 ### Dead entry reads
 
@@ -318,6 +349,35 @@ code later masks off entirely (for example the 64-bit insert idiom in
 `recon validate` accepts a row only when the entry block reads that register
 and the site is inside the function; the reviewer checks the evidence. The
 row is copied into the program's notes.
+
+A dead read outside the entry block (one `recon facts` lists under "args read
+before write (any path)") is declared per site with `dead_reads`, and
+`recon validate` checks each row's proof from the ELF:
+
+```json
+"dead_reads": [
+  {"register": "a2", "site": "0x16bb7c", "kind": "masked", "evidence": ["and a2,a2,v1 keeps the high word; and a2,a2,a0 at 0x16bba4 clears it"]},
+  {"register": "a2", "site": "0x16779c", "kind": "unreachable", "branch": "0x167724", "direction": "taken",
+   "evidence": ["bc1fl is taken only if 1e30+x <= 1.0, impossible for |x| < 2^-28: fdlibm's uninitialised k"]}
+]
+```
+
+- `masked`: from the site, every path must clear the bits still holding the
+  incoming value before an instruction observes them. Constant `and`/`andi`
+  masks narrow them (masks are evaluated from `lui`/`li`/shift definitions),
+  `or`/`xor` into the same register and shifts move them, a narrow store or a
+  shift into another register may ignore them, and a write without a read ends
+  them; they may not be live across a call, a tail jump or the end of the body
+  (a `jr ra` ends them). The contradiction scan applies the same proof to
+  every undeclared read, so the word-insert idiom of `__divdi3`, `__moddi3`,
+  `__umoddi3` and `_ulp` needs no row.
+- `unreachable`: removing the `taken` or `not-taken` edge of the conditional
+  `branch` must leave no path from the entry to the read; why that direction
+  cannot happen is evidence for the reviewer.
+- The site must be one `recon facts` lists for the register; each row is
+  copied into the program's notes. Shift-immediate instructions read only rt:
+  their rs field is reserved, and once made inline data (`_copyRefImage`'s
+  clamp mask) look like a read of a3.
 
 `recon validate` refuses a plan unless:
 
@@ -376,6 +436,44 @@ Plans written before the repair still name the mangled form in
 name's exact readable form.
 
 The stage gate depends on stage 3 repairs as well as every apply.
+
+## Repair item: recon repairs
+
+A wrong prototype in a group that is already applied (a library-archive
+signature an unresolved row left live, or a row the facts now settle) is
+corrected by a numbered recon repair; `progress work reopen` covers only plans
+whose apply has not started.
+
+```powershell
+python tools/socom.py progress add-recon-repair --functions 0x3defd8 0x3e0550 --expected-revision <n> --dry-run
+```
+
+- The command refuses a function whose group plan and apply are not both
+  accepted, or that an unfinished repair already lists. It adds
+  `socom:work:recon-repair-NNN` (kind `recon-repair-plan`, file-only
+  `build/recon-plans`, depending on the applies of the groups it corrects and
+  of earlier accepted repairs of the same functions) and its `-apply` item
+  (`recon-repair-apply`, the only one that owns `ghidra-writer`, waiting for
+  the accepted plan). Both join the stage gate.
+- The plan is a recon plan (`recon evidence --item`, `recon live --item`,
+  `recon facts --item` accept the item) whose `group_sha256` is the repair's
+  function-list digest and whose rows use the group row format, partial rows
+  included, one per listed function. Each row adds `group` (the group it
+  corrects) and `repair` (why the live state is wrong), sets a prototype, and
+  records the live signature it replaces in `prototype.live_signature`. A row
+  must change the live signature unless it only declares `dead_reads`.
+  `globals` stays empty.
+- `recon validate`, `recon program`, `ghidra preflight-batch` and
+  `ghidra apply-recon` take the repair like a group; the apply refuses before
+  any write unless every listed function still shows its `live_signature`.
+  The receipt scope is the listed functions.
+- `ghidra check-recon-apply --item socom:work:recon-repair-NNN-apply` adds the
+  `limit` check: the fingerprint diff changes only listed functions (plus
+  thunks and Ghidra-split targets showing a listed function's new signature),
+  the scope and every apply call name only listed functions, no global is
+  typed, and every listed function took its prototype.
+- Later readers (thunk checks in `recon validate`, `recon contradictions`)
+  take the newest accepted repair's row over the group's row.
 
 ## Code-derived type plans
 

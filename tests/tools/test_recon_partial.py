@@ -124,7 +124,6 @@ def test_partial_rows_validate_translate_and_refuse_defects(tmp_path: Path, root
     defects = [
         ({"return_type": "int"}, "the return stays 'undefined'"),
         ({"live_signature": "void __stdcall __assert(char * file, int line, char * x)"}, "does not contradict"),
-        ({"live_signature": "undefined __assert(void)"}, "Ghidra's default"),
         ({"contradiction": []}, "needs the contradiction"),
         ({"varargs": None}, "varargs true or false"),
         ({"noreturn_evidence": []}, "needs noreturn_evidence"),
@@ -141,6 +140,21 @@ def test_partial_rows_validate_translate_and_refuse_defects(tmp_path: Path, root
     problems = validate_recon_plan(root, decomposed, bad)
     assert any("'file' needs evidence" in problem for problem in problems)
     assert any("reasons its return stays unresolved" in problem for problem in problems)
+    # Ghidra's default (with or without a convention) claims nothing: a partial row
+    # may replace it without a contradiction, but only with every parameter typed
+    # (decision of 2026-10-22, "Yes, extend it").
+    for default in ("undefined __assert(void)", "undefined __stdcall __assert(void)"):
+        replaced = copy.deepcopy(plan)
+        row = next(row for row in replaced["functions"] if row["address"] == "0x3def38")
+        row["prototype"]["live_signature"] = default
+        del row["prototype"]["contradiction"]
+        assert validate_recon_plan(root, decomposed, replaced) == []
+        path = tmp_path / "default.json"
+        atomic_write_json(path, replaced)
+        translated = next(r for r in build_recon_program(root, decomposed, path)["functions"] if r["address"] == "0x3def38")
+        assert translated["prototype"]["live_signature"] == default
+        row["prototype"]["parameters"][2]["type"] = "undefined4"
+        assert any("needs every parameter typed" in p for p in validate_recon_plan(root, decomposed, replaced))
 
 
 def test_partial_only_fields_and_unknown_types_stay_out_of_complete_rows(root: Path, decomposed: dict) -> None:
@@ -151,7 +165,7 @@ def test_partial_only_fields_and_unknown_types_stay_out_of_complete_rows(root: P
         "return_type": "undefined",
         "parameters": [{"name": "a", "type": "char *"}, {"name": "b", "type": "undefined4"}, {"name": "c", "type": "char *"}],
         "evidence": ["x"],
-        "varargs": False,
+        "noreturn": False,
     }
     problems = validate_recon_plan(root, decomposed, plan)
     assert any("only a partial prototype carries these" in problem for problem in problems)
@@ -174,6 +188,35 @@ def test_varargs_rows_need_a_fixed_parameter_and_cover_the_variadic_registers(ro
     entry["prototype"]["parameters"] = []
     problems = validate_recon_plan(root, decomposed, plan)
     assert any("varargs needs a fixed parameter" in problem for problem in problems)
+
+
+def test_a_complete_row_may_be_varargs_when_its_return_is_decided(tmp_path: Path, root: Path, decomposed: dict) -> None:
+    # Decision of 2026-10-22 (fprintf: no caller reads v0): the return is decided,
+    # so the row is complete and carries the varargs flag.
+    plan = _plan_with(decomposed, "0x15bbe0")
+    entry = next(row for row in plan["functions"] if row["address"] == "0x15bbe0")
+    entry.pop("unresolved")
+    entry["prototype"] = {
+        "return_type": "int", "evidence": ["x"], "varargs": True, "varargs_evidence": ["a2 spilled for the mode"],
+        "parameters": [{"name": "path", "type": "char *"}, {"name": "flags", "type": "int"}],
+    }
+    assert validate_recon_plan(root, decomposed, plan) == []
+    path = tmp_path / "plan.json"
+    atomic_write_json(path, plan)
+    row = next(row for row in build_recon_program(root, decomposed, path)["functions"] if row["address"] == "0x15bbe0")
+    assert row["prototype"]["varargs"] is True and "partial" not in row["prototype"]
+    assert prototype_text(row["prototype"]) == "int socom_prototype(char * path, int flags, ...)"
+    assert expected_signature(row["prototype"], "open") == "int __stdcall open(char * path, int flags, ...)"
+    entry["prototype"].pop("varargs_evidence")
+    assert any("varargs needs varargs_evidence" in p for p in validate_recon_plan(root, decomposed, plan))
+    entry["prototype"]["varargs"] = "yes"
+    assert any("varargs must be true or false" in p for p in validate_recon_plan(root, decomposed, plan))
+    # A U-vararg draft accepts the complete varargs row; a P- draft is still binding.
+    draft = {"functions": [{"address": "0x15bbe0", "current_name": "open", "draft_rule": "U-vararg", "prototype": None, "unresolved": ["x"]}]}
+    entry["prototype"]["varargs"] = True
+    assert check_drafted_rows(draft, plan) == []
+    entry["prototype"]["varargs"] = False
+    assert any("disagrees with its U-vararg draft" in p for p in check_drafted_rows(draft, plan))
 
 
 class _Bridge:
@@ -258,11 +301,14 @@ def test_contradictions_scan_reports_register_and_mangled_shape_conflicts(root: 
     }
     result = live_contradictions(root, decomposed, signatures=signatures, type_paths={})
     rows = {row["address"]: row for row in result["functions"]}
-    assert set(rows) == {"0x3def38", "0x402f50"} and result["with_live_claims"] == 3
+    # 0x402f50 is a thunk (j iSignalSema): it shows its target's signature, so it
+    # is listed apart, not checked against its own mangled name.
+    assert set(rows) == {"0x3def38"} and result["with_live_claims"] == 2
     assert [text.split(" is read")[0] for text in rows["0x3def38"]["contradictions"] if text.startswith("registers")] == ["registers: a1"]
-    assert any("pointer depth 0 vs 1" in text for text in rows["0x402f50"]["contradictions"])
+    assert result["thunk_count"] == 1 and [row["address"] for row in result["thunks"]] == ["0x402f50"]
+    assert any("pointer depth 0 vs 1" in text for text in result["thunks"][0]["would_flag"])
     assert not rows["0x3def38"]["applied"] and result["applied_count"] == 0
-    assert contradictions_text(result).startswith("# recon contradictions --groups all: 2 of 3")
+    assert contradictions_text(result).startswith("# recon contradictions --groups all: 1 of 2")
     assert live_contradictions(root, decomposed, groups="applied", signatures=signatures, type_paths={})["scanned"] == 0
 
 
