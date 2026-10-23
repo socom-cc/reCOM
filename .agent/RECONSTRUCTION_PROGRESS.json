@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 1852,
+  "revision": 1856,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -2842,7 +2842,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "c1d130556bc446df1293814e39653446223d07ef1b702b8bc6a0b0ab5a8009e8",
+      "current_receipt_sha256": "ac336a62ca09220783880574b6c2eb8b5dc7a69314d44ee506ff4dc2db45fe62",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -9558,6 +9558,31 @@
           "receipt_sha256": "c1d130556bc446df1293814e39653446223d07ef1b702b8bc6a0b0ab5a8009e8",
           "tracker_revision": 1852,
           "work_item_id": "socom:work:recon-repair-001-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1663,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 36473
+          },
+          "indexes": {
+            "data": {
+              "count": 51811,
+              "sha256": "acbe56777d3b25d0b491cee3e84db2ca857917249491cc07255d8fc94d8eae2b"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1663,
+              "sha256": "8501898409dab55b42be8121d15adf1895936f3b27773e304279d00c41461093"
+            }
+          },
+          "receipt_sha256": "ac336a62ca09220783880574b6c2eb8b5dc7a69314d44ee506ff4dc2db45fe62",
+          "tracker_revision": 1855,
+          "work_item_id": "socom:recon-group:8370c0e2e816c3d0cb22-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -102157,6 +102182,10 @@
       "title": "Plan reconstruction group 221 (height 15, 32 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-10-23T16:23:25Z",
+        "by": "socom-verifier-a221"
+      },
       "batch": {
         "batch_number": 221,
         "function_count": 32,
@@ -102202,8 +102231,107 @@
       "dependencies": [
         "socom:recon-group:8370c0e2e816c3d0cb22"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "check-recon-apply audit: strict tracker audit ok at revision 1854",
+        "check-recon-apply calls: 15 apply bridge calls; dry run planned 15 (set_function_prototype), 0 outside the scope",
+        "check-recon-apply chain: g221-before identical to r001-after",
+        "check-recon-apply diff: recomputed g221 before/after diff equals the stored diff",
+        "check-recon-apply explain: 4 functions changed: 4 prototyped group functions, entry/body/thunk unchanged; data +0/-0 explained (0 typed globals); types added 0 (pointer/array only); references, blocks and bookmarks unchanged; 11 restated prototype(s) already live and unchanged (0x3b7820, 0x3b79d0, 0x3b86a0, 0x3d0ac0, 0x3d7b90, 0x3d9820, 0x3efee0, 0x3f0110, 0x3f0370, 0x3f6920, 0x3f8860)",
+        "check-recon-apply fingerprint: verifier fingerprint abd4c056cba7b06458c738144dd09648e2f09848901906ad16a70a316247604d identical to g221-after",
+        "check-recon-apply plan: plan sha256 5a45ff1688ed9c4b659c0e12aa374add8d1a86e8e5c9bb94a47e6749fff3c40d cited by the accepted plan item",
+        "check-recon-apply preflight: live preflight ok",
+        "check-recon-apply program: program sha256 4518b4b147d28bafca9cf4e3927a1b4cfb7525cec93386829890d9212bb72723 regenerates identically from the plan",
+        "check-recon-apply readback: live signatures of 15 prototyped functions equal the plan; 1 of them partial (return left undefined, no-return flag as it was); 17 unresolved unchanged",
+        "check-recon-apply receipt: receipt over the stored scope ac336a62ca09220783880574b6c2eb8b5dc7a69314d44ee506ff4dc2db45fe62 vs handoff ac336a62ca09220783880574b6c2eb8b5dc7a69314d44ee506ff4dc2db45fe62",
+        "check-recon-apply scope: stored scope (32 functions, 0 globals) equals the program's receipt_scope",
+        "check-recon-apply status: apply awaiting_acceptance, plan accepted",
+        "fingerprint after build/fingerprints/g221-after.json sha256 de84bba6a5cd7262ec28cf5802a0747cbc15091d96a92919669b8cb0cdc4d1de; diff build/fingerprints/g221-diff.json sha256 13de33860b473ab921c285157394700068c65a2881f4161e476411c2ac0ddd08: 4 functions changed: 4 prototyped group functions, entry/body/thunk unchanged; data +0/-0 explained (0 typed globals); types added 0 (pointer/array only); references, blocks and bookmarks unchanged; 11 restated prototype(s) already live and unchanged (0x3b7820, 0x3b79d0, 0x3b86a0, 0x3d0ac0, 0x3d7b90, 0x3d9820, 0x3efee0, 0x3f0110, 0x3f0370, 0x3f6920, 0x3f8860)",
+        "fingerprint before build/fingerprints/g221-before.json is the previous apply's verifier fingerprint build/verifier-socom-verifier-a-r001/fp-now.json (identical to build/fingerprints/r001-after.json), reused because the r001 receipt still reproduced live before this apply: 9715 functions, 51811 data, 1663 types",
+        "ghidra apply-recon: plan build/recon-plans/socom-recon-group-8370c0e2e816c3d0cb22.json sha256 5a45ff1688ed9c4b659c0e12aa374add8d1a86e8e5c9bb94a47e6749fff3c40d (accepted; plan-tools commit 00ea11b); program build/apply/socom-recon-group-8370c0e2e816c3d0cb22-apply.json sha256 4518b4b147d28bafca9cf4e3927a1b4cfb7525cec93386829890d9212bb72723 regenerated equal to the stored program; 15 bridge calls exactly as the post-claim dry run predicted (15 set_function_prototype); 17 recorded skips; every name and Signature line read back equal; report sha256 878a8715a3865b56d7a267b3fb55420b3eb3c7349fabf4e91133b1cbe971336d",
+        "ghidra-receipt-sha256:ac336a62ca09220783880574b6c2eb8b5dc7a69314d44ee506ff4dc2db45fe62",
+        "ghidra-save:explicit-program",
+        "pre-handoff receipt ac336a62ca09220783880574b6c2eb8b5dc7a69314d44ee506ff4dc2db45fe62 over build/receipts/socom-recon-group-8370c0e2e816c3d0cb22-apply-scope.json (32 functions, 0 globals)"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "ac336a62ca09220783880574b6c2eb8b5dc7a69314d44ee506ff4dc2db45fe62",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x3b6358",
+            "0x3b6478",
+            "0x3b6590",
+            "0x3b6670",
+            "0x3b6750",
+            "0x3b6828",
+            "0x3b6900",
+            "0x3b69d8",
+            "0x3b6ab0",
+            "0x3b6b88",
+            "0x3b6c78",
+            "0x3b6e30",
+            "0x3b6fc0",
+            "0x3b7178",
+            "0x3b7820",
+            "0x3b79d0",
+            "0x3b86a0",
+            "0x3d0ac0",
+            "0x3d7b90",
+            "0x3d9820",
+            "0x3e0fd8",
+            "0x3e5648",
+            "0x3efee0",
+            "0x3f0110",
+            "0x3f0370",
+            "0x3f6920",
+            "0x3f8860",
+            "0x3fe1c0",
+            "0x3fe270",
+            "0x402e50",
+            "0x4044e0",
+            "0x4046e8"
+          ],
+          "globals": [],
+          "types": []
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1663,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 36473
+          },
+          "indexes": {
+            "data": {
+              "count": 51811,
+              "sha256": "acbe56777d3b25d0b491cee3e84db2ca857917249491cc07255d8fc94d8eae2b"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1663,
+              "sha256": "8501898409dab55b42be8121d15adf1895936f3b27773e304279d00c41461093"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-23T16:15:21Z",
+        "summary": "Group 221 plan: 15 prototypes, 17 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:8370c0e2e816c3d0cb22-apply",
       "kind": "recon-apply-group",
       "lease": null,
@@ -102213,7 +102341,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply reviewed reconstruction group 221 in Ghidra"
     },
     {
@@ -119576,18 +119704,8 @@
         "with_derived": true
       },
       "dependencies": [],
-      "evidence": [
-        "N1: CMeshLOD forward reason now gives +0x4 as the mesh data block base: hookupMesh stores the CZAR::FetchLIP result there (0x30a2f4) and block+offset in +0x8 (0x30a298-0x30a2f0); SetMeshBuffer stores it at buffer +0x8 (0x30f058) and adds it to the +0x4 offset of kind 7/10-12 records (0x30f0c0-0x30f0c8), consistent with the mangled _word128*; m_buffers note now says SetMeshBuffer stores that base at +0x8 for mesh buffers and that CVisual::__dt walks the buffers (CVisBase release 0x30dc74-0x30dc98) only for m_vtype -1 or 0 (0x30dbe4-0x30dbf0)",
-        "N2: zdb::CMesh +0x7c renamed m_matrixCount -> m_mtxCount (archive key mtx_count @2449 at 0x459840, as m_detailCnt); note cites hookupMesh CZAR::Fetch(char const*, unsigned int*) into GetMesh()+124 (0x30a284-0x30a294) in notes (GetMesh return not mangled); field unresolved text removed. No other change.",
-        "plan build/type-plans/zdb-cvisual.json sha256 da5b60996cc0ed20dc636f114e4652c8b092e02ca2d8882d594e55859e23ffe2 (previous 2f06a3fd...); layout build/type-plans/zdb-cvisual-layout.json sha256 c772c27d6368766807181bda403d76ed8ac74e2ec625f40cbff4eb6df2527da1 (validate regenerated the same digest; txt 16282b62699ba01a630e8050aef8131b7b29e97ab9fb51bf5da90059a6c5ea93)",
-        "recon type-plan affected --plan: classes 11, functions 91, groups 38 (replan candidates 22, unplanned 16), unresolved_for_type 49",
-        "recon type-plan validate ok, problems []; recon type-plan live ok, live_problems [] (types 17, forward_declarations 4, external_types 6, layout_sources 7, template_arguments 1); recon type-plan show ok -> build/type-plans/zdb-cvisual-review.md sha256 58810e1ed1c5b2ca953c3407d9083d6a4714a425b6f8b9cc383ba29921711906; recon type-plan program -> build/apply/socom-work-type-plan-zdb-cvisual-apply.json program_sha256 f6aab2d1aef3bec6b236b72361459462ba1b16779d013d448e3a7924d367ba2e (types 17, categories 4, routes c 1 empty 5 fields 11, instantiations 7, forwards 4)"
-      ],
-      "handoff": {
-        "owner": "socom-recon-planner-t003",
-        "submitted_at": "2026-10-23T03:53:59Z",
-        "summary": "Code-derived type plan, text-only fixes N1/N2 on the reviewed plan: zdb::tag_VIS_PARAMS (0x18, 21 fields), zdb::CVisual (0x68, base + __vt + 8 fields), zdb::CVisual_vtbl (opaque), zdb::CSubMesh (0x70, 2), C2DVisual (0x70, 2), zdb::CMesh (0x8c, 5; +0x7c renamed m_mtxCount), 7 instantiations, 4 forwards"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:type-plan-zdb-cvisual",
       "kind": "recon-type-plan",
       "lease": null,
@@ -119658,11 +119776,32 @@
           "reason": "Text-only corrections; all types and the program confirmed (build/type-plans/zdb-cvisual-review-verifier.md)",
           "rejected_at": "2026-10-23T03:50:10Z",
           "rejected_by": "socom-verifier-t1"
+        },
+        {
+          "evidence": [
+            "User names from the field search (build/facts/cvisual-unknown-fields.md): +0x05 m_lod_band (LOD band index read by CPipe::RenderVisual 0x242574/0x242590 and RenderNodeShadow 0x242c10: 0 = no LOD test, N selects CWorld::m_LOD_Object band N-1, passed to CVisual::DrawLOD); +0x06/+0x07 stay positional m_unk06/m_unk07 undefined1 (no decision reads anywhere); +0x1c m_render_mode (values 3 ctor/Clone/Read, -2 Read when tag_VIS_PARAMS bit 10 set, -3 written per frame by CPipe::RenderWorld 0x244bb0/0x244ea0 on each cell's first visual; VuBatchProgram ==3 selects the full VU program list, VuObjectSetup ==-2 sets object-header word 0 to 63).",
+            "User naming rule: invented member names are m_ + snake_case (m_ref_count, m_clone_src, m_mesh_decals, m_mtx_count, m_detail_cnt, ...); m_vtype stays unsplit. Positional names keep their form (m_flag0, m_unk06)."
+          ],
+          "handoff": {
+            "owner": "socom-recon-planner-t003",
+            "submitted_at": "2026-10-23T03:53:59Z",
+            "summary": "Code-derived type plan, text-only fixes N1/N2 on the reviewed plan: zdb::tag_VIS_PARAMS (0x18, 21 fields), zdb::CVisual (0x68, base + __vt + 8 fields), zdb::CVisual_vtbl (opaque), zdb::CSubMesh (0x70, 2), C2DVisual (0x70, 2), zdb::CMesh (0x8c, 5; +0x7c renamed m_mtxCount), 7 instantiations, 4 forwards"
+          },
+          "handoff_evidence": [
+            "N1: CMeshLOD forward reason now gives +0x4 as the mesh data block base: hookupMesh stores the CZAR::FetchLIP result there (0x30a2f4) and block+offset in +0x8 (0x30a298-0x30a2f0); SetMeshBuffer stores it at buffer +0x8 (0x30f058) and adds it to the +0x4 offset of kind 7/10-12 records (0x30f0c0-0x30f0c8), consistent with the mangled _word128*; m_buffers note now says SetMeshBuffer stores that base at +0x8 for mesh buffers and that CVisual::__dt walks the buffers (CVisBase release 0x30dc74-0x30dc98) only for m_vtype -1 or 0 (0x30dbe4-0x30dbf0)",
+            "N2: zdb::CMesh +0x7c renamed m_matrixCount -> m_mtxCount (archive key mtx_count @2449 at 0x459840, as m_detailCnt); note cites hookupMesh CZAR::Fetch(char const*, unsigned int*) into GetMesh()+124 (0x30a284-0x30a294) in notes (GetMesh return not mangled); field unresolved text removed. No other change.",
+            "plan build/type-plans/zdb-cvisual.json sha256 da5b60996cc0ed20dc636f114e4652c8b092e02ca2d8882d594e55859e23ffe2 (previous 2f06a3fd...); layout build/type-plans/zdb-cvisual-layout.json sha256 c772c27d6368766807181bda403d76ed8ac74e2ec625f40cbff4eb6df2527da1 (validate regenerated the same digest; txt 16282b62699ba01a630e8050aef8131b7b29e97ab9fb51bf5da90059a6c5ea93)",
+            "recon type-plan affected --plan: classes 11, functions 91, groups 38 (replan candidates 22, unplanned 16), unresolved_for_type 49",
+            "recon type-plan validate ok, problems []; recon type-plan live ok, live_problems [] (types 17, forward_declarations 4, external_types 6, layout_sources 7, template_arguments 1); recon type-plan show ok -> build/type-plans/zdb-cvisual-review.md sha256 58810e1ed1c5b2ca953c3407d9083d6a4714a425b6f8b9cc383ba29921711906; recon type-plan program -> build/apply/socom-work-type-plan-zdb-cvisual-apply.json program_sha256 f6aab2d1aef3bec6b236b72361459462ba1b16779d013d448e3a7924d367ba2e (types 17, categories 4, routes c 1 empty 5 fields 11, instantiations 7, forwards 4)"
+          ],
+          "reason": "User review 2026-10-23: naming changes and new field evidence",
+          "rejected_at": "2026-10-23T16:24:06Z",
+          "rejected_by": "socom-ghidra-reconstructor"
         }
       ],
       "selection": "types",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan the code-derived layout of zdb::CVisual and its derived classes"
     },
     {
