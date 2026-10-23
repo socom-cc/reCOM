@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 1925,
+  "revision": 1929,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -2842,7 +2842,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "febc407477b3ec6bd2104bff3bdaa5d60f3a57574ca15f08660b40f0e0a2665b",
+      "current_receipt_sha256": "dc83fd67e96c15e44fc863ac76792a2e152037cc3b13c129deeaec78abed8aff",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -9783,6 +9783,31 @@
           "receipt_sha256": "febc407477b3ec6bd2104bff3bdaa5d60f3a57574ca15f08660b40f0e0a2665b",
           "tracker_revision": 1925,
           "work_item_id": "socom:recon-group:dbdbcaa4fdb2b738f4a2-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1686,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 36659
+          },
+          "indexes": {
+            "data": {
+              "count": 51811,
+              "sha256": "acbe56777d3b25d0b491cee3e84db2ca857917249491cc07255d8fc94d8eae2b"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1686,
+              "sha256": "7909d729cb74042c61d47470a302c0b84feaff43083282336393ed7525ec9db5"
+            }
+          },
+          "receipt_sha256": "dc83fd67e96c15e44fc863ac76792a2e152037cc3b13c129deeaec78abed8aff",
+          "tracker_revision": 1929,
+          "work_item_id": "socom:work:type-plan-zdb-cvisual-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -120833,6 +120858,10 @@
       "title": "Apply reviewed reconstruction group 329 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-23T20:11:08Z",
+        "by": "socom-verifier-t1"
+      },
       "batch": {
         "class": "zdb::CVisual",
         "with_derived": true
@@ -120841,7 +120870,9 @@
       "evidence": [
         "plan build/type-plans/zdb-cvisual.json sha256 626ba07f1a71aefa08a8a111433ba25dbae78c6ee8d4a4419c4059e66ddd16d4; layout build/type-plans/zdb-cvisual-layout.json sha256 1509a3a60e0a45459ec2ecbbcb082afe6ab99f72d51b6a8c7b4c4e76f085dd47 (regenerated; 0x24279c parameter_type uint16*; txt 712b234911c0f7e6aa30e80e56564f6f34c6f7e0482262b788c7a923710c44cb)",
         "recon type-plan affected --plan: functions 91, groups 38 (replan candidates 22, unplanned 15), unresolved_for_type 49",
-        "recon type-plan validate ok, problems []; recon type-plan live ok, live_problems [] (types 17, forward_declarations 4, external_types 6, layout_sources 7, template_arguments 1); recon type-plan show ok -> build/type-plans/zdb-cvisual-review.md sha256 fa478426d5e3bf0be726a790739b1808cb9c5d281c940f7109da3c23f7549b3c; recon type-plan program -> build/apply/socom-work-type-plan-zdb-cvisual-apply.json program_sha256 ae1143166cb2fa908df57816cb9077ed0ddc1a73f413094bca5ab2cfce622d7d"
+        "recon type-plan validate ok, problems []; recon type-plan live ok, live_problems [] (types 17, forward_declarations 4, external_types 6, layout_sources 7, template_arguments 1); recon type-plan show ok -> build/type-plans/zdb-cvisual-review.md sha256 fa478426d5e3bf0be726a790739b1808cb9c5d281c940f7109da3c23f7549b3c; recon type-plan program -> build/apply/socom-work-type-plan-zdb-cvisual-apply.json program_sha256 ae1143166cb2fa908df57816cb9077ed0ddc1a73f413094bca5ab2cfce622d7d",
+        "user review and approval 2026-10-23 after five revisions",
+        "verifier verdict (rev 1923 plan 626ba07f1a71aefa08a8a111433ba25dbae78c6ee8d4a4419c4059e66ddd16d4): would accept; validate ok (layout 1509a3a6...), live ok, show = review fa478426..., program = stored ae114316... (identical to the reviewed rev-6 program fe06e861... apart from the embedded plan hash); every size, base, vptr, field offset/width/type, forward name, instantiation, holder attribution and renamed/new flag re-derived from asm; review notes in build/type-plans/zdb-cvisual-review-verifier.md"
       ],
       "handoff": {
         "owner": "socom-recon-planner-t003",
@@ -120984,10 +121015,14 @@
       ],
       "selection": "types",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the code-derived layout of zdb::CVisual and its derived classes"
     },
     {
+      "accepted": {
+        "at": "2026-10-23T20:48:38Z",
+        "by": "socom-verifier-t-apply1"
+      },
       "batch": {
         "class": "zdb::CVisual",
         "with_derived": true
@@ -120995,8 +121030,86 @@
       "dependencies": [
         "socom:work:type-plan-zdb-cvisual"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "CVisual_vtbl and forwards CDecal/CMeshDecal/CMesh::CMeshLOD/tag_DETAIL_PARAMS are empty declaration-only structs (0 components, reported 1 byte, same as DWARF declaration-only CAiOverlay/CAiPlanner); every referenced type name is unique in the program; 7 instantiation sources still equal their recorded source layouts; external CDynTexList, CPnt3D, C2D, __vector_pod<uint>, compressed_pair@30d44a8521 equal earlier receipt facts; Ghidra reports alignment 1 for all these composites as for every DWARF-imported type (plan alignment 4 is the C-level natural alignment, not carried by the program)",
+        "apply-type-plan report build/apply/t-zdb-cvisual-report.json: ok, 116 bridge calls, type_count 17, types 1663 -> 1686",
+        "diff build/fingerprints/t-zdb-cvisual-diff.json: functions 0, data +0/-0, references +0/-0, blocks and bookmarks equal; types +23/-0 = 17 planned (CVisual 104, CMesh 140, CSubMesh 112, C2DVisual 112, tag_VIS_PARAMS 24, 7 vector instantiations, CVisual_vtbl, 4 forwards CDecal/CMeshDecal/CMeshLOD/tag_DETAIL_PARAMS) + 6 derived (CMesh *, CMeshDecal *, CMeshLOD *, tag_DETAIL_PARAMS *, CVisual_vtbl *, undefined2[2])",
+        "diff recomputed from before/after equals stored t-zdb-cvisual-diff.json: functions 0, data +0/-0, references +0/-0, blocks, bookmarks and analysis equal; types 1663 -> 1686, +23/-0 = 17 planned + 6 derived (CMesh *, CMeshDecal *, CMeshLOD *, tag_DETAIL_PARAMS *, CVisual_vtbl *, /undefined2[2])",
+        "fingerprint before build/fingerprints/t-zdb-cvisual-before.json sha256 18b2e43415d61c7466cd899a1b94a984c794407382c6a3851ffb0f78a3e0b2cf identical to g228-after; after sha256 d6f35b07b97c69f5892eca25dfdadb9d8538cdd79d292f04a024de086976ea75",
+        "get_struct_layout (GET 8090) of all 17 types equals plan-derived layouts, no mismatch: sizes tag_VIS_PARAMS 24, CVisual 104, CSubMesh 112, C2DVisual 112, CMesh 140, 7 vector instantiations 12; every offset/size/type/name; tag_VIS_PARAMS 17 named uint:1 at bits 0,1,3-11,13-18 with unnamed gaps bit 2, bit 12, bits 19-31 (uint:13 at +2 size 2); base components CVisual (CSubMesh/C2DVisual/CMesh) and tag_VIS_PARAMS (CVisual), __vt CVisual_vtbl * at CVisual+0x20; instantiation bases __vector_imp/__vector_pod/__vector_deleter",
+        "ghidra preflight --strict ok (bridge 8090, source sha256 00c9cee7..., main sentinel 0x140d00); progress audit --strict ok at rev 1928, no leases",
+        "ghidra receipt --scope build/receipts/socom-work-type-plan-zdb-cvisual-apply-scope.json (17 types, equals program receipt_scope) reproduces dc83fd67e96c15e44fc863ac76792a2e152037cc3b13c129deeaec78abed8aff",
+        "ghidra-receipt-sha256:dc83fd67e96c15e44fc863ac76792a2e152037cc3b13c129deeaec78abed8aff",
+        "ghidra-save:explicit-program",
+        "own fingerprint build/verifier-socom-verifier-t-apply1/fingerprint-now.json sha256 d6f35b07b97c69f5892eca25dfdadb9d8538cdd79d292f04a024de086976ea75 byte-identical to t-zdb-cvisual-after.json (fingerprint d7f7113a...); t-zdb-cvisual-before.json byte-identical to g228-after.json (18b2e43415d61c7466cd899a1b94a984c794407382c6a3851ffb0f78a3e0b2cf)",
+        "plan build/type-plans/zdb-cvisual.json sha256 626ba07f1a71aefa08a8a111433ba25dbae78c6ee8d4a4419c4059e66ddd16d4; program sha256 ae1143166cb2fa908df57816cb9077ed0ddc1a73f413094bca5ab2cfce622d7d regenerated identically",
+        "plan item socom:work:type-plan-zdb-cvisual accepted (socom-verifier-t1), plan sha256 626ba07f1a71aefa08a8a111433ba25dbae78c6ee8d4a4419c4059e66ddd16d4 cited in handoff; recon type-plan program regenerated build/verifier-socom-verifier-t-apply1/program.json byte-identical to stored, program_sha256 ae1143166cb2fa908df57816cb9077ed0ddc1a73f413094bca5ab2cfce622d7d (types 17, forwards 4, instantiations 7, routes c 1/empty 5/fields 11)"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "dc83fd67e96c15e44fc863ac76792a2e152037cc3b13c129deeaec78abed8aff",
+        "saved": true,
+        "scope": {
+          "functions": [],
+          "globals": [],
+          "types": [
+            "/project/C2DVisual",
+            "/project/std/__vector_deleter<zdb::CMesh::CMeshLOD, std::allocator<zdb::CMesh::CMeshLOD>>",
+            "/project/std/__vector_imp<_word128*, std::allocator<_word128*>, 1>",
+            "/project/std/__vector_imp<zdb::CDecal*, std::allocator<zdb::CDecal*>, 1>",
+            "/project/std/__vector_imp<zdb::CMesh::CMeshLOD, std::allocator<zdb::CMesh::CMeshLOD>, 0>",
+            "/project/std/vector<_word128*, std::allocator<_word128*>>",
+            "/project/std/vector<zdb::CDecal*, std::allocator<zdb::CDecal*>>",
+            "/project/std/vector<zdb::CMesh::CMeshLOD, std::allocator<zdb::CMesh::CMeshLOD>>",
+            "/project/zdb/CDecal",
+            "/project/zdb/CMesh",
+            "/project/zdb/CMesh/CMeshLOD",
+            "/project/zdb/CMeshDecal",
+            "/project/zdb/CSubMesh",
+            "/project/zdb/CVisual",
+            "/project/zdb/CVisual_vtbl",
+            "/project/zdb/tag_DETAIL_PARAMS",
+            "/project/zdb/tag_VIS_PARAMS"
+          ]
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1686,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 36659
+          },
+          "indexes": {
+            "data": {
+              "count": 51811,
+              "sha256": "acbe56777d3b25d0b491cee3e84db2ca857917249491cc07255d8fc94d8eae2b"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1686,
+              "sha256": "7909d729cb74042c61d47470a302c0b84feaff43083282336393ed7525ec9db5"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-23T20:30:27Z",
+        "summary": "zdb::CVisual family types applied from accepted code-derived type plan 626ba07f (user-approved 2026-10-23): 17 types incl. 4 forward declarations and CVisual_vtbl"
+      },
       "id": "socom:work:type-plan-zdb-cvisual-apply",
       "kind": "recon-type-apply",
       "lease": null,
@@ -121006,7 +121119,7 @@
       ],
       "selection": "types",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "accepted",
       "title": "Apply the reviewed code-derived types of zdb::CVisual in Ghidra"
     },
     {
