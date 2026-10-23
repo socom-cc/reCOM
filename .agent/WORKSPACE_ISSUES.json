@@ -1065,8 +1065,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Type plans cannot fill an existing forward-declared live type"
+    },
+    {
+      "details": "Repair 002 review (socom-verifier-r37): zdb::CMesh::SetMeshBuffer 0x30f050 dispatches through jump table @1573 (8 words, all targets inside the body) with jr v1; recon void/facts count that jr as an exit, so the void verdict reads open although no exit writes v0/f0 and both callers leave v0 unread. Classify jr whose register comes from a relocated in-function jump table as a switch, not an exit (compare the switch handling already fixed for recon facts' call listing, issue ab986d08).",
+      "id": "socom:workspace-issue:b4afc6782746adaf2eaf",
+      "kind": "problem",
+      "reported_at": "2026-10-23T21:26:22Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "recon void and facts treat an in-body jump-table jr as a function exit"
     }
   ],
-  "revision": 121,
+  "revision": 122,
   "schema_version": 1
 }
