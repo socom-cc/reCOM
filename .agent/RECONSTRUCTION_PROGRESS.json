@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 1803,
+  "revision": 1807,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -100572,6 +100572,10 @@
       "title": "Apply reviewed reconstruction group 214 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-23T02:22:19Z",
+        "by": "socom-verifier-r26"
+      },
       "batch": {
         "batch_number": 215,
         "function_count": 32,
@@ -100661,8 +100665,15 @@
         "socom:recon-group:e6d8e21625ffe55e1cc2-apply",
         "socom:recon-group:f36b094a00c909ab0de8-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-7deaf822919a90505f76.json sha256:c0e888200709e024e417a42f525a11bdbfe456455ca16c81edf90607a5cce14b; recon validate ok; recon draft --check ok (17 drafted, 15 open); recon program equals build/apply (5816a25f...); preflight-batch ok (10 set_function_prototype, 22 skips = the 22 unresolved rows). Open rows: 0x273800 CZSealBody::LowerBinoculars CZBodyAnimBlend *(CZSealBody *): single exit move v0,s1@0x27386c, s1 = move s1,zero@0x273828 or move s1,v0@0x273868 (PopBlend jal 0x27cbf0 result, live CZBodyAnimBlend *, v0 unchanged through sb zero,46(v0) = DWARF CZBodyAnimBlend::m_ctrl char); explicit callee-saved copy proves a returned value (recon void open), CZBodyAnimBlend DWARF has no bases; sole caller CZKit::SetCurItemState passes m_body (DWARF CZSealBody *, +2068) and does not read v0 (b 0x2afa5c), no table words or address sites. 0x231a10 zdb::EmptyAssetRecycleBin void(void): no args read, recon void VERDICT void (5 call sites), no refs; zdb namespace shown by g_assetsRecycle__Q23zdb27@unnamed@node_assetlib_cpp@. 13 unresolved open rows: receiver/record types missing (recon types CAiSHostage, TOS/tos*/HEAP/QUEUE...: missing) or return open (recon void open: ClearToBase f0 chain to HitPacketHandler 0x203950 and v0 returned by CAiSSurrender::OnSignal 0x2e778c).",
+        "plan build/recon-plans/socom-recon-group-7deaf822919a90505f76.json sha256:c0e888200709e024e417a42f525a11bdbfe456455ca16c81edf90607a5cce14b; recon validate ok; recon draft --check ok; preflight-batch ok (10 set_function_prototype calls, 22 skips all unresolved rows)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g117",
+        "submitted_at": "2026-10-23T02:14:23Z",
+        "summary": "10 prototypes, 22 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:7deaf822919a90505f76",
       "kind": "recon-plan-group",
       "lease": null,
@@ -100671,7 +100682,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 215 (height 13, 32 functions)"
     },
     {
@@ -100731,7 +100742,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 215 in Ghidra"
     },
     {
@@ -118897,18 +118908,8 @@
         "with_derived": true
       },
       "dependencies": [],
-      "evidence": [
-        "per-type fields: tag_VIS_PARAMS 21 (8 use-named, 13 positional m_flagN/m_unkXX); CVisual 8 (7 use-named, 1 positional m_unk1c; m_detailParams field-unresolved: pointee forward); CSubMesh 2; C2DVisual 2; CMesh 5 (field-unresolved: m_lods std::vector level not symbol-named, m_matrixCount source of non-zero value, m_matrices container/element type); __vector_deleter<CMeshLOD> 3 template-copy (capacity_ unresolved: copied compressed_pair@30d44a8521 carries CLOD_band's base, issue 3a93def); vector and __vector_imp<CMeshLOD> bases only; all member names invented-provisional except template-copy",
-        "plan build/type-plans/zdb-cvisual.json sha256 12887bc8307ec2517ca8b71ab20171f2a2b760ae2c488b8739f7b6138ae429ac; layout build/type-plans/zdb-cvisual-layout.json sha256 acc8bc4f20c214d4f02ddfcefeb55eea7c8d117ad53e3f8929b0f19335c4b878 (validate regenerated the same digest; txt b44b6fe536c8b1eddec8fbd04aecddac3ba0657b00c3e71e6d882752ac3b0158)",
-        "recon type-plan affected --plan: classes 10, functions 87, groups 38 (after-apply 22, unplanned 16), unresolved_for_type 46",
-        "recon type-plan validate ok, problems []; recon type-plan live ok, live_problems [] (types 12, forward_declarations 3, external_types 6, layout_sources 3); recon type-plan show ok -> build/type-plans/zdb-cvisual-review.md sha256 3431fc0efef001f211322a6601ec48118f06cc681d2ea828df71b041f143f666; recon type-plan program -> build/apply/socom-work-type-plan-zdb-cvisual-apply.json sha256 1b44d1d3c94625c5df100535aae7a4669b4c21fa4a0cdfb1f58f4253c4717526 (types 12, categories 4, routes c 1 empty 4 fields 7, instantiations 3)",
-        "rejection fixes: CVisual+0x60 now zdb::tag_DETAIL_PARAMS * (forward, mangled VuBatchProgram/VuDetailMap parameters; compile_assert<1> call 0x30df0c now claimed by m_dynTexList); CSubMesh+0x6c m_mesh now zdb::CMesh *; zdb::CMesh added (+0x68 CMesh * clone source, +0x6c CMeshDecal * list head, +0x70 std::vector<CMeshLOD> copied from live vector<Particle::SequenceEntry<float>> / __vector_imp and __vector_deleter<zdb::CLOD_band>, +0x7c uint matrix count, +0x80 __vector_pod<unsigned int>); CMeshLOD and CMeshDecal forward-declared (mangled insert/data and RemoveMeshDecal/FreeMem/PutTempDecal); show prints field notes and unresolved text"
-      ],
-      "handoff": {
-        "owner": "socom-recon-planner-t002",
-        "submitted_at": "2026-10-23T02:00:29Z",
-        "summary": "Revised code-derived type plan: zdb::tag_VIS_PARAMS (0x18, 21 fields), zdb::CVisual (0x68, base + __vt + 8 fields; +0x60 zdb::tag_DETAIL_PARAMS *), zdb::CVisual_vtbl (opaque), zdb::CSubMesh (0x70, 2 fields; +0x6c zdb::CMesh *), C2DVisual (0x70, 2 fields), zdb::CMesh (0x8c, CVisual base + 5 fields), std::vector/__vector_imp/__vector_deleter<zdb::CMesh::CMeshLOD> instantiations, forwards zdb::CMesh::CMeshLOD, zdb::CMeshDecal, zdb::tag_DETAIL_PARAMS"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:type-plan-zdb-cvisual",
       "kind": "recon-type-plan",
       "lease": null,
@@ -118934,11 +118935,35 @@
           "reason": "Fix tools, then revise: no placeholder or wrong pointer types; include CMesh",
           "rejected_at": "2026-10-23T00:39:55Z",
           "rejected_by": "socom-ghidra-reconstructor"
+        },
+        {
+          "evidence": [
+            "Low: unknown signedness typed inconsistently (uchar at +0x5..7 vs undefined2[2] at +0x8); forwards understate provable facts (tag_DETAIL_PARAMS 16-byte stride with halfword count at +0x4; CMeshLOD +0x4 used as CVisBase *), record them in the forward reasons; capacity_ note should cite issue ba5122d0, not 3a93def.",
+            "Medium-low, provable evidence omitted: CMesh::SetMeshBuffer receiver is provable from its two callers (zeroes m_meshDecals after Clone; matrix indexes to m_matrices pointers at 0x30f050, 0x30f0a4); CPipe::RenderMesh / RenderMeshShadow (0x2435bc, 0x2429cc) use CSubMesh m_matrixId to pick the parent mesh's m_matrices slot, write the node world matrix, call SetLOD, never read CSubMesh::m_mesh; CVisual::Create (0x30e124) maps archived vtype 2/1/0/-1 to CSubMesh/CMesh/CVisual.",
+            "Medium: CVisual vector notes are false. Clone's inlined assignment calls compile_assert<1>::__as at the end of m_decals, m_buffers, m_allocBlocks (0x30f454, 0x30f46c, 0x30f484), the pointer-vector shape used by the CTexList vectors; m_matrices has no such call (0x30f390, 0x30f518). Element types are provable: m_decals zdb::CDecal * (0x30930c, 0x30937c), m_buffers _word128 * (0x30d54c). Plan them as pointer-vector instantiations (consistent with m_lods) or keep __vector_pod with corrected notes; be consistent.",
+            "Names: m_transparent overstates (bit 0 marks transparent only when bit 8 is clear); consider m_detailCnt (archive key detail_cnt, static members use Cnt).",
+            "Tool gap: recon layout recorded those three calls without parameter_type, so validation never checked them."
+          ],
+          "handoff": {
+            "owner": "socom-recon-planner-t002",
+            "submitted_at": "2026-10-23T02:00:29Z",
+            "summary": "Revised code-derived type plan: zdb::tag_VIS_PARAMS (0x18, 21 fields), zdb::CVisual (0x68, base + __vt + 8 fields; +0x60 zdb::tag_DETAIL_PARAMS *), zdb::CVisual_vtbl (opaque), zdb::CSubMesh (0x70, 2 fields; +0x6c zdb::CMesh *), C2DVisual (0x70, 2 fields), zdb::CMesh (0x8c, CVisual base + 5 fields), std::vector/__vector_imp/__vector_deleter<zdb::CMesh::CMeshLOD> instantiations, forwards zdb::CMesh::CMeshLOD, zdb::CMeshDecal, zdb::tag_DETAIL_PARAMS"
+          },
+          "handoff_evidence": [
+            "per-type fields: tag_VIS_PARAMS 21 (8 use-named, 13 positional m_flagN/m_unkXX); CVisual 8 (7 use-named, 1 positional m_unk1c; m_detailParams field-unresolved: pointee forward); CSubMesh 2; C2DVisual 2; CMesh 5 (field-unresolved: m_lods std::vector level not symbol-named, m_matrixCount source of non-zero value, m_matrices container/element type); __vector_deleter<CMeshLOD> 3 template-copy (capacity_ unresolved: copied compressed_pair@30d44a8521 carries CLOD_band's base, issue 3a93def); vector and __vector_imp<CMeshLOD> bases only; all member names invented-provisional except template-copy",
+            "plan build/type-plans/zdb-cvisual.json sha256 12887bc8307ec2517ca8b71ab20171f2a2b760ae2c488b8739f7b6138ae429ac; layout build/type-plans/zdb-cvisual-layout.json sha256 acc8bc4f20c214d4f02ddfcefeb55eea7c8d117ad53e3f8929b0f19335c4b878 (validate regenerated the same digest; txt b44b6fe536c8b1eddec8fbd04aecddac3ba0657b00c3e71e6d882752ac3b0158)",
+            "recon type-plan affected --plan: classes 10, functions 87, groups 38 (after-apply 22, unplanned 16), unresolved_for_type 46",
+            "recon type-plan validate ok, problems []; recon type-plan live ok, live_problems [] (types 12, forward_declarations 3, external_types 6, layout_sources 3); recon type-plan show ok -> build/type-plans/zdb-cvisual-review.md sha256 3431fc0efef001f211322a6601ec48118f06cc681d2ea828df71b041f143f666; recon type-plan program -> build/apply/socom-work-type-plan-zdb-cvisual-apply.json sha256 1b44d1d3c94625c5df100535aae7a4669b4c21fa4a0cdfb1f58f4253c4717526 (types 12, categories 4, routes c 1 empty 4 fields 7, instantiations 3)",
+            "rejection fixes: CVisual+0x60 now zdb::tag_DETAIL_PARAMS * (forward, mangled VuBatchProgram/VuDetailMap parameters; compile_assert<1> call 0x30df0c now claimed by m_dynTexList); CSubMesh+0x6c m_mesh now zdb::CMesh *; zdb::CMesh added (+0x68 CMesh * clone source, +0x6c CMeshDecal * list head, +0x70 std::vector<CMeshLOD> copied from live vector<Particle::SequenceEntry<float>> / __vector_imp and __vector_deleter<zdb::CLOD_band>, +0x7c uint matrix count, +0x80 __vector_pod<unsigned int>); CMeshLOD and CMeshDecal forward-declared (mangled insert/data and RemoveMeshDecal/FreeMem/PutTempDecal); show prints field notes and unresolved text"
+          ],
+          "reason": "Needs changes per independent review (build/type-plans/zdb-cvisual-review-verifier.md)",
+          "rejected_at": "2026-10-23T02:21:21Z",
+          "rejected_by": "socom-verifier-t1"
         }
       ],
       "selection": "types",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan the code-derived layout of zdb::CVisual and its derived classes"
     },
     {
