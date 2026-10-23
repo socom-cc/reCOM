@@ -101,6 +101,71 @@ def add_repair_item(tracker: dict[str, Any], item_id: str) -> None:
         gate["dependencies"] = list(gate.get("dependencies", [])) + [item_id]
 
 
+TYPE_PLAN_KIND = "recon-type-plan"
+TYPE_APPLY_KIND = "recon-type-apply"
+TYPE_PLAN_RESOURCES = ["build/type-plans"]
+TYPE_PLAN_PREFIX = "socom:work:type-plan-"
+
+
+def add_type_plan_items(tracker: dict[str, Any], class_name: str, with_derived: bool) -> list[str]:
+    """Insert a code-derived type plan item and its live apply item into stage 3.
+
+    The plan is file-only (``build/type-plans``) and has no dependencies: its
+    evidence comes from the immutable ELF.  The apply alone owns
+    ``ghidra-writer`` and waits for the accepted plan.  Both join the stage 3
+    gate, as stage 3 repairs do.
+    """
+
+    from .type_plan import type_plan_item_id
+
+    if not class_name.strip():
+        raise SocomError("the class name must not be empty")
+    plan_id = type_plan_item_id(class_name)
+    apply_id = f"{plan_id}-apply"
+    items = tracker["work_items"]
+    if any(row.get("id") in (plan_id, apply_id) for row in items):
+        raise SocomError(f"{plan_id} is already in the tracker")
+    by_id = _work_by_id(tracker)
+    gate = by_id.get(RECON_SEED_ID)
+    if gate is None or gate.get("kind") != "stage-gate":
+        raise SocomError(f"{plan_id} needs the decomposed {RECON_STAGE} gate")
+    if gate.get("status") == "accepted":
+        raise SocomError(f"the {RECON_STAGE} gate is already accepted")
+    batch = {"class": class_name, "with_derived": bool(with_derived)}
+    plan = {
+        "id": plan_id,
+        "stage": RECON_STAGE,
+        "kind": TYPE_PLAN_KIND,
+        "title": f"Plan the code-derived layout of {class_name}" + (" and its derived classes" if with_derived else ""),
+        "status": "blocked",
+        "dependencies": [],
+        "resources": list(TYPE_PLAN_RESOURCES),
+        "selection": "types",
+        "batch": batch,
+        "lease": None,
+        "handoff": None,
+        "evidence": [],
+    }
+    apply = {
+        "id": apply_id,
+        "stage": RECON_STAGE,
+        "kind": TYPE_APPLY_KIND,
+        "title": f"Apply the reviewed code-derived types of {class_name} in Ghidra",
+        "status": "blocked",
+        "dependencies": [plan_id],
+        "resources": list(GHIDRA_WRITER_RESOURCES),
+        "selection": "types",
+        "batch": copy.deepcopy(batch),
+        "lease": None,
+        "handoff": None,
+        "evidence": [],
+    }
+    position = next(index for index, row in enumerate(items) if row.get("id") == RECON_SEED_ID)
+    items[position:position] = [plan, apply]
+    gate["dependencies"] = list(gate.get("dependencies", [])) + [plan_id, apply_id]
+    return [plan_id, apply_id]
+
+
 def _utc_now() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc)
 
@@ -609,6 +674,18 @@ def audit_tracker(
                 errors.append(f"{item_id} apply resources differ from Ghidra contract")
             if item.get("dependencies") != [str(item_id).removesuffix("-apply")]:
                 errors.append(f"{item_id} must depend only on its plan")
+        if kind == TYPE_PLAN_KIND:
+            if resources != set(TYPE_PLAN_RESOURCES):
+                errors.append(f"{item_id} type plan resources are not file-only")
+            if item.get("dependencies") != []:
+                errors.append(f"{item_id} type plan must not depend on other items")
+            if not str(item_id).startswith(TYPE_PLAN_PREFIX) or str(item_id).endswith("-apply"):
+                errors.append(f"{item_id} is not a type plan ID")
+        if kind == TYPE_APPLY_KIND:
+            if resources != set(GHIDRA_WRITER_RESOURCES):
+                errors.append(f"{item_id} apply resources differ from Ghidra contract")
+            if item.get("dependencies") != [str(item_id).removesuffix("-apply")]:
+                errors.append(f"{item_id} must depend only on its type plan")
         if kind == "stage-gate" and resources:
             errors.append(f"{item_id} stage gate must not own resources")
         missing = set(item.get("dependencies", [])) - known
@@ -689,6 +766,11 @@ def audit_tracker(
     recon_applies = [item for item in items if item.get("kind") == "recon-apply-group"]
     if {f"{item['id']}-apply" for item in recon_plans} != {item["id"] for item in recon_applies}:
         errors.append("reconstruction plan/apply item pairing is incomplete")
+    type_items = {item["id"] for item in items if item.get("kind") in (TYPE_PLAN_KIND, TYPE_APPLY_KIND)}
+    if {f"{item['id']}-apply" for item in items if item.get("kind") == TYPE_PLAN_KIND} != {
+        item["id"] for item in items if item.get("kind") == TYPE_APPLY_KIND
+    }:
+        errors.append("type plan/apply item pairing is incomplete")
     if reconstruction_seed is not None:
         seed_dependencies = set(reconstruction_seed.get("dependencies", []))
         if reconstruction_seed.get("kind") == "stage-seed":
@@ -698,7 +780,7 @@ def audit_tracker(
             stage_repairs = {
                 item["id"] for item in items if item.get("kind") == "ghidra-repair" and item.get("stage") == RECON_STAGE
             }
-            if not recon_applies or seed_dependencies != {item["id"] for item in recon_applies} | stage_repairs:
+            if not recon_applies or seed_dependencies != {item["id"] for item in recon_applies} | stage_repairs | type_items:
                 errors.append("Ghidra reconstruction gate does not depend on all reconstruction apply items")
         else:
             errors.append(f"{RECON_SEED_ID} has unexpected kind {reconstruction_seed.get('kind')!r}")
@@ -1771,6 +1853,53 @@ def work_packet(
             f"python tools/socom.py ghidra apply-recon --program build/apply/{slug}.json --item {item_id} "
             f"--owner <owner> --scope-output build/receipts/{slug}-scope.json "
             f"--report-output build/apply/{slug}-report.json",
+            f"python tools/socom.py ghidra receipt --scope build/receipts/{slug}-scope.json",
+        ]
+        handoff = "python tools/socom.py progress handoff-live-ghidra"
+        allowed_paths = []
+        ghidra_scope = {
+            "project": "soCOM",
+            "program": "socom.elf",
+            "program_path": "/socom.elf",
+            "receipt_scope_required": True,
+        }
+    elif kind == TYPE_PLAN_KIND:
+        role = "socom-recon-planner"
+        skill = "socom-ghidra-workflow"
+        slug = item_id.removeprefix(TYPE_PLAN_PREFIX)
+        batch = item.get("batch") or {}
+        derived = " --with-derived" if batch.get("with_derived") else ""
+        layout = f"build/type-plans/{slug}-layout"
+        plan = f"build/type-plans/{slug}.json"
+        validation = [
+            f"python tools/socom.py recon layout --class {batch.get('class')}{derived} --output {layout}.json",
+            f"python tools/socom.py recon layout --class {batch.get('class')}{derived} --output {layout}.txt",
+            f"python tools/socom.py recon type-plan validate --plan {plan}",
+            f"python tools/socom.py recon type-plan show --plan {plan}",
+            f"python tools/socom.py recon type-plan program --plan {plan} --output build/apply/{item_id.replace(':', '-')}-apply.json",
+        ]
+        handoff = "python tools/socom.py progress work handoff (cite the plan SHA-256)"
+        allowed_paths = [f"{layout}.json", f"{layout}.txt", plan]
+        ghidra_scope = {
+            "project": "soCOM",
+            "program": "socom.elf",
+            "program_path": "/socom.elf",
+            "read_only": True,
+        }
+    elif kind == TYPE_APPLY_KIND:
+        role = "socom-ghidra-reconstructor"
+        skill = "socom-ghidra-reconstruction"
+        slug = item_id.replace(":", "-")
+        plan = f"build/type-plans/{item_id.removeprefix(TYPE_PLAN_PREFIX).removesuffix('-apply')}.json"
+        apply_args = (
+            f"--program build/apply/{slug}.json --item {item_id} --owner <owner> "
+            f"--scope-output build/receipts/{slug}-scope.json --report-output build/apply/{slug}-report.json"
+        )
+        validation = [
+            "python tools/socom.py ghidra preflight --strict",
+            f"python tools/socom.py recon type-plan program --plan {plan} --output build/apply/{slug}.json",
+            f"python tools/socom.py ghidra apply-type-plan {apply_args} --dry-run",
+            f"python tools/socom.py ghidra apply-type-plan {apply_args}",
             f"python tools/socom.py ghidra receipt --scope build/receipts/{slug}-scope.json",
         ]
         handoff = "python tools/socom.py progress handoff-live-ghidra"

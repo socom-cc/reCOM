@@ -85,6 +85,13 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py recon refs` | recon | no | none | no | Print a data object's relocated slots and every code access to it. |
 | `python tools/socom.py recon live` | recon | no | required | no | Print live Ghidra names and signatures of functions or a group. |
 | `python tools/socom.py recon types` | recon | no | required | no | Print every live Ghidra type matching each name, ignoring case. |
+| `python tools/socom.py recon layout` | recon | yes | none | no | Write ELF-derived layout evidence of a class (and its bases and derived classes): every proven access per offset. |
+| `python tools/socom.py recon type-plan validate` | recon | no | none | no | Check a code-derived type plan against regenerated layout evidence. |
+| `python tools/socom.py recon type-plan show` | recon | no | none | no | Render a code-derived type plan as a review table with its validation. |
+| `python tools/socom.py recon type-plan program` | recon | yes | none | no | Translate a valid code-derived type plan into a type apply program. |
+| `python tools/socom.py recon type-plan affected` | recon | no | none | no | List the reconstruction groups whose functions name a planned class, and which rows were left unresolved for it. |
+| `python tools/socom.py ghidra apply-type-plan` | ghidra | yes | required | yes | Apply a reviewed code-derived type program under the item's writer lease and verify it (--dry-run: read-only checks). |
+| `python tools/socom.py progress add-type-plan` | progress | yes | none | no | Add a file-only code-derived type plan item and its live apply item to the stage 3 gate. |
 | `python tools/socom.py progress init` | progress | yes | none | no | Initialize unified reconstruction state. |
 | `python tools/socom.py progress next` | progress | no | none | no | Select ready work from the canonical stage graph. |
 | `python tools/socom.py progress show` | progress | no | none | no | Show the tracker or one exact entity. |

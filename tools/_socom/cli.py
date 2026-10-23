@@ -55,6 +55,7 @@ from .batch_apply import BatchFailure, build_batch_program, execute_batch_progra
 from .recon import RECON_GROUP_SIZE, RECON_PLAN_KIND, build_recon_program, group_evidence, recon_groups, validate_recon_plan
 from .fingerprint import compare_fingerprints, program_fingerprint
 from .type_apply import ApplyFailure, build_apply_program, execute_apply_program
+from . import type_plan_cli
 from .source import (
     audit_docblocks,
     audit_independence,
@@ -2753,6 +2754,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec("recon refs", "recon", "Print a data object's relocated slots and every code access to it."),
     _spec("recon live", "recon", "Print live Ghidra names and signatures of functions or a group.", ghidra_requirement="required"),
     _spec("recon types", "recon", "Print every live Ghidra type matching each name, ignoring case.", ghidra_requirement="required"),
+    *type_plan_cli.specs(_spec),
     _spec("progress init", "progress", "Initialize unified reconstruction state.", mutates=True),
     _spec("progress next", "progress", "Select ready work from the canonical stage graph."),
     _spec("progress show", "progress", "Show the tracker or one exact entity."),
@@ -3245,6 +3247,7 @@ def build_parser() -> argparse.ArgumentParser:
     stage_scope.add_argument("--output")
     stage_scope.set_defaults(handler=_progress_stage_scope)
 
+    type_plan_cli.register(recon_commands, ghidra_commands, progress_commands)
     work = progress_commands.add_parser("work")
     work_commands = work.add_subparsers(dest="work_command", required=True)
     for name, handler in (

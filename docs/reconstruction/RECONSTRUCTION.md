@@ -318,6 +318,67 @@ name's exact readable form.
 
 The stage gate depends on stage 3 repairs as well as every apply.
 
+## Code-derived type plans
+
+A class with member functions, a vtable or RTTI but no DWARF `class_type`
+record (`zdb::CVisual` and its derived classes) leaves its functions
+unresolved ("receiver type X is absent"). Its layout is recovered from
+instruction evidence only, as a reviewed type plan and a governed apply:
+
+```powershell
+python tools/socom.py progress add-type-plan --class zdb::CVisual --with-derived --expected-revision <n>
+python tools/socom.py recon layout --class zdb::CVisual --with-derived --output build/type-plans/zdb-cvisual-layout.txt
+python tools/socom.py recon type-plan validate --plan build/type-plans/zdb-cvisual.json
+python tools/socom.py recon type-plan show --plan build/type-plans/zdb-cvisual.json
+python tools/socom.py recon type-plan program --plan build/type-plans/zdb-cvisual.json --output build/apply/<item>.json
+python tools/socom.py ghidra apply-type-plan --program build/apply/<item>.json --item <apply-item> --owner <owner> --scope-output build/receipts/<item>-scope.json --report-output build/apply/<item>-report.json --dry-run
+python tools/socom.py recon type-plan affected --plan build/type-plans/zdb-cvisual.json
+```
+
+- `progress add-type-plan` adds a file-only `recon-type-plan` item
+  (`build/type-plans`, no dependencies) and its `-apply` item
+  (`recon-type-apply`, the only one that owns `ghidra-writer`, waiting for the
+  accepted plan). Both join the stage gate, as stage 3 repairs do.
+- `recon layout` lists, per class, its RTTI records and base list
+  (Metrowerks `type_info_base_list`: base and offset), vtable slots,
+  members with the proof that a0 is `this` (constructor, destructor, const,
+  vtable slot, or an argument register read beyond a static function's
+  parameters; others are listed unresolved), allocation sizes
+  (`operator new(N)` reaching a constructor; the most derived of the
+  constructor's class and any family vtable stored into the object), derived
+  constructors' this-adjustment, and every access proven relative to the
+  class: this, typed parameters, allocation results, followed through copies,
+  spills, loads, indexes and calls. Each offset shows widths, kinds,
+  signedness, pointer use, typed callees, constants, vtable stores and
+  bitfield masks, with every site; conflicts and accesses beyond the
+  allocation size are flagged. A store of zero and a word copied through an
+  FPR prove neither int nor float. Accesses whose base cannot be proven are
+  counted per function as unattributed.
+- The plan (format in `tools/_socom/type_plan.py`) gives each type its
+  qualified name, category (`/project/<namespaces>`), size, alignment, bases
+  at their RTTI offsets (component named by the bare base type name), the
+  vptr `__vt` (pointing to `<Class>_vtbl`, opaque unless every slot type is
+  proven), fields with evidence sites, padding, accesses beyond the size with
+  reasons, and unresolved notes. Invented names are `C`/`tag_`/`m_` names
+  marked `invented-provisional`, after a naming survey of neighbouring
+  DWARF classes.
+- `recon type-plan validate` regenerates the evidence and refuses a plan
+  whose layout digest differs, a field without a matching access, a size
+  that differs from allocations, overlaps or uncovered bytes, accessed
+  padding, contradicted widths, kinds or signedness, placeholders
+  (`void *`, `undefinedN`, byte arrays) where the evidence is stronger, or a
+  base the RTTI does not list. Evidence for a base's fields may come from
+  any class that embeds it. `show` prints the review table.
+- `recon type-plan program` writes the type apply program (temporary names,
+  read-back of every layout, then category moves and renames); `ghidra
+  apply-type-plan` applies it with the type executor under the writer lease
+  after checking the accepted plan's digest and, read-only, that no target
+  exists and every live type it names resolves to exactly one path
+  (`--dry-run` stops there). Hand off with `progress handoff-live-ghidra`.
+- After the apply, `recon type-plan affected` lists the groups whose rows
+  were left unresolved for these classes (`replan` before their apply,
+  `after-apply` once applied) and the groups not yet planned.
+
 ## Stage gate
 
 Role `socom-verifier`, once every apply is accepted. The reviewer writes the
