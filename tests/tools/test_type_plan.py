@@ -952,3 +952,200 @@ def test_real_compile_assert_call_after_the_dyn_tex_list_is_not_the_detail_point
     assert ("zdb::CVisual", 0x60, "0x30df0c", "a0") in claims
     assert ("zdb::CVisual", 0x54, "0x30def4", "a0") in claims
     assert not any("+0x60" in text or "+0x54" in text or "+0x48" in text for text in problems), problems
+
+
+# -- live template arguments, void * template arguments, copy evidence ---------
+
+PALETTE = "zdb::CTexPalette"
+
+
+def _pointer_vector_rows(argument: str) -> list[dict]:
+    """vector<argument*> and its __vector_imp, copied from the live CTexPalette* instantiations."""
+
+    vec, imp = f"std::vector<{argument}*, std::allocator<{argument}*>>", f"std::__vector_imp<{argument}*, std::allocator<{argument}*>, 1>"
+    common = {"kind": "class", "category": "/project/std", "name_provenance": "template-instantiation", "size": 12, "alignment": 4}
+    return [
+        {
+            "name": vec, **common, "bases": [{"type": imp, "offset": 0}],
+            "instantiation": {
+                "source": f"/project/std/vector<{PALETTE}*, std::allocator<{PALETTE}*>>", "arguments": [{"from": PALETTE, "to": argument}],
+                "source_size": 12,
+                "source_layout": [[0, 12, f"__vector_imp<{PALETTE}*, std::allocator<{PALETTE}*>, 1>",
+                                   "super_vector_imp_zdb_CTexPalette_std_allocator_zdb_CTexPalette_1"]],
+            },
+        },
+        {
+            "name": imp, **common, "bases": [{"type": VECTOR_POD, "offset": 0, "size": 12}],
+            "instantiation": {
+                "source": f"/project/std/__vector_imp<{PALETTE}*, std::allocator<{PALETTE}*>, 1>", "arguments": [{"from": PALETTE, "to": argument}],
+                "source_size": 12,
+                "source_layout": [[0, 12, "__vector_pod<unsigned int, std::allocator<unsigned int>>",
+                                   "super_vector_pod_unsigned_int_std_allocator_unsigned_int"]],
+            },
+        },
+    ]
+
+
+def _pointer_vector_plan(layout: dict, argument: str) -> dict:
+    plan = _vector_plan(layout, f"std::vector<{argument}*, std::allocator<{argument}*>>")
+    plan["types"] += _pointer_vector_rows(argument)
+    return plan
+
+
+def test_a_live_type_is_a_template_argument_when_it_resolves_to_exactly_one_path(root: Path, tmp_path: Path) -> None:
+    layout = _vector_layout()
+    plan = _pointer_vector_plan(layout, "_word128")
+    # Regression: _word128 (a live type, /project/_word128) was refused as neither a plan type nor a builtin.
+    assert validate_type_plan(root, None, plan, layout) == []
+    missing = validate_type_plan(root, None, _pointer_vector_plan(layout, "_word129"), layout)
+    assert any("template argument _word129 is neither a plan type, a builtin, nor a type an ELF symbol" in text for text in missing), missing
+    pointer = validate_type_plan(root, None, _pointer_vector_plan(layout, "_word128*"), layout)
+    assert any("template argument _word128* is neither a plan type, a builtin nor a qualified live type name" in text for text in pointer), pointer
+    clash = copy.deepcopy(plan)
+    clash["types"].append(_forward("zdb::_word128", ["SetBuffer__Q23zdb7CVisualFP8_word128UiP8CVisBase"]))
+    assert any("shares its name with the plan type zdb::_word128" in text for text in validate_type_plan(root, None, clash, layout))
+
+    path = tmp_path / "plan.json"
+    path.write_text(json.dumps(plan), encoding="utf-8")
+    program = build_type_plan_program(root, None, path, layout)
+    assert program["template_arguments"] == [{
+        "name": "_word128", "path": "/project/_word128",
+        "types": ["/project/std/__vector_imp<_word128*, std::allocator<_word128*>, 1>", "/project/std/vector<_word128*, std::allocator<_word128*>>"],
+    }]
+    assert program["summary"]["template_argument_count"] == 1
+
+    # Live: the same rule as a live member type, exactly one live path and the expected one.
+    def argument_problems(*paths: str) -> list[str]:
+        index = [{"name": "_word128", "path": value} for value in paths]
+        return [text for text in live_type_problems(program, index) if text.startswith("template argument")]
+
+    assert argument_problems("/project/_word128") == []
+    assert any("resolves to nothing, not exactly /project/_word128" in text for text in argument_problems())
+    assert argument_problems("/project/_word128", "/project/sdk/_word128")  # ambiguous
+    assert argument_problems("/project/sdk/_word128")  # another type of that name
+
+
+def test_void_pointer_template_arguments_need_the_void_pointer_justification(root: Path) -> None:
+    from tools._socom.type_plan_evidence import void_pointer_argument
+
+    assert void_pointer_argument("/project/std/vector<void *, std::allocator<void *>>")
+    assert void_pointer_argument("X<int, Y<const void*>>") and not void_pointer_argument("X<int*>")
+    assert not void_pointer_argument("void *") and not void_pointer_argument("X<void (*)(int, void*)>")
+    layout = _vector_layout()
+    plan = _pointer_vector_plan(layout, "void")
+    # Regression: a vector<void*> member passed although void * as a field type needs justification.
+    problems = validate_type_plan(root, None, plan, layout)
+    assert problems == [
+        "type zdb::CTest field m_items: void * as a template argument of std::vector<void*, std::allocator<void*>> "
+        "is a placeholder; type the argument or record why in unresolved"
+    ], problems
+    justified = copy.deepcopy(plan)
+    _types(justified)["zdb::CTest"]["fields"][1]["unresolved"] = "the element type is not proven: nothing reads the elements"
+    assert validate_type_plan(root, None, justified, layout) == []
+    # A call that passes the member as exactly vector<void*> proves the argument.
+    layout["classes"][0]["offsets"][1]["sites"].append(
+        _site("0x100020", 0x4, "address-passed", register="a0", callee="std::vector<void*, std::allocator<void*>>::clear(void)",
+              parameter_type="std::vector<void*, std::allocator<void*>> * (receiver)")
+    )
+    plan["layout"]["sha256"] = layout_sha256(layout)
+    assert validate_type_plan(root, None, plan, layout) == []
+
+
+def _copy_layout(sites: list[dict], size: int = 8) -> dict:
+    rows: dict[int, list[dict]] = {}
+    for site in sites:
+        rows.setdefault(site["offset"], []).append(site)
+    return {
+        "kind": "socom-type-layout-evidence", "schema_version": 1, "class": "zdb::CTest", "with_derived": False,
+        "classes": [{
+            "class": "zdb::CTest", "role": "requested", "size_evidence": [size], "bases": [], "vtable": None,
+            "offsets": [{"offset": offset, "sites": rows[offset], "conflicts": []} for offset in sorted(rows)], "object_passes": [],
+        }],
+    }
+
+
+def _copy(site: str, offset: int, access: str, width: int, **fields) -> dict:
+    """A load from the source (a1) or a store into this (a0) in zdb::CTest::operator=."""
+
+    extra = {"root": "param a1"} if access == "load" else {
+        "copy_of": f"zdb::CTest+{offset:#x}", "value": f"loaded {width}-byte int from zdb::CTest+{offset:#x}",
+    }
+    return _site(site, offset, access, width=width, kind="int", function="0x200000",
+                 function_name="zdb::CTest::__as(zdb::CTest const&)", **extra, **fields)
+
+
+def _copy_plan(layout: dict, fields: list[dict], padding: list[dict]) -> dict:
+    return {
+        "kind": "socom-code-type-plan", "schema_version": 1, "work_item_id": type_plan_item_id("zdb::CTest"),
+        "target": {"source_sha256": REFERENCE_SHA256},
+        "layout": {"class": "zdb::CTest", "with_derived": False, "sha256": layout_sha256(layout)},
+        "naming_survey": ["test fixture"],
+        "types": [{
+            "name": "zdb::CTest", "kind": "class", "category": "/project/zdb", "name_provenance": "elf-symbol",
+            "size": layout["classes"][0]["size_evidence"][0], "alignment": 4, "fields": fields, "padding": padding,
+        }],
+    }
+
+
+def test_member_wise_copies_are_width_only_evidence() -> None:
+    from tools._socom.type_plan_evidence import copy_accesses
+
+    sites = [
+        _site("0x100000", 0x0, "store", width=4, kind="zero", constant=0),
+        _site("0x100004", 0x4, "store", width=1, kind="zero", constant=0),
+        _site("0x100010", 0x4, "load", width=1, kind="int", signed=True),
+        _copy("0x200000", 0x0, "load", 4), _copy("0x200004", 0x0, "store", 4),
+        _copy("0x200008", 0x4, "load", 1, signed=False), _copy("0x20000c", 0x4, "store", 1),
+    ]
+    layout = _copy_layout(sites)
+    fields = [
+        _field(0, 4, "undefined4", "m_word", ["0x100000", "0x200004"]),
+        _field(4, 1, "char", "m_kind", ["0x100004", "0x100010", "0x20000c"]),
+    ]
+    padding = [{"offset": 5, "size": 3, "reason": "no access"}]
+    plan = _copy_plan(layout, fields, padding)
+    # Regression: operator='s lw/sw made m_word int-typed (no undefined4) and its lbu a zero-extending load of m_kind.
+    assert validate_type_plan(Path("."), None, plan, layout) == []
+    moved = _copy_layout([{**site, "copy_of": None} if site["access"] == "store" else site for site in sites])
+    problems = validate_type_plan(Path("."), None, _copy_plan(moved, fields, padding), moved)
+    assert any("undefined4 is a placeholder but 0x200000 proves more" in text for text in problems), problems
+    assert any("loads both sign- and zero-extend" in text for text in problems), problems
+    # The width still counts: a member-wise word copy contradicts a 2-byte member.
+    halves = copy.deepcopy(plan)
+    _types(halves)["zdb::CTest"]["fields"][0:1] = [
+        _field(0, 2, "undefined2", "m_low", ["0x100000"]), _field(2, 2, "undefined2", "m_high", ["0x100000"]),
+    ]
+    assert any("0x200004 (store w4, a member-wise copy) contradicts the 2-byte undefined2" in text
+               for text in validate_type_plan(Path("."), None, halves, layout))
+    # A load whose value the copy function also uses is not a copy load.
+    used = sites + [_site("0x200010", 0x0, "use", width=4, kind="int", root="param a1", function="0x200000")]
+    keys = copy_accesses(_copy_layout(used)["classes"], {"zdb::CTest": [(0, 8)]})
+    assert ("zdb::CTest", 0, "0x200004", "store") in keys and ("zdb::CTest", 0, "0x200000", "load") not in keys
+    # show keeps the copies visible.
+    text = render_type_plan(plan, layout, [])
+    assert "member-wise copy (width-only evidence): 0x200000 load, 0x200004 store" in text
+    assert "`0x200004` `x` in `zdb::CTest::__as(zdb::CTest const&)` (member-wise copy)" in text
+
+
+def test_bulk_copies_of_a_whole_object_prove_neither_width_nor_type() -> None:
+    sites = [
+        _site("0x100000", 0x0, "load", width=1, kind="int", signed=False),
+        _site("0x100001", 0x1, "load", width=1, kind="int", signed=False),
+        _site("0x100002", 0x2, "load", width=2, kind="int", signed=False),
+        _site("0x100004", 0x4, "load", width=4, kind="int"),
+        _copy("0x200000", 0x0, "load", 4), _copy("0x200004", 0x0, "store", 4),
+        _copy("0x200008", 0x4, "load", 4), _copy("0x20000c", 0x4, "store", 4),
+    ]
+    layout = _copy_layout(sites)
+    fields = [
+        _field(0, 1, "uchar", "m_a", ["0x100000"]), _field(1, 1, "uchar", "m_b", ["0x100001"]),
+        _field(2, 2, "ushort", "m_c", ["0x100002"]), _field(4, 4, "uint", "m_d", ["0x100004"]),
+    ]
+    plan = _copy_plan(layout, fields, [])
+    # Two word chunks tile the whole 8-byte object: a bulk copy, whose width is not m_a's.
+    assert validate_type_plan(Path("."), None, plan, layout) == []
+    assert "bulk copy (neither width nor type evidence): 0x200000 load, 0x200004 store" in render_type_plan(plan, layout, [])
+    # Copying only the first word is a member-wise copy, whose width contradicts the 1-byte m_a.
+    partial = _copy_layout(sites[:6])
+    problems = validate_type_plan(Path("."), None, _copy_plan(partial, fields, []), partial)
+    assert any("0x200004 (store w4, a member-wise copy) contradicts the 1-byte uchar" in text for text in problems), problems

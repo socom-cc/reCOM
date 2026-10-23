@@ -64,6 +64,12 @@ arguments substituted (so ``CLOD_band *`` becomes ``zdb::CMesh::CMeshLOD *``).
 A DWARF record of the template must have the same members and bases; the live
 check compares ``source_layout`` with the live source.  Accesses inside the
 instantiation are checked against the copied members like any other field.
+A ``template-instantiation`` name's arguments are plan types, builtins, or
+existing live types: a qualified name the ELF names (a mangled symbol or a
+DWARF record), sharing its leaf with no plan type, whose live path is its
+namespace category and leaf (``_word128`` is ``/project/_word128``).  The
+program lists those paths (``template_arguments``) and the live check proves
+each name resolves to exactly that path, as for live member types.
 
 Type spellings: Ghidra builtins (``uint``, ``uchar``, ``longlong``, ``uint16``
 ...), ``undefined1/2/4/8`` only where every access is neutral, plan types by
@@ -71,7 +77,18 @@ their qualified name, and existing live types by their full Ghidra path
 (``/project/std/__vector_pod<unsigned int, std::allocator<unsigned int>>``);
 ``*`` pointers and ``[n]`` arrays follow the base.  A field with
 ``bit_offset``/``bit_size`` is a bitfield (least-significant-bit position in
-its little-endian storage unit at ``offset``/``size``).
+its little-endian storage unit at ``offset``/``size``).  ``void *`` is a
+placeholder as a field type and as a template argument alike; as a template
+argument (``vector<void *>``) its elements lie beyond the evidence the
+validator matches, so the field records why in ``unresolved`` unless a call
+passes the member as exactly that type.
+
+The loads and stores of a compiler-style copy (``operator=``, a copy
+constructor, or such a copy inlined: a same-width value moved unchanged
+between the same offset of two objects) are width-only evidence: they prove
+the unit's width, not int, float, sign or pointer, so a member they alone
+type stays ``undefinedN``.  A bulk copy (one function's same-width chunks
+tiling a whole planned object) proves neither; ``show`` labels both.
 
 A call that passes an object address as a class pointer or reference (a
 constructor or method receiver) proves a sub-object of that class there.  The
@@ -109,7 +126,18 @@ from .type_apply import (
     _identifier,
 )
 from .type_layout import NEUTRAL_KINDS, class_layout
-from .type_plan_evidence import CXX_BUILTINS, TypeEvidence, leaf_name, normalized, parameter_class, substitute
+from .type_plan_evidence import (
+    BULK,
+    CXX_BUILTINS,
+    MEMBER_WISE,
+    TypeEvidence,
+    copy_accesses,
+    leaf_name,
+    normalized,
+    parameter_class,
+    substitute,
+    void_pointer_argument,
+)
 from .util import SocomError, canonical_json, load_json, sha256_file
 
 TYPE_PLAN_KIND = "socom-code-type-plan"
@@ -577,6 +605,7 @@ def validate_type_plan(
         problems.append(f"the plan does not define the requested class {class_name}")
     invented = False
     windows = model.windows(set(by_class))
+    copies = copy_accesses(layout["classes"], _extents(model, windows))
     claims, claim_problems = _subobject_claims(model, by_class, index)
     problems.extend(claim_problems)
     references = model.references()
@@ -620,7 +649,7 @@ def validate_type_plan(
         if kind == "forward":
             problems.extend(_forward_problems(row, where, by_class, references))
             continue
-        problems.extend(_type_problems(model, row, where, by_class, index, windows.get(name, set()), claims))
+        problems.extend(_type_problems(model, row, where, by_class, index, windows.get(name, set()), claims, copies))
         if row.get("instantiation") is not None:
             problems.extend(_instantiation_problems(model, row, where))
     if invented and not plan.get("naming_survey"):
@@ -631,6 +660,22 @@ def validate_type_plan(
             if parsed and parsed["base"].startswith("/") and not parsed["base"].startswith("/project/"):
                 problems.append(f"type {row.get('name')} field {field.get('name')}: live types are /project paths")
     return problems
+
+
+def _extents(model: _Plan, windows: dict[str, set[tuple[str, int]]]) -> dict[str, list[tuple[int, int]]]:
+    """Per layout class, the (offset, size) of every planned object lying in it."""
+
+    extents: dict[str, list[tuple[int, int]]] = defaultdict(list)
+    for name, places in windows.items():
+        size = model.types[name].get("size") if name in model.types else None
+        if isinstance(size, int) and size > 0:
+            for cls, delta in sorted(places):
+                extents[cls].append((delta, size))
+    return extents
+
+
+def _copy_key(cls: str, offset: int, site: dict[str, Any]) -> tuple[str, int, str, str]:
+    return (cls, offset, site["site"], site.get("access", ""))
 
 
 def _names_match(target: str, name: str, mode: str) -> bool:
@@ -790,10 +835,9 @@ def _instantiation_problems(model: _Plan, row: dict[str, Any], where: str) -> li
     if row.get("name_provenance") == TEMPLATE_NAME:
         for _source, target in pairs:
             if normalized(target) not in model.normalized_types and target not in CXX_BUILTINS:
-                problems.append(
-                    f"{where}: template argument {target} is neither a plan type nor a builtin; cite a mangled "
-                    "symbol that names this instantiation instead"
-                )
+                problem = _live_argument_problem(model, target)
+                if problem:
+                    problems.append(f"{where}: template argument {target} {problem}")
     size, rows = spec.get("source_size"), spec.get("source_layout")
     if size != row.get("size"):
         problems.append(f"{where}: instantiation.source_size {size} differs from the size {row.get('size')}")
@@ -855,6 +899,53 @@ def _instantiation_problems(model: _Plan, row: dict[str, Any], where: str) -> li
     return problems
 
 
+_NAME_COMPONENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:<.+>)?$")
+
+
+def _argument_path(name: str) -> str:
+    """The Ghidra path of a live type by its qualified name (its namespace category and leaf)."""
+
+    return f"{expected_category(name)}/{_leaf(name)}"
+
+
+def _live_argument_problem(model: _Plan, target: str) -> str | None:
+    """Why a template argument that is neither a plan type nor a builtin cannot name a live type, else None.
+
+    File-only: the name is a qualified type name (no pointer, reference or
+    path), the ELF names it, and no plan type shares its leaf.  The live
+    check proves it resolves to exactly ``_argument_path``.
+    """
+
+    if target.startswith("/") or not all(_NAME_COMPONENT.match(part) for part in split_qualified(target)):
+        return "is neither a plan type, a builtin nor a qualified live type name"
+    clash = next((name for name in model.types if _leaf(name).casefold() == _leaf(target).casefold()), None)
+    if clash is not None:
+        return f"shares its name with the plan type {clash}, so a bare-name reference would be ambiguous"
+    if model.evidence is not None and not model.evidence.names_type(target):
+        return (
+            "is neither a plan type, a builtin, nor a type an ELF symbol or DWARF record names; cite a mangled "
+            "symbol that names this instantiation instead"
+        )
+    return None
+
+
+def _live_arguments(model: _Plan) -> list[dict[str, Any]]:
+    """Live template arguments of template-instantiation names: name, expected path and the plan types using it."""
+
+    found: dict[str, dict[str, Any]] = {}
+    for name, row in model.types.items():
+        spec = row.get("instantiation")
+        if row.get("name_provenance") != TEMPLATE_NAME or not isinstance(spec, dict):
+            continue
+        for item in spec.get("arguments") or []:
+            target = item.get("to") if isinstance(item, dict) else None
+            if not isinstance(target, str) or normalized(target) in model.normalized_types or target in CXX_BUILTINS:
+                continue
+            entry = found.setdefault(_argument_path(target), {"name": target, "path": _argument_path(target), "types": set()})
+            entry["types"].add(_path_of(row))
+    return [{**found[path], "types": sorted(found[path]["types"])} for path in sorted(found)]
+
+
 def _vtable_problems(row: dict[str, Any], by_class: dict[str, Any], where: str) -> list[str]:
     problems = []
     owner = row["name"][: -len("_vtbl")]
@@ -890,8 +981,10 @@ def _type_problems(
     index: dict[str, dict[int, list[dict[str, Any]]]],
     windows: set[tuple[str, int]],
     claims: set[tuple[str, int, str, Any]],
+    copies: dict[tuple[str, int, str, str], str] | None = None,
 ) -> list[str]:
     problems: list[str] = []
+    copies = copies or {}
     name = row["name"]
     size = row.get("size")
     if not isinstance(size, int) or size <= 0:
@@ -966,6 +1059,8 @@ def _type_problems(
                 for site_offset, site in _sites_in(index.get(cls, {}), delta + offset - 15, delta + offset + extent):
                     if _claimed(claims, cls, site_offset, site):
                         continue  # a sub-object's own call (an empty base at its end)
+                    if copies.get(_copy_key(cls, site_offset, site)) == BULK:
+                        continue  # a bulk copy moves padding with the members
                     if site_offset + _site_extent(site) > delta + offset:
                         problems.append(
                             f"{where}: padding {_hex(offset)}+{_hex(extent)} is accessed at {cls}+{_hex(site_offset)} ({site['site']})"
@@ -987,7 +1082,7 @@ def _type_problems(
                 problems.append(f"{label}: {TEMPLATE_COPY} names belong to instantiation members")
         elif provenance != INVENTED and not field.get("name_evidence"):
             problems.append(f"{label}: a non-invented name cites name_evidence")
-        problems.extend(_field_problems(model, field, label, index, windows, claims))
+        problems.extend(_field_problems(model, field, label, index, windows, claims, copies))
 
     # Every access in this type's windows lands on a component; beyond the size it is listed.
     outside = {str(entry.get("site")) for entry in row.get("outside_accesses") or [] if entry.get("reason")}
@@ -1046,11 +1141,25 @@ def _vptr_problems(
     return problems
 
 
+def _passes_as(site: dict[str, Any], base: str, pointers: int) -> bool:
+    """Whether a call passes the member (its address, or its value for a pointer) as exactly the type ``base``."""
+
+    access = {0: "address-passed", 1: "value-passed"}.get(pointers)
+    target = parameter_class(site.get("parameter_type")) if site.get("access") == access else None
+    if target is None:
+        return False
+    if base.startswith("/"):
+        return _names_match(target, base.rsplit("/", 1)[1], "leaf")
+    return _names_match(target, base, "qualified")
+
+
 def _field_problems(
     model: _Plan, field: dict[str, Any], label: str, index: dict[str, dict[int, list[dict[str, Any]]]],
     windows: set[tuple[str, int]], claims: set[tuple[str, int, str, Any]],
+    copies: dict[tuple[str, int, str, str], str] | None = None,
 ) -> list[str]:
     problems: list[str] = []
+    copies = copies or {}
     parsed = parse_type(field.get("type"))
     offset, size = field.get("offset"), field.get("size")
     if parsed is None or parsed["base"] == "void" and not parsed["pointers"]:
@@ -1073,24 +1182,33 @@ def _field_problems(
     base = parsed["base"]
     if base.startswith("/") and not field.get("size"):
         problems.append(f"{label}: a live type needs its size")
+    if void_pointer_argument(base) and field.get("provenance") != TEMPLATE_COPY and not field.get("unresolved"):
+        # The elements lie beyond the matched evidence, so the placeholder is justified like a dereferenced
+        # void * field (unresolved) unless a call passes the member as exactly this type.
+        if not any(
+            _passes_as(site, base, parsed["pointers"])
+            for cls, delta in sorted(windows) for site in index.get(cls, {}).get(delta + offset, [])
+        ):
+            problems.append(
+                f"{label}: void * as a template argument of {base} is a placeholder; type the argument or record "
+                "why in unresolved"
+            )
     composite = model.composite(parsed) and not parsed["arrays"]
     evidence = field.get("evidence") or []
     if not evidence and field.get("provenance") != TEMPLATE_COPY:
         problems.append(f"{label}: cite at least one evidence site")
     # Candidate sites: the field's extent in every window.  A site a sub-object
     # claims (a call on an empty base at the end of the previous member) is
-    # that sub-object's, not this field's.
-    candidates: list[tuple[str, int, dict[str, Any]]] = []
+    # that sub-object's, not this field's.  Each carries its copy kind, if any.
+    candidates: list[tuple[str, int, dict[str, Any], str | None]] = []
     claimed: dict[str, dict[str, Any]] = {}
     for cls, delta in sorted(windows):
         for site_offset, site in _sites_in(index.get(cls, {}), delta + offset, delta + offset + size):
             if not composite and _claimed(claims, cls, site_offset, site):
                 claimed[site["site"]] = site
                 continue
-            candidates.append((cls, site_offset - delta, site))
-    by_site: dict[str, list[tuple[str, int, dict[str, Any]]]] = defaultdict(list)
-    for cls, relative, site in candidates:
-        by_site[site["site"]].append((cls, relative, site))
+            candidates.append((cls, site_offset - delta, site, copies.get(_copy_key(cls, site_offset, site))))
+    by_site = {site["site"] for _cls, _relative, site, _copy in candidates}
     for cited in evidence:
         if cited in by_site:
             continue
@@ -1103,18 +1221,30 @@ def _field_problems(
             problems.append(f"{label}: evidence {cited} is not an access within +{_hex(offset)}..+{_hex(offset + size - 1)}")
     if composite or parsed["arrays"]:
         return problems  # inner accesses belong to the member type; extent checks above
-    exact = [(cls, relative, site) for cls, relative, site in candidates if relative == offset]
+    exact = [(cls, relative, site) for cls, relative, site, _copy in candidates if relative == offset]
     cited_exact = [site for cls, relative, site in exact if site["site"] in evidence]
     if evidence and not cited_exact and not bitfield:
         problems.append(f"{label}: no cited evidence site accesses the field's first byte")
     width_size = size
-    for cls, relative, site in candidates:
+    for cls, relative, site, copy_kind in candidates:
+        if copy_kind == BULK:
+            continue  # a bulk copy's chunks are the copy's, not this member's
         if relative != offset:
             if not bitfield and site.get("access") != "address-passed":
                 problems.append(f"{label}: {site['site']} accesses +{_hex(relative)} inside the scalar field ({cls})")
             continue
+        if copy_kind:
+            # Width-only evidence: a member-wise copy moves the unit's bits, whatever its type.
+            if not bitfield and site.get("width") not in (None, width_size):
+                problems.append(
+                    f"{label}: {site['site']} ({site.get('access')} w{site.get('width')}, a member-wise copy) "
+                    f"contradicts the {width_size}-byte {field.get('type')}"
+                )
+            continue
         if not _compatible(site, parsed, None if bitfield else width_size):
             problems.append(f"{label}: {site['site']} ({site.get('access')} w{site.get('width')} {site.get('kind')}) contradicts {field.get('type')}")
+    # Type evidence (kind, sign, pointer): the exact sites that are not copies.
+    exact = [(cls, relative, site) for cls, relative, site, copy_kind in candidates if relative == offset and not copy_kind]
     loads = {site.get("signed") for _cls, relative, site in exact if site.get("access") == "load" and site.get("signed") is not None}
     if size in (1, 2) and not bitfield and base in SIGNED | UNSIGNED and not parsed["pointers"]:
         if loads == {True} and base in UNSIGNED:
@@ -1171,12 +1301,18 @@ def _texts(value: Any) -> list[str]:
     return [str(value)]
 
 
-def _sample_cell(evidence: list[str], sites: dict[str, dict[str, Any]], limit: int = 3) -> str:
+def _sample_cell(
+    evidence: list[str], sites: dict[str, dict[str, Any]], limit: int = 3, copied: dict[str, str] | None = None
+) -> str:
     samples = []
     for site in evidence[:limit]:
         found = sites.get(site)
         if found:
-            samples.append(f"{_code(site)} {_code(found.get('insn', ''))} in {_code(found.get('function_name', ''))}")
+            kind = (copied or {}).get(site)
+            samples.append(
+                f"{_code(site)} {_code(found.get('insn', ''))} in {_code(found.get('function_name', ''))}"
+                + (f" ({kind} copy)" if kind else "")
+            )
         else:
             samples.append(f"{_code(site)} (not in the evidence)")
     if len(evidence) > limit:
@@ -1218,6 +1354,8 @@ def render_type_plan(
     defined = [row for row in types if row.get("kind") != "forward"]
     instantiations = [row for row in defined if row.get("instantiation") is not None]
     end_claims = _end_claims(model, layout) if evidence is not None else {}
+    copy_notes, copy_kinds = _copy_notes(model, layout)
+    live_arguments = {(path, item["name"]) for item in _live_arguments(model) for path in item["types"]}
     lines = [
         f"# Code-derived type plan `{plan.get('work_item_id')}`",
         "",
@@ -1290,7 +1428,12 @@ def render_type_plan(
         copied = row.get("instantiation")
         if isinstance(copied, dict):
             arguments = ", ".join(
-                f"{_code(item.get('from'))} → {_code(item.get('to'))}" for item in copied.get("arguments") or [] if isinstance(item, dict)
+                f"{_code(item.get('from'))} → {_code(item.get('to'))}"
+                + (
+                    f" (live {_code(_argument_path(str(item.get('to'))))})"
+                    if (_path_of(row), item.get("to")) in live_arguments else ""
+                )
+                for item in copied.get("arguments") or [] if isinstance(item, dict)
             )
             lines.append(f"- Copied from {_code(copied.get('source'))} ({copied.get('source_size')} bytes), arguments {arguments}")
             if isinstance(copied.get("source_layout"), list):
@@ -1320,12 +1463,14 @@ def render_type_plan(
                 for field in sorted(entry, key=lambda item: item.get("bit_offset", 0)):
                     bits = f"{field.get('type')}:{field.get('bit_size')} @ bit {field.get('bit_offset')}"
                     notes = _texts(field.get("notes")) + [f"unresolved: {text}" for text in _texts(field.get("unresolved"))]
+                    notes += copy_notes.get((str(row.get("name")), offset), [])
                     table.append((offset, extent, bits, field.get("name"), field.get("provenance"), field.get("evidence") or [], notes))
             else:
                 notes = (
                     _texts(entry.get("notes"))
                     + [f"unresolved: {text}" for text in _texts(entry.get("unresolved"))]
                     + end_claims.get((str(row.get("name")), offset), [])
+                    + copy_notes.get((str(row.get("name")), offset), [])
                 )
                 table.append((offset, extent, entry.get("type"), entry.get("name"), entry.get("provenance"), entry.get("evidence") or [], notes))
         for offset, extent, type_text, name, provenance, cited, notes in sorted(
@@ -1333,7 +1478,7 @@ def render_type_plan(
         ):
             lines.append(
                 f"| {_hex(offset) if isinstance(offset, int) else offset} | {_hex(extent) if isinstance(extent, int) else extent} | "
-                f"{_code(type_text)} | {_code(name)} | {provenance or ''} | {len(cited)} | {_sample_cell(list(cited), sites)} | "
+                f"{_code(type_text)} | {_code(name)} | {provenance or ''} | {len(cited)} | {_sample_cell(list(cited), sites, copied=copy_kinds)} | "
                 f"{'<br>'.join(_cell(text) for text in notes)} |"
             )
         outside = row.get("outside_accesses") or []
@@ -1391,6 +1536,41 @@ def _end_claims(model: _Plan, layout: dict[str, Any]) -> dict[tuple[str, int], l
                             f"(+{_hex(extent)}), not the next member"
                         )
     return {key: sorted(values) for key, values in notes.items()}
+
+
+def _copy_notes(model: _Plan, layout: dict[str, Any]) -> tuple[dict[tuple[str, int], list[str]], dict[str, str]]:
+    """(plan type, member offset) -> notes naming the copies inside the member, and site -> copy kind."""
+
+    classes = layout.get("classes") or []
+    windows = model.windows({row["class"] for row in classes})
+    copies = copy_accesses(classes, _extents(model, windows))
+    copied: dict[str, str] = {}
+    by_place: dict[tuple[str, int], list[tuple[str, str, str]]] = defaultdict(list)
+    for (cls, offset, site, access), kind in copies.items():
+        copied[site] = kind if copied.get(site, kind) == kind else MEMBER_WISE
+        by_place[(cls, offset)].append((site, access, kind))
+    notes: dict[tuple[str, int], list[str]] = {}
+    for name, row in model.types.items():
+        if row.get("kind") not in ("class", "struct"):
+            continue
+        for offset, extent, role, entry in model.components(row):
+            if role not in ("field", "bits") or not isinstance(offset, int) or not isinstance(extent, int):
+                continue
+            if role == "field" and model.composite(parse_type(entry.get("type"))) and not parse_type(entry.get("type"))["arrays"]:
+                continue  # the member type's own rows show its copies
+            found: dict[str, set[str]] = defaultdict(set)
+            for cls, delta in windows.get(name, ()):
+                for position in range(delta + offset, delta + offset + extent):
+                    for site, access, kind in by_place.get((cls, position), ()):
+                        found[kind].add(f"{site} {access}")
+            texts = [
+                f"{kind} copy ({'width-only evidence' if kind != BULK else 'neither width nor type evidence'}): "
+                + ", ".join(sorted(found[kind]))
+                for kind in sorted(found)
+            ]
+            if texts:
+                notes[(name, offset)] = texts
+    return notes, copied
 
 
 # -- program ------------------------------------------------------------------
@@ -1527,6 +1707,7 @@ def build_type_plan_program(
         ),
         key=lambda item: item["type"],
     )
+    template_arguments = _live_arguments(model)
     return {
         "kind": APPLY_PROGRAM_KIND,
         "schema_version": APPLY_PROGRAM_SCHEMA,
@@ -1542,6 +1723,7 @@ def build_type_plan_program(
         "categories": sorted(categories, key=lambda path: (path.count("/"), path)),
         "types": entries,
         "external_types": sorted(external),
+        "template_arguments": template_arguments,
         "layout_sources": layout_sources,
         "omissions": [],
         "receipt_scope": {"schema_version": 1, "functions": [], "types": sorted(entry["path"] for entry in entries), "globals": []},
@@ -1552,6 +1734,7 @@ def build_type_plan_program(
             "category_count": len(categories),
             "forward_declaration_count": len(forwards),
             "instantiation_count": len(layout_sources),
+            "template_argument_count": len(template_arguments),
         },
     }
 
@@ -1629,9 +1812,10 @@ def live_type_problems(
     Targets are absent and no live type shares a target's name (ignoring
     case), so later bare-name references stay unambiguous; a forward
     declaration's name also has no identity-unresolved ``<name>@<hash>``
-    variant.  Live references and instantiation sources resolve to exactly
-    their paths, and ``layout_of(leaf)`` (the parsed ``get_struct_layout``
-    read-back) of each source equals the recorded source layout.
+    variant.  Live references, live template arguments and instantiation
+    sources resolve to exactly their paths, and ``layout_of(leaf)`` (the
+    parsed ``get_struct_layout`` read-back) of each source equals the
+    recorded source layout.
     """
 
     problems = []
@@ -1660,6 +1844,14 @@ def live_type_problems(
         found = by_name.get(leaf, [])
         if found != [path]:
             problems.append(f"live type {leaf} resolves to {found or 'nothing'}, not exactly {path}")
+    for argument in program.get("template_arguments", []):
+        # The same rule as a live member type: the name resolves to exactly one live path, the expected one.
+        found = sorted(by_name.get(argument["path"].rsplit("/", 1)[1], []))
+        if found != [argument["path"]]:
+            problems.append(
+                f"template argument {argument['name']} of {', '.join(argument['types'])} resolves to "
+                f"{found or 'nothing'}, not exactly {argument['path']}"
+            )
     for source in program.get("layout_sources", []):
         leaf = source["source"].rsplit("/", 1)[1]
         found = sorted(by_folded.get(leaf.casefold(), []))

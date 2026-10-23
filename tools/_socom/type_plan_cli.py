@@ -223,6 +223,7 @@ def _type_plan_live(arguments: argparse.Namespace) -> int:
                 "types": len(program["types"]),
                 "forward_declarations": sum(1 for entry in program["types"] if entry.get("declaration")),
                 "external_types": len(program["external_types"]),
+                "template_arguments": len(program.get("template_arguments", [])),
                 "layout_sources": len(program["layout_sources"]),
             },
             "live_problems": problems,

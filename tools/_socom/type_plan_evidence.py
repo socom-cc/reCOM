@@ -20,6 +20,12 @@ validator stays file-only:
   (``nested_path``, built on first use from the type identities);
 * does a DWARF record of a template have the member layout a plan copies
   from a live instantiation (``layout_matches``)?
+* is a template argument a type the ELF names (``names_type``: a mangled
+  symbol names it, or a DWARF composite record has its leaf name)?
+
+Two layout-evidence helpers need no ELF: ``void_pointer_argument`` finds a
+``void *`` template argument in a type spelling, and ``copy_accesses``
+classifies the loads and stores of compiler-style copies (see there).
 
 Nothing here reads Ghidra.
 """
@@ -92,6 +98,113 @@ def parameter_class(text: Any) -> str | None:
     if levels != 1 or not core or core in CXX_BUILTINS or core.endswith(("*", "&")):
         return None
     return core
+
+
+_VOID_POINTER = re.compile(r"^(?:const|volatile)*void(?:const|volatile)*\*(?:const|volatile)*$")
+
+
+def template_argument_texts(text: str) -> list[str]:
+    """Every template argument of a type spelling, nested ones included, without whitespace."""
+
+    value = normalized(text)
+    found: list[str] = []
+    starts: list[int] = []
+    parentheses = 0
+    for index, char in enumerate(value):
+        if char == "(":
+            parentheses += 1
+        elif char == ")":
+            parentheses -= 1
+        elif char == "<":
+            starts.append(index + 1)
+        elif starts and char == "," and not parentheses:
+            found.append(value[starts[-1] : index])
+            starts[-1] = index + 1
+        elif starts and char == ">":
+            found.append(value[starts.pop() : index])
+    return found
+
+
+def void_pointer_argument(text: Any) -> bool:
+    """Whether a type spelling has a ``void *`` template argument at any depth."""
+
+    return isinstance(text, str) and any(_VOID_POINTER.match(argument) for argument in template_argument_texts(text))
+
+
+_LOADED = re.compile(r"^loaded (\d+)-byte ")
+MEMBER_WISE = "member-wise"
+BULK = "bulk"
+
+
+def _copy_source(site: dict[str, Any], offset: int) -> str | None:
+    """The source class of a store that writes, unchanged, the same-width value of the same offset."""
+
+    if site.get("access") != "store" or not site.get("copy_of"):
+        return None
+    source, _plus, at = str(site["copy_of"]).rpartition("+")
+    match = _LOADED.match(str(site.get("value", "")))
+    try:
+        same_offset = int(at, 16) == offset
+    except ValueError:
+        return None
+    if not source or not match or not same_offset or int(match.group(1)) != site.get("width"):
+        return None
+    return source
+
+
+def copy_accesses(
+    classes: list[dict[str, Any]], extents: dict[str, list[tuple[int, int]]]
+) -> dict[tuple[str, int, str, str], str]:
+    """(class, offset, site, access) of the loads and stores of compiler-style copies -> ``member-wise`` or ``bulk``.
+
+    A copy store writes, unchanged, a value of its own width that the same
+    function loaded from the same offset of a family object (``copy_of``:
+    ``operator=``, a copy constructor, or such a copy inlined); its loads are
+    that function's loads of the source member, of the same width, whose
+    value the function uses no other way (no use, pass or dereference of
+    that member through that root).  Such a copy moves bits: it proves the
+    unit's width, not its kind or signedness.  A function's copy stores into
+    one object that tile the whole extent of a planned object (``extents``,
+    per layout class) in chunks of one width are a bulk (memcpy-like) copy:
+    the chunk width is the copy's, not the members'.
+    """
+
+    by_function: dict[Any, list[tuple[str, int, dict[str, Any]]]] = defaultdict(list)
+    for row in classes:
+        for entry in row.get("offsets") or []:
+            for site in entry.get("sites") or []:
+                by_function[site.get("function")].append((row["class"], entry["offset"], site))
+    kinds: dict[tuple[str, int, str, str], set[str]] = defaultdict(set)
+    for rows in by_function.values():
+        used = {(cls, offset, site.get("root")) for cls, offset, site in rows if site.get("access") not in ("load", "store")}
+        stores: dict[tuple[str, Any], dict[int, list[tuple[int, list[tuple[str, int, str, str]]]]]] = defaultdict(lambda: defaultdict(list))
+        for cls, offset, site in rows:
+            source = _copy_source(site, offset)
+            if source is None:
+                continue
+            keys = [(cls, offset, site["site"], "store")] + [
+                (other_cls, other_offset, other["site"], "load")
+                for other_cls, other_offset, other in rows
+                if other.get("access") == "load" and other_cls == source and other_offset == offset
+                and other.get("width") == site.get("width") and (other_cls, other_offset, other.get("root")) not in used
+            ]
+            stores[(cls, site.get("root"))][offset].append((site["width"], keys))
+        for (cls, _root), by_offset in stores.items():
+            bulk: set[int] = set()
+            for start, size in extents.get(cls, ()):
+                inside = {offset: chunks for offset, chunks in by_offset.items() if start <= offset < start + size}
+                widths = {width for chunks in inside.values() for width, _keys in chunks}
+                if len(widths) != 1:
+                    continue
+                width = widths.pop()
+                if width and size % width == 0 and sorted(inside) == list(range(start, start + size, width)):
+                    bulk.update(inside)
+            for offset, chunks in by_offset.items():
+                for _width, keys in chunks:
+                    for key in keys:
+                        kinds[key].add(BULK if offset in bulk else MEMBER_WISE)
+    # A load or store that is also part of a member-wise copy keeps its width evidence.
+    return {key: MEMBER_WISE if MEMBER_WISE in found else BULK for key, found in kinds.items()}
 
 
 def substitute(text: str, arguments: list[tuple[str, str]], bare: bool = False) -> str:
@@ -294,6 +407,13 @@ def _symbols_cached(key: tuple[str, int, int], path: str) -> dict[str, Any]:
     return {symbol.name: demangle(symbol.name) for symbol in Elf32File(Path(path)).symbols() if symbol.name}
 
 
+@lru_cache(maxsize=2)
+def _mentioned_cached(key: tuple[str, int, int], path: str) -> frozenset[str]:
+    """Normalized names of every type a mangled symbol names."""
+
+    return frozenset(mention for parsed in _symbols_cached(key, path).values() for mention, _role in _mentions(parsed))
+
+
 def _mentions(parsed: dict[str, Any] | None) -> list[tuple[str, str]]:
     """(normalized name, role) of every type a demangled symbol names."""
 
@@ -347,6 +467,13 @@ class TypeEvidence:
         if self._symbols is None:
             self._symbols = _symbols_cached(file_key(self.path), str(self.path))
         return self._symbols
+
+    def names_type(self, name: str) -> bool:
+        """Whether a mangled symbol names the qualified type, or a DWARF composite record has its leaf name."""
+
+        if normalized(name) in _mentioned_cached(file_key(self.path), str(self.path)):
+            return True
+        return bool(self.dwarf.by_name.get(template_base(leaf_name(name))))
 
     def readable(self, symbol: str) -> str:
         parsed = self.symbols.get(symbol)
@@ -431,11 +558,16 @@ class TypeEvidence:
 
 
 __all__ = [
+    "BULK",
     "CXX_BUILTINS",
     "GHIDRA_BUILTIN",
+    "MEMBER_WISE",
     "TypeEvidence",
+    "copy_accesses",
     "leaf_name",
     "normalized",
     "parameter_class",
     "substitute",
+    "template_argument_texts",
+    "void_pointer_argument",
 ]
