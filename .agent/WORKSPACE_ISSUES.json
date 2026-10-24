@@ -1125,8 +1125,18 @@
       "resolution": null,
       "status": "open",
       "summary": "recon facts/draft ignore DWARF subroutine-typed global_variable records at function addresses; no search for live @subroutine@ types by shape"
+    },
+    {
+      "details": "Group 260/261 planner (socom-recon-planner-g142): recon types finds no zdb::IntersectStruct or zdb::CTextureRelocMgr although /project/zdb/ holds them, so planners fall back to bare names (unique here, but bare names are case-insensitive, issue 5d8acc30). Related: get_struct_layout does not find /project/zar/CKey by full path, only by bare name (group 255/256 planner). Also: RemoveExtension(char const*) returns std::string by value with a0 as hidden result pointer; the draft/plan route has no structure-return row shape, so it stays unresolved.",
+      "id": "socom:workspace-issue:f9a9a47de3d39b3bf5b6",
+      "kind": "problem",
+      "reported_at": "2026-10-24T17:20:02Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "recon types does not resolve qualified names zdb::IntersectStruct / zdb::CTextureRelocMgr held under /project/zdb"
     }
   ],
-  "revision": 127,
+  "revision": 128,
   "schema_version": 1
 }
