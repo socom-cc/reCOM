@@ -80,6 +80,14 @@ indexed from its start or lie where a lower object of known size may
 extend, are flagged instead of attributed.  Class layouts never use these
 regions, so their reports are unchanged.
 
+Command records (``class_layout(..., records=[...])``, ``recon layout
+--records``): ``type_records`` proves, from a registrar's call sites and its
+mangled function-pointer parameter types, which callback registers and
+returned call results hold which command's record; those are roots of
+record keys ``(RECORD, command, ...)`` (several commands when one pointer
+reaches several), and every attributed site is recorded for each command.
+One row per command follows the class rows.  Other modes never see records.
+
 Nothing is inferred from names or Ghidra: a site is listed only when the
 instruction semantics prove its base.  Accesses whose base the analysis
 cannot prove are counted per function as unattributed, so gaps stay visible.
@@ -346,7 +354,26 @@ def mangled_qualifier(components: list[str]) -> str:
     return f"Q_{len(components)}_{encoded}"
 
 
+# Command records (``type_records``): a record key is (RECORD, command, ...),
+# the commands whose record one pointer holds; RECORD is no C++ name.
+RECORD = "<record>"
+
+
+def record_key(commands: Any) -> tuple[str, ...]:
+    return (RECORD, *sorted(commands))
+
+
+def _record_keys(cls: tuple[str, ...]) -> list[tuple[str, ...]]:
+    """The keys a site is attributed to: each command of a record key, else the class itself."""
+
+    if cls and cls[0] == RECORD:
+        return [(RECORD, command) for command in cls[1:]]
+    return [cls]
+
+
 def _qualified(components: Any) -> str:
+    if components and components[0] == RECORD:
+        return "record " + "|".join(components[1:])
     return readable_qualified(list(components))
 
 
@@ -1059,41 +1086,56 @@ class _Family:
     RTTI, vtable or DWARF record, proven only by mangled parameter types.  Its
     family is that one type; ``name_evidence`` lists the mangled symbols whose
     parameters name it.
+
+    ``records=True`` adds command records (``type_records``; the caller sets
+    ``records`` to the registry): ``name`` is then optional, a class laid out
+    beside them (``VALVE_CMD_DATA``, embedded in the valve records).
     """
 
-    def __init__(self, root: Path, name: str, with_derived: bool, struct: bool = False) -> None:
+    def __init__(self, root: Path, name: str | None, with_derived: bool, struct: bool = False, records: bool = False) -> None:
         self.root = root
         self.ctx = context(root)
         self.leaves, self.templates = class_leaves(root)
         self.symbols = _Symbols(self.ctx, dwarf_scalars(root, self.leaves))
         self.receivers = _Receivers(self.ctx, self.symbols, dwarf_subprograms(root))
-        components = tuple(split_qualified(name))
-        mangled_qualifier(list(components))
-        self.requested = components
+        self.records: Any = None
         self.struct = struct
         self.name_evidence: list[str] = []
         self.rtti = self._rtti_index()
         members = self._members_by_class()
-        if struct:
-            self._require_struct(name, components, members, with_derived)
-        elif not members.get(components) and components not in self.rtti["by_class"]:
-            hint = (
-                "; it is named only by mangled parameter types: lay it out as a plain struct (--struct)"
-                if self._parameter_symbols(components)[1] else ""
-            )
-            raise SocomError(f"{name}: no member function or RTTI record has that qualifier{hint}")
-        classes: dict[tuple[str, ...], str] = {components: "requested"}
-        pending = [components]
-        while pending:
-            current = pending.pop()
-            for base, _offset in self.bases(current):
-                if base not in classes:
-                    classes[base] = "base"
-                    pending.append(base)
-        if with_derived:
-            for candidate in sorted(self.rtti["by_class"]):
-                if candidate not in classes and any(base == components for base, _offset in self.bases(candidate)):
-                    classes[candidate] = "derived"
+        if records and struct:
+            raise SocomError("command records and a plain struct are laid out separately (drop --struct)")
+        classes: dict[tuple[str, ...], str] = {}
+        if name is None:
+            if not records:
+                raise SocomError("a class name (or command records) is required")
+            if with_derived:
+                raise SocomError("--with-derived needs a class")
+            self.requested: tuple[str, ...] | None = None
+        else:
+            components = tuple(split_qualified(name))
+            mangled_qualifier(list(components))
+            self.requested = components
+            if struct:
+                self._require_struct(name, components, members, with_derived)
+            elif not members.get(components) and components not in self.rtti["by_class"]:
+                hint = (
+                    "; it is named only by mangled parameter types: lay it out as a plain struct (--struct)"
+                    if self._parameter_symbols(components)[1] else ""
+                )
+                raise SocomError(f"{name}: no member function or RTTI record has that qualifier{hint}")
+            classes[components] = "requested"
+            pending = [components]
+            while pending:
+                current = pending.pop()
+                for base, _offset in self.bases(current):
+                    if base not in classes:
+                        classes[base] = "base"
+                        pending.append(base)
+            if with_derived:
+                for candidate in sorted(self.rtti["by_class"]):
+                    if candidate not in classes and any(base == components for base, _offset in self.bases(candidate)):
+                        classes[candidate] = "derived"
         self.classes = classes
         self.members = {cls: members.get(cls, []) for cls in classes}
         self.vtable_class: dict[int, tuple[str, ...]] = {}
@@ -1929,6 +1971,17 @@ class _Collector:
         """Typed roots of one function: entry roots, constructed allocations, and family pointers holders prove."""
 
         roots = dict(self.entry_roots.get(address, {}))
+        records = self.family.records
+        if records is not None:
+            # Command records (``type_records``): registered or passed entry registers, and returned call results
+            # (also when a typed return turned the call result into a hold term).
+            for register, (key, proof) in records.entry_roots(address).items():
+                roots.setdefault(("arg", register), (key, f"record {GPR[register]}", proof))
+            for term, (key, proof) in records.term_roots(address).items():
+                roots.setdefault(term, (key, f"record@0x{term[1]:x}", proof))
+                for held in sorted(analysis.holds, key=str):
+                    if held[1] == term:
+                        roots.setdefault(held, (key, f"record@0x{term[1]:x}", proof))
         for call in analysis.calls:
             if call["callee"] not in self.ctor_class:
                 continue
@@ -2378,7 +2431,14 @@ class _Collector:
         return row
 
     def _add(self, cls: tuple[str, ...], offset: int, row: dict[str, Any]) -> None:
-        self.sites[cls].append({"offset": offset, **row})
+        keys = _record_keys(cls)
+        shared = _qualified(cls) + "+" if len(keys) > 1 else None
+        for key in keys:
+            entry = {"offset": offset, **row}
+            if shared and str(entry.get("copy_of", "")).startswith(shared):
+                # A copy within one pointer of several commands' records copies each command's own record.
+                entry["copy_of"] = _qualified(key) + "+" + entry["copy_of"][len(shared):]
+            self.sites[key].append(entry)
 
     def _memory_site(self, function: int, event: dict[str, Any]) -> None:
         located = self._locate(function, event["address"])
@@ -2458,7 +2518,8 @@ class _Collector:
                     self._add(cls, path[0], {**self._site_row(function, call["site"], root, **fields), "pointer": True})
                 elif not path and offset == 0:
                     fields["access"] = "object-passed"
-                    self.object_passes[cls].append(self._site_row(function, call["site"], root, **fields))
+                    for key in _record_keys(cls):
+                        self.object_passes[key].append(self._site_row(function, call["site"], root, **fields))
                 else:
                     fields["access"] = "address-passed"
                     if path:
@@ -2713,15 +2774,162 @@ STRUCT_METHOD = [
 ]
 
 
-def class_layout(root: Path, name: str, with_derived: bool = False, struct: bool = False) -> dict[str, Any]:
+RECORD_METHOD = [
+    "records mode: one row per command record (record <command>); registrations are direct calls to the "
+    "registrar whose name register holds a string and whose callback registers hold function addresses or NULL",
+    "a callback registered for a role receives the record in the registers the registrar's function-pointer "
+    "parameter types as the header, and a parser returns it (a function stored in a plain function pointer is "
+    "static); a direct callee receives it when the record is passed unchanged in a register its mangled "
+    "parameter (or a registration) types as the header",
+    "a function returning a record returns, at every exit, NULL, an allocator's result (the record's allocation "
+    "and size), a mover's result (realloc: the record grows; its argument was the record), another function's "
+    "result or a tail jump (which then return the record too); other exit values are listed as unrooted",
+    "a pointer entered for several commands holds each command's record (record A|B); its accesses are "
+    "attributed to each; header is the registrar's header type at +0 with its DWARF layout",
+    "data_size: header stores at +2 (2 bytes) that keep bits 0-1 and write constant bits 2-15 (data_size "
+    "<< 2); dwarf_casts: DWARF parameters and locals of the record's callbacks typed as pointers to a composite "
+    "that has the header at +0 (callback parameters typed as the header itself are left out)",
+]
+
+
+def _data_size(offsets: list[dict[str, Any]]) -> tuple[list[int], list[str]]:
+    """(constant data_size values the 2-byte header stores at +2 write, sites of other writes of those bits)."""
+
+    values: set[int] = set()
+    other: set[str] = set()
+    for row in offsets:
+        if row["offset"] not in (2, 3):
+            continue
+        for site in row["sites"]:
+            if site.get("access") != "store" or site.get("pointer"):
+                continue
+            if row["offset"] == 2 and site.get("width") == 2:
+                if "constant" in site:
+                    values.add((site["constant"] & 0xFFFC) >> 2)
+                    continue
+                bits = site.get("bitfield")
+                if bits and not bits["dynamic"] and int(bits["field_mask"], 16) & 0xFFFC == 0xFFFC:
+                    values.add((int(bits["set"], 16) & 0xFFFC) >> 2)
+                    continue
+                other.add(site["site"])
+            elif row["offset"] == 3 or not site.get("bitfield") or int(site["bitfield"]["field_mask"], 16) & 0xFC:
+                other.add(site["site"])
+    return sorted(values), sorted(other, key=lambda text: int(text, 16))
+
+
+def _record_rows(family: _Family, collector: _Collector, sizes: dict[str, list[int]]) -> list[dict[str, Any]]:
+    """One layout row per selected command record (``type_records``)."""
+
+    from .type_plan_evidence import TypeEvidence
+    from .type_records import record_class
+
+    registry = family.records
+    evidence = TypeEvidence(family.root)
+    leaf = registry.header[-1]
+    header_layout = evidence.record_layout(leaf)
+    header = {
+        "type": "::".join(registry.header),
+        "offset": 0,
+        "size": header_layout["size"],
+        "dwarf": header_layout["dies"][:1],
+        "dwarf_records": len(header_layout["dies"]),
+        "members": header_layout["live"],
+        "problems": header_layout["problems"],
+    }
+    rows = []
+    for command in sorted(registry.selected):
+        key = (RECORD, command)
+        allocations = sorted(registry.allocations[command].values(), key=lambda row: (int(row["function"], 16), row["allocation_site"]))
+        fixed = sorted({row["size"] for row in allocations if row.get("size") is not None})
+        grows = any(row.get("moves") for row in allocations)
+        offsets = _summaries(collector.sites.get(key, []), sizes, fixed[0] if len(fixed) == 1 and not grows else None)
+        if isinstance(header["size"], int):
+            inside = f"{header['type']}@0x0/{_hex(header['size'])}"
+            for row in offsets:
+                if row["offset"] < header["size"]:
+                    row["inside_subobject"] = sorted(set(row["inside_subobject"]) | {inside})
+        data_size, other_writes = _data_size(offsets)
+        callbacks = registry.callbacks(command)
+        casts = []
+        for callback in callbacks:
+            for variable in evidence.pointer_variables(int(callback["function"], 16)):
+                if not any(offset == 0 and name == leaf for offset, name in variable["nested"]):
+                    continue
+                if variable["kind"] == "parameter" and variable["type"] == leaf:
+                    continue  # the callback's own header parameter, not a cast
+                casts.append({"function": callback["function"], "function_name": callback["name"], **{k: v for k, v in variable.items() if k != "nested"}})
+        unresolved = [
+            {"function": row["function"], "name": row["name"], "reason": f"{row['reason']} (exit or transfer @{row['site']})"}
+            for row in registry.unrooted[command].values()
+        ]
+        for registration in registry.registration_rows(command):
+            unresolved.extend(
+                {"function": registration["function"], "name": registration["function_name"], "reason": f"registration @{registration['site']}: {text}"}
+                for text in registration["problems"]
+            )
+        rows.append(
+            {
+                "class": record_class(command),
+                "command": command,
+                "components": None,
+                "mangled_qualifier": None,
+                "role": "record",
+                "header": header,
+                "registrations": registry.registration_rows(command),
+                "callbacks": callbacks,
+                "size_evidence": fixed if not grows else [],
+                "fixed_allocation_sizes": fixed,
+                "variable_tail": grows,
+                "allocations": allocations,
+                "data_size": data_size,
+                "data_size_other_writes": other_writes,
+                "dwarf_casts": sorted(casts, key=lambda row: (int(row["function"], 16), row["die"])),
+                "constructions": [],
+                "rtti": [],
+                "bases": [],
+                "base_constructor_calls": [],
+                "vtable": None,
+                "members": [],
+                "statics": [],
+                "object_passes": sorted(
+                    collector.object_passes.get(key, []),
+                    key=lambda row: (int(row["function"], 16), int(row["site"], 16), row.get("register", "")),
+                ),
+                "offsets": offsets,
+                "conflicts": [{"offset": row["offset"], "conflicts": row["conflicts"]} for row in offsets if row["conflicts"]],
+                "unresolved": sorted(unresolved, key=lambda row: (row["function"], row["reason"])),
+            }
+        )
+    return rows
+
+
+def class_layout(
+    root: Path,
+    name: str | None,
+    with_derived: bool = False,
+    struct: bool = False,
+    records: list[str] | None = None,
+    registrar: str = "zanim",
+) -> dict[str, Any]:
     """Deterministic layout evidence for ``name``, its RTTI bases and (optionally) derived classes.
 
     ``struct=True`` lays out a plain struct named only by mangled parameter types (``_Family``), with
     caller-built objects; the report then carries ``"struct": true`` and the struct's ``name_evidence``,
     ``caller_built`` and ``size_bounds``.  Class reports are unchanged.
+
+    ``records`` (command names or ``set::*`` patterns of the ``registrar`` table, ``type_records``) adds one
+    row per command record (``record <command>``) after the class rows; ``name`` is then optional.  The report
+    carries ``records`` (the expanded commands) and ``registrar``.
     """
 
-    family = _Family(root, name, with_derived, struct)
+    family = _Family(root, name, with_derived, struct, records=records is not None)
+    selected: list[str] | None = None
+    if records is not None:
+        from .type_records import Registry
+
+        registry = Registry(family, CallParameters(family.symbols, family.receivers), registrar)
+        selected = registry.select(list(records))
+        family.records = registry
     collector = _Collector(family)
     sizes = dwarf_sizes(root)
     classes = []
@@ -2797,13 +3005,15 @@ def class_layout(root: Path, name: str, with_derived: bool = False, struct: bool
             "flagged": sorted(collector.flagged, key=lambda item: (int(item["function"], 16), int(item["site"], 16), item["offset"], item["access"])),
         }
         row["size_bounds"] = _struct_size_bounds(row, collector)
+    if selected is not None:
+        classes.extend(_record_rows(family, collector, sizes))
     analyzed = [collector.functions[address] for address in sorted(collector.functions)]
     holders = collector.holders
     report = {
         "kind": LAYOUT_KIND,
         "schema_version": LAYOUT_SCHEMA,
         "target": {"source_sha256": REFERENCE_SHA256},
-        "class": _qualified(family.requested),
+        "class": _qualified(family.requested) if family.requested is not None else None,
         "with_derived": with_derived,
         "classes": classes,
         "functions": analyzed,
@@ -2870,6 +3080,10 @@ def class_layout(root: Path, name: str, with_derived: bool = False, struct: bool
     if family.struct:
         report["struct"] = True
         report["method"] = STRUCT_METHOD + report["method"]
+    if selected is not None:
+        report["records"] = selected
+        report["registrar"] = family.records.summary()
+        report["method"] = RECORD_METHOD + report["method"]
     return report
 
 
@@ -2923,57 +3137,101 @@ def _struct_lines(cls: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _record_lines(cls: dict[str, Any]) -> list[str]:
+    """The head of a command record row: header, registrations, callbacks, allocations, data_size, DWARF casts."""
+
+    header = cls["header"]
+    members = ", ".join(f"{name} +{_hex(offset)}/{size} {type_text}" for offset, size, type_text, name in header["members"])
+    lines = [
+        f"## {cls['class']} [record]",
+        f"header {header['type']} at +0x0 ({header['size']} bytes, DWARF {', '.join(header['dwarf']) or 'none'} of "
+        f"{header['dwarf_records']} agreeing records): {members}"
+        + (f"; PROBLEMS {'; '.join(header['problems'])}" if header["problems"] else ""),
+        f"size evidence: {', '.join(_hex(size) for size in cls['size_evidence']) or 'none'}"
+        + ("; variable tail (the record is reallocated)" if cls["variable_tail"] else "")
+        + f"; data_size written: {', '.join(_hex(size) for size in cls['data_size']) or 'none'}"
+        + (f"; other data_size writes {', '.join(cls['data_size_other_writes'])}" if cls["data_size_other_writes"] else ""),
+    ]
+    for row in cls["allocations"]:
+        size = _hex(row["size"]) if row.get("size") is not None else "?"
+        what = f"moves its {row['moves']}" if row.get("moves") else f"size {size}"
+        lines.append(f"  allocation {row['allocator']} @{row['allocation_site']} in {row['function_name']}: {what}")
+    for row in cls["registrations"]:
+        callbacks = ", ".join(
+            f"{role} {item['name']} {item['function']}" if item else f"{role} NULL" for role, item in row["callbacks"].items()
+        )
+        lines.append(f"registration @{row['site']} in {row['function_name']}: {callbacks}")
+        lines.extend(f"  PROBLEM {text}" for text in row["problems"])
+    lines.append(f"record pointers ({len(cls['callbacks'])}):")
+    for row in cls["callbacks"]:
+        lines.append(f"  {row['function']} {row['name']} {row['record']}: {'; '.join(row['proofs'])}")
+    for row in cls["dwarf_casts"]:
+        lines.append(
+            f"DWARF cast: {row['kind']} {row['name']} ({row['die']}) of {row['function_name']} {row['function']} is "
+            f"{row['type']} * (DWARF {row['type_die']}, {row['type_size']} bytes)"
+        )
+    return lines
+
+
 def render_layout(report: dict[str, Any]) -> str:
     summary = report["summary"]
+    title = f"# code-derived layout evidence: {report['class']}" + (" (with derived classes)" if report["with_derived"] else "")
+    if report.get("records") is not None:
+        title = (
+            f"# code-derived layout evidence: {len(report['records'])} {report['registrar']['key']} command records"
+            + (f" and {report['class']}" if report["class"] else "") + (" (with derived classes)" if report["with_derived"] else "")
+        )
     lines = [
-        f"# code-derived layout evidence: {report['class']}" + (" (with derived classes)" if report["with_derived"] else "")
-        + (" (plain struct)" if report.get("struct") else ""),
+        title + (" (plain struct)" if report.get("struct") else ""),
         f"functions analyzed {summary['function_count']}, attributed sites {summary['site_count']}, "
         f"unattributed accesses {summary['unattributed_access_count']}",
     ]
     lines.extend(f"method: {text}" for text in report["method"])
     for cls in report["classes"]:
         lines.append("")
-        lines.append(f"## {cls['class']} [{cls['role']}] mangled {cls['mangled_qualifier']}")
-        lines.append(f"size evidence: {', '.join(_hex(size) for size in cls['size_evidence']) or 'none'}")
-        for row in cls["allocations"]:
-            lines.append(
-                f"  allocation {row['allocator']}({_hex(row['size'])}) @{row['allocation_site']} -> {row['constructor']} "
-                f"@{row['constructor_site']} in {row['function_name']}"
-                + (f"; vtable {', '.join(row['vtable_stores'])}" if row["vtable_stores"] else "")
-            )
-        for row in cls["constructions"]:
-            lines.append(
-                f"  construction: result of {row['allocator'] or 'unknown'} @{row['allocation_site']} -> {row['constructor']} "
-                f"@{row['constructor_site']} in {row['function_name']}"
-            )
-        for record in cls["rtti"]:
-            bases = ", ".join(
-                f"{base['class'] or base['rtti']}@{_hex(base['offset'])}{' (ambiguous)' if base['ambiguous'] else ''}"
-                for base in record["bases"]
-            ) or "none"
-            lines.append(f"rtti {record['name']} {record['address']} name {record['type_name']!r} base list {record['base_list']}: {bases}")
-        for row in cls["base_constructor_calls"]:
-            adjustment = f"+{_hex(row['this_adjustment'])}" if row["this_adjustment"] else ""
-            lines.append(f"base constructor call: {row['calls']} with a0 = this{adjustment} @{row['site']} in {row['constructor']}")
-        vtable = cls["vtable"]
-        if vtable:
-            header = vtable["header"]
-            type_info = header["type_info"] or {}
-            lines.append(
-                f"vtable {vtable['name']} {vtable['address']} ({vtable['size']} bytes): +0x0 type_info "
-                f"{type_info.get('target', type_info.get('word'))}, +0x4 complete_offset {(header['complete_offset'] or {}).get('word')}"
-            )
-            for slot in vtable["slots"]:
-                lines.append(f"  +{_hex(slot['offset'])} slot {slot['slot']}: {slot.get('function_name', slot['word'])} {slot.get('function', '')}")
-        lines.append(f"members ({len(cls['members'])}):")
-        for member in cls["members"]:
-            lines.append(f"  {member['address']} {member['name']} receiver: {member['receiver'] or 'UNPROVEN'}")
-        if cls["statics"]:
-            lines.append(
-                f"static members ({len(cls['statics'])}): "
-                + ", ".join(f"{row['name']}@{row['address']}/{row['size']}" for row in cls["statics"])
-            )
+        if cls["role"] == "record":
+            lines.extend(_record_lines(cls))
+        else:
+            lines.append(f"## {cls['class']} [{cls['role']}] mangled {cls['mangled_qualifier']}")
+            lines.append(f"size evidence: {', '.join(_hex(size) for size in cls['size_evidence']) or 'none'}")
+            for row in cls["allocations"]:
+                lines.append(
+                    f"  allocation {row['allocator']}({_hex(row['size'])}) @{row['allocation_site']} -> {row['constructor']} "
+                    f"@{row['constructor_site']} in {row['function_name']}"
+                    + (f"; vtable {', '.join(row['vtable_stores'])}" if row["vtable_stores"] else "")
+                )
+            for row in cls["constructions"]:
+                lines.append(
+                    f"  construction: result of {row['allocator'] or 'unknown'} @{row['allocation_site']} -> {row['constructor']} "
+                    f"@{row['constructor_site']} in {row['function_name']}"
+                )
+            for record in cls["rtti"]:
+                bases = ", ".join(
+                    f"{base['class'] or base['rtti']}@{_hex(base['offset'])}{' (ambiguous)' if base['ambiguous'] else ''}"
+                    for base in record["bases"]
+                ) or "none"
+                lines.append(f"rtti {record['name']} {record['address']} name {record['type_name']!r} base list {record['base_list']}: {bases}")
+            for row in cls["base_constructor_calls"]:
+                adjustment = f"+{_hex(row['this_adjustment'])}" if row["this_adjustment"] else ""
+                lines.append(f"base constructor call: {row['calls']} with a0 = this{adjustment} @{row['site']} in {row['constructor']}")
+            vtable = cls["vtable"]
+            if vtable:
+                header = vtable["header"]
+                type_info = header["type_info"] or {}
+                lines.append(
+                    f"vtable {vtable['name']} {vtable['address']} ({vtable['size']} bytes): +0x0 type_info "
+                    f"{type_info.get('target', type_info.get('word'))}, +0x4 complete_offset {(header['complete_offset'] or {}).get('word')}"
+                )
+                for slot in vtable["slots"]:
+                    lines.append(f"  +{_hex(slot['offset'])} slot {slot['slot']}: {slot.get('function_name', slot['word'])} {slot.get('function', '')}")
+            lines.append(f"members ({len(cls['members'])}):")
+            for member in cls["members"]:
+                lines.append(f"  {member['address']} {member['name']} receiver: {member['receiver'] or 'UNPROVEN'}")
+            if cls["statics"]:
+                lines.append(
+                    f"static members ({len(cls['statics'])}): "
+                    + ", ".join(f"{row['name']}@{row['address']}/{row['size']}" for row in cls["statics"])
+                )
         lines.append(f"offsets ({len(cls['offsets'])}):")
         for row in cls["offsets"]:
             facts = []

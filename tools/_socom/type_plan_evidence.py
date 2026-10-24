@@ -519,6 +519,7 @@ class TypeEvidence:
         self.path = root / "support" / "socom.elf"
         self._dwarf: _Dwarf | None = None
         self._symbols: dict[str, Any] | None = None
+        self._subprograms: dict[int, list[Any]] | None = None
 
     @property
     def dwarf(self) -> _Dwarf:
@@ -609,6 +610,125 @@ class TypeEvidence:
             if (die := self.dwarf.die(offset)) is not None and (size is None or die.integer("byte_size") == size)
         ]
         return self.dwarf.common(records) if records else None
+
+    def record_layout(self, leaf: str) -> dict[str, Any]:
+        """The DWARF layout of a composite named ``leaf``, when every complete record of it agrees.
+
+        Returns ``{"size", "dies", "fields", "padding", "live", "problems"}``:
+        ``fields`` in plan form (Ghidra builtins, ``/project/<leaf>`` for a
+        composite or enumeration by value or through a pointer, bitfields
+        with their least-significant-bit position in the storage unit, as
+        Metrowerks records it), the bytes no member covers as ``padding``,
+        and ``live`` as the named ``get_struct_layout`` rows the DWARF
+        import gave the type (bitfields ``type:bits`` at their byte).
+        """
+
+        from .type_apply import FUND_TYPES
+        from .type_identity import indirection, member_offset, type_ref
+
+        records = [die for die in self.dwarf.records(leaf) if (die.integer("byte_size") or 0) > 0 and self.dwarf.children(die)]
+        result: dict[str, Any] = {"size": None, "dies": [f"0x{die.offset:x}" for die in records], "fields": [], "padding": [], "live": [], "problems": []}
+        if not records:
+            result["problems"].append(f"no complete DWARF record is named {leaf}")
+            return result
+        layouts = []
+        for die in records:
+            fields, live, problems = [], [], []
+            for child in self.dwarf.children(die):
+                if child.tag_name == "inheritance":
+                    problems.append(f"DWARF 0x{die.offset:x} has a base; referenced record types are plain structs")
+                    continue
+                if child.tag_name != "member":
+                    continue
+                name, offset, ref = child.string("name") or "", member_offset(child), type_ref(child)
+                if offset is None or ref is None:
+                    problems.append(f"member {name} has no constant location or type")
+                    continue
+                modifiers, target, fund = ref
+                pointers = len(indirection(modifiers))
+                if fund is not None:
+                    found = FUND_TYPES.get(fund)
+                    if found is None or not found.size and not pointers:
+                        problems.append(f"member {name}: DWARF fundamental type 0x{fund:x} has no Ghidra builtin")
+                        continue
+                    base, live_base, size = found.ghidra, found.ghidra, found.size
+                else:
+                    record = self.dwarf.die(target)
+                    if record is None or record.tag_name not in COMPOSITE_TAGS + ("enumeration_type",) or not record.string("name"):
+                        problems.append(f"member {name}: its DWARF type ({record.tag_name if record else '?'}) is not a named composite or enumeration")
+                        continue
+                    base, live_base, size = f"/project/{record.string('name')}", record.string("name"), record.integer("byte_size")
+                if pointers:
+                    base, live_base, size = base + " *" * pointers, live_base + " *" * pointers, 4
+                field = {"offset": offset, "size": size, "type": base, "name": name}
+                bit_size = child.integer("bit_size")
+                if bit_size is not None:
+                    bit_offset = child.integer("bit_offset") or 0
+                    field.update(bit_offset=bit_offset, bit_size=bit_size)
+                    live.append([offset + bit_offset // 8, (bit_offset % 8 + bit_size + 7) // 8, f"{live_base}:{bit_size}", name])
+                else:
+                    live.append([offset, size, live_base, name])
+                fields.append(field)
+            layouts.append((die.integer("byte_size"), fields, live, problems))
+        first = layouts[0]
+        if any(repr(item) != repr(first) for item in layouts[1:]):
+            result["problems"].append(f"the DWARF records of {leaf} ({', '.join(result['dies'])}) disagree")
+        size, fields, live, problems = first
+        result.update(size=size, fields=fields, live=live)
+        result["problems"].extend(problems)
+        covered = sorted(
+            {(field["offset"], field["offset"] + (field["size"] or 0)) for field in fields}
+        )
+        cursor = 0
+        for low, high in covered:
+            if low > cursor:
+                result["padding"].append({"offset": cursor, "size": low - cursor})
+            cursor = max(cursor, high)
+        if size and cursor < size:
+            result["padding"].append({"offset": cursor, "size": size - cursor})
+        return result
+
+    def pointer_variables(self, address: int) -> list[dict[str, Any]]:
+        """Formal parameters and locals (lexical blocks included) of the DWARF subprograms at ``address``
+        typed as a single-level pointer to a named composite, with the composite's by-value sub-objects."""
+
+        from .type_identity import indirection, type_ref
+
+        if self._subprograms is None:
+            found: dict[int, list[Any]] = defaultdict(list)
+            for die in self.dwarf.dies:
+                if die.tag_name in ("subroutine", "global_subroutine") and die.integer("low_pc"):
+                    found[die.integer("low_pc")].append(die)
+            self._subprograms = dict(found)
+        rows = []
+
+        def walk(die: Any, depth: int = 0) -> None:
+            for child in self.dwarf.children(die):
+                if child.tag_name == "lexical_block" and depth < 16:
+                    walk(child, depth + 1)
+                if child.tag_name not in ("formal_parameter", "local_variable"):
+                    continue
+                ref = type_ref(child)
+                if ref is None or ref[1] is None or indirection(ref[0]) != (1,):
+                    continue
+                record = self.dwarf.die(ref[1])
+                if record is None or record.tag_name not in COMPOSITE_TAGS or not record.string("name"):
+                    continue
+                rows.append(
+                    {
+                        "kind": "parameter" if child.tag_name == "formal_parameter" else "local",
+                        "name": child.string("name") or "",
+                        "die": f"0x{child.offset:x}",
+                        "type": record.string("name"),
+                        "type_die": f"0x{record.offset:x}",
+                        "type_size": record.integer("byte_size"),
+                        "nested": sorted(self.dwarf.nested_of(record)),
+                    }
+                )
+
+        for subprogram in self._subprograms.get(address, []):
+            walk(subprogram)
+        return rows
 
     def layout_matches(self, template: str, size: int, members: set[tuple[int, str]], bases: set[int]) -> list[int]:
         """Offsets of DWARF records ``template`` of ``size`` bytes with exactly these members and bases."""

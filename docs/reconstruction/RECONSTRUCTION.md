@@ -609,6 +609,52 @@ python tools/socom.py recon type-plan affected --plan build/type-plans/zdb-cvisu
   struct `mangled-symbol` with the symbols of its `name_evidence`. Class
   layouts never use caller-built regions, so their evidence and digests do
   not change.
+- Command records (`tools/_socom/type_records.py`): zAnim callbacks take a
+  `_zanim_cmd_hdr *` that is really their command's record (DWARF for
+  `zcam_main.cpp` casts it: `cmd_ptr = (_camera_params_cmd *)hdr`). Lay out
+  one family with `recon layout --records <command or set::*...> [--class
+  VALVE_CMD_DATA] --output build/type-plans/zanim-<family>-layout.json` and
+  plan it with `progress add-type-plan --records <commands...> --family
+  <family> [--class <class>]` (item `type-plan-zanim-<family>`; the batch and
+  the plan's `layout` record the expanded, sorted `records`, `family`,
+  `registrar` and the optional class). The registrar is configured
+  (`REGISTRARS["zanim"]`: `CZAnimMain::AddCmd`, name in a1, parser/begin/
+  tick/end in a2/a3/t0/t1); which callback register holds the record, and
+  that a parser returns it, comes from AddCmd's mangled function-pointer
+  parameter types. A registration is a direct call whose a1 is a string and
+  whose role registers are function addresses or NULL; the callback receives
+  (or the parser returns) that command's record, with the registration site
+  as its proof. A direct callee receives it when the record is passed
+  unchanged in a register its mangled parameter (or a registration) types as
+  the header (`CTDoor::Begin` jumps to `CTMove::Begin`: DOOR records reach
+  it); a function returning a record returns, at every exit, NULL, an
+  allocator result (`_calloc` a0*a1, `_malloc` a0: the record's allocation),
+  a `_realloc` result (a variable tail; its argument was the record) or
+  another function's result or tail jump (which then returns it too). A
+  pointer reached for several commands is attributed to each (`record A|B`).
+  Each record row (`record <command>`) gives the header (`_zanim_cmd_hdr`
+  from DWARF) at +0, registrations, record pointers with proofs,
+  allocations, `data_size` (2-byte header stores at +2 keeping bits 0-1 and
+  writing constant bits 2-15), DWARF casts (callback parameters and locals
+  typed as a pointer to a composite with the header at +0) and the offsets.
+  Calls on embedded objects (`VALVE_CMD_DATA::Compare(rec+8)`) are sub-object
+  passes, so the class is laid out beside the records.
+- A records plan maps every record to exactly one type (`records`: sorted
+  command names). Records sharing one layout share one type (`TASK_MOVE` for
+  MOVE and DOOR). A record whose callbacks DWARF casts to an existing record
+  type is mapped to a `dwarf` type: `{"name": "_camera_control_cmd", "kind":
+  "dwarf", "category": "/project", "name_provenance": "dwarf",
+  "name_evidence": ["0xf3cbf"], "records": [...]}` with no layout of its own;
+  the validator derives its members from DWARF and checks the records'
+  accesses against them, the program never creates it
+  (`referenced_types`), and `type-plan live` proves it resolves to exactly
+  its path with the DWARF members. Other records get a new `struct` with the
+  header at +0 (a `/project/_zanim_cmd_hdr` base or field, or a live DWARF
+  base that contains it such as `/project/TASK_HDR` with its `size`); its
+  size must equal every record's allocation and `data_size` (or cite
+  `size_evidence` for a variable tail), and invented record type names are
+  `_<module>_<name>_cmd` or `TASK_<NAME>`. A GPR store of a constant is
+  width evidence only (Metrowerks stores float immediates with `lui`/`sw`).
 - The plan (format in `tools/_socom/type_plan.py`) gives each type its
   qualified name, category (`/project/<namespaces>`), size, alignment, bases
   at their RTTI offsets (component named by the bare base type name), the

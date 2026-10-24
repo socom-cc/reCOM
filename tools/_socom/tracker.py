@@ -109,7 +109,15 @@ TYPE_PLAN_RESOURCES = ["build/type-plans"]
 TYPE_PLAN_PREFIX = "socom:work:type-plan-"
 
 
-def add_type_plan_items(tracker: dict[str, Any], class_name: str, with_derived: bool, struct: bool = False) -> list[str]:
+def add_type_plan_items(
+    tracker: dict[str, Any],
+    class_name: str | None,
+    with_derived: bool,
+    struct: bool = False,
+    records: list[str] | None = None,
+    family: str | None = None,
+    registrar: str | None = None,
+) -> list[str]:
     """Insert a code-derived type plan item and its live apply item into stage 3.
 
     The plan is file-only (``build/type-plans``) and has no dependencies: its
@@ -117,16 +125,35 @@ def add_type_plan_items(tracker: dict[str, Any], class_name: str, with_derived: 
     ``ghidra-writer`` and waits for the accepted plan.  Both join the stage 3
     gate, as stage 3 repairs do.  ``struct`` plans a plain struct named only by
     mangled parameter types (``recon layout --struct``): the batch records
-    ``"struct": true``; the item kinds and gate are the same.
+    ``"struct": true``; the item kinds and gate are the same.  ``records``
+    plans one family of command records (``recon layout --records``, the
+    expanded command names) as ``type-plan-<registrar>-<family>``; the batch
+    records ``records``, ``family``, ``registrar`` and the optional class.
     """
 
-    from .type_plan import type_plan_item_id
+    from .type_plan import records_item_id, type_plan_item_id
+    from .type_records import FAMILY_SLUG, REGISTRARS
 
-    if not class_name.strip():
-        raise SocomError("the class name must not be empty")
-    if struct and with_derived:
-        raise SocomError("a plain struct has no derived classes; drop --with-derived")
-    plan_id = type_plan_item_id(class_name)
+    if records is not None:
+        if struct:
+            raise SocomError("a records family is not a plain struct; drop --struct")
+        if not records or records != sorted(set(records)) or not all(isinstance(item, str) and item for item in records):
+            raise SocomError("the records are the expanded, sorted command names")
+        if not family or not FAMILY_SLUG.match(family):
+            raise SocomError("--family is a lower-case slug (letters, digits and hyphens)")
+        if registrar not in REGISTRARS:
+            raise SocomError(f"unknown registrar {registrar!r}")
+        if class_name is not None and not class_name.strip():
+            raise SocomError("the class name must not be empty")
+        if with_derived and class_name is None:
+            raise SocomError("--with-derived needs a class")
+        plan_id = records_item_id(registrar, family)
+    else:
+        if class_name is None or not class_name.strip():
+            raise SocomError("the class name must not be empty")
+        if struct and with_derived:
+            raise SocomError("a plain struct has no derived classes; drop --with-derived")
+        plan_id = type_plan_item_id(class_name)
     apply_id = f"{plan_id}-apply"
     items = tracker["work_items"]
     if any(row.get("id") in (plan_id, apply_id) for row in items):
@@ -137,15 +164,26 @@ def add_type_plan_items(tracker: dict[str, Any], class_name: str, with_derived: 
         raise SocomError(f"{plan_id} needs the decomposed {RECON_STAGE} gate")
     if gate.get("status") == "accepted":
         raise SocomError(f"the {RECON_STAGE} gate is already accepted")
-    batch: dict[str, Any] = {"class": class_name, "with_derived": bool(with_derived)}
-    if struct:
-        batch["struct"] = True
+    if records is not None:
+        batch: dict[str, Any] = {"records": list(records), "family": family, "registrar": registrar, "with_derived": bool(with_derived)}
+        if class_name is not None:
+            batch["class"] = class_name
+        subject = f"the {registrar} {family} command records ({len(records)})" + (f" with {class_name}" if class_name else "")
+        title = f"Plan the code-derived layouts of {subject}" + (" and its derived classes" if with_derived else "")
+    else:
+        batch = {"class": class_name, "with_derived": bool(with_derived)}
+        if struct:
+            batch["struct"] = True
+        subject = str(class_name)
+        title = (
+            f"Plan the code-derived layout of {'the plain struct ' if struct else ''}{class_name}"
+            + (" and its derived classes" if with_derived else "")
+        )
     plan = {
         "id": plan_id,
         "stage": RECON_STAGE,
         "kind": TYPE_PLAN_KIND,
-        "title": f"Plan the code-derived layout of {'the plain struct ' if struct else ''}{class_name}"
-        + (" and its derived classes" if with_derived else ""),
+        "title": title,
         "status": "blocked",
         "dependencies": [],
         "resources": list(TYPE_PLAN_RESOURCES),
@@ -159,7 +197,7 @@ def add_type_plan_items(tracker: dict[str, Any], class_name: str, with_derived: 
         "id": apply_id,
         "stage": RECON_STAGE,
         "kind": TYPE_APPLY_KIND,
-        "title": f"Apply the reviewed code-derived types of {class_name} in Ghidra",
+        "title": f"Apply the reviewed code-derived types of {subject} in Ghidra",
         "status": "blocked",
         "dependencies": [plan_id],
         "resources": list(GHIDRA_WRITER_RESOURCES),
@@ -828,6 +866,17 @@ def audit_tracker(
                 errors.append(f"{item_id} is not a type plan ID")
             if (item.get("batch") or {}).get("struct") and (item.get("batch") or {}).get("with_derived"):
                 errors.append(f"{item_id} plans a plain struct with derived classes")
+            batch = item.get("batch") or {}
+            if "records" in batch:
+                records = batch.get("records")
+                if (
+                    not isinstance(records, list) or not records or records != sorted(set(records))
+                    or not all(isinstance(entry, str) and entry for entry in records)
+                    or batch.get("struct")
+                    or not isinstance(batch.get("family"), str) or not isinstance(batch.get("registrar"), str)
+                    or str(item_id) != f"{TYPE_PLAN_PREFIX}{batch.get('registrar')}-{batch.get('family')}"
+                ):
+                    errors.append(f"{item_id} records batch needs sorted command names, a family and a registrar matching its ID")
         if kind == TYPE_APPLY_KIND:
             if resources != set(GHIDRA_WRITER_RESOURCES):
                 errors.append(f"{item_id} apply resources differ from Ghidra contract")
@@ -2072,9 +2121,15 @@ def work_packet(
         derived = " --with-derived" if batch.get("with_derived") else " --struct" if batch.get("struct") else ""
         layout = f"build/type-plans/{slug}-layout"
         plan = f"build/type-plans/{slug}.json"
+        if "records" in batch:
+            target = (f"--class {batch['class']} " if batch.get("class") else "") + (
+                f"--records {' '.join(batch.get('records') or [])} --registrar {batch.get('registrar')}"
+            )
+        else:
+            target = f"--class {batch.get('class')}"
         validation = [
-            f"python tools/socom.py recon layout --class {batch.get('class')}{derived} --output {layout}.json",
-            f"python tools/socom.py recon layout --class {batch.get('class')}{derived} --output {layout}.txt",
+            f"python tools/socom.py recon layout {target}{derived} --output {layout}.json",
+            f"python tools/socom.py recon layout {target}{derived} --output {layout}.txt",
             f"python tools/socom.py recon type-plan validate --plan {plan}",
             f"python tools/socom.py recon type-plan show --plan {plan}",
             f"python tools/socom.py recon type-plan program --plan {plan} --output build/apply/{item_id.replace(':', '-')}-apply.json",

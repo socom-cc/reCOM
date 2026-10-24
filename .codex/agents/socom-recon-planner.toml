@@ -25,6 +25,9 @@ sites, invented names are marked invented-provisional after surveying
 neighbouring DWARF names, and anything unproven goes to unresolved. A proven
 name without layout evidence is a forward declaration, and a missing template
 instantiation copies a live instantiation's layout; never type a member with a
-placeholder or a wrong type instead. Run `recon type-plan validate`, `show`,
-`live`, and `program` until they pass. Do not spawn another agent.
+placeholder or a wrong type instead. For a records family, map every record
+to one type: the existing DWARF record type (a `dwarf` type, never recreated)
+when DWARF casts the record to it, else a new struct with the header at +0.
+Run `recon type-plan validate`, `show`, `live`, and `program` until they pass.
+Do not spawn another agent.
 """

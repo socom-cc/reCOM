@@ -86,14 +86,14 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py recon live` | recon | no | required | no | Print live Ghidra names and signatures of functions or a group. |
 | `python tools/socom.py recon types` | recon | no | required | no | Print every live Ghidra type matching each name, ignoring case. |
 | `python tools/socom.py recon contradictions` | recon | no | optional | no | List group functions whose live signature contradicts the ELF facts, with each owning group's apply state. |
-| `python tools/socom.py recon layout` | recon | yes | none | no | Write ELF-derived layout evidence of a class (and its bases and derived classes), or with --struct of a plain struct named only by mangled parameter types (its callers' own objects included): every proven access per offset. |
+| `python tools/socom.py recon layout` | recon | yes | none | no | Write ELF-derived layout evidence of a class (and its bases and derived classes), or with --struct of a plain struct named only by mangled parameter types (its callers' own objects included), or with --records of command records whose pointers their registration proves (zAnim AddCmd callbacks): every proven access per offset. |
 | `python tools/socom.py recon type-plan validate` | recon | no | none | no | Check a code-derived type plan against regenerated layout evidence. |
 | `python tools/socom.py recon type-plan show` | recon | no | none | no | Render a code-derived type plan as a review table with its validation. |
 | `python tools/socom.py recon type-plan live` | recon | no | required | no | Check a valid code-derived type plan against the live program, read-only: no target or forward-declared name exists, and every referenced live type and instantiation source resolves exactly once with the recorded layout. |
 | `python tools/socom.py recon type-plan program` | recon | yes | none | no | Translate a valid code-derived type plan into a type apply program. |
 | `python tools/socom.py recon type-plan affected` | recon | no | none | no | List the reconstruction groups whose functions name a planned class, and which rows were left unresolved for it. |
 | `python tools/socom.py ghidra apply-type-plan` | ghidra | yes | required | yes | Apply a reviewed code-derived type program under the item's writer lease and verify it (--dry-run: read-only checks). |
-| `python tools/socom.py progress add-type-plan` | progress | yes | none | no | Add a file-only code-derived type plan item and its live apply item to the stage 3 gate. |
+| `python tools/socom.py progress add-type-plan` | progress | yes | none | no | Add a file-only code-derived type plan item (a class, a plain struct, or a family of command records) and its live apply item to the stage 3 gate. |
 | `python tools/socom.py progress add-recon-repair` | progress | yes | none | no | Add a numbered stage 3 recon repair (file-only plan item and live apply item) for functions of applied, accepted groups whose live prototype is wrong. |
 | `python tools/socom.py recon partial-candidates` | recon | no | optional | no | List unresolved rows of accepted plans whose live signature is Ghidra's default and whose parameters the facts prove, for a partial-prototype repair or re-plan. |
 | `python tools/socom.py progress init` | progress | yes | none | no | Initialize unified reconstruction state. |

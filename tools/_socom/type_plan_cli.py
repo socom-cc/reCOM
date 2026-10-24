@@ -22,7 +22,8 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "recon layout",
             "recon",
             "Write ELF-derived layout evidence of a class (and its bases and derived classes), or with --struct of a "
-            "plain struct named only by mangled parameter types (its callers' own objects included): every proven "
+            "plain struct named only by mangled parameter types (its callers' own objects included), or with --records "
+            "of command records whose pointers their registration proves (zAnim AddCmd callbacks): every proven "
             "access per offset.",
             mutates=True,
         ),
@@ -58,7 +59,8 @@ def specs(spec: Any) -> tuple[Any, ...]:
         spec(
             "progress add-type-plan",
             "progress",
-            "Add a file-only code-derived type plan item and its live apply item to the stage 3 gate.",
+            "Add a file-only code-derived type plan item (a class, a plain struct, or a family of command records) "
+            "and its live apply item to the stage 3 gate.",
             mutates=True,
         ),
     )
@@ -66,9 +68,16 @@ def specs(spec: Any) -> tuple[Any, ...]:
 
 def register(recon_commands: Any, ghidra_commands: Any, progress_commands: Any) -> None:
     layout = recon_commands.add_parser("layout")
-    layout.add_argument("--class", dest="class_name", required=True)
+    layout.add_argument("--class", dest="class_name", help="required unless --records is given")
     layout.add_argument("--with-derived", action="store_true")
     layout.add_argument("--struct", action="store_true", help="a plain struct named only by mangled parameter types")
+    layout.add_argument(
+        "--records",
+        nargs="+",
+        metavar="COMMAND",
+        help="command records of the registrar's table: command names or set::* / * patterns (a --class is laid out beside them)",
+    )
+    layout.add_argument("--registrar", default="zanim", help="the command table (default zanim: CZAnimMain::AddCmd)")
     layout.add_argument("--output", required=True)
     layout.set_defaults(handler=_recon_layout)
 
@@ -109,9 +118,12 @@ def register(recon_commands: Any, ghidra_commands: Any, progress_commands: Any) 
     apply.set_defaults(handler=_ghidra_apply_type_plan)
 
     add = progress_commands.add_parser("add-type-plan")
-    add.add_argument("--class", dest="class_name", required=True)
+    add.add_argument("--class", dest="class_name", help="required unless --records is given")
     add.add_argument("--with-derived", action="store_true")
     add.add_argument("--struct", action="store_true", help="a plain struct named only by mangled parameter types")
+    add.add_argument("--records", nargs="+", metavar="COMMAND", help="a family of command records (names or set::* patterns)")
+    add.add_argument("--family", help="the records family slug: the item is type-plan-<registrar>-<family>")
+    add.add_argument("--registrar", default="zanim", help="the command table of --records (default zanim)")
     add.add_argument("--expected-revision", type=int, required=True)
     add.add_argument("--dry-run", action="store_true")
     add.set_defaults(handler=_progress_add_type_plan)
@@ -126,11 +138,19 @@ def _recon_layout(arguments: argparse.Namespace) -> int:
     from .cli import _build_path, _emit, _root
     from .type_layout import class_layout, render_layout
     from .type_plan import layout_sha256
-    from .util import atomic_write_json, atomic_write_text
+    from .util import SocomError, atomic_write_json, atomic_write_text
 
     root = _root(arguments)
     output = _build_path(root, arguments.output, "layout evidence")
-    report = class_layout(root, arguments.class_name, arguments.with_derived, struct=arguments.struct)
+    if arguments.records is not None:
+        report = class_layout(
+            root, arguments.class_name, arguments.with_derived, struct=arguments.struct,
+            records=arguments.records, registrar=arguments.registrar,
+        )
+    elif arguments.class_name is None:
+        raise SocomError("recon layout needs --class (or --records)")
+    else:
+        report = class_layout(root, arguments.class_name, arguments.with_derived, struct=arguments.struct)
     if output.suffix == ".json":
         atomic_write_json(output, report)
     else:
@@ -141,6 +161,7 @@ def _recon_layout(arguments: argparse.Namespace) -> int:
             "class": report["class"],
             "with_derived": report["with_derived"],
             **({"struct": True} if report.get("struct") else {}),
+            **({"records": report["records"], "registrar": report["registrar"]["key"]} if report.get("records") is not None else {}),
             "layout_sha256": layout_sha256(report),
             "summary": report["summary"],
             "classes": [
@@ -164,7 +185,7 @@ def _load_plan(arguments: argparse.Namespace) -> tuple[Path, Path, dict[str, Any
     plan_path = _path(root, arguments.plan)
     plan = load_json(plan_path)
     spec = plan.get("layout") or {}
-    layout = plan_layout(root, spec) if spec.get("class") else {"classes": []}
+    layout = plan_layout(root, spec) if spec.get("class") or spec.get("records") is not None else {"classes": []}
     return root, plan_path, plan, layout, load_tracker(tracker_path(root))
 
 
@@ -356,14 +377,29 @@ def _progress_add_type_plan(arguments: argparse.Namespace) -> int:
 
     root = _root(arguments)
     captured: list[str] = []
-    if arguments.struct:
+    records = None
+    if arguments.records is not None:
+        from .type_records import record_family
+
+        # Expand the selectors and prove the registrations exist (and the optional class lays out).
+        records = record_family(root, arguments.records, arguments.registrar, arguments.class_name, arguments.with_derived, arguments.family)
+    elif arguments.class_name is None:
+        from .util import SocomError
+
+        raise SocomError("progress add-type-plan needs --class (or --records with --family)")
+    elif arguments.struct:
         from .type_layout import _Family
 
         # The name must qualify (no member, vtable, RTTI or DWARF record; a mangled T * / T & parameter names it).
         _Family(root, arguments.class_name, arguments.with_derived, struct=True)
 
     def add(tracker: dict[str, Any]) -> None:
-        captured.extend(add_type_plan_items(tracker, arguments.class_name, arguments.with_derived, struct=arguments.struct))
+        captured.extend(
+            add_type_plan_items(
+                tracker, arguments.class_name, arguments.with_derived, struct=arguments.struct,
+                records=records, family=arguments.family, registrar=arguments.registrar if records is not None else None,
+            )
+        )
 
     if arguments.dry_run:
         tracker = load_tracker(tracker_path(root))

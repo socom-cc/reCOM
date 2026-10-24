@@ -54,6 +54,25 @@ naming symbols (``name_evidence``), so the plan names it ``mangled-symbol``
 (never ``elf-symbol``) and cites them; caller-built objects add evidence
 (``type_layout``), and its size is cited in ``size_evidence``.
 
+A family of command records (``recon layout --records``, ``type_records``)
+has ``"records"`` (the expanded, sorted command names), ``"family"``,
+``"registrar"`` and an optional ``"class"`` laid out beside them in ``layout``;
+its item is ``type-plan-<registrar>-<family>``.  Every layout record
+(``record <command>``) is listed in the ``records`` of exactly one type: a
+``struct`` with the registrar's header at +0 (a ``/project`` base or field, or
+a live DWARF base containing it, such as ``/project/TASK_HDR`` with its
+``size``), sized by its records' allocations and ``data_size`` stores, or a
+``dwarf`` type that references an existing DWARF record (``name_provenance``
+dwarf, ``name_evidence`` its DIE, no layout of its own).  The validator
+derives a ``dwarf`` type's members, size and padding from DWARF and checks the
+records' accesses against them; a record whose callbacks DWARF casts to a
+record type must map to that ``dwarf`` type.  The program never creates a
+``dwarf`` type: ``referenced_types`` lists its path and DWARF members, which
+the live check compares with the live type.  Invented record type names
+follow the registrar's rule (zAnim: ``_<module>_<name>_cmd`` or
+``TASK_<NAME>``).  A GPR store of a constant proves only its width (a float
+immediate is stored with ``lui``/``sw``).
+
 A ``forward`` type is a declaration only: a qualified name proven by mangled
 symbols (the type is a member qualifier, parameter type or template argument),
 an RTTI object or a DWARF record, with no size, bases or fields.  It may only be
@@ -138,6 +157,7 @@ from .type_apply import (
     _identifier,
 )
 from .type_layout import NEUTRAL_KINDS, class_layout
+from .type_records import FAMILY_SLUG, REGISTRARS, record_class
 from .type_plan_evidence import (
     BULK,
     CXX_BUILTINS,
@@ -164,7 +184,11 @@ TEMPLATE_COPY = "template-copy"
 NAME_PROOFS = ("mangled-symbol", "rtti", "dwarf")
 NAME_PROVENANCES = ("elf-symbol", *NAME_PROOFS, TEMPLATE_NAME, INVENTED)
 FIELD_PROVENANCES = (INVENTED, "elf-string", "elf-symbol", TEMPLATE_COPY)
-TYPE_KINDS = ("class", "struct", "vtable", "forward")
+# A ``dwarf`` type references an existing DWARF (live) record type for command records: the validator
+# derives its members from DWARF (provenance ``dwarf``); the program never creates it.
+DWARF_KIND = "dwarf"
+DWARF_FIELD = "dwarf"
+TYPE_KINDS = ("class", "struct", "vtable", "forward", DWARF_KIND)
 PROVENANCE_KEY = (
     ("elf-symbol", "the name of a layout class (.symtab member qualifier and RTTI)"),
     ("mangled-symbol", "named by the cited mangled ELF symbols (member qualifier, parameter type or template argument)"),
@@ -221,9 +245,24 @@ def layout_sha256(layout: dict[str, Any]) -> str:
     return hashlib.sha256(canonical_json(layout).encode("utf-8")).hexdigest()
 
 
-def plan_layout(root: Path, spec: dict[str, Any]) -> dict[str, Any]:
-    """Regenerate the layout evidence a plan's ``layout`` spec names (class, derived scope, plain struct)."""
+def records_item_id(registrar: str, family: str) -> str:
+    """The plan item of one command-record family (``recon layout --records``)."""
 
+    return type_plan_item_id(f"{registrar}-{family}")
+
+
+def plan_layout(root: Path, spec: dict[str, Any]) -> dict[str, Any]:
+    """Regenerate the layout evidence a plan's ``layout`` spec names (class, derived scope, plain struct, records)."""
+
+    if spec.get("records") is not None:
+        name = spec.get("class")
+        return class_layout(
+            root,
+            str(name) if name is not None else None,
+            bool(spec.get("with_derived")),
+            records=list(spec.get("records") or []),
+            registrar=str(spec.get("registrar") or "zanim"),
+        )
     return class_layout(root, str(spec.get("class")), bool(spec.get("with_derived")), struct=bool(spec.get("struct")))
 
 
@@ -294,10 +333,54 @@ class _Plan:
         self.plan = plan
         self.evidence = evidence
         self.types: dict[str, dict[str, Any]] = {}
+        # dwarf type name -> problems deriving its DWARF layout; layout record class -> plan type mapping it.
+        self.dwarf_problems: dict[str, list[str]] = {}
+        self.record_types: dict[str, str] = {}
         for row in plan.get("types") or []:
             if isinstance(row, dict) and isinstance(row.get("name"), str):
+                if row.get("kind") == DWARF_KIND and row["name"] not in self.types:
+                    row = self._dwarf_row(row)
                 self.types.setdefault(row["name"], row)
+        for name, row in self.types.items():
+            for command in row.get("records") or [] if isinstance(row.get("records"), list) else []:
+                if isinstance(command, str):
+                    self.record_types.setdefault(record_class(command), name)
         self.normalized_types = {normalized(name): name for name in self.types}
+
+    def _dwarf_row(self, row: dict[str, Any]) -> dict[str, Any]:
+        """A ``dwarf`` type with its members, size, alignment and padding from DWARF (needs the evidence)."""
+
+        if self.evidence is None:
+            return row
+        found = self.evidence.record_layout(template_base(_leaf(row["name"])))
+        self.dwarf_problems[row["name"]] = list(found["problems"])
+        if found["size"] is None:
+            return row
+        fields = [{**field, "provenance": DWARF_FIELD, "evidence": []} for field in found["fields"]]
+        natural = 1
+        for field in fields:
+            parsed = parse_type(field["type"])
+            if parsed and parsed["pointers"]:
+                natural = max(natural, 4)
+            elif parsed and parsed["base"] in SIZES and not parsed["arrays"]:
+                natural = max(natural, min(SIZES[parsed["base"]], 16))
+        return {
+            **row,
+            "size": found["size"],
+            "alignment": natural,
+            "fields": fields,
+            "padding": [{**pad, "reason": "no DWARF member covers these bytes"} for pad in found["padding"]],
+            "dwarf_dies": found["dies"],
+            "dwarf_live": found["live"],
+            "size_evidence": [f"DWARF {found['dies'][0]} byte_size {found['size']}"],
+        }
+
+    def layout_type(self, cls: str) -> str | None:
+        """The plan type laid out at +0 of a layout class: the class itself, or the type mapping a record."""
+
+        if cls in self.types:
+            return cls
+        return self.record_types.get(cls)
 
     def kind(self, name: str) -> Any:
         return (self.types.get(name) or {}).get("kind")
@@ -496,6 +579,9 @@ class _Plan:
         for name in self.types:
             if name in layout_classes:
                 windows[name].add((name, 0))
+        for cls, name in self.record_types.items():
+            if cls in layout_classes:
+                windows[name].add((cls, 0))
         for _ in range(16):
             changed = False
             for name, row in self.types.items():
@@ -551,7 +637,8 @@ def _compatible(site: dict[str, Any], parsed: dict[str, Any], size: int | None) 
     if base in UNDEFINED_SIZES:
         return False
     if base in FLOATS:
-        return kind == "float"
+        # A GPR store of a constant writes its bits only (Metrowerks stores float immediates with lui/sw).
+        return kind == "float" or (access == "store" and kind == "int" and width == 4 and "constant" in site)
     if size == 16:
         return kind in ("int128", "vu")
     if size == 8:
@@ -590,19 +677,35 @@ def validate_type_plan(
         problems.append("the plan targets a different ELF")
     spec = plan.get("layout") or {}
     class_name = spec.get("class")
-    if not isinstance(class_name, str):
+    records_mode = spec.get("records") is not None
+    if records_mode:
+        spec_problems = _records_spec_problems(spec)
+        if spec_problems:
+            return problems + spec_problems
+        expected_id = records_item_id(spec["registrar"], spec["family"])
+    elif not isinstance(class_name, str):
         return problems + ["layout.class is missing"]
-    expected_id = type_plan_item_id(class_name)
+    else:
+        expected_id = type_plan_item_id(class_name)
     if plan.get("work_item_id") != expected_id:
         problems.append(f"work_item_id must be {expected_id}")
     if tracker is not None:
         item = next((row for row in tracker.get("work_items", []) if row.get("id") == plan.get("work_item_id")), None)
+        batch = (item or {}).get("batch") or {}
         if item is None or item.get("kind") != "recon-type-plan":
             problems.append(f"{plan.get('work_item_id')} is not a recon-type-plan item in the tracker")
-        elif (
-            (item.get("batch") or {}).get("class") != class_name
-            or bool((item.get("batch") or {}).get("with_derived")) != bool(spec.get("with_derived"))
-            or bool((item.get("batch") or {}).get("struct")) != bool(spec.get("struct"))
+        elif records_mode and (
+            batch.get("records") != spec["records"]
+            or batch.get("family") != spec["family"]
+            or batch.get("registrar") != spec["registrar"]
+            or batch.get("class") != class_name
+            or bool(batch.get("with_derived")) != bool(spec.get("with_derived"))
+        ):
+            problems.append(f"{plan.get('work_item_id')} plans different records, family, registrar, class or derived scope")
+        elif not records_mode and (
+            batch.get("class") != class_name
+            or bool(batch.get("with_derived")) != bool(spec.get("with_derived"))
+            or bool(batch.get("struct")) != bool(spec.get("struct"))
         ):
             problems.append(f"{plan.get('work_item_id')} plans a different class, derived scope or struct mode")
     if layout is None:
@@ -624,8 +727,12 @@ def validate_type_plan(
     paths = [f"{row.get('category')}/{_leaf(str(row.get('name')))}".casefold() for row in plan.get("types") or []]
     if len(paths) != len(set(paths)):
         problems.append("Ghidra paths repeat (ignoring case)")
-    if class_name not in model.types:
+    if class_name is not None and class_name not in model.types:
         problems.append(f"the plan does not define the requested class {class_name}")
+    if records_mode and layout.get("records") != spec["records"]:
+        problems.append(f"the layout evidence lays out the records {layout.get('records')}, not {spec['records']}")
+    record_family = _record_family(model) if records_mode else set()
+    record_names = re.compile(str((layout.get("registrar") or {}).get("record_names") or "^$")) if records_mode else None
     invented = False
     windows = model.windows(set(by_class))
     copies = _neutral_accesses(model, layout["classes"], windows)
@@ -656,7 +763,10 @@ def validate_type_plan(
             problems.append(f"{where}: a {TEMPLATE_NAME} name belongs to a type with an instantiation")
         if provenance == INVENTED:
             invented = True
-            if kind == "struct" and not HELPER_NAME.match(leaf):
+            if name in record_family:
+                if kind != "struct" or not record_names.match(leaf):
+                    problems.append(f"{where}: {(layout.get('registrar') or {}).get('record_names_text')} (a struct)")
+            elif kind == "struct" and not HELPER_NAME.match(leaf):
                 problems.append(f"{where}: an invented helper struct name starts with tag_")
             if kind == "class" and not leaf.startswith("C"):
                 problems.append(f"{where}: an invented class name starts with C")
@@ -674,9 +784,18 @@ def validate_type_plan(
         if kind == "forward":
             problems.extend(_forward_problems(row, where, by_class, references))
             continue
+        if row.get("records") is not None and kind not in ("struct", DWARF_KIND):
+            problems.append(f"{where}: only a struct or a {DWARF_KIND} type lays out command records")
+        if kind == DWARF_KIND:
+            problems.extend(_dwarf_problems(model, row, where, records_mode))
+            row = model.types[name]
+            if not isinstance(row.get("size"), int):
+                continue
         problems.extend(_type_problems(model, row, where, by_class, index, windows.get(name, set()), claims, copies))
         if row.get("instantiation") is not None:
             problems.extend(_instantiation_problems(model, row, where))
+    if records_mode:
+        problems.extend(_record_problems(model, plan, layout, by_class))
     if invented and not plan.get("naming_survey"):
         problems.append("invented names need a naming_survey of neighbouring zdb DWARF names")
     for row in plan.get("types") or []:
@@ -768,11 +887,12 @@ def _subobject_claims(
     claims: set[tuple[str, int, str, Any]] = set()
     problems: list[str] = []
     for cls in sorted(by_class):
-        row = model.types.get(cls)
-        if row is None or row.get("kind") not in ("class", "struct") or not isinstance(row.get("size"), int):
+        planned = model.layout_type(cls)
+        row = model.types.get(planned) if planned else None
+        if row is None or row.get("kind") not in ("class", "struct", DWARF_KIND) or not isinstance(row.get("size"), int):
             continue
         size = row["size"]
-        entries, unknown = model.subobjects(cls, size)
+        entries, unknown = model.subobjects(planned, size)
         at: dict[int, list[tuple[str, Any]]] = defaultdict(list)
         for offset, name, mode in entries:
             at[offset].append((name, mode))
@@ -783,9 +903,9 @@ def _subobject_claims(
                 if site.get("access") != "address-passed" or site.get("indexed") or site.get("no_parameter"):
                     continue
                 if not site.get("parameter_type"):
-                    if not _cites(model.notes_at(cls, offset), site["site"]):
+                    if not _cites(model.notes_at(planned, offset), site["site"]):
                         problems.append(
-                            f"type {cls}: {site['site']} passes this+{_hex(offset)} in {site.get('register')} to "
+                            f"type {_where_in(planned, cls)}: {site['site']} passes this+{_hex(offset)} in {site.get('register')} to "
                             f"{site.get('callee')}, whose parameter type is not derivable "
                             f"({site.get('parameter_unknown') or 'not recorded'}); explain it in the notes of the member "
                             f"at +{_hex(offset)}, citing {site['site']}"
@@ -800,10 +920,16 @@ def _subobject_claims(
                 if any(low <= offset <= high for low, high in unknown):
                     continue  # inside (or at the end of) a live type whose sub-objects DWARF does not give
                 problems.append(
-                    f"type {cls}: {site['site']} passes this+{_hex(offset)} as {site.get('parameter_type')} "
+                    f"type {_where_in(planned, cls)}: {site['site']} passes this+{_hex(offset)} as {site.get('parameter_type')} "
                     f"({site.get('callee')}), but the plan has no {target} sub-object at +{_hex(offset)}"
                 )
     return claims, problems
+
+
+def _where_in(planned: str, cls: str) -> str:
+    """A plan type, with the layout record it maps when that is not itself."""
+
+    return planned if planned == cls else f"{planned} ({cls})"
 
 
 def _claimed(claims: set[tuple[str, int, str, Any]], cls: str, offset: int, site: dict[str, Any]) -> bool:
@@ -1057,6 +1183,7 @@ def _type_problems(
     if not isinstance(alignment, int) or alignment <= 0 or size % alignment:
         problems.append(f"{where}: alignment must divide the size")
     layout_row = by_class.get(name)
+    records = [record_class(command) for command in row.get("records") or [] if isinstance(command, str)]
     if layout_row is not None:
         sizes = layout_row["size_evidence"]
         if len(sizes) > 1:
@@ -1065,6 +1192,14 @@ def _type_problems(
             problems.append(f"{where}: size {_hex(size)} differs from the allocation evidence {_hex(sizes[0])}")
         elif not sizes and not row.get("size_evidence"):
             problems.append(f"{where}: no allocation proves the size; cite size_evidence")
+    elif records:
+        sizes, unproven = _record_sizes(records, by_class)
+        if len(sizes) > 1:
+            problems.append(f"{where}: its records' allocation and data_size evidence disagree {sorted(sizes)}")
+        elif sizes and sizes != {size}:
+            problems.append(f"{where}: size {_hex(size)} differs from its records' allocation and data_size evidence {_hex(min(sizes))}")
+        elif not sizes and not row.get("size_evidence"):
+            problems.append(f"{where}: no record of it has a proven size ({', '.join(unproven)}); cite size_evidence")
     elif not row.get("size_evidence") and row.get("instantiation") is None:
         problems.append(f"{where}: cite size_evidence")
     if not windows:
@@ -1137,7 +1272,9 @@ def _type_problems(
             problems.append(f"{label}: names must be unique and not repeat a base or __vt")
         names.add(str(field_name))
         provenance = field.get("provenance")
-        if provenance not in FIELD_PROVENANCES:
+        if provenance == DWARF_FIELD and row.get("kind") == DWARF_KIND:
+            pass  # a member of the referenced DWARF record, named by DWARF
+        elif provenance not in FIELD_PROVENANCES:
             problems.append(f"{label}: provenance must be one of {list(FIELD_PROVENANCES)}")
         elif provenance == INVENTED and not FIELD_NAME.match(str(field_name)):
             problems.append(f"{label}: invented member names are m_ followed by lower snake_case")
@@ -1157,6 +1294,16 @@ def _type_problems(
             for site in sites:
                 if site["site"] not in outside:
                     problems.append(f"{where}: access at +{_hex(site_offset)} ({site['site']}) lies beyond the size; list it in outside_accesses with a reason")
+    for cls in records:
+        for site_offset, sites in index.get(cls, {}).items():
+            if site_offset < size:
+                continue
+            for site in sites:
+                if site["site"] not in outside:
+                    problems.append(
+                        f"{where}: access at {cls}+{_hex(site_offset)} ({site['site']}) lies beyond the size; list it in "
+                        "outside_accesses with a reason"
+                    )
     return problems
 
 
@@ -1169,6 +1316,17 @@ def _base_problems(model: _Plan, row: dict[str, Any], entry: dict[str, Any], by_
     elif isinstance(base, str) and base.startswith("/project/") and row.get("instantiation") is not None:
         if not isinstance(entry.get("size"), int):
             problems.append(f"{where}: the live base {base} needs its size")
+    elif isinstance(base, str) and base.startswith("/project/") and model.record_types:
+        # A record family's shared base may be a live DWARF record (TASK_HDR): its size is every DWARF record's.
+        leaf = template_base(base.rsplit("/", 1)[1])
+        sizes = (
+            sorted({die.integer("byte_size") for die in model.evidence.dwarf.records(leaf) if die.integer("byte_size")})
+            if model.evidence else []
+        )
+        if not isinstance(entry.get("size"), int):
+            problems.append(f"{where}: the live base {base} needs its size")
+        elif sizes != [entry["size"]]:
+            problems.append(f"{where}: the live base {base} is {entry['size']} bytes, but its DWARF records are {sizes or 'missing'}")
     else:
         problems.append(f"{where}: base {base} is not a plan type")
     layout_row = by_class.get(row["name"])
@@ -1259,7 +1417,7 @@ def _field_problems(
             )
     composite = model.composite(parsed) and not parsed["arrays"]
     evidence = field.get("evidence") or []
-    if not evidence and field.get("provenance") != TEMPLATE_COPY:
+    if not evidence and field.get("provenance") not in (TEMPLATE_COPY, DWARF_FIELD):
         problems.append(f"{label}: cite at least one evidence site")
     # Candidate sites: the field's extent in every window.  A site a sub-object
     # claims (a call on an empty base at the end of the previous member) is
@@ -1338,6 +1496,145 @@ def _field_problems(
     return problems
 
 
+# -- command records (``recon layout --records``) ------------------------------------
+
+
+def _records_spec_problems(spec: dict[str, Any]) -> list[str]:
+    problems = []
+    records = spec.get("records")
+    if not isinstance(records, list) or not records or not all(isinstance(item, str) and item for item in records):
+        problems.append("layout.records lists the command names (expanded, sorted)")
+    elif records != sorted(set(records)):
+        problems.append("layout.records is sorted and has no repeats")
+    if spec.get("registrar") not in REGISTRARS:
+        problems.append(f"layout.registrar is one of {sorted(REGISTRARS)}")
+    if not isinstance(spec.get("family"), str) or not FAMILY_SLUG.match(spec["family"]):
+        problems.append("layout.family is a lower-case slug (letters, digits and hyphens)")
+    if spec.get("struct"):
+        problems.append("a records plan is not a plain struct plan")
+    if spec.get("class") is not None and not isinstance(spec.get("class"), str):
+        problems.append("layout.class, when given, names a class laid out with the records")
+    return problems
+
+
+def _record_family(model: _Plan) -> set[str]:
+    """Plan types that lay out records, and the plan types they embed as bases."""
+
+    found = {name for name, row in model.types.items() if row.get("records")}
+    pending = list(found)
+    while pending:
+        row = model.types.get(pending.pop()) or {}
+        for base in row.get("bases") or []:
+            target = parse_type(base.get("type")) if isinstance(base, dict) else None
+            if target and target["base"] in model.types and target["base"] not in found:
+                found.add(target["base"])
+                pending.append(target["base"])
+    return found
+
+
+def _record_sizes(records: list[str], by_class: dict[str, Any]) -> tuple[set[int], list[str]]:
+    """Sizes the records' fixed allocations and data_size stores prove, and the records with none."""
+
+    sizes: set[int] = set()
+    unproven = []
+    for cls in records:
+        row = by_class.get(cls)
+        if row is None or row.get("variable_tail"):
+            unproven.append(cls)
+            continue
+        found = set(row.get("size_evidence") or []) | set(row.get("data_size") or [])
+        if not found:
+            unproven.append(cls)
+        sizes |= found
+    return sizes, unproven
+
+
+def _dwarf_problems(model: _Plan, row: dict[str, Any], where: str, records_mode: bool) -> list[str]:
+    problems = []
+    if not records_mode:
+        problems.append(f"{where}: a {DWARF_KIND} type references a DWARF record for command records (layout.records)")
+    if row.get("name_provenance") != "dwarf":
+        problems.append(f"{where}: a {DWARF_KIND} type is named by its DWARF record (name_provenance dwarf)")
+    derived = [
+        key for key in ("size", "alignment", "bases", "vptr", "fields", "padding", "instantiation", "size_evidence", "outside_accesses")
+        if row.get(key) not in (None, [], {})
+    ]
+    if derived:
+        problems.append(f"{where}: a {DWARF_KIND} type takes its layout from DWARF; drop {', '.join(derived)}")
+    if not row.get("records"):
+        problems.append(f"{where}: a {DWARF_KIND} type lists the command records it lays out (records)")
+    synthesized = model.types.get(row["name"]) or {}
+    dies = set(synthesized.get("dwarf_dies") or [])
+    for text in row.get("name_evidence") or []:
+        if isinstance(text, str) and dies and text not in dies:
+            problems.append(f"{where}: name evidence {text} is not a complete DWARF record of it ({', '.join(sorted(dies))})")
+    problems.extend(f"{where}: {text}" for text in model.dwarf_problems.get(row["name"], []))
+    return problems
+
+
+def _record_problems(model: _Plan, plan: dict[str, Any], layout: dict[str, Any], by_class: dict[str, Any]) -> list[str]:
+    """Every layout record is mapped once, to a type with the header at +0 that the DWARF casts agree with."""
+
+    problems: list[str] = []
+    header = str((layout.get("registrar") or {}).get("header") or "")
+    header_leaf = _leaf(header) if header else ""
+    rows = {row["class"]: row for row in layout.get("classes") or [] if row.get("role") == "record"}
+    mapped: dict[str, list[str]] = defaultdict(list)
+    for row in plan.get("types") or []:
+        if not isinstance(row, dict) or row.get("records") is None:
+            continue
+        records = row["records"]
+        where = f"type {row.get('name')}"
+        if not isinstance(records, list) or not records or not all(isinstance(item, str) for item in records):
+            problems.append(f"{where}: records lists command names")
+            continue
+        if records != sorted(set(records)):
+            problems.append(f"{where}: records is sorted and has no repeats")
+        for command in records:
+            cls = record_class(command)
+            mapped[cls].append(str(row.get("name")))
+            if cls not in rows:
+                problems.append(f"{where}: {command} is not a record of the layout evidence")
+    for cls in sorted(rows):
+        names = mapped.get(cls, [])
+        if not names:
+            problems.append(f"{cls} is not laid out by any plan type (list it in one type's records)")
+        elif len(names) > 1:
+            problems.append(f"{cls} is listed by several plan types: {', '.join(sorted(names))}")
+    for cls, record in sorted(rows.items()):
+        names = mapped.get(cls, [])
+        if len(names) != 1 or names[0] not in model.types:
+            continue
+        name = names[0]
+        target = model.types[name]
+        where = f"type {_where_in(name, cls)}"
+        for text in (record.get("header") or {}).get("problems") or []:
+            problems.append(f"{where}: header {header}: {text}")
+        size = target.get("size")
+        if isinstance(size, int) and target.get("kind") in ("struct", DWARF_KIND):
+            entries, _unknown = model.subobjects(name, size)
+            if header_leaf and not any(
+                offset == 0 and template_base(_leaf(str(entry))) == header_leaf for offset, entry, _mode in entries
+            ):
+                problems.append(f"{where}: the record header {header} is not at +0x0 (a base or a field, directly or in a base)")
+        casts = sorted({row["type"] for row in record.get("dwarf_casts") or [] if row["type"] != header_leaf})
+        cited = "; ".join(
+            f"{row['kind']} {row['name']} ({row['die']}) of {row['function_name']} is {row['type']} *"
+            for row in record.get("dwarf_casts") or []
+        )
+        leaf = template_base(_leaf(name))
+        if len(casts) > 1:
+            problems.append(f"{where}: DWARF casts the record to different types: {cited}")
+        elif casts and (target.get("kind") != DWARF_KIND or leaf != casts[0]):
+            problems.append(f"{where}: DWARF casts the record to {casts[0]} ({cited}); reference it as a {DWARF_KIND} type")
+        elif target.get("kind") == DWARF_KIND and not casts:
+            header_only = leaf == header_leaf and isinstance(size, int) and _record_sizes([cls], by_class)[0] == {size}
+            header_cast = any(row["type"] == header_leaf for row in record.get("dwarf_casts") or [])
+            if not (leaf == header_leaf and (header_only or header_cast)):
+                problems.append(f"{where}: no DWARF parameter or local of the record's callbacks is a {leaf} *; plan a new type instead")
+    return problems
+
+
 # -- review table -------------------------------------------------------------
 
 
@@ -1413,23 +1710,39 @@ def render_type_plan(
                 sites.setdefault(site["site"], site)
     model = _Plan(plan, evidence)
     spec = plan.get("layout") or {}
-    types = [row for row in plan.get("types") or [] if isinstance(row, dict)]
+    types = [
+        model.types.get(row.get("name"), row) if row.get("kind") == DWARF_KIND else row
+        for row in plan.get("types") or [] if isinstance(row, dict)
+    ]
     forwards = [row for row in types if row.get("kind") == "forward"]
     defined = [row for row in types if row.get("kind") != "forward"]
     instantiations = [row for row in defined if row.get("instantiation") is not None]
     end_claims = _end_claims(model, layout) if evidence is not None else {}
     copy_notes, copy_kinds = _copy_notes(model, layout)
     live_arguments = {(path, item["name"]) for item in _live_arguments(model) for path in item["types"]}
+    referenced = [row for row in defined if row.get("kind") == DWARF_KIND]
+    if spec.get("records") is not None:
+        evidence_text = (
+            f"{len(spec.get('records') or [])} {spec.get('registrar')} command records, family {_code(spec.get('family'))}"
+            + (f", with {_code(spec.get('class'))}" if spec.get("class") else "")
+            + (" and its derived classes" if spec.get("with_derived") else "")
+        )
+    else:
+        evidence_text = (
+            f"{_code(spec.get('class'))}{' with its derived classes' if spec.get('with_derived') else ''}"
+            f"{' (plain struct)' if spec.get('struct') else ''}"
+        )
     lines = [
         f"# Code-derived type plan `{plan.get('work_item_id')}`",
         "",
         "| Item | Value |",
         "|---|---|",
-        f"| Layout evidence | {_code(spec.get('class'))}{' with its derived classes' if spec.get('with_derived') else ''}"
-        f"{' (plain struct)' if spec.get('struct') else ''}, "
+        f"| Layout evidence | {evidence_text}, "
         f"sha256 {_code(spec.get('sha256'))} |",
         f"| Validation | {'**ok**' if not problems else f'**{len(problems)} problem(s)**, listed under Validation'} |",
-        f"| Types | {len(defined)} defined ({len(instantiations)} template instantiations), {len(forwards)} forward declarations |",
+        f"| Types | {len(defined)} defined ({len(instantiations)} template instantiations"
+        + (f", {len(referenced)} existing DWARF records referenced, not created" if referenced else "")
+        + f"), {len(forwards)} forward declarations |",
         "",
         "Name provenance:",
         "",
@@ -1455,6 +1768,8 @@ def render_type_plan(
     else:
         lines.append("None.")
 
+    if spec.get("records") is not None:
+        lines += _record_table(model, layout)
     lines += ["", "## Invented provisional names", ""]
     invented = []
     for row in types:
@@ -1488,6 +1803,13 @@ def render_type_plan(
             lines.append(f"- Size evidence: {_cell(text)}")
         if row.get("kind") == "vtable" and row.get("opaque"):
             lines.append(f"- Opaque: {_cell(row.get('opaque_reason'))}")
+        if row.get("kind") == DWARF_KIND:
+            lines.append(
+                f"- Existing DWARF record (DWARF {', '.join(row.get('dwarf_dies') or []) or 'missing'}): referenced, not "
+                "created; its members come from DWARF and the live check compares them with the live type"
+            )
+        if row.get("records"):
+            lines.append(f"- Records: {', '.join(_code(command) for command in row['records'])}")
         for text in _texts(row.get("notes")):
             lines.append(f"- Note: {_cell(text)}")
         copied = row.get("instantiation")
@@ -1515,6 +1837,7 @@ def render_type_plan(
             "|---:|---:|---|---|---|---:|---|---|",
         ]
         table = []
+        seen = _dwarf_sites(model, row, layout) if row.get("kind") == DWARF_KIND else {}
         for offset, extent, role, entry in model.components(row):
             if role == "base":
                 notes = _texts(entry.get("notes")) + end_claims.get((str(row.get("name")), offset), [])
@@ -1529,7 +1852,7 @@ def render_type_plan(
                     bits = f"{field.get('type')}:{field.get('bit_size')} @ bit {field.get('bit_offset')}"
                     notes = _texts(field.get("notes")) + [f"unresolved: {text}" for text in _texts(field.get("unresolved"))]
                     notes += copy_notes.get((str(row.get("name")), offset), [])
-                    table.append((offset, extent, bits, field.get("name"), field.get("provenance"), field.get("evidence") or [], notes))
+                    table.append((offset, extent, bits, field.get("name"), field.get("provenance"), field.get("evidence") or seen.get(offset, []), notes))
             else:
                 notes = (
                     _texts(entry.get("notes"))
@@ -1537,7 +1860,7 @@ def render_type_plan(
                     + end_claims.get((str(row.get("name")), offset), [])
                     + copy_notes.get((str(row.get("name")), offset), [])
                 )
-                table.append((offset, extent, entry.get("type"), entry.get("name"), entry.get("provenance"), entry.get("evidence") or [], notes))
+                table.append((offset, extent, entry.get("type"), entry.get("name"), entry.get("provenance"), entry.get("evidence") or seen.get(offset, []), notes))
         for offset, extent, type_text, name, provenance, cited, notes in sorted(
             table, key=lambda item: (item[0] if isinstance(item[0], int) else -1, str(item[3]))
         ):
@@ -1575,6 +1898,54 @@ def render_type_plan(
         lines.append("")
         lines.extend(f"- {_cell(text)}" for text in problems)
     return "\n".join(lines) + "\n"
+
+
+def _dwarf_sites(model: _Plan, row: dict[str, Any], layout: dict[str, Any]) -> dict[int, list[str]]:
+    """Member offset -> the record sites inside each member of a referenced DWARF type (shown, not cited)."""
+
+    index = {cls["class"]: {entry["offset"]: entry["sites"] for entry in cls["offsets"]} for cls in layout.get("classes") or []}
+    windows = model.windows(set(index)).get(row["name"], set())
+    found: dict[int, set[str]] = defaultdict(set)
+    for offset, extent, role, _entry in model.components(row):
+        if role not in ("field", "bits") or not isinstance(offset, int) or not isinstance(extent, int):
+            continue
+        for cls, delta in windows:
+            for _site_offset, site in _sites_in(index.get(cls, {}), delta + offset, delta + offset + extent):
+                found[offset].add(site["site"])
+    return {offset: sorted(sites, key=lambda text: int(text, 16)) for offset, sites in found.items()}
+
+
+def _record_table(model: _Plan, layout: dict[str, Any]) -> list[str]:
+    """The records of a records plan: plan type, size evidence, record pointers and DWARF casts."""
+
+    rows = [row for row in layout.get("classes") or [] if row.get("role") == "record"]
+    registrar = layout.get("registrar") or {}
+    lines = [
+        "",
+        "## Records",
+        "",
+        f"Registrar {_code(registrar.get('name'))}; header {_code(registrar.get('header'))} at +0x0. Each record's "
+        "pointer is proven by its registration (the registrar's function-pointer parameter types the header).",
+        "",
+        "| Record | Plan type | Size evidence | data_size | Record pointers | DWARF casts |",
+        "|---|---|---|---|---|---|",
+    ]
+    for row in rows:
+        planned = model.layout_type(row["class"])
+        sizes = ", ".join(_hex(size) for size in row.get("size_evidence") or []) or "none"
+        if row.get("variable_tail"):
+            sizes += " (variable tail; fixed " + (", ".join(_hex(size) for size in row.get("fixed_allocation_sizes") or []) or "?") + ")"
+        pointers = "<br>".join(
+            f"{_code(item['function'])} {_code(item['name'])} {item['record']}" for item in row.get("callbacks") or []
+        )
+        casts = "<br>".join(
+            f"{_code(item['name'])} of {_code(item['function_name'])} is {_code(item['type'] + ' *')}" for item in row.get("dwarf_casts") or []
+        )
+        lines.append(
+            f"| {_code(row.get('command'))} | {_code(planned) if planned else '**unmapped**'} | {sizes} | "
+            f"{', '.join(_hex(size) for size in row.get('data_size') or []) or 'none'} | {pointers} | {casts} |"
+        )
+    return lines
 
 
 HOLDER_ROOTS = ("held@", "return@")
@@ -1708,9 +2079,12 @@ def build_type_plan_program(
     problems = validate_type_plan(root, tracker, plan, layout)
     if problems:
         raise SocomError(f"the type plan is not valid ({len(problems)} problems): {problems[:3]}")
-    model = _Plan(plan)
-    paths = {name: _ghidra_path(model, name) for name in model.types}
-    order_names = sorted(model.types, key=lambda name: paths[name])
+    referenced = any(isinstance(row, dict) and row.get("kind") == DWARF_KIND for row in plan.get("types") or [])
+    model = _Plan(plan, TypeEvidence(root) if referenced else None)
+    # A dwarf type already exists (a DWARF record): it is referenced and checked live, never created.
+    created = {name: row for name, row in model.types.items() if row.get("kind") != DWARF_KIND}
+    paths = {name: _ghidra_path(model, name) for name in created}
+    order_names = sorted(created, key=lambda name: paths[name])
     temps = {name: f"{TEMP_PREFIX}{index:04d}" for index, name in enumerate(order_names, start=1)}
     external: set[str] = set()
 
@@ -1718,8 +2092,11 @@ def build_type_plan_program(
         parsed = parse_type(text)
         assert parsed is not None
         base = parsed["base"]
-        if base in model.types:
+        if base in temps:
             spelled = temps[base]
+        elif base in model.types:
+            external.add(_ghidra_path(model, base))
+            spelled = _leaf(base)
         elif base.startswith("/"):
             external.add(base)
             spelled = base.rsplit("/", 1)[1]
@@ -1731,15 +2108,15 @@ def build_type_plan_program(
 
     # Forward declarations first; then by-value dependencies first (bases and
     # composite members); pointers do not order.
-    forwards = sorted((name for name in model.types if model.kind(name) == "forward"), key=lambda name: paths[name])
-    dependencies: dict[str, set[str]] = {name: set() for name in model.types if name not in forwards}
-    for name, row in model.types.items():
+    forwards = sorted((name for name in created if model.kind(name) == "forward"), key=lambda name: paths[name])
+    dependencies: dict[str, set[str]] = {name: set() for name in created if name not in forwards}
+    for name, row in created.items():
         if name in forwards:
             continue
         for _offset, _size, role, entry in model.components(row):
             if role in ("base", "field"):
                 parsed = parse_type(entry.get("type"))
-                if parsed and not parsed["pointers"] and parsed["base"] in model.types:
+                if parsed and not parsed["pointers"] and parsed["base"] in created:
                     dependencies[name].add(parsed["base"])
     order: list[str] = list(forwards)
     remaining = {name: set(values) - set(forwards) for name, values in dependencies.items()}
@@ -1820,13 +2197,27 @@ def build_type_plan_program(
                 "size": row["instantiation"]["source_size"],
                 "layout": row["instantiation"]["source_layout"],
             }
-            for name, row in model.types.items()
+            for name, row in created.items()
             if row.get("instantiation") is not None
         ),
         key=lambda item: item["type"],
     )
     template_arguments = _live_arguments(model)
-    return {
+    references = sorted(
+        (
+            {
+                "type": _ghidra_path(model, name),
+                "records": sorted(row.get("records") or []),
+                "size": row.get("size"),
+                "dwarf": list(row.get("dwarf_dies") or []),
+                "layout": list(row.get("dwarf_live") or []),
+            }
+            for name, row in model.types.items()
+            if row.get("kind") == DWARF_KIND
+        ),
+        key=lambda item: item["type"],
+    )
+    program = {
         "kind": APPLY_PROGRAM_KIND,
         "schema_version": APPLY_PROGRAM_SCHEMA,
         "mutation_performed": False,
@@ -1855,6 +2246,12 @@ def build_type_plan_program(
             "template_argument_count": len(template_arguments),
         },
     }
+    if references:
+        # Records laid out by existing DWARF types: the live check proves each resolves to exactly its path with
+        # the DWARF members (keys absent from programs without them, so their bytes are unchanged).
+        program["referenced_types"] = references
+        program["summary"]["referenced_type_count"] = len(references)
+    return program
 
 
 def _c_struct(temp: str, size: int, members: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]], list[list[Any]]]:
@@ -1969,6 +2366,21 @@ def live_type_problems(
             problems.append(
                 f"template argument {argument['name']} of {', '.join(argument['types'])} resolves to "
                 f"{found or 'nothing'}, not exactly {argument['path']}"
+            )
+    for reference in program.get("referenced_types", []):
+        leaf = reference["type"].rsplit("/", 1)[1]
+        found = sorted(by_name.get(leaf, []))
+        if found != [reference["type"]]:
+            problems.append(f"referenced DWARF type {leaf} resolves to {found or 'nothing'}, not exactly {reference['type']}")
+            continue
+        if layout_of is None:
+            continue
+        live = layout_of(leaf)
+        named = [row for row in (live or {}).get("components") or [] if row[3] != "(unnamed)"]
+        if live is None or live.get("size") != reference["size"] or named != reference["layout"]:
+            problems.append(
+                f"referenced DWARF type {reference['type']}: the live layout {live} differs from its DWARF members "
+                f"{reference['layout']} ({reference['size']} bytes)"
             )
     for source in program.get("layout_sources", []):
         leaf = source["source"].rsplit("/", 1)[1]
