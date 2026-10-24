@@ -1155,8 +1155,18 @@
       "resolution": null,
       "status": "open",
       "summary": "recon facts reports a delay-slot lui/addiu pair as an argument-register entry read"
+    },
+    {
+      "details": "Group 276-280 planners: (1) f0 chains ending at function-pointer table entries (UISysPostInit, UINetGetInterfaceList, UIConnectToGameServer in UICommandTable, family verdict uchar = v0 return) stay open because recon void does not use recon table-family verdicts; CSnd::Close, CUIVariable::Set and RelUDPSendTo could be decided. (2) CDblBufTextureRelocator::PreGetSprPacket 0x380600 is alone in its slot family because no zdb::CTextureRelocMgr vtable exists, although the base zdb::CTextureRelocMgr::PreGetSprPacket 0x2f9cf0 (live void, VERDICT void) fills the same +0x10 slot of __vt__Q23zdb15CBatchRelocator.",
+      "id": "socom:workspace-issue:06430193ceb220fbd150",
+      "kind": "problem",
+      "reported_at": "2026-10-24T21:18:52Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "recon void ignores table-family verdicts and cannot join slot families without a base vtable"
     }
   ],
-  "revision": 130,
+  "revision": 131,
   "schema_version": 1
 }
