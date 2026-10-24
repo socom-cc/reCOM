@@ -76,7 +76,9 @@ UNSPELLABLE = re.compile(r"[,&]")
 # array elements and pointees) before the program's own types: batch 35
 # typed g_buffer (uint16[512], 8192 bytes) as ushort[512]. Names whose table
 # entry is the builtin the program means are safe; any other table name
-# (uint16, int16, word, bool, size_t, a project typedef BOOL, ...) is not.
+# (uint16, int16, word, boolean, size_t, a project typedef BOOL, ...) is not.
+# bool is safe: its entry is BooleanDataType.dataType, Ghidra's 1-byte builtin
+# named bool, which is the program's only bool (/bool) and reads back as bool.
 # Prototypes are unaffected (GetVuMtxSet reads back uint16 *).
 BRIDGE_WELL_KNOWN = frozenset({
     "int", "uint", "short", "ushort", "long", "ulong", "longlong", "long long", "char", "uchar",
@@ -85,7 +87,7 @@ BRIDGE_WELL_KNOWN = frozenset({
     "int32_t", "int32", "uint32_t", "uint32", "int64_t", "int64", "uint64_t", "uint64",
     "size_t", "unsigned int", "unsigned short", "unsigned long", "unsigned char", "signed char",
 })
-BRIDGE_SAME_BUILTIN = frozenset({"int", "uint", "short", "ushort", "longlong", "char", "uchar", "float", "double", "void"})
+BRIDGE_SAME_BUILTIN = frozenset({"int", "uint", "short", "ushort", "longlong", "char", "uchar", "float", "double", "void", "bool"})
 # Ghidra's unknown types, allowed only in a stage 3 partial prototype.  The
 # bridge parses with FunctionSignatureParser(program DTM, no service), whose
 # DataTypeParser resolves the bare name ``undefined`` to DataType.DEFAULT when

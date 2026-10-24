@@ -278,7 +278,7 @@ def test_repair_global_row_defects(root: Path, repair, identities: dict) -> None
         (lambda r: r.update(type="undefined4"), "placeholder"),
         (lambda r: r.update(type="pointer"), "placeholder"),
         (lambda r: r.update(type="float[2]"), "is 8 bytes, but the .symtab object is 4"),
-        (lambda r: r.update(type="bool"), "well-known-type"),
+        (lambda r: r.update(type="boolean"), "well-known-type"),
         (lambda r: r.update(type="keep"), "keep needs keep_reason"),
         (lambda r: r.update(type="keep", keep_reason=["x"], label=None), "changes nothing"),
         (lambda r: r.update(live_type="_word128 *"), "live type '_word128 *' already"),
@@ -291,6 +291,12 @@ def test_repair_global_row_defects(root: Path, repair, identities: dict) -> None
         bad = copy.deepcopy(plan)
         change(bad["globals"][0])
         assert any(message in problem for problem in validate_recon_plan(root, tracker, bad)), message
+    # bool is the builtin apply_data_type resolves it to; only its width is checked.
+    builtin_bool = copy.deepcopy(plan)
+    builtin_bool["globals"][0]["type"] = "bool"
+    problems = validate_recon_plan(root, tracker, builtin_bool)
+    assert not any("well-known-type" in problem for problem in problems), problems
+    assert any("is 1 bytes, but the .symtab object is 4" in problem for problem in problems), problems
     missing = copy.deepcopy(plan)
     missing["globals"].pop()
     assert f"global {DMA_QWC} is missing from the plan" in validate_recon_plan(root, tracker, missing)

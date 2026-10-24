@@ -734,6 +734,15 @@ def test_data_alias_problem_covers_the_bridge_well_known_table() -> None:
         assert batch_apply._data_alias_problem(name) is None, name
 
 
+def test_data_alias_problem_allows_the_builtin_bool_only() -> None:
+    # The table maps bool and boolean to BooleanDataType, Ghidra's 1-byte
+    # builtin named bool: only the exact spelling bool means that builtin.
+    for name in ("bool", "bool[4]", "bool *"):
+        assert batch_apply._data_alias_problem(name) is None, name
+    for name in ("boolean", "Bool", "BOOL", "boolean[2]"):
+        assert batch_apply._data_alias_problem(name), name
+
+
 def test_shared_readable_names_and_the_readable_equivalence() -> None:
     def entry(address: str, current: str, readable: str, rename: bool = True) -> dict:
         return {"address": address, "current_name": current, "readable_name": readable, "rename": rename,
