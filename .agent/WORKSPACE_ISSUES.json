@@ -1075,8 +1075,18 @@
       "resolution": null,
       "status": "open",
       "summary": "recon void and facts treat an in-body jump-table jr as a function exit"
+    },
+    {
+      "details": "Design build/facts/local-typing-design.md (R4): in 127 zAnim begin/tick/end callbacks the cast record pointer has no separate decompiler local (76 merge the move sN,a0 copy into the _zanim_cmd_hdr * parameter; 51 use a0 only). No GhidraMCP endpoint creates or splits a local by storage and first-use pc, scripts are forbidden, and retyping the parameter contradicts DWARF/mangled evidence. User decision 2026-10-23: record the gap for now (option c); the ~97 parsers (separate calloc local) get typed locals via set_local_variable_type. Revisit with a plugin capability (Function.addLocalVariable by storage + first-use pc; covers 76) or field comments.",
+      "id": "socom:workspace-issue:55e3ad70c1d31d0645a9",
+      "kind": "problem",
+      "reported_at": "2026-10-24T01:25:17Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "zAnim begin/tick/end callbacks cannot get typed record locals through the bridge"
     }
   ],
-  "revision": 122,
+  "revision": 123,
   "schema_version": 1
 }
