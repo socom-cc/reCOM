@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2180,
+  "revision": 2187,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -2842,7 +2842,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "50165d828044eeaf46c0057d8dbc0b7e0865f1ce7ab255b1b7977d1a915341eb",
+      "current_receipt_sha256": "69eee740d61a81701b7b55bf6fca1fba8eab903a01f4627d9d3127861331ecb3",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -10758,6 +10758,31 @@
           "receipt_sha256": "50165d828044eeaf46c0057d8dbc0b7e0865f1ce7ab255b1b7977d1a915341eb",
           "tracker_revision": 2180,
           "work_item_id": "socom:recon-group:199fbc33c24bff09a527-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1720,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 37631
+          },
+          "indexes": {
+            "data": {
+              "count": 51829,
+              "sha256": "f48cdb6082a090cb103a9bdfecd1edf0f35e944605a1ca79e6ff6f98821905b2"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1720,
+              "sha256": "3d90faa2633da1acd37d1bdaea3828e3bd7700688c6f0f8ee8b82267d4944aec"
+            }
+          },
+          "receipt_sha256": "69eee740d61a81701b7b55bf6fca1fba8eab903a01f4627d9d3127861331ecb3",
+          "tracker_revision": 2187,
+          "work_item_id": "socom:recon-group:ca42aaa3f4742bd92fad-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -111566,7 +111591,7 @@
     },
     {
       "accepted": {
-        "at": "2026-10-24T17:10:40Z",
+        "at": "2026-10-24T18:03:52Z",
         "by": "socom-verifier-r54"
       },
       "batch": {
@@ -111658,12 +111683,12 @@
         "socom:recon-group:fe5f3b0ac9beaf35a1e5-apply"
       ],
       "evidence": [
-        "plan build/recon-plans/socom-recon-group-068d287bbb2c9c569ef1.json sha256:89aa68bfbbd5b8951af69705f90e7c80a65bcfbc70559f4c2af21a9b6603c5cb; recon validate ok; recon draft --check ok; preflight-batch ok (25 set_function_prototype calls, 7 skips = unresolved rows)",
-        "plan sha256:89aa68bfbbd5b8951af69705f90e7c80a65bcfbc70559f4c2af21a9b6603c5cb; recon validate ok; recon program equals build/apply apply.json; preflight-batch ok (25 set_function_prototype, 7 skips = the 7 unresolved rows); recon draft --check ok (rules 18, 11 drafted, 21 open); every plan type unique with exact live case (recon types); 13 partial rows: recon void VERDICT open for each, parameters from mangled types and arg reads; TickPathPlanner 0x180c00 bool: DWARF global_variable 0xbd916 at 0x180c00 typed subroutine 0xd9ea9 uchar(float, void *) plus address passed as a2 to AddTask mangled PFfPv_b (0x17d520); locale::classic static: DWARF 0x3f834 has no this formal_parameter (replace 0x3a227 has one), no arg reads"
+        "plan build/recon-plans/socom-recon-group-068d287bbb2c9c569ef1.json sha256:6534f69be22cc290f6d0166052e62e586553d25de7de2edfacb6a755ca29a5be; revised per narrow-return audit (user decision 2026-10-24): CVehicleRdr::Load 0x1a2e80 and CAiMap::FindLookLoc 0x1a9590 now partial rows; recon validate ok; recon draft --check ok; preflight-batch ok (25 set_function_prototype calls, 7 skips = unresolved rows)",
+        "re-review of plan sha256:6534f69be22cc290f6d0166052e62e586553d25de7de2edfacb6a755ca29a5be: recon validate ok; recon program equals build/apply apply.json; preflight-batch ok (25 set_function_prototype, 7 skips = the 7 unresolved rows; 15 partial); recon draft --check ok (rules 18, 11 drafted, 21 open); delta against the reviewed rows is only 0x1a2e80 CVehicleRdr::Load and 0x1a9590 CAiMap::FindLookLoc, now partial rows (return undefined; live_signature equals recon live default; parameters unchanged from the reviewed rows); returns are only sltu 0/1 (0x1a3704) or constants 1/0, width only from callers' andi 0xff (0x1a37e4, 0x259d88, 0x25a51c); no DWARF, table word or address-taken site"
       ],
       "handoff": {
         "owner": "socom-recon-planner-g139",
-        "submitted_at": "2026-10-24T16:51:45Z",
+        "submitted_at": "2026-10-24T18:02:20Z",
         "summary": "25 prototypes, 7 unresolved, 0 globals"
       },
       "id": "socom:recon-group:068d287bbb2c9c569ef1",
@@ -111671,6 +111696,29 @@
       "lease": null,
       "resources": [
         "build/recon-plans"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-10-24T17:10:40Z",
+            "by": "socom-verifier-r54"
+          },
+          "evidence": [
+            "verified with recon facts --callers 99, recon refs and recon dwarf --address on 0x1a2e80 and 0x1a9590; build/facts/narrow-return-audit.md rows 0x1a2e80, 0x1a9590"
+          ],
+          "handoff": {
+            "owner": "socom-recon-planner-g139",
+            "submitted_at": "2026-10-24T16:51:45Z",
+            "summary": "25 prototypes, 7 unresolved, 0 globals"
+          },
+          "handoff_evidence": [
+            "plan build/recon-plans/socom-recon-group-068d287bbb2c9c569ef1.json sha256:89aa68bfbbd5b8951af69705f90e7c80a65bcfbc70559f4c2af21a9b6603c5cb; recon validate ok; recon draft --check ok; preflight-batch ok (25 set_function_prototype calls, 7 skips = unresolved rows)",
+            "plan sha256:89aa68bfbbd5b8951af69705f90e7c80a65bcfbc70559f4c2af21a9b6603c5cb; recon validate ok; recon program equals build/apply apply.json; preflight-batch ok (25 set_function_prototype, 7 skips = the 7 unresolved rows); recon draft --check ok (rules 18, 11 drafted, 21 open); every plan type unique with exact live case (recon types); 13 partial rows: recon void VERDICT open for each, parameters from mangled types and arg reads; TickPathPlanner 0x180c00 bool: DWARF global_variable 0xbd916 at 0x180c00 typed subroutine 0xd9ea9 uchar(float, void *) plus address passed as a2 to AddTask mangled PFfPv_b (0x17d520); locale::classic static: DWARF 0x3f834 has no this formal_parameter (replace 0x3a227 has one), no arg reads"
+          ],
+          "reason": "Two rows type a sub-word return only from caller narrowing, which shows the destination's width: Metrowerks narrows byte returns inside the callee (0x26baf4, 0x1cd5f4, 0x1cd654). Per the user decision of 2026-10-24, an unproven sub-word return becomes a partial row. 0x1a2e80 CVehicleRdr::Load (uchar): the only exit returns sltu v0,zero,v0 (0x1a3704), a 0/1 value that needs no narrowing, so the body says nothing about width; the only caller narrows (andi s1,v0,0xff at 0x1a37e4). 0x1a9590 CAiMap::FindLookLoc (uchar): the exits return the constants 1/0 (0x1a9928, 0x1a9860, 0x1a9934); both callers narrow (andi at 0x259d88, 0x25a51c). Neither has a DWARF record, a relocated table word or an address-taken site (recon facts --callers 99; recon refs). Fix: make both partial rows with the proven parameters as planned and the return left open.",
+          "reopened_at": "2026-10-24T18:00:38Z",
+          "reopened_by": "socom-verifier-r54"
+        }
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
@@ -113893,6 +113941,10 @@
       "title": "Plan reconstruction group 261 (height 20, 32 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-10-24T18:06:34Z",
+        "by": "socom-verifier-a261"
+      },
       "batch": {
         "batch_number": 261,
         "function_count": 32,
@@ -113938,8 +113990,107 @@
       "dependencies": [
         "socom:recon-group:ca42aaa3f4742bd92fad"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "check-recon-apply audit: strict tracker audit ok at revision 2185",
+        "check-recon-apply calls: 15 apply bridge calls; dry run planned 15 (set_function_prototype), 0 outside the scope",
+        "check-recon-apply chain: g261-before identical to g259-after",
+        "check-recon-apply diff: recomputed g261 before/after diff equals the stored diff",
+        "check-recon-apply explain: 3 functions changed: 3 prototyped group functions, entry/body/thunk unchanged; data +0/-0 explained (0 typed globals); types added 0 (pointer/array only); references, blocks and bookmarks unchanged; 12 restated prototype(s) already live and unchanged (0x3bef50, 0x3c2210, 0x3c6790, 0x3ca980, 0x3caa50, 0x3d0520, 0x3d0aa0, 0x3d5340, 0x3d7380, 0x3d8a00, 0x3dd2e0, 0x3f8000)",
+        "check-recon-apply fingerprint: verifier fingerprint 6647426af45725e6d5eacc95c87bd0f26a4d23e769edc4790f456d3bdf0b0bcc identical to g261-after",
+        "check-recon-apply plan: plan sha256 6dbc8187c5593914876ce790b2ff1052eed50fc937e68ecaa995cbcaff5a01db cited by the accepted plan item",
+        "check-recon-apply preflight: live preflight ok",
+        "check-recon-apply program: program sha256 d206716fb0eebdda38a4485c677aad6be03dd708a5346f629ce5db96003b42dd regenerates identically from the plan",
+        "check-recon-apply readback: live signatures of 15 prototyped functions equal the plan; 17 unresolved unchanged",
+        "check-recon-apply receipt: receipt over the stored scope 69eee740d61a81701b7b55bf6fca1fba8eab903a01f4627d9d3127861331ecb3 vs handoff 69eee740d61a81701b7b55bf6fca1fba8eab903a01f4627d9d3127861331ecb3",
+        "check-recon-apply scope: stored scope (32 functions, 0 globals) equals the program's receipt_scope",
+        "check-recon-apply status: apply awaiting_acceptance, plan accepted",
+        "fingerprint after build/fingerprints/g261-after.json sha256 23ab8b0bb0724f4ae240417efcab832d904be966e35a5d9da82d8b10ba02359f; diff build/fingerprints/g261-diff.json sha256 1abf33cd6057b97ec5b07bb1eb4783e409a63ca5b6be8299ecf770c1736bdada: 3 functions changed: 3 prototyped group functions, entry/body/thunk unchanged; data +0/-0 explained (0 typed globals); types added 0 (pointer/array only); references, blocks and bookmarks unchanged; 12 restated prototype(s) already live and unchanged (0x3bef50, 0x3c2210, 0x3c6790, 0x3ca980, 0x3caa50, 0x3d0520, 0x3d0aa0, 0x3d5340, 0x3d7380, 0x3d8a00, 0x3dd2e0, 0x3f8000)",
+        "fingerprint before build/fingerprints/g261-before.json is the previous apply's verifier fingerprint build/verifier-socom-verifier-a259/fp-now.json (identical to build/fingerprints/g259-after.json), reused because the g259 receipt still reproduced live before this apply: 9715 functions, 51829 data, 1720 types",
+        "ghidra apply-recon: plan build/recon-plans/socom-recon-group-ca42aaa3f4742bd92fad.json sha256 6dbc8187c5593914876ce790b2ff1052eed50fc937e68ecaa995cbcaff5a01db (accepted; plan-tools commit 00ea11b); program build/apply/socom-recon-group-ca42aaa3f4742bd92fad-apply.json sha256 d206716fb0eebdda38a4485c677aad6be03dd708a5346f629ce5db96003b42dd regenerated equal to the stored program; 15 bridge calls exactly as the post-claim dry run predicted (15 set_function_prototype); 17 recorded skips; every name and Signature line read back equal; report sha256 b4bcc629c068aef4611e2d75af90167949dee0afba66f232e486f578d61e2053",
+        "ghidra-receipt-sha256:69eee740d61a81701b7b55bf6fca1fba8eab903a01f4627d9d3127861331ecb3",
+        "ghidra-save:explicit-program",
+        "pre-handoff receipt 69eee740d61a81701b7b55bf6fca1fba8eab903a01f4627d9d3127861331ecb3 over build/receipts/socom-recon-group-ca42aaa3f4742bd92fad-apply-scope.json (32 functions, 0 globals)"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "69eee740d61a81701b7b55bf6fca1fba8eab903a01f4627d9d3127861331ecb3",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x3a9470",
+            "0x3a9610",
+            "0x3bef50",
+            "0x3c2210",
+            "0x3c6790",
+            "0x3c8cc0",
+            "0x3ca980",
+            "0x3caa50",
+            "0x3d0520",
+            "0x3d0aa0",
+            "0x3d5340",
+            "0x3d7380",
+            "0x3d8a00",
+            "0x3dd2e0",
+            "0x3f70b0",
+            "0x3f7670",
+            "0x3f8000",
+            "0x3ff0f0",
+            "0x4015b0",
+            "0x402500",
+            "0x402ca0",
+            "0x409418",
+            "0x409b60",
+            "0x40b784",
+            "0x40bdc0",
+            "0x40f470",
+            "0x40f748",
+            "0x411868",
+            "0x411cf0",
+            "0x414198",
+            "0x41bdd0",
+            "0x46a0c0"
+          ],
+          "globals": [],
+          "types": []
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1720,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 37631
+          },
+          "indexes": {
+            "data": {
+              "count": 51829,
+              "sha256": "f48cdb6082a090cb103a9bdfecd1edf0f35e944605a1ca79e6ff6f98821905b2"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1720,
+              "sha256": "3d90faa2633da1acd37d1bdaea3828e3bd7700688c6f0f8ee8b82267d4944aec"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-24T18:02:34Z",
+        "summary": "Group 261 plan: 15 prototypes, 17 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:ca42aaa3f4742bd92fad-apply",
       "kind": "recon-apply-group",
       "lease": null,
@@ -113949,7 +114100,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply reviewed reconstruction group 261 in Ghidra"
     },
     {
@@ -114749,7 +114900,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Plan reconstruction group 267 (height 21, 32 functions)"
     },
     {
@@ -115291,7 +115442,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Plan reconstruction group 270 (height 21, 32 functions)"
     },
     {
@@ -115799,7 +115950,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Plan reconstruction group 273 (height 21, 27 functions)"
     },
     {
