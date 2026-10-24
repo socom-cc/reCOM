@@ -22,6 +22,8 @@ validator stays file-only:
   from a live instantiation (``layout_matches``)?
 * is a template argument a type the ELF names (``names_type``: a mangled
   symbol names it, or a DWARF composite record has its leaf name)?
+* does a narrow load of a wider member's low-order bytes only convert the
+  value to that width (``narrowing_read``, from the function's dataflow)?
 
 Three layout-evidence helpers need no ELF: ``void_pointer_argument`` finds a
 ``void *`` template argument in a type spelling, ``copy_accesses``
@@ -512,6 +514,232 @@ def _mentions(parsed: dict[str, Any] | None) -> list[tuple[str, str]]:
     return found
 
 
+# -- narrowing conversion reads --------------------------------------------------
+#
+# A scalar member proven wider by its own accesses (an int written by sw, a
+# short written by sh) can still be read through its low-order bytes alone:
+# on this little-endian target, its first byte(s).  Metrowerks emits
+# lb/lbu/lh/lhu there for a source conversion to a narrower type
+# (``SetAiMode((AI_MODE)rec->m_mode)``).  Such a load is a conversion read,
+# neither width nor type evidence of the member, when every use of the loaded
+# value, followed through the function's must-dataflow (``type_layout``'s
+# ``_Analysis``), is a narrowing conversion:
+#
+# * a compare;
+# * a mask that keeps every loaded bit and is narrower than the member
+#   (``andi 0x7fff`` of a sign-extended byte in a 2-byte member);
+# * a shift pair that sign- or zero-extends it to the loaded width
+#   (``dsll32``/``dsra32 24`` for a byte);
+# * a store of at most the loaded width;
+# * an argument whose callee parameter type (the mangled parameter list; its
+#   width from the builtin, or from every DWARF enumeration record of that
+#   name agreeing) is at most that wide, or, with an unproven receiver, is
+#   that narrow type in one reading and no parameter in the other.
+#
+# The converted value may then be shifted and merged into another value (a
+# bitfield insert); stores, arguments and returns of it are judged as above.
+# Any other use (arithmetic, a wider store or parameter, a dereference, a
+# return value, a parameter that cannot be derived) is a full-width use, and
+# then the load stays width and type evidence.  A value the must-dataflow
+# loses at a join is not followed.
+
+NARROWING_READ = "narrowing read"
+# lb, lbu, lh, lhu: (width, sign-extends).
+_NARROW_LOADS = {0x20: (1, True), 0x24: (1, False), 0x21: (2, True), 0x25: (2, False)}
+# Builtin widths as the demangler spells them (long is left out: EE long is 64-bit, its use here unproven).
+_SCALAR_WIDTHS = {
+    "bool": 1, "char": 1, "signed char": 1, "unsigned char": 1, "short": 2, "unsigned short": 2, "uint16": 2,
+    "int": 4, "unsigned int": 4, "float": 4, "long long": 8, "unsigned long long": 8,
+}
+# REGIMM, beq, bne, blez, bgtz, slti, sltiu and the branch-likely forms.
+_COMPARE_OPS = frozenset({0x01, 0x04, 0x05, 0x06, 0x07, 0x0A, 0x0B, 0x14, 0x15, 0x16, 0x17})
+_RECEIVER_UNPROVEN = re.compile(r"^receiver unproven: (?P<member>.+) if a member, (?P<static>.+) if static$")
+_RIGHT_OF = {"sll": ("sra", "srl"), "dsll": ("dsra", "dsrl")}
+_LIVE = ("raw", "pending", "converted")
+
+
+@lru_cache(maxsize=1)
+def _flow_cached(key: tuple[str, int, int], root: str) -> tuple[Any, Any, Any]:
+    """(context, symbols, call parameters) of the reference ELF for one function's dataflow."""
+
+    from .type_layout import CallParameters, _Receivers, _Symbols, class_leaves, context, dwarf_scalars, dwarf_subprograms
+
+    base = Path(root)
+    ctx = context(base)
+    symbols = _Symbols(ctx, dwarf_scalars(base, class_leaves(base)[0]))
+    return ctx, symbols, CallParameters(symbols, _Receivers(ctx, symbols, dwarf_subprograms(base)))
+
+
+@lru_cache(maxsize=2)
+def _enumeration_sizes(key: tuple[str, int, int], path: str) -> dict[str, frozenset[int | None]]:
+    """DWARF enumeration byte sizes by name; a typedef counts with its enumeration's size (None for anything else)."""
+
+    dwarf = _dwarf_cached(key, path)
+    sizes: dict[str, set[int | None]] = defaultdict(set)
+    for die in dwarf.dies:
+        name = die.string("name")
+        if not name:
+            continue
+        if die.tag_name == "enumeration_type":
+            sizes[name].add(die.integer("byte_size"))
+        elif die.tag_name == "typedef":
+            reference = die.integer("user_def_type")
+            target = dwarf.die(reference) if reference is not None else None
+            sizes[name].add(target.integer("byte_size") if target is not None and target.tag_name == "enumeration_type" else None)
+    return {name: frozenset(values) for name, values in sizes.items()}
+
+
+def _conversion_uses(
+    ctx: Any, symbols: Any, parameters: Any, analysis: Any, site: int, field_size: int, width_of: Any
+) -> dict[str, Any]:
+    """The uses of the value a narrow load at ``site`` reads (see the section comment)."""
+
+    from .batch_apply import _reads
+    from .recon_facts import GPR
+    from .type_layout import _MEMORY, _SHIFTS, _add
+
+    word = ctx.code.word(site)
+    width, signs = _NARROW_LOADS[word >> 26]
+    uses: list[tuple[int, str]] = []
+    full: list[tuple[int, str]] = []
+    verdict: dict[str, Any] = {"width": width, "signed": signs}
+    before = analysis.states.get(site)
+    imm = word & 0xFFFF
+    ref = ctx.ref_at.get(site)
+    target = int(ref["target"], 16) if ref and ref.get("target") else None
+    address = (
+        (("sym",), target) if target is not None
+        else None if before is None else _add(analysis._get(before, (word >> 21) & 31), imm - 0x10000 if imm & 0x8000 else imm)
+    )
+    if address is None or address[0] == ("sp",):
+        return {**verdict, "uses": [], "full": [f"the dataflow does not follow the loaded value (0x{site:x})"], "narrowing": False}
+    term = ("ld", address, width, "int", signs)
+    loaded = (term, 0)
+    whole = (1 << (8 * width)) - 1
+
+    def extends(op: tuple[str, Any]) -> bool:
+        """A left shift that leaves exactly the loaded bits at the top of the register."""
+
+        name, amount = op
+        return name in _RIGHT_OF and isinstance(amount, int) and (32 if name == "sll" else 64) - amount == 8 * width
+
+    def narrows(mask: Any) -> bool:
+        """A mask that keeps every loaded bit and is narrower than the member."""
+
+        return isinstance(mask, int) and mask >= 0 and mask & whole == whole and mask.bit_length() < 8 * field_size
+
+    def state(value: Any) -> str | None:
+        """raw, pending (half an extension), converted, or None (not this value, or a use judged where it was made)."""
+
+        if value is None:
+            return None
+        if value == loaded:
+            return "raw"
+        head, k = value
+        if head[0] != "bits" or head[1] != loaded or k:
+            return None  # another value, or arithmetic on this one (judged where it was made)
+        ops = head[2]
+        if any(argument == "?" for _op, argument in ops):
+            return None  # merged into another value (a bitfield insert)
+        if extends(ops[0]):
+            if len(ops) == 1:
+                return "pending"
+            return "converted" if ops[1][0] in _RIGHT_OF[ops[0][0]] and ops[1][1] == ops[0][1] else None
+        return "converted" if ops[0][0] == "and" and narrows(ops[0][1]) else None
+
+    for pc in sorted(analysis.states):
+        insn = ctx.code.word(pc)
+        gprs, _fprs = _reads(insn)
+        values = {register: analysis._get(analysis.states[pc], register) for register in sorted(gprs)}
+        read = {register: state(value) for register, value in values.items() if state(value) in _LIVE}
+        if not read:
+            continue
+        text = f"`{ctx.text(pc).split('  ;')[0]}`"
+        op, rs, rt = insn >> 26, (insn >> 21) & 31, (insn >> 16) & 31
+        sa, funct = (insn >> 6) & 31, insn & 0x3F
+        for register, kind in read.items():
+            if op in _MEMORY:
+                store_width, _kind, _signed, store, fpr = _MEMORY[op]
+                if register == rs:
+                    full.append((pc, f"{text} dereferences it"))
+                elif store and not fpr and kind != "pending" and store_width <= width:
+                    uses.append((pc, f"stored at {store_width} byte{'s' if store_width > 1 else ''}"))
+                else:
+                    full.append((pc, f"{text} stores it at {store_width} bytes" if store else text))
+            elif (op == 0x00 and funct in (0x21, 0x2D, 0x25) and 0 in (rs, rt)) or (
+                op == 0x1C and funct == 0x29 and sa == 0x12 and rt == 0
+            ):
+                pass  # a move: the copy's uses are followed
+            elif op in _COMPARE_OPS or (op == 0x00 and funct in (0x2A, 0x2B)):
+                uses.append((pc, "compared"))
+            elif kind == "converted" and op == 0x00 and funct in (0x24, 0x25, 0x26, 0x27):
+                uses.append((pc, "merged into another value"))  # a bitfield insert
+            elif kind == "converted" and (op in (0x0C, 0x0D, 0x0E) or (op == 0x00 and funct in _SHIFTS)):
+                pass  # bit operations on the converted value
+            elif op == 0x0C and kind == "raw":
+                mask = insn & 0xFFFF
+                if narrows(mask):
+                    uses.append((pc, f"masked 0x{mask:x}"))
+                elif mask & whole != whole:
+                    full.append((pc, f"{text} extracts bits 0x{mask & whole:x} of it"))
+                else:
+                    full.append((pc, f"{text} keeps the member's full width"))
+            elif op == 0x00 and funct in _SHIFTS:
+                name, extra = _SHIFTS[funct]
+                amount = sa + extra
+                if kind == "raw" and extends((name, amount)):
+                    continue  # judged at its right shift
+                first = values[register][0][2][0] if kind == "pending" else None
+                if first is not None and name in _RIGHT_OF[first[0]] and amount == first[1]:
+                    uses.append((pc, f"{'sign' if name.endswith('a') else 'zero'}-extended to {width} byte{'s' if width > 1 else ''}"))
+                else:
+                    full.append((pc, f"{text} shifts it"))
+            else:
+                full.append((pc, text))
+    for call in analysis.calls:
+        callee = call["callee"]
+        name = symbols.readable(callee) if callee is not None else "an indirect call"
+        for register, value in sorted(call["arguments"].items()):
+            kind = state(value)
+            if kind not in _LIVE:
+                continue
+            parameter = parameters.of(callee, register)
+            if parameter.get("no_parameter"):
+                continue
+            if kind == "pending":
+                full.append((call["site"], f"passed half-extended in {register} to {name}"))
+            elif "parameter_type" in parameter:
+                spelled = parameter["parameter_type"]
+                size = width_of(spelled)
+                if size is not None and size <= width:
+                    uses.append((call["site"], f"passed as {spelled} ({size} byte{'s' if size > 1 else ''}) to {name}"))
+                else:
+                    full.append((call["site"], f"passed as {spelled} to {name}"))
+            else:
+                reason = str(parameter.get("parameter_unknown", ""))
+                match = _RECEIVER_UNPROVEN.match(reason)
+                readings = [match["member"], match["static"]] if match else []
+                sizes = {text: width_of(text) for text in readings if text != "no parameter"}
+                if sizes and all(size is not None and size <= width for size in sizes.values()):
+                    member, static = (
+                        f"{text} ({sizes[text]} byte{'s' if sizes[text] > 1 else ''})" if text in sizes else text for text in readings
+                    )
+                    uses.append((call["site"], f"passed in {register} to {name}: {member} if a member, {static} if static"))
+                else:
+                    full.append((call["site"], f"passed in {register} to {name} ({reason or 'parameter not derivable'})"))
+    for pc in sorted(analysis.states):
+        if ctx.code.word(pc) != 0x03E00008 or pc + 4 not in analysis.states:
+            continue  # jr ra and its delay slot
+        after = analysis._transfer(pc + 4, analysis.states[pc + 4], record=False)
+        for register in (2, 3):
+            if state(after.get(register)) in _LIVE:
+                full.append((pc, f"returned in {GPR[register]}"))
+    if not uses and not full:
+        full.append((site, "no use of the loaded value is seen"))
+    render = lambda rows: [f"{text} (0x{pc:x})" for pc, text in sorted(set(rows))]  # noqa: E731
+    return {**verdict, "uses": render(uses), "full": render(full), "narrowing": bool(uses) and not full}
+
+
 class TypeEvidence:
     """Lazily loaded ELF symbols and DWARF records of the reference ELF under ``root``."""
 
@@ -520,6 +748,8 @@ class TypeEvidence:
         self._dwarf: _Dwarf | None = None
         self._symbols: dict[str, Any] | None = None
         self._subprograms: dict[int, list[Any]] | None = None
+        self._analyses: dict[int, Any] = {}
+        self._narrowing: dict[tuple[int, int, int], dict[str, Any] | None] = {}
 
     @property
     def dwarf(self) -> _Dwarf:
@@ -730,6 +960,58 @@ class TypeEvidence:
             walk(subprogram)
         return rows
 
+    def scalar_width(self, text: str) -> int | None:
+        """Byte width of a parameter type as ``recon layout`` spells it, else None.
+
+        A pointer, reference or receiver is 4 bytes; a builtin its width; a
+        named type the byte size every DWARF enumeration record (or typedef
+        of one) of its leaf name agrees on, when no composite has that name.
+        """
+
+        core = str(text).replace("(receiver)", "").strip()
+        while True:
+            stripped = re.sub(r"^(?:const|volatile)\s+|\s*\b(?:const|volatile)$", "", core).strip()
+            if stripped == core:
+                break
+            core = stripped
+        if core.endswith(("*", "&")):
+            return 4
+        if core in _SCALAR_WIDTHS:
+            return _SCALAR_WIDTHS[core]
+        if not core or core in CXX_BUILTINS or "<" in core or "(" in core:
+            return None
+        leaf = leaf_name(core)
+        if self.dwarf.by_name.get(leaf):
+            return None
+        sizes = _enumeration_sizes(file_key(self.path), str(self.path)).get(leaf) or frozenset()
+        return next(iter(sizes)) if len(sizes) == 1 and None not in sizes else None
+
+    def narrowing_read(self, function: int, site: int, field_size: int) -> dict[str, Any] | None:
+        """Whether the narrow load at ``site`` (in the function at ``function``) only converts its value.
+
+        None unless ``site`` is an lb/lbu/lh/lhu narrower than ``field_size``
+        inside that function; otherwise ``{"width", "signed", "uses",
+        "full", "narrowing"}``: the narrowing uses and the full-width uses
+        (each "what (0xsite)"), and whether every use narrows (see the
+        narrowing conversion reads section).
+        """
+
+        key = (function, site, field_size)
+        if key in self._narrowing:
+            return self._narrowing[key]
+        ctx, symbols, parameters = _flow_cached(file_key(self.path), str(self.path.parent.parent))
+        row = symbols.functions.get(function)
+        verdict = None
+        if row is not None and function <= site < function + row["size"] and (ctx.code.word(site) >> 26) in _NARROW_LOADS:
+            if _NARROW_LOADS[ctx.code.word(site) >> 26][0] < field_size:
+                if function not in self._analyses:
+                    from .type_layout import _Analysis
+
+                    self._analyses[function] = _Analysis(ctx, symbols, function)
+                verdict = _conversion_uses(ctx, symbols, parameters, self._analyses[function], site, field_size, self.scalar_width)
+        self._narrowing[key] = verdict
+        return verdict
+
     def layout_matches(self, template: str, size: int, members: set[tuple[int, str]], bases: set[int]) -> list[int]:
         """Offsets of DWARF records ``template`` of ``size`` bytes with exactly these members and bases."""
 
@@ -746,6 +1028,7 @@ __all__ = [
     "CXX_BUILTINS",
     "GHIDRA_BUILTIN",
     "MEMBER_WISE",
+    "NARROWING_READ",
     "ZERO_FILL",
     "TypeEvidence",
     "copy_accesses",

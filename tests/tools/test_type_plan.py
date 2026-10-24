@@ -1437,3 +1437,242 @@ def test_show_prints_the_holder_proof_of_each_cited_outside_site() -> None:
     plan = {"types": [{"name": "zdb::CTest", "fields": [{"name": "m_x", "evidence": ["0x104", "0x100"]}]}]}
     # Only cited sites with a holder root are listed (0x108 is not cited, 0x104 is reached through this).
     assert plans._holder_proofs(plan, layout) == [("0x100", "Outside(zdb::CHolder*)", "held@0xfc", proof)]
+
+
+# -- narrowing conversion reads -------------------------------------------------
+
+
+def _narrow_plan(layout: dict, field: dict, alignment: int = 4) -> dict:
+    size = layout["classes"][0]["size_evidence"][0]
+    plan = _copy_plan(layout, [field], [])
+    row = _types(plan)["zdb::CTest"]
+    row["alignment"] = alignment
+    end = field["offset"] + field["size"]
+    row["padding"] = [{"offset": 0, "size": field["offset"], "reason": "no access"}] if field["offset"] else []
+    if end < size:
+        row["padding"].append({"offset": end, "size": size - end, "reason": "no access"})
+    return plan
+
+
+_TICK = {"function": "0x300000", "function_name": "CTSetMode::Tick(void)", "root": "record a0"}
+
+
+def _setmode_like(offset: int = 8, store: bool = True) -> list[dict]:
+    """A word written by sw whose low byte one function reads with lbu, compares and passes as a 1-byte type."""
+
+    sites = [
+        _site("0x300004", offset, "load", width=1, kind="int", signed=False, insn="lbu a1,8(s2)", **_TICK),
+        _site("0x300008", offset, "use", width=1, kind="int", signed=False, use="compare", **_TICK),
+        _site("0x30000c", offset, "value-passed", width=1, kind="int", signed=False, parameter_type="AI_MODE",
+              callee="f(AI_MODE)", register="a1", **_TICK),
+    ]
+    if store:
+        sites.append(_site("0x200000", 8, "store", width=4, kind="int", constant=1, value="const 1", function="0x200000"))
+    return sites
+
+
+def _verdict(narrowing: bool, uses: tuple[str, ...] = (), full: tuple[str, ...] = ()) -> dict:
+    return {"width": 1, "signed": False, "uses": list(uses), "full": list(full), "narrowing": narrowing}
+
+
+def test_a_narrowing_conversion_read_is_neither_width_nor_type_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
+    from tools._socom.type_plan_evidence import TypeEvidence
+
+    asked: list[tuple[int, int, int]] = []
+    verdicts = {0x300004: _verdict(True, ("compared (0x300008)", "passed as AI_MODE (1 byte) to f(AI_MODE) (0x30000c)"))}
+
+    def narrowing_read(self, function: int, site: int, field_size: int) -> dict | None:
+        asked.append((function, site, field_size))
+        return verdicts.get(site)
+
+    monkeypatch.setattr(TypeEvidence, "narrowing_read", narrowing_read)
+    layout = _copy_layout(_setmode_like(), 12)
+    plan = _narrow_plan(layout, _field(8, 4, "int", "m_mode", ["0x200000", "0x300004"]))
+    assert validate_type_plan(Path("."), None, plan, layout) == []
+    assert asked == [(0x300000, 0x300004, 4)]
+    text = render_type_plan(plan, layout, [], TypeEvidence(Path(".")))
+    assert (
+        "narrowing read (neither width nor type evidence): 0x300004 `lbu a1,8(s2)` in CTSetMode::Tick(void) reads the low "
+        "1 byte of the 4-byte field; its value is only compared (0x300008); passed as AI_MODE (1 byte) to f(AI_MODE) (0x30000c)"
+    ) in text
+    assert "`0x300004` `lbu a1,8(s2)` in `CTSetMode::Tick(void)` (narrowing read)" in text
+    contradictions = [
+        "m_mode: 0x300004 (load w1 int) contradicts int",
+        "m_mode: 0x300008 (use w1 int) contradicts int",
+        "m_mode: 0x30000c (value-passed w1 int) contradicts int",
+    ]
+    # A full-width use of the loaded value keeps the load (and its uses) width evidence.
+    verdicts[0x300004] = _verdict(False, ("compared (0x300008)",), ("passed as int to g(int) (0x30000c)",))
+    problems = validate_type_plan(Path("."), None, plan, layout)
+    assert all(any(text in problem for problem in problems) for text in contradictions), problems
+    assert "narrowing read" not in render_type_plan(plan, layout, problems, TypeEvidence(Path(".")))
+    verdicts[0x300004] = _verdict(True, ("compared (0x300008)",))
+    # Not the low-order byte: a read of the word's second byte is never a conversion read.
+    asked.clear()
+    shifted = _copy_layout(_setmode_like(offset=9), 12)
+    problems = validate_type_plan(Path("."), None, _narrow_plan(shifted, _field(8, 4, "int", "m_mode", ["0x200000"])), shifted)
+    assert any("0x300004 accesses +0x9 inside the scalar field (zdb::CTest)" in text for text in problems), problems
+    assert asked == []
+    # Nothing proves the member wider than the read: the narrow load stays a contradiction.
+    alone = _copy_layout(_setmode_like(store=False), 12)
+    problems = validate_type_plan(Path("."), None, _narrow_plan(alone, _field(8, 4, "int", "m_mode", ["0x300004"])), alone)
+    assert all(any(text in problem for problem in problems) for text in contradictions), problems
+    assert asked == []
+    # A placeholder stays refused: the word stores prove int, and undefined4 takes no conversion reads.
+    problems = validate_type_plan(Path("."), None, _narrow_plan(layout, _field(8, 4, "undefined4", "m_mode", ["0x200000"])), layout)
+    assert any("undefined4 is a placeholder but 0x300004 proves more" in text for text in problems), problems
+    assert any("0x300004 (load w1 int) contradicts undefined4" in text for text in problems), problems
+    # The conversion's sign is not the member's: an lb of a ushort's low byte is no sign-extending load of it.
+    signed = [
+        _site("0x300004", 8, "load", width=1, kind="int", signed=True, insn="lb a1,8(s2)", **_TICK),
+        _site("0x200000", 8, "store", width=2, kind="int", constant=1, value="const 1", function="0x200000"),
+    ]
+    halfword = _copy_layout(signed, 12)
+    plan = _narrow_plan(halfword, _field(8, 2, "ushort", "m_kind", ["0x200000", "0x300004"]), alignment=2)
+    assert validate_type_plan(Path("."), None, plan, halfword) == []
+    verdicts[0x300004] = _verdict(False, full=("returned in v0 (0x300010)",))
+    problems = validate_type_plan(Path("."), None, plan, halfword)
+    assert any("every load sign-extends (lb/lh); ushort is unsigned" in text for text in problems), problems
+
+
+def _real(site: str, offset: int, access: str, function: str, name: str, **fields) -> dict:
+    return {"offset": offset, "site": site, "access": access, "function": function, "function_name": name,
+            "kind": "int", "root": "record a0", **fields}
+
+
+_SETMODE_TICK = ("0x2b7250", "CTSetMode::Tick(_zanim_cmd_hdr*, float*)")
+_SETMODE_PARSE = ("0x2b73a0", "CTSetMode::Parse(_zrdr*)")
+_STANCE_BEGIN = ("0x2b5f70", "CTStance::Begin(_zanim_cmd_hdr*)")
+_STANCE_PARSE = ("0x2b6010", "CTStance::Parse(_zrdr*)")
+_EVENT_TICK = ("0x2bd5e0", "CTEvent::Tick(_zanim_cmd_hdr*, float*)")
+_EVENT_PARSE = ("0x2bd860", "CTEvent::Parse(_zrdr*)")
+
+
+def _setmode_rows() -> list[dict]:
+    """The zAnim TASK_SETMODE record's +0x8 rows (``recon layout --records``)."""
+
+    return [
+        _real("0x2b72f4", 8, "load", *_SETMODE_TICK, insn="lbu a1,8(s2)", signed=False, width=1),
+        _real("0x2b72f8", 8, "use", *_SETMODE_TICK, insn="bne a1,zero,0x2b7314", signed=False, use="compare", width=1),
+        _real("0x2b7314", 8, "value-passed", *_SETMODE_TICK, callee="CSealCtrlAi::SetAiMode(AI_MODE)",
+              insn="jal SetAiMode__11CSealCtrlAiF7AI_MODE@0x266bf0", parameter_type="AI_MODE", register="a1", signed=False,
+              width=1),
+        _real("0x2b7324", 8, "load", *_SETMODE_TICK, insn="lw v1,8(s2)", width=4),
+        _real("0x2b732c", 8, "use", *_SETMODE_TICK, insn="bne v1,v0,0x2b7378", use="compare", width=4),
+        _real("0x2b7400", 8, "store", *_SETMODE_PARSE, constant=1, insn="sw a0,8(v0)", value="const 1", width=4,
+              root="record@0x2b73c4"),
+        _real("0x2b7464", 8, "store", *_SETMODE_PARSE, insn="sw v0,8(s0)", value="unknown", width=4, root="record@0x2b73c4"),
+    ]
+
+
+def _stance_rows() -> list[dict]:
+    """The TASK_STANCE record's +0xc rows."""
+
+    return [
+        _real("0x2b5fe4", 12, "value-passed", *_STANCE_BEGIN, callee="CSealCtrlAi::SetStance(SEAL_STANCE)",
+              insn="jal SetStance__11CSealCtrlAiF11SEAL_STANCE@0x261d00",
+              parameter_unknown="receiver unproven: SEAL_STANCE if a member, no parameter if static", register="a1",
+              signed=True, width=1),
+        _real("0x2b5fe8", 12, "load", *_STANCE_BEGIN, insn="lb a1,12(s1)", signed=True, width=1),
+        _real("0x2b6130", 12, "store", *_STANCE_PARSE, insn="sw v1,12(v0)", value="unknown", width=4, root="record@0x2b60e8"),
+    ]
+
+
+def _event_rows() -> list[dict]:
+    """The TASK_EVENT record's +0x20 rows."""
+
+    return [
+        _real("0x2bd800", 0x20, "load", *_EVENT_TICK, insn="lb v1,32(s0)", signed=True, width=1),
+        _real("0x2bd814", 0x20, "use", *_EVENT_TICK, field_bits="0xff", insn="andi v1,v1,0x7fff", signed=True,
+              use="mask 0x7fff", width=1),
+        _real("0x2bd8f0", 0x20, "store", *_EVENT_PARSE, constant=1, insn="sh v1,32(v0)", value="const 1", width=2,
+              root="record@0x2bd884"),
+        _real("0x2bd910", 0x20, "store", *_EVENT_PARSE, insn="sh v0,32(s0)", value="unknown", width=2, root="record@0x2bd884"),
+    ]
+
+
+_PATTERNS = {
+    # rows, record size, field, alignment, the problems the rule removes, the narrowing note
+    "SETMODE": (
+        _setmode_rows, 12, _field(8, 4, "int", "m_mode", ["0x2b7400", "0x2b7464", "0x2b7324", "0x2b72f4"]), 4,
+        ["m_mode: 0x2b72f4 (load w1 int) contradicts int", "m_mode: 0x2b72f8 (use w1 int) contradicts int",
+         "m_mode: 0x2b7314 (value-passed w1 int) contradicts int"],
+        "narrowing read (neither width nor type evidence): 0x2b72f4 `lbu a1,8(s2)` in CTSetMode::Tick(_zanim_cmd_hdr*, "
+        "float*) reads the low 1 byte of the 4-byte field; its value is only compared (0x2b72f8); passed as AI_MODE "
+        "(1 byte) to CSealCtrlAi::SetAiMode(AI_MODE) (0x2b7314)",
+    ),
+    "STANCE": (
+        _stance_rows, 16, _field(12, 4, "int", "m_stance", ["0x2b6130", "0x2b5fe8"]), 4,
+        ["m_stance: 0x2b5fe4 (value-passed w1 int) contradicts int", "m_stance: 0x2b5fe8 (load w1 int) contradicts int"],
+        "narrowing read (neither width nor type evidence): 0x2b5fe8 `lb a1,12(s1)` in CTStance::Begin(_zanim_cmd_hdr*) "
+        "reads the low 1 byte of the 4-byte field; its value is only passed in a1 to CSealCtrlAi::SetStance(SEAL_STANCE): "
+        "SEAL_STANCE (1 byte) if a member, no parameter if static (0x2b5fe4)",
+    ),
+    "EVENT": (
+        _event_rows, 0x22, _field(0x20, 2, "short", "m_type", ["0x2bd8f0", "0x2bd910", "0x2bd800"]), 2,
+        ["m_type: 0x2bd800 (load w1 int) contradicts short", "m_type: 0x2bd814 (use w1 int) contradicts short"],
+        "narrowing read (neither width nor type evidence): 0x2bd800 `lb v1,32(s0)` in CTEvent::Tick(_zanim_cmd_hdr*, "
+        "float*) reads the low 1 byte of the 2-byte field; its value is only masked 0x7fff (0x2bd814); merged into "
+        "another value (0x2bd820)",
+    ),
+}
+
+
+@pytest.mark.parametrize("pattern", sorted(_PATTERNS))
+def test_zanim_task_records_read_their_wider_members_through_narrowing_conversions(
+    root: Path, pattern: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tools._socom.type_plan_evidence import TypeEvidence
+
+    rows, size, field, alignment, removed, note = _PATTERNS[pattern]
+    layout = _copy_layout(rows(), size)
+    plan = _narrow_plan(layout, field, alignment)
+    # Regression: the sw/sh-proven member's low-byte conversion read contradicted its width.
+    assert validate_type_plan(root, None, plan, layout) == []
+    text = render_type_plan(plan, layout, [], TypeEvidence(root))
+    assert note in text, text
+    monkeypatch.setattr(TypeEvidence, "narrowing_read", lambda self, function, site, field_size: None)
+    assert validate_type_plan(root, None, plan, layout) == [f"type zdb::CTest field {text}" for text in removed]
+
+
+def test_narrowing_reads_follow_every_use_of_the_loaded_value(root: Path) -> None:
+    from tools._socom.type_plan_evidence import TypeEvidence
+
+    evidence = TypeEvidence(root)
+    setmode = evidence.narrowing_read(0x2B7250, 0x2B72F4, 4)
+    assert setmode == {
+        "width": 1, "signed": False, "narrowing": True, "full": [],
+        "uses": ["compared (0x2b72f8)", "passed as AI_MODE (1 byte) to CSealCtrlAi::SetAiMode(AI_MODE) (0x2b7314)"],
+    }
+    assert evidence.narrowing_read(0x2BD5E0, 0x2BD800, 2)["uses"] == ["masked 0x7fff (0x2bd814)", "merged into another value (0x2bd820)"]
+    assert evidence.narrowing_read(0x2B5F70, 0x2B5FE8, 4)["narrowing"]
+    # Not narrower than the member, or not a narrow load: no verdict.
+    assert evidence.narrowing_read(0x2B7250, 0x2B72F4, 1) is None
+    assert evidence.narrowing_read(0x2B7250, 0x2B7324, 8) is None
+    # Full-width uses: an int parameter, a word store, and a mask that extracts bits (a bitfield, not a conversion).
+    for function, site, full in (
+        (0x1B7C90, 0x1B7D04, "passed as int to CZAnim::GetName(int) (0x1b7d08)"),
+        (0x1BEE80, 0x1BF7CC, "`sw v0,68(s1)` stores it at 4 bytes (0x1bf7d0)"),
+        (0x2B9C90, 0x2B9D30, "`andi a0,a0,0xf` extracts bits 0xf of it (0x2b9d38)"),
+    ):
+        verdict = evidence.narrowing_read(function, site, 4)
+        assert not verdict["narrowing"] and verdict["full"] == [full], verdict
+    # The parameter widths: builtins, pointers, and DWARF enumerations (a composite name is not a scalar).
+    widths = {text: evidence.scalar_width(text) for text in (
+        "AI_MODE", "SEAL_STANCE", "CAiEvent::EVENT", "unsigned char", "short", "int", "zdb::CVisual*",
+        "zdb::CVisual * (receiver)", "CVisual",
+    )}
+    assert widths == {
+        "AI_MODE": 1, "SEAL_STANCE": 1, "CAiEvent::EVENT": 1, "unsigned char": 1, "short": 2, "int": 4, "zdb::CVisual*": 4,
+        "zdb::CVisual * (receiver)": 4, "CVisual": None,
+    }
+    # In the validator: an int-parameter use keeps the low-byte load a contradiction of the int member.
+    rows = [
+        _real("0x1b7d04", 4, "load", "0x1b7c90", "zAnimFireWeaponTick(_zanim_cmd_hdr*, float*)", insn="lbu a1,6(s1)",
+              signed=False, width=1),
+        _real("0x1b7d00", 4, "store", "0x1b7c90", "zAnimFireWeaponTick(_zanim_cmd_hdr*, float*)", insn="sw zero,0(v0)",
+              width=4),
+    ]
+    layout = _copy_layout(rows, 8)
+    problems = validate_type_plan(root, None, _narrow_plan(layout, _field(4, 4, "int", "m_node", ["0x1b7d00", "0x1b7d04"])), layout)
+    assert problems == ["type zdb::CTest field m_node: 0x1b7d04 (load w1 int) contradicts int"], problems

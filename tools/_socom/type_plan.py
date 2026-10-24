@@ -121,6 +121,19 @@ a zero store wider than the member it hits (``sq zero`` over four words),
 prove only that the extent is written, not the width or type of what they
 cover; a zero store exactly matching one member is still its width evidence.
 
+A narrowing conversion read is neither width nor type evidence either: an
+lb/lbu/lh/lhu of a scalar member's low-order bytes (its first bytes on this
+little-endian target) when another access at the member's first byte has its
+full width, and every use of the loaded value only converts it to the
+narrower width (``TypeEvidence.narrowing_read``: compared, masked or sign- or
+zero-extended to that width, stored at it, or passed where the callee's
+parameter type is that wide, the converted value perhaps shifted and merged
+into another, as a bitfield insert).  ``SetAiMode((AI_MODE)rec->m_mode)``
+reads the low byte of an int written by ``sw``.  Its uses (``use`` and
+``value-passed`` sites of that width in that function) go with it, and
+``show`` labels them ``narrowing read``.  A narrow load at any other byte of
+the member, or one whose value has a full-width use, stays a contradiction.
+
 A call that passes an object address as a class pointer or reference (a
 constructor or method receiver) proves a sub-object of that class there.  The
 validator matches each such call against the plan's sub-objects (plan types,
@@ -162,6 +175,7 @@ from .type_plan_evidence import (
     BULK,
     CXX_BUILTINS,
     MEMBER_WISE,
+    NARROWING_READ,
     ZERO_FILL,
     TypeEvidence,
     copy_accesses,
@@ -1375,6 +1389,121 @@ def _passes_as(site: dict[str, Any], base: str, pointers: int) -> bool:
     return _names_match(target, base, "qualified")
 
 
+def _field_candidates(
+    field: dict[str, Any], composite: bool, index: dict[str, dict[int, list[dict[str, Any]]]],
+    windows: set[tuple[str, int]], claims: set[tuple[str, int, str, Any]],
+    copies: dict[tuple[str, int, str, str], str],
+) -> tuple[list[tuple[str, int, dict[str, Any], str | None]], dict[str, dict[str, Any]]]:
+    """(class, offset in the field's type, site, copy or zero-fill kind) of every site in the field's extent, and the claimed sites.
+
+    A site a sub-object claims (a call on an empty base at the end of the
+    previous member) is that sub-object's, not this field's.
+    """
+
+    offset, size = field["offset"], field["size"]
+    candidates: list[tuple[str, int, dict[str, Any], str | None]] = []
+    claimed: dict[str, dict[str, Any]] = {}
+    for cls, delta in sorted(windows):
+        for site_offset, site in _sites_in(index.get(cls, {}), delta + offset, delta + offset + size):
+            if not composite and _claimed(claims, cls, site_offset, site):
+                claimed[site["site"]] = site
+                continue
+            candidates.append((cls, site_offset - delta, site, copies.get(_copy_key(cls, site_offset, site))))
+    return candidates, claimed
+
+
+_NARROW_ACCESSES = ("load", "use", "value-passed")
+
+
+def _narrowing_reads(
+    model: _Plan, field: dict[str, Any], parsed: dict[str, Any], candidates: list[tuple[str, int, dict[str, Any], str | None]]
+) -> dict[tuple[str, str], str]:
+    """(class, site) -> note, for the narrowing conversion reads of a scalar field (see the module docstring).
+
+    A narrow int ``load`` at the field's first byte (its low-order bytes),
+    with the ``use`` and ``value-passed`` sites of that width the same
+    function records for it, is a conversion read when another access at the
+    first byte (a load or store, a member-wise copy included) has the field's
+    full width and ``TypeEvidence.narrowing_read`` finds only narrowing uses
+    of every such load's value.
+    """
+
+    offset, size = field["offset"], field["size"]
+    base = parsed["base"]
+    if (
+        model.evidence is None or parsed["pointers"] or parsed["arrays"] or base in FLOATS or base in UNDEFINED_SIZES
+        or model.composite(parsed)
+    ):
+        return {}
+    narrow = [
+        (cls, site) for cls, relative, site, copy_kind in candidates
+        if relative == offset and not copy_kind and site.get("access") in _NARROW_ACCESSES and site.get("kind") == "int"
+        and not site.get("pointer") and not site.get("indexed") and isinstance(site.get("width"), int) and site["width"] < size
+    ]
+    if not narrow or not any(
+        relative == offset and copy_kind not in (BULK, ZERO_FILL) and site.get("access") in ("load", "store")
+        and site.get("width") == size and not site.get("pointer")
+        for _cls, relative, site, copy_kind in candidates
+    ):
+        return {}  # nothing proves the field wider than the read
+    groups: dict[tuple[str, str, str, int, Any], list[dict[str, Any]]] = defaultdict(list)
+    for cls, site in narrow:
+        groups[(cls, str(site.get("function")), str(site.get("root")), site["width"], site.get("signed"))].append(site)
+    found: dict[tuple[str, str], str] = {}
+    for (cls, function, _root, width, _signed), sites in sorted(groups.items(), key=lambda item: str(item[0])):
+        loads = [site for site in sites if site.get("access") == "load"]
+        try:
+            start = int(function, 16)
+            verdicts = [model.evidence.narrowing_read(start, int(site["site"], 16), size) for site in loads]
+        except ValueError:
+            continue
+        if not verdicts or any(verdict is None or not verdict["narrowing"] for verdict in verdicts):
+            continue
+        reads = ", ".join(f"{site['site']} `{site.get('insn', '')}`" for site in loads)
+        uses = sorted(
+            {text for verdict in verdicts for text in verdict["uses"]},
+            key=lambda text: (int(text.rsplit("(0x", 1)[-1].rstrip(")"), 16), text),
+        )
+        note = (
+            f"{NARROWING_READ} (neither width nor type evidence): {reads} in {sites[0].get('function_name', function)} "
+            f"reads the low {width} byte{'s' if width > 1 else ''} of the {size}-byte field; its value is only "
+            + "; ".join(uses)
+        )
+        for site in sites:
+            found[(cls, site["site"])] = note
+    return found
+
+
+def _narrowing_notes(model: _Plan, layout: dict[str, Any]) -> tuple[dict[tuple[str, int], list[str]], dict[str, str]]:
+    """(plan type, member offset) -> notes naming the narrowing reads of the member, and site -> ``narrowing read``."""
+
+    notes: dict[tuple[str, int], list[str]] = defaultdict(list)
+    kinds: dict[str, str] = {}
+    classes = layout.get("classes") or []
+    if model.evidence is None or not classes:
+        return {}, {}
+    index = {row["class"]: {entry["offset"]: list(entry["sites"]) for entry in row["offsets"]} for row in classes}
+    windows = model.windows(set(index))
+    copies = _neutral_accesses(model, classes, windows)
+    for name, row in model.types.items():
+        if row.get("kind") not in ("class", "struct", DWARF_KIND) or not windows.get(name):
+            continue
+        for field in row.get("fields") or []:
+            parsed = parse_type(field.get("type"))
+            if (
+                parsed is None or not isinstance(field.get("offset"), int) or not isinstance(field.get("size"), int)
+                or "bit_size" in field or "bit_offset" in field or (model.composite(parsed) and not parsed["arrays"])
+            ):
+                continue
+            # Claimed sites are address passes, never a narrowing read's sites, so no claims are needed here.
+            candidates, _claimed_sites = _field_candidates(field, False, index, windows[name], set(), copies)
+            for (_cls, site), note in sorted(_narrowing_reads(model, field, parsed, candidates).items()):
+                kinds[site] = NARROWING_READ
+                if note not in notes[(name, field["offset"])]:
+                    notes[(name, field["offset"])].append(note)
+    return dict(notes), kinds
+
+
 def _field_problems(
     model: _Plan, field: dict[str, Any], label: str, index: dict[str, dict[int, list[dict[str, Any]]]],
     windows: set[tuple[str, int]], claims: set[tuple[str, int, str, Any]],
@@ -1419,17 +1548,7 @@ def _field_problems(
     evidence = field.get("evidence") or []
     if not evidence and field.get("provenance") not in (TEMPLATE_COPY, DWARF_FIELD):
         problems.append(f"{label}: cite at least one evidence site")
-    # Candidate sites: the field's extent in every window.  A site a sub-object
-    # claims (a call on an empty base at the end of the previous member) is
-    # that sub-object's, not this field's.  Each carries its copy or zero-fill kind, if any.
-    candidates: list[tuple[str, int, dict[str, Any], str | None]] = []
-    claimed: dict[str, dict[str, Any]] = {}
-    for cls, delta in sorted(windows):
-        for site_offset, site in _sites_in(index.get(cls, {}), delta + offset, delta + offset + size):
-            if not composite and _claimed(claims, cls, site_offset, site):
-                claimed[site["site"]] = site
-                continue
-            candidates.append((cls, site_offset - delta, site, copies.get(_copy_key(cls, site_offset, site))))
+    candidates, claimed = _field_candidates(field, composite, index, windows, claims, copies)
     by_site = {site["site"] for _cls, _relative, site, _copy in candidates}
     for cited in evidence:
         if cited in by_site:
@@ -1448,6 +1567,7 @@ def _field_problems(
     if evidence and not cited_exact and not bitfield:
         problems.append(f"{label}: no cited evidence site accesses the field's first byte")
     width_size = size
+    narrowing = {} if bitfield else _narrowing_reads(model, field, parsed, candidates)
     for cls, relative, site, copy_kind in candidates:
         if copy_kind in (BULK, ZERO_FILL):
             continue  # a bulk copy's or zero-fill's chunks are the bulk access's, not this member's
@@ -1463,10 +1583,15 @@ def _field_problems(
                     f"contradicts the {width_size}-byte {field.get('type')}"
                 )
             continue
+        if (cls, site["site"]) in narrowing:
+            continue  # a conversion read of the low-order bytes: neither width nor type evidence
         if not _compatible(site, parsed, None if bitfield else width_size):
             problems.append(f"{label}: {site['site']} ({site.get('access')} w{site.get('width')} {site.get('kind')}) contradicts {field.get('type')}")
-    # Type evidence (kind, sign, pointer): the exact sites that are not copies.
-    exact = [(cls, relative, site) for cls, relative, site, copy_kind in candidates if relative == offset and not copy_kind]
+    # Type evidence (kind, sign, pointer): the exact sites that are not copies or conversion reads.
+    exact = [
+        (cls, relative, site) for cls, relative, site, copy_kind in candidates
+        if relative == offset and not copy_kind and (cls, site["site"]) not in narrowing
+    ]
     loads = {site.get("signed") for _cls, relative, site in exact if site.get("access") == "load" and site.get("signed") is not None}
     if size in (1, 2) and not bitfield and base in SIGNED | UNSIGNED and not parsed["pointers"]:
         if loads == {True} and base in UNSIGNED:
@@ -1672,7 +1797,7 @@ def _sample_cell(
             kind = (copied or {}).get(site)
             samples.append(
                 f"{_code(site)} {_code(found.get('insn', ''))} in {_code(found.get('function_name', ''))}"
-                + (f" ({kind})" if kind == ZERO_FILL else f" ({kind} copy)" if kind else "")
+                + (f" ({kind})" if kind in (ZERO_FILL, NARROWING_READ) else f" ({kind} copy)" if kind else "")
             )
         else:
             samples.append(f"{_code(site)} (not in the evidence)")
@@ -1719,6 +1844,8 @@ def render_type_plan(
     instantiations = [row for row in defined if row.get("instantiation") is not None]
     end_claims = _end_claims(model, layout) if evidence is not None else {}
     copy_notes, copy_kinds = _copy_notes(model, layout)
+    narrow_notes, narrow_kinds = _narrowing_notes(model, layout)
+    sample_kinds = {**copy_kinds, **narrow_kinds}
     live_arguments = {(path, item["name"]) for item in _live_arguments(model) for path in item["types"]}
     referenced = [row for row in defined if row.get("kind") == DWARF_KIND]
     if spec.get("records") is not None:
@@ -1859,6 +1986,7 @@ def render_type_plan(
                     + [f"unresolved: {text}" for text in _texts(entry.get("unresolved"))]
                     + end_claims.get((str(row.get("name")), offset), [])
                     + copy_notes.get((str(row.get("name")), offset), [])
+                    + narrow_notes.get((str(row.get("name")), offset), [])
                 )
                 table.append((offset, extent, entry.get("type"), entry.get("name"), entry.get("provenance"), entry.get("evidence") or seen.get(offset, []), notes))
         for offset, extent, type_text, name, provenance, cited, notes in sorted(
@@ -1866,7 +1994,7 @@ def render_type_plan(
         ):
             lines.append(
                 f"| {_hex(offset) if isinstance(offset, int) else offset} | {_hex(extent) if isinstance(extent, int) else extent} | "
-                f"{_code(type_text)} | {_code(name)} | {provenance or ''} | {len(cited)} | {_sample_cell(list(cited), sites, copied=copy_kinds)} | "
+                f"{_code(type_text)} | {_code(name)} | {provenance or ''} | {len(cited)} | {_sample_cell(list(cited), sites, copied=sample_kinds)} | "
                 f"{'<br>'.join(_cell(text) for text in notes)} |"
             )
         outside = row.get("outside_accesses") or []
