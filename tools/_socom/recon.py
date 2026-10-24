@@ -684,7 +684,10 @@ def noreturn_problem(elf: Elf32File, sizes: dict[int, int], address: int, _seen:
 
 
 # Keys a partial prototype may carry; a complete prototype carries none.
-PARTIAL_KEYS = ("contradiction", "live_signature", "noreturn", "noreturn_evidence", "partial", "varargs", "varargs_evidence")
+PARTIAL_KEYS = (
+    "contradiction", "live_signature", "noreturn", "noreturn_evidence", "partial", "varargs", "varargs_evidence",
+    "withdraws_return",
+)
 
 
 def _contradicted(live: dict[str, Any], parameters: list[dict[str, Any]], varargs: bool) -> list[str]:
@@ -722,8 +725,34 @@ def _varargs_problems(prototype: dict[str, Any], parameters: list[Any]) -> list[
     return problems
 
 
+def _withdrawal_problems(prototype: dict[str, Any], live: dict[str, Any]) -> list[str]:
+    """Why a repair row may not withdraw the live return (decision of 2026-10-24).
+
+    The live signature's only defect is its return: a non-void type the code
+    does not prove (a caller's or dispatcher's narrowing proves only its own
+    destination).  The row keeps the live parameters exactly (names, types,
+    order, receiver, varargs and convention) and sets the return ``undefined``.
+    """
+
+    problems = []
+    returned = live["return_type"]
+    if returned == "void" or _base_type(returned) in UNDEFINED_TYPES:
+        problems.append(f"withdraws_return: the live return {returned!r} claims no width to withdraw")
+    if not _restates_live({**prototype, "return_type": returned}, live):
+        problems.append(
+            "withdraws_return keeps the live parameters exactly (names, types, order, receiver, varargs, "
+            f"convention {CALLING_CONVENTION}); they differ from {prototype.get('live_signature')!r}"
+        )
+    return problems
+
+
 def _partial_problems(
-    prototype: dict[str, Any], unresolved: list[Any], elf: Elf32File, sizes: dict[int, int], address: int
+    prototype: dict[str, Any],
+    unresolved: list[Any],
+    elf: Elf32File,
+    sizes: dict[int, int],
+    address: int,
+    repair: bool = False,
 ) -> list[str]:
     """Shape and proof checks of a partial prototype (decision of 2026-10-22).
 
@@ -732,9 +761,21 @@ def _partial_problems(
     where the live signature is Ghidra's default and claims nothing
     (``undefined f(void)``, with or without a convention; decision of
     2026-10-22 "Yes, extend it"): then every parameter needs a proven type.
+    A recon repair row may also withdraw an unproven live return with
+    ``withdraws_return: true``, its ``contradiction`` saying why (decision of
+    2026-10-24): see ``_withdrawal_problems``.
     """
 
     problems = []
+    withdraws = prototype.get("withdraws_return")
+    if "withdraws_return" in prototype and withdraws is not True:
+        problems.append("withdraws_return must be true or absent")
+    elif withdraws and not repair:
+        problems.append(
+            "withdraws_return: only a recon repair row withdraws a live return; a group row replaces a live "
+            "signature only where it contradicts the proven parameters or claims nothing"
+        )
+        withdraws = False
     if prototype.get("return_type") != "undefined":
         problems.append("partial prototype: the return stays 'undefined' (Ghidra's unknown, left for the decompiler)")
     if prototype.get("calling_convention") != CALLING_CONVENTION:
@@ -747,7 +788,10 @@ def _partial_problems(
     live = parse_signature(prototype.get("live_signature"))
     default = live is not None and claims_nothing(live)
     if not prototype.get("contradiction") and not default:
-        problems.append("partial prototype needs the contradiction with the live signature it replaces")
+        problems.append(
+            "withdraws_return needs contradiction: why the live return's width is unproven" if withdraws is True
+            else "partial prototype needs the contradiction with the live signature it replaces"
+        )
     parameters = prototype.get("parameters") if isinstance(prototype.get("parameters"), list) else []
     for param in parameters:
         if not param.get("evidence"):
@@ -770,10 +814,13 @@ def _partial_problems(
     if live is None:
         problems.append("partial prototype needs live_signature: the Signature line get_function_by_address prints")
     elif all(isinstance(param.get("type"), str) for param in parameters) and isinstance(varargs, bool):
-        if not default and not _contradicted(live, parameters, varargs):
+        if withdraws is True:
+            problems.extend(_withdrawal_problems(prototype, live))
+        elif not default and not _contradicted(live, parameters, varargs):
             problems.append(
                 "the live signature does not contradict the proven parameters (count, order or type): "
                 "a partial prototype is not allowed"
+                + ("; a repair row withdrawing only an unproven live return sets withdraws_return: true" if repair else "")
             )
     return problems
 
@@ -935,7 +982,7 @@ def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any
             # The return stays unresolved: `unresolved` says why (decision of 2026-10-22).
             problems.extend(
                 f"{where} {problem}"
-                for problem in _partial_problems(prototype, unresolved, elf, sizes, int(address, 16))
+                for problem in _partial_problems(prototype, unresolved, elf, sizes, int(address, 16), repair)
             )
         else:
             if prototype.get("partial", False) is not False:
@@ -1106,10 +1153,19 @@ def build_recon_program(root: Path, tracker: dict[str, Any], plan_path: Path) ->
             )
             out["prototype_skip"] = None
             out["return_unresolved"] = "; ".join(entry["unresolved"])
-            out["notes"].append(
-                f"partial prototype replacing the live signature {prototype['live_signature']!r}: "
-                + "; ".join(_texts(prototype.get("contradiction") or "it is Ghidra's default and claims nothing"))
-            )
+            if prototype.get("withdraws_return") is True:
+                # Absent otherwise, so programs without such rows keep their
+                # bytes; the read-back expects the return `undefined`.
+                out["prototype"]["withdraws_return"] = True
+                out["notes"].append(
+                    f"partial prototype withdrawing the unproven return of the live signature "
+                    f"{prototype['live_signature']!r}, parameters as live: " + "; ".join(_texts(prototype["contradiction"]))
+                )
+            else:
+                out["notes"].append(
+                    f"partial prototype replacing the live signature {prototype['live_signature']!r}: "
+                    + "; ".join(_texts(prototype.get("contradiction") or "it is Ghidra's default and claims nothing"))
+                )
             if prototype.get("noreturn"):
                 # set_function_no_return exists, but a no-return change wakes
                 # Ghidra's Call-Fixup Installer (a function-modifier analyzer),

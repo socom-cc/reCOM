@@ -316,6 +316,115 @@ def test_repair_plans_validate_translate_and_refuse_defects(tmp_path: Path, root
     assert any("repair's function list" in problem for problem in validate_recon_plan(root, decomposed, bad))
 
 
+WITHDRAWN_LIVE = "uchar __stdcall bzero(void * __s, uint __n)"
+
+
+def _withdrawing_row(tracker: dict, item_id: str) -> dict:
+    plan = _repair_plan(tracker, item_id)
+    plan["functions"][0]["prototype"] = {
+        "partial": True, "withdraws_return": True, "return_type": "undefined", "calling_convention": "__stdcall",
+        "varargs": False,
+        "parameters": [
+            {"name": "__s", "type": "void *", "evidence": ["a0 read at entry"]},
+            {"name": "__n", "type": "uint", "evidence": ["addiu v0,a1,-1 at 0x3defdc"]},
+        ],
+        "live_signature": WITHDRAWN_LIVE,
+        "contradiction": ["return: the live uchar is a width the code does not prove"],
+    }
+    plan["functions"][0]["unresolved"] = ["return width unproven: only the callers narrow v0"]
+    return plan
+
+
+def test_repair_rows_may_withdraw_an_unproven_live_return(tmp_path: Path, root: Path, decomposed: dict) -> None:
+    # Decision of 2026-10-24: a sub-word return that rested only on caller
+    # narrowing becomes a partial row with the live parameters kept exactly.
+    _accept_group(decomposed, BZERO)
+    plan_id, _apply_id = add_recon_repair_items(decomposed, [BZERO])
+    plan = _withdrawing_row(decomposed, plan_id)
+    assert validate_recon_plan(root, decomposed, plan) == []
+    path = tmp_path / "repair.json"
+    atomic_write_json(path, plan)
+    row = build_recon_program(root, decomposed, path)["functions"][0]
+    assert row["prototype"]["withdraws_return"] is True and row["prototype"]["partial"] is True
+    assert row["prototype"]["live_signature"] == WITHDRAWN_LIVE
+    assert any(note.startswith("partial prototype withdrawing the unproven return") for note in row["notes"])
+    assert batch_apply.expected_signature(row["prototype"], "bzero") == "undefined __stdcall bzero(void * __s, uint __n)"
+    defects = [
+        (lambda p: p.pop("withdraws_return"), "withdraws_return: true"),
+        (lambda p: p.update(withdraws_return="yes"), "must be true or absent"),
+        (lambda p: p.update(contradiction=[]), "withdraws_return needs contradiction"),
+        (lambda p: p.update(live_signature="uchar __stdcall bzero(void * s, uint __n)"), "keeps the live parameters exactly"),
+        (lambda p: p.update(live_signature="uchar __stdcall bzero(void * __s, int __n)"), "keeps the live parameters exactly"),
+        (lambda p: p.update(live_signature="uchar __stdcall bzero(uint __n, void * __s)"), "keeps the live parameters exactly"),
+        (lambda p: p.update(live_signature="uchar __stdcall bzero(void * __s, uint __n, ...)"), "keeps the live parameters exactly"),
+        (lambda p: p.update(live_signature="uchar bzero(void * __s, uint __n)"), "keeps the live parameters exactly"),
+        (lambda p: p.update(live_signature="void __stdcall bzero(void * __s, uint __n)"), "claims no width to withdraw"),
+        (lambda p: p.update(live_signature="undefined4 __stdcall bzero(void * __s, uint __n)"), "claims no width to withdraw"),
+        (lambda p: p.update(return_type="uchar"), "the return stays 'undefined'"),
+    ]
+    for change, message in defects:
+        bad = copy.deepcopy(plan)
+        change(bad["functions"][0]["prototype"])
+        assert any(message in problem for problem in validate_recon_plan(root, decomposed, bad)), message
+    # A complete row cannot carry the flag, and a group plan keeps today's rule.
+    bad = copy.deepcopy(plan)
+    bad["functions"][0].pop("unresolved")
+    bad["functions"][0]["prototype"] = {
+        "return_type": "uchar", "evidence": ["x"], "live_signature": WITHDRAWN_LIVE, "withdraws_return": True,
+        "parameters": [{"name": "__s", "type": "void *"}, {"name": "__n", "type": "uint"}],
+    }
+    assert any("only a partial prototype carries these" in p for p in validate_recon_plan(root, decomposed, bad))
+    group = _group_plan(decomposed, BZERO)
+    entry = next(row for row in group["functions"] if row["address"] == BZERO)
+    entry["prototype"], entry["unresolved"] = copy.deepcopy(plan["functions"][0]["prototype"]), ["x"]
+    problems = validate_recon_plan(root, decomposed, group)
+    assert any("only a recon repair row withdraws a live return" in p for p in problems)
+    assert any("does not contradict" in p for p in problems)
+
+
+def test_apply_check_reads_a_withdrawn_return_back_as_undefined() -> None:
+    from tools._socom.recon_check import function_readback
+
+    prototype = {"calling_convention": "__stdcall", "return_type": "undefined", "partial": True, "varargs": False,
+                 "withdraws_return": True, "live_signature": WITHDRAWN_LIVE,
+                 "parameters": [{"name": "__s", "type": "void *"}, {"name": "__n", "type": "uint"}]}
+    rows = [{"address": BZERO, "name": "bzero", "prototype": prototype}]
+    shown = lambda signature: [{"address": "003defd8", "details": ["Function: bzero", f"Signature: {signature}"]}]  # noqa: E731
+    before = shown(WITHDRAWN_LIVE)
+    assert function_readback(rows, shown("undefined __stdcall bzero(void * __s, uint __n)"), before) == []
+    kept = function_readback(rows, before, before)
+    assert len(kept) == 1 and "the withdrawn return reads back 'undefined'" in kept[0]
+    typed = [{**rows[0], "prototype": {**prototype, "return_type": "uchar"}}]
+    assert "not 'undefined'" in function_readback(typed, before, before)[0]
+
+
+def test_executor_carries_the_withdrawn_return_into_the_report(tmp_path: Path, root: Path, decomposed: dict) -> None:
+    _accept_group(decomposed, BZERO)
+    plan_id, _apply_id = add_recon_repair_items(decomposed, [BZERO])
+    path = tmp_path / "repair.json"
+    atomic_write_json(path, _withdrawing_row(decomposed, plan_id))
+    program = build_recon_program(root, decomposed, path)
+
+    class Setting(_Bridge):
+        def post_json(self, endpoint, **body):
+            ret, params = body["prototype"].split(" socom_prototype(", 1)
+            self.signature = f"{ret} __stdcall bzero({params[:-1]})"
+            return super().post_json(endpoint, **body)
+
+    # The executor's own read-back fails while the function still shows the live return.
+    with pytest.raises(batch_apply.BatchFailure, match="differ from the program"):
+        batch_apply.execute_batch_program(program, _Bridge(WITHDRAWN_LIVE), type_index=lambda: [],
+                                          function_names=lambda: {BZERO: "bzero"})
+    bridge = Setting(WITHDRAWN_LIVE)
+    result = batch_apply.execute_batch_program(
+        program, bridge, type_index=lambda: [], function_names=lambda: {BZERO: "bzero"}
+    )
+    posts = [body["prototype"] for endpoint, body in bridge.calls if endpoint == "set_function_prototype"]
+    assert posts == ["undefined socom_prototype(void * __s, uint __n)"]
+    assert bridge.signature == "undefined __stdcall bzero(void * __s, uint __n)"
+    assert result["functions"][0]["prototype"]["withdraws_return"] is True
+
+
 class _Bridge:
     def __init__(self, signature: str) -> None:
         self.signature, self.calls = signature, []

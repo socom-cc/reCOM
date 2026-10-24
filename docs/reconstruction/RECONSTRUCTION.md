@@ -362,6 +362,9 @@ return `undefined` (decision of 2026-10-22):
   proven type: an `undefinedN` parameter leaves the row unresolved
   (`_printf_r` and `_sprintf_r` wait for `_reent`; `__svfscanf`, with three
   proven parameters, is partial).
+- A recon repair row may also replace a live signature whose only defect is
+  an unproven return (`withdraws_return`, see "Repair item: recon repairs");
+  a group row may not.
 - The bridge sends `undefined socom_prototype(...)`. Ghidra's
   FunctionSignatureParser resolves `undefined` to DataType.DEFAULT, and the
   decompiler keeps such a return unlocked. A register whose type nothing proves
@@ -581,6 +584,29 @@ python tools/socom.py recon global-facts --item socom:work:recon-repair-NNN --ou
   dereferences, the mangled parameter type of each callee it is passed to,
   stores elsewhere, a value left in v0/f0 at a return and what callers do
   with it).
+- A repair row may withdraw an unproven live return (decision of
+  2026-10-24: an accepted sub-word or bool return that rested only on a
+  caller's or dispatcher's narrowing, which proves only its destination). It
+  is a partial row with `"withdraws_return": true` whose `contradiction` says
+  why the live return's width is unproven and whose `unresolved` says why the
+  return stays open; the live return must be a type (not `void` or
+  `undefined*`), and the parameters must equal the live ones exactly: names,
+  types, order, receiver, varargs and `__stdcall`. Only this defect is
+  allowed: a contradicted live signature is an ordinary partial row, and a
+  group plan refuses `withdraws_return`. The program marks the row
+  `withdraws_return`, and the `check-recon-apply` read-back expects
+  `undefined <convention> <name>(<live parameters>)`.
+
+  ```json
+  "prototype": {
+    "partial": true, "withdraws_return": true, "return_type": "undefined",
+    "calling_convention": "__stdcall", "varargs": false,
+    "parameters": [{"name": "code", "type": "ushort", "evidence": ["andi v0,a0,0xffff at 0x151460"]}],
+    "live_signature": "ushort __stdcall euc2jis(ushort code)",
+    "contradiction": ["return: the live ushort is a width the code does not prove"]
+  },
+  "unresolved": ["return width unproven: no exit narrows v0 before jr ra; only the caller's andi narrows"]
+  ```
 - GhidraMCP labels only in the global namespace (`rename_label` and
   `create_label` take no namespace), so the readable label is the qualified
   spelling itself, `zdb::CVisual::m_dmaChain`, exactly as stage 2 labelled

@@ -369,6 +369,41 @@ def global_readback(
     return problems
 
 
+def function_readback(
+    functions: list[dict[str, Any]], live_rows: list[dict[str, Any]], before_rows: list[dict[str, Any]]
+) -> list[str]:
+    """Read-back problems of an apply's function rows against a fresh fingerprint.
+
+    A prototyped row must show its planned Signature line; an unresolved row
+    must be unchanged.  A repair row withdrawing an unproven live return
+    (``withdraws_return``) must read back the return ``undefined`` with the
+    parameters it kept.
+    """
+
+    live = {int(r["address"], 16): r for r in live_rows}
+    before = {int(r["address"], 16): r for r in before_rows}
+    problems = []
+    for row in functions:
+        address = int(row["address"], 16)
+        details = live.get(address, {}).get("details", [])
+        prototype = row.get("prototype")
+        if not prototype:
+            if details != before.get(address, {}).get("details"):
+                problems.append(f"{row['address']} (unresolved) changed")
+            continue
+        if prototype.get("withdraws_return") and prototype.get("return_type") != "undefined":
+            problems.append(f"{row['address']} withdraws its live return but plans {prototype.get('return_type')!r}, not 'undefined'")
+            continue
+        want = "Signature: " + expected_signature(prototype, row["name"])
+        if want not in details:
+            problems.append(
+                f"{row['address']} live signature differs from the plan"
+                + (f" (the withdrawn return reads back 'undefined': {want[len('Signature: '):]!r})"
+                   if prototype.get("withdraws_return") else "")
+            )
+    return problems
+
+
 def check_recon_apply(
     root: Path,
     item_id: str,
@@ -449,19 +484,9 @@ def check_recon_apply(
     if plan_item.get("kind") == REPAIR_PLAN_KIND:
         name, ok, detail = repair_limit(plan_item, program, scope, recomputed, summary, claimed.get("steps", []), result)
         check(name, ok, detail)
-    live = {int(r["address"], 16): r for r in fingerprint["functions"]}
-    readback_problems = []
-    for row in result.get("functions", []):
-        address = int(row["address"], 16)
-        details = live.get(address, {}).get("details", [])
-        if row.get("prototype"):
-            want = "Signature: " + expected_signature(row["prototype"], row["name"])
-            if want not in details:
-                readback_problems.append(f"{row['address']} live signature differs from the plan")
-        else:
-            if details != {int(r['address'], 16): r for r in before["functions"]}.get(address, {}).get("details"):
-                readback_problems.append(f"{row['address']} (unresolved) changed")
+    readback_problems = function_readback(result.get("functions", []), fingerprint["functions"], before["functions"])
     partial = sum(1 for r in result.get("functions", []) if (r.get("prototype") or {}).get("partial"))
+    withdrawn = sum(1 for r in result.get("functions", []) if (r.get("prototype") or {}).get("withdraws_return"))
     repair_globals = [r for r in result.get("globals", []) if "live_type" in r]
     if repair_globals:
         # A repair's globals: name, type and length from the fresh receipt; mangled labels kept.
@@ -477,6 +502,7 @@ def check_recon_apply(
     check("readback", not readback_problems,
           f"live signatures of {sum(1 for r in result.get('functions', []) if r.get('prototype'))} prototyped functions equal the plan; "
           + (f"{partial} of them partial (return left undefined, no-return flag as it was); " if partial else "")
+          + (f"{withdrawn} of those withdraw an unproven live return and read back undefined; " if withdrawn else "")
           + f"{sum(1 for r in result.get('functions', []) if not r.get('prototype'))} unresolved unchanged"
           + global_note
           if not readback_problems else "; ".join(readback_problems))
