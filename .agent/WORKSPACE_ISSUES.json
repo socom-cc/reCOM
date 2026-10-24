@@ -1105,8 +1105,18 @@
       "resolution": null,
       "status": "open",
       "summary": "recon void: constructors could end f0 chains (rules v19 candidate)"
+    },
+    {
+      "details": "Group 258 planner (socom-recon-planner-g138): spelling CAiEvent::EVENT as bare EVENT in a prototype/type row silently resolves to the unrelated 1-byte /project/event, because name lookup ignores case. validate/preflight should refuse a bare name that only matches case-insensitively or matches several types, and require the qualified path. Also noted: live CSealUnit::CSealUnit 0x2d6a20 returns CSealUnit * while the planner constructor rule says void *; reconcile in a repair.",
+      "id": "socom:workspace-issue:5d8acc30a7c0f29a18a1",
+      "kind": "problem",
+      "reported_at": "2026-10-24T15:28:54Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "Type lookup by bare name is case-insensitive: EVENT resolves to unrelated /project/event"
     }
   ],
-  "revision": 125,
+  "revision": 126,
   "schema_version": 1
 }

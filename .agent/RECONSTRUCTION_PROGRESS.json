@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2099,
+  "revision": 2108,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -2842,7 +2842,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "a5d37a75738c71c324d6e8d0fce2e149052a4459b0fc63d81181bd381683b694",
+      "current_receipt_sha256": "21167f93b2de125559b697a05e58176411e3cb014a6d029f579fc8f427badfdf",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -10483,6 +10483,31 @@
           "receipt_sha256": "a5d37a75738c71c324d6e8d0fce2e149052a4459b0fc63d81181bd381683b694",
           "tracker_revision": 2099,
           "work_item_id": "socom:recon-group:f4d26354284e0f8e4425-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1716,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 37284
+          },
+          "indexes": {
+            "data": {
+              "count": 51811,
+              "sha256": "acbe56777d3b25d0b491cee3e84db2ca857917249491cc07255d8fc94d8eae2b"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1716,
+              "sha256": "197b411f10373fca9fa40b52b9bf90e5e9d798fa0cec99ffbf125dbe7bbc9af0"
+            }
+          },
+          "receipt_sha256": "21167f93b2de125559b697a05e58176411e3cb014a6d029f579fc8f427badfdf",
+          "tracker_revision": 2107,
+          "work_item_id": "socom:work:type-plan-zanim-task-hdr-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -111912,6 +111937,10 @@
       "title": "Apply reviewed reconstruction group 257 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-24T15:36:21Z",
+        "by": "socom-verifier-r51"
+      },
       "batch": {
         "batch_number": 258,
         "function_count": 32,
@@ -112013,8 +112042,15 @@
         "socom:recon-group:fc34f6139880c0de2a1d-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-e75bba138a11823ef859.json sha256:9298304c3a4a06093e95daf031e0e2d3d2866206690fbdcca96aba90243ab41e re-verified; recon validate ok; recon draft --check ok (rules 18, 12 drafted, 20 open); recon program equals build/apply (program sha256 6dd567f0...); preflight-batch ok (19 set_function_prototype; 13 skips = the 13 unresolved rows). Open rows checked against recon facts/asm/void/live/types: zAnim callbacks registered via AddCmd at 0x2be744 (t0 CTEvent::Tick), 0x2be838/0x2be844 (a3 CTHold::Begin, t1 CTHold::End delay slot), 0x2be95c (t0 CTMap::Tick), 0x2be998 (a3 CTMove::Begin), 0x2be9d4 (t0 CTPaint::Tick) match the mangled AddCmd member types (tick _b) and live precedents CTHold/CTDoor/CTMove::Tick, CTMove/CTDoor::End; VU0 in CTMove::Begin (4 sites) and CTEvent::Tick: lqc2 vf4-vf7 then vf8 precede vmulax/vmadday/vmaddaz/vmaddw (or vmaddz) into ACC/vf9 and sqc2 vf9, loop back-edges (0x2b9dec, 0x2b9ff0, 0x2ba1f0, 0x2ba2c8, 0x2bd764) land after the vf4-vf7 loads, so no VU input; no VU0 in CTPaint/CTMap/CTHold. SlideTick uchar: andi s0,v0,0xff at 0x264670 on the base CSealCtrl::SlideTick result (live uchar, same slot 0x90) returned by move v0,s0. FindHighestProximityDamage float (f0 = mov.s f20 max of GetDamage via c.le.s, or mtc1 zero; 11 callers mov.s f20,f0); ComputeVisibility float (mov.s f0,f20 or the live float overload; caller swc1 f0). CSealUnit::Create static (callers lbu a0) returns the __nw__(164)+__ct__9CSealUnitFUi object or m_list element; CSealUnit 164 bytes. 4 partial rows (CreepTick, Initalize, InitItemModel, RegisterCommands) are against Ghidra default live signatures, params proven, returns open per recon void (slot families open; constant-only exits). All spelled types resolve uniquely with exact case (EVENT not used; CreateAiEvent stays unresolved).",
+        "plan build/recon-plans/socom-recon-group-e75bba138a11823ef859.json sha256:9298304c3a4a06093e95daf031e0e2d3d2866206690fbdcca96aba90243ab41e; recon validate ok; recon draft --check ok; preflight-batch ok (19 set_function_prototype)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g138",
+        "submitted_at": "2026-10-24T15:28:22Z",
+        "summary": "19 prototypes, 13 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:e75bba138a11823ef859",
       "kind": "recon-plan-group",
       "lease": null,
@@ -112023,7 +112059,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 258 (height 20, 32 functions)"
     },
     {
@@ -112083,7 +112119,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 258 in Ghidra"
     },
     {
@@ -125544,6 +125580,10 @@
       "title": "Apply the reviewed code-derived types of the zanim switch command records (8) in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-24T15:18:13Z",
+        "by": "socom-verifier-t3"
+      },
       "batch": {
         "family": "task-hdr",
         "records": [
@@ -125562,6 +125602,7 @@
       },
       "dependencies": [],
       "evidence": [
+        "User reviewed and approved the field table on 2026-10-24 ('Approve as is', HOLD and WAIT kept separate). Independent review build/type-plans/zanim-task-hdr-review-verifier.md: would accept; plan 484d34a3 and layout c7bc1cec hashes match, validate ok with 0 problems, program regenerates byte-identical (80283979), show regenerates byte-identical (f71c85e4), live ok; all 9 AddCmd/calloc/data_size values and every field site confirmed from asm, narrowing reads are conversions only.",
         "build/type-plans/zanim-task-hdr.json sha256 484d34a346718bce318c5c955de748706086e206716918c271eb58b0c1ae39b7; layout sha256 c7bc1cec8afb75ce421e6d59c3196987f851db0da0e1eaba4d81c39db75ef56a (recon layout --records ...); recon type-plan validate ok (0 problems); live ok (0 live_problems; 8 types, 4 external); program build/apply/socom-work-type-plan-zanim-task-hdr-apply.json sha256 8028397972c64d5139ebea5d7294bfa02359e362c8e0890c75d8e67a597c0cba; review build/type-plans/zanim-task-hdr-review.md sha256 f71c85e47a021e5011fa4537ad2e007a5f88c45f6f128af31d69013aa83530dc; affected 0 groups; conflicts: HOLD +8 lui/sw -1.0f inside Rfloat; EVENT +0x20 / SETMODE +8 / STANCE +0xc are wider fields whose low-byte lb/lbu reads are narrowing conversions to 1-byte enums (EVENT, AI_MODE, SEAL_STANCE)"
       ],
       "handoff": {
@@ -125577,10 +125618,14 @@
       ],
       "selection": "types",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the code-derived layouts of the zanim task-hdr command records (9)"
     },
     {
+      "accepted": {
+        "at": "2026-10-24T15:32:58Z",
+        "by": "socom-verifier-t-apply4"
+      },
       "batch": {
         "family": "task-hdr",
         "records": [
@@ -125600,8 +125645,68 @@
       "dependencies": [
         "socom:work:type-plan-zanim-task-hdr"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "Independent verify: strict preflight ok; fresh fingerprint byte-identical to t-zanim-task-hdr-after; diff = 8 /project/TASK_* types added, 0 removed, no data/reference/function/block/bookmark change; before == g251-after; plan sha 484d34a3 and program sha 80283979 match and program regenerates byte-identical; live get_struct_layout of all 8 types matches plan (sizes 44/36/20/12/12/24/16/20, TASK_HDR base at +0, all members and bitfield widths/offsets), no .conflict variants (build/verifier-socom-verifier-t-apply4/live-layout.txt)",
+        "ghidra-receipt-sha256:21167f93b2de125559b697a05e58176411e3cb014a6d029f579fc8f427badfdf",
+        "ghidra-save:explicit-program",
+        "type_apply.py: preflight strict ok; program regenerated byte-identical; fingerprint before == g251-after; dry run ok; apply ok (63 bridge calls, types 1708->1716); fingerprint diff build/fingerprints/t-zanim-task-hdr-diff.json: 8 types added, 0 removed, data/references/functions/blocks/bookmarks unchanged. Report build/apply/t-zanim-task-hdr-report.json."
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "21167f93b2de125559b697a05e58176411e3cb014a6d029f579fc8f427badfdf",
+        "saved": true,
+        "scope": {
+          "functions": [],
+          "globals": [],
+          "types": [
+            "/project/TASK_EVENT",
+            "/project/TASK_HOLD",
+            "/project/TASK_MOVE",
+            "/project/TASK_PURSUE",
+            "/project/TASK_SETMODE",
+            "/project/TASK_STANCE",
+            "/project/TASK_TEAM",
+            "/project/TASK_WAIT"
+          ]
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1716,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 37284
+          },
+          "indexes": {
+            "data": {
+              "count": 51811,
+              "sha256": "acbe56777d3b25d0b491cee3e84db2ca857917249491cc07255d8fc94d8eae2b"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1716,
+              "sha256": "197b411f10373fca9fa40b52b9bf90e5e9d798fa0cec99ffbf125dbe7bbc9af0"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-24T15:28:30Z",
+        "summary": "Applied user-approved zAnim TASK_* record types (8): TASK_MOVE, TASK_EVENT, TASK_HOLD, TASK_WAIT, TASK_PURSUE, TASK_SETMODE, TASK_STANCE, TASK_TEAM, each on /project/TASK_HDR."
+      },
       "id": "socom:work:type-plan-zanim-task-hdr-apply",
       "kind": "recon-type-apply",
       "lease": null,
@@ -125611,8 +125716,146 @@
       ],
       "selection": "types",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "accepted",
       "title": "Apply the reviewed code-derived types of the zanim task-hdr command records (9) in Ghidra"
+    },
+    {
+      "batch": {
+        "functions": [],
+        "globals": [
+          "0x4753e8",
+          "0x4753ec",
+          "0x4753f0",
+          "0x4753f4",
+          "0x4753f8",
+          "0x4753fc",
+          "0x475400",
+          "0x475404",
+          "0x4765dc",
+          "0x4765e0",
+          "0x4765e4",
+          "0x4765e8",
+          "0x4765ec",
+          "0x4765f0",
+          "0x4765f4",
+          "0x4765f8",
+          "0x4765fc",
+          "0x476600",
+          "0x476608",
+          "0x47660c",
+          "0x476614",
+          "0x476618",
+          "0x476620",
+          "0x476624",
+          "0x476630",
+          "0x476634",
+          "0x476638",
+          "0x47663c",
+          "0x476640",
+          "0x476644",
+          "0x511580",
+          "0x511790",
+          "0x5117c0",
+          "0x511900",
+          "0x511928",
+          "0x511938",
+          "0x511958",
+          "0x511978",
+          "0x511998",
+          "0x5119b8",
+          "0x5119d0"
+        ],
+        "graph_sha256": "01741af12cddfd9e3e9460edf3dbe4e2660d880e135d20c03ff2021ac8157794",
+        "groups": {},
+        "repair_number": 5
+      },
+      "dependencies": [
+        "socom:recon-group:54ec3eaac02eb846ef5a-apply"
+      ],
+      "evidence": [],
+      "handoff": null,
+      "id": "socom:work:recon-repair-005",
+      "kind": "recon-repair-plan",
+      "lease": {
+        "claimed_at": "2026-10-24T15:23:39Z",
+        "expires_at": "2026-10-24T17:23:39Z",
+        "heartbeat_at": "2026-10-24T15:23:39Z",
+        "owner": "recon-planner-r005"
+      },
+      "resources": [
+        "build/recon-plans"
+      ],
+      "selection": "functions",
+      "stage": "ghidra-reconstruction",
+      "status": "in_progress",
+      "title": "Plan recon repair 005 (41 globals)"
+    },
+    {
+      "batch": {
+        "functions": [],
+        "globals": [
+          "0x4753e8",
+          "0x4753ec",
+          "0x4753f0",
+          "0x4753f4",
+          "0x4753f8",
+          "0x4753fc",
+          "0x475400",
+          "0x475404",
+          "0x4765dc",
+          "0x4765e0",
+          "0x4765e4",
+          "0x4765e8",
+          "0x4765ec",
+          "0x4765f0",
+          "0x4765f4",
+          "0x4765f8",
+          "0x4765fc",
+          "0x476600",
+          "0x476608",
+          "0x47660c",
+          "0x476614",
+          "0x476618",
+          "0x476620",
+          "0x476624",
+          "0x476630",
+          "0x476634",
+          "0x476638",
+          "0x47663c",
+          "0x476640",
+          "0x476644",
+          "0x511580",
+          "0x511790",
+          "0x5117c0",
+          "0x511900",
+          "0x511928",
+          "0x511938",
+          "0x511958",
+          "0x511978",
+          "0x511998",
+          "0x5119b8",
+          "0x5119d0"
+        ],
+        "graph_sha256": "01741af12cddfd9e3e9460edf3dbe4e2660d880e135d20c03ff2021ac8157794",
+        "groups": {},
+        "repair_number": 5
+      },
+      "dependencies": [
+        "socom:work:recon-repair-005"
+      ],
+      "evidence": [],
+      "handoff": null,
+      "id": "socom:work:recon-repair-005-apply",
+      "kind": "recon-repair-apply",
+      "lease": null,
+      "resources": [
+        "ghidra:soCOM/socom.elf",
+        "ghidra-writer"
+      ],
+      "selection": "functions",
+      "stage": "ghidra-reconstruction",
+      "status": "blocked",
+      "title": "Apply reviewed recon repair 005 in Ghidra"
     },
     {
       "batch": null,
@@ -125962,7 +126205,9 @@
         "socom:work:type-plan-zanim-switch",
         "socom:work:type-plan-zanim-switch-apply",
         "socom:work:type-plan-zanim-task-hdr",
-        "socom:work:type-plan-zanim-task-hdr-apply"
+        "socom:work:type-plan-zanim-task-hdr-apply",
+        "socom:work:recon-repair-005",
+        "socom:work:recon-repair-005-apply"
       ],
       "evidence": [],
       "handoff": null,
