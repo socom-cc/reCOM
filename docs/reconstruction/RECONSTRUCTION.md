@@ -193,8 +193,13 @@ A caller that tests or uses `v0` without narrowing it proves nothing about
 the return width: Metrowerks returns `bool`/`uchar` zero-extended, so callers
 of `_zmalloc<four>::release` (DWARF `uchar`) test `bne v0,zero` directly.
 Type a 0/1 or byte result as `uchar` (or `bool` where a declaration says
-bool) only on positive evidence: `andi 0xff` at a call site or merge, a
-DWARF-typed override or base, or the returned member's own type. Otherwise
+bool) only on positive evidence: the function's own narrowing of the value
+it returns (`andi 0xff`/`0xffff`, or `sll`/`sra` by 24 or 16, before `jr ra`), a
+DWARF-typed override or base, the returned member's own type, or the
+table-family rule below. A caller or dispatcher that narrows the result into
+its own destination (`andi`, `sb`, `sh` after the call) proves only that
+destination's width, never the callee's return (decision of 2026-10-24):
+Metrowerks narrows a byte or halfword return inside the callee. Otherwise
 leave the width unresolved; never infer `int` from the absence of narrowing.
 Spell a one-byte boolean `bool` only where a declaration says bool (a header,
 a mangled `b`, a DWARF-typed base or override); otherwise `uchar`, which is
@@ -276,6 +281,43 @@ contract. `recon void --function` prints the verdict and the blocking chain.
 For a function stored in vtables it also prints the family, the override
 that proves void, and each blocking override with its reader. `--rules 17`
 (also on `recon draft`) gives the earlier verdicts.
+
+Table-family rule (decision of 2026-10-24, "Yes, with conflict check"). The
+entries of one function-pointer table column share the column's declared
+function-pointer type, so one entry's own narrowing proves the return width
+of every entry. A column qualifies when an indirect call loads its target from
+the table through a variable index (an array dispatch, not one constant slot of
+a struct of function pointers). Example: UICommandTable's 147 handlers at +0x8
+of 12-byte rows, called by `jalr` in zAnimUIMenuTick, some through thunks such
+as 0x1d6af0. The row stride is the index's scale when the tool can trace it,
+otherwise the smallest stride that keeps code addresses apart from other
+words. A thunk entry stands for its target. A witness is an entry whose own
+body narrows the value at an exit (`andi v0,v0,0xff` before `jr ra`:
+UINetCnfUninit at 0x1d20b4) or whose DWARF record declares the width.
+Narrowing a returned local, or a callee's narrowing, is consistent with the
+width but is not a witness. The rule fails when the witnesses disagree or any
+entry contradicts the width in one of four ways:
+
+- It returns an unnarrowed or wider non-constant value: a word load, an
+  argument, arithmetic, an unknown or DWARF-`int` callee result, or v0 left
+  unset.
+- It returns a value with the other sign extension (`lb` or `sll`/`sra` in a
+  `uchar` column, `lbu` in a `schar` column).
+- It returns a constant outside the width.
+- It reads argument registers beyond the shared mangled parameters, or its
+  mangled parameters differ from the column's.
+
+Constants inside the width and 0/1 compare results (`slt`, `sltu`, `xori 1`)
+fit any width. DWARF `uchar` functions return them unnarrowed (14 exits), so
+they are never witnesses. The dispatcher's own narrowing of the result
+(zAnimUIMenuTick's `andi v0,v0,0xff` at 0x1d027c) is listed but proves
+nothing. `recon table-family --table <symbol|address> [--column N]
+[--stride N] [--json]` lists each entry with its exit-value class (own
+narrowing with width and sign, constant-only, 0/1 compare, typed callee or
+member value, unnarrowed) and its argument reads. It prints `VERDICT
+<width>` with the witnesses, or `VERDICT open` with the conflicting entries.
+This is an evidence rule for planner rows, not a `recon draft` rule, so
+drafted rows and their rules version do not change.
 
 A function whose every exit returns a relocated pointer to a NUL-terminated
 string (`recon bytes` shows the word's target and its text) returns

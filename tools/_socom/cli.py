@@ -1775,6 +1775,17 @@ def _recon_void(arguments: argparse.Namespace) -> int:
     return _recon_text(root, arguments, "\n\n".join(texts))
 
 
+def _recon_table_family(arguments: argparse.Namespace) -> int:
+    """The table-family return width of one function-pointer table column (decision of 2026-10-24)."""
+
+    from .recon_facts import context
+    from .recon_table import table_family, table_family_text
+
+    root = _root(arguments)
+    result = table_family(context(root), arguments.table, column=arguments.column, stride=arguments.stride)
+    return _recon_text(root, arguments, canonical_json(result) if arguments.json else table_family_text(result))
+
+
 def _recon_bytes(arguments: argparse.Namespace) -> int:
     from .recon_facts import context, object_bytes
 
@@ -2773,6 +2784,11 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec("recon asm", "recon", "Print annotated ELF disassembly of functions."),
     _spec("recon draft", "recon", "Draft a plan's rule-decided rows from facts and live types, or --check a plan's drafted rows.", ghidra_requirement="required"),
     _spec("recon void", "recon", "Print the void verdict of functions: exit values, the first blocking caller chain, and the vtable slot family verdict."),
+    _spec(
+        "recon table-family",
+        "recon",
+        "Print a function-pointer table column's entries, their exit-value classes and argument reads, and the family's return-width verdict.",
+    ),
     _spec("recon bytes", "recon", "Print initialized bytes at an address or symbol, with relocated words and strings."),
     _spec("recon dwarf", "recon", "Print DWARF 1 entries by offset with their children."),
     _spec("recon refs", "recon", "Print a data object's relocated slots and every code access to it."),
@@ -2965,6 +2981,13 @@ def build_parser() -> argparse.ArgumentParser:
     recon_void.add_argument("--output")
     recon_void.add_argument("--rules", type=int, choices=RULES_VERSIONS, default=DRAFT_RULES_VERSION)
     recon_void.set_defaults(handler=_recon_void)
+    recon_table = recon_commands.add_parser("table-family")
+    recon_table.add_argument("--table", required=True, help="table symbol, or an address inside the table")
+    recon_table.add_argument("--column", type=lambda text: int(text, 0), help="byte offset of the function column in a row")
+    recon_table.add_argument("--stride", type=lambda text: int(text, 0), help="row size in bytes")
+    recon_table.add_argument("--json", action="store_true", help="print the structured result")
+    recon_table.add_argument("--output")
+    recon_table.set_defaults(handler=_recon_table_family)
     recon_bytes = recon_commands.add_parser("bytes")
     recon_bytes.add_argument("--address", nargs="+", required=True)
     recon_bytes.add_argument("--length", type=int)
@@ -3380,9 +3403,13 @@ def main(argv: list[str] | None = None) -> int:
         argv = sys.argv[1:]
     # `--json` is deliberately position-independent because every command
     # already emits canonical JSON and automation commonly appends the flag.
+    # Commands with a text form (recon table-family, recon global-facts) read
+    # the flag after it is stripped.
+    json_requested = "--json" in argv
     argv = [argument for argument in argv if argument != "--json"]
     parser = build_parser()
     arguments = parser.parse_args(argv)
+    arguments.json = json_requested
     try:
         return int(arguments.handler(arguments))
     except SocomError as exc:
