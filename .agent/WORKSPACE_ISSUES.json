@@ -1115,8 +1115,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Type lookup by bare name is case-insensitive: EVENT resolves to unrelated /project/event"
+    },
+    {
+      "details": "Group 253/254 planner (socom-recon-planner-g139): (1) ai::TickPathPlanner 0x180c00 has a DWARF global_variable at its own address typed as a subroutine type (uchar (float, void*)); recon facts and the draft rules don't surface this kind of record, which can prove return/parameter shapes. (2) std::remove_copy_if 0x1a0220 stays unresolved because no tool can find a live anonymous @subroutine@<hash> type by its signature shape (e.g. bool (*)(CAiMap::route&)); recon types matches exact names only. Also: CZAnim::LoadNodeNames/AddName return int unnarrowed while callers narrow to a byte (kept partial).",
+      "id": "socom:workspace-issue:eb39219faf5b0f5696b0",
+      "kind": "problem",
+      "reported_at": "2026-10-24T16:52:20Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "recon facts/draft ignore DWARF subroutine-typed global_variable records at function addresses; no search for live @subroutine@ types by shape"
     }
   ],
-  "revision": 126,
+  "revision": 127,
   "schema_version": 1
 }
