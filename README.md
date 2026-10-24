@@ -85,9 +85,9 @@ deferred until their real producers and compiler/provider prerequisites exist.
 <!-- SOCOM_PROGRESS_BEGIN -->
 ### Generated progress snapshot
 
-- Tracker revision: `2302`
+- Tracker revision: `2306`
 - Next work item: `socom:recon-group:930bef54cbddb732174a-apply`
-- Work items: 774 total (3 ready, 1 active, 0 awaiting acceptance, 665 accepted, 105 dependency-blocked)
+- Work items: 774 total (4 ready, 0 active, 1 awaiting acceptance, 666 accepted, 103 dependency-blocked)
 - Open blockers: 3
 - Provisional source owners still unverified: 316
 
