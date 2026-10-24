@@ -1095,8 +1095,18 @@
       "resolution": null,
       "status": "open",
       "summary": "recon facts applies the wrong jump table to a switch jr"
+    },
+    {
+      "details": "Group 251 review (socom-verifier-r49): CSaveManager::RegisterModule 0x3f7b20 stays partial only because its f0 chain runs through CSaveModule::__ct 0x3f70b0 to the address-taken __sinit_fts_mission.cpp 0x46aab0. A ctor returns its entry a0 in v0 (v16-style contract), has no table/address refs, and its callers never read f0, so a __ct analogue of rule v16 would end the chain cleanly. Alternative: extend the v3 __sinit contract (declared void(*)(void) table type), noting __initialize_cpp_rts tail-calls mwInit with f0 live. Needs a user-approved rules change.",
+      "id": "socom:workspace-issue:bab167509f66bf88237a",
+      "kind": "problem",
+      "reported_at": "2026-10-24T04:44:13Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "recon void: constructors could end f0 chains (rules v19 candidate)"
     }
   ],
-  "revision": 124,
+  "revision": 125,
   "schema_version": 1
 }

@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2090,
+  "revision": 2094,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -110345,22 +110345,23 @@
         "socom:recon-group:fb77cf69c604c9542575-apply",
         "socom:recon-group:ff0934ce49f96fe5dec5-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-8842567df041369e468a.json sha256:75945d629829010b4ceed6c8479dfefd178f4bf832ce395a0cbfc665a0138db3; recon validate ok; recon draft --check ok; preflight-batch ok (13 set_function_prototype calls, 19 skips all unresolved rows)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g136",
+        "submitted_at": "2026-10-24T04:41:43Z",
+        "summary": "13 prototypes, 19 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:8842567df041369e468a",
       "kind": "recon-plan-group",
-      "lease": {
-        "claimed_at": "2026-10-24T04:22:34Z",
-        "expires_at": "2026-10-24T06:22:34Z",
-        "heartbeat_at": "2026-10-24T04:22:34Z",
-        "owner": "socom-recon-planner-g136"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 249 (height 19, 32 functions)"
     },
     {
@@ -110514,22 +110515,23 @@
         "socom:recon-group:f36b094a00c909ab0de8-apply",
         "socom:recon-group:fe5f3b0ac9beaf35a1e5-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-ce0276335720f526cc47.json sha256:dd9da75588cd9b26a1951b404fa0808737d03313edf3b7530dfb32484b719e5e; recon validate ok; recon draft --check ok; preflight-batch ok (3 set_function_prototype calls, 29 skips all unresolved rows)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g136",
+        "submitted_at": "2026-10-24T04:41:49Z",
+        "summary": "3 prototypes, 29 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:ce0276335720f526cc47",
       "kind": "recon-plan-group",
-      "lease": {
-        "claimed_at": "2026-10-24T04:22:40Z",
-        "expires_at": "2026-10-24T06:22:40Z",
-        "heartbeat_at": "2026-10-24T04:22:40Z",
-        "owner": "socom-recon-planner-g136"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 250 (height 19, 32 functions)"
     },
     {
@@ -110593,6 +110595,10 @@
       "title": "Apply reviewed reconstruction group 250 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-24T04:43:51Z",
+        "by": "socom-verifier-r49"
+      },
       "batch": {
         "batch_number": 251,
         "function_count": 32,
@@ -110705,7 +110711,8 @@
         "socom:recon-group:fe5f3b0ac9beaf35a1e5-apply"
       ],
       "evidence": [
-        "plan build/recon-plans/socom-recon-group-f4d26354284e0f8e4425.json sha256:fc433a72aebe9e25f028cfc45b3be4ea15a233d3054b787e27b9e04fb96203dc; recon validate ok; recon draft --check ok (rules 18); preflight-batch ok (20 set_function_prototype calls, 12 skips = unresolved rows, 0 errors)"
+        "plan build/recon-plans/socom-recon-group-f4d26354284e0f8e4425.json sha256:fc433a72aebe9e25f028cfc45b3be4ea15a233d3054b787e27b9e04fb96203dc; recon validate ok; recon draft --check ok (rules 18); preflight-batch ok (20 set_function_prototype calls, 12 skips = unresolved rows, 0 errors)",
+        "plan sha256:fc433a72aebe9e25f028cfc45b3be4ea15a233d3054b787e27b9e04fb96203dc; recon validate ok; recon program equals build/apply (6b85282d...); preflight-batch ok, 20 set_function_prototype calls, 12 skips = the 12 unresolved rows; recon draft --check ok (rules 18, 21 drafted, 11 open). Partial 0x3f7b20 CSaveManager::RegisterModule: live undefined RegisterModule(void) is the default form; a0 read beyond the one mangled parameter (move s2,a0 0x3f7b30), passed as the list to begin/end/insert and stored into CSaveModule.m_Manager (+4 CSaveManager *: sw s2,4(v1) 0x3f7bfc); a1 spilled and +8 m_ModuleName loaded (0x3f7b48) then compared by strcmp; get_struct_layout agrees; the only caller CSaveModule ctor passes lw a0,4(s1) and the module. Return stays open: no DWARF, recon void VERDICT open (f0 chain through ctor 0x3f70b0 to __sinit_fts_mission.cpp 0x46aab0, whose .p__sinit word is a table reference). The 10 unresolved open rows are confirmed: callees are live defaults (RSADecryptBlock, rt_comm_platform_send_to, rt_msg_client_enable_udp, lint*), lint/RT types are missing, LINE_DATA is AMBIGUOUS, receiver/key spellings contain ',' or '&', and recon void is open for each."
       ],
       "handoff": {
         "owner": "socom-recon-planner-g137",
@@ -110720,7 +110727,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan reconstruction group 251 (height 19, 32 functions)"
     },
     {
@@ -110780,7 +110787,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 251 in Ghidra"
     },
     {
@@ -125416,22 +125423,23 @@
         "with_derived": false
       },
       "dependencies": [],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/type-plans/zanim-task-hdr.json sha256 484d34a346718bce318c5c955de748706086e206716918c271eb58b0c1ae39b7; layout sha256 c7bc1cec8afb75ce421e6d59c3196987f851db0da0e1eaba4d81c39db75ef56a (recon layout --records ...); recon type-plan validate ok (0 problems); live ok (0 live_problems; 8 types, 4 external); program build/apply/socom-work-type-plan-zanim-task-hdr-apply.json sha256 8028397972c64d5139ebea5d7294bfa02359e362c8e0890c75d8e67a597c0cba; review build/type-plans/zanim-task-hdr-review.md sha256 f71c85e47a021e5011fa4537ad2e007a5f88c45f6f128af31d69013aa83530dc; affected 0 groups; conflicts: HOLD +8 lui/sw -1.0f inside Rfloat; EVENT +0x20 / SETMODE +8 / STANCE +0xc are wider fields whose low-byte lb/lbu reads are narrowing conversions to 1-byte enums (EVENT, AI_MODE, SEAL_STANCE)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-t202",
+        "submitted_at": "2026-10-24T04:42:03Z",
+        "summary": "Code-derived records plan for the 9 zAnim TASK_HDR commands: 8 new /project structs (TASK_MOVE for MOVE+DOOR, TASK_EVENT, TASK_HOLD, TASK_PURSUE, TASK_SETMODE, TASK_STANCE, TASK_TEAM, TASK_WAIT), each with base /project/TASK_HDR at +0 and sized by its calloc/data_size; no DWARF casts"
+      },
       "id": "socom:work:type-plan-zanim-task-hdr",
       "kind": "recon-type-plan",
-      "lease": {
-        "claimed_at": "2026-10-24T03:31:05Z",
-        "expires_at": "2026-10-24T05:31:05Z",
-        "heartbeat_at": "2026-10-24T03:31:05Z",
-        "owner": "socom-recon-planner-t202"
-      },
+      "lease": null,
       "resources": [
         "build/type-plans"
       ],
       "selection": "types",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan the code-derived layouts of the zanim task-hdr command records (9)"
     },
     {
