@@ -85,9 +85,9 @@ deferred until their real producers and compiler/provider prerequisites exist.
 <!-- SOCOM_PROGRESS_BEGIN -->
 ### Generated progress snapshot
 
-- Tracker revision: `2061`
-- Next work item: `socom:recon-group:8842567df041369e468a`
-- Work items: 766 total (4 ready, 0 active, 5 awaiting acceptance, 587 accepted, 170 dependency-blocked)
+- Tracker revision: `2069`
+- Next work item: `socom:work:type-plan-zanim-switch-apply`
+- Work items: 766 total (8 ready, 0 active, 0 awaiting acceptance, 593 accepted, 165 dependency-blocked)
 - Open blockers: 3
 - Provisional source owners still unverified: 316
 

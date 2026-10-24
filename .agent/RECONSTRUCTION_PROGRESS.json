@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2061,
+  "revision": 2069,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -2842,7 +2842,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "1381c93abacbc865d65051742292dda4455ed677262fbed720d726d7ad9d3db3",
+      "current_receipt_sha256": "37ca9e09248fa52e0e4ac4b02ca6d87904e377ce20d34d6b6b9e196c67c201d2",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -10308,6 +10308,31 @@
           "receipt_sha256": "1381c93abacbc865d65051742292dda4455ed677262fbed720d726d7ad9d3db3",
           "tracker_revision": 2061,
           "work_item_id": "socom:recon-group:acd74fc4d202d0383f95-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1702,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 37088
+          },
+          "indexes": {
+            "data": {
+              "count": 51811,
+              "sha256": "acbe56777d3b25d0b491cee3e84db2ca857917249491cc07255d8fc94d8eae2b"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1702,
+              "sha256": "28537dc6bf938885511ef3b7367793a687f8406d2fd2bb3fab63cfe117f5935a"
+            }
+          },
+          "receipt_sha256": "37ca9e09248fa52e0e4ac4b02ca6d87904e377ce20d34d6b6b9e196c67c201d2",
+          "tracker_revision": 2069,
+          "work_item_id": "socom:recon-group:654ef34132afa5972f3f-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -108730,6 +108755,10 @@
       "title": "Apply reviewed reconstruction group 243 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-24T03:01:00Z",
+        "by": "socom-verifier-r47"
+      },
       "batch": {
         "batch_number": 244,
         "function_count": 32,
@@ -108808,6 +108837,7 @@
         "socom:recon-group:dbdbcaa4fdb2b738f4a2-apply"
       ],
       "evidence": [
+        "plan build/recon-plans/socom-recon-group-ea5c5edd1476c6f66531.json sha256:d8ea95e716591cb70d3f5d29a8c21eb1f76baca8d5162b8a650b0c339ed9a2f3; recon validate ok; recon draft --check ok (rules 18, 17 open rows); recon program equals build/apply copy; preflight-batch ok (17 set_function_prototype, 15 skips = the 15 unresolved rows). Open rows checked against recon facts/void/live/types: AddCmd 0x1c4a50 declares a0,a1(passed to SplitName),a2,a3,t0,t1; a2-t1 stored to zanim_cmd +8/+12/+16/+20 whose live members (get_struct_layout zanim_cmd) are @subroutine@a847a04fed */c34f78ad6f */fad6e7ef04 */c34f78ad6f * (DWARF 0x9dd1e/0xa01e3/0xa1ada/0xa2a17), each name unique in /project/anonymous, no .conflict variant in fingerprint g240-before; bridge spelling proven read-only: GhidraMCP 6.0.0 parseFunctionSignatureAndApply passes the text unchanged to new FunctionSignatureParser(programDTM,null) (extractCallingConvention only edits text before '('), FunctionSignatureParser 12.1.4 splits args only at ',' and the name at the last space/'*', DataTypeParser.getBaseString stops only at '*','[',':'(not '::'),'{' outside '<>', DataTypeManagerDB.findDataTypes matches the exact name, so '@' is an ordinary name character; read-back FunctionDB.getPrototypeString prints PointerDB display name '<funcdef name> *'. No live signature yet contains @subroutine@ (first use). ushort return: lhu v0,140(sp) of the {cmd,set} bytes, 33 callers andi v0,v0,0xffff, 6 sh v0 into _zanim_cmd_hdr.data_type uint:16, sibling GetCmdEntry__10CZAnimMainFUs takes the same value as unsigned short and decodes bytes 0/1 identically; a0 is the receiver (no hidden result pointer), so not zanim_cmd_val by value. Other complete rows (SetCellLink, AddName, GetAnimSetIndex, GetCmdEntry, UIStopAllSounds andi 0xff at 0x1d027c, both OpenKey) and 6 partial rows (default live signatures, all params typed, recon void VERDICT open) agree with the facts; unresolved reasons (comma template receivers, TYPE/MAP_FLOODFILL_STRUCT missing) confirmed by recon types.",
         "plan build/recon-plans/socom-recon-group-ea5c5edd1476c6f66531.json sha256:d8ea95e716591cb70d3f5d29a8c21eb1f76baca8d5162b8a650b0c339ed9a2f3; recon validate ok; recon draft --check ok; preflight-batch ok (17 set_function_prototype)"
       ],
       "handoff": {
@@ -108823,7 +108853,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan reconstruction group 244 (height 19, 32 functions)"
     },
     {
@@ -108883,10 +108913,14 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 244 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-24T03:01:17Z",
+        "by": "socom-verifier-r47"
+      },
       "batch": {
         "batch_number": 245,
         "function_count": 32,
@@ -108974,6 +109008,7 @@
         "socom:recon-group:fe5f3b0ac9beaf35a1e5-apply"
       ],
       "evidence": [
+        "plan build/recon-plans/socom-recon-group-b786c300fafb0461aeed.json sha256:483931013505aa9fb928ac16bcf85ca9e0577b1d7f7dd68a22db7636dc8a270e; recon validate ok; recon draft --check ok (rules 18, 19 open rows); recon program equals build/apply copy; preflight-batch ok (17 set_function_prototype, 15 skips = the 15 unresolved rows). Open rows checked against recon facts/void/live/types: constructors CZSIScriptCommon, CSaferStr (address only passed to __construct_array, live ctor param void *), RTArray<CZBodyAnimBlend> (Ui,b,b mangled; a0-a3 read), CNodeAction (a0-t0 read) return the entry a0 as void *; InsertKey, AttachAuxPart return the reloaded argument (own type), AttachAuxNode the new CZBodyPart (operator new 80), GetNext rows m_pool[--m_available] with live m_pool ACTIVE_ANIM ** / CZBodyAnimBlend ** (get_struct_layout), every recon void VERDICT open; 6 partial rows (SetIncludeInTargetList, both Add_Message, CreateNode with CGNode missing, CGrid::Update) replace default live signatures with every read register typed from the mangled names, returns open per recon void; unresolved rows confirmed: CConsole/CGNode missing, comma template receivers, Insert thunk to a partial target.",
         "plan build/recon-plans/socom-recon-group-b786c300fafb0461aeed.json sha256:483931013505aa9fb928ac16bcf85ca9e0577b1d7f7dd68a22db7636dc8a270e; recon validate ok; recon draft --check ok; preflight-batch ok (17 set_function_prototype)"
       ],
       "handoff": {
@@ -108989,7 +109024,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan reconstruction group 245 (height 19, 32 functions)"
     },
     {
@@ -109049,10 +109084,14 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 245 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-24T02:59:44Z",
+        "by": "socom-verifier-r48"
+      },
       "batch": {
         "batch_number": 246,
         "function_count": 32,
@@ -109136,7 +109175,8 @@
         "socom:recon-group:fe5f3b0ac9beaf35a1e5-apply"
       ],
       "evidence": [
-        "plan build/recon-plans/socom-recon-group-30c600d8dca270892e2f.json sha256:ff002bbdacd5c3ed3a7f03b1bcfe92acbb8b8e0284a00e554ee4e2854a98d7e1; recon validate ok; recon draft --check ok; preflight-batch ok (29 calls)"
+        "plan build/recon-plans/socom-recon-group-30c600d8dca270892e2f.json sha256:ff002bbdacd5c3ed3a7f03b1bcfe92acbb8b8e0284a00e554ee4e2854a98d7e1; recon validate ok; recon draft --check ok; preflight-batch ok (29 calls)",
+        "plan sha256:ff002bbdacd5c3ed3a7f03b1bcfe92acbb8b8e0284a00e554ee4e2854a98d7e1 unchanged; recon validate ok; recon program equals build/apply (byte-identical); recon draft --check ok (rules v18, 20 open rows); preflight-batch ok, 3 skips = the 3 unresolved rows (0x21f880, 0x22f1a0, 0x2324c0); all 20 open rows checked against recon facts/asm: declared registers cover args read; 9 partial rows replace Ghidra-default live signatures with every parameter typed, return open per recon void (constant-only exits or open vtable families/address-taken chains); static rows prove a0 non-receiver (CreateInstance a0 = string/model, ReleaseLibRef/CRipple::Tick/Particle callers); returns CNode*/CTexPalette*/CModel*/Props* from returned values' own types or typed uses (SetPosition this, Source::m_props +228); hand-written void rows all recon void VERDICT void; all types unique live"
       ],
       "handoff": {
         "owner": "socom-recon-planner-g135",
@@ -109151,7 +109191,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan reconstruction group 246 (height 19, 32 functions)"
     },
     {
@@ -109211,10 +109251,14 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 246 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-24T03:00:03Z",
+        "by": "socom-verifier-r48"
+      },
       "batch": {
         "batch_number": 247,
         "function_count": 32,
@@ -109322,7 +109366,8 @@
         "socom:recon-group:ed6298474b0919b8d703-apply"
       ],
       "evidence": [
-        "plan build/recon-plans/socom-recon-group-2183ba876ad9c066803b.json sha256:354546245b5f8187fbd6cef8329595e8df4c1b31a287dda3f1903ee882a35baf; recon validate ok; recon draft --check ok; preflight-batch ok (25 calls)"
+        "plan build/recon-plans/socom-recon-group-2183ba876ad9c066803b.json sha256:354546245b5f8187fbd6cef8329595e8df4c1b31a287dda3f1903ee882a35baf; recon validate ok; recon draft --check ok; preflight-batch ok (25 calls)",
+        "plan sha256:354546245b5f8187fbd6cef8329595e8df4c1b31a287dda3f1903ee882a35baf unchanged; recon validate ok; recon program equals build/apply (byte-identical); recon draft --check ok (rules v18, 18 open rows); preflight-batch ok, 7 skips = the 7 unresolved rows; SetAiMode 0x266bf0: a3@0x266e70 is not an argument read (0x266d88 forms @11438 0x451e10 for jr v0 0x266d94, targets 0x266d9c-0x266df0; 0x266e08 forms @11439 0x451df0 for jr v0 0x266e14; lui a3 at 0x266dfc, delay slot of beq 0x266df8, precedes both ways into 0x266e70), params this+AI_MODE match the mangled name, return open (recon void open); ComputeVisibility 0x2affe0 receiver proven by callers passing their receivers in a0 with DiIntersect in a1 and CNode in a2 (0x2b0754-0x2b0760, 0x2b0de8-0x2b0e08), float from f0 set at every exit and c.le.s/c.lt.s at both callers; AddWeapon 0x24b060 a0 dereferenced and passed as vector insert receiver, caller passes &character+592; PostTick bool(float, void *) from AddTask a2 PFfPv_b (a0 zTaskScheduler, a1 string, f12 float, a3 0) and DWARF 0xd6d4e uchar(float, void *); CTGoto::Parse from AddCmd a2 parser (DWARF 0x9dd1e: _zanim_cmd_hdr * (_zrdr *)), body reads only a0; partial rows all on Ghidra-default live signatures with every parameter typed; hand-written void rows recon void VERDICT void"
       ],
       "handoff": {
         "owner": "socom-recon-planner-g135",
@@ -109337,7 +109382,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan reconstruction group 247 (height 19, 32 functions)"
     },
     {
@@ -109397,7 +109442,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 247 in Ghidra"
     },
     {
@@ -110236,6 +110281,10 @@
       "title": "Plan reconstruction group 252 (height 19, 3 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-10-24T03:16:02Z",
+        "by": "socom-verifier-a252"
+      },
       "batch": {
         "batch_number": 252,
         "function_count": 3,
@@ -110252,8 +110301,78 @@
       "dependencies": [
         "socom:recon-group:654ef34132afa5972f3f"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "check-recon-apply audit: strict tracker audit ok at revision 2067",
+        "check-recon-apply calls: 3 apply bridge calls; dry run planned 3 (set_function_prototype), 0 outside the scope",
+        "check-recon-apply chain: g252-before identical to g240-after",
+        "check-recon-apply diff: recomputed g252 before/after diff equals the stored diff",
+        "check-recon-apply explain: 3 functions changed: 3 prototyped group functions, entry/body/thunk unchanged; data +0/-0 explained (0 typed globals); types added 0 (pointer/array only); references, blocks and bookmarks unchanged",
+        "check-recon-apply fingerprint: verifier fingerprint 155172fedff4300c29ea16f890a8838807abce62b85ddadd474b8efa050a70f1 identical to g252-after",
+        "check-recon-apply plan: plan sha256 5caeb3da096f6d19cb3cf5ed7ab0449a206ecf0ec19819c7024fe45823489ea2 cited by the accepted plan item",
+        "check-recon-apply preflight: live preflight ok",
+        "check-recon-apply program: program sha256 b30a7f6124ffbbadddc65cb2fed860a134823178bf26d98ff8a84214b58ac76d regenerates identically from the plan",
+        "check-recon-apply readback: live signatures of 3 prototyped functions equal the plan; 0 unresolved unchanged",
+        "check-recon-apply receipt: receipt over the stored scope 37ca9e09248fa52e0e4ac4b02ca6d87904e377ce20d34d6b6b9e196c67c201d2 vs handoff 37ca9e09248fa52e0e4ac4b02ca6d87904e377ce20d34d6b6b9e196c67c201d2",
+        "check-recon-apply scope: stored scope (3 functions, 0 globals) equals the program's receipt_scope",
+        "check-recon-apply status: apply awaiting_acceptance, plan accepted",
+        "fingerprint after build/fingerprints/g252-after.json sha256 32091d31ee855285277deb4574fd3e114b290156f7dc5138d5d7688e0475730a; diff build/fingerprints/g252-diff.json sha256 c2659f67925ad4aa01618ba238552dcc029c8b2e636d2ce32efdb7835c03448f: 3 functions changed: 3 prototyped group functions, entry/body/thunk unchanged; data +0/-0 explained (0 typed globals); types added 0 (pointer/array only); references, blocks and bookmarks unchanged",
+        "fingerprint before build/fingerprints/g252-before.json is the previous apply's verifier fingerprint build/verifier-socom-verifier-a240/fp-now.json (identical to build/fingerprints/g240-after.json), reused because the g240 receipt still reproduced live before this apply: 9715 functions, 51811 data, 1702 types",
+        "ghidra apply-recon: plan build/recon-plans/socom-recon-group-654ef34132afa5972f3f.json sha256 5caeb3da096f6d19cb3cf5ed7ab0449a206ecf0ec19819c7024fe45823489ea2 (accepted; plan-tools commit 00ea11b); program build/apply/socom-recon-group-654ef34132afa5972f3f-apply.json sha256 b30a7f6124ffbbadddc65cb2fed860a134823178bf26d98ff8a84214b58ac76d regenerated equal to the stored program; 3 bridge calls exactly as the post-claim dry run predicted (3 set_function_prototype); 0 recorded skips; every name and Signature line read back equal; report sha256 e47b1a289adc28fa7d803594c911cd58fb90201d87bbc72a2c645644ed121511",
+        "ghidra-receipt-sha256:37ca9e09248fa52e0e4ac4b02ca6d87904e377ce20d34d6b6b9e196c67c201d2",
+        "ghidra-save:explicit-program",
+        "pre-handoff receipt 37ca9e09248fa52e0e4ac4b02ca6d87904e377ce20d34d6b6b9e196c67c201d2 over build/receipts/socom-recon-group-654ef34132afa5972f3f-apply-scope.json (3 functions, 0 globals)"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "37ca9e09248fa52e0e4ac4b02ca6d87904e377ce20d34d6b6b9e196c67c201d2",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x46df90",
+            "0x46e070",
+            "0x46f030"
+          ],
+          "globals": [],
+          "types": []
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1702,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 37088
+          },
+          "indexes": {
+            "data": {
+              "count": 51811,
+              "sha256": "acbe56777d3b25d0b491cee3e84db2ca857917249491cc07255d8fc94d8eae2b"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1702,
+              "sha256": "28537dc6bf938885511ef3b7367793a687f8406d2fd2bb3fab63cfe117f5935a"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-24T03:01:35Z",
+        "summary": "Group 252 plan: 3 prototypes, 0 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:654ef34132afa5972f3f-apply",
       "kind": "recon-apply-group",
       "lease": null,
@@ -110263,7 +110382,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply reviewed reconstruction group 252 in Ghidra"
     },
     {
@@ -124582,6 +124701,10 @@
       "title": "Apply reviewed recon repair 004 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-24T03:11:47Z",
+        "by": "socom-verifier-t2"
+      },
       "batch": {
         "family": "switch",
         "records": [
@@ -124601,7 +124724,9 @@
       "evidence": [
         "bit meanings from asm: HUDCmdParseOn 0x1f9dd4 / HUDLetterBoxCmdParseOn 0x1f9c54 set +4 bit0, ParseOff 0x1f9d4c / 0x1f9bcc set bit1; ticks: bit0 -> CHUD::On 0x1f9ca0 / CLetterBox::AddLetterbox 0x1f9b28, bit1 -> CHUD::Off 0x1f9cbc / RemoveLetterbox 0x1f9b48; CftsPlayer::CmdParseControls sets bit1 iff zrdr_findtag(rdr,\"ON\" 0x44e430) (0x1fddfc, 0x1fde1c), else bit0 (0x1fde34); CmdTickControls reads bit0 only (0x1fdd28) and clears/sets CftsPlayer+0x169 bit3; HUD parsers pass fts_mission.cpp 0x44e170, player parser fts_player.cpp 0x44e408 to _calloc(1,8)",
         "plan build/type-plans/zanim-switch.json sha256 68b9640072bb95be130f8115a3b94e2aef5bb497250c5a3dd8d1427cde9035f6; layout build/type-plans/zanim-switch-layout.json sha256 304a0538a136e6b5f948268f8e4bd1c8de582166458e45df0ae3f81d11d9d952 (recon layout --records DYNAMICS_ACQUIRE_CAMERA DYNAMICS_RELEASE_CAMERA HUD_LETTERBOX_OFF HUD_LETTERBOX_ON HUD_OFF HUD_ON PLAYER_CONTROLS SET_CAMERA_REGION_TEST; 13 functions, 118 sites, 0 unattributed)",
-        "recon type-plan validate ok, problems []; recon type-plan live ok, live_problems [] (types 2, external 1); recon type-plan program -> build/type-plans/zanim-switch-program.json program_sha256 ccd7c9a59f83a579e048f8aede2bb1aa624c5a5cb80626a17a48c7f987f48898 (2 created via c route, 2 referenced DWARF); recon type-plan show -> build/type-plans/zanim-switch-review.md sha256 64bab65975e547ca62641ac7ea1aa17726bcb611b3d5c5197b2110c195fb5647; recon type-plan affected: 0 groups, 0 functions, 0 unplanned"
+        "recon type-plan validate ok, problems []; recon type-plan live ok, live_problems [] (types 2, external 1); recon type-plan program -> build/type-plans/zanim-switch-program.json program_sha256 ccd7c9a59f83a579e048f8aede2bb1aa624c5a5cb80626a17a48c7f987f48898 (2 created via c route, 2 referenced DWARF); recon type-plan show -> build/type-plans/zanim-switch-review.md sha256 64bab65975e547ca62641ac7ea1aa17726bcb611b3d5c5197b2110c195fb5647; recon type-plan affected: 0 groups, 0 functions, 0 unplanned",
+        "user review and approval 2026-10-23",
+        "verifier socom-verifier-t2: would accept plan build/type-plans/zanim-switch.json sha256 68b9640072bb95be130f8115a3b94e2aef5bb497250c5a3dd8d1427cde9035f6 (layout 304a0538...); validate ok, program rerun byte-identical (ccd7c9a5...), show rerun byte-identical to review, live ok; asm: 8 AddCmd sites, _calloc(1,8) + data_size 8 in every parser; camera bits match DWARF 0xf3cbf/0xf2c50 and casts; HUD ON parsers set +4 bit0 (CHUD::On/AddLetterbox), OFF bit1 (Off/RemoveLetterbox); PLAYER_CONTROLS 'ON' tag sets bit1, else bit0, tick reads bit0 only (reversed order correct); lb+dsra32 vs unsigned lbu+andi/dsrl32 justifies int:1; findings build/type-plans/zanim-switch-review-verifier.md"
       ],
       "handoff": {
         "owner": "socom-recon-planner-t201",
@@ -124616,7 +124741,7 @@
       ],
       "selection": "types",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the code-derived layouts of the zanim switch command records (8)"
     },
     {
@@ -124649,7 +124774,7 @@
       ],
       "selection": "types",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed code-derived types of the zanim switch command records (8) in Ghidra"
     },
     {
