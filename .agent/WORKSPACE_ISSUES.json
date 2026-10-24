@@ -1135,8 +1135,18 @@
       "resolution": null,
       "status": "open",
       "summary": "recon types does not resolve qualified names zdb::IntersectStruct / zdb::CTextureRelocMgr held under /project/zdb"
+    },
+    {
+      "details": "Reported twice (group 271/272 planner: @2749 matched two labels, used 0x4444d0; group 277 reviewer: @2099 matched two local labels, so a label name alone can pick the wrong string). recon bytes (and any command resolving @NNNN local labels) should refuse an ambiguous label and list the candidate addresses.",
+      "id": "socom:workspace-issue:6f2eb9a270f5cded12a3",
+      "kind": "problem",
+      "reported_at": "2026-10-24T20:48:08Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "recon bytes --address @<label> silently picks one of several same-named local labels"
     }
   ],
-  "revision": 128,
+  "revision": 129,
   "schema_version": 1
 }
