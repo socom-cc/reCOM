@@ -1145,8 +1145,18 @@
       "resolution": null,
       "status": "open",
       "summary": "recon bytes --address @<label> silently picks one of several same-named local labels"
+    },
+    {
+      "details": "CSealCtrlAi::SetAiMode: recon facts lists a3 as read before write at 0x266e70, but a3 is set by lui a3,0x45 at 0x266dfc in the delay slot of beq 0x266df8, which runs on every path into 0x266e70 (s1>=8 default and jump-table case 7 via jr 0x266e14). The matching a2 pair 0x266d7c/0x266df0 is handled correctly. The false read also propagates a pass-through from PathFollowTick 0x264f1c. Planners then suspect a missing parameter (found by socom-verifier-r63).",
+      "id": "socom:workspace-issue:790e12b3f1a81b1e176f",
+      "kind": "problem",
+      "reported_at": "2026-10-24T21:16:35Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "recon facts reports a delay-slot lui/addiu pair as an argument-register entry read"
     }
   ],
-  "revision": 129,
+  "revision": 130,
   "schema_version": 1
 }
