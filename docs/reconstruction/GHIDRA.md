@@ -86,15 +86,31 @@ all-types receipt and bookmarks with a full `list_bookmarks` read (issue
 it, and catches what a scoped receipt cannot see, such as a thunk prototype
 rewriting its target's signature. With `--compare <earlier.json>` it reports
 the differences by section (`--diff-output` writes them in full). It uses
-only GETs and the read-only `get_bulk_xrefs`; a run takes about six and a
-half minutes (396 s and 399 s around batch 18), almost all of it the
-reference sweep over about 111 million addresses, most of them in the 32 MiB
-IOP RAM and RAM mirror blocks. The bridge serializes requests, so the sweep is
-one stream of 16,000-address calls: a single block sweeps at about 460,000
-addresses per second (overlay blocks about half that), larger calls and
-concurrent streams were measured slower, and a full run averages less than
-any one block. Run it with no other bridge traffic: a concurrent sweep has
-timed out.
+only GETs and the read-only `get_bulk_xrefs`. Most of a run is the reference
+sweep over about 111 million addresses, 98 million of them in the 32 MiB IOP
+RAM and two RAM mirror blocks that hold about 230 references between them.
+The bridge has no unfiltered reference iterator: `list_data_items_by_xrefs`
+and `list_globals` walk `getReferenceDestinationIterator` but drop every hit,
+since `getPrimarySymbol` returns a dynamic symbol for any referenced address,
+and `analyze_data_region` scans server-side at the same ~2 µs per address. So
+the sweep asks for every address in 16,000-address calls, and its floor is
+the bridge's per-address `getReferencesTo` work. The GUI bridge serves on a
+pool of three HTTP threads, and neither `get_bulk_xrefs` nor
+`get_function_by_address` runs on the Swing thread. By default
+(`--sweep-mode concurrent`) the command keeps three of the same calls in
+flight, each on its own keep-alive connection, and consumes the answers in
+request order. A run takes about 176 s instead of about 350 s. The 9,715
+`get_function_by_address` reads take about 3 s instead of about 80 s, which
+was mostly a new TCP connection per call. Each 32 MiB block takes about 46 s
+instead of about 90 s; Ghidra's program lock serializes most of the
+per-address work. Keep-alive matters on Windows: at the concurrent rate, a
+connection per call wraps the 16,384 client ports inside the bridge's
+TIME_WAIT, and connects time out (WinError 10060). `--sweep-mode legacy`
+sends the calls one at a time through the ordinary client, as before. Both
+modes send identical requests and write byte-identical output.
+`check-recon-apply` and `check-names-repair` always use the default. Avoid
+running two fingerprints at once, because they share the three bridge
+threads.
 
 Read-only work may inspect functions, disassembly, decompilation, p-code,
 callers/callees, xrefs, symbols, data, types, bookmarks, options, and address

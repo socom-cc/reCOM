@@ -53,7 +53,7 @@ from .ghidra import (
 )
 from .batch_apply import BatchFailure, build_batch_program, execute_batch_program
 from .recon import RECON_GROUP_SIZE, RECON_PLAN_KIND, build_recon_program, group_evidence, recon_groups, validate_recon_plan
-from .fingerprint import compare_fingerprints, program_fingerprint
+from .fingerprint import SWEEP_MODES, compare_fingerprints, program_fingerprint
 from .type_apply import ApplyFailure, build_apply_program, execute_apply_program
 from . import recon_repair_cli, type_plan_cli
 from .source import (
@@ -757,6 +757,7 @@ def _ghidra_fingerprint(arguments: argparse.Namespace) -> int:
         root,
         bridge_url=arguments.bridge_url,
         log=lambda message: print(f"[{time.monotonic() - started:7.1f}s] {message}", file=sys.stderr, flush=True),
+        sweep_mode=arguments.sweep_mode,
     )
     atomic_write_json(output, fingerprint)
     report: dict[str, Any] = {
@@ -3057,6 +3058,12 @@ def build_parser() -> argparse.ArgumentParser:
     fingerprint.add_argument("--compare")
     fingerprint.add_argument("--diff-output")
     fingerprint.add_argument("--bridge-url")
+    fingerprint.add_argument(
+        "--sweep-mode",
+        choices=SWEEP_MODES,
+        default="concurrent",
+        help="concurrent (default) keeps three identical read requests in flight; legacy sends them one at a time",
+    )
     fingerprint.set_defaults(handler=_ghidra_fingerprint)
     apply_batch = ghidra_commands.add_parser("apply-batch")
     apply_batch.add_argument("--program", required=True)
