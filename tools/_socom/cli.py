@@ -611,15 +611,16 @@ class _ReadOnlyBridge:
 def _accepted_scope_globals(tracker: dict[str, Any], exclude: str | None) -> frozenset[str]:
     """Globals in the stored receipt scope of every accepted batch apply.
 
-    Only DWARF batch applies type globals; the zero-fill map's scope lists
-    every .bss object and a label repair types nothing.
+    DWARF batch applies, reconstruction group applies and recon repairs of
+    globals type globals; the zero-fill map's scope lists every .bss object
+    and a label repair types nothing.
     """
 
     addresses: set[str] = set()
     for item in tracker["work_items"]:
         if item["id"] == exclude or item.get("status") != "accepted":
             continue
-        if item.get("kind") not in ("debug-import-apply-batch", "recon-apply-group"):
+        if item.get("kind") not in ("debug-import-apply-batch", "recon-apply-group", "recon-repair-apply"):
             continue
         for value in ((item.get("ghidra_receipt") or {}).get("scope") or {}).get("globals", []):
             if "::" not in value:

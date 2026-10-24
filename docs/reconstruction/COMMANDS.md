@@ -94,7 +94,8 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py recon type-plan affected` | recon | no | none | no | List the reconstruction groups whose functions name a planned class, and which rows were left unresolved for it. |
 | `python tools/socom.py ghidra apply-type-plan` | ghidra | yes | required | yes | Apply a reviewed code-derived type program under the item's writer lease and verify it (--dry-run: read-only checks). |
 | `python tools/socom.py progress add-type-plan` | progress | yes | none | no | Add a file-only code-derived type plan item (a class, a plain struct, or a family of command records) and its live apply item to the stage 3 gate. |
-| `python tools/socom.py progress add-recon-repair` | progress | yes | none | no | Add a numbered stage 3 recon repair (file-only plan item and live apply item) for functions of applied, accepted groups whose live prototype is wrong. |
+| `python tools/socom.py progress add-recon-repair` | progress | yes | none | no | Add a numbered stage 3 recon repair (file-only plan item and live apply item) for functions of applied, accepted groups whose live prototype is wrong, and/or globals without DWARF records to label and type. |
+| `python tools/socom.py recon global-facts` | recon | no | none | no | Print each global's .symtab size and binding, DWARF records, initial bytes, data relocations and every code access (width, sign, load/store, stored values, typed parameters it flows from or into). |
 | `python tools/socom.py recon partial-candidates` | recon | no | optional | no | List unresolved rows of accepted plans whose live signature is Ghidra's default and whose parameters the facts prove, for a partial-prototype repair or re-plan. |
 | `python tools/socom.py progress init` | progress | yes | none | no | Initialize unified reconstruction state. |
 | `python tools/socom.py progress next` | progress | no | none | no | Select ready work from the canonical stage graph. |

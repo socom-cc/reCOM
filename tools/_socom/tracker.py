@@ -216,7 +216,26 @@ def add_type_plan_items(
 RECON_REPAIR_ID = re.compile(r"^socom:work:recon-repair-(\d{3,})$")
 
 
-def add_recon_repair_items(tracker: dict[str, Any], functions: list[str]) -> list[str]:
+def _global_scope_items(items: list[dict[str, Any]], address: str) -> list[dict[str, Any]]:
+    """Reconstruction applies whose stored receipt scope lists the global ``address``."""
+
+    found = []
+    for row in items:
+        if row.get("kind") not in ("recon-apply-group", REPAIR_APPLY_KIND):
+            continue
+        for value in ((row.get("ghidra_receipt") or {}).get("scope") or {}).get("globals", []):
+            if "::" not in str(value) and f"0x{int(str(value), 16):x}" == address:
+                found.append(row)
+                break
+    return found
+
+
+def add_recon_repair_items(
+    tracker: dict[str, Any],
+    functions: list[str],
+    globals_: list[str] | None = None,
+    global_facts: dict[str, dict[str, Any]] | None = None,
+) -> list[str]:
     """Insert a numbered recon repair: a file-only plan item and its live apply item.
 
     The repair corrects prototypes of functions whose reconstruction group is
@@ -226,10 +245,20 @@ def add_recon_repair_items(tracker: dict[str, Any], functions: list[str]) -> lis
     earlier repair of the same functions; the apply (``recon-repair-apply``)
     alone owns ``ghidra-writer`` and waits for the accepted plan.  Both join
     the stage 3 gate.  A function already in an unfinished repair is refused.
+
+    A repair may also list globals (with or without functions): it gives each
+    its readable label and a proven type.  ``global_facts``
+    (``recon_globals.global_symbol_facts``) refuses an address that is not a
+    sized .symtab object, lies in a function, has file-local copies, or that a
+    DWARF record describes (stage 2 typed and named those from DWARF, and a
+    repair may not contradict DWARF); the tracker refuses one in an unfinished
+    repair or in the receipt of an apply awaiting acceptance.  The plan then
+    also depends on the accepted applies whose receipt scope lists a global.
     """
 
-    if not functions:
-        raise SocomError("a recon repair needs at least one function")
+    globals_ = list(globals_ or [])
+    if not functions and not globals_:
+        raise SocomError("a recon repair needs at least one function or global")
     addresses = []
     for value in functions:
         try:
@@ -239,6 +268,17 @@ def add_recon_repair_items(tracker: dict[str, Any], functions: list[str]) -> lis
     if len(set(addresses)) != len(addresses):
         raise SocomError("a function is listed twice")
     addresses.sort(key=lambda value: int(value, 16))
+    data = []
+    for value in globals_:
+        try:
+            data.append(f"0x{int(str(value), 16):x}")
+        except ValueError:
+            raise SocomError(f"{value!r} is not a hex global address") from None
+    if len(set(data)) != len(data):
+        raise SocomError("a global is listed twice")
+    data.sort(key=lambda value: int(value, 16))
+    if data and global_facts is None:
+        raise SocomError("a recon repair of globals needs their ELF and DWARF facts")
     items = tracker["work_items"]
     by_id = _work_by_id(tracker)
     gate = by_id.get(RECON_SEED_ID)
@@ -278,6 +318,35 @@ def add_recon_repair_items(tracker: dict[str, Any], functions: list[str]) -> lis
                 problems.append(f"{address} is in the unfinished repair {row['id']} (apply {earlier.get('status')})")
             else:
                 dependencies.add(earlier["id"])
+    for address in data:
+        fact = (global_facts or {}).get(address) or {}
+        name = ", ".join(fact.get("names") or []) or "no object"
+        if not fact.get("object"):
+            problems.append(f"global {address} is not the start of a sized .symtab OBJECT")
+            continue
+        if fact.get("inside_function"):
+            problems.append(f"global {address} ({name}) lies inside function {fact['inside_function']}")
+        if fact.get("dwarf"):
+            records = ", ".join(f"{row['tag']} {row['die']}" for row in fact["dwarf"])
+            problems.append(
+                f"global {address} ({name}) has DWARF records ({records}): stage 2 typed and named it from DWARF, "
+                "and a repair may not contradict DWARF"
+            )
+        if fact.get("copies"):
+            problems.append(f"global {address} ({name}): file-local copies share {fact['copies']}, so no copy is canonical")
+        for row in items:
+            if row.get("kind") != REPAIR_PLAN_KIND or address not in row["batch"].get("globals", []):
+                continue
+            earlier = by_id.get(f"{row['id']}-apply") or {}
+            if earlier.get("status") != "accepted":
+                problems.append(f"global {address} is in the unfinished repair {row['id']} (apply {earlier.get('status')})")
+            else:
+                dependencies.add(earlier["id"])
+        for row in _global_scope_items(items, address):
+            if row.get("status") == "accepted":
+                dependencies.add(row["id"])
+            else:
+                problems.append(f"global {address} is in the receipt scope of {row['id']} ({row.get('status')}); wait for its acceptance")
     if problems:
         raise SocomError("cannot add the recon repair:\n- " + "\n- ".join(problems))
     numbers = [int(match.group(1)) for row in items if (match := RECON_REPAIR_ID.match(str(row.get("id"))))]
@@ -291,11 +360,21 @@ def add_recon_repair_items(tracker: dict[str, Any], functions: list[str]) -> lis
         "groups": groups,
         "graph_sha256": decomposition.get("graph_sha256"),
     }
+    # Absent from function-only repairs, so their batches (and digests) keep their bytes.
+    if data:
+        batch["globals"] = data
+    subject = (
+        f"{len(addresses)} functions of applied groups"
+        if not data
+        else ", ".join(
+            part for part in (f"{len(addresses)} functions of applied groups" if addresses else "", f"{len(data)} globals") if part
+        )
+    )
     plan = {
         "id": plan_id,
         "stage": RECON_STAGE,
         "kind": REPAIR_PLAN_KIND,
-        "title": f"Plan recon repair {number:03d} ({len(addresses)} functions of applied groups)",
+        "title": f"Plan recon repair {number:03d} ({subject})",
         "status": "blocked",
         "dependencies": sorted(dependencies),
         "resources": list(RECON_PLAN_RESOURCES),
@@ -840,8 +919,13 @@ def audit_tracker(
             if resources != set(RECON_PLAN_RESOURCES):
                 errors.append(f"{item_id} repair plan resources are not file-only")
             functions = batch.get("functions") or []
-            if not functions or functions != sorted(set(functions), key=lambda value: int(value, 16)):
+            listed_globals = batch.get("globals")
+            if (not functions and not listed_globals) or functions != sorted(set(functions), key=lambda value: int(value, 16)):
                 errors.append(f"{item_id} must list its functions once each, in address order")
+            if listed_globals is not None and (
+                not listed_globals or listed_globals != sorted(set(listed_globals), key=lambda value: int(value, 16))
+            ):
+                errors.append(f"{item_id} must list its globals once each, in address order")
             if set(batch.get("groups") or {}) != set(functions):
                 errors.append(f"{item_id} must name the group of every function it repairs")
             wanted = {f"{group}-apply" for group in (batch.get("groups") or {}).values()}
@@ -2081,6 +2165,9 @@ def work_packet(
             f"python tools/socom.py recon program --plan {plan} --output build/apply/{slug}-apply.json",
             f"python tools/socom.py ghidra preflight-batch --program build/apply/{slug}-apply.json",
         ]
+        if (item.get("batch") or {}).get("globals"):
+            # A repair of globals types them from their code accesses.
+            validation.insert(2, f"python tools/socom.py recon global-facts --item {item_id}")
         handoff = "python tools/socom.py progress work handoff (cite the plan SHA-256)"
         allowed_paths = [evidence, plan]
         ghidra_scope = {

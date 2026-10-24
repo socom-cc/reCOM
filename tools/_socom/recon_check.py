@@ -13,9 +13,13 @@ explanation, the apply calls against the post-claim dry run, and the strict
 tracker audit.  For a recon repair it also proves the ``limit``: the diff
 changes only the repair's listed functions (and thunks or Ghidra-split
 targets that show a listed function's new signature), the scope and every
-apply call name only them, the program types no global, and every listed
-function took its prototype.  It returns data-derived evidence lines; the
-accepter decides.
+apply call name only them and the repair's listed globals, the program's
+globals are exactly the listed ones, every listed function took its
+prototype, and every listed global took its label and type (a keep row's
+type stays).  The read-back checks each listed global's live name, type and
+length in the fresh receipt, and that the apply kept each relabelled
+global's mangled symbol (its planned ``create_label`` call).  It returns
+data-derived evidence lines; the accepter decides.
 """
 
 from __future__ import annotations
@@ -135,6 +139,8 @@ def explain_recon_diff(
         if address in expected and expected[address] not in r["after"]["details"]:
             problems.append(f"{r['address']}: signature is not the planned one")
     old_to_new = {r["before"]["name"]: r["after"]["name"] for r in diff["functions"]}
+    # A relabelled global renames the PTR_ labels Ghidra derives from it too.
+    old_to_new.update({s["body"]["old_name"]: s["body"]["new_name"] for s in steps if s["endpoint"] == "rename_label"})
     removed_at = {d["address"]: d for d in diff["data"]["removed"]}
     derived = set()
     for d in diff["data"]["added"]:
@@ -259,16 +265,23 @@ def repair_limit(
     steps: list[dict[str, Any]],
     result: dict[str, Any],
 ) -> tuple[str, bool, str]:
-    """The ``limit`` check of a recon repair: nothing but its listed functions changed."""
+    """The ``limit`` check of a recon repair: nothing but its listed functions and globals changed."""
 
     listed = {int(value, 16) for value in plan_item["batch"]["functions"]}
+    listed_globals = {int(value, 16) for value in plan_item["batch"].get("globals") or []}
     changed = {int(row["address"], 16) for row in diff["functions"]}
     derived = {int(value, 16) for value in summary.get("thunks", []) + summary.get("split_targets", [])}
     outside = sorted(changed - listed - derived)
-    stepped = {int(str(step["body"].get("address") or step["body"].get("function_address")), 16) for step in steps}
+    function_steps = ("rename_function_by_address", "set_function_prototype")
+
+    def target(step: dict[str, Any]) -> int:
+        return int(str(step["body"].get("address") or step["body"].get("function_address")), 16)
+
+    stepped = {target(step) for step in steps if step["endpoint"] in function_steps}
+    global_stepped = {target(step) for step in steps if step["endpoint"] not in function_steps}
     scope_ok = (
         {int(value, 16) for value in scope.get("functions", [])} == listed
-        and not scope.get("globals")
+        and {int(value, 16) for value in scope.get("globals", [])} == listed_globals
         and not scope.get("types")
     )
     untouched = sorted(
@@ -277,22 +290,83 @@ def repair_limit(
     problems = []
     if outside:
         problems.append(f"functions outside the repair changed: {[hex(value) for value in outside]}")
-    if stepped - listed:
-        problems.append(f"apply calls outside the repair: {[hex(value) for value in sorted(stepped - listed)]}")
+    stray = (stepped - listed) | (global_stepped - listed_globals)
+    if stray:
+        problems.append(f"apply calls outside the repair: {[hex(value) for value in sorted(stray)]}")
     if not scope_ok:
-        problems.append("the receipt scope is not exactly the listed functions")
-    if program.get("globals"):
-        problems.append("the repair program types globals")
+        problems.append("the receipt scope is not exactly the listed functions" + (" and globals" if listed_globals else ""))
+    planned = {int(row["address"], 16): row for row in program.get("globals", [])}
+    if set(planned) != listed_globals:
+        problems.append(
+            "the repair program's globals are not the listed ones" if listed_globals else "the repair program types globals"
+        )
     if untouched or {int(row["address"], 16) for row in result.get("functions", [])} != listed:
         problems.append(f"listed functions without their prototype: {[hex(value) for value in untouched]}")
+    applied = {int(row["address"], 16): row for row in result.get("globals", [])}
+    missed = sorted(
+        address
+        for address, row in planned.items()
+        if address not in applied
+        or applied[address].get("type") != row.get("type")
+        or applied[address].get("name") != row.get("readable_name")
+    )
+    if missed:
+        problems.append(f"listed globals without their planned label or type: {[hex(value) for value in missed]}")
     number = plan_item["batch"].get("repair_number")
-    detail = (
+    head = (
         f"repair {number:03d}: of {len(listed)} listed functions {len(changed & listed)} changed and "
         f"{len(listed - changed)} restated; {len(derived)} thunk(s) or split target(s) show a listed function's new "
-        f"signature; nothing else changed; the scope and all {len(steps)} apply calls name only listed functions; no globals"
-        if not problems else "; ".join(problems)
+        "signature; "
     )
+    if problems:
+        detail = "; ".join(problems)
+    elif not listed_globals:
+        detail = head + f"nothing else changed; the scope and all {len(steps)} apply calls name only listed functions; no globals"
+    else:
+        labelled = sum(1 for row in planned.values() if row.get("rename"))
+        typed = sum(1 for row in planned.values() if row.get("type"))
+        detail = head + (
+            f"of {len(listed_globals)} listed globals {labelled} relabelled and {typed} typed "
+            f"({len(listed_globals) - typed} keep their type); nothing else changed; the scope and all {len(steps)} "
+            "apply calls name only listed functions and globals"
+        )
     return "limit", not problems, detail
+
+
+def global_readback(
+    applied: list[dict[str, Any]], scoped: list[dict[str, Any]], steps: list[dict[str, Any]]
+) -> list[str]:
+    """Problems of applied repair globals against the fresh receipt's scoped facts and the planned label calls.
+
+    Each must show its name and type (a keep row its recorded live type, a
+    typed row also its .symtab length).  Each relabelled one must have had its
+    mangled symbol re-created as a label (``create_label`` after
+    ``rename_label`` at that address; the executor checks every response, and
+    the bridge has no read-only listing of an address's labels).
+    """
+
+    live = {int(str(row.get("address")), 16): row for row in scoped}
+    relabelled = {
+        int(step["body"]["address"], 16): step["body"]["old_name"] for step in steps if step["endpoint"] == "rename_label"
+    }
+    kept = {(int(step["body"]["address"], 16), step["body"]["name"]) for step in steps if step["endpoint"] == "create_label"}
+    problems = []
+    for row in applied:
+        address = int(row["address"], 16)
+        shown = live.get(address)
+        if shown is None:
+            problems.append(f"{row['address']} is not in the receipt scope")
+            continue
+        want_type = row["type"] if row.get("type") else row.get("live_type")
+        if shown.get("name") != row["name"]:
+            problems.append(f"{row['address']} shows {shown.get('name')!r}, planned {row['name']!r}")
+        if want_type is not None and str(shown.get("type") or "") != want_type:
+            problems.append(f"{row['address']} is typed {shown.get('type')!r}, planned {want_type!r}")
+        if row.get("type") and row.get("size") and shown.get("length") != row["size"]:
+            problems.append(f"{row['address']} is {shown.get('length')} bytes, the .symtab object {row['size']}")
+        if address in relabelled and (address, relabelled[address]) not in kept:
+            problems.append(f"{row['address']}: no create_label call kept the mangled symbol {relabelled[address]!r}")
+    return problems
 
 
 def check_recon_apply(
@@ -388,10 +462,23 @@ def check_recon_apply(
             if details != {int(r['address'], 16): r for r in before["functions"]}.get(address, {}).get("details"):
                 readback_problems.append(f"{row['address']} (unresolved) changed")
     partial = sum(1 for r in result.get("functions", []) if (r.get("prototype") or {}).get("partial"))
+    repair_globals = [r for r in result.get("globals", []) if "live_type" in r]
+    if repair_globals:
+        # A repair's globals: name, type and length from the fresh receipt; mangled labels kept.
+        readback_problems.extend(
+            global_readback(repair_globals, receipt["receipt"]["scoped_facts"]["globals"], claimed.get("steps", []))
+        )
+    global_note = (
+        f"; {len(repair_globals)} listed globals show their planned label and type "
+        f"({sum(1 for r in repair_globals if not r.get('type'))} kept as they were), each relabelled one's mangled "
+        "symbol kept by its create_label call"
+        if repair_globals else ""
+    )
     check("readback", not readback_problems,
           f"live signatures of {sum(1 for r in result.get('functions', []) if r.get('prototype'))} prototyped functions equal the plan; "
           + (f"{partial} of them partial (return left undefined, no-return flag as it was); " if partial else "")
           + f"{sum(1 for r in result.get('functions', []) if not r.get('prototype'))} unresolved unchanged"
+          + global_note
           if not readback_problems else "; ".join(readback_problems))
     planned = [(s["endpoint"], canonical_json(s["body"])) for s in claimed.get("steps", [])]
     calls_ok = report.get("ok") and result.get("bridge_call_count") == len(planned) and claimed.get("ok")

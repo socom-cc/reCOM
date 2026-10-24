@@ -1268,6 +1268,21 @@ def execute_batch_program(
             )
         live_noreturn[entry["address"]] = signature.startswith("noreturn ")
 
+    # A recon repair row of a global replaces the name and type its plan
+    # recorded (``live_type``); before any write the global must still show both.
+    for entry in program["globals"]:
+        if "live_type" not in entry:
+            continue
+        audit = bridge.request("audit_global", address=entry["address"], strict_mode="off")
+        if not isinstance(audit, dict):
+            raise SocomError(f"audit_global failed at {entry['address']}: {audit!r}")
+        shown = (audit.get("name"), str(audit.get("type") or ""))
+        if shown != (entry["current_name"], entry["live_type"]):
+            raise SocomError(
+                f"repair row for global {entry['address']} replaces {entry['current_name']!r} typed "
+                f"{entry['live_type']!r}, but the global shows {shown[0]!r} typed {shown[1]!r}; replan the row"
+            )
+
     existing = function_names()
     log(f"functions: {len(program['functions'])}")
     applied_functions = []
@@ -1357,7 +1372,17 @@ def execute_batch_program(
         # A global declared in several compile units recurs in later batches;
         # an earlier batch may already have given it its readable name.
         renamed_before = entry["rename"] and live_name == entry["readable_name"]
-        if live_name != entry["current_name"] and not renamed_before:
+        # A recon repair may have labelled the global with the readable form of
+        # the mangled name a plan written before it records; only that exact
+        # derivation is equivalent, and the plan must not rename it otherwise.
+        labelled = (
+            "live_type" not in entry
+            and not entry["rename"]
+            and live_name is not None
+            and live_name != entry["current_name"]
+            and live_name == readable_function_name(entry["current_name"], None)
+        )
+        if live_name != entry["current_name"] and not renamed_before and not labelled:
             raise SocomError(f"global at {address} is {live_name!r}, expected {entry['current_name']!r}")
         type_name = entry["type"]
         reason = ambiguous(type_name) if type_name else None
@@ -1406,6 +1431,9 @@ def execute_batch_program(
             unchanged.append({"address": address, "action": "rename", "name": entry["readable_name"]})
             name = entry["readable_name"]
             rename = False
+        elif labelled:
+            unchanged.append({"address": address, "action": "label", "name": live_name})
+            name = live_name
         if rename:
             holders = taken.get(entry["readable_name"], set()) - {address}
             if holders:
@@ -1424,7 +1452,11 @@ def execute_batch_program(
             )
             post("create_label", status_ok, address=address, name=entry["current_name"])
             name = entry["readable_name"]
-        applied_globals.append({"address": address, "name": name, "type": type_name, "size": entry["size"]})
+        applied = {"address": address, "name": name, "type": type_name, "size": entry["size"]}
+        if "live_type" in entry:
+            # A repair row's type stays what it was unless it applies one.
+            applied["live_type"] = entry["live_type"]
+        applied_globals.append(applied)
 
     if dry_run:
         counts: dict[str, int] = {}
@@ -1466,6 +1498,8 @@ def execute_batch_program(
         if not isinstance(audit, dict) or audit.get("name") != applied["name"] or (
             applied["type"]
             and (audit.get("type") != applied["type"] or (applied["size"] and audit.get("length") != applied["size"]))
+        ) or (
+            not applied["type"] and "live_type" in applied and str(audit.get("type") or "") != applied["live_type"]
         ):
             mismatches.append({"address": applied["address"], "expected": applied, "actual": audit})
     if mismatches:

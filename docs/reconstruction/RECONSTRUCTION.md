@@ -478,19 +478,29 @@ The stage gate depends on stage 3 repairs as well as every apply.
 A wrong prototype in a group that is already applied (a library-archive
 signature an unresolved row left live, or a row the facts now settle) is
 corrected by a numbered recon repair; `progress work reopen` covers only plans
-whose apply has not started.
+whose apply has not started. A repair may also (or only) list globals: sized
+.symtab objects without a DWARF record, such as the static members of a class
+that has no DWARF class record (`zdb::CVisual`, decision of 2026-10-24).
 
 ```powershell
 python tools/socom.py progress add-recon-repair --functions 0x3defd8 0x3e0550 --expected-revision <n> --dry-run
+python tools/socom.py progress add-recon-repair --globals 0x4765f4 0x4765f8 --expected-revision <n> --dry-run
+python tools/socom.py recon global-facts --item socom:work:recon-repair-NNN --output build/facts/<slug>-globals.txt
 ```
 
 - The command refuses a function whose group plan and apply are not both
-  accepted, or that an unfinished repair already lists. It adds
-  `socom:work:recon-repair-NNN` (kind `recon-repair-plan`, file-only
-  `build/recon-plans`, depending on the applies of the groups it corrects and
-  of earlier accepted repairs of the same functions) and its `-apply` item
-  (`recon-repair-apply`, the only one that owns `ghidra-writer`, waiting for
-  the accepted plan). Both join the stage gate.
+  accepted, or that an unfinished repair already lists. It refuses a global
+  that is not the start of a sized .symtab `OBJECT`, lies inside a function,
+  has file-local copies (no canonical copy), has a DWARF record (stage 2 typed
+  and named it from DWARF; a repair may not contradict DWARF), is in an
+  unfinished repair, or is in the receipt scope of an apply awaiting
+  acceptance. It adds `socom:work:recon-repair-NNN` (kind `recon-repair-plan`,
+  file-only `build/recon-plans`, depending on the applies of the groups it
+  corrects, of earlier accepted repairs of the same functions or globals, and
+  of the accepted group or repair applies whose receipt scope lists a global)
+  and its `-apply` item (`recon-repair-apply`, the only one that owns
+  `ghidra-writer`, waiting for the accepted plan). Both join the stage gate.
+  A repair's `batch.globals` (absent when it lists none) joins its digest.
 - The plan is a recon plan (`recon evidence --item`, `recon live --item`,
   `recon facts --item` accept the item) whose `group_sha256` is the repair's
   function-list digest and whose rows use the group row format, partial rows
@@ -498,16 +508,61 @@ python tools/socom.py progress add-recon-repair --functions 0x3defd8 0x3e0550 --
   corrects) and `repair` (why the live state is wrong), sets a prototype, and
   records the live signature it replaces in `prototype.live_signature`. A row
   must change the live signature unless it only declares `dead_reads`.
-  `globals` stays empty.
+  `globals` has one row per listed global (empty when it lists none):
+
+  ```json
+  {
+    "address": "0x4765f4",
+    "symbol": "m_dmaChain__Q23zdb7CVisual",
+    "label": {"namespace": "zdb::CVisual", "name": "m_dmaChain"},
+    "live_type": "",
+    "type": "_word128 *",
+    "repair": ["mangled name only, untyped although every access is a pointer"],
+    "evidence": [".symtab OBJECT, 4 bytes; ..."]
+  }
+  ```
+
+  `symbol` is the .symtab object name (the live name the apply replaces, kept
+  as a label); `label` is null or exactly its demangled qualified name;
+  `live_type` is the type `audit_global` shows now (`""` when no data is
+  defined); `type` is a type proven from the .symtab size and the code's
+  accesses (never `undefined*`, an analysis type such as `dword`, or a
+  spelling whose builtin, pointer or array size differs from the .symtab
+  size), or `keep` with `keep_reason` (why it stays: what is unproven). A row
+  must change the label, the type or both. `recon global-facts --address
+  <addr...>` (or `--qualifier zdb::CVisual`, or `--item`) lists, per global,
+  its .symtab names, size, binding and section, DWARF records, readable label,
+  initial bytes (or zero fill), relocated words pointing at or inside it, and
+  every code access: width, signedness, load or store, the stored value (a
+  constant, a typed parameter of the function, a call result, a load) and
+  where a loaded value or the address goes (compares, masks, arithmetic,
+  dereferences, the mangled parameter type of each callee it is passed to,
+  stores elsewhere, a value left in v0/f0 at a return and what callers do
+  with it).
+- GhidraMCP labels only in the global namespace (`rename_label` and
+  `create_label` take no namespace), so the readable label is the qualified
+  spelling itself, `zdb::CVisual::m_dmaChain`, exactly as stage 2 labelled
+  `zdb::CVisual::m_camera`; the program renames the mangled primary symbol to
+  it and re-creates the mangled name as a label.
 - `recon validate`, `recon program`, `ghidra preflight-batch` and
   `ghidra apply-recon` take the repair like a group; the apply refuses before
-  any write unless every listed function still shows its `live_signature`.
-  The receipt scope is the listed functions.
+  any write unless every listed function still shows its `live_signature` and
+  every listed global still shows its `symbol` and `live_type`. A typed
+  global replacing a type an earlier apply chose says so
+  (`replaces_accepted`); a keep row's type is left alone. The receipt scope
+  is the listed functions and globals. A later group apply accepts a global
+  whose live name is the readable form of the mangled name its plan records
+  (a repair labelled it) and keeps that label.
 - `ghidra check-recon-apply --item socom:work:recon-repair-NNN-apply` adds the
   `limit` check: the fingerprint diff changes only listed functions (plus
   thunks and Ghidra-split targets showing a listed function's new signature),
-  the scope and every apply call name only listed functions, no global is
-  typed, and every listed function took its prototype.
+  the scope and every apply call name only listed functions and globals, the
+  program's globals are exactly the listed ones, every listed function took
+  its prototype, and every listed global its planned label and type. The
+  read-back checks each listed global's name, type (a keep row's recorded
+  `live_type`) and length in the fresh receipt, and that each relabelled
+  global's mangled symbol was re-created (its `create_label` call; the bridge
+  has no read-only listing of labels).
 - Later readers (thunk checks in `recon validate`, `recon contradictions`)
   take the newest accepted repair's row over the group's row.
 

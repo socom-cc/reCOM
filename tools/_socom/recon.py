@@ -306,9 +306,12 @@ def group_sha256(batch: dict[str, Any]) -> str:
 
 
 def repair_sha256(batch: dict[str, Any]) -> str:
-    """Digest identifying one recon repair's function list (a plan's ``group_sha256``)."""
+    """Digest identifying one recon repair's function (and global) list (a plan's ``group_sha256``)."""
 
     identity = {key: batch[key] for key in ("repair_number", "functions", "groups", "graph_sha256")}
+    if "globals" in batch:
+        # Absent from function-only repairs, whose digests keep their value.
+        identity["globals"] = batch["globals"]
     return hashlib.sha256(canonical_json(identity).encode("utf-8")).hexdigest()
 
 
@@ -532,6 +535,8 @@ def group_evidence(root: Path, tracker: dict[str, Any], item_id: str) -> dict[st
             }
         )
     repair = {"groups": dict(batch["groups"])} if item.get("kind") == REPAIR_PLAN_KIND else {}
+    if batch.get("globals"):
+        repair["globals"] = list(batch["globals"])
     return {
         "kind": RECON_EVIDENCE_KIND,
         "schema_version": RECON_SCHEMA,
@@ -848,6 +853,31 @@ def _dead_read_rows(root: Path, address: int, rows: Any, cache: dict[str, Any]) 
     return dead_read_problems(ctx, address, rows, argument_reads(ctx, address))[1]
 
 
+def _repair_globals_problems(root: Path, plan: dict[str, Any], listed: list[str]) -> list[str]:
+    """Problems of a recon repair's ``globals`` rows: exactly its listed globals, each a valid repair row."""
+
+    from .recon_globals import global_symbol_facts, repair_global_problems
+
+    problems = []
+    identities = global_symbol_facts(root, listed)
+    seen: set[str] = set()
+    for entry in plan.get("globals", []):
+        address = str(entry.get("address", "")) if isinstance(entry, dict) else ""
+        where = f"global {address}"
+        if address in seen:
+            problems.append(f"{where} appears twice")
+            continue
+        seen.add(address)
+        if address not in identities:
+            problems.append(f"{where} is not in the repair")
+            continue
+        problems.extend(f"{where} {problem}" for problem in repair_global_problems(entry, identities[address]))
+    for address in listed:
+        if address not in seen:
+            problems.append(f"global {address} is missing from the plan")
+    return problems
+
+
 def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any]) -> list[str]:
     """Structural and evidence checks a reviewer can rerun.  Returns problems."""
 
@@ -866,8 +896,9 @@ def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any
             "plan group_sha256 differs from the repair's function list" if repair
             else "plan group_sha256 differs from the decomposed group"
         )
-    if repair and plan.get("globals"):
-        problems.append("a recon repair corrects function prototypes only: globals must be empty")
+    listed_globals = list(batch.get("globals") or []) if repair else []
+    if repair and plan.get("globals") and not listed_globals:
+        problems.append("this recon repair lists no globals: globals must be empty")
     facts: dict[str, Any] = {}
     elf = Elf32File(root / "support" / "socom.elf")
     sizes = {row["start"]: row["size"] for row in _functions(elf)}
@@ -986,6 +1017,9 @@ def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any
     for address in sorted(expected - seen, key=lambda value: int(value, 16)):
         problems.append(f"function {address} is missing from the plan")
 
+    if listed_globals:
+        problems.extend(_repair_globals_problems(root, plan, listed_globals))
+        return problems
     for entry in plan.get("globals", []):
         address = str(entry.get("address", ""))
         where = f"global {address}"
@@ -1087,7 +1121,13 @@ def build_recon_program(root: Path, tracker: dict[str, Any], plan_path: Path) ->
                 )
         functions.append(out)
     globals_ = []
-    for entry in sorted(plan.get("globals", []), key=lambda row: int(row["address"], 16)):
+    if repair and plan.get("globals"):
+        from .recon_globals import global_symbol_facts, repair_global_entry
+
+        rows = sorted(plan["globals"], key=lambda row: int(row["address"], 16))
+        identities = global_symbol_facts(root, [row["address"] for row in rows])
+        globals_ = [repair_global_entry(entry, identities[entry["address"]]) for entry in rows]
+    for entry in sorted(plan.get("globals", []) if not globals_ else [], key=lambda row: int(row["address"], 16)):
         rename = entry.get("rename")
         globals_.append(
             {
