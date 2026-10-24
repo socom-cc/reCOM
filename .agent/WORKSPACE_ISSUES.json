@@ -1085,8 +1085,18 @@
       "resolution": null,
       "status": "open",
       "summary": "zAnim begin/tick/end callbacks cannot get typed record locals through the bridge"
+    },
+    {
+      "details": "Group 247 planning (socom-recon-planner-g135): in CSealCtrlAi::SetAiMode 0x266bf0, recon facts reports an a3 argument read at 0x266e70 that is not real; it appears to apply jump table @11439's targets to the jr v0 at 0x266d94, which dispatches table @11438. On every real path lui a3,0x45 (delay slot at 0x266dfc) writes a3 first. A dead_reads row cannot express a wrong-table artefact. Related: b4afc678 (in-body jump-table jr treated as an exit), ab986d08.",
+      "id": "socom:workspace-issue:aee7a355d1a110c97e06",
+      "kind": "problem",
+      "reported_at": "2026-10-24T02:48:38Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "recon facts applies the wrong jump table to a switch jr"
     }
   ],
-  "revision": 123,
+  "revision": 124,
   "schema_version": 1
 }
