@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2344,
+  "revision": 2345,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -122454,6 +122454,10 @@
       "title": "Apply reviewed reconstruction group 289 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-24T23:55:07Z",
+        "by": "socom-verifier-r69"
+      },
       "batch": {
         "batch_number": 290,
         "function_count": 1,
@@ -122483,7 +122487,8 @@
         "socom:recon-group:d50ff4e8cfdfa40e1e73-apply"
       ],
       "evidence": [
-        "plan build/recon-plans/socom-recon-group-d83ebc9e9e18486e9500.json sha256:27d98d7f381366a1ab57fbb3b41182ef802268740e1c24442f1e447a857b7bd3; recon validate ok; recon draft --check ok; preflight-batch ok (0 calls; 1 skip = unresolved 0x413810)"
+        "plan build/recon-plans/socom-recon-group-d83ebc9e9e18486e9500.json sha256:27d98d7f381366a1ab57fbb3b41182ef802268740e1c24442f1e447a857b7bd3; recon validate ok; recon draft --check ok; preflight-batch ok (0 calls; 1 skip = unresolved 0x413810)",
+        "plan sha256:27d98d7f381366a1ab57fbb3b41182ef802268740e1c24442f1e447a857b7bd3 matches; recon validate ok; recon draft --check ok (0 drafted, 1 open, rules v18); recon program equals build/apply (program_sha256 cc309e10...97aa); preflight-batch ok (0 calls, 1 skip = unresolved 0x413810). 0x413810: a0 (fp) only passed to GetSequenceWindowForIP/WriteToReceiveBuffer/GetSimpleWindowForIP/SendCompleteMessageBuffer/FindSequenceWindow, all live undefined(void), sole caller 0x40ed50 passes lw a0,4(s1) from untyped 0x58a208 (no sized symbol, no DWARF), so no a0 type and partial row impossible (undefinedN refused); a2 points to a word stored from lhu (sign unproven); every exit returns constant 0/1 or callee zero (recon void: VERDICT open), sole caller only tests v0 (bne v0,zero@0x40ed58), no table or address-taken site."
       ],
       "handoff": {
         "owner": "socom-recon-planner-g158",
@@ -122498,7 +122503,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan reconstruction group 290 (height 24, 1 functions)"
     },
     {
@@ -122527,7 +122532,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 290 in Ghidra"
     },
     {
