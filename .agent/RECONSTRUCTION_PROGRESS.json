@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2320,
+  "revision": 2326,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -120187,22 +120187,23 @@
         "socom:recon-group:facc3c352a68794aeea7-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-ac1f5654199ddffbce0f.json sha256:e536f9d4ad7fca0ba4f6bb72bc4848e272f730f34e4c3ed5e14ec3185e17fe5e; recon validate ok; recon draft --check ok; preflight-batch ok (27 set_function_prototype)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g156",
+        "submitted_at": "2026-10-24T23:11:30Z",
+        "summary": "27 prototypes, 5 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:ac1f5654199ddffbce0f",
       "kind": "recon-plan-group",
-      "lease": {
-        "claimed_at": "2026-10-24T22:55:03Z",
-        "expires_at": "2026-10-25T00:55:03Z",
-        "heartbeat_at": "2026-10-24T22:55:03Z",
-        "owner": "socom-recon-planner-g156"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 281 (height 23, 32 functions)"
     },
     {
@@ -120266,6 +120267,10 @@
       "title": "Apply reviewed reconstruction group 281 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-24T23:14:29Z",
+        "by": "socom-verifier-r67"
+      },
       "batch": {
         "batch_number": 282,
         "function_count": 32,
@@ -120381,22 +120386,24 @@
         "socom:recon-group:fe5f3b0ac9beaf35a1e5-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-a1ba3963116a7c5f210f.json sha256:b2b400452db95d5eefe277b4b344bc543f41fcdbf40648c7d7f336a997ca997f matches; recon validate ok; recon draft --check ok (rules 18); recon program equals build/apply apply.json; preflight-batch ok (30 calls; skips 0x2368a0/0x236f20 = U-type unresolved). 27 open rows checked with recon facts --callers 99, recon void, recon asm, recon types (all names unique, exact case), recon live: 11 void/complete rows VERDICT void where void; partial rows VERDICT open. CGrid::Read 0x214d50 uchar: own exit narrowing andi v0,v0,0xff@0x214de8 of the Create result straight into ld ra/jr ra 0x214df8, same shape as the accepted UICommandTable witness UINetCnfUninit andi@0x1d20b4; zBoneLoadAll 0x1dd620 andi s0,v0,0xff@0x1dd638 kept across jal ReleaseDataBuffer@0x1dd64c then move v0,s0@0x1dd658 = returned local, partial as accepted CSealCtrlAi::FindCoverLoc 0x25f460 (g269) and CTexPalette::Read 0x2f98b0 (g270). PreTickAll 0x1eeef0 bool: addiu a2@0x17d400 into AddTask PFfPv_b a2. Thunk 0x1d7090 j+nop restates live uchar UiGetTextFromUser; table-family UICommandTable VERDICT uchar. VU0 rows 0x1e8cb0/0x243730 load vf4-vf8 by lqc2 before VMULAx/VMADDA*/VMADDw (vf0 constant): no VU inputs. Entry reads are real moves/loads (no 790e12b3 delay-slot artifacts).",
+        "plan build/recon-plans/socom-recon-group-a1ba3963116a7c5f210f.json sha256:b2b400452db95d5eefe277b4b344bc543f41fcdbf40648c7d7f336a997ca997f; recon validate ok; recon draft --check ok; preflight-batch ok (30 set_function_prototype calls)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g155",
+        "submitted_at": "2026-10-24T23:04:21Z",
+        "summary": "30 prototypes, 2 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:a1ba3963116a7c5f210f",
       "kind": "recon-plan-group",
-      "lease": {
-        "claimed_at": "2026-10-24T22:37:00Z",
-        "expires_at": "2026-10-25T00:37:00Z",
-        "heartbeat_at": "2026-10-24T22:37:00Z",
-        "owner": "socom-recon-planner-g155"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "accepted",
       "title": "Plan reconstruction group 282 (height 23, 32 functions)"
     },
     {
@@ -120456,10 +120463,14 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 282 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-24T23:14:49Z",
+        "by": "socom-verifier-r67"
+      },
       "batch": {
         "batch_number": 283,
         "function_count": 32,
@@ -120581,22 +120592,24 @@
         "socom:recon-group:fc34f6139880c0de2a1d-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-a67127b633a7e060b37b.json sha256:7a270d00632db7bf8d218d6f5ac8a7a958e294658e711e9d1a523d5c5fab36e8 matches; recon validate ok; recon draft --check ok (rules 18); recon program equals build/apply apply.json; preflight-batch ok (31 calls; only skip 0x316550 = unresolved, CFlyoutMachine missing per recon types). 26 open rows checked with recon facts --callers 99, recon void, recon asm, recon types (all names unique, exact case), recon live: void rows 0x267f00/0x2936e0/0x2ec1d0/0x2f0830/0x2f18b0/0x3142b0/0x31cf50 VERDICT void; partial rows VERDICT open (PostTick/Tick slot families blocked by constant returns). bool rows: AddTask a2 PFfPv_b at 0x17d3d8/0x17d3ac; AddCmd t0 tick PFP14_zanim_cmd_hdrPf_b at 0x2bed7c/0x2beccc/0x2bebdc and 0x2f8720 (CValve::CmdTickCmp: j Compare with addiu a0,a0,4 delay slot, not a thunk). AcquireRemoteAi static: caller 0x203fc8 sets only a0. VU0 row 0x309500 loads vf4-vf8 by lqc2 before VMULAx/VMADDAy/VMADDz: no VU inputs. Entry reads are real moves/loads (no 790e12b3 delay-slot artifacts).",
+        "plan build/recon-plans/socom-recon-group-a67127b633a7e060b37b.json sha256:7a270d00632db7bf8d218d6f5ac8a7a958e294658e711e9d1a523d5c5fab36e8; recon validate ok; recon draft --check ok; preflight-batch ok (31 set_function_prototype calls)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g155",
+        "submitted_at": "2026-10-24T23:04:28Z",
+        "summary": "31 prototypes, 1 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:a67127b633a7e060b37b",
       "kind": "recon-plan-group",
-      "lease": {
-        "claimed_at": "2026-10-24T22:37:05Z",
-        "expires_at": "2026-10-25T00:37:05Z",
-        "heartbeat_at": "2026-10-24T22:37:05Z",
-        "owner": "socom-recon-planner-g155"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "accepted",
       "title": "Plan reconstruction group 283 (height 23, 32 functions)"
     },
     {
@@ -120656,7 +120669,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 283 in Ghidra"
     },
     {
@@ -121036,22 +121049,23 @@
         "socom:recon-group:fe5f3b0ac9beaf35a1e5-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-91c80d90510dfe78fcaf.json sha256:a931b76551767704e655178705b0ed6ee08f0c4b9af9b145499fb127a8fc2cd0; recon validate ok; recon draft --check ok; preflight-batch ok (9 set_function_prototype)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g156",
+        "submitted_at": "2026-10-24T23:11:37Z",
+        "summary": "9 prototypes, 14 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:91c80d90510dfe78fcaf",
       "kind": "recon-plan-group",
-      "lease": {
-        "claimed_at": "2026-10-24T22:55:09Z",
-        "expires_at": "2026-10-25T00:55:09Z",
-        "heartbeat_at": "2026-10-24T22:55:09Z",
-        "owner": "socom-recon-planner-g156"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 285 (height 23, 23 functions)"
     },
     {
