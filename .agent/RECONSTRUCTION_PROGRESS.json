@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2069,
+  "revision": 2074,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -2842,7 +2842,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "37ca9e09248fa52e0e4ac4b02ca6d87904e377ce20d34d6b6b9e196c67c201d2",
+      "current_receipt_sha256": "85761331f9e77f1e57e0d810a1a5f391be7af39592d12636fa0419a2a1fcbcc7",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -10333,6 +10333,31 @@
           "receipt_sha256": "37ca9e09248fa52e0e4ac4b02ca6d87904e377ce20d34d6b6b9e196c67c201d2",
           "tracker_revision": 2069,
           "work_item_id": "socom:recon-group:654ef34132afa5972f3f-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1704,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 37088
+          },
+          "indexes": {
+            "data": {
+              "count": 51811,
+              "sha256": "acbe56777d3b25d0b491cee3e84db2ca857917249491cc07255d8fc94d8eae2b"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1704,
+              "sha256": "93914a21d185f993bee923c5022a59d51dd6f706774effc9dd0ee7a5aada1b2c"
+            }
+          },
+          "receipt_sha256": "85761331f9e77f1e57e0d810a1a5f391be7af39592d12636fa0419a2a1fcbcc7",
+          "tracker_revision": 2074,
+          "work_item_id": "socom:work:type-plan-zanim-switch-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -124745,6 +124770,10 @@
       "title": "Plan the code-derived layouts of the zanim switch command records (8)"
     },
     {
+      "accepted": {
+        "at": "2026-10-24T03:31:28Z",
+        "by": "socom-verifier-t-apply3"
+      },
       "batch": {
         "family": "switch",
         "records": [
@@ -124763,8 +124792,72 @@
       "dependencies": [
         "socom:work:type-plan-zanim-switch"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "apply-type-plan report build/apply/t-zanim-switch-report.json: ok, 12 bridge calls, type_count 2, types 1702 -> 1704",
+        "diff build/fingerprints/t-zanim-switch-diff.json: types +2/-0 (/project/_hud_control_cmd 8, /project/_player_controls_cmd 8); functions 0, data +0/-0, references +0/-0, blocks and bookmarks equal",
+        "diff recomputed from before/after equals stored t-zanim-switch-diff.json as sets: types 1702 -> 1704, +2/-0 = /project/_hud_control_cmd|8, /project/_player_controls_cmd|8; functions 0, data +0/-0, references +0/-0 (183662), blocks, bookmarks and analysis equal; only the types digest changed",
+        "fingerprint before sha256 32091d31ee855285277deb4574fd3e114b290156f7dc5138d5d7688e0475730a identical to g252-after; after sha256 8bec047b8a0b46b5edcffa5691f21fdb483009201874d443ef01fa43c5b4c003",
+        "get_struct_layout (GET 8089, program=socom.elf) and receipt scoped facts equal program expected_layout: _hud_control_cmd size 8 {m_hdr _zanim_cmd_hdr +0; int:1 m_on +4; int:1 m_off +4; int:30 unnamed +4}; _player_controls_cmd size 8 {m_hdr +0; int:1 m_off +4; int:1 m_on +4; int:30 unnamed +4}; bit order from the pack(1) C import declaration order = plan bit_offsets (hud m_on bit0, m_off bit1; player m_off bit0, m_on bit1), live ordinals in that order; alignment 1 (plan 4 not carried, as prior type applies); no socom_t_ temp or .conflict types",
+        "ghidra preflight --strict ok (bridge 8089, soCOM /socom.elf, r5900:LE:32:default, source sha256 00c9cee7..., error_or_warning 0, main sentinel 0x140d00, types 1704); progress audit --strict ok (rev 2071-2073; only other lease is file-only type-plan-zanim-task-hdr, no ghidra-writer)",
+        "ghidra receipt --scope build/receipts/socom-work-type-plan-zanim-switch-apply-scope.json (2 types) reproduces 85761331f9e77f1e57e0d810a1a5f391be7af39592d12636fa0419a2a1fcbcc7",
+        "ghidra-receipt-sha256:85761331f9e77f1e57e0d810a1a5f391be7af39592d12636fa0419a2a1fcbcc7",
+        "ghidra-save:explicit-program",
+        "own fingerprint build/verifier-socom-verifier-t-apply3/fingerprint-now.json sha256 8bec047b8a0b46b5edcffa5691f21fdb483009201874d443ef01fa43c5b4c003 byte-identical to t-zanim-switch-after.json (fingerprint 537191bc...), live compare identical; t-zanim-switch-before.json byte-identical to g252-after.json (32091d31ee855285277deb4574fd3e114b290156f7dc5138d5d7688e0475730a)",
+        "plan build/type-plans/zanim-switch.json sha256 68b9640072bb...9035f6; program build/apply/socom-work-type-plan-zanim-switch-apply.json sha256 ccd7c9a5... regenerated identically",
+        "plan item socom:work:type-plan-zanim-switch accepted (socom-verifier-t2); apply item awaiting_acceptance, no lease; plan build/type-plans/zanim-switch.json sha256 68b9640072bb95be130f8115a3b94e2aef5bb497250c5a3dd8d1427cde9035f6 cited in handoff and in program/report plan blocks",
+        "recon type-plan program regenerated build/verifier-socom-verifier-t-apply3/program.json byte-identical to stored build/apply/socom-work-type-plan-zanim-switch-apply.json, program_sha256 ccd7c9a59f83a579e048f8aede2bb1aa624c5a5cb80626a17a48c7f987f48898 (types 2, route c 2, referenced 2, external _zanim_cmd_hdr); program receipt_scope equals stored scope (types [/project/_hud_control_cmd, /project/_player_controls_cmd])",
+        "referenced DWARF types unchanged: receipt facts for /project/_camera_control_cmd (hdr +0, int:1 release, int:1 acquire @+4), /project/_camera_set_regions_cmd (hdr +0, int:1 set_on @+4) and /project/_zanim_cmd_hdr equal build/s3-reset-check/receipt.json and build/verify-acc40/alltypes-receipt.json"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "85761331f9e77f1e57e0d810a1a5f391be7af39592d12636fa0419a2a1fcbcc7",
+        "saved": true,
+        "scope": {
+          "functions": [],
+          "globals": [],
+          "types": [
+            "/project/_hud_control_cmd",
+            "/project/_player_controls_cmd"
+          ]
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1704,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 37088
+          },
+          "indexes": {
+            "data": {
+              "count": 51811,
+              "sha256": "acbe56777d3b25d0b491cee3e84db2ca857917249491cc07255d8fc94d8eae2b"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1704,
+              "sha256": "93914a21d185f993bee923c5022a59d51dd6f706774effc9dd0ee7a5aada1b2c"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-24T03:25:23Z",
+        "summary": "zAnim switch family record types applied from accepted type plan 68b96400 (user-approved 2026-10-23): _hud_control_cmd and _player_controls_cmd (8 bytes each); _camera_control_cmd and _camera_set_regions_cmd referenced from DWARF"
+      },
       "id": "socom:work:type-plan-zanim-switch-apply",
       "kind": "recon-type-apply",
       "lease": null,
@@ -124774,8 +124867,78 @@
       ],
       "selection": "types",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed code-derived types of the zanim switch command records (8) in Ghidra"
+    },
+    {
+      "batch": {
+        "family": "task-hdr",
+        "records": [
+          "ai::DOOR",
+          "ai::EVENT",
+          "ai::HOLD",
+          "ai::MOVE",
+          "ai::PURSUE",
+          "ai::SETMODE",
+          "ai::STANCE",
+          "ai::TEAM",
+          "ai::WAIT"
+        ],
+        "registrar": "zanim",
+        "with_derived": false
+      },
+      "dependencies": [],
+      "evidence": [],
+      "handoff": null,
+      "id": "socom:work:type-plan-zanim-task-hdr",
+      "kind": "recon-type-plan",
+      "lease": {
+        "claimed_at": "2026-10-24T03:31:05Z",
+        "expires_at": "2026-10-24T05:31:05Z",
+        "heartbeat_at": "2026-10-24T03:31:05Z",
+        "owner": "socom-recon-planner-t202"
+      },
+      "resources": [
+        "build/type-plans"
+      ],
+      "selection": "types",
+      "stage": "ghidra-reconstruction",
+      "status": "in_progress",
+      "title": "Plan the code-derived layouts of the zanim task-hdr command records (9)"
+    },
+    {
+      "batch": {
+        "family": "task-hdr",
+        "records": [
+          "ai::DOOR",
+          "ai::EVENT",
+          "ai::HOLD",
+          "ai::MOVE",
+          "ai::PURSUE",
+          "ai::SETMODE",
+          "ai::STANCE",
+          "ai::TEAM",
+          "ai::WAIT"
+        ],
+        "registrar": "zanim",
+        "with_derived": false
+      },
+      "dependencies": [
+        "socom:work:type-plan-zanim-task-hdr"
+      ],
+      "evidence": [],
+      "handoff": null,
+      "id": "socom:work:type-plan-zanim-task-hdr-apply",
+      "kind": "recon-type-apply",
+      "lease": null,
+      "resources": [
+        "ghidra:soCOM/socom.elf",
+        "ghidra-writer"
+      ],
+      "selection": "types",
+      "stage": "ghidra-reconstruction",
+      "status": "blocked",
+      "title": "Apply the reviewed code-derived types of the zanim task-hdr command records (9) in Ghidra"
     },
     {
       "batch": null,
@@ -125123,7 +125286,9 @@
         "socom:work:recon-repair-004",
         "socom:work:recon-repair-004-apply",
         "socom:work:type-plan-zanim-switch",
-        "socom:work:type-plan-zanim-switch-apply"
+        "socom:work:type-plan-zanim-switch-apply",
+        "socom:work:type-plan-zanim-task-hdr",
+        "socom:work:type-plan-zanim-task-hdr-apply"
       ],
       "evidence": [],
       "handoff": null,
