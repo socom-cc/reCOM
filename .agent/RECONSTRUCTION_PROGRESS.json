@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2452,
+  "revision": 2455,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -126648,6 +126648,10 @@
       "title": "Apply reviewed reconstruction group 301 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T08:51:33Z",
+        "by": "socom-verifier-r80"
+      },
       "batch": {
         "batch_number": 302,
         "function_count": 25,
@@ -126798,8 +126802,15 @@
         "socom:recon-group:fe5f3b0ac9beaf35a1e5-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-a432eadca5a50913c72a.json sha256:d52be3cc731450987c6089f972e0bca3b072b1ef22fcf78ae6f80a41777ebbfd; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (14 set_function_prototype)",
+        "plan sha256:d52be3cc731450987c6089f972e0bca3b072b1ef22fcf78ae6f80a41777ebbfd matches; recon validate ok; recon draft --check ok (rules 19, 9 drafted/16 open); recon program equals build/apply (sha256:eec1e7da...); preflight-batch ok (14 set_function_prototype, 11 skips = plan-unresolved). UILobbyEventHandler uchar(char*,char*): address formed only at 0x1d555c and stored sw v1,12984(at)=theLobby+0x58 at 0x1d5568; DWARF CZOnlineLobby (0x1539b) member m_event_handler 0x153eb at +0x58 = pointer to subroutine 0xaa5d uchar(char*,char*); tail j RunEventAnim (DIE 0x1a311b uchar; live uchar). SealGetAltitude IntersectStruct*: single exit returns jal SealProcessAltitude result (0x2a233c, v0 untouched to jr ra 0x2a2368), live IntersectStruct* (group e0348950 accepted); a0/a1/f12 reads match mangled FP6CPnt3Df. MediusDisconnect/NetClose: no argument reads (asm), constant/unresolved-callee returns, recon void open; zero-parameter partial like accepted NetTick (group 5dbf9f44). ZAnimLoad/Init/zNetInitEx partial this-only (mangled Fv, a0 base reads; sprintf format @7008 'data/' no conversions); UdpTimeoutCallback char* via strcpy __src and rt_msg_client_udp_clear_target char* address. CMemCard LoadConfig/SaveConfig unresolved: recon types CMemCard missing, get_struct_layout not found, no DWARF. zNetTick thunk (j NetTick; nop) unresolved: target NetTick partial. Other unresolved rows lack typed params. All live_signature strings equal recon live; types unique exact case; no DWARF record at any open-row address."
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g168",
+        "submitted_at": "2026-10-25T08:45:32Z",
+        "summary": "14 prototypes, 11 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:a432eadca5a50913c72a",
       "kind": "recon-plan-group",
       "lease": null,
@@ -126808,7 +126819,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 302 (height 30, 25 functions)"
     },
     {
@@ -126861,7 +126872,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 302 in Ghidra"
     },
     {
