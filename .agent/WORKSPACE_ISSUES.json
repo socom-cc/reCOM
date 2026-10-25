@@ -1214,8 +1214,18 @@
       "resolution": null,
       "status": "open",
       "summary": "recon void does not follow functions stored into DWARF-typed function-pointer members"
+    },
+    {
+      "details": "Group 310/311 planner: AuxSendChatMsg 0x202e90 gets VERDICT open ('address taken'). SendChatMsg passes its address in a2 to Censor__13CZOnlineLobbyFPCcPFPCcPv_vPv via a tail jump (j Censor); Censor's mangled parameter declares void (*)(const char *, void *), so v11 should accept it, but the reading only handles jal call sites. Treat j-to-function tail calls like calls when matching callback parameters.",
+      "id": "socom:workspace-issue:bdceccf28da16c39b341",
+      "kind": "problem",
+      "reported_at": "2026-10-25T11:15:00Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "recon void v11 callback reading misses an address passed to a typed callback parameter through a tail jump"
     }
   ],
-  "revision": 138,
+  "revision": 139,
   "schema_version": 1
 }

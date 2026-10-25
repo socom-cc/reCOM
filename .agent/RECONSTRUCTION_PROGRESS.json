@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2517,
+  "revision": 2527,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -129009,6 +129009,10 @@
       "title": "Apply reviewed reconstruction group 309 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T11:31:25Z",
+        "by": "socom-verifier-r86"
+      },
       "batch": {
         "batch_number": 310,
         "function_count": 32,
@@ -129072,22 +129076,40 @@
         "socom:recon-group:eda30ccc7aacd15d9e12-apply",
         "socom:recon-group:ee02a78e80b3dbf0ff4b-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-9cfa4f9a5acf735865cd.json sha256:b03eaa7fef0f853ecf177c5ecb881d510c3bdcc82833b63057da31d66fe29e1b; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (set_function_prototype 32, 0 skipped); revised per socom-verifier-r86: 0x201800 complete void (void)",
+        "plan sha256:b03eaa7fef0f853ecf177c5ecb881d510c3bdcc82833b63057da31d66fe29e1b; recon validate ok; recon draft --check ok (rules 19, 2 drafted); recon program equals build/apply; preflight-batch ok (set_function_prototype 32, 0 skipped). 29 handlers uchar(C2DAnimCmdHdr *, float *): each a UICommandTable column +0x8 entry, recon table-family VERDICT uchar (5 witnesses), no CONFLICT, no DWARF. Revised 0x201800 void(void): exit v0/f0 entry or zNetLeaveAndDisconnect result, 3 call sites leave v0 unread, f0 chains end at UICommandTable entry UIDisconnectFromGameServer (v19) and at RecoverFromNetError stored only to CZOnlineLobby::m_net_error_handler (DWARF 0x1541c -> 0xb932 uchar(int)); only delta vs the rejected plan (apply diff)."
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g174",
+        "submitted_at": "2026-10-25T11:29:17Z",
+        "summary": "32 prototypes, 0 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:9cfa4f9a5acf735865cd",
       "kind": "recon-plan-group",
-      "lease": {
-        "claimed_at": "2026-10-25T10:59:33Z",
-        "expires_at": "2026-10-25T12:59:33Z",
-        "heartbeat_at": "2026-10-25T10:59:33Z",
-        "owner": "socom-recon-planner-g174"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-recon-planner-g174",
+            "submitted_at": "2026-10-25T11:14:27Z",
+            "summary": "32 prototypes, 0 unresolved, 0 globals"
+          },
+          "handoff_evidence": [
+            "plan build/recon-plans/socom-recon-group-9cfa4f9a5acf735865cd.json sha256:755bd7639b1b334360e2e52c0c7481e87eacd5c90b4d5b95bd6ef4545a2fda40; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (set_function_prototype 32, 0 skipped)"
+          ],
+          "reason": "0x201800 DMEDisconnectFromGameServer: the partial row's return is provable void, so the row must be complete 'void (void)'. Evidence: the only exit (jr ra 0x201824) leaves v0/f0 unset or the zNetLeaveAndDisconnect__9CZNetworkFv result (callee-result rule, decision 2026-10-20); recon refs: no address formed, no relocated words; all 3 direct call sites (0x17c88c, 0x1d545c, 0x1f2ac4) leave v0 unread (clobbered by a call). f0 chains: auxUnload clobbers it; UIDisconnectFromGameServer is a UICommandTable entry (only ref UICommandTable+0x17c; recon table-family VERDICT uchar), which ends f0 chains (rules v19); the recon void blocker RecoverFromNetError__8CMissionFi@0x1f2a10 (sole caller of _RecoverFromNetError, by tail j 0x1f2a18) has one reference: CLoadState::Init forms it (addiu v0 at 0x37f6b4) and stores it to theLobby+0x5c (sw v0,12988(at) at 0x37f6c0) = CZOnlineLobby::m_net_error_handler (DWARF member 0x1541c of class 0x1539b, theLobby DIE 0x34e), a pointer to subroutine type 0xb932 'uchar (int)': a v0 result, so f0 is never read through it (other-register-class callback contract, rules v10/v11; a DWARF-typed function-pointer member is a valid declaration; precedent RefreshDMEJoinedCount, group 308, void by a hand-checked chain ending at a DWARF-typed member). Fix: replace the partial row with a complete void (void) row citing this chain (issue d8e35b66 is the tool gap). All other rows check: 29 handlers are UICommandTable entries with no CONFLICT (VERDICT uchar, 5 witnesses), types exact-case unique, sha/validate/draft --check (rules 19)/program/preflight-batch (32 calls, 0 skips) ok.",
+          "rejected_at": "2026-10-25T11:25:44Z",
+          "rejected_by": "socom-verifier-r86"
+        }
+      ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "accepted",
       "title": "Plan reconstruction group 310 (height 33, 32 functions)"
     },
     {
@@ -129147,10 +129169,14 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 310 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T11:31:36Z",
+        "by": "socom-verifier-r86"
+      },
       "batch": {
         "batch_number": 311,
         "function_count": 32,
@@ -129261,22 +129287,40 @@
         "socom:recon-group:ff0934ce49f96fe5dec5-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-1be44864a5e11cd81290.json sha256:945e0e773932acbc4f8e290b897acb4b1eea38e3d50a9d93636a9c2f6ac495df; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (set_function_prototype 18; 14 skipped = the 14 unresolved rows); revised per socom-verifier-r86: 0x202e90 complete void (char *, void *)",
+        "plan sha256:945e0e773932acbc4f8e290b897acb4b1eea38e3d50a9d93636a9c2f6ac495df; recon validate ok; recon draft --check ok (rules 19, 13 drafted); recon program equals build/apply; preflight-batch ok (set_function_prototype 18; 14 skipped = the 14 unresolved rows). Revised 0x202e90 void(char *, void *): only ref SendChatMsg's addiu a2 at 0x202e7c for tail j Censor__13CZOnlineLobbyFPCcPFPCcPv_vPv (param 3 PFPCcPv_v = void (*)(const char *, void *)), precedent group 283 CmdTickCmp; char * as in SendChatMsg. Hand-written void rows: SendZAnimNetworkPacket (only storage ZAnim+0x4c = CZAnimMain::m_network_activation_callback DIE 0xa8de2 -> 0x9e7f6 void(void *, int)), LobbyReadyToConnectStateHandler (only storage m_state_handler slot 17, DIE 0x153bd -> 0x1851 void(LOBBY_STATE_FLAG)), SetMpStatUiVars (DWARF 0x430038 void, recon void VERDICT void). 10 partial rows: mangled parameters cover the read registers; returns open (recon void VERDICT open: vtable/untyped DME blockers or constant-only)."
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g174",
+        "submitted_at": "2026-10-25T11:29:20Z",
+        "summary": "18 prototypes, 14 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:1be44864a5e11cd81290",
       "kind": "recon-plan-group",
-      "lease": {
-        "claimed_at": "2026-10-25T10:59:38Z",
-        "expires_at": "2026-10-25T12:59:38Z",
-        "heartbeat_at": "2026-10-25T10:59:38Z",
-        "owner": "socom-recon-planner-g174"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-recon-planner-g174",
+            "submitted_at": "2026-10-25T11:14:35Z",
+            "summary": "18 prototypes, 14 unresolved, 0 globals"
+          },
+          "handoff_evidence": [
+            "plan build/recon-plans/socom-recon-group-1be44864a5e11cd81290.json sha256:9f55c5dfd869cee317c15abbc4f81e9eec39b075f6eacd58824a60a20651e7bf; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (set_function_prototype 18; 14 skipped = the 14 unresolved rows)"
+          ],
+          "reason": "0x202e90 AuxSendChatMsg: the partial row's return is provable void, so the row must be complete 'void (char * param_1, void * param_2)'. Evidence: recon refs: its only reference is SendChatMsg forming its address in a2 (addiu a2,a2,11920 at 0x202e7c) for the tail call j Censor__13CZOnlineLobbyFPCcPFPCcPv_vPv at 0x202e84 (a0 = theLobby, a1 = the text, a3 = 0 in the delay slot); Censor's mangled parameter 3 (a2) PFPCcPv_v declares void (*)(const char *, void *), so the callback contract is void and no caller reads v0/f0 (the exit's v0 is only the ChatPacketHandler result). A typed callback parameter reached through a tail jump is accepted precedent: CValve::CmdTickCmp (group 283, bool from AddCmd's tick parameter via tail j at 0x2f8724) and the AddCmd parser callbacks of groups 229/230/270 (tail j to AddCmd); the planner's own issue bdceccf2 says v11 should accept it. Fix: replace the partial row with a complete void row citing that declaration. All other rows check: SendZAnimNetworkPacket (only ref the store at 0x201a08 to ZAnim+0x4c = CZAnimMain::m_network_activation_callback, DIE 0xa8de2 -> subroutine 0x9e7f6 void(void *, int)), LobbyReadyToConnectStateHandler (only ref the store to m_state_handler slot 17, DIE 0x153bd -> 0x1851 void(LOBBY_STATE_FLAG); ConnectErrorStateHandler live void) and SetMpStatUiVars (DWARF 0x430038 void, recon void VERDICT void) are correct; the other 10 partial rows' mangled parameters and register reads agree and their returns stay open (recon void VERDICT open at vtable/untyped-DME blockers or constant-only returns); the 14 unresolved = the 14 preflight skips; sha/validate/draft --check (rules 19)/program/preflight-batch (18 calls) ok.",
+          "rejected_at": "2026-10-25T11:26:17Z",
+          "rejected_by": "socom-verifier-r86"
+        }
+      ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "accepted",
       "title": "Plan reconstruction group 311 (height 33, 32 functions)"
     },
     {
@@ -129336,7 +129380,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 311 in Ghidra"
     },
     {
