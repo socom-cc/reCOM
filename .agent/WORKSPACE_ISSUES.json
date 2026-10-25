@@ -1204,8 +1204,18 @@
       "resolution": null,
       "status": "open",
       "summary": "recon draft labels vtable-only void rows admitted by the v13 slot contract as plain P-void with wrong evidence text"
+    },
+    {
+      "details": "Groups 307/308 (socom-verifier-r84): functions whose only reference is a store into a DWARF-typed function-pointer member/array (CZOnlineLobby::m_state_handler, DIE 0x1851 void(LOBBY_STATE_FLAG); ConnectErrorStateHandler precedent) are proven void by the declaration, but recon void reports VERDICT open (treats them as unknown table entries), so every such row needs a hand check, and f0 chains ending there (RefreshDMEJoinedCount -> LobbyReadyToConnectStateHandler) stay open. Teach recon void (and draft) to read the DWARF type of the member a function address is stored into. Separately, statics written only from a typed parameter (appcallback from Censor's PFPCcPv_v) are not modelled; that would need a user rules decision.",
+      "id": "socom:workspace-issue:d8e35b66b2ff0a82973b",
+      "kind": "problem",
+      "reported_at": "2026-10-25T10:26:31Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "recon void does not follow functions stored into DWARF-typed function-pointer members"
     }
   ],
-  "revision": 137,
+  "revision": 138,
   "schema_version": 1
 }

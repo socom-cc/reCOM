@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2495,
+  "revision": 2505,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -128118,6 +128118,10 @@
       "title": "Apply reviewed reconstruction group 306 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T10:32:04Z",
+        "by": "socom-verifier-r84"
+      },
       "batch": {
         "batch_number": 307,
         "function_count": 32,
@@ -128201,11 +128205,12 @@
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
       "evidence": [
-        "plan build/recon-plans/socom-recon-group-5f2ce65e61d538d88fba.json sha256:195323d19eed29701193aded8fd16f7ffad9ff61dd890ec1a099835be09dcd78; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (23 calls: set_function_prototype 22, apply_data_type 1; 10 skips = the 10 unresolved rows)"
+        "Re-review of plan sha256 5da9c59a92a20e5c733f6d71dfdcc64beb968f89a45c2f2eee9974cb02b594c0. Compared with the rejected program, only 0x324de0 cbFilterChat changed. It is now partial undefined __stdcall (char * param_1, void * param_2): mangled FPCcPv, a0 read and a1 unread, against the default live signature undefined cbFilterChat(void). The return stays unresolved: recon void VERDICT open, and its address is stored into the static appcallback 0x476794, which has no DWARF record. recon validate ok; draft --check ok (rules 19); recon program equals build/apply; preflight-batch ok (22 set_function_prototype, 1 apply_data_type; 10 skips = the 10 unresolved rows). Earlier review stands: SendEndGameReport and UpdateClanStats VERDICT void; the partial rows VERDICT open; PlayerListRequestPending a proven bool flag (global-facts); no DWARF record for any row.",
+        "plan build/recon-plans/socom-recon-group-5f2ce65e61d538d88fba.json sha256:5da9c59a92a20e5c733f6d71dfdcc64beb968f89a45c2f2eee9974cb02b594c0; revised per socom-verifier-r84: cbFilterChat 0x324de0 now partial undefined (char *, void *); recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (23 calls: set_function_prototype 22, apply_data_type 1; 10 skips = the 10 unresolved rows)"
       ],
       "handoff": {
         "owner": "socom-recon-planner-g171",
-        "submitted_at": "2026-10-25T10:13:31Z",
+        "submitted_at": "2026-10-25T10:29:12Z",
         "summary": "22 prototypes, 10 unresolved, 1 globals"
       },
       "id": "socom:recon-group:5f2ce65e61d538d88fba",
@@ -128214,9 +128219,25 @@
       "resources": [
         "build/recon-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-recon-planner-g171",
+            "submitted_at": "2026-10-25T10:13:31Z",
+            "summary": "22 prototypes, 10 unresolved, 1 globals"
+          },
+          "handoff_evidence": [
+            "plan build/recon-plans/socom-recon-group-5f2ce65e61d538d88fba.json sha256:195323d19eed29701193aded8fd16f7ffad9ff61dd890ec1a099835be09dcd78; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (23 calls: set_function_prototype 22, apply_data_type 1; 10 skips = the 10 unresolved rows)"
+          ],
+          "reason": "0x324de0 cbFilterChat: hand-written void is not proven. recon void (rules 19) says VERDICT open (address taken). Its only address site is SendChat 0x324dac, which stores it into the static appcallback 0x476794 (sw v0,-25692(gp) at 0x324db4). appcallback has no DWARF record (recon dwarf --address 0x476794), so it is not a DWARF-typed function-pointer slot (PLANNER/PLAN_REVIEWER declared-member rule). The address is never passed to a direct call, so the rules v11 callback reading does not apply either. The claimed type depends on two inferences: that SendChat contains an inlined copy of Censor, and that appcallback has the type of Censor's PFPCcPv_v parameter because Censor stores that parameter into it. No rule accepts those inferences as a declaration. Fix: change the row to partial, which is allowed because the live 'undefined cbFilterChat(void)' is Ghidra's default: undefined (char * param_1, void * param_2), from mangled FPCcPv, with a0 read and a1 unread. The return stays unresolved because the address is stored into an undeclared static. Alternatively, get a rules decision that extends v11 to inlined typed calls or to statics written only from a typed parameter. Everything else checks: plan sha256 195323d1... matches; recon validate ok; draft --check ok (rules 19); recon program equals build/apply; preflight-batch ok with 10 skips = the 10 unresolved rows (Censor's missing PFPCcPv_v type included); SendEndGameReport and UpdateClanStats are VERDICT void; the partial rows are VERDICT open; PlayerListRequestPending is a proven bool flag (global-facts: lbu tested against 0, sb 0/1); no row has a DWARF record.",
+          "rejected_at": "2026-10-25T10:25:46Z",
+          "rejected_by": "socom-verifier-r84"
+        }
+      ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan reconstruction group 307 (height 32, 32 functions)"
     },
     {
@@ -128276,10 +128297,14 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 307 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T10:32:13Z",
+        "by": "socom-verifier-r84"
+      },
       "batch": {
         "batch_number": 308,
         "function_count": 32,
@@ -128362,11 +128387,12 @@
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
       "evidence": [
-        "plan build/recon-plans/socom-recon-group-eda30ccc7aacd15d9e12.json sha256:31caffd09e78f043b5b965188ad3dd69cc7d25c8dee8cce867d41f7abbd9a48d; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (30 calls: set_function_prototype 24, apply_data_type 6; 8 skips = the 8 unresolved rows)"
+        "Re-review of plan sha256 50c95b11e63a3f133906abb3231b380c8405f53f467e79333a74f0dbea99d3b2. Compared with the rejected program, only 0x329120 cbFilterPlayerDescription and 0x32a640 cbFilterClanMessage changed. Both are now partial undefined __stdcall (char * param_1, void * param_2): mangled FPCcPv, a0 read and a1 unread, against default live signatures. Both returns stay unresolved: recon void VERDICT open, and each address is stored into the static appcallback, which has no DWARF record. cbFilterClanMessage is also passed to Censor at 0x324060, so rules v11 does not apply to it. recon validate ok; draft --check ok (rules 19); recon program equals build/apply; preflight-batch ok (24 set_function_prototype, 6 apply_data_type; 8 skips = the 8 unresolved rows). Earlier review stands: the 9 state handlers are void by the DWARF-typed m_state_handler (array DIE 0xde19, elements point to DIE 0x1851, void (LOBBY_STATE_FLAG)), and each is stored only by Open sw v0,N(s0) with s0 = this. RefreshDMEJoinedCount is void: its only call site overwrites v0, and its f0 chain ends at LobbyReadyToConnectStateHandler, stored only into slot +68. GetLadderRanking VERDICT void. The 6 bool globals are proven flags (global-facts). No DWARF record for any row.",
+        "plan build/recon-plans/socom-recon-group-eda30ccc7aacd15d9e12.json sha256:50c95b11e63a3f133906abb3231b380c8405f53f467e79333a74f0dbea99d3b2; revised per socom-verifier-r84: cbFilterPlayerDescription 0x329120 and cbFilterClanMessage 0x32a640 now partial undefined (char *, void *); recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (30 calls: set_function_prototype 24, apply_data_type 6; 8 skips = the 8 unresolved rows)"
       ],
       "handoff": {
         "owner": "socom-recon-planner-g171",
-        "submitted_at": "2026-10-25T10:13:38Z",
+        "submitted_at": "2026-10-25T10:29:19Z",
         "summary": "24 prototypes, 8 unresolved, 6 globals"
       },
       "id": "socom:recon-group:eda30ccc7aacd15d9e12",
@@ -128375,9 +128401,25 @@
       "resources": [
         "build/recon-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-recon-planner-g171",
+            "submitted_at": "2026-10-25T10:13:38Z",
+            "summary": "24 prototypes, 8 unresolved, 6 globals"
+          },
+          "handoff_evidence": [
+            "plan build/recon-plans/socom-recon-group-eda30ccc7aacd15d9e12.json sha256:31caffd09e78f043b5b965188ad3dd69cc7d25c8dee8cce867d41f7abbd9a48d; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (30 calls: set_function_prototype 24, apply_data_type 6; 8 skips = the 8 unresolved rows)"
+          ],
+          "reason": "Two hand-written void rows are not proven. (1) 0x329120 cbFilterPlayerDescription: recon void (rules 19) says VERDICT open (address taken). Its only address site is SetPlayerDescription 0x3290f4, which stores it into the static appcallback 0x476794 (sw v0,-25692(gp) at 0x3290fc). appcallback has no DWARF record (recon dwarf --address 0x476794), so it is not a DWARF-typed slot, and no direct typed call takes the address. The claimed type depends on two inferences: an inlined copy of Censor, and appcallback taking Censor's PFPCcPv_v parameter type. No rule accepts those as a declaration. (2) 0x32a640 cbFilterClanMessage: recon void says VERDICT open. One address site is a real typed call argument (a2 to Censor PFPCcPv_v, jal at 0x324060). The other site (SendClanMessage 0x32a608) stores it into the undeclared appcallback (sw v0,-25692(gp) at 0x32a610). Rules v11 requires the address to be only formed in code and passed straight to a direct call, so it does not apply. Fix for both: change the row to partial, which is allowed because the live 'undefined NAME(void)' is Ghidra's default: undefined (char * param_1, void * param_2), from mangled FPCcPv, with a0 read and a1 unread. The return stays unresolved. Alternatively, get a rules decision for inlined typed calls or statics written only from a typed parameter. Checked and correct, keep unchanged: the 9 LOBBY_STATE_FLAG state handlers are void by the DWARF-typed member m_state_handler. CZOnlineLobby +0x0 is @subroutine@74fece17d6 *[22]; array DIE 0xde19 has elements that point to DIE 0x1851, a void subroutine with one parameter of type LOBBY_STATE_FLAG (DIE 0x241da); the other CUs' copies 0x1bd300 and 0x428058 are also void. Each handler's only reference is CZOnlineLobby::Open's sw v0,N(s0) with s0 = this (move s0,a0 at 0x327e14) into slots +12/+28/+44/+48/+52/+60/+72/+76/+80. None has relocated words or direct calls, and Open overwrites v0 after every jalr. Precedent: ConnectErrorStateHandler, group 65. RefreshDMEJoinedCount is void: its only call site, 0x32cecc, overwrites v0, and its f0 chain ends at LobbyReadyToConnectStateHandler, whose only reference is Open's store into slot +68, the same declared void type. GetLadderRanking is VERDICT void. The partial rows are VERDICT open with the parameters proven. The 6 bool globals are proven flags (recon global-facts: lbu tested against 0, sb 0/1, an sltu result, or a mangled-b parameter; no arithmetic). Mechanical checks: plan sha256 31caffd0... matches; recon validate ok; draft --check ok (rules 19); recon program equals build/apply; preflight-batch ok with 8 skips = the 8 unresolved rows; no row has a DWARF record.",
+          "rejected_at": "2026-10-25T10:26:01Z",
+          "rejected_by": "socom-verifier-r84"
+        }
+      ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan reconstruction group 308 (height 32, 32 functions)"
     },
     {
@@ -128437,7 +128479,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 308 in Ghidra"
     },
     {
@@ -129025,8 +129067,14 @@
         "socom:recon-group:cf1cd7e2dedf1b8f2b87-apply",
         "socom:recon-group:e9b77e16859178df6c71-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-320e9f73be3d3c6dd606.json sha256:6ce93c8f3ee5891bbee6013a9eeac2ccf6afee0a3b12a747bd8c60860ad6d7d9; recon validate ok; recon draft --check ok (rules 19, 5 open rows); preflight-batch ok (2 set_function_prototype calls; 3 skips, all unresolved rows)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g173",
+        "submitted_at": "2026-10-25T10:32:23Z",
+        "summary": "2 prototypes, 3 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:320e9f73be3d3c6dd606",
       "kind": "recon-plan-group",
       "lease": null,
@@ -129035,7 +129083,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 312 (height 33, 5 functions)"
     },
     {
