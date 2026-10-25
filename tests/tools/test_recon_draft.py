@@ -359,6 +359,149 @@ def test_rules_version_must_be_known(ctx) -> None:
     from tools._socom.recon_draft import RULES_VERSIONS, void_verdict
     from tools._socom.util import SocomError
 
-    assert RULES_VERSIONS == (17, 18)
+    assert RULES_VERSIONS == (17, 18, 19)
     with pytest.raises(SocomError):
         void_verdict(ctx, 0x393b90, rules=6)
+
+
+# -- rules version 19: more chain-ending contracts (decision of 2026-10-24) ----
+
+
+def test_check_keeps_the_rules_a_plan_was_drafted_under() -> None:
+    from tools._socom.recon_draft import check_rules_version
+
+    # Accepted plans drafted before version 19 stay checked under version 18.
+    assert check_rules_version({"draft": {"rules_version": 19}}) == 19
+    for recorded in (18, 17, 6, None, True):
+        assert check_rules_version({"draft": {"rules_version": recorded}}) == 18
+    assert check_rules_version({}) == 18
+
+
+def _row(address: int, name: str) -> dict:
+    return {"address": f"0x{address:x}", "elf_names": [name], "stage2": None, "thunk_target": None}
+
+
+def _fresh_contracts(ctx, monkeypatch) -> None:
+    from tools._socom import recon_draft, recon_table
+
+    monkeypatch.setattr(recon_table, "_CONTRACTS", {})
+    monkeypatch.setattr(recon_draft, "_FAMILY_VERDICTS", {})
+
+
+def test_integer_table_family_entries_end_f0_chains(ctx) -> None:
+    from tools._socom.recon_draft import void_verdict
+    from tools._socom.recon_table import table_contracts
+
+    contracts = table_contracts(ctx)
+    # UICommandTable +0x8 (VERDICT uchar): every reference is a word of that column.
+    for entry in (0x1D0870, 0x1D4230, 0x1D6C10, 0x1D5490, 0x1D4CB0, 0x1D08D0, 0x1D1B10):
+        assert contracts[entry] == "uchar"
+    # UpdateCharWeaponUiVars' f0 reaches the dispatcher only through OnRemoveEquipment.
+    old = void_verdict(ctx, 0x1FA2B0, rules=18)
+    assert "VERDICT open: f0 passed on by OnRemoveEquipment" in old and "stored in a table" in old
+    assert "VERDICT void" in void_verdict(ctx, 0x1FA2B0)
+    drafted = draft_function(ctx, _row(0x1FA2B0, "UpdateCharWeaponUiVars__Fi"), "UpdateCharWeaponUiVars", _types())
+    assert drafted["draft_rule"] == "P-void" and [p["type"] for p in drafted["prototype"]["parameters"]] == ["int"]
+    assert draft_function(ctx, _row(0x1FA2B0, "UpdateCharWeaponUiVars__Fi"), "x", _types(), rules=18)["draft"] == "open"
+    # SendGameSignalMessage's chain ends at UISetMenuState the same way.
+    assert "VERDICT void" in void_verdict(ctx, 0x2022C0)
+
+
+def test_table_contract_keeps_its_conflict_checks(ctx, monkeypatch) -> None:
+    from tools._socom import recon_table
+    from tools._socom.recon_draft import void_verdict
+
+    # An entry also stored outside the column is called through another type too.
+    _fresh_contracts(ctx, monkeypatch)
+    monkeypatch.setitem(ctx.word32, 0x1D6C10, list(ctx.word32[0x1D6C10]) + [0x10])
+    assert 0x1D6C10 not in recon_table.table_contracts(ctx)
+    assert "VERDICT open: f0 passed on by OnRemoveEquipment" in void_verdict(ctx, 0x1FA2B0)
+    # A column without an integer verdict gives no contract.
+    _fresh_contracts(ctx, monkeypatch)
+    monkeypatch.setitem(ctx.word32, 0x1D6C10, list(ctx.word32[0x1D6C10])[:-1])
+    real = recon_table.table_family
+
+    def open_family(c, key, column=None, stride=None):
+        result = real(c, key, column=column, stride=stride)
+        result["verdict"] = dict(result["verdict"], width=None, ext=None, bits=None)
+        return result
+
+    monkeypatch.setattr(recon_table, "table_family", open_family)
+    assert recon_table.table_contracts(ctx) == {}
+
+
+def test_constructors_returning_this_end_f0_chains(ctx, monkeypatch) -> None:
+    from tools._socom import recon_draft
+    from tools._socom.recon_draft import _is_constructor, void_verdict
+
+    # CSaveModule::CSaveModule returns its entry a0 (move v0,s1; s1 = a0) and
+    # is referenced only by direct calls (issue bab16750).
+    assert _is_constructor(ctx, 0x3F70B0)
+    old = void_verdict(ctx, 0x3F7B20, rules=18)
+    assert "__ct__11CSaveModuleFPCcP12CSaveManager@0x3f70b0 -> __sinit_fts_mission.cpp@0x46aab0" in old
+    assert "VERDICT void" in void_verdict(ctx, 0x3F7B20)
+    row = _row(0x3F7B20, "RegisterModule__12CSaveManagerFP11CSaveModule")
+    drafted = draft_function(ctx, row, "CSaveManager::RegisterModule", _types("CSaveManager", "CSaveModule"))
+    assert drafted["draft_rule"] == "P-void"
+    assert [p["type"] for p in drafted["prototype"]["parameters"]] == ["CSaveManager *", "CSaveModule *"]
+    # A constructor whose address is formed in code, or that does not return this, has no contract.
+    monkeypatch.setitem(ctx.addr_taken, 0x3F70B0, [0x10])
+    assert not _is_constructor(ctx, 0x3F70B0)
+    monkeypatch.delitem(ctx.addr_taken, 0x3F70B0)
+    monkeypatch.setattr(recon_draft, "_returns_this", lambda c, start: False)
+    assert not _is_constructor(ctx, 0x3F70B0)
+    assert "VERDICT open" in void_verdict(ctx, 0x3F7B20)
+
+
+def test_null_arguments_fit_any_callback_parameter(ctx) -> None:
+    from tools._socom.recon_draft import _callback_returns, void_verdict
+
+    # CZWeapon::PreTick goes in a2 to AddTask(const char *, PFfPv_b, float, void *)
+    # with a3 = 0: the null void * no longer rejects the reading (the v11 gap).
+    assert 0x31E570 not in _callback_returns(ctx, 18)
+    assert _callback_returns(ctx, 19)[0x31E570] == "gpr"
+    old = void_verdict(ctx, 0x31AD80, rules=18)
+    assert "f0 passed on by PreTick__8CZWeaponFfPv@0x31e570, whose address is taken" in old
+    assert "VERDICT void" in void_verdict(ctx, 0x31AD80)
+    # Every decision of the earlier reading stands.
+    old_map, new_map = _callback_returns(ctx, 18), _callback_returns(ctx, 19)
+    assert all(new_map[f] == kind for f, kind in old_map.items())
+
+
+RELOCATOR_TYPES = _TypeIndex([
+    {"name": "CDblBufTextureRelocator", "path": "/project/CDblBufTextureRelocator", "size": 4},
+    {"name": "CTexHandle", "path": "/project/zdb/CTexHandle", "size": 4},
+])
+
+
+def test_slot_family_joined_through_a_base_without_a_vtable(ctx) -> None:
+    from tools._socom.recon_draft import slot_families, void_verdict
+
+    # zdb::CTextureRelocMgr has no vtable; its PreGetSprPacket fills slot +0x10 of
+    # __vt__Q23zdb15CBatchRelocator, and CDblBufTextureRelocator overrides it.
+    assert 0x2F9CF0 not in slot_families(ctx, 18)[0x380600].members
+    family = slot_families(ctx, 19)[0x380600]
+    assert set(family.members) == {0x2F9CF0, 0x380600} and family.method == "PreGetSprPacket"
+    text = void_verdict(ctx, 0x380600)
+    assert "joined through a base class without a vtable of its own" in text and "VERDICT void" in text
+    assert "VERDICT open: the function's address is taken" in void_verdict(ctx, 0x380600, rules=18)
+    name = "PreGetSprPacket__23CDblBufTextureRelocatorFPQ23zdb10CTexHandle"
+    drafted = draft_function(ctx, _row(0x380600, name), "CDblBufTextureRelocator::PreGetSprPacket", RELOCATOR_TYPES)
+    assert drafted["draft_rule"] == "P-slot-void"
+    assert [p["type"] for p in drafted["prototype"]["parameters"]] == ["CDblBufTextureRelocator *", "CTexHandle *"]
+    # The other base slots join the same way; TakeDrawPacket stays open on its own values.
+    assert {0x3030A0, 0x2F9B20} == set(slot_families(ctx, 19)[0x3030A0].members)
+    assert "VERDICT open" in void_verdict(ctx, 0x3805F0)
+
+
+def test_joined_slot_family_keeps_its_conflict_check(ctx, monkeypatch) -> None:
+    from tools._socom import recon_draft
+
+    real = recon_draft._dwarf_returns(ctx)
+    monkeypatch.setattr(recon_draft, "_dwarf_returns", lambda c: {**real, 0x380600: "gpr"})
+    _fresh_verdicts(ctx, monkeypatch)
+    verdict = recon_draft.slot_family_verdict(ctx, 0x2F9CF0)
+    assert not verdict["void"] and verdict["joined"]
+    assert (0x380600, "its DWARF record declares a non-void return (gpr)") in verdict["blockers"]
+    # Rules version 18 keeps the base method alone, still void.
+    assert recon_draft.slot_family_verdict(ctx, 0x2F9CF0, 18)["void"]

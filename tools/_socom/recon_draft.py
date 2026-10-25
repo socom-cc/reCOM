@@ -33,6 +33,12 @@ P-slot-void
          else from the mangled signature, with the receiver proven by the
          vtable slot.  Only rows the older rules leave open take it; this-
          adjusting @N@ stubs stay open (their receiver is the base part at +N).
+
+Rules version 19 (decision of 2026-10-24) adds no draft rule.  It ends the
+leftover chains that P-void, P-stage2 and P-slot-void follow at three more
+contracts: a function-pointer table entry whose column has an integer
+table-family verdict (v0, so an f0 left there is never read), a constructor
+returning this, and slot families joined through a base without a vtable.
 """
 
 from __future__ import annotations
@@ -55,11 +61,19 @@ from .recon import RECON_PLAN_KIND, RECON_SCHEMA, group_evidence
 from .recon_facts import GPR, JR_RA, _reads_at, _through_calls, _use_after_call, argument_reads, call_sites, callee_preserves, context, return_sources
 from .util import SocomError, canonical_json
 
-DRAFT_RULES_VERSION = 18
+DRAFT_RULES_VERSION = 19
 # Rules version 18 adds the vtable slot-family void rule (decision of
 # 2026-10-23).  Passing rules=17 evaluates the earlier behaviour unchanged.
 SLOT_VOID_RULES = 18
-RULES_VERSIONS = (17, 18)
+# Rules version 19 (decision of 2026-10-24, "Yes, all three") ends leftover
+# v0/f0 chains at three more contracts: function-pointer table entries whose
+# table-family verdict is an integer width, constructors that return this,
+# and vtable slot families joined through a base class that has no vtable of
+# its own.  It also lets a null argument fit any parameter when reading a
+# callback's declared type (the rules-11 gap of CZWeapon::PreTick).  Each only
+# removes a blocker; rules=18 evaluates the earlier behaviour unchanged.
+CONTRACT_RULES = 19
+RULES_VERSIONS = (17, 18, 19)
 
 
 class _TypeIndex:
@@ -308,7 +322,7 @@ def _dwarf_returns(ctx: Any) -> dict[int, str]:
     return _DWARF_RETURNS[key]
 
 
-def _declared_drop(ctx: Any, caller: int, fpr: bool) -> bool:
+def _declared_drop(ctx: Any, caller: int, fpr: bool, rules: int = DRAFT_RULES_VERSION) -> bool:
     """The caller's DWARF return cannot carry this register to its own callers.
 
     Declared void carries nothing; a declared integer/pointer return is read
@@ -321,6 +335,10 @@ def _declared_drop(ctx: Any, caller: int, fpr: bool) -> bool:
         # Metrowerks destructors return this (void *) in v0 (rules version 16):
         # nothing reads an f0 left by their callees (zBoneUnloadAll, group 188).
         return True
+    if kind is None and fpr and rules >= CONTRACT_RULES and _is_constructor(ctx, caller):
+        # Constructors return this (void *) in v0 as well (rules version 19,
+        # issue bab16750: CSaveModule::CSaveModule ends RegisterModule's f0 chain).
+        return True
     return kind == "void" or (fpr and kind == "gpr") or (not fpr and kind == "float")
 
 
@@ -331,7 +349,24 @@ def _is_destructor(ctx: Any, function: int) -> bool:
     return any(name.startswith("__dt__") for name in names) and _destructor_evidence(ctx, function) is not None
 
 
-_CALLBACKS: dict[int, dict[int, str]] = {}
+def _is_constructor(ctx: Any, function: int) -> bool:
+    """A __ct constructor that returns its entry a0 (this) in v0 at every exit (rules version 19).
+
+    Every DWARF __ct record in the program declares a `void *` return, which
+    the body confirms by returning this through plain copies.  A constructor
+    whose address is formed in code or stored in a table could be called
+    through another type, so it gets no contract.
+    """
+
+    names = _function_names(ctx).get(function, ())
+    if not any(name.startswith("__ct__") for name in names):
+        return False
+    if ctx.addr_taken.get(function) or ctx.word32.get(function):
+        return False
+    return _returns_this(ctx, function)
+
+
+_CALLBACKS: dict[tuple[int, bool], dict[int, str]] = {}
 _GPR_BUILTINS = frozenset(("char", "signed char", "unsigned char", "short", "unsigned short", "int",
                            "unsigned int", "long", "unsigned long", "long long", "unsigned long long", "bool", "wchar_t",
                            "uint16"))
@@ -354,22 +389,91 @@ def _result_class(result: dict[str, Any] | None) -> str | None:
     return "gpr" if name in _GPR_BUILTINS else None
 
 
-def _callback_returns(ctx: Any) -> dict[int, str]:
+_GPR_POSITION = {4: 0, 5: 1, 6: 2, 7: 3, 8: 4, 9: 5, 10: 6, 11: 7}
+
+
+def _callback_kind(ctx: Any, flow: Any, pc: int, position: int, callee: int, null_fits_any: bool) -> str | None:
+    """Result class of the function-pointer parameter at GPR ``position`` of the call at ``pc``.
+
+    Which argument register maps to which parameter is settled by requiring
+    every argument register to fit the reading: function-pointer parameters
+    get code addresses (or zero), others do not.  With ``null_fits_any``
+    (rules version 19) a zero fits any parameter, so `move a3,zero` for
+    AddTask's trailing `void *` no longer rejects the reading.
+    """
+
+    parsed = next((demangle(n) for n in _function_names(ctx).get(callee, ()) if demangle(n)), None)
+    if not parsed:
+        return None
+    params = parsed.get("params") or []
+    if any(
+        p.get("kind") == "builtin" and not p.get("modifiers")
+        and p.get("name") in ("double", "long long", "unsigned long long")
+        for p in params
+    ):
+        return None  # 64-bit arguments shift the register positions
+    # A plain float travels in an FPR (f12...) and takes no GPR slot
+    # (AddTask(name, PFfPv_b tick, float, void *): tick in a2).
+    params = [
+        p for p in params
+        if not (p.get("kind") == "builtin" and not p.get("modifiers") and p.get("name") == "float")
+    ]
+
+    def code_address(register: int) -> bool | None:
+        # True: a function address or zero; False: something else; None: unknown.
+        defs = flow.entering_callee(pc + 4, register)
+        if len(defs) != 1:
+            return None
+        (where,) = defs
+        if not isinstance(where, int):
+            return None
+        row = ctx.ref_at.get(where)
+        if row and row.get("target") is not None:
+            return int(row["target"], 16) in ctx.size
+        word = ctx.code.word(where)
+        if word >> 26 == 0 and word & 0x3F in (0x21, 0x25, 0x2D) and (word >> 21) & 31 == 0 and (word >> 16) & 31 == 0:
+            return None if null_fits_any else True  # move rd,zero: a null callback (or any null pointer)
+        return None
+
+    candidates = set()
+    for offset in ((0, 1) if parsed.get("qualifier") else (0,)):
+        index = position - offset
+        if not (0 <= index < len(params) and params[index].get("kind") == "function"):
+            continue
+        fits = True
+        for register, slot in _GPR_POSITION.items():
+            argument = slot - offset
+            if argument < 0 or argument >= len(params):
+                continue
+            seen = code_address(register)
+            if seen is None:
+                continue
+            if seen != (params[argument].get("kind") == "function"):
+                fits = False
+                break
+        if fits:
+            candidates.add(_result_class(params[index].get("result")))
+    return candidates.pop() if len(candidates) == 1 else None
+
+
+def _callback_returns(ctx: Any, rules: int = DRAFT_RULES_VERSION) -> dict[int, str]:
     """Function -> return class declared by the callback parameter it is passed as.
 
     A function whose address is formed in code (never stored in a table) and
     always passed straight to a direct call, in an argument register whose
     position in the callee's mangled parameters is a function pointer, is
-    only ever called through that declared type (rules version 11).
+    only ever called through that declared type (rules version 11).  From
+    rules version 19 a site the earlier reading leaves undecided is read again
+    with a null argument fitting any parameter.
     """
 
-    key = id(ctx)
+    widened = rules >= CONTRACT_RULES
+    key = (id(ctx), widened)
     if key in _CALLBACKS:
         return _CALLBACKS[key]
     from .recon_facts import _writes
 
     found: dict[int, str] = {}
-    gpr_position = {4: 0, 5: 1, 6: 2, 7: 3, 8: 4, 9: 5, 10: 6, 11: 7}
     for function, sites in ctx.addr_taken.items():
         if function not in ctx.size or ctx.word32.get(function):
             continue
@@ -386,66 +490,14 @@ def _callback_returns(ctx: Any) -> dict[int, str]:
                 insn = ctx.code.word(pc)
                 if insn >> 26 != 0x03:
                     continue
-                registers = [r for r in written if r in gpr_position and flow.entering_callee(pc + 4, r) == {site}]
+                registers = [r for r in written if r in _GPR_POSITION and flow.entering_callee(pc + 4, r) == {site}]
                 if len(registers) != 1:
                     break
                 callee = ((pc + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2)
-                parsed = next((demangle(n) for n in _function_names(ctx).get(callee, ()) if demangle(n)), None)
-                if not parsed:
-                    break
-                params = parsed.get("params") or []
-                if any(
-                    p.get("kind") == "builtin" and not p.get("modifiers")
-                    and p.get("name") in ("double", "long long", "unsigned long long")
-                    for p in params
-                ):
-                    break  # 64-bit arguments shift the register positions
-                # A plain float travels in an FPR (f12...) and takes no GPR slot
-                # (AddTask(name, PFfPv_b tick, float, void *): tick in a2).
-                params = [
-                    p for p in params
-                    if not (p.get("kind") == "builtin" and not p.get("modifiers") and p.get("name") == "float")
-                ]
-                position = gpr_position[registers[0]]
-
-                def code_address(register: int) -> bool | None:
-                    # True: a function address or zero; False: something else; None: unknown.
-                    defs = flow.entering_callee(pc + 4, register)
-                    if len(defs) != 1:
-                        return None
-                    (where,) = defs
-                    if not isinstance(where, int):
-                        return None
-                    row = ctx.ref_at.get(where)
-                    if row and row.get("target") is not None:
-                        return int(row["target"], 16) in ctx.size
-                    word = ctx.code.word(where)
-                    if word >> 26 == 0 and word & 0x3F in (0x21, 0x25, 0x2D) and (word >> 21) & 31 == 0 and (word >> 16) & 31 == 0:
-                        return True  # move rd,zero: a null callback
-                    return None
-
-                candidates = set()
-                for offset in ((0, 1) if parsed.get("qualifier") else (0,)):
-                    index = position - offset
-                    if not (0 <= index < len(params) and params[index].get("kind") == "function"):
-                        continue
-                    # Every argument register must fit this reading: function-pointer
-                    # parameters get code addresses (or zero), others do not.
-                    fits = True
-                    for register, slot in gpr_position.items():
-                        argument = slot - offset
-                        if argument < 0 or argument >= len(params):
-                            continue
-                        seen = code_address(register)
-                        if seen is None:
-                            continue
-                        if seen != (params[argument].get("kind") == "function"):
-                            fits = False
-                            break
-                    if fits:
-                        candidates.add(_result_class(params[index].get("result")))
-                if len(candidates) == 1:
-                    kind = candidates.pop()
+                position = _GPR_POSITION[registers[0]]
+                kind = _callback_kind(ctx, flow, pc, position, callee, False)
+                if kind is None and widened:
+                    kind = _callback_kind(ctx, flow, pc, position, callee, True)
                 break
             kinds.add(kind)
         if len(kinds) == 1 and None not in kinds:
@@ -661,15 +713,22 @@ def _only_in_vtables(ctx: Any, function: int) -> bool:
     return bool(sites) and all((ctx.object_for(site) or "").startswith("__vt__") for site in sites)
 
 
-def _contract_drops(ctx: Any, function: int, fpr: bool, rules: int = DRAFT_RULES_VERSION) -> bool:
-    """A declared callback or vtable-slot contract never hands this register on.
+def _contract_drops(
+    ctx: Any, function: int, fpr: bool, rules: int = DRAFT_RULES_VERSION, families: bool = True
+) -> bool:
+    """A declared callback, table or vtable-slot contract never hands this register on.
 
-    From rules version 18 a void slot family is such a contract too.
+    From rules version 18 a void slot family is such a contract too (unless
+    ``families`` is false: a slot family's own walk uses no family verdicts);
+    from version 19 a function-pointer table column of integer width ends an
+    f0 chain.
     """
 
-    if _callback_drops(ctx, function, fpr):
+    if _callback_drops(ctx, function, fpr, rules):
         return True
-    if rules >= SLOT_VOID_RULES and _slot_void(ctx, function):
+    if _table_drops(ctx, function, fpr, rules):
+        return True
+    if families and rules >= SLOT_VOID_RULES and _slot_void(ctx, function, rules):
         return True
     if not _only_in_vtables(ctx, function):
         return False
@@ -677,17 +736,18 @@ def _contract_drops(ctx: Any, function: int, fpr: bool, rules: int = DRAFT_RULES
     return kind == "void" or (fpr and kind == "gpr") or (not fpr and kind == "float")
 
 
-def _declared_void(ctx: Any, function: int, rules: int = DRAFT_RULES_VERSION) -> bool:
+def _declared_void(ctx: Any, function: int, rules: int = DRAFT_RULES_VERSION, families: bool = True) -> bool:
     """Referenced only through a contract (callback type or vtable slot) declared void.
 
-    From rules version 18 a void slot family counts as such a contract.
+    From rules version 18 a void slot family counts as such a contract (unless
+    ``families`` is false).
     """
 
-    if _callback_returns(ctx).get(function) == "void":
+    if _callback_returns(ctx, rules).get(function) == "void":
         return True
     if _only_in_vtables(ctx, function) and _slot_returns(ctx).get(function) == "void":
         return True
-    return rules >= SLOT_VOID_RULES and _slot_void(ctx, function)
+    return families and rules >= SLOT_VOID_RULES and _slot_void(ctx, function, rules)
 
 
 # -- vtable slot families (rules version 18) ----------------------------------
@@ -695,8 +755,9 @@ def _declared_void(ctx: Any, function: int, rules: int = DRAFT_RULES_VERSION) ->
 # Metrowerks names a this-adjusting stub @N@Method (and @N@M@Method through a
 # virtual base): it adjusts a0 and jumps to the overrider.
 _STUB_PREFIX = re.compile(r"^@(?:-?\d+@)+")
-_FAMILIES: dict[int, dict[int, "SlotFamily"]] = {}
-_FAMILY_VERDICTS: dict[int, dict[int, dict[str, Any]]] = {}
+_FAMILIES: dict[tuple[int, bool], dict[int, "SlotFamily"]] = {}
+# id(ctx) -> {(rules, first member): verdict}
+_FAMILY_VERDICTS: dict[int, dict[tuple[int, int], dict[str, Any]]] = {}
 
 
 class SlotFamily:
@@ -767,7 +828,17 @@ def _signed32(value: int) -> int:
     return value - (1 << 32) if value & 0x80000000 else value
 
 
-def slot_families(ctx: Any) -> dict[int, SlotFamily]:
+def _method_class(ctx: Any, function: int) -> str | None:
+    """The class qualifying a function's mangled name, spelled as `_symbol_class` spells RTTI classes."""
+
+    for name in _function_names(ctx).get(function, ()):
+        parsed = demangle(name)
+        if parsed and parsed.get("qualifier"):
+            return "::".join(parsed["qualifier"])
+    return None
+
+
+def slot_families(ctx: Any, rules: int = DRAFT_RULES_VERSION) -> dict[int, SlotFamily]:
     """Function -> its vtable slot family, derived from the ELF alone.
 
     A Metrowerks vtable is one or more blocks, each an RTTIVTableHeader
@@ -778,9 +849,17 @@ def slot_families(ctx: Any) -> dict[int, SlotFamily]:
     the class's RTTI base list places at N (non-ambiguous entries).  A @N@
     stub joins the overrider it jumps to.  A function stored in several slots
     joins them all (one overrider of several bases' virtuals).
+
+    From rules version 19 a base without a vtable of its own still joins the
+    blocks that place it (decision of 2026-10-24).  Its slots are a prefix of
+    each such block, and a slot holding one of the base's own methods (an
+    inherited, not overridden, entry such as zdb::CTextureRelocMgr::
+    PreGetSprPacket in __vt__Q23zdb15CBatchRelocator+0x10) proves the prefix
+    reaches that slot; slots up to there are joined across the blocks.
     """
 
-    key = id(ctx)
+    joined = rules >= CONTRACT_RULES
+    key = (id(ctx), joined)
     if key in _FAMILIES:
         return _FAMILIES[key]
     rtti: dict[int, str] = {}
@@ -811,6 +890,7 @@ def slot_families(ctx: Any) -> dict[int, SlotFamily]:
     lengths: dict[tuple[str, int], int] = {}
     holders: dict[Any, list[int]] = {}
     own_rtti: dict[str, int] = {}
+    held: dict[tuple[str, int, int], set[int]] = {}
     for address, size, cls in sorted(vtables):
         if address in ctx.reloc32 and ctx.code.word(address) in rtti:
             own_rtti.setdefault(cls, ctx.code.word(address))
@@ -829,6 +909,8 @@ def slot_families(ctx: Any) -> dict[int, SlotFamily]:
                     function = ctx.code.word(site)
                     union(("slot", cls, subobject, slot), ("fn", function))
                     holders.setdefault(function, []).append(site)
+                    held.setdefault((cls, subobject, slot), set()).add(function)
+    placed: list[tuple[str, str, int]] = []
     for cls in sorted({cls for cls, _subobject in lengths}):
         record = own_rtti.get(cls, rtti_by_class.get(cls))
         if record is None or record + 4 not in ctx.reloc32:
@@ -842,7 +924,20 @@ def slot_families(ctx: Any) -> dict[int, SlotFamily]:
             cursor += 8
             if base is None or offset & 0x80000000:
                 continue  # unknown base, or ambiguous: no single subobject
+            placed.append((cls, base, offset))
             for slot in range(min(lengths.get((base, 0), 0), lengths.get((cls, offset), 0))):
+                union(("slot", cls, offset, slot), ("slot", base, 0, slot))
+    if joined:
+        # A base with no vtable: its own methods inherited into a derived block prove its extent.
+        extent: dict[str, int] = {}
+        for cls, base, offset in placed:
+            if (base, 0) in lengths:
+                continue
+            for slot in range(lengths.get((cls, offset), 0)):
+                if any(_method_class(ctx, f) == base for f in held.get((cls, offset, slot), ())):
+                    extent[base] = max(extent.get(base, 0), slot + 1)
+        for cls, base, offset in placed:
+            for slot in range(min(extent.get(base, 0), lengths.get((cls, offset), 0))):
                 union(("slot", cls, offset, slot), ("slot", base, 0, slot))
     nodes = set(holders)
     for function in sorted(holders):
@@ -883,7 +978,7 @@ def _witness_fits(ctx: Any, function: int) -> bool:
     return set(argument_reads(ctx, function)) <= allowed
 
 
-def slot_family_verdict(ctx: Any, function: int) -> dict[str, Any] | None:
+def slot_family_verdict(ctx: Any, function: int, rules: int = DRAFT_RULES_VERSION) -> dict[str, Any] | None:
     """The rules-18 verdict of a function's vtable slot family (decision of 2026-10-23).
 
     The family is void when one override's own body proves void (every exit
@@ -898,19 +993,20 @@ def slot_family_verdict(ctx: Any, function: int) -> dict[str, Any] | None:
     it leaves, followed through callers that return it as in rules version
     17.  A caller that is itself a member hands the value to the slot, which
     is what is being decided, so the walk stops there.  The walk uses the
-    rules-17 contracts, not other families' verdicts.
+    rules-17 contracts, not other families' verdicts; under rules 19 it also
+    uses that version's table and constructor contracts, and the families
+    joined through bases without a vtable.
 
     Returns None for a function in no vtable slot, else a dict with
     ``family``, ``void``, ``witnesses`` and ``blockers`` ((member, reason)).
     """
 
-    family = slot_families(ctx).get(function)
+    family = slot_families(ctx, rules).get(function)
     if family is None:
         return None
-    key = id(ctx)
-    cache = _FAMILY_VERDICTS.setdefault(key, {})
-    if family.members[0] in cache:
-        return cache[family.members[0]]
+    cache = _FAMILY_VERDICTS.setdefault(id(ctx), {})
+    if (rules, family.members[0]) in cache:
+        return cache[(rules, family.members[0])]
     declared = _dwarf_returns(ctx)
     witnesses = []
     blockers: list[tuple[int, str]] = []
@@ -946,21 +1042,24 @@ def slot_family_verdict(ctx: Any, function: int) -> dict[str, Any] | None:
             for fpr, register, name in ((False, 2, "v0"), (True, 0, "f0"))
             if callee_preserves(ctx, member, register, fpr) != "all"
         ]
-        reader = _first_reader(ctx, member, checked, rules=SLOT_VOID_RULES - 1, stop=members)
+        reader = _first_reader(ctx, member, checked, rules=rules, stop=members, families=False)
         if reader:
             blockers.append((member, reader))
+    earlier = slot_families(ctx, SLOT_VOID_RULES).get(function) if rules >= CONTRACT_RULES else family
     verdict = {
         "family": family,
         "void": bool(witnesses) and not blockers and family.method is not None,
         "witnesses": witnesses,
         "blockers": blockers,
+        # Rules version 19 joined it through a base class without a vtable of its own.
+        "joined": earlier is None or earlier.members != family.members,
     }
-    cache[family.members[0]] = verdict
+    cache[(rules, family.members[0])] = verdict
     return verdict
 
 
-def _slot_void(ctx: Any, function: int) -> bool:
-    verdict = slot_family_verdict(ctx, function)
+def _slot_void(ctx: Any, function: int, rules: int = DRAFT_RULES_VERSION) -> bool:
+    verdict = slot_family_verdict(ctx, function, rules)
     return bool(verdict and verdict["void"])
 
 
@@ -982,6 +1081,11 @@ def slot_family_lines(ctx: Any, verdict: dict[str, Any]) -> list[str]:
         if verdict["witnesses"] else "no override's own exits leave v0 and f0 unset"
     )
     lines = [f"{head}; {witness}"]
+    if verdict.get("joined"):
+        lines.append(
+            "slot family joined through a base class without a vtable of its own: a slot holding the base's "
+            "inherited method is the base's slot in every block that places the base (rules version 19)"
+        )
     for member, reason in verdict["blockers"][:3]:
         lines.append(f"slot family blocked by {ctx.label(member)}: {reason}")
     if len(verdict["blockers"]) > 3:
@@ -989,20 +1093,40 @@ def slot_family_lines(ctx: Any, verdict: dict[str, Any]) -> list[str]:
     return lines
 
 
+_NAMES: dict[int, tuple[Any, dict[int, list[str]]]] = {}
+
+
 def _function_names(ctx: Any) -> dict[int, list[str]]:
-    return {row["start"]: row["names"] for row in ctx.functions}
+    cached = _NAMES.get(id(ctx))
+    if cached is None or cached[0] is not ctx.functions:
+        cached = _NAMES[id(ctx)] = (ctx.functions, {row["start"]: row["names"] for row in ctx.functions})
+    return cached[1]
 
 
-def _callback_drops(ctx: Any, function: int, fpr: bool) -> bool:
+def _callback_drops(ctx: Any, function: int, fpr: bool, rules: int = DRAFT_RULES_VERSION) -> bool:
     """The function's declared callback type never hands this register to its caller."""
 
-    kind = _callback_returns(ctx).get(function)
+    kind = _callback_returns(ctx, rules).get(function)
     return kind == "void" or (fpr and kind == "gpr") or (not fpr and kind == "float")
+
+
+def _table_drops(ctx: Any, function: int, fpr: bool, rules: int = DRAFT_RULES_VERSION) -> bool:
+    """A function-pointer table entry whose column returns an integer never hands on f0 (rules version 19).
+
+    `recon table-family` proves the column's return width; an integer width
+    is returned in v0, so the dispatcher never reads an f0 the entry leaves.
+    """
+
+    if rules < CONTRACT_RULES or not fpr:
+        return False
+    from .recon_table import table_contracts
+
+    return function in table_contracts(ctx)
 
 
 def _callers_ignore_v0(
     ctx: Any, start: int, depth: int = 0, seen: frozenset[int] = frozenset(), registers: tuple | None = None,
-    rules: int = DRAFT_RULES_VERSION,
+    rules: int = DRAFT_RULES_VERSION, families: bool = True,
 ) -> tuple[bool, int]:
     """No code ever reads the value this function leaves in v0 or f0.
 
@@ -1032,18 +1156,20 @@ def _callers_ignore_v0(
                     return False, len(sites)
                 passes_on = "returned by caller" in use
             if passes_on and caller not in seen:
-                if caller in _dwarf_void(ctx) or _declared_drop(ctx, caller, fpr):
+                if caller in _dwarf_void(ctx) or _declared_drop(ctx, caller, fpr, rules):
                     continue  # its declared return never carries this register to its callers
-                if (ctx.addr_taken.get(caller) or ctx.word32.get(caller)) and not _contract_drops(ctx, caller, fpr, rules):
+                if (ctx.addr_taken.get(caller) or ctx.word32.get(caller)) and not _contract_drops(
+                    ctx, caller, fpr, rules, families
+                ):
                     return False, len(sites)
-                if not _callers_ignore_v0(ctx, caller, depth + 1, seen | {start}, ((fpr, register),), rules)[0]:
+                if not _callers_ignore_v0(ctx, caller, depth + 1, seen | {start}, ((fpr, register),), rules, families)[0]:
                     return False, len(sites)
     return True, len(sites)
 
 
 def _first_reader(
     ctx: Any, start: int, checked: list[tuple[bool, str]], rules: int = DRAFT_RULES_VERSION,
-    stop: frozenset[int] = frozenset(),
+    stop: frozenset[int] = frozenset(), families: bool = True,
 ) -> str | None:
     """The first code that reads what ``start`` leaves in v0/f0, with its caller chain, or None.
 
@@ -1065,9 +1191,11 @@ def _first_reader(
                 if passes_on and caller not in seen:
                     if caller in stop:
                         continue  # a member of the slot family: it hands the value to the slot
-                    if caller in _dwarf_void(ctx) or _declared_drop(ctx, caller, fpr):
+                    if caller in _dwarf_void(ctx) or _declared_drop(ctx, caller, fpr, rules):
                         continue  # declared return (DWARF) never carries this register to its callers
-                    if (ctx.addr_taken.get(caller) or ctx.word32.get(caller)) and not _contract_drops(ctx, caller, fpr, rules):
+                    if (ctx.addr_taken.get(caller) or ctx.word32.get(caller)) and not _contract_drops(
+                        ctx, caller, fpr, rules, families
+                    ):
                         return (
                             f"{name} passed on by {ctx.label(caller)}, whose address is taken or stored in a table "
                             f"(chain: {' -> '.join(chain + [ctx.label(caller)])})"
@@ -1093,8 +1221,8 @@ def _slot_receiver(ctx: Any, function: int) -> str | None:
     return f"receiver: stored in vtable slot {ctx.object_for(min(sites))}, so it is a virtual member and a0 is this"
 
 
-def _slot_evidence(ctx: Any, function: int) -> str:
-    verdict = slot_family_verdict(ctx, function) or {}
+def _slot_evidence(ctx: Any, function: int, rules: int = DRAFT_RULES_VERSION) -> str:
+    verdict = slot_family_verdict(ctx, function, rules) or {}
     witness = ctx.label(verdict["witnesses"][0]) if verdict.get("witnesses") else "?"
     return (
         f"vtable slot family of {_family_summary(ctx, verdict)}: {witness} has no path that writes v0 or f0 "
@@ -1109,14 +1237,14 @@ def draft_function(
     """One plan row: decided by a rule (``draft_rule``), or open for the planner.
 
     ``rules`` selects a rules version from ``RULES_VERSIONS``; 17 leaves out
-    the slot-family rule of version 18.
+    the slot-family rule of version 18, and 18 the contracts of version 19.
     """
 
     if rules not in RULES_VERSIONS:
         raise SocomError(f"draft rules version {rules} is not one of {', '.join(map(str, RULES_VERSIONS))}")
     drafted = _draft_row(ctx, row, live_name, types, rules)
     address = int(row["address"], 16)
-    if drafted.get("draft") == "open" and rules >= SLOT_VOID_RULES and _is_stub(ctx, address) and _slot_void(ctx, address):
+    if drafted.get("draft") == "open" and rules >= SLOT_VOID_RULES and _is_stub(ctx, address) and _slot_void(ctx, address, rules):
         drafted["open_reason"] = (
             "this-adjusting @N@ stub whose vtable slot family is void (rules version 18): the return is void; "
             "its receiver is the base part at +N, so a planner decides the parameters"
@@ -1137,8 +1265,7 @@ def _draft_row(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIndex,
         return {**open_row, "open_reason": 'thunk: Ghidra derives its signature from the target'}
     # The slot-family rule (version 18) decides only what the older rules leave
     # open; @N@ stubs stay open (their receiver is the base part at +N).
-    slot_void = rules >= SLOT_VOID_RULES and not _is_stub(ctx, address) and _slot_void(ctx, address)
-    older = SLOT_VOID_RULES - 1
+    slot_void = rules >= SLOT_VOID_RULES and not _is_stub(ctx, address) and _slot_void(ctx, address, rules)
     params = list((parsed or {}).get("params") or [])
     if params == [{"modifiers": [], "kind": "builtin", "name": "void"}]:
         params = []
@@ -1185,7 +1312,7 @@ def _draft_row(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIndex,
                             ["the DWARF record declares an explicit void return (FT_void): a value left in v0/f0 is residue"]
                             if declared_void else
                             [f"every exit leaves v0 and f0 unset or a callee's result or scratch value ({len(exits)} exits)",
-                             _slot_evidence(ctx, address)]
+                             _slot_evidence(ctx, address, rules)]
                             if by_slot else
                             [f"every exit leaves v0 and f0 unset or an unread leftover ({len(exits)} exits)"]
                             if stage2_prototype["return_type"] == "void" else []
@@ -1256,7 +1383,7 @@ def _draft_row(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIndex,
     if not unset and not sinit:
         through, exits_through = _exits_pass_through(ctx, address)
         ignored, site_count = _callers_ignore_v0(ctx, address, rules=rules)
-        if through and ignored and (site_count or _declared_void(ctx, address, older)):
+        if through and ignored and (site_count or _declared_void(ctx, address, rules, families=False)):
             unset, exits, pass_through = True, exits_through, True
         elif slot_void:
             # The slot family's verdict covers every member's exits and direct callers.
@@ -1274,7 +1401,7 @@ def _draft_row(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIndex,
         if not slots or any(not str(slot).startswith(".p__sinit") for slot in slots):
             return {**open_row, "open_reason": 'static initializer referenced other than by its .p__sinit word'}
         slots = []
-    if (slots or ctx.addr_taken.get(address)) and not _declared_void(ctx, address, older):
+    if (slots or ctx.addr_taken.get(address)) and not _declared_void(ctx, address, rules, families=False):
         if not slot_void:
             return {**open_row, "open_reason": 'address taken or stored in a table: an override or callback contract may apply'}
         by_slot = True
@@ -1321,7 +1448,7 @@ def _draft_row(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIndex,
          f"every exit leaves v0 and f0 unset ({len(exits)} jr ra)" if not sinit else
          f"static initializer: {len(exits)} exit(s), no direct call sites; the runtime calls it through the "
          "void (**)(void) .p__sinit table (__initialize_cpp_rts) and never reads v0"),
-        _slot_evidence(ctx, address) if by_slot else
+        _slot_evidence(ctx, address, rules) if by_slot else
         "no word refs or address-taken sites" if not live_name.startswith("__sinit_")
         else "referenced only by its own .p__sinit table word",
     ]
@@ -1364,6 +1491,22 @@ def draft_plan(
         "functions": functions,
         "globals": [],
     }
+
+
+def check_rules_version(plan: dict[str, Any]) -> int:
+    """The rules version `recon draft --check` uses for a plan when none is given.
+
+    A plan keeps the rules it was drafted under (its ``draft.rules_version``).
+    Plans drafted before version 19, or with no draft block, are checked under
+    version 18, the version every accepted plan was last validated with; a
+    row that version 19 would decide differently stays as accepted, and
+    ``--rules 19`` shows the new decision.
+    """
+
+    recorded = (plan.get("draft") or {}).get("rules_version")
+    if isinstance(recorded, int) and not isinstance(recorded, bool) and recorded in RULES_VERSIONS and recorded >= CONTRACT_RULES:
+        return recorded
+    return SLOT_VOID_RULES
 
 
 def _decision(row: dict[str, Any]) -> Any:
@@ -1441,8 +1584,8 @@ def void_verdict(ctx: Any, start: int, rules: int = DRAFT_RULES_VERSION) -> str:
     leads to it, so a planner or reviewer need not walk the callers by hand.
     From rules version 18 a function stored in vtables also gets its slot
     family's verdict: the family, the override whose body proves void, and
-    each blocking override with its reader.  ``rules=17`` prints the earlier
-    verdict.
+    each blocking override with its reader.  ``rules=17`` and ``rules=18``
+    print the earlier verdicts.
     """
 
     if rules not in RULES_VERSIONS:
@@ -1458,7 +1601,7 @@ def void_verdict(ctx: Any, start: int, rules: int = DRAFT_RULES_VERSION) -> str:
             "returned through a hidden a0 and leave v0 untouched)"
         )
         return "\n".join(lines)
-    family = slot_family_verdict(ctx, start) if rules >= SLOT_VOID_RULES else None
+    family = slot_family_verdict(ctx, start, rules) if rules >= SLOT_VOID_RULES else None
     family_lines = slot_family_lines(ctx, family) if family else []
     unset, rows = _exits_unset(ctx, start)
     if unset:

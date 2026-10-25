@@ -269,6 +269,43 @@ class _Flow:
             after_call = self.fn.decoded.get(pc - 4, {}).get("kind") in ("call", "call-branch")
             self.gwrites[pc] = self.fn.exit_writes[pc]
             self.fwrites[pc] = _fpr_writes(ctx.code.word(pc)) | (FPR_CLOBBERED if after_call else frozenset())
+        self.switches: dict[int, frozenset[int]] = {}
+        self._own_switch_edges()
+        # The jump-table load feeding each proven switch jump (`lw v0,0(v0); jr v0`)
+        # leaves a case address, never a value: load site -> the jump.
+        self.switch_loads: dict[int, int] = {
+            d: pc
+            for pc in sorted(self.switches)
+            for d in self.defs(pc, (ctx.code.word(pc) >> 21) & 0x1F)
+            if isinstance(d, int)
+        }
+
+    def _own_switch_edges(self) -> None:
+        """Give each proven switch ``jr`` only the cases of its own jump table.
+
+        The shared graph links every indirect jump to every jump-table target
+        in the function.  With two switches, the first switch's jump then
+        reaches the second switch's cases without passing the code between
+        them, so a register that code sets on every real path (SetAiMode's
+        `lui a3` in the delay slot before the second switch) looked live on
+        entry.  A jump whose table is proven keeps only edges to its own
+        entries; edges to targets that no proven table holds stay.
+        """
+
+        jumps = [
+            pc for pc in range(self.start, self.end, 4)
+            if self.fn.decoded[pc]["kind"] == "jr" and (self.ctx.code.word(pc) >> 21) & 0x1F != 31
+        ]
+        for pc in jumps:
+            entries = _switch_entries(self.ctx, self, self.start, pc)
+            if entries is not None:
+                self.switches[pc] = frozenset(entries)
+        if not self.switches:
+            return
+        owned = frozenset().union(*self.switches.values())
+        for pc, entries in self.switches.items():
+            for target in owned - entries:
+                self.fn.predecessors.get(target, set()).discard(pc + 4)
 
     def reachable(self, pc: int) -> bool:
         return pc == self.start or bool(self.fn.predecessors.get(pc))
@@ -580,8 +617,22 @@ def _describe_def(ctx: _Context, flow: _Flow, definition: Any, result_register: 
     return f"{ctx.text(definition)}@0x{definition:x}"
 
 
+def _describe_exit_v0(ctx: _Context, flow: _Flow, definition: Any) -> str:
+    """An exit's v0 definition; a switch's jump-table load is a case address, not a value."""
+
+    jump = flow.switch_loads.get(definition) if isinstance(definition, int) else None
+    if jump is not None and 2 in _writes(ctx.code.word(definition))[0]:
+        return f"case-address({ctx.text(definition)}@0x{definition:x} for jr@0x{jump:x}: no value)"
+    return _describe_def(ctx, flow, definition)
+
+
 def return_sources(ctx: _Context, start: int) -> list[str]:
-    """What sets v0 and f0 at each exit (jr ra and tail jumps)."""
+    """What sets v0 and f0 at each exit (jr ra and tail jumps).
+
+    A switch's jump-table load reaching an exit (``lw v0,0(v0); jr v0`` on a
+    path whose case writes nothing) is shown as a case address: it is not a
+    value the function returns.
+    """
 
     flow = ctx.flow(start)
     rows = []
@@ -591,7 +642,7 @@ def return_sources(ctx: _Context, start: int) -> list[str]:
             continue
         if insn == JR_RA:
             slot = pc + 4
-            v0 = sorted(_describe_def(ctx, flow, d) for d in _through_calls(ctx, flow, flow.after(slot, 2), 2, False))
+            v0 = sorted(_describe_exit_v0(ctx, flow, d) for d in _through_calls(ctx, flow, flow.after(slot, 2), 2, False))
             f0 = sorted(
                 _describe_def(ctx, flow, d) for d in _through_calls(ctx, flow, flow.after(slot, 0, fpr=True), 0, True)
             )
@@ -607,7 +658,7 @@ def return_sources(ctx: _Context, start: int) -> list[str]:
                         parts.append(f"{name}<-ret({ctx.label(target)})")
                         continue
                     before = _through_calls(ctx, flow, flow.after(pc + 4, register, fpr), register, fpr)
-                    shown = sorted(_describe_def(ctx, flow, d) for d in before)
+                    shown = sorted((_describe_def if fpr else _describe_exit_v0)(ctx, flow, d) for d in before)
                     parts.append(f"{name}<-{'ret(' + ctx.label(target) + ') | ' if how == 'some' else ''}{' | '.join(shown)}")
                 rows.append(text + (": " + "; ".join(parts) if parts else ""))
         elif insn >> 26 == 0x00 and insn & 0x3F == 0x08:
@@ -629,10 +680,19 @@ def _is_switch(ctx: _Context, flow: Any, start: int, pc: int) -> bool:
     a table whose relocated words all point inside this function.
     """
 
+    switches = getattr(flow, "switches", None)
+    if switches is not None:
+        return pc in switches
+    return _switch_entries(ctx, flow, start, pc) is not None
+
+
+def _switch_entries(ctx: _Context, flow: Any, start: int, pc: int) -> list[int] | None:
+    """The case addresses of the jump table ``jr <reg>`` at ``pc`` uses, or None (see ``_is_switch``)."""
+
     register = (ctx.code.word(pc) >> 21) & 0x1F
     defs = flow.defs(pc, register, False)
     if not defs or any(not isinstance(d, int) or ctx.code.word(d) >> 26 != 0x23 for d in defs):
-        return False
+        return None
     # The bounds check (`sltiu rt,rs,N`) before the jump gives the table length;
     # without it, the table runs while its relocated words point inside.
     bound = None
@@ -652,8 +712,8 @@ def _is_switch(ctx: _Context, flow: Any, start: int, pc: int) -> bool:
                 break
             entries.append(target)
         if entries and (bound is None or len(entries) == bound) and all(start <= t < flow.end for t in entries):
-            return True
-    return False
+            return entries
+    return None
 
 
 _SAVED_GPRS = frozenset((16, 17, 18, 19, 20, 21, 22, 23, 30))

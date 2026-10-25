@@ -1727,19 +1727,22 @@ def _recon_asm(arguments: argparse.Namespace) -> int:
 def _recon_draft(arguments: argparse.Namespace) -> int:
     """Draft a plan's rule-decided rows, or check a plan's drafted rows against a fresh draft."""
 
-    from .recon_draft import check_drafted_rows, draft_plan
+    from .recon_draft import DRAFT_RULES_VERSION, check_drafted_rows, check_rules_version, draft_plan
 
     root = _root(arguments)
     tracker = load_tracker(tracker_path(root))
     if arguments.check:
         plan = load_json(_build_path(root, arguments.check, "reconstruction plans"))
-        draft = draft_plan(root, tracker, plan["work_item_id"], arguments.bridge_url, arguments.rules)
+        # A plan keeps the rules it was drafted under unless --rules says otherwise.
+        rules = arguments.rules if arguments.rules is not None else check_rules_version(plan)
+        draft = draft_plan(root, tracker, plan["work_item_id"], arguments.bridge_url, rules)
         problems = check_drafted_rows(draft, plan)
         drafted = sum(1 for row in plan.get("functions", []) if row.get("draft_rule"))
         _emit({
             "ok": not problems,
             "mutation_performed": False,
-            "rules_version": arguments.rules,
+            "rules_version": rules,
+            "plan_rules_version": (plan.get("draft") or {}).get("rules_version"),
             "drafted_rows": drafted,
             "open_rows": len(plan.get("functions", [])) - drafted,
             "problems": problems,
@@ -1747,7 +1750,8 @@ def _recon_draft(arguments: argparse.Namespace) -> int:
         return 0 if not problems else 1
     if not arguments.item or not arguments.output:
         raise SocomError("recon draft needs --item and --output (or --check <plan>)")
-    draft = draft_plan(root, tracker, arguments.item.removesuffix("-apply"), arguments.bridge_url, arguments.rules)
+    rules = arguments.rules if arguments.rules is not None else DRAFT_RULES_VERSION
+    draft = draft_plan(root, tracker, arguments.item.removesuffix("-apply"), arguments.bridge_url, rules)
     output = _build_path(root, arguments.output, "reconstruction plans")
     atomic_write_json(output, draft)
     rules: dict[str, int] = {}
@@ -2974,7 +2978,8 @@ def build_parser() -> argparse.ArgumentParser:
     recon_draft.add_argument("--output")
     recon_draft.add_argument("--check")
     recon_draft.add_argument("--bridge-url")
-    recon_draft.add_argument("--rules", type=int, choices=RULES_VERSIONS, default=DRAFT_RULES_VERSION)
+    # Default: the newest rules to draft; with --check, the plan's own (check_rules_version).
+    recon_draft.add_argument("--rules", type=int, choices=RULES_VERSIONS, default=None)
     recon_draft.set_defaults(handler=_recon_draft)
     recon_void = recon_commands.add_parser("void")
     recon_void.add_argument("--function", nargs="+", required=True)

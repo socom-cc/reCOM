@@ -38,6 +38,29 @@ def test_return_sources_see_delay_slots(ctx) -> None:
     assert return_sources(ctx, 0x1F2030) == ["jr ra@0x1f2030: v0<-move v0,zero@0x1f2034; f0<-entry"]
 
 
+def test_each_switch_jumps_only_to_its_own_cases(ctx) -> None:
+    # CSealCtrlAi::SetAiMode has two switches; the second one's cases used to be
+    # reachable from the first jump, past the `lui a3` (0x266dfc) and `lui a2`
+    # that every real path runs, so a2/a3 looked read on entry (issue 790e12b3).
+    flow = ctx.flow(0x266BF0)
+    assert sorted(flow.switches) == [0x266D94, 0x266E14]
+    assert 0x266E70 in flow.switches[0x266E14] and 0x266E70 not in flow.switches[0x266D94]
+    assert 0x266D98 not in flow.fn.predecessors[0x266E70]
+    assert set(argument_reads(ctx, 0x266BF0)) == {"a0", "a1"}
+
+
+def test_switch_table_loads_are_not_exit_values(ctx) -> None:
+    from tools._socom.recon_table import _Values
+
+    # CTParam::Tick: the 13 jump-table loads reached the exit only through other switches' cases.
+    assert not any("lw v0,0(v0)" in row for row in return_sources(ctx, 0x2B8230))
+    # CAiEvent::GetEventRate returns f0; a case that writes nothing leaves the case address in v0.
+    (row,) = return_sources(ctx, 0x17FFB0)
+    assert "case-address(lw v0,0(v0)@0x17ffd4 for jr@0x17ffd8: no value)" in row
+    values = _Values(ctx).exits(0x17FFB0)[1]
+    assert [v["kind"] for v in values if v["site"] == 0x17FFD4] == ["unset"]
+
+
 def test_facts_report_caller_narrowing_and_slots(ctx) -> None:
     text = function_facts(ctx, 0x2EF610, caller_limit=10)
     assert "call sites: 5 (0 tail)" in text

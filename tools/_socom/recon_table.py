@@ -23,6 +23,7 @@ symbols, DWARF 1 records and instruction decoding.
 
 from __future__ import annotations
 
+import bisect
 import math
 from typing import Any
 
@@ -409,6 +410,10 @@ class _Values:
         seen = seen | {(d, register)}
         insn = ctx.code.word(d)
         text = f"{ctx.text(d)}@0x{d:x}"
+        jump = getattr(flow, "switch_loads", {}).get(d)
+        if jump is not None and register in _writes(insn)[0]:
+            # A switch's jump-table load (`lw v0,0(v0); jr v0`) leaves a case address, not a value.
+            return [_value("unset", site=d, text=f"the case address {text} for jr@0x{jump:x}: no value")]
         previous = flow.fn.decoded.get(d - 4, {})
         if d != flow.start and previous.get("kind") in ("call", "call-branch") and not (
             register in _SAVED_GPRS and register in _writes(insn)[0]
@@ -802,6 +807,69 @@ def table_family(ctx: Any, key: str, column: int | None = None, stride: int | No
         "entries": rows,
         "verdict": verdict,
     }
+
+
+_CONTRACTS: dict[int, tuple[Any, dict[int, str]]] = {}
+
+
+def table_contracts(ctx: Any) -> dict[int, str]:
+    """Function -> the integer return width its function-pointer table column proves (rules version 19).
+
+    Decision of 2026-10-24 ("Yes, all three"): an entry of a column whose
+    ``table_family`` verdict is an integer width is called only through the
+    column's function-pointer type, which returns in v0, so a caller of the
+    entry never reads an f0 the entry leaves (like a callback declared to
+    return an integer, rules version 11).  Only functions whose every
+    reference is a word of such a column qualify: no address formed in code
+    and no other table, vtable included.  A thunk entry is the table word, so
+    the thunk qualifies; its target is reached through the thunk's tail jump.
+    """
+
+    cached = _CONTRACTS.get(id(ctx))
+    if cached is not None and cached[0] is ctx:
+        return cached[1]
+    holders: dict[int, set[int]] = {}
+    for site in sorted(ctx.reloc32):
+        if ctx.code.word(site) not in ctx.size:
+            continue
+        position = bisect.bisect_right(ctx.object_starts, site) - 1
+        if position < 0:
+            continue
+        start = ctx.object_starts[position]
+        size, name = ctx.objects[start]
+        if site < start + size and not name.startswith(("__vt__", "__RTTI__")):
+            holders.setdefault(start, set()).add(site - start)
+    widths: dict[int, set[str]] = {}
+    words: dict[int, int] = {}
+    for start in sorted(holders):
+        size, _name = ctx.objects[start]
+        if not any(site["indexed"] for site in _dispatch_sites(ctx, start, size)):
+            continue  # no array dispatch: no shared call site, so no verdict
+        stride = None
+        done: set[int] = set()
+        for offset in sorted(holders[start]):
+            if stride and offset % stride in done:
+                continue
+            try:
+                result = table_family(ctx, f"0x{start:x}", column=offset)
+            except SocomError:
+                continue
+            stride = result["stride"]
+            done.add(int(result["column"].removeprefix("+"), 16))
+            width = result["verdict"]["width"]
+            if not width:
+                continue
+            for entry in result["entries"]:
+                function = int(entry["address"], 16)
+                widths.setdefault(function, set()).add(width)
+                words[function] = words.get(function, 0) + len(entry["slots"])
+    found = {
+        function: next(iter(kinds))
+        for function, kinds in widths.items()
+        if len(kinds) == 1 and not ctx.addr_taken.get(function) and words[function] == len(ctx.word32.get(function, ()))
+    }
+    _CONTRACTS[id(ctx)] = (ctx, found)
+    return found
 
 
 def table_family_text(result: dict[str, Any]) -> str:

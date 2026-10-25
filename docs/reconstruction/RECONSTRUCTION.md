@@ -150,7 +150,10 @@ row `"draft": "open"` for the planner:
 
 Rows keep their `draft_rule`. Planners do not edit them.
 `recon draft --check <plan>` re-derives them and fails on any difference, or
-on a row claiming a rule the tools did not apply. Reviewers run it and then
+on a row claiming a rule the tools did not apply. It uses the rules version
+the plan records in `draft.rules_version`; a plan drafted before rules
+version 19 is checked under version 18, the version every accepted plan was
+last validated with, and `--rules N` overrides it. Reviewers run it and then
 review only the open rows. A row written by hand that the rules
 now decide must agree in substance: unresolved, or the same types. Before adoption, the rules (version 2) reproduced
 the decision of all 95 accepted plans for every row they decided: 868 of
@@ -280,7 +283,8 @@ void family also ends other functions' chains, like a declared slot
 contract. `recon void --function` prints the verdict and the blocking chain.
 For a function stored in vtables it also prints the family, the override
 that proves void, and each blocking override with its reader. `--rules 17`
-(also on `recon draft`) gives the earlier verdicts.
+(also on `recon draft`) gives the earlier verdicts. Rules version 19 (below)
+also joins families through a base that has no vtable of its own.
 
 Table-family rule (decision of 2026-10-24, "Yes, with conflict check"). The
 entries of one function-pointer table column share the column's declared
@@ -316,8 +320,56 @@ nothing. `recon table-family --table <symbol|address> [--column N]
 narrowing with width and sign, constant-only, 0/1 compare, typed callee or
 member value, unnarrowed) and its argument reads. It prints `VERDICT
 <width>` with the witnesses, or `VERDICT open` with the conflicting entries.
-This is an evidence rule for planner rows, not a `recon draft` rule, so
-drafted rows and their rules version do not change.
+This is an evidence rule for planner rows, not a `recon draft` rule; only
+its use as a contract that ends f0 chains (rules version 19, below) reaches
+drafted rows.
+
+Rules version 19 (decision of 2026-10-24, "Yes, all three") lets three more
+contracts end a leftover v0/f0 chain, so the function that leaves the value
+can be void. Each only removes a blocker: the conflict checks above still
+apply and no type is asserted.
+
+- A function-pointer table entry whose column has an integer `recon
+  table-family` verdict is called only through the column's type, which
+  returns in v0, so an f0 chain ends there, as at a callback declared to
+  return an integer (rules version 11). Every reference to the entry must be
+  a word of such a column: no address formed in code, no other table or
+  vtable. UICommandTable's entries (UISysPostInit, UISetMenuState,
+  OnRemoveEquipment, ...) end the f0 chains of the callees they return.
+- A `__ct` constructor that returns its entry a0 in v0 at every exit
+  (through plain copies) and whose address is never formed in code or
+  stored keeps the `void *` contract of every DWARF `__ct` record, so an f0
+  chain ends there, as at a destructor (rules version 16).
+  CSaveModule::CSaveModule ends CSaveManager::RegisterModule's chain to
+  `__sinit_fts_mission.cpp` (issue bab16750), so RegisterModule is void.
+- A base class without a vtable of its own still links the blocks that
+  place it. Its slots are a prefix of each such block, and a slot that holds
+  one of the base's own (inherited, not overridden) methods proves that the
+  prefix reaches it, so the slots up to there are one family across those
+  blocks. zdb::CTextureRelocMgr::PreGetSprPacket in
+  `__vt__Q23zdb15CBatchRelocator+0x10` joins
+  CDblBufTextureRelocator::PreGetSprPacket in its own vtable's slot +0x10,
+  and the base's empty body proves the family void.
+
+Version 19 also closes a gap in the version 11 callback reading: a null
+argument (`move a3,zero`) fits any pointer parameter, so a reading that a
+null `void *` used to reject is tried again. CZWeapon::PreTick, passed in a2
+to `CSched_Manager::AddTask(const char *, bool (*)(float, void *), float,
+void *)`, takes the declared `bool` result, which ends
+CZProjectileList::PreTick's f0 chain. A slot family's own walk uses these
+contracts but still no other family's verdict. `recon void` marks a family
+that version 19 joined. `--rules 18` (also on `recon draft`) gives the
+earlier verdicts.
+
+`recon facts` gives each proven switch jump (`lw v0,0(v0); jr v0` through a
+jump table of the function) only the cases of its own table. Earlier every
+switch reached every table's cases, so a register that the code between two
+switches sets on every path looked live on entry (CSealCtrlAi::SetAiMode's
+`lui a3` in the delay slot before its second switch: issue 790e12b3), and
+jump-table loads looked like exit values (CTParam::Tick). The load a switch
+jumps through is a case address, never a value: where a case leaves it in v0
+at an exit, the facts show `case-address(...: no value)` and `recon
+table-family` counts that exit as leaving v0 unset.
 
 A function whose every exit returns a relocated pointer to a NUL-terminated
 string (`recon bytes` shows the word's target and its text) returns
