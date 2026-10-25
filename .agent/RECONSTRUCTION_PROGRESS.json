@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2444,
+  "revision": 2449,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -126109,6 +126109,10 @@
       "title": "Apply reviewed reconstruction group 299 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T08:19:35Z",
+        "by": "socom-verifier-r79"
+      },
       "batch": {
         "batch_number": 300,
         "function_count": 32,
@@ -126267,22 +126271,40 @@
         "socom:recon-group:fe5f3b0ac9beaf35a1e5-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-e0348950dcc09192b608.json sha256:87b6992c13ffac72f19a5deb7f26fbeef0827d4f1afd0dd7cf1346366e15fdeb; revised after review: gIRXLoaded bool (byte-flag rule), zNetLoadIRX returns bool (returns the bool global unchanged); recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (25 calls: 24 set_function_prototype, 1 apply_data_type; 8 skips = unresolved rows)",
+        "plan sha256:87b6992c13ffac72f19a5deb7f26fbeef0827d4f1afd0dd7cf1346366e15fdeb; recon validate ok; recon draft --check ok (rules 19); recon program equals build/apply; preflight-batch ok (25 calls: 24 set_function_prototype, 1 apply_data_type; 8 skips = the 8 unresolved rows). Delta vs the rejected 244233e7 plan is only two rows. 0x4766c8 gIRXLoaded is now bool, a proven 1-byte flag: lbu@0x321e38 is only tested by beq v0,zero; lbu@0x322120 is returned unchanged; sb@0x3220e4 stores li 1; sb@0x321e7c stores InitFromCombo's 0/1 result (move s0,zero / daddiu s0,zero,1@0x3feea0 -> move v0,s0@0x3fef94). 0x321e20 zNetLoadIRX is bool (CZNetwork * this): its value exit returns the bool global zero-extended and unchanged (lbu@0x322120 -> jr ra@0x32213c); the other exits are the constants 1 (0x321e48) and 0; the receiver is proven (move s3,a0@0x321e40; lbu 229(s3)); the only caller zNetInitEx passes its receiver (move a0,s1@0x321d80) and tests v0; recon void open; no DWARF. The other rows were verified in the first review: CSaveLoad::Load CWorld * (m_world +0), SealProcessAltitude IntersectStruct * (m_Intersects element), UICommandTable entries uchar (table-family VERDICT uchar), SetupJukebox restates LoadPlaylists, rt_msg_client_connect unresolved."
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g167",
+        "submitted_at": "2026-10-25T08:16:16Z",
+        "summary": "24 prototypes, 8 unresolved, 1 globals"
+      },
       "id": "socom:recon-group:e0348950dcc09192b608",
       "kind": "recon-plan-group",
-      "lease": {
-        "claimed_at": "2026-10-25T07:47:45Z",
-        "expires_at": "2026-10-25T09:47:45Z",
-        "heartbeat_at": "2026-10-25T07:47:45Z",
-        "owner": "socom-recon-planner-g167"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-recon-planner-g167",
+            "submitted_at": "2026-10-25T08:02:38Z",
+            "summary": "24 prototypes, 8 unresolved, 1 globals"
+          },
+          "handoff_evidence": [
+            "plan build/recon-plans/socom-recon-group-e0348950dcc09192b608.json sha256:244233e75129e0492c2b9fa5ead14e8b9f2b0a257804fc5ced5bf3e43e0f4f29; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (25 calls: 24 set_function_prototype, 1 apply_data_type; 8 skips = unresolved rows)"
+          ],
+          "reason": "0x4766c8 gIRXLoaded: type bool per the user's byte-flag rule (decision 2026-10-24), not uchar. recon global-facts --address 0x4766c8: 1-byte .symtab LOCAL OBJECT in .bss, no DWARF, four byte accesses all in CZNetwork::zNetLoadIRX: lbu at 0x321e38 only tested against 0 (beq v0,zero,0x321e4c); lbu at 0x322120 returned unchanged as v0 (zNetLoadIRX's only caller zNetInitEx only tests it, beq v0,zero at 0x321d84); sb at 0x3220e4 stores the constant 1 (li v0,1 at 0x3220e0); sb at 0x321e7c stores CNetCnf::InitFromCombo's result, which is only 0 or 1 (recon asm 0x3feb80: every branch to 0x3feea4 sets move s0,zero in its delay slot, the fall-through sets daddiu s0,zero,1 at 0x3feea0, exit move v0,s0 at 0x3fef94). No arithmetic, so it is a proven flag. Fix: global type bool (/bool unique), evidence citing these accesses; drop 'globals cannot be bool'. Then check zNetLoadIRX's open return again: it returns this flag or the constants 0/1. Every other row checks out: sha256 244233e7... matches, validate ok, draft --check ok (rules 19), program equals build/apply, preflight-batch 25 calls with 8 skips = the 8 unresolved rows; CSaveLoad::Load CWorld * (m_world +0 lw v0,0(s0)@0x22a8c4), SealProcessAltitude IntersectStruct * (m_Intersects element, 32-byte stride), three UICommandTable entries uchar (table-family VERDICT uchar), SetupJukebox thunk equals the live LoadPlaylists signature, rt_msg_client_connect unresolved (a2/a3 die at jal rt_mutex_lock), no DWARF record for any open row.",
+          "rejected_at": "2026-10-25T08:11:08Z",
+          "rejected_by": "socom-verifier-r79"
+        }
+      ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "accepted",
       "title": "Plan reconstruction group 300 (height 29, 32 functions)"
     },
     {
@@ -126342,7 +126364,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 300 in Ghidra"
     },
     {
