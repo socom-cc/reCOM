@@ -1102,8 +1102,11 @@
       "kind": "problem",
       "reported_at": "2026-10-24T04:44:13Z",
       "reported_by": "socom-ghidra-reconstructor",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-25T05:31:12Z",
+        "summary": "rules v19 (commit 81a2789): a __ct returning its entry a0 at every exit, with no table or address refs, ends f0 chains; CSaveManager::RegisterModule 0x3f7b20 is VERDICT void under v19 (repair pending)."
+      },
+      "status": "resolved",
       "summary": "recon void: constructors could end f0 chains (rules v19 candidate)"
     },
     {
@@ -1152,8 +1155,11 @@
       "kind": "problem",
       "reported_at": "2026-10-24T21:16:35Z",
       "reported_by": "socom-ghidra-reconstructor",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-25T05:31:12Z",
+        "summary": "commit 81a2789: each proven switch jr now reaches only its own jump table cases; CSealCtrlAi::SetAiMode 0x266bf0 reads a0, a1 only; jump-table loads are no longer exit values."
+      },
+      "status": "resolved",
       "summary": "recon facts reports a delay-slot lui/addiu pair as an argument-register entry read"
     },
     {
@@ -1162,11 +1168,24 @@
       "kind": "problem",
       "reported_at": "2026-10-24T21:18:52Z",
       "reported_by": "socom-ghidra-reconstructor",
+      "resolution": {
+        "resolved_at": "2026-10-25T05:31:13Z",
+        "summary": "rules v19 (commit 81a2789): table entries with an integer table-family verdict end f0 chains, and a slot family can be joined through a base without its own vtable (0x380600 with 0x2f9cf0 is VERDICT void). Affected accepted rows listed in build/facts/rules-v19-verdict-changes.txt for a repair."
+      },
+      "status": "resolved",
+      "summary": "recon void ignores table-family verdicts and cannot join slot families without a base vtable"
+    },
+    {
+      "details": "Group 294/295 planner (socom-recon-planner-g162): (1) recon asm shows COP2 macro-mode VU0 instructions (vmulax/vmadday/vmaddaz/vmaddw etc.) only as raw 'cop2 0x...' words, so planners hand-decode them to prove no vf/ACC register is read before load (e.g. Particle::Create3Sided). Decode COP2 macro instructions with their vf/vi operands. (2) recon facts reports exits like 'move v0,s0' without the values that reach s0, so constant-only returns through saved registers are traced by hand (CAiMap::Read, SetRoute, LoadAssetLib_PS2, CSaveManager::Save).",
+      "id": "socom:workspace-issue:f025cc54770fb770d300",
+      "kind": "problem",
+      "reported_at": "2026-10-25T05:53:20Z",
+      "reported_by": "socom-ghidra-reconstructor",
       "resolution": null,
       "status": "open",
-      "summary": "recon void ignores table-family verdicts and cannot join slot families without a base vtable"
+      "summary": "recon asm prints VU0 macro instructions as raw cop2 words; recon facts does not trace values returned through saved registers"
     }
   ],
-  "revision": 131,
+  "revision": 135,
   "schema_version": 1
 }

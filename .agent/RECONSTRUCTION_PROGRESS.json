@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2394,
+  "revision": 2402,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -124307,8 +124307,14 @@
         "socom:recon-group:f70a3f184c441a68ee7d-apply",
         "socom:recon-group:fe5f3b0ac9beaf35a1e5-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-1c4c80d445ca1d0a854e.json sha256:b35951f1cabfbd616533755aa1fa5e65daa01f7ff89f05a4bece40b63f1a7fea; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (30 set_function_prototype)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g162",
+        "submitted_at": "2026-10-25T05:52:48Z",
+        "summary": "30 prototypes, 2 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:1c4c80d445ca1d0a854e",
       "kind": "recon-plan-group",
       "lease": null,
@@ -124317,7 +124323,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 294 (height 26, 32 functions)"
     },
     {
@@ -124475,8 +124481,14 @@
         "socom:recon-group:f758fb41aefddaf2449b-apply",
         "socom:recon-group:f85fe88d2423e937ab4f-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-ab4faf869c29139ac247.json sha256:279b6bc8d178479f4653eb20dab7bb9ab40507858dfd4b2c9b917f1e6565fbc1; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (10 set_function_prototype)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g162",
+        "submitted_at": "2026-10-25T05:52:54Z",
+        "summary": "10 prototypes, 9 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:ab4faf869c29139ac247",
       "kind": "recon-plan-group",
       "lease": null,
@@ -124485,7 +124497,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 295 (height 26, 19 functions)"
     },
     {
@@ -132714,6 +132726,142 @@
       "title": "Apply reviewed recon repair 007 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T05:57:04Z",
+        "by": "socom-verifier-r008"
+      },
+      "batch": {
+        "functions": [
+          "0x1814c0",
+          "0x195210",
+          "0x1cd3c0",
+          "0x1d97a0",
+          "0x1d9910",
+          "0x1fa2b0",
+          "0x23a860",
+          "0x2cf7f0",
+          "0x2f4490",
+          "0x2f4e90",
+          "0x2fbc50",
+          "0x31ac00",
+          "0x31ad80",
+          "0x380600",
+          "0x3f7b20"
+        ],
+        "graph_sha256": "01741af12cddfd9e3e9460edf3dbe4e2660d880e135d20c03ff2021ac8157794",
+        "groups": {
+          "0x1814c0": "socom:recon-group:8abc519fe6c8adcc597f",
+          "0x195210": "socom:recon-group:f6bdf5f8fd506f5f9047",
+          "0x1cd3c0": "socom:recon-group:ac1f5654199ddffbce0f",
+          "0x1d97a0": "socom:recon-group:ea5c5edd1476c6f66531",
+          "0x1d9910": "socom:recon-group:757d170c3d4c5ec541f8",
+          "0x1fa2b0": "socom:recon-group:a03810bf5ecb20c57612",
+          "0x23a860": "socom:recon-group:30c600d8dca270892e2f",
+          "0x2cf7f0": "socom:recon-group:b8e0d2babba37e8f21df",
+          "0x2f4490": "socom:recon-group:677aae36765c53f89521",
+          "0x2f4e90": "socom:recon-group:be61d00bbff60abcf212",
+          "0x2fbc50": "socom:recon-group:199fbc33c24bff09a527",
+          "0x31ac00": "socom:recon-group:e9b77e16859178df6c71",
+          "0x31ad80": "socom:recon-group:a79d68b9239e17cbd494",
+          "0x380600": "socom:recon-group:2b9875331c68ef27860c",
+          "0x3f7b20": "socom:recon-group:f4d26354284e0f8e4425"
+        },
+        "repair_number": 8
+      },
+      "dependencies": [
+        "socom:recon-group:199fbc33c24bff09a527-apply",
+        "socom:recon-group:2b9875331c68ef27860c-apply",
+        "socom:recon-group:30c600d8dca270892e2f-apply",
+        "socom:recon-group:677aae36765c53f89521-apply",
+        "socom:recon-group:757d170c3d4c5ec541f8-apply",
+        "socom:recon-group:8abc519fe6c8adcc597f-apply",
+        "socom:recon-group:a03810bf5ecb20c57612-apply",
+        "socom:recon-group:a79d68b9239e17cbd494-apply",
+        "socom:recon-group:ac1f5654199ddffbce0f-apply",
+        "socom:recon-group:b8e0d2babba37e8f21df-apply",
+        "socom:recon-group:be61d00bbff60abcf212-apply",
+        "socom:recon-group:e9b77e16859178df6c71-apply",
+        "socom:recon-group:ea5c5edd1476c6f66531-apply",
+        "socom:recon-group:f4d26354284e0f8e4425-apply",
+        "socom:recon-group:f6bdf5f8fd506f5f9047-apply"
+      ],
+      "evidence": [
+        "plan build/recon-plans/socom-work-recon-repair-008.json sha256:403450195924ba9eeb38022afe18cda1d0dbc41de5d0415c377e4336078537ec; user-approved table build/facts/repair-008-table.md (2026-10-25); recon validate ok; recon draft --check ok (rules 19, 0 problems); recon program ok (program sha256:8e947ba1a6b176e7d804b144a7472abb2f22d9693d91abc0520ca172bfe82483); preflight-batch ok (15 set_function_prototype, 0 skipped)",
+        "plan sha256:403450195924ba9eeb38022afe18cda1d0dbc41de5d0415c377e4336078537ec; recon validate ok (0 problems); recon draft --check ok (rules 19, 10 drafted + 5 hand-written rows, 0 problems; fresh draft decides all 15: 14 P-void, 1 P-slot-void); recon program regenerated byte-identical (sha256:8e947ba1a6b176e7d804b144a7472abb2f22d9693d91abc0520ca172bfe82483); preflight-batch ok (15 set_function_prototype, 0 skipped); recon void --rules 19 VERDICT void for all 15 (rules 18 open at the cited chain ends). Chain ends confirmed: null-arg callbacks TickPathPlanner/Particle::Tick/CSealUnit::TickAll/CZWeapon::PostTick/PreTick each referenced only by addiu a2 for AddTask__14CSched_ManagerFPCcPFfPv_bfPv with move a3,zero (0x17d524/0x23435c/0x17d3b0/0x17d4fc/0x17d42c); table entries UIRefreshGamePlayerList/UISysPostInit/OnRemoveEquipment/UIRebootIOP only refs UICommandTable col +0x8 (+0x410/+0x6a4/+0x38/+0x644), table-family VERDICT uchar; __ct__11CSaveModuleFPCcP12CSaveManager returns entry a0 (move v0,s1), 0 relocated words, 0 address-formed; base-joined families via CTextureRelocMgr (no __vt__, RTTI only): EndBatchReloc slot +0xc and PreGetSprPacket slot +0x10, base bodies jr ra;nop at 0x3030b0/0x2f9cf0. 13 partial rows: parameters and live_signature equal recon live exactly. 0x195210: only a0 read, both callers 0x195a5c/0x195a7c pass plan_legcomplete's entry a0 (receiver). 0x2f4490: __Fv, no arg reads before write, formats @493/@494/@495 each two %08d (a1/a2 only)."
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-r008",
+        "submitted_at": "2026-10-25T05:49:12Z",
+        "summary": "15 prototypes, 0 unresolved, 0 globals"
+      },
+      "id": "socom:work:recon-repair-008",
+      "kind": "recon-repair-plan",
+      "lease": null,
+      "resources": [
+        "build/recon-plans"
+      ],
+      "selection": "functions",
+      "stage": "ghidra-reconstruction",
+      "status": "accepted",
+      "title": "Plan recon repair 008 (15 functions of applied groups)"
+    },
+    {
+      "batch": {
+        "functions": [
+          "0x1814c0",
+          "0x195210",
+          "0x1cd3c0",
+          "0x1d97a0",
+          "0x1d9910",
+          "0x1fa2b0",
+          "0x23a860",
+          "0x2cf7f0",
+          "0x2f4490",
+          "0x2f4e90",
+          "0x2fbc50",
+          "0x31ac00",
+          "0x31ad80",
+          "0x380600",
+          "0x3f7b20"
+        ],
+        "graph_sha256": "01741af12cddfd9e3e9460edf3dbe4e2660d880e135d20c03ff2021ac8157794",
+        "groups": {
+          "0x1814c0": "socom:recon-group:8abc519fe6c8adcc597f",
+          "0x195210": "socom:recon-group:f6bdf5f8fd506f5f9047",
+          "0x1cd3c0": "socom:recon-group:ac1f5654199ddffbce0f",
+          "0x1d97a0": "socom:recon-group:ea5c5edd1476c6f66531",
+          "0x1d9910": "socom:recon-group:757d170c3d4c5ec541f8",
+          "0x1fa2b0": "socom:recon-group:a03810bf5ecb20c57612",
+          "0x23a860": "socom:recon-group:30c600d8dca270892e2f",
+          "0x2cf7f0": "socom:recon-group:b8e0d2babba37e8f21df",
+          "0x2f4490": "socom:recon-group:677aae36765c53f89521",
+          "0x2f4e90": "socom:recon-group:be61d00bbff60abcf212",
+          "0x2fbc50": "socom:recon-group:199fbc33c24bff09a527",
+          "0x31ac00": "socom:recon-group:e9b77e16859178df6c71",
+          "0x31ad80": "socom:recon-group:a79d68b9239e17cbd494",
+          "0x380600": "socom:recon-group:2b9875331c68ef27860c",
+          "0x3f7b20": "socom:recon-group:f4d26354284e0f8e4425"
+        },
+        "repair_number": 8
+      },
+      "dependencies": [
+        "socom:work:recon-repair-008"
+      ],
+      "evidence": [],
+      "handoff": null,
+      "id": "socom:work:recon-repair-008-apply",
+      "kind": "recon-repair-apply",
+      "lease": null,
+      "resources": [
+        "ghidra:soCOM/socom.elf",
+        "ghidra-writer"
+      ],
+      "selection": "functions",
+      "stage": "ghidra-reconstruction",
+      "status": "ready",
+      "title": "Apply reviewed recon repair 008 in Ghidra"
+    },
+    {
       "batch": null,
       "dependencies": [
         "socom:recon-group:77fd04ac72066c8ff1e4-apply",
@@ -133067,7 +133215,9 @@
         "socom:work:recon-repair-006",
         "socom:work:recon-repair-006-apply",
         "socom:work:recon-repair-007",
-        "socom:work:recon-repair-007-apply"
+        "socom:work:recon-repair-007-apply",
+        "socom:work:recon-repair-008",
+        "socom:work:recon-repair-008-apply"
       ],
       "evidence": [],
       "handoff": null,
