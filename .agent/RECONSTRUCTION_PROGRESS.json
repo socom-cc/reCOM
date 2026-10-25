@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2539,
+  "revision": 2545,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -130141,6 +130141,10 @@
       "title": "Apply reviewed reconstruction group 313 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T13:02:03Z",
+        "by": "socom-verifier-r88"
+      },
       "batch": {
         "batch_number": 314,
         "function_count": 32,
@@ -130255,8 +130259,15 @@
         "socom:recon-group:f0dcb486c0e683b900e0-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-65aad8dc7df81ce49fff.json sha256:5b039e954f32b487239b595dbddd0321082ed0dc56bada1890ae493178d9e81b; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (30 set_function_prototype; skips 0x25ad00 0x25ee30 = plan-unresolved)",
+        "plan sha256:5b039e954f32b487239b595dbddd0321082ed0dc56bada1890ae493178d9e81b matches; recon validate ok; recon draft --check ok (rules 19, 6 drafted/26 open); recon program equals build/apply; preflight-batch ok (30 set_function_prototype; skips 0x25ad00 0x25ee30 = plan-unresolved, recon types CAiSAnimate/CAiSAction missing). RecoverFromNetError 0x1f2a10 uchar(int): DWARF 0x1a421d global_variable at 0x1f2a10 type 0x1bfd00 subroutine uchar(int) equals CZOnlineLobby::m_net_error_handler 0x1c755a (+0x5c, pointer to 0x1c1bc7 uchar(int)); only ref addiu@0x37f6b4 stored sw@0x37f6c0 theLobby+0x5c; a0 is the int (move a1,a0; a0=&theMission). 12 CZBodyAnimBlend * rows: every write to each returned register traced in recon asm to zero or Top/PushBlend/PopBlend/TurnControl results (live CZBodyAnimBlend *). 11 partial rows: live default signatures, parameters per mangled names and arg reads, recon void VERDICT open for all. All plan types unique via recon types with exact live case; recon dwarf --address/--name: only 0x1f2a10 has a record."
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g176",
+        "submitted_at": "2026-10-25T12:45:44Z",
+        "summary": "30 prototypes, 2 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:65aad8dc7df81ce49fff",
       "kind": "recon-plan-group",
       "lease": null,
@@ -130265,7 +130276,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 314 (height 35, 32 functions)"
     },
     {
@@ -130325,10 +130336,14 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 314 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T13:02:19Z",
+        "by": "socom-verifier-r88"
+      },
       "batch": {
         "batch_number": 315,
         "function_count": 21,
@@ -130430,8 +130445,15 @@
         "socom:recon-group:f36b094a00c909ab0de8-apply",
         "socom:recon-group:f4d26354284e0f8e4425-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-e090d9e33c3ebe9e205d.json sha256:e5c747183c67e44960bde8242b8e609dfc5c8b7ded8e978361ab0d96ac61c092; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (17 set_function_prototype; skips 0x2e3760 0x3b2ef8 0x41bb60 0x41c1e8 = plan-unresolved)",
+        "plan sha256:e5c747183c67e44960bde8242b8e609dfc5c8b7ded8e978361ab0d96ac61c092 matches; recon validate ok; recon draft --check ok (rules 19, 5 drafted/16 open); recon program equals build/apply; preflight-batch ok (17 set_function_prototype; skips 0x2e3760 0x3b2ef8 0x41bb60 0x41c1e8 = plan-unresolved; SEAL_HANDSIGNAL missing). SetProjectile 0x319ff0 partial: r5900.cspec __stdcall (Ghidra 12.1.4 EE-Reloaded, compiler default) gives floats f12-f19, integers a0-t3, then stack offset 0 align 8, so this,a1,a2,a3,t0,t1,t2,t3 then CModel* at incoming +0x0 (lw a1,160(sp) after addiu sp,sp,-160; callers sd at 0(sp) at 0x31f1a4, 0x2a7144), f12/f13 floats; live precedents OrdersMenu::SetupTuple 0x17ac50 (stack +0x0..+0x38) and Particle::Create3Sided 0x232a50 (+0x8). 6 CZBodyAnimBlend * rows: every write to each returned register traced to zero or Top/PushBlend/PopBlend/TurnControl results. 7 partial rows: live default signatures, recon void VERDICT open. Medius/DME rows unresolved: no mangled name, DWARF or typed records. All types unique with exact live case; recon dwarf: none for any row."
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g176",
+        "submitted_at": "2026-10-25T12:45:51Z",
+        "summary": "17 prototypes, 4 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:e090d9e33c3ebe9e205d",
       "kind": "recon-plan-group",
       "lease": null,
@@ -130440,7 +130462,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 315 (height 35, 21 functions)"
     },
     {
@@ -130489,7 +130511,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 315 in Ghidra"
     },
     {
