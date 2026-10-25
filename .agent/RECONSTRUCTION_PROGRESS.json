@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2458,
+  "revision": 2466,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -127095,13 +127095,18 @@
       "handoff": null,
       "id": "socom:recon-group:df61c4a4d98b81f74397",
       "kind": "recon-plan-group",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-25T09:01:40Z",
+        "expires_at": "2026-10-25T11:01:40Z",
+        "heartbeat_at": "2026-10-25T09:01:40Z",
+        "owner": "socom-recon-planner-g169"
+      },
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan reconstruction group 303 (height 31, 32 functions)"
     },
     {
@@ -127217,13 +127222,18 @@
       "handoff": null,
       "id": "socom:recon-group:9ed296931fa6d72ba050",
       "kind": "recon-plan-group",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-25T09:01:47Z",
+        "expires_at": "2026-10-25T11:01:47Z",
+        "heartbeat_at": "2026-10-25T09:01:47Z",
+        "owner": "socom-recon-planner-g169"
+      },
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan reconstruction group 304 (height 31, 32 functions)"
     },
     {
@@ -127287,6 +127297,10 @@
       "title": "Apply reviewed reconstruction group 304 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T09:15:28Z",
+        "by": "socom-verifier-r81"
+      },
       "batch": {
         "batch_number": 305,
         "function_count": 32,
@@ -127347,8 +127361,15 @@
         "socom:recon-group:c7b5f66942141400c110-apply",
         "socom:recon-group:dbdbcaa4fdb2b738f4a2-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-4472720e7348c3f20817.json sha256:aec6e46dc74627470bcaa3a321ddf374588bdc5c526739fb30da6718f35f773d; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (1 set_function_prototype, 31 skipped unresolved)",
+        "plan sha256:aec6e46dc74627470bcaa3a321ddf374588bdc5c526739fb30da6718f35f773d matches; recon validate ok; recon draft --check ok (rules 19, 1 drafted P-stage2 CZNewHudMap::HudTick, 31 open); recon program equals build/apply; preflight-batch ok (1 set_function_prototype, 31 skips = the 31 unresolved Medius rows). Spot-check MediusGetPlayerInfo 0x3b4058, MediusLadderList 0x3b523c, MediusGetMyIP 0x3b4dd0, MediusAccountGetID 0x3b4fb0: a0 = untyped request record (no DWARF, no mangled name, Medius*Request/*Response types missing in recon types), a1 = callback stored to a *CallbackFunctionPtr global with no function-pointer type, exits are constants -15/-16 or -5/0 from NetSendMessage, so no complete or partial row is provable. No global planned: GlobalInitFlag is 2 bytes read by lh and lw, MyConnectionIndex is address-taken at 0x3b2e5c/0x3b2ec8."
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g170",
+        "submitted_at": "2026-10-25T09:10:34Z",
+        "summary": "1 prototypes, 31 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:4472720e7348c3f20817",
       "kind": "recon-plan-group",
       "lease": null,
@@ -127357,7 +127378,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 305 (height 31, 32 functions)"
     },
     {
@@ -127417,10 +127438,14 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 305 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T09:15:36Z",
+        "by": "socom-verifier-r81"
+      },
       "batch": {
         "batch_number": 306,
         "function_count": 25,
@@ -127475,8 +127500,15 @@
         "socom:recon-group:ca42aaa3f4742bd92fad-apply",
         "socom:recon-group:d50ff4e8cfdfa40e1e73-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-864532c709f87675ea80.json sha256:8fe261e54bd05e4f1c0432b6da53add24fd7d60ab9155dcf2933949e8c772655; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (0 calls, 25 skipped unresolved)",
+        "plan sha256:8fe261e54bd05e4f1c0432b6da53add24fd7d60ab9155dcf2933949e8c772655 matches; recon validate ok; recon draft --check ok (rules 19, 18 drafted U-type STATE_FLAG rows, 7 open Net* rows); recon program equals build/apply; preflight-batch ok (0 calls, 25 skips = the 25 unresolved). Spot-check NetLeave 0x41c450 and NetPing 0x41c770: no DWARF or mangled name, callees NetSendMessage/NetFreeClients live undefined(void), a0/a1 index width and sign unproven (NetPing compares a1 with -1 yet its caller passes 0xffff), a2 is a callback whose NetErrorCode and function-pointer type are missing, returns are constants only (0; 8/25/0) with recon void VERDICT open, so no complete or partial row is provable. No global planned."
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g170",
+        "submitted_at": "2026-10-25T09:10:41Z",
+        "summary": "0 prototypes, 25 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:864532c709f87675ea80",
       "kind": "recon-plan-group",
       "lease": null,
@@ -127485,7 +127517,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 306 (height 31, 25 functions)"
     },
     {
@@ -127538,7 +127570,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 306 in Ghidra"
     },
     {
