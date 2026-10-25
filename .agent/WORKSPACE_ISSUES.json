@@ -1184,8 +1184,18 @@
       "resolution": null,
       "status": "open",
       "summary": "recon asm prints VU0 macro instructions as raw cop2 words; recon facts does not trace values returned through saved registers"
+    },
+    {
+      "details": "Reported twice (group 274/275 reviewer: Remote callbacks passing entry a1 to zNetGetObject; group 296 planner: a1 into zNetGetObject at 0x206b48 in CZGrenadeState::RemoteGrenadeDeletionCallback, a0 into strFileOpen at 0x333de8 in CMPEG::Run). Planners must read asm to declare those parameters; recon facts should list every argument register that reaches a call unmodified.",
+      "id": "socom:workspace-issue:499267f51bebaef7c0e1",
+      "kind": "problem",
+      "reported_at": "2026-10-25T06:41:00Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "recon facts 'args passed through unchanged' misses registers reaching a jal untouched"
     }
   ],
-  "revision": 135,
+  "revision": 136,
   "schema_version": 1
 }

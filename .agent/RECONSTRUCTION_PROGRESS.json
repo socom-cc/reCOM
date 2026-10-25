@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2413,
+  "revision": 2419,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -124832,6 +124832,10 @@
       "title": "Apply reviewed reconstruction group 295 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T06:48:54Z",
+        "by": "socom-verifier-r75"
+      },
       "batch": {
         "batch_number": 296,
         "function_count": 32,
@@ -125012,8 +125016,15 @@
         "socom:recon-group:fe5f3b0ac9beaf35a1e5-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-0a2910b358587373b343.json sha256:6da45af9b0d5b2d9731f94b17347f9fe2da15ec1381487a65ca0ee41eaa6c719; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (19 set_function_prototype calls)",
+        "plan sha256:6da45af9b0d5b2d9731f94b17347f9fe2da15ec1381487a65ca0ee41eaa6c719 re-hashed; recon validate ok; recon draft --check ok (rules 19, 7 drafted/25 open); recon program equals build/apply; preflight-batch ok (19 set_function_prototype, 13 skips = 13 unresolved rows); all 25 open rows reviewed against recon facts --callers 99: no DWARF record at any open address or name; recon types unique for every spelled type (exact case), CAiSRescued/CAiSPursue/CAiSGrenade/CAiSBreach/CAiSRush/CAiSFlee/CAiSCorpse/CAiSShotAt and CMemCard missing; recon asm confirms a1 untouched into zNetGetObject at 0x206b48 (a0 set to theNetwork in its delay slot) and a0 untouched into strFileOpen at 0x333de8; recon void VERDICT void for 0x1fa090/0x206b30/0x232820/0x2bc300 and open for all 6 partial rows and 0x40d3d0/0x40dc68; recon table-family UICommandTable VERDICT uchar lists 0x1d6d70 at +0x2cc; 0x22a900 own andi v0,v0,0xff@0x22a914; 0x40dc68 narrowed a0/a1 feed only update_single/udp_update arguments"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g163",
+        "submitted_at": "2026-10-25T06:40:26Z",
+        "summary": "19 prototypes, 13 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:0a2910b358587373b343",
       "kind": "recon-plan-group",
       "lease": null,
@@ -125022,7 +125033,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 296 (height 27, 32 functions)"
     },
     {
@@ -125082,10 +125093,14 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 296 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T06:49:06Z",
+        "by": "socom-verifier-r75"
+      },
       "batch": {
         "batch_number": 297,
         "function_count": 3,
@@ -125107,8 +125122,15 @@
         "socom:recon-group:ab4faf869c29139ac247-apply",
         "socom:recon-group:c303bf35fc79d316c103-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-c60c3730b5b4aa22844e.json sha256:7134c265f7da47aeaa2d74981f275ba80b714408aac14305ee20d7817f12a1b0; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (0 calls)",
+        "plan sha256:7134c265f7da47aeaa2d74981f275ba80b714408aac14305ee20d7817f12a1b0 re-hashed; recon validate ok; recon draft --check ok (rules 19, 0 drafted/3 open); recon program equals build/apply; preflight-batch ok (0 calls, 3 skips = 3 unresolved rows); recon facts --callers 99 and recon asm: 0x40dcc0 andi s2,a0,0xff@0x40dcdc feeds only a1 of rt_msg_client_update_single and a0 of rt_msg_client_udp_update, exits li v0,5/0/untyped callee results; 0x419910 a0 sll/sra 24 feeds only a2 of rt_msg_client_send_udp, a1 only NetIpBinaryToString (live undefined(void)), a2/a3 only sb stores, exits li v0,31 or NetMapMsgClientError result; 0x419c30 a3/t0 only byte header stores, a0 only SendPacket, exits 13/0/SendPacket tail result, tail-called by NetSendMessage; no DWARF record or mangled name for any row; recon void VERDICT open for all three"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g163",
+        "submitted_at": "2026-10-25T06:40:32Z",
+        "summary": "0 prototypes, 3 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:c60c3730b5b4aa22844e",
       "kind": "recon-plan-group",
       "lease": null,
@@ -125117,7 +125139,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 297 (height 27, 3 functions)"
     },
     {
@@ -125148,7 +125170,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 297 in Ghidra"
     },
     {
