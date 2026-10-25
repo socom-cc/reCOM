@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2533,
+  "revision": 2536,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -129801,6 +129801,10 @@
       "title": "Apply reviewed reconstruction group 312 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T12:14:00Z",
+        "by": "socom-verifier-r87"
+      },
       "batch": {
         "batch_number": 313,
         "function_count": 31,
@@ -129930,8 +129934,15 @@
         "socom:recon-group:fc34f6139880c0de2a1d-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-4987c19476019d1662af.json sha256:896302b7c09c7f24546f01abee7c45ebf2a11139905665088cf1f65a678090af; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (25 set_function_prototype calls; 6 skips = unresolved rows)",
+        "plan sha256:896302b7c09c7f24546f01abee7c45ebf2a11139905665088cf1f65a678090af matches; recon validate ok; recon draft --check ok (rules 19; 5 drafted, 26 open); recon program equals build/apply/socom-recon-group-4987c19476019d1662af-apply.json; preflight-batch ok (25 bridge calls, 6 skips = unresolved 0x291040 0x2ce740 0x41a918 0x41ed00 0x41eec8 0x41f178); recon types: all 10 class types unique, spelled as live; recon dwarf: no record for any open row; recon void: void for 0x1fe790 0x204540 0x206e20 0x209310, open for the 8 partial rows; recon table-family UICommandTable: VERDICT uchar, the 4 UI rows listed at +0xf8/+0x128/+0x17c/+0x1ac; CreateLocalSeal/Game/Grenade/Bomb/Persona int: asm shows the returned word lw v0,N(sp) is the stack slot whose address is a1 of zNetCreateObject__9CZNetworkFPi... (sp+92/60/92/60/84), never stored by the function itself, returned on every non -1 path (other exits li v0,-1); a C++ int * parameter binds no converted temporary, so the slot is an int object, the same footing as a returned typed member (producer-side, unlike the group 309 value pass-through); RequestTeamSwitch a1 not written before jal zNetGetObject__9CZNetworkFi at 0x208138 (its int index); callers pass ints (zNetGetMyGameClientIndex result; TeamSwitchPacketHandler a2), so static; PushBlend s1 set only from Top/AddBlendOverlay/CBody::PushBlend (live CZBodyAnimBlend * returns)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g175",
+        "submitted_at": "2026-10-25T12:06:06Z",
+        "summary": "25 prototypes, 6 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:4987c19476019d1662af",
       "kind": "recon-plan-group",
       "lease": null,
@@ -129940,7 +129951,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 313 (height 34, 31 functions)"
     },
     {
@@ -129999,7 +130010,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 313 in Ghidra"
     },
     {
