@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2563,
+  "revision": 2566,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -131319,6 +131319,10 @@
       "title": "Apply reviewed reconstruction group 317 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T14:24:25Z",
+        "by": "socom-verifier-r91"
+      },
       "batch": {
         "batch_number": 318,
         "function_count": 32,
@@ -131479,8 +131483,15 @@
         "socom:recon-group:fc34f6139880c0de2a1d-apply",
         "socom:recon-group:fe5f3b0ac9beaf35a1e5-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-3965c4ad3eb73f67c6db.json sha256:d4cc6671f463ca55222d60786a7f814e7dcc7de62c3559929d2526f13e303ae3 re-verified; recon validate ok; recon program equals build/apply/socom-recon-group-3965c4ad3eb73f67c6db-apply.json; preflight-batch ok (26 set_function_prototype, 0 errors, skips = the 6 unresolved rows 0x28c5c0 0x2e8030 0x321630 0x37ae70 0x3b2c8c 0x41b2b0); recon draft --check ok (rules 19, 5 drafted, 27 open); recon types: every type unique with exact live case; recon dwarf: no record for any row except HandlePad (P-stage2). Open rows vs recon facts --callers 99: Crouch/Prone/ProneControl/CrouchToPickupBuddy every exit is RTStack<CZBodyAnimBlend>::Top/Stand_0/Crouch_0/PushBlend (live CZBodyAnimBlend *) result, an s0 copy, or 0 (Prone move s0,zero 0x2761f4); CrouchToPickupBuddy VU0 self-contained (vmulax/vmadday/vmaddaz ACC then vmaddw/vmaddz vf9 from lqc2 vf4-vf8 + vf0, sqc2 vf9); ImpactFront float: f0 set just before every exit (mov.s f0,f20 div.s 0x2a0b90; mtc1 zero; -99.0f), not constant-only; FollowTick f0 constant-only 0.0 -> partial (SensorTick precedent); FireCur tail j to CZKit::Fire (CZProjectile *), GetAmmo/GetWeaponName precedent; ChangeBombState/Destroy recon void VERDICT void, statics (callers pass no receiver/a1); zAnimFireWeaponTick/CTSetAnimSet::Tick bool via AddCmd t0 PFP14_zanim_cmd_hdrPf_b; partial rows typed, returns constant-only or untyped callee results",
+        "plan build/recon-plans/socom-recon-group-3965c4ad3eb73f67c6db.json sha256:d4cc6671f463ca55222d60786a7f814e7dcc7de62c3559929d2526f13e303ae3; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (26 set_function_prototype calls; skips = the 6 unresolved rows)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g179",
+        "submitted_at": "2026-10-25T14:13:38Z",
+        "summary": "26 prototypes (12 partial), 6 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:3965c4ad3eb73f67c6db",
       "kind": "recon-plan-group",
       "lease": null,
@@ -131489,7 +131500,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 318 (height 37, 32 functions)"
     },
     {
@@ -131549,7 +131560,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 318 in Ghidra"
     },
     {
