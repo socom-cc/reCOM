@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2438,
+  "revision": 2441,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -126246,13 +126246,18 @@
       "handoff": null,
       "id": "socom:recon-group:e0348950dcc09192b608",
       "kind": "recon-plan-group",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-25T07:47:45Z",
+        "expires_at": "2026-10-25T09:47:45Z",
+        "heartbeat_at": "2026-10-25T07:47:45Z",
+        "owner": "socom-recon-planner-g167"
+      },
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan reconstruction group 300 (height 29, 32 functions)"
     },
     {
@@ -126316,6 +126321,10 @@
       "title": "Apply reviewed reconstruction group 300 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T07:50:55Z",
+        "by": "socom-verifier-r78"
+      },
       "batch": {
         "batch_number": 301,
         "function_count": 2,
@@ -126338,22 +126347,24 @@
         "socom:recon-group:6251a477e6e55cb0f58d-apply",
         "socom:recon-group:a15a2206a9774408b5c7-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-5dbf9f440e9b80f7081b.json sha256:4c2965d95e4aea061d22bb8500083097563989992b7031abb1c163e8fb555ecf; recon validate ok; recon draft --check ok (rules 19, 2 open rows); preflight-batch ok (set_function_prototype 2, 0 skipped)",
+        "plan sha256 4c2965d9...555ecf; recon validate ok; draft --check ok (rules 19, 2 open rows); recon program equals build/apply; preflight-batch ok (set_function_prototype 2, 0 skipped). No DWARF for either (recon dwarf: none). NetTick: facts args none (a0/a1 set in delay slots 0x41e454/0x41e460), only caller is the j-thunk 0x3219e0; return = NetMapMsgClientError result (accepted unresolved), recon void VERDICT open (NetTickThreadEntry beq v0 at 0x20b120). NetDisconnect: a0 only read (0x41e6dc), used unnarrowed (sll s3,s4,2; sll v1,s4,10; sll s5,s4,8; bne s4,zero) and forwarded unchanged to DmeToRtMsgConnectionIndex(int) at 0x41e868 (accepted int, signed slti a0,5 at 0x418b58); 3 callers (--callers 99) pass lw int word loads: CZNetwork::m_GameConnectionIndex (DWARF int, +208), MyConnectionIndex after bltz, NetClose loop s0<4 slti; no extension, no sltu; connection_index is an invented name; return mixes 0 and NetMapMsgClientError results, recon void VERDICT open."
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g166",
+        "submitted_at": "2026-10-25T07:47:33Z",
+        "summary": "2 prototypes, 0 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:5dbf9f440e9b80f7081b",
       "kind": "recon-plan-group",
-      "lease": {
-        "claimed_at": "2026-10-25T07:43:40Z",
-        "expires_at": "2026-10-25T09:43:40Z",
-        "heartbeat_at": "2026-10-25T07:43:40Z",
-        "owner": "socom-recon-planner-g166"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "accepted",
       "title": "Plan reconstruction group 301 (height 29, 2 functions)"
     },
     {
@@ -126383,7 +126394,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 301 in Ghidra"
     },
     {
