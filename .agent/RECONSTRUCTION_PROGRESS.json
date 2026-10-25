@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2552,
+  "revision": 2555,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -130896,13 +130896,18 @@
       "handoff": null,
       "id": "socom:recon-group:37813b5493d4c5bc08f0",
       "kind": "recon-plan-group",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-25T13:23:23Z",
+        "expires_at": "2026-10-25T15:23:23Z",
+        "heartbeat_at": "2026-10-25T13:23:23Z",
+        "owner": "socom-recon-planner-g178"
+      },
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan reconstruction group 316 (height 36, 32 functions)"
     },
     {
@@ -130966,6 +130971,10 @@
       "title": "Apply reviewed reconstruction group 316 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T13:34:41Z",
+        "by": "socom-verifier-r89"
+      },
       "batch": {
         "batch_number": 317,
         "function_count": 9,
@@ -131013,22 +131022,24 @@
         "socom:recon-group:e7f659dd5823a0792f1c-apply",
         "socom:recon-group:e9b77e16859178df6c71-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-eeea5c098a8b89ae739e.json sha256:e781b7782fbce3cf530725af17523d7d8dbce3eae8584361df466e88b1726b6c; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (6 set_function_prototype)",
+        "plan sha256 e781b7782fbce3cf530725af17523d7d8dbce3eae8584361df466e88b1726b6c; recon validate ok; recon draft --check ok (rules 19, 3 drafted, 6 open); recon program equals build/apply (sha c71f7abe...); preflight-batch ok (6 set_function_prototype, skips = 0x2e7640 0x3215b0 0x41b650); 0x31eff0 static void(CZProjectile*): only a0 read (0x31effc) and it is the projectile (receiver of PreFireProjectile/FireValidityCheck), the one caller 0x1b7ffc passes AcquireProjectile's result and overwrites v0 at 0x1b8008, recon void VERDICT void, no word refs, CCtrlrConfigs reference-as-pointer precedent; partials 0x315490/0x31f100/0x31f2b0 live default undefined f(void), every parameter typed from mangled name + asm, stack arg read at +0x0 only (0x31f100 static, 9 integer params), returns open (recon void VERDICT open); unresolved SIGNAL/CAiState missing, no live void(int,int) subroutine type (precedent 0x3213d0), NetConnect untyped records with no DWARF/live type; no DWARF at any of the 9 addresses; --callers 99"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g177",
+        "submitted_at": "2026-10-25T13:27:27Z",
+        "summary": "6 prototypes, 3 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:eeea5c098a8b89ae739e",
       "kind": "recon-plan-group",
-      "lease": {
-        "claimed_at": "2026-10-25T13:17:39Z",
-        "expires_at": "2026-10-25T15:17:39Z",
-        "heartbeat_at": "2026-10-25T13:17:39Z",
-        "owner": "socom-recon-planner-g177"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "accepted",
       "title": "Plan reconstruction group 317 (height 36, 9 functions)"
     },
     {
@@ -131065,7 +131076,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 317 in Ghidra"
     },
     {
