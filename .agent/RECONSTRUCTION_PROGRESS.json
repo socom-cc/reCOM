@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2382,
+  "revision": 2388,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -123236,6 +123236,10 @@
       "title": "Apply reviewed reconstruction group 290 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T05:10:52Z",
+        "by": "socom-verifier-r73"
+      },
       "batch": {
         "batch_number": 291,
         "function_count": 32,
@@ -123375,8 +123379,15 @@
         "socom:recon-group:fe5f3b0ac9beaf35a1e5-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-3f9f70490c2ba0b04a3c.json sha256:d3e81f5a4c67685ecf67a60c8090c54d2bf65a776a4964b01fd3b46f3e390c4d; recon validate ok; recon draft --check ok (rules 18); preflight-batch ok (29 set_function_prototype)",
+        "plan sha256:d3e81f5a4c67685ecf67a60c8090c54d2bf65a776a4964b01fd3b46f3e390c4d; recon validate ok; recon program equals build/apply; preflight-batch ok (29 set_function_prototype, skips 0x1d74b0 0x207ec0 0x232ea0 = plan-unresolved); recon draft --check ok (rules 18, 10 drafted); 22 open rows reviewed with recon facts --callers 99: ReOpen 0x1d9560 uchar from its own exit narrowing andi v0,s2,0xff at 0x1d965c/0x1d9654 before the epilogue (CGrid::Read precedent); CZAR::Open 0x1d9200 partial, exits move v0,s0 of narrowed local (zBoneLoadAll precedent); UICommandTable rows uchar per recon table-family VERDICT uchar with all four listed as entries; void rows 0x1faa20 0x206320 0x2091f0 recon void --rules 18 VERDICT void; return-open rows VERDICT open under rules 18; CreateNetGame CZNetGame * = CMission+1412 m_pNetGame, CreateCustomCharTypes a0 = CMission+1424 CVehicleRdr * (get_struct_layout); Activate CZAnim * from GetAvailable; CNode::Read static with CNode * return; every type resolves case-exact (recon types); no DWARF record for any open row"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g161",
+        "submitted_at": "2026-10-25T04:59:43Z",
+        "summary": "29 prototypes, 3 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:3f9f70490c2ba0b04a3c",
       "kind": "recon-plan-group",
       "lease": null,
@@ -123385,7 +123396,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 291 (height 25, 32 functions)"
     },
     {
@@ -123445,10 +123456,14 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 291 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T05:11:02Z",
+        "by": "socom-verifier-r73"
+      },
       "batch": {
         "batch_number": 292,
         "function_count": 32,
@@ -123564,8 +123579,15 @@
         "socom:recon-group:f85fe88d2423e937ab4f-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-e9b77e16859178df6c71.json sha256:456540a8c5b2b9a3719527c0a7b8e88b351611d53e9f5a2750a0321335dce402; recon validate ok; recon draft --check ok (rules 18); preflight-batch ok (14 set_function_prototype)",
+        "plan sha256:456540a8c5b2b9a3719527c0a7b8e88b351611d53e9f5a2750a0321335dce402; recon validate ok; recon program equals build/apply; preflight-batch ok (14 set_function_prototype, skips exactly the 18 plan-unresolved rows); recon draft --check ok (rules 18, 21 drafted); 11 open rows reviewed with recon facts --callers 99: 6 partial rows replace default live signatures, every parameter typed from mangled names and arg reads, returns open per recon void --rules 18 (Serialize/Write slot families open, CVisual::Write li v0,1 blocks Write); @12@UnSerialize 0x39ecf0 void by slot family (UnSerialize__11CSaveModule 0x3f6fe0), receiver CSaveModule * = CUIVarManager+12 super_CSaveModule (get_struct_layout); CUIMapCtrl and CValveSaveManager missing (recon types), so TickZAnimCmd and CValveSaveManager::Serialize stay unresolved; rt_msg_client_send_target 0x40c6d0 a2/a3 pass to rt_msg_client_isend_target whose live signature is default, and both wrappers return 26 or movz of the inner result, so neither has a full contract; every type resolves case-exact; no DWARF record for any open row"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g161",
+        "submitted_at": "2026-10-25T04:59:50Z",
+        "summary": "14 prototypes, 18 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:e9b77e16859178df6c71",
       "kind": "recon-plan-group",
       "lease": null,
@@ -123574,7 +123596,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 292 (height 25, 32 functions)"
     },
     {
@@ -123634,7 +123656,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 292 in Ghidra"
     },
     {
