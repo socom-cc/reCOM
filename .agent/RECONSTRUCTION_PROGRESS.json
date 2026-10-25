@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2377,
+  "revision": 2379,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -123613,6 +123613,10 @@
       "title": "Apply reviewed reconstruction group 292 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T04:23:48Z",
+        "by": "socom-verifier-r72"
+      },
       "batch": {
         "batch_number": 293,
         "function_count": 32,
@@ -123694,22 +123698,24 @@
         "socom:recon-group:e82dab8f9af811d5a32e-apply",
         "socom:recon-group:f4d26354284e0f8e4425-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-0282d483e8f4d9532c32.json sha256:ff92834d2006a7ae79e4f17c7d7b94d9ecc2eb67764cfe94167a317b9df7b30c; recon validate ok; recon draft --check ok (rules 19 and 18); preflight-batch ok (28 set_function_prototype calls; skips 0x40cea0 0x40dec0 0x40ea58 0x4123b0 unresolved)",
+        "plan sha256:ff92834d2006a7ae79e4f17c7d7b94d9ecc2eb67764cfe94167a317b9df7b30c matches handoff; recon validate ok; recon program equals build/apply (program sha256:42bffec872d1e1389484342e5a6799ca1a48cbf06cdab71d9b9fea5baf48ad5e); preflight-batch ok (28 set_function_prototype; skips 0x40cea0 0x40dec0 0x40ea58 0x4123b0 = plan unresolved); recon draft --check ok rules 18 (twice) and 19 (27 drafted P-void __sinit rows). Partial 0x40ecd0 rt_msg_client_udp_update: only a0 read (facts); entry zero-extension andi s2,a0,0xff@0x40ecec used by the function's own compare bne s2,s0@0x40ed24 (s0 = lbu byte equal 1), not forwarded; uchar per entry-narrowing sign rule, no bool declaration; live undefined rt_msg_client_udp_update(void) is Ghidra default; return constant-only (5,17,22,0), callers only test v0 (bne v0,zero@0x40dca4,0x40dd64), recon void VERDICT open. Unresolved 0x40cea0 (a1 forwarded untyped), 0x40dec0 (a1/a2/a3 unproven), 0x40ea58 (connection record type missing), 0x4123b0 (a0 only forwarded to untyped rt_rel_udp_update): returns constant/callee status, recon void VERDICT open for all."
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g160",
+        "submitted_at": "2026-10-25T04:20:04Z",
+        "summary": "28 prototypes, 4 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:0282d483e8f4d9532c32",
       "kind": "recon-plan-group",
-      "lease": {
-        "claimed_at": "2026-10-25T04:14:26Z",
-        "expires_at": "2026-10-25T06:14:26Z",
-        "heartbeat_at": "2026-10-25T04:14:26Z",
-        "owner": "socom-recon-planner-g160"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "accepted",
       "title": "Plan reconstruction group 293 (height 25, 32 functions)"
     },
     {
@@ -123769,7 +123775,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 293 in Ghidra"
     },
     {
