@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2482,
+  "revision": 2492,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -128175,8 +128175,14 @@
         "socom:recon-group:ff0934ce49f96fe5dec5-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-5f2ce65e61d538d88fba.json sha256:195323d19eed29701193aded8fd16f7ffad9ff61dd890ec1a099835be09dcd78; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (23 calls: set_function_prototype 22, apply_data_type 1; 10 skips = the 10 unresolved rows)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g171",
+        "submitted_at": "2026-10-25T10:13:31Z",
+        "summary": "22 prototypes, 10 unresolved, 1 globals"
+      },
       "id": "socom:recon-group:5f2ce65e61d538d88fba",
       "kind": "recon-plan-group",
       "lease": null,
@@ -128185,7 +128191,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 307 (height 32, 32 functions)"
     },
     {
@@ -128330,8 +128336,14 @@
         "socom:recon-group:ff0934ce49f96fe5dec5-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-eda30ccc7aacd15d9e12.json sha256:31caffd09e78f043b5b965188ad3dd69cc7d25c8dee8cce867d41f7abbd9a48d; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (30 calls: set_function_prototype 24, apply_data_type 6; 8 skips = the 8 unresolved rows)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g171",
+        "submitted_at": "2026-10-25T10:13:38Z",
+        "summary": "24 prototypes, 8 unresolved, 6 globals"
+      },
       "id": "socom:recon-group:eda30ccc7aacd15d9e12",
       "kind": "recon-plan-group",
       "lease": null,
@@ -128340,7 +128352,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 308 (height 32, 32 functions)"
     },
     {
@@ -128404,6 +128416,10 @@
       "title": "Apply reviewed reconstruction group 308 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T10:14:24Z",
+        "by": "socom-verifier-r83"
+      },
       "batch": {
         "batch_number": 309,
         "function_count": 19,
@@ -128462,17 +128478,40 @@
         "socom:recon-group:f8cbe857e5c1be32b286-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "Group 309 plan sha256 66c91f2cf15bbad333e903522502f5ad00ebfdf63761307bf37d02a1cadf1f60: recon validate ok; recon draft --check ok (rules 19); recon program equals build/apply (differs from the rejected revision's program only in the plan sha); preflight-batch ok (6 set_function_prototype, 13 skips = the 13 unresolved). 0x41a320 NetFreeLocalObject int object_index now rests on producer-side evidence, verified on every path: recon refs shows one direct caller (NetFreeObject 0x41a3bc) and no table or address refs; NetFreeObject keeps its entry a0 in s0 (move s0,a0 0x41a378, s0 not rewritten) up to move a0,s0 at 0x41a3c0, and has exactly 3 callers, no refs: static RemoveNetSeal__11CZSealStateFib passes its unwritten entry a0, the mangled int (a1 is the bool: bne a1,zero 0x204558; caller __dt__10CZSealBody passes lw a0,4(s1) / andi a1,v0,0xff); static UpdateLocalGrenade (a0 = CZProjectile * from its 5 CZProjectile callers) passes lw s0,148(s1) = CZProjectile::m_object_index int (DIE 0xbfd2); UninitBomb passes m_BombStatus+0x1c = TypeBombStatus::BombObjectIndex int (DIE 0x2c0e0f). Return stays open (constant 0, VERDICT open). Other open rows rechecked in the prior review: GetRoomList int from mangled __Fi; SkbHandleInput CPad */CGameMenu * (CCtrlrConfigs precedent); MediusUpdateBare(void) partial; 11 DME unresolved agree with recon facts --callers 99; no DWARF for any of the 19 functions.",
+        "plan build/recon-plans/socom-recon-group-34ae2273e7b56d73acc7.json sha256:66c91f2cf15bbad333e903522502f5ad00ebfdf63761307bf37d02a1cadf1f60; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (6 set_function_prototype calls, 13 skips all unresolved rows); revision: NetFreeLocalObject int now rests on caller-side evidence (NetFreeObject's 3 call sites pass RemoveNetSeal's mangled int, CZProjectile::m_object_index DIE 0xbfd2, TypeBombStatus::BombObjectIndex DIE 0x2c0e0f)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g172",
+        "submitted_at": "2026-10-25T10:12:53Z",
+        "summary": "6 prototypes, 13 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:34ae2273e7b56d73acc7",
       "kind": "recon-plan-group",
       "lease": null,
       "resources": [
         "build/recon-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-recon-planner-g172",
+            "submitted_at": "2026-10-25T10:03:14Z",
+            "summary": "6 prototypes, 13 unresolved, 0 globals"
+          },
+          "handoff_evidence": [
+            "plan build/recon-plans/socom-recon-group-34ae2273e7b56d73acc7.json sha256:1a4faff93eed501dd3fbf5c1684cceae1127e999a146b23886bd9b2b36d72a30; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (6 set_function_prototype calls, 13 skips all unresolved rows)"
+          ],
+          "reason": "Group 309, plan sha256 1a4faff9...2a30: recon validate ok, draft --check ok (rules 19, 4 drafted rows), program equals build/apply, preflight-batch ok (6 set_function_prototype, 13 skips = exactly the 13 unresolved); no DWARF record for any of the 19 functions (recon dwarf --address/--name). ONE FINDING. 0x41a320 NetFreeLocalObject partial row: int object_index rests only on consumer-side flow, which proves neither width nor sign. a0 passes unchanged (move s0,a0 at 0x41a330, delay slot of jal NetFreeRemoteObject) into NetFreeRemoteObject's accepted int object_index, and the only caller NetFreeObject passes the same s0 to that int on its other branch (move a0,s0 at 0x41a3d4); the sh s0,0(sp) at 0x41a358 is the destination's width. A uint, or an already-extended short, passed to an int parameter compiles identically, so the callee's parameter type is not evidence for the caller's value (as group 129 ruled for returns: 'a uint return converted to an int local compiles identically, so it is not evidence'; it is the mirror of the rule that narrowing done only for a callee's argument proves nothing about the caller's parameter). The cited precedents do not cover it: NetDisconnect (group 301) also had producer-side sign evidence (callers pass the DWARF int CZNetwork::m_GameConnectionIndex, a bltz-guarded value, an slti loop counter), and FindAnimType's width came from its own lh v0,16(s0). NetFreeRemoteObject's own int came from its own slt at 0x41a2ac/0x41a2c0, which NetFreeLocalObject lacks. Fix: either cite producer-side evidence, which exists: NetFreeObject (move s0,a0 at 0x41a378) forwards its a0 unchanged, and all 3 of its callers (recon facts --callers 99) pass int-typed values: RemoveNetSeal__11CZSealStateFib's mangled int a0 (a0=entry at 0x204570; a1 is the tested bool, bne a1,zero at 0x204558), CZBombState::UninitBomb's lw a0 of m_BombStatus+0x1c (0x206e68) = TypeBombStatus::BombObjectIndex, DWARF int (DIE 0x2c0e0f), and UpdateLocalGrenade's lw s0,148(s1) (0x2069b0) = CZProjectile::m_object_index, DWARF int at +0x94 (DIE 0xbfd2); or make the row unresolved like 0x41d018/0x41d108. Everything else checks: GetRoomList int page from mangled GetRoomList__Fi, return open (recon void: f0 chain to LobbyReadyToConnectStateHandler, address taken); SkbHandleInput CPad * (mangled RC4CPad; '&' unspellable, CCtrlrConfigs::GetStrafeStickPos precedent) and CGameMenu * (P9CGameMenu), CPad/CGameMenu unique, return li v0,1/movz 0/1 only (VERDICT open); MediusUpdateBare partial (void) against the default signature: no argument reads, constant status codes, no callers (VERDICT open); the 11 DME unresolved reasons agree with the facts (untyped callees, missing message/object/packet record and callback types, constant-only or chained returns, all VERDICT open).",
+          "rejected_at": "2026-10-25T10:09:59Z",
+          "rejected_by": "socom-verifier-r83"
+        }
+      ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 309 (height 32, 19 functions)"
     },
     {
@@ -128519,7 +128558,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 309 in Ghidra"
     },
     {
