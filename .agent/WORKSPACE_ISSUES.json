@@ -1194,8 +1194,18 @@
       "resolution": null,
       "status": "open",
       "summary": "recon facts 'args passed through unchanged' misses registers reaching a jal untouched"
+    },
+    {
+      "details": "Group 299 reviewer (socom-verifier-r77): C2DButton::SetActive 0x38eca0 is admitted through _declared_void(families=False) (v13 slot contract; 6 vtable words at +0x3c, slot DWARF void) but by_slot stays False in tools/_socom/recon_draft.py (~1386/1404/1452), so the drafted row says P-void with 'no word refs or address-taken sites' / '0 direct call sites'. Verdict correct; label and evidence text wrong (should cite the slot contract).",
+      "id": "socom:workspace-issue:5494c8891fa4e32bb95b",
+      "kind": "problem",
+      "reported_at": "2026-10-25T07:28:46Z",
+      "reported_by": "socom-ghidra-reconstructor",
+      "resolution": null,
+      "status": "open",
+      "summary": "recon draft labels vtable-only void rows admitted by the v13 slot contract as plain P-void with wrong evidence text"
     }
   ],
-  "revision": 136,
+  "revision": 137,
   "schema_version": 1
 }

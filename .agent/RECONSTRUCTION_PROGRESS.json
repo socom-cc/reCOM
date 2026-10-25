@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2426,
+  "revision": 2430,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -125545,22 +125545,23 @@
         "socom:recon-group:f0dcb486c0e683b900e0-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-a99dae8941ea445d8da7.json sha256:b14a2e41de8027e8d5abe4864cb8b68300d65bb0b978cbebdf06b6563e93a476; recon validate ok; recon draft --check ok; preflight-batch ok (30 set_function_prototype calls; skips only unresolved 0x2a2700, 0x2d7a70)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g164",
+        "submitted_at": "2026-10-25T07:20:07Z",
+        "summary": "30 prototypes, 2 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:a99dae8941ea445d8da7",
       "kind": "recon-plan-group",
-      "lease": {
-        "claimed_at": "2026-10-25T07:04:27Z",
-        "expires_at": "2026-10-25T09:04:27Z",
-        "heartbeat_at": "2026-10-25T07:04:27Z",
-        "owner": "socom-recon-planner-g164"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan reconstruction group 298 (height 28, 32 functions)"
     },
     {
@@ -125629,6 +125630,10 @@
       "title": "Apply reviewed reconstruction group 298 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-25T07:28:23Z",
+        "by": "socom-verifier-r77"
+      },
       "batch": {
         "batch_number": 299,
         "function_count": 29,
@@ -125742,8 +125747,15 @@
         "socom:recon-group:fe5f3b0ac9beaf35a1e5-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-236ad666fdfd25bb5d28.json sha256:82e696b85f5e7dc6654c4df401f7c589f711f075480103809274351f478901bf; recon validate ok; recon draft --check ok; preflight-batch ok (14 set_function_prototype)",
+        "plan sha256:82e696b85f5e7dc6654c4df401f7c589f711f075480103809274351f478901bf; recon validate ok; recon program equals build/apply; recon draft --check ok (rules 19, 8 drafted, 21 open); preflight-batch ok (14 set_function_prototype, 15 skips = the 15 unresolved rows); recon live names/partial live_signatures verbatim; recon types: every type unique and spelled as live; recon dwarf: only hudInit/LoadRdr/PlayCamera have records; recon void: doSetupBuffers, CTurret::Init void, partial/unresolved returns VERDICT open; C2DButton::HandlePad uchar by C2D::HandlePad DWARF DIE 0xb6c0f; C2DButton::SetActive void by the slot +0x3c contract (C2D::SetActive DIE 0xb6eaf FT_void; recon void slot family VERDICT void), drafted text 'no word refs' is recon draft's template; RunEventAnim unresolved: ActionItem::EVENT (DIE 0x16ed58) absent, EVENT resolves to /project/event (issue 5d8acc30); rt_msg_client_update/update_all/NetSendMessageToAllByUDP narrowing only feeds untyped callees (accepted precedent rt_msg_client_iupdate)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g165",
+        "submitted_at": "2026-10-25T07:21:10Z",
+        "summary": "14 prototypes, 15 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:236ad666fdfd25bb5d28",
       "kind": "recon-plan-group",
       "lease": null,
@@ -125752,7 +125764,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 299 (height 28, 29 functions)"
     },
     {
@@ -125809,7 +125821,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 299 in Ghidra"
     },
     {
