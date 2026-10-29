@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2593,
+  "revision": 2596,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -132912,6 +132912,10 @@
       "title": "Apply reviewed reconstruction group 322 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-29T23:05:49Z",
+        "by": "socom-verifier-r96"
+      },
       "batch": {
         "batch_number": 323,
         "function_count": 12,
@@ -133014,8 +133018,15 @@
         "socom:recon-group:eeea5c098a8b89ae739e-apply",
         "socom:recon-group:f6bdf5f8fd506f5f9047-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-65a00405d7840104e97f.json sha256:c09e784c096b4944c7664dd994be3639a5de9738bbc5c96127c4abb182b8a2c8 re-hashed; recon validate ok; recon program identical to build/apply/socom-recon-group-65a00405d7840104e97f-apply.json; preflight-batch ok (10 set_function_prototype; skips exactly unresolved 0x203c90 TypeRTimeFixStruct missing, 0x25d110 CAiSDeploy missing); recon draft --check ok (rules 19, 6 drafted, 6 open). Open rows vs recon facts/asm/void: 0x1fd160 CZSealBody * proven: exits zero or s1=ftsCreateSeal v0 (move s1,v0@0x1fd368, s1 unwritten to move v0,s1@0x1fd4b8); ftsCreateSeal asm returns zero (0x1fdfe8, v1=0 via 0x1fe010/0x1fe0c4) or Create's v0 (move v1,v0@0x1fe0e0; move v0,v1@0x1fe0f0/0x1fe0f8); its undefined live row is U-type on SEAL_CONTROL_TYPE only (accepted group b920995e), not a return finding; CZSealBody::Create accepted live CZSealBody * (operator new 4416 = sizeof); precedent GetCharacterHit/GetReticuleSeal; callers' lbu 16(s0)==2 check is within CEntity and does not disprove. 0x2626c0 uchar: own andi v0,v0,0xff@0x263920 before jr ra@0x263950; other exits zero or WillFireWeapon unnarrowed whose exits are only li v0,1/move v0,zero (0x2a9bfc,0x2a9a24,0x2a9a3c,0x2a9c00); no bool declaration; args a0,a1,f12 declared. 0x207490 partial static: callers a0 = lw 4(entity) ids (0x28c218,0x28c40c,0x28eac4,0x2a7004), a1 constants 1-4, a2 pointers, no a3; mangled (i, EnumBombState, PC6CPnt3D); recon void open (f0 chain to CSealCtrl::PreTick, table-stored). 0x24f2a0 partial: vtable slot __vt__10CZSealBody+0x68, lbu 3779-3781(s0) in CZSealBody, mangled f; recon void open (1-member family, exits callee results). 0x25e6a0 partial: a0/a1/a2 declared, AI_FIREPARAMS 96 unique, mangled b; exits constant s0 0/1 only, recon void open. Live signatures all Ghidra default (recon live). 0 globals.",
+        "plan build/recon-plans/socom-recon-group-65a00405d7840104e97f.json sha256:c09e784c096b4944c7664dd994be3639a5de9738bbc5c96127c4abb182b8a2c8; recon validate ok; recon draft --check ok (rules 19, 6 open rows); preflight-batch ok (10 set_function_prototype)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g183",
+        "submitted_at": "2026-10-29T22:58:13Z",
+        "summary": "10 prototypes (3 partial), 2 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:65a00405d7840104e97f",
       "kind": "recon-plan-group",
       "lease": null,
@@ -133024,7 +133035,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 323 (height 41, 12 functions)"
     },
     {
@@ -133064,7 +133075,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 323 in Ghidra"
     },
     {
