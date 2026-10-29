@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2599,
+  "revision": 2602,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -133187,6 +133187,10 @@
       "title": "Apply reviewed reconstruction group 323 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-29T23:30:55Z",
+        "by": "socom-verifier-r97"
+      },
       "batch": {
         "batch_number": 324,
         "function_count": 13,
@@ -133306,8 +133310,15 @@
         "socom:recon-group:fc34f6139880c0de2a1d-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-906ae3ed8d49abac97f0.json sha256:9f45c24fabd7af0b4ea4b6b73cb8c8a4c49488b2258755b0ddd5a8a95298dda5; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (12 set_function_prototype; 1 skip 0x1fcb40 unresolved)",
+        "plan build/recon-plans/socom-recon-group-906ae3ed8d49abac97f0.json sha256:9f45c24fabd7af0b4ea4b6b73cb8c8a4c49488b2258755b0ddd5a8a95298dda5; recon validate ok; recon draft --check ok (rules 19, 8 drafted/5 open); recon program equals build/apply (sha256:b11c9d35...cb8c5); preflight-batch ok (12 set_function_prototype; skip only 0x1fcb40 U-type CSpawners absent). Open rows vs recon facts: 0x2a6ed0 PlacedExplosive * = returned object (li a0,172 __nw__ at 0x2a702c, __ct__15PlacedExplosiveFv at 0x2a7044, m_remote +169 sb at 0x2a7294) or 0; FireGrenade merging it with CZKit::Fire CZProjectile * at exit 0x2a74c4 is a no-op upcast (DWARF 0x298f54 PlacedExplosive : public CZProjectile at +0, 0x298f78), so not disproven; params a0-a2 declared. 0x1fd570 partial: exits li v0,1/daddiu v0,zero,1 constant-only, recon void open; cop2 words decode vmulax.xyz ACC,vf4,vf8x / vmadday / vmaddaz / vmaddw.xyz vf9,vf7,vf0w, vf4-vf8 loaded by lqc2 in-body, so no VU inputs. 0x28c540, 0x28ea60 partial: recon void open (f0 chains to table-stored CSealCtrl::PreTick, address-taken HitPacketHandler); a1 in 0x28c540 overwritten (li a1,2); RestrainBuddy a1 is bitfield temp. 0x3219f0 partial: exit move v0,s0 = 0 | MediusGetLastNetUpdateError int | NetUpdate undefined, width unproven; theNetwork .symtab 4708 = CZNetwork. All live signatures Ghidra default."
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g184",
+        "submitted_at": "2026-10-29T23:24:16Z",
+        "summary": "12 prototypes, 1 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:906ae3ed8d49abac97f0",
       "kind": "recon-plan-group",
       "lease": null,
@@ -133316,7 +133327,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 324 (height 42, 13 functions)"
     },
     {
@@ -133357,7 +133368,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 324 in Ghidra"
     },
     {
