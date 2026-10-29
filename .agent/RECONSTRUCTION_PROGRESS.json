@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2581,
+  "revision": 2584,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -132261,6 +132261,10 @@
       "title": "Apply reviewed reconstruction group 320 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-29T22:02:23Z",
+        "by": "socom-verifier-r94"
+      },
       "batch": {
         "batch_number": 321,
         "function_count": 32,
@@ -132414,8 +132418,15 @@
         "socom:recon-group:fc34f6139880c0de2a1d-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-a08ca98ee9e80ba1d446.json sha256:1257ef54a5c04c59f7c204cc9faba60bfc7cc1eba8f9948a89c97a97b6ecb12f; recon validate ok; recon draft --check ok (8 drafted, 24 open); preflight-batch ok (set_function_prototype 30; skips 0x29bc20, 0x2e24f0 unresolved)",
+        "plan sha256:1257ef54a5c04c59f7c204cc9faba60bfc7cc1eba8f9948a89c97a97b6ecb12f; recon validate ok; recon program equals build/apply/socom-recon-group-a08ca98ee9e80ba1d446-apply.json; recon draft --check ok (rules 19, 8 drafted, 24 open); preflight-batch ok (set_function_prototype 30; skips 0x29bc20, 0x2e24f0 = unresolved rows). Open rows reviewed against recon facts/asm: SealAnim returns null or Top/PopBlend/PushBlend/InState* results, all live CZBodyAnimBlend *; CreateRemoteSeal/Create return null or __nw__(4416)+__ct__10CZSealBody (sizeof /project/CZSealBody 4416), static by caller a3=lbu and unread t3/a3; NetInitThreadEntry stored at sp+36 = ThreadParam(sp+32).entry passed to CreateThread, DWARF 0xe92d3 entry -> 0xea999 void(void *); UIConnectToGameServer/UIInitNetwork table-family UICommandTable VERDICT uchar; void rows 0x206ec0/0x2077d0/0x2078e0/0x2bd1a0 recon void VERDICT void; 10 partial rows vs default live signatures, every parameter typed from mangling+reads, recon void VERDICT open and no own narrowing/DWARF for each return."
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g181",
+        "submitted_at": "2026-10-29T21:54:40Z",
+        "summary": "30 prototypes, 2 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:a08ca98ee9e80ba1d446",
       "kind": "recon-plan-group",
       "lease": null,
@@ -132424,7 +132435,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 321 (height 39, 32 functions)"
     },
     {
@@ -132489,7 +132500,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 321 in Ghidra"
     },
     {
