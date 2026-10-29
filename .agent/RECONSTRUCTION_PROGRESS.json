@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2569,
+  "revision": 2575,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -131692,6 +131692,10 @@
       "title": "Apply reviewed reconstruction group 318 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-29T21:18:08Z",
+        "by": "socom-verifier-r93"
+      },
       "batch": {
         "batch_number": 319,
         "function_count": 32,
@@ -131859,8 +131863,15 @@
         "socom:recon-group:ff0934ce49f96fe5dec5-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-31c502160a864bd9b7ee.json sha256:f310a263c4eecf637c78388fab86d46845e8b45b1ccc75ea6c03677b5b5564d2 rechecked; recon validate ok; recon program equals build/apply/socom-recon-group-31c502160a864bd9b7ee-apply.json; recon draft --check ok (rules 19, 8 drafted, 24 open); preflight-batch ok (26 calls; skips exactly the 7 plan-unresolved 0x2018e0 0x2074c0 0x25e290 0x261eb0 0x2a1850 0x2ce310 0x2e2c50); open rows reviewed against recon facts --callers 40: declared registers cover args read; recon live: all 32 live signatures default, partial live_signature verbatim; recon types: all used types unique, CRemoteCtrl/CSealCtrlSquirm missing; recon table-family UICommandTable VERDICT uchar lists UIJoinGameServer +0x170; recon void VERDICT void for 0x205640/0x207740; callback voids from DWARF types: ANIM_CALLBACK.m_func (DIE 0x11177 -> 0x132b4 void(void*,void*), store sw at 0x26fbd0 = Top result +56+4), ThreadParam.entry (0xe9290 -> 0xea999 void(void*), sw v1,36(sp) at 0x32843c, ThreadParam at sp+32), CZOnlineLobby.m_state_handler (0x1539b/0xde19 -> 0x1851 void(LOBBY_STATE_FLAG), sw at 0x3281c4 +64); InStateProne exits all Top/TurnControl/ProneControl/Stand_0/Crouch_0 CZBodyAnimBlend * (asm traced); UpdateAimDir own andi v0,v0,0xff at 3 exits; FadeToEndMissionTick bool via 8-byte thunk j 0x1f60a0 passed to AddTask PFfPv_b; ctor this slot 164(sp) stored once; sm$2347 .symtab 4 bytes, 4 FPU accesses in CRemoteCtrl::PreTick",
+        "plan build/recon-plans/socom-recon-group-31c502160a864bd9b7ee.json sha256:f310a263c4eecf637c78388fab86d46845e8b45b1ccc75ea6c03677b5b5564d2; recon validate ok; recon draft --check ok; preflight-batch ok (26 calls)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g180",
+        "submitted_at": "2026-10-25T14:56:11Z",
+        "summary": "25 prototypes, 7 unresolved, 1 globals"
+      },
       "id": "socom:recon-group:31c502160a864bd9b7ee",
       "kind": "recon-plan-group",
       "lease": null,
@@ -131869,7 +131880,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 319 (height 38, 32 functions)"
     },
     {
@@ -131929,10 +131940,14 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 319 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-29T21:18:19Z",
+        "by": "socom-verifier-r93"
+      },
       "batch": {
         "batch_number": 320,
         "function_count": 2,
@@ -131965,8 +131980,15 @@
         "socom:recon-group:d50ff4e8cfdfa40e1e73-apply",
         "socom:recon-group:f33e3c0366acc615455e-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-8346009453e9083a7077.json sha256:abd17b62bfe0ab812a361cc51d41856a534c6ba06de6c9845ec9d430c13aa9be rechecked; recon validate ok; recon program equals build/apply/socom-recon-group-8346009453e9083a7077-apply.json; recon draft --check ok (rules 19, 1 drafted, 1 open); preflight-batch ok (2 calls; skip exactly the plan-unresolved 0x37b1f0); 0x37b1f0 CTurret::Tick unresolved: recon types CTurret missing, word ref __vt__7CTurret+0x14, recon void VERDICT open (address in vtable); global aimDotThreshold$2078 0x4768a0 float: .symtab LOCAL OBJECT 4 bytes, recon refs 2 accesses in CTurret::Tick (guarded sw of 0x3f733333 at 0x37b37c, lwc1 f0 at 0x37b384 compared c.le.s at 0x37b388)",
+        "plan build/recon-plans/socom-recon-group-8346009453e9083a7077.json sha256:abd17b62bfe0ab812a361cc51d41856a534c6ba06de6c9845ec9d430c13aa9be; recon validate ok; recon draft --check ok; preflight-batch ok (2 calls)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g180",
+        "submitted_at": "2026-10-25T14:56:17Z",
+        "summary": "1 prototypes, 1 unresolved, 1 globals"
+      },
       "id": "socom:recon-group:8346009453e9083a7077",
       "kind": "recon-plan-group",
       "lease": null,
@@ -131975,7 +131997,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 320 (height 38, 2 functions)"
     },
     {
@@ -132005,7 +132027,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 320 in Ghidra"
     },
     {
