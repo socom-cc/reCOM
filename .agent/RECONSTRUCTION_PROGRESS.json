@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2587,
+  "revision": 2590,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -132632,6 +132632,10 @@
       "title": "Apply reviewed reconstruction group 321 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-29T22:36:33Z",
+        "by": "socom-verifier-r95"
+      },
       "batch": {
         "batch_number": 322,
         "function_count": 15,
@@ -132730,8 +132734,15 @@
         "socom:recon-group:f0dcb486c0e683b900e0-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-b920995e342229e03953.json sha256:916f162346cd8b9833636a57ac720fda04d9fb8b78864f58e0b2460640fa974d; recon validate ok; recon draft --check ok; preflight-batch ok (16 bridge calls: 14 set_function_prototype, 2 apply_data_type; 1 skip 0x1fdfc0 unresolved U-type)",
+        "plan sha256:916f162346cd8b9833636a57ac720fda04d9fb8b78864f58e0b2460640fa974d; recon validate ok; recon program equals build/apply copy; recon draft --check ok (rules 19, 5 drafted, 10 open); preflight-batch ok (14 set_function_prototype, 2 apply_data_type; only skip 0x1fdfc0 U-type SEAL_CONTROL_TYPE). Open rows checked against recon facts/asm/void: 0x2624b0 uchar: every exit v0 is the function's own andi 0xff (0x2626a0 falls into epilogue 0x2626a4 from sltiu v1; 0x262690 delay slot of beq to epilogue; 0x2625f8/0x26261c narrowed callee results held to exit) or constant 0, no wider value; a1 read => a0 this (lw 4(a0), lb 32(a0), entry a0 to SetLookDirW); AI_FIREPARAMS +32..+56/+84 float/+92 uint match layout. 0x2a94f0: a0 base of lw/sw 2056/2060 and entry a0+a1 to CZKit::SetCurItemEnum(CZKit*,EQUIP_ITEM) => this; callers pass &CSealCtrl::m_entity->+1312 = CZSealBody::m_kit (DWARF m_kit location 0x520; plan text says 'inside their CSealCtrl', a misstatement that does not affect the type). 0x29a850: VU0 internal (vf4-vf8 lqc2-loaded, vmulax/vmadday/vmaddaz/vmaddw with vf0/vf8, vf9 sqc2-stored), recon void VERDICT void. 0x24db80: no argument reads, call-site a0 = m_pMarklist/clobber, VERDICT void. Globals: m_oktocallinit 1-byte .symtab, lbu tested vs 0, sb 0/1 only => bool; look_dot_threshold$3770 4-byte, sw 0x3f7ae148, lwc1 + c.lt.s => float. 6 partial rows: live = Ghidra default, every parameter typed from mangled name and reads; recon void VERDICT open for each (f0/v0 chains to table-stored PreTick/Tick/PostMortemPreTick, or constant-only 16 / 0,1)."
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g182",
+        "submitted_at": "2026-10-29T22:27:29Z",
+        "summary": "14 prototypes, 1 unresolved, 2 globals"
+      },
       "id": "socom:recon-group:b920995e342229e03953",
       "kind": "recon-plan-group",
       "lease": null,
@@ -132740,7 +132751,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 322 (height 40, 15 functions)"
     },
     {
@@ -132783,7 +132794,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 322 in Ghidra"
     },
     {
