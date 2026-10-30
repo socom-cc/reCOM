@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2677,
+  "revision": 2680,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -138333,6 +138333,10 @@
       "title": "Apply reviewed recon repair 010 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-30T05:30:04Z",
+        "by": "socom-verifier-r105"
+      },
       "batch": {
         "functions": [
           "0x1827e0",
@@ -138431,6 +138435,7 @@
         "socom:recon-group:f6bdf5f8fd506f5f9047-apply"
       ],
       "evidence": [
+        "plan build/recon-plans/socom-work-recon-repair-011.json sha256:6041d7f491b77ee228bd9192b60d9c662e99a5f3e789af057e18a15665171e27 re-hashed; recon validate ok; recon program equals build/apply/socom-work-recon-repair-011-apply.json; preflight-batch ok (set_function_prototype 37, 0 skipped); all 37 live_signature equal recon live (Ghidra default); 36 partial + 1 complete rows: every declared register set covers recon facts args read (any path), parameter types equal the demangled signatures (references as pointers, all types unique per recon types), every receiver proven by a GPR read beyond the mangled parameters (plus vtable slots for is_traversable/dist); recon void (rules 20) VERDICT open for all 37 and no exit narrows its own return. 0x1827e0 is_traversable: asm is straight-line, reads only t2 (lw v0,0(t2)), a0-t1 unread on every path, t2 = 7th GPR for 6 mangled params plus vtable slot +0x10 prove this; return 0/1 xori, no DWARF in the slot family -> partial correct. 0x19e300 _invalid_route bool(route *): only reference is addiu a2 at 0x19e2c0 passed to remove_if<route*, PFRQ26CAiMap5route_b> (jal 0x19e2c8), predicate type bool (*)(CAiMap::route &), body returns 0/1 (movz) -> complete bool correct. 0x199600 CAiMaps::SmoothPath: 8-byte j 0x195130 with move a0,a1 in the delay slot (not a thunk; live shows its own name), a1 read with 1 mangled param proves this; callers pass a0=AiMaps; return passes on CAiPath::SmoothPath's open result -> partial correct.",
         "plan build/recon-plans/socom-work-recon-repair-011.json sha256:6041d7f491b77ee228bd9192b60d9c662e99a5f3e789af057e18a15665171e27; recon validate ok; recon draft --check ok (rules 20); preflight-batch ok (set_function_prototype 37, 0 skipped)"
       ],
       "handoff": {
@@ -138446,7 +138451,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan recon repair 011 (37 functions of applied groups)"
     },
     {
@@ -138546,10 +138551,14 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed recon repair 011 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-30T05:30:22Z",
+        "by": "socom-verifier-r105"
+      },
       "batch": {
         "functions": [
           "0x1aba20",
@@ -138646,6 +138655,7 @@
         "socom:recon-group:e6d8e21625ffe55e1cc2-apply"
       ],
       "evidence": [
+        "plan build/recon-plans/socom-work-recon-repair-012.json sha256:db2739b29c9dc8ba3a9e227ceca02caa79091f96161b869261f1d7d7fdff7d2f re-hashed; recon validate ok; recon program equals build/apply/socom-work-recon-repair-012-apply.json; preflight-batch ok (set_function_prototype 35; skipped exactly the keep rows 0x1d07d0, 0x1dd720); all 35 live_signature equal recon live (Ghidra default); 35 partial rows: declared registers cover recon facts args read (any path), parameter types equal the demangled signatures (all unique per recon types), receivers proven by a GPR read beyond the mangled parameters or (NullNode 0x1df110, 0x1e34a0: 8-byte jr ra; li v0,-1, const CFv plus vtable slots __vt__10CZBodyAnim+0x18, __vt__5CBody+0xc/__vt__10CZSealBody+0x5c, single-member slot families, no DWARF); recon void (rules 20) VERDICT open for all 37. Mixed float/int rows 0x1dca40, 0x1e1850, 0x1e1f50: r5900.cspec __stdcall has separate float pentries f12-f19 and general a0-t3 with no group joins, and the facts and call sites (0x29d9c8 a0-a2 plus f12-f15; 0x26feb0 a1=li 1 with f12/f13; 0x27f080 a1=lh with f12/f13) show integer args take a0.. regardless of FPR use. Keep rows accepted: GetMenuStack (12 bytes, no argument read, returns &g_MenuStack, CMenuStack missing) and zBoneInit (no argument read, constant 1 only) have no parameter to add, and a zero-parameter partial row would only replace one claim-nothing default form with the other (RECONSTRUCTION.md Partial prototypes).",
         "plan build/recon-plans/socom-work-recon-repair-012.json sha256:db2739b29c9dc8ba3a9e227ceca02caa79091f96161b869261f1d7d7fdff7d2f; recon validate ok; recon draft --check ok (rules 20); preflight-batch ok (set_function_prototype 35; skipped only the keep rows 0x1d07d0, 0x1dd720)"
       ],
       "handoff": {
@@ -138661,7 +138671,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan recon repair 012 (37 functions of applied groups)"
     },
     {
@@ -138761,7 +138771,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed recon repair 012 in Ghidra"
     },
     {
@@ -141140,22 +141150,23 @@
         "socom:recon-group:ad58857770d8d744aecc-apply",
         "socom:recon-group:fad6cea575f93240d299-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-work-recon-repair-024.json sha256:de8bbad221ef75529e902e975625c261effee77093083f7150f2a1c336a4b66f; recon validate ok; recon program ok (program sha256 3930ec4846b2e47c3b42fad5d446a7e076e3d6e57d1c180592b7f83a910f1c33); preflight-batch ok (37 calls; 2 keep rows skipped)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-r021",
+        "submitted_at": "2026-10-30T05:27:21Z",
+        "summary": "39 functions: 37 prototypes (withdraws_return), 2 keep, 0 globals"
+      },
       "id": "socom:work:recon-repair-024",
       "kind": "recon-repair-plan",
-      "lease": {
-        "claimed_at": "2026-10-30T05:20:40Z",
-        "expires_at": "2026-10-30T07:20:40Z",
-        "heartbeat_at": "2026-10-30T05:20:40Z",
-        "owner": "socom-recon-planner-r021"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan recon repair 024 (39 functions of applied groups)"
     },
     {
