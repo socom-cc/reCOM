@@ -176,15 +176,16 @@ row `"draft": "open"` for the planner:
   registers must be declared, and there must be no VU0 instructions. A
   this-adjusting `@N@` stub stays open, because its receiver is the base part
   at +N. From rules version 20 a family declared void by DWARF (see "Return
-  width") counts too.
+  width") counts too, and from rules version 21 a family void through calls
+  into void slot families.
 
 Rows keep their `draft_rule`. Planners do not edit them.
 `recon draft --check <plan>` re-derives them and fails on any difference, or
 on a row claiming a rule the tools did not apply. It uses the rules version
-the plan records in `draft.rules_version` (19 or 20); a plan drafted before
+the plan records in `draft.rules_version` (19, 20 or 21); a plan drafted before
 rules version 19 is checked under version 18, the version every accepted plan
 was last validated with, and `--rules N` overrides it. New drafts use rules
-version 20. Reviewers run it and then
+version 21. Reviewers run it and then
 review only the open rows. A row written by hand that the rules
 now decide must agree in substance: unresolved, or the same types. Before adoption, the rules (version 2) reproduced
 the decision of all 95 accepted plans for every row they decided: 868 of
@@ -415,6 +416,45 @@ already proves keeps its verdict line. Over all 9703 functions, versions
 17-19 give the same verdicts as before and version 20 changes one verdict
 (0x300c70). `--rules 19` gives the earlier verdicts.
 
+Rules version 21 (decision of 2026-10-30, "call through a void slot
+family") is the default. A function exit whose v0/f0 holds only the result
+of a call or tail call through a vtable slot whose whole slot family `recon
+void` decides void leaves no value. Such an exit counts as unset: a function
+whose every exit leaves v0/f0 unset or holding only such results is void
+without a caller check (`VERDICT void: every exit leaves v0 and f0 unset or
+holding only the result of a call or tail call through a vtable slot whose
+whole slot family is void, so it leaves no value (rules version 21)`), an
+override like that witnesses its own family and blocks nothing, and a tail
+jump through such a slot is no indirect-jump problem for the pass-through
+rules. The slot must be proven from the ELF and DWARF (`recon_vcall`): the
+jump register is a `lw` from a vtable pointer that is a `lw` from an object
+pointer, each the only definition; the object's class is the proven
+receiver `this`, a mangled class-pointer parameter, or reached from one
+through DWARF-typed members (a by-value class member or base at an `addiu`
+offset, a pointer member or an array of class pointers at a `lw` offset);
+the class's own constructor or destructor stores one block of
+`__vt__<class>` at the vptr offset; and the slot word is inside that block.
+A member typed otherwise (an integer, `void *`, MSL's `unsigned long *`
+vector storage) proves nothing, so the call stays unproven. Families that
+witness each other through such calls settle to the least fixpoint, so no
+verdict depends on query order. A function version 20 proves void keeps its
+verdict line word for word; otherwise `recon void` lists each indirect call
+or jump whose result reaches an exit with the slot it is proven to go
+through (`slot call jr t9@...: this:C2DButton +0x170 _bmp:CPlainBmp vptr
++0xc -> __vt__9CPlainBmp+0x20; slot family ... (method SetTrans): void`),
+and any void it reaches says it rests on rules version 21. Examples:
+C2DButton::SetBackgroundAlpha (0x393a00, `jr t9` into SetTrans through the
+embedded `_bmp`) and CEntity::OnDeath (0x1ee390, `jr t9` into
+CEntityCtrl::OnDeath through `m_control`) are void.
+CUIVariable::UpdateDependents (0x39e8d0) stays open: it iterates
+`m_attached_items`, whose DWARF storage (`__vector_pod::data_`) is
+`unsigned long *`, so the UIVarMixin element class is not proven. Over all
+9703 functions version 21 turns 26 open verdicts void (2580 -> 2606 void),
+changes only the blocker named by 6 open verdicts, and leaves every other
+verdict line unchanged. `--rules 20` (also on `recon draft`) gives the
+earlier verdicts; `recon draft --check` keeps each plan's own
+`draft.rules_version`.
+
 `recon facts` gives each proven switch jump (`lw v0,0(v0); jr v0` through a
 jump table of the function) only the cases of its own table. Earlier every
 switch reached every table's cases, so a register that the code between two
@@ -429,6 +469,19 @@ A function whose every exit returns a relocated pointer to a NUL-terminated
 string (`recon bytes` shows the word's target and its text) returns
 `char *`. The binary cannot show whether the pointee is `const`, so the plan
 does not record it.
+
+A caller that stores a function's unchanged result into a DWARF-typed pointer
+member proves that pointer return (decision of 2026-10-30). The member's
+DWARF type is the proof: v0 goes straight from the call into the member
+(`jal f; ...; sw v0,k(s0)` with only plain copies between), and the DWARF
+record of the class at that offset types the member as a pointer, so `f`
+returns that pointer type. Precedents: 0x14fd38 `sceDmaGetChan`
+(`sceDmaChan *`) and `CSTable::FindString`. Anything else proves nothing: a
+conversion, arithmetic or a comparison on v0 before the store, a store into
+a member whose DWARF type is an integer or `void *`, a store into a slot with
+no DWARF record (a stack temporary, a global without a typed record, an
+offset that no member covers), or a width alone. Cite the caller's store
+site, the member, and its DWARF type in the row's evidence.
 
 ### Partial prototypes
 

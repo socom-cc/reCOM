@@ -60,6 +60,17 @@ record declares another return, and the only blockers are hand-offs the walk
 cannot follow (a caller returning the value whose address is taken or stored
 in a table, or a chain deeper than twelve): no override returns its own
 value and no caller reads one.  P-slot-void takes such families too.
+
+Rules version 21 (decision of 2026-10-30, "call through a void slot family")
+adds no draft rule.  A function exit whose v0/f0 holds only the result of a
+call or tail call through a vtable slot whose whole slot family recon void
+decides void leaves no value: such exits count as unset (P-void, P-stage2,
+an override witnessing its own family), and a tail jump through such a slot
+is no indirect-jump problem for the pass-through rules.  ``recon_vcall``
+proves the slot from the ELF and DWARF (the object's class, the vptr its
+constructor stores, the slot word); an unproven indirect call proves
+nothing.  Families that witness each other through such calls settle to the
+least fixpoint, so the verdicts do not depend on the order of queries.
 """
 
 from __future__ import annotations
@@ -83,7 +94,7 @@ from .recon import RECON_PLAN_KIND, RECON_SCHEMA, group_evidence
 from .recon_facts import GPR, JR_RA, _reads_at, _through_calls, _use_after_call, argument_reads, call_sites, callee_preserves, context, return_sources
 from .util import SocomError, canonical_json
 
-DRAFT_RULES_VERSION = 20
+DRAFT_RULES_VERSION = 21
 # Rules version 18 adds the vtable slot-family void rule (decision of
 # 2026-10-23).  Passing rules=17 evaluates the earlier behaviour unchanged.
 SLOT_VOID_RULES = 18
@@ -100,7 +111,12 @@ CONTRACT_RULES = 19
 # hand-offs the walk cannot follow.  It only adds void verdicts to slot
 # families; rules=19 evaluates the earlier behaviour unchanged.
 DECLARED_SLOT_RULES = 20
-RULES_VERSIONS = (17, 18, 19, 20)
+# Rules version 21 (decision of 2026-10-30) lets an exit holding only the
+# result of a call or tail call through a void vtable slot family leave no
+# value.  It only adds void verdicts; rules=20 evaluates the earlier
+# behaviour unchanged.
+SLOT_CALL_RULES = 21
+RULES_VERSIONS = (17, 18, 19, 20, 21)
 
 
 class _TypeIndex:
@@ -217,27 +233,35 @@ def _exits_unset(ctx: Any, start: int) -> tuple[bool, list[str]]:
     return ok, rows
 
 
-def _exits_pass_through(ctx: Any, start: int) -> tuple[bool, list[str]]:
+def _exits_pass_through(ctx: Any, start: int, rules: int | None = None) -> tuple[bool, list[str]]:
     """Every value v0 and f0 can hold at a return is dead as a result.
 
     Allowed: nothing (entry), a callee's result (user decision 2026-10-20),
     or a scratch value that some other instruction in the function reads (it
     was a temporary: stored, moved to the FPU, passed on, used as a base --
     second user decision 2026-10-20).  A value computed only to be returned
-    (a lone `li v0,0` before `jr ra`) is not.
+    (a lone `li v0,0` before `jr ra`) is not.  From rules version 21 a tail
+    jump through a void vtable slot family leaves no value either.
     """
 
-    problem, rows = _exit_value_problem(ctx, start)
+    if rules is None:
+        problem, rows = _exit_value_problem(ctx, start)
+    else:
+        problem, rows = _exit_value_problem(ctx, start, rules=rules)
     return problem is None, rows
 
 
-def _exit_value_problem(ctx: Any, start: int, indirect_tail_calls: bool = False) -> tuple[str | None, list[str]]:
+def _exit_value_problem(
+    ctx: Any, start: int, indirect_tail_calls: bool = False, rules: int | None = None
+) -> tuple[str | None, list[str]]:
     """The first value left in v0/f0 at a return that is not dead as a result, and the exit rows.
 
     None when every value is dead (see ``_exits_pass_through``).  A register
     jump (``jr`` other than ra) is unknown, unless ``indirect_tail_calls``:
     then it adds nothing to check, since a switch's cases have exits of their
     own and any other register jump is a tail call leaving the callee's result.
+    From rules version 21 a tail jump through a vtable slot whose family is
+    void leaves no value, so it adds nothing to check either.
     """
 
     rows = return_sources(ctx, start)
@@ -276,6 +300,8 @@ def _exit_value_problem(ctx: Any, start: int, indirect_tail_calls: bool = False)
             sources = [(r, f) for r, f in ((2, False), (0, True)) if callee_preserves(ctx, target, r, f) != "none"]
         elif insn >> 26 == 0x00 and insn & 0x3F == 0x08:
             if not indirect_tail_calls:
+                if rules is not None and rules >= SLOT_CALL_RULES and _void_slot_call(ctx, start, pc, rules):
+                    continue  # a tail call through a void slot family leaves no value
                 return f"{ctx.text(pc)}@0x{pc:x}: an indirect jump, whose result is unknown", rows
             continue  # a proven switch stays inside; any other register jump is a tail call
         else:
@@ -983,16 +1009,36 @@ def slot_families(ctx: Any, rules: int = DRAFT_RULES_VERSION) -> dict[int, SlotF
     for function in sorted(nodes):
         groups.setdefault(find(("fn", function)), []).append(function)
     found: dict[int, SlotFamily] = {}
-    for members in groups.values():
+    by_root: dict[Any, SlotFamily] = {}
+    for root, members in groups.items():
         family = SlotFamily(
             tuple(sorted(members)),
             tuple(sorted(site for member in members for site in holders.get(member, ()))),
             frozenset(_method_name(ctx, member) for member in members),
         )
+        by_root[root] = family
         for member in members:
             found[member] = family
+    # Each vtable block slot (class, subobject, slot) -> the family a call through it reaches (rules 21).
+    _SLOT_NODES[key] = {
+        node[1:]: by_root[find(node)] for node in list(parent) if node[0] == "slot" and find(node) in by_root
+    }
     _FAMILIES[key] = found
     return found
+
+
+_SLOT_NODES: dict[tuple[int, bool], dict[tuple[str, int, int], SlotFamily]] = {}
+
+
+def slot_node_family(ctx: Any, rules: int, cls: str, subobject: int, slot: int) -> SlotFamily | None:
+    """The slot family of slot ``slot`` in the block of ``cls``'s vtable serving the subobject at ``subobject``.
+
+    A slot whose own vtable word is empty (a pure virtual) still has the
+    family that the derived blocks joined to it hold.
+    """
+
+    slot_families(ctx, rules)
+    return _SLOT_NODES.get((id(ctx), rules >= CONTRACT_RULES), {}).get((cls, subobject, slot))
 
 
 def _witness_fits(ctx: Any, function: int) -> bool:
@@ -1034,6 +1080,14 @@ def slot_family_verdict(ctx: Any, function: int, rules: int = DRAFT_RULES_VERSIO
     when an override's own DWARF record declares FT_void (``declared``,
     ``by_declaration``; decision of 2026-10-29).
 
+    Under rules 21 (decision of 2026-10-30) an override whose every exit
+    leaves v0/f0 unset or holding only the result of a call through a void
+    slot family leaves no value: it witnesses the family like an unset body
+    and blocks nothing.  Families that depend on each other that way settle
+    to the least fixpoint (``_settle_slot_calls``); such a verdict carries
+    ``by_slot_calls`` and ``slot_call_witnesses``.  A family the earlier
+    rules already decide keeps their verdict and wording.
+
     Returns None for a function in no vtable slot, else a dict with
     ``family``, ``void``, ``witnesses`` and ``blockers`` ((member, reason)).
     """
@@ -1042,47 +1096,75 @@ def slot_family_verdict(ctx: Any, function: int, rules: int = DRAFT_RULES_VERSIO
     if family is None:
         return None
     cache = _FAMILY_VERDICTS.setdefault(id(ctx), {})
-    if (rules, family.members[0]) in cache:
-        return cache[(rules, family.members[0])]
+    if (rules, family.members[0]) not in cache:
+        if rules >= SLOT_CALL_RULES:
+            _settle_slot_calls(ctx, family, rules)
+        else:
+            cache[(rules, family.members[0])] = _family_verdict(ctx, family, rules, _member_facts(ctx, family, rules), None)
+    return cache[(rules, family.members[0])]
+
+
+def _member_facts(ctx: Any, family: SlotFamily, rules: int) -> list[dict[str, Any]]:
+    """What each member of a slot family contributes, independent of other families' verdicts.
+
+    ``declared`` (a DWARF non-void return: always a blocker), ``unset`` (a
+    witness when ``fits``), ``blocker`` (a reason, or None for a member that
+    leaves only dead values nobody reads or never returns) and, under rules
+    21, ``needs``: the slot families whose voidness makes every exit leave no
+    value (None when some exit can leave anything else).
+    """
+
     declared = _dwarf_returns(ctx)
-    witnesses = []
-    blockers: list[tuple[int, str]] = []
     members = frozenset(family.members)
+    facts = []
     for member in family.members:
         kind = declared.get(member)
+        fits = not _is_stub(ctx, member) and _witness_fits(ctx, member)
         if kind in ("gpr", "float", "other"):
-            blockers.append((member, f"its DWARF record declares a non-void return ({kind})"))
+            facts.append({"member": member, "declared": f"its DWARF record declares a non-void return ({kind})"})
             continue
         if _exits_unset(ctx, member)[0]:
-            if not _is_stub(ctx, member) and _witness_fits(ctx, member):
-                witnesses.append(member)
+            facts.append({"member": member, "unset": True, "fits": fits})
             continue
+        fact = {"member": member, "unset": False, "fits": fits, "blocker": None,
+                "needs": _slot_call_needs(ctx, member, rules) if rules >= SLOT_CALL_RULES else None}
+        facts.append(fact)
         problem, rows = _exit_value_problem(ctx, member, indirect_tail_calls=True)
         if not rows:
             continue  # it never returns, so it leaves no value
         if problem:
-            blockers.append((
-                member,
+            fact["blocker"] = (
                 f"an exit holds its own value ({problem}): computed only to be returned, so callers "
-                "through the slot read it",
-            ))
+                "through the slot read it"
+            )
             continue
         if not _only_in_vtables(ctx, member):
-            blockers.append((
-                member,
+            fact["blocker"] = (
                 "it leaves a value and its address is formed in code or stored outside vtables "
-                "(callers through that pointer are not followed)",
-            ))
+                "(callers through that pointer are not followed)"
+            )
             continue
         checked = [
             (fpr, name)
             for fpr, register, name in ((False, 2, "v0"), (True, 0, "f0"))
             if callee_preserves(ctx, member, register, fpr) != "all"
         ]
-        reader = _first_reader(ctx, member, checked, rules=rules, stop=members, families=False)
-        if reader:
-            blockers.append((member, reader))
-    earlier = slot_families(ctx, SLOT_VOID_RULES).get(function) if rules >= CONTRACT_RULES else family
+        fact["blocker"] = _first_reader(ctx, member, checked, rules=rules, stop=members, families=False)
+    return facts
+
+
+def _family_verdict(
+    ctx: Any, family: SlotFamily, rules: int, facts: list[dict[str, Any]], void_families: frozenset[int] | None
+) -> dict[str, Any]:
+    """A family's verdict from its members' facts; ``void_families`` (rules 21) are the void slot families
+    (by first member) a call may go through for an exit to leave no value."""
+
+    witnesses = [fact["member"] for fact in facts if fact.get("unset") and fact["fits"]]
+    blockers = [
+        (fact["member"], fact.get("declared") or fact["blocker"])
+        for fact in facts if fact.get("declared") or fact.get("blocker")
+    ]
+    earlier = slot_families(ctx, SLOT_VOID_RULES).get(family.members[0]) if rules >= CONTRACT_RULES else family
     verdict = {
         "family": family,
         "void": bool(witnesses) and not blockers and family.method is not None,
@@ -1091,12 +1173,12 @@ def slot_family_verdict(ctx: Any, function: int, rules: int = DRAFT_RULES_VERSIO
         # Rules version 19 joined it through a base class without a vtable of its own.
         "joined": earlier is None or earlier.members != family.members,
     }
+    dwarf_void = _dwarf_void(ctx)
+    declared_members = [member for member in family.members if member in dwarf_void and not _is_stub(ctx, member)]
     if rules >= DECLARED_SLOT_RULES:
         # Rules version 20 (decision of 2026-10-29): a DWARF-declared void
         # override is the family's witness, and a hand-off the walk cannot
         # follow does not block it (C++ gives every override the slot's void).
-        dwarf_void = _dwarf_void(ctx)
-        declared_members = [member for member in family.members if member in dwarf_void and not _is_stub(ctx, member)]
         handoffs = [(member, reason) for member, reason in blockers if _unfollowed_handoff(reason)]
         by_declaration = (
             not verdict["void"] and family.method is not None and bool(declared_members) and len(handoffs) == len(blockers)
@@ -1104,8 +1186,177 @@ def slot_family_verdict(ctx: Any, function: int, rules: int = DRAFT_RULES_VERSIO
         verdict.update(declared=declared_members, handoffs=handoffs, by_declaration=by_declaration)
         if by_declaration:
             verdict["void"] = True
-    cache[(rules, family.members[0])] = verdict
+    if rules >= SLOT_CALL_RULES and not verdict["void"] and family.method is not None and void_families is not None:
+        # Rules version 21: a member whose exits leave only the results of calls
+        # through void slot families leaves no value.
+        quiet = [fact for fact in facts if fact.get("needs") and fact["needs"] <= void_families and not fact.get("declared")]
+        quiet_members = {fact["member"] for fact in quiet}
+        called = [fact["member"] for fact in quiet if fact["fits"]]
+        left = [(member, reason) for member, reason in blockers if member not in quiet_members]
+        handoffs = [(member, reason) for member, reason in left if _unfollowed_handoff(reason)]
+        void = bool(witnesses or called or declared_members) if not left else (
+            bool(declared_members) and len(handoffs) == len(left)
+        )
+        if void and quiet:
+            verdict.update(
+                void=True, by_slot_calls=True, witnesses=sorted(witnesses + called), slot_call_witnesses=called,
+                slot_call_members=sorted(quiet_members), blockers=left, handoffs=handoffs,
+            )
     return verdict
+
+
+def _settle_slot_calls(ctx: Any, family: SlotFamily, rules: int) -> None:
+    """Cache the rules-21 verdicts of ``family`` and every family its members' exits call through.
+
+    A verdict depends on other families only through ``needs``, and only by
+    gaining void as they do, so the least fixpoint over the families reached
+    is the verdict; families already cached are final and stay fixed.
+    """
+
+    cache = _FAMILY_VERDICTS.setdefault(id(ctx), {})
+    families = slot_families(ctx, rules)
+    reached: dict[int, SlotFamily] = {}
+    facts: dict[int, list[dict[str, Any]]] = {}
+    stack = [family]
+    while stack:
+        current = stack.pop()
+        key = current.members[0]
+        if key in reached or (rules, key) in cache:
+            continue
+        reached[key] = current
+        facts[key] = _member_facts(ctx, current, rules)
+        for fact in facts[key]:
+            stack.extend(families[needed] for needed in sorted(fact.get("needs") or ()) if needed in families)
+    fixed = frozenset(key for (version, key), verdict in cache.items() if version == rules and verdict["void"])
+    void: frozenset[int] = frozenset()
+    while True:
+        known = void | fixed
+        grown = frozenset(key for key in reached if _family_verdict(ctx, reached[key], rules, facts[key], known)["void"])
+        if grown == void:
+            break
+        void = grown
+    for key in sorted(reached):
+        cache[(rules, key)] = _family_verdict(ctx, reached[key], rules, facts[key], void | fixed)
+
+
+def _exit_slot_calls(ctx: Any, start: int, rules: int) -> dict[int, dict[str, Any] | None] | None:
+    """Indirect calls and jumps whose results are all an exit can leave in v0/f0 (rules version 21).
+
+    None when some exit can leave anything else (an own value, a direct
+    callee's result, a direct tail jump) or there is no exit; else each such
+    ``jalr`` (its result reaches a ``jr ra``) or non-switch register jump
+    (a tail call), with its ``recon_vcall.slot_call`` or None if unproven.
+    An empty result means every exit leaves v0 and f0 unset.
+    """
+
+    key = (id(ctx), rules >= CONTRACT_RULES, start)
+    if key in _EXIT_CALLS:
+        return _EXIT_CALLS[key]
+    from .recon_facts import _is_switch
+    from .recon_vcall import slot_call
+
+    flow = ctx.flow(start)
+    calls: dict[int, Any] = {}
+    exits = 0
+    result: dict[int, Any] | None = calls
+    for pc in range(start, flow.end, 4):
+        if not flow.reachable(pc) or result is None:
+            continue
+        insn = ctx.code.word(pc)
+        if insn == JR_RA:
+            exits += 1
+            for register, fpr in ((2, False), (0, True)):
+                for d in _through_calls(ctx, flow, flow.after(pc + 4, register, fpr), register, fpr):
+                    if d == "entry":
+                        continue
+                    call = d - 4 if isinstance(d, int) and d != flow.start else None
+                    word = ctx.code.word(call) if call is not None else 0
+                    if (
+                        call is None or flow.fn.decoded.get(call, {}).get("kind") != "call"
+                        or word >> 26 or word & 0x3F != 0x09
+                    ):
+                        result = None  # not the result of an indirect call
+                        break
+                    calls[call] = slot_call(ctx, start, call, rules)
+                if result is None:
+                    break
+        elif insn >> 26 == 0x02:
+            target = ((pc + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2)
+            if not start <= target < flow.end:
+                result = None  # a direct tail call leaves its callee's result
+        elif insn >> 26 == 0x00 and insn & 0x3F == 0x08 and not _is_switch(ctx, flow, start, pc):
+            exits += 1
+            calls[pc] = slot_call(ctx, start, pc, rules)
+    _EXIT_CALLS[key] = result if exits else None
+    return _EXIT_CALLS[key]
+
+
+_EXIT_CALLS: dict[tuple[int, bool, int], dict[int, Any] | None] = {}
+
+
+def _slot_call_needs(ctx: Any, start: int, rules: int) -> frozenset[int] | None:
+    """The slot families (by first member) that must be void for every exit to leave no value.
+
+    None unless some exit leaves a call's result and every such call goes
+    through a proven vtable slot (an exit that leaves nothing at all is the
+    earlier rules' unset case).
+    """
+
+    calls = _exit_slot_calls(ctx, start, rules)
+    if not calls or any(call is None for call in calls.values()):
+        return None
+    return frozenset(call["family"].members[0] for call in calls.values())
+
+
+def _void_slot_call(ctx: Any, owner: int, pc: int, rules: int) -> dict[str, Any] | None:
+    """The proven slot call at ``pc`` when its whole slot family is void (rules version 21), else None."""
+
+    from .recon_vcall import slot_call
+
+    call = slot_call(ctx, owner, pc, rules)
+    return call if call and _slot_void(ctx, call["family"].members[0], rules) else None
+
+
+def _exits_no_value(ctx: Any, start: int, rules: int) -> bool:
+    """Rules version 21: every exit leaves v0/f0 unset or holding only the result of a call or tail call
+    through a vtable slot whose whole family is void, and at least one such call is involved."""
+
+    if rules < SLOT_CALL_RULES:
+        return False
+    needs = _slot_call_needs(ctx, start, rules)
+    return bool(needs) and all(_slot_void(ctx, key, rules) for key in sorted(needs))
+
+
+def slot_call_lines(ctx: Any, start: int, rules: int) -> list[str]:
+    """Short text for each indirect call or jump whose result reaches an exit: its slot and family verdict."""
+
+    if rules < SLOT_CALL_RULES:
+        return []
+    from .recon_facts import _is_switch
+    from .recon_vcall import slot_call
+
+    flow = ctx.flow(start)
+    sites = sorted(_exit_slot_calls(ctx, start, rules) or {})
+    if not sites:
+        # Exits that leave other values too: show the register tail jumps, which the pass-through rules check.
+        sites = [
+            pc for pc in range(start, flow.end, 4)
+            if flow.reachable(pc) and ctx.code.word(pc) >> 26 == 0 and ctx.code.word(pc) & 0x3F == 0x08
+            and ctx.code.word(pc) != JR_RA and not _is_switch(ctx, flow, start, pc)
+        ]
+    lines = []
+    for pc in sites:
+        call = slot_call(ctx, start, pc, rules)
+        head = f"slot call {ctx.text(pc)}@0x{pc:x}"
+        if call is None:
+            lines.append(f"{head}: no vtable slot proven (object class, vptr store or slot word unknown)")
+            continue
+        verdict = slot_family_verdict(ctx, call["family"].members[0], rules)
+        lines.append(
+            f"{head}: {call['object']} vptr +0x{call['vptr']:x} -> {call['vtable']}+0x{call['word']:x}; "
+            f"slot family {_family_summary(ctx, verdict)}: {'void' if verdict['void'] else 'not void'}"
+        )
+    return lines
 
 
 _UNFOLLOWED_HANDOFF = re.compile(
@@ -1135,6 +1386,10 @@ def _family_summary(ctx: Any, verdict: dict[str, Any]) -> str:
     return f"{len(family.members)} functions in {len(family.slots)} vtable slots (method {method})"
 
 
+def _overrides(count: int) -> str:
+    return f"{count} override{'' if count == 1 else 's'}"
+
+
 def slot_family_lines(ctx: Any, verdict: dict[str, Any]) -> list[str]:
     """Short text for `recon void`: the family, its witness and its first blocker."""
 
@@ -1142,8 +1397,12 @@ def slot_family_lines(ctx: Any, verdict: dict[str, Any]) -> list[str]:
     head = f"slot family: {_family_summary(ctx, verdict)}"
     if family.method is None:
         return [head + ": the members' method names differ, so they are not provably one virtual"]
+    unset = [member for member in verdict["witnesses"] if member not in verdict.get("slot_call_witnesses", ())]
     witness = (
-        f"{ctx.label(verdict['witnesses'][0])} has no path that writes v0 or f0 before returning"
+        f"{ctx.label(unset[0])} has no path that writes v0 or f0 before returning"
+        if unset else
+        f"{ctx.label(verdict['witnesses'][0])} leaves v0 and f0 unset or holding only the result of a call "
+        "through a void vtable slot family at every exit (rules version 21)"
         if verdict["witnesses"] else "no override's own exits leave v0 and f0 unset"
     )
     lines = [f"{head}; {witness}"]
@@ -1163,6 +1422,16 @@ def slot_family_lines(ctx: Any, verdict: dict[str, Any]) -> list[str]:
             lines.append(f"slot family hand-off not followed from {ctx.label(member)} (the declared void covers it): {reason}")
         if len(verdict["handoffs"]) > 3:
             lines.append(f"slot family: {len(verdict['handoffs']) - 3} more hand-offs not followed")
+        return lines
+    if verdict.get("by_slot_calls"):
+        quiet = verdict["slot_call_members"]
+        lines.append(
+            f"slot family void through calls (rules version 21, decision of 2026-10-30): {_overrides(len(quiet))}, "
+            f"first {ctx.label(quiet[0])}, {'leaves' if len(quiet) == 1 else 'leave'} only the results of calls "
+            "through void vtable slot families"
+        )
+        for member, reason in verdict["handoffs"][:3]:
+            lines.append(f"slot family hand-off not followed from {ctx.label(member)} (the declared void covers it): {reason}")
         return lines
     for member, reason in verdict["blockers"][:3]:
         lines.append(f"slot family blocked by {ctx.label(member)}: {reason}")
@@ -1308,6 +1577,15 @@ def _slot_evidence(ctx: Any, function: int, rules: int = DRAFT_RULES_VERSION) ->
             f"(first {ctx.label(declared[0])}) declare an explicit void return (FT_void), no override returns its own "
             "value and no caller reads one, so the slot returns void (rules version 20, decision of 2026-10-29)"
         )
+    if verdict.get("by_slot_calls"):
+        quiet = verdict["slot_call_members"]
+        return (
+            f"vtable slot family of {_family_summary(ctx, verdict)}: {_overrides(len(quiet))} (first "
+            f"{ctx.label(quiet[0])}) {'leaves' if len(quiet) == 1 else 'leave'} v0 and f0 unset or holding only "
+            "the result of a call through a void "
+            "vtable slot family at every exit, and no other override writes a value a caller reads, so the slot "
+            "returns void (rules version 21, decision of 2026-10-30)"
+        )
     witness = ctx.label(verdict["witnesses"][0]) if verdict.get("witnesses") else "?"
     return (
         f"vtable slot family of {_family_summary(ctx, verdict)}: {witness} has no path that writes v0 or f0 "
@@ -1405,16 +1683,19 @@ def _draft_row(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIndex,
         if gprs <= declared_g and fprs <= declared_f:
             unset, exits = _exits_unset(ctx, address)
             declared_void = stage2_prototype["return_type"] == "void" and address in _dwarf_void(ctx)
-            by_slot = False
+            by_slot = no_value = False
             if stage2_prototype["return_type"] == "void" and not unset and not declared_void:
                 # A leftover nobody reads (callee result or scratch, all readers checked).
-                through, through_exits = _exits_pass_through(ctx, address)
+                through, through_exits = _exits_pass_through(ctx, address, rules)
                 ignored, site_count = _callers_ignore_v0(ctx, address, rules=rules)
                 if through and ignored and site_count and not (ctx.addr_taken.get(address) or ctx.word32.get(address)):
                     unset, exits = True, through_exits
                 elif slot_void:
                     # The slot family's verdict covers every member's exits and direct callers.
                     unset, exits, by_slot = True, through_exits, True
+                elif _exits_no_value(ctx, address, rules):
+                    # Rules version 21: only results of calls through void slot families reach the exits.
+                    unset, exits, no_value = True, through_exits, True
             if stage2_prototype["return_type"] != "void" or unset or declared_void:
                 return {
                     **base,
@@ -1434,8 +1715,14 @@ def _draft_row(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIndex,
                             [f"every exit leaves v0 and f0 unset or a callee's result or scratch value ({len(exits)} exits)",
                              _slot_evidence(ctx, address, rules)]
                             if by_slot else
+                            [_no_value_evidence(ctx, address, rules, exits)]
+                            if no_value else
                             [f"every exit leaves v0 and f0 unset or an unread leftover ({len(exits)} exits)"]
                             if stage2_prototype["return_type"] == "void" else []
+                        )
+                        + (
+                            slot_call_lines(ctx, address, rules)
+                            if stage2_prototype["return_type"] == "void" and not declared_void and not no_value else []
                         ),
                     },
                 }
@@ -1501,15 +1788,18 @@ def _draft_row(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIndex,
     sinit = live_name.startswith("__sinit_") and not parsed
     slot_void = slot_void and not sinit
     unset, exits = _exits_unset(ctx, address)
-    pass_through = by_slot = False
+    pass_through = by_slot = no_value = False
     if not unset and not sinit:
-        through, exits_through = _exits_pass_through(ctx, address)
+        through, exits_through = _exits_pass_through(ctx, address, rules)
         ignored, site_count = _callers_ignore_v0(ctx, address, rules=rules)
         if through and ignored and (site_count or _declared_void(ctx, address, rules, families=False)):
             unset, exits, pass_through = True, exits_through, True
         elif slot_void:
             # The slot family's verdict covers every member's exits and direct callers.
             unset, exits, pass_through, by_slot = True, exits_through, True, True
+        elif _exits_no_value(ctx, address, rules):
+            # Rules version 21: only results of calls through void slot families reach the exits.
+            unset, exits, no_value = True, exits_through, True
     if sinit:
         # A static initializer's type is fixed by the runtime, not by its body:
         # __initialize_cpp_rts calls each through the void (**)(void) .p__sinit
@@ -1567,6 +1857,7 @@ def _draft_row(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIndex,
          f"every exit leaves v0 and f0 unset or holding a callee's result ({len(exits)} exits) and all "
          f"{len(call_sites(ctx, address))} direct call sites leave v0 unread (callee-result pass-through, "
          "or scratch value decisions of 2026-10-20)" if pass_through else
+         _no_value_evidence(ctx, address, rules, exits) if no_value else
          f"every exit leaves v0 and f0 unset ({len(exits)} jr ra)" if not sinit else
          f"static initializer: {len(exits)} exit(s), no direct call sites; the runtime calls it through the "
          "void (**)(void) .p__sinit table (__initialize_cpp_rts) and never reads v0"),
@@ -1576,8 +1867,26 @@ def _draft_row(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIndex,
     ]
     if receiver_evidence:
         evidence.insert(1, receiver_evidence)
+    if pass_through and not sinit:
+        # Rules version 21: the indirect calls and tail jumps whose results reach the exits, with their slots.
+        evidence.extend(slot_call_lines(ctx, address, rules))
     return {**base, "draft_rule": "P-slot-void" if by_slot else "P-void",
             "prototype": {"return_type": "void", "parameters": parameters, "evidence": evidence}}
+
+
+def _no_value_evidence(ctx: Any, address: int, rules: int, exits: list[str]) -> str:
+    """P-void and P-stage2's exit line for rules version 21: the void slot families the exits call through."""
+
+    calls = _exit_slot_calls(ctx, address, rules) or {}
+    shown = "; ".join(
+        f"{ctx.text(pc)}@0x{pc:x} -> {call['vtable']}+0x{call['word']:x} "
+        f"(slot family of {_family_summary(ctx, slot_family_verdict(ctx, call['family'].members[0], rules))}, void)"
+        for pc, call in sorted(calls.items())
+    )
+    return (
+        f"every exit leaves v0 and f0 unset or holding only the result of a call or tail call through a void vtable "
+        f"slot family ({len(exits)} exits; rules version 21, decision of 2026-10-30): {shown}"
+    )
 
 
 def _reference_evidence(ctx: Any, address: int, rules: int, slots: list[str]) -> str:
@@ -1640,7 +1949,7 @@ def check_rules_version(plan: dict[str, Any]) -> int:
 
     A plan keeps the rules it was drafted under (its ``draft.rules_version``):
     a plan drafted under version 19 is checked under 19, one drafted under 20
-    under 20.  Plans drafted before version 19, or with no draft block, are
+    under 20, one drafted under 21 under 21.  Plans drafted before version 19, or with no draft block, are
     checked under version 18, the version every accepted plan was last
     validated with; a row that a later version would decide differently stays
     as accepted, and ``--rules 19`` or ``--rules 20`` shows the new decision.
@@ -1723,6 +2032,15 @@ _DECLARED_SLOT_VERDICT = (
     "in the slot declare an explicit void return (FT_void), no override returns its own value and no caller "
     "reads one"
 )
+_SLOT_CALL_VERDICT = (
+    "VERDICT void: every exit leaves v0 and f0 unset or holding only the result of a call or tail call through a "
+    "vtable slot whose whole slot family is void, so it leaves no value (rules version 21)"
+)
+_SLOT_CALL_FAMILY_VERDICT = (
+    "VERDICT void: its vtable slot family is void (rules version 21): overrides leave v0 and f0 unset or holding "
+    "only the result of a call through a void vtable slot family, and no other override writes a value a caller "
+    "reads"
+)
 
 
 _UNSET_EXITS = "exits: v0 and f0 unset at every exit -> void needs no caller check"
@@ -1737,12 +2055,39 @@ def void_verdict(ctx: Any, start: int, rules: int = DRAFT_RULES_VERSION) -> str:
     family's verdict: the family, the override whose body proves void, and
     each blocking override with its reader.  ``rules=17`` and ``rules=18``
     print the earlier verdicts.
+
+    From rules version 21 a function the rules-20 verdict proves void keeps
+    that verdict word for word; otherwise the rules-21 verdict is printed,
+    with each indirect call or jump whose result reaches an exit and the
+    slot it is proven to go through, and a void it reaches says it rests on
+    rules version 21.
     """
 
     if rules not in RULES_VERSIONS:
         raise SocomError(f"void rules version {rules} is not one of {', '.join(map(str, RULES_VERSIONS))}")
     if start not in ctx.size:
         return f"## 0x{start:x}: not the start of a sized FUNC symbol"
+    if rules < SLOT_CALL_RULES:
+        return _void_text(ctx, start, rules)
+    earlier = _void_text(ctx, start, DECLARED_SLOT_RULES)
+    if verdict_proves_void(verdict_line(earlier)):
+        return earlier
+    lines = _void_text(ctx, start, rules).splitlines()
+    for index, line in enumerate(lines):
+        if line.startswith("VERDICT void") and "rules version 21" not in line:
+            # Open under rules 20: a void here rests on a call through a void slot family.
+            lines[index] = line + _LATER_VOID
+    return "\n".join(lines)
+
+
+_LATER_VOID = (
+    " (rules version 21: open under rules version 20; a call through a void vtable slot family leaves no value)"
+)
+
+
+def _void_text(ctx: Any, start: int, rules: int) -> str:
+    """``void_verdict`` under exactly ``rules``."""
+
     label = ctx.label(start)
     lines = [f"## {label}"]
     declared = _dwarf_returns(ctx).get(start)
@@ -1756,21 +2101,33 @@ def void_verdict(ctx: Any, start: int, rules: int = DRAFT_RULES_VERSION) -> str:
     family_lines = slot_family_lines(ctx, family) if family else []
     # Rules version 20: a family void only by its DWARF declaration decides
     # where the earlier rules leave the function open; their void verdicts
-    # keep their own wording.
+    # keep their own wording.  Rules version 21 does the same for a family
+    # void only through calls into void slot families, and for the
+    # function's own exits leaving only such calls' results.
     declared = bool(family and family.get("by_declaration"))
+    by_calls = bool(family and family.get("by_slot_calls"))
     unset, rows = _exits_unset(ctx, start)
     if unset:
         lines.append(_UNSET_EXITS)
         lines.extend(family_lines)
-        if family and family["void"] and not declared:
+        if family and family["void"] and not declared and not by_calls:
             lines.append(_SLOT_VOID_VERDICT)
         return "\n".join(lines)
-    dead, rows = _exits_pass_through(ctx, start)
+    dead, rows = _exits_pass_through(ctx, start, rules)
     lines.extend(f"exit {row}" for row in rows)
+    lines.extend(slot_call_lines(ctx, start, rules))
     lines.extend(family_lines)
-    if family and family["void"] and not declared:
+    if family and family["void"] and not declared and not by_calls:
         # The family verdict checked every member's exits and direct callers.
         lines.append(_SLOT_VOID_VERDICT)
+        return "\n".join(lines)
+    if _exits_no_value(ctx, start, rules):
+        # Rules version 21: like unset exits, no caller check is needed.
+        lines.append(_SLOT_CALL_VERDICT)
+        return "\n".join(lines)
+    if by_calls and family["void"]:
+        # Rules version 21: the family verdict checked every member's exits and direct callers.
+        lines.append(_SLOT_CALL_FAMILY_VERDICT)
         return "\n".join(lines)
 
     def open_verdict(text: str) -> str:

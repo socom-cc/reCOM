@@ -82,7 +82,7 @@ def test_withdrawal_candidates_follow_the_rules(root: Path, plans: dict) -> None
     assert rows[0x226320]["source"] == GROUP and rows[0x3e0658]["source"] == REPAIR
     assert rows[0x14fd60]["pending_repairs"] == [PENDING]
     result = withdrawal_candidates(root, tracker)
-    assert result["mutation_performed"] is False and result["rules_version"] == 20
+    assert result["mutation_performed"] is False and result["rules_version"] == 21
     void = result["void"]
     assert [row["address"] for row in void["candidates"]] == ["0x226320"]
     assert void["candidates"][0]["verdict"] == "VERDICT open: the function's address is taken or stored in a table"

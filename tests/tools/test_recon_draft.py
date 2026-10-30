@@ -359,7 +359,7 @@ def test_rules_version_must_be_known(ctx) -> None:
     from tools._socom.recon_draft import RULES_VERSIONS, void_verdict
     from tools._socom.util import SocomError
 
-    assert RULES_VERSIONS == (17, 18, 19, 20)
+    assert RULES_VERSIONS == (17, 18, 19, 20, 21)
     with pytest.raises(SocomError):
         void_verdict(ctx, 0x393b90, rules=6)
 
@@ -593,7 +593,7 @@ def test_void_proof_names_dwarf_recon_void_and_the_sinit_rule(ctx) -> None:
     assert not sinit_rule_void(ctx, 0x226320)
     assert void_proof(ctx, 0x46B9D0)[0].startswith("the drafter's __sinit_ rule")
     assert void_proof(ctx, 0x17CBE0)[0].startswith("its DWARF record declares")  # LoadThreadEntry: FT_void, open
-    assert void_proof(ctx, 0x3DEFD8)[0].startswith("recon void (rules version 20): VERDICT void")  # bzero
+    assert void_proof(ctx, 0x3DEFD8)[0].startswith("recon void (rules version 21): VERDICT void")  # bzero
     assert void_proof(ctx, 0x226320) == (None, "VERDICT open: the function's address is taken or stored in a table")
 
 
@@ -674,3 +674,117 @@ def test_storage_follows_metrowerks_float_overflow(ctx) -> None:
     assert len(rows) == 7
     # With the GPRs already full, Ghidra puts the ninth float on the stack too.
     assert storage_problems(proto(*["int"] * 8, *["float"] * 9)) == []
+
+
+# -- rules version 21: calls through void slot families (decision of 2026-10-30) --
+
+SET_BACKGROUND_ALPHA = 0x393A00  # jr t9 into SetTrans through the embedded _bmp (CPlainBmp at +368)
+ENTITY_ON_DEATH = 0x1EE390  # jr t9 into CEntityCtrl::OnDeath through m_control (+192)
+UPDATE_DEPENDENTS = 0x39E8D0  # jalr through m_attached_items, DWARF-typed unsigned long *
+
+
+def test_slot_calls_are_proven_from_dwarf_members_and_vptr_stores(ctx) -> None:
+    from tools._socom.recon_vcall import slot_call, vptr_stores
+
+    # CPlainBmp's constructor and destructor store its primary block at +12 and
+    # the UIVarMixin block (+0x5c) at +128.
+    assert vptr_stores(ctx)["CPlainBmp"] == {12: {0}, 128: {0x5C}}
+    call = slot_call(ctx, SET_BACKGROUND_ALPHA, 0x393A1C, 21)
+    assert (call["vtable"], call["word"], call["vptr"]) == ("__vt__9CPlainBmp", 0x20, 12)
+    assert call["object"] == "this:C2DButton +0x170 _bmp:CPlainBmp" and call["family"].method == "SetTrans"
+    call = slot_call(ctx, ENTITY_ON_DEATH, 0x1EE3B8, 21)
+    assert (call["vtable"], call["word"], call["vptr"]) == ("__vt__11CEntityCtrl", 0x18, 0)
+    assert "m_control:CEntityCtrl*" in call["object"] and call["family"].method == "OnDeath"
+    # A mangled class-pointer parameter types its register (a1 of a const method).
+    call = slot_call(ctx, 0x397CB0, 0x397D5C, 21)
+    assert call["object"].startswith("a1:C2DButton*") and call["family"].method == "SetNormal"
+    # MSL's vector<UIVarMixin *> stores its elements as unsigned long *: no DWARF type names the class.
+    assert slot_call(ctx, UPDATE_DEPENDENTS, 0x39E8F8, 21) is None
+    # Not an indirect call or jump.
+    assert slot_call(ctx, SET_BACKGROUND_ALPHA, SET_BACKGROUND_ALPHA, 21) is None
+
+
+def test_an_exit_through_a_void_slot_family_leaves_no_value(ctx) -> None:
+    from tools._socom.recon_draft import _exits_pass_through, slot_family_verdict, verdict_line, void_verdict
+
+    for address in (SET_BACKGROUND_ALPHA, ENTITY_ON_DEATH):
+        text = void_verdict(ctx, address)
+        line = verdict_line(text)
+        assert line.startswith("VERDICT void: every exit leaves v0 and f0 unset or holding only the result")
+        assert "(rules version 21)" in line and "slot call jr t9@" in text
+        assert verdict_line(void_verdict(ctx, address, rules=20)).startswith("VERDICT open: some exit can return")
+        family = slot_family_verdict(ctx, address)
+        assert family["void"] and family["by_slot_calls"] and family["slot_call_witnesses"] == [address]
+        assert not slot_family_verdict(ctx, address, 20)["void"]
+    # The tail jump is no indirect-jump problem for the pass-through rules either.
+    assert _exits_pass_through(ctx, SET_BACKGROUND_ALPHA, 21)[0]
+    assert not _exits_pass_through(ctx, SET_BACKGROUND_ALPHA, 20)[0]
+    # CZSealBody::OnDeath shares CEntity::OnDeath's family: void through it.
+    line = verdict_line(void_verdict(ctx, 0x24F6D0))
+    assert line.startswith("VERDICT void: its vtable slot family is void (rules version 21)")
+    # An unproven slot call proves nothing.
+    text = void_verdict(ctx, UPDATE_DEPENDENTS)
+    assert "slot call jalr t9@0x39e8f8: no vtable slot proven" in text and verdict_line(text).startswith("VERDICT open")
+
+
+def test_rules_20_void_verdicts_keep_their_wording(ctx) -> None:
+    from tools._socom.recon_draft import void_verdict
+
+    for address in (0x3DEFD8, 0x390F10, 0x393B90, C2D_DRAW, 0x17C3A0):
+        assert void_verdict(ctx, address) == void_verdict(ctx, address, rules=20)
+    # A void only rules 21 reaches says so: CInput::Flush's f0 chain ended at
+    # CZSealBody::OnDeath, whose slot family is now void.
+    assert void_verdict(ctx, 0x2195E0).splitlines()[-1].endswith(
+        "(rules version 21: open under rules version 20; a call through a void vtable slot family leaves no value)"
+    )
+
+
+def test_slot_call_families_settle_to_the_least_fixpoint(ctx, monkeypatch) -> None:
+    from tools._socom import recon_draft
+
+    families = recon_draft.slot_families(ctx, 21)
+    alpha, death = families[SET_BACKGROUND_ALPHA].members[0], families[ENTITY_ON_DEATH].members[0]
+    real = recon_draft._slot_call_needs
+
+    def cycle(c, start, rules):
+        # Each family's witness calls only through the other: nothing proves either.
+        if start == SET_BACKGROUND_ALPHA:
+            return frozenset({death})
+        if start == ENTITY_ON_DEATH:
+            return frozenset({alpha})
+        return real(c, start, rules)
+
+    monkeypatch.setattr(recon_draft, "_slot_call_needs", cycle)
+    _fresh_verdicts(ctx, monkeypatch)
+    assert not recon_draft.slot_family_verdict(ctx, ENTITY_ON_DEATH, 21)["void"]
+    assert not recon_draft.slot_family_verdict(ctx, SET_BACKGROUND_ALPHA, 21)["void"]
+
+    def chain(c, start, rules):
+        # CEntity::OnDeath calls through SetBackgroundAlpha's family, which calls through the void SetTrans.
+        return frozenset({alpha}) if start == ENTITY_ON_DEATH else real(c, start, rules)
+
+    monkeypatch.setattr(recon_draft, "_slot_call_needs", chain)
+    for first, second in ((SET_BACKGROUND_ALPHA, ENTITY_ON_DEATH), (ENTITY_ON_DEATH, SET_BACKGROUND_ALPHA)):
+        _fresh_verdicts(ctx, monkeypatch)
+        assert recon_draft.slot_family_verdict(ctx, first, 21)["void"]
+        assert recon_draft.slot_family_verdict(ctx, second, 21)["void"]
+
+
+def test_drafter_takes_the_slot_call_rule(ctx) -> None:
+    from tools._socom.recon_draft import check_rules_version
+
+    types = _types("C2DButton", "CFader")
+    row = _row(SET_BACKGROUND_ALPHA, "SetBackgroundAlpha__9C2DButtonFf")
+    drafted = draft_function(ctx, row, "x", types)
+    assert drafted["draft_rule"] == "P-slot-void" and drafted["prototype"]["return_type"] == "void"
+    assert [p["type"] for p in drafted["prototype"]["parameters"]] == ["C2DButton *", "float"]
+    assert any("rules version 21" in line for line in drafted["prototype"]["evidence"])
+    assert draft_function(ctx, row, "x", types, rules=20)["draft"] == "open"
+    # CFader::SetBrightness tail-jumps into SetTrans: pass-through with its callers, the slot named in the evidence.
+    drafted = draft_function(ctx, _row(0x4034F0, "SetBrightness__6CFaderFf"), "x", types)
+    assert drafted["draft_rule"] == "P-void"
+    assert any(
+        line.startswith("slot call jr t9@0x403554: this:CFader vptr +0xc -> __vt__6CFader+0x20")
+        for line in drafted["prototype"]["evidence"]
+    )
+    assert check_rules_version({"draft": {"rules_version": 21}}) == 21
