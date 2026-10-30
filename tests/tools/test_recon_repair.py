@@ -546,6 +546,27 @@ def test_repair_rows_may_withdraw_a_void_recon_void_leaves_open(tmp_path: Path, 
         assert any(message in problem for problem in validate_recon_plan(root, decomposed, bad)), message
 
 
+def test_a_withdrawal_may_cite_a_callees_void_verdict(root: Path, decomposed: dict) -> None:
+    _accept_group(decomposed, DELETE_CHILDREN)
+    plan_id, _apply_id = add_recon_repair_items(decomposed, [DELETE_CHILDREN])
+    plan = _void_withdrawal(decomposed, plan_id)
+    callee = "VERDICT void: 2 direct call sites; no code reads the leftover"
+    own_label = context(root).label(int(DELETE_CHILDREN, 16))
+    cases = [
+        (f"its callee Foo@0x307920 has {callee}", True),  # another function's verdict: evidence
+        (f"## Foo@0x307920\nexits: ...\n{callee}", True),  # a recon void block of another function
+        (f"## {own_label}\n{callee}", False),  # its own block
+        (f"recon void {DELETE_CHILDREN}: {callee}", False),  # attributed to itself
+        (callee, False),  # unattributed: its own claim
+    ]
+    for text, accepted in cases:
+        changed = copy.deepcopy(plan)
+        changed["functions"][0]["prototype"]["contradiction"].append(text)
+        problems = validate_recon_plan(root, decomposed, changed)
+        assert (problems == []) is accepted, (text, problems)
+        assert accepted or any("never 'VERDICT void' for the function itself" in p for p in problems), problems
+
+
 @pytest.mark.parametrize(
     ("address", "live", "message"),
     [
@@ -635,6 +656,13 @@ def test_keep_rows_leave_a_listed_function_as_it_is(tmp_path: Path, root: Path, 
     row = program["functions"][0]
     assert row["keep"] is True and row["prototype"] is None and row["rename"] is False
     assert row["prototype_skip"].startswith("keep: CPnt4D") and any(n.startswith("kept as it is") for n in row["notes"])
+    # The program keeps its accepted bytes (unresolved_count includes the keep
+    # row); `recon program` reports keep rows apart.
+    from tools._socom.recon import recon_program_summary
+
+    assert program["summary"]["unresolved_count"] == 1 and "keep_count" not in program["summary"]
+    summary = recon_program_summary(program)
+    assert (summary["keep_count"], summary["unresolved_count"]) == (1, 0)
 
     class Keeping(_Bridge):
         def request(self, endpoint, **parameters):

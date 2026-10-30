@@ -23,7 +23,7 @@ from .batch_apply import (
     _writes,
 )
 from .elf import Elf32File
-from .mips_flow import _Code, _Function
+from .mips_flow import SYSCALL_WRITES, _Code, _Function, is_syscall
 from .mwdemangle import demangle, readable_component, render_type
 from .util import file_key
 
@@ -350,7 +350,7 @@ class _Flow:
     def entering_callee(self, slot: int, register: int, fpr: bool = False) -> set[Any]:
         """Definitions a callee sees: the call's delay slot ran, the callee has not."""
 
-        own_g = _writes(self.ctx.code.word(slot))[0]
+        own_g = _gpr_writes(self.ctx.code.word(slot))
         own_f = _fpr_writes(self.ctx.code.word(slot))
         if register in (own_f if fpr else own_g):
             return {slot}
@@ -358,6 +358,14 @@ class _Flow:
 
 
 _FPU_NO_FD = frozenset({0x18, 0x19, 0x1A, 0x1E, 0x1F}) | frozenset(range(0x30, 0x40))
+
+
+def _gpr_writes(insn: int) -> frozenset[int]:
+    """GPRs an instruction writes; a ``syscall`` writes v0, the EE kernel's result."""
+
+    if is_syscall(insn):
+        return SYSCALL_WRITES
+    return frozenset(_writes(insn)[0])
 
 
 def _fpr_writes(insn: int) -> frozenset[int]:
@@ -439,19 +447,30 @@ def _syscalls(ctx: _Context, start: int) -> list[tuple[int, int | None]]:
     flow = ctx.flow(start)
     found = []
     for pc in range(start, flow.end, 4):
-        if ctx.code.word(pc) & 0xFC00003F != 0x0000000C:
-            continue
-        number = None
-        definitions = flow.defs(pc, 3)
-        if len(definitions) == 1:
-            (site,) = definitions
-            if isinstance(site, int):
-                insn = ctx.code.word(site)
-                if insn >> 26 == 0x09 and (insn >> 21) & 31 == 0:
-                    number = insn & 0xFFFF
-                    number -= 0x10000 if number & 0x8000 else 0
-        found.append((pc, number))
+        if is_syscall(ctx.code.word(pc)):
+            found.append((pc, syscall_number(ctx, flow, pc)))
     return found
+
+
+def syscall_number(ctx: _Context, flow: "_Flow", pc: int) -> int | None:
+    """The call number of the syscall at ``pc`` when one ``li v1,N`` reaches it."""
+
+    definitions = flow.defs(pc, 3)
+    if len(definitions) == 1:
+        (site,) = definitions
+        if isinstance(site, int):
+            insn = ctx.code.word(site)
+            if insn >> 26 == 0x09 and (insn >> 21) & 31 == 0:
+                number = insn & 0xFFFF
+                return number - 0x10000 if number & 0x8000 else number
+    return None
+
+
+def syscall_result(ctx: _Context, flow: "_Flow", pc: int) -> str:
+    """The v0 a syscall leaves: the EE kernel's result, whose width the ELF does not show."""
+
+    number = syscall_number(ctx, flow, pc)
+    return f"syscall-result({'' if number is None else f'v1={number}: '}kernel value, width unknown)@0x{pc:x}"
 
 
 def syscall_arguments(ctx: _Context, start: int) -> list[str]:
@@ -588,7 +607,7 @@ def _through_calls(ctx: _Context, flow: _Flow, definitions: set[Any], register: 
         if d != "entry" and d not in (flow.start,):
             prev = flow.fn.decoded.get(d - 4, {})
             call = ctx.code.word(d - 4)
-            own = _fpr_writes(ctx.code.word(d)) if fpr else _writes(ctx.code.word(d))[0]
+            own = _fpr_writes(ctx.code.word(d)) if fpr else _gpr_writes(ctx.code.word(d))
             if prev.get("kind") in ("call", "call-branch") and call >> 26 == 0x03 and register not in own:
                 how = callee_preserves(ctx, ((d) & 0xF0000000) | ((call & 0x03FFFFFF) << 2), register, fpr)
                 if how in ("all", "some"):
@@ -614,6 +633,8 @@ def _describe_def(ctx: _Context, flow: _Flow, definition: Any, result_register: 
             else f"indirect {disasm(call, definition - 4)}"
         )
         return f"ret({callee})" if result_register else f"clobbered-by({callee})"
+    if is_syscall(ctx.code.word(definition)):
+        return syscall_result(ctx, flow, definition)
     return f"{ctx.text(definition)}@0x{definition:x}"
 
 
@@ -621,7 +642,7 @@ def _describe_exit_v0(ctx: _Context, flow: _Flow, definition: Any) -> str:
     """An exit's v0 definition; a switch's jump-table load is a case address, not a value."""
 
     jump = flow.switch_loads.get(definition) if isinstance(definition, int) else None
-    if jump is not None and 2 in _writes(ctx.code.word(definition))[0]:
+    if jump is not None and 2 in _gpr_writes(ctx.code.word(definition)):
         return f"case-address({ctx.text(definition)}@0x{definition:x} for jr@0x{jump:x}: no value)"
     return _describe_def(ctx, flow, definition)
 
@@ -754,7 +775,7 @@ def _use_scan(ctx: _Context, caller: int, start: int, register: int, fpr: bool, 
 
     def writes(at: int) -> bool:
         insn = ctx.code.word(at)
-        return (register in _fpr_writes(insn)) if fpr else (register in _writes(insn)[0])
+        return (register in _fpr_writes(insn)) if fpr else (register in _gpr_writes(insn))
 
     uses: list[str] = []
     ends: set[str] = set()
@@ -899,7 +920,8 @@ def function_facts(ctx: _Context, start: int, caller_limit: int = 24, evidence: 
     reads = argument_reads(ctx, start)
     lines.append(
         "args read before write (any path): "
-        + (", ".join(f"{reg}@" + ",".join(f"0x{pc:x}" for pc in sites[:3]) for reg, sites in reads.items()) or "none")
+        # Every site: a planner declaring a dead read needs each one.
+        + (", ".join(f"{reg}@" + ",".join(f"0x{pc:x}" for pc in sites) for reg, sites in reads.items()) or "none")
     )
     stack = stack_argument_reads(ctx, start)
     if stack:

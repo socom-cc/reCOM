@@ -52,7 +52,15 @@ from .ghidra import (
     semantic_receipt,
 )
 from .batch_apply import BatchFailure, build_batch_program, execute_batch_program
-from .recon import RECON_GROUP_SIZE, RECON_PLAN_KIND, build_recon_program, group_evidence, recon_groups, validate_recon_plan
+from .recon import (
+    RECON_GROUP_SIZE,
+    RECON_PLAN_KIND,
+    build_recon_program,
+    group_evidence,
+    recon_groups,
+    recon_program_summary,
+    validate_recon_plan,
+)
 from .fingerprint import SWEEP_MODES, compare_fingerprints, program_fingerprint
 from .type_apply import ApplyFailure, build_apply_program, execute_apply_program
 from . import recon_repair_cli, type_plan_cli
@@ -1893,7 +1901,7 @@ def _recon_program(arguments: argparse.Namespace) -> int:
             "kind": program["kind"],
             "mutation_performed": False,
             "plan": program["plan"],
-            "summary": program["summary"],
+            "summary": recon_program_summary(program),
             "program_sha256": hashlib.sha256(canonical_json(program).encode("utf-8")).hexdigest(),
             "output": arguments.output,
         }

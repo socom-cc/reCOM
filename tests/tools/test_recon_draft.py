@@ -541,6 +541,26 @@ def test_dwarf_declared_void_override_proves_its_slot_family(ctx) -> None:
     assert draft_function(ctx, _row(C2D_DRAW, "Draw__3C2DFPQ23zdb7CCamera"), "C2D::Draw", C2D_TYPES, rules=19)["draft"] == "open"
 
 
+def test_p_void_through_a_declared_slot_contract_says_how_it_is_referenced(ctx) -> None:
+    # C2DTriFan::Draw is stored only at __vt__9C2DTriFan+0xc, a slot whose
+    # DWARF-typed overrides declare void: P-void admits it, and its evidence
+    # names that word instead of claiming there are no word refs.
+    types = _TypeIndex([
+        {"name": "C2DTriFan", "path": "/project/C2DTriFan", "size": 4},
+        {"name": "CCamera", "path": "/project/zdb/CCamera", "size": 4},
+    ])
+    drafted = draft_function(ctx, _row(0x300E90, "Draw__9C2DTriFanFPQ23zdb7CCamera"), "C2DTriFan::Draw", types)
+    assert drafted["draft_rule"] == "P-void"
+    evidence = drafted["prototype"]["evidence"]
+    assert "no word refs or address-taken sites" not in evidence
+    assert evidence[-1].startswith("stored only in vtable slots (__vt__9C2DTriFan+0xc)")
+    # A function nothing references keeps the old line.
+    from tools._socom.recon_draft import _reference_evidence
+
+    unreferenced = next(a for a in sorted(ctx.size) if not ctx.word32.get(a) and not ctx.addr_taken.get(a))
+    assert _reference_evidence(ctx, unreferenced, 20, []) == "no word refs or address-taken sites"
+
+
 def test_declared_slot_rule_needs_a_declaration_and_only_handoffs(ctx, monkeypatch) -> None:
     from tools._socom import recon_draft
 

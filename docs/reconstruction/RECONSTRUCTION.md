@@ -236,7 +236,12 @@ value to its own callers passes the question on: its call sites must leave
 `v0` unread in turn, and nothing may take its address (followed twelve levels
 deep, rules version 17). `recon facts` follows `v0` through callees that leave
 it untouched (also at tail-call exits, rules version 5), so a leftover that is really the function's own value shows
-as such. A scratch value also allows `void` (second decision of 2026-10-20): a
+as such. A `syscall` writes `v0`: the EE kernel returns its result there,
+so a kernel stub (`li v1,N; syscall; jr ra`) exits with
+`v0<-syscall-result(v1=N: kernel value, width unknown)` and `recon void`
+leaves it open unless something else proves `void` (until 2026-10-30 the
+stubs showed `v0<-entry` and were wrongly proven void without a caller
+check). A scratch value also allows `void` (second decision of 2026-10-20): a
 copy, constant or arithmetic result left in `v0` or `f0` that another
 instruction in the function also reads (it was stored, moved to the FPU,
 passed on, or used as a base) is a temporary, under the same caller
@@ -684,7 +689,10 @@ python tools/socom.py recon global-facts --item socom:work:recon-repair-NNN --ou
     the asm and the callers, and withdraws what nothing proves;
   - a `void` that `recon void` does not confirm (decision of 2026-10-29,
     "Extend tool, withdraw"). `contradiction` cites the open verdict line of
-    `recon void` (newest rules) verbatim and never `VERDICT void`. A void is
+    `recon void` (newest rules) verbatim and never a `VERDICT void` for the
+    function itself; a callee's verdict it describes is evidence when the
+    line before it, or its `## label` block, names the callee's entry
+    address (labels are `name@0x...`). A void is
     not withdrawn when the function's own DWARF record declares FT_void,
     when `recon void` proves it (`VERDICT void`, or every exit leaves v0
     and f0 unset), or when the drafter's `__sinit_` rule proves it.
@@ -720,7 +728,10 @@ python tools/socom.py recon global-facts --item socom:work:recon-repair-NNN --ou
   `recon void` verdict is open, with that verdict line; it excludes the
   function's own DWARF FT_void record, the drafter's `__sinit_` rule, and a
   row citing a DWARF `subroutine_type` that declares FT_void (a callback
-  member type; the DIE is checked). `header` lists applied rows whose return
+  member type, cited as `subroutine_type 0x...`, `subroutine type 0x...` or
+  either with `DIE`; the DIE is checked). `recon validate` does not yet see
+  such a citation in the row a withdrawal supersedes: check
+  `withdrawal-candidates` before withdrawing a void. `header` lists applied rows whose return
   is a type (not void, `undefined*` or partial) and whose row cites a
   recalled SDK or C-library header (type-archive paths such as
   `/stdio.h/FILE` are not citations), with the headers, the citing lines and
@@ -748,7 +759,9 @@ python tools/socom.py recon global-facts --item socom:work:recon-repair-NNN --ou
   program marks it `keep` and emits no call for it; the `check-recon-apply`
   read-back expects its live signature unchanged, and the `limit` check
   counts it as listed (it must not change, and no apply call may name it).
-  Later readers keep the earlier row in force.
+  Later readers keep the earlier row in force. `recon program` reports
+  `keep_count` apart from `unresolved_count`; the program file's own summary
+  still counts keep rows as unresolved, so accepted programs regenerate.
 - GhidraMCP labels only in the global namespace (`rename_label` and
   `create_label` take no namespace), so the readable label is the qualified
   spelling itself, `zdb::CVisual::m_dmaChain`, exactly as stage 2 labelled

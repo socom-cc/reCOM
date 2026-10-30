@@ -57,6 +57,15 @@ def test_decode_marks_always_taken_branches_and_calls() -> None:
     assert decode(branch(0x01, 0, 0x11, 3), 0x1000)["kind"] == "call"  # bal
 
 
+def test_syscall_writes_v0() -> None:
+    # The EE kernel returns its result in v0; the code field is not a register.
+    assert decode(0x0000000C, 0x1000)["writes"] == frozenset([2])
+    assert decode(0x0000F80C, 0x1000)["writes"] == frozenset([2])  # syscall 0x3e0: code bits, not rd
+    # li v1,32 ; syscall ; jr ra ; nop: the exit's v0 is the syscall's.
+    function = _function([addiu(V1, 0, 32), 0x0000000C, 0x03E00008, NOP])
+    assert function.definitions(0x100C, 2) == {0x1004}
+
+
 def test_call_clobbers_take_effect_after_the_delay_slot() -> None:
     # lui a0,0x47 ; jal f ; addiu a0,a0,0x6f60 (delay slot) ; lw v1,0(a0)
     function = _function([lui(A0, 0x47), jal(0x9000), addiu(A0, A0, 0x6F60), lw(V1, A0, 0)])

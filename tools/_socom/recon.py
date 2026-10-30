@@ -763,7 +763,7 @@ def _withdrawal_problems(
 def _withdrawal_proof_problems(prototype: dict[str, Any], returned: str, address: int, root: Path) -> list[str]:
     """What proves the live return the row withdraws (decisions of 2026-10-29)."""
 
-    from .recon_draft import DRAFT_RULES_VERSION, _dwarf_returns, void_proof
+    from .recon_draft import DRAFT_RULES_VERSION, _dwarf_returns, cites_own_void_verdict, void_proof
     from .recon_facts import context
 
     ctx = context(root)
@@ -782,8 +782,12 @@ def _withdrawal_proof_problems(prototype: dict[str, Any], returned: str, address
         return [f"withdraws_return: recon void gives no verdict for 0x{address:x}, so its live void cannot be withdrawn"]
     texts = _texts(prototype.get("contradiction")) if prototype.get("contradiction") else []
     problems = []
-    if any("VERDICT void" in text for text in texts):
-        problems.append("withdraws_return: a void withdrawal cites recon void's open verdict, never 'VERDICT void'")
+    if any(cites_own_void_verdict(ctx, address, text) for text in texts):
+        # A callee's VERDICT void the contradiction describes is evidence, not a claim.
+        problems.append(
+            "withdraws_return: a void withdrawal cites recon void's open verdict, never 'VERDICT void' for the "
+            "function itself"
+        )
     if not any(line in text for text in texts):
         problems.append(
             "withdraws_return of a live void needs contradiction citing its recon void verdict "
@@ -1328,6 +1332,24 @@ def build_recon_program(root: Path, tracker: dict[str, Any], plan_path: Path) ->
         # Absent otherwise, so programs without partial rows keep their bytes.
         program["summary"]["partial_prototype_count"] = partial_count
     return program
+
+
+def recon_program_summary(program: dict[str, Any]) -> dict[str, Any]:
+    """The summary ``recon program`` reports: keep rows counted apart from unresolved rows.
+
+    A repair's keep row carries a ``prototype_skip`` ("keep: ...") so the
+    apply leaves it alone; the program's own ``summary.unresolved_count``
+    counts it with the unresolved rows, and stays so because accepted
+    programs must regenerate byte for byte.  The report separates them.
+    """
+
+    summary = dict(program["summary"])
+    keep = sum(1 for row in program["functions"] if row.get("keep") is True)
+    summary["keep_count"] = keep
+    summary["unresolved_count"] = sum(
+        1 for row in program["functions"] if row.get("prototype_skip") and row.get("keep") is not True
+    )
+    return summary
 
 
 def _texts(value: Any) -> list[str]:

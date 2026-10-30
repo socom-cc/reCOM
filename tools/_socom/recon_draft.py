@@ -1547,13 +1547,33 @@ def _draft_row(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIndex,
          f"static initializer: {len(exits)} exit(s), no direct call sites; the runtime calls it through the "
          "void (**)(void) .p__sinit table (__initialize_cpp_rts) and never reads v0"),
         _slot_evidence(ctx, address, rules) if by_slot else
-        "no word refs or address-taken sites" if not live_name.startswith("__sinit_")
+        _reference_evidence(ctx, address, rules, slots) if not live_name.startswith("__sinit_")
         else "referenced only by its own .p__sinit table word",
     ]
     if receiver_evidence:
         evidence.insert(1, receiver_evidence)
     return {**base, "draft_rule": "P-slot-void" if by_slot else "P-void",
             "prototype": {"return_type": "void", "parameters": parameters, "evidence": evidence}}
+
+
+def _reference_evidence(ctx: Any, address: int, rules: int, slots: list[str]) -> str:
+    """P-void's line on how the function is referenced: nothing, or only through a contract declared void."""
+
+    taken = ctx.addr_taken.get(address) or ()
+    if not slots and not taken:
+        return "no word refs or address-taken sites"
+    if _callback_returns(ctx, rules).get(address) == "void":
+        return (
+            f"address taken at {len(taken)} code site(s), each passed straight to a call as a function-pointer "
+            "parameter whose mangled type returns void (callback contract, rules version 11); no table word"
+        )
+    if _only_in_vtables(ctx, address) and _slot_returns(ctx).get(address) == "void":
+        shown = ", ".join(slots[:4]) + (f" and {len(slots) - 4} more" if len(slots) > 4 else "")
+        return (
+            f"stored only in vtable slots ({shown}) whose virtual function's DWARF records declare a void return "
+            "(slot contract, rules version 13); no address formed in code"
+        )
+    return f"referenced through {len(slots)} word ref(s) and {len(taken)} address-taken site(s) of a contract declared void"
 
 
 def draft_plan(
@@ -1783,6 +1803,42 @@ def verdict_proves_void(line: str | None) -> bool:
     """Whether a ``verdict_line`` proves void: VERDICT void, or every exit leaves v0 and f0 unset."""
 
     return bool(line) and (line.startswith("VERDICT void") or line == _UNSET_EXITS)
+
+
+_ADDRESS = re.compile(r"0x([0-9a-fA-F]+)")
+
+
+def _names_other_function(ctx: Any, start: int, text: str) -> bool:
+    """``text`` names the entry address of a function other than ``start`` (as labels name@0x... do)."""
+
+    for match in _ADDRESS.finditer(text):
+        address = int(match.group(1), 16)
+        if address != start and address in ctx.size:
+            return True
+    return False
+
+
+def cites_own_void_verdict(ctx: Any, start: int, text: str) -> bool:
+    """``text`` gives ``start`` itself a ``VERDICT void`` (not a callee's verdict it describes).
+
+    A ``VERDICT void`` line belongs to another function when the ``## label``
+    block of ``recon void`` output it sits in, or the text before the verdict
+    on its line, names another function's entry address (``recon void``
+    labels are name@0x...); otherwise it is the function's own claim.
+    """
+
+    owner_other = False
+    for line in str(text).splitlines():
+        if line.startswith("## "):
+            owner_other = _names_other_function(ctx, start, line[3:])
+            continue
+        at = line.find("VERDICT void")
+        if at < 0:
+            continue
+        if owner_other or _names_other_function(ctx, start, line[:at]):
+            continue
+        return True
+    return False
 
 
 def sinit_rule_void(ctx: Any, start: int, rules: int = DRAFT_RULES_VERSION) -> bool:

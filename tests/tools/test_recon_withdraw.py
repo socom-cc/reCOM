@@ -102,6 +102,35 @@ def test_withdrawal_candidates_follow_the_rules(root: Path, plans: dict) -> None
         withdrawal_candidates(root, tracker, kinds=("nope",))
 
 
+def test_cited_void_subroutine_types_in_every_spelling(root: Path) -> None:
+    from tools._socom.recon_facts import context
+    from tools._socom.recon_withdraw import _cited_void_types
+
+    ctx = context(root)
+    for text in (
+        "ANIM_CALLBACK.m_func points to subroutine_type 0x132b4 with FT_void",
+        "subroutine type DIE 0x132b4 = void (void *, void *)",
+        "subroutine_type DIE 0x132b4 (member m_func)",
+        "subroutine type 0x132b4 = void (void *, void *)",
+    ):
+        assert _cited_void_types(ctx, [text]) == ["0x132b4"], text
+    # A DIE that is not a void subroutine_type never excludes the row.
+    assert _cited_void_types(ctx, ["subroutine type DIE 0xb932: uchar (int)"]) == []
+
+
+def test_syscall_stub_voids_are_withdrawal_candidates(root: Path, plans: dict) -> None:
+    # ExitThread is `li v1,35; syscall; jr ra`: v0 is the kernel's result, so
+    # recon void no longer proves the applied void (it did while syscall wrote nothing).
+    plans["write"](GROUP, [_row("0x15b350", "void", ["SDK stub"])])
+    tracker = {"revision": 1, "work_items": [
+        _item(GROUP, "recon-plan-group", "accepted", ["0x15b350"]),
+        _item(f"{GROUP}-apply", "recon-apply-group", "accepted", []),
+    ]}
+    void = withdrawal_candidates(root, tracker, kinds=("void",))["void"]
+    assert [row["address"] for row in void["candidates"]] == ["0x15b350"] and void["recon_void"] == 0
+    assert void["candidates"][0]["verdict"].startswith("VERDICT open: some exit can return a value")
+
+
 def test_by_value_rows_lists_accepted_and_applied_rows(root: Path, plans: dict) -> None:
     by_value = {"return_type": "void", "evidence": ["x"],
                 "parameters": [{"name": "this", "type": "Source *"}, {"name": "e", "type": "CPnt4D"}]}

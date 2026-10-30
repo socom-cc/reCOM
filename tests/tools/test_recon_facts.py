@@ -172,6 +172,30 @@ def test_syscall_stubs_show_live_arguments(ctx) -> None:
     assert forwarded_arguments(ctx, 0x15C1A0, set())[0].startswith("a0,a1,a2,a3,t0,t1,t2,t3 -> jal _iEnableIntc")
 
 
+def test_a_syscall_stub_returns_the_kernel_result(ctx) -> None:
+    from tools._socom.recon_draft import verdict_line, verdict_proves_void, void_verdict
+
+    # CreateThread is `li v1,32; syscall; jr ra; nop`: v0 is the kernel's
+    # result (callers read the thread id), never a value left unset.
+    assert return_sources(ctx, 0x15B320) == [
+        "jr ra@0x15b328: v0<-syscall-result(v1=32: kernel value, width unknown)@0x15b324; f0<-entry"
+    ]
+    for stub in (0x15B320, 0x15B410):  # CreateThread, GetThreadId
+        text = void_verdict(ctx, stub)
+        assert "unset at every exit" not in text and "VERDICT open" in text
+        assert not verdict_proves_void(verdict_line(text))
+    # Callers read that v0 (InitThread tests the thread id).
+    assert "|| v0: move a0,v0@0x15c36c" in function_facts(ctx, 0x15B320, caller_limit=2)
+
+
+def test_facts_list_every_entry_read_site(ctx) -> None:
+    # __ieee754_expf reads its uninitialised a2 at four sites; the fourth is
+    # one a planner's dead-read row declares (0x16782c), and f12 has twelve.
+    line = next(text for text in function_facts(ctx, 0x167600).splitlines() if text.startswith("args read"))
+    assert line.endswith("a2@0x16779c,0x1677ec,0x167814,0x16782c")
+    assert line.split("a2@")[0].count(",") == 12
+
+
 def test_v0_is_traced_through_callees_that_leave_it(ctx) -> None:
     from tools._socom.recon_facts import return_sources
 

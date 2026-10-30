@@ -28,6 +28,7 @@ import math
 from typing import Any
 
 from .batch_apply import _writes
+from .mips_flow import is_syscall
 from .mwdemangle import demangle, render_type
 from .recon_facts import (
     ARG_GPRS,
@@ -423,6 +424,8 @@ class _Values:
                 return self.callee(_jump_target(d - 4, call), depth, chain)
             what = "the result of" if register == 2 else "clobbered by"
             return [_value("unknown", site=d - 4, text=f"{what} {ctx.text(d - 4)}@0x{d - 4:x}")]
+        if is_syscall(insn):
+            return [_value("unknown", site=d, text=f"the EE kernel's result of {text} (width unknown)")]
         op, rs, rt, rd = insn >> 26, (insn >> 21) & 31, (insn >> 16) & 31, (insn >> 11) & 31
         funct, sa, imm = insn & 0x3F, (insn >> 6) & 31, insn & 0xFFFF
 

@@ -17,6 +17,12 @@ from typing import Any
 from .elf import Elf32File
 
 CALL_CLOBBERED = frozenset([1, 2, 3, *range(4, 16), 24, 25, 31])
+# An EE kernel call (`li v1,N; syscall`) returns its result in v0.
+SYSCALL_WRITES = frozenset([2])
+
+
+def is_syscall(insn: int) -> bool:
+    return insn & 0xFC00003F == 0x0000000C
 _ITYPE_WRITES_RT = {
     0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x18, 0x19,
     0x1A, 0x1B, 0x1E, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x37,
@@ -51,7 +57,11 @@ def decode(insn: int, address: int) -> dict[str, Any]:
             result["kind"] = "jr"
         elif funct == 0x09:
             result.update(kind="call", writes=frozenset([rd]))
-        elif funct not in (0x0C, 0x0D, 0x0F) and rd:
+        elif funct == 0x0C:
+            # syscall: the EE kernel returns its result in v0 (its code field
+            # is not a register).
+            result["writes"] = SYSCALL_WRITES
+        elif funct not in (0x0D, 0x0F) and rd:
             result["writes"] = frozenset([rd])
     elif opcode == 0x1C:
         if rd:

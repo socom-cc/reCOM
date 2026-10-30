@@ -41,7 +41,10 @@ C_LIBRARY_HEADERS = (
 _HEADER = re.compile(r"(?<![/\w.])(" + "|".join(SDK_HEADERS + C_LIBRARY_HEADERS) + r")\.h(?![/\w])")
 # Provider wording of rows that name a library but no header (not candidates).
 _PROVIDER = re.compile(r"\(provider\b|\bnewlib\b|\bfdlibm\b|\blibgcc\b|\bSony\b|\bps2sdk\b")
-_SUBROUTINE_TYPE = re.compile(r"\bsubroutine_type (0x[0-9a-fA-F]+)")
+# Rows cite the DIE as "subroutine_type 0x...", "subroutine type 0x..." or
+# "subroutine(_| )type DIE 0x..."; only a DIE that really is a void
+# subroutine_type excludes the row (``_cited_void_types``).
+_SUBROUTINE_TYPE = re.compile(r"\bsubroutine[_ ]type (?:DIE )?(0x[0-9a-fA-F]+)", re.IGNORECASE)
 KINDS = ("void", "header")
 UNDEFINED = re.compile(r"^undefined\d*$")
 
