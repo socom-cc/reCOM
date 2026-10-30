@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2838,
+  "revision": 2840,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -146362,8 +146362,19 @@
         "socom:work:recon-repair-033",
         "socom:work:recon-repair-033-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "audits at HEAD: progress audit --strict ok r2839; all 15 registered audits --strict ok (final-elf-catalog out of scope); doctor --infrastructure-only ok; docs readme-progress/command-index/capability-coverage fresh; reference ELF sha256 00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a unchanged; 430 stage-3 tracker commits with strictly increasing revisions",
+        "check1: 368 live items each with one ghidra-receipt-sha256 and ghidra-save evidence matching the stored receipt; receipt history ends at socom:work:recon-repair-033-apply; accepter differs from handoff owner on all 734; 13 programs (10 seeded + repairs 031-033) regenerate byte-identically",
+        "clean export (git archive HEAD dbe8bd5): pytest tests/tools 450 passed in 575.17s; progress audit --strict ok r2838; audit independence ok",
+        "report build/closeout-ghidra-reconstruction/REPORT.md sha256:0f68f93724c0bd4807d28fea0c46ee70d4276bfcec282c69ae7930a7496e6f96; issue classification build/closeout-ghidra-reconstruction/check3-all-issues.json (68/68 open issues, 35 routing to stage 3 incl. all 26 open stage-2 class-b carry-overs)",
+        "stage receipt sha256:f8912398392c42d8a615b7a55f646b7bdb3d0bb18e519ae0db9ed30c797c93a5 over build/closeout-ghidra-reconstruction/stage-scope.json sha256:5e1480a8e0ce6c761ce5acfeb0d37ab403f26383b00d56c6f95132a99cb40142 (9703 functions, 100 globals, 28 types), reproduced twice byte-identically",
+        "whole-program fingerprint build/closeout-ghidra-reconstruction/fp-closeout.json sha256:5e66ed77bf03cb14761219b7d6ae684d93e4b02c42c348ce76e1672fa47a19f3 identical to build/fingerprints/r033-after.json; recon contradictions 0 of 4947; debug conflicts 0"
+      ],
+      "handoff": {
+        "owner": "socom-verifier-g3",
+        "submitted_at": "2026-10-30T23:10:28Z",
+        "summary": "Stage 3 gate review (run 3) satisfied: 734/734 items accepted; stage receipt reproduces; fingerprint equals r033-after; all 68 open ledger issues classified, 0 unclassified (26 recorded user deferrals citing 5a02515e/34a8b552/8df909fc/21aa8879/4e071940, 39 tooling, 1 resolved-live d4a5966a with ledger still open, 2 later-stage blockers); strict audits and clean-export tests pass"
+      },
       "id": "socom:work:ghidra-reconstruction-seed",
       "kind": "stage-gate",
       "lease": null,
@@ -146396,7 +146407,7 @@
       ],
       "selection": null,
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Review and close ghidra-reconstruction"
     },
     {

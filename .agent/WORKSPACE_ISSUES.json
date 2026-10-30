@@ -690,8 +690,11 @@
       "kind": "problem",
       "reported_at": "2026-10-10T01:36:10Z",
       "reported_by": "socom-verifier",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T23:10:55Z",
+        "summary": "Fixed by accepted recon repair 033 (commit dbe8bd5): every DWARF parameter name whose DWARF location receives the entry value is now live on 7 prototypes (do_narrow, EnableTuples, HandleRecoCmd verbID/objectID, theta_x_z angle/dist, recoEnableWord, SetViewCone, voicin_). The 7 names DWARF records at v0 are a separate rule question filed as a tooling note."
+      },
+      "status": "resolved",
       "summary": "Conservative parameter placement drops DWARF parameter names the code supports"
     },
     {
@@ -1355,8 +1358,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Stage 3 gate: classification of the 21 stage-2 carried-over issues; user deferrals"
+    },
+    {
+      "details": "Tooling/rule notes from the stage-3 gate (2026-10-30), no live Ghidra fact is wrong. (1) Recon repair 033 placed every DWARF parameter name whose DWARF location receives the entry value (25 names). 7 more DWARF names are recorded at v0, which never holds the parameter (CCamera Cmd* 0x1e61c0, 0x1e72f0, 0x1e7470 hdr; TickTransparencyFade 0x3d7930 bValidActionsPresent; HandleRecoCmd 0x176e60 subjectID; theta_x_z 0x1e4e00 p1, p2); Metrowerks appears to record v0 for values left in argument registers (locals cmd_ptr/cmd show the same). Whether such names may be placed is an open rule question; the live parameters keep param_N, which claims nothing. Intended names are recorded in repair 033's keep rows. (2) tools/_socom/type_layout.py _POINTEE_SIZES treats long as 4 bytes, but the EE long is 64-bit (stage 2).",
+      "id": "socom:workspace-issue:d9737f5d9a854c49781a",
+      "kind": "problem",
+      "reported_at": "2026-10-30T23:10:54Z",
+      "reported_by": "socom-coordinator",
+      "resolution": null,
+      "status": "open",
+      "summary": "Rule question: DWARF parameter names recorded at v0 (7 names) and a 4-byte long in type_layout"
     }
   ],
-  "revision": 171,
+  "revision": 173,
   "schema_version": 1
 }
