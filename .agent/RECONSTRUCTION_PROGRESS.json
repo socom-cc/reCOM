@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2832,
+  "revision": 2835,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -145732,6 +145732,10 @@
       "title": "Apply reviewed recon repair 032 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-30T22:47:37Z",
+        "by": "socom-verifier-r120"
+      },
       "batch": {
         "functions": [
           "0x14ce60",
@@ -145773,8 +145777,15 @@
         "socom:recon-group:ac1f5654199ddffbce0f-apply",
         "socom:recon-group:acd74fc4d202d0383f95-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-work-recon-repair-033.json sha256:8d541163e7ff66fa0d70d6a0771b47e4281cefe340d129d6aa4b88f86c882333; recon validate ok; recon program ok (program sha256:d162ebcf9233c3740e3d89a1a708142931dd5ed457dad5ba26bd139942313b31, keep_count 4); preflight-batch ok (7 set_function_prototype, 4 keep skipped)",
+        "socom-verifier-r120 review: plan sha256:8d541163e7ff66fa0d70d6a0771b47e4281cefe340d129d6aa4b88f86c882333; recon validate ok; recon program regenerated equal (program sha256:d162ebcf9233c3740e3d89a1a708142931dd5ed457dad5ba26bd139942313b31); preflight-batch ok (7 set_function_prototype; skips exactly the 4 keep rows 0x1e61c0 0x1e72f0 0x1e7470 0x3d7930). recon live: all 11 live signatures equal the rows live_signature; the 7 rows keep return, types, order, receiver and __stdcall, changing only param_N names. Storage (recon asm + recon dwarf --address): do_narrow c DIE 0x40638 v0 <- a1 (jr ra; move v0,a1 @0x14ce64); HandleRecoCmd verbID DIE 0xb850f s2 (move s2,a3 @0x176e90), objectID DIE 0xb8531 s1 (move s1,t0 @0x176ea8, delay slot), callers 0x174bac/0x1762d0 pass recoResult+0x8/+0xc (DWARF class 0xb16ca members verbID +0x8, objectID +0xc); subjectID DIE 0xb84ea at v0 never holds a2, kept; EnableTuples col DIE 0xbaddb s5 (move s5,a1 @0x17aeec); theta_x_z angle DIE 0xfb999 s2 (move s2,a3 @0x1e4e10), dist DIE 0xfb9bd s1 (move s1,t0 @0x1e4e18), p1/p2 DIEs 0xfb953/0xfb976 at v0 kept; recoEnableWord wordID DIE 0x177521 sp+0x1c (sw a1,28(sp) @0x3362e0, delay slot); SetViewCone blipId DIE 0x40a863 fp (move fp,t0 @0x3db9d4), fovTAN DIE 0x40a885 f20 (mov.s f20,f13 @0x3dba1c, delay slot); voicin_ DIEs 0x46097b..0x460aa2 sp+0x180..0x1f0 = sw a0..t3 @0x3f545c..0x3f5478, ivrc/obound/voibuf DIEs 0x460acd/0x460af6/0x460b21 sp+0x200/0x208/0x210 = incoming +0x0/+0x8/+0x10 (st DIE 0x460b4c sp+0x220 = +0x20, already live), +0x18 never accessed (param_12 kept). Keep rows: hdr DIEs 0xfcd77/0xfd447/0xfd8ed and bValidActionsPresent DIE 0x3897e7 recorded at v0, which never holds a0/a1 (CmdBeginParams has no v0 use; lb v0,4(a0)/li v0,1 @0x1e72f0; lb v1,4(a0)+dsll32 @0x1e7470; lui v0 @0x3d7934, beq a1 @0x3d795c); intended names recorded."
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-r033",
+        "submitted_at": "2026-10-30T22:42:20Z",
+        "summary": "7 prototypes, 0 unresolved, 4 keep, 0 globals"
+      },
       "id": "socom:work:recon-repair-033",
       "kind": "recon-repair-plan",
       "lease": null,
@@ -145783,7 +145794,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan recon repair 033 (11 functions of applied groups)"
     },
     {
@@ -145831,7 +145842,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed recon repair 033 in Ghidra"
     },
     {
