@@ -143,7 +143,8 @@ verified boundary, code/data, or reference changes.
 
 Routine reconstruction must not open, switch, import, close, or delete
 programs; call `save_all_programs`; run scripts; use debugger operations;
-patch bytes; clear flow; or call `save_program` directly.
+patch bytes; clear flow; or call `save_program` directly. The only script
+exception is the one-time boundary repair described below.
 
 ### Bridge hazards
 
@@ -447,6 +448,128 @@ calling convention, but `set_function_prototype` accepts only `__stdcall` and
 repair keeps the compiler spec's default convention. It reads back both
 targets and both thunks and scopes all four functions for the handoff
 receipt.
+
+### One-time boundary repair (the only script exception)
+
+Ghidra split ten `.symtab` functions that begin `b L; nop`, where L is more
+than 8 bytes past the start. `CreateThunkFunctionCmd` treats such a branch as
+a thunk, because its local-branch test allows only jumps of 8 bytes or less.
+In each case the `.symtab` start is a thunk whose body is `[start, L)`, and
+its target is a default-named `FUN_<L>` that holds `[L, end)`. The gap holds
+only code. The ten starts are:
+
+`0x193cd0`, `0x1972d0`, `0x1a2750`, `0x1a2ad0`, `0x1f01f0`, `0x2241e0`,
+`0x229fc0`, `0x231330`, `0x2fb5b0` and `0x39e3f0`.
+
+GhidraMCP 6.0.0 has no endpoint that sets a function body or clears a thunk.
+Running `delete_function` and then `create_function` rebuilds the split.
+
+On 2026-10-30 the user allowed one reviewed Ghidra script for exactly these
+ten functions, under `socom:work:ghidra-repair-split-function-boundaries`; a
+patched plugin was rejected. The no-scripts rule in AGENTS.md still covers
+everything else. No other command or worker may call `run_script_inline` or
+`run_ghidra_script`, and this command runs nothing but the pinned file.
+
+```powershell
+python tools/socom.py ghidra repair-boundaries `
+  --item socom:work:ghidra-repair-split-function-boundaries `
+  --owner <lease-owner> `
+  --scope-output build/receipts/<item>-scope.json `
+  --report-output build/apply/<item>-report.json `
+  --dry-run
+```
+
+**Before it runs.** The spec in `tools/_socom/repairs.py` lists, for each
+function:
+
+- the start;
+- the `.symtab` symbol, size and end;
+- the live name;
+- the exact wrong state: the thunk body and signature, and `FUN_<L>` with its
+  body and signature;
+- the target state: one non-thunk function whose body is `[start, end)`.
+
+The command then checks, in order:
+
+1. The repair item's writer lease and the live preflight.
+2. The spec against `support/socom.elf`.
+3. The SHA-256 of `tools/_socom/ghidra_scripts/RepairSplitBoundaries.java`.
+   It reads CRLF line ends as LF, so the hash covers the exact text it sends.
+   It refuses any other hash.
+4. The wrong state, read-only, using `list_functions_enhanced`,
+   `get_function_count`, and `get_function_by_address` at the start, at L,
+   and at every 4-byte address of the extent.
+
+`--dry-run` stops there. It prints the script, its hash and its arguments,
+and sends nothing.
+
+**The run.** The command makes exactly one write call:
+`run_script_inline` with `code` set to the pinned Java text and `args` set to
+one `S:L:E` triple per function. These facts come from the plugin jar:
+
+- The endpoint accepts Java only.
+- It is gated by `GHIDRA_MCP_ALLOW_SCRIPTS=1` in the Ghidra process
+  environment. Start Ghidra with it for this one run, and restart Ghidra
+  without it afterwards.
+- It writes `~/ghidra_scripts/RepairSplitBoundaries.java`. It deletes the file
+  on success; on failure it leaves a `.java_failed` note there.
+- It runs the script on the Swing thread against `program=socom.elf`, inside
+  the script's single transaction.
+
+The script refuses before any change unless, for every triple:
+
+- S is a non-default-named thunk of the default-named `FUN_<L>`;
+- the bodies are exactly `[S, L)` and `[L, E)`;
+- only S is a thunk of L;
+- every 4-byte address is an instruction inside S or L;
+- L has no tags, call fixup, no-return flag, or stored symbol other than its
+  own.
+
+It then works inside one nested transaction. It clears the thunk at S first,
+because removing L would also delete any thunk of L. It then removes L and
+sets the body of S to `[S, E)`. Before committing, it checks the result:
+
+- every entry is a non-thunk;
+- every body is exact;
+- no L remains;
+- every 4-byte address resolves to S;
+- the function count is ten lower.
+
+Any difference or exception aborts the nested transaction, and Ghidra then
+rolls back the whole script transaction. The script:
+
+- clears no flow, writes no bytes and disassembles nothing;
+- starts no analysis;
+- prints one `SOCOM_REPAIR_BOUNDARIES_RESULT {json}` line.
+
+The analysis-worker mode would suppress auto-analysis, but it cannot run on
+the Swing thread. Auto-analysis therefore reacts to the body change as it
+does to any edit, and the command waits until `analysis_status` is idle.
+
+**Read-back.** The command reads every function back:
+
+- the same name, now a non-thunk;
+- `Body:` exactly the `.symtab` extent;
+- every 4-byte address resolving to the start;
+- no function starting inside any extent;
+- ten fewer functions;
+- a clean live preflight.
+
+It writes a receipt scope that lists the ten starts. The removed `FUN_`
+pieces cannot be scoped, so they are recorded in the report.
+
+**Lost signatures.** Removing a `FUN_` piece drops its signature. The command
+does not restore any prototype; it records every lost signature in the report
+(`lost_signatures`, `removed_functions`). Group 076's accepted prototype for
+`0x39e3f0` was stored on `FUN_0039e3fc`. After acceptance, a recon repair
+applies that prototype again, along with the proven contracts in the plan
+notes of groups 020, 021, 029, 036, 037, 038 and 054.
+
+**Failure.** The report says whether the script may have run. If it did not,
+the live program is unchanged. If it may have, close `socom.elf` without
+saving and reopen it before retrying.
+
+Hand off with `progress handoff-live-ghidra`; someone else accepts it.
 
 ### Restoring the accepted state
 

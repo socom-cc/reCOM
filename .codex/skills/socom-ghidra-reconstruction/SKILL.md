@@ -25,7 +25,11 @@ Re-decompile directly affected callers after callee or type changes. Use
 focused reanalysis routinely; use full reanalysis only after verified
 function-boundary, code/data, or reference changes. Do not open, switch,
 import, close, delete, save all, run scripts, use the debugger, patch bytes, or
-clear flow. Do not call `save_program` directly.
+clear flow. Do not call `save_program` directly. The one exception to the
+script rule is `ghidra repair-boundaries`, under
+`socom:work:ghidra-repair-split-function-boundaries` only. That command sends
+its own pinned, reviewed script (see "One-time boundary repair" in
+`GHIDRA.md`); never call a script endpoint yourself.
 
 Finish through `progress handoff-live-ghidra`; it validates the scope, saves
 `socom.elf` exactly once, proves the semantic receipt is stable across the

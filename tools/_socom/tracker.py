@@ -2088,7 +2088,7 @@ def work_packet(
         command = (
             "map-zero-fill"
             if kind == "ghidra-memory-map"
-            else {"labels": "repair-labels", "names": "repair-names"}.get(
+            else {"labels": "repair-labels", "names": "repair-names", "boundaries": "repair-boundaries"}.get(
                 REPAIRS.get(item_id, {}).get("kind"), "repair-signatures"
             )
         )

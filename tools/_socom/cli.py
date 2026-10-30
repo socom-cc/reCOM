@@ -1120,6 +1120,79 @@ def _ghidra_repair_signatures(arguments: argparse.Namespace) -> int:
     return _ghidra_repair(arguments, "signatures", repair_signatures)
 
 
+def _ghidra_repair_boundaries(arguments: argparse.Namespace) -> int:
+    """Rejoin the split function boundaries with the pinned one-time script (REPAIRS kind "boundaries")."""
+
+    from .boundary_repair import repair_boundaries
+
+    root = _root(arguments)
+    scope_output = _build_path(root, arguments.scope_output, "receipt scopes")
+    report_output = _build_path(root, arguments.report_output, "repair reports")
+    tracker = load_tracker(tracker_path(root))
+    item = require_ghidra_lease(tracker, arguments.item, arguments.owner)
+    if item.get("kind") != "ghidra-repair" or REPAIRS.get(arguments.item, {}).get("kind") != "boundaries":
+        raise SocomError(f"{arguments.item} is not a boundary repair")
+    preflight = live_preflight(root, bridge_url=arguments.bridge_url, strict_baseline=False)
+    if not preflight["ok"]:
+        _emit({"ok": False, "preflight": preflight})
+        return 1
+    bridge = GhidraBridge(arguments.bridge_url, timeout=600.0)
+    base = {
+        "kind": "socom-ghidra-repair-report",
+        "schema_version": 1,
+        "dry_run": arguments.dry_run,
+        "work_item_id": arguments.item,
+        "owner": arguments.owner,
+    }
+    error: str | None = None
+    wrote = False
+    try:
+        result = repair_boundaries(
+            root,
+            arguments.item,
+            _ReadOnlyBridge(bridge) if arguments.dry_run else bridge,
+            dry_run=arguments.dry_run,
+            log=lambda message: print(message, file=sys.stderr, flush=True),
+        )
+    except SocomError as failure:
+        error, wrote = str(failure), bool(getattr(failure, "wrote", False))
+        response = getattr(failure, "response", None)
+        result = {"script_response": response} if response is not None else {}
+    if error is None and not arguments.dry_run:
+        after = live_preflight(root, bridge_url=arguments.bridge_url, strict_baseline=False)
+        if not after["ok"]:
+            error, wrote = "live preflight failed after the repair: " + "; ".join(after.get("errors", [])), True
+    if error is not None:
+        report = base | {
+            "ok": False,
+            "error": error,
+            "script_may_have_run": wrote,
+            "recovery": (
+                "close socom.elf without saving and reopen it before retrying"
+                if wrote
+                else "nothing was written; the live program is unchanged"
+            ),
+        } | result
+        atomic_write_json(report_output, report)
+        _emit({key: value for key, value in report.items() if key != "script_response"})
+        return 1
+    if arguments.dry_run:
+        # The reviewed text the real run sends, and its pinned hash.
+        print(f"--- {result['script']['path']} sha256 {result['script']['sha256']}", file=sys.stderr)
+        print(result["source"], file=sys.stderr, end="", flush=True)
+        print(f"--- args: {result['script']['arguments']}", file=sys.stderr, flush=True)
+    else:
+        atomic_write_json(scope_output, result["receipt_scope"])
+    report = base | {
+        "ok": True,
+        **{key: value for key, value in result.items() if key not in ("receipt_scope", "source")},
+        "scope_output": None if arguments.dry_run else scope_output.relative_to(root).as_posix(),
+    }
+    atomic_write_json(report_output, report)
+    _emit({key: value for key, value in report.items() if key not in ("functions", "script_result")})
+    return 0
+
+
 def _ghidra_repair_labels(arguments: argparse.Namespace) -> int:
     return _ghidra_repair(arguments, "labels", repair_labels)
 
@@ -2729,6 +2802,14 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
         mutates_ghidra=True,
     ),
     _spec(
+        "ghidra repair-boundaries",
+        "ghidra",
+        "Rejoin the ten split function boundaries with the pinned one-time script, with --dry-run, under the writer lease.",
+        mutates=True,
+        ghidra_requirement="required",
+        mutates_ghidra=True,
+    ),
+    _spec(
         "ghidra map-zero-fill",
         "ghidra",
         "Map the ELF load image's zero fill in Ghidra under the item's writer lease.",
@@ -3162,6 +3243,14 @@ def build_parser() -> argparse.ArgumentParser:
     repair.add_argument("--report-output", required=True)
     repair.add_argument("--bridge-url")
     repair.set_defaults(handler=_ghidra_repair_signatures)
+    repair_boundaries_parser = ghidra_commands.add_parser("repair-boundaries")
+    repair_boundaries_parser.add_argument("--item", required=True)
+    repair_boundaries_parser.add_argument("--owner", required=True)
+    repair_boundaries_parser.add_argument("--scope-output", required=True)
+    repair_boundaries_parser.add_argument("--report-output", required=True)
+    repair_boundaries_parser.add_argument("--dry-run", action="store_true")
+    repair_boundaries_parser.add_argument("--bridge-url")
+    repair_boundaries_parser.set_defaults(handler=_ghidra_repair_boundaries)
     repair_labels_parser = ghidra_commands.add_parser("repair-labels")
     repair_labels_parser.add_argument("--item", required=True)
     repair_labels_parser.add_argument("--owner", required=True)

@@ -4,7 +4,8 @@ A repair item exists only when an accepted apply changed something outside
 its scope that no later batch will correct.  Each spec here records the
 exact wrong state the live program must still hold and the state to restore;
 `ghidra repair-signatures` refuses any other starting point and reads every
-restored signature back.
+restored signature back. The boundary repair's executor is
+`boundary_repair.repair_boundaries`.
 """
 
 from __future__ import annotations
@@ -21,6 +22,56 @@ BATCH_013_APPLY_ID = "socom:debug-batch:d73cfb813babeb1ce7f8-apply"
 BATCH_014_APPLY_ID = "socom:debug-batch:1791d0faee0ad2d6713e-apply"
 THUNK_REPAIR_ID = "socom:work:ghidra-repair-batch-001-thunk-signatures"
 COPY_NAMES_REPAIR_ID = "socom:work:ghidra-repair-file-local-copy-names"
+SPLIT_BOUNDARIES_REPAIR_ID = "socom:work:ghidra-repair-split-function-boundaries"
+# The accepted stage 3 applies whose receipt scope holds a split entry.
+_SPLIT_GROUP_APPLIES = [
+    "socom:recon-group:16c84908d92126493d4e-apply",
+    "socom:recon-group:ba3d6b20d6275485252b-apply",
+    "socom:recon-group:7aa1be7f9e4934fc33f8-apply",
+    "socom:recon-group:b4866323cff969508bd5-apply",
+    "socom:recon-group:234ba67188171f80132b-apply",
+    "socom:recon-group:42c6e71e29fbddaa3c30-apply",
+    "socom:recon-group:cd6dee6a2c5d8f960504-apply",
+    "socom:recon-group:cf8ba2fbc35aecaf8c47-apply",
+]
+
+
+def _split(
+    address: str,
+    symbol: str,
+    size: int,
+    name: str,
+    split: str,
+    signature: str | None = None,
+    split_signature: str | None = None,
+) -> dict[str, Any]:
+    """One split function: the .symtab extent [address, end), its wrong and target state."""
+
+    start, piece = int(address, 16), int(split, 16)
+    end = start + size
+    return {
+        "address": address,
+        "symbol": symbol,
+        "size": size,
+        "end": f"0x{end:x}",
+        "name": name,
+        # Bodies are inclusive [first, last] byte addresses, as Ghidra prints them.
+        "wrong": {
+            "thunk_target": split,
+            "body": [address, f"0x{piece - 1:x}"],
+            "signature": signature or f"undefined {name}(void)",
+            "split_name": f"FUN_{piece:08x}",
+            "split_body": [split, f"0x{end - 1:x}"],
+            "split_signature": split_signature or f"undefined FUN_{piece:08x}(void)",
+        },
+        "target": {"thunk": False, "body": [address, f"0x{end - 1:x}"]},
+    }
+
+
+_LIST_VISMAP_ITERATOR = "std::list<CAiVisMap*,std::allocator<CAiVisMap*>>::generic_iterator<0>"
+_VISMAP_ITERATOR_MANGLED = "Q33std48list<P9CAiVisMap,Q23std22allocator<P9CAiVisMap>>19generic_iterator<0>"
+_CMODEL_FIND = "find<PPQ23zdb6CModel,PQ23zdb6CModel>__3stdFPPQ23zdb6CModelPPQ23zdb6CModelRCPQ23zdb6CModel"
+_UIVAR_PARAMETERS = "(UIVarMixin * * param_1, UIVarMixin * * param_2, UIVarMixin * * param_3)"
 
 # Batch 001 set prototypes on COurGame::StopPlay (0x140500) and StartPlay
 # (0x140510). Each is a thunk (j 0x20e790 / j 0x20e7a0; nop), and a Ghidra
@@ -98,6 +149,91 @@ REPAIRS: dict[str, dict[str, Any]] = {
             {"address": "0x44c980", "readable": "zdb::CNode::__RTTI", "mangled": "__RTTI__Q23zdb5CNode"},
             {"address": "0x4756d8", "readable": "std::__msl_ios_base_ninit", "mangled": "__msl_ios_base_ninit__3std"},
             {"address": "0x4756dc", "readable": "std::__msl_ios_base_winit", "mangled": "__msl_ios_base_winit__3std"},
+        ],
+    },
+    # Stage 3: Ghidra split ten .symtab functions that begin `b L; nop` with
+    # L - start > 8 (CreateThunkFunctionCmd treats the branch as a thunk; its
+    # local-branch test allows only jumps of 8 bytes or less). Each start is a
+    # thunk whose body is [start, L) and whose target is a default-named
+    # FUN_<L> holding [L, end); the gap is pure code with no data, labels,
+    # tags or comments. GhidraMCP 6.0.0 has no endpoint that sets a body or
+    # clears a thunk, and delete_function + create_function rebuilds the
+    # split, so the user allowed (2026-10-30) one reviewed script for exactly
+    # these ten: `ghidra repair-boundaries` runs the pinned script once and
+    # reads back one non-thunk function per extent, body exactly
+    # [start, end), and ten fewer functions. Removing FUN_<L> drops its
+    # signature (g076's prototype for 0x39e3f0 sits on FUN_0039e3fc); a recon
+    # repair re-applies the prototypes afterwards.
+    SPLIT_BOUNDARIES_REPAIR_ID: {
+        "kind": "boundaries",
+        "stage": "ghidra-reconstruction",
+        "title": "Rejoin the ten functions Ghidra split into a branch thunk and a FUN_ piece",
+        "dependencies": [*_SPLIT_GROUP_APPLIES, READABLE_NAMES_REPAIR_ID],
+        "script": "tools/_socom/ghidra_scripts/RepairSplitBoundaries.java",
+        # SHA-256 of the script with CRLF line ends read as LF: the exact
+        # text sent to run_script_inline.
+        "script_sha256": "590752ceb12123cd217b1ba93af3dc28b8bf2c798c5142d1d4a4cde98ddf03cd",
+        "functions": [
+            _split(
+                "0x193cd0",
+                "find<PQ27CAiPath5point,9CAiMapLoc>__3stdFPQ27CAiPath5pointPQ27CAiPath5pointRC9CAiMapLoc",
+                112,
+                "std::find<CAiPath::point*,CAiMapLoc>",
+                "0x193cdc",
+            ),
+            _split(
+                "0x1972d0",
+                "find<P9CAiMapLoc,9CAiMapLoc>__3stdFP9CAiMapLocP9CAiMapLocRC9CAiMapLoc",
+                112,
+                "std::find<CAiMapLoc*,CAiMapLoc>",
+                "0x1972dc",
+            ),
+            _split(
+                "0x1a2750",
+                f"find<{_VISMAP_ITERATOR_MANGLED},P9CAiVisMap>__3stdF"
+                f"{_VISMAP_ITERATOR_MANGLED}{_VISMAP_ITERATOR_MANGLED}RCP9CAiVisMap",
+                56,
+                f"std::find<{_LIST_VISMAP_ITERATOR},CAiVisMap*>",
+                "0x1a2760",
+            ),
+            _split(
+                "0x1a2ad0",
+                f"remove_copy<{_VISMAP_ITERATOR_MANGLED},{_VISMAP_ITERATOR_MANGLED},P9CAiVisMap>__3stdF"
+                f"{_VISMAP_ITERATOR_MANGLED}{_VISMAP_ITERATOR_MANGLED}{_VISMAP_ITERATOR_MANGLED}RCP9CAiVisMap",
+                92,
+                f"std::remove_copy<{_LIST_VISMAP_ITERATOR},{_LIST_VISMAP_ITERATOR},CAiVisMap*>",
+                "0x1a2b0c",
+            ),
+            _split(
+                "0x1f01f0",
+                "find<P7CTarget,P7CEntity>__3stdFP7CTargetP7CTargetRCP7CEntity",
+                48,
+                "std::find<CTarget*,CEntity*>",
+                "0x1f01fc",
+            ),
+            # Three file-local copies keep the mangled name (names repair).
+            _split("0x2241e0", _CMODEL_FIND, 48, _CMODEL_FIND, "0x2241ec"),
+            _split("0x229fc0", _CMODEL_FIND, 48, _CMODEL_FIND, "0x229fcc"),
+            _split("0x231330", _CMODEL_FIND, 48, _CMODEL_FIND, "0x23133c"),
+            _split(
+                "0x2fb5b0",
+                "find<PPQ23zdb11CTexPalette,PQ23zdb11CTexPalette>__3stdFPPQ23zdb11CTexPalette"
+                "PPQ23zdb11CTexPaletteRCPQ23zdb11CTexPalette",
+                48,
+                "std::find<zdb::CTexPalette**,zdb::CTexPalette*>",
+                "0x2fb5bc",
+            ),
+            # Group 076 prototyped this one through the thunk, so the
+            # prototype is stored on FUN_0039e3fc and is lost with it.
+            _split(
+                "0x39e3f0",
+                "find<PP10UIVarMixin,P10UIVarMixin>__3stdFPP10UIVarMixinPP10UIVarMixinRCP10UIVarMixin",
+                48,
+                "std::find<UIVarMixin**,UIVarMixin*>",
+                "0x39e3fc",
+                signature=f"UIVarMixin * * __stdcall std::find<UIVarMixin**,UIVarMixin*>{_UIVAR_PARAMETERS}",
+                split_signature=f"UIVarMixin * * __stdcall FUN_0039e3fc{_UIVAR_PARAMETERS}",
+            ),
         ],
     },
 }
