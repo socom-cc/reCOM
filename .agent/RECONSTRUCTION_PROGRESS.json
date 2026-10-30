@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2641,
+  "revision": 2646,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -137785,8 +137785,81 @@
       "dependencies": [
         "socom:work:recon-repair-009"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "fingerprint after build/fingerprints/r009-after.json sha256 6dd43c2b9e67955fca07e4c4fd0e8f0cc70232787ddcd317d4db404c07b969a1; diff build/fingerprints/r009-diff.json sha256 a37f2a30587ef8578df3011cd2c7602edb6640d2983044c34c6d436aa5c47fb5: 18 functions changed: 18 prototyped group functions, entry/body/thunk unchanged; data +0/-0 explained (0 typed globals); types added 0 (pointer/array only); references, blocks and bookmarks unchanged; 1 restated prototype(s) already live and unchanged (0x167600)",
+        "fingerprint before build/fingerprints/r009-before.json is the previous apply's verifier fingerprint build/verifier-socom-verifier-a328/fp-now.json (identical to build/fingerprints/g328-after.json), reused because the g328 receipt still reproduced live before this apply: 9715 functions, 51840 data, 1727 types",
+        "ghidra apply-recon: plan build/recon-plans/socom-work-recon-repair-009.json sha256 4416530034dc0ef674a2820a650cd3e1a4faaca4edbf4737b9f3268455711d01 (accepted; plan-tools commit 00ea11b); program build/apply/socom-work-recon-repair-009-apply.json sha256 078b1df2d09b28a5959cb7adaf8e51bb18c171b28dd538df4378fe1ac66fff45 regenerated equal to the stored program; 19 bridge calls exactly as the post-claim dry run predicted (19 set_function_prototype); 0 recorded skips; every name and Signature line read back equal; report sha256 72d30fa79361a745bb5c928ba8ae4abe8cdb3d2109b84c04f7f517ac3a77cc63",
+        "ghidra-receipt-sha256:188f61975d48306377289ac3147869cc42ae194e71371d60d689d33337443de3",
+        "ghidra-save:explicit-program",
+        "pre-handoff receipt 188f61975d48306377289ac3147869cc42ae194e71371d60d689d33337443de3 over build/receipts/socom-work-recon-repair-009-apply-scope.json (19 functions, 0 globals)"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "188f61975d48306377289ac3147869cc42ae194e71371d60d689d33337443de3",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x14cc70",
+            "0x167600",
+            "0x174aa0",
+            "0x174ad0",
+            "0x17d2b0",
+            "0x1e4d20",
+            "0x1ea420",
+            "0x288330",
+            "0x29da30",
+            "0x29daf0",
+            "0x2d6a20",
+            "0x314f20",
+            "0x3153f0",
+            "0x315710",
+            "0x315e90",
+            "0x3793d0",
+            "0x3c7a70",
+            "0x3c86b0",
+            "0x3f7ce0"
+          ],
+          "globals": [],
+          "types": []
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1727,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 39626
+          },
+          "indexes": {
+            "data": {
+              "count": 51840,
+              "sha256": "aa959bf624edc43ead5233aa7cd4fb596a3ff230fb19523722f248b4cd02eb79"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1727,
+              "sha256": "79d7188390004ef1a2aecf1e55c6ff3bb199ce707c1c3edc88d973958f5dd6a8"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-30T04:56:46Z",
+        "summary": "Repair 009 plan: 19 prototypes, 0 unresolved, 0 globals"
+      },
       "id": "socom:work:recon-repair-009-apply",
       "kind": "recon-repair-apply",
       "lease": null,
@@ -137796,10 +137869,14 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Apply reviewed recon repair 009 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-30T05:00:51Z",
+        "by": "socom-verifier-r104"
+      },
       "batch": {
         "functions": [
           "0x1940a0",
@@ -137883,22 +137960,24 @@
         "socom:recon-group:f0dcb486c0e683b900e0-apply",
         "socom:recon-group:fc34f6139880c0de2a1d-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-work-recon-repair-010.json sha256:8b6331d975c16fd1658a67d97e686c75db81628dcfb059dbc13c6df2d62ec9a6 (matches handoff); recon validate ok; recon draft --check ok (rules 19: 27 drafted, 2 open); recon program equals build/apply/socom-work-recon-repair-010-apply.json (receipt scope 29 functions, 0 globals); ghidra preflight-batch ok (28 set_function_prototype; only skip keep 0x2392d0); recon live --item: all 28 live_signature values and current_name match (Ghidra default undefined X(void)); each repair reason matches its group plan's unresolved row; recon void --rules 19 VERDICT void for all 29, same under 17/18 except 0x3031c0 (17 open via C2DBitmap::Draw@0x303830, 18/19 void) as its row states. Open row 0x3031c0: a0-a3 read and declared, a3 read proves receiver, mangled types unique (C2DBitmap 128, zdb/CCamera 1312, zdb/CTextureRelocMgr 4, CMatrix 64), VU0 block reads only vf4-vf7 (lqc2 0..48(s1)), vf8 (lqc2 0(a1)), ACC, vf0 (cop2 decoded vmulax/vmadday/vmaddaz/vmaddw), no VU input; callers use no COP2. Keep 0x2392d0: lwc1 f3/f2/f1/f0 0..12(a1) at 0x2392d0-0x2392e4, caller addiu a1,s1,32 @0x236b50, CPnt4D 16 bytes. Drafted P-void 0x2fe5e0/0x300e90 evidence 'no word refs or address-taken sites' is drafter wording (recon_draft.py by_slot=false path via _declared_void): recon refs shows one word each (__vt__13C2DBitmapPoly+0xc, __vt__9C2DTriFan+0xc), none formed in code; row notes give the real proof, checked: DIEs 0x2b6bd7/0x342a58/0x204da2/0x24bdf0/0x4b65a8/0x26f104 are FT_void Draw overriders at the +0xc entries of their vtables; only notes reach the apply program; tool gap, not a plan finding",
+        "plan build/recon-plans/socom-work-recon-repair-010.json sha256:8b6331d975c16fd1658a67d97e686c75db81628dcfb059dbc13c6df2d62ec9a6; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (28 set_function_prototype; 1 skip: keep 0x2392d0)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-r010",
+        "submitted_at": "2026-10-30T04:52:49Z",
+        "summary": "28 prototypes, 1 keep, 0 globals"
+      },
       "id": "socom:work:recon-repair-010",
       "kind": "recon-repair-plan",
-      "lease": {
-        "claimed_at": "2026-10-30T02:36:08Z",
-        "expires_at": "2026-10-30T04:36:08Z",
-        "heartbeat_at": "2026-10-30T02:36:08Z",
-        "owner": "socom-recon-planner-r010"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "accepted",
       "title": "Plan recon repair 010 (29 functions of applied groups)"
     },
     {
@@ -137982,7 +138061,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed recon repair 010 in Ghidra"
     },
     {
