@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2820,
+  "revision": 2821,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -145262,14 +145262,19 @@
       "handoff": null,
       "id": "socom:work:recon-repair-031-apply",
       "kind": "recon-repair-apply",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-30T20:39:15Z",
+        "expires_at": "2026-10-30T23:39:15Z",
+        "heartbeat_at": "2026-10-30T20:39:15Z",
+        "owner": "socom-ghidra-reconstructor"
+      },
       "resources": [
         "ghidra:soCOM/socom.elf",
         "ghidra-writer"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Apply reviewed recon repair 031 in Ghidra"
     },
     {

@@ -1311,8 +1311,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Stage 3 gate: user-approved named deferrals past the ghidra-reconstruction gate"
+    },
+    {
+      "details": "Found by the stage-3 gate review (socom-verifier-g3); classified read-only by socom-ghidra-fact-mapper-b2 (build/repair-pass/boundary/SIZE-MISMATCH.md, 2026-10-30). EXPLAINED, live boundary correct (the extra .symtab bytes are dead code, live tail undefined): dthandler 0x142b50 (epilogue after noreturn abort), scePcStart 0x15b048 (jr ra; nop after an eret returning to ra), sceSifWriteBackDCache 0x15dcb8 (second jr ra after the real return), abort 0x3def00 (loop b; nop reached only if _exit returns; correct while _exit stays noreturn). DEFERRED by user decision 2026-10-30 (live boundary wrong; needs a governed route beyond GhidraMCP 6.0.0, which has no set-body/disassemble endpoint): _kTLBException 0x163e00 and _kDebugException 0x164040 - 28/32 reachable tail bytes (relocated HI16/LO16 pair at 0x163ed8/0x164114 loads 0x163f00/0x16413c into EPC; eret jumps there) are undisassembled with no reference; fix = add the reference, disassemble the tail, extend each body to its .symtab extent (no new function: no FUNC symbol there). __throw 0x144460 - live body runs 4 bytes past its extent onto padding nop 0x1444dc because live __ThrowHandler is not noreturn; __ThrowHandler has a static jr ra, so making it noreturn is a runtime-contract decision for the user, then recompute/set the body.",
+      "id": "socom:workspace-issue:8df909fce638196e9ee7",
+      "kind": "problem",
+      "reported_at": "2026-10-30T20:39:26Z",
+      "reported_by": "socom-coordinator",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage 3 gate: 7 live/.symtab body-size mismatches (4 explained, 3 deferred)"
     }
   ],
-  "revision": 161,
+  "revision": 162,
   "schema_version": 1
 }
