@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2614,
+  "revision": 2617,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -133818,6 +133818,10 @@
       "title": "Apply reviewed reconstruction group 325 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-30T00:27:54Z",
+        "by": "socom-verifier-r99"
+      },
       "batch": {
         "batch_number": 326,
         "function_count": 21,
@@ -133916,8 +133920,15 @@
         "socom:recon-group:f805ab3eb2eec8636b14-apply",
         "socom:recon-group:fc34f6139880c0de2a1d-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-5523ff893aa622bd738f.json sha256:167f34dcaf4b9e4936f846618d9d395accb352c4ab03cecefead0138ad6355d9 re-verified; recon validate ok; recon draft --check ok (rules 19, 12 drafted/9 open); recon program equals build/apply copy; preflight-batch ok (18 calls, skips 0x290aa0/0x2da750/0x2e77f0 = plan unresolved). Open rows vs recon facts/asm: 0x206c80 void(int,int) static by PFii_v a2 param of zNetRegisterRemoteObjectCallback (addiu a2@0x206df0), a0 overwritten unread @0x206c84, a1 unchanged into zNetGetObject (jal 0x206c90; it passes a1 to NetGetObject), recon void VERDICT void; 0x1f6fa0 bool(float,void *) static by AddTask PFfPv_b a2 (0x1f80e4), a0/f12 pass to CMission::Tick, exit move v0,zero; partials 0x24ed10/0x24ee90/0x2852e0/0x29b940/0x29bff0 params match arg reads and mangled types (CZSealBody/CSealCtrl/CZProjectile unique), live signatures are Ghidra default, returns open (constants only incl. s0 in {0..3} at 0x29c400; f0 chains via PreTick/CSealEx::OnWeaponHit; recon void open); 0x2da750/0x2e77f0 unresolved: CAiSPickup/CAiSNoAmmo missing (recon types), Tick slot family open",
+        "plan build/recon-plans/socom-recon-group-5523ff893aa622bd738f.json sha256:167f34dcaf4b9e4936f846618d9d395accb352c4ab03cecefead0138ad6355d9; recon validate ok; recon draft --check ok (rules 19); preflight-batch ok (18 calls)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g186",
+        "submitted_at": "2026-10-30T00:21:03Z",
+        "summary": "18 prototypes (5 partial), 3 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:5523ff893aa622bd738f",
       "kind": "recon-plan-group",
       "lease": null,
@@ -133926,7 +133937,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 326 (height 44, 21 functions)"
     },
     {
@@ -133975,7 +133986,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 326 in Ghidra"
     },
     {
