@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2637,
+  "revision": 2641,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -137647,6 +137647,10 @@
       "title": "Apply reviewed recon repair 008 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-30T02:47:18Z",
+        "by": "socom-verifier-r103"
+      },
       "batch": {
         "functions": [
           "0x14cc70",
@@ -137711,22 +137715,24 @@
         "socom:recon-group:fc34f6139880c0de2a1d-apply",
         "socom:work:recon-repair-001-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-work-recon-repair-009.json sha256:4416530034dc0ef674a2820a650cd3e1a4faaca4edbf4737b9f3268455711d01; recon validate ok; preflight-batch ok (set_function_prototype 19)",
+        "plan sha256:4416530034dc0ef674a2820a650cd3e1a4faaca4edbf4737b9f3268455711d01 re-verified; recon validate ok; recon program equals build/apply/socom-work-recon-repair-009-apply.json; preflight-batch ok (set_function_prototype 19, no skips); all 19 live_signature strings equal recon live. 9 bool rows (0x14cc70 del, 0x174aa0, 0x174ad0, 0x17d2b0, 0x1e4d20, 0x1ea420, 0x3793d0, 0x3c7a70, 0x3c86b0): demangled signatures declare bool at that position, matching issue 01fc2430's list; other types unchanged. 9 ctor rows (0x288330, 0x29da30, 0x29daf0, 0x2d6a20, 0x314f20, 0x3153f0, 0x315710, 0x315e90, 0x3f7ce0): recon dwarf --address finds no record; all 70 DWARF __ct records declare mod_fund_type=void *; recon asm shows every exit returns entry a0 (lw v0 from the sole sw a0 stack slot, or move v0,s0/s1 copied from a0 and not rewritten); matches issue 8892c260's list. 0x167600: recon contradictions --groups applied reports only a2@0x16782c for it; asm shows the read is reached only via the bc1fl 0x167724 taken edge (hx<=0x317fffff, 1e30+x<=1.0 impossible; all other paths to 0x167738 write a2); accepted dead sites union with repair 001."
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-r009",
+        "submitted_at": "2026-10-30T02:40:23Z",
+        "summary": "19 prototypes, 0 unresolved, 0 globals"
+      },
       "id": "socom:work:recon-repair-009",
       "kind": "recon-repair-plan",
-      "lease": {
-        "claimed_at": "2026-10-30T02:31:14Z",
-        "expires_at": "2026-10-30T04:31:14Z",
-        "heartbeat_at": "2026-10-30T02:31:14Z",
-        "owner": "socom-recon-planner-r009"
-      },
+      "lease": null,
       "resources": [
         "build/recon-plans"
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "in_progress",
+      "status": "accepted",
       "title": "Plan recon repair 009 (19 functions of applied groups)"
     },
     {
@@ -137790,8 +137796,194 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed recon repair 009 in Ghidra"
+    },
+    {
+      "batch": {
+        "functions": [
+          "0x1940a0",
+          "0x1968e0",
+          "0x1d6780",
+          "0x1dfb20",
+          "0x1e1d20",
+          "0x1e1e20",
+          "0x1f2b30",
+          "0x1f4000",
+          "0x218de0",
+          "0x21d840",
+          "0x220750",
+          "0x221e30",
+          "0x236720",
+          "0x2392d0",
+          "0x24e5a0",
+          "0x24e900",
+          "0x24eb00",
+          "0x24eb70",
+          "0x24ec60",
+          "0x260050",
+          "0x28c570",
+          "0x298540",
+          "0x2a5830",
+          "0x2adfb0",
+          "0x2f49d0",
+          "0x2fe410",
+          "0x2fe5e0",
+          "0x300e90",
+          "0x3031c0"
+        ],
+        "graph_sha256": "01741af12cddfd9e3e9460edf3dbe4e2660d880e135d20c03ff2021ac8157794",
+        "groups": {
+          "0x1940a0": "socom:recon-group:b1c7cc151e3cecf9e16b",
+          "0x1968e0": "socom:recon-group:b1c7cc151e3cecf9e16b",
+          "0x1d6780": "socom:recon-group:c80d9013a8112dadaec1",
+          "0x1dfb20": "socom:recon-group:c80d9013a8112dadaec1",
+          "0x1e1d20": "socom:recon-group:c80d9013a8112dadaec1",
+          "0x1e1e20": "socom:recon-group:c80d9013a8112dadaec1",
+          "0x1f2b30": "socom:recon-group:fc34f6139880c0de2a1d",
+          "0x1f4000": "socom:recon-group:1800ecd89e71e90d9580",
+          "0x218de0": "socom:recon-group:e33c9bd8b4ba1e6231db",
+          "0x21d840": "socom:recon-group:e33c9bd8b4ba1e6231db",
+          "0x220750": "socom:recon-group:15983d991a78b66cb26c",
+          "0x221e30": "socom:recon-group:15983d991a78b66cb26c",
+          "0x236720": "socom:recon-group:1c2d173d734ccd54382c",
+          "0x2392d0": "socom:recon-group:272c41bf109dffedd3ff",
+          "0x24e5a0": "socom:recon-group:5b66c363534b8ff43230",
+          "0x24e900": "socom:recon-group:5b66c363534b8ff43230",
+          "0x24eb00": "socom:recon-group:5b66c363534b8ff43230",
+          "0x24eb70": "socom:recon-group:5b66c363534b8ff43230",
+          "0x24ec60": "socom:recon-group:5b66c363534b8ff43230",
+          "0x260050": "socom:recon-group:14a80014a8fee62ce74d",
+          "0x28c570": "socom:recon-group:f0dcb486c0e683b900e0",
+          "0x298540": "socom:recon-group:5a39b1944098b46e7ce1",
+          "0x2a5830": "socom:recon-group:c7e355d63b5c5d95064b",
+          "0x2adfb0": "socom:recon-group:c7e355d63b5c5d95064b",
+          "0x2f49d0": "socom:recon-group:62e7e309e1985789dee4",
+          "0x2fe410": "socom:recon-group:7a0af2cbf6db2fda4bf6",
+          "0x2fe5e0": "socom:recon-group:7a0af2cbf6db2fda4bf6",
+          "0x300e90": "socom:recon-group:7a0af2cbf6db2fda4bf6",
+          "0x3031c0": "socom:recon-group:7a0af2cbf6db2fda4bf6"
+        },
+        "repair_number": 10
+      },
+      "dependencies": [
+        "socom:recon-group:14a80014a8fee62ce74d-apply",
+        "socom:recon-group:15983d991a78b66cb26c-apply",
+        "socom:recon-group:1800ecd89e71e90d9580-apply",
+        "socom:recon-group:1c2d173d734ccd54382c-apply",
+        "socom:recon-group:272c41bf109dffedd3ff-apply",
+        "socom:recon-group:5a39b1944098b46e7ce1-apply",
+        "socom:recon-group:5b66c363534b8ff43230-apply",
+        "socom:recon-group:62e7e309e1985789dee4-apply",
+        "socom:recon-group:7a0af2cbf6db2fda4bf6-apply",
+        "socom:recon-group:b1c7cc151e3cecf9e16b-apply",
+        "socom:recon-group:c7e355d63b5c5d95064b-apply",
+        "socom:recon-group:c80d9013a8112dadaec1-apply",
+        "socom:recon-group:e33c9bd8b4ba1e6231db-apply",
+        "socom:recon-group:f0dcb486c0e683b900e0-apply",
+        "socom:recon-group:fc34f6139880c0de2a1d-apply"
+      ],
+      "evidence": [],
+      "handoff": null,
+      "id": "socom:work:recon-repair-010",
+      "kind": "recon-repair-plan",
+      "lease": {
+        "claimed_at": "2026-10-30T02:36:08Z",
+        "expires_at": "2026-10-30T04:36:08Z",
+        "heartbeat_at": "2026-10-30T02:36:08Z",
+        "owner": "socom-recon-planner-r010"
+      },
+      "resources": [
+        "build/recon-plans"
+      ],
+      "selection": "functions",
+      "stage": "ghidra-reconstruction",
+      "status": "in_progress",
+      "title": "Plan recon repair 010 (29 functions of applied groups)"
+    },
+    {
+      "batch": {
+        "functions": [
+          "0x1940a0",
+          "0x1968e0",
+          "0x1d6780",
+          "0x1dfb20",
+          "0x1e1d20",
+          "0x1e1e20",
+          "0x1f2b30",
+          "0x1f4000",
+          "0x218de0",
+          "0x21d840",
+          "0x220750",
+          "0x221e30",
+          "0x236720",
+          "0x2392d0",
+          "0x24e5a0",
+          "0x24e900",
+          "0x24eb00",
+          "0x24eb70",
+          "0x24ec60",
+          "0x260050",
+          "0x28c570",
+          "0x298540",
+          "0x2a5830",
+          "0x2adfb0",
+          "0x2f49d0",
+          "0x2fe410",
+          "0x2fe5e0",
+          "0x300e90",
+          "0x3031c0"
+        ],
+        "graph_sha256": "01741af12cddfd9e3e9460edf3dbe4e2660d880e135d20c03ff2021ac8157794",
+        "groups": {
+          "0x1940a0": "socom:recon-group:b1c7cc151e3cecf9e16b",
+          "0x1968e0": "socom:recon-group:b1c7cc151e3cecf9e16b",
+          "0x1d6780": "socom:recon-group:c80d9013a8112dadaec1",
+          "0x1dfb20": "socom:recon-group:c80d9013a8112dadaec1",
+          "0x1e1d20": "socom:recon-group:c80d9013a8112dadaec1",
+          "0x1e1e20": "socom:recon-group:c80d9013a8112dadaec1",
+          "0x1f2b30": "socom:recon-group:fc34f6139880c0de2a1d",
+          "0x1f4000": "socom:recon-group:1800ecd89e71e90d9580",
+          "0x218de0": "socom:recon-group:e33c9bd8b4ba1e6231db",
+          "0x21d840": "socom:recon-group:e33c9bd8b4ba1e6231db",
+          "0x220750": "socom:recon-group:15983d991a78b66cb26c",
+          "0x221e30": "socom:recon-group:15983d991a78b66cb26c",
+          "0x236720": "socom:recon-group:1c2d173d734ccd54382c",
+          "0x2392d0": "socom:recon-group:272c41bf109dffedd3ff",
+          "0x24e5a0": "socom:recon-group:5b66c363534b8ff43230",
+          "0x24e900": "socom:recon-group:5b66c363534b8ff43230",
+          "0x24eb00": "socom:recon-group:5b66c363534b8ff43230",
+          "0x24eb70": "socom:recon-group:5b66c363534b8ff43230",
+          "0x24ec60": "socom:recon-group:5b66c363534b8ff43230",
+          "0x260050": "socom:recon-group:14a80014a8fee62ce74d",
+          "0x28c570": "socom:recon-group:f0dcb486c0e683b900e0",
+          "0x298540": "socom:recon-group:5a39b1944098b46e7ce1",
+          "0x2a5830": "socom:recon-group:c7e355d63b5c5d95064b",
+          "0x2adfb0": "socom:recon-group:c7e355d63b5c5d95064b",
+          "0x2f49d0": "socom:recon-group:62e7e309e1985789dee4",
+          "0x2fe410": "socom:recon-group:7a0af2cbf6db2fda4bf6",
+          "0x2fe5e0": "socom:recon-group:7a0af2cbf6db2fda4bf6",
+          "0x300e90": "socom:recon-group:7a0af2cbf6db2fda4bf6",
+          "0x3031c0": "socom:recon-group:7a0af2cbf6db2fda4bf6"
+        },
+        "repair_number": 10
+      },
+      "dependencies": [
+        "socom:work:recon-repair-010"
+      ],
+      "evidence": [],
+      "handoff": null,
+      "id": "socom:work:recon-repair-010-apply",
+      "kind": "recon-repair-apply",
+      "lease": null,
+      "resources": [
+        "ghidra:soCOM/socom.elf",
+        "ghidra-writer"
+      ],
+      "selection": "functions",
+      "stage": "ghidra-reconstruction",
+      "status": "blocked",
+      "title": "Apply reviewed recon repair 010 in Ghidra"
     },
     {
       "batch": null,
@@ -138151,7 +138343,9 @@
         "socom:work:recon-repair-008",
         "socom:work:recon-repair-008-apply",
         "socom:work:recon-repair-009",
-        "socom:work:recon-repair-009-apply"
+        "socom:work:recon-repair-009-apply",
+        "socom:work:recon-repair-010",
+        "socom:work:recon-repair-010-apply"
       ],
       "evidence": [],
       "handoff": null,
