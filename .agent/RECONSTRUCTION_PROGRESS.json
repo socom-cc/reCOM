@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2709,
+  "revision": 2720,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -2842,7 +2842,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "273dae105db3c51ebbc89cf112a6e47edba2e0e35171bcd2224c4d18b32864e2",
+      "current_receipt_sha256": "f2eb011c1c426db7bbe4287f19cd9fb0fa9ae662619f93cf5f78da1d3606571c",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -12708,6 +12708,31 @@
           "receipt_sha256": "273dae105db3c51ebbc89cf112a6e47edba2e0e35171bcd2224c4d18b32864e2",
           "tracker_revision": 2709,
           "work_item_id": "socom:work:recon-repair-013-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1729,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 39933
+          },
+          "indexes": {
+            "data": {
+              "count": 51840,
+              "sha256": "aa959bf624edc43ead5233aa7cd4fb596a3ff230fb19523722f248b4cd02eb79"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1729,
+              "sha256": "c57794a38579aa68a4b66460be3ab8f2728a55825e32ee7f4a5dd9ff50e40369"
+            }
+          },
+          "receipt_sha256": "f2eb011c1c426db7bbe4287f19cd9fb0fa9ae662619f93cf5f78da1d3606571c",
+          "tracker_revision": 2720,
+          "work_item_id": "socom:work:recon-repair-021-apply"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -139726,18 +139751,34 @@
         "socom:recon-group:c0fb9a80914bba84e64a-apply"
       ],
       "evidence": [
-        "plan build/recon-plans/socom-work-recon-repair-015.json sha256:e65e2fbd604d96275fbf2045a38361769b4db98a6b8ab3d754de544da815afd8; recon validate ok; recon draft --check ok (rules 20); preflight-batch ok (set_function_prototype 35; skipped only the keep rows 0x2413a0, 0x24cbe0)"
+        "plan build/recon-plans/socom-work-recon-repair-015.json sha256:64927a3287a29a2ff56c904fa1576cec2e45bcfc605398ef26c92f2af74e8e32; recon validate ok; recon draft --check ok (rules 20); preflight-batch ok (set_function_prototype 34; skipped only the keep rows 0x2413a0, 0x24cbe0, 0x254d90)"
       ],
       "handoff": {
         "owner": "socom-recon-planner-r015",
-        "submitted_at": "2026-10-30T05:52:14Z",
-        "summary": "35 prototypes, 2 unresolved, 0 globals"
+        "submitted_at": "2026-10-30T06:15:20Z",
+        "summary": "34 prototypes, 3 unresolved, 0 globals"
       },
       "id": "socom:work:recon-repair-015",
       "kind": "recon-repair-plan",
       "lease": null,
       "resources": [
         "build/recon-plans"
+      ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-recon-planner-r015",
+            "submitted_at": "2026-10-30T05:52:14Z",
+            "summary": "35 prototypes, 2 unresolved, 0 globals"
+          },
+          "handoff_evidence": [
+            "plan build/recon-plans/socom-work-recon-repair-015.json sha256:e65e2fbd604d96275fbf2045a38361769b4db98a6b8ab3d754de544da815afd8; recon validate ok; recon draft --check ok (rules 20); preflight-batch ok (set_function_prototype 35; skipped only the keep rows 0x2413a0, 0x24cbe0)"
+          ],
+          "reason": "0x254d90 collideCylinders: the partial row's storage is wrong once applied. Ghidra 12.1.4's ParamListStandard.assignAddressFallback (Java and decompiler fspec.cc, called with matchExact=false) puts a float into a GENERAL entry once its FLOAT entries are used up. r5900.cspec __stdcall (default compiler spec) has no modelrules or groups: its order is f12-f19, then a0-t3, then stack (align 8). ApplyFunctionSignatureCmd uses DYNAMIC_STORAGE_FORMAL_PARAMS, so floats 9-13 would land in a0,a1,a2,a3,t0 and the two CPnt3D refs in t1,t2. The asm contradicts that: a0/a1 are the refs (move s1,a0@0x254da0; move s0,a1@0x254da8), and floats 9-13 are read from the incoming stack at +0x0/+0x8/+0x10/+0x18/+0x20 (lwc1 96/104/112/120/128(sp) under addiu sp,sp,-96). The only caller CollidePlayers stores them with swc1 f25,0(sp)/f26,8(sp)/f3,16(sp)/f0,24(sp)/f1,32(sp) and passes the refs as addiu a0,sp,288 and addiu a1,sp,304 before jal 0x254c2c. The row's note that the cspec puts the rest on the stack is wrong for floats. Fix: make 0x254d90 a keep row (13 floats + 2 refs: no __stdcall prototype gives floats 9-13 stack storage while the refs stay in a0/a1). Every other row checked clean: validate ok, program equal, preflight-batch ok (skips exactly the keep rows 0x2413a0 and 0x24cbe0), live_signature = recon live on all 35 rows, each partial row quotes its rules-20 recon void VERDICT open line verbatim, receivers and types are unique.",
+          "rejected_at": "2026-10-30T06:10:52Z",
+          "rejected_by": "socom-verifier-r108"
+        }
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
@@ -139945,11 +139986,11 @@
         "socom:recon-group:f0dcb486c0e683b900e0-apply"
       ],
       "evidence": [
-        "plan build/recon-plans/socom-work-recon-repair-016.json sha256:f70ea49e7b9ed845ba170b0944f90fbe8b57ea1e0cfd75d4409f6dd3d92a5650; recon validate ok; recon draft --check ok (rules 20); preflight-batch ok (set_function_prototype 37; no skips)"
+        "plan build/recon-plans/socom-work-recon-repair-016.json sha256:af2eca7a9c8091fbbface6e1b0a0b2014351354df3e3e40829f6e9d89399ab6e; recon validate ok; recon draft --check ok (rules 20); preflight-batch ok (set_function_prototype 37; no skips)"
       ],
       "handoff": {
         "owner": "socom-recon-planner-r015",
-        "submitted_at": "2026-10-30T05:56:03Z",
+        "submitted_at": "2026-10-30T06:15:54Z",
         "summary": "37 prototypes, 0 unresolved, 0 globals"
       },
       "id": "socom:work:recon-repair-016",
@@ -139957,6 +139998,22 @@
       "lease": null,
       "resources": [
         "build/recon-plans"
+      ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-recon-planner-r015",
+            "submitted_at": "2026-10-30T05:56:03Z",
+            "summary": "37 prototypes, 0 unresolved, 0 globals"
+          },
+          "handoff_evidence": [
+            "plan build/recon-plans/socom-work-recon-repair-016.json sha256:f70ea49e7b9ed845ba170b0944f90fbe8b57ea1e0cfd75d4409f6dd3d92a5650; recon validate ok; recon draft --check ok (rules 20); preflight-batch ok (set_function_prototype 37; no skips)"
+          ],
+          "reason": "0x261570 CSealCtrlAi::GetRouteFailed: the return is provable, so this should be a complete row, not a partial one. Every exit returns either lb v0,997(a0) (0x2615c4, 0x2615d0) or 0 (move v0,zero at 0x2615a8, 0x2615cc). Offset 997 is m_path (CAiPath at +876) +121 = m_status, typed ASTAR_STATUS (get_struct_layout CAiPath). ASTAR_STATUS is a 1-byte DWARF enum (e.g. DIE 0x1d7a4) with ASTAR_STATUS_UNKNOWN=-1 and ASTAR_SUCCESS=0, so the signed lb fits it and so does the 0 exit. RECONSTRUCTION.md Return width counts 'the returned member's own type' as positive evidence, and accepted group 3e32bb1c typed CZWeaponList::GetWeaponId EQUIP_ITEM from exactly this shape (lb v0,96(element) or li v0,255). The row's reason that ASTAR_STATUS, schar and int cannot be told apart contradicts that rule and precedent. Fix: complete row 'ASTAR_STATUS (CSealCtrlAi * this)' (recon types ASTAR_STATUS: unique /project/ASTAR_STATUS, 1 byte), keeping the const-member receiver evidence. Every other row checked clean: validate ok, program equal, preflight-batch ok (no skips), live_signature = recon live on all 37 rows, each partial row quotes its rules-20 recon void VERDICT open line verbatim, the receivers of 0x26bb90 (const member; AI_STATE and CAiState missing) and 0x26c840 (const member + __vt__11CSealCtrlAi+0xa4; neither GetJumpFlag has a DWARF record) are sound, and the pass-through notes match recon facts.",
+          "rejected_at": "2026-10-30T06:11:14Z",
+          "rejected_by": "socom-verifier-r108"
+        }
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
@@ -141021,6 +141078,10 @@
       "title": "Plan recon repair 021 (33 functions of applied groups)"
     },
     {
+      "accepted": {
+        "at": "2026-10-30T06:18:05Z",
+        "by": "socom-verifier-a-r021"
+      },
       "batch": {
         "functions": [
           "0x1421b0",
@@ -141098,8 +141159,109 @@
       "dependencies": [
         "socom:work:recon-repair-021"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "check-recon-apply audit: strict tracker audit ok at revision 2714",
+        "check-recon-apply calls: 23 apply bridge calls; dry run planned 23 (set_function_prototype), 0 outside the scope",
+        "check-recon-apply chain: r021-before identical to r013-after",
+        "check-recon-apply diff: recomputed r021 before/after diff equals the stored diff",
+        "check-recon-apply explain: 23 functions changed: 23 prototyped group functions, entry/body/thunk unchanged; data +0/-0 explained (0 typed globals); types added 0 (pointer/array only); references, blocks and bookmarks unchanged",
+        "check-recon-apply fingerprint: verifier fingerprint ebe41a2ea03fc182a94869ed3bc9f0d9dd394d8dff5e5f2a66234bc1e87fa0ef identical to r021-after",
+        "check-recon-apply limit: repair 021: of 33 listed functions 23 changed and 10 restated (10 of them kept as they are by keep rows); 0 thunk(s) or split target(s) show a listed function's new signature; nothing else changed; the scope and all 23 apply calls name only listed functions; no globals",
+        "check-recon-apply plan: plan sha256 20f624d09261c920b620a5d1597f4424eb791298c7a3b52c1a0c2b3822055a91 cited by the accepted plan item",
+        "check-recon-apply preflight: live preflight ok",
+        "check-recon-apply program: program sha256 7c9b667bfacca80c13a3b9474a2382fd4e4894aece22be670f5da23afdeaa1ac regenerates identically from the plan",
+        "check-recon-apply readback: live signatures of 23 prototyped functions equal the plan; 23 of them partial (return left undefined, no-return flag as it was); 23 of those withdraw an unproven live return (23 of them a void recon void does not confirm) and read back undefined; 10 unresolved unchanged",
+        "check-recon-apply receipt: receipt over the stored scope f2eb011c1c426db7bbe4287f19cd9fb0fa9ae662619f93cf5f78da1d3606571c vs handoff f2eb011c1c426db7bbe4287f19cd9fb0fa9ae662619f93cf5f78da1d3606571c",
+        "check-recon-apply scope: stored scope (33 functions, 0 globals) equals the program's receipt_scope",
+        "check-recon-apply status: apply awaiting_acceptance, plan accepted",
+        "fingerprint after build/fingerprints/r021-after.json sha256 54836f3738091865a270f6fe86fd4842082c533e7a7059450fd74e0818690bff; diff build/fingerprints/r021-diff.json sha256 1cfa362798533ebbcc3e9c748a3027491d950e234d711c79a3ea979db580e172: 23 functions changed: 23 prototyped group functions, entry/body/thunk unchanged; data +0/-0 explained (0 typed globals); types added 0 (pointer/array only); references, blocks and bookmarks unchanged",
+        "fingerprint before build/fingerprints/r021-before.json is the previous apply's verifier fingerprint build/verifier-socom-verifier-a-r013/fp-now.json (identical to build/fingerprints/r013-after.json), reused because the r013 receipt still reproduced live before this apply: 9715 functions, 51840 data, 1729 types",
+        "ghidra apply-recon: plan build/recon-plans/socom-work-recon-repair-021.json sha256 20f624d09261c920b620a5d1597f4424eb791298c7a3b52c1a0c2b3822055a91 (accepted; plan-tools commit 00ea11b); program build/apply/socom-work-recon-repair-021-apply.json sha256 7c9b667bfacca80c13a3b9474a2382fd4e4894aece22be670f5da23afdeaa1ac regenerated equal to the stored program; 23 bridge calls exactly as the post-claim dry run predicted (23 set_function_prototype); 10 recorded skips; every name and Signature line read back equal; report sha256 25257763d5a2353a528c0b0f6ca6f8996d4ebb57faa2aea0207da944b2b036af",
+        "ghidra-receipt-sha256:f2eb011c1c426db7bbe4287f19cd9fb0fa9ae662619f93cf5f78da1d3606571c",
+        "ghidra-save:explicit-program",
+        "pre-handoff receipt f2eb011c1c426db7bbe4287f19cd9fb0fa9ae662619f93cf5f78da1d3606571c over build/receipts/socom-work-recon-repair-021-apply-scope.json (33 functions, 0 globals)"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "f2eb011c1c426db7bbe4287f19cd9fb0fa9ae662619f93cf5f78da1d3606571c",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x1421b0",
+            "0x142250",
+            "0x1422c0",
+            "0x142b20",
+            "0x142b50",
+            "0x144460",
+            "0x150528",
+            "0x152b30",
+            "0x152d60",
+            "0x152f00",
+            "0x15be98",
+            "0x15bf58",
+            "0x15bfd8",
+            "0x15d620",
+            "0x15d640",
+            "0x15ee20",
+            "0x15f308",
+            "0x16e490",
+            "0x16e580",
+            "0x16e620",
+            "0x16ea00",
+            "0x170498",
+            "0x170588",
+            "0x171a40",
+            "0x171f38",
+            "0x187d90",
+            "0x1bd170",
+            "0x1d98f0",
+            "0x1dc930",
+            "0x1ee390",
+            "0x201800",
+            "0x202e90",
+            "0x203650"
+          ],
+          "globals": [],
+          "types": []
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1729,
+            "function_count": 9715,
+            "memory_block_count": 28,
+            "symbol_count": 39933
+          },
+          "indexes": {
+            "data": {
+              "count": 51840,
+              "sha256": "aa959bf624edc43ead5233aa7cd4fb596a3ff230fb19523722f248b4cd02eb79"
+            },
+            "functions": {
+              "count": 9715,
+              "sha256": "cee1d464c311f22f981c8eca1b08438cf4c6163e437d42f6012e2be405c68655"
+            },
+            "types": {
+              "count": 1729,
+              "sha256": "c57794a38579aa68a4b66460be3ab8f2728a55825e32ee7f4a5dd9ff50e40369"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-30T06:13:01Z",
+        "summary": "Repair 021 plan: 33 functions: 23 prototypes (withdraws_return), 10 keep, 0 globals"
+      },
       "id": "socom:work:recon-repair-021-apply",
       "kind": "recon-repair-apply",
       "lease": null,
@@ -141109,10 +141271,14 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply reviewed recon repair 021 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-30T06:17:20Z",
+        "by": "socom-verifier-r109"
+      },
       "batch": {
         "functions": [
           "0x203c00",
@@ -141206,6 +141372,7 @@
         "socom:recon-group:e33c9bd8b4ba1e6231db-apply"
       ],
       "evidence": [
+        "plan build/recon-plans/socom-work-recon-repair-022.json sha256:c36c4d6f5770fbb4a636b29b84e1d176d0436d0f1e802d6a3ec8282c74a1bf63 re-verified; recon validate ok; recon program equals build/apply/socom-work-recon-repair-022-apply.json (sha256 a78cca00...); preflight-batch ok (24 set_function_prototype calls, 9 skips = exactly the 9 keep rows). 24 withdraws_return rows: each contradiction[0] equals the recon void (rules 20) VERDICT open line verbatim, live_signature equals recon live, parameters/convention equal live, no DWARF record at any address; chain endpoints are vtable virtuals (recon refs: relocated vtable words only) or packet handlers registered via untyped NetRegisterApplicationMessage (no DWARF, live undefined(void)). 0x227200 SetPosition: beyond the typed-callback chain, recon facts --callers 120 shows f0 returned by caller Render__Q28Particle8Instance (0x236b70), the blocker recon void names for 0x237c80, so void stays unproven. 0x2825e0 IssueCommand: chain ends at AiOrdersPacketHandler whose address goes in a1 to NetRegisterApplicationMessage (0x201b4c), untyped; withdraw correct. 6 __arraydtor keeps (0x2ce050-0x2ce0f0): recon refs shows each address formed only in __sinit_anim.cpp as a1 of __register_global_object; __destroy_global_chain 0x142b70 calls jalr v0 with li a1,-1 and never reads v0; local Metrowerks runtime source checked read-only: NMWException.h:42, StaticInitializers.cp:122/128, CPlusLib.h:35 #ifdef/#else 54, 79 short, 81 (-1), 84-85 DTORCALL_COMPLETE void(*)(void*,short), 126 void __destroy_arr - all as cited. 3 DWARF callback keeps verified: DIE 0xe92d3 ThreadParam.entry +4 -> ptr 0xea999 void(void*), CGame::Tick sw v0,100(sp) with a0=sp+96 to CreateThread(ThreadParam*); DIE 0xd3e4 CZBodyAnimBlend.m_callback +0x38 and 0x1e0d8 CBlendOverlay.m_callback +0x10 of ANIM_CALLBACK 0x11177 whose m_func 0x111bd +4 -> ptr 0x132b4 void(void*,void*); stores sw at s0+60 (s0=RTStack<CZBodyAnimBlend>::Top result), s1+20 (s1 = CBlendOverlay::Trigger this), and PushBlend s1+60 (s1 = CBody::PushBlend's CZBodyAnimBlend * result); no keep rests on a syscall stub's v0.",
         "plan build/recon-plans/socom-work-recon-repair-022.json sha256:c36c4d6f5770fbb4a636b29b84e1d176d0436d0f1e802d6a3ec8282c74a1bf63; recon validate ok; recon program ok (program sha256 a78cca000210e4c988d9fca3c7d9f8bc17a0e17b1606b1584d6353997e64dcda); preflight-batch ok (24 calls; 9 keep rows skipped)"
       ],
       "handoff": {
@@ -141221,7 +141388,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan recon repair 022 (33 functions of applied groups)"
     },
     {
@@ -141313,7 +141480,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed recon repair 022 in Ghidra"
     },
     {
@@ -141738,6 +141905,10 @@
       "title": "Apply reviewed recon repair 024 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-30T06:17:42Z",
+        "by": "socom-verifier-r109"
+      },
       "batch": {
         "functions": [
           "0x15b450",
@@ -141830,6 +142001,7 @@
         "socom:recon-group:a4fa663115a989272496-apply"
       ],
       "evidence": [
+        "plan build/recon-plans/socom-work-recon-repair-025.json sha256:99a551aa5355be9f631bc4c6f5b2b37930446aa024f1ed07f78ecf0e8198fb5e re-verified; recon validate ok; recon program equals build/apply/socom-work-recon-repair-025-apply.json (sha256 8e474ce1...); preflight-batch ok (39 set_function_prototype calls, 0 skips). 39 withdraws_return rows: recon asm shows all 39 bodies are exactly li v1,N; syscall; jr ra; nop (v0 is the kernel's result, written by syscall, which recon facts/void do not model; no row relies on v0 unset); recon dwarf --address: no record at any of the 39; recon withdrawal-candidates --kind header lists all 39 with eekernel.h/SDK citations only; live_signature equals recon live and parameters/convention equal live for every row. 0x15b500 EndOfHeap (live void *): only caller sbrk 0x15bc20 uses v0 solely in sltu v0,v0,s0 at 0x15bc78 against heap_ptr.30+incr (no DWARF), no pointer or width evidence. 0x15b840 GsGetIMR (live ulonglong): only caller sceGsExecStoreImage passes v0 through or a0,v0,a0 (0x14f7a4) to GsPutIMR, whose ulonglong parameter is itself header-derived and a consumer type; no 64-bit-only use proves the width. Test-only callers (bgez/bltz/beq) treated as no evidence, consistent with accepted repair 024 (CreateThread, DeleteThread).",
         "plan build/recon-plans/socom-work-recon-repair-025.json sha256:99a551aa5355be9f631bc4c6f5b2b37930446aa024f1ed07f78ecf0e8198fb5e; recon validate ok; recon program ok (program sha256 8e474ce1dcb061b976604837258d1537e67bf713c890cc7692692dc57d297420); preflight-batch ok (39 calls; 0 skips)"
       ],
       "handoff": {
@@ -141845,7 +142017,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan recon repair 025 (39 functions of applied groups)"
     },
     {
@@ -141949,7 +142121,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed recon repair 025 in Ghidra"
     },
     {
