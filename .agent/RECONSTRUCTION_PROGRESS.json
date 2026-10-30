@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2805,
+  "revision": 2809,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -144977,6 +144977,115 @@
       "title": "Apply reviewed recon repair 029 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-30T19:39:59Z",
+        "by": "socom-verifier-r117"
+      },
+      "batch": {
+        "functions": [
+          "0x193cd0",
+          "0x1972d0",
+          "0x1a2750",
+          "0x1a2ad0",
+          "0x1f01f0",
+          "0x2241e0",
+          "0x229fc0",
+          "0x231330",
+          "0x2fb5b0",
+          "0x39e3f0"
+        ],
+        "graph_sha256": "01741af12cddfd9e3e9460edf3dbe4e2660d880e135d20c03ff2021ac8157794",
+        "groups": {
+          "0x193cd0": "socom:recon-group:16c84908d92126493d4e",
+          "0x1972d0": "socom:recon-group:16c84908d92126493d4e",
+          "0x1a2750": "socom:recon-group:ba3d6b20d6275485252b",
+          "0x1a2ad0": "socom:recon-group:ba3d6b20d6275485252b",
+          "0x1f01f0": "socom:recon-group:7aa1be7f9e4934fc33f8",
+          "0x2241e0": "socom:recon-group:b4866323cff969508bd5",
+          "0x229fc0": "socom:recon-group:234ba67188171f80132b",
+          "0x231330": "socom:recon-group:42c6e71e29fbddaa3c30",
+          "0x2fb5b0": "socom:recon-group:cd6dee6a2c5d8f960504",
+          "0x39e3f0": "socom:recon-group:cf8ba2fbc35aecaf8c47"
+        },
+        "repair_number": 30
+      },
+      "dependencies": [
+        "socom:recon-group:16c84908d92126493d4e-apply",
+        "socom:recon-group:234ba67188171f80132b-apply",
+        "socom:recon-group:42c6e71e29fbddaa3c30-apply",
+        "socom:recon-group:7aa1be7f9e4934fc33f8-apply",
+        "socom:recon-group:b4866323cff969508bd5-apply",
+        "socom:recon-group:ba3d6b20d6275485252b-apply",
+        "socom:recon-group:cd6dee6a2c5d8f960504-apply",
+        "socom:recon-group:cf8ba2fbc35aecaf8c47-apply"
+      ],
+      "evidence": [
+        "plan build/recon-plans/socom-work-recon-repair-030.json sha256:95af714633471f34778274712267e589fe42775bbfda3f8559f20a2437a9dcb5 (awaiting_acceptance); recon validate ok; recon program regenerates build/apply/socom-work-recon-repair-030-apply.json byte-identical (sha256:128afeee1ab52f2097c74ed57eb1a40d2f966aa64ce9e01170af8cf42e1279ff); preflight-batch ok (8 set_function_prototype; skips exactly keep rows 0x1a2750, 0x1a2ad0); recon draft --check ok (rules 21, 0 drafted). recon live: all 10 current_name and live_signature equal (Ghidra default undefined NAME(void)). Live bodies (bridge get_function_by_address, program=socom.elf) equal .symtab FUNC sizes: 0x193cd0/0x1972d0 112, 0x1a2750 56, 0x1a2ad0 92, 0x1f01f0/0x2241e0/0x229fc0/0x231330/0x2fb5b0/0x39e3f0 48; the former split entries (0x193cdc ... 0x39e3fc) now resolve inside the rejoined functions (accepted socom:work:ghidra-repair-split-function-boundaries report). recon dwarf: no record at any address. 8 std::find rows: recon facts args read a0,a1,a2 only (all declared), single exit jr ra with v0<-move v0,a0 (advanced first), f0 unset; recon types point/CAiMapLoc/CTarget/CEntity/CModel/CTexPalette/UIVarMixin unique. Iterator return is proven by declaration, not by the returned argument alone: the local Metrowerks CodeWarrior PS2 MSL runtime source MSL_C++/MSL_Common/Include/algorithm lines 26-28 and 566-574 declares template<class InputIterator, class T> InputIterator find(InputIterator first, InputIterator last, const T& value) {while (first != last && !(*first == value)) ++first; return first;}, matching the asm, and each mangled template argument list binds InputIterator to the row's return type; every caller compares v0 with the last it passed (0x1951c0, 0x1952cc, 0x197240, 0x1efcac, 0x224160, 0x229e44, 0x2311f0, 0x231288, 7 sites of 0x2fb5b0, 0x39e258/0x39e2c8/0x39eb00). Consistent with repair 021 (0x187d90 GetDirVec: non-template, no declared return, v0 unread by all callers) and with accepted iterator-return rows 0x39e3f0 (group 076), remove_copy 0x196a20, 0x19d9a0, 0x1f0ef0, 0x224220, 0x224740, 0x230550, 0x2fcb50, repair 002 0x228df0 (MSL remove_copy returns OutputIterator, lines 1368-1370). const T& value as pointer follows those remove_copy rows; callers pass addresses in a2. 0x39e3f0 equals the accepted group 076 row and the report's lost signature verbatim. Keep rows 0x1a2750/0x1a2ad0: list generic_iterator<0> names contain ',' (only the unrelated __list_deleter<void const*,...>::generic_iterator<0> is live); hidden result pointer a0 (sw t1,0(a0)@0x1a2784; sw v1,0(a0)@0x1a2b28; v0 unset at exit); iterators by address (callers addiu a1/a2/a3,sp,N); value in a3/t0.",
+        "plan build/recon-plans/socom-work-recon-repair-030.json sha256:95af714633471f34778274712267e589fe42775bbfda3f8559f20a2437a9dcb5; recon validate ok; recon draft --check ok (rules 21); recon program build/apply/socom-work-recon-repair-030-apply.json sha256:128afeee1ab52f2097c74ed57eb1a40d2f966aa64ce9e01170af8cf42e1279ff; preflight-batch ok (8 set_function_prototype; 2 keep skips)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-r030",
+        "submitted_at": "2026-10-30T19:34:41Z",
+        "summary": "10 functions: 8 prototypes, 2 keep, 0 unresolved, 0 globals"
+      },
+      "id": "socom:work:recon-repair-030",
+      "kind": "recon-repair-plan",
+      "lease": null,
+      "resources": [
+        "build/recon-plans"
+      ],
+      "selection": "functions",
+      "stage": "ghidra-reconstruction",
+      "status": "accepted",
+      "title": "Plan recon repair 030 (10 functions of applied groups)"
+    },
+    {
+      "batch": {
+        "functions": [
+          "0x193cd0",
+          "0x1972d0",
+          "0x1a2750",
+          "0x1a2ad0",
+          "0x1f01f0",
+          "0x2241e0",
+          "0x229fc0",
+          "0x231330",
+          "0x2fb5b0",
+          "0x39e3f0"
+        ],
+        "graph_sha256": "01741af12cddfd9e3e9460edf3dbe4e2660d880e135d20c03ff2021ac8157794",
+        "groups": {
+          "0x193cd0": "socom:recon-group:16c84908d92126493d4e",
+          "0x1972d0": "socom:recon-group:16c84908d92126493d4e",
+          "0x1a2750": "socom:recon-group:ba3d6b20d6275485252b",
+          "0x1a2ad0": "socom:recon-group:ba3d6b20d6275485252b",
+          "0x1f01f0": "socom:recon-group:7aa1be7f9e4934fc33f8",
+          "0x2241e0": "socom:recon-group:b4866323cff969508bd5",
+          "0x229fc0": "socom:recon-group:234ba67188171f80132b",
+          "0x231330": "socom:recon-group:42c6e71e29fbddaa3c30",
+          "0x2fb5b0": "socom:recon-group:cd6dee6a2c5d8f960504",
+          "0x39e3f0": "socom:recon-group:cf8ba2fbc35aecaf8c47"
+        },
+        "repair_number": 30
+      },
+      "dependencies": [
+        "socom:work:recon-repair-030"
+      ],
+      "evidence": [],
+      "handoff": null,
+      "id": "socom:work:recon-repair-030-apply",
+      "kind": "recon-repair-apply",
+      "lease": null,
+      "resources": [
+        "ghidra:soCOM/socom.elf",
+        "ghidra-writer"
+      ],
+      "selection": "functions",
+      "stage": "ghidra-reconstruction",
+      "status": "ready",
+      "title": "Apply reviewed recon repair 030 in Ghidra"
+    },
+    {
       "batch": null,
       "dependencies": [
         "socom:recon-group:77fd04ac72066c8ff1e4-apply",
@@ -145375,7 +145484,9 @@
         "socom:work:recon-repair-028",
         "socom:work:recon-repair-028-apply",
         "socom:work:recon-repair-029",
-        "socom:work:recon-repair-029-apply"
+        "socom:work:recon-repair-029-apply",
+        "socom:work:recon-repair-030",
+        "socom:work:recon-repair-030-apply"
       ],
       "evidence": [],
       "handoff": null,

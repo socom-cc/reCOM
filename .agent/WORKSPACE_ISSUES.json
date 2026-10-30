@@ -1224,8 +1224,28 @@
       "resolution": null,
       "status": "open",
       "summary": "recon void v11 callback reading misses an address passed to a typed callback parameter through a tail jump"
+    },
+    {
+      "details": "User decision 2026-10-30: defer as a named blocker past the stage-3 gate. Scope (scoping agent socom-recon-planner-tp1, 2026-10-30): 686 plain-C functions with no mangled names and no DWARF in 0x336ef0-0x3788a0, 674 unresolved across 47 recon groups (the earlier issue named 6 groups). Records needed: CASR recognizer (1116 bytes, TOS instance at +0), 28 TOS block records (44-1256 bytes from tosBaseBlockConstruct t3 arguments), TOS handle, base-block header (accesses to +32), queue (20-byte header + variable tail), HEAP 28, critsec 8, rsrc 20, mtx 24, fastallo, ASR SPI engine 216, gGSAPI 140, GSAPI context 40, a 108-byte GSAPI record, DSP state, lang, DP, tree, exev, codebook, context interface tables, and callback function-pointer types (_GSAPI_RESULT/_GSAPI_WORDIDLIST already exist live from reco.cpp DWARF). Tool changes needed before type plans: allocator roots (heap_Alloc/heap_Calloc/malloc), plain-C roots (.symtab objects, call-site parameters, plan pointer fields incl. embedded-at-+0), a configurable tosBaseBlockConstruct registrar (callbacks at +20/+24/+28), a function-pointer type kind, an invented-C-name naming rule (needs user approval), variable-length tails. Proposed type plans TP-MW-1 (OS core) .. TP-MW-6 (mtx); about 303 rows could then take complete rows and about 180 partial rows via recon repairs; 265 rows also have returns no type fixes.",
+      "id": "socom:workspace-issue:21aa88795246715981dd",
+      "kind": "problem",
+      "reported_at": "2026-10-30T19:27:51Z",
+      "reported_by": "socom-coordinator",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage 3 deferred: speech middleware (0x336ef0-0x3788a0) plain-C record types and their 674 unresolved rows"
+    },
+    {
+      "details": "Collected from planners/reviewers during the 2026-10-29/30 repair pass (repairs 009-030): (1) recon void prints only the first blocking chain; no list-all option. (2) recon void ignores __sinit_* functions as void(void) chain ends (e.g. 0x39ebc0 CUIVariable::Destroy). (3) recon void omits RTTI-less vtables from slot families (CTurret 0x37b1d0 ComputeNextPosition, 0x37b1f0 Tick; __vt__7CTurret mirrors CEntity's slots). (4) 0x39e8d0 CUIVariable::UpdateDependents: the slot object comes from m_attached_items, DWARF-typed only as unsigned long * (__vector_pod::data_); only the mangled MSL instance __vector_imp<UIVarMixin*,...> names the element class, so rules 21 cannot prove the slot (withdrawn in repair 023). (5) recon draft renames live parameter names to param_N, so repair rows keeping live names are hand-written. (6) recon facts reports a store through a returned pointer (sb zero,0(v0)) in the same form as a store of v0. (7) recon facts call-site lines omit FPR arguments the callee never reads while listing unread GPR arguments (caused a repair-017 evidence error). (8) recon void may count an in-body switch jr as an exit (0x263a30, 0x24df40; cf. b4afc678). (9) Accepted group plan 7a0af2cb fails recon draft --check under current tools (0x2fb9a0, 0x2fcb40 claim U-type but the rules now leave them open). (10) Evidence notes: repair-023 acceptance evidence (socom-verifier-r115) miscounts changed repair lines as '5+' (8 lines changed '(rules 20)'->'(rules 21)'); repairs 028/029 rows cite worktree commit 36f4418, identical tool code to the merged commit.",
+      "id": "socom:workspace-issue:fcbec67b726ce3c71f71",
+      "kind": "problem",
+      "reported_at": "2026-10-30T19:28:06Z",
+      "reported_by": "socom-coordinator",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage 3 repair pass: remaining recon tool gaps and rule notes"
     }
   ],
-  "revision": 139,
+  "revision": 141,
   "schema_version": 1
 }
