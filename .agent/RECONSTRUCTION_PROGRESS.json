@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2605,
+  "revision": 2611,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -133481,6 +133481,10 @@
       "title": "Apply reviewed reconstruction group 324 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-30T00:01:00Z",
+        "by": "socom-verifier-r98"
+      },
       "batch": {
         "batch_number": 325,
         "function_count": 15,
@@ -133623,17 +133627,40 @@
         "socom:recon-group:fc34f6139880c0de2a1d-apply",
         "socom:recon-group:ffc2dec804115a6fa5be-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-d847b887d339a140f38c.json sha256:8b18511414479d9b71fccf47af440a8db21d27d7297b9dd9d92af3b6f1a21dc8; recon validate ok; recon draft --check ok (rules 19, 4 drafted/11 open); recon program equals build/apply; preflight-batch ok (13 set_function_prototype; skips only 0x294210 U-type DAMAGE_LOCATION, 0x2e77e0 thunk). Re-review after rejection at rev 2607: program diff vs 8a2b8cce changes only 0x2a7410 (partial -> complete, return CZProjectile *). 0x2a7410 CZProjectile * (CZKit *, CPnt3D *, CPnt3D *): single exit jr ra 0x2a74c4 returns 0 (0x2a7464), Fire's live CZProjectile * (jal 0x2a74ac) or HandleRemotePlaceExplosive's live PlacedExplosive * (jal 0x2a748c) unadjusted; DWARF 0x298f54 PlacedExplosive : public CZProjectile at +0 (0x298f78); caller stores v0 (sw 0x206d08); a0-a2 declared. 0x26eb70/0x26ef00 CZBodyAnimBlend *: every non-null path reaches PushBlend (0x26ee48/0x26f048) and returns saved s0/s2, null path Top. 0x2b7640 static bool via AddCmd t0 0x2bea8c, andi v0,v0,0xff 0x2b79e8. 0x2aa7a0 partial: vf4-vf8 lqc2 in-body, vf9 sqc2, caller sets only a0/f12; constant 0/1 exits. Other partial rows: constant or untyped-callee exits, recon void open, live default signatures.",
+        "plan build/recon-plans/socom-recon-group-d847b887d339a140f38c.json sha256:8b18511414479d9b71fccf47af440a8db21d27d7297b9dd9d92af3b6f1a21dc8; recon validate ok; recon draft --check ok; preflight-batch ok (13 set_function_prototype); FireGrenade 0x2a7410 now complete CZProjectile * per DWARF inheritance 0x298f78 (PlacedExplosive : public CZProjectile at +0)"
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g185",
+        "submitted_at": "2026-10-29T23:59:32Z",
+        "summary": "13 prototypes, 2 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:d847b887d339a140f38c",
       "kind": "recon-plan-group",
       "lease": null,
       "resources": [
         "build/recon-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-recon-planner-g185",
+            "submitted_at": "2026-10-29T23:51:24Z",
+            "summary": "13 prototypes, 2 unresolved, 0 globals"
+          },
+          "handoff_evidence": [
+            "plan build/recon-plans/socom-recon-group-d847b887d339a140f38c.json sha256:8a2b8cce1d974d82f906e7335bb53f79e6294b3963961cbd0bf633b02bdf7b8f; recon validate ok; recon draft --check ok; preflight-batch ok (13 set_function_prototype)"
+          ],
+          "reason": "0x2a7410 CZKit::FireGrenade: the partial row's return reason ('two different pointer types and no declaration names a common one') is contradicted by DWARF: 0x298f54 class PlacedExplosive (172) has inheritance 0x298f78 public CZProjectile (0x2a1994, 168, itself with no base) at location +0. The exits (single jr ra 0x2a74c4) return 0 (move v0,zero 0x2a7464), CZKit::Fire's result (accepted live CZProjectile *, jal 0x2a74ac) or CZKit::HandleRemotePlaceExplosive's result (accepted live PlacedExplosive *, jal 0x2a748c) unadjusted, which is a no-op upcast to CZProjectile * at +0; CZProjectile * is the only class pointer both values convert to, and the only caller RemoteGrenadeCreationCallback reads v0 (sw v0,28(s0) 0x206d08), so recon void open does not leave the return undecided. The return is provable, so the partial row is a finding. Fix: replace it with a complete row CZProjectile * (CZKit * this, CPnt3D * param_2, CPnt3D * param_3) citing 0x298f78, the two accepted callee returns and the null exit (precedent RestrainBuddy/PickupBuddy callee-return typing; group 324 0x2a6ed0 note). Everything else checks: recon validate ok, draft --check ok (rules 19, 4 drafted/11 open), recon program equals build/apply, preflight-batch ok (13 calls; skips exactly 0x294210, 0x2e77e0); RestrainBuddy/StabBuddy CZBodyAnimBlend * (every non-null path reaches PushBlend 0x26ee48 / 0x26f048 and returns its saved s0/s2; null path returns Top), CTPlay::Tick static bool (AddCmd t0 at 0x2bea8c, andi v0,v0,0xff 0x2b79e8), TickExplosives partial (vf4-vf8 lqc2 in-body, vf9 sqc2; caller sets only a0/f12) and the other partial rows are sound.",
+          "rejected_at": "2026-10-29T23:57:42Z",
+          "rejected_by": "socom-verifier-r98"
+        }
+      ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 325 (height 43, 15 functions)"
     },
     {
@@ -133676,7 +133703,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 325 in Ghidra"
     },
     {
