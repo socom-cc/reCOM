@@ -569,6 +569,13 @@ C_SPELLINGS["ulong"] = "ulonglong or uint (EE long is 64-bit; say which width th
 _REGISTER_NUMBERS = {name: number for number, name in ARGUMENT_GPR_NAMES.items()}
 
 
+def _address_or_none(text: Any) -> int | None:
+    try:
+        return int(str(text), 16)
+    except ValueError:
+        return None
+
+
 def _type_problem(type_name: Any) -> str | None:
     if not isinstance(type_name, str) or not type_name.strip():
         return "type must be a non-empty string"
@@ -1098,7 +1105,7 @@ def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any
             problems.append(f"{where} parameters must be a list")
             continue
         names = [param.get("name") for param in parameters]
-        for row in by_value_parameters(context(root), prototype):
+        for row in by_value_parameters(context(root), prototype, _address_or_none(address)):
             problems.append(f"{where} parameter {row['name']}: {row['problem']}")
         for position, param in enumerate(parameters, 1):
             if not isinstance(param.get("name"), str) or not _IDENTIFIER.match(param["name"]):

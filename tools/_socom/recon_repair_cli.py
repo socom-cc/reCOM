@@ -47,8 +47,9 @@ def specs(spec: Any) -> tuple[Any, ...]:
         spec(
             "recon by-value-rows",
             "recon",
-            "List rows of accepted or applied group and repair plans that declare a class parameter by value over "
-            "one GPR slot (8 bytes), whose Ghidra storage cannot match the Metrowerks ABI, as JSON.",
+            "List rows of accepted or applied group and repair plans whose Ghidra storage cannot match the "
+            "Metrowerks ABI, as JSON: a class by value over one GPR slot (8 bytes) or passed as a caller's stack "
+            "address, or floats past f19 that Ghidra would put in a GPR.",
         ),
     )
 

@@ -115,9 +115,28 @@ row `"draft": "open"` for the planner:
   `lwc1 0..12(a1)`, the caller passing `addiu a1,s1,32`), while Ghidra's
   r5900 `__stdcall` (integer argument registers `maxsize="8"`) puts it on the
   stack, so no prototype gives it its storage. An aggregate of up to 8 bytes
-  travels in the register itself (`C2DBitmapPoly::SetCenterPos` takes PNT2D
-  in a1: `sd a1,56(sp)` at 0x2fe4d0) and drafts as before. This guards every
-  rules version (coordinator decision of 2026-10-29).
+  travels in the register itself only when its copy is trivial
+  (`C2DBitmapPoly::SetCenterPos` takes PNT2D in a1: `ld a1` in every caller,
+  `sd a1,56(sp)` at 0x2fe4d0; `list::const_iterator` arrives as `lw a1,N(sp)`
+  at 0x197190). A class whose copy is not trivial travels as the address of
+  a caller temporary whatever its size (review of repair 017): the 4-byte
+  CAiMapLoc (user copy constructor) reaches
+  `CSealCtrlAi::HandleFollowTickHideCheck` 0x2e1510 as `addiu a3,sp,568`, and
+  `list::iterator` reaches 0x1d8470 as `addiu a1,sp,N`, read through
+  `lw v1,0(a1)`. Copy-constructor symbols do not decide it (both iterators
+  have one), so a decided prototype whose by-value DWARF class, struct or
+  union parameter some direct caller sets to an address in its own frame
+  (`addiu rN,sp|fp,imm`) becomes `U-byvalue` too; a function without direct
+  callers keeps the size rule. This guards every rules version (coordinator
+  decisions of 2026-10-29 and 2026-10-30).
+- `U-storage`: unresolved. A decided prototype has a parameter Ghidra's r5900
+  `__stdcall` would store elsewhere than Metrowerks passes it. The cspec has
+  no `<rule>` groups, so a ninth float takes the next free `a0`-`t3` in
+  Ghidra, while Metrowerks puts floats 9 and on in 8-byte stack slots from
+  +0 after the other overflowing arguments (`collideCylinders` 0x254d90:
+  floats 9-13 at incoming +0x0..+0x20, its `CPnt3D &` arguments in a0/a1;
+  review r108). Ints past t3 go to the stack in both, so only a float that
+  finds a GPR free in Ghidra differs, together with every argument after it.
 - `P-stage2`: the stage 2 DWARF prototype is restated. This requires every
   type to name one live type, every argument register read on any path to be
   declared, no VU0 instructions, and, for `void`, every exit to leave v0 and
@@ -560,10 +579,14 @@ before write (any path)") is declared per site with `dead_reads`, and
   `a0`-`t3`);
 - no parameter is a class, struct or union passed by value whose DWARF
   records exceed one GPR slot (8 bytes; see `U-byvalue`): Ghidra would put
-  it on the stack where Metrowerks passes its address. `recon partial-candidates`
-  leaves such rows out, and `recon by-value-rows` (read-only, JSON) lists
-  rows of accepted or applied group and repair plans that already declare
-  one (`live` marks the row the accepted applies left in Ghidra);
+  it on the stack where Metrowerks passes its address; nor one a direct
+  caller passes as the address of a stack temporary; nor a parameter Ghidra
+  would store elsewhere than Metrowerks passes it (more than 8 floats with a
+  GPR still free; see `U-storage`). `recon partial-candidates` leaves such
+  rows out, and `recon by-value-rows` (read-only, JSON) lists rows of
+  accepted or applied group and repair plans that already declare one, each
+  parameter with its `kind` (`over-gpr`, `by-address` or `storage`; `live`
+  marks the row the accepted applies left in Ghidra);
 - a partial prototype carries the proof "Partial prototypes" lists;
 - each global changes something, has evidence, is not a type that
   `apply_data_type` would resolve to a different type, and is referenced by

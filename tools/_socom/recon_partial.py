@@ -114,6 +114,11 @@ def proven_parameters(ctx: Any, row: dict[str, Any], types: Any) -> tuple[dict[s
         return None, "an argument register read on some path is not declared"
     if varargs and not parameters:
         return None, "varargs with no fixed parameter"
+    from .recon_byvalue import by_value_parameters
+
+    if unstorable := by_value_parameters(ctx, {"parameters": parameters}, address):
+        # Recon validate refuses it: Ghidra would give it the wrong storage.
+        return None, f"parameter {unstorable[0]['position']}: {unstorable[0]['problem']}"
     return {"parameters": parameters, "varargs": varargs, "source": source}, ""
 
 

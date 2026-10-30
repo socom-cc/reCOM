@@ -729,3 +729,44 @@ def test_validate_refuses_by_value_aggregates_over_one_gpr_slot(root: Path, deco
     assert any("parameter extent: CPnt4D is passed by value" in p for p in problems), problems
     entry["prototype"]["parameters"][1]["type"] = "CPnt4D *"
     assert not any("passed by value" in p for p in validate_recon_plan(root, decomposed, plan))
+
+
+def test_validate_refuses_small_by_value_classes_passed_by_address(root: Path, decomposed: dict) -> None:
+    # CSealCtrlAi::HandleFollowTickHideCheck(bool, bool, CAiMapLoc, void *): the
+    # 4-byte CAiMapLoc (user copy constructor) arrives as addiu a3,sp,568 (review of repair 017).
+    address = "0x2e1510"
+    plan = _group_plan(decomposed, address)
+    entry = next(row for row in plan["functions"] if row["address"] == address)
+    entry.pop("unresolved")
+    entry["prototype"] = {
+        "return_type": "void", "evidence": ["x"],
+        "parameters": [
+            {"name": "this", "type": "CSealCtrlAi *"}, {"name": "a", "type": "bool"}, {"name": "b", "type": "bool"},
+            {"name": "loc", "type": "CAiMapLoc"}, {"name": "p", "type": "void *"},
+        ],
+    }
+    problems = validate_recon_plan(root, decomposed, plan)
+    assert any("parameter loc: CAiMapLoc is passed by value but its caller FollowTick" in p and "addiu a3,sp,568" in p
+               for p in problems), problems
+    entry["prototype"]["parameters"][3]["type"] = "CAiMapLoc *"
+    assert not any("parameter loc" in p for p in validate_recon_plan(root, decomposed, plan))
+
+
+def test_validate_refuses_floats_ghidra_would_put_in_gprs(root: Path, decomposed: dict) -> None:
+    # collideCylinders(13 floats, CPnt3D &, CPnt3D &): Metrowerks passes floats
+    # 9-13 at +0x0..+0x20 and the references in a0/a1 (review r108).
+    address = "0x254d90"
+    plan = _group_plan(decomposed, address)
+    entry = next(row for row in plan["functions"] if row["address"] == address)
+    entry.pop("unresolved")
+    entry["prototype"] = {
+        "return_type": "int", "evidence": ["x"],
+        "parameters": [{"name": f"f{index}", "type": "float"} for index in range(1, 14)]
+        + [{"name": "a", "type": "CPnt3D *"}, {"name": "b", "type": "CPnt3D *"}],
+    }
+    problems = [p for p in validate_recon_plan(root, decomposed, plan) if "Ghidra's r5900 __stdcall would store" in p]
+    assert len(problems) == 7, problems
+    assert any("parameter f9: Metrowerks passes it in stack+0x0, but Ghidra's r5900 __stdcall would store it in a0" in p
+               for p in problems)
+    assert any("parameter a: Metrowerks passes it in a0, but Ghidra's r5900 __stdcall would store it in t1" in p
+               for p in problems)

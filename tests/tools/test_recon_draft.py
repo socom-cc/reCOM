@@ -633,3 +633,44 @@ def test_by_value_aggregates_over_one_gpr_slot_stay_unresolved(ctx) -> None:
                       {"name": "PNT2D", "path": "/project/PNT2D", "size": 8}])
     drafted = draft_function(ctx, _row(0x2FE4A0, "SetCenterPos__13C2DBitmapPolyF5PNT2Dff"), "x", pnt)
     assert drafted["draft_rule"] == "P-void"
+
+
+def test_small_by_value_classes_follow_their_callers(ctx) -> None:
+    # The copy decides, not the size: CAiMapLoc (4 bytes, user copy
+    # constructor) and list::iterator (generic_iterator<0>) arrive as stack
+    # addresses; PNT2D and list::const_iterator (generic_iterator<1>) as values.
+    from tools._socom.recon_byvalue import address_passing, by_value_parameters
+
+    assert "addiu a3,sp,568" in address_passing(ctx, 0x2E1510, 7)
+    assert "addiu a1,sp," in address_passing(ctx, 0x1D8470, 5)
+    assert address_passing(ctx, 0x197190, 5) is None  # lw a1,N(sp) values
+    assert address_passing(ctx, 0x2FE4A0, 5) is None  # ld a1 values
+
+    def proto(*types: str) -> dict:
+        return {"parameters": [{"name": f"p{index}", "type": t} for index, t in enumerate(types)]}
+
+    found = by_value_parameters(ctx, proto("CSealCtrlAi *", "bool", "bool", "CAiMapLoc", "void *"), 0x2E1510)
+    assert [(row["position"], row["kind"]) for row in found] == [(4, "by-address")]
+    assert by_value_parameters(ctx, proto("C2DBitmapPoly *", "PNT2D", "float", "float"), 0x2FE4A0) == []
+    # va_list is a typedef whose value is itself a stack address: not checked.
+    assert by_value_parameters(ctx, proto("FILE *", "char *", "__gnuc_va_list"), 0x3E8C90) == []
+    # A decided prototype the callers contradict is never drafted.
+    types = _types("CSealCtrlAi", "CAiMapLoc")
+    drafted = draft_function(ctx, _row(0x2E1510, "HandleFollowTickHideCheck__11CSealCtrlAiFbb9CAiMapLocPv"), "x", types)
+    assert not (drafted.get("prototype") or {}).get("parameters")
+
+
+def test_storage_follows_metrowerks_float_overflow(ctx) -> None:
+    from tools._socom.recon_byvalue import storage_problems
+
+    def proto(*types: str) -> dict:
+        return {"parameters": [{"name": f"p{index}", "type": t} for index, t in enumerate(types, 1)]}
+
+    assert storage_problems(proto(*["float"] * 8, *["int"] * 10)) == []  # ints 9+ go to the stack in both
+    rows = storage_problems(proto(*["float"] * 13, "CPnt3D *", "CPnt3D *"))
+    assert [(row["position"], row["problem"].split(",")[0]) for row in rows][:2] == [
+        (9, "Metrowerks passes it in stack+0x0"), (10, "Metrowerks passes it in stack+0x8")
+    ]
+    assert len(rows) == 7
+    # With the GPRs already full, Ghidra puts the ninth float on the stack too.
+    assert storage_problems(proto(*["int"] * 8, *["float"] * 9)) == []

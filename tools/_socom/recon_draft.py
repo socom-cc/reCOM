@@ -16,7 +16,15 @@ U-byvalue
          unresolved: a mangled parameter is a class passed by value whose DWARF
          records (or live type) exceed one GPR slot (8 bytes): Metrowerks
          passes its address, Ghidra's r5900 __stdcall puts it on the stack
-         (recon_byvalue).  It guards every rules version.
+         (recon_byvalue).  A decided prototype whose by-value class a direct
+         caller passes as the address of a stack temporary (a copy that is
+         not trivial, review of repair 017) takes it too.  It guards every
+         rules version.
+U-storage
+         unresolved: a decided prototype has a parameter Ghidra's r5900
+         __stdcall stores elsewhere than Metrowerks passes it (a float past
+         f19 that finds a0-t3 free; Metrowerks puts it on the stack, review
+         r108).  It guards every rules version.
 P-stage2 restate the prototype stage 2 applied from DWARF, when every argument
          register read on any path is declared and, for a void return, every
          exit leaves v0 and f0 unset.
@@ -1321,6 +1329,22 @@ def draft_function(
         raise SocomError(f"draft rules version {rules} is not one of {', '.join(map(str, RULES_VERSIONS))}")
     drafted = _draft_row(ctx, row, live_name, types, rules)
     address = int(row["address"], 16)
+    if drafted.get("prototype"):
+        # Guards every rules version: a decided prototype Ghidra cannot store
+        # as Metrowerks passes it (recon_byvalue) stays unresolved.
+        from .recon_byvalue import by_value_parameters
+
+        if unstorable := by_value_parameters(ctx, drafted["prototype"], address):
+            storage = all(entry["kind"] == "storage" for entry in unstorable)
+            return {
+                "address": drafted["address"], "current_name": drafted["current_name"], "prototype": None,
+                "draft_rule": "U-storage" if storage else "U-byvalue",
+                "unresolved": [
+                    f"parameter {entry['position']} ({entry['type']}) of the {drafted['draft_rule']} prototype: "
+                    f"{entry['problem']}"
+                    for entry in unstorable
+                ],
+            }
     if drafted.get("draft") == "open" and rules >= SLOT_VOID_RULES and _is_stub(ctx, address) and _slot_void(ctx, address, rules):
         drafted["open_reason"] = (
             "this-adjusting @N@ stub whose vtable slot family is void (rules version 18): the return is void; "
