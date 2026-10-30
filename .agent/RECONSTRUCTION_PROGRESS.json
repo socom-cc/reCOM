@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2626,
+  "revision": 2629,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -134367,6 +134367,10 @@
       "title": "Apply reviewed reconstruction group 327 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-30T01:14:26Z",
+        "by": "socom-verifier-r101"
+      },
       "batch": {
         "batch_number": 328,
         "function_count": 8,
@@ -134437,8 +134441,15 @@
         "socom:recon-group:ecac473814544479a966-apply",
         "socom:recon-group:ed6298474b0919b8d703-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-24e09964ce2516463d00.json sha256:e7e0272ef56a19174134d0231abd3836e65fe4e70b81481a2b03665adb30f2da; recon validate ok; recon draft --check ok; preflight-batch ok (8 set_function_prototype)",
+        "plan sha256:e7e0272ef56a19174134d0231abd3836e65fe4e70b81481a2b03665adb30f2da re-hashed; recon validate ok; recon draft --check ok (rules 19, 1 drafted, 7 open); recon program equals build/apply (program sha256:11962eeb0d5f8639f222b755654625892a6f1e3f40cb28167ceabd7292ddca8d); preflight-batch ok (8 set_function_prototype, 0 skips). Open rows vs recon facts/asm: 0x29eb00 Rf x3 as float * (precedent CheckDIFwd1 live float *), a1/a2/a3 used as float stores/lwc1 only; VU0 self-contained (vf4-vf7 lqc2 from lw a1,28(s1), vf8 lqc2 from stack before vmulax/vmadday/vmaddz at 0x29ebec/0x29f8f8/0x29fad8, only loop back-edges enter after the loads); 0x2a4d20 this CSealEx * (vt+0x8, lw a0,4(a0) = m_seal CZSealBody * per layout), a1 unread typed CNode from mangled (precedent CZAnimEx::OnWeaponHit live); 0x204660 no arg reads, both CLoadState::Tick sites leave a0 unset after ftsNetworkSealInit, CZSealState missing; 0x2054c0 a3 at 0x205dac = PFiii_v slot of zNetRegisterRemoteObjectCallback (this,i,PFii_v,PFiii_v,PFiii_v,PFii_v), recon void VERDICT void, siblings void live; six partial rows: live default signatures, recon void VERDICT open, constant-only or tail to unresolved CZSealBody::OnWeaponHit, no DWARF at any address."
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g188",
+        "submitted_at": "2026-10-30T01:09:46Z",
+        "summary": "8 prototypes, 0 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:24e09964ce2516463d00",
       "kind": "recon-plan-group",
       "lease": null,
@@ -134447,7 +134458,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 328 (height 46, 8 functions)"
     },
     {
@@ -134483,7 +134494,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 328 in Ghidra"
     },
     {
