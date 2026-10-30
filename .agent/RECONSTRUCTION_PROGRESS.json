@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2814,
+  "revision": 2815,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -145193,6 +145193,75 @@
       "title": "Apply reviewed recon repair 030 in Ghidra"
     },
     {
+      "batch": {
+        "functions": [
+          "0x15bae8",
+          "0x15bb68",
+          "0x3e0a28",
+          "0x3e3eb8"
+        ],
+        "graph_sha256": "01741af12cddfd9e3e9460edf3dbe4e2660d880e135d20c03ff2021ac8157794",
+        "groups": {
+          "0x15bae8": "socom:recon-group:67194098aa1790b81fa9",
+          "0x15bb68": "socom:recon-group:67194098aa1790b81fa9",
+          "0x3e0a28": "socom:recon-group:5f7a44173db47148ae4e",
+          "0x3e3eb8": "socom:recon-group:c303bf35fc79d316c103"
+        },
+        "repair_number": 31
+      },
+      "dependencies": [
+        "socom:recon-group:5f7a44173db47148ae4e-apply",
+        "socom:recon-group:67194098aa1790b81fa9-apply",
+        "socom:recon-group:c303bf35fc79d316c103-apply"
+      ],
+      "evidence": [],
+      "handoff": null,
+      "id": "socom:work:recon-repair-031",
+      "kind": "recon-repair-plan",
+      "lease": null,
+      "resources": [
+        "build/recon-plans"
+      ],
+      "selection": "functions",
+      "stage": "ghidra-reconstruction",
+      "status": "ready",
+      "title": "Plan recon repair 031 (4 functions of applied groups)"
+    },
+    {
+      "batch": {
+        "functions": [
+          "0x15bae8",
+          "0x15bb68",
+          "0x3e0a28",
+          "0x3e3eb8"
+        ],
+        "graph_sha256": "01741af12cddfd9e3e9460edf3dbe4e2660d880e135d20c03ff2021ac8157794",
+        "groups": {
+          "0x15bae8": "socom:recon-group:67194098aa1790b81fa9",
+          "0x15bb68": "socom:recon-group:67194098aa1790b81fa9",
+          "0x3e0a28": "socom:recon-group:5f7a44173db47148ae4e",
+          "0x3e3eb8": "socom:recon-group:c303bf35fc79d316c103"
+        },
+        "repair_number": 31
+      },
+      "dependencies": [
+        "socom:work:recon-repair-031"
+      ],
+      "evidence": [],
+      "handoff": null,
+      "id": "socom:work:recon-repair-031-apply",
+      "kind": "recon-repair-apply",
+      "lease": null,
+      "resources": [
+        "ghidra:soCOM/socom.elf",
+        "ghidra-writer"
+      ],
+      "selection": "functions",
+      "stage": "ghidra-reconstruction",
+      "status": "blocked",
+      "title": "Apply reviewed recon repair 031 in Ghidra"
+    },
+    {
       "batch": null,
       "dependencies": [
         "socom:recon-group:77fd04ac72066c8ff1e4-apply",
@@ -145593,7 +145662,9 @@
         "socom:work:recon-repair-029",
         "socom:work:recon-repair-029-apply",
         "socom:work:recon-repair-030",
-        "socom:work:recon-repair-030-apply"
+        "socom:work:recon-repair-030-apply",
+        "socom:work:recon-repair-031",
+        "socom:work:recon-repair-031-apply"
       ],
       "evidence": [],
       "handoff": null,

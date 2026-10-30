@@ -514,8 +514,11 @@
       "kind": "problem",
       "reported_at": "2026-10-08T21:06:14Z",
       "reported_by": "socom-ghidra-reconstructor",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T20:24:47Z",
+        "summary": "Verified fixed in live Ghidra by the stage-3 gate review (socom-verifier-g3, build/closeout-ghidra-reconstruction/REPORT.md, 2026-10-30): 0x20e790/0x20e7a0 live: void __stdcall CGame::StopPlay(CGame * this) / void __stdcall CGame::StartPlay(CGame * this)"
+      },
+      "status": "resolved",
       "summary": "CGame::StopPlay/StartPlay can take evidence-backed void (CGame * this) signatures"
     },
     {
@@ -796,8 +799,11 @@
       "kind": "problem",
       "reported_at": "2026-10-19T07:55:39Z",
       "reported_by": "socom-tool-maintainer",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T20:24:50Z",
+        "summary": "Verified fixed in live Ghidra by the stage-3 gate review (socom-verifier-g3, build/closeout-ghidra-reconstruction/REPORT.md, 2026-10-30): all 12 named functions now have live body = .symtab size (boundary repair + repair 030 + groups 44afe7af/45c70e8b)"
+      },
+      "status": "resolved",
       "summary": "Stage 3 found live function-boundary defects that need a governed boundary repair"
     },
     {
@@ -806,8 +812,11 @@
       "kind": "problem",
       "reported_at": "2026-10-19T13:03:16Z",
       "reported_by": "socom-tool-maintainer",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T20:24:51Z",
+        "summary": "Verified fixed in live Ghidra by the stage-3 gate review (socom-verifier-g3, build/closeout-ghidra-reconstruction/REPORT.md, 2026-10-30): correction to f4ec073c; 0x3d10a0/0x3f8fa0 live bodies equal .symtab (2508/2340 bytes)"
+      },
+      "status": "resolved",
       "summary": "Correction to issue f4ec073c: CWeaponSel::SetItemPos and CInGameWeaponSel::SetItemPos do have live functions"
     },
     {
@@ -826,8 +835,11 @@
       "kind": "problem",
       "reported_at": "2026-10-20T01:49:07Z",
       "reported_by": "socom-controller",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T20:24:49Z",
+        "summary": "Verified fixed in live Ghidra by the stage-3 gate review (socom-verifier-g3, build/closeout-ghidra-reconstruction/REPORT.md, 2026-10-30): 0x15beb0 void __stdcall _sceIDC(void * start, void * end) (recon void verdict void, TRIAGE); 0x15bfd8 withdrawn: undefined __stdcall iInvalidDCache(void * start, void * end)"
+      },
+      "status": "resolved",
       "summary": "Stage 3: void typed before the void rule was settled (_sceIDC, iInvalidDCache)"
     },
     {
@@ -836,8 +848,11 @@
       "kind": "problem",
       "reported_at": "2026-10-20T22:20:50Z",
       "reported_by": "socom-controller",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T20:24:48Z",
+        "summary": "Verified fixed in live Ghidra by the stage-3 gate review (socom-verifier-g3, build/closeout-ghidra-reconstruction/REPORT.md, 2026-10-30): 4 SDK rows void by verdict; 0x152b30 withdrawn: undefined __stdcall sceVu0DropShadowMatrix(float * m, float * lp, float a, float b, float c, int mode)"
+      },
+      "status": "resolved",
       "summary": "Stage 3: accepted void prototypes with a scratch constant left in f0"
     },
     {
@@ -846,8 +861,11 @@
       "kind": "problem",
       "reported_at": "2026-10-20T23:09:23Z",
       "reported_by": "socom-controller",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T20:24:50Z",
+        "summary": "Verified fixed in live Ghidra by the stage-3 gate review (socom-verifier-g3, build/closeout-ghidra-reconstruction/REPORT.md, 2026-10-30): named rows: 4 void (verdict), 0x225e80/0x225fb0/0x227330 withdrawn to undefined; unsupported voids withdrawn by repairs 021-023"
+      },
+      "status": "resolved",
       "summary": "Stage 3: applied void prototypes that rules v6 cannot confirm need a governed repair"
     },
     {
@@ -856,8 +874,11 @@
       "kind": "problem",
       "reported_at": "2026-10-20T23:29:05Z",
       "reported_by": "socom-controller",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T20:24:47Z",
+        "summary": "Verified fixed in live Ghidra by the stage-3 gate review (socom-verifier-g3, build/closeout-ghidra-reconstruction/REPORT.md, 2026-10-30): 0x187d90 withdrawn: undefined __stdcall CAiMap::GetDirVec(DIR param_1, CPnt3D * param_2)"
+      },
+      "status": "resolved",
       "summary": "Stage 3 void re-audit (rules v7) narrows issue e3cacd85 to one suspect"
     },
     {
@@ -879,8 +900,11 @@
       "kind": "problem",
       "reported_at": "2026-10-21T10:30:24Z",
       "reported_by": "socom-controller",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T20:24:48Z",
+        "summary": "Verified fixed in live Ghidra by the stage-3 gate review (socom-verifier-g3, build/closeout-ghidra-reconstruction/REPORT.md, 2026-10-30): 0x300c70 live: void __stdcall C2D::Draw(C2D * this, CCamera * param_2)"
+      },
+      "status": "resolved",
       "summary": "Revisit pass: C2D::Draw 0x300c70 (group 7a0af2cb) can be void from its override's DWARF"
     },
     {
@@ -902,8 +926,11 @@
       "kind": "problem",
       "reported_at": "2026-10-21T11:17:03Z",
       "reported_by": "socom-controller",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T20:24:46Z",
+        "summary": "Verified fixed in live Ghidra by the stage-3 gate review (socom-verifier-g3, build/closeout-ghidra-reconstruction/REPORT.md, 2026-10-30): 0x3031c0 live: void __stdcall C2DBitmap::MakePacket(C2DBitmap * this, CCamera * param_2, CTextureRelocMgr * param_3, CMatrix * param_4)"
+      },
+      "status": "resolved",
       "summary": "Revisit pass: C2DBitmap::MakePacket 0x3031c0 (group 7a0af2cb) premise now false"
     },
     {
@@ -912,8 +939,11 @@
       "kind": "problem",
       "reported_at": "2026-10-21T12:52:14Z",
       "reported_by": "socom-controller",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T20:24:49Z",
+        "summary": "Verified fixed in live Ghidra by the stage-3 gate review (socom-verifier-g3, build/closeout-ghidra-reconstruction/REPORT.md, 2026-10-30): user decision 2026-10-29 (3): header-recalled returns re-proven or withdrawn by accepted repairs 024-027 (not re-verified row by row here)"
+      },
+      "status": "resolved",
       "summary": "190 applied prototypes cite PS2 SDK headers that are not in the workspace"
     },
     {
@@ -922,8 +952,11 @@
       "kind": "problem",
       "reported_at": "2026-10-21T16:36:03Z",
       "reported_by": "socom-controller",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T20:24:45Z",
+        "summary": "Verified fixed in live Ghidra by the stage-3 gate review (socom-verifier-g3, build/closeout-ghidra-reconstruction/REPORT.md, 2026-10-30): 0x2b6150 live: bool __stdcall CTSpecial::Tick(_zanim_cmd_hdr * hdr, float * dt)"
+      },
+      "status": "resolved",
       "summary": "Revisit pass: CTSpecial::Tick 0x2b6150 (group 79a2017d) is a static AddCmd tick callback"
     },
     {
@@ -932,8 +965,11 @@
       "kind": "problem",
       "reported_at": "2026-10-21T17:28:17Z",
       "reported_by": "socom-controller",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T20:24:46Z",
+        "summary": "Verified fixed in live Ghidra by the stage-3 gate review (socom-verifier-g3, build/closeout-ghidra-reconstruction/REPORT.md, 2026-10-30): SHA void __stdcall SHA(uchar * d, uint n, uchar * md, uint md_len); ftell longlong __stdcall ftell(__sFILE * __stream); residue 0x405298/0x405b10/0x4244e0 stay default (claim nothing)"
+      },
+      "status": "resolved",
       "summary": "Type pass: live signatures that disagree with the binary (SHA, ftell FILE)"
     },
     {
@@ -942,8 +978,11 @@
       "kind": "problem",
       "reported_at": "2026-10-21T17:49:26Z",
       "reported_by": "socom-controller",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T20:24:50Z",
+        "summary": "Verified fixed in live Ghidra by the stage-3 gate review (socom-verifier-g3, build/closeout-ghidra-reconstruction/REPORT.md, 2026-10-30): TRIAGE verdict E (keep): voids proven through the UpdateUIVar slot family; exit/sceSifMInitRpc unchanged and uncontradicted"
+      },
+      "status": "resolved",
       "summary": "Revisit pass: voids that rest on an address-taken empty body (CPlainBmp::UpdateUIVar and dependents)"
     },
     {
@@ -952,8 +991,11 @@
       "kind": "problem",
       "reported_at": "2026-10-21T23:26:41Z",
       "reported_by": "socom-controller",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T20:24:45Z",
+        "summary": "Verified fixed in live Ghidra by the stage-3 gate review (socom-verifier-g3, build/closeout-ghidra-reconstruction/REPORT.md, 2026-10-30): all 9 rows now take bool parameters"
+      },
+      "status": "resolved",
       "summary": "Revisit pass: 9 applied rows type a mangled bool parameter as uchar"
     },
     {
@@ -962,8 +1004,11 @@
       "kind": "problem",
       "reported_at": "2026-10-22T00:12:30Z",
       "reported_by": "socom-controller",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T20:24:45Z",
+        "summary": "Verified fixed in live Ghidra by the stage-3 gate review (socom-verifier-g3, build/closeout-ghidra-reconstruction/REPORT.md, 2026-10-30): same route as b8acf0d9 (repairs 024-027)"
+      },
+      "status": "resolved",
       "summary": "Revisit pass: 31 planned rows cite C-library headers; confirm each is a local runtime source"
     },
     {
@@ -972,8 +1017,11 @@
       "kind": "problem",
       "reported_at": "2026-10-22T11:54:34Z",
       "reported_by": "socom-controller",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T20:24:47Z",
+        "summary": "Verified fixed in live Ghidra by the stage-3 gate review (socom-verifier-g3, build/closeout-ghidra-reconstruction/REPORT.md, 2026-10-30): 0x226320 withdrawn: undefined __stdcall zdb::CNode::DeleteChildren(CNode * this)"
+      },
+      "status": "resolved",
       "summary": "Revisit pass: CNode::DeleteChildren 0x226320 void (group 037) has no declaration"
     },
     {
@@ -982,8 +1030,11 @@
       "kind": "problem",
       "reported_at": "2026-10-22T13:39:30Z",
       "reported_by": "socom-controller",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T20:24:48Z",
+        "summary": "Verified fixed in live Ghidra by the stage-3 gate review (socom-verifier-g3, build/closeout-ghidra-reconstruction/REPORT.md, 2026-10-30): all 9 constructors now return void *"
+      },
+      "status": "resolved",
       "summary": "Revisit pass: 9 applied constructors typed X * against the program's void * convention"
     },
     {
@@ -1032,8 +1083,11 @@
       "kind": "problem",
       "reported_at": "2026-10-23T01:14:57Z",
       "reported_by": "socom-ghidra-reconstructor",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T20:24:46Z",
+        "summary": "Verified fixed in live Ghidra by the stage-3 gate review (socom-verifier-g3, build/closeout-ghidra-reconstruction/REPORT.md, 2026-10-30): 0x3def38 undefined __stdcall __assert(char * file, int line, char * failedexpr); 0x3e8c90 undefined __stdcall vfprintf(__sFILE * fp, char * fmt, __gnuc_va_list ap)"
+      },
+      "status": "resolved",
       "summary": "Live Ghidra library signatures contradict the asm on unresolved rows"
     },
     {
@@ -1042,8 +1096,11 @@
       "kind": "problem",
       "reported_at": "2026-10-23T03:49:07Z",
       "reported_by": "socom-ghidra-reconstructor",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T20:24:49Z",
+        "summary": "Verified fixed in live Ghidra by the stage-3 gate review (socom-verifier-g3, build/closeout-ghidra-reconstruction/REPORT.md, 2026-10-30): 0x15b8c0 withdrawn: undefined __stdcall sceSifDmaStat(uint id)"
+      },
+      "status": "resolved",
       "summary": "Accepted recon rows may rest on recalled SDK declarations"
     },
     {
@@ -1244,8 +1301,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Stage 3 repair pass: remaining recon tool gaps and rule notes"
+    },
+    {
+      "details": "User decision 2026-10-30 (on the stage-3 gate review build/closeout-ghidra-reconstruction/REPORT.md, socom-verifier-g3): fix the size_t signatures now (recon repair 031), investigate the 7 live/.symtab body-size mismatches, and DEFER the following as named blockers past the stage-3 gate. Because the tracker refuses new stage-3 repairs and type plans once the gate is accepted, each needs a later governed vehicle (a post-stage-3 Ghidra type/data pass or the stage that owns it). Deferred: 01a1ff64 unrecovered switch tables (jump table 0x467e80 untyped, no reference from jr 0x3f8fec); 03116969 thunk conflicts (4 live thunks show their target's signature, e.g. 0x1d4b80, 0x1f6090, 0x402f50); 5a223be6 MSL exception-cleanup blocks not disassembled (0x14ceec, 0x14cf08 in 0x14cea0); type gaps b4e1abd2 vtable pointers (only zdb::CVisual modelled; 178 __vt__ objects untyped), 8230174f RTTI/vtable globals (404 __RTTI__ objects), 36d1df5e function-static locals, 089f4507 pointer-to-member data (c_arrStatFuncs 0x466910), c6b36e6b multi-dimensional array globals (TexPhase 0x50eb30), 195a41ae super_<Base> component renames, 3a93def0 shared structural map type member names (hud_linemap statics), b51f7195 duplicate std stream type identities. Also recorded here as user deferrals made earlier: d73db800 template names with ',' (user 2026-10-29: address later if it becomes an issue), __sinit support in recon void (user 2026-10-29, reporting only), 21aa8879 speech middleware (user 2026-10-30; c068bc00 is the same scope).",
+      "id": "socom:workspace-issue:5a02515ec2f3af597b50",
+      "kind": "problem",
+      "reported_at": "2026-10-30T20:25:01Z",
+      "reported_by": "socom-coordinator",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage 3 gate: user-approved named deferrals past the ghidra-reconstruction gate"
     }
   ],
-  "revision": 141,
+  "revision": 161,
   "schema_version": 1
 }
