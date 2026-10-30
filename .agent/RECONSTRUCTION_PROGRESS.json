@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2620,
+  "revision": 2623,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -134107,6 +134107,10 @@
       "title": "Apply reviewed reconstruction group 326 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-30T00:50:14Z",
+        "by": "socom-verifier-r100"
+      },
       "batch": {
         "batch_number": 327,
         "function_count": 10,
@@ -134193,8 +134197,15 @@
         "socom:recon-group:f85fe88d2423e937ab4f-apply",
         "socom:recon-group:fc34f6139880c0de2a1d-apply"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/recon-plans/socom-recon-group-7f227ea1d52a1d378ff0.json sha256:9ab50c6388bd67889fec1cf3abd2f0cff4931feffbd8a70bf9d6af62609250eb; recon validate ok; recon draft --check ok (rules 19, 4 open rows); preflight-batch ok (set_function_prototype 9; skip 0x290a90 unresolved DAMAGE_LOCATION)",
+        "plan build/recon-plans/socom-recon-group-7f227ea1d52a1d378ff0.json sha256:9ab50c6388bd67889fec1cf3abd2f0cff4931feffbd8a70bf9d6af62609250eb; recon validate ok; recon draft --check ok (rules 19, 6 drafted, 4 open); recon program reproduces build/apply program sha256:0147251a4582653581a1e7d9f96505418beefcc5620ae44f50a7dab59c92f041; preflight-batch ok (set_function_prototype 9; only skip 0x290a90 U-type DAMAGE_LOCATION). Open rows: 0x204e10/0x205760 static void (int,int,int)/(int,int): zNetRegisterSeal passes 0x205760 in a2 and 0x2054c0 in a3 to zNetRegisterRemoteObjectCallback__9CZNetworkFiPFii_vPFiii_vPFiii_vPFii_v (a0=&theNetwork) so PFii_v/PFiii_v contracts; reads a0,a1,a2 / a0,a1 only; recon void VERDICT void for both. 0x286950 partial (this CSealCtrl*, CPad*, float) vs default live: a0 read beyond mangled params (lbu 545(a0) @0x28698c), exits li v0,1 @0x286b18 / move v0,zero @0x286f2c only, no DWARF/refs, recon void open. 0x29c430 partial (this CZSealBody*, IntersectStruct*, CZProjectile*): reads a0..a2, exits all move v0,zero, sole tail caller CSealEx::OnWeaponHit in slot family blocked by CZAnimEx (0) / zdb::CNodeEx (li v0,-1 @0x1cfea4), no DWARF in family; types unique (recon types)."
+      ],
+      "handoff": {
+        "owner": "socom-recon-planner-g187",
+        "submitted_at": "2026-10-30T00:45:47Z",
+        "summary": "9 prototypes (2 partial), 1 unresolved, 0 globals"
+      },
       "id": "socom:recon-group:7f227ea1d52a1d378ff0",
       "kind": "recon-plan-group",
       "lease": null,
@@ -134203,7 +134214,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan reconstruction group 327 (height 45, 10 functions)"
     },
     {
@@ -134246,7 +134257,7 @@
       ],
       "selection": "functions",
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply reviewed reconstruction group 327 in Ghidra"
     },
     {
