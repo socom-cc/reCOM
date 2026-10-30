@@ -85,9 +85,9 @@ deferred until their real producers and compiler/provider prerequisites exist.
 <!-- SOCOM_PROGRESS_BEGIN -->
 ### Generated progress snapshot
 
-- Tracker revision: `2793`
+- Tracker revision: `2796`
 - Next work item: `socom:work:ghidra-repair-split-function-boundaries`
-- Work items: 819 total (4 ready, 0 active, 0 awaiting acceptance, 807 accepted, 8 dependency-blocked)
+- Work items: 819 total (3 ready, 0 active, 0 awaiting acceptance, 808 accepted, 8 dependency-blocked)
 - Open blockers: 3
 - Provisional source owners still unverified: 316
 
