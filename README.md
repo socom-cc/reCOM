@@ -85,9 +85,9 @@ deferred until their real producers and compiler/provider prerequisites exist.
 <!-- SOCOM_PROGRESS_BEGIN -->
 ### Generated progress snapshot
 
-- Tracker revision: `2814`
+- Tracker revision: `2820`
 - Next work item: `socom:work:ghidra-reconstruction-seed`
-- Work items: 821 total (1 ready, 0 active, 0 awaiting acceptance, 813 accepted, 7 dependency-blocked)
+- Work items: 825 total (2 ready, 1 active, 0 awaiting acceptance, 814 accepted, 8 dependency-blocked)
 - Open blockers: 3
 - Provisional source owners still unverified: 316
 
