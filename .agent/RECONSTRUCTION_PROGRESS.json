@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2843,
+  "revision": 2845,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -2617,7 +2617,47 @@
       "status": "accepted"
     },
     {
-      "accepted_evidence": [],
+      "accepted_evidence": [
+        "ghidra-receipt-sha256:f8912398392c42d8a615b7a55f646b7bdb3d0bb18e519ae0db9ed30c797c93a5"
+      ],
+      "baseline": {
+        "counts": {
+          "data_type_count": 1733,
+          "function_count": 9705,
+          "memory_block_count": 28,
+          "symbol_count": 40427
+        },
+        "evidence": [
+          "stage gate accepted by socom-verifier-g3b (rev 2844); gate report build/closeout-ghidra-reconstruction/REPORT.md (socom-verifier-g3, run 4); stage receipt f8912398392c42d8a615b7a55f646b7bdb3d0bb18e519ae0db9ed30c797c93a5; fingerprint = r033-after"
+        ],
+        "indexes": {
+          "data": {
+            "count": 51840,
+            "sha256": "aa959bf624edc43ead5233aa7cd4fb596a3ff230fb19523722f248b4cd02eb79"
+          },
+          "functions": {
+            "count": 9705,
+            "sha256": "156178ab5918043be06b13b72efe950b3fe137e352a2628fb11c8e4f4f472918"
+          },
+          "types": {
+            "count": 1733,
+            "sha256": "8176a6d3b829eb1b6908b34aa31f4c95997571ad9c3a0878ceb8feeb811b07ff"
+          }
+        },
+        "kind": "ghidra-semantic-receipt",
+        "live_item_count": 368,
+        "receipt_sha256": "f8912398392c42d8a615b7a55f646b7bdb3d0bb18e519ae0db9ed30c797c93a5",
+        "recorded_at": "2026-10-30T23:47:07Z",
+        "recorded_by": "socom-coordinator",
+        "scope_counts": {
+          "functions": 9703,
+          "globals": 100,
+          "types": 28
+        },
+        "scope_sha256": "5e1480a8e0ce6c761ce5acfeb0d37ab403f26383b00d56c6f95132a99cb40142",
+        "target_receipt_sha256": "df02d209ee03cbb7f1009774391ac7535c4fa16ea875bb616534c2c54ace0c42",
+        "tracker_revision": 2845
+      },
       "decomposition": {
         "function_count": 9703,
         "graph_sha256": "01741af12cddfd9e3e9460edf3dbe4e2660d880e135d20c03ff2021ac8157794",
@@ -2628,7 +2668,7 @@
       },
       "id": "socom:stage:ghidra-reconstruction",
       "name": "ghidra-reconstruction",
-      "status": "active"
+      "status": "accepted"
     },
     {
       "accepted_evidence": [],
@@ -145954,6 +145994,10 @@
       "title": "Apply reviewed recon repair 033 in Ghidra"
     },
     {
+      "accepted": {
+        "at": "2026-10-30T23:42:09Z",
+        "by": "socom-verifier-g3b"
+      },
       "batch": null,
       "dependencies": [
         "socom:recon-group:77fd04ac72066c8ff1e4-apply",
@@ -146363,10 +146407,14 @@
         "socom:work:recon-repair-033-apply"
       ],
       "evidence": [
+        "734/734 non-gate stage-3 items accepted with accepter != handoff owner; 405/405 gate dependencies accepted; pytest tests/tools 450 passed in 564.44s at 1433e43 (tools/tests unchanged through 2ad8515: only tracker, ledger, README differ); audit independence --strict ok, 0 findings",
+        "HEAD 2ad8515 r2843: progress audit --strict ok; ghidra preflight --strict ok (0 Error/Warning); 0 leases; docs readme-progress fresh; stage-scope sha256 5e1480a8e0ce6c761ce5acfeb0d37ab403f26383b00d56c6f95132a99cb40142 (9703 functions, 100 globals, 28 types)",
         "progress audit --strict ok r2842 (working tree, README fresh); HEAD 5ddf9e3 clean export fails only on the stale README snapshot (progress audit, test_readme_progress_snapshot_is_fresh, test_infrastructure_doctor): commit README.md with the handoff",
         "report build/closeout-ghidra-reconstruction/REPORT.md sha256:0bd8d05d38c3575a4235960060bf27e0473ed1b0fa951501ce26ff2ba4415278; classification build/closeout-ghidra-reconstruction/check3-all-issues.json: 69/69 open issues classified, 6ec4362d held by 58afd677 (verbatim 'Defer it (Recommended)')",
         "run 3 full checks unchanged: clean export dbe8bd5 pytest 450 passed; all 15 registered audits ok; 734/734 items accepted; 368 live receipts match; 13 programs regenerate byte-identically; since dbe8bd5 only tracker, issue ledger and README changed",
+        "run-3 finding cleared: 6ec4362d now carries the user's explicit deferral, verbatim 'Defer it (Recommended)', in ledger socom:workspace-issue:58afd677991d85025fd1; every other stage-3-routed open issue is resolved, user-deferred (5a02515e, 34a8b552, 8df909fc, 21aa8879, 4e071940) or tooling",
         "stage receipt sha256:f8912398392c42d8a615b7a55f646b7bdb3d0bb18e519ae0db9ed30c797c93a5 over build/closeout-ghidra-reconstruction/stage-scope.json sha256:5e1480a8e0ce6c761ce5acfeb0d37ab403f26383b00d56c6f95132a99cb40142, reproduced in run 4 (build/closeout-ghidra-reconstruction/run4/receipt-stage.json) equal to run 3",
+        "stage receipt sha256:f8912398392c42d8a615b7a55f646b7bdb3d0bb18e519ae0db9ed30c797c93a5 reproduced (receipt file sha256 187d6d7622c01ab3317a73768bd489e76a4140b247b2c0ea4ecfed5b00364aec, identical to run 3); fingerprint identical to build/fingerprints/r033-after.json (sha256 5e66ed77bf03cb14761219b7d6ae684d93e4b02c42c348ce76e1672fa47a19f3, 0 sections changed)",
         "whole-program fingerprint build/closeout-ghidra-reconstruction/run4/fp-closeout.json sha256:5e66ed77bf03cb14761219b7d6ae684d93e4b02c42c348ce76e1672fa47a19f3 identical to build/fingerprints/r033-after.json"
       ],
       "handoff": {
@@ -146430,7 +146478,7 @@
       ],
       "selection": null,
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Review and close ghidra-reconstruction"
     },
     {
