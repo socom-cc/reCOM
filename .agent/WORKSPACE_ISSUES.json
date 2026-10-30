@@ -395,8 +395,11 @@
       "kind": "problem",
       "reported_at": "2026-10-07T20:44:28Z",
       "reported_by": "socom-verifier-findings",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T22:34:36Z",
+        "summary": "Verified fixed in live Ghidra (socom-verifier-c1, build/closeout-ghidra-reconstruction/classify-c1/CLASSIFY.md, 2026-10-30): `socom:work:ghidra-repair-readable-function-names` (accepted) gave 5975 functions readable names, each keeping its mangled label. Its evidence records \"224 readable names shared by overloads, user decision 2026-10-19\". Live: 0x1415f0, 0x14d890 and 0x14d9c0 are all `std::basic_string<…>::basic_string`. Resolve: fixed by ghidra-repair-readable-function-names under the user decision of 2026-10-19 (overloads share the readable name; mangled labels kept)."
+      },
+      "status": "resolved",
       "summary": "Readable function names drop parameter signatures, so overloads compete for one name"
     },
     {
@@ -415,8 +418,11 @@
       "kind": "problem",
       "reported_at": "2026-10-07T20:44:29Z",
       "reported_by": "socom-verifier-findings",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T22:34:38Z",
+        "summary": "Duplicate of d73db800 (template names with commas cannot be spelled through the bridge), which the user deferred 2026-10-29; classified by socom-verifier-c1 2026-10-30."
+      },
+      "status": "resolved",
       "summary": "Type names with commas cannot be spelled through the bridge, blocking basic_string prototypes"
     },
     {
@@ -481,8 +487,11 @@
       "kind": "problem",
       "reported_at": "2026-10-08T02:32:49Z",
       "reported_by": "socom-verifier-findings",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T22:34:38Z",
+        "summary": "Verified fixed in live Ghidra (socom-verifier-c1, build/closeout-ghidra-reconstruction/classify-c1/CLASSIFY.md, 2026-10-30): (1) Across the 335 functions whose mangled signature has a bool parameter, no live prototype spells it `uchar` (recon-repair-009). C2D::SetCanHandleInput, SetUseFrameBufferAlpha and OrdersMenu::AllCollapse take `bool`. (2) The receipt's whole-program types index (1733 rows) binds the derived types, which is a process note. Resolve: parameters fixed by recon-repair-009 (the 01fc2430 route). Derived-type scoping is a tool note."
+      },
+      "status": "resolved",
       "summary": "bool is spelled uchar from DWARF but bool from mangled names; derived types stay outside receipt scopes"
     },
     {
@@ -491,8 +500,11 @@
       "kind": "problem",
       "reported_at": "2026-10-08T03:15:21Z",
       "reported_by": "socom-verifier-findings",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T22:34:37Z",
+        "summary": "Verified fixed in live Ghidra (socom-verifier-c1, build/closeout-ghidra-reconstruction/classify-c1/CLASSIFY.md, 2026-10-30): 0x17ac50 `OrdersMenu::SetupTuple(this, col, …16 args)` (group 677aae36765c53f89521). 0x17aed0 `EnableTuples(this, int)` (group ac1f5654199ddffbce0f). (2) Fund 0x2 (signed char) appears only on locals, which no stage applies. `FUND_TYPES` still has no 0x2, which is a tool note. Resolve: receivers applied by those groups. The 0x2 mapping is a tool note for a future locals pass. The `col` name is tracked in d4a5966a."
+      },
+      "status": "resolved",
       "summary": "Receiver evidence ignores callers and argument-register use; DWARF fundamental 0x2 has no mapping"
     },
     {
@@ -583,8 +595,11 @@
       "kind": "problem",
       "reported_at": "2026-10-09T01:59:44Z",
       "reported_by": "socom-verifier-findings",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T22:34:36Z",
+        "summary": "Verified fixed in live Ghidra (socom-verifier-c1, build/closeout-ghidra-reconstruction/classify-c1/CLASSIFY.md, 2026-10-30): 0x17de80 is now `void ai::plot_tick(float, bool)` (group 0bc0c825454acd55a0fa). 0x17dd70 `__vector_pod<uint,…>::reserve` is still default: its comma receiver is an unresolved row in group 884cdb7294fafbffda43. Resolve: plot_tick applied by group 0bc0c825. reserve stays under the named deferral d73db800 (comma names)."
+      },
+      "status": "resolved",
       "summary": "Assembly-proven contracts for skipped prototypes ai::plot_tick and __vector_pod::reserve"
     },
     {
@@ -603,8 +618,11 @@
       "kind": "problem",
       "reported_at": "2026-10-09T04:22:34Z",
       "reported_by": "socom-verifier-findings",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T22:34:36Z",
+        "summary": "Verified fixed in live Ghidra (socom-verifier-c1, build/closeout-ghidra-reconstruction/classify-c1/CLASSIFY.md, 2026-10-30): 0x1e4e00 `theta_x_z(CCamera * this, CPnt3D*, CPnt3D*, float*, float*)` (group 19ea6ebb114275c96492). All 12 Cmd* handlers 0x1e5570..0x1e7530 are static with no `this` (groups af97d581, 1ede07c5, dbd8f257, 757d170c). Resolve: receivers decided by those groups. The DWARF names p1/p2/angle/dist on theta_x_z are tracked in d4a5966a."
+      },
+      "status": "resolved",
       "summary": "Receiver evidence for batch 15's skipped zdb::CCamera functions"
     },
     {
@@ -649,8 +667,11 @@
       "kind": "problem",
       "reported_at": "2026-10-09T21:56:41Z",
       "reported_by": "socom-verifier",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T22:34:37Z",
+        "summary": "Verified fixed in live Ghidra (socom-verifier-c1, build/closeout-ghidra-reconstruction/classify-c1/CLASSIFY.md, 2026-10-30): 0x320b60 is `void SetRoundStatUiVars(int iPrimCompl, int i2ndCompl)` (group a79d68b9239e17cbd494). Also typed: st_mpexit TickMpStats, SetMpStatUiVars, SetFinalTeamTotalsUiVar and CompareSeals; scorepopup AddRow, SetupBackgroundBox and GetTeamMembers. Of the 119 @unnamed@ functions still default, none is unresolved for receiver evidence. Their reasons: 76 class types absent live, 30 commas, 2 pointers to member, 11 other (by-value results). Resolve: the namespace receiver question was decided per function by stage-3 plans. The 2 pointer-to-member rows, 0x3dd5a0 SetStatLbUiVar and 0x421140 CTeamDisplay::SetupTeam, wait for the PTMF type of the deferred 089f4507."
+      },
+      "status": "resolved",
       "summary": "File-static functions in @unnamed@<file>@ namespaces are skipped as having no receiver evidence"
     },
     {
@@ -825,8 +846,11 @@
       "kind": "problem",
       "reported_at": "2026-10-19T15:41:34Z",
       "reported_by": "socom-tool-maintainer",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-30T22:34:38Z",
+        "summary": "Fixed by accepted recon repair 031 (write 0x15bae8, read 0x15bb68, fread 0x3e0a28 now take uint; commit 47f0c9a). Only qsort 0x3e3eb8 keeps size_t because its __compar_fn_t comparator name is ambiguous (2 live types) - the d73db800 bridge-spelling limitation the user deferred."
+      },
+      "status": "resolved",
       "summary": "The only size_t in the program is Ghidra's 8-byte /stddef.h/size_t; the EE size_t is 32-bit"
     },
     {
@@ -1321,8 +1345,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Stage 3 gate: 7 live/.symtab body-size mismatches (4 explained, 3 deferred)"
+    },
+    {
+      "details": "Classified read-only by socom-verifier-c1 (build/closeout-ghidra-reconstruction/classify-c1/CLASSIFY.md, 2026-10-30) after the independent accepter socom-verifier-g3b rejected the gate for leaving them unclassified. RESOLVED (fixed live): 94d56164, d96cdc41, bdcbeb4a, fd70c051, ea5d645f, 876cb28c; 06c2c23d closed as a duplicate of d73db800; 0c8462c9 resolved (repair 031; qsort under d73db800). TOOLING ONLY (no live Ghidra fact wrong or missing; not stage-3 work): 4d52efa4, 997ec820, 0c7a39d7 (live residue owned by d73db800 and d4a5966a), 483c04ae, db9447d5. FIX NOW: d4a5966a via recon repair 033 (DWARF parameter names on 11 prototypes). DEFERRED by user decision 2026-10-30 ('Fix 2, defer 8'; 6ec4362d added because the type-plan tool cannot encode the template tag name __chooser<1>): c047a89a and 22868f48 (anonymous classes @class@d37844a018 56 B and @class@40b9ef5743 69,632 B missing; recoResult 0x48a040 and load_thread_stack 0x48a0d0 have no data item), 31f03f6f (u_long128 arrays 0x5630c0, 0x5650c0 and g_buffer 0x575500 untyped), 69c8f521 (19 of 20 @subroutine@ function types lack parameters), ba5122d0 (28 shared structural types name one instantiation; same class as 3a93def0), c3a2ea73 (EQUIP_ITEM values live as signed -116..-56/-2/-1 where code compares against 140..200/254/255), 6ec4362d (__chooser<1> tag type + 4 std::__use_facet prototypes 0x149480/0x149560/0x149640/0x149720), 19bf949f (DWARF locals not applied; ~2200 .symtab objects, 1.01 MB, without a live data item: 181 DWARF-recorded incl. 171 function statics under 36d1df5e, 1022 named without DWARF, 996 compiler-generated), and the 76 default @unnamed@ functions whose class types are missing live (e.g. CUIListBox; no earlier issue). Each needs a post-stage-3 governed vehicle; the tracker refuses new stage-3 repairs and type plans after the gate.",
+      "id": "socom:workspace-issue:34a8b5527d75b57a911b",
+      "kind": "problem",
+      "reported_at": "2026-10-30T22:34:50Z",
+      "reported_by": "socom-coordinator",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage 3 gate: classification of the 21 stage-2 carried-over issues; user deferrals"
     }
   ],
-  "revision": 162,
+  "revision": 171,
   "schema_version": 1
 }
