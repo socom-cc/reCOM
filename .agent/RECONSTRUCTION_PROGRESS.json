@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2830,
+  "revision": 2831,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -146138,26 +146138,41 @@
         "socom:work:recon-repair-032",
         "socom:work:recon-repair-032-apply"
       ],
-      "evidence": [
-        "audits at HEAD: progress audit --strict ok r2829; all 15 registered audits --strict ok (final-elf-catalog out of scope); doctor --infrastructure-only ok; docs readme-progress/command-index/capability-coverage fresh; reference ELF sha256 00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a unchanged; 425 stage-3 tracker commits with strictly increasing revisions",
-        "check1: 367 live items each with one ghidra-receipt-sha256 and ghidra-save evidence matching the stored receipt; receipt history ends at socom:work:recon-repair-032-apply; accepter differs from handoff owner on all 732; 12 sampled programs (10 seeded + repairs 031/032) regenerate byte-identically",
-        "clean export (git archive HEAD dedca54): pytest tests/tools 450 passed in 569.83s; progress audit --strict ok r2828; audit independence ok",
-        "report build/closeout-ghidra-reconstruction/REPORT.md sha256:e74a0824a1a5c4fbf979dc6dd8bf06775dc51686f9c3068f4f34539082bbc81e",
-        "stage receipt sha256:d4293548dc718133ff2251b13553fad911239aaa356e80fd43eb1c184efe17be over build/closeout-ghidra-reconstruction/stage-scope.json sha256:5e1480a8e0ce6c761ce5acfeb0d37ab403f26383b00d56c6f95132a99cb40142 (9703 functions, 100 globals, 28 types), reproduced twice byte-identically",
-        "whole-program fingerprint build/closeout-ghidra-reconstruction/fp-closeout.json sha256:0383072ad6c0e9c7818814d1eeeee9b6fe426c23f1e7cdf65d0a379d9fccc248 identical to build/fingerprints/r032-after.json; recon contradictions 0 of 4947; debug conflicts 0"
-      ],
-      "handoff": {
-        "owner": "socom-verifier-g3",
-        "submitted_at": "2026-10-30T21:21:48Z",
-        "summary": "Stage 3 gate review (run 2) satisfied: 732/732 items accepted; stage receipt reproduces; fingerprint equals r032-after; 0 blocking issues (20 fixed live, 18 user deferrals recorded in the ledger incl. 5a02515e/8df909fc, 2 tooling); strict audits and clean-export tests pass"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:ghidra-reconstruction-seed",
       "kind": "stage-gate",
       "lease": null,
       "resources": [],
+      "review_history": [
+        {
+          "evidence": [
+            "all other checks reproduce: progress audit --strict ok r2830; ghidra preflight --strict ok; 0 leases; stage-scope sha256 5e1480a8e0ce6c761ce5acfeb0d37ab403f26383b00d56c6f95132a99cb40142 byte-identical to reviewer file; receipt d4293548dc718133ff2251b13553fad911239aaa356e80fd43eb1c184efe17be (receipt file byte-identical, sha256 ec440517...); fingerprint identical to build/fingerprints/r032-after.json (file sha256 0383072a..., 0 sections changed)",
+            "progress sql: 732/732 non-gate ghidra-reconstruction items accepted, accepter != handoff owner on all, 403/403 gate dependencies accepted; pytest tests/tools 450 passed in 569.60s; audit independence --strict ok, 0 findings",
+            "scratch: build/closeout-ghidra-reconstruction/accepter-g3b/",
+            "spot checks consistent with ledger text: 5a02515e, 8df909fc, 21aa8879, c068bc00, 4e071940, fcbec67b, d73db800, a16c16ae, d2bedd68; live: only qsort 0x3e3eb8 still uses size_t (write/read/fread uint after repair 031)"
+          ],
+          "handoff": {
+            "owner": "socom-verifier-g3",
+            "submitted_at": "2026-10-30T21:21:48Z",
+            "summary": "Stage 3 gate review (run 2) satisfied: 732/732 items accepted; stage receipt reproduces; fingerprint equals r032-after; 0 blocking issues (20 fixed live, 18 user deferrals recorded in the ledger incl. 5a02515e/8df909fc, 2 tooling); strict audits and clean-export tests pass"
+          },
+          "handoff_evidence": [
+            "audits at HEAD: progress audit --strict ok r2829; all 15 registered audits --strict ok (final-elf-catalog out of scope); doctor --infrastructure-only ok; docs readme-progress/command-index/capability-coverage fresh; reference ELF sha256 00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a unchanged; 425 stage-3 tracker commits with strictly increasing revisions",
+            "check1: 367 live items each with one ghidra-receipt-sha256 and ghidra-save evidence matching the stored receipt; receipt history ends at socom:work:recon-repair-032-apply; accepter differs from handoff owner on all 732; 12 sampled programs (10 seeded + repairs 031/032) regenerate byte-identically",
+            "clean export (git archive HEAD dedca54): pytest tests/tools 450 passed in 569.83s; progress audit --strict ok r2828; audit independence ok",
+            "report build/closeout-ghidra-reconstruction/REPORT.md sha256:e74a0824a1a5c4fbf979dc6dd8bf06775dc51686f9c3068f4f34539082bbc81e",
+            "stage receipt sha256:d4293548dc718133ff2251b13553fad911239aaa356e80fd43eb1c184efe17be over build/closeout-ghidra-reconstruction/stage-scope.json sha256:5e1480a8e0ce6c761ce5acfeb0d37ab403f26383b00d56c6f95132a99cb40142 (9703 functions, 100 globals, 28 types), reproduced twice byte-identically",
+            "whole-program fingerprint build/closeout-ghidra-reconstruction/fp-closeout.json sha256:0383072ad6c0e9c7818814d1eeeee9b6fe426c23f1e7cdf65d0a379d9fccc248 identical to build/fingerprints/r032-after.json; recon contradictions 0 of 4947; debug conflicts 0"
+          ],
+          "reason": "Criterion 4 fails: open ledger issues that the accepted stage-2 close-out (build/closeout-s2/verifier/REPORT.md check 7, class b 'deferred stage-3+ work') routed to stage 3 carry neither a user deferral nor a tooling classification. Both gate runs knowingly left them unclassified (run1: 'not re-classified here'; run2 non-blocking note: 'not in 5a02515e ... now need the post-stage-3 vehicle'), which is a deferral the reviewer made on the user's behalf. Live gaps confirmed read-only: c047a89a recoResult 0x48a040 and 22868f48 load_thread_stack 0x48a0d0 have no data item and recon types reports @class@d37844a018 and @class@40b9ef5743 missing; 31f03f6f g_buffer 0x5630c0 and g_buffer_hb 0x5650c0 have no data item. This is the same gap class as TexPhase (c6b36e6b), which needed an explicit user deferral. Also unclassified and routed to stage 3: 69c8f521 (s2: 'refine in ghidra-reconstruction'), ba5122d0 (s2: 'split or rename in stage 3'), c3a2ea73, 4d52efa4, 997ec820; the others (94d56164, d96cdc41, bdcbeb4a, fd70c051, 6ec4362d, ea5d645f, d4a5966a, 876cb28c, 0c7a39d7, 483c04ae, 19bf949f, db9447d5, 06c2c23d) are unclassified too. Fix: get a user decision (defer each by name in the ledger, or route/fix it) and classify every class-b issue still open; then hand off again. Minor: the report classes 0c8462c9 as resolved but it is still open in the ledger. Its only residue is qsort 0x3e3eb8 size_t, kept by repair 031 as __compar_fn_t AMBIGUOUS, under d73db800. Resolve or re-scope it.",
+          "rejected_at": "2026-10-30T21:33:05Z",
+          "rejected_by": "socom-verifier-g3b"
+        }
+      ],
       "selection": null,
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Review and close ghidra-reconstruction"
     },
     {
