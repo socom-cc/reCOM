@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2802,
+  "revision": 2805,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -2842,7 +2842,7 @@
     {
       "baseline_receipt_sha256": "76e6ddc1807a11e0fba84e6620b79010a320296e8bf9d30f87b0b4eb7806e96c",
       "compiler": "default",
-      "current_receipt_sha256": "a9bd11569a410fc7b19df6217c45a5506573982275385acc274a94d30f5ccc82",
+      "current_receipt_sha256": "9d1c99db2196840786c773719f129671bb7077b34a96e380e6a1685201dd9a04",
       "ghidra_version": "12.1.4",
       "id": "socom:verification:ghidra-program",
       "image_base": "00100000",
@@ -13108,6 +13108,31 @@
           "receipt_sha256": "a9bd11569a410fc7b19df6217c45a5506573982275385acc274a94d30f5ccc82",
           "tracker_revision": 2802,
           "work_item_id": "socom:work:recon-repair-029-apply"
+        },
+        {
+          "counts": {
+            "data_type_count": 1732,
+            "function_count": 9705,
+            "memory_block_count": 28,
+            "symbol_count": 40403
+          },
+          "indexes": {
+            "data": {
+              "count": 51840,
+              "sha256": "aa959bf624edc43ead5233aa7cd4fb596a3ff230fb19523722f248b4cd02eb79"
+            },
+            "functions": {
+              "count": 9705,
+              "sha256": "156178ab5918043be06b13b72efe950b3fe137e352a2628fb11c8e4f4f472918"
+            },
+            "types": {
+              "count": 1732,
+              "sha256": "349aa5f832954f7f49676899c6328c548d26c7d2ea8e2daed508a100930213a9"
+            }
+          },
+          "receipt_sha256": "9d1c99db2196840786c773719f129671bb7077b34a96e380e6a1685201dd9a04",
+          "tracker_revision": 2805,
+          "work_item_id": "socom:work:ghidra-repair-split-function-boundaries"
         }
       ],
       "source_sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
@@ -145360,7 +145385,7 @@
       "resources": [],
       "selection": null,
       "stage": "ghidra-reconstruction",
-      "status": "blocked",
+      "status": "ready",
       "title": "Review and close ghidra-reconstruction"
     },
     {
@@ -152372,6 +152397,10 @@
       "title": "Give functions with mangled names their readable qualified names"
     },
     {
+      "accepted": {
+        "at": "2026-10-30T18:42:52Z",
+        "by": "socom-verifier-a-bnd"
+      },
       "batch": null,
       "dependencies": [
         "socom:recon-group:16c84908d92126493d4e-apply",
@@ -152384,8 +152413,72 @@
         "socom:recon-group:cf8ba2fbc35aecaf8c47-apply",
         "socom:work:ghidra-repair-readable-function-names"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "fingerprint before build/fingerprints/bnd-before.json identical to r029-after (b763c4c2...); after build/fingerprints/bnd-after.json fingerprint_sha256:bca9cfb298c10a567a92a861ce4dfcb4e42ae4e2677da53605fa97bc6b59b250; diff build/fingerprints/bnd-diff.json: 20 function rows (10 rejoined starts, 10 removed FUN_ pieces), data/references/types/blocks/bookmarks unchanged",
+        "ghidra-receipt-sha256:9d1c99db2196840786c773719f129671bb7077b34a96e380e6a1685201dd9a04",
+        "ghidra-save:explicit-program",
+        "independent review: strict audit ok rev 2804; ghidra preflight --strict ok (9705 functions, 0 Error/Warning bookmarks); ghidra receipt over stored scope reproduces 9d1c99db2196840786c773719f129671bb7077b34a96e380e6a1685201dd9a04; live fingerprint build/verifier-socom-verifier-a-bnd/fp-now.json bca9cfb298c10a567a92a861ce4dfcb4e42ae4e2677da53605fa97bc6b59b250 identical to bnd-after; bnd-before byte-identical to accepted r029-after (sha256 e59f081e...8fa7, fingerprint b763c4c2...); recomputed before/after diff: exactly 20 function rows (10 .symtab starts thunk->non-thunk with names kept, 10 FUN_ pieces 0x193cdc..0x39e3fc removed), blocks/bookmarks/data/references/types unchanged; per start: recon asm .symtab size (112,112,56,92,48x6) gives Body exactly [start,end), live get_function_by_address at every 4-byte address resolves to the start, no function start inside any extent; script LF sha256 590752ceb12123cd217b1ba93af3dc28b8bf2c798c5142d1d4a4cde98ddf03cd equals spec pin and report script block (report sha256 89dae837...a40a, bridge_call_count 1); only non-default lost signature is FUN_0039e3fc's UIVarMixin** find prototype shown on 0x39e3f0 (report lost_signatures), left for the follow-up recon repair",
+        "lost signature (to be restored by a recon repair): 0x39e3f0 UIVarMixin * * __stdcall std::find<UIVarMixin**,UIVarMixin*>(UIVarMixin * * param_1, UIVarMixin * * param_2, UIVarMixin * * param_3)",
+        "report build/apply/ghidra-repair-split-function-boundaries-report.json sha256:89dae837d7a470d9835644035404101f11a1128de0089146b75f0502ad02a40a; script tools/_socom/ghidra_scripts/RepairSplitBoundaries.java sha256:590752ceb12123cd217b1ba93af3dc28b8bf2c798c5142d1d4a4cde98ddf03cd via run_script_inline (user-approved one-time exception 2026-10-30)"
+      ],
+      "ghidra_receipt": {
+        "receipt_sha256": "9d1c99db2196840786c773719f129671bb7077b34a96e380e6a1685201dd9a04",
+        "saved": true,
+        "scope": {
+          "functions": [
+            "0x193cd0",
+            "0x1972d0",
+            "0x1a2750",
+            "0x1a2ad0",
+            "0x1f01f0",
+            "0x2241e0",
+            "0x229fc0",
+            "0x231330",
+            "0x2fb5b0",
+            "0x39e3f0"
+          ],
+          "globals": [],
+          "types": []
+        },
+        "summary": {
+          "bookmark_profile": {
+            "by_category": {
+              "Address Table": 713,
+              "Non-Returning Function": 3
+            },
+            "by_type": {
+              "Analysis": 716
+            },
+            "count": 716,
+            "error_or_warning_count": 0
+          },
+          "counts": {
+            "data_type_count": 1732,
+            "function_count": 9705,
+            "memory_block_count": 28,
+            "symbol_count": 40403
+          },
+          "indexes": {
+            "data": {
+              "count": 51840,
+              "sha256": "aa959bf624edc43ead5233aa7cd4fb596a3ff230fb19523722f248b4cd02eb79"
+            },
+            "functions": {
+              "count": 9705,
+              "sha256": "156178ab5918043be06b13b72efe950b3fe137e352a2628fb11c8e4f4f472918"
+            },
+            "types": {
+              "count": 1732,
+              "sha256": "349aa5f832954f7f49676899c6328c548d26c7d2ea8e2daed508a100930213a9"
+            }
+          }
+        }
+      },
+      "handoff": {
+        "owner": "socom-ghidra-reconstructor",
+        "submitted_at": "2026-10-30T18:35:13Z",
+        "summary": "Rejoined 10 split .symtab functions (thunk + FUN_ piece) into one non-thunk function each over the exact .symtab extent via the pinned one-time script; 9715 -> 9705 functions"
+      },
       "id": "socom:work:ghidra-repair-split-function-boundaries",
       "kind": "ghidra-repair",
       "lease": null,
@@ -152395,7 +152488,7 @@
       ],
       "selection": null,
       "stage": "ghidra-reconstruction",
-      "status": "ready",
+      "status": "accepted",
       "title": "Rejoin the ten functions Ghidra split into a branch thunk and a FUN_ piece"
     }
   ]
