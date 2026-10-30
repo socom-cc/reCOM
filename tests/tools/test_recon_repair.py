@@ -358,7 +358,8 @@ def test_repair_rows_may_withdraw_an_unproven_live_return(tmp_path: Path, root: 
         (lambda p: p.update(live_signature="uchar __stdcall bzero(uint __n, void * __s)"), "keeps the live parameters exactly"),
         (lambda p: p.update(live_signature="uchar __stdcall bzero(void * __s, uint __n, ...)"), "keeps the live parameters exactly"),
         (lambda p: p.update(live_signature="uchar bzero(void * __s, uint __n)"), "keeps the live parameters exactly"),
-        (lambda p: p.update(live_signature="void __stdcall bzero(void * __s, uint __n)"), "claims no width to withdraw"),
+        # bzero's void is proven (recon void VERDICT void), so it is not withdrawn.
+        (lambda p: p.update(live_signature="void __stdcall bzero(void * __s, uint __n)"), "a proven void is not withdrawn"),
         (lambda p: p.update(live_signature="undefined4 __stdcall bzero(void * __s, uint __n)"), "claims no width to withdraw"),
         (lambda p: p.update(return_type="uchar"), "the return stays 'undefined'"),
     ]
@@ -490,3 +491,213 @@ def test_proven_parameters_come_from_facts_only(ctx) -> None:
     assert proven == {"parameters": [{"name": "param_1", "type": "uint"}], "varargs": False, "source": "mangled signature __nwa__FUi"}
     assert proven_parameters(ctx, {"address": FCLOSE, "elf_names": ["fclose"]}, types)[1].startswith("no mangled signature")
     assert proven_parameters(ctx, {**row, "thunk_target": "0x1"}, types)[1].startswith("thunk")
+
+
+# -- withdrawals of decisions 2026-10-29: open voids and recalled-header returns --
+
+DELETE_CHILDREN = "0x226320"
+DELETE_CHILDREN_LIVE = "void __stdcall DeleteChildren(CNode * this)"
+OPEN_VERDICT = "VERDICT open: the function's address is taken or stored in a table"
+
+
+def _void_withdrawal(tracker: dict, item_id: str, address: str = DELETE_CHILDREN) -> dict:
+    item = next(row for row in tracker["work_items"] if row["id"] == item_id)
+    return {
+        "kind": RECON_PLAN_KIND, "schema_version": 1, "work_item_id": item_id, "group_sha256": plan_digest(item),
+        "target": {"source_sha256": REFERENCE_SHA256},
+        "functions": [{
+            "address": address, "current_name": "zdb::CNode::DeleteChildren",
+            "group": item["batch"]["groups"][address],
+            "repair": ["the live void rests on no proof: recon void leaves it open"],
+            "prototype": {
+                "partial": True, "withdraws_return": True, "return_type": "undefined", "calling_convention": "__stdcall",
+                "varargs": False, "parameters": [{"name": "this", "type": "CNode *", "evidence": ["a0 read at entry"]}],
+                "live_signature": DELETE_CHILDREN_LIVE,
+                "contradiction": [f"return: recon void {OPEN_VERDICT} (address in vtables, no slot proof)"],
+            },
+            "unresolved": ["return: no override or caller proves void or a width"],
+        }],
+        "globals": [],
+    }
+
+
+def test_repair_rows_may_withdraw_a_void_recon_void_leaves_open(tmp_path: Path, root: Path, decomposed: dict) -> None:
+    _accept_group(decomposed, DELETE_CHILDREN)
+    plan_id, _apply_id = add_recon_repair_items(decomposed, [DELETE_CHILDREN])
+    plan = _void_withdrawal(decomposed, plan_id)
+    assert validate_recon_plan(root, decomposed, plan) == []
+    path = tmp_path / "repair.json"
+    atomic_write_json(path, plan)
+    row = build_recon_program(root, decomposed, path)["functions"][0]
+    assert row["prototype"]["withdraws_return"] is True and row["prototype"]["live_signature"] == DELETE_CHILDREN_LIVE
+    assert any(
+        note.startswith("partial prototype withdrawing the unproven void return") and OPEN_VERDICT in note
+        for note in row["notes"]
+    )
+    assert batch_apply.expected_signature(row["prototype"], "DeleteChildren") == "undefined __stdcall DeleteChildren(CNode * this)"
+    defects = [
+        (lambda p: p.update(contradiction=["return: the live void is unproven"]), "citing its recon void verdict"),
+        (lambda p: p.update(contradiction=[f"recon void {OPEN_VERDICT}", "VERDICT void elsewhere"]), "never 'VERDICT void'"),
+        (lambda p: p.update(live_signature="void __stdcall DeleteChildren(CNode * self)"), "keeps the live parameters exactly"),
+    ]
+    for change, message in defects:
+        bad = copy.deepcopy(plan)
+        change(bad["functions"][0]["prototype"])
+        assert any(message in problem for problem in validate_recon_plan(root, decomposed, bad)), message
+
+
+@pytest.mark.parametrize(
+    ("address", "live", "message"),
+    [
+        ("0x46b9d0", "void __stdcall __sinit_zrdr_archive.cpp(void)", "the drafter's __sinit_ rule"),
+        ("0x17cbe0", "void __stdcall LoadThreadEntry(void * param_1)", "its DWARF record declares an explicit void"),
+    ],
+)
+def test_proven_voids_are_not_withdrawn(root: Path, decomposed: dict, address: str, live: str, message: str) -> None:
+    _accept_group(decomposed, address)
+    plan_id, _apply_id = add_recon_repair_items(decomposed, [address])
+    plan = _void_withdrawal(decomposed, plan_id, address)
+    parsed = parse_signature(live)
+    plan["functions"][0]["prototype"].update(
+        live_signature=live,
+        parameters=[{"name": name, "type": kind, "evidence": ["x"]} for kind, name in parsed["parameters"]],
+    )
+    problems = validate_recon_plan(root, decomposed, plan)
+    assert any(message in problem and "a proven void is not withdrawn" in problem for problem in problems), problems
+
+
+@pytest.mark.parametrize("returned", ["int", "void *", "uint"])
+def test_recalled_header_returns_of_any_width_may_be_withdrawn(root: Path, decomposed: dict, returned: str) -> None:
+    # Decision of 2026-10-29 (b8acf0d9, "Re-prove from asm"): an int or pointer
+    # return whose only support was a recalled header is withdrawn as well.
+    _accept_group(decomposed, BZERO)
+    plan_id, _apply_id = add_recon_repair_items(decomposed, [BZERO])
+    plan = _withdrawing_row(decomposed, plan_id)
+    plan["functions"][0]["prototype"]["live_signature"] = f"{returned} __stdcall bzero(void * __s, uint __n)"
+    plan["functions"][0]["prototype"]["contradiction"] = [f"return: the live {returned} rests only on a recalled header"]
+    assert validate_recon_plan(root, decomposed, plan) == []
+
+
+def test_a_return_its_own_dwarf_record_declares_is_not_withdrawn(root: Path, decomposed: dict) -> None:
+    address = "0x17cbe0"  # LoadThreadEntry: FT_void in DWARF, so a typed live return is DWARF's to settle
+    _accept_group(decomposed, address)
+    plan_id, _apply_id = add_recon_repair_items(decomposed, [address])
+    plan = _void_withdrawal(decomposed, plan_id, address)
+    plan["functions"][0]["prototype"].update(
+        live_signature="int __stdcall LoadThreadEntry(void * param_1)",
+        parameters=[{"name": "param_1", "type": "void *", "evidence": ["x"]}],
+    )
+    assert any("DWARF record declares its return (void)" in p for p in validate_recon_plan(root, decomposed, plan))
+
+
+def test_apply_check_reads_a_withdrawn_void_back_as_undefined() -> None:
+    from tools._socom.recon_check import function_readback
+
+    prototype = {"calling_convention": "__stdcall", "return_type": "undefined", "partial": True, "varargs": False,
+                 "withdraws_return": True, "live_signature": DELETE_CHILDREN_LIVE,
+                 "parameters": [{"name": "this", "type": "CNode *"}]}
+    rows = [{"address": DELETE_CHILDREN, "name": "DeleteChildren", "prototype": prototype}]
+    shown = lambda signature: [{"address": "00226320", "details": [f"Signature: {signature}"]}]  # noqa: E731
+    before = shown(DELETE_CHILDREN_LIVE)
+    assert function_readback(rows, shown("undefined __stdcall DeleteChildren(CNode * this)"), before) == []
+    assert "reads back 'undefined'" in function_readback(rows, before, before)[0]
+    renamed = [{**rows[0], "prototype": {**prototype, "parameters": [{"name": "self", "type": "CNode *"}]}}]
+    after = shown("undefined __stdcall DeleteChildren(CNode * self)")
+    assert "parameters differ from the live signature" in function_readback(renamed, after, before)[0]
+
+
+# -- keep rows: a repair leaves a listed function as it is (2026-10-29) ----------
+
+CHECK_EXTENTS = "0x2392d0"
+
+
+def _keep_plan(tracker: dict, item_id: str, address: str) -> dict:
+    item = next(row for row in tracker["work_items"] if row["id"] == item_id)
+    return {
+        "kind": RECON_PLAN_KIND, "schema_version": 1, "work_item_id": item_id, "group_sha256": plan_digest(item),
+        "target": {"source_sha256": REFERENCE_SHA256},
+        "functions": [{
+            "address": address, "current_name": "Particle::Source::CheckExtents", "group": item["batch"]["groups"][address],
+            "keep": True, "keep_reason": ["CPnt4D (16 bytes) by value: no prototype gives it its storage"],
+        }],
+        "globals": [],
+    }
+
+
+def test_keep_rows_leave_a_listed_function_as_it_is(tmp_path: Path, root: Path, decomposed: dict) -> None:
+    _accept_group(decomposed, CHECK_EXTENTS)
+    plan_id, _apply_id = add_recon_repair_items(decomposed, [CHECK_EXTENTS])
+    plan = _keep_plan(decomposed, plan_id, CHECK_EXTENTS)
+    assert validate_recon_plan(root, decomposed, plan) == []
+    path = tmp_path / "keep.json"
+    atomic_write_json(path, plan)
+    program = build_recon_program(root, decomposed, path)
+    row = program["functions"][0]
+    assert row["keep"] is True and row["prototype"] is None and row["rename"] is False
+    assert row["prototype_skip"].startswith("keep: CPnt4D") and any(n.startswith("kept as it is") for n in row["notes"])
+
+    class Keeping(_Bridge):
+        def request(self, endpoint, **parameters):
+            self.calls.append((endpoint, parameters))
+            return f"Function: Particle::Source::CheckExtents at 002392d0\nSignature: {self.signature}"
+
+    bridge = Keeping("undefined __stdcall CheckExtents(void)")
+    result = batch_apply.execute_batch_program(
+        program, bridge, type_index=lambda: [], function_names=lambda: {CHECK_EXTENTS: "Particle::Source::CheckExtents"}
+    )
+    assert not any(endpoint in ("set_function_prototype", "rename_function_by_address") for endpoint, _ in bridge.calls)
+    assert result["functions"][0]["prototype"] is None
+    defects = [
+        (lambda r: r.update(keep="yes"), "keep must be true or absent"),
+        (lambda r: r.update(keep_reason=[]), "keep row needs keep_reason"),
+        (lambda r: r.update(prototype={"return_type": "void", "parameters": [], "evidence": ["x"]}), "drop prototype"),
+        (lambda r: r.update(unresolved=["x"]), "drop unresolved"),
+        (lambda r: r.update(group="socom:recon-group:nope"), "must cite its group"),
+    ]
+    for change, message in defects:
+        bad = copy.deepcopy(plan)
+        change(bad["functions"][0])
+        assert any(message in problem for problem in validate_recon_plan(root, decomposed, bad)), message
+    bad = copy.deepcopy(plan)
+    bad["functions"][0].pop("keep")
+    assert any("only a keep row carries keep_reason" in p for p in validate_recon_plan(root, decomposed, bad))
+    group = _group_plan(decomposed, CHECK_EXTENTS)
+    entry = next(r for r in group["functions"] if r["address"] == CHECK_EXTENTS)
+    entry.update(keep=True, keep_reason=["x"])
+    assert any("only a recon repair row keeps" in p for p in validate_recon_plan(root, decomposed, group))
+
+
+def test_limit_and_readback_treat_a_keep_row_as_listed_and_unchanged() -> None:
+    from tools._socom.recon_check import function_readback
+
+    item = {"batch": {"repair_number": 10, "functions": [BZERO, CHECK_EXTENTS]}}
+    program = {"globals": [], "functions": [{"address": BZERO}, {"address": CHECK_EXTENTS, "keep": True}]}
+    scope = {"functions": [BZERO, CHECK_EXTENTS], "types": [], "globals": []}
+    summary = {"thunks": [], "split_targets": []}
+    steps = [{"endpoint": "set_function_prototype", "body": {"function_address": BZERO}}]
+    result = {"functions": [{"address": BZERO, "prototype": {"return_type": "void"}}, {"address": CHECK_EXTENTS, "prototype": None}]}
+    one = {"functions": [{"address": "003defd8"}]}
+    name, ok, detail = repair_limit(item, program, scope, one, summary, steps, result)
+    assert name == "limit" and ok and "(1 of them kept as they are by keep rows)" in detail, detail
+    changed = {"functions": [{"address": "003defd8"}, {"address": "002392d0"}]}
+    assert "a keep row leaves as they are changed" in repair_limit(item, program, scope, changed, summary, steps, result)[2]
+    unkept = {**program, "functions": [{"address": BZERO}, {"address": CHECK_EXTENTS}]}
+    assert "without their prototype" in repair_limit(item, unkept, scope, one, summary, steps, result)[2]
+    rows = [{"address": CHECK_EXTENTS, "name": "CheckExtents", "prototype": None}]
+    same = [{"address": "002392d0", "details": ["Signature: undefined __stdcall CheckExtents(void)"]}]
+    other = [{"address": "002392d0", "details": ["Signature: void __stdcall CheckExtents(void)"]}]
+    assert function_readback(rows, same, same) == [] and "changed" in function_readback(rows, other, same)[0]
+
+
+def test_validate_refuses_by_value_aggregates_over_one_gpr_slot(root: Path, decomposed: dict) -> None:
+    plan = _group_plan(decomposed, CHECK_EXTENTS)
+    entry = next(row for row in plan["functions"] if row["address"] == CHECK_EXTENTS)
+    entry.pop("unresolved")
+    entry["prototype"] = {
+        "return_type": "void", "evidence": ["x"],
+        "parameters": [{"name": "this", "type": "Source *"}, {"name": "extent", "type": "CPnt4D"}, {"name": "r", "type": "float"}],
+    }
+    problems = validate_recon_plan(root, decomposed, plan)
+    assert any("parameter extent: CPnt4D is passed by value" in p for p in problems), problems
+    entry["prototype"]["parameters"][1]["type"] = "CPnt4D *"
+    assert not any("passed by value" in p for p in validate_recon_plan(root, decomposed, plan))

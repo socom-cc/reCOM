@@ -18,7 +18,8 @@ re-plan (groups not applied yet) can upgrade them:
   after dropping reads ``recon_dead`` proves masked (registers after a
   varargs signature's fixed parameters carry the variadic arguments);
 * no thunk, no VU0 instructions, no constructor or destructor (hidden
-  arguments need a planner).
+  arguments need a planner), and no class passed by value over one GPR slot
+  (``recon_byvalue``: Ghidra would give it the wrong storage).
 
 The return stays open: why is the row's own ``unresolved`` text.  Nothing is
 written to Ghidra or the tracker.
@@ -40,7 +41,7 @@ def proven_parameters(ctx: Any, row: dict[str, Any], types: Any) -> tuple[dict[s
     """({parameters, varargs, source}, why) for one evidence row, or (None, why not)."""
 
     from .recon_dead import GPR_NUMBERS, masked_read_problem
-    from .recon_draft import _class_name, _render, _stage2_parameters, _uses_vu0
+    from .recon_draft import _by_value_reasons, _class_name, _render, _stage2_parameters, _uses_vu0
     from .recon_facts import argument_reads
 
     address = int(row["address"], 16)
@@ -82,6 +83,9 @@ def proven_parameters(ctx: Any, row: dict[str, Any], types: Any) -> tuple[dict[s
             if name is None:
                 return None, f"parameter {index}: {reason}"
             rendered.append(name)
+        if byvalue := _by_value_reasons(ctx, params, rendered, types):
+            # Recon validate refuses it: Ghidra would give it the wrong storage.
+            return None, f"by-value aggregate over one GPR slot: {byvalue[0]}"
         parameters = [{"name": f"param_{index}", "type": name} for index, name in enumerate(rendered, 1)]
         source = f"mangled signature {mangled}"
         qualifier = parsed.get("qualifier") or []

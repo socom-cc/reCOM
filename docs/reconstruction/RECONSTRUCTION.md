@@ -108,6 +108,16 @@ row `"draft": "open"` for the planner:
   live program, names several live types, or contains `,` or `&`. A type that
   exists only as a provisional `NAME@hash` copy or in another case stays open.
 - `U-vararg`: unresolved. The mangled signature ends in `...`.
+- `U-byvalue`: unresolved. A mangled parameter is a class passed by value
+  whose DWARF class or struct records (or live type) exceed one GPR slot (8
+  bytes). Metrowerks passes such an aggregate as its address in a GPR
+  (`Particle::Source::CheckExtents` 0x2392d0 reads its 16-byte CPnt4D as
+  `lwc1 0..12(a1)`, the caller passing `addiu a1,s1,32`), while Ghidra's
+  r5900 `__stdcall` (integer argument registers `maxsize="8"`) puts it on the
+  stack, so no prototype gives it its storage. An aggregate of up to 8 bytes
+  travels in the register itself (`C2DBitmapPoly::SetCenterPos` takes PNT2D
+  in a1: `sd a1,56(sp)` at 0x2fe4d0) and drafts as before. This guards every
+  rules version (coordinator decision of 2026-10-29).
 - `P-stage2`: the stage 2 DWARF prototype is restated. This requires every
   type to name one live type, every argument register read on any path to be
   declared, no VU0 instructions, and, for `void`, every exit to leave v0 and
@@ -146,14 +156,16 @@ row `"draft": "open"` for the planner:
   member, so a0 is `this`). Every parameter type must resolve, the read
   registers must be declared, and there must be no VU0 instructions. A
   this-adjusting `@N@` stub stays open, because its receiver is the base part
-  at +N.
+  at +N. From rules version 20 a family declared void by DWARF (see "Return
+  width") counts too.
 
 Rows keep their `draft_rule`. Planners do not edit them.
 `recon draft --check <plan>` re-derives them and fails on any difference, or
 on a row claiming a rule the tools did not apply. It uses the rules version
-the plan records in `draft.rules_version`; a plan drafted before rules
-version 19 is checked under version 18, the version every accepted plan was
-last validated with, and `--rules N` overrides it. Reviewers run it and then
+the plan records in `draft.rules_version` (19 or 20); a plan drafted before
+rules version 19 is checked under version 18, the version every accepted plan
+was last validated with, and `--rules N` overrides it. New drafts use rules
+version 20. Reviewers run it and then
 review only the open rows. A row written by hand that the rules
 now decide must agree in substance: unresolved, or the same types. Before adoption, the rules (version 2) reproduced
 the decision of all 95 accepted plans for every row they decided: 868 of
@@ -361,6 +373,24 @@ contracts but still no other family's verdict. `recon void` marks a family
 that version 19 joined. `--rules 18` (also on `recon draft`) gives the
 earlier verdicts.
 
+Rules version 20 (decision of 2026-10-29, C2D::Draw 0x300c70) lets DWARF
+declare a slot family void. C++ gives every override the return type of the
+virtual it overrides, so when the DWARF record of an override (not an `@N@`
+stub) declares an explicit `void` return (FT_void), the family is void
+provided no member's record declares another return, the members share one
+method name, and every blocker is only a hand-off the walk cannot follow: a
+caller that returns the value and whose address is taken or stored in a
+table, or a chain deeper than twelve. A member whose exit holds its own
+value, or a caller that reads the value, still blocks. C2D::Draw's v0
+reaches the address-taken VisualGratification and CCycleButton::Draw
+through C2DString::Draw, but 9 of the 18 Draw overrides in slot +0xc are
+DWARF-void, so it is void. `recon void` prints `slot family declared void`
+and `VERDICT void: its vtable slot family is declared void (rules version
+20)` only where version 19 leaves the function open; a function version 19
+already proves keeps its verdict line. Over all 9703 functions, versions
+17-19 give the same verdicts as before and version 20 changes one verdict
+(0x300c70). `--rules 19` gives the earlier verdicts.
+
 `recon facts` gives each proven switch jump (`lw v0,0(v0); jr v0` through a
 jump table of the function) only the cases of its own table. Earlier every
 switch reached every table's cases, so a register that the code between two
@@ -523,6 +553,12 @@ before write (any path)") is declared per site with `dead_reads`, and
 - the prototype declares every argument register the entry block reads
   (under `__stdcall`, floats take `f12`-`f19` and everything else the next of
   `a0`-`t3`);
+- no parameter is a class, struct or union passed by value whose DWARF
+  records exceed one GPR slot (8 bytes; see `U-byvalue`): Ghidra would put
+  it on the stack where Metrowerks passes its address. `recon partial-candidates`
+  leaves such rows out, and `recon by-value-rows` (read-only, JSON) lists
+  rows of accepted or applied group and repair plans that already declare
+  one (`live` marks the row the accepted applies left in Ghidra);
 - a partial prototype carries the proof "Partial prototypes" lists;
 - each global changes something, has evidence, is not a type that
   `apply_data_type` would resolve to a different type, and is referenced by
@@ -636,18 +672,33 @@ python tools/socom.py recon global-facts --item socom:work:recon-repair-NNN --ou
   dereferences, the mangled parameter type of each callee it is passed to,
   stores elsewhere, a value left in v0/f0 at a return and what callers do
   with it).
-- A repair row may withdraw an unproven live return (decision of
-  2026-10-24: an accepted sub-word or bool return that rested only on a
-  caller's or dispatcher's narrowing, which proves only its destination). It
-  is a partial row with `"withdraws_return": true` whose `contradiction` says
-  why the live return's width is unproven and whose `unresolved` says why the
-  return stays open; the live return must be a type (not `void` or
-  `undefined*`), and the parameters must equal the live ones exactly: names,
-  types, order, receiver, varargs and `__stdcall`. Only this defect is
-  allowed: a contradicted live signature is an ordinary partial row, and a
-  group plan refuses `withdraws_return`. The program marks the row
-  `withdraws_return`, and the `check-recon-apply` read-back expects
-  `undefined <convention> <name>(<live parameters>)`.
+- A repair row may withdraw an unproven live return. It is a partial row
+  with `"withdraws_return": true` whose `contradiction` says why the live
+  return is unproven and whose `unresolved` says why the return stays open.
+  Three kinds of live return qualify:
+  - a sub-word or bool type that rested only on a caller's or dispatcher's
+    narrowing, which proves only its destination (decision of 2026-10-24);
+  - a type of any width, `int` and pointers included, whose only support was
+    a recalled SDK or C-library header declaration (decision of 2026-10-29,
+    issue b8acf0d9, "Re-prove from asm"): a planner re-proves the return from
+    the asm and the callers, and withdraws what nothing proves;
+  - a `void` that `recon void` does not confirm (decision of 2026-10-29,
+    "Extend tool, withdraw"). `contradiction` cites the open verdict line of
+    `recon void` (newest rules) verbatim and never `VERDICT void`. A void is
+    not withdrawn when the function's own DWARF record declares FT_void,
+    when `recon void` proves it (`VERDICT void`, or every exit leaves v0
+    and f0 unset), or when the drafter's `__sinit_` rule proves it.
+
+  The live return must not be `undefined*`, and a return the function's own
+  DWARF record declares is not withdrawn (stage 2 typed it from DWARF). The
+  parameters must equal the live ones exactly: names, types, order,
+  receiver, varargs and `__stdcall`. Only this defect is allowed: a
+  contradicted live signature is an ordinary partial row, and a group plan
+  refuses `withdraws_return`. The program marks the row `withdraws_return`
+  (its note says when the withdrawn return is a void), and the
+  `check-recon-apply` read-back expects `undefined <convention>
+  <name>(<live parameters>)`, checks that the program's parameters are the
+  live signature's, and counts the withdrawn voids.
 
   ```json
   "prototype": {
@@ -659,6 +710,45 @@ python tools/socom.py recon global-facts --item socom:work:recon-repair-NNN --ou
   },
   "unresolved": ["return width unproven: no exit narrows v0 before jr ra; only the caller's andi narrows"]
   ```
+
+  `recon withdrawal-candidates [--kind void|header|all] [--rules N]
+  --output build/repair-pass/withdrawal-candidates.json` (read-only, JSON;
+  tracker, accepted plans and the ELF only) lists the rows these withdrawals
+  may take over accepted applies: the row each function shows is the newest
+  recon repair whose plan and apply are accepted (a keep row leaves the
+  earlier row), else its group's row. `void` lists applied void rows whose
+  `recon void` verdict is open, with that verdict line; it excludes the
+  function's own DWARF FT_void record, the drafter's `__sinit_` rule, and a
+  row citing a DWARF `subroutine_type` that declares FT_void (a callback
+  member type; the DIE is checked). `header` lists applied rows whose return
+  is a type (not void, `undefined*` or partial) and whose row cites a
+  recalled SDK or C-library header (type-archive paths such as
+  `/stdio.h/FILE` are not citations), with the headers, the citing lines and
+  the rest of the evidence; a return the function's DWARF record declares is
+  left out. Each row names its plan item, its group and any unfinished repair
+  of the function (`progress add-recon-repair` refuses those). Live
+  signatures are not read: `recon live --item` gives the repair row's
+  `live_signature`.
+- A repair row may also keep a listed function as it is (coordinator
+  decision of 2026-10-29: no command drops a function from a registered
+  repair, and some listed functions no row can express, such as 0x2392d0's
+  by-value CPnt4D):
+
+  ```json
+  {
+    "address": "0x2392d0",
+    "current_name": "Particle::Source::CheckExtents",
+    "group": "socom:recon-group:<id>",
+    "keep": true,
+    "keep_reason": ["CPnt4D (16 bytes) by value: no prototype gives it its storage"]
+  }
+  ```
+
+  It cites its group and carries no prototype, rename or `unresolved`. The
+  program marks it `keep` and emits no call for it; the `check-recon-apply`
+  read-back expects its live signature unchanged, and the `limit` check
+  counts it as listed (it must not change, and no apply call may name it).
+  Later readers keep the earlier row in force.
 - GhidraMCP labels only in the global namespace (`rename_label` and
   `create_label` take no namespace), so the readable label is the qualified
   spelling itself, `zdb::CVisual::m_dmaChain`, exactly as stage 2 labelled
@@ -677,8 +767,9 @@ python tools/socom.py recon global-facts --item socom:work:recon-repair-NNN --ou
   `limit` check: the fingerprint diff changes only listed functions (plus
   thunks and Ghidra-split targets showing a listed function's new signature),
   the scope and every apply call name only listed functions and globals, the
-  program's globals are exactly the listed ones, every listed function took
-  its prototype, and every listed global its planned label and type. The
+  program's globals are exactly the listed ones, every listed function but a
+  keep row's took its prototype, and every listed global its planned label
+  and type. The
   read-back checks each listed global's name, type (a keep row's recorded
   `live_type`) and length in the fresh receipt, and that each relabelled
   global's mangled symbol was re-created (its `create_label` call; the bridge

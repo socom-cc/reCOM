@@ -299,7 +299,11 @@ def live_contradictions(
         group_row = plan_row(info, address)
         # The newest applied repair whose plan is accepted supersedes the
         # group's row; a repair not applied yet is listed with the row.
-        repaired = [r for r in repairs.get(address, []) if r["applied"] and r["plan_status"] == "accepted"]
+        # A keep row leaves the earlier row in force.
+        repaired = [
+            r for r in repairs.get(address, [])
+            if r["applied"] and r["plan_status"] == "accepted" and (plan_row(r, address) or {}).get("keep") is not True
+        ]
         latest = repaired[-1] if repaired else None
         row = plan_row(latest, address) if latest else group_row
         effective = latest or info

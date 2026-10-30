@@ -359,7 +359,7 @@ def test_rules_version_must_be_known(ctx) -> None:
     from tools._socom.recon_draft import RULES_VERSIONS, void_verdict
     from tools._socom.util import SocomError
 
-    assert RULES_VERSIONS == (17, 18, 19)
+    assert RULES_VERSIONS == (17, 18, 19, 20)
     with pytest.raises(SocomError):
         void_verdict(ctx, 0x393b90, rules=6)
 
@@ -372,6 +372,7 @@ def test_check_keeps_the_rules_a_plan_was_drafted_under() -> None:
 
     # Accepted plans drafted before version 19 stay checked under version 18.
     assert check_rules_version({"draft": {"rules_version": 19}}) == 19
+    assert check_rules_version({"draft": {"rules_version": 20}}) == 20
     for recorded in (18, 17, 6, None, True):
         assert check_rules_version({"draft": {"rules_version": recorded}}) == 18
     assert check_rules_version({}) == 18
@@ -505,3 +506,110 @@ def test_joined_slot_family_keeps_its_conflict_check(ctx, monkeypatch) -> None:
     assert (0x380600, "its DWARF record declares a non-void return (gpr)") in verdict["blockers"]
     # Rules version 18 keeps the base method alone, still void.
     assert recon_draft.slot_family_verdict(ctx, 0x2F9CF0, 18)["void"]
+
+
+# -- rules version 20: DWARF-declared void slot families (decision of 2026-10-29) --
+
+C2D_DRAW = 0x300C70
+C2D_TYPES = _TypeIndex([
+    {"name": "C2D", "path": "/project/C2D", "size": 76},
+    {"name": "CCamera", "path": "/project/zdb/CCamera", "size": 4},
+])
+
+
+def test_dwarf_declared_void_override_proves_its_slot_family(ctx) -> None:
+    from tools._socom.recon_draft import slot_family_verdict, verdict_line, void_verdict
+
+    # C2D::Draw's v0 reaches VisualGratification and CCycleButton::Draw (both
+    # address-taken) through C2DString::Draw; 9 of the 18 Draw overrides in
+    # slot +0xc have DWARF records declaring FT_void.
+    old = slot_family_verdict(ctx, C2D_DRAW, 19)
+    assert not old["void"] and "by_declaration" not in old
+    new = slot_family_verdict(ctx, C2D_DRAW, 20)
+    assert new["void"] and new["by_declaration"] and 0x17C3A0 in new["declared"] and len(new["declared"]) == 9
+    assert new["handoffs"] == new["blockers"] and all("whose address is taken" in r for _m, r in new["handoffs"])
+    text = void_verdict(ctx, C2D_DRAW)
+    assert "slot family declared void" in text and "hand-off not followed" in text
+    assert verdict_line(text).startswith("VERDICT void: its vtable slot family is declared void (rules version 20)")
+    assert verdict_line(void_verdict(ctx, C2D_DRAW, rules=19)).startswith("VERDICT open: v0 passed on by VisualGratification")
+    # A member the earlier rules already prove keeps its verdict wording.
+    assert verdict_line(void_verdict(ctx, 0x17C3A0)) == verdict_line(void_verdict(ctx, 0x17C3A0, rules=19))
+    drafted = draft_function(ctx, _row(C2D_DRAW, "Draw__3C2DFPQ23zdb7CCamera"), "C2D::Draw", C2D_TYPES)
+    assert drafted["draft_rule"] == "P-slot-void" and drafted["prototype"]["return_type"] == "void"
+    assert [p["type"] for p in drafted["prototype"]["parameters"]] == ["C2D *", "CCamera *"]
+    assert any("rules version 20" in line and "FT_void" in line for line in drafted["prototype"]["evidence"])
+    assert draft_function(ctx, _row(C2D_DRAW, "Draw__3C2DFPQ23zdb7CCamera"), "C2D::Draw", C2D_TYPES, rules=19)["draft"] == "open"
+
+
+def test_declared_slot_rule_needs_a_declaration_and_only_handoffs(ctx, monkeypatch) -> None:
+    from tools._socom import recon_draft
+
+    assert recon_draft._unfollowed_handoff("v0 passed on by X@0x1, whose address is taken or stored in a table (chain: X)")
+    assert recon_draft._unfollowed_handoff("chain deeper than twelve levels: a -> b")
+    assert not recon_draft._unfollowed_handoff("v0 read at 0x10 in X@0x1: sltu (chain: X)")
+    assert not recon_draft._unfollowed_handoff("an exit holds its own value (v0<-li): computed only to be returned")
+    # Without a DWARF-declared override the family stays open.
+    monkeypatch.setitem(recon_draft._DWARF_VOID, id(ctx), frozenset())
+    _fresh_verdicts(ctx, monkeypatch)
+    assert not recon_draft.slot_family_verdict(ctx, C2D_DRAW, 20)["void"]
+    monkeypatch.undo()
+    # A caller that reads the value blocks it.
+    real = recon_draft._use_after_call
+
+    def use(c, caller, site, fpr):
+        return "sltu v0,zero,v0@0x10" if not fpr and caller == 0x302C50 else real(c, caller, site, fpr)
+
+    monkeypatch.setattr(recon_draft, "_use_after_call", use)
+    _fresh_verdicts(ctx, monkeypatch)
+    verdict = recon_draft.slot_family_verdict(ctx, C2D_DRAW, 20)
+    assert not verdict["void"] and not verdict["by_declaration"]
+    assert any(reason.startswith("v0 read at") for _m, reason in verdict["blockers"])
+
+
+def test_void_proof_names_dwarf_recon_void_and_the_sinit_rule(ctx) -> None:
+    from tools._socom.recon_draft import sinit_rule_void, void_proof
+
+    assert sinit_rule_void(ctx, 0x46B9D0) and sinit_rule_void(ctx, 0x46A2E0)
+    assert not sinit_rule_void(ctx, 0x226320)
+    assert void_proof(ctx, 0x46B9D0)[0].startswith("the drafter's __sinit_ rule")
+    assert void_proof(ctx, 0x17CBE0)[0].startswith("its DWARF record declares")  # LoadThreadEntry: FT_void, open
+    assert void_proof(ctx, 0x3DEFD8)[0].startswith("recon void (rules version 20): VERDICT void")  # bzero
+    assert void_proof(ctx, 0x226320) == (None, "VERDICT open: the function's address is taken or stored in a table")
+
+
+def test_sinit_rule_matches_the_drafter_on_every_static_initializer(ctx) -> None:
+    from tools._socom.recon_draft import _function_names, sinit_rule_void
+
+    starts = [start for start, names in _function_names(ctx).items() if any(n.startswith("__sinit_") for n in names)]
+    assert len(starts) > 100
+    for start in starts:
+        names = _function_names(ctx)[start]
+        drafted = draft_function(ctx, _row(start, names[0]), names[0], _types())
+        assert sinit_rule_void(ctx, start) == (drafted.get("draft_rule") == "P-void"), hex(start)
+
+
+# -- by-value class parameters over one GPR slot (coordinator, 2026-10-29) -----
+
+
+def test_by_value_aggregates_over_one_gpr_slot_stay_unresolved(ctx) -> None:
+    from tools._socom.recon_byvalue import by_value_problem
+
+    # CPnt4D (16 bytes) travels as its address (lwc1 0..12(a1)); PNT2D (8) in a1.
+    assert "Metrowerks passes an aggregate over 8 bytes" in by_value_problem(ctx, "CPnt4D")
+    assert by_value_problem(ctx, "PNT2D") is None and by_value_problem(ctx, "CPnt4D *") is None
+    assert by_value_problem(ctx, "EVENT@35c2195558") is None  # an enumeration
+    assert by_value_problem(ctx, "NoSuchType") is None and "live type is 24 bytes" in by_value_problem(ctx, "NoSuchType", 24)
+    types = _TypeIndex([
+        {"name": "Source", "path": "/project/Particle/Source", "size": 64},
+        {"name": "CPnt4D", "path": "/project/CPnt4D", "size": 16},
+    ])
+    row = _row(0x2392D0, "CheckExtents__Q28Particle6SourceF6CPnt4Df")
+    for rules in (18, 19, 20):
+        drafted = draft_function(ctx, row, "Particle::Source::CheckExtents", types, rules=rules)
+        assert drafted["draft_rule"] == "U-byvalue" and drafted["prototype"] is None
+        assert drafted["unresolved"][0].startswith("parameter 1: CPnt4D is passed by value")
+    # An 8-byte aggregate still drafts: C2DBitmapPoly::SetCenterPos(PNT2D, float, float).
+    pnt = _TypeIndex([{"name": "C2DBitmapPoly", "path": "/project/C2DBitmapPoly", "size": 300},
+                      {"name": "PNT2D", "path": "/project/PNT2D", "size": 8}])
+    drafted = draft_function(ctx, _row(0x2FE4A0, "SetCenterPos__13C2DBitmapPolyF5PNT2Dff"), "x", pnt)
+    assert drafted["draft_rule"] == "P-void"

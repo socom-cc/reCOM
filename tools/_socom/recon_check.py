@@ -28,7 +28,7 @@ import re
 from pathlib import Path
 from typing import Any, Callable
 
-from .batch_apply import _thunk_target, expected_signature
+from .batch_apply import _thunk_target, expected_signature, parse_signature
 from .elf import Elf32File
 from .recon import REPAIR_PLAN_KIND, _functions, build_recon_program
 from .util import SocomError, canonical_json, load_json, sha256_file
@@ -265,9 +265,13 @@ def repair_limit(
     steps: list[dict[str, Any]],
     result: dict[str, Any],
 ) -> tuple[str, bool, str]:
-    """The ``limit`` check of a recon repair: nothing but its listed functions and globals changed."""
+    """The ``limit`` check of a recon repair: nothing but its listed functions and globals changed.
+
+    A keep row's function is listed but takes no prototype: it must not change.
+    """
 
     listed = {int(value, 16) for value in plan_item["batch"]["functions"]}
+    kept = {int(row["address"], 16) for row in program.get("functions", []) if row.get("keep") is True}
     listed_globals = {int(value, 16) for value in plan_item["batch"].get("globals") or []}
     changed = {int(row["address"], 16) for row in diff["functions"]}
     derived = {int(value, 16) for value in summary.get("thunks", []) + summary.get("split_targets", [])}
@@ -285,7 +289,8 @@ def repair_limit(
         and not scope.get("types")
     )
     untouched = sorted(
-        int(row["address"], 16) for row in result.get("functions", []) if not row.get("prototype")
+        int(row["address"], 16) for row in result.get("functions", [])
+        if not row.get("prototype") and int(row["address"], 16) not in kept
     )
     problems = []
     if outside:
@@ -302,6 +307,10 @@ def repair_limit(
         )
     if untouched or {int(row["address"], 16) for row in result.get("functions", [])} != listed:
         problems.append(f"listed functions without their prototype: {[hex(value) for value in untouched]}")
+    if kept & changed:
+        problems.append(f"functions a keep row leaves as they are changed: {[hex(value) for value in sorted(kept & changed)]}")
+    if kept & stepped:
+        problems.append(f"apply calls for functions a keep row leaves as they are: {[hex(value) for value in sorted(kept & stepped)]}")
     applied = {int(row["address"], 16): row for row in result.get("globals", [])}
     missed = sorted(
         address
@@ -315,8 +324,9 @@ def repair_limit(
     number = plan_item["batch"].get("repair_number")
     head = (
         f"repair {number:03d}: of {len(listed)} listed functions {len(changed & listed)} changed and "
-        f"{len(listed - changed)} restated; {len(derived)} thunk(s) or split target(s) show a listed function's new "
-        "signature; "
+        f"{len(listed - changed)} restated"
+        + (f" ({len(kept)} of them kept as they are by keep rows)" if kept else "")
+        + f"; {len(derived)} thunk(s) or split target(s) show a listed function's new signature; "
     )
     if problems:
         detail = "; ".join(problems)
@@ -376,8 +386,9 @@ def function_readback(
 
     A prototyped row must show its planned Signature line; an unresolved row
     must be unchanged.  A repair row withdrawing an unproven live return
-    (``withdraws_return``) must read back the return ``undefined`` with the
-    parameters it kept.
+    (``withdraws_return``, a type or a ``void``) must read back the return
+    ``undefined`` with the parameters it kept: exactly those of the live
+    signature it withdraws from.
     """
 
     live = {int(r["address"], 16): r for r in live_rows}
@@ -394,6 +405,12 @@ def function_readback(
         if prototype.get("withdraws_return") and prototype.get("return_type") != "undefined":
             problems.append(f"{row['address']} withdraws its live return but plans {prototype.get('return_type')!r}, not 'undefined'")
             continue
+        if prototype.get("withdraws_return") and not _keeps_live_parameters(prototype):
+            problems.append(
+                f"{row['address']} withdraws its live return but its parameters differ from the live signature "
+                f"{prototype.get('live_signature')!r}"
+            )
+            continue
         want = "Signature: " + expected_signature(prototype, row["name"])
         if want not in details:
             problems.append(
@@ -402,6 +419,23 @@ def function_readback(
                    if prototype.get("withdraws_return") else "")
             )
     return problems
+
+
+def _keeps_live_parameters(prototype: dict[str, Any]) -> bool:
+    """A withdrawing row's program prototype keeps the live signature's parameters, varargs and convention."""
+
+    live = parse_signature(prototype.get("live_signature"))
+    planned = parse_signature(expected_signature(prototype, "f"))
+    if live is None or planned is None:
+        return False
+    keys = ("parameters", "varargs", "calling_convention")
+    return all(planned[key] == live[key] for key in keys)
+
+
+def _withdrawn_void(prototype: dict[str, Any]) -> bool:
+    return bool(prototype.get("withdraws_return")) and (
+        parse_signature(prototype.get("live_signature")) or {}
+    ).get("return_type") == "void"
 
 
 def check_recon_apply(
@@ -487,6 +521,7 @@ def check_recon_apply(
     readback_problems = function_readback(result.get("functions", []), fingerprint["functions"], before["functions"])
     partial = sum(1 for r in result.get("functions", []) if (r.get("prototype") or {}).get("partial"))
     withdrawn = sum(1 for r in result.get("functions", []) if (r.get("prototype") or {}).get("withdraws_return"))
+    withdrawn_voids = sum(1 for r in result.get("functions", []) if _withdrawn_void(r.get("prototype") or {}))
     repair_globals = [r for r in result.get("globals", []) if "live_type" in r]
     if repair_globals:
         # A repair's globals: name, type and length from the fresh receipt; mangled labels kept.
@@ -502,7 +537,9 @@ def check_recon_apply(
     check("readback", not readback_problems,
           f"live signatures of {sum(1 for r in result.get('functions', []) if r.get('prototype'))} prototyped functions equal the plan; "
           + (f"{partial} of them partial (return left undefined, no-return flag as it was); " if partial else "")
-          + (f"{withdrawn} of those withdraw an unproven live return and read back undefined; " if withdrawn else "")
+          + (f"{withdrawn} of those withdraw an unproven live return"
+             + (f" ({withdrawn_voids} of them a void recon void does not confirm)" if withdrawn_voids else "")
+             + " and read back undefined; " if withdrawn else "")
           + f"{sum(1 for r in result.get('functions', []) if not r.get('prototype'))} unresolved unchanged"
           + global_note
           if not readback_problems else "; ".join(readback_problems))

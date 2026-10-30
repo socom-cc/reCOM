@@ -1,5 +1,6 @@
 """CLI handlers for recon repairs (``progress add-recon-repair``),
-``recon partial-candidates`` and ``recon global-facts``.
+``recon partial-candidates``, ``recon withdrawal-candidates``,
+``recon by-value-rows`` and ``recon global-facts``.
 
 The registry rows and parser wiring live here so the main CLI only lists
 them; handlers import the shared CLI helpers lazily to avoid an import cycle.
@@ -37,6 +38,18 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "the facts prove, for a partial-prototype repair or re-plan.",
             ghidra_requirement="optional",
         ),
+        spec(
+            "recon withdrawal-candidates",
+            "recon",
+            "List applied rows a withdraws_return repair may take as JSON: void rows recon void leaves open, and "
+            "typed returns whose evidence cites a recalled SDK or C-library header, with what each row cites.",
+        ),
+        spec(
+            "recon by-value-rows",
+            "recon",
+            "List rows of accepted or applied group and repair plans that declare a class parameter by value over "
+            "one GPR slot (8 bytes), whose Ghidra storage cannot match the Metrowerks ABI, as JSON.",
+        ),
     )
 
 
@@ -54,6 +67,16 @@ def register(recon_commands: Any, progress_commands: Any) -> None:
     candidates.add_argument("--output")
     candidates.add_argument("--bridge-url")
     candidates.set_defaults(handler=_recon_partial_candidates)
+
+    withdrawals = recon_commands.add_parser("withdrawal-candidates")
+    withdrawals.add_argument("--kind", choices=("void", "header", "all"), default="all")
+    withdrawals.add_argument("--rules", type=int, help="recon void rules version (default: the newest)")
+    withdrawals.add_argument("--output")
+    withdrawals.set_defaults(handler=_recon_withdrawal_candidates)
+
+    byvalue = recon_commands.add_parser("by-value-rows")
+    byvalue.add_argument("--output")
+    byvalue.set_defaults(handler=_recon_by_value_rows)
 
     facts = recon_commands.add_parser("global-facts")
     selection = facts.add_mutually_exclusive_group(required=True)
@@ -126,6 +149,30 @@ def _recon_partial_candidates(arguments: argparse.Namespace) -> int:
         log=lambda message: print(message, file=sys.stderr, flush=True),
     )
     return _recon_text(root, arguments, candidates_text(result))
+
+
+def _recon_withdrawal_candidates(arguments: argparse.Namespace) -> int:
+    from .cli import _recon_text, _root
+    from .constants import tracker_path
+    from .recon_withdraw import KINDS, withdrawal_candidates
+    from .tracker import load_tracker
+    from .util import canonical_json
+
+    root = _root(arguments)
+    kinds = KINDS if arguments.kind == "all" else (arguments.kind,)
+    result = withdrawal_candidates(root, load_tracker(tracker_path(root)), kinds=kinds, rules=arguments.rules)
+    return _recon_text(root, arguments, canonical_json(result))
+
+
+def _recon_by_value_rows(arguments: argparse.Namespace) -> int:
+    from .cli import _recon_text, _root
+    from .constants import tracker_path
+    from .recon_byvalue import by_value_rows
+    from .tracker import load_tracker
+    from .util import canonical_json
+
+    root = _root(arguments)
+    return _recon_text(root, arguments, canonical_json(by_value_rows(root, load_tracker(tracker_path(root)))))
 
 
 def _recon_global_facts(arguments: argparse.Namespace) -> int:

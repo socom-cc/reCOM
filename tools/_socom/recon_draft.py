@@ -12,6 +12,11 @@ U-type   unresolved: a parameter's mangled class type (or the receiver class
          names several live types, or contains ',' or '&' (the bridge cannot
          spell it).  Not applied when stage 2 typed the function from DWARF.
 U-vararg unresolved: the mangled signature ends in '...'.
+U-byvalue
+         unresolved: a mangled parameter is a class passed by value whose DWARF
+         records (or live type) exceed one GPR slot (8 bytes): Metrowerks
+         passes its address, Ghidra's r5900 __stdcall puts it on the stack
+         (recon_byvalue).  It guards every rules version.
 P-stage2 restate the prototype stage 2 applied from DWARF, when every argument
          register read on any path is declared and, for a void return, every
          exit leaves v0 and f0 unset.
@@ -39,6 +44,14 @@ leftover chains that P-void, P-stage2 and P-slot-void follow at three more
 contracts: a function-pointer table entry whose column has an integer
 table-family verdict (v0, so an f0 left there is never read), a constructor
 returning this, and slot families joined through a base without a vtable.
+
+Rules version 20 (decision of 2026-10-29, C2D::Draw 0x300c70) adds no draft
+rule either.  A vtable slot family is also void when the DWARF record of one
+of its overrides declares an explicit void return (FT_void), no member's
+record declares another return, and the only blockers are hand-offs the walk
+cannot follow (a caller returning the value whose address is taken or stored
+in a table, or a chain deeper than twelve): no override returns its own
+value and no caller reads one.  P-slot-void takes such families too.
 """
 
 from __future__ import annotations
@@ -53,6 +66,7 @@ from .batch_apply import (
     BUILTINS,
     UNSPELLABLE,
     _declared_argument_registers,
+    _thunk_target,
     readable_component,
 )
 from .constants import REFERENCE_SHA256
@@ -61,7 +75,7 @@ from .recon import RECON_PLAN_KIND, RECON_SCHEMA, group_evidence
 from .recon_facts import GPR, JR_RA, _reads_at, _through_calls, _use_after_call, argument_reads, call_sites, callee_preserves, context, return_sources
 from .util import SocomError, canonical_json
 
-DRAFT_RULES_VERSION = 19
+DRAFT_RULES_VERSION = 20
 # Rules version 18 adds the vtable slot-family void rule (decision of
 # 2026-10-23).  Passing rules=17 evaluates the earlier behaviour unchanged.
 SLOT_VOID_RULES = 18
@@ -73,7 +87,12 @@ SLOT_VOID_RULES = 18
 # callback's declared type (the rules-11 gap of CZWeapon::PreTick).  Each only
 # removes a blocker; rules=18 evaluates the earlier behaviour unchanged.
 CONTRACT_RULES = 19
-RULES_VERSIONS = (17, 18, 19)
+# Rules version 20 (decision of 2026-10-29) lets a DWARF-declared void
+# override (FT_void) prove its slot family void when the only blockers are
+# hand-offs the walk cannot follow.  It only adds void verdicts to slot
+# families; rules=19 evaluates the earlier behaviour unchanged.
+DECLARED_SLOT_RULES = 20
+RULES_VERSIONS = (17, 18, 19, 20)
 
 
 class _TypeIndex:
@@ -111,6 +130,13 @@ class _TypeIndex:
             return False
         squash = lambda text: "".join(text.split())  # noqa: E731 - spacing differs between spellings
         return squash(segments[-2]) == squash(parent)
+
+    def size_of(self, name: str) -> int | None:
+        """The byte size of the one live type named exactly ``name``, if the index records it."""
+
+        found = [row for row in self.by_name.get(name.casefold(), []) if row["name"] == name]
+        size = found[0].get("size") if len(found) == 1 else None
+        return size if isinstance(size, int) and not isinstance(size, bool) else None
 
     def spells(self, text: str) -> bool:
         """Every type in a rendered spelling ('CFoo * *', 'uint') names exactly one live type."""
@@ -995,7 +1021,10 @@ def slot_family_verdict(ctx: Any, function: int, rules: int = DRAFT_RULES_VERSIO
     is what is being decided, so the walk stops there.  The walk uses the
     rules-17 contracts, not other families' verdicts; under rules 19 it also
     uses that version's table and constructor contracts, and the families
-    joined through bases without a vtable.
+    joined through bases without a vtable.  Under rules 20 a family whose
+    blockers are all hand-offs the walk cannot follow (``handoffs``) is void
+    when an override's own DWARF record declares FT_void (``declared``,
+    ``by_declaration``; decision of 2026-10-29).
 
     Returns None for a function in no vtable slot, else a dict with
     ``family``, ``void``, ``witnesses`` and ``blockers`` ((member, reason)).
@@ -1054,8 +1083,37 @@ def slot_family_verdict(ctx: Any, function: int, rules: int = DRAFT_RULES_VERSIO
         # Rules version 19 joined it through a base class without a vtable of its own.
         "joined": earlier is None or earlier.members != family.members,
     }
+    if rules >= DECLARED_SLOT_RULES:
+        # Rules version 20 (decision of 2026-10-29): a DWARF-declared void
+        # override is the family's witness, and a hand-off the walk cannot
+        # follow does not block it (C++ gives every override the slot's void).
+        dwarf_void = _dwarf_void(ctx)
+        declared_members = [member for member in family.members if member in dwarf_void and not _is_stub(ctx, member)]
+        handoffs = [(member, reason) for member, reason in blockers if _unfollowed_handoff(reason)]
+        by_declaration = (
+            not verdict["void"] and family.method is not None and bool(declared_members) and len(handoffs) == len(blockers)
+        )
+        verdict.update(declared=declared_members, handoffs=handoffs, by_declaration=by_declaration)
+        if by_declaration:
+            verdict["void"] = True
     cache[(rules, family.members[0])] = verdict
     return verdict
+
+
+_UNFOLLOWED_HANDOFF = re.compile(
+    r"^(?:(?:v0|f0) passed on by .+, whose address is taken or stored in a table \(chain: |chain deeper than twelve levels: )"
+)
+
+
+def _unfollowed_handoff(reason: str) -> bool:
+    """A blocker that is only a hand-off the walk cannot follow, not a read or a returned value.
+
+    ``_first_reader`` gives these when a caller returning the value has its
+    address taken or stored in a table (without a contract that drops it), or
+    when the chain is deeper than twelve levels.
+    """
+
+    return bool(_UNFOLLOWED_HANDOFF.match(reason))
 
 
 def _slot_void(ctx: Any, function: int, rules: int = DRAFT_RULES_VERSION) -> bool:
@@ -1086,6 +1144,18 @@ def slot_family_lines(ctx: Any, verdict: dict[str, Any]) -> list[str]:
             "slot family joined through a base class without a vtable of its own: a slot holding the base's "
             "inherited method is the base's slot in every block that places the base (rules version 19)"
         )
+    if verdict.get("by_declaration"):
+        declared = verdict["declared"]
+        lines.append(
+            f"slot family declared void: the DWARF records of {len(declared)} overrides declare an explicit void "
+            f"return (FT_void), e.g. {ctx.label(declared[0])}; no override returns its own value and no caller "
+            "reads one (rules version 20, decision of 2026-10-29)"
+        )
+        for member, reason in verdict["handoffs"][:3]:
+            lines.append(f"slot family hand-off not followed from {ctx.label(member)} (the declared void covers it): {reason}")
+        if len(verdict["handoffs"]) > 3:
+            lines.append(f"slot family: {len(verdict['handoffs']) - 3} more hand-offs not followed")
+        return lines
     for member, reason in verdict["blockers"][:3]:
         lines.append(f"slot family blocked by {ctx.label(member)}: {reason}")
     if len(verdict["blockers"]) > 3:
@@ -1223,6 +1293,13 @@ def _slot_receiver(ctx: Any, function: int) -> str | None:
 
 def _slot_evidence(ctx: Any, function: int, rules: int = DRAFT_RULES_VERSION) -> str:
     verdict = slot_family_verdict(ctx, function, rules) or {}
+    if verdict.get("by_declaration"):
+        declared = verdict["declared"]
+        return (
+            f"vtable slot family of {_family_summary(ctx, verdict)}: the DWARF records of {len(declared)} overrides "
+            f"(first {ctx.label(declared[0])}) declare an explicit void return (FT_void), no override returns its own "
+            "value and no caller reads one, so the slot returns void (rules version 20, decision of 2026-10-29)"
+        )
     witness = ctx.label(verdict["witnesses"][0]) if verdict.get("witnesses") else "?"
     return (
         f"vtable slot family of {_family_summary(ctx, verdict)}: {witness} has no path that writes v0 or f0 "
@@ -1250,6 +1327,25 @@ def draft_function(
             "its receiver is the base part at +N, so a planner decides the parameters"
         )
     return drafted
+
+
+def _by_value_reasons(ctx: Any, params: list[dict[str, Any]], rendered: list[str | None], types: _TypeIndex) -> list[str]:
+    """U-byvalue reasons: mangled by-value class parameters over one GPR slot (recon_byvalue).
+
+    Metrowerks passes such an aggregate as its address, Ghidra's r5900
+    __stdcall on the stack: no prototype can express it.  This guards every
+    rules version (a drafted row with one would apply the wrong storage).
+    """
+
+    from .recon_byvalue import by_value_problem
+
+    reasons = []
+    for index, (value, name) in enumerate(zip(params, rendered), 1):
+        if name is None or value.get("kind") != "class" or set(value.get("modifiers") or []) & {"P", "R"}:
+            continue
+        if why := by_value_problem(ctx, name, types.size_of(name)):
+            reasons.append(f"parameter {index}: {why}")
+    return reasons
 
 
 def _draft_row(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIndex, rules: int) -> dict[str, Any]:
@@ -1348,6 +1444,8 @@ def _draft_row(ctx: Any, row: dict[str, Any], live_name: str, types: _TypeIndex,
             problems.append(f"receiver: {reason}")
     if problems:
         return {**base, "prototype": None, "draft_rule": "U-type", "unresolved": problems}
+    if byvalue := _by_value_reasons(ctx, params, rendered, types):
+        return {**base, "prototype": None, "draft_rule": "U-byvalue", "unresolved": byvalue}
     if (
         not planner and (parsed or {}).get("name") == "__dt" and receiver_type and not params
         and not _uses_vu0(ctx, address)
@@ -1496,11 +1594,12 @@ def draft_plan(
 def check_rules_version(plan: dict[str, Any]) -> int:
     """The rules version `recon draft --check` uses for a plan when none is given.
 
-    A plan keeps the rules it was drafted under (its ``draft.rules_version``).
-    Plans drafted before version 19, or with no draft block, are checked under
-    version 18, the version every accepted plan was last validated with; a
-    row that version 19 would decide differently stays as accepted, and
-    ``--rules 19`` shows the new decision.
+    A plan keeps the rules it was drafted under (its ``draft.rules_version``):
+    a plan drafted under version 19 is checked under 19, one drafted under 20
+    under 20.  Plans drafted before version 19, or with no draft block, are
+    checked under version 18, the version every accepted plan was last
+    validated with; a row that a later version would decide differently stays
+    as accepted, and ``--rules 19`` or ``--rules 20`` shows the new decision.
     """
 
     recorded = (plan.get("draft") or {}).get("rules_version")
@@ -1575,6 +1674,14 @@ _SLOT_VOID_VERDICT = (
     "VERDICT void: its vtable slot family is void (rules version 18): an override's own exits leave "
     "v0 and f0 unset and no override writes a value a caller reads"
 )
+_DECLARED_SLOT_VERDICT = (
+    "VERDICT void: its vtable slot family is declared void (rules version 20): the DWARF records of overrides "
+    "in the slot declare an explicit void return (FT_void), no override returns its own value and no caller "
+    "reads one"
+)
+
+
+_UNSET_EXITS = "exits: v0 and f0 unset at every exit -> void needs no caller check"
 
 
 def void_verdict(ctx: Any, start: int, rules: int = DRAFT_RULES_VERSION) -> str:
@@ -1603,35 +1710,41 @@ def void_verdict(ctx: Any, start: int, rules: int = DRAFT_RULES_VERSION) -> str:
         return "\n".join(lines)
     family = slot_family_verdict(ctx, start, rules) if rules >= SLOT_VOID_RULES else None
     family_lines = slot_family_lines(ctx, family) if family else []
+    # Rules version 20: a family void only by its DWARF declaration decides
+    # where the earlier rules leave the function open; their void verdicts
+    # keep their own wording.
+    declared = bool(family and family.get("by_declaration"))
     unset, rows = _exits_unset(ctx, start)
     if unset:
-        lines.append("exits: v0 and f0 unset at every exit -> void needs no caller check")
+        lines.append(_UNSET_EXITS)
         lines.extend(family_lines)
-        if family and family["void"]:
+        if family and family["void"] and not declared:
             lines.append(_SLOT_VOID_VERDICT)
         return "\n".join(lines)
     dead, rows = _exits_pass_through(ctx, start)
     lines.extend(f"exit {row}" for row in rows)
     lines.extend(family_lines)
-    if family and family["void"]:
+    if family and family["void"] and not declared:
         # The family verdict checked every member's exits and direct callers.
         lines.append(_SLOT_VOID_VERDICT)
         return "\n".join(lines)
+
+    def open_verdict(text: str) -> str:
+        lines.append(_DECLARED_SLOT_VERDICT if declared else text)
+        return "\n".join(lines)
+
     if not rows:
-        lines.append(
+        return open_verdict(
             "VERDICT open: the function has no exit (it never returns), so no return value is observable; "
             "a return type needs a declaration"
         )
-        return "\n".join(lines)
     if not dead:
-        lines.append(
+        return open_verdict(
             "VERDICT open: some exit can return a value that is neither a callee's result nor a "
             "scratch value with another use in the function (or an indirect jump)"
         )
-        return "\n".join(lines)
     if (ctx.addr_taken.get(start) or ctx.word32.get(start)) and not _declared_void(ctx, start, rules):
-        lines.append("VERDICT open: the function's address is taken or stored in a table")
-        return "\n".join(lines)
+        return open_verdict("VERDICT open: the function's address is taken or stored in a table")
 
     first = [
         (fpr, name)
@@ -1641,11 +1754,74 @@ def void_verdict(ctx: Any, start: int, rules: int = DRAFT_RULES_VERSION) -> str:
     blocker = _first_reader(ctx, start, first, rules)
     sites = len(call_sites(ctx, start))
     if blocker:
-        lines.append(f"VERDICT open: {blocker}")
+        return open_verdict(f"VERDICT open: {blocker}")
     elif not sites and _declared_void(ctx, start, rules):
         lines.append("VERDICT void: no direct call sites; only called through a contract (callback type or vtable slot) declared void")
     elif not sites:
-        lines.append("VERDICT open: no direct call sites (pass-through needs at least one)")
+        return open_verdict("VERDICT open: no direct call sites (pass-through needs at least one)")
     else:
         lines.append(f"VERDICT void: {sites} direct call sites; no code reads the leftover")
     return "\n".join(lines)
+
+
+def verdict_line(text: str) -> str | None:
+    """The deciding line of a ``void_verdict`` text, or None.
+
+    Its ``VERDICT ...`` line; for a function whose every exit leaves v0 and f0
+    unset (void without a caller check: no VERDICT line unless its slot family
+    adds one) the exits line.
+    """
+
+    lines = text.splitlines()
+    found = next((line for line in reversed(lines) if line.startswith("VERDICT ")), None)
+    if found is None and _UNSET_EXITS in lines:
+        return _UNSET_EXITS
+    return found
+
+
+def verdict_proves_void(line: str | None) -> bool:
+    """Whether a ``verdict_line`` proves void: VERDICT void, or every exit leaves v0 and f0 unset."""
+
+    return bool(line) and (line.startswith("VERDICT void") or line == _UNSET_EXITS)
+
+
+def sinit_rule_void(ctx: Any, start: int, rules: int = DRAFT_RULES_VERSION) -> bool:
+    """The drafter's ``__sinit_*`` rule (P-void) proves this static initializer void(void).
+
+    ``recon void`` does not model it: the runtime calls each initializer
+    through the void (**)(void) .p__sinit table and never reads v0.  The
+    drafter itself decides, on the ELF row a group's evidence would give (no
+    mangled name, no DWARF record).
+    """
+
+    names = list(_function_names(ctx).get(start, ()))
+    sinit = next((name for name in names if name.startswith("__sinit_")), None)
+    if sinit is None or any(demangle(name) for name in names) or start in _dwarf_returns(ctx) or start not in ctx.size:
+        return False
+    thunk = _thunk_target(ctx.elf, start, ctx.size.get(start))
+    row = {
+        "address": f"0x{start:x}", "elf_names": names, "stage2": None,
+        "thunk_target": f"0x{thunk:x}" if thunk is not None else None,
+    }
+    return draft_function(ctx, row, sinit, _TypeIndex([]), rules).get("draft_rule") == "P-void"
+
+
+def void_proof(ctx: Any, start: int, rules: int = DRAFT_RULES_VERSION) -> tuple[str | None, str | None]:
+    """(what proves a void return, else None; ``recon void``'s VERDICT line).
+
+    A void is proven by the function's own DWARF record (FT_void), by a
+    ``recon void`` verdict of void, or by the drafter's ``__sinit_*`` rule.
+    A recon repair may withdraw only a live void that none of these proves.
+    """
+
+    line = verdict_line(void_verdict(ctx, start, rules))
+    if start in _dwarf_void(ctx):
+        return "its DWARF record declares an explicit void return (FT_void)", line
+    if verdict_proves_void(line):
+        return f"recon void (rules version {rules}): {line}", line
+    if sinit_rule_void(ctx, start, rules):
+        return (
+            "the drafter's __sinit_ rule (P-void): the runtime calls it through the void (**)(void) .p__sinit "
+            "table and never reads v0"
+        ), line
+    return None, line

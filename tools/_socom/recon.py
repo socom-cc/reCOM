@@ -725,23 +725,69 @@ def _varargs_problems(prototype: dict[str, Any], parameters: list[Any]) -> list[
     return problems
 
 
-def _withdrawal_problems(prototype: dict[str, Any], live: dict[str, Any]) -> list[str]:
-    """Why a repair row may not withdraw the live return (decision of 2026-10-24).
+def _withdrawal_problems(
+    prototype: dict[str, Any], live: dict[str, Any], address: int | None = None, root: Path | None = None
+) -> list[str]:
+    """Why a repair row may not withdraw the live return.
 
-    The live signature's only defect is its return: a non-void type the code
-    does not prove (a caller's or dispatcher's narrowing proves only its own
-    destination).  The row keeps the live parameters exactly (names, types,
-    order, receiver, varargs and convention) and sets the return ``undefined``.
+    The live signature's only defect is its return, which the code does not
+    prove: a sub-word or bool type that rested on a caller's or dispatcher's
+    narrowing (decision of 2026-10-24), a type of any width whose only support
+    was a recalled SDK or C-library header declaration, or a ``void`` that
+    ``recon void`` does not confirm (decisions of 2026-10-29).  A void
+    withdrawal cites the open ``recon void`` verdict in ``contradiction``; a
+    void that the function's DWARF record, ``recon void`` or the drafter's
+    ``__sinit_`` rule proves is not withdrawn, and neither is a return the
+    function's own DWARF record declares.  The row keeps the live parameters
+    exactly (names, types, order, receiver, varargs and convention) and sets
+    the return ``undefined``.
     """
 
     problems = []
     returned = live["return_type"]
-    if returned == "void" or _base_type(returned) in UNDEFINED_TYPES:
+    if returned != "void" and _base_type(returned) in UNDEFINED_TYPES:
         problems.append(f"withdraws_return: the live return {returned!r} claims no width to withdraw")
+    elif root is None or address is None:
+        if returned == "void":
+            problems.append("withdraws_return: a live void is checked against recon void, which needs the ELF")
+    else:
+        problems.extend(_withdrawal_proof_problems(prototype, returned, address, root))
     if not _restates_live({**prototype, "return_type": returned}, live):
         problems.append(
             "withdraws_return keeps the live parameters exactly (names, types, order, receiver, varargs, "
             f"convention {CALLING_CONVENTION}); they differ from {prototype.get('live_signature')!r}"
+        )
+    return problems
+
+
+def _withdrawal_proof_problems(prototype: dict[str, Any], returned: str, address: int, root: Path) -> list[str]:
+    """What proves the live return the row withdraws (decisions of 2026-10-29)."""
+
+    from .recon_draft import DRAFT_RULES_VERSION, _dwarf_returns, void_proof
+    from .recon_facts import context
+
+    ctx = context(root)
+    if returned != "void":
+        declared = _dwarf_returns(ctx).get(address)
+        if declared is not None:
+            return [
+                f"withdraws_return: the function's DWARF record declares its return ({declared}); stage 2 typed it "
+                "from DWARF and a repair does not contradict DWARF"
+            ]
+        return []
+    proof, line = void_proof(ctx, address)
+    if proof:
+        return [f"withdraws_return: the live void is proven ({proof}); a proven void is not withdrawn"]
+    if line is None:
+        return [f"withdraws_return: recon void gives no verdict for 0x{address:x}, so its live void cannot be withdrawn"]
+    texts = _texts(prototype.get("contradiction")) if prototype.get("contradiction") else []
+    problems = []
+    if any("VERDICT void" in text for text in texts):
+        problems.append("withdraws_return: a void withdrawal cites recon void's open verdict, never 'VERDICT void'")
+    if not any(line in text for text in texts):
+        problems.append(
+            "withdraws_return of a live void needs contradiction citing its recon void verdict "
+            f"(rules version {DRAFT_RULES_VERSION}) verbatim: {line!r}"
         )
     return problems
 
@@ -753,6 +799,7 @@ def _partial_problems(
     sizes: dict[int, int],
     address: int,
     repair: bool = False,
+    root: Path | None = None,
 ) -> list[str]:
     """Shape and proof checks of a partial prototype (decision of 2026-10-22).
 
@@ -762,8 +809,8 @@ def _partial_problems(
     (``undefined f(void)``, with or without a convention; decision of
     2026-10-22 "Yes, extend it"): then every parameter needs a proven type.
     A recon repair row may also withdraw an unproven live return with
-    ``withdraws_return: true``, its ``contradiction`` saying why (decision of
-    2026-10-24): see ``_withdrawal_problems``.
+    ``withdraws_return: true``, its ``contradiction`` saying why (decisions of
+    2026-10-24 and 2026-10-29): see ``_withdrawal_problems``.
     """
 
     problems = []
@@ -815,7 +862,7 @@ def _partial_problems(
         problems.append("partial prototype needs live_signature: the Signature line get_function_by_address prints")
     elif all(isinstance(param.get("type"), str) for param in parameters) and isinstance(varargs, bool):
         if withdraws is True:
-            problems.extend(_withdrawal_problems(prototype, live))
+            problems.extend(_withdrawal_problems(prototype, live, address, root))
         elif not default and not _contradicted(live, parameters, varargs):
             problems.append(
                 "the live signature does not contradict the proven parameters (count, order or type): "
@@ -888,6 +935,33 @@ def _repair_row_problems(entry: dict[str, Any], batch: dict[str, Any], address: 
     return problems
 
 
+def _keep_row_problems(entry: dict[str, Any], batch: dict[str, Any], address: str, repair: bool) -> list[str]:
+    """A recon repair row that leaves a listed function as it is: ``keep: true`` with ``keep_reason``.
+
+    It cites its group, names the live function, and changes nothing: no
+    prototype, rename or unresolved reasons.  The program emits no call for
+    it, and ``ghidra check-recon-apply`` expects its live signature unchanged.
+    """
+
+    if not repair:
+        return ["keep: only a recon repair row keeps a listed function as it is; a group row is a prototype or unresolved"]
+    problems = []
+    if entry.get("keep") is not True:
+        problems.append("keep must be true or absent")
+    reasons = entry.get("keep_reason")
+    if not isinstance(reasons, list) or not reasons or not all(isinstance(r, str) and r.strip() for r in reasons):
+        problems.append("keep row needs keep_reason: why the repair leaves the function as it is (what no row can express)")
+    group = batch.get("groups", {}).get(address)
+    if entry.get("group") != group:
+        problems.append(f"repair row must cite its group {group!r} (group), not {entry.get('group')!r}")
+    if not isinstance(entry.get("current_name"), str) or not entry["current_name"]:
+        problems.append("needs the live current_name")
+    changes = [key for key in ("prototype", "rename", "unresolved") if entry.get(key) not in (None, [])]
+    if changes:
+        problems.append(f"a keep row changes nothing: drop {', '.join(changes)}")
+    return problems
+
+
 def _dead_read_rows(root: Path, address: int, rows: Any, cache: dict[str, Any]) -> list[str]:
     """Problems of a prototype's any-path ``dead_reads`` rows (recon_dead)."""
 
@@ -928,6 +1002,9 @@ def _repair_globals_problems(root: Path, plan: dict[str, Any], listed: list[str]
 def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any]) -> list[str]:
     """Structural and evidence checks a reviewer can rerun.  Returns problems."""
 
+    from .recon_byvalue import by_value_parameters
+    from .recon_facts import context
+
     problems: list[str] = []
     if plan.get("kind") != RECON_PLAN_KIND or plan.get("schema_version") != RECON_SCHEMA:
         return [f"plan must be a schema {RECON_SCHEMA} {RECON_PLAN_KIND}"]
@@ -961,6 +1038,14 @@ def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any
         if address not in expected:
             problems.append(f"{where} is not in the {'repair' if repair else 'group'}")
             continue
+        if "keep" in entry:
+            # A repair keeps a listed function as it is (coordinator decision
+            # of 2026-10-29): no command drops a function from a registered
+            # repair, and some listed functions no row can express.
+            problems.extend(f"{where} {problem}" for problem in _keep_row_problems(entry, batch, address, repair))
+            continue
+        if entry.get("keep_reason") is not None:
+            problems.append(f"{where} only a keep row carries keep_reason")
         if repair:
             problems.extend(f"{where} {problem}" for problem in _repair_row_problems(entry, batch, address))
         if not isinstance(entry.get("current_name"), str) or not entry["current_name"]:
@@ -982,7 +1067,7 @@ def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any
             # The return stays unresolved: `unresolved` says why (decision of 2026-10-22).
             problems.extend(
                 f"{where} {problem}"
-                for problem in _partial_problems(prototype, unresolved, elf, sizes, int(address, 16), repair)
+                for problem in _partial_problems(prototype, unresolved, elf, sizes, int(address, 16), repair, root)
             )
         else:
             if prototype.get("partial", False) is not False:
@@ -1009,6 +1094,8 @@ def validate_recon_plan(root: Path, tracker: dict[str, Any], plan: dict[str, Any
             problems.append(f"{where} parameters must be a list")
             continue
         names = [param.get("name") for param in parameters]
+        for row in by_value_parameters(context(root), prototype):
+            problems.append(f"{where} parameter {row['name']}: {row['problem']}")
         for position, param in enumerate(parameters, 1):
             if not isinstance(param.get("name"), str) or not _IDENTIFIER.match(param["name"]):
                 problems.append(f"{where} parameter name {param.get('name')!r} is not an identifier")
@@ -1140,7 +1227,13 @@ def build_recon_program(root: Path, tracker: dict[str, Any], plan_path: Path) ->
             from .recon_dead import dead_read_note
 
             out["notes"].extend(dead_read_note(row) for row in prototype["dead_reads"])
-        if repair:
+        if repair and entry.get("keep") is True:
+            # Listed but left as it is: no bridge call; the read-back expects
+            # the live signature unchanged.
+            out["keep"] = True
+            out["prototype_skip"] = "keep: " + "; ".join(_texts(entry["keep_reason"]))
+            out["notes"].append(f"kept as it is by this repair of {entry['group']}: " + "; ".join(_texts(entry["keep_reason"])))
+        elif repair:
             # The apply refuses unless the function still shows the signature
             # the row replaces (a partial row records it below as well).
             out["prototype"]["live_signature"] = prototype["live_signature"]
@@ -1157,9 +1250,12 @@ def build_recon_program(root: Path, tracker: dict[str, Any], plan_path: Path) ->
                 # Absent otherwise, so programs without such rows keep their
                 # bytes; the read-back expects the return `undefined`.
                 out["prototype"]["withdraws_return"] = True
+                withdrawn_void = (parse_signature(prototype["live_signature"]) or {}).get("return_type") == "void"
                 out["notes"].append(
-                    f"partial prototype withdrawing the unproven return of the live signature "
-                    f"{prototype['live_signature']!r}, parameters as live: " + "; ".join(_texts(prototype["contradiction"]))
+                    f"partial prototype withdrawing the unproven {'void ' if withdrawn_void else ''}return of the live "
+                    f"signature {prototype['live_signature']!r}"
+                    + (" (recon void does not confirm it)" if withdrawn_void else "")
+                    + ", parameters as live: " + "; ".join(_texts(prototype["contradiction"]))
                 )
             else:
                 out["notes"].append(
