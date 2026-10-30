@@ -1368,8 +1368,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Rule question: DWARF parameter names recorded at v0 (7 names) and a 4-byte long in type_layout"
+    },
+    {
+      "details": "Asked explicitly after the independent gate accepter socom-verifier-g3b rejected run 3 because 6ec4362d had moved from the user's 'Fix 2, defer 8' fix set to the deferral list without a recorded user decision. Question put to the user: 'Issue 6ec4362d: 4 std::__use_facet prototypes (0x149480, 0x149560, 0x149640, 0x149720) stay undefined because the empty tag type __chooser<1> is missing, and the type-plan tool cannot encode a template name like __chooser<1>. You approved fixing it, but that needs a tool change first. Defer it with the other 8, or extend the tool and fix it before the gate?' User answer, verbatim: 'Defer it (Recommended)'. 6ec4362d is therefore a user deferral past the stage-3 gate (alongside the deferrals in 34a8b552); the 4 functions stay undefined until a post-stage-3 vehicle with template tag-name support exists.",
+      "id": "socom:workspace-issue:58afd677991d85025fd1",
+      "kind": "problem",
+      "reported_at": "2026-10-30T23:24:12Z",
+      "reported_by": "socom-coordinator",
+      "resolution": null,
+      "status": "open",
+      "summary": "User decision 2026-10-30: defer 6ec4362d (__chooser<1> / std::__use_facet) past the stage-3 gate"
     }
   ],
-  "revision": 173,
+  "revision": 174,
   "schema_version": 1
 }

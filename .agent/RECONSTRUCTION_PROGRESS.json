@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2840,
+  "revision": 2841,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -146362,19 +146362,8 @@
         "socom:work:recon-repair-033",
         "socom:work:recon-repair-033-apply"
       ],
-      "evidence": [
-        "audits at HEAD: progress audit --strict ok r2839; all 15 registered audits --strict ok (final-elf-catalog out of scope); doctor --infrastructure-only ok; docs readme-progress/command-index/capability-coverage fresh; reference ELF sha256 00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a unchanged; 430 stage-3 tracker commits with strictly increasing revisions",
-        "check1: 368 live items each with one ghidra-receipt-sha256 and ghidra-save evidence matching the stored receipt; receipt history ends at socom:work:recon-repair-033-apply; accepter differs from handoff owner on all 734; 13 programs (10 seeded + repairs 031-033) regenerate byte-identically",
-        "clean export (git archive HEAD dbe8bd5): pytest tests/tools 450 passed in 575.17s; progress audit --strict ok r2838; audit independence ok",
-        "report build/closeout-ghidra-reconstruction/REPORT.md sha256:0f68f93724c0bd4807d28fea0c46ee70d4276bfcec282c69ae7930a7496e6f96; issue classification build/closeout-ghidra-reconstruction/check3-all-issues.json (68/68 open issues, 35 routing to stage 3 incl. all 26 open stage-2 class-b carry-overs)",
-        "stage receipt sha256:f8912398392c42d8a615b7a55f646b7bdb3d0bb18e519ae0db9ed30c797c93a5 over build/closeout-ghidra-reconstruction/stage-scope.json sha256:5e1480a8e0ce6c761ce5acfeb0d37ab403f26383b00d56c6f95132a99cb40142 (9703 functions, 100 globals, 28 types), reproduced twice byte-identically",
-        "whole-program fingerprint build/closeout-ghidra-reconstruction/fp-closeout.json sha256:5e66ed77bf03cb14761219b7d6ae684d93e4b02c42c348ce76e1672fa47a19f3 identical to build/fingerprints/r033-after.json; recon contradictions 0 of 4947; debug conflicts 0"
-      ],
-      "handoff": {
-        "owner": "socom-verifier-g3",
-        "submitted_at": "2026-10-30T23:10:28Z",
-        "summary": "Stage 3 gate review (run 3) satisfied: 734/734 items accepted; stage receipt reproduces; fingerprint equals r033-after; all 68 open ledger issues classified, 0 unclassified (26 recorded user deferrals citing 5a02515e/34a8b552/8df909fc/21aa8879/4e071940, 39 tooling, 1 resolved-live d4a5966a with ledger still open, 2 later-stage blockers); strict audits and clean-export tests pass"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:ghidra-reconstruction-seed",
       "kind": "stage-gate",
       "lease": null,
@@ -146403,11 +146392,35 @@
           "reason": "Criterion 4 fails: open ledger issues that the accepted stage-2 close-out (build/closeout-s2/verifier/REPORT.md check 7, class b 'deferred stage-3+ work') routed to stage 3 carry neither a user deferral nor a tooling classification. Both gate runs knowingly left them unclassified (run1: 'not re-classified here'; run2 non-blocking note: 'not in 5a02515e ... now need the post-stage-3 vehicle'), which is a deferral the reviewer made on the user's behalf. Live gaps confirmed read-only: c047a89a recoResult 0x48a040 and 22868f48 load_thread_stack 0x48a0d0 have no data item and recon types reports @class@d37844a018 and @class@40b9ef5743 missing; 31f03f6f g_buffer 0x5630c0 and g_buffer_hb 0x5650c0 have no data item. This is the same gap class as TexPhase (c6b36e6b), which needed an explicit user deferral. Also unclassified and routed to stage 3: 69c8f521 (s2: 'refine in ghidra-reconstruction'), ba5122d0 (s2: 'split or rename in stage 3'), c3a2ea73, 4d52efa4, 997ec820; the others (94d56164, d96cdc41, bdcbeb4a, fd70c051, 6ec4362d, ea5d645f, d4a5966a, 876cb28c, 0c7a39d7, 483c04ae, 19bf949f, db9447d5, 06c2c23d) are unclassified too. Fix: get a user decision (defer each by name in the ledger, or route/fix it) and classify every class-b issue still open; then hand off again. Minor: the report classes 0c8462c9 as resolved but it is still open in the ledger. Its only residue is qsort 0x3e3eb8 size_t, kept by repair 031 as __compar_fn_t AMBIGUOUS, under d73db800. Resolve or re-scope it.",
           "rejected_at": "2026-10-30T21:33:05Z",
           "rejected_by": "socom-verifier-g3b"
+        },
+        {
+          "evidence": [
+            "criterion 4 otherwise holds: c047a89a 22868f48 31f03f6f 69c8f521 ba5122d0 c3a2ea73 19bf949f deferred by user in 34a8b552; 4d52efa4 997ec820 0c7a39d7 483c04ae db9447d5 tooling; 94d56164 d96cdc41 bdcbeb4a fd70c051 ea5d645f 876cb28c 06c2c23d 0c8462c9 d4a5966a resolved in ledger; d4a5966a live: recoEnableWord wordID, EnableTuples col, SetViewCone blipId/fovTAN, voicin_ names present; 7 v0 names under rule note d9737f5d",
+            "progress sql: 734/734 non-gate stage-3 items accepted, accepter != handoff owner on all; 405/405 gate dependencies accepted; pytest tests/tools 450 passed in 564.44s; audit independence --strict ok, 0 findings",
+            "reproduced at r2840: progress audit --strict ok; ghidra preflight --strict ok (9705 functions, 0 Error/Warning, sha equal); 0 leases; stage-scope sha256 5e1480a8e0ce6c761ce5acfeb0d37ab403f26383b00d56c6f95132a99cb40142 byte-identical; receipt f8912398392c42d8a615b7a55f646b7bdb3d0bb18e519ae0db9ed30c797c93a5 (receipt file byte-identical to reviewer's, sha256 187d6d76...); fingerprint identical to build/fingerprints/r033-after.json (sha256 5e66ed77..., 0 sections changed)",
+            "scratch: build/closeout-ghidra-reconstruction/accepter-g3b/ (stage-scope-r3.json, receipt-r3.json, fp-r3.json, pytest-r3.txt)"
+          ],
+          "handoff": {
+            "owner": "socom-verifier-g3",
+            "submitted_at": "2026-10-30T23:10:28Z",
+            "summary": "Stage 3 gate review (run 3) satisfied: 734/734 items accepted; stage receipt reproduces; fingerprint equals r033-after; all 68 open ledger issues classified, 0 unclassified (26 recorded user deferrals citing 5a02515e/34a8b552/8df909fc/21aa8879/4e071940, 39 tooling, 1 resolved-live d4a5966a with ledger still open, 2 later-stage blockers); strict audits and clean-export tests pass"
+          },
+          "handoff_evidence": [
+            "audits at HEAD: progress audit --strict ok r2839; all 15 registered audits --strict ok (final-elf-catalog out of scope); doctor --infrastructure-only ok; docs readme-progress/command-index/capability-coverage fresh; reference ELF sha256 00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a unchanged; 430 stage-3 tracker commits with strictly increasing revisions",
+            "check1: 368 live items each with one ghidra-receipt-sha256 and ghidra-save evidence matching the stored receipt; receipt history ends at socom:work:recon-repair-033-apply; accepter differs from handoff owner on all 734; 13 programs (10 seeded + repairs 031-033) regenerate byte-identically",
+            "clean export (git archive HEAD dbe8bd5): pytest tests/tools 450 passed in 575.17s; progress audit --strict ok r2838; audit independence ok",
+            "report build/closeout-ghidra-reconstruction/REPORT.md sha256:0f68f93724c0bd4807d28fea0c46ee70d4276bfcec282c69ae7930a7496e6f96; issue classification build/closeout-ghidra-reconstruction/check3-all-issues.json (68/68 open issues, 35 routing to stage 3 incl. all 26 open stage-2 class-b carry-overs)",
+            "stage receipt sha256:f8912398392c42d8a615b7a55f646b7bdb3d0bb18e519ae0db9ed30c797c93a5 over build/closeout-ghidra-reconstruction/stage-scope.json sha256:5e1480a8e0ce6c761ce5acfeb0d37ab403f26383b00d56c6f95132a99cb40142 (9703 functions, 100 globals, 28 types), reproduced twice byte-identically",
+            "whole-program fingerprint build/closeout-ghidra-reconstruction/fp-closeout.json sha256:5e66ed77bf03cb14761219b7d6ae684d93e4b02c42c348ce76e1672fa47a19f3 identical to build/fingerprints/r033-after.json; recon contradictions 0 of 4947; debug conflicts 0"
+          ],
+          "reason": "Criterion 4 fails on one item, 6ec4362d. The user's recorded decision 'Fix 2, defer 8' put 6ec4362d in the FIX set. CLASSIFY.md lists exactly 10 open gaps besides the d73db800 duplicate. 8 are deferred: c047a89a, 22868f48, 31f03f6f, 69c8f521, ba5122d0, c3a2ea73, 19bf949f and the 76 @unnamed@ class types. The two with a small fix route are d4a5966a (repair 033) and 6ec4362d (type plan for __chooser<1> plus a 4-row repair). Ledger 34a8b552 then lists 6ec4362d under the deferrals with an agent's reason: '6ec4362d added because the type-plan tool cannot encode the template tag name __chooser<1>'. No user decision approves changing it from fix to defer, and the coordinator's own note reads '6ec4362d also deferred (type-plan tool cannot encode __chooser<1>)'. That is a deferral made on the user's behalf, the same defect as the previous rejection. Live (read-only receipt): std::__use_facet 0x149480/0x149560/0x149640/0x149720 are still 'undefined (void)'. Fix: get the user's explicit decision on 6ec4362d (defer past the gate, or extend the type-plan tool and fix it) and record it verbatim in the ledger, then hand off again. Nothing else needs rework.",
+          "rejected_at": "2026-10-30T23:21:16Z",
+          "rejected_by": "socom-verifier-g3b"
         }
       ],
       "selection": null,
       "stage": "ghidra-reconstruction",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Review and close ghidra-reconstruction"
     },
     {
