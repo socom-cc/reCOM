@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2954,
+  "revision": 2960,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -148262,6 +148262,10 @@
       "title": "Record the reviewed provider owners of libgcc in tracker evidence"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T12:21:30Z",
+        "by": "socom-source-owner-scrutinizer-x5"
+      },
       "batch": {
         "artifact_count": 397,
         "batch_number": 13,
@@ -148300,7 +148304,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-013.json sha256:a28c33dfea38fb744d13176d767967b06c2aea446809335a41d447608939993e; validate --check ok; draft --check ok"
+        "plan build/source-plans/socom-work-source-segment-013.json sha256:a28c33dfea38fb744d13176d767967b06c2aea446809335a41d447608939993e; validate --check ok; draft --check ok",
+        "plan sha256:a28c33dfea38fb744d13176d767967b06c2aea446809335a41d447608939993e graph c79d76e6 rules v4; validate --check ok (397 slice, 396 owned, 1 unresolved, 59 emits), draft --check ok (394 drafted, 2 hand, 0 overrides). No owned MSL template instance lacks an emit. Hand emit 0x178dc0 -> <list> holds: every std list instance with a header unit names <list> (0x178e40, 0x17c580 in this object), and 0x178dc0 calls erase 0x17c580. 0x173520 CNodeVector has no emit, justified: no CNodeVector member has a header unit. orders.h emits 0x178cc0 (DIE 0xb96c4) and 0x1747e0. Hand owners 0x1747e0 -> orders.cpp (all refs from orders.cpp) and goptarg 0x475684 -> getopt.cpp (.sbss order; refs only getopt.cpp/options.cpp) hold, as do the m_defaultFrameRate unresolved reason and the reservation correction."
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-w1d",
@@ -148331,7 +148336,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 013 (0x1728e0-0x17de74, 114 functions)"
     },
     {
@@ -149021,6 +149026,10 @@
       "title": "Apply the reviewed source owners of segment 018 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T12:21:41Z",
+        "by": "socom-source-owner-scrutinizer-x5"
+      },
       "batch": {
         "artifact_count": 659,
         "batch_number": 19,
@@ -149055,7 +149064,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-019.json sha256:17f671710602808e98c2d2e9583ec63d6d79f3cabcad70879c435f536eb8155b; validate --check ok; draft --check ok"
+        "plan build/source-plans/socom-work-source-segment-019.json sha256:17f671710602808e98c2d2e9583ec63d6d79f3cabcad70879c435f536eb8155b; validate --check ok; draft --check ok",
+        "plan sha256:17f671710602808e98c2d2e9583ec63d6d79f3cabcad70879c435f536eb8155b graph c79d76e6 rules v4; validate --check ok (659 owned, 0 unresolved, 17 emits, 1 contradiction), draft --check ok (659 drafted incl. the earlier hand rows via A-kept-copy, 0 hand, 0 overrides). All 16 MSL template instances have emits (<vector>, <msl_utility>). Hand emit 0x1d4b80 char_traits<char>::length -> <string> holds: no char_traits member has a header unit; basic_string instances name ...\\Include\\string, where the standard declares char_traits. The 7 remaining non-MSL inline copies have no emit, justified (no DWARF; their classes have no header units). CKey dtor contradiction at zar_main.cpp:21 is accurate. Reservation zAnim/zArchive/zTwoD/zUI matches the drafted paths."
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-w1d",
@@ -149086,7 +149096,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 019 (0x1d0090-0x1d819c, 198 functions)"
     },
     {
@@ -149415,13 +149425,18 @@
       "handoff": null,
       "id": "socom:work:source-segment-022",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T12:19:20Z",
+        "expires_at": "2026-10-31T14:19:20Z",
+        "heartbeat_at": "2026-10-31T12:19:20Z",
+        "owner": "socom-source-owner-mapper-w2e"
+      },
       "resources": [
         "build/source-plans"
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 022 (0x1e8750-0x1f25b8, 155 functions)"
     },
     {
@@ -149491,6 +149506,10 @@
       "title": "Apply the reviewed source owners of segment 022 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T12:21:53Z",
+        "by": "socom-source-owner-scrutinizer-x5"
+      },
       "batch": {
         "artifact_count": 698,
         "batch_number": 23,
@@ -149526,16 +149545,18 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-023.json sha256:e7d5aa27a0d4322963f589274240d3afb362a1ae3e64eea0f8391f57057084d0; validate --check ok; draft --check ok",
+        "plan sha256:e7d5aa27a0d4322963f589274240d3afb362a1ae3e64eea0f8391f57057084d0 graph c79d76e6 rules v5; validate --check ok (698 owned, 0 unresolved, 50 emits, 3 contradictions), draft --check ok (688 drafted, 10 hand, 0 overrides). All 50 MSL template instances have emits. The 7 hand <list> emits (0x1fe4b0, 0x1fe4d0, 0x1fe5f0, 0x1fe600, 0x1fe610, 0x1fe620, 0x1fe6e0) hold: all 11 std list instances with a header unit name ...\\Include\\list. Hand owners 0x1fe4b0-0x1fe6e0 -> fts_player.cpp (only referencers 0x1fe330, __sinit 0x46ac60, CSpawners dtor 0x1fe4f0) and 0x1fe790/0x1fe850 -> fts_action.cpp (CNodeAction members before vtable key function OnAction 0x1fe9c0; no fts_player refs) hold, as verified on graph 7bd4e540. Kept-copy query re-run: 0 of 1277 pairs. Contradictions node_action.cpp:3/26 and reservation zAI/zFTS hold."
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1d",
+        "submitted_at": "2026-10-31T12:18:53Z",
+        "summary": "rules v5 replan: owners 5 (4 authored, 1 compiler-generated), unresolved 0, retire 0, open rows decided 10 (8 fts_player.cpp, 2 fts_action.cpp, carried over; the draft now decides the other 11); hand header emits 7 (__list_deleter instances -> MSL <list>); 3 contradictions (structured); inferred reservation corrected to src/gamez/zAI, src/gamez/zFTS"
+      },
       "id": "socom:work:source-segment-023",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T12:16:48Z",
-        "expires_at": "2026-10-31T14:16:48Z",
-        "heartbeat_at": "2026-10-31T12:16:48Z",
-        "owner": "socom-source-owner-mapper-w1d"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -149557,7 +149578,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "accepted",
       "title": "Plan source owners of segment 023 (0x1f25c0-0x1ff8cc, 192 functions)"
     },
     {
@@ -152998,6 +153019,10 @@
       "title": "Record the reviewed provider owners of Medius in tracker evidence"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T12:21:27Z",
+        "by": "socom-source-owner-scrutinizer-x8"
+      },
       "batch": {
         "artifact_count": 41,
         "batch_number": 62,
@@ -153029,7 +153054,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-provider-lgaud.json sha256:c3db00d2ffcc580d1e9a85c1f538bf8fa3ebabf103130afd3fc78a0241fbb4ad; validate --check ok; draft --check ok"
+        "plan build/source-plans/socom-work-source-provider-lgaud.json sha256:c3db00d2ffcc580d1e9a85c1f538bf8fa3ebabf103130afd3fc78a0241fbb4ad; validate --check ok; draft --check ok",
+        "plan sha256 c3db00d2ffcc580d1e9a85c1f538bf8fa3ebabf103130afd3fc78a0241fbb4ad on graph c79d76e6; validate --check ok (41/41 owned, 0 problems), draft --check ok (rules v4, 41 drafted, 0 hand, 0 overrides); only change: provider 0x3b5980 archive liblgaud.a / version 1.06, confirmed from ELF bytes: lgAudInit 0x3b5adc/0x3b5ae0 lui/addiu a0=0x463f88 'lgAudInit:  liblgaud.a is version %d.%02d' (in gap 0x463f08, object's LOCAL .rodata run 9787, .rodata HI16/LO16 pair), a1=1 (0x3b5ae4), a2=6 (0x3b5aec delay slot of printf jal 0x3b5ae8); 0x106 irx check 0x3b5ac4; linked default archive unclaimed beyond the literal"
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-w1a",
@@ -153082,7 +153108,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan provider owners of lgAud (1 segments, 25 functions)"
     },
     {
