@@ -419,13 +419,13 @@ def test_draft_refuses_unknown_rules_and_existing_outputs(tmp_path: Path, stage3
     plan_path = "build/source-plans/socom-work-source-segment-001.json"
     assert cli.main([*base, "--item", "socom:work:source-segment-001", "--output", plan_path]) == 0
     report = json.loads(capsys.readouterr().out)
-    assert (report["rules_version"], report["decided"], report["open"]) == (4, 13, 2)
+    assert (report["rules_version"], report["decided"], report["open"]) == (5, 13, 2)
     assert report["outside_reservation"] == ["src/gamez/zBar/b.cpp"]
     assert cli.main([*base, "--item", "socom:work:source-segment-001", "--output", plan_path]) == 2
     assert "never replaces a plan" in json.loads(capsys.readouterr().out)["error"]
     assert cli.main([*base, "--check", plan_path]) == 0
     report = json.loads(capsys.readouterr().out)
-    assert report["ok"] and report["drafted_entries"] == 13 and report["open_rows"] == 2 and report["rules_version"] == 4
+    assert report["ok"] and report["drafted_entries"] == 13 and report["open_rows"] == 2 and report["rules_version"] == 5
     assert report["owner_changes"] == [] and report["header_emit_changes"] == []
     # A version 1 draft is checked under version 1; --rules 2 shows the new decisions.
     old_path = "build/source-plans/v1.json"
@@ -1141,7 +1141,7 @@ def test_rules_4_decide_unanchored_runs_by_elf_regularities(tmp_path: Path, stag
     args = (root, tracker, "socom:work:source-segment-001", graph, v4_facts(graph))
     v3 = draft_owner_plan(*args, rules=3, section_of=MAIN)
     plan = draft_owner_plan(*args, section_of=MAIN)
-    assert plan["draft"]["rules_version"] == 4
+    assert plan["draft"]["rules_version"] == 5
     assert (v3["draft"]["decided"], v3["draft"]["open"]) == (9, 9) and (plan["draft"]["decided"], plan["draft"]["open"]) == (15, 3)
     v3_entries, entries = _entries(v3), _entries(plan)
     new = {identity: (owner, entry["draft_rule"], entry["confidence"]) for identity, (owner, entry) in entries.items()
@@ -1301,7 +1301,7 @@ def test_reference_rules_4(root: Path, reference_source_graph: dict, reference_d
 
     def drafted(item: str) -> tuple[dict, dict]:
         plan = draft_owner_plan(root, tracker, item, graph, facts, section_of=section_of)
-        assert plan["draft"]["rules_version"] == 4 and check_draft(plan, plan)["problems"] == []
+        assert plan["draft"]["rules_version"] == 5 and check_draft(plan, plan)["problems"] == []
         return plan, {entry["artifact"]: (row.get("translation_unit") or row["classification"], entry["draft_rule"])
                       for row in plan["owners"] for entry in row["artifacts"]}
 
@@ -1330,3 +1330,20 @@ def test_reference_rules_4(root: Path, reference_source_graph: dict, reference_d
         len({draft.mark(draft.windows[window][order]) for order in range(low, high + 1)} - {None, "?"}) <= 1
         for window, spans in draft.copy_spans.items() for low, high, _link in spans
     )
+
+
+def test_reference_rules_5_leave_common_variables_open(root: Path, reference_source_graph: dict, reference_draft_inputs) -> None:
+    """Rules 5: a COMMON variable only one object reads is not that object's (Medius's .bss tail)."""
+
+    tracker, facts = reference_draft_inputs
+    graph = reference_source_graph
+    section_of = loaded_section_lookup(root)
+    common = {row["id"] for row in graph["artifacts"] if row.get("common")}
+    item = "socom:work:source-provider-medius"
+    v4 = draft_owner_plan(root, tracker, item, graph, facts, rules=4, section_of=section_of)
+    v5 = draft_owner_plan(root, tracker, item, graph, facts, rules=5, section_of=section_of)
+    decided_common = lambda plan: {e["artifact"] for row in plan["owners"] for e in row["artifacts"]} & common
+    assert len(decided_common(v4)) == 89 and decided_common(v5) == set()
+    reasons = {row["artifact"]: row["reason"] for row in v5["unresolved"]}
+    assert all(reasons[identity].startswith("COMMON variable (linker-allocated, no defining section)") for identity in decided_common(v4))
+    assert v5["draft"]["decided"] == v4["draft"]["decided"] - 89 and check_draft(v5, v5)["problems"] == []

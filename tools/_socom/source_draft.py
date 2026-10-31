@@ -146,6 +146,14 @@ GNU object start, no conflicting anchors, no provider-proven function and no
 strong or medium candidate of another unit; ``D-referenced`` then runs on the
 fixed point (it feeds nothing back).
 
+Rules 5 keep every version 4 rule except that neither ``D-referenced`` nor
+the "referenced only by" fallback of ``P-gnu-data`` decides a COMMON variable
+(the graph's ``common``: linker-allocated, no defining section). Being read by
+one object's functions does not name its definer (a tentative definition can
+sit in a file that never reads it; Medius allocates one DME block across four
+objects), so the row stays open with that reason and, in authored plans, an
+``S-sole-referencer`` suggestion.
+
 R2 (a WEAK copy closes its object) is not a rule: ``swap<Ui>`` 0x172ac0, WEAK
 and DWARF-placed in database.cpp, precedes database.cpp's GLOBAL
 ``LoadWorld`` 0x172b60 (1 of 162 anchored WEAK functions), and every positive
@@ -218,8 +226,8 @@ from .source_plan import (
 )
 from .util import SocomError
 
-DRAFT_RULES_VERSION = 4
-RULES_VERSIONS = (1, 2, 3, 4)
+DRAFT_RULES_VERSION = 5
+RULES_VERSIONS = (1, 2, 3, 4, 5)
 # The version a plan without a recorded (known) draft rules version is checked under.
 UNVERSIONED_RULES = 1
 ANCHOR_ORDER = ("A-dwarf-cu", "A-dwarf-header", "A-sinit", "A-unnamed", "A-dwarf-static", "A-file-string", "A-local-block")
@@ -1013,6 +1021,9 @@ def draft_owner_plan(
                     f"(LOCAL section symbol {run['symbol_index']}; end: {run.get('end_basis')})"
                 )
             elif users and not via_gap and len(user_objects) == 1 and None not in user_objects:
+                if draft.rules >= 5 and row.get("common"):
+                    leave(identity, _common_reason(f"GNU object {next(iter(user_objects))}", len(users)))
+                    continue
                 target = next(iter(user_objects))
                 confidence, basis = "medium", f"referenced only by functions of GNU object {target} ({len(users)})"
             if target is not None and not draft.anchor.get(identity):
@@ -1057,6 +1068,9 @@ def draft_owner_plan(
             units = {(draft.decided.get(user) or ("",))[0].casefold() for user in users}
             if users and not via_gap and len(units) == 1 and "" not in units:
                 spelled = draft.decided[next(iter(users))][0]
+                if draft.rules >= 5 and row.get("common"):
+                    leave(identity, _common_reason(spelled, len(users)))
+                    continue
                 decided = (spelled, "D-referenced", f"referenced only by {len(users)} function(s) of {spelled}", "medium")
         if decided is None:
             conflict = draft.conflict(identity)
@@ -1183,6 +1197,15 @@ def _section_gap(draft: _Draft, row: dict[str, Any]) -> tuple[dict[str, Any], st
     )
 
 
+def _common_reason(referrer: str, users: int) -> str:
+    """Rules 5: the open reason of a COMMON variable only one object or unit references."""
+
+    return (
+        f"COMMON variable (linker-allocated, no defining section): the ELF names no definer; "
+        f"referenced only by {users} function(s) of {referrer}"
+    )
+
+
 def _provider_unit_decision(draft: _Draft, row: dict[str, Any], library: str) -> tuple[str, str, str, str] | None:
     """Rules 3: the unit decision of an artifact of a Metrowerks-compiled provider unit of ``library``.
 
@@ -1193,7 +1216,8 @@ def _provider_unit_decision(draft: _Draft, row: dict[str, Any], library: str) ->
 
     identity = row["id"]
     decided = draft.decided.get(identity)
-    if decided is None and row["kind"] == "data" and len(draft.conflict(identity)) <= 1:
+    common = draft.rules >= 5 and row.get("common")
+    if decided is None and row["kind"] == "data" and len(draft.conflict(identity)) <= 1 and not common:
         if strong_provider(row, draft.unit_library) in (None, library):
             users, via_gap = draft.function_users(identity)
             units = {(draft.decided.get(user) or ("",))[0].casefold() for user in users}

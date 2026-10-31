@@ -393,8 +393,8 @@ validate) regenerates the graph from the ELF instead.
 
 ### Draft rules (versions 1 to 4)
 
-`source plan draft --item <item> --output <plan> [--rules 1|2|3|4]` writes a
-schema 2 plan under version 4 unless `--rules` says otherwise. Each decided
+`source plan draft --item <item> --output <plan> [--rules 1|2|3|4|5]` writes a
+schema 2 plan under version 5 unless `--rules` says otherwise. Each decided
 artifact is an entry `{artifact, confidence, basis, draft_rule}`; each owner
 row's confidence is its weakest entry's. The rules are conservative: when
 any condition fails the artifact stays open. Their exact statement is in
@@ -403,7 +403,12 @@ any condition fails the artifact stays open. Their exact statement is in
 rules and LOCAL section containment (marked *v3*); version 4 decides
 unanchored runs between two units by ELF regularities, adds suggestions
 and header emits for instances without a header compile unit (marked
-*v4*); every other rule is version 1's.
+*v4*); version 5 keeps version 4 except that `D-referenced` and the
+"referenced only by" fallback of `P-gnu-data` never decide a COMMON
+variable (the graph's `common`: linker-allocated, no defining section), which
+stays open with that reason (authored plans: an `S-sole-referencer`
+suggestion); every other rule is version 1's. A plan is checked under the
+version it was drafted with.
 
 | Rule | Decides | Confidence |
 | --- | --- | --- |
