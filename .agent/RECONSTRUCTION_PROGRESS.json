@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3046,
+  "revision": 3055,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -149418,23 +149418,33 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-021.json sha256:d701cd7edc6951b8b8b78f4a139729ed2bbd5904bd87dc0def60191ff326683a; validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-w2a",
-        "submitted_at": "2026-10-31T12:43:01Z",
-        "summary": "owners 6 authored + fill (bone_init.cpp, si_object.cpp, si_script.cpp, body.cpp new in src/gamez/zBody, zcam_main.cpp, zcam_update.cpp), unresolved 0, retire 0, open rows decided 34 of 34; reservation corrected (+zBody, zMath, zNode); 5 contradictions"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-021",
       "kind": "source-plan-segment",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-w2a",
+            "submitted_at": "2026-10-31T12:43:01Z",
+            "summary": "owners 6 authored + fill (bone_init.cpp, si_object.cpp, si_script.cpp, body.cpp new in src/gamez/zBody, zcam_main.cpp, zcam_update.cpp), unresolved 0, retire 0, open rows decided 34 of 34; reservation corrected (+zBody, zMath, zNode); 5 contradictions"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-021.json sha256:d701cd7edc6951b8b8b78f4a139729ed2bbd5904bd87dc0def60191ff326683a; validate --check ok; draft --check ok"
+          ],
+          "reason": "plan sha256:d701cd7edc6951b8b8b78f4a139729ed2bbd5904bd87dc0def60191ff326683a (validate --check ok, draft --check ok). Placements accepted on review: si_object.cpp | si_script.cpp cut at 0x1de0b0|0x1de110 holds beyond class identity (inline SetTimeScale copy 0x1de110 is referenced only by si_script.cpp's __vt__10CZSIScript 0x471a40, so with R4 and the R1/R3 span from __dt__10CZSIScriptFv 0x1de430 the run 0x1de110-0x1de42f is si_script.o; medium right); GLOBAL D-referenced m_do_region_test 0x474da8 and Sizeof_MotionRdr 0x4758e0 sit directly before zcam_main.cpp's / bone_init.cpp's own LOCAL runs; hand data numSiObject/numSiScript/numSiCommon/m_version lie in link order; zmath_matrix.h emit for 0x1e45f0 is its own DWARF header unit Z:\\dev\\gamez\\zmath\\zmath_matrix.h (022's 0x1eb350 has the same); 0x1df000 deletes its CZSIScriptCommon* elements (user-written) and is referenced only by __sinit_si_script.cpp. FINDINGS (brief rule, updated 2026-10-31: an inline/WEAK copy referenced from functions of two or more units, vtable/__sinit included, is defined in a shared header and emits to its class's header - DWARF header unit, else the provisional header declaring the class - implicit and explicit alike). Six owned body.cpp copies have no emit: (1) 0x1e34a0 NullNode__5CBodyCFv (binding 13), referenced by __vt__5CBody (body.cpp) and __vt__10CZSealBody 0x472110 (seal.cpp): fix --header-emit src/gamez/zBody/zbody.h --reason inline (zbody.h:16 declares CBody::NullNode). (2) 0x1e3a70 Top__26RTStack<15CZBodyAnimBlend>Fv (WEAK), referenced from body.cpp and a dozen seal_*/camera.cpp functions: fix --header-emit src/rt/rtstack.h --reason template (src/rt/rtstack.h:5 declares RTStack) and correct the reservation to add src/rt. (3)-(6) RTList<ACTIVE_ANIM> members 0x1e3aa0 Clear (body.cpp + seal_body.cpp BlendedClimb 0x275ab0 etc.), 0x1e3af0 Remove (body.cpp + seal_cfg.cpp MixAnims 0x27e1b0), 0x1e3c30 LIST_ITEM dtor (body.cpp + __dt__15CActiveAnimList 0x27d480), 0x1e3c80 ctor (body.cpp RTArray ctor + __sinit_seal_body.cpp 0x46c660): no DWARF header unit and no provisional header declares RTList; name its header with evidence (e.g. a new src/rt/rtlist.h beside rtarray.h/rtstack.h, the RT container family) and emit there, reservation corrected; do not leave them header-less. Then validate --check --fill-annotations, validate --check, draft --check and hand off again.",
+          "rejected_at": "2026-10-31T18:27:56Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x11"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 021 (0x1dd520-0x1e8748, 167 functions)"
     },
     {
@@ -150760,8 +150770,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-031.json sha256:eed44e9fa20cf65d1f93d532f487dc008b1da50286db2dd0ecc09076ed411e1c; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w3b",
+        "submitted_at": "2026-10-31T18:28:22Z",
+        "summary": "rework after x13: added 5 inline header emits to src/gamez/zAI/zai.h (implicit dtors of CAiSPursue/CAiSAnimate/CAiSGrenade/CAiSDeploy/CAiSAction, vtables read by seal_aistate.cpp's CAiState::Create); reservation corrected to src/gamez/zSeal + src/gamez/zAI; owners unchanged (3 owners, 3 unresolved, 0 retire)"
+      },
       "id": "socom:work:source-segment-031",
       "kind": "source-plan-segment",
       "lease": null,
@@ -150786,7 +150802,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 031 (0x2591e0-0x26e9f8, 186 functions)"
     },
     {
@@ -150885,8 +150901,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-032.json sha256:234beb9573e5e13369f800a4c7805378cee56b7f9ec5494695f1453266c2bdc3; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w3b",
+        "submitted_at": "2026-10-31T18:29:22Z",
+        "summary": "rework after x13: added inline header emit of the implicit CActiveAnimList dtor 0x27d480 to src/gamez/zAnim/zanim.h (class used by body.cpp, seal_cfg.cpp, seal_body.cpp); reservation corrected to src/gamez/zSeal + src/gamez/zAnim; owners unchanged (7 owners, 17 unresolved, 0 retire, 2 D-referenced overrides, 4 contradictions); GetMaxZMotion contradiction span left as is (decide cannot replace a contradiction row)"
+      },
       "id": "socom:work:source-segment-032",
       "kind": "source-plan-segment",
       "lease": null,
@@ -150911,7 +150933,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 032 (0x26ea00-0x28a55c, 199 functions)"
     },
     {
@@ -151014,7 +151036,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-033",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T18:29:30Z",
+        "expires_at": "2026-10-31T20:29:30Z",
+        "heartbeat_at": "2026-10-31T18:29:30Z",
+        "owner": "socom-source-owner-mapper-w3b"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -151036,7 +151063,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 033 (0x28a560-0x2a451c, 197 functions)"
     },
     {
@@ -151131,8 +151158,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-034.json sha256:1f5e687a1dbf9de912741289202b49f50668f87e43eab96849c05a2a632391b0; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w3c",
+        "submitted_at": "2026-10-31T18:27:22Z",
+        "summary": "x13 fix: CQuat ctor 0x2a46e0 referenced only by __sinit_seal_env.cpp (one unit), so no header emit; reason recorded as plan note. Otherwise unchanged: owners 4, unresolved 5, open rows decided 22"
+      },
       "id": "socom:work:source-segment-034",
       "kind": "source-plan-segment",
       "lease": null,
@@ -151157,7 +151190,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 034 (0x2a4520-0x2afbb4, 128 functions)"
     },
     {
@@ -151517,23 +151550,33 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-037.json sha256:39f9dbed5e789234fe192853e6a191368e91ee5b37c30b00d77cfbeae855b9f5; validate --check ok; draft --check ok (1 override)"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-w3c",
-        "submitted_at": "2026-10-31T13:09:47Z",
-        "summary": "owners 4 (seal_airesponse.cpp, seal_ai.cpp (new row: D-referenced GLOBAL override), ai_target.cpp (new invented row, unnamed CAiTarget object), compiler-generated), unresolved 0, retire 0, open rows decided 24 (6 accepted suggestions, 18 hand; 11 low), reservation confirmed"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-037",
       "kind": "source-plan-segment",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-w3c",
+            "submitted_at": "2026-10-31T13:09:47Z",
+            "summary": "owners 4 (seal_airesponse.cpp, seal_ai.cpp (new row: D-referenced GLOBAL override), ai_target.cpp (new invented row, unnamed CAiTarget object), compiler-generated), unresolved 0, retire 0, open rows decided 24 (6 accepted suggestions, 18 hand; 11 low), reservation confirmed"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-037.json sha256:39f9dbed5e789234fe192853e6a191368e91ee5b37c30b00d77cfbeae855b9f5; validate --check ok; draft --check ok (1 override)"
+          ],
+          "reason": "Plan sha256 39f9dbed (validate --check ok, draft --check ok). Finding: 10 owned implicit virtual dtors of AI state classes used across units have no header emit. Each is binding 13 with no DWARF, and its body only stores the vtable, inlines ~CAiState (__vt__8CAiState), destroys members (CAiPath for PathRecover) and deletes. Each class is defined in seal_airesponse.cpp and also constructed by seal_aistate.cpp's Create__8CAiState, whose inline ctor references its vtable, so the class definition is shared through a header. Provisional src/gamez/zAI/zai.h declares each with no user ctor/dtor. Rule (brief; precedents accepted 014 0x17fc20 and 015 0x18b040 -> zai.h). The dtors and their zai.h lines: 0x2e9160 CAiSPathRecover :477, 0x2e9200 CAiSFlee :472, 0x2e9280 CAiSTarget :517, 0x2e92e0 CAiSEvent :512, 0x2e9340 CAiSRestrained :427, 0x2e93d0 CAiSStunResponse :527, 0x2e94a0 CAiSHold :407, 0x2e9500 CAiSSurrender :422, 0x2e9580 CAiSNoAmmo :497, 0x2e9660 CAiSShotAt :492. Fix: decide --header-emit src/gamez/zAI/zai.h --reason inline for these 10 (none has an emit row yet), and correct the reservation to add src/gamez/zAI (as accepted 014 did for zMath); re-validate and re-handoff. CAiSCorpse 0x2e9440 and CAiSReload 0x2e95f0 are not declared in any provisional header, so they get no emit; add a note saying so. Explicit inline members (Can*, GetScriptResponse, CTarget::operator=(const CTarget*), compare_target) correctly get none. Checked and sound: ai_target.cpp invented/low. Its LOCAL block 6669-6673 is separate from seal_airesponse's 6589-6668 and 989snd.c's 6674, and its labels @1484-1499 restart below seal_airesponse's @3438-@4619, so it is a new compilation. It has no MultiplayerMsgStrings, unlike seal_tasks..seal_airesponse, anim and remote_control. Its offset498 0x509b40 lies between seal_airesponse's .bss and 989snd's. No provisional file defines CAiTarget or CheckLineOfFire. The note covering one object or two is present, and the zSeal directory is acceptable at low. underfire_return 0x474f50 -> seal_ai.cpp is correct: it lies strictly between seal_ai LOCAL .sdata 0x474f4c and 0x474f54. The NoAmmo/Reload/ShotAt copies are referenced only by seal_airesponse vtables.",
+          "rejected_at": "2026-10-31T18:28:58Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x14"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 037 (0x2e4ab0-0x2ea400, 76 functions)"
     },
     {
