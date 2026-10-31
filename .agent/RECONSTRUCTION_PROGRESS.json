@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2971,
+  "revision": 2983,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -146965,6 +146965,10 @@
       "title": "Review and close ghidra-reconstruction"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T12:40:20Z",
+        "by": "socom-source-owner-scrutinizer-x9"
+      },
       "batch": {
         "artifact_count": 202,
         "batch_number": 40,
@@ -147003,8 +147007,15 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-040.json sha256:92f9aef1b7fa5c921bc1fe3bf7dacfd566f140a4ea3c7c27e99366dbf1aac041 matches the handoff; validate --check ok (200 owned, 2 unresolved, 9 contradictions) and draft --check ok (164 drafted, 36 hand, 0 open, 0 overrides). x9's findings fixed: four zsys_spr.cpp contradictions added - signature line 6 zsysSprGetPacket(_word128*) vs zSysSprGetPacket__FPP1 0x2f5ab0, linkage lines 3/4 GLOBAL vs LOCAL sprBeingWritten 0x476534 / sprBeingKicked 0x476530 (LOCAL block 6820-6826), not-in-elf line 23 zsys_AllocScratchpad (no such symbol in any case); 0x2f57b0 basis and the cut note now rest on class CSPR (Kick 0x2f5810 in cluster 0x100000) plus R2 named a tendency with the database.cpp counterexample, low, zsys_init's tail the alternative; no 139/139 claim remains. Earlier checks stand: name_basis invented coherent (two unit-less provisional files zsys_spr.cpp:30 and zsys_main.cpp:6/11; zsys_main.cpp is no graph unit; the existing zsys_spr.cpp is cited and owned), one row for blocks 6820-6826/6827 with note, CValve/CTexList/po2/sole-referencer hand rows, <algorithm> emits 0x2f6ee0/0x2f7000, CTexture::Init + m_startAddress unresolved, zsys_init.cpp path, reservation corrected +src/gamez/zSystem.",
+        "plan build/source-plans/socom-work-source-segment-040.json sha256:92f9aef1b7fa5c921bc1fe3bf7dacfd566f140a4ea3c7c27e99366dbf1aac041; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1f",
+        "submitted_at": "2026-10-31T12:38:11Z",
+        "summary": "rework after x9: 4 zsys_spr.cpp contradictions added (line 6 signature vs zSysSprGetPacket__FPP1, lines 3/4 GLOBAL vs LOCAL sprBeingWritten/sprBeingKicked, line 23 zsys_AllocScratchpad not in ELF); R2 '139/139' wording removed from 0x2f57b0 basis (low) and the cut note, alternative zsys_init tail noted; owners 9, unresolved 2, retire 0, contradictions 9"
+      },
       "id": "socom:work:source-segment-040",
       "kind": "source-plan-segment",
       "lease": null,
@@ -147047,7 +147058,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan source owners of segment 040 (0x2f5640-0x2f9aac, 75 functions)"
     },
     {
@@ -147155,22 +147166,23 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-039.json sha256:0866c38835c796ae43ac29d85cfc2b7d9004033c8a524a6d37a84dc4984ed552; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w2d",
+        "submitted_at": "2026-10-31T12:37:20Z",
+        "summary": "owners 10 (9 authored incl. invented headset.cpp, 1 compiler-generated), unresolved 9, retire 0, open rows decided 113 of 122; 35 header emits (15 hand), 25 contradictions; reservation corrected (+src/Apps/FTS/game)"
+      },
       "id": "socom:work:source-segment-039",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T12:12:21Z",
-        "expires_at": "2026-10-31T14:12:21Z",
-        "heartbeat_at": "2026-10-31T12:12:21Z",
-        "owner": "socom-source-owner-mapper-w2d"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 039 (0x2ebd20-0x2f5640, 190 functions)"
     },
     {
@@ -148526,6 +148538,10 @@
       "title": "Apply the reviewed source owners of segment 014 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T12:39:57Z",
+        "by": "socom-source-owner-scrutinizer-x9"
+      },
       "batch": {
         "artifact_count": 368,
         "batch_number": 15,
@@ -148561,16 +148577,18 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-015.json sha256:5a7e72e83c9c9edee0dd131f890361dddc798aeb416fb4e05ff8365b7b84ed74 matches the handoff; validate --check ok (368/368 owned, 100 header emits) and draft --check ok (355 drafted, 13 hand, 0 open, 0 overrides). x9's finding fixed: 0x18c370 (CAiMap::action copy ctor) and 0x19d8e0 (CAiMap::names default ctor) now emit from src/gamez/zAI/zai.h (reason inline), citing use by ai_map 0x187120/0x188030/0x187140, ai_mapio 0x18a5e0/0x18a890-0x18bea0 and ai_maps (UpdateActionTables 0x199010 reads invalid__Q26CAiMap6action 0x449170; __sinit_ai_maps calls 0x19d8e0) and enclosing CAiMap at zai.h:297; note corrected; 0x193330 (action_v18, ai_mapio only) correctly keeps no emit. Earlier checks stand: <algorithm>/<vector>/<msl_utility>/<list> MSL emits (MSL algorithm 28/198/569/1370, vector 1169 verified; 0x3cbf20 header unit MSL_Common\\\\Include\\\\vector), CAiMapLocVec -> zai.h:294, x6's 0x18b0b0 drafted H-template-family.",
+        "plan build/source-plans/socom-work-source-segment-015.json sha256:5a7e72e83c9c9edee0dd131f890361dddc798aeb416fb4e05ff8365b7b84ed74; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1e",
+        "submitted_at": "2026-10-31T12:36:23Z",
+        "summary": "fix x9 finding: zai.h inline emits for implicit CAiMap::action copy ctor 0x18c370 and CAiMap::names ctor 0x19d8e0; owners 4 authored + fill, unresolved 0, retire 0, open rows decided 13 (drafted 355, hand 13); 18 hand header emits"
+      },
       "id": "socom:work:source-segment-015",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T12:35:09Z",
-        "expires_at": "2026-10-31T13:35:09Z",
-        "heartbeat_at": "2026-10-31T12:35:09Z",
-        "owner": "socom-source-owner-mapper-w1e"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -148606,7 +148624,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "accepted",
       "title": "Plan source owners of segment 015 (0x188f60-0x19dca0, 193 functions)"
     },
     {
@@ -149229,13 +149247,18 @@
       "handoff": null,
       "id": "socom:work:source-segment-020",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T12:39:05Z",
+        "expires_at": "2026-10-31T14:39:05Z",
+        "heartbeat_at": "2026-10-31T12:39:05Z",
+        "owner": "socom-source-owner-mapper-w2b"
+      },
       "resources": [
         "build/source-plans"
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 020 (0x1d81a0-0x1dd518, 100 functions)"
     },
     {
@@ -149851,13 +149874,18 @@
       "handoff": null,
       "id": "socom:work:source-segment-025",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T12:37:27Z",
+        "expires_at": "2026-10-31T14:37:27Z",
+        "heartbeat_at": "2026-10-31T12:37:27Z",
+        "owner": "socom-source-owner-mapper-w2d"
+      },
       "resources": [
         "build/source-plans"
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 025 (0x20bb40-0x218dd8, 158 functions)"
     },
     {
@@ -149966,22 +149994,23 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-026.json sha256:fb2b6b8462cd047f18e152f1297674dec1e4bca174f189bf544652daf7b316fd; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w2b",
+        "submitted_at": "2026-10-31T12:38:57Z",
+        "summary": "owners 15 (14 authored incl. invented zin_main.cpp/zin_keyboard.cpp/int_bbox.cpp/zmath_trig.cpp, 1 compiler-generated), unresolved 14, retire 0, open rows decided 168 of 182; 9 hand MSL header emits, 34 contradictions; reservation corrected (+src/gamez/zInput)"
+      },
       "id": "socom:work:source-segment-026",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T12:10:54Z",
-        "expires_at": "2026-10-31T14:10:54Z",
-        "heartbeat_at": "2026-10-31T12:10:54Z",
-        "owner": "socom-source-owner-mapper-w2b"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 026 (0x218de0-0x22489c, 188 functions)"
     },
     {
@@ -150053,6 +150082,10 @@
       "title": "Apply the reviewed source owners of segment 026 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T12:40:08Z",
+        "by": "socom-source-owner-scrutinizer-x9"
+      },
       "batch": {
         "artifact_count": 286,
         "batch_number": 27,
@@ -150089,8 +150122,15 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-027.json sha256:9458c3a0411c8d8d37fa5a04234714b73d8744c5a94613bfa784417a20a71fe1 matches the handoff; validate --check ok (284 owned, 2 unresolved, 10 contradictions) and draft --check ok (246 drafted, 38 hand, 0 open, 0 overrides). x9's finding fixed: SetModel 0x228f20 and Delete 0x228fd0 are now low under node_model.cpp (row low, name_basis provisional), and their basis, the two defined-elsewhere contradictions (node_main.cpp:677, :373) and the cut note state the evidence exactly: node_main runs to 0x228f14 (kept copies 0x228df0/0x228e30/0x228eb0), LOCAL block 3663-3680 separates the object from 0x2290f0, no LOCAL relocation in between, R2 named a tendency with the database.cpp counterexample (0x1729f0-0x172b40 before LoadWorld 0x172b60), node_main's tail named as the alternative; no 139/139 claim remains. Earlier checks stand: cluster 0x2290f0 rows, .rodata 0x44f790-0x44f890, __vt__Q23zdb6CModel 0x471f90, CModel ctor 0x229ff0 medium, suggestions 0x228eb0/0x22b1c0/0x22b220, CProjectedMap_Object 0x22b260/0x22b2d0 unresolved, <algorithm> emit 0x228df0 (cw301 algorithm header units), 10 contradiction lines verified.",
+        "plan build/source-plans/socom-work-source-segment-027.json sha256:9458c3a0411c8d8d37fa5a04234714b73d8744c5a94613bfa784417a20a71fe1; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1f",
+        "submitted_at": "2026-10-31T12:37:02Z",
+        "summary": "rework after x9: SetModel 0x228f20/Delete 0x228fd0 re-decided low (node_model.cpp; alternative node_main tail noted), R2 '139/139' wording removed from bases, note and the 2 reworded defined-elsewhere contradictions; owners 5, unresolved 2, retire 0, contradictions 10"
+      },
       "id": "socom:work:source-segment-027",
       "kind": "source-plan-segment",
       "lease": null,
@@ -150133,7 +150173,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan source owners of segment 027 (0x2248a0-0x22c194, 103 functions)"
     },
     {
