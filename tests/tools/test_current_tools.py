@@ -129,33 +129,31 @@ def test_docblocks_resolve_symbols_of_the_stored_reference_census(
     assert report["ok"] is True, report["errors"]
 
 
-def test_source_correlation_is_deferred_until_its_gate_route_is_registered(
+def test_source_correlation_is_producible_once_its_gate_route_is_registered(
     root: Path,
 ) -> None:
     report = audits.pipeline_reachability(root, _command_rows())
     assert report["ok"] is True, report["missing"]
-    by_stage = {row["stage"]: row for row in report["deferred"]}
-    row = by_stage["source-correlation"]
-    # Planning and the apply route are registered (the seed may be
-    # decomposed); closing the stage is not.
-    assert row["decomposed"] is (row["seed_count"] == 0)
-    assert {key: row[key] for key in ("blocked", "capability", "prerequisite")} == {
-        "blocked": False,
-        "capability": "source-correlation",
-        "prerequisite": "source-correlation-gate-route",
-    }
-    # Validators alone never make the stage producible.
+    # Planning, the apply route and the gate route are all registered.
+    assert "source-correlation" not in {row["stage"] for row in report["deferred"]}
+    commands = {row["command"] for row in _command_rows()}
     assert {
-        "audit source-trace",
-        "source artifacts",
-        "source plan validate",
         "progress decompose-stage",
+        "source plan validate",
         "source annotate",
         "progress apply-source-plan",
-    } <= {row["command"] for row in _command_rows()}
+        "progress handoff-source-gate",
+        "progress accept-source-gate",
+    } <= commands
+    # Without its gate route the stage has no complete producer.
+    report = audits.pipeline_reachability(
+        root, [row for row in _command_rows() if row["command"] != "progress accept-source-gate"]
+    )
+    assert report["ok"] is False
+    assert [row["stage"] for row in report["missing"]] == ["source-correlation"]
 
 
-def test_pipeline_reachability_requires_a_seed_for_capability_deferral(
+def test_pipeline_reachability_requires_a_seed_for_a_deferred_stage(
     tmp_path: Path, root: Path
 ) -> None:
     (tmp_path / ".agent").mkdir()
@@ -165,7 +163,7 @@ def test_pipeline_reachability_requires_a_seed_for_capability_deferral(
     tracker["work_items"] = [
         row
         for row in tracker["work_items"]
-        if not (row.get("stage") == "source-correlation" and row.get("kind") in ("stage-seed", "stage-gate"))
+        if not (row.get("stage") == "authored-function-order" and row.get("kind") == "stage-seed")
     ]
     (tmp_path / ".agent" / "RECONSTRUCTION_PROGRESS.json").write_text(
         json.dumps(tracker), encoding="utf-8"
@@ -174,7 +172,7 @@ def test_pipeline_reachability_requires_a_seed_for_capability_deferral(
     assert report["ok"] is False
     assert report["missing"] == [
         {
-            "stage": "source-correlation",
+            "stage": "authored-function-order",
             "error": "deferred stage lacks a seed and explicit blocker",
         }
     ]
@@ -186,8 +184,11 @@ def test_capability_stage_names_are_validated() -> None:
     report = audit_capabilities(_command_rows())
     assert report["ok"] is True, report["errors"]
     staged = {row["id"]: row for row in CAPABILITIES if row.get("stage")}
-    assert staged["source-correlation"]["status"] == "deferred"
-    assert staged["source-correlation"]["blocker"] == "source-correlation-gate-route"
+    # The gate route closes the stage: no blocker is left.
+    assert staged["source-correlation"]["status"] == "active" and "blocker" not in staged["source-correlation"]
+    assert {"progress handoff-source-gate", "progress accept-source-gate", "audit source-baseline"} <= set(
+        staged["source-correlation"]["commands"]
+    )
     planning = next(row for row in CAPABILITIES if row["id"] == "source-correlation-planning")
     assert planning["status"] == "active" and "source plan validate" in planning["commands"]
     # The apply route is active and opens the apply items' capability gate.

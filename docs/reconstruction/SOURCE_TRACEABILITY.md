@@ -64,8 +64,11 @@ The stage is decomposed, and its plans validated, by registered commands.
 `progress apply-source-plan` applies an accepted plan's moves, creates,
 retired files and generated annotations (`source annotate`). It records the
 retired files' paths and content SHA-256s in tracker evidence, and git
-history keeps their content. The stage gate's review route is not
-registered yet.
+history keeps their content. The stage gate closes through
+`progress handoff-source-gate` and `progress accept-source-gate`. Any
+unresolved artifact must be covered by a recorded deferral, and
+`audit source-baseline` then holds the annotation edges under `src/` to the
+recorded file-stage baseline.
 
 ## Translation-unit evidence: `source graph`
 
@@ -81,8 +84,8 @@ the tracker or `src/`, and writes only the files named under `build/`. Its
 output is deterministic and carries `graph_sha256` over the canonical content,
 like `recon graph`. Everything in it is a candidate and it owns nothing.
 `progress decompose-stage --stage source-correlation` builds the stage's
-owner-plan items from it ([SOURCE_CORRELATION.md](SOURCE_CORRELATION.md)). The
-stage stays deferred until its gate review route is registered.
+owner-plan items from it ([SOURCE_CORRELATION.md](SOURCE_CORRELATION.md)), and
+its gate route closes the stage.
 
 Artifacts are the census-derived set: one row per start address of the sized
 `FUNC` (`socom:function:0x...`) and `OBJECT` (`socom:data:0x...`) symbols,

@@ -21,12 +21,14 @@ tracker evidence only (user decision of 2026-10-31). The artifact basis is
 the census-derived set that `source graph` produces
 ([SOURCE_TRACEABILITY.md](SOURCE_TRACEABILITY.md)).
 
-Planning and the apply route are active. `progress apply-source-plan`
+Planning, the apply route and the gate route are active
+([TOOL_COVERAGE.md](TOOL_COVERAGE.md)). `progress apply-source-plan`
 applies an accepted plan (a segment's files and annotations under `src/`, a
 provider's evidence in the tracker), and `progress open-capability-gate`
-opens the capability gate the apply items wait on. The route that reviews
-and closes the stage gate is not registered yet, so the stage stays deferred
-in [TOOL_COVERAGE.md](TOOL_COVERAGE.md).
+opens the capability gate the apply items wait on. An independent reviewer
+and accepter close the stage gate with `progress handoff-source-gate` and
+`progress accept-source-gate`, which record the file-stage baseline (see
+[The stage gate](#the-stage-gate)).
 
 ## Decomposition
 
@@ -1136,11 +1138,134 @@ file is recorded and that the archive members match the plan.
 
 ### The stage gate
 
-The stage gate is reviewed by `socom-verifier`. Its packet shows the stage
-is file-only: the `ghidra-reconstruction` stage scope must still produce
-that stage's baseline receipt. Every accepted plan must pass `--check`, and
-`audit source-trace --require-complete` must pass. Under the lean model,
-that audit checks completeness against the accepted owner plans and their
-generated annotations ([SOURCE_TRACEABILITY.md](SOURCE_TRACEABILITY.md)).
-The route that reviews and accepts the gate, including cross-plan unit
-consistency, is not registered yet.
+The stage gate (`socom:work:source-correlation-seed`) closes the stage. It
+mirrors the stage 3 close-out for a file-only stage: an independent reviewer
+hands it off, a different accepter accepts it, and the acceptance records a
+baseline. The generic `progress work handoff` and `progress work accept`
+refuse it. `progress record-stage-baseline` refuses the stage, because the
+acceptance records its baseline.
+
+```powershell
+python tools/socom.py source gate-check `
+  --deferrals build/closeout-source-correlation/deferrals.json `
+  --output build/closeout-source-correlation/gate-check.json [--skip-receipt]
+python tools/socom.py progress work claim --item socom:work:source-correlation-seed `
+  --owner <reviewer> --lease-minutes 60 --expected-revision <n>
+python tools/socom.py progress handoff-source-gate --item socom:work:source-correlation-seed `
+  --owner <reviewer> --summary <summary> `
+  --deferrals build/closeout-source-correlation/deferrals.json `
+  [--evidence <line>] --expected-revision <n> [--dry-run]
+python tools/socom.py progress accept-source-gate --item socom:work:source-correlation-seed `
+  --accepter <accepter> --evidence <review evidence> --expected-revision <n> [--dry-run]
+```
+
+The gate becomes ready once every apply and data reconcile is accepted.
+Both routes accept `--graph` (default `build/source-graph/graph.json`),
+`--check` (regenerate the graph from the ELF) and `--bridge-url`.
+
+**Independence.** The reviewer (the gate's lease owner) and the accepter
+must not have handed off any stage 4 item, including entries in the review
+history. That covers planners, data reconcilers and apply workers. Neither
+may be a tool maintainer (a name containing `tool-maintainer`), and the
+accepter must differ from the reviewer.
+
+**Checks.** `source gate-check` runs every check read-only and writes the
+full report under `build/`, including every problem and every unresolved
+artifact with the deferral that covers it. Both routes re-run the same
+checks and refuse while any of them fails. The checks are:
+
+1. preconditions, checked before Ghidra is read: the stage is decomposed;
+   every other stage 4 item is accepted; the route gate was accepted by
+   `progress open-capability-gate`; no item is leased except the gate,
+   held by its reviewer; and no open tracker blocker names the stage;
+2. strict audits and current generated metadata: `progress audit --strict`
+   (with the reference census), a fresh README progress snapshot, and a
+   valid issue ledger;
+3. reproducible evidence: the graph is the decomposition's
+   (`graph_sha256`) and verifies;
+4. every accepted plan: it is unchanged (its SHA-256 is cited), it passes
+   `source plan validate` in its applied state, and its apply (segment or
+   provider) is accepted with a record of that plan and its owner map and
+   passes `source apply-check`. A segment plan must also pass
+   `source annotate --check` with no drift;
+5. no blocking conflicts: across plans, a translation unit keeps one
+   workspace path and one classification, and so does a workspace path. Two
+   different stated original paths conflict, while a null original path
+   (a data reconcile's row) agrees with any;
+6. `audit docblocks` and `audit source-trace --require-complete`, whose only
+   permitted error is the line listing exactly the unresolved rows;
+7. the deferrals (below);
+8. the live receipt over the `ghidra-reconstruction` stage scope
+   (`progress stage-scope`, then `ghidra receipt`), read without saving. It
+   must equal that stage's baseline receipt (`f8912398...`) and scope
+   digest. An unreachable bridge or a failed preflight refuses with
+   nothing recorded.
+
+**Deferrals.** The gate decides no unresolved row. Each unresolved artifact
+of an accepted plan must be covered by exactly one deferral, and a deferral
+may not name any artifact that is not unresolved. The reviewer supplies
+them in a deferral file:
+
+```json
+{
+  "kind": "socom-source-gate-deferrals",
+  "schema_version": 1,
+  "deferrals": [
+    {"id": "speech-gaps", "artifacts": ["socom:gap:0x2a1c40"], "reason": "fill between objects; no owner evidence",
+     "issue": "socom:workspace-issue:<id>"},
+    {"id": "data-literals", "artifacts": ["socom:data:0x4444b8"], "reason": "no referencing unit",
+     "approval": {"by": "user", "at": "2026-11-02", "decision": "<the user's words>"}}
+  ]
+}
+```
+
+Each deferral has a lowercase-slug `id`, its artifacts, a reason and
+exactly one basis. The basis is either `issue`, an open workspace issue
+that records the user's decision (as the stage 3 deferrals were recorded),
+or `approval`, the user's decision given at gate time, quoted with its
+date. The handoff records the normalized deferrals on the gate. The
+accepter re-checks those recorded deferrals, not a file, and each cited
+issue must still be open.
+
+**Records.** The handoff stores a `source_gate` record on the gate. It holds
+the reviewer, the graph origin, the deferrals, and the candidate baseline
+`state` with its digest. The handoff adds evidence lines for the baseline
+(`source-file-baseline-sha256:`), the kept stage 3 receipt, the deferrals
+digest and the counts. The acceptance recomputes the state, requires the
+reviewed digest, and accepts the gate with `route: progress
+accept-source-gate`. It moves the state to the stage row's `baseline`
+(kind `source-file-baseline`), which also names the reviewer, the accepter
+and their evidence, and the stage's `accepted_evidence` cites the baseline
+and the receipt. A rejected review (`progress work reject`) moves the
+record to the gate's review history.
+
+The baseline state records:
+
+- the graph digest;
+- each accepted plan: its path, SHA-256 and owner-map digest, its owner,
+  owned and unresolved counts, its apply, and its annotation digest and
+  count;
+- the `@socom-artifact` edges under `src/`, as a count and a digest;
+- every applied file's current SHA-256, as a count and a digest;
+- the unresolved rows: their count, their kinds and a digest;
+- the deferrals: their count, artifact count, bases and digest;
+- the kept stage 3 receipt and scope digest.
+
+`progress audit` checks the record on every mutation. A gate in
+`awaiting_acceptance` or `accepted` needs a review record. An accepted gate
+needs `route: progress accept-source-gate` and a baseline whose digest
+matches its state and the reviewed digest. The audit also checks:
+
+- the stage 3 receipt it kept;
+- that each plan's SHA-256 is cited by its item;
+- that each apply record names the plan and owner map;
+- that the deferrals cover exactly the unresolved count;
+- the reviewer and accepter independence.
+
+`audit source-baseline [--strict]` also checks the workspace. The
+`@socom-artifact` edges under `src/` must still match the baseline, because
+annotations change only through accepted stage 4 work, and an accepted plan
+file must not have changed. A missing plan file (under the disposable
+`build/`) is reported as unavailable, and is an error with `--strict`.
+Applied files are reported (`apply_files_unchanged`) but never fail,
+because later stages edit source bodies.

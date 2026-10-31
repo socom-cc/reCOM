@@ -1187,6 +1187,9 @@ def audit_tracker(
     ):
         errors.append(f"{RECON_STAGE} items cite a different function graph")
     errors.extend(_audit_source_correlation(items, stage_rows))
+    from .source_gate import audit_source_gate
+
+    errors.extend(audit_source_gate(tracker))
     if strict:
         required_collections = (
             "binaries",
@@ -1232,6 +1235,9 @@ def audit_tracker(
             if not baseline:
                 continue
             name = row.get("name")
+            if name == SOURCE_STAGE:
+                # A file-only stage's baseline: checked by audit_source_gate.
+                continue
             if row.get("status") != "accepted":
                 errors.append(f"stage {name} records a baseline but is not accepted")
             try:
@@ -1531,6 +1537,8 @@ def handoff_work(
         raise SocomError(f"{item_id} is not actively leased")
     if item.get("kind") == "stage-seed":
         raise SocomError(f"{item_id} is an undecomposed stage seed")
+    if item.get("kind") == "stage-gate" and item.get("stage") == SOURCE_STAGE:
+        raise SocomError(f"{item_id} is the {SOURCE_STAGE} stage gate; use progress handoff-source-gate")
     if item["lease"]["owner"] != owner:
         raise SocomError(f"{item_id} is leased by {item['lease']['owner']}")
     if "ghidra-writer" in item.get("resources", []):
@@ -1618,6 +1626,8 @@ def accept_work(
         raise SocomError(
             f"{item_id} owns ghidra-writer; use progress advance-live-ghidra"
         )
+    if item.get("kind") == "stage-gate" and item.get("stage") == SOURCE_STAGE:
+        raise SocomError(f"{item_id} is the {SOURCE_STAGE} stage gate; use progress accept-source-gate")
     _accept_work_item(item, accepter, evidence)
 
 
@@ -1696,6 +1706,8 @@ def reject_work(
     }
     if "ghidra_receipt" in item:
         record["ghidra_receipt"] = item.pop("ghidra_receipt")
+    if "source_gate" in item:
+        record["source_gate"] = item.pop("source_gate")
     kept: list[str] = []
     if isinstance(item.get("source_apply"), dict):
         # The applied files stay on disk: the record stays with the item so a
@@ -2021,6 +2033,10 @@ def record_stage_baseline(
     row = next((row for row in tracker["stages"] if row["name"] == stage), None)
     if row is None:
         raise SocomError(f"unknown stage: {stage}")
+    if stage == SOURCE_STAGE:
+        raise SocomError(
+            f"{SOURCE_STAGE} is file-only: progress accept-source-gate records its baseline when it accepts the gate"
+        )
     stage_items = [item for item in tracker["work_items"] if item["stage"] == stage]
     if not stage_items or any(item["status"] != "accepted" for item in stage_items):
         raise SocomError(f"stage {stage} has work that is not accepted")
@@ -2900,9 +2916,16 @@ def work_packet(
             f"python tools/socom.py ghidra receipt --scope {out}/stage3-scope.json (equal to the {RECON_STAGE} baseline)",
             "python tools/socom.py source plan validate --plan <every accepted source plan> --check",
             "python tools/socom.py audit docblocks",
-            "python tools/socom.py audit source-trace --require-complete",
+            "python tools/socom.py audit source-trace --require-complete (only unresolved rows covered by deferrals remain)",
+            f"python tools/socom.py source gate-check --deferrals {out}/deferrals.json --output {out}/gate-check.json "
+            "(every gate check; lists each unresolved artifact and its deferral)",
+            "acceptance (an independent accepter, not the reviewer): python tools/socom.py progress accept-source-gate "
+            f"--item {item_id} --accepter <accepter> --evidence <review evidence> --expected-revision <n>",
         ]
-        handoff = "python tools/socom.py progress work handoff"
+        handoff = (
+            f"python tools/socom.py progress handoff-source-gate --item {item_id} --owner <owner> --summary <summary> "
+            f"--deferrals {out}/deferrals.json --expected-revision <n>"
+        )
         allowed_paths = [f"{out}/"]
         ghidra_scope = {
             "project": "soCOM",

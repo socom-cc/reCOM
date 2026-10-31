@@ -25,8 +25,10 @@ callee-first function groups ([RECONSTRUCTION.md](RECONSTRUCTION.md)).
 segment, provider library and data kind
 ([SOURCE_CORRELATION.md](SOURCE_CORRELATION.md)). Its apply items wait for
 a capability gate that `progress open-capability-gate` opens once the
-registered apply route (`progress apply-source-plan`) is active. The stage
-gate's review route is not registered yet.
+registered apply route (`progress apply-source-plan`) is active. An
+independent reviewer and accepter close its stage gate with
+`progress handoff-source-gate` and `progress accept-source-gate`, which
+record a file-stage baseline.
 Later native stages currently have explicit blockers and undecomposed seeds.
 Those seeds cannot be used as generic work or accepted as proof. A stage
 becomes executable only after a real producer and stage-specific acceptance

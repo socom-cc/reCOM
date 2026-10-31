@@ -921,15 +921,15 @@ def test_cli_dry_run_against_a_copy_of_the_reference_tracker(
     assert state.read_bytes() == before
 
 
-def test_pipeline_reachability_reports_a_decomposed_deferred_stage(
+def test_pipeline_reachability_reports_the_stage_producible_before_and_after_decomposition(
     tmp_path: Path, stage3_tracker: dict, synthetic: tuple[dict, dict]
 ) -> None:
     tracker, _graph = synthetic
     (tmp_path / ".agent").mkdir()
     rows = cli._command_rows()
-    for state, decomposed in ((stage3_tracker, False), (tracker, True)):
+    for state in (stage3_tracker, tracker):
         (tmp_path / ".agent" / "RECONSTRUCTION_PROGRESS.json").write_text(json.dumps(state), encoding="utf-8")
         report = audits.pipeline_reachability(tmp_path, rows)
         assert report["ok"], report["missing"]
-        row = next(row for row in report["deferred"] if row["stage"] == SOURCE_STAGE)
-        assert row["decomposed"] is decomposed and row["prerequisite"] == "source-correlation-gate-route"
+        # Its gate route is registered (source_gate.py): the stage is no longer deferred.
+        assert SOURCE_STAGE not in {row["stage"] for row in report["deferred"]}

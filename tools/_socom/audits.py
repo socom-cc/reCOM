@@ -214,6 +214,10 @@ def workflow_contracts(root: Path, commands: list[dict[str, Any]]) -> dict[str, 
         "progress reopen-source-plan": True,
         "source annotate": True,
         "source apply-check": False,
+        "source gate-check": False,
+        "progress handoff-source-gate": True,
+        "progress accept-source-gate": True,
+        "audit source-baseline": False,
     }
     for command, mutates in expected.items():
         row = by_command.get(command)
@@ -237,6 +241,10 @@ def workflow_contracts(root: Path, commands: list[dict[str, Any]]) -> dict[str, 
         "progress handoff-live-ghidra": ("required", True),
         "progress advance-live-ghidra": ("required", False),
         "progress rebaseline-live-ghidra": ("required", False),
+        # Stage 4 reads the live receipt and never writes Ghidra.
+        "source gate-check": ("optional", False),
+        "progress handoff-source-gate": ("required", False),
+        "progress accept-source-gate": ("required", False),
     }
     for command, (requirement, mutates_live) in ghidra_contracts.items():
         row = by_command.get(command)
@@ -345,15 +353,16 @@ def pipeline_reachability(root: Path, commands: list[dict[str, Any]]) -> dict[st
         "debug-metadata-import": {"debug import-plan", "progress work packet"},
         "ghidra-reconstruction": {"progress decompose-stage", "ghidra apply-recon"},
     }
-    # A stage whose planning and apply producers are registered but whose
-    # closing route is still a deferred capability: it may be decomposed and
-    # applied, never accepted yet.
-    partial_producers = {
+    # A stage produced and closed by several registered routes (decomposition,
+    # planning, apply and the gate route): every one of them must exist.
+    complete_producers = {
         "source-correlation": {
             "progress decompose-stage",
             "source plan validate",
             "source annotate",
             "progress apply-source-plan",
+            "progress handoff-source-gate",
+            "progress accept-source-gate",
         },
     }
     tracker = load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
@@ -377,21 +386,17 @@ def pipeline_reachability(root: Path, commands: list[dict[str, Any]]) -> dict[st
             if not any(producer in names for producer in producers):
                 missing.append({"stage": stage, "expected_one_of": sorted(producers)})
             continue
+        if stage in complete_producers:
+            if not complete_producers[stage] <= names:
+                missing.append({"stage": stage, "expected_all_of": sorted(complete_producers[stage])})
+            continue
         seeds = [
             row
             for row in tracker.get("work_items", [])
             if row.get("stage") == stage and row.get("kind") == "stage-seed"
         ]
-        gates = [
-            row
-            for row in tracker.get("work_items", [])
-            if row.get("stage") == stage and row.get("kind") == "stage-gate"
-        ]
         capability = deferred_capabilities.get(stage)
-        decomposed = bool(gates) and stage in partial_producers
-        if stage in partial_producers and not partial_producers[stage] <= names:
-            missing.append({"stage": stage, "expected_all_of": sorted(partial_producers[stage])})
-        if not (seeds or decomposed) or (stage not in blockers and capability is None):
+        if not seeds or (stage not in blockers and capability is None):
             missing.append(
                 {"stage": stage, "error": "deferred stage lacks a seed and explicit blocker"}
             )
@@ -405,8 +410,6 @@ def pipeline_reachability(root: Path, commands: list[dict[str, Any]]) -> dict[st
                 "capability": capability["id"],
                 "prerequisite": capability["blocker"],
             }
-            if stage in partial_producers:
-                row["decomposed"] = decomposed
             deferred.append(row)
     return {"ok": not missing, "missing": missing, "deferred": deferred}
 

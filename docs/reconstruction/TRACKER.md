@@ -99,7 +99,9 @@ handed off none of the stage's work. It reads Ghidra without saving. The stage
 row stores the receipt digest, the union scope's digest and counts, and the
 receipt's counts and indexes, and its `accepted_evidence` cites the receipt.
 The strict audit recomputes the union scope from the items and requires the
-same digest. `--dry-run` reports the entry without writing.
+same digest. `--dry-run` reports the entry without writing. It refuses
+`source-correlation`, which is file-only: that stage's baseline is recorded
+when its gate is accepted (below).
 
 `progress decompose-stage --stage ghidra-reconstruction` replaces the stage 3
 seed with callee-first `recon-plan-group`/`recon-apply-group` pairs and turns
@@ -123,6 +125,24 @@ source apply's `progress apply-source-plan` records a `source_apply` record
 (plan SHA-256, owner-map digest, written files and their SHA-256s, moves and
 retired files) on the item; see
 [SOURCE_CORRELATION.md](SOURCE_CORRELATION.md).
+
+The `source-correlation` stage gate closes only through its registered
+route. Generic `progress work handoff` and `progress work accept` refuse
+it. Its reviewer, the lease owner, hands it off with
+`progress handoff-source-gate`. A different accepter accepts it with
+`progress accept-source-gate`. Neither may have handed off any stage 4
+work, and neither may be a tool maintainer. Each route re-runs every gate
+check, including the live receipt over the stage 3 scope, which must equal
+that stage's baseline. Every unresolved artifact must be covered by exactly
+one recorded deferral that cites an open workspace issue or the user's
+quoted decision. The handoff stores a `source_gate` record (deferrals and
+candidate baseline state) on the gate. The acceptance moves that state to
+the stage row's `baseline` (kind `source-file-baseline`), and the stage's
+`accepted_evidence` cites `source-file-baseline-sha256:<digest>` and the
+kept receipt. `progress audit` checks the record and the baseline on every
+mutation, and `audit source-baseline` also checks the plan files and the
+annotation edges under `src/`. A rejected review moves the record to the
+review history.
 
 Receipts are evidence, not acceptance. They cover portable target facts,
 analysis/bookmarks, the assembly sentinel, full function/type/data index
