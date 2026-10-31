@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2853,
+  "revision": 2865,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -147116,6 +147116,10 @@
       "title": "Apply the reviewed source owners of segment 039 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T07:49:00Z",
+        "by": "socom-source-owner-scrutinizer-x2"
+      },
       "batch": {
         "artifact_count": 1,
         "batch_number": 1,
@@ -147139,8 +147143,15 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-crt0.json sha256:49e0f379d6dcc62ed717093cb9b143f2cb7dfdd3e23d06b73ed3868cf892f7c3 re-hashed; validate --check ok (graph 837c03c4 regenerated, 1/1 owned); draft --check ok (1 P-gnu-object entry drafted, 0 overrides). Owner-row override vs a fresh draft adds only archive_member.linked object plus evidence: DWARF CU die 0x0 C:\\usr\\local\\sce_2.5.1\\EE\\lib\\crt0.s, producer Metrowerks MW GAS R5900 Assembler (the only non-MW-C producer of 959 CUs), gnu_objects gcc_compiled 0; R3.04 PlayStation2 App c++ stationery lists crt0.s as a project source file (c++.mcp.xml FILELIST :1011, LINKORDER :1147, Main Application overlay first :1169), not an archive member. End settled by DWARF: low/high_pc 0x140008-0x1401e0 equals the gap exactly, 119 .line rows lines 0-196 ending at 0x1401e0; next artifact __dt__8COurGameFv 0x1401e0 is main.cpp (cluster, strong). Relocations match plan: R_MIPS_26 to _InitSys 0x1643e8, FlushCache 0x15b7a0, main 0x140d00, Exit 0x1647d0 x2; LOCAL HI16/LO16 _args 0x14015c/0x140170 and 0x1401b4/0x1401b8 to .bss 0x476d80 (gap 0x476d25), _root 0x140160/0x140174 to 0x1401d8; LOCAL symbols 1-4 (_root, .text, .bss, _args) precede main.cpp's block.",
+        "plan build/source-plans/socom-work-source-provider-crt0.json sha256:49e0f379d6dcc62ed717093cb9b143f2cb7dfdd3e23d06b73ed3868cf892f7c3; validate --check ok; draft --check ok (drafted 1, hand 0, overrides 0); DWARF CU C:\\usr\\local\\sce_2.5.1\\EE\\lib\\crt0.s (MW GAS R5900 Assembler) pc 0x140008-0x1401e0 equals the gap; graph 837c03c4; slice 926bc550"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-pmw2",
+        "submitted_at": "2026-10-31T07:40:48Z",
+        "summary": "owners 1 (crt0.s provider, GNU object 0x140008, linked object), unresolved 0, retire 0, open rows decided 0 (drafted 1 P-gnu-object entry; owner row hand-owned to add linked object)"
+      },
       "id": "socom:work:source-provider-crt0",
       "kind": "source-plan-provider",
       "lease": null,
@@ -147149,7 +147160,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan provider owners of crt0 (1 artifacts in other segments)"
     },
     {
@@ -147252,6 +147263,20 @@
           "reason": "graph refreshed a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba -> 837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e; replan",
           "refreshed_at": "2026-10-31T07:30:31Z",
           "slice": "changed"
+        },
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-s001b",
+            "submitted_at": "2026-10-31T07:34:56Z",
+            "summary": "owners 3 (authored main.cpp 51 medium, authored st_menu.cpp 6 data, compiler-generated 32 pads), unresolved 0, retire 0, open rows decided 1 (0x142130 main.cpp by contiguity + hand <memory> MSL header emit); header_emits 17; reservation corrected to src/Apps/FTS, src/gamez/zFTS, src/gamez/zGame"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-001.json sha256:57c971376c1113485a821ac4417cba5110e53a5062036cb92259764960d6aa12; validate --check ok; draft --check ok (drafted 88, hand 1, overrides 0)"
+          ],
+          "reason": "Substantive claims hold; only the hand-written evidence text is wrong, which matters because the accepted plan is frozen and its evidence feeds the owner-map digest and the source-reservation evidence. (1) header_emits[16] for socom:function:0x142130, evidence[1]: the quoted path decodes as C:<U+0007 BEL>pps\\cw301\\... because \\a became BEL in an unescaped string. Fix: C:\\apps\\cw301\\PS2 Support\\Msl\\MSL_C++\\MSL_Common\\Include\\memory (DWARF die 0x29230). (2) reservation.evidence[1]: Z:\\dev\\gamez\\zfts<U+000C FF>ts_state.h, because \\f became a form feed. Fix: Z:\\dev\\gamez\\zfts\\fts_state.h (die 0x28c8d). (3) Wording, optional: header_emits[16] evidence[0] calls 0x142130 a member template instance. The mangled name __ct__Q23std12allocator<c>FRCQ23std12allocator<c> has no function template arguments, and MSL <memory> allocator<T> declares only the template converting ctor template<class U> allocator(const allocator<U>&), so this is the implicitly declared copy ctor of allocator<char>. That fits the missing DWARF, like main.cpp's implicit dtors 0x1401e0/0x140680/0x1407e0/0x140940/0x140ab0. Reason template and header <memory> MSL stay right. Verified, no change needed: plan sha 57c97137...; validate --check and draft --check ok (88 drafted, 1 hand, 0 overrides). 0x142130 main.cpp medium: no CU covers it (memory header CU 0x29230 ends at 0x142128; next is gcc_wrapper.c object 0x29372, C, first function 0x142140); refs only R_MIPS_26 from 0x141a20 (0x141afc, 0x141b90) and later 0x1ed280/0x39af60/0x46f030. Reservation correction src/gamez/zFTS and src/gamez/zGame is needed for the 10 drafted zgame.h/fts_state.h emits; both headers exist in that case. The only effect is serializing with the 022/023/024/025/076 applies, which already share those directories. After fixing, rerun validate --check and draft --check, then hand off again.",
+          "rejected_at": "2026-10-31T07:48:00Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x1"
         }
       ],
       "selection": "artifacts",
@@ -147318,6 +147343,10 @@
       "title": "Apply the reviewed source owners of segment 001 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T07:48:48Z",
+        "by": "socom-source-owner-scrutinizer-x2"
+      },
       "batch": {
         "artifact_count": 95,
         "batch_number": 2,
@@ -147347,8 +147376,15 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-mw-runtime.json sha256:d4ac91627f2b87421512f8749e894f36aa77509895662459ba10c3bf8bfb134d re-hashed; validate --check ok (graph 837c03c4 regenerated, 95/95 owned); draft --check ok (31 C-fill drafted, 64 hand, 0 overrides). Hand rows checked read-only against local CW PS2 R3.04: MSLGCC_PS2.LIB ar order arraycondes..mwutils_ps2 = RuntimePS2.mcp.xml MSLGCC_PS2 LINKORDER :830-911 = ELF order; per-member symbol sets and sizes match plan bases; source lines spot-checked (arraycondes.cpp 74/105/122/139, MWRTTI.cpp 190, NMWException.cpp 24-27/44/64/81, StaticInitializers.cp 38/77/106, CompressedNumbers.cp 36/82, ExceptionHandler.cp 175..1435, ExceptionHandlerTS.cp 88..341, mwUtils_PS2.c 139/150, gcc_wrapper.c 75/87/99 vs DWARF DIEs 0x293c3/0x294c5/0x295c7). Inline ~exception 0x1427e0 / exception::what 0x142840 copy is mwrtti.o: physically between mwrtti ~bad_cast and bad_cast::what, and its literal @204 is LOCAL symbol 33 inside the mwrtti LOCAL block 32-39 (exceptionhandler block 44-60 has no exception literal); R3.04 newhand.o/newop.o also define them but are unlinked (game defines __nw/__dl/__nwa/__dla in main.cpp). Unclassified data: thandler 0x42af80/uhandler 0x42af88 are LOCAL symbols 42/43 in the nmwexception block 40-43, LOCAL R_MIPS_32 inits to dthandler/duhandler, LO16 refs only from terminate/duhandler/unexpected, R3.04 LOCAL .data 4 B; __global_destructor_chain 0x477170 GLOBAL .bss 4 B in R3.04 staticinitialize member, refs only from __destroy_global_chain/__register_global_object. Competing model mwUtils_PS2.c as project object (R3.04 PS2 App stationery) rejected: mwInit lies after exceptionhandlerts at the archive tail with no DWARF CU. Medium confidence kept (R3.01-era runtime unavailable; 19 size deltas).",
+        "plan build/source-plans/socom-work-source-provider-mw-runtime.json sha256:d4ac91627f2b87421512f8749e894f36aa77509895662459ba10c3bf8bfb134d; validate --check ok; draft --check ok (drafted 31, hand 64, overrides 0); graph 837c03c4; slice b1c19efd; members re-checked read-only against local R3.04 MSLGCC_PS2.LIB ar members/symbols, RuntimePS2.mcp.xml link order and Runtime source lines"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-pmw2",
+        "submitted_at": "2026-10-31T07:37:52Z",
+        "summary": "owners 11 (10 MW runtime provider members incl. gcc_wrapper.o linked object, 1 compiler-generated fill), unresolved 0, retire 0, open rows decided 64 (drafted 31 C-fill)"
+      },
       "id": "socom:work:source-provider-mw-runtime",
       "kind": "source-plan-provider",
       "lease": null,
@@ -147377,7 +147413,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan provider owners of MW runtime (1 segments, 41 functions)"
     },
     {
@@ -148416,6 +148452,10 @@
       "title": "Apply the reviewed source owners of segment 016 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T07:48:22Z",
+        "by": "socom-source-owner-scrutinizer-x1"
+      },
       "batch": {
         "artifact_count": 147,
         "batch_number": 17,
@@ -148450,8 +148490,15 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-017.json sha256:c2cbcc4e3e2ee1507fcec8a02f5bed2606bdcae355b2d8666d414adfeebe8eba matches handoff; validate --check ok (graph 837c03c4 regenerated, 146 owned, 1 unresolved, reservation src/gamez/zAnim confirmed); draft --check ok (144 drafted, 2 hand, 0 overrides); no control characters. GetBBox__Q23zdb5CNodeCFv 0x1bc4a0 and Rotate__7CMatrixCFPC6CPnt3DP6CPnt3Di 0x1bd170 (binding 13, single copies) lie strictly between zanim_cmd_tick.cpp high anchors 0x1b9d90 and 0x1bfd90 (A-local-block, cluster 0x1b90e0), neighbors 0x1bb330/0x1bc540/0x1bd1f0 drafted A-between tick, no GNU object or other candidate between; lowest-address referencers 0x1bb330 (0x1bb4a8) and 0x1bc540 (0x1bc8e4), the rest from 0x1e4964 / 0x1e9120 on; medium accepted. Over the 150 DWARF-anchored binding-13 copies, none is bracketed by another unit's anchors. No header emit (no header CU) accepted; noted. 0x1bfe80 zAnimQuadAlignTick unresolved verified: 8 bytes, GLOBAL, no DWARF, only ref InitCommands 0x1a9f70 LO16 0x1a9f94 via GLOBAL symbol; zero fill both inside and between units (no discrimination); InitCommands registration order is not physical order (QuadAlign is command 0). zanim_load.cpp at src/gamez/zAnim/zanim_load.cpp: no DWARF or Z:\\dev path for any zanim unit, no provisional zanim_load.cpp, every zanim_* provisional file is in src/gamez/zAnim; medium.",
+        "plan build/source-plans/socom-work-source-segment-017.json sha256:c2cbcc4e3e2ee1507fcec8a02f5bed2606bdcae355b2d8666d414adfeebe8eba; validate --check ok; draft --check ok (drafted 144, hand 2, overrides 0)"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-s001b",
+        "submitted_at": "2026-10-31T07:38:35Z",
+        "summary": "owners 3 (authored zanim_cmd_tick.cpp 42, authored zanim_load.cpp 67 new src/gamez/zAnim/zanim_load.cpp, compiler-generated 37 pads), unresolved 1 (0x1bfe80 zAnimQuadAlignTick boundary), retire 0, open rows decided 3 (GetBBox 0x1bc4a0 and Rotate 0x1bd170 to tick by first-referencer contiguity; zanim_load.cpp path); reservation confirmed src/gamez/zAnim; no header emits"
+      },
       "id": "socom:work:source-segment-017",
       "kind": "source-plan-segment",
       "lease": null,
@@ -148480,7 +148527,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan source owners of segment 017 (0x1b90e0-0x1c24b8, 51 functions)"
     },
     {
