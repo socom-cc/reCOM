@@ -10,6 +10,10 @@ address subset. Check DWARF paths, neighboring physical order, source literals,
 symbol/relocation/static-init evidence, header emission, providers, tables,
 globals, and exact compiler behavior.
 
+For a stage 4 owner plan, run
+`python tools/socom.py source plan validate --plan <plan> --check` first; a
+valid plan is only the start of the review, never its conclusion.
+
 Return the strongest competing model, evidence for and against each model,
 unexplained artifacts, and a clear accept/reject/block recommendation. Do not
 edit source, Ghidra, or tracker state. A behavior or byte pass alone is not

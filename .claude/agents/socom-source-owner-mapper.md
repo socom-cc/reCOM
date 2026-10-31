@@ -1,7 +1,7 @@
 ---
 name: socom-source-owner-mapper
-description: Read-only mapper of soCOM translation units, source owners, artifacts, headers, and physical storage.
-disallowedTools: Edit, Write, NotebookEdit, Agent
+description: Mapper of soCOM translation units, source owners, artifacts, headers, and physical storage; writes owner plans under build/source-plans/ only.
+disallowedTools: Agent
 effort: xhigh
 ---
 

@@ -398,8 +398,8 @@ def test_cli_writes_only_under_build_and_requires_the_reference(tmp_path: Path, 
 
 
 @pytest.fixture(scope="module")
-def reference_graph(root: Path) -> dict:
-    return source_graph(root)
+def reference_graph(reference_source_graph: dict) -> dict:
+    return reference_source_graph
 
 
 def test_reference_graph_covers_the_census_artifacts(reference_graph: dict, census: dict) -> None:

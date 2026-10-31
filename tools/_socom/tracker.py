@@ -6,6 +6,7 @@ import copy
 import datetime as dt
 import hashlib
 import re
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,24 @@ from .locking import exclusive_state_lock
 from .recon import REPAIR_APPLY_KIND, REPAIR_PLAN_KIND, REPAIR_PREFIX
 from .repairs import REPAIRS
 from .source import source_owners
+from .source_plan import (
+    APPLY_KIND_BY_PLAN,
+    CAPABILITY_GATE_KIND,
+    DATA_RECONCILE_KIND,
+    PLAN_KIND_BY_SCOPE,
+    PROVIDER_PLAN_KIND,
+    SEGMENT_PLAN_KIND,
+    SOURCE_APPLY_KINDS,
+    SOURCE_APPLY_ROUTE_ID,
+    SOURCE_PLAN_KINDS,
+    SOURCE_PLAN_RESOURCES,
+    SOURCE_SEED_ID,
+    SOURCE_STAGE,
+    scope_batches,
+    scope_item_id,
+    scope_key,
+    verify_graph,
+)
 from .util import SocomError, atomic_write_json, canonical_json, load_json, stable_id
 
 WORK_STATUSES = {
@@ -966,6 +985,48 @@ def audit_tracker(
                 errors.append(f"{item_id} apply resources differ from Ghidra contract")
             if item.get("dependencies") != [str(item_id).removesuffix("-apply")]:
                 errors.append(f"{item_id} must depend only on its type plan")
+        if item.get("stage") == SOURCE_STAGE and (
+            "ghidra-writer" in resources or any(str(value).startswith("ghidra:") for value in resources)
+        ):
+            errors.append(f"{item_id} owns a Ghidra resource in the file-only {SOURCE_STAGE} stage")
+        if kind in SOURCE_PLAN_KINDS or kind in SOURCE_APPLY_KINDS or kind == CAPABILITY_GATE_KIND:
+            if item.get("stage") != SOURCE_STAGE:
+                errors.append(f"{item_id} is a {kind} item outside {SOURCE_STAGE}")
+        if kind in SOURCE_PLAN_KINDS:
+            batch = item.get("batch") or {}
+            scope = batch.get("scope")
+            if resources != set(SOURCE_PLAN_RESOURCES):
+                errors.append(f"{item_id} source plan resources are not file-only")
+            try:
+                expected_id = scope_item_id(scope)
+                expected_kind = PLAN_KIND_BY_SCOPE[scope["kind"]]
+            except (SocomError, KeyError, TypeError, ValueError):
+                errors.append(f"{item_id} has no valid planning scope")
+            else:
+                if expected_id != item_id or expected_kind != kind:
+                    errors.append(f"{item_id} differs from the {expected_kind} ID {expected_id} its scope gives")
+            if not all(isinstance(batch.get(key), str) and len(batch[key]) == 64 for key in ("graph_sha256", "slice_sha256")):
+                errors.append(f"{item_id} must cite its graph and slice digests")
+            if kind != DATA_RECONCILE_KIND and item.get("dependencies") != [RECON_SEED_ID]:
+                errors.append(f"{item_id} must depend only on the accepted {RECON_STAGE} gate")
+        if kind in SOURCE_APPLY_KINDS:
+            plan_id = str(item_id).removesuffix("-apply")
+            plan = _work_by_id(tracker).get(plan_id)
+            if not str(item_id).endswith("-apply") or plan is None or APPLY_KIND_BY_PLAN.get(plan.get("kind")) != kind:
+                errors.append(f"{item_id} has no matching source plan item")
+            elif (item.get("batch") or {}).get("scope") != (plan.get("batch") or {}).get("scope"):
+                errors.append(f"{item_id} plans another scope than {plan_id}")
+            if not resources or not all(value == "src" or str(value).startswith("src/") for value in resources):
+                errors.append(f"{item_id} must reserve its src/ directories")
+            elif sorted(resources) != sorted((item.get("batch") or {}).get("directories") or []):
+                errors.append(f"{item_id} resources differ from its batch directories")
+        if kind == CAPABILITY_GATE_KIND:
+            if item_id != SOURCE_APPLY_ROUTE_ID:
+                errors.append(f"{item_id} is an unexpected capability gate")
+            if resources or item.get("dependencies"):
+                errors.append(f"{item_id} capability gate must own no resources and have no dependencies")
+            if status != "blocked":
+                errors.append(f"{item_id} capability gate must stay blocked until its route is registered")
         if kind == "stage-gate" and resources:
             errors.append(f"{item_id} stage gate must not own resources")
         missing = set(item.get("dependencies", [])) - known
@@ -1082,6 +1143,7 @@ def audit_tracker(
         for item in recon_plans + recon_applies
     ):
         errors.append(f"{RECON_STAGE} items cite a different function graph")
+    errors.extend(_audit_source_correlation(items, stage_rows))
     if strict:
         required_collections = (
             "binaries",
@@ -1150,6 +1212,57 @@ def audit_tracker(
     return errors
 
 
+def _audit_source_correlation(items: list[dict[str, Any]], stage_rows: list[dict[str, Any]]) -> list[str]:
+    """Structure of the decomposed stage 4: pairs, reconciles, route and gate."""
+
+    errors: list[str] = []
+    plans = [item for item in items if item.get("kind") in SOURCE_PLAN_KINDS and item.get("kind") != DATA_RECONCILE_KIND]
+    reconciles = [item for item in items if item.get("kind") == DATA_RECONCILE_KIND]
+    applies = [item for item in items if item.get("kind") in SOURCE_APPLY_KINDS]
+    routes = [item for item in items if item.get("kind") == CAPABILITY_GATE_KIND]
+    if {f"{item['id']}-apply" for item in plans} != {item["id"] for item in applies}:
+        errors.append("source plan/apply item pairing is incomplete")
+    plan_ids = sorted(item["id"] for item in plans)
+    reconcile_ids = [item["id"] for item in reconciles]
+    for item in reconciles:
+        if sorted(item.get("dependencies", [])) != plan_ids:
+            errors.append(f"{item['id']} must depend on every source plan item")
+    for item in applies:
+        wanted = {str(item["id"]).removesuffix("-apply"), *reconcile_ids, SOURCE_APPLY_ROUTE_ID}
+        if set(item.get("dependencies", [])) != wanted or len(item.get("dependencies", [])) != len(wanted):
+            errors.append(f"{item['id']} must depend on its plan, every data reconcile and {SOURCE_APPLY_ROUTE_ID}")
+    seed = next((item for item in items if item.get("id") == SOURCE_SEED_ID), None)
+    stage = next((row for row in stage_rows if row.get("name") == SOURCE_STAGE), {})
+    decomposition = stage.get("decomposition")
+    decomposed = plans or reconciles or applies or routes
+    if seed is not None and seed.get("kind") == "stage-seed":
+        if decomposed or decomposition:
+            errors.append(f"{SOURCE_STAGE} has source items or a decomposition but an undecomposed seed")
+    elif seed is not None and seed.get("kind") == "stage-gate":
+        if not isinstance(decomposition, dict) or not applies:
+            errors.append(f"{SOURCE_STAGE} gate has no decomposition record or apply items")
+        if set(seed.get("dependencies", [])) != {item["id"] for item in applies} | set(reconcile_ids):
+            errors.append(f"{SOURCE_STAGE} gate does not depend on every apply and data reconcile")
+        if [item["id"] for item in routes] != [SOURCE_APPLY_ROUTE_ID]:
+            errors.append(f"{SOURCE_STAGE} needs exactly one {SOURCE_APPLY_ROUTE_ID} item")
+    elif seed is not None:
+        errors.append(f"{SOURCE_SEED_ID} has unexpected kind {seed.get('kind')!r}")
+    if isinstance(decomposition, dict):
+        counts = Counter(item.get("kind") for item in plans)
+        if (
+            counts.get(SEGMENT_PLAN_KIND, 0) != decomposition.get("authored_segment_count")
+            or counts.get(PROVIDER_PLAN_KIND, 0) != len(decomposition.get("provider_libraries") or [])
+            or len(reconciles) != len(decomposition.get("data_kinds") or [])
+        ):
+            errors.append(f"{SOURCE_STAGE} decomposition record differs from its plan items")
+        if any(
+            (item.get("batch") or {}).get("graph_sha256") != decomposition.get("graph_sha256")
+            for item in plans + reconciles + applies
+        ):
+            errors.append(f"{SOURCE_STAGE} items cite a different source graph")
+    return errors
+
+
 def require_revision(tracker: dict[str, Any], expected_revision: int) -> None:
     actual = tracker["revision"]
     if actual != expected_revision:
@@ -1161,7 +1274,8 @@ def _refresh_ready_and_stages(tracker: dict[str, Any]) -> None:
     for item in tracker["work_items"]:
         if item["status"] != "blocked":
             continue
-        if item.get("kind") == "stage-seed":
+        if item.get("kind") in ("stage-seed", CAPABILITY_GATE_KIND):
+            # A seed waits for its producer, a capability gate for its route.
             continue
         if all(items[dep]["status"] == "accepted" for dep in item["dependencies"]):
             item["status"] = "ready"
@@ -1264,6 +1378,10 @@ def claim_work(
     if item.get("kind") == "stage-seed":
         raise SocomError(
             f"{item_id} is an undecomposed stage seed; register a real producer first"
+        )
+    if item.get("kind") == CAPABILITY_GATE_KIND:
+        raise SocomError(
+            f"{item_id} is a capability gate: it opens when its route is registered, not by a worker"
         )
     if item["status"] != "ready":
         raise SocomError(f"{item_id} is {item['status']}, not ready")
@@ -1387,8 +1505,8 @@ def accept_work(
     item = _work_by_id(tracker).get(item_id)
     if not item:
         raise SocomError(f"unknown work item: {item_id}")
-    if item.get("kind") == "stage-seed":
-        raise SocomError(f"{item_id} is an undecomposed stage seed")
+    if item.get("kind") in ("stage-seed", CAPABILITY_GATE_KIND):
+        raise SocomError(f"{item_id} is an undecomposed stage seed or a capability gate")
     if item["status"] != "awaiting_acceptance":
         raise SocomError(f"{item_id} is {item['status']}, not awaiting_acceptance")
     if "ghidra-writer" in item.get("resources", []):
@@ -1830,6 +1948,145 @@ def decompose_reconstruction(tracker: dict[str, Any], groups: dict[str, Any]) ->
     return decomposition
 
 
+def _source_item(item_id: str, kind: str, title: str, dependencies: list[str], resources: list[str], batch: Any) -> dict[str, Any]:
+    return {
+        "id": item_id,
+        "stage": SOURCE_STAGE,
+        "kind": kind,
+        "title": title,
+        "status": "blocked",
+        "dependencies": dependencies,
+        "resources": resources,
+        "selection": "artifacts" if batch else None,
+        "batch": batch,
+        "lease": None,
+        "handoff": None,
+        "evidence": [],
+    }
+
+
+def decompose_source_correlation(
+    tracker: dict[str, Any], graph: dict[str, Any], directories: dict[str, list[str]]
+) -> dict[str, Any]:
+    """Replace the stage 4 seed with owner-plan items, their applies and a gate.
+
+    ``graph`` is ``source graph`` output and ``directories`` the ``src/``
+    directories each apply reserves (``source_plan.apply_directories``).
+    Every authored segment gets a file-only ``source-plan-segment`` item and
+    every provider library a ``source-plan-provider`` item, both waiting for
+    the accepted stage 3 gate; every data kind outside the segment slices
+    gets a ``source-data-reconcile`` item that waits for every plan.  Each
+    plan has an apply item that waits for its plan, every reconcile, and the
+    ``capability-gate`` item of the guarded apply route, which stays blocked
+    until that route is registered.  The seed keeps its ID (later stages
+    depend on it) and becomes the stage gate over every apply and reconcile.
+    No item owns a Ghidra resource: the stage is file-only.
+    """
+
+    previous = next(row for row in tracker["stages"] if row["name"] == RECON_STAGE)
+    if previous.get("status") != "accepted" or not previous.get("baseline"):
+        raise SocomError(f"decomposition needs {RECON_STAGE} accepted with a recorded baseline")
+    stage = next(row for row in tracker["stages"] if row["name"] == SOURCE_STAGE)
+    if stage.get("decomposition"):
+        raise SocomError(f"{SOURCE_STAGE} is already decomposed")
+    items = tracker["work_items"]
+    seed_position = next(
+        (position for position, row in enumerate(items) if row["id"] == SOURCE_SEED_ID), None
+    )
+    if seed_position is None or items[seed_position].get("kind") != "stage-seed":
+        raise SocomError(f"{SOURCE_SEED_ID} is not an undecomposed stage seed")
+    if any(row["stage"] == SOURCE_STAGE and row["id"] != SOURCE_SEED_ID for row in items):
+        raise SocomError(f"{SOURCE_STAGE} already has work items")
+    if problems := verify_graph(graph):
+        raise SocomError("decomposition needs a valid source graph: " + "; ".join(problems))
+    batches = scope_batches(graph)
+    if not any(batch["scope"]["kind"] != "data" for batch in batches):
+        raise SocomError("decomposition needs at least one segment")
+
+    plans: list[dict[str, Any]] = []
+    applies: list[dict[str, Any]] = []
+    reconciles: list[dict[str, Any]] = []
+    for batch in batches:
+        scope = batch["scope"]
+        item_id = scope_item_id(scope)
+        kind = PLAN_KIND_BY_SCOPE[scope["kind"]]
+        if scope["kind"] == "data":
+            title = (
+                f"Reconcile {scope['data_kind']} data owners "
+                f"({batch['artifact_count']} artifacts outside the segment slices)"
+            )
+            reconciles.append(_source_item(item_id, kind, title, [], list(SOURCE_PLAN_RESOURCES), batch))
+            continue
+        if scope["kind"] == "segment":
+            number = scope["segment_number"]
+            start, end = batch["ranges"][0]
+            title = f"Plan source owners of segment {number:03d} ({start}-{end}, {batch['function_count']} functions)"
+            apply_title = f"Apply the reviewed source owners of segment {number:03d} under src/"
+        else:
+            title = (
+                f"Plan provider owners of {scope['library']} "
+                f"({len(batch['segment_numbers'])} segments, {batch['function_count']} functions)"
+            )
+            apply_title = f"Apply the reviewed provider owners of {scope['library']}"
+        reserved = list(directories.get(scope_key(scope)) or [])
+        if not reserved:
+            raise SocomError(f"{item_id} has no src/ directory to reserve")
+        plans.append(_source_item(item_id, kind, title, [RECON_SEED_ID], list(SOURCE_PLAN_RESOURCES), batch))
+        applies.append(
+            _source_item(
+                f"{item_id}-apply",
+                APPLY_KIND_BY_PLAN[kind],
+                apply_title,
+                [],
+                reserved,
+                {**copy.deepcopy(batch), "directories": list(reserved)},
+            )
+        )
+    plan_ids = [row["id"] for row in plans]
+    reconcile_ids = [row["id"] for row in reconciles]
+    for row in reconciles:
+        row["dependencies"] = list(plan_ids)
+    for row in applies:
+        row["dependencies"] = [row["id"].removesuffix("-apply"), *reconcile_ids, SOURCE_APPLY_ROUTE_ID]
+    route = _source_item(
+        SOURCE_APPLY_ROUTE_ID,
+        CAPABILITY_GATE_KIND,
+        "Register the guarded source apply route (owner-plan annotations under src/)",
+        [],
+        [],
+        None,
+    )
+    route["batch"] = {
+        "capability": SOURCE_STAGE,
+        "requires": "a registered command that applies an accepted owner plan's files and annotations under src/",
+    }
+    created: list[dict[str, Any]] = []
+    for plan, apply in zip(plans, applies):
+        created.extend((plan, apply))
+    created.extend(reconciles)
+    created.append(route)
+    seed = items[seed_position]
+    seed["kind"] = "stage-gate"
+    seed["title"] = f"Review and close {SOURCE_STAGE}"
+    seed["dependencies"] = [row["id"] for row in applies] + reconcile_ids
+    items[seed_position:seed_position] = created
+    libraries = [batch["scope"]["library"] for batch in batches if batch["scope"]["kind"] == "provider"]
+    decomposition = {
+        "producer": "source-graph",
+        "graph_sha256": graph["graph_sha256"],
+        "segment_size": graph["segment_size"],
+        "segment_count": len(graph["segments"]),
+        "artifact_count": len(graph["artifacts"]),
+        "authored_segment_count": sum(1 for batch in batches if batch["scope"]["kind"] == "segment"),
+        "provider_libraries": libraries,
+        "data_kinds": [batch["scope"]["data_kind"] for batch in batches if batch["scope"]["kind"] == "data"],
+        "apply_route": SOURCE_APPLY_ROUTE_ID,
+        "tracker_revision": tracker["revision"] + 1,
+    }
+    stage["decomposition"] = decomposition
+    return decomposition
+
+
 def release_work(tracker: dict[str, Any], item_id: str, owner: str) -> None:
     item = _work_by_id(tracker).get(item_id)
     if not item or item["status"] != "in_progress" or not item.get("lease"):
@@ -2252,6 +2509,65 @@ def work_packet(
             "program": "socom.elf",
             "program_path": "/socom.elf",
             "receipt_scope_required": True,
+        }
+    elif kind in SOURCE_PLAN_KINDS:
+        # Stage 4 is file-only: the mapper writes only its evidence and plan.
+        role = "socom-source-owner-mapper"
+        skill = "socom-provider-boundary" if kind == PROVIDER_PLAN_KIND else "socom-source-model-recovery"
+        slug = item_id.replace(":", "-")
+        evidence = f"build/source-plans/{slug}-evidence.json"
+        plan = f"build/source-plans/{slug}.json"
+        validation = [
+            f"python tools/socom.py source plan evidence --item {item_id} --check --output {evidence} --skeleton {plan}",
+            f"python tools/socom.py source plan validate --plan {plan} --check --fill-annotations",
+            f"python tools/socom.py source plan validate --plan {plan} --check",
+        ]
+        handoff = (
+            "python tools/socom.py progress work handoff (cite the plan SHA-256; "
+            "independent review: socom-source-owner-scrutinizer)"
+        )
+        allowed_paths = [evidence, plan]
+        ghidra_scope = {
+            "project": "soCOM",
+            "program": "socom.elf",
+            "program_path": "/socom.elf",
+            "read_only": True,
+        }
+    elif kind in SOURCE_APPLY_KINDS:
+        role = "socom-source-worker"
+        skill = "socom-source-model-recovery"
+        plan = f"build/source-plans/{item_id.removesuffix('-apply').replace(':', '-')}.json"
+        validation = [
+            f"python tools/socom.py source plan validate --plan {plan} --check",
+            f"the guarded apply command that opens {SOURCE_APPLY_ROUTE_ID} (not registered yet)",
+            "python tools/socom.py audit docblocks",
+            "python tools/socom.py audit source-trace",
+            "python tools/socom.py guard source-placement",
+        ]
+        handoff = "python tools/socom.py progress work handoff (cite the plan SHA-256 and every changed file)"
+        allowed_paths = list(item.get("resources", []))
+        ghidra_scope = None
+    elif kind == "stage-gate" and item["stage"] == SOURCE_STAGE:
+        # A file-only stage: the live program must still be the stage 3 baseline.
+        role = "socom-verifier"
+        skill = "socom-validation"
+        out = f"build/closeout-{SOURCE_STAGE}"
+        validation = [
+            "python tools/socom.py progress audit --strict",
+            "python tools/socom.py ghidra preflight --strict",
+            f"python tools/socom.py progress stage-scope --stage {RECON_STAGE} --output {out}/stage3-scope.json",
+            f"python tools/socom.py ghidra receipt --scope {out}/stage3-scope.json (equal to the {RECON_STAGE} baseline)",
+            "python tools/socom.py source plan validate --plan <every accepted source plan> --check",
+            "python tools/socom.py audit docblocks",
+            "python tools/socom.py audit source-trace --require-complete",
+        ]
+        handoff = "python tools/socom.py progress work handoff"
+        allowed_paths = [f"{out}/"]
+        ghidra_scope = {
+            "project": "soCOM",
+            "program": "socom.elf",
+            "program_path": "/socom.elf",
+            "read_only": True,
         }
     elif kind == "stage-gate":
         role = "socom-verifier"

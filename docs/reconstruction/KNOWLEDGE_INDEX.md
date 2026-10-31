@@ -15,6 +15,7 @@ without becoming a second progress system.
 | Final ELF catalog and acceptance boundary | [FINAL_ELF.md](FINAL_ELF.md) |
 | Agent/role launch protocol | [AGENT_LAUNCH_CHECKLIST.md](AGENT_LAUNCH_CHECKLIST.md) |
 | Source-to-artifact evidence | [SOURCE_TRACEABILITY.md](SOURCE_TRACEABILITY.md) |
+| Stage 4 owner plans, items, and validation | [SOURCE_CORRELATION.md](SOURCE_CORRELATION.md) |
 | Provider classification and ABI closure | [PROVIDER_BOUNDARY.md](PROVIDER_BOUNDARY.md) |
 | Reusable proven observations | [VERIFIED_PATTERNS.md](VERIFIED_PATTERNS.md) |
 | Behavioral smoke manifest format | [functional target README](../../tools/functional_verify_targets/README.md) |

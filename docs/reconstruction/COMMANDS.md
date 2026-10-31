@@ -132,6 +132,8 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py source artifacts` | source | no | none | no | Inventory source artifact annotations. |
 | `python tools/socom.py source graph` | source | no | none | no | Build deterministic ELF-only translation-unit evidence, classification candidates and address segments. |
 | `python tools/socom.py source audit` | source | no | none | no | Audit soCOM workspace independence. |
+| `python tools/socom.py source plan evidence` | source | no | none | no | Write one source-correlation plan item's slice with its graph evidence and, with --skeleton, a plan listing every slice artifact unresolved. |
+| `python tools/socom.py source plan validate` | source | no | none | no | Check a source-owner plan: every artifact of its item's slice owned once or unresolved, owner, provider, header-emit and annotation rows, provisional files, and the graph and slice digests (--check regenerates the graph from the ELF). |
 | `python tools/socom.py verify asm` | verification | no | required | no | Read function and assembly evidence from Ghidra. |
 | `python tools/socom.py verify functional` | verification | no | none | no | List or run one deterministic behavioral smoke target. |
 | `python tools/socom.py verify functional-batch` | verification | no | none | no | Run a reviewed batch of behavioral smoke targets. |

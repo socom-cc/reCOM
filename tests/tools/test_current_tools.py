@@ -129,21 +129,22 @@ def test_docblocks_resolve_symbols_of_the_stored_reference_census(
     assert report["ok"] is True, report["errors"]
 
 
-def test_source_correlation_is_deferred_until_a_producer_is_registered(
+def test_source_correlation_is_deferred_until_its_apply_route_is_registered(
     root: Path,
 ) -> None:
     report = audits.pipeline_reachability(root, _command_rows())
     assert report["ok"] is True, report["missing"]
     by_stage = {row["stage"]: row for row in report["deferred"]}
-    assert by_stage["source-correlation"] == {
-        "stage": "source-correlation",
-        "seed_count": 1,
+    row = by_stage["source-correlation"]
+    # Planning is registered (the seed may be decomposed); closing is not.
+    assert row["decomposed"] is (row["seed_count"] == 0)
+    assert {key: row[key] for key in ("blocked", "capability", "prerequisite")} == {
         "blocked": False,
         "capability": "source-correlation",
-        "prerequisite": "source-correlation-producer",
+        "prerequisite": "source-correlation-apply-route",
     }
     # Validators alone never make the stage producible.
-    assert {"audit source-trace", "source artifacts"} <= {
+    assert {"audit source-trace", "source artifacts", "source plan validate", "progress decompose-stage"} <= {
         row["command"] for row in _command_rows()
     }
 
@@ -158,7 +159,7 @@ def test_pipeline_reachability_requires_a_seed_for_capability_deferral(
     tracker["work_items"] = [
         row
         for row in tracker["work_items"]
-        if not (row.get("stage") == "source-correlation" and row.get("kind") == "stage-seed")
+        if not (row.get("stage") == "source-correlation" and row.get("kind") in ("stage-seed", "stage-gate"))
     ]
     (tmp_path / ".agent" / "RECONSTRUCTION_PROGRESS.json").write_text(
         json.dumps(tracker), encoding="utf-8"
@@ -180,7 +181,9 @@ def test_capability_stage_names_are_validated() -> None:
     assert report["ok"] is True, report["errors"]
     deferred = {row["id"]: row for row in CAPABILITIES if row.get("stage")}
     assert deferred["source-correlation"]["status"] == "deferred"
-    assert deferred["source-correlation"]["blocker"] == "source-correlation-producer"
+    assert deferred["source-correlation"]["blocker"] == "source-correlation-apply-route"
+    planning = next(row for row in CAPABILITIES if row["id"] == "source-correlation-planning")
+    assert planning["status"] == "active" and "source plan validate" in planning["commands"]
 
 
 def test_source_annotation_parser_and_trace_topology(tmp_path: Path) -> None:

@@ -340,6 +340,11 @@ def pipeline_reachability(root: Path, commands: list[dict[str, Any]]) -> dict[st
         "debug-metadata-import": {"debug import-plan", "progress work packet"},
         "ghidra-reconstruction": {"progress decompose-stage", "ghidra apply-recon"},
     }
+    # A stage whose planning producer is registered but whose closing route is
+    # still a deferred capability: it may be decomposed, never accepted yet.
+    partial_producers = {
+        "source-correlation": {"progress decompose-stage", "source plan validate"},
+    }
     tracker = load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
     blockers = {
         stage
@@ -366,23 +371,32 @@ def pipeline_reachability(root: Path, commands: list[dict[str, Any]]) -> dict[st
             for row in tracker.get("work_items", [])
             if row.get("stage") == stage and row.get("kind") == "stage-seed"
         ]
+        gates = [
+            row
+            for row in tracker.get("work_items", [])
+            if row.get("stage") == stage and row.get("kind") == "stage-gate"
+        ]
         capability = deferred_capabilities.get(stage)
-        if not seeds or (stage not in blockers and capability is None):
+        decomposed = bool(gates) and stage in partial_producers
+        if stage in partial_producers and not partial_producers[stage] <= names:
+            missing.append({"stage": stage, "expected_all_of": sorted(partial_producers[stage])})
+        if not (seeds or decomposed) or (stage not in blockers and capability is None):
             missing.append(
                 {"stage": stage, "error": "deferred stage lacks a seed and explicit blocker"}
             )
         elif stage in blockers:
             deferred.append({"stage": stage, "seed_count": len(seeds), "blocked": True})
         else:
-            deferred.append(
-                {
-                    "stage": stage,
-                    "seed_count": len(seeds),
-                    "blocked": False,
-                    "capability": capability["id"],
-                    "prerequisite": capability["blocker"],
-                }
-            )
+            row = {
+                "stage": stage,
+                "seed_count": len(seeds),
+                "blocked": False,
+                "capability": capability["id"],
+                "prerequisite": capability["blocker"],
+            }
+            if stage in partial_producers:
+                row["decomposed"] = decomposed
+            deferred.append(row)
     return {"ok": not missing, "missing": missing, "deferred": deferred}
 
 

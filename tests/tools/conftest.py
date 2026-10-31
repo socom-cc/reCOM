@@ -28,6 +28,15 @@ def census(root: Path) -> dict:
     return build_census(root, include_rows=True)
 
 
+@pytest.fixture(scope="session")
+def reference_source_graph(root: Path) -> dict:
+    """``source graph`` of the reference ELF, built once per session."""
+
+    from tools._socom.source_graph import source_graph
+
+    return source_graph(root)
+
+
 
 @pytest.fixture()
 def stage2_tracker(root: Path, census: dict) -> dict:

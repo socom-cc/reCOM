@@ -8,6 +8,8 @@ Root AGENTS.md is authoritative. Work only the active packet's writable
 source/header closure, registered target, isolated build root, objective, and
 stop condition. Preserve accepted dependencies and use the packet's one
 nonmutating verification command until PASS or a concrete scope contradiction.
+A source-apply item writes only its reserved src/ directories, from its
+accepted owner plan, through the registered apply route.
 
 Do not edit support inputs, tools, docs, manifests, or canonical ledgers unless
 the packet explicitly owns them. Never patch candidate output or self-accept.

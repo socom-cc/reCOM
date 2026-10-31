@@ -21,6 +21,10 @@ typed region and provider input is accounted for.
 
 `ghidra-reconstruction` is decomposed by its registered producer into
 callee-first function groups ([RECONSTRUCTION.md](RECONSTRUCTION.md)).
+`source-correlation` is decomposed into file-only owner-plan items per
+segment, provider library and data kind
+([SOURCE_CORRELATION.md](SOURCE_CORRELATION.md)); its apply items stay
+blocked until the guarded apply route is registered.
 Later native stages currently have explicit blockers and undecomposed seeds.
 Those seeds cannot be used as generic work or accepted as proof. A stage
 becomes executable only after a real producer and stage-specific acceptance

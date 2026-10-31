@@ -1,0 +1,650 @@
+"""Stage 4 owner plans and the source-correlation decomposition (synthetic and reference)."""
+
+from __future__ import annotations
+
+import copy
+import json
+import shutil
+from collections import Counter
+from pathlib import Path
+
+import pytest
+
+from tools._socom import audits, cli
+from tools._socom.constants import REFERENCE_SHA256
+from tools._socom.source_plan import (
+    SKELETON_REASON,
+    SOURCE_APPLY_ROUTE_ID,
+    SOURCE_PLAN_KIND,
+    SOURCE_SEED_ID,
+    SOURCE_STAGE,
+    apply_directories,
+    derive_annotations,
+    graph_digest,
+    loaded_section_lookup,
+    plan_evidence,
+    plan_skeleton,
+    planning_scopes,
+    scope_key,
+    validate_source_plan,
+)
+from tools._socom.tracker import (
+    RECON_SEED_ID,
+    accept_work,
+    audit_tracker,
+    claim_work,
+    decompose_source_correlation,
+    load_tracker,
+    next_work,
+    refresh_ready_and_stages,
+    work_packet,
+)
+from tools._socom.util import SocomError
+
+MAIN = lambda address: "main"  # noqa: E731 - every synthetic artifact lies in main
+
+
+def _row(identity: str, kind: str, address: int, size: int, window: str, section: str, **fields) -> dict:
+    row = {
+        "id": f"socom:{identity}:0x{address:x}",
+        "kind": kind,
+        "address": f"0x{address:x}",
+        "end": f"0x{address + size:x}",
+        "size": size,
+        "window": window,
+        "input_section": {"basis": "section-symbol envelope", "name": section},
+        "cluster": None,
+        "tu_candidates": fields.pop("tu", []),
+        "signals": fields.pop("signals", []),
+        "classification": fields.pop("classification", {"candidate": "authored", "library": None, "evidence": []}),
+    }
+    if kind == "gap":
+        row.update(fill="zero", padding=True, labels=[])
+    else:
+        names = fields.pop("names")
+        row.update(binding=names[0][1], names=[{"name": name, "binding": binding} for name, binding in names])
+    row.update(fields)
+    return row
+
+
+CODE, DATA = "socom:window:0x140000", "socom:window:0x426400"
+SCE = {"candidate": "provider", "library": "SCE", "evidence": []}
+UNIT_A = [{"tu": "a.cpp", "strength": "strong", "via": ["dwarf-cu"], "sinit_order": None}]
+
+
+def synthetic_graph() -> dict:
+    """Two authored segments around one SCE segment, plus unsliced data."""
+
+    rows = [
+        _row("function", "function", 0x140000, 16, CODE, ".text", names=[("a_first", "GLOBAL")], tu=UNIT_A,
+             signals=[{"signal": "dwarf-cu", "strength": "strong", "path": "Z:\\dev\\gamez\\zFoo\\a.cpp", "tu": "a.cpp"}]),
+        _row("function", "function", 0x140010, 8, CODE, ".text", names=[("Get__4CBoxFv", "13")], tu=UNIT_A),
+        _row("gap", "gap", 0x140018, 8, CODE, ".text", classification={"candidate": "compiler-generated", "library": None, "evidence": []}),
+        _row("function", "function", 0x140020, 16, CODE, ".text", names=[("sceFooInit", "GLOBAL")], classification=SCE, gnu_object="0x140020"),
+        _row("function", "function", 0x140030, 16, CODE, ".text", names=[("sceFooHelper", "GLOBAL")], classification=SCE, gnu_object="0x140020"),
+        _row("function", "function", 0x140040, 16, CODE, ".text", names=[("b_main", "GLOBAL")],
+             tu=[{"tu": "b.cpp", "strength": "strong", "via": ["sinit"], "sinit_order": 1}]),
+        _row("function", "function", 0x140050, 8, CODE, ".text", names=[("__sinit_b_cpp", "LOCAL")],
+             classification={"candidate": "compiler-generated", "library": None, "evidence": []}),
+        _row("data", "data", 0x426470, 8, DATA, ".rodata", names=[("@12", "LOCAL")],
+             classification={"candidate": "compiler-generated", "library": None, "evidence": []}),
+        _row("data", "data", 0x426480, 4, DATA, ".data", names=[("g_shared", "GLOBAL")]),
+        _row("gap", "gap", 0x426484, 12, DATA, ".data", classification={"candidate": "compiler-generated", "library": None, "evidence": []}),
+        _row("data", "data", 0x4264a0, 16, DATA, ".rodata", names=[("sceTable", "LOCAL")], classification=SCE),
+        _row("data", "data", 0x480000, 4, DATA, ".bss", names=[("g_zero", "GLOBAL")]),
+    ]
+    ids = [row["id"] for row in rows]
+    segment = lambda number, members, data, mix, units: {  # noqa: E731
+        "id": f"socom:source-segment:{number:020x}",
+        "segment_number": number,
+        "window": CODE,
+        "start": rows[members[0]]["address"],
+        "end": rows[members[-1]]["end"],
+        "function_count": sum(mix.values()),
+        "artifacts": [ids[index] for index in members],
+        "data": [ids[index] for index in data],
+        "classification_mix": mix,
+        "tu_candidates": [{"tu": unit, "functions": 1, "strongest": "strong", "sinit_order": None} for unit in units],
+        "boundary": {},
+    }
+    graph = {
+        "kind": "socom-source-graph",
+        "schema_version": 1,
+        "source_sha256": REFERENCE_SHA256,
+        "segment_size": 200,
+        "windows": [{"id": CODE, "kind": "code"}, {"id": DATA, "kind": "data"}],
+        "units": [
+            {"tu": "a.cpp", "paths": ["Z:\\dev\\gamez\\zFoo\\a.cpp"]},
+            {"tu": "b.cpp", "paths": []},
+        ],
+        "gnu_objects": [{"address": "0x140020", "functions": [ids[3], ids[4]], "end_basis": "next GNU anchor", "library": "SCE"}],
+        "artifacts": rows,
+        "segments": [
+            segment(1, [0, 1], [7], {"authored": 2}, ["a.cpp"]),
+            segment(2, [3, 4], [10], {"provider:SCE": 2}, []),
+            segment(3, [5, 6], [], {"authored": 1, "compiler-generated": 1}, ["b.cpp"]),
+        ],
+    }
+    graph["graph_sha256"] = graph_digest(graph)
+    return graph
+
+
+def undecomposed(tracker: dict) -> dict:
+    """The tracker as stage 4 decomposition finds it: stage 3 accepted, a bare seed."""
+
+    tracker = copy.deepcopy(tracker)
+    tracker["work_items"] = [
+        row for row in tracker["work_items"] if row["stage"] != SOURCE_STAGE or row["id"] == SOURCE_SEED_ID
+    ]
+    seed = next(row for row in tracker["work_items"] if row["id"] == SOURCE_SEED_ID)
+    seed.update(kind="stage-seed", title="Decompose and schedule source-correlation work", status="blocked",
+                dependencies=[RECON_SEED_ID], resources=[], selection=None, batch=None, lease=None, handoff=None, evidence=[])
+    for key in ("accepted", "review_history"):
+        seed.pop(key, None)
+    stage = next(row for row in tracker["stages"] if row["name"] == SOURCE_STAGE)
+    stage.pop("decomposition", None)
+    refresh_ready_and_stages(tracker)
+    return tracker
+
+
+@pytest.fixture(scope="module")
+def stage3_tracker(root: Path) -> dict:
+    tracker = undecomposed(load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json"))
+    assert audit_tracker(tracker, strict=True) == []
+    return tracker
+
+
+DIRECTORIES = {
+    "segment:socom:source-segment:00000000000000000001": ["src/gamez/zFoo"],
+    "segment:socom:source-segment:00000000000000000003": ["src"],
+    "provider:SCE": ["src/providers/sce"],
+}
+
+
+def decompose(tracker: dict, graph: dict, directories: dict | None = None) -> dict:
+    tracker = copy.deepcopy(tracker)
+    decompose_source_correlation(tracker, graph, directories or DIRECTORIES)
+    refresh_ready_and_stages(tracker)
+    tracker["revision"] += 1
+    return tracker
+
+
+@pytest.fixture()
+def synthetic(stage3_tracker: dict) -> tuple[dict, dict]:
+    graph = synthetic_graph()
+    return decompose(stage3_tracker, graph), graph
+
+
+# -- scopes and decomposition ---------------------------------------------------
+
+
+def test_planning_scopes_partition_the_graph() -> None:
+    graph = synthetic_graph()
+    scopes = planning_scopes(graph)
+    ids = [row["id"] for row in graph["artifacts"]]
+    assert [scope_key(entry["scope"]) for entry in scopes] == [
+        "segment:socom:source-segment:00000000000000000001",
+        "provider:SCE",
+        "segment:socom:source-segment:00000000000000000003",
+        "data:data",
+        "data:bss",
+    ]
+    # The code gap between two segments goes with the segment before it.
+    assert scopes[0]["artifacts"] == [ids[0], ids[1], ids[2], ids[7]]
+    assert scopes[1]["artifacts"] == [ids[3], ids[4], ids[10]]
+    assert scopes[3]["artifacts"] == [ids[8], ids[9]] and scopes[4]["artifacts"] == [ids[11]]
+    held = [identity for entry in scopes for identity in entry["artifacts"]]
+    assert sorted(held) == sorted(ids) and len(held) == len(set(held))
+
+
+def test_apply_directories_keep_the_existing_module_spelling(tmp_path: Path) -> None:
+    (tmp_path / "src" / "gamez" / "zfoo").mkdir(parents=True)
+    (tmp_path / "src" / "Apps" / "FTS").mkdir(parents=True)
+    (tmp_path / "src" / "Apps" / "FTS" / "b.cpp").write_text("", encoding="utf-8")
+    directories = apply_directories(tmp_path, synthetic_graph())
+    assert directories == {
+        "segment:socom:source-segment:00000000000000000001": ["src/gamez/zfoo"],
+        "provider:SCE": ["src/providers/sce"],
+        "segment:socom:source-segment:00000000000000000003": ["src/Apps/FTS"],
+    }
+
+
+def test_decomposition_builds_file_only_plans_blocked_applies_and_a_gate(synthetic: tuple[dict, dict]) -> None:
+    tracker, graph = synthetic
+    assert audit_tracker(tracker, strict=True) == []
+    rows = [row for row in tracker["work_items"] if row["stage"] == SOURCE_STAGE]
+    assert Counter(row["kind"] for row in rows) == {
+        "source-plan-segment": 2,
+        "source-apply-segment": 2,
+        "source-plan-provider": 1,
+        "source-apply-provider": 1,
+        "source-data-reconcile": 2,
+        "capability-gate": 1,
+        "stage-gate": 1,
+    }
+    by_id = {row["id"]: row for row in rows}
+    plans = ["socom:work:source-segment-001", "socom:work:source-provider-sce", "socom:work:source-segment-003"]
+    reconciles = ["socom:work:source-data-data", "socom:work:source-data-bss"]
+    for plan in plans:
+        assert by_id[plan]["dependencies"] == [RECON_SEED_ID]
+        assert by_id[plan]["resources"] == ["build/source-plans"]
+        assert by_id[plan]["batch"]["graph_sha256"] == graph["graph_sha256"]
+        assert by_id[f"{plan}-apply"]["dependencies"] == [plan, *reconciles, SOURCE_APPLY_ROUTE_ID]
+    assert by_id["socom:work:source-segment-001-apply"]["resources"] == ["src/gamez/zFoo"]
+    assert by_id["socom:work:source-provider-sce-apply"]["resources"] == ["src/providers/sce"]
+    for reconcile in reconciles:
+        assert sorted(by_id[reconcile]["dependencies"]) == sorted(plans)
+    gate = by_id[SOURCE_SEED_ID]
+    assert gate["kind"] == "stage-gate" and set(gate["dependencies"]) == {f"{plan}-apply" for plan in plans} | set(reconciles)
+    assert not any("ghidra" in value for row in rows for value in row["resources"])
+    assert {row["id"] for row in next_work(copy.deepcopy(tracker)) if row["stage"] == SOURCE_STAGE} == set(plans)
+    stage = next(row for row in tracker["stages"] if row["name"] == SOURCE_STAGE)
+    assert stage["status"] == "active"
+    assert stage["decomposition"]["provider_libraries"] == ["SCE"] and stage["decomposition"]["data_kinds"] == ["data", "bss"]
+    with pytest.raises(SocomError, match="already decomposed"):
+        decompose_source_correlation(tracker, graph, DIRECTORIES)
+
+
+def test_the_apply_route_gate_cannot_be_claimed_and_keeps_applies_blocked(synthetic: tuple[dict, dict]) -> None:
+    tracker, _graph = synthetic
+    with pytest.raises(SocomError, match="capability gate"):
+        claim_work(tracker, SOURCE_APPLY_ROUTE_ID, "anyone", 30)
+    # Every plan and reconcile accepted: the applies still wait for the route.
+    for row in tracker["work_items"]:
+        if row["kind"] in ("source-plan-segment", "source-plan-provider", "source-data-reconcile"):
+            row.update(status="accepted", handoff={"owner": "mapper"}, accepted={"by": "reviewer"})
+    refresh_ready_and_stages(tracker)
+    statuses = {row["status"] for row in tracker["work_items"] if row["kind"].startswith("source-apply-")}
+    assert statuses == {"blocked"}
+    assert next(row for row in tracker["work_items"] if row["id"] == SOURCE_APPLY_ROUTE_ID)["status"] == "blocked"
+    with pytest.raises(SocomError, match="capability gate"):
+        accept_work(tracker, SOURCE_APPLY_ROUTE_ID, "reviewer", ["evidence"])
+
+
+def test_decomposition_preconditions(stage3_tracker: dict) -> None:
+    graph = synthetic_graph()
+    tracker = copy.deepcopy(stage3_tracker)
+    next(row for row in tracker["stages"] if row["name"] == "ghidra-reconstruction").pop("baseline")
+    with pytest.raises(SocomError, match="recorded baseline"):
+        decompose_source_correlation(tracker, graph, DIRECTORIES)
+    tampered = copy.deepcopy(graph)
+    tampered["segments"][0]["data"] = []
+    with pytest.raises(SocomError, match="differs from its graph_sha256"):
+        decompose_source_correlation(copy.deepcopy(stage3_tracker), tampered, DIRECTORIES)
+    with pytest.raises(SocomError, match="no src/ directory"):
+        decompose_source_correlation(copy.deepcopy(stage3_tracker), graph, {})
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        (lambda by_id: by_id["socom:work:source-segment-001"].update(resources=["src"]), "not file-only"),
+        (lambda by_id: by_id["socom:work:source-segment-001"].update(dependencies=[]), "accepted ghidra-reconstruction gate"),
+        (lambda by_id: by_id["socom:work:source-segment-001-apply"].update(resources=["ghidra-writer"]), "Ghidra resource"),
+        (lambda by_id: by_id["socom:work:source-segment-001-apply"]["dependencies"].pop(), "every data reconcile"),
+        (lambda by_id: by_id["socom:work:source-data-bss"]["dependencies"].pop(), "every source plan item"),
+        (lambda by_id: by_id[SOURCE_APPLY_ROUTE_ID].update(status="ready"), "must stay blocked"),
+        (lambda by_id: by_id[SOURCE_SEED_ID]["dependencies"].pop(), "gate does not depend"),
+        (lambda by_id: by_id["socom:work:source-provider-sce"]["batch"].update(graph_sha256="0" * 64), "different source graph"),
+        (lambda by_id: by_id["socom:work:source-provider-sce"]["batch"]["scope"].update(library="newlib"), "differs from the"),
+    ],
+)
+def test_audit_rejects_broken_source_structure(synthetic: tuple[dict, dict], change, message: str) -> None:
+    tracker, _graph = synthetic
+    broken = copy.deepcopy(tracker)
+    change({row["id"]: row for row in broken["work_items"]})
+    assert any(message in error for error in audit_tracker(broken)), audit_tracker(broken)
+
+
+def test_pairing_audit_and_removed_applies(synthetic: tuple[dict, dict]) -> None:
+    tracker, _graph = synthetic
+    broken = copy.deepcopy(tracker)
+    broken["work_items"] = [row for row in broken["work_items"] if row["id"] != "socom:work:source-segment-003-apply"]
+    errors = audit_tracker(broken)
+    assert any("pairing is incomplete" in error for error in errors)
+
+
+def test_packets_route_mapper_worker_and_verifier(synthetic: tuple[dict, dict]) -> None:
+    tracker, _graph = synthetic
+    claim_work(tracker, "socom:work:source-provider-sce", "mapper", 30)
+    packet = work_packet(tracker, "socom:work:source-provider-sce", "mapper")
+    assert packet["role"] == "socom-source-owner-mapper" and packet["skill"] == "socom-provider-boundary"
+    assert packet["allowed_paths"] == [
+        "build/source-plans/socom-work-source-provider-sce-evidence.json",
+        "build/source-plans/socom-work-source-provider-sce.json",
+    ]
+    assert any("source plan validate" in line and "--check" in line for line in packet["validation"])
+    claim_work(tracker, "socom:work:source-segment-001", "mapper", 30)
+    assert work_packet(tracker, "socom:work:source-segment-001", "mapper")["skill"] == "socom-source-model-recovery"
+    apply = next(row for row in tracker["work_items"] if row["id"] == "socom:work:source-segment-001-apply")
+    apply["status"] = "ready"
+    claim_work(tracker, apply["id"], "worker", 30)
+    packet = work_packet(tracker, apply["id"], "worker")
+    assert packet["role"] == "socom-source-worker" and packet["allowed_paths"] == ["src/gamez/zFoo"]
+    assert packet["ghidra_scope"] is None
+    gate = next(row for row in tracker["work_items"] if row["id"] == SOURCE_SEED_ID)
+    gate["status"] = "ready"
+    claim_work(tracker, SOURCE_SEED_ID, "verifier", 30)
+    packet = work_packet(tracker, SOURCE_SEED_ID, "verifier")
+    assert packet["role"] == "socom-verifier"
+    assert any("--stage ghidra-reconstruction" in line for line in packet["validation"])
+    assert any("audit source-trace --require-complete" in line for line in packet["validation"])
+
+
+# -- owner plans --------------------------------------------------------------------
+
+
+def _workspace(tmp_path: Path) -> Path:
+    (tmp_path / "src" / "gamez" / "zFoo").mkdir(parents=True)
+    (tmp_path / "src" / "gamez" / "zFoo" / "a.cpp").write_bytes(b"// provisional\n")
+    (tmp_path / "src" / "gamez" / "zFoo" / "zfoo.h").write_text("", encoding="utf-8")
+    (tmp_path / "src" / "gamez" / "zFoo" / "stale.cpp").write_text("", encoding="utf-8")
+    return tmp_path
+
+
+def segment_plan(graph: dict) -> dict:
+    ids = [row["id"] for row in graph["artifacts"]]
+    plan = {
+        "kind": SOURCE_PLAN_KIND,
+        "schema_version": 1,
+        "work_item_id": "socom:work:source-segment-001",
+        "scope": {"kind": "segment", "segment_id": graph["segments"][0]["id"], "segment_number": 1},
+        "graph_sha256": graph["graph_sha256"],
+        "slice_sha256": planning_scopes(graph)[0]["slice_sha256"],
+        "target": {"source_sha256": REFERENCE_SHA256},
+        "owners": [
+            {
+                "translation_unit": "a.cpp",
+                "classification": "authored",
+                "workspace_path": "src/gamez/zFoo/a.cpp",
+                "original_path": "Z:\\dev\\gamez\\zFoo\\a.cpp",
+                "provisional_file": "src/gamez/zFoo/a.cpp",
+                "library": None,
+                "archive_member": None,
+                "confidence": "high",
+                "evidence": ["dwarf-cu covers 0x140000"],
+                "artifacts": [ids[0], ids[1], ids[7]],
+            },
+            {
+                "translation_unit": None,
+                "classification": "compiler-generated",
+                "workspace_path": None,
+                "original_path": None,
+                "provisional_file": None,
+                "library": None,
+                "archive_member": None,
+                "confidence": "medium",
+                "evidence": ["alignment padding before the next object"],
+                "artifacts": [ids[2]],
+            },
+        ],
+        "header_emits": [
+            {"artifact": ids[1], "header": "src/gamez/zFoo/zfoo.h", "reason": "inline", "evidence": ["binding 13 instance"]},
+        ],
+        "annotations": [],
+        "unresolved": [],
+        "retire_files": [{"path": "src/gamez/zFoo/stale.cpp", "reason": "empty, unevidenced", "evidence": ["0 bytes"]}],
+        "notes": [],
+    }
+    plan["annotations"] = derive_annotations(plan, graph, MAIN)
+    return plan
+
+
+def provider_plan(graph: dict) -> dict:
+    ids = [row["id"] for row in graph["artifacts"]]
+    return {
+        "kind": SOURCE_PLAN_KIND,
+        "schema_version": 1,
+        "work_item_id": "socom:work:source-provider-sce",
+        "scope": {"kind": "provider", "library": "SCE"},
+        "graph_sha256": graph["graph_sha256"],
+        "slice_sha256": planning_scopes(graph)[1]["slice_sha256"],
+        "target": {"source_sha256": REFERENCE_SHA256},
+        "owners": [
+            {
+                "translation_unit": None,
+                "classification": "provider",
+                "workspace_path": None,
+                "original_path": None,
+                "provisional_file": None,
+                "library": "SCE",
+                "archive_member": {"gnu_object": "0x140020", "object": None},
+                "confidence": "high",
+                "evidence": ["gcc2_compiled. at 0x140020"],
+                "artifacts": [ids[3], ids[4]],
+            }
+        ],
+        "header_emits": [],
+        "annotations": [],
+        "unresolved": [{"artifact": ids[10], "reason": "no relocation ties the table to the object"}],
+        "retire_files": [],
+        "notes": [],
+    }
+
+
+def test_complete_plans_validate(tmp_path: Path, synthetic: tuple[dict, dict]) -> None:
+    tracker, graph = synthetic
+    root = _workspace(tmp_path)
+    plan = segment_plan(graph)
+    assert [(row["relation"], row["path"]) for row in plan["annotations"]] == [
+        ("defines", "src/gamez/zFoo/a.cpp"),
+        ("defines", "src/gamez/zFoo/a.cpp"),
+        ("emits", "src/gamez/zFoo/zfoo.h"),
+    ]
+    report = validate_source_plan(root, tracker, plan, graph, section_of=MAIN)
+    assert report["ok"], report["problems"]
+    # The @12 literal is owned through the artifact list, not annotated.
+    assert report["summary"]["annotations"] == {"defines": 2, "emits": 1}
+    report = validate_source_plan(root, tracker, provider_plan(graph), graph, section_of=MAIN)
+    assert report["ok"], report["problems"]
+    assert report["summary"]["annotations"] == {}
+
+
+def _ids(graph: dict) -> list[str]:
+    return [row["id"] for row in graph["artifacts"]]
+
+
+SEGMENT_DEFECTS = [
+    (lambda plan, ids: plan["owners"][0]["artifacts"].remove(ids[7]), "neither owned nor unresolved"),
+    (lambda plan, ids: plan["unresolved"].append({"artifact": ids[0], "reason": "x"}), "is listed 2 times"),
+    (lambda plan, ids: plan["unresolved"].append({"artifact": ids[8], "reason": "x"}), "outside the scope's slice"),
+    (lambda plan, ids: plan["unresolved"].append({"artifact": ids[7], "reason": SKELETON_REASON})
+     or plan["owners"][0]["artifacts"].remove(ids[7]), "skeleton reason"),
+    (lambda plan, ids: plan["owners"][0].update(workspace_path="src/gamez/zFoo/zfoo.h"), "headers only declare or emit"),
+    (lambda plan, ids: plan["owners"][0].update(workspace_path="src/gamez/zfoo/a.cpp", provisional_file=None), "letter case"),
+    (lambda plan, ids: plan["owners"][0].update(provisional_file=None), "cite it as provisional_file"),
+    (lambda plan, ids: plan["owners"][0].update(provisional_file="src/gamez/zFoo/A.cpp"), "existing file exactly"),
+    (lambda plan, ids: plan["owners"][0].update(workspace_path="src/gamez/zFoo/c.cpp"), "keep the unit's file name"),
+    (lambda plan, ids: plan["owners"][0].update(original_path="Z:\\dev\\gamez\\zBar\\a.cpp"), "not quoted by the graph"),
+    (lambda plan, ids: plan["owners"][0].update(evidence=[]), "needs evidence lines"),
+    (lambda plan, ids: plan["owners"][0].update(confidence="certain"), "confidence must be one of"),
+    (lambda plan, ids: plan["header_emits"][0].update(reason="weak"), "needs WEAK binding"),
+    (lambda plan, ids: plan["header_emits"][0].update(reason="template"), "template arguments"),
+    (lambda plan, ids: plan["header_emits"][0].update(header="src/gamez/zFoo/a.cpp"), "header path"),
+    (lambda plan, ids: plan["annotations"].pop(), "are not listed"),
+    (lambda plan, ids: plan["annotations"].append(
+        {"artifact": ids[7], "relation": "defines", "section": "main", "path": "src/gamez/zFoo/a.cpp"}), "no owner row implies"),
+    (lambda plan, ids: plan["retire_files"][0].update(path="src/gamez/zFoo/a.cpp"), "cited by an owner"),
+    (lambda plan, ids: plan["header_emits"][0].update(artifact=[ids[1]]), "with string values"),
+    (lambda plan, ids: plan["annotations"][0].update(path=["src/gamez/zFoo/a.cpp"]), "every annotation must be exactly"),
+    (lambda plan, ids: plan["retire_files"][0].update(path=["x"]), "retire_files row 1 must be"),
+    (lambda plan, ids: plan.update(graph_sha256="1" * 64), "the plan cites graph"),
+    (lambda plan, ids: plan.update(slice_sha256="2" * 64), "the plan cites slice"),
+    (lambda plan, ids: plan.update(scope={"kind": "data", "data_kind": "bss"}), "scope differs"),
+    (lambda plan, ids: plan.update(extra=True), "unknown fields"),
+    (lambda plan, ids: plan.update(work_item_id="socom:work:source-segment-001-apply"), "not a source-correlation plan item"),
+]
+
+
+@pytest.mark.parametrize(("change", "message"), SEGMENT_DEFECTS)
+def test_segment_plan_defects_are_refused(tmp_path: Path, synthetic: tuple[dict, dict], change, message: str) -> None:
+    tracker, graph = synthetic
+    root = _workspace(tmp_path)
+    plan = segment_plan(graph)
+    change(plan, _ids(graph))
+    report = validate_source_plan(root, tracker, plan, graph, section_of=MAIN)
+    assert not report["ok"]
+    assert any(message in problem for problem in report["problems"]), report["problems"]
+
+
+PROVIDER_DEFECTS = [
+    (lambda plan: plan["owners"][0].update(archive_member=None), "archive_member needs"),
+    (lambda plan: plan["owners"][0].update(archive_member={"gnu_object": "0x999999"}), "not a GNU object"),
+    (lambda plan: plan["owners"][0].update(workspace_path="src/providers/sce/foo.c"), "without a source body"),
+    (lambda plan: plan["owners"][0].update(library=None), "needs its library"),
+    (lambda plan: plan["owners"].append(copy.deepcopy(plan["owners"][0]))
+     or plan["owners"][1].update(artifacts=[plan["owners"][0]["artifacts"].pop()]), "one owner row per archive member"),
+    (lambda plan: plan["owners"][0].update(classification="authored", library=None, archive_member=None,
+                                           translation_unit="foo.c", workspace_path="src/x/foo.c"),
+     "belongs to GNU object 0x140020"),
+]
+
+
+@pytest.mark.parametrize(("change", "message"), PROVIDER_DEFECTS)
+def test_provider_plan_defects_are_refused(tmp_path: Path, synthetic: tuple[dict, dict], change, message: str) -> None:
+    tracker, graph = synthetic
+    plan = provider_plan(graph)
+    change(plan)
+    report = validate_source_plan(_workspace(tmp_path), tracker, plan, graph, section_of=MAIN)
+    assert any(message in problem for problem in report["problems"]), report["problems"]
+
+
+def test_a_stale_graph_is_refused(tmp_path: Path, synthetic: tuple[dict, dict]) -> None:
+    tracker, graph = synthetic
+    other = copy.deepcopy(graph)
+    other["segment_size"] = 100
+    other["graph_sha256"] = graph_digest(other)
+    report = validate_source_plan(_workspace(tmp_path), tracker, segment_plan(graph), other, section_of=MAIN)
+    assert any("stale graph" in problem for problem in report["problems"])
+    tampered = copy.deepcopy(graph)
+    tampered["units"] = []
+    report = validate_source_plan(_workspace(tmp_path / "t"), tracker, segment_plan(graph), tampered, section_of=MAIN)
+    assert any("differs from its graph_sha256" in problem for problem in report["problems"])
+
+
+def test_evidence_and_skeleton(tmp_path: Path, synthetic: tuple[dict, dict]) -> None:
+    tracker, graph = synthetic
+    root = _workspace(tmp_path)
+    evidence = plan_evidence(root, tracker, "socom:work:source-segment-001", graph, section_of=MAIN)
+    assert [row["id"] for row in evidence["artifacts"]] == planning_scopes(graph)[0]["artifacts"]
+    assert evidence["provisional_files"] == [{"path": "src/gamez/zFoo/a.cpp", "bytes": 15}]
+    assert [row["named"] for row in evidence["artifacts"]] == [True, True, False, False]
+    skeleton = plan_skeleton(tracker, "socom:work:source-segment-001", graph)
+    problems = validate_source_plan(root, tracker, skeleton, graph, section_of=MAIN)["problems"]
+    assert len(problems) == 4 and all("skeleton reason" in problem for problem in problems)
+
+
+def _cli_root(tmp_path: Path, root: Path, tracker: dict, graph: dict) -> Path:
+    workspace = _workspace(tmp_path)
+    (workspace / ".agent").mkdir()
+    (workspace / ".agent" / "RECONSTRUCTION_PROGRESS.json").write_text(json.dumps(tracker), encoding="utf-8")
+    (workspace / "support").mkdir()
+    shutil.copyfile(root / "support" / "socom.elf", workspace / "support" / "socom.elf")
+    (workspace / "build" / "source-graph").mkdir(parents=True)
+    (workspace / "build" / "source-graph" / "graph.json").write_text(json.dumps(graph), encoding="utf-8")
+    return workspace
+
+
+def test_cli_evidence_fill_and_check(tmp_path: Path, root: Path, synthetic: tuple[dict, dict], capsys, monkeypatch) -> None:
+    tracker, graph = synthetic
+    workspace = _cli_root(tmp_path, root, tracker, graph)
+    base = ["--root", str(workspace), "source", "plan"]
+    plan_path = "build/source-plans/socom-work-source-segment-001.json"
+    assert cli.main([*base, "evidence", "--item", "socom:work:source-segment-001",
+                     "--output", "build/source-plans/e.json", "--skeleton", plan_path]) == 0
+    assert json.loads(capsys.readouterr().out)["artifact_count"] == 4
+    assert cli.main([*base, "evidence", "--item", "socom:work:source-segment-001",
+                     "--output", "build/source-plans/e.json", "--skeleton", plan_path]) == 2
+    assert "never replaces a plan" in json.loads(capsys.readouterr().out)["error"]
+    plan = segment_plan(graph)
+    plan["annotations"] = []
+    (workspace / plan_path).write_text(json.dumps(plan), encoding="utf-8")
+    assert cli.main([*base, "validate", "--plan", plan_path]) == 1
+    assert any("are not listed" in problem for problem in json.loads(capsys.readouterr().out)["problems"])
+    assert cli.main([*base, "validate", "--plan", plan_path, "--fill-annotations"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["ok"] and report["annotations_filled"] and report["summary"]["annotations"]["defines"] == 2
+    # --check regenerates the graph from the ELF: the reference graph is not
+    # the synthetic one the item was decomposed from.
+    regenerated = dict(graph, segment_size=100)
+    regenerated["graph_sha256"] = graph_digest(regenerated)
+    monkeypatch.setattr("tools._socom.source_graph.source_graph", lambda _root: regenerated)
+    assert cli.main([*base, "validate", "--plan", plan_path, "--check"]) == 1
+    assert any("stale graph" in problem for problem in json.loads(capsys.readouterr().out)["problems"])
+    assert cli.main([*base, "validate", "--plan", plan_path, "--fill-annotations", "--graph", "missing.json"]) == 2
+
+
+# -- the reference tracker and graph ---------------------------------------------------
+
+
+def test_reference_dry_run_decomposition(root: Path, stage3_tracker: dict, reference_source_graph: dict) -> None:
+    graph = reference_source_graph
+    scopes = planning_scopes(graph)
+    held = [identity for entry in scopes for identity in entry["artifacts"]]
+    assert len(held) == len(set(held)) == len(graph["artifacts"])
+    tracker = decompose(stage3_tracker, graph, apply_directories(root, graph))
+    assert audit_tracker(tracker, strict=True) == []
+    counts = Counter(row["kind"] for row in tracker["work_items"] if row["stage"] == SOURCE_STAGE)
+    assert counts == {
+        "source-plan-segment": 46,
+        "source-apply-segment": 46,
+        "source-plan-provider": 12,
+        "source-apply-provider": 12,
+        "source-data-reconcile": 3,
+        "capability-gate": 1,
+        "stage-gate": 1,
+    }
+    ready = [row["id"] for row in next_work(copy.deepcopy(tracker)) if row["stage"] == SOURCE_STAGE]
+    assert len(ready) == 58
+    record = next(row for row in tracker["stages"] if row["name"] == SOURCE_STAGE)["decomposition"]
+    assert record["segment_count"] == len(graph["segments"]) and record["graph_sha256"] == graph["graph_sha256"]
+    # The static-initializer window (mostly compiler-generated) is planned as
+    # an authored segment; the speech window is one provider library.
+    last = next(row for row in tracker["work_items"] if row["id"] == f"socom:work:source-segment-{len(graph['segments']):03d}")
+    assert last["batch"]["classification_mix"].get("compiler-generated", 0) > 100
+    assert "socom:work:source-provider-speech-middleware" in {row["id"] for row in tracker["work_items"]}
+
+
+def test_reference_skeleton_regenerates_its_slice(root: Path, stage3_tracker: dict, reference_source_graph: dict) -> None:
+    graph = reference_source_graph
+    tracker = decompose(stage3_tracker, graph, apply_directories(root, graph))
+    item = "socom:work:source-segment-001"
+    skeleton = plan_skeleton(tracker, item, graph)
+    section_of = loaded_section_lookup(root)
+    problems = validate_source_plan(root, tracker, skeleton, graph, section_of=section_of)["problems"]
+    assert problems and all("skeleton reason" in problem for problem in problems)
+    assert (section_of(0x140008), section_of(0x5B0000), section_of(0x5E7F00), section_of(0x90000000)) == (
+        "main", "main", "heap", None,
+    )
+
+
+def test_cli_dry_run_against_a_copy_of_the_reference_tracker(
+    tmp_path: Path, root: Path, stage3_tracker: dict, reference_source_graph: dict, capsys, monkeypatch
+) -> None:
+    (tmp_path / ".agent").mkdir()
+    state = tmp_path / ".agent" / "RECONSTRUCTION_PROGRESS.json"
+    state.write_text(json.dumps(stage3_tracker), encoding="utf-8")
+    shutil.copytree(root / "src", tmp_path / "src")
+    before = state.read_bytes()
+    monkeypatch.setattr(cli, "source_graph", lambda _root: reference_source_graph)
+    arguments = ["--root", str(tmp_path), "progress", "decompose-stage", "--stage", SOURCE_STAGE,
+                 "--expected-revision", str(stage3_tracker["revision"]), "--dry-run"]
+    assert cli.main(arguments) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["ok"] and report["errors"] == []
+    assert report["item_counts"]["source-plan-segment"] == 46 and report["item_counts"]["source-data-reconcile"] == 3
+    assert state.read_bytes() == before
+
+
+def test_pipeline_reachability_reports_a_decomposed_deferred_stage(
+    tmp_path: Path, stage3_tracker: dict, synthetic: tuple[dict, dict]
+) -> None:
+    tracker, _graph = synthetic
+    (tmp_path / ".agent").mkdir()
+    rows = cli._command_rows()
+    for state, decomposed in ((stage3_tracker, False), (tracker, True)):
+        (tmp_path / ".agent" / "RECONSTRUCTION_PROGRESS.json").write_text(json.dumps(state), encoding="utf-8")
+        report = audits.pipeline_reachability(tmp_path, rows)
+        assert report["ok"], report["missing"]
+        row = next(row for row in report["deferred"] if row["stage"] == SOURCE_STAGE)
+        assert row["decomposed"] is decomposed and row["prerequisite"] == "source-correlation-apply-route"

@@ -63,7 +63,7 @@ from .recon import (
 )
 from .fingerprint import SWEEP_MODES, compare_fingerprints, program_fingerprint
 from .type_apply import ApplyFailure, build_apply_program, execute_apply_program
-from . import recon_repair_cli, type_plan_cli
+from . import recon_repair_cli, source_plan_cli, type_plan_cli
 from .source import (
     audit_docblocks,
     audit_independence,
@@ -72,6 +72,7 @@ from .source import (
     source_owners,
 )
 from .source_graph import SEGMENT_SIZE as SOURCE_SEGMENT_SIZE, segments_markdown, source_graph
+from .source_plan import SOURCE_STAGE, apply_directories
 from .snapshot import snapshot_status, write_snapshot
 from .toolchain import bootstrap_toolchain, verify_toolchain
 from .tracker import (
@@ -95,6 +96,7 @@ from .tracker import (
     scope_sha256,
     stage_live_scope,
     decompose_reconstruction,
+    decompose_source_correlation,
     reject_work,
     reopen_work,
     release_work,
@@ -2077,15 +2079,32 @@ def _ghidra_apply_recon(arguments: argparse.Namespace) -> int:
     return 0
 
 
+def _stage_item_counts(tracker: dict[str, Any], stage: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in tracker["work_items"]:
+        if row["stage"] == stage:
+            counts[row["kind"]] = counts.get(row["kind"], 0) + 1
+    return dict(sorted(counts.items()))
+
+
 def _progress_decompose_stage(arguments: argparse.Namespace) -> int:
     root = _root(arguments)
-    if arguments.stage != "ghidra-reconstruction":
-        raise SocomError(f"no registered producer decomposes {arguments.stage}")
-    groups = recon_groups(root)
     captured: dict[str, Any] = {}
+    if arguments.stage == "ghidra-reconstruction":
+        groups = recon_groups(root)
 
-    def decompose(tracker: dict[str, Any]) -> None:
-        captured.update(decompose_reconstruction(tracker, groups))
+        def decompose(tracker: dict[str, Any]) -> None:
+            captured.update(decompose_reconstruction(tracker, groups))
+
+    elif arguments.stage == SOURCE_STAGE:
+        graph = source_graph(root)
+        directories = apply_directories(root, graph)
+
+        def decompose(tracker: dict[str, Any]) -> None:
+            captured.update(decompose_source_correlation(tracker, graph, directories))
+
+    else:
+        raise SocomError(f"no registered producer decomposes {arguments.stage}")
 
     if arguments.dry_run:
         tracker = load_tracker(tracker_path(root))
@@ -2102,6 +2121,7 @@ def _progress_decompose_stage(arguments: argparse.Namespace) -> int:
                 "dry_run": True,
                 "revision": tracker["revision"],
                 "decomposition": captured,
+                "item_counts": _stage_item_counts(preview, arguments.stage),
                 "ready_count": len(ready),
                 "ready_sample": [row["id"] for row in ready[:5]],
                 "errors": errors,
@@ -2116,6 +2136,7 @@ def _progress_decompose_stage(arguments: argparse.Namespace) -> int:
             "dry_run": False,
             "revision": updated["revision"],
             "decomposition": captured,
+            "item_counts": _stage_item_counts(updated, arguments.stage),
             "ready_count": len(next_work(copy.deepcopy(updated))),
         }
     )
@@ -2992,6 +3013,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
         "Build deterministic ELF-only translation-unit evidence, classification candidates and address segments.",
     ),
     _spec("source audit", "source", "Audit soCOM workspace independence."),
+    *source_plan_cli.specs(_spec),
     _spec("verify asm", "verification", "Read function and assembly evidence from Ghidra.", ghidra_requirement="required"),
     _spec("verify functional", "verification", "List or run one deterministic behavioral smoke target."),
     _spec("verify functional-batch", "verification", "Run a reviewed batch of behavioral smoke targets."),
@@ -3514,6 +3536,7 @@ def build_parser() -> argparse.ArgumentParser:
     graph_command.set_defaults(handler=_source_graph)
     source_audit = source_commands.add_parser("audit")
     source_audit.set_defaults(handler=_source_audit)
+    source_plan_cli.register(source_commands)
 
     verify = commands.add_parser("verify")
     verify_commands = verify.add_subparsers(dest="verification", required=True)

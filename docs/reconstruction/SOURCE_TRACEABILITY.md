@@ -35,8 +35,10 @@ requires every accepted physical artifact to have a defining source edge.
 
 Original `Z:\dev\...` strings are quoted evidence, not active paths and not
 instructions to reproduce the original drive tree. Source-correlation changes
-must use a future revision-guarded batch interface that preserves prior claims
-as history; no such mutation interface is currently registered.
+go through reviewed owner plans ([SOURCE_CORRELATION.md](SOURCE_CORRELATION.md)):
+the stage is decomposed and its plans validated by registered commands, while
+the guarded route that applies an accepted plan's files and annotations, and
+keeps prior claims as history, is not registered yet.
 
 ## Translation-unit evidence: `source graph`
 
@@ -50,9 +52,10 @@ python tools/socom.py source graph `
 ELF (symbols, relocations, bytes, DWARF 1 `.debug` and `.line`), never Ghidra,
 the tracker or `src/`, and writes only the files named under `build/`. Its
 output is deterministic and carries `graph_sha256` over the canonical content,
-like `recon graph`. Everything in it is a candidate: it decomposes nothing,
-owns nothing and does not open the stage, which stays deferred until owner
-plans, their validation, annotation and the gate are registered.
+like `recon graph`. Everything in it is a candidate and it owns nothing.
+`progress decompose-stage --stage source-correlation` builds the stage's
+owner-plan items from it ([SOURCE_CORRELATION.md](SOURCE_CORRELATION.md)); the
+stage stays deferred until the apply route and the gate check are registered.
 
 Artifacts are the census-derived set: one row per start address of the sized
 `FUNC` (`socom:function:0x...`) and `OBJECT` (`socom:data:0x...`) symbols,
