@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2919,
+  "revision": 2928,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -147529,6 +147529,10 @@
       "title": "Record the reviewed provider owners of MW runtime in tracker evidence"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T11:00:44Z",
+        "by": "socom-source-owner-scrutinizer-x7"
+      },
       "batch": {
         "artifact_count": 529,
         "batch_number": 3,
@@ -147562,8 +147566,15 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-msl.json sha256:d0226e9dc4f8d1f7c3bfa6ec1726f12e5e63dbe518c647956858b649be54db46 (graph 7bd4e540): validate --check ok (529 owned, 0 unresolved), draft --check ok (525 drafted, 4 hand, 0 open, no overrides; owner changes only linked unknown->archive on ios.cpp/iostream.cpp/locale.cpp). Earlier finding fixed: 0x1448d0 ~ios_base::failure basis now 'ios.o and iostream.o (not locale.o)', 0x144950 ~locale 'ios.o, iostream.o and locale.o', matching provider archive on R3.04 ANSICPP_PS2.LIB; owner ios.o medium unchanged; row sizes (fill 133, ios.o 25, iostream.o 306, locale.o 65) and the 0x475604/0x475608 iostream.o entries unchanged. Placements verified earlier: dtors between __do_global_dtors 0x1448c0 and ios.cpp's first DWARF function 0x1449b0 (R3.04 ios.o symbol order also has them before ~ios_base; ~failure is vtable 0x471540's slot); counters referenced only by GPREL16 from iostream.cpp __nInit/__wInit, R3.04 iostream.o GLOBAL .sbss; stationery MSL C++.PS2.mcp.xml :2140, :2199-2241 and c++.mcp.xml :1004 verified; no install paths.",
+        "plan build/source-plans/socom-work-source-provider-msl.json sha256:d0226e9dc4f8d1f7c3bfa6ec1726f12e5e63dbe518c647956858b649be54db46; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1a",
+        "submitted_at": "2026-10-31T10:59:49Z",
+        "summary": "rework after x7 rejection: bases of 0x1448d0/0x144950 re-decided with per-symbol R3.04 member lists (~failure: ios.o, iostream.o; ~locale: ios.o, iostream.o, locale.o); owners ios.o medium unchanged; owners 4, unresolved 0, retire 0, open rows decided 4"
+      },
       "id": "socom:work:source-provider-msl",
       "kind": "source-plan-provider",
       "lease": null,
@@ -147588,7 +147599,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan provider owners of MSL (1 segments, 179 functions)"
     },
     {
@@ -147641,6 +147652,10 @@
       "title": "Record the reviewed provider owners of MSL in tracker evidence"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T11:00:15Z",
+        "by": "socom-source-owner-scrutinizer-x4"
+      },
       "batch": {
         "artifact_count": 1280,
         "batch_number": 4,
@@ -147705,8 +147720,15 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-sce.json sha256:8693a9242de8a0e8bc314e77db9765a33754aed234b81542419e35e031e7b035; validate --check ok; draft --check ok",
+        "resubmission: plan sha256 8693a924 matches handoff; validate --check ok (summary and review notes identical to the reviewed ae8898f4 plan); draft --check ok (1276 drafted, 4 hand, 0 open, no overrides or header changes). Against the earlier draft-check, the only owner_changes difference is that rows 0x379ab0, 0x3aa6f8 and 0x425280 lost archive_member.archive (version 2500 kept; evidence ends 'no evidence names its archive file'). The note now limits archive to the six stationery-listed libraries. The 4 hand entries and all owner rows and counts are unchanged from what I reviewed (libinfo bytes, stationery FILELIST/LINKORDER lines, .rodata runs 0x446d70/0x446de0/0x4482c0, linker fill 0x15b0cc). Nit only: the blocker note's range 'libgraph.a .. netcnfif.a' still spells netcnfif.a, but no row claims it."
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1b",
+        "submitted_at": "2026-10-31T10:58:32Z",
+        "summary": "rework per x4: archive removed from 0x379ab0/0x3aa6f8/0x425280 (libmrpc/libscf/netcnfif; version 2500 and libinfo evidence kept); owners 81, unresolved 0, open rows decided 4"
+      },
       "id": "socom:work:source-provider-sce",
       "kind": "source-plan-provider",
       "lease": null,
@@ -147731,7 +147753,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan provider owners of SCE (8 segments, 801 functions)"
     },
     {
@@ -148043,6 +148065,10 @@
       "title": "Record the reviewed provider owners of newlib in tracker evidence"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T10:58:04Z",
+        "by": "socom-source-owner-scrutinizer-x7"
+      },
       "batch": {
         "artifact_count": 49,
         "batch_number": 10,
@@ -148078,6 +148104,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "plan build/source-plans/socom-work-source-provider-libgcc.json sha256:1a93fee475c45c7e43e0b018e7c0d0c7c9ea8d10f12fd6861c69bd258fead2fe (graph 7bd4e540): validate --check ok (49 owned, 0 unresolved, no review notes), draft --check ok (49 drafted: P-gnu-object 29, P-gnu-data 4, C-fill 16; 0 hand, 0 open; no overrides, owner or header-emit changes). Plan has 28 owner rows (27 libgcc GNU-object members + fill); the handoff summary's 'owners 27 (26 + fill)' is a count typo, the plan's note lists the same 27 members. Hand evidence lines checked: member names (medium, not in archive_member.object) in address order follow LIB2FUNCS then FPBIT then DPBIT order as noted; data-only _thenan_df 0x448090 = LOCAL .rodata symbol 1182 between _df_to_sf (.text 1179, 0x16e398) and _df_to_usi (.text 1183, 0x16e3f0). linked keeps default archive; stationery citations c++.mcp.xml :969/:1107/:1117 and TC-2.96 :962/:1112 verified; no install paths.",
         "plan build/source-plans/socom-work-source-provider-libgcc.json sha256:1a93fee475c45c7e43e0b018e7c0d0c7c9ea8d10f12fd6861c69bd258fead2fe; validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -148113,7 +148140,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan provider owners of libgcc (2 segments, 28 functions)"
     },
     {
@@ -148916,23 +148943,33 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-019.json sha256:79fea07d8ac60bd65cabaf4e2820ac8bb4411c060fceaa6afea01b079fc5a4a9; validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-w1d",
-        "submitted_at": "2026-10-31T10:42:29Z",
-        "summary": "owners 4 (3 authored incl. hand row zar_main.cpp, 1 compiler-generated), unresolved 0, retire 0, open rows decided 5 (3 zanim_menu.cpp, 2 zar_main.cpp); 1 contradiction (CKey dtor binding vs provisional zar_main.cpp:21); inferred reservation corrected to src/gamez/zAnim, zArchive, zUI"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-019",
       "kind": "source-plan-segment",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-w1d",
+            "submitted_at": "2026-10-31T10:42:29Z",
+            "summary": "owners 4 (3 authored incl. hand row zar_main.cpp, 1 compiler-generated), unresolved 0, retire 0, open rows decided 5 (3 zanim_menu.cpp, 2 zar_main.cpp); 1 contradiction (CKey dtor binding vs provisional zar_main.cpp:21); inferred reservation corrected to src/gamez/zAnim, zArchive, zUI"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-019.json sha256:79fea07d8ac60bd65cabaf4e2820ac8bb4411c060fceaa6afea01b079fc5a4a9; validate --check ok; draft --check ok"
+          ],
+          "reason": "16 owned MSL template instances have no header-emit row, so the apply would write defines edges in zanim_menu.cpp for MSL bodies. The planner rules put MSL template instances in header_emits with {header:<name>, library:MSL}, and accepted segment-001 emits all 7 of its MSL instances. The note's reason (zanim_menu.cpp has no DWARF, so no header CU names a header) does not hold: other instances of the same MSL class templates carry DWARF header units (__vector_pod 10, __vector_imp 7, __vector_deleter 13 -> ...\\Include\\vector; compressed_pair_imp 15 -> msl_utility), as segments 027/040 cite. Fix: add MSL template header emits: <vector> for 0x1d41b0, 0x1d41c0, 0x1d41d0, 0x1d41f0 (__vector_pod<Ui>), 0x1d4210, 0x1d5a10, 0x1d5c00 (__vector_imp<Pc>), 0x1d7700, 0x1d79f0 (__vector_imp<CCharacterWeap>), 0x1d74a0, 0x1d7ef0, 0x1d7f40 (__vector_deleter<CCharacterWeap>); <msl_utility> for 0x1d5c70, 0x1d79e0, 0x1d7ed0 (compressed_pair_imp); for 0x1d4b80 char_traits<char>::length, the MSL header with evidence (no char_traits<char> member has a header DIE). Then re-fill annotations and validate. Leaving the 8 non-MSL inline copies without emits (no DWARF, implicit vs explicit undecidable) is acceptable. Everything else checks out: 0x1d7ed0/0x1d7ef0/0x1d7f40 -> zanim_menu.cpp medium (refs only from zanim_menu.cpp 0x1d79f0/0x1d7300 and the later char_type.cpp; no zar refs); NewKey 0x1d7ff0 -> zar_main.cpp medium (it calls insert<CKey> 0x1d9ed0, whose kept copy is inside zar_main.cpp's run, so a separate earlier unit would have kept its own copy); CKey dtor 0x1d8130 -> zar_main.cpp (callers only 0x1d9ed0/0x1da5f0); contradiction zar_main.cpp:21; reservation correction zAnim+zArchive+zUI.",
+          "rejected_at": "2026-10-31T10:57:56Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x5"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 019 (0x1d0090-0x1d819c, 198 functions)"
     },
     {
@@ -149372,23 +149409,33 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-023.json sha256:bcef18911102c51e9838e6bbdc2ca57136c02572e0afad815cef63c0148a9315; validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-w1d",
-        "submitted_at": "2026-10-31T10:47:50Z",
-        "summary": "owners 5 (4 authored, 1 compiler-generated), unresolved 0, retire 0, open rows decided 21 (17 fts_player.cpp, 4 fts_action.cpp, all medium); 3 contradictions (provisional zNode/node_action.cpp defines fts_action.cpp's GetUIString/GetActionType; GetActionType constness); inferred reservation corrected to src/gamez/zAI, src/gamez/zFTS"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-023",
       "kind": "source-plan-segment",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-w1d",
+            "submitted_at": "2026-10-31T10:47:50Z",
+            "summary": "owners 5 (4 authored, 1 compiler-generated), unresolved 0, retire 0, open rows decided 21 (17 fts_player.cpp, 4 fts_action.cpp, all medium); 3 contradictions (provisional zNode/node_action.cpp defines fts_action.cpp's GetUIString/GetActionType; GetActionType constness); inferred reservation corrected to src/gamez/zAI, src/gamez/zFTS"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-023.json sha256:bcef18911102c51e9838e6bbdc2ca57136c02572e0afad815cef63c0148a9315; validate --check ok; draft --check ok"
+          ],
+          "reason": "50 owned MSL template instances (fts_mission.cpp 0x1fb130-0x1fca00; fts_player.cpp 0x1fd0c0, 0x1fd990, 0x1fe200, 0x1fe2b0, 0x1fe330, 0x1fe480-0x1fe6e0) have no header-emit row, and no note says why, so the apply would write defines edges for MSL bodies in the owner files. The planner rules put MSL template instances in header_emits with {header:<name>, library:MSL, reason:template}, and accepted segment-001 emits all 7 of its MSL instances. The class headers are evidenced by other instances' DWARF header units: __vector_imp 7, __vector_pod 10, __vector_deleter 13 -> ...\\Include\\vector; __list_deleter 11 -> ...\\Include\\list; compressed_pair_imp 15 and compile_assert 1 -> msl_utility (segments 027/040 cite the same). Fix: add those rows (<vector>, <list>, <msl_utility>), then re-fill annotations and validate. Every boundary decision checks out: the kept-copy query, re-run (refs to authored inline/WEAK copies from strong-anchored authored callers in another unit), gives 1277 caller/copy pairs (3651 relocations) with 0 callers located before the kept copy, 0 of 204 when the copy's unit is strong; Clear/Tick 0x1fcb00/0x1fcb40 call erase<spawn_map> 0x1fe200/0x1fe2b0, which lie between strong fts_player.cpp anchors, and 0x1fcc60-0x1fd0c0 lie inside fts_player.cpp; 0x1fe480-0x1fe6e0 are referenced only by fts_player.cpp (insert 0x1fe330, __sinit 0x46ac60, CSpawners dtor 0x1fe4f0); OnAction 0x1fe9c0 is the only GLOBAL slot of GLOBAL __vt__11CNodeAction 0x471cb0, which points at fts_action.cpp's LOCAL RTTI 0x44e538; 0x1fe790/0x1fe850/0x1fe9d0 -> fts_action.cpp medium; contradictions node_action.cpp:3/26; reservation zAI+zFTS.",
+          "rejected_at": "2026-10-31T11:00:35Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x5"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 023 (0x1f25c0-0x1ff8cc, 192 functions)"
     },
     {
