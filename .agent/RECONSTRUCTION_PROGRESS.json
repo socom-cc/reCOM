@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2931,
+  "revision": 2954,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -147003,8 +147003,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-040.json sha256:17d4a18d9084b37a8c24af7bf576c2b6bef8494b435f434350597559ad3f65f7; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1f",
+        "submitted_at": "2026-10-31T12:17:30Z",
+        "summary": "owners 9 (8 authored incl. zsys_init.cpp path set and zsys_spr.cpp name_basis invented + fill), unresolved 2, retire 0, open rows decided 38 (36 owned: 25 zsys_spr.cpp unnamed object(s) 0x2f57b0-0x2f5f4f + data, 11 boundary rows; 2 unresolved CTexture::Init + m_startAddress); reservation corrected (+src/gamez/zSystem); contradictions 5; header emits 6 (MSL)"
+      },
       "id": "socom:work:source-segment-040",
       "kind": "source-plan-segment",
       "lease": null,
@@ -147033,7 +147039,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 040 (0x2f5640-0x2f9aac, 75 functions)"
     },
     {
@@ -147145,13 +147151,18 @@
       "handoff": null,
       "id": "socom:work:source-segment-039",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T12:12:21Z",
+        "expires_at": "2026-10-31T14:12:21Z",
+        "heartbeat_at": "2026-10-31T12:12:21Z",
+        "owner": "socom-source-owner-mapper-w2d"
+      },
       "resources": [
         "build/source-plans"
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 039 (0x2ebd20-0x2f5640, 190 functions)"
     },
     {
@@ -148288,8 +148299,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-013.json sha256:a28c33dfea38fb744d13176d767967b06c2aea446809335a41d447608939993e; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1d",
+        "submitted_at": "2026-10-31T12:14:09Z",
+        "summary": "rules v4 replan: owners 7 (5 authored, 1 compiler-generated, 1 SCE provider), unresolved 1, retire 0, open rows decided 3 (2 owned, 1 unresolved, carried over); hand header emits 3 (0x178cc0, 0x1747e0 -> new src/Apps/FTS/game/orders.h; 0x178dc0 -> MSL <list>); 0x173520 no emit, argued in notes; reservation corrected (+zEntity, zFTS, zNode, zTwoD)"
+      },
       "id": "socom:work:source-segment-013",
       "kind": "source-plan-segment",
       "lease": null,
@@ -148314,7 +148331,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 013 (0x1728e0-0x17de74, 114 functions)"
     },
     {
@@ -148526,8 +148543,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-015.json sha256:03d92684db4f2cf058b70e9257bff44aba4944bb8a36e9dadb81a830f37a90db; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1e",
+        "submitted_at": "2026-10-31T12:14:48Z",
+        "summary": "replan v4/c79d76e6: owners 4 authored + fill (ai_mapio, ai_path, ai_maps, ai_map data row), unresolved 0, retire 0, open rows decided 13 (drafted 355, hand 13); 16 hand header emits (MSL families, <algorithm>, zai.h for CAiMapLocVec F2); reservation src/gamez/zAI confirmed"
+      },
       "id": "socom:work:source-segment-015",
       "kind": "source-plan-segment",
       "lease": null,
@@ -148552,7 +148575,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 015 (0x188f60-0x19dca0, 193 functions)"
     },
     {
@@ -148654,13 +148677,18 @@
       "handoff": null,
       "id": "socom:work:source-segment-016",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T12:11:02Z",
+        "expires_at": "2026-10-31T14:11:02Z",
+        "heartbeat_at": "2026-10-31T12:11:02Z",
+        "owner": "socom-source-owner-mapper-w2a"
+      },
       "resources": [
         "build/source-plans"
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 016 (0x19dca0-0x1b90d4, 199 functions)"
     },
     {
@@ -148898,8 +148926,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-018.json sha256:4dc3ed7b19374b1c1d1cde14fb5cd7c5106cfb02ad4cd1b5917bfafb15462200; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1e",
+        "submitted_at": "2026-10-31T12:17:07Z",
+        "summary": "replan v4/c79d76e6: owners 3 authored + fill (anim_main, zanim_set new src/gamez/zAnim/zanim_set.cpp, zanim_anim), unresolved 0, retire 0, open rows decided 16 + 1 owner path (drafted 410, hand 16); 2 hand MSL emits (<list> __list_imp, <algorithm> find_if); 9 structured contradictions; reservation src/gamez/zAnim confirmed"
+      },
       "id": "socom:work:source-segment-018",
       "kind": "source-plan-segment",
       "lease": null,
@@ -148924,7 +148958,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 018 (0x1c24c0-0x1d0090, 192 functions)"
     },
     {
@@ -149020,8 +149054,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-019.json sha256:17f671710602808e98c2d2e9583ec63d6d79f3cabcad70879c435f536eb8155b; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1d",
+        "submitted_at": "2026-10-31T12:16:40Z",
+        "summary": "rules v4 replan: owners 4 (3 authored, 1 compiler-generated), unresolved 0, retire 0, open rows 0 (v4 A-kept-copy drafts the 5 earlier hand rows); hand rows: 1 header emit (0x1d4b80 -> MSL <string>), 1 contradiction (CKey dtor binding vs zar_main.cpp:21); inferred reservation corrected to zAnim, zArchive, zTwoD, zUI"
+      },
       "id": "socom:work:source-segment-019",
       "kind": "source-plan-segment",
       "lease": null,
@@ -149046,7 +149086,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 019 (0x1d0090-0x1d819c, 198 functions)"
     },
     {
@@ -149490,7 +149530,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-023",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T12:16:48Z",
+        "expires_at": "2026-10-31T14:16:48Z",
+        "heartbeat_at": "2026-10-31T12:16:48Z",
+        "owner": "socom-source-owner-mapper-w1d"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -149512,7 +149557,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 023 (0x1f25c0-0x1ff8cc, 192 functions)"
     },
     {
@@ -149621,13 +149666,18 @@
       "handoff": null,
       "id": "socom:work:source-segment-024",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T12:10:45Z",
+        "expires_at": "2026-10-31T14:10:45Z",
+        "heartbeat_at": "2026-10-31T12:10:45Z",
+        "owner": "socom-source-owner-mapper-w2c"
+      },
       "resources": [
         "build/source-plans"
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 024 (0x1ff8d0-0x20bb40, 190 functions)"
     },
     {
@@ -149861,13 +149911,18 @@
       "handoff": null,
       "id": "socom:work:source-segment-026",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T12:10:54Z",
+        "expires_at": "2026-10-31T14:10:54Z",
+        "heartbeat_at": "2026-10-31T12:10:54Z",
+        "owner": "socom-source-owner-mapper-w2b"
+      },
       "resources": [
         "build/source-plans"
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 026 (0x218de0-0x22489c, 188 functions)"
     },
     {
@@ -149975,8 +150030,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-027.json sha256:54d0e16a540b5169665006ad0e17e8873718b9547b706838ac08e6067defc2ac; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1f",
+        "submitted_at": "2026-10-31T12:14:31Z",
+        "summary": "owners 5 (4 authored incl. node_model.cpp name_basis provisional + fill), unresolved 2, retire 0, open rows decided 40 (38 owned: 35 node_model.cpp unnamed object 0x228f20-0x22a073 + rodata/vtable, 3 accepted suggestions; 2 unresolved CProjectedMap_Object pair); contradictions 10; header emits 2 (MSL)"
+      },
       "id": "socom:work:source-segment-027",
       "kind": "source-plan-segment",
       "lease": null,
@@ -150005,7 +150066,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 027 (0x2248a0-0x22c194, 103 functions)"
     },
     {
@@ -152128,8 +152189,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-speech-middleware.json sha256:ac75a0949af09288f516a9adbdd748f4cfbf33e684f84e016915a4892cdc325d; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1c",
+        "submitted_at": "2026-10-31T12:11:28Z",
+        "summary": "owners 67 (66 provider GNU-object rows + 1 compiler-generated), unresolved 0, retire 0, open rows decided 0 (all 1332 drafted under rules v4 on graph c79d76e6)"
+      },
       "id": "socom:work:source-provider-speech-middleware",
       "kind": "source-plan-provider",
       "lease": null,
@@ -152158,7 +152225,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan provider owners of speech middleware (4 segments, 700 functions)"
     },
     {
@@ -152816,8 +152883,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-medius.json sha256:2aafd3b2c93937ecb85d6d181d5de4343b8ff871e84b6c07dce8d24abb4f82dd; validate --check ok; draft --check ok (overrides 89, owner_changes 0)"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1c",
+        "submitted_at": "2026-10-31T12:13:36Z",
+        "summary": "owners 27 (26 provider GNU-object rows + 1 compiler-generated), unresolved 119 (COMMON .bss tail, no definer evidenced; 89 override v4 P-gnu-data), retire 0, open rows decided 30 (multi-referencer COMMON, unresolved); 1075 drafted under rules v4 on graph c79d76e6 incl. the 3 .rodata version gaps and 0x468af2"
+      },
       "id": "socom:work:source-provider-medius",
       "kind": "source-plan-provider",
       "lease": null,
@@ -152846,7 +152919,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan provider owners of Medius (7 segments, 786 functions)"
     },
     {
@@ -152955,8 +153028,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-lgaud.json sha256:c3db00d2ffcc580d1e9a85c1f538bf8fa3ebabf103130afd3fc78a0241fbb4ad; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1a",
+        "submitted_at": "2026-10-31T12:11:45Z",
+        "summary": "replan on c79d76e6 (rules v4): owners 2 (liblgaud.a 1.06 member GNU object 0x3b5980 + fill), unresolved 0, retire 0, open rows decided 0 (all 41 drafted); owner row hand-set archive liblgaud.a / version 1.06 carried from the ELF literal; Sid gaps left the slice"
+      },
       "id": "socom:work:source-provider-lgaud",
       "kind": "source-plan-provider",
       "lease": null,
@@ -153003,7 +153082,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan provider owners of lgAud (1 segments, 25 functions)"
     },
     {
