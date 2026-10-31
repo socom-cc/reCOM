@@ -23,8 +23,10 @@ typed region and provider input is accounted for.
 callee-first function groups ([RECONSTRUCTION.md](RECONSTRUCTION.md)).
 `source-correlation` is decomposed into file-only owner-plan items per
 segment, provider library and data kind
-([SOURCE_CORRELATION.md](SOURCE_CORRELATION.md)); its apply items stay
-blocked until the guarded apply route is registered.
+([SOURCE_CORRELATION.md](SOURCE_CORRELATION.md)). Its apply items wait for
+a capability gate that `progress open-capability-gate` opens once the
+registered apply route (`progress apply-source-plan`) is active. The stage
+gate's review route is not registered yet.
 Later native stages currently have explicit blockers and undecomposed seeds.
 Those seeds cannot be used as generic work or accepted as proof. A stage
 becomes executable only after a real producer and stage-specific acceptance

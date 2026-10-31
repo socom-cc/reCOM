@@ -26,19 +26,46 @@ python tools/socom.py source artifacts
 python tools/socom.py audit docblocks
 python tools/socom.py audit source-trace
 python tools/socom.py guard source-placement
+python tools/socom.py source annotate --plan <accepted plan> --check
 ```
 
-Annotation artifact IDs must be exact IDs already present in tracker evidence,
-and section names must match the reference census. `audit source-trace` checks
-one defining edge per annotated physical artifact; `--require-complete` also
-requires every accepted physical artifact to have a defining source edge.
+Annotation artifact IDs must be exact IDs already present in tracker or
+reference-census evidence, and section names must match the reference census.
+The census-derived artifact IDs that owner plans own resolve too: one
+`socom:function:0x...` or `socom:data:0x...` per start address of a sized
+`FUNC` or `OBJECT` census symbol. `audit source-trace` checks one defining edge
+per annotated physical artifact.
+
+`--require-complete` follows the lean model (user decision of 2026-10-30).
+It checks completeness against the accepted stage 4 owner plans and their
+generated annotations, not against tracker span IDs that annotations never
+cite. It requires:
+
+- every planning scope's plan item is accepted, and its plan file is
+  unchanged (its SHA-256 is cited by the item);
+- every segment and provider apply is accepted, with a `source_apply`
+  record of that plan;
+- every artifact of a scope is in an owner row (an `unresolved` row is
+  incomplete), and each plan lists as many artifacts as its scope;
+- every annotation an accepted plan implies is in the source: one `defines`
+  per named artifact of an authored row, in its owner's file, and one
+  `emits` per header emit;
+- no `@socom-artifact` line in the source that no accepted plan implies.
+
+Compiler-generated artifacts (`@N` literals, RTTI, vtables, static-init
+words, padding), unnamed artifacts and provider archive members are covered
+by their owner rows' artifact lists. The report gives the owned artifact
+count, the plan counts and the IDs that are missing or unresolved.
 
 Original `Z:\dev\...` strings are quoted evidence, not active paths and not
 instructions to reproduce the original drive tree. Source-correlation changes
-go through reviewed owner plans ([SOURCE_CORRELATION.md](SOURCE_CORRELATION.md)):
-the stage is decomposed and its plans validated by registered commands, while
-the guarded route that applies an accepted plan's files and annotations, and
-keeps prior claims as history, is not registered yet.
+go through reviewed owner plans ([SOURCE_CORRELATION.md](SOURCE_CORRELATION.md)).
+The stage is decomposed, and its plans validated, by registered commands.
+`progress apply-source-plan` applies an accepted plan's moves, creates,
+retired files and generated annotations (`source annotate`). It records the
+retired files' paths and content SHA-256s in tracker evidence, and git
+history keeps their content. The stage gate's review route is not
+registered yet.
 
 ## Translation-unit evidence: `source graph`
 
@@ -54,8 +81,8 @@ the tracker or `src/`, and writes only the files named under `build/`. Its
 output is deterministic and carries `graph_sha256` over the canonical content,
 like `recon graph`. Everything in it is a candidate and it owns nothing.
 `progress decompose-stage --stage source-correlation` builds the stage's
-owner-plan items from it ([SOURCE_CORRELATION.md](SOURCE_CORRELATION.md)); the
-stage stays deferred until the apply route and the gate check are registered.
+owner-plan items from it ([SOURCE_CORRELATION.md](SOURCE_CORRELATION.md)). The
+stage stays deferred until its gate review route is registered.
 
 Artifacts are the census-derived set: one row per start address of the sized
 `FUNC` (`socom:function:0x...`) and `OBJECT` (`socom:data:0x...`) symbols,

@@ -28,3 +28,10 @@ files cited exactly as they exist, the annotation targets the owner rows
 imply listed (`--fill-annotations` writes them), and owners placed in the
 apply's reserved directories. Confirm or correct an inferred reservation in
 the plan's `reservation` row.
+
+An accepted plan is applied under its apply item's lease with
+`python tools/socom.py progress apply-source-plan --item <item> --owner <owner> --expected-revision <n> --dry-run`
+and then without `--dry-run`. The route moves, creates and retires files and
+writes the generated annotation docblocks (`source annotate`) only inside
+the reservation. It records the plan and file SHA-256s on the item, and the
+verifier checks them with `python tools/socom.py source apply-check --item <item>`.

@@ -9,7 +9,8 @@ source/header closure, registered target, isolated build root, objective, and
 stop condition. Preserve accepted dependencies and use the packet's one
 nonmutating verification command until PASS or a concrete scope contradiction.
 A source-apply-segment item writes only its reserved src/ directories, from
-its accepted owner plan, through the registered apply route. A
+its accepted owner plan, through `progress apply-source-plan` (dry run
+first); never hand-edit generated owner-annotation blocks. A
 source-apply-provider item writes no file: the route records its archive
 members' ownership in tracker evidence only.
 

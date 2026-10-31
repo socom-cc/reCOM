@@ -99,6 +99,25 @@ def atomic_write_text(path: Path, text: str) -> None:
             temporary.unlink()
 
 
+def atomic_write_bytes(path: Path, data: bytes) -> None:
+    """Write exact bytes atomically (source files keep their own encoding and newlines)."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle, temporary_name = tempfile.mkstemp(
+        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(handle, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        _replace(temporary, path)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
 def stable_id(namespace: str, *parts: object) -> str:
     raw = "\x1f".join(str(part) for part in parts).encode("utf-8")
     suffix = hashlib.sha256(raw).hexdigest()[:20]

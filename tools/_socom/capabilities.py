@@ -19,7 +19,8 @@ CAPABILITIES: tuple[dict[str, Any], ...] = (
     {"id": "source-trace", "status": "active", "commands": ["source artifacts", "audit docblocks", "audit source-trace"], "reason": "Source annotations are parsed and cross-checked once."},
     {"id": "source-evidence", "status": "active", "commands": ["source graph"], "reason": "Deterministic ELF-only translation-unit evidence: census-derived artifacts and gaps, TU signals with provenance, classification candidates and address segments; candidates only, nothing is owned."},
     {"id": "source-correlation-planning", "status": "active", "commands": ["progress decompose-stage", "source plan evidence", "source plan validate"], "reason": "The stage 4 seed decomposes from `source graph` into file-only owner-plan items (one per authored segment, one per provider library, one per data kind outside the segment slices) with blocked apply items and a stage gate; owner plans are validated against their slice, the graph and slice digests, provisional files and their implied annotation targets."},
-    {"id": "source-correlation", "status": "deferred", "stage": "source-correlation", "blocker": "source-correlation-apply-route", "reason": "Owner plans can be decomposed, planned and validated, but no registered command applies an accepted plan (a segment's files and annotations under its reserved src/ directories, a provider's archive-member ownership in tracker evidence only) or checks the stage gate; the apply items wait on the socom:work:source-correlation-apply-route capability gate and the stage cannot close until those routes exist."},
+    {"id": "source-correlation-apply", "status": "active", "stage": "source-correlation", "opens": ["socom:work:source-correlation-apply-route"], "commands": ["source annotate", "source apply-check", "progress apply-source-plan", "progress open-capability-gate"], "reason": "An accepted, unchanged owner plan is applied under its apply item's lease: a segment's moves, creates, retired files (path and content SHA-256 recorded) and deterministic generated annotation docblocks only inside its reserved src/ directories or the plan's recorded correction; a provider's archive-member ownership in tracker evidence only. The apply records the plan SHA-256, an owner-map digest and every written file's SHA-256; handoff and independent acceptance re-check that record. `progress open-capability-gate` accepts the socom:work:source-correlation-apply-route gate once this capability is active and registered."},
+    {"id": "source-correlation", "status": "deferred", "stage": "source-correlation", "blocker": "source-correlation-gate-route", "reason": "Owner plans can be decomposed, planned, validated and applied, and `audit source-trace --require-complete` checks completeness against the accepted owner plans and their generated annotations, but no registered route reviews and closes the stage gate (cross-plan unit consistency, the file-only stage-3 baseline check and acceptance); the stage cannot close until that route exists."},
     {"id": "source-guards", "status": "active", "commands": ["guard raw-offset", "guard provider", "guard original-symbol"], "reason": "Current source reconstruction hazards fail closed."},
     {"id": "candidate-comparison", "status": "active", "commands": ["verify linked-byte", "verify final-elf"], "reason": "Candidate comparison is diagnostic until acceptance prerequisites exist."},
     {"id": "final-elf-catalog", "status": "active", "commands": ["audit final-elf-catalog"], "reason": "File and loaded-memory semantic gaps are explicit."},
@@ -36,6 +37,16 @@ CAPABILITIES: tuple[dict[str, Any], ...] = (
     {"id": "vc5-mfc-surface", "status": "inapplicable", "reason": "The target uses Metrowerks and PS2 runtime interfaces."},
     {"id": "windows-resources-and-dlls", "status": "inapplicable", "reason": "The PS2 ELF has no Windows resource or DLL model."},
 )
+
+
+CAPABILITY_GATE_ACCEPTER = "progress open-capability-gate"
+
+
+def capability_opening(item_id: str) -> dict[str, Any] | None:
+    """The capability row that lists a ``capability-gate`` work item under ``opens``."""
+
+    rows = [row for row in CAPABILITIES if item_id in (row.get("opens") or [])]
+    return dict(rows[0]) if len(rows) == 1 else None
 
 
 def audit_capabilities(commands: list[dict[str, Any]]) -> dict[str, Any]:
@@ -60,6 +71,14 @@ def audit_capabilities(commands: list[dict[str, Any]]) -> dict[str, Any]:
             errors.append(f"{identifier}: deferred capability has no blocker")
         if "stage" in row and row["stage"] not in STAGES:
             errors.append(f"{identifier}: unknown stage {row['stage']!r}")
+        opens = row.get("opens")
+        if opens is not None:
+            if status != "active" or not isinstance(opens, list) or not all(
+                isinstance(value, str) and value.startswith("socom:work:") for value in opens
+            ):
+                errors.append(f"{identifier}: only an active capability opens capability-gate work items")
+            elif any(capability_opening(value) is None for value in opens):
+                errors.append(f"{identifier}: a capability gate is opened by more than one capability")
     return {
         "ok": not errors,
         "capability_count": len(CAPABILITIES),

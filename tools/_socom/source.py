@@ -268,6 +268,12 @@ def _annotation_files(root: Path) -> list[Path]:
     return sorted(result, key=lambda path: path.as_posix().casefold())
 
 
+def annotation_files(root: Path) -> list[Path]:
+    """Every source and header file under ``src/`` and ``include/`` the annotation parser reads."""
+
+    return _annotation_files(root)
+
+
 def source_artifacts(root: Path) -> dict[str, Any]:
     """Parse the source-trace annotations once for listing and audits."""
 
@@ -319,10 +325,26 @@ CENSUS_ID_COLLECTIONS = ("symbols", "relocations")
 TRACKER_ID_COLLECTIONS = ("owners", "types", "work_items", "evidence")
 
 
+def census_artifact_ids(census: dict[str, Any]) -> set[str]:
+    """The census-derived artifact IDs ``source graph`` gives sized symbols.
+
+    One ``socom:function:0x...`` or ``socom:data:0x...`` per start address of
+    a sized ``FUNC`` or ``OBJECT`` symbol: the IDs owner plans own and their
+    generated annotations cite.
+    """
+
+    kinds = {"FUNC": "function", "OBJECT": "data"}
+    return {
+        f"socom:{kinds[row['type']]}:0x{int(row['value']):x}"
+        for row in census.get("symbols", [])
+        if isinstance(row, dict) and row.get("type") in kinds and row.get("size") and isinstance(row.get("value"), int)
+    }
+
+
 def known_artifact_ids(
     tracker: dict[str, Any], census: dict[str, Any]
 ) -> set[str]:
-    """Identities an annotation may cite: census rows plus tracker entities."""
+    """Identities an annotation may cite: census rows, census-derived artifacts and tracker entities."""
 
     return {
         str(row.get("id"))
@@ -333,7 +355,7 @@ def known_artifact_ids(
         for collection in collections
         for row in state.get(collection, [])
         if isinstance(row, dict) and row.get("id")
-    }
+    } | census_artifact_ids(census)
 
 
 def audit_docblocks(root: Path) -> dict[str, Any]:
@@ -388,28 +410,23 @@ def audit_source_trace(root: Path, *, require_complete: bool = False) -> dict[st
         if len(locations) != len(rows):
             errors.append(f"artifact {key[1]} contains duplicate trace edges")
 
+    # Lean model (user decision 2026-10-30): completeness is checked against
+    # the accepted stage 4 owner plans and their generated annotations, not
+    # against tracker span IDs that annotations never cite.
+    from .source_apply import lean_completeness
+
     tracker = load_json(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
-    required_ids = {
-        str(row["id"])
-        for collection in ("semantic_spans", "storage_contributions")
-        for row in tracker.get(collection, [])
-        if isinstance(row, dict) and row.get("status") == "accepted" and row.get("id")
-    }
-    defined_ids = {
-        row["artifact_id"]
-        for row in parsed["artifacts"]
-        if row["relation"] == "defines"
-    }
-    missing = sorted(required_ids - defined_ids)
-    if require_complete and missing:
-        errors.append(
-            f"{len(missing)} accepted physical artifacts have no defining source edge"
-        )
+    completeness = lean_completeness(root, tracker, parsed)
+    if require_complete:
+        errors.extend(completeness["errors"])
     return {
         "ok": not errors,
         "require_complete": require_complete,
         "artifact_count": len(by_artifact),
-        "accepted_artifact_count": len(required_ids),
-        "missing_accepted_artifact_ids": missing,
+        "accepted_artifact_count": completeness["owned_artifact_count"],
+        "missing_accepted_artifact_ids": completeness["missing_artifact_ids"],
+        "completeness": {
+            key: value for key, value in completeness.items() if key not in ("missing_artifact_ids", "errors")
+        },
         "errors": errors,
     }

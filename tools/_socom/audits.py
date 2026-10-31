@@ -209,6 +209,10 @@ def workflow_contracts(root: Path, commands: list[dict[str, Any]]) -> dict[str, 
         "progress handoff-live-ghidra": True,
         "progress advance-live-ghidra": True,
         "progress rebaseline-live-ghidra": True,
+        "progress apply-source-plan": True,
+        "progress open-capability-gate": True,
+        "source annotate": True,
+        "source apply-check": False,
     }
     for command, mutates in expected.items():
         row = by_command.get(command)
@@ -340,10 +344,16 @@ def pipeline_reachability(root: Path, commands: list[dict[str, Any]]) -> dict[st
         "debug-metadata-import": {"debug import-plan", "progress work packet"},
         "ghidra-reconstruction": {"progress decompose-stage", "ghidra apply-recon"},
     }
-    # A stage whose planning producer is registered but whose closing route is
-    # still a deferred capability: it may be decomposed, never accepted yet.
+    # A stage whose planning and apply producers are registered but whose
+    # closing route is still a deferred capability: it may be decomposed and
+    # applied, never accepted yet.
     partial_producers = {
-        "source-correlation": {"progress decompose-stage", "source plan validate"},
+        "source-correlation": {
+            "progress decompose-stage",
+            "source plan validate",
+            "source annotate",
+            "progress apply-source-plan",
+        },
     }
     tracker = load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
     blockers = {

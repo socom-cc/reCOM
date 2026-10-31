@@ -113,8 +113,12 @@ has no path evidence), `source-apply-provider` items that reserve nothing
 and record archive-member ownership in tracker evidence only, and a gate.
 Every apply also waits for
 `socom:work:source-correlation-apply-route`, a `capability-gate` item that
-no worker can claim, hand off or accept and that stays blocked until the
-guarded apply route is registered; see
+no worker can claim, hand off or accept. It stays blocked until
+`progress open-capability-gate` accepts it, which that command does only
+when an active registered capability lists the gate under `opens`. A
+source apply's `progress apply-source-plan` records a `source_apply` record
+(plan SHA-256, owner-map digest, written files and their SHA-256s, moves and
+retired files) on the item; see
 [SOURCE_CORRELATION.md](SOURCE_CORRELATION.md).
 
 Receipts are evidence, not acceptance. They cover portable target facts,

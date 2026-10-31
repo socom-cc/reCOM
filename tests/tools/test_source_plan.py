@@ -811,4 +811,4 @@ def test_pipeline_reachability_reports_a_decomposed_deferred_stage(
         report = audits.pipeline_reachability(tmp_path, rows)
         assert report["ok"], report["missing"]
         row = next(row for row in report["deferred"] if row["stage"] == SOURCE_STAGE)
-        assert row["decomposed"] is decomposed and row["prerequisite"] == "source-correlation-apply-route"
+        assert row["decomposed"] is decomposed and row["prerequisite"] == "source-correlation-gate-route"

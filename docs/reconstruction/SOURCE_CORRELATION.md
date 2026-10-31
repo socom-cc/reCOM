@@ -21,11 +21,12 @@ tracker evidence only (user decision of 2026-10-31). The artifact basis is
 the census-derived set that `source graph` produces
 ([SOURCE_TRACEABILITY.md](SOURCE_TRACEABILITY.md)).
 
-Planning is active. The route that applies an accepted plan (a segment's
-files and annotations under `src/`, a provider's evidence in the tracker),
-and the gate check, are not registered yet. The apply items wait on a
-capability gate, and the stage stays deferred in
-[TOOL_COVERAGE.md](TOOL_COVERAGE.md).
+Planning and the apply route are active. `progress apply-source-plan`
+applies an accepted plan (a segment's files and annotations under `src/`, a
+provider's evidence in the tracker), and `progress open-capability-gate`
+opens the capability gate the apply items wait on. The route that reviews
+and closes the stage gate is not registered yet, so the stage stays deferred
+in [TOOL_COVERAGE.md](TOOL_COVERAGE.md).
 
 ## Decomposition
 
@@ -72,9 +73,11 @@ Dependencies:
 - every apply waits for its plan, every data reconcile, and
   `socom:work:source-correlation-apply-route`. That `capability-gate` item
   cannot be claimed, handed off, or accepted by a worker. It stays blocked
-  until the guarded apply route is registered. That route writes a segment
-  plan's files and annotations, including the data its reconciles assign,
-  and records a provider plan's archive members in tracker evidence;
+  until `progress open-capability-gate` accepts it, which needs the
+  registered apply route (see [Opening the route gate](#opening-the-route-gate)).
+  That route writes a segment plan's files and annotations, including the
+  data its reconciles assign, and records a provider plan's archive members
+  in tracker evidence;
 - the seed keeps its ID and becomes the stage gate over every apply and data
   reconcile.
 
@@ -240,19 +243,152 @@ classification.
 ## Apply items and the gate
 
 Apply items use the role `socom-source-worker`. A segment apply's allowed
-paths are its reserved `src/` directories. Its packet names the accepted
-plan, its `--check` validation, the source audits (`audit docblocks`,
-`audit source-trace`, `guard source-placement`), and the apply route, which
-is not registered yet. When the accepted plan corrects the reservation, the
-route must reserve the corrected directories before it writes.
+paths are its reserved `src/` directories (or the accepted plan's corrected
+`reservation`). A provider apply (skill `socom-provider-boundary`) writes no
+file and has no allowed path. Both packets name the accepted plan's
+`--check` validation, the apply route with `--dry-run` first, the source
+audits (`audit docblocks`, `audit source-trace`, `guard source-placement`)
+or `guard provider`, and the acceptance commands for the verifier.
 
-A provider apply (skill `socom-provider-boundary`) writes no file and has no
-allowed path. Its packet names the accepted plan's `--check` validation,
-`guard provider`, and the apply route. The route records each archive
-member's ownership (library and GNU object or object name) in tracker
-evidence only. Its handoff cites the plan SHA-256 and changes no file.
+### Opening the route gate
+
+```powershell
+python tools/socom.py progress open-capability-gate `
+  --item socom:work:source-correlation-apply-route --expected-revision <n> [--dry-run]
+```
+
+A `capability-gate` item is accepted only by this command. It needs an
+active row of the capability registry (`source-correlation-apply` in
+[TOOL_COVERAGE.md](TOOL_COVERAGE.md)) that lists the gate under `opens`,
+serves the gate's stage, and whose commands are all registered. The item
+becomes `accepted` by `progress open-capability-gate`, with the capability,
+its digest and its commands as evidence. `progress audit` refuses a gate
+accepted any other way. The applies then become ready as their plans and
+the data reconciles are accepted.
+
+### The apply route
+
+```powershell
+python tools/socom.py progress apply-source-plan --item <socom:work:...-apply> `
+  --owner <lease-owner> --expected-revision <n> [--check] [--dry-run]
+```
+
+The command works under the apply item's lease. The paired plan item must
+be accepted, and the plan file at the packet's path
+(`build/source-plans/<slug>.json`) must have a SHA-256 that the accepted
+item's evidence cites. A plan edited after acceptance is refused as stale.
+The plan must still validate against the graph (`--graph`, or `--check` to
+regenerate it from the ELF) and the current workspace. A segment apply
+then, in one locked tracker mutation:
+
+1. moves each authored row's `provisional_file` to its `workspace_path`
+   when they differ;
+2. deletes the `retire_files`, recording each path, size and content
+   SHA-256 (git history keeps the content);
+3. writes the generated annotations with `source annotate` (below), creating
+   a missing owner file or emit header with the docblock only;
+4. refuses before writing anything if any moved, created, written or
+   deleted path lies outside the reservation. A `corrected` plan
+   reservation is re-reserved on the item (`resources` and
+   `batch.directories`), and the decomposed directories are kept in
+   `batch.reservation_correction`;
+5. records `source_apply` on the item: the plan path and SHA-256, an
+   owner-map digest (scope, owner rows, header emits, unresolved rows), the
+   annotation digest and count, the reservation, the moves, creates and
+   retired files, and every file it leaves written with its SHA-256. The
+   record's lines (`source-plan`, `source-owner-map-sha256:`,
+   `source-file`, `source-moved`, `source-created`, `source-retired`,
+   `source-reservation`) are added to the item's evidence.
+
+If the tracker write fails, every file is restored. A rerun under the lease
+is idempotent: moved, created and retired files that the record names are
+taken as done, and only drifted blocks are rewritten.
+
+A provider apply refuses a plan with authored rows, header emits,
+annotations or retired files. It writes no file and records each provider
+row's archive member as `source-provider-member <library> gnu_object:<addr>
+object:<name> artifacts:<n>`.
+
+`progress work handoff` keeps the record and its evidence lines, and refuses
+a source apply that has no record. It also refuses one whose files no longer
+match the record, and `progress work accept` does the same. A rejected
+apply keeps its record (with a copy in the review history), because its
+files stay applied, so the rework reapplies the same plan idempotently.
+Once the record names the plan file's SHA-256, `source plan validate`
+checks the files the apply moved, created and retired in their applied
+state. Every other check is unchanged.
+
+### Generated annotations
+
+```powershell
+python tools/socom.py source annotate --plan <accepted plan> --check
+python tools/socom.py source annotate --plan <accepted plan> --write --owner <lease-owner>
+```
+
+The command writes exactly the accepted plan's `annotations`. For a segment
+plan it also writes the accepted data reconciles' annotations into the
+segment's own files (its authored workspace files and emit headers). Each
+plan's annotations for one file form one block, and a block of the plan in
+any other file is removed:
+
+```c
+/* socom-owner-annotations begin socom:work:source-segment-001
+ * Generated by source annotate from the accepted owner plan; do not edit.
+ * @socom-artifact defines main socom:function:0x1401e0
+ * socom-owner-annotations end socom:work:source-segment-001 */
+```
+
+Assembly (`.s`) files use `#` comments. A file gets a plan's block where the
+plan has annotations in it. A file the plan creates always gets its block,
+which is empty when the file defines no named artifact. Blocks go to the top
+of the file in plan-ID order, followed by one blank line and the file's own
+content, which is kept byte for byte (newline style and byte-order mark
+included). Rewriting is idempotent. The begin and end lines carry no
+`@socom-` token, so `audit docblocks` and `audit source-trace` parse only the
+artifact lines.
+
+A unit owned in several plans keeps one file. For example, a unit's text
+segment and its static-initializer segment both name the same workspace
+path. The second apply finds the move, create or retire already recorded by
+the first apply's record and does not repeat it, and `source plan validate`
+checks those paths in their applied state too. Each apply then adds only its
+own block. A recorded file whose whole SHA-256 changed is still accepted
+when its content outside the generated blocks (`content_sha256`) is
+unchanged and the apply's own blocks have not drifted.
+
+`--check` reports drift (`missing-file`, `differs`, `stale-block`,
+`pending-move`, `pending-retire`) without writing, and exits 1 on drift.
+`--write` needs the lease owner of the plan's apply item. It refuses while
+a move is pending, because the apply route moves files before it annotates.
+Every target must lie in the apply's reservation. A data reconcile has no
+annotate step of its own.
+
+### Acceptance
+
+The worker hands off with `progress work handoff`. An independent
+`socom-verifier` runs:
+
+```powershell
+python tools/socom.py source apply-check --item <socom:work:...-apply>
+python tools/socom.py source plan validate --plan <plan> --check
+python tools/socom.py source annotate --plan <plan> --check
+python tools/socom.py audit source-trace
+```
+
+It then accepts with `progress work accept`. `source apply-check` is
+read-only. It checks that the accepted plan is unchanged, the owner-map
+digest matches, every recorded file still has its SHA-256, moved-from and
+retired files are gone, every recorded path lies in the reservation, and
+the annotations have not drifted. For a provider apply it checks that no
+file is recorded and that the archive members match the plan.
+
+### The stage gate
 
 The stage gate is reviewed by `socom-verifier`. Its packet shows the stage
 is file-only: the `ghidra-reconstruction` stage scope must still produce
 that stage's baseline receipt. Every accepted plan must pass `--check`, and
-`audit source-trace --require-complete` must pass.
+`audit source-trace --require-complete` must pass. Under the lean model,
+that audit checks completeness against the accepted owner plans and their
+generated annotations ([SOURCE_TRACEABILITY.md](SOURCE_TRACEABILITY.md)).
+The route that reviews and accepts the gate, including cross-plan unit
+consistency, is not registered yet.

@@ -127,16 +127,27 @@ def _source_plan_validate(arguments: argparse.Namespace) -> int:
         plan["annotations"] = derive_annotations(plan, graph, section_of)
         atomic_write_json(target, plan)
         filled = True
-    report = validate_source_plan(root, tracker, plan, graph, section_of=section_of)
+    from .source_apply import applied_state
+
+    sha256 = sha256_file(plan_path)
+    # Files the recorded applies moved, created and retired (this plan's own
+    # apply only when it applied this plan file) are checked in their
+    # applied state; without any apply record nothing changes.
+    item_id = plan.get("work_item_id") if isinstance(plan, dict) else None
+    applied = applied_state(tracker, str(item_id), sha256) if isinstance(item_id, str) else None
+    apply = next((row for row in tracker.get("work_items", []) if row.get("id") == f"{item_id}-apply"), None)
+    own = ((apply or {}).get("source_apply") or {}).get("plan_sha256") == sha256
+    report = validate_source_plan(root, tracker, plan, graph, section_of=section_of, applied=applied)
     _emit(
         {
             "ok": report["ok"],
             "mutation_performed": False,
             "plan": arguments.plan,
-            "sha256": sha256_file(plan_path),
+            "sha256": sha256,
             "graph": origin,
             "graph_sha256": graph.get("graph_sha256"),
             "annotations_filled": filled,
+            "applied": own,
             "summary": report["summary"],
             "review": report["review"],
             "problems": report["problems"],

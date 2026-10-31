@@ -440,8 +440,28 @@ def apply_reservations(root: Path, graph: dict[str, Any]) -> dict[str, dict[str,
     return result
 
 
+def plan_path(item_id: str) -> str:
+    """The repo-relative path of a plan item's owner plan (its packet's path)."""
+
+    return f"build/source-plans/{str(item_id).removesuffix('-apply').replace(':', '-')}.json"
+
+
+def decomposed_directories(apply: dict[str, Any]) -> list[str]:
+    """The ``src/`` directories an apply item was decomposed with.
+
+    ``progress apply-source-plan`` re-reserves a plan's corrected directories
+    on the item (``resources`` and ``batch.directories``) and keeps the
+    decomposed ones in ``batch.reservation_correction.from``.
+    """
+
+    correction = (apply.get("batch") or {}).get("reservation_correction")
+    if isinstance(correction, dict) and isinstance(correction.get("from"), list):
+        return list(correction["from"])
+    return list(apply.get("resources") or [])
+
+
 def apply_reservation(tracker: dict[str, Any], item: dict[str, Any]) -> dict[str, Any] | None:
-    """The reservation of a segment plan item's apply item, or ``None``."""
+    """The decomposed reservation of a segment plan item's apply item, or ``None``."""
 
     if item.get("kind") != SEGMENT_PLAN_KIND:
         return None
@@ -453,10 +473,16 @@ def apply_reservation(tracker: dict[str, Any], item: dict[str, Any]) -> dict[str
     return {
         "apply_item": apply_id,
         "missing": False,
-        "directories": sorted(apply.get("resources") or [], key=str.casefold),
+        "directories": sorted(decomposed_directories(apply), key=str.casefold),
         "inferred": batch.get("resource_inferred") is True,
         "reason": batch.get("resource_reason"),
     }
+
+
+def within(path: str, directories: list[str]) -> bool:
+    """Whether a repo-relative path lies inside one of ``directories``."""
+
+    return _within(path, directories)
 
 
 def _within(path: str, directories: list[str]) -> bool:
@@ -714,10 +740,29 @@ def validate_source_plan(
     graph: dict[str, Any],
     *,
     section_of: Callable[[int], str | None] | None = None,
+    applied: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Check one owner plan against its work item and the graph it cites."""
+    """Check one owner plan against its work item and the graph it cites.
+
+    ``applied`` holds the moves, creates and retired files the recorded
+    source applies did (``source_apply.applied_state``: this plan's own
+    apply only when its record names this plan file's SHA-256, and any
+    other plan's apply, since a unit shared by several plans keeps one
+    file).  Those files are checked in their applied state (moved and
+    created files exist, moved-from and retired files are gone) instead of
+    the state the plan was written against.  Every other check is the same,
+    and without any apply record nothing changes.
+    """
 
     problems: list[str] = []
+    applied = applied if isinstance(applied, dict) else None
+    moved_from = {
+        str(row.get("from")): str(row.get("to"))
+        for row in (applied or {}).get("moves") or []
+        if isinstance(row, dict)
+    }
+    written_by_apply = set(moved_from.values()) | {str(path) for path in (applied or {}).get("created") or []}
+    retired_by_apply = {str(row.get("path")) for row in (applied or {}).get("retired") or [] if isinstance(row, dict)}
     report: dict[str, Any] = {"problems": problems, "summary": {}, "review": []}
 
     def done() -> dict[str, Any]:
@@ -837,11 +882,22 @@ def validate_source_plan(
                 state, actual = _path_state(root, workspace)
                 if state == "case":
                     problems.append(f"{label} workspace_path {workspace} differs in letter case from {actual} on disk")
+                elif workspace in written_by_apply:
+                    if state != "exact" or not (root / workspace).is_file():
+                        problems.append(f"{label} workspace_path {workspace} was written by the apply but is missing")
                 elif state == "exact" and provisional != workspace:
                     problems.append(f"{label} workspace_path {workspace} exists: cite it as provisional_file")
             if provisional is not None:
                 if not _workspace_path(provisional):
                     problems.append(f"{label} provisional_file must be a repo-relative path under src/")
+                elif moved_from.get(provisional) == workspace and provisional != workspace:
+                    # The apply moved it to its workspace path.
+                    cited_files.add(provisional.casefold())
+                    if (root / provisional).exists():
+                        problems.append(f"{label} provisional_file {provisional} was moved by the apply but exists again")
+                    if provisional in provisionals:
+                        problems.append(f"{label} cites provisional_file {provisional} already cited by {provisionals[provisional]}")
+                    provisionals.setdefault(provisional, label)
                 else:
                     cited_files.add(provisional.casefold())
                     state, actual = _path_state(root, provisional)
@@ -987,7 +1043,12 @@ def validate_source_plan(
             problems.append(f"retire_files row {number} must be {{path, reason, evidence}}")
             continue
         path = row["path"]
-        if not _workspace_path(path) or _path_state(root, path)[0] != "exact" or not (root / path).is_file():
+        if path in retired_by_apply and _workspace_path(path):
+            if (root / path).exists():
+                problems.append(f"retire_files {path} was retired by the apply but exists again")
+            elif path.casefold() in cited_files:
+                problems.append(f"retire_files {path} is cited by an owner or header-emit row")
+        elif not _workspace_path(path) or _path_state(root, path)[0] != "exact" or not (root / path).is_file():
             problems.append(f"retire_files {path!r} must name an existing file under src/ exactly")
         elif path.casefold() in cited_files:
             problems.append(f"retire_files {path} is cited by an owner or header-emit row")
@@ -1048,6 +1109,7 @@ def validate_source_plan(
         "header_emits": len(header_emits),
         "retire_files": len(retire),
     }
+    report["applied"] = applied is not None
     return done()
 
 

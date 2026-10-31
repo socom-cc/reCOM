@@ -129,24 +129,30 @@ def test_docblocks_resolve_symbols_of_the_stored_reference_census(
     assert report["ok"] is True, report["errors"]
 
 
-def test_source_correlation_is_deferred_until_its_apply_route_is_registered(
+def test_source_correlation_is_deferred_until_its_gate_route_is_registered(
     root: Path,
 ) -> None:
     report = audits.pipeline_reachability(root, _command_rows())
     assert report["ok"] is True, report["missing"]
     by_stage = {row["stage"]: row for row in report["deferred"]}
     row = by_stage["source-correlation"]
-    # Planning is registered (the seed may be decomposed); closing is not.
+    # Planning and the apply route are registered (the seed may be
+    # decomposed); closing the stage is not.
     assert row["decomposed"] is (row["seed_count"] == 0)
     assert {key: row[key] for key in ("blocked", "capability", "prerequisite")} == {
         "blocked": False,
         "capability": "source-correlation",
-        "prerequisite": "source-correlation-apply-route",
+        "prerequisite": "source-correlation-gate-route",
     }
     # Validators alone never make the stage producible.
-    assert {"audit source-trace", "source artifacts", "source plan validate", "progress decompose-stage"} <= {
-        row["command"] for row in _command_rows()
-    }
+    assert {
+        "audit source-trace",
+        "source artifacts",
+        "source plan validate",
+        "progress decompose-stage",
+        "source annotate",
+        "progress apply-source-plan",
+    } <= {row["command"] for row in _command_rows()}
 
 
 def test_pipeline_reachability_requires_a_seed_for_capability_deferral(
@@ -179,11 +185,15 @@ def test_capability_stage_names_are_validated() -> None:
 
     report = audit_capabilities(_command_rows())
     assert report["ok"] is True, report["errors"]
-    deferred = {row["id"]: row for row in CAPABILITIES if row.get("stage")}
-    assert deferred["source-correlation"]["status"] == "deferred"
-    assert deferred["source-correlation"]["blocker"] == "source-correlation-apply-route"
+    staged = {row["id"]: row for row in CAPABILITIES if row.get("stage")}
+    assert staged["source-correlation"]["status"] == "deferred"
+    assert staged["source-correlation"]["blocker"] == "source-correlation-gate-route"
     planning = next(row for row in CAPABILITIES if row["id"] == "source-correlation-planning")
     assert planning["status"] == "active" and "source plan validate" in planning["commands"]
+    # The apply route is active and opens the apply items' capability gate.
+    apply = staged["source-correlation-apply"]
+    assert apply["status"] == "active" and apply["opens"] == ["socom:work:source-correlation-apply-route"]
+    assert {"source annotate", "progress apply-source-plan", "progress open-capability-gate"} <= set(apply["commands"])
 
 
 def test_source_annotation_parser_and_trace_topology(tmp_path: Path) -> None:

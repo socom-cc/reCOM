@@ -19,6 +19,7 @@ from .constants import (
     ZERO_FILL_MEMORY_ID,
 )
 
+from .capabilities import CAPABILITY_GATE_ACCEPTER, capability_opening
 from .ghidra import normalize_receipt_scope
 from .locking import exclusive_state_lock
 from .recon import REPAIR_APPLY_KIND, REPAIR_PLAN_KIND, REPAIR_PREFIX
@@ -40,6 +41,8 @@ from .source_plan import (
     SOURCE_SEED_ID,
     SOURCE_STAGE,
     apply_reservation,
+    decomposed_directories,
+    plan_path,
     scope_batches,
     scope_item_id,
     scope_key,
@@ -1020,31 +1023,53 @@ def audit_tracker(
             elif (item.get("batch") or {}).get("scope") != (plan.get("batch") or {}).get("scope"):
                 errors.append(f"{item_id} plans another scope than {plan_id}")
             batch = item.get("batch") or {}
+            decomposed = set(decomposed_directories(item))
+            correction = batch.get("reservation_correction")
             if kind == PROVIDER_APPLY_KIND:
                 # Provider ownership is recorded in tracker evidence only.
-                if resources or "directories" in batch:
+                if resources or "directories" in batch or correction is not None:
                     errors.append(f"{item_id} writes nothing under src/: a provider apply reserves no resource")
             elif not resources or not all(value == "src" or str(value).startswith("src/") for value in resources):
                 errors.append(f"{item_id} must reserve its src/ directories")
             elif sorted(resources) != sorted(batch.get("directories") or []):
                 errors.append(f"{item_id} resources differ from its batch directories")
+            elif correction is not None and (
+                not isinstance(correction, dict)
+                or not decomposed
+                or not all(value == "src" or str(value).startswith("src/") for value in decomposed)
+                or not isinstance(correction.get("plan_sha256"), str)
+                or len(correction["plan_sha256"]) != 64
+            ):
+                errors.append(f"{item_id} reservation correction needs the decomposed directories and the plan SHA-256")
             else:
                 inferred = batch.get("resource_inferred")
                 reason = batch.get("resource_reason")
                 stated = isinstance(reason, str) and bool(reason.strip())
                 if not isinstance(inferred, bool):
                     errors.append(f"{item_id} must record whether its reservation is inferred")
-                elif inferred and (not stated or resources == {"src"}):
+                elif inferred and (not stated or decomposed == {"src"}):
                     errors.append(f"{item_id} inferred reservation needs a reason and a narrower directory than src")
-                elif resources == {"src"} and not stated:
+                elif decomposed == {"src"} and not stated:
                     errors.append(f"{item_id} reserves all of src without the reason no inference was possible")
+            errors.extend(_audit_source_apply_record(item, resources))
         if kind == CAPABILITY_GATE_KIND:
             if item_id != SOURCE_APPLY_ROUTE_ID:
                 errors.append(f"{item_id} is an unexpected capability gate")
             if resources or item.get("dependencies"):
                 errors.append(f"{item_id} capability gate must own no resources and have no dependencies")
-            if status != "blocked":
-                errors.append(f"{item_id} capability gate must stay blocked until its route is registered")
+            if status == "accepted":
+                # Only `progress open-capability-gate` accepts a gate, once an
+                # active capability registers the route it waits for.
+                capability = capability_opening(str(item_id))
+                accepted_by = (item.get("accepted") or {})
+                if capability is None or capability.get("status") != "active":
+                    errors.append(f"{item_id} is accepted but no active capability opens it")
+                elif accepted_by.get("capability") != capability["id"] or accepted_by.get("by") != CAPABILITY_GATE_ACCEPTER:
+                    errors.append(f"{item_id} must be accepted by {CAPABILITY_GATE_ACCEPTER} for capability {capability['id']}")
+            elif status != "blocked":
+                errors.append(
+                    f"{item_id} capability gate must stay blocked until progress open-capability-gate accepts it"
+                )
         if kind == "stage-gate" and resources:
             errors.append(f"{item_id} stage gate must not own resources")
         missing = set(item.get("dependencies", [])) - known
@@ -1230,6 +1255,45 @@ def audit_tracker(
     return errors
 
 
+def _audit_source_apply_record(item: dict[str, Any], resources: set[str]) -> list[str]:
+    """A source apply's ``source_apply`` record (``progress apply-source-plan``)."""
+
+    item_id = item.get("id")
+    record = item.get("source_apply")
+    if record is None:
+        if item.get("status") in ("awaiting_acceptance", "accepted"):
+            return [f"{item_id} has no source_apply record: only progress apply-source-plan applies a plan"]
+        return []
+    if not isinstance(record, dict):
+        return [f"{item_id} source_apply must be an object"]
+    errors: list[str] = []
+    sha = record.get("plan_sha256")
+    if not isinstance(sha, str) or len(sha) != 64 or record.get("plan_item") != str(item_id).removesuffix("-apply"):
+        errors.append(f"{item_id} source_apply must name its plan item and the plan SHA-256")
+    files = record.get("files")
+    removed = record.get("removed")
+    if (
+        not isinstance(files, list)
+        or not all(isinstance(row, dict) and isinstance(row.get("path"), str) and len(str(row.get("sha256"))) == 64 for row in files)
+        or not isinstance(removed, list)
+        or not all(isinstance(path, str) for path in removed)
+    ):
+        errors.append(f"{item_id} source_apply must list its files with SHA-256s and its removed paths")
+        return errors
+    paths = [row["path"] for row in files] + list(removed)
+    if item.get("kind") == PROVIDER_APPLY_KIND:
+        if paths:
+            errors.append(f"{item_id} is a provider apply: it records no file")
+        return errors
+    directories = sorted(resources, key=str.casefold)
+    if (record.get("reservation") or {}).get("directories") != directories:
+        errors.append(f"{item_id} source_apply reservation differs from its resources")
+    outside = [path for path in paths if not any(path.startswith(f"{directory}/") for directory in directories)]
+    if outside:
+        errors.append(f"{item_id} source_apply records paths outside its reservation: {outside[:5]}")
+    return errors
+
+
 def _audit_source_correlation(items: list[dict[str, Any]], stage_rows: list[dict[str, Any]]) -> list[str]:
     """Structure of the decomposed stage 4: pairs, reconciles, route and gate."""
 
@@ -1285,7 +1349,7 @@ def _audit_source_correlation(items: list[dict[str, Any]], stage_rows: list[dict
             "fallback_reservations": sorted(
                 item["id"]
                 for item in segment_applies
-                if item.get("resources") == ["src"] and (item.get("batch") or {}).get("resource_inferred") is not True
+                if decomposed_directories(item) == ["src"] and (item.get("batch") or {}).get("resource_inferred") is not True
             ),
         }
         if recorded != actual:
@@ -1475,6 +1539,12 @@ def handoff_work(
         )
     if not summary.strip():
         raise SocomError("handoff summary must not be empty")
+    kept: list[str] = []
+    if item.get("kind") in SOURCE_APPLY_KINDS:
+        # The apply route's record and evidence lines are part of the handoff.
+        if not isinstance(item.get("source_apply"), dict):
+            raise SocomError(f"{item_id} has not been applied: run progress apply-source-plan first")
+        kept = list(item.get("evidence") or [])
     item["status"] = "awaiting_acceptance"
     item["lease"] = None
     item["handoff"] = {
@@ -1482,7 +1552,7 @@ def handoff_work(
         "summary": summary.strip(),
         "submitted_at": _iso(_utc_now()),
     }
-    item["evidence"] = sorted(set(evidence))
+    item["evidence"] = sorted(set(kept + evidence))
 
 
 def require_ghidra_lease(
@@ -1626,10 +1696,16 @@ def reject_work(
     }
     if "ghidra_receipt" in item:
         record["ghidra_receipt"] = item.pop("ghidra_receipt")
+    kept: list[str] = []
+    if isinstance(item.get("source_apply"), dict):
+        # The applied files stay on disk: the record stays with the item so a
+        # rework reapplies the same plan idempotently; history keeps a copy.
+        record["source_apply"] = copy.deepcopy(item["source_apply"])
+        kept = [text for text in item.get("evidence", []) if str(text).startswith("source-")]
     item.setdefault("review_history", []).append(record)
     item["status"] = "ready"
     item["handoff"] = None
-    item["evidence"] = []
+    item["evidence"] = kept
 
 
 def reopen_work(
@@ -2015,7 +2091,8 @@ def decompose_source_correlation(
     gets a ``source-data-reconcile`` item that waits for every plan.  Each
     plan has an apply item that waits for its plan, every reconcile, and the
     ``capability-gate`` item of the guarded apply route, which stays blocked
-    until that route is registered.  A segment apply reserves its ``src/``
+    until ``progress open-capability-gate`` accepts it (``open_capability_gate``)
+    once that route is registered.  A segment apply reserves its ``src/``
     directories.  A provider apply reserves nothing: it writes no file and
     records its archive members' ownership in tracker evidence only.  The
     seed keeps its ID (later stages depend on it) and becomes the stage gate
@@ -2137,6 +2214,48 @@ def decompose_source_correlation(
     }
     stage["decomposition"] = decomposition
     return decomposition
+
+
+def open_capability_gate(tracker: dict[str, Any], item_id: str, registered: set[str]) -> dict[str, Any]:
+    """Accept a ``capability-gate`` item once the capability it waits for is active and registered.
+
+    No worker claims, hands off or accepts a gate.  It opens when the
+    capability registry (``capabilities.py``) has an active row that lists
+    the gate under ``opens`` and every command of that row is registered;
+    the acceptance records the capability and its digest as evidence.
+    Returns the capability row.
+    """
+
+    item = _work_by_id(tracker).get(item_id)
+    if not item:
+        raise SocomError(f"unknown work item: {item_id}")
+    if item.get("kind") != CAPABILITY_GATE_KIND:
+        raise SocomError(f"{item_id} is not a capability gate")
+    if item["status"] != "blocked":
+        raise SocomError(f"{item_id} is {item['status']}, not a blocked capability gate")
+    capability = capability_opening(item_id)
+    if capability is None:
+        raise SocomError(f"no registered capability opens {item_id}")
+    if capability.get("status") != "active":
+        raise SocomError(f"capability {capability['id']} is {capability.get('status')}, not active")
+    wanted = (item.get("batch") or {}).get("capability")
+    if wanted and capability.get("stage") != wanted:
+        raise SocomError(f"{item_id} waits for a {wanted} capability, {capability['id']} serves {capability.get('stage')}")
+    commands = list(capability.get("commands") or [])
+    if not commands:
+        raise SocomError(f"capability {capability['id']} registers no command")
+    missing = sorted(set(commands) - registered)
+    if missing:
+        raise SocomError(f"capability {capability['id']} commands are not registered: {missing}")
+    digest = hashlib.sha256(canonical_json(capability).encode("utf-8")).hexdigest()
+    item["status"] = "accepted"
+    item["accepted"] = {"by": CAPABILITY_GATE_ACCEPTER, "at": _iso(_utc_now()), "capability": capability["id"]}
+    item["evidence"] = sorted(
+        set(item.get("evidence") or [])
+        | {f"capability:{capability['id']}", f"capability-sha256:{digest}"}
+        | {f"registered-command:{command}" for command in commands}
+    )
+    return dict(capability)
 
 
 def release_work(tracker: dict[str, Any], item_id: str, owner: str) -> None:
@@ -2596,29 +2715,46 @@ def work_packet(
         # A provider has no source body: its apply writes no file at all.
         role = "socom-source-worker"
         skill = "socom-provider-boundary"
-        plan = f"build/source-plans/{item_id.removesuffix('-apply').replace(':', '-')}.json"
+        plan = plan_path(item_id)
+        apply = f"python tools/socom.py progress apply-source-plan --item {item_id} --owner <owner> --expected-revision <n>"
         validation = [
             f"python tools/socom.py source plan validate --plan {plan} --check",
-            f"the guarded apply command that opens {SOURCE_APPLY_ROUTE_ID} (not registered yet): it records each "
-            "archive member's ownership (library + GNU object or object name) in tracker evidence and writes no file",
+            f"{apply} --check --dry-run",
+            f"{apply} --check (records each archive member's ownership, library + GNU object or object name, "
+            "in tracker evidence and writes no file)",
             "python tools/socom.py guard provider",
+            f"acceptance (independent socom-verifier): python tools/socom.py source apply-check --item {item_id}, "
+            f"then python tools/socom.py progress work accept --item {item_id}",
         ]
-        handoff = "python tools/socom.py progress work handoff (cite the plan SHA-256; no file changes)"
+        handoff = (
+            "python tools/socom.py progress work handoff (after progress apply-source-plan; its record and evidence "
+            "lines are kept; no file changes)"
+        )
         allowed_paths = []
         ghidra_scope = None
     elif kind == SEGMENT_APPLY_KIND:
         role = "socom-source-worker"
         skill = "socom-source-model-recovery"
-        plan = f"build/source-plans/{item_id.removesuffix('-apply').replace(':', '-')}.json"
+        plan = plan_path(item_id)
+        apply = f"python tools/socom.py progress apply-source-plan --item {item_id} --owner <owner> --expected-revision <n>"
         validation = [
             f"python tools/socom.py source plan validate --plan {plan} --check",
-            f"the guarded apply command that opens {SOURCE_APPLY_ROUTE_ID} (not registered yet; it re-reserves "
-            "a corrected plan reservation before it writes)",
+            f"{apply} --check --dry-run",
+            f"{apply} --check (moves, creates, retires and writes the generated annotations only in the reserved "
+            "directories, or the plan's corrected reservation, which it re-reserves on the item)",
+            f"python tools/socom.py source annotate --plan {plan} --check",
             "python tools/socom.py audit docblocks",
             "python tools/socom.py audit source-trace",
             "python tools/socom.py guard source-placement",
+            f"acceptance (independent socom-verifier): python tools/socom.py source apply-check --item {item_id}; "
+            f"python tools/socom.py source plan validate --plan {plan} --check; "
+            f"python tools/socom.py source annotate --plan {plan} --check; "
+            f"python tools/socom.py audit source-trace; then python tools/socom.py progress work accept --item {item_id}",
         ]
-        handoff = "python tools/socom.py progress work handoff (cite the plan SHA-256 and every changed file)"
+        handoff = (
+            "python tools/socom.py progress work handoff (after progress apply-source-plan; its record of the plan "
+            "SHA-256 and every written, moved and retired file is kept as evidence)"
+        )
         allowed_paths = list(item.get("resources", []))
         ghidra_scope = None
     elif kind == "stage-gate" and item["stage"] == SOURCE_STAGE:

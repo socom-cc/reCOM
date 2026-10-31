@@ -63,7 +63,7 @@ from .recon import (
 )
 from .fingerprint import SWEEP_MODES, compare_fingerprints, program_fingerprint
 from .type_apply import ApplyFailure, build_apply_program, execute_apply_program
-from . import recon_repair_cli, source_plan_cli, type_plan_cli
+from . import recon_repair_cli, source_apply_cli, source_plan_cli, type_plan_cli
 from .source import (
     audit_docblocks,
     audit_independence,
@@ -71,8 +71,9 @@ from .source import (
     source_artifacts,
     source_owners,
 )
+from .source_apply import verify_source_apply
 from .source_graph import SEGMENT_SIZE as SOURCE_SEGMENT_SIZE, segments_markdown, source_graph
-from .source_plan import SOURCE_STAGE, apply_reservations
+from .source_plan import SOURCE_APPLY_KINDS, SOURCE_STAGE, apply_reservations
 from .snapshot import snapshot_status, write_snapshot
 from .toolchain import bootstrap_toolchain, verify_toolchain
 from .tracker import (
@@ -1464,26 +1465,41 @@ def _work_heartbeat(arguments: argparse.Namespace) -> int:
     )
 
 
+def _require_unchanged_source_apply(root: Path, tracker: dict[str, Any], item_id: str) -> None:
+    """A source apply hands off and is accepted only while its record still holds."""
+
+    item = next((row for row in tracker["work_items"] if row["id"] == item_id), None)
+    if item is None or item.get("kind") not in SOURCE_APPLY_KINDS or not isinstance(item.get("source_apply"), dict):
+        return
+    problems = verify_source_apply(root, tracker, item)
+    if problems:
+        raise SocomError(f"{item_id} no longer matches its apply record: " + "; ".join(problems))
+
+
 def _work_handoff(arguments: argparse.Namespace) -> int:
-    return _mutate_work(
-        arguments,
-        lambda tracker: handoff_work(
+    root = _root(arguments)
+
+    def operation(tracker: dict[str, Any]) -> None:
+        _require_unchanged_source_apply(root, tracker, arguments.item)
+        handoff_work(
             tracker,
             arguments.item,
             arguments.owner,
             arguments.summary,
             arguments.evidence,
-        ),
-    )
+        )
+
+    return _mutate_work(arguments, operation)
 
 
 def _work_accept(arguments: argparse.Namespace) -> int:
-    return _mutate_work(
-        arguments,
-        lambda tracker: accept_work(
-            tracker, arguments.item, arguments.accepter, arguments.evidence
-        ),
-    )
+    root = _root(arguments)
+
+    def operation(tracker: dict[str, Any]) -> None:
+        _require_unchanged_source_apply(root, tracker, arguments.item)
+        accept_work(tracker, arguments.item, arguments.accepter, arguments.evidence)
+
+    return _mutate_work(arguments, operation)
 
 
 def _work_reject(arguments: argparse.Namespace) -> int:
@@ -3014,6 +3030,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     ),
     _spec("source audit", "source", "Audit soCOM workspace independence."),
     *source_plan_cli.specs(_spec),
+    *source_apply_cli.specs(_spec),
     _spec("verify asm", "verification", "Read function and assembly evidence from Ghidra.", ghidra_requirement="required"),
     _spec("verify functional", "verification", "List or run one deterministic behavioral smoke target."),
     _spec("verify functional-batch", "verification", "Run a reviewed batch of behavioral smoke targets."),
@@ -3537,6 +3554,7 @@ def build_parser() -> argparse.ArgumentParser:
     source_audit = source_commands.add_parser("audit")
     source_audit.set_defaults(handler=_source_audit)
     source_plan_cli.register(source_commands)
+    source_apply_cli.register(source_commands, progress_commands)
 
     verify = commands.add_parser("verify")
     verify_commands = verify.add_subparsers(dest="verification", required=True)
