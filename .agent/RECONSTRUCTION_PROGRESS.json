@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2930,
+  "revision": 2931,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -2683,7 +2683,7 @@
         ],
         "fallback_reservations": [],
         "first_tracker_revision": 2846,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "inferred_reservations": [
           {
             "directories": [
@@ -3111,11 +3111,49 @@
             ],
             "to_graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
             "tracker_revision": 2878
+          },
+          {
+            "added": [],
+            "from_graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+            "kept_accepted": [
+              "socom:work:source-provider-crt0",
+              "socom:work:source-segment-001",
+              "socom:work:source-provider-mw-runtime",
+              "socom:work:source-provider-msl",
+              "socom:work:source-provider-sce",
+              "socom:work:source-provider-unidentified-gnu-object",
+              "socom:work:source-provider-newlib",
+              "socom:work:source-provider-libgcc",
+              "socom:work:source-segment-017",
+              "socom:work:source-provider-989snd",
+              "socom:work:source-provider-libptt",
+              "socom:work:source-provider-rsa"
+            ],
+            "removed": [],
+            "replan": [
+              "socom:work:source-segment-040",
+              "socom:work:source-segment-027",
+              "socom:work:source-provider-speech-middleware",
+              "socom:work:source-provider-medius",
+              "socom:work:source-provider-lgaud"
+            ],
+            "reservation_changed": [],
+            "slice_changed": [
+              "socom:work:source-provider-speech-middleware",
+              "socom:work:source-provider-speech-middleware-apply",
+              "socom:work:source-provider-medius",
+              "socom:work:source-provider-medius-apply",
+              "socom:work:source-provider-lgaud",
+              "socom:work:source-provider-lgaud-apply",
+              "socom:work:source-data-rodata"
+            ],
+            "to_graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
+            "tracker_revision": 2931
           }
         ],
         "segment_count": 76,
         "segment_size": 200,
-        "tracker_revision": 2878
+        "tracker_revision": 2931
       },
       "id": "socom:stage:source-correlation",
       "name": "source-correlation",
@@ -146936,7 +146974,7 @@
         "data_count": 66,
         "function_count": 75,
         "gap_count": 61,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 90,
         "ranges": [
           [
@@ -146965,23 +147003,37 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-040.json sha256:6b480926a3276b9b043f6f4faeae34c45b9f35e4d11e5eb9ac3489eca1126827; validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-w1f",
-        "submitted_at": "2026-10-31T10:50:21Z",
-        "summary": "owners 8 (7 authored incl. new zsys_init.cpp row + fill), unresolved 25, retire 0, open rows decided 43 (18 owned medium, 25 unresolved: unnamed fifo/SPR/VU object(s) 0x2f57b0-0x2f5f4f + data, CTexture::Init + m_startAddress); reservation corrected (+src/gamez/zSystem); contradictions 5; header emits 6 (MSL)"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-040",
       "kind": "source-plan-segment",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "handoff": {
+            "owner": "socom-source-owner-mapper-w1f",
+            "submitted_at": "2026-10-31T10:50:21Z",
+            "summary": "owners 8 (7 authored incl. new zsys_init.cpp row + fill), unresolved 25, retire 0, open rows decided 43 (18 owned medium, 25 unresolved: unnamed fifo/SPR/VU object(s) 0x2f57b0-0x2f5f4f + data, CTexture::Init + m_startAddress); reservation corrected (+src/gamez/zSystem); contradictions 5; header emits 6 (MSL)"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-040.json sha256:6b480926a3276b9b043f6f4faeae34c45b9f35e4d11e5eb9ac3489eca1126827; validate --check ok; draft --check ok"
+          ],
+          "previous_batch": {
+            "artifact_count": 202,
+            "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+            "slice_sha256": "7688b7be76a3b9a7335dc240f5b25f51780f5cfb76e1df8efe0575dc464b4fe4"
+          },
+          "reason": "graph refreshed 7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718 -> c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973; replan",
+          "refreshed_at": "2026-10-31T12:06:22Z",
+          "slice": "unchanged: re-cite the graph digest"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 040 (0x2f5640-0x2f9aac, 75 functions)"
     },
     {
@@ -146998,7 +147050,7 @@
         ],
         "function_count": 75,
         "gap_count": 61,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 90,
         "ranges": [
           [
@@ -147058,7 +147110,7 @@
         "data_count": 138,
         "function_count": 190,
         "gap_count": 148,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 241,
         "ranges": [
           [
@@ -147116,7 +147168,7 @@
         ],
         "function_count": 190,
         "gap_count": 148,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 241,
         "ranges": [
           [
@@ -147180,7 +147232,7 @@
         "data_count": 0,
         "function_count": 0,
         "gap_count": 1,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "moved_from_segments": [
           1
         ],
@@ -147225,7 +147277,7 @@
         "data_count": 0,
         "function_count": 0,
         "gap_count": 1,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "moved_from_segments": [
           1
         ],
@@ -147271,7 +147323,7 @@
         "data_count": 18,
         "function_count": 39,
         "gap_count": 32,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 39,
         "plan_graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "ranges": [
@@ -147364,7 +147416,7 @@
         ],
         "function_count": 39,
         "gap_count": 32,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 39,
         "ranges": [
           [
@@ -147422,7 +147474,7 @@
         "data_count": 23,
         "function_count": 41,
         "gap_count": 31,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 44,
         "plan_graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "ranges": [
@@ -147493,7 +147545,7 @@
         "data_count": 23,
         "function_count": 41,
         "gap_count": 31,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 44,
         "ranges": [
           [
@@ -147543,11 +147595,12 @@
         "data_count": 217,
         "function_count": 179,
         "gap_count": 133,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "moved_from_segments": [
           76
         ],
         "named_count": 207,
+        "plan_graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "ranges": [
           [
             "0x1448d0",
@@ -147613,7 +147666,7 @@
         "data_count": 217,
         "function_count": 179,
         "gap_count": 133,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "moved_from_segments": [
           76
         ],
@@ -147665,8 +147718,9 @@
         "data_count": 96,
         "function_count": 801,
         "gap_count": 383,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 897,
+        "plan_graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "ranges": [
           [
             "0x14df58",
@@ -147766,7 +147820,7 @@
         "data_count": 96,
         "function_count": 801,
         "gap_count": 383,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 897,
         "ranges": [
           [
@@ -147850,8 +147904,9 @@
         "data_count": 19,
         "function_count": 53,
         "gap_count": 14,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 72,
+        "plan_graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "ranges": [
           [
             "0x1638d0",
@@ -147900,7 +147955,7 @@
         "data_count": 19,
         "function_count": 53,
         "gap_count": 14,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 72,
         "ranges": [
           [
@@ -147949,8 +148004,9 @@
         "data_count": 125,
         "function_count": 197,
         "gap_count": 130,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 322,
+        "plan_graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "ranges": [
           [
             "0x164988",
@@ -148024,7 +148080,7 @@
         "data_count": 125,
         "function_count": 197,
         "gap_count": 130,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 322,
         "ranges": [
           [
@@ -148078,8 +148134,9 @@
         "data_count": 5,
         "function_count": 28,
         "gap_count": 16,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 33,
+        "plan_graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "ranges": [
           [
             "0x16bad8",
@@ -148153,7 +148210,7 @@
         "data_count": 5,
         "function_count": 28,
         "gap_count": 16,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 33,
         "ranges": [
           [
@@ -148203,7 +148260,7 @@
         "data_count": 192,
         "function_count": 114,
         "gap_count": 91,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 162,
         "ranges": [
           [
@@ -148273,7 +148330,7 @@
         ],
         "function_count": 114,
         "gap_count": 91,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 162,
         "ranges": [
           [
@@ -148331,7 +148388,7 @@
         "data_count": 90,
         "function_count": 163,
         "gap_count": 129,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 184,
         "ranges": [
           [
@@ -148385,7 +148442,7 @@
         ],
         "function_count": 163,
         "gap_count": 129,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 184,
         "ranges": [
           [
@@ -148443,7 +148500,7 @@
         "data_count": 20,
         "function_count": 193,
         "gap_count": 155,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 196,
         "ranges": [
           [
@@ -148511,7 +148568,7 @@
         ],
         "function_count": 193,
         "gap_count": 155,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 196,
         "ranges": [
           [
@@ -148567,7 +148624,7 @@
         "data_count": 359,
         "function_count": 199,
         "gap_count": 161,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 231,
         "ranges": [
           [
@@ -148620,7 +148677,7 @@
         ],
         "function_count": 199,
         "gap_count": 161,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 231,
         "ranges": [
           [
@@ -148681,7 +148738,7 @@
         "data_count": 59,
         "function_count": 51,
         "gap_count": 37,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 51,
         "plan_graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "ranges": [
@@ -148760,7 +148817,7 @@
         ],
         "function_count": 51,
         "gap_count": 37,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 51,
         "ranges": [
           [
@@ -148815,7 +148872,7 @@
         "data_count": 97,
         "function_count": 192,
         "gap_count": 137,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 197,
         "ranges": [
           [
@@ -148883,7 +148940,7 @@
         ],
         "function_count": 192,
         "gap_count": 137,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 197,
         "ranges": [
           [
@@ -148939,7 +148996,7 @@
         "data_count": 303,
         "function_count": 198,
         "gap_count": 158,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 229,
         "ranges": [
           [
@@ -149005,7 +149062,7 @@
         ],
         "function_count": 198,
         "gap_count": 158,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 229,
         "ranges": [
           [
@@ -149059,7 +149116,7 @@
         "data_count": 33,
         "function_count": 100,
         "gap_count": 81,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 103,
         "ranges": [
           [
@@ -149112,7 +149169,7 @@
         ],
         "function_count": 100,
         "gap_count": 81,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 103,
         "ranges": [
           [
@@ -149169,7 +149226,7 @@
         "data_count": 65,
         "function_count": 167,
         "gap_count": 128,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 180,
         "ranges": [
           [
@@ -149225,7 +149282,7 @@
         ],
         "function_count": 167,
         "gap_count": 128,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 180,
         "ranges": [
           [
@@ -149285,7 +149342,7 @@
         "data_count": 75,
         "function_count": 155,
         "gap_count": 115,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 183,
         "ranges": [
           [
@@ -149342,7 +149399,7 @@
         ],
         "function_count": 155,
         "gap_count": 115,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 183,
         "ranges": [
           [
@@ -149403,7 +149460,7 @@
         "data_count": 354,
         "function_count": 192,
         "gap_count": 152,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 214,
         "ranges": [
           [
@@ -149471,7 +149528,7 @@
         ],
         "function_count": 192,
         "gap_count": 152,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 214,
         "ranges": [
           [
@@ -149527,7 +149584,7 @@
         "data_count": 231,
         "function_count": 190,
         "gap_count": 146,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 284,
         "ranges": [
           [
@@ -149587,7 +149644,7 @@
         ],
         "function_count": 190,
         "gap_count": 146,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 284,
         "ranges": [
           [
@@ -149651,7 +149708,7 @@
         "data_count": 73,
         "function_count": 158,
         "gap_count": 127,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 178,
         "ranges": [
           [
@@ -149709,7 +149766,7 @@
         ],
         "function_count": 158,
         "gap_count": 127,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 178,
         "ranges": [
           [
@@ -149771,7 +149828,7 @@
         "data_count": 110,
         "function_count": 188,
         "gap_count": 147,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 225,
         "ranges": [
           [
@@ -149829,7 +149886,7 @@
         ],
         "function_count": 188,
         "gap_count": 147,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 225,
         "ranges": [
           [
@@ -149891,7 +149948,7 @@
         "data_count": 102,
         "function_count": 103,
         "gap_count": 81,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 113,
         "ranges": [
           [
@@ -149918,23 +149975,37 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-027.json sha256:02f057b37ad02cd66e5c75a22bf542d5bb37eed3c70bf033fd03e4b69b7a34c6; validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-w1f",
-        "submitted_at": "2026-10-31T10:41:47Z",
-        "summary": "owners 4 (3 authored + fill), unresolved 37, retire 0, open rows decided 43 (6 owned medium, 37 unresolved: unnamed object 0x228f20-0x22a073 + its rodata/vtable, CProjectedMap_Object pair); contradictions 10; header emits 2 (MSL)"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-027",
       "kind": "source-plan-segment",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "handoff": {
+            "owner": "socom-source-owner-mapper-w1f",
+            "submitted_at": "2026-10-31T10:41:47Z",
+            "summary": "owners 4 (3 authored + fill), unresolved 37, retire 0, open rows decided 43 (6 owned medium, 37 unresolved: unnamed object 0x228f20-0x22a073 + its rodata/vtable, CProjectedMap_Object pair); contradictions 10; header emits 2 (MSL)"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-027.json sha256:02f057b37ad02cd66e5c75a22bf542d5bb37eed3c70bf033fd03e4b69b7a34c6; validate --check ok; draft --check ok"
+          ],
+          "previous_batch": {
+            "artifact_count": 286,
+            "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+            "slice_sha256": "b4132a7ff5cb3d113cb31c282dd579c89dda5d32060c4f2104af5adf3566b3d4"
+          },
+          "reason": "graph refreshed 7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718 -> c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973; replan",
+          "refreshed_at": "2026-10-31T12:06:22Z",
+          "slice": "unchanged: re-cite the graph digest"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 027 (0x2248a0-0x22c194, 103 functions)"
     },
     {
@@ -149950,7 +150021,7 @@
         ],
         "function_count": 103,
         "gap_count": 81,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 113,
         "ranges": [
           [
@@ -150007,7 +150078,7 @@
         "data_count": 74,
         "function_count": 192,
         "gap_count": 165,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 213,
         "ranges": [
           [
@@ -150065,7 +150136,7 @@
         ],
         "function_count": 192,
         "gap_count": 165,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 213,
         "ranges": [
           [
@@ -150127,7 +150198,7 @@
         "data_count": 90,
         "function_count": 179,
         "gap_count": 142,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 202,
         "ranges": [
           [
@@ -150187,7 +150258,7 @@
         ],
         "function_count": 179,
         "gap_count": 142,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 202,
         "ranges": [
           [
@@ -150252,7 +150323,7 @@
         "data_count": 225,
         "function_count": 170,
         "gap_count": 122,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 208,
         "ranges": [
           [
@@ -150305,7 +150376,7 @@
         ],
         "function_count": 170,
         "gap_count": 122,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 208,
         "ranges": [
           [
@@ -150361,7 +150432,7 @@
         "data_count": 340,
         "function_count": 186,
         "gap_count": 140,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 321,
         "ranges": [
           [
@@ -150412,7 +150483,7 @@
         ],
         "function_count": 186,
         "gap_count": 140,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 321,
         "ranges": [
           [
@@ -150467,7 +150538,7 @@
         "data_count": 219,
         "function_count": 199,
         "gap_count": 152,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 269,
         "ranges": [
           [
@@ -150521,7 +150592,7 @@
         ],
         "function_count": 199,
         "gap_count": 152,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 269,
         "ranges": [
           [
@@ -150579,7 +150650,7 @@
         "data_count": 193,
         "function_count": 197,
         "gap_count": 134,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 213,
         "ranges": [
           [
@@ -150630,7 +150701,7 @@
         ],
         "function_count": 197,
         "gap_count": 134,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 213,
         "ranges": [
           [
@@ -150685,7 +150756,7 @@
         "data_count": 40,
         "function_count": 128,
         "gap_count": 105,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 147,
         "ranges": [
           [
@@ -150735,7 +150806,7 @@
         ],
         "function_count": 128,
         "gap_count": 105,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 147,
         "ranges": [
           [
@@ -150789,7 +150860,7 @@
         "data_count": 659,
         "function_count": 200,
         "gap_count": 154,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 366,
         "ranges": [
           [
@@ -150843,7 +150914,7 @@
         ],
         "function_count": 200,
         "gap_count": 154,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 366,
         "ranges": [
           [
@@ -150901,7 +150972,7 @@
         "data_count": 356,
         "function_count": 198,
         "gap_count": 145,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 322,
         "ranges": [
           [
@@ -150960,7 +151031,7 @@
         ],
         "function_count": 198,
         "gap_count": 145,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 322,
         "ranges": [
           [
@@ -151023,7 +151094,7 @@
         "data_count": 41,
         "function_count": 76,
         "gap_count": 54,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 85,
         "ranges": [
           [
@@ -151073,7 +151144,7 @@
         ],
         "function_count": 76,
         "gap_count": 54,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 85,
         "ranges": [
           [
@@ -151131,7 +151202,7 @@
         "data_count": 41,
         "function_count": 43,
         "gap_count": 26,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 74,
         "plan_graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "ranges": [
@@ -151182,7 +151253,7 @@
         "data_count": 41,
         "function_count": 43,
         "gap_count": 26,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 74,
         "ranges": [
           [
@@ -151227,7 +151298,7 @@
         "data_count": 84,
         "function_count": 189,
         "gap_count": 140,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 204,
         "ranges": [
           [
@@ -151286,7 +151357,7 @@
         ],
         "function_count": 189,
         "gap_count": 140,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 204,
         "ranges": [
           [
@@ -151349,7 +151420,7 @@
         "data_count": 144,
         "function_count": 176,
         "gap_count": 140,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 240,
         "ranges": [
           [
@@ -151406,7 +151477,7 @@
         ],
         "function_count": 176,
         "gap_count": 140,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 240,
         "ranges": [
           [
@@ -151467,7 +151538,7 @@
         "data_count": 21,
         "function_count": 186,
         "gap_count": 160,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 189,
         "ranges": [
           [
@@ -151521,7 +151592,7 @@
         ],
         "function_count": 186,
         "gap_count": 160,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 189,
         "ranges": [
           [
@@ -151579,7 +151650,7 @@
         "data_count": 155,
         "function_count": 192,
         "gap_count": 148,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 214,
         "ranges": [
           [
@@ -151633,7 +151704,7 @@
         ],
         "function_count": 192,
         "gap_count": 148,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 214,
         "ranges": [
           [
@@ -151691,7 +151762,7 @@
         "data_count": 113,
         "function_count": 49,
         "gap_count": 42,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 51,
         "ranges": [
           [
@@ -151743,7 +151814,7 @@
         ],
         "function_count": 49,
         "gap_count": 42,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 51,
         "ranges": [
           [
@@ -151799,7 +151870,7 @@
         "data_count": 171,
         "function_count": 200,
         "gap_count": 153,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 261,
         "ranges": [
           [
@@ -151849,7 +151920,7 @@
         ],
         "function_count": 200,
         "gap_count": 153,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 261,
         "ranges": [
           [
@@ -151903,7 +151974,7 @@
         "data_count": 141,
         "function_count": 125,
         "gap_count": 98,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 192,
         "ranges": [
           [
@@ -151959,7 +152030,7 @@
         ],
         "function_count": 125,
         "gap_count": 98,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 192,
         "ranges": [
           [
@@ -152011,15 +152082,15 @@
     },
     {
       "batch": {
-        "artifact_count": 1325,
+        "artifact_count": 1332,
         "batch_number": 48,
         "classification_mix": {
           "provider:speech middleware": 686
         },
         "data_count": 261,
         "function_count": 700,
-        "gap_count": 364,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "gap_count": 371,
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "moved_from_segments": [
           62
         ],
@@ -152052,41 +152123,55 @@
           50,
           51
         ],
-        "slice_sha256": "4db7e23e80a275398de187bc7521285e9b9d2e25791ffe3e64f7950c19165cc9"
+        "slice_sha256": "1d7ea7970103c269393c99bf37c2ed8761505711b397df2b931f6c196f649cb9"
       },
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-provider-speech-middleware.json sha256:645d28109c7cbbcbbf897c0419d803aa939263de5157bd1a6a93cc27a414c6c1; validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-w1c",
-        "submitted_at": "2026-10-31T10:34:18Z",
-        "summary": "owners 67 (66 provider GNU-object rows + 1 compiler-generated), unresolved 0, retire 0, open rows decided 0 (all 1325 drafted under rules v3)"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-provider-speech-middleware",
       "kind": "source-plan-provider",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "handoff": {
+            "owner": "socom-source-owner-mapper-w1c",
+            "submitted_at": "2026-10-31T10:34:18Z",
+            "summary": "owners 67 (66 provider GNU-object rows + 1 compiler-generated), unresolved 0, retire 0, open rows decided 0 (all 1325 drafted under rules v3)"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-provider-speech-middleware.json sha256:645d28109c7cbbcbbf897c0419d803aa939263de5157bd1a6a93cc27a414c6c1; validate --check ok; draft --check ok"
+          ],
+          "previous_batch": {
+            "artifact_count": 1325,
+            "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+            "slice_sha256": "4db7e23e80a275398de187bc7521285e9b9d2e25791ffe3e64f7950c19165cc9"
+          },
+          "reason": "graph refreshed 7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718 -> c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973; replan",
+          "refreshed_at": "2026-10-31T12:06:22Z",
+          "slice": "changed"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan provider owners of speech middleware (4 segments, 700 functions)"
     },
     {
       "batch": {
-        "artifact_count": 1325,
+        "artifact_count": 1332,
         "batch_number": 48,
         "classification_mix": {
           "provider:speech middleware": 686
         },
         "data_count": 261,
         "function_count": 700,
-        "gap_count": 364,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "gap_count": 371,
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "moved_from_segments": [
           62
         ],
@@ -152119,7 +152204,7 @@
           50,
           51
         ],
-        "slice_sha256": "4db7e23e80a275398de187bc7521285e9b9d2e25791ffe3e64f7950c19165cc9"
+        "slice_sha256": "1d7ea7970103c269393c99bf37c2ed8761505711b397df2b931f6c196f649cb9"
       },
       "dependencies": [
         "socom:work:source-provider-speech-middleware",
@@ -152149,7 +152234,7 @@
         "data_count": 61,
         "function_count": 13,
         "gap_count": 10,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 16,
         "ranges": [
           [
@@ -152199,7 +152284,7 @@
         ],
         "function_count": 13,
         "gap_count": 10,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 16,
         "ranges": [
           [
@@ -152253,7 +152338,7 @@
         "data_count": 161,
         "function_count": 121,
         "gap_count": 100,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 139,
         "ranges": [
           [
@@ -152306,7 +152391,7 @@
         ],
         "function_count": 121,
         "gap_count": 100,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 139,
         "ranges": [
           [
@@ -152363,7 +152448,7 @@
         "data_count": 116,
         "function_count": 185,
         "gap_count": 144,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 194,
         "ranges": [
           [
@@ -152413,7 +152498,7 @@
         ],
         "function_count": 185,
         "gap_count": 144,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 194,
         "ranges": [
           [
@@ -152468,7 +152553,7 @@
         "data_count": 347,
         "function_count": 195,
         "gap_count": 153,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 178,
         "ranges": [
           [
@@ -152520,7 +152605,7 @@
         ],
         "function_count": 195,
         "gap_count": 153,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 178,
         "ranges": [
           [
@@ -152576,7 +152661,7 @@
         "data_count": 121,
         "function_count": 88,
         "gap_count": 67,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 125,
         "ranges": [
           [
@@ -152627,7 +152712,7 @@
         ],
         "function_count": 88,
         "gap_count": 67,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 125,
         "ranges": [
           [
@@ -152673,16 +152758,16 @@
     },
     {
       "batch": {
-        "artifact_count": 1193,
+        "artifact_count": 1194,
         "batch_number": 59,
         "classification_mix": {
           "provider:Medius": 786
         },
-        "data_count": 165,
+        "data_count": 166,
         "function_count": 786,
         "gap_count": 242,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
-        "named_count": 951,
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
+        "named_count": 952,
         "ranges": [
           [
             "0x3aae18",
@@ -152726,42 +152811,56 @@
           72,
           73
         ],
-        "slice_sha256": "59d90147f41c3c249033a8ff4aaf32410cfd8909b854b14c2f75a6c6dd4b9647"
+        "slice_sha256": "d5cb21f066e8609af3b29d83ad69f74d47937a819fd32eb3276f47c72c1a0649"
       },
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-provider-medius.json sha256:61732c8abca7fbf44cc58c673358b42268bb7f7932a927b24a647584c943b05f; validate --check ok; draft --check ok (hand_entries 3, overrides 0)"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-w1c",
-        "submitted_at": "2026-10-31T10:42:03Z",
-        "summary": "owners 27 (26 provider GNU-object rows + 1 compiler-generated), unresolved 119 (COMMON .bss-tail data, no definer evidenced), retire 0, open rows decided 122 (3 .rodata gaps owned high by LOCAL section symbol, 119 unresolved in 7 referencer groups); 1071 drafted under rules v3"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-provider-medius",
       "kind": "source-plan-provider",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "handoff": {
+            "owner": "socom-source-owner-mapper-w1c",
+            "submitted_at": "2026-10-31T10:42:03Z",
+            "summary": "owners 27 (26 provider GNU-object rows + 1 compiler-generated), unresolved 119 (COMMON .bss-tail data, no definer evidenced), retire 0, open rows decided 122 (3 .rodata gaps owned high by LOCAL section symbol, 119 unresolved in 7 referencer groups); 1071 drafted under rules v3"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-provider-medius.json sha256:61732c8abca7fbf44cc58c673358b42268bb7f7932a927b24a647584c943b05f; validate --check ok; draft --check ok (hand_entries 3, overrides 0)"
+          ],
+          "previous_batch": {
+            "artifact_count": 1193,
+            "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+            "slice_sha256": "59d90147f41c3c249033a8ff4aaf32410cfd8909b854b14c2f75a6c6dd4b9647"
+          },
+          "reason": "graph refreshed 7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718 -> c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973; replan",
+          "refreshed_at": "2026-10-31T12:06:22Z",
+          "slice": "changed"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan provider owners of Medius (7 segments, 786 functions)"
     },
     {
       "batch": {
-        "artifact_count": 1193,
+        "artifact_count": 1194,
         "batch_number": 59,
         "classification_mix": {
           "provider:Medius": 786
         },
-        "data_count": 165,
+        "data_count": 166,
         "function_count": 786,
         "gap_count": 242,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
-        "named_count": 951,
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
+        "named_count": 952,
         "ranges": [
           [
             "0x3aae18",
@@ -152805,7 +152904,7 @@
           72,
           73
         ],
-        "slice_sha256": "59d90147f41c3c249033a8ff4aaf32410cfd8909b854b14c2f75a6c6dd4b9647"
+        "slice_sha256": "d5cb21f066e8609af3b29d83ad69f74d47937a819fd32eb3276f47c72c1a0649"
       },
       "dependencies": [
         "socom:work:source-provider-medius",
@@ -152827,7 +152926,7 @@
     },
     {
       "batch": {
-        "artifact_count": 48,
+        "artifact_count": 41,
         "batch_number": 62,
         "classification_mix": {
           "provider:lgAud": 25,
@@ -152835,8 +152934,8 @@
         },
         "data_count": 2,
         "function_count": 25,
-        "gap_count": 21,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "gap_count": 14,
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 27,
         "ranges": [
           [
@@ -152851,19 +152950,13 @@
         "segment_numbers": [
           62
         ],
-        "slice_sha256": "a612a7e92b1097318324644e1c2c4b1ba9fa943f6c019a948690b39c92669981"
+        "slice_sha256": "cd11580ed22fc56eeefcd40a9aa39dbf3ce244494f2e215ef160602433681f97"
       },
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-provider-lgaud.json sha256:f5f54f1fe9bd5a318fdc0207454922f657b7d4b866c8e0d8b5e9227adbeb0b0d; validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-w1a",
-        "submitted_at": "2026-10-31T10:48:03Z",
-        "summary": "owners 2 (liblgaud.a 1.06 member GNU object 0x3b5980 + fill), unresolved 0, retire 0, open rows decided 0 (all 48 drafted); owner row hand-set archive liblgaud.a / version 1.06 from the ELF literal; Sid object left the slice, old contradiction closed"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-provider-lgaud",
       "kind": "source-plan-provider",
       "lease": null,
@@ -152888,16 +152981,34 @@
           "reason": "graph refreshed 837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e -> 7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718; replan",
           "refreshed_at": "2026-10-31T10:18:04Z",
           "slice": "changed"
+        },
+        {
+          "handoff": {
+            "owner": "socom-source-owner-mapper-w1a",
+            "submitted_at": "2026-10-31T10:48:03Z",
+            "summary": "owners 2 (liblgaud.a 1.06 member GNU object 0x3b5980 + fill), unresolved 0, retire 0, open rows decided 0 (all 48 drafted); owner row hand-set archive liblgaud.a / version 1.06 from the ELF literal; Sid object left the slice, old contradiction closed"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-provider-lgaud.json sha256:f5f54f1fe9bd5a318fdc0207454922f657b7d4b866c8e0d8b5e9227adbeb0b0d; validate --check ok; draft --check ok"
+          ],
+          "previous_batch": {
+            "artifact_count": 48,
+            "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+            "slice_sha256": "a612a7e92b1097318324644e1c2c4b1ba9fa943f6c019a948690b39c92669981"
+          },
+          "reason": "graph refreshed 7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718 -> c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973; replan",
+          "refreshed_at": "2026-10-31T12:06:22Z",
+          "slice": "changed"
         }
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan provider owners of lgAud (1 segments, 25 functions)"
     },
     {
       "batch": {
-        "artifact_count": 48,
+        "artifact_count": 41,
         "batch_number": 62,
         "classification_mix": {
           "provider:lgAud": 25,
@@ -152905,8 +153016,8 @@
         },
         "data_count": 2,
         "function_count": 25,
-        "gap_count": 21,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "gap_count": 14,
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 27,
         "ranges": [
           [
@@ -152921,7 +153032,7 @@
         "segment_numbers": [
           62
         ],
-        "slice_sha256": "a612a7e92b1097318324644e1c2c4b1ba9fa943f6c019a948690b39c92669981"
+        "slice_sha256": "cd11580ed22fc56eeefcd40a9aa39dbf3ce244494f2e215ef160602433681f97"
       },
       "dependencies": [
         "socom:work:source-provider-lgaud",
@@ -152951,7 +153062,7 @@
         "data_count": 112,
         "function_count": 51,
         "gap_count": 34,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 62,
         "ranges": [
           [
@@ -153003,7 +153114,7 @@
         ],
         "function_count": 51,
         "gap_count": 34,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 62,
         "ranges": [
           [
@@ -153059,7 +153170,7 @@
         "data_count": 295,
         "function_count": 185,
         "gap_count": 140,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 302,
         "ranges": [
           [
@@ -153117,7 +153228,7 @@
         ],
         "function_count": 185,
         "gap_count": 140,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 302,
         "ranges": [
           [
@@ -153179,7 +153290,7 @@
         "data_count": 228,
         "function_count": 71,
         "gap_count": 54,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 157,
         "ranges": [
           [
@@ -153235,7 +153346,7 @@
         ],
         "function_count": 71,
         "gap_count": 54,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 157,
         "ranges": [
           [
@@ -153299,8 +153410,9 @@
         "data_count": 93,
         "function_count": 69,
         "gap_count": 54,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 155,
+        "plan_graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "ranges": [
           [
             "0x3eb3a0",
@@ -153349,7 +153461,7 @@
         "data_count": 93,
         "function_count": 69,
         "gap_count": 54,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 155,
         "ranges": [
           [
@@ -153394,7 +153506,7 @@
         "data_count": 185,
         "function_count": 162,
         "gap_count": 116,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 179,
         "ranges": [
           [
@@ -153450,7 +153562,7 @@
         ],
         "function_count": 162,
         "gap_count": 116,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 179,
         "ranges": [
           [
@@ -153514,8 +153626,9 @@
         "data_count": 4,
         "function_count": 42,
         "gap_count": 2,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 46,
+        "plan_graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "ranges": [
           [
             "0x406c28",
@@ -153564,7 +153677,7 @@
         "data_count": 4,
         "function_count": 42,
         "gap_count": 2,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 46,
         "ranges": [
           [
@@ -153609,7 +153722,7 @@
         "data_count": 21,
         "function_count": 13,
         "gap_count": 10,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 20,
         "ranges": [
           [
@@ -153659,7 +153772,7 @@
         ],
         "function_count": 13,
         "gap_count": 10,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 20,
         "ranges": [
           [
@@ -153714,7 +153827,7 @@
         "data_count": 584,
         "function_count": 146,
         "gap_count": 91,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 177,
         "ranges": [
           [
@@ -153940,7 +154053,7 @@
         ],
         "function_count": 146,
         "gap_count": 91,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 177,
         "ranges": [
           [
@@ -154161,18 +154274,18 @@
     },
     {
       "batch": {
-        "artifact_count": 5457,
+        "artifact_count": 5456,
         "batch_number": 77,
-        "data_count": 537,
+        "data_count": 536,
         "function_count": 0,
         "gap_count": 4920,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
-        "named_count": 95,
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
+        "named_count": 94,
         "scope": {
           "data_kind": "rodata",
           "kind": "data"
         },
-        "slice_sha256": "ab83c89b8a0e73d8045ebc517c7ca1c4bc1e0150c18b177cea545810112cdc2c"
+        "slice_sha256": "8df6aa3763bb70ff80af7e2ff2a0d9ead00648b8bf27429548f02bc52cb1f7db"
       },
       "dependencies": [
         "socom:work:source-segment-040",
@@ -154246,7 +154359,7 @@
       "selection": "artifacts",
       "stage": "source-correlation",
       "status": "blocked",
-      "title": "Reconcile rodata data owners (5457 artifacts outside the segment slices)"
+      "title": "Reconcile rodata data owners (5456 artifacts outside the segment slices)"
     },
     {
       "batch": {
@@ -154255,7 +154368,7 @@
         "data_count": 398,
         "function_count": 0,
         "gap_count": 603,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 189,
         "scope": {
           "data_kind": "data",
@@ -154344,7 +154457,7 @@
         "data_count": 511,
         "function_count": 0,
         "gap_count": 1258,
-        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "graph_sha256": "c79d76e6403f19d1bddab0bb61bf922533c9ed97387a2c63f9e2137f5032b973",
         "named_count": 510,
         "scope": {
           "data_kind": "bss",
