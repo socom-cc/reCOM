@@ -1391,8 +1391,18 @@
       },
       "status": "resolved",
       "summary": "Stage 4 producer: audit source-trace --require-complete cannot pass once spans are accepted"
+    },
+    {
+      "details": "Planner w1a (MSL plan) found the R3.04 C++ app stationery lists mwUtils_PS2.c as a project file (c++.mcp.xml line 1018), while the accepted socom:work:source-provider-mw-runtime plan treats mwutils_ps2.o as an archive member (linked archive). Only review replaces an accepted plan, and no command reopens one (refresh refuses slice changes of accepted plans; step 6 open question). Needed before the mw-runtime apply: a governed reopen/re-review route, then re-review the linked kind of mwutils_ps2.o (R3.04 stationery vs the game's R3.01-era build is itself unproven).",
+      "id": "socom:workspace-issue:795e9d2b8075edc012a9",
+      "kind": "problem",
+      "reported_at": "2026-10-31T10:50:03Z",
+      "reported_by": "parent-orchestrator",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage 4: no governed route to reopen an accepted source plan; mw-runtime mwutils_ps2.o linked kind contested"
     }
   ],
-  "revision": 176,
+  "revision": 177,
   "schema_version": 1
 }

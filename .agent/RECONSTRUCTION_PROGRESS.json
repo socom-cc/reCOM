@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2878,
+  "revision": 2919,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -146965,8 +146965,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-040.json sha256:6b480926a3276b9b043f6f4faeae34c45b9f35e4d11e5eb9ac3489eca1126827; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1f",
+        "submitted_at": "2026-10-31T10:50:21Z",
+        "summary": "owners 8 (7 authored incl. new zsys_init.cpp row + fill), unresolved 25, retire 0, open rows decided 43 (18 owned medium, 25 unresolved: unnamed fifo/SPR/VU object(s) 0x2f57b0-0x2f5f4f + data, CTexture::Init + m_startAddress); reservation corrected (+src/gamez/zSystem); contradictions 5; header emits 6 (MSL)"
+      },
       "id": "socom:work:source-segment-040",
       "kind": "source-plan-segment",
       "lease": null,
@@ -146975,7 +146981,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 040 (0x2f5640-0x2f9aac, 75 functions)"
     },
     {
@@ -147564,6 +147570,22 @@
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-w1a",
+            "submitted_at": "2026-10-31T10:36:52Z",
+            "summary": "owners 4 (3 MSL archive members ios.o/iostream.o/locale.o + fill), unresolved 0, retire 0, open rows decided 4 (2 binding-13 dtor copies -> ios.o, 2 __nInit/__wInit statics -> iostream.o); 3 owner rows hand-set linked archive"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-provider-msl.json sha256:7c7e3be61e3ed80f3691d2a6174cbe73a5e8980d71c044395a7f8397d1ea5d6e; validate --check ok; draft --check ok"
+          ],
+          "reason": "plan sha256 7c7e3be6 (graph 7bd4e540): validate --check ok, draft --check ok (525 drafted, 4 hand, 0 open); placements, linked:archive rows and stationery citations (MSL C++.PS2.mcp.xml:2140 outfile ANSICPP_PS2.LIB, :2199-2241 FILELIST; c++.mcp.xml:1004) verified, no install paths. One finding: socom:function:0x1448d0 (__dt__Q33std8ios_base7failureFv) and 0x144950 (shared basis) state 'R3.04 ANSICPP_PS2.LIB ios.o, iostream.o and locale.o all define both as binding 13'; provider archive on R3.04 ANSICPP_PS2.LIB shows ios.o defines ~failure (120) and ~locale (88), iostream.o both (~locale 136), locale.o only ~locale (88), not ~failure. Fix: re-decide 0x1448d0 with 'ios.o and iostream.o define it (binding 13); locale.o does not' and 0x144950 with 'ios.o, iostream.o and locale.o define it'; owners (ios.o, medium) unchanged; optionally cite that R3.04 ios.o's symbol order puts ~failure and ~locale before ~ios_base, matching the ELF head placement. 0x475604/0x475608 -> iostream.o (medium) verified: only GPREL16 refs from iostream.cpp __nInit/__wInit ctor/dtor; R3.04 iostream.o defines both GLOBAL .sbss 4 bytes.",
+          "rejected_at": "2026-10-31T10:55:01Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x7"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
       "status": "ready",
@@ -147691,6 +147713,22 @@
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-w1b",
+            "submitted_at": "2026-10-31T10:36:14Z",
+            "summary": "owners 81 (80 provider, 1 compiler-generated), unresolved 0, retire 0, open rows decided 4 (3 .rodata runs to their objects, 1 linker fill); 9 libinfo rows hand-owned with archive/version"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-provider-sce.json sha256:ae8898f488fb80d0c565a34bfbae8a1ddd0b9c4100431b0262eb73a3be015717; validate --check ok; draft --check ok"
+          ],
+          "reason": "plan sha256 ae8898f4 matches; validate --check ok, draft --check ok (1276 drafted, 4 hand, 0 open). One finding: provider rows 0x379ab0, 0x3aa6f8, 0x425280 set archive_member.archive libmrpc.a / libscf.a / netcnfif.a with no evidence for those file names. The ELF records (recon bytes 0x43b890 'PsIIlibmrpc 2500', 0x43b908 'PsIIlibscf  2500', 0x43e2d8 'PsIInetcnfif2500') give a library name and version, not an archive file. The R3.04 c++.mcp.xml stationery has no mrpc/scf/netcnf entry, and source sql signals/gnu_objects hold nothing else naming them. The record-name + '.a' rule rests only on the six stationery libraries, and netcnfif already breaks it (no lib prefix): libnetcnfif.a or another archive file fits the ELF just as well. Fix: remove archive from those three rows, keeping version 2500 and the libinfo evidence line with the record's library name, or cite evidence that names the archive file. Checked and fine: the six stationery rows (bytes and FILELIST :871/:878/:913/:976/:983/:990 and LINKORDER :1047/:1052/:1077/:1122/:1127/:1132 match, records sit in their own object clusters); the hand .rodata runs 0x446d70, 0x446de0 and 0x4482c0 (each is a whole LOCAL .rodata run with room_for_member 0, reached only by the object's own functions or own .data); gap 0x15b0cc (52 zero bytes, no LOCAL symbol inside, ends at 64/256-aligned section symbol 509 0x15b100: linker fill, medium).",
+          "rejected_at": "2026-10-31T10:53:03Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x4"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
       "status": "ready",
@@ -147777,6 +147815,10 @@
       "title": "Record the reviewed provider owners of SCE in tracker evidence"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T10:54:17Z",
+        "by": "socom-source-owner-scrutinizer-x4"
+      },
       "batch": {
         "artifact_count": 86,
         "batch_number": 8,
@@ -147806,8 +147848,15 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-unidentified-gnu-object.json sha256:78c8d7e0842b0ab2957e4dcb97c02f5e07b74ca2fa75dbbb1589912c5159d6c8; validate --check ok; draft --check ok",
+        "plan sha256 78c8d7e0 matches handoff; validate --check ok (86/86 owned, 7 provider + 1 compiler-generated, 0 unresolved); draft --check ok (84 drafted, 2 hand, 0 overrides/owner/header changes). Hand gap 0x163ddc: 36 zero bytes, no refs and no LOCAL symbol inside, between InitTLB32MB end and .text section symbol 698 at 0x163e00 (512-aligned) -> linker inter-section fill, compiler-generated medium. Hand gap 0x163f1c: 36 zero bytes, no refs, inside object 0x163e00 .text (no section symbol between 698 and 726), before 64-aligned _kExitTLBHandler 0x163f40; same treatment as drafted C-fill sibling 0x164034 before 64-aligned _kDebugException -> medium ok. libkernl identity kept as coordinator note only; rows keep plan library."
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1b",
+        "submitted_at": "2026-10-31T10:39:32Z",
+        "summary": "owners 8 (7 provider, 1 compiler-generated), unresolved 0, retire 0, open rows decided 2 (linker fill 0x163ddc, assembler align fill 0x163f1c); note: members are SCE libkernl by names and link order"
+      },
       "id": "socom:work:source-provider-unidentified-gnu-object",
       "kind": "source-plan-provider",
       "lease": null,
@@ -147816,7 +147865,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan provider owners of unidentified GNU object (1 segments, 53 functions)"
     },
     {
@@ -147865,6 +147914,10 @@
       "title": "Record the reviewed provider owners of unidentified GNU object in tracker evidence"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T10:57:03Z",
+        "by": "socom-source-owner-scrutinizer-x7"
+      },
       "batch": {
         "artifact_count": 452,
         "batch_number": 9,
@@ -147899,8 +147952,15 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-newlib.json sha256:79cd8a30c48db4b77f64a76b375a2363d31d58f0484f92167cd4a687a282c615 (graph 7bd4e540): validate --check ok (451 owned in 139 rows, 1 unresolved, 0 problems), draft --check ok (449 drafted, 2 hand, 0 open, no overrides/owner or header-emit changes). Hand rows verified: __mb_cur_max 0x43bf78 = value of LOCAL .data section symbol 10768 opening locale.o's block 10768-10775 (holds _setlocale_r statics last_lc_ctype.4 0x43bf88 and lc_ctype.3 0x43bf80; impure's block 10765-10767 has its own .data symbol), refs only LO16 from _vfprintf_r/_vfiprintf_r -> 0x3e1a70 high; gap 0x466e60 inside locale.o .rodata run 10770 0x466e30-0x466e78 (room_for_member 0), reached only via LOCAL relocations from _setlocale_r (LO16 x3) and lconv R_MIPS_32 x10 -> 0x3e1a70 high. errno 0x5b1aa4 unresolved reason matches refs (LO16 x2 each from _close_r/_fstat_r/_kill_r/_lseek_r/_read_r/_sbrk_r/_write_r; sits between Medius .bss globals). Member-name evidence lines (138, medium, not in archive_member.object) checked: libm run and libc run each sorted by basename except exit.o first, as noted. Stationery citations c++.mcp.xml :955/:962/:969 and :1107/:1112/:1117, TC-2.96 :955/:962/:1018 and :1107/:1112/:1152 verified; no install paths.",
+        "plan build/source-plans/socom-work-source-provider-newlib.json sha256:79cd8a30c48db4b77f64a76b375a2363d31d58f0484f92167cd4a687a282c615; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1a",
+        "submitted_at": "2026-10-31T10:42:23Z",
+        "summary": "owners 139 (138 newlib GNU-object members + fill), unresolved 1 (errno), retire 0, open rows decided 3 (__mb_cur_max and rodata gap 0x466e60 -> locale.o 0x3e1a70 by hand; errno kept unresolved); replan on 7bd4e540, prior member-name evidence and notes carried"
+      },
       "id": "socom:work:source-provider-newlib",
       "kind": "source-plan-provider",
       "lease": null,
@@ -147929,7 +147989,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan provider owners of newlib (2 segments, 197 functions)"
     },
     {
@@ -148017,8 +148077,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-libgcc.json sha256:1a93fee475c45c7e43e0b018e7c0d0c7c9ea8d10f12fd6861c69bd258fead2fe; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1a",
+        "submitted_at": "2026-10-31T10:45:16Z",
+        "summary": "owners 27 (26 libgcc GNU-object members incl. data-only __thenan_df + fill), unresolved 0, retire 0, open rows decided 0 (all 49 drafted); replan on 7bd4e540 adds dptofp/dptoul (_df_to_sf.o, _df_to_usi.o); prior member-name evidence and notes carried, old contradiction closed"
+      },
       "id": "socom:work:source-provider-libgcc",
       "kind": "source-plan-provider",
       "lease": null,
@@ -148047,7 +148113,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan provider owners of libgcc (2 segments, 28 functions)"
     },
     {
@@ -148145,6 +148211,22 @@
       "lease": null,
       "resources": [
         "build/source-plans"
+      ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-w1d",
+            "submitted_at": "2026-10-31T10:37:27Z",
+            "summary": "owners 7 (5 authored, 1 compiler-generated, 1 SCE provider), unresolved 1, retire 0, open rows decided 3 (2 owned, 1 unresolved) + 1 open header emit; 2 hand header emits into new src/Apps/FTS/game/orders.h; reservation corrected to add src/gamez/zEntity, zFTS, zNode, zTwoD"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-013.json sha256:e1617d0a452dff20524c85ba485a7c601f45bef92def46a4cd0f559c7d250456; validate --check ok; draft --check ok"
+          ],
+          "reason": "Header emits missing for 6 no-DIE binding-13 implicit special members that the plan's own note calls implicit; it leaves them as owner-file defines, against the planner rules (MSL template instances go in header_emits with library MSL; implicit special members go to their class's header) and accepted segment-001's hand <memory> emit for an implicit allocator copy ctor. Fix: add header-emit rows: 0x1729f0 and 0x172ae0 (std::__vector_imp dtors) -> <vector>, MSL, template (7 __vector_imp copies carry DWARF header unit ...\\Include\\vector); 0x178dc0 (std::__list_imp<const void*> dtor) -> <list>, MSL, template (same object's explicit ~__list_deleter 0x178e40 has a <list> DIE); 0x17c800 (Metrowerks::details::compressed_pair_imp copy ctor) -> <msl_utility>, MSL, template (15 copies carry header unit msl_utility; segments 027/040 do the same); 0x178d60 (C2DBitmap dtor) -> src/gamez/zTwoD/ztwod.h, inline (C2DBitmap::GetAssetLibs 0x1748a0 has header unit Z:\\dev\\gamez\\ztwod\\ztwod.h; zTwoD already reserved); 0x173520 (zdb::CNodeVector dtor) -> its class's header with evidence, or a note saying why none (no CNodeVector member has a header DIE). Then re-fill annotations and validate. Everything else checks out: 0x1747e0 -> orders.cpp medium (every ref is orders.cpp's: __vt__12C2DOrderItem slot 0x471808, OrdersMenu ctor/dtor; options.cpp never references it); orders.h emits for 0x178cc0 (DIE 0xb96c4 in orders.cpp's contribution) and 0x1747e0; goptarg 0x475684 -> getopt.cpp medium (database.cpp .sbss all LOCAL, GLOBAL-before-LOCAL order, only getopt.cpp/options.cpp reference it); m_defaultFrameRate unresolved reason; reservation correction.",
+          "rejected_at": "2026-10-31T10:54:38Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x5"
+        }
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
@@ -148360,8 +148442,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-015.json sha256:cb29bcb782c46779fe6813f97a4031d14f686405371dc903e0a014110b8e0a5a; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1e",
+        "submitted_at": "2026-10-31T10:38:46Z",
+        "summary": "owners 4 authored + fill (ai_mapio, ai_path, ai_maps, ai_map data row), unresolved 0, retire 0, open rows decided 20 (drafted 348, hand 20); reservation src/gamez/zAI confirmed; 1 hand MSL <list> header emit"
+      },
       "id": "socom:work:source-segment-015",
       "kind": "source-plan-segment",
       "lease": null,
@@ -148370,7 +148458,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 015 (0x188f60-0x19dca0, 193 functions)"
     },
     {
@@ -148716,8 +148804,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-018.json sha256:8477cf5601596d6fa7b2b74e4521d20aab706bc2dcb265d624e765a5709c8e06; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1e",
+        "submitted_at": "2026-10-31T10:46:18Z",
+        "summary": "owners 3 authored + fill (anim_main, zanim_set new src/gamez/zAnim/zanim_set.cpp, zanim_anim), unresolved 0, retire 0, open rows decided 28 + 1 owner path (drafted 398, hand 28); reservation src/gamez/zAnim confirmed; 9 contradictions"
+      },
       "id": "socom:work:source-segment-018",
       "kind": "source-plan-segment",
       "lease": null,
@@ -148726,7 +148820,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 018 (0x1c24c0-0x1d0090, 192 functions)"
     },
     {
@@ -148822,8 +148916,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-019.json sha256:79fea07d8ac60bd65cabaf4e2820ac8bb4411c060fceaa6afea01b079fc5a4a9; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1d",
+        "submitted_at": "2026-10-31T10:42:29Z",
+        "summary": "owners 4 (3 authored incl. hand row zar_main.cpp, 1 compiler-generated), unresolved 0, retire 0, open rows decided 5 (3 zanim_menu.cpp, 2 zar_main.cpp); 1 contradiction (CKey dtor binding vs provisional zar_main.cpp:21); inferred reservation corrected to src/gamez/zAnim, zArchive, zUI"
+      },
       "id": "socom:work:source-segment-019",
       "kind": "source-plan-segment",
       "lease": null,
@@ -148832,7 +148932,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 019 (0x1d0090-0x1d819c, 198 functions)"
     },
     {
@@ -149272,8 +149372,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-023.json sha256:bcef18911102c51e9838e6bbdc2ca57136c02572e0afad815cef63c0148a9315; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1d",
+        "submitted_at": "2026-10-31T10:47:50Z",
+        "summary": "owners 5 (4 authored, 1 compiler-generated), unresolved 0, retire 0, open rows decided 21 (17 fts_player.cpp, 4 fts_action.cpp, all medium); 3 contradictions (provisional zNode/node_action.cpp defines fts_action.cpp's GetUIString/GetActionType; GetActionType constness); inferred reservation corrected to src/gamez/zAI, src/gamez/zFTS"
+      },
       "id": "socom:work:source-segment-023",
       "kind": "source-plan-segment",
       "lease": null,
@@ -149282,7 +149388,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 023 (0x1f25c0-0x1ff8cc, 192 functions)"
     },
     {
@@ -149745,8 +149851,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-027.json sha256:02f057b37ad02cd66e5c75a22bf542d5bb37eed3c70bf033fd03e4b69b7a34c6; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1f",
+        "submitted_at": "2026-10-31T10:41:47Z",
+        "summary": "owners 4 (3 authored + fill), unresolved 37, retire 0, open rows decided 43 (6 owned medium, 37 unresolved: unnamed object 0x228f20-0x22a073 + its rodata/vtable, CProjectedMap_Object pair); contradictions 10; header emits 2 (MSL)"
+      },
       "id": "socom:work:source-segment-027",
       "kind": "source-plan-segment",
       "lease": null,
@@ -149755,7 +149867,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 027 (0x2248a0-0x22c194, 103 functions)"
     },
     {
@@ -151878,8 +151990,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-speech-middleware.json sha256:645d28109c7cbbcbbf897c0419d803aa939263de5157bd1a6a93cc27a414c6c1; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1c",
+        "submitted_at": "2026-10-31T10:34:18Z",
+        "summary": "owners 67 (66 provider GNU-object rows + 1 compiler-generated), unresolved 0, retire 0, open rows decided 0 (all 1325 drafted under rules v3)"
+      },
       "id": "socom:work:source-provider-speech-middleware",
       "kind": "source-plan-provider",
       "lease": null,
@@ -151888,7 +152006,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan provider owners of speech middleware (4 segments, 700 functions)"
     },
     {
@@ -152546,8 +152664,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-medius.json sha256:61732c8abca7fbf44cc58c673358b42268bb7f7932a927b24a647584c943b05f; validate --check ok; draft --check ok (hand_entries 3, overrides 0)"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1c",
+        "submitted_at": "2026-10-31T10:42:03Z",
+        "summary": "owners 27 (26 provider GNU-object rows + 1 compiler-generated), unresolved 119 (COMMON .bss-tail data, no definer evidenced), retire 0, open rows decided 122 (3 .rodata gaps owned high by LOCAL section symbol, 119 unresolved in 7 referencer groups); 1071 drafted under rules v3"
+      },
       "id": "socom:work:source-provider-medius",
       "kind": "source-plan-provider",
       "lease": null,
@@ -152556,7 +152680,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan provider owners of Medius (7 segments, 786 functions)"
     },
     {
@@ -152665,8 +152789,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-lgaud.json sha256:f5f54f1fe9bd5a318fdc0207454922f657b7d4b866c8e0d8b5e9227adbeb0b0d; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1a",
+        "submitted_at": "2026-10-31T10:48:03Z",
+        "summary": "owners 2 (liblgaud.a 1.06 member GNU object 0x3b5980 + fill), unresolved 0, retire 0, open rows decided 0 (all 48 drafted); owner row hand-set archive liblgaud.a / version 1.06 from the ELF literal; Sid object left the slice, old contradiction closed"
+      },
       "id": "socom:work:source-provider-lgaud",
       "kind": "source-plan-provider",
       "lease": null,
@@ -152695,7 +152825,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan provider owners of lgAud (1 segments, 25 functions)"
     },
     {
@@ -153089,6 +153219,10 @@
       "title": "Apply the reviewed source owners of segment 065 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T10:56:00Z",
+        "by": "socom-source-owner-scrutinizer-x4"
+      },
       "batch": {
         "artifact_count": 216,
         "batch_number": 67,
@@ -153118,8 +153252,15 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-libptt.json sha256:071137294463ea8af74477c22393d8d9223141c50f5417cf68e640b8d7374c98; validate --check ok; draft --check ok",
+        "plan sha256 07113729 matches handoff; validate --check ok (215 owned, 36 provider P-mw-unit rows + 1 compiler-generated, 1 unresolved, no review notes); draft --check ok (215 drafted, 0 hand, no overrides/owner/header changes). Unresolved contrl_ 0x5754d0 checked: GLOBAL .bss 12 bytes, sole artifact between libpttclient.cpp results\\ (ends 0x5754d0) and libpttserver.cpp g_buffer 0x575500; refs are all GLOBAL LO16 from analys/bsynz/decode/encode/lpcini/synths; with libpttclient before lpcdec..vparms only lpcini.c and synths.c remain, and no other .bss of either unit orders them -> both models fit, unresolved is correct. linked unknown and no archive/version: no literal or stationery names the libptt archives."
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1b",
+        "submitted_at": "2026-10-31T10:44:46Z",
+        "summary": "owners 37 (36 provider MW units, 1 compiler-generated), unresolved 1 (contrl_: lpcini.o or synths.o), retire 0, open rows decided 1 (left unresolved with reason); linked unknown kept"
+      },
       "id": "socom:work:source-provider-libptt",
       "kind": "source-plan-provider",
       "lease": null,
@@ -153128,7 +153269,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan provider owners of libptt (1 segments, 69 functions)"
     },
     {
@@ -153293,6 +153434,10 @@
       "title": "Apply the reviewed source owners of segment 068 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T10:56:47Z",
+        "by": "socom-source-owner-scrutinizer-x4"
+      },
       "batch": {
         "artifact_count": 48,
         "batch_number": 70,
@@ -153322,8 +153467,15 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-rsa.json sha256:24b6ffe04378478ac3aa0bee02dd8baed64d15934ddd77f68201323bcc56aa34; validate --check ok; draft --check ok",
+        "plan sha256 24b6ffe0 matches handoff; validate --check ok (48/48 owned by 3 provider rows, 0 unresolved; review note: 2 unknown-class gaps 0x468a18/0x468a90 are drafted P-gnu-section); draft --check ok (48 drafted, 0 hand, no overrides/owner/header changes). Notes checked: gnu_objects puts RSA objects 0x406c28/0x409150/0x409418 between Medius 0x4066b8 and 0x409c68 (0x409150 RSA by archive-contiguity); notes keep library RSA and set no archive/version/object, which is right because nothing evidences them."
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w1b",
+        "submitted_at": "2026-10-31T10:46:56Z",
+        "summary": "owners 3 (3 provider GNU objects), unresolved 0, retire 0, open rows decided 0 (all 48 drafted); notes only: RSA members sit inside the Medius run"
+      },
       "id": "socom:work:source-provider-rsa",
       "kind": "source-plan-provider",
       "lease": null,
@@ -153332,7 +153484,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan provider owners of RSA (1 segments, 42 functions)"
     },
     {
