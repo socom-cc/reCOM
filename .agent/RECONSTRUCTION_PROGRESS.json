@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3026,
+  "revision": 3030,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -147126,6 +147126,10 @@
       "title": "Apply the reviewed source owners of segment 040 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T18:14:51Z",
+        "by": "socom-source-owner-scrutinizer-x10"
+      },
       "batch": {
         "artifact_count": 476,
         "batch_number": 39,
@@ -147167,7 +147171,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-039.json sha256:cc395a4e06ca7c1fcbfa77453019094d486a156d65fddcad83a5a9bde49866d1; validate --check ok; draft --check ok"
+        "plan build/source-plans/socom-work-source-segment-039.json sha256:cc395a4e06ca7c1fcbfa77453019094d486a156d65fddcad83a5a9bde49866d1; validate --check ok; draft --check ok",
+        "re-review of plan build/source-plans/socom-work-source-segment-039.json sha256:cc395a4e06ca7c1fcbfa77453019094d486a156d65fddcad83a5a9bde49866d1 (rules v4, graph c79d76e6): validate --check ok, draft --check ok; drafted 354 / hand 113 / overrides 0 and owners, unresolved 9, contradictions 25 unchanged from the reviewed 0866c388 plan; the only change is the requested src/gamez/zSystem/zsys.h (inline) emit for the implicit CSched_Manager dtor 0x2f4390 (registered by __sinit_zsys_sched.cpp and __sinit_zui.cpp; provisional zsys.h:160 declares the class without a user-declared dtor), per the parent's implicit-member rule. Earlier review stands: D-referenced statics in link order, headset.cpp invented, zsys_memory/zsys_init LOCAL block order, zsys_init.cpp path as 040."
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-w2d",
@@ -147198,7 +147203,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 039 (0x2ebd20-0x2f5640, 190 functions)"
     },
     {
@@ -148704,6 +148709,10 @@
       "title": "Apply the reviewed source owners of segment 015 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T18:14:33Z",
+        "by": "socom-source-owner-scrutinizer-x10"
+      },
       "batch": {
         "artifact_count": 719,
         "batch_number": 16,
@@ -148740,7 +148749,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-016.json sha256:498a9f852fc91485b9bc616b3c6b0dfddbefc0a1776613de62344197b79a18d0; validate --check ok; draft --check ok"
+        "plan build/source-plans/socom-work-source-segment-016.json sha256:498a9f852fc91485b9bc616b3c6b0dfddbefc0a1776613de62344197b79a18d0; validate --check ok; draft --check ok",
+        "re-review of plan build/source-plans/socom-work-source-segment-016.json sha256:498a9f852fc91485b9bc616b3c6b0dfddbefc0a1776613de62344197b79a18d0 (rules v4, graph c79d76e6): validate --check ok, draft --check ok; drafted 530 / hand 160 / overrides 0 and owners, unresolved 29, contradictions 3 unchanged from the reviewed 7ea2cc34 plan; the only change is the requested <algorithm> MSL template emit for LOCAL std::find 0x1a2750 (header_emits 32 -> 33). Earlier review stands: numbered-data and LOCAL-block cuts, vehicle_main.cpp provisional in zVehicle, hand emits, D-referenced rows in link order."
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-w2a",
@@ -148771,7 +148781,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 016 (0x19dca0-0x1b90d4, 199 functions)"
     },
     {
@@ -149998,6 +150008,10 @@
       "title": "Apply the reviewed source owners of segment 025 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T18:14:42Z",
+        "by": "socom-source-owner-scrutinizer-x10"
+      },
       "batch": {
         "artifact_count": 445,
         "batch_number": 26,
@@ -150036,16 +150050,18 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-026.json sha256:c577cbf0febe46f19f20987bb26287fa511ea1b11e4b9ee93923679b01fa0665; validate --check ok; draft --check ok",
+        "re-review of plan build/source-plans/socom-work-source-segment-026.json sha256:c577cbf0febe46f19f20987bb26287fa511ea1b11e4b9ee93923679b01fa0665 (rules v4, graph c79d76e6): validate --check ok, draft --check ok; drafted 263 / hand 168 / overrides 0 and owners, unresolved 14, contradictions 34 unchanged from the reviewed fb2b6b84 plan; changes are the requested emits: <algorithm> MSL template for LOCAL std::find 0x2241e0 and src/gamez/zMath/zmath.h (inline) for the implicit PNT4D copy assignment 0x21d510 (cross-unit callers in node_saveload/zparticle_source/seal_kit; provisional zmath.h:99 declares PNT4D, per the parent's implicit-member rule), plus the corrected no-emit note (CMatrix declares a ctor 0x222360; CPnt3D/CPnt4D ctors take arguments; CCheatList used by one unit)."
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w2b",
+        "submitted_at": "2026-10-31T18:12:35Z",
+        "summary": "revision after x10: + <algorithm> emit for LOCAL std::find 0x2241e0, + src/gamez/zMath/zmath.h emit for PNT4D copy assignment 0x21d510, header-emit note corrected; owners 15, unresolved 14, retire 0, open rows decided 168 of 182, 11 hand header emits, 34 contradictions"
+      },
       "id": "socom:work:source-segment-026",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T18:11:05Z",
-        "expires_at": "2026-10-31T20:11:05Z",
-        "heartbeat_at": "2026-10-31T18:11:05Z",
-        "owner": "socom-source-owner-mapper-w2b"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -150067,7 +150083,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "accepted",
       "title": "Plan source owners of segment 026 (0x218de0-0x22489c, 188 functions)"
     },
     {
