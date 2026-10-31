@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2852,
+  "revision": 2853,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -2682,18 +2682,347 @@
           "bss"
         ],
         "fallback_reservations": [],
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "first_tracker_revision": 2846,
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "inferred_reservations": [
+          {
+            "directories": [
+              "src/gamez/zTexture",
+              "src/gamez/zValve"
+            ],
+            "item": "socom:work:source-segment-040-apply",
+            "reason": "inferred by name: valve_list.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zValve; valve_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zValve; ztex_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zTexture; ztex_handle.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zTexture; ztex_palette.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zTexture; ztex_read.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zTexture"
+          },
+          {
+            "directories": [
+              "src/gamez/zSound",
+              "src/gamez/zSystem"
+            ],
+            "item": "socom:work:source-segment-039-apply",
+            "reason": "inferred by name: zsnd_csnd.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSound; zsnd_csndinstance.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSound; zsnd_jukebox.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSound; zsys_sched.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSystem; zsnd_csndsequence.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSound; zsys_memory.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSystem; zsnd_csndgroup.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSound"
+          },
+          {
+            "directories": [
+              "src/Apps/FTS",
+              "src/gamez/zAI"
+            ],
+            "item": "socom:work:source-segment-014-apply",
+            "reason": "inferred by name: ai_map.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_astar.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI"
+          },
+          {
+            "directories": [
+              "src/gamez/zAI"
+            ],
+            "item": "socom:work:source-segment-015-apply",
+            "reason": "inferred by name: ai_mapio.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_maps.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_path.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI"
+          },
+          {
+            "directories": [
+              "src/gamez/zAI",
+              "src/gamez/zAnim"
+            ],
+            "item": "socom:work:source-segment-016-apply",
+            "reason": "inferred by name: zanim_cmd_parse.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; ai_vismap.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI"
+          },
+          {
+            "directories": [
+              "src/gamez/zAnim"
+            ],
+            "item": "socom:work:source-segment-017-apply",
+            "reason": "inferred by name: zanim_cmd_tick.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim"
+          },
+          {
+            "directories": [
+              "src/gamez/zAnim"
+            ],
+            "item": "socom:work:source-segment-018-apply",
+            "reason": "inferred by name: zanim_anim.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; anim_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim"
+          },
+          {
+            "directories": [
+              "src/gamez/zAnim"
+            ],
+            "item": "socom:work:source-segment-019-apply",
+            "reason": "inferred by name: zanim_menu.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim"
+          },
+          {
+            "directories": [
+              "src/gamez/zArchive"
+            ],
+            "item": "socom:work:source-segment-020-apply",
+            "reason": "inferred by name: zar_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zArchive; zar_search.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zArchive"
+          },
+          {
+            "directories": [
+              "src/gamez/zBone",
+              "src/gamez/zCamera",
+              "src/gamez/zSoftImage"
+            ],
+            "item": "socom:work:source-segment-021-apply",
+            "reason": "inferred by name: si_object.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSoftImage; bone_init.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zBone"
+          },
+          {
+            "directories": [
+              "src/gamez/zCamera",
+              "src/gamez/zEntity",
+              "src/gamez/zFTS"
+            ],
+            "item": "socom:work:source-segment-022-apply",
+            "reason": "inferred by name: ent_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zEntity; ent_target.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zEntity; fts_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS"
+          },
+          {
+            "directories": [
+              "src/gamez/zFTS"
+            ],
+            "item": "socom:work:source-segment-023-apply",
+            "reason": "inferred by name: fts_mission.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_player.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_action.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS"
+          },
+          {
+            "directories": [
+              "src/gamez/zFTS",
+              "src/gamez/zGame"
+            ],
+            "item": "socom:work:source-segment-024-apply",
+            "reason": "inferred by name: fts_remote.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_persona.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_seal.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_controller.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_bomb.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_game.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_grenade.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_objectivecam.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; game_state.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGame; fts_missioncam.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS"
+          },
+          {
+            "directories": [
+              "src/gamez/zGame",
+              "src/gamez/zGraph",
+              "src/gamez/zGrid"
+            ],
+            "item": "socom:work:source-segment-025-apply",
+            "reason": "inferred by name: game_state.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGame; graph_graph.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGraph; grid_clutter.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGrid; grid_di.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGrid; graph_node.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGraph; grid_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGrid; graph_tree.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGraph"
+          },
+          {
+            "directories": [
+              "src/gamez/zGrid",
+              "src/gamez/zIntersect",
+              "src/gamez/zMath",
+              "src/gamez/zNode"
+            ],
+            "item": "socom:work:source-segment-026-apply",
+            "reason": "inferred by name: int_material.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zIntersect; zmath_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zMath; int_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zIntersect; node_io.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; zmath_matrix.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zMath; grid_clutter.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGrid"
+          },
+          {
+            "directories": [
+              "src/gamez/zNode"
+            ],
+            "item": "socom:work:source-segment-027-apply",
+            "reason": "inferred by name: node_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_saveload.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_io.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_shadow.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode"
+          },
+          {
+            "directories": [
+              "src/gamez/zNode",
+              "src/gamez/zParticle"
+            ],
+            "item": "socom:work:source-segment-028-apply",
+            "reason": "inferred by name: node_world.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; zparticle.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; node_assetlib.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; zparticle_source.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; zparticle_buf.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; zparticle_instance.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; node_util.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_wave.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode"
+          },
+          {
+            "directories": [
+              "src/gamez/zCharacter",
+              "src/gamez/zParticle",
+              "src/gamez/zReader",
+              "src/gamez/zRender"
+            ],
+            "item": "socom:work:source-segment-029-apply",
+            "reason": "inferred by name: zrndr_pipe.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zRender; zrdr_edit.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; zparticle_source.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; zrdr_parse.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; zrdr_file.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; zrdr_archive.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; zrdr_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; char_type.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zCharacter"
+          },
+          {
+            "directories": [
+              "src/gamez/zCharacter",
+              "src/gamez/zSeal"
+            ],
+            "item": "socom:work:source-segment-030-apply",
+            "reason": "inferred by name: seal.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; char_type.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zCharacter"
+          },
+          {
+            "directories": [
+              "src/gamez/zSeal"
+            ],
+            "item": "socom:work:source-segment-031-apply",
+            "reason": "inferred by name: seal_ai.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_anim.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal"
+          },
+          {
+            "directories": [
+              "src/gamez/zSeal"
+            ],
+            "item": "socom:work:source-segment-032-apply",
+            "reason": "inferred by name: seal_body.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_control.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_cfg.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_command.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_create.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal"
+          },
+          {
+            "directories": [
+              "src/gamez/zSeal"
+            ],
+            "item": "socom:work:source-segment-033-apply",
+            "reason": "inferred by name: seal_env.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_dyn.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal"
+          },
+          {
+            "directories": [
+              "src/gamez/zSeal"
+            ],
+            "item": "socom:work:source-segment-034-apply",
+            "reason": "inferred by name: seal_kit.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal"
+          },
+          {
+            "directories": [
+              "src/gamez/zAnim",
+              "src/gamez/zSeal"
+            ],
+            "item": "socom:work:source-segment-035-apply",
+            "reason": "inferred by name: seal_tasks.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; anim.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; seal_sensors.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_weapon.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal"
+          },
+          {
+            "directories": [
+              "src/gamez/zInput",
+              "src/gamez/zSeal"
+            ],
+            "item": "socom:work:source-segment-036-apply",
+            "reason": "inferred by name: seal_unit.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aistate.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aifollow.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_squirm.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_ailines.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aiscan.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aievent.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; remote_control.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zInput; seal_handsig.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal"
+          },
+          {
+            "directories": [
+              "src/gamez/zSeal"
+            ],
+            "item": "socom:work:source-segment-037-apply",
+            "reason": "inferred by name: seal_airesponse.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal"
+          },
+          {
+            "directories": [
+              "src/Apps/FTS",
+              "src/gamez/zTexture",
+              "src/gamez/zTwoD",
+              "src/gamez/zUtil"
+            ],
+            "item": "socom:work:source-segment-041-apply",
+            "reason": "inferred by name: ztex_manager.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zTexture; c2dstring.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zTwoD; util_bufio.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zUtil"
+          },
+          {
+            "directories": [
+              "src/gamez/zUtil",
+              "src/gamez/zVideo",
+              "src/gamez/zVisual"
+            ],
+            "item": "socom:work:source-segment-042-apply",
+            "reason": "inferred by name: vis_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zVisual; vis_mesh.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zVisual; zvid_draw.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zVideo; util_stable.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zUtil"
+          },
+          {
+            "directories": [
+              "src/gamez/zVisual",
+              "src/gamez/zWeapon"
+            ],
+            "item": "socom:work:source-segment-043-apply",
+            "reason": "inferred by name: vis_decal.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zVisual; vis_texfx.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zVisual; zwep_global.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon; zwep_projectile.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon"
+          },
+          {
+            "directories": [
+              "src/Apps/FTS",
+              "src/gamez/zWeapon"
+            ],
+            "item": "socom:work:source-segment-044-apply",
+            "reason": "inferred by name: zwep_weapon.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon; zwep_projectile.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon; zwep_ammo.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon"
+          },
+          {
+            "directories": [
+              "src/Apps/FTS",
+              "src/gamez/zNetwork"
+            ],
+            "item": "socom:work:source-segment-045-apply",
+            "reason": "inferred by name: zNetDme.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNetwork"
+          },
+          {
+            "directories": [
+              "src/gamez/zNetwork"
+            ],
+            "item": "socom:work:source-segment-046-apply",
+            "reason": "inferred by name: zNetMedius.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNetwork"
+          },
+          {
+            "directories": [
+              "src/Apps/FTS",
+              "src/gamez/zMPEG",
+              "src/gamez/zNetwork"
+            ],
+            "item": "socom:work:source-segment-047-apply",
+            "reason": "inferred by name: zNetMedius.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNetwork; zNetVoice.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNetwork; zmpeg.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zMPEG"
+          },
+          {
+            "directories": [
+              "src/Apps/FTS",
+              "src/gamez/zUI"
+            ],
+            "item": "socom:work:source-segment-054-apply",
+            "reason": "inferred by name: zui.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zUI"
+          },
+          {
+            "directories": [
+              "src/gamez/zUI"
+            ],
+            "item": "socom:work:source-segment-055-apply",
+            "reason": "inferred by name: zui_2d.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zUI"
+          },
+          {
+            "directories": [
+              "src/gamez/zUI"
+            ],
+            "item": "socom:work:source-segment-056-apply",
+            "reason": "inferred by name: zui_cleanup.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zUI; zui_spec.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zUI"
+          },
           {
             "directories": [
               "src/gamez/zUI"
             ],
             "item": "socom:work:source-segment-057-apply",
             "reason": "zui_skb.cpp has no path or provisional-file evidence; the nearest units with its TU-name prefix 'zui' (segment 056 zui_cleanup.cpp; segment 056 zui_spec.cpp) lie in src/gamez/zUI"
+          },
+          {
+            "directories": [
+              "src/Apps/FTS",
+              "src/gamez/zSave"
+            ],
+            "item": "socom:work:source-segment-068-apply",
+            "reason": "inferred by name: zsav_manager.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSave; zsav_module.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSave"
+          },
+          {
+            "directories": [
+              "src/Apps/FTS",
+              "src/gamez/zAI",
+              "src/gamez/zAnim",
+              "src/gamez/zBone",
+              "src/gamez/zCamera",
+              "src/gamez/zCharacter",
+              "src/gamez/zEntity",
+              "src/gamez/zFTS",
+              "src/gamez/zGame",
+              "src/gamez/zGraph",
+              "src/gamez/zGrid",
+              "src/gamez/zInput",
+              "src/gamez/zIntersect",
+              "src/gamez/zMath",
+              "src/gamez/zNetwork",
+              "src/gamez/zNode",
+              "src/gamez/zParticle",
+              "src/gamez/zReader",
+              "src/gamez/zRender",
+              "src/gamez/zSave",
+              "src/gamez/zSeal",
+              "src/gamez/zSoftImage",
+              "src/gamez/zSound",
+              "src/gamez/zSystem",
+              "src/gamez/zTexture",
+              "src/gamez/zUI",
+              "src/gamez/zValve",
+              "src/gamez/zVisual",
+              "src/gamez/zWeapon"
+            ],
+            "item": "socom:work:source-segment-076-apply",
+            "reason": "inferred by name: ai_astar.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_events.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_map.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_maps.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_path.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_vismap.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; anim.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; anim_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; bone_init.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zBone; char_type.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zCharacter; ent_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zEntity; ent_target.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zEntity; fts_action.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_controller.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_mission.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_missioncam.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_bomb.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_game.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_grenade.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_persona.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_seal.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_objectivecam.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_player.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_remote.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; game_engine.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGame; game_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGame; game_state.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGame; graph_tree.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGraph; grid_clutter.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGrid; grid_di.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGrid; int_material.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zIntersect; node_assetlib.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_shadow.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_util.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_wave.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_world.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; pickup_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zEntity; remote_control.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zInput; seal.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_ai.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aievent.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aifollow.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_ailines.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aimoves.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_airesponse.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aiscan.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aistate.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_anim.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_body.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_cfg.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_command.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_control.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_create.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_dyn.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_env.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_ex.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_handsig.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_ik.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_kit.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_sensors.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_squirm.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_tasks.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_unit.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_weapon.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; si_object.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSoftImage; si_script.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSoftImage; valve_list.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zValve; vis_decal.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zVisual; vis_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zVisual; vis_texfx.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zVisual; zanim_anim.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; zanim_cmd_parse.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; zanim_cmd_tick.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; zanim_menu.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; zin_cheats.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zInput; zmath_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zMath; zmath_matrix.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zMath; zmath_pnt3d.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zMath; zmath_pnt4d.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zMath; zNetDme.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNetwork; zNetMedius.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNetwork; zNetVoice.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNetwork; zparticle.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; zparticle_buf.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; zparticle_instance.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; zparticle_source.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; zrdr_archive.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; zrdr_parse.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; zrndr_pipe.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zRender; zsav_manager.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSave; zsnd_csnd.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSound; zsnd_csndinstance.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSound; zsnd_jukebox.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSound; zsys_sched.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSystem; ztex_manager.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zTexture; zui.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zUI; zui_2d.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zUI; zwep_ammo.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon; zwep_explosive.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon; zwep_global.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon; zwep_projectile.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon; zwep_weapon.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon"
           }
         ],
         "producer": "source-graph",
         "provider_libraries": [
+          "crt0",
           "MW runtime",
           "MSL",
           "SCE",
@@ -2707,9 +3036,39 @@
           "libptt",
           "RSA"
         ],
+        "refreshes": [
+          {
+            "added": [
+              "socom:work:source-provider-crt0",
+              "socom:work:source-provider-crt0-apply"
+            ],
+            "from_graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+            "removed": [],
+            "replan": [
+              "socom:work:source-segment-001",
+              "socom:work:source-provider-mw-runtime",
+              "socom:work:source-segment-017"
+            ],
+            "reservation_changed": [],
+            "slice_changed": [
+              "socom:work:source-segment-001",
+              "socom:work:source-segment-001-apply",
+              "socom:work:source-provider-mw-runtime",
+              "socom:work:source-provider-mw-runtime-apply",
+              "socom:work:source-provider-msl",
+              "socom:work:source-provider-msl-apply",
+              "socom:work:source-segment-076",
+              "socom:work:source-segment-076-apply",
+              "socom:work:source-data-rodata",
+              "socom:work:source-data-data"
+            ],
+            "to_graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+            "tracker_revision": 2853
+          }
+        ],
         "segment_count": 76,
         "segment_size": 200,
-        "tracker_revision": 2846
+        "tracker_revision": 2853
       },
       "id": "socom:stage:source-correlation",
       "name": "source-correlation",
@@ -146522,7 +146881,319 @@
     },
     {
       "batch": {
-        "artifact_count": 90,
+        "artifact_count": 202,
+        "batch_number": 40,
+        "classification_mix": {
+          "authored": 75
+        },
+        "data_count": 66,
+        "function_count": 75,
+        "gap_count": 61,
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "named_count": 90,
+        "ranges": [
+          [
+            "0x2f5640",
+            "0x2f9aac"
+          ]
+        ],
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:c38859d3e6f2b2bb29dc",
+          "segment_number": 40
+        },
+        "segment_numbers": [
+          40
+        ],
+        "slice_sha256": "7688b7be76a3b9a7335dc240f5b25f51780f5cfb76e1df8efe0575dc464b4fe4",
+        "tu_candidates": [
+          "valve_list.cpp",
+          "valve_main.cpp",
+          "ztex_main.cpp",
+          "ztex_handle.cpp",
+          "ztex_palette.cpp",
+          "ztex_read.cpp"
+        ]
+      },
+      "dependencies": [
+        "socom:work:ghidra-reconstruction-seed"
+      ],
+      "evidence": [],
+      "handoff": null,
+      "id": "socom:work:source-segment-040",
+      "kind": "source-plan-segment",
+      "lease": null,
+      "resources": [
+        "build/source-plans"
+      ],
+      "selection": "artifacts",
+      "stage": "source-correlation",
+      "status": "ready",
+      "title": "Plan source owners of segment 040 (0x2f5640-0x2f9aac, 75 functions)"
+    },
+    {
+      "batch": {
+        "artifact_count": 202,
+        "batch_number": 40,
+        "classification_mix": {
+          "authored": 75
+        },
+        "data_count": 66,
+        "directories": [
+          "src/gamez/zTexture",
+          "src/gamez/zValve"
+        ],
+        "function_count": 75,
+        "gap_count": 61,
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "named_count": 90,
+        "ranges": [
+          [
+            "0x2f5640",
+            "0x2f9aac"
+          ]
+        ],
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: valve_list.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zValve; valve_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zValve; ztex_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zTexture; ztex_handle.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zTexture; ztex_palette.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zTexture; ztex_read.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zTexture",
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:c38859d3e6f2b2bb29dc",
+          "segment_number": 40
+        },
+        "segment_numbers": [
+          40
+        ],
+        "slice_sha256": "7688b7be76a3b9a7335dc240f5b25f51780f5cfb76e1df8efe0575dc464b4fe4",
+        "tu_candidates": [
+          "valve_list.cpp",
+          "valve_main.cpp",
+          "ztex_main.cpp",
+          "ztex_handle.cpp",
+          "ztex_palette.cpp",
+          "ztex_read.cpp"
+        ]
+      },
+      "dependencies": [
+        "socom:work:source-segment-040",
+        "socom:work:source-data-rodata",
+        "socom:work:source-data-data",
+        "socom:work:source-data-bss",
+        "socom:work:source-correlation-apply-route"
+      ],
+      "evidence": [],
+      "handoff": null,
+      "id": "socom:work:source-segment-040-apply",
+      "kind": "source-apply-segment",
+      "lease": null,
+      "resources": [
+        "src/gamez/zTexture",
+        "src/gamez/zValve"
+      ],
+      "selection": "artifacts",
+      "stage": "source-correlation",
+      "status": "blocked",
+      "title": "Apply the reviewed source owners of segment 040 under src/"
+    },
+    {
+      "batch": {
+        "artifact_count": 476,
+        "batch_number": 39,
+        "classification_mix": {
+          "authored": 190
+        },
+        "data_count": 138,
+        "function_count": 190,
+        "gap_count": 148,
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "named_count": 241,
+        "ranges": [
+          [
+            "0x2ebd20",
+            "0x2f5640"
+          ]
+        ],
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:6feb200849812ac10c77",
+          "segment_number": 39
+        },
+        "segment_numbers": [
+          39
+        ],
+        "slice_sha256": "c4db5bbb15f238ed80e58de814a844428039ff1b7119e267ceac4c4307f42d94",
+        "tu_candidates": [
+          "zsnd_csnd.cpp",
+          "zsnd_csndinstance.cpp",
+          "zsnd_jukebox.cpp",
+          "zsys_init.cpp",
+          "zsys_sched.cpp",
+          "zsnd_csndsequence.cpp",
+          "zsys_memory.cpp",
+          "zsnd_csndgroup.cpp"
+        ]
+      },
+      "dependencies": [
+        "socom:work:ghidra-reconstruction-seed"
+      ],
+      "evidence": [],
+      "handoff": null,
+      "id": "socom:work:source-segment-039",
+      "kind": "source-plan-segment",
+      "lease": null,
+      "resources": [
+        "build/source-plans"
+      ],
+      "selection": "artifacts",
+      "stage": "source-correlation",
+      "status": "ready",
+      "title": "Plan source owners of segment 039 (0x2ebd20-0x2f5640, 190 functions)"
+    },
+    {
+      "batch": {
+        "artifact_count": 476,
+        "batch_number": 39,
+        "classification_mix": {
+          "authored": 190
+        },
+        "data_count": 138,
+        "directories": [
+          "src/gamez/zSound",
+          "src/gamez/zSystem"
+        ],
+        "function_count": 190,
+        "gap_count": 148,
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "named_count": 241,
+        "ranges": [
+          [
+            "0x2ebd20",
+            "0x2f5640"
+          ]
+        ],
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: zsnd_csnd.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSound; zsnd_csndinstance.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSound; zsnd_jukebox.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSound; zsys_sched.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSystem; zsnd_csndsequence.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSound; zsys_memory.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSystem; zsnd_csndgroup.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSound",
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:6feb200849812ac10c77",
+          "segment_number": 39
+        },
+        "segment_numbers": [
+          39
+        ],
+        "slice_sha256": "c4db5bbb15f238ed80e58de814a844428039ff1b7119e267ceac4c4307f42d94",
+        "tu_candidates": [
+          "zsnd_csnd.cpp",
+          "zsnd_csndinstance.cpp",
+          "zsnd_jukebox.cpp",
+          "zsys_init.cpp",
+          "zsys_sched.cpp",
+          "zsnd_csndsequence.cpp",
+          "zsys_memory.cpp",
+          "zsnd_csndgroup.cpp"
+        ]
+      },
+      "dependencies": [
+        "socom:work:source-segment-039",
+        "socom:work:source-data-rodata",
+        "socom:work:source-data-data",
+        "socom:work:source-data-bss",
+        "socom:work:source-correlation-apply-route"
+      ],
+      "evidence": [],
+      "handoff": null,
+      "id": "socom:work:source-segment-039-apply",
+      "kind": "source-apply-segment",
+      "lease": null,
+      "resources": [
+        "src/gamez/zSound",
+        "src/gamez/zSystem"
+      ],
+      "selection": "artifacts",
+      "stage": "source-correlation",
+      "status": "blocked",
+      "title": "Apply the reviewed source owners of segment 039 under src/"
+    },
+    {
+      "batch": {
+        "artifact_count": 1,
+        "batch_number": 1,
+        "classification_mix": {},
+        "data_count": 0,
+        "function_count": 0,
+        "gap_count": 1,
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "moved_from_segments": [
+          1
+        ],
+        "named_count": 0,
+        "ranges": [],
+        "scope": {
+          "kind": "provider",
+          "library": "crt0"
+        },
+        "segment_numbers": [],
+        "slice_sha256": "926bc550d43a9b78bea4c2d869557fd92f954b2f7f02275ff91ec7ea430ad598"
+      },
+      "dependencies": [
+        "socom:work:ghidra-reconstruction-seed"
+      ],
+      "evidence": [],
+      "handoff": null,
+      "id": "socom:work:source-provider-crt0",
+      "kind": "source-plan-provider",
+      "lease": null,
+      "resources": [
+        "build/source-plans"
+      ],
+      "selection": "artifacts",
+      "stage": "source-correlation",
+      "status": "ready",
+      "title": "Plan provider owners of crt0 (1 artifacts in other segments)"
+    },
+    {
+      "batch": {
+        "artifact_count": 1,
+        "batch_number": 1,
+        "classification_mix": {},
+        "data_count": 0,
+        "function_count": 0,
+        "gap_count": 1,
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "moved_from_segments": [
+          1
+        ],
+        "named_count": 0,
+        "ranges": [],
+        "scope": {
+          "kind": "provider",
+          "library": "crt0"
+        },
+        "segment_numbers": [],
+        "slice_sha256": "926bc550d43a9b78bea4c2d869557fd92f954b2f7f02275ff91ec7ea430ad598"
+      },
+      "dependencies": [
+        "socom:work:source-provider-crt0",
+        "socom:work:source-data-rodata",
+        "socom:work:source-data-data",
+        "socom:work:source-data-bss",
+        "socom:work:source-correlation-apply-route"
+      ],
+      "evidence": [],
+      "handoff": null,
+      "id": "socom:work:source-provider-crt0-apply",
+      "kind": "source-apply-provider",
+      "lease": null,
+      "resources": [],
+      "selection": "artifacts",
+      "stage": "source-correlation",
+      "status": "blocked",
+      "title": "Record the reviewed provider owners of crt0 in tracker evidence"
+    },
+    {
+      "batch": {
+        "artifact_count": 89,
         "batch_number": 1,
         "classification_mix": {
           "authored": 38,
@@ -146530,8 +147201,8 @@
         },
         "data_count": 18,
         "function_count": 39,
-        "gap_count": 33,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "gap_count": 32,
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 39,
         "ranges": [
           [
@@ -146547,7 +147218,7 @@
         "segment_numbers": [
           1
         ],
-        "slice_sha256": "54baaea79e628402a64886b2dd1aaeb59403b2acb9aa2b781789b9e266de8f19",
+        "slice_sha256": "ee92f423d7263a528009f4f33dacbd7da551013aabdcbe2e07c24a26516c7a77",
         "tu_candidates": [
           "main.cpp"
         ]
@@ -146555,28 +147226,42 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-001.json sha256:de0fc704df60ead924593a86cd9ab5ec35d0f5c971a3c34097371e24c0a5a3d3; source plan validate --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-s001",
-        "submitted_at": "2026-10-31T06:00:01Z",
-        "summary": "owners 4 (authored main.cpp 51, authored st_menu.cpp 6 data, provider crt0 1 gap, compiler-generated 32 pads), unresolved 0, retire 0; header_emits 10; reservation corrected to src/Apps/FTS, src/gamez/zFTS, src/gamez/zGame"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-001",
       "kind": "source-plan-segment",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "handoff": {
+            "owner": "socom-source-owner-mapper-s001",
+            "submitted_at": "2026-10-31T06:00:01Z",
+            "summary": "owners 4 (authored main.cpp 51, authored st_menu.cpp 6 data, provider crt0 1 gap, compiler-generated 32 pads), unresolved 0, retire 0; header_emits 10; reservation corrected to src/Apps/FTS, src/gamez/zFTS, src/gamez/zGame"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-001.json sha256:de0fc704df60ead924593a86cd9ab5ec35d0f5c971a3c34097371e24c0a5a3d3; source plan validate --check ok"
+          ],
+          "previous_batch": {
+            "artifact_count": 90,
+            "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+            "slice_sha256": "54baaea79e628402a64886b2dd1aaeb59403b2acb9aa2b781789b9e266de8f19"
+          },
+          "reason": "graph refreshed a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba -> 837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e; replan",
+          "refreshed_at": "2026-10-31T07:30:31Z",
+          "slice": "changed"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 001 (0x140008-0x142138, 39 functions)"
     },
     {
       "batch": {
-        "artifact_count": 90,
+        "artifact_count": 89,
         "batch_number": 1,
         "classification_mix": {
           "authored": 38,
@@ -146587,8 +147272,8 @@
           "src/Apps/FTS"
         ],
         "function_count": 39,
-        "gap_count": 33,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "gap_count": 32,
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 39,
         "ranges": [
           [
@@ -146596,6 +147281,7 @@
             "0x142138"
           ]
         ],
+        "resource_basis": "path",
         "resource_inferred": false,
         "resource_reason": null,
         "scope": {
@@ -146606,7 +147292,7 @@
         "segment_numbers": [
           1
         ],
-        "slice_sha256": "54baaea79e628402a64886b2dd1aaeb59403b2acb9aa2b781789b9e266de8f19",
+        "slice_sha256": "ee92f423d7263a528009f4f33dacbd7da551013aabdcbe2e07c24a26516c7a77",
         "tu_candidates": [
           "main.cpp"
         ]
@@ -146633,21 +147319,20 @@
     },
     {
       "batch": {
-        "artifact_count": 99,
+        "artifact_count": 95,
         "batch_number": 2,
         "classification_mix": {
-          "provider:MW runtime": 41,
-          "unknown": 2
+          "provider:MW runtime": 41
         },
         "data_count": 23,
-        "function_count": 43,
-        "gap_count": 33,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
-        "named_count": 46,
+        "function_count": 41,
+        "gap_count": 31,
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "named_count": 44,
         "ranges": [
           [
             "0x142140",
-            "0x1449a4"
+            "0x1448c8"
           ]
         ],
         "scope": {
@@ -146657,47 +147342,60 @@
         "segment_numbers": [
           2
         ],
-        "slice_sha256": "bd46ac290be57114d33289c15b1a152837c42649b0bd1db4e92e53462e414336"
+        "slice_sha256": "b1c19efd803b0d99ec71df81dd804c180aa2ffc4dba99d9ebe486bb106ea0a65"
       },
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-provider-mw-runtime.json sha256:b37c5551199c05ef57d43ed12fba450788d469e917dc6ef19367734f284dbf1a; source plan validate --check ok (with and without --fill-annotations); graph a3ce2165...; slice bd46ac29..."
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-pmw",
-        "submitted_at": "2026-10-31T05:59:02Z",
-        "summary": "owners 11 (10 provider members, 1 compiler-generated fill), unresolved 2, retire 0"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-provider-mw-runtime",
       "kind": "source-plan-provider",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "handoff": {
+            "owner": "socom-source-owner-mapper-pmw",
+            "submitted_at": "2026-10-31T05:59:02Z",
+            "summary": "owners 11 (10 provider members, 1 compiler-generated fill), unresolved 2, retire 0"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-provider-mw-runtime.json sha256:b37c5551199c05ef57d43ed12fba450788d469e917dc6ef19367734f284dbf1a; source plan validate --check ok (with and without --fill-annotations); graph a3ce2165...; slice bd46ac29..."
+          ],
+          "previous_batch": {
+            "artifact_count": 99,
+            "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+            "slice_sha256": "bd46ac290be57114d33289c15b1a152837c42649b0bd1db4e92e53462e414336"
+          },
+          "reason": "graph refreshed a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba -> 837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e; replan",
+          "refreshed_at": "2026-10-31T07:30:31Z",
+          "slice": "changed"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
-      "title": "Plan provider owners of MW runtime (1 segments, 43 functions)"
+      "status": "ready",
+      "title": "Plan provider owners of MW runtime (1 segments, 41 functions)"
     },
     {
       "batch": {
-        "artifact_count": 99,
+        "artifact_count": 95,
         "batch_number": 2,
         "classification_mix": {
-          "provider:MW runtime": 41,
-          "unknown": 2
+          "provider:MW runtime": 41
         },
         "data_count": 23,
-        "function_count": 43,
-        "gap_count": 33,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
-        "named_count": 46,
+        "function_count": 41,
+        "gap_count": 31,
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "named_count": 44,
         "ranges": [
           [
             "0x142140",
-            "0x1449a4"
+            "0x1448c8"
           ]
         ],
         "scope": {
@@ -146707,7 +147405,7 @@
         "segment_numbers": [
           2
         ],
-        "slice_sha256": "bd46ac290be57114d33289c15b1a152837c42649b0bd1db4e92e53462e414336"
+        "slice_sha256": "b1c19efd803b0d99ec71df81dd804c180aa2ffc4dba99d9ebe486bb106ea0a65"
       },
       "dependencies": [
         "socom:work:source-provider-mw-runtime",
@@ -146729,20 +147427,23 @@
     },
     {
       "batch": {
-        "artifact_count": 516,
+        "artifact_count": 529,
         "batch_number": 3,
         "classification_mix": {
           "compiler-generated": 4,
-          "provider:MSL": 171
+          "provider:MSL": 173
         },
-        "data_count": 210,
-        "function_count": 175,
-        "gap_count": 131,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
-        "named_count": 205,
+        "data_count": 217,
+        "function_count": 179,
+        "gap_count": 133,
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "moved_from_segments": [
+          76
+        ],
+        "named_count": 207,
         "ranges": [
           [
-            "0x1449b0",
+            "0x1448d0",
             "0x14df58"
           ]
         ],
@@ -146753,7 +147454,7 @@
         "segment_numbers": [
           3
         ],
-        "slice_sha256": "6d56c2e920c7fd7b56f0d8f063bcf034a56f1cbc0878299548bec693d635569c"
+        "slice_sha256": "2b9edc2fb671c57bdc52903f1cc6e9efbca5f68fe16f85b4deaee577afaafda9"
       },
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
@@ -146769,24 +147470,27 @@
       "selection": "artifacts",
       "stage": "source-correlation",
       "status": "ready",
-      "title": "Plan provider owners of MSL (1 segments, 175 functions)"
+      "title": "Plan provider owners of MSL (1 segments, 179 functions)"
     },
     {
       "batch": {
-        "artifact_count": 516,
+        "artifact_count": 529,
         "batch_number": 3,
         "classification_mix": {
           "compiler-generated": 4,
-          "provider:MSL": 171
+          "provider:MSL": 173
         },
-        "data_count": 210,
-        "function_count": 175,
-        "gap_count": 131,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
-        "named_count": 205,
+        "data_count": 217,
+        "function_count": 179,
+        "gap_count": 133,
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "moved_from_segments": [
+          76
+        ],
+        "named_count": 207,
         "ranges": [
           [
-            "0x1449b0",
+            "0x1448d0",
             "0x14df58"
           ]
         ],
@@ -146797,7 +147501,7 @@
         "segment_numbers": [
           3
         ],
-        "slice_sha256": "6d56c2e920c7fd7b56f0d8f063bcf034a56f1cbc0878299548bec693d635569c"
+        "slice_sha256": "2b9edc2fb671c57bdc52903f1cc6e9efbca5f68fe16f85b4deaee577afaafda9"
       },
       "dependencies": [
         "socom:work:source-provider-msl",
@@ -146827,7 +147531,7 @@
         "data_count": 96,
         "function_count": 801,
         "gap_count": 347,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 897,
         "ranges": [
           [
@@ -146905,7 +147609,7 @@
         "data_count": 96,
         "function_count": 801,
         "gap_count": 347,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 897,
         "ranges": [
           [
@@ -146985,7 +147689,7 @@
         "data_count": 98,
         "function_count": 56,
         "gap_count": 14,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 154,
         "ranges": [
           [
@@ -147038,7 +147742,7 @@
         "data_count": 98,
         "function_count": 56,
         "gap_count": 14,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 154,
         "ranges": [
           [
@@ -147093,7 +147797,7 @@
         "data_count": 125,
         "function_count": 197,
         "gap_count": 128,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 322,
         "ranges": [
           [
@@ -147141,7 +147845,7 @@
         "data_count": 125,
         "function_count": 197,
         "gap_count": 128,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 322,
         "ranges": [
           [
@@ -147191,7 +147895,7 @@
         "data_count": 5,
         "function_count": 26,
         "gap_count": 15,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 31,
         "ranges": [
           [
@@ -147234,7 +147938,7 @@
         "data_count": 5,
         "function_count": 26,
         "gap_count": 15,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 31,
         "ranges": [
           [
@@ -147279,7 +147983,7 @@
         "data_count": 192,
         "function_count": 114,
         "gap_count": 91,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 162,
         "ranges": [
           [
@@ -147333,7 +148037,7 @@
         ],
         "function_count": 114,
         "gap_count": 91,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 162,
         "ranges": [
           [
@@ -147341,6 +148045,7 @@
             "0x17de74"
           ]
         ],
+        "resource_basis": "path",
         "resource_inferred": false,
         "resource_reason": null,
         "scope": {
@@ -147390,7 +148095,7 @@
         "data_count": 90,
         "function_count": 163,
         "gap_count": 129,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 184,
         "ranges": [
           [
@@ -147444,7 +148149,7 @@
         ],
         "function_count": 163,
         "gap_count": 129,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 184,
         "ranges": [
           [
@@ -147452,8 +148157,9 @@
             "0x188f54"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: ai_map.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_astar.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:4919da215fab7b31377b",
@@ -147501,7 +148207,7 @@
         "data_count": 20,
         "function_count": 193,
         "gap_count": 155,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 196,
         "ranges": [
           [
@@ -147553,7 +148259,7 @@
         ],
         "function_count": 193,
         "gap_count": 155,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 196,
         "ranges": [
           [
@@ -147561,8 +148267,9 @@
             "0x19dca0"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: ai_mapio.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_maps.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_path.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:6880268f7e60edd9ea01",
@@ -147608,7 +148315,7 @@
         "data_count": 359,
         "function_count": 199,
         "gap_count": 161,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 231,
         "ranges": [
           [
@@ -147661,7 +148368,7 @@
         ],
         "function_count": 199,
         "gap_count": 161,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 231,
         "ranges": [
           [
@@ -147669,8 +148376,9 @@
             "0x1b90d4"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: zanim_cmd_parse.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; ai_vismap.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:5d66ff7eeb15c2b45142",
@@ -147717,7 +148425,7 @@
         "data_count": 59,
         "function_count": 51,
         "gap_count": 37,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 51,
         "ranges": [
           [
@@ -147742,23 +148450,37 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-017.json sha256:6245631333cd4dafe212f9fccbe0607deb019aa7e8262fdfdb8d5f1bc4f842dc; evidence build/source-plans/socom-work-source-segment-017-evidence.json sha256:7bcf009eaa538c6818dff9a980da8600087000112401144f62c71dfc3f20d6b3; source plan validate --check ok (with and without --fill-annotations), graph a3ce2165..., slice f2cd922f..."
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-s017",
-        "submitted_at": "2026-10-31T06:01:33Z",
-        "summary": "owners 3 (authored zanim_cmd_tick.cpp 42 artifacts medium, authored zanim_load.cpp 67 medium, compiler-generated fill 37 high), unresolved 1 (zAnimQuadAlignTick 0x1bfe80 at the tick/load boundary), retire 0, header_emits 0, annotations 50 defines"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-017",
       "kind": "source-plan-segment",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "handoff": {
+            "owner": "socom-source-owner-mapper-s017",
+            "submitted_at": "2026-10-31T06:01:33Z",
+            "summary": "owners 3 (authored zanim_cmd_tick.cpp 42 artifacts medium, authored zanim_load.cpp 67 medium, compiler-generated fill 37 high), unresolved 1 (zAnimQuadAlignTick 0x1bfe80 at the tick/load boundary), retire 0, header_emits 0, annotations 50 defines"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-017.json sha256:6245631333cd4dafe212f9fccbe0607deb019aa7e8262fdfdb8d5f1bc4f842dc; evidence build/source-plans/socom-work-source-segment-017-evidence.json sha256:7bcf009eaa538c6818dff9a980da8600087000112401144f62c71dfc3f20d6b3; source plan validate --check ok (with and without --fill-annotations), graph a3ce2165..., slice f2cd922f..."
+          ],
+          "previous_batch": {
+            "artifact_count": 147,
+            "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+            "slice_sha256": "f2cd922f3ff38e730eea09ea2a52fa3837f497e147655fb48347a197feb7d45b"
+          },
+          "reason": "graph refreshed a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba -> 837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e; replan",
+          "refreshed_at": "2026-10-31T07:30:31Z",
+          "slice": "unchanged: re-cite the graph digest"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 017 (0x1b90e0-0x1c24b8, 51 functions)"
     },
     {
@@ -147774,7 +148496,7 @@
         ],
         "function_count": 51,
         "gap_count": 37,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 51,
         "ranges": [
           [
@@ -147782,8 +148504,9 @@
             "0x1c24b8"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: zanim_cmd_tick.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:7c5dd97b700c56e21bc5",
@@ -147828,7 +148551,7 @@
         "data_count": 97,
         "function_count": 192,
         "gap_count": 137,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 197,
         "ranges": [
           [
@@ -147880,7 +148603,7 @@
         ],
         "function_count": 192,
         "gap_count": 137,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 197,
         "ranges": [
           [
@@ -147888,8 +148611,9 @@
             "0x1d0090"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: zanim_anim.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; anim_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:57b7daba19a61cf3bce3",
@@ -147935,7 +148659,7 @@
         "data_count": 303,
         "function_count": 198,
         "gap_count": 158,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 229,
         "ranges": [
           [
@@ -147985,7 +148709,7 @@
         ],
         "function_count": 198,
         "gap_count": 158,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 229,
         "ranges": [
           [
@@ -147993,8 +148717,9 @@
             "0x1d819c"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: zanim_menu.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:c04766a95d7acbd608c3",
@@ -148038,7 +148763,7 @@
         "data_count": 33,
         "function_count": 100,
         "gap_count": 81,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 103,
         "ranges": [
           [
@@ -148091,7 +148816,7 @@
         ],
         "function_count": 100,
         "gap_count": 81,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 103,
         "ranges": [
           [
@@ -148099,8 +148824,9 @@
             "0x1dd518"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: zar_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zArchive; zar_search.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zArchive",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:44458994cda287325654",
@@ -148147,7 +148873,7 @@
         "data_count": 65,
         "function_count": 167,
         "gap_count": 128,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 180,
         "ranges": [
           [
@@ -148203,7 +148929,7 @@
         ],
         "function_count": 167,
         "gap_count": 128,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 180,
         "ranges": [
           [
@@ -148211,8 +148937,9 @@
             "0x1e8748"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: si_object.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSoftImage; bone_init.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zBone",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:9323b4aa5a0aaaad2f29",
@@ -148262,7 +148989,7 @@
         "data_count": 75,
         "function_count": 155,
         "gap_count": 115,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 183,
         "ranges": [
           [
@@ -148319,7 +149046,7 @@
         ],
         "function_count": 155,
         "gap_count": 115,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 183,
         "ranges": [
           [
@@ -148327,8 +149054,9 @@
             "0x1f25b8"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: ent_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zEntity; ent_target.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zEntity; fts_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:a1e44c1ae43e9aab8f2b",
@@ -148379,7 +149107,7 @@
         "data_count": 354,
         "function_count": 192,
         "gap_count": 152,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 214,
         "ranges": [
           [
@@ -148431,7 +149159,7 @@
         ],
         "function_count": 192,
         "gap_count": 152,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 214,
         "ranges": [
           [
@@ -148439,8 +149167,9 @@
             "0x1ff8cc"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: fts_mission.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_player.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_action.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:388272a62bfdbdc7a891",
@@ -148486,7 +149215,7 @@
         "data_count": 231,
         "function_count": 190,
         "gap_count": 146,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 284,
         "ranges": [
           [
@@ -148546,7 +149275,7 @@
         ],
         "function_count": 190,
         "gap_count": 146,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 284,
         "ranges": [
           [
@@ -148554,8 +149283,9 @@
             "0x20bb40"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: fts_remote.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_persona.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_seal.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_controller.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_bomb.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_game.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_grenade.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_objectivecam.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; game_state.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGame; fts_missioncam.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:f3137f4aa4846fed7b22",
@@ -148609,7 +149339,7 @@
         "data_count": 73,
         "function_count": 158,
         "gap_count": 127,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 178,
         "ranges": [
           [
@@ -148667,7 +149397,7 @@
         ],
         "function_count": 158,
         "gap_count": 127,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 178,
         "ranges": [
           [
@@ -148675,8 +149405,9 @@
             "0x218dd8"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: game_state.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGame; graph_graph.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGraph; grid_clutter.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGrid; grid_di.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGrid; graph_node.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGraph; grid_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGrid; graph_tree.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGraph",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:e5f6f518707f6416ef73",
@@ -148728,7 +149459,7 @@
         "data_count": 110,
         "function_count": 188,
         "gap_count": 146,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 225,
         "ranges": [
           [
@@ -148786,7 +149517,7 @@
         ],
         "function_count": 188,
         "gap_count": 146,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 225,
         "ranges": [
           [
@@ -148794,8 +149525,9 @@
             "0x22489c"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: int_material.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zIntersect; zmath_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zMath; int_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zIntersect; node_io.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; zmath_matrix.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zMath; grid_clutter.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGrid",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:99c98ac710b9f687348d",
@@ -148847,7 +149579,7 @@
         "data_count": 102,
         "function_count": 103,
         "gap_count": 81,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 113,
         "ranges": [
           [
@@ -148900,7 +149632,7 @@
         ],
         "function_count": 103,
         "gap_count": 81,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 113,
         "ranges": [
           [
@@ -148908,8 +149640,9 @@
             "0x22c194"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: node_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_saveload.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_io.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_shadow.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:ea7db9e12718787cb264",
@@ -148956,7 +149689,7 @@
         "data_count": 74,
         "function_count": 192,
         "gap_count": 165,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 213,
         "ranges": [
           [
@@ -149014,7 +149747,7 @@
         ],
         "function_count": 192,
         "gap_count": 165,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 213,
         "ranges": [
           [
@@ -149022,8 +149755,9 @@
             "0x23a0cc"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: node_world.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; zparticle.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; node_assetlib.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; zparticle_source.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; zparticle_buf.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; zparticle_instance.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; node_util.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_wave.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:e895c66ebb8aa780d01f",
@@ -149075,7 +149809,7 @@
         "data_count": 90,
         "function_count": 179,
         "gap_count": 141,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 202,
         "ranges": [
           [
@@ -149135,7 +149869,7 @@
         ],
         "function_count": 179,
         "gap_count": 141,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 202,
         "ranges": [
           [
@@ -149143,8 +149877,9 @@
             "0x247874"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: zrndr_pipe.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zRender; zrdr_edit.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; zparticle_source.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; zrdr_parse.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; zrdr_file.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; zrdr_archive.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; zrdr_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; char_type.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zCharacter",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:598943a58f477236e8dd",
@@ -149199,7 +149934,7 @@
         "data_count": 225,
         "function_count": 170,
         "gap_count": 122,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 208,
         "ranges": [
           [
@@ -149252,7 +149987,7 @@
         ],
         "function_count": 170,
         "gap_count": 122,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 208,
         "ranges": [
           [
@@ -149260,8 +149995,9 @@
             "0x2591d8"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: seal.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; char_type.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zCharacter",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:03766c5d74b84972a3bd",
@@ -149307,7 +150043,7 @@
         "data_count": 340,
         "function_count": 186,
         "gap_count": 140,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 321,
         "ranges": [
           [
@@ -149358,7 +150094,7 @@
         ],
         "function_count": 186,
         "gap_count": 140,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 321,
         "ranges": [
           [
@@ -149366,8 +150102,9 @@
             "0x26e9f8"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: seal_ai.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_anim.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:1d801701caddad299a11",
@@ -149412,7 +150149,7 @@
         "data_count": 219,
         "function_count": 199,
         "gap_count": 152,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 269,
         "ranges": [
           [
@@ -149466,7 +150203,7 @@
         ],
         "function_count": 199,
         "gap_count": 152,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 269,
         "ranges": [
           [
@@ -149474,8 +150211,9 @@
             "0x28a55c"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: seal_body.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_control.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_cfg.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_command.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_create.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:e8d0c9986c73de12d8d6",
@@ -149523,7 +150261,7 @@
         "data_count": 193,
         "function_count": 197,
         "gap_count": 134,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 213,
         "ranges": [
           [
@@ -149574,7 +150312,7 @@
         ],
         "function_count": 197,
         "gap_count": 134,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 213,
         "ranges": [
           [
@@ -149582,8 +150320,9 @@
             "0x2a451c"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: seal_env.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_dyn.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:8b1aa2a217eb0060404d",
@@ -149628,7 +150367,7 @@
         "data_count": 40,
         "function_count": 128,
         "gap_count": 105,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 147,
         "ranges": [
           [
@@ -149678,7 +150417,7 @@
         ],
         "function_count": 128,
         "gap_count": 105,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 147,
         "ranges": [
           [
@@ -149686,8 +150425,9 @@
             "0x2afbb4"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: seal_kit.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:f7f6e3f8acd4081d5ab6",
@@ -149731,7 +150471,7 @@
         "data_count": 659,
         "function_count": 200,
         "gap_count": 154,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 366,
         "ranges": [
           [
@@ -149785,7 +150525,7 @@
         ],
         "function_count": 200,
         "gap_count": 154,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 366,
         "ranges": [
           [
@@ -149793,8 +150533,9 @@
             "0x2ce218"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: seal_tasks.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; anim.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; seal_sensors.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_weapon.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:9fcf1780dde2ac074b22",
@@ -149842,7 +150583,7 @@
         "data_count": 356,
         "function_count": 198,
         "gap_count": 145,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 322,
         "ranges": [
           [
@@ -149901,7 +150642,7 @@
         ],
         "function_count": 198,
         "gap_count": 145,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 322,
         "ranges": [
           [
@@ -149909,8 +150650,9 @@
             "0x2e4ab0"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: seal_unit.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aistate.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aifollow.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_squirm.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_ailines.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aiscan.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aievent.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; remote_control.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zInput; seal_handsig.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:e794bd0f15e08c3ddd40",
@@ -149963,7 +150705,7 @@
         "data_count": 41,
         "function_count": 76,
         "gap_count": 54,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 85,
         "ranges": [
           [
@@ -150013,7 +150755,7 @@
         ],
         "function_count": 76,
         "gap_count": 54,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 85,
         "ranges": [
           [
@@ -150021,8 +150763,9 @@
             "0x2ea400"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: seal_airesponse.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:43db3736ebe52ed9c64d",
@@ -150066,7 +150809,7 @@
         "data_count": 41,
         "function_count": 43,
         "gap_count": 26,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 74,
         "ranges": [
           [
@@ -150109,7 +150852,7 @@
         "data_count": 41,
         "function_count": 43,
         "gap_count": 26,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 74,
         "ranges": [
           [
@@ -150146,240 +150889,6 @@
     },
     {
       "batch": {
-        "artifact_count": 476,
-        "batch_number": 39,
-        "classification_mix": {
-          "authored": 190
-        },
-        "data_count": 138,
-        "function_count": 190,
-        "gap_count": 148,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
-        "named_count": 241,
-        "ranges": [
-          [
-            "0x2ebd20",
-            "0x2f5640"
-          ]
-        ],
-        "scope": {
-          "kind": "segment",
-          "segment_id": "socom:source-segment:6feb200849812ac10c77",
-          "segment_number": 39
-        },
-        "segment_numbers": [
-          39
-        ],
-        "slice_sha256": "c4db5bbb15f238ed80e58de814a844428039ff1b7119e267ceac4c4307f42d94",
-        "tu_candidates": [
-          "zsnd_csnd.cpp",
-          "zsnd_csndinstance.cpp",
-          "zsnd_jukebox.cpp",
-          "zsys_init.cpp",
-          "zsys_sched.cpp",
-          "zsnd_csndsequence.cpp",
-          "zsys_memory.cpp",
-          "zsnd_csndgroup.cpp"
-        ]
-      },
-      "dependencies": [
-        "socom:work:ghidra-reconstruction-seed"
-      ],
-      "evidence": [],
-      "handoff": null,
-      "id": "socom:work:source-segment-039",
-      "kind": "source-plan-segment",
-      "lease": null,
-      "resources": [
-        "build/source-plans"
-      ],
-      "selection": "artifacts",
-      "stage": "source-correlation",
-      "status": "ready",
-      "title": "Plan source owners of segment 039 (0x2ebd20-0x2f5640, 190 functions)"
-    },
-    {
-      "batch": {
-        "artifact_count": 476,
-        "batch_number": 39,
-        "classification_mix": {
-          "authored": 190
-        },
-        "data_count": 138,
-        "directories": [
-          "src/gamez/zSound",
-          "src/gamez/zSystem"
-        ],
-        "function_count": 190,
-        "gap_count": 148,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
-        "named_count": 241,
-        "ranges": [
-          [
-            "0x2ebd20",
-            "0x2f5640"
-          ]
-        ],
-        "resource_inferred": false,
-        "resource_reason": null,
-        "scope": {
-          "kind": "segment",
-          "segment_id": "socom:source-segment:6feb200849812ac10c77",
-          "segment_number": 39
-        },
-        "segment_numbers": [
-          39
-        ],
-        "slice_sha256": "c4db5bbb15f238ed80e58de814a844428039ff1b7119e267ceac4c4307f42d94",
-        "tu_candidates": [
-          "zsnd_csnd.cpp",
-          "zsnd_csndinstance.cpp",
-          "zsnd_jukebox.cpp",
-          "zsys_init.cpp",
-          "zsys_sched.cpp",
-          "zsnd_csndsequence.cpp",
-          "zsys_memory.cpp",
-          "zsnd_csndgroup.cpp"
-        ]
-      },
-      "dependencies": [
-        "socom:work:source-segment-039",
-        "socom:work:source-data-rodata",
-        "socom:work:source-data-data",
-        "socom:work:source-data-bss",
-        "socom:work:source-correlation-apply-route"
-      ],
-      "evidence": [],
-      "handoff": null,
-      "id": "socom:work:source-segment-039-apply",
-      "kind": "source-apply-segment",
-      "lease": null,
-      "resources": [
-        "src/gamez/zSound",
-        "src/gamez/zSystem"
-      ],
-      "selection": "artifacts",
-      "stage": "source-correlation",
-      "status": "blocked",
-      "title": "Apply the reviewed source owners of segment 039 under src/"
-    },
-    {
-      "batch": {
-        "artifact_count": 202,
-        "batch_number": 40,
-        "classification_mix": {
-          "authored": 75
-        },
-        "data_count": 66,
-        "function_count": 75,
-        "gap_count": 61,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
-        "named_count": 90,
-        "ranges": [
-          [
-            "0x2f5640",
-            "0x2f9aac"
-          ]
-        ],
-        "scope": {
-          "kind": "segment",
-          "segment_id": "socom:source-segment:c38859d3e6f2b2bb29dc",
-          "segment_number": 40
-        },
-        "segment_numbers": [
-          40
-        ],
-        "slice_sha256": "7688b7be76a3b9a7335dc240f5b25f51780f5cfb76e1df8efe0575dc464b4fe4",
-        "tu_candidates": [
-          "valve_list.cpp",
-          "valve_main.cpp",
-          "ztex_main.cpp",
-          "ztex_handle.cpp",
-          "ztex_palette.cpp",
-          "ztex_read.cpp"
-        ]
-      },
-      "dependencies": [
-        "socom:work:ghidra-reconstruction-seed"
-      ],
-      "evidence": [],
-      "handoff": null,
-      "id": "socom:work:source-segment-040",
-      "kind": "source-plan-segment",
-      "lease": null,
-      "resources": [
-        "build/source-plans"
-      ],
-      "selection": "artifacts",
-      "stage": "source-correlation",
-      "status": "ready",
-      "title": "Plan source owners of segment 040 (0x2f5640-0x2f9aac, 75 functions)"
-    },
-    {
-      "batch": {
-        "artifact_count": 202,
-        "batch_number": 40,
-        "classification_mix": {
-          "authored": 75
-        },
-        "data_count": 66,
-        "directories": [
-          "src/gamez/zTexture",
-          "src/gamez/zValve"
-        ],
-        "function_count": 75,
-        "gap_count": 61,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
-        "named_count": 90,
-        "ranges": [
-          [
-            "0x2f5640",
-            "0x2f9aac"
-          ]
-        ],
-        "resource_inferred": false,
-        "resource_reason": null,
-        "scope": {
-          "kind": "segment",
-          "segment_id": "socom:source-segment:c38859d3e6f2b2bb29dc",
-          "segment_number": 40
-        },
-        "segment_numbers": [
-          40
-        ],
-        "slice_sha256": "7688b7be76a3b9a7335dc240f5b25f51780f5cfb76e1df8efe0575dc464b4fe4",
-        "tu_candidates": [
-          "valve_list.cpp",
-          "valve_main.cpp",
-          "ztex_main.cpp",
-          "ztex_handle.cpp",
-          "ztex_palette.cpp",
-          "ztex_read.cpp"
-        ]
-      },
-      "dependencies": [
-        "socom:work:source-segment-040",
-        "socom:work:source-data-rodata",
-        "socom:work:source-data-data",
-        "socom:work:source-data-bss",
-        "socom:work:source-correlation-apply-route"
-      ],
-      "evidence": [],
-      "handoff": null,
-      "id": "socom:work:source-segment-040-apply",
-      "kind": "source-apply-segment",
-      "lease": null,
-      "resources": [
-        "src/gamez/zTexture",
-        "src/gamez/zValve"
-      ],
-      "selection": "artifacts",
-      "stage": "source-correlation",
-      "status": "blocked",
-      "title": "Apply the reviewed source owners of segment 040 under src/"
-    },
-    {
-      "batch": {
         "artifact_count": 413,
         "batch_number": 41,
         "classification_mix": {
@@ -150388,7 +150897,7 @@
         "data_count": 84,
         "function_count": 189,
         "gap_count": 140,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 204,
         "ranges": [
           [
@@ -150447,7 +150956,7 @@
         ],
         "function_count": 189,
         "gap_count": 140,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 204,
         "ranges": [
           [
@@ -150455,8 +150964,9 @@
             "0x304b60"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: ztex_manager.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zTexture; c2dstring.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zTwoD; util_bufio.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zUtil",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:ed7dd6f78553bccb25ec",
@@ -150509,7 +151019,7 @@
         "data_count": 144,
         "function_count": 176,
         "gap_count": 140,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 240,
         "ranges": [
           [
@@ -150566,7 +151076,7 @@
         ],
         "function_count": 176,
         "gap_count": 140,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 240,
         "ranges": [
           [
@@ -150574,8 +151084,9 @@
             "0x3103a0"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: vis_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zVisual; vis_mesh.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zVisual; zvid_draw.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zVideo; util_stable.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zUtil",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:c392bf65adbf9e0365cc",
@@ -150626,7 +151137,7 @@
         "data_count": 21,
         "function_count": 186,
         "gap_count": 160,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 189,
         "ranges": [
           [
@@ -150680,7 +151191,7 @@
         ],
         "function_count": 186,
         "gap_count": 160,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 189,
         "ranges": [
           [
@@ -150688,8 +151199,9 @@
             "0x316dd8"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: vis_decal.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zVisual; vis_texfx.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zVisual; zwep_global.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon; zwep_projectile.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:801a3797a68f425ba61a",
@@ -150737,7 +151249,7 @@
         "data_count": 155,
         "function_count": 192,
         "gap_count": 148,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 214,
         "ranges": [
           [
@@ -150791,7 +151303,7 @@
         ],
         "function_count": 192,
         "gap_count": 148,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 214,
         "ranges": [
           [
@@ -150799,8 +151311,9 @@
             "0x3205b8"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: zwep_weapon.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon; zwep_projectile.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon; zwep_ammo.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:fff0a86a78fb23312f4e",
@@ -150848,7 +151361,7 @@
         "data_count": 113,
         "function_count": 49,
         "gap_count": 42,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 51,
         "ranges": [
           [
@@ -150900,7 +151413,7 @@
         ],
         "function_count": 49,
         "gap_count": 42,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 51,
         "ranges": [
           [
@@ -150908,8 +151421,9 @@
             "0x32241c"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: zNetDme.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNetwork",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:a69e724d4c34310d74a1",
@@ -150955,7 +151469,7 @@
         "data_count": 171,
         "function_count": 200,
         "gap_count": 153,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 261,
         "ranges": [
           [
@@ -151005,7 +151519,7 @@
         ],
         "function_count": 200,
         "gap_count": 153,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 261,
         "ranges": [
           [
@@ -151013,8 +151527,9 @@
             "0x32ecdc"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: zNetMedius.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNetwork",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:e81caccf8408aeabcc0d",
@@ -151058,7 +151573,7 @@
         "data_count": 141,
         "function_count": 125,
         "gap_count": 98,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 192,
         "ranges": [
           [
@@ -151114,7 +151629,7 @@
         ],
         "function_count": 125,
         "gap_count": 98,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 192,
         "ranges": [
           [
@@ -151122,8 +151637,9 @@
             "0x336ef0"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: zNetMedius.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNetwork; zNetVoice.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNetwork; zmpeg.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zMPEG",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:d48e1dc689aed7defcd2",
@@ -151173,7 +151689,7 @@
         "data_count": 261,
         "function_count": 686,
         "gap_count": 352,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 947,
         "ranges": [
           [
@@ -151231,7 +151747,7 @@
         "data_count": 261,
         "function_count": 686,
         "gap_count": 352,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 947,
         "ranges": [
           [
@@ -151291,7 +151807,7 @@
         "data_count": 61,
         "function_count": 13,
         "gap_count": 10,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 16,
         "ranges": [
           [
@@ -151341,7 +151857,7 @@
         ],
         "function_count": 13,
         "gap_count": 10,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 16,
         "ranges": [
           [
@@ -151349,6 +151865,7 @@
             "0x379aac"
           ]
         ],
+        "resource_basis": "path",
         "resource_inferred": false,
         "resource_reason": null,
         "scope": {
@@ -151394,7 +151911,7 @@
         "data_count": 161,
         "function_count": 121,
         "gap_count": 100,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 139,
         "ranges": [
           [
@@ -151447,7 +151964,7 @@
         ],
         "function_count": 121,
         "gap_count": 100,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 139,
         "ranges": [
           [
@@ -151455,8 +151972,9 @@
             "0x3853e4"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: zui.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zUI",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:90f83284ba141b5c765f",
@@ -151503,7 +152021,7 @@
         "data_count": 116,
         "function_count": 185,
         "gap_count": 144,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 194,
         "ranges": [
           [
@@ -151553,7 +152071,7 @@
         ],
         "function_count": 185,
         "gap_count": 144,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 194,
         "ranges": [
           [
@@ -151561,8 +152079,9 @@
             "0x3949fc"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: zui_2d.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zUI",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:cad6ef72ff62f244c3ec",
@@ -151607,7 +152126,7 @@
         "data_count": 347,
         "function_count": 195,
         "gap_count": 153,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 178,
         "ranges": [
           [
@@ -151659,7 +152178,7 @@
         ],
         "function_count": 195,
         "gap_count": 153,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 178,
         "ranges": [
           [
@@ -151667,8 +152186,9 @@
             "0x3a2a74"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: zui_cleanup.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zUI; zui_spec.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zUI",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:125bcaed8e6aa497485f",
@@ -151714,7 +152234,7 @@
         "data_count": 121,
         "function_count": 88,
         "gap_count": 67,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 125,
         "ranges": [
           [
@@ -151765,7 +152285,7 @@
         ],
         "function_count": 88,
         "gap_count": 67,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 125,
         "ranges": [
           [
@@ -151773,6 +152293,7 @@
             "0x3aa6f8"
           ]
         ],
+        "resource_basis": "neighbour-prefix",
         "resource_inferred": true,
         "resource_reason": "zui_skb.cpp has no path or provisional-file evidence; the nearest units with its TU-name prefix 'zui' (segment 056 zui_cleanup.cpp; segment 056 zui_spec.cpp) lie in src/gamez/zUI",
         "scope": {
@@ -151818,7 +152339,7 @@
         "data_count": 86,
         "function_count": 785,
         "gap_count": 216,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 871,
         "ranges": [
           [
@@ -151886,7 +152407,7 @@
         "data_count": 86,
         "function_count": 785,
         "gap_count": 216,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 871,
         "ranges": [
           [
@@ -151956,7 +152477,7 @@
         "data_count": 2,
         "function_count": 39,
         "gap_count": 19,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 41,
         "ranges": [
           [
@@ -151999,7 +152520,7 @@
         "data_count": 2,
         "function_count": 39,
         "gap_count": 19,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 41,
         "ranges": [
           [
@@ -152044,7 +152565,7 @@
         "data_count": 112,
         "function_count": 51,
         "gap_count": 34,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 62,
         "ranges": [
           [
@@ -152096,7 +152617,7 @@
         ],
         "function_count": 51,
         "gap_count": 34,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 62,
         "ranges": [
           [
@@ -152104,6 +152625,7 @@
             "0x3be590"
           ]
         ],
+        "resource_basis": "path",
         "resource_inferred": false,
         "resource_reason": null,
         "scope": {
@@ -152151,7 +152673,7 @@
         "data_count": 295,
         "function_count": 185,
         "gap_count": 140,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 302,
         "ranges": [
           [
@@ -152209,7 +152731,7 @@
         ],
         "function_count": 185,
         "gap_count": 140,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 302,
         "ranges": [
           [
@@ -152217,6 +152739,7 @@
             "0x3d5340"
           ]
         ],
+        "resource_basis": "path",
         "resource_inferred": false,
         "resource_reason": null,
         "scope": {
@@ -152270,7 +152793,7 @@
         "data_count": 228,
         "function_count": 71,
         "gap_count": 54,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 157,
         "ranges": [
           [
@@ -152326,7 +152849,7 @@
         ],
         "function_count": 71,
         "gap_count": 54,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 157,
         "ranges": [
           [
@@ -152334,6 +152857,7 @@
             "0x3deecc"
           ]
         ],
+        "resource_basis": "path",
         "resource_inferred": false,
         "resource_reason": null,
         "scope": {
@@ -152385,7 +152909,7 @@
         "data_count": 93,
         "function_count": 69,
         "gap_count": 54,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 155,
         "ranges": [
           [
@@ -152428,7 +152952,7 @@
         "data_count": 93,
         "function_count": 69,
         "gap_count": 54,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 155,
         "ranges": [
           [
@@ -152473,7 +152997,7 @@
         "data_count": 185,
         "function_count": 162,
         "gap_count": 116,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 179,
         "ranges": [
           [
@@ -152529,7 +153053,7 @@
         ],
         "function_count": 162,
         "gap_count": 116,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 179,
         "ranges": [
           [
@@ -152537,8 +153061,9 @@
             "0x4044cc"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: zsav_manager.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSave; zsav_module.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSave",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:f394b9311457a31986c6",
@@ -152588,7 +153113,7 @@
         "data_count": 4,
         "function_count": 42,
         "gap_count": 0,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 46,
         "ranges": [
           [
@@ -152631,7 +153156,7 @@
         "data_count": 4,
         "function_count": 42,
         "gap_count": 0,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 46,
         "ranges": [
           [
@@ -152676,7 +153201,7 @@
         "data_count": 21,
         "function_count": 13,
         "gap_count": 10,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 20,
         "ranges": [
           [
@@ -152726,7 +153251,7 @@
         ],
         "function_count": 13,
         "gap_count": 10,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 20,
         "ranges": [
           [
@@ -152734,6 +153259,7 @@
             "0x4223a0"
           ]
         ],
+        "resource_basis": "path",
         "resource_inferred": false,
         "resource_reason": null,
         "scope": {
@@ -152771,16 +153297,16 @@
     },
     {
       "batch": {
-        "artifact_count": 821,
+        "artifact_count": 818,
         "batch_number": 76,
         "classification_mix": {
           "compiler-generated": 146,
           "provider:MSL": 2
         },
-        "data_count": 585,
-        "function_count": 148,
+        "data_count": 584,
+        "function_count": 146,
         "gap_count": 88,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 177,
         "ranges": [
           [
@@ -152796,7 +153322,7 @@
         "segment_numbers": [
           76
         ],
-        "slice_sha256": "40ab63dce4d0b1956ac54522e57d3d8449eb6145f3b003ce1fb86e7f714f7620",
+        "slice_sha256": "0b98752029517630f10e2998dd7eccafdecd81e093cd2a448a6d9f1636ccab12",
         "tu_candidates": [
           "ai_astar.cpp",
           "ai_events.cpp",
@@ -152962,17 +153488,17 @@
       "selection": "artifacts",
       "stage": "source-correlation",
       "status": "ready",
-      "title": "Plan source owners of segment 076 (0x4692c8-0x471258, 148 functions)"
+      "title": "Plan source owners of segment 076 (0x4692c8-0x471258, 146 functions)"
     },
     {
       "batch": {
-        "artifact_count": 821,
+        "artifact_count": 818,
         "batch_number": 76,
         "classification_mix": {
           "compiler-generated": 146,
           "provider:MSL": 2
         },
-        "data_count": 585,
+        "data_count": 584,
         "directories": [
           "src/Apps/FTS",
           "src/gamez/zAI",
@@ -153004,9 +153530,9 @@
           "src/gamez/zVisual",
           "src/gamez/zWeapon"
         ],
-        "function_count": 148,
+        "function_count": 146,
         "gap_count": 88,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 177,
         "ranges": [
           [
@@ -153014,8 +153540,9 @@
             "0x471258"
           ]
         ],
-        "resource_inferred": false,
-        "resource_reason": null,
+        "resource_basis": "provisional-name",
+        "resource_inferred": true,
+        "resource_reason": "inferred by name: ai_astar.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_events.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_map.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_maps.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_path.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_vismap.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; anim.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; anim_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; bone_init.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zBone; char_type.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zCharacter; ent_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zEntity; ent_target.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zEntity; fts_action.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_controller.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_mission.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_missioncam.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_bomb.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_game.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_grenade.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_persona.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_seal.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_objectivecam.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_player.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_remote.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; game_engine.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGame; game_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGame; game_state.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGame; graph_tree.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGraph; grid_clutter.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGrid; grid_di.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGrid; int_material.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zIntersect; node_assetlib.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_shadow.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_util.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_wave.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_world.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; pickup_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zEntity; remote_control.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zInput; seal.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_ai.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aievent.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aifollow.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_ailines.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aimoves.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_airesponse.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aiscan.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aistate.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_anim.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_body.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_cfg.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_command.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_control.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_create.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_dyn.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_env.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_ex.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_handsig.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_ik.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_kit.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_sensors.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_squirm.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_tasks.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_unit.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_weapon.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; si_object.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSoftImage; si_script.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSoftImage; valve_list.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zValve; vis_decal.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zVisual; vis_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zVisual; vis_texfx.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zVisual; zanim_anim.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; zanim_cmd_parse.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; zanim_cmd_tick.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; zanim_menu.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; zin_cheats.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zInput; zmath_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zMath; zmath_matrix.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zMath; zmath_pnt3d.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zMath; zmath_pnt4d.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zMath; zNetDme.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNetwork; zNetMedius.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNetwork; zNetVoice.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNetwork; zparticle.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; zparticle_buf.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; zparticle_instance.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; zparticle_source.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; zrdr_archive.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; zrdr_parse.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; zrndr_pipe.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zRender; zsav_manager.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSave; zsnd_csnd.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSound; zsnd_csndinstance.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSound; zsnd_jukebox.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSound; zsys_sched.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSystem; ztex_manager.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zTexture; zui.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zUI; zui_2d.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zUI; zwep_ammo.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon; zwep_explosive.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon; zwep_global.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon; zwep_projectile.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon; zwep_weapon.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon",
         "scope": {
           "kind": "segment",
           "segment_id": "socom:source-segment:3232987c67dc9de0cebe",
@@ -153024,7 +153551,7 @@
         "segment_numbers": [
           76
         ],
-        "slice_sha256": "40ab63dce4d0b1956ac54522e57d3d8449eb6145f3b003ce1fb86e7f714f7620",
+        "slice_sha256": "0b98752029517630f10e2998dd7eccafdecd81e093cd2a448a6d9f1636ccab12",
         "tu_candidates": [
           "ai_astar.cpp",
           "ai_events.cpp",
@@ -153226,20 +153753,23 @@
     },
     {
       "batch": {
-        "artifact_count": 5459,
+        "artifact_count": 5454,
         "batch_number": 77,
-        "data_count": 542,
+        "data_count": 537,
         "function_count": 0,
         "gap_count": 4917,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 95,
         "scope": {
           "data_kind": "rodata",
           "kind": "data"
         },
-        "slice_sha256": "8e39d9120904d70c7cdc05eb061b95e4085e43b92b7e9cfde8f2d9b8128ec218"
+        "slice_sha256": "e75c0b943544993eeda06b38a2d9b6860799bd6e8006da9aaa714bd0db9dd118"
       },
       "dependencies": [
+        "socom:work:source-segment-040",
+        "socom:work:source-segment-039",
+        "socom:work:source-provider-crt0",
         "socom:work:source-segment-001",
         "socom:work:source-provider-mw-runtime",
         "socom:work:source-provider-msl",
@@ -153273,8 +153803,6 @@
         "socom:work:source-segment-036",
         "socom:work:source-segment-037",
         "socom:work:source-provider-989snd",
-        "socom:work:source-segment-039",
-        "socom:work:source-segment-040",
         "socom:work:source-segment-041",
         "socom:work:source-segment-042",
         "socom:work:source-segment-043",
@@ -153310,24 +153838,27 @@
       "selection": "artifacts",
       "stage": "source-correlation",
       "status": "blocked",
-      "title": "Reconcile rodata data owners (5459 artifacts outside the segment slices)"
+      "title": "Reconcile rodata data owners (5454 artifacts outside the segment slices)"
     },
     {
       "batch": {
-        "artifact_count": 998,
+        "artifact_count": 997,
         "batch_number": 78,
-        "data_count": 399,
+        "data_count": 398,
         "function_count": 0,
         "gap_count": 599,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 189,
         "scope": {
           "data_kind": "data",
           "kind": "data"
         },
-        "slice_sha256": "8bdbfc13d6c2a15fd12215508a80d2369e961c3aa1b428ddb72584c05f04e528"
+        "slice_sha256": "00d0551e61eb758d27380338ba302c317e5ebaac2d3934ef48a7a8581013f710"
       },
       "dependencies": [
+        "socom:work:source-segment-040",
+        "socom:work:source-segment-039",
+        "socom:work:source-provider-crt0",
         "socom:work:source-segment-001",
         "socom:work:source-provider-mw-runtime",
         "socom:work:source-provider-msl",
@@ -153361,8 +153892,6 @@
         "socom:work:source-segment-036",
         "socom:work:source-segment-037",
         "socom:work:source-provider-989snd",
-        "socom:work:source-segment-039",
-        "socom:work:source-segment-040",
         "socom:work:source-segment-041",
         "socom:work:source-segment-042",
         "socom:work:source-segment-043",
@@ -153398,7 +153927,7 @@
       "selection": "artifacts",
       "stage": "source-correlation",
       "status": "blocked",
-      "title": "Reconcile data data owners (998 artifacts outside the segment slices)"
+      "title": "Reconcile data data owners (997 artifacts outside the segment slices)"
     },
     {
       "batch": {
@@ -153407,7 +153936,7 @@
         "data_count": 511,
         "function_count": 0,
         "gap_count": 1255,
-        "graph_sha256": "a3ce21655a124f2487191d809c4b7747f011f0c11f7dac6394ac00db81f5f0ba",
+        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "named_count": 510,
         "scope": {
           "data_kind": "bss",
@@ -153416,6 +153945,9 @@
         "slice_sha256": "274bee60f001c247a188e9fa8142812b43b164556f9bfa891aa801478060bfb5"
       },
       "dependencies": [
+        "socom:work:source-segment-040",
+        "socom:work:source-segment-039",
+        "socom:work:source-provider-crt0",
         "socom:work:source-segment-001",
         "socom:work:source-provider-mw-runtime",
         "socom:work:source-provider-msl",
@@ -153449,8 +153981,6 @@
         "socom:work:source-segment-036",
         "socom:work:source-segment-037",
         "socom:work:source-provider-989snd",
-        "socom:work:source-segment-039",
-        "socom:work:source-segment-040",
         "socom:work:source-segment-041",
         "socom:work:source-segment-042",
         "socom:work:source-segment-043",
@@ -153508,6 +154038,9 @@
     {
       "batch": null,
       "dependencies": [
+        "socom:work:source-segment-040-apply",
+        "socom:work:source-segment-039-apply",
+        "socom:work:source-provider-crt0-apply",
         "socom:work:source-segment-001-apply",
         "socom:work:source-provider-mw-runtime-apply",
         "socom:work:source-provider-msl-apply",
@@ -153541,8 +154074,6 @@
         "socom:work:source-segment-036-apply",
         "socom:work:source-segment-037-apply",
         "socom:work:source-provider-989snd-apply",
-        "socom:work:source-segment-039-apply",
-        "socom:work:source-segment-040-apply",
         "socom:work:source-segment-041-apply",
         "socom:work:source-segment-042-apply",
         "socom:work:source-segment-043-apply",
