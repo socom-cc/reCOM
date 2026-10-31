@@ -166,12 +166,17 @@ class MwcatsRecord:
 class Elf32File:
     """Parse enough ELF32 to make project acceptance independent of LLVM."""
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, data: bytes | None = None):
+        """Parse ``path``, or ``data`` when given (an archive member; ``path`` only names it)."""
+
         self.path = path
-        try:
-            self.data = path.read_bytes()
-        except FileNotFoundError as exc:
-            raise SocomError(f"ELF does not exist: {path}") from exc
+        if data is not None:
+            self.data = bytes(data)
+        else:
+            try:
+                self.data = path.read_bytes()
+            except FileNotFoundError as exc:
+                raise SocomError(f"ELF does not exist: {path}") from exc
         self.header = self._parse_header()
         self.program_headers = self._parse_program_headers()
         self.sections = self._parse_sections()

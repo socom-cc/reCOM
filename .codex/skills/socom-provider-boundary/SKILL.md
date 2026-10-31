@@ -15,6 +15,11 @@ plus its GNU object address or object name) and no source body. Its apply
 writes nothing under `src/` and records that ownership in tracker evidence
 only; see
 [`SOURCE_CORRELATION.md`](../../../docs/reconstruction/SOURCE_CORRELATION.md).
+`python tools/socom.py provider archive --lib <path> [--member <name>]`
+lists an external archive's members (header names as written, so truncated
+ones too), sizes and defined/undefined ELF symbols read-only; it names the
+archive by file name and SHA-256 only, so never copy its path anywhere
+tracked.
 
 Provider classification never waives ABI, order, relocation, byte, or final
 coverage checks. Register missing exact libraries or unresolved versions as

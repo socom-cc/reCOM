@@ -100,8 +100,20 @@ PLAN_FIELDS = frozenset(
         "reservation",
     }
 )
-# Schema 2 only: the draft block (``source plan draft``).
-PLAN_FIELDS_V2 = PLAN_FIELDS | {"draft"}
+# Schema 2 only: the draft block (``source plan draft``) and the structured
+# contradictions with existing provisional source.
+PLAN_FIELDS_V2 = PLAN_FIELDS | {"draft", "contradictions"}
+# One contradiction the ELF decides against a provisional source file: the
+# artifact (in the plan's slice), the file and line that disagree, a kind
+# slug and the ELF evidence lines.  ``line`` may be null for a file-level
+# contradiction.
+CONTRADICTION_FIELDS = ("artifact", "provisional_file", "line", "kind", "elf_evidence")
+_CONTRADICTION_KIND = re.compile(r"^[a-z][a-z0-9-]*$")
+# Notes that record a contradiction as text (plans written before the field).
+CONTRADICTION_NOTE = "contradiction:"
+# U+0000-U+001F: no plan string may hold one (a Windows path whose ``\a``
+# went through a string escape holds BEL instead).
+_CONTROL = re.compile(r"[\x00-\x1f]")
 RESERVATION_FIELDS = frozenset({"directories", "status", "reason", "evidence"})
 RESERVATION_STATUSES = ("confirmed", "corrected")
 INFERRED_STATUS = "inferred"
@@ -724,6 +736,55 @@ def _strings(value: Any) -> bool:
     return isinstance(value, list) and bool(value) and all(isinstance(item, str) and item.strip() for item in value)
 
 
+def control_characters(value: Any, path: str = "$") -> list[str]:
+    """Every string of a JSON value (keys included) holding a U+0000-U+001F character, by JSON path."""
+
+    found: list[str] = []
+
+    def text(string: str) -> str:
+        codes = ", ".join(sorted({f"U+{ord(char):04X}" for char in _CONTROL.findall(string)}))
+        shown = string if len(string) <= 80 else string[:77] + "..."
+        return f"{codes} in {shown!r}"
+
+    if isinstance(value, str):
+        if _CONTROL.search(value):
+            found.append(f"{path}: {text(value)}")
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            if isinstance(key, str) and _CONTROL.search(key):
+                found.append(f"{path} key: {text(key)}")
+            found.extend(control_characters(item, f"{path}.{key}" if _FILE_NAME.match(str(key)) else f"{path}[{str(key)!r}]"))
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            found.extend(control_characters(item, f"{path}[{index}]"))
+    return found
+
+
+def _overlaps(first: str, second: str) -> bool:
+    first, second = first.casefold(), second.casefold()
+    return first == second or first.startswith(f"{second}/") or second.startswith(f"{first}/")
+
+
+def reservation_sharing(tracker: dict[str, Any], apply_id: str, directories: list[str]) -> dict[str, list[str]]:
+    """For each directory, the other segment applies whose ``src/`` reservation overlaps it.
+
+    Applies that reserve one directory (or one inside the other) write the
+    same files' directories, so the coordinator runs them one at a time.
+    Each apply's current ``resources`` are read (a corrected plan
+    re-reserves them when it is applied).
+    """
+
+    others = [
+        (row["id"], [value for value in row.get("resources") or [] if isinstance(value, str)])
+        for row in tracker.get("work_items", [])
+        if row.get("kind") == SEGMENT_APPLY_KIND and row.get("id") != apply_id
+    ]
+    return {
+        directory: sorted(item for item, resources in others if any(_overlaps(directory, value) for value in resources))
+        for directory in directories
+    }
+
+
 def _shown(values: list[str]) -> str:
     head = ", ".join(values[:_SHOWN])
     return head + (f", +{len(values) - _SHOWN} more" if len(values) > _SHOWN else "")
@@ -928,6 +989,13 @@ def validate_source_plan(
     v2 = schema == 2
     if unknown := sorted(set(plan) - (PLAN_FIELDS_V2 if v2 else PLAN_FIELDS)):
         problems.append(f"the plan has unknown fields {unknown}")
+    # A control character is corrupted evidence (a path's ``\apps`` read as
+    # BEL + ``pps``), never a fact: refuse it wherever it lies.
+    controls = control_characters(plan)
+    for found in controls[:_SHOWN]:
+        problems.append(f"control character in a plan string at {found}")
+    if len(controls) > _SHOWN:
+        problems.append(f"{len(controls) - _SHOWN} more plan strings hold control characters")
     if "draft" in plan and not isinstance(plan["draft"], dict):
         problems.append("draft must be an object (written by source plan draft)")
     if (plan.get("target") or {}).get("source_sha256") != REFERENCE_SHA256:
@@ -958,6 +1026,8 @@ def validate_source_plan(
     placement = _check_reservation(root, tracker, item, plan.get("reservation"), problems)
     if placement is not None:
         report["reservation"] = placement
+        # The other applies reserving the same directories: they apply one at a time.
+        report["reservation_shared_with"] = reservation_sharing(tracker, placement["apply_item"], placement["directories"])
 
     slice_ids = entry["artifacts"]
     in_slice = set(slice_ids)
@@ -1290,8 +1360,18 @@ def validate_source_plan(
         if not isinstance(row.get("reason"), str) or not row["reason"].strip() or not _strings(row.get("evidence")):
             problems.append(f"retire_files {path} needs a reason and evidence lines")
 
-    if not isinstance(plan.get("notes", []), list) or not all(isinstance(value, str) for value in plan.get("notes", [])):
+    notes = plan.get("notes", [])
+    if not isinstance(notes, list) or not all(isinstance(value, str) for value in notes):
         problems.append("notes must be a list of strings")
+        notes = []
+    contradictions = _check_contradictions(root, plan.get("contradictions"), in_slice, moved_from, retired_by_apply, problems)
+    noted = [value for value in notes if value.strip().casefold().startswith(CONTRADICTION_NOTE)]
+    if noted:
+        # Plans written before the field keep their text notes; they stay valid.
+        review.append(
+            f"{len(noted)} notes record contradictions as text; a new plan lists them in contradictions "
+            f"[{{{', '.join(CONTRADICTION_FIELDS)}}}]"
+        )
 
     expected = derive_annotations(plan, graph, section_of)
     for row in expected:
@@ -1343,6 +1423,24 @@ def validate_source_plan(
             f"this {scope.get('kind')} plan owns provider rows ({', '.join(provider_rows_elsewhere)}): its apply records "
             "them in tracker evidence as a provider apply does, and writes nothing for them under src/"
         )
+    # An inline (binding 13) or WEAK instance is usually a header's body: the
+    # scrutinizer confirms the unit defines it when no header emits it.
+    unemitted = sorted(
+        (
+            identity
+            for identity, owner in owner_of.items()
+            if owner.get("classification") == "authored"
+            and identity not in emitted
+            and rows.get(identity, {}).get("kind") == "function"
+            and _instance_bindings(rows[identity]) & {"13", "WEAK"}
+        ),
+        key=_address,
+    )
+    if unemitted:
+        review.append(
+            f"{len(unemitted)} owned inline or WEAK functions have no header-emit row (their owner's file defines "
+            f"them): {_shown(unemitted)}"
+        )
     report["summary"] = {
         "slice_artifacts": len(slice_ids),
         "owned": sum(1 for identity in slice_ids if identity in owner_of),
@@ -1354,8 +1452,74 @@ def validate_source_plan(
         "schema_version": schema,
         "draft_open": len(still_open),
     }
+    if "contradictions" in plan:
+        report["summary"]["contradictions"] = contradictions
     report["applied"] = applied is not None
     return done()
+
+
+def _instance_bindings(row: dict[str, Any]) -> set[Any]:
+    return {item.get("binding") for item in row.get("names") or []} | {row.get("binding")}
+
+
+def _check_contradictions(
+    root: Path,
+    rows: Any,
+    in_slice: set[str],
+    moved_from: dict[str, str],
+    retired_by_apply: set[str],
+    problems: list[str],
+) -> int:
+    """Check the plan's structured contradictions with provisional source; their count.
+
+    Each row names an artifact of the slice, an existing provisional file
+    under ``src/`` (in its applied state: a file the apply moved is checked
+    at its new path, a retired one is accepted), a line in it (or null), a
+    kind slug and ELF evidence lines.
+    """
+
+    if rows is None:
+        return 0
+    if not isinstance(rows, list):
+        problems.append("contradictions must be a list")
+        return 0
+    seen: set[tuple[Any, ...]] = set()
+    for number, row in enumerate(rows, 1):
+        if not isinstance(row, dict) or set(row) != set(CONTRADICTION_FIELDS):
+            problems.append(f"contradictions row {number} must be {{{', '.join(CONTRADICTION_FIELDS)}}}")
+            continue
+        identity, path, line, kind = row["artifact"], row["provisional_file"], row["line"], row["kind"]
+        label = f"contradiction {number} ({identity})"
+        if not isinstance(identity, str) or identity not in in_slice:
+            problems.append(f"{label}: its artifact must lie in the scope's slice")
+        if not isinstance(kind, str) or not _CONTRADICTION_KIND.match(kind):
+            problems.append(f"{label}: kind must be a lowercase slug such as defined-elsewhere")
+        if not _strings(row["elf_evidence"]):
+            problems.append(f"{label} needs elf_evidence lines")
+        if line is not None and (not isinstance(line, int) or isinstance(line, bool) or line < 1):
+            problems.append(f"{label}: line must be a positive line number or null")
+            line = None
+        if not _workspace_path(path):
+            problems.append(f"{label}: provisional_file must be a repo-relative path under src/")
+        elif path in retired_by_apply:
+            pass  # retired by the apply: the contradiction is historical
+        else:
+            target = moved_from.get(path, path)
+            state, actual = _path_state(root, target)
+            if state != "exact" or not (root / target).is_file():
+                problems.append(
+                    f"{label}: provisional_file {path} must name an existing file exactly" + (f" (on disk: {actual})" if actual else "")
+                )
+            elif line is not None:
+                with open(root / target, "rb") as handle:
+                    count = sum(1 for _line in handle)
+                if line > count:
+                    problems.append(f"{label}: {path} has {count} lines, not {line}")
+        key = (repr(identity), repr(path), line, repr(kind))
+        if key in seen:
+            problems.append(f"{label} is listed twice")
+        seen.add(key)
+    return len(rows)
 
 
 # -- evidence and skeleton ------------------------------------------------------

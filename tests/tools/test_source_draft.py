@@ -181,10 +181,12 @@ def _decompose(stage3: dict, graph: dict, reservations: dict | None = None) -> d
 
 @pytest.fixture()
 def drafted(tmp_path: Path, stage3: dict) -> tuple[Path, dict, dict, dict]:
+    """A rules version 1 draft of segment 1 (plans keep the rules they were drafted under)."""
+
     graph = draft_graph()
     tracker = _decompose(stage3, graph)
     root = _root(tmp_path)
-    plan = draft_owner_plan(root, tracker, "socom:work:source-segment-001", graph, draft_facts(graph), section_of=MAIN)
+    plan = draft_owner_plan(root, tracker, "socom:work:source-segment-001", graph, draft_facts(graph), rules=1, section_of=MAIN)
     return root, tracker, graph, plan
 
 
@@ -225,6 +227,67 @@ def test_draft_decides_what_the_rules_settle(drafted) -> None:
     assert reasons["socom:function:0x140070"].startswith("boundary function between a.cpp")
     assert "not all decided for one unit" in reasons["socom:data:0x426420"]
     assert plan["draft"]["decided"] == 12 and plan["draft"]["open"] == 3
+
+
+def test_rules_2_decide_a_contained_inline_copy_whoever_calls_it(tmp_path: Path, stage3: dict) -> None:
+    graph = draft_graph()
+    tracker = _decompose(stage3, graph)
+    root = _root(tmp_path)
+    plan = draft_owner_plan(root, tracker, "socom:work:source-segment-001", graph, draft_facts(graph), section_of=MAIN)
+    assert plan["draft"]["rules_version"] == 2 and (plan["draft"]["decided"], plan["draft"]["open"]) == (13, 2)
+    owner, entry = _entries(plan)["socom:function:0x140040"]
+    # b.cpp calls the inline Get copy, but it is a single copy strictly
+    # between two a.cpp anchors with nothing of another unit between.
+    assert (owner, entry["draft_rule"], entry["confidence"]) == ("a.cpp", "A-between", "medium")
+    assert entry["basis"].startswith("inline/WEAK single copy between socom:function:0x140030 and socom:function:0x140050")
+    assert check_draft(plan, plan)["problems"] == []
+    # A version 1 plan is still checked under version 1, where the copy stays open.
+    v1 = draft_owner_plan(root, tracker, "socom:work:source-segment-001", graph, draft_facts(graph), rules=1, section_of=MAIN)
+    assert "socom:function:0x140040" not in _entries(v1)
+    assert any("the rules leave it open" in problem for problem in check_draft(v1, plan)["problems"])
+
+    def redrafted(change) -> dict:
+        changed = copy.deepcopy(graph)
+        change({row["id"]: row for row in changed["artifacts"]})
+        changed["graph_sha256"] = graph_digest(changed)
+        return draft_owner_plan(root, _decompose(stage3, changed), "socom:work:source-segment-001", changed,
+                                draft_facts(changed), section_of=MAIN)
+
+    # Another copy of the same name, another unit's candidate between the
+    # anchors, or a unit edge leaves it open.
+    second = redrafted(lambda rows: rows["socom:function:0x140090"]["names"].append({"name": "Get__4CBoxFv", "binding": "13"}))
+    assert "socom:function:0x140040" not in _entries(second)
+    medium = [{"tu": "b.cpp", "strength": "medium", "via": ["cluster", "text-contiguity"], "sinit_order": None}]
+    unanchor = {"signals": [], "emitted_from_header": None}
+    # 0x140050 loses its anchor and has a b.cpp candidate: it lies between
+    # 0x140040 and the next a.cpp anchor 0x140060.
+    other = redrafted(lambda rows: rows["socom:function:0x140050"].update(**unanchor, tu_candidates=medium))
+    assert "socom:function:0x140040" not in _entries(other)
+    plain = redrafted(lambda rows: rows["socom:function:0x140050"].update(**unanchor))
+    assert _entries(plain)["socom:function:0x140040"][0] == "a.cpp"
+    edge = redrafted(lambda rows: [rows[f"socom:function:0x{address:x}"].update(**unanchor) for address in (0x140050, 0x140060)])
+    assert "socom:function:0x140040" not in _entries(edge)
+
+
+def test_rules_2_link_a_toolchain_assembled_gnu_object_as_an_object(tmp_path: Path, stage3: dict) -> None:
+    graph = draft_graph()
+    graph["artifacts"][10]["signals"] = [{"signal": "dwarf-cu", "strength": "strong", "tu": "foo.s", "path": "\\usr\\local\\sce\\foo.s",
+                                         "producer": "Metrowerks MW GAS R5900 Assembler", "die_offset": "0x0"}]
+    graph["graph_sha256"] = graph_digest(graph)
+    tracker = _decompose(stage3, graph)
+    root = _root(tmp_path)
+    args = (root, tracker, "socom:work:source-provider-sce", graph, draft_facts(graph))
+    (owner,) = draft_owner_plan(*args, section_of=MAIN)["owners"]
+    assert owner["archive_member"] == {"gnu_object": "0x1400a0", "object": None, "linked": "object"}
+    assert any("Metrowerks MW GAS R5900 Assembler" in line for line in owner["evidence"])
+    (v1,) = draft_owner_plan(*args, rules=1, section_of=MAIN)["owners"]
+    assert v1["archive_member"] == {"gnu_object": "0x1400a0", "object": None}
+    # A GNU producer is not the project's toolchain.
+    graph["artifacts"][10]["signals"][0]["producer"] = "GNU C 2.95.2"
+    graph["graph_sha256"] = graph_digest(graph)
+    tracker = _decompose(stage3, graph)
+    (gnu,) = draft_owner_plan(root, tracker, "socom:work:source-provider-sce", graph, draft_facts(graph), section_of=MAIN)["owners"]
+    assert "linked" not in gnu["archive_member"]
 
 
 def test_draft_rows_paths_header_emits_and_annotations(drafted) -> None:
@@ -269,10 +332,11 @@ def test_a_finished_draft_validates_and_checks(drafted) -> None:
     finished["annotations"] = derive_annotations(finished, graph, MAIN)
     report = validate_source_plan(root, tracker, finished, graph, section_of=MAIN)
     assert report["ok"], report["problems"]
-    fresh = draft_owner_plan(root, tracker, "socom:work:source-segment-001", graph, draft_facts(graph), section_of=MAIN)
+    fresh = draft_owner_plan(root, tracker, "socom:work:source-segment-001", graph, draft_facts(graph), rules=1, section_of=MAIN)
     result = check_draft(fresh, finished)
     assert result["problems"] == [] and result["overrides"] == []
     assert (result["drafted_entries"], result["hand_entries"], result["open_rows"]) == (12, 1, 0)
+    assert result["owner_changes"] == [] and result["header_emit_changes"] == []
     # A drafted entry the planner edited is refused; a hand move is an override.
     tampered = copy.deepcopy(finished)
     tampered["owners"][0]["artifacts"][1]["confidence"] = "high"
@@ -291,6 +355,28 @@ def test_a_finished_draft_validates_and_checks(drafted) -> None:
     edited["owners"][2]["workspace_path"] = "src/gamez/zFoo/b.cpp"
     assert any("differs from its O-path draft" in problem for problem in check_draft(fresh, edited)["problems"])
     assert compare_plans(fresh, finished)["agree"] == 12
+    # Rows the planner owns by hand (draft_rule removed) are listed with
+    # their changed fields, so the reviewer need not redraft.
+    owned = copy.deepcopy(finished)
+    del owned["owners"][2]["draft_rule"]
+    owned["owners"][2]["workspace_path"] = "src/gamez/zFoo/b.cpp"
+    del owned["header_emits"][0]["draft_rule"]
+    owned["header_emits"].append({"artifact": "socom:function:0x140040", "header": "src/gamez/zFoo/zfoo.h", "reason": "inline",
+                                  "evidence": ["by hand"]})
+    owned["owners"].append({"translation_unit": "c.cpp", "classification": "authored", "artifacts": []})
+    del owned["owners"][1]
+    result = check_draft(fresh, owned)
+    assert result["problems"] == []
+    assert result["owner_changes"] == [
+        {"row": "authored b.cpp", "change": ["draft_rule-removed", "fields"], "draft_rule": "O-path",
+         "fields": {"workspace_path": {"draft": "src/gamez/zBar/b.cpp", "plan": "src/gamez/zFoo/b.cpp"}}},
+        {"row": "authored c.cpp", "change": ["hand-row"], "draft_rule": None, "fields": {}},
+        {"row": "compiler-generated", "change": ["dropped"], "draft_rule": None, "fields": {}},
+    ]
+    assert result["header_emit_changes"] == [
+        {"row": "header_emits socom:function:0x140050", "change": ["draft_rule-removed"], "draft_rule": "H-dwarf-header", "fields": {}},
+        {"row": "header_emits socom:function:0x140040", "change": ["hand-row"], "draft_rule": None, "fields": {}},
+    ]
 
 
 def test_provider_draft_owns_gnu_objects_and_leaves_the_rest(tmp_path: Path, stage3: dict) -> None:
@@ -327,12 +413,23 @@ def test_draft_refuses_unknown_rules_and_existing_outputs(tmp_path: Path, stage3
     plan_path = "build/source-plans/socom-work-source-segment-001.json"
     assert cli.main([*base, "--item", "socom:work:source-segment-001", "--output", plan_path]) == 0
     report = json.loads(capsys.readouterr().out)
-    assert (report["decided"], report["open"], report["outside_reservation"]) == (12, 3, ["src/gamez/zBar/b.cpp"])
+    assert (report["rules_version"], report["decided"], report["open"]) == (2, 13, 2)
+    assert report["outside_reservation"] == ["src/gamez/zBar/b.cpp"]
     assert cli.main([*base, "--item", "socom:work:source-segment-001", "--output", plan_path]) == 2
     assert "never replaces a plan" in json.loads(capsys.readouterr().out)["error"]
     assert cli.main([*base, "--check", plan_path]) == 0
     report = json.loads(capsys.readouterr().out)
-    assert report["ok"] and report["drafted_entries"] == 12 and report["open_rows"] == 3
+    assert report["ok"] and report["drafted_entries"] == 13 and report["open_rows"] == 2 and report["rules_version"] == 2
+    assert report["owner_changes"] == [] and report["header_emit_changes"] == []
+    # A version 1 draft is checked under version 1; --rules 2 shows the new decisions.
+    old_path = "build/source-plans/v1.json"
+    assert cli.main([*base, "--item", "socom:work:source-segment-001", "--output", old_path, "--rules", "1"]) == 0
+    assert json.loads(capsys.readouterr().out)["decided"] == 12
+    assert cli.main([*base, "--check", old_path]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["ok"] and report["rules_version"] == 1 and report["plan_rules_version"] == 1
+    assert cli.main([*base, "--check", old_path, "--rules", "2"]) == 0
+    assert any("0x140040: the rules give a.cpp" in row for row in json.loads(capsys.readouterr().out)["overrides"])
     assert cli.main([*base, "--output", plan_path]) == 2
 
 
@@ -595,25 +692,49 @@ def test_reference_drafts_of_the_calibration_items(root: Path, reference_source_
     tracker, facts = reference_draft_inputs
     graph = reference_source_graph
     section_of = loaded_section_lookup(root)
-    first = draft_owner_plan(root, tracker, "socom:work:source-segment-001", graph, facts, section_of=section_of)
+    # Rules version 1, the version the calibration plans were drafted under.
+    first = draft_owner_plan(root, tracker, "socom:work:source-segment-001", graph, facts, rules=1, section_of=section_of)
     assert (first["draft"]["decided"], first["draft"]["open"]) == (88, 1)
     assert first["unresolved"][0]["artifact"] == "socom:function:0x142130"
     assert [row["translation_unit"] for row in first["owners"] if row["classification"] == "authored"] == ["main.cpp", "st_menu.cpp"]
     msl = [row for row in first["header_emits"] if row.get("library") == "MSL"]
     assert len(first["header_emits"]) == 16 and len(msl) == 6
     assert first["draft"]["outside_reservation"] == ["src/gamez/zFTS/fts_state.h", "src/gamez/zGame/zgame.h"]
-    tick = draft_owner_plan(root, tracker, "socom:work:source-segment-017", graph, facts, section_of=section_of)
+    tick = draft_owner_plan(root, tracker, "socom:work:source-segment-017", graph, facts, rules=1, section_of=section_of)
     assert (tick["draft"]["decided"], tick["draft"]["open"]) == (144, 3)
     assert {row["artifact"] for row in tick["unresolved"]} == {
         "socom:function:0x1bc4a0", "socom:function:0x1bd170", "socom:function:0x1bfe80",
     }
     assert tick["draft"]["open_owner_rows"] == ["zanim_load.cpp"]
     assert tick["reservation"]["status"] == "inferred"
-    crt0 = draft_owner_plan(root, tracker, "socom:work:source-provider-crt0", graph, facts, section_of=section_of)
+    crt0 = draft_owner_plan(root, tracker, "socom:work:source-provider-crt0", graph, facts, rules=1, section_of=section_of)
     (owner,) = crt0["owners"]
     assert owner["archive_member"] == {"gnu_object": "0x140008", "object": None} and owner["translation_unit"] == "crt0.s"
-    for plan in (first, tick, crt0):
+    # Rules version 2: the inline GetBBox and Rotate copies other units call
+    # lie strictly between zanim_cmd_tick.cpp anchors (the planner's hand
+    # decision), and crt0.s, assembled by MW GAS, is a linked object.
+    tick2 = draft_owner_plan(root, tracker, "socom:work:source-segment-017", graph, facts, section_of=section_of)
+    assert (tick2["draft"]["rules_version"], tick2["draft"]["decided"], tick2["draft"]["open"]) == (2, 146, 1)
+    copies = {
+        entry["artifact"]: (row["translation_unit"], entry["draft_rule"], entry["confidence"])
+        for row in tick2["owners"] for entry in row["artifacts"]
+        if entry["artifact"] in ("socom:function:0x1bc4a0", "socom:function:0x1bd170")
+    }
+    assert set(copies.values()) == {("zanim_cmd_tick.cpp", "A-between", "medium")} and len(copies) == 2
+    (owner2,) = draft_owner_plan(root, tracker, "socom:work:source-provider-crt0", graph, facts, section_of=section_of)["owners"]
+    assert owner2["archive_member"] == {"gnu_object": "0x140008", "object": None, "linked": "object"}
+    first2 = draft_owner_plan(root, tracker, "socom:work:source-segment-001", graph, facts, section_of=section_of)
+    assert (first2["draft"]["decided"], first2["draft"]["open"]) == (88, 1)
+    for plan in (first, tick, crt0, tick2, first2):
         assert check_draft(plan, plan)["problems"] == []
+    # A v1 crt0 row owned by hand with linked: object is listed for the reviewer.
+    owned = copy.deepcopy(crt0)
+    owned["owners"][0].pop("draft_rule")
+    owned["owners"][0]["archive_member"]["linked"] = "object"
+    assert check_draft(crt0, owned)["owner_changes"] == [{
+        "row": "provider crt0.s", "change": ["draft_rule-removed", "fields"], "draft_rule": "P-gnu-object",
+        "fields": {"archive_member.linked": {"draft": None, "plan": "object"}},
+    }]
     # The evidence of the crt0 item lists its GNU object; segment 017's lists
     # the unanchored function on its internal unit boundary.
     evidence = plan_evidence(root, tracker, "socom:work:source-provider-crt0", graph, section_of=section_of)

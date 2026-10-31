@@ -62,11 +62,32 @@ H-dwarf-header  a decided authored function whose header compile unit names a
                 directory (``header`` there), or a provider header
                 (``<name>`` and its library): reason ``template`` (template
                 arguments), ``weak`` (WEAK) or ``inline`` (binding 13).
+
+Rules version 2 (the default; a plan is checked under the version it was
+drafted with) changes two rules and keeps every other one:
+
+A-between       a WEAK or binding-13 instance whose referrers are not all
+                anchored to the unit is decided too when it is a single copy
+                (no other function carries one of its names) and nothing of
+                another unit lies between the two anchors: no GNU object
+                start, no provider-proven function and no function with a
+                strong or medium candidate of another unit.  On the
+                reference graph ``837c03c4`` every one of the 172 inline or
+                WEAK copies that DWARF places in an authored unit and that
+                sits strictly between two anchors of one unit is that
+                unit's; the 22 at a unit edge stay open.
+P-gnu-object    the provider row of a GNU object one of whose DWARF compile
+                units was produced by the project's toolchain (a Metrowerks
+                producer, e.g. ``Metrowerks MW GAS R5900 Assembler`` for
+                crt0.s) records ``archive_member.linked: "object"``: the
+                object was assembled or compiled with the project, not taken
+                from an archive.
 """
 
 from __future__ import annotations
 
 import os
+import re
 from collections import Counter, defaultdict
 from pathlib import Path, PureWindowsPath
 from typing import Any, Callable
@@ -92,10 +113,14 @@ from .source_plan import (
 )
 from .util import SocomError
 
-DRAFT_RULES_VERSION = 1
-RULES_VERSIONS = (1,)
+DRAFT_RULES_VERSION = 2
+RULES_VERSIONS = (1, 2)
+# The version a plan without a recorded (known) draft rules version is checked under.
+UNVERSIONED_RULES = 1
 ANCHOR_ORDER = ("A-dwarf-cu", "A-dwarf-header", "A-sinit", "A-unnamed", "A-dwarf-static", "A-file-string", "A-local-block")
 FILL_ROW = "compiler-generated"
+# A DWARF producer of the project's own (Metrowerks) toolchain.
+TOOLCHAIN_PRODUCER = re.compile(r"^(?:Metrowerks|MW)\b")
 
 
 def _hex_int(value: str) -> int:
@@ -133,7 +158,10 @@ class _Workspace:
 
 
 class _Draft:
-    def __init__(self, graph: dict[str, Any], facts: dict[str, Any], workspace: _Workspace) -> None:
+    def __init__(
+        self, graph: dict[str, Any], facts: dict[str, Any], workspace: _Workspace, rules: int = DRAFT_RULES_VERSION
+    ) -> None:
+        self.rules = rules
         self.graph = graph
         self.rows = graph["artifacts"]
         self.by_id = {row["id"]: row for row in self.rows}
@@ -152,6 +180,10 @@ class _Draft:
             if site and target and site != target:
                 self.users[target].add(site)
                 self.uses[site].add(target)
+        # How many function artifacts carry each symbol name (a single copy has 1).
+        self.copies: Counter[str] = Counter(
+            item["name"] for row in self.rows if row["kind"] == "function" for item in row.get("names") or [] if item.get("name")
+        )
         self.anchor = {row["id"]: self._anchors(row) for row in self.rows if row["kind"] != "gap"}
         self.decided: dict[str, tuple[str, str, str, str]] = {}
         for identity, found in self.anchor.items():
@@ -241,17 +273,47 @@ class _Draft:
                     for candidate in row.get("tu_candidates") or []
                 ):
                     continue
+                spelled = self._spelling(self.decided[functions[left]][0])
+                basis = f"between {functions[left]} and {functions[right]}, both {spelled}, with no other anchor or GNU object between"
                 if self.bindings(row) & {"WEAK", "13"}:
                     referrers = self.users.get(identity, set())
                     if any((high.get(other) or ("",))[0].casefold() != unit for other in referrers):
-                        continue
-                spelled = self._spelling(self.decided[functions[left]][0])
-                self.decided[identity] = (
-                    spelled,
-                    "A-between",
-                    f"between {functions[left]} and {functions[right]}, both {spelled}, with no other anchor or GNU object between",
-                    "medium",
-                )
+                        # Rules 2: a single copy that nothing of another unit
+                        # separates from both anchors is that unit's, whoever
+                        # else calls it.
+                        if self.rules < 2 or not self._contained_copy(row, functions[left + 1 : right], unit):
+                            continue
+                        basis = (
+                            f"inline/WEAK single copy between {functions[left]} and {functions[right]}, both {spelled}, "
+                            "with no other unit, provider function or GNU object between (other units call it)"
+                        )
+                self.decided[identity] = (spelled, "A-between", basis, "medium")
+
+    def _contained_copy(self, row: dict[str, Any], between: list[str], unit: str) -> bool:
+        """Rules 2: an inline/WEAK single copy with nothing of another unit between its two anchors."""
+
+        if any(self.copies[item["name"]] != 1 for item in row.get("names") or [] if item.get("name")):
+            return False
+        for identity in between:
+            other = self.by_id[identity]
+            if strong_provider(other, self.unit_library) is not None:
+                return False
+            if any(
+                candidate["tu"].casefold() != unit and candidate["strength"] in ("strong", "medium")
+                for candidate in other.get("tu_candidates") or []
+            ):
+                return False
+        return True
+
+    def toolchain_producer(self, gnu: dict[str, Any]) -> str | None:
+        """The project-toolchain DWARF producer of a GNU object's functions or gaps, if any."""
+
+        for identity in [*(gnu.get("functions") or []), *(gnu.get("gaps") or [])]:
+            for item in (self.by_id.get(identity) or {}).get("signals") or []:
+                producer = item.get("producer")
+                if item.get("signal") == "dwarf-cu" and isinstance(producer, str) and TOOLCHAIN_PRODUCER.match(producer):
+                    return producer
+        return None
 
     # -- data ------------------------------------------------------------------
 
@@ -318,7 +380,7 @@ def draft_owner_plan(
     item = plan_item(tracker, item_id)
     entry = scope_entry(graph, item)
     scope = item["batch"]["scope"]
-    draft = _Draft(graph, facts, _Workspace(root))
+    draft = _Draft(graph, facts, _Workspace(root), rules)
     workspace = draft.workspace
 
     owners: dict[tuple[str, str | None], dict[str, Any]] = {}
@@ -340,6 +402,14 @@ def draft_owner_plan(
         for item in draft.by_id[identity].get("signals") or []:
             if item.get("signal") == "dwarf-cu" and (path_library(item.get("path") or "") or ("",))[0] == "provider":
                 unit, original = item.get("tu"), item.get("path")
+        member: dict[str, Any] = {"gnu_object": gnu["address"], "object": None}
+        evidence = [f"GNU object at {gnu['address']} ({', '.join(row['name'] for row in gnu.get('anchor') or []) or 'anchor'}); "
+                    f"library {library} by {gnu.get('library_basis') or 'no library evidence'}; end: {gnu.get('end_basis')}"]
+        producer = draft.toolchain_producer(gnu) if draft.rules >= 2 else None
+        if producer is not None:
+            # Rules 2: assembled or compiled by the project's toolchain (crt0.s).
+            member["linked"] = "object"
+            evidence.append(f"DWARF producer {producer}: built with the project's toolchain, linked as an object, not an archive member")
         return {
             "translation_unit": unit,
             "classification": "provider",
@@ -347,10 +417,9 @@ def draft_owner_plan(
             "original_path": original,
             "provisional_file": None,
             "library": library,
-            "archive_member": {"gnu_object": gnu["address"], "object": None},
+            "archive_member": member,
             "draft_rule": "P-gnu-object",
-            "evidence": [f"GNU object at {gnu['address']} ({', '.join(row['name'] for row in gnu.get('anchor') or []) or 'anchor'}); "
-                         f"library {library} by {gnu.get('library_basis') or 'no library evidence'}; end: {gnu.get('end_basis')}"],
+            "evidence": evidence,
         }
 
     library = scope.get("library") if scope["kind"] == "provider" else None
@@ -503,6 +572,12 @@ def _open_function_reason(draft: _Draft, identity: str) -> str:
     if a and b and a.casefold() != b.casefold():
         return f"boundary function between {a} ({left}) and {b} ({right})"
     if a and b and draft.bindings(row) & {"WEAK", "13"}:
+        if draft.rules >= 2:
+            return (
+                f"WEAK/inline instance between {a} anchors, referenced from outside {a}, and not a contained single "
+                "copy (another function has its name, or a GNU object, provider function or another unit's "
+                "candidate lies between)"
+            )
         return f"WEAK/inline instance between {a} anchors, referenced from outside {a}"
     if a and b:
         return f"between {a} anchors, but a GNU object, another unit's candidate or a provider classification intervenes"
@@ -594,6 +669,83 @@ def _owner_key(owner: dict[str, Any]) -> tuple[str, str | None]:
 
 
 ROW_FIELDS = ("translation_unit", "classification", "workspace_path", "original_path", "provisional_file", "library", "archive_member")
+EMIT_ROW_FIELDS = ("header", "reason", "library")
+
+
+def _flat(row: dict[str, Any], fields: tuple[str, ...]) -> dict[str, Any]:
+    """The compared fields of a row, an ``archive_member`` object spread to ``archive_member.<key>``."""
+
+    out: dict[str, Any] = {}
+    for field in fields:
+        value = row.get(field)
+        if isinstance(value, dict):
+            for key in sorted(value):
+                out[f"{field}.{key}"] = value[key]
+        else:
+            out[field] = value
+    return out
+
+
+def _field_changes(draft: dict[str, Any], plan: dict[str, Any], fields: tuple[str, ...]) -> dict[str, dict[str, Any]]:
+    before, after = _flat(draft, fields), _flat(plan, fields)
+    return {
+        key: {"draft": before.get(key), "plan": after.get(key)}
+        for key in sorted(set(before) | set(after))
+        if before.get(key) != after.get(key)
+    }
+
+
+def _owner_label(owner: dict[str, Any]) -> str:
+    member = owner.get("archive_member") if isinstance(owner.get("archive_member"), dict) else {}
+    name = owner.get("translation_unit") or member.get("gnu_object") or member.get("object")
+    return f"{owner.get('classification')} {name}" if name else str(owner.get("classification"))
+
+
+def _row_changes(fresh: dict[str, Any], plan: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Owner and header-emit rows of the plan that differ from the fresh draft's, for the reviewer.
+
+    A row the plan keeps with its ``draft_rule`` is proven (or a problem)
+    and is not listed.  Listed: a row whose ``draft_rule`` the plan removed,
+    a row the draft left open that the plan decided, a row whose compared
+    fields differ, a plan row the draft has no row for (``hand-row``) and a
+    draft row the plan dropped (``dropped``).  ``fields`` maps each changed
+    field to its draft and plan value.
+    """
+
+    def changes(fresh_rows: dict[Any, dict[str, Any]], plan_rows: list[tuple[Any, dict[str, Any]]], fields, label):
+        found = []
+        kept = set()
+        for key, row in plan_rows:
+            kept.add(key)
+            if row.get("draft_rule"):
+                continue
+            draft = fresh_rows.get(key)
+            if draft is None:
+                found.append({"row": label(row), "change": ["hand-row"], "draft_rule": None, "fields": {}})
+                continue
+            changed = _field_changes(draft, row, fields)
+            kinds = []
+            if draft.get("draft_rule"):
+                kinds.append("draft_rule-removed")
+            if draft.get("draft") == DRAFT_OPEN:
+                kinds.append("decided-open-row")
+            if changed:
+                kinds.append("fields")
+            if changed or draft.get("draft_rule"):
+                found.append({"row": label(row), "change": kinds, "draft_rule": draft.get("draft_rule"), "fields": changed})
+        for key, draft in fresh_rows.items():
+            if key not in kept:
+                found.append({"row": label(draft), "change": ["dropped"], "draft_rule": draft.get("draft_rule"), "fields": {}})
+        return found
+
+    fresh_owners = {_owner_key(row): row for row in fresh.get("owners") or []}
+    plan_owners = [(_owner_key(row), row) for row in plan.get("owners") or [] if isinstance(row, dict)]
+    fresh_emits = {row["artifact"]: row for row in fresh.get("header_emits") or []}
+    plan_emits = [(row.get("artifact"), row) for row in plan.get("header_emits") or [] if isinstance(row, dict)]
+    return (
+        changes(fresh_owners, plan_owners, ROW_FIELDS, _owner_label),
+        changes(fresh_emits, plan_emits, EMIT_ROW_FIELDS, lambda row: f"header_emits {row.get('artifact')}"),
+    )
 
 
 def check_draft(fresh: dict[str, Any], plan: dict[str, Any]) -> dict[str, Any]:
@@ -604,6 +756,9 @@ def check_draft(fresh: dict[str, Any], plan: dict[str, Any]) -> dict[str, Any]:
     leave open).  Overrides (for the reviewer, not problems): artifacts the
     rules decide that the plan places by hand elsewhere.  Hand-decided
     entries without a ``draft_rule`` are what the reviewer reviews.
+    ``owner_changes`` and ``header_emit_changes`` list the rows that differ
+    from the fresh draft's (``_row_changes``), so a reviewer need not
+    regenerate the draft by hand.
     """
 
     problems: list[str] = []
@@ -653,20 +808,33 @@ def check_draft(fresh: dict[str, Any], plan: dict[str, Any]) -> dict[str, Any]:
         other = fresh_emits.get(emit.get("artifact"))
         if other is None or any(emit.get(field) != other.get(field) for field in ("header", "reason", "library", "draft_rule")):
             problems.append(f"header_emits {emit.get('artifact')}: differs from its {emit['draft_rule']} draft")
+    owner_changes, emit_changes = _row_changes(fresh, plan)
     return {
         "problems": problems,
         "drafted_entries": drafted,
         "hand_entries": hand,
         "open_rows": sum(1 for row in plan.get("unresolved") or [] if isinstance(row, dict) and row.get("draft") == DRAFT_OPEN),
         "overrides": overrides,
+        "owner_changes": owner_changes,
+        "header_emit_changes": emit_changes,
     }
 
 
 def plan_rules_version(plan: dict[str, Any]) -> int:
-    recorded = (plan.get("draft") or {}).get("rules_version")
+    """The rules version ``source plan draft --check`` uses for a plan when ``--rules`` is not given.
+
+    A plan keeps the rules it was drafted under (its ``draft.rules_version``):
+    a version 1 plan is checked under 1 after version 2 became the default.
+    A plan with no recorded version predates version 2 and is checked under 1.
+    """
+
+    draft = plan.get("draft") if isinstance(plan.get("draft"), dict) else {}
+    recorded = draft.get("rules_version")
+    if recorded is None:
+        return UNVERSIONED_RULES
     if isinstance(recorded, int) and not isinstance(recorded, bool) and recorded in RULES_VERSIONS:
         return recorded
-    return DRAFT_RULES_VERSION
+    raise SocomError(f"the plan's draft rules_version {recorded!r} is not one of {', '.join(map(str, RULES_VERSIONS))}")
 
 
 def compare_plans(fresh: dict[str, Any], plan: dict[str, Any]) -> dict[str, Any]:

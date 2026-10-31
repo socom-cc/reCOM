@@ -686,6 +686,78 @@ def test_a_stale_graph_is_refused(tmp_path: Path, synthetic: tuple[dict, dict]) 
     assert any("differs from its graph_sha256" in problem for problem in report["problems"])
 
 
+def test_control_characters_are_refused_by_json_path(tmp_path: Path, synthetic: tuple[dict, dict]) -> None:
+    tracker, graph = synthetic
+    root = _workspace(tmp_path)
+    plan = segment_plan(graph)
+    # A path's "\apps" written through a string escape: the evidence holds BEL.
+    plan["owners"][0]["evidence"].append("Msl\apps\\x")
+    plan["notes"].append("tab\there")
+    plan["header_emits"][0]["evidence"] = {"line\n": "x"}
+    problems = validate_source_plan(root, tracker, plan, graph, section_of=MAIN)["problems"]
+    controls = [problem for problem in problems if problem.startswith("control character")]
+    assert controls == [
+        "control character in a plan string at $.owners[0].evidence[1]: U+0007 in 'Msl\\x07pps\\\\x'",
+        "control character in a plan string at $.header_emits[0].evidence key: U+000A in 'line\\n'",
+        "control character in a plan string at $.notes[0]: U+0009 in 'tab\\there'",
+    ]
+
+
+def test_structured_contradictions(tmp_path: Path, synthetic: tuple[dict, dict]) -> None:
+    tracker, graph = synthetic
+    root = _workspace(tmp_path)
+    ids = _ids(graph)
+    plan = segment_plan(graph)
+    row = {"artifact": ids[0], "provisional_file": "src/gamez/zFoo/a.cpp", "line": 1, "kind": "defined-elsewhere",
+           "elf_evidence": ["dwarf-cu Z:\\dev\\gamez\\zFoo\\a.cpp covers 0x140000"]}
+    plan["contradictions"] = [row]
+    problems = validate_source_plan(root, tracker, plan, graph, section_of=MAIN)["problems"]
+    assert any("unknown fields ['contradictions']" in problem for problem in problems)  # schema 2 only
+    plan["schema_version"] = 2
+    report = validate_source_plan(root, tracker, plan, graph, section_of=MAIN)
+    assert report["ok"], report["problems"]
+    assert report["summary"]["contradictions"] == 1
+    assert "contradictions" not in validate_source_plan(root, tracker, segment_plan(graph), graph, section_of=MAIN)["summary"]
+    for change, message in (
+        ({"artifact": ids[3]}, "must lie in the scope's slice"),
+        ({"provisional_file": "src/gamez/zFoo/missing.cpp"}, "must name an existing file exactly"),
+        ({"provisional_file": "src/gamez/zfoo/a.cpp"}, "(on disk: src/gamez/zFoo/a.cpp)"),
+        ({"line": 2}, "has 1 lines, not 2"),
+        ({"line": 0}, "positive line number or null"),
+        ({"kind": "Defined Elsewhere"}, "lowercase slug"),
+        ({"elf_evidence": []}, "needs elf_evidence lines"),
+    ):
+        plan["contradictions"] = [{**row, **change}]
+        problems = validate_source_plan(root, tracker, plan, graph, section_of=MAIN)["problems"]
+        assert any(message in problem for problem in problems), (change, problems)
+    plan["contradictions"] = [{**row, "line": None}, {**row, "line": None}]
+    assert any("is listed twice" in problem for problem in validate_source_plan(root, tracker, plan, graph, section_of=MAIN)["problems"])
+    plan["contradictions"] = [{key: row[key] for key in ("artifact", "kind")}]
+    assert any("contradictions row 1 must be" in problem for problem in validate_source_plan(root, tracker, plan, graph, section_of=MAIN)["problems"])
+    # A handed-off plan's text notes stay valid; the report asks new plans for the field.
+    plan = segment_plan(graph)
+    plan["notes"] = ["contradiction: provisional a.cpp defines b_main, the ELF puts it in b.cpp"]
+    report = validate_source_plan(root, tracker, plan, graph, section_of=MAIN)
+    assert report["ok"] and any("1 notes record contradictions as text" in note for note in report["review"])
+
+
+def test_report_lists_shared_reservations_and_unemitted_inline_functions(tmp_path: Path, synthetic: tuple[dict, dict]) -> None:
+    tracker, graph = synthetic
+    root = _workspace(tmp_path)
+    plan = segment_plan(graph)
+    report = validate_source_plan(root, tracker, plan, graph, section_of=MAIN)
+    # Segment 3's apply falls back to all of src, which holds src/gamez/zFoo.
+    assert report["reservation_shared_with"] == {"src/gamez/zFoo": ["socom:work:source-segment-003-apply"]}
+    assert not any("no header-emit row" in note for note in report["review"])
+    plan["header_emits"] = []
+    plan["annotations"] = derive_annotations(plan, graph, MAIN)
+    report = validate_source_plan(root, tracker, plan, graph, section_of=MAIN)
+    assert report["ok"], report["problems"]
+    assert "1 owned inline or WEAK functions have no header-emit row (their owner's file defines them): socom:function:0x140010" in report["review"]
+    # A provider plan has no reservation to share.
+    assert "reservation_shared_with" not in validate_source_plan(root, tracker, provider_plan(graph), graph, section_of=MAIN)
+
+
 def test_evidence_and_skeleton(tmp_path: Path, synthetic: tuple[dict, dict]) -> None:
     tracker, graph = synthetic
     root = _workspace(tmp_path)

@@ -31,14 +31,16 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "source",
             "Draft a source-owner plan (schema 2): every artifact the versioned rules decide gets an owner entry with "
             "its draft_rule, confidence and basis, the rest stay open for the planner; --check <plan> proves a plan's "
-            "drafted rows equal what the rules give.",
+            "drafted rows equal what the rules it was drafted under give and lists the overrides and the owner and "
+            "header-emit rows that differ from a fresh draft.",
         ),
         spec(
             "source plan validate",
             "source",
             "Check a source-owner plan: every artifact of its item's slice owned once or unresolved, owner, provider, "
-            "header-emit and annotation rows, provisional files, and the graph and slice digests (--check regenerates "
-            "the graph from the ELF).",
+            "header-emit, contradiction and annotation rows, provisional files, no control characters, and the graph "
+            "and slice digests (--check regenerates the graph from the ELF); reports the other applies sharing each "
+            "reserved directory.",
         ),
         spec(
             "source sql",
@@ -254,6 +256,8 @@ def _source_plan_validate(arguments: argparse.Namespace) -> int:
             "annotations_filled": filled,
             "applied": own,
             "reservation": report.get("reservation"),
+            # For each reserved directory, the other segment applies that reserve it (they apply one at a time).
+            "reservation_shared_with": report.get("reservation_shared_with"),
             "summary": report["summary"],
             "review": report["review"],
             "problems": report["problems"],

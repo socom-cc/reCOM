@@ -147,6 +147,7 @@ python tools/socom.py source sql "SELECT ..."          # questions about the ope
 python tools/socom.py source plan validate --plan build/source-plans/<slug>.json --check --fill-annotations
 python tools/socom.py source plan validate --plan build/source-plans/<slug>.json --check
 python tools/socom.py source plan draft --check build/source-plans/<slug>.json
+python tools/socom.py provider archive --lib <path> [--member <name>] [--format text]   # provider plans
 ```
 
 `<slug>` is the item ID with `:` replaced by `-`. The draft decides every
@@ -172,19 +173,31 @@ validation refuses. For an inferred reservation the skeleton and the draft
 carry a `reservation` row with status `inferred`, which validation refuses
 too.
 
+`provider archive` lists an external provider library (`ar` format: `.a`,
+CodeWarrior `.LIB`) read-only: each member's header name as the archive
+writes it (16 bytes, so an archiver without a long-name table truncates it;
+`possibly_truncated` flags a full header field or a longer source file
+symbol), its resolved name, size, SHA-256, sections, the archive symbol
+table's entries for it, and its defined (binding, type, section, value,
+size) and undefined ELF symbols. `--member` keeps the named members. It
+writes nothing and names the archive by file name, size and SHA-256 only;
+never copy the archive's path into a plan, note or other tracked file.
+
 Without `--check`, evidence and validate read `--graph`
 (`build/source-graph/graph.json` by default); the draft reads it unless
 `--from-elf` is given. They recompute its digest and refuse a graph that
 differs from the one the item was decomposed from. `--check` (evidence,
 validate) regenerates the graph from the ELF instead.
 
-### Draft rules (version 1)
+### Draft rules (versions 1 and 2)
 
-`source plan draft --item <item> --output <plan> [--rules 1]` writes a
-schema 2 plan. Each decided artifact is an entry `{artifact, confidence,
-basis, draft_rule}`; each owner row's confidence is its weakest entry's. The
-rules are conservative: when any condition fails the artifact stays open.
-Their exact statement is in `tools/_socom/source_draft.py`.
+`source plan draft --item <item> --output <plan> [--rules 1|2]` writes a
+schema 2 plan under version 2 unless `--rules` says otherwise. Each decided
+artifact is an entry `{artifact, confidence, basis, draft_rule}`; each owner
+row's confidence is its weakest entry's. The rules are conservative: when
+any condition fails the artifact stays open. Their exact statement is in
+`tools/_socom/source_draft.py`. Version 2 extends `A-between` and
+`P-gnu-object` (marked *v2* below); every other rule is version 1's.
 
 | Rule | Decides | Confidence |
 | --- | --- | --- |
@@ -193,10 +206,10 @@ Their exact statement is in `tools/_socom/source_draft.py`.
 | `A-sinit`, `A-unnamed`, `A-dwarf-static` | `__sinit_<file>`/`.p__sinit_<file>`, an `@unnamed@<file>@` tag, a DWARF static of one CU | high |
 | `A-file-string` | a `__FILE__` literal of the unit, or a function whose relocations reach one | high |
 | `A-local-block` | the object cluster (LOCAL relocations, section symbols, LOCAL symbol order) names exactly this unit, strong | high |
-| `A-between` | an unanchored function strictly between the nearest anchors of its window, both one unit, no GNU object start or other unit's candidate between; a WEAK or binding-13 instance only when everything referencing it is anchored to that unit | medium |
+| `A-between` | an unanchored function strictly between the nearest anchors of its window, both one unit, no GNU object start or other unit's candidate between; a WEAK or binding-13 instance only when everything referencing it is anchored to that unit. *v2*: also such an instance that other units call, when it is a single copy (no other function has one of its names) and no function between the two anchors is provider-proven or has a strong or medium candidate of another unit | medium |
 | `D-referenced` | unanchored data whose referencing functions (followed through data) are all decided for one unit | medium |
 | `C-fill` | the graph's alignment padding: the compiler-generated row | high |
-| `P-gnu-object` | a function or gap of a GNU object of the plan's library: one provider row per object | high, medium past an uncertain object end |
+| `P-gnu-object` | a function or gap of a GNU object of the plan's library: one provider row per object. *v2*: when a DWARF compile unit of the object has a project-toolchain (Metrowerks) producer, such as crt0.s's `Metrowerks MW GAS R5900 Assembler`, the row records `archive_member.linked: "object"` | high, medium past an uncertain object end |
 | `P-gnu-data` | data in a GNU object's cluster (high) or referenced only by its functions (medium) | high / medium |
 | `O-provisional` (row) | exactly one file under `src/` has the unit's exact name: `provisional_file` and `workspace_path` | - |
 | `O-path` (row) | no file of that name in any case; the single `Z:\dev` path names an existing module directory | - |
@@ -207,22 +220,46 @@ WEAK or inline instances referenced from other units, conflicting anchors,
 non-padding gaps, MW-compiled provider members (no GNU object) and provider
 units in authored scopes stay open.
 
-`source plan draft --check <plan>` re-drafts under the plan's
-`draft.rules_version` (or `--rules`) and refuses any entry, owner row or
-header-emit row that keeps a `draft_rule` but differs from the rules (or
-that the rules leave open). To decide such a row differently, remove its
+`source plan draft --check <plan>` re-drafts under the rules the plan was
+drafted with (its `draft.rules_version`; a plan with no recorded version
+predates version 2 and is checked under 1), or under `--rules`, and refuses
+any entry, owner row or header-emit row that keeps a `draft_rule` but
+differs from the rules (or that the rules leave open). A version 1 plan
+therefore keeps checking exactly as it did; `--rules 2` shows what version 2
+would decide (as overrides). To decide such a row differently, remove its
 `draft_rule`: it becomes hand-written. The report counts `drafted_entries`,
 `hand_entries` and `open_rows`, and lists `overrides` (artifacts the rules
-decide that the plan places elsewhere). The scrutinizer reviews the
-hand-written rows and the overrides; the drafted rows are proven.
+decide that the plan places elsewhere), `owner_changes` and
+`header_emit_changes`. Those list every row that differs from the fresh
+draft: a row whose `draft_rule` was removed (`draft_rule-removed`), a row
+the draft left open that the plan decided (`decided-open-row`), changed
+fields (`fields` maps each, an `archive_member` key as
+`archive_member.<key>`, to its draft and plan value), a plan row the draft
+has no row for (`hand-row`) and a draft row the plan dropped (`dropped`).
+The scrutinizer reviews the hand-written rows, the overrides and these
+changes without regenerating the draft; the drafted rows are proven.
 
-On the reference graph `837c03c4...` the draft decides 88 of segment 001's
+On the reference graph `837c03c4...` version 1 decides 88 of segment 001's
 89 artifacts (open: `0x142130`, between main.cpp and gcc_wrapper.c), 144 of
 segment 017's 147 (open: the inline `GetBBox` and `Rotate` copies other units
 call, and `zAnimQuadAlignTick` on the tick/load boundary; the
 `zanim_load.cpp` row needs its path), and the 31 alignment gaps of the MW
 runtime plan (its 64 MW-compiled members stay open). Every decided artifact
 agrees with the planners' hand plans of these items.
+
+Version 2 was measured on the 322 WEAK or binding-13 functions that DWARF
+places (`A-dwarf-cu` or `A-dwarf-header`). Every one is a single copy. 128
+are provider-proven (MSL), so the rule never reaches them. Of the 194 in
+authored code, 172 lie strictly between two anchors of one unit with
+nothing of another unit between, and all 172 belong to that unit (68 of
+them are called from other units, so version 1 would leave them open);
+none lies between another unit's anchors. The other 22 sit at a unit edge
+(16 belong to the unit before, 6 to the unit after) and stay open. Over the
+46 segment plans version 2 decides 17,013 artifacts and leaves 2,602 open,
+against version 1's 16,671 and 2,944 (342 more decided, in 33 segments).
+It decides segment 017's `GetBBox` and `Rotate` copies for
+`zanim_cmd_tick.cpp`, as its planner did by hand, and gives crt0's row
+`linked: "object"`; the 13 provider plans' counts are unchanged.
 
 ### Plan schema `socom-source-owner-plan` v2
 
@@ -279,6 +316,10 @@ written and may not use them. The values below are illustrative.
   ],
   "unresolved": [{"artifact": "socom:gap:0x1421a0", "reason": "fill between objects; no owner evidence"}],
   "retire_files": [{"path": "src/Apps/FTS/empty.cpp", "reason": "empty, no evidence", "evidence": ["0 bytes"]}],
+  "contradictions": [
+    {"artifact": "socom:function:0x140d00", "provisional_file": "src/Apps/FTS/main.cpp", "line": 42, "kind": "signature",
+     "elf_evidence": ["main 0x140d00 reads $a0/$a1: int main(int, char **)"]}
+  ],
   "notes": [],
   "reservation": {"directories": ["src/Apps/FTS"], "status": "confirmed", "reason": "main.cpp's Z:\\dev module", "evidence": ["Z:\\dev\\Apps\\FTS\\main.cpp"]},
   "draft": {"rules_version": 1, "graph_sha256": "<graph>", "decided": 88, "open": 1, "rules": {"A-dwarf-cu": 17}}
@@ -303,7 +344,17 @@ Schema 2 additions (each optional):
 - a provider header: a header-emit row with `library` and a header spelled
   `<name>` (MSL `<string>`). The owner's file emits the template or inline
   body by including it, so its annotation is an `emits` edge in the owner's
-  workspace file instead of `defines`; no workspace header is written.
+  workspace file instead of `defines`; no workspace header is written;
+- `contradictions`: each place where existing provisional source disagrees
+  with what the ELF decides, as `{artifact, provisional_file, line, kind,
+  elf_evidence}`. The artifact lies in the plan's slice; `provisional_file`
+  names an existing file under `src/` exactly (checked at its new path once
+  the apply moved it; a retired one is accepted); `line` is a line of that
+  file or null for a file-level contradiction; `kind` is a lowercase slug
+  (`defined-elsewhere`, `signature`, `missing`, ...); `elf_evidence` lists
+  the ELF evidence lines. Plans written before the field record
+  contradictions as `notes` lines starting `contradiction:`, which stay
+  valid (the report notes them).
 
 `reservation` is optional, and only a segment plan has one. It is required
 when the apply's reservation is inferred.
@@ -312,6 +363,11 @@ when the apply's reservation is inferred.
 
 `source plan validate` refuses a plan unless all of the following hold:
 
+- no string of the plan (key or value, anywhere) holds a control character
+  U+0000-U+001F, with no exception: a path whose `\apps` went through a
+  string escape holds BEL (U+0007) and `pps` instead, which is corrupted
+  evidence.
+  Each is reported by its JSON path (`$.owners[0].evidence[1]`);
 - its work item is a stage 4 plan item, and its scope, graph digest and slice
   digest are the item's. The graph's own digest must hold, and the slice
   regenerated from the graph must equal the decomposed slice;
@@ -357,6 +413,8 @@ when the apply's reservation is inferred.
   first (and reports `mutation_performed: true` when that changes the file);
 - a `retire_files` row names an existing file under `src/` exactly that no
   row cites, with a reason and evidence. The apply deletes it with history;
+- a `contradictions` row (schema 2) has exactly its five fields as above,
+  and is not listed twice;
 - in a segment plan, every authored row's `workspace_path` and
   `provisional_file` lie in a directory the plan's apply reserves, because
   the apply may write (or move from) nowhere else. A plan that places an
@@ -369,10 +427,18 @@ when the apply's reservation is inferred.
   `reservation`.
 
 The report also gives the `reservation` the plan's owners were checked
-against. It also lists review notes: owned artifacts whose classification
+against and, for a segment plan, `reservation_shared_with`: for each of
+those directories, the other segment apply items whose reservation is the
+same directory, contains it or lies inside it (their current `resources`).
+Such applies write the same directories, so the coordinator runs them one
+at a time. It also lists review notes: owned artifacts whose classification
 differs from the graph's candidate or that have no candidate (`unknown`),
-uncertain GNU object ends, and provider rows outside a provider plan. These
-are for the scrutinizer and do not make the plan invalid.
+uncertain GNU object ends, provider rows outside a provider plan, owned
+inline (binding 13) or WEAK functions that no header-emit row emits (their
+owner's file defines them), and `contradiction:` notes that a new plan
+records in `contradictions`. A plan with contradictions counts them in
+`summary.contradictions`. These are for the scrutinizer and do not make
+the plan invalid.
 
 ## Query cache (`source sql`)
 

@@ -21,7 +21,10 @@ plan validate` (--fill-annotations, then --check) and `source plan draft
 decide it differently (then remove the rule and give your evidence). Own
 every slice artifact once or list it unresolved with the reason; never
 guess an owner to close a row. Confirm or correct an inferred apply
-reservation in the plan's `reservation` row.
+reservation in the plan's `reservation` row. Record each contradiction with
+existing provisional source in the plan's `contradictions` rows, not in
+notes. List a provider archive's members and symbols with `provider archive
+--lib <path>`; never write the archive's path into a plan or note.
 
 Return the full proposed topology, alternatives, evidence, unresolved
 artifacts, and the plan SHA-256. Do not edit source, Ghidra, tracker state, or
