@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3067,
+  "revision": 3070,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -149295,7 +149295,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-020",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T18:33:10Z",
+        "expires_at": "2026-10-31T20:33:10Z",
+        "heartbeat_at": "2026-10-31T18:33:10Z",
+        "owner": "socom-source-owner-mapper-w2b"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -149317,7 +149322,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 020 (0x1d81a0-0x1dd518, 100 functions)"
     },
     {
@@ -149555,7 +149560,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-022",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T18:33:19Z",
+        "expires_at": "2026-10-31T19:33:19Z",
+        "heartbeat_at": "2026-10-31T18:33:19Z",
+        "owner": "socom-source-owner-mapper-w2e"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -149577,7 +149587,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 022 (0x1e8750-0x1f25b8, 155 functions)"
     },
     {
@@ -151615,16 +151625,17 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-037.json sha256:d35fa9bd3c2e868c53b015be5ad6875308f8579b358c058b8ea44e0a91aa987f; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w3c",
+        "submitted_at": "2026-10-31T18:33:21Z",
+        "summary": "x14 fix: 10 CAiS* state dtor header emits -> src/gamez/zAI/zai.h (lines cited); note: CAiSCorpse/CAiSReload have no declaring header; reservation corrected +src/gamez/zAI. Placements unchanged"
+      },
       "id": "socom:work:source-segment-037",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T18:32:31Z",
-        "expires_at": "2026-10-31T19:32:31Z",
-        "heartbeat_at": "2026-10-31T18:32:31Z",
-        "owner": "socom-source-owner-mapper-w3c"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -151646,7 +151657,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 037 (0x2e4ab0-0x2ea400, 76 functions)"
     },
     {
