@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3070,
+  "revision": 3075,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -149291,16 +149291,17 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-020.json sha256:6b0fb17cdb93e4a9c8cf78a42603c30dd75ef130d4ae796f2c04f8788ffb23fb; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w2b",
+        "submitted_at": "2026-10-31T18:34:00Z",
+        "summary": "revision after x11: + <vector> emit for LOCAL swap<CKey> 0x1d9740, + <iterator> emit for LOCAL std::__advance 0x1daeb0; owners 4, unresolved 19, retire 0, open rows decided 25 of 44, 10 hand header emits, 14 contradictions"
+      },
       "id": "socom:work:source-segment-020",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T18:33:10Z",
-        "expires_at": "2026-10-31T20:33:10Z",
-        "heartbeat_at": "2026-10-31T18:33:10Z",
-        "owner": "socom-source-owner-mapper-w2b"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -149322,7 +149323,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 020 (0x1d81a0-0x1dd518, 100 functions)"
     },
     {
@@ -149423,8 +149424,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-021.json sha256:448ef548a7af412935722ac6edc8da8cc6067ea5cff77434a7aa9bb4160d5b1b; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w2a",
+        "submitted_at": "2026-10-31T18:34:47Z",
+        "summary": "rework after x11: ODR header emits NullNode__5CBodyCFv -> src/gamez/zBody/zbody.h:16 and RTStack::Top -> src/rt/rtstack.h:12 (reservation +src/rt); RTList copies used by 2 units get no emit (no header declares RTList, noted); +3 header contradictions; otherwise unchanged: owners 6 authored + fill, unresolved 0, retire 0, open rows decided 34 of 34"
+      },
       "id": "socom:work:source-segment-021",
       "kind": "source-plan-segment",
       "lease": null,
@@ -149449,7 +149456,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 021 (0x1dd520-0x1e8748, 167 functions)"
     },
     {
@@ -149556,16 +149563,17 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-022.json sha256:e8fd075398c7f78c2a43342aaa5a49630666beac79e01070aaf8720999fac960; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w2e",
+        "submitted_at": "2026-10-31T18:34:13Z",
+        "summary": "fix of x11 rejection (header emits only): +2 ODR inline emits (0x1ec560 -> src/gamez/zMath/zmath.h, 0x1f2580 -> src/gamez/zSave/zsave.h), ~CEntityList 0x1ef880 no emit (2 units, no header declares CEntityList), reservation +src/gamez/zSave; owners 9 authored + 1 compiler-generated, unresolved 18, retire 0, open rows decided 77"
+      },
       "id": "socom:work:source-segment-022",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T18:33:19Z",
-        "expires_at": "2026-10-31T19:33:19Z",
-        "heartbeat_at": "2026-10-31T18:33:19Z",
-        "owner": "socom-source-owner-mapper-w2e"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -149587,7 +149595,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 022 (0x1e8750-0x1f25b8, 155 functions)"
     },
     {
@@ -150685,23 +150693,33 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-030.json sha256:19bdd1e339e6e237a2d851d2027a59a251aec05252dd4a34492eda4d0440ded3; validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-w3a",
-        "submitted_at": "2026-10-31T13:20:29Z",
-        "summary": "owners 6 (5 authored incl. hand rows pickup_main.cpp and seal_ai.cpp; 1 compiler-generated), unresolved 1, retire 0, open rows decided 41 of 41; reservation corrected (+src/gamez/zEntity); 1 D-referenced override to unresolved (CEntity::deletedId); 6 hand header emits"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-030",
       "kind": "source-plan-segment",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-w3a",
+            "submitted_at": "2026-10-31T13:20:29Z",
+            "summary": "owners 6 (5 authored incl. hand rows pickup_main.cpp and seal_ai.cpp; 1 compiler-generated), unresolved 1, retire 0, open rows decided 41 of 41; reservation corrected (+src/gamez/zEntity); 1 D-referenced override to unresolved (CEntity::deletedId); 6 hand header emits"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-030.json sha256:19bdd1e339e6e237a2d851d2027a59a251aec05252dd4a34492eda4d0440ded3; validate --check ok; draft --check ok"
+          ],
+          "reason": "(1) Missing implicit-member header emit: socom:function:0x259160 __dt__11CAiSRescuedFv (binding 13, owned by the hand row seal_ai.cpp) is the implicit dtor of CAiSRescued. The provisional src/gamez/zAI/zai.h:482 declares class CAiSRescued : public CAiState with no user-declared ctor/dtor, and the class is used across units: CAiSRescued symbols are referenced from seal_unit.cpp and seal_aistate.cpp (segment 036) as well as seal_ai.cpp. Per the brief (precedent 015 zai.h), it emits to zai.h, and the sibling plans already do this for the other CAiState-derived inline dtors (031: CAiSPursue, CAiSAnimate, CAiSGrenade, CAiSDeploy, CAiSAction; 036: CAiSBreach, CAiSScript, CAiSFollow, CAiSRush; 037: CAiSFlee, CAiSTarget, CAiSShotAt, ...). Fix: decide --header-emit src/gamez/zAI/zai.h --reason inline for 0x259160, and correct the reservation to add src/gamez/zAI with evidence (the apply writes the emits edge there). Other no-emit copies are fine: LOD (zrender.h) is used only by char_type.cpp; CCharacterGearList, CCharacterModelCache, CCharTypeVec, CPickupList and CCompass have no provisional declaration and only their own unit's __sinit references them; CanAttack/CanScan are explicit inline members; the @272@ thunks are compiler-generated. Checked OK: hash 19bdd1e3, validate/draft --check; pickup_main.cpp medium (sinit 67 and LOCAL block 4491-4494 between char_type.cpp and seal.cpp; the kept CPickupList dtor 0x24d640 is referenced only by __sinit_pickup_main.cpp; the CPickup .sdata 0x474ef8-0x474f00 is in that window; path as in 076; zEntity reservation correction evidenced); CZSealBody heartbeat 0x24d6e0-0x24d840 low before seal.cpp's OpenHeartbeatSounds, with its statics at seal.cpp's .data/.sbss head and read by seal.cpp's decided members; deletedId 0x44cd78 unresolved is correct (between con_ps2.cpp's @772 and segment 022's @1116, beside invalidId/unknownId in other items, so no unit's run strictly contains it, and 022 is unplanned); D-referenced GLOBAL m_rdr_file is at char_type.cpp's .sbss head; the hand MSL emits (<algorithm>, <list>, <vector>) are correct.",
+          "rejected_at": "2026-10-31T18:34:44Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x12"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 030 (0x247880-0x2591d8, 170 functions)"
     },
     {
