@@ -288,17 +288,19 @@ Without `--check`, evidence and validate read `--graph`
 differs from the one the item was decomposed from. `--check` (evidence,
 validate) regenerates the graph from the ELF instead.
 
-### Draft rules (versions 1, 2 and 3)
+### Draft rules (versions 1 to 4)
 
-`source plan draft --item <item> --output <plan> [--rules 1|2|3]` writes a
-schema 2 plan under version 3 unless `--rules` says otherwise. Each decided
+`source plan draft --item <item> --output <plan> [--rules 1|2|3|4]` writes a
+schema 2 plan under version 4 unless `--rules` says otherwise. Each decided
 artifact is an entry `{artifact, confidence, basis, draft_rule}`; each owner
 row's confidence is its weakest entry's. The rules are conservative: when
 any condition fails the artifact stays open. Their exact statement is in
 `tools/_socom/source_draft.py`. Version 2 extends `A-between` and
 `P-gnu-object` (marked *v2* below); version 3 adds provider-scope unit
-rules and LOCAL section containment (marked *v3*); every other rule is
-version 1's.
+rules and LOCAL section containment (marked *v3*); version 4 decides
+unanchored runs between two units by ELF regularities, adds suggestions
+and header emits for instances without a header compile unit (marked
+*v4*); every other rule is version 1's.
 
 | Rule | Decides | Confidence |
 | --- | --- | --- |
@@ -308,21 +310,109 @@ version 1's.
 | `A-file-string` | a `__FILE__` literal of the unit, or a function whose relocations reach one | high |
 | `A-local-block` | the object cluster (LOCAL relocations, section symbols, LOCAL symbol order) names exactly this unit, strong | high |
 | `A-between` | an unanchored function strictly between the nearest anchors of its window, both one unit, no GNU object start or other unit's candidate between; a WEAK or binding-13 instance only when everything referencing it is anchored to that unit. *v2*: also such an instance that other units call, when it is a single copy (no other function has one of its names) and no function between the two anchors is provider-proven or has a strong or medium candidate of another unit | medium |
+| `A-kept-copy` *v4* | R1: every function of a span from a caller to an inline/WEAK copy placed after it (spans sharing a function merged) takes the one unit decided inside the span | medium |
+| `A-vtable-key` *v4* | R3: the one own non-inline virtual of an anchored GLOBAL vtable that no rule places in another unit is the vtable's unit; an unanchored GLOBAL vtable whose own non-inline virtuals are all decided for one unit is that unit | medium |
+| `A-contiguity` *v4* | R4: a function strictly between two functions decided for the same unit | medium |
 | `D-referenced` | unanchored data whose referencing functions (followed through data) are all decided for one unit | medium |
-| `C-fill` | the graph's alignment padding: the compiler-generated row | high |
+| `C-fill` | the graph's alignment padding: the compiler-generated row. *v4*: also zero (or `.bss`) fill of any size, without labels or relocations, that ends exactly at a GNU object start or LOCAL section run start and is smaller than that address's alignment | high |
 | `P-gnu-object` | a function or gap of a GNU object of the plan's library: one provider row per object. *v2*: when a DWARF compile unit of the object has a project-toolchain (Metrowerks) producer, such as crt0.s's `Metrowerks MW GAS R5900 Assembler`, the row records `archive_member.linked: "object"` | high, medium past an uncertain object end |
 | `P-gnu-data` | data in a GNU object's cluster (high) or referenced only by its functions (medium). *v3*: data in no cluster but inside one GNU object's LOCAL section run (`gnu_objects[].sections`) is that object's before the "referenced only by" fallback (high; medium when the run was cut short); a cluster and a run naming different objects leave it open | high / medium |
-| `P-gnu-section` *v3* | a non-padding gap inside one GNU object's LOCAL section run whose every relocation comes from that object's functions through its own LOCAL section symbols | high |
+| `P-gnu-section` *v3* | a non-padding gap inside one GNU object's LOCAL section run whose every relocation comes from that object's functions through its own LOCAL section symbols. *v4*: or from data inside the object's own LOCAL section runs | high |
 | `P-mw-unit` *v3* (row) | in a provider plan, a Metrowerks-compiled provider unit of the plan's library (a provider path, or a known name such as `989snd.c`) whose artifacts `A-dwarf-cu` .. `A-local-block`, `A-between` or `D-referenced` decide: a provider row with the unit, its single provider path, `archive_member.object` `<stem>.o` and `linked: "unknown"`. The provider-scope `A-between` accepts functions the graph proves of that same library, and `D-referenced` data that is not another library's | - (entries keep their rule) |
 | `O-provisional` (row) | exactly one file under `src/` has the unit's exact name: `provisional_file` and `workspace_path` | - |
 | `O-path` (row) | no file of that name in any case; the single `Z:\dev` path names an existing module directory | - |
 | `H-dwarf-header` | a decided authored function's header compile unit: an existing `Z:\dev` header under its module directory, or a provider header `<name>` with its library; reason `template`, `weak` or `inline` | - |
+| `H-template-family` *v4* | an owned MSL template instance (inline or WEAK; MSL-classified or `std`/`Metrowerks`-qualified) without a header compile unit of its own: the one MSL header `<name>` that every instance of its class (or function) template with a header compile unit names. Several headers, or no such instance, leave the emit open with that reason | - |
+| `H-class-header` *v4* | an owned implicit special member (`__ct__`, `__dt__`, `__as__`; inline or WEAK) of an authored class without a header compile unit of its own: the one existing workspace header the header compile units of the class's other members name. A class whose members have none is defined in its source file (no emit); a provisional header declaration is not evidence | - |
 
-Boundary functions between two units, functions with no anchor on one side,
-WEAK or inline instances referenced from other units, conflicting anchors,
-non-padding gaps outside a GNU section run, MW-compiled provider members
-without a unit anchor (no GNU object) and provider units in authored scopes
-stay open.
+Boundary functions between two units that no version 4 rule reaches,
+functions with no anchor on one side, conflicting anchors, non-padding gaps
+outside a GNU section run, MW-compiled provider members without a unit
+anchor (no GNU object) and provider units in authored scopes stay open.
+
+Version 4 rests on three regularities of the reference ELF, measured on the
+graph `7bd4e540...` with the version 3 anchors (`A-dwarf-cu` ..
+`A-local-block`) as ground truth; each rule is a proof given its
+regularity, which has no counterexample:
+
+- R1 kept copy: no reference to an inline (binding 13) or WEAK function
+  comes from a function of another object placed before it (0 of 2,609
+  cross-unit references between anchored functions; 496 same-unit
+  references run forwards). The linker keeps the first definer's copy, so
+  a caller placed before the copy is in the copy's object, and contiguity
+  puts everything between them there too. A caller placed after the copy
+  proves nothing.
+- R3 key function: a GLOBAL vtable is emitted with its key function, one of
+  its class's own non-inline virtuals (all 162 GLOBAL vtables have one; the
+  75 without one are binding 13; 11 of 11 anchored single-candidate pairs
+  agree; an anchored vtable's unit is among its anchored candidates' units
+  78 of 78 times). A vtable decided by `D-referenced` does not count: 3 of
+  56 anchored vtables are read only by another unit's inline ctor/dtor
+  copies.
+- R4 contiguity: an object's `.text` is contiguous (0 interleavings among
+  2,836 anchored functions).
+
+Each rule needs an authored unit and, for every function it decides or
+spans, no GNU object start, no conflicting anchors, no provider-proven
+function and no strong or medium candidate of another unit. The three run
+to a fixed point after `A-between`; `D-referenced` then runs on the result
+(it feeds nothing back). On the whole graph no kept-copy span holds two
+decided units and no anchored vtable has all its candidates elsewhere.
+
+R2 (a WEAK copy closes its object) is not a rule. It has a counterexample:
+`swap<Ui>` 0x172ac0, WEAK and DWARF-placed in database.cpp, precedes
+database.cpp's GLOBAL `LoadWorld` 0x172b60 (1 of 162 anchored WEAK
+functions). And none of its positive uses excludes a third object: a
+GLOBAL after a unit's WEAK tail may start an unnamed object (segment 027
+has one), and a WEAK copy after a unit's last anchor may belong to an
+object without GLOBAL functions. It only feeds the `S-weak-order`
+suggestion.
+
+#### Suggestions (version 4)
+
+Every still-open function or data row of an authored or data scope may
+carry `suggest`: `{"owner": "<unit>", "rule": "<rule>", "confidence":
+"medium|low", "basis": "<one line>"}`. A suggestion is never a decision:
+the planner accepts it (`source plan decide`) or decides otherwise, and
+`draft --check` ignores suggestions. `draft.suggested` counts them.
+
+| Suggestion | Owner | Confidence |
+| --- | --- | --- |
+| `S-sole-referencer` | an inline/WEAK copy every referencing function of which (through data, so its `__sinit` and vtables count) is decided for one unit; for data, every referencing function is decided or suggested for one unit | medium when the unit flanks the copy's run (data: the weakest suggestion), else low |
+| `S-class-flank` | the function's mangled class has decided members in exactly one of the two flanking units | medium when the class has no decided member elsewhere, else low |
+| `S-weak-order` | a WEAK copy with only inline/WEAK copies between it and the left unit's last decided function: the left unit; a GLOBAL after such a WEAK copy: the right unit, unless an unnamed object lies between | low |
+
+Suggestions that disagree keep the first in that order at low confidence
+and name the others in `basis`. On the wave-1 plans (segments 013, 015,
+018, 019, 023, 027 and 040), 30 of the 86 suggestions on rows the v4 draft
+leaves open name the planner's owner and none names another; the other 56
+are rows the planners kept unresolved.
+
+`draft.open_header_emits` lists decided instances whose emit no rule
+resolves; version 4 adds `draft.open_header_emit_reasons` (artifact ->
+why).
+
+Version 4 was measured on the graph `7bd4e540...`. Over the 46 segment
+plans it leaves 2,285 artifacts open against version 3's 2,604
+(`A-kept-copy` 297, `A-contiguity` 7, `A-vtable-key` 4, then
+`D-referenced` 10 and `P-gnu-section` 1 more); 1,043 open rows carry a
+suggestion. The 9 segments not yet planned (014, 016, 020, 021, 022, 024,
+025, 026, 039) go from 1,124 to 995 open. Every decision agrees with the
+23 existing plans (8,369 artifacts, 0 disagreements), including the 43
+rows of the wave-1 plans that the three new rules decide, all of which
+their planners had decided the same way by hand. It adds 605
+`H-template-family` and 6 `H-class-header` emits; 138 emits stay open with
+a reason (119 because no instance of the template has a header unit, e.g.
+`std::deque`, `std::__list_imp`, `std::remove_copy`; 19 header units with
+no existing workspace header). The emits agree with all 17 of accepted
+segment 001's; version 4 adds two that 001 lacks, the implicit
+destructors of `CMenuState` 0x140940 (`fts_state.h`) and `CSaferStr`
+0x140ab0 (`zutil.h`), whose other members' header units name those
+headers (001 is a version 1 plan, so its check is unchanged). Of the
+provider plans, SCE goes from 4 to 0 open (`P-gnu-section` 3, `C-fill`
+1: 0x15b0cc), the unidentified GNU objects from 2 to 1 (`C-fill`
+0x163ddc), newlib from 3 to 2 (`P-gnu-section` 0x466e60) and Medius from
+122 to 119.
 
 Version 3 was measured on the graph `7bd4e540...`. It decides 84 of
 989snd's 110 artifacts against version 2's 26 (`989snd.c` as one
@@ -345,7 +435,11 @@ predates version 2 and is checked under 1), or under `--rules`, and refuses
 any entry, owner row or header-emit row that keeps a `draft_rule` but
 differs from the rules (or that the rules leave open). A version 1 plan
 therefore keeps checking exactly as it did; `--rules 2` shows what version 2
-would decide (as overrides). To decide such a row differently, remove its
+would decide (as overrides). Likewise every plan drafted under version 3
+keeps checking under version 3 (versions 1 to 3 draft exactly as before
+version 4), and `--rules 4` lists version 4's new decisions as overrides
+for the reviewer; a planner who wants them redrafts or accepts them by
+hand. To decide such a row differently, remove its
 `draft_rule`: it becomes hand-written. The report counts `drafted_entries`,
 `hand_entries` and `open_rows`, and lists `overrides` (artifacts the rules
 decide that the plan places elsewhere), `owner_changes` and

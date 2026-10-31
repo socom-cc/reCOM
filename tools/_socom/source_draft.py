@@ -63,8 +63,8 @@ H-dwarf-header  a decided authored function whose header compile unit names a
                 (``<name>`` and its library): reason ``template`` (template
                 arguments), ``weak`` (WEAK) or ``inline`` (binding 13).
 
-Rules version 2 (the default; a plan is checked under the version it was
-drafted with) changes two rules and keeps every other one:
+Rules version 2 (a plan is checked under the version it was drafted with)
+changes two rules and keeps every other one:
 
 A-between       a WEAK or binding-13 instance whose referrers are not all
                 anchored to the unit is decided too when it is a single copy
@@ -83,8 +83,8 @@ P-gnu-object    the provider row of a GNU object one of whose DWARF compile
                 object was assembled or compiled with the project, not taken
                 from an archive.
 
-Rules version 3 (the default) adds provider-scope rules and LOCAL section
-containment, and keeps every other rule:
+Rules version 3 adds provider-scope rules and LOCAL section containment, and
+keeps every other rule:
 
 P-mw-unit       (row) in a provider plan, a Metrowerks-compiled provider unit
                 of the plan's library (a provider path or a known unit name,
@@ -107,6 +107,84 @@ P-gnu-data      data the graph places in no GNU object's cluster but inside
 P-gnu-section   a non-padding gap inside one GNU object's LOCAL section run
                 whose every relocation comes from that object's functions
                 through its own LOCAL section symbols is that object's (high).
+
+Rules version 4 (the default) decides unanchored runs between two units by
+three ELF regularities that have no counterexample on the reference graph
+``7bd4e540``, iterates them to a fixed point, keeps every version 3 rule, and
+adds suggestions and header-emit rules.  The regularities (``_v4_functions``):
+
+R1 kept copy    no reference to an inline (binding 13) or WEAK function comes
+                from a function of another object placed before it: the
+                linker keeps the first definer's copy (0 of 2609 cross-unit
+                references between anchored functions; 496 same-unit
+                references run forwards).  So a function calling a copy placed
+                after it is in that copy's object, and so is everything in
+                between.
+R3 key function a GLOBAL vtable is emitted with its key function, one of its
+                class's own non-inline virtuals (every one of the 162 GLOBAL
+                vtables has one; the 75 without are binding 13; 11 of 11
+                anchored single-candidate pairs agree, and an anchored
+                vtable's unit is among its anchored candidates' units 78 of
+                78 times).
+R4 contiguity   an object's ``.text`` is contiguous (0 interleavings among
+                2836 anchored functions).
+
+A-kept-copy     (medium) R1: every function a call to a later copy spans
+                (spans sharing a function merged) takes the one unit decided
+                inside the span.
+A-vtable-key    (medium) R3: the one own non-inline virtual of an anchored
+                GLOBAL vtable that no rule decides for another unit is the
+                vtable's unit; an unanchored GLOBAL vtable whose own non-inline
+                virtuals are all decided for one unit is that unit.  A vtable
+                ``D-referenced`` decides does not count (3 of 56 anchored
+                vtables are read only by another unit's inline ctor/dtor
+                copies).
+A-contiguity    (medium) R4: a function strictly between two functions decided
+                for the same unit is that unit's.
+Each needs an authored unit and, for every function it decides or spans, no
+GNU object start, no conflicting anchors, no provider-proven function and no
+strong or medium candidate of another unit; ``D-referenced`` then runs on the
+fixed point (it feeds nothing back).
+
+R2 (a WEAK copy closes its object) is not a rule: ``swap<Ui>`` 0x172ac0, WEAK
+and DWARF-placed in database.cpp, precedes database.cpp's GLOBAL
+``LoadWorld`` 0x172b60 (1 of 162 anchored WEAK functions), and every positive
+use of it could be confused with an unnamed object between the two units
+(segment 027 has one).  It only feeds ``S-weak-order``.
+
+Suggestions (``suggest`` on an open row: ``{owner, rule, confidence,
+basis}``; never a decision, ``--check`` ignores them):
+S-sole-referencer  an open inline/WEAK copy every referencing function of
+                   which (through data, including its ``__sinit``) is decided
+                   for one unit; medium when that unit flanks the copy's run.
+                   For open data: every referencing function is decided or
+                   suggested for one unit (the weakest confidence).
+S-class-flank      the function's mangled class has decided members in exactly
+                   one of the two flanking units (medium when the class has no
+                   decided member elsewhere).
+S-weak-order       a WEAK copy with only inline/WEAK copies between it and the
+                   left unit's last decided function (left unit), or a GLOBAL
+                   after such a WEAK copy (right unit, unless an unnamed object
+                   lies between); low.
+Disagreeing suggestions keep the first in that order, at low confidence.
+
+C-fill          also zero (or ``.bss``) fill of any size, without labels or
+                relocations, that ends exactly at a GNU object start or LOCAL
+                section run start and is smaller than that address's
+                alignment (0x15b0cc: 52 bytes before 256-aligned 0x15b100).
+P-gnu-section   also accepts relocations from data of the object's own LOCAL
+                section runs (SCE 0x446d70, newlib's lconv 0x466e60).
+H-template-family  an owned MSL template instance (inline or WEAK; an MSL
+                classification or a ``std``/``Metrowerks`` qualifier) without
+                a header compile unit of its own emits from the MSL header that
+                every other instance of its class (or function) template with
+                a header compile unit names (``<vector>``); disagreeing or no
+                such instances leave the emit open with that reason.
+H-class-header  an owned implicit special member (``__ct__``, ``__dt__``,
+                ``__as__``; inline or WEAK) of an authored class without a
+                header compile unit of its own emits from the one existing
+                workspace header that the header compile units of the class's
+                other members name.
 """
 
 from __future__ import annotations
@@ -119,6 +197,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Callable
 
 from .constants import REFERENCE_SHA256
+from .mwdemangle import demangle, readable_qualified, template_base
 from .source_facts import header_contributions
 from .source_graph import _is_source, path_library
 from .source_plan import (
@@ -139,14 +218,20 @@ from .source_plan import (
 )
 from .util import SocomError
 
-DRAFT_RULES_VERSION = 3
-RULES_VERSIONS = (1, 2, 3)
+DRAFT_RULES_VERSION = 4
+RULES_VERSIONS = (1, 2, 3, 4)
 # The version a plan without a recorded (known) draft rules version is checked under.
 UNVERSIONED_RULES = 1
 ANCHOR_ORDER = ("A-dwarf-cu", "A-dwarf-header", "A-sinit", "A-unnamed", "A-dwarf-static", "A-file-string", "A-local-block")
 FILL_ROW = "compiler-generated"
 # A DWARF producer of the project's own (Metrowerks) toolchain.
 TOOLCHAIN_PRODUCER = re.compile(r"^(?:Metrowerks|MW)\b")
+COPY_BINDINGS = frozenset({"WEAK", "13"})
+# Namespaces of MSL's template code (rules 4, H-template-family).
+MSL_NAMESPACES = frozenset({"std", "Metrowerks"})
+SPECIAL_MEMBERS = ("__ct__", "__dt__", "__as__")
+# Rules 4 suggestions, in the order a disagreement keeps.
+SUGGEST_ORDER = ("S-sole-referencer", "S-class-flank", "S-weak-order")
 
 
 def _hex_int(value: str) -> int:
@@ -217,6 +302,10 @@ class _Draft:
             for run in row.get("sections") or []
         )
         self.run_starts = [run[0] for run in self.runs]
+        # Where a GNU input section starts: an object's .text symbol or a LOCAL section run (rules 4, C-fill).
+        self.section_starts = set(self.gnu_starts) | {
+            _hex_int(run["start"]) for row in graph.get("gnu_objects") or [] for run in row.get("sections") or []
+        }
         # How many function artifacts carry each symbol name (a single copy has 1).
         self.copies: Counter[str] = Counter(
             item["name"] for row in self.rows if row["kind"] == "function" for item in row.get("names") or [] if item.get("name")
@@ -228,7 +317,10 @@ class _Draft:
             if len(units) == 1:
                 unit, rule, basis = min(found, key=lambda row: ANCHOR_ORDER.index(row[1]))
                 self.decided[identity] = (self._spelling(unit), rule, basis, "high")
+        self.anchored = dict(self.decided)
         self._between()
+        if self.rules >= 4:
+            self._v4_functions()
 
     # -- anchors -------------------------------------------------------------
 
@@ -352,6 +444,320 @@ class _Draft:
         library = self.unit_library.get(unit.casefold())
         return (None, library) if self.rules >= 3 and library else (None,)
 
+    # -- rules 4: unanchored runs ----------------------------------------------
+
+    def authored_unit(self, unit: str) -> bool:
+        return unit.casefold() not in self.unit_library
+
+    def mark(self, identity: str) -> str | None:
+        """The casefolded unit a function is decided for, ``?`` for conflicting anchors, else ``None``."""
+
+        decided = self.decided.get(identity)
+        if decided is not None:
+            return decided[0].casefold()
+        return "?" if len(self.conflict(identity)) > 1 else None
+
+    def admissible(self, identity: str, unit: str) -> bool:
+        """Rules 4: nothing about an undecided function contradicts ``unit`` (casefolded)."""
+
+        row = self.by_id[identity]
+        if row.get("gnu_object") or _hex_int(row["address"]) in self.gnu_starts or len(self.conflict(identity)) > 1:
+            return False
+        if strong_provider(row, self.unit_library) not in self.own_library(unit):
+            return False
+        return not any(
+            candidate["tu"].casefold() != unit and candidate["strength"] in ("strong", "medium")
+            for candidate in row.get("tu_candidates") or []
+        )
+
+    def _span_ok(self, functions: list[str], low: int, high: int, unit: str) -> bool:
+        """Every function of ``functions[low..high]`` is decided for ``unit`` or admissible; no GNU object starts after ``low``."""
+
+        for order in range(low, high + 1):
+            identity = functions[order]
+            if order > low and _hex_int(self.by_id[identity]["address"]) in self.gnu_starts:
+                return False
+            mark = self.mark(identity)
+            if mark != unit and (mark is not None or not self.admissible(identity, unit)):
+                return False
+        return True
+
+    def _v4_functions(self) -> None:
+        """Rules 4: ``A-kept-copy``, ``A-vtable-key`` and ``A-contiguity`` to a fixed point."""
+
+        self.copy_spans = self._copy_spans()
+        self.vtables = self._vtables()
+        changed = True
+        while changed:
+            changed = self._kept_copy() | self._vtable_key() | self._contiguity()
+
+    def _copy_spans(self) -> dict[str, list[tuple[int, int, tuple[str, str]]]]:
+        """Per code window, the merged spans (window orders) of calls to an inline/WEAK copy placed after the caller.
+
+        A span keeps its first call as the cited link; spans sharing a
+        function are one object, so they merge.
+        """
+
+        links: dict[str, set[tuple[int, int, str, str]]] = defaultdict(set)
+        for target, sites in self.users.items():
+            row = self.by_id.get(target)
+            if row is None or row["kind"] != "function" or not self.bindings(row) & COPY_BINDINGS:
+                continue
+            for site in sites:
+                caller = self.by_id[site]
+                if caller["kind"] == "function" and caller["window"] == row["window"]:
+                    low, high = self.window_order[site], self.window_order[target]
+                    if low < high:
+                        links[row["window"]].add((low, high, site, target))
+        spans: dict[str, list[tuple[int, int, tuple[str, str]]]] = {}
+        for window in sorted(links):
+            merged: list[tuple[int, int, tuple[str, str]]] = []
+            for low, high, site, target in sorted(links[window]):
+                if merged and low <= merged[-1][1]:
+                    merged[-1] = (merged[-1][0], max(merged[-1][1], high), merged[-1][2])
+                else:
+                    merged.append((low, high, (site, target)))
+            spans[window] = merged
+        return spans
+
+    def _kept_copy(self) -> bool:
+        changed = False
+        for window, spans in self.copy_spans.items():
+            functions = self.windows[window]
+            for low, high, (site, target) in spans:
+                marks = {self.mark(functions[order]) for order in range(low, high + 1)} - {None}
+                if len(marks) != 1 or "?" in marks:
+                    continue
+                unit = next(iter(marks))
+                if not self.authored_unit(unit) or not self._span_ok(functions, low, high, unit):
+                    continue
+                holder = next(functions[order] for order in range(low, high + 1) if self.mark(functions[order]) == unit)
+                spelled = self.decided[holder][0]
+                basis = (
+                    f"kept copy: {site} calls the inline/WEAK copy {target} placed after it, so {functions[low]}.."
+                    f"{functions[high]} are one object, which holds {holder} ({spelled})"
+                )
+                for order in range(low, high + 1):
+                    if functions[order] not in self.decided:
+                        self.decided[functions[order]] = (spelled, "A-kept-copy", basis, "medium")
+                        changed = True
+        return changed
+
+    def _contiguity(self) -> bool:
+        changed = False
+        for functions in self.windows.values():
+            previous = None
+            for order, identity in enumerate(functions):
+                mark = self.mark(identity)
+                if mark is None:
+                    continue
+                if (
+                    previous is not None
+                    and order - previous > 1
+                    and mark != "?"
+                    and self.mark(functions[previous]) == mark
+                    and self.authored_unit(mark)
+                    and self._span_ok(functions, previous, order, mark)
+                ):
+                    spelled = self.decided[functions[previous]][0]
+                    basis = f"contiguous .text: strictly between {functions[previous]} and {identity}, both decided {spelled}"
+                    for between in functions[previous + 1 : order]:
+                        self.decided[between] = (spelled, "A-contiguity", basis, "medium")
+                    changed = True
+                previous = order
+        return changed
+
+    def _vtables(self) -> list[tuple[str, str, list[str]]]:
+        """(GLOBAL vtable, its name, its class's own non-inline virtuals in address order)."""
+
+        found = []
+        for row in self.rows:
+            if row["kind"] != "data":
+                continue
+            names = [item for item in row.get("names") or [] if str(item.get("name") or "").startswith("__vt__")]
+            if len(names) != 1 or names[0].get("binding") != "GLOBAL":
+                continue
+            owner = _qualifier(names[0]["name"])
+            if not owner:
+                continue
+            own = [
+                target
+                for target in sorted(self.uses.get(row["id"], ()), key=self.position.__getitem__)
+                if self.by_id[target]["kind"] == "function"
+                and not self.bindings(self.by_id[target]) & COPY_BINDINGS
+                and any(_qualifier(item.get("name")) == owner for item in self.by_id[target].get("names") or [])
+            ]
+            found.append((row["id"], names[0]["name"], own))
+        return found
+
+    def _vtable_key(self) -> bool:
+        changed = False
+        for vtable, name, own in self.vtables:
+            if not own:
+                continue
+            anchored = self.anchored.get(vtable)
+            if anchored is not None:
+                unit = anchored[0].casefold()
+                if not self.authored_unit(unit):
+                    continue
+                # The key function is an own non-inline virtual of the vtable's unit.
+                remaining = [value for value in own if (self.decided.get(value) or anchored)[0].casefold() == unit]
+                if len(remaining) == 1 and remaining[0] not in self.decided and self.admissible(remaining[0], unit):
+                    basis = (
+                        f"vtable key function: the one own non-inline virtual of {name} ({vtable}, anchored "
+                        f"{anchored[0]}) that no rule places in another unit"
+                    )
+                    self.decided[remaining[0]] = (anchored[0], "A-vtable-key", basis, "medium")
+                    changed = True
+            elif vtable not in self.decided and not self.anchor.get(vtable):
+                units = {(self.decided.get(value) or ("",))[0].casefold() for value in own}
+                row = self.by_id[vtable]
+                if len(units) != 1 or "" in units or row.get("gnu_object") or strong_provider(row, self.unit_library) is not None:
+                    continue
+                unit = next(iter(units))
+                if self.authored_unit(unit):
+                    spelled = self.decided[own[0]][0]
+                    basis = f"vtable key function: every own non-inline virtual of {name} ({len(own)}) is decided {spelled}"
+                    self.decided[vtable] = (spelled, "A-vtable-key", basis, "medium")
+                    changed = True
+        return changed
+
+    # -- rules 4: suggestions ----------------------------------------------------
+
+    def flanks(self, identity: str) -> tuple[str | None, str | None]:
+        """The nearest decided functions before and after a function in its code window."""
+
+        functions = self.windows[self.by_id[identity]["window"]]
+        order = self.window_order[identity]
+        left = next((functions[k] for k in range(order - 1, -1, -1) if functions[k] in self.decided), None)
+        right = next((functions[k] for k in range(order + 1, len(functions)) if functions[k] in self.decided), None)
+        return left, right
+
+    def class_units(self) -> dict[tuple[str, ...], Counter[str]]:
+        if not hasattr(self, "_class_units"):
+            found: dict[tuple[str, ...], Counter[str]] = defaultdict(Counter)
+            for identity, decided in self.decided.items():
+                row = self.by_id[identity]
+                if row["kind"] == "function" and (owner := _class_of(row)):
+                    found[owner][decided[0].casefold()] += 1
+            self._class_units = dict(found)
+        return self._class_units
+
+    def suggest_function(self, identity: str) -> dict[str, str] | None:
+        """Rules 4: the suggestion for an undecided authored function, if any."""
+
+        if not hasattr(self, "_suggested"):
+            self._suggested: dict[str, dict[str, str] | None] = {}
+        if identity not in self._suggested:
+            self._suggested[identity] = self._suggest_function(identity)
+        return self._suggested[identity]
+
+    def _suggest_function(self, identity: str) -> dict[str, str] | None:
+        row = self.by_id[identity]
+        if (
+            row["kind"] != "function" or identity in self.decided or row.get("gnu_object") or len(self.conflict(identity)) > 1
+            or strong_provider(row, self.unit_library) is not None
+        ):
+            return None
+        left, right = self.flanks(identity)
+        flank = {side: self.decided[value][0] for side, value in (("left", left), ("right", right)) if value}
+        flank_units = {value.casefold() for value in flank.values()}
+        found: list[tuple[str, str, str, str]] = []
+        bindings = self.bindings(row) - {None}
+        if bindings & COPY_BINDINGS:
+            users, via_gap = self.function_users(identity)
+            units = {(self.decided.get(user) or ("",))[0].casefold() for user in users}
+            if users and not via_gap and len(units) == 1 and "" not in units and self.authored_unit(next(iter(units))):
+                spelled = self.decided[min(users, key=self.position.__getitem__)][0]
+                found.append((
+                    "S-sole-referencer", spelled, "medium" if spelled.casefold() in flank_units else "low",
+                    f"only {spelled} references this inline/WEAK copy ({len(users)} function(s)); only a referencing "
+                    "object defines a copy and the first definer keeps it",
+                ))
+        owner = _class_of(row)
+        if owner and len(flank_units) == 2:
+            members = self.class_units().get(owner, Counter())
+            matching = [value for value in flank.values() if members.get(value.casefold())]
+            if len(matching) == 1:
+                spelled = matching[0]
+                elsewhere = sum(count for unit, count in members.items() if unit != spelled.casefold())
+                found.append((
+                    "S-class-flank", spelled, "low" if elsewhere else "medium",
+                    f"class {readable_qualified(list(owner))} has {members[spelled.casefold()]} decided member(s) in "
+                    f"{spelled}, none in the other flanking unit" + (f", {elsewhere} in other units" if elsewhere else ""),
+                ))
+        if left is not None:
+            functions = self.windows[row["window"]]
+            between = functions[self.window_order[left] + 1 : self.window_order[identity]]
+            if "WEAK" in bindings and all(self.bindings(self.by_id[value]) & COPY_BINDINGS for value in between):
+                found.append((
+                    "S-weak-order", flank["left"], "low",
+                    f"WEAK copy with only inline/WEAK copies after {left} ({flank['left']}): WEAK copies usually close "
+                    "their object (161 of 162 anchored)",
+                ))
+            elif bindings == {"GLOBAL"} and right is not None and len(flank_units) == 2:
+                weak = next((value for value in [left, *between] if "WEAK" in self.bindings(self.by_id[value])), None)
+                if weak is not None:
+                    found.append((
+                        "S-weak-order", flank["right"], "low",
+                        f"GLOBAL after the WEAK copy {weak}, which usually closes its object: {flank['right']} unless "
+                        "an unnamed object lies between",
+                    ))
+        return _combined(found)
+
+    def suggest_data(self, identity: str) -> dict[str, str] | None:
+        """Rules 4: ``S-sole-referencer`` for open data whose referencing functions are decided or suggested for one unit."""
+
+        row = self.by_id[identity]
+        if row.get("gnu_object") or len(self.conflict(identity)) > 1 or strong_provider(row, self.unit_library) is not None:
+            return None
+        if identity in self.decided:
+            return None
+        users, via_gap = self.function_users(identity)
+        if not users or via_gap:
+            return None
+        units: set[str] = set()
+        spelled = None
+        confidence = "medium"
+        suggested = 0
+        for user in sorted(users, key=self.position.__getitem__):
+            if user in self.decided:
+                unit = self.decided[user][0]
+            else:
+                suggestion = self.suggest_function(user)
+                if suggestion is None:
+                    return None
+                unit = suggestion["owner"]
+                suggested += 1
+                confidence = max(confidence, suggestion["confidence"], key=CONFIDENCES.index)
+            units.add(unit.casefold())
+            spelled = spelled or unit
+        if len(units) != 1 or not suggested or spelled is None or not self.authored_unit(spelled):
+            return None
+        return {
+            "owner": spelled, "rule": "S-sole-referencer", "confidence": confidence,
+            "basis": f"referenced only by functions of {spelled} ({len(users) - suggested} decided, {suggested} suggested)",
+        }
+
+    # -- rules 4: header emits of instances without a header compile unit -------
+
+    def family_headers(self) -> tuple[dict[tuple[str, ...], dict[str, list[str]]], dict[tuple[str, ...], dict[str, list[str]]]]:
+        """(template family -> header path -> functions, class qualifier -> header path -> functions) over the graph."""
+
+        if not hasattr(self, "_family_headers"):
+            families: dict[tuple[str, ...], dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
+            classes: dict[tuple[str, ...], dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
+            for row in self.rows:
+                header = row.get("emitted_from_header") if row["kind"] == "function" else None
+                if not header:
+                    continue
+                if family := _template_family(row):
+                    families[family][header].append(row["id"])
+                if owner := _qualifier_of(row):
+                    classes[owner][header].append(row["id"])
+            self._family_headers = (dict(families), dict(classes))
+        return self._family_headers
+
     def containing_run(self, row: dict[str, Any]) -> tuple[dict[str, Any], str] | None:
         """(LOCAL section run, GNU object address) whose extent holds the whole artifact (rules 3)."""
 
@@ -364,6 +770,18 @@ class _Draft:
         if low <= start and end <= high:
             return run, address
         return None
+
+    def aligned_fill(self, row: dict[str, Any]) -> str | None:
+        """Rules 4: the basis of a zero fill gap that aligns the GNU input section starting where it ends."""
+
+        size = int(row.get("size") or 0)
+        if row.get("labels") or row.get("fill") not in ("zero", "nobits") or self.reaching.get(row["id"]):
+            return None
+        end = _hex_int(row["address"]) + size
+        alignment = end & -end
+        if end not in self.section_starts or not 0 < size < alignment:
+            return None
+        return f"{row.get('fill')} fill of {size} bytes, no labels or relocations, up to the 0x{alignment:x}-aligned GNU section start 0x{end:x}"
 
     def toolchain_producer(self, gnu: dict[str, Any]) -> str | None:
         """The project-toolchain DWARF producer of a GNU object's functions or gaps, if any."""
@@ -421,6 +839,60 @@ def _emit_reason(row: dict[str, Any]) -> str | None:
     if "13" in bindings:
         return "inline"
     return None
+
+
+def _qualifier(name: Any) -> tuple[str, ...] | None:
+    """The Metrowerks qualifier of a mangled function or data name, if it has one."""
+
+    value = demangle(str(name or ""))
+    return tuple(value["qualifier"]) if value and value["qualifier"] else None
+
+
+def _qualifier_of(row: dict[str, Any]) -> tuple[str, ...] | None:
+    """The qualifier of a function's first mangled member-function name."""
+
+    for item in row.get("names") or []:
+        value = demangle(str(item.get("name") or ""))
+        if value and value["qualifier"] and value.get("params") is not None:
+            return tuple(value["qualifier"])
+    return None
+
+
+def _class_of(row: dict[str, Any]) -> tuple[str, ...] | None:
+    """The authored class (or namespace) a function's mangled name qualifies it with (``S-class-flank``)."""
+
+    owner = _qualifier_of(row)
+    return owner if owner and owner[0] not in MSL_NAMESPACES else None
+
+
+def _template_family(row: dict[str, Any]) -> tuple[str, ...] | None:
+    """The class template (or function template) a function instance belongs to, template arguments removed."""
+
+    for item in row.get("names") or []:
+        value = demangle(str(item.get("name") or ""))
+        if not value or value.get("params") is None:
+            continue
+        qualifier = value["qualifier"]
+        if any("<" in part for part in qualifier):
+            return tuple(template_base(part) for part in qualifier)
+        if "<" in value["name"]:
+            return (*qualifier, template_base(value["name"]))
+    return None
+
+
+def _combined(found: list[tuple[str, str, str, str]]) -> dict[str, str] | None:
+    """One ``suggest`` object from (rule, owner, confidence, basis) suggestions in ``SUGGEST_ORDER``."""
+
+    if not found:
+        return None
+    rule, owner, confidence, basis = found[0]
+    others = [(other, unit) for other, unit, _confidence, _basis in found[1:] if unit.casefold() != owner.casefold()]
+    if others:
+        confidence = "low"
+        basis += "; " + "; ".join(f"{other} suggests {unit}" for other, unit in others)
+    else:
+        confidence = min((value for _rule, _unit, value, _basis in found), key=CONFIDENCES.index)
+    return {"owner": owner, "rule": rule, "confidence": confidence, "basis": basis}
 
 
 def draft_owner_plan(
@@ -486,6 +958,15 @@ def draft_owner_plan(
     for identity in entry["artifacts"]:
         row = draft.by_id[identity]
         kind = row["kind"]
+        aligned = draft.aligned_fill(row) if kind == "gap" and not row.get("padding") and draft.rules >= 4 else None
+        if aligned is not None:
+            # Rules 4: alignment fill of any size before an aligned GNU section start.
+            place((FILL_ROW, None), _entry(identity, "high", aligned, "C-fill"), {
+                "translation_unit": None, "classification": "compiler-generated", "workspace_path": None,
+                "original_path": None, "provisional_file": None, "library": None, "archive_member": None,
+                "evidence": ["alignment fill no unit defines: the graph's padding, or zero fill up to an aligned GNU section start"],
+            })
+            continue
         if kind == "gap" and row.get("padding"):
             place((FILL_ROW, None), _entry(identity, "high", f"{row.get('fill')} alignment padding, {row['size']} bytes", "C-fill"), {
                 "translation_unit": None, "classification": "compiler-generated", "workspace_path": None,
@@ -592,6 +1073,19 @@ def draft_owner_plan(
             continue
         place(("authored", unit.casefold()), _entry(identity, confidence, basis, rule), {"translation_unit": unit})
 
+    suggested = 0
+    if draft.rules >= 4 and library is None:
+        # Rules 4: a reviewed suggestion on each open row the heuristics reach (never a decision).
+        for open_row in open_rows:
+            kind = draft.by_id[open_row["artifact"]]["kind"]
+            suggestion = (
+                draft.suggest_function(open_row["artifact"]) if kind == "function"
+                else draft.suggest_data(open_row["artifact"]) if kind == "data" else None
+            )
+            if suggestion is not None:
+                open_row["suggest"] = suggestion
+                suggested += 1
+
     out_owners = []
     for key in sorted(owners, key=lambda key: min(draft.position[value["artifact"]] for value in entries[key])):
         row = dict(owners[key])
@@ -606,7 +1100,7 @@ def draft_owner_plan(
         row["artifacts"] = sorted(values, key=lambda value: draft.position[value["artifact"]])
         out_owners.append(row)
 
-    header_emits, open_emits = _header_emits(draft, workspace, out_owners)
+    header_emits, open_emits, open_emit_reasons = _header_emits(draft, workspace, out_owners)
     plan: dict[str, Any] = {
         "kind": SOURCE_PLAN_KIND,
         "schema_version": SOURCE_PLAN_SCHEMA,
@@ -653,6 +1147,9 @@ def draft_owner_plan(
         "open_header_emits": open_emits,
         "outside_reservation": sorted(set(outside)),
     }
+    if rules >= 4:
+        plan["draft"]["open_header_emit_reasons"] = open_emit_reasons
+        plan["draft"]["suggested"] = suggested
     return plan
 
 
@@ -669,11 +1166,20 @@ def _section_gap(draft: _Draft, row: dict[str, Any]) -> tuple[dict[str, Any], st
         return None
     symbols = {item.get("symbol_index") for item in gnu.get("sections") or []}
     functions = set(gnu["functions"])
-    if not all(site in functions and kind == "SECTION" and index in symbols for site, index, kind in reaching):
+
+    def own_data(site: str) -> bool:
+        # Rules 4: data inside one of the object's own LOCAL section runs (SCE 0x446d70's .data).
+        other = draft.by_id[site]
+        held = draft.containing_run(other) if draft.rules >= 4 and other["kind"] == "data" else None
+        return held is not None and held[1] == address
+
+    if not all((site in functions or own_data(site)) and kind == "SECTION" and index in symbols for site, index, kind in reaching):
         return None
+    data = sum(1 for site, _index, _kind in reaching if site not in functions)
     return gnu, (
         f"inside GNU object {address}'s {run['name']} section run {run['start']}-{run['end']}, reached only through its "
-        f"LOCAL section symbols from its functions ({len(reaching)} relocations)"
+        f"LOCAL section symbols from its functions" + (f" and its own section data ({data} of them)" if data else "")
+        + f" ({len(reaching)} relocations)"
     )
 
 
@@ -784,9 +1290,28 @@ def _authored_row(draft: _Draft, workspace: _Workspace, unit: str) -> dict[str, 
     return row
 
 
-def _header_emits(draft: _Draft, workspace: _Workspace, owners: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[str]]:
+def _header_name(header: str) -> str:
+    return PureWindowsPath(header.replace("/", "\\")).name
+
+
+def _workspace_header(workspace: _Workspace, header: str) -> str | None:
+    """The existing workspace header a ``Z:\\dev`` header path names (under its module directory), if any."""
+
+    verdict = path_library(header)
+    module = original_module(header) if not verdict or verdict[0] == "authored" else None
+    spelled = workspace.directories.get(module.casefold()) if module else None
+    path = f"{spelled}/{_header_name(header)}" if spelled else None
+    return path if path and workspace.exact_file(path) else None
+
+
+def _header_emits(
+    draft: _Draft, workspace: _Workspace, owners: list[dict[str, Any]]
+) -> tuple[list[dict[str, Any]], list[str], dict[str, str]]:
+    """(header emits, artifacts whose emit stays open, rules 4: why each stays open)."""
+
     emits = []
     undecided = []
+    reasons: dict[str, str] = {}
     for owner in owners:
         if owner.get("classification") != "authored":
             continue
@@ -794,28 +1319,98 @@ def _header_emits(draft: _Draft, workspace: _Workspace, owners: list[dict[str, A
             identity = artifact_id(value)
             row = draft.by_id[identity]
             header = row.get("emitted_from_header")
-            if row["kind"] != "function" or not header:
+            if row["kind"] != "function":
+                continue
+            if not header:
+                if draft.rules >= 4:
+                    found = _family_emit(draft, workspace, row)
+                    if isinstance(found, dict):
+                        emits.append(found)
+                    elif isinstance(found, str):
+                        undecided.append(identity)
+                        reasons[identity] = found
                 continue
             reason = _emit_reason(row)
-            name = PureWindowsPath(header.replace("/", "\\")).name
+            name = _header_name(header)
             verdict = path_library(header)
             evidence = [f"dwarf-cu-header {header}"]
             if reason is None:
                 undecided.append(identity)
+                reasons[identity] = "a header instance that is neither a template, WEAK nor inline (binding 13)"
                 continue
             if verdict and verdict[0] == "provider" and verdict[1]:
                 emits.append({"artifact": identity, "header": f"<{name}>", "library": verdict[1], "reason": reason,
                               "evidence": evidence, "draft_rule": "H-dwarf-header"})
                 continue
-            module = original_module(header) if not verdict or verdict[0] == "authored" else None
-            spelled = workspace.directories.get(module.casefold()) if module else None
-            path = f"{spelled}/{name}" if spelled else None
-            if path and workspace.exact_file(path):
+            path = _workspace_header(workspace, header)
+            if path:
                 emits.append({"artifact": identity, "header": path, "reason": reason, "evidence": evidence,
                               "draft_rule": "H-dwarf-header"})
             else:
                 undecided.append(identity)
-    return emits, undecided
+                reasons[identity] = f"no existing workspace header {name} under the module directory of {header}"
+    return emits, undecided, reasons if draft.rules >= 4 else {}
+
+
+def _family_emit(draft: _Draft, workspace: _Workspace, row: dict[str, Any]) -> dict[str, Any] | str | None:
+    """Rules 4: the emit of an owned instance without a header compile unit, why it stays open, or ``None`` (no emit).
+
+    ``H-template-family``: an MSL template instance takes the one MSL header
+    every instance of its template with a header compile unit names.
+    ``H-class-header``: an implicit special member of an authored class takes
+    the one existing workspace header its class's other members' header
+    compile units name (a class without one is defined in its source file).
+    """
+
+    if not draft.bindings(row) & COPY_BINDINGS:
+        return None
+    reason = _emit_reason(row)
+    families, classes = draft.family_headers()
+    family = _template_family(row)
+    classification = row.get("classification") or {}
+    msl = classification.get("candidate") == "provider" and classification.get("library") == "MSL"
+    if family and (msl or family[0] in MSL_NAMESPACES):
+        label = readable_qualified(list(family))
+        headers = families.get(family) or {}
+        names = sorted({_header_name(path) for path in headers})
+        libraries = {(path_library(path) or (None, None))[1] for path in headers}
+        if not headers:
+            return f"MSL template instance without a header compile unit; no instance of {label} has one"
+        if len(names) != 1 or libraries != {"MSL"}:
+            shown = ", ".join(f"<{name}>" for name in names) + ("" if libraries == {"MSL"} else " (not all MSL headers)")
+            return f"MSL template instance without a header compile unit; instances of {label} name several headers: {shown}"
+        examples = sorted(identity for values in headers.values() for identity in values)
+        return {
+            "artifact": row["id"], "header": f"<{names[0]}>", "library": "MSL", "reason": reason,
+            "evidence": [
+                f"no header compile unit of its own; every instance of {label} with one ({len(examples)}, e.g. "
+                f"{', '.join(examples[:3])}) names <{names[0]}>",
+            ],
+            "draft_rule": "H-template-family",
+        }
+    owner = _qualifier_of(row)
+    name = next((str(item.get("name") or "") for item in row.get("names") or []), "")
+    if not owner or owner[0] in MSL_NAMESPACES or msl or not name.startswith(SPECIAL_MEMBERS):
+        return None
+    headers = {path: values for path, values in (classes.get(owner) or {}).items() if values != [row["id"]]}
+    if not headers:
+        return None
+    label = readable_qualified(list(owner))
+    distinct = sorted({path.casefold(): path for path in headers}.values(), key=str.casefold)
+    if len(distinct) != 1:
+        return f"implicit special member of {label}; its members' header compile units name several headers: {', '.join(distinct)}"
+    path = _workspace_header(workspace, distinct[0])
+    if path is None:
+        return f"implicit special member of {label}; its members' header {distinct[0]} is no existing workspace header"
+    members = sorted(headers[distinct[0]])
+    return {
+        "artifact": row["id"], "header": path, "reason": reason,
+        "evidence": [
+            f"implicit special member without a header compile unit; the other members of {label} with one "
+            f"({len(members)}, e.g. {', '.join(members[:3])}) name {distinct[0]}",
+        ],
+        "draft_rule": "H-class-header",
+    }
 
 
 # -- check -----------------------------------------------------------------------
