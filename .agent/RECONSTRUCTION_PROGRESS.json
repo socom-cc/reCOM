@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3239,
+  "revision": 3240,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -152979,6 +152979,10 @@
       "title": "Apply the reviewed source owners of segment 044 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T23:07:39Z",
+        "by": "socom-source-owner-scrutinizer-x21"
+      },
       "batch": {
         "artifact_count": 204,
         "batch_number": 45,
@@ -153014,7 +153018,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-045.json sha256:a4e624116fd1c08e34cfaedab796237bf59a1f08841c7a286af68b6a208bfc29; validate --check ok; draft --check ok"
+        "plan build/source-plans/socom-work-source-segment-045.json sha256:a4e624116fd1c08e34cfaedab796237bf59a1f08841c7a286af68b6a208bfc29; validate --check ok; draft --check ok",
+        "plan sha256:a4e62411...bfc29 matches handoff; validate --check ok (0 problems, 1 review note), draft --check ok (200 drafted, 4 hand, 0 overrides, 0 open). No D-referenced rows. st_exit.cpp|zNetDme.cpp edge at 0x321340: st_exit.cpp's DWARF (function and header DIEs) ends at PrepControls 0x321330-0x321338, so the CZNetwork callbacks 0x321340/0x3213d0 (no DIE) are not st_exit.o's; LOCAL blocks 7351-7450|7451-7481 adjacent; CZNetwork has 21 members in zNetDme.cpp. ~CZNetwork 0x322320 (implicit, binding 13, referenced only by __sinit_zNetDme.cpp) -> src/gamez/zNetwork/znet.h:116 'class CZNetwork' (implicit member to its class's header). ~CExitMenu 0x320670 and GetReaderFileName 0x321310: only st_exit.cpp reads __vt__9CExitMenu, no header declares CExitMenu, no emit is correct. CZBroadcastSchedule ctor 0x322300 by R4 between zNetInit and ~CZNetwork. Reservation correction (+zSeal, +zUI) matches drafted H-dwarf-header emits."
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-w3e",
@@ -153029,7 +153034,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 045 (0x3205c0-0x32241c, 49 functions)"
     },
     {
