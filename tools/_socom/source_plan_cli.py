@@ -1,7 +1,7 @@
 """CLI handlers for stage 4 owner plans and the source query cache.
 
-``source plan evidence``, ``source plan draft``, ``source plan validate`` and
-``source sql``.  The registry rows and parser wiring live here so the main
+``source plan evidence``, ``source plan draft``, ``source plan validate``,
+``source plan open``, ``source plan decide`` and ``source sql``.  The registry rows and parser wiring live here so the main
 CLI only lists them; handlers import the shared CLI helpers lazily to avoid
 an import cycle.
 """
@@ -43,10 +43,26 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "reserved directory.",
         ),
         spec(
+            "source plan open",
+            "source",
+            "Print only a drafted source-owner plan's open rows (open unresolved artifacts with their cache evidence, "
+            "open owner rows, open header emits, an inferred reservation) compactly, so a planner never loads the "
+            "whole plan.",
+        ),
+        spec(
+            "source plan decide",
+            "source",
+            "Record one decision in a schema 2 source-owner plan under build/: move artifacts into an existing owner "
+            "row with confidence and basis, or into unresolved with a reason; JSON load/dump, no control characters, "
+            "drafted rows only with --override and --evidence; re-derives the annotations.",
+            mutates=True,
+        ),
+        spec(
             "source sql",
             "source",
             "Run one read-only SELECT/WITH over build/cache/source-graph.sqlite, a derived cache of the source graph, "
-            "its relocations, DWARF units and lines, LOCAL symbols and src/ files, rebuilt when its inputs change.",
+            "its relocations, DWARF units and lines, LOCAL symbols, per-object LOCAL section runs and src/ files, "
+            "rebuilt when its inputs change.",
         ),
     )
 
@@ -81,6 +97,23 @@ def register(source_commands: Any) -> None:
         help="first rewrite the plan's annotations with the targets its owner and header-emit rows imply",
     )
     validate.set_defaults(handler=_source_plan_validate)
+    view = plan_commands.add_parser("open")
+    view.add_argument("--plan", required=True)
+    view.add_argument("--limit", type=int, default=40, help="open artifacts to show (default 40)")
+    view.add_argument("--format", choices=("text", "json"), default="text")
+    view.add_argument("--graph", default=DEFAULT_GRAPH)
+    view.set_defaults(handler=_source_plan_open)
+    decide = plan_commands.add_parser("decide")
+    decide.add_argument("--plan", required=True)
+    decide.add_argument("--artifact", action="append", required=True, help="repeat to decide several artifacts alike")
+    decide.add_argument("--owner", help="an owner row: its translation unit, GNU object address, object or <library>:<object>")
+    decide.add_argument("--confidence", choices=("high", "medium", "low"))
+    decide.add_argument("--basis")
+    decide.add_argument("--unresolved", metavar="REASON")
+    decide.add_argument("--override", action="store_true", help="move an artifact a draft rule decided")
+    decide.add_argument("--evidence", help="why the draft rule is wrong (with --override); kept as a plan note")
+    decide.add_argument("--graph", default=DEFAULT_GRAPH)
+    decide.set_defaults(handler=_source_plan_decide)
     sql = source_commands.add_parser("sql")
     sql.add_argument("statement")
     sql.add_argument("--limit", type=int, default=200)
@@ -264,6 +297,82 @@ def _source_plan_validate(arguments: argparse.Namespace) -> int:
         }
     )
     return 0 if report["ok"] else 1
+
+
+def _plan_cache(root: Path, arguments: argparse.Namespace) -> Path:
+    from .source_cache import ensure_source_cache
+    from .util import SocomError
+
+    graph_path = _path(root, arguments.graph)
+    if not graph_path.is_file():
+        raise SocomError(f"{arguments.graph} does not exist: write it with `source graph --output {arguments.graph}`")
+    path, _rebuilt = ensure_source_cache(root, graph_path=graph_path)
+    return path
+
+
+def _source_plan_open(arguments: argparse.Namespace) -> int:
+    """The open rows of a drafted plan, compactly."""
+
+    from .cli import _emit, _root
+    from .source_plan_edit import cache_graph, open_text, open_view
+    from .util import load_json
+
+    root = _root(arguments)
+    plan = load_json(_path(root, arguments.plan))
+    path = _plan_cache(root, arguments)
+    view = open_view(plan, path, limit=arguments.limit)
+    cached = cache_graph(path)
+    view["cache_graph_sha256"] = cached
+    if arguments.format == "json":
+        _emit({"ok": True, "mutation_performed": False, "plan": arguments.plan, **view})
+        return 0
+    sys.stdout.reconfigure(encoding="utf-8")
+    if cached != view["plan_graph_sha256"]:
+        print(f"note: the cache holds graph {str(cached)[:12]}, the plan cites {str(view['plan_graph_sha256'])[:12]}")
+    sys.stdout.write(open_text(view))
+    return 0
+
+
+def _source_plan_decide(arguments: argparse.Namespace) -> int:
+    """Record one decision in a plan file (JSON load/dump)."""
+
+    from .cli import _build_path, _emit, _root
+    from .source_plan import DRAFT_OPEN, loaded_section_lookup
+    from .source_plan_edit import cache_graph, decide, refresh_annotations
+    from .util import atomic_write_json, load_json
+
+    root = _root(arguments)
+    target = _build_path(root, arguments.plan, "source plans")
+    plan = load_json(target)
+    changes = decide(
+        plan,
+        arguments.artifact,
+        owner=arguments.owner,
+        confidence=arguments.confidence,
+        basis=arguments.basis,
+        unresolved=arguments.unresolved,
+        override=arguments.override,
+        evidence=arguments.evidence,
+    )
+    annotations = "stale: run source plan validate --fill-annotations"
+    graph_path = _path(root, arguments.graph)
+    if graph_path.is_file():
+        path = _plan_cache(root, arguments)
+        if cache_graph(path) == plan.get("graph_sha256"):
+            refresh_annotations(plan, path, loaded_section_lookup(root))
+            annotations = "re-derived"
+    atomic_write_json(target, plan)
+    _emit(
+        {
+            "ok": True,
+            "mutation_performed": True,
+            "plan": arguments.plan,
+            "changes": changes,
+            "annotations": annotations,
+            "open_rows": sum(1 for row in plan.get("unresolved") or [] if isinstance(row, dict) and row.get("draft") == DRAFT_OPEN),
+        }
+    )
+    return 0
 
 
 def _source_sql(arguments: argparse.Namespace) -> int:

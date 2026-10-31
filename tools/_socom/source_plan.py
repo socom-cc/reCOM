@@ -136,11 +136,15 @@ OWNER_FIELDS = frozenset(
 OWNER_FIELDS_V2 = OWNER_FIELDS | {"draft_rule", "draft"}
 ARTIFACT_ENTRY_FIELDS = frozenset({"artifact", "confidence", "basis", "draft_rule"})
 MEMBER_FIELDS = frozenset({"gnu_object", "object"})
-MEMBER_FIELDS_V2 = MEMBER_FIELDS | {"linked"}
-# How a provider member reached the link: from an archive (the default) or as
-# an object file of toolchain or SDK source compiled with the project
-# (crt0.s, PS2 Support gcc_wrapper.c).
-LINKED_KINDS = ("archive", "object")
+# Schema 2 only: ``linked``, and the archive the member came from by file
+# name (``archive``, e.g. ``liblgaud.a``, never a path) and its ``version``
+# (e.g. ``1.06``) when the ELF evidences them.
+MEMBER_FIELDS_V2 = MEMBER_FIELDS | {"linked", "archive", "version"}
+# How a provider member reached the link: from an archive (the default when
+# ``linked`` is absent), as an object file of toolchain or SDK source compiled
+# with the project (crt0.s, PS2 Support gcc_wrapper.c), or ``unknown`` when
+# the evidence does not say (so the archive default is not a claim).
+LINKED_KINDS = ("archive", "object", "unknown")
 EMIT_FIELDS = frozenset({"artifact", "header", "reason", "evidence"})
 # Schema 2 only: ``library`` marks a provider header (``<string>``) whose
 # template or inline body the owner's file emits by inclusion.
@@ -797,6 +801,20 @@ def plan_item(tracker: dict[str, Any], item_id: Any) -> dict[str, Any]:
     return item
 
 
+def plan_graph_digests(batch: dict[str, Any]) -> set[Any]:
+    """The graph digests a plan of this batch may cite.
+
+    The batch's own ``graph_sha256``, and for an item whose plan was
+    accepted before a graph refresh that left its slice byte-identical, the
+    earlier digest that plan cites (``plan_graph_sha256``).
+    """
+
+    digests = {batch.get("graph_sha256")}
+    if isinstance(batch.get("plan_graph_sha256"), str):
+        digests.add(batch["plan_graph_sha256"])
+    return digests
+
+
 def scope_entry(graph: dict[str, Any], item: dict[str, Any]) -> dict[str, Any]:
     """The item's planning scope regenerated from ``graph``; refuses a stale graph."""
 
@@ -1008,7 +1026,7 @@ def validate_source_plan(
     batch = item.get("batch") or {}
     if plan.get("scope") != batch.get("scope"):
         problems.append(f"the plan's scope differs from {item['id']}'s {batch.get('scope')}")
-    if plan.get("graph_sha256") != batch.get("graph_sha256"):
+    if plan.get("graph_sha256") not in plan_graph_digests(batch):
         problems.append(
             f"the plan cites graph {plan.get('graph_sha256')}, {item['id']} was decomposed from {batch.get('graph_sha256')}"
         )
@@ -1196,6 +1214,14 @@ def validate_source_plan(
                 provider_rows_elsewhere.append(f"{library} ({label})")
             if isinstance(member, dict) and "linked" in member and (not v2 or member["linked"] not in LINKED_KINDS):
                 problems.append(f"{label} archive_member linked must be one of {list(LINKED_KINDS)} (schema 2)")
+            if isinstance(member, dict) and "archive" in member and (
+                not v2 or not isinstance(member["archive"], str) or not _FILE_NAME.match(member["archive"])
+            ):
+                problems.append(f"{label} archive_member archive must be the archive's file name, never a path (schema 2)")
+            if isinstance(member, dict) and "version" in member and (
+                not v2 or not isinstance(member["version"], str) or not member["version"].strip()
+            ):
+                problems.append(f"{label} archive_member version must be a non-empty string (schema 2)")
             if (
                 not isinstance(member, dict)
                 or set(member) - (MEMBER_FIELDS_V2 if v2 else MEMBER_FIELDS)

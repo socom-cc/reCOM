@@ -154,7 +154,22 @@ def _spec(
 
 
 def _emit(value: Any) -> None:
-    sys.stdout.write(canonical_json(value))
+    """Write one JSON document to stdout as UTF-8 without a byte-order mark.
+
+    The bytes go to the binary buffer, so neither the console code page nor
+    a ``PYTHONIOENCODING`` such as ``utf-8-sig`` changes them.  (A Windows
+    PowerShell 5.1 ``>`` redirect re-encodes native output and adds its own
+    BOM; redirect through ``cmd /c`` or read the output in memory instead.)
+    """
+
+    text = canonical_json(value)
+    buffer = getattr(sys.stdout, "buffer", None)
+    if buffer is None:
+        sys.stdout.write(text)
+        return
+    sys.stdout.flush()
+    buffer.write(text.encode("utf-8"))
+    buffer.flush()
 
 
 def _root(arguments: argparse.Namespace) -> Path:
@@ -2387,7 +2402,11 @@ def _command_rows() -> list[dict[str, Any]]:
 
 
 def _commands(arguments: argparse.Namespace) -> int:
-    _emit(_command_rows())
+    rows = _command_rows()
+    if getattr(arguments, "output", None):
+        # A file needs no shell redirect (Windows PowerShell adds a BOM to piped or redirected output).
+        atomic_write_json(_build_path(_root(arguments), arguments.output, "command lists"), rows)
+    _emit(rows)
     return 0
 
 
@@ -2783,7 +2802,12 @@ def _verify_stage(arguments: argparse.Namespace) -> int:
 
 
 COMMAND_SPECS: tuple[CommandSpec, ...] = (
-    _spec("commands", "docs", "List the authoritative machine-readable command registry."),
+    _spec(
+        "commands",
+        "docs",
+        "List the authoritative machine-readable command registry as UTF-8 JSON without a byte-order mark "
+        "(--output also writes it to a file under build/, which needs no shell redirect).",
+    ),
     _spec("help", "docs", "Show registry metadata for one command path."),
     _spec(
         "doctor",
@@ -3064,6 +3088,7 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
 
     command_list = commands.add_parser("commands", help="list command registry")
+    command_list.add_argument("--output", help="also write the registry as UTF-8 JSON without a BOM to this path under build/")
     command_list.set_defaults(handler=_commands)
     command_help = commands.add_parser("help", help="show command metadata")
     command_help.add_argument("command_path", nargs="*")

@@ -220,14 +220,16 @@ def _primary(row: dict) -> tuple[str, str] | None:
 def test_artifacts_are_sized_symbols_plus_section_gaps(synthetic: dict) -> None:
     rows = _rows(synthetic)
     assert synthetic["kind"] == SOURCE_GRAPH_KIND
-    assert synthetic["summary"]["artifact_counts"] == {"data": 4, "function": 9, "gap": 5}
+    assert synthetic["summary"]["artifact_counts"] == {"data": 4, "function": 9, "gap": 6}
     assert [row["address"] for row in synthetic["artifacts"]] == sorted(
         (row["address"] for row in synthetic["artifacts"]), key=lambda value: int(value, 16)
     )
     padding = rows["socom:gap:0x100018"]
     assert padding["padding"] and padding["fill"] == "zero"
     assert padding["classification"]["candidate"] == "compiler-generated"
-    gnu_string = rows["socom:gap:0x10010c"]
+    # The gap after gvar is split where the GNU object's .rodata input section starts.
+    assert rows["socom:gap:0x10010c"]["padding"] and rows["socom:gap:0x10010c"]["end"] == "0x100110"
+    gnu_string = rows["socom:gap:0x100110"]
     assert gnu_string["fill"] == "nonzero" and not gnu_string["padding"]
     names = rows["socom:function:0x100000"]["names"]
     assert names[0]["name"] == "a_first" and names[0]["symbol_id"].startswith("socom:symbol:")
@@ -361,7 +363,7 @@ def test_segments_cut_at_classification_changes_and_respect_the_size(tmp_path: P
     assert first["classification_mix"] == {"authored": 5}
     assert [row["tu"] for row in first["tu_candidates"]] == ["a.cpp", "b.cpp"]
     assert "socom:data:0x100100" in first["data"]
-    assert {"socom:data:0x100120", "socom:gap:0x10010c"} <= set(gnu["data"])
+    assert {"socom:data:0x100120", "socom:gap:0x100110"} <= set(gnu["data"])
     small = build_source_graph(path, segment_size=3)
     assert [row["function_count"] for row in small["segments"]] == [3, 2, 2, 1, 1]
     assert small["segments"][0]["boundary"]["end"]["strength"] == "weak"
@@ -369,6 +371,110 @@ def test_segments_cut_at_classification_changes_and_respect_the_size(tmp_path: P
     assert len(covered) == len(set(covered)) == 9
     with pytest.raises(SocomError, match="segment size"):
         build_source_graph(path, segment_size=0)
+
+
+def _archive_image(tmp_path: Path) -> dict:
+    """GNU archive members: libgcc, a GOFAST dptofp, SCE, lgAud around an RSA-coupled object, RSA.
+
+    LOCAL blocks in symbol order: __muldi3, dptofp, a data-only ``.rodata``
+    block (__thenan_df), sceFoo (with its .rodata), lgAudOpen, SidInit,
+    lgAudClose, and the RSA object (with its .rodata).
+    """
+
+    symbols = [
+        (".text", 0x100000, 0, 0, 3), ("gcc2_compiled.", 0x100000, 0, 0, 0),
+        (".text", 0x100010, 0, 0, 3), ("gcc2_compiled.", 0x100010, 0, 0, 0),
+        (".rodata", 0x100090, 0, 0, 3),
+        (".rodata", 0x100098, 0, 0, 3), (".text", 0x100020, 0, 0, 3), ("gcc2_compiled.", 0x100020, 0, 0, 0),
+        (".text", 0x100030, 0, 0, 3), ("gcc2_compiled.", 0x100030, 0, 0, 0),
+        (".text", 0x100040, 0, 0, 3), ("gcc2_compiled.", 0x100040, 0, 0, 0),
+        (".text", 0x100050, 0, 0, 3), ("gcc2_compiled.", 0x100050, 0, 0, 0),
+        (".rodata", 0x1000a0, 0, 0, 3), (".text", 0x100060, 0, 0, 3), ("gcc2_compiled.", 0x100060, 0, 0, 0),
+        ("__muldi3", 0x100000, 16, 1, 2),
+        ("dptofp", 0x100010, 16, 1, 2),
+        ("sceFoo", 0x100020, 16, 1, 2),
+        ("lgAudOpen", 0x100030, 16, 1, 2),
+        ("SidInit", 0x100040, 16, 1, 2),
+        ("lgAudClose", 0x100050, 16, 1, 2),
+        ("RSAEncrypt", 0x100060, 16, 1, 2),
+        ("RSADecrypt", 0x100070, 16, 1, 2),
+        ("RSAHelper", 0x100080, 16, 1, 2),
+        ("__thenan_df", 0x100090, 8, 1, 1),
+        ("tail", 0x1000a8, 8, 1, 1),
+    ]
+    index = {row[0]: number + 1 for number, row in reversed(list(enumerate(symbols)))}
+    rodata = [1 + number for number, row in enumerate(symbols) if row[0] == ".rodata"]
+    main = bytearray(0xB0)
+
+    def code(address: int, *values: int) -> None:
+        for number, value in enumerate(values):
+            struct.pack_into("<I", main, address - BASE + 4 * number, value)
+
+    code(0x100000, _lui(A0, 0x10), _addiu(A0, A0, 0x90), JR_RA, NOP)  # __muldi3 -> __thenan_df
+    code(0x100010, JR_RA, NOP, NOP, NOP)
+    code(0x100020, _lui(A0, 0x10), _addiu(A0, A0, 0x98), JR_RA, NOP)  # sceFoo -> its .rodata
+    code(0x100030, JR_RA, NOP, NOP, NOP)
+    code(0x100040, _jal(0x100080), NOP, JR_RA, NOP)  # SidInit -> RSAHelper
+    code(0x100050, JR_RA, NOP, NOP, NOP)
+    code(0x100060, _jal(0x100040), NOP, JR_RA, NOP)  # RSAEncrypt -> SidInit
+    code(0x100070, _jal(0x100040), NOP, JR_RA, NOP)  # RSADecrypt -> SidInit
+    code(0x100080, _lui(A0, 0x10), _addiu(A0, A0, 0xA0), JR_RA, NOP)  # RSAHelper -> its .rodata
+    main[0x90:0xB0] = b"N" * 0x20
+    relocations = [
+        (0x100000, index["__thenan_df"], 5), (0x100004, index["__thenan_df"], 6),
+        (0x100020, rodata[1], 5), (0x100024, rodata[1], 6),
+        (0x100040, index["RSAHelper"], 4),
+        (0x100060, index["SidInit"], 4), (0x100070, index["SidInit"], 4),
+        (0x100080, rodata[2], 5), (0x100084, rodata[2], 6),
+    ]
+    return build_source_graph(_write_image(tmp_path / "archive.elf", symbols, bytes(main), relocations))
+
+
+def test_member_rules_coupling_and_data_only_members_keep_the_segment_cuts(tmp_path: Path) -> None:
+    from tools._socom.source_plan import planning_scopes
+
+    graph = _archive_image(tmp_path)
+    rows = _rows(graph)
+    objects = {row["address"]: row for row in graph["gnu_objects"]}
+    # GOFAST dptofp is libgcc's by a member rule; the segment cut keeps the base rules.
+    gofast = objects["0x100010"]
+    assert (gofast["library"], gofast["segment_library"]) == ("libgcc", None)
+    # SidInit lies between lgAud objects but only RSA calls it, and it calls RSA.
+    sid = objects["0x100040"]
+    assert (sid["library"], sid["segment_library"]) == ("RSA", "lgAud")
+    assert sid["library_basis"].startswith("coupling: referenced only by RSA objects (2 artifacts")
+    assert graph["rules"]["coupling_moves"] == [
+        {"address": "0x100040", "from": "lgAud", "from_basis": "archive-contiguity", "to": "RSA", "referrers": 2}
+    ]
+    assert rows["socom:function:0x100040"]["classification"]["library"] == "RSA"
+    # The .rodata block between dptofp's and sceFoo's LOCAL blocks is a data-only member.
+    member = objects["0x100090"]
+    assert member["data_only"] and member["data"] == ["socom:data:0x100090"] and member["functions"] == []
+    assert (member["library"], member["library_basis"]) == ("libgcc", "referenced only by libgcc objects (1 functions)")
+    assert member["sections"] == [
+        {"name": ".rodata", "symbol_index": 5, "start": "0x100090", "end": "0x100098", "end_basis": "next section symbol"}
+    ]
+    assert rows["socom:data:0x100090"]["gnu_object"] == "0x100090"
+    assert graph["summary"]["data_only_member_count"] == 1
+    # One gap spanned two objects' .rodata: it is split at the second section symbol.
+    assert {"socom:gap:0x100098", "socom:gap:0x1000a0"} <= set(rows)
+    assert rows["socom:gap:0x100098"]["end"] == "0x1000a0"
+    assert objects["0x100020"]["sections"] == [
+        {"name": ".rodata", "symbol_index": 6, "start": "0x100098", "end": "0x1000a0", "end_basis": "next section symbol"}
+    ]
+    # Five segments as under the base rules; the refined classification only
+    # moves artifacts between provider scopes.
+    segments = graph["segments"]
+    assert [segment["classification_mix"] for segment in segments] == [
+        {"provider:libgcc": 1}, {"provider:libgcc": 1}, {"provider:SCE": 1},
+        {"provider:RSA": 1, "provider:lgAud": 2}, {"provider:RSA": 3},
+    ]
+    assert segments[1]["cut_classification_mix"] == {"provider:unidentified GNU object": 1}
+    assert segments[3]["cut_classification_mix"] == {"provider:lgAud": 3}
+    scopes = {entry["scope"]["library"]: entry for entry in planning_scopes(graph) if entry["scope"]["kind"] == "provider"}
+    assert [segment["segment_number"] for segment in scopes["libgcc"]["segments"]] == [1, 2]
+    assert "socom:function:0x100040" in scopes["RSA"]["artifacts"] and scopes["RSA"]["moved_from"] == [4]
+    assert "socom:function:0x100040" not in scopes["lgAud"]["artifacts"]
 
 
 def test_graph_is_deterministic_and_hashes_its_content(tmp_path: Path) -> None:
@@ -417,7 +523,10 @@ def test_reference_graph_covers_the_census_artifacts(reference_graph: dict, cens
     assert len(functions) == len(set(functions)) == 9703
     assert all(segment["function_count"] <= graph["segment_size"] for segment in graph["segments"])
     for segment in graph["segments"]:
-        assert len({key for key in segment["classification_mix"] if key not in ("compiler-generated", "unknown")}) <= 1
+        # Cut at every change of the segmentation classification (member
+        # refinements may leave a second provider family in the mix).
+        cut = segment.get("cut_classification_mix") or segment["classification_mix"]
+        assert len({key for key in cut if key not in ("compiler-generated", "unknown")}) <= 1
     # Every static-init unit has its table word and its function.
     sinit = [row for row in graph["units"] if row["sinit_order"] is not None]
     assert sorted(row["sinit_order"] for row in sinit) == list(range(1, 149))
@@ -474,6 +583,36 @@ def test_reference_crt0_object_is_its_gap(reference_graph: dict) -> None:
     assert crt0["library"] == "crt0" and crt0["library_basis"].startswith("DWARF path ")
     gap = rows["socom:gap:0x140008"]
     assert gap["gnu_object"] == "0x140008" and gap["classification"]["library"] == "crt0"
+
+
+def test_reference_member_rules_coupling_and_data_only_members(reference_graph: dict) -> None:
+    graph = reference_graph
+    objects = {row["address"]: row for row in graph["gnu_objects"]}
+    # The Sid object is speech middleware (callers gsapi_*/StartListening/
+    # StopListening/ProcessAudio, calls heap_Alloc/heap_Free), not lgAud.
+    sid = objects["0x3b7248"]
+    assert (sid["library"], sid["segment_library"]) == ("speech middleware", "lgAud")
+    assert [(row["address"], row["from"], row["to"]) for row in graph["rules"]["coupling_moves"]] == [
+        ("0x3aae18", None, "Medius"), ("0x3b7248", "lgAud", "speech middleware"),
+    ]
+    # libgcc's GOFAST _df_to_sf.o and _df_to_usi.o.
+    for address in ("0x16e398", "0x16e3f0"):
+        assert (objects[address]["library"], objects[address]["segment_library"]) == ("libgcc", None)
+    # Data-only members from their LOCAL section-symbol blocks.
+    members = {address: row["library"] for address, row in objects.items() if row.get("data_only")}
+    assert {address: members.get(address) for address in ("0x43bc88", "0x466cc0", "0x447c00", "0x448090")} == {
+        "0x43bc88": "newlib", "0x466cc0": "newlib", "0x447c00": "newlib", "0x448090": "libgcc",
+    }
+    assert objects["0x43bc88"]["data"] == ["socom:data:0x43bc88", "socom:data:0x43bf74"]
+    # Gaps split where an input section starts: puts.o's and strtod.o's .rodata.
+    rows = _rows(graph)
+    assert rows["socom:gap:0x466fa0"]["end"] == "0x466fb0" and "socom:gap:0x466fb0" in rows
+    assert rows["socom:gap:0x466c89"]["end"] == "0x466c90"
+    # The segmentation is unchanged: 76 segments, the lgAud segment keeps the Sid functions.
+    assert len(graph["segments"]) == 76
+    lgaud = graph["segments"][61]
+    assert lgaud["cut_classification_mix"] == {"provider:lgAud": 39}
+    assert lgaud["classification_mix"] == {"provider:lgAud": 25, "provider:speech middleware": 14}
 
 
 def test_reference_segments_report_internal_unit_boundaries(reference_graph: dict) -> None:

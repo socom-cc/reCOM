@@ -82,14 +82,40 @@ P-gnu-object    the provider row of a GNU object one of whose DWARF compile
                 crt0.s) records ``archive_member.linked: "object"``: the
                 object was assembled or compiled with the project, not taken
                 from an archive.
+
+Rules version 3 (the default) adds provider-scope rules and LOCAL section
+containment, and keeps every other rule:
+
+P-mw-unit       (row) in a provider plan, a Metrowerks-compiled provider unit
+                of the plan's library (a provider path or a known unit name,
+                such as 989snd.c) whose artifacts the unit rules decide gets a
+                provider row: ``translation_unit``, its single provider path,
+                ``archive_member.object`` ``<stem>.o`` (Metrowerks names an
+                object after its source file) and ``linked: "unknown"``.  Its
+                artifacts are decided by the anchors (``A-file-string``,
+                ``A-local-block``, ...), ``A-between`` and ``D-referenced``,
+                whose provider-scope versions accept functions and data the
+                graph classifies as that same library.
+P-gnu-data      data the graph places in no GNU object's cluster but inside
+                one GNU object's LOCAL section run (``gnu_objects[].sections``:
+                from its LOCAL SECTION symbol to the next input section) is
+                that object's (high; medium when the run was cut short by
+                another object's artifact or its window's end) before the
+                "referenced only by" fallback, which applies only to data no
+                run contains.  A cluster and a run naming different objects
+                leave the datum open.
+P-gnu-section   a non-padding gap inside one GNU object's LOCAL section run
+                whose every relocation comes from that object's functions
+                through its own LOCAL section symbols is that object's (high).
 """
 
 from __future__ import annotations
 
+import bisect
 import os
 import re
 from collections import Counter, defaultdict
-from pathlib import Path, PureWindowsPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Callable
 
 from .constants import REFERENCE_SHA256
@@ -113,8 +139,8 @@ from .source_plan import (
 )
 from .util import SocomError
 
-DRAFT_RULES_VERSION = 2
-RULES_VERSIONS = (1, 2)
+DRAFT_RULES_VERSION = 3
+RULES_VERSIONS = (1, 2, 3)
 # The version a plan without a recorded (known) draft rules version is checked under.
 UNVERSIONED_RULES = 1
 ANCHOR_ORDER = ("A-dwarf-cu", "A-dwarf-header", "A-sinit", "A-unnamed", "A-dwarf-static", "A-file-string", "A-local-block")
@@ -175,11 +201,22 @@ class _Draft:
         self.workspace = workspace
         self.users: dict[str, set[str]] = defaultdict(set)
         self.uses: dict[str, set[str]] = defaultdict(set)
+        # Each relocation reaching an artifact: (site, symbol index, symbol type).
+        self.reaching: dict[str, list[tuple[str, Any, Any]]] = defaultdict(list)
         for reference in facts.get("references") or []:
             site, target = reference.get("site_artifact"), reference.get("target_artifact")
             if site and target and site != target:
                 self.users[target].add(site)
                 self.uses[site].add(target)
+                self.reaching[target].append((site, reference.get("symbol_index"), reference.get("symbol_type")))
+        # LOCAL section runs of the GNU function objects (rules 3), by start address.
+        self.runs = sorted(
+            (_hex_int(run["start"]), _hex_int(run["end"]), run, row["address"])
+            for row in graph.get("gnu_objects") or []
+            if not row.get("data_only")
+            for run in row.get("sections") or []
+        )
+        self.run_starts = [run[0] for run in self.runs]
         # How many function artifacts carry each symbol name (a single copy has 1).
         self.copies: Counter[str] = Counter(
             item["name"] for row in self.rows if row["kind"] == "function" for item in row.get("names") or [] if item.get("name")
@@ -266,7 +303,7 @@ class _Draft:
                 if any(_hex_int(self.by_id[functions[k]]["address"]) in self.gnu_starts for k in range(left + 1, right + 1)):
                     continue
                 row = self.by_id[identity]
-                if strong_provider(row, self.unit_library) is not None:
+                if strong_provider(row, self.unit_library) not in self.own_library(unit):
                     continue
                 if any(
                     candidate["tu"].casefold() != unit and candidate["strength"] in ("strong", "medium")
@@ -296,7 +333,7 @@ class _Draft:
             return False
         for identity in between:
             other = self.by_id[identity]
-            if strong_provider(other, self.unit_library) is not None:
+            if strong_provider(other, self.unit_library) not in self.own_library(unit):
                 return False
             if any(
                 candidate["tu"].casefold() != unit and candidate["strength"] in ("strong", "medium")
@@ -304,6 +341,29 @@ class _Draft:
             ):
                 return False
         return True
+
+    def own_library(self, unit: str) -> tuple[str | None, ...]:
+        """Provider libraries ``A-between`` accepts between two anchors of ``unit``.
+
+        Rules 3 (provider scope): functions the graph proves code of the
+        unit's own provider library; before, none.
+        """
+
+        library = self.unit_library.get(unit.casefold())
+        return (None, library) if self.rules >= 3 and library else (None,)
+
+    def containing_run(self, row: dict[str, Any]) -> tuple[dict[str, Any], str] | None:
+        """(LOCAL section run, GNU object address) whose extent holds the whole artifact (rules 3)."""
+
+        start = _hex_int(row["address"])
+        end = start + int(row.get("size") or 0)
+        position = bisect.bisect_right(self.run_starts, start) - 1
+        if position < 0:
+            return None
+        low, high, run, address = self.runs[position]
+        if low <= start and end <= high:
+            return run, address
+        return None
 
     def toolchain_producer(self, gnu: dict[str, Any]) -> str | None:
         """The project-toolchain DWARF producer of a GNU object's functions or gaps, if any."""
@@ -454,10 +514,23 @@ def draft_owner_plan(
             objects = {value for value in draft.gnu_of_cluster(row) if value in draft.gnu}
             users, via_gap = draft.function_users(identity)
             user_objects = {draft.by_id[user].get("gnu_object") for user in users}
+            # Rules 3: the LOCAL section run holding the datum comes before
+            # the "referenced only by" fallback.
+            contained = draft.containing_run(row) if draft.rules >= 3 else None
             target, confidence, basis = None, None, None
             if len(objects) == 1:
                 target = next(iter(objects))
                 confidence, basis = "high", f"object cluster {row.get('cluster')} of GNU object {target}"
+                if contained is not None and contained[1] != target:
+                    leave(identity, f"its object cluster names GNU object {target}, the LOCAL section run holding it GNU object {contained[1]}")
+                    continue
+            elif contained is not None:
+                run, target = contained
+                confidence = "high" if run.get("end_basis") == "next section symbol" else "medium"
+                basis = (
+                    f"inside GNU object {target}'s {run['name']} section run {run['start']}-{run['end']} "
+                    f"(LOCAL section symbol {run['symbol_index']}; end: {run.get('end_basis')})"
+                )
             elif users and not via_gap and len(user_objects) == 1 and None not in user_objects:
                 target = next(iter(user_objects))
                 confidence, basis = "medium", f"referenced only by functions of GNU object {target} ({len(users)})"
@@ -469,8 +542,30 @@ def draft_owner_plan(
                     continue
                 place(("provider", target), _entry(identity, confidence, basis, "P-gnu-data"), provider_row(gnu, gnu["functions"][0] if gnu["functions"] else identity))
                 continue
+        if kind == "gap" and draft.rules >= 3:
+            reached = _section_gap(draft, row)
+            if reached is not None:
+                gnu, basis = reached
+                gnu_library = gnu.get("library") or "unidentified GNU object"
+                if library is not None and gnu_library != library:
+                    leave(identity, f"gap of GNU object {gnu['address']}'s section run (library {gnu_library}), this plan's scope is {library}")
+                    continue
+                place(("provider", gnu["address"]), _entry(identity, "high", basis, "P-gnu-section"), provider_row(gnu, gnu["functions"][0]))
+                continue
         if library is not None:
-            leave(identity, "no GNU object rule decides it: a provider plan names its archive member by hand")
+            decided = _provider_unit_decision(draft, row, library) if draft.rules >= 3 else None
+            if decided is not None:
+                # Rules 3: a Metrowerks-compiled member of the plan's library.
+                unit, rule, basis, confidence = decided
+                stem = PurePosixPath(unit).stem
+                place(("provider", f"{library}:{stem}.o"), _entry(identity, confidence, basis, rule), _mw_unit_row(draft, unit, library))
+                continue
+            leave(
+                identity,
+                "no GNU object rule decides it: a provider plan names its archive member by hand"
+                if draft.rules < 3
+                else "no GNU object or provider-unit rule decides it: a provider plan names its archive member by hand",
+            )
             continue
         if kind == "gap":
             leave(identity, f"{row.get('fill')} fill of {row['size']} bytes" + (f" with labels {', '.join(row.get('labels') or [])}" if row.get("labels") else "") + " is not alignment padding")
@@ -559,6 +654,74 @@ def draft_owner_plan(
         "outside_reservation": sorted(set(outside)),
     }
     return plan
+
+
+def _section_gap(draft: _Draft, row: dict[str, Any]) -> tuple[dict[str, Any], str] | None:
+    """Rules 3: (GNU object, basis) of a non-padding gap its object reaches only through its own LOCAL section symbols."""
+
+    contained = draft.containing_run(row)
+    reaching = draft.reaching.get(row["id"], [])
+    if contained is None or not reaching:
+        return None
+    run, address = contained
+    gnu = draft.gnu.get(address)
+    if gnu is None or not gnu.get("functions"):
+        return None
+    symbols = {item.get("symbol_index") for item in gnu.get("sections") or []}
+    functions = set(gnu["functions"])
+    if not all(site in functions and kind == "SECTION" and index in symbols for site, index, kind in reaching):
+        return None
+    return gnu, (
+        f"inside GNU object {address}'s {run['name']} section run {run['start']}-{run['end']}, reached only through its "
+        f"LOCAL section symbols from its functions ({len(reaching)} relocations)"
+    )
+
+
+def _provider_unit_decision(draft: _Draft, row: dict[str, Any], library: str) -> tuple[str, str, str, str] | None:
+    """Rules 3: the unit decision of an artifact of a Metrowerks-compiled provider unit of ``library``.
+
+    The unit anchors and ``A-between`` (``_Draft.decided``), or for data
+    ``D-referenced``: every referencing function is decided for that unit and
+    the datum is not provider code of another library.
+    """
+
+    identity = row["id"]
+    decided = draft.decided.get(identity)
+    if decided is None and row["kind"] == "data" and len(draft.conflict(identity)) <= 1:
+        if strong_provider(row, draft.unit_library) in (None, library):
+            users, via_gap = draft.function_users(identity)
+            units = {(draft.decided.get(user) or ("",))[0].casefold() for user in users}
+            if users and not via_gap and len(units) == 1 and "" not in units:
+                spelled = draft.decided[next(iter(users))][0]
+                decided = (spelled, "D-referenced", f"referenced only by {len(users)} function(s) of {spelled}", "medium")
+    if decided is None or draft.unit_library.get(decided[0].casefold()) != library:
+        return None
+    return decided
+
+
+def _mw_unit_row(draft: _Draft, unit: str, library: str) -> dict[str, Any]:
+    """Rules 3: the provider row of a Metrowerks-compiled member of ``library`` (``P-mw-unit``)."""
+
+    known = draft.units.get(unit.casefold()) or {}
+    sources = sorted({path for path in known.get("paths") or [] if _is_source(path)})
+    original = sources[0] if len(sources) == 1 else None
+    stem = PurePosixPath(unit).stem
+    return {
+        "translation_unit": unit,
+        "classification": "provider",
+        "workspace_path": None,
+        "original_path": original,
+        "provisional_file": None,
+        "library": library,
+        "archive_member": {"gnu_object": None, "object": f"{stem}.o", "linked": "unknown"},
+        "draft_rule": "P-mw-unit",
+        "evidence": [
+            f"Metrowerks-compiled provider unit {unit} of {library}"
+            + (f" (path {original})" if original else " (by its unit name; no DWARF path)"),
+            f"object {stem}.o: Metrowerks names an object after its source file; whether it came from an archive "
+            "is not evidenced (linked unknown)",
+        ],
+    }
 
 
 def _open_function_reason(draft: _Draft, identity: str) -> str:

@@ -51,6 +51,7 @@ from .source_plan import (
     SOURCE_APPLY_KINDS,
     SOURCE_PLAN_KINDS,
     SOURCE_STAGE,
+    artifact_ids,
     decomposed_directories,
     plan_path,
     slice_sha256,
@@ -215,16 +216,20 @@ def provider_members(plan: dict[str, Any]) -> list[dict[str, Any]]:
         if not isinstance(owner, dict) or owner.get("classification") != "provider":
             continue
         member = owner.get("archive_member") or {}
-        artifacts = [value for value in owner.get("artifacts") or [] if isinstance(value, str)]
-        rows.append(
-            {
-                "library": owner.get("library"),
-                "gnu_object": member.get("gnu_object"),
-                "object": member.get("object"),
-                "artifacts": len(artifacts),
-                "artifacts_sha256": slice_sha256(artifacts),
-            }
-        )
+        # Schema 2 entries may be objects: read them through artifact_ids.
+        artifacts = artifact_ids(owner)
+        row = {
+            "library": owner.get("library"),
+            "gnu_object": member.get("gnu_object"),
+            "object": member.get("object"),
+            "artifacts": len(artifacts),
+            "artifacts_sha256": slice_sha256(artifacts),
+        }
+        # Schema 2: how the member was linked, its archive and version, when the plan records them.
+        for key in ("linked", "archive", "version"):
+            if member.get(key) is not None:
+                row[key] = member[key]
+        rows.append(row)
     return sorted(rows, key=lambda row: (str(row["library"]), str(row["gnu_object"] or ""), str(row["object"] or "")))
 
 
@@ -616,6 +621,7 @@ def _record_lines(record: dict[str, Any]) -> list[str]:
     lines.extend(
         f"source-provider-member {row['library']} gnu_object:{row['gnu_object'] or '-'} object:{row['object'] or '-'} "
         f"artifacts:{row['artifacts']}"
+        + "".join(f" {key}:{row[key]}" for key in ("archive", "version", "linked") if row.get(key) is not None)
         for row in record.get("members") or []
     )
     return lines

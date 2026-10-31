@@ -94,8 +94,8 @@ Dependencies:
 - the seed keeps its ID and becomes the stage gate over every apply and data
   reconcile.
 
-For the reference graph (`837c03c4...`, 76 segments) this gives 46 segment
-plans and applies, 13 provider plans and applies (crt0, MW runtime, MSL,
+For the reference graph (`7bd4e540...`, 76 segments, as for `837c03c4...`)
+this gives 46 segment plans and applies, 13 provider plans and applies (crt0, MW runtime, MSL,
 SCE, unidentified GNU object, newlib, libgcc, 989snd, speech middleware,
 Medius, lgAud, libptt, RSA), 3 data reconciles, the route gate, and the
 stage gate. The 62 plans are ready at once. 39 reservations are inferred:
@@ -106,6 +106,64 @@ segments rest on original paths alone. No segment falls back to all of
 `src`. `progress audit` holds the items to these rules and to the stage's
 decomposition record.
 
+### Graph refinements (round m14)
+
+The graph `7bd4e540...` adds these rules to `837c03c4...`; the segments, and
+so every item ID, are unchanged:
+
+- **Gaps split at input sections.** A gap is split wherever a LOCAL SECTION
+  symbol opens an input section inside it, so no gap spans two objects'
+  sections (`0x466fa0` was puts.o's and strtod.o's `.rodata`; `0x466c89`
+  now ends at `0x466c90`). 96 section symbols split gaps (13,301 gaps become 13,397).
+- **Member-identity rules.** `GNU_MEMBER_RULES` (libgcc's fp-bit GOFAST
+  names `dpadd`, `dpsub`, `dpmul`, `dpdiv`, `dpcmp`, `litodp`, `dptoli`,
+  `dptoul`, `dptofp`, `fptodp`, `__thenan_df`, ...) refine an object's
+  library: `dptofp` `0x16e398` and `dptoul` `0x16e3f0` (`_df_to_sf.o`,
+  `_df_to_usi.o`) are libgcc's.
+- **Coupling.** A GNU object whose library rests on archive-contiguity
+  alone (or that has none) joins library L when everything outside it that
+  references it (callers, and functions sharing its data) is code of GNU
+  objects of L, at least two such artifacts, none of its current library,
+  and it uses L itself (calls L's code or shares L's data). The reference
+  moves two objects (`rules.coupling_moves`): `0x3b7248` (SidInit ..
+  SidAdvanceBuffer: called only by `gsapi_*`, `StartListening`,
+  `StopListening`, `ProcessAudio`, and calling `heap_Alloc`/`heap_Free`)
+  from lgAud to speech middleware, and the unidentified `0x3aae18` to Medius.
+- **Stable segmentation.** Segment cuts follow the library rules of the
+  first decomposition (`segment_library`, recorded on a GNU object when a
+  refinement changed it); the refined `library` is the classification. A
+  segment whose mix a refinement changed records the mix its cuts followed
+  as `cut_classification_mix`, and the refined artifacts move to their
+  library's scope like any other proven provider artifact (`moved_from`):
+  segment 011 (the two GOFAST objects) joins the libgcc item, the Sid
+  functions in segment 062 move to speech middleware.
+- **Data-only members.** A run of LOCAL symbols that no object with
+  functions claims, between two GNU objects' blocks, split where a section
+  name repeats, is a data-only member when it opens data sections only,
+  its sections hold no artifact of a neighbour's cluster, and a neighbour
+  that could take it (repeating none of its section names, the previous one
+  only when its block does not end with `gcc2_compiled.`) does not
+  reference its data. Its GNU object (`data_only`, `data`, `sections`,
+  `local_symbols`, `symtab_neighbours`) is the lowest address it opens and
+  owns its data and non-padding gaps; its library is that of both symbol
+  neighbours, else the one library referencing it. The reference has 11:
+  newlib's impure.o `0x43bc88`, ctype_.o `0x466cc0` and s_infconst.o
+  `0x447c00`, libgcc's _thenan_df.o `0x448090`, two SCE and five speech
+  middleware members.
+- **Section runs.** Each GNU object lists `sections`: every data input
+  section its LOCAL SECTION symbols open, from the symbol to the next input
+  section (`end_basis` `next section symbol`), or cut short by another
+  object's artifact (a Metrowerks unit's evidence, another cluster with
+  functions, a non-weak classification of another library) or the window
+  end. Draft rules version 3 use them.
+
+A unit's data does not follow the segment holding its text in this graph:
+data only a unit's `__sinit_` function references stays in the
+static-initializer segment (zsnd_csnd.cpp's `.bss` `@1459` at `0x50e660`
+stays in segment 076, its text in 039). Every form of that rule also moves
+data of `main.cpp` (+4 into segment 001) and of the zAnim units (+4 into
+segment 017), whose plans are accepted, so it waits for their review.
+
 ### Refresh after a graph change
 
 ```powershell
@@ -115,19 +173,36 @@ python tools/socom.py progress decompose-stage --stage source-correlation --refr
 
 A fix to `source graph` changes the graph digest, so every item's batch is
 stale. The refresh rebuilds every batch from the regenerated graph with the
-same producer, while no stage 4 plan is accepted, no stage 4 item is leased
-and no apply has started. An item whose scope the new graph still gives
-keeps its ID, status, history and evidence. A handed-off plan returns to
-`ready`; its handoff moves to a `review_history` note `graph refreshed <old>
--> <new>; replan`, which says whether its slice changed (if not, the plan
-only re-cites the digests). New scopes add items; items whose scope is gone
-are removed. The decomposition record is replaced and lists every refresh
-under `refreshes` (`added`, `removed`, `replan`, `slice_changed`,
-`reservation_changed`). On the tracker of revision 2852 (graph `a3ce2165...`
-to `837c03c4...`) the dry run adds `source-provider-crt0` and its apply,
-removes nothing, returns segments 001 and 017 and the MW runtime plan to
-planning, and changes the slices of segments 001 and 076, MW runtime, MSL
-and the rodata and data reconciles.
+same producer, while no stage 4 item is leased and no apply has started. An
+item whose scope the new graph still gives keeps its ID, status, history
+and evidence. An accepted plan item keeps its acceptance only when the new
+graph gives it the same scope and a byte-identical slice: its batch then
+records the graph its accepted plan cites as `plan_graph_sha256`, which
+`source plan validate` (and so the apply route) accepts in place of the
+batch's `graph_sha256`, so the accepted plan file keeps validating
+unchanged. A later refresh keeps that digest. When the new graph changes
+the slice of an accepted plan, or drops its scope, the refresh is refused
+and names those plans: only review replaces an accepted plan. A handed-off
+plan returns to `ready`; its handoff moves to a `review_history` note
+`graph refreshed <old> -> <new>; replan`, which says whether its slice
+changed (if not, the plan only re-cites the digests). New scopes add items;
+items whose scope is gone are removed. The decomposition record is replaced
+and lists every refresh under `refreshes` (`added`, `removed`, `replan`,
+`slice_changed`, `reservation_changed`, `kept_accepted`). On the tracker of
+revision 2852 (graph `a3ce2165...` to `837c03c4...`) the dry run added
+`source-provider-crt0` and its apply, removed nothing, returned segments 001
+and 017 and the MW runtime plan to planning, and changed the slices of
+segments 001 and 076, MW runtime, MSL and the rodata and data reconciles.
+
+On a copy of the tracker of revision 2877 (graph `837c03c4...` to
+`7bd4e540...`) the dry run passes the strict audit, adds and removes
+nothing, keeps the five accepted plans (segments 001 and 017, crt0, MW
+runtime, 989snd: same slices, `plan_graph_sha256` `837c03c4...`; each
+validates and draft-checks exactly as before), returns the handed-off
+newlib, libgcc and lgAud plans to planning, and changes the slices of 14
+plan items (newlib, libgcc, lgAud, speech middleware, Medius, RSA, SCE,
+unidentified GNU object, segments 026, 029 and 076, and the three data
+reconciles) and their applies; no reservation changes.
 
 ## Plan items
 
@@ -143,12 +218,36 @@ reason). The skill is `socom-source-model-recovery`, or
 python tools/socom.py source graph --output build/source-graph/graph.json   # once per graph, shared
 python tools/socom.py source plan evidence --item <item> --output build/source-plans/<slug>-evidence.json
 python tools/socom.py source plan draft --item <item> --output build/source-plans/<slug>.json
+python tools/socom.py source plan open --plan build/source-plans/<slug>.json [--limit N] [--format json]
+python tools/socom.py source plan decide --plan build/source-plans/<slug>.json --artifact <id> [--artifact <id> ...] `
+  (--owner <unit | 0xGNU | object | library:object> --confidence <c> --basis "<evidence>" | --unresolved "<reason>") `
+  [--override --evidence "<why the draft rule is wrong>"]
 python tools/socom.py source sql "SELECT ..."          # questions about the open rows
 python tools/socom.py source plan validate --plan build/source-plans/<slug>.json --check --fill-annotations
 python tools/socom.py source plan validate --plan build/source-plans/<slug>.json --check
 python tools/socom.py source plan draft --check build/source-plans/<slug>.json
 python tools/socom.py provider archive --lib <path> [--member <name>] [--format text]   # provider plans
 ```
+
+`source plan open` prints only what is still open in a drafted plan: each
+open unresolved artifact (up to `--limit`, default 40) with its kind,
+size, names, binding, input section, classification, top unit candidates,
+GNU object, cluster, `__FILE__` strings and its first callers and callees
+(each with the owner this plan gives it, or the item holding it), then the
+open owner rows, open header emits, drafted paths outside the reservation,
+an inferred reservation and the owner keys `decide` accepts. It reads the
+query cache (`--graph`) and notes when the cache holds another graph than
+the plan cites. `source plan decide` records one decision: it moves the
+artifacts into an existing owner row as `{artifact, confidence, basis}`
+entries (hand-written, without `draft_rule`) or into `unresolved` with the
+reason, keeps the row's confidence its weakest entry's, drops an owner row
+it empties, and re-derives `annotations` when the cache holds the plan's
+graph. It loads and dumps JSON (never text), refuses control characters and
+schema 1 plans, and refuses to move an artifact a draft rule decided unless
+`--override` gives `--evidence`, which it keeps as a plan note `override
+<artifact>: the draft gave <owner> (<rule>); <evidence>`. Add a new owner
+row by hand once, then decide its artifacts. Neither command loads the
+whole plan into the planner's context.
 
 `<slug>` is the item ID with `:` replaced by `-`. The draft decides every
 artifact its rules settle (below) and leaves the rest as `unresolved` rows
@@ -189,15 +288,17 @@ Without `--check`, evidence and validate read `--graph`
 differs from the one the item was decomposed from. `--check` (evidence,
 validate) regenerates the graph from the ELF instead.
 
-### Draft rules (versions 1 and 2)
+### Draft rules (versions 1, 2 and 3)
 
-`source plan draft --item <item> --output <plan> [--rules 1|2]` writes a
-schema 2 plan under version 2 unless `--rules` says otherwise. Each decided
+`source plan draft --item <item> --output <plan> [--rules 1|2|3]` writes a
+schema 2 plan under version 3 unless `--rules` says otherwise. Each decided
 artifact is an entry `{artifact, confidence, basis, draft_rule}`; each owner
 row's confidence is its weakest entry's. The rules are conservative: when
 any condition fails the artifact stays open. Their exact statement is in
 `tools/_socom/source_draft.py`. Version 2 extends `A-between` and
-`P-gnu-object` (marked *v2* below); every other rule is version 1's.
+`P-gnu-object` (marked *v2* below); version 3 adds provider-scope unit
+rules and LOCAL section containment (marked *v3*); every other rule is
+version 1's.
 
 | Rule | Decides | Confidence |
 | --- | --- | --- |
@@ -210,15 +311,33 @@ any condition fails the artifact stays open. Their exact statement is in
 | `D-referenced` | unanchored data whose referencing functions (followed through data) are all decided for one unit | medium |
 | `C-fill` | the graph's alignment padding: the compiler-generated row | high |
 | `P-gnu-object` | a function or gap of a GNU object of the plan's library: one provider row per object. *v2*: when a DWARF compile unit of the object has a project-toolchain (Metrowerks) producer, such as crt0.s's `Metrowerks MW GAS R5900 Assembler`, the row records `archive_member.linked: "object"` | high, medium past an uncertain object end |
-| `P-gnu-data` | data in a GNU object's cluster (high) or referenced only by its functions (medium) | high / medium |
+| `P-gnu-data` | data in a GNU object's cluster (high) or referenced only by its functions (medium). *v3*: data in no cluster but inside one GNU object's LOCAL section run (`gnu_objects[].sections`) is that object's before the "referenced only by" fallback (high; medium when the run was cut short); a cluster and a run naming different objects leave it open | high / medium |
+| `P-gnu-section` *v3* | a non-padding gap inside one GNU object's LOCAL section run whose every relocation comes from that object's functions through its own LOCAL section symbols | high |
+| `P-mw-unit` *v3* (row) | in a provider plan, a Metrowerks-compiled provider unit of the plan's library (a provider path, or a known name such as `989snd.c`) whose artifacts `A-dwarf-cu` .. `A-local-block`, `A-between` or `D-referenced` decide: a provider row with the unit, its single provider path, `archive_member.object` `<stem>.o` and `linked: "unknown"`. The provider-scope `A-between` accepts functions the graph proves of that same library, and `D-referenced` data that is not another library's | - (entries keep their rule) |
 | `O-provisional` (row) | exactly one file under `src/` has the unit's exact name: `provisional_file` and `workspace_path` | - |
 | `O-path` (row) | no file of that name in any case; the single `Z:\dev` path names an existing module directory | - |
 | `H-dwarf-header` | a decided authored function's header compile unit: an existing `Z:\dev` header under its module directory, or a provider header `<name>` with its library; reason `template`, `weak` or `inline` | - |
 
 Boundary functions between two units, functions with no anchor on one side,
 WEAK or inline instances referenced from other units, conflicting anchors,
-non-padding gaps, MW-compiled provider members (no GNU object) and provider
-units in authored scopes stay open.
+non-padding gaps outside a GNU section run, MW-compiled provider members
+without a unit anchor (no GNU object) and provider units in authored scopes
+stay open.
+
+Version 3 was measured on the graph `7bd4e540...`. It decides 84 of
+989snd's 110 artifacts against version 2's 26 (`989snd.c` as one
+`P-mw-unit` member: 20 anchors, 17 `A-between`, 21 `D-referenced`); all 84
+agree with the accepted hand plan, so 58 of its 84 hand rows are drafted
+and 26 stay open (the 20 leading API functions before the first LOCAL
+anchor and 6 data objects). It decides 525 of MSL's 529 against 133. Of the MW
+runtime's 64 hand member rows it decides 3 (`gcc_wrapper.c` by its DWARF
+unit); the other members have no unit anchor. newlib goes from 428 to 449
+of 452, agreeing with the hand plan on `__mprec_tinytens` (mprec.o),
+`__malloc_trim_threshold` (mallocr.o) and `__infinity` (the data-only
+s_infconst.o, now GNU object `0x447c00`), and decides 20 non-padding `.rodata`
+gaps (`P-gnu-section`; its planner placed 19 by hand before the split); lgAud's two out-of-slice
+storage gaps (now in its slice) are `P-gnu-section` too. libgcc's two GOFAST
+objects are `P-gnu-object` rows in its slice.
 
 `source plan draft --check <plan>` re-drafts under the rules the plan was
 drafted with (its `draft.rules_version`; a plan with no recorded version
@@ -337,10 +456,15 @@ Schema 2 additions (each optional):
   "open"` (refused: the planner must decide its paths); an unresolved row's
   `"draft": "open"` (refused: own it, or keep it with a real reason and drop
   the marker); a header-emit row's `draft_rule`; the plan's `draft` block;
-- `archive_member.linked`: `archive` (the default) or `object`, a toolchain
+- `archive_member.linked`: `archive` (the default), `object`, a toolchain
   or SDK object compiled with the project rather than taken from an archive
-  (crt0.s, PS2 Support `gcc_wrapper.c`). `library` still names the provider
-  family the plan covers;
+  (crt0.s, PS2 Support `gcc_wrapper.c`), or `unknown` when the evidence does
+  not say (so the archive default is not a claim). `library` still names the
+  provider family the plan covers;
+- `archive_member.archive`: the archive the member came from, by file name
+  only (`liblgaud.a`; never a path), and `archive_member.version`, its
+  version string (`1.06`), when the ELF evidences them (lgAud's own
+  `liblgaud.a is version %d.%02d` literal);
 - a provider header: a header-emit row with `library` and a header spelled
   `<name>` (MSL `<string>`). The owner's file emits the template or inline
   body by including it, so its annotation is an `emits` edge in the owner's
@@ -462,7 +586,8 @@ prints hex); IDs spell them in hex.
 | `tu_candidates` | each unit candidate (`rank` 0 is primary) with `strength`, `via`, `sinit_order` |
 | `signals` | each graph signal with `signal`, `strength`, `tu`, `path`, `text`, full `json` |
 | `units` | each unit with its `paths`, provider `library`, `sinit_order`, anchored counts and first/last function |
-| `gnu_objects` | each GNU object: `address`, `gcc_compiled`, `end_basis`, `library`, `library_basis`, function and gap counts, `anchor` |
+| `gnu_objects` | each GNU object: `address`, `gcc_compiled`, `end_basis`, `library`, `library_basis`, function and gap counts, `anchor`, `data_only`, `data_count`, `segment_library` (the library the cuts follow, when refined) |
+| `object_sections` | per-object LOCAL-bracketed section runs: `gnu_object`, `library`, `data_only`, section `name`, `symbol_index`, `start`, `end`, `end_basis`, `next_start` (the next input section), `artifacts`, first `named` artifacts, and `room_for_member`: 0 when the run reaches the next input section (no room for a separate member), 1 when another object's artifact or the window end cut it short |
 | `clusters` | each multi-member object cluster: `member_count`, `units`, `libraries`, LOCAL symbol range |
 | `segments`, `internal_boundaries` | each segment (family, library, item, edges, unanchored counts) and each unit change inside it with its unanchored functions |
 | `scopes`, `slices` | each plan item's scope and counts, and its slice in order |
@@ -481,7 +606,10 @@ prints hex); IDs spell them in hex.
 - A segment or data plan may own provider rows; the route records them in
   tracker evidence as for a provider plan.
 - `archive_member.linked: "object"` marks an object linked directly (crt0,
-  `gcc_wrapper.c`), not an archive member.
+  `gcc_wrapper.c`), not an archive member; `"unknown"` makes no claim.
+  A provider apply records `linked`, `archive` and `version` with each
+  member when the plan gives them (`source-provider-member ... archive:<name>
+  version:<v> linked:<kind>`), and counts schema 2 entry objects.
 
 Cross-plan consistency is the gate's job. A unit owned in several plans (its
 text, its `__sinit` function in the static-initializer segment, its data in

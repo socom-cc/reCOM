@@ -66,7 +66,7 @@ import hashlib
 import re
 from collections import Counter, defaultdict
 from pathlib import Path, PureWindowsPath
-from typing import Any
+from typing import Any, Callable
 
 from .dwarf1 import Dwarf1Debug, Dwarf1Line
 from .elf import Elf32File
@@ -116,6 +116,21 @@ GNU_LIBRARY_RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
             r"putchar|getchar|ungetc|setvbuf|setbuf|rewind|perror|getenv|"
             r"(?:a?(?:sin|cos|tan)h?|atan2|exp|log(?:10)?|pow|sqrt|ceil|floor|fabs|fmod|frexp|ldexp|modf|"
             r"copysign|scalbn|rint|finite)f?)$"
+        ),
+    ),
+)
+# Member-identity name rules: they refine which library an object belongs to
+# but never move a segment cut (segments are cut by ``GNU_LIBRARY_RULES``
+# alone, so the stage 4 items' segment numbers stay stable); a refined
+# object's artifacts move to their library's planning scope instead.
+# libgcc's fp-bit.c built with US_SOFTWARE_GOFAST names its soft-float entry
+# points dpadd/fpadd ... and its NaN constant __thenan_df/__thenan_sf.
+GNU_MEMBER_RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "libgcc",
+        re.compile(
+            r"^(?:(?:dp|fp)(?:add|sub|mul|div|cmp|neg)|litodp|dptoli|dptoul|dptofp|sitofp|fptosi|fptoui|fptodp|"
+            r"__thenan_[sd]f)$"
         ),
     ),
 )
@@ -288,15 +303,28 @@ def _artifacts(image: _Image) -> list[dict[str, Any]]:
 
 
 _CODE_SECTIONS = (".text", ".vutext")
+# Input sections a data-only archive member may hold.
+_DATA_SECTIONS = frozenset((".data", ".rodata", ".bss", ".sdata", ".sbss"))
+
+
+def _section_starts(image: _Image) -> list[int]:
+    """Start addresses of every input section the ELF's SECTION symbols open (``.DVP.`` overlays excluded)."""
+
+    return sorted(
+        {symbol.value for symbol in image.symbols if symbol.type_name == "SECTION" and symbol.value and ".DVP." not in symbol.name}
+    )
 
 
 def _nodes(image: _Image, artifacts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Artifacts plus the unsymbolled gaps between neighbours of one section.
 
-    A gap that leads from data into code is split at the first code input
-    section (``.text``/``.vutext`` SECTION symbol) starting inside it: the
-    bytes before it are fill of the data run, and the code run opens at the
-    address the ELF gives that input section.
+    A gap is split at every input section (a LOCAL SECTION symbol) that
+    starts inside it: the bytes of one gap then never span two objects'
+    input sections (``.rodata`` of puts.o and strtod.o).  In a gap that
+    leads from data into code, the first code input section
+    (``.text``/``.vutext``) opens the code run: the bytes before it are fill
+    of the data run.  A gap that leads from code into data opens the data
+    run at its start.
     """
 
     labels: dict[int, set[str]] = defaultdict(set)
@@ -307,18 +335,30 @@ def _nodes(image: _Image, artifacts: list[dict[str, Any]]) -> list[dict[str, Any
     code_starts = sorted(
         {symbol.value for symbol in image.symbols if symbol.type_name == "SECTION" and symbol.value and symbol.name in _CODE_SECTIONS}
     )
+    section_starts = _section_starts(image)
     nodes: list[dict[str, Any]] = []
     for previous, current in zip([None, *artifacts], artifacts):
         if previous is not None and previous["section_index"] == current["section_index"]:
             start = previous["start"] + previous["size"]
             end = current["start"]
-            between = [previous["kind"], current["kind"]]
-            pieces = [(start, end, between)]
-            if previous["kind"] != "function" and current["kind"] == "function":
+            before, after = previous["kind"], current["kind"]
+            # Where the run of ``after`` opens inside the gap.
+            transition = start
+            if before != "function" and after == "function":
                 position = bisect.bisect_right(code_starts, start)
-                if position < len(code_starts) and code_starts[position] < end:
-                    cut = code_starts[position]
-                    pieces = [(start, cut, [previous["kind"], previous["kind"]]), (cut, end, between)]
+                transition = code_starts[position] if position < len(code_starts) and code_starts[position] < end else start
+            low_cut = bisect.bisect_right(section_starts, start)
+            high_cut = bisect.bisect_left(section_starts, end)
+            points = [start, *section_starts[low_cut:high_cut], end]
+            pieces = []
+            for low_address, high_address in zip(points, points[1:]):
+                if before == after or low_address < transition:
+                    edge = [before, before]
+                elif low_address == transition:
+                    edge = [before, after]
+                else:
+                    edge = [after, after]
+                pieces.append((low_address, high_address, edge))
             for low_address, high_address, edge in pieces:
                 size = high_address - low_address
                 if size <= 0:
@@ -475,6 +515,8 @@ class _Graph:
             node["input_section"] = _input_section(envelopes, node)
             node["signals"] = []
         self.references = _references(self.image, self.locator)
+        self.section_starts = _section_starts(self.image)
+        self.coupling_moves: list[dict[str, Any]] = []
         self.dwarf_paths: list[str] = []
         self.header_hint: dict[int, str] = {}
         self.libinfo: dict[int, str] = {}
@@ -838,7 +880,163 @@ class _Graph:
                 self.nodes[index]["contiguity_only"] = len(units) == 1 and not before.get(index)
             clusters.append(cluster)
         self.gnu = objects
+        self.gnu.extend(self.data_only_objects(clusters))
         return clusters, rounds
+
+    # -- LOCAL section blocks ----------------------------------------------------
+
+    def section_extent(self, start: int, foreign: Callable[[int], bool]) -> tuple[int, str, list[int]]:
+        """(end, end basis, artifacts) of the input section a LOCAL SECTION symbol opens at ``start``.
+
+        The section runs to the next input section any SECTION symbol opens,
+        but stops earlier at the end of its window or at the first artifact
+        ``foreign`` rejects (Metrowerks objects carry no section symbols, so
+        their data would otherwise seem to extend the last GNU section).
+        """
+
+        position = self.locator.find(start)
+        if position is None or self.nodes[position]["start"] != start:
+            return start, "no artifact starts there", []
+        window = self.nodes[position]["window"]
+        following = bisect.bisect_right(self.section_starts, start)
+        limit = self.section_starts[following] if following < len(self.section_starts) else None
+        indices: list[int] = []
+        index = position
+        while index < len(self.nodes) and (limit is None or self.nodes[index]["start"] < limit):
+            node = self.nodes[index]
+            if node["window"] != window:
+                return node["start"], "window end", indices
+            if node["kind"] != "gap" and foreign(index):
+                return node["start"], f"foreign artifact {node['id']}", indices
+            indices.append(index)
+            index += 1
+        if limit is None or index >= len(self.nodes):
+            last = self.nodes[indices[-1]] if indices else self.nodes[position]
+            return last["start"] + last["size"], "window end", indices
+        return limit, "next section symbol", indices
+
+    def mw_evidence_node(self, index: int) -> bool:
+        """An artifact a Metrowerks unit (or another object) claims: no GNU section run may cross it."""
+
+        node = self.nodes[index]
+        if any(item.get("tu") and item["strength"] in ("strong", "medium") for item in node["signals"]):
+            return True
+        return any(
+            _LITERAL.match(row["name"]) or _THUNK.match(row["name"]) or row["name"].startswith(("__RTTI__", "__vt__", ".p__sinit_"))
+            for row in node["names"]
+        )
+
+    def data_only_objects(self, clusters: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """GNU archive members without code, from their LOCAL section-symbol blocks.
+
+        The linker writes each object's LOCAL symbols contiguously.  A run
+        of LOCAL symbols that no object with functions claims, lying between
+        two GNU objects' blocks, is split where a section name repeats (an
+        object has one input section of each name).  A block with data
+        section symbols (``.data``, ``.rodata``, ``.bss``, ``.sdata``,
+        ``.sbss``) and no code is a data-only member (newlib's impure.o and
+        ctype_.o, libgcc's _thenan_df.o) unless its sections hold an
+        artifact of a neighbouring object's cluster (the neighbour's own
+        leading section, such as locale.o's ``.data``) or a neighbour's
+        functions reference its data (it could be that neighbour's leading
+        or trailing section: a neighbour may take a block that repeats none
+        of its section names, the previous one only when its own block does
+        not end with ``gcc2_compiled.``, which GCC writes last).  Its
+        identity is the lowest address its sections open; it owns their
+        data and non-padding gaps.  Its library is set in ``gnu_libraries``.
+        """
+
+        symbols = self.image.symbols
+        with_code: dict[int, dict[str, Any]] = {}
+        object_of_node = {index: row for row in self.gnu for index in row["members"] + row["gaps"]}
+        claimed: set[int] = set()
+        for cluster in clusters:
+            gnu = next((object_of_node[index] for index in cluster["members"] if index in object_of_node), None)
+            if not any(self.nodes[index]["kind"] == "function" for index in cluster["members"]):
+                continue
+            claimed.update(cluster["members"])
+            if gnu is None:
+                continue
+            for value in cluster["local_symbols"]:
+                with_code[value] = gnu
+        local = [symbol for symbol in symbols if symbol.binding_name == "LOCAL" and symbol.index > 0]
+        users: dict[int, set[int]] = defaultdict(set)
+        for reference in self.references:
+            if reference["site_node"] is not None and reference["target_node"] is not None:
+                users[reference["target_node"]].add(reference["site_node"])
+
+        def names_of(start: int, step: int, gnu: dict[str, Any]) -> set[str]:
+            found, index = set(), start
+            while 0 <= index < len(local) and with_code.get(local[index].index) is gnu:
+                if local[index].type_name == "SECTION":
+                    found.add(local[index].name)
+                index += step
+            return found
+
+        found: list[dict[str, Any]] = []
+        position = 0
+        while position < len(local):
+            if local[position].index in with_code:
+                position += 1
+                continue
+            first = position
+            while position < len(local) and local[position].index not in with_code:
+                position += 1
+            previous = with_code.get(local[first - 1].index) if first else None
+            following = with_code.get(local[position].index) if position < len(local) else None
+            if previous is None or following is None:
+                continue
+            blocks: list[list[Any]] = [[]]
+            for symbol in local[first:position]:
+                if symbol.type_name == "SECTION" and any(
+                    other.type_name == "SECTION" and other.name == symbol.name for other in blocks[-1]
+                ):
+                    blocks.append([])
+                blocks[-1].append(symbol)
+            previous_names = set() if local[first - 1].name == _GNU_MARKER else names_of(first - 1, -1, previous)
+            following_names = names_of(position, 1, following)
+            for number, block in enumerate(blocks):
+                sections = [symbol for symbol in block if symbol.type_name == "SECTION" and symbol.name in _DATA_SECTIONS and symbol.value]
+                if not sections or any(
+                    symbol.type_name == "FUNC" or (symbol.type_name == "SECTION" and symbol.name not in _DATA_SECTIONS)
+                    for symbol in block
+                ):
+                    continue
+                extents = []
+                inside: list[int] = []
+                for symbol in sorted(sections, key=lambda row: row.value):
+                    end, basis, indices = self.section_extent(symbol.value, self.mw_evidence_node)
+                    extents.append(
+                        {"name": symbol.name, "symbol_index": symbol.index, "start": symbol.value, "end": end, "end_basis": basis}
+                    )
+                    inside.extend(indices)
+                if not inside or any(index in claimed for index in inside):
+                    continue
+                names = {symbol.name for symbol in sections}
+                joinable = []
+                if number == 0 and local[first - 1].name != _GNU_MARKER and not names & previous_names:
+                    joinable.append(previous)
+                if number == len(blocks) - 1 and not names & following_names:
+                    joinable.append(following)
+                neighbours = {index for row in joinable for index in row["members"]}
+                if any(users.get(index, set()) & neighbours for index in inside):
+                    continue
+                found.append(
+                    {
+                        "address": min(symbol.value for symbol in sections),
+                        "anchor": [{"name": symbol.name, "symbol_index": symbol.index} for symbol in sorted(block, key=lambda row: row.index) if symbol.type_name == "SECTION"],
+                        "gcc_compiled": False,
+                        "members": [],
+                        "gaps": [index for index in inside if self.nodes[index]["kind"] == "gap" and not self.nodes[index]["padding"]],
+                        "data": [index for index in inside if self.nodes[index]["kind"] == "data"],
+                        "end_basis": "LOCAL section-symbol block",
+                        "data_only": True,
+                        "sections": extents,
+                        "local_symbols": [block[0].index, block[-1].index],
+                        "symtab_neighbours": [previous, following],
+                    }
+                )
+        return sorted(found, key=lambda row: row["address"])
 
     # -- weak candidates -------------------------------------------------------
 
@@ -915,19 +1113,24 @@ class _Graph:
 
     # -- classification ------------------------------------------------------
 
-    def gnu_libraries(self) -> None:
-        for row in self.gnu:
+    def _assign_libraries(
+        self, objects: list[dict[str, Any]], rules: tuple[tuple[str, re.Pattern[str]], ...]
+    ) -> list[tuple[str | None, str | None]]:
+        """(library, basis) of each GNU function object under the given name rules."""
+
+        found: list[list[str | None]] = []
+        for row in objects:
             cluster = self.nodes[row["members"][0]]["cluster"] if row["members"] else None
             votes: Counter[str] = Counter()
             for index in row["members"]:
                 for name in self.nodes[index]["names"]:
                     if name["name"] in GNU_VOTE_NEUTRAL_NAMES:
                         continue
-                    library = next((library for library, pattern in GNU_LIBRARY_RULES if pattern.search(name["name"])), None)
+                    library = next((library for library, pattern in rules if pattern.search(name["name"])), None)
                     if library:
                         votes[library] += 1
             inside = SPEECH_WINDOW[0] <= row["address"] < SPEECH_WINDOW[1]
-            row["library"], row["library_basis"] = None, None
+            library, basis = None, None
             # A provider DWARF path on the object's own code names its library.
             paths = sorted(
                 {
@@ -938,33 +1141,201 @@ class _Graph:
                 }
             )
             if paths:
-                row["library"], row["library_basis"] = path_library(paths[0])[1], f"DWARF path {paths[0]}"
+                library, basis = path_library(paths[0])[1], f"DWARF path {paths[0]}"
             elif cluster and cluster["libraries"]:
-                row["library"], row["library_basis"] = "SCE", "__ps2_libinfo__ " + ", ".join(cluster["libraries"])
+                library, basis = "SCE", "__ps2_libinfo__ " + ", ".join(cluster["libraries"])
             elif votes and not (inside and max(votes, key=lambda name: (votes[name], name)) != "SCE"):
                 best = max(sorted(votes), key=lambda name: votes[name])
-                row["library"], row["library_basis"] = best, f"function names ({votes[best]} of {sum(votes.values())} matches)"
+                library, basis = best, f"function names ({votes[best]} of {sum(votes.values())} matches)"
             elif inside:
-                row["library"], row["library_basis"] = "speech middleware", "coordinator window 0x336ef0-0x3788a0"
+                library, basis = "speech middleware", "coordinator window 0x336ef0-0x3788a0"
+            found.append([library, basis])
         # Archive members link contiguously: an unnamed object takes the
         # library of its identified neighbours in its run of adjacent GNU
         # objects (each ending at the next GNU anchor).
-        runs: list[list[dict[str, Any]]] = []
-        for row in self.gnu:
-            if runs and runs[-1][-1]["end_basis"] == "next GNU anchor":
-                runs[-1].append(row)
+        runs: list[list[int]] = []
+        for number, row in enumerate(objects):
+            if runs and objects[runs[-1][-1]]["end_basis"] == "next GNU anchor":
+                runs[-1].append(number)
             else:
-                runs.append([row])
+                runs.append([number])
         for run in runs:
-            for position, row in enumerate(run):
-                if row["library"]:
+            for position, number in enumerate(run):
+                if found[number][0]:
                     continue
-                before = next((item["library"] for item in reversed(run[:position]) if item["library"]), None)
-                after = next((item["library"] for item in run[position + 1 :] if item["library"]), None)
+                before = next((found[item][0] for item in reversed(run[:position]) if found[item][0]), None)
+                after = next((found[item][0] for item in run[position + 1 :] if found[item][0]), None)
                 if before and after in (before, None):
-                    row["library"], row["library_basis"] = before, "archive-contiguity"
+                    found[number] = [before, "archive-contiguity"]
                 elif after and before is None:
-                    row["library"], row["library_basis"] = after, "archive-contiguity"
+                    found[number] = [after, "archive-contiguity"]
+        return [(library, basis) for library, basis in found]
+
+    def gnu_libraries(self) -> None:
+        """Each GNU object's library: segmentation rules, member refinements, coupling, data-only members.
+
+        ``segment_library`` follows ``GNU_LIBRARY_RULES`` alone and drives the
+        segment cuts; ``library`` adds the member-identity rules
+        (``GNU_MEMBER_RULES``), then the coupling rule, and is the object's
+        classification.
+        """
+
+        objects = [row for row in self.gnu if not row.get("data_only")]
+        base = self._assign_libraries(objects, GNU_LIBRARY_RULES)
+        refined = self._assign_libraries(objects, GNU_LIBRARY_RULES + GNU_MEMBER_RULES)
+        for row, (segment_library, _basis), (library, basis) in zip(objects, base, refined):
+            row["segment_library"] = segment_library
+            row["library"], row["library_basis"] = library, basis
+        self.coupling_moves = self.couple(objects)
+        self.data_only_libraries()
+
+    def couple(self, objects: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """A GNU object without direct library evidence joins the one library it is coupled to.
+
+        An object whose library rests on archive-contiguity alone (or is
+        unidentified) joins library L when everything outside it that
+        references it (its callers and the functions sharing its data) is
+        code of GNU objects of L, at least two such artifacts, none of its
+        current library, and it uses L itself (calls L's code or shares L's
+        data).  An archive member is used by its own library or by the
+        program; one that only L uses and that uses L is L's.  The evidence
+        is read under the libraries before this rule, in one pass.
+        """
+
+        owner = {index: row for row in objects for index in row["members"] + row["gaps"]}
+        callers: dict[int, set[int]] = defaultdict(set)
+        targets: dict[int, set[int]] = defaultdict(set)
+        for reference in self.references:
+            site, target = reference["site_node"], reference["target_node"]
+            if site is None or target is None or site == target:
+                continue
+            callers[target].add(site)
+            targets[site].add(target)
+        moves = []
+        for row in objects:
+            if not row["members"] or (row["library"] is not None and row["library_basis"] != "archive-contiguity"):
+                continue
+            mine = set(row["members"]) | set(row["gaps"])
+            own_data = {
+                index
+                for member in row["members"]
+                for index in self.nodes[member]["cluster"]["members"]
+                if self.nodes[index]["kind"] != "function"
+            } - mine
+            inbound = {site for index in mine for site in callers.get(index, ()) if site not in mine and site not in own_data}
+            used = {target for site in mine for target in targets.get(site, ()) if target not in mine}
+            shared = {
+                site
+                for index in (own_data | {target for target in used if self.nodes[target]["kind"] != "function"})
+                for site in callers.get(index, ())
+                if site not in mine and self.nodes[site]["kind"] == "function"
+            }
+            coupled = inbound | shared
+            if len(coupled) < 2 or any(site not in owner for site in coupled):
+                continue
+            libraries = {owner[site]["library"] for site in coupled}
+            if len(libraries) != 1:
+                continue
+            library = next(iter(libraries))
+            if library is None or library == row["library"]:
+                continue
+            uses = shared or any(target in owner and owner[target]["library"] == library for target in used)
+            if not uses:
+                continue
+            shown = ", ".join(self.nodes[site]["id"] for site in sorted(coupled)[:4])
+            moves.append(
+                {
+                    "address": _hex(row["address"]),
+                    "from": row["library"],
+                    "from_basis": row["library_basis"],
+                    "to": library,
+                    "referrers": len(coupled),
+                }
+            )
+            row["pending"] = (
+                library,
+                f"coupling: referenced only by {library} objects ({len(coupled)} artifacts: {shown}) and uses {library} "
+                f"(was {row['library'] or 'unidentified'} by {row['library_basis'] or 'no evidence'})",
+            )
+        for row in objects:
+            if "pending" in row:
+                row["library"], row["library_basis"] = row.pop("pending")
+        return moves
+
+    def data_only_libraries(self) -> None:
+        """A data-only member takes the library of the GNU objects around its LOCAL block.
+
+        Both symbol-table neighbours of one library give that library;
+        otherwise the one library of the GNU objects whose functions
+        reference its data, if any.
+        """
+
+        owner = {index: row for row in self.gnu if not row.get("data_only") for index in row["members"] + row["gaps"]}
+        callers: dict[int, set[int]] = defaultdict(set)
+        for reference in self.references:
+            if reference["site_node"] is not None and reference["target_node"] is not None:
+                callers[reference["target_node"]].add(reference["site_node"])
+        for row in self.gnu:
+            if not row.get("data_only"):
+                continue
+            previous, following = row["symtab_neighbours"]
+            library, basis = None, None
+            if previous["library"] and previous["library"] == following["library"]:
+                library = previous["library"]
+                basis = (
+                    f"LOCAL symbol order between {library} objects {_hex(previous['address'])} and "
+                    f"{_hex(following['address'])}"
+                )
+            else:
+                sites = {site for index in row["data"] + row["gaps"] for site in callers.get(index, ()) if site in owner}
+                libraries = {owner[site]["library"] for site in sites}
+                if len(libraries) == 1 and None not in libraries:
+                    library = next(iter(libraries))
+                    basis = f"referenced only by {library} objects ({len(sites)} functions)"
+            row["library"], row["library_basis"], row["segment_library"] = library, basis, library
+
+    def section_runs(self, row: dict[str, Any], classes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """The data input sections a GNU function object's LOCAL SECTION symbols open, with their extents.
+
+        A run stops at the next input section, its window's end, or the
+        first artifact another object claims (a Metrowerks unit's evidence,
+        another cluster with functions, or a non-weak classification of
+        another library or of authored code).
+        """
+
+        if row.get("data_only"):
+            return row["sections"]
+        if not row["members"]:
+            return []
+        cluster = self.nodes[row["members"][0]]["cluster"]
+        mine = set(cluster["members"])
+        if any(self.gnu_of.get(index, row) is not row for index in mine if self.nodes[index]["kind"] == "function"):
+            # A cluster holding several objects' functions gives no object its sections.
+            return []
+        symbols = self.image.symbols
+        library = row["library"] or "unidentified GNU object"
+
+        def foreign(index: int) -> bool:
+            node = self.nodes[index]
+            if index in mine:
+                return False
+            if self.mw_evidence_node(index):
+                return True
+            if any(self.nodes[other]["kind"] == "function" for other in node["cluster"]["members"]):
+                return True
+            verdict = classes[index]
+            if verdict.get("weak"):
+                return False
+            return verdict["candidate"] == "authored" or (verdict["candidate"] == "provider" and verdict["library"] != library)
+
+        runs = []
+        for value in cluster["local_symbols"]:
+            symbol = symbols[value]
+            if symbol.type_name != "SECTION" or symbol.name not in _DATA_SECTIONS or not symbol.value:
+                continue
+            end, basis, _indices = self.section_extent(symbol.value, foreign)
+            runs.append({"name": symbol.name, "symbol_index": symbol.index, "start": symbol.value, "end": end, "end_basis": basis})
+        return sorted(runs, key=lambda item: item["start"])
 
     def object_class(self, cluster: dict[str, Any]) -> dict[str, Any] | None:
         """The classification one object cluster's evidence supports."""
@@ -976,7 +1347,7 @@ class _Graph:
             evidence = [f"GNU object at {_hex(gnu['address'])} ({kind})"]
             if gnu["library_basis"]:
                 evidence.append(f"library by {gnu['library_basis']}")
-            return {"candidate": "provider", "library": gnu["library"] or "unidentified GNU object", "evidence": evidence}
+            return {"candidate": "provider", "library": gnu[self.library_key] or "unidentified GNU object", "evidence": evidence}
         authored_path = None
         for index in members:
             for item in self.nodes[index]["signals"]:
@@ -1039,15 +1410,27 @@ class _Graph:
             if gnu is not None:
                 return {
                     "candidate": "provider",
-                    "library": gnu["library"] or "unidentified GNU object",
+                    "library": gnu[self.library_key] or "unidentified GNU object",
                     "evidence": [f"GNU object at {_hex(gnu['address'])} without function symbols"],
                 }
             return {"candidate": "unknown", "library": None, "evidence": []}
         return verdict or {"candidate": "unknown", "library": None, "evidence": []}
 
-    def classifications(self, clusters: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        self.gnu_libraries()
-        self.gnu_of = {index: row for row in self.gnu for index in row["members"] + row["gaps"]}
+    def classifications(self, clusters: list[dict[str, Any]], *, refined: bool = True) -> list[dict[str, Any]]:
+        """Each artifact's classification candidate.
+
+        ``refined=False`` gives the segmentation classification: GNU objects
+        by ``segment_library`` and no data-only members, so a member-identity
+        refinement never moves a segment cut.
+        """
+
+        self.library_key = "library" if refined else "segment_library"
+        self.gnu_of = {
+            index: row
+            for row in self.gnu
+            if refined or not row.get("data_only")
+            for index in row["members"] + row["gaps"] + (row.get("data") or [])
+        }
         self.dwarf_library = {}
         for path in self.dwarf_paths:
             verdict = path_library(path)
@@ -1128,6 +1511,39 @@ class _Graph:
 
     # -- output ----------------------------------------------------------------
 
+    def gnu_object_row(self, row: dict[str, Any], classes: list[dict[str, Any]]) -> dict[str, Any]:
+        out: dict[str, Any] = {
+            "address": _hex(row["address"]),
+            "anchor": row["anchor"],
+            "gcc_compiled": row["gcc_compiled"],
+            "functions": [self.nodes[index]["id"] for index in row["members"]],
+            "gaps": [self.nodes[index]["id"] for index in row["gaps"]],
+            "end_basis": row["end_basis"],
+            "library": row["library"],
+            "library_basis": row["library_basis"],
+        }
+        if row.get("segment_library") != row["library"]:
+            # The library the segment cuts follow (member rules and coupling refine it).
+            out["segment_library"] = row.get("segment_library")
+        if row.get("data_only"):
+            out["data_only"] = True
+            out["data"] = [self.nodes[index]["id"] for index in row["data"]]
+            out["local_symbols"] = row["local_symbols"]
+            out["symtab_neighbours"] = [_hex(item["address"]) for item in row["symtab_neighbours"]]
+        runs = self.section_runs(row, classes)
+        if runs:
+            out["sections"] = [
+                {
+                    "name": item["name"],
+                    "symbol_index": item["symbol_index"],
+                    "start": _hex(item["start"]),
+                    "end": _hex(item["end"]),
+                    "end_basis": item["end_basis"],
+                }
+                for item in runs
+            ]
+        return out
+
     def candidates(self, index: int) -> list[dict[str, Any]]:
         node = self.nodes[index]
         found: dict[str, dict[str, Any]] = {}
@@ -1160,6 +1576,8 @@ class _Graph:
         clusters, rounds = self.clusters()
         pool_runs, pool_conflicts = self.literal_pools()
         self.class_hints()
+        self.gnu_libraries()
+        cut_classes = self.classifications(clusters, refined=False)
         classes = self.classifications(clusters)
         rows = []
         for index, node in enumerate(self.nodes):
@@ -1187,7 +1605,7 @@ class _Graph:
             if index in self.gnu_of:
                 row["gnu_object"] = _hex(self.gnu_of[index]["address"])
             rows.append(row)
-        segments = _segments(self, rows, classes)
+        segments = _segments(self, rows, classes, cut_classes)
         contradictions = {canonical_json(row): row for row in self.contradictions}
         body = {
             "kind": SOURCE_GRAPH_KIND,
@@ -1197,6 +1615,9 @@ class _Graph:
             "rules": {
                 "speech_window": [_hex(SPEECH_WINDOW[0]), _hex(SPEECH_WINDOW[1])],
                 "gnu_library_rules": [[library, pattern.pattern] for library, pattern in GNU_LIBRARY_RULES],
+                "gnu_member_rules": [[library, pattern.pattern] for library, pattern in GNU_MEMBER_RULES],
+                # GNU objects the coupling rule moved to the library they are coupled to.
+                "coupling_moves": self.coupling_moves,
                 "gnu_vote_neutral_names": sorted(GNU_VOTE_NEUTRAL_NAMES),
                 "mw_library_rules": [[library, pattern.pattern] for library, pattern in MW_LIBRARY_RULES],
                 "library_namespaces": list(LIBRARY_NAMESPACES),
@@ -1213,19 +1634,7 @@ class _Graph:
                 }
                 for window in self.windows
             ],
-            "gnu_objects": [
-                {
-                    "address": _hex(row["address"]),
-                    "anchor": row["anchor"],
-                    "gcc_compiled": row["gcc_compiled"],
-                    "functions": [self.nodes[index]["id"] for index in row["members"]],
-                    "gaps": [self.nodes[index]["id"] for index in row["gaps"]],
-                    "end_basis": row["end_basis"],
-                    "library": row["library"],
-                    "library_basis": row["library_basis"],
-                }
-                for row in self.gnu
-            ],
+            "gnu_objects": [self.gnu_object_row(row, classes) for row in self.gnu],
             "units": _units(rows, self.sinit_order, self.dwarf_paths),
             "clusters": sorted(
                 (
@@ -1268,9 +1677,13 @@ def _anchored(row: dict[str, Any]) -> bool:
     return bool(row["tu_candidates"]) and row["tu_candidates"][0]["strength"] in ("strong", "medium")
 
 
-def _segments(graph: _Graph, rows: list[dict[str, Any]], classes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _segments(
+    graph: _Graph, rows: list[dict[str, Any]], classes: list[dict[str, Any]], cut_classes: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    # Segment cuts follow the segmentation classification (``cut_classes``);
+    # a segment's classification mix and data slice use the refined one.
     nodes = graph.nodes
-    gnu_starts = {row["address"] for row in graph.gnu}
+    gnu_starts = {row["address"] for row in graph.gnu if not row.get("data_only")}
 
     def unit(index: int) -> str | None:
         return rows[index]["tu_candidates"][0]["tu"].casefold() if _anchored(rows[index]) else None
@@ -1279,9 +1692,9 @@ def _segments(graph: _Graph, rows: list[dict[str, Any]], classes: list[dict[str,
 
     def reached(index: int) -> set[str]:
         return {
-            _class_key(classes[other])
+            _class_key(cut_classes[other])
             for other in neighbours.get(index, ())
-            if classes[other]["candidate"] not in ("compiler-generated", "unknown")
+            if cut_classes[other]["candidate"] not in ("compiler-generated", "unknown")
         }
 
     def families(functions: list[int]) -> list[str]:
@@ -1291,7 +1704,7 @@ def _segments(graph: _Graph, rows: list[dict[str, Any]], classes: list[dict[str,
         # first neutral function that opens a GNU object of it or whose
         # relocations reach that family and not the previous one: objects
         # are contiguous, so the run after it belongs to the next family.
-        raw = [_class_key(classes[index]) for index in functions]
+        raw = [_class_key(cut_classes[index]) for index in functions]
         known = [value if value not in ("compiler-generated", "unknown") else None for value in raw]
         result: list[str] = []
         current = next((value for value in known if value), "unknown")
@@ -1445,6 +1858,8 @@ def _segments(graph: _Graph, rows: list[dict[str, Any]], classes: list[dict[str,
             if _RANK[primary["strength"]] < _RANK[row["strongest"]]:
                 row["strongest"] = primary["strength"]
         start_edge, end_edge = edge(piece["start_cut"]), edge(piece["end_cut"])
+        mix = dict(sorted(Counter(_class_key(classes[index]) for index in functions).items()))
+        cut_mix = dict(sorted(Counter(_class_key(cut_classes[index]) for index in functions).items()))
         # Unit changes inside the segment, with the unanchored functions
         # between the last anchor of one unit and the first of the next.
         anchored = [(order, index) for order, index in enumerate(functions) if unit(index)]
@@ -1461,8 +1876,7 @@ def _segments(graph: _Graph, rows: list[dict[str, Any]], classes: list[dict[str,
                     "unanchored": [nodes[index]["id"] for index in functions[left_order + 1 : right_order]],
                 }
             )
-        out.append(
-            {
+        segment_row = {
                 "id": stable_id("source-segment", *(nodes[index]["id"] for index in functions)),
                 "segment_number": number + 1,
                 "window": piece["window"],
@@ -1471,7 +1885,7 @@ def _segments(graph: _Graph, rows: list[dict[str, Any]], classes: list[dict[str,
                 "function_count": len(functions),
                 "artifacts": [nodes[index]["id"] for index in range(low, high + 1)],
                 "data": [nodes[index]["id"] for index in sorted(slices.get(number, []))],
-                "classification_mix": dict(sorted(Counter(_class_key(classes[index]) for index in functions).items())),
+                "classification_mix": mix,
                 "tu_candidates": sorted(units.values(), key=lambda row: (-row["functions"], row["tu"].casefold())),
                 "unanchored_function_count": sum(1 for index in functions if not unit(index)),
                 "boundary": {
@@ -1483,7 +1897,10 @@ def _segments(graph: _Graph, rows: list[dict[str, Any]], classes: list[dict[str,
                 "internal_boundaries": internal,
                 "anchor_strength": max((start_edge["strength"], end_edge["strength"]), key=order.index),
             }
-        )
+        if cut_mix != mix:
+            # The classification the cuts followed, before member refinements.
+            segment_row["cut_classification_mix"] = cut_mix
+        out.append(segment_row)
     return out
 
 
@@ -1539,6 +1956,8 @@ def _summary(body: dict[str, Any], edges: Counter[str], pool_runs: int, pool_con
         "cluster_count": len(body["clusters"]),
         "unit_count": len(body["units"]),
         "gnu_object_count": len(body["gnu_objects"]),
+        "data_only_member_count": sum(1 for row in body["gnu_objects"] if row.get("data_only")),
+        "refined_library_objects": sum(1 for row in body["gnu_objects"] if "segment_library" in row and not row.get("data_only")),
         "literal_pool_runs": pool_runs,
         "literal_pool_conflicts": pool_conflicts,
         "contradiction_count": len(body["contradictions"]),

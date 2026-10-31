@@ -233,7 +233,7 @@ def test_rules_2_decide_a_contained_inline_copy_whoever_calls_it(tmp_path: Path,
     graph = draft_graph()
     tracker = _decompose(stage3, graph)
     root = _root(tmp_path)
-    plan = draft_owner_plan(root, tracker, "socom:work:source-segment-001", graph, draft_facts(graph), section_of=MAIN)
+    plan = draft_owner_plan(root, tracker, "socom:work:source-segment-001", graph, draft_facts(graph), rules=2, section_of=MAIN)
     assert plan["draft"]["rules_version"] == 2 and (plan["draft"]["decided"], plan["draft"]["open"]) == (13, 2)
     owner, entry = _entries(plan)["socom:function:0x140040"]
     # b.cpp calls the inline Get copy, but it is a single copy strictly
@@ -413,13 +413,13 @@ def test_draft_refuses_unknown_rules_and_existing_outputs(tmp_path: Path, stage3
     plan_path = "build/source-plans/socom-work-source-segment-001.json"
     assert cli.main([*base, "--item", "socom:work:source-segment-001", "--output", plan_path]) == 0
     report = json.loads(capsys.readouterr().out)
-    assert (report["rules_version"], report["decided"], report["open"]) == (2, 13, 2)
+    assert (report["rules_version"], report["decided"], report["open"]) == (3, 13, 2)
     assert report["outside_reservation"] == ["src/gamez/zBar/b.cpp"]
     assert cli.main([*base, "--item", "socom:work:source-segment-001", "--output", plan_path]) == 2
     assert "never replaces a plan" in json.loads(capsys.readouterr().out)["error"]
     assert cli.main([*base, "--check", plan_path]) == 0
     report = json.loads(capsys.readouterr().out)
-    assert report["ok"] and report["drafted_entries"] == 13 and report["open_rows"] == 2 and report["rules_version"] == 2
+    assert report["ok"] and report["drafted_entries"] == 13 and report["open_rows"] == 2 and report["rules_version"] == 3
     assert report["owner_changes"] == [] and report["header_emit_changes"] == []
     # A version 1 draft is checked under version 1; --rules 2 shows the new decisions.
     old_path = "build/source-plans/v1.json"
@@ -500,7 +500,7 @@ def test_provider_rows_name_their_scope_library_and_may_be_linked_objects(tmp_pa
     assert any("names library 'MSL'; this plan's scope is 'SCE'" in problem for problem in problems)
     plan["owners"][1].update(library="SCE", archive_member={"object": "other.o", "linked": "shared"})
     problems = validate_source_plan(root, tracker, plan, graph, section_of=MAIN)["problems"]
-    assert any("linked must be one of ['archive', 'object']" in problem for problem in problems)
+    assert any("linked must be one of ['archive', 'object', 'unknown']" in problem for problem in problems)
 
 
 def test_review_notes_for_unknown_candidates_and_provider_rows_in_segments(drafted) -> None:
@@ -599,7 +599,7 @@ def test_refresh_preconditions(stage3: dict) -> None:
         refresh_source_correlation(leased, _changed(graph), RESERVED)
     accepted = copy.deepcopy(tracker)
     next(row for row in accepted["work_items"] if row["id"] == "socom:work:source-segment-001")["status"] = "accepted"
-    with pytest.raises(SocomError, match="may not replace accepted plans"):
+    with pytest.raises(SocomError, match="changes accepted stage 4 plans' slices"):
         refresh_source_correlation(accepted, _changed(graph), RESERVED)
     tampered = _changed(graph)
     tampered["units"] = []
@@ -649,7 +649,10 @@ def test_source_cache_tables_rebuild_and_refuse_writes(tmp_path: Path) -> None:
     assert query(path, "SELECT path FROM provisional_files")["rows"] == [["src/a.cpp"]]
     assert query(path, "SELECT count(*) FROM local_symbols")["rows"][0][0] >= 9
     facts = load_facts(path)
-    assert {"site_artifact": "socom:function:0x100020", "target_artifact": "socom:function:0x100038"} in facts["references"]
+    assert any(
+        (row["site_artifact"], row["target_artifact"], row["symbol_type"]) == ("socom:function:0x100020", "socom:function:0x100038", "FUNC")
+        for row in facts["references"]
+    )
     with pytest.raises(SocomError, match="single SELECT"):
         query(path, "DELETE FROM artifacts")
     with pytest.raises(SocomError, match="single SELECT"):
@@ -713,7 +716,7 @@ def test_reference_drafts_of_the_calibration_items(root: Path, reference_source_
     # Rules version 2: the inline GetBBox and Rotate copies other units call
     # lie strictly between zanim_cmd_tick.cpp anchors (the planner's hand
     # decision), and crt0.s, assembled by MW GAS, is a linked object.
-    tick2 = draft_owner_plan(root, tracker, "socom:work:source-segment-017", graph, facts, section_of=section_of)
+    tick2 = draft_owner_plan(root, tracker, "socom:work:source-segment-017", graph, facts, rules=2, section_of=section_of)
     assert (tick2["draft"]["rules_version"], tick2["draft"]["decided"], tick2["draft"]["open"]) == (2, 146, 1)
     copies = {
         entry["artifact"]: (row["translation_unit"], entry["draft_rule"], entry["confidence"])
@@ -721,9 +724,9 @@ def test_reference_drafts_of_the_calibration_items(root: Path, reference_source_
         if entry["artifact"] in ("socom:function:0x1bc4a0", "socom:function:0x1bd170")
     }
     assert set(copies.values()) == {("zanim_cmd_tick.cpp", "A-between", "medium")} and len(copies) == 2
-    (owner2,) = draft_owner_plan(root, tracker, "socom:work:source-provider-crt0", graph, facts, section_of=section_of)["owners"]
+    (owner2,) = draft_owner_plan(root, tracker, "socom:work:source-provider-crt0", graph, facts, rules=2, section_of=section_of)["owners"]
     assert owner2["archive_member"] == {"gnu_object": "0x140008", "object": None, "linked": "object"}
-    first2 = draft_owner_plan(root, tracker, "socom:work:source-segment-001", graph, facts, section_of=section_of)
+    first2 = draft_owner_plan(root, tracker, "socom:work:source-segment-001", graph, facts, rules=2, section_of=section_of)
     assert (first2["draft"]["decided"], first2["draft"]["open"]) == (88, 1)
     for plan in (first, tick, crt0, tick2, first2):
         assert check_draft(plan, plan)["problems"] == []
@@ -743,3 +746,342 @@ def test_reference_drafts_of_the_calibration_items(root: Path, reference_source_
     assert any(
         "socom:function:0x1bfe80" in row["unanchored"] for segment in evidence["segments"] for row in segment["internal_boundaries"]
     )
+
+
+# -- rules version 3 ----------------------------------------------------------------------
+
+MSL_PATH = "\\apps\\cw301\\PS2 Support\\Msl\\MSL_C++\\MSL_Common\\Src\\ios.cpp"
+MSL = {"candidate": "provider", "library": "MSL", "evidence": []}
+
+
+def mw_provider_graph() -> dict:
+    """An MSL segment: ios.cpp anchors around an unanchored MSL function, and data only ios.cpp reads."""
+
+    cluster = "socom:tu-cluster:0x140020"
+    cu = {"signal": "dwarf-cu", "strength": "strong", "tu": "ios.cpp", "path": MSL_PATH, "die_offset": "0x300",
+          "low_pc": "0x140000", "high_pc": "0x140010"}
+    rows = [
+        _row("function", 0x140000, 16, CODE, [("ios_a", "GLOBAL")], classification=MSL, tu=_strong("ios.cpp", "dwarf-cu"), signals=[cu]),
+        _row("function", 0x140010, 16, CODE, [("ios_b", "GLOBAL")], classification=MSL),
+        _row("function", 0x140020, 16, CODE, [("ios_c", "LOCAL")], classification=MSL, cluster=cluster, tu=_strong("ios.cpp", "cluster")),
+        _row("function", 0x140030, 16, CODE, [("ios_d", "GLOBAL")], classification=MSL),
+        _row("data", 0x426400, 8, DATA, [("ios_table", "GLOBAL")], classification=MSL),
+    ]
+    ids = [row["id"] for row in rows]
+    graph = {
+        "kind": "socom-source-graph", "schema_version": 1, "source_sha256": REFERENCE_SHA256, "segment_size": 200,
+        "windows": [{"id": CODE, "kind": "code"}, {"id": DATA, "kind": "data"}],
+        "units": [{"tu": "ios.cpp", "paths": [MSL_PATH]}],
+        "clusters": [{"id": cluster, "members": [ids[2]], "units": [{"tu": "ios.cpp", "signals": ["dwarf-cu"], "artifacts": 1}], "libraries": []}],
+        "gnu_objects": [],
+        "artifacts": rows,
+        "segments": [{
+            "id": "socom:source-segment:00000000000000000001", "segment_number": 1, "window": CODE, "start": "0x140000",
+            "end": "0x140040", "function_count": 4, "artifacts": ids[:4], "data": [ids[4]],
+            "classification_mix": {"provider:MSL": 4}, "boundary": {}, "internal_boundaries": [], "tu_candidates": [],
+        }],
+        "contradictions": [],
+    }
+    graph["graph_sha256"] = graph_digest(graph)
+    return graph
+
+
+def test_rules_3_decide_metrowerks_provider_members_by_their_unit(tmp_path: Path, stage3: dict) -> None:
+    graph = mw_provider_graph()
+    tracker = _decompose(stage3, graph)
+    root = _root(tmp_path)
+    facts = {"references": [{"site_artifact": "socom:function:0x140000", "target_artifact": "socom:data:0x426400"}], "compile_units": []}
+    old = draft_owner_plan(root, tracker, "socom:work:source-provider-msl", graph, facts, rules=2, section_of=MAIN)
+    assert old["owners"] == [] and old["draft"]["open"] == 5
+    plan = draft_owner_plan(root, tracker, "socom:work:source-provider-msl", graph, facts, section_of=MAIN)
+    assert plan["draft"]["rules_version"] == 3
+    (owner,) = plan["owners"]
+    assert owner["draft_rule"] == "P-mw-unit" and owner["translation_unit"] == "ios.cpp" and owner["original_path"] == MSL_PATH
+    assert owner["archive_member"] == {"gnu_object": None, "object": "ios.o", "linked": "unknown"} and owner["library"] == "MSL"
+    assert [(entry["artifact"], entry["draft_rule"], entry["confidence"]) for entry in owner["artifacts"]] == [
+        ("socom:function:0x140000", "A-dwarf-cu", "high"),
+        ("socom:function:0x140010", "A-between", "medium"),
+        ("socom:function:0x140020", "A-local-block", "high"),
+        ("socom:data:0x426400", "D-referenced", "medium"),
+    ]
+    # The function after the last anchor stays open.
+    assert [row["artifact"] for row in plan["unresolved"]] == ["socom:function:0x140030"]
+    plan["unresolved"] = [{"artifact": "socom:function:0x140030", "reason": "after the last ios.cpp anchor"}]
+    report = validate_source_plan(root, tracker, plan, graph, section_of=MAIN)
+    assert report["ok"], report["problems"]
+    assert check_draft(draft_owner_plan(root, tracker, plan["work_item_id"], graph, facts, section_of=MAIN), plan)["problems"] == []
+
+
+def _sectioned(graph: dict) -> dict:
+    """The draft graph with the SCE object's LOCAL .rodata run holding sceRef and a gap after it."""
+
+    graph = copy.deepcopy(graph)
+    graph["gnu_objects"][0]["sections"] = [
+        {"name": ".rodata", "symbol_index": 30, "start": "0x426450", "end": "0x426470", "end_basis": "next section symbol"}
+    ]
+    gap = _row("gap", 0x426468, 8, DATA, classification={"candidate": "unknown", "library": None, "evidence": []})
+    gap.update(fill="nonzero", padding=False)
+    graph["artifacts"].append(gap)
+    graph["segments"][1]["data"].append(gap["id"])
+    graph["graph_sha256"] = graph_digest(graph)
+    return graph
+
+
+def test_rules_3_place_data_and_gaps_by_their_local_section_run(tmp_path: Path, stage3: dict) -> None:
+    graph = _sectioned(draft_graph())
+    tracker = _decompose(stage3, graph)
+    facts = draft_facts(graph)
+    facts["references"].append(
+        {"site_artifact": "socom:function:0x1400a0", "target_artifact": "socom:gap:0x426468", "symbol_index": 30, "symbol_type": "SECTION"}
+    )
+    item = "socom:work:source-provider-sce"
+    old = _entries(draft_owner_plan(_root(tmp_path), tracker, item, graph, facts, rules=2, section_of=MAIN))
+    assert old["socom:data:0x426460"][1]["confidence"] == "medium" and "socom:gap:0x426468" not in old
+    entries = _entries(draft_owner_plan(_root(tmp_path / "v3"), tracker, item, graph, facts, section_of=MAIN))
+    ref = entries["socom:data:0x426460"][1]
+    assert (ref["draft_rule"], ref["confidence"]) == ("P-gnu-data", "high")
+    assert ref["basis"].startswith("inside GNU object 0x1400a0's .rodata section run 0x426450-0x426470")
+    gap = entries["socom:gap:0x426468"][1]
+    assert (gap["draft_rule"], gap["confidence"]) == ("P-gnu-section", "high")
+    # A relocation from another object (or not through the section symbol) leaves the gap open.
+    facts["references"][-1]["symbol_type"] = "OBJECT"
+    entries = _entries(draft_owner_plan(_root(tmp_path / "v3b"), tracker, item, graph, facts, section_of=MAIN))
+    assert "socom:gap:0x426468" not in entries
+
+
+def test_archive_member_archive_version_and_unknown_linking(tmp_path: Path, stage3: dict) -> None:
+    graph = draft_graph()
+    tracker = _decompose(stage3, graph)
+    root = _root(tmp_path)
+    plan = draft_owner_plan(root, tracker, "socom:work:source-provider-sce", graph, draft_facts(graph), section_of=MAIN)
+    plan["unresolved"] = [{"artifact": "socom:function:0x1400c0", "reason": "by hand"}]
+    plan["owners"][0]["archive_member"].update(archive="libfoo.a", version="2.50", linked="unknown")
+    assert validate_source_plan(root, tracker, plan, graph, section_of=MAIN)["ok"]
+    for change, message in (
+        ({"archive": "lib/libfoo.a"}, "archive must be the archive's file name"),
+        ({"version": " "}, "version must be a non-empty string"),
+        ({"linked": "maybe"}, "linked must be one of ['archive', 'object', 'unknown']"),
+    ):
+        broken = copy.deepcopy(plan)
+        broken["owners"][0]["archive_member"].update(change)
+        problems = validate_source_plan(root, tracker, broken, graph, section_of=MAIN)["problems"]
+        assert any(message in problem for problem in problems), problems
+    from tools._socom.source_apply import _record_lines, provider_members
+
+    (member,) = provider_members(plan)
+    assert (member["artifacts"], member["archive"], member["version"], member["linked"]) == (4, "libfoo.a", "2.50", "unknown")
+    lines = _record_lines({"plan": "p", "plan_sha256": "0" * 64, "owner_map_sha256": "1" * 64, "annotations_sha256": "2" * 64,
+                            "annotation_count": 0, "reservation": {"status": "none"}, "files": [], "moves": [], "created": [],
+                            "retired": [], "members": [member]})
+    assert lines[-1] == "source-provider-member SCE gnu_object:0x1400a0 object:- artifacts:4 archive:libfoo.a version:2.50 linked:unknown"
+
+
+# -- refresh with accepted plans ------------------------------------------------------------
+
+
+def _changed_elsewhere(graph: dict) -> dict:
+    """The draft graph with sceRef out of the SCE slice: segment 1's slice is unchanged."""
+
+    graph = copy.deepcopy(graph)
+    graph["segments"][1]["data"] = [value for value in graph["segments"][1]["data"] if value != "socom:data:0x426460"]
+    graph["graph_sha256"] = graph_digest(graph)
+    return graph
+
+
+def _accept(tracker: dict, item_id: str) -> None:
+    from tools._socom.tracker import accept_work
+
+    claim_work(tracker, item_id, "mapper", 30)
+    handoff_work(tracker, item_id, "mapper", "plan", ["plan sha"])
+    accept_work(tracker, item_id, "reviewer", ["reviewed"])
+    refresh_ready_and_stages(tracker)
+
+
+def test_refresh_keeps_accepted_plans_whose_slices_are_unchanged(drafted) -> None:
+    root, tracker, graph, plan = drafted
+    plan = _finished(plan, graph)
+    before = validate_source_plan(root, tracker, plan, graph, section_of=MAIN)
+    assert before["ok"], before["problems"]
+    tracker = copy.deepcopy(tracker)
+    _accept(tracker, "socom:work:source-segment-001")
+    new = _changed_elsewhere(graph)
+    record = refresh_source_correlation(tracker, new, RESERVED)
+    refresh_ready_and_stages(tracker)
+    tracker["revision"] += 1
+    assert audit_tracker(tracker, strict=True) == []
+    assert record["kept_accepted"] == ["socom:work:source-segment-001"]
+    assert "socom:work:source-provider-sce" in record["slice_changed"]
+    item = next(row for row in tracker["work_items"] if row["id"] == "socom:work:source-segment-001")
+    assert item["status"] == "accepted" and item["accepted"]["by"] == "reviewer"
+    assert (item["batch"]["graph_sha256"], item["batch"]["plan_graph_sha256"]) == (new["graph_sha256"], graph["graph_sha256"])
+    # The accepted plan, which cites the earlier graph, validates as before.
+    after = validate_source_plan(root, tracker, plan, new, section_of=MAIN)
+    assert after["ok"] and {key: after[key] for key in ("summary", "review")} == {key: before[key] for key in ("summary", "review")}
+    # A plan citing some other graph is still refused.
+    stale = dict(plan, graph_sha256="f" * 64)
+    assert any("the plan cites graph" in problem for problem in validate_source_plan(root, tracker, stale, new, section_of=MAIN)["problems"])
+    # A second refresh keeps the digest the accepted plan cites.
+    newer = copy.deepcopy(new)
+    newer["segments"][1]["data"] = [value for value in newer["segments"][1]["data"] if value != "socom:data:0x426450"]
+    newer["graph_sha256"] = graph_digest(newer)
+    refresh_source_correlation(tracker, newer, RESERVED)
+    item = next(row for row in tracker["work_items"] if row["id"] == "socom:work:source-segment-001")
+    assert item["batch"]["plan_graph_sha256"] == graph["graph_sha256"]
+
+
+def test_refresh_refuses_a_changed_accepted_slice(drafted) -> None:
+    _root_path, tracker, graph, _plan = drafted
+    tracker = copy.deepcopy(tracker)
+    _accept(tracker, "socom:work:source-segment-001")
+    with pytest.raises(SocomError, match="changes accepted stage 4 plans' slices.*socom:work:source-segment-001 \\(slice"):
+        refresh_source_correlation(tracker, _changed(graph), RESERVED)
+
+
+# -- source plan decide / open ----------------------------------------------------------------
+
+
+def test_decide_records_one_decision_through_json(drafted) -> None:
+    from tools._socom.source_plan_edit import decide
+
+    root, tracker, graph, plan = drafted
+    plan = copy.deepcopy(plan)
+    changes = decide(plan, ["socom:function:0x140070"], owner="b.cpp", confidence="medium", basis="calls b_two (R_MIPS_26)")
+    assert changes == [{"artifact": "socom:function:0x140070", "from": "unresolved (draft open)", "to": "authored b.cpp"}]
+    owner, entry = _entries(plan)["socom:function:0x140070"]
+    assert owner == "b.cpp" and entry == {"artifact": "socom:function:0x140070", "confidence": "medium", "basis": "calls b_two (R_MIPS_26)"}
+    row = next(row for row in plan["owners"] if row.get("translation_unit") == "b.cpp")
+    assert row["confidence"] == "medium"
+    # A drafted entry moves only with --override and evidence, kept as a note.
+    with pytest.raises(SocomError, match="decided by draft rule A-dwarf-cu"):
+        decide(plan, ["socom:function:0x140000"], owner="b.cpp", confidence="low", basis="x")
+    with pytest.raises(SocomError, match="needs --evidence"):
+        decide(plan, ["socom:function:0x140000"], owner="b.cpp", confidence="low", basis="x", override=True)
+    decide(plan, ["socom:function:0x140000"], unresolved="disputed", override=True, evidence="the CU range is stale")
+    assert plan["notes"][-1].startswith("override socom:function:0x140000: the draft gave authored a.cpp (A-dwarf-cu)")
+    assert {"artifact": "socom:function:0x140000", "reason": "disputed"} in plan["unresolved"]
+    for kwargs, message in (
+        ({"owner": "nope.cpp", "confidence": "low", "basis": "x"}, "names 0 owner rows"),
+        ({"owner": "b.cpp", "confidence": "low", "basis": "bad\x07path"}, "control characters"),
+        ({"owner": "b.cpp", "confidence": "sure", "basis": "x"}, "--confidence must be one of"),
+        ({}, "give --owner"),
+    ):
+        with pytest.raises(SocomError, match=message):
+            decide(copy.deepcopy(plan), ["socom:function:0x140040"], **kwargs)
+    with pytest.raises(SocomError, match="is not listed"):
+        decide(copy.deepcopy(plan), ["socom:function:0x999999"], unresolved="x")
+    # The decided plan still validates once its annotations are re-derived.
+    finished = _finished(plan, graph)
+    report = validate_source_plan(root, tracker, finished, graph, section_of=MAIN)
+    assert report["ok"], report["problems"]
+
+
+def test_decide_and_open_cli(tmp_path: Path, capsys) -> None:
+    (tmp_path / "support").mkdir()
+    graph = build_source_graph(write_elf(tmp_path / "support" / "socom.elf"))
+    (tmp_path / "build" / "source-graph").mkdir(parents=True)
+    (tmp_path / "build" / "source-graph" / "graph.json").write_text(json.dumps(graph), encoding="utf-8")
+    plan = {
+        "kind": "socom-source-owner-plan", "schema_version": 2, "work_item_id": "socom:work:source-segment-001",
+        "graph_sha256": graph["graph_sha256"], "owners": [{
+            "translation_unit": "a.cpp", "classification": "authored", "workspace_path": "src/a.cpp", "original_path": None,
+            "provisional_file": None, "library": None, "archive_member": None, "confidence": "high", "evidence": ["x"],
+            "artifacts": [{"artifact": "socom:function:0x100000", "confidence": "high", "basis": "cu", "draft_rule": "A-dwarf-cu"}],
+        }],
+        "header_emits": [], "annotations": [], "notes": [],
+        "unresolved": [{"artifact": "socom:function:0x100010", "reason": "between anchors", "draft": "open"},
+                       {"artifact": "socom:function:0x100020", "reason": "kept", "draft": "open"}],
+        "draft": {"rules_version": 3, "open_header_emits": [], "outside_reservation": []},
+    }
+    path = tmp_path / "build" / "source-plans" / "plan.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(plan), encoding="utf-8")
+    base = ["--root", str(tmp_path), "source", "plan"]
+    assert cli.main([*base, "open", "--plan", "build/source-plans/plan.json", "--limit", "1", "--format", "json"]) == 0
+    view = json.loads(capsys.readouterr().out)
+    assert view["open_rows"] == 2 and view["shown"] == 1 and view["owner_keys"] == ["a.cpp"]
+    (row,) = view["artifacts"]
+    assert row["artifact"] == "socom:function:0x100010" and row["reason"] == "between anchors" and row["kind"] == "function"
+    assert cli.main([*base, "open", "--plan", "build/source-plans/plan.json"]) == 0
+    text = capsys.readouterr().out
+    assert text.startswith("open rows 2 (shown 2)") and "  open: between anchors" in text
+    decide = [*base, "decide", "--plan", "build/source-plans/plan.json", "--artifact", "socom:function:0x100010",
+              "--artifact", "socom:function:0x100020", "--owner", "a.cpp", "--confidence", "medium", "--basis", "between a.cpp anchors"]
+    assert cli.main(decide) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["mutation_performed"] and report["open_rows"] == 0 and report["annotations"] == "re-derived"
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    assert [entry["artifact"] for entry in saved["owners"][0]["artifacts"]] == [
+        "socom:function:0x100000", "socom:function:0x100010", "socom:function:0x100020",
+    ]
+    assert saved["owners"][0]["confidence"] == "medium" and len(saved["annotations"]) == 3
+    assert cli.main([*base, "decide", "--plan", "build/source-plans/plan.json", "--artifact", "socom:function:0x100000",
+                     "--unresolved", "x"]) == 2
+    assert "draft rule A-dwarf-cu" in json.loads(capsys.readouterr().out)["error"]
+
+
+def test_source_cache_lists_object_section_runs(tmp_path: Path) -> None:
+    (tmp_path / "support").mkdir()
+    graph = build_source_graph(write_elf(tmp_path / "support" / "socom.elf"))
+    path, _rebuilt = ensure_source_cache(tmp_path, graph=graph)
+    rows = query(path, "SELECT printf('0x%x', gnu_object), name, printf('0x%x', start), end_basis, room_for_member FROM object_sections")["rows"]
+    assert rows == [["0x100048", ".rodata", "0x100110", "next section symbol", 0]]
+    columns = query(path, "SELECT data_only, data_count, segment_library FROM gnu_objects")["rows"]
+    assert columns == [[0, 0, None]]
+    facts = load_facts(path)
+    assert any(row["symbol_type"] == "SECTION" for row in facts["references"])
+
+
+def test_commands_json_has_no_byte_order_mark(root: Path) -> None:
+    import os
+    import subprocess
+    import sys
+
+    environment = dict(os.environ, PYTHONIOENCODING="utf-8-sig")
+    output = subprocess.run(
+        [sys.executable, str(root / "tools" / "socom.py"), "commands", "--json"], capture_output=True, env=environment, check=True
+    ).stdout
+    assert not output.startswith(b"\xef\xbb\xbf") and output.startswith(b"[")
+    rows = json.loads(output)
+    assert any(row["command"] == "source plan decide" and row["mutates"] for row in rows)
+    assert any(row["command"] == "source plan open" and not row["mutates"] for row in rows)
+
+
+def test_commands_output_writes_the_registry_without_a_bom(tmp_path: Path, capsys) -> None:
+    assert cli.main(["--root", str(tmp_path), "commands", "--json", "--output", "build/commands.json"]) == 0
+    printed = json.loads(capsys.readouterr().out)
+    written = (tmp_path / "build" / "commands.json").read_bytes()
+    assert not written.startswith(b"\xef\xbb\xbf") and json.loads(written) == printed
+    assert cli.main(["--root", str(tmp_path), "commands", "--output", "elsewhere.json"]) == 2
+
+
+def test_reference_rules_3_on_the_provider_plans(root: Path, reference_source_graph: dict, reference_draft_inputs) -> None:
+    tracker, facts = reference_draft_inputs
+    graph = reference_source_graph
+    section_of = loaded_section_lookup(root)
+    counts = {}
+    plans = {}
+    for name in ("989snd", "msl", "newlib"):
+        for rules in (2, 3):
+            plan = draft_owner_plan(root, tracker, f"socom:work:source-provider-{name}", graph, facts, rules=rules, section_of=section_of)
+            counts[(name, rules)] = (plan["draft"]["decided"], plan["draft"]["open"])
+            plans[(name, rules)] = plan
+    assert counts == {
+        ("989snd", 2): (26, 84), ("989snd", 3): (84, 26),
+        ("msl", 2): (133, 396), ("msl", 3): (525, 4),
+        ("newlib", 2): (428, 24), ("newlib", 3): (449, 3),
+    }
+    # 989snd.c is one Metrowerks-compiled member: its anchors, the functions
+    # between them and the data only they read.
+    (member,) = [row for row in plans[("989snd", 3)]["owners"] if row["classification"] == "provider"]
+    assert (member["translation_unit"], member["draft_rule"]) == ("989snd.c", "P-mw-unit")
+    assert member["archive_member"] == {"gnu_object": None, "object": "989snd.o", "linked": "unknown"}
+    # newlib: LOCAL section containment before "referenced only by".
+    owner = {
+        entry["artifact"]: (row["archive_member"] or {}).get("gnu_object")
+        for row in plans[("newlib", 3)]["owners"] for entry in row["artifacts"]
+    }
+    assert owner["socom:data:0x43c398"] == "0x3e1f48"  # __malloc_trim_threshold: mallocr.o, not freer.o
+    assert owner["socom:data:0x466f78"] == "0x3e2d58"  # __mprec_tinytens: mprec.o, not strtod.o
+    assert owner["socom:data:0x447c00"] == "0x447c00"  # __infinity: the data-only s_infconst.o
+    rules = plans[("newlib", 3)]["draft"]["rules"]
+    assert rules["P-gnu-section"] == 20

@@ -13,6 +13,7 @@ nothing.  Tables are documented in ``SCHEMA`` and in SOURCE_CORRELATION.md.
 
 from __future__ import annotations
 
+import bisect
 import hashlib
 import json
 import os
@@ -24,7 +25,7 @@ from typing import Any
 from .util import SocomError, _replace, sha256_file
 
 CACHE_RELATIVE = Path("build") / "cache" / "source-graph.sqlite"
-CACHE_VERSION = "1"
+CACHE_VERSION = "2"
 SCHEMA = """
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
 -- One row per graph artifact (function, data or gap).  address/end/size are
@@ -44,9 +45,20 @@ CREATE TABLE signals (artifact TEXT, signal TEXT, strength TEXT, tu TEXT, path T
 CREATE TABLE units (
   tu TEXT PRIMARY KEY, paths TEXT, library TEXT, sinit_order INTEGER, signals TEXT,
   anchored_functions INTEGER, anchored_data INTEGER, first_function INTEGER, last_function INTEGER);
+-- segment_library: the library the segment cuts follow, when member rules or
+-- coupling refined it; data_only: a member without code (from its LOCAL block).
 CREATE TABLE gnu_objects (
   address INTEGER PRIMARY KEY, gcc_compiled INTEGER, end_basis TEXT, library TEXT, library_basis TEXT,
-  function_count INTEGER, gap_count INTEGER, first_function INTEGER, last_function INTEGER, anchor TEXT);
+  function_count INTEGER, gap_count INTEGER, first_function INTEGER, last_function INTEGER, anchor TEXT,
+  data_only INTEGER, data_count INTEGER, segment_library TEXT);
+-- Per-object LOCAL-bracketed section runs: each data input section a GNU
+-- object's LOCAL SECTION symbol opens, to the next input section (end_basis
+-- 'next section symbol': room_for_member 0, the next object starts right
+-- there) or cut short by another object's artifact or the window end
+-- (room_for_member 1: the bytes up to next_start may hold a separate member).
+CREATE TABLE object_sections (
+  gnu_object INTEGER, library TEXT, data_only INTEGER, name TEXT, symbol_index INTEGER, start INTEGER, "end" INTEGER,
+  end_basis TEXT, room_for_member INTEGER, next_start INTEGER, artifacts INTEGER, named TEXT);
 CREATE TABLE clusters (id TEXT PRIMARY KEY, member_count INTEGER, units TEXT, libraries TEXT, local_low INTEGER, local_high INTEGER);
 CREATE TABLE segments (
   number INTEGER PRIMARY KEY, id TEXT, "window" TEXT, start INTEGER, "end" INTEGER, function_count INTEGER,
@@ -94,7 +106,7 @@ CREATE INDEX lines_die ON dwarf_lines(die_offset);
 CREATE INDEX slices_item ON slices(item);
 """
 TABLES = (
-    "meta", "artifacts", "names", "tu_candidates", "signals", "units", "gnu_objects", "clusters", "segments",
+    "meta", "artifacts", "names", "tu_candidates", "signals", "units", "gnu_objects", "object_sections", "clusters", "segments",
     "internal_boundaries", "scopes", "slices", "refs", "dwarf_cus", "dwarf_lines", "file_strings", "sinit",
     "local_symbols", "contradictions", "provisional_files",
 )
@@ -249,9 +261,29 @@ def _build(root: Path, path: Path, graph: dict[str, Any], meta: dict[str, str]) 
             _int((row.get("functions") or [""])[0].rsplit(":", 1)[-1]) if row.get("functions") else None,
             _int((row.get("functions") or [""])[-1].rsplit(":", 1)[-1]) if row.get("functions") else None,
             ", ".join(item["name"] for item in row.get("anchor") or []),
+            int(bool(row.get("data_only"))), len(row.get("data") or []), row.get("segment_library"),
         )
         for row in graph["gnu_objects"]
     ]
+    section_starts = sorted(
+        {row["value"] for row in facts["local_symbols"] if row["type"] == "SECTION" and row["value"] and ".DVP." not in row["name"]}
+    )
+    addresses = sorted(int(row["address"], 16) for row in graph["artifacts"])
+    by_address = {int(row["address"], 16): row for row in graph["artifacts"]}
+    object_sections = []
+    for row in graph["gnu_objects"]:
+        for run in row.get("sections") or []:
+            start, end = int(run["start"], 16), int(run["end"], 16)
+            following = next((value for value in section_starts[bisect.bisect_right(section_starts, start) :]), None)
+            inside = [by_address[value] for value in addresses[bisect.bisect_left(addresses, start) : bisect.bisect_left(addresses, end)]]
+            named_rows = [item["names"][0]["name"] for item in inside if item.get("names")]
+            object_sections.append(
+                (
+                    int(row["address"], 16), row.get("library"), int(bool(row.get("data_only"))), run["name"], run["symbol_index"],
+                    start, end, run["end_basis"], int(run["end_basis"] != "next section symbol"), following, len(inside),
+                    " ".join(named_rows[:8]) + (f" +{len(named_rows) - 8}" if len(named_rows) > 8 else ""),
+                )
+            )
     cluster_of = {}
     clusters = []
     for row in graph.get("clusters") or []:
@@ -309,7 +341,7 @@ def _build(root: Path, path: Path, graph: dict[str, Any], meta: dict[str, str]) 
         connection.executemany("INSERT INTO meta VALUES (?, ?)", sorted(meta.items()))
         for table, rows in (
             ("artifacts", artifacts), ("names", names), ("tu_candidates", candidates), ("signals", signals), ("units", units),
-            ("gnu_objects", gnu), ("clusters", clusters), ("segments", segments), ("internal_boundaries", boundaries),
+            ("gnu_objects", gnu), ("object_sections", object_sections), ("clusters", clusters), ("segments", segments), ("internal_boundaries", boundaries),
             ("scopes", scope_rows), ("slices", slice_rows), ("refs", refs), ("dwarf_cus", cus), ("dwarf_lines", lines),
             ("file_strings", file_strings), ("sinit", sinit), ("local_symbols", locals_), ("contradictions", contradictions),
             ("provisional_files", files),
@@ -346,9 +378,10 @@ def load_facts(path: Path) -> dict[str, Any]:
 
     with closing(sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)) as connection:
         references = [
-            {"site_artifact": site, "target_artifact": target}
-            for site, target in connection.execute(
-                "SELECT site_artifact, target_artifact FROM refs WHERE site_artifact IS NOT NULL AND target_artifact IS NOT NULL"
+            {"site_artifact": site, "target_artifact": target, "symbol_index": index, "symbol_type": kind, "symbol_binding": binding}
+            for site, target, index, kind, binding in connection.execute(
+                "SELECT site_artifact, target_artifact, symbol_index, symbol_type, symbol_binding FROM refs "
+                "WHERE site_artifact IS NOT NULL AND target_artifact IS NOT NULL"
             )
         ]
         units = [
