@@ -1274,8 +1274,8 @@ def test_reference_rules_3_on_the_provider_plans(root: Path, reference_source_gr
             plans[(name, rules)] = plan
     assert counts == {
         ("989snd", 2): (26, 84), ("989snd", 3): (84, 26),
-        ("msl", 2): (133, 396), ("msl", 3): (525, 4),
-        ("newlib", 2): (428, 24), ("newlib", 3): (449, 3),
+        ("msl", 2): (133, 396), ("msl", 3): (527, 2),
+        ("newlib", 2): (428, 24), ("newlib", 3): (450, 2),
     }
     # 989snd.c is one Metrowerks-compiled member: its anchors, the functions
     # between them and the data only they read.

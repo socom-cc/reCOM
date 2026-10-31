@@ -41,7 +41,13 @@ Signals, each kept with its provenance:
 
 A GNU object without function symbols (crt0's labelled code) owns the gap
 its anchor opens; a provider DWARF path on an object's own code names its
-library.
+library.  The alignment padding of a GNU object's text is its own.  Each GNU
+object lists the data input sections its LOCAL SECTION symbols open
+(``sections``); a run ends at the next input section, a change between file
+bytes and zero fill, the first COMMON allocation (the GLOBAL zero-fill data
+the linker places after every input section, tagged ``common``) or another
+object's artifact.  An unreferenced, otherwise unclassified datum inside a
+run that reaches the next input section is that object's.
 
 Every classification (authored / provider / compiler-generated / unknown) is
 a candidate with the evidence that drove it, never an accepted owner.  A
@@ -885,11 +891,64 @@ class _Graph:
 
     # -- LOCAL section blocks ----------------------------------------------------
 
+    def nobits(self, index: int) -> bool:
+        """The artifact's bytes are zero fill the file does not hold (``.bss``/``.sbss``)."""
+
+        node = self.nodes[index]
+        if node["kind"] == "gap":
+            return node["fill"] == "nobits"
+        return not self.image.read(node["start"], 1)
+
+    def common_tail(self) -> None:
+        """COMMON allocations: the GLOBAL data that end the image's zero-fill data.
+
+        GCC emits an uninitialized global as a COMMON symbol, which the
+        linker allocates after every input section, so no LOCAL or SECTION
+        symbol of any object lies among them.  Back from the end of the last
+        zero-fill data window, every GLOBAL datum (and the padding between
+        them) up to the first artifact that holds a LOCAL or SECTION symbol,
+        holds file bytes or is an unsymbolled non-padding gap is a COMMON
+        allocation: it is tagged ``common`` and ends any section run that
+        reaches it.  Its classification and slice stay as they are.
+        """
+
+        local = sorted(
+            {symbol.value for symbol in self.image.symbols if symbol.binding_name == "LOCAL" and symbol.value and ".DVP." not in symbol.name}
+        )
+        zero = [
+            window for window in self.windows
+            if window["kind"] == "data" and self.nobits(self.position[window["nodes"][-1]["id"]])
+        ]
+        if not zero:
+            return
+        tail = []
+        for node in reversed(max(zero, key=lambda window: window["start"])["nodes"]):
+            index = self.position[node["id"]]
+            low = bisect.bisect_left(local, node["start"])
+            if (low < len(local) and local[low] < node["start"] + node["size"]) or not self.nobits(index):
+                break
+            if node["kind"] == "gap":
+                if not node["padding"]:
+                    break
+                continue
+            if any(row["binding"] != "GLOBAL" for row in node["names"]):
+                break
+            tail.append(index)
+        tail.sort()
+        if tail:
+            span = [self.nodes[tail[0]]["id"], self.nodes[tail[-1]]["id"]]
+            for index in tail:
+                self.nodes[index]["common"] = True
+                self.signal(index, "common", "hint", tail=span, count=len(tail))
+
     def section_extent(self, start: int, foreign: Callable[[int], bool]) -> tuple[int, str, list[int]]:
         """(end, end basis, artifacts) of the input section a LOCAL SECTION symbol opens at ``start``.
 
         The section runs to the next input section any SECTION symbol opens,
-        but stops earlier at the end of its window or at the first artifact
+        but stops earlier at the end of its window, where its fill changes
+        between file bytes and zero fill (an input section is all one or all
+        the other: ``.sdata`` never runs into the ``.sbss`` after it), at the
+        first COMMON allocation (``common_tail``), or at the first artifact
         ``foreign`` rejects (Metrowerks objects carry no section symbols, so
         their data would otherwise seem to extend the last GNU section).
         """
@@ -900,12 +959,17 @@ class _Graph:
         window = self.nodes[position]["window"]
         following = bisect.bisect_right(self.section_starts, start)
         limit = self.section_starts[following] if following < len(self.section_starts) else None
+        zero_fill = self.nobits(position)
         indices: list[int] = []
         index = position
         while index < len(self.nodes) and (limit is None or self.nodes[index]["start"] < limit):
             node = self.nodes[index]
             if node["window"] != window:
                 return node["start"], "window end", indices
+            if self.nobits(index) != zero_fill:
+                return node["start"], f"{'zero fill' if zero_fill else 'file bytes'} end at {node['id']}", indices
+            if node.get("common"):
+                return node["start"], f"COMMON allocation {node['id']}", indices
             if node["kind"] != "gap" and foreign(index):
                 return node["start"], f"foreign artifact {node['id']}", indices
             indices.append(index)
@@ -944,12 +1008,18 @@ class _Graph:
         not end with ``gcc2_compiled.``, which GCC writes last).  Its
         identity is the lowest address its sections open; it owns their
         data and non-padding gaps.  Its library is set in ``gnu_libraries``.
+
+        A block whose sections hold artifacts of exactly one neighbour that
+        could take it (by the same conditions) is that neighbour's leading
+        or trailing block: its section symbols open the neighbour's section
+        runs (``attached_blocks``), and its data symbols keep their clusters.
         """
 
         symbols = self.image.symbols
         with_code: dict[int, dict[str, Any]] = {}
         object_of_node = {index: row for row in self.gnu for index in row["members"] + row["gaps"]}
         claimed: set[int] = set()
+        object_of_cluster: dict[str, dict[str, Any]] = {}
         for cluster in clusters:
             gnu = next((object_of_node[index] for index in cluster["members"] if index in object_of_node), None)
             if not any(self.nodes[index]["kind"] == "function" for index in cluster["members"]):
@@ -957,6 +1027,7 @@ class _Graph:
             claimed.update(cluster["members"])
             if gnu is None:
                 continue
+            object_of_cluster[cluster["id"]] = gnu
             for value in cluster["local_symbols"]:
                 with_code[value] = gnu
         local = [symbol for symbol in symbols if symbol.binding_name == "LOCAL" and symbol.index > 0]
@@ -1010,14 +1081,26 @@ class _Graph:
                         {"name": symbol.name, "symbol_index": symbol.index, "start": symbol.value, "end": end, "end_basis": basis}
                     )
                     inside.extend(indices)
-                if not inside or any(index in claimed for index in inside):
-                    continue
                 names = {symbol.name for symbol in sections}
                 joinable = []
                 if number == 0 and local[first - 1].name != _GNU_MARKER and not names & previous_names:
                     joinable.append(previous)
                 if number == len(blocks) - 1 and not names & following_names:
                     joinable.append(following)
+                held = [index for index in inside if index in claimed]
+                if held:
+                    # The neighbour's own leading (or trailing) sections, such
+                    # as locale.o's .data before its .text symbol: they open
+                    # its section runs; its data symbols keep their clusters.
+                    owners = {id(object_of_cluster.get(self.nodes[index]["cluster"]["id"])) for index in held}
+                    target = next((row for row in joinable if owners == {id(row)}), None)
+                    if target is not None:
+                        target.setdefault("attached_blocks", []).append(
+                            {"local_symbols": [block[0].index, block[-1].index], "sections": [symbol.index for symbol in sections]}
+                        )
+                    continue
+                if not inside:
+                    continue
                 neighbours = {index for row in joinable for index in row["members"]}
                 if any(users.get(index, set()) & neighbours for index in inside):
                     continue
@@ -1297,10 +1380,13 @@ class _Graph:
     def section_runs(self, row: dict[str, Any], classes: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """The data input sections a GNU function object's LOCAL SECTION symbols open, with their extents.
 
-        A run stops at the next input section, its window's end, or the
-        first artifact another object claims (a Metrowerks unit's evidence,
-        another cluster with functions, or a non-weak classification of
-        another library or of authored code).
+        A run stops at the next input section, its window's end, a fill
+        change, the first COMMON allocation, or the first artifact another
+        object claims (a Metrowerks unit's evidence, another cluster with
+        functions, or a non-weak classification of another library or of
+        authored code).  The sections of an attached LOCAL block
+        (``data_only_objects``) are the object's too.  Each run keeps its
+        artifacts' node indices under ``indices`` (not written out).
         """
 
         if row.get("data_only"):
@@ -1329,12 +1415,15 @@ class _Graph:
             return verdict["candidate"] == "authored" or (verdict["candidate"] == "provider" and verdict["library"] != library)
 
         runs = []
-        for value in cluster["local_symbols"]:
+        attached = [value for block in row.get("attached_blocks") or [] for value in block["sections"]]
+        for value in sorted(set(cluster["local_symbols"]) | set(attached)):
             symbol = symbols[value]
             if symbol.type_name != "SECTION" or symbol.name not in _DATA_SECTIONS or not symbol.value:
                 continue
-            end, basis, _indices = self.section_extent(symbol.value, foreign)
-            runs.append({"name": symbol.name, "symbol_index": symbol.index, "start": symbol.value, "end": end, "end_basis": basis})
+            end, basis, indices = self.section_extent(symbol.value, foreign)
+            runs.append(
+                {"name": symbol.name, "symbol_index": symbol.index, "start": symbol.value, "end": end, "end_basis": basis, "indices": indices}
+            )
         return sorted(runs, key=lambda item: item["start"])
 
     def object_class(self, cluster: dict[str, Any]) -> dict[str, Any] | None:
@@ -1401,6 +1490,15 @@ class _Graph:
             return {"candidate": "compiler-generated", "library": None, "evidence": evidence}
         if node["kind"] == "gap":
             if node["padding"]:
+                gnu = self.text_padding.get(index)
+                if gnu is not None:
+                    # Fill inside (or ending) a GNU object's text is that
+                    # object's: it moves with the object's functions.
+                    return {
+                        "candidate": "provider",
+                        "library": gnu[self.library_key] or "unidentified GNU object",
+                        "evidence": [f"alignment padding in the text of GNU object at {_hex(gnu['address'])}"],
+                    }
                 return {"candidate": "compiler-generated", "library": None, "evidence": ["alignment padding"]}
             for item in node["signals"]:
                 if item["signal"] == "dwarf-cu" and path_library(item["path"]):
@@ -1415,6 +1513,72 @@ class _Graph:
                 }
             return {"candidate": "unknown", "library": None, "evidence": []}
         return verdict or {"candidate": "unknown", "library": None, "evidence": []}
+
+    def object_text_padding(self) -> dict[int, dict[str, Any]]:
+        """Padding gaps of each GNU function object's text, by node index.
+
+        The padding between its first and last function, and the padding
+        after its last function up to the next artifact of its window
+        (unless an input section starts there), is its own.
+        """
+
+        found: dict[int, dict[str, Any]] = {}
+        starts = set(self.section_starts)
+        for row in self.gnu:
+            if row.get("data_only") or not row["members"]:
+                continue
+            first, last = row["members"][0], row["members"][-1]
+            window = self.nodes[last]["window"]
+            for index in range(first, len(self.nodes)):
+                node = self.nodes[index]
+                if index > last and (node["kind"] != "gap" or node["window"] != window or node["start"] in starts):
+                    break
+                if node["kind"] == "gap" and node["padding"]:
+                    found[index] = row
+        return found
+
+    def run_data(self, classes: list[dict[str, Any]]) -> dict[int, dict[str, Any]]:
+        """Data a GNU function object's own section run alone places, by node index.
+
+        An unreferenced datum that no cluster with functions holds and no
+        other rule classifies, inside a run that reaches the next input
+        section (no room for another member), is that object's: it takes the
+        object's library (``classes`` is updated) and follows the object's
+        functions into their segment's data slice.  Data another rule
+        classifies, even weakly, keep their classification and slice.
+        """
+
+        referenced = {
+            row["target_node"] for row in self.references
+            if row["target_node"] is not None and row["site_node"] != row["target_node"]
+        }
+        found: dict[int, dict[str, Any]] = {}
+        for row in self.gnu:
+            if row.get("data_only") or not row["members"]:
+                continue
+            for run in row["runs"]:
+                if run["end_basis"] != "next section symbol":
+                    continue
+                for index in run["indices"]:
+                    node = self.nodes[index]
+                    if (
+                        node["kind"] != "data"
+                        or classes[index]["candidate"] != "unknown"
+                        or index in referenced
+                        or node.get("common")
+                        or any(self.nodes[member]["kind"] == "function" for member in node["cluster"]["members"])
+                    ):
+                        continue
+                    classes[index] = {
+                        "candidate": "provider",
+                        "library": row["library"] or "unidentified GNU object",
+                        "evidence": [
+                            f"unreferenced datum inside GNU object at {_hex(row['address'])}'s {run['name']} section run "
+                            f"{_hex(run['start'])}-{_hex(run['end'])} (LOCAL section symbol {run['symbol_index']})"
+                        ],
+                    }
+                    found[index] = row
+        return found
 
     def classifications(self, clusters: list[dict[str, Any]], *, refined: bool = True) -> list[dict[str, Any]]:
         """Each artifact's classification candidate.
@@ -1431,6 +1595,7 @@ class _Graph:
             if refined or not row.get("data_only")
             for index in row["members"] + row["gaps"] + (row.get("data") or [])
         }
+        self.text_padding = self.object_text_padding()
         self.dwarf_library = {}
         for path in self.dwarf_paths:
             verdict = path_library(path)
@@ -1511,7 +1676,7 @@ class _Graph:
 
     # -- output ----------------------------------------------------------------
 
-    def gnu_object_row(self, row: dict[str, Any], classes: list[dict[str, Any]]) -> dict[str, Any]:
+    def gnu_object_row(self, row: dict[str, Any]) -> dict[str, Any]:
         out: dict[str, Any] = {
             "address": _hex(row["address"]),
             "anchor": row["anchor"],
@@ -1530,7 +1695,10 @@ class _Graph:
             out["data"] = [self.nodes[index]["id"] for index in row["data"]]
             out["local_symbols"] = row["local_symbols"]
             out["symtab_neighbours"] = [_hex(item["address"]) for item in row["symtab_neighbours"]]
-        runs = self.section_runs(row, classes)
+        if row.get("attached_blocks"):
+            # LOCAL blocks before (or after) its own whose sections are its own.
+            out["attached_blocks"] = row["attached_blocks"]
+        runs = row["runs"]
         if runs:
             out["sections"] = [
                 {
@@ -1573,12 +1741,17 @@ class _Graph:
         self.dwarf_signals()
         self.string_signals()
         self.name_signals()
+        self.common_tail()
         clusters, rounds = self.clusters()
         pool_runs, pool_conflicts = self.literal_pools()
         self.class_hints()
         self.gnu_libraries()
         cut_classes = self.classifications(clusters, refined=False)
         classes = self.classifications(clusters)
+        # Section runs under the refined classification, then the data they alone place.
+        for row in self.gnu:
+            row["runs"] = self.section_runs(row, classes)
+        self.run_data_of = self.run_data(classes)
         rows = []
         for index, node in enumerate(self.nodes):
             row: dict[str, Any] = {
@@ -1600,6 +1773,8 @@ class _Graph:
                 row.update(binding=node["binding"], names=node["names"])
                 if node["size_conflict"]:
                     row["size_conflict"] = True
+                if node.get("common"):
+                    row["common"] = True
             if index in self.header_hint:
                 row["emitted_from_header"] = self.header_hint[index]
             if index in self.gnu_of:
@@ -1634,7 +1809,7 @@ class _Graph:
                 }
                 for window in self.windows
             ],
-            "gnu_objects": [self.gnu_object_row(row, classes) for row in self.gnu],
+            "gnu_objects": [self.gnu_object_row(row) for row in self.gnu],
             "units": _units(rows, self.sinit_order, self.dwarf_paths),
             "clusters": sorted(
                 (
@@ -1822,6 +1997,9 @@ def _segments(
         owners = users.get(index, set())
         if not owners and node["kind"] == "data":
             owners = {by_function[member] for member in node["cluster"]["members"] if member in by_function}
+            if not owners and index in graph.run_data_of:
+                # Placed by its object's own section run alone (``run_data``).
+                owners = {by_function[member] for member in graph.run_data_of[index]["members"] if member in by_function}
         if len(owners) == 1:
             slices[next(iter(owners))].append(index)
 
@@ -1976,6 +2154,7 @@ def _summary(body: dict[str, Any], edges: Counter[str], pool_runs: int, pool_con
         ),
         "functions_without_any_tu_candidate": sum(1 for row in functions if not row["tu_candidates"]),
         "data_without_tu_anchor": sum(1 for row in data if not _anchored(row)),
+        "common_allocations": sum(1 for row in data if row.get("common")),
         "data_in_segment_slices": sum(len(segment["data"]) for segment in body["segments"]),
     }
 

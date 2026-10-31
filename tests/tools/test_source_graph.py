@@ -377,8 +377,10 @@ def _archive_image(tmp_path: Path) -> dict:
     """GNU archive members: libgcc, a GOFAST dptofp, SCE, lgAud around an RSA-coupled object, RSA.
 
     LOCAL blocks in symbol order: __muldi3, dptofp, a data-only ``.rodata``
-    block (__thenan_df), sceFoo (with its .rodata), lgAudOpen, SidInit,
-    lgAudClose, and the RSA object (with its .rodata).
+    block (__thenan_df), sceFoo (with its .rodata, opened by the
+    unreferenced ``sce_const``), lgAudOpen, SidInit (12 bytes: its last word
+    is the object's alignment padding), lgAudClose, and the RSA object
+    (with its .rodata).
     """
 
     symbols = [
@@ -394,13 +396,14 @@ def _archive_image(tmp_path: Path) -> dict:
         ("dptofp", 0x100010, 16, 1, 2),
         ("sceFoo", 0x100020, 16, 1, 2),
         ("lgAudOpen", 0x100030, 16, 1, 2),
-        ("SidInit", 0x100040, 16, 1, 2),
+        ("SidInit", 0x100040, 12, 1, 2),
         ("lgAudClose", 0x100050, 16, 1, 2),
         ("RSAEncrypt", 0x100060, 16, 1, 2),
         ("RSADecrypt", 0x100070, 16, 1, 2),
         ("RSAHelper", 0x100080, 16, 1, 2),
         ("__thenan_df", 0x100090, 8, 1, 1),
         ("tail", 0x1000a8, 8, 1, 1),
+        ("sce_const", 0x100098, 4, 1, 1),
     ]
     index = {row[0]: number + 1 for number, row in reversed(list(enumerate(symbols)))}
     rodata = [1 + number for number, row in enumerate(symbols) if row[0] == ".rodata"]
@@ -412,7 +415,7 @@ def _archive_image(tmp_path: Path) -> dict:
 
     code(0x100000, _lui(A0, 0x10), _addiu(A0, A0, 0x90), JR_RA, NOP)  # __muldi3 -> __thenan_df
     code(0x100010, JR_RA, NOP, NOP, NOP)
-    code(0x100020, _lui(A0, 0x10), _addiu(A0, A0, 0x98), JR_RA, NOP)  # sceFoo -> its .rodata
+    code(0x100020, _lui(A0, 0x10), _addiu(A0, A0, 0x9C), JR_RA, NOP)  # sceFoo -> its .rodata after sce_const
     code(0x100030, JR_RA, NOP, NOP, NOP)
     code(0x100040, _jal(0x100080), NOP, JR_RA, NOP)  # SidInit -> RSAHelper
     code(0x100050, JR_RA, NOP, NOP, NOP)
@@ -457,11 +460,21 @@ def test_member_rules_coupling_and_data_only_members_keep_the_segment_cuts(tmp_p
     assert rows["socom:data:0x100090"]["gnu_object"] == "0x100090"
     assert graph["summary"]["data_only_member_count"] == 1
     # One gap spanned two objects' .rodata: it is split at the second section symbol.
-    assert {"socom:gap:0x100098", "socom:gap:0x1000a0"} <= set(rows)
-    assert rows["socom:gap:0x100098"]["end"] == "0x1000a0"
+    assert {"socom:gap:0x10009c", "socom:gap:0x1000a0"} <= set(rows)
+    assert rows["socom:gap:0x10009c"]["end"] == "0x1000a0"
     assert objects["0x100020"]["sections"] == [
         {"name": ".rodata", "symbol_index": 6, "start": "0x100098", "end": "0x1000a0", "end_basis": "next section symbol"}
     ]
+    # Its unreferenced, otherwise unclassified sce_const lies in that run,
+    # which reaches the next input section: it is sceFoo's, in its slice.
+    const = rows["socom:data:0x100098"]["classification"]
+    assert (const["candidate"], const["library"], const.get("weak")) == ("provider", "SCE", None)
+    assert const["evidence"][0].startswith("unreferenced datum inside GNU object at 0x100020's .rodata section run")
+    assert "socom:data:0x100098" in graph["segments"][2]["data"]
+    # The moved SidInit's alignment padding moves with it.
+    padding = rows["socom:gap:0x10004c"]
+    assert padding["padding"] and "gnu_object" not in padding
+    assert (padding["classification"]["candidate"], padding["classification"]["library"]) == ("provider", "RSA")
     # Five segments as under the base rules; the refined classification only
     # moves artifacts between provider scopes.
     segments = graph["segments"]
@@ -475,6 +488,80 @@ def test_member_rules_coupling_and_data_only_members_keep_the_segment_cuts(tmp_p
     assert [segment["segment_number"] for segment in scopes["libgcc"]["segments"]] == [1, 2]
     assert "socom:function:0x100040" in scopes["RSA"]["artifacts"] and scopes["RSA"]["moved_from"] == [4]
     assert "socom:function:0x100040" not in scopes["lgAud"]["artifacts"]
+    assert "socom:gap:0x10004c" in scopes["RSA"]["artifacts"] and "socom:gap:0x10004c" not in scopes["lgAud"]["artifacts"]
+
+
+def test_section_runs_end_at_the_fill_change_and_the_common_tail(tmp_path: Path) -> None:
+    from tools._socom.source_cache import ensure_source_cache, query
+
+    # One GNU object with .sdata (a_flag) and .bss (labelled a_buf).  The
+    # file bytes end at 0x100030: a Metrowerks-like zero-fill datum follows
+    # .sdata, and the GLOBAL c_one/c_two after the last input section are
+    # COMMON allocations.
+    symbols = [
+        (".text", 0x100000, 0, 0, 3), ("gcc2_compiled.", 0x100000, 0, 0, 0),
+        (".sdata", 0x100020, 0, 0, 3), (".bss", 0x100040, 0, 0, 3),
+        ("a_flag", 0x100020, 4, 0, 1), ("a_buf", 0x100044, 0, 0, 0),
+        ("sceInit", 0x100000, 16, 1, 2),
+        ("mw_count", 0x100030, 4, 1, 1),
+        ("c_one", 0x100050, 4, 1, 1),
+        ("c_two", 0x100058, 8, 1, 1),
+    ]
+    main = bytearray(0x30)
+    for number, value in enumerate((_lui(A0, 0x10), _addiu(A0, A0, 0x20), _lui(A0, 0x10), _addiu(A0, A0, 0x40))):
+        struct.pack_into("<I", main, 4 * number, value)
+    relocations = [(0x100000, 3, 5), (0x100004, 3, 6), (0x100008, 4, 5), (0x10000C, 4, 6)]
+    (tmp_path / "support").mkdir()
+    elf = _write_image(tmp_path / "support" / "socom.elf", symbols, bytes(main), relocations)
+    graph = build_source_graph(elf)
+    rows = _rows(graph)
+    (gnu,) = graph["gnu_objects"]
+    assert gnu["sections"] == [
+        {"name": ".sdata", "symbol_index": 3, "start": "0x100020", "end": "0x100030", "end_basis": "file bytes end at socom:data:0x100030"},
+        {"name": ".bss", "symbol_index": 4, "start": "0x100040", "end": "0x100050", "end_basis": "COMMON allocation socom:data:0x100050"},
+    ]
+    assert [identity for identity, row in rows.items() if row.get("common")] == ["socom:data:0x100050", "socom:data:0x100058"]
+    common = next(item for item in rows["socom:data:0x100050"]["signals"] if item["signal"] == "common")
+    assert common == {"signal": "common", "strength": "hint", "tail": ["socom:data:0x100050", "socom:data:0x100058"], "count": 2}
+    # The tag changes neither the classification nor the slice.
+    assert rows["socom:data:0x100050"]["classification"]["candidate"] == "unknown"
+    assert "common" not in rows["socom:data:0x100030"] and graph["summary"]["common_allocations"] == 2
+    path, _rebuilt = ensure_source_cache(tmp_path, graph=graph)
+    assert query(path, "SELECT id FROM artifacts WHERE common = 1 ORDER BY address")["rows"] == [
+        ["socom:data:0x100050"], ["socom:data:0x100058"],
+    ]
+    assert query(path, "SELECT name, end_basis, room_for_member FROM object_sections ORDER BY start")["rows"] == [
+        [".sdata", "file bytes end at socom:data:0x100030", 1], [".bss", "COMMON allocation socom:data:0x100050", 1],
+    ]
+
+
+def test_a_leading_local_block_opens_its_objects_section_runs(tmp_path: Path) -> None:
+    # Like newlib's locale.o: its .data section symbol and last_lc_ctype
+    # precede its .text symbol, between the previous object's block and its
+    # own; its .data holds the object's lc_ctype.  The block's section opens
+    # the object's .data run; the block's datum keeps its own cluster.
+    symbols = [
+        (".text", 0x100000, 0, 0, 3), ("gcc2_compiled.", 0x100000, 0, 0, 0),
+        (".data", 0x100060, 0, 0, 3), ("last_ctype", 0x100068, 4, 0, 1),
+        (".text", 0x100010, 0, 0, 3), ("lc_ctype", 0x100064, 4, 0, 1), ("gcc2_compiled.", 0x100010, 0, 0, 0),
+        ("sceAlpha", 0x100000, 16, 1, 2),
+        ("sceBeta", 0x100010, 16, 1, 2),
+        ("mb_max", 0x100060, 4, 1, 1),
+    ]
+    main = bytearray(0x70)
+    for address in (0x100000, 0x100008, 0x100010, 0x100018):
+        struct.pack_into("<II", main, address - BASE, JR_RA, NOP)
+    graph = build_source_graph(_write_image(tmp_path / "block.elf", symbols, bytes(main)))
+    rows = _rows(graph)
+    objects = {row["address"]: row for row in graph["gnu_objects"]}
+    assert set(objects) == {"0x100000", "0x100010"}
+    beta = objects["0x100010"]
+    assert beta["attached_blocks"] == [{"local_symbols": [3, 4], "sections": [3]}]
+    assert beta["sections"] == [
+        {"name": ".data", "symbol_index": 3, "start": "0x100060", "end": "0x10006c", "end_basis": "window end"}
+    ]
+    assert rows["socom:data:0x100064"]["cluster"] == "socom:tu-cluster:0x100010"
+    assert rows["socom:data:0x100068"]["cluster"] is None and "attached_blocks" not in objects["0x100000"]
 
 
 def test_graph_is_deterministic_and_hashes_its_content(tmp_path: Path) -> None:
@@ -613,6 +700,34 @@ def test_reference_member_rules_coupling_and_data_only_members(reference_graph: 
     lgaud = graph["segments"][61]
     assert lgaud["cut_classification_mix"] == {"provider:lgAud": 39}
     assert lgaud["classification_mix"] == {"provider:lgAud": 25, "provider:speech middleware": 14}
+
+
+def test_reference_section_runs_common_tail_and_object_padding(reference_graph: dict) -> None:
+    graph = reference_graph
+    rows = _rows(graph)
+    objects = {row["address"]: row for row in graph["gnu_objects"]}
+    runs = {run["symbol_index"]: run for run in objects["0x425ea0"]["sections"]}
+    # SCE's .sdata ends where the file bytes end (.sbss: the CAiPath guard,
+    # MSL's ninit_cnt_s/winit_cnt_s); its .bss before the COMMON tail.
+    assert (runs[11798]["end"], runs[11798]["end_basis"]) == ("0x475600", "file bytes end at socom:data:0x475600")
+    assert (runs[11800]["end"], runs[11800]["end_basis"]) == ("0x5b17c0", "COMMON allocation socom:data:0x5b17c0")
+    common = [row for row in graph["artifacts"] if row.get("common")]
+    assert len(common) == graph["summary"]["common_allocations"] == 250
+    assert (common[0]["address"], common[-1]["address"]) == ("0x5b17c0", "0x5e7e94")
+    assert rows["socom:data:0x5b1aa4"].get("common") and rows["socom:data:0x5b1aa4"]["names"][0]["name"] == "errno"
+    # locale.o's .data section symbol precedes its .text symbol.
+    locale = objects["0x3e1a70"]
+    assert locale["attached_blocks"] == [{"local_symbols": [10768, 10769], "sections": [10768]}]
+    data = next(run for run in locale["sections"] if run["symbol_index"] == 10768)
+    assert (data["start"], data["end"], data["end_basis"]) == ("0x43bf78", "0x43bf90", "next section symbol")
+    # Medius's unreferenced RT_MSG_CLIENT_MAX_AGGREGATION_LEN lies in its object's .rodata run.
+    verdict = rows["socom:data:0x468af2"]["classification"]
+    assert (verdict["candidate"], verdict["library"]) == ("provider", "Medius")
+    assert "socom:data:0x468af2" in graph["segments"][70]["data"]
+    # The Sid object's padding is speech middleware's, like its functions.
+    for address in ("0x3b7284", "0x3b751c", "0x3b760c", "0x3b76ec", "0x3b778c", "0x3b77ac", "0x3b7818"):
+        verdict = rows[f"socom:gap:{address}"]["classification"]
+        assert (verdict["candidate"], verdict["library"]) == ("provider", "speech middleware")
 
 
 def test_reference_segments_report_internal_unit_boundaries(reference_graph: dict) -> None:

@@ -25,20 +25,22 @@ from typing import Any
 from .util import SocomError, _replace, sha256_file
 
 CACHE_RELATIVE = Path("build") / "cache" / "source-graph.sqlite"
-CACHE_VERSION = "2"
+CACHE_VERSION = "3"
 SCHEMA = """
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
 -- One row per graph artifact (function, data or gap).  address/end/size are
 -- integers; id spells the address in hex.  segment/item: the planning scope
 -- whose slice holds it.  classification/library/class_weak/class_evidence:
 -- the graph's candidate.  tu/tu_strength/tu_via: the primary unit candidate.
+-- common: a COMMON allocation (GLOBAL zero-fill data after every input
+-- section; its classification and slice are not changed by the tag).
 CREATE TABLE artifacts (
   id TEXT PRIMARY KEY, kind TEXT, address INTEGER, "end" INTEGER, size INTEGER,
   name TEXT, names TEXT, binding TEXT, weak INTEGER, inline INTEGER, named INTEGER,
   section TEXT, input_section TEXT, "window" TEXT, cluster TEXT, gnu_object INTEGER,
   classification TEXT, library TEXT, class_weak INTEGER, class_evidence TEXT,
   tu TEXT, tu_strength TEXT, tu_via TEXT, emitted_from_header TEXT,
-  fill TEXT, padding INTEGER, labels TEXT, segment INTEGER, item TEXT);
+  fill TEXT, padding INTEGER, labels TEXT, segment INTEGER, item TEXT, common INTEGER);
 CREATE TABLE names (artifact TEXT, name TEXT, binding TEXT, symbol_index INTEGER);
 CREATE TABLE tu_candidates (artifact TEXT, rank INTEGER, tu TEXT, strength TEXT, via TEXT, sinit_order INTEGER);
 CREATE TABLE signals (artifact TEXT, signal TEXT, strength TEXT, tu TEXT, path TEXT, text TEXT, json TEXT);
@@ -54,7 +56,8 @@ CREATE TABLE gnu_objects (
 -- Per-object LOCAL-bracketed section runs: each data input section a GNU
 -- object's LOCAL SECTION symbol opens, to the next input section (end_basis
 -- 'next section symbol': room_for_member 0, the next object starts right
--- there) or cut short by another object's artifact or the window end
+-- there) or cut short by another object's artifact, a COMMON allocation, a
+-- change between file bytes and zero fill, or the window end
 -- (room_for_member 1: the bytes up to next_start may hold a separate member).
 CREATE TABLE object_sections (
   gnu_object INTEGER, library TEXT, data_only INTEGER, name TEXT, symbol_index INTEGER, start INTEGER, "end" INTEGER,
@@ -227,6 +230,7 @@ def _build(root: Path, path: Path, graph: dict[str, Any], meta: dict[str, str]) 
                 primary.get("tu"), primary.get("strength"), ",".join(primary.get("via") or []),
                 row.get("emitted_from_header"), row.get("fill"), None if "padding" not in row else int(bool(row["padding"])),
                 ",".join(row.get("labels") or []) or None, segment_of.get(identity), item_of.get(identity, (None,))[0],
+                int(bool(row.get("common"))),
             )
         )
         for item in row.get("names") or []:

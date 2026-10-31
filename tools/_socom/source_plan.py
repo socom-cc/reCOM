@@ -1799,6 +1799,9 @@ def _compact(row: dict[str, Any], section_of: Callable[[int], str | None]) -> di
         # WEAK or Metrowerks binding 13 (inline): an instance a header may emit.
         out["weak"] = "WEAK" in bindings
         out["inline"] = "13" in bindings
+        if row.get("common"):
+            # A COMMON allocation after every input section (``source graph``).
+            out["common"] = True
     for key in ("cluster", "gnu_object", "emitted_from_header"):
         if row.get(key):
             out[key] = row[key]

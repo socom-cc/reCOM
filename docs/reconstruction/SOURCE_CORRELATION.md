@@ -94,7 +94,7 @@ Dependencies:
 - the seed keeps its ID and becomes the stage gate over every apply and data
   reconcile.
 
-For the reference graph (`7bd4e540...`, 76 segments, as for `837c03c4...`)
+For the reference graph (`c79d76e6...`, 76 segments, as for `7bd4e540...`)
 this gives 46 segment plans and applies, 13 provider plans and applies (crt0, MW runtime, MSL,
 SCE, unidentified GNU object, newlib, libgcc, 989snd, speech middleware,
 Medius, lgAud, libptt, RSA), 3 data reconciles, the route gate, and the
@@ -164,6 +164,55 @@ stays in segment 076, its text in 039). Every form of that rule also moves
 data of `main.cpp` (+4 into segment 001) and of the zAnim units (+4 into
 segment 017), whose plans are accepted, so it waits for their review.
 
+### Graph refinements (round m15a)
+
+The graph `c79d76e6...` adds these rules to `7bd4e540...`; the segments,
+the item IDs and every slice but four are unchanged:
+
+- **Section-run ends.** A run also ends where its fill changes between file
+  bytes and zero fill (an input section is all one or all the other) and at
+  the first COMMON allocation. COMMON allocations are the GLOBAL zero-fill
+  data that end the last zero-fill data window, back to the first artifact
+  that holds a LOCAL or SECTION symbol, holds file bytes or is an
+  unsymbolled non-padding gap: GCC emits an uninitialized global as a
+  COMMON symbol, which the linker places after every input section. Each is
+  tagged `common: true` with a `common` hint signal (cache column
+  `artifacts.common`, `common` in plan evidence); the tag changes neither
+  its classification nor its slice. The reference has 250 (`0x5b17c0` to
+  `0x5e7e94`: Medius `PacketType*`, newlib `errno` `0x5b1aa4`, ...). SCE
+  object `0x425ea0`'s `.bss` run ends at `0x5b17c0` (was `0x5e7f00`), its
+  `.sdata` run at `0x475600`, where the file bytes end (was `0x47560c`, over
+  CAiPath's `init$localstatic4$next` and MSL's `ninit_cnt_s`/`winit_cnt_s`).
+- **Object padding.** The alignment padding of a GNU function object's text
+  (between its functions, and after its last one up to the next artifact
+  unless an input section starts there) takes the object's provider
+  classification (1,047 gaps). It gets no `gnu_object` field, so plans keep
+  owning padding through compiler-generated rows. The 7 padding gaps of the
+  Sid object `0x3b7248` move with its functions from lgAud to speech
+  middleware.
+- **Run-placed data.** An unreferenced datum that no cluster with functions
+  holds and no other rule classifies, inside a GNU function object's run
+  that reaches the next input section, is that object's: it takes the
+  object's library and follows the object's functions into their segment's
+  data slice. The reference has one: Medius
+  `RT_MSG_CLIENT_MAX_AGGREGATION_LEN` `0x468af2` (object `0x40c000`'s
+  `.rodata`) moves from the rodata reconcile to Medius. Data another rule
+  classifies, even weakly, keep their slice: the 48 newlib LOCAL constants
+  in their objects' `.rodata` runs (`twom1000` `0x446ec8`, ...) stay in the
+  rodata reconcile, as the accepted newlib plan has them.
+- **Attached LOCAL blocks.** A LOCAL block between two GNU objects' blocks
+  whose sections hold artifacts of exactly one neighbour that could take it
+  (the data-only conditions) is that neighbour's leading or trailing block:
+  its section symbols open the neighbour's runs (`attached_blocks`), its
+  data symbols keep their clusters. The reference has one: newlib's
+  locale.o `0x3e1a70` gains its `.data` run `0x43bf78`-`0x43bf90` (symbol
+  10768); `last_lc_ctype.4` stays in the data reconcile.
+
+On this graph draft rules version 3 decide 527 of MSL's 529 (`ninit_cnt_s`
+and `winit_cnt_s`, no longer inside SCE's `.sdata` run, by `D-referenced`)
+and 450 of newlib's 452 (`__mb_cur_max` `0x43bf78` by `P-gnu-data` in
+locale.o's `.data` run).
+
 ### Refresh after a graph change
 
 ```powershell
@@ -203,6 +252,15 @@ newlib, libgcc and lgAud plans to planning, and changes the slices of 14
 plan items (newlib, libgcc, lgAud, speech middleware, Medius, RSA, SCE,
 unidentified GNU object, segments 026, 029 and 076, and the three data
 reconciles) and their applies; no reservation changes.
+
+On a copy of the tracker of revision 2930 (graph `7bd4e540...` to
+`c79d76e6...`) the dry run adds and removes nothing and keeps the twelve
+accepted plans (segments 001 and 017; crt0, MW runtime, MSL, SCE, newlib,
+libgcc, unidentified GNU object, 989snd, libptt and RSA: same slices; each
+validates and draft-checks as before). It returns the handed-off segments
+027 and 040 (digest only) and the speech middleware, Medius and lgAud plans
+to planning, and changes the slices of speech middleware, Medius and lgAud
+(and their applies) and of the rodata reconcile; no reservation changes.
 
 ## Plan items
 
@@ -760,13 +818,13 @@ prints hex); IDs spell them in hex.
 
 | Table | Rows |
 | --- | --- |
-| `artifacts` | every artifact: `id`, `kind`, `address`, `end`, `size`, `name`, `names`, `binding`, `weak`, `inline`, `named`, `section`, `input_section`, `window`, `cluster`, `gnu_object`, `classification`, `library`, `class_weak`, `class_evidence`, primary `tu`/`tu_strength`/`tu_via`, `emitted_from_header`, gap `fill`/`padding`/`labels`, `segment`, slice `item` |
+| `artifacts` | every artifact: `id`, `kind`, `address`, `end`, `size`, `name`, `names`, `binding`, `weak`, `inline`, `named`, `section`, `input_section`, `window`, `cluster`, `gnu_object`, `classification`, `library`, `class_weak`, `class_evidence`, primary `tu`/`tu_strength`/`tu_via`, `emitted_from_header`, gap `fill`/`padding`/`labels`, `segment`, slice `item`, `common` (a COMMON allocation) |
 | `names` | each symbol name of an artifact with `binding` and `symbol_index` |
 | `tu_candidates` | each unit candidate (`rank` 0 is primary) with `strength`, `via`, `sinit_order` |
 | `signals` | each graph signal with `signal`, `strength`, `tu`, `path`, `text`, full `json` |
 | `units` | each unit with its `paths`, provider `library`, `sinit_order`, anchored counts and first/last function |
 | `gnu_objects` | each GNU object: `address`, `gcc_compiled`, `end_basis`, `library`, `library_basis`, function and gap counts, `anchor`, `data_only`, `data_count`, `segment_library` (the library the cuts follow, when refined) |
-| `object_sections` | per-object LOCAL-bracketed section runs: `gnu_object`, `library`, `data_only`, section `name`, `symbol_index`, `start`, `end`, `end_basis`, `next_start` (the next input section), `artifacts`, first `named` artifacts, and `room_for_member`: 0 when the run reaches the next input section (no room for a separate member), 1 when another object's artifact or the window end cut it short |
+| `object_sections` | per-object LOCAL-bracketed section runs: `gnu_object`, `library`, `data_only`, section `name`, `symbol_index`, `start`, `end`, `end_basis`, `next_start` (the next input section), `artifacts`, first `named` artifacts, and `room_for_member`: 0 when the run reaches the next input section (no room for a separate member), 1 when another object's artifact, a COMMON allocation, a file-bytes/zero-fill change or the window end cut it short |
 | `clusters` | each multi-member object cluster: `member_count`, `units`, `libraries`, LOCAL symbol range |
 | `segments`, `internal_boundaries` | each segment (family, library, item, edges, unanchored counts) and each unit change inside it with its unanchored functions |
 | `scopes`, `slices` | each plan item's scope and counts, and its slice in order |
