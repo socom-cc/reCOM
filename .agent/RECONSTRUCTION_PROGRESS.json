@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2960,
+  "revision": 2964,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -148548,14 +148548,8 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-015.json sha256:03d92684db4f2cf058b70e9257bff44aba4944bb8a36e9dadb81a830f37a90db; validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-w1e",
-        "submitted_at": "2026-10-31T12:14:48Z",
-        "summary": "replan v4/c79d76e6: owners 4 authored + fill (ai_mapio, ai_path, ai_maps, ai_map data row), unresolved 0, retire 0, open rows decided 13 (drafted 355, hand 13); 16 hand header emits (MSL families, <algorithm>, zai.h for CAiMapLocVec F2); reservation src/gamez/zAI confirmed"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-015",
       "kind": "source-plan-segment",
       "lease": null,
@@ -148576,11 +148570,25 @@
           "reason": "F1 socom:function:0x18b0b0 (__dt__ std::__vector_imp<CAiMapLoc,allocator<CAiMapLoc>,0>, binding 13) is the implicit destructor of an MSL class (local CodeWarrior PS2 R3.04 MSL <vector>: class __vector_imp<T,Allocator,false> at lines 1190-1297 declares its ctors, copy ctor and operator= at 1208-1214 but no destructor). It is drafted into ai_mapio.cpp with no header-emit row, so the plan annotates it as defined in ai_mapio.cpp. The plan's own rule (implicit special members go to their class's header, applied to 0x197180 -> <list>) requires {header <vector>, library MSL, reason template}. Fix: add that header-emit row (leave the drafted owner entry) and re-run validate --fill-annotations, --check and draft --check. F2 socom:function:0x18b040 (__dt__12CAiMapLocVecFv) and socom:function:0x19d890 (__ct__12CAiMapLocVecFv), binding 13: implicit dtor and default ctor of CAiMapLocVec, which provisional src/gamez/zAI/zai.h:294 declares with no user-declared ctor/dtor (class CAiMapLocVec : std::vector<CAiMapLoc> { };). The plan's note tests action_v18 against zai.h but gives these neither an emit nor a reason. Fix: emit them to src/gamez/zAI/zai.h (reason inline), or record in notes why zai.h is not their class's header. Checked and sound otherwise: sha256 cb29bcb7 matches; validate --check and draft --check ok; the 20 hand rows hold (WEAK tails close their object for every strongly anchored unit, only compiler __arraydtor locals follow a tail; sole-caller and single-copy claims confirmed; the symbol-less unit alternative at 0x193540-0x193918 and 0x196e60-0x1971bc is noted and medium fits). Data 0x449170 -> ai_map.cpp is also supported by .rodata alignment: ai_map's run holds 16-aligned literals (@2412 at 0x4491f0 after 10 zero bytes), so its section starts 16-aligned, and the only 16-aligned address between @3509's end 0x44916e and @1462 at 0x449178 is 0x449170 (version__6CAiMap 0x449310 opens ai_mapio's run the same way, @2106 at 0x449330). The <list> emit is correctly worded as local R3.04 MSL; lines 206-207 verified.",
           "rejected_at": "2026-10-31T11:04:24Z",
           "rejected_by": "socom-source-owner-scrutinizer-x6"
+        },
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-w1e",
+            "submitted_at": "2026-10-31T12:14:48Z",
+            "summary": "replan v4/c79d76e6: owners 4 authored + fill (ai_mapio, ai_path, ai_maps, ai_map data row), unresolved 0, retire 0, open rows decided 13 (drafted 355, hand 13); 16 hand header emits (MSL families, <algorithm>, zai.h for CAiMapLocVec F2); reservation src/gamez/zAI confirmed"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-015.json sha256:03d92684db4f2cf058b70e9257bff44aba4944bb8a36e9dadb81a830f37a90db; validate --check ok; draft --check ok"
+          ],
+          "reason": "F1 socom:function:0x18c370 (__ct__Q26CAiMap6actionFRC, binding 13) and socom:function:0x19d890's sibling socom:function:0x19d8e0 (__ct__Q26CAiMap5namesFv, binding 13): implicit special members of CAiMap's nested classes left without a header emit; the note's reason ('no header declares CAiMap::action or CAiMap::names (zai.h's CAiMap is an empty stub) ... their owner files define them') rests on the emptiness of a provisional stub and is contradicted by the ELF: CAiMap::action is used by three units (ai_map.cpp vector_deleter<CAiMap::action> ctor/dtor 0x187120/0x188030; ai_mapio.cpp ReadCellTable/resize/insert 0x18a890-0x18bea0; ai_maps.cpp UpdateActionTables reads static invalid__Q26CAiMap6action 0x449170, as do ai_mapio's resize 0x18b300), CAiMap::names likewise (ai_map.cpp __dt__Q26CAiMap5namesFv 0x187140, ai_mapio ReadCellTable<Q26CAiMap5names> 0x18a5e0, __sinit_ai_maps 0x46a370 calls 0x19d8e0), so both classes are defined in a shared header, not in a .cpp. Their enclosing class CAiMap is defined at provisional src/gamez/zAI/zai.h:297 - the same kind of evidence the plan uses to emit CAiMapLocVec's 0x18b040/0x19d890 into zai.h (zai.h:294). Fix: add header-emit rows for 0x18c370 and 0x19d8e0 -> src/gamez/zAI/zai.h, reason inline, citing the cross-unit use and zai.h:297; correct the note; re-run validate --fill-annotations, --check, draft --check. Keep 0x193330 (action_v18 copy ctor) without emit: action_v18 is used only by ai_mapio (vector_deleter/insert/erase/ReadCellTableCvt 0x18aef0-0x1934f0). Checked and sound: sha256 03d92684 matches; validate --check and draft --check ok (0 open, 0 overrides); x6's F1 0x18b0b0 now drafted (H-template-family <vector>); <algorithm> emits for remove_copy 0x196a20/0x19d9a0 and LOCAL find 0x193cd0/0x1972d0 hold (no find/remove_copy instance in the ELF has a header unit; local MSL algorithm lines 28/569 and 198/1370 verified, and the cw301 precedent paths are MSL_Common/Include); the three LOCAL swap(__vector_deleter&) -> <vector> hold (0x3cbf20's header unit is MSL_Common\\\\Include\\\\vector; MSL vector:1169 verified); 0x18b040/0x19d890 -> zai.h is supported by use in ai_mapio and ai_maps (~CAiMaps 0x19d790, __sinit_ai_maps).",
+          "rejected_at": "2026-10-31T12:23:06Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x9"
         }
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 015 (0x188f60-0x19dca0, 193 functions)"
     },
     {
@@ -148896,6 +148904,10 @@
       "title": "Apply the reviewed source owners of segment 017 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T12:25:33Z",
+        "by": "socom-source-owner-scrutinizer-x9"
+      },
       "batch": {
         "artifact_count": 426,
         "batch_number": 18,
@@ -148932,6 +148944,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "plan build/source-plans/socom-work-source-segment-018.json sha256:4dc3ed7b19374b1c1d1cde14fb5cd7c5106cfb02ad4cd1b5917bfafb15462200 matches the handoff; validate --check ok (426/426 owned, 0 unresolved, 9 contradictions) and draft --check ok (410 drafted, 16 hand, 0 open, 0 overrides; owner change only zanim_set.cpp workspace_path). x6's F1 fixed: 0x1c61a0 now drafted H-template-family <vector>. Hand rows: CNodeEx inline virtuals 0x1cfeb0-0x1cff00 are referenced by GLOBAL __vt__8CZAnimEx 0x4719f0 (zanim_anim cluster 0x1c88c0) and 0x1cfea0 by the kept binding-13 __vt__Q23zdb7CNodeEx 0x471960 (same cluster, LOCAL RTTI 0x44aef0), so zanim_anim defines them and, lying after its start 0x1c88c0, keeps them; CZAnimArg* dtors 0x1cff10/0x1cff70/0x1cffd0/0x1d0030 are referenced only by their vtables 0x4719a0-0x4719d0 (key Copy__* 0x1ce370-0x1ce510 in zanim_anim); 0x1cfab0-0x1cfc90 lie between A-vtable-key OnWeaponHit 0x1cf660 and those copies, callers all CZAnimSet/CZAnim/CZAnimExVector; zanim_menu starts at 0x1d0090 (strong, own cluster). Emits: 0x1cf0c0 __ct__ __list_imp<PCv> -> <list> (MSL list:711/729 verified) and LOCAL find_if 0x1cb850 -> <algorithm> (algorithm:32/579 verified; no find_if instance has a header unit). 9 contradictions match zanim_anim.cpp:120/128/133 and anim_main.cpp:117/141/155/179/254/264. Observation (non-blocking, no header to emit into): the note's 'no header declares CZAnimArg* ... zanim_anim.cpp defines them' is incomplete - GLOBAL ctors 0x1ce3e0 (CZAnimArgPnt3D) and 0x1ce570 (CZAnimArgNode) are called from zAnimCallAnimBegin 0x1b8380 (segment 016), so those classes live in a header shared with that unit; no file under src/ declares them, so no emit can be named; segment 016's planner should note it.",
         "plan build/source-plans/socom-work-source-segment-018.json sha256:4dc3ed7b19374b1c1d1cde14fb5cd7c5106cfb02ad4cd1b5917bfafb15462200; validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -148963,7 +148976,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 018 (0x1c24c0-0x1d0090, 192 functions)"
     },
     {
@@ -152163,6 +152176,10 @@
       "title": "Apply the reviewed source owners of segment 047 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T12:25:07Z",
+        "by": "socom-source-owner-scrutinizer-x8"
+      },
       "batch": {
         "artifact_count": 1332,
         "batch_number": 48,
@@ -152211,7 +152228,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-provider-speech-middleware.json sha256:ac75a0949af09288f516a9adbdd748f4cfbf33e684f84e016915a4892cdc325d; validate --check ok; draft --check ok"
+        "plan build/source-plans/socom-work-source-provider-speech-middleware.json sha256:ac75a0949af09288f516a9adbdd748f4cfbf33e684f84e016915a4892cdc325d; validate --check ok; draft --check ok",
+        "plan sha256 ac75a0949af09288f516a9adbdd748f4cfbf33e684f84e016915a4892cdc325d on graph c79d76e6; validate --check ok (1332/1332 owned, 66 provider + 1 fill row, 0 problems; review note: 24 owned gaps without classification candidate, all drafted P-gnu-section/C-fill), draft --check ok (rules v4, 1332 drafted, 0 hand, 0 overrides, 0 owner/header changes). Sid row 0x3b7248 (P-gnu-object, medium) challenged against the lgAud-tail model: its 6 external referencers are all speech object 0x337bc8 (gsapi_EngineOpen->SidInit, gsapi_EngineClose/Stop, StartListening/StopListening, ProcessAudio), it calls the speech engine allocator heap_Alloc/heap_Free (object 0x378348, called by 80+ speech functions in other speech objects) plus 11 lgAud API functions, and is lgAud's only client; no data relocations, no strings. Placement right after liblgaud's object (LOCAL block 9796-9804 after 9783-9795, then hud_main.cpp) is the residual link-order uncertainty a liblgaud.a member would explain but that leaves liblgaud depending on the speech allocator; medium (not high) matches that"
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-w1c",
@@ -152246,7 +152264,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan provider owners of speech middleware (4 segments, 700 functions)"
     },
     {
@@ -152845,6 +152863,10 @@
       "title": "Apply the reviewed source owners of segment 057 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T12:28:14Z",
+        "by": "socom-source-owner-scrutinizer-x8"
+      },
       "batch": {
         "artifact_count": 1194,
         "batch_number": 59,
@@ -152905,7 +152927,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-provider-medius.json sha256:2aafd3b2c93937ecb85d6d181d5de4343b8ff871e84b6c07dce8d24abb4f82dd; validate --check ok; draft --check ok (overrides 89, owner_changes 0)"
+        "plan build/source-plans/socom-work-source-provider-medius.json sha256:2aafd3b2c93937ecb85d6d181d5de4343b8ff871e84b6c07dce8d24abb4f82dd; validate --check ok; draft --check ok (overrides 89, owner_changes 0)",
+        "plan sha256 2aafd3b2c93937ecb85d6d181d5de4343b8ff871e84b6c07dce8d24abb4f82dd on graph c79d76e6; validate --check ok (1075 owned in 26 provider + 1 fill rows, 119 unresolved, 0 problems), draft --check ok (rules v4: 1075 drafted, 0 hand, 89 overrides, 0 owner/header changes); draft --check --rules 5: 0 overrides, 0 problems, so every override matches current rules. All 119 unresolved are COMMON (common=1, GLOBAL, between .bss and .vubss, no cluster/gnu_object) in the tail 0x5b17c0-0x5e7e98; referencer sets (refs, LO16 GLOBAL) match each reason: 79 only RegisterPackets (0x3aae18's single function), alternating address-by-address with PacketType* siblings 0x3aae18 shares with 0x3b20e8/0x3b0ee8 (item source-data-bss); 5 only 0x418b58, 1 NetFieldList only 0x420a08 (followed by 0x41ea68-only PacketTypeServerResponse 0x5e7e40), 4 only 0x41ea68, all interleaved in the DME list 0x5b1aa8-0x5e7e94 after newlib errno; 26 Clan callback pointers 0x3afcf8+0x3b0ee8; 4 DME callbacks two objects each. Non-blocking: the 79-row reason names only 0x3b20e8 (Clan siblings are shared with 0x3b0ee8); version literals in drafted member gaps (0x463890 'Medius Client Library Version 1.37.0000' 0x3b20e8, rt_comm 1.02.0005 0x4044d0, rt_crypt 1.01.0002 0x40a580, rt_msg_client 1.06.S016 0x40c000) are not recorded as archive_member.version (optional; no archive file named)"
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-w1c",
@@ -152940,7 +152963,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan provider owners of Medius (7 segments, 786 functions)"
     },
     {
