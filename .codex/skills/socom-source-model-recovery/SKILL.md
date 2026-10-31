@@ -9,7 +9,9 @@ Read root [`AGENTS.md`](../../../AGENTS.md) and
 [`SOURCE_TRACEABILITY.md`](../../../docs/reconstruction/SOURCE_TRACEABILITY.md).
 Treat current files as provisional. Use accepted Ghidra facts, DWARF
 paths/lines, symbol order, relocations, static initialization, tables, and
-exact compiler behavior.
+exact compiler behavior. `python tools/socom.py source graph` gathers the
+ELF-only unit signals, classification candidates and segments into
+`build/source-graph/`; its rows are candidates with provenance, not owners.
 
 Keep logical ownership distinct from physical ELF storage. Give each physical
 artifact one owner; headers may declare or emit reviewed inline/template

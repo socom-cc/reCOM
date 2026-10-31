@@ -37,3 +37,83 @@ Original `Z:\dev\...` strings are quoted evidence, not active paths and not
 instructions to reproduce the original drive tree. Source-correlation changes
 must use a future revision-guarded batch interface that preserves prior claims
 as history; no such mutation interface is currently registered.
+
+## Translation-unit evidence: `source graph`
+
+```powershell
+python tools/socom.py source graph `
+  --output build/source-graph/graph.json `
+  --markdown build/source-graph/SEGMENTS.md
+```
+
+`source graph` is the stage 4 evidence producer. It reads only the immutable
+ELF (symbols, relocations, bytes, DWARF 1 `.debug` and `.line`), never Ghidra,
+the tracker or `src/`, and writes only the files named under `build/`. Its
+output is deterministic and carries `graph_sha256` over the canonical content,
+like `recon graph`. Everything in it is a candidate: it decomposes nothing,
+owns nothing and does not open the stage, which stays deferred until owner
+plans, their validation, annotation and the gate are registered.
+
+Artifacts are the census-derived set: one row per start address of the sized
+`FUNC` (`socom:function:0x...`) and `OBJECT` (`socom:data:0x...`) symbols,
+aliases kept with their census symbol IDs and bindings, plus every unsymbolled
+gap between neighbours of one ELF section (`socom:gap:0x...`, with its fill,
+labels and whether it is alignment padding). The input-section kind comes from
+the envelope of the surviving SECTION symbols of that name; artifacts outside
+every envelope say so. Code and data windows are maximal runs of one artifact
+kind; a gap between runs of different kinds opens the run after it.
+
+Signals, each kept on the artifact with its provenance:
+
+| Signal | Strength | Meaning |
+| --- | --- | --- |
+| `dwarf-cu` | strong | a compile-unit DIE's pc range covers the artifact; a source path names the unit, with its `.line` range |
+| `dwarf-cu-header` | hint | the covering CU is a header: the artifact was emitted from it |
+| `dwarf-variable` | strong / weak | a static local's location names its CU; a global is listed by every CU that uses it |
+| `file-string` | strong / medium | a `__FILE__`-like string: a whole `@N` literal (strong) or a string inside other data, with the artifacts whose relocations reach it |
+| `unnamed-namespace` | strong | an `@unnamed@<file>@` tag in a symbol name |
+| `sinit` | strong | `__sinit_<file>` and `.p__sinit_<file>`; the table's address order is reported as `sinit_order` |
+| `libinfo` | strong | `__ps2_libinfo__` names an SCE library |
+| `literal-pool` | weak | the artifact sits in a run of rising `@N` numbers whose anchored members name one unit |
+| `class-hint` | weak | the demangled qualifier's anchored methods all sit in one unit |
+
+Clusters are object files proven by union: a relocation against a LOCAL symbol
+or a section symbol ties its site to the target (gaps never join, since one
+gap may hold several objects' bytes); a GNU-toolchain object opened by a
+`gcc2_compiled.` marker or `.text` section symbol holds the functions up to the
+next GNU anchor or the first function with Metrowerks evidence (a C++ symbol,
+binding 13, an `@N` reference or a Metrowerks CU); clusters whose LOCAL symbol
+index ranges overlap are one object (`symtab-local-order`), because the linker
+writes each object's locals contiguously; and a function between two members of
+one cluster joins it (`text-contiguity`). A cluster whose strong signals name
+exactly one unit gives that unit to every member, strong, or medium when the
+member joined only by text contiguity. Two names in one cluster, or interleaved
+objects, are recorded under `contradictions` and never merged.
+
+Classification candidates (`authored`, `provider` with a library,
+`compiler-generated`, `unknown`) are decided per cluster, then per artifact, and
+each lists the evidence that drove it: a GNU object (library from
+`__ps2_libinfo__`, the majority of its function names, the coordinator's
+speech window `0x336ef0-0x3788a0`, or its archive neighbours); a DWARF source
+path (MSL, MW runtime, crt0, libptt, SCE; `Z:\dev` is authored); a unit name
+with a known library or DWARF path; Metrowerks name rules (C++ runtime entry
+points, the `snd_` prefix of 989snd); and otherwise an authored Metrowerks
+unit. Compiler-emitted symbols (`@N`, `__RTTI__`, `__vt__`, `__sinit_`,
+`.p__sinit_`, adjustor thunks) and alignment padding outside provider objects
+are `compiler-generated`. Weak results (contiguity between two artifacts of one
+class, C++ outside the `std` and `Metrowerks` namespaces) are marked `weak`.
+The rules themselves are echoed under `rules`.
+
+Segments are contiguous runs of at most `--segment-size` functions (default
+200) inside one code window. They always cut where the classification changes
+(compiler-generated and unknown functions are neutral) and otherwise at the
+last strong anchor (a GNU anchor or a change between anchored units), then the
+last medium one (the edge of an anchored unit or an object-cluster change), and
+only then at the size limit. Each segment lists its artifacts (with the
+window's leading and trailing gaps on its outer segments), the data slice
+referenced only from it (followed through referencing data; unreferenced data
+follows its cluster), its classification mix, the unit candidates seen inside
+it with their `sinit_order`, and each boundary's strength, reason and run of
+unanchored functions. `summary` counts artifacts per classification, signal
+coverage, cluster edges, contradictions, segments, and the functions without a
+strong or medium unit anchor (by class and outside GNU objects).

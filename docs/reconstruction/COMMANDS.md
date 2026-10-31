@@ -130,6 +130,7 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py progress work show` | progress | no | none | no | Show one or all structured work items. |
 | `python tools/socom.py source owners` | source | no | none | no | Inventory provisional source owners. |
 | `python tools/socom.py source artifacts` | source | no | none | no | Inventory source artifact annotations. |
+| `python tools/socom.py source graph` | source | no | none | no | Build deterministic ELF-only translation-unit evidence, classification candidates and address segments. |
 | `python tools/socom.py source audit` | source | no | none | no | Audit soCOM workspace independence. |
 | `python tools/socom.py verify asm` | verification | no | required | no | Read function and assembly evidence from Ghidra. |
 | `python tools/socom.py verify functional` | verification | no | none | no | List or run one deterministic behavioral smoke target. |

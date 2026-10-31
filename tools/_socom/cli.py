@@ -71,6 +71,7 @@ from .source import (
     source_artifacts,
     source_owners,
 )
+from .source_graph import SEGMENT_SIZE as SOURCE_SEGMENT_SIZE, segments_markdown, source_graph
 from .snapshot import snapshot_status, write_snapshot
 from .toolchain import bootstrap_toolchain, verify_toolchain
 from .tracker import (
@@ -2285,6 +2286,32 @@ def _source_audit(arguments: argparse.Namespace) -> int:
     return 0 if not findings else 1
 
 
+def _source_graph(arguments: argparse.Namespace) -> int:
+    root = _root(arguments)
+    # Resolve both destinations before the build so a bad path fails fast.
+    output = _build_path(root, arguments.output, "source graphs") if arguments.output else None
+    markdown = _build_path(root, arguments.markdown, "source graph summaries") if arguments.markdown else None
+    graph = source_graph(root, segment_size=arguments.segment_size)
+    if output is not None:
+        atomic_write_json(output, graph)
+    if markdown is not None:
+        atomic_write_text(markdown, segments_markdown(graph))
+    _emit(
+        {
+            "mutation_performed": False,
+            "kind": graph["kind"],
+            "schema_version": graph["schema_version"],
+            "source_sha256": graph["source_sha256"],
+            "segment_size": graph["segment_size"],
+            "graph_sha256": graph["graph_sha256"],
+            "summary": graph["summary"],
+            "output": arguments.output,
+            "markdown": arguments.markdown,
+        }
+    )
+    return 0
+
+
 def _source_artifacts(arguments: argparse.Namespace) -> int:
     parsed = source_artifacts(_root(arguments))
     _emit(
@@ -2959,6 +2986,11 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec("progress work show", "progress", "Show one or all structured work items."),
     _spec("source owners", "source", "Inventory provisional source owners."),
     _spec("source artifacts", "source", "Inventory source artifact annotations."),
+    _spec(
+        "source graph",
+        "source",
+        "Build deterministic ELF-only translation-unit evidence, classification candidates and address segments.",
+    ),
     _spec("source audit", "source", "Audit soCOM workspace independence."),
     _spec("verify asm", "verification", "Read function and assembly evidence from Ghidra.", ghidra_requirement="required"),
     _spec("verify functional", "verification", "List or run one deterministic behavioral smoke target."),
@@ -3475,6 +3507,11 @@ def build_parser() -> argparse.ArgumentParser:
     owners.set_defaults(handler=_source_owners)
     artifacts = source_commands.add_parser("artifacts")
     artifacts.set_defaults(handler=_source_artifacts)
+    graph_command = source_commands.add_parser("graph")
+    graph_command.add_argument("--segment-size", type=int, default=SOURCE_SEGMENT_SIZE)
+    graph_command.add_argument("--output")
+    graph_command.add_argument("--markdown")
+    graph_command.set_defaults(handler=_source_graph)
     source_audit = source_commands.add_parser("audit")
     source_audit.set_defaults(handler=_source_audit)
 
