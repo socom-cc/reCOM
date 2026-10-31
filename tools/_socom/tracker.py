@@ -29,7 +29,9 @@ from .source_plan import (
     CAPABILITY_GATE_KIND,
     DATA_RECONCILE_KIND,
     PLAN_KIND_BY_SCOPE,
+    PROVIDER_APPLY_KIND,
     PROVIDER_PLAN_KIND,
+    SEGMENT_APPLY_KIND,
     SEGMENT_PLAN_KIND,
     SOURCE_APPLY_KINDS,
     SOURCE_APPLY_ROUTE_ID,
@@ -37,6 +39,7 @@ from .source_plan import (
     SOURCE_PLAN_RESOURCES,
     SOURCE_SEED_ID,
     SOURCE_STAGE,
+    apply_reservation,
     scope_batches,
     scope_item_id,
     scope_key,
@@ -1016,10 +1019,25 @@ def audit_tracker(
                 errors.append(f"{item_id} has no matching source plan item")
             elif (item.get("batch") or {}).get("scope") != (plan.get("batch") or {}).get("scope"):
                 errors.append(f"{item_id} plans another scope than {plan_id}")
-            if not resources or not all(value == "src" or str(value).startswith("src/") for value in resources):
+            batch = item.get("batch") or {}
+            if kind == PROVIDER_APPLY_KIND:
+                # Provider ownership is recorded in tracker evidence only.
+                if resources or "directories" in batch:
+                    errors.append(f"{item_id} writes nothing under src/: a provider apply reserves no resource")
+            elif not resources or not all(value == "src" or str(value).startswith("src/") for value in resources):
                 errors.append(f"{item_id} must reserve its src/ directories")
-            elif sorted(resources) != sorted((item.get("batch") or {}).get("directories") or []):
+            elif sorted(resources) != sorted(batch.get("directories") or []):
                 errors.append(f"{item_id} resources differ from its batch directories")
+            else:
+                inferred = batch.get("resource_inferred")
+                reason = batch.get("resource_reason")
+                stated = isinstance(reason, str) and bool(reason.strip())
+                if not isinstance(inferred, bool):
+                    errors.append(f"{item_id} must record whether its reservation is inferred")
+                elif inferred and (not stated or resources == {"src"}):
+                    errors.append(f"{item_id} inferred reservation needs a reason and a narrower directory than src")
+                elif resources == {"src"} and not stated:
+                    errors.append(f"{item_id} reserves all of src without the reason no inference was possible")
         if kind == CAPABILITY_GATE_KIND:
             if item_id != SOURCE_APPLY_ROUTE_ID:
                 errors.append(f"{item_id} is an unexpected capability gate")
@@ -1255,6 +1273,23 @@ def _audit_source_correlation(items: list[dict[str, Any]], stage_rows: list[dict
             or len(reconciles) != len(decomposition.get("data_kinds") or [])
         ):
             errors.append(f"{SOURCE_STAGE} decomposition record differs from its plan items")
+        segment_applies = [item for item in applies if item.get("kind") == SEGMENT_APPLY_KIND]
+        recorded = {
+            name: sorted(str((row or {}).get("item")) for row in decomposition.get(name) or [])
+            for name in ("inferred_reservations", "fallback_reservations")
+        }
+        actual = {
+            "inferred_reservations": sorted(
+                item["id"] for item in segment_applies if (item.get("batch") or {}).get("resource_inferred") is True
+            ),
+            "fallback_reservations": sorted(
+                item["id"]
+                for item in segment_applies
+                if item.get("resources") == ["src"] and (item.get("batch") or {}).get("resource_inferred") is not True
+            ),
+        }
+        if recorded != actual:
+            errors.append(f"{SOURCE_STAGE} decomposition record differs from its inferred and fallback reservations")
         if any(
             (item.get("batch") or {}).get("graph_sha256") != decomposition.get("graph_sha256")
             for item in plans + reconciles + applies
@@ -1966,21 +2001,26 @@ def _source_item(item_id: str, kind: str, title: str, dependencies: list[str], r
 
 
 def decompose_source_correlation(
-    tracker: dict[str, Any], graph: dict[str, Any], directories: dict[str, list[str]]
+    tracker: dict[str, Any], graph: dict[str, Any], reservations: dict[str, dict[str, Any]]
 ) -> dict[str, Any]:
     """Replace the stage 4 seed with owner-plan items, their applies and a gate.
 
-    ``graph`` is ``source graph`` output and ``directories`` the ``src/``
-    directories each apply reserves (``source_plan.apply_directories``).
+    ``graph`` is ``source graph`` output and ``reservations`` the ``src/``
+    reservation of each authored-segment apply, by scope key
+    (``source_plan.apply_reservations``): its directories, whether they are
+    inferred, and the reason for an inference or the all-of-``src`` fallback.
     Every authored segment gets a file-only ``source-plan-segment`` item and
     every provider library a ``source-plan-provider`` item, both waiting for
     the accepted stage 3 gate; every data kind outside the segment slices
     gets a ``source-data-reconcile`` item that waits for every plan.  Each
     plan has an apply item that waits for its plan, every reconcile, and the
     ``capability-gate`` item of the guarded apply route, which stays blocked
-    until that route is registered.  The seed keeps its ID (later stages
-    depend on it) and becomes the stage gate over every apply and reconcile.
-    No item owns a Ghidra resource: the stage is file-only.
+    until that route is registered.  A segment apply reserves its ``src/``
+    directories.  A provider apply reserves nothing: it writes no file and
+    records its archive members' ownership in tracker evidence only.  The
+    seed keeps its ID (later stages depend on it) and becomes the stage gate
+    over every apply and reconcile.  No item owns a Ghidra resource: the
+    stage is file-only.
     """
 
     previous = next(row for row in tracker["stages"] if row["name"] == RECON_STAGE)
@@ -2006,6 +2046,8 @@ def decompose_source_correlation(
     plans: list[dict[str, Any]] = []
     applies: list[dict[str, Any]] = []
     reconciles: list[dict[str, Any]] = []
+    inferred: list[dict[str, Any]] = []
+    fallback: list[dict[str, Any]] = []
     for batch in batches:
         scope = batch["scope"]
         item_id = scope_item_id(scope)
@@ -2027,21 +2069,26 @@ def decompose_source_correlation(
                 f"Plan provider owners of {scope['library']} "
                 f"({len(batch['segment_numbers'])} segments, {batch['function_count']} functions)"
             )
-            apply_title = f"Apply the reviewed provider owners of {scope['library']}"
-        reserved = list(directories.get(scope_key(scope)) or [])
-        if not reserved:
-            raise SocomError(f"{item_id} has no src/ directory to reserve")
-        plans.append(_source_item(item_id, kind, title, [RECON_SEED_ID], list(SOURCE_PLAN_RESOURCES), batch))
-        applies.append(
-            _source_item(
-                f"{item_id}-apply",
-                APPLY_KIND_BY_PLAN[kind],
-                apply_title,
-                [],
-                reserved,
-                {**copy.deepcopy(batch), "directories": list(reserved)},
+            apply_title = f"Record the reviewed provider owners of {scope['library']} in tracker evidence"
+        apply_batch = copy.deepcopy(batch)
+        reserved: list[str] = []
+        if scope["kind"] == "segment":
+            reservation = reservations.get(scope_key(scope)) or {}
+            reserved = list(reservation.get("directories") or [])
+            if not reserved:
+                raise SocomError(f"{item_id} has no src/ directory to reserve")
+            reason = reservation.get("reason")
+            apply_batch.update(
+                directories=list(reserved),
+                resource_inferred=reservation.get("inferred") is True,
+                resource_reason=reason,
             )
-        )
+            if apply_batch["resource_inferred"]:
+                inferred.append({"item": f"{item_id}-apply", "directories": list(reserved), "reason": reason})
+            elif reserved == ["src"]:
+                fallback.append({"item": f"{item_id}-apply", "reason": reason})
+        plans.append(_source_item(item_id, kind, title, [RECON_SEED_ID], list(SOURCE_PLAN_RESOURCES), batch))
+        applies.append(_source_item(f"{item_id}-apply", APPLY_KIND_BY_PLAN[kind], apply_title, [], reserved, apply_batch))
     plan_ids = [row["id"] for row in plans]
     reconcile_ids = [row["id"] for row in reconciles]
     for row in reconciles:
@@ -2051,14 +2098,17 @@ def decompose_source_correlation(
     route = _source_item(
         SOURCE_APPLY_ROUTE_ID,
         CAPABILITY_GATE_KIND,
-        "Register the guarded source apply route (owner-plan annotations under src/)",
+        "Register the guarded source apply route (owner-plan annotations under src/, provider evidence)",
         [],
         [],
         None,
     )
     route["batch"] = {
         "capability": SOURCE_STAGE,
-        "requires": "a registered command that applies an accepted owner plan's files and annotations under src/",
+        "requires": (
+            "a registered command that applies an accepted owner plan: a segment's files and annotations under "
+            "its reserved src/ directories, a provider's archive-member ownership in tracker evidence only"
+        ),
     }
     created: list[dict[str, Any]] = []
     for plan, apply in zip(plans, applies):
@@ -2081,6 +2131,8 @@ def decompose_source_correlation(
         "provider_libraries": libraries,
         "data_kinds": [batch["scope"]["data_kind"] for batch in batches if batch["scope"]["kind"] == "data"],
         "apply_route": SOURCE_APPLY_ROUTE_ID,
+        "inferred_reservations": inferred,
+        "fallback_reservations": fallback,
         "tracker_revision": tracker["revision"] + 1,
     }
     stage["decomposition"] = decomposition
@@ -2526,6 +2578,13 @@ def work_packet(
             "python tools/socom.py progress work handoff (cite the plan SHA-256; "
             "independent review: socom-source-owner-scrutinizer)"
         )
+        reservation = apply_reservation(tracker, item)
+        if reservation is not None and reservation["inferred"]:
+            validation.insert(
+                1,
+                f"confirm or correct in the plan's reservation the directories {reservation['apply_item']} "
+                f"reserves by inference ({', '.join(reservation['directories'])}): {reservation['reason']}",
+            )
         allowed_paths = [evidence, plan]
         ghidra_scope = {
             "project": "soCOM",
@@ -2533,13 +2592,28 @@ def work_packet(
             "program_path": "/socom.elf",
             "read_only": True,
         }
-    elif kind in SOURCE_APPLY_KINDS:
+    elif kind == PROVIDER_APPLY_KIND:
+        # A provider has no source body: its apply writes no file at all.
+        role = "socom-source-worker"
+        skill = "socom-provider-boundary"
+        plan = f"build/source-plans/{item_id.removesuffix('-apply').replace(':', '-')}.json"
+        validation = [
+            f"python tools/socom.py source plan validate --plan {plan} --check",
+            f"the guarded apply command that opens {SOURCE_APPLY_ROUTE_ID} (not registered yet): it records each "
+            "archive member's ownership (library + GNU object or object name) in tracker evidence and writes no file",
+            "python tools/socom.py guard provider",
+        ]
+        handoff = "python tools/socom.py progress work handoff (cite the plan SHA-256; no file changes)"
+        allowed_paths = []
+        ghidra_scope = None
+    elif kind == SEGMENT_APPLY_KIND:
         role = "socom-source-worker"
         skill = "socom-source-model-recovery"
         plan = f"build/source-plans/{item_id.removesuffix('-apply').replace(':', '-')}.json"
         validation = [
             f"python tools/socom.py source plan validate --plan {plan} --check",
-            f"the guarded apply command that opens {SOURCE_APPLY_ROUTE_ID} (not registered yet)",
+            f"the guarded apply command that opens {SOURCE_APPLY_ROUTE_ID} (not registered yet; it re-reserves "
+            "a corrected plan reservation before it writes)",
             "python tools/socom.py audit docblocks",
             "python tools/socom.py audit source-trace",
             "python tools/socom.py guard source-placement",

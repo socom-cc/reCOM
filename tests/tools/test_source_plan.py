@@ -18,7 +18,7 @@ from tools._socom.source_plan import (
     SOURCE_PLAN_KIND,
     SOURCE_SEED_ID,
     SOURCE_STAGE,
-    apply_directories,
+    apply_reservations,
     derive_annotations,
     graph_digest,
     loaded_section_lookup,
@@ -154,11 +154,16 @@ def stage3_tracker(root: Path) -> dict:
     return tracker
 
 
+SEGMENT_1 = "segment:socom:source-segment:00000000000000000001"
+SEGMENT_3 = "segment:socom:source-segment:00000000000000000003"
+FALLBACK = "fallback to all of src: no neighbouring unit shares the TU-name prefix of b.cpp"
+INFERENCE = "a.cpp has no path or provisional-file evidence; the nearest units with its TU-name prefix lie in src/gamez/zFoo"
 DIRECTORIES = {
-    "segment:socom:source-segment:00000000000000000001": ["src/gamez/zFoo"],
-    "segment:socom:source-segment:00000000000000000003": ["src"],
-    "provider:SCE": ["src/providers/sce"],
+    SEGMENT_1: {"directories": ["src/gamez/zFoo"], "inferred": False, "reason": None},
+    SEGMENT_3: {"directories": ["src"], "inferred": False, "reason": FALLBACK},
 }
+# Segment 1's reservation inferred instead of evidenced.
+INFERRED = {**DIRECTORIES, SEGMENT_1: {"directories": ["src/gamez/zFoo"], "inferred": True, "reason": INFERENCE}}
 
 
 def decompose(tracker: dict, graph: dict, directories: dict | None = None) -> dict:
@@ -197,16 +202,41 @@ def test_planning_scopes_partition_the_graph() -> None:
     assert sorted(held) == sorted(ids) and len(held) == len(set(held))
 
 
-def test_apply_directories_keep_the_existing_module_spelling(tmp_path: Path) -> None:
+def test_apply_reservations_keep_the_existing_module_spelling(tmp_path: Path) -> None:
     (tmp_path / "src" / "gamez" / "zfoo").mkdir(parents=True)
     (tmp_path / "src" / "Apps" / "FTS").mkdir(parents=True)
     (tmp_path / "src" / "Apps" / "FTS" / "b.cpp").write_text("", encoding="utf-8")
-    directories = apply_directories(tmp_path, synthetic_graph())
-    assert directories == {
-        "segment:socom:source-segment:00000000000000000001": ["src/gamez/zfoo"],
-        "provider:SCE": ["src/providers/sce"],
-        "segment:socom:source-segment:00000000000000000003": ["src/Apps/FTS"],
+    # Providers reserve nothing: they have no source body.
+    assert apply_reservations(tmp_path, synthetic_graph()) == {
+        SEGMENT_1: {"directories": ["src/gamez/zfoo"], "inferred": False, "reason": None},
+        SEGMENT_3: {"directories": ["src/Apps/FTS"], "inferred": False, "reason": None},
     }
+
+
+def _renamed(graph: dict, unit: str) -> dict:
+    """The synthetic graph with segment 3's unit b.cpp renamed."""
+
+    graph = copy.deepcopy(graph)
+    graph["segments"][2]["tu_candidates"][0]["tu"] = unit
+    graph["units"][1]["tu"] = unit
+    graph["graph_sha256"] = graph_digest(graph)
+    return graph
+
+
+def test_apply_reservations_infer_a_directory_from_neighbouring_prefixes(tmp_path: Path) -> None:
+    (tmp_path / "src" / "gamez" / "zfoo").mkdir(parents=True)
+    # a_two.cpp has no evidence; a.cpp, two segments away (past the SCE
+    # segment), shares its prefix and has a Z:\dev path.
+    reservation = apply_reservations(tmp_path, _renamed(synthetic_graph(), "a_two.cpp"))[SEGMENT_3]
+    assert reservation["directories"] == ["src/gamez/zfoo"] and reservation["inferred"] is True
+    assert "a_two.cpp has no path or provisional-file evidence" in reservation["reason"]
+    assert "prefix 'a' (segment 001 a.cpp)" in reservation["reason"]
+
+
+def test_apply_reservations_fall_back_to_src_only_without_an_inference(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    reservation = apply_reservations(tmp_path, synthetic_graph())[SEGMENT_3]
+    assert reservation == {"directories": ["src"], "inferred": False, "reason": FALLBACK}
 
 
 def test_decomposition_builds_file_only_plans_blocked_applies_and_a_gate(synthetic: tuple[dict, dict]) -> None:
@@ -231,7 +261,12 @@ def test_decomposition_builds_file_only_plans_blocked_applies_and_a_gate(synthet
         assert by_id[plan]["batch"]["graph_sha256"] == graph["graph_sha256"]
         assert by_id[f"{plan}-apply"]["dependencies"] == [plan, *reconciles, SOURCE_APPLY_ROUTE_ID]
     assert by_id["socom:work:source-segment-001-apply"]["resources"] == ["src/gamez/zFoo"]
-    assert by_id["socom:work:source-provider-sce-apply"]["resources"] == ["src/providers/sce"]
+    assert by_id["socom:work:source-segment-001-apply"]["batch"]["resource_inferred"] is False
+    # A provider apply writes nothing under src/ and reserves nothing.
+    provider_apply = by_id["socom:work:source-provider-sce-apply"]
+    assert provider_apply["resources"] == [] and "directories" not in provider_apply["batch"]
+    fallback = by_id["socom:work:source-segment-003-apply"]
+    assert fallback["resources"] == ["src"] and fallback["batch"]["resource_reason"] == FALLBACK
     for reconcile in reconciles:
         assert sorted(by_id[reconcile]["dependencies"]) == sorted(plans)
     gate = by_id[SOURCE_SEED_ID]
@@ -241,8 +276,27 @@ def test_decomposition_builds_file_only_plans_blocked_applies_and_a_gate(synthet
     stage = next(row for row in tracker["stages"] if row["name"] == SOURCE_STAGE)
     assert stage["status"] == "active"
     assert stage["decomposition"]["provider_libraries"] == ["SCE"] and stage["decomposition"]["data_kinds"] == ["data", "bss"]
+    assert stage["decomposition"]["inferred_reservations"] == []
+    assert stage["decomposition"]["fallback_reservations"] == [
+        {"item": "socom:work:source-segment-003-apply", "reason": FALLBACK}
+    ]
     with pytest.raises(SocomError, match="already decomposed"):
         decompose_source_correlation(tracker, graph, DIRECTORIES)
+
+
+def test_an_inferred_reservation_is_recorded_on_the_apply_and_the_decomposition(stage3_tracker: dict) -> None:
+    tracker = decompose(stage3_tracker, synthetic_graph(), INFERRED)
+    assert audit_tracker(tracker, strict=True) == []
+    apply = next(row for row in tracker["work_items"] if row["id"] == "socom:work:source-segment-001-apply")
+    assert apply["resources"] == ["src/gamez/zFoo"]
+    assert apply["batch"]["resource_inferred"] is True and apply["batch"]["resource_reason"] == INFERENCE
+    record = next(row for row in tracker["stages"] if row["name"] == SOURCE_STAGE)["decomposition"]
+    assert record["inferred_reservations"] == [
+        {"item": "socom:work:source-segment-001-apply", "directories": ["src/gamez/zFoo"], "reason": INFERENCE}
+    ]
+    claim_work(tracker, "socom:work:source-segment-001", "mapper", 30)
+    packet = work_packet(tracker, "socom:work:source-segment-001", "mapper")
+    assert any("confirm or correct" in line and INFERENCE in line for line in packet["validation"])
 
 
 def test_the_apply_route_gate_cannot_be_claimed_and_keeps_applies_blocked(synthetic: tuple[dict, dict]) -> None:
@@ -287,6 +341,18 @@ def test_decomposition_preconditions(stage3_tracker: dict) -> None:
         (lambda by_id: by_id[SOURCE_SEED_ID]["dependencies"].pop(), "gate does not depend"),
         (lambda by_id: by_id["socom:work:source-provider-sce"]["batch"].update(graph_sha256="0" * 64), "different source graph"),
         (lambda by_id: by_id["socom:work:source-provider-sce"]["batch"]["scope"].update(library="newlib"), "differs from the"),
+        (lambda by_id: by_id["socom:work:source-provider-sce-apply"].update(resources=["src/providers/sce"]),
+         "a provider apply reserves no resource"),
+        (lambda by_id: by_id["socom:work:source-provider-sce-apply"]["batch"].update(directories=[]),
+         "a provider apply reserves no resource"),
+        (lambda by_id: by_id["socom:work:source-segment-001-apply"]["batch"].pop("resource_inferred"),
+         "whether its reservation is inferred"),
+        (lambda by_id: by_id["socom:work:source-segment-001-apply"]["batch"].update(resource_inferred=True),
+         "inferred reservation needs a reason"),
+        (lambda by_id: by_id["socom:work:source-segment-003-apply"]["batch"].update(resource_reason=None),
+         "without the reason no inference was possible"),
+        (lambda by_id: by_id["socom:work:source-segment-001-apply"]["batch"].update(
+            resource_inferred=True, resource_reason="x"), "inferred and fallback reservations"),
     ],
 )
 def test_audit_rejects_broken_source_structure(synthetic: tuple[dict, dict], change, message: str) -> None:
@@ -322,6 +388,15 @@ def test_packets_route_mapper_worker_and_verifier(synthetic: tuple[dict, dict]) 
     packet = work_packet(tracker, apply["id"], "worker")
     assert packet["role"] == "socom-source-worker" and packet["allowed_paths"] == ["src/gamez/zFoo"]
     assert packet["ghidra_scope"] is None
+    # The provider apply writes no file: no allowed path, evidence only.
+    provider_apply = next(row for row in tracker["work_items"] if row["id"] == "socom:work:source-provider-sce-apply")
+    provider_apply["status"] = "ready"
+    claim_work(tracker, provider_apply["id"], "worker", 30)
+    packet = work_packet(tracker, provider_apply["id"], "worker")
+    assert packet["role"] == "socom-source-worker" and packet["skill"] == "socom-provider-boundary"
+    assert packet["allowed_paths"] == [] and packet["ghidra_scope"] is None
+    assert any("tracker evidence and writes no file" in line for line in packet["validation"])
+    assert not any("src/" in line for line in packet["validation"])
     gate = next(row for row in tracker["work_items"] if row["id"] == SOURCE_SEED_ID)
     gate["status"] = "ready"
     claim_work(tracker, SOURCE_SEED_ID, "verifier", 30)
@@ -473,7 +548,22 @@ SEGMENT_DEFECTS = [
     (lambda plan, ids: plan.update(scope={"kind": "data", "data_kind": "bss"}), "scope differs"),
     (lambda plan, ids: plan.update(extra=True), "unknown fields"),
     (lambda plan, ids: plan.update(work_item_id="socom:work:source-segment-001-apply"), "not a source-correlation plan item"),
+    # The apply may write only its reserved directories.
+    (lambda plan, ids: plan["owners"][0].update(workspace_path="src/gamez/zBar/a.cpp"),
+     "lies outside the reservation of socom:work:source-segment-001-apply (src/gamez/zFoo)"),
+    (lambda plan, ids: plan.update(reservation=_reservation(["src/gamez"], "confirmed")), "a confirmed reservation must equal"),
+    (lambda plan, ids: plan.update(reservation=_reservation(["src/gamez/zFoo"], "corrected")), "must differ"),
+    (lambda plan, ids: plan.update(reservation=_reservation(["src/gamez/zFoo"], "inferred")), "still the decomposition's inference"),
+    (lambda plan, ids: plan.update(reservation=_reservation(["build/x"], "corrected")), "distinct src/ directories"),
+    (lambda plan, ids: plan.update(reservation=_reservation(["src/gamez/zfoo"], "corrected")), "differs in letter case"),
+    (lambda plan, ids: plan.update(reservation={**_reservation(["src/gamez"], "corrected"), "evidence": []}),
+     "needs evidence lines"),
+    (lambda plan, ids: plan.update(reservation={"directories": ["src/gamez/zFoo"]}), "reservation must be"),
 ]
+
+
+def _reservation(directories: list[str], status: str) -> dict:
+    return {"directories": directories, "status": status, "reason": "the units' module", "evidence": ["Z:\\dev path"]}
 
 
 @pytest.mark.parametrize(("change", "message"), SEGMENT_DEFECTS)
@@ -487,6 +577,62 @@ def test_segment_plan_defects_are_refused(tmp_path: Path, synthetic: tuple[dict,
     assert any(message in problem for problem in report["problems"]), report["problems"]
 
 
+def test_a_corrected_reservation_admits_a_move_outside_the_reserved_directory(
+    tmp_path: Path, synthetic: tuple[dict, dict]
+) -> None:
+    tracker, graph = synthetic
+    root = _workspace(tmp_path)
+    plan = segment_plan(graph)
+    plan["owners"][0]["workspace_path"] = "src/gamez/zBar/a.cpp"
+    plan["annotations"] = derive_annotations(plan, graph, MAIN)
+    report = validate_source_plan(root, tracker, plan, graph, section_of=MAIN)
+    assert any("lies outside the reservation" in problem for problem in report["problems"]), report["problems"]
+    plan["reservation"] = _reservation(["src/gamez/zFoo", "src/gamez/zBar"], "corrected")
+    report = validate_source_plan(root, tracker, plan, graph, section_of=MAIN)
+    assert report["ok"], report["problems"]
+    assert report["reservation"] == {
+        "apply_item": "socom:work:source-segment-001-apply",
+        "reserved": ["src/gamez/zFoo"],
+        "inferred": False,
+        "status": "corrected",
+        "directories": ["src/gamez/zBar", "src/gamez/zFoo"],
+    }
+    # A reservation that only confirms the evidenced one is accepted too.
+    plan = segment_plan(graph)
+    plan["reservation"] = _reservation(["src/gamez/zFoo"], "confirmed")
+    assert validate_source_plan(root, tracker, plan, graph, section_of=MAIN)["ok"]
+
+
+def test_an_inferred_reservation_must_be_confirmed_or_corrected(tmp_path: Path, stage3_tracker: dict) -> None:
+    graph = synthetic_graph()
+    tracker = decompose(stage3_tracker, graph, INFERRED)
+    root = _workspace(tmp_path)
+    plan = segment_plan(graph)
+    report = validate_source_plan(root, tracker, plan, graph, section_of=MAIN)
+    assert any(
+        "reserves src/gamez/zFoo by inference" in problem and "must confirm or correct" in problem
+        for problem in report["problems"]
+    ), report["problems"]
+    plan["reservation"] = _reservation(["src/gamez/zFoo"], "confirmed")
+    report = validate_source_plan(root, tracker, plan, graph, section_of=MAIN)
+    assert report["ok"], report["problems"]
+    assert report["reservation"]["inferred"] is True and report["reservation"]["status"] == "confirmed"
+    # The skeleton carries the inference, which validation refuses as is.
+    skeleton = plan_skeleton(tracker, "socom:work:source-segment-001", graph)
+    assert skeleton["reservation"] == {
+        "directories": ["src/gamez/zFoo"], "status": "inferred", "reason": INFERENCE, "evidence": [],
+    }
+    problems = validate_source_plan(root, tracker, skeleton, graph, section_of=MAIN)["problems"]
+    assert any("still the decomposition's inference" in problem for problem in problems)
+    evidence = plan_evidence(root, tracker, "socom:work:source-segment-001", graph, section_of=MAIN)
+    assert evidence["reservation"] == {
+        "apply_item": "socom:work:source-segment-001-apply",
+        "directories": ["src/gamez/zFoo"],
+        "inferred": True,
+        "reason": INFERENCE,
+    }
+
+
 PROVIDER_DEFECTS = [
     (lambda plan: plan["owners"][0].update(archive_member=None), "archive_member needs"),
     (lambda plan: plan["owners"][0].update(archive_member={"gnu_object": "0x999999"}), "not a GNU object"),
@@ -497,6 +643,8 @@ PROVIDER_DEFECTS = [
     (lambda plan: plan["owners"][0].update(classification="authored", library=None, archive_member=None,
                                            translation_unit="foo.c", workspace_path="src/x/foo.c"),
      "belongs to GNU object 0x140020"),
+    (lambda plan: plan.update(reservation=_reservation(["src/providers/sce"], "corrected")),
+     "only a segment plan records a reservation"),
 ]
 
 
@@ -582,7 +730,7 @@ def test_reference_dry_run_decomposition(root: Path, stage3_tracker: dict, refer
     scopes = planning_scopes(graph)
     held = [identity for entry in scopes for identity in entry["artifacts"]]
     assert len(held) == len(set(held)) == len(graph["artifacts"])
-    tracker = decompose(stage3_tracker, graph, apply_directories(root, graph))
+    tracker = decompose(stage3_tracker, graph, apply_reservations(root, graph))
     assert audit_tracker(tracker, strict=True) == []
     counts = Counter(row["kind"] for row in tracker["work_items"] if row["stage"] == SOURCE_STAGE)
     assert counts == {
@@ -603,11 +751,23 @@ def test_reference_dry_run_decomposition(root: Path, stage3_tracker: dict, refer
     last = next(row for row in tracker["work_items"] if row["id"] == f"socom:work:source-segment-{len(graph['segments']):03d}")
     assert last["batch"]["classification_mix"].get("compiler-generated", 0) > 100
     assert "socom:work:source-provider-speech-middleware" in {row["id"] for row in tracker["work_items"]}
+    by_id = {row["id"]: row for row in tracker["work_items"]}
+    # Provider applies write nothing under src/.
+    assert all(row["resources"] == [] for row in by_id.values() if row["kind"] == "source-apply-provider")
+    # zui_skb.cpp (segment 57) has no path or provisional file: its directory
+    # is inferred from the neighbouring zui_ units, not all of src.
+    skb = by_id["socom:work:source-segment-057-apply"]
+    assert skb["batch"]["tu_candidates"] == ["zui_skb.cpp"]
+    assert skb["resources"] == ["src/gamez/zUI"] and skb["batch"]["resource_inferred"] is True
+    assert "prefix 'zui' (segment 056 zui_cleanup.cpp; segment 056 zui_spec.cpp)" in skb["batch"]["resource_reason"]
+    assert [row["item"] for row in record["inferred_reservations"]] == [skb["id"]]
+    assert record["fallback_reservations"] == []
+    assert not any(row["resources"] == ["src"] for row in by_id.values() if row["kind"] == "source-apply-segment")
 
 
 def test_reference_skeleton_regenerates_its_slice(root: Path, stage3_tracker: dict, reference_source_graph: dict) -> None:
     graph = reference_source_graph
-    tracker = decompose(stage3_tracker, graph, apply_directories(root, graph))
+    tracker = decompose(stage3_tracker, graph, apply_reservations(root, graph))
     item = "socom:work:source-segment-001"
     skeleton = plan_skeleton(tracker, item, graph)
     section_of = loaded_section_lookup(root)
@@ -633,6 +793,10 @@ def test_cli_dry_run_against_a_copy_of_the_reference_tracker(
     report = json.loads(capsys.readouterr().out)
     assert report["ok"] and report["errors"] == []
     assert report["item_counts"]["source-plan-segment"] == 46 and report["item_counts"]["source-data-reconcile"] == 3
+    assert [row["item"] for row in report["decomposition"]["inferred_reservations"]] == [
+        "socom:work:source-segment-057-apply"
+    ]
+    assert report["decomposition"]["fallback_reservations"] == []
     assert state.read_bytes() == before
 
 

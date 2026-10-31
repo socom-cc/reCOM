@@ -72,7 +72,7 @@ from .source import (
     source_owners,
 )
 from .source_graph import SEGMENT_SIZE as SOURCE_SEGMENT_SIZE, segments_markdown, source_graph
-from .source_plan import SOURCE_STAGE, apply_directories
+from .source_plan import SOURCE_STAGE, apply_reservations
 from .snapshot import snapshot_status, write_snapshot
 from .toolchain import bootstrap_toolchain, verify_toolchain
 from .tracker import (
@@ -2098,10 +2098,10 @@ def _progress_decompose_stage(arguments: argparse.Namespace) -> int:
 
     elif arguments.stage == SOURCE_STAGE:
         graph = source_graph(root)
-        directories = apply_directories(root, graph)
+        reservations = apply_reservations(root, graph)
 
         def decompose(tracker: dict[str, Any]) -> None:
-            captured.update(decompose_source_correlation(tracker, graph, directories))
+            captured.update(decompose_source_correlation(tracker, graph, reservations))
 
     else:
         raise SocomError(f"no registered producer decomposes {arguments.stage}")

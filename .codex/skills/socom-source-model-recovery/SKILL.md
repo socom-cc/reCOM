@@ -24,5 +24,7 @@ A stage 4 plan item's owner plan starts from
 `python tools/socom.py source plan evidence --item <item> --check --output <evidence> --skeleton <plan>`
 and must pass `python tools/socom.py source plan validate --plan <plan> --check`:
 every slice artifact owned once or unresolved with a reason, provisional
-files cited exactly as they exist, and the annotation targets the owner rows
-imply listed (`--fill-annotations` writes them).
+files cited exactly as they exist, the annotation targets the owner rows
+imply listed (`--fill-annotations` writes them), and owners placed in the
+apply's reserved directories. Confirm or correct an inferred reservation in
+the plan's `reservation` row.

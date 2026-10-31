@@ -11,7 +11,9 @@ overrides from provider defaults and functions from their physical data or
 storage contributions.
 
 A stage 4 provider plan has one owner row per archive member (its library
-plus its GNU object address or object name) and no source body; see
+plus its GNU object address or object name) and no source body. Its apply
+writes nothing under `src/` and records that ownership in tracker evidence
+only; see
 [`SOURCE_CORRELATION.md`](../../../docs/reconstruction/SOURCE_CORRELATION.md).
 
 Provider classification never waives ABI, order, relocation, byte, or final

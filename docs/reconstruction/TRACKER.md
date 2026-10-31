@@ -107,8 +107,11 @@ items to it. `progress stage-scope` writes an accepted stage's union scope.
 
 `progress decompose-stage --stage source-correlation` replaces the stage 4
 seed with file-only `source-plan-segment`, `source-plan-provider` and
-`source-data-reconcile` items, `source-apply-*` items that reserve their
-`src/` directories, and a gate. Every apply also waits for
+`source-data-reconcile` items, `source-apply-segment` items that reserve
+their `src/` directories (inferred from neighbouring units when a segment
+has no path evidence), `source-apply-provider` items that reserve nothing
+and record archive-member ownership in tracker evidence only, and a gate.
+Every apply also waits for
 `socom:work:source-correlation-apply-route`, a `capability-gate` item that
 no worker can claim, hand off or accept and that stays blocked until the
 guarded apply route is registered; see

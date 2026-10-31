@@ -15,12 +15,16 @@ list. Placement keeps `src/<Apps|gamez>/<module>/` and records the original
 `Z:\dev` path on the owner row. Provisional files stay in place, and files
 with no evidence are left unowned (they are deleted only through an accepted
 plan). Each provider library is one item, with one owner row per archive
-member. The artifact basis is the census-derived set that `source graph`
-produces ([SOURCE_TRACEABILITY.md](SOURCE_TRACEABILITY.md)).
+member. A provider writes nothing under `src/`: its apply records each
+archive member's ownership (library and GNU object or object name) in
+tracker evidence only (user decision of 2026-10-31). The artifact basis is
+the census-derived set that `source graph` produces
+([SOURCE_TRACEABILITY.md](SOURCE_TRACEABILITY.md)).
 
-Planning is active. The route that applies an accepted plan's files and
-annotations under `src/`, and the gate check, are not registered yet. The
-apply items wait on a capability gate, and the stage stays deferred in
+Planning is active. The route that applies an accepted plan (a segment's
+files and annotations under `src/`, a provider's evidence in the tracker),
+and the gate check, are not registered yet. The apply items wait on a
+capability gate, and the stage stays deferred in
 [TOOL_COVERAGE.md](TOOL_COVERAGE.md).
 
 ## Decomposition
@@ -40,11 +44,25 @@ scope:
 A segment of mostly compiler-generated functions (the static-initializer
 window) is an authored segment, because its units own what they emit. Each
 batch records the scope, `graph_sha256`, the `slice_sha256` of its artifact
-list, and counts. Apply batches also list the `src/` directories they
-reserve. A unit's directory is the existing spelling of its original
-`Z:\dev` module, or else the directory of a provisional file of the same
-name. A segment with no such directory reserves `src`. A provider reserves
-`src/providers/<library>`.
+list, and counts.
+
+A segment apply reserves `src/` directories; its batch lists them as
+`directories` and records `resource_inferred` and `resource_reason`. A
+unit's directory is the existing spelling of its original `Z:\dev` module,
+or else the directory of a provisional file of the same name. A segment
+reserves its units' directories. When none of its units has such evidence,
+the directory is inferred (user decision of 2026-10-31). For each unit, the
+nearest segments of the same window that have evidence are searched outward
+on both sides in segment order. Their units with the same TU-name prefix
+(the stem up to the first `_`: `zui_skb.cpp` and `zui.cpp` give `zui`) give
+the directories those units resolve to. The batch then has
+`resource_inferred: true` and a reason naming the supporting segments and
+units, and the segment's plan must confirm or correct the inference. Only a
+segment with no inference reserves all of `src`, with the reason in
+`resource_reason`. The decomposition record lists both kinds as
+`inferred_reservations` and `fallback_reservations`. A provider apply
+reserves nothing: it writes no file, and tracker writes are serialized by
+the tracker lock.
 
 Dependencies:
 
@@ -54,8 +72,9 @@ Dependencies:
 - every apply waits for its plan, every data reconcile, and
   `socom:work:source-correlation-apply-route`. That `capability-gate` item
   cannot be claimed, handed off, or accepted by a worker. It stays blocked
-  until the guarded apply route is registered, which writes the plan's
-  files and annotations, including the data its reconciles assign;
+  until the guarded apply route is registered. That route writes a segment
+  plan's files and annotations, including the data its reconciles assign,
+  and records a provider plan's archive members in tracker evidence;
 - the seed keeps its ID and becomes the stage gate over every apply and data
   reconcile.
 
@@ -63,8 +82,11 @@ For the reference graph (`a3ce2165...`, 76 segments) this gives 46 segment
 plans and applies, 12 provider plans and applies (MW runtime, MSL, SCE,
 unidentified GNU object, newlib, libgcc, 989snd, speech middleware, Medius,
 lgAud, libptt, RSA), 3 data reconciles, the route gate, and the stage gate.
-The 58 plans are ready at once. `progress audit` holds the items to these
-rules and to the stage's decomposition record.
+The 58 plans are ready at once. One reservation is inferred: segment 057
+(`zui_skb.cpp`, 88 functions, no path or provisional file) reserves
+`src/gamez/zUI`, where the `zui_` units of segment 056 (`zui_cleanup.cpp`,
+`zui_spec.cpp`) lie. No segment falls back to all of `src`. `progress audit`
+holds the items to these rules and to the stage's decomposition record.
 
 ## Plan items
 
@@ -84,9 +106,14 @@ python tools/socom.py source plan validate --plan build/source-plans/<slug>.json
 slice with each artifact's names and bindings, its loaded section, whether
 it is named, its classification candidate, unit candidates, input section,
 GNU object and DWARF paths. It also lists the units, the GNU objects, and the
-provisional files whose names match a unit. The skeleton lists every slice
-artifact as unresolved with the placeholder reason `not yet planned`, which
-validation refuses. The command never overwrites an existing plan.
+provisional files whose names match a unit. For a segment it also shows the
+apply's `reservation`: its directories, whether they are inferred, and the
+reason. The skeleton lists every slice artifact as unresolved with the
+placeholder reason `not yet planned`, which validation refuses. For an
+inferred reservation the skeleton also carries a `reservation` row with
+status `inferred`, which validation refuses too. The packet of such a
+segment says which directories the plan must confirm or correct. The
+command never overwrites an existing plan.
 
 Without `--check`, both commands read `--graph`
 (`build/source-graph/graph.json` by default). They recompute its digest and
@@ -140,9 +167,13 @@ The values below are illustrative.
   ],
   "unresolved": [{"artifact": "socom:gap:0x142130", "reason": "fill between objects; no owner evidence"}],
   "retire_files": [{"path": "src/Apps/FTS/empty.cpp", "reason": "empty, no evidence", "evidence": ["0 bytes"]}],
-  "notes": []
+  "notes": [],
+  "reservation": {"directories": ["src/Apps/FTS"], "status": "confirmed", "reason": "main.cpp's Z:\\dev module", "evidence": ["Z:\\dev\\Apps\\FTS\\main.cpp"]}
 }
 ```
+
+`reservation` is optional, and only a segment plan has one. It is required
+when the apply's reservation is inferred.
 
 ### Validation
 
@@ -184,9 +215,20 @@ The values below are illustrative.
   `0x5e7f00`). `--fill-annotations` writes the derived set into the plan
   first;
 - a `retire_files` row names an existing file under `src/` exactly that no
-  row cites, with a reason and evidence. The apply deletes it with history.
+  row cites, with a reason and evidence. The apply deletes it with history;
+- in a segment plan, every authored row's `workspace_path` and
+  `provisional_file` lie in a directory the plan's apply reserves, because
+  the apply may write (or move from) nowhere else. A plan that places an
+  owner elsewhere records the correction in `reservation`, with status
+  `corrected`, the directories the apply needs, a reason and evidence
+  lines. Status `confirmed` must repeat the reservation exactly. An inferred
+  reservation must be confirmed or corrected; its skeleton status
+  `inferred` is refused. Directories are `src` or paths under `src/`, in the
+  letter case of existing directories. A provider or data plan has no
+  `reservation`.
 
-The report also lists review notes: owned artifacts whose classification
+The report also gives the `reservation` the plan's owners were checked
+against. It also lists review notes: owned artifacts whose classification
 differs from the graph's candidate, and uncertain GNU object ends. These are
 for the scrutinizer and do not make the plan invalid.
 
@@ -197,11 +239,18 @@ classification.
 
 ## Apply items and the gate
 
-Apply items use the role `socom-source-worker`. Their allowed paths are the
-reserved `src/` directories. Their packets name the accepted plan, its
-`--check` validation, the source audits (`audit docblocks`,
+Apply items use the role `socom-source-worker`. A segment apply's allowed
+paths are its reserved `src/` directories. Its packet names the accepted
+plan, its `--check` validation, the source audits (`audit docblocks`,
 `audit source-trace`, `guard source-placement`), and the apply route, which
-is not registered yet.
+is not registered yet. When the accepted plan corrects the reservation, the
+route must reserve the corrected directories before it writes.
+
+A provider apply (skill `socom-provider-boundary`) writes no file and has no
+allowed path. Its packet names the accepted plan's `--check` validation,
+`guard provider`, and the apply route. The route records each archive
+member's ownership (library and GNU object or object name) in tracker
+evidence only. Its handoff cites the plan SHA-256 and changes no file.
 
 The stage gate is reviewed by `socom-verifier`. Its packet shows the stage
 is file-only: the `ghidra-reconstruction` stage scope must still produce

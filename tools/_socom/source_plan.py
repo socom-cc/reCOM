@@ -63,7 +63,6 @@ APPLY_KIND_BY_PLAN = {SEGMENT_PLAN_KIND: SEGMENT_APPLY_KIND, PROVIDER_PLAN_KIND:
 SEGMENT_PREFIX = "socom:work:source-segment-"
 PROVIDER_PREFIX = "socom:work:source-provider-"
 DATA_PREFIX = "socom:work:source-data-"
-PROVIDER_DIRECTORY = "src/providers"
 
 DATA_KINDS = ("rodata", "data", "bss")
 ZERO_FILL_SECTIONS = frozenset({".bss", ".sbss", ".vubss"})
@@ -89,8 +88,12 @@ PLAN_FIELDS = frozenset(
         "unresolved",
         "retire_files",
         "notes",
+        "reservation",
     }
 )
+RESERVATION_FIELDS = frozenset({"directories", "status", "reason", "evidence"})
+RESERVATION_STATUSES = ("confirmed", "corrected")
+INFERRED_STATUS = "inferred"
 OWNER_FIELDS = frozenset(
     {
         "translation_unit",
@@ -319,14 +322,36 @@ def original_module(path: str) -> str | None:
     return "/".join(("src", *parts[2:-1]))
 
 
-def apply_directories(root: Path, graph: dict[str, Any]) -> dict[str, list[str]]:
-    """The ``src/`` directories each apply item reserves, by scope key.
+def tu_prefix(unit: str) -> str:
+    """The module prefix of a unit name: its stem up to the first ``_``.
+
+    ``zui_skb.cpp`` and ``zui.cpp`` both have the prefix ``zui``.
+    """
+
+    return PurePosixPath(unit).stem.split("_", 1)[0].casefold()
+
+
+def _directories_text(directories: list[str]) -> str:
+    return ", ".join(directories)
+
+
+def apply_reservations(root: Path, graph: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """The ``src/`` reservation of each authored-segment apply item, by scope key.
+
+    Each value holds the ``directories`` the apply reserves, whether they are
+    ``inferred``, and the ``reason`` for an inference or the fallback.
 
     A unit's directory is the existing workspace spelling of its original
     ``Z:\\dev`` module (placement keeps ``src/<Apps|gamez>/<module>/``), else
-    the directory of a provisional file of the same name.  A segment whose
-    units name no directory reserves ``src``.  A provider library reserves
-    ``src/providers/<library>``: provider owners have no source bodies.
+    the directory of a provisional file of the same name.  A segment reserves
+    its units' directories.  When none of its units has such evidence, the
+    directory is inferred from its neighbours: for each unit, the nearest
+    segments of the same window (by distance in segment order, both sides,
+    authored segments with evidence only) whose units share the unit's
+    TU-name prefix (``tu_prefix``) give the directories those units resolve
+    to.  The plan must confirm or correct an inference.  Only a segment with
+    no inference reserves all of ``src``.  Provider applies reserve nothing:
+    they write no file under ``src/``.
     """
 
     directories: dict[str, str] = {}
@@ -340,23 +365,102 @@ def apply_directories(root: Path, graph: dict[str, Any]) -> dict[str, list[str]]
             elif path.is_file():
                 by_basename[path.name.casefold()].add(path.parent.relative_to(root).as_posix())
     paths = {unit["tu"].casefold(): unit["paths"] for unit in graph["units"]}
-    result: dict[str, list[str]] = {}
+
+    def unit_directories(unit: str) -> set[str]:
+        modules = [module for module in map(original_module, paths.get(unit.casefold(), [])) if module]
+        if modules:
+            return {directories.get(module.casefold(), module) for module in modules}
+        return set(by_basename.get(unit.casefold(), ()))
+
+    segments = graph["segments"]
+    evidenced: dict[str, list[str]] = {}
+    for segment in segments:
+        if segment_family(segment)[0] == "authored":
+            found: set[str] = set()
+            for candidate in segment["tu_candidates"]:
+                found.update(unit_directories(candidate["tu"]))
+            evidenced[segment["id"]] = sorted(found, key=str.casefold)
+
+    def infer(segment: dict[str, Any]) -> tuple[list[str], str]:
+        window = [row for row in segments if row["window"] == segment["window"]]
+        position = next(index for index, row in enumerate(window) if row["id"] == segment["id"])
+        inferred: set[str] = set()
+        clauses: list[str] = []
+        lacking: list[str] = []
+        for candidate in segment["tu_candidates"]:
+            unit = candidate["tu"]
+            prefix = tu_prefix(unit)
+            hits: list[tuple[int, str, list[str]]] = []
+            for distance in range(1, len(window)):
+                for index in (position - distance, position + distance):
+                    if not 0 <= index < len(window) or not evidenced.get(window[index]["id"]):
+                        continue
+                    for other in window[index]["tu_candidates"]:
+                        if other["tu"].casefold() == unit.casefold() or tu_prefix(other["tu"]) != prefix:
+                            continue
+                        if found := sorted(unit_directories(other["tu"]), key=str.casefold):
+                            hits.append((window[index]["segment_number"], other["tu"], found))
+                if hits:
+                    break
+            if not hits:
+                lacking.append(unit)
+                continue
+            places = sorted({value for _number, _unit, found in hits for value in found}, key=str.casefold)
+            inferred.update(places)
+            support = "; ".join(
+                f"segment {number:03d} {name}" for number, name, _found in sorted(hits, key=lambda row: (row[0], row[1]))
+            )
+            clauses.append(
+                f"{unit} has no path or provisional-file evidence; the nearest units with its TU-name prefix "
+                f"{prefix!r} ({support}) lie in {_directories_text(places)}"
+            )
+        if lacking:
+            clauses.append(f"no neighbouring unit shares the TU-name prefix of {', '.join(lacking)}")
+        return sorted(inferred, key=str.casefold), "; ".join(clauses)
+
+    result: dict[str, dict[str, Any]] = {}
     for entry in planning_scopes(graph):
         scope = entry["scope"]
-        if scope["kind"] == "data":
+        if scope["kind"] != "segment":
             continue
-        if scope["kind"] == "provider":
-            result[scope_key(scope)] = [f"{PROVIDER_DIRECTORY}/{library_slug(scope['library'])}"]
+        segment = entry["segments"][0]
+        found = evidenced[segment["id"]]
+        if found:
+            result[scope_key(scope)] = {"directories": found, "inferred": False, "reason": None}
             continue
-        found: set[str] = set()
-        for candidate in entry["segments"][0]["tu_candidates"]:
-            modules = [module for module in map(original_module, paths.get(candidate["tu"].casefold(), [])) if module]
-            if modules:
-                found.update(directories.get(module.casefold(), module) for module in modules)
-            else:
-                found.update(by_basename.get(candidate["tu"].casefold(), ()))
-        result[scope_key(scope)] = sorted(found, key=str.casefold) or ["src"]
+        inferred, reason = infer(segment) if segment["tu_candidates"] else ([], "the segment has no unit candidates")
+        if inferred:
+            result[scope_key(scope)] = {"directories": inferred, "inferred": True, "reason": reason}
+        else:
+            result[scope_key(scope)] = {
+                "directories": ["src"],
+                "inferred": False,
+                "reason": f"fallback to all of src: {reason}",
+            }
     return result
+
+
+def apply_reservation(tracker: dict[str, Any], item: dict[str, Any]) -> dict[str, Any] | None:
+    """The reservation of a segment plan item's apply item, or ``None``."""
+
+    if item.get("kind") != SEGMENT_PLAN_KIND:
+        return None
+    apply_id = f"{item['id']}-apply"
+    apply = next((row for row in tracker.get("work_items", []) if row.get("id") == apply_id), None)
+    if apply is None or apply.get("kind") != SEGMENT_APPLY_KIND:
+        return {"apply_item": apply_id, "missing": True, "directories": [], "inferred": False, "reason": None}
+    batch = apply.get("batch") or {}
+    return {
+        "apply_item": apply_id,
+        "missing": False,
+        "directories": sorted(apply.get("resources") or [], key=str.casefold),
+        "inferred": batch.get("resource_inferred") is True,
+        "reason": batch.get("resource_reason"),
+    }
+
+
+def _within(path: str, directories: list[str]) -> bool:
+    return any(path.startswith(f"{directory}/") for directory in directories)
 
 
 # -- artifacts ------------------------------------------------------------------
@@ -527,6 +631,82 @@ def _annotation_key(row: Any) -> tuple[Any, ...] | None:
     return tuple(row[field] for field in ANNOTATION_FIELDS)
 
 
+def _check_reservation(
+    root: Path, tracker: dict[str, Any], item: dict[str, Any], reservation: Any, problems: list[str]
+) -> dict[str, Any] | None:
+    """Check a plan's ``reservation`` row; the directories its owners must lie in.
+
+    Only a segment plan has one: its apply item reserves ``src/``
+    directories.  A plan confirms the reservation (the same directories) or
+    corrects it (other directories, with a reason and evidence).  An
+    inferred reservation must be confirmed or corrected.  Returns ``None``
+    when the plan has no apply reservation to place owners in.
+    """
+
+    reserved = apply_reservation(tracker, item)
+    if reserved is None:
+        if reservation is not None:
+            problems.append("only a segment plan records a reservation: provider and data plans write nothing under src/")
+        return None
+    apply_id = reserved["apply_item"]
+    if reserved["missing"]:
+        problems.append(f"{item['id']} has no {SEGMENT_APPLY_KIND} item {apply_id}")
+        return None
+    placement = {
+        "apply_item": apply_id,
+        "reserved": reserved["directories"],
+        "inferred": reserved["inferred"],
+        "status": None,
+        "directories": reserved["directories"],
+    }
+    if reservation is None:
+        if reserved["inferred"]:
+            problems.append(
+                f"{apply_id} reserves {_directories_text(reserved['directories'])} by inference "
+                f"({reserved['reason']}): the plan must confirm or correct it in reservation"
+            )
+        return placement
+    if not isinstance(reservation, dict) or set(reservation) != RESERVATION_FIELDS:
+        problems.append(f"reservation must be {{{', '.join(sorted(RESERVATION_FIELDS))}}}")
+        return placement
+    status = reservation.get("status")
+    directories = reservation.get("directories")
+    if status == INFERRED_STATUS:
+        problems.append("the reservation is still the decomposition's inference: confirm or correct it")
+    elif status not in RESERVATION_STATUSES:
+        problems.append(f"reservation status must be one of {list(RESERVATION_STATUSES)}")
+    if not isinstance(reservation.get("reason"), str) or not reservation["reason"].strip():
+        problems.append("the reservation needs a reason")
+    if not _strings(reservation.get("evidence")) and status in RESERVATION_STATUSES:
+        problems.append("the reservation needs evidence lines")
+    if (
+        not isinstance(directories, list)
+        or not directories
+        or not all(value == "src" or _workspace_path(value) for value in directories)
+        or len(set(directories)) != len(directories)
+    ):
+        problems.append("reservation directories must be distinct src/ directories")
+        return placement
+    for directory in directories:
+        state, actual = _path_state(root, directory)
+        if state == "case":
+            problems.append(f"reservation directory {directory} differs in letter case from {actual} on disk")
+        elif state == "exact" and not (root / directory).is_dir():
+            problems.append(f"reservation directory {directory} is a file")
+    ordered = sorted(directories, key=str.casefold)
+    placement["status"] = status
+    if status == "confirmed" and ordered != reserved["directories"]:
+        problems.append(
+            f"a confirmed reservation must equal {apply_id}'s {_directories_text(reserved['directories'])}; "
+            "record status corrected instead"
+        )
+    elif status == "corrected":
+        if ordered == reserved["directories"]:
+            problems.append(f"a corrected reservation must differ from {apply_id}'s; record status confirmed instead")
+        placement["directories"] = ordered
+    return placement
+
+
 def validate_source_plan(
     root: Path,
     tracker: dict[str, Any],
@@ -576,6 +756,9 @@ def validate_source_plan(
         return done()
     if section_of is None:
         section_of = loaded_section_lookup(root)
+    placement = _check_reservation(root, tracker, item, plan.get("reservation"), problems)
+    if placement is not None:
+        report["reservation"] = placement
 
     slice_ids = entry["artifacts"]
     in_slice = set(slice_ids)
@@ -672,6 +855,18 @@ def validate_source_plan(
                     if provisional in provisionals:
                         problems.append(f"{label} cites provisional_file {provisional} already cited by {provisionals[provisional]}")
                     provisionals.setdefault(provisional, label)
+            if placement is not None:
+                # The apply writes (and moves from) only the directories it reserves.
+                checked = [("workspace_path", workspace)]
+                if provisional != workspace:
+                    checked.append(("provisional_file", provisional))
+                for field, path in checked:
+                    if _workspace_path(path) and not _within(path, placement["directories"]):
+                        problems.append(
+                            f"{label} {field} {path} lies outside the reservation of {placement['apply_item']} "
+                            f"({_directories_text(placement['directories'])}): place it inside or record the "
+                            "correction in reservation"
+                        )
         elif classification == "provider":
             if not isinstance(library, str) or not library.strip():
                 problems.append(f"{label} is a provider: it needs its library")
@@ -916,7 +1111,7 @@ def plan_evidence(
             key=lambda row: row["path"].casefold(),
         )
     functions = {row["id"] for row in rows if row["kind"] == "function"}
-    return {
+    evidence = {
         "kind": SOURCE_EVIDENCE_KIND,
         "schema_version": 1,
         "work_item_id": item["id"],
@@ -933,6 +1128,10 @@ def plan_evidence(
         "provisional_files": provisional,
         "artifacts": [_compact(row, section_of) for row in rows],
     }
+    reservation = apply_reservation(tracker, item)
+    if reservation is not None:
+        evidence["reservation"] = {key: reservation[key] for key in ("apply_item", "directories", "inferred", "reason")}
+    return evidence
 
 
 def plan_skeleton(tracker: dict[str, Any], item_id: str, graph: dict[str, Any]) -> dict[str, Any]:
@@ -940,7 +1139,7 @@ def plan_skeleton(tracker: dict[str, Any], item_id: str, graph: dict[str, Any]) 
 
     item = plan_item(tracker, item_id)
     entry = scope_entry(graph, item)
-    return {
+    skeleton = {
         "kind": SOURCE_PLAN_KIND,
         "schema_version": SOURCE_PLAN_SCHEMA,
         "work_item_id": item["id"],
@@ -955,3 +1154,13 @@ def plan_skeleton(tracker: dict[str, Any], item_id: str, graph: dict[str, Any]) 
         "retire_files": [],
         "notes": [],
     }
+    reservation = apply_reservation(tracker, item)
+    if reservation is not None and reservation["inferred"]:
+        # The planner confirms or corrects the inference; validation refuses it as is.
+        skeleton["reservation"] = {
+            "directories": list(reservation["directories"]),
+            "status": INFERRED_STATUS,
+            "reason": reservation["reason"],
+            "evidence": [],
+        }
+    return skeleton
