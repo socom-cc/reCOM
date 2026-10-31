@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2877,
+  "revision": 2878,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -2674,7 +2674,7 @@
       "accepted_evidence": [],
       "decomposition": {
         "apply_route": "socom:work:source-correlation-apply-route",
-        "artifact_count": 33183,
+        "artifact_count": 33279,
         "authored_segment_count": 46,
         "data_kinds": [
           "rodata",
@@ -2683,7 +2683,7 @@
         ],
         "fallback_reservations": [],
         "first_tracker_revision": 2846,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "inferred_reservations": [
           {
             "directories": [
@@ -3064,11 +3064,58 @@
             ],
             "to_graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
             "tracker_revision": 2853
+          },
+          {
+            "added": [],
+            "from_graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+            "kept_accepted": [
+              "socom:work:source-provider-crt0",
+              "socom:work:source-segment-001",
+              "socom:work:source-provider-mw-runtime",
+              "socom:work:source-segment-017",
+              "socom:work:source-provider-989snd"
+            ],
+            "removed": [],
+            "replan": [
+              "socom:work:source-provider-newlib",
+              "socom:work:source-provider-libgcc",
+              "socom:work:source-provider-lgaud"
+            ],
+            "reservation_changed": [],
+            "slice_changed": [
+              "socom:work:source-provider-sce",
+              "socom:work:source-provider-sce-apply",
+              "socom:work:source-provider-unidentified-gnu-object",
+              "socom:work:source-provider-unidentified-gnu-object-apply",
+              "socom:work:source-provider-newlib",
+              "socom:work:source-provider-newlib-apply",
+              "socom:work:source-provider-libgcc",
+              "socom:work:source-provider-libgcc-apply",
+              "socom:work:source-segment-026",
+              "socom:work:source-segment-026-apply",
+              "socom:work:source-segment-029",
+              "socom:work:source-segment-029-apply",
+              "socom:work:source-provider-speech-middleware",
+              "socom:work:source-provider-speech-middleware-apply",
+              "socom:work:source-provider-medius",
+              "socom:work:source-provider-medius-apply",
+              "socom:work:source-provider-lgaud",
+              "socom:work:source-provider-lgaud-apply",
+              "socom:work:source-provider-rsa",
+              "socom:work:source-provider-rsa-apply",
+              "socom:work:source-segment-076",
+              "socom:work:source-segment-076-apply",
+              "socom:work:source-data-rodata",
+              "socom:work:source-data-data",
+              "socom:work:source-data-bss"
+            ],
+            "to_graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+            "tracker_revision": 2878
           }
         ],
         "segment_count": 76,
         "segment_size": 200,
-        "tracker_revision": 2853
+        "tracker_revision": 2878
       },
       "id": "socom:stage:source-correlation",
       "name": "source-correlation",
@@ -146889,7 +146936,7 @@
         "data_count": 66,
         "function_count": 75,
         "gap_count": 61,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 90,
         "ranges": [
           [
@@ -146945,7 +146992,7 @@
         ],
         "function_count": 75,
         "gap_count": 61,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 90,
         "ranges": [
           [
@@ -147005,7 +147052,7 @@
         "data_count": 138,
         "function_count": 190,
         "gap_count": 148,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 241,
         "ranges": [
           [
@@ -147063,7 +147110,7 @@
         ],
         "function_count": 190,
         "gap_count": 148,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 241,
         "ranges": [
           [
@@ -147127,11 +147174,12 @@
         "data_count": 0,
         "function_count": 0,
         "gap_count": 1,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "moved_from_segments": [
           1
         ],
         "named_count": 0,
+        "plan_graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "ranges": [],
         "scope": {
           "kind": "provider",
@@ -147171,7 +147219,7 @@
         "data_count": 0,
         "function_count": 0,
         "gap_count": 1,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "moved_from_segments": [
           1
         ],
@@ -147217,8 +147265,9 @@
         "data_count": 18,
         "function_count": 39,
         "gap_count": 32,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 39,
+        "plan_graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "ranges": [
           [
             "0x140008",
@@ -147309,7 +147358,7 @@
         ],
         "function_count": 39,
         "gap_count": 32,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 39,
         "ranges": [
           [
@@ -147367,8 +147416,9 @@
         "data_count": 23,
         "function_count": 41,
         "gap_count": 31,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 44,
+        "plan_graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "ranges": [
           [
             "0x142140",
@@ -147437,7 +147487,7 @@
         "data_count": 23,
         "function_count": 41,
         "gap_count": 31,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 44,
         "ranges": [
           [
@@ -147483,7 +147533,7 @@
         "data_count": 217,
         "function_count": 179,
         "gap_count": 133,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "moved_from_segments": [
           76
         ],
@@ -147530,7 +147580,7 @@
         "data_count": 217,
         "function_count": 179,
         "gap_count": 133,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "moved_from_segments": [
           76
         ],
@@ -147570,15 +147620,15 @@
     },
     {
       "batch": {
-        "artifact_count": 1244,
+        "artifact_count": 1280,
         "batch_number": 4,
         "classification_mix": {
           "provider:SCE": 801
         },
         "data_count": 96,
         "function_count": 801,
-        "gap_count": 347,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "gap_count": 383,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 897,
         "ranges": [
           [
@@ -147628,7 +147678,7 @@
           58,
           75
         ],
-        "slice_sha256": "a9bc6c8646f26a1b630430bd021df5f47c3ab7c49044b77ad0d9e7b1dc15acec"
+        "slice_sha256": "8b01cf559131fd9042ba7047523fc7531ec041563ed356c8897d5aad5684154d"
       },
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
@@ -147648,15 +147698,15 @@
     },
     {
       "batch": {
-        "artifact_count": 1244,
+        "artifact_count": 1280,
         "batch_number": 4,
         "classification_mix": {
           "provider:SCE": 801
         },
         "data_count": 96,
         "function_count": 801,
-        "gap_count": 347,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "gap_count": 383,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 897,
         "ranges": [
           [
@@ -147706,7 +147756,7 @@
           58,
           75
         ],
-        "slice_sha256": "a9bc6c8646f26a1b630430bd021df5f47c3ab7c49044b77ad0d9e7b1dc15acec"
+        "slice_sha256": "8b01cf559131fd9042ba7047523fc7531ec041563ed356c8897d5aad5684154d"
       },
       "dependencies": [
         "socom:work:source-provider-sce",
@@ -147728,28 +147778,20 @@
     },
     {
       "batch": {
-        "artifact_count": 168,
+        "artifact_count": 86,
         "batch_number": 8,
         "classification_mix": {
-          "provider:unidentified GNU object": 56
+          "provider:unidentified GNU object": 53
         },
-        "data_count": 98,
-        "function_count": 56,
+        "data_count": 19,
+        "function_count": 53,
         "gap_count": 14,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
-        "named_count": 154,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "named_count": 72,
         "ranges": [
           [
             "0x1638d0",
             "0x164984"
-          ],
-          [
-            "0x16e398",
-            "0x16e490"
-          ],
-          [
-            "0x3aae18",
-            "0x3afcf4"
           ]
         ],
         "scope": {
@@ -147757,11 +147799,9 @@
           "library": "unidentified GNU object"
         },
         "segment_numbers": [
-          8,
-          11,
-          59
+          8
         ],
-        "slice_sha256": "1549c926a1c5addc92c4fdba89a5db3378f384ed991c7a9ba4a32a3bdf07d26c"
+        "slice_sha256": "100d685b3382b385f60112d77914f8b87747c34459f5e652d2aaa67b298d946b"
       },
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
@@ -147777,32 +147817,24 @@
       "selection": "artifacts",
       "stage": "source-correlation",
       "status": "ready",
-      "title": "Plan provider owners of unidentified GNU object (3 segments, 56 functions)"
+      "title": "Plan provider owners of unidentified GNU object (1 segments, 53 functions)"
     },
     {
       "batch": {
-        "artifact_count": 168,
+        "artifact_count": 86,
         "batch_number": 8,
         "classification_mix": {
-          "provider:unidentified GNU object": 56
+          "provider:unidentified GNU object": 53
         },
-        "data_count": 98,
-        "function_count": 56,
+        "data_count": 19,
+        "function_count": 53,
         "gap_count": 14,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
-        "named_count": 154,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "named_count": 72,
         "ranges": [
           [
             "0x1638d0",
             "0x164984"
-          ],
-          [
-            "0x16e398",
-            "0x16e490"
-          ],
-          [
-            "0x3aae18",
-            "0x3afcf4"
           ]
         ],
         "scope": {
@@ -147810,11 +147842,9 @@
           "library": "unidentified GNU object"
         },
         "segment_numbers": [
-          8,
-          11,
-          59
+          8
         ],
-        "slice_sha256": "1549c926a1c5addc92c4fdba89a5db3378f384ed991c7a9ba4a32a3bdf07d26c"
+        "slice_sha256": "100d685b3382b385f60112d77914f8b87747c34459f5e652d2aaa67b298d946b"
       },
       "dependencies": [
         "socom:work:source-provider-unidentified-gnu-object",
@@ -147836,15 +147866,15 @@
     },
     {
       "batch": {
-        "artifact_count": 450,
+        "artifact_count": 452,
         "batch_number": 9,
         "classification_mix": {
           "provider:newlib": 197
         },
         "data_count": 125,
         "function_count": 197,
-        "gap_count": 128,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "gap_count": 130,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 322,
         "ranges": [
           [
@@ -147864,41 +147894,55 @@
           9,
           66
         ],
-        "slice_sha256": "2c27c45219bae293fb43be45ccf002b1dc866ea0aa0ffcf10ed37ade6838fda7"
+        "slice_sha256": "22cc3294ea4dad955be3e93a829bf7f423b8ef7e25b6f68ac530f5e4894e66bc"
       },
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-provider-newlib.json sha256:99a2207bc02f97494383f3b911ee6940899bff2d8e96591aada942690ab74900; validate --check ok; draft --check ok (425 drafted, 23 hand, 3 overrides)"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-p02",
-        "submitted_at": "2026-10-31T08:08:24Z",
-        "summary": "owners 139 (138 provider incl. 1 data-only member s_infconst.o, 1 compiler-generated fill), unresolved 2 (0x466fa0 spans puts/strtod .rodata; errno 0x5b1aa4 system-layer definer), retire 0, open rows decided 22 (20 owned by LOCAL section-symbol containment, 2 unresolved), 3 P-gnu-data overrides; member names inferred at medium as evidence lines"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-provider-newlib",
       "kind": "source-plan-provider",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "handoff": {
+            "owner": "socom-source-owner-mapper-p02",
+            "submitted_at": "2026-10-31T08:08:24Z",
+            "summary": "owners 139 (138 provider incl. 1 data-only member s_infconst.o, 1 compiler-generated fill), unresolved 2 (0x466fa0 spans puts/strtod .rodata; errno 0x5b1aa4 system-layer definer), retire 0, open rows decided 22 (20 owned by LOCAL section-symbol containment, 2 unresolved), 3 P-gnu-data overrides; member names inferred at medium as evidence lines"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-provider-newlib.json sha256:99a2207bc02f97494383f3b911ee6940899bff2d8e96591aada942690ab74900; validate --check ok; draft --check ok (425 drafted, 23 hand, 3 overrides)"
+          ],
+          "previous_batch": {
+            "artifact_count": 450,
+            "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+            "slice_sha256": "2c27c45219bae293fb43be45ccf002b1dc866ea0aa0ffcf10ed37ade6838fda7"
+          },
+          "reason": "graph refreshed 837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e -> 7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718; replan",
+          "refreshed_at": "2026-10-31T10:18:04Z",
+          "slice": "changed"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan provider owners of newlib (2 segments, 197 functions)"
     },
     {
       "batch": {
-        "artifact_count": 450,
+        "artifact_count": 452,
         "batch_number": 9,
         "classification_mix": {
           "provider:newlib": 197
         },
         "data_count": 125,
         "function_count": 197,
-        "gap_count": 128,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "gap_count": 130,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 322,
         "ranges": [
           [
@@ -147918,7 +147962,7 @@
           9,
           66
         ],
-        "slice_sha256": "2c27c45219bae293fb43be45ccf002b1dc866ea0aa0ffcf10ed37ade6838fda7"
+        "slice_sha256": "22cc3294ea4dad955be3e93a829bf7f423b8ef7e25b6f68ac530f5e4894e66bc"
       },
       "dependencies": [
         "socom:work:source-provider-newlib",
@@ -147940,20 +147984,24 @@
     },
     {
       "batch": {
-        "artifact_count": 46,
+        "artifact_count": 49,
         "batch_number": 10,
         "classification_mix": {
-          "provider:libgcc": 26
+          "provider:libgcc": 28
         },
         "data_count": 5,
-        "function_count": 26,
-        "gap_count": 15,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
-        "named_count": 31,
+        "function_count": 28,
+        "gap_count": 16,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "named_count": 33,
         "ranges": [
           [
             "0x16bad8",
             "0x16e394"
+          ],
+          [
+            "0x16e398",
+            "0x16e490"
           ]
         ],
         "scope": {
@@ -147961,48 +148009,67 @@
           "library": "libgcc"
         },
         "segment_numbers": [
-          10
+          10,
+          11
         ],
-        "slice_sha256": "9c5da011c2811da2f436f7e321d12206c90c899482bd047233fa0fc55a5da1ff"
+        "slice_sha256": "db01a3e9b24697e9148e0af02cce85678fb60efa6376201330ef12e1ecc3c880"
       },
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-provider-libgcc.json sha256:6fb4c79a824cc0dd3b7c1abcc0b56aa53921a3ce9f0c5481e1313acf0acfb422; validate --check ok; draft --check ok (45 drafted, 1 hand, 0 overrides)"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-p02",
-        "submitted_at": "2026-10-31T08:11:51Z",
-        "summary": "owners 26 (24 GNU-object members, 1 data-only member _thenan_df.o, 1 compiler-generated fill), unresolved 0, retire 0, open rows decided 1 (__thenan_df); member names inferred at medium as evidence lines; dptofp/dptoul are libgcc but outside the slice (graph rule gap)"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-provider-libgcc",
       "kind": "source-plan-provider",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "handoff": {
+            "owner": "socom-source-owner-mapper-p02",
+            "submitted_at": "2026-10-31T08:11:51Z",
+            "summary": "owners 26 (24 GNU-object members, 1 data-only member _thenan_df.o, 1 compiler-generated fill), unresolved 0, retire 0, open rows decided 1 (__thenan_df); member names inferred at medium as evidence lines; dptofp/dptoul are libgcc but outside the slice (graph rule gap)"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-provider-libgcc.json sha256:6fb4c79a824cc0dd3b7c1abcc0b56aa53921a3ce9f0c5481e1313acf0acfb422; validate --check ok; draft --check ok (45 drafted, 1 hand, 0 overrides)"
+          ],
+          "previous_batch": {
+            "artifact_count": 46,
+            "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+            "slice_sha256": "9c5da011c2811da2f436f7e321d12206c90c899482bd047233fa0fc55a5da1ff"
+          },
+          "reason": "graph refreshed 837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e -> 7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718; replan",
+          "refreshed_at": "2026-10-31T10:18:04Z",
+          "slice": "changed"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
-      "title": "Plan provider owners of libgcc (1 segments, 26 functions)"
+      "status": "ready",
+      "title": "Plan provider owners of libgcc (2 segments, 28 functions)"
     },
     {
       "batch": {
-        "artifact_count": 46,
+        "artifact_count": 49,
         "batch_number": 10,
         "classification_mix": {
-          "provider:libgcc": 26
+          "provider:libgcc": 28
         },
         "data_count": 5,
-        "function_count": 26,
-        "gap_count": 15,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
-        "named_count": 31,
+        "function_count": 28,
+        "gap_count": 16,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "named_count": 33,
         "ranges": [
           [
             "0x16bad8",
             "0x16e394"
+          ],
+          [
+            "0x16e398",
+            "0x16e490"
           ]
         ],
         "scope": {
@@ -148010,9 +148077,10 @@
           "library": "libgcc"
         },
         "segment_numbers": [
-          10
+          10,
+          11
         ],
-        "slice_sha256": "9c5da011c2811da2f436f7e321d12206c90c899482bd047233fa0fc55a5da1ff"
+        "slice_sha256": "db01a3e9b24697e9148e0af02cce85678fb60efa6376201330ef12e1ecc3c880"
       },
       "dependencies": [
         "socom:work:source-provider-libgcc",
@@ -148042,7 +148110,7 @@
         "data_count": 192,
         "function_count": 114,
         "gap_count": 91,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 162,
         "ranges": [
           [
@@ -148096,7 +148164,7 @@
         ],
         "function_count": 114,
         "gap_count": 91,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 162,
         "ranges": [
           [
@@ -148154,7 +148222,7 @@
         "data_count": 90,
         "function_count": 163,
         "gap_count": 129,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 184,
         "ranges": [
           [
@@ -148208,7 +148276,7 @@
         ],
         "function_count": 163,
         "gap_count": 129,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 184,
         "ranges": [
           [
@@ -148266,7 +148334,7 @@
         "data_count": 20,
         "function_count": 193,
         "gap_count": 155,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 196,
         "ranges": [
           [
@@ -148318,7 +148386,7 @@
         ],
         "function_count": 193,
         "gap_count": 155,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 196,
         "ranges": [
           [
@@ -148374,7 +148442,7 @@
         "data_count": 359,
         "function_count": 199,
         "gap_count": 161,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 231,
         "ranges": [
           [
@@ -148427,7 +148495,7 @@
         ],
         "function_count": 199,
         "gap_count": 161,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 231,
         "ranges": [
           [
@@ -148488,8 +148556,9 @@
         "data_count": 59,
         "function_count": 51,
         "gap_count": 37,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 51,
+        "plan_graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "ranges": [
           [
             "0x1b90e0",
@@ -148566,7 +148635,7 @@
         ],
         "function_count": 51,
         "gap_count": 37,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 51,
         "ranges": [
           [
@@ -148621,7 +148690,7 @@
         "data_count": 97,
         "function_count": 192,
         "gap_count": 137,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 197,
         "ranges": [
           [
@@ -148673,7 +148742,7 @@
         ],
         "function_count": 192,
         "gap_count": 137,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 197,
         "ranges": [
           [
@@ -148729,7 +148798,7 @@
         "data_count": 303,
         "function_count": 198,
         "gap_count": 158,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 229,
         "ranges": [
           [
@@ -148779,7 +148848,7 @@
         ],
         "function_count": 198,
         "gap_count": 158,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 229,
         "ranges": [
           [
@@ -148833,7 +148902,7 @@
         "data_count": 33,
         "function_count": 100,
         "gap_count": 81,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 103,
         "ranges": [
           [
@@ -148886,7 +148955,7 @@
         ],
         "function_count": 100,
         "gap_count": 81,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 103,
         "ranges": [
           [
@@ -148943,7 +149012,7 @@
         "data_count": 65,
         "function_count": 167,
         "gap_count": 128,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 180,
         "ranges": [
           [
@@ -148999,7 +149068,7 @@
         ],
         "function_count": 167,
         "gap_count": 128,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 180,
         "ranges": [
           [
@@ -149059,7 +149128,7 @@
         "data_count": 75,
         "function_count": 155,
         "gap_count": 115,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 183,
         "ranges": [
           [
@@ -149116,7 +149185,7 @@
         ],
         "function_count": 155,
         "gap_count": 115,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 183,
         "ranges": [
           [
@@ -149177,7 +149246,7 @@
         "data_count": 354,
         "function_count": 192,
         "gap_count": 152,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 214,
         "ranges": [
           [
@@ -149229,7 +149298,7 @@
         ],
         "function_count": 192,
         "gap_count": 152,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 214,
         "ranges": [
           [
@@ -149285,7 +149354,7 @@
         "data_count": 231,
         "function_count": 190,
         "gap_count": 146,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 284,
         "ranges": [
           [
@@ -149345,7 +149414,7 @@
         ],
         "function_count": 190,
         "gap_count": 146,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 284,
         "ranges": [
           [
@@ -149409,7 +149478,7 @@
         "data_count": 73,
         "function_count": 158,
         "gap_count": 127,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 178,
         "ranges": [
           [
@@ -149467,7 +149536,7 @@
         ],
         "function_count": 158,
         "gap_count": 127,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 178,
         "ranges": [
           [
@@ -149521,15 +149590,15 @@
     },
     {
       "batch": {
-        "artifact_count": 444,
+        "artifact_count": 445,
         "batch_number": 26,
         "classification_mix": {
           "authored": 188
         },
         "data_count": 110,
         "function_count": 188,
-        "gap_count": 146,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "gap_count": 147,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 225,
         "ranges": [
           [
@@ -149545,7 +149614,7 @@
         "segment_numbers": [
           26
         ],
-        "slice_sha256": "83f0060851bb82528ec030f0a3c3a31a275155712c672ce5b58d178dc9e713a8",
+        "slice_sha256": "d5326e3caa6dedfd2af451a1d2bfc1ef98dd8524b58a25c5ebb1d1ff860b5c9a",
         "tu_candidates": [
           "int_material.cpp",
           "zmath_main.cpp",
@@ -149573,7 +149642,7 @@
     },
     {
       "batch": {
-        "artifact_count": 444,
+        "artifact_count": 445,
         "batch_number": 26,
         "classification_mix": {
           "authored": 188
@@ -149586,8 +149655,8 @@
           "src/gamez/zNode"
         ],
         "function_count": 188,
-        "gap_count": 146,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "gap_count": 147,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 225,
         "ranges": [
           [
@@ -149606,7 +149675,7 @@
         "segment_numbers": [
           26
         ],
-        "slice_sha256": "83f0060851bb82528ec030f0a3c3a31a275155712c672ce5b58d178dc9e713a8",
+        "slice_sha256": "d5326e3caa6dedfd2af451a1d2bfc1ef98dd8524b58a25c5ebb1d1ff860b5c9a",
         "tu_candidates": [
           "int_material.cpp",
           "zmath_main.cpp",
@@ -149649,7 +149718,7 @@
         "data_count": 102,
         "function_count": 103,
         "gap_count": 81,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 113,
         "ranges": [
           [
@@ -149702,7 +149771,7 @@
         ],
         "function_count": 103,
         "gap_count": 81,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 113,
         "ranges": [
           [
@@ -149759,7 +149828,7 @@
         "data_count": 74,
         "function_count": 192,
         "gap_count": 165,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 213,
         "ranges": [
           [
@@ -149817,7 +149886,7 @@
         ],
         "function_count": 192,
         "gap_count": 165,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 213,
         "ranges": [
           [
@@ -149871,15 +149940,15 @@
     },
     {
       "batch": {
-        "artifact_count": 410,
+        "artifact_count": 411,
         "batch_number": 29,
         "classification_mix": {
           "authored": 179
         },
         "data_count": 90,
         "function_count": 179,
-        "gap_count": 141,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "gap_count": 142,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 202,
         "ranges": [
           [
@@ -149895,7 +149964,7 @@
         "segment_numbers": [
           29
         ],
-        "slice_sha256": "e3f82a10f7f0c114982fc4eaf3f4b8cf87d4656e79823693b6e37ccba23ecd58",
+        "slice_sha256": "2f483cb88d231333dd934b2b89cf563513905ad6b063266c7b462af27c43eca7",
         "tu_candidates": [
           "zrndr_pipe.cpp",
           "zrdr_edit.cpp",
@@ -149925,7 +149994,7 @@
     },
     {
       "batch": {
-        "artifact_count": 410,
+        "artifact_count": 411,
         "batch_number": 29,
         "classification_mix": {
           "authored": 179
@@ -149938,8 +150007,8 @@
           "src/gamez/zRender"
         ],
         "function_count": 179,
-        "gap_count": 141,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "gap_count": 142,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 202,
         "ranges": [
           [
@@ -149958,7 +150027,7 @@
         "segment_numbers": [
           29
         ],
-        "slice_sha256": "e3f82a10f7f0c114982fc4eaf3f4b8cf87d4656e79823693b6e37ccba23ecd58",
+        "slice_sha256": "2f483cb88d231333dd934b2b89cf563513905ad6b063266c7b462af27c43eca7",
         "tu_candidates": [
           "zrndr_pipe.cpp",
           "zrdr_edit.cpp",
@@ -150004,7 +150073,7 @@
         "data_count": 225,
         "function_count": 170,
         "gap_count": 122,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 208,
         "ranges": [
           [
@@ -150057,7 +150126,7 @@
         ],
         "function_count": 170,
         "gap_count": 122,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 208,
         "ranges": [
           [
@@ -150113,7 +150182,7 @@
         "data_count": 340,
         "function_count": 186,
         "gap_count": 140,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 321,
         "ranges": [
           [
@@ -150164,7 +150233,7 @@
         ],
         "function_count": 186,
         "gap_count": 140,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 321,
         "ranges": [
           [
@@ -150219,7 +150288,7 @@
         "data_count": 219,
         "function_count": 199,
         "gap_count": 152,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 269,
         "ranges": [
           [
@@ -150273,7 +150342,7 @@
         ],
         "function_count": 199,
         "gap_count": 152,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 269,
         "ranges": [
           [
@@ -150331,7 +150400,7 @@
         "data_count": 193,
         "function_count": 197,
         "gap_count": 134,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 213,
         "ranges": [
           [
@@ -150382,7 +150451,7 @@
         ],
         "function_count": 197,
         "gap_count": 134,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 213,
         "ranges": [
           [
@@ -150437,7 +150506,7 @@
         "data_count": 40,
         "function_count": 128,
         "gap_count": 105,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 147,
         "ranges": [
           [
@@ -150487,7 +150556,7 @@
         ],
         "function_count": 128,
         "gap_count": 105,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 147,
         "ranges": [
           [
@@ -150541,7 +150610,7 @@
         "data_count": 659,
         "function_count": 200,
         "gap_count": 154,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 366,
         "ranges": [
           [
@@ -150595,7 +150664,7 @@
         ],
         "function_count": 200,
         "gap_count": 154,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 366,
         "ranges": [
           [
@@ -150653,7 +150722,7 @@
         "data_count": 356,
         "function_count": 198,
         "gap_count": 145,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 322,
         "ranges": [
           [
@@ -150712,7 +150781,7 @@
         ],
         "function_count": 198,
         "gap_count": 145,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 322,
         "ranges": [
           [
@@ -150775,7 +150844,7 @@
         "data_count": 41,
         "function_count": 76,
         "gap_count": 54,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 85,
         "ranges": [
           [
@@ -150825,7 +150894,7 @@
         ],
         "function_count": 76,
         "gap_count": 54,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 85,
         "ranges": [
           [
@@ -150883,8 +150952,9 @@
         "data_count": 41,
         "function_count": 43,
         "gap_count": 26,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 74,
+        "plan_graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
         "ranges": [
           [
             "0x2ea400",
@@ -150933,7 +151003,7 @@
         "data_count": 41,
         "function_count": 43,
         "gap_count": 26,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 74,
         "ranges": [
           [
@@ -150978,7 +151048,7 @@
         "data_count": 84,
         "function_count": 189,
         "gap_count": 140,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 204,
         "ranges": [
           [
@@ -151037,7 +151107,7 @@
         ],
         "function_count": 189,
         "gap_count": 140,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 204,
         "ranges": [
           [
@@ -151100,7 +151170,7 @@
         "data_count": 144,
         "function_count": 176,
         "gap_count": 140,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 240,
         "ranges": [
           [
@@ -151157,7 +151227,7 @@
         ],
         "function_count": 176,
         "gap_count": 140,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 240,
         "ranges": [
           [
@@ -151218,7 +151288,7 @@
         "data_count": 21,
         "function_count": 186,
         "gap_count": 160,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 189,
         "ranges": [
           [
@@ -151272,7 +151342,7 @@
         ],
         "function_count": 186,
         "gap_count": 160,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 189,
         "ranges": [
           [
@@ -151330,7 +151400,7 @@
         "data_count": 155,
         "function_count": 192,
         "gap_count": 148,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 214,
         "ranges": [
           [
@@ -151384,7 +151454,7 @@
         ],
         "function_count": 192,
         "gap_count": 148,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 214,
         "ranges": [
           [
@@ -151442,7 +151512,7 @@
         "data_count": 113,
         "function_count": 49,
         "gap_count": 42,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 51,
         "ranges": [
           [
@@ -151494,7 +151564,7 @@
         ],
         "function_count": 49,
         "gap_count": 42,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 51,
         "ranges": [
           [
@@ -151550,7 +151620,7 @@
         "data_count": 171,
         "function_count": 200,
         "gap_count": 153,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 261,
         "ranges": [
           [
@@ -151600,7 +151670,7 @@
         ],
         "function_count": 200,
         "gap_count": 153,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 261,
         "ranges": [
           [
@@ -151654,7 +151724,7 @@
         "data_count": 141,
         "function_count": 125,
         "gap_count": 98,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 192,
         "ranges": [
           [
@@ -151710,7 +151780,7 @@
         ],
         "function_count": 125,
         "gap_count": 98,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 192,
         "ranges": [
           [
@@ -151762,16 +151832,19 @@
     },
     {
       "batch": {
-        "artifact_count": 1299,
+        "artifact_count": 1325,
         "batch_number": 48,
         "classification_mix": {
           "provider:speech middleware": 686
         },
         "data_count": 261,
-        "function_count": 686,
-        "gap_count": 352,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
-        "named_count": 947,
+        "function_count": 700,
+        "gap_count": 364,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "moved_from_segments": [
+          62
+        ],
+        "named_count": 961,
         "ranges": [
           [
             "0x336ef0",
@@ -151800,7 +151873,7 @@
           50,
           51
         ],
-        "slice_sha256": "cd33553f1cbb1501de5355a717d53925dbd5f35f0b506d335698bcc660530132"
+        "slice_sha256": "4db7e23e80a275398de187bc7521285e9b9d2e25791ffe3e64f7950c19165cc9"
       },
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
@@ -151816,20 +151889,23 @@
       "selection": "artifacts",
       "stage": "source-correlation",
       "status": "ready",
-      "title": "Plan provider owners of speech middleware (4 segments, 686 functions)"
+      "title": "Plan provider owners of speech middleware (4 segments, 700 functions)"
     },
     {
       "batch": {
-        "artifact_count": 1299,
+        "artifact_count": 1325,
         "batch_number": 48,
         "classification_mix": {
           "provider:speech middleware": 686
         },
         "data_count": 261,
-        "function_count": 686,
-        "gap_count": 352,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
-        "named_count": 947,
+        "function_count": 700,
+        "gap_count": 364,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "moved_from_segments": [
+          62
+        ],
+        "named_count": 961,
         "ranges": [
           [
             "0x336ef0",
@@ -151858,7 +151934,7 @@
           50,
           51
         ],
-        "slice_sha256": "cd33553f1cbb1501de5355a717d53925dbd5f35f0b506d335698bcc660530132"
+        "slice_sha256": "4db7e23e80a275398de187bc7521285e9b9d2e25791ffe3e64f7950c19165cc9"
       },
       "dependencies": [
         "socom:work:source-provider-speech-middleware",
@@ -151888,7 +151964,7 @@
         "data_count": 61,
         "function_count": 13,
         "gap_count": 10,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 16,
         "ranges": [
           [
@@ -151938,7 +152014,7 @@
         ],
         "function_count": 13,
         "gap_count": 10,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 16,
         "ranges": [
           [
@@ -151992,7 +152068,7 @@
         "data_count": 161,
         "function_count": 121,
         "gap_count": 100,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 139,
         "ranges": [
           [
@@ -152045,7 +152121,7 @@
         ],
         "function_count": 121,
         "gap_count": 100,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 139,
         "ranges": [
           [
@@ -152102,7 +152178,7 @@
         "data_count": 116,
         "function_count": 185,
         "gap_count": 144,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 194,
         "ranges": [
           [
@@ -152152,7 +152228,7 @@
         ],
         "function_count": 185,
         "gap_count": 144,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 194,
         "ranges": [
           [
@@ -152207,7 +152283,7 @@
         "data_count": 347,
         "function_count": 195,
         "gap_count": 153,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 178,
         "ranges": [
           [
@@ -152259,7 +152335,7 @@
         ],
         "function_count": 195,
         "gap_count": 153,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 178,
         "ranges": [
           [
@@ -152315,7 +152391,7 @@
         "data_count": 121,
         "function_count": 88,
         "gap_count": 67,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 125,
         "ranges": [
           [
@@ -152366,7 +152442,7 @@
         ],
         "function_count": 88,
         "gap_count": 67,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 125,
         "ranges": [
           [
@@ -152412,17 +152488,21 @@
     },
     {
       "batch": {
-        "artifact_count": 1087,
-        "batch_number": 60,
+        "artifact_count": 1193,
+        "batch_number": 59,
         "classification_mix": {
-          "provider:Medius": 785
+          "provider:Medius": 786
         },
-        "data_count": 86,
-        "function_count": 785,
-        "gap_count": 216,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
-        "named_count": 871,
+        "data_count": 165,
+        "function_count": 786,
+        "gap_count": 242,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "named_count": 951,
         "ranges": [
+          [
+            "0x3aae18",
+            "0x3afcf4"
+          ],
           [
             "0x3afcf8",
             "0x3b20e8"
@@ -152453,6 +152533,7 @@
           "library": "Medius"
         },
         "segment_numbers": [
+          59,
           60,
           61,
           69,
@@ -152460,7 +152541,7 @@
           72,
           73
         ],
-        "slice_sha256": "5a606d77264849b53d3ccd540decc2ff68c90eca5cc75a6595be742da260e272"
+        "slice_sha256": "59d90147f41c3c249033a8ff4aaf32410cfd8909b854b14c2f75a6c6dd4b9647"
       },
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
@@ -152476,21 +152557,25 @@
       "selection": "artifacts",
       "stage": "source-correlation",
       "status": "ready",
-      "title": "Plan provider owners of Medius (6 segments, 785 functions)"
+      "title": "Plan provider owners of Medius (7 segments, 786 functions)"
     },
     {
       "batch": {
-        "artifact_count": 1087,
-        "batch_number": 60,
+        "artifact_count": 1193,
+        "batch_number": 59,
         "classification_mix": {
-          "provider:Medius": 785
+          "provider:Medius": 786
         },
-        "data_count": 86,
-        "function_count": 785,
-        "gap_count": 216,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
-        "named_count": 871,
+        "data_count": 165,
+        "function_count": 786,
+        "gap_count": 242,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "named_count": 951,
         "ranges": [
+          [
+            "0x3aae18",
+            "0x3afcf4"
+          ],
           [
             "0x3afcf8",
             "0x3b20e8"
@@ -152521,6 +152606,7 @@
           "library": "Medius"
         },
         "segment_numbers": [
+          59,
           60,
           61,
           69,
@@ -152528,7 +152614,7 @@
           72,
           73
         ],
-        "slice_sha256": "5a606d77264849b53d3ccd540decc2ff68c90eca5cc75a6595be742da260e272"
+        "slice_sha256": "59d90147f41c3c249033a8ff4aaf32410cfd8909b854b14c2f75a6c6dd4b9647"
       },
       "dependencies": [
         "socom:work:source-provider-medius",
@@ -152550,16 +152636,17 @@
     },
     {
       "batch": {
-        "artifact_count": 60,
+        "artifact_count": 48,
         "batch_number": 62,
         "classification_mix": {
-          "provider:lgAud": 39
+          "provider:lgAud": 25,
+          "provider:speech middleware": 14
         },
         "data_count": 2,
-        "function_count": 39,
-        "gap_count": 19,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
-        "named_count": 41,
+        "function_count": 25,
+        "gap_count": 21,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "named_count": 27,
         "ranges": [
           [
             "0x3b5980",
@@ -152573,42 +152660,57 @@
         "segment_numbers": [
           62
         ],
-        "slice_sha256": "6f048a30e932e1ef62c608932bb36991c7e26da8955d4def37219f7d32deff83"
+        "slice_sha256": "a612a7e92b1097318324644e1c2c4b1ba9fa943f6c019a948690b39c92669981"
       },
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-provider-lgaud.json sha256:47f7db0abcd0523aa647f2aa45be03b023211b20e19ac794620c6ab6b516c442; validate --check ok; draft --check ok (14 overrides: Sid object unresolved)"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-p03",
-        "submitted_at": "2026-10-31T08:09:15Z",
-        "summary": "owners 2 (liblgaud.a GNU object 0x3b5980 + fill), unresolved 14 (Sid object 0x3b7248: library contested lgAud vs speech middleware), retire 0, open rows decided 0 (draft decided 60; 14 overridden to unresolved)"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-provider-lgaud",
       "kind": "source-plan-provider",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "handoff": {
+            "owner": "socom-source-owner-mapper-p03",
+            "submitted_at": "2026-10-31T08:09:15Z",
+            "summary": "owners 2 (liblgaud.a GNU object 0x3b5980 + fill), unresolved 14 (Sid object 0x3b7248: library contested lgAud vs speech middleware), retire 0, open rows decided 0 (draft decided 60; 14 overridden to unresolved)"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-provider-lgaud.json sha256:47f7db0abcd0523aa647f2aa45be03b023211b20e19ac794620c6ab6b516c442; validate --check ok; draft --check ok (14 overrides: Sid object unresolved)"
+          ],
+          "previous_batch": {
+            "artifact_count": 60,
+            "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+            "slice_sha256": "6f048a30e932e1ef62c608932bb36991c7e26da8955d4def37219f7d32deff83"
+          },
+          "reason": "graph refreshed 837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e -> 7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718; replan",
+          "refreshed_at": "2026-10-31T10:18:04Z",
+          "slice": "changed"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
-      "title": "Plan provider owners of lgAud (1 segments, 39 functions)"
+      "status": "ready",
+      "title": "Plan provider owners of lgAud (1 segments, 25 functions)"
     },
     {
       "batch": {
-        "artifact_count": 60,
+        "artifact_count": 48,
         "batch_number": 62,
         "classification_mix": {
-          "provider:lgAud": 39
+          "provider:lgAud": 25,
+          "provider:speech middleware": 14
         },
         "data_count": 2,
-        "function_count": 39,
-        "gap_count": 19,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
-        "named_count": 41,
+        "function_count": 25,
+        "gap_count": 21,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
+        "named_count": 27,
         "ranges": [
           [
             "0x3b5980",
@@ -152622,7 +152724,7 @@
         "segment_numbers": [
           62
         ],
-        "slice_sha256": "6f048a30e932e1ef62c608932bb36991c7e26da8955d4def37219f7d32deff83"
+        "slice_sha256": "a612a7e92b1097318324644e1c2c4b1ba9fa943f6c019a948690b39c92669981"
       },
       "dependencies": [
         "socom:work:source-provider-lgaud",
@@ -152652,7 +152754,7 @@
         "data_count": 112,
         "function_count": 51,
         "gap_count": 34,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 62,
         "ranges": [
           [
@@ -152704,7 +152806,7 @@
         ],
         "function_count": 51,
         "gap_count": 34,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 62,
         "ranges": [
           [
@@ -152760,7 +152862,7 @@
         "data_count": 295,
         "function_count": 185,
         "gap_count": 140,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 302,
         "ranges": [
           [
@@ -152818,7 +152920,7 @@
         ],
         "function_count": 185,
         "gap_count": 140,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 302,
         "ranges": [
           [
@@ -152880,7 +152982,7 @@
         "data_count": 228,
         "function_count": 71,
         "gap_count": 54,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 157,
         "ranges": [
           [
@@ -152936,7 +153038,7 @@
         ],
         "function_count": 71,
         "gap_count": 54,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 157,
         "ranges": [
           [
@@ -152996,7 +153098,7 @@
         "data_count": 93,
         "function_count": 69,
         "gap_count": 54,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 155,
         "ranges": [
           [
@@ -153039,7 +153141,7 @@
         "data_count": 93,
         "function_count": 69,
         "gap_count": 54,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 155,
         "ranges": [
           [
@@ -153084,7 +153186,7 @@
         "data_count": 185,
         "function_count": 162,
         "gap_count": 116,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 179,
         "ranges": [
           [
@@ -153140,7 +153242,7 @@
         ],
         "function_count": 162,
         "gap_count": 116,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 179,
         "ranges": [
           [
@@ -153192,15 +153294,15 @@
     },
     {
       "batch": {
-        "artifact_count": 46,
+        "artifact_count": 48,
         "batch_number": 70,
         "classification_mix": {
           "provider:RSA": 42
         },
         "data_count": 4,
         "function_count": 42,
-        "gap_count": 0,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "gap_count": 2,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 46,
         "ranges": [
           [
@@ -153215,7 +153317,7 @@
         "segment_numbers": [
           70
         ],
-        "slice_sha256": "73ea165554b63ede75eac70845c35979f7b58fa239bf69a1b39f72a4f9d9edb7"
+        "slice_sha256": "caf9647ee4063bb064d24fdfb7c4cc005478a6ba0a15567353fbb9e4d5f755ac"
       },
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
@@ -153235,15 +153337,15 @@
     },
     {
       "batch": {
-        "artifact_count": 46,
+        "artifact_count": 48,
         "batch_number": 70,
         "classification_mix": {
           "provider:RSA": 42
         },
         "data_count": 4,
         "function_count": 42,
-        "gap_count": 0,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "gap_count": 2,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 46,
         "ranges": [
           [
@@ -153258,7 +153360,7 @@
         "segment_numbers": [
           70
         ],
-        "slice_sha256": "73ea165554b63ede75eac70845c35979f7b58fa239bf69a1b39f72a4f9d9edb7"
+        "slice_sha256": "caf9647ee4063bb064d24fdfb7c4cc005478a6ba0a15567353fbb9e4d5f755ac"
       },
       "dependencies": [
         "socom:work:source-provider-rsa",
@@ -153288,7 +153390,7 @@
         "data_count": 21,
         "function_count": 13,
         "gap_count": 10,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 20,
         "ranges": [
           [
@@ -153338,7 +153440,7 @@
         ],
         "function_count": 13,
         "gap_count": 10,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 20,
         "ranges": [
           [
@@ -153384,7 +153486,7 @@
     },
     {
       "batch": {
-        "artifact_count": 818,
+        "artifact_count": 821,
         "batch_number": 76,
         "classification_mix": {
           "compiler-generated": 146,
@@ -153392,8 +153494,8 @@
         },
         "data_count": 584,
         "function_count": 146,
-        "gap_count": 88,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "gap_count": 91,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 177,
         "ranges": [
           [
@@ -153409,7 +153511,7 @@
         "segment_numbers": [
           76
         ],
-        "slice_sha256": "0b98752029517630f10e2998dd7eccafdecd81e093cd2a448a6d9f1636ccab12",
+        "slice_sha256": "1a2e7fa5131d99dd8caee73e2ee702bbe5a3a35d370c052c58a1a9f6d31139d8",
         "tu_candidates": [
           "ai_astar.cpp",
           "ai_events.cpp",
@@ -153579,7 +153681,7 @@
     },
     {
       "batch": {
-        "artifact_count": 818,
+        "artifact_count": 821,
         "batch_number": 76,
         "classification_mix": {
           "compiler-generated": 146,
@@ -153618,8 +153720,8 @@
           "src/gamez/zWeapon"
         ],
         "function_count": 146,
-        "gap_count": 88,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "gap_count": 91,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 177,
         "ranges": [
           [
@@ -153638,7 +153740,7 @@
         "segment_numbers": [
           76
         ],
-        "slice_sha256": "0b98752029517630f10e2998dd7eccafdecd81e093cd2a448a6d9f1636ccab12",
+        "slice_sha256": "1a2e7fa5131d99dd8caee73e2ee702bbe5a3a35d370c052c58a1a9f6d31139d8",
         "tu_candidates": [
           "ai_astar.cpp",
           "ai_events.cpp",
@@ -153840,18 +153942,18 @@
     },
     {
       "batch": {
-        "artifact_count": 5454,
+        "artifact_count": 5457,
         "batch_number": 77,
         "data_count": 537,
         "function_count": 0,
-        "gap_count": 4917,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "gap_count": 4920,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 95,
         "scope": {
           "data_kind": "rodata",
           "kind": "data"
         },
-        "slice_sha256": "e75c0b943544993eeda06b38a2d9b6860799bd6e8006da9aaa714bd0db9dd118"
+        "slice_sha256": "ab83c89b8a0e73d8045ebc517c7ca1c4bc1e0150c18b177cea545810112cdc2c"
       },
       "dependencies": [
         "socom:work:source-segment-040",
@@ -153925,22 +154027,22 @@
       "selection": "artifacts",
       "stage": "source-correlation",
       "status": "blocked",
-      "title": "Reconcile rodata data owners (5454 artifacts outside the segment slices)"
+      "title": "Reconcile rodata data owners (5457 artifacts outside the segment slices)"
     },
     {
       "batch": {
-        "artifact_count": 997,
+        "artifact_count": 1001,
         "batch_number": 78,
         "data_count": 398,
         "function_count": 0,
-        "gap_count": 599,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "gap_count": 603,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 189,
         "scope": {
           "data_kind": "data",
           "kind": "data"
         },
-        "slice_sha256": "00d0551e61eb758d27380338ba302c317e5ebaac2d3934ef48a7a8581013f710"
+        "slice_sha256": "4646922e2943145ee955ebda2b6ab3a0fb5653b97cad0b5267fe93adda12cc19"
       },
       "dependencies": [
         "socom:work:source-segment-040",
@@ -154014,22 +154116,22 @@
       "selection": "artifacts",
       "stage": "source-correlation",
       "status": "blocked",
-      "title": "Reconcile data data owners (997 artifacts outside the segment slices)"
+      "title": "Reconcile data data owners (1001 artifacts outside the segment slices)"
     },
     {
       "batch": {
-        "artifact_count": 1766,
+        "artifact_count": 1769,
         "batch_number": 79,
         "data_count": 511,
         "function_count": 0,
-        "gap_count": 1255,
-        "graph_sha256": "837c03c4a79ff8d9d5d8d70fbb07af036ef82ac926b0ccc816d9191e73a9652e",
+        "gap_count": 1258,
+        "graph_sha256": "7bd4e540bbdbe393a215bf318c2dafc37dc26ab7abac1a6199412ea49fd0b718",
         "named_count": 510,
         "scope": {
           "data_kind": "bss",
           "kind": "data"
         },
-        "slice_sha256": "274bee60f001c247a188e9fa8142812b43b164556f9bfa891aa801478060bfb5"
+        "slice_sha256": "2ecbdf64d133d1153a57d329d99414f0d6503f719cbb507059422ac43dc662a0"
       },
       "dependencies": [
         "socom:work:source-segment-040",
@@ -154103,7 +154205,7 @@
       "selection": "artifacts",
       "stage": "source-correlation",
       "status": "blocked",
-      "title": "Reconcile bss data owners (1766 artifacts outside the segment slices)"
+      "title": "Reconcile bss data owners (1769 artifacts outside the segment slices)"
     },
     {
       "batch": {
