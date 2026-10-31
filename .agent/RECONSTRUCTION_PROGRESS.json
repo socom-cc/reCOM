@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3167,
+  "revision": 3174,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -151106,6 +151106,10 @@
       "title": "Apply the reviewed source owners of segment 030 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T19:53:53Z",
+        "by": "socom-source-owner-scrutinizer-x17"
+      },
       "batch": {
         "artifact_count": 666,
         "batch_number": 31,
@@ -151141,7 +151145,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-031.json sha256:fb8d3674de63ac5256fe08edd9fd003704845c4cfff982ef6f09ee3f98fd36ee; validate --check ok; draft --check ok"
+        "plan build/source-plans/socom-work-source-segment-031.json sha256:fb8d3674de63ac5256fe08edd9fd003704845c4cfff982ef6f09ee3f98fd36ee; validate --check ok; draft --check ok",
+        "x17 review of sw5 sweep, plan sha256 fb8d3674 = handoff; validate/draft --check ok. Diff vs pre-sweep: +17 header emits, +1 note, reservation +src/gamez/zMath. 9 emits directly cross-unit by refs (CAiState GetStatus/CanPushAiState/CanSwitchAiState/CanPursue/CanScan/CanAttack/GetScriptResponse to zai.h:368; Rfloat::operator float 0x25aba0 (5 units) to zmath.h:80; CAiCone::ContainsPoint 0x267e20 (6 units) to zai.h:578). CAiState dtor/OnSignal/Tick 0x26b170/0x26c5c0/0x26c5d0 are filled into the binding-13 __vt__8CAiState, which seal_unit, seal_aistate and seal_airesponse read. Flagged vtable-only rows (CAiSRescued 0x2591e0, CAiSPursue 0x26c660, CAiSGrenade 0x26c740/0x26c750, CAiSDeploy 0x26c7c0) hold: their GLOBAL vtables are read by CAiState::Create 0x2dc240 (seal_aistate.cpp builds them inline), so both TUs contain the class body, and an inline non-pure virtual must be defined wherever its class is (ODR). This is the same basis as 030's CAiSRescued siblings 0x2591c0/0x2591d0/0x259160. Every cited zai.h/zmath.h line declares the class; there are no DWARF header units. _max<f> 0x26c8a0 note: 4 units, no ai::_max under src/. The ODR re-check finds no uncovered cross-unit inline copy."
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-sw5",
@@ -151186,7 +151191,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 031 (0x2591e0-0x26e9f8, 186 functions)"
     },
     {
@@ -151248,6 +151253,10 @@
       "title": "Apply the reviewed source owners of segment 031 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T19:54:11Z",
+        "by": "socom-source-owner-scrutinizer-x17"
+      },
       "batch": {
         "artifact_count": 570,
         "batch_number": 32,
@@ -151286,7 +151295,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-032.json sha256:e4dbef2782349e9d21ffc10597e041b16455714d5b8cb6f9354bca531c35b1b9; validate --check ok; draft --check ok"
+        "plan build/source-plans/socom-work-source-segment-032.json sha256:e4dbef2782349e9d21ffc10597e041b16455714d5b8cb6f9354bca531c35b1b9; validate --check ok; draft --check ok",
+        "x17 review of sw5 sweep, plan sha256 e4dbef27 = handoff; validate/draft --check ok. Diff vs pre-sweep: contradiction 0x27df70 span corrected, with an override note: seal_anim.cpp can reach 0x26e9f7, because Adrenaline 0x26e9f0 ends 0x26e9f8 and 031 leaves 0x26e700/0x26e990/0x26e9f0 unresolved before seal_body.cpp's anchor Action 0x26ea00. +2 notes: CDynGrenade ComputeElevOfs 0x287980 and ComputeMaxVel 0x2879f0 are each referenced from seal_control.cpp and seal_kit.cpp; there is no DWARF header unit and no CDynGrenade anywhere under src/. The ODR re-check finds no uncovered cross-unit inline copy."
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-sw5",
@@ -151331,7 +151341,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 032 (0x26ea00-0x28a55c, 199 functions)"
     },
     {
@@ -151430,14 +151440,8 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-033.json sha256:74ebfb66add6d53a767ef061b0b31a30716eccbaf17c7e87367563f515d9533a; validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-sw5",
-        "submitted_at": "2026-10-31T19:42:31Z",
-        "summary": "sweep: +1 emit (CNodeAction::GetAction 0x29a6b0 into src/gamez/zNode/node_action.h), +1 note (_TransformPoint 0x29b630: no declaration), 0 data overrides, other fixes: reservation adds src/gamez/zNode; InitLookAnims 0x29dd90 / DamageBody 0x294b60 contradiction span ends corrected to 0x26e9f7 / 0x27da5f (overrides)"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-033",
       "kind": "source-plan-segment",
       "lease": null,
@@ -151472,11 +151476,25 @@
           "reason": "plan sha256 b8a26edb...; validate/draft --check ok; the zchar.h emit for 0x28c070 and the zSeal+zCharacter reservation are correct (span wording non-blocking). FINDING (ODR rule of the current brief: an inline copy referenced from functions of two or more units emits to its class's header, explicit members too): CNodeAction::GetAction 0x29a6b0 (binding 13; seal_env.cpp and seal_tasks.cpp CTMap::Tick 0x2ba710) -> src/gamez/zNode/node_action.h:5 (add src/gamez/zNode to the reservation); free inline _TransformPoint(const CPnt4D*, CPnt4D*) 0x29b630 (seal_env.cpp and seal_ailines.cpp DrawLine 0x2e2f90 / LineTo 0x2e3110): no provisional file under src/ declares it, so argue its shared header. __dt__11CZFTSWeaponFv 0x28d880 is read only by __vt__11CZFTSWeapon (one referencer), no emit is fine. Fix: decide --header-emit for both. Rest unchanged and OK.",
           "rejected_at": "2026-10-31T18:32:45Z",
           "rejected_by": "socom-source-owner-scrutinizer-x13"
+        },
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-sw5",
+            "submitted_at": "2026-10-31T19:42:31Z",
+            "summary": "sweep: +1 emit (CNodeAction::GetAction 0x29a6b0 into src/gamez/zNode/node_action.h), +1 note (_TransformPoint 0x29b630: no declaration), 0 data overrides, other fixes: reservation adds src/gamez/zNode; InitLookAnims 0x29dd90 / DamageBody 0x294b60 contradiction span ends corrected to 0x26e9f7 / 0x27da5f (overrides)"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-033.json sha256:74ebfb66add6d53a767ef061b0b31a30716eccbaf17c7e87367563f515d9533a; validate --check ok; draft --check ok"
+          ],
+          "reason": "Finding (ODR re-check): socom:function:0x28d880 __dt__11CZFTSWeaponFv (binding 13, kept by seal_env.cpp) is cross-unit but has neither a header emit nor a note. Evidence: its only referencer is __vt__11CZFTSWeapon 0x472f30 (GLOBAL). That vtable lies in zWeapon data (between zwep_explosive.cpp's __vt__15PlacedExplosive 0x472f20 and zwep_projectile.cpp's __vt__12CZProjectile 0x472f50), and the GLOBAL ctor __ct__11CZFTSWeaponFv 0x315e90 (segment 043) writes it. So a second unit emits the vtable, which needs this inline dtor. Fix: source plan decide --header-emit src/gamez/zWeapon/zweapon.h (zweapon.h:559 declares class CZFTSWeapon : public CZWeapon; there is no DWARF header unit), reason inline, emit evidence citing the vtable and the ctor 0x315e90, and add src/gamez/zWeapon to the reservation. The rest of the sweep holds: CNodeAction::GetAction 0x29a6b0 to node_action.h:5 (seal_env.cpp, seal_tasks.cpp); the _TransformPoint 0x29b630 note (2 units, no declaration under src/); both span-override notes (seal_anim.cpp to 0x26e9f7, seal_body.cpp to 0x27da5f) match the unresolved rows of 031/032; validate/draft --check ok.",
+          "rejected_at": "2026-10-31T19:54:37Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x17"
         }
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 033 (0x28a560-0x2a451c, 197 functions)"
     },
     {
@@ -151538,6 +151556,10 @@
       "title": "Apply the reviewed source owners of segment 033 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T19:54:17Z",
+        "by": "socom-source-owner-scrutinizer-x17"
+      },
       "batch": {
         "artifact_count": 273,
         "batch_number": 34,
@@ -151572,7 +151594,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-034.json sha256:8c4bcd8e3e5612d16a827f282288f3fdccd76d8ed8b2955977b14008d3bf5a26; validate --check ok; draft --check ok"
+        "plan build/source-plans/socom-work-source-segment-034.json sha256:8c4bcd8e3e5612d16a827f282288f3fdccd76d8ed8b2955977b14008d3bf5a26; validate --check ok; draft --check ok",
+        "x17 review of sw5 sweep, plan sha256 8c4bcd8e = handoff; validate/draft --check ok. Diff vs pre-sweep: +1 emit, CZKit::unwrap 0x2a5a00 to src/gamez/zSeal/zseal.h (zseal.h:170 declares class CZKit; refs from seal_kit.cpp and hud_weaponsel.cpp; no DWARF header unit). The reservation evidence is updated and its directories are unchanged (zSeal). The ODR re-check finds no uncovered cross-unit inline copy."
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-sw5",
@@ -151617,7 +151640,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 034 (0x2a4520-0x2afbb4, 128 functions)"
     },
     {
@@ -151678,6 +151701,10 @@
       "title": "Apply the reviewed source owners of segment 034 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T19:54:21Z",
+        "by": "socom-source-owner-scrutinizer-x17"
+      },
       "batch": {
         "artifact_count": 1013,
         "batch_number": 35,
@@ -151715,7 +151742,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-035.json sha256:247dd9b64d3d5e21773774cdfe6c39030bff856f7761378ddf8f7c1ff959391f; validate --check ok; draft --check ok"
+        "plan build/source-plans/socom-work-source-segment-035.json sha256:247dd9b64d3d5e21773774cdfe6c39030bff856f7761378ddf8f7c1ff959391f; validate --check ok; draft --check ok",
+        "x17 review of sw5 resubmission, plan sha256 247dd9b6 = handoff and unchanged vs pre-sweep; validate/draft --check ok. The ODR re-check flags only the CRemoteCtrl copies 0x2ce160 and 0x2ce1c0-0x2ce200 (cross-unit only via __vt__11CRemoteCtrl, read by seal_create.cpp). The existing note covers them: there is no DWARF header unit and no CRemoteCtrl declaration under src/. No other uncovered cross-unit inline copy."
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-sw5",
@@ -151760,7 +151788,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 035 (0x2afbc0-0x2ce218, 200 functions)"
     },
     {
@@ -151867,14 +151895,8 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-036.json sha256:ef1c5d9f11da4fe0ebf93b46e83d67505d8d469ab7fa9e4a201650ef0f19f1b4; validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-sw5",
-        "submitted_at": "2026-10-31T19:42:38Z",
-        "summary": "sweep: +1 emit (CAiState::Reset 0x2d1e60 into src/gamez/zAI/zai.h, used by seal_unit.cpp and seal_aistate.cpp), +0 notes, 0 data overrides, other fixes: reservation reason/evidence name the emit"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-036",
       "kind": "source-plan-segment",
       "lease": null,
@@ -151909,11 +151931,25 @@
           "reason": "process: apply the remaining ODR header-emit rows for this plan listed in build/stage4/sweep-list.json (v6 emit report: inline copies referenced from >= 2 units without an emit) in one pass before re-review",
           "rejected_at": "2026-10-31T19:30:54Z",
           "rejected_by": "parent-orchestrator"
+        },
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-sw5",
+            "submitted_at": "2026-10-31T19:42:38Z",
+            "summary": "sweep: +1 emit (CAiState::Reset 0x2d1e60 into src/gamez/zAI/zai.h, used by seal_unit.cpp and seal_aistate.cpp), +0 notes, 0 data overrides, other fixes: reservation reason/evidence name the emit"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-036.json sha256:ef1c5d9f11da4fe0ebf93b46e83d67505d8d469ab7fa9e4a201650ef0f19f1b4; validate --check ok; draft --check ok"
+          ],
+          "reason": "Finding (ODR re-check): socom:function:0x2dcb70 CanPursue__10CAiSBreachCFP11CSealCtrlAi (binding 13 inline virtual, kept by seal_aistate.cpp) is cross-unit but has neither a header emit nor a note. Evidence: its only referencer, __vt__10CAiSBreach 0x4725b0 (GLOBAL, seal_aistate.cpp), is read by seal_unit.cpp's IssueCommand 0x2d07e0 and by the seal_unit.cpp-kept dtor 0x2d1e00, and also by CAiState::Create 0x2dc240. So seal_unit.cpp builds CAiSBreach inline and contains its class body. The plan already emits that sibling dtor 0x2d1e00 to zai.h on this basis, and 031/037 emit such vtable-only virtuals. Fix: source plan decide --header-emit src/gamez/zAI/zai.h (zai.h:447 declares class CAiSBreach : public CAiState; there is no DWARF header unit), reason inline, emit evidence citing the vtable readers; src/gamez/zAI is already reserved. The rest holds: CAiState::Reset 0x2d1e60 to zai.h:368 (refs from seal_unit.cpp and seal_aistate.cpp); validate/draft --check ok.",
+          "rejected_at": "2026-10-31T19:54:39Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x17"
         }
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 036 (0x2ce220-0x2e4ab0, 198 functions)"
     },
     {
@@ -151984,6 +152020,10 @@
       "title": "Apply the reviewed source owners of segment 036 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T19:54:23Z",
+        "by": "socom-source-owner-scrutinizer-x17"
+      },
       "batch": {
         "artifact_count": 171,
         "batch_number": 37,
@@ -152018,7 +152058,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-037.json sha256:8b2ae39c57c111f81a17db5a5e77e920d36aafd54c9fc46f911a929223fbb62d; validate --check ok; draft --check ok"
+        "plan build/source-plans/socom-work-source-segment-037.json sha256:8b2ae39c57c111f81a17db5a5e77e920d36aafd54c9fc46f911a929223fbb62d; validate --check ok; draft --check ok",
+        "x17 review of sw5 sweep, plan sha256 8b2ae39c = handoff; validate/draft --check ok. Diff vs pre-sweep: +12 emits to zai.h. Each is an inline virtual of CAiSPathRecover/Flee/Restrained/StunResponse/Surrender/NoAmmo/ShotAt whose GLOBAL vtable (kept by seal_airesponse.cpp) is read by CAiState::Create 0x2dc240 in seal_aistate.cpp, so the class body is in both TUs (ODR, same basis as the existing dtor emits and 030/031). Each cited zai.h line (477/472/427/527/422/497/492) declares the class; there are no DWARF header units. +1 note, CAiSReload::CanAttack 0x2e9650: no CAiSReload declaration under src/ (only a comment in ai_main.cpp:91). The existing note covers the CAiSCorpse and CAiSReload dtors. The ODR re-check finds no uncovered cross-unit inline copy."
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-sw5",
@@ -152063,7 +152104,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 037 (0x2e4ab0-0x2ea400, 76 functions)"
     },
     {
