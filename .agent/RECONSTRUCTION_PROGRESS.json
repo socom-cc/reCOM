@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3233,
+  "revision": 3236,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -152723,6 +152723,10 @@
       "title": "Apply the reviewed source owners of segment 042 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T23:06:42Z",
+        "by": "socom-source-owner-scrutinizer-x21"
+      },
       "batch": {
         "artifact_count": 367,
         "batch_number": 43,
@@ -152760,7 +152764,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-043.json sha256:b4aa6b5846c3e17a54d73c572ff0aad85c2398d3e30a73cd30dcf682bfc9ae4f; validate --check ok; draft --check ok"
+        "plan build/source-plans/socom-work-source-segment-043.json sha256:b4aa6b5846c3e17a54d73c572ff0aad85c2398d3e30a73cd30dcf682bfc9ae4f; validate --check ok; draft --check ok",
+        "plan sha256:b4aa6b58...ae4f matches handoff; validate --check ok (0 problems, 3 review notes), draft --check ok (204 drafted, 156 hand, 0 overrides, 0 open). No D-referenced GLOBAL rows. 12 no-emit WEAK/13 copies (RTArray<CDecal/CMeshDecal>, RTPool<CTextureFX>, ~CWepCallbackList) each referenced by one unit (refs); CWepCallbackList declared by no header; __as__CLOD_band -> zrender.h:180 (implicit member, class declared there). 31 hand MSL emits equal draft.open_row_header_emits; 2 list<T*> dtors -> <list>. .rodata label-drop regularity reproduced (4550 same-unit pairs, max drop 51) supports cuts mesh|bands, bands|decal, weaponlist|explosive, explosive|ftsweapon. zwep_ftsweapon|zwep_global: .rodata/.data/.text fit a merge equally (zwep_projectile.o also leads its .rodata with the same 5 header symbols), only the LOCAL per-name statistic separates; row is low/invented, acceptable. ColConvTo3D+CVisData head low, one row noted. CZAmmoList 7 unresolved: no cluster, two candidate objects. uvlimit low by .sdata link order (after vis_main.o; right flank unanchored). Contradiction lines verified."
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-w3e",
@@ -152775,7 +152780,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 043 (0x3103a0-0x316dd8, 186 functions)"
     },
     {
@@ -153220,22 +153225,23 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-047.json sha256:a102a0fed227fb6092679be911c2f9956aaeaecc685c39e04a8a65da2a4458c2; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w3f",
+        "submitted_at": "2026-10-31T23:06:14Z",
+        "summary": "owners 8 authored (new: invented audiodec.cpp and strfile.cpp, util_sonyio.cpp for one CFileCD static; playpss.cpp path src/gamez/zMPEG/playpss.cpp) + 1 compiler-generated, unresolved 0, retire 0, contradictions 2, open rows decided 44 (10 accepted suggestions), 11 MSL header emits added (<deque> 9, <cdeque> 2), reservation corrected (+src/gamez/zUtil)"
+      },
       "id": "socom:work:source-segment-047",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T23:02:40Z",
-        "expires_at": "2026-11-01T01:02:40Z",
-        "heartbeat_at": "2026-10-31T23:02:40Z",
-        "owner": "socom-source-owner-mapper-w3f"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 047 (0x32ece0-0x336ef0, 125 functions)"
     },
     {
@@ -153718,22 +153724,23 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-055.json sha256:13adcb230272ac98877850e7333929333d638d940a88e38e6fdaad1190e52cf7; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w3g",
+        "submitted_at": "2026-10-31T23:06:01Z",
+        "summary": "owners 2 (zui_2d.cpp, compiler-generated), unresolved 0, retire 0, open rows decided 0 (draft decided all 445); 11 hand header emits (8 ODR to ztwod.h, implicit dtors to ztwod.h/zvis.h, operator+ to <string>), 1 contradiction; reservation corrected (+zTwoD, +zVisual)"
+      },
       "id": "socom:work:source-segment-055",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T23:02:34Z",
-        "expires_at": "2026-11-01T01:02:34Z",
-        "heartbeat_at": "2026-10-31T23:02:34Z",
-        "owner": "socom-source-owner-mapper-w3g"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 055 (0x3853f0-0x3949fc, 185 functions)"
     },
     {
