@@ -719,7 +719,10 @@ def test_structured_contradictions(tmp_path: Path, synthetic: tuple[dict, dict])
     assert report["summary"]["contradictions"] == 1
     assert "contradictions" not in validate_source_plan(root, tracker, segment_plan(graph), graph, section_of=MAIN)["summary"]
     for change, message in (
-        ({"artifact": ids[3]}, "must lie in the scope's slice"),
+        # Outside the slice only in a file this plan's authored rows own (stale.cpp is not cited).
+        ({"artifact": ids[3], "provisional_file": "src/gamez/zFoo/stale.cpp"}, "must be one this plan's authored rows own"),
+        ({"artifact": "socom:function:0x999999"}, "is not an artifact of the graph"),
+        ({"artifact": 7}, "must lie in the scope's slice"),
         ({"provisional_file": "src/gamez/zFoo/missing.cpp"}, "must name an existing file exactly"),
         ({"provisional_file": "src/gamez/zfoo/a.cpp"}, "(on disk: src/gamez/zFoo/a.cpp)"),
         ({"line": 2}, "has 1 lines, not 2"),
@@ -810,6 +813,14 @@ def test_cli_evidence_fill_and_check(tmp_path: Path, root: Path, synthetic: tupl
     assert cli.main([*base, "validate", "--plan", plan_path, "--fill-annotations"]) == 0
     report = json.loads(capsys.readouterr().out)
     assert report["mutation_performed"] is False and report["annotations_filled"] is False
+    # --output writes the full report under build/ and prints its counts.
+    assert cli.main([*base, "validate", "--plan", plan_path, "--output", "build/source-plans/report.json"]) == 0
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["problems"] == 0 and summary["review"] == len(report["review"]) and "shared_units" not in summary
+    full = json.loads((workspace / "build" / "source-plans" / "report.json").read_text(encoding="utf-8"))
+    assert full["ok"] and full["problems"] == [] and full["sha256"] == summary["sha256"] and full["review"] == report["review"]
+    assert cli.main([*base, "validate", "--plan", plan_path, "--output", "src/report.json"]) == 2
+    assert "only be written under build/" in json.loads(capsys.readouterr().out)["error"]
     # --check regenerates the graph from the ELF: the reference graph is not
     # the synthetic one the item was decomposed from.
     regenerated = dict(graph, segment_size=100)

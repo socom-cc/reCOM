@@ -9,13 +9,15 @@ query cache, so a planner never loads or rewrites the whole plan JSON.
 into one existing owner row (an entry ``{artifact, confidence, basis}``
 without ``draft_rule``: hand-written, for the reviewer) or into an
 ``unresolved`` row with a real reason, accepts the drafter's ``suggest``ion
-of an open row as such a hand entry, or adds a ``contradictions`` or
-``header_emits`` row.  It loads and dumps the plan as JSON, never as text,
-refuses control characters, and refuses to move an artifact (or replace a
-header-emit row) a draft rule decided unless ``--override`` gives the
-evidence (recorded as a plan note).  The owner row's confidence follows its
-weakest entry, and the annotations are re-derived when the cache holds the
-plan's graph.
+of an open row as such a hand entry, adds (or with ``--override`` replaces)
+a ``contradictions`` or ``header_emits`` row, or removes a contradiction.
+It loads and dumps the plan as JSON, never as text, refuses control
+characters, and refuses to move an artifact a draft rule decided, or to
+replace a header-emit or contradiction row, unless ``--override`` gives the
+evidence (recorded as a plan note).  An owner row a move empties is
+dropped; one already empty (added by hand) is kept.  The owner row's
+confidence follows its weakest entry, and the annotations are re-derived
+when the cache holds the plan's graph.
 """
 
 from __future__ import annotations
@@ -39,6 +41,7 @@ from .source_plan import (
     artifact_id,
     control_characters,
     derive_annotations,
+    owned_files,
     suggestion_problems,
 )
 from .util import SocomError
@@ -138,6 +141,8 @@ def decide(
     owners = plan.get("owners")
     if not isinstance(owners, list):
         raise SocomError("the plan has no owners list")
+    # Rows already empty (added by hand, still to be decided into) are kept.
+    empty_before = {id(row) for row in owners if isinstance(row, dict) and not row.get("artifacts")}
     target = None
     if owner is not None:
         matches = [number for number, row in enumerate(owners) if isinstance(row, dict) and owner.casefold() in owner_keys(row)]
@@ -179,10 +184,11 @@ def decide(
             plan.setdefault("unresolved", []).append({"artifact": identity, "reason": unresolved.strip()})
             after = "unresolved"
         changes.append({"artifact": identity, "from": before, "to": after})
-    # An owner row emptied by the moves is dropped (a row lists its artifacts).
+    # An owner row this call emptied is dropped (a row lists its artifacts);
+    # one that was already empty stays for the planner to decide into.
     kept = []
     for row in owners:
-        if isinstance(row, dict) and not row.get("artifacts"):
+        if isinstance(row, dict) and not row.get("artifacts") and id(row) not in empty_before:
             changes.append({"row_removed": owner_label(row)})
             continue
         if isinstance(row, dict):
@@ -233,6 +239,30 @@ def accept_suggestions(plan: dict[str, Any], artifacts: list[str]) -> list[dict[
     return changes
 
 
+def _contradiction_place(provisional_file: Any, line: Any) -> None:
+    if not _workspace_path(provisional_file):
+        raise SocomError("--provisional-file must be a repo-relative path under src/")
+    if line is not None and (isinstance(line, bool) or not isinstance(line, int) or line < 1):
+        raise SocomError("--line must be a positive line number (omit it for a file-level contradiction)")
+
+
+def _contradiction_rows(plan: dict[str, Any]) -> list[Any]:
+    rows = plan.setdefault("contradictions", [])
+    if not isinstance(rows, list):
+        raise SocomError("the plan's contradictions must be a list")
+    return rows
+
+
+def _at(row: Any, identity: str, provisional_file: str, line: int | None) -> bool:
+    """Whether a contradictions row is the one of ``identity`` at that file and line (any kind)."""
+
+    return isinstance(row, dict) and (row.get("artifact"), row.get("provisional_file"), row.get("line")) == (
+        identity,
+        provisional_file,
+        line,
+    )
+
+
 def add_contradictions(
     plan: dict[str, Any],
     artifacts: list[str],
@@ -242,23 +272,30 @@ def add_contradictions(
     line: int | None,
     elf_evidence: list[str] | None,
     root: Path | None = None,
+    in_graph: Callable[[str], bool] | None = None,
+    override: bool = False,
+    override_evidence: str | None = None,
 ) -> list[dict[str, Any]]:
     """Add one ``contradictions`` row per artifact: provisional source the ELF decides against.
 
-    The artifact must be listed in the plan; ``provisional_file`` must name an
-    existing file under ``src/`` exactly (checked when ``root`` is given) and
-    ``line`` one of its lines, or be ``None`` for a file-level contradiction.
+    The artifact must be listed in the plan, or be an artifact of the graph
+    (``in_graph``) outside it when ``provisional_file`` is a file this plan's
+    authored rows own (an owned file defining a function the ELF places in
+    another segment).  ``provisional_file`` must name an existing file under
+    ``src/`` exactly (checked when ``root`` is given) and ``line`` one of its
+    lines, or be ``None`` for a file-level contradiction.  With ``override``
+    (and its evidence, kept as a plan note) the new row replaces the
+    artifact's rows at that file and line, whatever their kind.
     """
 
     _require_v2(plan, "--contradiction")
     if not isinstance(kind, str) or not _CONTRADICTION_KIND.match(kind):
         raise SocomError("--contradiction needs a lowercase kind slug such as defined-elsewhere or signature")
-    if not _workspace_path(provisional_file):
-        raise SocomError("--provisional-file must be a repo-relative path under src/")
-    if line is not None and (isinstance(line, bool) or not isinstance(line, int) or line < 1):
-        raise SocomError("--line must be a positive line number (omit it for a file-level contradiction)")
+    _contradiction_place(provisional_file, line)
     lines = _lines(elf_evidence, "--contradiction --elf-evidence")
-    if control_characters([kind, provisional_file, *lines]):
+    if override and (not isinstance(override_evidence, str) or not override_evidence.strip()):
+        raise SocomError("--override needs --evidence: why the existing contradiction row is wrong")
+    if control_characters([kind, provisional_file, *lines, override_evidence or ""]):
         raise SocomError("a contradiction may not hold control characters (U+0000-U+001F)")
     if root is not None:
         state, actual = _path_state(root, provisional_file)
@@ -271,19 +308,71 @@ def add_contradictions(
                 count = sum(1 for _line in handle)
             if line > count:
                 raise SocomError(f"{provisional_file} has {count} lines, not {line}")
-    rows = plan.setdefault("contradictions", [])
-    if not isinstance(rows, list):
-        raise SocomError("the plan's contradictions must be a list")
+    rows = _contradiction_rows(plan)
     holders = _holders(plan)
+    owned = owned_files(plan)
     changes = []
     for identity in artifacts:
         if identity not in holders:
-            raise SocomError(f"{identity} is not listed in this plan (owned or unresolved)")
+            if provisional_file not in owned:
+                raise SocomError(
+                    f"{identity} is not listed in this plan: a contradiction about an artifact outside the plan must "
+                    f"lie in a file this plan's authored rows own (provisional_file or workspace_path), not {provisional_file}"
+                )
+            if in_graph is None or not in_graph(identity):
+                raise SocomError(f"{identity} is neither listed in this plan nor an artifact of the graph (--graph)")
         row = {"artifact": identity, "provisional_file": provisional_file, "line": line, "kind": kind, "elf_evidence": list(lines)}
-        if any(isinstance(other, dict) and all(other.get(key) == row[key] for key in ("artifact", "provisional_file", "line", "kind")) for other in rows):
-            raise SocomError(f"{identity} already has this {kind} contradiction in {provisional_file}")
-        rows.append(row)
-        changes.append({"artifact": identity, "contradiction": kind, "provisional_file": provisional_file, "line": line})
+        change: dict[str, Any] = {"artifact": identity, "contradiction": kind, "provisional_file": provisional_file, "line": line}
+        if identity not in holders:
+            change["outside_plan"] = True
+        existing = [number for number, other in enumerate(rows) if _at(other, identity, provisional_file, line)]
+        if override:
+            if not existing:
+                raise SocomError(
+                    f"{identity} has no contradiction in {provisional_file} at line {line} to replace: drop --override"
+                )
+            replaced = [str(rows[number].get("kind")) for number in existing]
+            place = f"{provisional_file}:{line}" if line is not None else provisional_file
+            plan.setdefault("notes", []).append(
+                f"override contradiction {identity} in {place}: the plan gave {', '.join(replaced)}; {override_evidence.strip()}"
+            )
+            rows[existing[0]] = row
+            for number in reversed(existing[1:]):
+                del rows[number]
+            change["replaced"] = replaced
+        elif any(rows[number].get("kind") == kind for number in existing):
+            raise SocomError(
+                f"{identity} already has this {kind} contradiction in {provisional_file}: pass --override with --evidence "
+                "to replace it, or --remove-contradiction"
+            )
+        else:
+            rows.append(row)
+        changes.append(change)
+    return changes
+
+
+def remove_contradictions(
+    plan: dict[str, Any], artifacts: list[str], *, provisional_file: str, line: int | None
+) -> list[dict[str, Any]]:
+    """Remove each artifact's ``contradictions`` rows at that file and line (``None``: its file-level rows).
+
+    Contradiction rows are the planner's own, so removing one needs no
+    evidence; an artifact with no such row is refused.
+    """
+
+    _require_v2(plan, "--remove-contradiction")
+    _contradiction_place(provisional_file, line)
+    rows = _contradiction_rows(plan)
+    changes = []
+    for identity in artifacts:
+        existing = [number for number, other in enumerate(rows) if _at(other, identity, provisional_file, line)]
+        if not existing:
+            raise SocomError(f"{identity} has no contradiction in {provisional_file} at line {line}")
+        for number in reversed(existing):
+            changes.append(
+                {"artifact": identity, "contradiction_removed": rows[number].get("kind"), "provisional_file": provisional_file, "line": line}
+            )
+            del rows[number]
     return changes
 
 
@@ -372,6 +461,13 @@ def cache_graph(path: Path) -> str | None:
     with closing(sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)) as connection:
         row = connection.execute("SELECT value FROM meta WHERE key = 'graph_sha256'").fetchone()
     return row[0] if row else None
+
+
+def cache_has_artifact(path: Path, identity: str) -> bool:
+    """Whether the cache's graph has the artifact (a contradiction may name one outside the plan)."""
+
+    with closing(sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)) as connection:
+        return connection.execute("SELECT 1 FROM artifacts WHERE id = ?", (identity,)).fetchone() is not None
 
 
 def refresh_annotations(plan: dict[str, Any], path: Path, section_of: Callable[[int], str | None]) -> bool:

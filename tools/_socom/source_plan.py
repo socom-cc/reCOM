@@ -668,6 +668,20 @@ def artifact_ids(owner: dict[str, Any]) -> list[str]:
     return [value for value in map(artifact_id, entries if isinstance(entries, list) else []) if value is not None]
 
 
+def owned_files(plan: Any) -> set[str]:
+    """The source files the plan's authored rows own: each row's ``provisional_file`` and ``workspace_path``.
+
+    A contradiction about an artifact outside the plan's slice is allowed
+    only in one of these files (the plan owns what that file defines).
+    """
+
+    found: set[str] = set()
+    for row in (plan.get("owners") if isinstance(plan, dict) else None) or []:
+        if isinstance(row, dict) and row.get("classification") == "authored":
+            found.update(row[field] for field in ("provisional_file", "workspace_path") if isinstance(row.get(field), str))
+    return found
+
+
 def _address(identity: str) -> int:
     try:
         return int(identity.rsplit(":", 1)[1], 16)
@@ -1018,12 +1032,14 @@ def _check_name_basis(
     (a schema 2 plan that names another records the name's basis; a schema 1
     plan gets a review note).  ``provisional`` and ``invented`` name an
     authored object the ELF does not name: the name is no unit the graph
-    knows, the row's artifacts lie in no cluster that names a unit or library
-    and have no strong unit candidate, and at least one lies in a cluster
-    (the object the row names).  ``invented`` is confidence low;
-    ``provisional`` cites the provisional file it is named after and is at
-    most medium.  Paths, reservation and annotations are checked as for any
-    authored row.
+    knows, and the row's artifacts lie in no cluster that names a unit or
+    library and have no strong or medium unit candidate.  An object with no
+    LOCAL cluster of its own (or whose clusters lie outside the slice, such
+    as its RTTI in ``.rodata``) is allowed: when none of the row's artifacts
+    lies in a cluster, a review note says so.  ``invented`` is confidence
+    low; ``provisional`` cites the provisional file it is named after and is
+    at most medium.  Paths, reservation and annotations are checked as for
+    any authored row.
     """
 
     basis = owner.get("name_basis", NAME_BASIS_DEFAULT)
@@ -1065,15 +1081,18 @@ def _check_name_basis(
                     f"{label} {identity} lies in cluster {cluster_id}, which names {', '.join(names)}: an unnamed "
                     "object's artifacts lie in clusters with no unit or library"
                 )
-            elif row.get("kind") != "gap":
+            else:
                 in_object = True
-        strong = [str(value.get("tu")) for value in row.get("tu_candidates") or [] if value.get("strength") == "strong"]
-        if strong:
-            problems.append(f"{label} {identity} has the strong unit candidate {strong[0]}: the ELF names its unit")
+        for value in row.get("tu_candidates") or []:
+            if value.get("strength") in ("strong", "medium") and value.get("tu"):
+                problems.append(
+                    f"{label} {identity} has the {value['strength']} unit candidate {value['tu']}: the ELF names its unit"
+                )
+                break
     if not in_object:
-        problems.append(
-            f"{label} name_basis {basis}: none of its artifacts lies in a cluster with no unit name (the object it names)"
-        )
+        # No LOCAL cluster in the slice (none at all, or only outside it): the
+        # row rests on its other evidence, which the scrutinizer confirms.
+        review.append(f"{label} name_basis {basis}: none of its artifacts lies in a cluster of the slice")
 
 
 def cross_plan_units(root: Path, tracker: dict[str, Any], item_id: Any) -> tuple[dict[str, list[dict[str, Any]]], list[str]]:
@@ -1599,7 +1618,17 @@ def validate_source_plan(
     if not isinstance(notes, list) or not all(isinstance(value, str) for value in notes):
         problems.append("notes must be a list of strings")
         notes = []
-    contradictions = _check_contradictions(root, plan.get("contradictions"), in_slice, moved_from, retired_by_apply, problems)
+    contradictions = _check_contradictions(
+        root,
+        plan.get("contradictions"),
+        in_slice,
+        moved_from,
+        retired_by_apply,
+        problems,
+        graph_ids={row["id"] for row in graph["artifacts"]},
+        files=owned_files(plan),
+        review=review,
+    )
     report["shared_units"] = _check_cross_plan(root, tracker, item["id"], row_units, problems, review)
     noted = [value for value in notes if value.strip().casefold().startswith(CONTRADICTION_NOTE)]
     if noted:
@@ -1705,13 +1734,21 @@ def _check_contradictions(
     moved_from: dict[str, str],
     retired_by_apply: set[str],
     problems: list[str],
+    *,
+    graph_ids: set[str] | None = None,
+    files: set[str] | None = None,
+    review: list[str] | None = None,
 ) -> int:
     """Check the plan's structured contradictions with provisional source; their count.
 
     Each row names an artifact of the slice, an existing provisional file
     under ``src/`` (in its applied state: a file the apply moved is checked
     at its new path, a retired one is accepted), a line in it (or null), a
-    kind slug and ELF evidence lines.
+    kind slug and ELF evidence lines.  An artifact outside the slice is
+    allowed when it is an artifact of the graph and the file is one an
+    authored row of this plan owns (``files``: its provisional or workspace
+    path), such as an owned file defining a function the ELF places in
+    another segment; the review notes such rows.
     """
 
     if rows is None:
@@ -1720,14 +1757,25 @@ def _check_contradictions(
         problems.append("contradictions must be a list")
         return 0
     seen: set[tuple[Any, ...]] = set()
+    elsewhere: list[str] = []
     for number, row in enumerate(rows, 1):
         if not isinstance(row, dict) or set(row) != set(CONTRADICTION_FIELDS):
             problems.append(f"contradictions row {number} must be {{{', '.join(CONTRADICTION_FIELDS)}}}")
             continue
         identity, path, line, kind = row["artifact"], row["provisional_file"], row["line"], row["kind"]
         label = f"contradiction {number} ({identity})"
-        if not isinstance(identity, str) or identity not in in_slice:
+        if not isinstance(identity, str):
             problems.append(f"{label}: its artifact must lie in the scope's slice")
+        elif identity not in in_slice:
+            if identity not in (graph_ids or ()):
+                problems.append(f"{label}: its artifact is not an artifact of the graph")
+            elif not isinstance(path, str) or path not in (files or ()):
+                problems.append(
+                    f"{label}: its artifact lies outside the scope's slice, so its provisional_file must be one this "
+                    "plan's authored rows own (provisional_file or workspace_path)"
+                )
+            else:
+                elsewhere.append(f"{identity} in {path}")
         if not isinstance(kind, str) or not _CONTRADICTION_KIND.match(kind):
             problems.append(f"{label}: kind must be a lowercase slug such as defined-elsewhere")
         if not _strings(row["elf_evidence"]):
@@ -1755,6 +1803,10 @@ def _check_contradictions(
         if key in seen:
             problems.append(f"{label} is listed twice")
         seen.add(key)
+    if elsewhere and review is not None:
+        review.append(
+            f"{len(elsewhere)} contradictions concern artifacts outside the slice in files this plan owns: {_shown(elsewhere)}"
+        )
     return len(rows)
 
 

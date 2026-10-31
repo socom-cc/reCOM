@@ -11,7 +11,13 @@ import pytest
 from tools._socom import cli
 from tools._socom.source_graph import build_source_graph
 from tools._socom.source_plan import derive_annotations, graph_digest, validate_source_plan
-from tools._socom.source_plan_edit import accept_suggestions, add_contradictions, add_header_emits
+from tools._socom.source_plan_edit import (
+    accept_suggestions,
+    add_contradictions,
+    add_header_emits,
+    decide,
+    remove_contradictions,
+)
 from tools._socom.tracker import load_tracker
 from tools._socom.util import SocomError
 
@@ -27,13 +33,13 @@ def stage3(root: Path) -> dict:
     return undecomposed(load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json"))
 
 
-def unnamed_graph() -> dict:
+def unnamed_graph(candidates: list | None = None) -> dict:
     """The synthetic graph with Get__4CBoxFv in a cluster that names no unit."""
 
     graph = synthetic_graph()
     rows = graph["artifacts"]
     rows[0]["cluster"] = NAMED
-    rows[1].update(cluster=UNNAMED, tu_candidates=[])
+    rows[1].update(cluster=UNNAMED, tu_candidates=candidates or [])
     graph["clusters"] = [
         {"id": NAMED, "members": [rows[0]["id"]], "units": [{"tu": "a.cpp", "signals": ["dwarf-cu"], "artifacts": 1}], "libraries": []},
         {"id": UNNAMED, "members": [rows[1]["id"]], "units": [], "libraries": []},
@@ -44,7 +50,10 @@ def unnamed_graph() -> dict:
 
 @pytest.fixture()
 def unnamed(tmp_path: Path, stage3: dict) -> tuple[Path, dict, dict, dict]:
-    graph = unnamed_graph()
+    return _unnamed(tmp_path, stage3, unnamed_graph())
+
+
+def _unnamed(tmp_path: Path, stage3: dict, graph: dict) -> tuple[Path, dict, dict, dict]:
     tracker = decompose(stage3, graph, DIRECTORIES)
     root = _workspace(tmp_path)
     ids = [row["id"] for row in graph["artifacts"]]
@@ -104,8 +113,6 @@ NAME_DEFECTS = [
      f"lies in cluster {NAMED}, which names a.cpp"),
     (lambda plan, ids: plan["owners"][0]["artifacts"].remove(ids[0]) or _invented(plan)["artifacts"].append(ids[0]),
      "has the strong unit candidate a.cpp"),
-    (lambda plan, ids: plan["owners"][0]["artifacts"].extend([ids[1]]) or plan["owners"][0]["artifacts"].remove(ids[7])
-     or _invented(plan).update(artifacts=[ids[7]]), "none of its artifacts lies in a cluster with no unit name"),
     (lambda plan, ids: _invented(plan).update(name_basis="guessed"), "name_basis must be one of"),
     (lambda plan, ids: _invented(plan).update(name_basis="provisional", confidence="high"), "provisional_file must be that file"),
     (lambda plan, ids: _invented(plan).update(name_basis="provisional", confidence="high"), "its confidence is at most medium"),
@@ -123,6 +130,28 @@ def test_unnamed_object_defects_are_refused(unnamed, change, message: str) -> No
     change(plan, [row["id"] for row in graph["artifacts"]])
     report = _report(unnamed, plan)
     assert any(message in problem for problem in report["problems"]), report["problems"]
+
+
+def test_an_unnamed_object_without_a_cluster_in_the_slice_is_owned(unnamed) -> None:
+    # An object with no LOCAL cluster of its own (or only clusters outside the
+    # slice, such as its RTTI in .rodata) is owned: a review note says so.
+    _root, _tracker, graph, plan = unnamed
+    ids = [row["id"] for row in graph["artifacts"]]
+    plan = copy.deepcopy(plan)
+    plan["owners"][0]["artifacts"].remove(ids[7])
+    plan["owners"][0]["artifacts"].append(ids[1])
+    plan["header_emits"] = []
+    _invented(plan)["artifacts"] = [ids[7]]
+    report = _report(unnamed, plan)
+    assert report["ok"], report["problems"]
+    assert any("name_basis invented: none of its artifacts lies in a cluster of the slice" in note for note in report["review"])
+
+
+def test_an_unnamed_object_with_a_medium_unit_candidate_is_refused(tmp_path: Path, stage3: dict) -> None:
+    medium = [{"tu": "a.cpp", "strength": "medium", "via": ["between"], "sinit_order": None}]
+    setup = _unnamed(tmp_path, stage3, unnamed_graph(medium))
+    report = _report(setup, setup[3])
+    assert any("has the medium unit candidate a.cpp: the ELF names its unit" in problem for problem in report["problems"])
 
 
 def test_schema_1_plans_cannot_record_a_name_basis(unnamed) -> None:
@@ -292,6 +321,85 @@ def test_contradiction_and_header_emit_rows(unnamed) -> None:
     assert report["summary"]["contradictions"] == 1
 
 
+def test_contradictions_are_replaced_and_removed(unnamed) -> None:
+    root, _tracker, graph, plan = unnamed
+    ids = [row["id"] for row in graph["artifacts"]]
+    plan = copy.deepcopy(plan)
+    place = {"provisional_file": "src/gamez/zFoo/a.cpp", "line": 1, "root": root}
+    add_contradictions(plan, [ids[0]], kind="defined-elsewhere", elf_evidence=["x"], **place)
+    with pytest.raises(SocomError, match="needs --evidence"):
+        add_contradictions(plan, [ids[0]], kind="signature", elf_evidence=["y"], override=True, **place)
+    with pytest.raises(SocomError, match="no contradiction in src/gamez/zFoo/a.cpp at line None to replace"):
+        add_contradictions(plan, [ids[0]], kind="signature", elf_evidence=["y"], override=True, override_evidence="z",
+                           **{**place, "line": None})
+    # --override replaces the artifact's rows at that file and line, whatever their kind.
+    changes = add_contradictions(plan, [ids[0]], kind="signature", elf_evidence=["a_first reads $a0"], override=True,
+                                 override_evidence="the definition is right; its signature is not", **place)
+    assert changes[0]["replaced"] == ["defined-elsewhere"]
+    assert plan["contradictions"] == [{"artifact": ids[0], "provisional_file": "src/gamez/zFoo/a.cpp", "line": 1,
+                                       "kind": "signature", "elf_evidence": ["a_first reads $a0"]}]
+    assert plan["notes"][-1] == (f"override contradiction {ids[0]} in src/gamez/zFoo/a.cpp:1: the plan gave defined-elsewhere; "
+                                 "the definition is right; its signature is not")
+    with pytest.raises(SocomError, match="has no contradiction in src/gamez/zFoo/a.cpp at line None"):
+        remove_contradictions(plan, [ids[0]], provisional_file="src/gamez/zFoo/a.cpp", line=None)
+    assert remove_contradictions(plan, [ids[0]], provisional_file="src/gamez/zFoo/a.cpp", line=1) == [
+        {"artifact": ids[0], "contradiction_removed": "signature", "provisional_file": "src/gamez/zFoo/a.cpp", "line": 1}
+    ]
+    assert plan["contradictions"] == []
+
+
+def test_a_contradiction_may_name_an_artifact_outside_the_plan_in_an_owned_file(unnamed) -> None:
+    root, _tracker, graph, plan = unnamed
+    ids = [row["id"] for row in graph["artifacts"]]
+    known = {row["id"] for row in graph["artifacts"]}
+    plan = copy.deepcopy(plan)
+    # b_main lies in segment 3: the owned a.cpp defining it contradicts the ELF.
+    outside = ids[5]
+    arguments = {"kind": "defined-elsewhere", "line": 1, "elf_evidence": ["the ELF places b_main in segment 3"], "root": root}
+    with pytest.raises(SocomError, match="must lie in a file this plan's authored rows own"):
+        add_contradictions(plan, [outside], provisional_file="src/gamez/zFoo/stale.cpp", in_graph=known.__contains__,
+                           **{**arguments, "line": None})
+    with pytest.raises(SocomError, match="nor an artifact of the graph"):
+        add_contradictions(plan, ["socom:function:0x999999"], provisional_file="src/gamez/zFoo/a.cpp",
+                           in_graph=known.__contains__, **arguments)
+    with pytest.raises(SocomError, match="nor an artifact of the graph"):
+        add_contradictions(plan, [outside], provisional_file="src/gamez/zFoo/a.cpp", **arguments)
+    changes = add_contradictions(plan, [outside], provisional_file="src/gamez/zFoo/a.cpp", in_graph=known.__contains__, **arguments)
+    assert changes[0]["outside_plan"] is True
+    report = _report(unnamed, plan)
+    assert report["ok"], report["problems"]
+    assert any(f"1 contradictions concern artifacts outside the slice in files this plan owns: {outside} in "
+               "src/gamez/zFoo/a.cpp" in note for note in report["review"]), report["review"]
+    # Validation holds the same line: the file must be owned, the artifact the graph's.
+    plan["contradictions"][0]["provisional_file"] = "src/gamez/zFoo/stale.cpp"
+    plan["contradictions"].append(dict(plan["contradictions"][0], artifact="socom:function:0x999999",
+                                       provisional_file="src/gamez/zFoo/a.cpp"))
+    problems = _report(unnamed, plan)["problems"]
+    assert any("its provisional_file must be one this plan's authored rows own" in problem for problem in problems), problems
+    assert any("socom:function:0x999999): its artifact is not an artifact of the graph" in problem for problem in problems)
+
+
+def test_decide_keeps_an_owner_row_added_by_hand(unnamed) -> None:
+    _root, _tracker, graph, plan = unnamed
+    ids = [row["id"] for row in graph["artifacts"]]
+    plan = copy.deepcopy(plan)
+    plan["schema_version"] = 2
+    hand = {"translation_unit": "zfoo_crate.cpp", "classification": "authored", "workspace_path": "src/gamez/zFoo/zfoo_crate.cpp",
+            "original_path": None, "provisional_file": None, "library": None, "archive_member": None, "confidence": "low",
+            "name_basis": "invented", "evidence": ["a second unnamed object"], "artifacts": []}
+    plan["owners"].append(hand)
+    # A decision elsewhere keeps the empty row the planner added (validation still asks for its artifacts).
+    changes = decide(plan, [ids[7]], unresolved="read by two units")
+    assert changes == [{"artifact": ids[7], "from": "authored a.cpp", "to": "unresolved"}]
+    assert plan["owners"][-1] is hand
+    assert any("(zfoo_crate.cpp) must list its artifacts" in problem for problem in _report(unnamed, plan)["problems"])
+    decide(plan, [ids[7]], owner="zfoo_crate.cpp", confidence="low", basis="read only by the crate object")
+    assert hand["artifacts"] == [{"artifact": ids[7], "confidence": "low", "basis": "read only by the crate object"}]
+    # A row the call itself empties is dropped, and the change says so.
+    changes = decide(plan, [ids[7]], unresolved="read by two units")
+    assert changes[-1] == {"row_removed": "authored zfoo_crate.cpp"} and hand not in plan["owners"]
+
+
 # -- the CLI ------------------------------------------------------------------------------------
 
 
@@ -399,6 +507,54 @@ def test_decide_cli_accepts_suggestions_and_adds_rows(tmp_path: Path, capsys) ->
         (["--contradiction", "signature", "--elf-evidence", "x"], "needs --provisional-file"),
         (["--header-emit", "src/a.h", "--emit-evidence", "x"], "needs --reason"),
         (["--unresolved", "x", "--provisional-file", "src/a.cpp"], "do not apply to --unresolved"),
+        (["--remove-contradiction", "--provisional-file", "src/a.cpp", "--elf-evidence", "x"], "do not apply to --remove-contradiction"),
+        (["--remove-contradiction", "--provisional-file", "src/a.cpp", "--override"], "do not apply to --remove-contradiction"),
+        (["--remove-contradiction", "--line", "2"], "--remove-contradiction needs --provisional-file"),
+        (["--contradiction", "signature", "--remove-contradiction"], "give exactly one of"),
     ):
         assert cli.main([*decide, "--artifact", "socom:function:0x100010", *extra]) == 2
         assert message in json.loads(capsys.readouterr().out)["error"]
+
+
+def test_decide_cli_replaces_removes_and_places_contradictions(tmp_path: Path, capsys) -> None:
+    base, path = _cli_workspace(tmp_path)
+    decide = [*base, "decide", "--plan", "build/source-plans/plan.json"]
+    at_line = ["--provisional-file", "src/a.cpp", "--line", "2"]
+
+    def run(*extra: str) -> dict:
+        code = cli.main([*decide, *extra])
+        report = json.loads(capsys.readouterr().out)
+        assert code == 0, report
+        return report
+
+    run("--artifact", "socom:function:0x100000", "--contradiction", "signature", *at_line, "--elf-evidence", "x")
+    report = run("--artifact", "socom:function:0x100000", "--contradiction", "defined-elsewhere", *at_line,
+                 "--elf-evidence", "the ELF places it later", "--override", "--evidence", "not a signature problem")
+    assert report["changes"][0]["replaced"] == ["signature"]
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    assert [row["kind"] for row in saved["contradictions"]] == ["defined-elsewhere"]
+    # Run__4CDirFv lies outside the plan; src/a.cpp is a.cpp's workspace file.
+    report = run("--artifact", "socom:function:0x100060", "--contradiction", "defined-elsewhere", *at_line,
+                 "--elf-evidence", "Run__4CDirFv lies in another segment")
+    assert report["changes"][0]["outside_plan"] is True
+    assert cli.main([*decide, "--artifact", "socom:function:0x100064", "--contradiction", "defined-elsewhere", *at_line,
+                     "--elf-evidence", "x"]) == 2
+    assert "nor an artifact of the graph" in json.loads(capsys.readouterr().out)["error"]
+    report = run("--artifact", "socom:function:0x100000", "--artifact", "socom:function:0x100060", "--remove-contradiction", *at_line)
+    assert [change["contradiction_removed"] for change in report["changes"]] == ["defined-elsewhere", "defined-elsewhere"]
+    assert json.loads(path.read_text(encoding="utf-8"))["contradictions"] == []
+
+
+def test_source_sql_output_writes_the_result_under_build(tmp_path: Path, capsys) -> None:
+    _cli_workspace(tmp_path)
+    base = ["--root", str(tmp_path), "source", "sql", "SELECT id FROM artifacts WHERE kind = 'function' ORDER BY address"]
+    assert cli.main([*base, "--limit", "3", "--output", "build/sql/functions.txt"]) == 0
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["rows"] == 3 and summary["truncated"] is True and summary["mutation_performed"] is False
+    text = (tmp_path / "build" / "sql" / "functions.txt").read_text(encoding="utf-8").splitlines()
+    assert text[:2] == ["id", "socom:function:0x100000"] and text[-1].startswith("... (truncated at 3 rows")
+    assert cli.main([*base, "--format", "json", "--output", "build/sql/functions.json"]) == 0
+    assert json.loads(capsys.readouterr().out)["rows"] == 9
+    assert json.loads((tmp_path / "build" / "sql" / "functions.json").read_text(encoding="utf-8"))["rows"][0] == ["socom:function:0x100000"]
+    assert cli.main([*base, "--output", "src/functions.txt"]) == 2
+    assert "only be written under build/" in json.loads(capsys.readouterr().out)["error"]

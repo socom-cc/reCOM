@@ -282,12 +282,13 @@ python tools/socom.py source plan decide --plan build/source-plans/<slug>.json -
   (--owner <unit | 0xGNU | object | library:object> --confidence <c> --basis "<evidence>" | --unresolved "<reason>" | --accept-suggestion) `
   [--override --evidence "<why the draft rule is wrong>"]
 python tools/socom.py source plan decide --plan <plan> --artifact <id> --contradiction <kind> `
-  --provisional-file src/... [--line N] --elf-evidence "<line>" [--elf-evidence ...]
+  --provisional-file src/... [--line N] --elf-evidence "<line>" [--elf-evidence ...] [--override --evidence "<why>"]
+python tools/socom.py source plan decide --plan <plan> --artifact <id> --remove-contradiction --provisional-file src/... [--line N]
 python tools/socom.py source plan decide --plan <plan> --artifact <id> --header-emit <src/...h | <name>> [--library <lib>] `
   --reason <template|inline|weak> --emit-evidence "<line>" [--emit-evidence ...] [--override --evidence "<why>"]
-python tools/socom.py source sql "SELECT ..."          # questions about the open rows
+python tools/socom.py source sql "SELECT ..." [--output build/...]   # questions about the open rows
 python tools/socom.py source plan validate --plan build/source-plans/<slug>.json --check --fill-annotations
-python tools/socom.py source plan validate --plan build/source-plans/<slug>.json --check
+python tools/socom.py source plan validate --plan build/source-plans/<slug>.json --check [--output build/...]
 python tools/socom.py source plan draft --check build/source-plans/<slug>.json
 python tools/socom.py provider archive --lib <path> [--member <name>] [--format text]   # provider plans
 ```
@@ -321,14 +322,17 @@ instead.
 `source plan decide` records one decision: it moves the artifacts into an
 existing owner row as `{artifact, confidence, basis}` entries
 (hand-written, without `draft_rule`) or into `unresolved` with the reason,
-keeps the row's confidence its weakest entry's, drops an owner row it
-empties, and re-derives `annotations` when the cache holds the plan's
-graph. It loads and dumps JSON (never text), refuses control characters and
+keeps the row's confidence its weakest entry's, drops an owner row the
+call empties (the change list says `row_removed`) but keeps one that was
+already empty, and re-derives `annotations` when the cache holds the
+plan's graph. It loads and dumps JSON (never text), refuses control characters and
 schema 1 plans, and refuses to move an artifact a draft rule decided unless
 `--override` gives `--evidence`, which it keeps as a plan note `override
 <artifact>: the draft gave <owner> (<rule>); <evidence>`. Add a new owner
-row by hand once, then decide its artifacts. Each call records exactly one
-kind of decision; options of another kind are refused.
+row by hand once (with empty `artifacts`), then decide its artifacts: the
+empty row survives other decisions until then, and `source plan validate`
+reports it while it lists none. Each call records exactly one kind of
+decision; options of another kind are refused.
 
 - `--accept-suggestion` records each named open row's `suggest`
   `{owner, rule, confidence, basis}` (written by the drafter on rows it
@@ -337,11 +341,21 @@ kind of decision; options of another kind are refused.
   `draft_rule` is written, and the reviewer reviews it like any hand entry.
   The change list names the suggestion's rule. A row without a suggestion,
   or whose suggested owner row does not exist, is refused.
-- `--contradiction <kind>` adds one `contradictions` row per artifact (the
-  artifact must be listed in the plan) with `--provisional-file`, `--line`
-  (omit it for a file-level contradiction) and one or more
-  `--elf-evidence` lines; the file must exist exactly and hold that line,
-  and a repeated row is refused.
+- `--contradiction <kind>` adds one `contradictions` row per artifact with
+  `--provisional-file`, `--line` (omit it for a file-level contradiction)
+  and one or more `--elf-evidence` lines; the file must exist exactly and
+  hold that line, and a repeated row is refused. The artifact is listed in
+  the plan, or lies outside it when the file is one this plan's authored
+  rows own (a `provisional_file` or `workspace_path`) and the artifact is
+  in the cache's graph: an owned `game_main.cpp:22` that defines
+  `StartPlay`, which the ELF places in another segment. With `--override
+  --evidence` the new row replaces the artifact's rows at that file and
+  line, whatever their kind, kept as a plan note `override contradiction
+  <artifact> in <file>[:<line>]: the plan gave <kinds>; <evidence>`.
+- `--remove-contradiction` removes each artifact's `contradictions` rows at
+  `--provisional-file` and `--line` (omitted: its file-level rows); the
+  rows are the planner's own, so no evidence is asked. An artifact without
+  such a row is refused.
 - `--header-emit <header>` adds one hand `header_emits` row per artifact
   (owned by an authored row of the plan) with `--reason` and one or more
   `--emit-evidence` lines: a header under `src/`, or `<name>` with
@@ -674,7 +688,10 @@ Schema 2 additions (each optional):
   workspace file instead of `defines`; no workspace header is written;
 - `contradictions`: each place where existing provisional source disagrees
   with what the ELF decides, as `{artifact, provisional_file, line, kind,
-  elf_evidence}`. The artifact lies in the plan's slice; `provisional_file`
+  elf_evidence}`. The artifact lies in the plan's slice, or is another
+  artifact of the graph when `provisional_file` is a file an authored row
+  of this plan owns (its `provisional_file` or `workspace_path`: the plan
+  owns what that file defines); `provisional_file`
   names an existing file under `src/` exactly (checked at its new path once
   the apply moved it; a retired one is accepted); `line` is a line of that
   file or null for a file-level contradiction; `kind` is a lowercase slug
@@ -693,7 +710,10 @@ Schema 2 additions (each optional):
   confidence `medium` (at most); otherwise the planner invents a
   descriptive file name from the object's main class (`zsys_spr.cpp`) with
   `name_basis: "invented"` and confidence `low`. When one object or two is
-  unproven, one row covers them and a note says so;
+  unproven, one row covers them and a note says so. The object need not
+  have a LOCAL cluster in the slice: a proven object with none (an
+  unnamed run of functions, a `.vutext` gap) or whose clusters lie outside
+  the slice (its RTTI and vtables in `.rodata`) is owned the same way;
 - an unresolved row's `suggest` `{owner, rule, confidence, basis}`: the
   drafter's suggestion for a row it leaves open (`owner` is an owner key of
   the plan). `source plan decide --accept-suggestion` records it as a hand
@@ -757,14 +777,16 @@ when the apply's reservation is inferred.
 - a `retire_files` row names an existing file under `src/` exactly that no
   row cites, with a reason and evidence. The apply deletes it with history;
 - a `contradictions` row (schema 2) has exactly its five fields as above,
-  and is not listed twice;
+  and is not listed twice. An artifact outside the slice must be an
+  artifact of the graph, and its `provisional_file` a file this plan's
+  authored rows own;
 - `name_basis` (schema 2) is `evidence`, `provisional` or `invented`. An
   `evidence` authored row of a schema 2 plan names a unit the graph knows
   (in a schema 1 plan another name is a review note). A `provisional` or
   `invented` row is authored; its unit is no unit the graph knows; none of
   its artifacts lies in a cluster that names a unit or library or has a
-  strong unit candidate, and at least one lies in a cluster (the object the
-  row names); `invented` has confidence `low`; `provisional` cites the
+  strong or medium unit candidate (when none lies in a cluster at all, a
+  review note says so); `invented` has confidence `low`; `provisional` cites the
   provisional file it is named after as `provisional_file` and has
   confidence `medium` or `low`. Its paths, reservation and annotations are
   checked as for any authored row;
@@ -802,10 +824,14 @@ at a time. It also lists review notes: owned artifacts whose classification
 differs from the graph's candidate or that have no candidate (`unknown`),
 uncertain GNU object ends, provider rows outside a provider plan, owned
 inline (binding 13) or WEAK functions that no header-emit row emits (their
-owner's file defines them), and `contradiction:` notes that a new plan
-records in `contradictions`. A plan with contradictions counts them in
+owner's file defines them), `provisional` or `invented` rows none of
+whose artifacts lies in a cluster, contradictions about artifacts outside
+the slice, and `contradiction:` notes that a new plan records in
+`contradictions`. A plan with contradictions counts them in
 `summary.contradictions`. These are for the scrutinizer and do not make
-the plan invalid.
+the plan invalid. `--output <file under build/>` writes the whole report
+there (JSON) and prints only its verdict, summary and the counts of
+problems and review notes; the exit status is the same.
 
 ### Reopening an accepted plan
 
@@ -851,7 +877,8 @@ derived from `--graph` (default `build/source-graph/graph.json`, written
 from the ELF when missing or with `--from-elf`), the ELF facts the graph
 does not store, the census and the `src/` file list, and is rebuilt whenever
 one of them changes. Addresses are integers (`printf('0x%x', address)`
-prints hex); IDs spell them in hex.
+prints hex); IDs spell them in hex. `--output <file under build/>` writes
+the result (in `--format`) there and prints only its columns and row count.
 
 | Table | Rows |
 | --- | --- |

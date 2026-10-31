@@ -41,7 +41,7 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "name_basis for unnamed objects), provider, header-emit, contradiction and annotation rows, provisional "
             "files, no control characters, units agreeing with handed-off and accepted plans, and the graph and slice "
             "digests (--check regenerates the graph from the ELF); reports the other applies sharing each reserved "
-            "directory.",
+            "directory; --output writes the full report under build/ and prints its counts.",
         ),
         spec(
             "source plan open",
@@ -56,8 +56,10 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "source",
             "Record one decision in a schema 2 source-owner plan under build/: move artifacts into an existing owner "
             "row with confidence and basis, into unresolved with a reason, or by --accept-suggestion as the drafter "
-            "suggested; or add a contradictions or header_emits row; JSON load/dump, no control characters, drafted "
-            "rows only with --override and --evidence; re-derives the annotations.",
+            "suggested; add a contradictions row (outside the plan only in a file it owns) or header_emits row, "
+            "replacing one with --override, or remove a contradiction; keeps hand-added empty owner rows; JSON "
+            "load/dump, no control characters, drafted rows only with --override and --evidence; re-derives the "
+            "annotations.",
             mutates=True,
         ),
         spec(
@@ -65,7 +67,7 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "source",
             "Run one read-only SELECT/WITH over build/cache/source-graph.sqlite, a derived cache of the source graph, "
             "its relocations, DWARF units and lines, LOCAL symbols, per-object LOCAL section runs and src/ files, "
-            "rebuilt when its inputs change.",
+            "rebuilt when its inputs change; --output writes the result under build/ and prints its row count.",
         ),
     )
 
@@ -99,6 +101,7 @@ def register(source_commands: Any) -> None:
         action="store_true",
         help="first rewrite the plan's annotations with the targets its owner and header-emit rows imply",
     )
+    validate.add_argument("--output", help="write the full report (JSON) to this file under build/ and print its counts")
     validate.set_defaults(handler=_source_plan_validate)
     view = plan_commands.add_parser("open")
     view.add_argument("--plan", required=True)
@@ -119,7 +122,16 @@ def register(source_commands: Any) -> None:
         action="store_true",
         help="record each open row's suggest {owner, rule, confidence, basis} as a hand entry of that owner row",
     )
-    decide.add_argument("--contradiction", metavar="KIND", help="add a contradictions row of this kind slug per artifact")
+    decide.add_argument(
+        "--contradiction",
+        metavar="KIND",
+        help="add a contradictions row of this kind slug per artifact (with --override: replace its rows at that file and line)",
+    )
+    decide.add_argument(
+        "--remove-contradiction",
+        action="store_true",
+        help="remove each artifact's contradictions rows at --provisional-file and --line",
+    )
     decide.add_argument("--provisional-file", help="the provisional file a --contradiction disagrees with")
     decide.add_argument("--line", type=int, help="the --contradiction's line in that file (omit for a file-level one)")
     decide.add_argument("--elf-evidence", action="append", help="an ELF evidence line of the --contradiction (repeat)")
@@ -128,7 +140,9 @@ def register(source_commands: Any) -> None:
     decide.add_argument("--library", help="the provider library of a <name> --header-emit")
     decide.add_argument("--emit-evidence", action="append", help="an evidence line of the --header-emit (repeat)")
     decide.add_argument(
-        "--override", action="store_true", help="move an artifact a draft rule decided, or replace a header-emit row"
+        "--override",
+        action="store_true",
+        help="move an artifact a draft rule decided, or replace a header-emit or contradiction row",
     )
     decide.add_argument("--evidence", help="why the draft rule or row is wrong (with --override); kept as a plan note")
     decide.add_argument("--graph", default=DEFAULT_GRAPH)
@@ -137,6 +151,7 @@ def register(source_commands: Any) -> None:
     sql.add_argument("statement")
     sql.add_argument("--limit", type=int, default=200)
     sql.add_argument("--format", choices=("text", "json"), default="text")
+    sql.add_argument("--output", help="write the result (in --format) to this file under build/ instead of stdout")
     sql.add_argument("--graph", default=DEFAULT_GRAPH)
     sql.add_argument(
         "--from-elf", action="store_true", help="regenerate the graph from support/socom.elf (and rewrite --graph)"
@@ -272,6 +287,7 @@ def _source_plan_validate(arguments: argparse.Namespace) -> int:
     from .util import atomic_write_json, load_json, sha256_file
 
     root = _root(arguments)
+    output = _build_path(root, arguments.output, "source plan validate") if arguments.output else None
     plan_path = _path(root, arguments.plan)
     plan = load_json(plan_path)
     tracker = load_tracker(tracker_path(root))
@@ -296,27 +312,35 @@ def _source_plan_validate(arguments: argparse.Namespace) -> int:
     apply = next((row for row in tracker.get("work_items", []) if row.get("id") == f"{item_id}-apply"), None)
     own = ((apply or {}).get("source_apply") or {}).get("plan_sha256") == sha256
     report = validate_source_plan(root, tracker, plan, graph, section_of=section_of, applied=applied)
-    _emit(
-        {
-            "ok": report["ok"],
-            # --fill-annotations rewrites the plan file (under build/) when its annotations change.
-            "mutation_performed": filled,
-            "plan": arguments.plan,
-            "sha256": sha256,
-            "graph": origin,
-            "graph_sha256": graph.get("graph_sha256"),
-            "annotations_filled": filled,
-            "applied": own,
-            "reservation": report.get("reservation"),
-            # For each reserved directory, the other segment applies that reserve it (they apply one at a time).
-            "reservation_shared_with": report.get("reservation_shared_with"),
-            # Units this plan shares with handed-off or accepted plans, and whether their paths agree.
-            "shared_units": report.get("shared_units"),
-            "summary": report["summary"],
-            "review": report["review"],
-            "problems": report["problems"],
+    result = {
+        "ok": report["ok"],
+        # --fill-annotations rewrites the plan file (under build/) when its annotations change.
+        "mutation_performed": filled,
+        "plan": arguments.plan,
+        "sha256": sha256,
+        "graph": origin,
+        "graph_sha256": graph.get("graph_sha256"),
+        "annotations_filled": filled,
+        "applied": own,
+        "reservation": report.get("reservation"),
+        # For each reserved directory, the other segment applies that reserve it (they apply one at a time).
+        "reservation_shared_with": report.get("reservation_shared_with"),
+        # Units this plan shares with handed-off or accepted plans, and whether their paths agree.
+        "shared_units": report.get("shared_units"),
+        "summary": report["summary"],
+        "review": report["review"],
+        "problems": report["problems"],
+    }
+    if output is not None:
+        # The full report is a disposable file under build/; the planner reads it in parts.
+        atomic_write_json(output, result)
+        kept = ("ok", "mutation_performed", "plan", "sha256", "graph", "annotations_filled", "applied", "summary")
+        result = {key: result[key] for key in kept} | {
+            "output": arguments.output,
+            "problems": len(report["problems"]),
+            "review": len(report["review"]),
         }
-    )
+    _emit(result)
     return 0 if report["ok"] else 1
 
 
@@ -377,7 +401,7 @@ def _source_plan_open(arguments: argparse.Namespace) -> int:
     return 0
 
 
-DECISIONS = ("--owner", "--unresolved", "--accept-suggestion", "--contradiction", "--header-emit")
+DECISIONS = ("--owner", "--unresolved", "--accept-suggestion", "--contradiction", "--remove-contradiction", "--header-emit")
 
 
 def _decision(arguments: argparse.Namespace) -> str:
@@ -389,23 +413,30 @@ def _decision(arguments: argparse.Namespace) -> str:
         flag
         for flag, value in zip(
             DECISIONS,
-            (arguments.owner, arguments.unresolved, arguments.accept_suggestion or None, arguments.contradiction, arguments.header_emit),
+            (
+                arguments.owner,
+                arguments.unresolved,
+                arguments.accept_suggestion or None,
+                arguments.contradiction,
+                arguments.remove_contradiction or None,
+                arguments.header_emit,
+            ),
         )
         if value is not None
     ]
     if len(given) != 1:
         raise SocomError(f"give exactly one of {', '.join(DECISIONS)} (with its options)")
     decision = given[0]
+    contradiction = decision in ("--contradiction", "--remove-contradiction")
     stray = {
         "--confidence/--basis": (arguments.confidence, arguments.basis) if decision != "--owner" else (),
-        "--provisional-file/--line/--elf-evidence": (arguments.provisional_file, arguments.line, arguments.elf_evidence)
-        if decision != "--contradiction"
-        else (),
+        "--provisional-file/--line": (arguments.provisional_file, arguments.line) if not contradiction else (),
+        "--elf-evidence": (arguments.elf_evidence,) if decision != "--contradiction" else (),
         "--reason/--library/--emit-evidence": (arguments.reason, arguments.library, arguments.emit_evidence)
         if decision != "--header-emit"
         else (),
         "--override/--evidence": (arguments.override or None, arguments.evidence)
-        if decision in ("--accept-suggestion", "--contradiction")
+        if decision in ("--accept-suggestion", "--remove-contradiction")
         else (),
     }
     for flags, values in stray.items():
@@ -424,8 +455,10 @@ def _source_plan_decide(arguments: argparse.Namespace) -> int:
         add_contradictions,
         add_header_emits,
         cache_graph,
+        cache_has_artifact,
         decide,
         refresh_annotations,
+        remove_contradictions,
     )
     from .util import SocomError, atomic_write_json, load_json
 
@@ -433,20 +466,40 @@ def _source_plan_decide(arguments: argparse.Namespace) -> int:
     target = _build_path(root, arguments.plan, "source plans")
     decision = _decision(arguments)
     plan = load_json(target)
+    graph_path = _path(root, arguments.graph)
+    caches: list[Path] = []
+
+    def cache() -> Path | None:
+        """The query cache of --graph, built once and only when needed."""
+
+        if not caches and graph_path.is_file():
+            caches.append(_plan_cache(root, arguments))
+        return caches[0] if caches else None
+
+    def in_graph(identity: str) -> bool:
+        path = cache()
+        return path is not None and cache_has_artifact(path, identity)
+
     if decision == "--accept-suggestion":
         changes = accept_suggestions(plan, arguments.artifact)
-    elif decision == "--contradiction":
+    elif decision in ("--contradiction", "--remove-contradiction"):
         if not arguments.provisional_file:
-            raise SocomError("--contradiction needs --provisional-file")
-        changes = add_contradictions(
-            plan,
-            arguments.artifact,
-            kind=arguments.contradiction,
-            provisional_file=arguments.provisional_file,
-            line=arguments.line,
-            elf_evidence=arguments.elf_evidence,
-            root=root,
-        )
+            raise SocomError(f"{decision} needs --provisional-file")
+        if decision == "--remove-contradiction":
+            changes = remove_contradictions(plan, arguments.artifact, provisional_file=arguments.provisional_file, line=arguments.line)
+        else:
+            changes = add_contradictions(
+                plan,
+                arguments.artifact,
+                kind=arguments.contradiction,
+                provisional_file=arguments.provisional_file,
+                line=arguments.line,
+                elf_evidence=arguments.elf_evidence,
+                root=root,
+                in_graph=in_graph,
+                override=arguments.override,
+                override_evidence=arguments.evidence,
+            )
     elif decision == "--header-emit":
         if not arguments.reason:
             raise SocomError("--header-emit needs --reason")
@@ -472,9 +525,8 @@ def _source_plan_decide(arguments: argparse.Namespace) -> int:
             evidence=arguments.evidence,
         )
     annotations = "stale: run source plan validate --fill-annotations"
-    graph_path = _path(root, arguments.graph)
-    if graph_path.is_file():
-        path = _plan_cache(root, arguments)
+    path = cache()
+    if path is not None:
         if cache_graph(path) == plan.get("graph_sha256"):
             refresh_annotations(plan, path, loaded_section_lookup(root))
             annotations = "re-derived"
@@ -497,9 +549,10 @@ def _source_sql(arguments: argparse.Namespace) -> int:
 
     from .cli import _build_path, _emit, _root
     from .source_cache import ensure_source_cache, query
-    from .util import atomic_write_json
+    from .util import atomic_write_json, atomic_write_text
 
     root = _root(arguments)
+    output = _build_path(root, arguments.output, "source sql") if arguments.output else None
     graph_path = _path(root, arguments.graph)
     if arguments.from_elf or not graph_path.is_file():
         # The graph JSON is disposable build output: write it once for later queries.
@@ -509,13 +562,33 @@ def _source_sql(arguments: argparse.Namespace) -> int:
         atomic_write_json(_build_path(root, arguments.graph, "source graphs"), graph)
     path, rebuilt = ensure_source_cache(root, graph_path=graph_path)
     result = query(path, arguments.statement, arguments.limit)
-    if arguments.format == "json":
-        _emit({**result, "cache": path.relative_to(root).as_posix(), "rebuilt": rebuilt})
+    cache = path.relative_to(root).as_posix()
+    if arguments.format == "json" and output is None:
+        _emit({**result, "cache": cache, "rebuilt": rebuilt})
+        return 0
+    lines = ["\t".join(result["columns"])]
+    lines.extend("\t".join("" if value is None else str(value) for value in row) for row in result["rows"])
+    if result["truncated"]:
+        lines.append(f"... (truncated at {arguments.limit} rows; use --limit)")
+    if output is not None:
+        # A disposable result under build/: a large answer stays out of the caller's context.
+        if arguments.format == "json":
+            atomic_write_json(output, {**result, "cache": cache, "rebuilt": rebuilt})
+        else:
+            atomic_write_text(output, "\n".join(lines) + "\n")
+        _emit(
+            {
+                "ok": True,
+                "mutation_performed": False,
+                "output": arguments.output,
+                "format": arguments.format,
+                "columns": result["columns"],
+                "rows": len(result["rows"]),
+                "truncated": result["truncated"],
+                "rebuilt": rebuilt,
+            }
+        )
         return 0
     sys.stdout.reconfigure(encoding="utf-8")
-    print("\t".join(result["columns"]))
-    for row in result["rows"]:
-        print("\t".join("" if value is None else str(value) for value in row))
-    if result["truncated"]:
-        print(f"... (truncated at {arguments.limit} rows; use --limit)")
+    sys.stdout.write("\n".join(lines) + "\n")
     return 0
