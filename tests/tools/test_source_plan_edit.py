@@ -442,7 +442,20 @@ def _cli_workspace(tmp_path: Path) -> tuple[list[str], Path]:
     path = tmp_path / "build" / "source-plans" / "plan.json"
     path.parent.mkdir(parents=True)
     path.write_text(json.dumps(plan), encoding="utf-8")
+    _lease(tmp_path, "socom:work:source-segment-001")
     return ["--root", str(tmp_path), "source", "plan"], path
+
+
+LEASE = ["--lease-owner", "planner"]
+
+
+def _lease(root: Path, item: str, owner: str = "planner", expires: str = "2099-01-01T00:00:00Z", status: str = "in_progress") -> None:
+    """A minimal tracker in which ``owner`` holds ``item``'s lease (source plan decide checks it)."""
+
+    (root / ".agent").mkdir(exist_ok=True)
+    lease = {"owner": owner, "claimed_at": "2026-10-31T00:00:00Z", "heartbeat_at": "2026-10-31T00:00:00Z", "expires_at": expires}
+    tracker = {"work_items": [{"id": item, "status": status, "lease": lease if status == "in_progress" else None}]}
+    (root / ".agent" / "RECONSTRUCTION_PROGRESS.json").write_text(json.dumps(tracker), encoding="utf-8")
 
 
 def test_open_shows_flanks_referencing_units_and_suggestions(tmp_path: Path, capsys) -> None:
@@ -475,7 +488,7 @@ def test_open_shows_flanks_referencing_units_and_suggestions(tmp_path: Path, cap
 
 def test_decide_cli_accepts_suggestions_and_adds_rows(tmp_path: Path, capsys) -> None:
     base, path = _cli_workspace(tmp_path)
-    decide = [*base, "decide", "--plan", "build/source-plans/plan.json"]
+    decide = [*base, "decide", "--plan", "build/source-plans/plan.json", *LEASE]
     assert cli.main([*decide, "--artifact", "socom:function:0x100038", "--accept-suggestion"]) == 0
     report = json.loads(capsys.readouterr().out)
     assert report["changes"][0]["suggestion"] == "S-sole-caller" and report["open_rows"] == 1
@@ -518,7 +531,7 @@ def test_decide_cli_accepts_suggestions_and_adds_rows(tmp_path: Path, capsys) ->
 
 def test_decide_cli_replaces_removes_and_places_contradictions(tmp_path: Path, capsys) -> None:
     base, path = _cli_workspace(tmp_path)
-    decide = [*base, "decide", "--plan", "build/source-plans/plan.json"]
+    decide = [*base, "decide", "--plan", "build/source-plans/plan.json", *LEASE]
     at_line = ["--provisional-file", "src/a.cpp", "--line", "2"]
 
     def run(*extra: str) -> dict:
@@ -557,4 +570,81 @@ def test_source_sql_output_writes_the_result_under_build(tmp_path: Path, capsys)
     assert json.loads(capsys.readouterr().out)["rows"] == 9
     assert json.loads((tmp_path / "build" / "sql" / "functions.json").read_text(encoding="utf-8"))["rows"][0] == ["socom:function:0x100000"]
     assert cli.main([*base, "--output", "src/functions.txt"]) == 2
+    assert "only be written under build/" in json.loads(capsys.readouterr().out)["error"]
+
+
+def test_decide_cli_requires_the_item_lease(tmp_path: Path, capsys) -> None:
+    base, path = _cli_workspace(tmp_path)
+    before = path.read_text(encoding="utf-8")
+    decide = [*base, "decide", "--plan", "build/source-plans/plan.json", "--artifact", "socom:function:0x100010",
+              "--unresolved", "read by two units"]
+    for setup, owner, message in (
+        ({}, "someone", "is leased by planner, not someone"),
+        ({"expires": "2020-01-01T00:00:00Z"}, "planner", "expired at 2020-01-01T00:00:00Z"),
+        ({"status": "ready"}, "planner", "is ready and not leased"),
+    ):
+        _lease(tmp_path, "socom:work:source-segment-001", **setup)
+        assert cli.main([*decide, "--lease-owner", owner]) == 2
+        assert message in json.loads(capsys.readouterr().out)["error"]
+        assert path.read_text(encoding="utf-8") == before
+    _lease(tmp_path, "socom:work:source-segment-002")
+    assert cli.main([*decide, *LEASE]) == 2
+    assert "is not a work item of the tracker" in json.loads(capsys.readouterr().out)["error"]
+    _lease(tmp_path, "socom:work:source-segment-001")
+    assert cli.main([*decide, *LEASE]) == 0
+    assert json.loads(capsys.readouterr().out)["changes"][0]["to"] == "unresolved"
+
+
+def test_decide_copies_the_open_row_header_emit(unnamed) -> None:
+    _root, _tracker, graph, plan = unnamed
+    ids = [row["id"] for row in graph["artifacts"]]
+    plan = copy.deepcopy(plan)
+    decide(plan, [ids[7]], unresolved="open again")
+    emit = {"artifact": ids[7], "header": "<vector>", "library": "MSL", "reason": "template",
+            "evidence": ["every instance of std::vector with one names <vector>"], "draft_rule": "H-template-family"}
+    plan["draft"] = {"rules_version": 6, "open_row_header_emits": [emit]}
+    plan["header_emits"] = []
+    # Owning the open row in an authored unit copies the draft's emit (draft --check proves it by its draft_rule).
+    changes = decide(plan, [ids[7]], owner="a.cpp", confidence="medium", basis="between a.cpp anchors")
+    assert plan["header_emits"] == [emit] and plan["header_emits"][0] is not emit
+    assert changes[-1] == {"artifact": ids[7], "header_emit": "<vector>", "draft_rule": "H-template-family",
+                           "copied": "draft.open_row_header_emits"}
+    # Leaving the authored rows drops the copied row again; a hand row is kept.
+    changes = decide(plan, [ids[7]], unresolved="two units")
+    assert plan["header_emits"] == [] and changes[-1]["header_emit_removed"] == "<vector>"
+    hand = {"artifact": ids[7], "header": "<list>", "library": "MSL", "reason": "template", "evidence": ["x"]}
+    plan["header_emits"] = [hand]
+    decide(plan, [ids[7]], owner="a.cpp", confidence="medium", basis="between a.cpp anchors")
+    decide(plan, [ids[7]], unresolved="two units")
+    assert plan["header_emits"] == [hand]
+
+
+def test_source_sql_accepts_semicolons_inside_literals(tmp_path: Path, capsys) -> None:
+    from tools._socom.source_cache import single_statement
+
+    assert single_statement("SELECT 'a;b' AS x;") == "SELECT 'a;b' AS x"
+    assert single_statement("SELECT 'it''s; fine', \"c;d\", [e;f] ; -- done\n/* c */ ;") == "SELECT 'it''s; fine', \"c;d\", [e;f]"
+    assert single_statement("SELECT 1 /* ; */ -- ;\n") == "SELECT 1 /* ; */ -- ;"
+    for text in ("SELECT 1; SELECT 2", "SELECT ';'; DROP TABLE x", "SELECT 1;; x"):
+        assert single_statement(text) is None
+    _cli_workspace(tmp_path)
+    base = ["--root", str(tmp_path), "source", "sql"]
+    assert cli.main([*base, "SELECT id FROM artifacts WHERE name = 'a;b' OR id LIKE '%;%'", "--format", "json"]) == 0
+    assert json.loads(capsys.readouterr().out)["rows"] == []
+    assert cli.main([*base, "SELECT 1; SELECT 2"]) == 2
+    assert "single SELECT or WITH statement" in json.loads(capsys.readouterr().out)["error"]
+
+
+def test_emit_check_cli_writes_the_report_under_build(tmp_path: Path, capsys) -> None:
+    base, _path = _cli_workspace(tmp_path)
+    assert cli.main([*base, "emit-check", "--all", "--output", "build/stage4/emit-check.json"]) == 0
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["mutation_performed"] is False and summary["counts"]["plans"] == 1 and summary["plans"] == {}
+    full = json.loads((tmp_path / "build" / "stage4" / "emit-check.json").read_text(encoding="utf-8"))
+    assert full["kind"] == "socom-source-emit-check" and full["plans"]["socom:work:source-segment-001"]["status"] == "in_progress"
+    assert cli.main([*base, "emit-check", "--plan", "build/source-plans/plan.json"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert list(report["plans"]) == ["socom:work:source-segment-001"]
+    assert report["plans"]["socom:work:source-segment-001"]["plan"] == "build/source-plans/plan.json"
+    assert cli.main([*base, "emit-check", "--all", "--output", "src/emit.json"]) == 2
     assert "only be written under build/" in json.loads(capsys.readouterr().out)["error"]

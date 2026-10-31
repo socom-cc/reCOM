@@ -16,12 +16,15 @@ characters, and refuses to move an artifact a draft rule decided, or to
 replace a header-emit or contradiction row, unless ``--override`` gives the
 evidence (recorded as a plan note).  An owner row a move empties is
 dropped; one already empty (added by hand) is kept.  The owner row's
-confidence follows its weakest entry, and the annotations are re-derived
-when the cache holds the plan's graph.
+confidence follows its weakest entry, an artifact moved into an authored
+row takes the draft's ``open_row_header_emits`` row, and the annotations
+are re-derived when the cache holds the plan's graph.  Only the holder of
+the plan item's lease decides (``require_plan_lease``).
 """
 
 from __future__ import annotations
 
+import datetime as dt
 import sqlite3
 from collections import Counter
 from contextlib import closing
@@ -109,6 +112,82 @@ def _row_confidence(owner: dict[str, Any]) -> None:
         owner["confidence"] = weakest
 
 
+def require_plan_lease(tracker: dict[str, Any], item_id: Any, owner: Any, *, now: dt.datetime | None = None) -> dict[str, Any]:
+    """The plan item, when ``owner`` holds its active lease; refuses otherwise.
+
+    ``source plan decide`` edits a plan only for the worker that claimed its
+    item (``progress work claim``): another worker's lease, an expired one or
+    an unclaimed item is refused.
+    """
+
+    if not isinstance(owner, str) or not owner.strip():
+        raise SocomError("--lease-owner must name the worker holding the plan item's lease")
+    if not isinstance(item_id, str):
+        raise SocomError("the plan has no work_item_id: its item's lease cannot be checked")
+    item = next((row for row in tracker.get("work_items") or [] if isinstance(row, dict) and row.get("id") == item_id), None)
+    if item is None:
+        raise SocomError(f"{item_id} is not a work item of the tracker")
+    lease = item.get("lease")
+    if item.get("status") != "in_progress" or not isinstance(lease, dict):
+        raise SocomError(f"{item_id} is {item.get('status')} and not leased: claim it (progress work claim) before deciding")
+    try:
+        expires = dt.datetime.fromisoformat(str(lease.get("expires_at")).replace("Z", "+00:00"))
+    except ValueError as failure:
+        raise SocomError(f"{item_id}'s lease has no readable expiry") from failure
+    if expires <= (now or dt.datetime.now(dt.timezone.utc)):
+        raise SocomError(f"{item_id}'s lease by {lease.get('owner')} expired at {lease.get('expires_at')}: claim it again")
+    if lease.get("owner") != owner:
+        raise SocomError(f"{item_id} is leased by {lease.get('owner')}, not {owner}")
+    return item
+
+
+def _open_row_emit(plan: dict[str, Any], identity: str) -> dict[str, Any] | None:
+    """The draft's ``open_row_header_emits`` row of an artifact (rules 6), if any."""
+
+    draft = plan.get("draft") if isinstance(plan.get("draft"), dict) else {}
+    return next(
+        (row for row in draft.get("open_row_header_emits") or [] if isinstance(row, dict) and row.get("artifact") == identity),
+        None,
+    )
+
+
+def _sync_open_row_emits(plan: dict[str, Any], identities: list[str]) -> list[dict[str, Any]]:
+    """Copy (or drop) each artifact's ``open_row_header_emits`` row as its new owner row requires.
+
+    An artifact now owned by an authored row gets the draft's open-row emit
+    when no header-emit row records one (``source plan draft --check`` proves
+    the copied row by its ``draft_rule``); one that leaves the authored rows
+    loses that copied row again.  Other header-emit rows are left alone.
+    """
+
+    authored = {
+        identity
+        for row in plan.get("owners") or []
+        if isinstance(row, dict) and row.get("classification") == "authored"
+        for identity in map(artifact_id, row.get("artifacts") or [])
+        if identity
+    }
+    changes = []
+    for identity in identities:
+        emit = _open_row_emit(plan, identity)
+        if emit is None:
+            continue
+        emits = plan.get("header_emits")
+        if not isinstance(emits, list):
+            emits = plan["header_emits"] = []
+        existing = [number for number, row in enumerate(emits) if isinstance(row, dict) and row.get("artifact") == identity]
+        if identity in authored and not existing:
+            emits.append(dict(emit))
+            changes.append({"artifact": identity, "header_emit": emit.get("header"), "draft_rule": emit.get("draft_rule"),
+                            "copied": "draft.open_row_header_emits"})
+        elif identity not in authored:
+            for number in reversed(existing):
+                if emits[number] == emit:
+                    del emits[number]
+                    changes.append({"artifact": identity, "header_emit_removed": emit.get("header"), "draft_rule": emit.get("draft_rule")})
+    return changes
+
+
 def decide(
     plan: dict[str, Any],
     artifacts: list[str],
@@ -120,7 +199,12 @@ def decide(
     override: bool = False,
     evidence: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Record one decision for ``artifacts`` in ``plan`` (in place); the changes made."""
+    """Record one decision for ``artifacts`` in ``plan`` (in place); the changes made.
+
+    An artifact the decision puts in an authored row also gets the draft's
+    ``open_row_header_emits`` row (rules 6), unless a header-emit row records
+    one already; leaving the authored rows removes that copied row.
+    """
 
     if not isinstance(plan, dict) or plan.get("schema_version") != 2:
         raise SocomError("source plan decide edits schema 2 plans only (its entries carry confidence and basis)")
@@ -195,6 +279,7 @@ def decide(
             _row_confidence(row)
         kept.append(row)
     plan["owners"] = kept
+    changes.extend(_sync_open_row_emits(plan, artifacts))
     if control_characters(plan):
         raise SocomError("the plan holds control characters; fix them before deciding (source plan validate lists them)")
     return changes

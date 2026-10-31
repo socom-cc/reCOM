@@ -361,11 +361,69 @@ def _build(root: Path, path: Path, graph: dict[str, Any], meta: dict[str, str]) 
             raise
 
 
-def query(path: Path, statement: str, limit: int = 200) -> dict[str, Any]:
-    """Run one read-only SELECT/WITH statement against the cache."""
+def single_statement(statement: str) -> str | None:
+    """The statement without its trailing ``;``, or ``None`` when a second statement follows.
 
-    text = statement.strip().rstrip(";").strip()
-    if not text.lower().startswith(("select", "with")) or ";" in text:
+    A ``;`` inside a string literal (``'a;b'``, ``''`` escapes), a quoted
+    identifier (``"..."``, ``[...]``, a backtick pair) or a comment is part
+    of the statement; only a separator followed by more than whitespace,
+    comments or further ``;`` starts another statement.
+    """
+
+    text = statement.strip()
+    index, size = 0, len(text)
+    while index < size:
+        char = text[index]
+        if char in "'\"`[":
+            close = "]" if char == "[" else char
+            index += 1
+            while index < size:
+                if text[index] == close:
+                    if close != "]" and text.startswith(close * 2, index):
+                        index += 2
+                        continue
+                    break
+                index += 1
+            index += 1
+            continue
+        if text.startswith("--", index):
+            newline = text.find("\n", index)
+            index = size if newline < 0 else newline + 1
+            continue
+        if text.startswith("/*", index):
+            end = text.find("*/", index + 2)
+            index = size if end < 0 else end + 2
+            continue
+        if char == ";":
+            # A separator: only whitespace, comments or more ';' may follow.
+            return None if _code(text[index + 1 :]) else text[:index].strip()
+        index += 1
+    return text
+
+
+def _code(text: str) -> bool:
+    """Whether ``text`` holds anything but whitespace and comments."""
+
+    index, size = 0, len(text)
+    while index < size:
+        if text[index] in " \t\r\n;":
+            index += 1
+        elif text.startswith("--", index):
+            newline = text.find("\n", index)
+            index = size if newline < 0 else newline + 1
+        elif text.startswith("/*", index):
+            end = text.find("*/", index + 2)
+            index = size if end < 0 else end + 2
+        else:
+            return True
+    return False
+
+
+def query(path: Path, statement: str, limit: int = 200) -> dict[str, Any]:
+    """Run one read-only SELECT/WITH statement against the cache (``;`` allowed inside literals)."""
+
+    text = single_statement(statement)
+    if text is None or not text.lower().startswith(("select", "with")):
         raise SocomError("source sql accepts a single SELECT or WITH statement")
     with closing(sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)) as connection:
         try:

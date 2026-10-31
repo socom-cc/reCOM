@@ -807,6 +807,8 @@ def test_cli_evidence_fill_and_check(tmp_path: Path, root: Path, synthetic: tupl
     assert cli.main([*base, "validate", "--plan", plan_path, "--fill-annotations"]) == 0
     report = json.loads(capsys.readouterr().out)
     assert report["ok"] and report["annotations_filled"] and report["summary"]["annotations"]["defines"] == 2
+    # The ODR header-emit check (source plan emit-check) adds its counts, never a problem.
+    assert report["summary"]["emit_check"] == {"missing_emits": 0, "missing_notes": 0, "wrong_citations": 0, "undetermined": 0}
     # Rewriting the plan is a (build/) mutation; the reservation checked is printed.
     assert report["mutation_performed"] is True
     assert report["reservation"]["apply_item"] == "socom:work:source-segment-001-apply"

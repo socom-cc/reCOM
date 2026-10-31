@@ -1,7 +1,8 @@
 """CLI handlers for stage 4 owner plans and the source query cache.
 
 ``source plan evidence``, ``source plan draft``, ``source plan validate``,
-``source plan open``, ``source plan decide`` and ``source sql``.  The registry rows and parser wiring live here so the main
+``source plan open``, ``source plan decide``, ``source plan emit-check`` and
+``source sql``.  The registry rows and parser wiring live here so the main
 CLI only lists them; handlers import the shared CLI helpers lazily to avoid
 an import cycle.
 """
@@ -54,20 +55,31 @@ def specs(spec: Any) -> tuple[Any, ...]:
         spec(
             "source plan decide",
             "source",
-            "Record one decision in a schema 2 source-owner plan under build/: move artifacts into an existing owner "
-            "row with confidence and basis, into unresolved with a reason, or by --accept-suggestion as the drafter "
-            "suggested; add a contradictions row (outside the plan only in a file it owns) or header_emits row, "
-            "replacing one with --override, or remove a contradiction; keeps hand-added empty owner rows; JSON "
-            "load/dump, no control characters, drafted rows only with --override and --evidence; re-derives the "
-            "annotations.",
+            "Record one decision in a schema 2 source-owner plan under build/ as the holder of its item's lease "
+            "(--lease-owner): move artifacts into an existing owner row with confidence and basis (copying the "
+            "draft's open_row_header_emits row of an authored function), into unresolved with a reason, or by "
+            "--accept-suggestion as the drafter suggested; add a contradictions row (outside the plan only in a file "
+            "it owns) or header_emits row, replacing one with --override, or remove a contradiction; keeps "
+            "hand-added empty owner rows; JSON load/dump, no control characters, drafted rows only with --override "
+            "and --evidence; re-derives the annotations.",
             mutates=True,
+        ),
+        spec(
+            "source plan emit-check",
+            "source",
+            "Read-only ODR header-emit check of one plan (--plan) or every plan under build/source-plans (--all): for "
+            "each owned authored inline or WEAK copy (no thunks, no MSL), the units involved (holder, referencers, and "
+            "vtable readers and constructor callers), the header emit the rulings expect (implicit special members, "
+            "two or more units, authored template instances) with its header and line, missing 'no header declares' "
+            "notes and emit rows citing a line that does not declare the class; --output writes the JSON under build/.",
         ),
         spec(
             "source sql",
             "source",
             "Run one read-only SELECT/WITH over build/cache/source-graph.sqlite, a derived cache of the source graph, "
             "its relocations, DWARF units and lines, LOCAL symbols, per-object LOCAL section runs and src/ files, "
-            "rebuilt when its inputs change; --output writes the result under build/ and prints its row count.",
+            "rebuilt when its inputs change; ';' is accepted inside string literals and identifiers; --output writes "
+            "the result under build/ and prints its row count.",
         ),
     )
 
@@ -110,8 +122,20 @@ def register(source_commands: Any) -> None:
     view.add_argument("--output", help="write the view (in --format) to this file under build/ instead of stdout")
     view.add_argument("--graph", default=DEFAULT_GRAPH)
     view.set_defaults(handler=_source_plan_open)
+    emit = plan_commands.add_parser("emit-check")
+    which = emit.add_mutually_exclusive_group(required=True)
+    which.add_argument("--plan", action="append", help="a plan file (repeat for several)")
+    which.add_argument("--all", action="store_true", help="every plan under build/source-plans/")
+    emit.add_argument("--output", help="write the full report (JSON) to this file under build/ and print its counts")
+    emit.add_argument("--graph", default=DEFAULT_GRAPH)
+    emit.set_defaults(handler=_source_plan_emit_check)
     decide = plan_commands.add_parser("decide")
     decide.add_argument("--plan", required=True)
+    decide.add_argument(
+        "--lease-owner",
+        required=True,
+        help="the stable worker name holding the plan item's lease (progress work claim --owner)",
+    )
     decide.add_argument("--artifact", action="append", required=True, help="repeat to decide several artifacts alike")
     decide.add_argument("--owner", help="an owner row: its translation unit, GNU object address, object or <library>:<object>")
     decide.add_argument("--confidence", choices=("high", "medium", "low"))
@@ -312,6 +336,9 @@ def _source_plan_validate(arguments: argparse.Namespace) -> int:
     apply = next((row for row in tracker.get("work_items", []) if row.get("id") == f"{item_id}-apply"), None)
     own = ((apply or {}).get("source_apply") or {}).get("plan_sha256") == sha256
     report = validate_source_plan(root, tracker, plan, graph, section_of=section_of, applied=applied)
+    if isinstance(plan, dict) and isinstance(item_id, str) and report.get("summary"):
+        # Non-blocking: the ODR header-emit check's counts and one review note.
+        _emit_review(root, arguments, plan, plan_path, graph, report)
     result = {
         "ok": report["ok"],
         # --fill-annotations rewrites the plan file (under build/) when its annotations change.
@@ -342,6 +369,87 @@ def _source_plan_validate(arguments: argparse.Namespace) -> int:
         }
     _emit(result)
     return 0 if report["ok"] else 1
+
+
+def _emit_review(
+    root: Path, arguments: argparse.Namespace, plan: dict[str, Any], plan_path: Path, graph: dict[str, Any], report: dict[str, Any]
+) -> None:
+    """Add the plan's emit check (``source plan emit-check``) to a validate report: one review note and its counts."""
+
+    import sqlite3
+
+    from .source_cache import ensure_source_cache
+    from .source_emit_check import emit_check, review_note
+    from .util import SocomError
+
+    item = str(plan["work_item_id"])
+    try:
+        relative = plan_path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        relative = arguments.plan
+    try:
+        graph_file = None if arguments.check else _path(root, arguments.graph)
+        cache, _rebuilt = ensure_source_cache(root, graph_path=graph_file, graph=graph if graph_file is None else None)
+        checked = emit_check(root, cache, items=[item], graph=graph, replace={item: (relative, plan)})["plans"][item]
+    except (SocomError, OSError, sqlite3.Error, KeyError, ValueError) as failure:
+        report["review"].append(f"emit check not run: {failure}")
+        return
+    counts = checked["counts"]
+    report["summary"]["emit_check"] = {
+        key: counts[key] for key in ("missing_emits", "missing_notes", "wrong_citations", "undetermined")
+    }
+    if note := review_note(checked, arguments.plan):
+        report["review"].append(note)
+
+
+def _source_plan_emit_check(arguments: argparse.Namespace) -> int:
+    """The ODR header-emit check of plans, read-only."""
+
+    from .cli import _build_path, _emit, _root
+    from .constants import tracker_path
+    from .source_emit_check import emit_check
+    from .tracker import load_tracker
+    from .util import SocomError, atomic_write_json, load_json
+
+    root = _root(arguments)
+    output = _build_path(root, arguments.output, "source plan emit-check") if arguments.output else None
+    cache = _plan_cache(root, arguments)
+    graph = load_json(_path(root, arguments.graph))
+    tracker_file = tracker_path(root)
+    statuses = (
+        {str(row.get("id")): str(row.get("status")) for row in load_tracker(tracker_file).get("work_items") or []}
+        if tracker_file.is_file() else None
+    )
+    items: list[str] | None = None
+    replace: dict[str, tuple[str, dict[str, Any]]] = {}
+    for value in arguments.plan or []:
+        plan = load_json(_path(root, value))
+        if not isinstance(plan, dict) or not isinstance(plan.get("work_item_id"), str):
+            raise SocomError(f"{value} is not a source-owner plan with a work_item_id")
+        replace[plan["work_item_id"]] = (value, plan)
+    if arguments.plan:
+        items = list(replace)
+    report = emit_check(root, cache, items=items, graph=graph, replace=replace, statuses=statuses)
+    if output is None:
+        _emit({"ok": True, "mutation_performed": False, **report})
+        return 0
+    # The full report is a disposable file under build/ that the parent hands to sweep agents.
+    atomic_write_json(output, report)
+    _emit(
+        {
+            "ok": True,
+            "mutation_performed": False,
+            "output": arguments.output,
+            "graph_sha256": report["graph_sha256"],
+            "counts": report["counts"],
+            "plans": {
+                item: "{missing_emits} emits, {missing_notes} notes, {wrong_citations} citations".format(**result["counts"])
+                for item, result in report["plans"].items()
+                if any(result["counts"][key] for key in ("missing_emits", "missing_notes", "wrong_citations"))
+            },
+        }
+    )
+    return 0
 
 
 def _plan_cache(root: Path, arguments: argparse.Namespace) -> Path:
@@ -462,10 +570,19 @@ def _source_plan_decide(arguments: argparse.Namespace) -> int:
     )
     from .util import SocomError, atomic_write_json, load_json
 
+    from .constants import tracker_path
+    from .source_plan_edit import require_plan_lease
+    from .tracker import load_tracker
+
     root = _root(arguments)
     target = _build_path(root, arguments.plan, "source plans")
     decision = _decision(arguments)
     plan = load_json(target)
+    tracker_file = tracker_path(root)
+    if not tracker_file.is_file():
+        raise SocomError("source plan decide checks the item's lease in the tracker, which is missing")
+    # Only the worker holding the plan item's lease edits its plan.
+    require_plan_lease(load_tracker(tracker_file), plan.get("work_item_id") if isinstance(plan, dict) else None, arguments.lease_owner)
     graph_path = _path(root, arguments.graph)
     caches: list[Path] = []
 

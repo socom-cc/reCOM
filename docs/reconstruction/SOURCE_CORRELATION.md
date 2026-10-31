@@ -280,15 +280,16 @@ python tools/socom.py source graph --output build/source-graph/graph.json   # on
 python tools/socom.py source plan evidence --item <item> --output build/source-plans/<slug>-evidence.json
 python tools/socom.py source plan draft --item <item> --output build/source-plans/<slug>.json
 python tools/socom.py source plan open --plan build/source-plans/<slug>.json [--limit N] [--format json] [--output build/...]
-python tools/socom.py source plan decide --plan build/source-plans/<slug>.json --artifact <id> [--artifact <id> ...] `
+python tools/socom.py source plan decide --plan build/source-plans/<slug>.json --lease-owner <worker> --artifact <id> [--artifact <id> ...] `
   (--owner <unit | 0xGNU | object | library:object> --confidence <c> --basis "<evidence>" | --unresolved "<reason>" | --accept-suggestion) `
   [--override --evidence "<why the draft rule is wrong>"]
-python tools/socom.py source plan decide --plan <plan> --artifact <id> --contradiction <kind> `
+python tools/socom.py source plan decide --plan <plan> --lease-owner <worker> --artifact <id> --contradiction <kind> `
   --provisional-file src/... [--line N] --elf-evidence "<line>" [--elf-evidence ...] [--override --evidence "<why>"]
-python tools/socom.py source plan decide --plan <plan> --artifact <id> --remove-contradiction --provisional-file src/... [--line N]
-python tools/socom.py source plan decide --plan <plan> --artifact <id> --header-emit <src/...h | <name>> [--library <lib>] `
+python tools/socom.py source plan decide --plan <plan> --lease-owner <worker> --artifact <id> --remove-contradiction --provisional-file src/... [--line N]
+python tools/socom.py source plan decide --plan <plan> --lease-owner <worker> --artifact <id> --header-emit <src/...h | <name>> [--library <lib>] `
   --reason <template|inline|weak> --emit-evidence "<line>" [--emit-evidence ...] [--override --evidence "<why>"]
 python tools/socom.py source sql "SELECT ..." [--output build/...]   # questions about the open rows
+python tools/socom.py source plan emit-check (--plan build/source-plans/<slug>.json | --all) [--output build/...]
 python tools/socom.py source plan validate --plan build/source-plans/<slug>.json --check --fill-annotations
 python tools/socom.py source plan validate --plan build/source-plans/<slug>.json --check [--output build/...]
 python tools/socom.py source plan draft --check build/source-plans/<slug>.json
@@ -327,7 +328,17 @@ existing owner row as `{artifact, confidence, basis}` entries
 keeps the row's confidence its weakest entry's, drops an owner row the
 call empties (the change list says `row_removed`) but keeps one that was
 already empty, and re-derives `annotations` when the cache holds the
-plan's graph. It loads and dumps JSON (never text), refuses control characters and
+plan's graph. Only the worker holding the plan item's lease may decide:
+`--lease-owner` must name the owner of the item's active lease (`progress
+work claim`); another worker, an expired lease or an unclaimed item is
+refused before the plan is touched. An artifact a decision puts in an
+authored row also gets the draft's `draft.open_row_header_emits` row
+(rules 6), unchanged and with its `draft_rule`, unless a header-emit row
+records one already (the change says `copied`), so planners no longer
+re-enter it; moving the artifact out of the authored rows again removes
+that copied row (`header_emit_removed`) and leaves hand rows alone.
+`source plan draft --check` proves the copied row like a drafted one.
+It loads and dumps JSON (never text), refuses control characters and
 schema 1 plans, and refuses to move an artifact a draft rule decided unless
 `--override` gives `--evidence`, which it keeps as a plan note `override
 <artifact>: the draft gave <owner> (<rule>); <evidence>`. Add a new owner
@@ -368,6 +379,61 @@ decision; options of another kind are refused.
   `source plan validate`.
 
 Neither command loads the whole plan into the planner's context.
+
+`source plan emit-check` (read-only) computes the header-emit rulings of
+2026-10-31 that reviewers used to find one at a time. For every inline
+(binding 13) or WEAK function an authored row of the plan owns, except
+this-adjusting thunks (`@N@...`) and MSL instances (`H-template-family`
+covers those), it collects the units involved: the unit holding the copy,
+the unit of every function or data artifact whose relocations reference
+it, and, when its own class's vtable references it, every unit that reads
+that vtable or calls a constructor of the class. A unit comes from the
+decisions in every plan file under `build/source-plans/` (so a data site
+counts by its own plan owner), else from the whole-graph draft decision
+(the draft's anchors and containment rules); referencers neither places are
+listed as `unknown_referencers`. It expects an emit for
+
+- an implicit special member (a destructor, a default or copy
+  constructor or a copy assignment without a DWARF compile unit of its own)
+  when a header declares its class, whatever the unit count;
+- a copy that two or more units involve (ODR: a shared header);
+- an authored template instance (a class-template member such as
+  `RTArray<...>::GetNext` or a function template instance such as
+  `ai::_max<f>`), whatever the unit count: the template's definition has
+  to be visible where it is instantiated.
+
+The header is the class's (template's) DWARF header unit: its own, else the
+one most of the class's members name. A `Z:\dev` path maps to the
+workspace like the plans write it: the direct `src/<module>/<file>` when it
+exists, else the one file of that name in the module tree
+(`Z:\dev\Apps\FTS\hud.h` is `src/Apps/FTS/hud/hud.h`), else the path the
+plans already emit to (`src/gamez/zMath/zmath_matrix.h`), else the direct
+path as a new header. Without a header unit it is the provisional header
+under `src/` that defines the class (`class|struct <Name>`; a nested class
+inside its enclosing scope, and a nested class no header declares by
+itself through its enclosing class; a `template` declaration for a
+template; a function declaration for a free function), with its line.
+When two or more units are involved or the copy is a template instance and
+no header is evidenced, the plan needs a note that names the artifact (its
+ID or address) and says that no header declares it (`no header declares
+<Class>`, `no provisional header under src/ declares ...`) in the same
+clause group: a clause naming no address belongs to the clause before it.
+Each workspace header-emit row whose evidence cites `<header>:<line>` must
+cite at least one line that declares the artifact's class (or template, or
+free function); a row citing only member lines (`member line`), another
+class's line or a forward declaration (`another line`) or a line past the
+end of the file is listed.
+
+The report lists per plan `missing_emits` (artifact, name, class, units,
+unknown referencers, the vtable reached, basis, `suggested` header with
+line and source, the emit reason), `missing_notes` (with the note text to
+add), `wrong_citations` (each citation's line text and kind, and where the
+class is declared) and `undetermined` copies (one known unit plus unknown
+referencers), with counts and the item's tracker status. `--plan` (repeat)
+checks those plan files, `--all` every plan; `--output <file under
+build/>` writes the JSON and prints the counts and the plans with findings.
+The parent hands that file to sweep agents. It reads the query cache of
+`--graph` and the plan files, and writes nothing else.
 
 `<slug>` is the item ID with `:` replaced by `-`. The draft decides every
 artifact its rules settle (below) and leaves the rest as `unresolved` rows
@@ -597,8 +663,8 @@ authored unit (the header rules do not depend on which unit), and
 authored function as it proves a drafted one. Accepted segment 027's
 LOCAL `std::find` copy 0x229fc0, open at draft time, has `<algorithm>`
 there, and segment 023's seven open `__list_deleter` copies have `<list>`.
-`source plan decide` does not copy these emits yet: the planner adds the
-row.
+`source plan decide` copies such an emit when it puts the function in an
+authored row (round m17; before, the planner added the row).
 
 Version 6 was measured on the graph `c79d76e6...` against the 44 plan files
 under `build/source-plans/`. Of their 259 drafted `D-referenced` (or
@@ -905,7 +971,13 @@ owner's file defines them), `provisional` or `invented` rows none of
 whose artifacts lies in a cluster, contradictions about artifacts outside
 the slice, and `contradiction:` notes that a new plan records in
 `contradictions`. A plan with contradictions counts them in
-`summary.contradictions`. These are for the scrutinizer and do not make
+`summary.contradictions`. The `source plan emit-check` of the plan (above;
+the plan as given, the other plan files for unit decisions) adds its counts
+as `summary.emit_check` (`missing_emits`, `missing_notes`,
+`wrong_citations`, `undetermined`) and, when any of the first three is not
+zero, one review note naming the first artifacts and the command that
+lists them; when the query cache cannot be built the note says the check
+was not run. These are for the scrutinizer and do not make
 the plan invalid. `--output <file under build/>` writes the whole report
 there (JSON) and prints only its verdict, summary and the counts of
 problems and review notes; the exit status is the same.
@@ -949,7 +1021,9 @@ python tools/socom.py source sql "SELECT r.site_artifact, a.tu FROM refs r JOIN 
 ```
 
 One read-only `SELECT` or `WITH` statement (`--limit`, default 200;
-`--format text|json`) over `build/cache/source-graph.sqlite`. The cache is
+`--format text|json`) over `build/cache/source-graph.sqlite`. A `;` inside
+a string literal (`'a;b'`), a quoted identifier or a comment belongs to the
+statement; only a separator followed by another statement is refused. The cache is
 derived from `--graph` (default `build/source-graph/graph.json`, written
 from the ELF when missing or with `--from-elf`), the ELF facts the graph
 does not store, the census and the `src/` file list, and is rebuilt whenever

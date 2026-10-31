@@ -1012,6 +1012,11 @@ def test_decide_and_open_cli(tmp_path: Path, capsys) -> None:
     path = tmp_path / "build" / "source-plans" / "plan.json"
     path.parent.mkdir(parents=True)
     path.write_text(json.dumps(plan), encoding="utf-8")
+    # source plan decide edits a plan only for the holder of its item's lease.
+    (tmp_path / ".agent").mkdir()
+    lease = {"owner": "planner", "expires_at": "2099-01-01T00:00:00Z"}
+    tracker = {"work_items": [{"id": "socom:work:source-segment-001", "status": "in_progress", "lease": lease}]}
+    (tmp_path / ".agent" / "RECONSTRUCTION_PROGRESS.json").write_text(json.dumps(tracker), encoding="utf-8")
     base = ["--root", str(tmp_path), "source", "plan"]
     assert cli.main([*base, "open", "--plan", "build/source-plans/plan.json", "--limit", "1", "--format", "json"]) == 0
     view = json.loads(capsys.readouterr().out)
@@ -1021,7 +1026,7 @@ def test_decide_and_open_cli(tmp_path: Path, capsys) -> None:
     assert cli.main([*base, "open", "--plan", "build/source-plans/plan.json"]) == 0
     text = capsys.readouterr().out
     assert text.startswith("open rows 2 (shown 2)") and "  open: between anchors" in text
-    decide = [*base, "decide", "--plan", "build/source-plans/plan.json", "--artifact", "socom:function:0x100010",
+    decide = [*base, "decide", "--plan", "build/source-plans/plan.json", "--lease-owner", "planner", "--artifact", "socom:function:0x100010",
               "--artifact", "socom:function:0x100020", "--owner", "a.cpp", "--confidence", "medium", "--basis", "between a.cpp anchors"]
     assert cli.main(decide) == 0
     report = json.loads(capsys.readouterr().out)
@@ -1031,8 +1036,8 @@ def test_decide_and_open_cli(tmp_path: Path, capsys) -> None:
         "socom:function:0x100000", "socom:function:0x100010", "socom:function:0x100020",
     ]
     assert saved["owners"][0]["confidence"] == "medium" and len(saved["annotations"]) == 3
-    assert cli.main([*base, "decide", "--plan", "build/source-plans/plan.json", "--artifact", "socom:function:0x100000",
-                     "--unresolved", "x"]) == 2
+    assert cli.main([*base, "decide", "--plan", "build/source-plans/plan.json", "--lease-owner", "planner",
+                     "--artifact", "socom:function:0x100000", "--unresolved", "x"]) == 2
     assert "draft rule A-dwarf-cu" in json.loads(capsys.readouterr().out)["error"]
 
 
