@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3165,
+  "revision": 3167,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -149134,6 +149134,10 @@
       "title": "Apply the reviewed source owners of segment 017 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T19:53:00Z",
+        "by": "socom-source-owner-scrutinizer-x16"
+      },
       "batch": {
         "artifact_count": 426,
         "batch_number": 18,
@@ -149170,7 +149174,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-018.json sha256:298c51da8ab8dded41d16236f223daae54791c23016f7608fdb802255cd15c7f; validate --check ok; --fill-annotations no mutation; draft --check ok; control-character scan 0; pre-sweep diff build/stage4/pre-sweep/socom-work-source-segment-018.json"
+        "plan build/source-plans/socom-work-source-segment-018.json sha256:298c51da8ab8dded41d16236f223daae54791c23016f7608fdb802255cd15c7f; validate --check ok; --fill-annotations no mutation; draft --check ok; control-character scan 0; pre-sweep diff build/stage4/pre-sweep/socom-work-source-segment-018.json",
+        "sweep review vs build/stage4/pre-sweep: plan sha256 298c51da8ab8dded41d16236f223daae54791c23016f7608fdb802255cd15c7f matches handoff; validate --check ok, draft --check ok (0 open). Changed rows only: +8 emits: 0x1cfea0-0x1cff00 zdb::CNodeEx inline virtuals (binding 13, no DWARF) referenced by GLOBAL vtables of 4+ units (__vt__Q23zdb7CNodeEx/__vt__8CZAnimEx zanim_anim, __vt__11CNodeAction fts_action, __vt__11CParticleEx zparticle_source, __vt__7CSealEx seal_ex; CNodeEx vtable also read by seal.cpp 0x2577d0) -> src/gamez/zNode/znode.h:263 (only definition, in namespace zdb :59); 0x1ca770 zdb::CWorld::GetTexHandle called by 8 units (fts_action, hud_missioncams, hud_objectives, seal_env, vis_main, zanim_anim, zparticle, zwep_weapon) -> src/gamez/zNode/node_world.h:9 (only definition); no DWARF header unit for either class; headers consistent with all other plans. Edited note[2] matches the new emits; CZAnimArg* classes still undeclared under src/. Reservation +src/gamez/zNode (exists), status corrected with evidence; no control characters."
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-sw2",
@@ -149222,7 +149227,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 018 (0x1c24c0-0x1d0090, 192 functions)"
     },
     {
@@ -149285,6 +149290,10 @@
       "title": "Apply the reviewed source owners of segment 018 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T19:53:03Z",
+        "by": "socom-source-owner-scrutinizer-x16"
+      },
       "batch": {
         "artifact_count": 659,
         "batch_number": 19,
@@ -149319,7 +149328,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-019.json sha256:bc0f220014705e77deb03e27a39f3542e719090e1308ed7fbe930ca0be49d411; validate --check ok; --fill-annotations no mutation; draft --check ok; control-character scan 0; pre-sweep diff build/stage4/pre-sweep/socom-work-source-segment-019.json"
+        "plan build/source-plans/socom-work-source-segment-019.json sha256:bc0f220014705e77deb03e27a39f3542e719090e1308ed7fbe930ca0be49d411; validate --check ok; --fill-annotations no mutation; draft --check ok; control-character scan 0; pre-sweep diff build/stage4/pre-sweep/socom-work-source-segment-019.json",
+        "sweep review vs build/stage4/pre-sweep: plan sha256 bc0f220014705e77deb03e27a39f3542e719090e1308ed7fbe930ca0be49d411 matches handoff; validate --check ok, draft --check ok (0 open). Changed rows only: +4 emits: 0x1d0320 zdb::CVisual::Get2DVisual read by GLOBAL vtables of vis_main.cpp (__vt__Q23zdb7CVisual) and vis_mesh.cpp (CSubMesh, CMesh) -> src/gamez/zVisual/zvis.h:139; 0x1d6260 __dt__9CPlainBmpFv (implicit dtor; __vt__9CPlainBmp 0x4739e0 read by 8 units) and 0x1d6300 __ct__9CPlainBmpFv (explicit inline CPlainBmp() {} at ztwod.h:175, called by st_load, zanim_menu, zui_2d, zui_cleanup, zui_skb, zui_spec; ODR applies to explicit inline members too) -> src/gamez/zTwoD/ztwod.h:172 (same header as C2D's DWARF header unit / H-class-header 0x1d6180); 0x1d76b0 __dt__14CCharacterWeapFv called by char_type.cpp (vector reserve) and zanim_menu.cpp (do_assign) -> src/gamez/zCharacter/zchar.h:73. No DWARF header unit for any of these classes; each is the only src/ declaration. +note 0x1d63e0 UIVarMixin (vtable 0x471a20 read by 8 units; UIVarMixin undeclared under src/) -> no emit correct; edited note consistent. Reservation +src/gamez/zVisual, +src/gamez/zCharacter (exist) with evidence; no control characters."
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-sw2",
@@ -149371,7 +149381,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 019 (0x1d0090-0x1d819c, 198 functions)"
     },
     {
