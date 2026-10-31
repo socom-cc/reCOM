@@ -1385,11 +1385,14 @@
       "kind": "problem",
       "reported_at": "2026-10-31T02:03:06Z",
       "reported_by": "socom-coordinator",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-31T06:48:05Z",
+        "summary": "Fixed by the stage-4 apply route (commit a8ae26a, socom-tool-maintainer-m11): audit source-trace --require-complete now checks the lean model - accepted, unchanged owner plans with accepted applies, no unresolved rows, each implied defines/emits present exactly, no stray annotations; audit docblocks resolves census-derived socom:function/data IDs."
+      },
+      "status": "resolved",
       "summary": "Stage 4 producer: audit source-trace --require-complete cannot pass once spans are accepted"
     }
   ],
-  "revision": 175,
+  "revision": 176,
   "schema_version": 1
 }
