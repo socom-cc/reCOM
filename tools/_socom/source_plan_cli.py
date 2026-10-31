@@ -1,12 +1,15 @@
-"""CLI handlers for stage 4 owner plans (``source plan evidence``, ``source plan validate``).
+"""CLI handlers for stage 4 owner plans and the source query cache.
 
-The registry rows and parser wiring live here so the main CLI only lists
-them; handlers import the shared CLI helpers lazily to avoid an import cycle.
+``source plan evidence``, ``source plan draft``, ``source plan validate`` and
+``source sql``.  The registry rows and parser wiring live here so the main
+CLI only lists them; handlers import the shared CLI helpers lazily to avoid
+an import cycle.
 """
 
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -24,16 +27,31 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "listing every slice artifact unresolved.",
         ),
         spec(
+            "source plan draft",
+            "source",
+            "Draft a source-owner plan (schema 2): every artifact the versioned rules decide gets an owner entry with "
+            "its draft_rule, confidence and basis, the rest stay open for the planner; --check <plan> proves a plan's "
+            "drafted rows equal what the rules give.",
+        ),
+        spec(
             "source plan validate",
             "source",
             "Check a source-owner plan: every artifact of its item's slice owned once or unresolved, owner, provider, "
             "header-emit and annotation rows, provisional files, and the graph and slice digests (--check regenerates "
             "the graph from the ELF).",
         ),
+        spec(
+            "source sql",
+            "source",
+            "Run one read-only SELECT/WITH over build/cache/source-graph.sqlite, a derived cache of the source graph, "
+            "its relocations, DWARF units and lines, LOCAL symbols and src/ files, rebuilt when its inputs change.",
+        ),
     )
 
 
 def register(source_commands: Any) -> None:
+    from .source_draft import RULES_VERSIONS
+
     plan = source_commands.add_parser("plan")
     plan_commands = plan.add_subparsers(dest="source_plan_command", required=True)
     evidence = plan_commands.add_parser("evidence")
@@ -43,6 +61,14 @@ def register(source_commands: Any) -> None:
     evidence.add_argument("--graph", default=DEFAULT_GRAPH)
     evidence.add_argument("--check", action="store_true", help="regenerate the graph from support/socom.elf")
     evidence.set_defaults(handler=_source_plan_evidence)
+    draft = plan_commands.add_parser("draft")
+    draft.add_argument("--item")
+    draft.add_argument("--output", help="the plan to write (refused when the file exists)")
+    draft.add_argument("--check", metavar="PLAN", help="check a plan's drafted rows against a fresh draft")
+    draft.add_argument("--rules", type=int, choices=RULES_VERSIONS, default=None)
+    draft.add_argument("--graph", default=DEFAULT_GRAPH)
+    draft.add_argument("--from-elf", action="store_true", help="regenerate the graph from support/socom.elf")
+    draft.set_defaults(handler=_source_plan_draft)
     validate = plan_commands.add_parser("validate")
     validate.add_argument("--plan", required=True)
     validate.add_argument("--graph", default=DEFAULT_GRAPH)
@@ -53,6 +79,15 @@ def register(source_commands: Any) -> None:
         help="first rewrite the plan's annotations with the targets its owner and header-emit rows imply",
     )
     validate.set_defaults(handler=_source_plan_validate)
+    sql = source_commands.add_parser("sql")
+    sql.add_argument("statement")
+    sql.add_argument("--limit", type=int, default=200)
+    sql.add_argument("--format", choices=("text", "json"), default="text")
+    sql.add_argument("--graph", default=DEFAULT_GRAPH)
+    sql.add_argument(
+        "--from-elf", action="store_true", help="regenerate the graph from support/socom.elf (and rewrite --graph)"
+    )
+    sql.set_defaults(handler=_source_sql)
 
 
 def _path(root: Path, value: str) -> Path:
@@ -60,18 +95,25 @@ def _path(root: Path, value: str) -> Path:
     return path if path.is_absolute() else root / path
 
 
-def _graph(root: Path, arguments: argparse.Namespace) -> tuple[dict[str, Any], str]:
+def _graph(root: Path, arguments: argparse.Namespace, regenerate: bool | None = None) -> tuple[dict[str, Any], str]:
     from .source_graph import source_graph
     from .util import SocomError, load_json
 
-    if arguments.check:
+    if arguments.check if regenerate is None else regenerate:
         return source_graph(root), "regenerated from support/socom.elf"
     path = _path(root, arguments.graph)
     if not path.is_file():
         raise SocomError(
-            f"{arguments.graph} does not exist: write it with `source graph --output {arguments.graph}` or pass --check"
+            f"{arguments.graph} does not exist: write it with `source graph --output {arguments.graph}` or regenerate it"
         )
     return load_json(path), arguments.graph
+
+
+def _facts(root: Path, graph: dict[str, Any], graph_path: Path | None) -> dict[str, Any]:
+    from .source_cache import ensure_source_cache, load_facts
+
+    path, _rebuilt = ensure_source_cache(root, graph_path=graph_path, graph=graph)
+    return load_facts(path)
 
 
 def _source_plan_evidence(arguments: argparse.Namespace) -> int:
@@ -108,6 +150,66 @@ def _source_plan_evidence(arguments: argparse.Namespace) -> int:
     return 0
 
 
+def _source_plan_draft(arguments: argparse.Namespace) -> int:
+    from .cli import _build_path, _emit, _root
+    from .constants import tracker_path
+    from .source_draft import DRAFT_RULES_VERSION, check_draft, draft_owner_plan, plan_rules_version
+    from .source_plan import loaded_section_lookup
+    from .tracker import load_tracker
+    from .util import SocomError, atomic_write_json, load_json
+
+    root = _root(arguments)
+    tracker = load_tracker(tracker_path(root))
+    graph, origin = _graph(root, arguments, regenerate=arguments.from_elf)
+    facts = _facts(root, graph, None if arguments.from_elf else _path(root, arguments.graph))
+    section_of = loaded_section_lookup(root)
+    if arguments.check:
+        plan = load_json(_path(root, arguments.check))
+        if not isinstance(plan, dict):
+            raise SocomError(f"{arguments.check} is not a plan object")
+        rules = arguments.rules if arguments.rules is not None else plan_rules_version(plan)
+        fresh = draft_owner_plan(root, tracker, plan.get("work_item_id"), graph, facts, rules=rules, section_of=section_of)
+        report = check_draft(fresh, plan)
+        _emit(
+            {
+                "ok": not report["problems"],
+                "mutation_performed": False,
+                "plan": arguments.check,
+                "graph": origin,
+                "rules_version": rules,
+                "plan_rules_version": (plan.get("draft") or {}).get("rules_version"),
+                **report,
+            }
+        )
+        return 0 if not report["problems"] else 1
+    if not arguments.item or not arguments.output:
+        raise SocomError("source plan draft needs --item and --output (or --check <plan>)")
+    output = _build_path(root, arguments.output, "source plans")
+    if output.exists():
+        raise SocomError(f"{arguments.output} exists; a draft never replaces a plan")
+    rules = arguments.rules if arguments.rules is not None else DRAFT_RULES_VERSION
+    plan = draft_owner_plan(root, tracker, arguments.item, graph, facts, rules=rules, section_of=section_of)
+    atomic_write_json(output, plan)
+    draft = plan["draft"]
+    _emit(
+        {
+            "ok": True,
+            "mutation_performed": False,
+            "output": arguments.output,
+            "graph": origin,
+            "rules_version": rules,
+            "decided": draft["decided"],
+            "open": draft["open"],
+            "rules": draft["rules"],
+            "open_owner_rows": draft["open_owner_rows"],
+            "open_header_emits": len(draft["open_header_emits"]),
+            "outside_reservation": draft["outside_reservation"],
+            "reservation": plan.get("reservation"),
+        }
+    )
+    return 0
+
+
 def _source_plan_validate(arguments: argparse.Namespace) -> int:
     from .cli import _build_path, _emit, _root
     from .constants import tracker_path
@@ -124,9 +226,11 @@ def _source_plan_validate(arguments: argparse.Namespace) -> int:
     filled = False
     if arguments.fill_annotations and isinstance(plan, dict):
         target = _build_path(root, arguments.plan, "source plans")
-        plan["annotations"] = derive_annotations(plan, graph, section_of)
-        atomic_write_json(target, plan)
-        filled = True
+        annotations = derive_annotations(plan, graph, section_of)
+        if plan.get("annotations") != annotations:
+            plan["annotations"] = annotations
+            atomic_write_json(target, plan)
+            filled = True
     from .source_apply import applied_state
 
     sha256 = sha256_file(plan_path)
@@ -141,16 +245,47 @@ def _source_plan_validate(arguments: argparse.Namespace) -> int:
     _emit(
         {
             "ok": report["ok"],
-            "mutation_performed": False,
+            # --fill-annotations rewrites the plan file (under build/) when its annotations change.
+            "mutation_performed": filled,
             "plan": arguments.plan,
             "sha256": sha256,
             "graph": origin,
             "graph_sha256": graph.get("graph_sha256"),
             "annotations_filled": filled,
             "applied": own,
+            "reservation": report.get("reservation"),
             "summary": report["summary"],
             "review": report["review"],
             "problems": report["problems"],
         }
     )
     return 0 if report["ok"] else 1
+
+
+def _source_sql(arguments: argparse.Namespace) -> int:
+    """One read-only SELECT over build/cache/source-graph.sqlite, as compact text or JSON."""
+
+    from .cli import _build_path, _emit, _root
+    from .source_cache import ensure_source_cache, query
+    from .util import atomic_write_json
+
+    root = _root(arguments)
+    graph_path = _path(root, arguments.graph)
+    if arguments.from_elf or not graph_path.is_file():
+        # The graph JSON is disposable build output: write it once for later queries.
+        from .source_graph import source_graph
+
+        graph = source_graph(root)
+        atomic_write_json(_build_path(root, arguments.graph, "source graphs"), graph)
+    path, rebuilt = ensure_source_cache(root, graph_path=graph_path)
+    result = query(path, arguments.statement, arguments.limit)
+    if arguments.format == "json":
+        _emit({**result, "cache": path.relative_to(root).as_posix(), "rebuilt": rebuilt})
+        return 0
+    sys.stdout.reconfigure(encoding="utf-8")
+    print("\t".join(result["columns"]))
+    for row in result["rows"]:
+        print("\t".join("" if value is None else str(value) for value in row))
+    if result["truncated"]:
+        print(f"... (truncated at {arguments.limit} rows; use --limit)")
+    return 0

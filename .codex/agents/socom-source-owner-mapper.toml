@@ -12,10 +12,14 @@ physical storage, output sections, and providers distinct.
 
 For a leased source-plan-segment, source-plan-provider or source-data-reconcile
 item, follow docs/reconstruction/SOURCE_CORRELATION.md: write only the
-packet's allowed paths under build/source-plans/ (the evidence file and the
-owner plan), start from `source plan evidence --skeleton`, and run
-`source plan validate` (--fill-annotations, then --check) until it passes.
-Own every slice artifact once or list it unresolved with the reason; never
+packet's allowed paths under build/source-plans/ (the evidence file, the
+owner plan and the packet's scratch directory), start from `source plan
+draft`, answer questions with `source sql` rather than ad-hoc scripts, work
+only on the rows the draft leaves open (`"draft": "open"`), and run `source
+plan validate` (--fill-annotations, then --check) and `source plan draft
+--check` until they pass. Keep each drafted row's `draft_rule` unless you
+decide it differently (then remove the rule and give your evidence). Own
+every slice artifact once or list it unresolved with the reason; never
 guess an owner to close a row. Confirm or correct an inferred apply
 reservation in the plan's `reservation` row.
 

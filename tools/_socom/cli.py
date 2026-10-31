@@ -2106,6 +2106,8 @@ def _stage_item_counts(tracker: dict[str, Any], stage: str) -> dict[str, int]:
 def _progress_decompose_stage(arguments: argparse.Namespace) -> int:
     root = _root(arguments)
     captured: dict[str, Any] = {}
+    if arguments.refresh and arguments.stage != SOURCE_STAGE:
+        raise SocomError(f"--refresh re-decomposes only {SOURCE_STAGE}")
     if arguments.stage == "ghidra-reconstruction":
         groups = recon_groups(root)
 
@@ -2117,7 +2119,14 @@ def _progress_decompose_stage(arguments: argparse.Namespace) -> int:
         reservations = apply_reservations(root, graph)
 
         def decompose(tracker: dict[str, Any]) -> None:
-            captured.update(decompose_source_correlation(tracker, graph, reservations))
+            if arguments.refresh:
+                # Governed re-decomposition from a changed graph (source_refresh).
+                from .source_refresh import refresh_source_correlation
+
+                captured["refresh"] = refresh_source_correlation(tracker, graph, reservations)
+                captured.update(next(row for row in tracker["stages"] if row["name"] == SOURCE_STAGE)["decomposition"])
+            else:
+                captured.update(decompose_source_correlation(tracker, graph, reservations))
 
     else:
         raise SocomError(f"no registered producer decomposes {arguments.stage}")
@@ -3000,7 +3009,8 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec(
         "progress decompose-stage",
         "progress",
-        "Replace a stage seed with its registered producer's work items.",
+        "Replace a stage seed with its registered producer's work items (--refresh rebuilds a decomposed "
+        "source-correlation stage from a changed graph while no stage 4 plan is accepted).",
         mutates=True,
     ),
     _spec("progress stage-scope", "progress", "Write the union of an accepted stage's writer receipt scopes."),
@@ -3484,6 +3494,11 @@ def build_parser() -> argparse.ArgumentParser:
     decompose_stage.add_argument("--stage", required=True)
     decompose_stage.add_argument("--expected-revision", type=int, required=True)
     decompose_stage.add_argument("--dry-run", action="store_true")
+    decompose_stage.add_argument(
+        "--refresh",
+        action="store_true",
+        help="rebuild a decomposed source-correlation stage from the current graph (no stage 4 plan accepted)",
+    )
     decompose_stage.set_defaults(handler=_progress_decompose_stage)
     stage_scope = progress_commands.add_parser("stage-scope")
     stage_scope.add_argument("--stage", required=True)

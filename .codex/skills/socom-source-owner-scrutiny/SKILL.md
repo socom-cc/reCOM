@@ -11,9 +11,12 @@ symbol/relocation/static-init evidence, header emission, providers, tables,
 globals, and exact compiler behavior.
 
 For a stage 4 owner plan, run
-`python tools/socom.py source plan validate --plan <plan> --check` first; a
-valid plan is only the start of the review, never its conclusion. Challenge
-a confirmed inferred reservation as hard as any placement claim.
+`python tools/socom.py source plan validate --plan <plan> --check` and
+`python tools/socom.py source plan draft --check <plan>` first; a valid plan
+is only the start of the review, never its conclusion. Rows that keep a
+`draft_rule` are proven by the rules; challenge the hand-written rows and the
+overrides the check lists. Challenge a confirmed inferred reservation as
+hard as any placement claim.
 
 Return the strongest competing model, evidence for and against each model,
 unexplained artifacts, and a clear accept/reject/block recommendation. Do not

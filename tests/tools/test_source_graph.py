@@ -439,3 +439,54 @@ def test_reference_code_starts_at_instruction_addresses_and_kernel_glue_is_sce(r
 
 def test_reference_graph_is_deterministic(root: Path, reference_graph: dict) -> None:
     assert source_graph(root)["graph_sha256"] == reference_graph["graph_sha256"]
+
+
+def test_reference_runtime_msl_boundary_follows_relocations(reference_graph: dict) -> None:
+    # MSL's inline ~ios_base::failure and ~locale (binding 13, no DWARF) lead
+    # MSL's text before ios.cpp's first compile unit (0x1449b0): their
+    # relocations reach only MSL provider code, so the MW runtime -> MSL
+    # boundary is 0x1448d0, not the compile unit's low_pc.
+    rows = _rows(reference_graph)
+    for address in ("0x1448d0", "0x144950"):
+        verdict = rows[f"socom:function:{address}"]["classification"]
+        assert (verdict["candidate"], verdict["library"], verdict.get("weak")) == ("provider", "MSL", True)
+        assert verdict["evidence"][0].startswith("relocations reach only MSL provider code")
+    spans = {(row["start"], row["end"]) for row in reference_graph["segments"]}
+    assert ("0x142140", "0x1448c8") in spans
+    assert any(start == "0x1448d0" for start, _end in spans)
+    assert reference_graph["summary"]["classification"]["function"]["unknown"] == 1
+
+
+def test_reference_literal_runs_stop_at_object_boundaries(reference_graph: dict) -> None:
+    # The @N run from 0x4445d0 (MW runtime members) used to cross MSL's
+    # ios.cpp object at 0x444808 and give its literals ios.cpp.
+    rows = _rows(reference_graph)
+    for address in ("0x4445d0", "0x444660", "0x4447f8"):
+        assert not any(row["tu"] == "ios.cpp" for row in rows[f"socom:data:{address}"]["tu_candidates"])
+    assert _primary(rows["socom:data:0x444808"]) == ("ios.cpp", "strong")
+    assert reference_graph["summary"]["literal_pool_conflicts"] == 0
+
+
+def test_reference_crt0_object_is_its_gap(reference_graph: dict) -> None:
+    rows = _rows(reference_graph)
+    crt0 = next(row for row in reference_graph["gnu_objects"] if row["address"] == "0x140008")
+    assert crt0["functions"] == [] and crt0["gaps"] == ["socom:gap:0x140008"]
+    assert crt0["library"] == "crt0" and crt0["library_basis"].startswith("DWARF path ")
+    gap = rows["socom:gap:0x140008"]
+    assert gap["gnu_object"] == "0x140008" and gap["classification"]["library"] == "crt0"
+
+
+def test_reference_segments_report_internal_unit_boundaries(reference_graph: dict) -> None:
+    # zAnimQuadAlignTick sits unanchored between zanim_cmd_tick.cpp and
+    # zanim_load.cpp inside one segment.
+    found = [
+        row
+        for segment in reference_graph["segments"]
+        for row in segment["internal_boundaries"]
+        if "socom:function:0x1bfe80" in row["unanchored"]
+    ]
+    assert len(found) == 1
+    assert (found[0]["after"], found[0]["before"]) == ("zanim_cmd_tick.cpp", "zanim_load.cpp")
+    assert (found[0]["last_anchor"], found[0]["next_anchor"]) == ("socom:function:0x1bfd90", "socom:function:0x1bfe90")
+    summary = reference_graph["summary"]
+    assert summary["internal_boundary_count"] == sum(len(row["internal_boundaries"]) for row in reference_graph["segments"])

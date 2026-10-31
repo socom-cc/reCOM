@@ -11,8 +11,11 @@ relocations, initialization, headers/templates, providers, globals/tables, and
 exact compiler behavior.
 
 For a handed-off source-correlation owner plan, first run `source plan
-validate --plan <plan> --check`, then review every owner, provider member,
-header-emit, unresolved and retire row against the item's evidence file.
+validate --plan <plan> --check` and `source plan draft --check <plan>`. The
+drafted rows (`draft_rule`) are proven by the rules; review every other
+owner entry, the overrides the check lists, every provider member,
+header-emit, unresolved and retire row and the reservation against the
+item's evidence file (`source sql` for queries).
 
 Return accept, reject, or block with evidence and unexplained artifacts.
 Behavior or bytes alone are not source-shape proof. Never mutate files,

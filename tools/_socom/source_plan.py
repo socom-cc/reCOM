@@ -11,7 +11,12 @@ artifact of the graph lies in exactly one planning scope:
   slice holds, by the input section that holds it (or, outside every section
   envelope, the one after it).
 
-A ``socom-source-owner-plan`` (schema 1) owns every artifact of one scope
+An artifact the graph proves provider code of another library
+(``strong_provider``) moves to that library's scope wherever it lies: crt0's
+unsymbolled object gets a scope of its own, MSL takes its units' static
+initializers.
+
+A ``socom-source-owner-plan`` (schema 2; schema 1 plans stay valid) owns every artifact of one scope
 exactly once, through an owner row, or lists it unresolved with a reason.
 Owner rows are translation units (authored, with a workspace path), archive
 members (provider, with library and GNU object or object name, no source
@@ -38,7 +43,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Callable
 
 from .constants import REFERENCE_SHA256
-from .source_graph import SOURCE_GRAPH_KIND, SOURCE_GRAPH_SCHEMA
+from .source_graph import SOURCE_GRAPH_KIND, SOURCE_GRAPH_SCHEMA, TU_LIBRARY, path_library
 from .util import SocomError, canonical_json
 
 SOURCE_STAGE = "source-correlation"
@@ -46,8 +51,12 @@ SOURCE_SEED_ID = "socom:work:source-correlation-seed"
 SOURCE_APPLY_ROUTE_ID = "socom:work:source-correlation-apply-route"
 SOURCE_PLAN_RESOURCES = ["build/source-plans"]
 SOURCE_PLAN_KIND = "socom-source-owner-plan"
-SOURCE_PLAN_SCHEMA = 1
+# Schema 2 adds per-artifact confidence, draft markers, linked objects and
+# provider-header emits; schema 1 plans stay valid as written.
+SOURCE_PLAN_SCHEMA = 2
+SOURCE_PLAN_SCHEMAS = (1, 2)
 SOURCE_EVIDENCE_KIND = "socom-source-plan-evidence"
+DRAFT_OPEN = "open"
 
 SEGMENT_PLAN_KIND = "source-plan-segment"
 SEGMENT_APPLY_KIND = "source-apply-segment"
@@ -91,6 +100,8 @@ PLAN_FIELDS = frozenset(
         "reservation",
     }
 )
+# Schema 2 only: the draft block (``source plan draft``).
+PLAN_FIELDS_V2 = PLAN_FIELDS | {"draft"}
 RESERVATION_FIELDS = frozenset({"directories", "status", "reason", "evidence"})
 RESERVATION_STATUSES = ("confirmed", "corrected")
 INFERRED_STATUS = "inferred"
@@ -108,6 +119,22 @@ OWNER_FIELDS = frozenset(
         "artifacts",
     }
 )
+# Schema 2 only: the rule that fixed the row's identity and paths, or the
+# draft's "open" marker on a row whose paths the planner must still decide.
+OWNER_FIELDS_V2 = OWNER_FIELDS | {"draft_rule", "draft"}
+ARTIFACT_ENTRY_FIELDS = frozenset({"artifact", "confidence", "basis", "draft_rule"})
+MEMBER_FIELDS = frozenset({"gnu_object", "object"})
+MEMBER_FIELDS_V2 = MEMBER_FIELDS | {"linked"}
+# How a provider member reached the link: from an archive (the default) or as
+# an object file of toolchain or SDK source compiled with the project
+# (crt0.s, PS2 Support gcc_wrapper.c).
+LINKED_KINDS = ("archive", "object")
+EMIT_FIELDS = frozenset({"artifact", "header", "reason", "evidence"})
+# Schema 2 only: ``library`` marks a provider header (``<string>``) whose
+# template or inline body the owner's file emits by inclusion.
+EMIT_FIELDS_V2 = EMIT_FIELDS | {"library", "draft_rule"}
+UNRESOLVED_FIELDS_V2 = frozenset({"artifact", "reason", "draft"})
+_PROVIDER_HEADER = re.compile(r"^<[A-Za-z0-9_.+/-]+>$")
 ANNOTATION_FIELDS = ("artifact", "relation", "section", "path")
 _COMPILER_NAME = re.compile(r"^(?:@\d+(?:@.*)?|__RTTI__.*|__vt__.*|__sinit_.*|\.p__sinit_.*)$")
 _FILE_NAME = re.compile(r"^[A-Za-z0-9_.+-]+$")
@@ -209,6 +236,39 @@ def scope_item_id(scope: dict[str, Any]) -> str:
     raise SocomError(f"unknown planning scope {scope!r}")
 
 
+def provider_units(graph: dict[str, Any]) -> dict[str, str]:
+    """Casefolded unit name -> provider library, for units a provider path or name proves."""
+
+    found: dict[str, set[str]] = defaultdict(set)
+    for unit in graph.get("units") or []:
+        key = str(unit.get("tu", "")).casefold()
+        if key in TU_LIBRARY:
+            found[key].add(TU_LIBRARY[key])
+        for path in unit.get("paths") or []:
+            verdict = path_library(path)
+            if verdict and verdict[0] == "provider" and verdict[1]:
+                found[key].add(verdict[1])
+    return {key: next(iter(libraries)) for key, libraries in found.items() if len(libraries) == 1}
+
+
+def strong_provider(row: dict[str, Any], unit_library: dict[str, str]) -> str | None:
+    """The provider library the graph proves for an artifact, or ``None``.
+
+    A non-weak provider classification, or, for a compiler-generated or
+    unclassified artifact, a strong primary unit candidate that is a
+    provider unit (``provider_units``).
+    """
+
+    classification = row.get("classification") or {}
+    if classification.get("candidate") == "provider" and not classification.get("weak"):
+        return classification.get("library")
+    if classification.get("candidate") in ("compiler-generated", "unknown"):
+        candidates = row.get("tu_candidates") or []
+        if candidates and candidates[0].get("strength") == "strong":
+            return unit_library.get(str(candidates[0].get("tu")).casefold())
+    return None
+
+
 def planning_scopes(graph: dict[str, Any]) -> list[dict[str, Any]]:
     """Every planning scope of the graph with its slice, in address order.
 
@@ -237,24 +297,49 @@ def planning_scopes(graph: dict[str, Any]) -> list[dict[str, Any]]:
 
     entries: list[dict[str, Any]] = []
     providers: dict[str, dict[str, Any]] = {}
+
+    def provider_entry(library: str) -> dict[str, Any]:
+        entry = providers.get(library)
+        if entry is None:
+            entry = providers[library] = {
+                "scope": {"kind": "provider", "library": library},
+                "segments": [],
+                "artifacts": [],
+                "moved_from": [],
+            }
+            entries.append(entry)
+        return entry
+
+    unit_library = provider_units(graph)
     for segment, ids in zip(segments, slices):
         family, library = segment_family(segment)
         if family == "provider":
             assert library is not None
-            entry = providers.get(library)
-            if entry is None:
-                entry = providers[library] = {"scope": {"kind": "provider", "library": library}, "segments": [], "artifacts": []}
-                entries.append(entry)
+            entry = provider_entry(library)
             entry["segments"].append(segment)
-            entry["artifacts"].extend(ids)
         else:
-            entries.append(
-                {
-                    "scope": {"kind": "segment", "segment_id": segment["id"], "segment_number": segment["segment_number"]},
-                    "segments": [segment],
-                    "artifacts": ids,
-                }
-            )
+            entry = {
+                "scope": {"kind": "segment", "segment_id": segment["id"], "segment_number": segment["segment_number"]},
+                "segments": [segment],
+                "artifacts": [],
+            }
+            entries.append(entry)
+        # An artifact the graph proves provider code of another library
+        # (crt0's unsymbolled object, a provider unit's static initializer
+        # in the authored __sinit window) is planned by that library's item.
+        here = library if family == "provider" else None
+        for identity in ids:
+            other = strong_provider(rows[position[identity]], unit_library)
+            if other is None or other == here:
+                entry["artifacts"].append(identity)
+                continue
+            target = provider_entry(other)
+            target["artifacts"].append(identity)
+            if segment["segment_number"] not in target["moved_from"]:
+                target["moved_from"].append(segment["segment_number"])
+    # Address order of their first artifact (a scope made only of moved
+    # artifacts takes its place among the others).
+    entries.sort(key=lambda entry: min((position[identity] for identity in entry["artifacts"]), default=len(rows)))
     held: set[str] = set()
     for entry in entries:
         for identity in entry["artifacts"]:
@@ -300,12 +385,16 @@ def scope_batches(graph: dict[str, Any]) -> list[dict[str, Any]]:
             mix: Counter[str] = Counter()
             for segment in segments:
                 mix.update(segment["classification_mix"])
+            moved = sorted(entry.get("moved_from") or [])
             batch.update(
-                batch_number=segments[0]["segment_number"],
+                batch_number=segments[0]["segment_number"] if segments else moved[0],
                 segment_numbers=[segment["segment_number"] for segment in segments],
                 ranges=[[segment["start"], segment["end"]] for segment in segments],
                 classification_mix=dict(sorted(mix.items())),
             )
+            if moved:
+                # Artifacts of this library the graph proves inside other segments.
+                batch["moved_from_segments"] = moved
             if scope["kind"] == "segment":
                 batch["tu_candidates"] = [row["tu"] for row in segments[0]["tu_candidates"]]
         batches.append(batch)
@@ -366,20 +455,38 @@ def apply_reservations(root: Path, graph: dict[str, Any]) -> dict[str, dict[str,
                 by_basename[path.name.casefold()].add(path.parent.relative_to(root).as_posix())
     paths = {unit["tu"].casefold(): unit["paths"] for unit in graph["units"]}
 
-    def unit_directories(unit: str) -> set[str]:
+    def unit_places(unit: str) -> tuple[set[str], bool]:
+        """(directories, whether an original ELF path gives them)."""
+
         modules = [module for module in map(original_module, paths.get(unit.casefold(), [])) if module]
         if modules:
-            return {directories.get(module.casefold(), module) for module in modules}
-        return set(by_basename.get(unit.casefold(), ()))
+            return {directories.get(module.casefold(), module) for module in modules}, True
+        return set(by_basename.get(unit.casefold(), ())), False
+
+    def unit_directories(unit: str) -> set[str]:
+        return unit_places(unit)[0]
 
     segments = graph["segments"]
     evidenced: dict[str, list[str]] = {}
+    by_name: dict[str, tuple[list[str], list[str]]] = {}
     for segment in segments:
         if segment_family(segment)[0] == "authored":
             found: set[str] = set()
+            from_paths: set[str] = set()
+            clauses: list[str] = []
             for candidate in segment["tu_candidates"]:
-                found.update(unit_directories(candidate["tu"]))
+                places, from_path = unit_places(candidate["tu"])
+                found.update(places)
+                if from_path:
+                    from_paths.update(places)
+                elif places:
+                    clauses.append(
+                        f"{candidate['tu']} has no original ELF path; only a provisional file of that name lies in "
+                        f"{_directories_text(sorted(places, key=str.casefold))}"
+                    )
             evidenced[segment["id"]] = sorted(found, key=str.casefold)
+            if found - from_paths:
+                by_name[segment["id"]] = (sorted(found - from_paths, key=str.casefold), clauses)
 
     def infer(segment: dict[str, Any]) -> tuple[list[str], str]:
         window = [row for row in segments if row["window"] == segment["window"]]
@@ -425,16 +532,28 @@ def apply_reservations(root: Path, graph: dict[str, Any]) -> dict[str, dict[str,
             continue
         segment = entry["segments"][0]
         found = evidenced[segment["id"]]
+        if found and segment["id"] in by_name:
+            # A directory that rests only on a provisional file's name is an
+            # inference the plan must confirm (user decision of 2026-10-31).
+            _named, clauses = by_name[segment["id"]]
+            result[scope_key(scope)] = {
+                "directories": found,
+                "inferred": True,
+                "basis": "provisional-name",
+                "reason": "inferred by name: " + "; ".join(clauses),
+            }
+            continue
         if found:
-            result[scope_key(scope)] = {"directories": found, "inferred": False, "reason": None}
+            result[scope_key(scope)] = {"directories": found, "inferred": False, "basis": "path", "reason": None}
             continue
         inferred, reason = infer(segment) if segment["tu_candidates"] else ([], "the segment has no unit candidates")
         if inferred:
-            result[scope_key(scope)] = {"directories": inferred, "inferred": True, "reason": reason}
+            result[scope_key(scope)] = {"directories": inferred, "inferred": True, "basis": "neighbour-prefix", "reason": reason}
         else:
             result[scope_key(scope)] = {
                 "directories": ["src"],
                 "inferred": False,
+                "basis": "fallback",
                 "reason": f"fallback to all of src: {reason}",
             }
     return result
@@ -498,6 +617,23 @@ def named(row: dict[str, Any]) -> bool:
     return row.get("kind") != "gap" and any(
         item.get("name") and not _COMPILER_NAME.match(item["name"]) for item in row.get("names") or []
     )
+
+
+def artifact_id(entry: Any) -> str | None:
+    """The artifact ID of an owner row's ``artifacts`` entry (a string, or a schema 2 object)."""
+
+    if isinstance(entry, str):
+        return entry
+    if isinstance(entry, dict) and isinstance(entry.get("artifact"), str):
+        return entry["artifact"]
+    return None
+
+
+def artifact_ids(owner: dict[str, Any]) -> list[str]:
+    """The artifact IDs an owner row lists, in order; consumers of plans read entries through this."""
+
+    entries = owner.get("artifacts") if isinstance(owner, dict) else None
+    return [value for value in map(artifact_id, entries if isinstance(entries, list) else []) if value is not None]
 
 
 def _address(identity: str) -> int:
@@ -623,7 +759,14 @@ def scope_entry(graph: dict[str, Any], item: dict[str, Any]) -> dict[str, Any]:
 def derive_annotations(
     plan: dict[str, Any], graph: dict[str, Any], section_of: Callable[[int], str | None]
 ) -> list[dict[str, Any]]:
-    """The annotation targets the plan's owner and header-emit rows imply."""
+    """The annotation targets the plan's owner and header-emit rows imply.
+
+    A named artifact of an authored row is defined in the row's workspace
+    file, and a header-emit row adds an ``emits`` edge in its header.  A
+    provider-header row (schema 2: ``library`` set, header ``<name>``) has
+    no workspace header: the owner's file emits the instance by including
+    the provider header, so its ``defines`` edge becomes ``emits``.
+    """
 
     rows = {row["id"]: row for row in graph["artifacts"]}
     found: dict[tuple[str, str, str], dict[str, Any]] = {}
@@ -639,12 +782,17 @@ def derive_annotations(
             "path": path,
         }
 
+    included = {
+        emit.get("artifact")
+        for emit in plan.get("header_emits") or []
+        if isinstance(emit, dict) and emit.get("library") is not None
+    }
     for owner in plan.get("owners") or []:
         if isinstance(owner, dict) and owner.get("classification") == "authored":
-            for identity in owner.get("artifacts") or []:
-                add(identity, "defines", owner.get("workspace_path"))
+            for identity in artifact_ids(owner):
+                add(identity, "emits" if identity in included else "defines", owner.get("workspace_path"))
     for emit in plan.get("header_emits") or []:
-        if isinstance(emit, dict):
+        if isinstance(emit, dict) and emit.get("library") is None:
             add(emit.get("artifact"), "emits", emit.get("header"))
     return sorted(found.values(), key=lambda row: (_address(row["artifact"]), row["relation"], row["path"]))
 
@@ -772,10 +920,16 @@ def validate_source_plan(
     if not isinstance(plan, dict):
         problems.append("the plan must be a JSON object")
         return done()
-    if plan.get("kind") != SOURCE_PLAN_KIND or plan.get("schema_version") != SOURCE_PLAN_SCHEMA:
-        problems.append(f"the plan is not a {SOURCE_PLAN_KIND} schema {SOURCE_PLAN_SCHEMA} document")
-    if unknown := sorted(set(plan) - PLAN_FIELDS):
+    schema = plan.get("schema_version")
+    if plan.get("kind") != SOURCE_PLAN_KIND or schema not in SOURCE_PLAN_SCHEMAS or isinstance(schema, bool):
+        problems.append(
+            f"the plan is not a {SOURCE_PLAN_KIND} schema {' or '.join(map(str, SOURCE_PLAN_SCHEMAS))} document"
+        )
+    v2 = schema == 2
+    if unknown := sorted(set(plan) - (PLAN_FIELDS_V2 if v2 else PLAN_FIELDS)):
         problems.append(f"the plan has unknown fields {unknown}")
+    if "draft" in plan and not isinstance(plan["draft"], dict):
+        problems.append("draft must be an object (written by source plan draft)")
     if (plan.get("target") or {}).get("source_sha256") != REFERENCE_SHA256:
         problems.append("the plan's target is not the reference ELF")
     try:
@@ -818,6 +972,9 @@ def validate_source_plan(
     members: dict[tuple[str, str], str] = {}
     cited_files: set[str] = set()
 
+    scope = item["batch"]["scope"]
+    review: list[str] = report["review"]
+    provider_rows_elsewhere: list[str] = []
     owners = plan.get("owners")
     if not isinstance(owners, list):
         problems.append("owners must be a list")
@@ -827,8 +984,15 @@ def validate_source_plan(
             problems.append(f"owner {number} must be an object")
             continue
         label = f"owner {number} ({owner.get('translation_unit') or owner.get('library') or owner.get('classification')})"
-        if unknown := sorted(set(owner) - OWNER_FIELDS):
+        if unknown := sorted(set(owner) - (OWNER_FIELDS_V2 if v2 else OWNER_FIELDS)):
             problems.append(f"{label} has unknown fields {unknown}")
+        if "draft" in owner:
+            if owner["draft"] == DRAFT_OPEN:
+                problems.append(f"{label} is still open in the draft: decide its paths, then remove \"draft\"")
+            else:
+                problems.append(f"{label} draft must be {DRAFT_OPEN!r} or absent")
+        if "draft_rule" in owner and (not isinstance(owner["draft_rule"], str) or not owner["draft_rule"].strip()):
+            problems.append(f"{label} draft_rule must name a rule")
         classification = owner.get("classification")
         if classification not in CLASSIFICATIONS:
             problems.append(f"{label} classification must be one of {list(CLASSIFICATIONS)}")
@@ -836,10 +1000,40 @@ def validate_source_plan(
             problems.append(f"{label} confidence must be one of {list(CONFIDENCES)}")
         if not _strings(owner.get("evidence")):
             problems.append(f"{label} needs evidence lines")
-        artifacts = owner.get("artifacts")
-        if not isinstance(artifacts, list) or not artifacts or not all(isinstance(value, str) for value in artifacts):
+        entries = owner.get("artifacts")
+        if not isinstance(entries, list) or not entries:
             problems.append(f"{label} must list its artifacts")
-            artifacts = [value for value in artifacts if isinstance(value, str)] if isinstance(artifacts, list) else []
+            entries = entries if isinstance(entries, list) else []
+        artifacts = []
+        explicit: list[str] = []
+        for entry in entries:
+            identity = artifact_id(entry)
+            if identity is None or (isinstance(entry, dict) and not v2):
+                problems.append(f"{label} artifacts must be artifact IDs" + (" or schema 2 entry objects" if v2 else ""))
+                continue
+            artifacts.append(identity)
+            if isinstance(entry, dict):
+                if unknown := sorted(set(entry) - ARTIFACT_ENTRY_FIELDS):
+                    problems.append(f"{label} entry {identity} has unknown fields {unknown}")
+                has_confidence, has_basis = "confidence" in entry, "basis" in entry
+                if has_confidence != has_basis:
+                    problems.append(f"{label} entry {identity} needs both confidence and basis")
+                if has_confidence:
+                    if entry["confidence"] not in CONFIDENCES:
+                        problems.append(f"{label} entry {identity} confidence must be one of {list(CONFIDENCES)}")
+                    else:
+                        explicit.append(entry["confidence"])
+                if has_basis and (not isinstance(entry["basis"], str) or not entry["basis"].strip()):
+                    problems.append(f"{label} entry {identity} needs a basis line")
+                if "draft_rule" in entry and (not isinstance(entry["draft_rule"], str) or not entry["draft_rule"].strip()):
+                    problems.append(f"{label} entry {identity} draft_rule must name a rule")
+        if explicit and owner.get("confidence") in CONFIDENCES:
+            # The row's confidence is its weakest artifact's.
+            weakest = max(explicit, key=CONFIDENCES.index)
+            if CONFIDENCES.index(owner["confidence"]) < CONFIDENCES.index(weakest):
+                problems.append(f"{label} confidence {owner['confidence']} is stronger than its weakest artifact's ({weakest})")
+            elif len(explicit) == len(artifacts) and owner["confidence"] != weakest:
+                problems.append(f"{label} confidence must be its weakest artifact's ({weakest})")
         for identity in artifacts:
             holders[identity].append(label)
             owner_of.setdefault(identity, owner)
@@ -926,9 +1120,15 @@ def validate_source_plan(
         elif classification == "provider":
             if not isinstance(library, str) or not library.strip():
                 problems.append(f"{label} is a provider: it needs its library")
+            elif scope.get("kind") == "provider" and library != scope.get("library"):
+                problems.append(f"{label} names library {library!r}; this plan's scope is {scope.get('library')!r}")
+            elif scope.get("kind") != "provider":
+                provider_rows_elsewhere.append(f"{library} ({label})")
+            if isinstance(member, dict) and "linked" in member and (not v2 or member["linked"] not in LINKED_KINDS):
+                problems.append(f"{label} archive_member linked must be one of {list(LINKED_KINDS)} (schema 2)")
             if (
                 not isinstance(member, dict)
-                or set(member) - {"gnu_object", "object"}
+                or set(member) - (MEMBER_FIELDS_V2 if v2 else MEMBER_FIELDS)
                 or not any(isinstance(member.get(key), str) and member.get(key) for key in ("gnu_object", "object"))
             ):
                 problems.append(f"{label} is a provider: archive_member needs gnu_object and/or object")
@@ -953,16 +1153,33 @@ def validate_source_plan(
     if not isinstance(unresolved, list):
         problems.append("unresolved must be a list")
         unresolved = []
+    still_open: list[str] = []
     for number, row in enumerate(unresolved, 1):
-        if not isinstance(row, dict) or set(row) != {"artifact", "reason"} or not isinstance(row.get("artifact"), str):
-            problems.append(f"unresolved row {number} must be {{artifact, reason}}")
+        allowed = UNRESOLVED_FIELDS_V2 if v2 else {"artifact", "reason"}
+        if (
+            not isinstance(row, dict)
+            or not {"artifact", "reason"} <= set(row) <= allowed
+            or not isinstance(row.get("artifact"), str)
+        ):
+            problems.append(f"unresolved row {number} must be {{artifact, reason}}" + (" (+ draft)" if v2 else ""))
             continue
         reason = row.get("reason")
+        if "draft" in row:
+            # The draft left it for the planner: own it, or keep it with a real reason.
+            if row["draft"] == DRAFT_OPEN:
+                still_open.append(row["artifact"])
+            else:
+                problems.append(f"unresolved {row['artifact']} draft must be {DRAFT_OPEN!r} or absent")
         if not isinstance(reason, str) or not reason.strip():
             problems.append(f"unresolved {row['artifact']} needs a reason")
         elif reason.strip() == SKELETON_REASON:
             problems.append(f"unresolved {row['artifact']} still has the skeleton reason {SKELETON_REASON!r}")
         holders[row["artifact"]].append("unresolved")
+    if still_open:
+        problems.append(
+            f"{len(still_open)} artifacts are still open in the draft (own them or give a reason and drop \"draft\"): "
+            + _shown(still_open)
+        )
 
     outside = sorted(identity for identity in holders if identity not in in_slice)
     if outside:
@@ -977,7 +1194,6 @@ def validate_source_plan(
         problems.append(f"{len(missing)} slice artifacts are neither owned nor unresolved: {_shown(missing)}")
 
     # A GNU object's functions belong to the archive-member row naming it.
-    review: list[str] = report["review"]
     for identity in slice_ids:
         gnu = rows[identity].get("gnu_object")
         owner = owner_of.get(identity)
@@ -999,7 +1215,7 @@ def validate_source_plan(
     for number, emit in enumerate(header_emits, 1):
         if (
             not isinstance(emit, dict)
-            or set(emit) != {"artifact", "header", "reason", "evidence"}
+            or not EMIT_FIELDS <= set(emit) <= (EMIT_FIELDS_V2 if v2 else EMIT_FIELDS)
             or not all(isinstance(emit[key], str) for key in ("artifact", "header", "reason"))
         ):
             problems.append(f"header_emits row {number} must be {{artifact, header, reason, evidence}} with string values")
@@ -1012,13 +1228,27 @@ def validate_source_plan(
         if identity in emitted:
             problems.append(f"{label} is listed twice")
         emitted.add(identity)
-        if not _workspace_path(header) or not header.casefold().endswith(HEADER_SUFFIXES):
-            problems.append(f"{label}: header must be a repo-relative header path under src/")
+        provider_header = emit.get("library")
+        if provider_header is not None:
+            # A provider header (MSL <string>): the owner's file emits the
+            # instance by including it; no workspace header is written.
+            if not isinstance(provider_header, str) or not provider_header.strip():
+                problems.append(f"{label}: a provider header needs its library")
+            if not _PROVIDER_HEADER.match(header):
+                problems.append(f"{label}: a provider header is spelled <name>, as the owner's file includes it")
+        elif not _workspace_path(header) or not header.casefold().endswith(HEADER_SUFFIXES):
+            problems.append(f"{label}: header must be a repo-relative header path under src/ (or a <provider> header with its library)")
         else:
             cited_files.add(header.casefold())
             state, actual = _path_state(root, header)
             if state == "case":
                 problems.append(f"{label}: header {header} differs in letter case from {actual} on disk")
+            if placement is not None and not _within(header, placement["directories"]):
+                # The apply writes the emits annotation into the header.
+                problems.append(
+                    f"{label}: header {header} lies outside the reservation of {placement['apply_item']} "
+                    f"({_directories_text(placement['directories'])}): place it inside or record the correction in reservation"
+                )
         if reason not in EMIT_REASONS:
             problems.append(f"{label}: reason must be one of {list(EMIT_REASONS)}")
         elif isinstance(identity, str) and identity in rows:
@@ -1032,6 +1262,8 @@ def validate_source_plan(
                 problems.append(f"{label}: a template instance needs template arguments in its name")
         if not _strings(emit.get("evidence")):
             problems.append(f"{label} needs evidence lines")
+        if "draft_rule" in emit and (not isinstance(emit["draft_rule"], str) or not emit["draft_rule"].strip()):
+            problems.append(f"{label} draft_rule must name a rule")
 
     retire = plan.get("retire_files", [])
     if not isinstance(retire, list):
@@ -1100,6 +1332,17 @@ def validate_source_plan(
             f"{len(disagreements)} owned artifacts differ from the graph's classification candidate: "
             + _shown(sorted(disagreements, key=_address))
         )
+    unknown_owned = sorted(
+        (identity for identity in owner_of if rows.get(identity, {}).get("classification", {}).get("candidate") == "unknown"),
+        key=_address,
+    )
+    if unknown_owned:
+        review.append(f"{len(unknown_owned)} owned artifacts have no graph classification candidate (unknown): {_shown(unknown_owned)}")
+    if provider_rows_elsewhere:
+        review.append(
+            f"this {scope.get('kind')} plan owns provider rows ({', '.join(provider_rows_elsewhere)}): its apply records "
+            "them in tracker evidence as a provider apply does, and writes nothing for them under src/"
+        )
     report["summary"] = {
         "slice_artifacts": len(slice_ids),
         "owned": sum(1 for identity in slice_ids if identity in owner_of),
@@ -1108,6 +1351,8 @@ def validate_source_plan(
         "annotations": dict(sorted(Counter(row["relation"] for row in expected).items())),
         "header_emits": len(header_emits),
         "retire_files": len(retire),
+        "schema_version": schema,
+        "draft_open": len(still_open),
     }
     report["applied"] = applied is not None
     return done()
@@ -1116,8 +1361,18 @@ def validate_source_plan(
 # -- evidence and skeleton ------------------------------------------------------
 
 
-def _compact(row: dict[str, Any], section_of: Callable[[int], str | None]) -> dict[str, Any]:
+def input_section_text(row: dict[str, Any]) -> str:
+    """The input section of an artifact, or where it lies between two of them."""
+
     section = row.get("input_section") or {}
+    if section.get("name"):
+        return section["name"]
+    before, after = (list(section.get("between") or []) + [None, None])[:2]
+    return f"between {before or 'start'} and {after or 'end'}"
+
+
+def _compact(row: dict[str, Any], section_of: Callable[[int], str | None]) -> dict[str, Any]:
+    classification = row["classification"]
     out: dict[str, Any] = {
         "id": row["id"],
         "kind": row["kind"],
@@ -1125,9 +1380,14 @@ def _compact(row: dict[str, Any], section_of: Callable[[int], str | None]) -> di
         "end": row["end"],
         "size": row["size"],
         "section": section_of(int(row["address"], 16)),
-        "input_section": section.get("name") or "..".join(str(value) for value in section.get("between") or []),
+        "input_section": input_section_text(row),
         "named": named(row),
-        "classification": {key: row["classification"].get(key) for key in ("candidate", "library", "weak") if key in row["classification"]},
+        "classification": {
+            "candidate": classification.get("candidate"),
+            "library": classification.get("library"),
+            "weak": classification.get("weak") is True,
+            "evidence": list(classification.get("evidence") or []),
+        },
         "tu_candidates": [{key: candidate[key] for key in ("tu", "strength", "via")} for candidate in row["tu_candidates"]],
     }
     if row["kind"] == "gap":
@@ -1135,6 +1395,10 @@ def _compact(row: dict[str, Any], section_of: Callable[[int], str | None]) -> di
     else:
         out["binding"] = row.get("binding")
         out["names"] = [{"name": item["name"], "binding": item.get("binding")} for item in row.get("names") or []]
+        bindings = {item.get("binding") for item in row.get("names") or []} | {row.get("binding")}
+        # WEAK or Metrowerks binding 13 (inline): an instance a header may emit.
+        out["weak"] = "WEAK" in bindings
+        out["inline"] = "13" in bindings
     for key in ("cluster", "gnu_object", "emitted_from_header"):
         if row.get(key):
             out[key] = row[key]
@@ -1172,7 +1436,10 @@ def plan_evidence(
             ),
             key=lambda row: row["path"].casefold(),
         )
-    functions = {row["id"] for row in rows if row["kind"] == "function"}
+    segment_keys = (
+        "id", "segment_number", "start", "end", "function_count", "classification_mix", "tu_candidates", "boundary",
+        "internal_boundaries",
+    )
     evidence = {
         "kind": SOURCE_EVIDENCE_KIND,
         "schema_version": 1,
@@ -1181,12 +1448,13 @@ def plan_evidence(
         "graph_sha256": graph["graph_sha256"],
         "slice_sha256": entry["slice_sha256"],
         "artifact_count": len(rows),
-        "segments": [
-            {key: segment[key] for key in ("id", "segment_number", "start", "end", "function_count", "classification_mix", "tu_candidates", "boundary")}
-            for segment in entry["segments"]
-        ],
+        "segments": [{key: segment[key] for key in segment_keys if key in segment} for segment in entry["segments"]],
+        "moved_from_segments": list(item["batch"].get("moved_from_segments") or []),
         "units": [unit for unit in graph["units"] if unit["tu"].casefold() in units],
-        "gnu_objects": [row for row in graph["gnu_objects"] if functions & set(row["functions"])],
+        # Every GNU object one of whose functions or gaps (crt0's code) lies in the slice.
+        "gnu_objects": [
+            row for row in graph["gnu_objects"] if wanted & set(row["functions"]) | wanted & set(row.get("gaps") or [])
+        ],
         "provisional_files": provisional,
         "artifacts": [_compact(row, section_of) for row in rows],
     }

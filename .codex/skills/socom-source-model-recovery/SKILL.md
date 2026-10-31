@@ -21,8 +21,11 @@ competing models as blockers. Add `@socom-anchor` and `@socom-artifact` only
 through reviewed source-correlation work.
 
 A stage 4 plan item's owner plan starts from
-`python tools/socom.py source plan evidence --item <item> --check --output <evidence> --skeleton <plan>`
-and must pass `python tools/socom.py source plan validate --plan <plan> --check`:
+`python tools/socom.py source plan draft --item <item> --output <plan>` (the
+versioned rules decide what they can; the rest is marked `"draft": "open"`),
+with `source plan evidence` and `source sql` for the open rows. It must pass
+`python tools/socom.py source plan draft --check <plan>` and
+`python tools/socom.py source plan validate --plan <plan> --check`:
 every slice artifact owned once or unresolved with a reason, provisional
 files cited exactly as they exist, the annotation targets the owner rows
 imply listed (`--fill-annotations` writes them), and owners placed in the

@@ -445,7 +445,9 @@ def test_writes_outside_the_reservation_are_refused(workspace: tuple[Path, dict]
     # The header lies outside segment 1's reserved src/gamez/zFoo.
     plan["header_emits"][0]["header"] = "src/gamez/zBar/zbar.h"
     plan["annotations"] = derive_annotations(plan, graph, MAIN)
-    assert validate_source_plan(root, _load(root), plan, graph, section_of=MAIN)["ok"]
+    # Validation refuses a header emit outside the reservation; the apply must
+    # refuse it as well, even for a plan accepted without that check.
+    assert not validate_source_plan(root, _load(root), plan, graph, section_of=MAIN)["ok"]
     chosen[SEGMENT_1] = plan
     _accept_plans(root, chosen)
     _run(capsys, "--root", str(root), "progress", "open-capability-gate", "--item", SOURCE_APPLY_ROUTE_ID,

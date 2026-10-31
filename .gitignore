@@ -411,3 +411,6 @@ imgui.ini
 # Locally supplied compiler licenses (FLEXlm). Never commit or distribute.
 license.dat
 *.lic
+
+# Derived SQLite query caches (progress sql, source sql); rebuilt on demand.
+build/cache/

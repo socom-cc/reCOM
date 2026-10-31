@@ -21,6 +21,7 @@ from tools._socom.source_plan import (
     apply_reservations,
     derive_annotations,
     graph_digest,
+    input_section_text,
     loaded_section_lookup,
     plan_evidence,
     plan_skeleton,
@@ -206,10 +207,17 @@ def test_apply_reservations_keep_the_existing_module_spelling(tmp_path: Path) ->
     (tmp_path / "src" / "gamez" / "zfoo").mkdir(parents=True)
     (tmp_path / "src" / "Apps" / "FTS").mkdir(parents=True)
     (tmp_path / "src" / "Apps" / "FTS" / "b.cpp").write_text("", encoding="utf-8")
-    # Providers reserve nothing: they have no source body.
+    # Providers reserve nothing: they have no source body.  b.cpp has no
+    # original ELF path: a provisional file's name alone is an inference the
+    # plan must confirm.
     assert apply_reservations(tmp_path, synthetic_graph()) == {
-        SEGMENT_1: {"directories": ["src/gamez/zfoo"], "inferred": False, "reason": None},
-        SEGMENT_3: {"directories": ["src/Apps/FTS"], "inferred": False, "reason": None},
+        SEGMENT_1: {"directories": ["src/gamez/zfoo"], "inferred": False, "basis": "path", "reason": None},
+        SEGMENT_3: {
+            "directories": ["src/Apps/FTS"],
+            "inferred": True,
+            "basis": "provisional-name",
+            "reason": "inferred by name: b.cpp has no original ELF path; only a provisional file of that name lies in src/Apps/FTS",
+        },
     }
 
 
@@ -236,7 +244,7 @@ def test_apply_reservations_infer_a_directory_from_neighbouring_prefixes(tmp_pat
 def test_apply_reservations_fall_back_to_src_only_without_an_inference(tmp_path: Path) -> None:
     (tmp_path / "src").mkdir()
     reservation = apply_reservations(tmp_path, synthetic_graph())[SEGMENT_3]
-    assert reservation == {"directories": ["src"], "inferred": False, "reason": FALLBACK}
+    assert reservation == {"directories": ["src"], "inferred": False, "basis": "fallback", "reason": FALLBACK}
 
 
 def test_decomposition_builds_file_only_plans_blocked_applies_and_a_gate(synthetic: tuple[dict, dict]) -> None:
@@ -378,10 +386,18 @@ def test_packets_route_mapper_worker_and_verifier(synthetic: tuple[dict, dict]) 
     assert packet["allowed_paths"] == [
         "build/source-plans/socom-work-source-provider-sce-evidence.json",
         "build/source-plans/socom-work-source-provider-sce.json",
+        "build/source-plans/mapper/",
     ]
+    assert packet["scratch_dir"] == "build/source-plans/mapper/" and packet["reservation"] is None
     assert any("source plan validate" in line and "--check" in line for line in packet["validation"])
+    assert any("source plan draft --item socom:work:source-provider-sce" in line for line in packet["validation"])
+    assert any("source plan draft --check" in line for line in packet["validation"])
     claim_work(tracker, "socom:work:source-segment-001", "mapper", 30)
-    assert work_packet(tracker, "socom:work:source-segment-001", "mapper")["skill"] == "socom-source-model-recovery"
+    segment = work_packet(tracker, "socom:work:source-segment-001", "mapper")
+    assert segment["skill"] == "socom-source-model-recovery"
+    assert segment["reservation"] == {
+        "apply_item": "socom:work:source-segment-001-apply", "directories": ["src/gamez/zFoo"], "inferred": False, "reason": None,
+    }
     apply = next(row for row in tracker["work_items"] if row["id"] == "socom:work:source-segment-001-apply")
     apply["status"] = "ready"
     claim_work(tracker, apply["id"], "worker", 30)
@@ -677,6 +693,10 @@ def test_evidence_and_skeleton(tmp_path: Path, synthetic: tuple[dict, dict]) -> 
     assert [row["id"] for row in evidence["artifacts"]] == planning_scopes(graph)[0]["artifacts"]
     assert evidence["provisional_files"] == [{"path": "src/gamez/zFoo/a.cpp", "bytes": 15}]
     assert [row["named"] for row in evidence["artifacts"]] == [True, True, False, False]
+    first = evidence["artifacts"][1]
+    assert (first["inline"], first["weak"], first["classification"]["weak"]) == (True, False, False)
+    assert first["classification"]["evidence"] == [] and first["input_section"] == ".text"
+    assert input_section_text({"input_section": {"name": None, "between": [".vutext", ".data"]}}) == "between .vutext and .data"
     skeleton = plan_skeleton(tracker, "socom:work:source-segment-001", graph)
     problems = validate_source_plan(root, tracker, skeleton, graph, section_of=MAIN)["problems"]
     assert len(problems) == 4 and all("skeleton reason" in problem for problem in problems)
@@ -712,6 +732,12 @@ def test_cli_evidence_fill_and_check(tmp_path: Path, root: Path, synthetic: tupl
     assert cli.main([*base, "validate", "--plan", plan_path, "--fill-annotations"]) == 0
     report = json.loads(capsys.readouterr().out)
     assert report["ok"] and report["annotations_filled"] and report["summary"]["annotations"]["defines"] == 2
+    # Rewriting the plan is a (build/) mutation; the reservation checked is printed.
+    assert report["mutation_performed"] is True
+    assert report["reservation"]["apply_item"] == "socom:work:source-segment-001-apply"
+    assert cli.main([*base, "validate", "--plan", plan_path, "--fill-annotations"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["mutation_performed"] is False and report["annotations_filled"] is False
     # --check regenerates the graph from the ELF: the reference graph is not
     # the synthetic one the item was decomposed from.
     regenerated = dict(graph, segment_size=100)
@@ -736,14 +762,20 @@ def test_reference_dry_run_decomposition(root: Path, stage3_tracker: dict, refer
     assert counts == {
         "source-plan-segment": 46,
         "source-apply-segment": 46,
-        "source-plan-provider": 12,
-        "source-apply-provider": 12,
+        "source-plan-provider": 13,
+        "source-apply-provider": 13,
         "source-data-reconcile": 3,
         "capability-gate": 1,
         "stage-gate": 1,
     }
     ready = [row["id"] for row in next_work(copy.deepcopy(tracker)) if row["stage"] == SOURCE_STAGE]
-    assert len(ready) == 58
+    assert len(ready) == 59
+    by_id = {row["id"]: row for row in tracker["work_items"]}
+    # crt0's unsymbolled object (gap 0x140008) is planned by its own provider
+    # item, not by segment 001; MSL plans its units' static initializers.
+    crt0 = by_id["socom:work:source-provider-crt0"]["batch"]
+    assert crt0["segment_numbers"] == [] and crt0["moved_from_segments"] == [1] and crt0["artifact_count"] == 1
+    assert by_id["socom:work:source-provider-msl"]["batch"]["moved_from_segments"] == [len(graph["segments"])]
     record = next(row for row in tracker["stages"] if row["name"] == SOURCE_STAGE)["decomposition"]
     assert record["segment_count"] == len(graph["segments"]) and record["graph_sha256"] == graph["graph_sha256"]
     # The static-initializer window (mostly compiler-generated) is planned as
@@ -751,7 +783,6 @@ def test_reference_dry_run_decomposition(root: Path, stage3_tracker: dict, refer
     last = next(row for row in tracker["work_items"] if row["id"] == f"socom:work:source-segment-{len(graph['segments']):03d}")
     assert last["batch"]["classification_mix"].get("compiler-generated", 0) > 100
     assert "socom:work:source-provider-speech-middleware" in {row["id"] for row in tracker["work_items"]}
-    by_id = {row["id"]: row for row in tracker["work_items"]}
     # Provider applies write nothing under src/.
     assert all(row["resources"] == [] for row in by_id.values() if row["kind"] == "source-apply-provider")
     # zui_skb.cpp (segment 57) has no path or provisional file: its directory
@@ -759,8 +790,15 @@ def test_reference_dry_run_decomposition(root: Path, stage3_tracker: dict, refer
     skb = by_id["socom:work:source-segment-057-apply"]
     assert skb["batch"]["tu_candidates"] == ["zui_skb.cpp"]
     assert skb["resources"] == ["src/gamez/zUI"] and skb["batch"]["resource_inferred"] is True
+    assert skb["batch"]["resource_basis"] == "neighbour-prefix"
     assert "prefix 'zui' (segment 056 zui_cleanup.cpp; segment 056 zui_spec.cpp)" in skb["batch"]["resource_reason"]
-    assert [row["item"] for row in record["inferred_reservations"]] == [skb["id"]]
+    # A directory resting only on a provisional file's name is inferred too
+    # (segment 017: zanim_cmd_tick.cpp has no original path).
+    tick = by_id["socom:work:source-segment-017-apply"]["batch"]
+    assert tick["resource_inferred"] is True and tick["resource_basis"] == "provisional-name"
+    inferred = [row["item"] for row in record["inferred_reservations"]]
+    assert skb["id"] in inferred and "socom:work:source-segment-017-apply" in inferred and len(inferred) == 39
+    assert "socom:work:source-segment-001-apply" not in inferred
     assert record["fallback_reservations"] == []
     assert not any(row["resources"] == ["src"] for row in by_id.values() if row["kind"] == "source-apply-segment")
 
@@ -793,9 +831,9 @@ def test_cli_dry_run_against_a_copy_of_the_reference_tracker(
     report = json.loads(capsys.readouterr().out)
     assert report["ok"] and report["errors"] == []
     assert report["item_counts"]["source-plan-segment"] == 46 and report["item_counts"]["source-data-reconcile"] == 3
-    assert [row["item"] for row in report["decomposition"]["inferred_reservations"]] == [
-        "socom:work:source-segment-057-apply"
-    ]
+    assert report["item_counts"]["source-plan-provider"] == 13
+    inferred = [row["item"] for row in report["decomposition"]["inferred_reservations"]]
+    assert "socom:work:source-segment-057-apply" in inferred and len(inferred) == 39
     assert report["decomposition"]["fallback_reservations"] == []
     assert state.read_bytes() == before
 

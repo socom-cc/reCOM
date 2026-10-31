@@ -2145,6 +2145,8 @@ def decompose_source_correlation(
             title = (
                 f"Plan provider owners of {scope['library']} "
                 f"({len(batch['segment_numbers'])} segments, {batch['function_count']} functions)"
+                if batch["segment_numbers"]
+                else f"Plan provider owners of {scope['library']} ({batch['artifact_count']} artifacts in other segments)"
             )
             apply_title = f"Record the reviewed provider owners of {scope['library']} in tracker evidence"
         apply_batch = copy.deepcopy(batch)
@@ -2160,6 +2162,8 @@ def decompose_source_correlation(
                 resource_inferred=reservation.get("inferred") is True,
                 resource_reason=reason,
             )
+            if reservation.get("basis"):
+                apply_batch["resource_basis"] = reservation["basis"]
             if apply_batch["resource_inferred"]:
                 inferred.append({"item": f"{item_id}-apply", "directories": list(reserved), "reason": reason})
             elif reserved == ["src"]:
@@ -2475,6 +2479,7 @@ def work_packet(
     if lease.get("owner") != owner:
         raise SocomError(f"{item_id} is leased by {lease.get('owner')}")
     kind = str(item.get("kind", ""))
+    packet_extra: dict[str, Any] = {}
     if kind.startswith("debug-import-plan-"):
         role = "socom-dwarf-importer"
         skill = "socom-debug-import"
@@ -2688,23 +2693,37 @@ def work_packet(
         slug = item_id.replace(":", "-")
         evidence = f"build/source-plans/{slug}-evidence.json"
         plan = f"build/source-plans/{slug}.json"
+        scratch = f"build/source-plans/{owner}/"
         validation = [
-            f"python tools/socom.py source plan evidence --item {item_id} --check --output {evidence} --skeleton {plan}",
+            "python tools/socom.py source graph --output build/source-graph/graph.json (once per graph; shared)",
+            f"python tools/socom.py source plan evidence --item {item_id} --output {evidence}",
+            f"python tools/socom.py source plan draft --item {item_id} --output {plan}",
+            'python tools/socom.py source sql "SELECT ..." (questions about the open rows; tables in SOURCE_CORRELATION.md)',
             f"python tools/socom.py source plan validate --plan {plan} --check --fill-annotations",
             f"python tools/socom.py source plan validate --plan {plan} --check",
+            f"python tools/socom.py source plan draft --check {plan}",
         ]
         handoff = (
             "python tools/socom.py progress work handoff (cite the plan SHA-256; "
-            "independent review: socom-source-owner-scrutinizer)"
+            "independent review: socom-source-owner-scrutinizer, of the rows without draft_rule and the "
+            "draft --check overrides)"
         )
         reservation = apply_reservation(tracker, item)
         if reservation is not None and reservation["inferred"]:
             validation.insert(
-                1,
+                3,
                 f"confirm or correct in the plan's reservation the directories {reservation['apply_item']} "
                 f"reserves by inference ({', '.join(reservation['directories'])}): {reservation['reason']}",
             )
-        allowed_paths = [evidence, plan]
+        packet_extra = {
+            "scratch_dir": scratch,
+            "reservation": (
+                {key: reservation[key] for key in ("apply_item", "directories", "inferred", "reason")}
+                if reservation is not None
+                else None
+            ),
+        }
+        allowed_paths = [evidence, plan, scratch]
         ghidra_scope = {
             "project": "soCOM",
             "program": "socom.elf",
@@ -2800,7 +2819,7 @@ def work_packet(
         }
     else:
         raise SocomError(f"{item_id} has no registered work-packet contract")
-    return {
+    packet = {
         "kind": "socom-work-packet-v1",
         "tracker_revision": tracker["revision"],
         "item": {
@@ -2822,3 +2841,5 @@ def work_packet(
             "reference ELF mutation or byte patching",
         ],
     }
+    packet.update(packet_extra)
+    return packet

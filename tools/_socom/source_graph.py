@@ -33,14 +33,30 @@ Signals, each kept with its provenance:
   two members of one cluster join it (medium: an assumption, checked for
   contradictions);
 * ``literal-pool``: ``@N`` literals are numbered per unit and laid out in
-  address order, so a run of rising numbers suggests one unit (weak);
+  address order, so a run of rising numbers suggests one unit (weak); a run
+  stops where two different multi-member clusters (two objects) or two
+  input sections meet;
 * ``class-hint``: a demangled qualifier whose anchored methods all sit in
   one unit (weak).
 
+A GNU object without function symbols (crt0's labelled code) owns the gap
+its anchor opens; a provider DWARF path on an object's own code names its
+library.
+
 Every classification (authored / provider / compiler-generated / unknown) is
-a candidate with the evidence that drove it, never an accepted owner.
+a candidate with the evidence that drove it, never an accepted owner.  A
+function still unknown after the other rules whose relocations (either way)
+reach provider code of exactly one library, at least two artifacts of it,
+takes that library (weak); authored code casts no vote (library code calls
+the program's operator new and delete).
+
 Segments are contiguous windows of at most ``segment_size`` functions, cut
 at the strongest available anchor and always at classification changes.
+Compiler-generated and unknown functions are neutral; in a neutral run
+between two families the next family starts at the first function that opens
+a GNU object of it or whose relocations reach it and not the previous one.
+Each segment lists its ``internal_boundaries``: the unit changes inside it
+with the unanchored functions between the two anchors.
 """
 
 from __future__ import annotations
@@ -423,6 +439,7 @@ def _references(image: _Image, locator: _Locator) -> list[dict[str, Any]]:
         rows.append(
             {
                 "site": site,
+                "target": target,
                 "type": name,
                 "symbol_index": relocation.symbol_index,
                 "site_node": locator.find(site),
@@ -651,12 +668,22 @@ class _Graph:
                         end_basis = "first Metrowerks-evidence function (uncertain)"
                         break
                     members.append(index)
+                # An object without function symbols (crt0's labelled code)
+                # is the unsymbolled gap its anchor opens.
+                opening = self.locator.find(address)
+                gaps = (
+                    [opening]
+                    if not members and opening is not None and self.nodes[opening]["kind"] == "gap"
+                    and self.nodes[opening]["start"] == address and not self.nodes[opening]["padding"]
+                    else []
+                )
                 objects.append(
                     {
                         "address": address,
                         "anchor": sorted(anchors[address], key=lambda row: row["symbol_index"]),
                         "gcc_compiled": any(row["name"] == _GNU_MARKER for row in anchors[address]),
                         "members": members,
+                        "gaps": gaps,
                         "end_basis": end_basis,
                     }
                 )
@@ -819,6 +846,18 @@ class _Graph:
         units = self.nodes[index]["cluster"]["units"]
         return next(iter(units.values()))["tu"] if len(units) == 1 else None
 
+    def object_boundary(self, left: int, right: int) -> bool:
+        """Two data artifacts provably lie in different objects or input sections.
+
+        Each of two different multi-member clusters is one object, so a
+        literal run stops between them; so does an input-section change.
+        """
+
+        a, b = self.nodes[left], self.nodes[right]
+        if a["input_section"].get("name") != b["input_section"].get("name"):
+            return True
+        return a["cluster"] is not b["cluster"] and len(a["cluster"]["members"]) > 1 and len(b["cluster"]["members"]) > 1
+
     def literal_pools(self) -> tuple[int, int]:
         runs: list[list[int]] = []
         for window in self.windows:
@@ -834,6 +873,7 @@ class _Graph:
                     previous is not None
                     and previous[1] - 8 <= number <= previous[1] + 1024
                     and node["start"] - self.nodes[previous[0]]["start"] <= 4096
+                    and not self.object_boundary(previous[0], index)
                 ):
                     runs[-1].append(index)
                 else:
@@ -888,7 +928,18 @@ class _Graph:
                         votes[library] += 1
             inside = SPEECH_WINDOW[0] <= row["address"] < SPEECH_WINDOW[1]
             row["library"], row["library_basis"] = None, None
-            if cluster and cluster["libraries"]:
+            # A provider DWARF path on the object's own code names its library.
+            paths = sorted(
+                {
+                    item["path"]
+                    for index in row["members"] + row["gaps"]
+                    for item in self.nodes[index]["signals"]
+                    if item["signal"] == "dwarf-cu" and (path_library(item["path"]) or ("",))[0] == "provider"
+                }
+            )
+            if paths:
+                row["library"], row["library_basis"] = path_library(paths[0])[1], f"DWARF path {paths[0]}"
+            elif cluster and cluster["libraries"]:
                 row["library"], row["library_basis"] = "SCE", "__ps2_libinfo__ " + ", ".join(cluster["libraries"])
             elif votes and not (inside and max(votes, key=lambda name: (votes[name], name)) != "SCE"):
                 best = max(sorted(votes), key=lambda name: votes[name])
@@ -984,12 +1035,19 @@ class _Graph:
                 if item["signal"] == "dwarf-cu" and path_library(item["path"]):
                     candidate, library = path_library(item["path"])
                     return {"candidate": candidate, "library": library, "evidence": [f"DWARF path {item['path']}"]}
+            gnu = self.gnu_of.get(index)
+            if gnu is not None:
+                return {
+                    "candidate": "provider",
+                    "library": gnu["library"] or "unidentified GNU object",
+                    "evidence": [f"GNU object at {_hex(gnu['address'])} without function symbols"],
+                }
             return {"candidate": "unknown", "library": None, "evidence": []}
         return verdict or {"candidate": "unknown", "library": None, "evidence": []}
 
     def classifications(self, clusters: list[dict[str, Any]]) -> list[dict[str, Any]]:
         self.gnu_libraries()
-        self.gnu_of = {index: row for row in self.gnu for index in row["members"]}
+        self.gnu_of = {index: row for row in self.gnu for index in row["members"] + row["gaps"]}
         self.dwarf_library = {}
         for path in self.dwarf_paths:
             verdict = path_library(path)
@@ -1029,7 +1087,44 @@ class _Graph:
                         "weak": True,
                     }
                     break
+        # Still unknown: a function whose relocations (in either direction)
+        # reach provider code of exactly one library, at least two artifacts
+        # of it, takes that library (weak).  Authored code does not vote:
+        # library code calls the program's own operator new and delete.
+        neighbours = self.neighbours()
+        for index, node in enumerate(self.nodes):
+            if node["kind"] != "function" or classes[index]["candidate"] != "unknown":
+                continue
+            reached: dict[str, set[int]] = defaultdict(set)
+            for other in neighbours.get(index, ()):
+                if classes[other]["candidate"] == "provider":
+                    reached[classes[other]["library"]].add(other)
+            if len(reached) == 1 and len(next(iter(reached.values()))) >= 2:
+                library, others = next(iter(reached.items()))
+                shown = ", ".join(self.nodes[other]["id"] for other in sorted(others)[:4])
+                classes[index] = {
+                    "candidate": "provider",
+                    "library": library,
+                    "evidence": [f"relocations reach only {library} provider code ({len(others)} artifacts: {shown})"],
+                    "weak": True,
+                }
         return classes
+
+    def neighbours(self) -> dict[int, set[int]]:
+        """Non-gap artifacts each artifact's relocations connect it to, both ways."""
+
+        if not hasattr(self, "_neighbours"):
+            found: dict[int, set[int]] = defaultdict(set)
+            for row in self.references:
+                site, target = row["site_node"], row["target_node"]
+                if site is None or target is None or site == target:
+                    continue
+                if self.nodes[site]["kind"] == "gap" or self.nodes[target]["kind"] == "gap":
+                    continue
+                found[site].add(target)
+                found[target].add(site)
+            self._neighbours = dict(found)
+        return self._neighbours
 
     # -- output ----------------------------------------------------------------
 
@@ -1124,6 +1219,7 @@ class _Graph:
                     "anchor": row["anchor"],
                     "gcc_compiled": row["gcc_compiled"],
                     "functions": [self.nodes[index]["id"] for index in row["members"]],
+                    "gaps": [self.nodes[index]["id"] for index in row["gaps"]],
                     "end_basis": row["end_basis"],
                     "library": row["library"],
                     "library_basis": row["library_basis"],
@@ -1179,9 +1275,22 @@ def _segments(graph: _Graph, rows: list[dict[str, Any]], classes: list[dict[str,
     def unit(index: int) -> str | None:
         return rows[index]["tu_candidates"][0]["tu"].casefold() if _anchored(rows[index]) else None
 
+    neighbours = graph.neighbours()
+
+    def reached(index: int) -> set[str]:
+        return {
+            _class_key(classes[other])
+            for other in neighbours.get(index, ())
+            if classes[other]["candidate"] not in ("compiler-generated", "unknown")
+        }
+
     def families(functions: list[int]) -> list[str]:
         # Compiler-generated and unknown functions are neutral: they take
-        # the family before them (or, leading a window, after them).
+        # the family before them (or, leading a window, after them).  In a
+        # neutral run between two families, the next family starts at the
+        # first neutral function that opens a GNU object of it or whose
+        # relocations reach that family and not the previous one: objects
+        # are contiguous, so the run after it belongs to the next family.
         raw = [_class_key(classes[index]) for index in functions]
         known = [value if value not in ("compiler-generated", "unknown") else None for value in raw]
         result: list[str] = []
@@ -1189,6 +1298,25 @@ def _segments(graph: _Graph, rows: list[dict[str, Any]], classes: list[dict[str,
         for value in known:
             current = value or current
             result.append(current)
+        position = 0
+        while position < len(functions):
+            if known[position] is not None:
+                position += 1
+                continue
+            first = position
+            while position < len(functions) and known[position] is None:
+                position += 1
+            if first == 0 or position == len(functions) or known[first - 1] == known[position]:
+                continue
+            before, after = known[first - 1], known[position]
+            for split in range(first, position):
+                index = functions[split]
+                families_reached = reached(index)
+                if (nodes[index]["start"] in gnu_starts and after.startswith("provider:")) or (
+                    after in families_reached and before not in families_reached
+                ):
+                    result[split:position] = [after] * (position - split)
+                    break
         return result
 
     def cut(left: int, right: int, families: tuple[str, str]) -> tuple[int, str]:
@@ -1317,6 +1445,22 @@ def _segments(graph: _Graph, rows: list[dict[str, Any]], classes: list[dict[str,
             if _RANK[primary["strength"]] < _RANK[row["strongest"]]:
                 row["strongest"] = primary["strength"]
         start_edge, end_edge = edge(piece["start_cut"]), edge(piece["end_cut"])
+        # Unit changes inside the segment, with the unanchored functions
+        # between the last anchor of one unit and the first of the next.
+        anchored = [(order, index) for order, index in enumerate(functions) if unit(index)]
+        internal = []
+        for (left_order, left), (right_order, right) in zip(anchored, anchored[1:]):
+            if unit(left) == unit(right):
+                continue
+            internal.append(
+                {
+                    "after": rows[left]["tu_candidates"][0]["tu"],
+                    "before": rows[right]["tu_candidates"][0]["tu"],
+                    "last_anchor": nodes[left]["id"],
+                    "next_anchor": nodes[right]["id"],
+                    "unanchored": [nodes[index]["id"] for index in functions[left_order + 1 : right_order]],
+                }
+            )
         out.append(
             {
                 "id": stable_id("source-segment", *(nodes[index]["id"] for index in functions)),
@@ -1336,6 +1480,7 @@ def _segments(graph: _Graph, rows: list[dict[str, Any]], classes: list[dict[str,
                     "unanchored_at_start": leading(functions),
                     "unanchored_at_end": leading(list(reversed(functions))),
                 },
+                "internal_boundaries": internal,
                 "anchor_strength": max((start_edge["strength"], end_edge["strength"]), key=order.index),
             }
         )
@@ -1398,6 +1543,10 @@ def _summary(body: dict[str, Any], edges: Counter[str], pool_runs: int, pool_con
         "literal_pool_conflicts": pool_conflicts,
         "contradiction_count": len(body["contradictions"]),
         "segment_count": len(body["segments"]),
+        "internal_boundary_count": sum(len(segment["internal_boundaries"]) for segment in body["segments"]),
+        "unanchored_at_internal_boundaries": sum(
+            len(row["unanchored"]) for segment in body["segments"] for row in segment["internal_boundaries"]
+        ),
         "functions_with_strong_tu_anchor": sum(1 for row in functions if row["tu_candidates"] and row["tu_candidates"][0]["strength"] == "strong"),
         "functions_without_tu_anchor": sum(1 for row in functions if not _anchored(row)),
         "functions_without_tu_anchor_by_class": dict(
