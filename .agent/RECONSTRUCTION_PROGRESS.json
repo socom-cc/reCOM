@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2983,
+  "revision": 2986,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -149359,22 +149359,23 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-021.json sha256:d701cd7edc6951b8b8b78f4a139729ed2bbd5904bd87dc0def60191ff326683a; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w2a",
+        "submitted_at": "2026-10-31T12:43:01Z",
+        "summary": "owners 6 authored + fill (bone_init.cpp, si_object.cpp, si_script.cpp, body.cpp new in src/gamez/zBody, zcam_main.cpp, zcam_update.cpp), unresolved 0, retire 0, open rows decided 34 of 34; reservation corrected (+zBody, zMath, zNode); 5 contradictions"
+      },
       "id": "socom:work:source-segment-021",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T12:34:51Z",
-        "expires_at": "2026-10-31T14:34:51Z",
-        "heartbeat_at": "2026-10-31T12:34:51Z",
-        "owner": "socom-source-owner-mapper-w2a"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 021 (0x1dd520-0x1e8748, 167 functions)"
     },
     {
@@ -150281,13 +150282,18 @@
       "handoff": null,
       "id": "socom:work:source-segment-028",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T12:43:43Z",
+        "expires_at": "2026-10-31T14:43:43Z",
+        "heartbeat_at": "2026-10-31T12:43:43Z",
+        "owner": "socom-source-owner-mapper-w3a"
+      },
       "resources": [
         "build/source-plans"
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 028 (0x22c1a0-0x23a0cc, 192 functions)"
     },
     {
@@ -151500,13 +151506,18 @@
       "handoff": null,
       "id": "socom:work:source-segment-041",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T12:43:50Z",
+        "expires_at": "2026-10-31T14:43:50Z",
+        "heartbeat_at": "2026-10-31T12:43:50Z",
+        "owner": "socom-source-owner-mapper-w3d"
+      },
       "resources": [
         "build/source-plans"
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 041 (0x2f9ab0-0x304b60, 189 functions)"
     },
     {
