@@ -1398,11 +1398,14 @@
       "kind": "problem",
       "reported_at": "2026-10-31T10:50:03Z",
       "reported_by": "parent-orchestrator",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-10-31T18:37:39Z",
+        "summary": "socom-tool-maintainer-m16a: added the governed route progress reopen-source-plan --item <segment|provider plan> --by <name> --reason <text> --evidence <line>... --expected-revision N [--dry-run] (tools/_socom/tracker.py reopen_source_plan; CLI in source_apply_cli.py; registered as a tracker mutation under capability source-correlation-planning; documented in SOURCE_CORRELATION.md 'Reopening an accepted plan'). It returns an accepted source-plan-segment/provider item to ready with its ID, batch and evidence, appends a review_history entry (reopened_by, reopened_at, reason, evidence, previous accepted and handoff), blocks its apply and any ready data reconcile, and never touches the plan file; it is refused for other kinds, unaccepted or leased items, the plan's handoff owner, empty reason/evidence, a stale revision, an apply that has started (status, lease, apply record, handoff, acceptance, review history or reservation correction) and any started dependent (the data reconciles wait for every plan). Re-review keeps the self-acceptance rule. Remaining reconstruction work, not tooling: reopen socom:work:source-provider-mw-runtime and re-review the linked kind of mwutils_ps2.o (R3.04 stationery vs the R3.01-era build)."
+      },
+      "status": "resolved",
       "summary": "Stage 4: no governed route to reopen an accepted source plan; mw-runtime mwutils_ps2.o linked kind contested"
     }
   ],
-  "revision": 177,
+  "revision": 178,
   "schema_version": 1
 }

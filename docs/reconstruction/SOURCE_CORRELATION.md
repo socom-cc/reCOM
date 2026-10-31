@@ -231,7 +231,8 @@ records the graph its accepted plan cites as `plan_graph_sha256`, which
 batch's `graph_sha256`, so the accepted plan file keeps validating
 unchanged. A later refresh keeps that digest. When the new graph changes
 the slice of an accepted plan, or drops its scope, the refresh is refused
-and names those plans: only review replaces an accepted plan. A handed-off
+and names those plans: only review replaces an accepted plan (reopen it
+first, see [Reopening an accepted plan](#reopening-an-accepted-plan)). A handed-off
 plan returns to `ready`; its handoff moves to a `review_history` note
 `graph refreshed <old> -> <new>; replan`, which says whether its slice
 changed (if not, the plan only re-cites the digests). New scopes add items;
@@ -805,6 +806,37 @@ owner's file defines them), and `contradiction:` notes that a new plan
 records in `contradictions`. A plan with contradictions counts them in
 `summary.contradictions`. These are for the scrutinizer and do not make
 the plan invalid.
+
+### Reopening an accepted plan
+
+```powershell
+python tools/socom.py progress reopen-source-plan --item <socom:work:source-segment-NNN | source-provider-...> `
+  --by <name> --reason "<why the plan must change>" --evidence "<line>" [--evidence ...] `
+  --expected-revision <n> [--dry-run]
+```
+
+This sends an accepted segment or provider plan back to its planner. A
+reason and at least one evidence line are required. The reopener may not
+be the plan's handoff owner. The command holds the tracker lock and
+refuses a stale revision, like every mutation. It is refused when:
+
+- the item is not an accepted `source-plan-segment` or
+  `source-plan-provider` item (a data reconcile is not reopened), or it
+  is leased;
+- its `-apply` item has started: it is leased, `in_progress`,
+  `awaiting_acceptance` or `accepted`, or it has an apply record, a
+  handoff, an acceptance, review history or a reservation correction;
+- another item that waits for the plan has started. The data reconciles
+  wait for every plan, so once one is claimed, handed off or accepted, no
+  plan is reopened.
+
+The item returns to `ready` with its ID, batch and evidence. Its handoff
+and acceptance move to a `review_history` entry (`reopened_by`,
+`reopened_at`, `reason`, `evidence`, `accepted`, `handoff`,
+`handoff_evidence`), which `progress show` displays. The apply and any
+ready data reconcile return to `blocked`. The plan file is not touched.
+The planner revises it, revalidates it and hands off again. The independent
+accepter must differ from that new handoff's owner.
 
 ## Query cache (`source sql`)
 

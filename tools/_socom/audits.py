@@ -211,6 +211,7 @@ def workflow_contracts(root: Path, commands: list[dict[str, Any]]) -> dict[str, 
         "progress rebaseline-live-ghidra": True,
         "progress apply-source-plan": True,
         "progress open-capability-gate": True,
+        "progress reopen-source-plan": True,
         "source annotate": True,
         "source apply-check": False,
     }

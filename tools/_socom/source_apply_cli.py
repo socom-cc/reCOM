@@ -1,7 +1,9 @@
 """CLI handlers for the stage 4 apply route.
 
-``source annotate``, ``source apply-check``, ``progress apply-source-plan``
-and ``progress open-capability-gate``.  The registry rows and parser wiring
+``source annotate``, ``source apply-check``, ``progress apply-source-plan``,
+``progress open-capability-gate`` and ``progress reopen-source-plan`` (which
+sends an accepted plan back for revision until its apply starts).  The
+registry rows and parser wiring
 live here so the main CLI only lists them; handlers import the shared CLI
 helpers lazily to avoid an import cycle.
 """
@@ -49,6 +51,14 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "Accept a capability-gate work item once an active capability that opens it is registered.",
             mutates=True,
         ),
+        spec(
+            "progress reopen-source-plan",
+            "progress",
+            "Send an accepted stage 4 segment or provider plan back for revision with a reason and evidence, "
+            "recorded in its review history; refused once its source apply or a data reconcile has started. "
+            "The plan file is untouched.",
+            mutates=True,
+        ),
     )
 
 
@@ -79,6 +89,15 @@ def register(source_commands: Any, progress_commands: Any) -> None:
     gate.add_argument("--expected-revision", type=int, required=True)
     gate.add_argument("--dry-run", action="store_true")
     gate.set_defaults(handler=_progress_open_capability_gate)
+
+    reopen = progress_commands.add_parser("reopen-source-plan")
+    reopen.add_argument("--item", required=True)
+    reopen.add_argument("--by", required=True, help="who sends the plan back (not its handoff owner)")
+    reopen.add_argument("--reason", required=True)
+    reopen.add_argument("--evidence", action="append", required=True, help="repeatable; at least one")
+    reopen.add_argument("--expected-revision", type=int, required=True)
+    reopen.add_argument("--dry-run", action="store_true")
+    reopen.set_defaults(handler=_progress_reopen_source_plan)
 
 
 def _plan_item_id(root: Path, value: str) -> str:
@@ -266,4 +285,41 @@ def _progress_open_capability_gate(arguments: argparse.Namespace) -> int:
     write_snapshot(root, updated)
     item = next(row for row in updated["work_items"] if row["id"] == arguments.item)
     _emit({"ok": True, "dry_run": False, "revision": updated["revision"], "capability": captured["id"], "work_item": item})
+    return 0
+
+
+def _progress_reopen_source_plan(arguments: argparse.Namespace) -> int:
+    from .cli import _emit, _root
+    from .constants import tracker_path
+    from .snapshot import write_snapshot
+    from .tracker import audit_tracker, load_tracker, mutate, refresh_ready_and_stages, reopen_source_plan, require_revision
+
+    root = _root(arguments)
+    path = tracker_path(root)
+    captured: dict[str, Any] = {}
+
+    def operation(tracker: dict[str, Any]) -> None:
+        captured.update(
+            reopen_source_plan(tracker, arguments.item, arguments.by, arguments.reason, arguments.evidence)
+        )
+
+    def entry(tracker: dict[str, Any]) -> dict[str, Any]:
+        item = next(row for row in tracker["work_items"] if row["id"] == arguments.item)
+        return {"status": item["status"], "review_history_entry": (item.get("review_history") or [None])[-1]}
+
+    if arguments.dry_run:
+        tracker = load_tracker(path)
+        require_revision(tracker, arguments.expected_revision)
+        preview = copy.deepcopy(tracker)
+        operation(preview)
+        refresh_ready_and_stages(preview)
+        preview["revision"] += 1
+        errors = audit_tracker(preview, strict=True)
+        _emit({"ok": not errors, "dry_run": True, "mutation_performed": False, "revision": tracker["revision"],
+               **captured, **entry(preview), "errors": errors})
+        return 0 if not errors else 1
+    updated = mutate(path, arguments.expected_revision, operation)
+    write_snapshot(root, updated)
+    _emit({"ok": True, "dry_run": False, "mutation_performed": True, "revision": updated["revision"],
+           **captured, **entry(updated)})
     return 0

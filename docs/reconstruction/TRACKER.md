@@ -43,7 +43,10 @@ Handoff owners cannot reject their own work. An accepted reconstruction plan
 whose apply has not started can be returned with `progress work reopen` (a
 reason is required; the acceptance and handoff move to `review_history`, the
 plan becomes `ready` and its apply `blocked`). An apply that started or
-finished is corrected through a governed repair instead. `ghidra-writer` is exclusive. Generic handoff/acceptance rejects
+finished is corrected through a governed repair instead. An accepted stage 4
+segment or provider plan returns the same way with `progress reopen-source-plan`
+(reason and evidence required) until its apply or a data reconcile starts
+([SOURCE_CORRELATION.md](SOURCE_CORRELATION.md#reopening-an-accepted-plan)). `ghidra-writer` is exclusive. Generic handoff/acceptance rejects
 items that own it. Undecomposed `stage-seed` items remain blocked and cannot be
 claimed, handed off, or accepted.
 

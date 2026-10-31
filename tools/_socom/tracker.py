@@ -1763,6 +1763,118 @@ def reopen_work(
     apply["status"] = "blocked"
 
 
+SOURCE_REOPEN_KINDS = (SEGMENT_PLAN_KIND, PROVIDER_PLAN_KIND)
+_UNSTARTED_STATUSES = ("blocked", "ready")
+
+
+def _source_apply_started(apply: dict[str, Any]) -> str | None:
+    """Why a source apply item has started, or ``None`` when it never has."""
+
+    if apply.get("status") not in _UNSTARTED_STATUSES:
+        return f"is {apply.get('status')}"
+    if apply.get("lease"):
+        return "is leased"
+    for key, label in (
+        ("source_apply", "has an apply record"),
+        ("handoff", "has a handoff"),
+        ("accepted", "has an acceptance"),
+        ("review_history", "has review history"),
+    ):
+        if apply.get(key):
+            return label
+    if (apply.get("batch") or {}).get("reservation_correction") is not None:
+        return "has a recorded reservation correction"
+    return None
+
+
+def reopen_source_plan(
+    tracker: dict[str, Any],
+    item_id: str,
+    by: str,
+    reason: str,
+    evidence: list[str],
+) -> dict[str, Any]:
+    """Send an accepted stage 4 owner plan back for revision (``progress reopen-source-plan``).
+
+    Only a segment or provider plan item in ``accepted`` is reopened, and only
+    while its apply item has never started (``blocked`` or ``ready`` with no
+    lease, apply record, handoff, acceptance, review history or reservation
+    correction) and no other item that waits for the plan (the data
+    reconciles wait for every plan) has been claimed, handed off or
+    accepted.  The item keeps its ID, batch and evidence and returns to
+    ``ready``; its handoff and acceptance move to a ``review_history`` entry
+    with the reopener, reason and evidence.  The apply and any ready
+    dependent return to ``blocked``.  The plan file is not touched: the
+    planner revises it and hands off again, and the accepter must still
+    differ from that handoff's owner.
+    """
+
+    by_id = _work_by_id(tracker)
+    item = by_id.get(item_id)
+    if not item:
+        raise SocomError(f"unknown work item: {item_id}")
+    if item.get("stage") != SOURCE_STAGE or item.get("kind") not in SOURCE_REOPEN_KINDS:
+        raise SocomError(
+            f"{item_id} is a {item.get('kind')} item, not a {SOURCE_STAGE} segment or provider plan "
+            f"({', '.join(SOURCE_REOPEN_KINDS)})"
+        )
+    if item.get("lease"):
+        raise SocomError(f"{item_id} is leased by {item['lease'].get('owner')}")
+    if item["status"] != "accepted":
+        raise SocomError(f"{item_id} is {item['status']}, not accepted")
+    reopener = by.strip()
+    stated = reason.strip()
+    lines = sorted({str(text).strip() for text in evidence if str(text).strip()})
+    if not reopener:
+        raise SocomError("--by must not be empty")
+    if not stated:
+        raise SocomError("reopen reason must not be empty")
+    if not lines:
+        raise SocomError("reopening an accepted plan needs at least one --evidence line")
+    handoff = item.get("handoff") or {}
+    if handoff.get("owner") == reopener:
+        raise SocomError(f"{item_id} cannot be reopened by its handoff owner {reopener}")
+    apply_id = f"{item_id}-apply"
+    apply = by_id.get(apply_id)
+    if apply is None:
+        raise SocomError(f"{item_id} has no apply item {apply_id}")
+    if why := _source_apply_started(apply):
+        raise SocomError(f"{apply_id} {why}: a plan whose source apply has started cannot be reopened")
+    dependents = [
+        row for row in tracker["work_items"] if item_id in row.get("dependencies", []) and row["id"] != apply_id
+    ]
+    started = sorted(
+        f"{row['id']} ({row['status']})"
+        for row in dependents
+        if row["status"] not in _UNSTARTED_STATUSES or row.get("lease")
+    )
+    if started:
+        raise SocomError(
+            f"items that wait for {item_id} have started: {', '.join(started)}; "
+            "a plan is reopened only before the items built on its acceptance start"
+        )
+    item.setdefault("review_history", []).append(
+        {
+            "handoff": handoff,
+            "handoff_evidence": list(item.get("evidence", [])),
+            "accepted": item.get("accepted"),
+            "reopened_by": reopener,
+            "reopened_at": _iso(_utc_now()),
+            "reason": stated,
+            "evidence": lines,
+        }
+    )
+    item["status"] = "ready"
+    item["handoff"] = None
+    item.pop("accepted", None)
+    blocked = []
+    for row in (apply, *dependents):
+        if row["status"] == "ready":
+            row["status"] = "blocked"
+            blocked.append(row["id"])
+    return {"work_item_id": item_id, "apply_item": apply_id, "blocked": sorted(blocked)}
+
+
 def rebaseline_ghidra_target(
     tracker: dict[str, Any],
     recorder: str,
