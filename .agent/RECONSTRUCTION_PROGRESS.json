@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3218,
+  "revision": 3223,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -147713,7 +147713,12 @@
       "handoff": null,
       "id": "socom:work:source-provider-msl",
       "kind": "source-plan-provider",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T20:07:53Z",
+        "expires_at": "2026-10-31T22:07:53Z",
+        "heartbeat_at": "2026-10-31T20:07:53Z",
+        "owner": "socom-source-owner-mapper-sw1"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -147770,7 +147775,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan provider owners of MSL (1 segments, 179 functions)"
     },
     {
@@ -148410,7 +148415,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-013",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T20:07:56Z",
+        "expires_at": "2026-10-31T22:07:56Z",
+        "heartbeat_at": "2026-10-31T20:07:56Z",
+        "owner": "socom-source-owner-mapper-sw1"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -148467,7 +148477,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 013 (0x1728e0-0x17de74, 114 functions)"
     },
     {
@@ -149045,7 +149055,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-017",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T20:08:00Z",
+        "expires_at": "2026-10-31T22:08:00Z",
+        "heartbeat_at": "2026-10-31T20:08:00Z",
+        "owner": "socom-source-owner-mapper-sw1"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -149106,7 +149121,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 017 (0x1b90e0-0x1c24b8, 51 functions)"
     },
     {
@@ -149935,6 +149950,10 @@
       "title": "Apply the reviewed source owners of segment 022 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T20:08:07Z",
+        "by": "socom-source-owner-scrutinizer-x18"
+      },
       "batch": {
         "artifact_count": 698,
         "batch_number": 23,
@@ -149971,7 +149990,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-023.json sha256:b049c05e9d9cdcba06721e2648e7af27a63fd9b1115c6210427d3b50f2cf34a6; validate --check ok; draft --check ok"
+        "plan build/source-plans/socom-work-source-segment-023.json sha256:b049c05e9d9cdcba06721e2648e7af27a63fd9b1115c6210427d3b50f2cf34a6; validate --check ok; draft --check ok",
+        "sweep re-review: plan sha256:b049c05e9d9cdcba06721e2648e7af27a63fd9b1115c6210427d3b50f2cf34a6 = handoff; validate --check ok, draft --check ok; prior findings fixed: 0x1fbe20 __dt__12CUIVarSTableFv moved out of the single-unit list into note 'used by 2 units (__sinit_fts_mission.cpp 0x46aab0, ~CUIVarManager 0x39e050 zui_var.cpp seg 056); no header declares CUIVarSTable' (refs verified; no class CUIVarSTable under src/, no DWARF header unit); CSealCtrl emits 0x1fd560/0x1fe1d0/0x1fe1e0/0x1fe1f0 now cite zseal.h:810 class declaration, member not yet declared; rest as reviewed (CSealCtrl copies in 5 units' vtables, CMatrix::Transform -> zmath_matrix.h DWARF unit, CValve::Set 2 units -> zvalve.h:61, valve_main.cpp:247 contradiction, ai::_min and ~CValveSaveManager notes)"
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-sw3",
@@ -150037,7 +150057,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 023 (0x1f25c0-0x1ff8cc, 192 functions)"
     },
     {
@@ -152392,6 +152412,10 @@
       "title": "Record the reviewed provider owners of 989snd in tracker evidence"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T20:08:10Z",
+        "by": "socom-source-owner-scrutinizer-x18"
+      },
       "batch": {
         "artifact_count": 413,
         "batch_number": 41,
@@ -152432,7 +152456,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-041.json sha256:b29bc9d32d7c7d3f42edb933aaa1ceb89e0179d89d0cb29de29053e994d566ba; validate --check ok; draft --check ok"
+        "plan build/source-plans/socom-work-source-segment-041.json sha256:b29bc9d32d7c7d3f42edb933aaa1ceb89e0179d89d0cb29de29053e994d566ba; validate --check ok; draft --check ok",
+        "sweep re-review: plan sha256:b29bc9d32d7c7d3f42edb933aaa1ceb89e0179d89d0cb29de29053e994d566ba = handoff; validate --check ok, draft --check ok; prior findings fixed: 0x3019d0 GetAssetLibs__7C2DPolyFRQ23C2D8CLibList emits src/gamez/zTwoD/ztwod.h (ztwod.h:132 class C2DPoly; __vt__7C2DPoly 0x472c50 read by ~C2DPoly 0x2fd310 of c2dbitmap_poly.cpp and ztwod_poly.cpp 0x3016d0/0x301b00), annotations defines ztwod_poly.cpp + emits ztwod.h like the sibling emits; 0x2ffb20 C2DLine note reworded (dtor 0x2fe8e0 unresolved), 2 units via __vt__7C2DLine and __vt__COverlayLine; vtable-reader emits kept per parent ruling (consistent with accepted 031/036/037); remaining no-emit copies 0x2fda80 (local class), 0x300d90 (C2DTriFan vtable read only by ztwod_poly.cpp) single-unit; 6 contradictions as reviewed"
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-sw3",
@@ -152498,7 +152523,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 041 (0x2f9ab0-0x304b60, 189 functions)"
     },
     {
