@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3240,
+  "revision": 3242,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -153856,23 +153856,33 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-056.json sha256:732d0f176be28a1868eb680c1f5d88396490df47671812ddf3195facb44340ae; validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-w3h",
-        "submitted_at": "2026-10-31T19:50:29Z",
-        "summary": "owners 6 (5 authored: zui_spec.cpp, zui_cleanup.cpp, zui_2d.cpp thunk tail, invented zui_var.cpp and zui_tuner.cpp; 1 compiler-generated), unresolved 0, retire 0, open rows decided 120 (22 accepted suggestions, 98 hand); 16 ODR/MSL header emits added, 6 contradictions"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-056",
       "kind": "source-plan-segment",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-w3h",
+            "submitted_at": "2026-10-31T19:50:29Z",
+            "summary": "owners 6 (5 authored: zui_spec.cpp, zui_cleanup.cpp, zui_2d.cpp thunk tail, invented zui_var.cpp and zui_tuner.cpp; 1 compiler-generated), unresolved 0, retire 0, open rows decided 120 (22 accepted suggestions, 98 hand); 16 ODR/MSL header emits added, 6 contradictions"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-056.json sha256:732d0f176be28a1868eb680c1f5d88396490df47671812ddf3195facb44340ae; validate --check ok; draft --check ok"
+          ],
+          "reason": "Missing header emits for implicit special members of classes a header declares (rule: implicit special members go to their class's header when a header declares it, whatever the unit count; same as 043's __as__CLOD_band -> zrender.h and 045's ~CZNetwork -> znet.h). The ODR note puts these in the 'referenced from one unit only, no emit' list, but they are implicit members, not explicit inline ones: (1) __dt__10CClockSpecFv 0x394b40 (zui_spec.cpp; zui.h:141 class CClockSpec declares no dtor); (2) __dt__12CCounterSpecFv 0x39ad80 (zui_spec.cpp; zui.h:135 declares no dtor); (3) __as__15CDlgDesignModelFRC15CDlgDesignModel 0x39cea0 (zui_spec.cpp; zui.h:54 class CDlgDesignModel declares no operator=); (4) __ct__11CButtonSpecFR11CButtonSpec 0x39f570 (zui_cleanup.cpp; zui.h:96 declares no copy ctor); (5) __ct__9CTextSpecFR9CTextSpec 0x3a0520 (zui_cleanup.cpp; zui.h:74 declares no copy ctor). Fix: decide --header-emit src/gamez/zUI/zui.h --reason inline for each, citing the class declaration line and 'implicit special member, no DWARF', then refill annotations and re-run validate --check and draft --check. Everything else checked out: hash, validate/draft ok (575 drafted, 120 hand, 0 overrides). The label-drop regularity (max 51) was reproduced; drops are 3723/529/1325, and @1966/@1967/__RTTI__10UIVarMixin collide with zui_skb's block. The UnSerialize and UninitSystemTuners edges are low and name their alternatives. The _p*Tuner .sbss pointers 0x476918-0x476933 sit between zui_spec @1911 and zui_skb init$1792, consistent with link order. The 14 zui.h ODR emits are 2-unit vtable readers. The 8 undeclared *Spec classes and the tuner/CycleItem classes are declared by no header, so no emit. The D-referenced row 0x462dc0 is LOCAL. Contradiction lines verified.",
+          "rejected_at": "2026-10-31T23:10:29Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x21"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 056 (0x394a00-0x3a2a74, 195 functions)"
     },
     {
@@ -153935,6 +153945,10 @@
       "title": "Apply the reviewed source owners of segment 056 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T23:12:03Z",
+        "by": "socom-source-owner-scrutinizer-x21"
+      },
       "batch": {
         "artifact_count": 276,
         "batch_number": 57,
@@ -153970,7 +153984,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-057.json sha256:e7cc3c00401ef314212297b253f9d586b65a4d43052831a3639c6dc587662dc4; validate --check ok; draft --check ok"
+        "plan build/source-plans/socom-work-source-segment-057.json sha256:e7cc3c00401ef314212297b253f9d586b65a4d43052831a3639c6dc587662dc4; validate --check ok; draft --check ok",
+        "plan sha256:e7cc3c00...2dc4 matches handoff; validate --check ok (0 problems, 1 review note), draft --check ok (276 drafted, 0 hand, 0 overrides; only owner change is the workspace_path src/gamez/zUI/zui_skb.cpp, same as accepted 076, no provisional file exists). No D-referenced rows. The 8 hand MSL emits cover all 7 draft.open_header_emits plus std::operator!= 0x3a3670: __tree::iterator members and the operator!= friend -> <tree>, __red_black_tree<1>::increment -> <tree> (sibling __tree instances' DWARF names ...\\Include\\tree), map::end/find -> <map>, pair ctor -> <utility> (MSL defining headers; no instance has a header unit). All are std-qualified and referenced only by zui_skb.cpp. The 3 no-emit copies (_zrdr::GetInt 0x3a7550, _zrdr::Get 0x3a75a0: explicit inline, only CreateSoftKeyboard references them; CBmpWithNode thunk 0x3aa6f0: only zui_skb's vtable) are single-unit. The ZuiInit contradiction at zui.cpp:5 was verified. No install path in the plan."
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-w3h",
@@ -153985,7 +154000,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 057 (0x3a2a80-0x3aa6f8, 88 functions)"
     },
     {
