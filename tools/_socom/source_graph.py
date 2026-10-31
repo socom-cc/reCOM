@@ -7,7 +7,8 @@ nothing except the files it is asked to write under ``build/``.
 
 Artifacts are the census-derived set: one node per start address of the
 sized ``FUNC`` and ``OBJECT`` symbols (aliases at one address share a node),
-plus every unsymbolled gap between neighbouring nodes of one ELF section.
+plus every unsymbolled gap between neighbouring nodes of one ELF section
+(a data-to-code gap is split where its first code input section starts).
 
 Signals, each kept with its provenance:
 
@@ -92,15 +93,25 @@ GNU_LIBRARY_RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
         "newlib",
         re.compile(
             r"^(?:__ieee754_\w+|__kernel_\w+|_\w+_r|__s[a-z]\w*|__sf\w*|_?(?:mem|str)[a-z]+|"
-            r"v?(?:s|sn|f)?printf|v?(?:s|f)?scanf|[cm]alloc|realloc|free|abort|atexit|exit|_exit|qsort|bsearch|"
+            r"v?(?:s|sn|f)?printf|v?(?:s|f)?scanf|[cm]alloc|realloc|free|abort|atexit|exit|qsort|bsearch|"
             r"s?rand|ato[ifl]|l?abs|l?div|to(?:upper|lower)|"
             r"is(?:alpha|digit|space|upper|lower|alnum|print|punct|xdigit|cntrl|graph|inf|nan)|"
-            r"f(?:open|close|read|write|seek|tell|flush|puts|gets|getc|putc|stat|ileno|dopen)|puts|gets|getc|putc|"
-            r"putchar|getchar|ungetc|setvbuf|setbuf|rewind|perror|getenv|sbrk|lseek|isatty|"
+            r"f(?:open|close|read|write|seek|tell|flush|puts|gets|getc|putc|ileno|dopen)|puts|gets|getc|putc|"
+            r"putchar|getchar|ungetc|setvbuf|setbuf|rewind|perror|getenv|"
             r"(?:a?(?:sin|cos|tan)h?|atan2|exp|log(?:10)?|pow|sqrt|ceil|floor|fabs|fmod|frexp|ldexp|modf|"
             r"copysign|scalbn|rint|finite)f?)$"
         ),
     ),
+)
+# The system-call layer newlib calls but leaves to the platform (libgloss; on
+# the PS2 the SCE kernel library's glue object).  newlib defines only the
+# ``_<name>_r`` wrappers, so these names show that an object serves newlib,
+# never which library it belongs to: they cast no library vote.
+GNU_VOTE_NEUTRAL_NAMES = frozenset(
+    (
+        "_exit", "close", "environ", "execve", "fork", "fstat", "getpid", "isatty", "kill",
+        "link", "lseek", "open", "read", "sbrk", "stat", "times", "unlink", "wait", "write",
+    )
 )
 # Name rules for Metrowerks-compiled provider code without a unit anchor:
 # the C++ runtime entry points (exceptions, arrays, pointers to members,
@@ -260,36 +271,58 @@ def _artifacts(image: _Image) -> list[dict[str, Any]]:
     return rows
 
 
+_CODE_SECTIONS = (".text", ".vutext")
+
+
 def _nodes(image: _Image, artifacts: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Artifacts plus the unsymbolled gaps between neighbours of one section."""
+    """Artifacts plus the unsymbolled gaps between neighbours of one section.
+
+    A gap that leads from data into code is split at the first code input
+    section (``.text``/``.vutext`` SECTION symbol) starting inside it: the
+    bytes before it are fill of the data run, and the code run opens at the
+    address the ELF gives that input section.
+    """
 
     labels: dict[int, set[str]] = defaultdict(set)
     for symbol in image.symbols:
         if symbol.type_name == "NOTYPE" and symbol.name and symbol.value and not symbol.name.startswith("$L"):
             labels[symbol.value].add(symbol.name)
     label_starts = sorted(labels)
+    code_starts = sorted(
+        {symbol.value for symbol in image.symbols if symbol.type_name == "SECTION" and symbol.value and symbol.name in _CODE_SECTIONS}
+    )
     nodes: list[dict[str, Any]] = []
     for previous, current in zip([None, *artifacts], artifacts):
         if previous is not None and previous["section_index"] == current["section_index"]:
             start = previous["start"] + previous["size"]
-            size = current["start"] - start
-            if size > 0:
-                raw = image.read(start, size)
+            end = current["start"]
+            between = [previous["kind"], current["kind"]]
+            pieces = [(start, end, between)]
+            if previous["kind"] != "function" and current["kind"] == "function":
+                position = bisect.bisect_right(code_starts, start)
+                if position < len(code_starts) and code_starts[position] < end:
+                    cut = code_starts[position]
+                    pieces = [(start, cut, [previous["kind"], previous["kind"]]), (cut, end, between)]
+            for low_address, high_address, edge in pieces:
+                size = high_address - low_address
+                if size <= 0:
+                    continue
+                raw = image.read(low_address, size)
                 fill = "nobits" if not raw else "zero" if raw.count(0) == len(raw) else "nonzero"
-                low = bisect.bisect_left(label_starts, start)
-                high = bisect.bisect_left(label_starts, start + size)
+                low = bisect.bisect_left(label_starts, low_address)
+                high = bisect.bisect_left(label_starts, high_address)
                 inside = sorted({name for address in label_starts[low:high] for name in labels[address]})
                 nodes.append(
                     {
                         "kind": "gap",
-                        "id": f"socom:gap:{_hex(start)}",
-                        "start": start,
+                        "id": f"socom:gap:{_hex(low_address)}",
+                        "start": low_address,
                         "size": size,
                         "section_index": current["section_index"],
                         "fill": fill,
                         "padding": fill in ("zero", "nobits") and size < 16 and not inside,
                         "labels": inside,
-                        "between": [previous["kind"], current["kind"]],
+                        "between": edge,
                         "names": [],
                         "binding": None,
                     }
@@ -309,10 +342,9 @@ def _section_envelopes(image: _Image) -> list[tuple[int, int, str]]:
 
 
 def _input_section(envelopes: list[tuple[int, int, str]], node: dict[str, Any]) -> dict[str, Any]:
-    code_names = (".text", ".vutext")
     for low, high, name in envelopes:
         if low <= node["start"] <= high:
-            if (node["kind"] == "function") != (name in code_names) and node["kind"] != "gap":
+            if (node["kind"] == "function") != (name in _CODE_SECTIONS) and node["kind"] != "gap":
                 continue
             return {"name": name, "basis": "section-symbol envelope"}
     before = [name for low, high, name in envelopes if high < node["start"]]
@@ -849,6 +881,8 @@ class _Graph:
             votes: Counter[str] = Counter()
             for index in row["members"]:
                 for name in self.nodes[index]["names"]:
+                    if name["name"] in GNU_VOTE_NEUTRAL_NAMES:
+                        continue
                     library = next((library for library, pattern in GNU_LIBRARY_RULES if pattern.search(name["name"])), None)
                     if library:
                         votes[library] += 1
@@ -1068,6 +1102,7 @@ class _Graph:
             "rules": {
                 "speech_window": [_hex(SPEECH_WINDOW[0]), _hex(SPEECH_WINDOW[1])],
                 "gnu_library_rules": [[library, pattern.pattern] for library, pattern in GNU_LIBRARY_RULES],
+                "gnu_vote_neutral_names": sorted(GNU_VOTE_NEUTRAL_NAMES),
                 "mw_library_rules": [[library, pattern.pattern] for library, pattern in MW_LIBRARY_RULES],
                 "library_namespaces": list(LIBRARY_NAMESPACES),
                 "tu_libraries": dict(sorted(TU_LIBRARY.items())),

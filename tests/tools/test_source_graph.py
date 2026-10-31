@@ -78,7 +78,6 @@ SYMBOLS = [
     ("Run__4CDirFv", 0x100060, 8, 1, 2),
     ("gvar", 0x100108, 4, 1, 1),
 ]
-FIRST_GLOBAL = 11  # null symbol plus ten locals
 
 
 def _index(name: str) -> int:
@@ -145,9 +144,21 @@ def write_elf(path: Path) -> Path:
 
     main, relocations = _image()
     debug, line = _debug()
-    strtab, name_offsets = _strings([row[0] for row in SYMBOLS])
+    return _write_image(path, SYMBOLS, main, relocations, debug, line)
+
+
+def _write_image(
+    path: Path,
+    symbols: list[tuple[str, int, int, int, int]],
+    main: bytes,
+    relocations: list[tuple[int, int, int]] = (),
+    debug: bytes = b"",
+    line: bytes = b"",
+) -> Path:
+    first_global = 1 + sum(1 for row in symbols if row[3] == 0)
+    strtab, name_offsets = _strings([row[0] for row in symbols])
     symtab = struct.pack("<IIIBBH", 0, 0, 0, 0, 0, 0)
-    for name, value, size, binding, kind in SYMBOLS:
+    for name, value, size, binding, kind in symbols:
         symtab += struct.pack("<IIIBBH", name_offsets[name], value, size, (binding << 4) | kind, 0, 4)
     relmain = b"".join(struct.pack("<II", offset, (symbol << 8) | kind) for offset, symbol, kind in relocations)
     reginfo = bytes(20) + struct.pack("<I", 0x108000)
@@ -158,7 +169,7 @@ def write_elf(path: Path) -> Path:
         ("", 0, 0, 0, b"", 0, 0, 0),
         (".shstrtab", 3, 0, 0, shstrtab, 0, 0, 0),
         (".strtab", 3, 0, 0, strtab, 0, 0, 0),
-        (".symtab", 2, 0, 0, symtab, 2, FIRST_GLOBAL, 16),
+        (".symtab", 2, 0, 0, symtab, 2, first_global, 16),
         ("main", 1, 7, BASE, main, 0, 0, 0),
         (".relmain", 9, 0, 0, relmain, 3, 4, 8),
         (".debug", 1, 0, 0, debug, 0, 0, 0),
@@ -275,6 +286,65 @@ def test_gnu_objects_and_classification_candidates(synthetic: dict) -> None:
     assert path_library(r"Z:\dev\Apps\FTS\main.cpp") == ("authored", None)
 
 
+def test_code_window_opens_at_the_code_input_section_after_a_marker(tmp_path: Path) -> None:
+    # A linker-style 1-byte OBJECT marker (``_textStart``) and its fill sit
+    # before the first code input section; the code run, and its first
+    # segment, start at that section symbol, never at the odd marker end.
+    symbols = [
+        (".text", 0x100018, 0x10, 0, 3),
+        ("mfifoBase", 0x100000, 0x10, 1, 1),
+        ("_textStart", 0x100010, 1, 1, 1),
+        ("_start", 0x100018, 0, 1, 0),
+        ("first", 0x100028, 8, 1, 2),
+    ]
+    main = bytearray(0x30)
+    for address in (0x100018, 0x100020, 0x100028):
+        struct.pack_into("<II", main, address - BASE, JR_RA, NOP)
+    graph = build_source_graph(_write_image(tmp_path / "marker.elf", symbols, bytes(main)))
+    rows = _rows(graph)
+    fill, crt = rows["socom:gap:0x100011"], rows["socom:gap:0x100018"]
+    assert (fill["end"], fill["padding"], fill["classification"]["candidate"]) == ("0x100018", True, "compiler-generated")
+    assert (crt["end"], crt["labels"], crt["input_section"]["name"]) == ("0x100028", ["_start"], ".text")
+    assert [(row["kind"], row["start"], row["end"]) for row in graph["windows"]] == [
+        ("data", "0x100000", "0x100018"),
+        ("code", "0x100018", "0x100030"),
+    ]
+    assert fill["window"] == "socom:window:0x100000" and crt["window"] == "socom:window:0x100018"
+    assert [(row["start"], row["end"]) for row in graph["segments"]] == [("0x100018", "0x100030")]
+    code = {row["id"] for row in graph["windows"] if row["kind"] == "code"}
+    assert all(int(row["address"], 16) % 4 == 0 for row in graph["artifacts"] if row["window"] in code)
+
+
+def test_newlib_system_call_stubs_cast_no_library_vote(tmp_path: Path) -> None:
+    # The SCE kernel's newlib glue defines the bare system calls newlib
+    # leaves to the platform; only newlib's own ``_<name>_r`` wrappers vote
+    # newlib, so the glue object is SCE by its one SCE name.
+    symbols = [
+        (".text", 0x100000, 0, 0, 3),
+        ("gcc2_compiled.", 0x100000, 0, 0, 0),
+        (".text", 0x100028, 0, 0, 3),
+        ("gcc2_compiled.", 0x100028, 0, 0, 0),
+        ("sceTtyInit", 0x100000, 8, 1, 2),
+        ("lseek", 0x100008, 8, 1, 2),
+        ("sbrk", 0x100010, 8, 1, 2),
+        ("isatty", 0x100018, 8, 1, 2),
+        ("fstat", 0x100020, 8, 1, 2),
+        ("_lseek_r", 0x100028, 8, 1, 2),
+        ("_sbrk_r", 0x100030, 8, 1, 2),
+    ]
+    main = bytearray(0x38)
+    for address in range(0x100000, 0x100038, 8):
+        struct.pack_into("<II", main, address - BASE, JR_RA, NOP)
+    graph = build_source_graph(_write_image(tmp_path / "glue.elf", symbols, bytes(main)))
+    glue, wrappers = graph["gnu_objects"]
+    assert (glue["library"], glue["library_basis"]) == ("SCE", "function names (1 of 1 matches)")
+    assert (wrappers["library"], wrappers["library_basis"]) == ("newlib", "function names (2 of 2 matches)")
+    rows = _rows(graph)
+    for address in ("0x100000", "0x100008", "0x100020"):
+        assert rows[f"socom:function:{address}"]["classification"]["library"] == "SCE"
+    assert {"fstat", "isatty", "lseek", "sbrk"} <= set(graph["rules"]["gnu_vote_neutral_names"])
+
+
 def test_segments_cut_at_classification_changes_and_respect_the_size(tmp_path: Path) -> None:
     path = write_elf(tmp_path / "synthetic.elf")
     graph = build_source_graph(path)
@@ -354,6 +424,17 @@ def test_reference_graph_covers_the_census_artifacts(reference_graph: dict, cens
     assert graph["contradictions"] == []
     summary = graph["summary"]
     assert summary["functions_without_tu_anchor"] == sum(summary["functions_without_tu_anchor_by_class"].values())
+
+
+def test_reference_code_starts_at_instruction_addresses_and_kernel_glue_is_sce(reference_graph: dict) -> None:
+    graph = reference_graph
+    code = {row["id"] for row in graph["windows"] if row["kind"] == "code"}
+    assert all(int(row["address"], 16) % 4 == 0 for row in graph["artifacts"] if row["window"] in code)
+    assert all(int(row["start"], 16) % 4 == 0 == int(row["end"], 16) % 4 for row in graph["segments"])
+    # crt0's .text input section, after the 1-byte _textStart marker.
+    assert graph["segments"][0]["start"] == "0x140008"
+    glue = next(row for row in graph["gnu_objects"] if row["address"] == "0x15b9a0")
+    assert glue["library"] == "SCE"
 
 
 def test_reference_graph_is_deterministic(root: Path, reference_graph: dict) -> None:
