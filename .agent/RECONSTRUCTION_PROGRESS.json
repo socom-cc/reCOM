@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2869,
+  "revision": 2877,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -147869,22 +147869,23 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-newlib.json sha256:99a2207bc02f97494383f3b911ee6940899bff2d8e96591aada942690ab74900; validate --check ok; draft --check ok (425 drafted, 23 hand, 3 overrides)"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-p02",
+        "submitted_at": "2026-10-31T08:08:24Z",
+        "summary": "owners 139 (138 provider incl. 1 data-only member s_infconst.o, 1 compiler-generated fill), unresolved 2 (0x466fa0 spans puts/strtod .rodata; errno 0x5b1aa4 system-layer definer), retire 0, open rows decided 22 (20 owned by LOCAL section-symbol containment, 2 unresolved), 3 P-gnu-data overrides; member names inferred at medium as evidence lines"
+      },
       "id": "socom:work:source-provider-newlib",
       "kind": "source-plan-provider",
-      "lease": {
-        "claimed_at": "2026-10-31T07:50:05Z",
-        "expires_at": "2026-10-31T09:50:05Z",
-        "heartbeat_at": "2026-10-31T07:50:05Z",
-        "owner": "socom-source-owner-mapper-p02"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan provider owners of newlib (2 segments, 197 functions)"
     },
     {
@@ -147967,8 +147968,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-libgcc.json sha256:6fb4c79a824cc0dd3b7c1abcc0b56aa53921a3ce9f0c5481e1313acf0acfb422; validate --check ok; draft --check ok (45 drafted, 1 hand, 0 overrides)"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-p02",
+        "submitted_at": "2026-10-31T08:11:51Z",
+        "summary": "owners 26 (24 GNU-object members, 1 data-only member _thenan_df.o, 1 compiler-generated fill), unresolved 0, retire 0, open rows decided 1 (__thenan_df); member names inferred at medium as evidence lines; dptofp/dptoul are libgcc but outside the slice (graph rule gap)"
+      },
       "id": "socom:work:source-provider-libgcc",
       "kind": "source-plan-provider",
       "lease": null,
@@ -147977,7 +147984,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan provider owners of libgcc (1 segments, 26 functions)"
     },
     {
@@ -150863,6 +150870,10 @@
       "title": "Apply the reviewed source owners of segment 037 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T08:16:31Z",
+        "by": "socom-source-owner-scrutinizer-x3"
+      },
       "batch": {
         "artifact_count": 110,
         "batch_number": 38,
@@ -150892,8 +150903,15 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-989snd.json sha256:df47c619c24dafccf8989d603da1ce58bd74cf78da440a7725133d383206aefa re-hashed; validate --check ok (graph 837c03c4 regenerated, 110/110 owned, 0 unresolved); draft --check ok (26 C-fill drafted, 84 hand, 0 overrides). High rows verified via source sql: LOCAL block 6674-6687 is all cluster 0x2eaaa0 (10 @N .rodata, gLoadCB/gLoadUserData .sbss, gSLClientData/gSLClientLoaderData .bss), bracketed by 6673 height$1495 (cluster 0x2e96d0) and 6688 @3020 (zsnd_csnd cluster 0x2ebf00); the 6 high functions (NoWait, AndWait, BankLoadByLoc, BankLoad, FlushSoundCommands, StartSoundSystem) each carry LOCAL relocs into it; __FILE__ @1423 '989snd.c' is referenced only by StartSoundSystem. Medium 0x2eb1d0-0x2eb520 and 0x2eb7c0 lie strictly between strong anchors, each a thin snd_SendIOPCommand* wrapper. Leading 20 0x2ea400-0x2eaa90 low is supported, not required unresolved: every reloc is GLOBAL to 989snd.o functions/data or SCE (sceCd*, FlushCache); all state they touch is also used by 989snd.o anchors; gStats 0x50e580 lies inside 989snd.o's .bss strictly between its LOCALs; their .sbss state (gStreamingInited/gSSRead/gSSReadDone/gCaching/gLoadBusy) is interleaved with 989snd-only globals (gCommBusy, gAwaitingInts, gCdCallback, gLoadingFromFS, gCommandFillBuffer) so no separate-member prefix exists; same wrapper pattern as the in-object mediums; left edge 0x2ea400 is the hard authored->989snd classification edge (CAiTarget ctor ends there). Competing data-less separate member is not excluded (MW objects carry no SECTION/FILE locals, GLOBAL symtab order is hashed), so low is the right ceiling. Five 'authored'-candidate data owned medium correctly: gLoadReturnDef and gSndCommandBuffePtr/gCommandBuffeBytesAvail/gSndCommandReturnDefPtr/gReturnValuesPtr are referenced only by 989snd.o anchors, three .sdata pairs R_MIPS_32-initialised to 989snd.o .bss buffers, and each run sits at 989snd.o's link position (seal_airesponse/segment-36 data before, zsnd_csnd data after) in .data/.sdata, as in .rodata/.sbss/.bss; the 12 unknown globals the same way. Member link mode (archive default vs project object) unevidenced and stated; 989snd vendor input absent is a provider blocker.",
+        "plan build/source-plans/socom-work-source-provider-989snd.json sha256:df47c619c24dafccf8989d603da1ce58bd74cf78da440a7725133d383206aefa; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-p03",
+        "submitted_at": "2026-10-31T08:03:58Z",
+        "summary": "owners 2 (989snd.o provider + fill), unresolved 0, retire 0, open rows decided 84 (drafted 26 C-fill); 20 leading functions owned low: member unproven"
+      },
       "id": "socom:work:source-provider-989snd",
       "kind": "source-plan-provider",
       "lease": null,
@@ -150902,7 +150920,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan provider owners of 989snd (1 segments, 43 functions)"
     },
     {
@@ -152560,8 +152578,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-lgaud.json sha256:47f7db0abcd0523aa647f2aa45be03b023211b20e19ac794620c6ab6b516c442; validate --check ok; draft --check ok (14 overrides: Sid object unresolved)"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-p03",
+        "submitted_at": "2026-10-31T08:09:15Z",
+        "summary": "owners 2 (liblgaud.a GNU object 0x3b5980 + fill), unresolved 14 (Sid object 0x3b7248: library contested lgAud vs speech middleware), retire 0, open rows decided 0 (draft decided 60; 14 overridden to unresolved)"
+      },
       "id": "socom:work:source-provider-lgaud",
       "kind": "source-plan-provider",
       "lease": null,
@@ -152570,7 +152594,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan provider owners of lgAud (1 segments, 39 functions)"
     },
     {
