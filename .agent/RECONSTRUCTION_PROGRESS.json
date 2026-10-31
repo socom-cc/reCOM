@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2846,
+  "revision": 2852,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -146555,8 +146555,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-001.json sha256:de0fc704df60ead924593a86cd9ab5ec35d0f5c971a3c34097371e24c0a5a3d3; source plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-s001",
+        "submitted_at": "2026-10-31T06:00:01Z",
+        "summary": "owners 4 (authored main.cpp 51, authored st_menu.cpp 6 data, provider crt0 1 gap, compiler-generated 32 pads), unresolved 0, retire 0; header_emits 10; reservation corrected to src/Apps/FTS, src/gamez/zFTS, src/gamez/zGame"
+      },
       "id": "socom:work:source-segment-001",
       "kind": "source-plan-segment",
       "lease": null,
@@ -146565,7 +146571,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 001 (0x140008-0x142138, 39 functions)"
     },
     {
@@ -146656,8 +146662,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-mw-runtime.json sha256:b37c5551199c05ef57d43ed12fba450788d469e917dc6ef19367734f284dbf1a; source plan validate --check ok (with and without --fill-annotations); graph a3ce2165...; slice bd46ac29..."
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-pmw",
+        "submitted_at": "2026-10-31T05:59:02Z",
+        "summary": "owners 11 (10 provider members, 1 compiler-generated fill), unresolved 2, retire 0"
+      },
       "id": "socom:work:source-provider-mw-runtime",
       "kind": "source-plan-provider",
       "lease": null,
@@ -146666,7 +146678,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan provider owners of MW runtime (1 segments, 43 functions)"
     },
     {
@@ -147730,8 +147742,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-017.json sha256:6245631333cd4dafe212f9fccbe0607deb019aa7e8262fdfdb8d5f1bc4f842dc; evidence build/source-plans/socom-work-source-segment-017-evidence.json sha256:7bcf009eaa538c6818dff9a980da8600087000112401144f62c71dfc3f20d6b3; source plan validate --check ok (with and without --fill-annotations), graph a3ce2165..., slice f2cd922f..."
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-s017",
+        "submitted_at": "2026-10-31T06:01:33Z",
+        "summary": "owners 3 (authored zanim_cmd_tick.cpp 42 artifacts medium, authored zanim_load.cpp 67 medium, compiler-generated fill 37 high), unresolved 1 (zAnimQuadAlignTick 0x1bfe80 at the tick/load boundary), retire 0, header_emits 0, annotations 50 defines"
+      },
       "id": "socom:work:source-segment-017",
       "kind": "source-plan-segment",
       "lease": null,
@@ -147740,7 +147758,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 017 (0x1b90e0-0x1c24b8, 51 functions)"
     },
     {
