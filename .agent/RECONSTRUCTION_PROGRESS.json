@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2928,
+  "revision": 2930,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -148469,23 +148469,33 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-015.json sha256:cb29bcb782c46779fe6813f97a4031d14f686405371dc903e0a014110b8e0a5a; validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-w1e",
-        "submitted_at": "2026-10-31T10:38:46Z",
-        "summary": "owners 4 authored + fill (ai_mapio, ai_path, ai_maps, ai_map data row), unresolved 0, retire 0, open rows decided 20 (drafted 348, hand 20); reservation src/gamez/zAI confirmed; 1 hand MSL <list> header emit"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-015",
       "kind": "source-plan-segment",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-w1e",
+            "submitted_at": "2026-10-31T10:38:46Z",
+            "summary": "owners 4 authored + fill (ai_mapio, ai_path, ai_maps, ai_map data row), unresolved 0, retire 0, open rows decided 20 (drafted 348, hand 20); reservation src/gamez/zAI confirmed; 1 hand MSL <list> header emit"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-015.json sha256:cb29bcb782c46779fe6813f97a4031d14f686405371dc903e0a014110b8e0a5a; validate --check ok; draft --check ok"
+          ],
+          "reason": "F1 socom:function:0x18b0b0 (__dt__ std::__vector_imp<CAiMapLoc,allocator<CAiMapLoc>,0>, binding 13) is the implicit destructor of an MSL class (local CodeWarrior PS2 R3.04 MSL <vector>: class __vector_imp<T,Allocator,false> at lines 1190-1297 declares its ctors, copy ctor and operator= at 1208-1214 but no destructor). It is drafted into ai_mapio.cpp with no header-emit row, so the plan annotates it as defined in ai_mapio.cpp. The plan's own rule (implicit special members go to their class's header, applied to 0x197180 -> <list>) requires {header <vector>, library MSL, reason template}. Fix: add that header-emit row (leave the drafted owner entry) and re-run validate --fill-annotations, --check and draft --check. F2 socom:function:0x18b040 (__dt__12CAiMapLocVecFv) and socom:function:0x19d890 (__ct__12CAiMapLocVecFv), binding 13: implicit dtor and default ctor of CAiMapLocVec, which provisional src/gamez/zAI/zai.h:294 declares with no user-declared ctor/dtor (class CAiMapLocVec : std::vector<CAiMapLoc> { };). The plan's note tests action_v18 against zai.h but gives these neither an emit nor a reason. Fix: emit them to src/gamez/zAI/zai.h (reason inline), or record in notes why zai.h is not their class's header. Checked and sound otherwise: sha256 cb29bcb7 matches; validate --check and draft --check ok; the 20 hand rows hold (WEAK tails close their object for every strongly anchored unit, only compiler __arraydtor locals follow a tail; sole-caller and single-copy claims confirmed; the symbol-less unit alternative at 0x193540-0x193918 and 0x196e60-0x1971bc is noted and medium fits). Data 0x449170 -> ai_map.cpp is also supported by .rodata alignment: ai_map's run holds 16-aligned literals (@2412 at 0x4491f0 after 10 zero bytes), so its section starts 16-aligned, and the only 16-aligned address between @3509's end 0x44916e and @1462 at 0x449178 is 0x449170 (version__6CAiMap 0x449310 opens ai_mapio's run the same way, @2106 at 0x449330). The <list> emit is correctly worded as local R3.04 MSL; lines 206-207 verified.",
+          "rejected_at": "2026-10-31T11:04:24Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x6"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 015 (0x188f60-0x19dca0, 193 functions)"
     },
     {
@@ -148831,23 +148841,33 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-018.json sha256:8477cf5601596d6fa7b2b74e4521d20aab706bc2dcb265d624e765a5709c8e06; validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-w1e",
-        "submitted_at": "2026-10-31T10:46:18Z",
-        "summary": "owners 3 authored + fill (anim_main, zanim_set new src/gamez/zAnim/zanim_set.cpp, zanim_anim), unresolved 0, retire 0, open rows decided 28 + 1 owner path (drafted 398, hand 28); reservation src/gamez/zAnim confirmed; 9 contradictions"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-018",
       "kind": "source-plan-segment",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-w1e",
+            "submitted_at": "2026-10-31T10:46:18Z",
+            "summary": "owners 3 authored + fill (anim_main, zanim_set new src/gamez/zAnim/zanim_set.cpp, zanim_anim), unresolved 0, retire 0, open rows decided 28 + 1 owner path (drafted 398, hand 28); reservation src/gamez/zAnim confirmed; 9 contradictions"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-018.json sha256:8477cf5601596d6fa7b2b74e4521d20aab706bc2dcb265d624e765a5709c8e06; validate --check ok; draft --check ok"
+          ],
+          "reason": "F1 socom:function:0x1c61a0 (__dt__ std::__vector_imp<CZAnimEx*,allocator<CZAnimEx*>,1>, binding 13) is the implicit destructor of an MSL class (local CodeWarrior PS2 R3.04 MSL <vector>: class __vector_imp<T,Allocator,true> at lines 919-1093 privately derives from __vector_pod and declares no destructor). It is drafted into zanim_set.cpp with no header-emit row, so the plan annotates it as defined in zanim_set.cpp. The planner rule (implicit special members go to their class's header; MSL as {header <name>, library MSL}) and the precedent of the accepted segment 001 (0x142130 -> <memory>) require {header <vector>, library MSL, reason template}. The plan's no-emit note covers only the hand rows. Fix: add that header-emit row (leave the drafted owner entry), re-run validate --fill-annotations, --check and draft --check. Checked and sound otherwise: sha256 8477cf56 matches; validate --check and draft --check ok (only owner change: zanim_set.cpp workspace_path). Key function: __vt__8CZAnimEx 0x4719f0 (GLOBAL, LOCAL reloc to __RTTI__8CZAnimEx 0x44b208 in zanim_anim's cluster) has one own-class non-inline slot, OnWeaponHit 0x1cf660; over all GLOBAL vtables with a LOCAL RTTI, the first own-class GLOBAL slot is always in the vtable's unit (0 exceptions), so 0x1cf660 is zanim_anim's. NetworkReceive/NetworkPacketSize 0x1cf490/0x1cf590 lie strictly between ActivateEx 0x1ceee0 (strong) and 0x1cf660, with no LOCAL symbol or other-unit candidate between; callers only fts_remote ZAnimNetworkPacketHandler. zanim_set head 0x1c5580/0x1c5730: their WEAK callees' kept copies open zanim_set's tail in first-use order and nothing lies between Add and LoadSIScript, so neither anim_main nor a separate object can hold them. Tail 0x1c87c0/0x1c8810: sole caller Unload, before GLOBAL Load 0x1c88c0. CNodeEx/CZAnimArg* inline copies are referenced only by zanim_anim's vtables; zanim_menu does not reference them. All 9 contradictions match the provisional lines (zanim_anim.cpp:120/128/133; anim_main.cpp:117/141/155/179/254/264); no further mismatch among the provisional members. New row src/gamez/zAnim/zanim_set.cpp: FILE string @2204 0x44ad28 used by 7 functions, no provisional file, inside the confirmed reservation.",
+          "rejected_at": "2026-10-31T11:08:20Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x6"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 018 (0x1c24c0-0x1d0090, 192 functions)"
     },
     {
