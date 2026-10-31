@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3236,
+  "revision": 3239,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -147675,6 +147675,10 @@
       "title": "Record the reviewed provider owners of MW runtime in tracker evidence"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T23:07:01Z",
+        "by": "socom-source-owner-scrutinizer-x20"
+      },
       "batch": {
         "artifact_count": 529,
         "batch_number": 3,
@@ -147710,7 +147714,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-provider-msl.json sha256:5c411ff2971a7356f069c9c8ed1e4d1dc7d2631cbdae7902dbec7c3820c92be5; validate --check ok; draft --check ok"
+        "plan build/source-plans/socom-work-source-provider-msl.json sha256:5c411ff2971a7356f069c9c8ed1e4d1dc7d2631cbdae7902dbec7c3820c92be5; validate --check ok; draft --check ok",
+        "re-review of x20 rejection: only changes vs prior review are socom:data:0x47563c id_count_s__Q33std6locale2id -> locale.cpp/locale.o (override, medium; R3.04 ANSICPP_PS2.LIB locale.o defines it GLOBAL .sbss 4 B, iostream.o only references it; R3.04 locale.cpp:52; first item of locale.o's .sbss after iostream.o's guard 0x475638 (iostream.cpp in accepted 076) and before locale.cpp LOCAL init$724 0x475640; sql readers 0x149480/0x149560/0x149640/0x149720 all iostream.cpp __use_facet) and the reworded facet-id notes; facet ids 0x475660/64/68 -> locale.cpp verified earlier (locale.cpp:221/306/312). sha256 5c411ff2 = handoff; validate --check ok (0 problems); draft --check ok (4 overrides, all reviewed)."
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-sw1",
@@ -147776,7 +147781,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan provider owners of MSL (1 segments, 179 functions)"
     },
     {
@@ -148375,6 +148380,10 @@
       "title": "Record the reviewed provider owners of libgcc in tracker evidence"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T23:07:03Z",
+        "by": "socom-source-owner-scrutinizer-x20"
+      },
       "batch": {
         "artifact_count": 397,
         "batch_number": 13,
@@ -148413,7 +148422,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-013.json sha256:5ee2f17fd3d0760b0cfb9ba1df7f47187b3636f31fc7dee254c409e92924a0f2; validate --check ok; draft --check ok"
+        "plan build/source-plans/socom-work-source-segment-013.json sha256:5ee2f17fd3d0760b0cfb9ba1df7f47187b3636f31fc7dee254c409e92924a0f2; validate --check ok; draft --check ok",
+        "re-review of x20 rejection: only change vs prior review is header emit socom:function:0x173520 __dt__Q23zdb11CNodeVectorFv (implicit dtor) -> src/gamez/zNode/znode.h (znode.h:123 class zdb::CNodeVector; copy kept by database.cpp, referenced only by __sinit_zparticle.cpp 0x46b770: two units) with the no-emit note replaced; zNode already reserved. Data overrides (CSnd -> zsnd_csnd.cpp, CVisual and aiCameraRangeFilter unresolved) and zsnd_csnd.cpp row unchanged and verified earlier. sha256 5ee2f17f = handoff; validate --check ok; draft --check ok (6 overrides reviewed)."
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-sw1",
@@ -148479,7 +148489,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 013 (0x1728e0-0x17de74, 114 functions)"
     },
     {
@@ -149018,6 +149028,10 @@
       "title": "Apply the reviewed source owners of segment 016 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T23:07:04Z",
+        "by": "socom-source-owner-scrutinizer-x20"
+      },
       "batch": {
         "artifact_count": 147,
         "batch_number": 17,
@@ -149054,7 +149068,8 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-017.json sha256:afb2439654cd0f78256ef1c15201ba4c5330527d3622bf8da102d2764a529053; validate --check ok; draft --check ok"
+        "plan build/source-plans/socom-work-source-segment-017.json sha256:afb2439654cd0f78256ef1c15201ba4c5330527d3622bf8da102d2764a529053; validate --check ok; draft --check ok",
+        "re-review of x20 rejection: only change vs prior review is header emit socom:function:0x1c0190 __dt__9CZAnimZARFv (implicit dtor, binding 13, kept by zanim_load.cpp) -> src/gamez/zAnim/zanim.h (zanim.h:646 class CZAnimZAR : public zar::CZAR {}); zAnim reserved; validator review notes now 0. GetBBox/Rotate emits, the node_main.cpp:715 contradiction and the reservation are unchanged and were verified earlier. sha256 afb24396 = handoff; validate --check ok; draft --check ok."
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-sw1",
@@ -149124,7 +149139,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 017 (0x1b90e0-0x1c24b8, 51 functions)"
     },
     {
