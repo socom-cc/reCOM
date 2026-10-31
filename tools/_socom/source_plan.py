@@ -44,7 +44,7 @@ from typing import Any, Callable
 
 from .constants import REFERENCE_SHA256
 from .source_graph import SOURCE_GRAPH_KIND, SOURCE_GRAPH_SCHEMA, TU_LIBRARY, path_library
-from .util import SocomError, canonical_json
+from .util import SocomError, canonical_json, load_json
 
 SOURCE_STAGE = "source-correlation"
 SOURCE_SEED_ID = "socom:work:source-correlation-seed"
@@ -131,9 +131,18 @@ OWNER_FIELDS = frozenset(
         "artifacts",
     }
 )
-# Schema 2 only: the rule that fixed the row's identity and paths, or the
-# draft's "open" marker on a row whose paths the planner must still decide.
-OWNER_FIELDS_V2 = OWNER_FIELDS | {"draft_rule", "draft"}
+# Schema 2 only: the rule that fixed the row's identity and paths, the
+# draft's "open" marker on a row whose paths the planner must still decide,
+# and ``name_basis``: where an authored row's unit name comes from.
+OWNER_FIELDS_V2 = OWNER_FIELDS | {"draft_rule", "draft", "name_basis"}
+# ``evidence`` (the default): the ELF names the unit (DWARF, __FILE__, sinit,
+# a unit candidate).  For an authored object the ELF does not name (its
+# cluster has no unit; user decision of 2026-10-31): ``provisional``, the one
+# existing provisional file of the module that defines its functions
+# (confidence at most medium), or ``invented``, a descriptive name from its
+# main class (confidence low).
+NAME_BASIS_DEFAULT = "evidence"
+NAME_BASES = (NAME_BASIS_DEFAULT, "provisional", "invented")
 ARTIFACT_ENTRY_FIELDS = frozenset({"artifact", "confidence", "basis", "draft_rule"})
 MEMBER_FIELDS = frozenset({"gnu_object", "object"})
 # Schema 2 only: ``linked``, and the archive the member came from by file
@@ -149,7 +158,14 @@ EMIT_FIELDS = frozenset({"artifact", "header", "reason", "evidence"})
 # Schema 2 only: ``library`` marks a provider header (``<string>``) whose
 # template or inline body the owner's file emits by inclusion.
 EMIT_FIELDS_V2 = EMIT_FIELDS | {"library", "draft_rule"}
-UNRESOLVED_FIELDS_V2 = frozenset({"artifact", "reason", "draft"})
+# Schema 2: an open row may carry the drafter's ``suggest``ion, which
+# ``source plan decide --accept-suggestion`` records as a hand entry.
+UNRESOLVED_FIELDS_V2 = frozenset({"artifact", "reason", "draft", "suggest"})
+SUGGEST_FIELDS = ("owner", "rule", "confidence", "basis")
+# Plan items whose plans a unit's paths must agree with (another plan's
+# accepted row is a problem, a handed-off one a review note).
+CROSS_PLAN_STATUSES = ("awaiting_acceptance", "accepted")
+CROSS_PLAN_FIELDS = ("classification", "workspace_path", "original_path")
 _PROVIDER_HEADER = re.compile(r"^<[A-Za-z0-9_.+/-]+>$")
 ANNOTATION_FIELDS = ("artifact", "relation", "section", "path")
 _COMPILER_NAME = re.compile(r"^(?:@\d+(?:@.*)?|__RTTI__.*|__vt__.*|__sinit_.*|\.p__sinit_.*)$")
@@ -960,6 +976,189 @@ def _check_reservation(
     return placement
 
 
+def suggestion_problems(suggest: Any) -> list[str]:
+    """What is wrong with an open row's ``suggest`` object ``{owner, rule, confidence, basis}``."""
+
+    if not isinstance(suggest, dict):
+        return [f"must be an object {{{', '.join(SUGGEST_FIELDS)}}}"]
+    found = []
+    if unknown := sorted(set(suggest) - set(SUGGEST_FIELDS)):
+        found.append(f"has unknown fields {unknown}")
+    for key in ("owner", "rule", "basis"):
+        if not isinstance(suggest.get(key), str) or not suggest[key].strip():
+            found.append(f"needs {key}")
+    if suggest.get("confidence") not in CONFIDENCES:
+        found.append(f"confidence must be one of {list(CONFIDENCES)}")
+    return found
+
+
+def _cluster_names(cluster: dict[str, Any]) -> list[str]:
+    """The unit and library names a graph cluster carries."""
+
+    units = [str(value.get("tu")) if isinstance(value, dict) else str(value) for value in cluster.get("units") or []]
+    return sorted(units) + sorted(str(value) for value in cluster.get("libraries") or [])
+
+
+def _check_name_basis(
+    owner: dict[str, Any],
+    label: str,
+    classification: Any,
+    unit: str | None,
+    artifacts: list[str],
+    graph_units: set[str],
+    clusters: dict[str, dict[str, Any]],
+    rows: dict[str, dict[str, Any]],
+    v2: bool,
+    problems: list[str],
+    review: list[str],
+) -> None:
+    """Check where an owner row's unit name comes from (``name_basis``, schema 2).
+
+    ``evidence`` (the default): an authored row names a unit the graph knows
+    (a schema 2 plan that names another records the name's basis; a schema 1
+    plan gets a review note).  ``provisional`` and ``invented`` name an
+    authored object the ELF does not name: the name is no unit the graph
+    knows, the row's artifacts lie in no cluster that names a unit or library
+    and have no strong unit candidate, and at least one lies in a cluster
+    (the object the row names).  ``invented`` is confidence low;
+    ``provisional`` cites the provisional file it is named after and is at
+    most medium.  Paths, reservation and annotations are checked as for any
+    authored row.
+    """
+
+    basis = owner.get("name_basis", NAME_BASIS_DEFAULT)
+    if basis not in NAME_BASES:
+        problems.append(f"{label} name_basis must be one of {list(NAME_BASES)}")
+        return
+    if basis == NAME_BASIS_DEFAULT:
+        if classification == "authored" and unit and unit.casefold() not in graph_units:
+            message = f"{label} names unit {unit}, which the graph does not know: record name_basis provisional or invented"
+            (problems if v2 else review).append(message)
+        return
+    if classification != "authored":
+        problems.append(f"{label} name_basis {basis}: only an authored row names an object the ELF does not name")
+        return
+    if not unit:
+        return  # refused above: an authored row names a source unit
+    if unit.casefold() in graph_units:
+        problems.append(f"{label} name_basis {basis} reuses unit {unit}, which the graph knows: its row has name_basis evidence")
+    confidence = owner.get("confidence")
+    if basis == "invented":
+        if confidence != "low":
+            problems.append(f"{label} has an invented name: its confidence must be low")
+    else:
+        provisional = owner.get("provisional_file")
+        if not isinstance(provisional, str) or PurePosixPath(provisional).name.casefold() != unit.casefold():
+            problems.append(f"{label} is named after a provisional file: provisional_file must be that file ({unit})")
+        if confidence not in ("medium", "low"):
+            problems.append(f"{label} is named after a provisional file: its confidence is at most medium")
+    in_object = False
+    for identity in artifacts:
+        row = rows.get(identity)
+        if row is None:
+            continue  # outside the slice: refused above
+        cluster_id = row.get("cluster")
+        cluster = clusters.get(cluster_id) if isinstance(cluster_id, str) else None
+        if cluster is not None:
+            if names := _cluster_names(cluster):
+                problems.append(
+                    f"{label} {identity} lies in cluster {cluster_id}, which names {', '.join(names)}: an unnamed "
+                    "object's artifacts lie in clusters with no unit or library"
+                )
+            elif row.get("kind") != "gap":
+                in_object = True
+        strong = [str(value.get("tu")) for value in row.get("tu_candidates") or [] if value.get("strength") == "strong"]
+        if strong:
+            problems.append(f"{label} {identity} has the strong unit candidate {strong[0]}: the ELF names its unit")
+    if not in_object:
+        problems.append(
+            f"{label} name_basis {basis}: none of its artifacts lies in a cluster with no unit name (the object it names)"
+        )
+
+
+def cross_plan_units(root: Path, tracker: dict[str, Any], item_id: Any) -> tuple[dict[str, list[dict[str, Any]]], list[str]]:
+    """The units of the other handed-off and accepted plans, by casefolded name, and notes on unreadable plans.
+
+    Each plan is read at its packet path (``plan_path``); only authored and
+    provider rows that name a unit count.
+    """
+
+    found: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    notes: list[str] = []
+    for item in tracker.get("work_items", []):
+        if item.get("kind") not in SOURCE_PLAN_KINDS or item.get("id") == item_id:
+            continue
+        status = item.get("status")
+        if status not in CROSS_PLAN_STATUSES:
+            continue
+        relative = plan_path(item["id"])
+        path = root / relative
+        if not path.is_file():
+            notes.append(f"{item['id']} is {status} but {relative} is missing: its units were not compared")
+            continue
+        try:
+            other = load_json(path)
+        except SocomError:
+            other = None
+        if not isinstance(other, dict):
+            notes.append(f"{relative} is not a plan object: its units were not compared")
+            continue
+        for owner in other.get("owners") or []:
+            if not isinstance(owner, dict) or owner.get("classification") not in ("authored", "provider"):
+                continue
+            unit = owner.get("translation_unit")
+            if isinstance(unit, str) and unit:
+                found[unit.casefold()].append(
+                    {"item": item["id"], "status": status, **{field: owner.get(field) for field in CROSS_PLAN_FIELDS}}
+                )
+    return found, notes
+
+
+def _check_cross_plan(
+    root: Path,
+    tracker: dict[str, Any],
+    item_id: Any,
+    row_units: list[tuple[dict[str, Any], str, str]],
+    problems: list[str],
+    review: list[str],
+) -> list[dict[str, Any]]:
+    """Compare each unit with the same unit in the other handed-off and accepted plans; the shared units.
+
+    One unit is one file whichever plans own its artifacts, so its
+    classification, ``workspace_path`` and ``original_path`` must agree.  A
+    disagreement with an accepted plan is a problem; with a plan still
+    awaiting acceptance it is a review note (whichever is accepted first
+    decides, and the other then fails).  An ``original_path`` that only one
+    of the two rows cites (the other null) names no other file: a review
+    note either way.
+    """
+
+    if not row_units:
+        return []
+    others, notes = cross_plan_units(root, tracker, item_id)
+    review.extend(notes)
+    shared = []
+    for owner, label, unit in row_units:
+        for other in others.get(unit.casefold(), []):
+            differs = [field for field in CROSS_PLAN_FIELDS if owner.get(field) != other[field]]
+            uncited = [
+                field for field in differs if field == "original_path" and (owner.get(field) is None or other[field] is None)
+            ]
+            conflicts = [field for field in differs if field not in uncited]
+            shared.append({"unit": unit, "item": other["item"], "status": other["status"], "agrees": not differs})
+            where = f"{other['item']} ({other['status']}) on {unit}"
+            if conflicts:
+                text = "; ".join(f"{field} {owner.get(field)!r} there {other[field]!r}" for field in conflicts)
+                message = f"{label} disagrees with {where}: {text}; one unit is one file"
+                (problems if other["status"] == "accepted" else review).append(message)
+            if uncited:
+                review.append(
+                    f"{label} and {where} differ in citing the unit's original_path "
+                    f"({owner.get('original_path')!r} here, {other['original_path']!r} there): cite it in both"
+                )
+    return shared
+
+
 def validate_source_plan(
     root: Path,
     tracker: dict[str, Any],
@@ -1059,6 +1258,9 @@ def validate_source_plan(
     provisionals: dict[str, str] = {}
     members: dict[tuple[str, str], str] = {}
     cited_files: set[str] = set()
+    graph_units = {str(unit.get("tu", "")).casefold() for unit in graph["units"]}
+    clusters = {row["id"]: row for row in graph.get("clusters") or [] if isinstance(row, dict) and "id" in row}
+    row_units: list[tuple[dict[str, Any], str, str]] = []
 
     scope = item["batch"]["scope"]
     review: list[str] = report["review"]
@@ -1244,6 +1446,9 @@ def validate_source_plan(
                 problems.append(
                     f"{label} is compiler-generated output no unit defines: it carries no path, library or archive member"
                 )
+        _check_name_basis(owner, label, classification, unit, artifacts, graph_units, clusters, rows, v2, problems, review)
+        if unit and classification in ("authored", "provider"):
+            row_units.append((owner, label, unit))
 
     unresolved = plan.get("unresolved")
     if not isinstance(unresolved, list):
@@ -1270,6 +1475,10 @@ def validate_source_plan(
             problems.append(f"unresolved {row['artifact']} needs a reason")
         elif reason.strip() == SKELETON_REASON:
             problems.append(f"unresolved {row['artifact']} still has the skeleton reason {SKELETON_REASON!r}")
+        if "suggest" in row:
+            # The drafter's suggestion may stay on a row the planner keeps unresolved (the reviewer sees it).
+            for found in suggestion_problems(row["suggest"]):
+                problems.append(f"unresolved {row['artifact']} suggest {found}")
         holders[row["artifact"]].append("unresolved")
     if still_open:
         problems.append(
@@ -1391,6 +1600,7 @@ def validate_source_plan(
         problems.append("notes must be a list of strings")
         notes = []
     contradictions = _check_contradictions(root, plan.get("contradictions"), in_slice, moved_from, retired_by_apply, problems)
+    report["shared_units"] = _check_cross_plan(root, tracker, item["id"], row_units, problems, review)
     noted = [value for value in notes if value.strip().casefold().startswith(CONTRADICTION_NOTE)]
     if noted:
         # Plans written before the field keep their text notes; they stay valid.

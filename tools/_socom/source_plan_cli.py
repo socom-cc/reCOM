@@ -37,24 +37,27 @@ def specs(spec: Any) -> tuple[Any, ...]:
         spec(
             "source plan validate",
             "source",
-            "Check a source-owner plan: every artifact of its item's slice owned once or unresolved, owner, provider, "
-            "header-emit, contradiction and annotation rows, provisional files, no control characters, and the graph "
-            "and slice digests (--check regenerates the graph from the ELF); reports the other applies sharing each "
-            "reserved directory.",
+            "Check a source-owner plan: every artifact of its item's slice owned once or unresolved, owner (with "
+            "name_basis for unnamed objects), provider, header-emit, contradiction and annotation rows, provisional "
+            "files, no control characters, units agreeing with handed-off and accepted plans, and the graph and slice "
+            "digests (--check regenerates the graph from the ELF); reports the other applies sharing each reserved "
+            "directory.",
         ),
         spec(
             "source plan open",
             "source",
-            "Print only a drafted source-owner plan's open rows (open unresolved artifacts with their cache evidence, "
-            "open owner rows, open header emits, an inferred reservation) compactly, so a planner never loads the "
-            "whole plan.",
+            "Print (or with --output write under build/) only a drafted source-owner plan's open rows compactly: open "
+            "unresolved artifacts with their cache evidence, binding, flanking anchors and the WEAK copies between, the "
+            "sole referencing unit of a WEAK or inline copy and the drafter's suggestion, then open owner rows, open "
+            "header emits and an inferred reservation, so a planner never loads the whole plan.",
         ),
         spec(
             "source plan decide",
             "source",
             "Record one decision in a schema 2 source-owner plan under build/: move artifacts into an existing owner "
-            "row with confidence and basis, or into unresolved with a reason; JSON load/dump, no control characters, "
-            "drafted rows only with --override and --evidence; re-derives the annotations.",
+            "row with confidence and basis, into unresolved with a reason, or by --accept-suggestion as the drafter "
+            "suggested; or add a contradictions or header_emits row; JSON load/dump, no control characters, drafted "
+            "rows only with --override and --evidence; re-derives the annotations.",
             mutates=True,
         ),
         spec(
@@ -101,6 +104,7 @@ def register(source_commands: Any) -> None:
     view.add_argument("--plan", required=True)
     view.add_argument("--limit", type=int, default=40, help="open artifacts to show (default 40)")
     view.add_argument("--format", choices=("text", "json"), default="text")
+    view.add_argument("--output", help="write the view (in --format) to this file under build/ instead of stdout")
     view.add_argument("--graph", default=DEFAULT_GRAPH)
     view.set_defaults(handler=_source_plan_open)
     decide = plan_commands.add_parser("decide")
@@ -110,8 +114,23 @@ def register(source_commands: Any) -> None:
     decide.add_argument("--confidence", choices=("high", "medium", "low"))
     decide.add_argument("--basis")
     decide.add_argument("--unresolved", metavar="REASON")
-    decide.add_argument("--override", action="store_true", help="move an artifact a draft rule decided")
-    decide.add_argument("--evidence", help="why the draft rule is wrong (with --override); kept as a plan note")
+    decide.add_argument(
+        "--accept-suggestion",
+        action="store_true",
+        help="record each open row's suggest {owner, rule, confidence, basis} as a hand entry of that owner row",
+    )
+    decide.add_argument("--contradiction", metavar="KIND", help="add a contradictions row of this kind slug per artifact")
+    decide.add_argument("--provisional-file", help="the provisional file a --contradiction disagrees with")
+    decide.add_argument("--line", type=int, help="the --contradiction's line in that file (omit for a file-level one)")
+    decide.add_argument("--elf-evidence", action="append", help="an ELF evidence line of the --contradiction (repeat)")
+    decide.add_argument("--header-emit", metavar="HEADER", help="add a header_emits row per artifact: src/ header or <name>")
+    decide.add_argument("--reason", choices=("template", "inline", "weak"), help="the --header-emit's reason")
+    decide.add_argument("--library", help="the provider library of a <name> --header-emit")
+    decide.add_argument("--emit-evidence", action="append", help="an evidence line of the --header-emit (repeat)")
+    decide.add_argument(
+        "--override", action="store_true", help="move an artifact a draft rule decided, or replace a header-emit row"
+    )
+    decide.add_argument("--evidence", help="why the draft rule or row is wrong (with --override); kept as a plan note")
     decide.add_argument("--graph", default=DEFAULT_GRAPH)
     decide.set_defaults(handler=_source_plan_decide)
     sql = source_commands.add_parser("sql")
@@ -291,6 +310,8 @@ def _source_plan_validate(arguments: argparse.Namespace) -> int:
             "reservation": report.get("reservation"),
             # For each reserved directory, the other segment applies that reserve it (they apply one at a time).
             "reservation_shared_with": report.get("reservation_shared_with"),
+            # Units this plan shares with handed-off or accepted plans, and whether their paths agree.
+            "shared_units": report.get("shared_units"),
             "summary": report["summary"],
             "review": report["review"],
             "problems": report["problems"],
@@ -313,24 +334,84 @@ def _plan_cache(root: Path, arguments: argparse.Namespace) -> Path:
 def _source_plan_open(arguments: argparse.Namespace) -> int:
     """The open rows of a drafted plan, compactly."""
 
-    from .cli import _emit, _root
+    from .cli import _build_path, _emit, _root
     from .source_plan_edit import cache_graph, open_text, open_view
-    from .util import load_json
+    from .util import atomic_write_json, atomic_write_text, load_json
 
     root = _root(arguments)
+    output = _build_path(root, arguments.output, "source plan open") if arguments.output else None
     plan = load_json(_path(root, arguments.plan))
     path = _plan_cache(root, arguments)
     view = open_view(plan, path, limit=arguments.limit)
     cached = cache_graph(path)
     view["cache_graph_sha256"] = cached
+    note = None
+    if cached != view["plan_graph_sha256"]:
+        note = f"note: the cache holds graph {str(cached)[:12]}, the plan cites {str(view['plan_graph_sha256'])[:12]}"
+    if output is not None:
+        # A disposable view under build/: the planner reads it in parts instead of the whole plan.
+        if arguments.format == "json":
+            atomic_write_json(output, {"plan": arguments.plan, **view})
+        else:
+            atomic_write_text(output, (note + "\n" if note else "") + open_text(view))
+        _emit(
+            {
+                "ok": True,
+                "mutation_performed": False,
+                "plan": arguments.plan,
+                "output": arguments.output,
+                "format": arguments.format,
+                "open_rows": view["open_rows"],
+                "shown": view["shown"],
+                "note": note,
+            }
+        )
+        return 0
     if arguments.format == "json":
         _emit({"ok": True, "mutation_performed": False, "plan": arguments.plan, **view})
         return 0
     sys.stdout.reconfigure(encoding="utf-8")
-    if cached != view["plan_graph_sha256"]:
-        print(f"note: the cache holds graph {str(cached)[:12]}, the plan cites {str(view['plan_graph_sha256'])[:12]}")
+    if note:
+        print(note)
     sys.stdout.write(open_text(view))
     return 0
+
+
+DECISIONS = ("--owner", "--unresolved", "--accept-suggestion", "--contradiction", "--header-emit")
+
+
+def _decision(arguments: argparse.Namespace) -> str:
+    """The one decision a ``source plan decide`` call records; refuses options of another."""
+
+    from .util import SocomError
+
+    given = [
+        flag
+        for flag, value in zip(
+            DECISIONS,
+            (arguments.owner, arguments.unresolved, arguments.accept_suggestion or None, arguments.contradiction, arguments.header_emit),
+        )
+        if value is not None
+    ]
+    if len(given) != 1:
+        raise SocomError(f"give exactly one of {', '.join(DECISIONS)} (with its options)")
+    decision = given[0]
+    stray = {
+        "--confidence/--basis": (arguments.confidence, arguments.basis) if decision != "--owner" else (),
+        "--provisional-file/--line/--elf-evidence": (arguments.provisional_file, arguments.line, arguments.elf_evidence)
+        if decision != "--contradiction"
+        else (),
+        "--reason/--library/--emit-evidence": (arguments.reason, arguments.library, arguments.emit_evidence)
+        if decision != "--header-emit"
+        else (),
+        "--override/--evidence": (arguments.override or None, arguments.evidence)
+        if decision in ("--accept-suggestion", "--contradiction")
+        else (),
+    }
+    for flags, values in stray.items():
+        if any(value is not None for value in values):
+            raise SocomError(f"{flags} do not apply to {decision}")
+    return decision
 
 
 def _source_plan_decide(arguments: argparse.Namespace) -> int:
@@ -338,22 +419,58 @@ def _source_plan_decide(arguments: argparse.Namespace) -> int:
 
     from .cli import _build_path, _emit, _root
     from .source_plan import DRAFT_OPEN, loaded_section_lookup
-    from .source_plan_edit import cache_graph, decide, refresh_annotations
-    from .util import atomic_write_json, load_json
+    from .source_plan_edit import (
+        accept_suggestions,
+        add_contradictions,
+        add_header_emits,
+        cache_graph,
+        decide,
+        refresh_annotations,
+    )
+    from .util import SocomError, atomic_write_json, load_json
 
     root = _root(arguments)
     target = _build_path(root, arguments.plan, "source plans")
+    decision = _decision(arguments)
     plan = load_json(target)
-    changes = decide(
-        plan,
-        arguments.artifact,
-        owner=arguments.owner,
-        confidence=arguments.confidence,
-        basis=arguments.basis,
-        unresolved=arguments.unresolved,
-        override=arguments.override,
-        evidence=arguments.evidence,
-    )
+    if decision == "--accept-suggestion":
+        changes = accept_suggestions(plan, arguments.artifact)
+    elif decision == "--contradiction":
+        if not arguments.provisional_file:
+            raise SocomError("--contradiction needs --provisional-file")
+        changes = add_contradictions(
+            plan,
+            arguments.artifact,
+            kind=arguments.contradiction,
+            provisional_file=arguments.provisional_file,
+            line=arguments.line,
+            elf_evidence=arguments.elf_evidence,
+            root=root,
+        )
+    elif decision == "--header-emit":
+        if not arguments.reason:
+            raise SocomError("--header-emit needs --reason")
+        changes = add_header_emits(
+            plan,
+            arguments.artifact,
+            header=arguments.header_emit,
+            reason=arguments.reason,
+            evidence=arguments.emit_evidence,
+            library=arguments.library,
+            override=arguments.override,
+            override_evidence=arguments.evidence,
+        )
+    else:
+        changes = decide(
+            plan,
+            arguments.artifact,
+            owner=arguments.owner,
+            confidence=arguments.confidence,
+            basis=arguments.basis,
+            unresolved=arguments.unresolved,
+            override=arguments.override,
+            evidence=arguments.evidence,
+        )
     annotations = "stale: run source plan validate --fill-annotations"
     graph_path = _path(root, arguments.graph)
     if graph_path.is_file():

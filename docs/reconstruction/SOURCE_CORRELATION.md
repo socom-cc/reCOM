@@ -218,10 +218,14 @@ reason). The skill is `socom-source-model-recovery`, or
 python tools/socom.py source graph --output build/source-graph/graph.json   # once per graph, shared
 python tools/socom.py source plan evidence --item <item> --output build/source-plans/<slug>-evidence.json
 python tools/socom.py source plan draft --item <item> --output build/source-plans/<slug>.json
-python tools/socom.py source plan open --plan build/source-plans/<slug>.json [--limit N] [--format json]
+python tools/socom.py source plan open --plan build/source-plans/<slug>.json [--limit N] [--format json] [--output build/...]
 python tools/socom.py source plan decide --plan build/source-plans/<slug>.json --artifact <id> [--artifact <id> ...] `
-  (--owner <unit | 0xGNU | object | library:object> --confidence <c> --basis "<evidence>" | --unresolved "<reason>") `
+  (--owner <unit | 0xGNU | object | library:object> --confidence <c> --basis "<evidence>" | --unresolved "<reason>" | --accept-suggestion) `
   [--override --evidence "<why the draft rule is wrong>"]
+python tools/socom.py source plan decide --plan <plan> --artifact <id> --contradiction <kind> `
+  --provisional-file src/... [--line N] --elf-evidence "<line>" [--elf-evidence ...]
+python tools/socom.py source plan decide --plan <plan> --artifact <id> --header-emit <src/...h | <name>> [--library <lib>] `
+  --reason <template|inline|weak> --emit-evidence "<line>" [--emit-evidence ...] [--override --evidence "<why>"]
 python tools/socom.py source sql "SELECT ..."          # questions about the open rows
 python tools/socom.py source plan validate --plan build/source-plans/<slug>.json --check --fill-annotations
 python tools/socom.py source plan validate --plan build/source-plans/<slug>.json --check
@@ -234,20 +238,61 @@ open unresolved artifact (up to `--limit`, default 40) with its kind,
 size, names, binding, input section, classification, top unit candidates,
 GNU object, cluster, `__FILE__` strings and its first callers and callees
 (each with the owner this plan gives it, or the item holding it), then the
-open owner rows, open header emits, drafted paths outside the reservation,
-an inferred reservation and the owner keys `decide` accepts. It reads the
-query cache (`--graph`) and notes when the cache holds another graph than
-the plan cites. `source plan decide` records one decision: it moves the
-artifacts into an existing owner row as `{artifact, confidence, basis}`
-entries (hand-written, without `draft_rule`) or into `unresolved` with the
-reason, keeps the row's confidence its weakest entry's, drops an owner row
-it empties, and re-derives `annotations` when the cache holds the plan's
+open owner rows, open header emits (the draft's, less those a header-emit
+row now records), drafted paths outside the reservation, an inferred
+reservation and the owner keys `decide` accepts. For an open function it
+also shows both flanks: `before: <anchor> < <copies> < this` and `after:
+this < <copies> < <anchor>`, where the anchor is the nearest function (up
+to 256 away in the window) that a unit owns and that is not a WEAK or
+binding-13 copy (the plan's owner, or outside the plan a strong unit
+candidate), and the copies are the WEAK and binding-13 copies between,
+consecutive copies of one holder collapsed into a run (`WEAK/13 x80
+0x18a540..0x1934f0 [ai_mapio.cpp]`; `[open]` marks this plan's open rows),
+with the count of other unanchored functions between. A row before a
+unit's WEAK tail therefore reads as inside that unit's object, a row after
+it as past it. An open WEAK or binding-13 copy also lists its
+`referencing_units` (each referencing artifact's unit, `open` or `?`) and,
+when they are all one unit, its `sole_referencing_unit`. A row's `suggest`
+(below) is shown as `suggest: <owner> <confidence> (<rule>): <basis>`. It
+reads the query cache (`--graph`) and notes when the cache holds another
+graph than the plan cites. `--output <file under build/>` writes the view
+(text, or JSON with `--format json`) there and prints a JSON summary
+instead.
+
+`source plan decide` records one decision: it moves the artifacts into an
+existing owner row as `{artifact, confidence, basis}` entries
+(hand-written, without `draft_rule`) or into `unresolved` with the reason,
+keeps the row's confidence its weakest entry's, drops an owner row it
+empties, and re-derives `annotations` when the cache holds the plan's
 graph. It loads and dumps JSON (never text), refuses control characters and
 schema 1 plans, and refuses to move an artifact a draft rule decided unless
 `--override` gives `--evidence`, which it keeps as a plan note `override
 <artifact>: the draft gave <owner> (<rule>); <evidence>`. Add a new owner
-row by hand once, then decide its artifacts. Neither command loads the
-whole plan into the planner's context.
+row by hand once, then decide its artifacts. Each call records exactly one
+kind of decision; options of another kind are refused.
+
+- `--accept-suggestion` records each named open row's `suggest`
+  `{owner, rule, confidence, basis}` (written by the drafter on rows it
+  leaves open) as a hand entry of the owner row `suggest.owner` names (an
+  owner key, as `--owner` takes): confidence and basis are copied, no
+  `draft_rule` is written, and the reviewer reviews it like any hand entry.
+  The change list names the suggestion's rule. A row without a suggestion,
+  or whose suggested owner row does not exist, is refused.
+- `--contradiction <kind>` adds one `contradictions` row per artifact (the
+  artifact must be listed in the plan) with `--provisional-file`, `--line`
+  (omit it for a file-level contradiction) and one or more
+  `--elf-evidence` lines; the file must exist exactly and hold that line,
+  and a repeated row is refused.
+- `--header-emit <header>` adds one hand `header_emits` row per artifact
+  (owned by an authored row of the plan) with `--reason` and one or more
+  `--emit-evidence` lines: a header under `src/`, or `<name>` with
+  `--library` for a provider header. An artifact that already has a
+  header-emit row is replaced only with `--override --evidence`, kept as a
+  plan note `override header emit <artifact>: the plan gave <header>
+  (<rule>); <evidence>`. Binding, letter case and reservation are left to
+  `source plan validate`.
+
+Neither command loads the whole plan into the planner's context.
 
 `<slug>` is the item ID with `:` replaced by `-`. The draft decides every
 artifact its rules settle (below) and leaves the rest as `unresolved` rows
@@ -572,7 +617,23 @@ Schema 2 additions (each optional):
   (`defined-elsewhere`, `signature`, `missing`, ...); `elf_evidence` lists
   the ELF evidence lines. Plans written before the field record
   contradictions as `notes` lines starting `contradiction:`, which stay
-  valid (the report notes them).
+  valid (the report notes them);
+- an owner row's `name_basis`: where an authored row's unit name comes
+  from. `evidence` (the default when absent) means the ELF names it: the
+  graph knows the unit. An authored object the ELF does not name (no DWARF
+  unit, `__FILE__` string or static initializer; its object cluster names
+  neither a unit nor a library) is still owned, not left unresolved (user
+  decision of 2026-10-31): when exactly one existing provisional file of
+  the module already defines its functions, the row takes that file's name
+  with `name_basis: "provisional"`, cites it as `provisional_file` and has
+  confidence `medium` (at most); otherwise the planner invents a
+  descriptive file name from the object's main class (`zsys_spr.cpp`) with
+  `name_basis: "invented"` and confidence `low`. When one object or two is
+  unproven, one row covers them and a note says so;
+- an unresolved row's `suggest` `{owner, rule, confidence, basis}`: the
+  drafter's suggestion for a row it leaves open (`owner` is an owner key of
+  the plan). `source plan decide --accept-suggestion` records it as a hand
+  entry; a row the planner keeps unresolved may keep it for the reviewer.
 
 `reservation` is optional, and only a segment plan has one. It is required
 when the apply's reservation is inferred.
@@ -633,6 +694,30 @@ when the apply's reservation is inferred.
   row cites, with a reason and evidence. The apply deletes it with history;
 - a `contradictions` row (schema 2) has exactly its five fields as above,
   and is not listed twice;
+- `name_basis` (schema 2) is `evidence`, `provisional` or `invented`. An
+  `evidence` authored row of a schema 2 plan names a unit the graph knows
+  (in a schema 1 plan another name is a review note). A `provisional` or
+  `invented` row is authored; its unit is no unit the graph knows; none of
+  its artifacts lies in a cluster that names a unit or library or has a
+  strong unit candidate, and at least one lies in a cluster (the object the
+  row names); `invented` has confidence `low`; `provisional` cites the
+  provisional file it is named after as `provisional_file` and has
+  confidence `medium` or `low`. Its paths, reservation and annotations are
+  checked as for any authored row;
+- an unresolved row's `suggest` (schema 2) has exactly `owner`, `rule`
+  and `basis` strings and a `confidence`;
+- a unit (an authored or provider row's `translation_unit`) that another
+  plan also names, among the plans of plan items awaiting acceptance or
+  accepted (read at their packet path `build/source-plans/<slug>.json`),
+  has the same `classification`, `workspace_path` and `original_path`
+  there: one unit is one file whichever plans own its artifacts. A
+  disagreement with an accepted plan is a problem; with a plan still
+  awaiting acceptance it is a review note, because whichever is accepted
+  first decides and the other then fails. An `original_path` only one of
+  the two rows cites (the other null) names no other file, so it is a
+  review note either way. Such a plan whose file is missing or unreadable
+  is a review note. The report lists `shared_units`
+  `{unit, item, status, agrees}`;
 - in a segment plan, every authored row's `workspace_path` and
   `provisional_file` lie in a directory the plan's apply reserves, because
   the apply may write (or move from) nowhere else. A plan that places an

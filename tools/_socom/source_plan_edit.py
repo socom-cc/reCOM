@@ -8,31 +8,46 @@ query cache, so a planner never loads or rewrites the whole plan JSON.
 ``source plan decide`` records one decision: it moves the named artifacts
 into one existing owner row (an entry ``{artifact, confidence, basis}``
 without ``draft_rule``: hand-written, for the reviewer) or into an
-``unresolved`` row with a real reason.  It loads and dumps the plan as JSON,
-never as text, refuses control characters, and refuses to move an artifact
-a draft rule decided unless ``--override`` gives the evidence (recorded as a
-plan note).  The owner row's confidence follows its weakest entry, and the
-annotations are re-derived when the cache holds the plan's graph.
+``unresolved`` row with a real reason, accepts the drafter's ``suggest``ion
+of an open row as such a hand entry, or adds a ``contradictions`` or
+``header_emits`` row.  It loads and dumps the plan as JSON, never as text,
+refuses control characters, and refuses to move an artifact (or replace a
+header-emit row) a draft rule decided unless ``--override`` gives the
+evidence (recorded as a plan note).  The owner row's confidence follows its
+weakest entry, and the annotations are re-derived when the cache holds the
+plan's graph.
 """
 
 from __future__ import annotations
 
 import sqlite3
+from collections import Counter
 from contextlib import closing
 from pathlib import Path
 from typing import Any, Callable
 
 from .source_plan import (
+    _CONTRADICTION_KIND,
+    _PROVIDER_HEADER,
     CONFIDENCES,
     DRAFT_OPEN,
+    EMIT_REASONS,
+    HEADER_SUFFIXES,
     INFERRED_STATUS,
+    _path_state,
+    _workspace_path,
     artifact_id,
     control_characters,
     derive_annotations,
+    suggestion_problems,
 )
 from .util import SocomError
 
 SHOWN_REFERENCES = 4
+# Functions scanned on each side of an open function for its flanking anchors.
+FLANK_SCAN = 256
+# Runs of copies shown per flank (consecutive copies of one holder are one run).
+SHOWN_COPIES = 6
 
 
 def owner_keys(owner: dict[str, Any]) -> list[str]:
@@ -179,6 +194,177 @@ def decide(
     return changes
 
 
+def _require_v2(plan: Any, what: str) -> None:
+    if not isinstance(plan, dict) or plan.get("schema_version") != 2:
+        raise SocomError(f"source plan decide {what} edits schema 2 plans only")
+
+
+def _lines(values: list[str] | None, flag: str) -> list[str]:
+    lines = [value.strip() for value in values or [] if isinstance(value, str) and value.strip()]
+    if not lines:
+        raise SocomError(f"{flag} needs at least one evidence line")
+    return lines
+
+
+def accept_suggestions(plan: dict[str, Any], artifacts: list[str]) -> list[dict[str, Any]]:
+    """Record each open row's ``suggest``ion ``{owner, rule, confidence, basis}`` as a hand entry.
+
+    The entry copies the suggestion's confidence and basis and carries no
+    ``draft_rule``: the reviewer reviews it like any hand-written entry.  An
+    artifact without a suggestion, or whose suggested owner row does not
+    exist, is refused.
+    """
+
+    _require_v2(plan, "--accept-suggestion")
+    changes = []
+    for identity in artifacts:
+        where, number, _position = _holders(plan).get(identity, (None, -1, -1))
+        if where is None:
+            raise SocomError(f"{identity} is not listed in this plan (owned or unresolved)")
+        suggest = plan["unresolved"][number].get("suggest") if where == "unresolved" else None
+        if suggest is None:
+            raise SocomError(f"{identity} has no suggestion: only an unresolved row the drafter suggested an owner for")
+        if found := [text for text in suggestion_problems(suggest) if not text.startswith("has unknown fields")]:
+            raise SocomError(f"{identity} suggest {'; '.join(found)}")
+        for change in decide(plan, [identity], owner=suggest["owner"], confidence=suggest["confidence"], basis=suggest["basis"]):
+            if change.get("artifact") == identity:
+                change["suggestion"] = suggest["rule"]
+            changes.append(change)
+    return changes
+
+
+def add_contradictions(
+    plan: dict[str, Any],
+    artifacts: list[str],
+    *,
+    kind: str,
+    provisional_file: str,
+    line: int | None,
+    elf_evidence: list[str] | None,
+    root: Path | None = None,
+) -> list[dict[str, Any]]:
+    """Add one ``contradictions`` row per artifact: provisional source the ELF decides against.
+
+    The artifact must be listed in the plan; ``provisional_file`` must name an
+    existing file under ``src/`` exactly (checked when ``root`` is given) and
+    ``line`` one of its lines, or be ``None`` for a file-level contradiction.
+    """
+
+    _require_v2(plan, "--contradiction")
+    if not isinstance(kind, str) or not _CONTRADICTION_KIND.match(kind):
+        raise SocomError("--contradiction needs a lowercase kind slug such as defined-elsewhere or signature")
+    if not _workspace_path(provisional_file):
+        raise SocomError("--provisional-file must be a repo-relative path under src/")
+    if line is not None and (isinstance(line, bool) or not isinstance(line, int) or line < 1):
+        raise SocomError("--line must be a positive line number (omit it for a file-level contradiction)")
+    lines = _lines(elf_evidence, "--contradiction --elf-evidence")
+    if control_characters([kind, provisional_file, *lines]):
+        raise SocomError("a contradiction may not hold control characters (U+0000-U+001F)")
+    if root is not None:
+        state, actual = _path_state(root, provisional_file)
+        if state != "exact" or not (root / provisional_file).is_file():
+            raise SocomError(
+                f"--provisional-file {provisional_file} must name an existing file exactly" + (f" (on disk: {actual})" if actual else "")
+            )
+        if line is not None:
+            with open(root / provisional_file, "rb") as handle:
+                count = sum(1 for _line in handle)
+            if line > count:
+                raise SocomError(f"{provisional_file} has {count} lines, not {line}")
+    rows = plan.setdefault("contradictions", [])
+    if not isinstance(rows, list):
+        raise SocomError("the plan's contradictions must be a list")
+    holders = _holders(plan)
+    changes = []
+    for identity in artifacts:
+        if identity not in holders:
+            raise SocomError(f"{identity} is not listed in this plan (owned or unresolved)")
+        row = {"artifact": identity, "provisional_file": provisional_file, "line": line, "kind": kind, "elf_evidence": list(lines)}
+        if any(isinstance(other, dict) and all(other.get(key) == row[key] for key in ("artifact", "provisional_file", "line", "kind")) for other in rows):
+            raise SocomError(f"{identity} already has this {kind} contradiction in {provisional_file}")
+        rows.append(row)
+        changes.append({"artifact": identity, "contradiction": kind, "provisional_file": provisional_file, "line": line})
+    return changes
+
+
+def add_header_emits(
+    plan: dict[str, Any],
+    artifacts: list[str],
+    *,
+    header: str,
+    reason: str,
+    evidence: list[str] | None,
+    library: str | None = None,
+    override: bool = False,
+    override_evidence: str | None = None,
+) -> list[dict[str, Any]]:
+    """Add one hand ``header_emits`` row per artifact (no ``draft_rule``).
+
+    The artifact must be owned by an authored row of the plan.  ``header`` is
+    a header under ``src/`` or, with ``library``, a provider header
+    ``<name>``.  An artifact that already has a header-emit row is replaced
+    only with ``override`` and its evidence, kept as a plan note.  Binding,
+    letter case and reservation are checked by ``source plan validate``.
+    """
+
+    _require_v2(plan, "--header-emit")
+    if reason not in EMIT_REASONS:
+        raise SocomError(f"--reason must be one of {list(EMIT_REASONS)}")
+    if library is not None:
+        if not library.strip():
+            raise SocomError("--library must name the provider library")
+        if not _PROVIDER_HEADER.match(header):
+            raise SocomError("a provider header is spelled <name>, as the owner's file includes it")
+    elif not _workspace_path(header) or not header.casefold().endswith(HEADER_SUFFIXES):
+        raise SocomError("--header-emit must be a repo-relative header path under src/ (or <name> with --library)")
+    lines = _lines(evidence, "--header-emit --emit-evidence")
+    if override and (not isinstance(override_evidence, str) or not override_evidence.strip()):
+        raise SocomError("--override needs --evidence: why the existing header-emit row is wrong")
+    if control_characters([header, reason, library or "", *lines, override_evidence or ""]):
+        raise SocomError("a header-emit row may not hold control characters (U+0000-U+001F)")
+    emits = plan.setdefault("header_emits", [])
+    if not isinstance(emits, list):
+        raise SocomError("the plan's header_emits must be a list")
+    owned = {
+        identity
+        for row in plan.get("owners") or []
+        if isinstance(row, dict) and row.get("classification") == "authored"
+        for identity in map(artifact_id, row.get("artifacts") or [])
+        if identity
+    }
+    changes = []
+    for identity in artifacts:
+        if identity not in owned:
+            raise SocomError(f"{identity} is not owned by an authored row of this plan: decide its owner first")
+        row: dict[str, Any] = {"artifact": identity, "header": header, "reason": reason, "evidence": list(lines)}
+        if library is not None:
+            row["library"] = library.strip()
+        existing = [number for number, other in enumerate(emits) if isinstance(other, dict) and other.get("artifact") == identity]
+        change: dict[str, Any] = {"artifact": identity, "header_emit": header, "reason": reason}
+        if existing:
+            before = emits[existing[0]]
+            rule = before.get("draft_rule")
+            if not override:
+                raise SocomError(
+                    f"{identity} already has a header-emit row ({before.get('header')}"
+                    + (f", draft rule {rule}" if rule else "")
+                    + "): pass --override with --evidence to replace it"
+                )
+            plan.setdefault("notes", []).append(
+                f"override header emit {identity}: the plan gave {before.get('header')}"
+                + (f" ({rule})" if rule else "")
+                + f"; {override_evidence.strip()}"
+            )
+            change["replaced"] = before.get("header")
+            emits[existing[0]] = row
+            for number in reversed(existing[1:]):
+                del emits[number]
+        else:
+            emits.append(row)
+        changes.append(change)
+    return changes
+
+
 # -- the open view ------------------------------------------------------------------
 
 
@@ -216,22 +402,50 @@ def refresh_annotations(plan: dict[str, Any], path: Path, section_of: Callable[[
     return changed
 
 
+def _unit_name(row: dict[str, Any]) -> str | None:
+    """The unit an owner row stands for: its translation unit, else a provider row's member label."""
+
+    if row.get("classification") == "compiler-generated":
+        return None
+    if row.get("translation_unit"):
+        return str(row["translation_unit"])
+    return owner_label(row) if row.get("classification") == "provider" else None
+
+
+def _short(name: Any, width: int = 40) -> str:
+    text = str(name or "")
+    return text if len(text) <= width else text[: width - 3] + "..."
+
+
 def open_view(plan: dict[str, Any], path: Path, *, limit: int = 40) -> dict[str, Any]:
-    """The open rows of a drafted plan with each open artifact's evidence from the cache."""
+    """The open rows of a drafted plan with each open artifact's evidence from the cache.
+
+    Besides the cache evidence, each open function shows its flanks: on each
+    side, the nearest function a unit owns that is not a WEAK or binding-13
+    copy (the plan's owner, or outside the plan a strong unit candidate),
+    with the WEAK and binding-13 copies between it and the open function and
+    who holds them, so a planner sees whether the row lies before or after
+    the copies a unit emits.  An open WEAK or binding-13 copy also lists the
+    units that reference it and, when they are one unit, that sole unit.
+    The drafter's ``suggest``ion of a row is shown as it stands.
+    """
 
     if not isinstance(plan, dict):
         raise SocomError("the plan must be a JSON object")
     open_rows = [row for row in plan.get("unresolved") or [] if isinstance(row, dict) and row.get("draft") == DRAFT_OPEN]
     owner_of: dict[str, str] = {}
+    plan_unit: dict[str, str | None] = {}
     for row in plan.get("owners") or []:
         if isinstance(row, dict):
             for entry in row.get("artifacts") or []:
                 identity = artifact_id(entry)
                 if identity:
                     owner_of[identity] = owner_label(row)
+                    plan_unit[identity] = _unit_name(row)
     for row in plan.get("unresolved") or []:
         if isinstance(row, dict) and isinstance(row.get("artifact"), str):
-            owner_of.setdefault(row["artifact"], "unresolved")
+            owner_of.setdefault(row["artifact"], "open" if row.get("draft") == DRAFT_OPEN else "unresolved")
+            plan_unit.setdefault(row["artifact"], None)
     shown = open_rows[: max(limit, 0)]
     details = []
     with closing(sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)) as connection:
@@ -244,6 +458,67 @@ def open_view(plan: dict[str, Any], path: Path, *, limit: int = 40) -> dict[str,
             name = hit["name"] if hit and hit["name"] else ""
             where = owner_of.get(identity) or (f"item {hit['item']}" if hit and hit["item"] else "no item")
             return f"{identity.rsplit(':', 1)[-1]} {name} [{where}]".replace("  ", " ")
+
+        def unit_of(identity: str, tu: Any, strength: Any) -> str | None:
+            """The plan's unit for an artifact, or outside the plan its strong unit candidate."""
+
+            if identity in plan_unit:
+                return plan_unit[identity]
+            return str(tu) if tu and strength == "strong" else None
+
+        def holder(identity: str, tu: Any, strength: Any) -> str:
+            unit = unit_of(identity, tu, strength)
+            if unit:
+                return unit
+            if identity in owner_of:
+                return owner_of[identity]
+            return f"{tu} {strength}" if tu else "?"
+
+        def flank(hit: sqlite3.Row, side: str) -> dict[str, Any]:
+            operator, order = ("<", "DESC") if side == "before" else (">", "ASC")
+            found = connection.execute(
+                f'SELECT id, address, name, weak, inline, tu, tu_strength FROM artifacts WHERE "window" = ? AND kind = \'function\' '
+                f"AND address {operator} ? ORDER BY address {order} LIMIT ?",
+                (hit["window"], hit["address"], FLANK_SCAN),
+            ).fetchall()
+            copies: list[tuple[int, str, str, str]] = []
+            unanchored = 0
+            anchor = unit = None
+            for other in found:
+                if other["weak"] or other["inline"]:
+                    tag = "WEAK" if other["weak"] else "13"
+                    copies.append((other["address"], tag, str(other["name"] or ""), holder(other["id"], other["tu"], other["tu_strength"])))
+                    continue
+                unit = unit_of(other["id"], other["tu"], other["tu_strength"])
+                if unit:
+                    anchor = f"{unit} 0x{other['address']:x} {_short(other['name'])}"
+                    break
+                unanchored += 1
+            copies.sort()
+            # Consecutive copies one holder holds collapse into one run.
+            runs: list[list[tuple[int, str, str, str]]] = []
+            for instance in copies:
+                if runs and runs[-1][-1][3] == instance[3]:
+                    runs[-1].append(instance)
+                else:
+                    runs.append([instance])
+            texts = []
+            for run in runs:
+                tags = "/".join(sorted({value[1] for value in run}, reverse=True))
+                if len(run) == 1:
+                    texts.append(f"{tags} 0x{run[0][0]:x} {_short(run[0][2])} [{run[0][3]}]")
+                else:
+                    texts.append(f"{tags} x{len(run)} 0x{run[0][0]:x}..0x{run[-1][0]:x} [{run[0][3]}]")
+            shown_runs = texts[:SHOWN_COPIES] if side == "after" else texts[-SHOWN_COPIES:]
+            hidden = len(texts) - len(shown_runs)
+            more = [f"+{hidden} runs"] if hidden else []
+            return {
+                "anchor": anchor or f"none within {FLANK_SCAN} functions",
+                "unit": unit if anchor else None,
+                "copies": more + shown_runs if side == "before" else shown_runs + more,
+                "copy_count": len(copies),
+                "unanchored": unanchored,
+            }
 
         for row in shown:
             identity = row["artifact"]
@@ -284,6 +559,22 @@ def open_view(plan: dict[str, Any], path: Path, *, limit: int = 40) -> dict[str,
                 detail.update(fill=hit["fill"], labels=hit["labels"])
             if hit["inline"] or hit["weak"]:
                 detail["instance"] = "inline" if hit["inline"] else "weak"
+                # Who references the copy: one unit alone is the usual owner of an inline body.
+                referencing: Counter[str] = Counter()
+                units: set[str | None] = set()
+                for value in callers:
+                    other = connection.execute("SELECT tu, tu_strength FROM artifacts WHERE id = ?", (value,)).fetchone()
+                    tu, strength = (other["tu"], other["tu_strength"]) if other else (None, None)
+                    referencing[holder(value, tu, strength)] += 1
+                    units.add(unit_of(value, tu, strength))
+                detail["referencing_units"] = [f"{name} {count}" for name, count in sorted(referencing.items())]
+                if len(units) == 1 and None not in units:
+                    detail["sole_referencing_unit"] = next(iter(units))
+            if hit["kind"] == "function":
+                detail["flank_before"] = flank(hit, "before")
+                detail["flank_after"] = flank(hit, "after")
+            if isinstance(row.get("suggest"), dict):
+                detail["suggest"] = dict(row["suggest"])
             if strings:
                 detail["file_strings"] = strings[:3]
             if hit["emitted_from_header"]:
@@ -296,13 +587,15 @@ def open_view(plan: dict[str, Any], path: Path, *, limit: int = 40) -> dict[str,
     ]
     draft = plan.get("draft") if isinstance(plan.get("draft"), dict) else {}
     reservation = plan.get("reservation") if isinstance(plan.get("reservation"), dict) else None
+    emitted = {row.get("artifact") for row in plan.get("header_emits") or [] if isinstance(row, dict)}
     return {
         "plan_graph_sha256": plan.get("graph_sha256"),
         "open_rows": len(open_rows),
         "shown": len(details),
         "artifacts": details,
         "open_owner_rows": owners_open,
-        "open_header_emits": list(draft.get("open_header_emits") or []),
+        # The draft's unresolved header emits that no header-emit row records yet.
+        "open_header_emits": [value for value in draft.get("open_header_emits") or [] if value not in emitted],
         "outside_reservation": list(draft.get("outside_reservation") or []),
         "reservation": reservation if reservation and reservation.get("status") == INFERRED_STATUS else None,
         "owner_keys": sorted({key for row in plan.get("owners") or [] if isinstance(row, dict) for key in owner_keys(row)}),
@@ -318,18 +611,30 @@ def open_text(view: dict[str, Any]) -> str:
             str(value)
             for value in (
                 row["artifact"], row.get("kind"), f"{row.get('size')}B" if row.get("size") is not None else None, row.get("names"),
-                row.get("binding"), row.get("instance"), row.get("section"), row.get("class"),
+                f"binding {row['binding']}" if row.get("binding") else None, row.get("instance"), row.get("section"), row.get("class"),
                 f"gnu {row['gnu_object']}" if row.get("gnu_object") else None, f"cluster {row['cluster']}" if row.get("cluster") else None,
             )
             if value
         )
         lines.append(head)
-        for key in ("tu", "callers", "calls", "file_strings"):
+        for key in ("tu", "callers", "calls", "referencing_units", "file_strings"):
             if row.get(key):
                 lines.append(f"  {key}: " + "; ".join(row[key]))
-        for key in ("fill", "labels", "header", "missing"):
+        for key in ("sole_referencing_unit", "fill", "labels", "header", "missing"):
             if row.get(key):
                 lines.append(f"  {key}: {row[key]}")
+        for side in ("before", "after"):
+            flank = row.get(f"flank_{side}")
+            if not flank:
+                continue
+            chain = [flank["anchor"], *flank["copies"], "this"] if side == "before" else ["this", *flank["copies"], flank["anchor"]]
+            unanchored = f" ({flank['unanchored']} unanchored between)" if flank["unanchored"] else ""
+            lines.append(f"  {side}: " + " < ".join(chain) + unanchored)
+        if row.get("suggest"):
+            suggest = row["suggest"]
+            lines.append(
+                f"  suggest: {suggest.get('owner')} {suggest.get('confidence')} ({suggest.get('rule')}): {suggest.get('basis')}"
+            )
         lines.append(f"  open: {row.get('reason')}")
     for row in view["open_owner_rows"]:
         lines.append(f"open owner row {row['row']}: " + " | ".join(row["evidence"]))
