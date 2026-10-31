@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2866,
+  "revision": 2869,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -147203,6 +147203,10 @@
       "title": "Record the reviewed provider owners of crt0 in tracker evidence"
     },
     {
+      "accepted": {
+        "at": "2026-10-31T07:52:00Z",
+        "by": "socom-source-owner-scrutinizer-x1"
+      },
       "batch": {
         "artifact_count": 89,
         "batch_number": 1,
@@ -147237,16 +147241,18 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-001.json sha256:25de7898f6e7ccf9b22a35ef8c6d8ae36969632c58e762d21278a04db89a1009 matches handoff; validate --check ok (graph 837c03c4 regenerated, 89 owned, 0 unresolved, 17 header emits, annotations 32 defines/17 emits, reservation corrected src/Apps/FTS, src/gamez/zFTS, src/gamez/zGame); draft --check ok (88 drafted, 1 hand, 0 overrides); control-character scan 0. Diffed against a fresh draft (build/source-plans/socom-source-owner-scrutinizer-x1/draft-001.json): the only differences are the hand rows reviewed at the rev-2862 rejection, namely the 0x142130 entry and main.cpp evidence line (copy ctor reworded as implicit copy constructor), its <memory> MSL template header emit (evidence repaired: dwarf-cu-header C:\\apps\\cw301\\...\\Include\\memory die 0x29230), the derived emits annotation, the 3 notes unchanged, and the reservation (directories, reason and status unchanged; evidence[1] repaired to Z:\\dev\\gamez\\zfts\\fts_state.h). The substantive review from the rejection stands: 0x142130 is main.cpp medium (no CU covers it, gcc_wrapper.c C object from 0x142140, R_MIPS_26 refs from 0x141a20 first). The reservation correction is needed by the 10 drafted zgame.h/fts_state.h emits.",
+        "plan build/source-plans/socom-work-source-segment-001.json sha256:25de7898f6e7ccf9b22a35ef8c6d8ae36969632c58e762d21278a04db89a1009; validate --check ok; --fill-annotations no mutation; draft --check ok (drafted 88, hand 1, overrides 0); control-character scan 0"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-s001b",
+        "submitted_at": "2026-10-31T07:50:34Z",
+        "summary": "resubmit after review: evidence strings fixed (header_emits 0x142130 MSL memory path, reservation fts_state.h path; no control characters), 0x142130 reworded as allocator<char>'s implicit copy constructor; owners 3 (main.cpp 51 medium, st_menu.cpp 6, compiler-generated 32), unresolved 0, retire 0, open rows decided 1; reservation corrected src/Apps/FTS, src/gamez/zFTS, src/gamez/zGame"
+      },
       "id": "socom:work:source-segment-001",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T07:49:24Z",
-        "expires_at": "2026-10-31T08:49:24Z",
-        "heartbeat_at": "2026-10-31T07:49:24Z",
-        "owner": "socom-source-owner-mapper-s001b"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -147286,7 +147292,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "accepted",
       "title": "Plan source owners of segment 001 (0x140008-0x142138, 39 functions)"
     },
     {
@@ -147867,13 +147873,18 @@
       "handoff": null,
       "id": "socom:work:source-provider-newlib",
       "kind": "source-plan-provider",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T07:50:05Z",
+        "expires_at": "2026-10-31T09:50:05Z",
+        "heartbeat_at": "2026-10-31T07:50:05Z",
+        "owner": "socom-source-owner-mapper-p02"
+      },
       "resources": [
         "build/source-plans"
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan provider owners of newlib (2 segments, 197 functions)"
     },
     {
