@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3223,
+  "revision": 3233,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -147709,16 +147709,17 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-provider-msl.json sha256:5c411ff2971a7356f069c9c8ed1e4d1dc7d2631cbdae7902dbec7c3820c92be5; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-sw1",
+        "submitted_at": "2026-10-31T23:04:50Z",
+        "summary": "sweep fix (x20): +1 data override, id_count_s__Q33std6locale2id 0x47563c iostream.cpp -> locale.cpp (R3.04 locale.cpp:52; R3.04 locale.o defines it GLOBAL .sbss, iostream.o only references it; first item of locale.o's .sbss); the three facet-id override notes reworded (locale.o .sbss starts at 0x47563c); total 4 data overrides"
+      },
       "id": "socom:work:source-provider-msl",
       "kind": "source-plan-provider",
-      "lease": {
-        "claimed_at": "2026-10-31T20:07:53Z",
-        "expires_at": "2026-10-31T22:07:53Z",
-        "heartbeat_at": "2026-10-31T20:07:53Z",
-        "owner": "socom-source-owner-mapper-sw1"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -147775,7 +147776,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan provider owners of MSL (1 segments, 179 functions)"
     },
     {
@@ -148411,16 +148412,17 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-013.json sha256:5ee2f17fd3d0760b0cfb9ba1df7f47187b3636f31fc7dee254c409e92924a0f2; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-sw1",
+        "submitted_at": "2026-10-31T23:04:51Z",
+        "summary": "sweep fix (x20): +1 emit, implicit dtor __dt__Q23zdb11CNodeVectorFv 0x173520 -> src/gamez/zNode/znode.h (inline; znode.h:123 class CNodeVector; kept by database.cpp, used only by __sinit_zparticle.cpp: two units); old no-emit note replaced; src/gamez/zNode already reserved"
+      },
       "id": "socom:work:source-segment-013",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T20:07:56Z",
-        "expires_at": "2026-10-31T22:07:56Z",
-        "heartbeat_at": "2026-10-31T20:07:56Z",
-        "owner": "socom-source-owner-mapper-sw1"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -148477,7 +148479,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 013 (0x1728e0-0x17de74, 114 functions)"
     },
     {
@@ -149051,16 +149053,17 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-017.json sha256:afb2439654cd0f78256ef1c15201ba4c5330527d3622bf8da102d2764a529053; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-sw1",
+        "submitted_at": "2026-10-31T23:04:53Z",
+        "summary": "sweep fix (x20): +1 emit, implicit dtor __dt__9CZAnimZARFv 0x1c0190 -> src/gamez/zAnim/zanim.h (inline; zanim.h:646 class CZAnimZAR : public zar::CZAR {}; implicit special member to its class's header); src/gamez/zAnim already reserved"
+      },
       "id": "socom:work:source-segment-017",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T20:08:00Z",
-        "expires_at": "2026-10-31T22:08:00Z",
-        "heartbeat_at": "2026-10-31T20:08:00Z",
-        "owner": "socom-source-owner-mapper-sw1"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -149121,7 +149124,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 017 (0x1b90e0-0x1c24b8, 51 functions)"
     },
     {
@@ -153222,9 +153225,9 @@
       "id": "socom:work:source-segment-047",
       "kind": "source-plan-segment",
       "lease": {
-        "claimed_at": "2026-10-31T20:01:56Z",
-        "expires_at": "2026-10-31T22:01:56Z",
-        "heartbeat_at": "2026-10-31T20:01:56Z",
+        "claimed_at": "2026-10-31T23:02:40Z",
+        "expires_at": "2026-11-01T01:02:40Z",
+        "heartbeat_at": "2026-10-31T23:02:40Z",
         "owner": "socom-source-owner-mapper-w3f"
       },
       "resources": [
@@ -153720,9 +153723,9 @@
       "id": "socom:work:source-segment-055",
       "kind": "source-plan-segment",
       "lease": {
-        "claimed_at": "2026-10-31T20:07:07Z",
-        "expires_at": "2026-10-31T22:07:07Z",
-        "heartbeat_at": "2026-10-31T20:07:07Z",
+        "claimed_at": "2026-10-31T23:02:34Z",
+        "expires_at": "2026-11-01T01:02:34Z",
+        "heartbeat_at": "2026-10-31T23:02:34Z",
         "owner": "socom-source-owner-mapper-w3g"
       },
       "resources": [
@@ -154835,22 +154838,23 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-068.json sha256:1b50fafaf8c3cbd942e724335646fc6609ac92c147992884a98be61356ed9b2b; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-w3i",
+        "submitted_at": "2026-10-31T23:04:43Z",
+        "summary": "owners 8 (7 authored incl. new invented zsys_trc.cpp for the unnamed TRC power-off object + compiler-generated), unresolved 0, retire 0, open rows decided 26 (4 accepted suggestions: 3 CSaveModule class-flank, ~CFlashFX sole-referencer; __vt__11CSaveModule R3 medium; 3 CNetCnf statics link-order low; 18 TRC cluster artifacts low); zNetCnf.cpp row path src/gamez/zNetwork/zNetCnf.cpp as 076; 14 hand MSL emits (<queue>, <cdeque>, <deque>); reservation corrected +src/gamez/zNetwork +src/gamez/zSystem"
+      },
       "id": "socom:work:source-segment-068",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T20:02:25Z",
-        "expires_at": "2026-10-31T22:02:25Z",
-        "heartbeat_at": "2026-10-31T20:02:25Z",
-        "owner": "socom-source-owner-mapper-w3i"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 068 (0x3f6fd0-0x4044cc, 162 functions)"
     },
     {
