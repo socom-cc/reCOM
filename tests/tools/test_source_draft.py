@@ -388,7 +388,7 @@ def test_a_finished_draft_validates_and_checks(drafted) -> None:
 def test_provider_draft_owns_gnu_objects_and_leaves_the_rest(tmp_path: Path, stage3: dict) -> None:
     graph = draft_graph()
     tracker = _decompose(stage3, graph)
-    plan = draft_owner_plan(_root(tmp_path), tracker, "socom:work:source-provider-sce", graph, draft_facts(graph), section_of=MAIN)
+    plan = draft_owner_plan(_root(tmp_path), tracker, "socom:work:source-provider-sce", graph, draft_facts(graph), rules=5, section_of=MAIN)
     (owner,) = plan["owners"]
     assert owner["archive_member"] == {"gnu_object": "0x1400a0", "object": None} and owner["library"] == "SCE"
     assert [(entry["artifact"], entry["draft_rule"], entry["confidence"]) for entry in owner["artifacts"]] == [
@@ -400,6 +400,16 @@ def test_provider_draft_owns_gnu_objects_and_leaves_the_rest(tmp_path: Path, sta
     assert owner["confidence"] == "medium"
     assert [row["artifact"] for row in plan["unresolved"]] == ["socom:function:0x1400c0"]
     assert "reservation" not in plan and plan["annotations"] == []
+    # Rules 6: the GLOBAL sceRef, read only by the object's sceFooHelper, ends the
+    # data window after the object's sceTable: not strictly inside its own run.
+    v6 = draft_owner_plan(_root(tmp_path / "v6"), tracker, "socom:work:source-provider-sce", graph, draft_facts(graph), section_of=MAIN)
+    assert [entry["artifact"] for entry in v6["owners"][0]["artifacts"]][-1] == "socom:data:0x426450"
+    reasons = {row["artifact"]: row["reason"] for row in v6["unresolved"]}
+    assert reasons["socom:data:0x426460"] == (
+        "GLOBAL data referenced only by 1 function(s) of GNU object 0x1400a0, but not strictly inside its own data run "
+        "(between socom:data:0x426450 (GNU object 0x1400a0) and no placed data after in its section region): a GLOBAL can "
+        "be defined in a file that does not read it"
+    )
 
 
 def test_draft_refuses_unknown_rules_and_existing_outputs(tmp_path: Path, stage3: dict, root: Path, capsys, monkeypatch) -> None:
@@ -419,13 +429,14 @@ def test_draft_refuses_unknown_rules_and_existing_outputs(tmp_path: Path, stage3
     plan_path = "build/source-plans/socom-work-source-segment-001.json"
     assert cli.main([*base, "--item", "socom:work:source-segment-001", "--output", plan_path]) == 0
     report = json.loads(capsys.readouterr().out)
-    assert (report["rules_version"], report["decided"], report["open"]) == (5, 13, 2)
+    # Rules 6 leave __vt__4CBox open: a.cpp reads it, but it follows b.cpp's anchored @13.
+    assert (report["rules_version"], report["decided"], report["open"]) == (6, 12, 3)
     assert report["outside_reservation"] == ["src/gamez/zBar/b.cpp"]
     assert cli.main([*base, "--item", "socom:work:source-segment-001", "--output", plan_path]) == 2
     assert "never replaces a plan" in json.loads(capsys.readouterr().out)["error"]
     assert cli.main([*base, "--check", plan_path]) == 0
     report = json.loads(capsys.readouterr().out)
-    assert report["ok"] and report["drafted_entries"] == 13 and report["open_rows"] == 2 and report["rules_version"] == 5
+    assert report["ok"] and report["drafted_entries"] == 12 and report["open_rows"] == 3 and report["rules_version"] == 6
     assert report["owner_changes"] == [] and report["header_emit_changes"] == []
     # A version 1 draft is checked under version 1; --rules 2 shows the new decisions.
     old_path = "build/source-plans/v1.json"
@@ -491,7 +502,7 @@ def test_provider_rows_name_their_scope_library_and_may_be_linked_objects(tmp_pa
     graph = draft_graph()
     tracker = _decompose(stage3, graph)
     root = _root(tmp_path)
-    plan = draft_owner_plan(root, tracker, "socom:work:source-provider-sce", graph, draft_facts(graph), section_of=MAIN)
+    plan = draft_owner_plan(root, tracker, "socom:work:source-provider-sce", graph, draft_facts(graph), rules=5, section_of=MAIN)
     plan["unresolved"] = []
     # Toolchain source compiled with the project: an object, no archive.
     plan["owners"].append({
@@ -859,7 +870,7 @@ def test_archive_member_archive_version_and_unknown_linking(tmp_path: Path, stag
     graph = draft_graph()
     tracker = _decompose(stage3, graph)
     root = _root(tmp_path)
-    plan = draft_owner_plan(root, tracker, "socom:work:source-provider-sce", graph, draft_facts(graph), section_of=MAIN)
+    plan = draft_owner_plan(root, tracker, "socom:work:source-provider-sce", graph, draft_facts(graph), rules=5, section_of=MAIN)
     plan["unresolved"] = [{"artifact": "socom:function:0x1400c0", "reason": "by hand"}]
     plan["owners"][0]["archive_member"].update(archive="libfoo.a", version="2.50", linked="unknown")
     assert validate_source_plan(root, tracker, plan, graph, section_of=MAIN)["ok"]
@@ -1140,7 +1151,7 @@ def test_rules_4_decide_unanchored_runs_by_elf_regularities(tmp_path: Path, stag
     root = _root(tmp_path)
     args = (root, tracker, "socom:work:source-segment-001", graph, v4_facts(graph))
     v3 = draft_owner_plan(*args, rules=3, section_of=MAIN)
-    plan = draft_owner_plan(*args, section_of=MAIN)
+    plan = draft_owner_plan(*args, rules=5, section_of=MAIN)
     assert plan["draft"]["rules_version"] == 5
     assert (v3["draft"]["decided"], v3["draft"]["open"]) == (9, 9) and (plan["draft"]["decided"], plan["draft"]["open"]) == (15, 3)
     v3_entries, entries = _entries(v3), _entries(plan)
@@ -1300,7 +1311,7 @@ def test_reference_rules_4(root: Path, reference_source_graph: dict, reference_d
     section_of = loaded_section_lookup(root)
 
     def drafted(item: str) -> tuple[dict, dict]:
-        plan = draft_owner_plan(root, tracker, item, graph, facts, section_of=section_of)
+        plan = draft_owner_plan(root, tracker, item, graph, facts, rules=5, section_of=section_of)
         assert plan["draft"]["rules_version"] == 5 and check_draft(plan, plan)["problems"] == []
         return plan, {entry["artifact"]: (row.get("translation_unit") or row["classification"], entry["draft_rule"])
                       for row in plan["owners"] for entry in row["artifacts"]}
@@ -1347,3 +1358,207 @@ def test_reference_rules_5_leave_common_variables_open(root: Path, reference_sou
     reasons = {row["artifact"]: row["reason"] for row in v5["unresolved"]}
     assert all(reasons[identity].startswith("COMMON variable (linker-allocated, no defining section)") for identity in decided_common(v4))
     assert v5["draft"]["decided"] == v4["draft"]["decided"] - 89 and check_draft(v5, v5)["problems"] == []
+
+
+def test_reference_rules_6(root: Path, reference_source_graph: dict, reference_draft_inputs) -> None:
+    """Rules 6 on the measured defects: GLOBAL data outside its reader's data run, LOCAL MSL templates."""
+
+    tracker, facts = reference_draft_inputs
+    graph = reference_source_graph
+    section_of = loaded_section_lookup(root)
+
+    def drafted(item: str) -> tuple[dict, dict, dict]:
+        plan = draft_owner_plan(root, tracker, item, graph, facts, section_of=section_of)
+        assert plan["draft"]["rules_version"] == 6 and check_draft(plan, plan)["problems"] == []
+        decided = {entry["artifact"]: row.get("translation_unit") for row in plan["owners"] for entry in row["artifacts"]}
+        return plan, decided, {row["artifact"]: row for row in plan["unresolved"]}
+
+    # The CVisual statics sit between zvid_init.cpp and vis_main.cpp data, the CSnd
+    # statics in zsnd_csnd's run, aiCameraRangeFilter inside seal_ai.cpp's: not the readers'.
+    _plan, decided, open_rows = drafted("socom:work:source-segment-013")
+    for address in ("0x476610", "0x476628", "0x47662c", "0x47644c", "0x476450", "0x474f60"):
+        identity = f"socom:data:{address}"
+        assert identity not in decided and open_rows[identity]["reason"].startswith("GLOBAL data referenced only by")
+        assert open_rows[identity]["suggest"]["rule"] == "S-sole-referencer"
+    assert "(seal_ai.cpp) and socom:data:0x474f78 (seal_ai.cpp)" in open_rows["socom:data:0x474f60"]["reason"]
+    # MSL: the locale ids iostream.cpp reads lie in locale.cpp's .sbss data.
+    _plan, decided, open_rows = drafted("socom:work:source-provider-msl")
+    for address in ("0x475660", "0x475664", "0x475668"):
+        assert f"socom:data:{address}" not in decided and "locale.cpp" in open_rows[f"socom:data:{address}"]["reason"]
+    # Segment 027's LOCAL std::find copy, open at draft time, takes <algorithm> once owned;
+    # segment 023's open __list_deleter copies take <list>.
+    plan, _decided, _open = drafted("socom:work:source-segment-027")
+    emits = {row["artifact"]: row["header"] for row in plan["draft"]["open_row_header_emits"]}
+    assert emits["socom:function:0x229fc0"] == "<algorithm>"
+    plan, _decided, _open = drafted("socom:work:source-segment-023")
+    assert sum(row["header"] == "<list>" for row in plan["draft"]["open_row_header_emits"]) == 7
+
+
+# -- rules version 6 ----------------------------------------------------------------------
+
+
+def _variable(unit: str, address: int) -> dict:
+    return {"signal": "dwarf-variable", "strength": "strong", "tu": unit, "variable": f"v{address:x}", "die_offset": f"0x{address:x}",
+            "path": A_PATH}
+
+
+def test_rules_6_decide_global_data_only_inside_its_units_data_run(tmp_path: Path, stage3: dict) -> None:
+    item = "socom:work:source-segment-001"
+
+    def drafted(graph: dict, rules: int = 6, where: str = "v6") -> dict:
+        graph["graph_sha256"] = graph_digest(graph)
+        return draft_owner_plan(_root(tmp_path / where), _decompose(stage3, graph), item, graph, draft_facts(graph), rules=rules,
+                                section_of=MAIN)
+
+    vtable = "socom:data:0x426430"
+    # Only a.cpp's a_local reads the GLOBAL __vt__4CBox, but it follows b.cpp's anchored @13.
+    assert _entries(drafted(draft_graph(), rules=5, where="v5"))[vtable][1]["draft_rule"] == "D-referenced"
+    plan = drafted(draft_graph())
+    (row,) = [row for row in plan["unresolved"] if row["artifact"] == vtable]
+    assert row["reason"] == (
+        "GLOBAL data referenced only by 1 function(s) of a.cpp, but not strictly inside its own data run (between "
+        "socom:data:0x426410 (b.cpp) and socom:data:0x426450 (GNU object 0x1400a0)): a GLOBAL can be defined in a file "
+        "that does not read it"
+    )
+    assert row["suggest"] == {"owner": "a.cpp", "rule": "S-sole-referencer", "confidence": "low", "basis": f"only a.cpp references it; {row['reason']}"}
+    # Between two data artifacts anchored to a.cpp it is a.cpp's.
+    graph = draft_graph()
+    rows = {value["id"]: value for value in graph["artifacts"]}
+    for address in (0x426420, 0x426440):
+        rows[f"socom:data:0x{address:x}"]["signals"] = [_variable("a.cpp", address)]
+    owner, entry = _entries(drafted(copy.deepcopy(graph), where="inside"))[vtable]
+    assert (owner, entry["draft_rule"], entry["confidence"]) == ("a.cpp", "D-referenced", "medium")
+    assert entry["basis"] == ("referenced only by 1 function(s) of a.cpp, inside its own data run (between socom:data:0x426420 "
+                              "(a.cpp) and socom:data:0x426440 (a.cpp))")
+    # A linker section symbol between it and the right flank ends its section region.
+    fill = _row("gap", 0x426438, 8, DATA, classification=GENERATED, labels=["__data_end"])
+    graph["artifacts"].insert(next(index for index, value in enumerate(graph["artifacts"]) if value["id"] == "socom:data:0x426440"), fill)
+    reasons = {value["artifact"]: value["reason"] for value in drafted(graph, where="barrier")["unresolved"]}
+    assert "and no placed data after in its section region" in reasons[vtable]
+
+
+C_PATH, D_PATH = "Z:\\dev\\gamez\\zFoo\\c.cpp", "Z:\\dev\\gamez\\zFoo\\d.cpp"
+MSL_UTILITY = VECTOR.rsplit("\\", 1)[0] + "\\msl_utility"
+FIND = "find<PQ27CAiPath5point,9CAiMapLoc>__3stdFPQ27CAiPath5pointPQ27CAiPath5pointRC9CAiMapLoc"
+SWAP_DELETER = ("swap<9CAiMapLoc,Q23std21allocator<9CAiMapLoc>>__3stdFRQ23std58__vector_deleter<9CAiMapLoc,Q23std21allocator<"
+                "9CAiMapLoc>>RQ23std58__vector_deleter<9CAiMapLoc,Q23std21allocator<9CAiMapLoc>>")
+SWAP_NAV = ("swap<11nav_package,Q23std24allocator<11nav_package>>__3stdFRQ23std64__vector_deleter<11nav_package,Q23std24allocator<"
+            "11nav_package>>RQ23std64__vector_deleter<11nav_package,Q23std24allocator<11nav_package>>")
+
+
+def v6_graph() -> tuple[dict, dict]:
+    """Four units around inline copies, an unnamed cluster, and LOCAL MSL function templates (graph, facts)."""
+
+    paths = {"a.cpp": A_PATH, "b.cpp": B_PATH, "c.cpp": C_PATH, "d.cpp": D_PATH}
+
+    def anchored(unit: str) -> dict:
+        signal = {"signal": "dwarf-cu", "strength": "strong", "tu": unit, "path": paths[unit], "die_offset": f"0x{len(unit)}",
+                  "low_pc": "0x140000", "high_pc": "0x140100"}
+        return {"tu": _strong(unit, "dwarf-cu"), "signals": [signal]}
+
+    def header(path: str, die: str) -> dict:
+        return {"emitted_from_header": path,
+                "signals": [{"signal": "dwarf-cu-header", "strength": "hint", "path": path, "die_offset": die}]}
+
+    unnamed = "socom:tu-cluster:0x140020"
+    functions = [
+        ("a_one", "GLOBAL", anchored("a.cpp")),
+        ("__dt__4CFooFv", "13", {}),  # read only through a.cpp's anchored GLOBAL vtable
+        ("h_one", "13", {"cluster": unnamed}),
+        ("h_two", "13", {"cluster": unnamed}),
+        ("swap<i>__3stdFRiRi", "WEAK", {}),  # only copies back to a.cpp, but through an unnamed cluster
+        ("b_make", "GLOBAL", anchored("b.cpp")),
+        ("Get__4CBazFv", "13", {}),  # used by c.cpp only, d.cpp between it and c.cpp
+        ("d_one", "GLOBAL", anchored("d.cpp")),
+        ("Peek__4CQuxFv", "13", {}),  # used by c.cpp only, right before c.cpp's first function
+        ("c_use", "GLOBAL", anchored("c.cpp")),
+        (FIND, "LOCAL", anchored("c.cpp")),
+        (SWAP_DELETER, "LOCAL", anchored("c.cpp")),
+        (SWAP_NAV, "LOCAL", header(VECTOR, "0x210")),
+        ("swap<Ui>__3stdFRUiRUi", "WEAK", header(MSL_UTILITY, "0x220")),
+    ]
+    rows = [_row("function", 0x140000 + 16 * index, 16, CODE, [(name, binding)], **fields)
+            for index, (name, binding, fields) in enumerate(functions)]
+    rows.append(_row("data", 0x426400, 8, DATA, [("__vt__4CFoo", "GLOBAL")], classification=GENERATED, signals=[_variable("a.cpp", 0x426400)],
+                     tu=_strong("a.cpp", "dwarf-variable")))
+    ids = [row["id"] for row in rows]
+    graph = {
+        "kind": "socom-source-graph", "schema_version": 1, "source_sha256": REFERENCE_SHA256, "segment_size": 200,
+        "windows": [{"id": CODE, "kind": "code"}, {"id": DATA, "kind": "data"}],
+        "units": [{"tu": unit, "paths": [path]} for unit, path in paths.items()],
+        "clusters": [{"id": unnamed, "members": ids[2:4], "units": [], "libraries": []}],
+        "gnu_objects": [],
+        "artifacts": rows,
+        "segments": [{
+            "id": "socom:source-segment:00000000000000000001", "segment_number": 1, "window": CODE, "start": "0x140000",
+            "end": "0x1400e0", "function_count": 14, "artifacts": ids[:14], "data": ids[14:],
+            "classification_mix": {"authored": 14}, "boundary": {}, "internal_boundaries": [],
+            "tu_candidates": [{"tu": unit, "functions": 1, "strongest": "strong", "sinit_order": None} for unit in paths],
+        }],
+        "contradictions": [],
+    }
+    graph["graph_sha256"] = graph_digest(graph)
+    by_name = {row["names"][0]["name"]: row["id"] for row in rows}
+    pairs = [("__dt__4CFooFv", "__vt__4CFoo"), ("b_make", "__vt__4CFoo"), ("__vt__4CFoo", "__dt__4CFooFv"),
+             ("c_use", "Get__4CBazFv"), ("c_use", "Peek__4CQuxFv")]
+    facts = {"references": [{"site_artifact": by_name[site], "target_artifact": by_name[target]} for site, target in pairs],
+             "compile_units": []}
+    return graph, facts
+
+
+def test_rules_6_suggestions_respect_the_kept_copy_and_unnamed_objects(tmp_path: Path, stage3: dict) -> None:
+    graph, facts = v6_graph()
+    tracker = _decompose(stage3, graph)
+    args = (_root(tmp_path), tracker, "socom:work:source-segment-001", graph, facts)
+    suggestions = {rules: {row["artifact"]: row.get("suggest") for row in draft_owner_plan(*args, rules=rules, section_of=MAIN)["unresolved"]}
+                   for rules in (5, 6)}
+    owner = lambda rules, address: (suggestions[rules][f"socom:function:{address}"] or {}).get("owner")  # noqa: E731
+    # The inline dtor counts a.cpp's decided vtable, not the b.cpp ctor reading it, nor itself.
+    assert owner(5, "0x140010") is None
+    assert suggestions[6]["socom:function:0x140010"] == {
+        "owner": "a.cpp", "rule": "S-sole-referencer", "confidence": "medium",
+        "basis": "only a.cpp references this inline/WEAK copy (1 referrer(s): functions, decided data by its own unit); only a "
+                 "referencing object defines a copy and the first definer keeps it",
+    }
+    # The WEAK swap's run back to a.cpp crosses an unnamed (unit-less) cluster.
+    assert owner(5, "0x140040") == "a.cpp" and owner(6, "0x140040") is None
+    # A copy only c.cpp calls, with d.cpp decided between it and c.cpp: the first definer is not c.cpp.
+    assert owner(5, "0x140060") == "c.cpp" and owner(6, "0x140060") is None
+    # Right before c.cpp's first decided function, c.cpp's object can start at it.
+    peek = suggestions[6]["socom:function:0x140080"]
+    assert (peek["owner"], peek["confidence"]) == ("c.cpp", "medium") and owner(5, "0x140080") == "c.cpp"
+    assert peek["basis"].endswith("it lies before c.cpp's first decided function socom:function:0x140090, with nothing decided "
+                                  "between, so c.cpp's object can start at it")
+
+
+def test_rules_6_function_template_emits_and_open_row_emits(tmp_path: Path, stage3: dict) -> None:
+    graph, facts = v6_graph()
+    tracker = _decompose(stage3, graph)
+    args = (_root(tmp_path), tracker, "socom:work:source-segment-001", graph, facts)
+    v5 = draft_owner_plan(*args, rules=5, section_of=MAIN)
+    plan = draft_owner_plan(*args, section_of=MAIN)
+    assert plan["draft"]["rules_version"] == 6 and "open_row_header_emits" not in v5["draft"]
+    emits = {row["artifact"]: (row["header"], row["library"], row["reason"], row["draft_rule"]) for row in plan["header_emits"]}
+    # LOCAL std::find: no instance has a header unit; MSL defines it in <algorithm>.
+    assert emits["socom:function:0x1400a0"] == ("<algorithm>", "MSL", "template", "H-template-family")
+    # LOCAL swap(__vector_deleter&, ...): the other instance of that overload names <vector>,
+    # not the generic swap(T&, T&)'s <msl_utility>.
+    assert emits["socom:function:0x1400b0"] == ("<vector>", "MSL", "template", "H-template-family")
+    assert {row["artifact"] for row in v5["header_emits"]} & set(emits) == set()
+    # Open rows carry the emit they take once owned by an authored unit.
+    open_emits = {row["artifact"]: (row["header"], row["draft_rule"]) for row in plan["draft"]["open_row_header_emits"]}
+    assert open_emits["socom:function:0x1400c0"] == ("<vector>", "H-dwarf-header")
+    assert open_emits["socom:function:0x140040"] == ("<msl_utility>", "H-template-family")
+    assert check_draft(plan, plan)["problems"] == []
+    # A planner owns the open swap in c.cpp by hand and keeps the rule's emit: --check proves it.
+    owned = copy.deepcopy(plan)
+    owned["unresolved"] = [row for row in owned["unresolved"] if row["artifact"] != "socom:function:0x1400c0"]
+    row = next(row for row in owned["owners"] if row["translation_unit"] == "c.cpp")
+    row["artifacts"].append({"artifact": "socom:function:0x1400c0", "confidence": "medium", "basis": "by hand"})
+    emit = next(row for row in plan["draft"]["open_row_header_emits"] if row["artifact"] == "socom:function:0x1400c0")
+    owned["header_emits"].append(copy.deepcopy(emit))
+    assert check_draft(plan, owned)["problems"] == []
+    # Unowned, the same emit row is not proven.
+    unowned = copy.deepcopy(plan)
+    unowned["header_emits"].append(copy.deepcopy(emit))
+    assert check_draft(plan, unowned)["problems"] == ["header_emits socom:function:0x1400c0: differs from its H-dwarf-header draft"]

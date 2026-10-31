@@ -406,10 +406,10 @@ Without `--check`, evidence and validate read `--graph`
 differs from the one the item was decomposed from. `--check` (evidence,
 validate) regenerates the graph from the ELF instead.
 
-### Draft rules (versions 1 to 4)
+### Draft rules (versions 1 to 6)
 
-`source plan draft --item <item> --output <plan> [--rules 1|2|3|4|5]` writes a
-schema 2 plan under version 5 unless `--rules` says otherwise. Each decided
+`source plan draft --item <item> --output <plan> [--rules 1|2|3|4|5|6]` writes a
+schema 2 plan under version 6 unless `--rules` says otherwise. Each decided
 artifact is an entry `{artifact, confidence, basis, draft_rule}`; each owner
 row's confidence is its weakest entry's. The rules are conservative: when
 any condition fails the artifact stays open. Their exact statement is in
@@ -421,9 +421,12 @@ and header emits for instances without a header compile unit (marked
 *v4*); version 5 keeps version 4 except that `D-referenced` and the
 "referenced only by" fallback of `P-gnu-data` never decide a COMMON
 variable (the graph's `common`: linker-allocated, no defining section), which
-stays open with that reason (authored plans: an `S-sole-referencer`
-suggestion); every other rule is version 1's. A plan is checked under the
-version it was drafted with.
+stays open with that reason (from version 6, authored plans: an
+`S-sole-referencer` suggestion); version 6 decides GLOBAL data by a sole
+referrer only inside that referrer's own data run, tightens three
+suggestions and extends `H-template-family` to LOCAL MSL function
+templates (marked *v6*; see [Version 6](#version-6)); every other rule is
+version 1's. A plan is checked under the version it was drafted with.
 
 | Rule | Decides | Confidence |
 | --- | --- | --- |
@@ -436,16 +439,16 @@ version it was drafted with.
 | `A-kept-copy` *v4* | R1: every function of a span from a caller to an inline/WEAK copy placed after it (spans sharing a function merged) takes the one unit decided inside the span | medium |
 | `A-vtable-key` *v4* | R3: the one own non-inline virtual of an anchored GLOBAL vtable that no rule places in another unit is the vtable's unit; an unanchored GLOBAL vtable whose own non-inline virtuals are all decided for one unit is that unit | medium |
 | `A-contiguity` *v4* | R4: a function strictly between two functions decided for the same unit | medium |
-| `D-referenced` | unanchored data whose referencing functions (followed through data) are all decided for one unit | medium |
+| `D-referenced` | unanchored data whose referencing functions (followed through data) are all decided for one unit. *v6*: GLOBAL data only when it lies strictly inside that unit's own data run (see [Version 6](#version-6)) | medium |
 | `C-fill` | the graph's alignment padding: the compiler-generated row. *v4*: also zero (or `.bss`) fill of any size, without labels or relocations, that ends exactly at a GNU object start or LOCAL section run start and is smaller than that address's alignment | high |
 | `P-gnu-object` | a function or gap of a GNU object of the plan's library: one provider row per object. *v2*: when a DWARF compile unit of the object has a project-toolchain (Metrowerks) producer, such as crt0.s's `Metrowerks MW GAS R5900 Assembler`, the row records `archive_member.linked: "object"` | high, medium past an uncertain object end |
-| `P-gnu-data` | data in a GNU object's cluster (high) or referenced only by its functions (medium). *v3*: data in no cluster but inside one GNU object's LOCAL section run (`gnu_objects[].sections`) is that object's before the "referenced only by" fallback (high; medium when the run was cut short); a cluster and a run naming different objects leave it open | high / medium |
+| `P-gnu-data` | data in a GNU object's cluster (high) or referenced only by its functions (medium). *v3*: data in no cluster but inside one GNU object's LOCAL section run (`gnu_objects[].sections`) is that object's before the "referenced only by" fallback (high; medium when the run was cut short); a cluster and a run naming different objects leave it open. *v6*: the "referenced only by" fallback decides GLOBAL data only strictly inside the object's own data run | high / medium |
 | `P-gnu-section` *v3* | a non-padding gap inside one GNU object's LOCAL section run whose every relocation comes from that object's functions through its own LOCAL section symbols. *v4*: or from data inside the object's own LOCAL section runs | high |
 | `P-mw-unit` *v3* (row) | in a provider plan, a Metrowerks-compiled provider unit of the plan's library (a provider path, or a known name such as `989snd.c`) whose artifacts `A-dwarf-cu` .. `A-local-block`, `A-between` or `D-referenced` decide: a provider row with the unit, its single provider path, `archive_member.object` `<stem>.o` and `linked: "unknown"`. The provider-scope `A-between` accepts functions the graph proves of that same library, and `D-referenced` data that is not another library's | - (entries keep their rule) |
 | `O-provisional` (row) | exactly one file under `src/` has the unit's exact name: `provisional_file` and `workspace_path` | - |
 | `O-path` (row) | no file of that name in any case; the single `Z:\dev` path names an existing module directory | - |
 | `H-dwarf-header` | a decided authored function's header compile unit: an existing `Z:\dev` header under its module directory, or a provider header `<name>` with its library; reason `template`, `weak` or `inline` | - |
-| `H-template-family` *v4* | an owned MSL template instance (inline or WEAK; MSL-classified or `std`/`Metrowerks`-qualified) without a header compile unit of its own: the one MSL header `<name>` that every instance of its class (or function) template with a header compile unit names. Several headers, or no such instance, leave the emit open with that reason | - |
+| `H-template-family` *v4* | an owned MSL template instance (inline or WEAK; MSL-classified or `std`/`Metrowerks`-qualified) without a header compile unit of its own: the one MSL header `<name>` that every instance of its class (or function) template with a header compile unit names. Several headers, or no such instance, leave the emit open with that reason. *v6*: also LOCAL MSL function template instances; a function template's family is its overload (see [Version 6](#version-6)) | - |
 | `H-class-header` *v4* | an owned implicit special member (`__ct__`, `__dt__`, `__as__`; inline or WEAK) of an authored class without a header compile unit of its own: the one existing workspace header the header compile units of the class's other members name. A class whose members have none is defined in its source file (no emit); a provisional header declaration is not evidence | - |
 
 Boundary functions between two units that no version 4 rule reaches,
@@ -501,9 +504,9 @@ the planner accepts it (`source plan decide`) or decides otherwise, and
 
 | Suggestion | Owner | Confidence |
 | --- | --- | --- |
-| `S-sole-referencer` | an inline/WEAK copy every referencing function of which (through data, so its `__sinit` and vtables count) is decided for one unit; for data, every referencing function is decided or suggested for one unit | medium when the unit flanks the copy's run (data: the weakest suggestion), else low |
-| `S-class-flank` | the function's mangled class has decided members in exactly one of the two flanking units | medium when the class has no decided member elsewhere, else low |
-| `S-weak-order` | a WEAK copy with only inline/WEAK copies between it and the left unit's last decided function: the left unit; a GLOBAL after such a WEAK copy: the right unit, unless an unnamed object lies between | low |
+| `S-sole-referencer` | an inline/WEAK copy every referencing function of which (through data, so its `__sinit` and vtables count) is decided for one unit; for data, every referencing function is decided or suggested for one unit. *v6*: a decided data site (a GLOBAL vtable emitted with its key function) counts by its own unit, the copy's own references back to itself do not count, and a copy placed before the unit's first decided function is suggested only when that function is the next decided one; data that v6 withholds (COMMON, or GLOBAL outside the run) gets one with the flanks in `basis` | medium when the unit flanks the copy's run (data: the weakest suggestion; withheld data: low when a flank names another owner), else low |
+| `S-class-flank` | the function's mangled class has decided members in exactly one of the two flanking units. *v6*: not past an undecided function of a unit-less cluster between the function and that flank | medium when the class has no decided member elsewhere, else low |
+| `S-weak-order` | a WEAK copy with only inline/WEAK copies between it and the left unit's last decided function: the left unit; a GLOBAL after such a WEAK copy: the right unit, unless an unnamed object lies between. *v6*: neither points past an undecided function of a unit-less cluster | low |
 
 Suggestions that disagree keep the first in that order at low confidence
 and name the others in `basis`. On the wave-1 plans (segments 013, 015,
@@ -536,6 +539,78 @@ provider plans, SCE goes from 4 to 0 open (`P-gnu-section` 3, `C-fill`
 1: 0x15b0cc), the unidentified GNU objects from 2 to 1 (`C-fill`
 0x163ddc), newlib from 3 to 2 (`P-gnu-section` 0x466e60) and Medius from
 122 to 119.
+
+#### Version 6
+
+Being read by one unit does not make a GLOBAL that unit's: a GLOBAL can be
+defined in a file that never reads it. CVisual's statics
+(`m_specMapTexture` 0x476610 ...), read only by database.cpp, lie between
+zvid_init.cpp and vis_main.cpp data; the CSnd statics `m_DisplaySounds`
+0x47644c and `m_debugMusic` 0x476450, read only by options.cpp, inside
+zsnd_csnd.o's run; MSL's `id__Q23std8ctype<c>` 0x475660, read only by
+iostream.cpp, after locale.cpp's `.sbss` data. Data sections keep link
+order (each object's contribution to an output section is contiguous), so
+version 6 decides GLOBAL data by `D-referenced` (authored and
+provider-unit) or by the "referenced only by" fallback of `P-gnu-data`
+only when it lies strictly inside the referrer's own data run: the nearest
+data artifacts before and after it in its output-section region that an
+anchor or containment rule places (unit anchors; a GNU object's cluster,
+LOCAL section run or data-only object) both name that unit or object. A
+region ends at a data-window edge, where the GNU section envelope (or the
+pair around it) changes, at a linker section symbol (`__data_end`,
+`__bss_start`, ...) and where file bytes end (the end of the last
+file-backed gap before a window's first NOBITS gap). LOCAL and binding-13
+data are decided as before. Otherwise the row stays open; its reason names
+both flanks, and in authored plans it carries an `S-sole-referencer`
+suggestion (low when a flank names another owner). Authored COMMON rows
+now get that suggestion too (low).
+
+The suggestions change in three ways. A copy's referrers count a decided
+data site by its own unit: an inline destructor read only through its
+class's GLOBAL vtable (emitted with the key function, anchored to the
+class's unit) is that unit's, not that of the factory that reads the vtable,
+and the copy's own references back to itself no longer block it. The first
+definer keeps a copy, so a copy placed before its referencing unit's first
+decided function gets the suggestion only when that function is the next
+decided one, since the unit's object can start at the copy
+(`erase<CAiEventHandle>` 0x180520, read only by seal_ai.cpp, is
+ai_events.o's and now gets none). And `S-class-flank` and `S-weak-order`
+never point past an undecided function of a unit-less (unnamed) cluster
+between the function and that flank.
+
+`H-template-family` also covers LOCAL MSL function template instances
+(`find`, `remove_copy`, `swap`, ...). A function template's family is its
+overload: each parameter's class template, `*` for any other type, so
+`swap(__vector_deleter&, __vector_deleter&)` takes `<vector>` (its
+instance 0x3cbf20 has that header unit) and the generic `swap(T&, T&)`
+takes `<msl_utility>` (0x172ac0). When no instance of the overload has a
+header unit, the emit is MSL's defining header (`MSL_FUNCTION_TEMPLATE_HEADERS`:
+`find`, `find_if`, `remove_copy`, `remove_copy_if`, `remove_if`, `transform`,
+the sort and heap helpers and `lower_bound` in `<algorithm>`, `__advance` in
+`<iterator>`), provided every instance of the template that has a header
+unit names that header too. In authored scopes `draft.open_row_header_emits`
+lists the emit each open function takes once a planner owns it in an
+authored unit (the header rules do not depend on which unit), and
+`--check` proves such an emit row with its `draft_rule` for a hand-owned
+authored function as it proves a drafted one. Accepted segment 027's
+LOCAL `std::find` copy 0x229fc0, open at draft time, has `<algorithm>`
+there, and segment 023's seven open `__list_deleter` copies have `<list>`.
+`source plan decide` does not copy these emits yet: the planner adds the
+row.
+
+Version 6 was measured on the graph `c79d76e6...` against the 44 plan files
+under `build/source-plans/`. Of their 259 drafted `D-referenced` (or
+referenced-only `P-gnu-data`) GLOBAL rows, 103 lie inside their unit's run
+and 156 stay open (152 between two different owners, 3 in a region with no
+placed data, 1, `aiCameraRangeFilter__11CSealCtrlAi` 0x474f60, inside
+seal_ai.cpp's run); 67 of the 156 are segment 024's fts_net_* statics,
+whose `.sbss` stretch has no anchored data but whose referrers form
+contiguous per-unit groups. Every version 6 decision agrees with the plans
+(17,044 artifacts, 0 disagreements; version 5 disagreed on 10, all GLOBAL
+`D-referenced` rows the planners had overridden). Of the suggestions on
+rows the planners decided, 585 name the planner's unit and 80 another
+(version 5: 444 and 306). The drafts emit 41 more headers, and 157 open
+rows carry an open-row emit. Versions 1 to 5 draft byte-identically.
 
 Version 3 was measured on the graph `7bd4e540...`. It decides 84 of
 989snd's 110 artifacts against version 2's 26 (`989snd.c` as one
