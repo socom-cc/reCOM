@@ -313,25 +313,36 @@ def source_artifacts(root: Path) -> dict[str, Any]:
     }
 
 
+# Evidence identities an annotation may cite.  Tracker schema 6 moved the
+# immutable symbol and relocation rows into the reference census.
+CENSUS_ID_COLLECTIONS = ("symbols", "relocations")
+TRACKER_ID_COLLECTIONS = ("owners", "types", "work_items", "evidence")
+
+
+def known_artifact_ids(
+    tracker: dict[str, Any], census: dict[str, Any]
+) -> set[str]:
+    """Identities an annotation may cite: census rows plus tracker entities."""
+
+    return {
+        str(row.get("id"))
+        for state, collections in (
+            (census, CENSUS_ID_COLLECTIONS),
+            (tracker, TRACKER_ID_COLLECTIONS),
+        )
+        for collection in collections
+        for row in state.get(collection, [])
+        if isinstance(row, dict) and row.get("id")
+    }
+
+
 def audit_docblocks(root: Path) -> dict[str, Any]:
     parsed = source_artifacts(root)
     errors = list(parsed["errors"])
     tracker = load_json(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
     census = load_json(root / ".agent" / "REFERENCE_CENSUS.json")
     sections = {str(row.get("name")) for row in census.get("sections", [])}
-    known_ids = {
-        str(row.get("id"))
-        for collection in (
-            "symbols",
-            "relocations",
-            "owners",
-            "types",
-            "work_items",
-            "evidence",
-        )
-        for row in tracker.get(collection, [])
-        if isinstance(row, dict) and row.get("id")
-    }
+    known_ids = known_artifact_ids(tracker, census)
     anchor_locations: dict[str, list[str]] = {}
     for row in parsed["anchors"]:
         anchor_locations.setdefault(row["id"], []).append(
@@ -348,7 +359,8 @@ def audit_docblocks(root: Path) -> dict[str, Any]:
             )
         if row["artifact_id"] not in known_ids:
             errors.append(
-                f"{location}: artifact ID is not present in tracker evidence: "
+                f"{location}: artifact ID is not present in tracker or "
+                f"reference-census evidence: "
                 f"{row['artifact_id']}"
             )
     return {

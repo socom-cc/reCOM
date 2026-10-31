@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .constants import STAGES
-from .capabilities import audit_capabilities, capability_document
+from .capabilities import CAPABILITIES, audit_capabilities, capability_document
 from .source import audit_independence
 from .tracker import load_tracker
 
@@ -333,11 +333,12 @@ def docs(root: Path, commands: list[dict[str, Any]]) -> dict[str, Any]:
 def pipeline_reachability(root: Path, commands: list[dict[str, Any]]) -> dict[str, Any]:
     names = {row["command"] for row in commands}
     missing = []
+    # Validators such as `audit source-trace` are not producers: a stage is
+    # active only once a command that creates its work is registered here.
     active_producers = {
         "reference-census": {"reference census", "reference verify"},
         "debug-metadata-import": {"debug import-plan", "progress work packet"},
         "ghidra-reconstruction": {"progress decompose-stage", "ghidra apply-recon"},
-        "source-correlation": {"audit source-trace", "source artifacts"},
     }
     tracker = load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
     blockers = {
@@ -345,6 +346,13 @@ def pipeline_reachability(root: Path, commands: list[dict[str, Any]]) -> dict[st
         for row in tracker.get("blockers", [])
         if row.get("status") == "open"
         for stage in row.get("blocks", [])
+    }
+    # A deferred capability naming a stage defers it until its prerequisite
+    # (a registered producer) exists, as TOOL_COVERAGE.md reports.
+    deferred_capabilities = {
+        row["stage"]: row
+        for row in CAPABILITIES
+        if row.get("status") == "deferred" and row.get("stage")
     }
     deferred: list[dict[str, Any]] = []
     for stage in STAGES:
@@ -358,12 +366,23 @@ def pipeline_reachability(root: Path, commands: list[dict[str, Any]]) -> dict[st
             for row in tracker.get("work_items", [])
             if row.get("stage") == stage and row.get("kind") == "stage-seed"
         ]
-        if not seeds or stage not in blockers:
+        capability = deferred_capabilities.get(stage)
+        if not seeds or (stage not in blockers and capability is None):
             missing.append(
                 {"stage": stage, "error": "deferred stage lacks a seed and explicit blocker"}
             )
-        else:
+        elif stage in blockers:
             deferred.append({"stage": stage, "seed_count": len(seeds), "blocked": True})
+        else:
+            deferred.append(
+                {
+                    "stage": stage,
+                    "seed_count": len(seeds),
+                    "blocked": False,
+                    "capability": capability["id"],
+                    "prerequisite": capability["blocker"],
+                }
+            )
     return {"ok": not missing, "missing": missing, "deferred": deferred}
 
 

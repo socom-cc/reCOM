@@ -24,6 +24,165 @@ def test_relocation_query_joins_symbols_and_hi16_lo16_pairs(census: dict) -> Non
     assert report["relocations"][1]["pair_context"]["role"] == "lo16"
 
 
+def _write_trace_state(
+    root: Path, *, census: dict, tracker: dict | None = None
+) -> None:
+    """A schema 6 tracker (no symbols/relocations) beside a census fixture."""
+
+    state = {
+        "schema_version": 6,
+        "owners": [],
+        "types": [],
+        "work_items": [],
+        "evidence": [],
+        "semantic_spans": [],
+        "storage_contributions": [],
+        **(tracker or {}),
+    }
+    (root / ".agent").mkdir(exist_ok=True)
+    (root / ".agent" / "RECONSTRUCTION_PROGRESS.json").write_text(
+        json.dumps(state), encoding="utf-8"
+    )
+    (root / ".agent" / "REFERENCE_CENSUS.json").write_text(
+        json.dumps(census), encoding="utf-8"
+    )
+
+
+def test_docblocks_resolve_census_symbols_relocations_and_tracker_ids(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "unit.cpp").write_text(
+        "// @socom-artifact defines .text socom:symbol:6e3ac706f66228048f0e\n"
+        "// @socom-artifact emits .text socom:relocation:5feceb66ffc86f38d952\n"
+        "// @socom-artifact defines .data socom:owner:unit\n",
+        encoding="utf-8",
+    )
+    census = {
+        "sections": [{"name": ".text"}, {"name": ".data"}],
+        "symbols": [{"id": "socom:symbol:6e3ac706f66228048f0e", "index": 100}],
+        "relocations": [{"id": "socom:relocation:5feceb66ffc86f38d952", "index": 0}],
+    }
+    _write_trace_state(
+        tmp_path, census=census, tracker={"owners": [{"id": "socom:owner:unit"}]}
+    )
+    report = audit_docblocks(tmp_path)
+    assert report["ok"] is True, report["errors"]
+    assert report["artifact_edge_count"] == 3
+
+
+def test_docblocks_reject_unknown_ids_and_ignore_retired_tracker_rows(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "unit.cpp").write_text(
+        "// @socom-artifact defines .text socom:symbol:unknown\n"
+        "// @socom-artifact defines .text socom:symbol:tracker-only\n"
+        "// @socom-artifact defines .bogus socom:symbol:known\n",
+        encoding="utf-8",
+    )
+    _write_trace_state(
+        tmp_path,
+        census={
+            "sections": [{"name": ".text"}],
+            "symbols": [{"id": "socom:symbol:known"}],
+            "relocations": [],
+        },
+        # A pre-schema-6 tracker copy is not identity evidence any more.
+        tracker={"symbols": [{"id": "socom:symbol:tracker-only"}]},
+    )
+    report = audit_docblocks(tmp_path)
+    assert report["ok"] is False
+    assert report["errors"] == [
+        "src/unit.cpp:1: artifact ID is not present in tracker or "
+        "reference-census evidence: socom:symbol:unknown",
+        "src/unit.cpp:2: artifact ID is not present in tracker or "
+        "reference-census evidence: socom:symbol:tracker-only",
+        "src/unit.cpp:3: unknown ELF section '.bogus'",
+    ]
+
+
+def test_docblocks_resolve_symbols_of_the_stored_reference_census(
+    tmp_path: Path, root: Path
+) -> None:
+    census = json.loads(
+        (root / ".agent" / "REFERENCE_CENSUS.json").read_text(encoding="utf-8")
+    )
+    symbol = next(row for row in census["symbols"] if row["type"] == "FUNC")
+    section = next(
+        row["name"] for row in census["sections"] if row["index"] == symbol["section_index"]
+    )
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "unit.cpp").write_text(
+        f"// @socom-artifact defines {section} {symbol['id']}\n", encoding="utf-8"
+    )
+    (tmp_path / ".agent").mkdir()
+    shutil.copyfile(
+        root / ".agent" / "RECONSTRUCTION_PROGRESS.json",
+        tmp_path / ".agent" / "RECONSTRUCTION_PROGRESS.json",
+    )
+    shutil.copyfile(
+        root / ".agent" / "REFERENCE_CENSUS.json",
+        tmp_path / ".agent" / "REFERENCE_CENSUS.json",
+    )
+    report = audit_docblocks(tmp_path)
+    assert report["ok"] is True, report["errors"]
+
+
+def test_source_correlation_is_deferred_until_a_producer_is_registered(
+    root: Path,
+) -> None:
+    report = audits.pipeline_reachability(root, _command_rows())
+    assert report["ok"] is True, report["missing"]
+    by_stage = {row["stage"]: row for row in report["deferred"]}
+    assert by_stage["source-correlation"] == {
+        "stage": "source-correlation",
+        "seed_count": 1,
+        "blocked": False,
+        "capability": "source-correlation",
+        "prerequisite": "source-correlation-producer",
+    }
+    # Validators alone never make the stage producible.
+    assert {"audit source-trace", "source artifacts"} <= {
+        row["command"] for row in _command_rows()
+    }
+
+
+def test_pipeline_reachability_requires_a_seed_for_capability_deferral(
+    tmp_path: Path, root: Path
+) -> None:
+    (tmp_path / ".agent").mkdir()
+    tracker = json.loads(
+        (root / ".agent" / "RECONSTRUCTION_PROGRESS.json").read_text(encoding="utf-8")
+    )
+    tracker["work_items"] = [
+        row
+        for row in tracker["work_items"]
+        if not (row.get("stage") == "source-correlation" and row.get("kind") == "stage-seed")
+    ]
+    (tmp_path / ".agent" / "RECONSTRUCTION_PROGRESS.json").write_text(
+        json.dumps(tracker), encoding="utf-8"
+    )
+    report = audits.pipeline_reachability(tmp_path, _command_rows())
+    assert report["ok"] is False
+    assert report["missing"] == [
+        {
+            "stage": "source-correlation",
+            "error": "deferred stage lacks a seed and explicit blocker",
+        }
+    ]
+
+
+def test_capability_stage_names_are_validated() -> None:
+    from tools._socom.capabilities import CAPABILITIES, audit_capabilities
+
+    report = audit_capabilities(_command_rows())
+    assert report["ok"] is True, report["errors"]
+    deferred = {row["id"]: row for row in CAPABILITIES if row.get("stage")}
+    assert deferred["source-correlation"]["status"] == "deferred"
+    assert deferred["source-correlation"]["blocker"] == "source-correlation-producer"
+
+
 def test_source_annotation_parser_and_trace_topology(tmp_path: Path) -> None:
     (tmp_path / "src").mkdir()
     (tmp_path / ".agent").mkdir()
@@ -33,23 +192,13 @@ def test_source_annotation_parser_and_trace_topology(tmp_path: Path) -> None:
         "// @socom-artifact emits main socom:symbol:test\n",
         encoding="utf-8",
     )
-    (tmp_path / ".agent" / "RECONSTRUCTION_PROGRESS.json").write_text(
-        json.dumps(
-            {
-                "symbols": [{"id": "socom:symbol:test"}],
-                "relocations": [],
-                "owners": [],
-                "types": [],
-                "work_items": [],
-                "evidence": [],
-                "semantic_spans": [],
-                "storage_contributions": [],
-            }
-        ),
-        encoding="utf-8",
-    )
-    (tmp_path / ".agent" / "REFERENCE_CENSUS.json").write_text(
-        json.dumps({"sections": [{"name": "main"}]}), encoding="utf-8"
+    _write_trace_state(
+        tmp_path,
+        census={
+            "sections": [{"name": "main"}],
+            "symbols": [{"id": "socom:symbol:test"}],
+            "relocations": [],
+        },
     )
     parsed = source_artifacts(tmp_path)
     assert len(parsed["anchors"]) == 1

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .constants import STAGES
+
 
 CAPABILITIES: tuple[dict[str, Any], ...] = (
     {"id": "control-plane", "status": "active", "commands": ["commands", "progress audit", "progress migrate", "progress add-repair", "progress work reopen", "progress work packet", "issue audit"], "reason": "Canonical CAS-protected state, migration, work contracts, and discovery."},
@@ -15,6 +17,7 @@ CAPABILITIES: tuple[dict[str, Any], ...] = (
     {"id": "ghidra-reconstruction", "status": "active", "commands": ["progress decompose-stage", "recon graph", "recon evidence", "recon validate", "recon program", "recon facts", "recon asm", "recon live", "recon types", "recon contradictions", "recon partial-candidates", "recon withdrawal-candidates", "recon by-value-rows", "progress add-recon-repair", "recon global-facts", "recon refs", "recon dwarf", "recon bytes", "recon draft", "recon void", "recon table-family", "ghidra apply-recon", "ghidra repair-names", "ghidra check-names-repair", "ghidra check-recon-apply", "progress stage-scope", "progress record-stage-baseline"], "reason": "Callee-first function groups from the ELF, validated plans, and read-back applies under the writer lease."},
     {"id": "code-derived-types", "status": "active", "commands": ["recon layout", "recon type-plan validate", "recon type-plan show", "recon type-plan live", "recon type-plan program", "recon type-plan affected", "ghidra apply-type-plan", "progress add-type-plan"], "reason": "Classes without DWARF records, plain structs named only by mangled parameter types, and families of zAnim command records (pointers proven by their AddCmd registration; existing DWARF record types referenced, not recreated) get ELF-derived layout evidence, reviewed type plans (forward declarations and copied template instantiations included), read-only live checks, and a governed type apply under the writer lease."},
     {"id": "source-trace", "status": "active", "commands": ["source artifacts", "audit docblocks", "audit source-trace"], "reason": "Source annotations are parsed and cross-checked once."},
+    {"id": "source-correlation", "status": "deferred", "stage": "source-correlation", "blocker": "source-correlation-producer", "reason": "Annotations are parsed and validated, but no registered producer decomposes the stage seed into correlation work; the stage stays closed until one is."},
     {"id": "source-guards", "status": "active", "commands": ["guard raw-offset", "guard provider", "guard original-symbol"], "reason": "Current source reconstruction hazards fail closed."},
     {"id": "candidate-comparison", "status": "active", "commands": ["verify linked-byte", "verify final-elf"], "reason": "Candidate comparison is diagnostic until acceptance prerequisites exist."},
     {"id": "final-elf-catalog", "status": "active", "commands": ["audit final-elf-catalog"], "reason": "File and loaded-memory semantic gaps are explicit."},
@@ -53,6 +56,8 @@ def audit_capabilities(commands: list[dict[str, Any]]) -> dict[str, Any]:
                 errors.append(f"{identifier}: active commands are missing: {missing}")
         elif status == "deferred" and not row.get("blocker"):
             errors.append(f"{identifier}: deferred capability has no blocker")
+        if "stage" in row and row["stage"] not in STAGES:
+            errors.append(f"{identifier}: unknown stage {row['stage']!r}")
     return {
         "ok": not errors,
         "capability_count": len(CAPABILITIES),
