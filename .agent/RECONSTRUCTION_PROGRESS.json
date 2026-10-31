@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3043,
+  "revision": 3046,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -150370,14 +150370,8 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-028.json sha256:a970c2d7e4bb6871f0d1e43d77ec607b6bce277e916c05887d8cbd349b04dfc1; validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-w3a",
-        "submitted_at": "2026-10-31T18:11:33Z",
-        "summary": "owners 10 (9 authored incl. invented node_lensflare.cpp and hand row zparticle_source.cpp; 1 compiler-generated), unresolved 42 (39 in the Particle::Props region), retire 0, open rows decided 55 of 97; 11 hand header emits, 3 contradictions, 1 D-referenced override (fadeFactor)"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-028",
       "kind": "source-plan-segment",
       "lease": null,
@@ -150398,11 +150392,25 @@
           "reason": "process: the plan file changed after handoff (handoff cites sha256 313daef8..., file is now a970c2d7e4bb6871...); planner must re-hand off the current file so review evidence matches. No content finding.",
           "rejected_at": "2026-10-31T18:10:11Z",
           "rejected_by": "parent-orchestrator"
+        },
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-w3a",
+            "submitted_at": "2026-10-31T18:11:33Z",
+            "summary": "owners 10 (9 authored incl. invented node_lensflare.cpp and hand row zparticle_source.cpp; 1 compiler-generated), unresolved 42 (39 in the Particle::Props region), retire 0, open rows decided 55 of 97; 11 hand header emits, 3 contradictions, 1 D-referenced override (fadeFactor)"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-028.json sha256:a970c2d7e4bb6871f0d1e43d77ec607b6bce277e916c05887d8cbd349b04dfc1; validate --check ok; draft --check ok"
+          ],
+          "reason": "(1) Particle::Props run socom:function:0x237930..0x238a20 + socom:data:0x44fe50/0x44fe70 (@1667/@1668; 39 rows) left unresolved though its extent is proven: the plan's own reason says R1/R4 make DecRefCount 0x237d10..clear 0x238a20 one object. User decision 2026-10-31: a proven-extent object must be owned, not unresolved; if one vs two objects is unproven, use one row and a note (as this plan does for node_lensflare.cpp and 025 for ReadClutter->grid_main.cpp). The evidence favours zparticle_instance.cpp's tail: .rodata @1667/@1668 (0x44fe50/70) run forward from zparticle_instance.cpp's @1641-@1643 (0x44fdf0-0x44fe30); LOCAL block 3832-3833 directly follows its 3817-3831, and per-cluster split blocks occur inside one object (graph_tree.cpp 3393|3394-3399|3400-3401, all R1-decided); no .sbss/ios_base statics between zparticle_instance.cpp's init$1585 0x475c40 and zparticle_source.cpp's 0x475c44, though all four zparticle units have them. zparticle_source.cpp is excluded (its @1260/@1261 after @1668 would invert by 407). Fix: decide 0x237d10-0x238a20 and @1667/@1668 for zparticle_instance.cpp at low (or an invented zParticle row at low if you judge a separate object likelier), the getters 0x237930-0x237c80 with them by R4 at low, and add a note naming the separate-object alternative. Owned MSL instances among them need header emits (<vector> for __vector_imp/__vector_deleter/vector). (2) Minor: the reservation reason lists an owner 'zparticle_props' that the plan does not have and no file of that name exists; correct the text. Checked OK: hash, validate/draft --check; fadeFactor override (inside zparticle_instance.cpp's .sbss run 0x475c20-0x475c40); D-referenced GLOBALs m_conflictresolver, particle_node_count, m_spr, bufferPtr (after buffer__8Particle, before zparticle_instance.cpp's @593) in place; Destruction_Instance vtable 0x4720b0 holds only Tick/Render with the LOCAL zparticle_instance.cpp RTTI, so R3 holds; node_lensflare.cpp invented low is sound (node_assetlib.cpp tail is in fact excluded: its @2804 then @1309 is a 1,495-label inversion); hand emits <algorithm>/<list>/<msl_utility>/<memory>/<vector> correct; no-emit copies are explicit, single-unit or user-declared-ctor classes (CPnt4D, CLensFlare).",
+          "rejected_at": "2026-10-31T18:26:22Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x12"
         }
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 028 (0x22c1a0-0x23a0cc, 192 functions)"
     },
     {
@@ -151123,23 +151131,33 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-034.json sha256:9ae7ad906bef9f26a1d0b4aa6b19b9759450a5e6d1cd26727017290303679efb; validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-w3c",
-        "submitted_at": "2026-10-31T12:52:48Z",
-        "summary": "owners 4 (seal_env.cpp, seal_ex.cpp, seal_kit.cpp, compiler-generated), unresolved 5, retire 0, open rows decided 22 (22 accepted suggestions), contradictions 2 (GetCurZoom constness), 1 MSL header emit added"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-034",
       "kind": "source-plan-segment",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-w3c",
+            "submitted_at": "2026-10-31T12:52:48Z",
+            "summary": "owners 4 (seal_env.cpp, seal_ex.cpp, seal_kit.cpp, compiler-generated), unresolved 5, retire 0, open rows decided 22 (22 accepted suggestions), contradictions 2 (GetCurZoom constness), 1 MSL header emit added"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-034.json sha256:9ae7ad906bef9f26a1d0b4aa6b19b9759450a5e6d1cd26727017290303679efb; validate --check ok; draft --check ok"
+          ],
+          "reason": "plan sha256 9ae7ad90...; validate/draft --check ok. FINDING (header emit): __ct__5CQuatFv 0x2a46e0 (binding 13, no DWARF, 8-byte empty body, passed to __construct_array by __sinit_seal_env.cpp) has no header-emit row and the plan records no argument that it is user-declared. CQuat is used across units (functions naming CQuat in zmath_main.cpp 19, seal_env 3, si_object 2, ai_map, body, fts_remote, node_main, seal, seal_kit, zmath_matrix), and provisional src/gamez/zMath/zmath.h:211, the only definition under src/, declares no user ctor/dtor; its member CPnt3D vec has a non-trivial default ctor (out-of-line 0x1a9160), so an implicit CQuat() is non-trivial and fits the empty emitted body. Under the implicit-member rule it emits to its class's header. Fix: decide --header-emit src/gamez/zMath/zmath.h --reason inline and correct the reservation to add src/gamez/zMath, or cite ELF evidence that CQuat's default ctor is user-declared (then a contradiction row against zmath.h:211). Checked OK: D-referenced GLOBALs m_lase_delay/m_lase_dist_max 0x475038/0x47503c after seal_kit.cpp's .sdata @2331 0x475034 and before seal_sensors.cpp's 0x475040 (link order kit 80, sensors 81); <msl_utility> emit 0x2a46f0; sole-referencer copies 0x2a46e0/0x2a46f0; CZKit run 0x2a4f70-0x2a6160 seal_kit.cpp medium (CZKit has no member outside seal_kit.cpp; seal_ik.cpp has no .text anchor, and the competing seal_ik split fits TurnSetup/FootInSpace, which stay unresolved); unresolved 0x2a4700/0x2a4bf0, 0x2a4d30/0x2a4dd0 and seal_foot_bone 0x450d30 justified; GetCurZoom contradiction lines verified.",
+          "rejected_at": "2026-10-31T18:25:34Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x13"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 034 (0x2a4520-0x2afbb4, 128 functions)"
     },
     {
@@ -151369,23 +151387,33 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-036.json sha256:286ed8d4bca7b92137500347a28e19f8da38b2967d2527ca4a026c9f0fca4690; validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-w3c",
-        "submitted_at": "2026-10-31T13:05:52Z",
-        "summary": "owners 12 (11 authored incl. new seal_aimoves.cpp row, compiler-generated), unresolved 0, retire 0, open rows decided 58 (21 accepted suggestions, 37 hand; 7 low), open header emit decided (<list>) + 10 MSL emits, D-referenced GLOBAL rows checked (2 consistent), reservation confirmed"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-036",
       "kind": "source-plan-segment",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-w3c",
+            "submitted_at": "2026-10-31T13:05:52Z",
+            "summary": "owners 12 (11 authored incl. new seal_aimoves.cpp row, compiler-generated), unresolved 0, retire 0, open rows decided 58 (21 accepted suggestions, 37 hand; 7 low), open header emit decided (<list>) + 10 MSL emits, D-referenced GLOBAL rows checked (2 consistent), reservation confirmed"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-036.json sha256:286ed8d4bca7b92137500347a28e19f8da38b2967d2527ca4a026c9f0fca4690; validate --check ok; draft --check ok"
+          ],
+          "reason": "Plan sha256 286ed8d4 (validate --check ok, draft --check ok). Finding: four owned implicit virtual dtors of AI state classes used across units have no header emit. Each is binding 13, no DWARF, 96 bytes (vtable store, ~CAiState, delete), and its class is declared in provisional src/gamez/zAI/zai.h with no user-declared ctor/dtor. Rule (brief; precedents accepted 014 0x17fc20 CAiEvent dtor and 015 0x18b040 -> zai.h): (1) 0x2d1e00 __dt__10CAiSBreachFv, owned by seal_unit.cpp: CAiSBreach is used by seal_unit.cpp (IssueCommand, AddBreachMember 0x2d3540), seal_aistate.cpp (Tick/GetStatus/OnSignal, Create__8CAiState) and seal_command.cpp (CSealCtrlAi::OnCommand); zai.h:447. (2) 0x2dcb80 __dt__10CAiSScriptFv: seal_aistate.cpp and seal_ai.cpp (InitAiBrain__11CSealCtrlAi); zai.h:401. (3) 0x2df160 __dt__10CAiSFollowFv: seal_aifollow.cpp and seal_aistate.cpp (Create__8CAiState references __vt__10CAiSFollow through the inline ctor); zai.h:442. (4) 0x2e4a50 __dt__8CAiSRushFv: seal_airesponse.cpp, seal_aistate.cpp (Create) and seal_tasks.cpp (CTState::Tick); zai.h:532. Fix: decide --header-emit src/gamez/zAI/zai.h --reason inline for all four, and correct the reservation to add src/gamez/zAI (as accepted 014 added src/gamez/zMath for its zmath.h emits); re-validate, re-handoff. No emit needed for the other no-emit copies: CAiSCQBAttack/Suspended/Goto/Hostage/Avoid/Pickup/Unknown, CSealUnit::ulist, CAiDodge::CList and ai::color_stack are referenced only inside their own unit, and Reset/KillResponse/CanAttack/CanPursue/GetJumpFlag are explicit inline members. Checked and sound: CRemoteCtrl 0x2ce6c0-0x2ce860 medium is acceptable (left anchor PreTick 0x2ce310 in its cluster; right edge is front<> 0x2ce8b0, which only seal_unit references; Tick/AllowCommand/OnCommand are virtuals of remote_control's vtable; seal_unit head is the noted alternative). SetAiEvent 0x2deff0 low and scan setters 0x2e49d0-0x2e4a40 low are honest. seal_aimoves.cpp row is sound: CAiDodge::CList dtor referenced only by __sinit_seal_aimoves.cpp; m_list 0x509950 is constructed by that sinit and lies after seal_aimoves' @1972 0x509940. 0x2d5770 -> <list> follows the 013 precedent. D-referenced GLOBALs are consistent with link order: snakeStateData 0x43a620 between seal_unit 0x43a600 and 989snd 0x43a640; m_created_units_test 0x4761ec between remote_control 0x4761e8 and seal_unit 0x4761f0.",
+          "rejected_at": "2026-10-31T18:25:52Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x14"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 036 (0x2ce220-0x2e4ab0, 198 functions)"
     },
     {
