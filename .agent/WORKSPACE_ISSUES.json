@@ -1378,8 +1378,18 @@
       "resolution": null,
       "status": "open",
       "summary": "User decision 2026-10-30: defer 6ec4362d (__chooser<1> / std::__use_facet) past the stage-3 gate"
+    },
+    {
+      "details": "Found by socom-tool-maintainer-m6 during stage-4 producer step 1 (2026-10-30, commit 88af01e cherry-picked): audit source-trace --require-complete requires a defining @socom-artifact edge for every accepted semantic_spans/storage_contributions ID, but audit docblocks never accepts those IDs (it resolves IDs against census symbols/relocations and tracker owners/types/work_items/evidence), so the complete check cannot pass once spans are accepted. To be resolved by the stage-4 lean producer's annotation/apply step (user decision 2026-10-30: owner maps in plan files + tracker evidence; annotations for named artifacts only; compiler-generated artifacts owned via owner-row artifact lists). Note: no registered command records a tracker stage blocker (only progress init/migrate create them); the missing producer is recorded as the deferred capability source-correlation (prerequisite source-correlation-producer) in capabilities.py.",
+      "id": "socom:workspace-issue:30b96157d62ba5357fc2",
+      "kind": "problem",
+      "reported_at": "2026-10-31T02:03:06Z",
+      "reported_by": "socom-coordinator",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage 4 producer: audit source-trace --require-complete cannot pass once spans are accepted"
     }
   ],
-  "revision": 174,
+  "revision": 175,
   "schema_version": 1
 }
