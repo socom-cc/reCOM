@@ -414,3 +414,6 @@ license.dat
 
 # Derived SQLite query caches (progress sql, source sql); rebuilt on demand.
 build/cache/
+
+# Tracker/ledger lock files (contain local paths; never commit)
+.agent/*.lock
