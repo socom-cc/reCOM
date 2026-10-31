@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 2865,
+  "revision": 2866,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -147241,7 +147241,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-001",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T07:49:24Z",
+        "expires_at": "2026-10-31T08:49:24Z",
+        "heartbeat_at": "2026-10-31T07:49:24Z",
+        "owner": "socom-source-owner-mapper-s001b"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -147281,7 +147286,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 001 (0x140008-0x142138, 39 functions)"
     },
     {
