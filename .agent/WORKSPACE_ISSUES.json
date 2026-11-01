@@ -1490,8 +1490,18 @@
       "resolution": null,
       "status": "open",
       "summary": "guard raw-image reports 7,216 findings, all on stage-4 generated annotation IDs"
+    },
+    {
+      "details": "tests/tools/test_fingerprint.py::test_persistent_bridge_reuses_one_connection_and_resends_once_after_a_silent_close fails intermittently on this host (failed then passed on consecutive runs, 2026-11-01; also seen by rounds m20 and m25). A socket-timing race in the fake bridge; the test should synchronize on the server's close instead of timing.",
+      "id": "socom:workspace-issue:b0fbe60fc66be378a26e",
+      "kind": "problem",
+      "reported_at": "2026-11-01T22:11:14Z",
+      "reported_by": "parent-orchestrator",
+      "resolution": null,
+      "status": "open",
+      "summary": "test_fingerprint persistent-bridge test is timing-flaky"
     }
   ],
-  "revision": 188,
+  "revision": 189,
   "schema_version": 1
 }
