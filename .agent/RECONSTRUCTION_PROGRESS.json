@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3668,
+  "revision": 3669,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -2787,6 +2787,48 @@
           "opened_by": "parent-orchestrator",
           "plan_sha256": "e88c2a079804a26a2e0d9e6f8df1bc7598688bcd1c824bd8fc598051c3947e3d",
           "reason": "header-emit correction: an emitted special member is user-written and used by one unit, so it is defined in the .cpp (no emit) under the stage-4 rule",
+          "schema_version": 1,
+          "status": "open"
+        },
+        {
+          "applies": [
+            "socom:work:source-segment-013-apply",
+            "socom:work:source-segment-019-apply",
+            "socom:work:source-segment-021-apply",
+            "socom:work:source-segment-024-apply",
+            "socom:work:source-segment-025-apply",
+            "socom:work:source-segment-026-apply",
+            "socom:work:source-segment-028-apply",
+            "socom:work:source-segment-029-apply",
+            "socom:work:source-segment-030-apply",
+            "socom:work:source-segment-031-apply",
+            "socom:work:source-segment-032-apply",
+            "socom:work:source-segment-033-apply",
+            "socom:work:source-segment-034-apply",
+            "socom:work:source-segment-035-apply",
+            "socom:work:source-segment-037-apply",
+            "socom:work:source-segment-041-apply",
+            "socom:work:source-segment-042-apply",
+            "socom:work:source-segment-046-apply",
+            "socom:work:source-segment-047-apply",
+            "socom:work:source-segment-054-apply",
+            "socom:work:source-segment-064-apply",
+            "socom:work:source-segment-065-apply",
+            "socom:work:source-segment-076-apply"
+          ],
+          "base_baseline_sha256": "46706027e9b91c8a355a6fe381f61443d97bb33e73559c2fe855dc6610a627da",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "id": "socom:source-amendment:007",
+          "item": "socom:work:source-data-data",
+          "item_kind": "source-data-reconcile",
+          "kind": "socom-source-amendment",
+          "opened_at": "2026-11-01T20:11:57Z",
+          "opened_by": "parent-orchestrator",
+          "plan_sha256": "29893f7643dd98e741778e7d4c391094d82ef0612534d89bc8a5f0d9fff5260f",
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)",
           "schema_version": 1,
           "status": "open"
         }
@@ -152548,6 +152590,18 @@
             "summary": "apply of segment-013: 220 annotations, 12 files, 1 created, 0 moved, 0 retired"
           },
           "reason": "owner correction: authored team_table 0x438770 (read only by orders.cpp's OrdersMenu) was drafted into SCE libmc 0x171070 by a P-gnu-data run-end defect; also complete the libmc row's archive fields (libmc.a, 2500, as the accepted SCE plan)"
+        },
+        {
+          "accepted": null,
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": null,
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
         }
       ],
       "selection": "artifacts",
@@ -152671,7 +152725,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 013 under src/"
     },
     {
@@ -154305,10 +154359,6 @@
       "title": "Plan source owners of segment 019 (0x1d0090-0x1d819c, 198 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T03:40:15Z",
-        "by": "socom-verifier-apply3"
-      },
       "batch": {
         "artifact_count": 659,
         "batch_number": 19,
@@ -154377,11 +154427,7 @@
         "source-plan build/source-plans/socom-work-source-segment-019.json sha256:dad90f19a9d411198ae1ea61e31d1187f62baffda6de54cb40493e7d7a7a8882",
         "source-reservation corrected src/gamez/zAnim, src/gamez/zArchive, src/gamez/zCharacter, src/gamez/zTwoD, src/gamez/zUI, src/gamez/zVisual"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b2",
-        "submitted_at": "2026-11-01T03:32:13Z",
-        "summary": "apply of segment-019: 237 annotations, 6 files, 0 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-019-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -154392,6 +154438,27 @@
         "src/gamez/zTwoD",
         "src/gamez/zUI",
         "src/gamez/zVisual"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T03:40:15Z",
+            "by": "socom-verifier-apply3"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b2",
+            "submitted_at": "2026-11-01T03:32:13Z",
+            "summary": "apply of segment-019: 237 annotations, 6 files, 0 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -154474,7 +154541,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 019 under src/"
     },
     {
@@ -154848,10 +154915,6 @@
       "title": "Plan source owners of segment 021 (0x1dd520-0x1e8748, 167 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T03:49:02Z",
-        "by": "socom-verifier-apply4"
-      },
       "batch": {
         "artifact_count": 360,
         "batch_number": 21,
@@ -154935,11 +154998,7 @@
         "source-plan build/source-plans/socom-work-source-segment-021.json sha256:522e5430e5bc9b5f32df9393e198367f4e46b120ee6cc010f631cafe4ed46a6e",
         "source-reservation corrected src/gamez/zAnim, src/gamez/zBody, src/gamez/zBone, src/gamez/zCamera, src/gamez/zMath, src/gamez/zNode, src/gamez/zSoftImage, src/rt"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b3",
-        "submitted_at": "2026-11-01T03:40:47Z",
-        "summary": "apply of segment-021: 202 annotations, 12 files, 1 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-021-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -154952,6 +155011,27 @@
         "src/gamez/zNode",
         "src/gamez/zSoftImage",
         "src/rt"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T03:49:02Z",
+            "by": "socom-verifier-apply4"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b3",
+            "submitted_at": "2026-11-01T03:40:47Z",
+            "summary": "apply of segment-021: 202 annotations, 12 files, 1 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -155076,7 +155156,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 021 under src/"
     },
     {
@@ -155941,10 +156021,6 @@
       "title": "Plan source owners of segment 024 (0x1ff8d0-0x20bb40, 190 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T03:49:08Z",
-        "by": "socom-verifier-apply4"
-      },
       "batch": {
         "artifact_count": 567,
         "batch_number": 24,
@@ -156030,11 +156106,7 @@
         "source-plan build/source-plans/socom-work-source-segment-024.json sha256:df9555b9bbb9fe2ac4a1ad7e02e0dd222bd7a21e33d6fae3cc59c09f4c6ed0ab",
         "source-reservation corrected src/gamez/zFTS, src/gamez/zGame, src/gamez/zNode, src/gamez/zTwoD"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b3",
-        "submitted_at": "2026-11-01T03:41:10Z",
-        "summary": "apply of segment-024: 278 annotations, 15 files, 0 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-024-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -156043,6 +156115,27 @@
         "src/gamez/zGame",
         "src/gamez/zNode",
         "src/gamez/zTwoD"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T03:49:08Z",
+            "by": "socom-verifier-apply4"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b3",
+            "submitted_at": "2026-11-01T03:41:10Z",
+            "summary": "apply of segment-024: 278 annotations, 15 files, 0 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -156179,7 +156272,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 024 under src/"
     },
     {
@@ -156291,10 +156384,6 @@
       "title": "Plan source owners of segment 025 (0x20bb40-0x218dd8, 158 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T03:49:10Z",
-        "by": "socom-verifier-apply4"
-      },
       "batch": {
         "artifact_count": 358,
         "batch_number": 25,
@@ -156375,11 +156464,7 @@
         "source-plan build/source-plans/socom-work-source-segment-025.json sha256:107b2df3eb5b05b15885206569a0b02bcfef0372a8e54bcc167c518b7fdc4516",
         "source-reservation corrected src/gamez/zGame, src/gamez/zGraph, src/gamez/zGrid, src/gamez/zRender"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b3",
-        "submitted_at": "2026-11-01T03:41:17Z",
-        "summary": "apply of segment-025: 176 annotations, 11 files, 1 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-025-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -156388,6 +156473,27 @@
         "src/gamez/zGraph",
         "src/gamez/zGrid",
         "src/gamez/zRender"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T03:49:10Z",
+            "by": "socom-verifier-apply4"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b3",
+            "submitted_at": "2026-11-01T03:41:17Z",
+            "summary": "apply of segment-025: 176 annotations, 11 files, 1 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -156502,7 +156608,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 025 under src/"
     },
     {
@@ -156627,10 +156733,6 @@
       "title": "Plan source owners of segment 026 (0x218de0-0x22489c, 188 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T03:49:13Z",
-        "by": "socom-verifier-apply4"
-      },
       "batch": {
         "artifact_count": 445,
         "batch_number": 26,
@@ -156719,11 +156821,7 @@
         "source-plan build/source-plans/socom-work-source-segment-026.json sha256:32520d4f7c46eb91fc3036c3e7ca86103ed29fbffbed371718536827a8cbdb00",
         "source-reservation corrected src/gamez/zGrid, src/gamez/zInput, src/gamez/zIntersect, src/gamez/zMath, src/gamez/zNode"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b3",
-        "submitted_at": "2026-11-01T03:41:25Z",
-        "summary": "apply of segment-026: 232 annotations, 16 files, 3 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-026-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -156733,6 +156831,27 @@
         "src/gamez/zIntersect",
         "src/gamez/zMath",
         "src/gamez/zNode"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T03:49:13Z",
+            "by": "socom-verifier-apply4"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b3",
+            "submitted_at": "2026-11-01T03:41:25Z",
+            "summary": "apply of segment-026: 232 annotations, 16 files, 3 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -156882,7 +157001,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 026 under src/"
     },
     {
@@ -157265,10 +157384,6 @@
       "title": "Plan source owners of segment 028 (0x22c1a0-0x23a0cc, 192 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T03:49:17Z",
-        "by": "socom-verifier-apply4"
-      },
       "batch": {
         "artifact_count": 431,
         "batch_number": 28,
@@ -157349,11 +157464,7 @@
         "source-plan build/source-plans/socom-work-source-segment-028.json sha256:507621bd0480957bc064f4719e83dc9beaecbf4d4757066d9218265349b12579",
         "source-reservation corrected src/gamez/zMath, src/gamez/zNode, src/gamez/zParticle"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b3",
-        "submitted_at": "2026-11-01T03:41:40Z",
-        "summary": "apply of segment-028: 232 annotations, 13 files, 0 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-028-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -157361,6 +157472,27 @@
         "src/gamez/zMath",
         "src/gamez/zNode",
         "src/gamez/zParticle"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T03:49:17Z",
+            "by": "socom-verifier-apply4"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b3",
+            "submitted_at": "2026-11-01T03:41:40Z",
+            "summary": "apply of segment-028: 232 annotations, 13 files, 0 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -157484,7 +157616,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 028 under src/"
     },
     {
@@ -157597,10 +157729,6 @@
       "title": "Plan source owners of segment 029 (0x23a0d0-0x247874, 179 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T03:57:24Z",
-        "by": "socom-verifier-apply5"
-      },
       "batch": {
         "artifact_count": 411,
         "batch_number": 29,
@@ -157686,11 +157814,7 @@
         "source-plan build/source-plans/socom-work-source-segment-029.json sha256:47c55d9c5ad15f1aff3d3befde4d4954033c96a03f0b8fd8d8df63aeb7782182",
         "source-reservation corrected src/gamez/zCharacter, src/gamez/zParticle, src/gamez/zReader, src/gamez/zRender, src/gamez/zUtil, src/gamez/zVisual"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b4",
-        "submitted_at": "2026-11-01T03:49:44Z",
-        "summary": "apply of segment-029: 230 annotations, 12 files, 1 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-029-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -157701,6 +157825,27 @@
         "src/gamez/zRender",
         "src/gamez/zUtil",
         "src/gamez/zVisual"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T03:57:24Z",
+            "by": "socom-verifier-apply5"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b4",
+            "submitted_at": "2026-11-01T03:49:44Z",
+            "summary": "apply of segment-029: 230 annotations, 12 files, 1 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -157825,7 +157970,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 029 under src/"
     },
     {
@@ -157926,10 +158071,6 @@
       "title": "Plan source owners of segment 030 (0x247880-0x2591d8, 170 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T03:57:26Z",
-        "by": "socom-verifier-apply5"
-      },
       "batch": {
         "artifact_count": 517,
         "batch_number": 30,
@@ -158000,11 +158141,7 @@
         "source-plan build/source-plans/socom-work-source-segment-030.json sha256:e9bd3fb883b1784d5b04559292f2155bcf5146bf1f1adae9e17a18902644857e",
         "source-reservation corrected src/gamez/zAI, src/gamez/zCharacter, src/gamez/zEntity, src/gamez/zRender, src/gamez/zSeal"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b4",
-        "submitted_at": "2026-11-01T03:49:52Z",
-        "summary": "apply of segment-030: 283 annotations, 6 files, 0 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-030-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -158014,6 +158151,27 @@
         "src/gamez/zEntity",
         "src/gamez/zRender",
         "src/gamez/zSeal"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T03:57:26Z",
+            "by": "socom-verifier-apply5"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b4",
+            "submitted_at": "2026-11-01T03:49:52Z",
+            "summary": "apply of segment-030: 283 annotations, 6 files, 0 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -158097,7 +158255,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 030 under src/"
     },
     {
@@ -158211,10 +158369,6 @@
       "title": "Plan source owners of segment 031 (0x2591e0-0x26e9f8, 186 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T03:57:29Z",
-        "by": "socom-verifier-apply5"
-      },
       "batch": {
         "artifact_count": 666,
         "batch_number": 31,
@@ -158280,11 +158434,7 @@
         "source-plan build/source-plans/socom-work-source-segment-031.json sha256:f0d01b51c5d56a41614330f2e24484ffc5fcafffc0ca228c4d78c5658969b652",
         "source-reservation corrected src/gamez/zAI, src/gamez/zMath, src/gamez/zSeal"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b4",
-        "submitted_at": "2026-11-01T03:49:59Z",
-        "summary": "apply of segment-031: 347 annotations, 5 files, 0 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-031-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -158292,6 +158442,27 @@
         "src/gamez/zAI",
         "src/gamez/zMath",
         "src/gamez/zSeal"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T03:57:29Z",
+            "by": "socom-verifier-apply5"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b4",
+            "submitted_at": "2026-11-01T03:49:59Z",
+            "summary": "apply of segment-031: 347 annotations, 5 files, 0 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -158365,7 +158536,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 031 under src/"
     },
     {
@@ -158482,10 +158653,6 @@
       "title": "Plan source owners of segment 032 (0x26ea00-0x28a55c, 199 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T03:57:31Z",
-        "by": "socom-verifier-apply5"
-      },
       "batch": {
         "artifact_count": 570,
         "batch_number": 32,
@@ -158555,17 +158722,34 @@
         "source-plan build/source-plans/socom-work-source-segment-032.json sha256:0931790d198c5a6a22a5313011fc51e89001dfebdb06c31e7884850e78571427",
         "source-reservation corrected src/gamez/zAnim, src/gamez/zSeal"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b4",
-        "submitted_at": "2026-11-01T03:50:07Z",
-        "summary": "apply of segment-032: 291 annotations, 7 files, 0 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-032-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
         "src/gamez/zAnim",
         "src/gamez/zSeal"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T03:57:31Z",
+            "by": "socom-verifier-apply5"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b4",
+            "submitted_at": "2026-11-01T03:50:07Z",
+            "summary": "apply of segment-032: 291 annotations, 7 files, 0 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -158651,7 +158835,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 032 under src/"
     },
     {
@@ -158758,10 +158942,6 @@
       "title": "Plan source owners of segment 033 (0x28a560-0x2a451c, 197 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T03:57:33Z",
-        "by": "socom-verifier-apply5"
-      },
       "batch": {
         "artifact_count": 524,
         "batch_number": 33,
@@ -158828,11 +159008,7 @@
         "source-plan build/source-plans/socom-work-source-segment-033.json sha256:adcd467df25e004b7255c48ec1bfecb9b74df771c92f512b7abddcb92b7cb79f",
         "source-reservation corrected src/gamez/zCharacter, src/gamez/zNode, src/gamez/zSeal, src/gamez/zWeapon"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b4",
-        "submitted_at": "2026-11-01T03:50:14Z",
-        "summary": "apply of segment-033: 233 annotations, 5 files, 0 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-033-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -158841,6 +159017,27 @@
         "src/gamez/zNode",
         "src/gamez/zSeal",
         "src/gamez/zWeapon"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T03:57:33Z",
+            "by": "socom-verifier-apply5"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b4",
+            "submitted_at": "2026-11-01T03:50:14Z",
+            "summary": "apply of segment-033: 233 annotations, 5 files, 0 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -158916,7 +159113,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 033 under src/"
     },
     {
@@ -159043,10 +159240,6 @@
       "title": "Plan source owners of segment 034 (0x2a4520-0x2afbb4, 128 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T03:57:35Z",
-        "by": "socom-verifier-apply5"
-      },
       "batch": {
         "artifact_count": 273,
         "batch_number": 34,
@@ -159110,17 +159303,34 @@
         "source-plan build/source-plans/socom-work-source-segment-034.json sha256:e39557edde06a16174ac6a7c4ccb77c9f60340fd7e55e2da393a52089c9ff181",
         "source-reservation corrected src/gamez/zMath, src/gamez/zSeal"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b4",
-        "submitted_at": "2026-11-01T03:50:22Z",
-        "summary": "apply of segment-034: 161 annotations, 5 files, 0 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-034-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
         "src/gamez/zMath",
         "src/gamez/zSeal"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T03:57:35Z",
+            "by": "socom-verifier-apply5"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b4",
+            "submitted_at": "2026-11-01T03:50:22Z",
+            "summary": "apply of segment-034: 161 annotations, 5 files, 0 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -159194,7 +159404,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 034 under src/"
     },
     {
@@ -159310,10 +159520,6 @@
       "title": "Plan source owners of segment 035 (0x2afbc0-0x2ce218, 200 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T03:57:37Z",
-        "by": "socom-verifier-apply5"
-      },
       "batch": {
         "artifact_count": 1013,
         "batch_number": 35,
@@ -159383,11 +159589,7 @@
         "source-plan build/source-plans/socom-work-source-segment-035.json sha256:e64d068ade143c8c64a1bedf489fcf268c08839a19da0d9ada1e2269c49fa520",
         "source-reservation corrected src/gamez/zAnim, src/gamez/zInput, src/gamez/zSeal"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b4",
-        "submitted_at": "2026-11-01T03:50:29Z",
-        "summary": "apply of segment-035: 453 annotations, 6 files, 0 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-035-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -159395,6 +159597,27 @@
         "src/gamez/zAnim",
         "src/gamez/zInput",
         "src/gamez/zSeal"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T03:57:37Z",
+            "by": "socom-verifier-apply5"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b4",
+            "submitted_at": "2026-11-01T03:50:29Z",
+            "summary": "apply of segment-035: 453 annotations, 6 files, 0 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -159475,7 +159698,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 035 under src/"
     },
     {
@@ -159920,10 +160143,6 @@
       "title": "Plan source owners of segment 037 (0x2e4ab0-0x2ea400, 76 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T04:05:33Z",
-        "by": "socom-verifier-apply6"
-      },
       "batch": {
         "artifact_count": 171,
         "batch_number": 37,
@@ -159987,17 +160206,34 @@
         "source-plan build/source-plans/socom-work-source-segment-037.json sha256:8b2ae39c57c111f81a17db5a5e77e920d36aafd54c9fc46f911a929223fbb62d",
         "source-reservation corrected src/gamez/zAI, src/gamez/zSeal"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b5",
-        "submitted_at": "2026-11-01T03:58:02Z",
-        "summary": "apply of segment-037: 110 annotations, 4 files, 1 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-037-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
         "src/gamez/zAI",
         "src/gamez/zSeal"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T04:05:33Z",
+            "by": "socom-verifier-apply6"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b5",
+            "submitted_at": "2026-11-01T03:58:02Z",
+            "summary": "apply of segment-037: 110 annotations, 4 files, 1 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -160066,7 +160302,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 037 under src/"
     },
     {
@@ -160358,10 +160594,6 @@
       "title": "Plan source owners of segment 041 (0x2f9ab0-0x304b60, 189 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T04:05:40Z",
-        "by": "socom-verifier-apply6"
-      },
       "batch": {
         "artifact_count": 413,
         "batch_number": 41,
@@ -160447,11 +160679,7 @@
         "source-plan build/source-plans/socom-work-source-segment-041.json sha256:fc7d58b2ed9d03d2cb7bb0eada2bdcbbf4075c05b21ef11a573c4ed8fa9db9eb",
         "source-reservation corrected src/gamez/zSystem, src/gamez/zTexture, src/gamez/zTwoD, src/gamez/zUtil"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b5",
-        "submitted_at": "2026-11-01T03:58:26Z",
-        "summary": "apply of segment-041: 193 annotations, 13 files, 3 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-041-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -160460,6 +160688,27 @@
         "src/gamez/zTexture",
         "src/gamez/zTwoD",
         "src/gamez/zUtil"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T04:05:40Z",
+            "by": "socom-verifier-apply6"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b5",
+            "submitted_at": "2026-11-01T03:58:26Z",
+            "summary": "apply of segment-041: 193 annotations, 13 files, 3 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -160589,7 +160838,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 041 under src/"
     },
     {
@@ -160805,6 +161054,18 @@
             "summary": "apply of segment-042: 265 annotations, 9 files, 2 created, 0 moved, 0 retired"
           },
           "reason": "header-emit correction: an emitted special member is user-written and used by one unit, so it is defined in the .cpp (no emit) under the stage-4 rule"
+        },
+        {
+          "accepted": null,
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": null,
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
         }
       ],
       "selection": "artifacts",
@@ -160909,7 +161170,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 042 under src/"
     },
     {
@@ -161735,10 +161996,6 @@
       "title": "Plan source owners of segment 046 (0x322420-0x32ecdc, 200 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T04:14:50Z",
-        "by": "socom-verifier-apply7"
-      },
       "batch": {
         "artifact_count": 524,
         "batch_number": 46,
@@ -161791,16 +162048,33 @@
         "source-plan build/source-plans/socom-work-source-segment-046.json sha256:891bcdf52e926b28bb8b8aba658ced8b541602d794c75bd4b114d01d955a9d31",
         "source-reservation confirmed src/gamez/zNetwork"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b6",
-        "submitted_at": "2026-11-01T04:06:28Z",
-        "summary": "apply of segment-046: 280 annotations, 1 files, 0 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-046-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
         "src/gamez/zNetwork"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T04:14:50Z",
+            "by": "socom-verifier-apply7"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b6",
+            "submitted_at": "2026-11-01T04:06:28Z",
+            "summary": "apply of segment-046: 280 annotations, 1 files, 0 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -161849,7 +162123,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 046 under src/"
     },
     {
@@ -161915,10 +162189,6 @@
       "title": "Plan source owners of segment 047 (0x32ece0-0x336ef0, 125 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T04:14:53Z",
-        "by": "socom-verifier-apply7"
-      },
       "batch": {
         "artifact_count": 364,
         "batch_number": 47,
@@ -161996,11 +162266,7 @@
         "source-plan build/source-plans/socom-work-source-segment-047.json sha256:a102a0fed227fb6092679be911c2f9956aaeaecc685c39e04a8a65da2a4458c2",
         "source-reservation corrected src/Apps/FTS, src/gamez/zMPEG, src/gamez/zNetwork, src/gamez/zUtil"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b6",
-        "submitted_at": "2026-11-01T04:06:36Z",
-        "summary": "apply of segment-047: 215 annotations, 8 files, 3 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-047-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -162009,6 +162275,27 @@
         "src/gamez/zMPEG",
         "src/gamez/zNetwork",
         "src/gamez/zUtil"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T04:14:53Z",
+            "by": "socom-verifier-apply7"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b6",
+            "submitted_at": "2026-11-01T04:06:36Z",
+            "summary": "apply of segment-047: 215 annotations, 8 files, 3 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -162108,7 +162395,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 047 under src/"
     },
     {
@@ -163115,10 +163402,6 @@
       "title": "Plan source owners of segment 054 (0x37a2a0-0x3853e4, 121 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T04:14:59Z",
-        "by": "socom-verifier-apply7"
-      },
       "batch": {
         "artifact_count": 382,
         "batch_number": 54,
@@ -163189,11 +163472,7 @@
         "source-plan build/source-plans/socom-work-source-segment-054.json sha256:75bb87e1c0b6ceaa780ed71fc4e15e11e268690be4de7133fc392acc8fc9b075",
         "source-reservation corrected src/Apps/FTS, src/gamez/zUI, src/gamez/zUtil, src/gamez/zVehicle"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b6",
-        "submitted_at": "2026-11-01T04:06:51Z",
-        "summary": "apply of segment-054: 153 annotations, 6 files, 1 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-054-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -163202,6 +163481,27 @@
         "src/gamez/zUI",
         "src/gamez/zUtil",
         "src/gamez/zVehicle"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T04:14:59Z",
+            "by": "socom-verifier-apply7"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b6",
+            "submitted_at": "2026-11-01T04:06:51Z",
+            "summary": "apply of segment-054: 153 annotations, 6 files, 1 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -163285,7 +163585,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 054 under src/"
     },
     {
@@ -164844,10 +165144,6 @@
       "title": "Plan source owners of segment 064 (0x3be590-0x3d5340, 185 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T04:13:56Z",
-        "by": "socom-verifier-apply8"
-      },
       "batch": {
         "artifact_count": 620,
         "batch_number": 64,
@@ -164925,17 +165221,34 @@
         "source-plan build/source-plans/socom-work-source-segment-064.json sha256:233612440ac3f3d84d3c9d82e63a88d649c482a906d5478f5351205cd107b2a1",
         "source-reservation corrected src/Apps/FTS, src/gamez/zMath"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b6",
-        "submitted_at": "2026-11-01T04:07:29Z",
-        "summary": "apply of segment-064: 347 annotations, 11 files, 0 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-064-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
         "src/Apps/FTS",
         "src/gamez/zMath"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T04:13:56Z",
+            "by": "socom-verifier-apply8"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b6",
+            "submitted_at": "2026-11-01T04:07:29Z",
+            "summary": "apply of segment-064: 347 annotations, 11 files, 0 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -165045,7 +165358,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 064 under src/"
     },
     {
@@ -165129,10 +165442,6 @@
       "title": "Plan source owners of segment 065 (0x3d5340-0x3deecc, 71 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T04:13:58Z",
-        "by": "socom-verifier-apply8"
-      },
       "batch": {
         "artifact_count": 353,
         "batch_number": 65,
@@ -165209,11 +165518,7 @@
         "source-plan build/source-plans/socom-work-source-segment-065.json sha256:77d1fa0d9bcdc4261d17f75f37479ef402e07058f836a2ee744d34d6ad6a58c4",
         "source-reservation corrected src/Apps/FTS, src/gamez/zFTS, src/gamez/zSeal"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b6",
-        "submitted_at": "2026-11-01T04:07:36Z",
-        "summary": "apply of segment-065: 190 annotations, 11 files, 0 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-065-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -165221,6 +165526,27 @@
         "src/Apps/FTS",
         "src/gamez/zFTS",
         "src/gamez/zSeal"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T04:13:58Z",
+            "by": "socom-verifier-apply8"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b6",
+            "submitted_at": "2026-11-01T04:07:36Z",
+            "summary": "apply of segment-065: 190 annotations, 11 files, 0 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -165331,7 +165657,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 065 under src/"
     },
     {
@@ -166615,10 +166941,6 @@
       "title": "Plan source owners of segment 076 (0x4692c8-0x471258, 146 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T04:14:04Z",
-        "by": "socom-verifier-apply8"
-      },
       "batch": {
         "artifact_count": 821,
         "batch_number": 76,
@@ -167030,11 +167352,7 @@
         "source-plan build/source-plans/socom-work-source-segment-076.json sha256:05825fad746f854d5fe8d5330dff0732f2e16686c42c4c0fee5fe16fd544e664",
         "source-reservation corrected src/Apps/FTS, src/gamez/zAI, src/gamez/zAnim, src/gamez/zBody, src/gamez/zBone, src/gamez/zCamera, src/gamez/zCharacter, src/gamez/zConsole, src/gamez/zEntity, src/gamez/zFTS, src/gamez/zGame, src/gamez/zGraph, src/gamez/zGrid, src/gamez/zInput, src/gamez/zIntersect, src/gamez/zMath, src/gamez/zNetwork, src/gamez/zNode, src/gamez/zParticle, src/gamez/zReader, src/gamez/zRender, src/gamez/zSave, src/gamez/zSeal, src/gamez/zSoftImage, src/gamez/zSound, src/gamez/zSystem, src/gamez/zTexture, src/gamez/zUI, src/gamez/zValve, src/gamez/zVehicle, src/gamez/zVideo, src/gamez/zVisual, src/gamez/zWeapon"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b6",
-        "submitted_at": "2026-11-01T04:08:01Z",
-        "summary": "apply of segment-076: 666 annotations, 146 files, 0 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-076-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -167072,6 +167390,27 @@
         "src/gamez/zVideo",
         "src/gamez/zVisual",
         "src/gamez/zWeapon"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T04:14:04Z",
+            "by": "socom-verifier-apply8"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b6",
+            "submitted_at": "2026-11-01T04:08:01Z",
+            "summary": "apply of segment-076: 666 annotations, 146 files, 0 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -168009,7 +168348,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 076 under src/"
     },
     {
@@ -168113,10 +168452,6 @@
       "title": "Reconcile rodata data owners (5456 artifacts outside the segment slices)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T01:10:17Z",
-        "by": "socom-source-owner-scrutinizer-x29"
-      },
       "batch": {
         "artifact_count": 1001,
         "batch_number": 78,
@@ -168196,11 +168531,7 @@
         "plan build/source-plans/socom-work-source-data-data.json sha256:29893f7643dd98e741778e7d4c391094d82ef0612534d89bc8a5f0d9fff5260f; validate --check ok (0 problems, 3 review notes, shared units all agree); draft --check ok (865 drafted, 126 hand, 0 overrides); emit-check 0 findings",
         "plan sha256 29893f7643dd98e741778e7d4c391094d82ef0612534d89bc8a5f0d9fff5260f; validate --check ok (0 problems, 148 owners, 10 unresolved); draft --check ok (865 drafted, 126 hand, 0 overrides); emit-check 0; only change vs rejected c5822f49: __vt__3C2D 0x472b90 -> ztwod_main.cpp and __vt__9C2DBitmap 0x472d30 -> ztwod_bitmap.cpp (low; LOCAL R_MIPS_32 to own RTTI in clusters 0x459208/0x459478), rows identical to accepted source-data-rodata; earlier review: 14 low rows linked between flanks with class/reader support, 88 medium rows flanked by the same unit, no .data/.sdata owner-run splits, 441 shared rows agree, 0x474b7c compiler-generated per MW LinkSegment_PS2.lcf lines 98-107"
       ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-r2",
-        "submitted_at": "2026-11-01T01:09:13Z",
-        "summary": "data reconcile rework (x29): owners 148 (140 authored, 7 provider, 1 compiler-generated), unresolved 10, retire 0, open rows decided 136; added ztwod_main.cpp/ztwod_bitmap.cpp rows identical to accepted source-data-rodata and decided __vt__3C2D 0x472b90 / __vt__9C2DBitmap 0x472d30 into them (low, LOCAL R_MIPS_32 to own RTTI in clusters 0x459208/0x459478)"
-      },
+      "handoff": null,
       "id": "socom:work:source-data-data",
       "kind": "source-data-reconcile",
       "lease": null,
@@ -168221,11 +168552,34 @@
           "reason": "Plan sha256 c5822f49 (validate --check ok, draft --check ok 865 drafted/124 hand/0 overrides, emit-check 0). FINDING 1 (blocking): socom:data:0x472b90 __vt__3C2D and socom:data:0x472d30 __vt__9C2DBitmap are left unresolved until segment 041 unnamed objects are owned; that contradicts the 2026-10-31 ruling (proven unnamed objects are owned, provisional-file match) and the parallel rodata plan (sha 646c843b), which owns these same clusters as ztwod_main.cpp / ztwod_bitmap.cpp (name_basis provisional, low). Evidence (source sql): 0x472b90 is in socom:tu-cluster:0x459208 and its only LOCAL R_MIPS_32 targets __RTTI__3C2D 0x459278 in that cluster; 0x472d30 is in socom:tu-cluster:0x459478 with LOCAL R_MIPS_32 to __RTTI__9C2DBitmap 0x459548; neither cluster names a unit or library; .vtables order c2dline 0x472b30 < 0x472b90 < ztwod_poly 0x472bf0 and c2dstring 0x472cb0 < 0x472d30 < util_bufio 0x472d90 match text order c2dline < [0x300bf0-0x300d10] < ztwod_poly and c2dstring < [0x3030a0-0x303c60] < util_bufio. An object split between an owned RTTI (rodata) and an unresolved vtable (data) cannot be fixed later because a data reconcile is not reopened. FIX: add authored rows ztwod_main.cpp and ztwod_bitmap.cpp with fields identical to the rodata plan (workspace_path = provisional_file = src/gamez/zTwoD/ztwod_main.cpp resp. src/gamez/zTwoD/ztwod_bitmap.cpp, name_basis provisional, confidence low, no original_path); decide 0x472b90 / 0x472d30 into them (basis: cluster + LOCAL RTTI relocation + .vtables/text order); rerun validate --fill-annotations, validate --check, draft --check. Non-blocking (no change required): SCE row 0x171070 (gopt) lacks archive libmc.a / version 2500 of the accepted SCE plan, as accepted segment 013 does. Verified ok: all 14 low rows (owner linked between the flanking units in text, class or reader support, competitors leave them low); all 88 medium rows have both nearest placed neighbours in the same unit; 0 owner-run splits in .data/.sdata; 441 shared owner rows equal other plans (ztwod_font, zin_main, zcam_main, the 8 path rows, iostream.cpp, mwrtti.o); 5 vtable clusters wholly owned by their units; 0x474b7c compiler-generated is right (MW stationery LinkSegment_PS2.lcf lines 98-107: ALIGN(0x10), __exception_table_start/end, _overlay_group_addreses WRITEW ADDR(.main), __data_end); 15 fill rows match the CG precedent (SCE 0x15b0cc, unidentified 0x163f1c); CStack contradictions valid (zrndr_stack.cpp:6-7); other 10 unresolved name their competing definers (DVP .vudata matches 026/029).",
           "rejected_at": "2026-11-01T01:07:09Z",
           "rejected_by": "socom-source-owner-scrutinizer-x29"
+        },
+        {
+          "accepted": {
+            "at": "2026-11-01T01:10:17Z",
+            "by": "socom-source-owner-scrutinizer-x29"
+          },
+          "amended_at": "2026-11-01T20:11:57Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:007",
+          "evidence": [
+            "build/stage4/p-gnu-data-report.json and source plan draft --check --rules 7 (commits dd47974, fede205): gopt is the only accepted P-gnu-data row read from outside its library",
+            "reviewer socom-source-owner-scrutinizer-x32 finding during the review of amendments 001-006"
+          ],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-r2",
+            "submitted_at": "2026-11-01T01:09:13Z",
+            "summary": "data reconcile rework (x29): owners 148 (140 authored, 7 provider, 1 compiler-generated), unresolved 10, retire 0, open rows decided 136; added ztwod_main.cpp/ztwod_bitmap.cpp rows identical to accepted source-data-rodata and decided __vt__3C2D 0x472b90 / __vt__9C2DBitmap 0x472d30 into them (low, LOCAL R_MIPS_32 to own RTTI in clusters 0x459208/0x459478)"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-data-data.json sha256:29893f7643dd98e741778e7d4c391094d82ef0612534d89bc8a5f0d9fff5260f; validate --check ok (0 problems, 3 review notes, shared units all agree); draft --check ok (865 drafted, 126 hand, 0 overrides); emit-check 0 findings",
+            "plan sha256 29893f7643dd98e741778e7d4c391094d82ef0612534d89bc8a5f0d9fff5260f; validate --check ok (0 problems, 148 owners, 10 unresolved); draft --check ok (865 drafted, 126 hand, 0 overrides); emit-check 0; only change vs rejected c5822f49: __vt__3C2D 0x472b90 -> ztwod_main.cpp and __vt__9C2DBitmap 0x472d30 -> ztwod_bitmap.cpp (low; LOCAL R_MIPS_32 to own RTTI in clusters 0x459208/0x459478), rows identical to accepted source-data-rodata; earlier review: 14 low rows linked between flanks with class/reader support, 88 medium rows flanked by the same unit, no .data/.sdata owner-run splits, 441 shared rows agree, 0x474b7c compiler-generated per MW LinkSegment_PS2.lcf lines 98-107"
+          ],
+          "reason": "owner correction: GLOBAL gopt 0x438750 (read by database, options, main, st_core, thezoom and two hud units; by no libmc code) was drafted into SCE libmc GNU object 0x171070 by the P-gnu-data run-end defect; it belongs to one of the units linked between libmc and orders.cpp (database.cpp, getopt.cpp, options.cpp)"
         }
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Reconcile data data owners (1001 artifacts outside the segment slices)"
     },
     {
