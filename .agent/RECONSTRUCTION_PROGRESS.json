@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3384,
+  "revision": 3385,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -156325,6 +156325,10 @@
       "title": "Apply the reviewed source owners of segment 076 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T01:06:46Z",
+        "by": "socom-source-owner-scrutinizer-x30"
+      },
       "batch": {
         "artifact_count": 5456,
         "batch_number": 77,
@@ -156401,6 +156405,7 @@
         "socom:work:source-segment-076"
       ],
       "evidence": [
+        "plan build/source-plans/socom-work-source-data-rodata.json sha256:646c843b5d6452c48c4836d6f19ae35e3a2ae3dfbd0f955ca765314b77777a2f matches handoff; validate --check ok (0 problems, 4 review notes), draft --check ok (0 overrides, 5377 drafted, 78 hand), emit-check 0 findings; only D-referenced row 0x45ba80 is binding 13, not GLOBAL. (1) ztwod_main.cpp/ztwod_bitmap.cpp provisional rows own exactly data-only clusters 0x459208 (8) / 0x459478 (13), LOCAL blocks 6962-6969 / 7005-7017 between c2dline/ztwod_poly and c2dstring/util_bufio; accepted 041 names these files for the objects; grep: only ztwod_main.cpp defines C2D's virtuals, only ztwod_bitmap.cpp C2DBitmap's 14 members; 17 contradictions match ELF names (PC7CMatrix, GetTrans Fv, 5 binding-13 C2D copies, __dt__3C2D missing, C2D .sbss statics/Open/Init after c2dstring). Competing model (ztwod_main.cpp = the Open/Init+statics object) fits partly; rows are low, so acceptable. (2) Five seam rows are low; GLOBAL-opens-run is the accepted low basis of 014/015/016/052, and 030 deferred deletedId to this run's planner; scan of authored GLOBAL .rodata finds no anchored counterexample (only N_ATOMS 0x44f098 under 025's own low row); class identity verified (readers/members in ai_events, ent_main, seal, seal_ai, ai_mapdata); sinit order char_type 66<pickup_main 67<seal 68<seal_ai 69 holds; unresolved neighbours remain consistent (no accepted positive claim contradicted). (3) refs: each of the 9 statics is written only by its unit's __sinit (zmath_main 48, zmath_matrix 49 ctor in place, zmath_pnt3d 50, zmath_pnt4d 51, ai_path 11); __sinit_seal_ailines only reads identity__7CMatrix (operator const float(*)[4] then sceVu0CopyMatrix); positions agree with link order; medium ok. (4) No emits for binding-13 data matches 042 (0x459980) and 068 (0x4684d8); 61 RTTI rows sit in clusters 0x142830/0x2fda90/0x2fea10/0x3001b0/0x459c10/0x39d900 that the accepted mw-runtime/041/043/056 rows own with the same paths/archive_member; inline data first definers verified (seal_control 74 < seal_kit 80; game_main 024 vs zrdr_edit 029); infinite__8CAiTimer unresolved with a real reason; shared_units 154 all agree.",
         "plan build/source-plans/socom-work-source-data-rodata.json sha256:646c843b5d6452c48c4836d6f19ae35e3a2ae3dfbd0f955ca765314b77777a2f; validate --check ok (0 problems, 4 review notes); draft --check ok (0 overrides); emit-check 0 findings"
       ],
       "handoff": {
@@ -156416,7 +156421,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Reconcile rodata data owners (5456 artifacts outside the segment slices)"
     },
     {
