@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3325,
+  "revision": 3328,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -152963,16 +152963,17 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-042.json sha256:e88c2a079804a26a2e0d9e6f8df1bc7598688bcd1c824bd8fc598051c3947e3d; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs5",
+        "submitted_at": "2026-11-01T00:09:58Z",
+        "summary": "sweep: +1 emits, +0 notes, 0 data overrides, other fixes: implicit CVisBase dtor 0x30ddc0 -> src/gamez/zVisual/zvis.h:101; ODR note 5 corrected"
+      },
       "id": "socom:work:source-segment-042",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T23:59:09Z",
-        "expires_at": "2026-11-01T01:59:09Z",
-        "heartbeat_at": "2026-10-31T23:59:09Z",
-        "owner": "socom-source-owner-mapper-fs5"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -152994,7 +152995,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 042 (0x304b60-0x3103a0, 176 functions)"
     },
     {
@@ -153241,16 +153242,17 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-044.json sha256:49535c8051b8d5057a6df39d7380429c3f23433747a188ac1a5619e0fc87f704; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs5",
+        "submitted_at": "2026-11-01T00:10:00Z",
+        "summary": "sweep: +1 emits, +0 notes, 0 data overrides, other fixes: RTArray<zdb::CDecal> dtor 0x31f980 -> src/rt/rtarray.h:5 (template); src/rt added to the reservation (corrected); ODR note 5 corrected"
+      },
       "id": "socom:work:source-segment-044",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T23:59:11Z",
-        "expires_at": "2026-11-01T01:59:11Z",
-        "heartbeat_at": "2026-10-31T23:59:11Z",
-        "owner": "socom-source-owner-mapper-fs5"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -153272,7 +153274,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 044 (0x316de0-0x3205b8, 192 functions)"
     },
     {
@@ -154004,16 +154006,17 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-054.json sha256:75bb87e1c0b6ceaa780ed71fc4e15e11e268690be4de7133fc392acc8fc9b075; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs5",
+        "submitted_at": "2026-11-01T00:10:02Z",
+        "summary": "sweep: +3 emits, +3 notes, 0 data overrides, other fixes: CGameDlgDesign dtor/ctor 0x380ce0/0x380e10 -> zui.h:147, CGameMenu::GetReaderFileName 0x382ef0 -> zui.h (DWARF header unit, 5 units); +1 contradiction (zgame.h:115 declares CGameMenu); ODR note 1 corrected"
+      },
       "id": "socom:work:source-segment-054",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T23:59:12Z",
-        "expires_at": "2026-11-01T01:59:12Z",
-        "heartbeat_at": "2026-10-31T23:59:12Z",
-        "owner": "socom-source-owner-mapper-fs5"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -154035,7 +154038,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 054 (0x37a2a0-0x3853e4, 121 functions)"
     },
     {
