@@ -1246056,16 +1246056,16 @@
     }
   ],
   "source_correlation": {
-    "current_source_file_count": 316,
-    "exact_relative_path_count": 16,
+    "current_source_file_count": 354,
+    "exact_relative_path_count": 19,
     "original_z_dev_path_count": 52,
-    "requires_correlation_count": 36,
+    "requires_correlation_count": 33,
     "rows": [
       {
-        "current_exact_match": null,
+        "current_exact_match": "src/Apps/FTS/aidemo.cpp",
         "expected_relative_path": "src/Apps/FTS/aidemo.cpp",
         "original_path": "Z:\\dev\\Apps\\FTS\\aidemo.cpp",
-        "status": "requires-correlation"
+        "status": "exact-path"
       },
       {
         "current_exact_match": null,
@@ -1246308,10 +1246308,10 @@
         "status": "exact-path"
       },
       {
-        "current_exact_match": null,
+        "current_exact_match": "src/gamez/zCamera/zcamera.h",
         "expected_relative_path": "src/gamez/zcamera/zcamera.h",
         "original_path": "Z:\\dev\\gamez\\zcamera\\zcamera.h",
-        "status": "requires-correlation"
+        "status": "exact-path"
       },
       {
         "current_exact_match": "src/gamez/zEntity/zentity.h",
@@ -1246338,10 +1246338,10 @@
         "status": "exact-path"
       },
       {
-        "current_exact_match": null,
+        "current_exact_match": "src/gamez/zMath/zmath_matrix.h",
         "expected_relative_path": "src/gamez/zmath/zmath_matrix.h",
         "original_path": "Z:\\dev\\gamez\\zmath\\zmath_matrix.h",
-        "status": "requires-correlation"
+        "status": "exact-path"
       },
       {
         "current_exact_match": "src/gamez/zNode/znode.h",
