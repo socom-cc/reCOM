@@ -317,7 +317,7 @@ def test_workspace_issue_ledger_replaces_shadow_state(root: Path) -> None:
 
 def test_source_inventory(root: Path) -> None:
     owners = source_owners(root)
-    assert len(owners) == 316
+    assert len(owners) == 354  # 316 provisional files + 38 created by the stage-4 applies
     assert len({owner["id"] for owner in owners}) == len(owners)
 
 

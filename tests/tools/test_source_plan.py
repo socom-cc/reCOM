@@ -873,13 +873,14 @@ def test_reference_dry_run_decomposition(root: Path, stage3_tracker: dict, refer
     assert "socom:work:source-provider-speech-middleware" in {row["id"] for row in tracker["work_items"]}
     # Provider applies write nothing under src/.
     assert all(row["resources"] == [] for row in by_id.values() if row["kind"] == "source-apply-provider")
-    # zui_skb.cpp (segment 57) has no path or provisional file: its directory
-    # is inferred from the neighbouring zui_ units, not all of src.
+    # zui_skb.cpp (segment 57) has no original path; its directory is inferred
+    # (from the neighbouring zui_ units before stage 4 created the file).
     skb = by_id["socom:work:source-segment-057-apply"]
     assert skb["batch"]["tu_candidates"] == ["zui_skb.cpp"]
     assert skb["resources"] == ["src/gamez/zUI"] and skb["batch"]["resource_inferred"] is True
-    assert skb["batch"]["resource_basis"] == "neighbour-prefix"
-    assert "prefix 'zui' (segment 056 zui_cleanup.cpp; segment 056 zui_spec.cpp)" in skb["batch"]["resource_reason"]
+    # The stage-4 applies created src/gamez/zUI/zui_skb.cpp: the provisional file now names the directory.
+    assert skb["batch"]["resource_basis"] == "provisional-name"
+    assert "only a provisional file of that name lies in src/gamez/zUI" in skb["batch"]["resource_reason"]
     # A directory resting only on a provisional file's name is inferred too
     # (segment 017: zanim_cmd_tick.cpp has no original path).
     tick = by_id["socom:work:source-segment-017-apply"]["batch"]

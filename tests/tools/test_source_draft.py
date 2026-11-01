@@ -725,7 +725,8 @@ def test_reference_drafts_of_the_calibration_items(root: Path, reference_source_
     assert {row["artifact"] for row in tick["unresolved"]} == {
         "socom:function:0x1bc4a0", "socom:function:0x1bd170", "socom:function:0x1bfe80",
     }
-    assert tick["draft"]["open_owner_rows"] == ["zanim_load.cpp"]
+    # The stage-4 applies created src/gamez/zAnim/zanim_load.cpp, so its owner row is no longer open.
+    assert tick["draft"]["open_owner_rows"] == []
     assert tick["reservation"]["status"] == "inferred"
     crt0 = draft_owner_plan(root, tracker, "socom:work:source-provider-crt0", graph, facts, rules=1, section_of=section_of)
     (owner,) = crt0["owners"]
