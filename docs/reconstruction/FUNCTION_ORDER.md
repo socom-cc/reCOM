@@ -34,7 +34,9 @@ provisional bodies move into place, and stubs are marked. Static checks
 written order predicts the target and that annotations are unchanged. Each
 segment's apply runs both and is accepted by an independent verifier (B3).
 These are not stage evidence. The mangler the signature check uses is
-registered (see [Metrowerks name mangling](#metrowerks-name-mangling)).
+registered (see [Metrowerks name mangling](#metrowerks-name-mangling)), and so
+are the generator's read-only inputs (`order skeleton manifest`, capability
+`function-order-skeleton-inputs`; see [Skeleton manifests](#skeleton-manifests)).
 
 **Phase C, needs the exact compiler.** A probe harness compiles a unit and
 reads its object's section and symbol order (C1). The emission rule is
@@ -592,3 +594,188 @@ seal_unit, plus 15 data rows, mostly static-initializer order. The
 rows are hud_linemap's `CAiLinePtItr` members. The `interleaved` rows are
 seal_ai's local-static copies. Every draft validates, with no mismatch
 under the rule. The other 36 segments need only review.
+
+## Skeleton manifests
+
+Phase B round 1 registers the skeleton generator's inputs. The design is
+`build/stage5/PHASE_B_DESIGN.md` with its decisions BD1-BD8.
+`order skeleton manifest` is read-only. It writes nothing under `src/`
+and changes no tracker state:
+
+```powershell
+python tools/socom.py order skeleton manifest --output build/stage5/skeleton-manifest.json
+python tools/socom.py order skeleton manifest --segment 35 --output build/stage5/skeleton-035.json
+```
+
+It reads these inputs and refuses to run if any check fails:
+
+- **Order plans.** It reads all 46 segment plans and the link plan. Each
+  must be accepted, at the SHA-256 its acceptance evidence cites, and built
+  against the current order target and stage 4 baseline.
+- **Stage 3 facts.** It reads the cached closeout receipt
+  `build/closeout-ghidra-reconstruction/receipt-stage-2.json` and its
+  fingerprint `fp-closeout.json`.
+  - The receipt's own digest must hold. Its function-index digest must equal
+    the stage 3 baseline's.
+  - The fingerprint's data digest must equal the baseline's.
+  - `--receipt` reads a `ghidra receipt --scope` export instead; the same
+    function-index check applies.
+  - The digests are cached in `build/cache/skeleton-stage3-digests.json`,
+    keyed by each file's SHA-256.
+- **Graph and ELF facts.** It reads the source cache (artifacts, relocations,
+  DWARF header units), DWARF 1 (variable types, class keys, inheritance) and
+  the ELF image.
+- **Source.** It scans every file under `src/` (`tools/_socom/cxx_scan.py`).
+  `source_apply.parse_blocks` sets the stage 4 annotation blocks aside, so
+  line numbers count the authored content only.
+
+The scanner tokenizes each file and tracks its scopes: namespaces,
+`extern "C"`, class bodies and their members, enums, typedefs, forward
+declarations, definitions with exact spans, prototypes and file-scope
+variables. Its lookup goes from the innermost scope outwards. It covers the
+injected class name, the declarator's own scope for parameters, typedef
+substitution, and the MSL `<cstdint>` names, `size_t` and newlib's `FILE`
+(`__sFILE`, as the ELF spells it). The class and namespace chains the ELF's
+names prove are entities too. Base-class scopes, template class members and
+macros in declarators are not modelled. They show up as mismatches, never as
+silent matches.
+
+The manifest (`socom-order-skeleton-manifest`, with a `manifest_sha256` over
+its canonical JSON) has four parts.
+
+**Signatures.** One entry per planned function. It records the mangled name
+and its structured form. Each scope component gets a kind: `namespace` only
+where `src` declares that namespace, `anonymous-namespace`, otherwise `class`.
+Member kind and return type each record a source (BD1):
+
+- `stage3`: the receipt's prototype. An explicit `this` makes an instance
+  member; no `this` with the mangled arity makes a static one.
+- `rule`: constructors, destructors and vtable-slot targets are instance
+  members. Constructors, destructors and conversions need no return type.
+- `provisional`: the declaration `src` already has, matched by exact mangled
+  name. A BD6 body's own return type counts here too.
+- `unproven`: written as an instance member returning `void`.
+
+The entry also records `const`, `extern "C"` for the two C-linkage rows, and
+both texts: the in-class declaration and the out-of-line definition head.
+Names in those texts are qualified so that lookup finds the intended entity.
+That means a leading `::` where an inner scope would hide the name, and the
+anonymous namespace left implicit (the head is written inside its unit's
+`namespace { }`). **S1** parses the definition head back with `src`'s tables
+and mangles it. The result must equal the ELF name, and every failure is
+reported with its reason.
+
+**Declarations.** One record per class the planned rows need:
+
+- its existing body (path, lines, key), or, for a new body, where it goes.
+  The places are tried in order: the DWARF header unit, a provisional
+  forward declaration, the enclosing class's body, the unit's own source file
+  (anonymous namespace), the directory's `_local.h` (a class only one unit
+  uses), the header the directory's sources include most, or a new module
+  header;
+- its key (`src`, else DWARF);
+- the members to add (BD2: additive);
+- the in-class bodies of rows planned out of line;
+- its vtable slots in order from the ELF relocations, each classed own,
+  inherited, thunk or pure, and the virtuals to declare, new or override
+  against the primary base's vtable;
+- its bases, from the RTTI base list (offset, direct or indirect), with DWARF
+  access, or from DWARF inheritance alone when the class has no RTTI;
+- its static data members.
+
+Per named type, a full definition is needed when the type is used by value or
+as a scope; otherwise a forward declaration is enough.
+
+**Bodies.** Every provisional definition is mapped by exact mangled name,
+overloads included. That covers namespace-scope definitions in `.cpp` files
+and in-class header bodies of out-of-line rows. Each gets one action:
+
+| Action | When |
+| --- | --- |
+| `move-in-place` | its own unit's row |
+| `cross-file-move` | another unit's row (`recipient`) |
+| `move-out-of-line` | a header in-class body of an out-of-line row |
+| `bd4-holding` | a copy-only body, an artifact no planned unit owns, or code with no ELF function that would emit one; it goes to the module's unbuilt `<module>_holding.cpp` |
+| `bd6-declarator-rewrite` | the one unclaimed planned row of that scope and name; its declarator contradicts that row, and `rewrite` gives the declarator to write |
+| `preamble` | inline or template code with no ELF function (it emits nothing) |
+| `judgment` | an overload tie, an exact name in several other units, or an unparsed declarator |
+
+Each file entry records:
+
+- its unit, or that it is an orphan, and whether it would be empty after the
+  moves;
+- its stage 4 blocks and authored-content digest;
+- its file-scope data definitions, mapped to data rows;
+- its preamble counts.
+
+The frozen snapshot `build/stage5/provisional-bodies.json`
+(`socom-provisional-bodies`) holds every body's path, line span, SHA-256 and
+text. Moves read from it, so donor and recipient applies stay independent.
+It is written once; later runs only compare it. If it changed, the command
+reports it stale and exits 1. `--refresh-snapshot` replaces it, before any
+apply starts.
+
+**Data.** One entry per planned data row, with its type and source (BD5).
+Sources are tried in order: the DWARF variable record, the stage 3 type of
+the same size, the provisional declaration of the same size, then a type
+built from the direct load and store widths. That last one, and the byte
+array used when nothing else applies, are flagged `unproven`. The entry also
+records:
+
+- the initializer from the ELF bytes: relocated words as `&symbol` (string
+  literals as text), explicit zeros, none for nobits; rendered for scalars and
+  arrays of scalars;
+- `const` for `.rodata`;
+- the storage: `static` (LOCAL), local static (with its owning function) or
+  external;
+- the expected section.
+
+The report prints S1 and the judgment list first, then the counts in total
+and per segment. Judgment kinds are S1 failures, overload ties, signature
+contradictions, by-value types `src` does not declare, copy-only and unowned
+bodies, ambiguous owners, unparsed bodies, and local statics without one
+owning function.
+
+**Measured (2026-11-01, tracker revision 3929, all 46 plans).** A full run
+takes about 10 s once the stage 3 digests are cached.
+
+- **S1:** 4,636 of 4,638 planned functions pass. The 2 failures are the
+  members of zui_skb.cpp's function-local class `CSoftKeyboard::Local`
+  (`Local$2354`), which cannot be defined out of line. Over every authored
+  non-copy ELF function (4,822) these are the only failures.
+- **Judgment (268 rows):**
+
+  | Kind | Rows |
+  | --- | --- |
+  | signature contradictions (BD6) | 109 |
+  | by-value types `src` does not declare | 70 |
+  | unowned bodies | 36 |
+  | copy-only bodies | 23 |
+  | local statics without one owning function | 16 |
+  | overload ties | 11 |
+  | S1 failures | 2 |
+  | unparsed body (`LOCALE_PARAM` macro in posix/strcasecmp.cpp) | 1 |
+
+- **Bodies (898):** 846 namespace-scope definitions in 123 `.cpp` files, plus
+  52 header in-class bodies. The design measured 606: its scan skipped
+  definitions inside `namespace zar/zdb/sealai { }` blocks.
+
+  | Action | Bodies |
+  | --- | --- |
+  | move in place | 464 |
+  | cross-file move | 137 |
+  | BD4 holding | 124 |
+  | BD6 rewrite | 109 |
+  | move out of line | 52 |
+  | judgment | 12 |
+
+  All 57 orphan `.cpp` files would be empty after the moves.
+- **Classes (434):** 270 with a body and 164 new. They need 3,118 members
+  added, 646 static data members and 870 virtual declarations.
+- **Member kind:** 2,862 from stage 3, 574 by rule, 56 provisional and 394
+  unproven; 752 functions are not members.
+- **Return type:** 2,629 from stage 3, 279 provisional, 301 not needed and
+  1,429 unproven.
+- **Data (1,862):** types from DWARF 446, stage 3 83, provisional 65,
+  access width 953 and unproven 315. Initializers: 443 from ELF bytes (409
+  rendered), 71 explicit zeros and 1,348 nobits.

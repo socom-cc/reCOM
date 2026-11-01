@@ -92,6 +92,20 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "digests current (stale: re-draft); a link plan must equal the current link-order specification; --check "
             "also fails on open rows; --output writes the full report under build/.",
         ),
+        spec(
+            "order skeleton manifest",
+            "order",
+            "Read-only stage 5 phase B inputs over the accepted order plans (each at the SHA-256 its acceptance cites), "
+            "the stage 3 receipt (function-index digest equal to the stage 3 baseline's), DWARF, the ELF and src/: per "
+            "planned function its signature (mangled and structured name, scope kinds, static/instance and return type "
+            "each with its source, const, extern \"C\", the declarator) and S1 (the written declarator parsed back "
+            "mangles to the ELF name); per class its body or new header, members to add, virtuals in vtable-slot order, "
+            "bases and static data members; every provisional body mapped by exact mangled name to its row and action "
+            "(move, cross-file move, BD4 holding, BD6 declarator rewrite); per data row its type and source, ELF "
+            "initializer and section; the rows needing judgment and counts per segment; writes the frozen body snapshot "
+            "build/stage5/provisional-bodies.json once (then only compares it; --refresh-snapshot replaces it); --output "
+            "writes the manifest (with manifest_sha256) under build/.",
+        ),
     )
 
 
@@ -155,6 +169,19 @@ def register(commands: Any) -> None:
     validate.add_argument("--output", help="write the full report as JSON under build/")
     validate.add_argument("--graph", default=DEFAULT_GRAPH)
     validate.set_defaults(handler=_order_plan_validate)
+    skeleton = order_commands.add_parser("skeleton")
+    skeleton_commands = skeleton.add_subparsers(dest="order_skeleton_command", required=True)
+    manifest = skeleton_commands.add_parser("manifest")
+    which = manifest.add_mutually_exclusive_group()
+    which.add_argument("--segment", type=int, help="the rows of one segment plan (its number)")
+    which.add_argument("--all", action="store_true", help="every planned row (the default)")
+    manifest.add_argument("--output", help="write the manifest as JSON under build/")
+    manifest.add_argument("--snapshot", default="build/stage5/provisional-bodies.json",
+                          help="the frozen provisional-body snapshot under build/ (written once, then compared)")
+    manifest.add_argument("--refresh-snapshot", action="store_true", help="replace the snapshot with the current bodies")
+    manifest.add_argument("--receipt", help="a `ghidra receipt --scope` export under build/ (default: the stage 3 closeout receipt)")
+    manifest.add_argument("--graph", default=DEFAULT_GRAPH)
+    manifest.set_defaults(handler=_order_skeleton_manifest)
 
 
 def _path(root: Path, value: str) -> Path:
@@ -438,6 +465,32 @@ def _order_plan_decide(arguments: argparse.Namespace) -> int:
         }
     )
     return 0
+
+
+def _order_skeleton_manifest(arguments: argparse.Namespace) -> int:
+    from .cli import _build_path, _emit, _root
+    from .constants import tracker_path
+    from .order_skeleton import build_manifest, headline, settle_snapshot
+    from .tracker import load_tracker
+    from .util import atomic_write_json
+
+    root = _root(arguments)
+    output = _build_path(root, arguments.output, "skeleton manifests") if arguments.output else None
+    snapshot_path = _build_path(root, arguments.snapshot, "body snapshots")
+    receipt = _build_path(root, arguments.receipt, "receipt exports") if arguments.receipt else None
+    manifest, snapshot = build_manifest(
+        root, load_tracker(tracker_path(root)), graph_path=_path(root, arguments.graph), receipt_path=receipt,
+        segment=arguments.segment,
+    )
+    snapshot_state = settle_snapshot(snapshot_path, snapshot, refresh=arguments.refresh_snapshot)
+    if output is not None:
+        atomic_write_json(output, manifest)
+    ok = snapshot_state["status"] != "stale"
+    report = {"ok": ok, "mutation_performed": False, "output": arguments.output, "snapshot": {"path": arguments.snapshot, **snapshot_state}}
+    if not ok:
+        report["note"] = "src/ changed since the snapshot was frozen: pass --refresh-snapshot only if no skeleton apply has started"
+    _emit({**report, **headline(manifest)})
+    return 0 if ok else 1
 
 
 def _order_plan_validate(arguments: argparse.Namespace) -> int:
