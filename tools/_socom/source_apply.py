@@ -36,12 +36,14 @@ Assembly files (``.s``) use ``#`` line comments instead.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import re
 from pathlib import Path
 from typing import Any, Callable
 
 from .source import annotation_files
+from .tracker import open_source_amendments
 from .source_plan import (
     DATA_RECONCILE_KIND,
     PROVIDER_APPLY_KIND,
@@ -77,6 +79,7 @@ APPLY_EVIDENCE_PREFIXES = (
     "source-created ",
     "source-retired ",
     "source-provider-member ",
+    "source-reapply ",
 )
 _SHOWN = 12
 
@@ -139,25 +142,35 @@ def cited_plan(root: Path, tracker: dict[str, Any], plan_item_id: str) -> tuple[
     return plan, relative, sha
 
 
+def reapply_amendments(tracker: dict[str, Any], apply_id: str) -> list[str]:
+    """The open amendments that send ``apply_id`` back for re-apply (``progress amend-source-plan``)."""
+
+    return sorted(str(row.get("id")) for row in open_source_amendments(tracker) if apply_id in (row.get("applies") or []))
+
+
 def applied_state(tracker: dict[str, Any], plan_item_id: str, plan_sha256: str) -> dict[str, Any] | None:
     """The moves, creates and retired files every source apply recorded, or ``None``.
 
     A unit owned in several plans keeps one workspace file, so a plan may
     find its file already moved or created (or a shared retired file gone)
     by another plan's apply.  The plan's own record counts only when it
-    names ``plan_sha256``.  ``source_plan.validate_source_plan`` checks
-    these paths in their applied state.
+    names ``plan_sha256``, or while an open amendment sends its apply back
+    for re-apply: the files it moved, created and retired stay applied, and
+    the revised plan is checked against them.  ``source_plan.validate_source_plan``
+    checks these paths in their applied state.
     """
 
     moves: list[dict[str, Any]] = []
     created: set[str] = set()
     retired: list[dict[str, Any]] = []
     found = False
+    own = f"{plan_item_id}-apply"
+    amended = bool(reapply_amendments(tracker, own))
     for item in tracker.get("work_items", []):
         record = item.get("source_apply")
         if item.get("kind") not in SOURCE_APPLY_KINDS or not isinstance(record, dict):
             continue
-        if item.get("id") == f"{plan_item_id}-apply" and record.get("plan_sha256") != plan_sha256:
+        if item.get("id") == own and record.get("plan_sha256") != plan_sha256 and not amended:
             continue
         found = True
         moves.extend(row for row in record.get("moves") or [] if isinstance(row, dict))
@@ -614,6 +627,8 @@ def _record_lines(record: dict[str, Any]) -> list[str]:
     if record.get("reservation", {}).get("status") != "none":
         reservation = record["reservation"]
         lines.append(f"source-reservation {reservation['status']} {', '.join(reservation['directories'])}")
+    if record.get("amendments"):
+        lines.append(f"source-reapply {' '.join(record['amendments'])}")
     lines.extend(f"source-file {row['path']} sha256:{row['sha256']}" for row in record["files"])
     lines.extend(f"source-moved {row['from']} -> {row['to']}" for row in record["moves"])
     lines.extend(f"source-created {path}" for path in record["created"])
@@ -645,7 +660,9 @@ def prepare_apply(
     plan_item = _by_id(tracker)[plan_item_id]
     plan, relative, sha = cited_plan(root, tracker, plan_item_id)
     previous = item.get("source_apply") if isinstance(item.get("source_apply"), dict) else None
-    applied = previous if previous and previous.get("plan_sha256") == sha else None
+    # A re-apply for an open amendment starts from the files the previous apply left.
+    amendments = reapply_amendments(tracker, item_id)
+    applied = previous if previous and (previous.get("plan_sha256") == sha or amendments) else None
     merged = applied_state(tracker, plan_item_id, sha)
     report = validate_source_plan(root, tracker, plan, graph, section_of=section_of, applied=merged)
     if not report["ok"]:
@@ -672,6 +689,8 @@ def prepare_apply(
         "reconciles": [],
         "applied_by": owner,
     }
+    if amendments:
+        record["amendments"] = amendments
     if item["kind"] == PROVIDER_APPLY_KIND:
         writes = [
             name
@@ -766,6 +785,16 @@ def record_apply(item: dict[str, Any], record: dict[str, Any], applied_at: str) 
     """Store an apply's record and evidence lines on its item; re-reserve a corrected reservation."""
 
     record = dict(record, applied_at=applied_at)
+    previous = item.get("source_apply")
+    if (
+        record.get("amendments")
+        and isinstance(previous, dict)
+        and sorted(previous.get("amendments") or []) != record["amendments"]
+    ):
+        # The first re-apply for an open amendment replaces the record; the history keeps it.
+        item.setdefault("review_history", []).append(
+            {"amendments": list(record["amendments"]), "replaced_at": applied_at, "source_apply": copy.deepcopy(previous)}
+        )
     item["source_apply"] = record
     kept = [text for text in item.get("evidence") or [] if not str(text).startswith(APPLY_EVIDENCE_PREFIXES)]
     item["evidence"] = sorted(set(kept) | set(_record_lines(record)))

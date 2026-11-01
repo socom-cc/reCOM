@@ -58,7 +58,16 @@ from .source_plan import (
     validate_source_plan,
     verify_graph,
 )
-from .tracker import RECON_STAGE, _iso, _utc_now, audit_tracker, scope_sha256, stage_live_scope
+from .tracker import (
+    RECON_STAGE,
+    _iso,
+    _utc_now,
+    amended_items,
+    audit_tracker,
+    open_source_amendments,
+    scope_sha256,
+    stage_live_scope,
+)
 from .util import SocomError, canonical_json, sha256_file
 
 GATE_RECORD_KIND = "socom-source-gate-review"
@@ -112,15 +121,26 @@ def _refusal(what: str, problems: list[str]) -> str:
 # -- independence ---------------------------------------------------------------------
 
 
-def stage_workers(tracker: dict[str, Any]) -> set[str]:
-    """Everyone who handed off stage 4 work: planners, reconcilers and apply workers (the gate excluded)."""
+def stage_workers(tracker: dict[str, Any], before: str | None = None) -> set[str]:
+    """Everyone who handed off stage 4 work: planners, reconcilers and apply workers (the gate excluded).
+
+    With ``before`` (an ISO time), only handoffs submitted by then count: an
+    accepted gate's independence is judged against the work it reviewed, not
+    against later amendment work.
+    """
 
     owners: set[str] = set()
     for item in _stage_items(tracker):
         if item.get("id") == SOURCE_SEED_ID:
             continue
         handoffs = [item.get("handoff")] + [entry.get("handoff") for entry in item.get("review_history") or [] if isinstance(entry, dict)]
-        owners.update(str(row["owner"]) for row in handoffs if isinstance(row, dict) and row.get("owner"))
+        owners.update(
+            str(row["owner"])
+            for row in handoffs
+            if isinstance(row, dict)
+            and row.get("owner")
+            and (before is None or str(row.get("submitted_at") or "") <= before)
+        )
     return owners
 
 
@@ -708,6 +728,8 @@ def accept_source_gate(
 def audit_source_gate(tracker: dict[str, Any]) -> list[str]:
     """Tracker-only checks of the gate record and the file-stage baseline (``progress audit``)."""
 
+    from .source_amend import audit_amendments, effective_deferrals
+
     errors: list[str] = []
     by_id = _by_id(tracker)
     gate = by_id.get(SOURCE_SEED_ID)
@@ -719,6 +741,9 @@ def audit_source_gate(tracker: dict[str, Any]) -> list[str]:
         return errors
     status = gate.get("status")
     record = gate.get("source_gate")
+    if (stage.get("amendments") or stage.get("baseline_history")) and status != "accepted":
+        errors.append(f"{SOURCE_STAGE} records amendments or a baseline history before its gate is accepted")
+        return errors
     if status in ("awaiting_acceptance", "accepted") and not isinstance(record, dict):
         errors.append(f"{SOURCE_SEED_ID} is {status} without a gate review record ({HANDOFF_ROUTE})")
         return errors
@@ -737,7 +762,8 @@ def audit_source_gate(tracker: dict[str, Any]) -> list[str]:
     deferrals, problems = normalize_deferrals(deferral_body(record.get("deferrals")))
     if problems or deferrals != record.get("deferrals"):
         errors.append(f"{SOURCE_SEED_ID} gate review record holds malformed deferrals")
-    workers = stage_workers(tracker)
+    accepted_at = (gate.get("accepted") or {}).get("at") if status == "accepted" else None
+    workers = stage_workers(tracker, before=str(accepted_at) if accepted_at else None)
     names = [record.get("reviewed_by")]
     if status == "awaiting_acceptance":
         state = record.get("state")
@@ -756,18 +782,28 @@ def audit_source_gate(tracker: dict[str, Any]) -> list[str]:
             errors.append(f"{SOURCE_STAGE} gate is accepted without its file-stage baseline")
             return errors
         names.append(accepted.get("by"))
-        state = baseline.get("state")
-        sha = baseline.get("baseline_sha256")
-        if baseline.get("kind") != BASELINE_KIND or baseline.get("schema_version") != BASELINE_SCHEMA:
-            errors.append(f"{SOURCE_STAGE} baseline must be {BASELINE_KIND} schema {BASELINE_SCHEMA}")
-            return errors
-        if not isinstance(state, dict) or state_sha256(state) != sha or sha != record.get("baseline_sha256"):
+        # The gate's own baseline is the first of the chain; an accepted
+        # amendment records a later one (``source_amend``).
+        history = stage.get("baseline_history") if isinstance(stage.get("baseline_history"), list) else []
+        first = history[0] if history and isinstance(history[0], dict) else baseline
+        for entry in (first, baseline):
+            if entry.get("kind") != BASELINE_KIND or entry.get("schema_version") != BASELINE_SCHEMA:
+                errors.append(f"{SOURCE_STAGE} baseline must be {BASELINE_KIND} schema {BASELINE_SCHEMA}")
+                return errors
+        reviewed = first.get("state")
+        if not isinstance(reviewed, dict) or state_sha256(reviewed) != first.get("baseline_sha256") or first.get("baseline_sha256") != record.get("baseline_sha256"):
             errors.append(f"{SOURCE_STAGE} baseline state differs from its digest or the reviewed digest")
             return errors
-        if baseline.get("accepted_by") != accepted.get("by") or baseline.get("reviewed_by") != record.get("reviewed_by"):
+        if first.get("accepted_by") != accepted.get("by") or first.get("reviewed_by") != record.get("reviewed_by"):
             errors.append(f"{SOURCE_STAGE} baseline names a reviewer or accepter other than its gate's")
         if accepted.get("by") == record.get("reviewed_by"):
             errors.append(f"{SOURCE_SEED_ID} was accepted by its reviewer")
+        state = baseline.get("state")
+        sha = baseline.get("baseline_sha256")
+        if not isinstance(state, dict) or state_sha256(state) != sha:
+            errors.append(f"{SOURCE_STAGE} current baseline state differs from its digest")
+            return errors
+        errors.extend(audit_amendments(tracker))
         cited = stage.get("accepted_evidence") or []
         if f"{BASELINE_CITATION}{sha}" not in cited:
             errors.append(f"stage {SOURCE_STAGE} accepted evidence omits its file-stage baseline")
@@ -784,14 +820,16 @@ def audit_source_gate(tracker: dict[str, Any]) -> list[str]:
         recorded = {row.get("item"): row for row in state.get("plans") or [] if isinstance(row, dict)}
         if set(recorded) != set(plans):
             errors.append(f"{SOURCE_STAGE} baseline plans differ from the stage's plan items")
+        # An open amendment revises and re-applies these: they differ from the baseline until it is accepted.
+        amended = amended_items(tracker)
         for item_id, row in sorted(recorded.items(), key=lambda pair: str(pair[0])):
             item = plans.get(item_id)
             if item is None:
                 continue
             sha256 = str(row.get("plan_sha256"))
-            if len(sha256) != 64 or not any(sha256 in str(text) for text in item.get("evidence") or []):
+            if item_id not in amended and (len(sha256) != 64 or not any(sha256 in str(text) for text in item.get("evidence") or [])):
                 errors.append(f"{item_id} evidence does not cite its baseline plan SHA-256")
-            if item.get("kind") != DATA_RECONCILE_KIND:
+            if item.get("kind") != DATA_RECONCILE_KIND and f"{item_id}-apply" not in amended:
                 record_apply = (by_id.get(f"{item_id}-apply") or {}).get("source_apply") or {}
                 if record_apply.get("plan_sha256") != sha256 or record_apply.get("owner_map_sha256") != row.get("owner_map_sha256"):
                     errors.append(f"{item_id}-apply record differs from the baseline plan and owner map")
@@ -799,10 +837,12 @@ def audit_source_gate(tracker: dict[str, Any]) -> list[str]:
         if unresolved != sum(int(row.get("unresolved_count") or 0) for row in recorded.values()):
             errors.append(f"{SOURCE_STAGE} baseline unresolved count differs from its plans")
         deferred = state.get("deferrals") or {}
+        in_force, delta_problems = effective_deferrals(tracker)
+        errors.extend(delta_problems)
         if (
-            deferred.get("sha256") != _digest(deferral_body(record.get("deferrals")))
+            deferred.get("sha256") != _digest(deferral_body(in_force))
             or deferred.get("artifact_count") != unresolved
-            or deferred.get("artifact_count") != sum(len(row.get("artifacts") or []) for row in record.get("deferrals") or [])
+            or deferred.get("artifact_count") != sum(len(row.get("artifacts") or []) for row in in_force)
         ):
             errors.append(f"{SOURCE_STAGE} baseline deferrals do not cover exactly its unresolved artifacts")
     for name in names:
@@ -821,22 +861,38 @@ def audit_baseline_files(root: Path, tracker: dict[str, Any], *, strict: bool) -
     under the disposable ``build/``: a missing one is reported as unavailable,
     and is an error with ``--strict``. A changed plan file is always an error.
     Later stages edit source bodies, so the applied files' digest is reported
-    for information only.
+    for information only. The checks use the stage's current baseline (the
+    last amendment's, if any), and ``progress audit`` validates the history
+    chain. An open amendment is reported, not an error: its plan file may
+    change, and once one of its applies is re-applied the edges may differ
+    until ``progress accept-source-amendment`` records the next baseline.
     """
 
     errors = audit_source_gate(tracker)
-    baseline = _stage_row(tracker, SOURCE_STAGE).get("baseline")
+    stage = _stage_row(tracker, SOURCE_STAGE)
+    baseline = stage.get("baseline")
     if not isinstance(baseline, dict) or baseline.get("kind") != BASELINE_KIND or not isinstance(baseline.get("state"), dict):
         return {"ok": not errors, "recorded": False, "errors": errors}
     state = baseline["state"]
+    # An open amendment may change its plan file and, once re-applied, the edges.
+    opened = open_source_amendments(tracker)
+    amended_plans = {str(row.get("item")) for row in opened}
+    by_id = _by_id(tracker)
+    reapplied = sorted(
+        apply_id
+        for row in opened
+        for apply_id in row.get("applies") or []
+        if row.get("id") in (((by_id.get(apply_id) or {}).get("source_apply") or {}).get("amendments") or [])
+    )
     unavailable: list[str] = []
     changed: list[str] = []
+    amended: list[str] = []
     for row in state.get("plans") or []:
         path = root / str(row.get("plan"))
         if not path.is_file():
             unavailable.append(str(row.get("plan")))
         elif sha256_file(path) != row.get("plan_sha256"):
-            changed.append(str(row.get("plan")))
+            (amended if row.get("item") in amended_plans else changed).append(str(row.get("plan")))
     if changed:
         errors.append(f"{len(changed)} accepted plan files changed after the gate: {_shown(changed)}")
     if unavailable and strict:
@@ -844,22 +900,32 @@ def audit_baseline_files(root: Path, tracker: dict[str, Any], *, strict: bool) -
     parsed = source_artifacts(root)
     edges = sorted({(row["relation"], row["section"], row["artifact_id"], row["path"]) for row in parsed["artifacts"]})
     annotations = state.get("annotations") or {}
-    if _digest([list(edge) for edge in edges]) != annotations.get("sha256"):
+    edges_match = _digest([list(edge) for edge in edges]) == annotations.get("sha256")
+    if not edges_match and not reapplied:
         errors.append(
             f"the @socom-artifact edges under src/ ({len(edges)}) differ from the baseline's "
             f"({annotations.get('edge_count')}): annotations change only through accepted {SOURCE_STAGE} work"
+            + (" (no amended apply is re-applied yet)" if opened else "")
         )
     files = _applied_files(root, tracker)
     return {
         "ok": not errors,
         "recorded": True,
         "baseline_sha256": baseline.get("baseline_sha256"),
+        "baseline_history_count": len(stage.get("baseline_history") or []),
         "plan_count": len(state.get("plans") or []),
         "unavailable_plan_count": len(unavailable),
         "annotation_edge_count": len(edges),
         "unresolved_count": (state.get("unresolved") or {}).get("count"),
         "deferral_count": (state.get("deferrals") or {}).get("count"),
         "apply_files_unchanged": _digest(files) == (state.get("apply_files") or {}).get("sha256"),
+        # Open amendments are reported, not errors: the baseline holds until they are re-applied.
+        "open_amendments": [
+            {"id": row.get("id"), "item": row.get("item"), "applies": row.get("applies")} for row in opened
+        ],
+        "amended_plan_files": amended,
+        "reapplied": reapplied,
+        "annotation_edges_pending_amendment": not edges_match and bool(reapplied),
         "errors": errors,
     }
 

@@ -65,6 +65,29 @@ RECON_SEED_ID = "socom:work:ghidra-reconstruction-seed"
 RECON_PLAN_RESOURCES = ["build/recon-plans"]
 
 
+def open_source_amendments(tracker: dict[str, Any]) -> list[dict[str, Any]]:
+    """The open amendments of the accepted stage 4 (``progress amend-source-plan``)."""
+
+    stage = next((row for row in tracker.get("stages", []) if row.get("name") == SOURCE_STAGE), {})
+    return [
+        row for row in stage.get("amendments") or [] if isinstance(row, dict) and row.get("status") == "open"
+    ]
+
+
+def amended_items(tracker: dict[str, Any]) -> set[str]:
+    """Plan and apply items that an open stage 4 amendment sends back for revision and re-apply.
+
+    While an amendment is open the stage stays accepted, and an accepted
+    stage 4 item may wait for these items (its acceptance stands).
+    """
+
+    items: set[str] = set()
+    for row in open_source_amendments(tracker):
+        items.add(str(row.get("item")))
+        items.update(str(value) for value in row.get("applies") or [])
+    return items
+
+
 def _zero_fill_memory_item(foundation_apply_id: str) -> dict[str, Any]:
     return {
         "id": ZERO_FILL_MEMORY_ID,
@@ -861,6 +884,7 @@ def audit_tracker(
     if len(ids) != len(set(ids)):
         errors.append("work item IDs are not unique")
     known = set(ids)
+    amended = amended_items(tracker)
     for item in items:
         item_id = item.get("id")
         if not isinstance(item_id, str) or not item_id.startswith(
@@ -1081,6 +1105,10 @@ def audit_tracker(
                 for dep in item.get("dependencies", [])
                 if _work_by_id(tracker)[dep]["status"] != "accepted"
             ]
+            if unmet and item.get("stage") == SOURCE_STAGE and set(unmet) <= amended:
+                # An accepted stage 4 item keeps its acceptance while an open
+                # amendment revises and re-applies the items it waits for.
+                unmet = []
             if unmet:
                 errors.append(f"{item_id} is accepted before dependencies {unmet}")
         lease = item.get("lease")
@@ -1385,13 +1413,18 @@ def _refresh_ready_and_stages(tracker: dict[str, Any]) -> None:
         if all(items[dep]["status"] == "accepted" for dep in item["dependencies"]):
             item["status"] = "ready"
 
+    # An open amendment of the accepted stage 4 keeps the stage accepted.
+    amended = amended_items(tracker)
     for stage in tracker["stages"]:
         stage_items = [
             item for item in tracker["work_items"] if item["stage"] == stage["name"]
         ]
         if stage["name"] == "reference-census":
             stage["status"] = "accepted"
-        elif stage_items and all(item["status"] == "accepted" for item in stage_items):
+        elif stage_items and all(
+            item["status"] == "accepted" or (stage["name"] == SOURCE_STAGE and item["id"] in amended)
+            for item in stage_items
+        ):
             stage["status"] = "accepted"
         elif any(
             item["status"] in {"ready", "in_progress", "awaiting_acceptance"}
@@ -2977,4 +3010,12 @@ def work_packet(
         ],
     }
     packet.update(packet_extra)
+    amendments = [
+        {"id": row.get("id"), "item": row.get("item"), "applies": row.get("applies"), "reason": row.get("reason")}
+        for row in open_source_amendments(tracker)
+        if item_id == row.get("item") or item_id in (row.get("applies") or [])
+    ]
+    if amendments:
+        # Revise (or re-apply) for the open amendment; the stage accepts it with progress accept-source-amendment.
+        packet["amendments"] = amendments
     return packet

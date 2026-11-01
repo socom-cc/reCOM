@@ -143,8 +143,8 @@ def undecomposed(tracker: dict) -> dict:
     for key in ("accepted", "review_history", "source_gate"):
         seed.pop(key, None)
     stage = next(row for row in tracker["stages"] if row["name"] == SOURCE_STAGE)
-    # Stage 4 is accepted in the workspace: drop its decomposition and file-stage baseline too.
-    for key in ("decomposition", "baseline"):
+    # The real stage 4 is accepted: drop its decomposition, baseline and amendments.
+    for key in ("decomposition", "baseline", "baseline_history", "amendments"):
         stage.pop(key, None)
     stage["accepted_evidence"] = []
     refresh_ready_and_stages(tracker)

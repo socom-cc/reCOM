@@ -63,7 +63,7 @@ from .recon import (
 )
 from .fingerprint import SWEEP_MODES, compare_fingerprints, program_fingerprint
 from .type_apply import ApplyFailure, build_apply_program, execute_apply_program
-from . import order_cli, provider_archive, recon_repair_cli, source_apply_cli, source_gate_cli, source_plan_cli, type_plan_cli
+from . import order_cli, provider_archive, recon_repair_cli, source_amend_cli, source_apply_cli, source_gate_cli, source_plan_cli, type_plan_cli
 from .source import (
     audit_docblocks,
     audit_independence,
@@ -91,6 +91,7 @@ from .tracker import (
     migrate_tracker,
     mutate,
     next_work,
+    open_source_amendments,
     rebaseline_ghidra_target,
     record_stage_baseline,
     refresh_ready_and_stages,
@@ -1425,7 +1426,14 @@ def _progress_audit(arguments: argparse.Namespace) -> int:
         status = snapshot_status(root, tracker)
         if not status["fresh"]:
             errors.append("README progress snapshot is stale")
-    _emit({"ok": not errors, "revision": tracker["revision"], "errors": errors})
+    report: dict[str, Any] = {"ok": not errors, "revision": tracker["revision"], "errors": errors}
+    opened = open_source_amendments(tracker)
+    if opened:
+        # Reported, not an error: the stage stays accepted until the amendment is accepted.
+        report["open_amendments"] = [
+            {"id": row.get("id"), "item": row.get("item"), "applies": row.get("applies")} for row in opened
+        ]
+    _emit(report)
     return 0 if not errors else 1
 
 
@@ -3066,6 +3074,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     *source_plan_cli.specs(_spec),
     *source_apply_cli.specs(_spec),
     *source_gate_cli.specs(_spec),
+    *source_amend_cli.specs(_spec),
     *provider_archive.specs(_spec),
     *order_cli.specs(_spec),
     _spec("verify asm", "verification", "Read function and assembly evidence from Ghidra.", ghidra_requirement="required"),
@@ -3599,6 +3608,7 @@ def build_parser() -> argparse.ArgumentParser:
     source_plan_cli.register(source_commands)
     source_apply_cli.register(source_commands, progress_commands)
     source_gate_cli.register(source_commands, progress_commands, audit_commands)
+    source_amend_cli.register(progress_commands)
     provider_archive.register(commands)
     order_cli.register(commands)
 

@@ -222,6 +222,8 @@ def workflow_contracts(root: Path, commands: list[dict[str, Any]]) -> dict[str, 
         "order target": False,
         "order link-spec": False,
         "order sql": False,
+        "progress amend-source-plan": True,
+        "progress accept-source-amendment": True,
     }
     for command, mutates in expected.items():
         row = by_command.get(command)
@@ -249,6 +251,8 @@ def workflow_contracts(root: Path, commands: list[dict[str, Any]]) -> dict[str, 
         "source gate-check": ("optional", False),
         "progress handoff-source-gate": ("required", False),
         "progress accept-source-gate": ("required", False),
+        "progress amend-source-plan": ("none", False),
+        "progress accept-source-amendment": ("required", False),
     }
     for command, (requirement, mutates_live) in ghidra_contracts.items():
         row = by_command.get(command)

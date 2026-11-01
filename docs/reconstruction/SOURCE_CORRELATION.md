@@ -1013,6 +1013,10 @@ ready data reconcile return to `blocked`. The plan file is not touched.
 The planner revises it, revalidates it and hands off again. The independent
 accepter must differ from that new handoff's owner.
 
+Once the stage gate is accepted, an accepted plan or data reconcile is
+corrected through an amendment instead
+([Amending an accepted plan](#amending-an-accepted-plan)).
+
 ## Query cache (`source sql`)
 
 ```powershell
@@ -1342,4 +1346,111 @@ annotations change only through accepted stage 4 work, and an accepted plan
 file must not have changed. A missing plan file (under the disposable
 `build/`) is reported as unavailable, and is an error with `--strict`.
 Applied files are reported (`apply_files_unchanged`) but never fail,
-because later stages edit source bodies.
+because later stages edit source bodies. Both audits use the stage's
+current baseline, which an accepted amendment replaces (below).
+
+### Amending an accepted plan
+
+```powershell
+python tools/socom.py progress amend-source-plan --item <accepted plan or data reconcile> `
+  --by <name> --reason "<why the plan must change>" --evidence "<line>" [--evidence ...] `
+  [--reapply <segment apply>] --expected-revision <n> [--dry-run]
+python tools/socom.py progress accept-source-amendment --amendment socom:source-amendment:NNN `
+  --accepter <name> --evidence "<review evidence>" [--deferrals <file>] `
+  --expected-revision <n> [--dry-run]
+```
+
+Once the stage gate is accepted, `progress reopen-source-plan` refuses every
+plan, because its applies, the data reconciles and the gate have started.
+An amendment corrects an accepted segment plan, provider plan or data
+reconcile instead, and invalidates explicitly what was built on it. Before
+the gate is accepted the amendment route refuses: use
+`progress reopen-source-plan` or `progress work reject`.
+
+**Opening.** `progress amend-source-plan` needs a reason and at least one
+evidence line, and the opener may not be the item's handoff owner. It
+refuses an item of another stage, a leased item, an item that is not
+accepted, a second amendment on an item whose amendment is open, a marked
+apply that is leased or awaiting acceptance, and a stale revision. In one
+locked mutation it then:
+
+1. sends the item back for revision. Its handoff and acceptance move to a
+   review-history entry (`amendment`, `amended_by`, `amended_at`, `reason`,
+   `evidence`, `handoff`, `handoff_evidence`, `accepted`). The item becomes
+   `ready`, or `blocked` while a plan it waits for is itself amended (a
+   data reconcile waits for every plan);
+2. marks the applies to re-apply: a plan's own `-apply`, or for a data
+   reconcile every segment apply whose record lists it under `reconciles`,
+   plus each `--reapply` segment apply whose files the revision will
+   annotate. Each returns to `blocked` with a review-history entry and keeps
+   its record until the re-apply replaces it;
+3. records the amendment under the stage row's `amendments`: ID
+   `socom:source-amendment:NNN`, status `open`, the item and its kind, the
+   applies, the opener, reason and evidence, the plan's accepted SHA-256 and
+   the baseline it amends.
+
+The stage stays `accepted`. Accepted stage 4 items that wait for an amended
+item (the gate, the other applies, the data reconciles) keep their
+acceptance. The plan file is not touched.
+
+**Revision and re-apply.** The planner revises the plan, validates it and
+hands it off with `progress work handoff`, citing the new SHA-256. An
+independent reviewer accepts it with `progress work accept`. Each marked
+apply becomes `ready` once the plans and reconciles are accepted. Its
+worker claims it and runs `progress apply-source-plan`. The route starts
+from the files the previous apply left: its moves, creates and retired
+files count as done, and `source plan validate` checks the revised plan in
+that applied state. It rewrites the generated blocks, makes any move or
+create the revised plan adds, and replaces the record. The new record names
+the amendments (`amendments`, evidence line `source-reapply`). The previous
+record moves to the review history (`replaced_at`). A marked apply is not
+handed off or accepted until it is re-applied, and the verifier accepts it
+through the usual route (`source apply-check`, `progress work accept`). If
+a reconcile's revision annotates the files of a segment that was not
+marked, the acceptance refuses with that segment's annotation drift: open
+an amendment on that segment's plan (handed off unchanged) and accept both
+together.
+
+**Acceptance.** `progress accept-source-amendment` names every open
+amendment (`--amendment` is repeatable), because the baseline covers the
+whole stage. It refuses until every amended plan and apply is accepted and
+every marked apply was re-applied for the amendment. The accepter must not
+have opened any of the amendments or handed off an amended item (the
+planners and re-apply workers, review history included), and must not be a
+tool maintainer. It re-runs every gate check (preconditions, strict audits,
+plans, applies, annotations, cross-plan consistency, completeness) with the
+deferrals in force. It reads the live receipt over the stage 3 scope, which
+must still equal that stage's baseline (`f8912398...`). An unreachable
+bridge or a failed preflight refuses with nothing recorded.
+
+The acceptance records the recomputed file baseline as the stage row's
+`baseline`, with `amendments`, `previous_baseline_sha256`, the accepter and
+the evidence. The previous baseline moves to `baseline_history` with
+`superseded_at` and `superseded_by` (each amendment and its reason). The
+stage's `accepted_evidence` also cites the new
+`source-file-baseline-sha256:` digest. Each amendment becomes `accepted`,
+with `route: progress accept-source-amendment` and the new digest.
+
+**Deferrals.** The gate's recorded deferrals are never rewritten. The
+deferrals in force are the gate's, with each amendment baseline's
+`deferrals_resolved` and `deferrals_added` applied in order. A deferred
+artifact that no accepted plan leaves unresolved leaves the deferrals in
+force with a note naming the amendment, and a deferral left empty is
+dropped. An amendment may not add an unresolved row without a basis: each
+new unresolved artifact needs a new deferral in `--deferrals` (a
+`socom-source-gate-deferrals` file whose IDs are new), citing an open
+workspace issue or the user's decision as at the gate.
+
+**Audits.** While an amendment is open, `progress audit --strict` lists it
+under `open_amendments`; it is not an error. `audit source-baseline` lists
+it too, with the amended plan files (which may change) and the re-applied
+applies. Until one of its applies is re-applied, the annotation edges must
+still match the baseline. After that, an edge difference is reported as
+`annotation_edges_pending_amendment`, not an error, until the acceptance
+records the next baseline and its checks cover every edge. `progress audit`
+also validates the chain: the first entry is the gate's reviewed baseline;
+each later one follows the one before, names the amendments accepted with
+it, keeps the stage 3 receipt and records the deferrals in force; each
+superseded entry names the amendments that replaced it, with their reasons.
+A gate's reviewer and accepter stay independent of the work they reviewed:
+handoffs made after the gate's acceptance do not count against them.

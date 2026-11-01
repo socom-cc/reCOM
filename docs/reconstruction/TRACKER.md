@@ -144,6 +144,25 @@ mutation, and `audit source-baseline` also checks the plan files and the
 annotation edges under `src/`. A rejected review moves the record to the
 review history.
 
+After the gate is accepted, an accepted stage 4 plan or data reconcile is
+corrected with `progress amend-source-plan` (reason and evidence required;
+not by its handoff owner). The item returns for revision and its apply (for
+a data reconcile: the segment applies that wrote its annotations, plus any
+named with `--reapply`) returns to `blocked` for re-apply, each with a
+review-history entry. The stage row records the open amendment under
+`amendments` (`socom:source-amendment:NNN`). The stage stays `accepted`,
+and accepted stage 4 items that wait for the amended items keep their
+acceptance. `progress apply-source-plan` re-applies from the files the
+previous apply left; the record is replaced and the old one kept in the
+review history. Once every amended item is re-accepted,
+`progress accept-source-amendment` (an accepter who did not open the
+amendment, handed off no amended item and is not a tool maintainer) re-runs
+the gate checks with the live stage 3 receipt and records the recomputed
+baseline. The previous baseline moves to `baseline_history` with the
+amendment reasons. `progress audit --strict` and `audit source-baseline`
+report an open amendment without failing, and validate the baseline chain;
+see [SOURCE_CORRELATION.md](SOURCE_CORRELATION.md#amending-an-accepted-plan).
+
 Receipts are evidence, not acceptance. They cover portable target facts,
 analysis/bookmarks, the assembly sentinel, full function/type/data index
 digests, and exact scoped facts.
