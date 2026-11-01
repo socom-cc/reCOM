@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3333,
+  "revision": 3336,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -151192,16 +151192,17 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-029.json sha256:008a7f002ff77464d1abc785f7d5784aa3f931050d472ee9c5a07a5fa7361d79; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs4",
+        "submitted_at": "2026-11-01T00:13:40Z",
+        "summary": "sweep: +3 emits (implicit Particle::Source::List dtor 0x23b8b0 -> zparticle.h:41, _zrdr ctor 0x23e380 -> zrdr.h:153, CFileStack dtor 0x23fa70 -> util_stack.h:9), +3 notes (zrdr_countarray 0x23ca30 used by 2 units, no header; zrdr_file.cpp tail alternative; emit note), 0 draft overrides; other fixes: 0x23d030-0x23d570 + @1223-@1226 (12 rows) owned as zrdr_file.cpp's tail (low); 0x23d6a0-0x23e140 (14) kept unresolved with corrected reason (zrdr_main.cpp head possible); 7 defined-elsewhere contradictions -> signature rows, 0x23e140's removed, 7 corrected; CVisual statics 0x4753ec/0x47663c owned by new cross-segment row vis_main.cpp (low); reservation + src/gamez/zUtil, src/gamez/zVisual"
+      },
       "id": "socom:work:source-segment-029",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-11-01T00:00:14Z",
-        "expires_at": "2026-11-01T02:00:14Z",
-        "heartbeat_at": "2026-11-01T00:00:14Z",
-        "owner": "socom-source-owner-mapper-fs4"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -151237,7 +151238,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 029 (0x23a0d0-0x247874, 179 functions)"
     },
     {
@@ -154229,6 +154230,10 @@
       "title": "Apply the reviewed source owners of segment 055 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:12:53Z",
+        "by": "socom-source-owner-scrutinizer-x27"
+      },
       "batch": {
         "artifact_count": 695,
         "batch_number": 56,
@@ -154265,6 +154270,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "plan build/source-plans/socom-work-source-segment-056.json sha256:d58746cd8f708366c35e65b65a21b3e8ebc972b7a653112b90f21be0545f642a matches handoff; validate --check ok (695 owned, 0 unresolved, 52 header emits, 6 contradictions), draft --check ok (575 drafted, 120 hand), emit-check 0 missing emits/notes/wrong citations. Re-review of x21 finding only: diff vs build/stage4/pre-final adds exactly 5 hand header emits to src/gamez/zUI/zui.h for implicit special members 0x394b40 ~CClockSpec (zui.h:141 class CClockSpec), 0x39ad80 ~CCounterSpec (:135), 0x39cea0 CDlgDesignModel::operator= (:54), 0x39f570 CButtonSpec copy ctor (:96), 0x3a0520 CTextSpec copy ctor (:74); each cited line is the class declaration; note 14 rewritten to match; ~CycleItem 0x39aca0 keeps no emit (no class/struct CycleItem under src/). Owner rows, annotations other than the 5 emits and reservation unchanged.",
         "plan build/source-plans/socom-work-source-segment-056.json sha256:d58746cd8f708366c35e65b65a21b3e8ebc972b7a653112b90f21be0545f642a; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -154296,7 +154302,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 056 (0x394a00-0x3a2a74, 195 functions)"
     },
     {
@@ -154794,6 +154800,10 @@
       "title": "Record the reviewed provider owners of lgAud in tracker evidence"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:14:09Z",
+        "by": "socom-source-owner-scrutinizer-x27"
+      },
       "batch": {
         "artifact_count": 197,
         "batch_number": 63,
@@ -154830,6 +154840,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "plan build/source-plans/socom-work-source-segment-063.json sha256:600d95838f55d442e176cf3f31057e60fba76cdd2493c46344c7d6aa2dd70ac5 matches handoff; validate --check ok (197 owned, 0 unresolved, 14 header emits, review list empty), draft --check ok (all 197 drafted, 0 hand owner entries, no D-referenced rows), emit-check 0 missing emits/notes/wrong citations. 4 O-provisional owner paths under src/Apps/FTS/hud agree with accepted 076 and 065 (shared_units agree). 14 hand header emits checked: 13 to src/Apps/FTS/hud/hud.h (Z:\\dev\\Apps\\FTS\\hud.h; no src/Apps/FTS/hud.h exists; 064/065 use the same path), each citing its class line (43 CLetterBox, 65 CFader, 83 CLensFlareSaturate, 114 CHudBrightText, 212 CWeaponSel, 271 CInGameWeaponSel, 340 CTeamNames, 423 CTeamMateNames, 430 CZPauseTest, 465 BitmapReticule, 527/542/553 for 0x3bc990 ~CZActionBitmap/0x3bc8a0 ~CZStaticRadioBitmap/0x3bc830 ~CZDynamicRadioBitmap as the fs5 overrides say); all implicit dtors. __dt__10PoseBitmapFv 0x3bccb0 -> src/gamez/zTwoD/ztwod.h:271, the only class PoseBitmap under src/; reservation corrected to src/Apps/FTS + src/gamez/zTwoD with that evidence.",
         "plan build/source-plans/socom-work-source-segment-063.json sha256:600d95838f55d442e176cf3f31057e60fba76cdd2493c46344c7d6aa2dd70ac5; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -154861,7 +154872,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 063 (0x3b7820-0x3be590, 51 functions)"
     },
     {
