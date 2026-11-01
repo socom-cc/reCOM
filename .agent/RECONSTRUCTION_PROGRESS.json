@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3652,
+  "revision": 3662,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -152298,8 +152298,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-013.json sha256:cad8b6c3ee2e3e3b9c1822e03e664be9bdf7fd0762dbc616b006b7f7627de639; emit-check --plan (authored-line counting, 8bbd563) clean: 0 missing emits/notes, 0 wrong citations, 0 user-written emits; validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-amend copy build/stage4/pre-amend/socom-work-source-segment-013.json"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-am1",
+        "submitted_at": "2026-11-01T18:57:41Z",
+        "summary": "amendment socom:source-amendment:001: team_table 0x438770 overridden from SCE libmc 0x171070 (P-gnu-data run-end defect) into orders.cpp (medium: .data link order + sole reader); emptied libmc row removed (archive fields stay on the SCE provider plan); znode.h citation back to authored line 123 (re-cite after emit-check 8bbd563)"
+      },
       "id": "socom:work:source-segment-013",
       "kind": "source-plan-segment",
       "lease": null,
@@ -152417,7 +152423,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 013 (0x1728e0-0x17de74, 114 functions)"
     },
     {
@@ -152695,8 +152701,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-014.json sha256:c2694fa7d5d19a3ff8a69c22093e08d3b97338886e84cfe5ef12248087dc968e; emit-check --plan (authored-line counting, 8bbd563) clean: 0 missing emits/notes, 0 wrong citations, 0 user-written emits; validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-amend copy build/stage4/pre-amend/socom-work-source-segment-014.json"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-am1",
+        "submitted_at": "2026-11-01T18:58:48Z",
+        "summary": "amendment socom:source-amendment:002: user-written 0x17fc20 __dt__8CAiEventFv emit (zai.h) removed + no-emit note (1 unit, ai_events.cpp); aidemo.cpp row kept as hand row (O-path no longer reproduces after its apply created the file); 4 citations back to authored lines (re-cite after emit-check 8bbd563)"
+      },
       "id": "socom:work:source-segment-014",
       "kind": "source-plan-segment",
       "lease": null,
@@ -152765,7 +152777,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 014 (0x17de80-0x188f54, 163 functions)"
     },
     {
@@ -153281,8 +153293,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-016.json sha256:e8111f050a647cb40d410932ae1f8c5d54c148b2024c62817e6f66c4b690f734; emit-check --plan (authored-line counting, 8bbd563) clean: 0 missing emits/notes, 0 wrong citations, 0 user-written emits; validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-amend copy build/stage4/pre-amend/socom-work-source-segment-016.json"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-am1",
+        "submitted_at": "2026-11-01T18:59:54Z",
+        "summary": "amendment socom:source-amendment:003: user-written 0x1a5270 __ct__9AI_PARAMSFv emit (zai.h) removed + no-emit note (1 unit, vehicle_main.cpp), sweep note reworded; 5 citations back to authored lines incl. GetSize :104 / IsArray :165 (re-cite after emit-check 8bbd563)"
+      },
       "id": "socom:work:source-segment-016",
       "kind": "source-plan-segment",
       "lease": null,
@@ -153386,7 +153404,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 016 (0x19dca0-0x1b90d4, 199 functions)"
     },
     {
@@ -155448,8 +155466,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-023.json sha256:c021722099e45d3ccd1f39300ba1355bd6e0591c17af82d33b0f1894d9e256a3; emit-check --plan (authored-line counting, 8bbd563) clean: 0 missing emits/notes, 0 wrong citations, 0 user-written emits; validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-amend copy build/stage4/pre-amend/socom-work-source-segment-023.json"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-am1",
+        "submitted_at": "2026-11-01T19:01:11Z",
+        "summary": "amendment socom:source-amendment:004: user-written 0x1fbc60 __dt__11CUIVariableFv emit (zui.h) removed + no-emit note (1 unit, fts_mission.cpp); 9 citations (and in-parentheses member/nested lines) back to authored lines (re-cite after emit-check 8bbd563)"
+      },
       "id": "socom:work:source-segment-023",
       "kind": "source-plan-segment",
       "lease": null,
@@ -155567,7 +155591,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 023 (0x1f25c0-0x1ff8cc, 192 functions)"
     },
     {
@@ -160579,8 +160603,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-042.json sha256:1a9d7faae80fdaf819925f99e3249c8c233beabf201c2dcdfbf95c1fed7b7feb; emit-check --plan (authored-line counting, 8bbd563) clean: 0 missing emits/notes, 0 wrong citations, 0 user-written emits; validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-amend copy build/stage4/pre-amend/socom-work-source-segment-042.json"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-am1",
+        "submitted_at": "2026-11-01T19:02:06Z",
+        "summary": "amendment socom:source-amendment:006: user-written 0x30ddc0 __dt__8CVisBaseFv emit (zvis.h) removed + no-emit note (1 unit, vis_main.cpp), ODR note reworded; 2 citations back to authored lines (re-cite after emit-check 8bbd563)"
+      },
       "id": "socom:work:source-segment-042",
       "kind": "source-plan-segment",
       "lease": null,
@@ -160642,7 +160672,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 042 (0x304b60-0x3103a0, 176 functions)"
     },
     {
