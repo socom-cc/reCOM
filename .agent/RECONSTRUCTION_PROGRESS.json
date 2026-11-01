@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3354,
+  "revision": 3360,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -147382,6 +147382,10 @@
       "title": "Record the reviewed provider owners of crt0 in tracker evidence"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:21:09Z",
+        "by": "socom-source-owner-scrutinizer-x25"
+      },
       "batch": {
         "artifact_count": 89,
         "batch_number": 1,
@@ -147418,6 +147422,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "final-sweep review (pre-final diff, changed rows only): plan sha256:4447ab5b63ef996faddacca5cfc33970d84e4a92308a8ac9616290643ffd17ee = handoff; validate --check ok, draft --check ok, emit-check --plan 0 missing emits/notes/wrong citations. +10 header emits: 8 _zmalloc<four>/<twelve> instances 0x140460-0x141930 (main.cpp, authored project template, binding 13/WEAK) -> src/gamez/zSystem/zsys.h (template<typename T> class _zmalloc at zsys.h:104-105); implicit __dt__8COurGameFv 0x1401e0 -> zgame.h (class COurGame at zgame.h:102; vtable 0x4714b0); implicit __dt__10CMenuStateFv 0x140940 -> fts_state.h (DWARF header unit Z:\\dev\\gamez\\zfts\\fts_state.h of 0x141a20; referenced by st_menu.cpp vtable 0x473040; fts_state.h:70). Reservation adds src/gamez/zSystem (exists). No owner/artifact rows changed.",
         "plan build/source-plans/socom-work-source-segment-001.json sha256:4447ab5b63ef996faddacca5cfc33970d84e4a92308a8ac9616290643ffd17ee; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-final diff build/stage4/pre-final/socom-work-source-segment-001.json"
       ],
       "handoff": {
@@ -147509,7 +147514,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 001 (0x140008-0x142138, 39 functions)"
     },
     {
@@ -148417,6 +148422,10 @@
       "title": "Record the reviewed provider owners of libgcc in tracker evidence"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:21:24Z",
+        "by": "socom-source-owner-scrutinizer-x25"
+      },
       "batch": {
         "artifact_count": 397,
         "batch_number": 13,
@@ -148455,6 +148464,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "final-sweep review (pre-final diff, changed rows only): plan sha256:4c2e59a8b69884aac1c57415beb32b61a3668207df54a6af0a61b59c1cd880ee = handoff; validate --check ok, draft --check ok, emit-check --plan clean. New owner row vis_main.cpp (src/gamez/zVisual/vis_main.cpp, identical path/provisional file to segments 042 accepted, 076, 029) owns CVisual statics 0x476610/0x476628/0x47662c at low (formerly unresolved): .sbss link order verified with source sql - they sit inside the GLOBAL CVisual run 0x4765d4-0x476644 between zvid_init.cpp LOCAL t0Count$1524 0x4765d0 and vis_main.cpp LOCAL _DoMultipass 0x476648; flanks 0x476608/0x476614/0x476624/0x476638 are vis_main.cpp (low) in accepted 042, 0x47663c vis_main.cpp in 029; database.cpp (sole reader) is excluded by link order (its strong .sbss is 0x475678-0x475680), zrndr_pipe.cpp at 0x475c74-0x475ca4. Competing model: .text order zvid_init 0x307a40, zvid_draw 0x308c20, vis_main 0x3096e0, so zvid_draw.cpp (no .sbss of its own, only .rodata) or zvid_init's tail could define the run - covered by low confidence and consistent with 042. Reservation adds src/gamez/zVisual (exists).",
         "plan build/source-plans/socom-work-source-segment-013.json sha256:4c2e59a8b69884aac1c57415beb32b61a3668207df54a6af0a61b59c1cd880ee; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-final diff build/stage4/pre-final/socom-work-source-segment-013.json"
       ],
       "handoff": {
@@ -148542,7 +148552,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 013 (0x1728e0-0x17de74, 114 functions)"
     },
     {
@@ -148753,6 +148763,10 @@
       "title": "Apply the reviewed source owners of segment 014 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:21:41Z",
+        "by": "socom-source-owner-scrutinizer-x25"
+      },
       "batch": {
         "artifact_count": 368,
         "batch_number": 15,
@@ -148789,6 +148803,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "final-sweep review (pre-final diff, changed rows only): plan sha256:3cfd4c6084543ef37213da45f74a377048f805a55cf58bcd7a22022d8455f427 = handoff; validate --check ok, draft --check ok, emit-check --plan clean. +2 emits: explicit inline CAiMap GetBilinearAltitude 0x19a820 and GetLocation 0x19b0f0 (binding 13, ai_maps.cpp keeps; fts_main.cpp ftsGetAltitudeApprox 0x1f20f0 calls both = 2 units) -> src/gamez/zAI/zai.h (class CAiMap at zai.h:297). +10 notes: 9 ReadCellTable/ReadCellTableCvt instances (ai_mapio.cpp) and ai::_max<Ui> 0x19d930 (ai_maps.cpp), 1 unit each; grep finds no ReadCellTable, _max template or namespace ai declaration under src/, so 'no header declares' is accurate. No owner/artifact rows changed.",
         "plan build/source-plans/socom-work-source-segment-015.json sha256:3cfd4c6084543ef37213da45f74a377048f805a55cf58bcd7a22022d8455f427; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-final diff build/stage4/pre-final/socom-work-source-segment-015.json"
       ],
       "handoff": {
@@ -148876,7 +148891,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 015 (0x188f60-0x19dca0, 193 functions)"
     },
     {
@@ -148939,6 +148954,10 @@
       "title": "Apply the reviewed source owners of segment 015 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:21:45Z",
+        "by": "socom-source-owner-scrutinizer-x25"
+      },
       "batch": {
         "artifact_count": 719,
         "batch_number": 16,
@@ -148975,6 +148994,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "final-sweep review (pre-final diff, changed rows only): plan sha256:91449a1d6d044d64059052455e9e6c9273444a0af4c4afdab7cc2a53803976a9 = handoff; validate --check ok, draft --check ok, emit-check --plan clean. Contains__Q26CAiMap6region 0x19e020 (binding 13, ai_mapdata.cpp keeps; seal_unit.cpp HandleSupport 0x2d2bd0 and AllowCommand 0x2d6bf0 call it = 2 units) -> zai.h: no src header declares CAiMap::region, but a nested class must be declared inside CAiMap's body, so CAiMap's header (zai.h:297) is the one that does; note reworded accordingly. __ct__9AI_PARAMSFv 0x1a5270 -> zai.h (struct AI_PARAMS at zai.h:235): its only referencer is vehicle_main.cpp (resize 0x1a3e60, same unit as the kept copy), so the '>=2 units' premise does not hold; the emit stands because a ctor of AI_PARAMS can only be declared in that struct body (the sole declaration, zai.h), the struct is used in another unit too (fts_player.cpp keeps __as__9AI_PARAMS 0x1fd4e0), and emit-check requires it for a __ct__ without DWARF CU. +notes CompareT<name> 0x19f4a0 and _saturate<Ui> 0x1a4000: 1 unit, no src declaration. No owner/artifact rows changed.",
         "plan build/source-plans/socom-work-source-segment-016.json sha256:91449a1d6d044d64059052455e9e6c9273444a0af4c4afdab7cc2a53803976a9; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-final diff build/stage4/pre-final/socom-work-source-segment-016.json"
       ],
       "handoff": {
@@ -149048,7 +149068,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 016 (0x19dca0-0x1b90d4, 199 functions)"
     },
     {
@@ -149442,6 +149462,10 @@
       "title": "Apply the reviewed source owners of segment 018 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:22:01Z",
+        "by": "socom-source-owner-scrutinizer-x25"
+      },
       "batch": {
         "artifact_count": 659,
         "batch_number": 19,
@@ -149476,6 +149500,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "final-sweep review (pre-final diff, changed rows only): plan sha256:dad90f19a9d411198ae1ea61e31d1187f62baffda6de54cb40493e7d7a7a8882 = handoff; validate --check ok, draft --check ok, emit-check --plan clean. __dt__Q23zar4CKeyFv 0x1d8130 (binding 13, zar_main.cpp keeps; its insert 0x1d9ed0/reserve 0x1da5f0 call it) -> src/gamez/zArchive/zar.h (class CKey at zar.h:79, inside namespace zar at zar.h:45). Provisional zar.h declares ~CKey() explicitly (zar.h:86) and zar_main.cpp:21 defines it out of line, so the row's 'implicit by shape' wording overstates; the note's hedge (implicit vs explicit undecidable) holds, and either way the binding-13 inline member belongs to the class declaration in zar.h; the existing binding contradiction row covers zar_main.cpp:21. New note __dt__12CPopUpDialogFv 0x1d4090: kept by zanim_menu.cpp, read by zui_2d.cpp vtable 0x4734a0 = 2 units; no src declaration of CPopUpDialog (grep), so no emit is correct. zArchive already reserved.",
         "plan build/source-plans/socom-work-source-segment-019.json sha256:dad90f19a9d411198ae1ea61e31d1187f62baffda6de54cb40493e7d7a7a8882; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-final diff build/stage4/pre-final/socom-work-source-segment-019.json"
       ],
       "handoff": {
@@ -149549,7 +149574,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 019 (0x1d0090-0x1d819c, 198 functions)"
     },
     {
@@ -149610,6 +149635,10 @@
       "title": "Apply the reviewed source owners of segment 019 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:22:04Z",
+        "by": "socom-source-owner-scrutinizer-x25"
+      },
       "batch": {
         "artifact_count": 214,
         "batch_number": 20,
@@ -149647,6 +149676,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "final-sweep review (pre-final diff, changed rows only): plan sha256:0fb884cfba6ba19d9436a391309240c001dfb4119ee45165f12b5101aef5f111 = handoff; validate --check ok, draft --check ok, emit-check --plan clean. __dt__Q23zar8CKeyRingFv 0x1d9e10 (binding 13, zar_main.cpp keeps; __vector_deleter<zar::CKey> dtor 0x1da870 calls it) -> src/gamez/zArchive/zar.h: class CKeyRing : public std::list<CKey*> {} at zar.h:50 has no user-declared dtor, so the dtor is implicit and goes to its class's header. Note replaced accordingly; zArchive already reserved. No owner/artifact rows changed.",
         "plan build/source-plans/socom-work-source-segment-020.json sha256:0fb884cfba6ba19d9436a391309240c001dfb4119ee45165f12b5101aef5f111; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-final diff build/stage4/pre-final/socom-work-source-segment-020.json"
       ],
       "handoff": {
@@ -149699,7 +149729,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 020 (0x1d81a0-0x1dd518, 100 functions)"
     },
     {
