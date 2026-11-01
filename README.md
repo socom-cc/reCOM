@@ -85,9 +85,9 @@ deferred until their real producers and compiler/provider prerequisites exist.
 <!-- SOCOM_PROGRESS_BEGIN -->
 ### Generated progress snapshot
 
-- Tracker revision: `3784`
-- Next work item: `none`
-- Work items: 949 total (0 ready, 0 active, 0 awaiting acceptance, 943 accepted, 6 dependency-blocked)
+- Tracker revision: `3785`
+- Next work item: `socom:work:order-link`
+- Work items: 1090 total (47 ready, 0 active, 0 awaiting acceptance, 943 accepted, 100 dependency-blocked)
 - Open blockers: 3
 - Provisional source owners still unverified: 316
 
@@ -97,7 +97,7 @@ deferred until their real producers and compiler/provider prerequisites exist.
 | `debug-metadata-import` | accepted |
 | `ghidra-reconstruction` | accepted |
 | `source-correlation` | accepted |
-| `authored-function-order` | pending |
+| `authored-function-order` | active |
 | `authored-call-contract` | pending |
 | `authored-byte-match` | pending |
 | `full-function-order` | pending |
