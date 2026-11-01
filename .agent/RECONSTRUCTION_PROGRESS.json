@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3328,
+  "revision": 3333,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -154136,16 +154136,17 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-055.json sha256:92995fc244c0a421d56312b8aeb98fcca0e5c57b87ed9bb6f4548ff228d2554f; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs5",
+        "submitted_at": "2026-11-01T00:10:04Z",
+        "summary": "sweep: +1 emits, +0 notes, 0 data overrides, other fixes: C2DVisual::Get2DVisual 0x393690 -> zvis.h:285 (2 units); notes 0 and 2 corrected"
+      },
       "id": "socom:work:source-segment-055",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T23:59:14Z",
-        "expires_at": "2026-11-01T01:59:14Z",
-        "heartbeat_at": "2026-10-31T23:59:14Z",
-        "owner": "socom-source-owner-mapper-fs5"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -154167,7 +154168,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 055 (0x3853f0-0x3949fc, 185 functions)"
     },
     {
@@ -154263,16 +154264,17 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-056.json sha256:d58746cd8f708366c35e65b65a21b3e8ebc972b7a653112b90f21be0545f642a; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs5",
+        "submitted_at": "2026-11-01T00:10:05Z",
+        "summary": "sweep: +5 emits, +0 notes, 0 data overrides, other fixes: implicit members 0x394b40/0x39ad80/0x39cea0/0x39f570/0x3a0520 -> zui.h:141/135/54/96/74; ODR note 14 corrected"
+      },
       "id": "socom:work:source-segment-056",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T23:59:15Z",
-        "expires_at": "2026-11-01T01:59:15Z",
-        "heartbeat_at": "2026-10-31T23:59:15Z",
-        "owner": "socom-source-owner-mapper-fs5"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -154294,7 +154296,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 056 (0x394a00-0x3a2a74, 195 functions)"
     },
     {
@@ -154827,16 +154829,17 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-063.json sha256:600d95838f55d442e176cf3f31057e60fba76cdd2493c46344c7d6aa2dd70ac5; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs5",
+        "submitted_at": "2026-11-01T00:10:07Z",
+        "summary": "sweep: +0 emits, +0 notes, 0 data overrides, other fixes: 3 emit citations narrowed by override to each class line (hud.h:553, :542, :527)"
+      },
       "id": "socom:work:source-segment-063",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T23:59:17Z",
-        "expires_at": "2026-11-01T01:59:17Z",
-        "heartbeat_at": "2026-10-31T23:59:17Z",
-        "owner": "socom-source-owner-mapper-fs5"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -154858,7 +154861,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 063 (0x3b7820-0x3be590, 51 functions)"
     },
     {
@@ -154962,16 +154965,17 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-064.json sha256:233612440ac3f3d84d3c9d82e63a88d649c482a906d5478f5351205cd107b2a1; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs5",
+        "submitted_at": "2026-11-01T00:10:09Z",
+        "summary": "sweep: +0 emits, +2 notes, 0 data overrides, other fixes: no-header notes for CZClaymoreMapItem/CZMPBombMapItem dtors (2 units); note 1 corrected"
+      },
       "id": "socom:work:source-segment-064",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T23:59:18Z",
-        "expires_at": "2026-11-01T01:59:18Z",
-        "heartbeat_at": "2026-10-31T23:59:18Z",
-        "owner": "socom-source-owner-mapper-fs5"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -154993,7 +154997,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 064 (0x3be590-0x3d5340, 185 functions)"
     },
     {
@@ -155101,16 +155105,17 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-065.json sha256:77d1fa0d9bcdc4261d17f75f37479ef402e07058f836a2ee744d34d6ad6a58c4; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs5",
+        "submitted_at": "2026-11-01T00:10:11Z",
+        "summary": "sweep: +0 emits, +1 notes, 0 data overrides, other fixes: no-header note for CZPlayerMapItem dtor 0x3db870 (2 units); note 0 corrected"
+      },
       "id": "socom:work:source-segment-065",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-10-31T23:59:20Z",
-        "expires_at": "2026-11-01T01:59:20Z",
-        "heartbeat_at": "2026-10-31T23:59:20Z",
-        "owner": "socom-source-owner-mapper-fs5"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -155132,7 +155137,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 065 (0x3d5340-0x3deecc, 71 functions)"
     },
     {
