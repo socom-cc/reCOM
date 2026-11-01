@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3674,
+  "revision": 3675,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -152725,7 +152725,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 013 under src/"
     },
     {
@@ -153059,7 +153059,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 014 under src/"
     },
     {
@@ -154553,7 +154553,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 019 under src/"
     },
     {
@@ -155168,7 +155168,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 021 under src/"
     },
     {
@@ -156284,7 +156284,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 024 under src/"
     },
     {
@@ -156620,7 +156620,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 025 under src/"
     },
     {
@@ -157013,7 +157013,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 026 under src/"
     },
     {
@@ -157628,7 +157628,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 028 under src/"
     },
     {
@@ -157982,7 +157982,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 029 under src/"
     },
     {
@@ -158267,7 +158267,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 030 under src/"
     },
     {
@@ -158548,7 +158548,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 031 under src/"
     },
     {
@@ -158847,7 +158847,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 032 under src/"
     },
     {
@@ -159125,7 +159125,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 033 under src/"
     },
     {
@@ -159416,7 +159416,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 034 under src/"
     },
     {
@@ -159710,7 +159710,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 035 under src/"
     },
     {
@@ -160314,7 +160314,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 037 under src/"
     },
     {
@@ -160850,7 +160850,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 041 under src/"
     },
     {
@@ -161182,7 +161182,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 042 under src/"
     },
     {
@@ -162135,7 +162135,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 046 under src/"
     },
     {
@@ -162407,7 +162407,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 047 under src/"
     },
     {
@@ -163597,7 +163597,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 054 under src/"
     },
     {
@@ -165370,7 +165370,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 064 under src/"
     },
     {
@@ -165669,7 +165669,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 065 under src/"
     },
     {
@@ -168360,7 +168360,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 076 under src/"
     },
     {
@@ -168464,6 +168464,10 @@
       "title": "Reconcile rodata data owners (5456 artifacts outside the segment slices)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T20:30:42Z",
+        "by": "socom-source-owner-scrutinizer-x34"
+      },
       "batch": {
         "artifact_count": 1001,
         "batch_number": 78,
@@ -168540,6 +168544,7 @@
         "socom:work:source-segment-076"
       ],
       "evidence": [
+        "amendment 007 review: plan sha256 a480fb492dcbafed46321c6a0d0274905b0b11b7004206e6e37fd4df3677f14b = handoff; JSON diff vs build/stage4/pre-amend/socom-work-source-data-data.json: only gopt 0x438750 moved from the dropped libmc 0x171070 P-gnu-data row into options.cpp (medium; row confidence high->medium = min of entries, as every row), +1 defines annotation src/Apps/FTS/options.cpp, +1 override note, +1 defined-elsewhere contradiction (src/Apps/FTS/getopt.cpp:17 '_options gopt;' verified); no other owner/unresolved/emit change, order of common elements kept. Checked: refs to gopt = 59 LO16 sites, 23 sb all in process_arguments 0x173e30 (options.cpp), 36 lbu (9 process_arguments, testLoad 8, StatusLine 6, thezoom 6, st_core 3, main 2, hud_newhudmap 2); 7 gopt DIEs = exactly the 7 referencing CUs (main, database, options, st_core, thezoom, hud_newhudmap, hud_devtext), identical attributes; getopt.cpp CU 0x66c33 has DIEs for goptind/gopterr/goptarg/goptopt, none for gopt, and no gopt reference. .data: SCE libmc __ps2_libinfo__/mcRunCmdNo/semaidRegFunc 0x438738-0x43874f, gopt, C-fill 0x43876b, orders.cpp team_table 0x438770; text order libmc < database < getopt < options < orders; database.cpp/getopt.cpp have no .data, options.cpp's only other graph .data candidate 0x43a370 is a declaration DIE (unresolved between seal/seal_ai), so order fits all three; writer + name + DIE exclusion pick options.cpp, database.cpp (reader only) stays a competing model -> medium correct. validate --check ok (0 problems); draft --check ok (864 drafted, 127 hand, 1 override gopt, libmc row dropped); draft --check --rules 7 ok (0 overrides); emit-check --plan ok (0 findings).",
         "basis: sole writer options.cpp process_arguments 0x173e30 (23 sb to 0x438750-0x438769); 27 other reloc sites all lbu (database.cpp testLoad 8, main 2, st_core 3, thezoom 6, hud_devtext 6, hud_newhudmap 2); name + DWARF class _options; getopt.cpp CU has DIEs for its own goptind/gopterr/goptarg/goptopt but none for gopt; .data order libmc 0x438738-0x43874f, gopt, orders.cpp team_table 0x438770 with options.cpp (.rodata 0x448620) between database and orders and no other .data; not high: database.cpp and options.cpp gopt DIEs carry identical attributes",
         "plan build/source-plans/socom-work-source-data-data.json sha256:a480fb492dcbafed46321c6a0d0274905b0b11b7004206e6e37fd4df3677f14b; changes vs pre-amend build/stage4/pre-amend/socom-work-source-data-data.json: gopt 0x438750 override P-gnu-data provider 0x171070 -> authored options.cpp (medium; emptied libmc row dropped), +1 defines annotation (src/Apps/FTS/options.cpp), +1 override note, +1 contradiction (src/Apps/FTS/getopt.cpp:17 '_options gopt;', defined-elsewhere)",
         "validate --check --fill-annotations ok; validate --check ok; draft --check (rules 6) ok, 1 override (gopt); draft --check --rules 7 ok, 0 overrides; emit-check --plan clean (0 missing/wrong/user-written); control-character scan 0"
@@ -168596,7 +168601,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Reconcile data data owners (1001 artifacts outside the segment slices)"
     },
     {
