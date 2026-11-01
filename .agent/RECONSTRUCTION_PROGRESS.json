@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3497,
+  "revision": 3529,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -156088,6 +156088,10 @@
       "title": "Plan source owners of segment 029 (0x23a0d0-0x247874, 179 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T03:57:24Z",
+        "by": "socom-verifier-apply5"
+      },
       "batch": {
         "artifact_count": 411,
         "batch_number": 29,
@@ -156099,7 +156103,9 @@
           "src/gamez/zCharacter",
           "src/gamez/zParticle",
           "src/gamez/zReader",
-          "src/gamez/zRender"
+          "src/gamez/zRender",
+          "src/gamez/zUtil",
+          "src/gamez/zVisual"
         ],
         "function_count": 179,
         "gap_count": 142,
@@ -156111,6 +156117,15 @@
             "0x247874"
           ]
         ],
+        "reservation_correction": {
+          "from": [
+            "src/gamez/zCharacter",
+            "src/gamez/zParticle",
+            "src/gamez/zReader",
+            "src/gamez/zRender"
+          ],
+          "plan_sha256": "47c55d9c5ad15f1aff3d3befde4d4954033c96a03f0b8fd8d8df63aeb7782182"
+        },
         "resource_basis": "provisional-name",
         "resource_inferred": true,
         "resource_reason": "inferred by name: zrndr_pipe.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zRender; zrdr_edit.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; zparticle_source.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; zrdr_parse.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; zrdr_file.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; zrdr_archive.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; zrdr_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; char_type.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zCharacter",
@@ -156141,8 +156156,32 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "apply-check ok 0 problems (230 annotations/12 files (1 created: zrndr_init.cpp, blocks only), plan sha/owner-map match); plan validate --check ok (review notes non-blocking); annotate --check 0 drift; git vs HEAD d409903: recorded files show only generated socom-owner-annotations blocks (own segment block + accepted data-reconcile blocks), original content byte-identical, pre-existing blocks unchanged, plan-ID order; batch 029-036 changed src set == recorded union (48); audit source-trace ok, audit docblocks ok (5392 edges)",
+        "progress apply-source-plan record (see item evidence)",
+        "source-annotations-sha256:aa5728750ab28220e4d58f0f75346fc73f5ae6d3ca0a0cc1bfefcaace5922bdc count:230",
+        "source-created src/gamez/zRender/zrndr_init.cpp",
+        "source-file src/gamez/zCharacter/char_type.cpp sha256:28dd46fa21310436f28034128aecd251e6fb884d52d9f69626374470963d15c8",
+        "source-file src/gamez/zParticle/zparticle_source.cpp sha256:7998eb9c617ae8365932054a348624604b81f5fe36d5bf1659bb517c5dad220f",
+        "source-file src/gamez/zReader/zrdr.h sha256:a608921871f774e7318449f3d8bc767c21732cc3268a9fc5abebb54f019b6890",
+        "source-file src/gamez/zReader/zrdr_archive.cpp sha256:6f1986b7bda3e1a9eb95f3246a6baa2da12afcd0600e558f827c6a68be6ce38c",
+        "source-file src/gamez/zReader/zrdr_edit.cpp sha256:a39b21ecd0a98e391e682a567950b786093268722c544d86e358201b7a62dcc2",
+        "source-file src/gamez/zReader/zrdr_file.cpp sha256:90b27a0b73dc83d07e7910c0982adb09fa1479de934f49916c508e8344160462",
+        "source-file src/gamez/zReader/zrdr_main.cpp sha256:56084991245d001545254acac76a98ada70bbdf218ba322a51b2959b830b0c4f",
+        "source-file src/gamez/zReader/zrdr_parse.cpp sha256:d98b13d236eb69d6b04b4c1b20de5af96846c05c4f4d50276d7c81409bf14e24",
+        "source-file src/gamez/zRender/zrndr_init.cpp sha256:aef43197b00f468083441c1e41a46a805f9d588b7fd1db8d45c548e0b3d5d7cb",
+        "source-file src/gamez/zRender/zrndr_pipe.cpp sha256:f9d420cd173513b8821b8fd89338d228db718d2e235edc5108fa233932557b8d",
+        "source-file src/gamez/zUtil/util_stack.h sha256:456d9f39a305544d8314e6c859590178d28f8df0b6c87d6cd85df5bbe0518265",
+        "source-file src/gamez/zVisual/vis_main.cpp sha256:47b6aa88cf2b8b8ed007034bad51debaed15195c350a12a969533f0445e259e9",
+        "source-owner-map-sha256:7760c2eb9490fe468a6714711987ec5f8b025d3b8beaeee2b7729d3f2050e790",
+        "source-plan build/source-plans/socom-work-source-segment-029.json sha256:47c55d9c5ad15f1aff3d3befde4d4954033c96a03f0b8fd8d8df63aeb7782182",
+        "source-reservation corrected src/gamez/zCharacter, src/gamez/zParticle, src/gamez/zReader, src/gamez/zRender, src/gamez/zUtil, src/gamez/zVisual"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b4",
+        "submitted_at": "2026-11-01T03:49:44Z",
+        "summary": "apply of segment-029: 230 annotations, 12 files, 1 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-029-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -156150,11 +156189,134 @@
         "src/gamez/zCharacter",
         "src/gamez/zParticle",
         "src/gamez/zReader",
-        "src/gamez/zRender"
+        "src/gamez/zRender",
+        "src/gamez/zUtil",
+        "src/gamez/zVisual"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 230,
+        "annotations_sha256": "aa5728750ab28220e4d58f0f75346fc73f5ae6d3ca0a0cc1bfefcaace5922bdc",
+        "applied_at": "2026-11-01T03:49:42Z",
+        "applied_by": "socom-source-worker-b4",
+        "changed": [
+          "src/gamez/zCharacter/char_type.cpp",
+          "src/gamez/zParticle/zparticle_source.cpp",
+          "src/gamez/zReader/zrdr.h",
+          "src/gamez/zReader/zrdr_archive.cpp",
+          "src/gamez/zReader/zrdr_edit.cpp",
+          "src/gamez/zReader/zrdr_file.cpp",
+          "src/gamez/zReader/zrdr_main.cpp",
+          "src/gamez/zReader/zrdr_parse.cpp",
+          "src/gamez/zRender/zrndr_init.cpp",
+          "src/gamez/zRender/zrndr_pipe.cpp",
+          "src/gamez/zUtil/util_stack.h",
+          "src/gamez/zVisual/vis_main.cpp"
+        ],
+        "created": [
+          "src/gamez/zRender/zrndr_init.cpp"
+        ],
+        "files": [
+          {
+            "content_sha256": "6ba1acf291b595958e182fccd8eee980e4043031381215c7f6ac0583b606a3c0",
+            "path": "src/gamez/zCharacter/char_type.cpp",
+            "sha256": "28dd46fa21310436f28034128aecd251e6fb884d52d9f69626374470963d15c8"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zParticle/zparticle_source.cpp",
+            "sha256": "7998eb9c617ae8365932054a348624604b81f5fe36d5bf1659bb517c5dad220f"
+          },
+          {
+            "content_sha256": "08fb576c81a4d9b1ca6c3aab3f0ec13de3144421a63b0a76328ecbf19dd6be8f",
+            "path": "src/gamez/zReader/zrdr.h",
+            "sha256": "a608921871f774e7318449f3d8bc767c21732cc3268a9fc5abebb54f019b6890"
+          },
+          {
+            "content_sha256": "76a7a851178ae79445f032cfbc75cfb85b410e517a983c6c7b9611ec58b5e11c",
+            "path": "src/gamez/zReader/zrdr_archive.cpp",
+            "sha256": "6f1986b7bda3e1a9eb95f3246a6baa2da12afcd0600e558f827c6a68be6ce38c"
+          },
+          {
+            "content_sha256": "6e5c2e3b091befc7ab17220c9fb5a4b590fbd5b8f5aed4c293aea2a9a6d17d23",
+            "path": "src/gamez/zReader/zrdr_edit.cpp",
+            "sha256": "a39b21ecd0a98e391e682a567950b786093268722c544d86e358201b7a62dcc2"
+          },
+          {
+            "content_sha256": "125432bd4ee95516b0445e670bfecf9f3251683b8ff2f25a36bafd2fa71677d1",
+            "path": "src/gamez/zReader/zrdr_file.cpp",
+            "sha256": "90b27a0b73dc83d07e7910c0982adb09fa1479de934f49916c508e8344160462"
+          },
+          {
+            "content_sha256": "19de4b1947328ca8e040b12168cd8bd2898776123ec18282d2c47fe856fdf56e",
+            "path": "src/gamez/zReader/zrdr_main.cpp",
+            "sha256": "56084991245d001545254acac76a98ada70bbdf218ba322a51b2959b830b0c4f"
+          },
+          {
+            "content_sha256": "0f5a6283c40639c532a52c1edd971ffc0b551d9a7478f41cf8e8e1c1e73bba51",
+            "path": "src/gamez/zReader/zrdr_parse.cpp",
+            "sha256": "d98b13d236eb69d6b04b4c1b20de5af96846c05c4f4d50276d7c81409bf14e24"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zRender/zrndr_init.cpp",
+            "sha256": "aef43197b00f468083441c1e41a46a805f9d588b7fd1db8d45c548e0b3d5d7cb"
+          },
+          {
+            "content_sha256": "e3c856f81b1638cca23ae0b3a5031a2298d6b23194858de64af70a41c8acea02",
+            "path": "src/gamez/zRender/zrndr_pipe.cpp",
+            "sha256": "f9d420cd173513b8821b8fd89338d228db718d2e235edc5108fa233932557b8d"
+          },
+          {
+            "content_sha256": "7ffdea97bc83b90156dc0f73df84c4869ff791e1a379b0963dfeb4fa88b8508b",
+            "path": "src/gamez/zUtil/util_stack.h",
+            "sha256": "456d9f39a305544d8314e6c859590178d28f8df0b6c87d6cd85df5bbe0518265"
+          },
+          {
+            "content_sha256": "b420d5a8a7e447c71ef5dc47034605725e7b0a7698d7390651090bef6ffb93c1",
+            "path": "src/gamez/zVisual/vis_main.cpp",
+            "sha256": "47b6aa88cf2b8b8ed007034bad51debaed15195c350a12a969533f0445e259e9"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "7760c2eb9490fe468a6714711987ec5f8b025d3b8beaeee2b7729d3f2050e790",
+        "plan": "build/source-plans/socom-work-source-segment-029.json",
+        "plan_item": "socom:work:source-segment-029",
+        "plan_sha256": "47c55d9c5ad15f1aff3d3befde4d4954033c96a03f0b8fd8d8df63aeb7782182",
+        "reconciles": [
+          "socom:work:source-data-rodata",
+          "socom:work:source-data-data",
+          "socom:work:source-data-bss"
+        ],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/gamez/zCharacter",
+            "src/gamez/zParticle",
+            "src/gamez/zReader",
+            "src/gamez/zRender",
+            "src/gamez/zUtil",
+            "src/gamez/zVisual"
+          ],
+          "reserved": [
+            "src/gamez/zCharacter",
+            "src/gamez/zParticle",
+            "src/gamez/zReader",
+            "src/gamez/zRender"
+          ],
+          "status": "corrected"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:598943a58f477236e8dd",
+          "segment_number": 29
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 029 under src/"
     },
     {
@@ -156255,6 +156417,10 @@
       "title": "Plan source owners of segment 030 (0x247880-0x2591d8, 170 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T03:57:26Z",
+        "by": "socom-verifier-apply5"
+      },
       "batch": {
         "artifact_count": 517,
         "batch_number": 30,
@@ -156264,7 +156430,10 @@
         },
         "data_count": 225,
         "directories": [
+          "src/gamez/zAI",
           "src/gamez/zCharacter",
+          "src/gamez/zEntity",
+          "src/gamez/zRender",
           "src/gamez/zSeal"
         ],
         "function_count": 170,
@@ -156277,6 +156446,13 @@
             "0x2591d8"
           ]
         ],
+        "reservation_correction": {
+          "from": [
+            "src/gamez/zCharacter",
+            "src/gamez/zSeal"
+          ],
+          "plan_sha256": "e9bd3fb883b1784d5b04559292f2155bcf5146bf1f1adae9e17a18902644857e"
+        },
         "resource_basis": "provisional-name",
         "resource_inferred": true,
         "resource_reason": "inferred by name: seal.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; char_type.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zCharacter",
@@ -156301,18 +156477,118 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "apply-check ok 0 problems (283 annotations/6 files, plan sha/owner-map match); plan validate --check ok (review notes non-blocking); annotate --check 0 drift; git vs HEAD d409903: recorded files show only generated socom-owner-annotations blocks (own segment block + accepted data-reconcile blocks), original content byte-identical, pre-existing blocks unchanged, plan-ID order; batch 029-036 changed src set == recorded union (48); audit source-trace ok, audit docblocks ok (5392 edges)",
+        "progress apply-source-plan record (see item evidence)",
+        "source-annotations-sha256:8db38795a52dcf04a998a490c9454b1f3e30a05ce1ba6cc3a457e8a4dc6091f7 count:283",
+        "source-file src/gamez/zAI/zai.h sha256:b9db0b6c4535da1cdd1898360b91fa7d578fd105572843bdaa6fc1bffeacaba5",
+        "source-file src/gamez/zCharacter/char_type.cpp sha256:3d50033cc2f6bb314d2c9c785589ebad1f9ae38e58461e9f816de0e92e8ed2bc",
+        "source-file src/gamez/zEntity/pickup_main.cpp sha256:f34f40dba483d6d8100ba87db6c5cf238cf38411396f1d5df1a306f82a244544",
+        "source-file src/gamez/zRender/zrender.h sha256:f18d320af308c2a4709068051903887e51a5b4a7b51473ada584457b6fba1ad5",
+        "source-file src/gamez/zSeal/seal.cpp sha256:9ff310acbb669c835756a2be8bd9b96a82a0c239b28cb67fef92e6f401f2338b",
+        "source-file src/gamez/zSeal/seal_ai.cpp sha256:1c216866b43f65919506c409fefcbe4a8cd97a0260dc83d7a9e128a97ee3e801",
+        "source-owner-map-sha256:939a55a5570f6f083dcc1962ef2cf0fbc483ece9e888af76132851a5cb398bc1",
+        "source-plan build/source-plans/socom-work-source-segment-030.json sha256:e9bd3fb883b1784d5b04559292f2155bcf5146bf1f1adae9e17a18902644857e",
+        "source-reservation corrected src/gamez/zAI, src/gamez/zCharacter, src/gamez/zEntity, src/gamez/zRender, src/gamez/zSeal"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b4",
+        "submitted_at": "2026-11-01T03:49:52Z",
+        "summary": "apply of segment-030: 283 annotations, 6 files, 0 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-030-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
+        "src/gamez/zAI",
         "src/gamez/zCharacter",
+        "src/gamez/zEntity",
+        "src/gamez/zRender",
         "src/gamez/zSeal"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 283,
+        "annotations_sha256": "8db38795a52dcf04a998a490c9454b1f3e30a05ce1ba6cc3a457e8a4dc6091f7",
+        "applied_at": "2026-11-01T03:49:50Z",
+        "applied_by": "socom-source-worker-b4",
+        "changed": [
+          "src/gamez/zAI/zai.h",
+          "src/gamez/zCharacter/char_type.cpp",
+          "src/gamez/zEntity/pickup_main.cpp",
+          "src/gamez/zRender/zrender.h",
+          "src/gamez/zSeal/seal.cpp",
+          "src/gamez/zSeal/seal_ai.cpp"
+        ],
+        "created": [],
+        "files": [
+          {
+            "content_sha256": "91bff3e181d82664f79d6b6eb8993313421721c716d0c4cecadb226cc862cdc0",
+            "path": "src/gamez/zAI/zai.h",
+            "sha256": "b9db0b6c4535da1cdd1898360b91fa7d578fd105572843bdaa6fc1bffeacaba5"
+          },
+          {
+            "content_sha256": "6ba1acf291b595958e182fccd8eee980e4043031381215c7f6ac0583b606a3c0",
+            "path": "src/gamez/zCharacter/char_type.cpp",
+            "sha256": "3d50033cc2f6bb314d2c9c785589ebad1f9ae38e58461e9f816de0e92e8ed2bc"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zEntity/pickup_main.cpp",
+            "sha256": "f34f40dba483d6d8100ba87db6c5cf238cf38411396f1d5df1a306f82a244544"
+          },
+          {
+            "content_sha256": "ea6f519e766d3b71193cf3f8b8b58376dbb02759e4ac832cec050c08399b9d1a",
+            "path": "src/gamez/zRender/zrender.h",
+            "sha256": "f18d320af308c2a4709068051903887e51a5b4a7b51473ada584457b6fba1ad5"
+          },
+          {
+            "content_sha256": "c562dfb1c8cff8ce16723e37345e4413a76b80a83af9c107ae1e34ddd51513b4",
+            "path": "src/gamez/zSeal/seal.cpp",
+            "sha256": "9ff310acbb669c835756a2be8bd9b96a82a0c239b28cb67fef92e6f401f2338b"
+          },
+          {
+            "content_sha256": "3efb50400934e04f95e5d2d92538c2bfc1eeefe846868525abf5da7573e69775",
+            "path": "src/gamez/zSeal/seal_ai.cpp",
+            "sha256": "1c216866b43f65919506c409fefcbe4a8cd97a0260dc83d7a9e128a97ee3e801"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "939a55a5570f6f083dcc1962ef2cf0fbc483ece9e888af76132851a5cb398bc1",
+        "plan": "build/source-plans/socom-work-source-segment-030.json",
+        "plan_item": "socom:work:source-segment-030",
+        "plan_sha256": "e9bd3fb883b1784d5b04559292f2155bcf5146bf1f1adae9e17a18902644857e",
+        "reconciles": [
+          "socom:work:source-data-rodata",
+          "socom:work:source-data-data",
+          "socom:work:source-data-bss"
+        ],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/gamez/zAI",
+            "src/gamez/zCharacter",
+            "src/gamez/zEntity",
+            "src/gamez/zRender",
+            "src/gamez/zSeal"
+          ],
+          "reserved": [
+            "src/gamez/zCharacter",
+            "src/gamez/zSeal"
+          ],
+          "status": "corrected"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:03766c5d74b84972a3bd",
+          "segment_number": 30
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 030 under src/"
     },
     {
@@ -156426,6 +156702,10 @@
       "title": "Plan source owners of segment 031 (0x2591e0-0x26e9f8, 186 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T03:57:29Z",
+        "by": "socom-verifier-apply5"
+      },
       "batch": {
         "artifact_count": 666,
         "batch_number": 31,
@@ -156434,6 +156714,8 @@
         },
         "data_count": 340,
         "directories": [
+          "src/gamez/zAI",
+          "src/gamez/zMath",
           "src/gamez/zSeal"
         ],
         "function_count": 186,
@@ -156446,6 +156728,12 @@
             "0x26e9f8"
           ]
         ],
+        "reservation_correction": {
+          "from": [
+            "src/gamez/zSeal"
+          ],
+          "plan_sha256": "f0d01b51c5d56a41614330f2e24484ffc5fcafffc0ca228c4d78c5658969b652"
+        },
         "resource_basis": "provisional-name",
         "resource_inferred": true,
         "resource_reason": "inferred by name: seal_ai.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_anim.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal",
@@ -156470,17 +156758,105 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "apply-check ok 0 problems (347 annotations/5 files, plan sha/owner-map match); plan validate --check ok (review notes non-blocking); annotate --check 0 drift; git vs HEAD d409903: recorded files show only generated socom-owner-annotations blocks (own segment block + accepted data-reconcile blocks), original content byte-identical, pre-existing blocks unchanged, plan-ID order; batch 029-036 changed src set == recorded union (48); audit source-trace ok, audit docblocks ok (5392 edges)",
+        "progress apply-source-plan record (see item evidence)",
+        "source-annotations-sha256:12e598b16c0739800b16614695fd25df7d72327c8f1fbd8d039c3c8848d61992 count:347",
+        "source-file src/gamez/zAI/zai.h sha256:f9185dd01c01ddf94dcd781ca8e5d68f9ccda83236f34f5566c15fe3528ad423",
+        "source-file src/gamez/zMath/zmath.h sha256:82d6df1aecf6c62a13a5e5211ea7032480714137eab06d1bdb3bbab903e113eb",
+        "source-file src/gamez/zSeal/seal_ai.cpp sha256:10146bfbff2e832375f38cb88b21d11bf8b3527c6d5ff606a1c388feca737798",
+        "source-file src/gamez/zSeal/seal_anim.cpp sha256:8f5558199a8a21b3bb0296c91bc6ee49d70ff5c45512b61df7aa48ad68d98db5",
+        "source-file src/gamez/zSeal/zseal.h sha256:85d7cf91ac45d38ed047f7c0840f7697981176684ed21c713a3b972a8ad258a8",
+        "source-owner-map-sha256:70f907fc90a5c890b6eeed906345bb99f47945fcf86abbcb845fd3ee9ef4fc46",
+        "source-plan build/source-plans/socom-work-source-segment-031.json sha256:f0d01b51c5d56a41614330f2e24484ffc5fcafffc0ca228c4d78c5658969b652",
+        "source-reservation corrected src/gamez/zAI, src/gamez/zMath, src/gamez/zSeal"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b4",
+        "submitted_at": "2026-11-01T03:49:59Z",
+        "summary": "apply of segment-031: 347 annotations, 5 files, 0 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-031-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
+        "src/gamez/zAI",
+        "src/gamez/zMath",
         "src/gamez/zSeal"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 347,
+        "annotations_sha256": "12e598b16c0739800b16614695fd25df7d72327c8f1fbd8d039c3c8848d61992",
+        "applied_at": "2026-11-01T03:49:57Z",
+        "applied_by": "socom-source-worker-b4",
+        "changed": [
+          "src/gamez/zAI/zai.h",
+          "src/gamez/zMath/zmath.h",
+          "src/gamez/zSeal/seal_ai.cpp",
+          "src/gamez/zSeal/seal_anim.cpp",
+          "src/gamez/zSeal/zseal.h"
+        ],
+        "created": [],
+        "files": [
+          {
+            "content_sha256": "91bff3e181d82664f79d6b6eb8993313421721c716d0c4cecadb226cc862cdc0",
+            "path": "src/gamez/zAI/zai.h",
+            "sha256": "f9185dd01c01ddf94dcd781ca8e5d68f9ccda83236f34f5566c15fe3528ad423"
+          },
+          {
+            "content_sha256": "d37973495253258441b7da5539725bc0679bc2d1f982e0943dc4220a6ab02165",
+            "path": "src/gamez/zMath/zmath.h",
+            "sha256": "82d6df1aecf6c62a13a5e5211ea7032480714137eab06d1bdb3bbab903e113eb"
+          },
+          {
+            "content_sha256": "3efb50400934e04f95e5d2d92538c2bfc1eeefe846868525abf5da7573e69775",
+            "path": "src/gamez/zSeal/seal_ai.cpp",
+            "sha256": "10146bfbff2e832375f38cb88b21d11bf8b3527c6d5ff606a1c388feca737798"
+          },
+          {
+            "content_sha256": "1781af8dcd4f59926034e82934015aefd531847f34f2ae03948dbec3e3338db1",
+            "path": "src/gamez/zSeal/seal_anim.cpp",
+            "sha256": "8f5558199a8a21b3bb0296c91bc6ee49d70ff5c45512b61df7aa48ad68d98db5"
+          },
+          {
+            "content_sha256": "b45701d8ff81ed3ec772e1681ba23db908bdee4ccbb2cffffb4c963acb755405",
+            "path": "src/gamez/zSeal/zseal.h",
+            "sha256": "85d7cf91ac45d38ed047f7c0840f7697981176684ed21c713a3b972a8ad258a8"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "70f907fc90a5c890b6eeed906345bb99f47945fcf86abbcb845fd3ee9ef4fc46",
+        "plan": "build/source-plans/socom-work-source-segment-031.json",
+        "plan_item": "socom:work:source-segment-031",
+        "plan_sha256": "f0d01b51c5d56a41614330f2e24484ffc5fcafffc0ca228c4d78c5658969b652",
+        "reconciles": [
+          "socom:work:source-data-rodata",
+          "socom:work:source-data-data"
+        ],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/gamez/zAI",
+            "src/gamez/zMath",
+            "src/gamez/zSeal"
+          ],
+          "reserved": [
+            "src/gamez/zSeal"
+          ],
+          "status": "corrected"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:1d801701caddad299a11",
+          "segment_number": 31
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 031 under src/"
     },
     {
@@ -156597,6 +156973,10 @@
       "title": "Plan source owners of segment 032 (0x26ea00-0x28a55c, 199 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T03:57:31Z",
+        "by": "socom-verifier-apply5"
+      },
       "batch": {
         "artifact_count": 570,
         "batch_number": 32,
@@ -156605,6 +156985,7 @@
         },
         "data_count": 219,
         "directories": [
+          "src/gamez/zAnim",
           "src/gamez/zSeal"
         ],
         "function_count": 199,
@@ -156617,6 +156998,12 @@
             "0x28a55c"
           ]
         ],
+        "reservation_correction": {
+          "from": [
+            "src/gamez/zSeal"
+          ],
+          "plan_sha256": "0931790d198c5a6a22a5313011fc51e89001dfebdb06c31e7884850e78571427"
+        },
         "resource_basis": "provisional-name",
         "resource_inferred": true,
         "resource_reason": "inferred by name: seal_body.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_control.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_cfg.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_command.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_create.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal",
@@ -156644,17 +157031,118 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "apply-check ok 0 problems (291 annotations/7 files, plan sha/owner-map match); plan validate --check ok (review notes non-blocking); annotate --check 0 drift; git vs HEAD d409903: recorded files show only generated socom-owner-annotations blocks (own segment block + accepted data-reconcile blocks), original content byte-identical, pre-existing blocks unchanged, plan-ID order; batch 029-036 changed src set == recorded union (48); audit source-trace ok, audit docblocks ok (5392 edges)",
+        "progress apply-source-plan record (see item evidence)",
+        "source-annotations-sha256:4ff9cb21ff975bd512011561cce69122219522251e01ed92fd46c79f43bbb2ac count:291",
+        "source-file src/gamez/zAnim/zanim.h sha256:f37b7676cad49db1aa8d22c52f9480781e240c3717949059238505aed30461cf",
+        "source-file src/gamez/zSeal/seal_body.cpp sha256:e90d14a466bf69e0f695d957c6993390513294835283908c282a5d64310c17e0",
+        "source-file src/gamez/zSeal/seal_cfg.cpp sha256:85dc9454ac0d556697034e414c44c37f47261999cc93706103cc3f1ba5a4fbf0",
+        "source-file src/gamez/zSeal/seal_command.cpp sha256:b7309d399fc7e20a5f28e6b2804277a0770e4ab3923300decc559e16f65695c2",
+        "source-file src/gamez/zSeal/seal_control.cpp sha256:dc051d3877ad853a1abea06d15aec30436b7218acb8ec73b747b357b4a4f68e2",
+        "source-file src/gamez/zSeal/seal_create.cpp sha256:31e1d896ab6dc215447f1dc65606d2a9fba214de5b5761f903d8debee2b9ca12",
+        "source-file src/gamez/zSeal/seal_env.cpp sha256:4cea21a1dcb3622c71291b6958436dc5bf1a3cb2186d9ea31a7ce79dc831cc31",
+        "source-owner-map-sha256:bc24b1521484bc6fecc677bd90fcabcf654ec23085cc7d4d6679189374b96002",
+        "source-plan build/source-plans/socom-work-source-segment-032.json sha256:0931790d198c5a6a22a5313011fc51e89001dfebdb06c31e7884850e78571427",
+        "source-reservation corrected src/gamez/zAnim, src/gamez/zSeal"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b4",
+        "submitted_at": "2026-11-01T03:50:07Z",
+        "summary": "apply of segment-032: 291 annotations, 7 files, 0 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-032-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
+        "src/gamez/zAnim",
         "src/gamez/zSeal"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 291,
+        "annotations_sha256": "4ff9cb21ff975bd512011561cce69122219522251e01ed92fd46c79f43bbb2ac",
+        "applied_at": "2026-11-01T03:50:05Z",
+        "applied_by": "socom-source-worker-b4",
+        "changed": [
+          "src/gamez/zAnim/zanim.h",
+          "src/gamez/zSeal/seal_body.cpp",
+          "src/gamez/zSeal/seal_cfg.cpp",
+          "src/gamez/zSeal/seal_command.cpp",
+          "src/gamez/zSeal/seal_control.cpp",
+          "src/gamez/zSeal/seal_create.cpp",
+          "src/gamez/zSeal/seal_env.cpp"
+        ],
+        "created": [],
+        "files": [
+          {
+            "content_sha256": "661894489c5684fb795b25681eec92bcb4ac971fc518d8db98d2c0b4beccde0d",
+            "path": "src/gamez/zAnim/zanim.h",
+            "sha256": "f37b7676cad49db1aa8d22c52f9480781e240c3717949059238505aed30461cf"
+          },
+          {
+            "content_sha256": "36373e3a88d1944629954d2d3c9818214346a45a301dd576de8f4332f4d5fc68",
+            "path": "src/gamez/zSeal/seal_body.cpp",
+            "sha256": "e90d14a466bf69e0f695d957c6993390513294835283908c282a5d64310c17e0"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_cfg.cpp",
+            "sha256": "85dc9454ac0d556697034e414c44c37f47261999cc93706103cc3f1ba5a4fbf0"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_command.cpp",
+            "sha256": "b7309d399fc7e20a5f28e6b2804277a0770e4ab3923300decc559e16f65695c2"
+          },
+          {
+            "content_sha256": "2a19000ce5e96d590f355410e2a77ef91b7771cf3c1394be6eeabe4bef7a9201",
+            "path": "src/gamez/zSeal/seal_control.cpp",
+            "sha256": "dc051d3877ad853a1abea06d15aec30436b7218acb8ec73b747b357b4a4f68e2"
+          },
+          {
+            "content_sha256": "6713b4ad0aa731f1f261cc5f86f51796ffc5b8eaa8a44ca4d8c1e1c7afb0d856",
+            "path": "src/gamez/zSeal/seal_create.cpp",
+            "sha256": "31e1d896ab6dc215447f1dc65606d2a9fba214de5b5761f903d8debee2b9ca12"
+          },
+          {
+            "content_sha256": "932244c224c5db44af1f529fcc4c6a94993513be019b2f4f0e83b1c2f6c7a229",
+            "path": "src/gamez/zSeal/seal_env.cpp",
+            "sha256": "4cea21a1dcb3622c71291b6958436dc5bf1a3cb2186d9ea31a7ce79dc831cc31"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "bc24b1521484bc6fecc677bd90fcabcf654ec23085cc7d4d6679189374b96002",
+        "plan": "build/source-plans/socom-work-source-segment-032.json",
+        "plan_item": "socom:work:source-segment-032",
+        "plan_sha256": "0931790d198c5a6a22a5313011fc51e89001dfebdb06c31e7884850e78571427",
+        "reconciles": [
+          "socom:work:source-data-rodata",
+          "socom:work:source-data-data",
+          "socom:work:source-data-bss"
+        ],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/gamez/zAnim",
+            "src/gamez/zSeal"
+          ],
+          "reserved": [
+            "src/gamez/zSeal"
+          ],
+          "status": "corrected"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:e8d0c9986c73de12d8d6",
+          "segment_number": 32
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 032 under src/"
     },
     {
@@ -156761,6 +157249,10 @@
       "title": "Plan source owners of segment 033 (0x28a560-0x2a451c, 197 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T03:57:33Z",
+        "by": "socom-verifier-apply5"
+      },
       "batch": {
         "artifact_count": 524,
         "batch_number": 33,
@@ -156769,7 +157261,10 @@
         },
         "data_count": 193,
         "directories": [
-          "src/gamez/zSeal"
+          "src/gamez/zCharacter",
+          "src/gamez/zNode",
+          "src/gamez/zSeal",
+          "src/gamez/zWeapon"
         ],
         "function_count": 197,
         "gap_count": 134,
@@ -156781,6 +157276,12 @@
             "0x2a451c"
           ]
         ],
+        "reservation_correction": {
+          "from": [
+            "src/gamez/zSeal"
+          ],
+          "plan_sha256": "adcd467df25e004b7255c48ec1bfecb9b74df771c92f512b7abddcb92b7cb79f"
+        },
         "resource_basis": "provisional-name",
         "resource_inferred": true,
         "resource_reason": "inferred by name: seal_env.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_dyn.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal",
@@ -156805,17 +157306,108 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "apply-check ok 0 problems (233 annotations/5 files, plan sha/owner-map match); plan validate --check ok (review notes non-blocking); annotate --check 0 drift; git vs HEAD d409903: recorded files show only generated socom-owner-annotations blocks (own segment block + accepted data-reconcile blocks), original content byte-identical, pre-existing blocks unchanged, plan-ID order; batch 029-036 changed src set == recorded union (48); audit source-trace ok, audit docblocks ok (5392 edges)",
+        "progress apply-source-plan record (see item evidence)",
+        "source-annotations-sha256:01c9f368c31091ce8c6492beea57dec5621836a922fabc9f429f698544e3cd13 count:233",
+        "source-file src/gamez/zCharacter/zchar.h sha256:9d76370839a58197432d3ec1ec891efaff190a5a75eaa09e1b0d8a9bd28cb40d",
+        "source-file src/gamez/zNode/node_action.h sha256:c15d55e91b021969f113e8f3af94c1adaf567079c8a24d2f29243db38c02ce83",
+        "source-file src/gamez/zSeal/seal_dyn.cpp sha256:78ad7c582de472256c22504a0242da21736159c36927688b2888795ea20da4a1",
+        "source-file src/gamez/zSeal/seal_env.cpp sha256:9adb582e6738b3c03f016df7c495a1d468bfce4aa847ce13c6a91dabf2410779",
+        "source-file src/gamez/zWeapon/zweapon.h sha256:5e3f42887c402eeca631ca76ffb6107daf3850572b45520e02855b292bc16ab2",
+        "source-owner-map-sha256:1e20153c7cfc18a94d5d993eb40830d8145ea1e0fac172360641d030b57a93e7",
+        "source-plan build/source-plans/socom-work-source-segment-033.json sha256:adcd467df25e004b7255c48ec1bfecb9b74df771c92f512b7abddcb92b7cb79f",
+        "source-reservation corrected src/gamez/zCharacter, src/gamez/zNode, src/gamez/zSeal, src/gamez/zWeapon"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b4",
+        "submitted_at": "2026-11-01T03:50:14Z",
+        "summary": "apply of segment-033: 233 annotations, 5 files, 0 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-033-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zSeal"
+        "src/gamez/zCharacter",
+        "src/gamez/zNode",
+        "src/gamez/zSeal",
+        "src/gamez/zWeapon"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 233,
+        "annotations_sha256": "01c9f368c31091ce8c6492beea57dec5621836a922fabc9f429f698544e3cd13",
+        "applied_at": "2026-11-01T03:50:12Z",
+        "applied_by": "socom-source-worker-b4",
+        "changed": [
+          "src/gamez/zCharacter/zchar.h",
+          "src/gamez/zNode/node_action.h",
+          "src/gamez/zSeal/seal_dyn.cpp",
+          "src/gamez/zSeal/seal_env.cpp",
+          "src/gamez/zWeapon/zweapon.h"
+        ],
+        "created": [],
+        "files": [
+          {
+            "content_sha256": "ca040439b05d23544603f65a45143573bbc22517805e07a93724c77e2ca4ca49",
+            "path": "src/gamez/zCharacter/zchar.h",
+            "sha256": "9d76370839a58197432d3ec1ec891efaff190a5a75eaa09e1b0d8a9bd28cb40d"
+          },
+          {
+            "content_sha256": "44fb655713bf533e254a70c069129f2d3161852650baef400ec5248f2f57ac0a",
+            "path": "src/gamez/zNode/node_action.h",
+            "sha256": "c15d55e91b021969f113e8f3af94c1adaf567079c8a24d2f29243db38c02ce83"
+          },
+          {
+            "content_sha256": "3713a9f5498e2a5c41fdabb2699e8f04ca7b6f882cf565d0caab0fe12826beca",
+            "path": "src/gamez/zSeal/seal_dyn.cpp",
+            "sha256": "78ad7c582de472256c22504a0242da21736159c36927688b2888795ea20da4a1"
+          },
+          {
+            "content_sha256": "932244c224c5db44af1f529fcc4c6a94993513be019b2f4f0e83b1c2f6c7a229",
+            "path": "src/gamez/zSeal/seal_env.cpp",
+            "sha256": "9adb582e6738b3c03f016df7c495a1d468bfce4aa847ce13c6a91dabf2410779"
+          },
+          {
+            "content_sha256": "9e70601b2948e8cb3c3c86b0f5e7f608f69c1d98f22c454e5099ce18e7c91734",
+            "path": "src/gamez/zWeapon/zweapon.h",
+            "sha256": "5e3f42887c402eeca631ca76ffb6107daf3850572b45520e02855b292bc16ab2"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "1e20153c7cfc18a94d5d993eb40830d8145ea1e0fac172360641d030b57a93e7",
+        "plan": "build/source-plans/socom-work-source-segment-033.json",
+        "plan_item": "socom:work:source-segment-033",
+        "plan_sha256": "adcd467df25e004b7255c48ec1bfecb9b74df771c92f512b7abddcb92b7cb79f",
+        "reconciles": [
+          "socom:work:source-data-rodata",
+          "socom:work:source-data-data",
+          "socom:work:source-data-bss"
+        ],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/gamez/zCharacter",
+            "src/gamez/zNode",
+            "src/gamez/zSeal",
+            "src/gamez/zWeapon"
+          ],
+          "reserved": [
+            "src/gamez/zSeal"
+          ],
+          "status": "corrected"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:8b1aa2a217eb0060404d",
+          "segment_number": 33
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 033 under src/"
     },
     {
@@ -156942,6 +157534,10 @@
       "title": "Plan source owners of segment 034 (0x2a4520-0x2afbb4, 128 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T03:57:35Z",
+        "by": "socom-verifier-apply5"
+      },
       "batch": {
         "artifact_count": 273,
         "batch_number": 34,
@@ -156950,6 +157546,7 @@
         },
         "data_count": 40,
         "directories": [
+          "src/gamez/zMath",
           "src/gamez/zSeal"
         ],
         "function_count": 128,
@@ -156962,6 +157559,12 @@
             "0x2afbb4"
           ]
         ],
+        "reservation_correction": {
+          "from": [
+            "src/gamez/zSeal"
+          ],
+          "plan_sha256": "e39557edde06a16174ac6a7c4ccb77c9f60340fd7e55e2da393a52089c9ff181"
+        },
         "resource_basis": "provisional-name",
         "resource_inferred": true,
         "resource_reason": "inferred by name: seal_kit.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal",
@@ -156985,17 +157588,104 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "apply-check ok 0 problems (161 annotations/5 files, plan sha/owner-map match); plan validate --check ok (review notes non-blocking); annotate --check 0 drift; git vs HEAD d409903: recorded files show only generated socom-owner-annotations blocks (own segment block + accepted data-reconcile blocks), original content byte-identical, pre-existing blocks unchanged, plan-ID order; batch 029-036 changed src set == recorded union (48); audit source-trace ok, audit docblocks ok (5392 edges)",
+        "progress apply-source-plan record (see item evidence)",
+        "source-annotations-sha256:7932fabe03e9612b84dc7ff7a99185153b203fbd94488e4199e7c26c73e34cf0 count:161",
+        "source-file src/gamez/zMath/zmath.h sha256:b1307a02db1e971148754a056dc0477546d7b961ad7fcfd0925a2e54c628e992",
+        "source-file src/gamez/zSeal/seal_env.cpp sha256:80a4f8c0b07537bcfa845e8f1830378f1c2d2da788460ea646d819411acfbd2f",
+        "source-file src/gamez/zSeal/seal_ex.cpp sha256:b06568ff9fb90698abe22b6ab57fcb25f46a07dafd9cb406ab5541261164412b",
+        "source-file src/gamez/zSeal/seal_kit.cpp sha256:7eebdd7dac8c5fee22b4d3f7f6d3accaa4dda1803b69f9af9207eeb1504f5eca",
+        "source-file src/gamez/zSeal/zseal.h sha256:a4d2239aa11d7375d4bb38f327e646824d1404f204d71b9ec310151db80adeb8",
+        "source-owner-map-sha256:3681fdc415d35eb591a1be86095143abe137a7411c22070a8378d892732eae07",
+        "source-plan build/source-plans/socom-work-source-segment-034.json sha256:e39557edde06a16174ac6a7c4ccb77c9f60340fd7e55e2da393a52089c9ff181",
+        "source-reservation corrected src/gamez/zMath, src/gamez/zSeal"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b4",
+        "submitted_at": "2026-11-01T03:50:22Z",
+        "summary": "apply of segment-034: 161 annotations, 5 files, 0 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-034-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
+        "src/gamez/zMath",
         "src/gamez/zSeal"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 161,
+        "annotations_sha256": "7932fabe03e9612b84dc7ff7a99185153b203fbd94488e4199e7c26c73e34cf0",
+        "applied_at": "2026-11-01T03:50:20Z",
+        "applied_by": "socom-source-worker-b4",
+        "changed": [
+          "src/gamez/zMath/zmath.h",
+          "src/gamez/zSeal/seal_env.cpp",
+          "src/gamez/zSeal/seal_ex.cpp",
+          "src/gamez/zSeal/seal_kit.cpp",
+          "src/gamez/zSeal/zseal.h"
+        ],
+        "created": [],
+        "files": [
+          {
+            "content_sha256": "d37973495253258441b7da5539725bc0679bc2d1f982e0943dc4220a6ab02165",
+            "path": "src/gamez/zMath/zmath.h",
+            "sha256": "b1307a02db1e971148754a056dc0477546d7b961ad7fcfd0925a2e54c628e992"
+          },
+          {
+            "content_sha256": "932244c224c5db44af1f529fcc4c6a94993513be019b2f4f0e83b1c2f6c7a229",
+            "path": "src/gamez/zSeal/seal_env.cpp",
+            "sha256": "80a4f8c0b07537bcfa845e8f1830378f1c2d2da788460ea646d819411acfbd2f"
+          },
+          {
+            "content_sha256": "f44b23d96d5fb09d7f33a1c096afb06d3cd038d71a387e670752ecf44a325f6c",
+            "path": "src/gamez/zSeal/seal_ex.cpp",
+            "sha256": "b06568ff9fb90698abe22b6ab57fcb25f46a07dafd9cb406ab5541261164412b"
+          },
+          {
+            "content_sha256": "766dc030a4c1fd5ed5d1a31368b9fc9ae13c6bc814843d95a4c20c5f35c1a2cd",
+            "path": "src/gamez/zSeal/seal_kit.cpp",
+            "sha256": "7eebdd7dac8c5fee22b4d3f7f6d3accaa4dda1803b69f9af9207eeb1504f5eca"
+          },
+          {
+            "content_sha256": "b45701d8ff81ed3ec772e1681ba23db908bdee4ccbb2cffffb4c963acb755405",
+            "path": "src/gamez/zSeal/zseal.h",
+            "sha256": "a4d2239aa11d7375d4bb38f327e646824d1404f204d71b9ec310151db80adeb8"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "3681fdc415d35eb591a1be86095143abe137a7411c22070a8378d892732eae07",
+        "plan": "build/source-plans/socom-work-source-segment-034.json",
+        "plan_item": "socom:work:source-segment-034",
+        "plan_sha256": "e39557edde06a16174ac6a7c4ccb77c9f60340fd7e55e2da393a52089c9ff181",
+        "reconciles": [
+          "socom:work:source-data-rodata",
+          "socom:work:source-data-data",
+          "socom:work:source-data-bss"
+        ],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/gamez/zMath",
+            "src/gamez/zSeal"
+          ],
+          "reserved": [
+            "src/gamez/zSeal"
+          ],
+          "status": "corrected"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:f7f6e3f8acd4081d5ab6",
+          "segment_number": 34
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 034 under src/"
     },
     {
@@ -157111,6 +157801,10 @@
       "title": "Plan source owners of segment 035 (0x2afbc0-0x2ce218, 200 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T03:57:37Z",
+        "by": "socom-verifier-apply5"
+      },
       "batch": {
         "artifact_count": 1013,
         "batch_number": 35,
@@ -157120,6 +157814,7 @@
         "data_count": 659,
         "directories": [
           "src/gamez/zAnim",
+          "src/gamez/zInput",
           "src/gamez/zSeal"
         ],
         "function_count": 200,
@@ -157132,6 +157827,13 @@
             "0x2ce218"
           ]
         ],
+        "reservation_correction": {
+          "from": [
+            "src/gamez/zAnim",
+            "src/gamez/zSeal"
+          ],
+          "plan_sha256": "e64d068ade143c8c64a1bedf489fcf268c08839a19da0d9ada1e2269c49fa520"
+        },
         "resource_basis": "provisional-name",
         "resource_inferred": true,
         "resource_reason": "inferred by name: seal_tasks.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; anim.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; seal_sensors.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_weapon.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal",
@@ -157158,18 +157860,113 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "apply-check ok 0 problems (453 annotations/6 files, plan sha/owner-map match); plan validate --check ok (review notes non-blocking); annotate --check 0 drift; git vs HEAD d409903: recorded files show only generated socom-owner-annotations blocks (own segment block + accepted data-reconcile blocks), original content byte-identical, pre-existing blocks unchanged, plan-ID order; batch 029-036 changed src set == recorded union (48); audit source-trace ok, audit docblocks ok (5392 edges)",
+        "progress apply-source-plan record (see item evidence)",
+        "source-annotations-sha256:106723a6d4b396cb5dca0fb6385c0218afc50d601874455b9cffa42767aeb885 count:453",
+        "source-file src/gamez/zAnim/anim.cpp sha256:9bcd52a874adc8d6ac792ab1080bc3f929db6ab8f30ad0df998be6b51e2246a2",
+        "source-file src/gamez/zAnim/zanim.h sha256:f4cb93281fadf1653b7872a6604fb8edff9184d1e8749d9ae20f31f17e67b922",
+        "source-file src/gamez/zInput/remote_control.cpp sha256:368a086a632d7cc1ad27054278f17f72537f9ba1097b2946a0bedd2f05034a6e",
+        "source-file src/gamez/zSeal/seal_sensors.cpp sha256:7c8e8069a9ce05930080bf88a840d692d76372d124f6e4e5963a40e6de487357",
+        "source-file src/gamez/zSeal/seal_tasks.cpp sha256:7dec4e87f198812aca323e95ad148ebed8dcf696b45fd6e40c3b7c69e37938b8",
+        "source-file src/gamez/zSeal/seal_weapon.cpp sha256:080acfde63a530c3d1604e9d57114d77252068e81819b580a00de3ebd0a73698",
+        "source-owner-map-sha256:8d83b9328abe93712ceb68e14b42f545698d69bf09df61668616c79523346472",
+        "source-plan build/source-plans/socom-work-source-segment-035.json sha256:e64d068ade143c8c64a1bedf489fcf268c08839a19da0d9ada1e2269c49fa520",
+        "source-reservation corrected src/gamez/zAnim, src/gamez/zInput, src/gamez/zSeal"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b4",
+        "submitted_at": "2026-11-01T03:50:29Z",
+        "summary": "apply of segment-035: 453 annotations, 6 files, 0 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-035-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
         "src/gamez/zAnim",
+        "src/gamez/zInput",
         "src/gamez/zSeal"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 453,
+        "annotations_sha256": "106723a6d4b396cb5dca0fb6385c0218afc50d601874455b9cffa42767aeb885",
+        "applied_at": "2026-11-01T03:50:27Z",
+        "applied_by": "socom-source-worker-b4",
+        "changed": [
+          "src/gamez/zAnim/anim.cpp",
+          "src/gamez/zAnim/zanim.h",
+          "src/gamez/zInput/remote_control.cpp",
+          "src/gamez/zSeal/seal_sensors.cpp",
+          "src/gamez/zSeal/seal_tasks.cpp",
+          "src/gamez/zSeal/seal_weapon.cpp"
+        ],
+        "created": [],
+        "files": [
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zAnim/anim.cpp",
+            "sha256": "9bcd52a874adc8d6ac792ab1080bc3f929db6ab8f30ad0df998be6b51e2246a2"
+          },
+          {
+            "content_sha256": "661894489c5684fb795b25681eec92bcb4ac971fc518d8db98d2c0b4beccde0d",
+            "path": "src/gamez/zAnim/zanim.h",
+            "sha256": "f4cb93281fadf1653b7872a6604fb8edff9184d1e8749d9ae20f31f17e67b922"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zInput/remote_control.cpp",
+            "sha256": "368a086a632d7cc1ad27054278f17f72537f9ba1097b2946a0bedd2f05034a6e"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_sensors.cpp",
+            "sha256": "7c8e8069a9ce05930080bf88a840d692d76372d124f6e4e5963a40e6de487357"
+          },
+          {
+            "content_sha256": "4acad68706dc11e4cedbe46e3f6edc5e641e3b11771a5d5d37138220c7180ac7",
+            "path": "src/gamez/zSeal/seal_tasks.cpp",
+            "sha256": "7dec4e87f198812aca323e95ad148ebed8dcf696b45fd6e40c3b7c69e37938b8"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_weapon.cpp",
+            "sha256": "080acfde63a530c3d1604e9d57114d77252068e81819b580a00de3ebd0a73698"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "8d83b9328abe93712ceb68e14b42f545698d69bf09df61668616c79523346472",
+        "plan": "build/source-plans/socom-work-source-segment-035.json",
+        "plan_item": "socom:work:source-segment-035",
+        "plan_sha256": "e64d068ade143c8c64a1bedf489fcf268c08839a19da0d9ada1e2269c49fa520",
+        "reconciles": [
+          "socom:work:source-data-data",
+          "socom:work:source-data-bss"
+        ],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/gamez/zAnim",
+            "src/gamez/zInput",
+            "src/gamez/zSeal"
+          ],
+          "reserved": [
+            "src/gamez/zAnim",
+            "src/gamez/zSeal"
+          ],
+          "status": "corrected"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:9fcf1780dde2ac074b22",
+          "segment_number": 35
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 035 under src/"
     },
     {
@@ -157304,6 +158101,10 @@
       "title": "Plan source owners of segment 036 (0x2ce220-0x2e4ab0, 198 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T03:57:39Z",
+        "by": "socom-verifier-apply5"
+      },
       "batch": {
         "artifact_count": 699,
         "batch_number": 36,
@@ -157312,6 +158113,7 @@
         },
         "data_count": 356,
         "directories": [
+          "src/gamez/zAI",
           "src/gamez/zInput",
           "src/gamez/zSeal"
         ],
@@ -157325,6 +158127,13 @@
             "0x2e4ab0"
           ]
         ],
+        "reservation_correction": {
+          "from": [
+            "src/gamez/zInput",
+            "src/gamez/zSeal"
+          ],
+          "plan_sha256": "891185da7d190d97635a0e4ccb2954db5e7f9c55b461cc8895ef032c1fdf4183"
+        },
         "resource_basis": "provisional-name",
         "resource_inferred": true,
         "resource_reason": "inferred by name: seal_unit.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aistate.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aifollow.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_squirm.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_ailines.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aiscan.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aievent.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; remote_control.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zInput; seal_handsig.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal",
@@ -157356,18 +158165,161 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "apply-check ok 0 problems (340 annotations/13 files, plan sha/owner-map match); plan validate --check ok (review notes non-blocking); annotate --check 0 drift; git vs HEAD d409903: recorded files show only generated socom-owner-annotations blocks (own segment block + accepted data-reconcile blocks), original content byte-identical, pre-existing blocks unchanged, plan-ID order; batch 029-036 changed src set == recorded union (48); audit source-trace ok, audit docblocks ok (5392 edges)",
+        "progress apply-source-plan record (see item evidence)",
+        "source-annotations-sha256:439d5f8fbc00edd38a70bf966c17165cafb87d0ed2d4acdade3360d98d7fa2f0 count:340",
+        "source-file src/gamez/zAI/zai.h sha256:c5d72b5b290a46997a5e3ef223ef17faf3fc2aae7cd66466552c9559e7fbde8a",
+        "source-file src/gamez/zInput/remote_control.cpp sha256:570a6efb99896afdbeb35cfdf213fa963f90f7c83e37453747b40a3131a306ed",
+        "source-file src/gamez/zSeal/seal_aievent.cpp sha256:72014bc76f8414bb918627eb25ad403fc6d2dc32cd17c9b99e5fe61b6de82261",
+        "source-file src/gamez/zSeal/seal_aifollow.cpp sha256:962fed02c69a54b86b477afca4eb1b4b112fe09b4f9c7496a3400aa21b4079b3",
+        "source-file src/gamez/zSeal/seal_ailines.cpp sha256:7ce23bc4abb2f116fde40d3ad71391a40af3267e6a740942ffa313213e2ff997",
+        "source-file src/gamez/zSeal/seal_aimoves.cpp sha256:d93b57b76ad3b724b3192d89a256d9f44c4cd1f70dda8392b69a1afce996b687",
+        "source-file src/gamez/zSeal/seal_airesponse.cpp sha256:181836602da20f2e95a96d050896cc1362e1a5bd300e296e709fcf9eb6683102",
+        "source-file src/gamez/zSeal/seal_aiscan.cpp sha256:5dd55d4c33e651098f16a89ed93313a06e9f9f974ffd552860cda6ca3034ceda",
+        "source-file src/gamez/zSeal/seal_aistate.cpp sha256:80e5f98dd2c348d3ceba57aef4f96d510c0f43ad5c53faf3a6b4885aa8081655",
+        "source-file src/gamez/zSeal/seal_handsig.cpp sha256:987d19277a5e85efc85d9a598bcde5aaf1c56cdb1fad7528a9bc327274afac76",
+        "source-file src/gamez/zSeal/seal_squirm.cpp sha256:6412850b21e8f023c5ea55f368c6bfab39a94ce7ac90f148ccc3bcb168c2158b",
+        "source-file src/gamez/zSeal/seal_unit.cpp sha256:bbf5ad4970df452777311829d99202800a024fed824516df37895f7457de4f7f",
+        "source-file src/gamez/zSeal/zseal.h sha256:eb40b6c8421a8aec3ab89f4630e68d62487daeada4418bbebbc9770e91f36cae",
+        "source-owner-map-sha256:f27a452bdaf3e2a5f86df12089bb56f38f9e3ed1688263dcf5528f234ef51617",
+        "source-plan build/source-plans/socom-work-source-segment-036.json sha256:891185da7d190d97635a0e4ccb2954db5e7f9c55b461cc8895ef032c1fdf4183",
+        "source-reservation corrected src/gamez/zAI, src/gamez/zInput, src/gamez/zSeal"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b4",
+        "submitted_at": "2026-11-01T03:50:37Z",
+        "summary": "apply of segment-036: 340 annotations, 13 files, 0 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-036-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
+        "src/gamez/zAI",
         "src/gamez/zInput",
         "src/gamez/zSeal"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 340,
+        "annotations_sha256": "439d5f8fbc00edd38a70bf966c17165cafb87d0ed2d4acdade3360d98d7fa2f0",
+        "applied_at": "2026-11-01T03:50:35Z",
+        "applied_by": "socom-source-worker-b4",
+        "changed": [
+          "src/gamez/zAI/zai.h",
+          "src/gamez/zInput/remote_control.cpp",
+          "src/gamez/zSeal/seal_aievent.cpp",
+          "src/gamez/zSeal/seal_aifollow.cpp",
+          "src/gamez/zSeal/seal_ailines.cpp",
+          "src/gamez/zSeal/seal_aimoves.cpp",
+          "src/gamez/zSeal/seal_airesponse.cpp",
+          "src/gamez/zSeal/seal_aiscan.cpp",
+          "src/gamez/zSeal/seal_aistate.cpp",
+          "src/gamez/zSeal/seal_handsig.cpp",
+          "src/gamez/zSeal/seal_squirm.cpp",
+          "src/gamez/zSeal/seal_unit.cpp",
+          "src/gamez/zSeal/zseal.h"
+        ],
+        "created": [],
+        "files": [
+          {
+            "content_sha256": "91bff3e181d82664f79d6b6eb8993313421721c716d0c4cecadb226cc862cdc0",
+            "path": "src/gamez/zAI/zai.h",
+            "sha256": "c5d72b5b290a46997a5e3ef223ef17faf3fc2aae7cd66466552c9559e7fbde8a"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zInput/remote_control.cpp",
+            "sha256": "570a6efb99896afdbeb35cfdf213fa963f90f7c83e37453747b40a3131a306ed"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_aievent.cpp",
+            "sha256": "72014bc76f8414bb918627eb25ad403fc6d2dc32cd17c9b99e5fe61b6de82261"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_aifollow.cpp",
+            "sha256": "962fed02c69a54b86b477afca4eb1b4b112fe09b4f9c7496a3400aa21b4079b3"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_ailines.cpp",
+            "sha256": "7ce23bc4abb2f116fde40d3ad71391a40af3267e6a740942ffa313213e2ff997"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_aimoves.cpp",
+            "sha256": "d93b57b76ad3b724b3192d89a256d9f44c4cd1f70dda8392b69a1afce996b687"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_airesponse.cpp",
+            "sha256": "181836602da20f2e95a96d050896cc1362e1a5bd300e296e709fcf9eb6683102"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_aiscan.cpp",
+            "sha256": "5dd55d4c33e651098f16a89ed93313a06e9f9f974ffd552860cda6ca3034ceda"
+          },
+          {
+            "content_sha256": "8305b13db1e77a539f986f58de8a775e132aa110a81f4872eda4dd231ddc299b",
+            "path": "src/gamez/zSeal/seal_aistate.cpp",
+            "sha256": "80e5f98dd2c348d3ceba57aef4f96d510c0f43ad5c53faf3a6b4885aa8081655"
+          },
+          {
+            "content_sha256": "2dc42a71d98426641c752a3a05c7757e66ddbb19122627f1f0f13fc7e3f5f654",
+            "path": "src/gamez/zSeal/seal_handsig.cpp",
+            "sha256": "987d19277a5e85efc85d9a598bcde5aaf1c56cdb1fad7528a9bc327274afac76"
+          },
+          {
+            "content_sha256": "b023ffeee0fe9283d0e45db37f3bf81789d61af1b99972eaa5dfee31a4f91068",
+            "path": "src/gamez/zSeal/seal_squirm.cpp",
+            "sha256": "6412850b21e8f023c5ea55f368c6bfab39a94ce7ac90f148ccc3bcb168c2158b"
+          },
+          {
+            "content_sha256": "03e6c65729481ab6df493d05cae779fc22cfef413c1a14abf1d44592e28909e8",
+            "path": "src/gamez/zSeal/seal_unit.cpp",
+            "sha256": "bbf5ad4970df452777311829d99202800a024fed824516df37895f7457de4f7f"
+          },
+          {
+            "content_sha256": "b45701d8ff81ed3ec772e1681ba23db908bdee4ccbb2cffffb4c963acb755405",
+            "path": "src/gamez/zSeal/zseal.h",
+            "sha256": "eb40b6c8421a8aec3ab89f4630e68d62487daeada4418bbebbc9770e91f36cae"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "f27a452bdaf3e2a5f86df12089bb56f38f9e3ed1688263dcf5528f234ef51617",
+        "plan": "build/source-plans/socom-work-source-segment-036.json",
+        "plan_item": "socom:work:source-segment-036",
+        "plan_sha256": "891185da7d190d97635a0e4ccb2954db5e7f9c55b461cc8895ef032c1fdf4183",
+        "reconciles": [
+          "socom:work:source-data-bss"
+        ],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/gamez/zAI",
+            "src/gamez/zInput",
+            "src/gamez/zSeal"
+          ],
+          "reserved": [
+            "src/gamez/zInput",
+            "src/gamez/zSeal"
+          ],
+          "status": "corrected"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:e794bd0f15e08c3ddd40",
+          "segment_number": 36
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 036 under src/"
     },
     {
