@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3383,
+  "revision": 3384,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -156515,6 +156515,10 @@
       "title": "Reconcile data data owners (1001 artifacts outside the segment slices)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T01:06:28Z",
+        "by": "socom-source-owner-scrutinizer-x31"
+      },
       "batch": {
         "artifact_count": 1769,
         "batch_number": 79,
@@ -156591,7 +156595,12 @@
         "socom:work:source-segment-076"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-data-bss.json sha256:59fa0b9ac7105d356cad9c6fd81dd6b070c6e1e6c59a8c2a059bae73e339096b; validate --check ok (0 problems, 3 review notes); draft --check ok (1436 drafted, 169 hand, 0 overrides); emit-check 0 findings"
+        "19 hand fills are labelless nobits gaps (<64 B, next object 64..1024-aligned; 0x476d25 91 B .sbss->.bss fill with __bss_start); _args gap 0x476d80 reached only by LOCAL LO16 from crt0 object 0x140008, row equals accepted crt0 plan; 8 defined-elsewhere rows cite lines that define the objects and are exactly the provisional definitions disagreeing with hand owners; 130 COMMON unresolved, none owned",
+        "95 __sinit-decided rows: every cited __sinit_<unit> (55 functions, recon asm) holds relocations to its object (93 LO16, 2 GPREL16) used as ctor/__register_global_object/__construct_array this or direct/inline-ctor stores (sw/sb/sd/swc1), none read-only; unit = sinit name in all 95",
+        "C2D m_topx/m_topy stay unresolved correctly: .sbss order ztwod_poly doPolyKick 0x47656c < c2dstring delta0X 0x476574 < C2D statics 0x476580-0x476598 < util_output debug 0x47659c, so the C2D-virtuals object (rodata's ztwod_main.cpp, text 0x300bf0 before ztwod_poly) cannot define them; ztwod_bitmap.cpp, a C2D::Init object, util_bufio.cpp, c2dstring.cpp and util_output.cpp all fit link order (same as accepted 041 siblings)",
+        "link order: 147/150 hand rows and all 19 GLOBAL D-referenced rows sit beside their own unit's data; the 3 others are linked between their flanks (theVoice: zNetMedius<zNetVoice<zmpeg text+sinit 115/116; m_texfxfreepool vis_texfx between vis_bands/zwep_global, only candidate reader; hackStr low); 11 low rows have their competing candidates named",
+        "plan build/source-plans/socom-work-source-data-bss.json sha256:59fa0b9ac7105d356cad9c6fd81dd6b070c6e1e6c59a8c2a059bae73e339096b; validate --check ok (0 problems, 3 review notes); draft --check ok (1436 drafted, 169 hand, 0 overrides); emit-check 0 findings",
+        "plan build/source-plans/socom-work-source-data-bss.json sha256:59fa0b9ac7105d356cad9c6fd81dd6b070c6e1e6c59a8c2a059bae73e339096b; validate --check ok (0 problems, 3 review notes; 331 shared units all agree with accepted plans); draft --check ok (1436 drafted, 169 hand, 0 overrides); emit-check 0/0/0/0"
       ],
       "handoff": {
         "owner": "socom-source-owner-mapper-r3",
@@ -156606,7 +156615,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Reconcile bss data owners (1769 artifacts outside the segment slices)"
     },
     {
