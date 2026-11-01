@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3342,
+  "revision": 3349,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -150097,6 +150097,10 @@
       "title": "Apply the reviewed source owners of segment 022 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:16:54Z",
+        "by": "socom-source-owner-scrutinizer-x23"
+      },
       "batch": {
         "artifact_count": 698,
         "batch_number": 23,
@@ -150133,6 +150137,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "final-sweep review x23: plan sha256 b29b692faa0cc5dc92f4ded200824db02390226f8445c342c66c8fabc848529e = handoff; validate --check ok, draft --check ok (0 problems, 0 open); emit-check --plan 0 missing emits/notes, 0 wrong citations, 0 undetermined. JSON diff vs build/stage4/pre-final: only +2 header emits/annotations and reservation +src/gamez/zUI. 0x1fbc60 __dt__11CUIVariableFv (binding 13, implicit) -> src/gamez/zUI/zui.h:27 'class CUIVariable : public _zrdr' (no DWARF header unit); 0x1fd4e0 __as__9AI_PARAMSFRC9AI_PARAMS (implicit) -> src/gamez/zAI/zai.h:235 top-level 'struct AI_PARAMS' (zchar.h:82, zfts.h:66, zweapon.h:360 are nested). Implicit members go to the class header whatever the unit count.",
         "plan build/source-plans/socom-work-source-segment-023.json sha256:b29b692faa0cc5dc92f4ded200824db02390226f8445c342c66c8fabc848529e; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -150220,7 +150225,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 023 (0x1f25c0-0x1ff8cc, 192 functions)"
     },
     {
@@ -150283,6 +150288,10 @@
       "title": "Apply the reviewed source owners of segment 023 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:16:57Z",
+        "by": "socom-source-owner-scrutinizer-x23"
+      },
       "batch": {
         "artifact_count": 567,
         "batch_number": 24,
@@ -150326,6 +150335,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "final-sweep review x23: plan sha256 df9555b9bbb9fe2ac4a1ad7e02e0dd222bd7a21e33d6fae3cc59c09f4c6ed0ab = handoff; validate/draft --check ok; emit-check --plan clean (0/0/0, 0 undetermined). Diff vs pre-final: +2 emits, reservation +src/gamez/zNode. 0x1ff8d0 __dt__Q211CNodeAction9ContainerFv (13, implicit) -> src/gamez/zNode/node_action.h:5 'class CNodeAction : public zdb::CNodeEx', the only declaration of CNodeAction under src/, no DWARF header unit; a nested class must be declared inside its enclosing class, same as accepted 015 CAiMap::scanline -> zai.h:297 (CAiMap is declared there without scanline). 0x200070 __dt__16C2DMessageStringFv (13, implicit; referenced by __vt__16C2DMessageString) -> src/gamez/zTwoD/ztwod.h:235 'class C2DMessageString : public C2D'.",
         "plan build/source-plans/socom-work-source-segment-024.json sha256:df9555b9bbb9fe2ac4a1ad7e02e0dd222bd7a21e33d6fae3cc59c09f4c6ed0ab; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -150385,7 +150395,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 024 (0x1ff8d0-0x20bb40, 190 functions)"
     },
     {
@@ -150457,6 +150467,10 @@
       "title": "Apply the reviewed source owners of segment 024 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:16:59Z",
+        "by": "socom-source-owner-scrutinizer-x23"
+      },
       "batch": {
         "artifact_count": 358,
         "batch_number": 25,
@@ -150497,6 +150511,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "final-sweep review x23: plan sha256 107b2df3eb5b05b15885206569a0b02bcfef0372a8e54bcc167c518b7fdc4516 = handoff; validate/draft --check ok; emit-check --plan clean (0/0/0, 0 undetermined). Diff vs pre-final: only +2 emits/annotations. 0x216ff0 Copy__Q23zdb5CCell and 0x217000 IsCell__Q23zdb5CCell (13) are reached only through __vt__Q23zdb5CCell 0x471e00. That vtable is read by the ctor 0x217380 and dtor 0x217100 (grid_cell.cpp), and the ctor is called by zdb::CGrid::Create 0x2152d0 (grid_main.cpp): 2 units, per refs. Both -> src/gamez/zGrid/zgrid.h:23 'class CCell : public CNode' inside namespace zdb (line 8); no DWARF header unit; zGrid already reserved.",
         "plan build/source-plans/socom-work-source-segment-025.json sha256:107b2df3eb5b05b15885206569a0b02bcfef0372a8e54bcc167c518b7fdc4516; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -150556,7 +150571,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 025 (0x20bb40-0x218dd8, 158 functions)"
     },
     {
@@ -150627,6 +150642,10 @@
       "title": "Apply the reviewed source owners of segment 025 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:17:02Z",
+        "by": "socom-source-owner-scrutinizer-x23"
+      },
       "batch": {
         "artifact_count": 445,
         "batch_number": 26,
@@ -150666,6 +150685,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "final-sweep review x23: plan sha256 32520d4f7c46eb91fc3036c3e7ca86103ed29fbffbed371718536827a8cbdb00 = handoff; validate/draft --check ok; emit-check --plan clean (0/0/0, 0 undetermined). Diff vs pre-final: only +1 emit/annotation. 0x222460 __ct__7CMatrixFv (13, implicit; referenced by __sinit_zmath_matrix.cpp) -> src/gamez/zMath/zmath_matrix.h, which maps CMatrix's DWARF header unit Z:\\dev\\gamez\\zmath\\zmath_matrix.h (header CUs of 0x1e45f0 and 0x1eb350, per dwarf_cus); the same header path as segments 017/021/022/023; zMath already reserved.",
         "plan build/source-plans/socom-work-source-segment-026.json sha256:32520d4f7c46eb91fc3036c3e7ca86103ed29fbffbed371718536827a8cbdb00; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -150739,7 +150759,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 026 (0x218de0-0x22489c, 188 functions)"
     },
     {
@@ -151317,6 +151337,10 @@
       "title": "Apply the reviewed source owners of segment 029 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:17:04Z",
+        "by": "socom-source-owner-scrutinizer-x23"
+      },
       "batch": {
         "artifact_count": 517,
         "batch_number": 30,
@@ -151353,6 +151377,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "final-sweep review x23: plan sha256 e9bd3fb883b1784d5b04559292f2155bcf5146bf1f1adae9e17a18902644857e = handoff; validate/draft --check ok; emit-check --plan clean (0/0/0, 0 undetermined). Diff vs pre-final: +1 emit, reservation +src/gamez/zRender. 0x249500 __dt__3LODFv (13, implicit; called by vector<LOD> do_assign/insert in char_type.cpp) -> src/gamez/zRender/zrender.h:63 'struct LOD', the only declaration; no DWARF header unit.",
         "plan build/source-plans/socom-work-source-segment-030.json sha256:e9bd3fb883b1784d5b04559292f2155bcf5146bf1f1adae9e17a18902644857e; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -151405,7 +151430,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 030 (0x247880-0x2591d8, 170 functions)"
     },
     {
@@ -151470,6 +151495,10 @@
       "title": "Apply the reviewed source owners of segment 030 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:17:07Z",
+        "by": "socom-source-owner-scrutinizer-x23"
+      },
       "batch": {
         "artifact_count": 666,
         "batch_number": 31,
@@ -151505,6 +151534,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "final-sweep review x23: plan sha256 f0d01b51c5d56a41614330f2e24484ffc5fcafffc0ca228c4d78c5658969b652 = handoff; validate/draft --check ok; emit-check --plan clean (0/0/0, 0 undetermined). Diff vs pre-final: +4 emits, +2 notes. 0x26c830-0x26c860 CSealCtrlAi GetSealCtrlAi/GetJumpFlag/IsPlayer/IsAi (13) are reached via __vt__11CSealCtrlAi 0x4722d0, read by the ctor/dtor 0x26b1c0/0x26afc0 (seal_ai.cpp); the ctor is called by ftsCreateSeal 0x1fdfc0 (fts_player.cpp) and AcquireRemoteAi 0x267f00 (seal_ai.cpp): 2 units. -> src/gamez/zSeal/zseal.h:942 'class CSealCtrlAi : CSealCtrl'. Notes: 0x26c870 _interp<f> and 0x26c8d0 _close_enough<i> (WEAK) are referenced only by PathFollowTick 0x264e20 (seal_ai.cpp); src/ has no namespace ai, _interp or _close_enough declaration.",
         "plan build/source-plans/socom-work-source-segment-031.json sha256:f0d01b51c5d56a41614330f2e24484ffc5fcafffc0ca228c4d78c5658969b652; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -151571,7 +151601,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 031 (0x2591e0-0x26e9f8, 186 functions)"
     },
     {
@@ -152005,7 +152035,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-034",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-11-01T00:16:36Z",
+        "expires_at": "2026-11-01T02:16:36Z",
+        "heartbeat_at": "2026-11-01T00:16:36Z",
+        "owner": "socom-source-owner-mapper-fs3"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -152076,7 +152111,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 034 (0x2a4520-0x2afbb4, 128 functions)"
     },
     {
