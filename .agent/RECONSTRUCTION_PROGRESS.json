@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3336,
+  "revision": 3342,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -146965,6 +146965,10 @@
       "title": "Review and close ghidra-reconstruction"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:16:05Z",
+        "by": "socom-source-owner-scrutinizer-x24"
+      },
       "batch": {
         "artifact_count": 202,
         "batch_number": 40,
@@ -147004,6 +147008,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "final-sweep review: plan sha256 9b2c549d... = handoff; validate --check, draft --check ok; emit-check --plan: 0 missing emits/notes, 0 wrong citations, 0 undetermined. JSON diff vs build/stage4/pre-final: +1 header emit + emits annotation for CValvePool implicit dtor 0x2f7120 (sole ref __sinit_valve_list.cpp 0x46dfe0) -> src/gamez/zValve/zvalve.h:106 (class CValvePool : public std::vector<CValve*>, no dtor declared); rewritten no-emit note now covers only CIOPManager 0x2f56d0 and CValveList 0x2f7210 (no class|struct for either under src/, single unit) and records the CValvePool emit, so it no longer contradicts the plan; reservation evidence cites the emit inside the reserved src/gamez/zValve.",
         "plan build/source-plans/socom-work-source-segment-040.json sha256:9b2c549dfdb1137b7ef6fc48a278b32e1b34a3164b321bca9a874ec1e64f4e83; emit-check --plan clean; validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -147074,7 +147079,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 040 (0x2f5640-0x2f9aac, 75 functions)"
     },
     {
@@ -151628,6 +151633,10 @@
       "title": "Apply the reviewed source owners of segment 031 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:15:38Z",
+        "by": "socom-source-owner-scrutinizer-x24"
+      },
       "batch": {
         "artifact_count": 570,
         "batch_number": 32,
@@ -151666,6 +151675,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "final-sweep review: plan sha256 0931790d... = handoff; validate --check, draft --check ok; emit-check --plan: 0 missing emits/notes, 0 wrong citations, 0 undetermined (7 copies, 4 expected). JSON diff vs build/stage4/pre-final: only +1 note for DrawFunc<CDynGrenade> 0x2889a0 (WEAK authored template instance, sole referencer PostTick__9CSealCtrlFf in seal_control.cpp); no DrawFunc/LINE_TYPE declaration under src/, so the no-header note is correct. No owner, emit, annotation, unresolved, reservation change.",
         "plan build/source-plans/socom-work-source-segment-032.json sha256:0931790d198c5a6a22a5313011fc51e89001dfebdb06c31e7884850e78571427; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -151732,7 +151742,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 032 (0x26ea00-0x28a55c, 199 functions)"
     },
     {
@@ -151991,14 +152001,8 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-034.json sha256:ad1556af4ead2a565c0414575dc5e28b2b8014732edb5c835fbd441aa625a8ec; emit-check --plan clean; validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-fs3",
-        "submitted_at": "2026-11-01T00:03:24Z",
-        "summary": "sweep: +1 emit (CQuat implicit default ctor 0x2a46e0 -> src/gamez/zMath/zmath.h:211), +0 notes, 0 data overrides, other fixes: reservation adds src/gamez/zMath (status corrected)"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-034",
       "kind": "source-plan-segment",
       "lease": null,
@@ -152054,11 +152058,25 @@
           "reason": "final header-emit sweep: source plan emit-check reports missing emits/notes for this accepted plan",
           "reopened_at": "2026-10-31T23:57:22Z",
           "reopened_by": "parent-orchestrator"
+        },
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-fs3",
+            "submitted_at": "2026-11-01T00:03:24Z",
+            "summary": "sweep: +1 emit (CQuat implicit default ctor 0x2a46e0 -> src/gamez/zMath/zmath.h:211), +0 notes, 0 data overrides, other fixes: reservation adds src/gamez/zMath (status corrected)"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-034.json sha256:ad1556af4ead2a565c0414575dc5e28b2b8014732edb5c835fbd441aa625a8ec; emit-check --plan clean; validate --check ok; draft --check ok"
+          ],
+          "reason": "final-sweep review: sha256 ad1556af... = handoff; validate/draft --check ok; emit-check clean. The new header_emits row and emits annotation for CQuat::CQuat() 0x2a46e0 -> src/gamez/zMath/zmath.h (zmath.h:211 class CQuat, no user ctor, implicit special member rule) and the reservation (adds src/gamez/zMath, status corrected) are correct. FINDING (stale note contradicts the plan): notes[0] still says 'no header emit for CQuat::CQuat() 0x2a46e0 ... so no second unit needs a shared (ODR) definition and seal_env.cpp's file defines it', which contradicts the new emit row and annotation. Fix: rewrite that note the way 040 rewrote its CValvePool note (keep the single-unit fact, __sinit_seal_env.cpp 0x46cee0, 4 relocations, then say the final emit sweep records a header emit into src/gamez/zMath/zmath.h:211 because the implicit special member goes to its class's header whatever the unit count), or delete it. Nothing else changes.",
+          "rejected_at": "2026-11-01T00:15:47Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x24"
         }
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 034 (0x2a4520-0x2afbb4, 128 functions)"
     },
     {
@@ -152119,6 +152137,10 @@
       "title": "Apply the reviewed source owners of segment 034 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:16:01Z",
+        "by": "socom-source-owner-scrutinizer-x24"
+      },
       "batch": {
         "artifact_count": 1013,
         "batch_number": 35,
@@ -152156,6 +152178,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "final-sweep review: plan sha256 e64d068a... = handoff; validate --check, draft --check ok; emit-check --plan: 0 missing emits/notes, 0 wrong citations, 0 undetermined. JSON diff vs build/stage4/pre-final: only +3 notes for CRemoteCtrl OnDeath 0x2ce1d0, OnStunDamage 0x2ce1e0, IsPlayer 0x2ce1f0 (binding 13, via __vt__11CRemoteCtrl 0x472460 read by remote_control.cpp and seal_create.cpp: 2 units); no class|struct CRemoteCtrl under src/ and no DWARF header unit, so no emit (CRemoteCtrl precedent); consistent with the existing range note. No other row changed.",
         "plan build/source-plans/socom-work-source-segment-035.json sha256:e64d068ade143c8c64a1bedf489fcf268c08839a19da0d9ada1e2269c49fa520; emit-check --plan clean; validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -152222,7 +152245,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 035 (0x2afbc0-0x2ce218, 200 functions)"
     },
     {
@@ -152288,6 +152311,10 @@
       "title": "Apply the reviewed source owners of segment 035 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:16:03Z",
+        "by": "socom-source-owner-scrutinizer-x24"
+      },
       "batch": {
         "artifact_count": 699,
         "batch_number": 36,
@@ -152330,6 +152357,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "final-sweep review: plan sha256 891185da... = handoff; validate --check, draft --check ok; emit-check --plan: 0 missing emits/notes, 0 wrong citations, 0 undetermined (21 copies, 13 expected). JSON diff vs build/stage4/pre-final: +7 header emits with matching emits annotations: implicit dtors CAiSAvoid 0x2dcca0, CAiSGoto 0x2dcbe0, CAiSCQBAttack 0x2d7a00, CAiSSuspended 0x2dcaf0, CAiSHostage 0x2dcc40 -> src/gamez/zAI/zai.h (lines 412/437/467/487/502 declare each class); CSealUnit::ulist implicit dtor 0x2d6b50 (sole ref __sinit_seal_unit.cpp) -> src/gamez/zSeal/zseal.h:804 enclosing class CSealUnit (nested class must be declared there; the apply must add the nested declaration); CSealCtrlSquirm::GetJumpFlag 0x2e24a0 (vtable 0x472700 readers seal_squirm.cpp; ctor callers fts_player.cpp, seal.cpp: 3 units) -> zseal.h:951. Reservation evidence lists them; directories zAI/zInput/zSeal unchanged and sufficient.",
         "plan build/source-plans/socom-work-source-segment-036.json sha256:891185da7d190d97635a0e4ccb2954db5e7f9c55b461cc8895ef032c1fdf4183; emit-check --plan clean; validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -152410,7 +152438,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 036 (0x2ce220-0x2e4ab0, 198 functions)"
     },
     {
@@ -152726,6 +152754,10 @@
       "title": "Record the reviewed provider owners of 989snd in tracker evidence"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:16:06Z",
+        "by": "socom-source-owner-scrutinizer-x24"
+      },
       "batch": {
         "artifact_count": 413,
         "batch_number": 41,
@@ -152766,6 +152798,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "final-sweep review: plan sha256 fc7d58b2... = handoff; validate --check, draft --check ok; emit-check --plan: 0 missing emits/notes, 0 wrong citations, 0 undetermined. JSON diff vs build/stage4/pre-final: only +1 note for C2DTriFan::GetAssetLibs 0x300d90 (binding 13 kept by ztwod_poly.cpp, via __vt__9C2DTriFan 0x472bf0, ctor called from CZClaymoreMapItem/CZMPBombMapItem/CZPlayerMapItem ctors: 4 units); no C2DTriFan declaration anywhere under src/ and no DWARF header unit, so no emit; the existing sole-referencer placement note (placement, not emit) is unaffected.",
         "plan build/source-plans/socom-work-source-segment-041.json sha256:fc7d58b2ed9d03d2cb7bb0eada2bdcbbf4075c05b21ef11a573c4ed8fa9db9eb; emit-check --plan clean; validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -152853,7 +152886,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 041 (0x2f9ab0-0x304b60, 189 functions)"
     },
     {
