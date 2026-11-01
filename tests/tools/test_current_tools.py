@@ -220,6 +220,23 @@ def test_source_annotation_parser_and_trace_topology(tmp_path: Path) -> None:
     assert audit_docblocks(tmp_path)["ok"] is True
     assert audit_source_trace(tmp_path)["ok"] is True
 
+    # A template instance from a header outside the workspace (MSL) is owned
+    # by its source file's emits edge alone; a header's emits edge is not an owner.
+    (tmp_path / "src" / "msl.cpp").write_text("// @socom-artifact emits main socom:symbol:msl\n", encoding="utf-8")
+    (tmp_path / "src" / "only.h").write_text("// @socom-artifact emits main socom:symbol:hdr\n", encoding="utf-8")
+    _write_trace_state(
+        tmp_path,
+        census={
+            "sections": [{"name": "main"}],
+            "symbols": [{"id": "socom:symbol:test"}, {"id": "socom:symbol:msl"}, {"id": "socom:symbol:hdr"}],
+            "relocations": [],
+        },
+    )
+    errors = audit_source_trace(tmp_path)["errors"]
+    assert errors == ["artifact socom:symbol:hdr in main has 0 defining edges"]
+    (tmp_path / "src" / "only.h").unlink()
+    assert audit_source_trace(tmp_path)["ok"] is True
+
     with (tmp_path / "src" / "unit.cpp").open("a", encoding="utf-8") as stream:
         stream.write("// @socom-anchor socom:anchor:unit\n")
     report = audit_docblocks(tmp_path)

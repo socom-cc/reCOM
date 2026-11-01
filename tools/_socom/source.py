@@ -393,6 +393,10 @@ def audit_docblocks(root: Path) -> dict[str, Any]:
     }
 
 
+# Source files that can own an artifact through an emits edge (headers only declare or emit).
+_OWNER_SOURCE_SUFFIXES = (".c", ".cc", ".cp", ".cpp", ".cxx", ".s")
+
+
 def audit_source_trace(root: Path, *, require_complete: bool = False) -> dict[str, Any]:
     parsed = source_artifacts(root)
     docblocks = audit_docblocks(root)
@@ -402,6 +406,14 @@ def audit_source_trace(root: Path, *, require_complete: bool = False) -> dict[st
         by_artifact.setdefault((row["section"], row["artifact_id"]), []).append(row)
     for key, rows in sorted(by_artifact.items()):
         definitions = [row for row in rows if row["relation"] == "defines"]
+        if not definitions:
+            # "One source owner defines/emits" (AGENTS.md): a template instance
+            # from a header outside the workspace (MSL) has no defining edge;
+            # its owning source file's emits edge is the owner edge.
+            definitions = [
+                row for row in rows
+                if row["relation"] == "emits" and str(row["path"]).lower().endswith(_OWNER_SOURCE_SUFFIXES)
+            ]
         if len(definitions) != 1:
             errors.append(
                 f"artifact {key[1]} in {key[0]} has {len(definitions)} defining edges"
