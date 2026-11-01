@@ -276,12 +276,13 @@ def test_tracker_file_is_valid_and_source_is_unverified(root: Path) -> None:
     assert len([row for row in recon_repairs if row["kind"] == REPAIR_PLAN_KIND]) * 2 == len(recon_repairs)
     # Stage 4 adds its decomposed items around the seed (which stays counted).
     source = [row for row in tracker["work_items"] if row["stage"] == "source-correlation" and row["kind"] != "stage-gate"]
-    assert len(tracker["work_items"]) - len(repairs) - len(recon) - len(type_plans) - len(recon_repairs) - len(source) == 91
+    order = [row for row in tracker["work_items"] if row["stage"] == "authored-function-order" and row["kind"] != "stage-gate"]
+    assert len(tracker["work_items"]) - len(repairs) - len(recon) - len(type_plans) - len(recon_repairs) - len(source) - len(order) == 91
     assert len(
-        [row for row in tracker["work_items"] if "-plan-" in row["kind"] and row not in recon and row not in source]
+        [row for row in tracker["work_items"] if "-plan-" in row["kind"] and row not in recon and row not in source and row not in order]
     ) == 41
     assert len(
-        [row for row in tracker["work_items"] if "-apply-" in row["kind"] and row not in recon and row not in source]
+        [row for row in tracker["work_items"] if "-apply-" in row["kind"] and row not in recon and row not in source and row not in order]
     ) == 41
 
 

@@ -163,7 +163,7 @@ def test_pipeline_reachability_requires_a_seed_for_a_deferred_stage(
     tracker["work_items"] = [
         row
         for row in tracker["work_items"]
-        if not (row.get("stage") == "authored-function-order" and row.get("kind") == "stage-seed")
+        if not (row.get("stage") == "authored-call-contract" and row.get("kind") == "stage-seed")
     ]
     (tmp_path / ".agent" / "RECONSTRUCTION_PROGRESS.json").write_text(
         json.dumps(tracker), encoding="utf-8"
@@ -172,7 +172,7 @@ def test_pipeline_reachability_requires_a_seed_for_a_deferred_stage(
     assert report["ok"] is False
     assert report["missing"] == [
         {
-            "stage": "authored-function-order",
+            "stage": "authored-call-contract",
             "error": "deferred stage lacks a seed and explicit blocker",
         }
     ]

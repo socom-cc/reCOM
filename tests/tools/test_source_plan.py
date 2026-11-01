@@ -147,6 +147,20 @@ def undecomposed(tracker: dict) -> dict:
     for key in ("decomposition", "baseline", "baseline_history", "amendments"):
         stage.pop(key, None)
     stage["accepted_evidence"] = []
+    # Stage 5 is decomposed on the real tracker: back to its bare seed, as stage 4 found it.
+    order_seed = "socom:work:authored-function-order-seed"
+    tracker["work_items"] = [
+        row for row in tracker["work_items"] if row["stage"] != "authored-function-order" or row["id"] == order_seed
+    ]
+    seed = next(row for row in tracker["work_items"] if row["id"] == order_seed)
+    seed.update(kind="stage-seed", title="Decompose and schedule authored-function-order work", status="blocked",
+                dependencies=[SOURCE_SEED_ID], resources=[], selection=None, batch=None, lease=None, handoff=None, evidence=[])
+    for key in ("accepted", "review_history"):
+        seed.pop(key, None)
+    next(row for row in tracker["stages"] if row["name"] == "authored-function-order").pop("decomposition", None)
+    for blocker in tracker.get("blockers", []):
+        if blocker["id"] == "socom:blocker:metrowerks-flexlm-license":
+            blocker["blocks"] = [name for name in blocker.get("blocks", []) if name != "authored-function-order"]
     refresh_ready_and_stages(tracker)
     return tracker
 
