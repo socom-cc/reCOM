@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3672,
+  "revision": 3674,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -168540,10 +168540,15 @@
         "socom:work:source-segment-076"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-data-data.json sha256:29893f7643dd98e741778e7d4c391094d82ef0612534d89bc8a5f0d9fff5260f; validate --check ok (0 problems, 3 review notes, shared units all agree); draft --check ok (865 drafted, 126 hand, 0 overrides); emit-check 0 findings",
-        "plan sha256 29893f7643dd98e741778e7d4c391094d82ef0612534d89bc8a5f0d9fff5260f; validate --check ok (0 problems, 148 owners, 10 unresolved); draft --check ok (865 drafted, 126 hand, 0 overrides); emit-check 0; only change vs rejected c5822f49: __vt__3C2D 0x472b90 -> ztwod_main.cpp and __vt__9C2DBitmap 0x472d30 -> ztwod_bitmap.cpp (low; LOCAL R_MIPS_32 to own RTTI in clusters 0x459208/0x459478), rows identical to accepted source-data-rodata; earlier review: 14 low rows linked between flanks with class/reader support, 88 medium rows flanked by the same unit, no .data/.sdata owner-run splits, 441 shared rows agree, 0x474b7c compiler-generated per MW LinkSegment_PS2.lcf lines 98-107"
+        "basis: sole writer options.cpp process_arguments 0x173e30 (23 sb to 0x438750-0x438769); 27 other reloc sites all lbu (database.cpp testLoad 8, main 2, st_core 3, thezoom 6, hud_devtext 6, hud_newhudmap 2); name + DWARF class _options; getopt.cpp CU has DIEs for its own goptind/gopterr/goptarg/goptopt but none for gopt; .data order libmc 0x438738-0x43874f, gopt, orders.cpp team_table 0x438770 with options.cpp (.rodata 0x448620) between database and orders and no other .data; not high: database.cpp and options.cpp gopt DIEs carry identical attributes",
+        "plan build/source-plans/socom-work-source-data-data.json sha256:a480fb492dcbafed46321c6a0d0274905b0b11b7004206e6e37fd4df3677f14b; changes vs pre-amend build/stage4/pre-amend/socom-work-source-data-data.json: gopt 0x438750 override P-gnu-data provider 0x171070 -> authored options.cpp (medium; emptied libmc row dropped), +1 defines annotation (src/Apps/FTS/options.cpp), +1 override note, +1 contradiction (src/Apps/FTS/getopt.cpp:17 '_options gopt;', defined-elsewhere)",
+        "validate --check --fill-annotations ok; validate --check ok; draft --check (rules 6) ok, 1 override (gopt); draft --check --rules 7 ok, 0 overrides; emit-check --plan clean (0 missing/wrong/user-written); control-character scan 0"
       ],
-      "handoff": null,
+      "handoff": {
+        "owner": "socom-source-owner-mapper-am2",
+        "submitted_at": "2026-11-01T20:23:04Z",
+        "summary": "amendment 007: gopt 0x438750 -> options.cpp"
+      },
       "id": "socom:work:source-data-data",
       "kind": "source-data-reconcile",
       "lease": null,
@@ -168591,7 +168596,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Reconcile data data owners (1001 artifacts outside the segment slices)"
     },
     {
