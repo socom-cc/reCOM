@@ -1021,6 +1021,14 @@ class _Draft:
             return None
         if any(self.by_id[site].get("gnu_object") == target for site in functions | gaps):
             return None
+        # A reader in another object of the same library (newlib's mprec tables read by dtoa)
+        # keeps the run's owner: the defect is only data read from outside the library.
+        library = (self.gnu.get(target) or {}).get("library")
+        if library and any(
+            (self.gnu.get(self.by_id[site].get("gnu_object")) or {}).get("library") == library
+            for site in functions | gaps
+        ):
+            return None
         owners = Counter(
             self._spelling(self.decided[site][0]) if site in self.decided
             else f"GNU object {self.by_id[site]['gnu_object']}" if self.by_id[site].get("gnu_object") else "undecided"

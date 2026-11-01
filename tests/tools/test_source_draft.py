@@ -906,6 +906,24 @@ def test_rules_7_pass_over_named_data_only_foreign_code_reads(tmp_path: Path, st
     assert _entries(drafted(7))["socom:data:0x426460"][1]["draft_rule"] == "P-gnu-data"
 
 
+def test_rules_7_keep_named_data_another_object_of_the_library_reads(tmp_path: Path, stage3: dict) -> None:
+    # newlib's __mprec_bigtens is read by dtoa, another newlib object: the run's owner keeps it.
+    graph = _sectioned(draft_graph())
+    other = next(row for row in graph["artifacts"] if row["id"] == "socom:function:0x1400c0")
+    other["gnu_object"] = "0x1400c0"
+    graph["gnu_objects"].append({"address": "0x1400c0", "anchor": [{"name": "gcc2_compiled.", "symbol_index": 10}],
+                                 "gcc_compiled": True, "functions": [other["id"]], "gaps": [], "end_basis": "next GNU anchor",
+                                 "library": "SCE", "library_basis": "__ps2_libinfo__ libfoo"})
+    graph["graph_sha256"] = graph_digest(graph)
+    tracker = _decompose(stage3, graph)
+    facts = draft_facts(graph)
+    for reference in facts["references"]:
+        if (reference["site_artifact"], reference["target_artifact"]) == ("socom:function:0x1400b0", "socom:data:0x426460"):
+            reference["site_artifact"] = other["id"]
+    plan = draft_owner_plan(_root(tmp_path), tracker, "socom:work:source-provider-sce", graph, facts, rules=7, section_of=MAIN)
+    assert _entries(plan)["socom:data:0x426460"][1]["draft_rule"] == "P-gnu-data"
+
+
 def test_archive_member_archive_version_and_unknown_linking(tmp_path: Path, stage3: dict) -> None:
     graph = draft_graph()
     tracker = _decompose(stage3, graph)

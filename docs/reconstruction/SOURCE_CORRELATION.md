@@ -737,22 +737,22 @@ libmc; `team_table` 0x438770 after it only by orders.cpp. Version 7
 therefore never decides by `P-gnu-data` (cluster, run or the "referenced
 only by" fallback) a named datum (GLOBAL, or LOCAL or WEAK with a symbol)
 that code reads (functions or gaps, followed through data) when no code
-of that GNU object reads it. The datum is not given to the object; the
+of that GNU object, and no code of another GNU object of the same library
+(newlib's `__mprec_bigtens` read by dtoa), reads it. The datum is not given to the object; the
 later rules still see it (`D-referenced` with its version 6 position test
 in authored and data scopes, the provider-unit rules in provider plans),
 and when it stays open its reason starts with why `P-gnu-data` passed it
 over: `GLOBAL gopt is read by 11 function(s) (thezoom.cpp 3, ...) but by no
-code of GNU object 0x171070: P-gnu-data does not decide it ...`. Unnamed data and data
-no code reads are decided as before.
+code of GNU object 0x171070On the graph `c79d76e6...` the guard passes over 1 of the 445 drafted
+`P-gnu-data` rows of the plan files: `gopt` 0x438750 in the data plan, read
+by game code and by no libmc code. Without the same-library exemption it
+also passed over 8 GLOBALs read only by other objects of the same provider
+library (newlib's `__mprec_bigtens`/`__mprec_tinytens` and
+`__malloc_trim_threshold`, libcdvd's `_sceCd_*` data, the asrspi callback
+tables), which their runs' owners keep. Every plan keeps checking under its
+own version; `--rules 7` lists such rows as drafted rows the rules leave open.
 
-On the graph `c79d76e6...` the guard passes over 9 of the 445 drafted
-`P-gnu-data` rows of the plan files: `gopt` (data plan) and 8 GLOBALs
-read only by other objects of the same provider library, 7 of them inside
-a run that ends at the next LOCAL section symbol (newlib's
-`__mprec_bigtens`/`__mprec_tinytens` read by dtoa and strtod and
-`__malloc_trim_threshold` read by `_free_r`, libcdvd's `_sceCd_*` data read
-by `sceCdRead`, the asrspi callback tables read by gsapi). Every plan keeps
-checking under its own version; `--rules 7` lists those rows as drafted
+ecking under its own version; `--rules 7` lists those rows as drafted
 rows the rules leave open.
 
 Version 3 was measured on the graph `7bd4e540...`. It decides 84 of
