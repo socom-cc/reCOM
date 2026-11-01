@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3566,
+  "revision": 3574,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -147083,6 +147083,10 @@
       "title": "Plan source owners of segment 040 (0x2f5640-0x2f9aac, 75 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:05:38Z",
+        "by": "socom-verifier-apply6"
+      },
       "batch": {
         "artifact_count": 202,
         "batch_number": 40,
@@ -147141,6 +147145,7 @@
         "socom:work:source-correlation-apply-route"
       ],
       "evidence": [
+        "independent verify: source apply-check ok 0 problems; plan validate --check ok 0 problems; annotate --check 0 drift; 94 annotations, 9 files; git vs HEAD 03cd087: only generated socom-owner-annotations blocks added (own segment block plus plan reconcile data blocks), authored content byte-identical, created files hold only blocks, no unrecorded src change; batch audit source-trace ok (0 errors), audit docblocks ok",
         "progress apply-source-plan record (see item evidence)",
         "source-annotations-sha256:02e16af41242572993538894f296e516e9bbe00d109bb17f1615e4b40c8842df count:94",
         "source-file src/gamez/zSystem/zsys_init.cpp sha256:0d8ea079508dd14888ec04e63238a53fd66a7eff65081ae89dae87744093f248",
@@ -147265,7 +147270,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 040 under src/"
     },
     {
@@ -147350,6 +147355,10 @@
       "title": "Plan source owners of segment 039 (0x2ebd20-0x2f5640, 190 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:05:36Z",
+        "by": "socom-verifier-apply6"
+      },
       "batch": {
         "artifact_count": 476,
         "batch_number": 39,
@@ -147410,6 +147419,7 @@
         "socom:work:source-correlation-apply-route"
       ],
       "evidence": [
+        "independent verify: source apply-check ok 0 problems; plan validate --check ok 0 problems; annotate --check 0 drift; 251 annotations, 10 files (1 created); git vs HEAD 03cd087: only generated socom-owner-annotations blocks added (own segment block plus plan reconcile data blocks), authored content byte-identical, created files hold only blocks, no unrecorded src change; batch audit source-trace ok (0 errors), audit docblocks ok",
         "progress apply-source-plan record (see item evidence)",
         "source-annotations-sha256:3dffb185048eddd1c4a33b2325f3b0980ef695631ae1aa54abb6a31db07287ce count:251",
         "source-created src/gamez/zSystem/zsys_init.cpp",
@@ -147544,7 +147554,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 039 under src/"
     },
     {
@@ -158700,6 +158710,10 @@
       "title": "Plan source owners of segment 037 (0x2e4ab0-0x2ea400, 76 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:05:33Z",
+        "by": "socom-verifier-apply6"
+      },
       "batch": {
         "artifact_count": 171,
         "batch_number": 37,
@@ -158751,6 +158765,7 @@
         "socom:work:source-correlation-apply-route"
       ],
       "evidence": [
+        "independent verify: source apply-check ok 0 problems; plan validate --check ok 0 problems; annotate --check 0 drift; 110 annotations, 4 files (1 created); git vs HEAD 03cd087: only generated socom-owner-annotations blocks added (own segment block plus plan reconcile data blocks), authored content byte-identical, created files hold only blocks, no unrecorded src change; batch audit source-trace ok (0 errors), audit docblocks ok",
         "progress apply-source-plan record (see item evidence)",
         "source-annotations-sha256:ad5f5c497147823d01ee79275273d2adafc75ff44eca95d8b8dae70f444bee8b count:110",
         "source-created src/gamez/zSeal/ai_target.cpp",
@@ -158841,7 +158856,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 037 under src/"
     },
     {
@@ -159133,6 +159148,10 @@
       "title": "Plan source owners of segment 041 (0x2f9ab0-0x304b60, 189 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:05:40Z",
+        "by": "socom-verifier-apply6"
+      },
       "batch": {
         "artifact_count": 413,
         "batch_number": 41,
@@ -159195,6 +159214,7 @@
         "socom:work:source-correlation-apply-route"
       ],
       "evidence": [
+        "independent verify: source apply-check ok 0 problems; plan validate --check ok 0 problems; annotate --check 0 drift; 193 annotations, 13 files (3 created); git vs HEAD 03cd087: only generated socom-owner-annotations blocks added (own segment block plus plan reconcile data blocks), authored content byte-identical, created files hold only blocks, no unrecorded src change; batch audit source-trace ok (0 errors), audit docblocks ok",
         "progress apply-source-plan record (see item evidence)",
         "source-annotations-sha256:190d2b824005fc762c8fb49b6637f258df8aa70a8ce48993ccba471acaf4d073 count:193",
         "source-created src/gamez/zTwoD/c2dbitmap_poly.cpp",
@@ -159359,7 +159379,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 041 under src/"
     },
     {
@@ -159442,6 +159462,10 @@
       "title": "Plan source owners of segment 042 (0x304b60-0x3103a0, 176 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:05:42Z",
+        "by": "socom-verifier-apply6"
+      },
       "batch": {
         "artifact_count": 460,
         "batch_number": 42,
@@ -159493,6 +159517,7 @@
         "socom:work:source-correlation-apply-route"
       ],
       "evidence": [
+        "independent verify: source apply-check ok 0 problems; plan validate --check ok 0 problems; annotate --check 0 drift; 265 annotations, 9 files (2 created); git vs HEAD 03cd087: only generated socom-owner-annotations blocks added (own segment block plus plan reconcile data blocks), authored content byte-identical, created files hold only blocks, no unrecorded src change; batch audit source-trace ok (0 errors), audit docblocks ok",
         "progress apply-source-plan record (see item evidence)",
         "source-annotations-sha256:4eec09ecab2adbf3d781b5dfb1f1be140aab6133e99ff09028c8658a56fdea22 count:265",
         "source-created src/gamez/zUtil/util_memcard.cpp",
@@ -159625,7 +159650,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 042 under src/"
     },
     {
@@ -159713,6 +159738,10 @@
       "title": "Plan source owners of segment 043 (0x3103a0-0x316dd8, 186 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:05:44Z",
+        "by": "socom-verifier-apply6"
+      },
       "batch": {
         "artifact_count": 367,
         "batch_number": 43,
@@ -159770,6 +159799,7 @@
         "socom:work:source-correlation-apply-route"
       ],
       "evidence": [
+        "independent verify: source apply-check ok 0 problems; plan validate --check ok 0 problems; annotate --check 0 drift; 199 annotations, 11 files (2 created); git vs HEAD 03cd087: only generated socom-owner-annotations blocks added (own segment block plus plan reconcile data blocks), authored content byte-identical, created files hold only blocks, no unrecorded src change; batch audit source-trace ok (0 errors), audit docblocks ok",
         "progress apply-source-plan record (see item evidence)",
         "source-annotations-sha256:db43b1805a7c73c6ce5db9bc1399feaf7e926933a4da6ad25de5c8a500537747 count:199",
         "source-created src/gamez/zWeapon/zwep_ftsweapon.cpp",
@@ -159915,7 +159945,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 043 under src/"
     },
     {
@@ -159996,6 +160026,10 @@
       "title": "Plan source owners of segment 044 (0x316de0-0x3205b8, 192 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:05:46Z",
+        "by": "socom-verifier-apply6"
+      },
       "batch": {
         "artifact_count": 495,
         "batch_number": 44,
@@ -160052,6 +160086,7 @@
         "socom:work:source-correlation-apply-route"
       ],
       "evidence": [
+        "independent verify: source apply-check ok 0 problems; plan validate --check ok 0 problems; annotate --check 0 drift; 208 annotations, 6 files (1 created); git vs HEAD 03cd087: only generated socom-owner-annotations blocks added (own segment block plus plan reconcile data blocks), authored content byte-identical, created files hold only blocks, no unrecorded src change; batch audit source-trace ok (0 errors), audit docblocks ok",
         "progress apply-source-plan record (see item evidence)",
         "source-annotations-sha256:f31dc67d71403a824dcb264001c620d7064d76944da14dfc19050fd92a232c12 count:208",
         "source-created src/gamez/zWeapon/zwep_projectilelist.cpp",
@@ -160158,7 +160193,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 044 under src/"
     },
     {
@@ -160221,6 +160256,10 @@
       "title": "Plan source owners of segment 045 (0x3205c0-0x32241c, 49 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:05:48Z",
+        "by": "socom-verifier-apply6"
+      },
       "batch": {
         "artifact_count": 204,
         "batch_number": 45,
@@ -160276,6 +160315,7 @@
         "socom:work:source-correlation-apply-route"
       ],
       "evidence": [
+        "independent verify: source apply-check ok 0 problems; plan validate --check ok 0 problems; annotate --check 0 drift; 66 annotations, 5 files; git vs HEAD 03cd087: only generated socom-owner-annotations blocks added (own segment block plus plan reconcile data blocks), authored content byte-identical, created files hold only blocks, no unrecorded src change; batch audit source-trace ok (0 errors), audit docblocks ok",
         "progress apply-source-plan record (see item evidence)",
         "source-annotations-sha256:55b26c2c1ab0586a625a8cccb211bb7914e7f9a9362af7f9467135b56bc7a4cc count:66",
         "source-file src/Apps/FTS/state/st_exit.cpp sha256:1cfff6c29921d7b17919b0b67aec2df8939d1983b4f9f36cd6f9a6461d85cfb6",
@@ -160374,7 +160414,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 045 under src/"
     },
     {
