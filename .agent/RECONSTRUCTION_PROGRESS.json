@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3268,
+  "revision": 3314,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -147010,7 +147010,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-040",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-11-01T00:06:30Z",
+        "expires_at": "2026-11-01T02:06:30Z",
+        "heartbeat_at": "2026-11-01T00:06:30Z",
+        "owner": "socom-source-owner-mapper-fs3"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -147071,7 +147076,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 040 (0x2f5640-0x2f9aac, 75 functions)"
     },
     {
@@ -147416,7 +147421,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-001",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T23:59:32Z",
+        "expires_at": "2026-11-01T01:59:32Z",
+        "heartbeat_at": "2026-10-31T23:59:32Z",
+        "owner": "socom-source-owner-mapper-fs1"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -147498,7 +147508,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 001 (0x140008-0x142138, 39 functions)"
     },
     {
@@ -148450,7 +148460,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-013",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T23:59:34Z",
+        "expires_at": "2026-11-01T01:59:34Z",
+        "heartbeat_at": "2026-10-31T23:59:34Z",
+        "owner": "socom-source-owner-mapper-fs1"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -148528,7 +148543,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 013 (0x1728e0-0x17de74, 114 functions)"
     },
     {
@@ -148781,7 +148796,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-015",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T23:59:36Z",
+        "expires_at": "2026-11-01T01:59:36Z",
+        "heartbeat_at": "2026-10-31T23:59:36Z",
+        "owner": "socom-source-owner-mapper-fs1"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -148859,7 +148879,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 015 (0x188f60-0x19dca0, 193 functions)"
     },
     {
@@ -148964,7 +148984,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-016",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T23:59:37Z",
+        "expires_at": "2026-11-01T01:59:37Z",
+        "heartbeat_at": "2026-10-31T23:59:37Z",
+        "owner": "socom-source-owner-mapper-fs1"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -149028,7 +149053,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 016 (0x19dca0-0x1b90d4, 199 functions)"
     },
     {
@@ -149462,7 +149487,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-019",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T23:59:39Z",
+        "expires_at": "2026-11-01T01:59:39Z",
+        "heartbeat_at": "2026-10-31T23:59:39Z",
+        "owner": "socom-source-owner-mapper-fs1"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -149526,7 +149556,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 019 (0x1d0090-0x1d819c, 198 functions)"
     },
     {
@@ -149630,7 +149660,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-020",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T23:59:41Z",
+        "expires_at": "2026-11-01T01:59:41Z",
+        "heartbeat_at": "2026-10-31T23:59:41Z",
+        "owner": "socom-source-owner-mapper-fs1"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -149673,7 +149708,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 020 (0x1d81a0-0x1dd518, 100 functions)"
     },
     {
@@ -149774,8 +149809,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-021.json sha256:a42bce8801ad18a33a46086cf0df914f5a5311b94acf0477ad8d640ffedd5025; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs4",
+        "submitted_at": "2026-11-01T00:05:15Z",
+        "summary": "sweep: +13 emits (RTStack<CZBodyAnimBlend> x3 -> src/rt/rtstack.h, RTArray x8 -> src/rt/rtarray.h, CZSIScript::SetTimeScale 0x1de110 ODR via vtable and CZSIScriptCommon::List dtor 0x1df000 -> src/gamez/zAnim/zanim.h), +2 notes (RTList<ACTIVE_ANIM> 0x1e3ba0/0x1e3d30: no header declares RTList), 0 data overrides; other fixes: NullNode__5CBodyCFv 0x1e34a0 citation -> zbody.h:10 (override), src/gamez/zAnim added to the reservation, emit note rewritten"
+      },
       "id": "socom:work:source-segment-021",
       "kind": "source-plan-segment",
       "lease": null,
@@ -149828,7 +149869,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 021 (0x1dd520-0x1e8748, 167 functions)"
     },
     {
@@ -149935,8 +149976,14 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-022.json sha256:8de4327a00b9976155f2d78cecce3faabec98c2da307641931dbad14dcf3c766; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs4",
+        "submitted_at": "2026-11-01T00:06:38Z",
+        "summary": "sweep: +3 emits (OnDeath__11CEntityCtrlFv 0x1ee3c0 ODR via vtable -> zentity.h:159; CTarget implicit __as__/copy ctor 0x1f13b0/0x1f1410 -> zentity.h:188), +1 note (GetPacketMsg__7CPacketFv 0x1ed050: used by 2 units; no header declares CPacket), 0 data overrides; other fixes: emit note rewritten, reservation evidence extended"
+      },
       "id": "socom:work:source-segment-022",
       "kind": "source-plan-segment",
       "lease": null,
@@ -149989,7 +150036,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 022 (0x1e8750-0x1f25b8, 155 functions)"
     },
     {
@@ -150095,10 +150142,13 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-023.json sha256:b049c05e9d9cdcba06721e2648e7af27a63fd9b1115c6210427d3b50f2cf34a6; validate --check ok; draft --check ok",
-        "sweep re-review: plan sha256:b049c05e9d9cdcba06721e2648e7af27a63fd9b1115c6210427d3b50f2cf34a6 = handoff; validate --check ok, draft --check ok; prior findings fixed: 0x1fbe20 __dt__12CUIVarSTableFv moved out of the single-unit list into note 'used by 2 units (__sinit_fts_mission.cpp 0x46aab0, ~CUIVarManager 0x39e050 zui_var.cpp seg 056); no header declares CUIVarSTable' (refs verified; no class CUIVarSTable under src/, no DWARF header unit); CSealCtrl emits 0x1fd560/0x1fe1d0/0x1fe1e0/0x1fe1f0 now cite zseal.h:810 class declaration, member not yet declared; rest as reviewed (CSealCtrl copies in 5 units' vtables, CMatrix::Transform -> zmath_matrix.h DWARF unit, CValve::Set 2 units -> zvalve.h:61, valve_main.cpp:247 contradiction, ai::_min and ~CValveSaveManager notes)"
+        "plan build/source-plans/socom-work-source-segment-023.json sha256:b29b692faa0cc5dc92f4ded200824db02390226f8445c342c66c8fabc848529e; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
       ],
-      "handoff": null,
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs2",
+        "submitted_at": "2026-11-01T00:05:22Z",
+        "summary": "sweep: +2 emits (implicit CUIVariable dtor 0x1fbc60 -> src/gamez/zUI/zui.h:27; implicit AI_PARAMS __as__ 0x1fd4e0 -> src/gamez/zAI/zai.h:235), +0 notes, 0 data overrides; reservation adds src/gamez/zUI; emit-check clean"
+      },
       "id": "socom:work:source-segment-023",
       "kind": "source-plan-segment",
       "lease": null,
@@ -150179,7 +150229,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 023 (0x1f25c0-0x1ff8cc, 192 functions)"
     },
     {
@@ -150285,10 +150335,13 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-024.json sha256:0d9ce18266792d37d8d59934e35a0e2260a0b09a89aedfd50138d5a143b5e62e; validate --check ok; draft --check ok",
-        "sweep review vs build/stage4/pre-sweep: plan sha256:0d9ce18266792d37d8d59934e35a0e2260a0b09a89aedfd50138d5a143b5e62e = handoff; validate --check ok, draft --check ok; +7 emits to src/gamez/zTwoD/ztwod.h checked: C2D Draw/SetTrans/Reset/Tick 0x1ff970/0x1ff980/0x1ff990/0x2000f0 and C2DString GetString/Draw/GetSpacing 0x201260-0x201280 referenced by vtables/functions of 5-30 units (refs), DWARF header unit Z:\\dev\\gamez\\ztwod\\ztwod.h (dies 0xb6744, 0xbbc67 verified), ztwod.h:30/:178 declare C2D/C2DString; zTwoD already reserved; ODR pass: no-emit copies 0x1ff8d0, 0x200070 (vtable read only by ztwod_messageq.cpp), 0x205dd0, 0x20a1e0 are single-unit"
+        "plan build/source-plans/socom-work-source-segment-024.json sha256:df9555b9bbb9fe2ac4a1ad7e02e0dd222bd7a21e33d6fae3cc59c09f4c6ed0ab; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
       ],
-      "handoff": null,
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs2",
+        "submitted_at": "2026-11-01T00:05:25Z",
+        "summary": "sweep: +2 emits (implicit CNodeAction::Container dtor 0x1ff8d0 -> src/gamez/zNode/node_action.h:5 enclosing class; implicit C2DMessageString dtor 0x200070 -> src/gamez/zTwoD/ztwod.h:235), +0 notes, 0 data overrides; reservation adds src/gamez/zNode; emit-check clean"
+      },
       "id": "socom:work:source-segment-024",
       "kind": "source-plan-segment",
       "lease": null,
@@ -150341,7 +150394,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 024 (0x1ff8d0-0x20bb40, 190 functions)"
     },
     {
@@ -150453,10 +150506,13 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-025.json sha256:4e759d0fe840e6ee04ddafb6079f0848395c7afa12715071bdc37cf4141a0d8a; validate --check ok; draft --check ok",
-        "sweep review vs build/stage4/pre-sweep: plan sha256:4e759d0fe840e6ee04ddafb6079f0848395c7afa12715071bdc37cf4141a0d8a = handoff; validate --check ok, draft --check ok; +1 emit: implicit __dt__6CStackFv 0x2148d0 (binding 13) referenced by __sinit of grid_di.cpp 0x46b1e0, grid_clutter.cpp 0x46b200, zrndr_pipe.cpp 0x46bae0, seal_env.cpp 0x46cee0, seal_ailines.cpp 0x46da40 (refs): 5 units, no DWARF header unit for CStack members, src/gamez/zRender/zrender.h:79 declares class CStack with no user-declared dtor -> emit zrender.h; reservation += src/gamez/zRender (corrected) matches; ODR pass: no-emit copies 0x20e560, 0x2105e0, 0x210670, 0x210fd0, 0x216ff0/0x217000 (__vt__Q23zdb5CCell read only by grid_cell.cpp) single-unit"
+        "plan build/source-plans/socom-work-source-segment-025.json sha256:107b2df3eb5b05b15885206569a0b02bcfef0372a8e54bcc167c518b7fdc4516; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
       ],
-      "handoff": null,
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs2",
+        "submitted_at": "2026-11-01T00:05:27Z",
+        "summary": "sweep: +2 emits (zdb::CCell Copy 0x216ff0 and IsCell 0x217000, ODR grid_cell.cpp+grid_main.cpp via __vt__Q23zdb5CCell -> src/gamez/zGrid/zgrid.h:23), +0 notes, 0 data overrides; emit-check clean"
+      },
       "id": "socom:work:source-segment-025",
       "kind": "source-plan-segment",
       "lease": null,
@@ -150509,7 +150565,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 025 (0x20bb40-0x218dd8, 158 functions)"
     },
     {
@@ -150619,10 +150675,13 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-026.json sha256:84d2409a6b2c826603a93b87336872de4121a827a6b47125c091615bfd0e1690; validate --check ok; draft --check ok",
-        "sweep review vs build/stage4/pre-sweep: plan sha256:84d2409a6b2c826603a93b87336872de4121a827a6b47125c091615bfd0e1690 = handoff; validate --check ok, draft --check ok; +1 emit: __ct__6CPnt3DFfff 0x21d560 (binding 13) called by SetCDIBBox 0x21c7f0 (int_bbox.cpp), Particle::Source::GetBBox 0x238af0 (zparticle_source.cpp, seg 028), CSealCtrl::PostTick 0x287450 (seal_control.cpp) (refs): 3 units; no DWARF header unit for CPnt3D members; src/gamez/zMath/zmath.h:130 class CPnt3D, ctor :147 -> emit zmath.h (zMath reserved); no-emit note now drops 0x21d560 consistently; ODR pass: 0x218de0 (grid_clutter only), 0x21b800 (zin_cheats __sinit only), 0x21d540 (SetCDIBBox only), 0x222460 (zmath_matrix __sinit only) single-unit"
+        "plan build/source-plans/socom-work-source-segment-026.json sha256:32520d4f7c46eb91fc3036c3e7ca86103ed29fbffbed371718536827a8cbdb00; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
       ],
-      "handoff": null,
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs2",
+        "submitted_at": "2026-11-01T00:05:29Z",
+        "summary": "sweep: +1 emit (implicit CMatrix ctor 0x222460 -> src/gamez/zMath/zmath_matrix.h, DWARF header unit Z:/dev/gamez/zmath/zmath_matrix.h), +0 notes, 0 data overrides; emit-check clean"
+      },
       "id": "socom:work:source-segment-026",
       "kind": "source-plan-segment",
       "lease": null,
@@ -150689,7 +150748,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 026 (0x218de0-0x22489c, 188 functions)"
     },
     {
@@ -150981,7 +151040,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-028",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-11-01T00:00:08Z",
+        "expires_at": "2026-11-01T02:00:08Z",
+        "heartbeat_at": "2026-11-01T00:00:08Z",
+        "owner": "socom-source-owner-mapper-fs4"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -151031,7 +151095,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 028 (0x22c1a0-0x23a0cc, 192 functions)"
     },
     {
@@ -151145,7 +151209,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-029",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-11-01T00:00:14Z",
+        "expires_at": "2026-11-01T02:00:14Z",
+        "heartbeat_at": "2026-11-01T00:00:14Z",
+        "owner": "socom-source-owner-mapper-fs4"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -151181,7 +151250,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 029 (0x23a0d0-0x247874, 179 functions)"
     },
     {
@@ -151291,10 +151360,13 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-030.json sha256:89e158230a7b3a17dec92dba84085387cf8a6d6efff8ec135d30a30544379522; validate --check ok; draft --check ok",
-        "plan sha256:89e15823 (= handoff); awaiting_acceptance; validate --check ok, draft --check ok. JSON diff vs pre-sweep (19bdd1e3): owners and unresolved unchanged; +3 header emits, +1 note, reservation +src/gamez/zAI with evidence. 0x259160 ~CAiSRescued, 0x2591c0 CanAttack, 0x2591d0 CanScan (binding 13, seal_ai.cpp) -> src/gamez/zAI/zai.h:482 (class CAiSRescued : public CAiState): their referencer __vt__11CAiSRescued 0x472180 (seal_ai.cpp) is also read by seal_aistate.cpp's CAiState::Create 0x2dc240 (segment 036), so 2 units, per the vtable-reader ruling and the 031/036/037 CAiState precedents. _decay<f>__FRfRCfff 0x258f30 (WEAK; seal.cpp CZSealBody::Tick 0x255870 and seal_ai.cpp CSealCtrlAi::Tick 0x268880): note \"used by 2 units; no header declares _decay\" correct (no DWARF header unit; no declaration under src/). ODR pass (refs incl. vtable/__sinit, followed through data, holder unit counted): the other 10 owned no-emit copies (LOD, CCharacterGearList, CCharacterModelCache, CCharTypeVec, CPickupList, CCompass dtors, GetMaxRegionShift, DiIntersect defctor) are held, referenced and constructed by one unit only; the @272@ thunks 0x259140/0x259150 are compiler-generated with the GLOBAL __vt__10CZSealBody in seal.cpp (overriders GetRootPart 0x257710 and ~CZSealBody are GLOBAL there), so seal_create.cpp's construction of CZSealBody holds no copy and there is no source definition to emit (segment 056 CycleItem thunk precedent)."
+        "plan build/source-plans/socom-work-source-segment-030.json sha256:e9bd3fb883b1784d5b04559292f2155bcf5146bf1f1adae9e17a18902644857e; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
       ],
-      "handoff": null,
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs2",
+        "submitted_at": "2026-11-01T00:06:32Z",
+        "summary": "sweep: +1 emit (implicit LOD dtor 0x249500 -> src/gamez/zRender/zrender.h:63), +0 notes, 0 data overrides; reservation adds src/gamez/zRender; emit-check clean"
+      },
       "id": "socom:work:source-segment-030",
       "kind": "source-plan-segment",
       "lease": null,
@@ -151340,7 +151412,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 030 (0x247880-0x2591d8, 170 functions)"
     },
     {
@@ -151440,10 +151512,13 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-031.json sha256:fb8d3674de63ac5256fe08edd9fd003704845c4cfff982ef6f09ee3f98fd36ee; validate --check ok; draft --check ok",
-        "x17 review of sw5 sweep, plan sha256 fb8d3674 = handoff; validate/draft --check ok. Diff vs pre-sweep: +17 header emits, +1 note, reservation +src/gamez/zMath. 9 emits directly cross-unit by refs (CAiState GetStatus/CanPushAiState/CanSwitchAiState/CanPursue/CanScan/CanAttack/GetScriptResponse to zai.h:368; Rfloat::operator float 0x25aba0 (5 units) to zmath.h:80; CAiCone::ContainsPoint 0x267e20 (6 units) to zai.h:578). CAiState dtor/OnSignal/Tick 0x26b170/0x26c5c0/0x26c5d0 are filled into the binding-13 __vt__8CAiState, which seal_unit, seal_aistate and seal_airesponse read. Flagged vtable-only rows (CAiSRescued 0x2591e0, CAiSPursue 0x26c660, CAiSGrenade 0x26c740/0x26c750, CAiSDeploy 0x26c7c0) hold: their GLOBAL vtables are read by CAiState::Create 0x2dc240 (seal_aistate.cpp builds them inline), so both TUs contain the class body, and an inline non-pure virtual must be defined wherever its class is (ODR). This is the same basis as 030's CAiSRescued siblings 0x2591c0/0x2591d0/0x259160. Every cited zai.h/zmath.h line declares the class; there are no DWARF header units. _max<f> 0x26c8a0 note: 4 units, no ai::_max under src/. The ODR re-check finds no uncovered cross-unit inline copy."
+        "plan build/source-plans/socom-work-source-segment-031.json sha256:f0d01b51c5d56a41614330f2e24484ffc5fcafffc0ca228c4d78c5658969b652; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
       ],
-      "handoff": null,
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs2",
+        "submitted_at": "2026-11-01T00:06:34Z",
+        "summary": "sweep: +4 emits (CSealCtrlAi GetSealCtrlAi/GetJumpFlag/IsPlayer/IsAi 0x26c830-0x26c860, ODR seal_ai.cpp+fts_player.cpp via __vt__11CSealCtrlAi -> src/gamez/zSeal/zseal.h:942), +2 notes (_interp<f> 0x26c870, _close_enough<i> 0x26c8d0: 1 unit, no header declares them), 0 data overrides; emit-check clean"
+      },
       "id": "socom:work:source-segment-031",
       "kind": "source-plan-segment",
       "lease": null,
@@ -151503,7 +151578,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 031 (0x2591e0-0x26e9f8, 186 functions)"
     },
     {
@@ -151603,10 +151678,13 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-032.json sha256:e4dbef2782349e9d21ffc10597e041b16455714d5b8cb6f9354bca531c35b1b9; validate --check ok; draft --check ok",
-        "x17 review of sw5 sweep, plan sha256 e4dbef27 = handoff; validate/draft --check ok. Diff vs pre-sweep: contradiction 0x27df70 span corrected, with an override note: seal_anim.cpp can reach 0x26e9f7, because Adrenaline 0x26e9f0 ends 0x26e9f8 and 031 leaves 0x26e700/0x26e990/0x26e9f0 unresolved before seal_body.cpp's anchor Action 0x26ea00. +2 notes: CDynGrenade ComputeElevOfs 0x287980 and ComputeMaxVel 0x2879f0 are each referenced from seal_control.cpp and seal_kit.cpp; there is no DWARF header unit and no CDynGrenade anywhere under src/. The ODR re-check finds no uncovered cross-unit inline copy."
+        "plan build/source-plans/socom-work-source-segment-032.json sha256:0931790d198c5a6a22a5313011fc51e89001dfebdb06c31e7884850e78571427; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
       ],
-      "handoff": null,
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs3",
+        "submitted_at": "2026-11-01T00:02:07Z",
+        "summary": "sweep: +0 emits, +1 note (DrawFunc<CDynGrenade> 0x2889a0: WEAK authored template instance used by seal_control.cpp only; no header declares ai::DrawFunc), 0 data overrides, no other fixes"
+      },
       "id": "socom:work:source-segment-032",
       "kind": "source-plan-segment",
       "lease": null,
@@ -151666,7 +151744,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 032 (0x26ea00-0x28a55c, 199 functions)"
     },
     {
@@ -151926,10 +152004,13 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-034.json sha256:8c4bcd8e3e5612d16a827f282288f3fdccd76d8ed8b2955977b14008d3bf5a26; validate --check ok; draft --check ok",
-        "x17 review of sw5 sweep, plan sha256 8c4bcd8e = handoff; validate/draft --check ok. Diff vs pre-sweep: +1 emit, CZKit::unwrap 0x2a5a00 to src/gamez/zSeal/zseal.h (zseal.h:170 declares class CZKit; refs from seal_kit.cpp and hud_weaponsel.cpp; no DWARF header unit). The reservation evidence is updated and its directories are unchanged (zSeal). The ODR re-check finds no uncovered cross-unit inline copy."
+        "plan build/source-plans/socom-work-source-segment-034.json sha256:ad1556af4ead2a565c0414575dc5e28b2b8014732edb5c835fbd441aa625a8ec; emit-check --plan clean; validate --check ok; draft --check ok"
       ],
-      "handoff": null,
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs3",
+        "submitted_at": "2026-11-01T00:03:24Z",
+        "summary": "sweep: +1 emit (CQuat implicit default ctor 0x2a46e0 -> src/gamez/zMath/zmath.h:211), +0 notes, 0 data overrides, other fixes: reservation adds src/gamez/zMath (status corrected)"
+      },
       "id": "socom:work:source-segment-034",
       "kind": "source-plan-segment",
       "lease": null,
@@ -151989,7 +152070,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 034 (0x2a4520-0x2afbb4, 128 functions)"
     },
     {
@@ -152087,10 +152168,13 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-035.json sha256:247dd9b64d3d5e21773774cdfe6c39030bff856f7761378ddf8f7c1ff959391f; validate --check ok; draft --check ok",
-        "x17 review of sw5 resubmission, plan sha256 247dd9b6 = handoff and unchanged vs pre-sweep; validate/draft --check ok. The ODR re-check flags only the CRemoteCtrl copies 0x2ce160 and 0x2ce1c0-0x2ce200 (cross-unit only via __vt__11CRemoteCtrl, read by seal_create.cpp). The existing note covers them: there is no DWARF header unit and no CRemoteCtrl declaration under src/. No other uncovered cross-unit inline copy."
+        "plan build/source-plans/socom-work-source-segment-035.json sha256:e64d068ade143c8c64a1bedf489fcf268c08839a19da0d9ada1e2269c49fa520; emit-check --plan clean; validate --check ok; draft --check ok"
       ],
-      "handoff": null,
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs3",
+        "submitted_at": "2026-11-01T00:04:40Z",
+        "summary": "sweep: +0 emits, +3 notes (CRemoteCtrl OnDeath 0x2ce1d0, OnStunDamage 0x2ce1e0, IsPlayer 0x2ce1f0: vtable-reached by remote_control.cpp and seal_create.cpp; no header declares CRemoteCtrl; the existing range note named only 0x2ce1c0-0x2ce200), 0 data overrides, no other fixes"
+      },
       "id": "socom:work:source-segment-035",
       "kind": "source-plan-segment",
       "lease": null,
@@ -152150,7 +152234,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 035 (0x2afbc0-0x2ce218, 200 functions)"
     },
     {
@@ -152258,10 +152342,13 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-036.json sha256:b60a967fbd352b33b47a080342496c960f98b719cc23c37f9c1957a83699f595; validate --check ok; draft --check ok",
-        "x17 re-review: plan sha256 b60a967f = handoff; validate/draft --check ok. Changes since the x17 rejection are exactly the requested fix: an emit for 0x2dcb70 CanPursue__10CAiSBreachCFP11CSealCtrlAi to src/gamez/zAI/zai.h (zai.h:447 declares class CAiSBreach; GLOBAL vtable 0x4725b0 read by seal_unit.cpp 0x2d07e0/0x2d1e00 and by CAiState::Create 0x2dc240). zAI was already reserved. CAiState::Reset 0x2d1e60 to zai.h:368 is unchanged. The ODR re-check finds no uncovered cross-unit inline copy."
+        "plan build/source-plans/socom-work-source-segment-036.json sha256:891185da7d190d97635a0e4ccb2954db5e7f9c55b461cc8895ef032c1fdf4183; emit-check --plan clean; validate --check ok; draft --check ok"
       ],
-      "handoff": null,
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs3",
+        "submitted_at": "2026-11-01T00:06:28Z",
+        "summary": "sweep: +7 emits (implicit dtors CAiSCQBAttack 0x2d7a00, CAiSSuspended 0x2dcaf0, CAiSGoto 0x2dcbe0, CAiSHostage 0x2dcc40, CAiSAvoid 0x2dcca0 -> src/gamez/zAI/zai.h; CSealUnit::ulist dtor 0x2d6b50 -> zseal.h:804 (enclosing class); CSealCtrlSquirm::GetJumpFlag 0x2e24a0 -> zseal.h:951, 3 units), +0 notes, 0 data overrides, other fixes: reservation evidence lists the new emits (directories unchanged)"
+      },
       "id": "socom:work:source-segment-036",
       "kind": "source-plan-segment",
       "lease": null,
@@ -152335,7 +152422,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 036 (0x2ce220-0x2e4ab0, 198 functions)"
     },
     {
@@ -152890,7 +152977,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-042",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T23:59:09Z",
+        "expires_at": "2026-11-01T01:59:09Z",
+        "heartbeat_at": "2026-10-31T23:59:09Z",
+        "owner": "socom-source-owner-mapper-fs5"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -152912,7 +153004,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 042 (0x304b60-0x3103a0, 176 functions)"
     },
     {
@@ -153019,10 +153111,13 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-043.json sha256:b4aa6b5846c3e17a54d73c572ff0aad85c2398d3e30a73cd30dcf682bfc9ae4f; validate --check ok; draft --check ok",
-        "plan sha256:b4aa6b58...ae4f matches handoff; validate --check ok (0 problems, 3 review notes), draft --check ok (204 drafted, 156 hand, 0 overrides, 0 open). No D-referenced GLOBAL rows. 12 no-emit WEAK/13 copies (RTArray<CDecal/CMeshDecal>, RTPool<CTextureFX>, ~CWepCallbackList) each referenced by one unit (refs); CWepCallbackList declared by no header; __as__CLOD_band -> zrender.h:180 (implicit member, class declared there). 31 hand MSL emits equal draft.open_row_header_emits; 2 list<T*> dtors -> <list>. .rodata label-drop regularity reproduced (4550 same-unit pairs, max drop 51) supports cuts mesh|bands, bands|decal, weaponlist|explosive, explosive|ftsweapon. zwep_ftsweapon|zwep_global: .rodata/.data/.text fit a merge equally (zwep_projectile.o also leads its .rodata with the same 5 header symbols), only the LOCAL per-name statistic separates; row is low/invented, acceptable. ColConvTo3D+CVisData head low, one row noted. CZAmmoList 7 unresolved: no cluster, two candidate objects. uvlimit low by .sdata link order (after vis_main.o; right flank unanchored). Contradiction lines verified."
+        "plan build/source-plans/socom-work-source-segment-043.json sha256:b2e5b2b2907dd17cb1f6af98a938182e31bcf119e3809b6c841b481b97b6519a; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
       ],
-      "handoff": null,
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs4",
+        "submitted_at": "2026-11-01T00:02:30Z",
+        "summary": "sweep: +8 emits (RTArray<CDecal/CMeshDecal> 0x313660-0x313aa0 -> src/rt/rtarray.h, template), +3 notes (RTPool<CTextureFX> 0x314330/0x3143f0/0x314540: no header declares RTPool), 0 data overrides; other fixes: src/rt added to the reservation, ODR note corrected"
+      },
       "id": "socom:work:source-segment-043",
       "kind": "source-plan-segment",
       "lease": null,
@@ -153054,7 +153149,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 043 (0x3103a0-0x316dd8, 186 functions)"
     },
     {
@@ -153160,7 +153255,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-044",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T23:59:11Z",
+        "expires_at": "2026-11-01T01:59:11Z",
+        "heartbeat_at": "2026-10-31T23:59:11Z",
+        "owner": "socom-source-owner-mapper-fs5"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -153182,7 +153282,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 044 (0x316de0-0x3205b8, 192 functions)"
     },
     {
@@ -153367,6 +153467,10 @@
       "title": "Apply the reviewed source owners of segment 045 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:02:46Z",
+        "by": "socom-source-owner-scrutinizer-x22"
+      },
       "batch": {
         "artifact_count": 524,
         "batch_number": 46,
@@ -153401,6 +153505,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "plan build/source-plans/socom-work-source-segment-046.json sha256:891bcdf52e926b28bb8b8aba658ced8b541602d794c75bd4b114d01d955a9d31 matches handoff; validate --check ok (0 problems), draft --check ok (523 drafted, 1 hand, 0 overrides/changes), emit-check 0 missing/0 notes/0 wrong (3 undetermined); hand row net_init_thread_stack 0x513b30 -> zNetMedius.cpp low: sole referrer Open__13CZOnlineLobbyFv (zNetMedius.cpp), starts exactly at end of LOCAL rsaKeyPair 0x513b30, next .bss theVoice 0x52cb40 is zNetVoice.o's (__sinit_zNetVoice.cpp refs), zNetVoice.o follows zNetMedius.o in .text (sinit 115/116), so competing zNetVoice-head model admitted and confidence low is correct; GLOBAL D-referenced rows all inside zNetMedius data runs; no src header declares the binding-13 copy classes (grep); reservation src/gamez/zNetwork confirmed",
         "plan build/source-plans/socom-work-source-segment-046.json sha256:891bcdf52e926b28bb8b8aba658ced8b541602d794c75bd4b114d01d955a9d31; validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -153416,7 +153521,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 046 (0x322420-0x32ecdc, 200 functions)"
     },
     {
@@ -153477,6 +153582,10 @@
       "title": "Apply the reviewed source owners of segment 046 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:05:54Z",
+        "by": "socom-source-owner-scrutinizer-x22"
+      },
       "batch": {
         "artifact_count": 364,
         "batch_number": 47,
@@ -153515,6 +153624,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "plan build/source-plans/socom-work-source-segment-047.json sha256:a102a0fed227fb6092679be911c2f9956aaeaecc685c39e04a8a65da2a4458c2 matches handoff; validate --check ok (0 problems), draft --check ok (320 drafted, 44 hand, 0 overrides), emit-check 0 missing/0 notes/0 wrong (1 undetermined); HandleNewIPBuf 0x332ee0 + @1427 -> zNetVoice.cpp medium verified: @1427 is LOCAL sym 7820 between zNetMedius's 7819 and zNetVoice's 7821-7831, label within zNetVoice's @1254-@1560; audiodec.cpp (sym 7841 between zmpeg 7832-7840 and playpss 7842+) and strfile.cpp (7863, 7864-7865 before reco 7866+) invented low with neighbour-tail/head alternatives noted, no src file defines their functions (grep); GLOBAL link-order rows low with flanks checked (reco globals carry reco.cpp dwarf-variable candidates; m_streamingActive inside CFileCD run between 042's util_sonyio rows); GLOBAL D-referenced rows inside own runs; deque/cdeque emits match templates; contradictions zNetVoice.cpp:3 g_status size 2 and :7 PTT_HeartbeatPrepare libptt verified; no src header declares the DB/clone classes; shared units agree; reservation +src/gamez/zUtil evidenced",
         "plan build/source-plans/socom-work-source-segment-047.json sha256:a102a0fed227fb6092679be911c2f9956aaeaecc685c39e04a8a65da2a4458c2; validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -153530,7 +153640,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 047 (0x32ece0-0x336ef0, 125 functions)"
     },
     {
@@ -153754,6 +153864,10 @@
       "title": "Record the reviewed provider owners of speech middleware in tracker evidence"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:06:43Z",
+        "by": "socom-source-owner-scrutinizer-x22"
+      },
       "batch": {
         "artifact_count": 84,
         "batch_number": 52,
@@ -153788,6 +153902,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "plan build/source-plans/socom-work-source-segment-052.json sha256:46af60d7d7b4ca8e0a63fcecf62d5c91d4606d5444626cb011248c19234c2b7f matches handoff; validate --check ok (0 problems), draft --check ok (83 drafted, 1 hand, 0 overrides), emit-check 0 missing/0 notes/0 wrong/0 undetermined; hand row version__11CRdrArchive 0x44ff30 -> zrdr_archive.cpp low verified: GLOBAL .rodata between zparticle_source's @3090 0x44ff10 and zrdr_archive's @960 0x44ff38 (sinit 61/62), only reader st_menu.cpp Init__10CMenuState links far later (0x3793e0) so it cannot define it; CRdrArchive members and __RTTI__11CRdrArchive are zrdr_archive.cpp; zparticle_source tail admitted by low; zrdr_archive.cpp paths agree with 029 and accepted 076; no src header declares CMenuStateMenu (grep), so implicit dtor 0x378db0 no emit is right; reservation corrected +src/gamez/zReader +src/gamez/zUI evidenced",
         "plan build/source-plans/socom-work-source-segment-052.json sha256:46af60d7d7b4ca8e0a63fcecf62d5c91d4606d5444626cb011248c19234c2b7f; validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -153803,7 +153918,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 052 (0x3788a0-0x379aac, 13 functions)"
     },
     {
@@ -153903,7 +154018,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-054",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T23:59:12Z",
+        "expires_at": "2026-11-01T01:59:12Z",
+        "heartbeat_at": "2026-10-31T23:59:12Z",
+        "owner": "socom-source-owner-mapper-fs5"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -153925,7 +154045,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 054 (0x37a2a0-0x3853e4, 121 functions)"
     },
     {
@@ -154027,7 +154147,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-055",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T23:59:14Z",
+        "expires_at": "2026-11-01T01:59:14Z",
+        "heartbeat_at": "2026-10-31T23:59:14Z",
+        "owner": "socom-source-owner-mapper-fs5"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -154049,7 +154174,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 055 (0x3853f0-0x3949fc, 185 functions)"
     },
     {
@@ -154149,7 +154274,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-056",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T23:59:15Z",
+        "expires_at": "2026-11-01T01:59:15Z",
+        "heartbeat_at": "2026-10-31T23:59:15Z",
+        "owner": "socom-source-owner-mapper-fs5"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -154171,7 +154301,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 056 (0x394a00-0x3a2a74, 195 functions)"
     },
     {
@@ -154708,7 +154838,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-063",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T23:59:17Z",
+        "expires_at": "2026-11-01T01:59:17Z",
+        "heartbeat_at": "2026-10-31T23:59:17Z",
+        "owner": "socom-source-owner-mapper-fs5"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -154730,7 +154865,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 063 (0x3b7820-0x3be590, 51 functions)"
     },
     {
@@ -154838,7 +154973,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-064",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T23:59:18Z",
+        "expires_at": "2026-11-01T01:59:18Z",
+        "heartbeat_at": "2026-10-31T23:59:18Z",
+        "owner": "socom-source-owner-mapper-fs5"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -154860,7 +155000,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 064 (0x3be590-0x3d5340, 185 functions)"
     },
     {
@@ -154972,7 +155112,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-065",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-10-31T23:59:20Z",
+        "expires_at": "2026-11-01T01:59:20Z",
+        "heartbeat_at": "2026-10-31T23:59:20Z",
+        "owner": "socom-source-owner-mapper-fs5"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -154994,7 +155139,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 065 (0x3d5340-0x3deecc, 71 functions)"
     },
     {
