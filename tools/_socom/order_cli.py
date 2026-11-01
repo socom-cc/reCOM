@@ -1,9 +1,10 @@
 """CLI handlers for stage 5 (authored-function-order) phase A.
 
-``order target``, ``order link-spec`` and ``order sql``: read-only commands
-over the accepted stage 4 owner plans, the source graph and the reference
-ELF.  Outputs go under ``build/`` only; the main CLI lists the registry rows
-and wires the parser through ``specs`` and ``register``.
+``order target``, ``order link-spec``, ``order draft`` and ``order sql``:
+read-only commands over the accepted stage 4 owner plans, the source graph
+and the reference ELF (``order draft`` also reads the source cache).
+Outputs go under ``build/`` only; the main CLI lists the registry rows and
+wires the parser through ``specs`` and ``register``.
 """
 
 from __future__ import annotations
@@ -40,6 +41,17 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "prints the counts and the violations.",
         ),
         spec(
+            "order draft",
+            "order",
+            "Read-only stage 5 source-order evidence draft over the order target: per authored unit the evidence for "
+            "the source order of its definitions (DWARF lines, the local-static counter name$N/init$N, private literal "
+            "labels @N, the static initializer's order, DWARF variable order) as pairwise constraints, a hypothesis "
+            "source order of its functions and of its data per region with every adjacency classed proven, "
+            "constrained or hypothesis, and the definitions without a source position; plus the calibration of each "
+            "evidence against the DWARF source order and the emission rule it supports. Reads the source cache; "
+            "--unit or --segment selects units, --output writes the JSON under build/ and prints its counts.",
+        ),
+        spec(
             "order sql",
             "order",
             "Run one read-only SELECT/WITH over build/cache/order-target.sqlite (regions, objects, contributions, "
@@ -67,6 +79,15 @@ def register(commands: Any) -> None:
     link.add_argument("--graph", default=DEFAULT_GRAPH)
     link.add_argument("--from-elf", action="store_true", help="regenerate the graph from support/socom.elf")
     link.set_defaults(handler=_order_link_spec)
+    draft = order_commands.add_parser("draft")
+    which = draft.add_mutually_exclusive_group()
+    which.add_argument("--unit", help="one authored translation unit (e.g. database.cpp)")
+    which.add_argument("--segment", type=int, help="the units of one stage 4 segment plan (its number)")
+    which.add_argument("--all", action="store_true", help="every unit (the default)")
+    draft.add_argument("--output", help="write the draft (or the selection) as JSON under build/ and print its counts")
+    draft.add_argument("--graph", default=DEFAULT_GRAPH)
+    draft.add_argument("--from-elf", action="store_true", help="regenerate the graph from support/socom.elf")
+    draft.set_defaults(handler=_order_draft)
     sql = order_commands.add_parser("sql")
     sql.add_argument("statement")
     sql.add_argument("--limit", type=int, default=200)
@@ -140,6 +161,45 @@ def _order_target(arguments: argparse.Namespace) -> int:
         report["findings"] = [row for row in target["findings"] if row["kind"] != "deferred-in-span"][:12]
         if output is None:
             report["note"] = "pass --output build/<file>.json for the full target, or --unit/--segment for a selection"
+    _emit(report)
+    return 0
+
+
+def _order_draft(arguments: argparse.Namespace) -> int:
+    from .cli import _build_path, _emit, _root
+    from .constants import tracker_path
+    from .order_draft import build_order_draft, headline, load_evidence
+    from .order_target import build_order_target, load_inputs
+    from .source_cache import ensure_source_cache
+    from .tracker import load_tracker
+    from .util import atomic_write_json
+
+    root = _root(arguments)
+    output = _build_path(root, arguments.output, "order drafts") if arguments.output else None
+    tracker = load_tracker(tracker_path(root))
+    graph, origin = _graph(root, arguments)
+    inputs = load_inputs(root, tracker, graph)
+    target = build_order_target(
+        graph, inputs["plans"], deferrals=inputs["deferrals"], boundaries=inputs["boundaries"], notes=inputs["notes"]
+    )
+    selection = (
+        {"unit": arguments.unit} if arguments.unit else {"segment": arguments.segment} if arguments.segment is not None else None
+    )
+    if arguments.from_elf:
+        cache, _rebuilt = ensure_source_cache(root, graph=graph)
+    else:
+        cache, _rebuilt = ensure_source_cache(root, graph_path=_path(root, arguments.graph))
+    draft = build_order_draft(target, load_evidence(root, cache, graph), selection)
+    if output is not None:
+        atomic_write_json(output, draft)
+    elif selection is not None:
+        _emit(draft)
+        return 0
+    report: dict[str, Any] = {"ok": True, "mutation_performed": False, "graph": origin, "output": arguments.output, **headline(draft)}
+    if selection is not None:
+        report["selection"] = selection
+    elif output is None:
+        report["note"] = "pass --output build/<file>.json for the whole draft, or --unit/--segment for a selection"
     _emit(report)
     return 0
 

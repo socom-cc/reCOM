@@ -17,9 +17,11 @@ emit them; the 46 stage 4 segments are the item unit (D6).
 **Phase A, no compiler (file-only).** A1, the order target, and A3, the
 link-order specification, are registered (`order target`,
 `order link-spec`, `order sql`; capability `function-order-targets` in
-[TOOL_COVERAGE.md](TOOL_COVERAGE.md)). A2 (an order plan per unit with its
-evidence, drafted and independently reviewed per segment) and A4 (a governed
-correction route for accepted stage 4 plans) are not built yet.
+[TOOL_COVERAGE.md](TOOL_COVERAGE.md)). A2's evidence drafts are registered
+too (`order draft`, see [Source-order drafts](#source-order-drafts-and-the-calibration));
+the order plans drafted from them and their independent review per segment,
+and A4 (a governed correction route for accepted stage 4 plans), are not
+built yet.
 
 **Phase B, needs the exact compiler.** A probe harness compiles a unit and
 reads its object's section and symbol order (B1), the emission rule is
@@ -154,6 +156,8 @@ python tools/socom.py order target --output build/stage5/order-target.json
 python tools/socom.py order target --unit database.cpp
 python tools/socom.py order target --segment 13 --output build/stage5/segment-013.json
 python tools/socom.py order link-spec --output build/stage5/link-order.json
+python tools/socom.py order draft --output build/stage5/order-draft.json
+python tools/socom.py order draft --unit hud_main.cpp
 python tools/socom.py order sql "SELECT label, objects, drops, link_violations FROM checks WHERE objects > 0"
 ```
 
@@ -182,14 +186,16 @@ file, the cited plans or the gate deferrals change:
 
 From stage 4 (the proposal):
 
-- **Source order from DWARF lines.** In the 43 units with three or more
-  line-numbered non-inline functions, address order runs mostly in reverse
-  source order: 11 units strictly reverse, 23 mostly reverse, 6 mostly
-  forward, 3 forward (75% of 461 neighbour steps go backwards). Reverse
-  emission is a tendency, not a rule; phase B probes must settle it.
+- **Source order from DWARF lines.** The proposal's figure (43 units, 75%
+  of neighbour steps backwards, a tendency rather than a rule) is
+  superseded by the [calibration](#source-order-drafts-and-the-calibration),
+  which reads each definition's own line (the first row of its line table)
+  and leaves copies out: out-of-line definitions run in exact reverse
+  source order.
 - **Literal label numbers** (`@N`, a per-unit compiler counter) never drop
   by more than 51 within one unit along `.rodata` (0 of 4,550 pairs), so they
-  record the order the compiler saw code.
+  record the order the compiler emitted code (the calibration shows that
+  this is the address order, not the source order).
 - **Data order**: `.sdata`, `.sbss` and `.bss` keep link order; LOCAL symbol
   names keep one order across objects (6,970 of 6,970 shared pairs);
   static-initializer order is known for 148 units.
@@ -218,3 +224,120 @@ From `order target` on the graph `c79d76e6...` and the 62 accepted plans
   557 unresolved rows (160 boundary functions, 250 COMMON variables, 95
   data-link-order, 8 microcode/fill/linker, 44 unproven-object functions)
   lie between units.
+
+## Source-order drafts and the calibration
+
+The order target fixes the order the ELF requires; phase B must write
+source that the compiler turns into it. `order draft` (read-only; it also
+reads the source cache, `build/cache/source-graph.sqlite`) collects the
+evidence for the **source** order of each unit's definitions, calibrates
+it, and drafts a hypothesis source order for the A2 planners. It decides
+nothing: compiler probes (phase B) settle the rule.
+
+### Evidence
+
+| Evidence | What it is |
+| --- | --- |
+| DWARF lines | each function's definition line: the first row of its line table (only in its own unit's compile units) |
+| local-static counter | function-local statics are named `name$N` (with a guard `init$N` when dynamically initialized), N a per-unit counter; a function's value is the lowest N among the statics no other function of its unit references; a static's own name carries its N |
+| literal labels | the highest `@N` among the literals only that function references (the same counter) |
+| static initializer | the order in which the unit's `__sinit_` function first references each data definition (C++ initializes a unit's objects in definition order) |
+| DWARF variable order | file-scope variable DIEs of the unit's object contribution, in DIE order |
+
+`$localstatic` names (`init$localstatic4$next__7CAiPathFv`) number the
+statics of one inline function and belong to copies; `@unnamed@` tags name
+a file's anonymous namespace without a counter. Neither orders definitions.
+
+### Calibration
+
+Measured over the target `4c79cd00...` (graph `c79d76e6...`). DWARF lines
+order 464 definitions in 36 units (35 with three or more): 4,268 pairs,
+428 neighbour steps.
+
+| Evidence | Relation tested | Agreement |
+| --- | --- | --- |
+| reverse address order | a lower address is later in source | 4,251/4,268 pairs (99.6%), 426/428 steps, 35/36 units exact |
+| forward address order | a lower address is earlier in source | 17/4,268 |
+| local-static counter | a lower N is earlier in source | 16/16 pairs |
+| literal labels | a lower `@N` is earlier in source | 3/102 (99/102 reversed) |
+| local-static counter, every unit | a lower address has a higher N | 374/378 pairs |
+| literal labels, every unit | a lower address has a lower `@N` | 3,783/4,087 pairs (92.6%) |
+| data: own local-static N | a lower N lies at a lower address | 2,974/2,974 pairs |
+| data: static initializer | initialized earlier lies at a lower address | 2,241/2,268 pairs (98.8%) |
+| data: DWARF variable order | an earlier DIE lies at a lower address | 868/868 pairs |
+| function compile-unit DIEs | an earlier DIE has a lower address | 800/800 steps |
+
+The rule this supports (`calibration.best_rule` in the draft):
+
+1. **Out-of-line function definitions are emitted in reverse source
+   order.** The local-static counter confirms it on units without DWARF
+   (374/378).
+2. **Functions emitted on demand have no source position.** All 17
+   discordant pairs involve three of the four LOCAL members of
+   hud_linemap.cpp's anonymous-namespace class `CAiLinePtItr`, each defined
+   on one line (lines 36-42: in-class bodies). `FindValid` (42) and
+   `IsValid` (38) sit right after `TickLine`, FindValid's first user;
+   `Advance` (36) and `GetPt` (37) follow the unit's last out-of-line
+   definition, in forward order. They behave like kept inline copies: 609
+   of the 668 binding-13 copies
+   with a user in their unit sit right after the first function that
+   uses it (56 before it). The nine definitions without a DWARF line in
+   line-numbered units are compiler-generated: five `__arraydtor$N` and
+   four implicit destructors of file-local classes.
+3. **Counters.** The local-static counter follows source order. Literal
+   labels follow the emission order (they run opposite to the source
+   order), so they corroborate the address order but are not independent
+   source evidence; neither is DIE order, which is the emission order for
+   functions.
+4. **Data definitions are laid out in source (declaration) order** within
+   each region (local statics by their counter; the static initializer's
+   order with some scheduling noise, e.g. `unit_nz` initialized before
+   `unit_x` in zmath_pnt3d.cpp).
+
+Open for phase B: whether in-class members and implicit members can be told
+apart without DWARF (they cannot today: a file-local LOCAL member is only
+flagged `file_local`), how a unit's functions and data interleave in source
+(the sections order them independently; declarations must precede uses),
+and the literal-pool and copy positions (stage 7).
+
+### Drafts
+
+For each unit, `functions` holds the hypothesis source order (`basis`
+`dwarf-lines` where the unit has line tables, else `reverse-address`) and
+`data` one entry per region (`basis` `address`). Each adjacency is classed:
+
+| Class | Meaning |
+| --- | --- |
+| `proven` | the DWARF lines of both definitions record this order |
+| `constrained` | the local-static counter (functions, data) or the static initializer (data) orders the pair this way |
+| `hypothesis` | only the calibrated rule places it |
+
+An adjacency lists its `basis`, the evidence against it (`conflicts`; the
+rule's order is kept), and the non-constraining evidence that agrees or
+disagrees (`corroborated_by`, `contradicted_by`: literal labels for
+functions, DWARF variable order for data). `constraints` lists the counter
+and initializer chains (consecutive pairs in evidence order, implying every
+pair) with `agrees`. `not_placed` holds definitions without a source
+position: `generated` (`__vt__`, `__RTTI__`, `__sinit_`, `.p__sinit_`),
+`compiler-generated` (`__arraydtor$N`), `static-guard` (`init$N`),
+`no-dwarf-line` (a function without a line in a line-numbered unit),
+`common` (COMMON allocations) and `outside-code`. A unit's `status` per
+scope (functions, data, unit) is `proven` (every adjacency proven),
+`constrained` (some proven or constrained), `hypothesis` or `trivial` (no
+adjacency).
+
+On the current inputs (219 units, 39 with line tables):
+
+| Scope | Placed | Proven | Constrained | Hypothesis | Against the draft |
+| --- | --- | --- | --- | --- | --- |
+| functions | 4,638 | 428 | 15 | 3,979 | 0 adjacencies, 3 of 86 chain constraints |
+| data | 1,860 | 0 | 562 | 883 | 9 adjacencies, 9 of 597 chain constraints |
+
+| Status | Proven | Constrained | Hypothesis | Trivial |
+| --- | --- | --- | --- | --- |
+| functions | 36 | 7 | 163 | 13 |
+| data | 0 | 101 | 36 | 82 |
+| unit | 6 | 110 | 95 | 8 |
+
+Not placed: 866 generated, 315 static guards, 13 `__arraydtor$N`, 4
+functions without a line.

@@ -221,6 +221,7 @@ def workflow_contracts(root: Path, commands: list[dict[str, Any]]) -> dict[str, 
         # Stage 5 phase A is read-only: outputs and the order cache are build/ products.
         "order target": False,
         "order link-spec": False,
+        "order draft": False,
         "order sql": False,
         "progress amend-source-plan": True,
         "progress accept-source-amendment": True,
