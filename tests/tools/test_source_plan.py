@@ -140,10 +140,13 @@ def undecomposed(tracker: dict) -> dict:
     seed = next(row for row in tracker["work_items"] if row["id"] == SOURCE_SEED_ID)
     seed.update(kind="stage-seed", title="Decompose and schedule source-correlation work", status="blocked",
                 dependencies=[RECON_SEED_ID], resources=[], selection=None, batch=None, lease=None, handoff=None, evidence=[])
-    for key in ("accepted", "review_history"):
+    for key in ("accepted", "review_history", "source_gate"):
         seed.pop(key, None)
     stage = next(row for row in tracker["stages"] if row["name"] == SOURCE_STAGE)
-    stage.pop("decomposition", None)
+    # Stage 4 is accepted in the workspace: drop its decomposition and file-stage baseline too.
+    for key in ("decomposition", "baseline"):
+        stage.pop(key, None)
+    stage["accepted_evidence"] = []
     refresh_ready_and_stages(tracker)
     return tracker
 

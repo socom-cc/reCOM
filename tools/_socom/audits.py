@@ -218,6 +218,10 @@ def workflow_contracts(root: Path, commands: list[dict[str, Any]]) -> dict[str, 
         "progress handoff-source-gate": True,
         "progress accept-source-gate": True,
         "audit source-baseline": False,
+        # Stage 5 phase A is read-only: outputs and the order cache are build/ products.
+        "order target": False,
+        "order link-spec": False,
+        "order sql": False,
     }
     for command, mutates in expected.items():
         row = by_command.get(command)

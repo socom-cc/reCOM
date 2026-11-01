@@ -1097,3 +1097,8 @@ union scope with `progress stage-scope`, takes a receipt over it, and runs the
 strict audits. After the gate is accepted,
 `progress record-stage-baseline --stage ghidra-reconstruction` records the
 stage's baseline for `source-correlation`.
+
+Stage 4 maps the accepted artifacts to source owners
+([SOURCE_CORRELATION.md](SOURCE_CORRELATION.md)); stage 5 orders each
+authored unit's definitions and the objects of the link
+([FUNCTION_ORDER.md](FUNCTION_ORDER.md)).

@@ -29,6 +29,9 @@ registered apply route (`progress apply-source-plan`) is active. An
 independent reviewer and accepter close its stage gate with
 `progress handoff-source-gate` and `progress accept-source-gate`, which
 record a file-stage baseline.
+`authored-function-order` has its phase A tools (`order target`,
+`order link-spec`; [FUNCTION_ORDER.md](FUNCTION_ORDER.md)) but no producer
+yet, so its seed stays closed.
 Later native stages currently have explicit blockers and undecomposed seeds.
 Those seeds cannot be used as generic work or accepted as proof. A stage
 becomes executable only after a real producer and stage-specific acceptance
