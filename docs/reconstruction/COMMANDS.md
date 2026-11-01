@@ -15,6 +15,7 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py reference verify` | reference | no | none | no | Deep-compare the complete stored census with a fresh ELF parse. |
 | `python tools/socom.py reference show` | reference | no | none | no | Query stored reference sections or symbols. |
 | `python tools/socom.py reference relocations` | reference | no | none | no | Query MIPS relocations with symbol and HI16/LO16 context. |
+| `python tools/socom.py reference demangle` | reference | no | none | no | Parse Metrowerks C++ symbol names into a structured form, render them as C++ declaration text (scope, name, parameter types, cv-qualifiers) and mangle them back; --all round-trips every ELF symbol and counts parsed, identical and failed names by category; --output writes the JSON (with --all, every name's row) under build/. |
 | `python tools/socom.py debug inspect` | debug | no | none | no | Inspect DWARF 1 and line-program facts. |
 | `python tools/socom.py debug graph` | debug | no | none | no | Build the scoped DWARF import graph without mutating Ghidra. |
 | `python tools/socom.py debug conflicts list` | debug | no | none | no | List scoped blocking DWARF definition conflicts. |

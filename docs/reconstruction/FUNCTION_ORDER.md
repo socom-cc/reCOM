@@ -33,7 +33,8 @@ provisional bodies move into place, and stubs are marked. Static checks
 (B2) confirm that signatures mangle back to the ELF's names, that the
 written order predicts the target and that annotations are unchanged. Each
 segment's apply runs both and is accepted by an independent verifier (B3).
-These are not stage evidence.
+These are not stage evidence. The mangler the signature check uses is
+registered (see [Metrowerks name mangling](#metrowerks-name-mangling)).
 
 **Phase C, needs the exact compiler.** A probe harness compiles a unit and
 reads its object's section and symbol order (C1). The emission rule is
@@ -49,6 +50,59 @@ The producer opens phase A only. The phase B items wait for
 `function-order-skeletons`). The phase C items and the stage gate wait for
 `socom:work:order-compile-route` (deferred capability
 `function-order-compile`). No registered capability opens either gate yet.
+
+## Metrowerks name mangling
+
+`reference demangle` (capability `metrowerks-name-mangling`,
+`tools/_socom/mw_mangle.py`) is read-only. It parses a symbol name into a
+structured JSON form, renders it as C++ declaration text (scope, name,
+parameter types, cv-qualifiers) and mangles the form back. `--all`
+round-trips every ELF symbol, and `--output` writes every name's row under
+`build/`:
+
+```powershell
+python tools/socom.py reference demangle Tick__10CZSealBodyFf __opf__6RfloatCFv
+python tools/socom.py reference demangle --all --output build/stage5/demangle-all.json
+```
+
+The scheme is MW MIPS C Compiler 2.4.1.01's cfront/ARM mangling:
+
+- `name__<scope><cv>F<params>` is a function and `name__<scope>` a static
+  data member or namespace variable. `Q<k>` joins `k` length-prefixed names.
+  Template arguments are written literally inside the length
+  (`vector<i,Q23std12allocator<i>>`). `@unnamed@<file>@` is an unnamed
+  namespace and `<name>$<n><file>` a function-local class.
+- `C` before `F` makes a const member. The name does not encode the return
+  type (`#pragma new_mangler` is off), `static` or `virtual`, or whether the
+  scope is a class or a namespace. Those come from stage 3 prototypes, call
+  sites and DWARF. `__ct`/`__dt` carry only the declared parameters, because
+  the compiler adds the destructor's hidden flag itself. A skeleton therefore
+  writes `CZSealBody::Tick(float)` as a member with an implicit `this`. The
+  free function `Tick(CZSealBody *, float)` would mangle as
+  `Tick__FP10CZSealBodyf`.
+- Types: the builtins `v b c s i l x f d r w e`, with `U`/`S` for
+  unsigned/signed. `1` is the 128-bit integer, rendered `unsigned __int128`
+  as DWARF types it; whether a plain `__int128` also mangles as `1` needs a
+  compiler probe. The qualifiers are `C`/`V`. Compound types are `P`
+  (pointer), `R` (reference), `A<n>_` (array), `F<params>_<result>`
+  (function) and `M<class>` (pointer to member). A pointer to member function's two
+  hidden parameters (`PCv`, then `Pv`, or `PCv` for a const member) are kept
+  out of its parameter list.
+- Other symbols are classified, not mangled: vtables, RTTI, thunks
+  `@<offset>@<function>`, `__sinit_`/`.p__sinit_`, `__arraydtor$N`, local
+  statics `name$N` and `name$localstaticN$<function>` with their one-byte
+  `init` flags, `__init__<data>`, `@N` literals, `$LN` and `_$name` labels,
+  section symbols and plain C names.
+
+Real data (2026-11-01): all 21,894 symbols (18,159 names) round-trip
+exactly. Of these, 13,610 names parse into a Metrowerks form, including
+6,813 C++ functions, 958 data, 248 vtables, 254 RTTI and 31 thunks. That
+covers every authored function artifact of `source graph`: 6,565 artifacts,
+of which 6,550 are C++ functions, 13 are array destructors, and `main` and
+`TRC_PreparePowerOff` are C names. No name fails. Two cases stay ambiguous.
+The 13 f2c constants `c__N` look mangled but are C names. A template
+argument made only of digits is read as a value, so the 128-bit `1` in
+`__vector_imp<1,...>` renders as `1`.
 
 ## Inputs
 

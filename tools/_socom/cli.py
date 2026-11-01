@@ -39,6 +39,7 @@ from .issues import (
     mutate_issues,
     set_issue_status,
 )
+from .mw_mangle import demangle as mw_demangle, symbol_report as mw_symbol_report
 from .reference import query_relocations
 from .ghidra import (
     GhidraBridge,
@@ -287,6 +288,30 @@ def _reference_relocations(arguments: argparse.Namespace) -> int:
     )
     _emit(report)
     return 0
+
+
+def _reference_demangle(arguments: argparse.Namespace) -> int:
+    root = _root(arguments)
+    if arguments.all == bool(arguments.symbols):
+        raise SocomError("name one or more symbols or pass --all, not both")
+    output = _build_path(root, arguments.output, "demangle reports") if arguments.output else None
+    if arguments.all:
+        elf_path = root / "support" / "socom.elf"
+        symbols = [(row.name, row.type_name, row.binding_name) for row in Elf32File(elf_path).symbols()]
+        report = mw_symbol_report(symbols, include_rows=output is not None)
+        report["source_sha256"] = sha256_file(elf_path)
+        if output:
+            atomic_write_json(output, report)
+        summary = {key: value for key, value in report.items() if key != "rows"}
+        summary["written"] = output.relative_to(root).as_posix() if output else None
+        _emit(summary)
+        return 0 if report["ok"] else 1
+    rows = [mw_demangle(name) for name in arguments.symbols]
+    report = {"ok": all(row["round_trip"] for row in rows), "symbols": rows}
+    if output:
+        atomic_write_json(output, report)
+    _emit(report)
+    return 0 if report["ok"] else 1
 
 
 def _debug_inspect(arguments: argparse.Namespace) -> int:
@@ -2873,6 +2898,14 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec("reference verify", "reference", "Deep-compare the complete stored census with a fresh ELF parse."),
     _spec("reference show", "reference", "Query stored reference sections or symbols."),
     _spec("reference relocations", "reference", "Query MIPS relocations with symbol and HI16/LO16 context."),
+    _spec(
+        "reference demangle",
+        "reference",
+        "Parse Metrowerks C++ symbol names into a structured form, render them as C++ declaration text (scope, "
+        "name, parameter types, cv-qualifiers) and mangle them back; --all round-trips every ELF symbol and counts "
+        "parsed, identical and failed names by category; --output writes the JSON (with --all, every name's row) "
+        "under build/.",
+    ),
     _spec("debug inspect", "debug", "Inspect DWARF 1 and line-program facts."),
     _spec("debug graph", "debug", "Build the scoped DWARF import graph without mutating Ghidra."),
     _spec("debug conflicts list", "debug", "List scoped blocking DWARF definition conflicts."),
@@ -3196,6 +3229,11 @@ def build_parser() -> argparse.ArgumentParser:
     relocations.add_argument("--type")
     relocations.add_argument("--limit", type=int, default=100)
     relocations.set_defaults(handler=_reference_relocations)
+    demangle_parser = reference_commands.add_parser("demangle")
+    demangle_parser.add_argument("symbols", nargs="*")
+    demangle_parser.add_argument("--all", action="store_true")
+    demangle_parser.add_argument("--output")
+    demangle_parser.set_defaults(handler=_reference_demangle)
 
     recon = commands.add_parser("recon")
     recon_commands = recon.add_subparsers(dest="recon_command", required=True)
