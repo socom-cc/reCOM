@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3389,
+  "revision": 3394,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -3157,7 +3157,7 @@
       },
       "id": "socom:stage:source-correlation",
       "name": "source-correlation",
-      "status": "pending"
+      "status": "active"
     },
     {
       "accepted_evidence": [],
@@ -147143,7 +147143,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 040 under src/"
     },
     {
@@ -147290,7 +147290,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 039 under src/"
     },
     {
@@ -147378,7 +147378,7 @@
       "resources": [],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Record the reviewed provider owners of crt0 in tracker evidence"
     },
     {
@@ -147518,6 +147518,10 @@
       "title": "Plan source owners of segment 001 (0x140008-0x142138, 39 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T01:19:33Z",
+        "by": "socom-verifier-apply1"
+      },
       "batch": {
         "artifact_count": 89,
         "batch_number": 1,
@@ -147527,7 +147531,11 @@
         },
         "data_count": 18,
         "directories": [
-          "src/Apps/FTS"
+          "src/Apps/FTS",
+          "src/gamez/zFTS",
+          "src/gamez/zGame",
+          "src/gamez/zSystem",
+          "src/gamez/zUtil"
         ],
         "function_count": 39,
         "gap_count": 32,
@@ -147539,6 +147547,12 @@
             "0x142138"
           ]
         ],
+        "reservation_correction": {
+          "from": [
+            "src/Apps/FTS"
+          ],
+          "plan_sha256": "4447ab5b63ef996faddacca5cfc33970d84e4a92308a8ac9616290643ffd17ee"
+        },
         "resource_basis": "path",
         "resource_inferred": false,
         "resource_reason": null,
@@ -147562,17 +147576,115 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "independent review: source apply-check ok (6 files, owner-map 149c2d4b, plan 4447ab5b, 0 problems); plan validate --check ok (applied, 0 problems; 13 wrong header citations are plan-review notes); annotate --check ok (66 annotations c99fa1cb, 0 drift); audit source-trace ok (0 errors); audit docblocks ok (66 edges, 0 errors); git diff src/: only the 6 recorded files, +93/-0, each = generated socom-owner-annotations blocks (plan-ID order) + one blank line + HEAD blob byte for byte (LF, no BOM); 7 MSL <string>/<memory> instances 0x1410f0,0x141410,0x1415f0,0x141d00,0x141f20,0x142090,0x142130 carry exactly one emits edge each, in main.cpp",
+        "progress apply-source-plan record; source apply-check ok; audit source-trace ok; audit docblocks ok",
+        "source-annotations-sha256:c99fa1cb39b8e252e9158c5288baac096b3c2dc712ed1b38f9871ce8a8101823 count:66",
+        "source-file src/Apps/FTS/main.cpp sha256:41649e731bc112a6599bfcf221d01736e8573a663704f551fa918629d810f73c",
+        "source-file src/Apps/FTS/state/st_menu.cpp sha256:9e9c781c96fc92dce79c0c22346ee29253fe4298601c42e105915ca365525b94",
+        "source-file src/gamez/zFTS/fts_state.h sha256:937c8d012845dfbe9654594e9c352cfd02318b3d76671eff12b1eaa2657322cc",
+        "source-file src/gamez/zGame/zgame.h sha256:d23642bc31fcabc4b33996bc14423d6d180d97fe7876f3ced6bff44ba833ddc2",
+        "source-file src/gamez/zSystem/zsys.h sha256:424ff9943eee9618a28489433ea5278c393e3c028df7787d2a3db7f7027d0af0",
+        "source-file src/gamez/zUtil/zutil.h sha256:ce00a3bfd1c33316f494d4a6f080b1226bf7a12754d4959844f8fc8f28cbca61",
+        "source-owner-map-sha256:149c2d4b1c3a5072f0fb6061c30a87ccb66f3568ab355353fc642c99032e4758",
+        "source-plan build/source-plans/socom-work-source-segment-001.json sha256:4447ab5b63ef996faddacca5cfc33970d84e4a92308a8ac9616290643ffd17ee",
+        "source-reservation corrected src/Apps/FTS, src/gamez/zFTS, src/gamez/zGame, src/gamez/zSystem, src/gamez/zUtil"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-pilot",
+        "submitted_at": "2026-11-01T01:17:02Z",
+        "summary": "pilot apply of segment 001: 66 annotations into 6 files (main.cpp, st_menu.cpp, fts_state.h, zgame.h, zsys.h, zutil.h); no moves, creates or retires"
+      },
       "id": "socom:work:source-segment-001-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
-        "src/Apps/FTS"
+        "src/Apps/FTS",
+        "src/gamez/zFTS",
+        "src/gamez/zGame",
+        "src/gamez/zSystem",
+        "src/gamez/zUtil"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 66,
+        "annotations_sha256": "c99fa1cb39b8e252e9158c5288baac096b3c2dc712ed1b38f9871ce8a8101823",
+        "applied_at": "2026-11-01T01:12:23Z",
+        "applied_by": "socom-source-worker-pilot",
+        "changed": [
+          "src/Apps/FTS/main.cpp",
+          "src/Apps/FTS/state/st_menu.cpp",
+          "src/gamez/zFTS/fts_state.h",
+          "src/gamez/zGame/zgame.h",
+          "src/gamez/zSystem/zsys.h",
+          "src/gamez/zUtil/zutil.h"
+        ],
+        "created": [],
+        "files": [
+          {
+            "content_sha256": "64bada65678bc84ff2359b8cc968cbb40cdb36dab07d231685188c114ffc437d",
+            "path": "src/Apps/FTS/main.cpp",
+            "sha256": "41649e731bc112a6599bfcf221d01736e8573a663704f551fa918629d810f73c"
+          },
+          {
+            "content_sha256": "dcb71f6cf34ede3adad6980dad10920ef36fbc83e9d0fca4cbb7b142053589fb",
+            "path": "src/Apps/FTS/state/st_menu.cpp",
+            "sha256": "9e9c781c96fc92dce79c0c22346ee29253fe4298601c42e105915ca365525b94"
+          },
+          {
+            "content_sha256": "43e00c8f714ccc642af133690c8f918817645b7394f0168e486c3cc3eb32d7dd",
+            "path": "src/gamez/zFTS/fts_state.h",
+            "sha256": "937c8d012845dfbe9654594e9c352cfd02318b3d76671eff12b1eaa2657322cc"
+          },
+          {
+            "content_sha256": "314f3fcf0c8fe64704e68d655db4efce3095300e4c926da6ad944779a3c69294",
+            "path": "src/gamez/zGame/zgame.h",
+            "sha256": "d23642bc31fcabc4b33996bc14423d6d180d97fe7876f3ced6bff44ba833ddc2"
+          },
+          {
+            "content_sha256": "e54ac2b1bebf0259ced3ebac9c1af2e1f727588d1b03e16685543463a564ee4b",
+            "path": "src/gamez/zSystem/zsys.h",
+            "sha256": "424ff9943eee9618a28489433ea5278c393e3c028df7787d2a3db7f7027d0af0"
+          },
+          {
+            "content_sha256": "f6d69233cb4cbdb24a8d3a927acd27b5da1437f701573391d02223c19f2096d5",
+            "path": "src/gamez/zUtil/zutil.h",
+            "sha256": "ce00a3bfd1c33316f494d4a6f080b1226bf7a12754d4959844f8fc8f28cbca61"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "149c2d4b1c3a5072f0fb6061c30a87ccb66f3568ab355353fc642c99032e4758",
+        "plan": "build/source-plans/socom-work-source-segment-001.json",
+        "plan_item": "socom:work:source-segment-001",
+        "plan_sha256": "4447ab5b63ef996faddacca5cfc33970d84e4a92308a8ac9616290643ffd17ee",
+        "reconciles": [
+          "socom:work:source-data-bss"
+        ],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/Apps/FTS",
+            "src/gamez/zFTS",
+            "src/gamez/zGame",
+            "src/gamez/zSystem",
+            "src/gamez/zUtil"
+          ],
+          "reserved": [
+            "src/Apps/FTS"
+          ],
+          "status": "corrected"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:f8f1746d82a9988ddb65",
+          "segment_number": 1
+        }
+      },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 001 under src/"
     },
     {
@@ -147713,7 +147825,7 @@
       "resources": [],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Record the reviewed provider owners of MW runtime in tracker evidence"
     },
     {
@@ -147872,7 +147984,7 @@
       "resources": [],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Record the reviewed provider owners of MSL in tracker evidence"
     },
     {
@@ -148058,7 +148170,7 @@
       "resources": [],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Record the reviewed provider owners of SCE in tracker evidence"
     },
     {
@@ -148158,7 +148270,7 @@
       "resources": [],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Record the reviewed provider owners of unidentified GNU object in tracker evidence"
     },
     {
@@ -148288,7 +148400,7 @@
       "resources": [],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Record the reviewed provider owners of newlib in tracker evidence"
     },
     {
@@ -148418,7 +148530,7 @@
       "resources": [],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Record the reviewed provider owners of libgcc in tracker evidence"
     },
     {
@@ -148613,7 +148725,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 013 under src/"
     },
     {
@@ -148759,7 +148871,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 014 under src/"
     },
     {
@@ -148950,7 +149062,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 015 under src/"
     },
     {
@@ -149129,7 +149241,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 016 under src/"
     },
     {
@@ -149302,7 +149414,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 017 under src/"
     },
     {
@@ -149458,7 +149570,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 018 under src/"
     },
     {
@@ -149631,7 +149743,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 019 under src/"
     },
     {
@@ -149789,7 +149901,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 020 under src/"
     },
     {
@@ -149974,7 +150086,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 021 under src/"
     },
     {
@@ -150147,7 +150259,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 022 under src/"
     },
     {
@@ -150338,7 +150450,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 023 under src/"
     },
     {
@@ -150517,7 +150629,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 024 under src/"
     },
     {
@@ -150692,7 +150804,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 025 under src/"
     },
     {
@@ -150881,7 +150993,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 026 under src/"
     },
     {
@@ -151057,7 +151169,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 027 under src/"
     },
     {
@@ -151246,7 +151358,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 028 under src/"
     },
     {
@@ -151425,7 +151537,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 029 under src/"
     },
     {
@@ -151583,7 +151695,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 030 under src/"
     },
     {
@@ -151751,7 +151863,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 031 under src/"
     },
     {
@@ -151925,7 +152037,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 032 under src/"
     },
     {
@@ -152086,7 +152198,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 033 under src/"
     },
     {
@@ -152266,7 +152378,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 034 under src/"
     },
     {
@@ -152440,7 +152552,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 035 under src/"
     },
     {
@@ -152638,7 +152750,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 036 under src/"
     },
     {
@@ -152783,7 +152895,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 037 under src/"
     },
     {
@@ -152883,7 +152995,7 @@
       "resources": [],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Record the reviewed provider owners of 989snd in tracker evidence"
     },
     {
@@ -153088,7 +153200,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 041 under src/"
     },
     {
@@ -153233,7 +153345,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 042 under src/"
     },
     {
@@ -153379,7 +153491,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 043 under src/"
     },
     {
@@ -153518,7 +153630,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 044 under src/"
     },
     {
@@ -153637,7 +153749,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 045 under src/"
     },
     {
@@ -153752,7 +153864,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 046 under src/"
     },
     {
@@ -153879,7 +153991,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 047 under src/"
     },
     {
@@ -154034,7 +154146,7 @@
       "resources": [],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Record the reviewed provider owners of speech middleware in tracker evidence"
     },
     {
@@ -154149,7 +154261,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 052 under src/"
     },
     {
@@ -154286,7 +154398,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 054 under src/"
     },
     {
@@ -154417,7 +154529,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 055 under src/"
     },
     {
@@ -154552,7 +154664,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 056 under src/"
     },
     {
@@ -154669,7 +154781,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 057 under src/"
     },
     {
@@ -154848,7 +154960,7 @@
       "resources": [],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Record the reviewed provider owners of Medius in tracker evidence"
     },
     {
@@ -154987,7 +155099,7 @@
       "resources": [],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Record the reviewed provider owners of lgAud in tracker evidence"
     },
     {
@@ -155122,7 +155234,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 063 under src/"
     },
     {
@@ -155269,7 +155381,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 064 under src/"
     },
     {
@@ -155412,7 +155524,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 065 under src/"
     },
     {
@@ -155512,7 +155624,7 @@
       "resources": [],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Record the reviewed provider owners of libptt in tracker evidence"
     },
     {
@@ -155639,7 +155751,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 068 under src/"
     },
     {
@@ -155739,7 +155851,7 @@
       "resources": [],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Record the reviewed provider owners of RSA in tracker evidence"
     },
     {
@@ -155854,7 +155966,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 074 under src/"
     },
     {
@@ -156321,7 +156433,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 076 under src/"
     },
     {
@@ -156645,12 +156757,24 @@
       "title": "Reconcile bss data owners (1769 artifacts outside the segment slices)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T01:11:52Z",
+        "by": "progress open-capability-gate",
+        "capability": "source-correlation-apply"
+      },
       "batch": {
         "capability": "source-correlation",
         "requires": "a registered command that applies an accepted owner plan: a segment's files and annotations under its reserved src/ directories, a provider's archive-member ownership in tracker evidence only"
       },
       "dependencies": [],
-      "evidence": [],
+      "evidence": [
+        "capability-sha256:265e049330d56addf67df97254b33123bd8729089629e126cd2f35811df8516b",
+        "capability:source-correlation-apply",
+        "registered-command:progress apply-source-plan",
+        "registered-command:progress open-capability-gate",
+        "registered-command:source annotate",
+        "registered-command:source apply-check"
+      ],
       "handoff": null,
       "id": "socom:work:source-correlation-apply-route",
       "kind": "capability-gate",
@@ -156658,7 +156782,7 @@
       "resources": [],
       "selection": null,
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "accepted",
       "title": "Register the guarded source apply route (owner-plan annotations under src/, provider evidence)"
     },
     {
