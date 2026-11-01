@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3669,
+  "revision": 3672,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -152729,6 +152729,10 @@
       "title": "Apply the reviewed source owners of segment 013 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T20:16:25Z",
+        "by": "socom-source-owner-scrutinizer-x33"
+      },
       "batch": {
         "artifact_count": 382,
         "batch_number": 14,
@@ -152765,8 +152769,16 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "amendment socom:source-amendment:002 review: plan sha256 3e81475be30b625eb0320da1f90e2ff863fab1cf3ef00746d052797ab0b884a7 = handoff; JSON diff vs build/stage4/pre-amend/socom-work-source-segment-014.json: header_emits and annotations identical (0x17fc20 __dt__8CAiEventFv -> src/gamez/zAI/zai.h inline row and emits annotation restored, no user-written note left; its free/clear is the inlined CBits::~CBits as 0x17f440, zmath_bits.h); owners[0] aidemo.cpp: only draft_rule O-path removed + evidence added (artifacts, translation_unit, original_path, workspace_path src/Apps/FTS/aidemo.cpp, provisional_file null unchanged; draft --check now proposes O-provisional because apply 5917f77 created the file); +5 notes (aidemo hand row; authored-line citations 0x17fc00 zmath.h:92, 0x187140 zai.h:297, 0x182470 zai.h:302, 0x182830 zai.h:297). validate --check ok (no mutation, emits 86, reservation zAI/FTS/zMath); draft --check ok (296 drafted, 73 hand, 0 open, 1 override 0x449310 unchanged); emit-check --plan exit 0: 0 missing emits/notes, 0 wrong citations, 0 user-written emits, 0 undetermined, 0x17fc20 shape implicit (1 unit). Cosmetic, non-blocking: the aidemo note's 'also keeps' has no antecedent now that the removal is gone.",
+        "plan build/source-plans/socom-work-source-segment-014.json sha256:3e81475be30b625eb0320da1f90e2ff863fab1cf3ef00746d052797ab0b884a7; header_emits and annotations equal the pre-amend copy build/stage4/pre-amend/socom-work-source-segment-014.json (0x17fc20 __dt__8CAiEventFv -> src/gamez/zAI/zai.h inline row and its emits annotation restored; user-written no-emit note removed); kept: aidemo.cpp hand row + its note, 4 authored-line citation notes",
+        "validate --check --fill-annotations ok (emits 86); validate --check ok (no mutation); draft --check ok (296 drafted, 73 hand, 0 open); emit-check --plan (after dd47974) clean: 0 missing emits/notes, 0 wrong citations, 0 user-written emits, 0x17fc20 shape implicit (1 unit); control-character scan 0"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-am2",
+        "submitted_at": "2026-11-01T20:14:19Z",
+        "summary": "amendment 002: restore the 0x17fc20 emit (inlined CBits dtor); aidemo hand row"
+      },
       "id": "socom:work:source-segment-014",
       "kind": "source-plan-segment",
       "lease": null,
@@ -152849,7 +152861,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan source owners of segment 014 (0x17de80-0x188f54, 163 functions)"
     },
     {
@@ -168579,7 +168591,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Reconcile data data owners (1001 artifacts outside the segment slices)"
     },
     {
