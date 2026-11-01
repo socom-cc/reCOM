@@ -233,7 +233,7 @@ class HeaderIndex:
 
     def _scan(self, relative: str, path: Path) -> None:
         try:
-            raw = path.read_text(encoding="utf-8", errors="replace").splitlines()
+            raw = _authored_lines(path)
         except OSError:
             return
         self.files[relative] = raw
@@ -368,8 +368,25 @@ class HeaderIndex:
             path = self.root / relative
             if not path.is_file():
                 return None
-            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+            lines = _authored_lines(path)
         return lines[line - 1].strip() if 0 < line <= len(lines) else None
+
+
+def _authored_lines(path: Path) -> list[str]:
+    """The file's authored lines: generated ownership blocks (stage-4 applies) do not count.
+
+    Header citations (``zai.h:297``) name lines of the authored content, so they stay
+    valid when an apply adds, rewrites or removes the generated blocks at the top.
+    """
+
+    from .source_apply import parse_blocks
+
+    text = path.read_text(encoding="utf-8", errors="replace")
+    try:
+        _bom, _blocks, text = parse_blocks(text)
+    except SocomError:
+        pass
+    return text.splitlines()
 
 
 # -- the check ------------------------------------------------------------------------------
