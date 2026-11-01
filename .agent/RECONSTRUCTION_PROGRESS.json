@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3386,
+  "revision": 3389,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -3157,7 +3157,7 @@
       },
       "id": "socom:stage:source-correlation",
       "name": "source-correlation",
-      "status": "active"
+      "status": "pending"
     },
     {
       "accepted_evidence": [],
@@ -156425,6 +156425,10 @@
       "title": "Reconcile rodata data owners (5456 artifacts outside the segment slices)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T01:10:17Z",
+        "by": "socom-source-owner-scrutinizer-x29"
+      },
       "batch": {
         "artifact_count": 1001,
         "batch_number": 78,
@@ -156500,8 +156504,15 @@
         "socom:work:source-segment-074",
         "socom:work:source-segment-076"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-data-data.json sha256:29893f7643dd98e741778e7d4c391094d82ef0612534d89bc8a5f0d9fff5260f; validate --check ok (0 problems, 3 review notes, shared units all agree); draft --check ok (865 drafted, 126 hand, 0 overrides); emit-check 0 findings",
+        "plan sha256 29893f7643dd98e741778e7d4c391094d82ef0612534d89bc8a5f0d9fff5260f; validate --check ok (0 problems, 148 owners, 10 unresolved); draft --check ok (865 drafted, 126 hand, 0 overrides); emit-check 0; only change vs rejected c5822f49: __vt__3C2D 0x472b90 -> ztwod_main.cpp and __vt__9C2DBitmap 0x472d30 -> ztwod_bitmap.cpp (low; LOCAL R_MIPS_32 to own RTTI in clusters 0x459208/0x459478), rows identical to accepted source-data-rodata; earlier review: 14 low rows linked between flanks with class/reader support, 88 medium rows flanked by the same unit, no .data/.sdata owner-run splits, 441 shared rows agree, 0x474b7c compiler-generated per MW LinkSegment_PS2.lcf lines 98-107"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-r2",
+        "submitted_at": "2026-11-01T01:09:13Z",
+        "summary": "data reconcile rework (x29): owners 148 (140 authored, 7 provider, 1 compiler-generated), unresolved 10, retire 0, open rows decided 136; added ztwod_main.cpp/ztwod_bitmap.cpp rows identical to accepted source-data-rodata and decided __vt__3C2D 0x472b90 / __vt__9C2DBitmap 0x472d30 into them (low, LOCAL R_MIPS_32 to own RTTI in clusters 0x459208/0x459478)"
+      },
       "id": "socom:work:source-data-data",
       "kind": "source-data-reconcile",
       "lease": null,
@@ -156526,7 +156537,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Reconcile data data owners (1001 artifacts outside the segment slices)"
     },
     {
