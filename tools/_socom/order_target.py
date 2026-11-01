@@ -809,6 +809,8 @@ def link_order(target: dict[str, Any]) -> dict[str, Any]:
         "schema_version": LINK_ORDER_SCHEMA,
         "order_sha256": target["order_sha256"],
         "graph_sha256": target["inputs"]["graph_sha256"],
+        # The stage 4 file baseline the target was built over (the link-order plan binds it).
+        "stage4_baseline_sha256": target["inputs"].get("stage4_baseline_sha256"),
         "objects": objects,
         "check": {
             "ok": not violations,

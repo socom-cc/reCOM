@@ -3,6 +3,8 @@
 ``order target``, ``order link-spec``, ``order draft`` and ``order sql``:
 read-only commands over the accepted stage 4 owner plans, the source graph
 and the reference ELF (``order draft`` also reads the source cache).
+``order plan draft``, ``order plan decide`` and ``order plan validate``
+write and check the order plans of the stage 5 items (``order_plan``).
 Outputs go under ``build/`` only; the main CLI lists the registry rows and
 wires the parser through ``specs`` and ``register``.
 """
@@ -58,6 +60,38 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "targets, findings, checks), a derived cache of the order target rebuilt when the graph file, the cited "
             "plans or the gate deferrals change; --output writes the result under build/ and prints its row count.",
         ),
+        spec(
+            "order plan draft",
+            "order",
+            "Draft the order plan of a stage 5 plan item at its packet path under build/order-plans/ (socom-order-plan: "
+            "per unit of the segment the source order of its definitions, function rows with a position and an "
+            "in_class flag, data rows per region in declaration order, each classed proven, constrained or hypothesis "
+            "with its basis and evidence, the definitions without a source position, copies and literals as stage 7 "
+            "targets, and open rows only where judgment is needed: a DWARF line or a counter against the rule, stray "
+            "artifacts outside the unit's main run, deferred stage 4 rows inside its runs); a re-draft keeps the "
+            "planner's decisions; for socom:work:order-link it writes the order link-spec output.",
+        ),
+        spec(
+            "order plan decide",
+            "order",
+            "Settle one row of an order plan under build/ as the holder of its item's lease (--lease-owner): a new "
+            "source position (--position, or --no-position for an in-class member), --in-class/--out-of-line, --class "
+            "and the --basis it rests on, recorded with the decision; settles the artifact's open rows (an open row "
+            "without a row of its own, a stray copy or a deferred stage 4 row, is settled with --basis only).",
+            mutates=True,
+        ),
+        spec(
+            "order plan validate",
+            "order",
+            "Check an order plan against its item, the current order target and the evidence: schema, every "
+            "definition of the segment's units listed exactly once, not-placed definitions and stage 7 targets "
+            "complete, positions, row classes against the DWARF lines and counters, the order the plan predicts under "
+            "the rule (reverse source order for out-of-line definitions, in-class members right after their first "
+            "caller, data in declaration order) equal to the target order with every mismatch listed, open rows "
+            "neither dropped nor silently settled, and the order-target, stage 4 baseline, graph, evidence and segment "
+            "digests current (stale: re-draft); a link plan must equal the current link-order specification; --check "
+            "also fails on open rows; --output writes the full report under build/.",
+        ),
     )
 
 
@@ -95,6 +129,32 @@ def register(commands: Any) -> None:
     sql.add_argument("--output", help="write the result (in --format) to this file under build/ instead of stdout")
     sql.add_argument("--graph", default=DEFAULT_GRAPH)
     sql.set_defaults(handler=_order_sql)
+    plan = order_commands.add_parser("plan")
+    plan_commands = plan.add_subparsers(dest="order_plan_command", required=True)
+    draft_plan = plan_commands.add_parser("draft")
+    draft_plan.add_argument("--item", required=True, help="a stage 5 plan item (socom:work:order-segment-NNN or socom:work:order-link)")
+    draft_plan.add_argument("--output", help="the plan file under build/ (default: the item's packet path)")
+    draft_plan.add_argument("--graph", default=DEFAULT_GRAPH)
+    draft_plan.set_defaults(handler=_order_plan_draft)
+    decide = plan_commands.add_parser("decide")
+    decide.add_argument("--plan", required=True)
+    decide.add_argument("--lease-owner", required=True, help="the worker holding the plan item's lease")
+    decide.add_argument("--artifact", required=True)
+    where = decide.add_mutually_exclusive_group()
+    where.add_argument("--position", type=int, help="the row's new source position in its scope (1 = first)")
+    where.add_argument("--no-position", action="store_true", help="an in-class member without a source position")
+    member = decide.add_mutually_exclusive_group()
+    member.add_argument("--in-class", action="store_true", help="defined in its class body, emitted on demand")
+    member.add_argument("--out-of-line", action="store_true", help="defined out of line (in the file's source order)")
+    decide.add_argument("--class", dest="klass", choices=("proven", "constrained", "hypothesis"))
+    decide.add_argument("--basis", required=True, help="the evidence or judgment the decision rests on")
+    decide.set_defaults(handler=_order_plan_decide)
+    validate = plan_commands.add_parser("validate")
+    validate.add_argument("--plan", required=True)
+    validate.add_argument("--check", action="store_true", help="also fail on open rows")
+    validate.add_argument("--output", help="write the full report as JSON under build/")
+    validate.add_argument("--graph", default=DEFAULT_GRAPH)
+    validate.set_defaults(handler=_order_plan_validate)
 
 
 def _path(root: Path, value: str) -> Path:
@@ -294,3 +354,108 @@ def _order_sql(arguments: argparse.Namespace) -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stdout.write("\n".join(lines) + "\n")
     return 0
+
+
+def _order_plan_draft(arguments: argparse.Namespace) -> int:
+    from .cli import _build_path, _emit, _root
+    from .constants import tracker_path
+    from .order_plan import ORDER_LINK_ID, draft_order_plan, order_context, order_plan_path, plan_item
+    from .order_target import link_order
+    from .tracker import load_tracker
+    from .util import SocomError, atomic_write_json, load_json
+
+    root = _root(arguments)
+    tracker = load_tracker(tracker_path(root))
+    item = plan_item(tracker, arguments.item)
+    relative = arguments.output or order_plan_path(item["id"])
+    output = _build_path(root, relative, "order plans")
+    if relative == order_plan_path(item["id"]) and item.get("status") in ("awaiting_acceptance", "accepted"):
+        # A handed-off or accepted plan changes only after progress work reject or reopen.
+        raise SocomError(
+            f"{item['id']} is {item['status']}: its plan is under review or accepted; reopen it (progress work reopen) "
+            "or reject it before re-drafting, or draft to another --output under build/"
+        )
+    if item["id"] == ORDER_LINK_ID:
+        target, _none = order_context(root, tracker, _path(root, arguments.graph), evidence=False)
+        body = link_order(target)
+        atomic_write_json(output, body)
+        _emit({"ok": body["check"]["ok"], "mutation_performed": False, "item": item["id"], "output": relative,
+               "objects": len(body["objects"]), "link_order_sha256": body["link_order_sha256"],
+               "violations": body["check"]["violations"]})
+        return 0 if body["check"]["ok"] else 1
+    target, derived = order_context(root, tracker, _path(root, arguments.graph))
+    previous = load_json(output) if output.is_file() else None
+    plan, carried = draft_order_plan(tracker, item, target, derived or {}, previous if isinstance(previous, dict) else None)
+    atomic_write_json(output, plan)
+    open_rows = [row for unit in plan["units"] for row in unit["open"]]
+    kinds: dict[str, int] = {}
+    for row in open_rows:
+        kinds[row["kind"]] = kinds.get(row["kind"], 0) + 1
+    rows = [row for unit in plan["units"] for row in unit["functions"]] + [
+        row for unit in plan["units"] for region in unit["data"] for row in region["rows"]
+    ]
+    classes: dict[str, int] = {}
+    for row in rows:
+        classes[row["class"]] = classes.get(row["class"], 0) + 1
+    _emit(
+        {
+            "ok": True, "mutation_performed": False, "item": item["id"], "output": relative, "units": len(plan["units"]),
+            "functions": sum(len(unit["functions"]) for unit in plan["units"]),
+            "data": sum(len(region["rows"]) for unit in plan["units"] for region in unit["data"]),
+            "classes": dict(sorted(classes.items())), "open_rows": len(open_rows), "open_by_kind": dict(sorted(kinds.items())),
+            "carried_decisions": carried["carried"], "dropped_decisions": carried["dropped"],
+        }
+    )
+    return 0
+
+
+def _order_plan_decide(arguments: argparse.Namespace) -> int:
+    from .cli import _build_path, _emit, _root
+    from .constants import tracker_path
+    from .order_plan import ORDER_PLAN_KIND, UNSET, decide_order_row
+    from .source_plan_edit import require_plan_lease
+    from .tracker import load_tracker
+    from .util import SocomError, atomic_write_json, load_json
+
+    root = _root(arguments)
+    target = _build_path(root, arguments.plan, "order plans")
+    plan = load_json(target)
+    if not isinstance(plan, dict) or plan.get("kind") != ORDER_PLAN_KIND:
+        raise SocomError(f"{arguments.plan} is not a {ORDER_PLAN_KIND} file (a link-order plan has no rows to decide)")
+    # Only the worker holding the plan item's lease edits its plan.
+    require_plan_lease(load_tracker(tracker_path(root)), plan.get("work_item_id"), arguments.lease_owner)
+    position = None if arguments.no_position else arguments.position if arguments.position is not None else UNSET
+    in_class = True if arguments.in_class else False if arguments.out_of_line else None
+    unit, changes = decide_order_row(
+        plan, arguments.artifact, owner=arguments.lease_owner, basis=arguments.basis, position=position, in_class=in_class,
+        klass=arguments.klass,
+    )
+    atomic_write_json(target, plan)
+    _emit(
+        {
+            "ok": True, "mutation_performed": True, "plan": arguments.plan, "unit": unit, "changes": changes,
+            "open_rows": sum(len(row.get("open") or []) for row in plan.get("units") or []),
+        }
+    )
+    return 0
+
+
+def _order_plan_validate(arguments: argparse.Namespace) -> int:
+    from .cli import _build_path, _emit, _root
+    from .constants import tracker_path
+    from .order_plan import validate_plan_file
+    from .tracker import load_tracker
+    from .util import atomic_write_json, load_json
+
+    root = _root(arguments)
+    output = _build_path(root, arguments.output, "order plan reports") if arguments.output else None
+    plan = load_json(_path(root, arguments.plan))
+    report = validate_plan_file(
+        root, load_tracker(tracker_path(root)), plan, check=arguments.check, graph_path=_path(root, arguments.graph)
+    )
+    if output is not None:
+        atomic_write_json(output, report)
+    shown = {key: report.get(key) for key in ("ok", "work_item_id", "summary", "problems", "notes", "stale")}
+    shown["mismatches"] = len(report.get("mismatches") or [])
+    _emit({**shown, "mutation_performed": False, "check": arguments.check, "output": arguments.output})
+    return 0 if report["ok"] else 1

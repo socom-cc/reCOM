@@ -18,6 +18,11 @@ check lists, every provider member, header-emit, unresolved, retire and
 contradiction row and the reservation against the item's evidence file
 (`source sql` for queries).
 
+For a handed-off stage 5 order plan, run `order plan validate --plan <plan>
+--check` and review every decided and settled row (its basis against the
+evidence in `order draft --segment N`), the in-class rows and the notes on
+in-class rows without a caller.
+
 Return accept, reject, or block with evidence and unexplained artifacts.
 Behavior or bytes alone are not source-shape proof. Never mutate files,
 Ghidra, ledgers, or issues, and do not spawn another agent.

@@ -223,6 +223,10 @@ def workflow_contracts(root: Path, commands: list[dict[str, Any]]) -> dict[str, 
         "order link-spec": False,
         "order draft": False,
         "order sql": False,
+        # Order plans are build/ products; decide edits one under the item's lease, like source plan decide.
+        "order plan draft": False,
+        "order plan decide": True,
+        "order plan validate": False,
         "progress amend-source-plan": True,
         "progress accept-source-amendment": True,
     }
@@ -374,6 +378,11 @@ def pipeline_reachability(root: Path, commands: list[dict[str, Any]]) -> dict[st
             "progress accept-source-gate",
         },
     }
+    # A stage whose planning producer is registered but whose closing route is
+    # still a deferred capability: it may be decomposed, never accepted yet.
+    partial_producers = {
+        "authored-function-order": {"progress decompose-stage", "order plan validate"},
+    }
     tracker = load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
     blockers = {
         stage
@@ -404,13 +413,21 @@ def pipeline_reachability(root: Path, commands: list[dict[str, Any]]) -> dict[st
             for row in tracker.get("work_items", [])
             if row.get("stage") == stage and row.get("kind") == "stage-seed"
         ]
+        gates = [
+            row
+            for row in tracker.get("work_items", [])
+            if row.get("stage") == stage and row.get("kind") == "stage-gate"
+        ]
         capability = deferred_capabilities.get(stage)
-        if not seeds or (stage not in blockers and capability is None):
+        decomposed = bool(gates) and stage in partial_producers
+        if stage in partial_producers and not partial_producers[stage] <= names:
+            missing.append({"stage": stage, "expected_all_of": sorted(partial_producers[stage])})
+        if not (seeds or decomposed) or (stage not in blockers and capability is None):
             missing.append(
                 {"stage": stage, "error": "deferred stage lacks a seed and explicit blocker"}
             )
         elif stage in blockers:
-            deferred.append({"stage": stage, "seed_count": len(seeds), "blocked": True})
+            deferred.append({"stage": stage, "seed_count": len(seeds), "blocked": True, "decomposed": decomposed})
         else:
             row = {
                 "stage": stage,

@@ -29,9 +29,18 @@ registered apply route (`progress apply-source-plan`) is active. An
 independent reviewer and accepter close its stage gate with
 `progress handoff-source-gate` and `progress accept-source-gate`, which
 record a file-stage baseline.
-`authored-function-order` has its phase A tools (`order target`,
-`order link-spec`, `order draft`; [FUNCTION_ORDER.md](FUNCTION_ORDER.md))
-but no producer yet, so its seed stays closed.
+`authored-function-order` is decomposed by its producer `order-target`, once
+stage 4 is accepted with no open amendment, into file-only order-plan items:
+one per stage 4 segment holding authored units, plus the link-order plan. A
+planner drafts, decides and validates each plan (`order plan draft`,
+`order plan decide`, `order plan validate`), and an independent reviewer
+accepts it; handoff and acceptance re-run `order plan validate --check`.
+Its phase B applies (skeleton source, static checks, no compile) wait for
+`socom:work:order-skeleton-route`, which opens once a skeleton generator is
+registered. Its phase C compile items and the stage gate wait for
+`socom:work:order-compile-route`, which opens only once the compiler license
+(`socom:blocker:metrowerks-flexlm-license`) works and a compile route exists
+([FUNCTION_ORDER.md](FUNCTION_ORDER.md)).
 Later native stages currently have explicit blockers and undecomposed seeds.
 Those seeds cannot be used as generic work or accepted as proof. A stage
 becomes executable only after a real producer and stage-specific acceptance

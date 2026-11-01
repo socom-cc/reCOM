@@ -32,6 +32,12 @@ imply listed (`--fill-annotations` writes them), and owners placed in the
 apply's reserved directories. Confirm or correct an inferred reservation in
 the plan's `reservation` row.
 
+A stage 5 order plan item (`order-plan-segment`, `order-plan-link`) starts
+from `python tools/socom.py order plan draft --item <item>`; see
+[`FUNCTION_ORDER.md`](../../../docs/reconstruction/FUNCTION_ORDER.md#order-plans).
+Settle only its open rows with `order plan decide`, each with its evidence,
+and hand off once `order plan validate --plan <plan> --check` passes.
+
 An accepted plan is applied under its apply item's lease with
 `python tools/socom.py progress apply-source-plan --item <item> --owner <owner> --expected-revision <n> --dry-run`
 and then without `--dry-run`. The route moves, creates and retires files and

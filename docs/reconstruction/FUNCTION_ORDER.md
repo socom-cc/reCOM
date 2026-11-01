@@ -18,21 +18,37 @@ emit them; the 46 stage 4 segments are the item unit (D6).
 link-order specification, are registered (`order target`,
 `order link-spec`, `order sql`; capability `function-order-targets` in
 [TOOL_COVERAGE.md](TOOL_COVERAGE.md)). A2's evidence drafts are registered
-too (`order draft`, see [Source-order drafts](#source-order-drafts-and-the-calibration));
-the order plans drafted from them and their independent review per segment,
-and A4 (a governed correction route for accepted stage 4 plans), are not
-built yet.
+too (`order draft`, see [Source-order drafts](#source-order-drafts-and-the-calibration)),
+and so are the stage's producer and its order plans, one per segment with
+an independent review (`progress decompose-stage`, `order plan draft`,
+`order plan decide`, `order plan validate`; capability
+`function-order-plans`; see [Order plans](#order-plans)). A4, a governed
+correction route for accepted stage 4 plans, is not built yet.
 
-**Phase B, needs the exact compiler.** A probe harness compiles a unit and
-reads its object's section and symbol order (B1), the emission rule is
-calibrated on units whose source order DWARF records (B2), source is
-arranged to the accepted plan (B3) and an independent verifier builds each
-unit from a clean checkout (B4). `mwccps2` stops at the FLEXlm check
-(blocker `socom:blocker:metrowerks-flexlm-license`, the user's to resolve),
-so phase B waits.
+**Phase B, skeletons, no compiler (writes `src/`).** Split from the compile
+work on 2026-11-01 at the user's request, so that the license blocks only
+phase C. A skeleton generator writes each unit's source in the accepted
+plan's order (B1). Every definition gets its exact signature. Existing
+provisional bodies move into place, and stubs are marked. Static checks
+(B2) confirm that signatures mangle back to the ELF's names, that the
+written order predicts the target and that annotations are unchanged. Each
+segment's apply runs both and is accepted by an independent verifier (B3).
+These are not stage evidence.
 
-None of these commands opens the stage. The stage 5 seed stays a closed
-placeholder until its plan, compile and verify routes are registered.
+**Phase C, needs the exact compiler.** A probe harness compiles a unit and
+reads its object's section and symbol order (C1). The emission rule is
+calibrated on the units whose source order DWARF records (C2). An
+independent verifier builds each unit from a clean checkout (C3). `mwccps2`
+stops at the FLEXlm check (blocker
+`socom:blocker:metrowerks-flexlm-license`, the user's to resolve), so phase
+C waits. The stage gate waits for every phase C item: the stage is not
+accepted without the compiler.
+
+The producer opens phase A only. The phase B items wait for
+`socom:work:order-skeleton-route` (deferred capability
+`function-order-skeletons`). The phase C items and the stage gate wait for
+`socom:work:order-compile-route` (deferred capability
+`function-order-compile`). No registered capability opens either gate yet.
 
 ## Inputs
 
@@ -103,7 +119,7 @@ Inference, not a tool fact: by their contents and the linker symbols, region
 14 holds the `__sinit_*` static-initializer functions, 16 the `.p__sinit_*`
 table (`__static_init`..`__static_init_end`), 17 the vtables up to
 `__data_end`, 18 and 19 the small data, 21 `.sbss` (`_fbss`..`__bss_start`),
-23 `.bss` and 24 COMMON. Labels stay evidence-based; phase B probes will name
+23 `.bss` and 24 COMMON. Labels stay evidence-based; phase C probes will name
 the compiler's sections.
 
 ## Order classes
@@ -228,11 +244,11 @@ From `order target` on the graph `c79d76e6...` and the 62 accepted plans
 ## Source-order drafts and the calibration
 
 The order target fixes the order the ELF requires; phase B must write
-source that the compiler turns into it. `order draft` (read-only; it also
+source that the compiler (phase C) turns into it. `order draft` (read-only; it also
 reads the source cache, `build/cache/source-graph.sqlite`) collects the
 evidence for the **source** order of each unit's definitions, calibrates
 it, and drafts a hypothesis source order for the A2 planners. It decides
-nothing: compiler probes (phase B) settle the rule.
+nothing: compiler probes (phase C) settle the rule.
 
 ### Evidence
 
@@ -294,7 +310,7 @@ The rule this supports (`calibration.best_rule` in the draft):
    order with some scheduling noise, e.g. `unit_nz` initialized before
    `unit_x` in zmath_pnt3d.cpp).
 
-Open for phase B: whether in-class members and implicit members can be told
+Open for phase C: whether in-class members and implicit members can be told
 apart without DWARF (they cannot today: a file-local LOCAL member is only
 flagged `file_local`), how a unit's functions and data interleave in source
 (the sections order them independently; declarations must precede uses),
@@ -341,3 +357,184 @@ On the current inputs (219 units, 39 with line tables):
 
 Not placed: 866 generated, 315 static guards, 13 `__arraydtor$N`, 4
 functions without a line.
+
+## Order plans
+
+### The producer and the items
+
+`progress decompose-stage --stage authored-function-order` (producer
+`order-target`) runs once stage 4 is accepted with its file baseline and no
+stage 4 amendment is open (an open amendment's plan is not accepted, so the
+order target would miss its units). It reads the order target over the
+accepted stage 4 plans and `build/source-graph/graph.json`, which must be
+stage 4's decomposition graph and match the baseline. It replaces the stage
+5 seed with:
+
+| Item | Kind | Waits for | Owns |
+| --- | --- | --- | --- |
+| `socom:work:order-segment-NNN`, one per stage 4 segment holding authored units | `order-plan-segment` | the accepted stage 4 gate | `build/order-plans` |
+| `socom:work:order-link` | `order-plan-link` | the accepted stage 4 gate | `build/order-plans` |
+| `socom:work:order-segment-NNN-apply` (phase B: skeleton source and static checks, no compile) | `order-apply-segment` | its plan and the skeleton route | its units' `src/` directories |
+| `socom:work:order-segment-NNN-compile` (phase C: exact-compiler build and object-order check) | `order-compile-segment` | its apply and the compile route | its units' `src/` directories |
+| `socom:work:order-skeleton-route` | `capability-gate` | a registered skeleton generator | nothing |
+| `socom:work:order-compile-route` | `capability-gate` | a registered compile route (the compiler license) | nothing |
+| `socom:work:authored-function-order-seed`, now the gate | `stage-gate` | every compile item and the link plan | nothing |
+
+A unit is planned once, in its `primary_segment`. A unit that owns data only
+(its rows come from data reconciles, so it has no segment) is planned with
+its nearest authored neighbour in link order; the item's batch lists it
+under `units_by_neighbour` and the record lists every such unit. Item
+batches record the segment's units, the order-target and stage 4 baseline
+digests and `segment_target_sha256`, the digest of the part of the target the
+plan orders. The compile route names the compiler blocker
+`socom:blocker:metrowerks-flexlm-license`, and the decomposition adds this
+stage to that blocker's `blocks`; the skeleton route waits for no external
+input, only for its generator. No capability opens either route, so
+`progress open-capability-gate` refuses both and phases B and C stay closed
+and visibly blocked. Generic handoff and acceptance refuse the apply,
+compile and gate items. The stage row's `decomposition` record carries
+`producer_sha256`, the digest of the order target, the stage 4 baseline and
+every segment item's units; the audit recomputes it.
+
+### The plan
+
+An order plan is `build/order-plans/<item>.json`, schema
+`socom-order-plan` 1:
+
+- `inputs`: `order_sha256`, `stage4_baseline_sha256`, `graph_sha256`,
+  `evidence_sha256` (the draft evidence) and `segment_target_sha256`.
+- `rule`: the rule the prediction applies (below).
+- `units`, in link order, each with:
+  - `functions`: the intended source order of the unit's out-of-line and
+    in-class function definitions. A row is `{artifact, name, address,
+    position, in_class, class, basis, evidence}`. `position` numbers the
+    rows 1..k in source order. An `in_class` row is a member defined in its
+    class body. It is emitted on demand, right after its first caller, so
+    it is outside the file's out-of-line order, and its position may be
+    null. `evidence` holds its DWARF `line`, `static_counter`,
+    `literal_label` and `first_user`, the earliest-emitted definition of the
+    unit that references it.
+  - `data`: one entry per region, `rows` in declaration order with the
+    same fields (no `in_class`; evidence `static_counter`, `sinit`,
+    `variable`).
+  - `not_placed`: the definitions without a source position (generated
+    `__vt__`/`__RTTI__`/`__sinit_`/`.p__sinit_`, `__arraydtor$N`, `init$N`
+    guards, members without a line in a line-numbered unit, COMMON).
+  - `stage7_targets`: `copies` and `literals`, listed only. Stage 7 places
+    them, when real bodies emit them (D3).
+  - `open`: the rows that need a planner's judgment, each with a `kind` and
+    a `reason`; `settled` holds the settled ones with their basis; `notes`.
+
+A row's `class` is `proven` (its DWARF definition line), `constrained` (the
+local-static counter, or for data the static initializer, orders it against
+every other carrier as its position does) or `hypothesis` (only the rule
+places it). Its `basis` says which (`dwarf-line 42`,
+`local-static-counter 2609`, `static-initializer rank 3`,
+`reverse-address rule`, `declaration-order rule (address order)`) or, after
+a decision, the planner's evidence. A decided row also has `decision`
+(by, at).
+
+### Drafting, deciding and validating
+
+```powershell
+python tools/socom.py order plan draft --item socom:work:order-segment-064
+python tools/socom.py order plan validate --plan build/order-plans/socom-work-order-segment-064.json
+python tools/socom.py order plan decide --plan build/order-plans/socom-work-order-segment-064.json --lease-owner <worker> `
+  --artifact <id> [--position N | --no-position] [--in-class | --out-of-line] [--class <class>] --basis "<evidence>"
+python tools/socom.py order plan validate --plan build/order-plans/socom-work-order-segment-064.json --check [--output build/...]
+python tools/socom.py order plan draft --item socom:work:order-link
+```
+
+`order plan draft` writes the item's plan at its packet path (or
+`--output` under `build/`). In a unit with DWARF lines, positions follow
+the lines, and every row is `proven`. Without lines, positions follow the
+reverse address order (the rule), and the counter constrains the rows it
+agrees with. Data rows follow the address order. It leaves open only:
+
+| Open kind | When | The draft's row |
+| --- | --- | --- |
+| `out-of-rule` | a DWARF line places a function against the reverse-order rule (off the longest reverse chain), an in-class candidate; the reason names its first caller | drafted `in_class` at its line's position |
+| `constraint-conflict` | the local-static counter or the static initializer orders two rows against the drafted order | kept in the rule's order |
+| `interleaved` | a unit's stray artifact outside its main run (seal_ai.cpp's local-static copies at the head of `.sbss` and `.bss`) | a stage 7 copy, or the row |
+| `deferred-in-span` | an unresolved stage 4 row (gate deferral) inside one of the unit's runs | none: another unit's or unowned row |
+
+A re-draft (the plan file exists) keeps the planner's decisions: decided
+rows get their final position, class, flag and basis again, in ascending
+position, and settled rows whose open row recurs stay settled. A decision
+that no longer applies is reported under `dropped_decisions`. Open rows the
+fresh draft raises stay open. For `socom:work:order-link` the draft is the
+`order link-spec` output (`socom-link-order`, which records the stage 4
+baseline).
+
+`order plan decide` settles one row as the worker holding the item's lease
+(`--lease-owner`). It takes a new `--position` (the row moves, the others
+are renumbered), or `--no-position` for an in-class member, the
+`--in-class` or `--out-of-line` flag, a `--class` (`proven` only with a
+DWARF line), and the `--basis` it rests on. It refuses the whole decision
+when one check fails. It settles every open row of the artifact into
+`settled`. An open row without a row of its own (a stray copy, a deferred
+stage 4 row) is settled with `--basis` only.
+
+`order plan validate` refuses a plan unless:
+
+- it is a schema 1 plan of an `order-plan-segment` item for that segment,
+  with no unknown field and no control character;
+- its units are the segment's current units in link order, and equal the
+  item's decomposed units;
+- every definition of each unit is listed exactly once (a function row, a
+  data row in its region, or `not_placed` with the derived reason), and
+  `stage7_targets` lists exactly its copies and literals;
+- positions number each scope 1..k (an out-of-line row or a data row always
+  has one), names, addresses and evidence equal the current ones, a
+  `proven` row has a DWARF line and agrees with the other lines, and a
+  `constrained` row agrees with every other carrier of its evidence;
+- the order the plan predicts under the rule equals the target order: the
+  out-of-line rows in descending position are the target's address order;
+  an in-class row with a first caller lies after it with no out-of-line
+  row between (one without a caller among the unit's definitions is a note,
+  unverified until phase C compiles it); data rows in ascending position are the
+  region's address order. Every mismatch is listed with the two rows and
+  their positions;
+- every open row the drafter raises is still open or settled;
+- the digests are current. A stale stage 4 baseline or order target says
+  re-draft; the segment's target digest tells whether the segment itself
+  changed.
+
+`--check` also fails on open rows. A link plan must equal the current
+`order link-spec` output with a clean static check.
+
+`progress work handoff` of an `order-plan-segment` or `order-plan-link` item
+re-runs `order plan validate --check` and needs `--evidence` citing the
+plan's current SHA-256 (`<plan> sha256:<sha>`). `progress work accept`
+re-runs it and refuses a plan whose SHA-256 is not the one the handoff
+cited. The reviewer is an independent `socom-source-owner-scrutinizer`.
+`order plan draft` refuses to rewrite the packet-path plan of a handed-off
+or accepted item. An accepted plan whose inputs went stale (a new stage 4
+baseline, say) returns to its planner with `progress work reopen` (not by
+its handoff owner; its apply has not started), which keeps the review
+history; the re-draft then keeps the decisions.
+
+### Dry run (2026-11-01)
+
+Measured over the main checkout at tracker revision 3668. Stage 4
+amendments 001-006 were open, so segment 14's plan was not accepted and is
+missing. Result: 45 segments with 219 units (two data-only units,
+`ztwod_main.cpp` and `ztwod_bitmap.cpp`, planned in segment 41 by their link
+neighbours). The drafts hold 6,436 rows: 4,589 function and 1,847 data rows
+(466 proven, 799 constrained, 5,171 hypothesis), plus 1,190 not placed.
+
+32 rows are open, in 9 segments:
+
+| Open kind | Rows |
+| --- | --- |
+| `constraint-conflict` | 23 |
+| `deferred-in-span` | 4 |
+| `out-of-rule` | 3 |
+| `interleaved` | 2 |
+
+The `constraint-conflict` rows are 8 functions in seal_ai, seal_command and
+seal_unit, plus 15 data rows, mostly static-initializer order. The
+`deferred-in-span` rows sit in ent_main, seal and seal_ai. The `out-of-rule`
+rows are hud_linemap's `CAiLinePtItr` members. The `interleaved` rows are
+seal_ai's local-static copies. Every draft validates, with no mismatch
+under the rule. The other 36 segments need only review.

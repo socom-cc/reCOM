@@ -1,5 +1,5 @@
 name = "socom_source_owner_mapper"
-description = "Mapper of soCOM translation units, source owners, artifacts, headers, and physical storage; writes owner plans under build/source-plans/ only."
+description = "Mapper of soCOM translation units, source owners, artifacts, headers, and physical storage; writes owner plans under build/source-plans/ and order plans under build/order-plans/ only."
 model = "gpt-5.6-sol"
 model_reasoning_effort = "xhigh"
 sandbox_mode = "workspace-write"
@@ -26,8 +26,16 @@ existing provisional source in the plan's `contradictions` rows, not in
 notes. List a provider archive's members and symbols with `provider archive
 --lib <path>`; never write the archive's path into a plan or note.
 
+For a leased order-plan-segment or order-plan-link item (stage 5), follow
+docs/reconstruction/FUNCTION_ORDER.md: write only the packet's plan and
+scratch directory under build/order-plans/, start from `order plan draft`,
+settle only the open rows with `order plan decide` (each with the evidence
+it rests on), never move a drafted row against the rule to fit a guess, and
+run `order plan validate --check` until it passes. Hand off citing the plan
+SHA-256.
+
 Return the full proposed topology, alternatives, evidence, unresolved
 artifacts, and the plan SHA-256. Do not edit source, Ghidra, tracker state, or
-issues, write nothing outside build/source-plans/, and do not make positive
-acceptance claims. Do not spawn another agent.
+issues, write nothing outside build/source-plans/ and build/order-plans/, and
+do not make positive acceptance claims. Do not spawn another agent.
 """

@@ -126,6 +126,26 @@ source apply's `progress apply-source-plan` records a `source_apply` record
 retired files) on the item; see
 [SOURCE_CORRELATION.md](SOURCE_CORRELATION.md).
 
+`progress decompose-stage --stage authored-function-order` (producer
+`order-target`) replaces the stage 5 seed once stage 4 is accepted with its
+file baseline and no amendment is open. It creates file-only
+`order-plan-segment` items (one per stage 4 segment holding authored units)
+and the `order-plan-link` item, all waiting for the accepted stage 4 gate.
+It also creates, per segment, a phase B `order-apply-segment` (skeleton
+source and static checks, no compile), which waits for its plan and for
+`socom:work:order-skeleton-route`, and a phase C `order-compile-segment`
+(exact-compiler build and order check), which waits for that apply and for
+`socom:work:order-compile-route`. Both reserve the units' `src/`
+directories. The compile route names the compiler blocker. No registered
+capability opens either `capability-gate` item. The seed becomes the stage
+gate over every compile item and the link plan. The stage row's
+`decomposition` records the order-target and stage 4 baseline digests and
+`producer_sha256` over every segment item's units, which the audit
+recomputes. Generic handoff and acceptance of an order plan item re-run
+`order plan validate --check` and need the plan's SHA-256 cited; they
+refuse the phase B and C items and the stage gate. See
+[FUNCTION_ORDER.md](FUNCTION_ORDER.md#order-plans).
+
 The `source-correlation` stage gate closes only through its registered
 route. Generic `progress work handoff` and `progress work accept` refuse
 it. Its reviewer, the lease owner, hands it off with

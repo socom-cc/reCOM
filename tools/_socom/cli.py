@@ -71,6 +71,8 @@ from .source import (
     source_artifacts,
     source_owners,
 )
+from .order_plan import ORDER_PLAN_KINDS
+from .order_target import ORDER_STAGE
 from .source_apply import verify_source_apply
 from .source_graph import SEGMENT_SIZE as SOURCE_SEGMENT_SIZE, segments_markdown, source_graph
 from .source_plan import SOURCE_APPLY_KINDS, SOURCE_STAGE, apply_reservations
@@ -1499,11 +1501,38 @@ def _require_unchanged_source_apply(root: Path, tracker: dict[str, Any], item_id
         raise SocomError(f"{item_id} no longer matches its apply record: " + "; ".join(problems))
 
 
+def _checked_order_plan(root: Path, item_id: str, status: str, cited: Callable[[dict[str, Any]], list[str]]) -> str | None:
+    """The validated plan SHA-256 of an order plan item (``order plan validate --check``), or ``None`` for other items.
+
+    Runs before the tracker lock is taken: the evidence must cite the plan's
+    current SHA-256; inside the mutation ``_require_plan_unchanged`` checks
+    the file still has it.
+    """
+
+    from .order_plan import require_valid_plan
+
+    tracker = load_tracker(tracker_path(root))
+    item = next((row for row in tracker["work_items"] if row["id"] == item_id), None)
+    if item is None or item.get("kind") not in ORDER_PLAN_KINDS or item.get("status") != status:
+        return None  # not an order plan, or the tracker refuses the transition anyway
+    return require_valid_plan(root, tracker, item_id, cited(item))
+
+
+def _require_plan_unchanged(root: Path, item_id: str, sha: str | None) -> None:
+    from .order_plan import order_plan_path
+
+    if sha is not None and sha256_file(root / order_plan_path(item_id)) != sha:
+        raise SocomError(f"{order_plan_path(item_id)} changed while it was validated: run the command again")
+
+
 def _work_handoff(arguments: argparse.Namespace) -> int:
     root = _root(arguments)
+    # An order plan hands off only once it validates with no open row and the evidence cites it.
+    checked = _checked_order_plan(root, arguments.item, "in_progress", lambda _item: list(arguments.evidence))
 
     def operation(tracker: dict[str, Any]) -> None:
         _require_unchanged_source_apply(root, tracker, arguments.item)
+        _require_plan_unchanged(root, arguments.item, checked)
         handoff_work(
             tracker,
             arguments.item,
@@ -1517,9 +1546,13 @@ def _work_handoff(arguments: argparse.Namespace) -> int:
 
 def _work_accept(arguments: argparse.Namespace) -> int:
     root = _root(arguments)
+    # Acceptance re-checks the plan the handoff cited: unchanged, still valid with no open row.
+    # The plan must still have the SHA-256 the handoff cited.
+    checked = _checked_order_plan(root, arguments.item, "awaiting_acceptance", lambda item: list(item.get("evidence") or []))
 
     def operation(tracker: dict[str, Any]) -> None:
         _require_unchanged_source_apply(root, tracker, arguments.item)
+        _require_plan_unchanged(root, arguments.item, checked)
         accept_work(tracker, arguments.item, arguments.accepter, arguments.evidence)
 
     return _mutate_work(arguments, operation)
@@ -2150,6 +2183,15 @@ def _progress_decompose_stage(arguments: argparse.Namespace) -> int:
                 captured.update(next(row for row in tracker["stages"] if row["name"] == SOURCE_STAGE)["decomposition"])
             else:
                 captured.update(decompose_source_correlation(tracker, graph, reservations))
+
+    elif arguments.stage == ORDER_STAGE:
+        from .order_plan import decompose_function_order, order_context
+
+        # The order target over the accepted stage 4 plans and stage 4's graph file (producer order-target).
+        target, _evidence = order_context(root, load_tracker(tracker_path(root)), evidence=False)
+
+        def decompose(tracker: dict[str, Any]) -> None:
+            captured.update(decompose_function_order(tracker, target))
 
     else:
         raise SocomError(f"no registered producer decomposes {arguments.stage}")
@@ -3058,7 +3100,12 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec("progress work handoff", "progress", "Submit work and evidence for independent acceptance.", mutates=True),
     _spec("progress work accept", "progress", "Independently accept handed-off work.", mutates=True),
     _spec("progress work reject", "progress", "Independently return handed-off work for rework with findings.", mutates=True),
-    _spec("progress work reopen", "progress", "Return an accepted reconstruction plan whose apply has not started for re-planning, with the reason.", mutates=True),
+    _spec(
+        "progress work reopen",
+        "progress",
+        "Return an accepted reconstruction plan or stage 5 order plan whose apply has not started for re-planning, with the reason.",
+        mutates=True,
+    ),
     _spec("progress work release", "progress", "Release an owned work lease.", mutates=True),
     _spec("progress work leases", "progress", "Show all active leases and exclusive resources."),
     _spec("progress work packet", "progress", "Render the exact contract for an actively leased item."),

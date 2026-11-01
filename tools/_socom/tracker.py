@@ -22,6 +22,17 @@ from .constants import (
 from .capabilities import CAPABILITY_GATE_ACCEPTER, capability_opening
 from .ghidra import normalize_receipt_scope
 from .locking import exclusive_state_lock
+from .order_plan import (
+    ORDER_COMPILE_ROUTE_ID,
+    ORDER_LINK_KIND,
+    ORDER_PLAN_KINDS,
+    ORDER_ROUTED_KINDS,
+    ORDER_SEGMENT_KIND,
+    ORDER_SKELETON_ROUTE_ID,
+    ORDER_STAGE,
+    audit_function_order,
+    order_plan_path,
+)
 from .recon import REPAIR_APPLY_KIND, REPAIR_PLAN_KIND, REPAIR_PREFIX
 from .repairs import REPAIRS
 from .source import source_owners
@@ -63,6 +74,12 @@ GHIDRA_WRITER_RESOURCES = ["ghidra:soCOM/socom.elf", "ghidra-writer"]
 RECON_STAGE = "ghidra-reconstruction"
 RECON_SEED_ID = "socom:work:ghidra-reconstruction-seed"
 RECON_PLAN_RESOURCES = ["build/recon-plans"]
+# Every capability-gate work item and the stage it belongs to.
+CAPABILITY_GATES = {
+    SOURCE_APPLY_ROUTE_ID: SOURCE_STAGE,
+    ORDER_SKELETON_ROUTE_ID: ORDER_STAGE,
+    ORDER_COMPILE_ROUTE_ID: ORDER_STAGE,
+}
 
 
 def open_source_amendments(tracker: dict[str, Any]) -> list[dict[str, Any]]:
@@ -1019,7 +1036,7 @@ def audit_tracker(
             "ghidra-writer" in resources or any(str(value).startswith("ghidra:") for value in resources)
         ):
             errors.append(f"{item_id} owns a Ghidra resource in the file-only {SOURCE_STAGE} stage")
-        if kind in SOURCE_PLAN_KINDS or kind in SOURCE_APPLY_KINDS or kind == CAPABILITY_GATE_KIND:
+        if kind in SOURCE_PLAN_KINDS or kind in SOURCE_APPLY_KINDS:
             if item.get("stage") != SOURCE_STAGE:
                 errors.append(f"{item_id} is a {kind} item outside {SOURCE_STAGE}")
         if kind in SOURCE_PLAN_KINDS:
@@ -1077,8 +1094,10 @@ def audit_tracker(
                     errors.append(f"{item_id} reserves all of src without the reason no inference was possible")
             errors.extend(_audit_source_apply_record(item, resources))
         if kind == CAPABILITY_GATE_KIND:
-            if item_id != SOURCE_APPLY_ROUTE_ID:
+            if item_id not in CAPABILITY_GATES:
                 errors.append(f"{item_id} is an unexpected capability gate")
+            elif item.get("stage") != CAPABILITY_GATES[item_id]:
+                errors.append(f"{item_id} is a capability gate outside {CAPABILITY_GATES[item_id]}")
             if resources or item.get("dependencies"):
                 errors.append(f"{item_id} capability gate must own no resources and have no dependencies")
             if status == "accepted":
@@ -1215,6 +1234,7 @@ def audit_tracker(
     ):
         errors.append(f"{RECON_STAGE} items cite a different function graph")
     errors.extend(_audit_source_correlation(items, stage_rows))
+    errors.extend(audit_function_order(tracker))
     from .source_gate import audit_source_gate
 
     errors.extend(audit_source_gate(tracker))
@@ -1335,7 +1355,7 @@ def _audit_source_correlation(items: list[dict[str, Any]], stage_rows: list[dict
     plans = [item for item in items if item.get("kind") in SOURCE_PLAN_KINDS and item.get("kind") != DATA_RECONCILE_KIND]
     reconciles = [item for item in items if item.get("kind") == DATA_RECONCILE_KIND]
     applies = [item for item in items if item.get("kind") in SOURCE_APPLY_KINDS]
-    routes = [item for item in items if item.get("kind") == CAPABILITY_GATE_KIND]
+    routes = [item for item in items if item.get("kind") == CAPABILITY_GATE_KIND and item.get("stage") == SOURCE_STAGE]
     if {f"{item['id']}-apply" for item in plans} != {item["id"] for item in applies}:
         errors.append("source plan/apply item pairing is incomplete")
     plan_ids = sorted(item["id"] for item in plans)
@@ -1572,6 +1592,8 @@ def handoff_work(
         raise SocomError(f"{item_id} is an undecomposed stage seed")
     if item.get("kind") == "stage-gate" and item.get("stage") == SOURCE_STAGE:
         raise SocomError(f"{item_id} is the {SOURCE_STAGE} stage gate; use progress handoff-source-gate")
+    if item.get("stage") == ORDER_STAGE and item.get("kind") in ("stage-gate", *ORDER_ROUTED_KINDS):
+        raise SocomError(f"{item_id} closes through a {ORDER_STAGE} skeleton or compile route, which is not registered yet")
     if item["lease"]["owner"] != owner:
         raise SocomError(f"{item_id} is leased by {item['lease']['owner']}")
     if "ghidra-writer" in item.get("resources", []):
@@ -1661,6 +1683,8 @@ def accept_work(
         )
     if item.get("kind") == "stage-gate" and item.get("stage") == SOURCE_STAGE:
         raise SocomError(f"{item_id} is the {SOURCE_STAGE} stage gate; use progress accept-source-gate")
+    if item.get("stage") == ORDER_STAGE and item.get("kind") in ("stage-gate", *ORDER_ROUTED_KINDS):
+        raise SocomError(f"{item_id} closes through a {ORDER_STAGE} skeleton or compile route, which is not registered yet")
     _accept_work_item(item, accepter, evidence)
 
 
@@ -1760,11 +1784,12 @@ def reopen_work(
     reason: str,
     evidence: list[str],
 ) -> None:
-    """Return an accepted reconstruction plan for re-planning before it applies.
+    """Return an accepted reconstruction or stage 5 order plan for re-planning before it applies.
 
-    Only a recon-plan-group whose apply item has not started (ready or
-    blocked) can be reopened; what is already in Ghidra is corrected through
-    a governed repair instead.  The acceptance and handoff are kept in the
+    Only a recon-plan-group, order-plan-segment or order-plan-link whose
+    apply item (the link plan has none) has not started (ready or blocked)
+    can be reopened; what is already in Ghidra is corrected through a
+    governed repair instead.  The acceptance and handoff are kept in the
     review history, the plan becomes ready and its apply blocked again.
     """
 
@@ -1772,12 +1797,14 @@ def reopen_work(
     item = by_id.get(item_id)
     if not item:
         raise SocomError(f"unknown work item: {item_id}")
-    if item.get("kind") != "recon-plan-group":
-        raise SocomError(f"{item_id} is not a reconstruction plan item")
+    if item.get("kind") not in ("recon-plan-group", *ORDER_PLAN_KINDS):
+        raise SocomError(f"{item_id} is not a reconstruction or order plan item")
     if item["status"] != "accepted":
         raise SocomError(f"{item_id} is {item['status']}, not accepted")
     apply = by_id.get(f"{item_id}-apply")
-    if apply is None or apply.get("status") not in ("ready", "blocked"):
+    if item.get("kind") == ORDER_LINK_KIND:
+        pass  # the link plan has no apply of its own
+    elif apply is None or apply.get("status") not in ("ready", "blocked"):
         raise SocomError(
             f"{item_id}-apply is {apply.get('status') if apply else 'missing'}: an apply that started "
             "or finished is corrected through a governed repair (progress add-recon-repair once it is "
@@ -1805,7 +1832,8 @@ def reopen_work(
     item["handoff"] = None
     item.pop("accepted", None)
     item["evidence"] = []
-    apply["status"] = "blocked"
+    if apply is not None:
+        apply["status"] = "blocked"
 
 
 SOURCE_REOPEN_KINDS = (SEGMENT_PLAN_KIND, PROVIDER_PLAN_KIND)
@@ -2936,6 +2964,47 @@ def work_packet(
             "SHA-256 and every written, moved and retired file is kept as evidence)"
         )
         allowed_paths = list(item.get("resources", []))
+        ghidra_scope = None
+    elif kind == ORDER_SEGMENT_KIND:
+        # Stage 5 phase A is file-only: the planner writes only its plan and scratch notes.
+        role = "socom-source-owner-mapper"
+        skill = "socom-source-model-recovery"
+        plan = order_plan_path(item_id)
+        scratch = f"build/order-plans/{owner}/"
+        number = (item.get("batch") or {}).get("segment_number")
+        decide = f"python tools/socom.py order plan decide --plan {plan} --lease-owner {owner} --artifact <id>"
+        validation = [
+            "python tools/socom.py source graph --output build/source-graph/graph.json (once per graph; shared)",
+            f"python tools/socom.py order plan draft --item {item_id} (writes {plan}; a re-draft keeps the decisions)",
+            f"python tools/socom.py order draft --segment {number} --output {scratch}evidence.json (the evidence: "
+            "DWARF lines, counters, labels, initializer and variable order)",
+            f"python tools/socom.py order plan validate --plan {plan} (open rows, mismatches against the rule, notes)",
+            f"{decide} [--position N | --no-position] [--in-class | --out-of-line] [--class <class>] --basis \"<evidence>\"",
+            f"python tools/socom.py order plan validate --plan {plan} --check",
+        ]
+        handoff = (
+            f"python tools/socom.py progress work handoff --evidence \"{plan} sha256:<sha>\" (re-runs order plan validate "
+            "--check and refuses an uncited SHA-256; independent review: socom-source-owner-scrutinizer; "
+            "progress work accept re-checks the plan)"
+        )
+        packet_extra = {"scratch_dir": scratch, "plan": plan}
+        allowed_paths = [plan, scratch]
+        ghidra_scope = None
+    elif kind == ORDER_LINK_KIND:
+        role = "socom-source-owner-mapper"
+        skill = "socom-source-model-recovery"
+        plan = order_plan_path(item_id)
+        validation = [
+            f"python tools/socom.py order plan draft --item {item_id} (writes the order link-spec output to {plan})",
+            f"python tools/socom.py order plan validate --plan {plan} --check",
+            "python tools/socom.py order sql \"SELECT label, objects, drops, link_violations FROM checks WHERE objects > 0\"",
+        ]
+        handoff = (
+            f"python tools/socom.py progress work handoff --evidence \"{plan} sha256:<sha>\" (re-runs order plan validate "
+            "--check; independent review: socom-source-owner-scrutinizer; progress work accept re-checks the plan)"
+        )
+        packet_extra = {"plan": plan}
+        allowed_paths = [plan]
         ghidra_scope = None
     elif kind == "stage-gate" and item["stage"] == SOURCE_STAGE:
         # A file-only stage: the live program must still be the stage 3 baseline.
