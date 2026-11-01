@@ -1411,8 +1411,11 @@
       "kind": "problem",
       "reported_at": "2026-11-01T00:35:51Z",
       "reported_by": "parent-orchestrator",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-11-01T20:57:34Z",
+        "summary": "emit-check classifies special-member body shape from the ELF (implicit / user-written / unknown, 76d194b; inlined member destructors identified by __FILE__ header or out-of-line match, dd47974). The 5 user-written single-unit emits it listed were reviewed: 4 removed under stage-4 amendments 003-006, 014's 0x17fc20 kept (inlined CBits dtor, implicit). Amendments 001-007 accepted 2026-11-01 (socom-verifier-ra2), file baseline d29bca43; the 10 unknown-shape single-unit emits stand."
+      },
+      "status": "resolved",
       "summary": "Stage 4: emit-check treats every inline dtor without its own DWARF subprogram as implicit; some accepted header emits may be user-written single-unit dtors"
     },
     {
@@ -1421,8 +1424,11 @@
       "kind": "problem",
       "reported_at": "2026-11-01T01:07:44Z",
       "reported_by": "parent-orchestrator",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-11-01T20:57:35Z",
+        "summary": "Governed amendment route added (progress amend-source-plan / accept-source-amendment, 27fe1bb). team_table 0x438770 moved to orders.cpp (amendment 001); the same P-gnu-data run-end defect gave gopt 0x438750 to libmc in the .data reconcile, moved to options.cpp (amendment 007); draft rules 7 guard P-gnu-data against data only code outside the object's library reads (dd47974, fede205; 1 of 445 accepted rows affected). Amendments 001-007 accepted 2026-11-01, file baseline d29bca43."
+      },
+      "status": "resolved",
       "summary": "Stage 4: accepted segment 013 owns authored team_table 0x438770 under SCE libmc 0x171070 (P-gnu-data run-end defect); no route to correct it now"
     },
     {
@@ -1476,6 +1482,6 @@
       "summary": "Stage 4 gate deferral (unproven-object-functions): 44 unresolved rows - functions in objects of unproven extent"
     }
   ],
-  "revision": 185,
+  "revision": 187,
   "schema_version": 1
 }
