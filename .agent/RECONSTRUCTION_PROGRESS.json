@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3381,
+  "revision": 3382,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -156400,22 +156400,23 @@
         "socom:work:source-segment-074",
         "socom:work:source-segment-076"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-data-rodata.json sha256:646c843b5d6452c48c4836d6f19ae35e3a2ae3dfbd0f955ca765314b77777a2f; validate --check ok (0 problems, 4 review notes); draft --check ok (0 overrides); emit-check 0 findings"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-r1",
+        "submitted_at": "2026-11-01T00:55:32Z",
+        "summary": "owners 74 (authored 53, provider 20, compiler-generated 1), unresolved 1, retire 0, open rows decided 78 of 79 (drafted 5377, hand 78), open owner rows 3 pathed, contradictions 17"
+      },
       "id": "socom:work:source-data-rodata",
       "kind": "source-data-reconcile",
-      "lease": {
-        "claimed_at": "2026-11-01T00:35:01Z",
-        "expires_at": "2026-11-01T02:35:01Z",
-        "heartbeat_at": "2026-11-01T00:35:01Z",
-        "owner": "socom-source-owner-mapper-r1"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Reconcile rodata data owners (5456 artifacts outside the segment slices)"
     },
     {
