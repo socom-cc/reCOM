@@ -1480,8 +1480,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Stage 4 gate deferral (unproven-object-functions): 44 unresolved rows - functions in objects of unproven extent"
+    },
+    {
+      "details": "Found by the stage-5 Phase B design round (build/stage5/PHASE_B_DESIGN.md, section 6, S5): every finding is an artifact ID inside a generated socom-owner-annotations block written by the accepted stage-4 applies. The guard should exempt generated blocks (or the annotation grammar) so the Phase B skeleton check can require no new findings.",
+      "id": "socom:workspace-issue:edad01c69571269f9a72",
+      "kind": "problem",
+      "reported_at": "2026-11-01T21:45:06Z",
+      "reported_by": "parent-orchestrator",
+      "resolution": null,
+      "status": "open",
+      "summary": "guard raw-image reports 7,216 findings, all on stage-4 generated annotation IDs"
     }
   ],
-  "revision": 187,
+  "revision": 188,
   "schema_version": 1
 }
