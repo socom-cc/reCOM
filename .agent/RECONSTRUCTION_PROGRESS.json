@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3314,
+  "revision": 3318,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -147004,18 +147004,16 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
-        "plan build/source-plans/socom-work-source-segment-040.json sha256:92f9aef1b7fa5c921bc1fe3bf7dacfd566f140a4ea3c7c27e99366dbf1aac041 matches the handoff; validate --check ok (200 owned, 2 unresolved, 9 contradictions) and draft --check ok (164 drafted, 36 hand, 0 open, 0 overrides). x9's findings fixed: four zsys_spr.cpp contradictions added - signature line 6 zsysSprGetPacket(_word128*) vs zSysSprGetPacket__FPP1 0x2f5ab0, linkage lines 3/4 GLOBAL vs LOCAL sprBeingWritten 0x476534 / sprBeingKicked 0x476530 (LOCAL block 6820-6826), not-in-elf line 23 zsys_AllocScratchpad (no such symbol in any case); 0x2f57b0 basis and the cut note now rest on class CSPR (Kick 0x2f5810 in cluster 0x100000) plus R2 named a tendency with the database.cpp counterexample, low, zsys_init's tail the alternative; no 139/139 claim remains. Earlier checks stand: name_basis invented coherent (two unit-less provisional files zsys_spr.cpp:30 and zsys_main.cpp:6/11; zsys_main.cpp is no graph unit; the existing zsys_spr.cpp is cited and owned), one row for blocks 6820-6826/6827 with note, CValve/CTexList/po2/sole-referencer hand rows, <algorithm> emits 0x2f6ee0/0x2f7000, CTexture::Init + m_startAddress unresolved, zsys_init.cpp path, reservation corrected +src/gamez/zSystem.",
-        "plan build/source-plans/socom-work-source-segment-040.json sha256:92f9aef1b7fa5c921bc1fe3bf7dacfd566f140a4ea3c7c27e99366dbf1aac041; validate --check ok; draft --check ok"
+        "plan build/source-plans/socom-work-source-segment-040.json sha256:9b2c549dfdb1137b7ef6fc48a278b32e1b34a3164b321bca9a874ec1e64f4e83; emit-check --plan clean; validate --check ok; draft --check ok"
       ],
-      "handoff": null,
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs3",
+        "submitted_at": "2026-11-01T00:08:02Z",
+        "summary": "sweep: +1 emit (CValvePool implicit dtor 0x2f7120 -> src/gamez/zValve/zvalve.h:106), +0 notes, 0 data overrides, other fixes: the CIOPManager/CValvePool/CValveList no-emit note drops 0x2f7120 and records the emit; reservation evidence lists it"
+      },
       "id": "socom:work:source-segment-040",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-11-01T00:06:30Z",
-        "expires_at": "2026-11-01T02:06:30Z",
-        "heartbeat_at": "2026-11-01T00:06:30Z",
-        "owner": "socom-source-owner-mapper-fs3"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -147076,7 +147074,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 040 (0x2f5640-0x2f9aac, 75 functions)"
     },
     {
@@ -151036,16 +151034,17 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-028.json sha256:2c0275edde8acc15ede902d249d9fc42bf519a9b808214dfa98df0a999e12589; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs4",
+        "submitted_at": "2026-11-01T00:08:35Z",
+        "summary": "sweep: +6 emits (GetTranslate__7CMatrixCFv 0x233db0 ODR -> zmath_matrix.h by DWARF header unit; implicit CAssetList/CLensFlare dtors -> node_assetlib.h:52/node_lensflare.h:7; BufferElement ctor, Instance::List dtor, Instance::Tick (ODR via vtable) -> zparticle.h:14/62), +5 notes (CLightMapVector dtor, RTPool<CRipple> x3, zqsort: no header declares them), 0 data overrides; other fixes: defined-elsewhere contradiction for provisional zmath_matrix.cpp:36 (0x233db0), reservation reason/evidence extended"
+      },
       "id": "socom:work:source-segment-028",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-11-01T00:00:08Z",
-        "expires_at": "2026-11-01T02:00:08Z",
-        "heartbeat_at": "2026-11-01T00:00:08Z",
-        "owner": "socom-source-owner-mapper-fs4"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -151095,7 +151094,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "awaiting_acceptance",
       "title": "Plan source owners of segment 028 (0x22c1a0-0x23a0cc, 192 functions)"
     },
     {
@@ -152784,7 +152783,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-041",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-11-01T00:08:04Z",
+        "expires_at": "2026-11-01T02:08:04Z",
+        "heartbeat_at": "2026-11-01T00:08:04Z",
+        "owner": "socom-source-owner-mapper-fs3"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -152862,7 +152866,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 041 (0x2f9ab0-0x304b60, 189 functions)"
     },
     {
@@ -155306,6 +155310,10 @@
       "title": "Record the reviewed provider owners of libptt in tracker evidence"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:08:46Z",
+        "by": "socom-source-owner-scrutinizer-x22"
+      },
       "batch": {
         "artifact_count": 463,
         "batch_number": 68,
@@ -155345,6 +155353,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "plan build/source-plans/socom-work-source-segment-068.json sha256:1b50fafaf8c3cbd942e724335646fc6609ac92c147992884a98be61356ed9b2b matches handoff; validate --check ok (0 problems), draft --check ok (437 drafted, 26 hand, 0 overrides), emit-check 0 missing/0 notes/0 wrong (1 expected emit covered by the CFlashFX note); zsys_trc.cpp invented low verified: LOCAL block 11328-11344 (cluster 0x402ca0) between zNetCnf's 11215-11327 (ends __sinit_zNetCnf.cpp, __RTTI__12CSMDeleteAll) and hud_fader's 11345+, .rodata labels @1184-@1224 follow zNetCnf's @4155 0x4684c0, .sbss m_hddStatus/tid after zNetCnf modid_NETCNFIF 0x476d08, .bss g_stack ends at hud_fader @2338 0x585fc0; no src file defines TRC_* (grep); zSystem dir from caller RebootIOP (zsys_init.cpp, 039 path src/gamez/zSystem) with src/Apps/FTS alternative noted; CSaveModule GLOBAL members 0x3f6fd0-0x3f6ff0 follow libpttserver (provider) and class-flank medium is sound; __vt__11CSaveModule R3 medium; CNetCnf class statics low by link order (sole reader zNetCnf.cpp, flanks libptt vparms.c/hud_missioncams and libpttserver/zNetCnf binding-13 run); ~CFlashFX 0x402f60 S-sole-referencer medium with 2-unit no-header note (only hud.h:667 comment); 14 MSL emits match queue/cdeque/deque, override notes only change reason inline->template; zNetCnf.cpp path agrees with accepted 076; reservation +zNetwork +zSystem evidenced",
         "plan build/source-plans/socom-work-source-segment-068.json sha256:1b50fafaf8c3cbd942e724335646fc6609ac92c147992884a98be61356ed9b2b; validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -155360,7 +155369,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 068 (0x3f6fd0-0x4044cc, 162 functions)"
     },
     {
