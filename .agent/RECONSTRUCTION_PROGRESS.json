@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3662,
+  "revision": 3668,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -147941,6 +147941,10 @@
       "title": "Review and close ghidra-reconstruction"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T19:14:24Z",
+        "by": "socom-source-owner-scrutinizer-x32"
+      },
       "batch": {
         "artifact_count": 202,
         "batch_number": 40,
@@ -147980,6 +147984,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "amendment socom:source-amendment:005 review (change only): plan sha256:ceded9ebcd51565a = handoff; pre-amend 9b2c549d = accepted. JSON diff: only the 0x2f7120 header emit (zvalve.h) + emits annotation removed, sweep note reworded, user-written note added, one reservation evidence line reworded (src/gamez/zValve still reserved for valve_list/valve_main rows); owners unchanged; 0x2f7120 stays valve_list.cpp (defines). Body (verify asm 0x2f7120): jal FlushNames__10CValvePoolFb 0x2f6e10 (its only caller), loop deleting each CValve* via __dt__6CValveFv(ptr,1), then member clears and base vector dtor: user-written. Single copy; refs: 1 (LO16 in __sinit_valve_list.cpp 0x46dfe0, valve_list.cpp): 1 unit. validate --check ok, draft --check ok, emit-check 0 findings.",
         "body shape from build/stage4/emit-heuristic-report.json amendment_candidates: 0x2f7150 calls FlushNames__10CValvePoolFb, 0x2f7154/0x2f7198 store 0 to this+0xc/+0x4, 0x2f7178 calls __dt__6CValveFv on deref; units [valve_list.cpp]",
         "plan build/source-plans/socom-work-source-segment-040.json sha256:ceded9ebcd51565a2f9484b31c2961bacb7d401d8bd4848ccfac40dddc94f66a; validate --check --fill-annotations ok (zvalve.h emits annotation for 0x2f7120 dropped); validate --check ok; draft --check ok; emit-check --plan clean (0 missing emits/notes, 0 wrong citations, 0 user-written emits; 0x2f7120 not expected); control-character scan 0; pre-amend copy build/stage4/pre-amend/socom-work-source-segment-040.json"
       ],
@@ -148073,7 +148078,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 040 (0x2f5640-0x2f9aac, 75 functions)"
     },
     {
@@ -148276,7 +148281,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 040 under src/"
     },
     {
@@ -152261,6 +152266,10 @@
       "title": "Record the reviewed provider owners of libgcc in tracker evidence"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T19:13:55Z",
+        "by": "socom-source-owner-scrutinizer-x32"
+      },
       "batch": {
         "artifact_count": 397,
         "batch_number": 13,
@@ -152299,6 +152308,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "amendment socom:source-amendment:001 review (change only): plan sha256:cad8b6c3ee2e3e3b = handoff; pre-amend copy 4c2e59a8 = accepted. JSON diff: only team_table 0x438770 added to orders.cpp (medium), annotation defines, libmc 0x171070 row (pre-amend sole artifact team_table) removed, 3 notes; no other row changed. source sql .data: libmc LOCALs 0x438738-0x43874f, gopt 0x438750, fill 0x43876b, team_table 0x438770-0x43908c, fill, UILaseNames 0x439090 (orders.cpp strong); .rodata 0x448418 SCE<0x4484a0 database<0x4485b0 getopt<0x448620 options<0x448920 orders, .bss same order. reference relocations --symbol team_table: 52 (26 HI16/26 LO16) 0x174d3c-0x17b098, all OrdersMenu methods (orders.cpp); --at 0x438770 --size 2332: 0 relocations. Competing getopt/options/database definers: each has an object CU but only orders.cpp's CU carries a team_table DWARF variable; medium is right. SCE provider plan unchanged (sha 8693a924 = accepted) keeps libmc.a/2500 and LOCAL data 0x438738/48/4c. validate --check ok, draft --check ok, emit-check (8bbd563) 0 missing emits/notes/wrong citations/user-written emits.",
         "plan build/source-plans/socom-work-source-segment-013.json sha256:cad8b6c3ee2e3e3b9c1822e03e664be9bdf7fd0762dbc616b006b7f7627de639; emit-check --plan (authored-line counting, 8bbd563) clean: 0 missing emits/notes, 0 wrong citations, 0 user-written emits; validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-amend copy build/stage4/pre-amend/socom-work-source-segment-013.json"
       ],
       "handoff": {
@@ -152423,7 +152433,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 013 (0x1728e0-0x17de74, 114 functions)"
     },
     {
@@ -152661,7 +152671,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 013 under src/"
     },
     {
@@ -152701,14 +152711,8 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-014.json sha256:c2694fa7d5d19a3ff8a69c22093e08d3b97338886e84cfe5ef12248087dc968e; emit-check --plan (authored-line counting, 8bbd563) clean: 0 missing emits/notes, 0 wrong citations, 0 user-written emits; validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-amend copy build/stage4/pre-amend/socom-work-source-segment-014.json"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-am1",
-        "submitted_at": "2026-11-01T18:58:48Z",
-        "summary": "amendment socom:source-amendment:002: user-written 0x17fc20 __dt__8CAiEventFv emit (zai.h) removed + no-emit note (1 unit, ai_events.cpp); aidemo.cpp row kept as hand row (O-path no longer reproduces after its apply created the file); 4 citations back to authored lines (re-cite after emit-check 8bbd563)"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-014",
       "kind": "source-plan-segment",
       "lease": null,
@@ -152773,11 +152777,25 @@
           "reason": "process: header citations must count authored lines (generated blocks excluded; emit-check fixed in 8bbd563) - re-cite the rows source plan emit-check --plan lists as wrong_citations",
           "rejected_at": "2026-11-01T18:55:37Z",
           "rejected_by": "parent-orchestrator"
+        },
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-am1",
+            "submitted_at": "2026-11-01T18:58:48Z",
+            "summary": "amendment socom:source-amendment:002: user-written 0x17fc20 __dt__8CAiEventFv emit (zai.h) removed + no-emit note (1 unit, ai_events.cpp); aidemo.cpp row kept as hand row (O-path no longer reproduces after its apply created the file); 4 citations back to authored lines (re-cite after emit-check 8bbd563)"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-014.json sha256:c2694fa7d5d19a3ff8a69c22093e08d3b97338886e84cfe5ef12248087dc968e; emit-check --plan (authored-line counting, 8bbd563) clean: 0 missing emits/notes, 0 wrong citations, 0 user-written emits; validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-amend copy build/stage4/pre-amend/socom-work-source-segment-014.json"
+          ],
+          "reason": "Finding (artifact socom:function:0x17fc20 __dt__8CAiEventFv, amendment socom:source-amendment:002): the new note calls the body user-written because it calls _free__FPvPCci at 0x17fc54 and stores 0 to this+0x24 at 0x17fc5c, but that work is the inlined member destructor CBits::~CBits, not ~CAiEvent's own code. Evidence (verify asm 0x17fc20 vs 0x17f440): the free/clear sits under the member-subobject null guard 'addiu v0,s1,0x20; beq v0,zero' (CBits member at this+0x20), and it is instruction-for-instruction the body of out-of-line __dt__5CBitsFv 0x17f440 (lw a0,0x4(this); a1 = 0x448f20; li a2,0x26; jal _free; sw zero,0x4(this)) with this = this+0x20; the __FILE__ argument 0x448f20 is 'zmath_bits.h' (file_strings: referenced only by 0x17f440 and 0x17fc20), line 38, so the code comes from the CBits header, not from a CAiEvent body. Apart from that only the flags>0 operator delete remains: only compiler-generated work, the implicit shape. The aidemo.cpp hand-row change is fine (only draft_rule/evidence changed; paths, artifacts, reservation unchanged), as are the 4 citation notes and the 1-unit count (one ref, Close__8CAiEventFv 0x17fca0, ai_events.cpp). Fix: restore the accepted header_emits row 0x17fc20 -> src/gamez/zAI/zai.h (reason inline, implicit dtor; zai.h declares CAiEvent with no destructor) and its emits annotation; drop the user-written note and the amendment-002 removal wording, and keep the aidemo.cpp hand row. With the emit restored, emit-check's body-shape classifier (build/stage4/emit-heuristic-report.json lists 0x17fc20 as user-written from those two reasons) will report it as a user-written emit: that is a classifier defect (inlined member-dtor work under a this+offset null guard / header __FILE__ counted as user code) for the tool maintainer, or record an override note citing this evidence.",
+          "rejected_at": "2026-11-01T19:14:50Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x32"
         }
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 014 (0x17de80-0x188f54, 163 functions)"
     },
     {
@@ -153258,6 +153276,10 @@
       "title": "Apply the reviewed source owners of segment 015 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T19:14:09Z",
+        "by": "socom-source-owner-scrutinizer-x32"
+      },
       "batch": {
         "artifact_count": 719,
         "batch_number": 16,
@@ -153294,6 +153316,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "amendment socom:source-amendment:003 review (change only): plan sha256:e8111f050a647cb4 = handoff; pre-amend 91449a1d = accepted. JSON diff: only the 0x1a5270 header emit (zai.h) + its emits annotation removed, sweep note reworded, user-written note + 5 citation-override notes added; owners/reservation unchanged; 0x1a5270 stays in vehicle_main.cpp (defines). Body (verify asm 0x1a5270): stores 0.8f/0.6f/0.2f/0.5f and further float constants (400.0, 60.0, -0.075, 25.0, 0.75) to this+0x4..+0x38; AI_PARAMS members are all u32/f32 scalars (zai.h struct AI_PARAMS), so an implicit ctor could not set them: user-written. Single copy of __ct__9AI_PARAMSFv; source sql refs: 1 site 0x1a3ed8 in vector_imp<CVehicleRdrEntry>::resize 0x1a3e60 kept by vehicle_main.cpp: 1 unit. validate --check ok, draft --check ok, emit-check 0 findings.",
         "plan build/source-plans/socom-work-source-segment-016.json sha256:e8111f050a647cb40d410932ae1f8c5d54c148b2024c62817e6f66c4b690f734; emit-check --plan (authored-line counting, 8bbd563) clean: 0 missing emits/notes, 0 wrong citations, 0 user-written emits; validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-amend copy build/stage4/pre-amend/socom-work-source-segment-016.json"
       ],
       "handoff": {
@@ -153404,7 +153427,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 016 (0x19dca0-0x1b90d4, 199 functions)"
     },
     {
@@ -153632,7 +153655,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 016 under src/"
     },
     {
@@ -155431,6 +155454,10 @@
       "title": "Apply the reviewed source owners of segment 022 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T19:14:22Z",
+        "by": "socom-source-owner-scrutinizer-x32"
+      },
       "batch": {
         "artifact_count": 698,
         "batch_number": 23,
@@ -155467,6 +155494,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "amendment socom:source-amendment:004 review (change only): plan sha256:c021722099e45d3c = handoff; pre-amend b29b692f = accepted. JSON diff: only the 0x1fbc60 header emit (zui.h) + emits annotation removed, user-written note + 9 citation-override notes added; owners/reservation unchanged; 0x1fbc60 stays fts_mission.cpp (defines). Body (verify asm 0x1fbc60): first action jal Destroy__11CUIVariableFv 0x39ebc0 on this, then member vector dtor this+0xc, base ~_zrdr 0x23df40, delete: user-written. Single copy; refs to the dtor: 1 site (vector_imp<CUIVariable>::insert, fts_mission.cpp); Destroy's callers resize/erase/clear/dtor all fts_mission.cpp: 1 unit. validate --check ok, draft --check ok, emit-check 0 findings.",
         "plan build/source-plans/socom-work-source-segment-023.json sha256:c021722099e45d3ccd1f39300ba1355bd6e0591c17af82d33b0f1894d9e256a3; emit-check --plan (authored-line counting, 8bbd563) clean: 0 missing emits/notes, 0 wrong citations, 0 user-written emits; validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-amend copy build/stage4/pre-amend/socom-work-source-segment-023.json"
       ],
       "handoff": {
@@ -155591,7 +155619,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 023 (0x1f25c0-0x1ff8cc, 192 functions)"
     },
     {
@@ -155798,7 +155826,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 023 under src/"
     },
     {
@@ -160565,6 +160593,10 @@
       "title": "Apply the reviewed source owners of segment 041 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T19:14:34Z",
+        "by": "socom-source-owner-scrutinizer-x32"
+      },
       "batch": {
         "artifact_count": 460,
         "batch_number": 42,
@@ -160604,6 +160636,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "amendment socom:source-amendment:006 review (change only): plan sha256:1a9d7faae80fdaf8 = handoff; pre-amend e88c2a07 = accepted. JSON diff: only the 0x30ddc0 header emit (zvis.h) + emits annotation removed, ODR note reworded, user-written note + 2 citation-override notes added; owners/reservation unchanged; 0x30ddc0 stays vis_main.cpp (defines). Body (verify asm 0x30ddc0): if !this+0x10: _free(this->+0x0, __FILE__ 0x459820 'vis_main.cpp', line 116), this+0x0=0, then m_instance_count__8CVisBase-- (gp 0x4765d4): user-written, and its __FILE__ places the body in vis_main.cpp. Single copy; refs: 1 (__dt__Q23zdb7CVisualFv 0x30dba0, vis_main.cpp); every m_instance_count reader/writer (hookupVisuals, CVisBase ctor/dtor) is vis_main.cpp: 1 unit. validate --check ok, draft --check ok, emit-check 0 findings.",
         "plan build/source-plans/socom-work-source-segment-042.json sha256:1a9d7faae80fdaf819925f99e3249c8c233beabf201c2dcdfbf95c1fed7b7feb; emit-check --plan (authored-line counting, 8bbd563) clean: 0 missing emits/notes, 0 wrong citations, 0 user-written emits; validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-amend copy build/stage4/pre-amend/socom-work-source-segment-042.json"
       ],
       "handoff": {
@@ -160672,7 +160705,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 042 (0x304b60-0x3103a0, 176 functions)"
     },
     {
@@ -160876,7 +160909,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Apply the reviewed source owners of segment 042 under src/"
     },
     {
