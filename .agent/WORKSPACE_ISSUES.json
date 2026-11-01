@@ -1424,8 +1424,58 @@
       "resolution": null,
       "status": "open",
       "summary": "Stage 4: accepted segment 013 owns authored team_table 0x438770 under SCE libmc 0x171070 (P-gnu-data run-end defect); no route to correct it now"
+    },
+    {
+      "details": "Unanchored functions between two units' anchors where kept-copy order, vtable key functions, contiguity, LOCAL blocks and label order leave two cuts equally consistent. User decision 2026-11-01, answering \"How should they be handled?\": \"Defer all, by category (Recommended)\" - record one open workspace issue per category with the decision, cite it for each row, and revisit the rows when stage 5 (authored function order) pins object boundaries with compiler evidence. The artifacts are listed in the stage-4 gate deferral file (build/stage4/gate-deferrals.json, id boundary-functions) and recorded on the gate.",
+      "id": "socom:workspace-issue:810c88b4fc5af7cffbc9",
+      "kind": "problem",
+      "reported_at": "2026-11-01T04:16:55Z",
+      "reported_by": "parent-orchestrator",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage 4 gate deferral (boundary-functions): 160 unresolved rows - functions at file boundaries where two splits fit equally"
+    },
+    {
+      "details": "GLOBAL/LOCAL data between two units' data runs whose readers and link order fit more than one definer. User decision 2026-11-01, answering \"How should they be handled?\": \"Defer all, by category (Recommended)\" - record one open workspace issue per category with the decision, cite it for each row, and revisit the rows when stage 5 (authored function order) pins object boundaries with compiler evidence. The artifacts are listed in the stage-4 gate deferral file (build/stage4/gate-deferrals.json, id data-link-order) and recorded on the gate.",
+      "id": "socom:workspace-issue:66a15bdf16f60cc864e0",
+      "kind": "problem",
+      "reported_at": "2026-11-01T04:16:55Z",
+      "reported_by": "parent-orchestrator",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage 4 gate deferral (data-link-order): 99 unresolved rows - data where data-section link order fits several defining files"
+    },
+    {
+      "details": "VU0/VU1 microcode blocks and fill with no owning object, and linker-defined address symbols (_textStart, _dataStart, _heapStart). User decision 2026-11-01, answering \"How should they be handled?\": \"Defer all, by category (Recommended)\" - record one open workspace issue per category with the decision, cite it for each row, and revisit the rows when stage 5 (authored function order) pins object boundaries with compiler evidence. The artifacts are listed in the stage-4 gate deferral file (build/stage4/gate-deferrals.json, id microcode-fill-linker) and recorded on the gate.",
+      "id": "socom:workspace-issue:e3b097b25881f477d735",
+      "kind": "problem",
+      "reported_at": "2026-11-01T04:16:56Z",
+      "reported_by": "parent-orchestrator",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage 4 gate deferral (microcode-fill-linker): 8 unresolved rows - VU microcode, unowned fill and linker-defined symbols"
+    },
+    {
+      "details": "Linker-allocated COMMON (.bss tail) variables have no defining section; one reader does not name the definer (rules v5). User decision 2026-11-01, answering \"How should they be handled?\": \"Defer all, by category (Recommended)\" - record one open workspace issue per category with the decision, cite it for each row, and revisit the rows when stage 5 (authored function order) pins object boundaries with compiler evidence. The artifacts are listed in the stage-4 gate deferral file (build/stage4/gate-deferrals.json, id common-variables) and recorded on the gate.",
+      "id": "socom:workspace-issue:db257940e98b7f6b031f",
+      "kind": "problem",
+      "reported_at": "2026-11-01T04:16:57Z",
+      "reported_by": "parent-orchestrator",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage 4 gate deferral (common-variables): 250 unresolved rows - 250 COMMON variables: the ELF names no defining file"
+    },
+    {
+      "details": "Runs that may be a separate unnamed object or the tail/head of a neighbour; no LOCAL block, label restart or DWARF settles the extent. User decision 2026-11-01, answering \"How should they be handled?\": \"Defer all, by category (Recommended)\" - record one open workspace issue per category with the decision, cite it for each row, and revisit the rows when stage 5 (authored function order) pins object boundaries with compiler evidence. The artifacts are listed in the stage-4 gate deferral file (build/stage4/gate-deferrals.json, id unproven-object-functions) and recorded on the gate.",
+      "id": "socom:workspace-issue:fa21bf940c64d41fe96e",
+      "kind": "problem",
+      "reported_at": "2026-11-01T04:16:57Z",
+      "reported_by": "parent-orchestrator",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage 4 gate deferral (unproven-object-functions): 44 unresolved rows - functions in objects of unproven extent"
     }
   ],
-  "revision": 180,
+  "revision": 185,
   "schema_version": 1
 }
