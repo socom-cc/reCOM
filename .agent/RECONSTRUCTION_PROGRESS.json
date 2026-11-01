@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3574,
+  "revision": 3626,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -160476,6 +160476,10 @@
       "title": "Plan source owners of segment 046 (0x322420-0x32ecdc, 200 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:14:50Z",
+        "by": "socom-verifier-apply7"
+      },
       "batch": {
         "artifact_count": 524,
         "batch_number": 46,
@@ -160519,8 +160523,20 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "progress apply-source-plan record (see item evidence)",
+        "source apply-check ok (0 problems); source plan validate --check ok (0 problems); source annotate --check ok, 0 drift (280 annotations, 1 file, 0 created); recorded files == annotated files, all in reservation; git vs HEAD: only generated socom-owner-annotations blocks added at top in plan-ID order, authored content byte-identical, pre-existing blocks unchanged, created files block-only, no block of this plan in unrecorded files; whole-sha diffs from record fully explained by later blocks (zNetMedius.cpp by segment-047); batch audit source-trace ok (0 errors) and docblocks ok (0 errors)",
+        "source-annotations-sha256:84429ba4cdae31b5d76cf04a313046a5a9e302a71f553e2489453f8785840c7e count:280",
+        "source-file src/gamez/zNetwork/zNetMedius.cpp sha256:ef92a959215c72b9fc7aa7a0f103431fabfe8b2f9b6a599d697ea550eba6a957",
+        "source-owner-map-sha256:b108e2688d8316af03475c43c450e26475b2602e3754b721d954fa053cbd03a1",
+        "source-plan build/source-plans/socom-work-source-segment-046.json sha256:891bcdf52e926b28bb8b8aba658ced8b541602d794c75bd4b114d01d955a9d31",
+        "source-reservation confirmed src/gamez/zNetwork"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b6",
+        "submitted_at": "2026-11-01T04:06:28Z",
+        "summary": "apply of segment-046: 280 annotations, 1 files, 0 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-046-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -160528,8 +160544,53 @@
         "src/gamez/zNetwork"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 280,
+        "annotations_sha256": "84429ba4cdae31b5d76cf04a313046a5a9e302a71f553e2489453f8785840c7e",
+        "applied_at": "2026-11-01T04:06:26Z",
+        "applied_by": "socom-source-worker-b6",
+        "changed": [
+          "src/gamez/zNetwork/zNetMedius.cpp"
+        ],
+        "created": [],
+        "files": [
+          {
+            "content_sha256": "d33b2048913559879ee4a50115668af0a4fb74e1759a070a11909b7c3fd546d9",
+            "path": "src/gamez/zNetwork/zNetMedius.cpp",
+            "sha256": "ef92a959215c72b9fc7aa7a0f103431fabfe8b2f9b6a599d697ea550eba6a957"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "b108e2688d8316af03475c43c450e26475b2602e3754b721d954fa053cbd03a1",
+        "plan": "build/source-plans/socom-work-source-segment-046.json",
+        "plan_item": "socom:work:source-segment-046",
+        "plan_sha256": "891bcdf52e926b28bb8b8aba658ced8b541602d794c75bd4b114d01d955a9d31",
+        "reconciles": [
+          "socom:work:source-data-rodata",
+          "socom:work:source-data-data",
+          "socom:work:source-data-bss"
+        ],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/gamez/zNetwork"
+          ],
+          "reserved": [
+            "src/gamez/zNetwork"
+          ],
+          "status": "confirmed"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:e81caccf8408aeabcc0d",
+          "segment_number": 46
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 046 under src/"
     },
     {
@@ -160595,6 +160656,10 @@
       "title": "Plan source owners of segment 047 (0x32ece0-0x336ef0, 125 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:14:53Z",
+        "by": "socom-verifier-apply7"
+      },
       "batch": {
         "artifact_count": 364,
         "batch_number": 47,
@@ -160605,7 +160670,8 @@
         "directories": [
           "src/Apps/FTS",
           "src/gamez/zMPEG",
-          "src/gamez/zNetwork"
+          "src/gamez/zNetwork",
+          "src/gamez/zUtil"
         ],
         "function_count": 125,
         "gap_count": 98,
@@ -160617,6 +160683,14 @@
             "0x336ef0"
           ]
         ],
+        "reservation_correction": {
+          "from": [
+            "src/Apps/FTS",
+            "src/gamez/zMPEG",
+            "src/gamez/zNetwork"
+          ],
+          "plan_sha256": "a102a0fed227fb6092679be911c2f9956aaeaecc685c39e04a8a65da2a4458c2"
+        },
         "resource_basis": "provisional-name",
         "resource_inferred": true,
         "resource_reason": "inferred by name: zNetMedius.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNetwork; zNetVoice.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNetwork; zmpeg.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zMPEG",
@@ -160644,19 +160718,138 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "progress apply-source-plan record (see item evidence)",
+        "source apply-check ok (0 problems); source plan validate --check ok (0 problems); source annotate --check ok, 0 drift (215 annotations, 8 files, 3 created); recorded files == annotated files, all in reservation; git vs HEAD: only generated socom-owner-annotations blocks added at top in plan-ID order, authored content byte-identical, pre-existing blocks unchanged, created files block-only, no block of this plan in unrecorded files; whole-sha diffs from record fully explained by later blocks (reco.cpp by segment-076); batch audit source-trace ok (0 errors) and docblocks ok (0 errors)",
+        "source-annotations-sha256:146ad67dd78b39a1f60b0908e0ffb2cd5b226eaac35598949ddba4739bd19e9c count:215",
+        "source-created src/gamez/zMPEG/audiodec.cpp",
+        "source-created src/gamez/zMPEG/playpss.cpp",
+        "source-created src/gamez/zMPEG/strfile.cpp",
+        "source-file src/Apps/FTS/game/reco.cpp sha256:e98870e4870c8c6511309e469df987df29ddd1d41864490dca8d1be6bcf2ac2c",
+        "source-file src/gamez/zMPEG/audiodec.cpp sha256:f1262ba913c97128dc7ed235a4028f291cb7d57360a0202299da82ffc255ac95",
+        "source-file src/gamez/zMPEG/playpss.cpp sha256:a74aa19a8dcb4346a7ad1087a0a3612f5a36ebd179ce912963302554d5e0873a",
+        "source-file src/gamez/zMPEG/strfile.cpp sha256:121d3bbd186cdb8988e6327d5d2c13adecbe70b6b8802dabe978d4097bd401bc",
+        "source-file src/gamez/zMPEG/zmpeg.cpp sha256:99788425e5a0a0f96d33707ca36478d2686f1dfaf266eaf3c984535101dbc484",
+        "source-file src/gamez/zNetwork/zNetMedius.cpp sha256:ab7d2df87d638e5970f44b7067e92d7e5a37c939629914a150949558c86259d1",
+        "source-file src/gamez/zNetwork/zNetVoice.cpp sha256:7b82b589cdb75b3659aba3cf873cfe7fe835aa52aea704de38cc038730e81fa2",
+        "source-file src/gamez/zUtil/util_sonyio.cpp sha256:9b4b14ef538e0f61685927e2fe250883c02ee028fdcfff791fcedf7d32810588",
+        "source-owner-map-sha256:60c90ebdf59fb439c721477512471b0c21ad2b3533207d258020ad17f998e592",
+        "source-plan build/source-plans/socom-work-source-segment-047.json sha256:a102a0fed227fb6092679be911c2f9956aaeaecc685c39e04a8a65da2a4458c2",
+        "source-reservation corrected src/Apps/FTS, src/gamez/zMPEG, src/gamez/zNetwork, src/gamez/zUtil"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b6",
+        "submitted_at": "2026-11-01T04:06:36Z",
+        "summary": "apply of segment-047: 215 annotations, 8 files, 3 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-047-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
         "src/Apps/FTS",
         "src/gamez/zMPEG",
-        "src/gamez/zNetwork"
+        "src/gamez/zNetwork",
+        "src/gamez/zUtil"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 215,
+        "annotations_sha256": "146ad67dd78b39a1f60b0908e0ffb2cd5b226eaac35598949ddba4739bd19e9c",
+        "applied_at": "2026-11-01T04:06:34Z",
+        "applied_by": "socom-source-worker-b6",
+        "changed": [
+          "src/Apps/FTS/game/reco.cpp",
+          "src/gamez/zMPEG/audiodec.cpp",
+          "src/gamez/zMPEG/playpss.cpp",
+          "src/gamez/zMPEG/strfile.cpp",
+          "src/gamez/zMPEG/zmpeg.cpp",
+          "src/gamez/zNetwork/zNetMedius.cpp",
+          "src/gamez/zNetwork/zNetVoice.cpp",
+          "src/gamez/zUtil/util_sonyio.cpp"
+        ],
+        "created": [
+          "src/gamez/zMPEG/audiodec.cpp",
+          "src/gamez/zMPEG/playpss.cpp",
+          "src/gamez/zMPEG/strfile.cpp"
+        ],
+        "files": [
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/game/reco.cpp",
+            "sha256": "e98870e4870c8c6511309e469df987df29ddd1d41864490dca8d1be6bcf2ac2c"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zMPEG/audiodec.cpp",
+            "sha256": "f1262ba913c97128dc7ed235a4028f291cb7d57360a0202299da82ffc255ac95"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zMPEG/playpss.cpp",
+            "sha256": "a74aa19a8dcb4346a7ad1087a0a3612f5a36ebd179ce912963302554d5e0873a"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zMPEG/strfile.cpp",
+            "sha256": "121d3bbd186cdb8988e6327d5d2c13adecbe70b6b8802dabe978d4097bd401bc"
+          },
+          {
+            "content_sha256": "dcaf7e7aa7954e619c0ace6a9bc2bd02cd47a07fea8843b9d9733a4f955b85e4",
+            "path": "src/gamez/zMPEG/zmpeg.cpp",
+            "sha256": "99788425e5a0a0f96d33707ca36478d2686f1dfaf266eaf3c984535101dbc484"
+          },
+          {
+            "content_sha256": "d33b2048913559879ee4a50115668af0a4fb74e1759a070a11909b7c3fd546d9",
+            "path": "src/gamez/zNetwork/zNetMedius.cpp",
+            "sha256": "ab7d2df87d638e5970f44b7067e92d7e5a37c939629914a150949558c86259d1"
+          },
+          {
+            "content_sha256": "12204e39a16ee168a0e94e4aefe600bbda1c15d50fb020aa29cc19391f032dbe",
+            "path": "src/gamez/zNetwork/zNetVoice.cpp",
+            "sha256": "7b82b589cdb75b3659aba3cf873cfe7fe835aa52aea704de38cc038730e81fa2"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zUtil/util_sonyio.cpp",
+            "sha256": "9b4b14ef538e0f61685927e2fe250883c02ee028fdcfff791fcedf7d32810588"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "60c90ebdf59fb439c721477512471b0c21ad2b3533207d258020ad17f998e592",
+        "plan": "build/source-plans/socom-work-source-segment-047.json",
+        "plan_item": "socom:work:source-segment-047",
+        "plan_sha256": "a102a0fed227fb6092679be911c2f9956aaeaecc685c39e04a8a65da2a4458c2",
+        "reconciles": [
+          "socom:work:source-data-rodata",
+          "socom:work:source-data-data",
+          "socom:work:source-data-bss"
+        ],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/Apps/FTS",
+            "src/gamez/zMPEG",
+            "src/gamez/zNetwork",
+            "src/gamez/zUtil"
+          ],
+          "reserved": [
+            "src/Apps/FTS",
+            "src/gamez/zMPEG",
+            "src/gamez/zNetwork"
+          ],
+          "status": "corrected"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:d48e1dc689aed7defcd2",
+          "segment_number": 47
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 047 under src/"
     },
     {
@@ -161445,6 +161638,10 @@
       "title": "Plan source owners of segment 052 (0x3788a0-0x379aac, 13 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:14:56Z",
+        "by": "socom-verifier-apply7"
+      },
       "batch": {
         "artifact_count": 84,
         "batch_number": 52,
@@ -161453,7 +161650,9 @@
         },
         "data_count": 61,
         "directories": [
-          "src/Apps/FTS"
+          "src/Apps/FTS",
+          "src/gamez/zReader",
+          "src/gamez/zUI"
         ],
         "function_count": 13,
         "gap_count": 10,
@@ -161465,6 +161664,12 @@
             "0x379aac"
           ]
         ],
+        "reservation_correction": {
+          "from": [
+            "src/Apps/FTS"
+          ],
+          "plan_sha256": "46af60d7d7b4ca8e0a63fcecf62d5c91d4606d5444626cb011248c19234c2b7f"
+        },
         "resource_basis": "path",
         "resource_inferred": false,
         "resource_reason": null,
@@ -161488,17 +161693,90 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "progress apply-source-plan record (see item evidence)",
+        "source apply-check ok (0 problems); source plan validate --check ok (0 problems); source annotate --check ok, 0 drift (19 annotations, 3 files, 0 created); recorded files == annotated files, all in reservation; git vs HEAD: only generated socom-owner-annotations blocks added at top in plan-ID order, authored content byte-identical, pre-existing blocks unchanged, created files block-only, no block of this plan in unrecorded files; whole-sha diffs from record fully explained by later blocks (st_menu.cpp by 076, zui.h by 054+056); batch audit source-trace ok (0 errors) and docblocks ok (0 errors)",
+        "source-annotations-sha256:f74bcd6c41f27ef3e150aa820ee1ed06a6f1a4559b499ae64e915fa4a95acbd6 count:19",
+        "source-file src/Apps/FTS/state/st_menu.cpp sha256:fae1ce8a829f398df1c6b917b0ff8af1e180aecaa8dc23a6da156b6a2ea50c06",
+        "source-file src/gamez/zReader/zrdr_archive.cpp sha256:061d8ba9be86ce519f54d10a03ceb0ac3b438451fe332b5ff4427486dcb0b7fd",
+        "source-file src/gamez/zUI/zui.h sha256:8d0eb54487c7402922244177400cc4881ce07b8f03bfe34aca259d1fc5162ab2",
+        "source-owner-map-sha256:00741b5b68f2e05e1878d0defb90c0ea4553031a68c012e895c0b4e396ed440f",
+        "source-plan build/source-plans/socom-work-source-segment-052.json sha256:46af60d7d7b4ca8e0a63fcecf62d5c91d4606d5444626cb011248c19234c2b7f",
+        "source-reservation corrected src/Apps/FTS, src/gamez/zReader, src/gamez/zUI"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b6",
+        "submitted_at": "2026-11-01T04:06:43Z",
+        "summary": "apply of segment-052: 19 annotations, 3 files, 0 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-052-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
-        "src/Apps/FTS"
+        "src/Apps/FTS",
+        "src/gamez/zReader",
+        "src/gamez/zUI"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 19,
+        "annotations_sha256": "f74bcd6c41f27ef3e150aa820ee1ed06a6f1a4559b499ae64e915fa4a95acbd6",
+        "applied_at": "2026-11-01T04:06:41Z",
+        "applied_by": "socom-source-worker-b6",
+        "changed": [
+          "src/Apps/FTS/state/st_menu.cpp",
+          "src/gamez/zReader/zrdr_archive.cpp",
+          "src/gamez/zUI/zui.h"
+        ],
+        "created": [],
+        "files": [
+          {
+            "content_sha256": "dcb71f6cf34ede3adad6980dad10920ef36fbc83e9d0fca4cbb7b142053589fb",
+            "path": "src/Apps/FTS/state/st_menu.cpp",
+            "sha256": "fae1ce8a829f398df1c6b917b0ff8af1e180aecaa8dc23a6da156b6a2ea50c06"
+          },
+          {
+            "content_sha256": "76a7a851178ae79445f032cfbc75cfb85b410e517a983c6c7b9611ec58b5e11c",
+            "path": "src/gamez/zReader/zrdr_archive.cpp",
+            "sha256": "061d8ba9be86ce519f54d10a03ceb0ac3b438451fe332b5ff4427486dcb0b7fd"
+          },
+          {
+            "content_sha256": "3c2b8c219e7e0e26dc69ec5a3597888efaced81cf109938113d0f7f835dda9d9",
+            "path": "src/gamez/zUI/zui.h",
+            "sha256": "8d0eb54487c7402922244177400cc4881ce07b8f03bfe34aca259d1fc5162ab2"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "00741b5b68f2e05e1878d0defb90c0ea4553031a68c012e895c0b4e396ed440f",
+        "plan": "build/source-plans/socom-work-source-segment-052.json",
+        "plan_item": "socom:work:source-segment-052",
+        "plan_sha256": "46af60d7d7b4ca8e0a63fcecf62d5c91d4606d5444626cb011248c19234c2b7f",
+        "reconciles": [
+          "socom:work:source-data-bss"
+        ],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/Apps/FTS",
+            "src/gamez/zReader",
+            "src/gamez/zUI"
+          ],
+          "reserved": [
+            "src/Apps/FTS"
+          ],
+          "status": "corrected"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:85477fb62d666e508f48",
+          "segment_number": 52
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 052 under src/"
     },
     {
@@ -161578,6 +161856,10 @@
       "title": "Plan source owners of segment 054 (0x37a2a0-0x3853e4, 121 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:14:59Z",
+        "by": "socom-verifier-apply7"
+      },
       "batch": {
         "artifact_count": 382,
         "batch_number": 54,
@@ -161587,7 +161869,9 @@
         "data_count": 161,
         "directories": [
           "src/Apps/FTS",
-          "src/gamez/zUI"
+          "src/gamez/zUI",
+          "src/gamez/zUtil",
+          "src/gamez/zVehicle"
         ],
         "function_count": 121,
         "gap_count": 100,
@@ -161599,6 +161883,13 @@
             "0x3853e4"
           ]
         ],
+        "reservation_correction": {
+          "from": [
+            "src/Apps/FTS",
+            "src/gamez/zUI"
+          ],
+          "plan_sha256": "75bb87e1c0b6ceaa780ed71fc4e15e11e268690be4de7133fc392acc8fc9b075"
+        },
         "resource_basis": "provisional-name",
         "resource_inferred": true,
         "resource_reason": "inferred by name: zui.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zUI",
@@ -161624,18 +161915,118 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "progress apply-source-plan record (see item evidence)",
+        "source apply-check ok (0 problems); source plan validate --check ok (0 problems); source annotate --check ok, 0 drift (153 annotations, 6 files, 1 created); recorded files == annotated files, all in reservation; git vs HEAD: only generated socom-owner-annotations blocks added at top in plan-ID order, authored content byte-identical, pre-existing blocks unchanged, created files block-only, no block of this plan in unrecorded files; whole-sha diffs from record fully explained by later blocks (st_load.cpp/zui.cpp/veh_turret.cpp by 076, zui.h by 056, zui_2d.cpp by 055+076); batch audit source-trace ok (0 errors) and docblocks ok (0 errors)",
+        "source-annotations-sha256:0ca830403de0de771b398333085813ee10f8d248108955dc09ee1c5ad5421f83 count:153",
+        "source-created src/gamez/zVehicle/veh_turret.cpp",
+        "source-file src/Apps/FTS/state/st_load.cpp sha256:c7788db1c03c775b67c06ae6b223f6e17aaf918578855497441702fad89d0e4e",
+        "source-file src/gamez/zUI/zui.cpp sha256:e202c2e609b76e9baf059a451d7fa4119e5e799c2408b9d9ff5ab1571db9b186",
+        "source-file src/gamez/zUI/zui.h sha256:53bbba9dd8531f769ba8d90c04b988dcb15ecb623af9f3c4ec4770f1d5b379a1",
+        "source-file src/gamez/zUI/zui_2d.cpp sha256:490f34e23e739d517597cde6722bc32774740520c64787f23445d08b7d3d7478",
+        "source-file src/gamez/zUtil/zutil.h sha256:58417c9085757b37b676630689da16fbcf72c0c065dbd448fdc5f9109f720339",
+        "source-file src/gamez/zVehicle/veh_turret.cpp sha256:8b8acfed3382a4c2ff21f02a9c81673ed89ab8d647b419c4e55c0a2fd14c1cfc",
+        "source-owner-map-sha256:855e7bf5dec854505c5e0786bed46b5c93d93bf32f1003eb36675d3b661ef0f7",
+        "source-plan build/source-plans/socom-work-source-segment-054.json sha256:75bb87e1c0b6ceaa780ed71fc4e15e11e268690be4de7133fc392acc8fc9b075",
+        "source-reservation corrected src/Apps/FTS, src/gamez/zUI, src/gamez/zUtil, src/gamez/zVehicle"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b6",
+        "submitted_at": "2026-11-01T04:06:51Z",
+        "summary": "apply of segment-054: 153 annotations, 6 files, 1 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-054-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
         "src/Apps/FTS",
-        "src/gamez/zUI"
+        "src/gamez/zUI",
+        "src/gamez/zUtil",
+        "src/gamez/zVehicle"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 153,
+        "annotations_sha256": "0ca830403de0de771b398333085813ee10f8d248108955dc09ee1c5ad5421f83",
+        "applied_at": "2026-11-01T04:06:49Z",
+        "applied_by": "socom-source-worker-b6",
+        "changed": [
+          "src/Apps/FTS/state/st_load.cpp",
+          "src/gamez/zUI/zui.cpp",
+          "src/gamez/zUI/zui.h",
+          "src/gamez/zUI/zui_2d.cpp",
+          "src/gamez/zUtil/zutil.h",
+          "src/gamez/zVehicle/veh_turret.cpp"
+        ],
+        "created": [
+          "src/gamez/zVehicle/veh_turret.cpp"
+        ],
+        "files": [
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/state/st_load.cpp",
+            "sha256": "c7788db1c03c775b67c06ae6b223f6e17aaf918578855497441702fad89d0e4e"
+          },
+          {
+            "content_sha256": "11ea9db9923972028eefad92b94b5434e8e7af9904e025a4b7da5e7420ded295",
+            "path": "src/gamez/zUI/zui.cpp",
+            "sha256": "e202c2e609b76e9baf059a451d7fa4119e5e799c2408b9d9ff5ab1571db9b186"
+          },
+          {
+            "content_sha256": "3c2b8c219e7e0e26dc69ec5a3597888efaced81cf109938113d0f7f835dda9d9",
+            "path": "src/gamez/zUI/zui.h",
+            "sha256": "53bbba9dd8531f769ba8d90c04b988dcb15ecb623af9f3c4ec4770f1d5b379a1"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zUI/zui_2d.cpp",
+            "sha256": "490f34e23e739d517597cde6722bc32774740520c64787f23445d08b7d3d7478"
+          },
+          {
+            "content_sha256": "f6d69233cb4cbdb24a8d3a927acd27b5da1437f701573391d02223c19f2096d5",
+            "path": "src/gamez/zUtil/zutil.h",
+            "sha256": "58417c9085757b37b676630689da16fbcf72c0c065dbd448fdc5f9109f720339"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zVehicle/veh_turret.cpp",
+            "sha256": "8b8acfed3382a4c2ff21f02a9c81673ed89ab8d647b419c4e55c0a2fd14c1cfc"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "855e7bf5dec854505c5e0786bed46b5c93d93bf32f1003eb36675d3b661ef0f7",
+        "plan": "build/source-plans/socom-work-source-segment-054.json",
+        "plan_item": "socom:work:source-segment-054",
+        "plan_sha256": "75bb87e1c0b6ceaa780ed71fc4e15e11e268690be4de7133fc392acc8fc9b075",
+        "reconciles": [
+          "socom:work:source-data-data",
+          "socom:work:source-data-bss"
+        ],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/Apps/FTS",
+            "src/gamez/zUI",
+            "src/gamez/zUtil",
+            "src/gamez/zVehicle"
+          ],
+          "reserved": [
+            "src/Apps/FTS",
+            "src/gamez/zUI"
+          ],
+          "status": "corrected"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:90f83284ba141b5c765f",
+          "segment_number": 54
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 054 under src/"
     },
     {
@@ -161713,6 +162104,10 @@
       "title": "Plan source owners of segment 055 (0x3853f0-0x3949fc, 185 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:15:03Z",
+        "by": "socom-verifier-apply7"
+      },
       "batch": {
         "artifact_count": 445,
         "batch_number": 55,
@@ -161721,7 +162116,9 @@
         },
         "data_count": 116,
         "directories": [
-          "src/gamez/zUI"
+          "src/gamez/zTwoD",
+          "src/gamez/zUI",
+          "src/gamez/zVisual"
         ],
         "function_count": 185,
         "gap_count": 144,
@@ -161733,6 +162130,12 @@
             "0x3949fc"
           ]
         ],
+        "reservation_correction": {
+          "from": [
+            "src/gamez/zUI"
+          ],
+          "plan_sha256": "92995fc244c0a421d56312b8aeb98fcca0e5c57b87ed9bb6f4548ff228d2554f"
+        },
         "resource_basis": "provisional-name",
         "resource_inferred": true,
         "resource_reason": "inferred by name: zui_2d.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zUI",
@@ -161756,17 +162159,88 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "progress apply-source-plan record (see item evidence)",
+        "source apply-check ok (0 problems); source plan validate --check ok (0 problems); source annotate --check ok, 0 drift (205 annotations, 3 files, 0 created); recorded files == annotated files, all in reservation; git vs HEAD: only generated socom-owner-annotations blocks added at top in plan-ID order, authored content byte-identical, pre-existing blocks unchanged, created files block-only, no block of this plan in unrecorded files; whole-sha diffs from record fully explained by later blocks (ztwod.h by 063, zui_2d.cpp by 076); batch audit source-trace ok (0 errors) and docblocks ok (0 errors)",
+        "source-annotations-sha256:4f850aee353f1fa41fcfffa0b9d7052672bdc48678984d2f71ee3a2cd56128ff count:205",
+        "source-file src/gamez/zTwoD/ztwod.h sha256:4ec2961f9267ef5ffea871c761e1f5726ff8a1e75572f1c039efc5f848853981",
+        "source-file src/gamez/zUI/zui_2d.cpp sha256:4cec49bc5f648bb146c93e9abb577606089bd9bd834c72c70a728541c7e31805",
+        "source-file src/gamez/zVisual/zvis.h sha256:4c01fbb4f7b957c20f7e0e886d0139ac156d755e8d46be6bedb41e4cd588012e",
+        "source-owner-map-sha256:55ae142377925eda0102d641944b0204326bb2f098c8d5fbf24f8f31d9b17cbe",
+        "source-plan build/source-plans/socom-work-source-segment-055.json sha256:92995fc244c0a421d56312b8aeb98fcca0e5c57b87ed9bb6f4548ff228d2554f",
+        "source-reservation corrected src/gamez/zTwoD, src/gamez/zUI, src/gamez/zVisual"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b6",
+        "submitted_at": "2026-11-01T04:06:58Z",
+        "summary": "apply of segment-055: 205 annotations, 3 files, 0 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-055-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zUI"
+        "src/gamez/zTwoD",
+        "src/gamez/zUI",
+        "src/gamez/zVisual"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 205,
+        "annotations_sha256": "4f850aee353f1fa41fcfffa0b9d7052672bdc48678984d2f71ee3a2cd56128ff",
+        "applied_at": "2026-11-01T04:06:56Z",
+        "applied_by": "socom-source-worker-b6",
+        "changed": [
+          "src/gamez/zTwoD/ztwod.h",
+          "src/gamez/zUI/zui_2d.cpp",
+          "src/gamez/zVisual/zvis.h"
+        ],
+        "created": [],
+        "files": [
+          {
+            "content_sha256": "e0c8d3d34a10ee8851ee2e14d207de13c595403d57125bcadf1fc357eb7bb0ae",
+            "path": "src/gamez/zTwoD/ztwod.h",
+            "sha256": "4ec2961f9267ef5ffea871c761e1f5726ff8a1e75572f1c039efc5f848853981"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zUI/zui_2d.cpp",
+            "sha256": "4cec49bc5f648bb146c93e9abb577606089bd9bd834c72c70a728541c7e31805"
+          },
+          {
+            "content_sha256": "81f57b732ca0d761792f2c7d10df0968000d40c0921e00098ab76369cd16e17f",
+            "path": "src/gamez/zVisual/zvis.h",
+            "sha256": "4c01fbb4f7b957c20f7e0e886d0139ac156d755e8d46be6bedb41e4cd588012e"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "55ae142377925eda0102d641944b0204326bb2f098c8d5fbf24f8f31d9b17cbe",
+        "plan": "build/source-plans/socom-work-source-segment-055.json",
+        "plan_item": "socom:work:source-segment-055",
+        "plan_sha256": "92995fc244c0a421d56312b8aeb98fcca0e5c57b87ed9bb6f4548ff228d2554f",
+        "reconciles": [],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/gamez/zTwoD",
+            "src/gamez/zUI",
+            "src/gamez/zVisual"
+          ],
+          "reserved": [
+            "src/gamez/zUI"
+          ],
+          "status": "corrected"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:cad6ef72ff62f244c3ec",
+          "segment_number": 55
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 055 under src/"
     },
     {
@@ -161846,6 +162320,10 @@
       "title": "Plan source owners of segment 056 (0x394a00-0x3a2a74, 195 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:15:06Z",
+        "by": "socom-verifier-apply7"
+      },
       "batch": {
         "artifact_count": 695,
         "batch_number": 56,
@@ -161891,8 +162369,26 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "progress apply-source-plan record (see item evidence)",
+        "source apply-check ok (0 problems); source plan validate --check ok (0 problems); source annotate --check ok, 0 drift (197 annotations, 5 files, 2 created); recorded files == annotated files, all in reservation; git vs HEAD: only generated socom-owner-annotations blocks added at top in plan-ID order, authored content byte-identical, pre-existing blocks unchanged, created files block-only, no block of this plan in unrecorded files; whole-sha diffs from record fully explained by later blocks (none); batch audit source-trace ok (0 errors) and docblocks ok (0 errors)",
+        "source-annotations-sha256:cdb2595dbca3b9d8ec139cff2a63937bececa77b1f5ad873ae53f72cc10fa996 count:197",
+        "source-created src/gamez/zUI/zui_tuner.cpp",
+        "source-created src/gamez/zUI/zui_var.cpp",
+        "source-file src/gamez/zUI/zui.h sha256:18b7f32bdcf1a4c0568fd544c1b5f583a5483d85bd6b87c3a3a1305a9d6c86de",
+        "source-file src/gamez/zUI/zui_cleanup.cpp sha256:3e61cb01991b73986133088001bdae7b39c679cc239ab7f569df99efd3977a05",
+        "source-file src/gamez/zUI/zui_spec.cpp sha256:38e0917669a41c6004a58a8a7bbfd5fa3f9741ff56b296268d29953f83e06a58",
+        "source-file src/gamez/zUI/zui_tuner.cpp sha256:fe2554091b64ce3c7ca690262cdc34f41be9a6f378250d67dee1c803c4cb447b",
+        "source-file src/gamez/zUI/zui_var.cpp sha256:da86578ff3d5a638b7805b8f304d7a671e5806efb44ed22ddddabf5012941fc1",
+        "source-owner-map-sha256:8e2b593e5edc6acfca725e1a27b17040fdd13378370a0a0cca33b62d434b2846",
+        "source-plan build/source-plans/socom-work-source-segment-056.json sha256:d58746cd8f708366c35e65b65a21b3e8ebc972b7a653112b90f21be0545f642a",
+        "source-reservation confirmed src/gamez/zUI"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b6",
+        "submitted_at": "2026-11-01T04:07:06Z",
+        "summary": "apply of segment-056: 197 annotations, 5 files, 2 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-056-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -161900,8 +162396,76 @@
         "src/gamez/zUI"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 197,
+        "annotations_sha256": "cdb2595dbca3b9d8ec139cff2a63937bececa77b1f5ad873ae53f72cc10fa996",
+        "applied_at": "2026-11-01T04:07:04Z",
+        "applied_by": "socom-source-worker-b6",
+        "changed": [
+          "src/gamez/zUI/zui.h",
+          "src/gamez/zUI/zui_cleanup.cpp",
+          "src/gamez/zUI/zui_spec.cpp",
+          "src/gamez/zUI/zui_tuner.cpp",
+          "src/gamez/zUI/zui_var.cpp"
+        ],
+        "created": [
+          "src/gamez/zUI/zui_tuner.cpp",
+          "src/gamez/zUI/zui_var.cpp"
+        ],
+        "files": [
+          {
+            "content_sha256": "3c2b8c219e7e0e26dc69ec5a3597888efaced81cf109938113d0f7f835dda9d9",
+            "path": "src/gamez/zUI/zui.h",
+            "sha256": "18b7f32bdcf1a4c0568fd544c1b5f583a5483d85bd6b87c3a3a1305a9d6c86de"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zUI/zui_cleanup.cpp",
+            "sha256": "3e61cb01991b73986133088001bdae7b39c679cc239ab7f569df99efd3977a05"
+          },
+          {
+            "content_sha256": "2a77ba14e714dcd7886b53a135e945c0755e580ea9911f0a00fe706eedad8cb2",
+            "path": "src/gamez/zUI/zui_spec.cpp",
+            "sha256": "38e0917669a41c6004a58a8a7bbfd5fa3f9741ff56b296268d29953f83e06a58"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zUI/zui_tuner.cpp",
+            "sha256": "fe2554091b64ce3c7ca690262cdc34f41be9a6f378250d67dee1c803c4cb447b"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zUI/zui_var.cpp",
+            "sha256": "da86578ff3d5a638b7805b8f304d7a671e5806efb44ed22ddddabf5012941fc1"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "8e2b593e5edc6acfca725e1a27b17040fdd13378370a0a0cca33b62d434b2846",
+        "plan": "build/source-plans/socom-work-source-segment-056.json",
+        "plan_item": "socom:work:source-segment-056",
+        "plan_sha256": "d58746cd8f708366c35e65b65a21b3e8ebc972b7a653112b90f21be0545f642a",
+        "reconciles": [],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/gamez/zUI"
+          ],
+          "reserved": [
+            "src/gamez/zUI"
+          ],
+          "status": "confirmed"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:125bcaed8e6aa497485f",
+          "segment_number": 56
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 056 under src/"
     },
     {
@@ -161964,6 +162528,10 @@
       "title": "Plan source owners of segment 057 (0x3a2a80-0x3aa6f8, 88 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:15:09Z",
+        "by": "socom-verifier-apply7"
+      },
       "batch": {
         "artifact_count": 276,
         "batch_number": 57,
@@ -162008,8 +162576,21 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "progress apply-source-plan record (see item evidence)",
+        "source apply-check ok (0 problems); source plan validate --check ok (0 problems); source annotate --check ok, 0 drift (137 annotations, 1 file, 1 created); recorded files == annotated files, all in reservation; git vs HEAD: only generated socom-owner-annotations blocks added at top in plan-ID order, authored content byte-identical, pre-existing blocks unchanged, created files block-only, no block of this plan in unrecorded files; whole-sha diffs from record fully explained by later blocks (zui_skb.cpp by 076); batch audit source-trace ok (0 errors) and docblocks ok (0 errors)",
+        "source-annotations-sha256:6e1ffa349cc00528889121011346ec813eeef3665ee122d85731ab11bd7ceb48 count:137",
+        "source-created src/gamez/zUI/zui_skb.cpp",
+        "source-file src/gamez/zUI/zui_skb.cpp sha256:4f334c072ae34d5487d08841c5b246b4c7cfbabc0144a9a56db0a3deb7333804",
+        "source-owner-map-sha256:2dcf0bded16e4c9f800226ddfae40d5caa34b96b22ef80345a80a1bce493a580",
+        "source-plan build/source-plans/socom-work-source-segment-057.json sha256:e7cc3c00401ef314212297b253f9d586b65a4d43052831a3639c6dc587662dc4",
+        "source-reservation confirmed src/gamez/zUI"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b6",
+        "submitted_at": "2026-11-01T04:07:13Z",
+        "summary": "apply of segment-057: 137 annotations, 1 files, 1 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-057-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -162017,8 +162598,53 @@
         "src/gamez/zUI"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 137,
+        "annotations_sha256": "6e1ffa349cc00528889121011346ec813eeef3665ee122d85731ab11bd7ceb48",
+        "applied_at": "2026-11-01T04:07:11Z",
+        "applied_by": "socom-source-worker-b6",
+        "changed": [
+          "src/gamez/zUI/zui_skb.cpp"
+        ],
+        "created": [
+          "src/gamez/zUI/zui_skb.cpp"
+        ],
+        "files": [
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zUI/zui_skb.cpp",
+            "sha256": "4f334c072ae34d5487d08841c5b246b4c7cfbabc0144a9a56db0a3deb7333804"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "2dcf0bded16e4c9f800226ddfae40d5caa34b96b22ef80345a80a1bce493a580",
+        "plan": "build/source-plans/socom-work-source-segment-057.json",
+        "plan_item": "socom:work:source-segment-057",
+        "plan_sha256": "e7cc3c00401ef314212297b253f9d586b65a4d43052831a3639c6dc587662dc4",
+        "reconciles": [
+          "socom:work:source-data-bss"
+        ],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/gamez/zUI"
+          ],
+          "reserved": [
+            "src/gamez/zUI"
+          ],
+          "status": "confirmed"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:7c15e3b29dbc7d458ee6",
+          "segment_number": 57
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 057 under src/"
     },
     {
@@ -162722,6 +163348,10 @@
       "title": "Plan source owners of segment 063 (0x3b7820-0x3be590, 51 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:13:54Z",
+        "by": "socom-verifier-apply8"
+      },
       "batch": {
         "artifact_count": 197,
         "batch_number": 63,
@@ -162730,7 +163360,8 @@
         },
         "data_count": 112,
         "directories": [
-          "src/Apps/FTS"
+          "src/Apps/FTS",
+          "src/gamez/zTwoD"
         ],
         "function_count": 51,
         "gap_count": 34,
@@ -162742,6 +163373,12 @@
             "0x3be590"
           ]
         ],
+        "reservation_correction": {
+          "from": [
+            "src/Apps/FTS"
+          ],
+          "plan_sha256": "600d95838f55d442e176cf3f31057e60fba76cdd2493c46344c7d6aa2dd70ac5"
+        },
         "resource_basis": "path",
         "resource_inferred": false,
         "resource_reason": null,
@@ -162767,17 +163404,102 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "apply-check ok 0 problems (5 files, 79 annotations); plan validate --check ok; annotate --check 0 drift; git: 5 files gain only generated blocks (own + data-bss), authored content byte-identical to HEAD, no own block elsewhere; batch audits source-trace ok (0 errors), docblocks ok (8920 edges)",
+        "progress apply-source-plan record (see item evidence)",
+        "source-annotations-sha256:753a6becc4ef8440d63fdf902a4bc296bc1af25764d9d8974b22af4a853c2ec1 count:79",
+        "source-file src/Apps/FTS/hud/hud.h sha256:134da8a52234770467fe922c6a53c92383a45e2e09b5afdecab9fb5f0a4ddbbf",
+        "source-file src/Apps/FTS/hud/hud_lensflare.cpp sha256:7b2ec1f7e63b553e30bbbebdda9fcb3a30d3cbae691901e56ece5cdc536bc60b",
+        "source-file src/Apps/FTS/hud/hud_letterbox.cpp sha256:d4cf39cd5bf8959d41c17efd1a9025b195d923959666e7b4f2cbac06cdba3c35",
+        "source-file src/Apps/FTS/hud/hud_main.cpp sha256:2430de7963fd7aab1bfb144a8a82c653c68a21f09b32370ba1943bcde8ca5270",
+        "source-file src/gamez/zTwoD/ztwod.h sha256:39ea3fe03af64ff731b361f7b72caa09f7a1c1d1dfb2bb1217144b617dcc3051",
+        "source-owner-map-sha256:73071ead4c00bfeb056503aeb2aae55bde91dd11014ba1eebfaa1a564ffdf90c",
+        "source-plan build/source-plans/socom-work-source-segment-063.json sha256:600d95838f55d442e176cf3f31057e60fba76cdd2493c46344c7d6aa2dd70ac5",
+        "source-reservation corrected src/Apps/FTS, src/gamez/zTwoD"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b6",
+        "submitted_at": "2026-11-01T04:07:21Z",
+        "summary": "apply of segment-063: 79 annotations, 5 files, 0 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-063-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
-        "src/Apps/FTS"
+        "src/Apps/FTS",
+        "src/gamez/zTwoD"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 79,
+        "annotations_sha256": "753a6becc4ef8440d63fdf902a4bc296bc1af25764d9d8974b22af4a853c2ec1",
+        "applied_at": "2026-11-01T04:07:19Z",
+        "applied_by": "socom-source-worker-b6",
+        "changed": [
+          "src/Apps/FTS/hud/hud.h",
+          "src/Apps/FTS/hud/hud_lensflare.cpp",
+          "src/Apps/FTS/hud/hud_letterbox.cpp",
+          "src/Apps/FTS/hud/hud_main.cpp",
+          "src/gamez/zTwoD/ztwod.h"
+        ],
+        "created": [],
+        "files": [
+          {
+            "content_sha256": "b85424c01a7832a836b71c95ab39f3c213e74c2f413ef2fa370180d315b84330",
+            "path": "src/Apps/FTS/hud/hud.h",
+            "sha256": "134da8a52234770467fe922c6a53c92383a45e2e09b5afdecab9fb5f0a4ddbbf"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_lensflare.cpp",
+            "sha256": "7b2ec1f7e63b553e30bbbebdda9fcb3a30d3cbae691901e56ece5cdc536bc60b"
+          },
+          {
+            "content_sha256": "894b3eaa6204ba9740b78c85dd05246c4fe31fcbf415e2da34b3336c986695a9",
+            "path": "src/Apps/FTS/hud/hud_letterbox.cpp",
+            "sha256": "d4cf39cd5bf8959d41c17efd1a9025b195d923959666e7b4f2cbac06cdba3c35"
+          },
+          {
+            "content_sha256": "573a6b3732bf9297a2439fb9f3717ab4b2ab485140fb7e77a603072d39a65961",
+            "path": "src/Apps/FTS/hud/hud_main.cpp",
+            "sha256": "2430de7963fd7aab1bfb144a8a82c653c68a21f09b32370ba1943bcde8ca5270"
+          },
+          {
+            "content_sha256": "e0c8d3d34a10ee8851ee2e14d207de13c595403d57125bcadf1fc357eb7bb0ae",
+            "path": "src/gamez/zTwoD/ztwod.h",
+            "sha256": "39ea3fe03af64ff731b361f7b72caa09f7a1c1d1dfb2bb1217144b617dcc3051"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "73071ead4c00bfeb056503aeb2aae55bde91dd11014ba1eebfaa1a564ffdf90c",
+        "plan": "build/source-plans/socom-work-source-segment-063.json",
+        "plan_item": "socom:work:source-segment-063",
+        "plan_sha256": "600d95838f55d442e176cf3f31057e60fba76cdd2493c46344c7d6aa2dd70ac5",
+        "reconciles": [
+          "socom:work:source-data-bss"
+        ],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/Apps/FTS",
+            "src/gamez/zTwoD"
+          ],
+          "reserved": [
+            "src/Apps/FTS"
+          ],
+          "status": "corrected"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:509edb1e4e128a3b4ab9",
+          "segment_number": 63
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 063 under src/"
     },
     {
@@ -162863,6 +163585,10 @@
       "title": "Plan source owners of segment 064 (0x3be590-0x3d5340, 185 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:13:56Z",
+        "by": "socom-verifier-apply8"
+      },
       "batch": {
         "artifact_count": 620,
         "batch_number": 64,
@@ -162871,7 +163597,8 @@
         },
         "data_count": 295,
         "directories": [
-          "src/Apps/FTS"
+          "src/Apps/FTS",
+          "src/gamez/zMath"
         ],
         "function_count": 185,
         "gap_count": 140,
@@ -162883,6 +163610,12 @@
             "0x3d5340"
           ]
         ],
+        "reservation_correction": {
+          "from": [
+            "src/Apps/FTS"
+          ],
+          "plan_sha256": "233612440ac3f3d84d3c9d82e63a88d649c482a906d5478f5351205cd107b2a1"
+        },
         "resource_basis": "path",
         "resource_inferred": false,
         "resource_reason": null,
@@ -162914,17 +163647,146 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "apply-check ok 0 problems (11 files, 347 annotations); plan validate --check ok; annotate --check 0 drift; git: 11 files gain only generated blocks (own + data reconciles), authored content byte-identical to HEAD, no own block elsewhere; batch audits source-trace ok (0 errors), docblocks ok (8920 edges)",
+        "progress apply-source-plan record (see item evidence)",
+        "source-annotations-sha256:947f0c9b30ac65a9f648e8d94231cf403d7c9500b7cce1aa93add455b9c11cbc count:347",
+        "source-file src/Apps/FTS/hud/hud.h sha256:9264dcf33c4cf561d1f3af34fbfdd02676fa60541b53c5b2348ba13f86aa95d1",
+        "source-file src/Apps/FTS/hud/hud_bitmapreticule.cpp sha256:a54a4b0313b9c945e2364b7e0ce1ff16130588980ed440e005611f45394bbca6",
+        "source-file src/Apps/FTS/hud/hud_bombmapitem.cpp sha256:df270c3b544b1555cd5e7dbb7c02c2cb223e750fd5e3661552ad330214e3202a",
+        "source-file src/Apps/FTS/hud/hud_claymoremapitem.cpp sha256:b1abf44ed3b32ccbc04e8f22aec05d48bb38135abf82f22697542e94111e3eef",
+        "source-file src/Apps/FTS/hud/hud_linemap.cpp sha256:edac7240a1205a8122aac133b3bf864939370a64637c18d461ec4aed9b4a8325",
+        "source-file src/Apps/FTS/hud/hud_mapcompass.cpp sha256:9e27fc32b4fef5d0c0a3ab32dcf12881d6ee73ee5024111320d0b7550930966e",
+        "source-file src/Apps/FTS/hud/hud_newhudmap.cpp sha256:f364b612520d5bba8563157c254dd6a211df6859b4241523381cc62a74ea6ed9",
+        "source-file src/Apps/FTS/hud/hud_objectives.cpp sha256:889bece3f35edfa1f44436feb2a046bea009a5ffc7d7c0580b3f145d0bccb4ec",
+        "source-file src/Apps/FTS/hud/hud_pausemenu.cpp sha256:2635ff78e892c33d83703e2d88dbe0b2ba87a10d886cb5635828d9a4b3152d1e",
+        "source-file src/Apps/FTS/hud/hud_weaponsel.cpp sha256:1f34a6fa35e2821e1d5563f645db8ca1a7e61448c0334fc694aaada80288c7bb",
+        "source-file src/gamez/zMath/zmath_matrix.h sha256:0638950519e34b21876743aabf913bb3b84a87ec5e4ad8e33235af03fa78d31b",
+        "source-owner-map-sha256:dfbb8ef10c7aa9c8bbc357cf447a20ae98b8713a867ef95b0a20bf2949d0e32d",
+        "source-plan build/source-plans/socom-work-source-segment-064.json sha256:233612440ac3f3d84d3c9d82e63a88d649c482a906d5478f5351205cd107b2a1",
+        "source-reservation corrected src/Apps/FTS, src/gamez/zMath"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b6",
+        "submitted_at": "2026-11-01T04:07:29Z",
+        "summary": "apply of segment-064: 347 annotations, 11 files, 0 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-064-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
-        "src/Apps/FTS"
+        "src/Apps/FTS",
+        "src/gamez/zMath"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 347,
+        "annotations_sha256": "947f0c9b30ac65a9f648e8d94231cf403d7c9500b7cce1aa93add455b9c11cbc",
+        "applied_at": "2026-11-01T04:07:26Z",
+        "applied_by": "socom-source-worker-b6",
+        "changed": [
+          "src/Apps/FTS/hud/hud.h",
+          "src/Apps/FTS/hud/hud_bitmapreticule.cpp",
+          "src/Apps/FTS/hud/hud_bombmapitem.cpp",
+          "src/Apps/FTS/hud/hud_claymoremapitem.cpp",
+          "src/Apps/FTS/hud/hud_linemap.cpp",
+          "src/Apps/FTS/hud/hud_mapcompass.cpp",
+          "src/Apps/FTS/hud/hud_newhudmap.cpp",
+          "src/Apps/FTS/hud/hud_objectives.cpp",
+          "src/Apps/FTS/hud/hud_pausemenu.cpp",
+          "src/Apps/FTS/hud/hud_weaponsel.cpp",
+          "src/gamez/zMath/zmath_matrix.h"
+        ],
+        "created": [],
+        "files": [
+          {
+            "content_sha256": "b85424c01a7832a836b71c95ab39f3c213e74c2f413ef2fa370180d315b84330",
+            "path": "src/Apps/FTS/hud/hud.h",
+            "sha256": "9264dcf33c4cf561d1f3af34fbfdd02676fa60541b53c5b2348ba13f86aa95d1"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_bitmapreticule.cpp",
+            "sha256": "a54a4b0313b9c945e2364b7e0ce1ff16130588980ed440e005611f45394bbca6"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_bombmapitem.cpp",
+            "sha256": "df270c3b544b1555cd5e7dbb7c02c2cb223e750fd5e3661552ad330214e3202a"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_claymoremapitem.cpp",
+            "sha256": "b1abf44ed3b32ccbc04e8f22aec05d48bb38135abf82f22697542e94111e3eef"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_linemap.cpp",
+            "sha256": "edac7240a1205a8122aac133b3bf864939370a64637c18d461ec4aed9b4a8325"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_mapcompass.cpp",
+            "sha256": "9e27fc32b4fef5d0c0a3ab32dcf12881d6ee73ee5024111320d0b7550930966e"
+          },
+          {
+            "content_sha256": "d33892224c0142bcbf821e11b8b9ca93ac20083876dffb4f161f1c608c013789",
+            "path": "src/Apps/FTS/hud/hud_newhudmap.cpp",
+            "sha256": "f364b612520d5bba8563157c254dd6a211df6859b4241523381cc62a74ea6ed9"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_objectives.cpp",
+            "sha256": "889bece3f35edfa1f44436feb2a046bea009a5ffc7d7c0580b3f145d0bccb4ec"
+          },
+          {
+            "content_sha256": "427271f3607b71355ede0c07c75cf0794ccd6dc1e6b6c9469f128fb7fee29fad",
+            "path": "src/Apps/FTS/hud/hud_pausemenu.cpp",
+            "sha256": "2635ff78e892c33d83703e2d88dbe0b2ba87a10d886cb5635828d9a4b3152d1e"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_weaponsel.cpp",
+            "sha256": "1f34a6fa35e2821e1d5563f645db8ca1a7e61448c0334fc694aaada80288c7bb"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zMath/zmath_matrix.h",
+            "sha256": "0638950519e34b21876743aabf913bb3b84a87ec5e4ad8e33235af03fa78d31b"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "dfbb8ef10c7aa9c8bbc357cf447a20ae98b8713a867ef95b0a20bf2949d0e32d",
+        "plan": "build/source-plans/socom-work-source-segment-064.json",
+        "plan_item": "socom:work:source-segment-064",
+        "plan_sha256": "233612440ac3f3d84d3c9d82e63a88d649c482a906d5478f5351205cd107b2a1",
+        "reconciles": [
+          "socom:work:source-data-rodata",
+          "socom:work:source-data-data",
+          "socom:work:source-data-bss"
+        ],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/Apps/FTS",
+            "src/gamez/zMath"
+          ],
+          "reserved": [
+            "src/Apps/FTS"
+          ],
+          "status": "corrected"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:b5303561787b6ae970bc",
+          "segment_number": 64
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 064 under src/"
     },
     {
@@ -163008,6 +163870,10 @@
       "title": "Plan source owners of segment 065 (0x3d5340-0x3deecc, 71 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:13:58Z",
+        "by": "socom-verifier-apply8"
+      },
       "batch": {
         "artifact_count": 353,
         "batch_number": 65,
@@ -163016,7 +163882,9 @@
         },
         "data_count": 228,
         "directories": [
-          "src/Apps/FTS"
+          "src/Apps/FTS",
+          "src/gamez/zFTS",
+          "src/gamez/zSeal"
         ],
         "function_count": 71,
         "gap_count": 54,
@@ -163028,6 +163896,12 @@
             "0x3deecc"
           ]
         ],
+        "reservation_correction": {
+          "from": [
+            "src/Apps/FTS"
+          ],
+          "plan_sha256": "77d1fa0d9bcdc4261d17f75f37479ef402e07058f836a2ee744d34d6ad6a58c4"
+        },
         "resource_basis": "path",
         "resource_inferred": false,
         "resource_reason": null,
@@ -163057,17 +163931,148 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "apply-check ok 0 problems (11 files, 190 annotations); plan validate --check ok; annotate --check 0 drift; git: 11 files gain only generated blocks (own + data reconciles), authored content byte-identical to HEAD, no own block elsewhere; batch audits source-trace ok (0 errors), docblocks ok (8920 edges)",
+        "progress apply-source-plan record (see item evidence)",
+        "source-annotations-sha256:13b3436e1033113362081b6edba371b9b14f65605c1a32c355e96de075a2c317 count:190",
+        "source-file src/Apps/FTS/aidemo.cpp sha256:5fa7b3abb8f3c3ce25f0950e6b60a0ae785ba40ffe39d7196a1d2d0f9ad865b3",
+        "source-file src/Apps/FTS/hud/hud.h sha256:135d43f206b4f5665e6cd6e4bf70b2839ef497761550c05732f2f9b32775973f",
+        "source-file src/Apps/FTS/hud/hud_actionbitmap.cpp sha256:7cbf762c5bdcd4d0294aacb9d1f27201f8438e5c98822ff2cca883a9ffa64328",
+        "source-file src/Apps/FTS/hud/hud_devtext.cpp sha256:d4ca5dfafe9fa2459e0cd28a17f1eee7274d0f8e7dd50000899257c946f6a494",
+        "source-file src/Apps/FTS/hud/hud_playermapitem.cpp sha256:c28745e77d7e0ead215a34891dc7d04593a7670899167605125b88db918df67c",
+        "source-file src/Apps/FTS/hud/hud_posebitmap.cpp sha256:5ecc901a290ef9063801bdd39b0adde4596356a31edc65389fde1ec411b16170",
+        "source-file src/Apps/FTS/hud/hud_teammatenames.cpp sha256:74bbb1dfe303bac7a4b65d8d3a99caafc9006c8bdaa7c567d0e4b7cb8ab0a667",
+        "source-file src/Apps/FTS/hud/hud_teamnames.cpp sha256:bb9414c171cd1445a518c7bbb2efa87d6bca4ac28a9296d55336329bc3b6f7eb",
+        "source-file src/Apps/FTS/state/st_mpexit.cpp sha256:922c31b7af0fbd27746a6fe0ce09cfc2842924fd1a13f3b1ad06a5ee7cbd9cc1",
+        "source-file src/gamez/zFTS/zfts.h sha256:6f5474c600d11209fc673d89ba0b03e40508f42e48f929fe5922186177b20fc7",
+        "source-file src/gamez/zSeal/zseal.h sha256:6dd4891e1ae3fe57b5ab5445ec458fc56d5adaa8cb8a7f2db61779e93a8f6177",
+        "source-owner-map-sha256:80472febc0e35f1895914f2981a77a81ba47f0f87bd7dfa74c939cdad9df3373",
+        "source-plan build/source-plans/socom-work-source-segment-065.json sha256:77d1fa0d9bcdc4261d17f75f37479ef402e07058f836a2ee744d34d6ad6a58c4",
+        "source-reservation corrected src/Apps/FTS, src/gamez/zFTS, src/gamez/zSeal"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b6",
+        "submitted_at": "2026-11-01T04:07:36Z",
+        "summary": "apply of segment-065: 190 annotations, 11 files, 0 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-065-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
-        "src/Apps/FTS"
+        "src/Apps/FTS",
+        "src/gamez/zFTS",
+        "src/gamez/zSeal"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 190,
+        "annotations_sha256": "13b3436e1033113362081b6edba371b9b14f65605c1a32c355e96de075a2c317",
+        "applied_at": "2026-11-01T04:07:34Z",
+        "applied_by": "socom-source-worker-b6",
+        "changed": [
+          "src/Apps/FTS/aidemo.cpp",
+          "src/Apps/FTS/hud/hud.h",
+          "src/Apps/FTS/hud/hud_actionbitmap.cpp",
+          "src/Apps/FTS/hud/hud_devtext.cpp",
+          "src/Apps/FTS/hud/hud_playermapitem.cpp",
+          "src/Apps/FTS/hud/hud_posebitmap.cpp",
+          "src/Apps/FTS/hud/hud_teammatenames.cpp",
+          "src/Apps/FTS/hud/hud_teamnames.cpp",
+          "src/Apps/FTS/state/st_mpexit.cpp",
+          "src/gamez/zFTS/zfts.h",
+          "src/gamez/zSeal/zseal.h"
+        ],
+        "created": [],
+        "files": [
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/aidemo.cpp",
+            "sha256": "5fa7b3abb8f3c3ce25f0950e6b60a0ae785ba40ffe39d7196a1d2d0f9ad865b3"
+          },
+          {
+            "content_sha256": "b85424c01a7832a836b71c95ab39f3c213e74c2f413ef2fa370180d315b84330",
+            "path": "src/Apps/FTS/hud/hud.h",
+            "sha256": "135d43f206b4f5665e6cd6e4bf70b2839ef497761550c05732f2f9b32775973f"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_actionbitmap.cpp",
+            "sha256": "7cbf762c5bdcd4d0294aacb9d1f27201f8438e5c98822ff2cca883a9ffa64328"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_devtext.cpp",
+            "sha256": "d4ca5dfafe9fa2459e0cd28a17f1eee7274d0f8e7dd50000899257c946f6a494"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_playermapitem.cpp",
+            "sha256": "c28745e77d7e0ead215a34891dc7d04593a7670899167605125b88db918df67c"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_posebitmap.cpp",
+            "sha256": "5ecc901a290ef9063801bdd39b0adde4596356a31edc65389fde1ec411b16170"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_teammatenames.cpp",
+            "sha256": "74bbb1dfe303bac7a4b65d8d3a99caafc9006c8bdaa7c567d0e4b7cb8ab0a667"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_teamnames.cpp",
+            "sha256": "bb9414c171cd1445a518c7bbb2efa87d6bca4ac28a9296d55336329bc3b6f7eb"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/state/st_mpexit.cpp",
+            "sha256": "922c31b7af0fbd27746a6fe0ce09cfc2842924fd1a13f3b1ad06a5ee7cbd9cc1"
+          },
+          {
+            "content_sha256": "d98605e7a098c9af4865719aa9c1eabe25267fdd889c543ed60a98e2df310f28",
+            "path": "src/gamez/zFTS/zfts.h",
+            "sha256": "6f5474c600d11209fc673d89ba0b03e40508f42e48f929fe5922186177b20fc7"
+          },
+          {
+            "content_sha256": "b45701d8ff81ed3ec772e1681ba23db908bdee4ccbb2cffffb4c963acb755405",
+            "path": "src/gamez/zSeal/zseal.h",
+            "sha256": "6dd4891e1ae3fe57b5ab5445ec458fc56d5adaa8cb8a7f2db61779e93a8f6177"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "80472febc0e35f1895914f2981a77a81ba47f0f87bd7dfa74c939cdad9df3373",
+        "plan": "build/source-plans/socom-work-source-segment-065.json",
+        "plan_item": "socom:work:source-segment-065",
+        "plan_sha256": "77d1fa0d9bcdc4261d17f75f37479ef402e07058f836a2ee744d34d6ad6a58c4",
+        "reconciles": [
+          "socom:work:source-data-rodata",
+          "socom:work:source-data-data",
+          "socom:work:source-data-bss"
+        ],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/Apps/FTS",
+            "src/gamez/zFTS",
+            "src/gamez/zSeal"
+          ],
+          "reserved": [
+            "src/Apps/FTS"
+          ],
+          "status": "corrected"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:46f790e514a10d7a49d1",
+          "segment_number": 65
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 065 under src/"
     },
     {
@@ -163602,6 +164607,10 @@
       "title": "Plan source owners of segment 068 (0x3f6fd0-0x4044cc, 162 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:14:00Z",
+        "by": "socom-verifier-apply8"
+      },
       "batch": {
         "artifact_count": 463,
         "batch_number": 68,
@@ -163611,7 +164620,9 @@
         "data_count": 185,
         "directories": [
           "src/Apps/FTS",
-          "src/gamez/zSave"
+          "src/gamez/zNetwork",
+          "src/gamez/zSave",
+          "src/gamez/zSystem"
         ],
         "function_count": 162,
         "gap_count": 116,
@@ -163623,6 +164634,13 @@
             "0x4044cc"
           ]
         ],
+        "reservation_correction": {
+          "from": [
+            "src/Apps/FTS",
+            "src/gamez/zSave"
+          ],
+          "plan_sha256": "1b50fafaf8c3cbd942e724335646fc6609ac92c147992884a98be61356ed9b2b"
+        },
         "resource_basis": "provisional-name",
         "resource_inferred": true,
         "resource_reason": "inferred by name: zsav_manager.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSave; zsav_module.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSave",
@@ -163651,18 +164669,126 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "apply-check ok 0 problems (7 files, 183 annotations, 2 created); plan validate --check ok; annotate --check 0 drift; git: 5 existing files gain only generated blocks, authored content byte-identical to HEAD; created zNetCnf.cpp/zsys_trc.cpp untracked and block-only; batch audits source-trace ok (0 errors), docblocks ok (8920 edges)",
+        "progress apply-source-plan record (see item evidence)",
+        "source-annotations-sha256:de385d3271ca39dd4f860792ee560b99bc852711ff777f81ef3a038348856d57 count:183",
+        "source-created src/gamez/zNetwork/zNetCnf.cpp",
+        "source-created src/gamez/zSystem/zsys_trc.cpp",
+        "source-file src/Apps/FTS/hud/hud_fader.cpp sha256:4f1c330a984548495e18bd37ec9d373069711b614e8ab594f12d3bf5dcf62108",
+        "source-file src/Apps/FTS/hud/hud_ingame_weaponsel.cpp sha256:9f1e416a2838f3dc7084349ee3575f7fa106f1c869a85e4796c25572f0517035",
+        "source-file src/Apps/FTS/hud/hud_missioncams.cpp sha256:ef98099d0ed6523099428d35bf4d7b96744f76c6829295832519abb818f142f0",
+        "source-file src/gamez/zNetwork/zNetCnf.cpp sha256:5bebb740f5a5c5ae73f704cc9ac2ba6f76176ae28ac3794a9f31649af215850a",
+        "source-file src/gamez/zSave/zsav_manager.cpp sha256:2213db0c9694e584d07b807dd0d6b94ded1132cce390d4a8145f3aa84b809aa1",
+        "source-file src/gamez/zSave/zsav_module.cpp sha256:7fac01d00342220678412e7b91102c60c28e3814b42b5aef4a4c10968bcb2e8b",
+        "source-file src/gamez/zSystem/zsys_trc.cpp sha256:559e0216d77bf34ceb590ffb4a8623a619a7861cb7a7b8434bf04de351bffe8e",
+        "source-owner-map-sha256:2aa9bc428e28d74457888664c727e70c0dcdd4472a069f15a1867adec95afdc2",
+        "source-plan build/source-plans/socom-work-source-segment-068.json sha256:1b50fafaf8c3cbd942e724335646fc6609ac92c147992884a98be61356ed9b2b",
+        "source-reservation corrected src/Apps/FTS, src/gamez/zNetwork, src/gamez/zSave, src/gamez/zSystem"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b6",
+        "submitted_at": "2026-11-01T04:07:44Z",
+        "summary": "apply of segment-068: 183 annotations, 7 files, 2 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-068-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
         "src/Apps/FTS",
-        "src/gamez/zSave"
+        "src/gamez/zNetwork",
+        "src/gamez/zSave",
+        "src/gamez/zSystem"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 183,
+        "annotations_sha256": "de385d3271ca39dd4f860792ee560b99bc852711ff777f81ef3a038348856d57",
+        "applied_at": "2026-11-01T04:07:42Z",
+        "applied_by": "socom-source-worker-b6",
+        "changed": [
+          "src/Apps/FTS/hud/hud_fader.cpp",
+          "src/Apps/FTS/hud/hud_ingame_weaponsel.cpp",
+          "src/Apps/FTS/hud/hud_missioncams.cpp",
+          "src/gamez/zNetwork/zNetCnf.cpp",
+          "src/gamez/zSave/zsav_manager.cpp",
+          "src/gamez/zSave/zsav_module.cpp",
+          "src/gamez/zSystem/zsys_trc.cpp"
+        ],
+        "created": [
+          "src/gamez/zNetwork/zNetCnf.cpp",
+          "src/gamez/zSystem/zsys_trc.cpp"
+        ],
+        "files": [
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_fader.cpp",
+            "sha256": "4f1c330a984548495e18bd37ec9d373069711b614e8ab594f12d3bf5dcf62108"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_ingame_weaponsel.cpp",
+            "sha256": "9f1e416a2838f3dc7084349ee3575f7fa106f1c869a85e4796c25572f0517035"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_missioncams.cpp",
+            "sha256": "ef98099d0ed6523099428d35bf4d7b96744f76c6829295832519abb818f142f0"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zNetwork/zNetCnf.cpp",
+            "sha256": "5bebb740f5a5c5ae73f704cc9ac2ba6f76176ae28ac3794a9f31649af215850a"
+          },
+          {
+            "content_sha256": "3d177cf0fbca3dd35f6a451d2fc26539f7efb458341a01e2f953631bda956b4b",
+            "path": "src/gamez/zSave/zsav_manager.cpp",
+            "sha256": "2213db0c9694e584d07b807dd0d6b94ded1132cce390d4a8145f3aa84b809aa1"
+          },
+          {
+            "content_sha256": "cb5dc3606aa462cfb26ce514b0eef3bc335aefd4b525611119df5793c567e7bd",
+            "path": "src/gamez/zSave/zsav_module.cpp",
+            "sha256": "7fac01d00342220678412e7b91102c60c28e3814b42b5aef4a4c10968bcb2e8b"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSystem/zsys_trc.cpp",
+            "sha256": "559e0216d77bf34ceb590ffb4a8623a619a7861cb7a7b8434bf04de351bffe8e"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "2aa9bc428e28d74457888664c727e70c0dcdd4472a069f15a1867adec95afdc2",
+        "plan": "build/source-plans/socom-work-source-segment-068.json",
+        "plan_item": "socom:work:source-segment-068",
+        "plan_sha256": "1b50fafaf8c3cbd942e724335646fc6609ac92c147992884a98be61356ed9b2b",
+        "reconciles": [
+          "socom:work:source-data-bss"
+        ],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/Apps/FTS",
+            "src/gamez/zNetwork",
+            "src/gamez/zSave",
+            "src/gamez/zSystem"
+          ],
+          "reserved": [
+            "src/Apps/FTS",
+            "src/gamez/zSave"
+          ],
+          "status": "corrected"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:f394b9311457a31986c6",
+          "segment_number": 68
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 068 under src/"
     },
     {
@@ -163892,6 +165018,10 @@
       "title": "Plan source owners of segment 074 (0x4210e0-0x4223a0, 13 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:14:02Z",
+        "by": "socom-verifier-apply8"
+      },
       "batch": {
         "artifact_count": 44,
         "batch_number": 74,
@@ -163900,7 +165030,8 @@
         },
         "data_count": 21,
         "directories": [
-          "src/Apps/FTS"
+          "src/Apps/FTS",
+          "src/gamez/zFTS"
         ],
         "function_count": 13,
         "gap_count": 10,
@@ -163912,6 +165043,12 @@
             "0x4223a0"
           ]
         ],
+        "reservation_correction": {
+          "from": [
+            "src/Apps/FTS"
+          ],
+          "plan_sha256": "87bf80e280aaad3d36bfcfb7a484f5a0f396f73fa08a2490fb1e64ee01e3c0ab"
+        },
         "resource_basis": "path",
         "resource_inferred": false,
         "resource_reason": null,
@@ -163935,17 +165072,81 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "apply-check ok 0 problems (2 files, 34 annotations); plan validate --check ok; annotate --check 0 drift; git: 2 files gain only generated blocks (own + data-bss), authored content byte-identical to HEAD, no own block elsewhere; batch audits source-trace ok (0 errors), docblocks ok (8920 edges)",
+        "progress apply-source-plan record (see item evidence)",
+        "source-annotations-sha256:c8185b6f80cb667554c4c919f297f0c2aa0beedc50ed8efbf4cebe3c8508800e count:34",
+        "source-file src/Apps/FTS/hud/hud_scorepopup.cpp sha256:61e7b1ea99c0027f3d6c64cf9c2edb06f3279d9adc0c79440d9ecb44de749221",
+        "source-file src/gamez/zFTS/zfts.h sha256:bc00a030a336d1d2ad17a64b8feec318da56a5c7dfbd1d453771136125bfa0b2",
+        "source-owner-map-sha256:4911471aac3f65ac4b44de87779128e86e594d2afdfdbfde1ff17f91b032e3da",
+        "source-plan build/source-plans/socom-work-source-segment-074.json sha256:87bf80e280aaad3d36bfcfb7a484f5a0f396f73fa08a2490fb1e64ee01e3c0ab",
+        "source-reservation corrected src/Apps/FTS, src/gamez/zFTS"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b6",
+        "submitted_at": "2026-11-01T04:07:51Z",
+        "summary": "apply of segment-074: 34 annotations, 2 files, 0 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-074-apply",
       "kind": "source-apply-segment",
       "lease": null,
       "resources": [
-        "src/Apps/FTS"
+        "src/Apps/FTS",
+        "src/gamez/zFTS"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 34,
+        "annotations_sha256": "c8185b6f80cb667554c4c919f297f0c2aa0beedc50ed8efbf4cebe3c8508800e",
+        "applied_at": "2026-11-01T04:07:49Z",
+        "applied_by": "socom-source-worker-b6",
+        "changed": [
+          "src/Apps/FTS/hud/hud_scorepopup.cpp",
+          "src/gamez/zFTS/zfts.h"
+        ],
+        "created": [],
+        "files": [
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_scorepopup.cpp",
+            "sha256": "61e7b1ea99c0027f3d6c64cf9c2edb06f3279d9adc0c79440d9ecb44de749221"
+          },
+          {
+            "content_sha256": "d98605e7a098c9af4865719aa9c1eabe25267fdd889c543ed60a98e2df310f28",
+            "path": "src/gamez/zFTS/zfts.h",
+            "sha256": "bc00a030a336d1d2ad17a64b8feec318da56a5c7dfbd1d453771136125bfa0b2"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "4911471aac3f65ac4b44de87779128e86e594d2afdfdbfde1ff17f91b032e3da",
+        "plan": "build/source-plans/socom-work-source-segment-074.json",
+        "plan_item": "socom:work:source-segment-074",
+        "plan_sha256": "87bf80e280aaad3d36bfcfb7a484f5a0f396f73fa08a2490fb1e64ee01e3c0ab",
+        "reconciles": [
+          "socom:work:source-data-bss"
+        ],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/Apps/FTS",
+            "src/gamez/zFTS"
+          ],
+          "reserved": [
+            "src/Apps/FTS"
+          ],
+          "status": "corrected"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:4c2df3479f4078668cd1",
+          "segment_number": 74
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 074 under src/"
     },
     {
@@ -164155,6 +165356,10 @@
       "title": "Plan source owners of segment 076 (0x4692c8-0x471258, 146 functions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T04:14:04Z",
+        "by": "socom-verifier-apply8"
+      },
       "batch": {
         "artifact_count": 821,
         "batch_number": 76,
@@ -164167,9 +165372,11 @@
           "src/Apps/FTS",
           "src/gamez/zAI",
           "src/gamez/zAnim",
+          "src/gamez/zBody",
           "src/gamez/zBone",
           "src/gamez/zCamera",
           "src/gamez/zCharacter",
+          "src/gamez/zConsole",
           "src/gamez/zEntity",
           "src/gamez/zFTS",
           "src/gamez/zGame",
@@ -164191,6 +165398,8 @@
           "src/gamez/zTexture",
           "src/gamez/zUI",
           "src/gamez/zValve",
+          "src/gamez/zVehicle",
+          "src/gamez/zVideo",
           "src/gamez/zVisual",
           "src/gamez/zWeapon"
         ],
@@ -164204,6 +165413,40 @@
             "0x471258"
           ]
         ],
+        "reservation_correction": {
+          "from": [
+            "src/Apps/FTS",
+            "src/gamez/zAI",
+            "src/gamez/zAnim",
+            "src/gamez/zBone",
+            "src/gamez/zCamera",
+            "src/gamez/zCharacter",
+            "src/gamez/zEntity",
+            "src/gamez/zFTS",
+            "src/gamez/zGame",
+            "src/gamez/zGraph",
+            "src/gamez/zGrid",
+            "src/gamez/zInput",
+            "src/gamez/zIntersect",
+            "src/gamez/zMath",
+            "src/gamez/zNetwork",
+            "src/gamez/zNode",
+            "src/gamez/zParticle",
+            "src/gamez/zReader",
+            "src/gamez/zRender",
+            "src/gamez/zSave",
+            "src/gamez/zSeal",
+            "src/gamez/zSoftImage",
+            "src/gamez/zSound",
+            "src/gamez/zSystem",
+            "src/gamez/zTexture",
+            "src/gamez/zUI",
+            "src/gamez/zValve",
+            "src/gamez/zVisual",
+            "src/gamez/zWeapon"
+          ],
+          "plan_sha256": "05825fad746f854d5fe8d5330dff0732f2e16686c42c4c0fee5fe16fd544e664"
+        },
         "resource_basis": "provisional-name",
         "resource_inferred": true,
         "resource_reason": "inferred by name: ai_astar.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_events.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_map.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_maps.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_path.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; ai_vismap.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAI; anim.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; anim_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; bone_init.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zBone; char_type.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zCharacter; ent_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zEntity; ent_target.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zEntity; fts_action.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_controller.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_mission.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_missioncam.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_bomb.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_game.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_grenade.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_persona.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_net_seal.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_objectivecam.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_player.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; fts_remote.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zFTS; game_engine.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGame; game_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGame; game_state.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGame; graph_tree.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGraph; grid_clutter.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGrid; grid_di.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zGrid; int_material.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zIntersect; node_assetlib.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_shadow.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_util.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_wave.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; node_world.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNode; pickup_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zEntity; remote_control.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zInput; seal.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_ai.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aievent.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aifollow.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_ailines.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aimoves.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_airesponse.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aiscan.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_aistate.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_anim.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_body.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_cfg.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_command.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_control.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_create.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_dyn.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_env.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_ex.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_handsig.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_ik.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_kit.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_sensors.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_squirm.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_tasks.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_unit.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; seal_weapon.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSeal; si_object.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSoftImage; si_script.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSoftImage; valve_list.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zValve; vis_decal.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zVisual; vis_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zVisual; vis_texfx.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zVisual; zanim_anim.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; zanim_cmd_parse.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; zanim_cmd_tick.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; zanim_menu.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zAnim; zin_cheats.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zInput; zmath_main.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zMath; zmath_matrix.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zMath; zmath_pnt3d.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zMath; zmath_pnt4d.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zMath; zNetDme.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNetwork; zNetMedius.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNetwork; zNetVoice.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zNetwork; zparticle.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; zparticle_buf.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; zparticle_instance.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; zparticle_source.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zParticle; zrdr_archive.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; zrdr_parse.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zReader; zrndr_pipe.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zRender; zsav_manager.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSave; zsnd_csnd.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSound; zsnd_csndinstance.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSound; zsnd_jukebox.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSound; zsys_sched.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zSystem; ztex_manager.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zTexture; zui.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zUI; zui_2d.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zUI; zwep_ammo.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon; zwep_explosive.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon; zwep_global.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon; zwep_projectile.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon; zwep_weapon.cpp has no original ELF path; only a provisional file of that name lies in src/gamez/zWeapon",
@@ -164374,8 +165617,165 @@
         "socom:work:source-data-bss",
         "socom:work:source-correlation-apply-route"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "apply-check ok 0 problems (146 files, 666 annotations: 173 own defines + data reconciles); plan validate --check ok; annotate --check 0 drift; scripted git check: 109 changed files gain only plan-ordered generated blocks, authored content byte-identical to HEAD, 37 recorded files unchanged (blocks already present), 5 empty own blocks on plan-created paths, no own block outside recorded set; batch audits source-trace ok (0 errors), docblocks ok (8920 edges)",
+        "progress apply-source-plan record (see item evidence)",
+        "source-annotations-sha256:fbda85eca08981c6e063b9177dfcbeda3754ebe7d42e7beee2d8e318fee42fa2 count:666",
+        "source-file src/Apps/FTS/game/database.cpp sha256:8528ef007bc752cd009b99ba5f736a43f8747a8ad3f82b68cb9628bebf312baf",
+        "source-file src/Apps/FTS/game/orders.cpp sha256:bad6a5cfb847b7f57e68c7a5b4de64f92b3319a65ee33d0990a6e8edd87820a1",
+        "source-file src/Apps/FTS/game/reco.cpp sha256:21d4ec56138c6a2d3e2ef7f32d06589311deb3d6d4b1fa4dc8c3a0200d98e8e9",
+        "source-file src/Apps/FTS/game/thezoom.cpp sha256:ff0396a26fada74ec6a195fe4002c5c4c8312ef671cf6e06a2780825b83b4b7c",
+        "source-file src/Apps/FTS/hud/hud_actionbitmap.cpp sha256:ff7e92db54f2a854478f9f8c7a10c082fedc237d3b7da0e0f469c74f443978da",
+        "source-file src/Apps/FTS/hud/hud_bitmapreticule.cpp sha256:86ae60f1f91e6402966d68874f4c4df718c122ef05bc477ecfa253cc47222df5",
+        "source-file src/Apps/FTS/hud/hud_bombmapitem.cpp sha256:9f333d5bcce1ff4cc5c9114ffdc20804d6efa1a067a10a0f421d90d302c2c15e",
+        "source-file src/Apps/FTS/hud/hud_claymoremapitem.cpp sha256:15435c2821b2d5ba154f97ea3546725a14203c2f8e08fff2869dfa9b0faef166",
+        "source-file src/Apps/FTS/hud/hud_devtext.cpp sha256:b205c3917d7e2b6a96b3a5c17f0f580d1a198b6a29d7f886294cdbf172acd1ea",
+        "source-file src/Apps/FTS/hud/hud_fader.cpp sha256:48ee2eaa17da6a6fa947a6222466a44431de3256a2e7b526cf734b166e132118",
+        "source-file src/Apps/FTS/hud/hud_ingame_weaponsel.cpp sha256:b18d453519375225d937727704ed42bf9b999781db48dfddf3d1d0f7395fa32e",
+        "source-file src/Apps/FTS/hud/hud_lensflare.cpp sha256:4b94289c809dd64eeae53291b6ac49f159127e60b1b9f969e563666361878ee3",
+        "source-file src/Apps/FTS/hud/hud_letterbox.cpp sha256:f7abc8950ee0d76b22a9f433eb3173d9d8db9f54b0dd50bac7ec51cb7a7634ad",
+        "source-file src/Apps/FTS/hud/hud_linemap.cpp sha256:6a847feaf7b0575dac996eecebc92eedde2d64b26ce2b4d05bedb04dfcfa0ad6",
+        "source-file src/Apps/FTS/hud/hud_main.cpp sha256:a2dfed3e643b74db13ed911560af689ab67406367613be848fd6b7e05b7ab631",
+        "source-file src/Apps/FTS/hud/hud_mapcompass.cpp sha256:092abd4b7ac816aa907ea1dab7be7cbe531ac057b187418c7a55f480954707cc",
+        "source-file src/Apps/FTS/hud/hud_missioncams.cpp sha256:588392f5a26e9878c00bb5fc36a9b653fd14fcb165ce7fe49c32902ddf2d6be5",
+        "source-file src/Apps/FTS/hud/hud_newhudmap.cpp sha256:f31d082cf7e2e3e78a7fe3c61b86954d64d1c147071adc03a8aadb406eb952de",
+        "source-file src/Apps/FTS/hud/hud_objectives.cpp sha256:ca76e61755dcc743b460855e065cf4cc33bb0e8b6822578cfe23eb157648878b",
+        "source-file src/Apps/FTS/hud/hud_pausemenu.cpp sha256:326e7ca59f368e2e1f03b51c71fb87b7669342b0adbbdd354b26545c88572cf7",
+        "source-file src/Apps/FTS/hud/hud_playermapitem.cpp sha256:b87190dcec344ef06df4393a19120209c6dbb75c0d443b453042af7ac6a955d3",
+        "source-file src/Apps/FTS/hud/hud_posebitmap.cpp sha256:0a1865a79b4a3b3954e8660622d83c019181f81ad261a0332ca71048f6055306",
+        "source-file src/Apps/FTS/hud/hud_scorepopup.cpp sha256:feaa0af00a10da0f0e5dfa18860b8c8c5d7c99fd15a8e273e58127cff61c73d3",
+        "source-file src/Apps/FTS/hud/hud_teammatenames.cpp sha256:c58c529698c18ee57c9db144e6c4f146ea4e88a0da9ab25bb7d9404c30f246ae",
+        "source-file src/Apps/FTS/hud/hud_teamnames.cpp sha256:405ad000d89b0af14a0bd3fef505eb634f8801619b48c972d3c0c947a137c0b6",
+        "source-file src/Apps/FTS/hud/hud_weaponsel.cpp sha256:fc529db322aeaba59de0575ca2a7d5d6e229cb7e5e553b5ba1c62295f41bb3e1",
+        "source-file src/Apps/FTS/main.cpp sha256:8c85642bb2b4844b81540131ab2d24361860669971279147d9e9d82fabacca7b",
+        "source-file src/Apps/FTS/options.cpp sha256:6d1a41be1ba3558af0562c7b8470d380d394bacd625858c41bb18c1aad49dd11",
+        "source-file src/Apps/FTS/state/st_core.cpp sha256:907b76fcd3b482c1fd2f4b0497e5923cad1913c9d79f26fd2b824f1f31846ba9",
+        "source-file src/Apps/FTS/state/st_exit.cpp sha256:dd50bf5f5c2eaf2d184d3288293fc0c7150d20d9a9b965a1700a41a835373992",
+        "source-file src/Apps/FTS/state/st_load.cpp sha256:6a4131d764897407166c76bb03a094ee9474a0332026d031dd38b6873d995e65",
+        "source-file src/Apps/FTS/state/st_menu.cpp sha256:75a2fdb668b921e928ec1f8b98ff09eb8c8b28ce43a9222fcf8ad2e292f405f4",
+        "source-file src/Apps/FTS/state/st_mpexit.cpp sha256:50577f3ff28cc5e281e531dc1e5071d6600d5d971b8d0bfc2e5ece3bd951cd68",
+        "source-file src/gamez/zAI/ai_astar.cpp sha256:f9cd66a064c82c3e5e0cf9e2979a0778f8b601133076f3027fa2c25a2cdd162f",
+        "source-file src/gamez/zAI/ai_events.cpp sha256:d039db80a536a7f8888eb981cb2e0698a6f26935255ac2b5dbba49151cf8299f",
+        "source-file src/gamez/zAI/ai_map.cpp sha256:a8982ea34e6b5541eb778cbd1328453c981442ba788a51e8970d61d7ed37ba20",
+        "source-file src/gamez/zAI/ai_maps.cpp sha256:ff8ffc5989b06c4ccd9fa095ae0afeaea3c543e288d5c24db849392f431a7088",
+        "source-file src/gamez/zAI/ai_path.cpp sha256:e632f9724af2812e12b1fc38ed74b0d6a1a392e1f4748c082fbada422cf7652c",
+        "source-file src/gamez/zAI/ai_vismap.cpp sha256:5674e30de3fd6468522d5f6003c086469814387fcc90be29eb20179f0f424757",
+        "source-file src/gamez/zAnim/anim.cpp sha256:7f670c573e3d98fed41820b2f9d6bd3a9c7e8dfba5e1a263c9dbba1d1e21ab96",
+        "source-file src/gamez/zAnim/anim_main.cpp sha256:e17524c6b4e6cf2d25ba39fa34190b40dbede05e6cdb10835e6fd066707b2b34",
+        "source-file src/gamez/zAnim/zanim_anim.cpp sha256:d55ad359113a84961493f58127cbced18929b7c58f936849a98d3f02cfd2ff55",
+        "source-file src/gamez/zAnim/zanim_cmd_parse.cpp sha256:7750b839c97b9432149897f7864b2083b50478ccc97e1ab342eb466080dc4971",
+        "source-file src/gamez/zAnim/zanim_cmd_tick.cpp sha256:9a00e072aa8d6765a3885c6f0bbde22d91c3e2c4d59c1df0a77db620d04413a4",
+        "source-file src/gamez/zAnim/zanim_menu.cpp sha256:d6bb504b0bf3de4f0e5d75facab424ea8097d3b2f85da2f837e51db0ae7ceca8",
+        "source-file src/gamez/zBody/body.cpp sha256:7dd30858fbde3c9df2ece79b4c76e9ed024a96f795922e620748637d2fe287ce",
+        "source-file src/gamez/zBone/bone_init.cpp sha256:b044e1e6ecd3dbe8eedb3be3d65d4ec6abc403d401a5bbe3f618653d73b787e7",
+        "source-file src/gamez/zCamera/camera.cpp sha256:e16bb5ff7dbac0559ef6f394e38e2809c5c21eaedcbed623a4ac2e3499c80fc4",
+        "source-file src/gamez/zCharacter/char_type.cpp sha256:3d50033cc2f6bb314d2c9c785589ebad1f9ae38e58461e9f816de0e92e8ed2bc",
+        "source-file src/gamez/zConsole/con_ps2.cpp sha256:827d26ce9a8206c5be51e39086e9ca09c80335e08b0dd80042c4e21e34e43de1",
+        "source-file src/gamez/zEntity/ent_main.cpp sha256:b118a14c5a6de4fc273c11a268497ccce12d852c498ae0b25e4989fb96013cdb",
+        "source-file src/gamez/zEntity/ent_target.cpp sha256:c54be401cbf88a2f53330304dad2dfe7c41b71d29980c3a28da049e7a0e1ae4a",
+        "source-file src/gamez/zEntity/pickup_main.cpp sha256:f34f40dba483d6d8100ba87db6c5cf238cf38411396f1d5df1a306f82a244544",
+        "source-file src/gamez/zFTS/fts_action.cpp sha256:ff8668884ebe63293489c5ec676648d92f1fa03d1c7a6e3b56a5b1bd90983e01",
+        "source-file src/gamez/zFTS/fts_controller.cpp sha256:b1416dccd8d7884a38b2beffb8f06ea6f1f35e294f649aeecf249e3a42d0fb20",
+        "source-file src/gamez/zFTS/fts_main.cpp sha256:25b666f4073004d4bc799f5f1bace5e83602636f1538ebc4bee1ccb1e3d7d44d",
+        "source-file src/gamez/zFTS/fts_mission.cpp sha256:7324d55b8874092de4e940d7d85e4a35c22fa44bbde4dfbfdec13c582bcfe9f6",
+        "source-file src/gamez/zFTS/fts_missioncam.cpp sha256:a73bc6f8aa19e5c30bce6d89351fc8964515eb3ed1f68376849e5e27b6e3ecdd",
+        "source-file src/gamez/zFTS/fts_net_bomb.cpp sha256:f6e8d07c6202b031409a22712ed2eb8df738f9d6fc9adee710b18011e224fecc",
+        "source-file src/gamez/zFTS/fts_net_game.cpp sha256:3096501b0dd8a362a745d6b51165f5c494db5cc2e84e00efe55a4c8b71ee2beb",
+        "source-file src/gamez/zFTS/fts_net_grenade.cpp sha256:1b5f027c76d2bd280f3341ccaaeca9d40c55add82b59658844ed3b64646620a8",
+        "source-file src/gamez/zFTS/fts_net_persona.cpp sha256:4fffc1844fdbb7a192a732c6e6d74be8f1bfbeeae90bdf60581db728c987a589",
+        "source-file src/gamez/zFTS/fts_net_seal.cpp sha256:b1010077bc9d2c51fd7e999d9dfedfc34699a16f54f972a6ee46b0cd60df8357",
+        "source-file src/gamez/zFTS/fts_objectivecam.cpp sha256:bb52cc7122b486a96d379f79db9cb7205394c2b1bb1df0227dea96b1c0aa7d72",
+        "source-file src/gamez/zFTS/fts_player.cpp sha256:b7f26722e585431fc941ef2c8ad5202470931b852e892e609a4d1071a18ed8d8",
+        "source-file src/gamez/zFTS/fts_remote.cpp sha256:9c1f3c9e6aef6f3a440c46350a29473d660ce929aae99b537fff760bb2655e14",
+        "source-file src/gamez/zGame/game_engine.cpp sha256:443828f81f75a1d3bbd6294c85b59ed7c1ad812acf9e61a76e71a8f05677ea79",
+        "source-file src/gamez/zGame/game_main.cpp sha256:c85880f03c55b5c37081e9cd981363f359adc5fe63930d48366c7e12a3190f0e",
+        "source-file src/gamez/zGame/game_state.cpp sha256:9cba42bdbb2bae67bd52623c8a51893a68a5a32eb1851d1b5333561aa4a55732",
+        "source-file src/gamez/zGraph/graph_tree.cpp sha256:d9d3204c8009999bf3058f97b629348931ef29bd272e5a89a1979ef1b1e0f9a9",
+        "source-file src/gamez/zGrid/grid_clutter.cpp sha256:e35c96da72626ff30cafdb74beff8fc250d7a3fb42b195678f66981a13dbff14",
+        "source-file src/gamez/zGrid/grid_di.cpp sha256:1d0f880958d918eceba6db37d655f092a4f26c27ec6be517d9b3752e0456329c",
+        "source-file src/gamez/zInput/remote_control.cpp sha256:9334cba5cad972900069e1bf09c880f21805ac46a78112abb6641a33a10953cd",
+        "source-file src/gamez/zInput/zin_cheats.cpp sha256:ce6028ab1e227c2523fcf79702a934e09dda66eb0cc639eeb8cdbf322caa2e14",
+        "source-file src/gamez/zIntersect/int_material.cpp sha256:65bfe77867dec1d105528845daf24db52f023d079a64b46a08da72273517b017",
+        "source-file src/gamez/zMath/zmath_main.cpp sha256:b4326478f448a4b21a4a8bba0a572a1ffe8b9b24efba876d5731b089e8d01116",
+        "source-file src/gamez/zMath/zmath_matrix.cpp sha256:cd66162d755ed42414d3aca8d3ae7a79cbe5e0565b43f074333103df49060138",
+        "source-file src/gamez/zMath/zmath_pnt3d.cpp sha256:2b859b6ca7cab1725d58b6017f467423fbd687a3eef6b831819b34587a834527",
+        "source-file src/gamez/zMath/zmath_pnt4d.cpp sha256:7ffa545b75bee9ef6629b823fd7b48a6124c5737fbdf19f1ed7372cda20bab74",
+        "source-file src/gamez/zNetwork/zNetCnf.cpp sha256:a20e6f65f637938cf94f262381fa665b2c483fb0bbc71144e3fb1d3e84b6e1d6",
+        "source-file src/gamez/zNetwork/zNetDme.cpp sha256:f6867d0d5c7c099ceedc332ec08f3059edef1de35644db535c096f8a2825c20d",
+        "source-file src/gamez/zNetwork/zNetMedius.cpp sha256:ab7d2df87d638e5970f44b7067e92d7e5a37c939629914a150949558c86259d1",
+        "source-file src/gamez/zNetwork/zNetVoice.cpp sha256:7b82b589cdb75b3659aba3cf873cfe7fe835aa52aea704de38cc038730e81fa2",
+        "source-file src/gamez/zNode/node_assetlib.cpp sha256:9d4847c45098be1c5cdbd235d4ca5486a1b8f3a59f5ada9f50a1324119467279",
+        "source-file src/gamez/zNode/node_main.cpp sha256:9e6f9f6d117a3086a66e5d297098f7f080342f0086e615d4753bdb29b28c36be",
+        "source-file src/gamez/zNode/node_shadow.cpp sha256:dd15414111840103f4766b623cb2fefbd6c72261480da17682e8e791a3026152",
+        "source-file src/gamez/zNode/node_util.cpp sha256:c18064e198fc5729119b0c061aace47ff98fb83695c663e0b226e437aa9a8f85",
+        "source-file src/gamez/zNode/node_wave.cpp sha256:2598c4b379668921d38ae061309f2ae60b570801d101f73759d79fbf20972f39",
+        "source-file src/gamez/zNode/node_world.cpp sha256:9e98e5bd585a7e22553f73a92a30ca63da30864222a996182e1da3e0cc3fdf45",
+        "source-file src/gamez/zParticle/zparticle.cpp sha256:a53ebc67f0d011522cb39195e1f9df5f1a8c5dfd103056b75f84246472f34ca6",
+        "source-file src/gamez/zParticle/zparticle_buf.cpp sha256:055452ac8d2a652780f80d9cb72669cc4646da85745a68f3122cacfc030c9f76",
+        "source-file src/gamez/zParticle/zparticle_instance.cpp sha256:f00e95fd6653083d2a79cbcba67c11bacf4117041d81dec3690c12985b17287f",
+        "source-file src/gamez/zParticle/zparticle_source.cpp sha256:4577f7b4a85d01f8fff9f8aac9886d89cdd0ee0dab97b630aff21498e6b4cbb2",
+        "source-file src/gamez/zReader/zrdr_archive.cpp sha256:061d8ba9be86ce519f54d10a03ceb0ac3b438451fe332b5ff4427486dcb0b7fd",
+        "source-file src/gamez/zReader/zrdr_parse.cpp sha256:d98b13d236eb69d6b04b4c1b20de5af96846c05c4f4d50276d7c81409bf14e24",
+        "source-file src/gamez/zRender/zrndr_init.cpp sha256:5fc3a1c3294f01bb2b22f7df86986339174f929a5aa75c4d42929c6041887d42",
+        "source-file src/gamez/zRender/zrndr_pipe.cpp sha256:f04508b4755d9c9a591da1a2afed413415e75d573b6923ae667f8399e87aa358",
+        "source-file src/gamez/zSave/zsav_manager.cpp sha256:2213db0c9694e584d07b807dd0d6b94ded1132cce390d4a8145f3aa84b809aa1",
+        "source-file src/gamez/zSeal/seal.cpp sha256:3762f394408e9fe4f9897f8333188a9715c81214ae2cee5af795b7cc714d46a8",
+        "source-file src/gamez/zSeal/seal_ai.cpp sha256:5d762366d62a1c09e5cc1e6e5950478fc4ae7fea6d4e1de68de5548c4e00bbfb",
+        "source-file src/gamez/zSeal/seal_aievent.cpp sha256:232ad18516c6cd465b69fde571cf8712969992d0812d77a2ec9ccd8a33dbd208",
+        "source-file src/gamez/zSeal/seal_aifollow.cpp sha256:a8191956279b436a1e3c4bcb0d590c68f6c31d7aaca81129e8890a3052b9840f",
+        "source-file src/gamez/zSeal/seal_ailines.cpp sha256:f3cd8ded0ff6d9cc1c7bf43eb4fe575c0b07166b248566ff06c0e0a651e82431",
+        "source-file src/gamez/zSeal/seal_aimoves.cpp sha256:1caf163c58af4d83c9a963fb97c09c74137961c8b47cc9c58cebcccf8c25b0a1",
+        "source-file src/gamez/zSeal/seal_airesponse.cpp sha256:5cf3eba266c9d60f9b76d72c901ae7b557b5f88cd10216e75aacff6a7b973c97",
+        "source-file src/gamez/zSeal/seal_aiscan.cpp sha256:fa2308c75a298090af37e09dfb11cd7479692490fb0acab5b1e6264b263b58b0",
+        "source-file src/gamez/zSeal/seal_aistate.cpp sha256:921607d20596874e69e12b4d699a8c1d1cb9917944f64eb222f02a66e59bd686",
+        "source-file src/gamez/zSeal/seal_anim.cpp sha256:4ac39f6a0b03a6385a03254c5c27e629c711ce0b70f9421333a40d367e1fef04",
+        "source-file src/gamez/zSeal/seal_body.cpp sha256:44d87a18c61561e637610f8dc8994c4b503684ec9097c6e5429fa858633e140a",
+        "source-file src/gamez/zSeal/seal_cfg.cpp sha256:893db1f5512a341791f4f321e07d26159e90dd4a95ccf8dc244be0b11442d971",
+        "source-file src/gamez/zSeal/seal_command.cpp sha256:55981bb0c8988676e2e4db368df60be6098c0ece90f8f7c4e31526937fbb0ac6",
+        "source-file src/gamez/zSeal/seal_control.cpp sha256:430e505406821db9aeb37abbd9d2a648647b87fae67a81322bdb1ebe593b2b6c",
+        "source-file src/gamez/zSeal/seal_create.cpp sha256:28f0eff34704d6ecc1cc6087bb076c93e5a38b60d0e36b67e99067f9c0841257",
+        "source-file src/gamez/zSeal/seal_dyn.cpp sha256:a8e5b4b287dd8ea7e5647986e20102e802521adb52c48c5248d1e9eb09699022",
+        "source-file src/gamez/zSeal/seal_env.cpp sha256:f30fff9c38bbc70c9fb2cbb3b1ee522305829505cbb14005404f3b70d3a82391",
+        "source-file src/gamez/zSeal/seal_ex.cpp sha256:09aece8654e9e6c3bc64982e5573dd12fc8ce915ffd9f9e32668eee1d47534f0",
+        "source-file src/gamez/zSeal/seal_handsig.cpp sha256:603e5ab4916f16073c1fd3431dcd819611f191ee199d6721652b5de8e24b0052",
+        "source-file src/gamez/zSeal/seal_ik.cpp sha256:6191e9c189a6575ce08eebc1d1796bf0331eb81ae81e1931cde3f8ade5345726",
+        "source-file src/gamez/zSeal/seal_kit.cpp sha256:7ffdb8d3e1e5ae7135a17e71e47abcaff49b09277ee2348b846e1e03809e29bf",
+        "source-file src/gamez/zSeal/seal_sensors.cpp sha256:9458308585a09d76daf9e521551f7ffac3208537d79f562549b0b2b9dc6d6b4d",
+        "source-file src/gamez/zSeal/seal_squirm.cpp sha256:f7b94ebb8ce6c118699470b6551f731ed918a7194b3a81967a85005e9c3e202e",
+        "source-file src/gamez/zSeal/seal_tasks.cpp sha256:f7de3d8ae9a13ef7aa3f2d3af98ff755455b8a7862257f96be0c4843b8cb85e4",
+        "source-file src/gamez/zSeal/seal_unit.cpp sha256:8ff74ef6c40fa25629f2b3312dab6ec6f6766f80e399c4a99d02530902d38245",
+        "source-file src/gamez/zSeal/seal_weapon.cpp sha256:7b8d6f55a1f87a3f963d47740b783ec303e48e2fa4db5cc0d5d4cc6c14fa544a",
+        "source-file src/gamez/zSoftImage/si_object.cpp sha256:2bdeb76898b4adefa24a54fd581283232f8b776d8a8f17210829b6dd1c924f18",
+        "source-file src/gamez/zSoftImage/si_script.cpp sha256:d5b70027a0b8f43e5a65ce8fdb5628db0ef2304e087de22edbbc9cabba4e12a6",
+        "source-file src/gamez/zSound/zsnd_csnd.cpp sha256:8ebeb2574ff405386fa56ea8957bee9a3ff87f5d391288c790768086c7d3612e",
+        "source-file src/gamez/zSound/zsnd_csndinstance.cpp sha256:5b4b3bdc4ff8ddf54effaca31b539680b59b1156fe5692e6bc5cc652bbe4326f",
+        "source-file src/gamez/zSound/zsnd_jukebox.cpp sha256:eb4c9f1e7fe6f194aaee326e8b8f6708432599954b4d82d065087a047433311f",
+        "source-file src/gamez/zSystem/zsys_init.cpp sha256:a6eb49b08ed0401abd191b2e54a9131ab5bab3c769b7c2dbba8f542aaf4abc29",
+        "source-file src/gamez/zSystem/zsys_sched.cpp sha256:fe45b549ad2705c526a3c54ab465f33ee29830e631c46542ae6897dd02213a2f",
+        "source-file src/gamez/zTexture/ztex_manager.cpp sha256:0a0ee3152d4c0c8580eee601b350d9924a2ac82a7d551a89873e34aa6f3c02e3",
+        "source-file src/gamez/zUI/zui.cpp sha256:a9ab028df03b83f9567f427a5e21f90c5dba7bae34d32577517e82db7fc9a2c7",
+        "source-file src/gamez/zUI/zui_2d.cpp sha256:1578816aee78a932c6931b37119412facf64eb2d65ef0ed121b11369a8ddd464",
+        "source-file src/gamez/zUI/zui_skb.cpp sha256:d9efae2d4e7b6bef6b5dda8179c71e4ff4f3bf6c74cb9f0d2e33a376193710ab",
+        "source-file src/gamez/zValve/valve_list.cpp sha256:758ec587bb2bc5a808085039a841742570f6163f3f9d97ae13131304242ef774",
+        "source-file src/gamez/zVehicle/veh_turret.cpp sha256:39befb7f6211b82d2fc4775676744aedd6276d44d0867848a00a29d6a1349e3c",
+        "source-file src/gamez/zVideo/zvid_init.cpp sha256:975de9e891004f0dfc6cd8c6f0da494493213fe4f2422ad2e084b2c97b997030",
+        "source-file src/gamez/zVisual/vis_decal.cpp sha256:e07d0f2786fb643a88a9918eba00598381772eb31c2a64a51e14b5b6be045a34",
+        "source-file src/gamez/zVisual/vis_main.cpp sha256:625ef0671aff08d350ac22576252fe377e853612f583ec39fd4dfd819e947e42",
+        "source-file src/gamez/zVisual/vis_texfx.cpp sha256:85d83bb1e709c805a7c4e6fb13cedf26ae5e71ede2298bd06592c56e13e74ec6",
+        "source-file src/gamez/zWeapon/zwep_ammo.cpp sha256:d2bd388cdd2308b7546667d784542341c9c6ca3ee514d7b26512e04ef4836a0d",
+        "source-file src/gamez/zWeapon/zwep_explosive.cpp sha256:1137f4fef6caf95acfdf4f8bb435b8d2e7159547537115b1e2b27e08b2f8ee22",
+        "source-file src/gamez/zWeapon/zwep_global.cpp sha256:5825317508d86d2bc98fc9f3f4c3f53cca0bb128b254fadcfdd6fd609d719c70",
+        "source-file src/gamez/zWeapon/zwep_projectile.cpp sha256:2692a36accd928df65fd75abe3c7a6bd35614faf84d8cbdde9c53962f575474a",
+        "source-file src/gamez/zWeapon/zwep_weapon.cpp sha256:422d91423fc0c08f3404c42cd00963b23c7cc8a68aaaa6f175bade315db5bee6",
+        "source-owner-map-sha256:0e686aec9012826f148627061c88b3d96efe9b8452c36bee5510b277b2de7f45",
+        "source-plan build/source-plans/socom-work-source-segment-076.json sha256:05825fad746f854d5fe8d5330dff0732f2e16686c42c4c0fee5fe16fd544e664",
+        "source-reservation corrected src/Apps/FTS, src/gamez/zAI, src/gamez/zAnim, src/gamez/zBody, src/gamez/zBone, src/gamez/zCamera, src/gamez/zCharacter, src/gamez/zConsole, src/gamez/zEntity, src/gamez/zFTS, src/gamez/zGame, src/gamez/zGraph, src/gamez/zGrid, src/gamez/zInput, src/gamez/zIntersect, src/gamez/zMath, src/gamez/zNetwork, src/gamez/zNode, src/gamez/zParticle, src/gamez/zReader, src/gamez/zRender, src/gamez/zSave, src/gamez/zSeal, src/gamez/zSoftImage, src/gamez/zSound, src/gamez/zSystem, src/gamez/zTexture, src/gamez/zUI, src/gamez/zValve, src/gamez/zVehicle, src/gamez/zVideo, src/gamez/zVisual, src/gamez/zWeapon"
+      ],
+      "handoff": {
+        "owner": "socom-source-worker-b6",
+        "submitted_at": "2026-11-01T04:08:01Z",
+        "summary": "apply of segment-076: 666 annotations, 146 files, 0 created, 0 moved, 0 retired"
+      },
       "id": "socom:work:source-segment-076-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -164383,9 +165783,11 @@
         "src/Apps/FTS",
         "src/gamez/zAI",
         "src/gamez/zAnim",
+        "src/gamez/zBody",
         "src/gamez/zBone",
         "src/gamez/zCamera",
         "src/gamez/zCharacter",
+        "src/gamez/zConsole",
         "src/gamez/zEntity",
         "src/gamez/zFTS",
         "src/gamez/zGame",
@@ -164407,12 +165809,948 @@
         "src/gamez/zTexture",
         "src/gamez/zUI",
         "src/gamez/zValve",
+        "src/gamez/zVehicle",
+        "src/gamez/zVideo",
         "src/gamez/zVisual",
         "src/gamez/zWeapon"
       ],
       "selection": "artifacts",
+      "source_apply": {
+        "annotation_count": 666,
+        "annotations_sha256": "fbda85eca08981c6e063b9177dfcbeda3754ebe7d42e7beee2d8e318fee42fa2",
+        "applied_at": "2026-11-01T04:07:58Z",
+        "applied_by": "socom-source-worker-b6",
+        "changed": [
+          "src/Apps/FTS/game/database.cpp",
+          "src/Apps/FTS/game/orders.cpp",
+          "src/Apps/FTS/game/reco.cpp",
+          "src/Apps/FTS/game/thezoom.cpp",
+          "src/Apps/FTS/hud/hud_actionbitmap.cpp",
+          "src/Apps/FTS/hud/hud_bitmapreticule.cpp",
+          "src/Apps/FTS/hud/hud_bombmapitem.cpp",
+          "src/Apps/FTS/hud/hud_claymoremapitem.cpp",
+          "src/Apps/FTS/hud/hud_devtext.cpp",
+          "src/Apps/FTS/hud/hud_fader.cpp",
+          "src/Apps/FTS/hud/hud_ingame_weaponsel.cpp",
+          "src/Apps/FTS/hud/hud_lensflare.cpp",
+          "src/Apps/FTS/hud/hud_letterbox.cpp",
+          "src/Apps/FTS/hud/hud_linemap.cpp",
+          "src/Apps/FTS/hud/hud_main.cpp",
+          "src/Apps/FTS/hud/hud_mapcompass.cpp",
+          "src/Apps/FTS/hud/hud_missioncams.cpp",
+          "src/Apps/FTS/hud/hud_newhudmap.cpp",
+          "src/Apps/FTS/hud/hud_objectives.cpp",
+          "src/Apps/FTS/hud/hud_pausemenu.cpp",
+          "src/Apps/FTS/hud/hud_playermapitem.cpp",
+          "src/Apps/FTS/hud/hud_posebitmap.cpp",
+          "src/Apps/FTS/hud/hud_scorepopup.cpp",
+          "src/Apps/FTS/hud/hud_teammatenames.cpp",
+          "src/Apps/FTS/hud/hud_teamnames.cpp",
+          "src/Apps/FTS/hud/hud_weaponsel.cpp",
+          "src/Apps/FTS/main.cpp",
+          "src/Apps/FTS/options.cpp",
+          "src/Apps/FTS/state/st_core.cpp",
+          "src/Apps/FTS/state/st_exit.cpp",
+          "src/Apps/FTS/state/st_load.cpp",
+          "src/Apps/FTS/state/st_menu.cpp",
+          "src/Apps/FTS/state/st_mpexit.cpp",
+          "src/gamez/zAnim/anim.cpp",
+          "src/gamez/zAnim/zanim_anim.cpp",
+          "src/gamez/zAnim/zanim_cmd_parse.cpp",
+          "src/gamez/zAnim/zanim_cmd_tick.cpp",
+          "src/gamez/zAnim/zanim_menu.cpp",
+          "src/gamez/zBody/body.cpp",
+          "src/gamez/zCamera/camera.cpp",
+          "src/gamez/zConsole/con_ps2.cpp",
+          "src/gamez/zFTS/fts_action.cpp",
+          "src/gamez/zFTS/fts_main.cpp",
+          "src/gamez/zFTS/fts_mission.cpp",
+          "src/gamez/zFTS/fts_missioncam.cpp",
+          "src/gamez/zFTS/fts_net_bomb.cpp",
+          "src/gamez/zFTS/fts_net_game.cpp",
+          "src/gamez/zFTS/fts_net_grenade.cpp",
+          "src/gamez/zFTS/fts_net_persona.cpp",
+          "src/gamez/zFTS/fts_net_seal.cpp",
+          "src/gamez/zFTS/fts_objectivecam.cpp",
+          "src/gamez/zFTS/fts_player.cpp",
+          "src/gamez/zFTS/fts_remote.cpp",
+          "src/gamez/zGame/game_engine.cpp",
+          "src/gamez/zGraph/graph_tree.cpp",
+          "src/gamez/zGrid/grid_clutter.cpp",
+          "src/gamez/zInput/remote_control.cpp",
+          "src/gamez/zMath/zmath_main.cpp",
+          "src/gamez/zMath/zmath_matrix.cpp",
+          "src/gamez/zMath/zmath_pnt4d.cpp",
+          "src/gamez/zNetwork/zNetCnf.cpp",
+          "src/gamez/zNode/node_world.cpp",
+          "src/gamez/zParticle/zparticle.cpp",
+          "src/gamez/zParticle/zparticle_buf.cpp",
+          "src/gamez/zParticle/zparticle_instance.cpp",
+          "src/gamez/zParticle/zparticle_source.cpp",
+          "src/gamez/zRender/zrndr_init.cpp",
+          "src/gamez/zRender/zrndr_pipe.cpp",
+          "src/gamez/zSeal/seal.cpp",
+          "src/gamez/zSeal/seal_ai.cpp",
+          "src/gamez/zSeal/seal_aievent.cpp",
+          "src/gamez/zSeal/seal_aifollow.cpp",
+          "src/gamez/zSeal/seal_ailines.cpp",
+          "src/gamez/zSeal/seal_aimoves.cpp",
+          "src/gamez/zSeal/seal_airesponse.cpp",
+          "src/gamez/zSeal/seal_aiscan.cpp",
+          "src/gamez/zSeal/seal_aistate.cpp",
+          "src/gamez/zSeal/seal_anim.cpp",
+          "src/gamez/zSeal/seal_body.cpp",
+          "src/gamez/zSeal/seal_cfg.cpp",
+          "src/gamez/zSeal/seal_command.cpp",
+          "src/gamez/zSeal/seal_control.cpp",
+          "src/gamez/zSeal/seal_create.cpp",
+          "src/gamez/zSeal/seal_dyn.cpp",
+          "src/gamez/zSeal/seal_env.cpp",
+          "src/gamez/zSeal/seal_ex.cpp",
+          "src/gamez/zSeal/seal_handsig.cpp",
+          "src/gamez/zSeal/seal_ik.cpp",
+          "src/gamez/zSeal/seal_kit.cpp",
+          "src/gamez/zSeal/seal_sensors.cpp",
+          "src/gamez/zSeal/seal_squirm.cpp",
+          "src/gamez/zSeal/seal_tasks.cpp",
+          "src/gamez/zSeal/seal_unit.cpp",
+          "src/gamez/zSeal/seal_weapon.cpp",
+          "src/gamez/zSystem/zsys_init.cpp",
+          "src/gamez/zTexture/ztex_manager.cpp",
+          "src/gamez/zUI/zui.cpp",
+          "src/gamez/zUI/zui_2d.cpp",
+          "src/gamez/zUI/zui_skb.cpp",
+          "src/gamez/zVehicle/veh_turret.cpp",
+          "src/gamez/zVideo/zvid_init.cpp",
+          "src/gamez/zVisual/vis_main.cpp",
+          "src/gamez/zWeapon/zwep_explosive.cpp",
+          "src/gamez/zWeapon/zwep_projectile.cpp",
+          "src/gamez/zWeapon/zwep_weapon.cpp"
+        ],
+        "created": [],
+        "files": [
+          {
+            "content_sha256": "d2a1ed9a60bbceecd31a488335a90487fddf7fcaef370a05565e728a73f70b6e",
+            "path": "src/Apps/FTS/game/database.cpp",
+            "sha256": "8528ef007bc752cd009b99ba5f736a43f8747a8ad3f82b68cb9628bebf312baf"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/game/orders.cpp",
+            "sha256": "bad6a5cfb847b7f57e68c7a5b4de64f92b3319a65ee33d0990a6e8edd87820a1"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/game/reco.cpp",
+            "sha256": "21d4ec56138c6a2d3e2ef7f32d06589311deb3d6d4b1fa4dc8c3a0200d98e8e9"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/game/thezoom.cpp",
+            "sha256": "ff0396a26fada74ec6a195fe4002c5c4c8312ef671cf6e06a2780825b83b4b7c"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_actionbitmap.cpp",
+            "sha256": "ff7e92db54f2a854478f9f8c7a10c082fedc237d3b7da0e0f469c74f443978da"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_bitmapreticule.cpp",
+            "sha256": "86ae60f1f91e6402966d68874f4c4df718c122ef05bc477ecfa253cc47222df5"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_bombmapitem.cpp",
+            "sha256": "9f333d5bcce1ff4cc5c9114ffdc20804d6efa1a067a10a0f421d90d302c2c15e"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_claymoremapitem.cpp",
+            "sha256": "15435c2821b2d5ba154f97ea3546725a14203c2f8e08fff2869dfa9b0faef166"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_devtext.cpp",
+            "sha256": "b205c3917d7e2b6a96b3a5c17f0f580d1a198b6a29d7f886294cdbf172acd1ea"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_fader.cpp",
+            "sha256": "48ee2eaa17da6a6fa947a6222466a44431de3256a2e7b526cf734b166e132118"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_ingame_weaponsel.cpp",
+            "sha256": "b18d453519375225d937727704ed42bf9b999781db48dfddf3d1d0f7395fa32e"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_lensflare.cpp",
+            "sha256": "4b94289c809dd64eeae53291b6ac49f159127e60b1b9f969e563666361878ee3"
+          },
+          {
+            "content_sha256": "894b3eaa6204ba9740b78c85dd05246c4fe31fcbf415e2da34b3336c986695a9",
+            "path": "src/Apps/FTS/hud/hud_letterbox.cpp",
+            "sha256": "f7abc8950ee0d76b22a9f433eb3173d9d8db9f54b0dd50bac7ec51cb7a7634ad"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_linemap.cpp",
+            "sha256": "6a847feaf7b0575dac996eecebc92eedde2d64b26ce2b4d05bedb04dfcfa0ad6"
+          },
+          {
+            "content_sha256": "573a6b3732bf9297a2439fb9f3717ab4b2ab485140fb7e77a603072d39a65961",
+            "path": "src/Apps/FTS/hud/hud_main.cpp",
+            "sha256": "a2dfed3e643b74db13ed911560af689ab67406367613be848fd6b7e05b7ab631"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_mapcompass.cpp",
+            "sha256": "092abd4b7ac816aa907ea1dab7be7cbe531ac057b187418c7a55f480954707cc"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_missioncams.cpp",
+            "sha256": "588392f5a26e9878c00bb5fc36a9b653fd14fcb165ce7fe49c32902ddf2d6be5"
+          },
+          {
+            "content_sha256": "d33892224c0142bcbf821e11b8b9ca93ac20083876dffb4f161f1c608c013789",
+            "path": "src/Apps/FTS/hud/hud_newhudmap.cpp",
+            "sha256": "f31d082cf7e2e3e78a7fe3c61b86954d64d1c147071adc03a8aadb406eb952de"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_objectives.cpp",
+            "sha256": "ca76e61755dcc743b460855e065cf4cc33bb0e8b6822578cfe23eb157648878b"
+          },
+          {
+            "content_sha256": "427271f3607b71355ede0c07c75cf0794ccd6dc1e6b6c9469f128fb7fee29fad",
+            "path": "src/Apps/FTS/hud/hud_pausemenu.cpp",
+            "sha256": "326e7ca59f368e2e1f03b51c71fb87b7669342b0adbbdd354b26545c88572cf7"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_playermapitem.cpp",
+            "sha256": "b87190dcec344ef06df4393a19120209c6dbb75c0d443b453042af7ac6a955d3"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_posebitmap.cpp",
+            "sha256": "0a1865a79b4a3b3954e8660622d83c019181f81ad261a0332ca71048f6055306"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_scorepopup.cpp",
+            "sha256": "feaa0af00a10da0f0e5dfa18860b8c8c5d7c99fd15a8e273e58127cff61c73d3"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_teammatenames.cpp",
+            "sha256": "c58c529698c18ee57c9db144e6c4f146ea4e88a0da9ab25bb7d9404c30f246ae"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_teamnames.cpp",
+            "sha256": "405ad000d89b0af14a0bd3fef505eb634f8801619b48c972d3c0c947a137c0b6"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/hud/hud_weaponsel.cpp",
+            "sha256": "fc529db322aeaba59de0575ca2a7d5d6e229cb7e5e553b5ba1c62295f41bb3e1"
+          },
+          {
+            "content_sha256": "64bada65678bc84ff2359b8cc968cbb40cdb36dab07d231685188c114ffc437d",
+            "path": "src/Apps/FTS/main.cpp",
+            "sha256": "8c85642bb2b4844b81540131ab2d24361860669971279147d9e9d82fabacca7b"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/options.cpp",
+            "sha256": "6d1a41be1ba3558af0562c7b8470d380d394bacd625858c41bb18c1aad49dd11"
+          },
+          {
+            "content_sha256": "b636f5739313bab52b2e88bdb55306a043252e0c7581b1f7f125c40eccfcaf50",
+            "path": "src/Apps/FTS/state/st_core.cpp",
+            "sha256": "907b76fcd3b482c1fd2f4b0497e5923cad1913c9d79f26fd2b824f1f31846ba9"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/state/st_exit.cpp",
+            "sha256": "dd50bf5f5c2eaf2d184d3288293fc0c7150d20d9a9b965a1700a41a835373992"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/state/st_load.cpp",
+            "sha256": "6a4131d764897407166c76bb03a094ee9474a0332026d031dd38b6873d995e65"
+          },
+          {
+            "content_sha256": "dcb71f6cf34ede3adad6980dad10920ef36fbc83e9d0fca4cbb7b142053589fb",
+            "path": "src/Apps/FTS/state/st_menu.cpp",
+            "sha256": "75a2fdb668b921e928ec1f8b98ff09eb8c8b28ce43a9222fcf8ad2e292f405f4"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/state/st_mpexit.cpp",
+            "sha256": "50577f3ff28cc5e281e531dc1e5071d6600d5d971b8d0bfc2e5ece3bd951cd68"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zAI/ai_astar.cpp",
+            "sha256": "f9cd66a064c82c3e5e0cf9e2979a0778f8b601133076f3027fa2c25a2cdd162f"
+          },
+          {
+            "content_sha256": "a9ab62f05e04d7f14c1db7acfb7bdac58e49784145b806dabc94a18b581da868",
+            "path": "src/gamez/zAI/ai_events.cpp",
+            "sha256": "d039db80a536a7f8888eb981cb2e0698a6f26935255ac2b5dbba49151cf8299f"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zAI/ai_map.cpp",
+            "sha256": "a8982ea34e6b5541eb778cbd1328453c981442ba788a51e8970d61d7ed37ba20"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zAI/ai_maps.cpp",
+            "sha256": "ff8ffc5989b06c4ccd9fa095ae0afeaea3c543e288d5c24db849392f431a7088"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zAI/ai_path.cpp",
+            "sha256": "e632f9724af2812e12b1fc38ed74b0d6a1a392e1f4748c082fbada422cf7652c"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zAI/ai_vismap.cpp",
+            "sha256": "5674e30de3fd6468522d5f6003c086469814387fcc90be29eb20179f0f424757"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zAnim/anim.cpp",
+            "sha256": "7f670c573e3d98fed41820b2f9d6bd3a9c7e8dfba5e1a263c9dbba1d1e21ab96"
+          },
+          {
+            "content_sha256": "d82cd5b3dcae00da4f528ea70b4373cf607516277eb1f59f5624e026b2aefb6c",
+            "path": "src/gamez/zAnim/anim_main.cpp",
+            "sha256": "e17524c6b4e6cf2d25ba39fa34190b40dbede05e6cdb10835e6fd066707b2b34"
+          },
+          {
+            "content_sha256": "494e7c2d8a491b08b907ff43030b0a2c52d758d76229b0451f207ea46f828d7d",
+            "path": "src/gamez/zAnim/zanim_anim.cpp",
+            "sha256": "d55ad359113a84961493f58127cbced18929b7c58f936849a98d3f02cfd2ff55"
+          },
+          {
+            "content_sha256": "c90932a58291fafd3d417e23238cc0063cf806f1cd379e64ffd4dff7e0c0ee29",
+            "path": "src/gamez/zAnim/zanim_cmd_parse.cpp",
+            "sha256": "7750b839c97b9432149897f7864b2083b50478ccc97e1ab342eb466080dc4971"
+          },
+          {
+            "content_sha256": "41700b83a2fe226a38f3abc0d2978aa299a171604424791ab1b1500c817ee82e",
+            "path": "src/gamez/zAnim/zanim_cmd_tick.cpp",
+            "sha256": "9a00e072aa8d6765a3885c6f0bbde22d91c3e2c4d59c1df0a77db620d04413a4"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zAnim/zanim_menu.cpp",
+            "sha256": "d6bb504b0bf3de4f0e5d75facab424ea8097d3b2f85da2f837e51db0ae7ceca8"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zBody/body.cpp",
+            "sha256": "7dd30858fbde3c9df2ece79b4c76e9ed024a96f795922e620748637d2fe287ce"
+          },
+          {
+            "content_sha256": "0c2f6200f23538fb657ec4e15fae63bd8482e4bdf15c1cb2e5d2f064970d1c9d",
+            "path": "src/gamez/zBone/bone_init.cpp",
+            "sha256": "b044e1e6ecd3dbe8eedb3be3d65d4ec6abc403d401a5bbe3f618653d73b787e7"
+          },
+          {
+            "content_sha256": "6627d9ee180abbb2fdf27d21fc2a9565d92eea249d4e705c3566558f8b0f55c0",
+            "path": "src/gamez/zCamera/camera.cpp",
+            "sha256": "e16bb5ff7dbac0559ef6f394e38e2809c5c21eaedcbed623a4ac2e3499c80fc4"
+          },
+          {
+            "content_sha256": "6ba1acf291b595958e182fccd8eee980e4043031381215c7f6ac0583b606a3c0",
+            "path": "src/gamez/zCharacter/char_type.cpp",
+            "sha256": "3d50033cc2f6bb314d2c9c785589ebad1f9ae38e58461e9f816de0e92e8ed2bc"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zConsole/con_ps2.cpp",
+            "sha256": "827d26ce9a8206c5be51e39086e9ca09c80335e08b0dd80042c4e21e34e43de1"
+          },
+          {
+            "content_sha256": "e636bb1b5fc890d722b3ae71a02de3449c7e59980216cf09443d01c35ed7a9ee",
+            "path": "src/gamez/zEntity/ent_main.cpp",
+            "sha256": "b118a14c5a6de4fc273c11a268497ccce12d852c498ae0b25e4989fb96013cdb"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zEntity/ent_target.cpp",
+            "sha256": "c54be401cbf88a2f53330304dad2dfe7c41b71d29980c3a28da049e7a0e1ae4a"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zEntity/pickup_main.cpp",
+            "sha256": "f34f40dba483d6d8100ba87db6c5cf238cf38411396f1d5df1a306f82a244544"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zFTS/fts_action.cpp",
+            "sha256": "ff8668884ebe63293489c5ec676648d92f1fa03d1c7a6e3b56a5b1bd90983e01"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zFTS/fts_controller.cpp",
+            "sha256": "b1416dccd8d7884a38b2beffb8f06ea6f1f35e294f649aeecf249e3a42d0fb20"
+          },
+          {
+            "content_sha256": "89394d55121fdb3d93ebe7c6b3051307a6dc1b28745e29c4ff05e9f8293310c5",
+            "path": "src/gamez/zFTS/fts_main.cpp",
+            "sha256": "25b666f4073004d4bc799f5f1bace5e83602636f1538ebc4bee1ccb1e3d7d44d"
+          },
+          {
+            "content_sha256": "d167fc2845d0fc5979ddc6e58cf25131df4de22faa507cd78585571afaf92656",
+            "path": "src/gamez/zFTS/fts_mission.cpp",
+            "sha256": "7324d55b8874092de4e940d7d85e4a35c22fa44bbde4dfbfdec13c582bcfe9f6"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zFTS/fts_missioncam.cpp",
+            "sha256": "a73bc6f8aa19e5c30bce6d89351fc8964515eb3ed1f68376849e5e27b6e3ecdd"
+          },
+          {
+            "content_sha256": "36d303088a9432605b059fe0a22a4353f3a97f5556dde6b3044a4bb3fc6397cc",
+            "path": "src/gamez/zFTS/fts_net_bomb.cpp",
+            "sha256": "f6e8d07c6202b031409a22712ed2eb8df738f9d6fc9adee710b18011e224fecc"
+          },
+          {
+            "content_sha256": "e0b3843f002f4b1ce0b2a3e6d40e6657b2659f6de3d00fdbf78cd03056134b67",
+            "path": "src/gamez/zFTS/fts_net_game.cpp",
+            "sha256": "3096501b0dd8a362a745d6b51165f5c494db5cc2e84e00efe55a4c8b71ee2beb"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zFTS/fts_net_grenade.cpp",
+            "sha256": "1b5f027c76d2bd280f3341ccaaeca9d40c55add82b59658844ed3b64646620a8"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zFTS/fts_net_persona.cpp",
+            "sha256": "4fffc1844fdbb7a192a732c6e6d74be8f1bfbeeae90bdf60581db728c987a589"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zFTS/fts_net_seal.cpp",
+            "sha256": "b1010077bc9d2c51fd7e999d9dfedfc34699a16f54f972a6ee46b0cd60df8357"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zFTS/fts_objectivecam.cpp",
+            "sha256": "bb52cc7122b486a96d379f79db9cb7205394c2b1bb1df0227dea96b1c0aa7d72"
+          },
+          {
+            "content_sha256": "4fa76d8b6044618cf0f4baa9939d3199db9ca4cac46be52ce7ad12834bf5d952",
+            "path": "src/gamez/zFTS/fts_player.cpp",
+            "sha256": "b7f26722e585431fc941ef2c8ad5202470931b852e892e609a4d1071a18ed8d8"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zFTS/fts_remote.cpp",
+            "sha256": "9c1f3c9e6aef6f3a440c46350a29473d660ce929aae99b537fff760bb2655e14"
+          },
+          {
+            "content_sha256": "eed020e2bb4735a727542df8df1f506fb0ffe5ed33edf38eefdd93a99b3cda96",
+            "path": "src/gamez/zGame/game_engine.cpp",
+            "sha256": "443828f81f75a1d3bbd6294c85b59ed7c1ad812acf9e61a76e71a8f05677ea79"
+          },
+          {
+            "content_sha256": "3ab6e88ecbf374d895dc302d0a7e51cf1c64e83f974e2c578a2f07e39afaf6b0",
+            "path": "src/gamez/zGame/game_main.cpp",
+            "sha256": "c85880f03c55b5c37081e9cd981363f359adc5fe63930d48366c7e12a3190f0e"
+          },
+          {
+            "content_sha256": "3c46cfa23867e41e938affe51208bfc01a73b0f7cb2cace920c1ded663a9161e",
+            "path": "src/gamez/zGame/game_state.cpp",
+            "sha256": "9cba42bdbb2bae67bd52623c8a51893a68a5a32eb1851d1b5333561aa4a55732"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zGraph/graph_tree.cpp",
+            "sha256": "d9d3204c8009999bf3058f97b629348931ef29bd272e5a89a1979ef1b1e0f9a9"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zGrid/grid_clutter.cpp",
+            "sha256": "e35c96da72626ff30cafdb74beff8fc250d7a3fb42b195678f66981a13dbff14"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zGrid/grid_di.cpp",
+            "sha256": "1d0f880958d918eceba6db37d655f092a4f26c27ec6be517d9b3752e0456329c"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zInput/remote_control.cpp",
+            "sha256": "9334cba5cad972900069e1bf09c880f21805ac46a78112abb6641a33a10953cd"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zInput/zin_cheats.cpp",
+            "sha256": "ce6028ab1e227c2523fcf79702a934e09dda66eb0cc639eeb8cdbf322caa2e14"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zIntersect/int_material.cpp",
+            "sha256": "65bfe77867dec1d105528845daf24db52f023d079a64b46a08da72273517b017"
+          },
+          {
+            "content_sha256": "75704816ef852075cf6a9a9c941cc32a7b4b360c2e5164768167b92211d7127c",
+            "path": "src/gamez/zMath/zmath_main.cpp",
+            "sha256": "b4326478f448a4b21a4a8bba0a572a1ffe8b9b24efba876d5731b089e8d01116"
+          },
+          {
+            "content_sha256": "c8171361319b28ffc8befd8e8f6da2bcc0e3eaa33c1afcd9f247979d04e0d6de",
+            "path": "src/gamez/zMath/zmath_matrix.cpp",
+            "sha256": "cd66162d755ed42414d3aca8d3ae7a79cbe5e0565b43f074333103df49060138"
+          },
+          {
+            "content_sha256": "f3c5427b3f999d0951a81a986e19c226153d0bfefc3f208a9fa1c881b4b17f94",
+            "path": "src/gamez/zMath/zmath_pnt3d.cpp",
+            "sha256": "2b859b6ca7cab1725d58b6017f467423fbd687a3eef6b831819b34587a834527"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zMath/zmath_pnt4d.cpp",
+            "sha256": "7ffa545b75bee9ef6629b823fd7b48a6124c5737fbdf19f1ed7372cda20bab74"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zNetwork/zNetCnf.cpp",
+            "sha256": "a20e6f65f637938cf94f262381fa665b2c483fb0bbc71144e3fb1d3e84b6e1d6"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zNetwork/zNetDme.cpp",
+            "sha256": "f6867d0d5c7c099ceedc332ec08f3059edef1de35644db535c096f8a2825c20d"
+          },
+          {
+            "content_sha256": "d33b2048913559879ee4a50115668af0a4fb74e1759a070a11909b7c3fd546d9",
+            "path": "src/gamez/zNetwork/zNetMedius.cpp",
+            "sha256": "ab7d2df87d638e5970f44b7067e92d7e5a37c939629914a150949558c86259d1"
+          },
+          {
+            "content_sha256": "12204e39a16ee168a0e94e4aefe600bbda1c15d50fb020aa29cc19391f032dbe",
+            "path": "src/gamez/zNetwork/zNetVoice.cpp",
+            "sha256": "7b82b589cdb75b3659aba3cf873cfe7fe835aa52aea704de38cc038730e81fa2"
+          },
+          {
+            "content_sha256": "6235bce0bde8d9a975ca2008abc793e2819469b0649a7a7a30552572ff39ef57",
+            "path": "src/gamez/zNode/node_assetlib.cpp",
+            "sha256": "9d4847c45098be1c5cdbd235d4ca5486a1b8f3a59f5ada9f50a1324119467279"
+          },
+          {
+            "content_sha256": "efaa4031f91ea9071b523e035df493fc8337088774e506024e801cda74b99500",
+            "path": "src/gamez/zNode/node_main.cpp",
+            "sha256": "9e6f9f6d117a3086a66e5d297098f7f080342f0086e615d4753bdb29b28c36be"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zNode/node_shadow.cpp",
+            "sha256": "dd15414111840103f4766b623cb2fefbd6c72261480da17682e8e791a3026152"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zNode/node_util.cpp",
+            "sha256": "c18064e198fc5729119b0c061aace47ff98fb83695c663e0b226e437aa9a8f85"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zNode/node_wave.cpp",
+            "sha256": "2598c4b379668921d38ae061309f2ae60b570801d101f73759d79fbf20972f39"
+          },
+          {
+            "content_sha256": "343d4de1517ad5c619ea8fd51e4a8664fa86e04b0f9a9196cfdf20e7cd200f62",
+            "path": "src/gamez/zNode/node_world.cpp",
+            "sha256": "9e98e5bd585a7e22553f73a92a30ca63da30864222a996182e1da3e0cc3fdf45"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zParticle/zparticle.cpp",
+            "sha256": "a53ebc67f0d011522cb39195e1f9df5f1a8c5dfd103056b75f84246472f34ca6"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zParticle/zparticle_buf.cpp",
+            "sha256": "055452ac8d2a652780f80d9cb72669cc4646da85745a68f3122cacfc030c9f76"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zParticle/zparticle_instance.cpp",
+            "sha256": "f00e95fd6653083d2a79cbcba67c11bacf4117041d81dec3690c12985b17287f"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zParticle/zparticle_source.cpp",
+            "sha256": "4577f7b4a85d01f8fff9f8aac9886d89cdd0ee0dab97b630aff21498e6b4cbb2"
+          },
+          {
+            "content_sha256": "76a7a851178ae79445f032cfbc75cfb85b410e517a983c6c7b9611ec58b5e11c",
+            "path": "src/gamez/zReader/zrdr_archive.cpp",
+            "sha256": "061d8ba9be86ce519f54d10a03ceb0ac3b438451fe332b5ff4427486dcb0b7fd"
+          },
+          {
+            "content_sha256": "0f5a6283c40639c532a52c1edd971ffc0b551d9a7478f41cf8e8e1c1e73bba51",
+            "path": "src/gamez/zReader/zrdr_parse.cpp",
+            "sha256": "d98b13d236eb69d6b04b4c1b20de5af96846c05c4f4d50276d7c81409bf14e24"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zRender/zrndr_init.cpp",
+            "sha256": "5fc3a1c3294f01bb2b22f7df86986339174f929a5aa75c4d42929c6041887d42"
+          },
+          {
+            "content_sha256": "e3c856f81b1638cca23ae0b3a5031a2298d6b23194858de64af70a41c8acea02",
+            "path": "src/gamez/zRender/zrndr_pipe.cpp",
+            "sha256": "f04508b4755d9c9a591da1a2afed413415e75d573b6923ae667f8399e87aa358"
+          },
+          {
+            "content_sha256": "3d177cf0fbca3dd35f6a451d2fc26539f7efb458341a01e2f953631bda956b4b",
+            "path": "src/gamez/zSave/zsav_manager.cpp",
+            "sha256": "2213db0c9694e584d07b807dd0d6b94ded1132cce390d4a8145f3aa84b809aa1"
+          },
+          {
+            "content_sha256": "c562dfb1c8cff8ce16723e37345e4413a76b80a83af9c107ae1e34ddd51513b4",
+            "path": "src/gamez/zSeal/seal.cpp",
+            "sha256": "3762f394408e9fe4f9897f8333188a9715c81214ae2cee5af795b7cc714d46a8"
+          },
+          {
+            "content_sha256": "3efb50400934e04f95e5d2d92538c2bfc1eeefe846868525abf5da7573e69775",
+            "path": "src/gamez/zSeal/seal_ai.cpp",
+            "sha256": "5d762366d62a1c09e5cc1e6e5950478fc4ae7fea6d4e1de68de5548c4e00bbfb"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_aievent.cpp",
+            "sha256": "232ad18516c6cd465b69fde571cf8712969992d0812d77a2ec9ccd8a33dbd208"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_aifollow.cpp",
+            "sha256": "a8191956279b436a1e3c4bcb0d590c68f6c31d7aaca81129e8890a3052b9840f"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_ailines.cpp",
+            "sha256": "f3cd8ded0ff6d9cc1c7bf43eb4fe575c0b07166b248566ff06c0e0a651e82431"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_aimoves.cpp",
+            "sha256": "1caf163c58af4d83c9a963fb97c09c74137961c8b47cc9c58cebcccf8c25b0a1"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_airesponse.cpp",
+            "sha256": "5cf3eba266c9d60f9b76d72c901ae7b557b5f88cd10216e75aacff6a7b973c97"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_aiscan.cpp",
+            "sha256": "fa2308c75a298090af37e09dfb11cd7479692490fb0acab5b1e6264b263b58b0"
+          },
+          {
+            "content_sha256": "8305b13db1e77a539f986f58de8a775e132aa110a81f4872eda4dd231ddc299b",
+            "path": "src/gamez/zSeal/seal_aistate.cpp",
+            "sha256": "921607d20596874e69e12b4d699a8c1d1cb9917944f64eb222f02a66e59bd686"
+          },
+          {
+            "content_sha256": "1781af8dcd4f59926034e82934015aefd531847f34f2ae03948dbec3e3338db1",
+            "path": "src/gamez/zSeal/seal_anim.cpp",
+            "sha256": "4ac39f6a0b03a6385a03254c5c27e629c711ce0b70f9421333a40d367e1fef04"
+          },
+          {
+            "content_sha256": "36373e3a88d1944629954d2d3c9818214346a45a301dd576de8f4332f4d5fc68",
+            "path": "src/gamez/zSeal/seal_body.cpp",
+            "sha256": "44d87a18c61561e637610f8dc8994c4b503684ec9097c6e5429fa858633e140a"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_cfg.cpp",
+            "sha256": "893db1f5512a341791f4f321e07d26159e90dd4a95ccf8dc244be0b11442d971"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_command.cpp",
+            "sha256": "55981bb0c8988676e2e4db368df60be6098c0ece90f8f7c4e31526937fbb0ac6"
+          },
+          {
+            "content_sha256": "2a19000ce5e96d590f355410e2a77ef91b7771cf3c1394be6eeabe4bef7a9201",
+            "path": "src/gamez/zSeal/seal_control.cpp",
+            "sha256": "430e505406821db9aeb37abbd9d2a648647b87fae67a81322bdb1ebe593b2b6c"
+          },
+          {
+            "content_sha256": "6713b4ad0aa731f1f261cc5f86f51796ffc5b8eaa8a44ca4d8c1e1c7afb0d856",
+            "path": "src/gamez/zSeal/seal_create.cpp",
+            "sha256": "28f0eff34704d6ecc1cc6087bb076c93e5a38b60d0e36b67e99067f9c0841257"
+          },
+          {
+            "content_sha256": "3713a9f5498e2a5c41fdabb2699e8f04ca7b6f882cf565d0caab0fe12826beca",
+            "path": "src/gamez/zSeal/seal_dyn.cpp",
+            "sha256": "a8e5b4b287dd8ea7e5647986e20102e802521adb52c48c5248d1e9eb09699022"
+          },
+          {
+            "content_sha256": "932244c224c5db44af1f529fcc4c6a94993513be019b2f4f0e83b1c2f6c7a229",
+            "path": "src/gamez/zSeal/seal_env.cpp",
+            "sha256": "f30fff9c38bbc70c9fb2cbb3b1ee522305829505cbb14005404f3b70d3a82391"
+          },
+          {
+            "content_sha256": "f44b23d96d5fb09d7f33a1c096afb06d3cd038d71a387e670752ecf44a325f6c",
+            "path": "src/gamez/zSeal/seal_ex.cpp",
+            "sha256": "09aece8654e9e6c3bc64982e5573dd12fc8ce915ffd9f9e32668eee1d47534f0"
+          },
+          {
+            "content_sha256": "2dc42a71d98426641c752a3a05c7757e66ddbb19122627f1f0f13fc7e3f5f654",
+            "path": "src/gamez/zSeal/seal_handsig.cpp",
+            "sha256": "603e5ab4916f16073c1fd3431dcd819611f191ee199d6721652b5de8e24b0052"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_ik.cpp",
+            "sha256": "6191e9c189a6575ce08eebc1d1796bf0331eb81ae81e1931cde3f8ade5345726"
+          },
+          {
+            "content_sha256": "766dc030a4c1fd5ed5d1a31368b9fc9ae13c6bc814843d95a4c20c5f35c1a2cd",
+            "path": "src/gamez/zSeal/seal_kit.cpp",
+            "sha256": "7ffdb8d3e1e5ae7135a17e71e47abcaff49b09277ee2348b846e1e03809e29bf"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_sensors.cpp",
+            "sha256": "9458308585a09d76daf9e521551f7ffac3208537d79f562549b0b2b9dc6d6b4d"
+          },
+          {
+            "content_sha256": "b023ffeee0fe9283d0e45db37f3bf81789d61af1b99972eaa5dfee31a4f91068",
+            "path": "src/gamez/zSeal/seal_squirm.cpp",
+            "sha256": "f7b94ebb8ce6c118699470b6551f731ed918a7194b3a81967a85005e9c3e202e"
+          },
+          {
+            "content_sha256": "4acad68706dc11e4cedbe46e3f6edc5e641e3b11771a5d5d37138220c7180ac7",
+            "path": "src/gamez/zSeal/seal_tasks.cpp",
+            "sha256": "f7de3d8ae9a13ef7aa3f2d3af98ff755455b8a7862257f96be0c4843b8cb85e4"
+          },
+          {
+            "content_sha256": "03e6c65729481ab6df493d05cae779fc22cfef413c1a14abf1d44592e28909e8",
+            "path": "src/gamez/zSeal/seal_unit.cpp",
+            "sha256": "8ff74ef6c40fa25629f2b3312dab6ec6f6766f80e399c4a99d02530902d38245"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSeal/seal_weapon.cpp",
+            "sha256": "7b8d6f55a1f87a3f963d47740b783ec303e48e2fa4db5cc0d5d4cc6c14fa544a"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSoftImage/si_object.cpp",
+            "sha256": "2bdeb76898b4adefa24a54fd581283232f8b776d8a8f17210829b6dd1c924f18"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSoftImage/si_script.cpp",
+            "sha256": "d5b70027a0b8f43e5a65ce8fdb5628db0ef2304e087de22edbbc9cabba4e12a6"
+          },
+          {
+            "content_sha256": "403cd4e5b1f53b89296bedafe6cbb4f98061a844a94dc6da538e572d27230927",
+            "path": "src/gamez/zSound/zsnd_csnd.cpp",
+            "sha256": "8ebeb2574ff405386fa56ea8957bee9a3ff87f5d391288c790768086c7d3612e"
+          },
+          {
+            "content_sha256": "db6f1e679ffb5ae281acaac34e917f06285f96fbfd34d46268a83a0de1091e8f",
+            "path": "src/gamez/zSound/zsnd_csndinstance.cpp",
+            "sha256": "5b4b3bdc4ff8ddf54effaca31b539680b59b1156fe5692e6bc5cc652bbe4326f"
+          },
+          {
+            "content_sha256": "a159ff9dbfe29fb1089ba6a778120050e194edd161e44f1445c10e4a5d4c1b07",
+            "path": "src/gamez/zSound/zsnd_jukebox.cpp",
+            "sha256": "eb4c9f1e7fe6f194aaee326e8b8f6708432599954b4d82d065087a047433311f"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zSystem/zsys_init.cpp",
+            "sha256": "a6eb49b08ed0401abd191b2e54a9131ab5bab3c769b7c2dbba8f542aaf4abc29"
+          },
+          {
+            "content_sha256": "cc356e56c47b31507c4318c86cc5a41174ba69fa6472d41a1b7b0ed5aee97d2c",
+            "path": "src/gamez/zSystem/zsys_sched.cpp",
+            "sha256": "fe45b549ad2705c526a3c54ab465f33ee29830e631c46542ae6897dd02213a2f"
+          },
+          {
+            "content_sha256": "e3ba1f07f49f99f834e9f2bf5532f42874613f1bb58214eba547e1181189e195",
+            "path": "src/gamez/zTexture/ztex_manager.cpp",
+            "sha256": "0a0ee3152d4c0c8580eee601b350d9924a2ac82a7d551a89873e34aa6f3c02e3"
+          },
+          {
+            "content_sha256": "11ea9db9923972028eefad92b94b5434e8e7af9904e025a4b7da5e7420ded295",
+            "path": "src/gamez/zUI/zui.cpp",
+            "sha256": "a9ab028df03b83f9567f427a5e21f90c5dba7bae34d32577517e82db7fc9a2c7"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zUI/zui_2d.cpp",
+            "sha256": "1578816aee78a932c6931b37119412facf64eb2d65ef0ed121b11369a8ddd464"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zUI/zui_skb.cpp",
+            "sha256": "d9efae2d4e7b6bef6b5dda8179c71e4ff4f3bf6c74cb9f0d2e33a376193710ab"
+          },
+          {
+            "content_sha256": "b9143bf0420f5f1ad9a78405296d3fb398f36f2ca8d9be51f3b383e4c47aadd7",
+            "path": "src/gamez/zValve/valve_list.cpp",
+            "sha256": "758ec587bb2bc5a808085039a841742570f6163f3f9d97ae13131304242ef774"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zVehicle/veh_turret.cpp",
+            "sha256": "39befb7f6211b82d2fc4775676744aedd6276d44d0867848a00a29d6a1349e3c"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zVideo/zvid_init.cpp",
+            "sha256": "975de9e891004f0dfc6cd8c6f0da494493213fe4f2422ad2e084b2c97b997030"
+          },
+          {
+            "content_sha256": "955b9000ca9cfe53b63db1bb61126bc4de39fae3ce3f013c79d97fbaf9921ea7",
+            "path": "src/gamez/zVisual/vis_decal.cpp",
+            "sha256": "e07d0f2786fb643a88a9918eba00598381772eb31c2a64a51e14b5b6be045a34"
+          },
+          {
+            "content_sha256": "b420d5a8a7e447c71ef5dc47034605725e7b0a7698d7390651090bef6ffb93c1",
+            "path": "src/gamez/zVisual/vis_main.cpp",
+            "sha256": "625ef0671aff08d350ac22576252fe377e853612f583ec39fd4dfd819e947e42"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zVisual/vis_texfx.cpp",
+            "sha256": "85d83bb1e709c805a7c4e6fb13cedf26ae5e71ede2298bd06592c56e13e74ec6"
+          },
+          {
+            "content_sha256": "b8c127ddf7367bbbf380958a9000c9c1de01a66c142fbc172c1cb6073c56f882",
+            "path": "src/gamez/zWeapon/zwep_ammo.cpp",
+            "sha256": "d2bd388cdd2308b7546667d784542341c9c6ca3ee514d7b26512e04ef4836a0d"
+          },
+          {
+            "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zWeapon/zwep_explosive.cpp",
+            "sha256": "1137f4fef6caf95acfdf4f8bb435b8d2e7159547537115b1e2b27e08b2f8ee22"
+          },
+          {
+            "content_sha256": "da9009265721859904d0223774de4e250b53d42088951d83471c147d43a89877",
+            "path": "src/gamez/zWeapon/zwep_global.cpp",
+            "sha256": "5825317508d86d2bc98fc9f3f4c3f53cca0bb128b254fadcfdd6fd609d719c70"
+          },
+          {
+            "content_sha256": "70047aa8e46b3aa159ccde7ca39fdf52a20f2bd01175725425a7fe5df84fc396",
+            "path": "src/gamez/zWeapon/zwep_projectile.cpp",
+            "sha256": "2692a36accd928df65fd75abe3c7a6bd35614faf84d8cbdde9c53962f575474a"
+          },
+          {
+            "content_sha256": "deefbc6ca74c26da4afc1469d342b28e4c1478d4245f80ec58ff51bfd20d28ad",
+            "path": "src/gamez/zWeapon/zwep_weapon.cpp",
+            "sha256": "422d91423fc0c08f3404c42cd00963b23c7cc8a68aaaa6f175bade315db5bee6"
+          }
+        ],
+        "kind": "socom-source-apply",
+        "moves": [],
+        "owner_map_sha256": "0e686aec9012826f148627061c88b3d96efe9b8452c36bee5510b277b2de7f45",
+        "plan": "build/source-plans/socom-work-source-segment-076.json",
+        "plan_item": "socom:work:source-segment-076",
+        "plan_sha256": "05825fad746f854d5fe8d5330dff0732f2e16686c42c4c0fee5fe16fd544e664",
+        "reconciles": [
+          "socom:work:source-data-rodata",
+          "socom:work:source-data-data",
+          "socom:work:source-data-bss"
+        ],
+        "removed": [],
+        "reservation": {
+          "directories": [
+            "src/Apps/FTS",
+            "src/gamez/zAI",
+            "src/gamez/zAnim",
+            "src/gamez/zBody",
+            "src/gamez/zBone",
+            "src/gamez/zCamera",
+            "src/gamez/zCharacter",
+            "src/gamez/zConsole",
+            "src/gamez/zEntity",
+            "src/gamez/zFTS",
+            "src/gamez/zGame",
+            "src/gamez/zGraph",
+            "src/gamez/zGrid",
+            "src/gamez/zInput",
+            "src/gamez/zIntersect",
+            "src/gamez/zMath",
+            "src/gamez/zNetwork",
+            "src/gamez/zNode",
+            "src/gamez/zParticle",
+            "src/gamez/zReader",
+            "src/gamez/zRender",
+            "src/gamez/zSave",
+            "src/gamez/zSeal",
+            "src/gamez/zSoftImage",
+            "src/gamez/zSound",
+            "src/gamez/zSystem",
+            "src/gamez/zTexture",
+            "src/gamez/zUI",
+            "src/gamez/zValve",
+            "src/gamez/zVehicle",
+            "src/gamez/zVideo",
+            "src/gamez/zVisual",
+            "src/gamez/zWeapon"
+          ],
+          "reserved": [
+            "src/Apps/FTS",
+            "src/gamez/zAI",
+            "src/gamez/zAnim",
+            "src/gamez/zBone",
+            "src/gamez/zCamera",
+            "src/gamez/zCharacter",
+            "src/gamez/zEntity",
+            "src/gamez/zFTS",
+            "src/gamez/zGame",
+            "src/gamez/zGraph",
+            "src/gamez/zGrid",
+            "src/gamez/zInput",
+            "src/gamez/zIntersect",
+            "src/gamez/zMath",
+            "src/gamez/zNetwork",
+            "src/gamez/zNode",
+            "src/gamez/zParticle",
+            "src/gamez/zReader",
+            "src/gamez/zRender",
+            "src/gamez/zSave",
+            "src/gamez/zSeal",
+            "src/gamez/zSoftImage",
+            "src/gamez/zSound",
+            "src/gamez/zSystem",
+            "src/gamez/zTexture",
+            "src/gamez/zUI",
+            "src/gamez/zValve",
+            "src/gamez/zVisual",
+            "src/gamez/zWeapon"
+          ],
+          "status": "corrected"
+        },
+        "retired": [],
+        "schema_version": 1,
+        "scope": {
+          "kind": "segment",
+          "segment_id": "socom:source-segment:3232987c67dc9de0cebe",
+          "segment_number": 76
+        }
+      },
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "accepted",
       "title": "Apply the reviewed source owners of segment 076 under src/"
     },
     {
@@ -164838,7 +167176,7 @@
       "resources": [],
       "selection": null,
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Review and close source-correlation"
     },
     {
