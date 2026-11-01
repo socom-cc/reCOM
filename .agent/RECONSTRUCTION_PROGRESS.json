@@ -2546,7 +2546,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3861,
+  "revision": 3903,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -174106,6 +174106,10 @@
       "title": "Review and close source-correlation"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:33:39Z",
+        "by": "socom-order-reviewer-r1"
+      },
       "batch": {
         "batch_number": 1,
         "definitions": 19,
@@ -174124,7 +174128,8 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-001.json sha256:64fbdc69b9c5e84c63e24077fc3f4c1f4b9336717339080277e8810fcce56a18",
-        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok",
+        "sha256 matches handoff; validate --check ok (0 open/mismatch/stale); independent re-draft equals plan (0 open, 0 settled, 0 in-class). Independent source-sql checks over all rows ({'proven': 9, 'constrained': 4}): 8 out-of-line pairs strictly reverse-address; 9 proven rows' first DWARF line rows equal, ascending; no hypothesis row has an own-unit DWARF line; 0 fn local-static counters re-derived (lowest unshared N), 0 data counters match names; data rows ascending address per region; static-initializer ranks match __sinit_ first-reference order; evidence-carrying hypothesis rows are lone carriers; not_placed reasons match names (guards 1-byte); LOCAL stage7 copies are template instantiations. Scratch build/order-plans/socom-order-reviewer-r1/."
       ],
       "handoff": {
         "owner": "socom-order-planner-p0",
@@ -174139,7 +174144,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 001 (1 units, 19 definitions)"
     },
     {
@@ -174215,6 +174220,10 @@
       "title": "Compile the order skeletons of segment 001 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:33:46Z",
+        "by": "socom-order-reviewer-r1"
+      },
       "batch": {
         "batch_number": 13,
         "definitions": 121,
@@ -174237,7 +174246,8 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-013.json sha256:955cc75a53e9895efc6fdc7f0725b7c01676433bbe802136a5bde145cce97ff5",
-        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok",
+        "sha256 matches handoff; validate --check ok (0 open/mismatch/stale); independent re-draft equals plan (0 open, 0 settled, 0 in-class). Independent source-sql checks over all rows ({'proven': 51, 'constrained': 8, 'hypothesis': 39}): 46 out-of-line pairs strictly reverse-address; 51 proven rows' first DWARF line rows equal, ascending; no hypothesis row has an own-unit DWARF line; 3 fn local-static counters re-derived (lowest unshared N), 4 data counters match names; data rows ascending address per region; static-initializer ranks match __sinit_ first-reference order; evidence-carrying hypothesis rows are lone carriers; not_placed reasons match names (guards 1-byte); LOCAL stage7 copies are template instantiations. Scratch build/order-plans/socom-order-reviewer-r1/."
       ],
       "handoff": {
         "owner": "socom-order-planner-p0",
@@ -174252,7 +174262,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 013 (5 units, 121 definitions)"
     },
     {
@@ -174344,6 +174354,10 @@
       "title": "Compile the order skeletons of segment 013 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:33:54Z",
+        "by": "socom-order-reviewer-r1"
+      },
       "batch": {
         "batch_number": 14,
         "definitions": 85,
@@ -174365,7 +174379,8 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-014.json sha256:8208b5f365b268db77dcb667bb801e2c19c3cf6859573ad5507e2ce5c6533247",
-        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok",
+        "sha256 matches handoff; validate --check ok (0 open/mismatch/stale); independent re-draft equals plan (0 open, 0 settled, 0 in-class). Independent source-sql checks over all rows ({'proven': 1, 'hypothesis': 58, 'constrained': 12}): 45 out-of-line pairs strictly reverse-address; 1 proven rows' first DWARF line rows equal, ascending; no hypothesis row has an own-unit DWARF line; 2 fn local-static counters re-derived (lowest unshared N), 6 data counters match names; data rows ascending address per region; static-initializer ranks match __sinit_ first-reference order; evidence-carrying hypothesis rows are lone carriers; not_placed reasons match names (guards 1-byte); LOCAL stage7 copies are template instantiations. Scratch build/order-plans/socom-order-reviewer-r1/."
       ],
       "handoff": {
         "owner": "socom-order-planner-p0",
@@ -174380,7 +174395,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 014 (4 units, 85 definitions)"
     },
     {
@@ -174466,6 +174481,10 @@
       "title": "Compile the order skeletons of segment 014 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:34:04Z",
+        "by": "socom-order-reviewer-r1"
+      },
       "batch": {
         "batch_number": 15,
         "definitions": 85,
@@ -174486,7 +174505,8 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-015.json sha256:701278dfd03d8360fe2f29320dc8309b85355e9b91446a3946ea39b5cf400d90",
-        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok",
+        "sha256 matches handoff; validate --check ok (0 open/mismatch/stale); independent re-draft equals plan (0 open, 0 settled, 0 in-class). Independent source-sql checks over all rows ({'hypothesis': 80}): 71 out-of-line pairs strictly reverse-address; 0 proven rows' first DWARF line rows equal, ascending; no hypothesis row has an own-unit DWARF line; 1 fn local-static counters re-derived (lowest unshared N), 1 data counters match names; data rows ascending address per region; static-initializer ranks match __sinit_ first-reference order; evidence-carrying hypothesis rows are lone carriers; not_placed reasons match names (guards 1-byte); LOCAL stage7 copies are template instantiations. Scratch build/order-plans/socom-order-reviewer-r1/."
       ],
       "handoff": {
         "owner": "socom-order-planner-p0",
@@ -174501,7 +174521,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 015 (3 units, 85 definitions)"
     },
     {
@@ -174581,6 +174601,10 @@
       "title": "Compile the order skeletons of segment 015 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:34:12Z",
+        "by": "socom-order-reviewer-r1"
+      },
       "batch": {
         "batch_number": 16,
         "definitions": 163,
@@ -174604,7 +174628,8 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-016.json sha256:228fb8a7278cd27069adfe9f33756cc049df76f9721f04b5e319a77bebb5b97a",
-        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok",
+        "sha256 matches handoff; validate --check ok (0 open/mismatch/stale); independent re-draft equals plan (0 open, 0 settled, 0 in-class). Independent source-sql checks over all rows ({'hypothesis': 127, 'constrained': 20}): 119 out-of-line pairs strictly reverse-address; 0 proven rows' first DWARF line rows equal, ascending; no hypothesis row has an own-unit DWARF line; 5 fn local-static counters re-derived (lowest unshared N), 13 data counters match names; data rows ascending address per region; static-initializer ranks match __sinit_ first-reference order; evidence-carrying hypothesis rows are lone carriers; not_placed reasons match names (guards 1-byte); LOCAL stage7 copies are template instantiations. Scratch build/order-plans/socom-order-reviewer-r1/."
       ],
       "handoff": {
         "owner": "socom-order-planner-p0",
@@ -174619,7 +174644,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 016 (6 units, 163 definitions)"
     },
     {
@@ -174713,6 +174738,10 @@
       "title": "Compile the order skeletons of segment 016 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:34:20Z",
+        "by": "socom-order-reviewer-r1"
+      },
       "batch": {
         "batch_number": 17,
         "definitions": 53,
@@ -174732,7 +174761,8 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-017.json sha256:c9a6c448961a35688b9327efa9b8860ca87343d6be2b75e441a380c4a31c949a",
-        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok",
+        "sha256 matches handoff; validate --check ok (0 open/mismatch/stale); independent re-draft equals plan (0 open, 0 settled, 0 in-class). Independent source-sql checks over all rows ({'hypothesis': 47, 'constrained': 2}): 45 out-of-line pairs strictly reverse-address; 0 proven rows' first DWARF line rows equal, ascending; no hypothesis row has an own-unit DWARF line; 0 fn local-static counters re-derived (lowest unshared N), 0 data counters match names; data rows ascending address per region; static-initializer ranks match __sinit_ first-reference order; evidence-carrying hypothesis rows are lone carriers; not_placed reasons match names (guards 1-byte); LOCAL stage7 copies are template instantiations. Scratch build/order-plans/socom-order-reviewer-r1/."
       ],
       "handoff": {
         "owner": "socom-order-planner-p0",
@@ -174747,7 +174777,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 017 (2 units, 53 definitions)"
     },
     {
@@ -174825,6 +174855,10 @@
       "title": "Compile the order skeletons of segment 017 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:34:29Z",
+        "by": "socom-order-reviewer-r1"
+      },
       "batch": {
         "batch_number": 18,
         "definitions": 198,
@@ -174845,7 +174879,8 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-018.json sha256:c21fb6b42236f61ce59c5c530ae108b08756209aa2e8fffdfd3f7a768f9aa87b",
-        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok",
+        "sha256 matches handoff; validate --check ok (0 open/mismatch/stale); independent re-draft equals plan (0 open, 0 settled, 0 in-class). Independent source-sql checks over all rows ({'hypothesis': 173, 'constrained': 2}): 164 out-of-line pairs strictly reverse-address; 0 proven rows' first DWARF line rows equal, ascending; no hypothesis row has an own-unit DWARF line; 0 fn local-static counters re-derived (lowest unshared N), 0 data counters match names; data rows ascending address per region; static-initializer ranks match __sinit_ first-reference order; evidence-carrying hypothesis rows are lone carriers; not_placed reasons match names (guards 1-byte); LOCAL stage7 copies are template instantiations. Scratch build/order-plans/socom-order-reviewer-r1/."
       ],
       "handoff": {
         "owner": "socom-order-planner-p0",
@@ -174860,7 +174895,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 018 (3 units, 198 definitions)"
     },
     {
@@ -174940,6 +174975,10 @@
       "title": "Compile the order skeletons of segment 018 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:34:37Z",
+        "by": "socom-order-reviewer-r1"
+      },
       "batch": {
         "batch_number": 19,
         "definitions": 210,
@@ -174958,7 +174997,8 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-019.json sha256:9dc33265eb31e2234e889d8278a9a81d1871c35fa3aae1ca8e19fcd86f18c53d",
-        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok",
+        "sha256 matches handoff; validate --check ok (0 open/mismatch/stale); independent re-draft equals plan (0 open, 0 settled, 0 in-class). Independent source-sql checks over all rows ({'hypothesis': 175, 'constrained': 22}): 172 out-of-line pairs strictly reverse-address; 0 proven rows' first DWARF line rows equal, ascending; no hypothesis row has an own-unit DWARF line; 10 fn local-static counters re-derived (lowest unshared N), 11 data counters match names; data rows ascending address per region; static-initializer ranks match __sinit_ first-reference order; evidence-carrying hypothesis rows are lone carriers; not_placed reasons match names (guards 1-byte); LOCAL stage7 copies are template instantiations. Scratch build/order-plans/socom-order-reviewer-r1/."
       ],
       "handoff": {
         "owner": "socom-order-planner-p0",
@@ -174973,7 +175013,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 019 (1 units, 210 definitions)"
     },
     {
@@ -175049,6 +175089,10 @@
       "title": "Compile the order skeletons of segment 019 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:34:45Z",
+        "by": "socom-order-reviewer-r1"
+      },
       "batch": {
         "batch_number": 20,
         "definitions": 61,
@@ -175069,7 +175113,8 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-020.json sha256:c9c09bd014cd405d430785367568197fdb8fbb873a4729b1e28b1094f59a039d",
-        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok",
+        "sha256 matches handoff; validate --check ok (0 open/mismatch/stale); independent re-draft equals plan (0 open, 0 settled, 0 in-class). Independent source-sql checks over all rows ({'hypothesis': 53}): 46 out-of-line pairs strictly reverse-address; 0 proven rows' first DWARF line rows equal, ascending; no hypothesis row has an own-unit DWARF line; 0 fn local-static counters re-derived (lowest unshared N), 0 data counters match names; data rows ascending address per region; static-initializer ranks match __sinit_ first-reference order; evidence-carrying hypothesis rows are lone carriers; not_placed reasons match names (guards 1-byte); LOCAL stage7 copies are template instantiations. Scratch build/order-plans/socom-order-reviewer-r1/."
       ],
       "handoff": {
         "owner": "socom-order-planner-p0",
@@ -175084,7 +175129,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 020 (3 units, 61 definitions)"
     },
     {
@@ -175168,6 +175213,10 @@
       "title": "Compile the order skeletons of segment 020 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:34:54Z",
+        "by": "socom-order-reviewer-r1"
+      },
       "batch": {
         "batch_number": 21,
         "definitions": 173,
@@ -175191,7 +175240,8 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-021.json sha256:35b2871d6ab8891ad719120e6b6aec8acea86568bc98aa37ddaf3234d58ac5b2",
-        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok",
+        "sha256 matches handoff; validate --check ok (0 open/mismatch/stale); independent re-draft equals plan (0 open, 0 settled, 0 in-class). Independent source-sql checks over all rows ({'hypothesis': 108, 'proven': 41, 'constrained': 2}): 128 out-of-line pairs strictly reverse-address; 41 proven rows' first DWARF line rows equal, ascending; no hypothesis row has an own-unit DWARF line; 1 fn local-static counters re-derived (lowest unshared N), 2 data counters match names; data rows ascending address per region; static-initializer ranks match __sinit_ first-reference order; evidence-carrying hypothesis rows are lone carriers; not_placed reasons match names (guards 1-byte); LOCAL stage7 copies are template instantiations. Scratch build/order-plans/socom-order-reviewer-r1/."
       ],
       "handoff": {
         "owner": "socom-order-planner-p0",
@@ -175206,7 +175256,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 021 (6 units, 173 definitions)"
     },
     {
@@ -175327,8 +175377,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-022.json sha256:cb376d92ad266a4c803ec4c5c28106a2eb3ce5b14c11076faa2851c2c66d8a61",
+        "order sql findings: both rows kind deferred-in-span, category data-link-order, items socom:work:source-segment-030 and -035; targets 0x44cd70..0x44cd90 show them between invalidId__7CEntity and @1116/__RTTI__7CEntity"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p1",
+        "submitted_at": "2026-11-01T21:26:56Z",
+        "summary": "2 deferred-in-span rows (ent_main.cpp .rodata: deletedId__7CEntity 0x44cd78, unknownId__7CEntity 0x44cd80) settled by basis only, naming the stage 4 data-link-order deferrals (source-segment-030/-035); no positions moved; validate --check ok, 0 mismatches"
+      },
       "id": "socom:work:order-segment-022",
       "kind": "order-plan-segment",
       "lease": null,
@@ -175337,7 +175394,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 022 (8 units, 174 definitions)"
     },
     {
@@ -175439,6 +175496,10 @@
       "title": "Compile the order skeletons of segment 022 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:35:02Z",
+        "by": "socom-order-reviewer-r1"
+      },
       "batch": {
         "batch_number": 23,
         "definitions": 174,
@@ -175459,7 +175520,8 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-023.json sha256:9b0e47afdc899f4cb4acd6d9c513b7873984a2995f062a962bd0701013efb885",
-        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok",
+        "sha256 matches handoff; validate --check ok (0 open/mismatch/stale); independent re-draft equals plan (0 open, 0 settled, 0 in-class). Independent source-sql checks over all rows ({'hypothesis': 143, 'constrained': 13}): 121 out-of-line pairs strictly reverse-address; 0 proven rows' first DWARF line rows equal, ascending; no hypothesis row has an own-unit DWARF line; 2 fn local-static counters re-derived (lowest unshared N), 3 data counters match names; data rows ascending address per region; static-initializer ranks match __sinit_ first-reference order; evidence-carrying hypothesis rows are lone carriers; not_placed reasons match names (guards 1-byte); LOCAL stage7 copies are template instantiations. Scratch build/order-plans/socom-order-reviewer-r1/."
       ],
       "handoff": {
         "owner": "socom-order-planner-p0",
@@ -175474,7 +175536,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 023 (3 units, 174 definitions)"
     },
     {
@@ -175554,6 +175616,10 @@
       "title": "Compile the order skeletons of segment 023 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:35:10Z",
+        "by": "socom-order-reviewer-r1"
+      },
       "batch": {
         "batch_number": 24,
         "definitions": 270,
@@ -175582,7 +175648,8 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-024.json sha256:0aaa8dad7319a73c54c8cfcbd105f87ae54ce0ecc19bfd3f4502ef91632de3f5",
-        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok",
+        "sha256 matches handoff; validate --check ok (0 open/mismatch/stale); independent re-draft equals plan (0 open, 0 settled, 0 in-class). Independent source-sql checks over all rows ({'hypothesis': 230, 'constrained': 11}): 132 out-of-line pairs strictly reverse-address; 0 proven rows' first DWARF line rows equal, ascending; no hypothesis row has an own-unit DWARF line; 1 fn local-static counters re-derived (lowest unshared N), 1 data counters match names; data rows ascending address per region; static-initializer ranks match __sinit_ first-reference order; evidence-carrying hypothesis rows are lone carriers; not_placed reasons match names (guards 1-byte); LOCAL stage7 copies are template instantiations. Scratch build/order-plans/socom-order-reviewer-r1/."
       ],
       "handoff": {
         "owner": "socom-order-planner-p0",
@@ -175597,7 +175664,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 024 (11 units, 270 definitions)"
     },
     {
@@ -175701,6 +175768,10 @@
       "title": "Compile the order skeletons of segment 024 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:35:18Z",
+        "by": "socom-order-reviewer-r1"
+      },
       "batch": {
         "batch_number": 25,
         "definitions": 148,
@@ -175726,7 +175797,8 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-025.json sha256:9fe87bc6bbd7b4d10b7385a0693b0b999489777bd0922023ef08baf25e760ae4",
-        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok",
+        "sha256 matches handoff; validate --check ok (0 open/mismatch/stale); independent re-draft equals plan (0 open, 0 settled, 0 in-class). Independent source-sql checks over all rows ({'hypothesis': 128, 'constrained': 3}): 94 out-of-line pairs strictly reverse-address; 0 proven rows' first DWARF line rows equal, ascending; no hypothesis row has an own-unit DWARF line; 0 fn local-static counters re-derived (lowest unshared N), 0 data counters match names; data rows ascending address per region; static-initializer ranks match __sinit_ first-reference order; evidence-carrying hypothesis rows are lone carriers; not_placed reasons match names (guards 1-byte); LOCAL stage7 copies are template instantiations. Scratch build/order-plans/socom-order-reviewer-r1/."
       ],
       "handoff": {
         "owner": "socom-order-planner-p0",
@@ -175741,7 +175813,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 025 (8 units, 148 definitions)"
     },
     {
@@ -175865,8 +175937,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "asm __sinit_zmath_pnt3d.cpp 0x46b420: 0.0f stores in strict address order 0x44f530..0x44f574; only unit_nz.z (0x44f578, -1.0f in v1) and unit_z.z (0x44f568, 1.0f in a0) stores are hoisted",
+        "build/order-plans/socom-work-order-segment-026.json sha256:9cf2698254279b4937230963d35730457bb1023a52f57cde3e0eb872d604556e"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p1",
+        "submitted_at": "2026-11-01T21:27:56Z",
+        "summary": "2 constraint-conflict rows (zmath_pnt3d.cpp .rodata unit_x__6CPnt3D 0x44f540, unit_nz__6CPnt3D 0x44f570) kept in address (declaration) order, class hypothesis; the static-initializer rank unit_nz<unit_x is register-scheduling noise in __sinit; validate --check ok, 0 mismatches"
+      },
       "id": "socom:work:order-segment-026",
       "kind": "order-plan-segment",
       "lease": null,
@@ -175875,7 +175954,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 026 (11 units, 205 definitions)"
     },
     {
@@ -175983,6 +176062,10 @@
       "title": "Compile the order skeletons of segment 026 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:35:27Z",
+        "by": "socom-order-reviewer-r1"
+      },
       "batch": {
         "batch_number": 27,
         "definitions": 134,
@@ -176004,7 +176087,8 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-027.json sha256:d53b9dd0844a50a25f495eb70563a071afd616ff723880d2175c2631bbbd6f50",
-        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok",
+        "sha256 matches handoff; validate --check ok (0 open/mismatch/stale); independent re-draft equals plan (0 open, 0 settled, 0 in-class). Independent source-sql checks over all rows ({'hypothesis': 102, 'constrained': 4}): 92 out-of-line pairs strictly reverse-address; 0 proven rows' first DWARF line rows equal, ascending; no hypothesis row has an own-unit DWARF line; 3 fn local-static counters re-derived (lowest unshared N), 3 data counters match names; data rows ascending address per region; static-initializer ranks match __sinit_ first-reference order; evidence-carrying hypothesis rows are lone carriers; not_placed reasons match names (guards 1-byte); LOCAL stage7 copies are template instantiations. Scratch build/order-plans/socom-order-reviewer-r1/."
       ],
       "handoff": {
         "owner": "socom-order-planner-p0",
@@ -176019,7 +176103,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 027 (4 units, 134 definitions)"
     },
     {
@@ -176101,6 +176185,10 @@
       "title": "Compile the order skeletons of segment 027 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:35:34Z",
+        "by": "socom-order-reviewer-r1"
+      },
       "batch": {
         "batch_number": 28,
         "definitions": 190,
@@ -176126,7 +176214,8 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-028.json sha256:5f2aefb03ba89fa75c46a87ceec2580d8e5282d5b5881415502c4ffa4721d6f0",
-        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok",
+        "sha256 matches handoff; validate --check ok (0 open/mismatch/stale); independent re-draft equals plan (0 open, 0 settled, 0 in-class). Independent source-sql checks over all rows ({'hypothesis': 147, 'constrained': 14}): 116 out-of-line pairs strictly reverse-address; 0 proven rows' first DWARF line rows equal, ascending; no hypothesis row has an own-unit DWARF line; 2 fn local-static counters re-derived (lowest unshared N), 3 data counters match names; data rows ascending address per region; static-initializer ranks match __sinit_ first-reference order; evidence-carrying hypothesis rows are lone carriers; not_placed reasons match names (guards 1-byte); LOCAL stage7 copies are template instantiations. Scratch build/order-plans/socom-order-reviewer-r1/."
       ],
       "handoff": {
         "owner": "socom-order-planner-p0",
@@ -176141,7 +176230,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 028 (8 units, 190 definitions)"
     },
     {
@@ -176235,6 +176324,10 @@
       "title": "Compile the order skeletons of segment 028 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:35:43Z",
+        "by": "socom-order-reviewer-r1"
+      },
       "batch": {
         "batch_number": 29,
         "definitions": 144,
@@ -176259,7 +176352,8 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-029.json sha256:2da1cf7c7b048daa70e9517b00d906d359afe9702865242b38daf88b71578de1",
-        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok",
+        "sha256 matches handoff; validate --check ok (0 open/mismatch/stale); independent re-draft equals plan (0 open, 0 settled, 0 in-class). Independent source-sql checks over all rows ({'hypothesis': 110, 'constrained': 17}): 88 out-of-line pairs strictly reverse-address; 0 proven rows' first DWARF line rows equal, ascending; no hypothesis row has an own-unit DWARF line; 6 fn local-static counters re-derived (lowest unshared N), 6 data counters match names; data rows ascending address per region; static-initializer ranks match __sinit_ first-reference order; evidence-carrying hypothesis rows are lone carriers; not_placed reasons match names (guards 1-byte); LOCAL stage7 copies are template instantiations. Scratch build/order-plans/socom-order-reviewer-r1/."
       ],
       "handoff": {
         "owner": "socom-order-planner-p0",
@@ -176274,7 +176368,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 029 (7 units, 144 definitions)"
     },
     {
@@ -176389,8 +176483,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-030.json sha256:1ff8f779532f2c220946a54fea607171f22ab1df56958d1bf364b21464e0cbb4",
+        "order sql: finding deferred-in-span/data-link-order item socom:work:source-segment-034; seal.cpp .rodata contribution starts 0x450d28 (stoppedV__10CZSealBody), seal_foot_bone 0x450d30 inside it; turnV 0x450d20 outside the run"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p1",
+        "submitted_at": "2026-11-01T21:28:57Z",
+        "summary": "1 deferred-in-span row (seal.cpp .rodata seal_foot_bone__10CZSealBody 0x450d30) settled by basis only, naming the stage 4 data-link-order deferral (source-segment-034); no positions moved; validate --check ok, 0 mismatches"
+      },
       "id": "socom:work:order-segment-030",
       "kind": "order-plan-segment",
       "lease": null,
@@ -176399,7 +176500,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 030 (4 units, 259 definitions)"
     },
     {
@@ -176510,13 +176611,18 @@
       "handoff": null,
       "id": "socom:work:order-segment-031",
       "kind": "order-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-11-01T21:32:46Z",
+        "expires_at": "2026-11-01T22:32:46Z",
+        "heartbeat_at": "2026-11-01T21:32:46Z",
+        "owner": "socom-order-planner-p1"
+      },
       "resources": [
         "build/order-plans"
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan the definition order of segment 031 (2 units, 306 definitions)"
     },
     {
@@ -176708,6 +176814,10 @@
       "title": "Compile the order skeletons of segment 032 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:35:51Z",
+        "by": "socom-order-reviewer-r1"
+      },
       "batch": {
         "batch_number": 33,
         "definitions": 217,
@@ -176727,7 +176837,8 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-033.json sha256:1210323cc642c78cd8ae039b8244b01c996820ce0f7448c5fb2943c65a4b974a",
-        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok",
+        "sha256 matches handoff; validate --check ok (0 open/mismatch/stale); independent re-draft equals plan (0 open, 0 settled, 0 in-class). Independent source-sql checks over all rows ({'hypothesis': 184, 'constrained': 25}): 164 out-of-line pairs strictly reverse-address; 0 proven rows' first DWARF line rows equal, ascending; no hypothesis row has an own-unit DWARF line; 1 fn local-static counters re-derived (lowest unshared N), 1 data counters match names; data rows ascending address per region; static-initializer ranks match __sinit_ first-reference order; evidence-carrying hypothesis rows are lone carriers; not_placed reasons match names (guards 1-byte); LOCAL stage7 copies are template instantiations. Scratch build/order-plans/socom-order-reviewer-r1/."
       ],
       "handoff": {
         "owner": "socom-order-planner-p0",
@@ -176742,7 +176853,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 033 (2 units, 217 definitions)"
     },
     {
@@ -176820,6 +176931,10 @@
       "title": "Compile the order skeletons of segment 033 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:36:49Z",
+        "by": "socom-order-reviewer-r1"
+      },
       "batch": {
         "batch_number": 34,
         "definitions": 140,
@@ -176838,7 +176953,8 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-034.json sha256:9c0f10fbec92cf23e75b36faf5eeba0d06de6fb5b55d8300fd075e3b3d1d2a75",
-        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok",
+        "sha256 matches handoff; validate --check ok (0 open/mismatch/stale); independent re-draft equals plan (0 open, 0 settled, 0 in-class). Independent source-sql checks over all rows ({'hypothesis': 118, 'constrained': 11}): 115 out-of-line pairs strictly reverse-address; 0 proven rows' first DWARF line rows equal, ascending; no hypothesis row has an own-unit DWARF line; 2 fn local-static counters re-derived (lowest unshared N), 7 data counters match names; data rows ascending address per region; static-initializer ranks match __sinit_ first-reference order; evidence-carrying hypothesis rows are lone carriers; not_placed reasons match names (guards 1-byte); LOCAL stage7 copies are template instantiations. Scratch build/order-plans/socom-order-reviewer-r1/."
       ],
       "handoff": {
         "owner": "socom-order-planner-p0",
@@ -176853,7 +176969,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 034 (1 units, 140 definitions)"
     },
     {
@@ -176948,8 +177064,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "__sinit_seal_sensors.cpp 0x46d2d0: _diPool address lui/addiu 0x46d354/0x46d35c, first write sw s0,0x4(v0) 0x46d3c8 after last _colorPlayerNoSee store 0x46d3c4; dtor node @2463 at 0x509020",
+        "build/order-plans/socom-work-order-segment-035.json sha256:3be4bf0ae78eedc770d9ac98f40321e90214961f88a270c6a43dfaae85de515a"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p2",
+        "submitted_at": "2026-11-01T21:33:15Z",
+        "summary": "Settled 2 constraint-conflict data rows (seal_sensors .bss _colorEntVisible/_diPool): address order kept, sinit rank of _diPool is a hoisted this-address/diPoolSize load; first write into _diPool follows the colour stores. 0 open, 0 mismatches."
+      },
       "id": "socom:work:order-segment-035",
       "kind": "order-plan-segment",
       "lease": null,
@@ -176958,7 +177081,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 035 (4 units, 429 definitions)"
     },
     {
@@ -177068,8 +177191,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "IssueCommand 0x2d07e0: breachState$3368 guard init$3370 tested at 0x2d1a40, then targetOffset$2842 guard init$2843 at 0x2d1c40 on the fall-through path; Xoff$2886..EoffMult$2895 only in SetFormation 0x2d31d0; run_once$2378 shared by can_run_anim/AllowCommand",
+        "build/order-plans/socom-work-order-segment-036.json sha256:df9ee6fe742c893e82f7f1ee2225125a50df7a520204ee99a9ba4098e1442041"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p2",
+        "submitted_at": "2026-11-01T21:33:24Z",
+        "summary": "Settled 2 constraint-conflict function rows (seal_unit IssueCommand/SetFormation): reverse-address order kept; IssueCommand's targetOffset$2842 is numbered outside its own parse (reached after breachState$3368 in the same path) and belongs to an inlined helper; its breachState$3368 fits the draft. 0 open, 0 mismatches."
+      },
       "id": "socom:work:order-segment-036",
       "kind": "order-plan-segment",
       "lease": null,
@@ -177078,7 +177208,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 036 (9 units, 341 definitions)"
     },
     {
@@ -177981,6 +178111,10 @@
       "title": "Compile the order skeletons of segment 043 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:36:16Z",
+        "by": "socom-order-reviewer-r2"
+      },
       "batch": {
         "batch_number": 44,
         "definitions": 228,
@@ -178003,6 +178137,7 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-044.json sha256:a067e8236ec5241d0d8fe9a9871e4642b1a457d77c9ebdc8e64e6986e94bee98",
+        "build/order-plans/socom-work-order-segment-044.json sha256:a067e8236ec5241d0d8fe9a9871e4642b1a457d77c9ebdc8e64e6986e94bee98 equals handoff; order plan validate --check ok (0 open, 0 mismatches, 0 stale); re-draft JSON-identical (build/order-plans/socom-order-reviewer-r2/); independent re-check of every row: out-of-line rows descending position = address order, positions 1..k, data rows address order, counter/sinit/DIE carriers monotonic, not_placed reasons derived; spot checks: thezoom 8 proven rows: DWARF lines 34..398 equal independent .line decode of support/socom.elf; zwep_weapon 102 rows reverse-address; zwep_projectile sinit ranks 0,1 ascending",
         "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
       ],
       "handoff": {
@@ -178018,7 +178153,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 044 (5 units, 228 definitions)"
     },
     {
@@ -178106,6 +178241,10 @@
       "title": "Compile the order skeletons of segment 044 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:36:25Z",
+        "by": "socom-order-reviewer-r2"
+      },
       "batch": {
         "batch_number": 45,
         "definitions": 47,
@@ -178125,6 +178264,7 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-045.json sha256:0ed34a560b213be386b1b9f352f0572641ded4074136abf2f33798b59ed0e674",
+        "build/order-plans/socom-work-order-segment-045.json sha256:0ed34a560b213be386b1b9f352f0572641ded4074136abf2f33798b59ed0e674 equals handoff; order plan validate --check ok (0 open, 0 mismatches, 0 stale); re-draft JSON-identical (build/order-plans/socom-order-reviewer-r2/); independent re-check of every row: out-of-line rows descending position = address order, positions 1..k, data rows address order, counter/sinit/DIE carriers monotonic, not_placed reasons derived; spot checks: st_exit 7 proven rows lines 96..340 equal .line decode; __msl_ios_base_ninit sinit rank 0 first; zNetDme 25 reverse-address rows",
         "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
       ],
       "handoff": {
@@ -178140,7 +178280,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 045 (2 units, 47 definitions)"
     },
     {
@@ -178222,6 +178362,10 @@
       "title": "Compile the order skeletons of segment 045 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:36:33Z",
+        "by": "socom-order-reviewer-r2"
+      },
       "batch": {
         "batch_number": 46,
         "definitions": 257,
@@ -178240,6 +178384,7 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-046.json sha256:f57cf40b6d87eb1348577f886151fd9b3414e8377ea19c2564d788e7e90ce9cf",
+        "build/order-plans/socom-work-order-segment-046.json sha256:f57cf40b6d87eb1348577f886151fd9b3414e8377ea19c2564d788e7e90ce9cf equals handoff; order plan validate --check ok (0 open, 0 mismatches, 0 stale); re-draft JSON-identical (build/order-plans/socom-order-reviewer-r2/); independent re-check of every row: out-of-line rows descending position = address order, positions 1..k, data rows address order, counter/sinit/DIE carriers monotonic, not_placed reasons derived; spot checks: zNetMedius 172 reverse-address rows, 4 static guards, r21 4 counter + r23 8 sinit rows ascending; literal labels 0/34 inversions",
         "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
       ],
       "handoff": {
@@ -178255,7 +178400,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 046 (1 units, 257 definitions)"
     },
     {
@@ -178331,6 +178476,10 @@
       "title": "Compile the order skeletons of segment 046 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:36:41Z",
+        "by": "socom-order-reviewer-r2"
+      },
       "batch": {
         "batch_number": 47,
         "definitions": 140,
@@ -178354,6 +178503,7 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-047.json sha256:9b247d403210fb96e4cd5ffa235adeb6ca5529244582317f04a07ec93591bc0d",
+        "build/order-plans/socom-work-order-segment-047.json sha256:9b247d403210fb96e4cd5ffa235adeb6ca5529244582317f04a07ec93591bc0d equals handoff; order plan validate --check ok (0 open, 0 mismatches, 0 stale); re-draft JSON-identical (build/order-plans/socom-order-reviewer-r2/); independent re-check of every row: out-of-line rows descending position = address order, positions 1..k, data rows address order, counter/sinit/DIE carriers monotonic, not_placed reasons derived; spot checks: reco 22 proven rows lines 198..1670 equal .line decode; 5 static guards; r21 5 counter rows ascending",
         "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
       ],
       "handoff": {
@@ -178369,7 +178519,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 047 (6 units, 140 definitions)"
     },
     {
@@ -178572,6 +178722,10 @@
       "title": "Compile the order skeletons of segment 052 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:37:05Z",
+        "by": "socom-order-reviewer-r2"
+      },
       "batch": {
         "batch_number": 54,
         "definitions": 112,
@@ -178592,6 +178746,7 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-054.json sha256:0a9d1afb69ff4597e7d17b034b8e89ff4984b8e35cd0323874d2bd99c40119ff",
+        "build/order-plans/socom-work-order-segment-054.json sha256:0a9d1afb69ff4597e7d17b034b8e89ff4984b8e35cd0323874d2bd99c40119ff equals handoff; order plan validate --check ok (0 open, 0 mismatches, 0 stale); re-draft JSON-identical (build/order-plans/socom-order-reviewer-r2/); independent re-check of every row: out-of-line rows descending position = address order, positions 1..k, data rows address order, counter/sinit/DIE carriers monotonic, not_placed reasons derived; spot checks: veh_turret 4 constrained fns: counters 2011/2078/2120/2174 at positions 8/11/15/17, each static's GPREL16 relocs inside its function, data r21 by N at ascending address; st_load 10 proven lines 174..727 equal .line decode",
         "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
       ],
       "handoff": {
@@ -178607,7 +178762,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 054 (3 units, 112 definitions)"
     },
     {
@@ -178695,6 +178850,10 @@
       "title": "Compile the order skeletons of segment 054 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:37:20Z",
+        "by": "socom-order-reviewer-r2"
+      },
       "batch": {
         "batch_number": 55,
         "definitions": 216,
@@ -178713,6 +178872,7 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-055.json sha256:8fd88e27e22977d1b8af31e21b81f2f328da9d2fcd5570f992c40dcec97e3cd5",
+        "build/order-plans/socom-work-order-segment-055.json sha256:8fd88e27e22977d1b8af31e21b81f2f328da9d2fcd5570f992c40dcec97e3cd5 equals handoff; order plan validate --check ok (0 open, 0 mismatches, 0 stale); re-draft JSON-identical (build/order-plans/socom-order-reviewer-r2/); independent re-check of every row: out-of-line rows descending position = address order, positions 1..k, data rows address order, counter/sinit/DIE carriers monotonic, not_placed reasons derived; spot checks: zui_2d 146 rows, 3 counter-constrained fns in order, r18/r21 constrained data ascending; literal inversions 5/23 corroboration only",
         "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
       ],
       "handoff": {
@@ -178728,7 +178888,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 055 (1 units, 216 definitions)"
     },
     {
@@ -179177,13 +179337,35 @@
       "handoff": null,
       "id": "socom:work:order-segment-064",
       "kind": "order-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-11-01T21:37:09Z",
+        "expires_at": "2026-11-01T22:37:09Z",
+        "heartbeat_at": "2026-11-01T21:37:09Z",
+        "owner": "socom-order-planner-p2"
+      },
       "resources": [
         "build/order-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-order-planner-p2",
+            "submitted_at": "2026-11-01T21:35:59Z",
+            "summary": "Settled 3 out-of-rule rows (hud_linemap CAiLinePtItr FindValid/IsValid/GetPt confirmed in-class at their DWARF line positions) and 5 constraint-conflict data rows (hud_bitmapreticule TIMER_*: address order = DWARF variable order kept; the sinit reads BKGRD inputs and schedules IMAGE stores). 0 open, 0 mismatches."
+          },
+          "handoff_evidence": [
+            "FindValid only called by TickLine (R_MIPS_26 0x3c8f30), emitted at 0x3c90f0 right after it; IsValid/GetPt/Advance only in __vt__CAiLinePtItr (0x4746c8/cc/d0), vtable used only by TickLine (0x3c8f0c/14); __sinit_hud_bitmapreticule.cpp 0x470260",
+            "build/order-plans/socom-work-order-segment-064.json sha256:83ccd397517fd79941366fb80e376b085cd2819dfaa7620c04dadb987a070ea7"
+          ],
+          "reason": "hud_linemap CAiLinePtItr::Advance is drafted out-of-line at position 1 (line 36) but is in-class like FindValid/IsValid/GetPt: line contiguous with the class-body lines 37/38/42, referenced only through the CAiLinePtItr vtable, emitted beside GetPt at the unit's end (planner p2 finding). Decide it --in-class --no-position and re-hand off.",
+          "rejected_at": "2026-11-01T21:36:51Z",
+          "rejected_by": "parent-orchestrator"
+        }
+      ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan the definition order of segment 064 (9 units, 353 definitions)"
     },
     {
@@ -179296,8 +179478,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "__sinit_hud_actionbitmap.cpp 0x470350: float block 0x470384-0x470408 before __construct_array jal 0x1422c0 at 0x470404; IMAGE_POSX1 stored early (0x4703d8) for reload at 0x4703e0",
+        "build/order-plans/socom-work-order-segment-065.json sha256:81536b303c26b2451d422d9b5f3ec31129fc2f73a03ef21aece34fdddf626227"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p2",
+        "submitted_at": "2026-11-01T21:36:07Z",
+        "summary": "Settled 6 constraint-conflict data rows (hud_actionbitmap CENTERX/INSET, POSX2/posWeaponTakenStr, HWIDTH/IMAGE_POSX1): address order = DWARF variable order kept; all float initializers sit in one call-free scheduled block of the sinit. 0 open, 0 mismatches."
+      },
       "id": "socom:work:order-segment-065",
       "kind": "order-plan-segment",
       "lease": null,
@@ -179306,7 +179495,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 065 (6 units, 202 definitions)"
     },
     {
@@ -179777,6 +179966,10 @@
       "title": "Compile the order skeletons of segment 076 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:33:31Z",
+        "by": "socom-order-reviewer-r1"
+      },
       "batch": {
         "batch_number": 0,
         "link_order_sha256": "fb46c9102c90e75ec5e883d98366a6653f84698e7c86aeda9e2aae016d84e232",
@@ -179789,7 +179982,8 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-link.json sha256:1ac47958390367ebf302e2753e62336e89904d29962ae3d13d86e4e6fb90216c",
-        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok",
+        "sha256 matches handoff; order plan validate --check ok (0 problems/stale); independent re-draft equals plan; equals fresh order link-spec output, static check 0 violations. Scratch build/order-plans/socom-order-reviewer-r1/."
       ],
       "handoff": {
         "owner": "socom-order-planner-p0",
@@ -179804,7 +179998,7 @@
       ],
       "selection": null,
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Review the link-order plan (621 objects in link order)"
     },
     {
