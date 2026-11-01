@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3371,
+  "revision": 3377,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -149793,6 +149793,10 @@
       "title": "Apply the reviewed source owners of segment 020 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:33:33Z",
+        "by": "socom-source-owner-scrutinizer-x28"
+      },
       "batch": {
         "artifact_count": 360,
         "batch_number": 21,
@@ -149830,16 +149834,18 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-021.json sha256:522e5430e5bc9b5f32df9393e198367f4e46b120ee6cc010f631cafe4ed46a6e; emit-check --plan: 0 missing notes, 0 wrong citations, 1 missing emit = 0x1df000 (user-written, one unit; no-emit note per parent ruling); validate --check ok; draft --check ok",
+        "re-review of x28 rejection: plan sha256:522e5430e5bc9b5f32df9393e198367f4e46b120ee6cc010f631cafe4ed46a6e = handoff; validate --check ok (0 problems), draft --check ok. Diff vs pre-final equals the version x28 reviewed except: the 0x1df000 header-emit row and its zanim.h:834 reservation evidence are removed (annotation now only defines si_script.cpp), and the note 'user-written ...; used by 1 unit (si_script.cpp; only reference __sinit_si_script.cpp 0x46a730); no emit' is added, per the parent ruling of 2026-10-31. emit-check lists only 0x1df000 as missing (emit-check treats every CU-less dtor as implicit; the parent accepts the note; tool fix queued). All other rows were verified in x28's previous review."
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs4",
+        "submitted_at": "2026-11-01T00:29:46Z",
+        "summary": "re-sweep (x28 rejection): removed the header emit of user-written CZSIScriptCommon::List dtor 0x1df000 (one unit) and added its 'user-written ...; used by 1 unit; no emit' note; emit note and reservation text corrected; other sweep fixes unchanged"
+      },
       "id": "socom:work:source-segment-021",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-11-01T00:28:31Z",
-        "expires_at": "2026-11-01T02:28:31Z",
-        "heartbeat_at": "2026-11-01T00:28:31Z",
-        "owner": "socom-source-owner-mapper-fs4"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -149903,7 +149909,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "accepted",
       "title": "Plan source owners of segment 021 (0x1dd520-0x1e8748, 167 functions)"
     },
     {
@@ -151055,6 +151061,10 @@
       "title": "Apply the reviewed source owners of segment 027 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:33:36Z",
+        "by": "socom-source-owner-scrutinizer-x28"
+      },
       "batch": {
         "artifact_count": 431,
         "batch_number": 28,
@@ -151095,16 +151105,18 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-028.json sha256:507621bd0480957bc064f4719e83dc9beaecbf4d4757066d9218265349b12579; emit-check --plan: 0 missing notes, 0 wrong citations, 2 missing emits = 0x231b20, 0x2377f0 (user-written, one unit; no-emit notes per parent ruling); validate --check ok; draft --check ok",
+        "re-review of x28 rejection: plan sha256:507621bd0480957bc064f4719e83dc9beaecbf4d4757066d9218265349b12579 = handoff; validate --check ok (0 problems), draft --check ok. Diff vs pre-final equals the version x28 reviewed except: the header-emit rows of 0x231b20 (CAssetList dtor) and 0x2377f0 (Particle::Instance::List dtor) are removed (annotations now only define node_assetlib.cpp / zparticle_instance.cpp) with their reservation evidence, and 'user-written ...; used by 1 unit ...; no emit' notes are added, per the parent ruling of 2026-10-31. emit-check lists only those two as missing (accepted note; tool fix queued). All other rows were verified in x28's previous review."
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs4",
+        "submitted_at": "2026-11-01T00:30:38Z",
+        "summary": "re-sweep (x28 rejection): removed the header emits of the user-written CAssetList dtor 0x231b20 and Particle::Instance::List dtor 0x2377f0 (each referenced only by its own unit's __sinit) and added their 'user-written ...; used by 1 unit; no emit' notes; emit note and reservation text corrected; other sweep fixes unchanged"
+      },
       "id": "socom:work:source-segment-028",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-11-01T00:28:34Z",
-        "expires_at": "2026-11-01T02:28:34Z",
-        "heartbeat_at": "2026-11-01T00:28:34Z",
-        "owner": "socom-source-owner-mapper-fs4"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -151168,7 +151180,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "accepted",
       "title": "Plan source owners of segment 028 (0x22c1a0-0x23a0cc, 192 functions)"
     },
     {
@@ -151238,6 +151250,10 @@
       "title": "Apply the reviewed source owners of segment 028 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:33:40Z",
+        "by": "socom-source-owner-scrutinizer-x28"
+      },
       "batch": {
         "artifact_count": 411,
         "batch_number": 29,
@@ -151278,16 +151294,18 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-segment-029.json sha256:47c55d9c5ad15f1aff3d3befde4d4954033c96a03f0b8fd8d8df63aeb7782182; emit-check --plan: 0 missing notes, 0 wrong citations, 1 undetermined (0x23ca30, noted), 1 missing emit = 0x23b8b0 (user-written, one unit; no-emit note per parent ruling); validate --check ok; draft --check ok",
+        "re-review of x28 rejection: plan sha256:47c55d9c5ad15f1aff3d3befde4d4954033c96a03f0b8fd8d8df63aeb7782182 = handoff; validate --check ok (0 problems), draft --check ok. Diff vs the version x28 reviewed: the 0x23b8b0 header-emit row is removed (annotation now only defines zparticle_source.cpp) and its user-written / 1-unit note added; the 0x23e380 emit to zrdr.h:153 is re-cited with --override as user-written, used by 2 units (kept in zrdr_main.cpp, body inlined by CRdrFile::CRdrFile 0x23cf30 in zrdr_file.cpp), with an override note; a defined-elsewhere contradiction is added at zrdr_main.cpp:17 (the line defines _zrdr::_zrdr()); the sweep note and reservation evidence/reason are updated. emit-check lists only 0x23b8b0 as missing (accepted note); zrdr_countarray 0x23ca30 is undetermined (noted)."
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs4",
+        "submitted_at": "2026-11-01T00:31:44Z",
+        "summary": "re-sweep (x28 rejection): removed the header emit of the user-written Particle::Source::List dtor 0x23b8b0 (one unit) + no-emit note; re-cited the _zrdr ctor 0x23e380 emit (override: user-written, two units via CRdrFile::CRdrFile 0x23cf30 inlining it) and added a defined-elsewhere contradiction at provisional zrdr_main.cpp:17; emit note and reservation text corrected; other sweep fixes unchanged"
+      },
       "id": "socom:work:source-segment-029",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-11-01T00:28:37Z",
-        "expires_at": "2026-11-01T02:28:37Z",
-        "heartbeat_at": "2026-11-01T00:28:37Z",
-        "owner": "socom-source-owner-mapper-fs4"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -151337,7 +151355,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "accepted",
       "title": "Plan source owners of segment 029 (0x23a0d0-0x247874, 179 functions)"
     },
     {
@@ -156392,7 +156410,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Reconcile rodata data owners (5456 artifacts outside the segment slices)"
     },
     {
@@ -156481,7 +156499,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Reconcile data data owners (1001 artifacts outside the segment slices)"
     },
     {
@@ -156570,7 +156588,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "blocked",
+      "status": "ready",
       "title": "Reconcile bss data owners (1769 artifacts outside the segment slices)"
     },
     {
