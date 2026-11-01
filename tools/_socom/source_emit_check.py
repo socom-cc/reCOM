@@ -13,10 +13,25 @@ thunks (``@N@...``) and MSL instances (``H-template-family`` covers those):
   owner), else from the whole-graph draft decision; referencers neither
   decides are listed as unknown;
 * an emit is expected for (a) an implicit special member (``__ct__``,
-  ``__dt__``, ``__as__`` without a DWARF compile unit of its own) when a
-  header declares its class, (b) a copy that two or more units involve, and
-  (c) an authored template instance (class-template member or function
-  template instance), whatever the unit count;
+  ``__dt__``, ``__as__`` without a DWARF compile unit of its own whose ELF
+  body is compiler-shaped, see below) when a header declares its class,
+  (b) a copy that two or more units involve, and (c) an authored template
+  instance (class-template member or function template instance), whatever
+  the unit count;
+* the body shape of a special member without a DWARF compile unit of its
+  own, read from the ELF instructions and relocations: ``implicit`` when the
+  body does only what the compiler generates (a destructor: vptr stores,
+  base and member destructor calls, the delete-flag test and its operator
+  delete tail; a constructor: base and member constructor calls, vptr
+  stores, member zero or copy initialization; an assignment: member-wise
+  copies and member ``operator=`` calls; a loop only when everything in it
+  is such a copy, construction or destruction), ``user-written`` when it
+  does anything else (a loop over something else, a call of another
+  function, a non-zero constant or another member stored, a pointer
+  deleted, a global read or written), ``unknown`` when the scan cannot tell
+  (a call into library code an inlined member may have made, a value it
+  does not track).  A user-written single-unit copy expects no emit; an
+  unknown one is listed (``unknown_shape``), never expected;
 * the header: the class's (template's) DWARF header unit, mapped to the
   workspace path (the direct ``src/<module>/<file>``, else the one file of
   that name in the module tree, else the path the plans already emit to,
@@ -26,10 +41,13 @@ thunks (``@N@...``) and MSL instances (``H-template-family`` covers those):
   with its line.  When (b) or (c) holds and no header is evidenced, the plan
   needs a note naming the artifact that says no header declares it;
 * an existing workspace header-emit row citing ``<header>:<line>`` must cite
-  a line that declares the artifact's class (or template, or free function).
+  a line that declares the artifact's class (or template, or free function);
+* a header-emit row on a user-written special member only one unit involves
+  (not a template instance) is listed as ``user_written_emits``: the rule
+  places it in that unit's source file.
 
-The check reads the source query cache and the plan files; it writes
-nothing.  ``source plan validate`` adds its counts as one review note.
+The check reads the source query cache, the plan files and the ELF; it
+writes nothing.  ``source plan validate`` adds its counts as one review note.
 """
 
 from __future__ import annotations
@@ -39,7 +57,7 @@ import sqlite3
 from collections import Counter, defaultdict
 from contextlib import closing
 from pathlib import Path, PureWindowsPath
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 from .mwdemangle import demangle, readable_qualified, template_base
 from .source_graph import path_library
@@ -53,7 +71,7 @@ from .source_plan_edit import owner_label
 from .util import SocomError, load_json
 
 EMIT_CHECK_KIND = "socom-source-emit-check"
-EMIT_CHECK_VERSION = 1
+EMIT_CHECK_VERSION = 2
 COPY_BINDINGS = frozenset({"WEAK", "13"})
 MSL_NAMESPACES = frozenset({"std", "Metrowerks"})
 SPECIAL_PREFIXES = ("__ct__", "__dt__", "__as__")
@@ -64,7 +82,8 @@ _NO_HEADER = re.compile(r"\bno\s+(?:[\w/.:|-]+\s+){0,4}?headers?\s+(?:[\w/.:|-]+
 _CITATION = re.compile(r"((?:[\w.-]+/)*[\w.-]+\.(?:h|hh|hpp|inc)):(\d+)\b", re.IGNORECASE)
 RULE = (
     "owned authored inline (binding 13) or WEAK function copies (no @N@ thunks, no MSL): an emit is expected for an "
-    "implicit special member (__ct__/__dt__/__as__ without its own DWARF compile unit) when a header declares its "
+    "implicit special member (__ct__/__dt__/__as__ without its own DWARF compile unit whose ELF body shape is "
+    "implicit: only compiler-generated work) when a header declares its "
     "class, for a copy two or more units involve (the holding unit, every referencing function or data artifact, and "
     "for a copy its class's vtable references every reader of that vtable and every caller of the class's "
     "constructors), and for an authored template instance whatever the unit count; the header is the class's "
@@ -360,16 +379,21 @@ class _Cache:
     """The cache rows the check reads, loaded once."""
 
     def __init__(self, path: Path) -> None:
+        self.path = path
+        self.shapes: dict[str, dict[str, Any]] = {}
         with closing(sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)) as connection:
             self.graph_sha256 = (connection.execute("SELECT value FROM meta WHERE key = 'graph_sha256'").fetchone() or [None])[0]
             self.rows: dict[str, dict[str, Any]] = {}
-            for identity, kind, address, binding, classification, library, header in connection.execute(
-                "SELECT id, kind, address, binding, classification, library, emitted_from_header FROM artifacts"
+            self.functions: dict[int, dict[str, Any]] = {}
+            for identity, kind, address, size, binding, classification, library, header in connection.execute(
+                "SELECT id, kind, address, size, binding, classification, library, emitted_from_header FROM artifacts"
             ):
                 self.rows[identity] = {
-                    "id": identity, "kind": kind, "address": address, "binding": binding, "classification": classification,
-                    "library": library, "header": header, "names": [],
+                    "id": identity, "kind": kind, "address": address, "size": size, "binding": binding,
+                    "classification": classification, "library": library, "header": header, "names": [],
                 }
+                if kind == "function" and address is not None:
+                    self.functions.setdefault(int(address), self.rows[identity])
             for identity, name, binding in connection.execute("SELECT artifact, name, binding FROM names ORDER BY artifact, symbol_index"):
                 if identity in self.rows:
                     self.rows[identity]["names"].append((str(name), binding))
@@ -406,6 +430,71 @@ class _Cache:
             if shape["template"]:
                 self.family_headers[shape["template"]][row["header"]] += 1
                 self.examples[(shape["template"], row["header"])].append(identity)
+        self.vtable_ids = {identity for values in self.vtables.values() for identity in values}
+
+    def callee(self, address: int | None, symbol: str | None) -> dict[str, Any]:
+        """What a call target is, for the body shape: its name, special kind, operator delete, array helper, library."""
+
+        row = self.functions.get(address) if address is not None else None
+        names = [name for name, _binding in row["names"]] if row else [symbol] if symbol else []
+        info: dict[str, Any] = {"name": names[0] if names else None}
+        for name in names:
+            for prefix, special in (("__dt__", "dt"), ("__ct__", "ct"), ("__as__", "as")):
+                if name.startswith(prefix):
+                    info["special"] = special
+            if name.startswith(DELETE_PREFIXES):
+                info["delete"] = True
+            if name in ARRAY_HELPERS:
+                info["helper"] = True
+            value = demangle(name)
+            if value and value["qualifier"] and template_base(value["qualifier"][0]) in MSL_NAMESPACES:
+                info["provider"] = True
+        if row and row.get("classification") == "provider":
+            info["provider"] = True
+        return info
+
+    def body(
+        self, identity: str, kind: str, word: Callable[[int], int] | None, qualifier: tuple[str, ...] = ()
+    ) -> dict[str, Any]:
+        """The body shape of a special member of class ``qualifier`` (``unknown`` without the ELF), computed once."""
+
+        if identity in self.shapes:
+            return self.shapes[identity]
+        row = self.rows[identity]
+        if word is None or not row.get("size") or row.get("address") is None:
+            result: dict[str, Any] = {"shape": "unknown", "reasons": ["no ELF instructions to read"]}
+        else:
+            start = int(row["address"])
+            sites: dict[int, dict[str, Any]] = {}
+            with closing(sqlite3.connect(f"file:{self.path.as_posix()}?mode=ro", uri=True)) as connection:
+                for site, target, kind_, symbol in connection.execute(
+                    "SELECT site, target_artifact, type, symbol FROM refs WHERE site_artifact = ?", (identity,)
+                ):
+                    sites[int(site)] = {
+                        "type": kind_, "symbol": symbol,
+                        "target_kind": "vtable" if target in self.vtable_ids else (str(target).split(":")[1] if target else None),
+                    }
+            own = frozenset(
+                name for table in self.vtables.get(tuple(qualifier), []) for name, _binding in self.rows[table]["names"]
+            )
+            try:
+                result = body_shape(word, start, int(row["size"]), kind, sites, self.callee, own)
+            except (IndexError, ValueError) as failure:
+                result = {"shape": "unknown", "reasons": [f"the body could not be read: {failure}"]}
+        self.shapes[identity] = result
+        return result
+
+
+def elf_words(root: Path) -> Callable[[int], int] | None:
+    """A reader of the reference ELF's loaded words (``None`` when ``support/socom.elf`` is absent)."""
+
+    from .elf import Elf32File
+    from .mips_flow import _Code
+
+    path = root / "support" / "socom.elf"
+    if not path.is_file():
+        return None
+    return _Code(Elf32File(path)).word
 
 
 def _bindings(row: dict[str, Any]) -> set[Any]:
@@ -435,11 +524,15 @@ def _shape(row: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
+def _params(shape: dict[str, Any]) -> list[dict[str, Any]]:
+    # ``Fv`` demangles to one void parameter: no parameters.
+    return [value for value in shape["params"] or [] if not (value.get("kind") == "builtin" and value.get("name") == "void")]
+
+
 def _special_shape(shape: dict[str, Any]) -> bool:
     """A destructor, default or copy constructor, or copy assignment: what the compiler may generate."""
 
-    # ``Fv`` demangles to one void parameter: no parameters.
-    params = [value for value in shape["params"] or [] if not (value.get("kind") == "builtin" and value.get("name") == "void")]
+    params = _params(shape)
     copy = (
         len(params) == 1 and params[0].get("kind") == "class" and "R" in (params[0].get("modifiers") or [])
         and tuple(params[0].get("components") or ()) == shape["qualifier"]
@@ -449,6 +542,353 @@ def _special_shape(shape: dict[str, Any]) -> bool:
     if shape["name"].startswith("__ct__"):
         return not params or copy
     return shape["name"].startswith("__as__") and copy
+
+
+def special_kind(shape: dict[str, Any]) -> str | None:
+    """``dtor``, ``ctor`` (default), ``copy`` (copy constructor) or ``assign`` (copy assignment); else ``None``."""
+
+    if not shape["name"].startswith(SPECIAL_PREFIXES) or not _special_shape(shape):
+        return None
+    if shape["name"].startswith("__dt__"):
+        return "dtor"
+    if shape["name"].startswith("__as__"):
+        return "assign"
+    return "copy" if _params(shape) else "ctor"
+
+
+# -- the body shape of a special member --------------------------------------------------------
+
+SHAPES = ("implicit", "user-written", "unknown")
+DELETE_PREFIXES = ("__dl__", "__dla__")
+ARRAY_HELPERS = frozenset({"__construct_array", "__destroy_arr"})
+_CLOBBERED = (1, 2, 3, *range(4, 16), 24, 25, 31)
+_LOADS = frozenset({0x1A, 0x1B, 0x1E, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x37})
+_STORES = frozenset({0x1F, 0x28, 0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x3F})
+_SHIFTS = frozenset({0x00, 0x02, 0x03, 0x38, 0x3A, 0x3B, 0x3C, 0x3E, 0x3F})
+_BRANCHES = frozenset({0x04, 0x05, 0x06, 0x07, 0x14, 0x15, 0x16, 0x17})
+_GLOBAL_RELOCATIONS = frozenset({"R_MIPS_LO16", "R_MIPS_GPREL16"})
+_OTHER: tuple[Any, ...] = ("other",)
+_FLAG: tuple[Any, ...] = ("flag",)
+
+
+def _s16(value: int) -> int:
+    return value - 0x10000 if value & 0x8000 else value
+
+
+class _Body:
+    """One pass over a special member's instructions in address order, tracking what each register holds.
+
+    Values: ``("this", offset)``, ``("src", offset)`` (the copied object),
+    ``("stack", offset)``, ``("const", value)``, ``("flag",)`` (the
+    destructor's delete flag), ``("vtable", symbol)``, ``("addr", symbol)``,
+    ``("member", offset)`` and ``("srcval", offset)`` (loaded from this or
+    the source), ``("ret", callee)`` and ``("other",)``.  Every store and call
+    is an event: ``ok`` (what the compiler generates), ``user`` or ``unsure``.
+    Events that are not the member's own are not judged: the deleting tail
+    after the delete-flag test, up to its target (operator delete, called or
+    inlined), and an inlined base destructor or constructor, which starts
+    with the store of a vtable not the class's own (``own_vtables``): in a
+    destructor up to the delete-flag test, in a constructor up to the
+    store of the class's own vptr.
+    """
+
+    def __init__(
+        self,
+        word: Callable[[int], int],
+        start: int,
+        size: int,
+        kind: str,
+        sites: dict[int, dict[str, Any]],
+        callee: Callable[[int | None, str | None], dict[str, Any]],
+        own_vtables: frozenset[str] = frozenset(),
+    ) -> None:
+        self.word, self.start, self.end, self.kind, self.sites, self.callee = word, start, start + size, kind, sites, callee
+        self.own_vtables = own_vtables
+        self.inlined: list[list[int]] = []
+        self.slot_of: int | None = None
+        self.gpr: list[tuple[Any, ...]] = [_OTHER] * 32
+        self.gpr[0], self.gpr[28], self.gpr[29], self.gpr[4] = ("const", 0), ("gp",), ("stack", 0), ("this", 0)
+        self.gpr[5] = _FLAG if kind == "dtor" else ("src", 0) if kind in ("copy", "assign") else _OTHER
+        self.fpr: dict[int, tuple[Any, ...]] = {}
+        self.vfr: dict[int, tuple[Any, ...]] = {}
+        self.stack: dict[int, tuple[Any, ...]] = {}
+        self.events: list[tuple[int, str, str]] = []
+        self.loops: list[tuple[int, int]] = []
+        self.deleting: list[tuple[int, int]] = []
+
+    # -- events ------------------------------------------------------------------------------
+
+    def _deleting(self, pc: int) -> bool:
+        return any(low <= pc < high for low, high in self.deleting)
+
+    def _not_own(self, pc: int) -> bool:
+        return self._deleting(pc) or any(low <= pc < high for low, high in self.inlined)
+
+    def _event(self, pc: int, verdict: str, text: str) -> None:
+        if not self._not_own(pc):
+            self.events.append((pc, verdict, f"0x{pc:x} {text}"))
+
+    def _close_inlined(self, pc: int) -> None:
+        if self.inlined and self.inlined[-1][1] > pc:
+            self.inlined[-1][1] = pc
+
+    def _vptr(self, pc: int, symbol: str) -> None:
+        """A vptr store: a base's vtable opens an inlined base destructor or constructor, the own one closes the latter."""
+
+        # A store in a call's delay slot runs before that call.
+        at = self.slot_of if self.slot_of is not None else pc
+        own = symbol in self.own_vtables
+        if self.kind in ("ctor", "copy") and own:
+            self._close_inlined(at)
+        elif not own and self.own_vtables and not self._not_own(at):
+            self.inlined.append([at, self.end])
+
+    def _set(self, register: int, value: tuple[Any, ...]) -> None:
+        if register:
+            self.gpr[register] = value
+
+    @staticmethod
+    def _mixed(*values: tuple[Any, ...]) -> tuple[Any, ...]:
+        """A computed value: bits of the source object (a bitfield copy) when an operand holds some, else untracked."""
+
+        return ("srcval", None) if any(value[0] == "srcval" for value in values) else _OTHER
+
+    def _load(self, pc: int, base: tuple[Any, ...], offset: int) -> tuple[Any, ...]:
+        if base[0] == "stack":
+            return self.stack.get(base[1] + offset, _OTHER)
+        if base[0] == "this":
+            return ("member", base[1] + offset)
+        if base[0] == "src":
+            return ("srcval", base[1] + offset)
+        if base[0] == "gp":
+            self._event(pc, "user", "reads a global")
+            return _OTHER
+        return ("deref",)
+
+    def _store(self, pc: int, base: tuple[Any, ...], offset: int, value: tuple[Any, ...]) -> None:
+        if base[0] == "stack":
+            self.stack[base[1] + offset] = value
+            return
+        if base[0] != "this":
+            if base[0] == "src":
+                self._event(pc, "user", "writes to the source object")
+            elif base[0] in ("member", "deref", "ret", "gp"):
+                self._event(pc, "user", f"writes through a pointer ({base[0]})")
+            else:
+                self._event(pc, "unsure", "writes through an untracked pointer")
+            return
+        where = f"this+0x{base[1] + offset:x}"
+        tag = value[0]
+        if tag == "vtable":
+            self._event(pc, "unsure" if self.kind == "assign" else "ok", f"stores the vptr {value[1]} to {where}")
+            if self.kind != "assign":
+                self._vptr(pc, str(value[1]))
+        elif tag == "const" and value[1] == 0:
+            ok = self.kind in ("ctor", "copy")
+            self._event(pc, "ok" if ok else "user", f"stores 0 to {where}" + ("" if ok else f" in a {self.kind}"))
+        elif tag == "srcval" and self.kind in ("copy", "assign"):
+            what = "bits of the source" if value[1] is None else f"source+0x{value[1]:x}"
+            self._event(pc, "ok", f"copies {what} to {where}")
+        elif tag == "const":
+            self._event(pc, "user", f"stores the constant 0x{value[1] & 0xFFFFFFFF:x} to {where}")
+        elif tag in ("addr", "src", "member"):
+            what = {"addr": f"the address of {value[1]}", "src": "a pointer to the source", "member": "another member"}[tag]
+            self._event(pc, "user", f"stores {what} to {where}")
+        elif tag == "this":
+            self._event(pc, "unsure", f"stores a pointer into this to {where}")
+        elif tag == "ret":
+            self._event(pc, "unsure", f"stores the result of {value[1]} to {where}")
+        else:
+            self._event(pc, "unsure", f"stores an untracked value to {where}")
+
+    def _call(self, pc: int, target: int | None, symbol: str | None) -> None:
+        info = self.callee(target, symbol)
+        name = info.get("name") or (f"0x{target:x}" if target is not None else "an unknown target")
+        a0, a1 = self.gpr[4], self.gpr[5]
+        if self._not_own(pc):
+            return
+        if info.get("delete"):
+            if a0 == ("this", 0) and self.kind == "dtor":
+                self._event(pc, "ok", f"calls {name} on this")
+            else:
+                self._event(pc, "user", f"calls {name} on {a0[0]}, not this")
+            return
+        special = info.get("special")
+        if not special and not info.get("helper"):
+            if info.get("provider"):
+                self._event(pc, "unsure", f"calls library code {name}")
+            else:
+                self._event(pc, "user", f"calls {name}")
+            return
+        if a0[0] != "this":
+            if a0[0] in ("stack", "other"):
+                self._event(pc, "unsure", f"calls {name} on an untracked object ({a0[0]})")
+            else:
+                self._event(pc, "user", f"calls {name} on {a0[0]}, not a base or member")
+            return
+        allowed = {"dtor": ("dt",), "ctor": ("ct",), "copy": ("ct",), "assign": ("as",)}[self.kind]
+        if info.get("helper"):
+            self._event(pc, "ok", f"calls {name} on this+0x{a0[1]:x}")
+        elif special not in allowed:
+            self._event(pc, "user", f"calls {name} in a {self.kind}")
+        elif special == "dt" and a1[0] == "const" and a1[1] > 0:
+            self._event(pc, "user", f"destroys and deletes this+0x{a0[1]:x} ({name})")
+        else:
+            self._event(pc, "ok", f"calls {name} on this+0x{a0[1]:x}")
+
+    # -- instructions ------------------------------------------------------------------------
+
+    def _plain(self, pc: int) -> None:
+        insn = self.word(pc)
+        if insn == 0:
+            return
+        op, rs, rt, rd = insn >> 26, (insn >> 21) & 31, (insn >> 16) & 31, (insn >> 11) & 31
+        sa, funct, imm = (insn >> 6) & 31, insn & 0x3F, insn & 0xFFFF
+        site = self.sites.get(pc)
+        gpr = self.gpr
+        if op == 0x00:
+            if funct in (0x21, 0x2D, 0x25) and (rt == 0 or rs == 0):
+                self._set(rd, gpr[rs if rt == 0 else rt])
+            elif funct in _SHIFTS:
+                self._set(rd, _FLAG if gpr[rt] == _FLAG else self._mixed(gpr[rt]))
+            elif funct == 0x0C:
+                self._event(pc, "user", "a system call")
+            elif funct not in (0x0D, 0x0F, 0x11, 0x13, 0x18, 0x19, 0x1A, 0x1B):
+                self._set(rd, self._mixed(gpr[rs], gpr[rt]))
+        elif op == 0x0F:
+            self._set(rt, ("hi",) if site else ("const", imm << 16))
+        elif op in (0x08, 0x09, 0x18, 0x19):
+            base = gpr[rs]
+            if site and site.get("type") in _GLOBAL_RELOCATIONS:
+                self._set(rt, ("vtable" if site.get("target_kind") == "vtable" else "addr", site.get("symbol")))
+            elif base[0] == "const":
+                self._set(rt, ("const", base[1] + _s16(imm)))
+            elif base[0] in ("this", "src", "stack"):
+                self._set(rt, (base[0], base[1] + _s16(imm)))
+            else:
+                self._set(rt, _OTHER)
+        elif op == 0x0D:
+            self._set(rt, ("const", gpr[rs][1] | imm) if gpr[rs][0] == "const" else self._mixed(gpr[rs]))
+        elif op in (0x0A, 0x0B, 0x0C, 0x0E):
+            self._set(rt, self._mixed(gpr[rs]))
+        elif op in _LOADS or op in (0x31, 0x36):
+            if site and site.get("type") in _GLOBAL_RELOCATIONS:
+                self._event(pc, "user", f"reads the global {site.get('symbol')}")
+                value: tuple[Any, ...] = _OTHER
+            else:
+                value = self._load(pc, gpr[rs], _s16(imm))
+            if op == 0x31:
+                self.fpr[rt] = value
+            elif op == 0x36:
+                self.vfr[rt] = value
+            else:
+                self._set(rt, value)
+        elif op in _STORES or op in (0x39, 0x3E):
+            if site and site.get("type") in _GLOBAL_RELOCATIONS:
+                self._event(pc, "user", f"writes the global {site.get('symbol')}")
+                return
+            value = self.fpr.get(rt, _OTHER) if op == 0x39 else self.vfr.get(rt, _OTHER) if op == 0x3E else gpr[rt]
+            self._store(pc, gpr[rs], _s16(imm), value)
+        elif op == 0x11:
+            if rs == 0x04:  # mtc1
+                self.fpr[rd] = gpr[rt] if gpr[rt][0] == "const" else _OTHER
+            elif rs in (0x00, 0x02):  # mfc1, cfc1
+                self._set(rt, _OTHER)
+            elif rs == 0x10 and funct == 0x06:  # mov.s
+                self.fpr[sa] = self.fpr.get(rd, _OTHER)
+            elif rs != 0x06:
+                self._event(pc, "user", "floating-point arithmetic")
+        elif op == 0x1C:
+            # por rd,rs,zero moves 128 bits; other MMI operations compute.
+            self._set(rd, gpr[rs] if funct == 0x29 and sa == 0x12 and rt == 0 else _OTHER)
+        elif op == 0x12:
+            if rs == 0x05:  # qmtc2
+                self.vfr[rd] = gpr[rt]
+            elif rs in (0x01, 0x02):  # qmfc2, cfc2
+                self._set(rt, self.vfr.get(rd, _OTHER) if rs == 0x01 else _OTHER)
+            elif rs != 0x06:
+                self._event(pc, "user", "VU0 arithmetic")
+        else:
+            self._event(pc, "unsure", f"an unrecognized instruction 0x{insn:08x}")
+
+    def _returned(self, name: str | None) -> None:
+        for register in _CLOBBERED:
+            self.gpr[register] = _OTHER
+        self.gpr[2] = ("ret", name)
+        self.fpr.clear()
+        self.vfr.clear()
+
+    def run(self) -> dict[str, Any]:
+        pc = self.start
+        while pc < self.end:
+            insn = self.word(pc)
+            op, rs, rt, funct, imm = insn >> 26, (insn >> 21) & 31, (insn >> 16) & 31, insn & 0x3F, insn & 0xFFFF
+            site = self.sites.get(pc) or {}
+            if op == 0x03 or (op == 0x00 and funct in (0x08, 0x09)) or op == 0x02:
+                # A call or jump: its delay slot runs first.
+                self.slot_of = pc
+                self._plain(pc + 4)
+                self.slot_of = None
+                target = ((pc + 4) & 0xF0000000) | ((insn & 0x03FFFFFF) << 2) if op in (0x02, 0x03) else None
+                if op == 0x03 or (op == 0x02 and target is not None and not self.start <= target < self.end):
+                    self._call(pc, target, site.get("symbol"))
+                    self._returned(self.callee(target, site.get("symbol")).get("name"))
+                elif op == 0x02 and target is not None and target <= pc:
+                    self.loops.append((target, pc + 8))
+                elif op == 0x00 and funct == 0x09:
+                    self._event(pc, "user", "an indirect (virtual) call")
+                    self._returned(None)
+                elif op == 0x00 and rs != 31:
+                    self._event(pc, "unsure", "an indirect jump")
+                pc += 8
+                continue
+            if op in _BRANCHES or (op == 0x01 and rt in (0x00, 0x01, 0x02, 0x03)) or (op == 0x11 and rs == 0x08):
+                target = pc + 4 + (_s16(imm) << 2)
+                flag_test = op in (0x06, 0x16) and self.gpr[rs] == _FLAG or op in (0x04, 0x14) and (
+                    (self.gpr[rs] == _FLAG and rt == 0) or (self.gpr[rt] == _FLAG and rs == 0))
+                self.slot_of = pc
+                self._plain(pc + 4)
+                self.slot_of = None
+                if target <= pc and not self._not_own(pc):
+                    self.loops.append((target, pc + 8))
+                elif self.kind == "dtor" and flag_test and target > pc:
+                    self._close_inlined(pc)
+                    self.deleting.append((pc + 8, target))
+                pc += 8
+                continue
+            self._plain(pc)
+            pc += 4
+        for low, high in self.loops:
+            if self._not_own(low):
+                continue
+            if not any(low <= event[0] < high for event in self.events):
+                # Stores or calls in a loop are judged one by one; a loop of neither (a count, a search) may be either.
+                self.events.append((low, "unsure", f"0x{high - 8:x} a loop (back to 0x{low:x}) that stores and calls nothing"))
+        user = [text for _pc, verdict, text in sorted(self.events) if verdict == "user"]
+        unsure = [text for _pc, verdict, text in sorted(self.events) if verdict == "unsure"]
+        shape = "user-written" if user else "unknown" if unsure else "implicit"
+        return {"shape": shape, "reasons": (user or unsure)[:4]}
+
+
+def body_shape(
+    word: Callable[[int], int],
+    start: int,
+    size: int,
+    kind: str,
+    sites: dict[int, dict[str, Any]],
+    callee: Callable[[int | None, str | None], dict[str, Any]],
+    own_vtables: frozenset[str] = frozenset(),
+) -> dict[str, Any]:
+    """The body shape of one special member: ``{shape, reasons}`` (the first user-written or unsure events).
+
+    ``sites``: relocation site address -> ``{type, symbol, target_kind}``
+    (``vtable`` for a class's ``__vt__`` table).  ``callee(address, symbol)``
+    -> ``{name, special ('dt'|'ct'|'as'), delete, helper, provider}``.
+    ``own_vtables``: the class's own vtable symbols (another class's opens an
+    inlined base destructor or constructor).
+    """
+
+    return _Body(word, start, size, kind, sites, callee, own_vtables).run()
 
 
 def _emit_reason(row: dict[str, Any]) -> str:
@@ -616,14 +1056,23 @@ def check_plan(
     headers: _Headers,
     plan_unit: dict[str, str],
     draft_unit: dict[str, str],
+    word: Callable[[int], int] | None = None,
 ) -> dict[str, Any]:
-    """The emit check of one plan: missing emits, missing notes, wrong citations and undetermined copies."""
+    """The emit check of one plan: missing emits, missing notes, wrong citations and undetermined copies.
+
+    ``word`` reads the ELF's loaded words for the body shape of special
+    members (``None``: every body shape is ``unknown``).
+    """
 
     emits = {row.get("artifact"): row for row in plan.get("header_emits") or [] if isinstance(row, dict)}
     groups = _note_groups(list(plan.get("notes") or []))
     missing_emits: list[dict[str, Any]] = []
     missing_notes: list[dict[str, Any]] = []
     undetermined: list[dict[str, Any]] = []
+    unknown_shape: list[dict[str, Any]] = []
+    user_written_emits: list[dict[str, Any]] = []
+    special_members: dict[str, dict[str, Any]] = {}
+    shapes: Counter[str] = Counter()
     checked = expected = 0
     for owner in plan.get("owners") or []:
         if not isinstance(owner, dict) or owner.get("classification") != "authored":
@@ -655,7 +1104,12 @@ def check_plan(
             if holder:
                 units.setdefault(holder.casefold(), holder)
             names = sorted(units.values(), key=str.casefold)
-            implicit = shape["name"].startswith(SPECIAL_PREFIXES) and _special_shape(shape) and identity not in cache.dwarf
+            # A special member without a DWARF compile unit of its own is implicit only when its body is compiler-shaped.
+            kind = special_kind(shape) if identity not in cache.dwarf else None
+            body = cache.body(identity, kind, word, shape["qualifier"]) if kind else None
+            if body is not None:
+                shapes[body["shape"]] += 1
+            implicit = body is not None and body["shape"] == "implicit"
             template = shape["template"] is not None
             chain, _kinds, _template, label = _subject(shape)
             # The header: own or the class's (template's) DWARF header unit, else a provisional declaration.
@@ -697,7 +1151,7 @@ def check_plan(
             if template:
                 basis.append("authored template instance: the template's header must be visible where it is instantiated")
             if implicit:
-                basis.append("implicit special member (no DWARF compile unit of its own): its class's header")
+                basis.append("implicit special member (no DWARF compile unit of its own, compiler-shaped body): its class's header")
             if len(names) >= 2:
                 basis.append(f"{len(names)} units involved (ODR: a shared header)")
             wants_emit = template or len(names) >= 2 or (implicit and suggestion is not None)
@@ -707,7 +1161,17 @@ def check_plan(
             }
             if vtable:
                 record["via_vtable"] = vtable
+            if body is not None:
+                record["body_shape"] = body["shape"]
+                if body["reasons"]:
+                    record["body_reasons"] = body["reasons"]
+                special_members[identity] = {"shape": body["shape"], "units": len(names), "unknown_referencers": len(unknown)}
             if not wants_emit:
+                if body is not None and body["shape"] == "unknown" and suggestion is not None:
+                    # Implicit, it would want an emit; user-written, none: not expected either way until decided.
+                    unknown_shape.append(record | {"has_emit": identity in emits, "header": suggestion["header"]})
+                elif body is not None and body["shape"] == "user-written" and identity in emits and not unknown:
+                    user_written_emits.append(record | {"header": emits[identity].get("header")})
                 if unknown and len(names) == 1:
                     undetermined.append(record | {"reason": f"one known unit; {len(unknown)} referencers have no unit yet"})
                 continue
@@ -761,11 +1225,17 @@ def check_plan(
         "counts": {
             "copies_checked": checked, "expected": expected, "missing_emits": len(missing_emits),
             "missing_notes": len(missing_notes), "wrong_citations": len(wrong), "undetermined": len(undetermined),
+            **{f"shape_{shape.replace('-', '_')}": shapes[shape] for shape in SHAPES},
+            "unknown_shape": len(unknown_shape), "user_written_emits": len(user_written_emits),
         },
         "missing_emits": missing_emits,
         "missing_notes": missing_notes,
         "wrong_citations": wrong,
         "undetermined": undetermined,
+        "unknown_shape": unknown_shape,
+        "user_written_emits": user_written_emits,
+        # Every special member without its own DWARF unit the plan owns: its body shape and unit counts.
+        "special_members": special_members,
     }
 
 
@@ -789,16 +1259,20 @@ def emit_check(
     graph: dict[str, Any] | None = None,
     replace: dict[str, tuple[str, dict[str, Any]]] | None = None,
     statuses: dict[str, str] | None = None,
+    word: Callable[[int], int] | None = None,
 ) -> dict[str, Any]:
     """The emit check over the plans of ``items`` (``None``: every plan file).
 
     Every plan file supplies unit decisions; ``replace`` substitutes plans in
     memory (``source plan validate`` checks the plan it was given).
     ``graph`` (the cache's graph) enables the whole-graph draft fallback.
+    ``word`` reads loaded ELF words for body shapes (default: ``support/socom.elf``).
     """
 
     plans = load_plans(root, replace=replace)
     cache = _Cache(cache_path)
+    if word is None:
+        word = elf_words(root)
     index = HeaderIndex(root)
     headers = _Headers(root, plans)
     units = plan_units(plans)
@@ -819,7 +1293,9 @@ def emit_check(
         if item not in plans:
             raise SocomError(f"no plan of {item} under build/source-plans/")
         path, plan = plans[item]
-        result = check_plan(path, plan, cache=cache, index=index, headers=headers, plan_unit=units, draft_unit=fallback)
+        result = check_plan(
+            path, plan, cache=cache, index=index, headers=headers, plan_unit=units, draft_unit=fallback, word=word
+        )
         totals.update(result["counts"])
         if plan.get("graph_sha256") != cache.graph_sha256:
             # An accepted plan may cite the graph before a refresh that kept its slice (plan_graph_sha256).
@@ -828,7 +1304,11 @@ def emit_check(
             result["status"] = statuses.get(item)
         report["plans"][item] = result
     report["counts"] = {"plans": len(chosen), **{key: totals[key] for key in (
-        "copies_checked", "expected", "missing_emits", "missing_notes", "wrong_citations", "undetermined")}}
+        "copies_checked", "expected", "missing_emits", "missing_notes", "wrong_citations", "undetermined",
+        "shape_implicit", "shape_user_written", "shape_unknown", "unknown_shape", "user_written_emits")}}
+    report["body_shape_source"] = (
+        "support/socom.elf instructions and the cache's relocations" if word is not None else "no ELF: every body shape unknown"
+    )
     report["counts"]["plans_with_findings"] = sum(
         1 for result in report["plans"].values()
         if any((result.get("counts") or {}).get(key) for key in ("missing_emits", "missing_notes", "wrong_citations"))

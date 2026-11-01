@@ -394,13 +394,40 @@ counts by its own plan owner), else from the whole-graph draft decision
 listed as `unknown_referencers`. It expects an emit for
 
 - an implicit special member (a destructor, a default or copy
-  constructor or a copy assignment without a DWARF compile unit of its own)
-  when a header declares its class, whatever the unit count;
+  constructor or a copy assignment without a DWARF compile unit of its own
+  whose body shape is `implicit`, below) when a header declares its class,
+  whatever the unit count;
 - a copy that two or more units involve (ODR: a shared header);
 - an authored template instance (a class-template member such as
   `RTArray<...>::GetNext` or a function template instance such as
   `ai::_max<f>`), whatever the unit count: the template's definition has
   to be visible where it is instantiated.
+
+The body shape of such a special member is read from `support/socom.elf`
+(its instructions, in address order, and the cache's relocations):
+`implicit` when it does only what the compiler generates (a destructor:
+vptr stores, base and member destructor calls on `this`, the delete-flag
+test and its operator delete; a constructor: base and member constructor
+calls, vptr stores, member zero or copy initialization; an assignment:
+member-wise copies and member `operator=` calls; a loop only when every
+store and call in it is such a copy, construction or destruction),
+`user-written` when it does anything else (a call of another function, a
+destructor or operator delete on a loaded pointer, a non-zero constant or
+another member stored, a global read or written, a virtual call), and
+`unknown` when the scan cannot tell (a call into `std`/`Metrowerks` or
+other library code an inlined member may have made, a value it does not
+track, a loop that stores and calls nothing). Two stretches are not the
+member's own and are not judged: the deleting tail after the delete-flag
+test, and an inlined base (or member) destructor or constructor, which
+starts at the store of a vtable that is not the class's own (in a
+destructor up to the delete-flag test, in a constructor up to the store of
+its own vptr). A user-written special member that one unit involves
+expects no emit; an `unknown` one is listed in `unknown_shape` (the copy,
+its units, the class header and whether the plan emits it) and never
+expected; a header-emit row on a user-written single-unit copy (not a
+template instance) is listed in `user_written_emits`. Neither list is a
+finding: the counts `shape_implicit`, `shape_user_written`,
+`shape_unknown`, `unknown_shape` and `user_written_emits` report them.
 
 The header is the class's (template's) DWARF header unit: its own, else the
 one most of the class's members name. A `Z:\dev` path maps to the
@@ -429,11 +456,14 @@ unknown referencers, the vtable reached, basis, `suggested` header with
 line and source, the emit reason), `missing_notes` (with the note text to
 add), `wrong_citations` (each citation's line text and kind, and where the
 class is declared) and `undetermined` copies (one known unit plus unknown
-referencers), with counts and the item's tracker status. `--plan` (repeat)
+referencers), `unknown_shape` and `user_written_emits` (each copy with
+its `body_shape` and the first `body_reasons`) and `special_members` (the
+shape and unit counts of every owned special member without a DWARF unit
+of its own), with counts and the item's tracker status. `--plan` (repeat)
 checks those plan files, `--all` every plan; `--output <file under
 build/>` writes the JSON and prints the counts and the plans with findings.
 The parent hands that file to sweep agents. It reads the query cache of
-`--graph` and the plan files, and writes nothing else.
+`--graph`, the plan files and the ELF, and writes nothing else.
 
 `<slug>` is the item ID with `:` replaced by `-`. The draft decides every
 artifact its rules settle (below) and leaves the rest as `unresolved` rows

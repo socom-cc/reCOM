@@ -9,7 +9,7 @@ from contextlib import closing
 from pathlib import Path
 
 from tools._socom.source_cache import SCHEMA
-from tools._socom.source_emit_check import HeaderIndex, emit_check, review_note
+from tools._socom.source_emit_check import HeaderIndex, body_shape, emit_check, review_note
 
 GRAPH = "f" * 64
 HEADER = """#pragma once
@@ -214,3 +214,180 @@ def test_a_note_must_say_so_for_the_artifact_it_names(tmp_path: Path) -> None:
                  "no header declares COther") == [_id(0x1400)]
     assert notes("0x1400 GetPacketMsg: used by 2 units; no provisional header under src/ declares CPacket") == []
     assert notes("used by 2 units; no header declares them, so no emit: GetPacketMsg 0x1400, Other 0x1900") == []
+
+
+# -- the body shape of special members (ELF instructions) ----------------------------------------------
+
+ZERO, V0, V1, A0, A1, T0, T1, S0, S1, SP, RA = 0, 2, 3, 4, 5, 8, 9, 16, 17, 29, 31
+
+
+def _r(rs: int, rt: int, rd: int, funct: int, sa: int = 0) -> int:
+    return (rs << 21) | (rt << 16) | (rd << 11) | (sa << 6) | funct
+
+
+def _i(op: int, rs: int, rt: int, imm: int) -> int:
+    return (op << 26) | (rs << 21) | (rt << 16) | (imm & 0xFFFF)
+
+
+def move(rd: int, rs: int) -> int:
+    return _r(rs, ZERO, rd, 0x21)
+
+
+def addiu(rt: int, rs: int, imm: int) -> int:
+    return _i(0x09, rs, rt, imm)
+
+
+def lw(rt: int, offset: int, base: int) -> int:
+    return _i(0x23, base, rt, offset)
+
+
+def sw(rt: int, offset: int, base: int) -> int:
+    return _i(0x2B, base, rt, offset)
+
+
+def lb(rt: int, offset: int, base: int) -> int:
+    return _i(0x20, base, rt, offset)
+
+
+def sb(rt: int, offset: int, base: int) -> int:
+    return _i(0x28, base, rt, offset)
+
+
+def branch(op: int, rs: int, rt: int, pc: int, target: int) -> int:
+    return _i(op, rs, rt, (target - pc - 4) >> 2)
+
+
+def jal(target: int) -> int:
+    return (0x03 << 26) | ((target >> 2) & 0x03FFFFFF)
+
+
+def lui(rt: int, imm: int) -> int:
+    return _i(0x0F, 0, rt, imm)
+
+
+JR_RA = _r(RA, 0, 0, 0x08)
+NOP = 0
+DSLL32_FLAG, DSRA32_FLAG = _r(0, S1, V0, 0x3C, 16), _r(0, V0, V0, 0x3F, 16)
+
+
+def _words(start: int, words: list[int]) -> tuple[dict[int, int], int]:
+    return {start + 4 * index: value for index, value in enumerate(words)}, 4 * len(words)
+
+
+def _callee(address, symbol):
+    names = {0x3000: "__dt__6CMemberFv", 0x3100: "__dl__FPv", 0x3200: "Detach__5CBaseFv", 0x3300: "erase__Q23std4listFv",
+             0x3400: "__dt__5CItemFv"}
+    name = names.get(address) or symbol
+    info = {"name": name}
+    for prefix, special in (("__dt__", "dt"), ("__ct__", "ct"), ("__as__", "as")):
+        if name and name.startswith(prefix):
+            info["special"] = special
+    info["delete"] = bool(name) and name.startswith(("__dl__", "__dla__"))
+    info["provider"] = bool(name) and "std" in name
+    return info
+
+
+def _shape_of(words: list[int], kind: str = "dtor", sites: dict | None = None, own: frozenset = frozenset()) -> dict:
+    code, size = _words(0x2000, words)
+    return body_shape(lambda address: code.get(address, 0), 0x2000, size, kind, sites or {}, _callee, own)
+
+
+def _dtor(body: list[int]) -> list[int]:
+    """A destructor at 0x2000: s0 = this, s1 = the delete flag, ``body``, the delete-flag test, operator delete, return."""
+
+    head = [addiu(SP, SP, -32), sw(RA, 16, SP), sw(S0, 0, SP), sw(S1, 4, SP), move(S0, A0), move(S1, A1)]
+    test = 0x2000 + 4 * (len(head) + len(body)) + 8
+    tail = [DSLL32_FLAG, DSRA32_FLAG, branch(0x06, V0, 0, test, test + 16), NOP, jal(0x3100), move(A0, S0)]
+    return head + body + tail + [move(V0, S0), lw(RA, 16, SP), lw(S0, 0, SP), JR_RA, addiu(SP, SP, 32)]
+
+
+# The class's own vptr is loaded at 0x2018/0x201c (the first two body words).
+OWN_VPTR = [lui(V0, 0x47), addiu(V0, V0, 0x100), sw(V0, 0, S0)]
+VT_SITES = {0x2018: {"type": "R_MIPS_HI16", "symbol": "__vt__1X", "target_kind": None},
+            0x201c: {"type": "R_MIPS_LO16", "symbol": "__vt__1X", "target_kind": "vtable"}}
+OWN = frozenset({"__vt__1X"})
+
+
+def test_a_compiler_shaped_destructor_is_implicit() -> None:
+    # vptr store, a member destructor, the delete-flag test and operator delete on this.
+    body = OWN_VPTR + [addiu(A0, S0, 8), jal(0x3000), addiu(A1, ZERO, -1)]
+    assert _shape_of(_dtor(body), sites=VT_SITES, own=OWN) == {"shape": "implicit", "reasons": []}
+
+
+def test_a_delete_loop_is_user_written() -> None:
+    # for (p = m_items; p != end; p++) delete *p;  (the reviewers' List destructors)
+    loop = 0x2000 + 4 * 8
+    body = [lw(T0, 4, S0), lw(T1, 8, S0),
+            lw(A0, 0, T0), jal(0x3400), addiu(A1, ZERO, 1), addiu(T0, T0, 4), branch(0x05, T0, T1, loop + 16, loop), NOP]
+    result = _shape_of(_dtor(body))
+    assert result["shape"] == "user-written"
+    assert "calls __dt__5CItemFv on deref, not a base or member" in result["reasons"][0]
+
+
+def test_an_inlined_base_destructor_is_not_the_members_own_work() -> None:
+    # Own vptr, then a base's vptr store (in a call's delay slot) opens its inlined destructor, which calls a function.
+    sites = VT_SITES | {0x2024: {"type": "R_MIPS_HI16", "symbol": "__vt__5CBase", "target_kind": None},
+                        0x2028: {"type": "R_MIPS_LO16", "symbol": "__vt__5CBase", "target_kind": "vtable"}}
+    body = OWN_VPTR + [lui(V0, 0x47), addiu(V0, V0, 0x200), move(A0, S0), jal(0x3200), sw(V0, 0, S0)]
+    assert _shape_of(_dtor(body), sites=sites, own=OWN)["shape"] == "implicit"
+    # The same call as the class's own statement, before any base vptr store, is user-written.
+    result = _shape_of(_dtor(OWN_VPTR + [jal(0x3200), move(A0, S0)]), sites=VT_SITES, own=OWN)
+    assert result["shape"] == "user-written" and "calls Detach__5CBaseFv" in result["reasons"][0]
+
+
+def test_library_calls_copy_loops_and_constants() -> None:
+    # An inlined library member destructor may call into std::: unknown, not user-written.
+    library = _shape_of(_dtor([addiu(A0, S0, 4), jal(0x3300), NOP]))
+    assert library["shape"] == "unknown" and "calls library code erase__Q23std4listFv" in library["reasons"][0]
+    # operator=: a char[8] member copied byte by byte in a loop, then return this.
+    loop = 0x2000 + 4 * 3
+    assign = [move(T0, A1), move(T1, A0), addiu(V1, ZERO, 8),
+              lb(V0, 0, T0), addiu(V1, V1, -1), sb(V0, 0, T1), addiu(T0, T0, 1), branch(0x07, V1, 0, loop + 16, loop),
+              addiu(T1, T1, 1), move(V0, A0), JR_RA, NOP]
+    assert _shape_of(assign, kind="assign") == {"shape": "implicit", "reasons": []}
+    # A constructor storing a non-zero constant is user-written; zero initialization is compiler-shaped.
+    assert _shape_of([addiu(V0, ZERO, 1), sw(V0, 4, A0), JR_RA, move(V0, A0)], kind="ctor")["shape"] == "user-written"
+    assert _shape_of([sw(ZERO, 4, A0), JR_RA, move(V0, A0)], kind="ctor")["shape"] == "implicit"
+
+
+def test_emit_check_expects_an_emit_only_for_a_compiler_shaped_body(tmp_path: Path) -> None:
+    root, cache, first, _second = _workspace(tmp_path)
+    with closing(sqlite3.connect(cache)) as connection:
+        for address, name, binding, size in ((0x1e00, "__dt__6CAiMapFv", "13", 0x20), (0x3100, "__dl__FPv", "GLOBAL", 8)):
+            connection.execute(
+                "INSERT INTO artifacts (id, kind, address, size, binding, classification) VALUES (?, 'function', ?, ?, ?, 'authored')",
+                (_id(address), address, size, binding),
+            )
+            connection.execute("INSERT INTO names VALUES (?, ?, ?, ?)", (_id(address), name, binding, address))
+        connection.commit()
+    item = "socom:work:source-segment-001"
+    plan = copy.deepcopy(first)
+    plan["owners"][0]["artifacts"].append({"artifact": _id(0x1e00), "confidence": "high", "basis": "x"})
+    # CAiMap's destructor (one unit, a.cpp; zfoo.h declares CAiMap): the flag test and operator delete on this.
+    implicit = [move(S0, A0), _r(0, A1, V0, 0x3C, 16), DSRA32_FLAG, branch(0x06, V0, 0, 0x1e0c, 0x1e1c), NOP,
+                jal(0x3100), move(A0, S0), JR_RA]
+    user = [lw(A0, 4, A0), jal(0x3100), NOP, JR_RA, NOP, NOP, NOP, NOP]  # delete m_p
+
+    def run(words: list[int] | None, emits: bool = False) -> dict:
+        tested = copy.deepcopy(plan)
+        if emits:
+            tested["header_emits"].append({"artifact": _id(0x1e00), "header": "src/gamez/zFoo/zfoo.h", "reason": "inline",
+                                           "evidence": ["x"]})
+        code = _words(0x1e00, words)[0] if words else {}
+        word = (lambda address: code.get(address, 0)) if words else None
+        return emit_check(root, cache, items=[item], replace={item: ("p.json", tested)}, word=word)["plans"][item]
+
+    expected = run(implicit)
+    (row,) = [value for value in expected["missing_emits"] if value["artifact"] == _id(0x1e00)]
+    assert row["body_shape"] == "implicit" and row["units"] == ["a.cpp"] and row["suggested"]["line"] == 31
+    assert any("compiler-shaped body" in basis for basis in row["basis"])
+    written = run(user, emits=True)
+    assert _id(0x1e00) not in [value["artifact"] for value in written["missing_emits"]]
+    (candidate,) = written["user_written_emits"]
+    assert candidate["artifact"] == _id(0x1e00) and candidate["header"] == "src/gamez/zFoo/zfoo.h"
+    assert "calls __dl__FPv on member, not this" in candidate["body_reasons"][0]
+    assert written["counts"]["shape_user_written"] == 1 and written["counts"]["user_written_emits"] == 1
+    # Without the ELF the shape is unknown: listed, never expected.
+    unknown = run(None)
+    assert _id(0x1e00) not in [value["artifact"] for value in unknown["missing_emits"]]
+    assert [(value["artifact"], value["has_emit"]) for value in unknown["unknown_shape"]] == [(_id(0x1e00), False)]
