@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3353,
+  "revision": 3354,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -155161,6 +155161,10 @@
       "title": "Apply the reviewed source owners of segment 064 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:20:48Z",
+        "by": "socom-source-owner-scrutinizer-x27"
+      },
       "batch": {
         "artifact_count": 353,
         "batch_number": 65,
@@ -155201,6 +155205,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "plan build/source-plans/socom-work-source-segment-065.json sha256:77d1fa0d9bcdc4261d17f75f37479ef402e07058f836a2ee744d34d6ad6a58c4 matches handoff; validate --check ok (349 owned, 4 unresolved, 11 header emits), draft --check ok, emit-check 0 missing emits/notes/wrong citations; 7 O-provisional paths agree with accepted 076/063. aidemo.cpp row: workspace src/Apps/FTS/aidemo.cpp, original Z:\\dev\\Apps\\FTS\\aidemo.cpp, no provisional file, identical to accepted 014's row. ai::visinfo 0x4756e8 (.sbss, low): sits between st_core.cpp init$2782 0x4756e4 and ai_events.cpp nextId 0x4756ec (014); sole reader StatusLine 0x3d9820 (hud_devtext.cpp, sinit 139) excluded by link order. Competitor checked: 014's unresolved non-debug ai:: helper run 0x17de90-0x17f068 between aidemo.o and ai_events.o is also in the link slot (the basis omits it), but recon dwarf shows aidemo.cpp's compile unit 0xee0f1 holds only global_variable visinfo (0xee135, location 0x4756e8) besides 8-byte plot_tick, which does not read it; DWARF lists such records only in defining/reading CUs (the other is reader hud_devtext 0x3c0b5d), so aidemo.cpp is the best-supported definer and low is conservative. CBench counters 0x47650c-0x476518 unresolved: run 0x4764c8-0x47651b lies between headset.cpp 0x4764c4 and __HeapSize/zsys_memory 0x47651c-0x476520, same candidates as accepted 039 (dmaTime 0x4764f0); zsys_bench.cpp defines countNodes..countAlphaVisuals only. ~CZPlayerMapItem 0x3db870 (medium): referenced only by GLOBAL __vt__15CZPlayerMapItem (hud_playermapitem.cpp), directly after hud_devtext's last function 0x3db860 and before MissionEndCleanup 0x3db990; no class CZPlayerMapItem under src/ (notes 0, 2). D-referenced _assetNum/_assetTotal/_assetStrings inside hud_devtext's own runs. CHudBrightText ctor 0x3d9350 -> hud.h:114 (DWARF header unit). Reservation src/Apps/FTS + src/gamez/zFTS + src/gamez/zSeal evidenced by drafted H-dwarf-header rows (zfts.h, zseal.h exist).",
         "plan build/source-plans/socom-work-source-segment-065.json sha256:77d1fa0d9bcdc4261d17f75f37479ef402e07058f836a2ee744d34d6ad6a58c4; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -155232,7 +155237,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 065 (0x3d5340-0x3deecc, 71 functions)"
     },
     {
