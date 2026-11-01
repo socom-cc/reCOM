@@ -2546,7 +2546,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3916,
+  "revision": 3920,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -177716,6 +177716,10 @@
       "title": "Compile the order skeletons of segment 040 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:39:45Z",
+        "by": "socom-order-reviewer-r2"
+      },
       "batch": {
         "batch_number": 41,
         "definitions": 166,
@@ -177746,6 +177750,7 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-041.json sha256:44b1026ea4530b6fca9c76955b12d3daac9dcb0dbc1940848a5d953c5ff2d07a",
+        "build/order-plans/socom-work-order-segment-041.json sha256:44b1026ea4530b6fca9c76955b12d3daac9dcb0dbc1940848a5d953c5ff2d07a equals handoff; order plan validate --check ok (0 open, 0 mismatches, 0 stale); re-draft JSON-identical (build/order-plans/socom-order-reviewer-r2/); independent re-check of every row: out-of-line rows descending position = address order, positions 1..k, data rows address order, counter/sinit/DIE carriers monotonic, not_placed reasons derived; spot checks: ztwod_main/ztwod_bitmap data-only via units_by_neighbour (generated not_placed only); ztex_manager r18 4 counter rows + r23 sinit rows ascending",
         "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
       ],
       "handoff": {
@@ -177761,7 +177766,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 041 (10 units, 166 definitions)"
     },
     {
@@ -177869,6 +177874,10 @@
       "title": "Compile the order skeletons of segment 041 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:39:53Z",
+        "by": "socom-order-reviewer-r2"
+      },
       "batch": {
         "batch_number": 42,
         "definitions": 264,
@@ -177893,6 +177902,7 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-042.json sha256:04494101b4d99c2303c59adde0e295dbcf99bd1bfcd1de83129ae625350524a5",
+        "build/order-plans/socom-work-order-segment-042.json sha256:04494101b4d99c2303c59adde0e295dbcf99bd1bfcd1de83129ae625350524a5 equals handoff; order plan validate --check ok (0 open, 0 mismatches, 0 stale); re-draft JSON-identical (build/order-plans/socom-order-reviewer-r2/); independent re-check of every row: out-of-line rows descending position = address order, positions 1..k, data rows address order, counter/sinit/DIE carriers monotonic, not_placed reasons derived; spot checks: vis_main r23 14 sinit-constrained ascending + r12 2 counter rows; zvid_init r8 15 rows address order; literal-label inversions 2/6 corroboration only",
         "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
       ],
       "handoff": {
@@ -177908,7 +177918,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 042 (7 units, 264 definitions)"
     },
     {
@@ -178004,6 +178014,10 @@
       "title": "Compile the order skeletons of segment 042 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:40:02Z",
+        "by": "socom-order-reviewer-r2"
+      },
       "batch": {
         "batch_number": 43,
         "definitions": 145,
@@ -178028,6 +178042,7 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-043.json sha256:f537c9480d7b04d776f58e0a4b767339a7b306ad9a2c6247c0ccd6d9dbc6784f",
+        "build/order-plans/socom-work-order-segment-043.json sha256:f537c9480d7b04d776f58e0a4b767339a7b306ad9a2c6247c0ccd6d9dbc6784f equals handoff; order plan validate --check ok (0 open, 0 mismatches, 0 stale); re-draft JSON-identical (build/order-plans/socom-order-reviewer-r2/); independent re-check of every row: out-of-line rows descending position = address order, positions 1..k, data rows address order, counter/sinit/DIE carriers monotonic, not_placed reasons derived; spot checks: vis_decal r23 4 and vis_texfx r23 2 sinit rows ascending; vis_bands static guard; zwep_ftsweapon 61 reverse-address rows",
         "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
       ],
       "handoff": {
@@ -178043,7 +178058,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 043 (7 units, 145 definitions)"
     },
     {
@@ -178637,6 +178652,10 @@
       "title": "Compile the order skeletons of segment 047 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T21:40:10Z",
+        "by": "socom-order-reviewer-r2"
+      },
       "batch": {
         "batch_number": 52,
         "definitions": 23,
@@ -178655,6 +178674,7 @@
       ],
       "evidence": [
         "build/order-plans/socom-work-order-segment-052.json sha256:ef97375a86a560eb9d3177d00b5dbcc191515ca6cb5d502cafed986bca3df31f",
+        "build/order-plans/socom-work-order-segment-052.json sha256:ef97375a86a560eb9d3177d00b5dbcc191515ca6cb5d502cafed986bca3df31f equals handoff; order plan validate --check ok (0 open, 0 mismatches, 0 stale); re-draft JSON-identical (build/order-plans/socom-order-reviewer-r2/); independent re-check of every row: out-of-line rows descending position = address order, positions 1..k, data rows address order, counter/sinit/DIE carriers monotonic, not_placed reasons derived; spot checks: st_menu 10 proven rows lines 77..486 equal .line decode; r21/r23 sinit rows ascending",
         "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
       ],
       "handoff": {
@@ -178670,7 +178690,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan the definition order of segment 052 (1 units, 23 definitions)"
     },
     {
