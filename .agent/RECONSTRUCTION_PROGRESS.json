@@ -2546,7 +2546,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3785,
+  "revision": 3861,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -174122,8 +174122,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-001.json sha256:64fbdc69b9c5e84c63e24077fc3f4c1f4b9336717339080277e8810fcce56a18",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:14:19Z",
+        "summary": "drafted order plan: 1 units, 9 function rows (0 in-class), 4 data rows; proven 9, constrained 4, hypothesis 0; not placed 6; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-001",
       "kind": "order-plan-segment",
       "lease": null,
@@ -174132,7 +174139,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 001 (1 units, 19 definitions)"
     },
     {
@@ -174228,8 +174235,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-013.json sha256:955cc75a53e9895efc6fdc7f0725b7c01676433bbe802136a5bde145cce97ff5",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:14:34Z",
+        "summary": "drafted order plan: 5 units, 51 function rows (0 in-class), 47 data rows; proven 51, constrained 8, hypothesis 39; not placed 23; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-013",
       "kind": "order-plan-segment",
       "lease": null,
@@ -174238,7 +174252,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 013 (5 units, 121 definitions)"
     },
     {
@@ -174349,8 +174363,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-014.json sha256:8208b5f365b268db77dcb667bb801e2c19c3cf6859573ad5507e2ce5c6533247",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:14:49Z",
+        "summary": "drafted order plan: 4 units, 49 function rows (0 in-class), 22 data rows; proven 1, constrained 12, hypothesis 58; not placed 14; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-014",
       "kind": "order-plan-segment",
       "lease": null,
@@ -174359,7 +174380,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 014 (4 units, 85 definitions)"
     },
     {
@@ -174463,8 +174484,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-015.json sha256:701278dfd03d8360fe2f29320dc8309b85355e9b91446a3946ea39b5cf400d90",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:15:04Z",
+        "summary": "drafted order plan: 3 units, 74 function rows (0 in-class), 6 data rows; proven 0, constrained 0, hypothesis 80; not placed 5; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-015",
       "kind": "order-plan-segment",
       "lease": null,
@@ -174473,7 +174501,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 015 (3 units, 85 definitions)"
     },
     {
@@ -174574,8 +174602,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-016.json sha256:228fb8a7278cd27069adfe9f33756cc049df76f9721f04b5e319a77bebb5b97a",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:15:19Z",
+        "summary": "drafted order plan: 6 units, 125 function rows (0 in-class), 22 data rows; proven 0, constrained 20, hypothesis 127; not placed 16; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-016",
       "kind": "order-plan-segment",
       "lease": null,
@@ -174584,7 +174619,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 016 (6 units, 163 definitions)"
     },
     {
@@ -174695,8 +174730,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-017.json sha256:c9a6c448961a35688b9327efa9b8860ca87343d6be2b75e441a380c4a31c949a",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:15:34Z",
+        "summary": "drafted order plan: 2 units, 47 function rows (0 in-class), 2 data rows; proven 0, constrained 2, hypothesis 47; not placed 4; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-017",
       "kind": "order-plan-segment",
       "lease": null,
@@ -174705,7 +174747,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 017 (2 units, 53 definitions)"
     },
     {
@@ -174801,8 +174843,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-018.json sha256:c21fb6b42236f61ce59c5c530ae108b08756209aa2e8fffdfd3f7a768f9aa87b",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:15:50Z",
+        "summary": "drafted order plan: 3 units, 167 function rows (0 in-class), 8 data rows; proven 0, constrained 2, hypothesis 173; not placed 23; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-018",
       "kind": "order-plan-segment",
       "lease": null,
@@ -174811,7 +174860,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 018 (3 units, 198 definitions)"
     },
     {
@@ -174907,8 +174956,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-019.json sha256:9dc33265eb31e2234e889d8278a9a81d1871c35fa3aae1ca8e19fcd86f18c53d",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:16:05Z",
+        "summary": "drafted order plan: 1 units, 173 function rows (0 in-class), 24 data rows; proven 0, constrained 22, hypothesis 175; not placed 13; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-019",
       "kind": "order-plan-segment",
       "lease": null,
@@ -174917,7 +174973,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 019 (1 units, 210 definitions)"
     },
     {
@@ -175011,8 +175067,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-020.json sha256:c9c09bd014cd405d430785367568197fdb8fbb873a4729b1e28b1094f59a039d",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:16:21Z",
+        "summary": "drafted order plan: 3 units, 49 function rows (0 in-class), 4 data rows; proven 0, constrained 0, hypothesis 53; not placed 8; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-020",
       "kind": "order-plan-segment",
       "lease": null,
@@ -175021,7 +175084,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 020 (3 units, 61 definitions)"
     },
     {
@@ -175126,8 +175189,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-021.json sha256:35b2871d6ab8891ad719120e6b6aec8acea86568bc98aa37ddaf3234d58ac5b2",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:16:36Z",
+        "summary": "drafted order plan: 6 units, 134 function rows (0 in-class), 17 data rows; proven 41, constrained 2, hypothesis 108; not placed 22; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-021",
       "kind": "order-plan-segment",
       "lease": null,
@@ -175136,7 +175206,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 021 (6 units, 173 definitions)"
     },
     {
@@ -175387,8 +175457,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-023.json sha256:9b0e47afdc899f4cb4acd6d9c513b7873984a2995f062a962bd0701013efb885",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:16:52Z",
+        "summary": "drafted order plan: 3 units, 124 function rows (0 in-class), 32 data rows; proven 0, constrained 13, hypothesis 143; not placed 18; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-023",
       "kind": "order-plan-segment",
       "lease": null,
@@ -175397,7 +175474,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 023 (3 units, 174 definitions)"
     },
     {
@@ -175503,8 +175580,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-024.json sha256:0aaa8dad7319a73c54c8cfcbd105f87ae54ce0ecc19bfd3f4502ef91632de3f5",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:17:08Z",
+        "summary": "drafted order plan: 11 units, 143 function rows (0 in-class), 98 data rows; proven 0, constrained 11, hypothesis 230; not placed 29; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-024",
       "kind": "order-plan-segment",
       "lease": null,
@@ -175513,7 +175597,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 024 (11 units, 270 definitions)"
     },
     {
@@ -175640,8 +175724,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-025.json sha256:9fe87bc6bbd7b4d10b7385a0693b0b999489777bd0922023ef08baf25e760ae4",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:17:23Z",
+        "summary": "drafted order plan: 8 units, 102 function rows (0 in-class), 29 data rows; proven 0, constrained 3, hypothesis 128; not placed 17; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-025",
       "kind": "order-plan-segment",
       "lease": null,
@@ -175650,7 +175741,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 025 (8 units, 148 definitions)"
     },
     {
@@ -175911,8 +176002,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-027.json sha256:d53b9dd0844a50a25f495eb70563a071afd616ff723880d2175c2631bbbd6f50",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:17:39Z",
+        "summary": "drafted order plan: 4 units, 96 function rows (0 in-class), 10 data rows; proven 0, constrained 4, hypothesis 102; not placed 28; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-027",
       "kind": "order-plan-segment",
       "lease": null,
@@ -175921,7 +176019,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 027 (4 units, 134 definitions)"
     },
     {
@@ -176026,8 +176124,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-028.json sha256:5f2aefb03ba89fa75c46a87ceec2580d8e5282d5b5881415502c4ffa4721d6f0",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:17:55Z",
+        "summary": "drafted order plan: 8 units, 124 function rows (0 in-class), 37 data rows; proven 0, constrained 14, hypothesis 147; not placed 29; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-028",
       "kind": "order-plan-segment",
       "lease": null,
@@ -176036,7 +176141,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 028 (8 units, 190 definitions)"
     },
     {
@@ -176152,8 +176257,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-029.json sha256:2da1cf7c7b048daa70e9517b00d906d359afe9702865242b38daf88b71578de1",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:18:11Z",
+        "summary": "drafted order plan: 7 units, 95 function rows (0 in-class), 32 data rows; proven 0, constrained 17, hypothesis 110; not placed 17; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-029",
       "kind": "order-plan-segment",
       "lease": null,
@@ -176162,7 +176274,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 029 (7 units, 144 definitions)"
     },
     {
@@ -176613,8 +176725,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-033.json sha256:1210323cc642c78cd8ae039b8244b01c996820ce0f7448c5fb2943c65a4b974a",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:18:27Z",
+        "summary": "drafted order plan: 2 units, 166 function rows (0 in-class), 43 data rows; proven 0, constrained 25, hypothesis 184; not placed 8; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-033",
       "kind": "order-plan-segment",
       "lease": null,
@@ -176623,7 +176742,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 033 (2 units, 217 definitions)"
     },
     {
@@ -176717,8 +176836,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-034.json sha256:9c0f10fbec92cf23e75b36faf5eeba0d06de6fb5b55d8300fd075e3b3d1d2a75",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:18:42Z",
+        "summary": "drafted order plan: 1 units, 116 function rows (0 in-class), 13 data rows; proven 0, constrained 11, hypothesis 118; not placed 11; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-034",
       "kind": "order-plan-segment",
       "lease": null,
@@ -176727,7 +176853,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 034 (1 units, 140 definitions)"
     },
     {
@@ -177065,8 +177191,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-037.json sha256:e4129e0efd6f15a5043882297786b6a448233a84fd0350f938c9d68654453fcd",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:18:58Z",
+        "summary": "drafted order plan: 2 units, 49 function rows (0 in-class), 5 data rows; proven 0, constrained 4, hypothesis 50; not placed 33; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-037",
       "kind": "order-plan-segment",
       "lease": null,
@@ -177075,7 +177208,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 037 (2 units, 87 definitions)"
     },
     {
@@ -177177,8 +177310,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-039.json sha256:26ab642751b590ee0f9dd2572a15d64ce9049e5cce72ad5c734f52867a1afeae",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:19:14Z",
+        "summary": "drafted order plan: 9 units, 145 function rows (0 in-class), 65 data rows; proven 0, constrained 12, hypothesis 198; not placed 19; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-039",
       "kind": "order-plan-segment",
       "lease": null,
@@ -177187,7 +177327,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 039 (9 units, 229 definitions)"
     },
     {
@@ -177309,8 +177449,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-040.json sha256:9f136e5e6b4efb29ffe137e41453c67b0594a9a835ccfac04a3a14858812af19",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:19:30Z",
+        "summary": "drafted order plan: 7 units, 65 function rows (0 in-class), 18 data rows; proven 0, constrained 5, hypothesis 78; not placed 5; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-040",
       "kind": "order-plan-segment",
       "lease": null,
@@ -177319,7 +177466,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 040 (7 units, 88 definitions)"
     },
     {
@@ -177443,8 +177590,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-041.json sha256:44b1026ea4530b6fca9c76955b12d3daac9dcb0dbc1940848a5d953c5ff2d07a",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:19:45Z",
+        "summary": "drafted order plan: 10 units, 113 function rows (0 in-class), 15 data rows; proven 0, constrained 6, hypothesis 122; not placed 38; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-041",
       "kind": "order-plan-segment",
       "lease": null,
@@ -177453,7 +177607,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 041 (10 units, 166 definitions)"
     },
     {
@@ -177583,8 +177737,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-042.json sha256:04494101b4d99c2303c59adde0e295dbcf99bd1bfcd1de83129ae625350524a5",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:20:00Z",
+        "summary": "drafted order plan: 7 units, 142 function rows (0 in-class), 103 data rows; proven 0, constrained 22, hypothesis 223; not placed 19; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-042",
       "kind": "order-plan-segment",
       "lease": null,
@@ -177593,7 +177754,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 042 (7 units, 264 definitions)"
     },
     {
@@ -177711,8 +177872,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-043.json sha256:f537c9480d7b04d776f58e0a4b767339a7b306ad9a2c6247c0ccd6d9dbc6784f",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:20:16Z",
+        "summary": "drafted order plan: 7 units, 119 function rows (0 in-class), 11 data rows; proven 0, constrained 6, hypothesis 124; not placed 15; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-043",
       "kind": "order-plan-segment",
       "lease": null,
@@ -177721,7 +177889,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 043 (7 units, 145 definitions)"
     },
     {
@@ -177833,8 +178001,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-044.json sha256:a067e8236ec5241d0d8fe9a9871e4642b1a457d77c9ebdc8e64e6986e94bee98",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:20:31Z",
+        "summary": "drafted order plan: 5 units, 193 function rows (0 in-class), 19 data rows; proven 8, constrained 6, hypothesis 198; not placed 16; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-044",
       "kind": "order-plan-segment",
       "lease": null,
@@ -177843,7 +178018,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 044 (5 units, 228 definitions)"
     },
     {
@@ -177948,8 +178123,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-045.json sha256:0ed34a560b213be386b1b9f352f0572641ded4074136abf2f33798b59ed0e674",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:20:47Z",
+        "summary": "drafted order plan: 2 units, 32 function rows (0 in-class), 6 data rows; proven 7, constrained 2, hypothesis 29; not placed 9; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-045",
       "kind": "order-plan-segment",
       "lease": null,
@@ -177958,7 +178140,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 045 (2 units, 47 definitions)"
     },
     {
@@ -178056,8 +178238,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-046.json sha256:f57cf40b6d87eb1348577f886151fd9b3414e8377ea19c2564d788e7e90ce9cf",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:21:03Z",
+        "summary": "drafted order plan: 1 units, 172 function rows (0 in-class), 79 data rows; proven 0, constrained 12, hypothesis 239; not placed 6; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-046",
       "kind": "order-plan-segment",
       "lease": null,
@@ -178066,7 +178255,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 046 (1 units, 257 definitions)"
     },
     {
@@ -178163,8 +178352,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-047.json sha256:9b247d403210fb96e4cd5ffa235adeb6ca5529244582317f04a07ec93591bc0d",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:21:19Z",
+        "summary": "drafted order plan: 6 units, 72 function rows (0 in-class), 59 data rows; proven 22, constrained 5, hypothesis 104; not placed 9; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-047",
       "kind": "order-plan-segment",
       "lease": null,
@@ -178173,7 +178369,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 047 (6 units, 140 definitions)"
     },
     {
@@ -178283,8 +178479,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-052.json sha256:ef97375a86a560eb9d3177d00b5dbcc191515ca6cb5d502cafed986bca3df31f",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:21:35Z",
+        "summary": "drafted order plan: 1 units, 10 function rows (0 in-class), 6 data rows; proven 10, constrained 4, hypothesis 2; not placed 7; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-052",
       "kind": "order-plan-segment",
       "lease": null,
@@ -178293,7 +178496,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 052 (1 units, 23 definitions)"
     },
     {
@@ -178387,8 +178590,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-054.json sha256:0a9d1afb69ff4597e7d17b034b8e89ff4984b8e35cd0323874d2bd99c40119ff",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:21:51Z",
+        "summary": "drafted order plan: 3 units, 67 function rows (0 in-class), 24 data rows; proven 10, constrained 13, hypothesis 68; not placed 21; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-054",
       "kind": "order-plan-segment",
       "lease": null,
@@ -178397,7 +178607,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 054 (3 units, 112 definitions)"
     },
     {
@@ -178501,8 +178711,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-055.json sha256:8fd88e27e22977d1b8af31e21b81f2f328da9d2fcd5570f992c40dcec97e3cd5",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:22:06Z",
+        "summary": "drafted order plan: 1 units, 146 function rows (0 in-class), 9 data rows; proven 0, constrained 9, hypothesis 146; not placed 61; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-055",
       "kind": "order-plan-segment",
       "lease": null,
@@ -178511,7 +178728,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 055 (1 units, 216 definitions)"
     },
     {
@@ -178606,8 +178823,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-056.json sha256:01f0dd5b3587385d2150ebdc91cb45379a77d5c597cf0527a5e07b367e8a5416",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:22:21Z",
+        "summary": "drafted order plan: 4 units, 78 function rows (0 in-class), 7 data rows; proven 0, constrained 0, hypothesis 85; not placed 57; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-056",
       "kind": "order-plan-segment",
       "lease": null,
@@ -178616,7 +178840,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 056 (4 units, 142 definitions)"
     },
     {
@@ -178714,8 +178938,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-057.json sha256:b7f863332e761cddbb361bc2a2bca65902a36542f429b91a7e71e91ce05d12ba",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:22:37Z",
+        "summary": "drafted order plan: 1 units, 37 function rows (0 in-class), 48 data rows; proven 0, constrained 22, hypothesis 63; not placed 12; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-057",
       "kind": "order-plan-segment",
       "lease": null,
@@ -178724,7 +178955,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 057 (1 units, 97 definitions)"
     },
     {
@@ -178819,8 +179050,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-063.json sha256:6ae8e2379d7124ec106544b91e130faef400c1bf7e55ceb97dc9fc00e4088c09",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:22:52Z",
+        "summary": "drafted order plan: 4 units, 41 function rows (0 in-class), 18 data rows; proven 41, constrained 12, hypothesis 6; not placed 35; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-063",
       "kind": "order-plan-segment",
       "lease": null,
@@ -178829,7 +179067,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 063 (4 units, 94 definitions)"
     },
     {
@@ -179180,8 +179418,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-068.json sha256:e3f0c798ac26efe666dc0b8dabb947370ceff42e716d7d78095e8c31ab2393fe",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:23:08Z",
+        "summary": "drafted order plan: 7 units, 108 function rows (0 in-class), 19 data rows; proven 51, constrained 2, hypothesis 74; not placed 34; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-068",
       "kind": "order-plan-segment",
       "lease": null,
@@ -179190,7 +179435,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 068 (7 units, 161 definitions)"
     },
     {
@@ -179306,8 +179551,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-074.json sha256:aa2b2255bf48bfa625b95089abc7abc0f3dd9f99c44a1ff024ef27225afaa4e3",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:23:24Z",
+        "summary": "drafted order plan: 1 units, 8 function rows (0 in-class), 19 data rows; proven 8, constrained 13, hypothesis 6; not placed 14; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-074",
       "kind": "order-plan-segment",
       "lease": null,
@@ -179316,7 +179568,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 074 (1 units, 41 definitions)"
     },
     {
@@ -179412,8 +179664,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-076.json sha256:3be482a5ab68f5c8e3dac55deb160ea1ef7fb144d713b55420c8f76a9631f6ea",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:23:40Z",
+        "summary": "drafted order plan: 5 units, 8 function rows (0 in-class), 14 data rows; proven 0, constrained 11, hypothesis 11; not placed 10; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-segment-076",
       "kind": "order-plan-segment",
       "lease": null,
@@ -179422,7 +179681,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Plan the definition order of segment 076 (5 units, 32 definitions)"
     },
     {
@@ -179528,8 +179787,15 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-link.json sha256:1ac47958390367ebf302e2753e62336e89904d29962ae3d13d86e4e6fb90216c",
+        "order plan draft (stage-4 baseline d29bca43); order plan validate --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-order-planner-p0",
+        "submitted_at": "2026-11-01T21:14:03Z",
+        "summary": "drafted order plan: None units, None function rows (0 in-class), None data rows; proven 0, constrained 0, hypothesis 0; not placed None; 0 open; validate --check ok, 0 rule mismatches"
+      },
       "id": "socom:work:order-link",
       "kind": "order-plan-link",
       "lease": null,
@@ -179538,7 +179804,7 @@
       ],
       "selection": null,
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Review the link-order plan (621 objects in link order)"
     },
     {
