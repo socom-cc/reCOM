@@ -1404,8 +1404,18 @@
       },
       "status": "resolved",
       "summary": "Stage 4: no governed route to reopen an accepted source plan; mw-runtime mwutils_ps2.o linked kind contested"
+    },
+    {
+      "details": "source plan emit-check (m17) classifies binding-13/WEAK __ct__/__dt__/__as__ copies without a DWARF subprogram as implicit special members and expects a header emit whatever the unit count. Reviewer x28 found four user-written bodies (delete loops: 021 0x1df000, 028 0x2377f0 and 0x231b20, 029 0x23b8b0) used by one unit; those were corrected to no-emit notes. Up to 107 special-member emits in accepted plans have a single holder/direct-reference unit (an upper bound: vtable readers and constructing units, which also count, were not included in this count); some may be user-written single-unit bodies that the rule would place in the .cpp. The placement is byte-neutral (identical code either way). Needed: a body-shape (or unknown) state in emit-check and one governed correction pass; plans can no longer be reopened once the data reconciles start, so the correction needs a governed route at a later stage or before the stage gate.",
+      "id": "socom:workspace-issue:72aaff1e4d855c7f4e1f",
+      "kind": "problem",
+      "reported_at": "2026-11-01T00:35:51Z",
+      "reported_by": "parent-orchestrator",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage 4: emit-check treats every inline dtor without its own DWARF subprogram as implicit; some accepted header emits may be user-written single-unit dtors"
     }
   ],
-  "revision": 178,
+  "revision": 179,
   "schema_version": 1
 }
