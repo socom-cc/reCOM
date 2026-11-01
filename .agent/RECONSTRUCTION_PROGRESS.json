@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3349,
+  "revision": 3353,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -151998,6 +151998,10 @@
       "title": "Apply the reviewed source owners of segment 033 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:18:12Z",
+        "by": "socom-source-owner-scrutinizer-x24"
+      },
       "batch": {
         "artifact_count": 273,
         "batch_number": 34,
@@ -152031,16 +152035,18 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "final-sweep re-review: plan sha256 e39557ed... = handoff; validate --check, draft --check ok; emit-check --plan: 0 missing emits/notes, 0 wrong citations, 0 undetermined. JSON diff vs build/stage4/pre-final: header emit + emits annotation for CQuat implicit default ctor 0x2a46e0 -> src/gamez/zMath/zmath.h:211 (class CQuat, no user ctor), reservation adds src/gamez/zMath (status corrected), and note 0 rewritten to record that emit (single-unit fact kept, implicit special member rule); the earlier stale-note finding is fixed; nothing else changed.",
+        "plan build/source-plans/socom-work-source-segment-034.json sha256:e39557edde06a16174ac6a7c4ccb77c9f60340fd7e55e2da393a52089c9ff181; emit-check --plan clean; validate --check ok; draft --check ok"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-fs3",
+        "submitted_at": "2026-11-01T00:17:28Z",
+        "summary": "sweep: +1 emit (CQuat implicit default ctor 0x2a46e0 -> src/gamez/zMath/zmath.h:211), +0 notes, 0 data overrides, other fixes: reservation adds src/gamez/zMath; stale CQuat no-emit note 0 rewritten to state the zmath.h emit (single-unit fact kept; implicit special members go to the declaring header)"
+      },
       "id": "socom:work:source-segment-034",
       "kind": "source-plan-segment",
-      "lease": {
-        "claimed_at": "2026-11-01T00:16:36Z",
-        "expires_at": "2026-11-01T02:16:36Z",
-        "heartbeat_at": "2026-11-01T00:16:36Z",
-        "owner": "socom-source-owner-mapper-fs3"
-      },
+      "lease": null,
       "resources": [
         "build/source-plans"
       ],
@@ -152111,7 +152117,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "in_progress",
+      "status": "accepted",
       "title": "Plan source owners of segment 034 (0x2a4520-0x2afbb4, 128 functions)"
     },
     {
@@ -152994,6 +153000,10 @@
       "title": "Apply the reviewed source owners of segment 041 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:17:26Z",
+        "by": "socom-source-owner-scrutinizer-x26"
+      },
       "batch": {
         "artifact_count": 460,
         "batch_number": 42,
@@ -153033,6 +153043,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "full review of plan build/source-plans/socom-work-source-segment-042.json sha256:e88c2a079804a26a2e0d9e6f8df1bc7598688bcd1c824bd8fc598051c3947e3d (= fs5 handoff); validate --check ok (0 problems), draft --check ok (0 overrides), emit-check 0 missing emits/notes/wrong citations, 0 undetermined; shared units util_sonyio/zvid_init/vis_main/vis_mesh agree with 041/047/076/013/043. Invented util_memcard.cpp (low): LOCAL block 7053-7077 sits between util_stable 7051-7052 and zvid_init 7078-7091, its clusters 0x306d60/0x307450/0x3075c0 in reverse text order (separate objects would follow link order) and their @N labels rise monotonically in text order (@1252-@1562, @1605, @1644-@1645: one per-TU counter); no src/ file names CMemCard. fwrite__3CIOFPCc 0x305da0 lies strictly between util_sonyio anchors SetRootPath 0x305d30 and CFileIO::fread 0x305e30 (referenced only by util_sonyio's __vt__7CFileIO), referenced by __vt__3CIO and __vt__10CMemCardIO -> util_systemio.h emit. GLOBAL data by link order: VIF packets 0x43ab40-0x43b1cf between the CMemCard object's LOCAL @1255 0x43ab10 and zvid_init's frameRateLimits 0x43b1d0, first/last read by zvid_init (low); CVisual .sbss run 0x4765d4-0x476644 between zvid_init t0Count 0x4765d0 and vis_main _DoMultipass 0x476648, .sdata run before vis_main @1179, m_savedTS before _StartingMatrix (low); CFileCD/CMemCard statics in .sbss order (047 also gives 0x4765a8 to util_sonyio); ascii_special before the CMemCard object's ascii_table (low); D-referenced rows are LOCAL/binding-13 or inside the unit's own run. zvid_init|zvid_draw cut after zvid_SetVideoMode 0x3087e0 (called only by zvid_init) is low with both alternatives stated. 9 unresolved (CBeachBall 0x305e40/0x4765b0; CVideo/zVid run 0x307790-0x3079e0; CVideo statics 0x4753dc/0x4753e0) each admit 2-3 link-order-consistent definers. 33 contradictions checked against the cited lines' symbols.",
         "plan build/source-plans/socom-work-source-segment-042.json sha256:e88c2a079804a26a2e0d9e6f8df1bc7598688bcd1c824bd8fc598051c3947e3d; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -153064,7 +153075,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 042 (0x304b60-0x3103a0, 176 functions)"
     },
     {
@@ -155003,6 +155014,10 @@
       "title": "Apply the reviewed source owners of segment 063 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:17:38Z",
+        "by": "socom-source-owner-scrutinizer-x27"
+      },
       "batch": {
         "artifact_count": 620,
         "batch_number": 64,
@@ -155045,6 +155060,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "plan build/source-plans/socom-work-source-segment-064.json sha256:233612440ac3f3d84d3c9d82e63a88d649c482a906d5478f5351205cd107b2a1 matches handoff; validate --check ok (620 owned, 0 unresolved, 46 header emits), draft --check ok, emit-check 0 missing emits/notes/wrong citations; 9 O-provisional paths agree with accepted 076. 32 hand GLOBAL data rows (all low): CZClaymoreMapItem statics .sdata 0x4754bc/c0 sit between hud_pausemenu 0x4754b8 and hud_newhudmap g_fShowTime 0x4754c4, .sbss 0x4769fc-0x476a14 between hud_objectives init$2624 0x4769f4 and newhudmap g_pFov 0x476a18; CZMPBombMapItem statics .sdata 0x4754c8/cc and .sbss 0x476a28-0x476a40 sit between newhudmap (0x4754c4, fArrowPulseTime$3011 0x476a20) and hud_linemap (0x4754d0, 0x476a44), matching sinit/link order 129<130<131. Competitor checked: hud_newhudmap.cpp (InitMap 0x3c5d90 reads both sets) defining them at the head/tail of its own runs fits link order too; DWARF global_variable records name both reader CUs (claymoremapitem+newhudmap, bombmapitem+newhudmap) so DWARF does not decide; the plan's model explains the claymore-before/bomb-after split by unit order, keeps low and states the alternative in note 3, so accepted as low. CZLineMap .bss 0x560540-0x5605e0 lie between hud_linemap g_mapPolyProps 0x560530 and hud_mapcompass's run, which starts with its header-static @2338 0x560600 like every hud unit's .bss run; reticule colours 0x475508-0x475524 between bitmapreticule 0x475504 and weaponsel 0x475528, sole reader UpdateColor, DWARF only bitmapreticule. D-referenced TRUE_BLU 0x476ab4 inside bitmapreticule's .sbss run. Boundary dtors 0x3bf730/0x3c2fd0/0x3c6dc0: each referenced only by its class's GLOBAL vtable in the receiving unit, directly before that unit's first anchor (medium). Hand emits: 8 hud.h DWARF-header copies + ~CHudCompassAnchor (hud.h:116) -> src/Apps/FTS/hud/hud.h; _TransformPointXYZ 0x3c5bc0 -> src/gamez/zMath/zmath_matrix.h (as 017/021/022/023); std::map dtor 0x3caf10 -> <map> MSL (as 026/039/057). No class CZObjectiveList/CZClaymoreMapItem/CZMPBombMapItem under src/ (notes 0,1,4,5 correct). Reservation src/Apps/FTS + src/gamez/zMath evidenced.",
         "plan build/source-plans/socom-work-source-segment-064.json sha256:233612440ac3f3d84d3c9d82e63a88d649c482a906d5478f5351205cd107b2a1; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -155076,7 +155092,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 064 (0x3be590-0x3d5340, 185 functions)"
     },
     {
