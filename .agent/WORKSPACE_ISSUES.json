@@ -1414,8 +1414,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Stage 4: emit-check treats every inline dtor without its own DWARF subprogram as implicit; some accepted header emits may be user-written single-unit dtors"
+    },
+    {
+      "details": "Reviewer x29 (data reconcile review): team_table 0x438770 (2332 bytes, GLOBAL) is read only by orders.cpp's OrdersMenu, yet accepted segment 013 gives it to SCE libmc GNU object 0x171070 through drafted P-gnu-data: that object's .data run ends at the next foreign artifact (room_for_member=1), so the containment rule over-reaches for GLOBAL authored data at a cut-short run end (m15a had noted the run covers authored gopt 0x438750 / team_table 0x438770). Also non-blocking: 013's drafted SCE 0x171070 row lacks the SCE plan's libmc.a/2500 archive fields. progress reopen-source-plan refuses now that data reconciles are accepted, so the correction needs either a reconcile-aware reopen route or a governed stage-4 correction before the stage gate. Check the P-gnu-data run-end rule for other GLOBAL authored data across plans.",
+      "id": "socom:workspace-issue:3e9668e8ca98da423c5d",
+      "kind": "problem",
+      "reported_at": "2026-11-01T01:07:44Z",
+      "reported_by": "parent-orchestrator",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage 4: accepted segment 013 owns authored team_table 0x438770 under SCE libmc 0x171070 (P-gnu-data run-end defect); no route to correct it now"
     }
   ],
-  "revision": 179,
+  "revision": 180,
   "schema_version": 1
 }

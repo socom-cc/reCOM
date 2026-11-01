@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3385,
+  "revision": 3386,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -156500,23 +156500,33 @@
         "socom:work:source-segment-074",
         "socom:work:source-segment-076"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-data-data.json sha256:c5822f49255b2b7cfcc9f558aee1a05e41f5f6c6e3940f27827c51ded8202899; validate --check ok (0 problems, 3 review notes, 299 shared units agree); draft --check ok (865 drafted, 124 hand, 0 overrides); emit-check 0 findings"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-r2",
-        "submitted_at": "2026-11-01T00:54:55Z",
-        "summary": "data reconcile: owners 146 (138 authored, 7 provider, 1 compiler-generated), unresolved 12, retire 0, open rows decided 136 (124 owned by hand: 15 linker/alignment fill, 2 provider, 5 vtables by key-function cluster, 88 inside one unit's data run medium, 14 between two units low; 12 unresolved); 8 open owner rows given the accepted plans' paths; 2 contradictions (CStack statics in provisional zrndr_stack.cpp)"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-data-data",
       "kind": "source-data-reconcile",
       "lease": null,
       "resources": [
         "build/source-plans"
       ],
+      "review_history": [
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-r2",
+            "submitted_at": "2026-11-01T00:54:55Z",
+            "summary": "data reconcile: owners 146 (138 authored, 7 provider, 1 compiler-generated), unresolved 12, retire 0, open rows decided 136 (124 owned by hand: 15 linker/alignment fill, 2 provider, 5 vtables by key-function cluster, 88 inside one unit's data run medium, 14 between two units low; 12 unresolved); 8 open owner rows given the accepted plans' paths; 2 contradictions (CStack statics in provisional zrndr_stack.cpp)"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-data-data.json sha256:c5822f49255b2b7cfcc9f558aee1a05e41f5f6c6e3940f27827c51ded8202899; validate --check ok (0 problems, 3 review notes, 299 shared units agree); draft --check ok (865 drafted, 124 hand, 0 overrides); emit-check 0 findings"
+          ],
+          "reason": "Plan sha256 c5822f49 (validate --check ok, draft --check ok 865 drafted/124 hand/0 overrides, emit-check 0). FINDING 1 (blocking): socom:data:0x472b90 __vt__3C2D and socom:data:0x472d30 __vt__9C2DBitmap are left unresolved until segment 041 unnamed objects are owned; that contradicts the 2026-10-31 ruling (proven unnamed objects are owned, provisional-file match) and the parallel rodata plan (sha 646c843b), which owns these same clusters as ztwod_main.cpp / ztwod_bitmap.cpp (name_basis provisional, low). Evidence (source sql): 0x472b90 is in socom:tu-cluster:0x459208 and its only LOCAL R_MIPS_32 targets __RTTI__3C2D 0x459278 in that cluster; 0x472d30 is in socom:tu-cluster:0x459478 with LOCAL R_MIPS_32 to __RTTI__9C2DBitmap 0x459548; neither cluster names a unit or library; .vtables order c2dline 0x472b30 < 0x472b90 < ztwod_poly 0x472bf0 and c2dstring 0x472cb0 < 0x472d30 < util_bufio 0x472d90 match text order c2dline < [0x300bf0-0x300d10] < ztwod_poly and c2dstring < [0x3030a0-0x303c60] < util_bufio. An object split between an owned RTTI (rodata) and an unresolved vtable (data) cannot be fixed later because a data reconcile is not reopened. FIX: add authored rows ztwod_main.cpp and ztwod_bitmap.cpp with fields identical to the rodata plan (workspace_path = provisional_file = src/gamez/zTwoD/ztwod_main.cpp resp. src/gamez/zTwoD/ztwod_bitmap.cpp, name_basis provisional, confidence low, no original_path); decide 0x472b90 / 0x472d30 into them (basis: cluster + LOCAL RTTI relocation + .vtables/text order); rerun validate --fill-annotations, validate --check, draft --check. Non-blocking (no change required): SCE row 0x171070 (gopt) lacks archive libmc.a / version 2500 of the accepted SCE plan, as accepted segment 013 does. Verified ok: all 14 low rows (owner linked between the flanking units in text, class or reader support, competitors leave them low); all 88 medium rows have both nearest placed neighbours in the same unit; 0 owner-run splits in .data/.sdata; 441 shared owner rows equal other plans (ztwod_font, zin_main, zcam_main, the 8 path rows, iostream.cpp, mwrtti.o); 5 vtable clusters wholly owned by their units; 0x474b7c compiler-generated is right (MW stationery LinkSegment_PS2.lcf lines 98-107: ALIGN(0x10), __exception_table_start/end, _overlay_group_addreses WRITEW ADDR(.main), __data_end); 15 fill rows match the CG precedent (SCE 0x15b0cc, unidentified 0x163f1c); CStack contradictions valid (zrndr_stack.cpp:6-7); other 10 unresolved name their competing definers (DVP .vudata matches 026/029).",
+          "rejected_at": "2026-11-01T01:07:09Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x29"
+        }
+      ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Reconcile data data owners (1001 artifacts outside the segment slices)"
     },
     {
