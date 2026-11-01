@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3360,
+  "revision": 3368,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -149830,14 +149830,8 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-021.json sha256:a42bce8801ad18a33a46086cf0df914f5a5311b94acf0477ad8d640ffedd5025; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-fs4",
-        "submitted_at": "2026-11-01T00:05:15Z",
-        "summary": "sweep: +13 emits (RTStack<CZBodyAnimBlend> x3 -> src/rt/rtstack.h, RTArray x8 -> src/rt/rtarray.h, CZSIScript::SetTimeScale 0x1de110 ODR via vtable and CZSIScriptCommon::List dtor 0x1df000 -> src/gamez/zAnim/zanim.h), +2 notes (RTList<ACTIVE_ANIM> 0x1e3ba0/0x1e3d30: no header declares RTList), 0 data overrides; other fixes: NullNode__5CBodyCFv 0x1e34a0 citation -> zbody.h:10 (override), src/gamez/zAnim added to the reservation, emit note rewritten"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-021",
       "kind": "source-plan-segment",
       "lease": null,
@@ -149886,11 +149880,25 @@
           "reason": "plan sha256:448ef548 (= handoff; byte-identical to pre-sweep; validate --check ok, draft --check ok). Earlier x11 findings resolved: NullNode__5CBodyCFv 0x1e34a0 -> src/gamez/zBody/zbody.h:16, Top__26RTStack<15CZBodyAnimBlend>Fv 0x1e3a70 -> src/rt/rtstack.h:12 (src/rt reserved), RTList<ACTIVE_ANIM> 0x1e3aa0/0x1e3af0/0x1e3c30/0x1e3c80 noted \"used by 2 units each; no header declares RTList\" (no DWARF header unit, no src/ declaration). ODR FINDING (reviewer brief ruling: a copy reached only through its class's vtable counts every unit that reads that vtable or constructs the class, as accepted 031/036/037): socom:function:0x1de110 SetTimeScale__10CZSIScriptFf (binding 13, owned si_script.cpp, no emit) is referenced only by __vt__10CZSIScript 0x471a40, and CZSIScript is constructed by body.cpp's CBody::BodyAddAnim 0x1e2cd0 (calls __ct__10CZSIScriptFv 0x1dee40) and bone_archive.cpp's CScriptArchive::Fetch 0x1dd220 (calls __ct__10CZSIScriptFPCc 0x1deca0) as well as si_script.cpp: 3 units. No DWARF header unit; src/gamez/zAnim/zanim.h:822 declares class CZSIScript (SetTimeScale not yet declared there). Fix: decide --header-emit src/gamez/zAnim/zanim.h --reason inline --emit-evidence \"zanim.h:822 declares class CZSIScript; vtable 0x471a40 (si_script.cpp), constructed by body.cpp and bone_archive.cpp\", add src/gamez/zAnim to the reservation with that evidence, and drop SetTimeScale from the \"No emit\" note. The other 19 owned no-emit copies are held, referenced and (for vtable-only copies) constructed by one unit only. Then validate --check --fill-annotations, validate --check, draft --check and hand off again.",
           "rejected_at": "2026-10-31T20:07:25Z",
           "rejected_by": "socom-source-owner-scrutinizer-x19"
+        },
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-fs4",
+            "submitted_at": "2026-11-01T00:05:15Z",
+            "summary": "sweep: +13 emits (RTStack<CZBodyAnimBlend> x3 -> src/rt/rtstack.h, RTArray x8 -> src/rt/rtarray.h, CZSIScript::SetTimeScale 0x1de110 ODR via vtable and CZSIScriptCommon::List dtor 0x1df000 -> src/gamez/zAnim/zanim.h), +2 notes (RTList<ACTIVE_ANIM> 0x1e3ba0/0x1e3d30: no header declares RTList), 0 data overrides; other fixes: NullNode__5CBodyCFv 0x1e34a0 citation -> zbody.h:10 (override), src/gamez/zAnim added to the reservation, emit note rewritten"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-021.json sha256:a42bce8801ad18a33a46086cf0df914f5a5311b94acf0477ad8d640ffedd5025; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
+          ],
+          "reason": "plan sha256:a42bce88 (= handoff; validate --check ok, draft --check ok, emit-check --plan clean). Verified: SetTimeScale 0x1de110 -> zanim.h:822 (body.cpp, bone_archive.cpp, si_script.cpp via vtable 0x471a40); RTStack<CZBodyAnimBlend> 0x1e3980/0x1e39f0/0x1e3a30 -> src/rt/rtstack.h:5; RTArray 0x1e3d50-0x1e42d0 -> src/rt/rtarray.h:5; RTList notes 0x1e3ba0/0x1e3d30; NullNode 0x1e34a0 -> zbody.h:10. FINDING (the question put to review: implicit, or >= 2 units?): neither holds for socom:function:0x1df000 __dt__Q216CZSIScriptCommon4ListFv, so its header emit -> src/gamez/zAnim/zanim.h:834 is unsupported. Not implicit: the body loops over the vector (data() 0x1737a0), and for each element clears +8, decrements numSiCommon 0x4758f4, destroys its vector<CZSIObject*> (0x1de590) and deletes it (__dl__ 0x140e10); it then sets size 0 (clear) before ~__vector_pod 0x14cc10. That is a user-written 'for each: delete *i; clear();' destructor; an implicit ~List would only call the base dtor. One unit: its only reference is __sinit_si_script.cpp 0x46a730, which registers list__16CZSIScriptCommon 0x49c180 (every other reader is a si_script.cpp function). It is not inlined elsewhere, no DWARF records CZSIScriptCommon::List, and zanim.h declares no List. Rule: an explicit inline member used by 1 unit gets no emit. Fix: drop the 0x1df000 header-emit row, its annotation and the zanim.h:834 reservation evidence (keep src/gamez/zAnim for 0x1de110), and add the note 'socom:function:0x1df000 __dt__Q216CZSIScriptCommon4ListFv: user-written inline destructor (deletes each element, clear()), used by 1 unit (si_script.cpp); defined in si_script.cpp, no emit'. Tool gap for the parent: no decide option removes a hand header-emit row, and emit-check counts every dtor without a DWARF CU as implicit, so it will list 0x1df000 as missing until it honours such a note (028 0x2377f0/0x231b20 and 029 0x23b8b0 have the same issue).",
+          "rejected_at": "2026-11-01T00:27:01Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x28"
         }
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 021 (0x1dd520-0x1e8748, 167 functions)"
     },
     {
@@ -149959,6 +149967,10 @@
       "title": "Apply the reviewed source owners of segment 021 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:26:18Z",
+        "by": "socom-source-owner-scrutinizer-x28"
+      },
       "batch": {
         "artifact_count": 345,
         "batch_number": 22,
@@ -149998,6 +150010,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "final-sweep review: plan sha256:8de4327a00b9976155f2d78cecce3faabec98c2da307641931dbad14dcf3c766 = handoff; validate --check ok (0 problems), draft --check ok, emit-check --plan clean (18 copies checked, 0 missing emits/notes/wrong citations). JSON diff vs build/stage4/pre-final: x19 findings resolved - OnDeath__11CEntityCtrlFv 0x1ee3c0 -> src/gamez/zEntity/zentity.h:159 (class CEntityCtrl; virtual OnDeath at :172; ent_main.cpp + seal_control.cpp via vtable 0x471b80), GetPacketMsg__7CPacketFv 0x1ed050 note 'used by 2 units; no header declares CPacket' (no class|struct CPacket under src/). New CTarget emits 0x1f13b0 __as__ / 0x1f1410 copy ctor -> zentity.h:188 (class CTarget): bodies are pure memberwise word/float copies of 0x0-0x24, i.e. implicit. Reservation evidence/reason extended; emit note rewritten. Unchanged rows reviewed before (x11/x19).",
         "plan build/source-plans/socom-work-source-segment-022.json sha256:8de4327a00b9976155f2d78cecce3faabec98c2da307641931dbad14dcf3c766; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -150057,7 +150070,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 022 (0x1e8750-0x1f25b8, 155 functions)"
     },
     {
@@ -151077,14 +151090,8 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-028.json sha256:2c0275edde8acc15ede902d249d9fc42bf519a9b808214dfa98df0a999e12589; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-fs4",
-        "submitted_at": "2026-11-01T00:08:35Z",
-        "summary": "sweep: +6 emits (GetTranslate__7CMatrixCFv 0x233db0 ODR -> zmath_matrix.h by DWARF header unit; implicit CAssetList/CLensFlare dtors -> node_assetlib.h:52/node_lensflare.h:7; BufferElement ctor, Instance::List dtor, Instance::Tick (ODR via vtable) -> zparticle.h:14/62), +5 notes (CLightMapVector dtor, RTPool<CRipple> x3, zqsort: no header declares them), 0 data overrides; other fixes: defined-elsewhere contradiction for provisional zmath_matrix.cpp:36 (0x233db0), reservation reason/evidence extended"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-028",
       "kind": "source-plan-segment",
       "lease": null,
@@ -151133,11 +151140,25 @@
           "reason": "plan sha256:eadf86a1 (= handoff; validate --check ok, draft --check ok). Sweep changes verified against pre-sweep: 39 Props rows (37 functions 0x237930-0x238a20; @1667/@1668 are LOCAL refs of the R1-spanned init<> copies 0x2384c0/0x2385d0/0x238720) -> zparticle_instance.cpp low with the separate-object note; the 30 new <vector> emits are all __vector_imp/__vector_deleter/vector instances; CPnt4D 0x2366f0/0x236720/0x236740 -> src/gamez/zMath/zmath.h:171 (c2dline.cpp + zparticle_instance.cpp); reservation reason fixed, +src/gamez/zMath. ODR FINDINGS (holder of a kept binding-13 copy + a different referencing unit = 2 units): (1) socom:function:0x233db0 GetTranslate__7CMatrixCFv (binding 13, held by zparticle.cpp via A-between, no emit, no note) is called by zrndr_pipe.cpp's CPipe::BuildLightMapList 0x2442f0 (2 relocations): two units hold the inline body. CMatrix's DWARF header unit is Z:/dev/gamez/zmath/zmath_matrix.h (__cl__7CMatrixCFUiUi 0x1e45f0, Transform__7CMatrixCFP6CPnt3Di 0x1eb350). Fix: decide --header-emit src/gamez/zMath/zmath_matrix.h --reason inline (the path 021/022 use; zMath is reserved), and record a defined-elsewhere contradiction for src/gamez/zMath/zmath_matrix.cpp:36, which defines CMatrix::GetTranslate out of line (zmath.h:238 declares it non-inline) although the ELF has only a binding-13 copy in zparticle.o, not in zmath_matrix.cpp's object (segment 026). (2) socom:function:0x2304b0 __dt__Q23zdb15CLightMapVectorFv (binding 13, held by node_world.cpp via A-kept-copy, no emit, no note) is referenced by __sinit_vis_main.cpp 0x46e190 (3 relocations): used by 2 units; no DWARF header unit and no declaration of CLightMapVector under src/, so add the note \"used by 2 units; no header declares zdb::CLightMapVector\" (no emit). (3) socom:function:0x237380 Tick__Q28Particle8InstanceFf (binding 13, owned zparticle_instance.cpp, no emit, no note) is referenced only by __vt__Q28Particle8Instance, and Particle::Instance is constructed by zparticle_source.cpp's Particle::Source::Tick (2 calls to __ct__Q28Particle8Instance 0x236f20): 2 units under the vtable/constructor ruling (accepted 031/036/037); src/gamez/zParticle/zparticle.h:62 declares Instance nested in class Particle (:14), no DWARF header unit. Fix: decide --header-emit src/gamez/zParticle/zparticle.h --reason inline (zParticle is reserved). Then validate --check --fill-annotations, validate --check, draft --check and hand off again.",
           "rejected_at": "2026-10-31T20:07:29Z",
           "rejected_by": "socom-source-owner-scrutinizer-x19"
+        },
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-fs4",
+            "submitted_at": "2026-11-01T00:08:35Z",
+            "summary": "sweep: +6 emits (GetTranslate__7CMatrixCFv 0x233db0 ODR -> zmath_matrix.h by DWARF header unit; implicit CAssetList/CLensFlare dtors -> node_assetlib.h:52/node_lensflare.h:7; BufferElement ctor, Instance::List dtor, Instance::Tick (ODR via vtable) -> zparticle.h:14/62), +5 notes (CLightMapVector dtor, RTPool<CRipple> x3, zqsort: no header declares them), 0 data overrides; other fixes: defined-elsewhere contradiction for provisional zmath_matrix.cpp:36 (0x233db0), reservation reason/evidence extended"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-028.json sha256:2c0275edde8acc15ede902d249d9fc42bf519a9b808214dfa98df0a999e12589; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
+          ],
+          "reason": "plan sha256:2c0275ed (= handoff; validate --check ok, draft --check ok, emit-check --plan clean). Verified x19's items: (1) GetTranslate 0x233db0 -> src/gamez/zMath/zmath_matrix.h plus a defined-elsewhere row at zmath_matrix.cpp:36 (that line defines const float* CMatrix::GetTranslate() const); (2) the CLightMapVector note; (3) Tick 0x237380 -> zparticle.h:62. Also verified: CLensFlare dtor 0x231d00 -> node_lensflare.h:7 (vptr reset, member vector dtor, ~CNode: implicit; 2 units anyway); BufferElement ctor 0x236380 (empty body) -> zparticle.h:14; the RTPool/zqsort notes. FINDINGS: two user-written single-unit inline destructors are recorded as implicit (same ruling as 021's 0x1df000). (1) socom:function:0x2377f0 __dt__Q38Particle8Instance4ListFv -> zparticle.h:62: the body iterates the list calling __dt__Q28Particle8InstanceFv 0x236e70(*i,1) on every element (delete *i), then erase(begin,end) and the inlined ~list. That is user code, not implicit. Its only reference is __sinit_zparticle_instance.cpp 0x46b8d0: 1 unit. (2) socom:function:0x231b20 __dt__Q23zdb10CAssetListFv -> node_assetlib.h:52: it loops calling __dt__Q23zdb9CAssetLibFv 0x231750(*i,1), stores NULL to each element, runs erase(begin,end), sets m_cache_model (+0xc) = 0 and runs the inlined ~list. database.cpp's DWARF gives CAssetList a direct std::list base, so the loop is CAssetList's own user-written dtor. Its only reference is __sinit_node_assetlib.cpp 0x46b670: 1 unit. Rule: an explicit inline member used by 1 unit gets no emit. Fix: drop both header-emit rows, with their annotations and reservation-evidence mentions (node_assetlib.h and zparticle.h stay reserved for 0x231d00/0x236380/0x237380), and add notes '<id> <name>: user-written inline destructor (deletes each element), used by 1 unit (<unit>); defined in <unit>, no emit'. Tool gap as noted on 021: no decide option removes a hand header-emit row, and emit-check counts every CU-less dtor as implicit.",
+          "rejected_at": "2026-11-01T00:27:15Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x28"
         }
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 028 (0x22c1a0-0x23a0cc, 192 functions)"
     },
     {
@@ -151247,14 +151268,8 @@
       "dependencies": [
         "socom:work:ghidra-reconstruction-seed"
       ],
-      "evidence": [
-        "plan build/source-plans/socom-work-source-segment-029.json sha256:008a7f002ff77464d1abc785f7d5784aa3f931050d472ee9c5a07a5fa7361d79; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
-      ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-fs4",
-        "submitted_at": "2026-11-01T00:13:40Z",
-        "summary": "sweep: +3 emits (implicit Particle::Source::List dtor 0x23b8b0 -> zparticle.h:41, _zrdr ctor 0x23e380 -> zrdr.h:153, CFileStack dtor 0x23fa70 -> util_stack.h:9), +3 notes (zrdr_countarray 0x23ca30 used by 2 units, no header; zrdr_file.cpp tail alternative; emit note), 0 draft overrides; other fixes: 0x23d030-0x23d570 + @1223-@1226 (12 rows) owned as zrdr_file.cpp's tail (low); 0x23d6a0-0x23e140 (14) kept unresolved with corrected reason (zrdr_main.cpp head possible); 7 defined-elsewhere contradictions -> signature rows, 0x23e140's removed, 7 corrected; CVisual statics 0x4753ec/0x47663c owned by new cross-segment row vis_main.cpp (low); reservation + src/gamez/zUtil, src/gamez/zVisual"
-      },
+      "evidence": [],
+      "handoff": null,
       "id": "socom:work:source-segment-029",
       "kind": "source-plan-segment",
       "lease": null,
@@ -151289,11 +151304,25 @@
           "reason": "plan sha256:26281b1b (= handoff; validate --check ok, draft --check ok). Verified: 0x23be10 ~CRdrArchive -> src/gamez/zReader/zrdr.h:208 emit and its reservation evidence. FINDINGS: (1) the zrdr_main.cpp exclusion is over-extended. Only zrdr_tobool 0x23d570 is tied to the run's literals @1223-@1226 (LOCAL relocations; block 3880-3883), so the 319-label inversion excludes zrdr_main.o for zrdr_tobool and, by R4, for 0x23d030-0x23d570 and the 4 literals. The 14 functions after it, 0x23d6a0-0x23e140 (zrdr_finduint .. __ct__5_zrdrFP5_zrdrP7CSTable), have only GLOBAL relocations (strcmp, strlen, strncmp, fptosi, __dl__, __destroy_new_array, Clone, each other) and no .rodata, data or copy evidence, so zrdr_main.o may start anywhere from 0x23d6a0 to 0x23e190. Fix: keep those 14 unresolved with the reason \"zrdr_file.cpp's tail, an unnamed object or zrdr_main.cpp's head; nothing decides\", and change the 8 defined-elsewhere rows that claim \"the ELF excludes zrdr_main.cpp\" for 0x23d6a0, 0x23d8c0, 0x23d9d0, 0x23dab0, 0x23db90, 0x23dc90, 0x23dca0, 0x23e140: remove them (--remove-contradiction), or replace them with signature rows (--override) where the const _zrdr* / int mismatch stands (0x23e140 has none). (2) Judgment on the user rule (028 Props precedent): 0x23d030-0x23d570 + @1223-@1226 (12 rows) are bounded on both sides, after zrdr_file.cpp's last anchor zrdr_free 0x23cfb0 and with zrdr_main.cpp excluded, so they are zrdr_file.cpp's tail or an unnamed object, one vs two objects unproven: own them under one row at low, zrdr_file.cpp (its @907 0x44ff80 then @1223 0x44ff90 run forward; LOCAL block 3880-3883 directly follows its 3876-3879) or an invented zReader name, with a note naming the alternative, and update the wording of their 7 defined-elsewhere rows. (3) socom:function:0x23ca30 zrdr_countarray__FP5_zrdr (binding 13, held by zrdr_file.cpp, no emit, no note) is also called by zrdr_pack 0x241530, which lies past the zrdr_main/zrdr_parse/zrdr_edit anchors (zrdr_edit tail, zrndr_init head or an unnamed object; not zrdr_file.o): used by 2 units; no header under src/ declares it, so add the note \"used by 2 units; no header declares zrdr_countarray\" (no emit). Then validate --check --fill-annotations, validate --check, draft --check and hand off again.",
           "rejected_at": "2026-10-31T20:07:31Z",
           "rejected_by": "socom-source-owner-scrutinizer-x19"
+        },
+        {
+          "evidence": [],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-fs4",
+            "submitted_at": "2026-11-01T00:13:40Z",
+            "summary": "sweep: +3 emits (implicit Particle::Source::List dtor 0x23b8b0 -> zparticle.h:41, _zrdr ctor 0x23e380 -> zrdr.h:153, CFileStack dtor 0x23fa70 -> util_stack.h:9), +3 notes (zrdr_countarray 0x23ca30 used by 2 units, no header; zrdr_file.cpp tail alternative; emit note), 0 draft overrides; other fixes: 0x23d030-0x23d570 + @1223-@1226 (12 rows) owned as zrdr_file.cpp's tail (low); 0x23d6a0-0x23e140 (14) kept unresolved with corrected reason (zrdr_main.cpp head possible); 7 defined-elsewhere contradictions -> signature rows, 0x23e140's removed, 7 corrected; CVisual statics 0x4753ec/0x47663c owned by new cross-segment row vis_main.cpp (low); reservation + src/gamez/zUtil, src/gamez/zVisual"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-029.json sha256:008a7f002ff77464d1abc785f7d5784aa3f931050d472ee9c5a07a5fa7361d79; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
+          ],
+          "reason": "plan sha256:008a7f00 (= handoff; validate --check ok, draft --check ok, emit-check --plan clean with 1 undetermined). x19's fixes verified: 0x23d030-0x23d570 + @1223-@1226 (12 rows) owned by zrdr_file.cpp at low, with the separate-object note; the 14 functions 0x23d6a0-0x23e140 unresolved with the corrected reason; 7 rows now signature rows (zrdr_main.cpp:242/102 take _zrdr*, the ELF takes const _zrdr*) and 0x23e140's row removed; the zrdr_countarray 0x23ca30 note; the vis_main.cpp row (src/gamez/zVisual/vis_main.cpp, as in 013/042/076) owns 0x4753ec/0x47663c at low, strictly between CVisual statics that 042 gives vis_main.cpp (0x4753e8|0x475404, 0x476638|0x476640); CFileStack dtor 0x23fa70 -> util_stack.h:9 (body is only the inlined ~list: implicit). FINDINGS: (1) socom:function:0x23b8b0 __dt__Q38Particle6Source4ListFv -> zparticle.h:41 is not implicit. It loops calling __dt__Q28Particle6SourceFv 0x239eb0(*i,1) on every element, then runs erase(begin,end) and the inlined ~list: a user-written delete loop. Its only reference is __sinit_zparticle_source.cpp 0x46b950: 1 unit, so no emit (same ruling as 021's 0x1df000 and 028's 0x2377f0). Fix: drop the header-emit row (with its annotation and reservation evidence) and add the note 'socom:function:0x23b8b0 __dt__Q38Particle6Source4ListFv: user-written inline destructor (deletes each element), used by 1 unit (zparticle_source.cpp); defined in zparticle_source.cpp, no emit'. (2) socom:function:0x23e380 __ct__5_zrdrFv -> zrdr.h:153: the emit stands, but its evidence 'implicit default constructor' is wrong. The body clears isclone and packed (bits 8-9), which an implicit ctor never does. The emit holds by ODR: CRdrFile::CRdrFile 0x23cf30 (zrdr_file.cpp, GLOBAL) inlines the identical body, and zrdr_main.cpp's Clone 0x23e2b0 calls the kept copy: 2 units. Fix: decide --header-emit src/gamez/zReader/zrdr.h --reason inline --override with that evidence. Also add a defined-elsewhere contradiction for src/gamez/zReader/zrdr_main.cpp:17, which defines _zrdr::_zrdr() out of line, while the ELF has only binding-13 copies (one inlined into zrdr_file.o), so it is inline in zrdr.h (as 028's GetTranslate at zmath_matrix.cpp:36). Tool gap as noted on 021: no decide option removes a hand header-emit row, and emit-check counts every CU-less dtor as implicit.",
+          "rejected_at": "2026-11-01T00:27:30Z",
+          "rejected_by": "socom-source-owner-scrutinizer-x28"
         }
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "ready",
       "title": "Plan source owners of segment 029 (0x23a0d0-0x247874, 179 functions)"
     },
     {
@@ -153175,6 +153204,10 @@
       "title": "Apply the reviewed source owners of segment 042 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:26:06Z",
+        "by": "socom-source-owner-scrutinizer-x28"
+      },
       "batch": {
         "artifact_count": 367,
         "batch_number": 43,
@@ -153212,6 +153245,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "final-sweep review: plan sha256:b2e5b2b2907dd17cb1f6af98a938182e31bcf119e3809b6c841b481b97b6519a = handoff; validate --check ok (0 problems), draft --check ok, emit-check --plan clean (13 copies checked, 0 missing emits/notes, 0 wrong citations). JSON diff vs build/stage4/pre-final: only +8 template emits RTArray<zdb::CDecal>/RTArray<zdb::CMeshDecal> 0x313660-0x313aa0 (WEAK, names verified) -> src/rt/rtarray.h:5 (template<class Object> line 4, class RTArray line 5), +3 notes RTPool<CTextureFX> 0x314330/0x3143f0/0x314540 used by 1 unit, no header declares RTPool (no RTPool anywhere under src/), src/rt added to the reservation with evidence, ODR note rewritten; annotations follow. Unchanged rows accepted earlier by x21.",
         "plan build/source-plans/socom-work-source-segment-043.json sha256:b2e5b2b2907dd17cb1f6af98a938182e31bcf119e3809b6c841b481b97b6519a; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -153250,7 +153284,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 043 (0x3103a0-0x316dd8, 186 functions)"
     },
     {
@@ -153316,6 +153350,10 @@
       "title": "Apply the reviewed source owners of segment 043 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:25:41Z",
+        "by": "socom-source-owner-scrutinizer-x26"
+      },
       "batch": {
         "artifact_count": 495,
         "batch_number": 44,
@@ -153353,6 +153391,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "full review of plan build/source-plans/socom-work-source-segment-044.json sha256:49535c8051b8d5057a6df39d7380429c3f23433747a188ac1a5619e0fc87f704 (= fs5 handoff); validate --check ok (0 problems), draft --check ok (0 overrides), emit-check 0 missing emits/notes/wrong citations, 0 undetermined; shared units agree with 043/076. Invented zwep_projectilelist.cpp (low) checked against the strongest competitor (blocks 7214-7289 = head of zwep_weapon.o: ZWepReader::Read and its ctor/dtor are called only by CZWeapon::Init, CZWeapon creates/ticks the list): refuted by symbol order. All 6970 label pairs that co-occur in 2+ LOCAL clusters keep one relative order (in-object order is a name key), and blocks 7219-7289 vs 7290-7338 have 3 pairs reversed against that order (@2038/@3743, @2104/@3271, @2105/@3271), 7214-7218 vs 7290-7338 one (__RTTI__12CZProjectile/__RTTI__8CZWeapon), so neither block is zwep_weapon.o's; 7214-7218 vs zwep_projectile.o is reversed too (incl. the duplicate LOCAL __RTTI__12CZProjectile 0x459d20 vs 0x459cc0); 7214-7218 vs 7219-7289 has only consistent pairs, so one-vs-two objects is honestly unproven (one row, noted). Text cuts 0x31a3a0|0x31a4e0 and 0x31c990|0x31c9a0 rest on class identity and are low. PostTick 0x319540 is in zwep_projectile.o under either key-function choice of __vt__12CZProjectile (PreTick/PostTick only): directly, or between HandleIntersections 0x319190 and PreTick; PreTick medium by class flank. 11 GLOBAL zWeapon statics unresolved: .sbss 0x476670-0x476698 and .sdata 0x475418-0x47542c lie between zwep_global's @1462 0x476668 / vis_texfx data and thezoom's run with no anchor between, so zwep_global.o and the per-class objects both fit. CameraZoom statics -> thezoom.cpp low: adjacent to thezoom's BaseFarClip run (.sbss) and last before zNetMedius (.sdata), and thezoom.cpp's DWARF has global_variable DIEs m_current/m_increment/m_iszoom. RTArray<zdb::CDecal> dtor -> src/rt/rtarray.h:5 (template line). 15 contradictions checked against cited lines.",
         "plan build/source-plans/socom-work-source-segment-044.json sha256:49535c8051b8d5057a6df39d7380429c3f23433747a188ac1a5619e0fc87f704; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -153384,7 +153423,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 044 (0x316de0-0x3205b8, 192 functions)"
     },
     {
@@ -154081,6 +154120,10 @@
       "title": "Apply the reviewed source owners of segment 052 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:27:38Z",
+        "by": "socom-source-owner-scrutinizer-x26"
+      },
       "batch": {
         "artifact_count": 382,
         "batch_number": 54,
@@ -154117,6 +154160,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "full review of plan build/source-plans/socom-work-source-segment-054.json sha256:75bb87e1c0b6ceaa780ed71fc4e15e11e268690be4de7133fc392acc8fc9b075 (= fs5 handoff); validate --check ok (0 problems), draft --check ok (0 overrides), emit-check 0 missing emits/notes/wrong citations, 0 undetermined; shared units veh_turret/st_load/zui/zui_2d agree with 019/055/056/076. CDblBufTextureRelocator: GLOBAL __vt__23CDblBufTextureRelocator 0x473130 (zui.cpp) holds only TakeDrawPacket 0x3805f0 / PreGetSprPacket 0x380600 as own non-inline virtuals, so the key function is one of them in zui.cpp; and neither is st_load.cpp's: st_load.cpp is DWARF-compiled with function DIEs through its binding-13 GetReaderFileName 0x37fdd0, but these two GLOBAL functions have no DIE. New zui_2d.cpp row (3 binding-13 copies 0x3852c0/0x3853b0/0x3853c0): referenced only by GLOBAL vtables of zui_2d classes and zui_2d's thunk @136@__dt__8C2DClockFv, so only zui_2d's object can hold them; they lie after zui.cpp's WEAK run (..0x385220) and before zui_2d's anchor 0x3853f0; path as 019/055/056/076. _EmptyMemberOpt copy ctor 0x3805e0 -> <memory> (MSL_C++ <memory> declares struct _EmptyMemberOpt at line 1368, read-only), pair dtor -> <utility>, __vector_deleter -> <vector> (12 sibling instances name it). CGameMenu::GetReaderFileName 0x382ef0 -> zui.h: CGameMenu's inline MyTick/PrepControls 0x321320/0x321330 are DWARF header DIEs of Z:\\dev\\gamez\\zui\\zui.h, while provisional zgame.h:115 holds class CGameMenu (contradiction row correct). veh_turret.cpp: head 0x37a2a0 follows SCE's GCC object (sceSifMCallRpc ..0x37a29c) and is called only by veh_turret's AcquireTarget; 0x37dad0/0x37db80 are referenced only through __sinit_veh_turret.cpp. Reservation corrected (+zUtil for the zutil.h emit, +zVehicle) with evidence.",
         "plan build/source-plans/socom-work-source-segment-054.json sha256:75bb87e1c0b6ceaa780ed71fc4e15e11e268690be4de7133fc392acc8fc9b075; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -154148,7 +154192,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 054 (0x37a2a0-0x3853e4, 121 functions)"
     },
     {
@@ -154213,6 +154257,10 @@
       "title": "Apply the reviewed source owners of segment 054 under src/"
     },
     {
+      "accepted": {
+        "at": "2026-11-01T00:28:07Z",
+        "by": "socom-source-owner-scrutinizer-x26"
+      },
       "batch": {
         "artifact_count": 445,
         "batch_number": 55,
@@ -154247,6 +154295,7 @@
         "socom:work:ghidra-reconstruction-seed"
       ],
       "evidence": [
+        "full review of plan build/source-plans/socom-work-source-segment-055.json sha256:92995fc244c0a421d56312b8aeb98fcca0e5c57b87ed9bb6f4548ff228d2554f (= fs5 handoff); validate --check ok (0 problems), draft --check ok (0 overrides, 0 open rows), emit-check 0 missing emits/notes/wrong citations, 0 undetermined (34 copies checked, 26 expected); all 445 artifacts drafted (A-between 102, A-file-string 12, A-local-block 138, A-unnamed 49, C-fill 144; no D-referenced data); zui_2d.cpp path agrees with 019/054/056/076. Hand emits: C2DButton virtuals (3 units via 6 GLOBAL vtables) and CPlainBmp virtuals (9 units) -> src/gamez/zTwoD/ztwod.h, whose lines 386/172 declare class C2DButton / CPlainBmp; implicit dtors C3StateButton 0x38fcc0 -> ztwod.h:376 (class line) and C2DVisual 0x393630 -> zvis.h:285; Get2DVisual 0x393690 (kept by zui_2d, its vtable's class constructed by zui.cpp: 2 units) -> zvis.h:285; std::operator+ 0x389140 -> <string> (MSL_C++ <string> defines the operator+ template at line 2746, read-only). C2DVisual namespace contradiction correct: every ELF symbol is global (__ct__/__dt__/Render__/Get2DVisual__9C2DVisual, __vt__/__RTTI__9C2DVisual) while zvis.h:285 lies inside namespace zdb (lines 57-291). Notes for the no-header classes (CWrappedText, CTeleType, CUIListBox, CCheckBox, ...) match emit-check. Reservation corrected (+zTwoD, +zVisual) with evidence.",
         "plan build/source-plans/socom-work-source-segment-055.json sha256:92995fc244c0a421d56312b8aeb98fcca0e5c57b87ed9bb6f4548ff228d2554f; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok"
       ],
       "handoff": {
@@ -154278,7 +154327,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "awaiting_acceptance",
+      "status": "accepted",
       "title": "Plan source owners of segment 055 (0x3853f0-0x3949fc, 185 functions)"
     },
     {
