@@ -391,3 +391,93 @@ def test_emit_check_expects_an_emit_only_for_a_compiler_shaped_body(tmp_path: Pa
     unknown = run(None)
     assert _id(0x1e00) not in [value["artifact"] for value in unknown["missing_emits"]]
     assert [(value["artifact"], value["has_emit"]) for value in unknown["unknown_shape"]] == [(_id(0x1e00), False)]
+
+
+# An inlined member destructor: CAiEvent::~CAiEvent with CBits::~CBits inlined at this+0x20 (0x17fc20, 0x17f440).
+BLEZ, DSLL32_S0 = 0x06, _r(0, S0, V0, 0x3C, 16)
+
+
+def _member_dtor() -> list[int]:
+    """CBits::~CBits at 0x1f00 (this in s1, the flag in s0): _free(m_bits, "<file>", 38); m_bits = 0; the deleting tail."""
+
+    end = 0x1f00 + 4 * 14
+    return [move(S1, A0), branch(0x04, S1, ZERO, 0x1f04, end), move(S0, A1),
+            lw(A0, 4, S1), lui(A1, 0), addiu(A1, A1, 0x7f00), jal(0x3500), addiu(6, ZERO, 38),
+            DSLL32_S0, DSRA32_FLAG, branch(BLEZ, V0, 0, 0x1f28, end), sw(ZERO, 4, S1), jal(0x3100), move(A0, S1),
+            move(V0, S1), JR_RA, NOP]
+
+
+def _holder_dtor() -> list[int]:
+    """CAiMap::~CAiMap at 0x1e00: the same work under the compiler's `this+0x20 != 0` test, then the deleting tail."""
+
+    end, skip = 0x1e00 + 4 * 18, 0x1e00 + 4 * 12
+    return [move(S1, A0), branch(0x04, S1, ZERO, 0x1e04, end), move(S0, A1),
+            addiu(V0, S1, 0x20), branch(0x04, V0, ZERO, 0x1e10, skip), NOP,
+            lw(A0, 0x24, S1), lui(A1, 0), addiu(A1, A1, 0x7f00), jal(0x3500), addiu(6, ZERO, 38), sw(ZERO, 0x24, S1),
+            DSLL32_S0, DSRA32_FLAG, branch(BLEZ, V0, 0, 0x1e38, end), NOP, jal(0x3100), move(A0, S1),
+            move(V0, S1), JR_RA, NOP]
+
+
+def _inlined_case(tmp_path: Path, literal: str, out_of_line: bool) -> dict:
+    """The emit check of CAiMap's destructor; ``literal``: the __FILE__ text; ``out_of_line``: CBits's copy exists."""
+
+    root, cache, first, _second = _workspace(tmp_path)
+    functions = [(0x1e00, "__dt__6CAiMapFv", "13", 4 * 21), (0x3100, "__dl__FPv", "GLOBAL", 8),
+                 (0x3500, "_free__FPvPCci", "GLOBAL", 8)]
+    if out_of_line:
+        functions.append((0x1f00, "__dt__5CBitsFv", "13", 4 * 17))
+    with closing(sqlite3.connect(cache)) as connection:
+        for address, name, binding, size in functions:
+            connection.execute(
+                "INSERT INTO artifacts (id, kind, address, size, binding, classification) VALUES (?, 'function', ?, ?, ?, 'authored')",
+                (_id(address), address, size, binding),
+            )
+            connection.execute("INSERT INTO names VALUES (?, ?, ?, ?)", (_id(address), name, binding, address))
+        connection.execute(
+            "INSERT INTO artifacts (id, kind, address, size, binding) VALUES (?, 'data', ?, 16, 'LOCAL')", (_id(0x7f00, "data"), 0x7f00)
+        )
+        connection.execute(
+            "INSERT INTO file_strings (string, artifact, text, literal, referenced_by) VALUES (?, ?, ?, 1, ?)",
+            (0x7f00, _id(0x7f00, "data"), literal, _id(0x1e00)),
+        )
+        for function, high in ((0x1e00, 0x1e1c), (0x1f00, 0x1f10)):
+            for site, kind in ((high, "R_MIPS_HI16"), (high + 4, "R_MIPS_LO16")):
+                connection.execute(
+                    "INSERT INTO refs (site, site_artifact, target, target_artifact, type, symbol) VALUES (?, ?, ?, ?, ?, '@1318')",
+                    (site, _id(function), 0x7f00, _id(0x7f00, "data"), kind),
+                )
+        connection.commit()
+    item = "socom:work:source-segment-001"
+    plan = copy.deepcopy(first)
+    plan["owners"][0]["artifacts"].append({"artifact": _id(0x1e00), "confidence": "high", "basis": "x"})
+    code = _words(0x1e00, _holder_dtor())[0] | _words(0x1f00, _member_dtor())[0]
+    word = lambda address: code.get(address, 0)  # noqa: E731
+    return emit_check(root, cache, items=[item], replace={item: ("p.json", plan)}, word=word)["plans"][item]
+
+
+def test_an_identified_inlined_member_destructor_is_not_judged(tmp_path: Path) -> None:
+    # (b) the guarded stretch, rebased by 0x20, equals the out-of-line CBits destructor; (a) its __FILE__ is not zfoo.h.
+    both = _inlined_case(tmp_path / "both", "zmath_bits.h", out_of_line=True)
+    assert both["special_members"][_id(0x1e00)]["shape"] == "implicit"
+    (row,) = [value for value in both["missing_emits"] if value["artifact"] == _id(0x1e00)]
+    assert row["body_inlined"] == [
+        "0x1e18-0x1e30 (this+0x20): an inlined destructor, equal to the out-of-line __dt__5CBitsFv (0x1f00); "
+        "__FILE__ zmath_bits.h, not a header of its class"
+    ]
+    # (b) alone: the literal names the class's own header.
+    copy_only = _inlined_case(tmp_path / "copy", "zfoo.h", out_of_line=True)
+    assert copy_only["special_members"][_id(0x1e00)]["shape"] == "implicit"
+    # (a) alone: no out-of-line copy.
+    file_only = _inlined_case(tmp_path / "file", "zmath_bits.h", out_of_line=False)
+    assert file_only["special_members"][_id(0x1e00)]["shape"] == "implicit"
+    # The null test alone identifies nothing: the stretch is judged as the destructor's own work.
+    neither = _inlined_case(tmp_path / "neither", "zfoo.h", out_of_line=False)
+    assert neither["special_members"][_id(0x1e00)]["shape"] == "user-written"
+
+
+def test_the_out_of_line_member_destructor_stays_user_written() -> None:
+    # No null test of this+N: nothing to identify, whatever identify would say.
+    code, size = _words(0x1f00, _member_dtor())
+    result = body_shape(lambda address: code.get(address, 0), 0x1f00, size, "dtor", {}, _callee, identify=lambda *_: "x")
+    assert result["shape"] == "user-written" and "inlined" not in result
+    assert result["reasons"][0] == "0x1f18 calls 0x3500"

@@ -108,7 +108,7 @@ P-gnu-section   a non-padding gap inside one GNU object's LOCAL section run
                 whose every relocation comes from that object's functions
                 through its own LOCAL section symbols is that object's (high).
 
-Rules version 4 (the default) decides unanchored runs between two units by
+Rules version 4 decides unanchored runs between two units by
 three ELF regularities that have no counterexample on the reference graph
 ``7bd4e540``, iterates them to a fixed point, keeps every version 3 rule, and
 adds suggestions and header-emit rules.  The regularities (``_v4_functions``):
@@ -194,7 +194,7 @@ H-class-header  an owned implicit special member (``__ct__``, ``__dt__``,
                 workspace header that the header compile units of the class's
                 other members name.
 
-Rules 6 (the default) keep every version 5 rule except:
+Rules 6 keep every version 5 rule except:
 
 D-referenced    (authored and provider-unit) and the "referenced only by"
 P-gnu-data      fallback decide GLOBAL data only when its position agrees:
@@ -234,6 +234,21 @@ H-template-family  also LOCAL MSL function template instances, keyed by
 ``draft.open_row_header_emits`` (authored scopes) lists the emit each open
 function takes once a planner owns it in an authored unit; ``--check``
 proves such an emit row of a hand-owned function like a drafted one.
+
+Rules 7 (the default) keep every version 6 rule except:
+
+P-gnu-data      never decides a named datum (GLOBAL, or LOCAL or WEAK with a
+                symbol) that code reads (functions or gaps, followed through
+                data) when no code of that GNU object reads it: a GNU
+                object's LOCAL section run (or cluster) can reach over
+                another object's data.  ``gopt`` 0x438750, inside SCE libmc
+                0x171070's ``.data`` run, is read by database, options, main,
+                st_core, thezoom and two hud units, never by libmc;
+                ``team_table`` 0x438770 only by orders.cpp.  The datum is not
+                left to the GNU object: the later rules (``D-referenced``
+                with its version 6 position test, the provider-unit rules)
+                still see it, and an open row's reason starts with why
+                ``P-gnu-data`` passed it over.
 """
 
 from __future__ import annotations
@@ -267,8 +282,8 @@ from .source_plan import (
 )
 from .util import SocomError
 
-DRAFT_RULES_VERSION = 6
-RULES_VERSIONS = (1, 2, 3, 4, 5, 6)
+DRAFT_RULES_VERSION = 7
+RULES_VERSIONS = (1, 2, 3, 4, 5, 6, 7)
 # The version a plan without a recorded (known) draft rules version is checked under.
 UNVERSIONED_RULES = 1
 ANCHOR_ORDER = ("A-dwarf-cu", "A-dwarf-header", "A-sinit", "A-unnamed", "A-dwarf-static", "A-file-string", "A-local-block")
@@ -974,6 +989,52 @@ class _Draft:
             return set()
         return {self.by_id[member].get("gnu_object") for member in cluster["members"] if self.by_id[member].get("gnu_object")}
 
+    def code_readers(self, identity: str) -> tuple[set[str], set[str]]:
+        """(functions, gaps) whose relocations reach ``identity``, followed through referencing data."""
+
+        functions: set[str] = set()
+        gaps: set[str] = set()
+        seen = {identity}
+        pending = [identity]
+        while pending:
+            current = pending.pop()
+            for site in self.users.get(current, ()):
+                kind = self.by_id[site]["kind"]
+                if kind == "function":
+                    functions.add(site)
+                elif kind == "gap":
+                    gaps.add(site)
+                elif site not in seen:
+                    seen.add(site)
+                    pending.append(site)
+        return functions, gaps
+
+    def foreign_read(self, identity: str, target: str) -> str | None:
+        """Rules 7: why ``P-gnu-data`` passes over a named datum code reads but no code of GNU object ``target``, else ``None``."""
+
+        row = self.by_id[identity]
+        names = [item.get("name") for item in row.get("names") or [] if item.get("name")]
+        if not names:
+            return None
+        functions, gaps = self.code_readers(identity)
+        if not functions and not gaps:
+            return None
+        if any(self.by_id[site].get("gnu_object") == target for site in functions | gaps):
+            return None
+        owners = Counter(
+            self._spelling(self.decided[site][0]) if site in self.decided
+            else f"GNU object {self.by_id[site]['gnu_object']}" if self.by_id[site].get("gnu_object") else "undecided"
+            for site in functions
+        )
+        shown = ", ".join(f"{owner} {count}" for owner, count in sorted(owners.items(), key=lambda item: (-item[1], item[0])))
+        read = f"{len(functions)} function(s) ({shown})" if functions else ""
+        if gaps:
+            read += (" and " if read else "") + f"{len(gaps)} gap(s)"
+        return (
+            f"{row.get('binding') or 'named'} {names[0]} is read by {read} but by no code of GNU object {target}: "
+            "P-gnu-data does not decide it (a GNU object's section run can reach over another object's data)"
+        )
+
     # -- rules 6: data position ----------------------------------------------------
 
     def global_data(self, row: dict[str, Any]) -> bool:
@@ -1245,7 +1306,12 @@ def draft_owner_plan(
         entries[key].append(value)
         rule_counts[value["draft_rule"]] += 1
 
+    # Rules 7: data P-gnu-data passed over (named, read by code, by none of the object's) -> why.
+    passed_over: dict[str, str] = {}
+
     def leave(identity: str, reason: str) -> None:
+        if identity in passed_over:
+            reason = f"{passed_over[identity]}; {reason}"
         open_rows.append({"artifact": identity, "reason": reason, "draft": DRAFT_OPEN})
 
     def provider_row(gnu: dict[str, Any], identity: str) -> dict[str, Any]:
@@ -1340,6 +1406,12 @@ def draft_owner_plan(
                 target = next(iter(user_objects))
                 confidence, basis = "medium", f"referenced only by functions of GNU object {target} ({len(users)})"
                 referenced_only = True
+            if target is not None and not draft.anchor.get(identity) and draft.rules >= 7:
+                # Rules 7: a named datum only foreign code reads is not the GNU object's by its run or cluster.
+                passed = draft.foreign_read(identity, target)
+                if passed is not None:
+                    passed_over[identity] = passed
+                    target = None
             if target is not None and not draft.anchor.get(identity):
                 gnu = draft.gnu[target]
                 gnu_library = gnu.get("library") or "unidentified GNU object"

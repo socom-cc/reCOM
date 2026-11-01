@@ -429,14 +429,14 @@ def test_draft_refuses_unknown_rules_and_existing_outputs(tmp_path: Path, stage3
     plan_path = "build/source-plans/socom-work-source-segment-001.json"
     assert cli.main([*base, "--item", "socom:work:source-segment-001", "--output", plan_path]) == 0
     report = json.loads(capsys.readouterr().out)
-    # Rules 6 leave __vt__4CBox open: a.cpp reads it, but it follows b.cpp's anchored @13.
-    assert (report["rules_version"], report["decided"], report["open"]) == (6, 12, 3)
+    # Rules 6 (and the default 7) leave __vt__4CBox open: a.cpp reads it, but it follows b.cpp's anchored @13.
+    assert (report["rules_version"], report["decided"], report["open"]) == (7, 12, 3)
     assert report["outside_reservation"] == ["src/gamez/zBar/b.cpp"]
     assert cli.main([*base, "--item", "socom:work:source-segment-001", "--output", plan_path]) == 2
     assert "never replaces a plan" in json.loads(capsys.readouterr().out)["error"]
     assert cli.main([*base, "--check", plan_path]) == 0
     report = json.loads(capsys.readouterr().out)
-    assert report["ok"] and report["drafted_entries"] == 12 and report["open_rows"] == 3 and report["rules_version"] == 6
+    assert report["ok"] and report["drafted_entries"] == 12 and report["open_rows"] == 3 and report["rules_version"] == 7
     assert report["owner_changes"] == [] and report["header_emit_changes"] == []
     # A version 1 draft is checked under version 1; --rules 2 shows the new decisions.
     old_path = "build/source-plans/v1.json"
@@ -865,6 +865,45 @@ def test_rules_3_place_data_and_gaps_by_their_local_section_run(tmp_path: Path, 
     facts["references"][-1]["symbol_type"] = "OBJECT"
     entries = _entries(draft_owner_plan(_root(tmp_path / "v3b"), tracker, item, graph, facts, section_of=MAIN))
     assert "socom:gap:0x426468" not in entries
+
+
+def test_rules_7_pass_over_named_data_only_foreign_code_reads(tmp_path: Path, stage3: dict) -> None:
+    # gopt 0x438750 in SCE libmc's .data run: the GLOBAL sceRef inside the SCE run, read only by b.cpp's b_two;
+    # the LOCAL sceTable in the SCE cluster, read only through g_shared (a_first, b_two).
+    graph = _sectioned(draft_graph())
+    tracker = _decompose(stage3, graph)
+    facts = draft_facts(graph)
+    pairs = {("socom:function:0x1400b0", "socom:data:0x426460"): ("socom:function:0x140090", "socom:data:0x426460"),
+             ("socom:function:0x1400a0", "socom:data:0x426450"): ("socom:data:0x426420", "socom:data:0x426450")}
+    for reference in facts["references"]:
+        key = (reference["site_artifact"], reference["target_artifact"])
+        reference["site_artifact"], reference["target_artifact"] = pairs.get(key, key)
+    item = "socom:work:source-provider-sce"
+    runs = iter(range(10))
+
+    def drafted(rules: int) -> dict:
+        return draft_owner_plan(_root(tmp_path / f"v{rules}-{next(runs)}"), tracker, item, graph, facts, rules=rules, section_of=MAIN)
+
+    v6, v7 = drafted(6), drafted(7)
+    assert v7["draft"]["rules_version"] == 7
+    old = _entries(v6)
+    assert [old[value][1]["draft_rule"] for value in ("socom:data:0x426450", "socom:data:0x426460")] == ["P-gnu-data"] * 2
+    entries = _entries(v7)
+    assert "socom:data:0x426450" not in entries and "socom:data:0x426460" not in entries
+    assert entries["socom:function:0x1400a0"][1]["draft_rule"] == "P-gnu-object"
+    reasons = {row["artifact"]: row["reason"] for row in v7["unresolved"]}
+    assert reasons["socom:data:0x426460"] == (
+        "GLOBAL sceRef is read by 1 function(s) (b.cpp 1) but by no code of GNU object 0x1400a0: P-gnu-data does not "
+        "decide it (a GNU object's section run can reach over another object's data); no GNU object or provider-unit "
+        "rule decides it: a provider plan names its archive member by hand"
+    )
+    assert reasons["socom:data:0x426450"].startswith("LOCAL sceTable is read by 2 function(s) (a.cpp 1, b.cpp 1) but by no code")
+    # Older rules keep drafting and checking as before; under 7 the v6 rows are drafted rows the rules leave open.
+    assert check_draft(drafted(6), v6)["problems"] == []
+    assert any("socom:data:0x426460" in problem for problem in check_draft(v7, v6)["problems"])
+    # Read by one of the object's own functions too, the GLOBAL stays the object's.
+    facts["references"].append({"site_artifact": "socom:function:0x1400b0", "target_artifact": "socom:data:0x426460"})
+    assert _entries(drafted(7))["socom:data:0x426460"][1]["draft_rule"] == "P-gnu-data"
 
 
 def test_archive_member_archive_version_and_unknown_linking(tmp_path: Path, stage3: dict) -> None:
@@ -1374,7 +1413,7 @@ def test_reference_rules_6(root: Path, reference_source_graph: dict, reference_d
     section_of = loaded_section_lookup(root)
 
     def drafted(item: str) -> tuple[dict, dict, dict]:
-        plan = draft_owner_plan(root, tracker, item, graph, facts, section_of=section_of)
+        plan = draft_owner_plan(root, tracker, item, graph, facts, rules=6, section_of=section_of)
         assert plan["draft"]["rules_version"] == 6 and check_draft(plan, plan)["problems"] == []
         decided = {entry["artifact"]: row.get("translation_unit") for row in plan["owners"] for entry in row["artifacts"]}
         return plan, decided, {row["artifact"]: row for row in plan["unresolved"]}
@@ -1542,7 +1581,7 @@ def test_rules_6_function_template_emits_and_open_row_emits(tmp_path: Path, stag
     tracker = _decompose(stage3, graph)
     args = (_root(tmp_path), tracker, "socom:work:source-segment-001", graph, facts)
     v5 = draft_owner_plan(*args, rules=5, section_of=MAIN)
-    plan = draft_owner_plan(*args, section_of=MAIN)
+    plan = draft_owner_plan(*args, rules=6, section_of=MAIN)
     assert plan["draft"]["rules_version"] == 6 and "open_row_header_emits" not in v5["draft"]
     emits = {row["artifact"]: (row["header"], row["library"], row["reason"], row["draft_rule"]) for row in plan["header_emits"]}
     # LOCAL std::find: no instance has a header unit; MSL defines it in <algorithm>.

@@ -30,8 +30,13 @@ thunks (``@N@...``) and MSL instances (``H-template-family`` covers those):
   function, a non-zero constant or another member stored, a pointer
   deleted, a global read or written), ``unknown`` when the scan cannot tell
   (a call into library code an inlined member may have made, a value it
-  does not track).  A user-written single-unit copy expects no emit; an
-  unknown one is listed (``unknown_shape``), never expected;
+  does not track).  A destructor's stretch under a compiler null test of
+  ``this+N`` (N > 0: an inlined member or base destructor's own ``this``
+  check) is not judged when the ELF identifies it: its stores and calls,
+  rebased by N, equal an out-of-line destructor's, or it passes a
+  ``__FILE__`` literal naming a header that does not declare the class.
+  A user-written single-unit copy expects no emit; an unknown one is
+  listed (``unknown_shape``), never expected;
 * the header: the class's (template's) DWARF header unit, mapped to the
   workspace path (the direct ``src/<module>/<file>``, else the one file of
   that name in the module tree, else the path the plans already emit to,
@@ -71,7 +76,7 @@ from .source_plan_edit import owner_label
 from .util import SocomError, load_json
 
 EMIT_CHECK_KIND = "socom-source-emit-check"
-EMIT_CHECK_VERSION = 2
+EMIT_CHECK_VERSION = 3
 COPY_BINDINGS = frozenset({"WEAK", "13"})
 MSL_NAMESPACES = frozenset({"std", "Metrowerks"})
 SPECIAL_PREFIXES = ("__ct__", "__dt__", "__as__")
@@ -421,6 +426,12 @@ class _Cache:
                 if site != target:
                     self.referencers[target].add(site)
             self.dwarf = {value for (value,) in connection.execute("SELECT DISTINCT artifact FROM dwarf_cus WHERE artifact IS NOT NULL")}
+            # __FILE__-style string literals: data artifact -> the file name it spells.
+            self.file_names: dict[str, str] = {
+                str(artifact): PureWindowsPath(str(text).replace("/", "\\")).name
+                for artifact, text in connection.execute("SELECT DISTINCT artifact, text FROM file_strings WHERE artifact IS NOT NULL AND text IS NOT NULL")
+            }
+        self.signatures: dict[tuple[Any, ...], list[str]] | None = None
         self.vtables: dict[tuple[str, ...], list[str]] = defaultdict(list)
         self.constructors: dict[tuple[str, ...], list[str]] = defaultdict(list)
         self.class_headers: dict[tuple[str, ...], Counter[str]] = defaultdict(Counter)
@@ -470,10 +481,94 @@ class _Cache:
             info["provider"] = True
         return info
 
+    def _sites(self, identities: Iterable[str]) -> dict[str, dict[int, dict[str, Any]]]:
+        """Relocation sites by function: site address -> ``{type, symbol, target, target_kind}``."""
+
+        wanted = sorted(set(identities))
+        found: dict[str, dict[int, dict[str, Any]]] = {identity: {} for identity in wanted}
+        with closing(sqlite3.connect(f"file:{self.path.as_posix()}?mode=ro", uri=True)) as connection:
+            for chunk in range(0, len(wanted), 500):
+                part = wanted[chunk:chunk + 500]
+                for owner, site, target, kind, symbol in connection.execute(
+                    "SELECT site_artifact, site, target_artifact, type, symbol FROM refs WHERE site_artifact IN "
+                    f"({', '.join('?' for _ in part)})", part
+                ):
+                    found[owner][int(site)] = {
+                        "type": kind, "symbol": symbol, "target": target,
+                        "target_kind": "vtable" if target in self.vtable_ids else (str(target).split(":")[1] if target else None),
+                    }
+        return found
+
+    def _own_vtables(self, qualifier: tuple[str, ...]) -> frozenset[str]:
+        return frozenset(name for table in self.vtables.get(tuple(qualifier), []) for name, _binding in self.rows[table]["names"])
+
+    def destructor_signatures(self, word: Callable[[int], int]) -> dict[tuple[Any, ...], list[str]]:
+        """Every out-of-line destructor in the ELF by its signature (stores and calls, deleting tail left out), once."""
+
+        if self.signatures is not None:
+            return self.signatures
+        rows = []
+        for identity, row in self.rows.items():
+            if row["kind"] != "function" or not row.get("size") or row.get("address") is None:
+                continue
+            shape = _shape(row)
+            if shape is not None and special_kind(shape) == "dtor":
+                rows.append((identity, row, shape))
+        sites = self._sites(identity for identity, _row, _shape_ in rows)
+        index: dict[tuple[Any, ...], list[str]] = defaultdict(list)
+        for identity, row, shape in sorted(rows, key=lambda value: int(value[1]["address"])):
+            body = _Body(word, int(row["address"]), int(row["size"]), "dtor", sites[identity], self.callee,
+                         self._own_vtables(shape["qualifier"]))
+            try:
+                body.run()
+            except (IndexError, ValueError):
+                continue
+            signature = body.signature()
+            if signature != _EMPTY_SIGNATURE:
+                index[signature].append(identity)
+        self.signatures = dict(index)
+        return self.signatures
+
+    def identifier(
+        self, identity: str, word: Callable[[int], int], headers: frozenset[str]
+    ) -> Callable[[tuple[Any, ...], int], str | None]:
+        """What identifies a guarded stretch of destructor ``identity`` as an inlined member or base destructor.
+
+        (b) its signature equals an out-of-line destructor's; (a) it passes a
+        ``__FILE__`` literal naming a header that is not one of ``headers``
+        (the class's header file names, casefolded; none known: no verdict).
+        """
+
+        def identify(signature: tuple[Any, ...], _offset: int) -> str | None:
+            found = []
+            copies = [value for value in self.destructor_signatures(word).get(signature, []) if value != identity]
+            if copies:
+                shown = ", ".join(
+                    f"{self.rows[value]['names'][0][0] if self.rows[value]['names'] else value} (0x{int(self.rows[value]['address']):x})"
+                    for value in copies[:3]
+                )
+                found.append(f"equal to the out-of-line {shown}")
+            if headers:
+                files = sorted({self.file_names[target] for target in _signature_targets(signature) if target in self.file_names})
+                foreign = [name for name in files if name.casefold().endswith(HEADER_SUFFIXES) and name.casefold() not in headers]
+                if foreign:
+                    found.append(f"__FILE__ {', '.join(foreign)}, not a header of its class")
+            return "; ".join(found) or None
+
+        return identify
+
     def body(
-        self, identity: str, kind: str, word: Callable[[int], int] | None, qualifier: tuple[str, ...] = ()
+        self,
+        identity: str,
+        kind: str,
+        word: Callable[[int], int] | None,
+        qualifier: tuple[str, ...] = (),
+        headers: frozenset[str] = frozenset(),
     ) -> dict[str, Any]:
-        """The body shape of a special member of class ``qualifier`` (``unknown`` without the ELF), computed once."""
+        """The body shape of a special member of class ``qualifier`` (``unknown`` without the ELF), computed once.
+
+        ``headers``: the class's header file names (casefolded), for rule (a) of guarded stretches.
+        """
 
         if identity in self.shapes:
             return self.shapes[identity]
@@ -481,21 +576,12 @@ class _Cache:
         if word is None or not row.get("size") or row.get("address") is None:
             result: dict[str, Any] = {"shape": "unknown", "reasons": ["no ELF instructions to read"]}
         else:
-            start = int(row["address"])
-            sites: dict[int, dict[str, Any]] = {}
-            with closing(sqlite3.connect(f"file:{self.path.as_posix()}?mode=ro", uri=True)) as connection:
-                for site, target, kind_, symbol in connection.execute(
-                    "SELECT site, target_artifact, type, symbol FROM refs WHERE site_artifact = ?", (identity,)
-                ):
-                    sites[int(site)] = {
-                        "type": kind_, "symbol": symbol,
-                        "target_kind": "vtable" if target in self.vtable_ids else (str(target).split(":")[1] if target else None),
-                    }
-            own = frozenset(
-                name for table in self.vtables.get(tuple(qualifier), []) for name, _binding in self.rows[table]["names"]
-            )
+            identify = self.identifier(identity, word, headers) if kind == "dtor" else None
             try:
-                result = body_shape(word, start, int(row["size"]), kind, sites, self.callee, own)
+                result = body_shape(
+                    word, int(row["address"]), int(row["size"]), kind, self._sites([identity])[identity], self.callee,
+                    self._own_vtables(qualifier), identify=identify,
+                )
             except (IndexError, ValueError) as failure:
                 result = {"shape": "unknown", "reasons": [f"the body could not be read: {failure}"]}
         self.shapes[identity] = result
@@ -586,10 +672,42 @@ _BRANCHES = frozenset({0x04, 0x05, 0x06, 0x07, 0x14, 0x15, 0x16, 0x17})
 _GLOBAL_RELOCATIONS = frozenset({"R_MIPS_LO16", "R_MIPS_GPREL16"})
 _OTHER: tuple[Any, ...] = ("other",)
 _FLAG: tuple[Any, ...] = ("flag",)
+_EMPTY_SIGNATURE: tuple[Any, ...] = (((), None),)
 
 
 def _s16(value: int) -> int:
     return value - 0x10000 if value & 0x8000 else value
+
+
+def _normal(value: Any, offset: int) -> Any:
+    """A traced value for comparison: ``this``/member offsets rebased by ``offset``, addresses by artifact, stack slots blind."""
+
+    if not isinstance(value, tuple) or not value:
+        return value
+    tag = value[0]
+    if tag in ("this", "member") and len(value) == 2 and isinstance(value[1], int):
+        return (tag, value[1] - offset)
+    if tag in ("addr", "vtable"):
+        return (tag, value[2] if len(value) > 2 and value[2] else value[1])
+    if tag == "stack":
+        return ("stack",)
+    return tuple(_normal(part, offset) for part in value)
+
+
+def _signature_targets(signature: tuple[Any, ...]) -> set[str]:
+    """The artifacts (or symbols) a signature's values address."""
+
+    found: set[str] = set()
+
+    def walk(value: Any) -> None:
+        if isinstance(value, tuple) and value:
+            if value[0] == "addr" and len(value) == 2 and isinstance(value[1], str):
+                found.add(value[1])
+            for part in value:
+                walk(part)
+
+    walk(signature)
+    return found
 
 
 class _Body:
@@ -597,16 +715,21 @@ class _Body:
 
     Values: ``("this", offset)``, ``("src", offset)`` (the copied object),
     ``("stack", offset)``, ``("const", value)``, ``("flag",)`` (the
-    destructor's delete flag), ``("vtable", symbol)``, ``("addr", symbol)``,
-    ``("member", offset)`` and ``("srcval", offset)`` (loaded from this or
-    the source), ``("ret", callee)`` and ``("other",)``.  Every store and call
-    is an event: ``ok`` (what the compiler generates), ``user`` or ``unsure``.
-    Events that are not the member's own are not judged: the deleting tail
-    after the delete-flag test, up to its target (operator delete, called or
-    inlined), and an inlined base destructor or constructor, which starts
-    with the store of a vtable not the class's own (``own_vtables``): in a
-    destructor up to the delete-flag test, in a constructor up to the
-    store of the class's own vptr.
+    destructor's delete flag), ``("vtable", symbol, artifact)``,
+    ``("addr", symbol, artifact)``, ``("member", offset)`` and
+    ``("srcval", offset)`` (loaded from this or the source), ``("ret",
+    callee)`` and ``("other",)``.  Every store and call is an event: ``ok``
+    (what the compiler generates), ``user`` or ``unsure``.  Events that are
+    not the member's own are not judged: the deleting tail after the
+    delete-flag test, up to its target (operator delete, called or inlined);
+    an inlined base destructor or constructor, which starts with the store of
+    a vtable not the class's own (``own_vtables``): in a destructor up to the
+    delete-flag test, in a constructor up to the store of the class's own
+    vptr; and in a destructor a stretch under a null test of ``this+N``
+    (N > 0) that ``identify(signature, N)`` names: the compiler's ``this``
+    check of an inlined member or base destructor.  Every event outside the
+    deleting tail is also traced with a structured signature for that
+    comparison (``signature``).
     """
 
     def __init__(
@@ -618,9 +741,15 @@ class _Body:
         sites: dict[int, dict[str, Any]],
         callee: Callable[[int | None, str | None], dict[str, Any]],
         own_vtables: frozenset[str] = frozenset(),
+        identify: Callable[[tuple[Any, ...], int], str | None] | None = None,
     ) -> None:
         self.word, self.start, self.end, self.kind, self.sites, self.callee = word, start, start + size, kind, sites, callee
         self.own_vtables = own_vtables
+        self.identify = identify
+        # (pc, signature) of every event outside the deleting tail; (offset, low, high) of each this+N null test.
+        self.trace: list[tuple[int, tuple[Any, ...]]] = []
+        self.guards: list[tuple[int, int, int]] = []
+        self.excused: list[str] = []
         self.inlined: list[list[int]] = []
         self.slot_of: int | None = None
         self.gpr: list[tuple[Any, ...]] = [_OTHER] * 32
@@ -641,9 +770,51 @@ class _Body:
     def _not_own(self, pc: int) -> bool:
         return self._deleting(pc) or any(low <= pc < high for low, high in self.inlined)
 
-    def _event(self, pc: int, verdict: str, text: str) -> None:
+    def _event(self, pc: int, verdict: str, text: str, signature: tuple[Any, ...] | None = None) -> None:
+        if not self._deleting(pc):
+            self.trace.append((pc, signature if signature is not None else ("event", text)))
         if not self._not_own(pc):
             self.events.append((pc, verdict, f"0x{pc:x} {text}"))
+
+    def signature(self, low: int | None = None, high: int | None = None, offset: int = 0) -> tuple[Any, ...]:
+        """The traced events in ``[low, high)`` (default all), offsets rebased by ``offset``.
+
+        Calls in order, each with the stores before it as a sorted group (a
+        scheduler may reorder stores between calls), the trailing stores last.
+        """
+
+        segments: list[tuple[Any, ...]] = []
+        stores: list[Any] = []
+        for pc, value in self.trace:
+            if low is not None and high is not None and not low <= pc < high:
+                continue
+            value = _normal(value, offset)
+            if value[0] == "call":
+                segments.append((tuple(sorted(stores, key=repr)), value))
+                stores = []
+            else:
+                stores.append(value)
+        segments.append((tuple(sorted(stores, key=repr)), None))
+        return tuple(segments)
+
+    def _excuse(self) -> None:
+        """Leave out each guarded stretch with a judged event that ``identify`` names as an inlined destructor."""
+
+        if self.identify is None:
+            return
+        excused: list[tuple[int, int]] = []
+        for offset, low, high in self.guards:
+            if any(start <= low < end for start, end in excused):
+                continue
+            if not any(low <= pc < high and verdict != "ok" for pc, verdict, _text in self.events):
+                continue
+            found = self.identify(self.signature(low, high, offset), offset)
+            if found:
+                excused.append((low, high))
+                self.inlined.append([low, high])
+                self.excused.append(f"0x{low:x}-0x{high:x} (this+0x{offset:x}): an inlined destructor, {found}")
+        if excused:
+            self.events = [event for event in self.events if not any(start <= event[0] < end for start, end in excused)]
 
     def _close_inlined(self, pc: int) -> None:
         if self.inlined and self.inlined[-1][1] > pc:
@@ -696,62 +867,70 @@ class _Body:
             return
         where = f"this+0x{base[1] + offset:x}"
         tag = value[0]
+        signature = ("store", ("this", base[1] + offset), value)
         if tag == "vtable":
-            self._event(pc, "unsure" if self.kind == "assign" else "ok", f"stores the vptr {value[1]} to {where}")
+            self._event(pc, "unsure" if self.kind == "assign" else "ok", f"stores the vptr {value[1]} to {where}", signature)
             if self.kind != "assign":
                 self._vptr(pc, str(value[1]))
         elif tag == "const" and value[1] == 0:
             ok = self.kind in ("ctor", "copy")
-            self._event(pc, "ok" if ok else "user", f"stores 0 to {where}" + ("" if ok else f" in a {self.kind}"))
+            self._event(pc, "ok" if ok else "user", f"stores 0 to {where}" + ("" if ok else f" in a {self.kind}"), signature)
         elif tag == "srcval" and self.kind in ("copy", "assign"):
             what = "bits of the source" if value[1] is None else f"source+0x{value[1]:x}"
-            self._event(pc, "ok", f"copies {what} to {where}")
+            self._event(pc, "ok", f"copies {what} to {where}", signature)
         elif tag == "const":
-            self._event(pc, "user", f"stores the constant 0x{value[1] & 0xFFFFFFFF:x} to {where}")
+            self._event(pc, "user", f"stores the constant 0x{value[1] & 0xFFFFFFFF:x} to {where}", signature)
         elif tag in ("addr", "src", "member"):
             what = {"addr": f"the address of {value[1]}", "src": "a pointer to the source", "member": "another member"}[tag]
-            self._event(pc, "user", f"stores {what} to {where}")
+            self._event(pc, "user", f"stores {what} to {where}", signature)
         elif tag == "this":
-            self._event(pc, "unsure", f"stores a pointer into this to {where}")
+            self._event(pc, "unsure", f"stores a pointer into this to {where}", signature)
         elif tag == "ret":
-            self._event(pc, "unsure", f"stores the result of {value[1]} to {where}")
+            self._event(pc, "unsure", f"stores the result of {value[1]} to {where}", signature)
         else:
-            self._event(pc, "unsure", f"stores an untracked value to {where}")
+            self._event(pc, "unsure", f"stores an untracked value to {where}", signature)
 
     def _call(self, pc: int, target: int | None, symbol: str | None) -> None:
         info = self.callee(target, symbol)
         name = info.get("name") or (f"0x{target:x}" if target is not None else "an unknown target")
         a0, a1 = self.gpr[4], self.gpr[5]
+        # The receiver and an address second argument (a __FILE__ literal) identify a call; other registers may be stale.
+        signature = ("call", name, a0, a1 if a1[0] == "addr" else None)
+
+        def event(verdict: str, text: str) -> None:
+            self._event(pc, verdict, text, signature)
+
         if self._not_own(pc):
+            event("ok", f"calls {name}")  # traced, not judged
             return
         if info.get("delete"):
             if a0 == ("this", 0) and self.kind == "dtor":
-                self._event(pc, "ok", f"calls {name} on this")
+                event("ok", f"calls {name} on this")
             else:
-                self._event(pc, "user", f"calls {name} on {a0[0]}, not this")
+                event("user", f"calls {name} on {a0[0]}, not this")
             return
         special = info.get("special")
         if not special and not info.get("helper"):
             if info.get("provider"):
-                self._event(pc, "unsure", f"calls library code {name}")
+                event("unsure", f"calls library code {name}")
             else:
-                self._event(pc, "user", f"calls {name}")
+                event("user", f"calls {name}")
             return
         if a0[0] != "this":
             if a0[0] in ("stack", "other"):
-                self._event(pc, "unsure", f"calls {name} on an untracked object ({a0[0]})")
+                event("unsure", f"calls {name} on an untracked object ({a0[0]})")
             else:
-                self._event(pc, "user", f"calls {name} on {a0[0]}, not a base or member")
+                event("user", f"calls {name} on {a0[0]}, not a base or member")
             return
         allowed = {"dtor": ("dt",), "ctor": ("ct",), "copy": ("ct",), "assign": ("as",)}[self.kind]
         if info.get("helper"):
-            self._event(pc, "ok", f"calls {name} on this+0x{a0[1]:x}")
+            event("ok", f"calls {name} on this+0x{a0[1]:x}")
         elif special not in allowed:
-            self._event(pc, "user", f"calls {name} in a {self.kind}")
+            event("user", f"calls {name} in a {self.kind}")
         elif special == "dt" and a1[0] == "const" and a1[1] > 0:
-            self._event(pc, "user", f"destroys and deletes this+0x{a0[1]:x} ({name})")
+            event("user", f"destroys and deletes this+0x{a0[1]:x} ({name})")
         else:
-            self._event(pc, "ok", f"calls {name} on this+0x{a0[1]:x}")
+            event("ok", f"calls {name} on this+0x{a0[1]:x}")
 
     # -- instructions ------------------------------------------------------------------------
 
@@ -777,7 +956,7 @@ class _Body:
         elif op in (0x08, 0x09, 0x18, 0x19):
             base = gpr[rs]
             if site and site.get("type") in _GLOBAL_RELOCATIONS:
-                self._set(rt, ("vtable" if site.get("target_kind") == "vtable" else "addr", site.get("symbol")))
+                self._set(rt, ("vtable" if site.get("target_kind") == "vtable" else "addr", site.get("symbol"), site.get("target")))
             elif base[0] == "const":
                 self._set(rt, ("const", base[1] + _s16(imm)))
             elif base[0] in ("this", "src", "stack"):
@@ -863,6 +1042,11 @@ class _Body:
                 target = pc + 4 + (_s16(imm) << 2)
                 flag_test = op in (0x06, 0x16) and self.gpr[rs] == _FLAG or op in (0x04, 0x14) and (
                     (self.gpr[rs] == _FLAG and rt == 0) or (self.gpr[rt] == _FLAG and rs == 0))
+                # beq this+N, zero: skips an inlined member or base destructor when its this is null.
+                tested = self.gpr[rs] if rt == 0 else self.gpr[rt] if rs == 0 else _OTHER
+                if (self.kind == "dtor" and op in (0x04, 0x14) and target > pc and tested[0] == "this" and tested[1]
+                        and not self._deleting(pc)):
+                    self.guards.append((tested[1], pc + 8, target))
                 self.slot_of = pc
                 self._plain(pc + 4)
                 self.slot_of = None
@@ -875,6 +1059,7 @@ class _Body:
                 continue
             self._plain(pc)
             pc += 4
+        self._excuse()
         for low, high in self.loops:
             if self._not_own(low):
                 continue
@@ -884,7 +1069,10 @@ class _Body:
         user = [text for _pc, verdict, text in sorted(self.events) if verdict == "user"]
         unsure = [text for _pc, verdict, text in sorted(self.events) if verdict == "unsure"]
         shape = "user-written" if user else "unknown" if unsure else "implicit"
-        return {"shape": shape, "reasons": (user or unsure)[:4]}
+        result: dict[str, Any] = {"shape": shape, "reasons": (user or unsure)[:4]}
+        if self.excused:
+            result["inlined"] = self.excused
+        return result
 
 
 def body_shape(
@@ -895,17 +1083,23 @@ def body_shape(
     sites: dict[int, dict[str, Any]],
     callee: Callable[[int | None, str | None], dict[str, Any]],
     own_vtables: frozenset[str] = frozenset(),
+    *,
+    identify: Callable[[tuple[Any, ...], int], str | None] | None = None,
 ) -> dict[str, Any]:
-    """The body shape of one special member: ``{shape, reasons}`` (the first user-written or unsure events).
+    """The body shape of one special member: ``{shape, reasons, inlined?}`` (the first user-written or unsure events).
 
-    ``sites``: relocation site address -> ``{type, symbol, target_kind}``
-    (``vtable`` for a class's ``__vt__`` table).  ``callee(address, symbol)``
-    -> ``{name, special ('dt'|'ct'|'as'), delete, helper, provider}``.
-    ``own_vtables``: the class's own vtable symbols (another class's opens an
-    inlined base destructor or constructor).
+    ``sites``: relocation site address -> ``{type, symbol, target?,
+    target_kind}`` (``vtable`` for a class's ``__vt__`` table).
+    ``callee(address, symbol)`` -> ``{name, special ('dt'|'ct'|'as'),
+    delete, helper, provider}``.  ``own_vtables``: the class's own vtable
+    symbols (another class's opens an inlined base destructor or
+    constructor).  ``identify(signature, N)``: what names a destructor's
+    stretch under a null test of ``this+N`` as an inlined member or base
+    destructor (``None``: not identified, judged as the member's own);
+    ``inlined`` lists the stretches left out that way.
     """
 
-    return _Body(word, start, size, kind, sites, callee, own_vtables).run()
+    return _Body(word, start, size, kind, sites, callee, own_vtables, identify).run()
 
 
 def _emit_reason(row: dict[str, Any]) -> str:
@@ -1064,6 +1258,19 @@ def _declarations(index: HeaderIndex, shape: dict[str, Any]) -> list[dict[str, A
     return found
 
 
+def class_header_names(cache: _Cache, index: HeaderIndex, row: dict[str, Any], shape: dict[str, Any]) -> frozenset[str]:
+    """The file names (casefolded) of the headers that declare a copy's class: DWARF header units and provisional headers."""
+
+    paths: set[str] = set()
+    if row.get("header"):
+        paths.add(str(row["header"]))
+    key = shape["template"] or shape["class"]
+    if key:
+        paths.update((cache.family_headers if shape["template"] else cache.class_headers).get(key, Counter()))
+    paths.update(str(decl["path"]) for decl in _declarations(index, shape))
+    return frozenset(PureWindowsPath(path.replace("/", "\\")).name.casefold() for path in paths)
+
+
 def check_plan(
     plan_path: str,
     plan: dict[str, Any],
@@ -1123,7 +1330,7 @@ def check_plan(
             names = sorted(units.values(), key=str.casefold)
             # A special member without a DWARF compile unit of its own is implicit only when its body is compiler-shaped.
             kind = special_kind(shape) if identity not in cache.dwarf else None
-            body = cache.body(identity, kind, word, shape["qualifier"]) if kind else None
+            body = cache.body(identity, kind, word, shape["qualifier"], class_header_names(cache, index, row, shape)) if kind else None
             if body is not None:
                 shapes[body["shape"]] += 1
             implicit = body is not None and body["shape"] == "implicit"
@@ -1182,6 +1389,8 @@ def check_plan(
                 record["body_shape"] = body["shape"]
                 if body["reasons"]:
                     record["body_reasons"] = body["reasons"]
+                if body.get("inlined"):
+                    record["body_inlined"] = body["inlined"]
                 special_members[identity] = {"shape": body["shape"], "units": len(names), "unknown_referencers": len(unknown)}
             if not wants_emit:
                 if body is not None and body["shape"] == "unknown" and suggestion is not None:

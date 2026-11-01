@@ -416,12 +416,26 @@ destructor or operator delete on a loaded pointer, a non-zero constant or
 another member stored, a global read or written, a virtual call), and
 `unknown` when the scan cannot tell (a call into `std`/`Metrowerks` or
 other library code an inlined member may have made, a value it does not
-track, a loop that stores and calls nothing). Two stretches are not the
-member's own and are not judged: the deleting tail after the delete-flag
-test, and an inlined base (or member) destructor or constructor, which
-starts at the store of a vtable that is not the class's own (in a
+track, a loop that stores and calls nothing). Three stretches are not
+the member's own and are not judged: the deleting tail after the
+delete-flag test; an inlined base (or member) destructor or constructor,
+which starts at the store of a vtable that is not the class's own (in a
 destructor up to the delete-flag test, in a constructor up to the store of
-its own vptr). A user-written special member that one unit involves
+its own vptr); and, in a destructor, a stretch the compiler skips when
+`this+N` is null (`addiu v0,s1,N; beq v0,zero,...`, N > 0: the inlined
+member or base destructor's own `this` test) that the ELF identifies as
+that destructor: (b) its stores and calls, rebased by N (the receiver,
+an address second argument such as a `__FILE__` literal, stored members
+and values; stores between two calls in any order), equal those of an
+out-of-line destructor outside its deleting tail, or (a) it passes a
+`__FILE__` literal (the cache's `file_strings`) naming a header that is
+not one of the class's headers (its DWARF header units and the
+provisional headers declaring it; no verdict when none is known). An
+unidentified null test leaves the stretch judged. `CAiEvent::~CAiEvent`
+0x17fc20 inlines `CBits::~CBits` at `this+0x20`: equal to the out-of-line
+0x17f440 and passing `zmath_bits.h` (CAiEvent is zai.h's), so it is
+`implicit`; each such row lists the stretches in `body_inlined`. A
+user-written special member that one unit involves
 expects no emit; an `unknown` one is listed in `unknown_shape` (the copy,
 its units, the class header and whether the plan emits it) and never
 expected; a header-emit row on a user-written single-unit copy (not a
@@ -457,7 +471,8 @@ line and source, the emit reason), `missing_notes` (with the note text to
 add), `wrong_citations` (each citation's line text and kind, and where the
 class is declared) and `undetermined` copies (one known unit plus unknown
 referencers), `unknown_shape` and `user_written_emits` (each copy with
-its `body_shape` and the first `body_reasons`) and `special_members` (the
+its `body_shape`, the first `body_reasons` and any `body_inlined`) and
+`special_members` (the
 shape and unit counts of every owned special member without a DWARF unit
 of its own), with counts and the item's tracker status. `--plan` (repeat)
 checks those plan files, `--all` every plan; `--output <file under
@@ -504,10 +519,10 @@ Without `--check`, evidence and validate read `--graph`
 differs from the one the item was decomposed from. `--check` (evidence,
 validate) regenerates the graph from the ELF instead.
 
-### Draft rules (versions 1 to 6)
+### Draft rules (versions 1 to 7)
 
-`source plan draft --item <item> --output <plan> [--rules 1|2|3|4|5|6]` writes a
-schema 2 plan under version 6 unless `--rules` says otherwise. Each decided
+`source plan draft --item <item> --output <plan> [--rules 1|2|3|4|5|6|7]` writes a
+schema 2 plan under version 7 unless `--rules` says otherwise. Each decided
 artifact is an entry `{artifact, confidence, basis, draft_rule}`; each owner
 row's confidence is its weakest entry's. The rules are conservative: when
 any condition fails the artifact stays open. Their exact statement is in
@@ -523,7 +538,9 @@ stays open with that reason (from version 6, authored plans: an
 `S-sole-referencer` suggestion); version 6 decides GLOBAL data by a sole
 referrer only inside that referrer's own data run, tightens three
 suggestions and extends `H-template-family` to LOCAL MSL function
-templates (marked *v6*; see [Version 6](#version-6)); every other rule is
+templates (marked *v6*; see [Version 6](#version-6)); version 7 keeps
+version 6 except that `P-gnu-data` passes over a named datum only foreign
+code reads (marked *v7*; see [Version 7](#version-7)); every other rule is
 version 1's. A plan is checked under the version it was drafted with.
 
 | Rule | Decides | Confidence |
@@ -540,7 +557,7 @@ version 1's. A plan is checked under the version it was drafted with.
 | `D-referenced` | unanchored data whose referencing functions (followed through data) are all decided for one unit. *v6*: GLOBAL data only when it lies strictly inside that unit's own data run (see [Version 6](#version-6)) | medium |
 | `C-fill` | the graph's alignment padding: the compiler-generated row. *v4*: also zero (or `.bss`) fill of any size, without labels or relocations, that ends exactly at a GNU object start or LOCAL section run start and is smaller than that address's alignment | high |
 | `P-gnu-object` | a function or gap of a GNU object of the plan's library: one provider row per object. *v2*: when a DWARF compile unit of the object has a project-toolchain (Metrowerks) producer, such as crt0.s's `Metrowerks MW GAS R5900 Assembler`, the row records `archive_member.linked: "object"` | high, medium past an uncertain object end |
-| `P-gnu-data` | data in a GNU object's cluster (high) or referenced only by its functions (medium). *v3*: data in no cluster but inside one GNU object's LOCAL section run (`gnu_objects[].sections`) is that object's before the "referenced only by" fallback (high; medium when the run was cut short); a cluster and a run naming different objects leave it open. *v6*: the "referenced only by" fallback decides GLOBAL data only strictly inside the object's own data run | high / medium |
+| `P-gnu-data` | data in a GNU object's cluster (high) or referenced only by its functions (medium). *v3*: data in no cluster but inside one GNU object's LOCAL section run (`gnu_objects[].sections`) is that object's before the "referenced only by" fallback (high; medium when the run was cut short); a cluster and a run naming different objects leave it open. *v6*: the "referenced only by" fallback decides GLOBAL data only strictly inside the object's own data run. *v7*: never a named datum (GLOBAL, or LOCAL or WEAK with a symbol) that code reads when no code of that object reads it (see [Version 7](#version-7)) | high / medium |
 | `P-gnu-section` *v3* | a non-padding gap inside one GNU object's LOCAL section run whose every relocation comes from that object's functions through its own LOCAL section symbols. *v4*: or from data inside the object's own LOCAL section runs | high |
 | `P-mw-unit` *v3* (row) | in a provider plan, a Metrowerks-compiled provider unit of the plan's library (a provider path, or a known name such as `989snd.c`) whose artifacts `A-dwarf-cu` .. `A-local-block`, `A-between` or `D-referenced` decide: a provider row with the unit, its single provider path, `archive_member.object` `<stem>.o` and `linked: "unknown"`. The provider-scope `A-between` accepts functions the graph proves of that same library, and `D-referenced` data that is not another library's | - (entries keep their rule) |
 | `O-provisional` (row) | exactly one file under `src/` has the unit's exact name: `provisional_file` and `workspace_path` | - |
@@ -709,6 +726,34 @@ contiguous per-unit groups. Every version 6 decision agrees with the plans
 rows the planners decided, 585 name the planner's unit and 80 another
 (version 5: 444 and 306). The drafts emit 41 more headers, and 157 open
 rows carry an open-row emit. Versions 1 to 5 draft byte-identically.
+
+#### Version 7
+
+A GNU object's LOCAL section run (or cluster) can reach over another
+object's data: `gopt` 0x438750 lies inside SCE libmc 0x171070's `.data`
+run (cut at a foreign artifact, not at a section symbol) and is read by
+database, options, main, st_core, thezoom and two hud units, never by
+libmc; `team_table` 0x438770 after it only by orders.cpp. Version 7
+therefore never decides by `P-gnu-data` (cluster, run or the "referenced
+only by" fallback) a named datum (GLOBAL, or LOCAL or WEAK with a symbol)
+that code reads (functions or gaps, followed through data) when no code
+of that GNU object reads it. The datum is not given to the object; the
+later rules still see it (`D-referenced` with its version 6 position test
+in authored and data scopes, the provider-unit rules in provider plans),
+and when it stays open its reason starts with why `P-gnu-data` passed it
+over: `GLOBAL gopt is read by 11 function(s) (thezoom.cpp 3, ...) but by no
+code of GNU object 0x171070: P-gnu-data does not decide it ...`. Unnamed data and data
+no code reads are decided as before.
+
+On the graph `c79d76e6...` the guard passes over 9 of the 445 drafted
+`P-gnu-data` rows of the plan files: `gopt` (data plan) and 8 GLOBALs
+read only by other objects of the same provider library, 7 of them inside
+a run that ends at the next LOCAL section symbol (newlib's
+`__mprec_bigtens`/`__mprec_tinytens` read by dtoa and strtod and
+`__malloc_trim_threshold` read by `_free_r`, libcdvd's `_sceCd_*` data read
+by `sceCdRead`, the asrspi callback tables read by gsapi). Every plan keeps
+checking under its own version; `--rules 7` lists those rows as drafted
+rows the rules leave open.
 
 Version 3 was measured on the graph `7bd4e540...`. It decides 84 of
 989snd's 110 artifacts against version 2's 26 (`989snd.c` as one
