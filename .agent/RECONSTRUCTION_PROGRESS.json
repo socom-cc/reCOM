@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3377,
+  "revision": 3381,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -156404,13 +156404,18 @@
       "handoff": null,
       "id": "socom:work:source-data-rodata",
       "kind": "source-data-reconcile",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-11-01T00:35:01Z",
+        "expires_at": "2026-11-01T02:35:01Z",
+        "heartbeat_at": "2026-11-01T00:35:01Z",
+        "owner": "socom-source-owner-mapper-r1"
+      },
       "resources": [
         "build/source-plans"
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Reconcile rodata data owners (5456 artifacts outside the segment slices)"
     },
     {
@@ -156489,8 +156494,14 @@
         "socom:work:source-segment-074",
         "socom:work:source-segment-076"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "plan build/source-plans/socom-work-source-data-data.json sha256:c5822f49255b2b7cfcc9f558aee1a05e41f5f6c6e3940f27827c51ded8202899; validate --check ok (0 problems, 3 review notes, 299 shared units agree); draft --check ok (865 drafted, 124 hand, 0 overrides); emit-check 0 findings"
+      ],
+      "handoff": {
+        "owner": "socom-source-owner-mapper-r2",
+        "submitted_at": "2026-11-01T00:54:55Z",
+        "summary": "data reconcile: owners 146 (138 authored, 7 provider, 1 compiler-generated), unresolved 12, retire 0, open rows decided 136 (124 owned by hand: 15 linker/alignment fill, 2 provider, 5 vtables by key-function cluster, 88 inside one unit's data run medium, 14 between two units low; 12 unresolved); 8 open owner rows given the accepted plans' paths; 2 contradictions (CStack statics in provisional zrndr_stack.cpp)"
+      },
       "id": "socom:work:source-data-data",
       "kind": "source-data-reconcile",
       "lease": null,
@@ -156499,7 +156510,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "awaiting_acceptance",
       "title": "Reconcile data data owners (1001 artifacts outside the segment slices)"
     },
     {
@@ -156582,13 +156593,18 @@
       "handoff": null,
       "id": "socom:work:source-data-bss",
       "kind": "source-data-reconcile",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-11-01T00:35:18Z",
+        "expires_at": "2026-11-01T02:35:18Z",
+        "heartbeat_at": "2026-11-01T00:35:18Z",
+        "owner": "socom-source-owner-mapper-r3"
+      },
       "resources": [
         "build/source-plans"
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Reconcile bss data owners (1769 artifacts outside the segment slices)"
     },
     {
