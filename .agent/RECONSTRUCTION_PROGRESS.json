@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3368,
+  "revision": 3371,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -149834,7 +149834,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-021",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-11-01T00:28:31Z",
+        "expires_at": "2026-11-01T02:28:31Z",
+        "heartbeat_at": "2026-11-01T00:28:31Z",
+        "owner": "socom-source-owner-mapper-fs4"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -149898,7 +149903,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 021 (0x1dd520-0x1e8748, 167 functions)"
     },
     {
@@ -151094,7 +151099,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-028",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-11-01T00:28:34Z",
+        "expires_at": "2026-11-01T02:28:34Z",
+        "heartbeat_at": "2026-11-01T00:28:34Z",
+        "owner": "socom-source-owner-mapper-fs4"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -151158,7 +151168,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 028 (0x22c1a0-0x23a0cc, 192 functions)"
     },
     {
@@ -151272,7 +151282,12 @@
       "handoff": null,
       "id": "socom:work:source-segment-029",
       "kind": "source-plan-segment",
-      "lease": null,
+      "lease": {
+        "claimed_at": "2026-11-01T00:28:37Z",
+        "expires_at": "2026-11-01T02:28:37Z",
+        "heartbeat_at": "2026-11-01T00:28:37Z",
+        "owner": "socom-source-owner-mapper-fs4"
+      },
       "resources": [
         "build/source-plans"
       ],
@@ -151322,7 +151337,7 @@
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "ready",
+      "status": "in_progress",
       "title": "Plan source owners of segment 029 (0x23a0d0-0x247874, 179 functions)"
     },
     {
