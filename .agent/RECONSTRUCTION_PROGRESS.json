@@ -2545,7 +2545,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3629,
+  "revision": 3635,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -2674,6 +2674,122 @@
       "accepted_evidence": [
         "source-file-baseline-sha256:46706027e9b91c8a355a6fe381f61443d97bb33e73559c2fe855dc6610a627da",
         "ghidra-receipt-sha256:f8912398392c42d8a615b7a55f646b7bdb3d0bb18e519ae0db9ed30c797c93a5"
+      ],
+      "amendments": [
+        {
+          "applies": [
+            "socom:work:source-segment-013-apply"
+          ],
+          "base_baseline_sha256": "46706027e9b91c8a355a6fe381f61443d97bb33e73559c2fe855dc6610a627da",
+          "evidence": [
+            "workspace issue 'accepted segment 013 owns authored team_table 0x438770 under SCE libmc 0x171070' (ledger rev 180); reviewer x29 finding during the .data reconcile review"
+          ],
+          "id": "socom:source-amendment:001",
+          "item": "socom:work:source-segment-013",
+          "item_kind": "source-plan-segment",
+          "kind": "socom-source-amendment",
+          "opened_at": "2026-11-01T18:34:34Z",
+          "opened_by": "parent-orchestrator",
+          "plan_sha256": "4c2e59a8b69884aac1c57415beb32b61a3668207df54a6af0a61b59c1cd880ee",
+          "reason": "owner correction: authored team_table 0x438770 (read only by orders.cpp's OrdersMenu) was drafted into SCE libmc 0x171070 by a P-gnu-data run-end defect; also complete the libmc row's archive fields (libmc.a, 2500, as the accepted SCE plan)",
+          "schema_version": 1,
+          "status": "open"
+        },
+        {
+          "applies": [
+            "socom:work:source-segment-014-apply"
+          ],
+          "base_baseline_sha256": "46706027e9b91c8a355a6fe381f61443d97bb33e73559c2fe855dc6610a627da",
+          "evidence": [
+            "build/stage4/emit-heuristic-report.json (source plan emit-check body-shape classification, commit after 76d194b): user_written_emits candidate for this plan"
+          ],
+          "id": "socom:source-amendment:002",
+          "item": "socom:work:source-segment-014",
+          "item_kind": "source-plan-segment",
+          "kind": "socom-source-amendment",
+          "opened_at": "2026-11-01T18:34:36Z",
+          "opened_by": "parent-orchestrator",
+          "plan_sha256": "066b0256431350e615c5eb0f83009323edc4780f31ed15992db7fecf567cacde",
+          "reason": "header-emit correction: an emitted special member is user-written and used by one unit, so it is defined in the .cpp (no emit) under the stage-4 rule",
+          "schema_version": 1,
+          "status": "open"
+        },
+        {
+          "applies": [
+            "socom:work:source-segment-016-apply"
+          ],
+          "base_baseline_sha256": "46706027e9b91c8a355a6fe381f61443d97bb33e73559c2fe855dc6610a627da",
+          "evidence": [
+            "build/stage4/emit-heuristic-report.json (source plan emit-check body-shape classification, commit after 76d194b): user_written_emits candidate for this plan"
+          ],
+          "id": "socom:source-amendment:003",
+          "item": "socom:work:source-segment-016",
+          "item_kind": "source-plan-segment",
+          "kind": "socom-source-amendment",
+          "opened_at": "2026-11-01T18:34:38Z",
+          "opened_by": "parent-orchestrator",
+          "plan_sha256": "91449a1d6d044d64059052455e9e6c9273444a0af4c4afdab7cc2a53803976a9",
+          "reason": "header-emit correction: an emitted special member is user-written and used by one unit, so it is defined in the .cpp (no emit) under the stage-4 rule",
+          "schema_version": 1,
+          "status": "open"
+        },
+        {
+          "applies": [
+            "socom:work:source-segment-023-apply"
+          ],
+          "base_baseline_sha256": "46706027e9b91c8a355a6fe381f61443d97bb33e73559c2fe855dc6610a627da",
+          "evidence": [
+            "build/stage4/emit-heuristic-report.json (source plan emit-check body-shape classification, commit after 76d194b): user_written_emits candidate for this plan"
+          ],
+          "id": "socom:source-amendment:004",
+          "item": "socom:work:source-segment-023",
+          "item_kind": "source-plan-segment",
+          "kind": "socom-source-amendment",
+          "opened_at": "2026-11-01T18:34:40Z",
+          "opened_by": "parent-orchestrator",
+          "plan_sha256": "b29b692faa0cc5dc92f4ded200824db02390226f8445c342c66c8fabc848529e",
+          "reason": "header-emit correction: an emitted special member is user-written and used by one unit, so it is defined in the .cpp (no emit) under the stage-4 rule",
+          "schema_version": 1,
+          "status": "open"
+        },
+        {
+          "applies": [
+            "socom:work:source-segment-040-apply"
+          ],
+          "base_baseline_sha256": "46706027e9b91c8a355a6fe381f61443d97bb33e73559c2fe855dc6610a627da",
+          "evidence": [
+            "build/stage4/emit-heuristic-report.json (source plan emit-check body-shape classification, commit after 76d194b): user_written_emits candidate for this plan"
+          ],
+          "id": "socom:source-amendment:005",
+          "item": "socom:work:source-segment-040",
+          "item_kind": "source-plan-segment",
+          "kind": "socom-source-amendment",
+          "opened_at": "2026-11-01T18:34:41Z",
+          "opened_by": "parent-orchestrator",
+          "plan_sha256": "9b2c549dfdb1137b7ef6fc48a278b32e1b34a3164b321bca9a874ec1e64f4e83",
+          "reason": "header-emit correction: an emitted special member is user-written and used by one unit, so it is defined in the .cpp (no emit) under the stage-4 rule",
+          "schema_version": 1,
+          "status": "open"
+        },
+        {
+          "applies": [
+            "socom:work:source-segment-042-apply"
+          ],
+          "base_baseline_sha256": "46706027e9b91c8a355a6fe381f61443d97bb33e73559c2fe855dc6610a627da",
+          "evidence": [
+            "build/stage4/emit-heuristic-report.json (source plan emit-check body-shape classification, commit after 76d194b): user_written_emits candidate for this plan"
+          ],
+          "id": "socom:source-amendment:006",
+          "item": "socom:work:source-segment-042",
+          "item_kind": "source-plan-segment",
+          "kind": "socom-source-amendment",
+          "opened_at": "2026-11-01T18:34:43Z",
+          "opened_by": "parent-orchestrator",
+          "plan_sha256": "e88c2a079804a26a2e0d9e6f8df1bc7598688bcd1c824bd8fc598051c3947e3d",
+          "reason": "header-emit correction: an emitted special member is user-written and used by one unit, so it is defined in the .cpp (no emit) under the stage-4 rule",
+          "schema_version": 1,
+          "status": "open"
+        }
       ],
       "baseline": {
         "accepted_by": "socom-verifier-g4b",
@@ -147825,10 +147941,6 @@
       "title": "Review and close ghidra-reconstruction"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T00:16:05Z",
-        "by": "socom-source-owner-scrutinizer-x24"
-      },
       "batch": {
         "artifact_count": 202,
         "batch_number": 40,
@@ -147871,11 +147983,7 @@
         "final-sweep review: plan sha256 9b2c549d... = handoff; validate --check, draft --check ok; emit-check --plan: 0 missing emits/notes, 0 wrong citations, 0 undetermined. JSON diff vs build/stage4/pre-final: +1 header emit + emits annotation for CValvePool implicit dtor 0x2f7120 (sole ref __sinit_valve_list.cpp 0x46dfe0) -> src/gamez/zValve/zvalve.h:106 (class CValvePool : public std::vector<CValve*>, no dtor declared); rewritten no-emit note now covers only CIOPManager 0x2f56d0 and CValveList 0x2f7210 (no class|struct for either under src/, single unit) and records the CValvePool emit, so it no longer contradicts the plan; reservation evidence cites the emit inside the reserved src/gamez/zValve.",
         "plan build/source-plans/socom-work-source-segment-040.json sha256:9b2c549dfdb1137b7ef6fc48a278b32e1b34a3164b321bca9a874ec1e64f4e83; emit-check --plan clean; validate --check ok; draft --check ok"
       ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-fs3",
-        "submitted_at": "2026-11-01T00:08:02Z",
-        "summary": "sweep: +1 emit (CValvePool implicit dtor 0x2f7120 -> src/gamez/zValve/zvalve.h:106), +0 notes, 0 data overrides, other fixes: the CIOPManager/CValvePool/CValveList no-emit note drops 0x2f7120 and records the emit; reservation evidence lists it"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-040",
       "kind": "source-plan-segment",
       "lease": null,
@@ -147935,18 +148043,36 @@
           "reason": "final header-emit sweep: source plan emit-check reports missing emits/notes for this accepted plan",
           "reopened_at": "2026-10-31T23:57:28Z",
           "reopened_by": "parent-orchestrator"
+        },
+        {
+          "accepted": {
+            "at": "2026-11-01T00:16:05Z",
+            "by": "socom-source-owner-scrutinizer-x24"
+          },
+          "amended_at": "2026-11-01T18:34:41Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:005",
+          "evidence": [
+            "build/stage4/emit-heuristic-report.json (source plan emit-check body-shape classification, commit after 76d194b): user_written_emits candidate for this plan"
+          ],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-fs3",
+            "submitted_at": "2026-11-01T00:08:02Z",
+            "summary": "sweep: +1 emit (CValvePool implicit dtor 0x2f7120 -> src/gamez/zValve/zvalve.h:106), +0 notes, 0 data overrides, other fixes: the CIOPManager/CValvePool/CValveList no-emit note drops 0x2f7120 and records the emit; reservation evidence lists it"
+          },
+          "handoff_evidence": [
+            "final-sweep review: plan sha256 9b2c549d... = handoff; validate --check, draft --check ok; emit-check --plan: 0 missing emits/notes, 0 wrong citations, 0 undetermined. JSON diff vs build/stage4/pre-final: +1 header emit + emits annotation for CValvePool implicit dtor 0x2f7120 (sole ref __sinit_valve_list.cpp 0x46dfe0) -> src/gamez/zValve/zvalve.h:106 (class CValvePool : public std::vector<CValve*>, no dtor declared); rewritten no-emit note now covers only CIOPManager 0x2f56d0 and CValveList 0x2f7210 (no class|struct for either under src/, single unit) and records the CValvePool emit, so it no longer contradicts the plan; reservation evidence cites the emit inside the reserved src/gamez/zValve.",
+            "plan build/source-plans/socom-work-source-segment-040.json sha256:9b2c549dfdb1137b7ef6fc48a278b32e1b34a3164b321bca9a874ec1e64f4e83; emit-check --plan clean; validate --check ok; draft --check ok"
+          ],
+          "reason": "header-emit correction: an emitted special member is user-written and used by one unit, so it is defined in the .cpp (no emit) under the stage-4 rule"
         }
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "ready",
       "title": "Plan source owners of segment 040 (0x2f5640-0x2f9aac, 75 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T04:05:38Z",
-        "by": "socom-verifier-apply6"
-      },
       "batch": {
         "artifact_count": 202,
         "batch_number": 40,
@@ -148021,11 +148147,7 @@
         "source-plan build/source-plans/socom-work-source-segment-040.json sha256:9b2c549dfdb1137b7ef6fc48a278b32e1b34a3164b321bca9a874ec1e64f4e83",
         "source-reservation corrected src/gamez/zSystem, src/gamez/zTexture, src/gamez/zValve"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b5",
-        "submitted_at": "2026-11-01T03:58:18Z",
-        "summary": "apply of segment-040: 94 annotations, 9 files, 0 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-040-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -148033,6 +148155,26 @@
         "src/gamez/zSystem",
         "src/gamez/zTexture",
         "src/gamez/zValve"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T04:05:38Z",
+            "by": "socom-verifier-apply6"
+          },
+          "amended_at": "2026-11-01T18:34:41Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:005",
+          "evidence": [
+            "build/stage4/emit-heuristic-report.json (source plan emit-check body-shape classification, commit after 76d194b): user_written_emits candidate for this plan"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b5",
+            "submitted_at": "2026-11-01T03:58:18Z",
+            "summary": "apply of segment-040: 94 annotations, 9 files, 0 created, 0 moved, 0 retired"
+          },
+          "reason": "header-emit correction: an emitted special member is user-written and used by one unit, so it is defined in the .cpp (no emit) under the stage-4 rule"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -148130,7 +148272,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 040 under src/"
     },
     {
@@ -152115,10 +152257,6 @@
       "title": "Record the reviewed provider owners of libgcc in tracker evidence"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T00:21:24Z",
-        "by": "socom-source-owner-scrutinizer-x25"
-      },
       "batch": {
         "artifact_count": 397,
         "batch_number": 13,
@@ -152160,11 +152298,7 @@
         "final-sweep review (pre-final diff, changed rows only): plan sha256:4c2e59a8b69884aac1c57415beb32b61a3668207df54a6af0a61b59c1cd880ee = handoff; validate --check ok, draft --check ok, emit-check --plan clean. New owner row vis_main.cpp (src/gamez/zVisual/vis_main.cpp, identical path/provisional file to segments 042 accepted, 076, 029) owns CVisual statics 0x476610/0x476628/0x47662c at low (formerly unresolved): .sbss link order verified with source sql - they sit inside the GLOBAL CVisual run 0x4765d4-0x476644 between zvid_init.cpp LOCAL t0Count$1524 0x4765d0 and vis_main.cpp LOCAL _DoMultipass 0x476648; flanks 0x476608/0x476614/0x476624/0x476638 are vis_main.cpp (low) in accepted 042, 0x47663c vis_main.cpp in 029; database.cpp (sole reader) is excluded by link order (its strong .sbss is 0x475678-0x475680), zrndr_pipe.cpp at 0x475c74-0x475ca4. Competing model: .text order zvid_init 0x307a40, zvid_draw 0x308c20, vis_main 0x3096e0, so zvid_draw.cpp (no .sbss of its own, only .rodata) or zvid_init's tail could define the run - covered by low confidence and consistent with 042. Reservation adds src/gamez/zVisual (exists).",
         "plan build/source-plans/socom-work-source-segment-013.json sha256:4c2e59a8b69884aac1c57415beb32b61a3668207df54a6af0a61b59c1cd880ee; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-final diff build/stage4/pre-final/socom-work-source-segment-013.json"
       ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-fs1",
-        "submitted_at": "2026-11-01T00:09:16Z",
-        "summary": "sweep: +0 emits, +0 notes, 0 data overrides, other fixes: CVisual statics 0x476610/0x476628/0x47662c unresolved -> new vis_main.cpp row (low, .sbss link order, path of segments 042/076); reservation adds src/gamez/zVisual"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-013",
       "kind": "source-plan-segment",
       "lease": null,
@@ -152241,18 +152375,36 @@
           "reason": "CVisual statics 0x476610/0x476628/0x47662c left unresolved can now be decided: segment 042's plan shows they sit in vis_main.cpp's data runs by link order",
           "reopened_at": "2026-10-31T23:57:33Z",
           "reopened_by": "parent-orchestrator"
+        },
+        {
+          "accepted": {
+            "at": "2026-11-01T00:21:24Z",
+            "by": "socom-source-owner-scrutinizer-x25"
+          },
+          "amended_at": "2026-11-01T18:34:34Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:001",
+          "evidence": [
+            "workspace issue 'accepted segment 013 owns authored team_table 0x438770 under SCE libmc 0x171070' (ledger rev 180); reviewer x29 finding during the .data reconcile review"
+          ],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-fs1",
+            "submitted_at": "2026-11-01T00:09:16Z",
+            "summary": "sweep: +0 emits, +0 notes, 0 data overrides, other fixes: CVisual statics 0x476610/0x476628/0x47662c unresolved -> new vis_main.cpp row (low, .sbss link order, path of segments 042/076); reservation adds src/gamez/zVisual"
+          },
+          "handoff_evidence": [
+            "final-sweep review (pre-final diff, changed rows only): plan sha256:4c2e59a8b69884aac1c57415beb32b61a3668207df54a6af0a61b59c1cd880ee = handoff; validate --check ok, draft --check ok, emit-check --plan clean. New owner row vis_main.cpp (src/gamez/zVisual/vis_main.cpp, identical path/provisional file to segments 042 accepted, 076, 029) owns CVisual statics 0x476610/0x476628/0x47662c at low (formerly unresolved): .sbss link order verified with source sql - they sit inside the GLOBAL CVisual run 0x4765d4-0x476644 between zvid_init.cpp LOCAL t0Count$1524 0x4765d0 and vis_main.cpp LOCAL _DoMultipass 0x476648; flanks 0x476608/0x476614/0x476624/0x476638 are vis_main.cpp (low) in accepted 042, 0x47663c vis_main.cpp in 029; database.cpp (sole reader) is excluded by link order (its strong .sbss is 0x475678-0x475680), zrndr_pipe.cpp at 0x475c74-0x475ca4. Competing model: .text order zvid_init 0x307a40, zvid_draw 0x308c20, vis_main 0x3096e0, so zvid_draw.cpp (no .sbss of its own, only .rodata) or zvid_init's tail could define the run - covered by low confidence and consistent with 042. Reservation adds src/gamez/zVisual (exists).",
+            "plan build/source-plans/socom-work-source-segment-013.json sha256:4c2e59a8b69884aac1c57415beb32b61a3668207df54a6af0a61b59c1cd880ee; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-final diff build/stage4/pre-final/socom-work-source-segment-013.json"
+          ],
+          "reason": "owner correction: authored team_table 0x438770 (read only by orders.cpp's OrdersMenu) was drafted into SCE libmc 0x171070 by a P-gnu-data run-end defect; also complete the libmc row's archive fields (libmc.a, 2500, as the accepted SCE plan)"
         }
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "ready",
       "title": "Plan source owners of segment 013 (0x1728e0-0x17de74, 114 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T03:40:03Z",
-        "by": "socom-verifier-apply3"
-      },
       "batch": {
         "artifact_count": 397,
         "batch_number": 13,
@@ -152333,11 +152485,7 @@
         "source-plan build/source-plans/socom-work-source-segment-013.json sha256:4c2e59a8b69884aac1c57415beb32b61a3668207df54a6af0a61b59c1cd880ee",
         "source-reservation corrected src/Apps/FTS, src/gamez/zEntity, src/gamez/zFTS, src/gamez/zNode, src/gamez/zSound, src/gamez/zTwoD, src/gamez/zVisual"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b2",
-        "submitted_at": "2026-11-01T03:31:28Z",
-        "summary": "apply of segment-013: 220 annotations, 12 files, 1 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-013-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -152349,6 +152497,26 @@
         "src/gamez/zSound",
         "src/gamez/zTwoD",
         "src/gamez/zVisual"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T03:40:03Z",
+            "by": "socom-verifier-apply3"
+          },
+          "amended_at": "2026-11-01T18:34:34Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:001",
+          "evidence": [
+            "workspace issue 'accepted segment 013 owns authored team_table 0x438770 under SCE libmc 0x171070' (ledger rev 180); reviewer x29 finding during the .data reconcile review"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b2",
+            "submitted_at": "2026-11-01T03:31:28Z",
+            "summary": "apply of segment-013: 220 annotations, 12 files, 1 created, 0 moved, 0 retired"
+          },
+          "reason": "owner correction: authored team_table 0x438770 (read only by orders.cpp's OrdersMenu) was drafted into SCE libmc 0x171070 by a P-gnu-data run-end defect; also complete the libmc row's archive fields (libmc.a, 2500, as the accepted SCE plan)"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -152471,14 +152639,10 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 013 under src/"
     },
     {
-      "accepted": {
-        "at": "2026-10-31T19:52:35Z",
-        "by": "socom-source-owner-scrutinizer-x16"
-      },
       "batch": {
         "artifact_count": 382,
         "batch_number": 14,
@@ -152519,11 +152683,7 @@
         "plan build/source-plans/socom-work-source-segment-014.json sha256:066b0256431350e615c5eb0f83009323edc4780f31ed15992db7fecf567cacde; validate --check ok; --fill-annotations no mutation; draft --check ok; control-character scan 0; pre-sweep diff build/stage4/pre-sweep/socom-work-source-segment-014.json",
         "sweep review vs build/stage4/pre-sweep: plan sha256 066b0256431350e615c5eb0f83009323edc4780f31ed15992db7fecf567cacde matches handoff; validate --check ok, draft --check ok (0 open). Changed rows only: +1 emit 0x182830 GetNeighbor__6CAiMapCF... (binding 13, no DWARF) called by ai_astar.cpp 0x1814c0 and seal_ai.cpp 0x25f460 -> src/gamez/zAI/zai.h:297 (only class CAiMap declaration; no DWARF header unit names a CAiMap member; same header as accepted CAiMap::names 0x187140); +3 notes 0x187ea0/0x187ec0/0x187ee0 ai::_max/_min/_saturate: referencers confirmed (ai_map.cpp + ai_mapwalk.cpp 0x1a59a0/0x1a61e0 [+ ai_mapdata.cpp 0x19e7e0, fts_remote.cpp 0x203af0 for _saturate]); no declaration of _max/_min/_saturate or namespace ai under src/, no DWARF header unit -> no emit is correct. Reservation unchanged (src/gamez/zAI already reserved); dref 0x474d28 unchanged (edge row)."
       ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-sw2",
-        "submitted_at": "2026-10-31T19:41:57Z",
-        "summary": "sweep: +1 emits, +3 notes, 0 data overrides, other fixes: none (0x182830 GetNeighbor -> src/gamez/zAI/zai.h:297; ai::_max/_min/_saturate 0x187ea0/0x187ec0/0x187ee0 note only; dref row unchanged)"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-014",
       "kind": "source-plan-segment",
       "lease": null,
@@ -152551,18 +152711,36 @@
           "reason": "missing header emits for inline copies referenced from two or more units (ODR rule set 2026-10-31 after this plan's review)",
           "reopened_at": "2026-10-31T19:29:54Z",
           "reopened_by": "parent-orchestrator"
+        },
+        {
+          "accepted": {
+            "at": "2026-10-31T19:52:35Z",
+            "by": "socom-source-owner-scrutinizer-x16"
+          },
+          "amended_at": "2026-11-01T18:34:36Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:002",
+          "evidence": [
+            "build/stage4/emit-heuristic-report.json (source plan emit-check body-shape classification, commit after 76d194b): user_written_emits candidate for this plan"
+          ],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-sw2",
+            "submitted_at": "2026-10-31T19:41:57Z",
+            "summary": "sweep: +1 emits, +3 notes, 0 data overrides, other fixes: none (0x182830 GetNeighbor -> src/gamez/zAI/zai.h:297; ai::_max/_min/_saturate 0x187ea0/0x187ec0/0x187ee0 note only; dref row unchanged)"
+          },
+          "handoff_evidence": [
+            "plan build/source-plans/socom-work-source-segment-014.json sha256:066b0256431350e615c5eb0f83009323edc4780f31ed15992db7fecf567cacde; validate --check ok; --fill-annotations no mutation; draft --check ok; control-character scan 0; pre-sweep diff build/stage4/pre-sweep/socom-work-source-segment-014.json",
+            "sweep review vs build/stage4/pre-sweep: plan sha256 066b0256431350e615c5eb0f83009323edc4780f31ed15992db7fecf567cacde matches handoff; validate --check ok, draft --check ok (0 open). Changed rows only: +1 emit 0x182830 GetNeighbor__6CAiMapCF... (binding 13, no DWARF) called by ai_astar.cpp 0x1814c0 and seal_ai.cpp 0x25f460 -> src/gamez/zAI/zai.h:297 (only class CAiMap declaration; no DWARF header unit names a CAiMap member; same header as accepted CAiMap::names 0x187140); +3 notes 0x187ea0/0x187ec0/0x187ee0 ai::_max/_min/_saturate: referencers confirmed (ai_map.cpp + ai_mapwalk.cpp 0x1a59a0/0x1a61e0 [+ ai_mapdata.cpp 0x19e7e0, fts_remote.cpp 0x203af0 for _saturate]); no declaration of _max/_min/_saturate or namespace ai under src/, no DWARF header unit -> no emit is correct. Reservation unchanged (src/gamez/zAI already reserved); dref 0x474d28 unchanged (edge row)."
+          ],
+          "reason": "header-emit correction: an emitted special member is user-written and used by one unit, so it is defined in the .cpp (no emit) under the stage-4 rule"
         }
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "ready",
       "title": "Plan source owners of segment 014 (0x17de80-0x188f54, 163 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T03:40:05Z",
-        "by": "socom-verifier-apply3"
-      },
       "batch": {
         "artifact_count": 382,
         "batch_number": 14,
@@ -152635,11 +152813,7 @@
         "source-plan build/source-plans/socom-work-source-segment-014.json sha256:066b0256431350e615c5eb0f83009323edc4780f31ed15992db7fecf567cacde",
         "source-reservation corrected src/Apps/FTS, src/gamez/zAI, src/gamez/zMath"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b2",
-        "submitted_at": "2026-11-01T03:31:35Z",
-        "summary": "apply of segment-014: 185 annotations, 8 files, 1 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-014-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -152647,6 +152821,26 @@
         "src/Apps/FTS",
         "src/gamez/zAI",
         "src/gamez/zMath"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T03:40:05Z",
+            "by": "socom-verifier-apply3"
+          },
+          "amended_at": "2026-11-01T18:34:36Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:002",
+          "evidence": [
+            "build/stage4/emit-heuristic-report.json (source plan emit-check body-shape classification, commit after 76d194b): user_written_emits candidate for this plan"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b2",
+            "submitted_at": "2026-11-01T03:31:35Z",
+            "summary": "apply of segment-014: 185 annotations, 8 files, 1 created, 0 moved, 0 retired"
+          },
+          "reason": "header-emit correction: an emitted special member is user-written and used by one unit, so it is defined in the .cpp (no emit) under the stage-4 rule"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -152741,7 +152935,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 014 under src/"
     },
     {
@@ -153024,10 +153218,6 @@
       "title": "Apply the reviewed source owners of segment 015 under src/"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T00:21:45Z",
-        "by": "socom-source-owner-scrutinizer-x25"
-      },
       "batch": {
         "artifact_count": 719,
         "batch_number": 16,
@@ -153067,11 +153257,7 @@
         "final-sweep review (pre-final diff, changed rows only): plan sha256:91449a1d6d044d64059052455e9e6c9273444a0af4c4afdab7cc2a53803976a9 = handoff; validate --check ok, draft --check ok, emit-check --plan clean. Contains__Q26CAiMap6region 0x19e020 (binding 13, ai_mapdata.cpp keeps; seal_unit.cpp HandleSupport 0x2d2bd0 and AllowCommand 0x2d6bf0 call it = 2 units) -> zai.h: no src header declares CAiMap::region, but a nested class must be declared inside CAiMap's body, so CAiMap's header (zai.h:297) is the one that does; note reworded accordingly. __ct__9AI_PARAMSFv 0x1a5270 -> zai.h (struct AI_PARAMS at zai.h:235): its only referencer is vehicle_main.cpp (resize 0x1a3e60, same unit as the kept copy), so the '>=2 units' premise does not hold; the emit stands because a ctor of AI_PARAMS can only be declared in that struct body (the sole declaration, zai.h), the struct is used in another unit too (fts_player.cpp keeps __as__9AI_PARAMS 0x1fd4e0), and emit-check requires it for a __ct__ without DWARF CU. +notes CompareT<name> 0x19f4a0 and _saturate<Ui> 0x1a4000: 1 unit, no src declaration. No owner/artifact rows changed.",
         "plan build/source-plans/socom-work-source-segment-016.json sha256:91449a1d6d044d64059052455e9e6c9273444a0af4c4afdab7cc2a53803976a9; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-final diff build/stage4/pre-final/socom-work-source-segment-016.json"
       ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-fs1",
-        "submitted_at": "2026-11-01T00:09:20Z",
-        "summary": "sweep: +2 emits, +3 notes, 0 data overrides, other fixes: Contains 0x19e020 note reworded (2 units; no header declares CAiMap::region; emit to zai.h via enclosing CAiMap), no-emit note for AI_PARAMS ctor/Contains corrected"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-016",
       "kind": "source-plan-segment",
       "lease": null,
@@ -153134,18 +153320,36 @@
           "reason": "final header-emit sweep: source plan emit-check reports missing emits/notes for this accepted plan",
           "reopened_at": "2026-10-31T23:57:05Z",
           "reopened_by": "parent-orchestrator"
+        },
+        {
+          "accepted": {
+            "at": "2026-11-01T00:21:45Z",
+            "by": "socom-source-owner-scrutinizer-x25"
+          },
+          "amended_at": "2026-11-01T18:34:38Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:003",
+          "evidence": [
+            "build/stage4/emit-heuristic-report.json (source plan emit-check body-shape classification, commit after 76d194b): user_written_emits candidate for this plan"
+          ],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-fs1",
+            "submitted_at": "2026-11-01T00:09:20Z",
+            "summary": "sweep: +2 emits, +3 notes, 0 data overrides, other fixes: Contains 0x19e020 note reworded (2 units; no header declares CAiMap::region; emit to zai.h via enclosing CAiMap), no-emit note for AI_PARAMS ctor/Contains corrected"
+          },
+          "handoff_evidence": [
+            "final-sweep review (pre-final diff, changed rows only): plan sha256:91449a1d6d044d64059052455e9e6c9273444a0af4c4afdab7cc2a53803976a9 = handoff; validate --check ok, draft --check ok, emit-check --plan clean. Contains__Q26CAiMap6region 0x19e020 (binding 13, ai_mapdata.cpp keeps; seal_unit.cpp HandleSupport 0x2d2bd0 and AllowCommand 0x2d6bf0 call it = 2 units) -> zai.h: no src header declares CAiMap::region, but a nested class must be declared inside CAiMap's body, so CAiMap's header (zai.h:297) is the one that does; note reworded accordingly. __ct__9AI_PARAMSFv 0x1a5270 -> zai.h (struct AI_PARAMS at zai.h:235): its only referencer is vehicle_main.cpp (resize 0x1a3e60, same unit as the kept copy), so the '>=2 units' premise does not hold; the emit stands because a ctor of AI_PARAMS can only be declared in that struct body (the sole declaration, zai.h), the struct is used in another unit too (fts_player.cpp keeps __as__9AI_PARAMS 0x1fd4e0), and emit-check requires it for a __ct__ without DWARF CU. +notes CompareT<name> 0x19f4a0 and _saturate<Ui> 0x1a4000: 1 unit, no src declaration. No owner/artifact rows changed.",
+            "plan build/source-plans/socom-work-source-segment-016.json sha256:91449a1d6d044d64059052455e9e6c9273444a0af4c4afdab7cc2a53803976a9; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok; control-character scan 0; pre-final diff build/stage4/pre-final/socom-work-source-segment-016.json"
+          ],
+          "reason": "header-emit correction: an emitted special member is user-written and used by one unit, so it is defined in the .cpp (no emit) under the stage-4 rule"
         }
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "ready",
       "title": "Plan source owners of segment 016 (0x19dca0-0x1b90d4, 199 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T03:40:09Z",
-        "by": "socom-verifier-apply3"
-      },
       "batch": {
         "artifact_count": 719,
         "batch_number": 16,
@@ -153224,11 +153428,7 @@
         "source-plan build/source-plans/socom-work-source-segment-016.json sha256:91449a1d6d044d64059052455e9e6c9273444a0af4c4afdab7cc2a53803976a9",
         "source-reservation corrected src/gamez/zAI, src/gamez/zAnim, src/gamez/zReader, src/gamez/zUtil, src/gamez/zVehicle"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b2",
-        "submitted_at": "2026-11-01T03:31:50Z",
-        "summary": "apply of segment-016: 212 annotations, 11 files, 3 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-016-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -153238,6 +153438,26 @@
         "src/gamez/zReader",
         "src/gamez/zUtil",
         "src/gamez/zVehicle"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T03:40:09Z",
+            "by": "socom-verifier-apply3"
+          },
+          "amended_at": "2026-11-01T18:34:38Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:003",
+          "evidence": [
+            "build/stage4/emit-heuristic-report.json (source plan emit-check body-shape classification, commit after 76d194b): user_written_emits candidate for this plan"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b2",
+            "submitted_at": "2026-11-01T03:31:50Z",
+            "summary": "apply of segment-016: 212 annotations, 11 files, 3 created, 0 moved, 0 retired"
+          },
+          "reason": "header-emit correction: an emitted special member is user-written and used by one unit, so it is defined in the .cpp (no emit) under the stage-4 rule"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -153354,7 +153574,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 016 under src/"
     },
     {
@@ -155153,10 +155373,6 @@
       "title": "Apply the reviewed source owners of segment 022 under src/"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T00:16:54Z",
-        "by": "socom-source-owner-scrutinizer-x23"
-      },
       "batch": {
         "artifact_count": 698,
         "batch_number": 23,
@@ -155196,11 +155412,7 @@
         "final-sweep review x23: plan sha256 b29b692faa0cc5dc92f4ded200824db02390226f8445c342c66c8fabc848529e = handoff; validate --check ok, draft --check ok (0 problems, 0 open); emit-check --plan 0 missing emits/notes, 0 wrong citations, 0 undetermined. JSON diff vs build/stage4/pre-final: only +2 header emits/annotations and reservation +src/gamez/zUI. 0x1fbc60 __dt__11CUIVariableFv (binding 13, implicit) -> src/gamez/zUI/zui.h:27 'class CUIVariable : public _zrdr' (no DWARF header unit); 0x1fd4e0 __as__9AI_PARAMSFRC9AI_PARAMS (implicit) -> src/gamez/zAI/zai.h:235 top-level 'struct AI_PARAMS' (zchar.h:82, zfts.h:66, zweapon.h:360 are nested). Implicit members go to the class header whatever the unit count.",
         "plan build/source-plans/socom-work-source-segment-023.json sha256:b29b692faa0cc5dc92f4ded200824db02390226f8445c342c66c8fabc848529e; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
       ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-fs2",
-        "submitted_at": "2026-11-01T00:05:22Z",
-        "summary": "sweep: +2 emits (implicit CUIVariable dtor 0x1fbc60 -> src/gamez/zUI/zui.h:27; implicit AI_PARAMS __as__ 0x1fd4e0 -> src/gamez/zAI/zai.h:235), +0 notes, 0 data overrides; reservation adds src/gamez/zUI; emit-check clean"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-023",
       "kind": "source-plan-segment",
       "lease": null,
@@ -155277,18 +155489,36 @@
           "reason": "final header-emit sweep: source plan emit-check reports missing emits/notes for this accepted plan",
           "reopened_at": "2026-10-31T23:57:10Z",
           "reopened_by": "parent-orchestrator"
+        },
+        {
+          "accepted": {
+            "at": "2026-11-01T00:16:54Z",
+            "by": "socom-source-owner-scrutinizer-x23"
+          },
+          "amended_at": "2026-11-01T18:34:40Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:004",
+          "evidence": [
+            "build/stage4/emit-heuristic-report.json (source plan emit-check body-shape classification, commit after 76d194b): user_written_emits candidate for this plan"
+          ],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-fs2",
+            "submitted_at": "2026-11-01T00:05:22Z",
+            "summary": "sweep: +2 emits (implicit CUIVariable dtor 0x1fbc60 -> src/gamez/zUI/zui.h:27; implicit AI_PARAMS __as__ 0x1fd4e0 -> src/gamez/zAI/zai.h:235), +0 notes, 0 data overrides; reservation adds src/gamez/zUI; emit-check clean"
+          },
+          "handoff_evidence": [
+            "final-sweep review x23: plan sha256 b29b692faa0cc5dc92f4ded200824db02390226f8445c342c66c8fabc848529e = handoff; validate --check ok, draft --check ok (0 problems, 0 open); emit-check --plan 0 missing emits/notes, 0 wrong citations, 0 undetermined. JSON diff vs build/stage4/pre-final: only +2 header emits/annotations and reservation +src/gamez/zUI. 0x1fbc60 __dt__11CUIVariableFv (binding 13, implicit) -> src/gamez/zUI/zui.h:27 'class CUIVariable : public _zrdr' (no DWARF header unit); 0x1fd4e0 __as__9AI_PARAMSFRC9AI_PARAMS (implicit) -> src/gamez/zAI/zai.h:235 top-level 'struct AI_PARAMS' (zchar.h:82, zfts.h:66, zweapon.h:360 are nested). Implicit members go to the class header whatever the unit count.",
+            "plan build/source-plans/socom-work-source-segment-023.json sha256:b29b692faa0cc5dc92f4ded200824db02390226f8445c342c66c8fabc848529e; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check ok; draft --check ok"
+          ],
+          "reason": "header-emit correction: an emitted special member is user-written and used by one unit, so it is defined in the .cpp (no emit) under the stage-4 rule"
         }
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "ready",
       "title": "Plan source owners of segment 023 (0x1f25c0-0x1ff8cc, 192 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T03:49:06Z",
-        "by": "socom-verifier-apply4"
-      },
       "batch": {
         "artifact_count": 698,
         "batch_number": 23,
@@ -155362,11 +155592,7 @@
         "source-plan build/source-plans/socom-work-source-segment-023.json sha256:b29b692faa0cc5dc92f4ded200824db02390226f8445c342c66c8fabc848529e",
         "source-reservation corrected src/gamez/zAI, src/gamez/zFTS, src/gamez/zMath, src/gamez/zSeal, src/gamez/zUI, src/gamez/zValve"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b3",
-        "submitted_at": "2026-11-01T03:41:02Z",
-        "summary": "apply of segment-023: 231 annotations, 9 files, 0 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-023-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -155377,6 +155603,26 @@
         "src/gamez/zSeal",
         "src/gamez/zUI",
         "src/gamez/zValve"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T03:49:06Z",
+            "by": "socom-verifier-apply4"
+          },
+          "amended_at": "2026-11-01T18:34:40Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:004",
+          "evidence": [
+            "build/stage4/emit-heuristic-report.json (source plan emit-check body-shape classification, commit after 76d194b): user_written_emits candidate for this plan"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b3",
+            "submitted_at": "2026-11-01T03:41:02Z",
+            "summary": "apply of segment-023: 231 annotations, 9 files, 0 created, 0 moved, 0 retired"
+          },
+          "reason": "header-emit correction: an emitted special member is user-written and used by one unit, so it is defined in the .cpp (no emit) under the stage-4 rule"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -155476,7 +155722,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 023 under src/"
     },
     {
@@ -160243,10 +160489,6 @@
       "title": "Apply the reviewed source owners of segment 041 under src/"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T00:17:26Z",
-        "by": "socom-source-owner-scrutinizer-x26"
-      },
       "batch": {
         "artifact_count": 460,
         "batch_number": 42,
@@ -160289,11 +160531,7 @@
         "full review of plan build/source-plans/socom-work-source-segment-042.json sha256:e88c2a079804a26a2e0d9e6f8df1bc7598688bcd1c824bd8fc598051c3947e3d (= fs5 handoff); validate --check ok (0 problems), draft --check ok (0 overrides), emit-check 0 missing emits/notes/wrong citations, 0 undetermined; shared units util_sonyio/zvid_init/vis_main/vis_mesh agree with 041/047/076/013/043. Invented util_memcard.cpp (low): LOCAL block 7053-7077 sits between util_stable 7051-7052 and zvid_init 7078-7091, its clusters 0x306d60/0x307450/0x3075c0 in reverse text order (separate objects would follow link order) and their @N labels rise monotonically in text order (@1252-@1562, @1605, @1644-@1645: one per-TU counter); no src/ file names CMemCard. fwrite__3CIOFPCc 0x305da0 lies strictly between util_sonyio anchors SetRootPath 0x305d30 and CFileIO::fread 0x305e30 (referenced only by util_sonyio's __vt__7CFileIO), referenced by __vt__3CIO and __vt__10CMemCardIO -> util_systemio.h emit. GLOBAL data by link order: VIF packets 0x43ab40-0x43b1cf between the CMemCard object's LOCAL @1255 0x43ab10 and zvid_init's frameRateLimits 0x43b1d0, first/last read by zvid_init (low); CVisual .sbss run 0x4765d4-0x476644 between zvid_init t0Count 0x4765d0 and vis_main _DoMultipass 0x476648, .sdata run before vis_main @1179, m_savedTS before _StartingMatrix (low); CFileCD/CMemCard statics in .sbss order (047 also gives 0x4765a8 to util_sonyio); ascii_special before the CMemCard object's ascii_table (low); D-referenced rows are LOCAL/binding-13 or inside the unit's own run. zvid_init|zvid_draw cut after zvid_SetVideoMode 0x3087e0 (called only by zvid_init) is low with both alternatives stated. 9 unresolved (CBeachBall 0x305e40/0x4765b0; CVideo/zVid run 0x307790-0x3079e0; CVideo statics 0x4753dc/0x4753e0) each admit 2-3 link-order-consistent definers. 33 contradictions checked against the cited lines' symbols.",
         "plan build/source-plans/socom-work-source-segment-042.json sha256:e88c2a079804a26a2e0d9e6f8df1bc7598688bcd1c824bd8fc598051c3947e3d; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok"
       ],
-      "handoff": {
-        "owner": "socom-source-owner-mapper-fs5",
-        "submitted_at": "2026-11-01T00:09:58Z",
-        "summary": "sweep: +1 emits, +0 notes, 0 data overrides, other fixes: implicit CVisBase dtor 0x30ddc0 -> src/gamez/zVisual/zvis.h:101; ODR note 5 corrected"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-042",
       "kind": "source-plan-segment",
       "lease": null,
@@ -160314,18 +160552,36 @@
           "reason": "process: apply the source plan emit-check findings for this plan (build/stage4/emit-check.json) before review",
           "rejected_at": "2026-10-31T23:57:35Z",
           "rejected_by": "parent-orchestrator"
+        },
+        {
+          "accepted": {
+            "at": "2026-11-01T00:17:26Z",
+            "by": "socom-source-owner-scrutinizer-x26"
+          },
+          "amended_at": "2026-11-01T18:34:43Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:006",
+          "evidence": [
+            "build/stage4/emit-heuristic-report.json (source plan emit-check body-shape classification, commit after 76d194b): user_written_emits candidate for this plan"
+          ],
+          "handoff": {
+            "owner": "socom-source-owner-mapper-fs5",
+            "submitted_at": "2026-11-01T00:09:58Z",
+            "summary": "sweep: +1 emits, +0 notes, 0 data overrides, other fixes: implicit CVisBase dtor 0x30ddc0 -> src/gamez/zVisual/zvis.h:101; ODR note 5 corrected"
+          },
+          "handoff_evidence": [
+            "full review of plan build/source-plans/socom-work-source-segment-042.json sha256:e88c2a079804a26a2e0d9e6f8df1bc7598688bcd1c824bd8fc598051c3947e3d (= fs5 handoff); validate --check ok (0 problems), draft --check ok (0 overrides), emit-check 0 missing emits/notes/wrong citations, 0 undetermined; shared units util_sonyio/zvid_init/vis_main/vis_mesh agree with 041/047/076/013/043. Invented util_memcard.cpp (low): LOCAL block 7053-7077 sits between util_stable 7051-7052 and zvid_init 7078-7091, its clusters 0x306d60/0x307450/0x3075c0 in reverse text order (separate objects would follow link order) and their @N labels rise monotonically in text order (@1252-@1562, @1605, @1644-@1645: one per-TU counter); no src/ file names CMemCard. fwrite__3CIOFPCc 0x305da0 lies strictly between util_sonyio anchors SetRootPath 0x305d30 and CFileIO::fread 0x305e30 (referenced only by util_sonyio's __vt__7CFileIO), referenced by __vt__3CIO and __vt__10CMemCardIO -> util_systemio.h emit. GLOBAL data by link order: VIF packets 0x43ab40-0x43b1cf between the CMemCard object's LOCAL @1255 0x43ab10 and zvid_init's frameRateLimits 0x43b1d0, first/last read by zvid_init (low); CVisual .sbss run 0x4765d4-0x476644 between zvid_init t0Count 0x4765d0 and vis_main _DoMultipass 0x476648, .sdata run before vis_main @1179, m_savedTS before _StartingMatrix (low); CFileCD/CMemCard statics in .sbss order (047 also gives 0x4765a8 to util_sonyio); ascii_special before the CMemCard object's ascii_table (low); D-referenced rows are LOCAL/binding-13 or inside the unit's own run. zvid_init|zvid_draw cut after zvid_SetVideoMode 0x3087e0 (called only by zvid_init) is low with both alternatives stated. 9 unresolved (CBeachBall 0x305e40/0x4765b0; CVideo/zVid run 0x307790-0x3079e0; CVideo statics 0x4753dc/0x4753e0) each admit 2-3 link-order-consistent definers. 33 contradictions checked against the cited lines' symbols.",
+            "plan build/source-plans/socom-work-source-segment-042.json sha256:e88c2a079804a26a2e0d9e6f8df1bc7598688bcd1c824bd8fc598051c3947e3d; emit-check --plan clean (0 missing emits/notes, 0 wrong citations); validate --check --fill-annotations ok; validate --check ok; draft --check ok"
+          ],
+          "reason": "header-emit correction: an emitted special member is user-written and used by one unit, so it is defined in the .cpp (no emit) under the stage-4 rule"
         }
       ],
       "selection": "artifacts",
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "ready",
       "title": "Plan source owners of segment 042 (0x304b60-0x3103a0, 176 functions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-01T04:05:42Z",
-        "by": "socom-verifier-apply6"
-      },
       "batch": {
         "artifact_count": 460,
         "batch_number": 42,
@@ -160395,11 +160651,7 @@
         "source-plan build/source-plans/socom-work-source-segment-042.json sha256:e88c2a079804a26a2e0d9e6f8df1bc7598688bcd1c824bd8fc598051c3947e3d",
         "source-reservation confirmed src/gamez/zUtil, src/gamez/zVideo, src/gamez/zVisual"
       ],
-      "handoff": {
-        "owner": "socom-source-worker-b5",
-        "submitted_at": "2026-11-01T03:58:34Z",
-        "summary": "apply of segment-042: 265 annotations, 9 files, 2 created, 0 moved, 0 retired"
-      },
+      "handoff": null,
       "id": "socom:work:source-segment-042-apply",
       "kind": "source-apply-segment",
       "lease": null,
@@ -160407,6 +160659,26 @@
         "src/gamez/zUtil",
         "src/gamez/zVideo",
         "src/gamez/zVisual"
+      ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-01T04:05:42Z",
+            "by": "socom-verifier-apply6"
+          },
+          "amended_at": "2026-11-01T18:34:43Z",
+          "amended_by": "parent-orchestrator",
+          "amendment": "socom:source-amendment:006",
+          "evidence": [
+            "build/stage4/emit-heuristic-report.json (source plan emit-check body-shape classification, commit after 76d194b): user_written_emits candidate for this plan"
+          ],
+          "handoff": {
+            "owner": "socom-source-worker-b5",
+            "submitted_at": "2026-11-01T03:58:34Z",
+            "summary": "apply of segment-042: 265 annotations, 9 files, 2 created, 0 moved, 0 retired"
+          },
+          "reason": "header-emit correction: an emitted special member is user-written and used by one unit, so it is defined in the .cpp (no emit) under the stage-4 rule"
+        }
       ],
       "selection": "artifacts",
       "source_apply": {
@@ -160510,7 +160782,7 @@
         }
       },
       "stage": "source-correlation",
-      "status": "accepted",
+      "status": "blocked",
       "title": "Apply the reviewed source owners of segment 042 under src/"
     },
     {
