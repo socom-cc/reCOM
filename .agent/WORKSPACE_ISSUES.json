@@ -1487,8 +1487,11 @@
       "kind": "problem",
       "reported_at": "2026-11-01T21:45:06Z",
       "reported_by": "parent-orchestrator",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-11-02T00:55:21Z",
+        "summary": "Fixed in tools/_socom/guards.py (round m28, merged): guard_text removes the socom:<kind>:<id> identities that annotation lines cite (@socom-anchor, @socom-artifact, socom-owner-annotations markers) before every guard matches. guard raw-image now reports 3 real findings (RVA: comments at src/gamez/zWeapon/zwep_weapon.cpp:198, 250, 251) instead of 7,216; test test_raw_image_guard_exempts_annotation_identities_only."
+      },
+      "status": "resolved",
       "summary": "guard raw-image reports 7,216 findings, all on stage-4 generated annotation IDs"
     },
     {
@@ -1502,6 +1505,6 @@
       "summary": "test_fingerprint persistent-bridge test is timing-flaky"
     }
   ],
-  "revision": 189,
+  "revision": 190,
   "schema_version": 1
 }
