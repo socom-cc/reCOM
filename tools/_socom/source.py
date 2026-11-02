@@ -34,6 +34,7 @@ ARTIFACT_RE = re.compile(
     r"@socom-artifact\s+(defines|emits)\s+(\S+)\s+"
     r"(socom:[A-Za-z0-9_.-]+:[A-Za-z0-9_.:/+-]+)\s*$"
 )
+SKELETON_FENCE_RE = re.compile(r"^@socom-skeleton (?:stub|body) \S+$")
 
 AUDIT_ROOTS = (
     ".agent",
@@ -310,6 +311,10 @@ def source_artifacts(root: Path) -> dict[str, Any]:
                         "line": number,
                     }
                 )
+            elif "@socom-skeleton" in value:
+                # Stage 5 skeleton fences (BD7) delimit definitions; they cite no artifact.
+                if not SKELETON_FENCE_RE.search(value):
+                    errors.append(f"{relative}:{number}: malformed @socom-skeleton fence")
             else:
                 errors.append(f"{relative}:{number}: unknown soCOM annotation")
     return {
@@ -358,8 +363,10 @@ def known_artifact_ids(
     } | census_artifact_ids(census)
 
 
-def audit_docblocks(root: Path) -> dict[str, Any]:
-    parsed = source_artifacts(root)
+def audit_docblocks(root: Path, *, source_root: Path | None = None) -> dict[str, Any]:
+    """Annotation grammar, sections and artifact IDs; ``source_root`` reads another tree's src/ (a skeleton preview)."""
+
+    parsed = source_artifacts(source_root or root)
     errors = list(parsed["errors"])
     tracker = load_json(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
     census = load_json(root / ".agent" / "REFERENCE_CENSUS.json")
@@ -397,9 +404,9 @@ def audit_docblocks(root: Path) -> dict[str, Any]:
 _OWNER_SOURCE_SUFFIXES = (".c", ".cc", ".cp", ".cpp", ".cxx", ".s")
 
 
-def audit_source_trace(root: Path, *, require_complete: bool = False) -> dict[str, Any]:
-    parsed = source_artifacts(root)
-    docblocks = audit_docblocks(root)
+def audit_source_trace(root: Path, *, require_complete: bool = False, source_root: Path | None = None) -> dict[str, Any]:
+    parsed = source_artifacts(source_root or root)
+    docblocks = audit_docblocks(root, source_root=source_root)
     errors = list(docblocks["errors"])
     by_artifact: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for row in parsed["artifacts"]:

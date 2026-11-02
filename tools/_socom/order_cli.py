@@ -106,6 +106,34 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "build/stage5/provisional-bodies.json once (then only compares it; --refresh-snapshot replaces it); --output "
             "writes the manifest (with manifest_sha256) under build/.",
         ),
+        spec(
+            "order skeleton write",
+            "order",
+            "Stage 5 phase B round 2, preview only: from the skeleton manifest (its digest, the body snapshot, the src/ "
+            "digest and the cited accepted order plans must hold) write a mirror of src/ under --root (a directory under "
+            "build/; src/ is refused until the governed route of round 3) where each unit file (--segment N, or --all) "
+            "keeps its stage 4 blocks byte-identical and its authored preamble, then one entry per planned row fenced "
+            "/* @socom-skeleton <stub|body> <mangled> */ in an order that keeps the plan's function and region data "
+            "orders: moved bodies from the frozen snapshot (byte-identical but for recorded BD6 or out-of-line head "
+            "rewrites), canonical stubs (BD1 pieces flagged), data entries from the ELF initializer (BD5; struct, enum "
+            "and nested arrays from DWARF), local statics and function-local classes inside their owner; --all also "
+            "writes the unbuilt per-module holding files (BD4) and removes the orphan files the moves empty. Every "
+            "judgment row gets a deterministic default with a flag; rows no default can write without inventing "
+            "content are listed as waiting; the write manifest (skeleton-write.json, write_sha256) records it all.",
+        ),
+        spec(
+            "order skeleton check",
+            "order",
+            "Read-only static checks of a preview written by order skeleton write (none is stage evidence): "
+            "determinism (two renders from freshly loaded inputs equal each other and the files on disk), S1 (each "
+            "fenced definition and data entry, parsed back from its file, mangles to its fence's name), S2 (the order "
+            "re-derived from the fences equals the plan and, under the rule, the target; each planned row written once "
+            "in its own unit; unwritten rows listed with their reason), S3 (stage 4 blocks byte-identical, annotation "
+            "edges and the stage 4 edge digest unchanged, audit docblocks and source-trace pass over the preview), S4 "
+            "(each body entry is its snapshot body, or its recorded head and the snapshot body's text; each lands once), "
+            "S5 (no guard finding the src/ tree lacks); --lint adds the report-only S6 (MSVC cl /Zs error counts); "
+            "--output writes the full report under build/.",
+        ),
     )
 
 
@@ -182,6 +210,21 @@ def register(commands: Any) -> None:
     manifest.add_argument("--receipt", help="a `ghidra receipt --scope` export under build/ (default: the stage 3 closeout receipt)")
     manifest.add_argument("--graph", default=DEFAULT_GRAPH)
     manifest.set_defaults(handler=_order_skeleton_manifest)
+    write = skeleton_commands.add_parser("write")
+    which = write.add_mutually_exclusive_group(required=True)
+    which.add_argument("--segment", type=int, help="the unit files of one segment plan (its number)")
+    which.add_argument("--all", action="store_true", help="every unit file, the holding files and the emptied orphans")
+    write.add_argument("--root", dest="preview_root", required=True, help="the preview directory under build/ (src/ is refused this round)")
+    write.add_argument("--manifest", default="build/stage5/skeleton-manifest.json", help="the skeleton manifest under build/")
+    write.add_argument("--snapshot", default="build/stage5/provisional-bodies.json", help="the frozen body snapshot under build/")
+    write.set_defaults(handler=_order_skeleton_write)
+    check = skeleton_commands.add_parser("check")
+    check.add_argument("--root", dest="preview_root", required=True, help="a preview directory written by order skeleton write")
+    check.add_argument("--manifest", default="build/stage5/skeleton-manifest.json")
+    check.add_argument("--snapshot", default="build/stage5/provisional-bodies.json")
+    check.add_argument("--lint", action="store_true", help="also run the report-only S6 (MSVC cl /Zs)")
+    check.add_argument("--output", help="write the full report as JSON under build/")
+    check.set_defaults(handler=_order_skeleton_check)
 
 
 def _path(root: Path, value: str) -> Path:
@@ -491,6 +534,52 @@ def _order_skeleton_manifest(arguments: argparse.Namespace) -> int:
         report["note"] = "src/ changed since the snapshot was frozen: pass --refresh-snapshot only if no skeleton apply has started"
     _emit({**report, **headline(manifest)})
     return 0 if ok else 1
+
+
+def _order_skeleton_write(arguments: argparse.Namespace) -> int:
+    from .cli import _build_path, _emit, _root
+    from .constants import tracker_path
+    from .order_skeleton_write import SkeletonInputs, preview_root, render_skeletons, tree_digest, write_skeletons
+    from .tracker import load_tracker
+
+    root = _root(arguments)
+    target = preview_root(root, arguments.preview_root)
+    inputs = SkeletonInputs(
+        root, load_tracker(tracker_path(root)), manifest_path=_build_path(root, arguments.manifest, "skeleton manifests"),
+        snapshot_path=_build_path(root, arguments.snapshot, "body snapshots"),
+    )
+    rendered = render_skeletons(inputs, segment=arguments.segment)
+    write_skeletons(root, target, rendered)
+    manifest = rendered["manifest"]
+    _emit({
+        "ok": True, "mutation_performed": False, "root": arguments.preview_root,
+        "write_manifest": f"{arguments.preview_root.rstrip('/')}/skeleton-write.json",
+        "write_sha256": manifest["write_sha256"], "tree_sha256": tree_digest(target), "summary": manifest["summary"],
+        "waiting": manifest["waiting"], "order_conflicts": manifest["order_conflicts"],
+        "deleted": [row["path"] for row in manifest["deleted"]],
+    })
+    return 0
+
+
+def _order_skeleton_check(arguments: argparse.Namespace) -> int:
+    from .cli import _build_path, _emit, _root
+    from .constants import tracker_path
+    from .order_skeleton_check import check_skeletons, headline
+    from .order_skeleton_write import preview_root
+    from .tracker import load_tracker
+    from .util import atomic_write_json
+
+    root = _root(arguments)
+    target = preview_root(root, arguments.preview_root)
+    output = _build_path(root, arguments.output, "skeleton check reports") if arguments.output else None
+    report = check_skeletons(
+        root, load_tracker(tracker_path(root)), target, manifest_path=_build_path(root, arguments.manifest, "skeleton manifests"),
+        snapshot_path=_build_path(root, arguments.snapshot, "body snapshots"), lint=arguments.lint,
+    )
+    if output is not None:
+        atomic_write_json(output, report)
+    _emit({**headline(report), "mutation_performed": False, "output": arguments.output})
+    return 0 if report["ok"] else 1
 
 
 def _order_plan_validate(arguments: argparse.Namespace) -> int:

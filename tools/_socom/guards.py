@@ -36,6 +36,18 @@ def _source_files(root: Path) -> Iterable[Path]:
             )
 
 
+# Annotation lines (stage 4's generated owner blocks, hand docblocks) cite tracker
+# identities such as ``socom:function:0x1401e0``; those IDs are not source content.
+ANNOTATION_LINE_RE = re.compile(r"@socom-(?:anchor|artifact)\b|\bsocom-owner-annotations\s+(?:begin|end)\b")
+ANNOTATION_ID_RE = re.compile(r"\bsocom:[a-z][a-z0-9-]*:[^\s*/]+")
+
+
+def guard_text(line: str) -> str:
+    """The text a guard matches: annotation lines with their cited identities removed."""
+
+    return ANNOTATION_ID_RE.sub("", line) if ANNOTATION_LINE_RE.search(line) else line
+
+
 def _scan(
     root: Path,
     patterns: tuple[tuple[str, re.Pattern[str]], ...],
@@ -60,8 +72,9 @@ def _scan(
         relative = path.relative_to(root).as_posix()
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
         for number, line in enumerate(lines, 1):
+            text = guard_text(line)
             for rule, pattern in patterns:
-                if pattern.search(line) and (relative, number, rule) not in allowed:
+                if pattern.search(text) and (relative, number, rule) not in allowed:
                     findings.append(
                         {
                             "rule": rule,

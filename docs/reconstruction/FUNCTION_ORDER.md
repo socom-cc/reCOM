@@ -36,7 +36,10 @@ segment's apply runs both and is accepted by an independent verifier (B3).
 These are not stage evidence. The mangler the signature check uses is
 registered (see [Metrowerks name mangling](#metrowerks-name-mangling)), and so
 are the generator's read-only inputs (`order skeleton manifest`, capability
-`function-order-skeleton-inputs`; see [Skeleton manifests](#skeleton-manifests)).
+`function-order-skeleton-inputs`; see [Skeleton manifests](#skeleton-manifests))
+and its `.cpp` writer and static checks, which write only a preview under
+`build/` so far (`order skeleton write` and `order skeleton check`, capability
+`function-order-skeleton-preview`; see [Skeleton writer](#skeleton-writer)).
 
 **Phase C, needs the exact compiler.** A probe harness compiles a unit and
 reads its object's section and symbol order (C1). The emission rule is
@@ -779,3 +782,196 @@ takes about 10 s once the stage 3 digests are cached.
 - **Data (1,862):** types from DWARF 446, stage 3 83, provisional 65,
   access width 953 and unproven 315. Initializers: 443 from ELF bytes (409
   rendered), 71 explicit zeros and 1,348 nobits.
+
+## Skeleton writer
+
+Phase B round 2 registers the `.cpp` writer and its static checks
+(capability `function-order-skeleton-preview`). This round writes only a
+preview: `--root` must be a directory under `build/`, and `src/` is refused
+until round 3 adds the header writer and the governed route. Neither command
+changes tracker state.
+
+```powershell
+python tools/socom.py order skeleton write --all --root build/stage5/skeleton-preview
+python tools/socom.py order skeleton write --segment 35 --root build/stage5/skeleton-035
+python tools/socom.py order skeleton check --root build/stage5/skeleton-preview --output build/stage5/skeleton-check.json
+```
+
+**Inputs.** The writer reads the skeleton manifest (`--manifest`, default
+`build/stage5/skeleton-manifest.json`) and the frozen body snapshot. It
+refuses to run unless all of these hold:
+
+- the manifest covers every planned row and matches its `manifest_sha256`;
+- the snapshot matches its own digest, the manifest's `snapshot_sha256` and
+  every body's SHA-256;
+- the accepted order plans are the ones the manifest cites;
+- `src/` still has the authored-content digest the manifest was built on.
+
+Rows come from the plans in plan order. Signatures, data types, initializers
+and body actions come from the manifest. Body text comes from the snapshot.
+
+**The preview.** The preview root holds a mirror of `src/` and the write
+manifest `skeleton-write.json`. Files the write does not touch are copied
+byte for byte. A rewrite replaces the previous preview; a non-empty directory
+that is not one is refused. Each unit file contains:
+
+1. Its stage 4 blocks and the separator after them, byte-identical. A block
+   that is not at the top of the file is refused.
+2. The authored preamble. The provisional definitions and data definitions
+   the skeleton replaces, moves or holds are cut out of it: a cut takes whole
+   lines where the span owns them, and a blank line left on both sides of a
+   cut is merged. Trailing blank lines before the entries become one.
+   Includes, macros, comments and declarations stay.
+3. One entry per planned row, fenced `/* @socom-skeleton <stub|body> <mangled> */`.
+   Fences carry no addresses. `source artifacts` accepts the fence grammar
+   and never counts a fence as an artifact edge.
+
+Newlines follow each file's own style (all of `src/` is CRLF); a file that
+mixes styles is refused.
+
+**Entry order.** The order keeps the plan's out-of-line function positions
+and each region's data positions. A local static or a function-local class
+member sits inside its owning function, so data and functions interleave
+where the plan requires it. Where nothing constrains the order, file-scope
+data comes first. In 6 units (`seal_ai`, `seal_command`, `seal_unit`,
+`zui_2d`, `zui_skb`, `hud_main`) the plan contradicts itself. Their local
+statics' data positions and their owners' function positions form a cycle:
+for example, the `$2300` counter belongs to the function at position 7 and
+`$2333` to position 1. In those units the function order and the file-scope
+data order are kept, the local statics stay in their owners, and S2 reports
+the data rows that end up out of order. Either the plans or the emission
+rule for local statics must change (phase C, C2).
+
+**Entries.**
+
+| Entry | Text |
+| --- | --- |
+| moved body (`body`) | The snapshot text, byte-identical, inside the namespaces and `extern "C"` blocks it was written in. |
+| BD6 rewrite (`body`) | The manifest's ELF declarator, then the snapshot text from the end of its declarator: the body and any constructor initializer list are kept. Parameter names are carried over when the arity is unchanged. |
+| in-class body moved out of line (`body`) | The qualified head, then the body. The header keeps its in-class body until round 3 (`header-body-pending`). |
+| stub | The manifest head and `{ }`, with its local statics in counter order (`static [const] T name [= init];`, each with a nested fence) and its function-local class (`struct Local` with inline members). The anonymous namespace is reopened where the head needs it. |
+| data | `[static] T [Class::]name [= init];` inside its namespaces. The type is the manifest's, with top-level `const` for `.rodata` (on the pointer itself, or on the array element). The initializer is the manifest's ELF rendering, an explicit zero (BD5), or none for nobits. Struct, enum and nested-array initializers are rendered from the DWARF layout: members in offset order, padding must be zero, unions, bit-fields and classes with bases are refused, and enums are written as casts. Relocated words become `&symbol`, `symbol[k]` (an element of a typed array) or a string literal. A non-relocated pointer word outside the image becomes a hex constant. |
+| kept provisional data (`body`) | The provisional statement, verbatim. This applies only where the ELF bytes cannot be rendered, or where a nobits object has a dynamic initializer. Every other provisional data definition is replaced; its text is kept in the write manifest (`replaced_data`). |
+
+A canonical stub's digest is recorded (`stub_sha256`). An existing fenced
+file is refused this round. Round 3's regeneration rule is that a stub is
+regenerated only while its text equals the canonical stub, and that `body`
+text is only ever moved.
+
+**`--all` only.** The write also produces:
+
+- the unbuilt `<module>_holding.cpp` files (BD4). They hold copy-only,
+  unowned and non-ELF bodies, the held data statements, and the overload
+  ties, which wait for a decision while every candidate row gets a stub.
+  Each entry starts with `/* held from <path>:<line> */`.
+- the removal of the orphan `.cpp` files the moves leave empty. The write
+  manifest records each one's dropped preamble digest.
+
+`--segment N` writes only that segment's unit files.
+
+**Defaults and waiting rows.** Every manifest judgment row gets a
+deterministic default, a flag and a `waits` bit in the write manifest.
+
+| Judgment | Default |
+| --- | --- |
+| signature contradiction | BD6 rewrite |
+| copy-only and unowned bodies | holding file |
+| unparsed body | holding file |
+| local static with several referencing functions | declared in the first of them in source order (`local-static-owner-hypothesis`) |
+| local static that no function of the unit references | not written; waits |
+| function-local class (`Local$2354`) | written in the first stub, in source order, that takes the members' addresses; waits, since the true owner is unproven |
+| overload tie | held; waits |
+| by-value type that `src/` does not declare | spelled by name; waits only where no DWARF record exists, because a definition would be invented. Ghidra's untyped `pointer` is written `void *`, or `const char *` for a string literal. |
+
+Unproven pieces are flagged, never decided silently:
+
+- BD1 returns and member kinds;
+- access-width and unproven data types;
+- explicit zeros;
+- parameter names dropped by a rewrite;
+- local statics missing from their owner's moved body.
+
+Rows are not written, and are listed as waiting, wherever a default would
+invent content: an unrenderable initializer (a byte array holding relocated
+words), or a local static without an owner.
+
+**`order skeleton check`.** It re-reads the inputs and the preview. None of
+its results is stage evidence.
+
+- **determinism:** two renders from independently loaded inputs are
+  byte-identical. They equal the files on disk and the write manifest, and
+  every other mirrored file equals `src/`.
+- **S1:** each fenced definition or data entry is parsed back from its file
+  with the preview's tables and must mangle to the fence's name. Local
+  statics are checked by their declared variable. The members of a
+  function-local class are listed as unverifiable, because the compiler
+  numbers the class.
+- **S2:** the order is re-derived from the fences (a nested row takes its
+  owner's place). It must equal the plan's order, and `order plan validate`'s
+  predictor must give the target order from it. Every fence in a unit file
+  must name one of that unit's rows (LOCAL names may repeat across units).
+  Every row is written once, or listed with its reason. In-class rows are
+  looked up in class bodies.
+- **S3:** the stage 4 blocks are byte-identical, the `@socom-artifact` edges
+  are the same set with the stage 4 baseline's edge digest, and
+  `audit docblocks` and `audit source-trace` pass over the preview.
+- **S4:** each `body` entry is its snapshot body. For a recorded head
+  rewrite it is the recorded head followed by the snapshot body's own text.
+  Kept data is its provisional statement. Each snapshot body lands exactly
+  once.
+- **S5:** every source guard finds nothing in the preview that it does not
+  find in `src/`, comparing findings by rule and line text. The guards now
+  ignore the identities that annotation lines cite (`socom:<kind>:<id>`), so
+  `guard raw-image` reports the 3 real `RVA:` comments instead of 7,216
+  stage 4 annotation IDs.
+- **S6** (`--lint`, report only): MSVC `cl /Zs`, found through `SOCOM_CL` or
+  `vswhere`, with a small compatibility prelude. It reports error counts and
+  never fails.
+
+**Measured (2026-11-01, `--all`, manifest `67dd7426…`, snapshot `3084d9c8…`).**
+A write takes about 7 s and a check about 20 s; `--lint` adds the `cl` run.
+
+- **Output:** 250 files are written (219 unit files and 31 holding files) and
+  57 orphans are removed. Two writes give the same `write_sha256` and tree
+  digest.
+- **Entries:** 4,632 out-of-line functions (3,870 stubs, 762 moved bodies)
+  and 1,471 data entries (1,468 generated, 3 kept). Nested in them are 380
+  local statics and the 2 function-local class members. The holding files
+  carry 136 bodies and 78 data statements.
+- **Moves:** 464 in place, 137 across files, 109 BD6 and 52 out of line;
+  all 898 snapshot bodies land exactly once.
+- **Flags:**
+
+  | Flag | Rows |
+  | --- | --- |
+  | return unproven | 1,428 |
+  | data type unproven | 1,241 |
+  | member unproven | 383 |
+  | held bodies | 124 |
+  | provisional data replaced | 122 |
+  | BD6 rewrite | 109 |
+  | held data | 78 |
+  | explicit zero | 71 |
+  | out-of-line head (header body pending) | 52 |
+  | local static missing from its moved body | 21 |
+  | parameter names dropped | 14 |
+  | overload ties held | 11 |
+  | local static owner hypothesis | 11 |
+  | DWARF-rendered initializer | 11 |
+  | generic pointer | 10 |
+
+- **Judgment (268):** 226 get a default that settles them; 42 wait (24
+  undeclared types without any record, 11 overload ties, 5 local statics
+  without an owner, the 2 local-class members). A further 10 data rows wait
+  for a type, because their byte-array type holds relocated words.
+- **Checks:**
+
+  | Check | Result |
+  | --- | --- |
+  | determinism | pass |
+  | S1 | 6,103 entries and 355 local statics pass, 2 unverifiable |
+  | S2 | fails on 7 data rows, all in the 6 contradicting units; 15 rows waiting, 21 local statics missing from their moved bodies, the 4 `CAiLinePtItr` in-class rows waiting for their class body (round 3) |
+  | S3 | 0 blocks changed, 8,918 edges, digest equal to the baseline's |
+  | S4 | 979 body entries and 161 head rewrites pass |
+  | S5 | no new findings |
+  | S6 | 102 of 219 unit files lint-clean, 5,655 errors, mostly undeclared names |

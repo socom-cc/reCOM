@@ -386,7 +386,7 @@ class _Walker:
             if name:
                 self.scan.enums.append(chain + (name,))
             return semicolon + 1 if semicolon < high else close + 1
-        if "=" in texts:
+        if any(text == "=" and (index == 0 or texts[index - 1] != "operator") for index, text in enumerate(texts)):
             semicolon = self._semicolon(close + 1, high)
             self.statement(start, semicolon, scope, brace_init=True)
             return semicolon + 1 if semicolon < high else close + 1
@@ -667,6 +667,7 @@ class _Parser:
         self.declarator_scope: tuple[str, ...] | None = None
         self.in_parameters = 0
         self.data_context = False  # a variable's ``(`` may open a direct initializer
+        self.parameter_names: list[str | None] | None = None  # the first outermost parameter list's names
 
     # token helpers
     def peek(self, offset: int = 0) -> str:
@@ -1090,28 +1091,37 @@ class _Parser:
 
     def parameters(self) -> list[dict[str, Any]]:
         params: list[dict[str, Any]] = []
-        if self.accept(")"):
-            return params
-        if self.peek() == "void" and self.peek(1) == ")":
+        names: list[str | None] = []
+        outermost = self.in_parameters == 0 and self.parameter_names is None
+        empty = self.accept(")")
+        if not empty and self.peek() == "void" and self.peek(1) == ")":
             self.take(), self.take()
+            empty = True
+        if empty:
+            if outermost:
+                self.parameter_names = names
             return params
         self.in_parameters += 1
         try:
             while True:
                 if self.accept("..."):
                     params.append({"t": "builtin", "code": "e"})
+                    names.append(None)
                 else:
                     _specifiers, base = self.decl_specifiers()
                     if base is None:
                         raise Unresolvable(f"expected a parameter type at {self.peek()!r}")
                     saved = self.declarator_scope, self.data_context
                     self.data_context = False
-                    _name, node = self.declarator(base, abstract=True)
+                    name, node = self.declarator(base, abstract=True)
                     self.declarator_scope, self.data_context = saved
                     params.append(adjust_parameter(node))
+                    names.append(name.components[-1][0] if name is not None and name.components else None)
                     if self.accept("="):
                         self._skip_default()
                 if self.accept(")"):
+                    if outermost:
+                        self.parameter_names = names
                     return params
                 self.expect(",")
         finally:
@@ -1154,6 +1164,7 @@ class Parsed:
     name: str  # the declarator-id as written
     error: str | None = None
     pure: bool = False
+    param_names: list[str | None] | None = None  # the declarator's parameter names as written (functions)
 
 
 def _function_name(name: QualifiedName) -> dict[str, Any]:
@@ -1204,7 +1215,8 @@ def function_symbol(program: Program, tokens: list[Token], scope: tuple[tuple[st
                 function_name = {"text": "__ct"}
             symbol = {"kind": "function", "name": function_name, "scope": qualifier or None, "cv": node.get("cv", ""),
                       "params": params}
-        return Parsed(symbol, specifiers, returns, None, "::".join(base for base, _ in name.components), pure=pure)
+        return Parsed(symbol, specifiers, returns, None, "::".join(base for base, _ in name.components), pure=pure,
+                      param_names=parser.parameter_names)
     except (Unresolvable, MangleError, IndexError, KeyError, TypeError, ValueError) as exc:
         return Parsed(None, set(), None, None, written, error=str(exc) or type(exc).__name__)
 
@@ -1326,10 +1338,13 @@ class Speller:
         text = f"{cv} {base}" if cv else base
         return f"{text} {inner}" if inner else text
 
-    def parameters(self, params: list[dict[str, Any]], scopes: list[tuple[str, ...]] | None = None) -> str:
+    def parameters(self, params: list[dict[str, Any]], scopes: list[tuple[str, ...]] | None = None,
+                   names: list[str | None] | None = None) -> str:
         if len(params) == 1 and params[0] == {"t": "builtin", "code": "v"}:
             return ""
-        return ", ".join(self.type(param, "", scopes) for param in params)
+        if names is None or len(names) != len(params):
+            names = [None] * len(params)
+        return ", ".join(self.type(param, name or "", scopes) for param, name in zip(params, names))
 
 
 OPERATOR_SPELLING = {code: (f"operator {symbol}" if symbol[0].isalpha() else f"operator{symbol}") for code, symbol in OPERATORS.items()}
@@ -1355,12 +1370,14 @@ def member_name(symbol: dict[str, Any], speller: Speller) -> str:
     return text
 
 
-def definition_text(program: Program, symbol: dict[str, Any], returns: str | None, *, tag: str) -> tuple[str, list[str], str | None]:
+def definition_text(program: Program, symbol: dict[str, Any], returns: str | None, *, tag: str,
+                    names: list[str | None] | None = None) -> tuple[str, list[str], str | None]:
     """(the out-of-line definition head a skeleton writes, spelling problems, the enclosing namespace).
 
     A symbol in the anonymous namespace is written inside ``namespace { }`` of
     its unit (the third value is then ``"anonymous"``); every other one at file
-    scope with its full qualification.
+    scope with its full qualification.  ``names`` (one per declared parameter)
+    names the parameters; by default they are unnamed.
     """
 
     scope = list(symbol.get("scope") or [])
@@ -1376,7 +1393,7 @@ def definition_text(program: Program, symbol: dict[str, Any], returns: str | Non
     member = member_name(symbol, speller)
     chain = chain_of(scope)
     param_scopes = [chain[:index] for index in range(len(chain), 0, -1)] + site
-    params = speller.parameters(symbol["params"], param_scopes)
+    params = speller.parameters(symbol["params"], param_scopes, names)
     cv = " ".join({"C": "const", "V": "volatile"}[char] for char in symbol.get("cv", ""))
     qualifier = speller.qualified(scope) if written_scope else ""
     declarator = f"{qualifier}::{member}" if qualifier else member
