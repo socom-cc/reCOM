@@ -194,6 +194,22 @@ public:
 	void Scale(f32 scaleFactor, CPnt3D* out);
 	void Cross(const CPnt3D* a, CPnt3D* b, bool normalize);
 	void Interp(const CPnt3D* from, f32 step, CPnt3D* to);
+	/* @socom-skeleton decl 6CPnt3D */
+public:
+	void Add(const CPnt3D *, CPnt3D *) const;
+	void Sub(const CPnt3D *, CPnt3D *) const;
+	void SubXZ(const CPnt3D *, CPnt3D *) const;
+	void ToRightXZ(CPnt3D *) const;
+	void Scale(float, CPnt3D *) const;
+	float Normalize(CPnt3D *) const;
+	void Interp(const CPnt3D *, float, CPnt3D *) const;
+	void Reflect(const CPnt3D *);
+	void DistToVector(const CPnt3D *, const CPnt3D *, CPnt3D *, float *) const;
+	void DistToVector(const CPnt3D *, const CPnt3D *, float *) const;
+	static const float unit_x[3];
+	static const CPnt3D unit_y;
+	static const CPnt3D unit_z;
+	/* @socom-skeleton end 6CPnt3D */
 };
 
 class CPnt4D : public PNT4D
@@ -234,6 +250,15 @@ public:
 	}
 	
 	static const CPnt4D zero;
+	/* @socom-skeleton decl 6CPnt4D */
+public:
+	void Rotate_AxisX(float);
+	void Rotate_AxisY(float);
+	static const int unit_w[4];
+	static const int unit_x[4];
+	static const int unit_y[4];
+	static const int unit_z[4];
+	/* @socom-skeleton end 6CPnt4D */
 };
 
 class CQuat
@@ -251,6 +276,29 @@ public:
 
 	CPnt3D vec;
 	f32 w;
+	/* @socom-skeleton decl 5CQuat */
+public:
+	void MakeXRot(float);
+	void MakeYRot(float);
+	void MakeZRot(float);
+	void MakeYXRot(float, float);
+	void MakeYXZRot(float, float, float);
+	void Normalize(CQuat *) const;
+	CQuat * Normalize();
+	void ToMatrix(CMatrix *) const;
+	CQuat Mul(const CQuat *, CQuat *) const;
+	void ToEuler(CPnt3D *) const;
+	CQuat Apply(const CPnt3D *, CPnt3D *, int) const;
+	void Align(const CPnt3D &, const CPnt3D &);
+	void Div(const CQuat *, CQuat *) const;
+	void Slerp(const CQuat *, float, CQuat *) const;
+	void SlerpFaster(const CQuat *, float, CQuat *) const;
+	void Exp(const CPnt3D *);
+	void Exp(const CPnt3D *, float);
+	void Ln(CPnt3D *);
+	void Pow(float, CQuat *);
+	static const int zero[4];
+	/* @socom-skeleton end 5CQuat */
 };
 
 class CMatrix
@@ -276,6 +324,12 @@ public:
 	void ToQuat(CQuat* q);
 public:
 	f32 m_matrix[4][4];
+	/* @socom-skeleton decl 7CMatrix */
+public:
+	void SetRotate(const CPnt3D *);
+	CQuat * ToQuat(CQuat *) const;
+	void ToEuler(CPnt3D *) const;
+	/* @socom-skeleton end 7CMatrix */
 };
 
 class CBBox
@@ -283,6 +337,10 @@ class CBBox
 public:
 	CPnt3D m_min;
 	CPnt3D m_max;
+	/* @socom-skeleton decl 5CBBox */
+public:
+	void GetIntersect(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, bool);
+	/* @socom-skeleton end 5CBBox */
 };
 
 class CFRect
@@ -292,5 +350,25 @@ public:
 	f32 bottom;
 	f32 left;
 	f32 right;
+	/* @socom-skeleton decl 6CFRect */
+public:
+	CFRect();
+	/* @socom-skeleton end 6CFRect */
 };
+/* @socom-skeleton decl 5CBits */
+class CBits
+{
+public:
+	void Resize(unsigned int);
+};
+/* @socom-skeleton end 5CBits */
+/* @socom-skeleton decl Q23zdb11CCircleClip */
+namespace zdb {
+class CCircleClip
+{
+public:
+	void CircleSegmentClip(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *);
+};
+}
+/* @socom-skeleton end Q23zdb11CCircleClip */
 #endif

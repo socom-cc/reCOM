@@ -46,6 +46,21 @@
 
 #include "gamez/zTwoD/ztwod.h"
 #include "gamez/zWeapon/zweapon.h"
+/* @socom-skeleton decl forward */
+class ActionItem;
+class C2DAnimCmdHdr;
+class CCheckBoxSpec;
+class CCorners;
+class CCycleButtonSpec;
+class CHandlerButtonSpec;
+class CRadioStripSpec;
+class CScrollSpec;
+class CSliderBarSpec;
+class CUIListBoxSpec;
+class CUIMapCtrlAnimCmdHdr;
+class CUIMapCtrlSpec;
+class ColumnData;
+/* @socom-skeleton end forward */
 
 class CUIVariable;
 class CUIVariableSpec;
@@ -74,6 +89,14 @@ public:
 	char* m_varname;
 	std::vector<void*> m_attached_items;
 	UIVAR_LONGEVITY m_longevity;
+	/* @socom-skeleton decl 11CUIVariable */
+public:
+	void Destroy();
+	void DetachAll();
+	void UpdateDependents();
+	CUIVariable * operator=(const char *);
+	static char * Format(_zrdr *, char *, int);
+	/* @socom-skeleton end 11CUIVariable */
 };
 
 class CUIVariableSpec
@@ -85,12 +108,27 @@ public:
 	_zrdr* m_array;
 	CSTable m_stable;
 	u32 m_type;
+	/* @socom-skeleton decl 15CUIVariableSpec */
+public:
+	CUIVariableSpec(CUIVariableSpec *);
+	~CUIVariableSpec();
+	/* @socom-skeleton end 15CUIVariableSpec */
 };
 
 class CUIVarManager
 {
 public:
 	CUIVariable* Add(const char* name, _zrdr* reader, UIVAR_LONGEVITY longevity);
+	/* @socom-skeleton decl 13CUIVarManager */
+public:
+	virtual ~CUIVarManager();
+	virtual void Serialize(int);
+	virtual void UnSerialize(const char *, CRdrFile *, int);
+	void Reset();
+	void CollectGarbage();
+	CUIVariable * FindDormantVar(const char *, _zrdr *, UIVAR_LONGEVITY);
+	CUIVariable * Find(const char *);
+	/* @socom-skeleton end 13CUIVarManager */
 };
 
 class CDlgDesignModel
@@ -105,12 +143,25 @@ public:
 class CDesignDlgObj
 {
 	
+	/* @socom-skeleton decl 13CDesignDlgObj */
+public:
+	~CDesignDlgObj();
+	void operator=(const CDesignDlgObj &);
+	/* @socom-skeleton end 13CDesignDlgObj */
 };
 
 class CDlgObjSpec
 {
 public:
 	CUIVariableSpec* m_uivar;
+	/* @socom-skeleton decl 11CDlgObjSpec */
+public:
+	virtual ~CDlgObjSpec();
+	virtual void GetChild(int) const;
+	virtual void HasChildren() const;
+	virtual void NumChildren() const;
+	CDlgObjSpec(CDlgObjSpec &);
+	/* @socom-skeleton end 11CDlgObjSpec */
 };
 
 class CTextSpec : public CDlgObjSpec
@@ -122,6 +173,13 @@ public:
 	f32 m_scale;
 	bool m_hCentered;
 	PNT3D m_color;
+	/* @socom-skeleton decl 9CTextSpec */
+public:
+	virtual ~CTextSpec();
+	virtual void Copy();
+	virtual void CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
+	virtual void GetType();
+	/* @socom-skeleton end 9CTextSpec */
 };
 
 class CImageSpec: public CDlgObjSpec
@@ -133,11 +191,28 @@ public:
 	s32 m_ysize;
 	f32 m_pulse;
 	bool m_doPulse;
+	/* @socom-skeleton decl 10CImageSpec */
+public:
+	virtual ~CImageSpec();
+	virtual void Copy();
+	virtual void CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
+	virtual void GetType();
+	CImageSpec(_zrdr *);
+	/* @socom-skeleton end 10CImageSpec */
 };
 
 class CButtonSpec : public CDlgObjSpec
 {
 public:
+	/* @socom-skeleton decl 11CButtonSpec */
+public:
+	virtual ~CButtonSpec();
+	virtual void Copy();
+	virtual void CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
+	virtual void GetType();
+	CButtonSpec(_zrdr *);
+	void InitializeButton(C2DButton *, zdb::CTextureRelocMgr *) const;
+	/* @socom-skeleton end 11CButtonSpec */
 };
 
 class CTtySpec : public CDlgObjSpec
@@ -149,6 +224,13 @@ public:
 	f32 m_interval;
 	f32 m_maxLength;
 	bool m_noCursor;
+	/* @socom-skeleton decl 8CTtySpec */
+public:
+	virtual ~CTtySpec();
+	virtual void Copy();
+	virtual void CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
+	virtual void GetType();
+	/* @socom-skeleton end 8CTtySpec */
 };
 
 class CWrapSpec : public CDlgObjSpec
@@ -157,6 +239,13 @@ public:
 	f32 m_width;
 	s32 m_spacing;
 	f32 m_height;
+	/* @socom-skeleton decl 9CWrapSpec */
+public:
+	virtual ~CWrapSpec();
+	virtual void Copy();
+	virtual void CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
+	virtual void GetType();
+	/* @socom-skeleton end 9CWrapSpec */
 };
 
 class CTickerSpec : public CTextSpec
@@ -165,6 +254,13 @@ public:
 	f32 m_scrollSpeed;
 	f32 m_width;
 	f32 m_buffer;
+	/* @socom-skeleton decl 11CTickerSpec */
+public:
+	virtual ~CTickerSpec();
+	virtual void Copy();
+	virtual void CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
+	virtual void GetType();
+	/* @socom-skeleton end 11CTickerSpec */
 };
 
 class CHProgressBarSpec : public CImageSpec
@@ -172,18 +268,39 @@ class CHProgressBarSpec : public CImageSpec
 public:
 	bool m_filenameIsUiVar;
 	std::string m_leadingEdgeNode;
+	/* @socom-skeleton decl 17CHProgressBarSpec */
+public:
+	virtual ~CHProgressBarSpec();
+	virtual void Copy();
+	virtual void CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
+	virtual void GetType();
+	/* @socom-skeleton end 17CHProgressBarSpec */
 };
 
 class CCounterSpec : public CTextSpec
 {
 public:
 
+	/* @socom-skeleton decl 12CCounterSpec */
+public:
+	virtual ~CCounterSpec();
+	virtual void Copy();
+	virtual void CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
+	virtual void GetType();
+	/* @socom-skeleton end 12CCounterSpec */
 };
 
 class CClockSpec : public CTextSpec
 {
 public:
 
+	/* @socom-skeleton decl 10CClockSpec */
+public:
+	virtual ~CClockSpec();
+	virtual void Copy();
+	virtual void CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
+	virtual void GetType();
+	/* @socom-skeleton end 10CClockSpec */
 };
 
 class CGameDlgDesign
@@ -206,4 +323,384 @@ public:
 };
 
 extern CUIVarManager theUIVarManager;
+/* @socom-skeleton decl 10ActionItem */
+class ActionItem
+{
+public:
+	enum EVENT
+	{
+		ONSTART = 0,
+		ONEXIT = 1,
+		ONACTIVATE = 2,
+		ONMPEGEND = 3,
+		MP_JOIN_ROOM = 4,
+		MP_PLAYER_NOT_FOUND = 5,
+		MP_SUCCESS = 6,
+		MP_CREATE_CLAN_SUCCESS = 7,
+		MP_CREATE_CLAN_FAILURE = 8,
+		MP_DISBAND_CLAN_SUCCESS = 9,
+		MP_DISBAND_CLAN_FAILURE = 10,
+		MP_MEDIUS_ERROR = 11,
+		MP_MEDIUS_HAS_INVITES = 12,
+		ON_STATE_POP = 13,
+		ON_SKB_APPLY = 14,
+		ON_SKB_CLOSE = 15,
+		ON_LOAD_COMPLETE = 16,
+		ON_CLIENT_CONNECT = 17,
+		ON_FORCE_NEW_DB = 18,
+		ON_LADDER_REFRESH = 19,
+		ON_TTY_DONE = 20,
+		MP_MEDIUS_JOIN_GAME_FAILURE = 21,
+		MP_MEDIUS_READY_TO_CONNECT = 22,
+		MP_PLAYER_ALREADY_MEMBER = 23,
+		MP_VERSION_NUMBER_ERROR = 24,
+		MP_LEADERSHIP_TRANSFER_SUCCESS = 25,
+		MEMCARD_ERROR = 26,
+		MP_MEDIUS_BECAME_LEADER = 27,
+		ON_SKB_CANCEL = 28,
+		NETCNF_ERROR = 29,
+		MP_MEDIUS_JOIN_ROOM_FAILURE = 30,
+		MP_PLAYER_IS_LEADER = 31,
+		MP_CLAN_DISBANDED = 32
+	};
+	void operator=(const ActionItem &);
+	~ActionItem();
+};
+/* @socom-skeleton end 10ActionItem */
+/* @socom-skeleton decl 10UIVarMixin */
+class UIVarMixin
+{
+public:
+	virtual ~UIVarMixin();
+	void AttachUIVar(CUIVariable *);
+	void DetachUIVar(CUIVariable *);
+};
+/* @socom-skeleton end 10UIVarMixin */
+/* @socom-skeleton decl 17CRenderableString */
+class CRenderableString : public C2DString, public UIVarMixin
+{
+public:
+	virtual ~CRenderableString();
+	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
+	virtual void Tick(float);
+	virtual C2DAnimCmdHdr * ParseZAnimCmd(_zrdr *);
+	virtual unsigned char TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
+	virtual int GetZAnimCmdType(const char *);
+	virtual void SetMapOffset(int, int);
+	virtual void UpdateUIVar(CUIVariable *);
+	virtual void Update();
+	CRenderableString();
+	void LoadSpec(const CTextSpec &);
+};
+/* @socom-skeleton end 17CRenderableString */
+/* @socom-skeleton decl 8C2DClock */
+class C2DClock : public CRenderableString
+{
+public:
+	virtual ~C2DClock();
+	virtual void UpdateUIVar(CUIVariable *);
+};
+/* @socom-skeleton end 8C2DClock */
+/* @socom-skeleton decl 10C2DCounter */
+class C2DCounter : public CRenderableString
+{
+public:
+	virtual ~C2DCounter();
+	virtual void Tick(float);
+	virtual void ParseZAnimCmd(_zrdr *);
+	virtual void TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
+	virtual void GetZAnimCmdType(const char *);
+};
+/* @socom-skeleton end 10C2DCounter */
+/* @socom-skeleton decl 9C2DVisual */
+class C2DVisual : public zdb::CVisual
+{
+public:
+	virtual ~C2DVisual();
+	virtual void Render(CMatrix *);
+	virtual void Get2DVisual();
+	C2DVisual(C2D *, zdb::CTextureRelocMgr *);
+};
+/* @socom-skeleton end 9C2DVisual */
+/* @socom-skeleton decl 9CCheckBox */
+class CCheckBox : public C2DButton, public UIVarMixin
+{
+public:
+	virtual ~CCheckBox();
+	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
+	virtual void HandlePad(const CPad *, int);
+	virtual void UpdateUIVar(CUIVariable *);
+	void LoadSpec(const CCheckBoxSpec &, zdb::CTexHandle *);
+};
+/* @socom-skeleton end 9CCheckBox */
+/* @socom-skeleton decl 13CCheckBoxSpec */
+class CCheckBoxSpec : public CButtonSpec
+{
+public:
+	virtual ~CCheckBoxSpec();
+	virtual void Copy();
+	virtual void CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
+	virtual void GetType();
+	CCheckBoxSpec(_zrdr *);
+	CCheckBoxSpec(CCheckBoxSpec &);
+};
+/* @socom-skeleton end 13CCheckBoxSpec */
+/* @socom-skeleton decl 12CCycleButton */
+class CCycleButton : public C2DButton
+{
+public:
+	virtual ~CCycleButton();
+	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
+	virtual void HandlePad(const CPad *, int);
+	void LoadSpec(const CCycleButtonSpec &, zdb::CTextureRelocMgr *);
+};
+/* @socom-skeleton end 12CCycleButton */
+/* @socom-skeleton decl 16CCycleButtonSpec */
+class CCycleButtonSpec : public CButtonSpec
+{
+public:
+	virtual ~CCycleButtonSpec();
+	virtual void Copy();
+	virtual void CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
+	virtual void GetType();
+	CCycleButtonSpec(_zrdr *);
+};
+/* @socom-skeleton end 16CCycleButtonSpec */
+/* @socom-skeleton decl 23CDblBufTextureRelocator */
+class CDblBufTextureRelocator : public zdb::CTextureRelocMgr
+{
+public:
+	int _iGsBufToFill;
+	zdb::CGSTexBuffer *_arrGsBufs[2];
+	unsigned __int128 *_pSavedPacket;
+	unsigned int _uSavedQwc;
+	zdb::CTexPalette *_pSavedPalette;
+	virtual void PreGetSprPacket(zdb::CTexHandle *);
+	virtual void TakeDrawPacket(unsigned __int128 *, unsigned int);
+};
+/* @socom-skeleton end 23CDblBufTextureRelocator */
+/* @socom-skeleton decl 13CHProgressBar */
+class CHProgressBar : public CPlainBmp
+{
+public:
+	virtual ~CHProgressBar();
+	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
+	virtual void Tick(float);
+	virtual void UpdateUIVar(CUIVariable *);
+	virtual void LoadSpec(const CHProgressBarSpec &, zdb::CTexHandle *);
+};
+/* @socom-skeleton end 13CHProgressBar */
+/* @socom-skeleton decl 14CHandlerButton */
+class CHandlerButton : public C2DButton
+{
+public:
+	virtual ~CHandlerButton();
+	virtual void Tick(float);
+	virtual void HandlePad(const CPad *, int);
+	void LoadSpec(const CHandlerButtonSpec &);
+};
+/* @socom-skeleton end 14CHandlerButton */
+/* @socom-skeleton decl 18CHandlerButtonSpec */
+class CHandlerButtonSpec : public CButtonSpec
+{
+public:
+	virtual ~CHandlerButtonSpec();
+	virtual void Copy();
+	virtual void CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
+	virtual void GetType();
+	virtual void GetChild(int) const;
+	virtual void HasChildren() const;
+	virtual void NumChildren() const;
+	CHandlerButtonSpec(_zrdr *);
+};
+/* @socom-skeleton end 18CHandlerButtonSpec */
+/* @socom-skeleton decl 12CPopUpDialog */
+class CPopUpDialog : public CPlainBmp
+{
+public:
+	virtual ~CPopUpDialog();
+	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
+	virtual void Tick(float);
+	virtual void HandlePad(const CPad *, int);
+	virtual void ParseZAnimCmd(_zrdr *);
+	virtual void TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
+	virtual void GetZAnimCmdType(const char *);
+	void Load(zdb::CTextureRelocMgr *);
+};
+/* @socom-skeleton end 12CPopUpDialog */
+/* @socom-skeleton decl 11CRadioStrip */
+class CRadioStrip : public C2DButton
+{
+public:
+	virtual ~CRadioStrip();
+	virtual void Tick(float);
+	virtual void HandlePad(const CPad *, int);
+	virtual void ParseZAnimCmd(_zrdr *);
+	virtual void TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
+	virtual void GetZAnimCmdType(const char *);
+	void LoadSpec(const CRadioStripSpec *, zdb::CTexHandle *);
+	void PressActive();
+};
+/* @socom-skeleton end 11CRadioStrip */
+/* @socom-skeleton decl 15CRadioStripSpec */
+class CRadioStripSpec : public CButtonSpec
+{
+public:
+	virtual ~CRadioStripSpec();
+	virtual void Copy();
+	virtual void CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
+	virtual void GetType();
+	virtual void GetChild(int) const;
+	virtual void HasChildren() const;
+	virtual void NumChildren() const;
+	CRadioStripSpec(_zrdr *);
+};
+/* @socom-skeleton end 15CRadioStripSpec */
+/* @socom-skeleton decl 11CScrollSpec */
+class CScrollSpec : public CWrapSpec
+{
+public:
+	virtual ~CScrollSpec();
+	virtual void Copy();
+	virtual void CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
+	virtual void GetType();
+};
+/* @socom-skeleton end 11CScrollSpec */
+/* @socom-skeleton decl 12CWrappedText */
+class CWrappedText : public CRenderableString
+{
+public:
+	virtual ~CWrappedText();
+	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
+	virtual void SetString(const char *);
+	virtual void GetSpacing();
+	void LoadSpec(const CWrapSpec &);
+};
+/* @socom-skeleton end 12CWrappedText */
+/* @socom-skeleton decl 11CScrollText */
+class CScrollText : public CWrappedText
+{
+public:
+	virtual ~CScrollText();
+	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
+	virtual void Tick(float);
+	virtual void HandlePad(const CPad *, int);
+	void LoadSpec(const CScrollSpec &);
+};
+/* @socom-skeleton end 11CScrollText */
+/* @socom-skeleton decl 10CSliderBar */
+class CSliderBar : public C2DButton, public UIVarMixin
+{
+public:
+	virtual ~CSliderBar();
+	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
+	virtual void HandlePad(const CPad *, int);
+	virtual void ParseZAnimCmd(_zrdr *);
+	virtual void TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
+	virtual void GetZAnimCmdType(const char *);
+	virtual void UpdateUIVar(CUIVariable *);
+	void LoadSpec(const CSliderBarSpec &, zdb::CTexHandle *);
+};
+/* @socom-skeleton end 10CSliderBar */
+/* @socom-skeleton decl 14CSliderBarSpec */
+class CSliderBarSpec : public CButtonSpec
+{
+public:
+	virtual ~CSliderBarSpec();
+	virtual void Copy();
+	virtual void CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
+	virtual void GetType();
+};
+/* @socom-skeleton end 14CSliderBarSpec */
+/* @socom-skeleton decl 9CTeleType */
+class CTeleType : public CRenderableString
+{
+public:
+	virtual ~CTeleType();
+	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
+	virtual void Tick(float);
+	virtual void ParseZAnimCmd(_zrdr *);
+	virtual void TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
+	virtual void GetZAnimCmdType(const char *);
+	virtual void SetString(const char *);
+	virtual void GetSpacing();
+	void LoadSpec(const CTtySpec &);
+};
+/* @socom-skeleton end 9CTeleType */
+/* @socom-skeleton decl 15CTickerTapeText */
+class CTickerTapeText : public CRenderableString
+{
+public:
+	virtual ~CTickerTapeText();
+	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
+	virtual void Tick(float);
+	virtual void SetString(const char *);
+	void LoadSpec(const CTickerSpec &);
+};
+/* @socom-skeleton end 15CTickerTapeText */
+/* @socom-skeleton decl 10CUIListBox */
+class CUIListBox : public CPlainBmp
+{
+public:
+	virtual ~CUIListBox();
+	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
+	virtual void Tick(float);
+	virtual void HandlePad(const CPad *, int);
+	virtual void SetActive();
+	virtual void SetNormal();
+	virtual void ParseZAnimCmd(_zrdr *);
+	virtual void TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
+	virtual void GetZAnimCmdType(const char *);
+	virtual void UpdateUIVar(CUIVariable *);
+	virtual void SetPressed();
+	void LoadSpec(const CUIListBoxSpec &, zdb::CTexHandle *, zdb::CTextureRelocMgr *);
+};
+/* @socom-skeleton end 10CUIListBox */
+/* @socom-skeleton decl 14CUIListBoxSpec */
+class CUIListBoxSpec : public CImageSpec
+{
+public:
+	virtual ~CUIListBoxSpec();
+	virtual void Copy();
+	virtual void CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
+	virtual void GetType();
+	CUIListBoxSpec(_zrdr *);
+};
+/* @socom-skeleton end 14CUIListBoxSpec */
+/* @socom-skeleton decl 10CUIMapCtrl */
+class CUIMapCtrl : public C2D
+{
+public:
+	virtual ~CUIMapCtrl();
+	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
+	virtual void HandlePad(const CPad *, int);
+	virtual void ParseZAnimCmd(_zrdr *);
+	virtual void TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
+	virtual void GetZAnimCmdType(const char *);
+	CUIMapCtrl();
+	void CalcAlternateZoomedPos(CPnt3D *, const CCorners &, const CPnt3D &, float) const;
+	void LoadSpec(const CUIMapCtrlSpec &, C2DFont *, zdb::CAssetLib *, zdb::CTextureRelocMgr *);
+	void IsCovered(float, float, const CPnt3D &, float) const;
+	void OnPan(const CUIMapCtrlAnimCmdHdr &, float) const;
+};
+/* @socom-skeleton end 10CUIMapCtrl */
+/* @socom-skeleton decl 14CUIMapCtrlSpec */
+class CUIMapCtrlSpec : public CDlgObjSpec
+{
+public:
+	virtual ~CUIMapCtrlSpec();
+	virtual void Copy();
+	virtual void CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const;
+	virtual void GetType();
+	CUIMapCtrlSpec(_zrdr *);
+};
+/* @socom-skeleton end 14CUIMapCtrlSpec */
+/* @socom-skeleton decl 8ListItem */
+class ListItem
+{
+public:
+	ListItem(_zrdr *, const std::vector<ColumnData *, std::allocator<ColumnData *> > &);
+	~ListItem();
+};
+/* @socom-skeleton end 8ListItem */
 #endif

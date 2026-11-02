@@ -39,6 +39,54 @@
 #include "gamez/zGame/zgame.h"
 #include "gamez/zPhysics/zphysics.h"
 #include "gamez/zUI/zui.h"
+/* @socom-skeleton decl forward */
+class C2DLine;
+class CActionTxtr;
+class CMD_TABLE;
+class CZMPBombMapItem;
+class NetClientMetric;
+class Selection;
+/* @socom-skeleton end forward */
+/* @socom-skeleton decl 10LINE_TYPES */
+enum LINE_TYPES
+{
+	LINETYPE_NORMAL_WHITE = 0,
+	LINETYPE_EXTRACT = 1,
+	LINETYPE_NAVLINE = 2,
+	LINETYPE_NAVPOINT = 3,
+	LINETYPE_NORMAL_GREY = 4,
+	LINETYPE_NORMAL_YELLOW = 5,
+	LINETYPE_NORMAL_BLUE = 6,
+	LINETYPE_NORMAL_RED = 7,
+	LINETYPE_NORMAL_GREEN = 8,
+	LINETYPE_MAX = 9
+};
+/* @socom-skeleton end 10LINE_TYPES */
+/* @socom-skeleton decl Q23zdb12_RenderPhase */
+namespace zdb {
+enum _RenderPhase
+{
+	WORLD = 0,
+	HUD_OBSOLETE = 1,
+	CHARSETCOMMON = 2,
+	CHARSET1 = 3,
+	CHARSET2 = 4,
+	CHARSET3 = 5,
+	CHARSET4 = 6,
+	CHARSET5 = 7,
+	CHARSET6 = 8,
+	CHARSET7 = 9,
+	CHARSET8 = 10,
+	ALPHA = 11,
+	HUDSET1 = 12,
+	HUDSET2 = 13,
+	HUDSETSMALL = 14,
+	SHADOW = 15,
+	CHARSETCUSTOM = 16,
+	NUM_RENDER_PHASES = 17
+};
+}
+/* @socom-skeleton end Q23zdb12_RenderPhase */
 
 enum class FIRETEAM;
 
@@ -93,6 +141,10 @@ public:
 	C2DBitmap m_bitmap[2];
 	SLIDE_DIRECTION m_slidedir;
 	f32 m_curpos;
+	/* @socom-skeleton decl 10CLetterBox */
+public:
+	virtual ~CLetterBox();
+	/* @socom-skeleton end 10CLetterBox */
 };
 
 class CFader : C2DBitmap
@@ -111,6 +163,15 @@ private:
 	f32 m_faderate;
 	f32 m_brightness;
 	f32 m_min_brightness;
+	/* @socom-skeleton decl 6CFader */
+public:
+	virtual ~CFader();
+	virtual void Tick(float);
+	CFader();
+	void FadeIn(float);
+	void SetMinBrightness(float);
+	void SetBrightness(float);
+	/* @socom-skeleton end 6CFader */
 };
 
 class CLensFlareSaturate : public C2DBitmap
@@ -142,6 +203,15 @@ private:
 	CPnt3D m_LightPos;
 	f32 m_MinLightNodeOpacity;
 	f32 m_LightNodeOpacityRange;
+	/* @socom-skeleton decl 18CLensFlareSaturate */
+public:
+	virtual ~CLensFlareSaturate();
+	virtual void Tick(float);
+	CLensFlareSaturate();
+	void LoadRdr(const char *);
+	void Init();
+	void PreDITick(float);
+	/* @socom-skeleton end 18CLensFlareSaturate */
 };
 
 class CHudBrightText : public C2DString {};
@@ -188,13 +258,27 @@ public:
 
 	CHudCompassAnchor m_compass_anchors[33];
 	CHudCompassAnchor m_compass_arrows[33];
+	/* @socom-skeleton decl 10MapCompass */
+public:
+	void InitHUD_Compass(zdb::CWorld *);
+	MapCompass();
+	~MapCompass();
+	void SetScale(float);
+	void On();
+	void Off();
+	void SetPos(float, float, float, float);
+	void SetTexture(zdb::CTexture *);
+	void SetTrans(float);
+	void Draw(zdb::CCamera *);
+	void Tick(CZSealBody *);
+	/* @socom-skeleton end 10MapCompass */
 };
 
 class CZNewHudMap : public C2D
 {
 public:
-	void UninitMap() {}
-	void SwitchToCompassMap() { }
+	void UninitMap();
+	void SwitchToCompassMap();
 	
 	std::list<void*> m_itemlist;
 
@@ -240,6 +324,30 @@ public:
 
 	CSnd* m_zoominsound;
 	CSnd* m_zoomoutsound;
+	/* @socom-skeleton decl 11CZNewHudMap */
+public:
+	virtual ~CZNewHudMap();
+	virtual void Draw(zdb::CCamera *);
+	CZNewHudMap();
+	float GetZoomOut() const;
+	void ReInit();
+	void InitMap(zdb::CWorld *);
+	void MapWorldPointToUV(const CPnt3D *, const CBBox *, zdb::CTexture *);
+	void RefreshBackground(zdb::CWorld *);
+	void SetMapScreenPos(float, float, float, float);
+	void SetWorldWidth(float);
+	float CalcDrawPos(float) const;
+	void CalcNewMatrix();
+	void GetScrollPermissions() const;
+	void SwitchMapToFullScreen();
+	void HandleScrolling(float, float);
+	void TickCompassMap(CPad *, MENU_STATE);
+	void TickFullScreenMap(CPad *, MENU_STATE);
+	void HudTick(CPad *, float);
+	void TickFullScreenAnims(float) const;
+	void UpdateExplosives();
+	CZMPBombMapItem * FindMPBombItem();
+	/* @socom-skeleton end 11CZNewHudMap */
 };
 
 class CWeaponSel : public C2D
@@ -299,6 +407,32 @@ private:
 	CSnd* m_scrollupsound;
 	CSnd* m_scrolldownsound;
 	s32 m_cursound;
+	/* @socom-skeleton decl 10CWeaponSel */
+public:
+	virtual ~CWeaponSel();
+	CWeaponSel();
+	void Init(zdb::CWorld *, C2DFont *);
+	void UnInit();
+	void OnOpen();
+	void HandleOpenState(CPad *, float);
+	void PulseSelectionArrows(float);
+	void HandleScrollUpState(float);
+	void HandleScrollDownState(float);
+	void OnClose();
+	void AfterCloseFirst();
+	void OnScrollDown();
+	void OnScrollUp();
+	void AfterClose();
+	void AfterScrollDown();
+	void AfterScrollUp();
+	void AfterOpenSecond();
+	void AfterOpenFirst();
+	void HudTick(CPad *, float);
+	float Increment(float, float, float);
+	void SetItemPos(int);
+	void PlaceHotSwapLabels();
+	void PlaceWeaponText();
+	/* @socom-skeleton end 10CWeaponSel */
 };
 
 class CInGameWeaponSel : public C2D
@@ -368,6 +502,37 @@ private:
 	s32 m_cursound;
 
 	EQUIP_ITEM m_selected_item_index[6];
+	/* @socom-skeleton decl 16CInGameWeaponSel */
+public:
+	virtual ~CInGameWeaponSel();
+	CInGameWeaponSel();
+	void Init(zdb::CWorld *, C2DFont *);
+	void UnInit();
+	void OnOpen();
+	void HandleOpenState(CPad *, float);
+	void PulseSelectionArrows(float);
+	void HandleScrollUpState(float);
+	void HandleScrollDownState(float);
+	void AfterCloseFirst();
+	void OnScrollDown();
+	void OnScrollUp();
+	void SelectEquipment(int);
+	void RePackEquipment();
+	void AfterClose();
+	void AfterScrollDown();
+	void AfterScrollUp();
+	void AfterOpenSecond();
+	void AfterOpenFirst();
+	void HudTick(CPad *, float);
+	float Increment(float, float, float);
+	void SetItemPos(int);
+	void SwitchOffText();
+	void PlaceWeaponText();
+	int GetNextItem(int);
+	unsigned char CanSelectWeapon(int);
+	unsigned char IsSelected(int);
+	void UpdateCharacter();
+	/* @socom-skeleton end 16CInGameWeaponSel */
 };
 
 class CTeamNames : public C2D
@@ -386,6 +551,16 @@ private:
 
 	C2DBitmap m_background;
 	C2DBitmap m_healthdot[4];
+	/* @socom-skeleton decl 10CTeamNames */
+public:
+	virtual ~CTeamNames();
+	virtual void Tick(float);
+	CTeamNames();
+	void SetOpacity(float);
+	void SetupTeamNameEntry(int, CZSealBody *);
+	void Init();
+	void Clear();
+	/* @socom-skeleton end 10CTeamNames */
 };
 
 class OrdersMenu
@@ -451,6 +626,34 @@ private:
 	C2DBitmap m_ExplanationBackgroundRight;
 	C2DBitmap m_ExplanationBackgroundCenterLeft;
 	C2DBitmap m_ExplanationBackgroundCenterRight;
+	/* @socom-skeleton decl 10OrdersMenu */
+public:
+	static void OnRecoCmd(int, int, int, int, char *);
+	void RefreshContext(CMD_TABLE *);
+	void EnableTuples(int);
+	void SetupTuple(int, int, const char *, const char *, const char *, int, int, int, int, int, int, bool, void *, FT_COMMAND, void *);
+	void SetupTuples(int);
+	void SetupTeamDisplay();
+	void SetupCommandDisplay();
+	unsigned char SetupContextDisplay(bool);
+	OrdersMenu();
+	~OrdersMenu();
+	void Enable();
+	void Disable();
+	void ClearText();
+	void Load(float, float, float, float);
+	void LoadTextures(zdb::CWorld *, C2DFont *);
+	void HandleRecoCmd(int, int, int, int, char *);
+	void DoOrdersMenuCalculations();
+	void PlayScrollSound();
+	int HandlePad(CPad *, float);
+	unsigned char RefreshDisplay();
+	void AllCollapse(bool);
+	unsigned char ScrollForward();
+	void ScrollBack();
+	void Tick(float);
+	static OrdersMenu *recoHack;
+	/* @socom-skeleton end 10OrdersMenu */
 };
 
 class CTeamMateNames : public C2D
@@ -458,6 +661,13 @@ class CTeamMateNames : public C2D
 private:
 	C2DString m_teamMateNames[15];
 	f32 xMargin;
+	/* @socom-skeleton decl 14CTeamMateNames */
+public:
+	virtual ~CTeamMateNames();
+	virtual void Tick(float);
+	void Init(C2DFont *);
+	void UnInit();
+	/* @socom-skeleton end 14CTeamMateNames */
 };
 
 class CZPauseTest : public C2D
@@ -493,6 +703,17 @@ public:
 	CSnd* m_selectsound;
 	CSnd* m_scrollupsound;
 	CSnd* m_scrolldownsound;
+	/* @socom-skeleton decl 11CZPauseTest */
+public:
+	virtual ~CZPauseTest();
+	virtual void Off();
+	virtual void On();
+	void HandleSelectionInput(const CPad &);
+	void Init();
+	void Clear();
+	void HudTick(CPad *, float);
+	void TickOffState(const CPad &, float);
+	/* @socom-skeleton end 11CZPauseTest */
 };
 
 class BitmapReticule : public C2D
@@ -555,6 +776,25 @@ public:
 	f32 m_threattexsizey;
 
 	C2DString m_enemy_name;
+	/* @socom-skeleton decl 14BitmapReticule */
+public:
+	virtual ~BitmapReticule();
+	virtual void Draw(zdb::CCamera *);
+	virtual void Off();
+	virtual void On();
+	BitmapReticule();
+	void DefuseTick(float);
+	void UnInit();
+	void Init(zdb::CWorld *, C2DFont *);
+	void ThreatDirTick(CZSealBody *);
+	void HudTick(float);
+	void UpdateColor();
+	void UpdateAccuracy();
+	void ChangeReticule(int);
+	void SetGBarVal(float);
+	void UpdateGBarColor(float);
+	void TimerProgressTick(float, CZSealBody *);
+	/* @socom-skeleton end 14BitmapReticule */
 };
 
 class CZActionBitmap : public C2DBitmap
@@ -570,6 +810,13 @@ private:
 	zdb::CTexHandle* m_canCarryBodyTexture;
 	zdb::CTexHandle* m_actionXTexture;
 	CHUD* m_parent;
+	/* @socom-skeleton decl 14CZActionBitmap */
+public:
+	virtual ~CZActionBitmap();
+	void Init(CHUD *, C2DFont *);
+	void UnInit();
+	void HudTick(MENU_STATE);
+	/* @socom-skeleton end 14CZActionBitmap */
 };
 
 class CZStaticRadioBitmap : public C2DBitmap
@@ -581,6 +828,12 @@ private:
 	zdb::CTexHandle* m_pRadioChannelDefenseTexture;
 	zdb::CTexHandle* m_pRadioChannelDeadTexture;
 	CHUD* m_pParent;
+	/* @socom-skeleton decl 19CZStaticRadioBitmap */
+public:
+	virtual ~CZStaticRadioBitmap();
+	void Init(CHUD *);
+	void HudTick(MENU_STATE);
+	/* @socom-skeleton end 19CZStaticRadioBitmap */
 };
 
 class CZDynamicRadioBitmap : public C2DBitmap
@@ -589,6 +842,12 @@ private:
 	zdb::CTexHandle* m_pRadioChannelInUseTexture;
 	zdb::CTexHandle* m_pRadioChannelCanTalkTexture;
 	CHUD* m_pParent;
+	/* @socom-skeleton decl 20CZDynamicRadioBitmap */
+public:
+	virtual ~CZDynamicRadioBitmap();
+	void Init(CHUD *);
+	void HudTick(MENU_STATE);
+	/* @socom-skeleton end 20CZDynamicRadioBitmap */
 };
 
 class CZHudMissionCams : public C2D
@@ -607,6 +866,19 @@ private:
 	s32 m_pause_for_frame;
 
 	MENU_STATE m_lastmenustate;
+	/* @socom-skeleton decl 16CZHudMissionCams */
+public:
+	virtual ~CZHudMissionCams();
+	virtual void Draw(zdb::CCamera *);
+	CZHudMissionCams();
+	void Init();
+	void UnInit();
+	void HudTick(CPad *, float);
+	void CleanupCamera(CPad *);
+	void PlayCamera(const char *);
+	void PlayCamera(CMissionCam *, bool);
+	unsigned char IsPlaying();
+	/* @socom-skeleton end 16CZHudMissionCams */
 };
 
 /// <summary>
@@ -620,8 +892,8 @@ public:
 
 	static CZSealBody* GetHUDOwner();
 
-	void On() {}
-	void Off() {}
+	void On();
+	void Off();
 	
 	void Init(zdb::CWorld* world);
 
@@ -707,10 +979,229 @@ public:
 	HUD_MODE m_hudmode;
 
 	bool m_ison;
+	/* @socom-skeleton decl 4CHUD */
+public:
+	void GetAssetReport();
+	void StatusLine();
+	static void HudText_to_upper(char *);
+	static unsigned char ReleaseHUD(CHUD **);
+	~CHUD();
+	void DrawPhase(zdb::_RenderPhase, zdb::CCamera *);
+	unsigned char PauseGame();
+	void Tick(float);
+	void Flash(float, const CPnt3D &, float, float, float);
+	void PreDITick(float);
+	void PostDITick(float);
+	unsigned char IsOn();
+	void ZoomOut();
+	void ZoomIn();
+	void SwitchToFullScreenMap();
+	void SwitchToCompassMap();
+	void Add2D(C2D *, int, bool);
+	void SetupFiremode(CZSealBody *);
+	void SetupAmmoCount(CZSealBody *);
+	void DoRangeText(CZSealBody *, MENU_STATE);
+	static CPnt4D m_hud_textcolor;
+	/* @socom-skeleton end 4CHUD */
 };
 
 class CCompassAnchor
 {
 
 };
+/* @socom-skeleton decl 6Action */
+class Action
+{
+public:
+	Selection sel;
+	unsigned char bClose;
+};
+/* @socom-skeleton end 6Action */
+/* @socom-skeleton decl 10BLIP_COLOR */
+class BLIP_COLOR
+{
+public:
+	PNT3D cone;
+	PNT3D blip;
+};
+/* @socom-skeleton end 10BLIP_COLOR */
+/* @socom-skeleton decl 11CActionTxtr */
+class CActionTxtr
+{
+public:
+	zdb::CTexHandle *m_texhandle;
+	unsigned int m_action_id;
+	C2DBitmap m_2DBitmap;
+	char m_name[64];
+	unsigned char m_active;
+};
+/* @socom-skeleton end 11CActionTxtr */
+/* @socom-skeleton decl 18CActionTxtrMachine */
+class CActionTxtrMachine : public std::vector
+{
+public:
+	CPnt3D *m_main_iconcolor;
+	CPnt3D *m_side_iconcolor;
+	C2DString m_action_string;
+	C2DBitmap m_timer_IMAGE;
+	C2DBitmap m_timer_BKGRD;
+	zdb::CNode *m_curpickup_node;
+	char m_pickup_name[64];
+	C2DBitmap m_reco_speechmeter[2];
+	C2DBitmap m_reco_speechmeterBKGD[2];
+	CZSealBody *m_driver;
+	C2DBitmap m_reco_speechIcon;
+	unsigned int Add(CActionTxtr *);
+	unsigned char UpdateDriverPickup();
+	void SpecializeActionString();
+	void TickTransparencyFade(bool);
+	unsigned int Open(unsigned int);
+	unsigned char Render_ver_2(CZActionBitmap &);
+};
+/* @socom-skeleton end 18CActionTxtrMachine */
+/* @socom-skeleton decl 8CFlashFX */
+class CFlashFX : public CFader
+{
+public:
+	virtual ~CFlashFX();
+	virtual void Tick(float);
+	virtual void Reset();
+	void Flash(float, float, float);
+};
+/* @socom-skeleton end 8CFlashFX */
+/* @socom-skeleton decl 14CFlashFXVector */
+class CFlashFXVector
+{
+public:
+	void Tick(float);
+	void Draw(zdb::CCamera *);
+	void Reset();
+};
+/* @socom-skeleton end 14CFlashFXVector */
+/* @socom-skeleton decl 17CZClaymoreMapItem */
+class CZClaymoreMapItem : public CZMapItem
+{
+public:
+	virtual ~CZClaymoreMapItem();
+	virtual unsigned char Tick(CZNewHudMap *, float);
+	virtual void Draw(zdb::CCamera *);
+	CZClaymoreMapItem(CZSealBody *, CZProjectile *);
+	static float m_U0;
+	static float m_U1;
+	static float m_V0;
+	static float m_V1;
+	static zdb::CTexture *m_claymoretex;
+	static float m_explosionU0;
+	static float m_explosionU1;
+	static float m_explosionV0;
+	static float m_explosionV1;
+	static zdb::CTexture *m_explosiontex;
+};
+/* @socom-skeleton end 17CZClaymoreMapItem */
+/* @socom-skeleton decl 9CZLineMap */
+class CZLineMap : public CZMapItem
+{
+public:
+	virtual ~CZLineMap();
+	virtual unsigned char Tick(CZNewHudMap *, float);
+	virtual void Draw(zdb::CCamera *);
+	virtual void Clip(CZNewHudMap *);
+	CZLineMap();
+	C2DLine * LineTo(const CPnt3D *);
+	void SetupPolygon(const CAiMap::line &, float, bool);
+	void TickAnchors(float);
+	void TickLine(const CAiMap::line &, float, bool);
+	void TickLines(const CAiMap &, float, bool);
+	void TickRegions(const CAiMap &, bool);
+	void TickWayPoints(const CAiMap &, bool);
+	static float m_pi[2][4];
+	static float m_po[2][4];
+	static float m_rgbi[2][4];
+	static float m_rgbo[2][4];
+	static float m_uvi[2][4];
+	static float m_uvo[2][4];
+};
+/* @socom-skeleton end 9CZLineMap */
+/* @socom-skeleton decl 15CZMPBombMapItem */
+class CZMPBombMapItem : public CZMapItem
+{
+public:
+	virtual ~CZMPBombMapItem();
+	virtual unsigned char Tick(CZNewHudMap *, float);
+	virtual void Draw(zdb::CCamera *);
+	CZMPBombMapItem(zdb::CNode *);
+	static float m_U0;
+	static float m_U1;
+	static float m_V0;
+	static float m_V1;
+	static float m_explosionU0;
+	static float m_explosionU1;
+	static float m_explosionV0;
+	static float m_explosionV1;
+	static zdb::CTexture *m_explosiontex;
+	static zdb::CTexture *m_mpbombtex;
+};
+/* @socom-skeleton end 15CZMPBombMapItem */
+/* @socom-skeleton decl 15CZObjectiveList */
+class CZObjectiveList : public C2D
+{
+public:
+	virtual ~CZObjectiveList();
+	virtual void Draw(zdb::CCamera *);
+	virtual void Tick(float);
+	CZObjectiveList();
+	unsigned char AddObjective(const CMissionObjectiveCam &, float);
+	void Init();
+	void RefreshList();
+	void RefreshStatics();
+	void FreeList(bool);
+	unsigned char ResolveIndex(int, int *) const;
+	unsigned char IsAnySelectable() const;
+	void SetCurColor(int);
+	void NextObjective();
+	void SelectNextObjective();
+	void PreviousObjective();
+	void SelectPreviousObjective();
+	void SelectObjective();
+	CMissionObjectiveCam * GetCurrentObjective() const;
+	CMissionObjectiveCam * GetCurrentObjectiveRetainer() const;
+	CMissionObjectiveCam * GetObjective(int) const;
+	void MissionEndCleanup();
+	unsigned char IsPlayingAnimation();
+};
+/* @socom-skeleton end 15CZObjectiveList */
+/* @socom-skeleton decl 15CZPlayerMapItem */
+class CZPlayerMapItem : public CZMapItem
+{
+public:
+	virtual ~CZPlayerMapItem();
+	virtual unsigned char Tick(CZNewHudMap *, float);
+	virtual void Draw(zdb::CCamera *);
+	virtual void PostDraw(zdb::CCamera *);
+	virtual void Clip(CZNewHudMap *);
+	static void InitStaticItems();
+	static void UnInitStaticItems();
+	CZPlayerMapItem(CEntity *);
+	static void DrawAlphaBravo(zdb::CCamera *);
+	unsigned int GetBlipID(CZSealBody *);
+	void TickSealCone(CZNewHudMap *);
+	void SetViewCone(CZNewHudMap *, const CPnt3D *, const CPnt3D *, unsigned int, float, float);
+	static void MissionEndCleanup();
+	static C2DString m_ablestring;
+	static zdb::CTexture *m_alivebliptex;
+	static C2DString m_bravostring;
+	static zdb::CTexture *m_conetex;
+	static zdb::CTexture *m_deadbliptex;
+};
+/* @socom-skeleton end 15CZPlayerMapItem */
+/* @socom-skeleton decl 16NetBandwidthInfo */
+class NetBandwidthInfo
+{
+public:
+	NetClientMetric Sends;
+	NetClientMetric SendBytes;
+	NetClientMetric Recvs;
+	NetClientMetric RecvBytes;
+};
+/* @socom-skeleton end 16NetBandwidthInfo */
 #endif

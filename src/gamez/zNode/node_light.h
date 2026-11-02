@@ -3,6 +3,11 @@
 #include <list>
 
 #include "znode.h"
+/* @socom-skeleton decl forward */
+namespace zdb {
+class CTickLightList;
+}
+/* @socom-skeleton end forward */
 
 namespace zdb
 {
@@ -28,6 +33,12 @@ namespace zdb
 		CPnt3D m_diffuse;
 		bool m_appliedToNode;
 		CPnt3D m_WorldPosition;
+		/* @socom-skeleton decl Q23zdb6CLight */
+public:
+		virtual ~CLight();
+		virtual zdb::CNode * _Copy(zdb::CNode *) const;
+		static zdb::CTickLightList m_tick_list;
+		/* @socom-skeleton end Q23zdb6CLight */
 	};
 
 	class CLightMap : public CLight
@@ -47,6 +58,11 @@ namespace zdb
 		BLENDMODE m_blendmode;
 		f32 m_SpecularFade;
 		CNode* m_instance;
+		/* @socom-skeleton decl Q23zdb9CLightMap */
+public:
+		virtual ~CLightMap();
+		virtual zdb::CNode * _Copy(zdb::CNode *) const;
+		/* @socom-skeleton end Q23zdb9CLightMap */
 	};
 
 	class CLightList : public std::list<CLight*>

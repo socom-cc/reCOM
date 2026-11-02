@@ -21,6 +21,13 @@
 #include "gamez/zArchive/zar.h"
 #include "gamez/zMath/zmath.h"
 #include "gamez/zTexture/ztex.h"
+/* @socom-skeleton decl forward */
+class CVisBase;
+namespace zdb {
+class AddonPoint;
+class CLightMapVector;
+}
+/* @socom-skeleton end forward */
 
 class CShader;
 class CTextureRelocMgr;
@@ -145,6 +152,12 @@ namespace zdb
 
 		_word128* m_data;
 		_word128* m_nextGif;
+		/* @socom-skeleton decl Q23zdb8CVisData */
+public:
+		void SelectVertex(zdb::CVisual *, unsigned int, unsigned int);
+		void ReplaceTextureData(unsigned __int128 *);
+		void SetBilinear(unsigned __int128 *, unsigned int);
+		/* @socom-skeleton end Q23zdb8CVisData */
 	};
 	
 	/// <summary>
@@ -163,7 +176,7 @@ namespace zdb
 		};
 
 		static void AddLocalLight(CLight* light, CPnt3D* position);
-		static void AlphaEnable(bool enableAlpha) {}
+		static void AlphaEnable(bool enableAlpha);
 		static s32 ApplyDecal(u32 vertex, f32 opacity, CPnt3D* position, CMatrix* mat, CTexHandle* handle);
 		static CVisual* Create(zar::CZAR& archive);
 		static void LandmarkEnable(bool enableLandmarks);
@@ -260,6 +273,55 @@ namespace zdb
 		f32 m_r;
 		f32 m_g;
 		f32 m_b;
+		/* @socom-skeleton decl Q23zdb7CVisual */
+public:
+		virtual ~CVisual();
+		virtual void ComputeBBox(CBBox *);
+		virtual void UpdateCentroid();
+		virtual void Write(zar::CZAR &);
+		virtual void Get2DVisual();
+		static void Flush();
+		static _word128 * GetTextureSelectBlock(unsigned int, _word128 **, _word128 *, _word128 *);
+		static _word128 * GetTextureSelectBlock_ver2(unsigned int, _word128 **, _word128 *, _word128 *);
+		zdb::CTexture * ResolveTextureName(_word128 *, unsigned int);
+		void SetBuffer(_word128 *, unsigned int, ::CVisBase *);
+		void CopyBuffer(::CVisBase **, unsigned int);
+		_word128 * VuBatchProgram_Decals(_word128 *, tag_ObjectHeader *);
+		_word128 * VuObjectSetup(_word128 *, tag_ObjectHeader *);
+		_word128 * VuBatchProgram(_word128 *, tag_ObjectHeader *, zdb::tag_DETAIL_PARAMS *);
+		static void SaveTextureSelect(_word128 *, zdb::CTexture *, unsigned long);
+		_word128 * VuDetailMap(_word128 *, zdb::tag_DETAIL_PARAMS *);
+		_word128 * VuLightMap(_word128 *);
+		_word128 * VuShadowMap(_word128 *);
+		_word128 * VuExecuteState0(_word128 *, _word128 *);
+		void VuUpdate(float);
+		void ApplyDecalRender(CMatrix *, zdb::CNode *, float, CPnt3D *, CPnt3D *, zdb::CTexHandle *, CMatrix *);
+		void AttachDecal(unsigned int, float, unsigned int, zdb::AddonPoint **, zdb::CTexHandle *);
+		void RemoveDecal(zdb::CDecal *);
+		void DereferenceDecals(unsigned int);
+		static float m_AmbientLightScale;
+		static CMatrix *m_ModelToWorld;
+		static bool m_applyScaleColor;
+		static int m_customGlobalLightIdx;
+		static unsigned char m_customGlobalLight[512];
+		static _word128 *m_dmaSubfaceChain;
+		static int m_dmaSubfaceQwc;
+		static zdb::CTexHandle *m_envBackMapTexture;
+		static zdb::CTexHandle *m_envFrontMapTexture;
+		static unsigned int m_fovClipWord;
+		static int m_lightMapCnt;
+		static zdb::CTexHandle *m_lightMapTexture;
+		static int m_local_light_cnt;
+		static int m_mtl_band;
+		static int m_primAlpha;
+		static float m_scaleColor[3];
+		static int m_shadowMapCnt;
+		static int m_specMapCnt;
+		static bool m_specMapGlobal;
+		static zdb::CLightMapVector m_specMapList;
+		static zdb::CTexHandle *m_specMapTexture;
+		static _word128 *m_sprEndOfMP;
+		/* @socom-skeleton end Q23zdb7CVisual */
 	};
 
 	class CMesh : public CVisual
@@ -270,6 +332,23 @@ namespace zdb
 		void SetMeshTextureSelects(_word128* wtexture, _word128* wname);
 		
 		u32 m_mtx_count;
+		/* @socom-skeleton decl Q23zdb5CMesh */
+public:
+		virtual ~CMesh();
+		virtual void ComputeBBox(CBBox *);
+		virtual void UpdateCentroid();
+		virtual void Read(zar::CZAR &);
+		virtual void Write(zar::CZAR &);
+		virtual void InitMatrices();
+		static void Init();
+		void AddLOD(zdb::CMesh *, float);
+		void SetLOD(unsigned int, float);
+		void SetLOD(unsigned int, unsigned int);
+		zdb::CMesh * Clone();
+		void SetMeshBuffer(_word128 *, _word128 *, _word128 *);
+		void RemoveMeshDecal(zdb::CMeshDecal *);
+		void DereferenceDecals(unsigned int);
+		/* @socom-skeleton end Q23zdb5CMesh */
 	};
 
 	class CSubMesh : public CMesh
@@ -282,18 +361,38 @@ namespace zdb
 		u32 field14_0x1c;
 		u32 m_matrix_id;
 		CMesh* m_mesh;
+		/* @socom-skeleton decl Q23zdb8CSubMesh */
+public:
+		virtual ~CSubMesh();
+		virtual void Read(zar::CZAR &);
+		virtual void Write(zar::CZAR &);
+		/* @socom-skeleton end Q23zdb8CSubMesh */
 	};
 
 	class CDecal : public CVisual
 	{
 	public:
 		static CDecalPool m_tempPool;
+		/* @socom-skeleton decl Q23zdb6CDecal */
+public:
+		static void PutTempDecal(zdb::CDecal *);
+		static void PutPermDecal(zdb::CDecal *);
+		void AddDecal(float, zdb::AddonPoint **, unsigned int, zdb::CTexHandle *, zdb::CVisual *, unsigned int);
+		static void Tick(float);
+		static int m_permPool[5];
+		/* @socom-skeleton end Q23zdb6CDecal */
 	};
 
 	class CMeshDecal : public CDecal
 	{
 	public:
 		static CMeshDecalPool m_tempPool;
+		/* @socom-skeleton decl Q23zdb10CMeshDecal */
+public:
+		static void PutTempDecal(zdb::CMeshDecal *);
+		void FreeMem();
+		static int m_permPool[5];
+		/* @socom-skeleton end Q23zdb10CMeshDecal */
 	};
 
 	class C2DVisual : public CVisual

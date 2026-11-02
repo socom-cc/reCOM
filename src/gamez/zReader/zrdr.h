@@ -190,6 +190,10 @@ struct _zrdr
 		char* string;
 		_zrdr* array;
 	};
+	/* @socom-skeleton decl 5_zrdr */
+public:
+	void Clone(_zrdr *, CSTable *);
+	/* @socom-skeleton end 5_zrdr */
 };
 
 extern ZRDR_TYPE zrdr_file_type;
@@ -213,6 +217,13 @@ public:
 	char* m_buffer;
 	u32 m_size;
 	u32 m_flags;
+	/* @socom-skeleton decl 8CRdrFile */
+public:
+	~CRdrFile();
+	_zrdr * Pack(_zrdr *, _zrdr *, int);
+	unsigned int Pack();
+	unsigned char ReadPacked(CFileIO &, unsigned int);
+	/* @socom-skeleton end 8CRdrFile */
 };
 
 class CRdrArchive : public zar::CZAR
@@ -229,6 +240,10 @@ public:
 
 	static void OpenAll();
 	static void CloseAll();
+	/* @socom-skeleton decl 11CRdrArchive */
+public:
+	virtual ~CRdrArchive();
+	/* @socom-skeleton end 11CRdrArchive */
 };
 
 class CRdrIO : public CBufferIO

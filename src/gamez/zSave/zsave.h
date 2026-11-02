@@ -37,6 +37,10 @@ public:
 	bool m_AbortLoad;
 	bool m_AbortSave;
 	char* m_Filename;
+	/* @socom-skeleton decl 12CSaveManager */
+public:
+	~CSaveManager();
+	/* @socom-skeleton end 12CSaveManager */
 };
 
 class CSaveModule
@@ -55,5 +59,10 @@ public:
 	s32 m_Priority;
 	s32 m_Flags;
 	zar::CKey* m_pKey;
+	/* @socom-skeleton decl 11CSaveModule */
+public:
+	virtual ~CSaveModule();
+	virtual unsigned char TestFlags(int) const;
+	/* @socom-skeleton end 11CSaveModule */
 };
 #endif

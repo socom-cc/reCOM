@@ -35,11 +35,41 @@ protected:
 	std::vector<CZBodyAnim*> m_body_anims;
 	std::vector<CZBodyPart*> m_body_parts;
 	std::vector<CZBodyPart*> m_body_parts_aux;
+	/* @socom-skeleton decl 5CBody */
+public:
+	virtual ~CBody();
+	CBody();
+	CZBodyPart * BodySetup(zdb::CNode *, CZBodyPart *);
+	CZBodyPart * AddBodyPart(zdb::CNode *, CZBodyPart *);
+	CZBodyPart * AttachAuxNode(zdb::CNode *, CZBodyPart *, const CPnt3D *, const CPnt3D *);
+	CZBodyPart * AttachAuxPart(CZBodyPart *, CZBodyPart *);
+	zdb::CNode * FindAuxNode(const char *, bool);
+	CZBodyPart * FindBodyPart(int);
+	CZBodyPart * FindPart(const char *) const;
+	CZBodyAnim * BodyAddAnim(const char *, bool, int);
+	void AddAnim(CZBodyAnim *, int, int);
+	void SetBlendPool(int);
+	void Snap();
+	CZBodyAnim * GetAnimById(int);
+	void BodySetState(int);
+	CZBodyAnimBlend * PushBlend(int, int, int, bool);
+	CZBodyAnimBlend * PopBlend();
+	void ClearBlendOverlay();
+	void Destroy();
+	/* @socom-skeleton end 5CBody */
 };
 
 class CBlendOverlay
 {
 
+	/* @socom-skeleton decl 13CBlendOverlay */
+public:
+	void IsTriggerTime(float, float, bool);
+	void Trigger(CBody *, bool);
+	void Tick(CBody *, float);
+	void IsTriggerTime(float, float);
+	void CallbackTick(void *, float);
+	/* @socom-skeleton end 13CBlendOverlay */
 };
 
 class CZBodyAnim : protected CZSIScript
@@ -54,6 +84,22 @@ private:
 	u32 m_callback1_index : 8;
 	u32 m_callback2_index : 8;
 	u32 m_callback3_index : 8;
+	/* @socom-skeleton decl 10CZBodyAnim */
+public:
+	virtual ~CZBodyAnim();
+	virtual void SetTimeScale(float);
+	virtual void NullNode() const;
+	void SetCallbackIndex(int, int);
+	void GetCallbackIndex(int);
+	void Setup(int, float, float);
+	void Update(float, float);
+	float GetMaxVelocity();
+	void CopyValues(CZBodyAnim *);
+	void SetMultiplier(bool);
+	void Reset();
+	float TrueLoopTime();
+	void SetTS(float);
+	/* @socom-skeleton end 10CZBodyAnim */
 };
 
 class CZBodyPart
@@ -74,4 +120,21 @@ private:
 	CPnt3D m_saved_pos;
 	CQuat m_saved_rot;
 };
+/* @socom-skeleton decl 11ACTIVE_ANIM */
+class ACTIVE_ANIM
+{
+public:
+	void Clear();
+	void ClearOverlays(CBody *);
+};
+/* @socom-skeleton end 11ACTIVE_ANIM */
+/* @socom-skeleton decl 22CZBodyAnimCallbackList */
+class CZBodyAnimCallbackList
+{
+public:
+	~CZBodyAnimCallbackList();
+	void Clear();
+	void AddCallback(const char *, float);
+};
+/* @socom-skeleton end 22CZBodyAnimCallbackList */
 #endif

@@ -20,6 +20,10 @@
 #include "gamez/zSystem/zsys.h"
 #include "gamez/zValve/zvalve.h"
 #include "gamez/zUI/zui.h"
+/* @socom-skeleton decl forward */
+class CLadderData;
+class TypeBombStatus;
+/* @socom-skeleton end forward */
 
 class CMission;
 class CMissionObjectiveCam;
@@ -58,8 +62,24 @@ _zanim_cmd_hdr* HUDLetterBoxCmdParseOff(_zrdr* reader);
 class Headset
 {
 public:
-	static void ftsDeleteHeadset() {}
-	static void* ftsGetHeadset() { return NULL; }
+	static void ftsDeleteHeadset();
+	static void* ftsGetHeadset();
+	/* @socom-skeleton decl 7Headset */
+public:
+	Headset();
+	~Headset();
+	void Queue(unsigned int, CSnd *, int);
+	void DeQueue(int **, unsigned int *, CSnd **, int *);
+	static void StaticSoundSysCallback(unsigned int, unsigned long);
+	void SoundSysCallback(unsigned int);
+	void Tick(float);
+	void DisconnectedTick(float);
+	void ConnectedTick(float);
+	void Remove(int, bool, bool);
+	void StopSound(int, CSnd *);
+	static unsigned char theHeadsetState;
+	static int theHeadset;
+	/* @socom-skeleton end 7Headset */
 };
 
 enum MISSION_STATE
@@ -88,7 +108,7 @@ class CMission : CSaveModule
 	};
 
 public:
-	CMission() : CSaveModule("CMission", NULL) {}
+	CMission();
 
 	static char* m_weaponmodelpostfix;
 	static f32 nextFrameDelta;
@@ -180,6 +200,40 @@ public:
 	zdb::CNode* m_terroristbombshack;
 
 	// E3_TEAMS_ENUM m_e3_team;
+	/* @socom-skeleton decl 8CMission */
+public:
+	virtual ~CMission();
+	virtual void Serialize(int);
+	virtual void UnSerialize(const char *, CRdrFile *, int);
+	void CreateCompassNavPoints();
+	void Open(const char *, int);
+	void ReOpen_Unload1();
+	void ReOpen_Unload2();
+	void ReOpen_Load();
+	void ZAnimLoad();
+	void Close();
+	static bool tick(float, void *);
+	void TickObjectives(float);
+	CZNetGame * CreateNetGame();
+	void DestroyNetGame();
+	bool FadeToEndMissionTick(float);
+	bool fadeToEndMissionTick(float, void *);
+	void FadeToEndMission(float, int);
+	void CreateLadderTable();
+	void GetGameTime();
+	void LoadMissionCams(CRdrFile *);
+	void LoadObjectiveCams(CRdrFile *);
+	CMissionCam * GetMissionCamByIdentifier(const char *);
+	void _RecoverFromNetError(int);
+	static unsigned char RecoverFromNetError(int);
+	void Sample_ExtractionLoc();
+	void LoadVehicles(unsigned int);
+	CZSealBody * LoadVehicle(CVehicleRdrEntry *, bool);
+	void InitalizeTeamValves();
+	void RefreshTeamValves();
+	void DecrementTeamValves(CEntity *);
+	void RecycleEntity(CEntity *);
+	/* @socom-skeleton end 8CMission */
 };
 
 class CMissionCam
@@ -191,11 +245,266 @@ private:
 
 	CZAnim* m_anim;
 	CSnd* m_music;
+	/* @socom-skeleton decl 11CMissionCam */
+public:
+	CMissionCam();
+	~CMissionCam();
+	void Set(const char *, const char *, const char *, const char *, const char *, const char *, const char *);
+	/* @socom-skeleton end 11CMissionCam */
 };
 
 class CZBombState
 {
 public:
 	static s32 m_FutureBombState;
+	/* @socom-skeleton decl 11CZBombState */
+public:
+	enum EnumBombState
+	{
+		BOMB_UNKNOWN = 0,
+		BOMB_GROUNDED = 1,
+		BOMB_CAPTURED = 2,
+		BOMB_PLACED = 3,
+		BOMB_DEFUSED = 4,
+		BOMB_DETONATED = 5
+	};
+	static void zNetRegisterBomb();
+	static void RemoteBombCreationCallback(int, int);
+	static void RemoteBombUpdateCallback(int, int, int);
+	static void RemoteBombPostUpdateCallback(int, int, int);
+	static void RemoteBombDeletionCallback(int, int);
+	static int CreateLocalBomb();
+	void UpdateLocalBomb();
+	static void RequestNewBombState(int, CZBombState::EnumBombState, const CPnt3D *);
+	static void HandleBombStateRequest(int, unsigned char, CPnt3D *);
+	static void ChangeBombState();
+	static void CreateBombHere(CPnt3D *);
+	static void InitBomb();
+	static void UninitBomb();
+	static int m_BombDefuserFieldID;
+	static int m_BombHolderFieldID;
+	static int m_BombPositionFieldID;
+	static unsigned char m_BombStateFieldID[4];
+	static TypeBombStatus m_BombStatus;
+	static int m_NetStructIndexBombObject;
+	/* @socom-skeleton end 11CZBombState */
 };
+/* @socom-skeleton decl 13CCtrlrConfigs */
+class CCtrlrConfigs
+{
+public:
+	void GetButtonState(PadBtnFunc::_, const CPad &);
+	static void IsJumpAndActionShared();
+	static float GetFireButtonPressure(const CPad &);
+	static float GetFwdBackStickPos(const CPad &);
+	static float GetPitchStickPosDilated(const CPad &);
+	static float GetRotateStickPosDilated(const CPad &);
+	static float GetStrafeStickPos(const CPad &);
+	static void Init();
+	static void SelectConfig(const char *);
+	void SetButtonState(CPad *, PadBtnFunc::_, KEY_STATE);
+};
+/* @socom-skeleton end 13CCtrlrConfigs */
+/* @socom-skeleton decl 11CLadderList */
+class CLadderList : public std::vector
+{
+public:
+	CLadderData * GetLadderByIndex(int);
+	void GetClosestLadder(const CPnt3D *, float);
+};
+/* @socom-skeleton end 11CLadderList */
+/* @socom-skeleton decl 20CMissionObjectiveCam */
+class CMissionObjectiveCam : public CMissionCam
+{
+public:
+	CMissionObjectiveCam();
+	~CMissionObjectiveCam();
+	unsigned char IsAvailable() const;
+	void Set(const char *, const char *, const char *, const char *, const char *, const char *, const char *, const char *, const char *, const char *, const PNT2D *);
+	void IsComplete() const;
+	unsigned char IsDisplayOn() const;
+	void IsInvalid() const;
+};
+/* @socom-skeleton end 20CMissionObjectiveCam */
+/* @socom-skeleton decl 9CSpawners */
+class CSpawners
+{
+public:
+	void Tick(float);
+	void Clear();
+};
+/* @socom-skeleton end 9CSpawners */
+/* @socom-skeleton decl 11CZGameState */
+class CZGameState
+{
+public:
+	static void zNetRegisterGame();
+	static void RemoteGameUpdateCallback(int, int, int);
+	static void RemoteGamePostUpdateCallback(int, int, int);
+	static void RemoteGameCreationCallback(int, int);
+	static void RemoteGameDeletionCallback(int, int);
+	static int CreateLocalGame(CZNetGame *);
+	void UpdateLocalGame(CZNetGame *);
+	static int m_CurrentRTimeFieldID;
+	static int m_FlagsFieldID;
+	static int m_InitialClockFieldID;
+	static int m_LJBlockFieldID;
+	static int m_MaxGameTimeFieldID;
+	static int m_NetStructIndexGameObject;
+	static int m_RoundBlockFieldID;
+	static int m_RoundIndexFieldID;
+	static int m_RoundWinnerFieldID;
+	static int m_Score00FieldID;
+	static int m_Score08FieldID;
+	static int m_VersionNoFieldID;
+	static int m_WorldStrFieldID;
+};
+/* @socom-skeleton end 11CZGameState */
+/* @socom-skeleton decl 14CZGrenadeState */
+class CZGrenadeState
+{
+public:
+	static void zNetRegisterGrenade();
+	static void RemoteGrenadeCreationCallback(int, int);
+	static void RemoteGrenadeUpdateCallback(int, int, int);
+	static void RemoteGrenadePostUpdateCallback(int, int, int);
+	static void RemoteGrenadeDeletionCallback(int, int);
+	static int CreateLocalGrenade(CZProjectile *);
+	static void UpdateLocalGrenade(CZProjectile *);
+	static unsigned char m_GrenadePositionFieldID[4];
+	static unsigned char m_GrenadeStateFieldID[4];
+	static unsigned char m_GrenadeVelocityFieldID[4];
+	static int m_NetStructIndexGrenadeObject;
+	static unsigned char m_ThrowerObjectIndexFieldID[4];
+};
+/* @socom-skeleton end 14CZGrenadeState */
+/* @socom-skeleton decl 11CZNetObject */
+class CZNetObject
+{
+public:
+	static unsigned char m_FlagsBroadcastSchedule[24];
+	static unsigned char m_FlashBroadcastSchedule[24];
+	static unsigned char m_GrenadePosBroadcastSchedule[24];
+	static unsigned char m_GrenadeVelBroadcastSchedule[24];
+	static unsigned char m_PositionBroadcastSchedule[24];
+	static unsigned char m_RotationBroadcastSchedule[24];
+};
+/* @socom-skeleton end 11CZNetObject */
+/* @socom-skeleton decl 14CZPersonaState */
+class CZPersonaState
+{
+public:
+	static void zNetRegisterPersona();
+	static void RemotePersonaCreationCallback(int, int);
+	static void RemotePersonaUpdateCallback(int, int, int);
+	static void RemotePersonaPostUpdateCallback(int, int, int);
+	static void RemotePersonaDeletionCallback(int, int);
+	static int CreateLocalPersona();
+	static void UpdateLocalPersona();
+	static void UpdatePersonaLists();
+	static int NumActiveTerrorists();
+	static int NumActiveSeals();
+	static int FindNextSealIndex();
+	void FindNextSealIndexEx();
+	static int FindNextTerrIndex();
+	void FindNextTerrIndexEx();
+	static void UpdateTeamNums();
+	static void UpdateTeamNumsEx();
+	static void RequestTeamSwitch(int, int);
+	void AllReadyToLoad();
+	void AllReadyToPlay();
+	void ToggleReady();
+	static void CheckStateSwitch();
+	static char * GetSOUPString(CZSealBody *, int);
+	static char * GetPersonaName(int);
+	static void ClearPersonaList();
+	static int m_E3IndexFieldID;
+	static unsigned char m_LJArray[16];
+	static unsigned char m_MajorPersonaStateFieldID[4];
+	static unsigned char m_MinorPersonaStateFieldID[4];
+	static int m_NetStructIndexPersonaObject;
+	static int m_NumNone;
+	static int m_NumSeal;
+	static int m_NumTerr;
+	static int m_PersonaList[3];
+	static int m_PersonaMyIPFieldID;
+	static unsigned char m_PersonaNameFieldID[4];
+	static int m_PersonaServerIPFieldID;
+	static unsigned char m_PersonaSoup1FieldID[4];
+	static unsigned char m_PersonaSoup2FieldID[4];
+	static unsigned char m_PersonaSoup3FieldID[4];
+	static unsigned char m_PersonaSoup4FieldID[4];
+	static unsigned char m_PersonaSoup5FieldID[4];
+	static int m_TeamBlockFieldID;
+	static unsigned char m_VotedOff;
+	static int m_savail_index[8];
+	static int m_tavail_index[8];
+};
+/* @socom-skeleton end 14CZPersonaState */
+/* @socom-skeleton decl 11CZSealState */
+class CZSealState
+{
+public:
+	class TypeSealState;
+	static void zNetRegisterSeal();
+	static void RemoteSealCreationCallback(int, int);
+	static void RemoteSealDeletionCallback(int, int);
+	static void SealDeleteCleanup(int);
+	static void RemoteSealUpdateCallback(int, int, int);
+	static void IncrementalUpdateRemoteSeal(int, int, int);
+	static void RemoteSealPostUpdateCallback(int, int, int);
+	void UpdateRollandsUnitStuff(CZSealBody *, CZSealState::TypeSealState *);
+	static int CreateLocalSeal(CZSealBody *, bool);
+	void UpdateLocalSeal(CZSealBody *);
+	static void UnloadRemoteGuyList();
+	static CZSealBody * GetBodyFromObjectIndex(int);
+	void GetPackedWeaponData(CZSealBody *);
+	static void RemoveNetSeal(int, bool);
+	static int m_AIStateFieldID;
+	static int m_ActionStateFieldID;
+	static int m_AimElevationFieldID;
+	static int m_BodyHealthFieldID;
+	static int m_FireModeSelectFieldID;
+	static int m_FireTriggerCountFieldID;
+	static int m_GameStatsFieldID;
+	static int m_HeadHealthFieldID;
+	static int m_KillerIndexFieldID;
+	static int m_LArmHealthFieldID;
+	static int m_LLegHealthFieldID;
+	static int m_NetStructIndexSealObject;
+	static int m_PeekStateFieldID;
+	static int m_RArmHealthFieldID;
+	static int m_RLegHealthFieldID;
+	static int m_RemoteGuyList[3];
+	static int m_RoundStatsFieldID;
+	static int m_SealPosXFieldID;
+	static int m_SealPosYFieldID;
+	static int m_SealPosZFieldID;
+	static unsigned char m_SealTypeFieldID[4];
+	static unsigned char m_SealWeaponsFieldID[4];
+	static int m_SealYawFieldID;
+	static int m_StanceStateFieldID;
+	static int m_TeamBlockFieldID;
+	static int m_ThrottleFBFieldID;
+	static int m_ThrottleLRFieldID;
+	static int m_ThrottleSTFieldID;
+	static unsigned char m_UnitIDFieldID[4];
+	static unsigned char m_VehicleIndexFieldID[4];
+	static int m_WeaponSelectFieldID;
+	static int m_WeaponStateFieldID;
+};
+/* @socom-skeleton end 11CZSealState */
+/* @socom-skeleton decl 14TypeBombStatus */
+class TypeBombStatus
+{
+public:
+	CZBombState::EnumBombState CurrentBombState;
+	CZBombState::EnumBombState NewBombState;
+	CPnt3D BombLocation;
+	CZAnim *pBombAnimation;
+	int HolderObjectIndex;
+	int DefuserObjectIndex;
+	int BombObjectIndex;
+};
+/* @socom-skeleton end 14TypeBombStatus */
 #endif

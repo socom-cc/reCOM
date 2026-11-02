@@ -12,6 +12,11 @@
 #include "gamez/zAnim/zanim.h"
 #include "gamez/zEntity/zentity.h"
 #include "gamez/zSystem/zsys.h"
+/* @socom-skeleton decl forward */
+class CFlyout;
+class CTargetMods;
+class CZDecalSet;
+/* @socom-skeleton end forward */
 
 class CZWeapon;
 class CZWeaponList;
@@ -266,12 +271,17 @@ public:
 	ZWepReader(const ZWepReader&) = delete;
 
 	static bool Read(zar::CZAR& archive, CZWeaponList* weapons, void* ammo); // TODO: Consider adding the CZAmmoList class
+	/* @socom-skeleton decl 10ZWepReader */
+public:
+	~ZWepReader();
+	bool Read(zar::CZAR &, CZWeaponList *, CZAmmoList *);
+	/* @socom-skeleton end 10ZWepReader */
 };
 
 class CZAmmo
 {
 public:
-	CZAmmo() {}
+	CZAmmo();
 	
 	void SetName(const char* name);
 	void SetDescription(const char* description);
@@ -305,6 +315,22 @@ public:
 	f32 m_proximitySquared;
 	f32 m_accelerationFactor;
 	bool m_volatile;
+	/* @socom-skeleton decl 6CZAmmo */
+public:
+	~CZAmmo();
+	void SetName(char *);
+	void SetDescription(char *);
+	void SetHitAnim(const char *);
+	void SetArmorPierce(float);
+	char * GetName();
+	float GetImpactDamage();
+	float GetArmorPierce();
+	float GetExplosionDamage();
+	float GetExplosionRadius();
+	static CZAmmo * GetAmmo(EQUIP_AMMO);
+	static EQUIP_AMMO GetAmmoId(const char *);
+	static unsigned char m_ammolist[12];
+	/* @socom-skeleton end 6CZAmmo */
 };
 
 class CZAmmoList : public std::list<CZAmmo*> {};
@@ -372,6 +398,11 @@ public:
 		u32 m_unused : 22;
 		f32 m_min_range;
 		f32 m_max_range;
+		/* @socom-skeleton decl Q28CZWeapon9AI_PARAMS */
+public:
+		float GetAccuracy(float) const;
+		void SetDefaults(EQUIP_ITEM);
+		/* @socom-skeleton end Q28CZWeapon9AI_PARAMS */
 	};
 
 	CZWeapon();
@@ -379,9 +410,9 @@ public:
 
 	static bool          IsPrimary(EQUIP_ITEM item);
 	static bool          IsSecondary(EQUIP_ITEM item);
-	static EQUIP_ITEM    GetIDType() { return EQUIP_ITEM::EQUIP_NONE; } // TODO: Implement this
+	EQUIP_ITEM GetIDType(); // TODO: Implement this
 	static EQUIP_ITEM    GetIDType(EQUIP_ITEM id);
-	static EQUIP_ITEM    GetWeaponId(const char* name) { return EQUIP_ITEM::EQUIP_NONE; } // TODO: Implement this
+	static EQUIP_ITEM    GetWeaponId(const char* name); // TODO: Implement this
 
 	static void          Open();
 	static void          Close();
@@ -419,13 +450,13 @@ public:
 	/// -------------------------------------------
 	char*        GetAssociatedGearName()         const { return m_associatedgearname; }
 	char*        GetDecalSetName()               const { return m_decalsetname; }
-	char*        GetDescription()                const { return m_description; }
+	char*        GetDescription()                const;
 	char*        GetDefaultSpecialAnimName()     const { return m_defaultspecialanimname; }
 	char*        GetFireAnimName()               const { return m_fireanimname; }
 	char*        GetHitAnimName()                const { return m_hitanimname; }
-	char*        GetIconTextureName()            const { return m_icontexname; }
-	char*        GetModelName()                  const { return m_modelname; }
-	char*        GetName()                       const { return m_name; }
+	char*        GetIconTextureName()            const;
+	char*        GetModelName()                  const;
+	char*        GetName()                       const;
 	char*        GetSpecialMaterialAnimName()    const { return m_specialmaterialanimname; }
 	char*        GetWeaponName(EQUIP_ITEM id)    const;
 	char*        GetWeaponUIName(EQUIP_ITEM id)  const;
@@ -435,7 +466,7 @@ public:
 	s32          GetNumMags()                    const { return m_nummags; }
 
 	f32          GetEffectiveRange()             const { return m_effectiverange; }
-	f32          GetImpactRadius()               const { return m_impactradius; }
+	f32          GetImpactRadius()               const;
 	f32          GetMaxRange()                   const { return m_maxrange; }
 	f32          GetMuzzleVelocity()             const { return m_muzzlevel; }
 
@@ -559,12 +590,60 @@ public:
 
 	CZAmmoList m_LegalAmmoList;
 	bool m_hasFiremodes[5];
+	/* @socom-skeleton decl 8CZWeapon */
+public:
+	virtual void Fire(zdb::CNode *, CZAmmo *, const CPnt3D *, const CPnt3D *, const CPnt3D *, CZProjectile *, int, zdb::CModel *, float, float);
+	void AddWeaponEventCallback(void (*)(CZProjectile *, unsigned int, void *), unsigned int, void *);
+	void RemoveWeaponEventCallback(void (*)(CZProjectile *, unsigned int, void *));
+	static void MakeWeaponEventCallbacks(unsigned int, CZProjectile *);
+	static void CreateProjectileList(int);
+	void CreateMarkList();
+	void DestroyMarkList();
+	static CSnd * GetBulletPassSound();
+	int GetAmmoCapacity();
+	int GetNumMags();
+	ENCUMBRANCE GetEncumbrance();
+	float GetMaxRange();
+	float GetEffectiveRange();
+	float GetMuzzleVelocity();
+	char * GetAssociatedGearName();
+	void IsLegalAmmo(CZAmmo *);
+	char * GetHitAnimName();
+	char * GetDefaultSpecialAnimName();
+	char * GetSpecialMaterialAnimName();
+	void SetHitAnim(int, CZAnim *);
+	void SetSpecialMaterialAnim(int, CZAnim *);
+	CZAnim * GetSpecialMaterialAnim(int);
+	char * GetFireAnimName();
+	CZAnim * GetHitAnim(int);
+	CZAnim * GetDefaultSpecialAnim();
+	CZAnim * GetFireAnim(bool);
+	char * GetDecalSetName();
+	void SetReloadSoundName(char *);
+	static bool PreTick(float, void *);
+	static bool PostTick(float, void *);
+	CZAmmo * GetDefaultAmmo();
+	EQUIP_AMMO GetDefaultAmmoId();
+	bool IsDirectFire();
+	static void UnpackItemAndAmmoEnums(unsigned short, EQUIP_ITEM *, EQUIP_AMMO *);
+	static unsigned short PackItemAndAmmoEnums(EQUIP_ITEM, EQUIP_AMMO);
+	static char * GetWeaponName(EQUIP_ITEM);
+	static char * GetWeaponUIName(EQUIP_ITEM);
+	static char * GetWeaponVUIName(EQUIP_ITEM);
+	static void Init();
+	static void OpenDecals();
+	static void RegisterTimer(float *, float, bool);
+	static void RetrieveTimerRegistration(float **, float *, bool *);
+	static unsigned char TimerRegistered();
+	static unsigned char TimerCleared();
+	static unsigned char m_flyout_machine[28];
+	/* @socom-skeleton end 8CZWeapon */
 };
 
 class CZFTSWeapon : public CZWeapon
 {
 public:
-	CZFTSWeapon() {}
+	CZFTSWeapon();
 	~CZFTSWeapon();
 
 	f32 GetZoomRange(u32 range_level) const;
@@ -588,6 +667,32 @@ public:
 	f32 m_accuracyScalarMax;
 	f32 m_normalizedRange;
 	s32 m_slotCost;
+	/* @socom-skeleton decl 11CZFTSWeapon */
+public:
+	virtual void Recoil();
+	int AccuracyBurstCnt_Min() const;
+	int AccuracyBurstCnt_Max() const;
+	void AccuracyBurstCnt_Min(int);
+	void AccuracyBurstCnt_Max(int);
+	void AccuracyScalar_Min(float);
+	void AccuracyScalar_Max(float);
+	void SetRumbleHigh_Time(float);
+	unsigned char GetRumbleHigh_Enable() const;
+	float GetRumbleHigh_Time() const;
+	void SetRumbleLow_Time(float);
+	void SetRumbleLow_Power(float);
+	unsigned char GetRumbleLow_Enable() const;
+	float GetRumbleLow_Time() const;
+	float GetRumbleLow_Power() const;
+	float GetZoommode(int);
+	void AddZoommode(float);
+	static float ResolveFTSDamage(float);
+	void IsM203Weapon();
+	void IsGrenadeLauncherWeapon();
+	void IsGrenadeLauncherAmmo();
+	CTargetMods * TargetMods(int);
+	float GetZoomRange(unsigned int);
+	/* @socom-skeleton end 11CZFTSWeapon */
 };
 
 class CZProjectile
@@ -658,12 +763,55 @@ public:
 	bool m_removeASAP;
 
 	s32 m_lastVolumetricMaterial;
+	/* @socom-skeleton decl 12CZProjectile */
+public:
+	virtual void PreTick(float);
+	virtual void PostTick(float);
+	CZProjectile();
+	~CZProjectile();
+	bool SetProjectile(zdb::CNode *, CZWeapon *, CZAmmo *, const CPnt3D *, const CPnt3D *, const CPnt3D *, int, zdb::CModel *, float, float);
+	void SetVelW(const CPnt3D *);
+	void SetModelOrientation(bool, const CPnt3D *);
+	void HandleIntersections(float);
+	void HandleTimers();
+	void DoMiss(float, CPnt3D *);
+	void DoHit(zdb::IntersectStruct *, float, float, CPnt3D *);
+	void HandleBounce(zdb::IntersectStruct *, float, CPnt3D *);
+	void HandleShotgunImpact(zdb::IntersectStruct *, float, float, CPnt3D *);
+	void HandleImpact(zdb::IntersectStruct *, float, float, CPnt3D *);
+	void Cleanup();
+	void HandleDelayedDetonate();
+	void HandleDetonateExplosion();
+	zdb::CNode * GetInstance();
+	void SetInstance(zdb::CNode *);
+	float GetExplosionDamage();
+	float GetDamage(const CPnt3D *, float);
+	void GetDamage(const CPnt3D *, float *, float *, float);
+	void SetAnimInstance(CZAnim *);
+	void IsInRange(const CPnt3D *, float);
+	void ReportGrenadeStatus();
+	void UpdateGrenade(CPnt3D *, CPnt3D *, GRENADE_STATE);
+	void SetProjectileState(PROJECTILE_STATE, bool);
+	void WasDetonated();
+	/* @socom-skeleton end 12CZProjectile */
 };
 
 class CZWeaponList : public std::list<CZWeapon*>
 {
 public:
 	CZWeapon* GetWeaponByIndex(s32 index) const;
+	/* @socom-skeleton decl 12CZWeaponList */
+public:
+	CZWeaponList();
+	~CZWeaponList();
+	CZWeapon * GetWeapon(const char *);
+	EQUIP_ITEM GetWeaponId(const char *);
+	char * GetWeaponName(EQUIP_ITEM);
+	CZWeapon * GetWeapon(EQUIP_ITEM);
+	CZWeapon * GetWeaponByIndex(int);
+	void InitializeWeapons();
+	void ClearAnimations();
+	/* @socom-skeleton end 12CZWeaponList */
 };
 
 class CAccuracy
@@ -673,4 +821,110 @@ public:
 	f32 FactorY;
 	f32 Factor;
 };
+/* @socom-skeleton decl 7CFlyout */
+class CFlyout
+{
+public:
+	CFlyout();
+	~CFlyout();
+};
+/* @socom-skeleton end 7CFlyout */
+/* @socom-skeleton decl 14CFlyoutMachine */
+class CFlyoutMachine
+{
+public:
+	CFlyoutMachine();
+	~CFlyoutMachine();
+	void Init(unsigned int);
+	void HookupReset();
+	void ReleaseAllActive();
+	void AcquireFlyout(CPnt3D &, CPnt3D &, CZAnim *, CZWeapon *, float, CMatrix *, CBBox *);
+	void ReleaseFlyout(CFlyout *, int);
+	void Tick(float);
+};
+/* @socom-skeleton end 14CFlyoutMachine */
+/* @socom-skeleton decl 11CTargetMods */
+class CTargetMods
+{
+public:
+	void SetReticuleKnock(float);
+	void SetReticuleKnock_Return(float);
+	void SetReticuleKnock_Max(float);
+	float GetReticuleKnock() const;
+	float GetReticuleKnock_Return() const;
+	float GetReticuleKnock_Max() const;
+	void SetTarget_DilateUponFire(float);
+	void SetTarget_DilateUponMovement(float);
+	void SetTarget_Constrict(float);
+	void SetTarget_Min(float);
+	void SetTarget_Max(float);
+	float GetTarget_DilateUponMovement() const;
+	float GetTarget_DilateUponMovementSqrt() const;
+	float GetTarget_Constrict() const;
+	float GetTarget_Min() const;
+	float GetTarget_Max() const;
+	void SetSniper_DistPPFrame_PosX(float);
+	void SetSniper_DistPPFrame_PosY(float);
+	float GetSniper_DistPPFrame_PosX() const;
+	float GetSniper_DistPPFrame_PosY() const;
+	void SetSniper_DistLimit_PosX(float);
+	void SetSniper_DistLimit_PosY(float);
+	float GetSniper_DistLimit_PosX() const;
+	float GetSniper_DistLimit_PosY() const;
+	void SetSniper_DecayRate(float);
+	float GetSniper_DecayRate() const;
+	void SetFireRifle_KickRate(float);
+	void SetFireRifle_KickReturnRate(float);
+	void SetFireRifle_KickBaseDist(float);
+	void SetFireRifle_KickRandomDist(float);
+	float GetFireRifle_KickRate() const;
+	float GetFireRifle_KickReturnRate() const;
+	float GetFireRifle_KickBaseDist() const;
+	float GetFireRifle_KickRandomDist() const;
+	float GetWiggleReport();
+	void SetWiggleReport(float);
+	CTargetMods();
+};
+/* @socom-skeleton end 11CTargetMods */
+/* @socom-skeleton decl 10CZDecalSet */
+class CZDecalSet
+{
+public:
+	void DestroyDecalSet();
+	static CZDecalSet * GetDecalSetByName(const char *);
+	static void ReadDecalSet(_zrdr *);
+	void ReadDecalEntry(_zrdr *);
+	static int m_decalsets[3];
+};
+/* @socom-skeleton end 10CZDecalSet */
+/* @socom-skeleton decl 10CZMarkList */
+class CZMarkList
+{
+public:
+	void Init();
+	void UnInit();
+	void ReadDecalNames(char *);
+	void ReadWeaponDecals(_zrdr *);
+	void ReadBloodDecals(_zrdr *);
+	void AddNewMark(zdb::IntersectStruct *, CZProjectile *, float);
+};
+/* @socom-skeleton end 10CZMarkList */
+/* @socom-skeleton decl 12CZTracerPool */
+class CZTracerPool
+{
+public:
+	static int m_tracerpool[3];
+};
+/* @socom-skeleton end 12CZTracerPool */
+/* @socom-skeleton decl 15PlacedExplosive */
+class PlacedExplosive : public CZProjectile
+{
+public:
+	virtual void PreTick(float);
+	virtual void PostTick(float);
+	PlacedExplosive();
+	~PlacedExplosive();
+	void RemoteDetonate();
+};
+/* @socom-skeleton end 15PlacedExplosive */
 #endif

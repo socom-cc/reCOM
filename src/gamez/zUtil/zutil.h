@@ -41,5 +41,78 @@ public:
 private:
 	bool m_doLog;
 	CFileIO* m_fileIO;
+	/* @socom-skeleton decl 7COutput */
+public:
+	~COutput();
+	/* @socom-skeleton end 7COutput */
 };
+/* @socom-skeleton decl 11CIOPManager */
+class CIOPManager
+{
+public:
+	std::vector m_reboot_callback_vec;
+	enum RebootMode
+	{
+		FirstBoot = 0,
+		Singleplayer = 1,
+		Multiplayer = 2,
+		NetConfig = 3
+	};
+	enum RebootPhase
+	{
+		PreReboot = 0,
+		PostReboot = 1
+	};
+	class CRegistrant
+	{
+	public:
+		static int m_last_id;
+	};
+	void RegisterRebootCallback(bool (*)(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *), void *);
+	void UnRegisterRebootCallback(int);
+	void RebootIOP(CIOPManager::RebootMode);
+};
+/* @socom-skeleton end 11CIOPManager */
+/* @socom-skeleton decl 8CMemCard */
+class CMemCard
+{
+public:
+	CMemCard();
+	~CMemCard();
+	void Init();
+	static void Uninit();
+	void SaveGame(const char *, char *);
+	void LoadGame(const char *);
+	void SaveConfig(const char *);
+	void LoadConfig(const char *);
+	void IsInserted();
+	void IsFormatted();
+	void Format();
+	void GetFreeSpace();
+	void CreateIconFiles();
+	void Exists(const char *);
+	void mkdir(const char *);
+	void chdir(const char *);
+	static int m_initcount;
+	static int m_mod_mcman;
+	static int m_mod_mcserv;
+};
+/* @socom-skeleton end 8CMemCard */
+/* @socom-skeleton decl 10CMemCardIO */
+class CMemCardIO : public CIO
+{
+public:
+	virtual void Open(const char *, unsigned int);
+	virtual void Close();
+	virtual void IsOpen() const;
+	virtual void GetSize() const;
+	virtual void GetMode() const;
+	virtual void ftell() const;
+	virtual void fseek(int, int);
+	virtual void fread(void *, int);
+	virtual void fread(int, void **);
+	virtual void fwrite(const void *, int);
+	virtual void fflush();
+};
+/* @socom-skeleton end 10CMemCardIO */
 #endif

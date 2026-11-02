@@ -121,6 +121,48 @@ protected:
 
 	s32 m_offset1;
 	s32 m_offset2;
+	/* @socom-skeleton decl 4CSnd */
+public:
+	virtual ~CSnd();
+	virtual CSndInstance * PlaySound(CSndInstance *, unsigned int);
+	virtual CSndInstance * PlaySoundVol(float, CSndInstance *, unsigned int);
+	virtual CSndInstance * PlaySound3D(const CPnt3D *, float, int, CSndInstance *, unsigned int);
+	virtual CSndInstance * PlaySoundVolPanPitch(float, int, int, CSndInstance *, unsigned int);
+	virtual CSndInstance * PlaySound(bool, CSndInstance *, unsigned int);
+	virtual CSndInstance * PlaySoundVol(float, bool, CSndInstance *, unsigned int);
+	virtual CSndInstance * PlaySound3D(const CPnt3D *, bool, float, int, CSndInstance *, unsigned int);
+	virtual CSndInstance * PlaySoundVolPanPitch(float, int, int, bool, CSndInstance *, unsigned int);
+	static void Uninit();
+	static void CleanupLoading();
+	static void SetupSoundGroups();
+	static void SetupJukebox(const char *);
+	static void LoadSounds(const char *);
+	static void LoadSounds(const char *, const char *);
+	static void LoadBank(const char *);
+	static void SetSubtitles(bool);
+	void CalcVolPan(const CPnt3D *, float, int *, int *);
+	void StreamSoundVolPan(int, int, CSndInstance *);
+	static void UnloadAllSounds();
+	static void OnListenerDeath();
+	static void PlayErrorSound();
+	void WaitForCDRead();
+	void SetReverbDepth(const float *);
+	void SetReverbSeconds(const float *);
+	static void SetGroupVol(int, float);
+	static void SetGroupVolTemp(float, float, int, int, int, int, int, int, int);
+	void ResetGroupVolTemp();
+	static unsigned char m_DisplaySounds;
+	static int m_curID;
+	static int m_curbank;
+	static unsigned char m_debugMusic;
+	static int m_errorsound;
+	static unsigned char m_fade_oldvol[28];
+	static int m_fadegroup[7];
+	static float m_fadepct;
+	static unsigned char m_listenermatrix[64];
+	static int m_num_sounds_playing;
+	static int m_num_streams_used;
+	/* @socom-skeleton end 4CSnd */
 };
 
 class CSndInstance : public CSnd
@@ -154,6 +196,34 @@ public:
 
 	f32 m_fadeTime;
 	u32 m_entityID;
+	/* @socom-skeleton decl 12CSndInstance */
+public:
+	static void Cleanup();
+	static CSndInstance * AcquireSoundInstance(unsigned int, CSnd *);
+	void InitInstance(unsigned int, CSnd *);
+	void SetVol(float);
+	void SetPan(int);
+	void SetPitch(int);
+	void SetPos(const CPnt3D *);
+	static void Remove(unsigned int, bool, bool);
+	static void AwarenessUpgrade(unsigned int);
+	static void PostTick(float, void *);
+	void Tick(float);
+	void FadeOut(float);
+	void IsFading();
+	void IsPlaying();
+	void Set3D(float);
+	void TerminateOnFinish();
+	void UIStopAllSounds();
+	static void StopAllSounds();
+	static void StopAllSounds(SOUND_MODE);
+	static void ResumeAllSounds();
+	static void Init();
+	static void DebugSoundList();
+	void RemoveFromList();
+	static void PlaySoundCallback(unsigned int, unsigned long);
+	static int m_removallist[3];
+	/* @socom-skeleton end 12CSndInstance */
 };
 
 class CSndJukebox
@@ -167,7 +237,7 @@ public:
 	static void LoadMusicLists();
 
 	static void Start();
-	static void Tick(f32 delta) {}
+	static void Tick(f32 delta);
 	static void Stop();
 
 	static void Play(MUSIC_MODE mode, CSnd* sound);
@@ -175,11 +245,27 @@ public:
 	
 	static void NormalizeWeights();
 
-	static void IsInFight(bool inFight) { m_isinfight = inFight; }
+	static void IsInFight(bool inFight);
 	
 	static bool m_isinfight;
 	f32 m_weights;
 	MUSIC_MODE m_currentmode;
+	/* @socom-skeleton decl 11CSndJukebox */
+public:
+	static void LoadPlaylists(const char *);
+	static void LoadMusicLists(_zrdr *, int);
+	static void FadeOut();
+	static void ClearQueue();
+	void NormalizeWeights(MUSIC_MODE);
+	static signed char m_currentmode;
+	static int m_cursequence;
+	static int m_cursound;
+	static unsigned char m_jukebox_stopped;
+	static unsigned char m_playlist[24];
+	static unsigned char m_playlists_loaded;
+	static unsigned char m_queue[8];
+	static unsigned char m_weights[24];
+	/* @socom-skeleton end 11CSndJukebox */
 };
 
 class CSndSequence
@@ -190,6 +276,41 @@ public:
 	void Play(int** param_1);
 	void Tick();
 	void Stop();
+	/* @socom-skeleton decl 12CSndSequence */
+public:
+	CSndSequence();
+	~CSndSequence();
+	void CreateSequence(_zrdr *);
+	void Tick(float);
+	void IsFading();
+	void FadeOut();
+	/* @socom-skeleton end 12CSndSequence */
 };
 
+/* @socom-skeleton decl 9CSndGroup */
+class CSndGroup : public CSnd
+{
+public:
+	virtual ~CSndGroup();
+	virtual void PlaySound(CSndInstance *, unsigned int);
+	virtual void PlaySoundVol(float, CSndInstance *, unsigned int);
+	virtual void PlaySound3D(const CPnt3D *, float, int, CSndInstance *, unsigned int);
+	virtual void PlaySoundVolPanPitch(float, int, int, CSndInstance *, unsigned int);
+	static void LoadSoundGroups();
+	void LoadCSndGroup(_zrdr *);
+	void NormalizeWeights();
+};
+/* @socom-skeleton end 9CSndGroup */
+/* @socom-skeleton decl 17CSndSequenceEntry */
+class CSndSequenceEntry
+{
+public:
+	CSndSequenceEntry(CSnd *, float);
+	void Tick(float);
+	void Play();
+	void Stop();
+	void FadeOut();
+	void IsFading();
+};
+/* @socom-skeleton end 17CSndSequenceEntry */
 #endif

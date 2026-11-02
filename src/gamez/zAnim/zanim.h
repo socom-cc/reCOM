@@ -101,6 +101,14 @@
 /// ---------------------
 
 #define DATATYPE_UI_MENU                 0x1
+/* @socom-skeleton decl forward */
+class ACTIVE_ANIM;
+class __sFILE;
+class _zanim_blend_fix;
+namespace zdb {
+class BLENDMODE;
+}
+/* @socom-skeleton end forward */
 
 
 class CZAnim;
@@ -527,6 +535,32 @@ struct AnimSet
 	CBlendable* m_crouchmoveback_anims;
 	CBlendable* m_crouchstrafeL_anims;
 	CBlendable* m_crouchstrafeR_anims;
+	/* @socom-skeleton decl 7AnimSet */
+public:
+	static void CloseAll();
+	void Close();
+	static void Load(_zrdr *);
+	short AnimId(AnimType) const;
+	void Inherit(AnimSet *);
+	static void Load();
+	AnimType BaseAnim(AnimType);
+	void DefineFPAnims();
+	void SetMaxMotion();
+	void AddBlendable(int, float, float);
+	static void ReadDeathAndFlinchAnims();
+	static void InitDeathAndFlinchAnimations();
+	void ReadTeammateDeathAnimations(_zrdr *, const char *, DAMAGE_LOCATION);
+	void ReadDeathAnimations(_zrdr *, const char *, DAMAGE_LOCATION);
+	void ReadFlinchAnimations(_zrdr *, const char *, DAMAGE_LOCATION);
+	static unsigned char damageanim[216];
+	static int deathanim[54];
+	static int list[3];
+	static int m_defuse;
+	static unsigned char pistoldamageanim[216];
+	static unsigned char pistoldeathanim[216];
+	static unsigned char teammatedeathanim[216];
+	static unsigned char teammatepistoldeathanim[216];
+	/* @socom-skeleton end 7AnimSet */
 };
 
 struct SequenceData
@@ -541,11 +575,26 @@ class CAnimsByFP
 {
 private:
 	ANIMTYPE_GROUP m_animgroups;
+	/* @socom-skeleton decl 10CAnimsByFP */
+public:
+	void Clear();
+	AnimType PistolAnim(AnimType) const;
+	AnimType RifleFPAnim(AnimType) const;
+	AnimType PistolFPAnim(AnimType) const;
+	void SetPistolAnim(AnimType, AnimType);
+	/* @socom-skeleton end 10CAnimsByFP */
 };
 
 class CBlendable
 {
 	BLENDABLE_ANIM m_blendable[4];
+	/* @socom-skeleton decl 10CBlendable */
+public:
+	void Clear();
+	void AddBlendable(float, float, AnimType);
+	float MaxTrans1();
+	void Contains(AnimType);
+	/* @socom-skeleton end 10CBlendable */
 };
 
 class CActiveAnimList
@@ -636,6 +685,69 @@ public:
 	s32 m_seq_data_size;
 
 	CZAnim* m_sibling_anim;
+	/* @socom-skeleton decl 6CZAnim */
+public:
+	void HealthInit();
+	float GetHealth();
+	CZAnim * Activate(CZAnim *);
+	void ActivateEx(int, ...);
+	CZAnim * ActivateArgV(char *);
+	void ActivateArg(int, ...);
+	void ActivateSequence(const char *);
+	void StopSequence(const char *);
+	void PauseSequence(const char *);
+	void ResumeSequence(const char *);
+	unsigned char SequenceExists(const char *);
+	unsigned char SequenceRunning(const char *);
+	void Refresh(bool);
+	void Reset();
+	void Start();
+	void RestartClones();
+	void MakeClones();
+	CZAnim * FindClones(zdb::CNode *, zdb::CNode *, CZAnim *);
+	CZAnim * GetAvailable();
+	unsigned char Running();
+	void Pause();
+	void Resume();
+	void Stop();
+	zdb::CNode * GetRootNode();
+	unsigned char Tick(float);
+	void State(int);
+	void StopParticleSources();
+	void DeleteParticleSources();
+	void StopSounds();
+	void StopLights(bool);
+	void StopAnims();
+	void GarbageCollect();
+	void Priority(float);
+	zdb::CNode * GetNode(int, bool);
+	_zanim_node_ref * GetNodeRef(int);
+	void GetNodes();
+	void SaveNodeStates(bool);
+	void CreateRootNode();
+	void CreateInstanceNode();
+	void ClearNodePtrs();
+	void ClearValvePtrs();
+	void Name(const char *);
+	char * GetName();
+	char * GetName(int);
+	int AddName(const char *);
+	int AddValve(const char *);
+	CValve * GetValve(int);
+	Particle::Source * GetParticleSource(int);
+	zdb::CTexHandle * GetTexture(int);
+	_zanim_sound * GetSoundRef(int);
+	_zanim_call_anim_ref * GetCallAnimRef(int, int);
+	_zanim_call_anim_ref * GetCallAnimRef(int);
+	void AddNewNodeRef(int, int, int);
+	char * GetNodeRefName(int);
+	int LoadNodeNames(_zrdr *, const char *, int, int);
+	void LoadSaveNodeStates(_zrdr *);
+	CZAnim * Copy();
+	void ExecuteSpecialSequence(int);
+	void Unload();
+	void Load(zar::CZAR &);
+	/* @socom-skeleton end 6CZAnim */
 };
 
 class CZAnimEx : public zdb::CNodeEx
@@ -653,11 +765,23 @@ private:
 	f32 m_armor_max;
 	f32 m_health;
 	f32 m_health_max;
+	/* @socom-skeleton decl 8CZAnimEx */
+public:
+	virtual void OnWeaponHit(zdb::CNode *, zdb::IntersectStruct *, CZProjectile *);
+	~CZAnimEx();
+	void Reset(float *, float *);
+	/* @socom-skeleton end 8CZAnimEx */
 };
 
 class CZAnimExVector : public std::vector<CZAnimEx*>
 {
 	
+	/* @socom-skeleton decl 14CZAnimExVector */
+public:
+	void Add(CZAnimEx *);
+	void Free();
+	void Reset();
+	/* @socom-skeleton end 14CZAnimExVector */
 };
 
 class CZAnimZAR : public zar::CZAR {};
@@ -667,6 +791,13 @@ class CZAnimNameTable
 public:
 	char** m_name;
 	u32 m_count;
+	/* @socom-skeleton decl 15CZAnimNameTable */
+public:
+	char * GetName(int);
+	int AddName(const char *);
+	void Unload();
+	void Load(zar::CZAR &);
+	/* @socom-skeleton end 15CZAnimNameTable */
 };
 
 class CZAnimSet
@@ -696,6 +827,27 @@ public:
 	CZAnim* m_anim_list;
 	CZAnimSetSave* m_node_states;
 	CSched_Manager* m_task_scheduler;
+	/* @socom-skeleton decl 9CZAnimSet */
+public:
+	CSched_Manager * TaskScheduler();
+	CZAnim * NewAnim(const char *);
+	int GetAnimIndex(CZAnim *);
+	CZAnim * Anim(int);
+	CZAnim * Anim(const char *);
+	char * GetName(int);
+	int AddName(const char *);
+	void AddAnimEx(CZAnimEx *);
+	_zanim_si_script * SIScript(int);
+	int SIScript(const char *, const char *, bool, float, bool, bool, bool);
+	void Reset();
+	void SaveNodeStates();
+	void SaveNodeStates(_zanim_node_ref *);
+	void Stop();
+	void Unload();
+	void GarbageCollect();
+	void Load(zar::CZAR &);
+	void LoadSIScript(zar::CZAR &);
+	/* @socom-skeleton end 9CZAnimSet */
 };
 
 class CZAnimSetSave : public std::vector<CZAnimSet*>
@@ -703,12 +855,24 @@ class CZAnimSetSave : public std::vector<CZAnimSet*>
 public:
 	std::vector<CQuat> m_rotationList;
 	std::vector<CZAnimSet*> m_parentList;
+	/* @socom-skeleton decl 13CZAnimSetSave */
+public:
+	void Add(_zanim_node_ref *);
+	void Reset();
+	/* @socom-skeleton end 13CZAnimSetSave */
 };
 
 class CZAnimNameIndexTable
 {
 public:
 	void GetName();
+	/* @socom-skeleton decl 20CZAnimNameIndexTable */
+public:
+	char * GetName(CZAnimSet *, int);
+	int AddName(CZAnimSet *, const char *);
+	void Unload();
+	void Load(zar::CZAR &);
+	/* @socom-skeleton end 20CZAnimNameIndexTable */
 };
 
 class CZAnimMain : public _zanim_main_params
@@ -782,6 +946,64 @@ public:
 
 	s32 m_RunningAnimCount;
 	s32 m_CurrentFrame;
+	/* @socom-skeleton decl 10CZAnimMain */
+public:
+	float InvExp(float);
+	ZAnimNetworkPacket * GetNetworkPacket(int);
+	void FreeNetworkPacketBuffer();
+	void AddPath(const char *);
+	__sFILE * OpenFile(const char *, const char *);
+	void ActivateBegin(CZAnim *);
+	char * SplitName(const char *, char **);
+	int GetCmd(int, char *, bool);
+	zanim_cmd * GetCmdEntry(unsigned short);
+	zanim_cmd * GetCmdEntry(const char *, bool);
+	bool CmdValid();
+	unsigned char CmdTick(float *);
+	bool NewAnimSet(int);
+	void NewAnim(const char *, const char *);
+	CZAnim * GetAnim(int, int);
+	CZAnim * GetAnim(const char *, const char *);
+	void GetAnimIndex(CZAnim *, int *, int *);
+	CZAnimSet * GetAnimSet(int);
+	CZAnimSet * GetAnimSet(const char *);
+	_zsequence * NewSeq(const char *);
+	void SeqSetName(const char *);
+	void SeqSetState(int);
+	void SeqAppendCmd(_zanim_cmd_hdr *);
+	void SeqTick(float);
+	void SeqFirst();
+	void SeqNext();
+	void SeqValid();
+	void StateRunning(int);
+	void SeqRunning();
+	void ActivateSequence(const char *);
+	void StopSequence(const char *);
+	void PauseSequence(const char *);
+	void ResumeSequence(const char *);
+	void SequenceExists(const char *);
+	void SequenceRunning(const char *);
+	void GetNodeSearchScope(const char *, int *);
+	zdb::CNode * GetDatabaseNode(const char *, int);
+	static void GetDirectionRelativeToNode(CPnt3D *, zdb::CNode *);
+	static bool AnimSchedulerTick(float, void *);
+	int NetworkPacketSize(void *);
+	int NetworkReceive(void *);
+	void UnloadSIScript(_zanim_si_script *);
+	void UnloadCmdSet(int);
+	void Load(const char *, const char *);
+	void AnimLoadZRDFile(const char *, const char *);
+	void AnimLoadAnimList(const char *, _zrdr *);
+	void AnimLoadNameZRDR(_zrdr *, _zrdr *);
+	void AnimLoadAnim(_zrdr *, char *, int);
+	void AnimLoadSeq(_zrdr *);
+	void AnimLoadQuadAlignCmd(const char *, int);
+	_zanim_cmd_hdr * AnimParseCmd(const char *, _zrdr *);
+	void LoadZAR(CZAnimZAR *, const char *);
+	CZAnimZAR * OpenZAR(const char *);
+	void CloseZAR(CZAnimZAR *);
+	void LoadZAR(const char *, const char *);
+	/* @socom-skeleton end 10CZAnimMain */
 };
 
 class CZAnimExpression
@@ -795,6 +1017,11 @@ public:
 class CActiveAnimPool
 {
 
+	/* @socom-skeleton decl 15CActiveAnimPool */
+public:
+	ACTIVE_ANIM * GetActiveAnim(CZBodyAnim *);
+	void PutBack(ACTIVE_ANIM *);
+	/* @socom-skeleton end 15CActiveAnimPool */
 };
 
 class CZBodyAnimBlend
@@ -821,6 +1048,26 @@ private:
 	CActiveAnimList* m_anims;
 	ANIM_CALLBACK m_callback;
 	// CHoming m_homing;
+	/* @socom-skeleton decl 15CZBodyAnimBlend */
+public:
+	void Reset();
+	void CallbackTick(CBody *, float, float);
+	void IsTriggerTime(float, float, float);
+	void IsDone(float);
+	float Propagate(float, bool);
+	void Synch(CBody *);
+	void GetVelocity(CPnt3D *);
+	int ThisFoot();
+	void SetRepresentativeWt(float);
+	CZBodyAnim * Representative();
+	void ReverseDir();
+	void SetBlendAnims(CBody *, CActiveAnimList *);
+	void Normalize();
+	void AddOverlay(ACTIVE_ANIM *, ACTIVE_ANIM *, float);
+	ACTIVE_ANIM * FindAnim(CZBodyAnim *);
+	int CountAnims();
+	void Clear();
+	/* @socom-skeleton end 15CZBodyAnimBlend */
 };
 
 class CZSIObject
@@ -834,6 +1081,19 @@ private:
 	u32 m_padding : 21;
 	u32 m_body_part_id : 8;
 	char* m_pName;
+	/* @socom-skeleton decl 10CZSIObject */
+public:
+	CZSIObject();
+	void Initalize(CZSIScriptCommon *);
+	void Read(CZSIScript *, zar::CZAR &);
+	~CZSIObject();
+	CPnt3D * GetVelRaw(CZSIScript *, int, int, CPnt3D *);
+	CPnt3D * GetPosRaw(int, int, float, CPnt3D *);
+	CQuat * GetRotRaw(int, int, float, CQuat *);
+	CPnt3D * GetPosFast(int, int, float, CPnt3D *);
+	CQuat * GetRotFast(int, int, float, CQuat *);
+	void Read(unsigned char *, unsigned int, const char *);
+	/* @socom-skeleton end 10CZSIObject */
 };
 
 class CZSIScript
@@ -846,6 +1106,23 @@ protected:
 	f32 m_tScale;
 	f32 m_multiplier;
 	CZSIScriptCommon* m_pCommon;
+	/* @socom-skeleton decl 10CZSIScript */
+public:
+	virtual ~CZSIScript();
+	virtual void Read(zar::CZAR &, int);
+	virtual short ReadLIP(zar::CZAR &, const char *, void *, int, void *);
+	virtual void SetTimeScale(float);
+	CZSIScript();
+	CZSIScript(const char *);
+	void Share(CZSIScript *);
+	void Load(const char *, bool);
+	static int ReadIt(zar::CZAR &, int, void *);
+	static int CreateAndReadIt(zar::CZAR &, const char *, void *, int, void *);
+	CZSIObject * GetObject(const char *, bool);
+	void SetLoopTime(float);
+	void SetFrameRate(float);
+	static int m_version;
+	/* @socom-skeleton end 10CZSIScript */
 };
 
 class CZSIScriptCommon
@@ -866,6 +1143,11 @@ private:
 	f32 m_fire_val;
 	f32 m_interrupt_val;
 	std::vector<CZSIObject*> m_objects_for_body;
+	/* @socom-skeleton decl 16CZSIScriptCommon */
+public:
+	CZSIScriptCommon();
+	static int list[3];
+	/* @socom-skeleton end 16CZSIScriptCommon */
 };
 
 class CSealAnim
@@ -873,6 +1155,14 @@ class CSealAnim
 public:
 	CSealAnim();
 	~CSealAnim();
+	/* @socom-skeleton decl 9CSealAnim */
+public:
+	void AnimPush(CZSealBody *, ACTIVE_ANIM *);
+	void AnimPop(CBody *);
+	void AnimBlend(int);
+	void CombineRotations(int, int);
+	void AnimOverlay(float);
+	/* @socom-skeleton end 9CSealAnim */
 };
 
 class CSequence
@@ -989,4 +1279,276 @@ bool zAnimUIAppMenuTick(_zanim_cmd_hdr*, f32*);
 bool zAnimUIMenuTick(_zanim_cmd_hdr*, f32*);
 bool zAnimWaitTick(_zanim_cmd_hdr*, f32*);
 bool zAnimWhileTick(_zanim_cmd_hdr*, f32*);
+/* @socom-skeleton decl 9AnimTypes */
+class AnimTypes
+{
+public:
+	static short ApplyRestraints;
+	static short BuddyCarriedPickup;
+	static short BuddyCarriedStand;
+	static short BuddyCarriedStep;
+	static short BuddyCarriedWalk;
+	static short BuddyCarryBody;
+	static short BuddyCarryPickup;
+	static short BuddyCarryStand;
+	static short BuddyCarryStep;
+	static short BuddyCarryWalk;
+	static short CQBVictimFallBackwards;
+	static short CQBVictimFallForwards;
+	static short CQB;
+	static short ClimbMedium;
+	static short ClimbOver;
+	static short CrawlDeath01;
+	static short CrawlDeath02;
+	static short CrouchStrafeLeft;
+	static short CrouchThrowGrenade;
+	static short Death02;
+	static short DeathCrouchBack01;
+	static short DeathCrouchChest01;
+	static short DeathCrouchChest02;
+	static short DeathCrouchHead01;
+	static short DeathProneChest01;
+	static short DeathStandChest03;
+	static short DeathStandHead01;
+	static short DeathStandLarm01;
+	static short DefuseBombBegin;
+	static short DefuseBombEnd;
+	static short DefuseBombLoop;
+	static short Die;
+	static short DiveForward01;
+	static short FallBackward01;
+	static short FallForward01;
+	static short FireCrouchStep;
+	static short FireCrouchWalkBackwards;
+	static short FireCrouchWalk;
+	static short FireCrouch;
+	static short FireJog;
+	static short FireProne;
+	static short FireRunBackwards;
+	static short FireRun;
+	static short FireStand;
+	static short FireStep;
+	static short FireWalkBackwards;
+	static short FireWalk;
+	static short GetupBackward01;
+	static short GetupForward01;
+	static short Jump;
+	static short KickGrenade;
+	static short Ladder2Slide;
+	static short LadderSlideLand;
+	static short LadderSlide;
+	static short LandBackward01;
+	static short LandForward01;
+	static short LandHard;
+	static short MovingPistol2Rifle;
+	static short MovingPistolReload;
+	static short MovingRifle2Pistol;
+	static short MovingRifleReload;
+	static short PistoDeathCrouchChest01;
+	static short PistolApplyRestraints;
+	static short PistolBuddyCarryPickup;
+	static short PistolBuddyCarryStand;
+	static short PistolBuddyCarryStep;
+	static short PistolBuddyCarryWalk;
+	static short PistolCQB;
+	static short PistolClimbMedium;
+	static short PistolClimbOver;
+	static short PistolCrawlDeath01;
+	static short PistolCrawlDeath02;
+	static short PistolCrouchReload;
+	static short PistolCrouchThrowGrenade;
+	static short PistolDeath02;
+	static short PistolDeathCrouchBack01;
+	static short PistolDeathCrouchChest02;
+	static short PistolDeathCrouchHead01;
+	static short PistolDeathProneChest01;
+	static short PistolDeathStandChest03;
+	static short PistolDeathStandHead01;
+	static short PistolDeathStandLarm01;
+	static short PistolDefuseBombBegin;
+	static short PistolDefuseBombEnd;
+	static short PistolDefuseBombLoop;
+	static short PistolDie;
+	static short PistolFireCrouchStep;
+	static short PistolFireCrouchWalkBackwards;
+	static short PistolFireCrouchWalk;
+	static short PistolFireCrouch;
+	static short PistolFireJog;
+	static short PistolFireProne;
+	static short PistolFireRunBackwards;
+	static short PistolFireRun;
+	static short PistolFireStand;
+	static short PistolFireStep;
+	static short PistolFireWalkBackwards;
+	static short PistolFireWalk;
+	static short PistolLadder2Slide;
+	static short PistolLadderSlideLand;
+	static short PistolLadderSlide;
+	static short PistolLandHard;
+	static short PistolPlaceClaymore;
+	static short PistolProneCover;
+	static short PistolProneLStrafe;
+	static short PistolPronePeekLeft;
+	static short PistolPronePeekRight;
+	static short PistolProneRStrafe;
+	static short PistolProneReload;
+	static short PistolProneThrowGrenade;
+	static short PistolProneTossGrenade;
+	static short PistolProneTurn;
+	static short PistolReload;
+	static short PistolReturnThrowGrenade;
+	static short PistolRunningJumpLand;
+	static short PistolRunningJumpLaunch;
+	static short PistolStab;
+	static short PistolStand2Prone;
+	static short PistolStandAlert;
+	static short PistolStepUp;
+	static short PistolThrowGrenade;
+	static short PistolTossGrenadePeekLeft;
+	static short PistolTossGrenadePeekRight;
+	static short PistolTossGrenade;
+	static short PlaceClaymore;
+	static short ProneCover;
+	static short ProneLStrafe;
+	static short PronePeekLeft;
+	static short PronePeekRight;
+	static short ProneRStrafe;
+	static short ProneThrowGrenade;
+	static short ProneTossGrenade;
+	static short ProneTurn;
+	static short ReceiveRestraints;
+	static short RifleCrouchReload;
+	static short RifleM203Reload;
+	static short RifleProneReload;
+	static short RifleReload;
+	static short RifleReturnThrowGrenade;
+	static short Rotate180;
+	static short RunningJumpLand;
+	static short RunningJumpLaunch;
+	static short Slide;
+	static short SlouchSmoke;
+	static short Slouch;
+	static short Stab;
+	static short Stabbed;
+	static short Stand2Prone;
+	static short StandAlert;
+	static short StandStretch;
+	static short StepUp;
+	static short SwapRifle;
+	static short ThrowGrenade;
+	static short TossGrenadePeekLeft;
+	static short TossGrenadePeekRight;
+	static short TossGrenade;
+	static short Walk;
+};
+/* @socom-skeleton end 9AnimTypes */
+/* @socom-skeleton decl 12CAnimAuxData */
+class CAnimAuxData
+{
+public:
+	void Get(unsigned int);
+	static int list[3];
+};
+/* @socom-skeleton end 12CAnimAuxData */
+/* @socom-skeleton decl 12CMenuHistory */
+class CMenuHistory
+{
+public:
+	CMenuHistory();
+};
+/* @socom-skeleton end 12CMenuHistory */
+/* @socom-skeleton decl 10CMenuStack */
+class CMenuStack
+{
+public:
+	~CMenuStack();
+	void HandleCommand(const char *);
+	void AddToHistory(const char *);
+	void GetPopUp();
+	void PopUpDialog(const char *);
+	void CleanPopup();
+	void FlushHistory(bool);
+	void KillPopUp();
+};
+/* @socom-skeleton end 10CMenuStack */
+/* @socom-skeleton decl 14CZAnimArgCharP */
+class CZAnimArgCharP : public CZAnimArg
+{
+public:
+	virtual ~CZAnimArgCharP();
+	virtual void Copy();
+};
+/* @socom-skeleton end 14CZAnimArgCharP */
+/* @socom-skeleton decl 12CZAnimArgCmd */
+class CZAnimArgCmd : public CZAnimArg
+{
+public:
+	virtual ~CZAnimArgCmd();
+	virtual void Copy();
+};
+/* @socom-skeleton end 12CZAnimArgCmd */
+/* @socom-skeleton decl 13CZAnimArgList */
+class CZAnimArgList : public std::list<CZAnimArg *, std::allocator<CZAnimArg *> >
+{
+public:
+	virtual ~CZAnimArgList();
+	void GetPnt3D(CZAnimArg::TYPE);
+	char * GetCharP(int);
+	CValve * GetValve(int);
+	void GetCmd(int);
+	ZAnimNetworkPacket * AddNetworkPacketArgs(CZAnim *, ZAnimNetworkPacket *);
+	void ParseNetworkPacketArgs(CZAnim *, ZAnimNetworkPacket *);
+};
+/* @socom-skeleton end 13CZAnimArgList */
+/* @socom-skeleton decl 13CZAnimArgNode */
+class CZAnimArgNode : public CZAnimArg
+{
+public:
+	virtual ~CZAnimArgNode();
+	virtual void Copy();
+	CZAnimArgNode(CZAnimArg::TYPE, zdb::CNode *);
+};
+/* @socom-skeleton end 13CZAnimArgNode */
+/* @socom-skeleton decl 14CZAnimArgPnt3D */
+class CZAnimArgPnt3D : public CZAnimArg
+{
+public:
+	virtual ~CZAnimArgPnt3D();
+	virtual void Copy();
+	CZAnimArgPnt3D(CZAnimArg::TYPE, const CPnt3D *);
+};
+/* @socom-skeleton end 14CZAnimArgPnt3D */
+/* @socom-skeleton decl 14CZAnimArgValve */
+class CZAnimArgValve : public CZAnimArg
+{
+public:
+	virtual ~CZAnimArgValve();
+	virtual void Copy();
+};
+/* @socom-skeleton end 14CZAnimArgValve */
+/* @socom-skeleton decl 15CZAnimBlendMode */
+class CZAnimBlendMode
+{
+public:
+	void GetBlendMode(const _zrdr *);
+	void GetBlendModes(const _zrdr *, int *, int *, int *, int *, float *);
+	static _zanim_cmd_hdr * GetBlendValueSequence(_zanim_cmd_hdr *, _zrdr *, float *, int *);
+	void GetBlendSequenceValue(zdb::BLENDMODE *, _zanim_blend_fix *, int, float);
+};
+/* @socom-skeleton end 15CZAnimBlendMode */
+/* @socom-skeleton decl 15CZAnimFromToAcc */
+class CZAnimFromToAcc
+{
+public:
+	void ComputeRunTime(CPnt3D *, CPnt3D *);
+	void Tick(float, CPnt3D *);
+};
+/* @socom-skeleton end 15CZAnimFromToAcc */
+/* @socom-skeleton decl 18CZAnimObjectMotion */
+class CZAnimObjectMotion
+{
+public:
+	void GetTranslation(_zrdr *, float *, float *, float *, float *);
+};
+/* @socom-skeleton end 18CZAnimObjectMotion */
 #endif

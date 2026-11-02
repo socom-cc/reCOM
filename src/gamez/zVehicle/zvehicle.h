@@ -9,6 +9,9 @@
 
 #include "gamez/zAI/zai.h"
 #include "gamez/zEntity/zentity.h"
+/* @socom-skeleton decl forward */
+class CTurretDef;
+/* @socom-skeleton end forward */
 
 class CVehicleRdrEntry;
 
@@ -19,6 +22,11 @@ public:
     void Close();
     bool Load(_zrdr*);
     CVehicleRdrEntry* GetEntryByName(const char*);
+    /* @socom-skeleton decl 11CVehicleRdr */
+public:
+    CVehicleRdr();
+    CVehicleRdrEntry * GetEntryByName(const char *) const;
+    /* @socom-skeleton end 11CVehicleRdr */
 };
 
 class CVehicleRdrEntry
@@ -40,7 +48,54 @@ public:
     u32 m_nosnooze : 1;
     u32 m_unused : 26;
     s32 m_startIndex;
+    /* @socom-skeleton decl 16CVehicleRdrEntry */
+public:
+    void Randomize(bool);
+    void GetStart(unsigned int, const char *&, int &) const;
+    char * GetStartPos() const;
+    int GetStartDir() const;
+    unsigned char GetStartMatrix(CMatrix &, unsigned int);
+    /* @socom-skeleton end 16CVehicleRdrEntry */
 };
 
 extern CVehicleRdrEntry* _dest;
+/* @socom-skeleton decl 7CTurret */
+class CTurret
+{
+public:
+	virtual ~CTurret();
+	virtual void GetPosW() const;
+	virtual void PreTick(float);
+	virtual void Tick(float);
+	virtual void PostTick(float);
+	virtual void ComputeNextPosition(float);
+	static void Init(const char *, const char *);
+	static void LoadTurrets();
+	CTurret(zdb::CNode *, const CTurretDef &);
+	void Init(zdb::CNode *, const CTurretDef &);
+	static void ScanForTurretDefinitionHookups(zdb::CNode *, bool);
+	void SampleDynamics(float);
+	void Fire();
+	void Rotate();
+	void AcquireTarget();
+	void SetTarget(CTarget *);
+	static int m_turret_def[3];
+};
+/* @socom-skeleton end 7CTurret */
+/* @socom-skeleton decl 10CTurretDef */
+class CTurretDef
+{
+public:
+	CTurretDef();
+	~CTurretDef();
+	void Parse(const char *, _zrdr *);
+};
+/* @socom-skeleton end 10CTurretDef */
+/* @socom-skeleton decl 16CTurretDefVector */
+class CTurretDefVector
+{
+public:
+	void PrefixMatch(const char *);
+};
+/* @socom-skeleton end 16CTurretDefVector */
 #endif

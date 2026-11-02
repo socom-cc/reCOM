@@ -14,6 +14,10 @@
 #include "gamez/zReader/zrdr.h"
 #include "gamez/zRender/zrender.h"
 #include "gamez/zSystem/zsys.h"
+/* @socom-skeleton decl forward */
+class CCharacterWeapPacked;
+class CHARACTER_SOUND;
+/* @socom-skeleton end forward */
 
 struct AnimSet;
 
@@ -77,12 +81,20 @@ public:
 	zdb::CModel* m_model;
 	CPnt3D m_offset;
 	CPnt3D m_rotation;
+	/* @socom-skeleton decl 14CCharacterGear */
+public:
+	zdb::CNode * CreateInstance(const char *) const;
+	/* @socom-skeleton end 14CCharacterGear */
 };
 
 class CCharacterWeap
 {
 private:
 
+	/* @socom-skeleton decl 14CCharacterWeap */
+public:
+	void SetupCharacterWeapon(EQUIP_ITEM);
+	/* @socom-skeleton end 14CCharacterWeap */
 };
 
 class CCharacterType
@@ -149,6 +161,27 @@ public:
 
 	AI_PARAMS m_aiParams;
 	HEALTH_PARAMS m_healthParams;
+	/* @socom-skeleton decl 14CCharacterType */
+public:
+	void KorusGetPackedWeapons(CCharacterWeapPacked *);
+	void UnPack(const CCharacterWeapPacked *, CCharacterType *);
+	~CCharacterType();
+	void Parse(_zrdr *);
+	CCharacterType * Acquire() const;
+	void CreateLODs(zdb::CNode *);
+	int Release();
+	zdb::CNode * CreateInstance(const char *);
+	static void AcquireSoundHandles();
+	void InitMultiplayerMessages(_zrdr *);
+	static void ClearMultiplayerMessageSounds();
+	void PlayAt(CHARACTER_SOUND, unsigned int, const CPnt3D *);
+	static char * match_name_to_chartype(CRdrFile *, const char *, const char *);
+	static CCharacterType * RdrFetch_CharacterType(const char *);
+	char * GetBaseName();
+	EQUIP_ITEM GetWeaponByIndex(unsigned int) const;
+	static int m_anim_set_names[3];
+	static int m_rdr_file;
+	/* @socom-skeleton end 14CCharacterType */
 };
 
 class CharacterDynamics
@@ -255,5 +288,31 @@ public:
 	throw_params m_throw_params;
 	bool m_loaded = false;
 	std::vector<CCameraParams> m_cam_params;
+	/* @socom-skeleton decl 17CharacterDynamics */
+public:
+	void Load(const CRdrFile &);
+	/* @socom-skeleton end 17CharacterDynamics */
 };
+/* @socom-skeleton decl 18CCharacterGearList */
+class CCharacterGearList : public std::list
+{
+public:
+	CCharacterGear * FindGear(const char *) const;
+};
+/* @socom-skeleton end 18CCharacterGearList */
+/* @socom-skeleton decl 20CCharacterModelCache */
+class CCharacterModelCache
+{
+public:
+	static int m_ModelCache[3];
+};
+/* @socom-skeleton end 20CCharacterModelCache */
+/* @socom-skeleton decl 18CCharacterWeapList */
+class CCharacterWeapList : public std::vector
+{
+public:
+	void AddWeapon(EQUIP_ITEM);
+	void RemoveWeapon(EQUIP_ITEM);
+};
+/* @socom-skeleton end 18CCharacterWeapList */
 #endif

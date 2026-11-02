@@ -11,6 +11,13 @@
 
 #include "gamez/zMath/zmath.h"
 #include "gamez/zSystem/zsys.h"
+/* @socom-skeleton decl forward */
+class NetConnectionInfo;
+class NetObjectLifespan;
+class NetOwnershipStatus;
+class NetThresholdMethod;
+class sceNetcnfifData;
+/* @socom-skeleton end forward */
 
 // #include "gamez/zMath/zmath.h"
 // #include "gamez/zValve/zvalve.h"
@@ -209,6 +216,31 @@ public:
 
 	std::list<s8> m_message_list;
 	std::list<s8> m_fix_list;
+	/* @socom-skeleton decl 9CZNetwork */
+public:
+	class TypeRTimeFixStruct;
+	void zNetInit();
+	bool zNetLoadIRX();
+	void zNetInitEx();
+	void zNetInitialize();
+	static void zNetTick();
+	void AddToFixList(CZNetwork::TypeRTimeFixStruct *);
+	void zNetClose();
+	void zNetCreateObject(int *, NetOwnershipStatus, NetObjectLifespan, unsigned int, int, unsigned int, int, void *, char *, int);
+	void zNetGetObject(int);
+	void zNetGetGameClient(int);
+	void zNetGetClient(int, int);
+	int zNetGetMyGameClientIndex();
+	int zNetGetGameSessionMasterClientIndex();
+	int zNetGetLocalTime();
+	int zNetGetValidGameClientCount();
+	void zNetConnect(void (*)(int, int, const char *), void (*)(int, int, const char *));
+	void zNetJoin(void (*)(int, int), void (*)(int, int));
+	void zNetLeaveAndDisconnect();
+	void zNetSendApplicationMessage(char, int, int, int, int, unsigned char *, bool);
+	void zNetRegisterRemoteObjectCallback(int, void (*)(int, int), void (*)(int, int, int), void (*)(int, int, int), void (*)(int, int));
+	void zNetRemoteObjectUpdateCallback(int, int, int);
+	/* @socom-skeleton end 9CZNetwork */
 };
 
 class CNetClock
@@ -224,6 +256,11 @@ public:
 	s32 m_rtime_delta;
 	bool m_initial_read_set;
 	bool m_clock_running;
+	/* @socom-skeleton decl 9CNetClock */
+public:
+	void SetInitialRead(unsigned int, bool);
+	void Tick();
+	/* @socom-skeleton end 9CNetClock */
 };
 
 class CZNetGame
@@ -307,6 +344,40 @@ public:
 	s32 m_mpe3_score00;
 	s32 m_mpe3_score08;
 	s32 m_e3_index;
+	/* @socom-skeleton decl 9CZNetGame */
+public:
+	enum MP_MAJOR_GAME_STATE
+	{
+		MP_MAJOR_UNKNOWN = 0,
+		MP_MAJOR_MENUS = 1,
+		MP_MAJOR_LOADING = 2,
+		MP_MAJOR_INPLAY = 3,
+		MP_MAJOR_ROUNDOVER = 4,
+		MP_MAJOR_NEWROUND = 5,
+		MP_MAJOR_GAMEOVER = 6,
+		MP_MAJOR_PLAY = 12,
+		MP_MAJOR_GAMELOBBY = 13,
+		MP_MAJOR_GHOST = 14
+	};
+	enum MP_MINOR_GAME_STATE
+	{
+		MP_MINOR_UNKNOWN = 0,
+		MP_MINOR_NOTREADY = 1,
+		MP_MINOR_READY = 2
+	};
+	void UnInitialize();
+	void SetE3RoundCount(int);
+	unsigned int NetworkTeam(unsigned int);
+	CZNetGame::MP_MAJOR_GAME_STATE MPMajorGameState(CZNetGame::MP_MAJOR_GAME_STATE);
+	CZNetGame::MP_MAJOR_GAME_STATE MyMajorGameState(CZNetGame::MP_MAJOR_GAME_STATE);
+	CZNetGame::MP_MINOR_GAME_STATE MyMinorGameState(CZNetGame::MP_MINOR_GAME_STATE);
+	bool LateJoiner(bool);
+	void ResetScores();
+	void TenSecondLaunch(bool);
+	void SetE3Index(int);
+	void DecrementRoundClockSec(int);
+	void OnSealTeam();
+	/* @socom-skeleton end 9CZNetGame */
 };
 
 class CZNetVoice
@@ -341,6 +412,21 @@ private:
 
 	u32 m_PortBuf[4];
 	u32 m_ServerPortBuf[4];
+	/* @socom-skeleton decl 10CZNetVoice */
+public:
+	void Init(unsigned int *);
+	void UnInit();
+	void WorkerThread();
+	void RemoteSMUpdateCallback(unsigned int *);
+	void IAmNewSessionMaster();
+	int Channel(int, unsigned int);
+	void Permit(unsigned int *);
+	void ServerPermit(unsigned int *);
+	void HandleNewIPBuf(int, unsigned int *);
+	static unsigned char m_done_with_thread;
+	static int m_lastChannel;
+	static unsigned char m_uninited;
+	/* @socom-skeleton end 10CZNetVoice */
 };
 
 class CZOnlineLobby
@@ -350,5 +436,146 @@ public:
 private:
 	bool started;
 	CValve* onlineStatusValve;
+	/* @socom-skeleton decl 13CZOnlineLobby */
+public:
+	enum LOBBY_STATE_FLAG
+	{
+		REGISTER = 0,
+		ENTRY = 1,
+		TICK = 2,
+		EXIT = 3,
+		UNREGISTER = 4
+	};
+	static void PasswordSecurity();
+	~CZOnlineLobby();
+	void BanSelfFromGame();
+	void QuitClan();
+	void ForceStatusReport();
+	void GetClan();
+	void AcceptClanInvitation(int);
+	void DeclineClanInvitation(int);
+	void HasClanInvitations();
+	void CheckClanInvitations();
+	void SendClanMessage(const char *);
+	void TransferLeadership(const char *);
+	int GetCurrentLadderPosition();
+	int GetLowestLadderPosition();
+	void SetConnectionInfo(NetConnectionInfo *);
+	void GetSurroundingLadderPosition(int, int, bool);
+	void GetLadderInfo();
+	void GetLadderRanking();
+	void UpdateLadderRating(int);
+	void SetPlayerDescription(const char *);
+	void GetKeyPair();
+	void Open();
+	void Tick();
+	void Close();
+	void ReleaseUIResources();
+	void UnInit();
+	void Login(const char *, const char *);
+	void Logout();
+	void Bailout();
+	void Register(const char *, const char *);
+	void RefreshGameList(C2D *);
+	void RefreshRoomList(C2D *);
+	void RefreshRoomPlayerList(C2D *);
+	void RefreshGamePlayerList(C2D *);
+	void CreateGame();
+	void GameIsPasswordProtected(const char *);
+	void JoinGame(const char *);
+	void IsTeamGame();
+	void OnCorrectClanTeam();
+	void JoinRoom(const char *);
+	void RejoinRoom();
+	void Censor(const char *, void (*)(const char *, void *), void *);
+	void SendChat(const char *);
+	void GetAnnouncements();
+	void UpdateClanStats();
+	void CreateClan(const char *);
+	void InvitePlayerToClan(const char *);
+	void RemovePlayerFromClan(const char *);
+	void RevokeInvite(const char *);
+	void ClanHasInvitations();
+	void GetInvitedPlayers();
+	void GetClanRoster();
+	void DisbandClan();
+	void IsMemberOfClan();
+	void IsLeaderOfClan(const char *);
+	void GetMissionSequence(unsigned char *, unsigned char *);
+	void SetMissionSequence(unsigned char, unsigned char *);
+	void ResetMissionSequence();
+	unsigned char AdvanceMissionSequence();
+	void MediusConnectionIndex();
+	void RecoverFromNetError(int);
+	void SyncGameClock(int);
+	void GetDMEJoinedCount();
+	void SendEndGameReport();
+	/* @socom-skeleton end 13CZOnlineLobby */
 };
+/* @socom-skeleton decl 12BriefingRoom */
+class BriefingRoom
+{
+public:
+	virtual void CloneIndex();
+	virtual void IsAClone();
+	virtual void BaseSrc();
+	void LastClone();
+};
+/* @socom-skeleton end 12BriefingRoom */
+/* @socom-skeleton decl 7CNetCnf */
+class CNetCnf
+{
+public:
+	static void Init(bool);
+	static void Uninit();
+	static void OpenTick(void *);
+	static void * Open(const char *);
+	void Close(void *);
+	void NumCombos(void *);
+	void NumIFC(void *);
+	static int NumDevs(void *);
+	void GetIFC(void *, int);
+	void GetDev(void *, int);
+	void GetDefaultCombo(void *);
+	void SelectCombo(void *, int);
+	static char * GetNetDisplayName(void *, int);
+	static char * GetDevDisplayName(void *, int);
+	static char * GetIfcDisplayName(void *, int);
+	static void InitFromCombo(char *, int);
+	static void ReadInterfaceList(void *);
+	static void ReadInterfaceListTick(void *);
+	static int InterfaceCount(void *);
+	void GetInterfaceEntry(void *, int);
+	static void AddDev(void *, const char *);
+	static void AddDevTick(void *);
+	static void AddIFC(void *);
+	void AddIFCTick(void *);
+	void GetEnvData(void *);
+	static char * GetMACAddr(void *, char *, int);
+	static int GetDevIndex(void *);
+	static void SaveDev(void *);
+	static void SaveDevTick(void *);
+	void SaveIFC(void *, sceNetcnfifData *, const char *);
+	static void SaveIFCTick(void *);
+	static void AddCombo(void *);
+	void AddComboTick(void *);
+	void SaveCombo(void *, sceNetcnfifData *, const char *);
+	static void SaveComboTick(void *);
+	void GetComboData(void *);
+	static void DeleteAll(void *);
+	static void DeleteAllTick(void *);
+	static unsigned char libnetBuffer[5184];
+	static unsigned char libnetCd[60];
+	static unsigned char m_isinit;
+	static int m_open_handle;
+	static int m_selected_combo;
+};
+/* @socom-skeleton end 7CNetCnf */
+/* @socom-skeleton decl 19CZBroadcastSchedule */
+class CZBroadcastSchedule
+{
+public:
+	CZBroadcastSchedule(unsigned int, NetThresholdMethod, double);
+};
+/* @socom-skeleton end 19CZBroadcastSchedule */
 #endif

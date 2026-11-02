@@ -67,6 +67,10 @@
 #include "gamez/zCamera/zcam.h"
 #include "gamez/zInput/zinput.h"
 #include "gamez/zSystem/zsys.h"
+/* @socom-skeleton decl forward */
+class C2DAnimCmdHdr;
+class CPtItr;
+/* @socom-skeleton end forward */
 
 class C2D;
 class C2DFont;
@@ -143,6 +147,11 @@ public:
 	u32 m_isFrameAlpha : 1;
 	u32 m_on : 1;
 	u32 m_unused : 26;
+	/* @socom-skeleton decl 3C2D */
+public:
+	virtual ~C2D();
+	virtual int GetZAnimCmdType(const char *);
+	/* @socom-skeleton end 3C2D */
 };
 
 class C2DFade
@@ -189,6 +198,11 @@ private:
 	zdb::CTexHandle* m_pTexHandle;
 	s32 m_iWidth;
 	s32 m_iHeight;
+	/* @socom-skeleton decl 9C2DBitmap */
+public:
+	virtual ~C2DBitmap();
+	virtual void GetAssetLibs(C2D::CLibList &);
+	/* @socom-skeleton end 9C2DBitmap */
 };
 
 class C2DPoly : public C2D
@@ -210,6 +224,14 @@ public:
 	f32 m_NewUV[3][4];
 	f32 m_vertex[3][4];
 	zdb::CTexture* m_texture;
+	/* @socom-skeleton decl 7C2DPoly */
+public:
+	virtual ~C2DPoly();
+	virtual void GetAssetLibs(C2D::CLibList &);
+	void GetColor();
+	float GetTrans();
+	void SetPos(float, float, float, float, float, float);
+	/* @socom-skeleton end 7C2DPoly */
 };
 
 class C2DBitmapPoly : public C2D, protected C2DFade
@@ -229,12 +251,39 @@ public:
 
 	C2DPoly m_tris[2];
 	zdb::CTexture* m_texture;
+	/* @socom-skeleton decl 13C2DBitmapPoly */
+public:
+	virtual ~C2DBitmapPoly();
+	virtual void SetUseFrameBufferAlpha(bool);
+	virtual void GetAssetLibs(C2D::CLibList &);
+	C2DBitmapPoly();
+	void SetPos(float, float, float, float, float, float, float, float);
+	void SetCenterPos(PNT2D, float, float);
+	void SetUV(float, float, float, float);
+	void SetUV(float, float, float, float, float, float, float, float);
+	float GetTrans();
+	void FlipImage_Xaxis();
+	void FlipImage_Yaxis();
+	void FlipImage_XYaxis();
+	void Rotate_Zaxis(float);
+	void Rotate_Zaxis(float, float);
+	/* @socom-skeleton end 13C2DBitmapPoly */
 };
 
 class CPlainBmp : public C2D
 {
 public:
 	CPlainBmp() {}
+	/* @socom-skeleton decl 9CPlainBmp */
+public:
+	virtual ~CPlainBmp();
+	virtual void Draw(zdb::CCamera *);
+	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
+	virtual void Tick(float);
+	virtual void SetMapOffset(int, int);
+	virtual void UpdateUIVar(CUIVariable *);
+	void LoadSpec(const CImageSpec &, zdb::CTexHandle *);
+	/* @socom-skeleton end 9CPlainBmp */
 };
 
 class C2DString : public C2D
@@ -292,11 +341,36 @@ public:
 	f32 m_elapsedTime;
 
 	IPNT2D m_pos;
+	/* @socom-skeleton decl 9C2DString */
+public:
+	virtual ~C2DString();
+	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
+	virtual void Off();
+	virtual void On();
+	virtual void SetTrans(float);
+	virtual void Tick(float);
+	virtual void Format(const char *, ...);
+	virtual char * GetString();
+	virtual float GetSpacing();
+	virtual void ClearAndWipe();
+	void Draw(zdb::CTextureRelocMgr *, zdb::CCamera *, float);
+	void MakePacket(zdb::CTextureRelocMgr *, int);
+	void Update();
+	void NewLine();
+	void UpdatePos();
+	void SetFont(C2DFont *);
+	/* @socom-skeleton end 9C2DString */
 };
 
 class C2DMessageString : public C2D
 {
 
+	/* @socom-skeleton decl 16C2DMessageString */
+public:
+	virtual ~C2DMessageString();
+	virtual void Tick(float);
+	virtual void SetString(const char *);
+	/* @socom-skeleton end 16C2DMessageString */
 };
 
 class C2DOrderItem : public C2DBitmap
@@ -328,6 +402,14 @@ class C2DOrderItem : public C2DBitmap
 	f32 m_blinkTime;
 	char* m_Explanation;
 	bool m_bArrow;
+	/* @socom-skeleton decl 12C2DOrderItem */
+public:
+	virtual ~C2DOrderItem();
+	virtual void Draw(zdb::CCamera *);
+	virtual void SetTrans(float);
+	virtual void Tick(float);
+	void HandleMoving(float);
+	/* @socom-skeleton end 12C2DOrderItem */
 };
 
 class PoseBitmap : public C2DBitmap
@@ -346,6 +428,15 @@ class PoseBitmap : public C2DBitmap
 
 	C2DFont* m_myfont;
 	f32 m_trans;
+	/* @socom-skeleton decl 10PoseBitmap */
+public:
+	virtual ~PoseBitmap();
+	virtual void Draw(zdb::CCamera *);
+	virtual void Tick(float);
+	PoseBitmap();
+	void Init(zdb::CWorld *);
+	void Clear();
+	/* @socom-skeleton end 10PoseBitmap */
 };
 
 class C2DFontEntry
@@ -381,6 +472,11 @@ public:
 	f32 m_avgWidth;
 	f32 m_opacity;
 	f32 m_scale_factor;
+	/* @socom-skeleton decl 7C2DFont */
+public:
+	virtual void GetAssetLibs(C2D::CLibList &);
+	void SetXSpacing(float);
+	/* @socom-skeleton end 7C2DFont */
 };
 
 class C2DMessage_Q : public C2D
@@ -433,6 +529,16 @@ public:
 	f32 m_displayTime;
 	bool m_bEnabled;
 	f32 m_Distance;
+	/* @socom-skeleton decl 12C2DMessage_Q */
+public:
+	virtual ~C2DMessage_Q();
+	virtual void Draw(zdb::CCamera *);
+	virtual void Tick(float);
+	void Clear_Messages();
+	char * LastMessage();
+	void Add_Message(const char *, int);
+	void Add_Message(const char *, int, int, int);
+	/* @socom-skeleton end 12C2DMessage_Q */
 };
 
 class C3StateButton : public C2D
@@ -443,6 +549,12 @@ public:
 	s32 _iTextX;
 	s32 _iTextY;
 	bool _bCaptionCentered;
+	/* @socom-skeleton decl 13C3StateButton */
+public:
+	virtual ~C3StateButton();
+	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
+	virtual void Tick(float);
+	/* @socom-skeleton end 13C3StateButton */
 };
 
 class C2DButton : public C3StateButton
@@ -474,5 +586,57 @@ public:
 	C2DFont* m_alternateFont;
 
 	f32 _fPressedTime;
+	/* @socom-skeleton decl 9C2DButton */
+public:
+	virtual ~C2DButton();
+	virtual void Tick(float);
+	virtual unsigned char HandlePad(const CPad *, int);
+	virtual void SetCanHandleInput(bool);
+	virtual void SetActive();
+	virtual void SetNormal();
+	virtual C2DAnimCmdHdr * ParseZAnimCmd(_zrdr *);
+	virtual unsigned char TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
+	virtual int GetZAnimCmdType(const char *);
+	virtual void SetBackgroundAlpha(float);
+	virtual void SetPressed();
+	virtual void DrawBackground(const CMatrix &, zdb::CTextureRelocMgr *);
+	C2DButton();
+	void LoadSpec(const CButtonSpec &);
+	/* @socom-skeleton end 9C2DButton */
 };
+/* @socom-skeleton decl 7C2DLine */
+class C2DLine : public C2D
+{
+public:
+	virtual ~C2DLine();
+	virtual void Draw(zdb::CCamera *);
+	virtual void SetTrans(float);
+	virtual void GetAssetLibs(C2D::CLibList &);
+	C2DLine();
+	void SetColor(float, float, float);
+	void Load(float, float, float, float, zdb::CTexture *);
+	void SetPos(int, int, int, int);
+	void SetUV(float, float, float, float);
+	void MakePacket(zdb::CCamera *);
+	void FillClipInfo(float (*)[4], float (*)[4], float (*)[4]);
+	void SetClipInfo(float (*)[4], float (*)[4], float (*)[4], int);
+};
+/* @socom-skeleton end 7C2DLine */
+/* @socom-skeleton decl 9C2DTriFan */
+class C2DTriFan : public C2D
+{
+public:
+	virtual ~C2DTriFan();
+	virtual void Draw(zdb::CCamera *);
+	virtual void GetAssetLibs(C2D::CLibList &);
+	C2DTriFan();
+};
+/* @socom-skeleton end 9C2DTriFan */
+/* @socom-skeleton decl 15C2DWidePolyline */
+class C2DWidePolyline
+{
+public:
+	void SetSegments(CPtItr *, float);
+};
+/* @socom-skeleton end 15C2DWidePolyline */
 #endif

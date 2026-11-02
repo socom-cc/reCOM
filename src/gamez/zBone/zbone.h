@@ -11,6 +11,12 @@ class CScriptArchive : public zar::CZAR
 {
 public:
     
+	/* @socom-skeleton decl 14CScriptArchive */
+public:
+	~CScriptArchive();
+	void Fetch(const char *, CZSIScript *, bool);
+	void LoadAll();
+	/* @socom-skeleton end 14CScriptArchive */
 };
 
 extern u32 bone_archive_version;

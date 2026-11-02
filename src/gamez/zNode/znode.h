@@ -32,6 +32,11 @@
 #include "gamez/zTexture/ztex.h"
 
 #define MAX_NUM_CELL_ATOMS 1600
+/* @socom-skeleton decl forward */
+namespace zdb {
+class BLENDMODE;
+}
+/* @socom-skeleton end forward */
 
 /// -------------------------------------------
 /// FORWARD DECLARATIONS
@@ -195,7 +200,7 @@ namespace zdb
 		void AddChild(CNode* child);
 		s32 DeleteChild(CNode* child);
 		void DeleteChildren();
-		void RemoveFromParent() {}
+		void RemoveFromParent();
 
 		CGridAtom* GetAtom(s16 index);
 		void InsertAtom(CGridAtom* atom);
@@ -282,6 +287,48 @@ namespace zdb
 		CModel* m_model;
 		char* m_modelname;
 		u32 m_region_mask;
+		/* @socom-skeleton decl Q23zdb5CNode */
+public:
+		virtual ~CNode();
+		virtual zdb::CNode * _Copy(zdb::CNode *) const;
+		virtual void ReserveChildren(int);
+		virtual unsigned char IsCell();
+		virtual CBBox * UpdateBBox(bool);
+		virtual CBBox * UpdateBBoxFromDI(bool);
+		void TransformToWorld(CPnt3D &) const;
+		zdb::CNode * Copy() const;
+		void ReserveVisuals(int);
+		void SetNodeEx(zdb::CNodeEx *, bool);
+		void SetRotation(const CQuat &);
+		void SetRotation(const CPnt3D *);
+		float GetScale();
+		CPnt3D * GetScale(CPnt3D *);
+		CPnt3D * GetRotation(CPnt3D *) const;
+		float GetRadiusSq();
+		float GetRadius();
+		zdb::CGridAtom * GetAtom(int);
+		void SetAtomCnt(int);
+		void SetDynamic(bool, bool);
+		void SetDynamicMotion(bool, bool);
+		void SetUseParentBBoxTree(bool);
+		void SetApplyDecals(bool);
+		void SetApplyMultipassEffects(bool);
+		void SetApplyClutterFlag(bool);
+		void ReserveDI(int);
+		static bool VisualEffectsTick(float, void *);
+		void ApplyDecal(zdb::CNode *, float, CPnt3D *, CPnt3D *, CPnt3D *, zdb::CTexHandle *, float, CPnt3D *);
+		void RemoveDecals();
+		void ScrollTexture(zdb::CNode *, float, float, bool);
+		void SetDescendantDI(bool);
+		void SetDescendantVisuals(bool);
+		void FindMeshTextures();
+		void SetBlendMode(const zdb::BLENDMODE &, bool, bool, bool);
+		zdb::CMesh * GetMesh();
+		void GetSubMesh();
+		void GetFirstVisual();
+		static zdb::CNode * Delete(zdb::CNode *);
+		float GetClosestNode(const CPnt3D *, const CPnt3D *, float, float, float, float);
+		/* @socom-skeleton end Q23zdb5CNode */
 	};
 
 	class CNodeEx : public CNode

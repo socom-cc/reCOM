@@ -3,6 +3,9 @@
 #include "gamez/zSystem/zsys.h"
 
 #include <map>
+/* @socom-skeleton decl forward */
+class STUN_TYPE;
+/* @socom-skeleton end forward */
 
 class CInput;
 class CPad;
@@ -59,6 +62,10 @@ private:
 
 	bool m_normalize;
 	bool m_dilate;
+	/* @socom-skeleton decl 10CStickType */
+public:
+	void ReadControlFile(int);
+	/* @socom-skeleton end 10CStickType */
 };
 
 class CInput
@@ -79,6 +86,10 @@ public:
 
 	static CPad* m_pads[2];
 	static CKeyboard* m_keyboard;
+	/* @socom-skeleton decl 6CInput */
+public:
+	static bool IOPRebootHandler(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *);
+	/* @socom-skeleton end 6CInput */
 };
 
 class CPad
@@ -145,5 +156,63 @@ public:
 	f32 m_deadTime[4];
 
 	CStickType m_stickType[2];
+	/* @socom-skeleton decl 4CPad */
+public:
+	CPad(int, int);
+	bool IsOpen() const;
+	~CPad();
+	void SetSensitivity(int, float);
+	float GetSensitivity(int);
+	void SetAcceleration(int, float);
+	float GetAcceleration(int);
+	void SetDeadZone(int, float);
+	float GetDeadZone(int);
+	void SetPreset(int, int);
+	void CheckStickVelocity(float &, float &, int);
+	void Dilate(float &, float &, int);
+	void GetSingleClick(PAD_BUTTON);
+	void GetDoubleClick(PAD_BUTTON);
+	void UpdateButton(PAD_BUTTON, unsigned int);
+	/* @socom-skeleton end 4CPad */
 };
+/* @socom-skeleton decl 6CCheat */
+class CCheat
+{
+public:
+	static void TickAll(float, CPad *);
+	void Update(float, CPad *);
+	static const float cheatTimer;
+	static int m_list[3];
+};
+/* @socom-skeleton end 6CCheat */
+/* @socom-skeleton decl 9CKeyboard */
+class CKeyboard
+{
+public:
+	CKeyboard();
+	~CKeyboard();
+	void Tick(float);
+};
+/* @socom-skeleton end 9CKeyboard */
+/* @socom-skeleton decl 11CRemoteCtrl */
+class CRemoteCtrl : public CSealCtrl
+{
+public:
+	virtual ~CRemoteCtrl();
+	virtual void PreTick(float);
+	virtual void Tick(float);
+	virtual void PostMortemPreTick(float);
+	virtual void OnDeath();
+	virtual void GetRemoteControl();
+	virtual void AllowCommand(CZSealBody *, FT_COMMAND, void *);
+	virtual void IsPlayer() const;
+	virtual void IsRemote() const;
+	virtual void PostTick(float);
+	virtual void OnStunDamage(STUN_TYPE, float, const CPnt3D *);
+	virtual void SetAiNetState(unsigned int);
+	virtual void OnCommand(CZSealBody *, FT_COMMAND, void *, bool);
+	void GetRemoteAiState();
+	void GetRemoteAiFollowMaster();
+};
+/* @socom-skeleton end 11CRemoteCtrl */
 #endif

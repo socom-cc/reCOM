@@ -121,6 +121,12 @@ namespace zar
 		char* m_name;
 		s32 m_size;
 		s32 m_offset;
+		/* @socom-skeleton decl Q23zar4CKey */
+public:
+		static void fixupKey(CSTable *, void *);
+		CKey(const char *);
+		bool Read(zar::CZAR *, CIO *, int);
+		/* @socom-skeleton end Q23zar4CKey */
 	};
 
 	class CZAR
@@ -336,6 +342,23 @@ namespace zar
 
 		bool m_bCompress;
 		bool m_bSecure;
+		/* @socom-skeleton decl Q23zar4CZAR */
+public:
+		static unsigned char DoMemAlign();
+		static void DoMemAlign(bool);
+		unsigned char ReOpen(int, unsigned int);
+		zar::CKey * GetOpenKey();
+		int FetchString(const char *, char *, int);
+		void Fetch(const char *, void *, int);
+		void Fetch(const char *, int (*)(zar::CZAR &, int, void *), void *);
+		bool FetchAll(int (*)(zar::CZAR &, const char *, void *, int, void *), void *);
+		zar::CKey * Insert(const char *, const void *, int);
+		void Insert(zar::CKey *, const void *, int);
+		void Unsecurify(void *, int);
+		void Securify(void *, int);
+		void Fetch(zar::CKey *, void *, int, unsigned int);
+		static unsigned char m_memalign;
+		/* @socom-skeleton end Q23zar4CZAR */
 	};
 }
 #endif

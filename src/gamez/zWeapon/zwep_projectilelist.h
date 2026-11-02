@@ -4,6 +4,9 @@
 
 #include "gamez/zIntersect/zintersect.h"
 #include "gamez/zSystem/zsys_primitive.h"
+/* @socom-skeleton decl forward */
+class PlacedExplosive;
+/* @socom-skeleton end forward */
 
 class CZProjectile;
 
@@ -29,5 +32,26 @@ public:
     zdb::DiIntersect* m_indirectFireDI[30];
     u8 m_indirectFireDIUsed[60];
     s32 m_indirect_firstfree;
+    /* @socom-skeleton decl 16CZProjectileList */
+public:
+    CZProjectileList(int);
+    ~CZProjectileList();
+    void Init();
+    void Clear();
+    void Clear(int);
+    void UnInit();
+    CZProjectile * GetNextFreeProjectile();
+    void FreeIdx(int);
+    void FindLastUsed();
+    void PreTick(float);
+    void PostTick(float);
+    void NetRemoveProjectile(CZProjectile *);
+    void RemoveProjectile(CZProjectile *);
+    void RemoveExplosive(PlacedExplosive *);
+    int GetNumRemoteExplosives(int);
+    void ReleaseDirectFireDI(zdb::DiIntersect **, int *);
+    void ReleaseIndirectFireDI(zdb::DiIntersect **, int *);
+    CZProjectile * AcquireProjectile(CZWeapon &, CZAmmo &);
+    /* @socom-skeleton end 16CZProjectileList */
 };
 #endif

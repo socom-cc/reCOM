@@ -102,6 +102,14 @@
 #include "gamez/zMath/zmath.h"
 #include "gamez/zSystem/zsys.h"
 #include "gamez/zReader/zrdr.h"
+/* @socom-skeleton decl forward */
+class CAiCell;
+class CAiStar;
+class CAiVisMap;
+class MAP_FLOODFILL_STRUCT;
+class MAP_FOREACH_STRUCT;
+class MAP_LINEWALK_STRUCT;
+/* @socom-skeleton end forward */
 
 class CAiMap;
 class CAiAStar;
@@ -348,6 +356,10 @@ struct AI_PARAMS
 	f32 target_delay;
 	f32 target_discipline;
 	// CVehicleRdrEntry* m_veh;
+	/* @socom-skeleton decl 9AI_PARAMS */
+public:
+	void Merge(const AI_PARAMS &, const AI_PARAMS &);
+	/* @socom-skeleton end 9AI_PARAMS */
 };
 
 class CAiEvent
@@ -385,6 +397,30 @@ public:
 	CPnt3D* source;
 	CEntity* originator;
 	s32 dummy;
+	/* @socom-skeleton decl 8CAiEvent */
+public:
+	class EVENT_CLASS;
+	class iterator;
+	static char * GetEventString(CAiEvent::EVENT);
+	static void GetEventFromString(const char *, CAiEvent::EVENT);
+	static void Open(unsigned int);
+	static void Close();
+	static void Release(CAiEvent *);
+	static bool Tick(float, void *);
+	void GetFirstEvent(CAiEvent::EVENT_CLASS);
+	void GetNextEvent(const CPnt3D *, CAiEvent::iterator &, float);
+	CAiEvent();
+	void Initalize();
+	void Tick(float);
+	void MakeMaskEx(CAiEvent::EVENT, ...);
+	static const float NoExpire;
+	static int bit_count;
+	static unsigned char m_callbacks[12];
+	static int m_inuse[3];
+	static unsigned char m_persist[12];
+	static int m_pool[3];
+	static unsigned char nextId[4];
+	/* @socom-skeleton end 8CAiEvent */
 };
 
 class CAiMapVec : std::vector<CAiMap> { };
@@ -394,6 +430,110 @@ class points : std::vector<CPnt3D> { };
 class CAiMap
 {
 
+	/* @socom-skeleton decl 6CAiMap */
+public:
+	class link;
+	class route;
+	enum DIR
+	{
+		N = 0,
+		NE = 1,
+		E = 2,
+		SE = 3,
+		S = 4,
+		SW = 5,
+		W = 6,
+		NW = 7,
+		DIR_COUNT = 8
+	};
+	class action
+	{
+	public:
+		static const unsigned short invalid[2];
+		static const float offset_length;
+	};
+	class name
+	{
+	public:
+		void ValidateName();
+	};
+	class names : public std::vector
+	{
+	public:
+		void SortByNames();
+	};
+	class reader
+	{
+	public:
+		reader();
+		void SetReader(CRdrFile *);
+	};
+	class readers : public std::vector
+	{
+	public:
+		~readers();
+	};
+	class region
+	{
+	public:
+		void InflateRegion(int, int, int, int, const CAiMap *);
+		void Union(const CAiMapLoc &);
+		CAiMapLoc * GetCenter(CAiMapLoc &) const;
+	};
+	static CAiCell * dummy_cell();
+	static void GetDirVec(CAiMap::DIR, CPnt3D &);
+	static CQuat * GetDirQuat(CAiMap::DIR, CQuat &, bool);
+	static CAiMap::DIR GetDirByName(const char *);
+	void GetDirDelta(CAiMap::DIR, CAiMap::DIR);
+	static CAiMap::DIR GetClosestDir(const CPnt3D *);
+	static CAiMap::DIR GetClosestDir(const CAiMapLoc &, const CAiMapLoc &);
+	CAiMap::DIR GetClosestDir(const CAiMapLoc &, const CPnt3D *);
+	static unsigned char GetSoilByName(const char *);
+	CAiMap();
+	~CAiMap();
+	void _reset_rtflag(const MAP_FOREACH_STRUCT &, void *);
+	void _validate_cell(const MAP_FOREACH_STRUCT &, void *);
+	void ValidateCells();
+	void ResetCells();
+	void GetMapRegion(CAiMap::region &) const;
+	unsigned char TransformTo(const CAiMapLoc &, CAiMap *, CAiMapLoc &);
+	void GetCellRepelParams(const CAiMapLoc &, const CPnt3D *, float, CPnt3D &, float &);
+	char * AllocEx(unsigned int);
+	void FreeEx();
+	void GetMapEx(const CAiMapLoc &);
+	CAiMap::name * GetCellName(const CAiMapLoc &);
+	void GetLocation(const char *, CAiMapLoc &) const;
+	void GetCellAction(const CAiMapLoc &);
+	void FindActionLocation(unsigned int, CAiMapLoc &, CAiMap::action **);
+	CAiMap::link * SetCellLink(const CAiMapLoc &, bool);
+	CAiMap::link * GetCellLink(const CAiMapLoc &);
+	CAiMap::region * GetRegion(const CAiMapLoc &);
+	CAiMap::region * GetRegion(const char *, CAiMapLoc &);
+	void GetRegionContaining(const CAiMapLoc &, CAiMap::region::TYPE, bool);
+	void ReRoute(CAiMap::route *);
+	void ValidateRoutes(bool);
+	void CreateGraph(bool);
+	void DestroyGraph();
+	void read_lines(CFileIO &);
+	void read_routes(CFileIO &);
+	void read_readers(CFileIO &);
+	void Read(CFileIO &);
+	void read_cells(CFileIO &);
+	int GetLocationWidth(const CAiMapLoc &, int);
+	unsigned char CanTravelLine(const CAiMapLoc &, const CAiMapLoc &, CAiMapLoc *);
+	unsigned char CanSeeLine(const CAiMapLoc &, const CAiMapLoc &, CAiMapLoc *);
+	void CanSeeLine(const CAiMapLoc &, const CPnt3D *, CAiMapLoc *);
+	float ComputeLineVisibility(const CAiMapLoc &, const CAiMapLoc &);
+	void WalkLine(const CAiMapLoc &, const CAiMapLoc &, bool (*)(const MAP_LINEWALK_STRUCT &, void *), void *);
+	void WalkLine(const CAiMapLoc &, const CPnt3D *, bool (*)(const MAP_LINEWALK_STRUCT &, void *), void *);
+	void FloodFill(const CAiMapLoc &, CAiMap::DIR, int, bool (*)(MAP_FLOODFILL_STRUCT &, void *), void *);
+	unsigned char Tile(const CAiMap::region *, unsigned int, unsigned int);
+	void CountMapVisDir(const CAiMapLoc &, int *, CAiMapLoc *, int);
+	void CountMapTravelDir(const CAiMapLoc &, int *, CAiMapLoc *, int);
+	void CenterRegion(const CAiMapLoc &, CAiMap::region &) const;
+	void UpdateVisibilityMap(CAiVisMap &, int &);
+	static const int version;
+	/* @socom-skeleton end 6CAiMap */
 };
 
 class CAiMapLoc
@@ -401,6 +541,11 @@ class CAiMapLoc
 	u32 m_mapid : 6;
 	u32 m_x : 13;
 	u32 m_y : 13;
+	/* @socom-skeleton decl 9CAiMapLoc */
+public:
+	static const unsigned char invalid[4];
+	static const int max_value;
+	/* @socom-skeleton end 9CAiMapLoc */
 };
 
 class CAiPathStats
@@ -419,6 +564,10 @@ public:
 	f32 m_time;
 	CAiMapLoc m_current;
 	CAiMapLocVec m_visited;
+	/* @socom-skeleton decl 12CAiPathStats */
+public:
+	void reset();
+	/* @socom-skeleton end 12CAiPathStats */
 };
 
 class CAiPath
@@ -455,6 +604,54 @@ public:
 
 	points m_points;
 	s32 m_pathId;
+	/* @socom-skeleton decl 7CAiPath */
+public:
+	enum PATH_STATE
+	{
+		UNKNOWN = 0,
+		INQUEUE = 1,
+		PLANNING = 2,
+		ABORT = 3,
+		COMPLETE = 4,
+		FAILED = 5
+	};
+	enum PATH_TYPE
+	{
+		PATH_DEFAULT = 0,
+		PATH_BASIC = 1,
+		PATH_STEALTH = 2,
+		PATH_RESTRAINED = 3
+	};
+	CAiStar * CreatePlanner();
+	void DeletePlanner();
+	CAiPath();
+	~CAiPath();
+	float GetLength(bool);
+	void GetLegPoints(CAiMapLoc &, CAiMapLoc &, int) const;
+	void GetLegMap(int);
+	void GetLegBoundary(int &, int &, int) const;
+	void plan_setup();
+	void plan_addleg(CAiMap *, const CAiMapLoc &, const CAiMapLoc &);
+	void plan_complete(CAiPath::PATH_STATE);
+	void IncrementPathId();
+	void plan_legcomplete(CAiPath::PATH_STATE);
+	void Clear();
+	void SetTemplatePath(CAiPath *);
+	void AppendPathLoc(const CAiMapLoc &, CAiMap *);
+	void InsertPathLoc(const CAiMapLoc &, CAiMap *);
+	void PostProcess();
+	void SmoothPath();
+	void SmoothPathLeg(int);
+	void UpdateTurnAngles();
+	void UpdatePointFlags();
+	void UpdatePathWidth(unsigned int);
+	void SetSnakeLength(unsigned int);
+	void AddSnakePoint(const CAiMapLoc &);
+	void SetPathType(CAiPath::PATH_TYPE);
+	void PassesThrough(const CAiMapLoc &, CAiMap::DIR, int);
+	void PrintPath() const;
+	void PointInPath(const CAiMapLoc &, unsigned int *) const;
+	/* @socom-skeleton end 7CAiPath */
 };
 
 class CAiAStar
@@ -493,37 +690,90 @@ protected:
 	s32 m_field1_0x4;
 	s32 m_field2_0x8;
 	s32 m_field8_0x14;
+	/* @socom-skeleton decl 8CAiState */
+public:
+	virtual void GetStatus() const;
+	virtual void GetScriptResponse() const;
+	virtual ~CAiState();
+	void Signal(CAiState::SIGNAL, CSealCtrlAi *);
+	/* @socom-skeleton end 8CAiState */
 };
 
 class CAiSScript : public CAiState
 {
 public:
 	bool CanPursue(CSealCtrlAi* controller);
+	/* @socom-skeleton decl 10CAiSScript */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual void GetStatus() const;
+	virtual void CanPursue(CSealCtrlAi *) const;
+	virtual ~CAiSScript();
+	void ActivateSequence(const char *, unsigned int);
+	/* @socom-skeleton end 10CAiSScript */
 };
 
 class CAiSHold : public CAiState
 {
 
+	/* @socom-skeleton decl 8CAiSHold */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual ~CAiSHold();
+	/* @socom-skeleton end 8CAiSHold */
 };
 
 class CAiSAvoid : public CAiState
 {
 
+	/* @socom-skeleton decl 9CAiSAvoid */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual ~CAiSAvoid();
+	/* @socom-skeleton end 9CAiSAvoid */
 };
 
 class CAiSDeploy : public CAiState
 {
 
+	/* @socom-skeleton decl 10CAiSDeploy */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual void CanAttack() const;
+	virtual ~CAiSDeploy();
+	void CanDeployItem(CZKit *, EQUIP_ITEM);
+	/* @socom-skeleton end 10CAiSDeploy */
 };
 
 class CAiSSurrender : public CAiState
 {
 
+	/* @socom-skeleton decl 13CAiSSurrender */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual void CanAttack() const;
+	virtual void GetScriptResponse() const;
+	virtual ~CAiSSurrender();
+	/* @socom-skeleton end 13CAiSSurrender */
 };
 
 class CAiSRestrained : public CAiState
 {
 
+	/* @socom-skeleton decl 14CAiSRestrained */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual void CanAttack() const;
+	virtual void CanScan() const;
+	virtual void GetScriptResponse() const;
+	virtual ~CAiSRestrained();
+	/* @socom-skeleton end 14CAiSRestrained */
 };
 
 class CAiSUseVehicle : public CAiState
@@ -534,71 +784,175 @@ class CAiSUseVehicle : public CAiState
 class CAiSGoto : public CAiState
 {
 
+	/* @socom-skeleton decl 8CAiSGoto */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual ~CAiSGoto();
+	/* @socom-skeleton end 8CAiSGoto */
 };
 
 class CAiSFollow : public CAiState
 {
 
+	/* @socom-skeleton decl 10CAiSFollow */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual void GetStatus() const;
+	virtual ~CAiSFollow();
+	/* @socom-skeleton end 10CAiSFollow */
 };
 
 class CAiSBreach : public CAiState
 {
 
+	/* @socom-skeleton decl 10CAiSBreach */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual void GetStatus() const;
+	virtual void CanPursue(CSealCtrlAi *) const;
+	virtual ~CAiSBreach();
+	/* @socom-skeleton end 10CAiSBreach */
 };
 
 class CAiSAction : public CAiState
 {
 
+	/* @socom-skeleton decl 10CAiSAction */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual ~CAiSAction();
+	/* @socom-skeleton end 10CAiSAction */
 };
 
 class CAiSPursue : public CAiState
 {
 
+	/* @socom-skeleton decl 10CAiSPursue */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual void GetStatus() const;
+	virtual void CanAttack() const;
+	virtual ~CAiSPursue();
+	/* @socom-skeleton end 10CAiSPursue */
 };
 
 class CAiSAnimate : public CAiState
 {
 
+	/* @socom-skeleton decl 11CAiSAnimate */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual ~CAiSAnimate();
+	/* @socom-skeleton end 11CAiSAnimate */
 };
 
 class CAiSCQBAttack : public CAiState
 {
 
+	/* @socom-skeleton decl 13CAiSCQBAttack */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual void CanAttack() const;
+	virtual ~CAiSCQBAttack();
+	/* @socom-skeleton end 13CAiSCQBAttack */
 };
 
 class CAiSFlee : public CAiState
 {
 
+	/* @socom-skeleton decl 8CAiSFlee */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual void CanAttack() const;
+	virtual void CanScan() const;
+	virtual void CanPursue(CSealCtrlAi *) const;
+	virtual ~CAiSFlee();
+	/* @socom-skeleton end 8CAiSFlee */
 };
 
 class CAiSPathRecover : public CAiState
 {
 
+	/* @socom-skeleton decl 15CAiSPathRecover */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual void GetStatus() const;
+	virtual void CanAttack() const;
+	virtual void CanPursue(CSealCtrlAi *) const;
+	virtual ~CAiSPathRecover();
+	/* @socom-skeleton end 15CAiSPathRecover */
 };
 
 class CAiSRescued : public CAiState
 {
 
+	/* @socom-skeleton decl 11CAiSRescued */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual void CanAttack() const;
+	virtual void CanScan() const;
+	virtual void GetScriptResponse() const;
+	virtual ~CAiSRescued();
+	void SetExtractValve(CValve *);
+	/* @socom-skeleton end 11CAiSRescued */
 };
 
 class CAiSSuspended : public CAiState
 {
 
+	/* @socom-skeleton decl 13CAiSSuspended */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual void CanAttack() const;
+	virtual void CanPursue(CSealCtrlAi *) const;
+	virtual ~CAiSSuspended();
+	/* @socom-skeleton end 13CAiSSuspended */
 };
 
 class CAiSShotAt : public CAiState
 {
 
+	/* @socom-skeleton decl 10CAiSShotAt */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual void CanPursue(CSealCtrlAi *) const;
+	virtual ~CAiSShotAt();
+	/* @socom-skeleton end 10CAiSShotAt */
 };
 
 class CAiSNoAmmo : public CAiState
 {
 
+	/* @socom-skeleton decl 10CAiSNoAmmo */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual void CanAttack() const;
+	virtual ~CAiSNoAmmo();
+	/* @socom-skeleton end 10CAiSNoAmmo */
 };
 
 class CAiSHostage : public CAiState
 {
 
+	/* @socom-skeleton decl 11CAiSHostage */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual ~CAiSHostage();
+	/* @socom-skeleton end 11CAiSHostage */
 };
 
 class CAiSPlan : public CAiState
@@ -609,31 +963,78 @@ class CAiSPlan : public CAiState
 class CAiSEvent : public CAiState
 {
 
+	/* @socom-skeleton decl 9CAiSEvent */
+public:
+	class EVENT_STATE;
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual void GetStatus() const;
+	virtual void CanAttack() const;
+	virtual void CanPursue(CSealCtrlAi *) const;
+	virtual ~CAiSEvent();
+	void ComputeNextState(CAiSEvent::EVENT_STATE &, float);
+	/* @socom-skeleton end 9CAiSEvent */
 };
 
 class CAiSTarget : public CAiState
 {
 
+	/* @socom-skeleton decl 10CAiSTarget */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual ~CAiSTarget();
+	/* @socom-skeleton end 10CAiSTarget */
 };
 
 class CAiSGrenade : public CAiState
 {
 
+	/* @socom-skeleton decl 11CAiSGrenade */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual void CanAttack() const;
+	virtual void CanPursue(CSealCtrlAi *) const;
+	virtual ~CAiSGrenade();
+	/* @socom-skeleton end 11CAiSGrenade */
 };
 
 class CAiSStunResponse : public CAiState
 {
 
+	/* @socom-skeleton decl 16CAiSStunResponse */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual void CanAttack() const;
+	virtual ~CAiSStunResponse();
+	/* @socom-skeleton end 16CAiSStunResponse */
 };
 
 class CAiSRush : public CAiState
 {
 
+	/* @socom-skeleton decl 8CAiSRush */
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual ~CAiSRush();
+	void SetTarget(CZSealBody *);
+	/* @socom-skeleton end 8CAiSRush */
 };
 
 class CAiPlanner
 {
 
+	/* @socom-skeleton decl 10CAiPlanner */
+public:
+	virtual void reset();
+	virtual void dist(CAiMap &, const CAiMapLoc &, const CAiMapLoc &);
+	virtual void is_traversable(CAiMap *, CAiPath *, const CAiMapLoc &, CAiMap::DIR, CAiMapLoc &, CAiCell *&);
+	virtual float fcost(CAiMap &, const CAiMapLoc &, CAiMap::DIR, const CAiMapLoc &);
+	static float bias;
+	/* @socom-skeleton end 10CAiPlanner */
 };
 
 class CBasicPlanner : public CAiPlanner
@@ -688,4 +1089,98 @@ class CAiVismap
 {
 
 };
+/* @socom-skeleton decl 9CAiEventQ */
+class CAiEventQ : public std::list
+{
+public:
+	void Create(unsigned int);
+};
+/* @socom-skeleton end 9CAiEventQ */
+/* @socom-skeleton decl 6CAiLog */
+class CAiLog
+{
+public:
+	CAiLog(bool);
+	~CAiLog();
+	void Create(const char *, bool);
+	void Write(unsigned int, unsigned int, unsigned int, const void *);
+	static int m_log;
+};
+/* @socom-skeleton end 6CAiLog */
+/* @socom-skeleton decl 7CAiMaps */
+class CAiMaps : public std::list, private AIMAPS_PARAMS
+{
+public:
+	CAiMap::spores m_spores;
+	CAiMap::names m_names[6];
+	CAiMapLocVec m_regions[7];
+	CGraph *m_graph;
+	unsigned char m_cookie;
+	unsigned char GetCellRepelParams(const CAiMapLoc &, const CPnt3D *, float, CPnt3D &, float &);
+	~CAiMaps();
+	void FreeTables();
+	void Close();
+	void Reset();
+	CAiMap * GetMapByIndex(unsigned int) const;
+	void GetLocation(const CPnt3D *, CAiMapLoc &);
+	void GetLocation(const char *, CAiMapLoc &);
+	void GetActionById(unsigned int, CAiMapLoc &, CAiMap::action **);
+	CAiMap::region * GetRegion(const char *, CAiMapLoc &);
+	CAiMap::region * GetRegion(const CAiMapLoc &);
+	void GetCellAction(const CAiMapLoc &);
+	unsigned int GetBoundary(const CAiMapLoc &);
+	CAiCell * GetCell(const CAiMapLoc &);
+	CPnt3D * GetCellCenter(const CAiMapLoc &, CPnt3D *);
+	float GetInterpolatedShadow(const CAiMapLoc &, const CPnt3D *, bool);
+	float GetAltitude(const CAiMapLoc &);
+	unsigned char CanTravelLine(const CAiMapLoc &, const CAiMapLoc &, CAiMapLoc *);
+	unsigned char CanSeeLine(const CAiMapLoc &, const CAiMapLoc &, CAiMapLoc *);
+	float ComputeLineVisibility(const CAiMapLoc &, const CAiMapLoc &);
+	void RegisterPathPlan(const CAiMapLoc &, const CAiMapLoc *, int, CAiPath *);
+	void RegisterPathPlan(const CAiMapLoc &, const CAiMapLoc &, CAiPath *);
+	unsigned int GetLocationDelta(const CAiMapLoc &, const CAiMapLoc &);
+	void SmoothPath(CAiPath &);
+	void ExtendPath(CAiPath &, const CAiMapLoc &);
+	void UpdateActionTables();
+	void UpdateNameTables();
+	void GetSporeLocation(unsigned int, unsigned int, CPnt3D *, CPnt3D *);
+	void ReadMapSet(const char *, const char *);
+	void ValidateLinks();
+	void CreateGraph(bool);
+	CAiMap::name * GetCellName(const CAiMapLoc &) const;
+	char * GetCellNameString(const CAiMapLoc &) const;
+	void Tile(const CAiMap::region *, unsigned int, unsigned int);
+	void GetClosestRegion(const CAiMapLoc &, CAiMap::region::TYPE, bool);
+	void GetRegionTypeContainer(CAiMap::region::TYPE, const CAiMapLoc &);
+	void GetRandomLoc(const CAiMap::region *, CAiMapLoc &);
+	void SetRegionType(const CAiMap::region *, CAiMap::region::TYPE);
+	void SetOccupied(const CAiMapLoc &, const CAiMapLoc &, unsigned int);
+	static const char *default_mapset;
+};
+/* @socom-skeleton end 7CAiMaps */
+/* @socom-skeleton decl 7CAiStar */
+class CAiStar
+{
+public:
+	~CAiStar();
+	void find_path(CAiPath *);
+};
+/* @socom-skeleton end 7CAiStar */
+/* @socom-skeleton decl 9CAiVisMap */
+class CAiVisMap
+{
+public:
+	class VIS_TYPE;
+	static void TickVisMaps(float);
+	static void RegisterDynamicVisMap(CAiVisMap *, const CAiMapLoc &, int);
+	void UpdateDynamicVisMap(CAiVisMap *, const CAiMapLoc &);
+	static void ReleaseDynamicVisMap(CAiVisMap *);
+	static void CloseAll();
+	CAiVisMap();
+	~CAiVisMap();
+	void GetMark(const CAiMapLoc &) const;
+	void CheckBoxEdges(const CAiMapLoc &, int, CAiMapLoc &, CAiVisMap::VIS_TYPE, bool, bool);
+	void FindEvadeLocation(const CAiMapLoc &, CAiMapLoc &);
+};
+/* @socom-skeleton end 9CAiVisMap */
 #endif

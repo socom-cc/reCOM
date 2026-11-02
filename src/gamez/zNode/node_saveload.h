@@ -29,6 +29,12 @@ namespace zdb
         zar::CZAR m_zfile;
         char m_zed_filename[1024];
         s32 m_version;
+        /* @socom-skeleton decl Q23zdb9CSaveLoad */
+public:
+        ~CSaveLoad();
+        bool LoadAssetLib_PS2(zdb::CWorld *, zdb::CAssetLib *, int);
+        unsigned char LoadAssetLib(zdb::CWorld *, zdb::CAssetLib *, int);
+        /* @socom-skeleton end Q23zdb9CSaveLoad */
     };
 }
 #endif

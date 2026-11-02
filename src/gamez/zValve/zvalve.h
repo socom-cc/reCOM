@@ -68,7 +68,7 @@ class CValve
 public:
 	CValve(const char* name, u32 value, VALVE_TYPE type);
 	
-	static void Init() { }
+	static void Init();
 
 	static bool Open(const char* name, VALVE_TYPE type);
 	static void Close();
@@ -92,7 +92,7 @@ public:
 	void FreeName();
 
 	void* AddCallback(size_t size, void(*callback)(CValve*, void*), void* buffer);
-	void MakeCallbacks(VALVE_STATE state) {}
+	void MakeCallbacks(VALVE_STATE state);
 	void DeleteCallbacks();
 
 	bool Set(s32 value);
@@ -106,6 +106,17 @@ public:
 	u32 m_pooled : 1;
 	u32 m_unused : 6;
 	CValveCBList m_callbacks;
+	/* @socom-skeleton decl 6CValve */
+public:
+	CValve * Create(const char *, unsigned int, VALVE_TYPE);
+	static void Uninit();
+	bool Parse(CRdrFile *, VALVE_TYPE);
+	static bool CmdTickCmp(_zanim_cmd_hdr *, float *);
+	static _zanim_cmd_hdr * CmdParseCmp(_zrdr *);
+	~CValve();
+	void AssignName(char *);
+	void SetName(const char *);
+	/* @socom-skeleton end 6CValve */
 };
 
 class CValvePool : public std::vector<CValve*>
@@ -117,5 +128,28 @@ public:
 	char* m_pool_name;
 	u32 m_pool_length;
 	u32 m_max_char_len;
+	/* @socom-skeleton decl 10CValvePool */
+public:
+	void FlushNames(bool);
+	void Release(CValve *);
+	/* @socom-skeleton end 10CValvePool */
 };
+/* @socom-skeleton decl 17CValveSaveManager */
+class CValveSaveManager : public CSaveModule
+{
+public:
+	virtual ~CValveSaveManager();
+	virtual void Serialize(int);
+	virtual void UnSerialize(const char *, CRdrFile *, int);
+};
+/* @socom-skeleton end 17CValveSaveManager */
+/* @socom-skeleton decl 14VALVE_CMD_DATA */
+class VALVE_CMD_DATA
+{
+public:
+	void GetValue();
+	void Compare();
+	static void ParseValveName(const char *, int &);
+};
+/* @socom-skeleton end 14VALVE_CMD_DATA */
 #endif

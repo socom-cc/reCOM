@@ -111,6 +111,15 @@ public:
 	CStateCmdQueue m_StateChangeQueue;
 
 	u32 m_pad;
+	/* @socom-skeleton decl 5CGame */
+public:
+	virtual ~CGame();
+	virtual void StopPlay();
+	virtual void StopEngine();
+	CGameState * Push(CGameState *, unsigned int);
+	CGameState * Pop(unsigned int);
+	CGameState * PopTo(CGameState *, unsigned int);
+	/* @socom-skeleton end 5CGame */
 };
 
 class COurGame : public CGame
@@ -124,13 +133,20 @@ protected:
 	CExitState m_exitState;
 	CMPExitState m_MPexitState;
 	CCinematicState m_cinematicSubState;
+	/* @socom-skeleton decl 8COurGame */
+public:
+	virtual ~COurGame();
+	virtual void StartPlay();
+	virtual void StopPlay();
+	virtual void StopEngine();
+	/* @socom-skeleton end 8COurGame */
 };
 
 class CGameMenu
 {
 public:
 	bool Init(zdb::CTextureRelocMgr* manager, CZAnimZAR* archive);
-	void Tick(f32 dT) {}
+	void Tick(f32 dT);
 
 	void Clear();
 
@@ -160,5 +176,33 @@ public:
 	C2DButton m_ScreenControls;
 
 	zdb::CTextureRelocMgr* m_Reloc;
+	/* @socom-skeleton decl 9CGameMenu */
+public:
+	virtual ~CGameMenu();
+	virtual void MyTick(float);
+	virtual char * GetReaderFileName();
+	virtual void PrepControls(zdb::CTextureRelocMgr *);
+	CGameMenu();
+	zdb::CNode * AddNode(C2D *, zdb::CTextureRelocMgr *);
+	void Draw2dOnly();
+	void HandlePad(const CPad *);
+	void LoadFromDesign(const CGameDlgDesign &, CZAnimZAR *);
+	void RunEventAnim(ActionItem::EVENT, const char *);
+	void MakeNextButtonActive();
+	void MakePrevButtonActive();
+	void MakeButtonActive(const char *);
+	void HaltBackgroundMPEG();
+	void RestartBackgroundMPEG();
+	void TickMPEG();
+	void PrepModels(const CGameDlgDesign &);
+	void SwitchMenu(char *);
+	/* @socom-skeleton end 9CGameMenu */
 };
+/* @socom-skeleton decl 9CGameName */
+class CGameName
+{
+public:
+	GAME_NAME m_game_name;
+};
+/* @socom-skeleton end 9CGameName */
 #endif

@@ -55,7 +55,7 @@ public:
 	void PreInit() {}
 	bool Init();
 	void PreUnInit() {}
-	void UnInit() {}
+	void UnInit();
 
 	void Tick(f32 dT);
 
@@ -78,6 +78,15 @@ protected:
 	bool m_loadstarted;
 	CHUD* m_hud;
 	s32 m_skip_swap;
+	/* @socom-skeleton decl 10CCoreState */
+public:
+	virtual ~CCoreState();
+	virtual void OnPush(int);
+	virtual void OnPop(int);
+	void Load(bool);
+	void Unload();
+	void auxUnload();
+	/* @socom-skeleton end 10CCoreState */
 };
 
 class CMenuState : public CGameState
@@ -88,7 +97,7 @@ public:
 	void PreInit() {}
 	bool Init();
 	void PreUnInit() {}
-	void UnInit() {}
+	void UnInit();
 
 	void Tick(f32 dT);
 
@@ -109,17 +118,27 @@ private:
 	char m_DefaultMenu[64];
 
 	s32 m_iopregh;
+	/* @socom-skeleton decl 10CMenuState */
+public:
+	virtual ~CMenuState();
+	virtual void OnPush(int);
+	virtual void OnPop(int);
+	void SetSkipMenu(bool);
+	unsigned char RunEventAnim(const char *, const char *);
+	void HaltBackgroundMPEG();
+	void RestartBackgroundMPEG();
+	/* @socom-skeleton end 10CMenuState */
 };
 
 class CLoadState : public CGameState
 {
 public:
 	void PreInit() {}
-	bool Init() { return true; }
+	virtual unsigned char Init();
 	void PreUnInit() {}
-	void UnInit() {}
+	void UnInit();
 
-	void Tick(f32 dT) {}
+	virtual unsigned char Tick(float);
 
 	void OnPop() {}
 	void OnPush() {}
@@ -136,17 +155,23 @@ private:
 	bool m_voiceover_started;
 	bool m_waiting_for_x;
 	bool m_abort;
+	/* @socom-skeleton decl 10CLoadState */
+public:
+	virtual ~CLoadState();
+	CLoadState();
+	void AbortLoad(const char *);
+	/* @socom-skeleton end 10CLoadState */
 };
 
 class CCinematicState : public CGameState
 {
 public:
 	void PreInit() {}
-	bool Init() { return true; }
+	virtual unsigned char Init();
 	void PreUnInit() {}
-	void UnInit() {}
+	void UnInit();
 
-	void Tick(f32 dT) {}
+	virtual unsigned char Tick(float);
 
 	void OnPop() {}
 	void OnPush() {}
@@ -158,17 +183,21 @@ private:
 	s32 m_savedFrameRate;
 	s32 m_videoSave[2];
 	f32 m_fadeTime;
+	/* @socom-skeleton decl 15CCinematicState */
+public:
+	virtual ~CCinematicState();
+	/* @socom-skeleton end 15CCinematicState */
 };
 
 class CExitState : public CGameState
 {
 public:
 	void PreInit() {}
-	bool Init() { return true; }
+	virtual unsigned char Init();
 	void PreUnInit() {}
-	void UnInit() {}
+	void UnInit();
 
-	void Tick(f32 dT) {}
+	virtual unsigned char Tick(float);
 
 	void OnPop() {}
 	void OnPush() {}
@@ -177,17 +206,22 @@ private:
 	std::string m_texname;
 	zdb::CAssetLib* m_plib;
 	void* m_menu;
+	/* @socom-skeleton decl 10CExitState */
+public:
+	virtual ~CExitState();
+	CExitState();
+	/* @socom-skeleton end 10CExitState */
 };
 
 class CMPExitState : public CGameState
 {
 public:
 	void PreInit() {}
-	bool Init() { return true; }
+	virtual unsigned char Init();
 	void PreUnInit() {}
-	void UnInit() {}
+	void UnInit();
 
-	void Tick(f32 dT) {}
+	virtual unsigned char Tick(float);
 
 	void OnPop() {}
 	void OnPush() {}
@@ -196,6 +230,12 @@ private:
 	std::string m_texname;
 	zdb::CAssetLib* m_plib;
 	void* m_menu;
+	/* @socom-skeleton decl 12CMPExitState */
+public:
+	virtual ~CMPExitState();
+	CMPExitState();
+	void LoadLibs();
+	/* @socom-skeleton end 12CMPExitState */
 };
 
 class CRebootState : public CGameState
@@ -236,6 +276,14 @@ private:
 	u32 m_type;
 	CGameState* m_toState;
 	u32 m_toStateIdx;
+	/* @socom-skeleton decl 19CGameStateChangeCmd */
+public:
+	~CGameStateChangeCmd();
+	static void Acquire(unsigned int, CGameState *, unsigned int);
+	void Release(CGameStateChangeCmd *);
+	static void CreatePool(unsigned int);
+	static void DestroyPool();
+	/* @socom-skeleton end 19CGameStateChangeCmd */
 };
 
 class CStateCmdQueue : public std::deque<CGameStateChangeCmd*> {};

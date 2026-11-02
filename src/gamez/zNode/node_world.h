@@ -27,11 +27,11 @@ namespace zdb
 		static CModel* GetModel(const char* name);
 		static CTexHandle* GetTexHandle(char* name);
 
-		static void Init() {}
-		static void Uninit() {}
+		static void Init();
+		static void Uninit();
 
 		void diTick();
-		void Update() {}
+		void Update();
 
 		bool Initalize();
 
@@ -110,6 +110,41 @@ namespace zdb
 		// CTexList m_TextureDecals;
 		CTexture* m_shadowTex[4];
 		CTexHandle* m_shadowTexH;
+		/* @socom-skeleton decl Q23zdb6CWorld */
+public:
+		virtual short DeleteChild(zdb::CNode *);
+		virtual void Read(zdb::CSaveLoad &);
+		virtual void DeleteLandmark(zdb::CNode *);
+		virtual zdb::CNode * FindLandmark(const char *);
+		void AddLightMap(zdb::CLightMap *);
+		void DeleteLightMap(zdb::CLightMap *);
+		void AddShadow(zdb::CNode *);
+		void ReleaseLandmarkList();
+		void ReleaseLightList();
+		zdb::IntersectStruct * GetIntersect(const CPnt3D *, const CPnt3D *);
+		zdb::DiIntersect * GetIntersects(const CPnt3D *, const CPnt3D *);
+		zdb::IntersectStruct * GetAltitude(const CPnt3D *, float);
+		zdb::DiIntersect * GetAltitudes(const CPnt3D *, float);
+		void GetIntersectBatch(zdb::DiIntersect **, int);
+		void InitDescendantsDI();
+		void InitDescendantsVisuals();
+		static bool diTick(float, void *);
+		int RegIntersectDelayed(zdb::DiIntersect *, const CPnt3D *, const CPnt3D *);
+		void RegIgnoreNodeDelayed(zdb::DiIntersect *, zdb::CNode *);
+		void ClearIgnoreNodeDelayed(zdb::DiIntersect *);
+		int RegProximityDelayed(zdb::DiIntersect *, const CPnt3D *, float);
+		void Segregate_CCells(zdb::CNode *, zdb::CNodeVector &, zdb::CNodeVector &);
+		void AddTextureAssetCharacter(zdb::_RenderPhase, zdb::CNode *);
+		void AddTextureAssetCharacter(char *, zdb::CNode *);
+		void AddTextureAssetCharacter(zdb::CAssetLib *, zdb::CNode *);
+		void AddTextureAssetCharacterAll(zdb::CTexHandle *);
+		void AddTextureAssetDecals(zdb::CTexHandle *);
+		void DeleteTextureAssetCharacter(char *, zdb::CNode *);
+		void DeleteTextureAssetCharacter(zdb::_RenderPhase, zdb::CNode *);
+		void DeleteTextureAssetCharacter(zdb::CAssetLib *, zdb::CNode *);
+		void FindTextureAssetCharacter(zdb::CNode *);
+		void RemoveDecals();
+		/* @socom-skeleton end Q23zdb6CWorld */
 	};
 }
 #endif

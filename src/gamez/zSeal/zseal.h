@@ -64,6 +64,39 @@
 #include "gamez/zSystem/zsys.h"
 #include "gamez/zUI/zui.h"
 #include "gamez/zWeapon/zweapon.h"
+/* @socom-skeleton decl forward */
+class ACTIVE_ANIM;
+class AI_FIREPARAMS;
+class AI_REACTION;
+class AI_SIGNAL;
+class AI_SOUND;
+class AckUnion;
+class CAiWepHint;
+class CCompass;
+class CDIType;
+class CHARACTER_SOUND;
+class CMaterialEx;
+class CTargetMods;
+class CZAmmoPickupInstance;
+class MPSealStats;
+class PlacedExplosive;
+class SEAL_HANDSIGNAL;
+class SEAL_TASK;
+class STUN_TYPE;
+class TASK_SELECT;
+class UNIT_MESSAGE;
+class WEAPON_STATE;
+/* @socom-skeleton end forward */
+/* @socom-skeleton decl 8AI_AWARE */
+enum AI_AWARE
+{
+	AIA_UNAWARE = 0,
+	AIA_SUSPICIOUS = 1,
+	AIA_GENERAL = 2,
+	AIA_DIRECTION = 3,
+	AIA_SPECIFIC = 4
+};
+/* @socom-skeleton end 8AI_AWARE */
 
 /// -------------------------------------------
 /// FORWARD DECLARATIONS
@@ -214,8 +247,23 @@ void SealInitCharacterDynamics();
 
 class CFire : CSequence {};
 class CLookItem : CSequence {};
-class CLook : CSequence {};
-class CBlink : CSequence {};
+class CLook : CSequence {
+	/* @socom-skeleton decl 5CLook */
+public:
+	CLook();
+	void SetLookDir(CZSealBody *, const CPnt3D *, float);
+	void SetDir(const CPnt3D *, const CPnt3D *, float);
+	void LookTick(float);
+	/* @socom-skeleton end 5CLook */
+};
+class CBlink : CSequence {
+	/* @socom-skeleton decl 6CBlink */
+public:
+	CBlink();
+	void Blink(int);
+	void BlinkTick(float);
+	/* @socom-skeleton end 6CBlink */
+};
 class CTurnInPlace : CSequence {};
 class CCrouchedRun : CSequence {};
 
@@ -328,6 +376,119 @@ public:
 	CSnd* m_lasersnd_fin;
 
 	f32 m_pickupRequestWait;
+	/* @socom-skeleton decl 5CZKit */
+public:
+	void SetCurItemState(unsigned int);
+	void SetCurItemEnum(EQUIP_ITEM);
+	EQUIP_ITEM GetCurItemEnum() const;
+	int GetItemIndex(EQUIP_ITEM) const;
+	void GetAmmoIndex(EQUIP_AMMO, int);
+	int GetItemIndex(SEAL_ITEM);
+	void HasItem(EQUIP_ITEM) const;
+	void HasSniperRifle();
+	CZKit();
+	~CZKit();
+	void NVG_Enabled() const;
+	void GetCurItemIDType();
+	SEAL_ITEM GetCurItemType();
+	void Init();
+	void UnInit();
+	void PostSetupItems();
+	void Setup2XAmmo();
+	void SetupBinocular();
+	void InitItemModel(const char *, const char *);
+	void ReParentToPistol();
+	void ReParentToRifle();
+	void UseItemModel(int, const char *);
+	void GetCurWeapon(CZFTSWeapon **, CZAmmo **);
+	void GetWeapon(int, CZFTSWeapon **, CZAmmo **);
+	CZProjectile * FireCur(const CPnt3D *, const CPnt3D *, const CPnt3D *);
+	CZProjectile * Fire(int, const CPnt3D *, const CPnt3D *, const CPnt3D *);
+	void ChangeItemModel(int, int, int, bool);
+	void CanChangeItem();
+	void SetCurItemByIndex(int);
+	void GetCurNumMags();
+	int GetNumMags(int);
+	void CycleFireMode();
+	void FindNextGrenadeLauncherAmmo(int);
+	int GetMaxAmmoCount(int);
+	int GetCurMaxAmmoCount();
+	void EmptyAmmoCountTotal(int);
+	int GetAmmoCount(int);
+	int GetCurAmmoCount();
+	void SetCurFireMode(FIREMODE);
+	FIREMODE GetCurFireMode();
+	CZFTSWeapon * GetItemByIndex(int);
+	void Recoil(CZFTSWeapon *);
+	void Reload();
+	void TickReticule(float);
+	void TickExplosives(float);
+	void TickFlashlight(float);
+	void Apply_LensEffects(bool, CPnt3D *);
+	void PreTick(float);
+	void Tick(float);
+	void WillFireWeapon();
+	float GetFireDelay();
+	void DetonateRemoteExplosives();
+	void HandlePlacingExlosive(EQUIP_ITEM, float, float);
+	void FetchLaseTarget();
+	void TickLaserDesignator(float);
+	void HandleFireWeapon(int, float, float);
+	void IsZoomed();
+	float GetCurZoom();
+	int UpdateCurItemReticule();
+	void CurReticuleTypeChanged();
+	void SetCurReticule();
+	int GetReticuleByIndex(int);
+	char * GetItemName(int);
+	zdb::CTexHandle * GetFiremodeGraphic(int);
+	char * GetFiremodeName(int);
+	zdb::CTexHandle * GetIcon(int);
+	int GetSelectedItemNum();
+	void SetBody(CZSealBody *);
+	void SetItem(unsigned int, EQUIP_ITEM);
+	void SetItemAmmo(unsigned int, CZAmmo *, int, int);
+	unsigned char SetItemAmmo(unsigned int, CZAmmo *);
+	void isSelectableItem(int);
+	void ItemHasAmmo(EQUIP_ITEM);
+	unsigned char CurItemHasAmmo();
+	void ItemHasAmmo(int, FIREMODE);
+	void ItemHasAmmo(int);
+	void CurWeaponIsM203Mode();
+	void WeaponIsGrenadeLauncherMode(int);
+	void CurMagHasAmmo();
+	void SetCurAccuracy();
+	int GetTotalEnc();
+	CZProjectile * FireGrenade(const CPnt3D *, const CPnt3D *);
+	PlacedExplosive * HandleRemotePlaceExplosive(const CPnt3D *, const CQuat *);
+	void FillWeaponEnum(int, CZFTSWeapon **);
+	void CurItemHasFiremodeGraphic();
+	void WeaponInfoChanged();
+	void HandlePlaceMPBomb(const CPnt3D *);
+	void PickupMPBomb();
+	void PickupAmmo(CPickup *);
+	void PickupAmmo(CZFTSWeapon *, CZAmmo *, int *);
+	void CanAddAmmo(int, int);
+	int AddAmmo(int, int);
+	void FillAmmoPickupInstance(CZAmmoPickupInstance *, int);
+	void RemoveAmmo(int);
+	void RemoveItemAndAmmo(int);
+	void UpdateNumItems();
+	void PendingPickupHandled();
+	void IsUsingScope();
+	void IsUsingItem(EQUIP_ITEM);
+	void IsUsingItem(int);
+	void SniperTick(float, CTargetMods &);
+	void InitializeSniperKick();
+	void Binocs_Enabled(bool);
+	void IsUsingBinocs();
+	float ScreenOffsetX();
+	float ScreenOffsetY();
+	void IncrScreenOffsetY(float);
+	void ResetScreenOffsetXY();
+	static float m_lase_delay;
+	static int m_lase_dist_max;
+	/* @socom-skeleton end 5CZKit */
 };
 
 class CSealStats
@@ -354,6 +515,23 @@ public:
 	s16 m_sMvpScore;
 	s32 m_iRoundsWon;
 	s32 m_iRoundsTied;
+	/* @socom-skeleton decl 10CSealStats */
+public:
+	void Death(const CZSealBody &);
+	void DeductKill(const CZSealBody &);
+	void HeadShot(const CZSealBody &);
+	void Hit(const CZSealBody &);
+	void Kill(const CZSealBody &);
+	void Reset();
+	void IncrTimesSeen(int);
+	void IncrGrenadesUsed(int);
+	void IncrPrimaryRoundsFired(int);
+	void IncrSecondaryRoundsFired(int);
+	int GetPointsEarned(int, int, int, float) const;
+	void Shot(const CZSealBody &);
+	void UpdateMvpScore(const CZSealBody &);
+	void WasHit(const CZSealBody &);
+	/* @socom-skeleton end 10CSealStats */
 };
 
 class CSealEx : public zdb::CNodeEx
@@ -362,6 +540,10 @@ public:
 	void OnWeaponHit(CNode* node, zdb::IntersectStruct* intersection, CZProjectile* projectile);
 
 	CZSealBody* m_seal;
+	/* @socom-skeleton decl 7CSealEx */
+public:
+	virtual void OnWeaponHit(zdb::CNode *, zdb::IntersectStruct *, CZProjectile *);
+	/* @socom-skeleton end 7CSealEx */
 };
 
 class CZSealBody : public CEntity, public CBody
@@ -413,10 +595,10 @@ public:
 	void PostTick(f32 delta);
 	void PostMortemPreTick(f32 delta);
 
-	void OnMissionStart() {}
-	void OnMissionEnd() {}
+	void OnMissionStart();
+	void OnMissionEnd();
 	void OnWeaponHit(zdb::IntersectStruct* intersection, CZProjectile* projectile);
-	void OnDeath() {}
+	void OnDeath();
 	void OnRecycleEntity() {}
 
 	/// -------------------------------------------
@@ -493,7 +675,7 @@ public:
 	void SetWallHit(zdb::IntersectStruct* wallhit, CPnt3D* first, CPnt3D* second);
 	
 	void HandleBloodDrip(f32 delta);
-	void HandleBombDefuse() {}
+	void HandleBombDefuse();
 	void HandleDamage(CZProjectile* projectile);
 	void HandleDamageExplosive(CZBodyPart* part, DAMAGE_LOCATION location);
 	void HandleDamageNonExplosive(CZBodyPart* part, DAMAGE_LOCATION location);
@@ -851,19 +1033,378 @@ public:
 
 	f32 m_TimeSpentDead;
 	s32 m_NumDeathAnimsPlayed;
+	/* @socom-skeleton decl 10CZSealBody */
+public:
+	virtual ~CZSealBody();
+	virtual void ComputeNextPosition(float);
+	virtual CPnt3D * GetTargetPosW(CPnt3D *);
+	virtual void TeleportTo(const CPnt3D *, const CQuat *);
+	virtual void TeleportTo(const CMatrix *);
+	virtual void ResetToInitialState();
+	virtual void UpdateAiMapLoc(bool &);
+	virtual void OnRecycleEntity(CEntity *);
+	void AddWeapon(SEAL_ITEM);
+	void UpdateLODFlags();
+	void CreateAiEvent();
+	void UpdateAiEvent();
+	void CollidePlayers(CPnt3D &);
+	void PostComputeNextPosition(float);
+	void NormalizeToTerrain();
+	float SetHealth(float, SEAL_DEATH_TYPE);
+	void PickupObject(CPickup *);
+	void AdvancePiggyBack();
+	void RetreatPiggyBack();
+	void ResetAltitude(float);
+	void SetSnakePathUpdate(bool, unsigned int);
+	void ExecuteAction_KnifeAttack(CZSealBody *);
+	void ExecuteAction_CQBAttack(CZSealBody *);
+	void ExecuteAction_ApplyRestraint(CZSealBody *);
+	void ExecuteDelayedAction_Climb();
+	void ExecuteDelayedAction_Jump();
+	unsigned int ActionAvailableMask();
+	unsigned char ActionDisplayOn();
+	void ActionAvailableMask(unsigned int, bool);
+	unsigned int ActionSelectionMask();
+	void ActionSelectionMask(unsigned int, bool);
+	void ActionDisplayOn(bool);
+	unsigned int ActionCommand();
+	void ActionCommand(unsigned int);
+	unsigned char CompassAnchor_MPBomb(CCompassAnchor *);
+	unsigned char CompassAnchor_MPBase(CCompassAnchor *);
+	unsigned char CompassAnchor_Hostage(CCompassAnchor *);
+	CPickup * CurrentPickup();
+	CPickup * CurrentPickupSecondary();
+	void SetCurZoomState(ZOOMSTATE);
+	ZOOMSTATE IncrZoomState();
+	ZOOMSTATE DecrZoomState();
+	static void NetworkPlayerCreate();
+	void MakeGhost();
+	void UnMakeGhost();
+	static void OpenHeartbeatSounds();
+	static void CloseHeartbeatSounds();
+	void TickHeartbeat();
+	static void AcquireRemoteAi(CZSealBody *);
+	unsigned char HasFollower();
+	void InvalidateFollowParams();
+	static SEAL_STANCE GetStanceFromState(SEAL_STATE, SEAL_STANCE);
+	void Animate();
+	void ConfigureWeaponAnim(CZBodyAnim *);
+	float SetVertical();
+	void GetRootPos(float, CPnt3D &);
+	void Post();
+	void GetSpeedState();
+	SEAL_STATE GetStance(bool) const;
+	void BodySetState(int);
+	void ClearStack(unsigned int, bool);
+	CZBodyAnimBlend * PopBlend();
+	CZBodyAnimBlend * PushBlend(AnimType, int, bool);
+	void IsCurrentBlend(AnimType) const;
+	void CanTurn();
+	void CanInterrupt();
+	void CanHeadLook();
+	void CanPitch();
+	CZBodyAnimBlend * AddBlendOverlay(AnimType);
+	void SetMovingRifleReload(ACTIVE_ANIM *);
+	void SetMovingPistolReload(ACTIVE_ANIM *);
+	void SetMovingChangeToRifle(ACTIVE_ANIM *);
+	void SetMovingChangeToPistol(ACTIVE_ANIM *);
+	CZBodyAnimBlend * SealAnim(bool, float, float, float);
+	void IsStopped(float, float, float);
+	void SmoothXZThrottles(float &, float &);
+	CZBodyAnimBlend * InStateStand(float, float, float);
+	CZBodyAnimBlend * StandStill(float, float, float);
+	CZBodyAnimBlend * StandTurning(float, float, float);
+	void UpdateQuadrant(float &, float &, bool);
+	void CanCrouch();
+	CZBodyAnimBlend * InStateCrouch(float, float, float);
+	CZBodyAnimBlend * InStateProne(float, float, float);
+	CZBodyAnimBlend * InStateHang(float, float, float);
+	CZBodyAnimBlend * InStateClimbLadder(float, float, float);
+	CZBodyAnimBlend * InStateCarrying(float, float, float);
+	CZBodyAnimBlend * InStateCarried(float, float, float);
+	CZBodyAnimBlend * TurnControl(float, float);
+	CZBodyAnimBlend * ProneControl(float, float, float);
+	CZBodyAnimBlend * InAirControl(float, float, float);
+	CZBodyAnimBlend * MoveControl(float, float);
+	CZBodyAnimBlend * CrouchMoveControl(float, float, float);
+	void CheckAnim();
+	void StanceChanged();
+	void SetStance(SEAL_STATE);
+	void Stand(int);
+	CZBodyAnimBlend * Stand_0(int, int);
+	CZBodyAnimBlend * Crouch();
+	CZBodyAnimBlend * Crouch_0(int, float);
+	CZBodyAnimBlend * Prone();
+	CZBodyAnimBlend * Prone_0(int);
+	CZBodyAnimBlend * SetStanceIdle(AnimType);
+	CZBodyAnimBlend * Hang_0(int, int);
+	CZBodyAnimBlend * BlendedClimb(float);
+	CZBodyAnimBlend * Climb(float);
+	void ClimbOver(float);
+	void PostFall();
+	void BeginThrowItem(float, float &);
+	void GetThrowAnim(float, AnimType &, float &, float &, CPnt3D &);
+	void GetPutativeFirePointW(bool, bool, CPnt3D &);
+	CZBodyAnimBlend * ClimbLadder();
+	CZBodyAnimBlend * ClimbLadderDown();
+	CZBodyAnimBlend * SlideLadderDown();
+	void DoWallStop();
+	void DropBody();
+	CZBodyAnimBlend * FlingBody(const CPnt3D *, float, float);
+	CZBodyAnimBlend * Jump();
+	CZBodyAnimBlend * RaiseBinoculars();
+	CZBodyAnimBlend * LowerBinoculars();
+	void AbortPeek();
+	SEAL_STATE PeekBaseState();
+	SEAL_STATE BaseState();
+	void ClearToBase(bool);
+	void UpdatePeek();
+	void RePose(SEAL_ITEM);
+	CZBodyAnimBlend * PerformAction(AnimType, SEAL_STATE);
+	void Recoil();
+	void UseVelY();
+	void Tick_0(float);
+	void BlendOverlayPreTick(float, float);
+	CZBodyAnimBlend * CrouchToPickupBuddy(CZSealBody *);
+	CZBodyAnimBlend * PickupBuddy(CZSealBody *);
+	CZBodyAnimBlend * PutdownBuddy();
+	void DetachBody();
+	CZBodyAnimBlend * StabBuddy(CZSealBody *);
+	CZBodyAnimBlend * RestrainBuddy(CZSealBody *);
+	void Action(AnimType, bool, int, int, int);
+	CZBodyAnim * GpAnim(CZBodyAnim *, SEAL_ITEM);
+	CZBodyAnim * FirePosAnim(CZBodyAnim *, SEAL_ITEM);
+	SEAL_ITEM BaseFirePose();
+	CZBodyAnim * BaseAnim(AnimType);
+	CZBodyAnim * BaseAnim_0(AnimType, SEAL_ITEM);
+	CZBodyAnim * BaseAnim_0(CZBodyAnim *, SEAL_ITEM);
+	void ReadMotionRdr();
+	void AnimSetup();
+	CZBodyAnim * GetAnimByType(AnimType);
+	void BindAnimSet(const char *);
+	void BindAnimSet(AnimSet *);
+	void RefPoint(CZBodyAnim *, CPnt3D *);
+	float RefPointY(AnimType);
+	void MixAnims(CActiveAnimList *, CBlendable *, float, float, bool);
+	void SetMaxMotion();
+	void GetMaxXMotion(float &, float &);
+	void AnimsScaleTS(CActiveAnimList *, CBlendable *, float);
+	void AddDIPolys();
+	void AddItem(CCharacterGear *);
+	void AddItem(const char *);
+	void IssueCommand(CZSealBody *, FT_COMMAND, void *, bool);
+	static CZSealBody * GetSeal(zdb::CNode *);
+	static CCharacterType * PreCreateSeal(const CCharacterType *, const char *, zdb::CNode **);
+	static CZSealBody * Create(const CCharacterType *, const char *, CSealCtrl *);
+	static void Destroy(CZSealBody *);
+	CCharacterType * GetCharacter();
+	static CZSealBody * CreateRemoteSeal(int, int, const char *, int, char *, unsigned char, unsigned char *);
+	void DoRespawn();
+	void RemoteRespawn(bool);
+	zdb::IntersectStruct * SealGetIntersect(const CPnt3D *, const CPnt3D *);
+	zdb::IntersectStruct * SealProcessAltitude(zdb::DiIntersect *, const CPnt3D *, float);
+	float GetTerrainMotionFactor();
+	void HandleWater(zdb::IntersectStruct *, const CMaterialEx *, const CPnt3D *);
+	void HandleSmokeAndGas(zdb::IntersectStruct *, const CMaterialEx *, const CPnt3D *);
+	zdb::IntersectStruct * SealGetAltitude(CPnt3D *, float);
+	void CheckDIFwd1(float &, float &, float &);
+	void CanTraverse(CDIType);
+	void PlaceLaterally(CPnt3D *, CPnt3D *, CPnt3D *, bool);
+	void HomingTick();
+	float ImpactFront(zdb::IntersectStruct *, CPnt3D *);
+	void AlignForClimb(bool, CPnt3D &, CPnt3D &, CPnt3D *);
+	CZBodyAnimBlend * PreClimbLadderDown();
+	void AlignForPickup(CPnt3D *, CPnt3D *);
+	void PostCheckDILadder(float &, float &, float &);
+	void CheckDILadder(float &, float &, float &);
+	void Slide(zdb::IntersectStruct *);
+	void SetWepHit(zdb::IntersectStruct *);
+	void PreCheckDIDown();
+	void PostCheckDIDown(float &, float &, float &);
+	CPnt3D * GetLookDirW(CPnt3D *) const;
+	void RotateHead(float, float);
+	unsigned char SetLookDir(const CPnt3D *, float);
+	void SetEyeLookDir(float, float, const CPnt3D *, float);
+	void CalcGoalDir(const CPnt3D *, const CPnt3D *, CPnt3D *, float, float, float, float);
+	void ApplyLookAnim(float, float);
+	CPnt3D * GetLookDir() const;
+	void ApplyEyeLookAnim();
+	void ApplyBlinkAnim();
+	void PitchAnim(CPnt3D *, CPnt3D *);
+	void HandleWepHit();
+	void HandleDamageExplosive(CZProjectile *, CZBodyPart *, DAMAGE_LOCATION);
+	void HandleDamageNonExplosive(CZProjectile *, CZBodyPart *, DAMAGE_LOCATION);
+	void SetMoveWeaponEncumbMod();
+	void CheckDIShoot(CPnt3D *, CMatrix *);
+	zdb::IntersectStruct * GetReticuleDi();
+	CZSealBody * GetReticuleSeal();
+	void CacheReticuleSeal(bool);
+	CNodeAction * GetReticuleAction(bool);
+	CPickup * GetProximityMPBomb();
+	CPickup * GetProximityWeapon(CPickup **);
+	CPickup * GetReticuleWeapon(CPickup **);
+	void CanUseKnife(CZSealBody *);
+	void CanUseCQB(CZSealBody *);
+	AnimType FindDeathAnimTypeCQB(CZSealBody *);
+	void CanUseRestraint(CZSealBody *);
+	void CanZoom();
+	void CanChangeItem();
+	void CanUseBodyCarry(CZSealBody *);
+	void AimWeapon();
+	CZBodyAnimBlend * Reload();
+	void CanFire();
+	void IsThrowing(bool);
+	void IsReloading();
+	void IsChangingWeapons();
+	void ChangeToPistolMode(bool);
+	void ChangeToRifleMode(bool);
+	void ChangeWeapon(SEAL_ITEM, SEAL_ITEM);
+	void PostChangeWeapon(SEAL_ITEM);
+	void UpdateHealth(DAMAGE_LOCATION, SEAL_DEATH_TYPE);
+	void GetHudHitFlag();
+	void HudUpdateViewCone();
+	void SetHudHitFlag();
+	void HandleStunRecovery(STUN_TYPE);
+	void HandleStunDamage(STUN_TYPE, float, const CPnt3D *);
+	void TickStun(float);
+	static void ReInitDatabaseHandles();
+	static void UninitDatabaseHandles();
+	static void Uninit_ReInitDatabaseHandles();
+	void GetHeadParams(CPnt3D *, CPnt3D *);
+	void CheckForRegionTrigger(unsigned int);
+	void WeaponHitAnim(AnimType, SEAL_STATE, bool);
+	void ReportWeaponHitDamage(int, int, DAMAGE_LOCATION, float, float, bool, unsigned char);
+	void GetMPStats(MPSealStats *, bool);
+	void SetMPStats(MPSealStats *, bool);
+	void RemoteWeaponDamageVictim(DAMAGE_LOCATION, float, float, CZSealBody *, CZSealBody *, unsigned char, bool);
+	void RemoteWeaponDamageNonVictim(DAMAGE_LOCATION, CZSealBody *, CZSealBody *, unsigned char, bool);
+	void SetBodyDamage(int);
+	void SetHeadDamage(int);
+	void SetLArmDamage(int);
+	void SetRArmDamage(int);
+	void SetLLegDamage(int);
+	void SetRLegDamage(int);
+	float FindHighestProximityDamage(CZProjectile *);
+	int GetNumExplosiveHits(CZProjectile *);
+	void DamageRandomLocation(CZProjectile *);
+	void SetArmor(DAMAGE_LOCATION, float);
+	void FindRandomDeathAnim(DAMAGE_LOCATION, bool *);
+	void FindRandomDamageAnim(DAMAGE_LOCATION, bool *);
+	void DropAllItems();
+	void DropAmmo(int);
+	void DropItem(int, bool);
+	void HandlePickupAmmoInstance(CPickup *);
+	void HandlePickupEquip(CPickup *);
+	void PickupItem(CPickup *);
+	void RemotePickupItem(CPickup *);
+	void FillNetworkAmmoPickupValues(CZAmmoPickupInstance *, int *, unsigned short *, unsigned short *);
+	void CreateNetWeaponPickup(unsigned short, unsigned short, CPnt3D *, CQuat *);
+	void CreateNetAmmoPickup(unsigned short, unsigned short *, unsigned short *, unsigned short, CPnt3D *);
+	void CanPickupNetItem(unsigned short, unsigned short, unsigned short *, unsigned char);
+	void CheckForAmmoPickups(int, CZAmmoPickupInstance *, unsigned short *, AckUnion *);
+	void HandlePickupAck(int, unsigned short, AckUnion *);
+	void EnableMPBombGear(bool);
+	void HandlePickupMPBomb(CPickup *);
+	void RemoteDropMPBomb();
+	void DropMPBomb();
+	static void CreateMPBombPickup(const CPnt3D *, bool);
+	void AttemptBombDefuse();
+	zdb::CNode * GetAnimationNode(unsigned int);
+	void CanClimbLadder();
+	void CanClimbWall();
+	void DoHandSignal(SEAL_HANDSIGNAL);
+	void CheckPathProximity(const CAiPath &, int, float) const;
+	void GetWeaponState() const;
+	void WepWaitOff();
+	void WepWaitOn();
+	void SetWeaponState(WEAPON_STATE);
+	void WeaponsTick(float);
+	void GetFirepointPos(CPnt3D &, const char *);
+	zdb::CNode * GetFirepointNode(const char *);
+	void GetNodePos(const zdb::CNode *, CPnt3D &, bool);
+	unsigned char SetAimDirR(const CPnt3D *, bool);
+	unsigned char CalcAimGoal(const CPnt3D *, const CPnt3D *, CPnt3D *);
+	void SetAimPointW(const CPnt3D *, const CPnt3D *, bool);
+	void UpdateAimParams();
+	void GetAP(CPnt3D &);
+	void GetFP(CPnt3D &);
+	unsigned char UpdateAimDir(bool);
+	void CanProneAim();
+	float GetAimDot();
+	void CanAttainAim(CPnt3D &);
+	static int m_aim_anims[3];
+	static unsigned char m_allow_friendly_fire;
+	static int m_bigrippleanim[3];
+	static int m_blooddriptexhandles[3];
+	static int m_body_fall_sound;
+	static CCompass m_compass;
+	static int m_cqb_sound;
+	static unsigned char m_delayed_footbomb_creation;
+	static float m_delayed_footbomb_creation_pos[3];
+	static int m_dropanim;
+	static int m_heartbeat_sound[3];
+	static unsigned char m_renderShadow;
+	static int m_sealstep;
+	static int m_smallrippleanim[3];
+	static int m_steptexhandles;
+	static int player_;
+	static const float stoppedV;
+	/* @socom-skeleton end 10CZSealBody */
 };
 
 class CSealUnit
 {
 public:
 	static bool TickAll(f32 dT, void* buf);
+	/* @socom-skeleton decl 9CSealUnit */
+public:
+	virtual void IssueCommand(CZSealBody *, FT_COMMAND, void *, bool);
+	virtual void AllowCommand(CZSealBody *, FT_COMMAND, void *);
+	static CSealUnit * Create(unsigned int);
+	static CSealUnit * GetUnitByTeam(unsigned int);
+	void GetMyLookDir(CPnt3D *, CPnt3D *, CZSealBody *);
+	CSealUnit(unsigned int);
+	void SealJoinUnit(CZSealBody *);
+	void EscorteeJoinUnit(CZSealBody *);
+	static void SealLeaveUnit(CZSealBody *);
+	void Revive(CZSealBody *);
+	void IsMemberOfUnit(unsigned int, CZSealBody *, bool);
+	void IsMemberOfUnit(CZSealBody *, bool);
+	CZSealBody * GetSealByIndex(unsigned int);
+	void PrivateNotify(CZSealBody *, UNIT_MESSAGE, void *);
+	void DistributeNotify(CZSealBody *, UNIT_MESSAGE, void *);
+	void Notify(CZSealBody *, UNIT_MESSAGE, void *);
+	static void UnInit();
+	static void CreateMultiPlayerUnits();
+	static void InitalizeSealUnit(CZSealBody *);
+	static void CreateSinglePlayerUnits();
+	CZSealBody * SetFormation(CZSealBody *, CPnt3D *);
+	void VoiceHandSignal(CZSealBody *, FT_COMMAND, void *, bool);
+	void HandleSupport(CZSealBody *, FT_COMMAND, void *, bool);
+	static void SetConfirmVoiceCommands(bool);
+	static unsigned char GetConfirmVoiceCommands();
+	void ConfirmCommand(CZSealBody *, FT_COMMAND, char *);
+	SEAL_HANDLE GetUnitLeaderHandle();
+	void CommandNotifyFromChild(CSealUnit *, CZSealBody *, FT_COMMAND, void *);
+	CZSealBody * GetLeader() const;
+	CZSealBody * GetTail();
+	void Tick(float, void *);
+	unsigned int GetAwareCounter() const;
+	void UpdatePointOutState();
+	void ResetPointOutState();
+	void GetMyPointOutTurnDir(CZSealBody *, CPnt3D **);
+	void GetMyPointOutAnimStart(CZSealBody *);
+	void CheckPathProximity(const CAiPath &, int, float) const;
+	static unsigned char m_created_units_test;
+	static int m_list[3];
+	/* @socom-skeleton end 9CSealUnit */
 };
 
 class CSealCtrl : CEntityCtrl
 {
 	friend class CAppCamera;
 public:
-	CSealCtrl() : CEntityCtrl() {}
+	CSealCtrl();
 	~CSealCtrl();
 
 	virtual bool AllowCommand(CZSealBody* seal, FT_COMMAND command, void* buffer);
@@ -989,6 +1530,85 @@ public:
 
 	f32 m_bombpickuptimer;
 	f32 m_weapon_pickup_timer;
+	/* @socom-skeleton decl 9CSealCtrl */
+public:
+	virtual void PreTick(float);
+	virtual void Tick(float);
+	virtual void PostMortemPreTick(float);
+	virtual void OnDeath();
+	virtual void PlayAiSound(CHARACTER_SOUND);
+	virtual CSealCtrlAi * GetSealCtrlAi();
+	virtual void PostTick(float);
+	virtual void Initalize();
+	virtual void OnWeaponEvent(CZProjectile *, unsigned int, void *);
+	virtual void OnRecycleEntity(CEntity *);
+	virtual void OnWeaponHit(zdb::IntersectStruct *, CZProjectile *);
+	virtual void OnStunDamage(STUN_TYPE, float, const CPnt3D *);
+	virtual void OnSetHealth(float, float);
+	virtual void ResetToInitialState();
+	virtual void OnMissionStart();
+	virtual void OnMissionEnd();
+	virtual void OnStateChange(SEAL_STATE, SEAL_STATE);
+	virtual void Dump();
+	virtual unsigned int GetAiNetState() const;
+	virtual void SetAiNetState(unsigned int);
+	virtual void PerturbAimVector(CPnt3D *);
+	virtual void OnActionButton();
+	virtual void PerformCollisionActions();
+	virtual void PerformReticleActions();
+	virtual void PerformProximityActions();
+	virtual void OnCommand(CZSealBody *, FT_COMMAND, void *, bool);
+	virtual void CreepTick(float);
+	virtual unsigned char SlideTick(float);
+	virtual void NotifyTargetDown(CZSealBody *);
+	virtual void UpdateViewCone();
+	virtual void OnSetTargetVisible(CTarget &, bool, zdb::DiIntersect *);
+	virtual void SetTarget(CTarget *);
+	void CreateAiEvent(CAiEvent::EVENT, float, float, bool, const CPnt3D *, unsigned int);
+	void SetGoalPos(GOAL_TYPE, const CPnt3D *, float);
+	void SetGoalDir(GOAL_TYPE, const CPnt3D *, bool);
+	float ComputeTurnThrottle(const CPnt3D *, const CPnt3D *, float *);
+	void SetLookRate(float);
+	void SetLookTimer(float);
+	void SetLookFlags(unsigned int);
+	void ModifyLookFlags(unsigned int, unsigned int);
+	void SetScanAngle(float);
+	void SetScanRate(float);
+	void SetDefaultLookParams(AI_LOOK);
+	void SetLookPosW(AI_LOOK, const CPnt3D *);
+	void SetLookDirW(AI_LOOK, const CPnt3D *, bool);
+	void SetLookDirW(AI_LOOK, CAiMap::DIR);
+	void SetLookDirR(AI_LOOK, const CPnt3D *, bool);
+	void ScanTick(float);
+	unsigned char AllowCommandFOLLOW(CZSealBody *);
+	unsigned char AllowCommandHOLDPOS(CZSealBody *);
+	static char * GetCommandName(FT_COMMAND);
+	static FT_COMMAND GetCommandId(const char *);
+	void SetTrigger(bool, float);
+	void SetTrigger(bool);
+	void ThrottlesPreTick(CPad *, float);
+	void TickAimPitch(float, float);
+	void CanPlaceBomb(CNodeAction *);
+	void CanPerformAction(CNodeAction *);
+	void TickVictims();
+	void TickPickups(float);
+	void SampleActionAvailable();
+	float GetThrowAverage();
+	void TriggerPowerReset();
+	void SetCameraZoom(float, float);
+	void UpdateHudWeapon();
+	float GetZoomLevel();
+	float GetZoomIncrement();
+	void SetHighRumbleTime(float);
+	void SetLowRumbleTime(float, float);
+	void _GetTargetPerception(CTarget &);
+	void SensorPreTick(float);
+	void SensorTick(float);
+	float ComputeVisibility(zdb::DiIntersect *, CTarget *);
+	float ComputeVisibility(zdb::DiIntersect *, zdb::CNode *);
+	void SetViewFOV(float);
+	static unsigned char m_bobbing1stperson_enabled;
+	/* @socom-skeleton end 9CSealCtrl */
 };
 
 class CSealCtrlAi : CSealCtrl
@@ -998,11 +1618,177 @@ public:
 
 	static SEAL_VALVE get_valve(const char* valve);
 	static const char* get_valve(SEAL_VALVE valve);
+	/* @socom-skeleton decl 11CSealCtrlAi */
+public:
+	virtual ~CSealCtrlAi();
+	virtual void PreTick(float);
+	virtual void Tick(float);
+	virtual void PostMortemPreTick(float);
+	virtual void OnDeath();
+	virtual void SetThrottle(unsigned int, float);
+	virtual void PlayAiSound(CHARACTER_SOUND);
+	virtual void AllowCommand(CZSealBody *, FT_COMMAND, void *);
+	virtual unsigned char IsPlayer() const;
+	virtual void IsAi() const;
+	virtual CSealCtrlAi * GetSealCtrlAi();
+	virtual void PostTick(float);
+	virtual void Initalize();
+	virtual void OnWeaponEvent(CZProjectile *, unsigned int, void *);
+	virtual void OnRecycleEntity(CEntity *);
+	virtual void OnWeaponHit(zdb::IntersectStruct *, CZProjectile *);
+	virtual void OnStunDamage(STUN_TYPE, float, const CPnt3D *);
+	virtual void OnSetHealth(float, float);
+	virtual void ResetToInitialState();
+	virtual void OnMissionStart();
+	virtual void OnMissionEnd();
+	virtual void OnStateChange(SEAL_STATE, SEAL_STATE);
+	virtual void Dump();
+	virtual unsigned int GetAiNetState() const;
+	virtual void PerturbAimVector(CPnt3D *);
+	virtual void OnActionButton();
+	virtual void PerformCollisionActions();
+	virtual void PerformReticleActions();
+	virtual void PerformProximityActions();
+	virtual void OnCommand(CZSealBody *, FT_COMMAND, void *, bool);
+	virtual void CreepTick(float);
+	virtual unsigned char SlideTick(float);
+	virtual void NotifyTargetDown(CZSealBody *);
+	virtual void UpdateViewCone();
+	virtual void OnSetTargetVisible(CTarget &, bool, zdb::DiIntersect *);
+	virtual void SetTarget(CTarget *);
+	virtual void GetJumpFlag() const;
+	static void AcquireDatabaseHandles();
+	static void ReleaseDatabaseHandles();
+	static void SetAiAccuracyAngle(float);
+	void PlayAiSound(AI_SOUND);
+	void StopAiSound(AI_SOUND);
+	void GetAiLog();
+	static void SetAiLogEnabled(bool, bool);
+	static void SetAiEnabled(bool, bool);
+	void GetAiStateEnum() const;
+	void AiStateIs(AI_STATE) const;
+	char * GetStatusString();
+	CSealCtrlAi();
+	void InitAiBrain();
+	void UpdateEventMask();
+	void AnimIsPlaying(AnimType);
+	void PlayAnim(const char *, SEAL_STATE);
+	void PlayAnim(AnimType, SEAL_STATE);
+	void SetSnoozing(bool);
+	void SetSleeping(bool);
+	void SetAiMode(AI_MODE);
+	void LadderClimbTick(float);
+	void PathFollowTick(float);
+	void AllStop(bool);
+	void IdleTick(float);
+	void SetDebug(bool);
+	void PutAiLog(unsigned int, unsigned int, const void *);
+	void Debug(const char *, ...);
+	void Output(const char *, ...);
+	void SetValve(SEAL_VALVE, unsigned int);
+	void SelectFireParams();
+	unsigned char CanAttack(CEntity *);
+	void SetSprayTimer(float);
+	unsigned char AttackTick(float, bool);
+	unsigned char FireWhenReady(AI_FIREPARAMS &, float);
+	void ChooseWeapon(CAiWepHint &);
+	void GetDuckStance(CZSealBody *, SEAL_STANCE &) const;
+	unsigned char SetStance(SEAL_STANCE);
+	unsigned char SetStanceDelayed(SEAL_STANCE, float);
+	unsigned char DoSetStance(SEAL_STANCE);
+	void SetupAnimations();
+	void GetRouteComplete() const;
+	ASTAR_STATUS GetRouteFailed() const;
+	void ClearRoute();
+	void GetDefaultRouteType();
+	float GetDefaultRouteBias();
+	void SetRoute(const CAiMapLoc &);
+	void SetRoute(const CAiMapLoc *, int);
+	void SetRouteType(CAiPath::PATH_TYPE, float);
+	void SetRouteSearchLimit(unsigned int);
+	void GetValve(SEAL_VALVE) const;
+	unsigned char SetHoldFire(bool);
+	void AnimSignal(CZAnim *, AI_SIGNAL);
+	void ActivateEx(SEAL_TASK, bool, ...);
+	void SetDoReaction(bool, const AI_REACTION &, bool);
+	void DoReaction();
+	void SetAiAware(float, unsigned int);
+	void SetAiAware(AI_AWARE, const CPnt3D *);
+	void AcquireAiAware(CSealCtrlAi *);
+	static AI_AWARE GetAiAware(float);
+	AI_AWARE GetAiAware() const;
+	void ConfirmAiState(CAiState *, bool);
+	void FindCoverLoc(const CPnt3D *, CAiMapLoc &, SEAL_PEEK &, int);
+	void ComputeProjectileFireParams(AI_FIREPARAMS &);
+	void UpdateThrowFireParams(AI_FIREPARAMS &, bool);
+	void ComputeThrowFireParams(AI_FIREPARAMS &);
+	void SetReturnVelocity(CZProjectile *, CPnt3D *, bool);
+	static CAiMap::DIR ChooseLookDir(const CAiMapLoc &, const CPnt3D *, bool, CAiMapLoc *, int, int *);
+	void InGuardRegion();
+	void HasSniperRifle();
+	void SetAiEvent(CAiEvent::EVENT, float, const CPnt3D *);
+	void EventTick(float);
+	void HandleEvent(const CAiEvent *);
+	void SetFollowMaster(CZSealBody *);
+	void SetFollowOffset(const CPnt3D *);
+	CZSealBody * GetFollowMaster(int *);
+	void HandleFollowTickHideCheck(bool, bool, CAiMapLoc, void *);
+	void HandleFollowTickStance(bool, bool, float);
+	void HandleFollowTickMasterPath();
+	void HandleFollowTickPointMode();
+	void FollowTick(float);
+	void GetAiState();
+	void GetAiState() const;
+	void FindAiState(AI_STATE) const;
+	void ClearAiState(bool);
+	void CanPushAiState(AI_STATE);
+	void SetAiState(AI_STATE);
+	void PushAiState(AI_STATE, bool);
+	void PopAiState();
+	void PopToAiState(AI_STATE);
+	void PopAiState(AI_STATE);
+	void UpdateStackFlags(bool);
+	void StateTick(float);
+	void ActivateSeq(const char *, unsigned int);
+	static bool PreTick(float, void *);
+	static bool PrePostTick(float, void *);
+	static bool PostTick(float, void *);
+	static void OpenDiPool();
+	static void CloseDiPool();
+	void SensorPreTick(float);
+	void EnemyCallout(const CTarget *, CEntity *);
+	void SensorTick(float);
+	void RegisterCanSee(int &, const CPnt3D *);
+	static float aiAccuracyAngle;
+	static const EQUIP_ITEM aiDeployList[11];
+	static unsigned char aiEnabled;
+	static unsigned char aiLogEnabled;
+	static int aiLogFile;
+	static unsigned char aiLogFlag;
+	static int aiSoundHandle[2];
+	static unsigned char aiSoundInstance[8];
+	/* @socom-skeleton end 11CSealCtrlAi */
 };
 
 class CSealCtrlSquirm : CSealCtrl
 {
 
+	/* @socom-skeleton decl 15CSealCtrlSquirm */
+public:
+	virtual ~CSealCtrlSquirm();
+	virtual void PreTick(float);
+	virtual void Tick(float);
+	virtual void PostMortemPreTick(float);
+	virtual void OnDeath();
+	virtual void Initalize();
+	virtual void OnWeaponHit(zdb::IntersectStruct *, CZProjectile *);
+	virtual void OnStunDamage(STUN_TYPE, float, const CPnt3D *);
+	virtual void OnSetHealth(float, float);
+	virtual void ResetToInitialState();
+	virtual void OnActionButton();
+	virtual void GetJumpFlag() const;
+	CSealCtrlSquirm();
+	/* @socom-skeleton end 15CSealCtrlSquirm */
 };
 
 class CTAction
@@ -1177,6 +1963,10 @@ public:
 	static void End(_zanim_cmd_hdr* header);
 	static _zanim_cmd_hdr* Parse(_zrdr* reader);
 	static bool Tick(_zanim_cmd_hdr* header, f32* delta);
+	/* @socom-skeleton decl 8CTSelect */
+public:
+	static TASK_SELECT * Create(CZSealBody *);
+	/* @socom-skeleton end 8CTSelect */
 };
 
 class CTSetAnimSet
@@ -1263,4 +2053,146 @@ public:
 	static _zanim_cmd_hdr* Parse(_zrdr* reader);
 	static bool Tick(_zanim_cmd_hdr* header, f32* delta);
 };
+/* @socom-skeleton decl 13AI_FIREPARAMS */
+class AI_FIREPARAMS
+{
+public:
+	void reset();
+	void setup(CZKit *, const CPnt3D *, const CPnt3D *, unsigned int);
+};
+/* @socom-skeleton end 13AI_FIREPARAMS */
+/* @socom-skeleton decl 8CAiDodge */
+class CAiDodge
+{
+public:
+	void Destroy();
+	static int m_list[3];
+};
+/* @socom-skeleton end 8CAiDodge */
+/* @socom-skeleton decl 10CAiSCorpse */
+class CAiSCorpse : public CAiState
+{
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual ~CAiSCorpse();
+	void SetCorpse(CEntity *);
+};
+/* @socom-skeleton end 10CAiSCorpse */
+/* @socom-skeleton decl 10CAiSPickup */
+class CAiSPickup : public CAiState
+{
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual ~CAiSPickup();
+};
+/* @socom-skeleton end 10CAiSPickup */
+/* @socom-skeleton decl 10CAiSReload */
+class CAiSReload : public CAiState
+{
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual void CanAttack() const;
+	virtual ~CAiSReload();
+};
+/* @socom-skeleton end 10CAiSReload */
+/* @socom-skeleton decl 11CAiSUnknown */
+class CAiSUnknown : public CAiState
+{
+public:
+	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
+	virtual void Tick(float, CSealCtrlAi *);
+	virtual ~CAiSUnknown();
+};
+/* @socom-skeleton end 11CAiSUnknown */
+/* @socom-skeleton decl 9CAiTarget */
+class CAiTarget
+{
+public:
+	CAiTarget();
+	unsigned char UpdateTarget(CTarget *, float);
+	void SetTarget(CTarget *, float);
+	void UpdateLastKnownPosW();
+	float GetTimeSinceLastSighting() const;
+	float GetTimeAcquired() const;
+	float GetTimeVisible() const;
+	void Tick(CEntity *, float);
+	void OnSetVisible(bool);
+	void ModifyAimDir(CPnt3D *, float, float);
+};
+/* @socom-skeleton end 9CAiTarget */
+/* @socom-skeleton decl 10CAiWepHint */
+class CAiWepHint
+{
+public:
+	static float GetWeaponEffectiveRange(CZWeapon *);
+	static float GetWeaponAccuracy(CZWeapon *, float, bool);
+};
+/* @socom-skeleton end 10CAiWepHint */
+/* @socom-skeleton decl 8CCompass */
+class CCompass : public CCompassAnchorVec
+{
+public:
+	void Open();
+	void Close();
+	static CCompassAnchor * CreateAnchor(const CPnt3D &, const char *);
+	void DeleteAnchor(CCompassAnchor *);
+};
+/* @socom-skeleton end 8CCompass */
+/* @socom-skeleton decl 11CHandSignal */
+class CHandSignal
+{
+public:
+	CHandSignal();
+};
+/* @socom-skeleton end 11CHandSignal */
+/* @socom-skeleton decl 2ai */
+class ai
+{
+public:
+	class LINE_TYPE;
+	static void FlushPlannerQueue();
+	void PathPlanBegin(CAiPath *);
+	static unsigned char PathPlanAddLeg(CAiMap *, const CAiMapLoc &, const CAiMapLoc &);
+	void PathPlanAbort();
+	void PathPlanExecute();
+	void AbortPathPlan(CAiPath *);
+	static void ResetPathPlan();
+	static bool TickPathPlanner(float, void *);
+	static void PathPlanImmediate(CAiMap *, const CAiMapLoc &, const CAiMapLoc &, CAiPath *);
+	static void CheckLineOfFire(const CEntity *, const CTarget *, float);
+	static void plot_tick(float, bool);
+	static void PushLineColor(const CPnt3D &);
+	static void PopLineColor();
+	void SetLineOpacity(float);
+	static float GetLineOpacity();
+	static void SetLineFuncOpacity(float, float);
+	static void SetLineFuncOpacity(float);
+	static void MoveTo(const CPnt3D &);
+	static void LineTo(const CPnt3D &);
+	void DrawLine(ai::LINE_TYPE, const CPnt3D *, const CPnt3D *);
+	static CPickup * find_closest_ammo(const CPnt3D *, CZKit *, CZWeapon *, float);
+	static int _plan_path;
+	static int ai_line_color[3];
+	static int ai_line_mask;
+	static float ai_line_opacity;
+	static float ai_line_opacity_end;
+	static float ai_line_opacity_start;
+	static float ai_line_pos[3];
+	static unsigned char ai_line_stack;
+	static unsigned char eventNoise[8];
+	static float minTurnAngle;
+	static int pathShortLimit;
+	static int path_queue[6];
+	static float rateRotateMax;
+	static float rateStrafeMax;
+	static float underfire_hit_delta;
+	static float underfire_return;
+	static float underfire_thip_delta;
+	static float underfire_threshold;
+	static unsigned char visinfo;
+};
+/* @socom-skeleton end 2ai */
 #endif

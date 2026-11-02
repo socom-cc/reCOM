@@ -31,5 +31,19 @@ public:
 	void DestroyNode(CGNode* node);
 	CGNode* GetNodeByIndex(u32 index);
 	CGNode* GetNodeByNodeEx(const CGNodeEx* node);
+	/* @socom-skeleton decl 6CGraph */
+public:
+	void Create(CFileIO &, void (*)(CGraph *, CGNode *, bool, unsigned int &, void *), void (*)(CGraph *, CGEdge *, bool, unsigned int &, void *), void *);
+	void Read(CFileIO &, void (*)(CGraph *, CGNode *, bool, unsigned int &, void *), void (*)(CGraph *, CGEdge *, bool, unsigned int &, void *), void *);
+	static void Destroy(CGraph *);
+	void DeleteNode(CGNode *);
+	void GetNodeByNodeEx(const void *);
+	void BuildTree(CGNode *, float);
+	void BuildRoute(CGNode *, CGNode *, CGRoute *);
+	static int m_leafTree;
+	static int m_treeEdge;
+	static int m_treeNode;
+	static const int version;
+	/* @socom-skeleton end 6CGraph */
 };
 #endif

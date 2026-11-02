@@ -26,5 +26,10 @@ public:
 	bool addstringnode(const char* node);
 
 	std::stack<std::vector<_zrdr*>> m_stack;
+	/* @socom-skeleton decl 10CRdrEditor */
+public:
+	CRdrEditor();
+	~CRdrEditor();
+	/* @socom-skeleton end 10CRdrEditor */
 };
 #endif

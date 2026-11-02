@@ -242,6 +242,32 @@ namespace zdb
 
 		f32 m_yaw;
 		f32 m_pitch;
+		/* @socom-skeleton decl Q23zdb7CCamera */
+public:
+		virtual ~CCamera();
+		void SetHalfVerticalFOVRadians(float);
+		void SetMidClip(float);
+		void SetNearClip(float);
+		void UpdateFrustum();
+		int find_convex_hull_xz(CPnt3D *, int);
+		void theta_x_z(CPnt3D *, CPnt3D *, float *, float *);
+		zdb::tag_ZVIS_FOV TestFOV(PNT4D *, unsigned int *, bool);
+		void SetCameraCanSeeRegions(unsigned int);
+		void SetPlayerCanSeeRegions(unsigned int);
+		unsigned char PlayerCanSeeRegion(unsigned int);
+		unsigned int GetPlayerCanSeeRegion();
+		float GetScaledRangeSquared(CPnt3D *);
+		unsigned char InsideMidPlane(zdb::CCell *);
+		unsigned char InsideMidPlane(zdb::CNode *);
+		float GetZ(CPnt3D *);
+		float GetScaledZSquared(CPnt3D *);
+		void GetLandmarkFarPlane(zdb::CWorld *);
+		unsigned char TestFOG(const CPnt3D *, float);
+		unsigned char TestLandmarkFOG(const CPnt3D *, float);
+		unsigned __int128 * GetVuMtxSet();
+		float GetFogVisibility(const CPnt3D *, const CPnt3D *) const;
+		void UpdateDirectionalFog();
+		/* @socom-skeleton end Q23zdb7CCamera */
 	};
 }
 
@@ -337,6 +363,16 @@ public:
 	f32 m_rumble_time_scaler;
 	f32 m_rumble_power;
 	f32 m_rumble_power_scaler;
+	/* @socom-skeleton decl 10CAppCamera */
+public:
+	virtual unsigned char AttachTo(CZSealBody *);
+	void ClipCameraChord(float, CPnt3D *, CPnt3D *, CPnt3D *);
+	void LookAt(const CPnt3D *, const CPnt3D *, CMatrix &);
+	void GetThirdPersonCamPos(CPnt3D *, float *);
+	void UpdateDeathCamState(float);
+	unsigned char GetDeadCamPoints(CPnt3D *, CPnt3D *, CMatrix *, float);
+	unsigned char GetTetherCamPoints(CPnt3D *, CPnt3D *, CPnt3D *, float);
+	/* @socom-skeleton end 10CAppCamera */
 };
 
 class CameraZoom
@@ -347,5 +383,19 @@ public:
 public:
 	static CHUD* m_hud;
 	static CZSealBody* m_seal;
+	/* @socom-skeleton decl 10CameraZoom */
+public:
+	static void SetGoal(float);
+	static void HandleZoomIn(float, float);
+	static void HandleNewZoom();
+	static void OnGoal();
+	static unsigned char Tick(float);
+	static float m_current;
+	static float m_goal;
+	static float m_increment;
+	static unsigned char m_isGoalHit;
+	static unsigned char m_iszoom;
+	static CAMVIEW m_oldview;
+	/* @socom-skeleton end 10CameraZoom */
 };
 #endif

@@ -88,5 +88,12 @@ public:
 	static f32 MaxFrameRate(s32 fr);
 
 	static s32 m_defaultFrameRate;
+	/* @socom-skeleton decl 6CVideo */
+public:
+	void Fade(float, unsigned char, unsigned char, unsigned char);
+	static void RestoreImage(char *);
+	void ReadGsMemory(unsigned int, unsigned __int128 *, unsigned int);
+	void WriteGsMemory(unsigned int, unsigned __int128 *, unsigned int);
+	/* @socom-skeleton end 6CVideo */
 };
 #endif

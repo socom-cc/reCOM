@@ -42,6 +42,18 @@ namespace zdb
 		CLightList m_lightList;
 		CClutterList m_clutterList;
 		CDynTexList m_dyntexlist;
+		/* @socom-skeleton decl Q23zdb5CCell */
+public:
+		virtual ~CCell();
+		virtual unsigned char IsCell();
+		virtual CBBox * UpdateBBox(bool);
+		virtual void Copy(zdb::CNode *) const;
+		CCell(const CPnt3D *, float);
+		void DeleteClutter();
+		void AddClutter(zdb::CClutter *);
+		void RenderClutter(zdb::CCell *);
+		void GetMidPoint(CPnt3D *);
+		/* @socom-skeleton end Q23zdb5CCell */
 	};
 
 	class COrderedCell
@@ -126,7 +138,59 @@ namespace zdb
 		s32 m_ring;
 
 		COrderedCell m_orderedCells;
+		/* @socom-skeleton decl Q23zdb5CGrid */
+public:
+		void GetAltitude(zdb::DiIntersect *);
+		void GetIntersect(zdb::DiIntersect *);
+		void GetIntersectBatch(zdb::DiIntersect **, int);
+		void NodeGetIntersectBatch(zdb::CNode *, zdb::DiIntersect **, int);
+		void InitDescendantsDI();
+		void InitDescendantsVisuals();
+		void NodeGetIntersect(zdb::CNode *, zdb::DiIntersect *);
+		void NodeGetAltitude(zdb::CNode *, zdb::DiIntersect *);
+		void SetCellBoundary(CPnt3D, CPnt3D);
+		zdb::CCell * GetNextCell();
+		void gridGetGridXandZIndex(int *, int *, float, float);
+		void Remove(zdb::CNode *);
+		void Destroy();
+		void AddClutter(zdb::CClutter *);
+		void DeleteClutter();
+		void ReadClutter(const char *, const char *);
+		static unsigned char m_BBoxHitNodes[32];
+		static int m_BBoxIntersectNodeCnt;
+		static unsigned char m_doAltitude;
+		static unsigned char m_doBBoxIntersectNodes;
+		static unsigned char m_doIntersect;
+		/* @socom-skeleton end Q23zdb5CGrid */
 	};
 }
 
+/* @socom-skeleton decl Q23zdb12CClutterAnim */
+namespace zdb {
+class CClutterAnim
+{
+public:
+	~CClutterAnim();
+	void TickForce(CPnt3D *, CPnt3D *, float, float);
+};
+}
+/* @socom-skeleton end Q23zdb12CClutterAnim */
+/* @socom-skeleton decl Q23zdb19CClutterAnimManager */
+namespace zdb {
+class CClutterAnimManager
+{
+public:
+	CClutterAnimManager();
+	~CClutterAnimManager();
+	void ClearAnimations(bool);
+	void ClearEffectors();
+	void TestCellMid(CPnt3D *, CPnt3D *);
+	void ClutterTick(zdb::CClutter *);
+	void l_Tick(float, void *);
+	static bool Tick(float, void *);
+	void RegisterEffector(const void *, const CPnt3D *, float, const CPnt3D *);
+	void UnRegisterEffector(const void *);
+};
+}
+/* @socom-skeleton end Q23zdb19CClutterAnimManager */
 #endif

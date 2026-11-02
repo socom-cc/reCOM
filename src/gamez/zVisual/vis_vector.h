@@ -20,12 +20,22 @@ namespace zdb
 	{
 	public:
 		void RecycleTick();
+		/* @socom-skeleton decl Q23zdb10CDecalPool */
+public:
+		void Init(unsigned int, unsigned int);
+		void Get(bool);
+		/* @socom-skeleton end Q23zdb10CDecalPool */
 	};
 
 	class CMeshDecalPool : public std::vector<CMeshDecal*>
 	{
 	public:
 		void RecycleTick();
+		/* @socom-skeleton decl Q23zdb14CMeshDecalPool */
+public:
+		void Init(unsigned int, unsigned int);
+		void Uninit();
+		/* @socom-skeleton end Q23zdb14CMeshDecalPool */
 	};
 }
 #endif

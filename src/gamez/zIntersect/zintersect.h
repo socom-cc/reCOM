@@ -33,6 +33,14 @@ namespace zdb
         CPnt3D m_pos;
         CPnt3D m_norm;
         CNode* m_node;
+        /* @socom-skeleton decl Q23zdb15IntersectStruct */
+public:
+        unsigned int GetMaterial();
+        unsigned int GetRegion();
+        unsigned char IsInside();
+        void GetIntersectedEdgePointsY(CPnt3D *);
+        void GetIntersectedEdgePoints(CPnt3D *, CPnt3D *);
+        /* @socom-skeleton end Q23zdb15IntersectStruct */
     };
 
     struct DiIntersect
@@ -57,6 +65,14 @@ namespace zdb
         CNode* m_Node;
         CNode* m_TreeDoneNode;
         IntersectStruct* m_Intersects;
+        /* @socom-skeleton decl Q23zdb11DiIntersect */
+public:
+        void SortNearToFar(int *, float *);
+        zdb::IntersectStruct * GetNearestIntersect();
+        zdb::IntersectStruct * GetHighestAltitude(const CPnt3D *, float);
+        void LoadTipAndTail();
+        ~DiIntersect();
+        /* @socom-skeleton end Q23zdb11DiIntersect */
     };
 
     class CHit : public IntersectStruct
@@ -90,6 +106,15 @@ namespace zdb
         s32 GetEdgeIntersectsY(CPnt3D* firstPoint, CPnt3D* secondPoint) const;
     private:
         CPnt4D* m_pts;
+        /* @socom-skeleton decl Q23zdb3CDI */
+public:
+        virtual ~CDI();
+        virtual void Allocate(int);
+        int GetEdgeIntersects(CPnt3D *, CPnt3D *, CPnt3D *);
+        int GetEdgeIntersectsY(CPnt3D *, CPnt3D *);
+        void SetEdgeVecsAndNorm();
+        unsigned int Release();
+        /* @socom-skeleton end Q23zdb3CDI */
     };
 
     class CDIVector : public std::vector<CDI*>
@@ -101,6 +126,48 @@ namespace zdb
     class CDIPoly : public CDI
     {
         
+	/* @socom-skeleton decl Q23zdb7CDIPoly */
+public:
+	virtual ~CDIPoly();
+	virtual void GetIntersect(zdb::DiIntersect *);
+	virtual void GetAltitude(zdb::DiIntersect *);
+	CDIPoly();
+	/* @socom-skeleton end Q23zdb7CDIPoly */
     };
 }
+/* @socom-skeleton decl 11CMaterialEx */
+class CMaterialEx
+{
+public:
+	CMaterialEx();
+};
+/* @socom-skeleton end 11CMaterialEx */
+/* @socom-skeleton decl 16CMaterialExArray */
+class CMaterialExArray
+{
+public:
+	static int ResolveMaterialIndex(const char *);
+	static int ResolveDecalMaterialIndex(const char *, int);
+	void UnInit();
+	static void CreateDefaultMaterials();
+	void GetWeaponAnimMaterialEx(unsigned int);
+	static void ReadMaterials(CRdrFile *);
+	static void SetDefaultMaterial(int);
+	static int m_materialex_list[3];
+	static unsigned char m_materialex_map[16];
+};
+/* @socom-skeleton end 16CMaterialExArray */
+/* @socom-skeleton decl Q23zdb7CDIBBox */
+namespace zdb {
+class CDIBBox : public zdb::CDI
+{
+public:
+	virtual ~CDIBBox();
+	virtual void GetIntersect(zdb::DiIntersect *);
+	virtual void GetAltitude(zdb::DiIntersect *);
+	CDIBBox();
+	static void SetCDIBBox();
+};
+}
+/* @socom-skeleton end Q23zdb7CDIBBox */
 #endif

@@ -103,6 +103,10 @@ public:
 	static CMatrix m_stack[64];
 	static CMatrix* m_top;
 	static CMatrix* m_pointer;
+	/* @socom-skeleton decl 6CStack */
+public:
+	CMatrix * Multiply(const CMatrix *, bool);
+	/* @socom-skeleton end 6CStack */
 };
 
 extern CStack stack;
@@ -140,7 +144,7 @@ public:
 	void RenderUiNode(zdb::CNode* node);
 	void RenderUiNodeRecursive(zdb::CNode* node);
 	bool RenderVisual(zdb::CNode* node, zdb::tag_ZVIS_FOV fov);
-	void RenderMesh(zdb::CNode* node, zdb::CMesh* mesh, CMatrix* mvp, zdb::tag_ZVIS_FOV fov) {}
+	void RenderMesh(zdb::CNode* node, zdb::CMesh* mesh, CMatrix* mvp, zdb::tag_ZVIS_FOV fov);
 	u32 RenderWorld(zdb::CWorld* world);
 	void Flush();
 
@@ -186,6 +190,26 @@ public:
 
 	std::vector<zdb::CNode*> m_DelayedNodes;
 	u32 m_delayedNodeNum;
+	/* @socom-skeleton decl 5CPipe */
+public:
+	class CAlpha
+	{
+	public:
+		void Add(zdb::CNode *, zdb::CNode *, zdb::CVisual *, zdb::tag_ZVIS_FOV, float);
+		void Render();
+		static unsigned char m_first_alpha_add;
+		static float m_last_alpha_insert;
+	};
+	~CPipe();
+	void FIFO_Signal(zdb::CGSTexBuffer *, unsigned int *);
+	void FIFO_Signal(zdb::CGSTexBuffer *);
+	void Uninit();
+	void BuildLightMapList(zdb::CNode *);
+	void SaveDelayedNode(CMatrix *, zdb::CNode *, zdb::tag_ZVIS_FOV);
+	void RenderDelayedNodes();
+	void RenderNodeShadow(zdb::CNode *);
+	void RenderMeshShadow(zdb::CNode *, zdb::CMesh *, CMatrix *);
+	/* @socom-skeleton end 5CPipe */
 };
 
 namespace zdb

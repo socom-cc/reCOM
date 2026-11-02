@@ -42,6 +42,16 @@ public:
 		f32 m_invFarFade;
 		f32 m_visualDensity;
 		bool m_checkFade;
+		/* @socom-skeleton decl Q28Particle5Props */
+public:
+		static Particle::Props * Create();
+		Particle::Props * Branch();
+		void DecRefCount(int);
+		void GetTexture(float, zdb::CTexHandle *&) const;
+		void GetColor(float, CPnt4D &) const;
+		void GetScale(float, float &) const;
+		float GetOpacity(float) const;
+		/* @socom-skeleton end Q28Particle5Props */
 	};
 
 	class Source
@@ -63,6 +73,25 @@ public:
 
 		void Tick(f32 dT);
 		void Reset();
+		/* @socom-skeleton decl Q28Particle6Source */
+public:
+		class List
+		{
+		public:
+			void Uninit();
+		};
+		void TexturesClear();
+		void TexturesAdd(zdb::CTexHandle *);
+		void TextureSequenceClear();
+		void TextureSequenceAdd(float, zdb::CTexHandle *);
+		void ScaleSequenceClear();
+		void ScaleSequenceAdd(float, float);
+		void SetActive(bool);
+		static float distanceFactor;
+		static float frequencyFactor;
+		static unsigned char list[12];
+		static float referencePositionW[3];
+		/* @socom-skeleton end Q28Particle6Source */
 	};
 	
 	class Instance
@@ -73,6 +102,24 @@ public:
 
 		void Expire();
 		void Render(const CMatrix& transform);
+		/* @socom-skeleton decl Q28Particle8Instance */
+public:
+		class List
+		{
+		public:
+			void Uninit();
+			void Tick(float);
+		};
+		virtual void Tick(float);
+		Instance(const CPnt4D &, const CPnt4D &, const CPnt3D &, float, float, float, zdb::CTexHandle *, Particle::Props *, Particle::Source *);
+		~Instance();
+		static float ageFactor;
+		static int fadeFactor;
+		static unsigned char list[12];
+		static float m_dT;
+		static int m_instance_pool;
+		static int spawnFactor;
+		/* @socom-skeleton end Q28Particle8Instance */
 	};
 	
 	static void Open();
@@ -80,5 +127,53 @@ public:
 
 	static void FlushDynTexList();
 	
+	/* @socom-skeleton decl 8Particle */
+public:
+	class BufferElement
+	{
+	public:
+		void DrawStreaked(float (&)[4][4]);
+		void DrawXZ(float (&)[4][4]);
+		void DrawRotated(float (&)[4][4]);
+		void Draw(float (&)[4][4]);
+		static int m_spr;
+	};
+	class Destruction_Instance : public Particle::Instance
+	{
+	public:
+		virtual void Tick(float);
+		virtual void Render(const CMatrix &);
+		Destruction_Instance(const CPnt4D &, const CPnt4D &, const CPnt3D &, float, float, float, zdb::CVisual *, CPnt3D, Particle::Props *);
+		void Create(const CPnt4D &, const CPnt4D &, const CPnt3D &, float, float, float, zdb::CVisual *, CPnt3D, Particle::Props *);
+	};
+	static void Init();
+	static bool Tick(float, void *);
+	static zdb::CDynTexList * GetDynTexList();
+	static void AddDynTexture(zdb::CTexHandle *);
+	static void ReserveNodePool();
+	static void FreeNodePool();
+	static void PullVisuals(zdb::CNode *, zdb::CDIVector *);
+	void CreateVisuals(CPnt3D *, CPnt3D *, CPnt3D *, CPnt3D, CPnt3D, CPnt3D, CMatrix, zdb::CTexHandle *, CPnt4D *, float, zdb::CModel *, CPnt3D *, CPnt3D *, CPnt3D *, Particle::Props *, float);
+	static void Create3Sided(zdb::CDIVector *, zdb::CNode *, CPnt4D *, zdb::CTexHandle *, float, zdb::CModel *, CPnt3D *, CPnt3D *, CPnt3D *, CPnt3D *, Particle::Props *, float);
+	static void DestructionManager(zdb::CNode *, char *, CPnt4D *, float, CPnt3D *, CPnt3D *, CPnt3D *, CPnt3D *, int, float);
+	static zdb::CNode * GetFreeInstance();
+	static void ReleaseInstance(zdb::CNode *);
+	static float DrawPrep();
+	void DrawOne();
+	static void DrawFlush();
+	static void Draw();
+	static float DrawRange(float, float);
+	void Render();
+	static unsigned char bufferPtr[20000];
+	static unsigned char buffer[160000];
+	static int clipLimScreen;
+	static zdb::CDynTexList m_dyntexlist;
+	static int m_lastTexture;
+	static int maxZ;
+	static int numParticles;
+	static int pParticleBuf;
+	static int particle_node_count;
+	static int particle_node_free_list[3];
+	/* @socom-skeleton end 8Particle */
 };
 #endif

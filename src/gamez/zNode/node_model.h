@@ -23,6 +23,10 @@ namespace zdb
 		bool m_bbox_valid;
 		CRefList m_list;
 		CAssetLib* m_AssetLib;
+		/* @socom-skeleton decl Q23zdb6CModel */
+public:
+		virtual ~CModel();
+		/* @socom-skeleton end Q23zdb6CModel */
 	};
 
 	class CModelVector : public std::vector<CModel*>

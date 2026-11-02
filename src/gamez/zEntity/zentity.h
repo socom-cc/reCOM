@@ -30,7 +30,12 @@ class CZBodyPart;
 class CModel;
 class CCameraParams;
 
-class CTargetList : public std::vector<CTarget*> {};
+class CTargetList : public std::vector<CTarget*> {
+	/* @socom-skeleton decl 11CTargetList */
+public:
+	CTarget * FindTarget(CEntity *);
+	/* @socom-skeleton end 11CTargetList */
+};
 
 struct HEALTH_PARAMS;
 
@@ -96,8 +101,8 @@ public:
 	void OpenRecycler() {}
 
 	// Mission callback functions
-	virtual void OnMissionStart() {}
-	virtual void OnMissionEnd() {}
+	virtual void OnMissionStart();
+	virtual void OnMissionEnd();
 	virtual void OnDeath();
 
 	// Tick virtual functions
@@ -166,6 +171,50 @@ public:
 
 	// CAiMapLoc m_mapLoc;
 	// CAiMapLoc m_mapLocValid;
+	/* @socom-skeleton decl 7CEntity */
+public:
+	virtual ~CEntity();
+	virtual CPnt3D * GetPosW() const;
+	virtual void PreTick(float);
+	virtual void Tick(float);
+	virtual void PostPreTick(float);
+	virtual void PrePostTick(float);
+	virtual void PostTick(float);
+	virtual void ComputeNextPosition(float);
+	virtual void UpdateNextPosition();
+	virtual CPnt3D * GetTargetPosW(CPnt3D *);
+	virtual void TeleportTo(const CPnt3D *, const CQuat *);
+	virtual void TeleportTo(const CMatrix *);
+	virtual void ResetToInitialState();
+	virtual void UpdateAiMapLoc(bool &);
+	virtual void OnRecycleEntity(CEntity *);
+	static void CloseRecycler();
+	static void CreateEntity(CEntity *, bool);
+	static void RecycleEntity(CEntity *);
+	static void RecycleEntity(unsigned int, CEntity *, bool);
+	static void DoRecycleEntity(CEntity *);
+	static void RemoveAll();
+	static bool PreTickAll(float, void *);
+	static bool TickAll(float, void *);
+	static bool PostTickAll(float, void *);
+	static int GetEntityIndex(const CEntity *);
+	zdb::CNode * GetNode();
+	void SetTeamMask(unsigned int);
+	void SetUpdateTargetList(bool);
+	void SetIncludeInTargetList(bool);
+	static void ReplaceTargetList(CEntity *, CEntity *);
+	void OnUpdateTargetList(bool, bool);
+	void RefreshAwareCounters();
+	static void UpdateTargetList(bool);
+	static const int invalidId;
+	static int m_recycle[3];
+	static int m_target_add[3];
+	static int m_target_inc[3];
+	static int m_target_rem[3];
+	static int nextEntityId;
+	static int rrTargetListCount;
+	static int rrTargetListFirst;
+	/* @socom-skeleton end 7CEntity */
 };
 
 class CEntityCtrl
@@ -195,6 +244,16 @@ public:
 	u32 m_is_player_node : 1;
 	u32 m_inside : 1;
 	u32 m_unused : 30;
+	/* @socom-skeleton decl 10CftsPlayer */
+public:
+	void IsInside();
+	static _zanim_cmd_hdr * CmdParseIndoorsTest(_zrdr *);
+	static bool CmdTickIndoorsTest(_zanim_cmd_hdr *, float *);
+	static _zanim_cmd_hdr * CmdParseControls(_zrdr *);
+	static bool CmdTickControls(_zanim_cmd_hdr *, float *);
+	static _zanim_cmd_hdr * CmdParseIsPlayerNode(_zrdr *);
+	static bool CmdTickIsPlayerNode(_zanim_cmd_hdr *, float *);
+	/* @socom-skeleton end 10CftsPlayer */
 };
 
 class CTarget
@@ -216,6 +275,12 @@ public:
 	u32 m_targeted : 1;
 	u32 m_dirty_di : 1;
 	u32 m_unused : 26;
+	/* @socom-skeleton decl 7CTarget */
+public:
+	CTarget();
+	float Update(CEntity *, CEntity *);
+	float GetRange();
+	/* @socom-skeleton end 7CTarget */
 };
 
 class CPickup
@@ -233,5 +298,46 @@ private:
 	s16 m_id;
 	s16 m_netid;
 	bool m_visible_by_units;
+	/* @socom-skeleton decl 7CPickup */
+public:
+	class PU_TYPE;
+	static void Open(unsigned int);
+	static void Close(bool);
+	void DebugPickups();
+	void NetworkCreate(unsigned char, CPickup::PU_TYPE, zdb::CNode *, void *);
+	void GetVisibleByUnit(unsigned int);
+	void SetVisibleByUnit(unsigned int);
+	void Create(CPickup::PU_TYPE, zdb::CNode *, void *);
+	static void Destroy(CPickup *);
+	static void DestroyNetPickups(unsigned char);
+	void GetFirst();
+	void GetNext(std::list<CPickup *, std::allocator<CPickup *> >::generic_iterator<0> &, CPickup::PU_TYPE);
+	void GetNext(std::list<CPickup *, std::allocator<CPickup *> >::generic_iterator<0> &, const CPnt3D *, float, CPickup::PU_TYPE);
+	void GetClosest(const CPnt3D *, float, CPickup::PU_TYPE, CPickup **);
+	static CPickup * FindPickup(unsigned int);
+	void IsNetIdUsed(unsigned char, unsigned char);
+	static unsigned short GetEntityIDFromNetID(unsigned short);
+	static CPickup * FindNetPickup(unsigned int);
+	static void CleanupAmmoPickup(CPickup *);
+	static CPickup * GetMPBomb();
+	CPnt3D * GetPosW() const;
+	unsigned short GetPickupNetEntityID();
+	static int bit_count;
+	static unsigned char m_isOpen;
+	static int m_list[3];
+	static zdb::CNode *m_mpbombnode;
+	static unsigned char m_nextNetPickupId;
+	static int m_pool[3];
+	static unsigned short nextPickupId;
+	/* @socom-skeleton end 7CPickup */
 };
+/* @socom-skeleton decl 11CEntityList */
+class CEntityList : public std::list
+{
+public:
+	CEntity * GetEntity(const char *) const;
+	CEntity * GetEntityById(unsigned int) const;
+	CEntity * GetEntityByIndex(unsigned int) const;
+};
+/* @socom-skeleton end 11CEntityList */
 #endif

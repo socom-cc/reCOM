@@ -3,3 +3,78 @@
  * @socom-artifact emits main socom:function:0x1747e0
  * @socom-artifact emits main socom:function:0x178cc0
  * socom-owner-annotations end socom:work:source-segment-013 */
+
+/* @socom-skeleton decl 18_GSAPI_NOTIFY_TYPE */
+enum _GSAPI_NOTIFY_TYPE
+{
+	GSAPI_NOTIFY_ASRRESULT = 0,
+	GSAPI_NOTIFY_WAVEDATA = 1,
+	GSAPI_NOTIFY_STARTLISTENING = 2,
+	GSAPI_NOTIFY_STOPLISTENING = 3,
+	GSAPI_NOTIFY_ABNORMCOND = 4,
+	GSAPI_NOTIFY_ENERGYLEVEL = 5,
+	GSAPI_NOTIFY_SNRLEVEL = 6,
+	GSAPI_NOTIFY_SPEECHDETECTED = 7,
+	GSAPI_NOTIFY_TSDETECTED = 8
+};
+/* @socom-skeleton end 18_GSAPI_NOTIFY_TYPE */
+/* @socom-skeleton decl 9CMD_TABLE */
+class CMD_TABLE
+{
+public:
+	~CMD_TABLE();
+};
+/* @socom-skeleton end 9CMD_TABLE */
+/* @socom-skeleton decl 17InternalAGCParams */
+class InternalAGCParams
+{
+public:
+	int maxEnergyLevel;
+	unsigned char checkEnergyLevel;
+	int numRecognitions;
+	unsigned char adjustedUp;
+	unsigned char adjustedDown;
+};
+/* @socom-skeleton end 17InternalAGCParams */
+/* @socom-skeleton decl 18InternalRecoParams */
+class InternalRecoParams
+{
+public:
+	int threshold;
+	int speechThreshold;
+	unsigned int gender;
+};
+/* @socom-skeleton end 18InternalRecoParams */
+/* @socom-skeleton decl 9RecoTuple */
+class RecoTuple
+{
+public:
+	char subject[40];
+	int subjectID;
+	int snum;
+	char verb[40];
+	int verbID;
+	int vnum;
+	char object[40];
+	int objectID;
+	int onum;
+	unsigned char send_command;
+	FT_COMMAND command;
+	void *data;
+	void *unit;
+};
+/* @socom-skeleton end 9RecoTuple */
+/* @socom-skeleton decl 10TEAM_TABLE */
+class TEAM_TABLE
+{
+public:
+	char display[32];
+	char vuiword[32];
+	int vuiID;
+	FIRETEAM team;
+	int index;
+	unsigned char has_command;
+	CSealUnit *unit;
+	char explanation[128];
+};
+/* @socom-skeleton end 10TEAM_TABLE */

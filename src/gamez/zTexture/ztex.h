@@ -76,6 +76,10 @@ namespace zdb
 		s32 m_id;
 		void* m_buffer;
 		u32 m_slots;
+		/* @socom-skeleton decl Q23zdb11CTexPalette */
+public:
+		~CTexPalette();
+		/* @socom-skeleton end Q23zdb11CTexPalette */
 	};
 
 	class CTexture : public TEXTURE_PARAMS
@@ -111,6 +115,21 @@ namespace zdb
 		_word128 m_dmaRefVu;
 		std::vector<CTexture*> m_reverse_miplist;
 		CLoadImage* m_loadimage;
+		/* @socom-skeleton decl Q23zdb8CTexture */
+public:
+		void SetName(const char *);
+		void Compute64WordMemoryUsage();
+		_word128 * CopyTextureSelect(_word128 *);
+		void SetGifPtrs();
+		void MIPUpdateTextureSelects(unsigned int, unsigned int);
+		void LoadGS(unsigned int, char *, void *, unsigned int, unsigned int, unsigned int);
+		void SetupSpecialTextures();
+		static int m_freeAfterLoad;
+		static int m_reflectionMapSize;
+		static int m_renderMapNumBytes;
+		static int m_renderMapNum;
+		static int m_shadowMapSize;
+		/* @socom-skeleton end Q23zdb8CTexture */
 	};
 
 	class CTexList : public std::vector<CTexHandle*> 
@@ -120,6 +139,11 @@ namespace zdb
 
 		CTexHandle* Append(CTexture* texture, bool search);
 		CTexHandle* GetHandle(const char* name);
+		/* @socom-skeleton decl Q23zdb8CTexList */
+public:
+		zdb::CTexHandle * GetHandle(zdb::CTexture *);
+		void Free();
+		/* @socom-skeleton end Q23zdb8CTexList */
 	};
 
 	class CTexPalList : public std::vector<CTexPalette*>
@@ -161,6 +185,18 @@ namespace zdb
 		std::vector<void*> m_pktbuf;
 
 		CDynTexList m_dyntex_list;
+		/* @socom-skeleton decl Q23zdb12CGSTexBuffer */
+public:
+		~CGSTexBuffer();
+		void SetDynTexList(zdb::CDynTexList *);
+		void Add(zdb::CTexList *, bool);
+		unsigned int Setup(float, float);
+		void RelocateAll();
+		void MakeChain(unsigned __int128 *, int);
+		unsigned __int128 * Load(bool);
+		void Add(zdb::CAssetLib *, bool);
+		void UpdateTextureSelects();
+		/* @socom-skeleton end Q23zdb12CGSTexBuffer */
 	};
 
 	struct tag_TexLoadCmds
@@ -181,6 +217,16 @@ namespace zdb
 		u32 m_renderMapNumBytes;
 		u32 m_shadowMapSize;
 		u32 m_reflectionMapSize;
+		/* @socom-skeleton decl Q23zdb11CTexManager */
+public:
+		void doDelBuffer(zdb::CGSTexBuffer *);
+		static void WipePktBuf();
+		void doSetupBuffers(const char *);
+		void DestroyBuffers(zdb::CTexManager &, bool);
+		static void ClearPktBufs(zdb::CTexManager &, bool);
+		static float TexBufParams[4];
+		static int TexPhase[17][3];
+		/* @socom-skeleton end Q23zdb11CTexManager */
 	};
 
 	class CTexHandle
@@ -193,6 +239,11 @@ namespace zdb
 		u32 m_gsAddr;
 		CTexture* m_texture;
 		bool m_libref;
+		/* @socom-skeleton decl Q23zdb10CTexHandle */
+public:
+		static void Destroy(zdb::CTexHandle *);
+		void SetTexture(zdb::CTexture *);
+		/* @socom-skeleton end Q23zdb10CTexHandle */
 	};
 
 	class CTextureRelocMgr
@@ -213,18 +264,42 @@ namespace zdb
 		void EndBatchReloc();
 		void StartBatchReloc();
 		void TakeDrawPacket(void* spr, int qwc);
+		/* @socom-skeleton decl Q23zdb15CBatchRelocator */
+public:
+		virtual void EndBatchReloc() const;
+		virtual void StartBatchReloc() const;
+		virtual void TakeDrawPacket(unsigned __int128 *, unsigned int);
+		/* @socom-skeleton end Q23zdb15CBatchRelocator */
 	};
 	
 	class CTextureFX
 	{
 	public:
 		static void Init();
+		/* @socom-skeleton decl Q23zdb10CTextureFX */
+public:
+		void InitScrollTexture(float, float, bool, zdb::CVisual *, zdb::CNode *);
+		static void Uninit();
+		static void Clear(bool);
+		static void InTexfxpool(zdb::CVisual *);
+		void Tick(float);
+		void ScrollTexture(float);
+		static int m_texfxfreepool;
+		static int m_texfxpool[3];
+		/* @socom-skeleton end Q23zdb10CTextureFX */
 	};
 
 	class CRipple
 	{
 	public:
 		static void Init();
+		/* @socom-skeleton decl Q23zdb7CRipple */
+public:
+		static void Uninit();
+		static void Tick(float);
+		static int m_ripplefreepool;
+		static unsigned char m_ripplepool[12];
+		/* @socom-skeleton end Q23zdb7CRipple */
 	};
 }
 #endif

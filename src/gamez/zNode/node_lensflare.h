@@ -12,6 +12,11 @@ namespace zdb
 	class CLensFlare : public CNode
 	{
 
+	/* @socom-skeleton decl Q23zdb10CLensFlare */
+public:
+	virtual ~CLensFlare();
+	CLensFlare();
+	/* @socom-skeleton end Q23zdb10CLensFlare */
 	};
 }
 

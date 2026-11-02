@@ -2546,7 +2546,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3932,
+  "revision": 3936,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -174157,6 +174157,11 @@
       "title": "Plan the definition order of segment 001 (1 units, 19 definitions)"
     },
     {
+      "accepted": {
+        "at": "2026-11-02T05:14:04Z",
+        "by": "socom-skeleton-verifier-v0",
+        "route": "progress accept-order-skeleton"
+      },
       "batch": {
         "batch_number": 0,
         "counts": {
@@ -174368,15 +174373,2231 @@
         "socom:work:order-segment-074",
         "socom:work:order-segment-076"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "apply-check ok (record 43b2f1f9, write ebbbdd57, 146 files, S1-S5/S7 pass, 692 regions); git src equals record: 54 M, 33 new, 57 D, graph_node.h/util_stack.h unchanged, resources == record files, nothing else in src; 56 headers: stage-4 blocks byte-identical, outside regions only 46 in-class body->declaration hunks (52 bodies, 9 from signature, 3 one-line class splits); 31 holding files: 203 held blocks equal base text (32 namespace-wrapped), nothing else; zconsole.h/state.h hold only include guards outside regions; 57 orphans absent from full render, none held stage-4 blocks; audit source-baseline/source-trace/docblocks ok (apply_files custody holds once accepted); guard raw-image 3 known zwep_weapon.cpp RVA only; decisions 3b045eb3 (12): ties GetScale 0x227040 vs 0x227060, GetAnimSet 0x1c4270 vs 0x1c4210, SetUV 0x2fe380 vs 0x2fe410 confirmed by verify asm, symtab and R_MIPS_26; ActionItem::EVENT 4 identical DWARF records, Event +0xd, 33 values 0..32, lbu item+0xd in 0x382030, width unproven flagged; progress audit --strict ok",
+        "order-skeleton-base-sha256:e3f341fd4dea181d98de03583ba08b825eb5adb145fff48fbce6cf4c79dac635",
+        "order-skeleton-conflicts 0",
+        "order-skeleton-decisions build/stage5/skeleton-decisions/socom-work-order-skeleton-prepare.json sha256:3b045eb38d670e83c57dc3801b2044b9411fff95ea6dcbc65a5277c1d9d862dc count:12",
+        "order-skeleton-file src/Apps/FTS/game/lobby_roomlist.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/Apps/FTS/game/mem_overload.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/Apps/FTS/game/orders.h before:6079f6c7f531d057b1ff8d0ccc127519c1127a550ebde87c66db772aa59de727 after:72b1956129e364642650cb49d5dac98260e59a82e0e965c727a46e21dc9b7882",
+        "order-skeleton-file src/Apps/FTS/hud/hud.h before:135d43f206b4f5665e6cd6e4bf70b2839ef497761550c05732f2f9b32775973f after:dac1dab5371aa8d11422d03385e64ff96fbf6aaf643aedfdd854ded36146241f",
+        "order-skeleton-file src/Apps/FTS/hud/hud_holding.cpp before:- after:1acaaf4561881037f3a718f9afbc3347f158236090b6bba13bc60b3ce6e28010",
+        "order-skeleton-file src/Apps/FTS/state/state.h before:- after:2ca02b81059258f90c1d4bf789ee51d9e67eeef3a3b4abe9d348311bd135b23b",
+        "order-skeleton-file src/Apps/FTS/state/state_holding.cpp before:- after:f0881408b4b17cdc5cc26f0e5d0d42d03e24559bd5a2913a343329287de5cec5",
+        "order-skeleton-file src/gamez/zAI/ai_main.cpp before:3f730eb3a93d84241ed6a79eeffa158e4632b4ab61b414745dd04354a021f8a5 after:-",
+        "order-skeleton-file src/gamez/zAI/zai.h before:05f9d1188a6990a17bd258e901e64e595623c6ff3d1773726274e1567ce393f2 after:469ea3820584a47322149c2c16d74c5cdf7d504f54f9f8ab982945fda1b585a5",
+        "order-skeleton-file src/gamez/zAI/zai_holding.cpp before:- after:9fceac0683be273bb0d09ec7af50d403e3327075cc720f0e359cf68418612dd3",
+        "order-skeleton-file src/gamez/zAnim/zanim.h before:f4cb93281fadf1653b7872a6604fb8edff9184d1e8749d9ae20f31f17e67b922 after:92106344b6c46083be32a8583cd5c342e7459b59aa06aeb5ad8fbdddcd47f2f7",
+        "order-skeleton-file src/gamez/zAnim/zanim_cmd_begin.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zAnim/zanim_cmd_end.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zAnim/zanim_holding.cpp before:- after:3a1213d2838511f6ac713ea60e57215c97bb30e86b8b1153f368089df81e91d4",
+        "order-skeleton-file src/gamez/zArchive/zar.h before:31c6fa6e021975ca399df6140b38bdfdbc9bfe2e1183acec89e7e4361b1d7fcf after:cab269ec34156131c2f6e64eb1f9b2ca5282cc579bcc2436913b011147112112",
+        "order-skeleton-file src/gamez/zArchive/zarchive_holding.cpp before:- after:f3d4c11e4594c662f2255684b354fa7778de75594c25c784d478bf7a7abcd8da",
+        "order-skeleton-file src/gamez/zAssetLib/zassetlib.cpp before:f1945cd6c19e56b3c1c78943ef5ec18116907a4ca1efc40a57d48ab1db7adfc5 after:-",
+        "order-skeleton-file src/gamez/zBody/zbody.cpp before:3a35880efdb987bac3b181d9de6ab049934e81e10c0f45d48b0cccbc9e7d26ef after:-",
+        "order-skeleton-file src/gamez/zBody/zbody.h before:db291f7302d05f86f036ea65ca126f639ff1ef678549d89ba322682dba7ddc65 after:043a9aec70876758c2d3861ba73c9a21dff974d419ef2f381837c7b76118e160",
+        "order-skeleton-file src/gamez/zBone/zbone.h before:d2975d00e7ad8ea429e20b6227f3954c5ab83dcbb94a975675b8136576974cc0 after:7663feb28299e35dfdd1055e385f851bd507ec97ea5094e1d3d7be3301621152",
+        "order-skeleton-file src/gamez/zBone/zbone_holding.cpp before:- after:90306be26ce6e7a0cc1683d9382e13684d07be137e376fee90c6def5dc34e2ea",
+        "order-skeleton-file src/gamez/zCamera/zcam.h before:8115811302951f927606b9bada0e01662fcbc723ae7375470ae63bce790e7556 after:8092d3bd00eeb0be11e289a889eaa4734ce16ad3394e2a73c704d0016d585943",
+        "order-skeleton-file src/gamez/zCamera/zcamera_holding.cpp before:- after:29fab24ddeb7bbca2a00c45f1456fa3ac3d21f4e09da2f082c1967d774bb9e57",
+        "order-skeleton-file src/gamez/zCharacter/char_dyn.cpp before:43cf50849ee523c0daa2150676ed2be5020582406cad92a686a15c530824b213 after:-",
+        "order-skeleton-file src/gamez/zCharacter/char_main.cpp before:f3e71c999a8397414abc100d6491eb09dffb96271b65618eaf3d42b14cb4f20a after:-",
+        "order-skeleton-file src/gamez/zCharacter/zchar.h before:9d76370839a58197432d3ec1ec891efaff190a5a75eaa09e1b0d8a9bd28cb40d after:160b0bec3d19cc0d5cd255fe21d9c413328aae88ee254f5e146d5328a9505c5d",
+        "order-skeleton-file src/gamez/zCharacter/zcharacter_holding.cpp before:- after:ba3bc3eea272c252d478af8f02cac82b40a504e47019d8ac17c4d7b32aa8bf15",
+        "order-skeleton-file src/gamez/zConsole/zconsole.h before:- after:98b2255394756438b0381326e0f0b0f78d830acfea355090f7e8fc1715d14bb1",
+        "order-skeleton-file src/gamez/zEntity/zentity.h before:3c21547257ccc87f55c0b2192fe4957aaacdc72430c3a2d53914966efc34e912 after:956ae654c81d7e6db458cdf62980b75d9b7840e9800d220c24fb5941c89197ff",
+        "order-skeleton-file src/gamez/zEntity/zentity_holding.cpp before:- after:b4a12e4c5ec66f0348ed9dead34b42caed38bc1a7e7e54640302115c2be1ece9",
+        "order-skeleton-file src/gamez/zFTS/fts_anim_action.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zFTS/fts_anim_camera.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zFTS/fts_anim_hud.cpp before:10f58da9c06cbe45c1df0406f519b06bcf9930643e9bcee6da4c953f65d7627d after:-",
+        "order-skeleton-file src/gamez/zFTS/fts_anim_player.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zFTS/fts_anim_seal.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zFTS/fts_autoplay.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zFTS/fts_msgEditor.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zFTS/fts_state.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zFTS/fts_state.h before:fdceb9ff1faba6c078329f2081a1a61fc63d894f430e1e9082bc148869ec185f after:3096e6beee65c04b5a70502266082b535a7cfb28a7930c7bdb4da8cb5a7055e2",
+        "order-skeleton-file src/gamez/zFTS/zfts.h before:bc00a030a336d1d2ad17a64b8feec318da56a5c7dfbd1d453771136125bfa0b2 after:74311c812243a3ee5486b55f7d1e264ba405db5a782dca623c75f7745778a0a6",
+        "order-skeleton-file src/gamez/zFTS/zfts_holding.cpp before:- after:be4f94bd799dcd10471a34795428a8d678309619b1170f7fe11d8622a7bfcbdd",
+        "order-skeleton-file src/gamez/zGame/game_anim_camera.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zGame/game_anim_decal.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zGame/game_anim_valve.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zGame/game_anim_video.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zGame/game_anim_wind.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zGame/game_tree.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zGame/zgame.h before:d23642bc31fcabc4b33996bc14423d6d180d97fe7876f3ced6bff44ba833ddc2 after:19071034c9e46f7c1c5d1f20afcdfd5aac98b3fdf32ffa2d981503c1b7c9e0dc",
+        "order-skeleton-file src/gamez/zGame/zgame_holding.cpp before:- after:9125fabfd21710f41332c8dfc8cde125cefb748c57bf6034babaf7efe9cecc3d",
+        "order-skeleton-file src/gamez/zGraph/graph_edge.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zGraph/graph_graph.h before:d9162511386fcb6bcb8ce1dea8df1365b67470e976215911aad70d7d2ed591e7 after:baf5544ed9134609f4937ccdb25cef248126594e167d5e5fbb1b8fd4394634ff",
+        "order-skeleton-file src/gamez/zGraph/graph_node.h before:40d0d589d911159a10ee9667794e76b07b833c7ca5b5d38fa02f5aa0b44a751f after:40d0d589d911159a10ee9667794e76b07b833c7ca5b5d38fa02f5aa0b44a751f",
+        "order-skeleton-file src/gamez/zGraph/graph_route.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zGraph/graph_tree.h before:dd6b9cf3df78e56352c569181ed2f405e18c0d83e61f2534fd080db76072a2a4 after:4d86942eae0a784dbd5193701779071b719c1791774f15a7ff2d34be5cd2019d",
+        "order-skeleton-file src/gamez/zGrid/grid_clutter.h before:251a4384af5a8cb02c1d65f782ea504f01f5a6414e1373083fa0995b3601eac7 after:660870b747c4567951cb28450034fdce2863fd83871101d123024a3d11c71e35",
+        "order-skeleton-file src/gamez/zGrid/zgrid.h before:b7a70f4fc306f0da803d5de24a60358cb72abeb5411f52d32aa6829a05a7848d after:53b7168b95c289ad0a4b2e59c1b27f54be02053bdbcd339668301bda9bba517c",
+        "order-skeleton-file src/gamez/zInput/zin_pad.cpp before:2879bc91c144c5aa00cc4dd08ee162e56a86f7b0749c8a79e2c5d9cafe5ec1c1 after:-",
+        "order-skeleton-file src/gamez/zInput/zinput.h before:c21f811958076ef439bee8da3f58e2fe39b3c4af3e788b5d0981d92101f39319 after:2550a60f9c144f9e1470b8c4b2abece5325a15f05a8f4a836242fd235ecae80d",
+        "order-skeleton-file src/gamez/zIntersect/zintersect.h before:3a069ac15b2cf913069b13ba973fc3f69635d72b64b66943d8b89ebe19d42740 after:20868bd588bb08d29c761ac3ea75186edc92f057be91cae1d556897b2a9e3e17",
+        "order-skeleton-file src/gamez/zIntersect/zintersect_holding.cpp before:- after:703383f1491b0ac035ea54f1cb07cdf4a4ba4da13e3ba0116e96bfc00a73b7ac",
+        "order-skeleton-file src/gamez/zMPEG/zmpeg.h before:f5341fa6b258033e1453a28d904ab9b48de0927f78eb84fa172317b5945d119a after:9b28a521757a7e440122b6286faa277164a0541fe9e32dc016404000d0a251f2",
+        "order-skeleton-file src/gamez/zMPEG/zmpeg_holding.cpp before:- after:004b351517396743b5a8e9d0654c67697430fbac55a7f9300bbe0e774a70cb8b",
+        "order-skeleton-file src/gamez/zMath/zmath.h before:b1307a02db1e971148754a056dc0477546d7b961ad7fcfd0925a2e54c628e992 after:4e8dbba657d2aa566f9066246e1a65748c79b049e2d96b1be448433246e42d74",
+        "order-skeleton-file src/gamez/zMath/zmath_holding.cpp before:- after:c3d914ac2e2652378db27ec2ccfc054e4adc8eca91a06dc2a4afa73908793913",
+        "order-skeleton-file src/gamez/zMath/zmath_intersect.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zMath/zmath_vu.cpp before:32079ed87d16668ae8cddc0b8a27241d0dbd5e7e181fe73c6e283ccd9c2db8dd after:-",
+        "order-skeleton-file src/gamez/zNetwork/zNetGame.cpp before:b3959a4a56bd36c434df1441a42ffadf073e8b1d836bd5b501f086b0ff541561 after:-",
+        "order-skeleton-file src/gamez/zNetwork/zNetMain.cpp before:c7e559bf7017408e32c08c662738b9ce4bbf4e86ed547109c5eccaaa6e92bdb4 after:-",
+        "order-skeleton-file src/gamez/zNetwork/znet.h before:73d6b5258bb3085d271f5286730e4f859c62c9565bc410b99d90d3be61c9e1d8 after:7fd405c62a91278d849287a86586d083af1b2094b3c625d855098a58b18dfff7",
+        "order-skeleton-file src/gamez/zNetwork/znetwork_holding.cpp before:- after:dd3a9b5778848b60d770b37311482994cd41bfeff1248baff482b5581391d967",
+        "order-skeleton-file src/gamez/zNode/node_action.cpp before:13d9f708630b2109209354d6260f72166930fc2550732265bb6bbf8b2206ff6a after:-",
+        "order-skeleton-file src/gamez/zNode/node_action.h before:c15d55e91b021969f113e8f3af94c1adaf567079c8a24d2f29243db38c02ce83 after:48436bcb93518e5e46a973a67b7b6e47b5adaee62daa9e10e89dc2a9cf4a696f",
+        "order-skeleton-file src/gamez/zNode/node_assetlib.h before:ced1879133b41883399e674674f33bc1d08b2fcc1a1854194629304bcf43d955 after:e3385bd7b1cf4ef5c0985e5834e5c13dea0bce7be15976429199f95221b2efb8",
+        "order-skeleton-file src/gamez/zNode/node_lensflare.h before:3f33b7dfe0cb407aad8549533df4cbbcfe8565a8977ac484e0e6026d927b9a5a after:4724c1497d7fa3c1f9ef9d3ed2f00dba3b11eac56e07e254a11c8803044c77a6",
+        "order-skeleton-file src/gamez/zNode/node_light.cpp before:ab1f041853602859b66780252896415948f2a3734680bd2b36a9736a017924fc after:-",
+        "order-skeleton-file src/gamez/zNode/node_light.h before:e6d954f501d9f0812562eae4d5266d38e81e2bd7bf0a4a45c7410cd6b70e1f0b after:8267c111b92a2a298875f2b66c0b0197ad64e5a05603671b9c83458fe4c9eae6",
+        "order-skeleton-file src/gamez/zNode/node_model.h before:38a9216f9e8d06749bc82956c20bbf805ff5de704055ac4ea28fd70b4cf028d9 after:b58fd31e1c0c75797930f72005d57371162306695e7871d884e6c2737c53b62c",
+        "order-skeleton-file src/gamez/zNode/node_saveload.h before:a429825305dec1bbebb9eee02e2a808284f5d6c768a637e3238ac0e4e664b38c after:5f9752b7ebb9b7d35a9ef49b2c715334f7037332936ce25924a1463403c03141",
+        "order-skeleton-file src/gamez/zNode/node_shadow.h before:037004a15749516157ec1c8aa6bfe7eadf4150533cb677c1a700fbbfcece5d27 after:d98c57d29f7371ccd26582972d56b78039903afb61d5026bd3370ff4ebc96f80",
+        "order-skeleton-file src/gamez/zNode/node_universe.cpp before:abe9cada9a11ab9be738344c7818961f79da136de8deb22b120d481a6ac11aee after:-",
+        "order-skeleton-file src/gamez/zNode/node_wind.cpp before:c18f3f883dda59e0d246a8f51f2cbcad3da8120dccdd422f1a430f9c32ec3dd8 after:-",
+        "order-skeleton-file src/gamez/zNode/node_world.h before:a74160d0a964d7493636e85bb2f9ef562c5f7ab6a46b79a537a1b3f6f46610c1 after:e239dabe54d41493aba3e28acf55473d8ff0c86f80635d60e7f9dd86b279bad7",
+        "order-skeleton-file src/gamez/zNode/znode.h before:270a50688ac1072344d34a6a5df6e108fbd82873ca886f5acca70696dcb07173 after:0380ff3b8f29b95293489e39d32912e63014d1dffebc6e8929056305f583d34f",
+        "order-skeleton-file src/gamez/zNode/znode_holding.cpp before:- after:8b6a5805d92dda5602e63380aa1214deb0c1e1eb188f264b0f6fae94f75cf3f1",
+        "order-skeleton-file src/gamez/zParticle/zparticle.h before:ce3452fc2bd389cfbcb6874777e516b28efd8313face294169d26817dc3e68a8 after:a0ed931254ad0f1b82b19415ebc200028aa40a9daf811be1e74e61e9b543ca76",
+        "order-skeleton-file src/gamez/zReader/zrdr.h before:a608921871f774e7318449f3d8bc767c21732cc3268a9fc5abebb54f019b6890 after:d875541f37b75ce18d48d19dd7ad2a3dd92ab327e0422dd5f31258017aa36875",
+        "order-skeleton-file src/gamez/zReader/zrdr_local.cpp before:280f8180061220eee6b9dd9faebbe6d70eae9a537925a293c5fe41465796eb59 after:-",
+        "order-skeleton-file src/gamez/zReader/zrdr_local.h before:7d1bad2e2d207844534748181a07b42acad6d1371bd5d25b41f1227833eac86a after:60ce0b8e21bb77116a878aeae85627cf34b3c2f03ef3f206ded211d4483dd0b3",
+        "order-skeleton-file src/gamez/zReader/zrdr_util.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zReader/zreader_holding.cpp before:- after:6965454b8d74f734b2335872bcf839beb1ce6edac198e0d59feb29e0d43f08bf",
+        "order-skeleton-file src/gamez/zRender/zrender.h before:deec3eb37ba1f5169f552e5cf40cdcd2fe249186a4859f044c939b2c914ed0cb after:3d04a1cc6e17f0a753ad34e07dba786be34519404b8e179eaf02d8864aa9845a",
+        "order-skeleton-file src/gamez/zRender/zrender_holding.cpp before:- after:b5774c47eff10ec5cad2f1297139664b44d9cd5ada3586cf767a4ad1c2903fad",
+        "order-skeleton-file src/gamez/zRender/zrndr_alpha.cpp before:6fc527db6ec21ae3889f0ebfd30bcd7d20908fbae73a8ce04d137d24a6c0509e after:-",
+        "order-skeleton-file src/gamez/zRender/zrndr_main.cpp before:eeac0ab4f21de4e9207520b47c17b81dc16332e575eb256bac33c42ded2d8c0d after:-",
+        "order-skeleton-file src/gamez/zRender/zrndr_stack.cpp before:c9c05e8df9e010ef1da417bdc0b0d1870d5efa828846ad9efeedc7758768b169 after:-",
+        "order-skeleton-file src/gamez/zSave/zsav_main.cpp before:f1945cd6c19e56b3c1c78943ef5ec18116907a4ca1efc40a57d48ab1db7adfc5 after:-",
+        "order-skeleton-file src/gamez/zSave/zsave.h before:34ed794eaa0da4543a6fc4821514bffa2ee3bc01cbd4335b9d31af21ac1044a4 after:d7957c8fab9d020495c84a34ce6f83c26deec7598e27f5943cb7728150e75fc3",
+        "order-skeleton-file src/gamez/zSeal/seal_gear.cpp before:ce6046060d08691dd0c018cc39c1b38886a66af91104ebe7dd010ae88bf7018a after:-",
+        "order-skeleton-file src/gamez/zSeal/zseal.h before:6dd4891e1ae3fe57b5ab5445ec458fc56d5adaa8cb8a7f2db61779e93a8f6177 after:d759d64e966b7faa35760d63088e1da3829109b7711ac47048eba91b4ec36e98",
+        "order-skeleton-file src/gamez/zSeal/zseal_holding.cpp before:- after:56b4603086e36bc274a0bc4958ba9f569c9c67f9e8a1106c0f228e9be518c768",
+        "order-skeleton-file src/gamez/zSound/zsnd.h before:b667f590d2818c3b338e198066b4de1fc81c1751c858344c3f35edbc32e9facf after:6d2a2f83f8897656ca8ddf77921ff19497fb39f8a3c2297d7f114e209ec56008",
+        "order-skeleton-file src/gamez/zSound/zsound_holding.cpp before:- after:f5ae2d4f3a0d5e73f85ff810e305d958caa6aab2c7397be81b60861b75b6059e",
+        "order-skeleton-file src/gamez/zSystem/zsys.h before:d217e7866be641eaf1ee09e3b7102c59916e7c30a74a730d95ac53608822fc91 after:c28e7a79ac7a03f4b47d38a499cc077045852957baf5c0de2a605562e7b7cecf",
+        "order-skeleton-file src/gamez/zSystem/zsys_bench.cpp before:2de103ee4991f2eecf1e79946d901b41237bb900fdadf97560d16bd5e24a3a91 after:-",
+        "order-skeleton-file src/gamez/zSystem/zsys_main.cpp before:a8ac2fbfba0bb394d933cd2bc3addcf1ce1396950d3eca66b2139111cf8defa5 after:-",
+        "order-skeleton-file src/gamez/zSystem/zsys_spr.h before:83fc337e6d5d200dceb1528865690e11f59bdd49391db48d6af621a2659e7e5f after:298b6ae9144ecfc6dcbfd5df4c2d99619b5a04b3dcc58acd7ab0c87938f1a2ee",
+        "order-skeleton-file src/gamez/zSystem/zsys_tty.cpp before:9628bcb409bd0ca4413bf783dff987741dcc87119eb938dc3fc456aa81ceab2a after:-",
+        "order-skeleton-file src/gamez/zSystem/zsystem_holding.cpp before:- after:6ce59b22e516e76588a9aa91e2006eef355594676e9cb75d9ae7cd6813e7c53a",
+        "order-skeleton-file src/gamez/zTexture/ztex.h before:179ee39e984cee19dfbc7caaeeb688a1e43429441b3969873da57e7d24ad37f0 after:3b35201e71c417ce6fbafe40658b2f2cc952a6b53946584efd63e3aaa54134b3",
+        "order-skeleton-file src/gamez/zTexture/ztexture_holding.cpp before:- after:7d7f83d9e8b7c90caa1dd9c6121fef27afe523eb6d1716ac253268b97f845a81",
+        "order-skeleton-file src/gamez/zTwoD/ztwod.h before:39ea3fe03af64ff731b361f7b72caa09f7a1c1d1dfb2bb1217144b617dcc3051 after:f08ad1d63563146dc4001d0625fa9051b9228b7f4b761662212b3216582271ba",
+        "order-skeleton-file src/gamez/zTwoD/ztwod_fade.cpp before:474acb1f9ea3dabe810c1f6150df5a92bca9ae1f794c5d39af28c8c4fa66f74e after:-",
+        "order-skeleton-file src/gamez/zTwoD/ztwod_holding.cpp before:- after:0acc2af81fcc4a3b81fe1e591dbbfae34c110f5664c66268ae1b989fc9bb3a79",
+        "order-skeleton-file src/gamez/zTwoD/ztwod_string.cpp before:62c73f5b79037fabdaca055bd1954f3b2996d1af5ff0942c2f19903ea915c72a after:-",
+        "order-skeleton-file src/gamez/zUI/zui.h before:472c83dbefc7d704bfbb9c6cc316662045250a736b545d49610b66860da95739 after:d79b814bdcb3db026cc2fa57f593ac83256126f4f2dcad1c5ae88fbf5e51b82c",
+        "order-skeleton-file src/gamez/zUI/zui_design.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zUI/zui_holding.cpp before:- after:d168d3e47f08d8f0e022f793fef838453eea3198f5eea5f14a7eaa928919bb2a",
+        "order-skeleton-file src/gamez/zUtil/util_localization.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zUtil/util_stable.h before:441ecf97cac40ed0da71083a54d0048beb7e356202313310088e553d4518153b after:dde0a4a665a959fcf270559153067855dafc22a5099b68dc2a1b7277f7bc5131",
+        "order-skeleton-file src/gamez/zUtil/util_stack.cpp before:9a2854a3280d2b763e97f6c5ed6f8327f220bf8ee7dbfc3ed7621ee2e5e2054b after:-",
+        "order-skeleton-file src/gamez/zUtil/util_stack.h before:456d9f39a305544d8314e6c859590178d28f8df0b6c87d6cd85df5bbe0518265 after:456d9f39a305544d8314e6c859590178d28f8df0b6c87d6cd85df5bbe0518265",
+        "order-skeleton-file src/gamez/zUtil/util_statemachine.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zUtil/util_systemio.cpp before:b4069fef77d7427f70e615e336708380fd3969012dabb06db4d4291d00e1a01b after:-",
+        "order-skeleton-file src/gamez/zUtil/util_systemio.h before:24a3ebc6a10a3a326df277521e56ea7c499dd7765aede20cb77138a0d9671f3d after:be9fb3d143e7aa19b32366237658251e656b96454a0fda03c081e069888e4d24",
+        "order-skeleton-file src/gamez/zUtil/util_zarchive.cpp before:77289c09da5e5a1134b549a5f8b329e1f14d2184a18cc5e21e8adaf7e1efdab9 after:-",
+        "order-skeleton-file src/gamez/zUtil/zutil.h before:58417c9085757b37b676630689da16fbcf72c0c065dbd448fdc5f9109f720339 after:87d4ae1cd6e213de1a0fd80e2c17730d5074dbca6d444af29e9843a33229a19c",
+        "order-skeleton-file src/gamez/zUtil/zutil_holding.cpp before:- after:fa32acea5d3700bc008c257bf00a48ec2ceb04f2913c34fde2fae80a8af68302",
+        "order-skeleton-file src/gamez/zValve/zvalve.h before:7ce75d8d55d644b4d9c84cd117640bf758714fc38b5e8c95bb982552127dcddc after:4c563c4b8ae71a78b01a1d089c238523f302303a4f02c1eb54691214045af344",
+        "order-skeleton-file src/gamez/zValve/zvalve_holding.cpp before:- after:0fe05606e1212f4f406955a776ab1098cfdf9a52e6b42b2db1161d72410cd32b",
+        "order-skeleton-file src/gamez/zVehicle/zvehicle.h before:f7c2e9889a96b3fe9d3761e513dbd1c834675902772a3e0f9095825e6e70dac2 after:7bcfb7cdf6f675957247adb6d1bf53b7e3cde0489f01668803cc67f364577ced",
+        "order-skeleton-file src/gamez/zVehicle/zvehicle_holding.cpp before:- after:f820cf37dd9f32017301d4cdc699f4600c83fcf3b249dbbbcbe281cf29e37e38",
+        "order-skeleton-file src/gamez/zVideo/zvid.h before:bf4e2a569454c14f9ce469785666f05435a16909c1df6bc803843be56a591d53 after:3cc2f90ced05530f4efcb42e2a8c760b42cccff80d93ea129da1a07530f98cc4",
+        "order-skeleton-file src/gamez/zVideo/zvid_capture.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zVideo/zvid_main.cpp before:b82602d97bba18475175fa3069cdf98bb88e79ca8d7a7b5c743dd49334feb150 after:-",
+        "order-skeleton-file src/gamez/zVideo/zvideo_holding.cpp before:- after:a27bf1749f1c9119b11cceef9ba1b0b914f7ac48b2db1e9c10afd48b93f39cc5",
+        "order-skeleton-file src/gamez/zVisual/vis_init.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zVisual/vis_local.h before:749980ce33e90cea648cb1fc68a8d52c1f247376b23ca610862bb7d788648e19 after:f4360e0536154ecdefdcf393be94df9e6c96d7a5021fa086a231c29f731aad76",
+        "order-skeleton-file src/gamez/zVisual/vis_ripplefx.cpp before:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 after:-",
+        "order-skeleton-file src/gamez/zVisual/vis_vector.h before:55d4283c1993239583d8f9df4b1445df077b535b2c2f3c1d286af1ef0597fff0 after:f01e02379b753db57ff304176f94c4575b32ab2773ef08f58d27dab1a2270719",
+        "order-skeleton-file src/gamez/zVisual/zvis.h before:0f474e287ae6ef3be73beef5bde6ca150734bcc599bf721dc1a07831d686f3f0 after:e049980e6fc88ca386929d36468f9d551191880e6c983f0d231433f3368a2af4",
+        "order-skeleton-file src/gamez/zVisual/zvisual_holding.cpp before:- after:70840d3bcc1653401221c04e49768634c7932fbfd6d9fec0ce7d28f4d3672831",
+        "order-skeleton-file src/gamez/zWeapon/zweapon.h before:5e3f42887c402eeca631ca76ffb6107daf3850572b45520e02855b292bc16ab2 after:6428790e367ba90e163ec499228c8c9a50a966108204fa974e7c4240eeb428b3",
+        "order-skeleton-file src/gamez/zWeapon/zweapon_holding.cpp before:- after:a2a92962852a20435e7644cf15a0ce5b0c834d217fccd13601d4143e2e98ab29",
+        "order-skeleton-file src/gamez/zWeapon/zwep_projectilelist.h before:380bfa2c7521c0412d7cd8e4c9ed638116b13516c6924cb12239a16ab5db51f9 after:44ec9169aff35bc4f63d8e67a46139c5e255d48437222e60e0795d64a957f0df",
+        "order-skeleton-file src/posix/posix_holding.cpp before:- after:530761348969b13879ac441101406feb384b671b042892fd143e429671eb37dc",
+        "order-skeleton-file src/posix/strcasecmp.cpp before:8122e677e5f771e61a6db1caddbe3e1e10b50d278e1bb4b56296fe5f094ff9c1 after:-",
+        "order-skeleton-files-sha256:a00a63acdd242cd5b3fe40c1bdb8b055f62807e8e892ced750ca11e9dfc59595 count:146",
+        "order-skeleton-flags base-access-unproven:42 bases-not-in-body:3 bases-unknown:49 bd4-held:124 bd4-held-data:78 decided:1 forward-key-unproven:56 key-unproven:90 type-from-dwarf:31 type-unproven:13 unparsed-body-held:1 unplanned-virtual:232 virtual-slot-order:13 virtual-slot-unnamed:6",
+        "order-skeleton-manifest-sha256:3fe41f6935aebfa6deb33ace25152039f4713d11541f221ee3f4fb1021dd7f7b",
+        "order-skeleton-record-sha256:43b2f1f936912219967a2fcfa03eb2265745c374abb51d36b205c90ffc5471b0",
+        "order-skeleton-snapshot-sha256:3084d9c8abd6ca839112188210284cee36649770e20f53b965188cb5504d5003",
+        "order-skeleton-stage4-baseline-sha256:d29bca437f2c609462745b5013fd4192b9c8c217d6e6b5fc2e63a14358a4c84b",
+        "order-skeleton-waiting 25 type-no-record:25",
+        "order-skeleton-write-sha256:ebbbdd57d09e54ae23c453817610863c3459e8329581cb9285a46917262191ad"
+      ],
+      "handoff": {
+        "owner": "socom-skeleton-worker-w0",
+        "route": "progress handoff-order-skeleton",
+        "submitted_at": "2026-11-02T05:05:02Z",
+        "summary": "Prepare skeleton applied through the governed route: 144 of 146 reserved files changed (54 headers changed, 2 headers and 31 holding files created, 57 orphans deleted; graph_node.h and util_stack.h unchanged), 399 regions, write ebbbdd57; 12 decisions (11 overload ties from verify asm, ActionItem::EVENT from DWARF, enum width unproven); 25 by-value types stay waiting without any record; determinism and S1-S5/S7 pass."
+      },
       "id": "socom:work:order-skeleton-prepare",
       "kind": "order-skeleton-prepare",
-      "lease": {
-        "claimed_at": "2026-11-02T04:42:55Z",
-        "expires_at": "2026-11-02T06:12:55Z",
-        "heartbeat_at": "2026-11-02T04:42:55Z",
-        "owner": "socom-skeleton-worker-w0"
+      "lease": null,
+      "order_skeleton": {
+        "applied_at": "2026-11-02T05:04:17Z",
+        "applied_by": "socom-skeleton-worker-w0",
+        "changed": [
+          "src/Apps/FTS/game/lobby_roomlist.cpp",
+          "src/Apps/FTS/game/mem_overload.cpp",
+          "src/Apps/FTS/game/orders.h",
+          "src/Apps/FTS/hud/hud.h",
+          "src/Apps/FTS/hud/hud_holding.cpp",
+          "src/Apps/FTS/state/state.h",
+          "src/Apps/FTS/state/state_holding.cpp",
+          "src/gamez/zAI/ai_main.cpp",
+          "src/gamez/zAI/zai.h",
+          "src/gamez/zAI/zai_holding.cpp",
+          "src/gamez/zAnim/zanim.h",
+          "src/gamez/zAnim/zanim_cmd_begin.cpp",
+          "src/gamez/zAnim/zanim_cmd_end.cpp",
+          "src/gamez/zAnim/zanim_holding.cpp",
+          "src/gamez/zArchive/zar.h",
+          "src/gamez/zArchive/zarchive_holding.cpp",
+          "src/gamez/zAssetLib/zassetlib.cpp",
+          "src/gamez/zBody/zbody.cpp",
+          "src/gamez/zBody/zbody.h",
+          "src/gamez/zBone/zbone.h",
+          "src/gamez/zBone/zbone_holding.cpp",
+          "src/gamez/zCamera/zcam.h",
+          "src/gamez/zCamera/zcamera_holding.cpp",
+          "src/gamez/zCharacter/char_dyn.cpp",
+          "src/gamez/zCharacter/char_main.cpp",
+          "src/gamez/zCharacter/zchar.h",
+          "src/gamez/zCharacter/zcharacter_holding.cpp",
+          "src/gamez/zConsole/zconsole.h",
+          "src/gamez/zEntity/zentity.h",
+          "src/gamez/zEntity/zentity_holding.cpp",
+          "src/gamez/zFTS/fts_anim_action.cpp",
+          "src/gamez/zFTS/fts_anim_camera.cpp",
+          "src/gamez/zFTS/fts_anim_hud.cpp",
+          "src/gamez/zFTS/fts_anim_player.cpp",
+          "src/gamez/zFTS/fts_anim_seal.cpp",
+          "src/gamez/zFTS/fts_autoplay.cpp",
+          "src/gamez/zFTS/fts_msgEditor.cpp",
+          "src/gamez/zFTS/fts_state.cpp",
+          "src/gamez/zFTS/fts_state.h",
+          "src/gamez/zFTS/zfts.h",
+          "src/gamez/zFTS/zfts_holding.cpp",
+          "src/gamez/zGame/game_anim_camera.cpp",
+          "src/gamez/zGame/game_anim_decal.cpp",
+          "src/gamez/zGame/game_anim_valve.cpp",
+          "src/gamez/zGame/game_anim_video.cpp",
+          "src/gamez/zGame/game_anim_wind.cpp",
+          "src/gamez/zGame/game_tree.cpp",
+          "src/gamez/zGame/zgame.h",
+          "src/gamez/zGame/zgame_holding.cpp",
+          "src/gamez/zGraph/graph_edge.cpp",
+          "src/gamez/zGraph/graph_graph.h",
+          "src/gamez/zGraph/graph_route.cpp",
+          "src/gamez/zGraph/graph_tree.h",
+          "src/gamez/zGrid/grid_clutter.h",
+          "src/gamez/zGrid/zgrid.h",
+          "src/gamez/zInput/zin_pad.cpp",
+          "src/gamez/zInput/zinput.h",
+          "src/gamez/zIntersect/zintersect.h",
+          "src/gamez/zIntersect/zintersect_holding.cpp",
+          "src/gamez/zMath/zmath.h",
+          "src/gamez/zMath/zmath_holding.cpp",
+          "src/gamez/zMath/zmath_intersect.cpp",
+          "src/gamez/zMath/zmath_vu.cpp",
+          "src/gamez/zMPEG/zmpeg.h",
+          "src/gamez/zMPEG/zmpeg_holding.cpp",
+          "src/gamez/zNetwork/znet.h",
+          "src/gamez/zNetwork/zNetGame.cpp",
+          "src/gamez/zNetwork/zNetMain.cpp",
+          "src/gamez/zNetwork/znetwork_holding.cpp",
+          "src/gamez/zNode/node_action.cpp",
+          "src/gamez/zNode/node_action.h",
+          "src/gamez/zNode/node_assetlib.h",
+          "src/gamez/zNode/node_lensflare.h",
+          "src/gamez/zNode/node_light.cpp",
+          "src/gamez/zNode/node_light.h",
+          "src/gamez/zNode/node_model.h",
+          "src/gamez/zNode/node_saveload.h",
+          "src/gamez/zNode/node_shadow.h",
+          "src/gamez/zNode/node_universe.cpp",
+          "src/gamez/zNode/node_wind.cpp",
+          "src/gamez/zNode/node_world.h",
+          "src/gamez/zNode/znode.h",
+          "src/gamez/zNode/znode_holding.cpp",
+          "src/gamez/zParticle/zparticle.h",
+          "src/gamez/zReader/zrdr.h",
+          "src/gamez/zReader/zrdr_local.cpp",
+          "src/gamez/zReader/zrdr_local.h",
+          "src/gamez/zReader/zrdr_util.cpp",
+          "src/gamez/zReader/zreader_holding.cpp",
+          "src/gamez/zRender/zrender.h",
+          "src/gamez/zRender/zrender_holding.cpp",
+          "src/gamez/zRender/zrndr_alpha.cpp",
+          "src/gamez/zRender/zrndr_main.cpp",
+          "src/gamez/zRender/zrndr_stack.cpp",
+          "src/gamez/zSave/zsav_main.cpp",
+          "src/gamez/zSave/zsave.h",
+          "src/gamez/zSeal/seal_gear.cpp",
+          "src/gamez/zSeal/zseal.h",
+          "src/gamez/zSeal/zseal_holding.cpp",
+          "src/gamez/zSound/zsnd.h",
+          "src/gamez/zSound/zsound_holding.cpp",
+          "src/gamez/zSystem/zsys.h",
+          "src/gamez/zSystem/zsys_bench.cpp",
+          "src/gamez/zSystem/zsys_main.cpp",
+          "src/gamez/zSystem/zsys_spr.h",
+          "src/gamez/zSystem/zsys_tty.cpp",
+          "src/gamez/zSystem/zsystem_holding.cpp",
+          "src/gamez/zTexture/ztex.h",
+          "src/gamez/zTexture/ztexture_holding.cpp",
+          "src/gamez/zTwoD/ztwod.h",
+          "src/gamez/zTwoD/ztwod_fade.cpp",
+          "src/gamez/zTwoD/ztwod_holding.cpp",
+          "src/gamez/zTwoD/ztwod_string.cpp",
+          "src/gamez/zUI/zui.h",
+          "src/gamez/zUI/zui_design.cpp",
+          "src/gamez/zUI/zui_holding.cpp",
+          "src/gamez/zUtil/util_localization.cpp",
+          "src/gamez/zUtil/util_stable.h",
+          "src/gamez/zUtil/util_stack.cpp",
+          "src/gamez/zUtil/util_statemachine.cpp",
+          "src/gamez/zUtil/util_systemio.cpp",
+          "src/gamez/zUtil/util_systemio.h",
+          "src/gamez/zUtil/util_zarchive.cpp",
+          "src/gamez/zUtil/zutil.h",
+          "src/gamez/zUtil/zutil_holding.cpp",
+          "src/gamez/zValve/zvalve.h",
+          "src/gamez/zValve/zvalve_holding.cpp",
+          "src/gamez/zVehicle/zvehicle.h",
+          "src/gamez/zVehicle/zvehicle_holding.cpp",
+          "src/gamez/zVideo/zvid.h",
+          "src/gamez/zVideo/zvid_capture.cpp",
+          "src/gamez/zVideo/zvid_main.cpp",
+          "src/gamez/zVideo/zvideo_holding.cpp",
+          "src/gamez/zVisual/vis_init.cpp",
+          "src/gamez/zVisual/vis_local.h",
+          "src/gamez/zVisual/vis_ripplefx.cpp",
+          "src/gamez/zVisual/vis_vector.h",
+          "src/gamez/zVisual/zvis.h",
+          "src/gamez/zVisual/zvisual_holding.cpp",
+          "src/gamez/zWeapon/zweapon.h",
+          "src/gamez/zWeapon/zweapon_holding.cpp",
+          "src/gamez/zWeapon/zwep_projectilelist.h",
+          "src/posix/posix_holding.cpp",
+          "src/posix/strcasecmp.cpp"
+        ],
+        "check": {
+          "determinism": {
+            "files_checked": 365,
+            "ok": true
+          },
+          "failed": [],
+          "ok": true,
+          "s1": {
+            "checked": 6103,
+            "failed": 0,
+            "local_statics_checked": 355,
+            "ok": true
+          },
+          "s2": {
+            "known_conflict_count": 6,
+            "mismatches": 5,
+            "mismatches_explained": 5,
+            "ok": true,
+            "problem_count": 0,
+            "units": 219
+          },
+          "s3": {
+            "blocks_changed": 0,
+            "edge_digest_matches_baseline": true,
+            "edges": 8918,
+            "files_compared": 297,
+            "ok": true
+          },
+          "s4": {
+            "bodies_checked": 979,
+            "head_rewrites": 172,
+            "header_bodies_replaced": 52,
+            "ok": true,
+            "snapshot_bodies_landed": 898
+          },
+          "s5": {
+            "new_findings": 0,
+            "ok": true
+          },
+          "s7": {
+            "classes_checked": 432,
+            "files": 58,
+            "members_checked": 4754,
+            "ok": true,
+            "regions": 692
+          },
+          "write_sha256": "ebbbdd57d09e54ae23c453817610863c3459e8329581cb9285a46917262191ad"
+        },
+        "decisions": {
+          "count": 12,
+          "item": "socom:work:order-skeleton-prepare",
+          "path": "build/stage5/skeleton-decisions/socom-work-order-skeleton-prepare.json",
+          "sha256": "3b045eb38d670e83c57dc3801b2044b9411fff95ea6dcbc65a5277c1d9d862dc"
+        },
+        "entries": 0,
+        "files": [
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/game/lobby_roomlist.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/Apps/FTS/game/mem_overload.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "72b1956129e364642650cb49d5dac98260e59a82e0e965c727a46e21dc9b7882",
+            "after_stage4_blocks_sha256": "ab8fccb53a2661cfbb42e7362c54e378a3e7ad83099800135164192c601fa226",
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "6079f6c7f531d057b1ff8d0ccc127519c1127a550ebde87c66db772aa59de727",
+            "path": "src/Apps/FTS/game/orders.h",
+            "stage4_blocks_sha256": "ab8fccb53a2661cfbb42e7362c54e378a3e7ad83099800135164192c601fa226"
+          },
+          {
+            "action": "header",
+            "after_sha256": "dac1dab5371aa8d11422d03385e64ff96fbf6aaf643aedfdd854ded36146241f",
+            "after_stage4_blocks_sha256": "3551d9e3fe84787e7e66fa76c68eed49b62870003e0517e15d7fff4ceda3db73",
+            "before_content_sha256": "b85424c01a7832a836b71c95ab39f3c213e74c2f413ef2fa370180d315b84330",
+            "before_sha256": "135d43f206b4f5665e6cd6e4bf70b2839ef497761550c05732f2f9b32775973f",
+            "path": "src/Apps/FTS/hud/hud.h",
+            "stage4_blocks_sha256": "3551d9e3fe84787e7e66fa76c68eed49b62870003e0517e15d7fff4ceda3db73"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "1acaaf4561881037f3a718f9afbc3347f158236090b6bba13bc60b3ce6e28010",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/Apps/FTS/hud/hud_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "new-header",
+            "after_sha256": "2ca02b81059258f90c1d4bf789ee51d9e67eeef3a3b4abe9d348311bd135b23b",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/Apps/FTS/state/state.h",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "holding",
+            "after_sha256": "f0881408b4b17cdc5cc26f0e5d0d42d03e24559bd5a2913a343329287de5cec5",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/Apps/FTS/state/state_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "3f730eb3a93d84241ed6a79eeffa158e4632b4ab61b414745dd04354a021f8a5",
+            "before_sha256": "3f730eb3a93d84241ed6a79eeffa158e4632b4ab61b414745dd04354a021f8a5",
+            "path": "src/gamez/zAI/ai_main.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "469ea3820584a47322149c2c16d74c5cdf7d504f54f9f8ab982945fda1b585a5",
+            "after_stage4_blocks_sha256": "3a2c1926f6db0316752b6922ac01a97f7d25a1172306a34866459836f26e8d2e",
+            "before_content_sha256": "91bff3e181d82664f79d6b6eb8993313421721c716d0c4cecadb226cc862cdc0",
+            "before_sha256": "05f9d1188a6990a17bd258e901e64e595623c6ff3d1773726274e1567ce393f2",
+            "path": "src/gamez/zAI/zai.h",
+            "stage4_blocks_sha256": "3a2c1926f6db0316752b6922ac01a97f7d25a1172306a34866459836f26e8d2e"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "9fceac0683be273bb0d09ec7af50d403e3327075cc720f0e359cf68418612dd3",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zAI/zai_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "header",
+            "after_sha256": "92106344b6c46083be32a8583cd5c342e7459b59aa06aeb5ad8fbdddcd47f2f7",
+            "after_stage4_blocks_sha256": "7f432b905f62c8aeb6a08710eabe6ef7e02dd676a1962be2013e86fb6ff5dbb6",
+            "before_content_sha256": "661894489c5684fb795b25681eec92bcb4ac971fc518d8db98d2c0b4beccde0d",
+            "before_sha256": "f4cb93281fadf1653b7872a6604fb8edff9184d1e8749d9ae20f31f17e67b922",
+            "path": "src/gamez/zAnim/zanim.h",
+            "stage4_blocks_sha256": "7f432b905f62c8aeb6a08710eabe6ef7e02dd676a1962be2013e86fb6ff5dbb6"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zAnim/zanim_cmd_begin.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zAnim/zanim_cmd_end.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "3a1213d2838511f6ac713ea60e57215c97bb30e86b8b1153f368089df81e91d4",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zAnim/zanim_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "header",
+            "after_sha256": "cab269ec34156131c2f6e64eb1f9b2ca5282cc579bcc2436913b011147112112",
+            "after_stage4_blocks_sha256": "3c344ab5733d3fddfb6d3d607e3c06e9f1044e8ae7bf91c093f24bc06cc0507b",
+            "before_content_sha256": "aa376ef1586fe628111134db22ce9cf9441ff30daeaa85239a30a5f1c0d4d4e0",
+            "before_sha256": "31c6fa6e021975ca399df6140b38bdfdbc9bfe2e1183acec89e7e4361b1d7fcf",
+            "path": "src/gamez/zArchive/zar.h",
+            "stage4_blocks_sha256": "3c344ab5733d3fddfb6d3d607e3c06e9f1044e8ae7bf91c093f24bc06cc0507b"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "f3d4c11e4594c662f2255684b354fa7778de75594c25c784d478bf7a7abcd8da",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zArchive/zarchive_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "f1945cd6c19e56b3c1c78943ef5ec18116907a4ca1efc40a57d48ab1db7adfc5",
+            "before_sha256": "f1945cd6c19e56b3c1c78943ef5ec18116907a4ca1efc40a57d48ab1db7adfc5",
+            "path": "src/gamez/zAssetLib/zassetlib.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "3a35880efdb987bac3b181d9de6ab049934e81e10c0f45d48b0cccbc9e7d26ef",
+            "before_sha256": "3a35880efdb987bac3b181d9de6ab049934e81e10c0f45d48b0cccbc9e7d26ef",
+            "path": "src/gamez/zBody/zbody.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "043a9aec70876758c2d3861ba73c9a21dff974d419ef2f381837c7b76118e160",
+            "after_stage4_blocks_sha256": "c951db679fe8f3742f7810aba0144d99df012f77ff29da682e3fcd40826b5b78",
+            "before_content_sha256": "dcf1c634044df1c9a5064cd9bc57b1b355489755d55ccdd5f76bee7cc6cc02e1",
+            "before_sha256": "db291f7302d05f86f036ea65ca126f639ff1ef678549d89ba322682dba7ddc65",
+            "path": "src/gamez/zBody/zbody.h",
+            "stage4_blocks_sha256": "c951db679fe8f3742f7810aba0144d99df012f77ff29da682e3fcd40826b5b78"
+          },
+          {
+            "action": "header",
+            "after_sha256": "7663feb28299e35dfdd1055e385f851bd507ec97ea5094e1d3d7be3301621152",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "d2975d00e7ad8ea429e20b6227f3954c5ab83dcbb94a975675b8136576974cc0",
+            "before_sha256": "d2975d00e7ad8ea429e20b6227f3954c5ab83dcbb94a975675b8136576974cc0",
+            "path": "src/gamez/zBone/zbone.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "90306be26ce6e7a0cc1683d9382e13684d07be137e376fee90c6def5dc34e2ea",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zBone/zbone_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "header",
+            "after_sha256": "8092d3bd00eeb0be11e289a889eaa4734ce16ad3394e2a73c704d0016d585943",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "8115811302951f927606b9bada0e01662fcbc723ae7375470ae63bce790e7556",
+            "before_sha256": "8115811302951f927606b9bada0e01662fcbc723ae7375470ae63bce790e7556",
+            "path": "src/gamez/zCamera/zcam.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "29fab24ddeb7bbca2a00c45f1456fa3ac3d21f4e09da2f082c1967d774bb9e57",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zCamera/zcamera_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "43cf50849ee523c0daa2150676ed2be5020582406cad92a686a15c530824b213",
+            "before_sha256": "43cf50849ee523c0daa2150676ed2be5020582406cad92a686a15c530824b213",
+            "path": "src/gamez/zCharacter/char_dyn.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "f3e71c999a8397414abc100d6491eb09dffb96271b65618eaf3d42b14cb4f20a",
+            "before_sha256": "f3e71c999a8397414abc100d6491eb09dffb96271b65618eaf3d42b14cb4f20a",
+            "path": "src/gamez/zCharacter/char_main.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "160b0bec3d19cc0d5cd255fe21d9c413328aae88ee254f5e146d5328a9505c5d",
+            "after_stage4_blocks_sha256": "bbbe6ca8e9cecb61d6e0bf43acfde73a409b682da23fad8d723cbe7f14a1d07c",
+            "before_content_sha256": "ca040439b05d23544603f65a45143573bbc22517805e07a93724c77e2ca4ca49",
+            "before_sha256": "9d76370839a58197432d3ec1ec891efaff190a5a75eaa09e1b0d8a9bd28cb40d",
+            "path": "src/gamez/zCharacter/zchar.h",
+            "stage4_blocks_sha256": "bbbe6ca8e9cecb61d6e0bf43acfde73a409b682da23fad8d723cbe7f14a1d07c"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "ba3bc3eea272c252d478af8f02cac82b40a504e47019d8ac17c4d7b32aa8bf15",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zCharacter/zcharacter_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "new-header",
+            "after_sha256": "98b2255394756438b0381326e0f0b0f78d830acfea355090f7e8fc1715d14bb1",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zConsole/zconsole.h",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "header",
+            "after_sha256": "956ae654c81d7e6db458cdf62980b75d9b7840e9800d220c24fb5941c89197ff",
+            "after_stage4_blocks_sha256": "d84609f2c1dbfbd1d215a71ff0ee11a3adc6951340d484166068f177145eb4e7",
+            "before_content_sha256": "5f7e87e33748417cb6e160ce2ff282dfd5cb133eccad07677f7426b59a8d0a47",
+            "before_sha256": "3c21547257ccc87f55c0b2192fe4957aaacdc72430c3a2d53914966efc34e912",
+            "path": "src/gamez/zEntity/zentity.h",
+            "stage4_blocks_sha256": "d84609f2c1dbfbd1d215a71ff0ee11a3adc6951340d484166068f177145eb4e7"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "b4a12e4c5ec66f0348ed9dead34b42caed38bc1a7e7e54640302115c2be1ece9",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zEntity/zentity_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zFTS/fts_anim_action.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zFTS/fts_anim_camera.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "10f58da9c06cbe45c1df0406f519b06bcf9930643e9bcee6da4c953f65d7627d",
+            "before_sha256": "10f58da9c06cbe45c1df0406f519b06bcf9930643e9bcee6da4c953f65d7627d",
+            "path": "src/gamez/zFTS/fts_anim_hud.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zFTS/fts_anim_player.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zFTS/fts_anim_seal.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zFTS/fts_autoplay.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zFTS/fts_msgEditor.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zFTS/fts_state.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "3096e6beee65c04b5a70502266082b535a7cfb28a7930c7bdb4da8cb5a7055e2",
+            "after_stage4_blocks_sha256": "b08f0bf401980a52611537bdd87230b53cabb9805141f379d311f6e16e843f4e",
+            "before_content_sha256": "43e00c8f714ccc642af133690c8f918817645b7394f0168e486c3cc3eb32d7dd",
+            "before_sha256": "fdceb9ff1faba6c078329f2081a1a61fc63d894f430e1e9082bc148869ec185f",
+            "path": "src/gamez/zFTS/fts_state.h",
+            "stage4_blocks_sha256": "b08f0bf401980a52611537bdd87230b53cabb9805141f379d311f6e16e843f4e"
+          },
+          {
+            "action": "header",
+            "after_sha256": "74311c812243a3ee5486b55f7d1e264ba405db5a782dca623c75f7745778a0a6",
+            "after_stage4_blocks_sha256": "ba939df4c245dd9698dca82234de2144cabd863c29b7ca7d277f7a0570fac6a2",
+            "before_content_sha256": "d98605e7a098c9af4865719aa9c1eabe25267fdd889c543ed60a98e2df310f28",
+            "before_sha256": "bc00a030a336d1d2ad17a64b8feec318da56a5c7dfbd1d453771136125bfa0b2",
+            "path": "src/gamez/zFTS/zfts.h",
+            "stage4_blocks_sha256": "ba939df4c245dd9698dca82234de2144cabd863c29b7ca7d277f7a0570fac6a2"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "be4f94bd799dcd10471a34795428a8d678309619b1170f7fe11d8622a7bfcbdd",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zFTS/zfts_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zGame/game_anim_camera.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zGame/game_anim_decal.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zGame/game_anim_valve.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zGame/game_anim_video.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zGame/game_anim_wind.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zGame/game_tree.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "19071034c9e46f7c1c5d1f20afcdfd5aac98b3fdf32ffa2d981503c1b7c9e0dc",
+            "after_stage4_blocks_sha256": "6059366b49d4d763ea68a0c317913a2065c2a9cec72695caa5e4f29c5385be54",
+            "before_content_sha256": "314f3fcf0c8fe64704e68d655db4efce3095300e4c926da6ad944779a3c69294",
+            "before_sha256": "d23642bc31fcabc4b33996bc14423d6d180d97fe7876f3ced6bff44ba833ddc2",
+            "path": "src/gamez/zGame/zgame.h",
+            "stage4_blocks_sha256": "6059366b49d4d763ea68a0c317913a2065c2a9cec72695caa5e4f29c5385be54"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "9125fabfd21710f41332c8dfc8cde125cefb748c57bf6034babaf7efe9cecc3d",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zGame/zgame_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zGraph/graph_edge.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "baf5544ed9134609f4937ccdb25cef248126594e167d5e5fbb1b8fd4394634ff",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "d9162511386fcb6bcb8ce1dea8df1365b67470e976215911aad70d7d2ed591e7",
+            "before_sha256": "d9162511386fcb6bcb8ce1dea8df1365b67470e976215911aad70d7d2ed591e7",
+            "path": "src/gamez/zGraph/graph_graph.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "40d0d589d911159a10ee9667794e76b07b833c7ca5b5d38fa02f5aa0b44a751f",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "40d0d589d911159a10ee9667794e76b07b833c7ca5b5d38fa02f5aa0b44a751f",
+            "before_sha256": "40d0d589d911159a10ee9667794e76b07b833c7ca5b5d38fa02f5aa0b44a751f",
+            "path": "src/gamez/zGraph/graph_node.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zGraph/graph_route.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "4d86942eae0a784dbd5193701779071b719c1791774f15a7ff2d34be5cd2019d",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "dd6b9cf3df78e56352c569181ed2f405e18c0d83e61f2534fd080db76072a2a4",
+            "before_sha256": "dd6b9cf3df78e56352c569181ed2f405e18c0d83e61f2534fd080db76072a2a4",
+            "path": "src/gamez/zGraph/graph_tree.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "660870b747c4567951cb28450034fdce2863fd83871101d123024a3d11c71e35",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "251a4384af5a8cb02c1d65f782ea504f01f5a6414e1373083fa0995b3601eac7",
+            "before_sha256": "251a4384af5a8cb02c1d65f782ea504f01f5a6414e1373083fa0995b3601eac7",
+            "path": "src/gamez/zGrid/grid_clutter.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "53b7168b95c289ad0a4b2e59c1b27f54be02053bdbcd339668301bda9bba517c",
+            "after_stage4_blocks_sha256": "56279072d411aa21ec59f2ae879fd4328890ec8fd2020c92cca8897dc3dfbbe3",
+            "before_content_sha256": "7e93e011736e1897305ed93fcba12e33e29955f960a9a6b7206f872ce50af96f",
+            "before_sha256": "b7a70f4fc306f0da803d5de24a60358cb72abeb5411f52d32aa6829a05a7848d",
+            "path": "src/gamez/zGrid/zgrid.h",
+            "stage4_blocks_sha256": "56279072d411aa21ec59f2ae879fd4328890ec8fd2020c92cca8897dc3dfbbe3"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "2879bc91c144c5aa00cc4dd08ee162e56a86f7b0749c8a79e2c5d9cafe5ec1c1",
+            "before_sha256": "2879bc91c144c5aa00cc4dd08ee162e56a86f7b0749c8a79e2c5d9cafe5ec1c1",
+            "path": "src/gamez/zInput/zin_pad.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "2550a60f9c144f9e1470b8c4b2abece5325a15f05a8f4a836242fd235ecae80d",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "c21f811958076ef439bee8da3f58e2fe39b3c4af3e788b5d0981d92101f39319",
+            "before_sha256": "c21f811958076ef439bee8da3f58e2fe39b3c4af3e788b5d0981d92101f39319",
+            "path": "src/gamez/zInput/zinput.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "20868bd588bb08d29c761ac3ea75186edc92f057be91cae1d556897b2a9e3e17",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "3a069ac15b2cf913069b13ba973fc3f69635d72b64b66943d8b89ebe19d42740",
+            "before_sha256": "3a069ac15b2cf913069b13ba973fc3f69635d72b64b66943d8b89ebe19d42740",
+            "path": "src/gamez/zIntersect/zintersect.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "703383f1491b0ac035ea54f1cb07cdf4a4ba4da13e3ba0116e96bfc00a73b7ac",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zIntersect/zintersect_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "header",
+            "after_sha256": "4e8dbba657d2aa566f9066246e1a65748c79b049e2d96b1be448433246e42d74",
+            "after_stage4_blocks_sha256": "481ca0ef4b9febaba6e6c66a83c6754a4bfce60df5997a79f7f3a6bdbb330be5",
+            "before_content_sha256": "d37973495253258441b7da5539725bc0679bc2d1f982e0943dc4220a6ab02165",
+            "before_sha256": "b1307a02db1e971148754a056dc0477546d7b961ad7fcfd0925a2e54c628e992",
+            "path": "src/gamez/zMath/zmath.h",
+            "stage4_blocks_sha256": "481ca0ef4b9febaba6e6c66a83c6754a4bfce60df5997a79f7f3a6bdbb330be5"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "c3d914ac2e2652378db27ec2ccfc054e4adc8eca91a06dc2a4afa73908793913",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zMath/zmath_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zMath/zmath_intersect.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "32079ed87d16668ae8cddc0b8a27241d0dbd5e7e181fe73c6e283ccd9c2db8dd",
+            "before_sha256": "32079ed87d16668ae8cddc0b8a27241d0dbd5e7e181fe73c6e283ccd9c2db8dd",
+            "path": "src/gamez/zMath/zmath_vu.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "9b28a521757a7e440122b6286faa277164a0541fe9e32dc016404000d0a251f2",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "f5341fa6b258033e1453a28d904ab9b48de0927f78eb84fa172317b5945d119a",
+            "before_sha256": "f5341fa6b258033e1453a28d904ab9b48de0927f78eb84fa172317b5945d119a",
+            "path": "src/gamez/zMPEG/zmpeg.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "004b351517396743b5a8e9d0654c67697430fbac55a7f9300bbe0e774a70cb8b",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zMPEG/zmpeg_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "header",
+            "after_sha256": "7fd405c62a91278d849287a86586d083af1b2094b3c625d855098a58b18dfff7",
+            "after_stage4_blocks_sha256": "7ba5f0506c94dae7b3042f1e7d02ed9c078a66aadc9ad2a34747adbe1287fdb1",
+            "before_content_sha256": "faff290ecf0d585cc47a17301b6590769a4e1dfe43fec5fabfe350b62f4a1031",
+            "before_sha256": "73d6b5258bb3085d271f5286730e4f859c62c9565bc410b99d90d3be61c9e1d8",
+            "path": "src/gamez/zNetwork/znet.h",
+            "stage4_blocks_sha256": "7ba5f0506c94dae7b3042f1e7d02ed9c078a66aadc9ad2a34747adbe1287fdb1"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "b3959a4a56bd36c434df1441a42ffadf073e8b1d836bd5b501f086b0ff541561",
+            "before_sha256": "b3959a4a56bd36c434df1441a42ffadf073e8b1d836bd5b501f086b0ff541561",
+            "path": "src/gamez/zNetwork/zNetGame.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "c7e559bf7017408e32c08c662738b9ce4bbf4e86ed547109c5eccaaa6e92bdb4",
+            "before_sha256": "c7e559bf7017408e32c08c662738b9ce4bbf4e86ed547109c5eccaaa6e92bdb4",
+            "path": "src/gamez/zNetwork/zNetMain.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "dd3a9b5778848b60d770b37311482994cd41bfeff1248baff482b5581391d967",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zNetwork/znetwork_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "13d9f708630b2109209354d6260f72166930fc2550732265bb6bbf8b2206ff6a",
+            "before_sha256": "13d9f708630b2109209354d6260f72166930fc2550732265bb6bbf8b2206ff6a",
+            "path": "src/gamez/zNode/node_action.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "48436bcb93518e5e46a973a67b7b6e47b5adaee62daa9e10e89dc2a9cf4a696f",
+            "after_stage4_blocks_sha256": "234bbd97226bf28cfefe4cbb65940003e0a484b8ae6a8128b476b57a9b21c783",
+            "before_content_sha256": "44fb655713bf533e254a70c069129f2d3161852650baef400ec5248f2f57ac0a",
+            "before_sha256": "c15d55e91b021969f113e8f3af94c1adaf567079c8a24d2f29243db38c02ce83",
+            "path": "src/gamez/zNode/node_action.h",
+            "stage4_blocks_sha256": "234bbd97226bf28cfefe4cbb65940003e0a484b8ae6a8128b476b57a9b21c783"
+          },
+          {
+            "action": "header",
+            "after_sha256": "e3385bd7b1cf4ef5c0985e5834e5c13dea0bce7be15976429199f95221b2efb8",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "ced1879133b41883399e674674f33bc1d08b2fcc1a1854194629304bcf43d955",
+            "before_sha256": "ced1879133b41883399e674674f33bc1d08b2fcc1a1854194629304bcf43d955",
+            "path": "src/gamez/zNode/node_assetlib.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "4724c1497d7fa3c1f9ef9d3ed2f00dba3b11eac56e07e254a11c8803044c77a6",
+            "after_stage4_blocks_sha256": "df15c43ff567dec4c23baa2ddccdc5d27644dd40e77cac2bb65015063bc4c9b5",
+            "before_content_sha256": "929935e22a7c1b382b8a5d9631d34594c9128f194b56e52d66923dd215095783",
+            "before_sha256": "3f33b7dfe0cb407aad8549533df4cbbcfe8565a8977ac484e0e6026d927b9a5a",
+            "path": "src/gamez/zNode/node_lensflare.h",
+            "stage4_blocks_sha256": "df15c43ff567dec4c23baa2ddccdc5d27644dd40e77cac2bb65015063bc4c9b5"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "ab1f041853602859b66780252896415948f2a3734680bd2b36a9736a017924fc",
+            "before_sha256": "ab1f041853602859b66780252896415948f2a3734680bd2b36a9736a017924fc",
+            "path": "src/gamez/zNode/node_light.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "8267c111b92a2a298875f2b66c0b0197ad64e5a05603671b9c83458fe4c9eae6",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "e6d954f501d9f0812562eae4d5266d38e81e2bd7bf0a4a45c7410cd6b70e1f0b",
+            "before_sha256": "e6d954f501d9f0812562eae4d5266d38e81e2bd7bf0a4a45c7410cd6b70e1f0b",
+            "path": "src/gamez/zNode/node_light.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "b58fd31e1c0c75797930f72005d57371162306695e7871d884e6c2737c53b62c",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "38a9216f9e8d06749bc82956c20bbf805ff5de704055ac4ea28fd70b4cf028d9",
+            "before_sha256": "38a9216f9e8d06749bc82956c20bbf805ff5de704055ac4ea28fd70b4cf028d9",
+            "path": "src/gamez/zNode/node_model.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "5f9752b7ebb9b7d35a9ef49b2c715334f7037332936ce25924a1463403c03141",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "a429825305dec1bbebb9eee02e2a808284f5d6c768a637e3238ac0e4e664b38c",
+            "before_sha256": "a429825305dec1bbebb9eee02e2a808284f5d6c768a637e3238ac0e4e664b38c",
+            "path": "src/gamez/zNode/node_saveload.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "d98c57d29f7371ccd26582972d56b78039903afb61d5026bd3370ff4ebc96f80",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "037004a15749516157ec1c8aa6bfe7eadf4150533cb677c1a700fbbfcece5d27",
+            "before_sha256": "037004a15749516157ec1c8aa6bfe7eadf4150533cb677c1a700fbbfcece5d27",
+            "path": "src/gamez/zNode/node_shadow.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "abe9cada9a11ab9be738344c7818961f79da136de8deb22b120d481a6ac11aee",
+            "before_sha256": "abe9cada9a11ab9be738344c7818961f79da136de8deb22b120d481a6ac11aee",
+            "path": "src/gamez/zNode/node_universe.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "c18f3f883dda59e0d246a8f51f2cbcad3da8120dccdd422f1a430f9c32ec3dd8",
+            "before_sha256": "c18f3f883dda59e0d246a8f51f2cbcad3da8120dccdd422f1a430f9c32ec3dd8",
+            "path": "src/gamez/zNode/node_wind.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "e239dabe54d41493aba3e28acf55473d8ff0c86f80635d60e7f9dd86b279bad7",
+            "after_stage4_blocks_sha256": "de9d7f6eeae62cafd303848634cb1696b91bb816cc7c47297991066a08a96e94",
+            "before_content_sha256": "ad6f8af80e551492b6d804e68eb27f568e9830e47d5af2690f8a9331b83dbf45",
+            "before_sha256": "a74160d0a964d7493636e85bb2f9ef562c5f7ab6a46b79a537a1b3f6f46610c1",
+            "path": "src/gamez/zNode/node_world.h",
+            "stage4_blocks_sha256": "de9d7f6eeae62cafd303848634cb1696b91bb816cc7c47297991066a08a96e94"
+          },
+          {
+            "action": "header",
+            "after_sha256": "0380ff3b8f29b95293489e39d32912e63014d1dffebc6e8929056305f583d34f",
+            "after_stage4_blocks_sha256": "1ef35da1850fd67d657d5d8e2c5df6298098fc7d7b9063dc815e43bd463f66ca",
+            "before_content_sha256": "4843fd81addf186da3a270a5dda09fb5011721c2f75b7168193add2d00583d9d",
+            "before_sha256": "270a50688ac1072344d34a6a5df6e108fbd82873ca886f5acca70696dcb07173",
+            "path": "src/gamez/zNode/znode.h",
+            "stage4_blocks_sha256": "1ef35da1850fd67d657d5d8e2c5df6298098fc7d7b9063dc815e43bd463f66ca"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "8b6a5805d92dda5602e63380aa1214deb0c1e1eb188f264b0f6fae94f75cf3f1",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zNode/znode_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "header",
+            "after_sha256": "a0ed931254ad0f1b82b19415ebc200028aa40a9daf811be1e74e61e9b543ca76",
+            "after_stage4_blocks_sha256": "22334f939bba41ee06976bd28b430c3ad1a7b3ae92bbe639df59b9f1c867a6cd",
+            "before_content_sha256": "45d89a0ccad1c3c9afc6c25371f73b6a0c2b5e7f659c528ece885fb363ab997b",
+            "before_sha256": "ce3452fc2bd389cfbcb6874777e516b28efd8313face294169d26817dc3e68a8",
+            "path": "src/gamez/zParticle/zparticle.h",
+            "stage4_blocks_sha256": "22334f939bba41ee06976bd28b430c3ad1a7b3ae92bbe639df59b9f1c867a6cd"
+          },
+          {
+            "action": "header",
+            "after_sha256": "d875541f37b75ce18d48d19dd7ad2a3dd92ab327e0422dd5f31258017aa36875",
+            "after_stage4_blocks_sha256": "8f9d9110b35da868e78109d4d77fe3bed676bc1a68cb0f6dab90fbf36e9d6cff",
+            "before_content_sha256": "08fb576c81a4d9b1ca6c3aab3f0ec13de3144421a63b0a76328ecbf19dd6be8f",
+            "before_sha256": "a608921871f774e7318449f3d8bc767c21732cc3268a9fc5abebb54f019b6890",
+            "path": "src/gamez/zReader/zrdr.h",
+            "stage4_blocks_sha256": "8f9d9110b35da868e78109d4d77fe3bed676bc1a68cb0f6dab90fbf36e9d6cff"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "280f8180061220eee6b9dd9faebbe6d70eae9a537925a293c5fe41465796eb59",
+            "before_sha256": "280f8180061220eee6b9dd9faebbe6d70eae9a537925a293c5fe41465796eb59",
+            "path": "src/gamez/zReader/zrdr_local.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "60ce0b8e21bb77116a878aeae85627cf34b3c2f03ef3f206ded211d4483dd0b3",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "7d1bad2e2d207844534748181a07b42acad6d1371bd5d25b41f1227833eac86a",
+            "before_sha256": "7d1bad2e2d207844534748181a07b42acad6d1371bd5d25b41f1227833eac86a",
+            "path": "src/gamez/zReader/zrdr_local.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zReader/zrdr_util.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "6965454b8d74f734b2335872bcf839beb1ce6edac198e0d59feb29e0d43f08bf",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zReader/zreader_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "header",
+            "after_sha256": "3d04a1cc6e17f0a753ad34e07dba786be34519404b8e179eaf02d8864aa9845a",
+            "after_stage4_blocks_sha256": "10853c36687438fd80db657c0b3c2eb90c2cee9edda2ddf975cd2ff424018689",
+            "before_content_sha256": "ea6f519e766d3b71193cf3f8b8b58376dbb02759e4ac832cec050c08399b9d1a",
+            "before_sha256": "deec3eb37ba1f5169f552e5cf40cdcd2fe249186a4859f044c939b2c914ed0cb",
+            "path": "src/gamez/zRender/zrender.h",
+            "stage4_blocks_sha256": "10853c36687438fd80db657c0b3c2eb90c2cee9edda2ddf975cd2ff424018689"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "b5774c47eff10ec5cad2f1297139664b44d9cd5ada3586cf767a4ad1c2903fad",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zRender/zrender_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "6fc527db6ec21ae3889f0ebfd30bcd7d20908fbae73a8ce04d137d24a6c0509e",
+            "before_sha256": "6fc527db6ec21ae3889f0ebfd30bcd7d20908fbae73a8ce04d137d24a6c0509e",
+            "path": "src/gamez/zRender/zrndr_alpha.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "eeac0ab4f21de4e9207520b47c17b81dc16332e575eb256bac33c42ded2d8c0d",
+            "before_sha256": "eeac0ab4f21de4e9207520b47c17b81dc16332e575eb256bac33c42ded2d8c0d",
+            "path": "src/gamez/zRender/zrndr_main.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "c9c05e8df9e010ef1da417bdc0b0d1870d5efa828846ad9efeedc7758768b169",
+            "before_sha256": "c9c05e8df9e010ef1da417bdc0b0d1870d5efa828846ad9efeedc7758768b169",
+            "path": "src/gamez/zRender/zrndr_stack.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "f1945cd6c19e56b3c1c78943ef5ec18116907a4ca1efc40a57d48ab1db7adfc5",
+            "before_sha256": "f1945cd6c19e56b3c1c78943ef5ec18116907a4ca1efc40a57d48ab1db7adfc5",
+            "path": "src/gamez/zSave/zsav_main.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "d7957c8fab9d020495c84a34ce6f83c26deec7598e27f5943cb7728150e75fc3",
+            "after_stage4_blocks_sha256": "22ec5a2b5b7253e723619dfa297901e532ab02e69ec12ff105ec752d6081bb20",
+            "before_content_sha256": "a10cb8fe11ac8641c32330c4488be4933d9dda029a15fe3385dfc72b8d6f6f4b",
+            "before_sha256": "34ed794eaa0da4543a6fc4821514bffa2ee3bc01cbd4335b9d31af21ac1044a4",
+            "path": "src/gamez/zSave/zsave.h",
+            "stage4_blocks_sha256": "22ec5a2b5b7253e723619dfa297901e532ab02e69ec12ff105ec752d6081bb20"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "ce6046060d08691dd0c018cc39c1b38886a66af91104ebe7dd010ae88bf7018a",
+            "before_sha256": "ce6046060d08691dd0c018cc39c1b38886a66af91104ebe7dd010ae88bf7018a",
+            "path": "src/gamez/zSeal/seal_gear.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "d759d64e966b7faa35760d63088e1da3829109b7711ac47048eba91b4ec36e98",
+            "after_stage4_blocks_sha256": "b0b271c1c7084170511468341d624562e00dbcc7bbe6066e513c6dd5a422ccbd",
+            "before_content_sha256": "b45701d8ff81ed3ec772e1681ba23db908bdee4ccbb2cffffb4c963acb755405",
+            "before_sha256": "6dd4891e1ae3fe57b5ab5445ec458fc56d5adaa8cb8a7f2db61779e93a8f6177",
+            "path": "src/gamez/zSeal/zseal.h",
+            "stage4_blocks_sha256": "b0b271c1c7084170511468341d624562e00dbcc7bbe6066e513c6dd5a422ccbd"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "56b4603086e36bc274a0bc4958ba9f569c9c67f9e8a1106c0f228e9be518c768",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zSeal/zseal_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "header",
+            "after_sha256": "6d2a2f83f8897656ca8ddf77921ff19497fb39f8a3c2297d7f114e209ec56008",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "b667f590d2818c3b338e198066b4de1fc81c1751c858344c3f35edbc32e9facf",
+            "before_sha256": "b667f590d2818c3b338e198066b4de1fc81c1751c858344c3f35edbc32e9facf",
+            "path": "src/gamez/zSound/zsnd.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "f5ae2d4f3a0d5e73f85ff810e305d958caa6aab2c7397be81b60861b75b6059e",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zSound/zsound_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "header",
+            "after_sha256": "c28e7a79ac7a03f4b47d38a499cc077045852957baf5c0de2a605562e7b7cecf",
+            "after_stage4_blocks_sha256": "942c67a8c3760d8e2e2559bae097ad08c94a83fb319c1d3f50913f36ab578eba",
+            "before_content_sha256": "e54ac2b1bebf0259ced3ebac9c1af2e1f727588d1b03e16685543463a564ee4b",
+            "before_sha256": "d217e7866be641eaf1ee09e3b7102c59916e7c30a74a730d95ac53608822fc91",
+            "path": "src/gamez/zSystem/zsys.h",
+            "stage4_blocks_sha256": "942c67a8c3760d8e2e2559bae097ad08c94a83fb319c1d3f50913f36ab578eba"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "2de103ee4991f2eecf1e79946d901b41237bb900fdadf97560d16bd5e24a3a91",
+            "before_sha256": "2de103ee4991f2eecf1e79946d901b41237bb900fdadf97560d16bd5e24a3a91",
+            "path": "src/gamez/zSystem/zsys_bench.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "a8ac2fbfba0bb394d933cd2bc3addcf1ce1396950d3eca66b2139111cf8defa5",
+            "before_sha256": "a8ac2fbfba0bb394d933cd2bc3addcf1ce1396950d3eca66b2139111cf8defa5",
+            "path": "src/gamez/zSystem/zsys_main.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "298b6ae9144ecfc6dcbfd5df4c2d99619b5a04b3dcc58acd7ab0c87938f1a2ee",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "83fc337e6d5d200dceb1528865690e11f59bdd49391db48d6af621a2659e7e5f",
+            "before_sha256": "83fc337e6d5d200dceb1528865690e11f59bdd49391db48d6af621a2659e7e5f",
+            "path": "src/gamez/zSystem/zsys_spr.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "9628bcb409bd0ca4413bf783dff987741dcc87119eb938dc3fc456aa81ceab2a",
+            "before_sha256": "9628bcb409bd0ca4413bf783dff987741dcc87119eb938dc3fc456aa81ceab2a",
+            "path": "src/gamez/zSystem/zsys_tty.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "6ce59b22e516e76588a9aa91e2006eef355594676e9cb75d9ae7cd6813e7c53a",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zSystem/zsystem_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "header",
+            "after_sha256": "3b35201e71c417ce6fbafe40658b2f2cc952a6b53946584efd63e3aaa54134b3",
+            "after_stage4_blocks_sha256": "a9c78ac3207dac3a5f2ef95053e1593916dd1c08c33f2b20bc76b92c20f6292e",
+            "before_content_sha256": "f17ffb5655d820c556e2d8979db180b6802fcadfe76414dc2253ee298b9c9437",
+            "before_sha256": "179ee39e984cee19dfbc7caaeeb688a1e43429441b3969873da57e7d24ad37f0",
+            "path": "src/gamez/zTexture/ztex.h",
+            "stage4_blocks_sha256": "a9c78ac3207dac3a5f2ef95053e1593916dd1c08c33f2b20bc76b92c20f6292e"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "7d7f83d9e8b7c90caa1dd9c6121fef27afe523eb6d1716ac253268b97f845a81",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zTexture/ztexture_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "header",
+            "after_sha256": "f08ad1d63563146dc4001d0625fa9051b9228b7f4b761662212b3216582271ba",
+            "after_stage4_blocks_sha256": "170785d9932cf34b082bcbae996c3bdd2901e50afe761ec11d3b57b62325916b",
+            "before_content_sha256": "e0c8d3d34a10ee8851ee2e14d207de13c595403d57125bcadf1fc357eb7bb0ae",
+            "before_sha256": "39ea3fe03af64ff731b361f7b72caa09f7a1c1d1dfb2bb1217144b617dcc3051",
+            "path": "src/gamez/zTwoD/ztwod.h",
+            "stage4_blocks_sha256": "170785d9932cf34b082bcbae996c3bdd2901e50afe761ec11d3b57b62325916b"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "474acb1f9ea3dabe810c1f6150df5a92bca9ae1f794c5d39af28c8c4fa66f74e",
+            "before_sha256": "474acb1f9ea3dabe810c1f6150df5a92bca9ae1f794c5d39af28c8c4fa66f74e",
+            "path": "src/gamez/zTwoD/ztwod_fade.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "0acc2af81fcc4a3b81fe1e591dbbfae34c110f5664c66268ae1b989fc9bb3a79",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zTwoD/ztwod_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "62c73f5b79037fabdaca055bd1954f3b2996d1af5ff0942c2f19903ea915c72a",
+            "before_sha256": "62c73f5b79037fabdaca055bd1954f3b2996d1af5ff0942c2f19903ea915c72a",
+            "path": "src/gamez/zTwoD/ztwod_string.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "d79b814bdcb3db026cc2fa57f593ac83256126f4f2dcad1c5ae88fbf5e51b82c",
+            "after_stage4_blocks_sha256": "89b10f53721874fb4190038211f33ec64b079968005ae90d6eb7e42d23692ba2",
+            "before_content_sha256": "3c2b8c219e7e0e26dc69ec5a3597888efaced81cf109938113d0f7f835dda9d9",
+            "before_sha256": "472c83dbefc7d704bfbb9c6cc316662045250a736b545d49610b66860da95739",
+            "path": "src/gamez/zUI/zui.h",
+            "stage4_blocks_sha256": "89b10f53721874fb4190038211f33ec64b079968005ae90d6eb7e42d23692ba2"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zUI/zui_design.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "d168d3e47f08d8f0e022f793fef838453eea3198f5eea5f14a7eaa928919bb2a",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zUI/zui_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zUtil/util_localization.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "dde0a4a665a959fcf270559153067855dafc22a5099b68dc2a1b7277f7bc5131",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "441ecf97cac40ed0da71083a54d0048beb7e356202313310088e553d4518153b",
+            "before_sha256": "441ecf97cac40ed0da71083a54d0048beb7e356202313310088e553d4518153b",
+            "path": "src/gamez/zUtil/util_stable.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "9a2854a3280d2b763e97f6c5ed6f8327f220bf8ee7dbfc3ed7621ee2e5e2054b",
+            "before_sha256": "9a2854a3280d2b763e97f6c5ed6f8327f220bf8ee7dbfc3ed7621ee2e5e2054b",
+            "path": "src/gamez/zUtil/util_stack.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "456d9f39a305544d8314e6c859590178d28f8df0b6c87d6cd85df5bbe0518265",
+            "after_stage4_blocks_sha256": "1d0b60e46e818184fbdb9f1cad2d81771094edd983bc7ba0b1399b6359254a2e",
+            "before_content_sha256": "7ffdea97bc83b90156dc0f73df84c4869ff791e1a379b0963dfeb4fa88b8508b",
+            "before_sha256": "456d9f39a305544d8314e6c859590178d28f8df0b6c87d6cd85df5bbe0518265",
+            "path": "src/gamez/zUtil/util_stack.h",
+            "stage4_blocks_sha256": "1d0b60e46e818184fbdb9f1cad2d81771094edd983bc7ba0b1399b6359254a2e"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zUtil/util_statemachine.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "b4069fef77d7427f70e615e336708380fd3969012dabb06db4d4291d00e1a01b",
+            "before_sha256": "b4069fef77d7427f70e615e336708380fd3969012dabb06db4d4291d00e1a01b",
+            "path": "src/gamez/zUtil/util_systemio.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "be9fb3d143e7aa19b32366237658251e656b96454a0fda03c081e069888e4d24",
+            "after_stage4_blocks_sha256": "9b692646e91b39d20e68cfc22c55aad9e76fb18a0f662fb9d3eea5ac43bd52c7",
+            "before_content_sha256": "4e1e772439c4783d86a0411b728388050942e5be2df191e7b391216b47115b73",
+            "before_sha256": "24a3ebc6a10a3a326df277521e56ea7c499dd7765aede20cb77138a0d9671f3d",
+            "path": "src/gamez/zUtil/util_systemio.h",
+            "stage4_blocks_sha256": "9b692646e91b39d20e68cfc22c55aad9e76fb18a0f662fb9d3eea5ac43bd52c7"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "77289c09da5e5a1134b549a5f8b329e1f14d2184a18cc5e21e8adaf7e1efdab9",
+            "before_sha256": "77289c09da5e5a1134b549a5f8b329e1f14d2184a18cc5e21e8adaf7e1efdab9",
+            "path": "src/gamez/zUtil/util_zarchive.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "87d4ae1cd6e213de1a0fd80e2c17730d5074dbca6d444af29e9843a33229a19c",
+            "after_stage4_blocks_sha256": "919684356df39be57ef16c07f6aed367f0ad090e77dc0bc421233be76dfb3b14",
+            "before_content_sha256": "f6d69233cb4cbdb24a8d3a927acd27b5da1437f701573391d02223c19f2096d5",
+            "before_sha256": "58417c9085757b37b676630689da16fbcf72c0c065dbd448fdc5f9109f720339",
+            "path": "src/gamez/zUtil/zutil.h",
+            "stage4_blocks_sha256": "919684356df39be57ef16c07f6aed367f0ad090e77dc0bc421233be76dfb3b14"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "fa32acea5d3700bc008c257bf00a48ec2ceb04f2913c34fde2fae80a8af68302",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zUtil/zutil_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "header",
+            "after_sha256": "4c563c4b8ae71a78b01a1d089c238523f302303a4f02c1eb54691214045af344",
+            "after_stage4_blocks_sha256": "f4d54617acac282cbb5f11367d3e142501c651d103216b6506fe01fb0bedcf27",
+            "before_content_sha256": "870e814aabaefd9b1726c847c591ecc3d8ade5364445b5e0ebb71daac6b38040",
+            "before_sha256": "7ce75d8d55d644b4d9c84cd117640bf758714fc38b5e8c95bb982552127dcddc",
+            "path": "src/gamez/zValve/zvalve.h",
+            "stage4_blocks_sha256": "f4d54617acac282cbb5f11367d3e142501c651d103216b6506fe01fb0bedcf27"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "0fe05606e1212f4f406955a776ab1098cfdf9a52e6b42b2db1161d72410cd32b",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zValve/zvalve_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "header",
+            "after_sha256": "7bcfb7cdf6f675957247adb6d1bf53b7e3cde0489f01668803cc67f364577ced",
+            "after_stage4_blocks_sha256": "87948b59686d85fdcf52308b550e0fc9dad6393edb1b5061c2feaa5cf9e93ced",
+            "before_content_sha256": "27fa8c8903d0929ec251ce9223f6353bd9df6724b66859bdad9e5cf84f3838d3",
+            "before_sha256": "f7c2e9889a96b3fe9d3761e513dbd1c834675902772a3e0f9095825e6e70dac2",
+            "path": "src/gamez/zVehicle/zvehicle.h",
+            "stage4_blocks_sha256": "87948b59686d85fdcf52308b550e0fc9dad6393edb1b5061c2feaa5cf9e93ced"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "f820cf37dd9f32017301d4cdc699f4600c83fcf3b249dbbbcbe281cf29e37e38",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zVehicle/zvehicle_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "header",
+            "after_sha256": "3cc2f90ced05530f4efcb42e2a8c760b42cccff80d93ea129da1a07530f98cc4",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "bf4e2a569454c14f9ce469785666f05435a16909c1df6bc803843be56a591d53",
+            "before_sha256": "bf4e2a569454c14f9ce469785666f05435a16909c1df6bc803843be56a591d53",
+            "path": "src/gamez/zVideo/zvid.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zVideo/zvid_capture.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "b82602d97bba18475175fa3069cdf98bb88e79ca8d7a7b5c743dd49334feb150",
+            "before_sha256": "b82602d97bba18475175fa3069cdf98bb88e79ca8d7a7b5c743dd49334feb150",
+            "path": "src/gamez/zVideo/zvid_main.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "a27bf1749f1c9119b11cceef9ba1b0b914f7ac48b2db1e9c10afd48b93f39cc5",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zVideo/zvideo_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zVisual/vis_init.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "f4360e0536154ecdefdcf393be94df9e6c96d7a5021fa086a231c29f731aad76",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "749980ce33e90cea648cb1fc68a8d52c1f247376b23ca610862bb7d788648e19",
+            "before_sha256": "749980ce33e90cea648cb1fc68a8d52c1f247376b23ca610862bb7d788648e19",
+            "path": "src/gamez/zVisual/vis_local.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "path": "src/gamez/zVisual/vis_ripplefx.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "f01e02379b753db57ff304176f94c4575b32ab2773ef08f58d27dab1a2270719",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "55d4283c1993239583d8f9df4b1445df077b535b2c2f3c1d286af1ef0597fff0",
+            "before_sha256": "55d4283c1993239583d8f9df4b1445df077b535b2c2f3c1d286af1ef0597fff0",
+            "path": "src/gamez/zVisual/vis_vector.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "header",
+            "after_sha256": "e049980e6fc88ca386929d36468f9d551191880e6c983f0d231433f3368a2af4",
+            "after_stage4_blocks_sha256": "3184fd32d4dedaa1eb03d70f8552c2e214d8242ff79234abfd3c4837bad08c5c",
+            "before_content_sha256": "81f57b732ca0d761792f2c7d10df0968000d40c0921e00098ab76369cd16e17f",
+            "before_sha256": "0f474e287ae6ef3be73beef5bde6ca150734bcc599bf721dc1a07831d686f3f0",
+            "path": "src/gamez/zVisual/zvis.h",
+            "stage4_blocks_sha256": "3184fd32d4dedaa1eb03d70f8552c2e214d8242ff79234abfd3c4837bad08c5c"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "70840d3bcc1653401221c04e49768634c7932fbfd6d9fec0ce7d28f4d3672831",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zVisual/zvisual_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "header",
+            "after_sha256": "6428790e367ba90e163ec499228c8c9a50a966108204fa974e7c4240eeb428b3",
+            "after_stage4_blocks_sha256": "b717da1fc5c8a3ffd2a1529336e4aeabd79405893e13e4a88da4823405b86e3a",
+            "before_content_sha256": "9e70601b2948e8cb3c3c86b0f5e7f608f69c1d98f22c454e5099ce18e7c91734",
+            "before_sha256": "5e3f42887c402eeca631ca76ffb6107daf3850572b45520e02855b292bc16ab2",
+            "path": "src/gamez/zWeapon/zweapon.h",
+            "stage4_blocks_sha256": "b717da1fc5c8a3ffd2a1529336e4aeabd79405893e13e4a88da4823405b86e3a"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "a2a92962852a20435e7644cf15a0ce5b0c834d217fccd13601d4143e2e98ab29",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/gamez/zWeapon/zweapon_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "header",
+            "after_sha256": "44ec9169aff35bc4f63d8e67a46139c5e255d48437222e60e0795d64a957f0df",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": "380bfa2c7521c0412d7cd8e4c9ed638116b13516c6924cb12239a16ab5db51f9",
+            "before_sha256": "380bfa2c7521c0412d7cd8e4c9ed638116b13516c6924cb12239a16ab5db51f9",
+            "path": "src/gamez/zWeapon/zwep_projectilelist.h",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          },
+          {
+            "action": "holding",
+            "after_sha256": "530761348969b13879ac441101406feb384b671b042892fd143e429671eb37dc",
+            "after_stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+            "before_content_sha256": null,
+            "before_sha256": null,
+            "path": "src/posix/posix_holding.cpp",
+            "stage4_blocks_sha256": null
+          },
+          {
+            "action": "orphan-deleted",
+            "after_sha256": null,
+            "after_stage4_blocks_sha256": null,
+            "before_content_sha256": "8122e677e5f771e61a6db1caddbe3e1e10b50d278e1bb4b56296fe5f094ff9c1",
+            "before_sha256": "8122e677e5f771e61a6db1caddbe3e1e10b50d278e1bb4b56296fe5f094ff9c1",
+            "path": "src/posix/strcasecmp.cpp",
+            "stage4_blocks_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+          }
+        ],
+        "files_sha256": "a00a63acdd242cd5b3fe40c1bdb8b055f62807e8e892ced750ca11e9dfc59595",
+        "flags": {
+          "base-access-unproven": 42,
+          "bases-not-in-body": 3,
+          "bases-unknown": 49,
+          "bd4-held": 124,
+          "bd4-held-data": 78,
+          "decided": 1,
+          "forward-key-unproven": 56,
+          "key-unproven": 90,
+          "type-from-dwarf": 31,
+          "type-unproven": 13,
+          "unparsed-body-held": 1,
+          "unplanned-virtual": 232,
+          "virtual-slot-order": 13,
+          "virtual-slot-unnamed": 6
+        },
+        "inputs": {
+          "base_tree_sha256": "e3f341fd4dea181d98de03583ba08b825eb5adb145fff48fbce6cf4c79dac635",
+          "link_plan": {
+            "item": "socom:work:order-link",
+            "path": "build/order-plans/socom-work-order-link.json",
+            "sha256": "1ac47958390367ebf302e2753e62336e89904d29962ae3d13d86e4e6fb90216c"
+          },
+          "manifest_sha256": "3fe41f6935aebfa6deb33ace25152039f4713d11541f221ee3f4fb1021dd7f7b",
+          "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
+          "plans": [
+            {
+              "item": "socom:work:order-segment-001",
+              "sha256": "64fbdc69b9c5e84c63e24077fc3f4c1f4b9336717339080277e8810fcce56a18"
+            },
+            {
+              "item": "socom:work:order-segment-013",
+              "sha256": "955cc75a53e9895efc6fdc7f0725b7c01676433bbe802136a5bde145cce97ff5"
+            },
+            {
+              "item": "socom:work:order-segment-014",
+              "sha256": "8208b5f365b268db77dcb667bb801e2c19c3cf6859573ad5507e2ce5c6533247"
+            },
+            {
+              "item": "socom:work:order-segment-015",
+              "sha256": "701278dfd03d8360fe2f29320dc8309b85355e9b91446a3946ea39b5cf400d90"
+            },
+            {
+              "item": "socom:work:order-segment-016",
+              "sha256": "228fb8a7278cd27069adfe9f33756cc049df76f9721f04b5e319a77bebb5b97a"
+            },
+            {
+              "item": "socom:work:order-segment-017",
+              "sha256": "c9a6c448961a35688b9327efa9b8860ca87343d6be2b75e441a380c4a31c949a"
+            },
+            {
+              "item": "socom:work:order-segment-018",
+              "sha256": "c21fb6b42236f61ce59c5c530ae108b08756209aa2e8fffdfd3f7a768f9aa87b"
+            },
+            {
+              "item": "socom:work:order-segment-019",
+              "sha256": "9dc33265eb31e2234e889d8278a9a81d1871c35fa3aae1ca8e19fcd86f18c53d"
+            },
+            {
+              "item": "socom:work:order-segment-020",
+              "sha256": "c9c09bd014cd405d430785367568197fdb8fbb873a4729b1e28b1094f59a039d"
+            },
+            {
+              "item": "socom:work:order-segment-021",
+              "sha256": "35b2871d6ab8891ad719120e6b6aec8acea86568bc98aa37ddaf3234d58ac5b2"
+            },
+            {
+              "item": "socom:work:order-segment-022",
+              "sha256": "cb376d92ad266a4c803ec4c5c28106a2eb3ce5b14c11076faa2851c2c66d8a61"
+            },
+            {
+              "item": "socom:work:order-segment-023",
+              "sha256": "9b0e47afdc899f4cb4acd6d9c513b7873984a2995f062a962bd0701013efb885"
+            },
+            {
+              "item": "socom:work:order-segment-024",
+              "sha256": "0aaa8dad7319a73c54c8cfcbd105f87ae54ce0ecc19bfd3f4502ef91632de3f5"
+            },
+            {
+              "item": "socom:work:order-segment-025",
+              "sha256": "9fe87bc6bbd7b4d10b7385a0693b0b999489777bd0922023ef08baf25e760ae4"
+            },
+            {
+              "item": "socom:work:order-segment-026",
+              "sha256": "9cf2698254279b4937230963d35730457bb1023a52f57cde3e0eb872d604556e"
+            },
+            {
+              "item": "socom:work:order-segment-027",
+              "sha256": "d53b9dd0844a50a25f495eb70563a071afd616ff723880d2175c2631bbbd6f50"
+            },
+            {
+              "item": "socom:work:order-segment-028",
+              "sha256": "5f2aefb03ba89fa75c46a87ceec2580d8e5282d5b5881415502c4ffa4721d6f0"
+            },
+            {
+              "item": "socom:work:order-segment-029",
+              "sha256": "2da1cf7c7b048daa70e9517b00d906d359afe9702865242b38daf88b71578de1"
+            },
+            {
+              "item": "socom:work:order-segment-030",
+              "sha256": "1ff8f779532f2c220946a54fea607171f22ab1df56958d1bf364b21464e0cbb4"
+            },
+            {
+              "item": "socom:work:order-segment-031",
+              "sha256": "cd83a04c1cd26394bde20de26dcf81a67a2b653aa85f8c53907e9acaa2208596"
+            },
+            {
+              "item": "socom:work:order-segment-032",
+              "sha256": "31e1fb4afb8e6833c4ce6bcd27a0a723d233e90114605b6cb399d014cbc1fd81"
+            },
+            {
+              "item": "socom:work:order-segment-033",
+              "sha256": "1210323cc642c78cd8ae039b8244b01c996820ce0f7448c5fb2943c65a4b974a"
+            },
+            {
+              "item": "socom:work:order-segment-034",
+              "sha256": "9c0f10fbec92cf23e75b36faf5eeba0d06de6fb5b55d8300fd075e3b3d1d2a75"
+            },
+            {
+              "item": "socom:work:order-segment-035",
+              "sha256": "3be4bf0ae78eedc770d9ac98f40321e90214961f88a270c6a43dfaae85de515a"
+            },
+            {
+              "item": "socom:work:order-segment-036",
+              "sha256": "df9ee6fe742c893e82f7f1ee2225125a50df7a520204ee99a9ba4098e1442041"
+            },
+            {
+              "item": "socom:work:order-segment-037",
+              "sha256": "e4129e0efd6f15a5043882297786b6a448233a84fd0350f938c9d68654453fcd"
+            },
+            {
+              "item": "socom:work:order-segment-039",
+              "sha256": "26ab642751b590ee0f9dd2572a15d64ce9049e5cce72ad5c734f52867a1afeae"
+            },
+            {
+              "item": "socom:work:order-segment-040",
+              "sha256": "9f136e5e6b4efb29ffe137e41453c67b0594a9a835ccfac04a3a14858812af19"
+            },
+            {
+              "item": "socom:work:order-segment-041",
+              "sha256": "44b1026ea4530b6fca9c76955b12d3daac9dcb0dbc1940848a5d953c5ff2d07a"
+            },
+            {
+              "item": "socom:work:order-segment-042",
+              "sha256": "04494101b4d99c2303c59adde0e295dbcf99bd1bfcd1de83129ae625350524a5"
+            },
+            {
+              "item": "socom:work:order-segment-043",
+              "sha256": "f537c9480d7b04d776f58e0a4b767339a7b306ad9a2c6247c0ccd6d9dbc6784f"
+            },
+            {
+              "item": "socom:work:order-segment-044",
+              "sha256": "a067e8236ec5241d0d8fe9a9871e4642b1a457d77c9ebdc8e64e6986e94bee98"
+            },
+            {
+              "item": "socom:work:order-segment-045",
+              "sha256": "0ed34a560b213be386b1b9f352f0572641ded4074136abf2f33798b59ed0e674"
+            },
+            {
+              "item": "socom:work:order-segment-046",
+              "sha256": "f57cf40b6d87eb1348577f886151fd9b3414e8377ea19c2564d788e7e90ce9cf"
+            },
+            {
+              "item": "socom:work:order-segment-047",
+              "sha256": "9b247d403210fb96e4cd5ffa235adeb6ca5529244582317f04a07ec93591bc0d"
+            },
+            {
+              "item": "socom:work:order-segment-052",
+              "sha256": "ef97375a86a560eb9d3177d00b5dbcc191515ca6cb5d502cafed986bca3df31f"
+            },
+            {
+              "item": "socom:work:order-segment-054",
+              "sha256": "0a9d1afb69ff4597e7d17b034b8e89ff4984b8e35cd0323874d2bd99c40119ff"
+            },
+            {
+              "item": "socom:work:order-segment-055",
+              "sha256": "8fd88e27e22977d1b8af31e21b81f2f328da9d2fcd5570f992c40dcec97e3cd5"
+            },
+            {
+              "item": "socom:work:order-segment-056",
+              "sha256": "01f0dd5b3587385d2150ebdc91cb45379a77d5c597cf0527a5e07b367e8a5416"
+            },
+            {
+              "item": "socom:work:order-segment-057",
+              "sha256": "b7f863332e761cddbb361bc2a2bca65902a36542f429b91a7e71e91ce05d12ba"
+            },
+            {
+              "item": "socom:work:order-segment-063",
+              "sha256": "6ae8e2379d7124ec106544b91e130faef400c1bf7e55ceb97dc9fc00e4088c09"
+            },
+            {
+              "item": "socom:work:order-segment-064",
+              "sha256": "9d4a913972a2f865657091f91e9f0f0d786cef653b900bfd5d21baab7371131a"
+            },
+            {
+              "item": "socom:work:order-segment-065",
+              "sha256": "81536b303c26b2451d422d9b5f3ec31129fc2f73a03ef21aece34fdddf626227"
+            },
+            {
+              "item": "socom:work:order-segment-068",
+              "sha256": "e3f0c798ac26efe666dc0b8dabb947370ceff42e716d7d78095e8c31ab2393fe"
+            },
+            {
+              "item": "socom:work:order-segment-074",
+              "sha256": "aa2b2255bf48bfa625b95089abc7abc0f3dd9f99c44a1ff024ef27225afaa4e3"
+            },
+            {
+              "item": "socom:work:order-segment-076",
+              "sha256": "3be482a5ab68f5c8e3dac55deb160ea1ef7fb144d713b55420c8f76a9631f6ea"
+            }
+          ],
+          "snapshot_sha256": "3084d9c8abd6ca839112188210284cee36649770e20f53b965188cb5504d5003",
+          "src_sha256": "a01e888bf1c5ba394778b5120e527512ac55a38a2dc0a2c94efe76630ac2d84e",
+          "stage4_baseline_sha256": "d29bca437f2c609462745b5013fd4192b9c8c217d6e6b5fc2e63a14358a4c84b"
+        },
+        "item": "socom:work:order-skeleton-prepare",
+        "kind": "socom-order-skeleton-apply",
+        "known_conflicts": [],
+        "regions": 399,
+        "route": "progress apply-order-skeleton",
+        "schema_version": 1,
+        "waiting": [
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "12NetErrorCode",
+            "kind": "type-no-record",
+            "name": "NetErrorCode",
+            "option": "type",
+            "placement": "src/gamez/zNetwork/znet.h",
+            "units": [
+              "zNetMedius.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "12UNIT_MESSAGE",
+            "kind": "type-no-record",
+            "name": "UNIT_MESSAGE",
+            "option": "type",
+            "placement": "src/gamez/zSeal/zseal.h",
+            "units": [
+              "seal_unit.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "12WEAPON_STATE",
+            "kind": "type-no-record",
+            "name": "WEAPON_STATE",
+            "option": "type",
+            "placement": "src/gamez/zSeal/zseal.h",
+            "units": [
+              "seal_weapon.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "15CHARACTER_SOUND",
+            "kind": "type-no-record",
+            "name": "CHARACTER_SOUND",
+            "option": "type",
+            "placement": "src/gamez/zCharacter/zchar.h",
+            "units": [
+              "char_type.cpp",
+              "seal_ai.cpp",
+              "seal_control.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "15MediusErrorCode",
+            "kind": "type-no-record",
+            "name": "MediusErrorCode",
+            "option": "type",
+            "placement": "src/gamez/zNetwork/znet.h",
+            "units": [
+              "zNetMedius.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "15SEAL_HANDSIGNAL",
+            "kind": "type-no-record",
+            "name": "SEAL_HANDSIGNAL",
+            "option": "type",
+            "placement": "src/gamez/zSeal/zseal.h",
+            "units": [
+              "seal_handsig.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "17NetObjectLifespan",
+            "kind": "type-no-record",
+            "name": "NetObjectLifespan",
+            "option": "type",
+            "placement": "src/gamez/zNetwork/znet.h",
+            "units": [
+              "zNetDme.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "18NetOwnershipStatus",
+            "kind": "type-no-record",
+            "name": "NetOwnershipStatus",
+            "option": "type",
+            "placement": "src/gamez/zNetwork/znet.h",
+            "units": [
+              "zNetDme.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "18NetThresholdMethod",
+            "kind": "type-no-record",
+            "name": "NetThresholdMethod",
+            "option": "type",
+            "placement": "src/gamez/zNetwork/znet.h",
+            "units": [
+              "zNetDme.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "20MediusCallbackStatus",
+            "kind": "type-no-record",
+            "name": "MediusCallbackStatus",
+            "option": "type",
+            "placement": "src/gamez/zNetwork/znet.h",
+            "units": [
+              "zNetMedius.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "7CDIType",
+            "kind": "type-no-record",
+            "name": "CDIType",
+            "option": "type",
+            "placement": "src/gamez/zSeal/zseal.h",
+            "units": [
+              "seal_env.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "8AI_SOUND",
+            "kind": "type-no-record",
+            "name": "AI_SOUND",
+            "option": "type",
+            "placement": "src/gamez/zSeal/zseal.h",
+            "units": [
+              "seal_ai.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "8AckUnion",
+            "kind": "type-no-record",
+            "name": "AckUnion",
+            "option": "type",
+            "placement": "src/gamez/zFTS/zfts.h",
+            "units": [
+              "fts_remote.cpp",
+              "seal_env.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "9AI_SIGNAL",
+            "kind": "type-no-record",
+            "name": "AI_SIGNAL",
+            "option": "type",
+            "placement": "src/gamez/zSeal/zseal.h",
+            "units": [
+              "seal_ai.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "9R_SEND_TO",
+            "kind": "type-no-record",
+            "name": "R_SEND_TO",
+            "option": "type",
+            "placement": "src/gamez/zFTS/zfts.h",
+            "units": [
+              "fts_remote.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "9SEAL_TASK",
+            "kind": "type-no-record",
+            "name": "SEAL_TASK",
+            "option": "type",
+            "placement": "src/gamez/zSeal/zseal.h",
+            "units": [
+              "seal_ai.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "9STUN_TYPE",
+            "kind": "type-no-record",
+            "name": "STUN_TYPE",
+            "option": "type",
+            "placement": "src/gamez/zInput/zinput.h",
+            "units": [
+              "remote_control.cpp",
+              "seal_ai.cpp",
+              "seal_control.cpp",
+              "seal_env.cpp",
+              "seal_squirm.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "Q210PadBtnFunc1_",
+            "kind": "type-no-record",
+            "name": "PadBtnFunc::_",
+            "option": "type",
+            "placement": "src/gamez/zFTS/zfts.h",
+            "units": [
+              "fts_controller.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "Q22ai9LINE_TYPE",
+            "kind": "type-no-record",
+            "name": "ai::LINE_TYPE",
+            "option": "type",
+            "placement": "src/gamez/zSeal/zseal.h",
+            "units": [
+              "seal_ailines.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "Q23zdb20_tag_render_map_type",
+            "kind": "type-no-record",
+            "name": "zdb::_tag_render_map_type",
+            "option": "type",
+            "placement": "src/gamez/zNode/node_assetlib.h",
+            "units": [
+              "node_shadow.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "Q27CPickup7PU_TYPE",
+            "kind": "type-no-record",
+            "name": "CPickup::PU_TYPE",
+            "option": "type",
+            "placement": "src/gamez/zEntity/zentity.h",
+            "units": [
+              "pickup_main.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "Q28CAiEvent11EVENT_CLASS",
+            "kind": "type-no-record",
+            "name": "CAiEvent::EVENT_CLASS",
+            "option": "type",
+            "placement": "src/gamez/zAI/zai.h",
+            "units": [
+              "ai_events.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; no DWARF or stage 3 record: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "Q29CAiVisMap8VIS_TYPE",
+            "kind": "type-no-record",
+            "name": "CAiVisMap::VIS_TYPE",
+            "option": "type",
+            "placement": "src/gamez/zAI/zai.h",
+            "units": [
+              "ai_vismap.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; 62 DWARF records of TYPE disagree: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "Q29CZAnimArg4TYPE",
+            "kind": "type-no-record",
+            "name": "CZAnimArg::TYPE",
+            "option": "type",
+            "placement": "src/gamez/zAnim/zanim.h",
+            "units": [
+              "zanim_anim.cpp"
+            ]
+          },
+          {
+            "detail": "by value as parameter; 62 DWARF records of TYPE disagree: a definition would be invented",
+            "item": "socom:work:order-skeleton-prepare",
+            "key": "Q36CAiMap6region4TYPE",
+            "kind": "type-no-record",
+            "name": "CAiMap::region::TYPE",
+            "option": "type",
+            "placement": "src/gamez/zAI/zai.h",
+            "units": [
+              "ai_mapdata.cpp",
+              "ai_maps.cpp"
+            ]
+          }
+        ],
+        "waiting_by_kind": {
+          "type-no-record": 25
+        },
+        "write_sha256": "ebbbdd57d09e54ae23c453817610863c3459e8329581cb9285a46917262191ad"
       },
       "resources": [
         "src/Apps/FTS/game/lobby_roomlist.cpp",
@@ -174528,7 +176749,7 @@
       ],
       "selection": "files",
       "stage": "authored-function-order",
-      "status": "in_progress",
+      "status": "accepted",
       "title": "Write the skeleton headers, holding files and orphan deletions under src/ (146 files) before the segment applies"
     },
     {
@@ -174568,7 +176789,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 001 under src/ and check them statically (no compile)"
     },
     {
@@ -174704,7 +176925,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 013 under src/ and check them statically (no compile)"
     },
     {
@@ -174843,7 +177064,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 014 under src/ and check them statically (no compile)"
     },
     {
@@ -174974,7 +177195,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 015 under src/ and check them statically (no compile)"
     },
     {
@@ -175116,7 +177337,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 016 under src/ and check them statically (no compile)"
     },
     {
@@ -175247,7 +177468,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 017 under src/ and check them statically (no compile)"
     },
     {
@@ -175374,7 +177595,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 018 under src/ and check them statically (no compile)"
     },
     {
@@ -175494,7 +177715,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 019 under src/ and check them statically (no compile)"
     },
     {
@@ -175621,7 +177842,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 020 under src/ and check them statically (no compile)"
     },
     {
@@ -175766,7 +177987,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 021 under src/ and check them statically (no compile)"
     },
     {
@@ -175926,7 +178147,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 022 under src/ and check them statically (no compile)"
     },
     {
@@ -176065,7 +178286,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 023 under src/ and check them statically (no compile)"
     },
     {
@@ -176227,7 +178448,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 024 under src/ and check them statically (no compile)"
     },
     {
@@ -176389,7 +178610,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 025 under src/ and check them statically (no compile)"
     },
     {
@@ -176561,7 +178782,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 026 under src/ and check them statically (no compile)"
     },
     {
@@ -176707,7 +178928,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 027 under src/ and check them statically (no compile)"
     },
     {
@@ -176857,7 +179078,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 028 under src/ and check them statically (no compile)"
     },
     {
@@ -177010,7 +179231,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 029 under src/ and check them statically (no compile)"
     },
     {
@@ -177152,7 +179373,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 030 under src/ and check them statically (no compile)"
     },
     {
@@ -177281,7 +179502,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 031 under src/ and check them statically (no compile)"
     },
     {
@@ -177416,7 +179637,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 032 under src/ and check them statically (no compile)"
     },
     {
@@ -177542,7 +179763,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 033 under src/ and check them statically (no compile)"
     },
     {
@@ -177661,7 +179882,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 034 under src/ and check them statically (no compile)"
     },
     {
@@ -177792,7 +180013,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 035 under src/ and check them statically (no compile)"
     },
     {
@@ -177948,7 +180169,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 036 under src/ and check them statically (no compile)"
     },
     {
@@ -178080,7 +180301,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 037 under src/ and check them statically (no compile)"
     },
     {
@@ -178233,7 +180454,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 039 under src/ and check them statically (no compile)"
     },
     {
@@ -178389,7 +180610,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 040 under src/ and check them statically (no compile)"
     },
     {
@@ -178561,7 +180782,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 041 under src/ and check them statically (no compile)"
     },
     {
@@ -178721,7 +180942,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 042 under src/ and check them statically (no compile)"
     },
     {
@@ -178874,7 +181095,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 043 under src/ and check them statically (no compile)"
     },
     {
@@ -179017,7 +181238,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 044 under src/ and check them statically (no compile)"
     },
     {
@@ -179146,7 +181367,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 045 under src/ and check them statically (no compile)"
     },
     {
@@ -179267,7 +181488,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 046 under src/ and check them statically (no compile)"
     },
     {
@@ -179407,7 +181628,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 047 under src/ and check them statically (no compile)"
     },
     {
@@ -179534,7 +181755,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 052 under src/ and check them statically (no compile)"
     },
     {
@@ -179662,7 +181883,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 054 under src/ and check them statically (no compile)"
     },
     {
@@ -179786,7 +182007,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 055 under src/ and check them statically (no compile)"
     },
     {
@@ -179916,7 +182137,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 056 under src/ and check them statically (no compile)"
     },
     {
@@ -180037,7 +182258,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 057 under src/ and check them statically (no compile)"
     },
     {
@@ -180167,7 +182388,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 063 under src/ and check them statically (no compile)"
     },
     {
@@ -180337,7 +182558,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 064 under src/ and check them statically (no compile)"
     },
     {
@@ -180484,7 +182705,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 065 under src/ and check them statically (no compile)"
     },
     {
@@ -180636,7 +182857,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 068 under src/ and check them statically (no compile)"
     },
     {
@@ -180766,7 +182987,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 074 under src/ and check them statically (no compile)"
     },
     {
@@ -180903,7 +183124,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the order skeletons of segment 076 under src/ and check them statically (no compile)"
     },
     {

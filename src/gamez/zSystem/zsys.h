@@ -38,6 +38,9 @@
 #define zmemalign(alignment, size) __memalign(alignment, size, __FILE__, __LINE__)
 #define zstrdup(str) __strdup(str, __FILE__, __LINE__)
 #define zfree(block) __free(block, __FILE__, __LINE__)
+/* @socom-skeleton decl forward */
+class CPacket;
+/* @socom-skeleton end forward */
 
 /// -------------------------------------------
 /// PRIMITIVE TYPES
@@ -171,6 +174,10 @@ private:
 	f32 m_priority;
 	bool(*m_func)(float, void*);
 	void* m_registrar;
+	/* @socom-skeleton decl 11CSched_Task */
+public:
+	~CSched_Task();
+	/* @socom-skeleton end 11CSched_Task */
 };
 
 class CSched_Manager : public std::list<CSched_Task*>
@@ -189,6 +196,11 @@ private:
 	bool m_inTick;
 	f32 m_priority;
 	std::list<CSched_Task*> m_FreeList;
+	/* @socom-skeleton decl 14CSched_Manager */
+public:
+	CSched_Manager();
+	bool RemoveTask(void *, bool);
+	/* @socom-skeleton end 14CSched_Manager */
 };
 
 class CSaferStr : public std::basic_string<const char*>
@@ -218,11 +230,47 @@ public:
 	void Render();
 private:
 	char m_buffer[1024];
+	/* @socom-skeleton decl 4CTTY */
+public:
+	CTTY();
+	~CTTY();
+	void Print(char *, int);
+	/* @socom-skeleton end 4CTTY */
 };
 
 class CConsole
 {
 public:
 	void Tick(f32 dT);
+	/* @socom-skeleton decl 8CConsole */
+public:
+	virtual ~CConsole();
+	virtual void OnConnect();
+	virtual void OnDisconnect();
+	virtual void OnDestroy();
+	CConsole(std::basic_string<char, std::char_traits<char>, std::allocator<char> >);
+	void RecvPacket(CPacket *);
+	void Debug(int, const char *, ...);
+	void Debug(int, CPacket *, const char *);
+	void FindHandler(unsigned int);
+	void CheckEvent();
+	void Initalize();
+	void Disconnect();
+	void Tick();
+	void Send(CPacket *);
+	static unsigned char m_console[80];
+	static int m_debug;
+	/* @socom-skeleton end 8CConsole */
 };
+/* @socom-skeleton decl 3CVU */
+class CVU
+{
+public:
+	CVU(unsigned int);
+	~CVU();
+	void Code(unsigned __int128 *, unsigned int);
+	static int m_VifHandlerID;
+	static int m_refCount;
+};
+/* @socom-skeleton end 3CVU */
 #endif

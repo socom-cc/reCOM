@@ -59,5 +59,20 @@ private:
 
 	s32 m_type;
 	u32 m_flags;
+	/* @socom-skeleton decl 11CNodeAction */
+public:
+	virtual void OnAction(zdb::CNode *, void *);
+	const char * GetActionType(CNodeAction::ACTION_TYPE);
+	static void Reset();
+	static CNodeAction * FindActionByValve(const CValve *);
+	static CNodeAction * GetActionById(unsigned int);
+	void GetClosestAction(const CPnt3D *, float);
+	CNodeAction(zdb::CNode *, CZAnim *, CValve *, zdb::CTexHandle *);
+	~CNodeAction();
+	void GetUIString(std::basic_string<char, std::char_traits<char>, std::allocator<char> > &);
+	void GetVUIString(std::basic_string<char, std::char_traits<char>, std::allocator<char> > &);
+	void ExecuteAction(CZSealBody *, unsigned int);
+	static void SyncActionsMP(int);
+	/* @socom-skeleton end 11CNodeAction */
 };
 #endif

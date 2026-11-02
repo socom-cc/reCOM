@@ -67,6 +67,14 @@ public:
 	int m_headSector;
 	char* m_sector;
 	char* m_buf;
+	/* @socom-skeleton decl 7CFileCD */
+public:
+	static char * CreatePath(char *, char *);
+	int XferSectorsToCaller(char *, int);
+	int Read(char *, int);
+	static int m_TOCNum;
+	static unsigned char m_streamingActive;
+	/* @socom-skeleton end 7CFileCD */
 };
 
 class CIO
@@ -129,6 +137,15 @@ public:
 
 protected:
 	CFileCD* m_cd;
+	/* @socom-skeleton decl 7CFileIO */
+public:
+	virtual unsigned char Open(const char *, unsigned int);
+	virtual int ftell() const;
+	virtual unsigned int fread(void *, int);
+	virtual unsigned int fwrite(const void *, int);
+	static void PS2FileName(const char *, char *, bool);
+	static unsigned char m_file_version[32];
+	/* @socom-skeleton end 7CFileIO */
 };
 
 class CBufferIO : public CFileIO
@@ -145,12 +162,12 @@ public:
 	virtual void Close();
 	virtual void Release();
 
-	virtual bool IsOpen() const { return m_buffer != NULL; }
+	virtual bool IsOpen() const;
 
 	virtual size_t fread(int offset, void** buf);
 	virtual size_t fread(void* buf, size_t size);
-	virtual char freadchar(char* buf) { return 0; }
-	virtual size_t fwrite(const char* buf) { return 0; }
+	virtual char freadchar(char* buf);
+	virtual size_t fwrite(const char* buf);
 	virtual size_t fwrite(const void* buf, size_t size);
 
 	virtual size_t fseek(int offset, int origin);
@@ -158,5 +175,13 @@ public:
 private:
 	void* m_buffer;
 	size_t m_bufsize;
+	/* @socom-skeleton decl 9CBufferIO */
+public:
+	virtual bool Open(const char *, unsigned int);
+	virtual unsigned int ftell() const;
+	virtual unsigned int fread(void *, int);
+	virtual unsigned int fwrite(const void *, int);
+	virtual void fflush();
+	/* @socom-skeleton end 9CBufferIO */
 };
 #endif
