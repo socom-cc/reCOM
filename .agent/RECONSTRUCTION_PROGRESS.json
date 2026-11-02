@@ -2546,7 +2546,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 3929,
+  "revision": 3931,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -5219,6 +5219,15 @@
           76
         ],
         "segments_without_units": [],
+        "skeleton_prepare": {
+          "apply_file_count": 219,
+          "item": "socom:work:order-skeleton-prepare",
+          "manifest_sha256": "3fe41f6935aebfa6deb33ace25152039f4713d11541f221ee3f4fb1021dd7f7b",
+          "prepare_file_count": 146,
+          "resources_sha256": "1b35c56deab40818dca4f435f11fc301dfab3fe72c5716c6f80e6fc772a03942",
+          "tracker_revision": 3931,
+          "write_sha256": "db33a8575c8678e958bd2ecf45f93087f1d93c7385b11dbaf61e11c8dea4b688"
+        },
         "skeleton_route": "socom:work:order-skeleton-route",
         "stage4_baseline_sha256": "d29bca437f2c609462745b5013fd4192b9c8c217d6e6b5fc2e63a14358a4c84b",
         "tracker_revision": 3785,
@@ -5238,7 +5247,7 @@
       },
       "id": "socom:stage:authored-function-order",
       "name": "authored-function-order",
-      "status": "pending"
+      "status": "active"
     },
     {
       "accepted_evidence": [],
@@ -174149,10 +174158,383 @@
     },
     {
       "batch": {
+        "batch_number": 0,
+        "counts": {
+          "header": 56,
+          "holding": 31,
+          "new-header": 2,
+          "orphan-deleted": 57
+        },
+        "files": [
+          "src/Apps/FTS/game/lobby_roomlist.cpp",
+          "src/Apps/FTS/game/mem_overload.cpp",
+          "src/Apps/FTS/game/orders.h",
+          "src/Apps/FTS/hud/hud.h",
+          "src/Apps/FTS/hud/hud_holding.cpp",
+          "src/Apps/FTS/state/state.h",
+          "src/Apps/FTS/state/state_holding.cpp",
+          "src/gamez/zAI/ai_main.cpp",
+          "src/gamez/zAI/zai.h",
+          "src/gamez/zAI/zai_holding.cpp",
+          "src/gamez/zAnim/zanim.h",
+          "src/gamez/zAnim/zanim_cmd_begin.cpp",
+          "src/gamez/zAnim/zanim_cmd_end.cpp",
+          "src/gamez/zAnim/zanim_holding.cpp",
+          "src/gamez/zArchive/zar.h",
+          "src/gamez/zArchive/zarchive_holding.cpp",
+          "src/gamez/zAssetLib/zassetlib.cpp",
+          "src/gamez/zBody/zbody.cpp",
+          "src/gamez/zBody/zbody.h",
+          "src/gamez/zBone/zbone.h",
+          "src/gamez/zBone/zbone_holding.cpp",
+          "src/gamez/zCamera/zcam.h",
+          "src/gamez/zCamera/zcamera_holding.cpp",
+          "src/gamez/zCharacter/char_dyn.cpp",
+          "src/gamez/zCharacter/char_main.cpp",
+          "src/gamez/zCharacter/zchar.h",
+          "src/gamez/zCharacter/zcharacter_holding.cpp",
+          "src/gamez/zConsole/zconsole.h",
+          "src/gamez/zEntity/zentity.h",
+          "src/gamez/zEntity/zentity_holding.cpp",
+          "src/gamez/zFTS/fts_anim_action.cpp",
+          "src/gamez/zFTS/fts_anim_camera.cpp",
+          "src/gamez/zFTS/fts_anim_hud.cpp",
+          "src/gamez/zFTS/fts_anim_player.cpp",
+          "src/gamez/zFTS/fts_anim_seal.cpp",
+          "src/gamez/zFTS/fts_autoplay.cpp",
+          "src/gamez/zFTS/fts_msgEditor.cpp",
+          "src/gamez/zFTS/fts_state.cpp",
+          "src/gamez/zFTS/fts_state.h",
+          "src/gamez/zFTS/zfts.h",
+          "src/gamez/zFTS/zfts_holding.cpp",
+          "src/gamez/zGame/game_anim_camera.cpp",
+          "src/gamez/zGame/game_anim_decal.cpp",
+          "src/gamez/zGame/game_anim_valve.cpp",
+          "src/gamez/zGame/game_anim_video.cpp",
+          "src/gamez/zGame/game_anim_wind.cpp",
+          "src/gamez/zGame/game_tree.cpp",
+          "src/gamez/zGame/zgame.h",
+          "src/gamez/zGame/zgame_holding.cpp",
+          "src/gamez/zGraph/graph_edge.cpp",
+          "src/gamez/zGraph/graph_graph.h",
+          "src/gamez/zGraph/graph_node.h",
+          "src/gamez/zGraph/graph_route.cpp",
+          "src/gamez/zGraph/graph_tree.h",
+          "src/gamez/zGrid/grid_clutter.h",
+          "src/gamez/zGrid/zgrid.h",
+          "src/gamez/zInput/zin_pad.cpp",
+          "src/gamez/zInput/zinput.h",
+          "src/gamez/zIntersect/zintersect.h",
+          "src/gamez/zIntersect/zintersect_holding.cpp",
+          "src/gamez/zMath/zmath.h",
+          "src/gamez/zMath/zmath_holding.cpp",
+          "src/gamez/zMath/zmath_intersect.cpp",
+          "src/gamez/zMath/zmath_vu.cpp",
+          "src/gamez/zMPEG/zmpeg.h",
+          "src/gamez/zMPEG/zmpeg_holding.cpp",
+          "src/gamez/zNetwork/znet.h",
+          "src/gamez/zNetwork/zNetGame.cpp",
+          "src/gamez/zNetwork/zNetMain.cpp",
+          "src/gamez/zNetwork/znetwork_holding.cpp",
+          "src/gamez/zNode/node_action.cpp",
+          "src/gamez/zNode/node_action.h",
+          "src/gamez/zNode/node_assetlib.h",
+          "src/gamez/zNode/node_lensflare.h",
+          "src/gamez/zNode/node_light.cpp",
+          "src/gamez/zNode/node_light.h",
+          "src/gamez/zNode/node_model.h",
+          "src/gamez/zNode/node_saveload.h",
+          "src/gamez/zNode/node_shadow.h",
+          "src/gamez/zNode/node_universe.cpp",
+          "src/gamez/zNode/node_wind.cpp",
+          "src/gamez/zNode/node_world.h",
+          "src/gamez/zNode/znode.h",
+          "src/gamez/zNode/znode_holding.cpp",
+          "src/gamez/zParticle/zparticle.h",
+          "src/gamez/zReader/zrdr.h",
+          "src/gamez/zReader/zrdr_local.cpp",
+          "src/gamez/zReader/zrdr_local.h",
+          "src/gamez/zReader/zrdr_util.cpp",
+          "src/gamez/zReader/zreader_holding.cpp",
+          "src/gamez/zRender/zrender.h",
+          "src/gamez/zRender/zrender_holding.cpp",
+          "src/gamez/zRender/zrndr_alpha.cpp",
+          "src/gamez/zRender/zrndr_main.cpp",
+          "src/gamez/zRender/zrndr_stack.cpp",
+          "src/gamez/zSave/zsav_main.cpp",
+          "src/gamez/zSave/zsave.h",
+          "src/gamez/zSeal/seal_gear.cpp",
+          "src/gamez/zSeal/zseal.h",
+          "src/gamez/zSeal/zseal_holding.cpp",
+          "src/gamez/zSound/zsnd.h",
+          "src/gamez/zSound/zsound_holding.cpp",
+          "src/gamez/zSystem/zsys.h",
+          "src/gamez/zSystem/zsys_bench.cpp",
+          "src/gamez/zSystem/zsys_main.cpp",
+          "src/gamez/zSystem/zsys_spr.h",
+          "src/gamez/zSystem/zsys_tty.cpp",
+          "src/gamez/zSystem/zsystem_holding.cpp",
+          "src/gamez/zTexture/ztex.h",
+          "src/gamez/zTexture/ztexture_holding.cpp",
+          "src/gamez/zTwoD/ztwod.h",
+          "src/gamez/zTwoD/ztwod_fade.cpp",
+          "src/gamez/zTwoD/ztwod_holding.cpp",
+          "src/gamez/zTwoD/ztwod_string.cpp",
+          "src/gamez/zUI/zui.h",
+          "src/gamez/zUI/zui_design.cpp",
+          "src/gamez/zUI/zui_holding.cpp",
+          "src/gamez/zUtil/util_localization.cpp",
+          "src/gamez/zUtil/util_stable.h",
+          "src/gamez/zUtil/util_stack.cpp",
+          "src/gamez/zUtil/util_stack.h",
+          "src/gamez/zUtil/util_statemachine.cpp",
+          "src/gamez/zUtil/util_systemio.cpp",
+          "src/gamez/zUtil/util_systemio.h",
+          "src/gamez/zUtil/util_zarchive.cpp",
+          "src/gamez/zUtil/zutil.h",
+          "src/gamez/zUtil/zutil_holding.cpp",
+          "src/gamez/zValve/zvalve.h",
+          "src/gamez/zValve/zvalve_holding.cpp",
+          "src/gamez/zVehicle/zvehicle.h",
+          "src/gamez/zVehicle/zvehicle_holding.cpp",
+          "src/gamez/zVideo/zvid.h",
+          "src/gamez/zVideo/zvid_capture.cpp",
+          "src/gamez/zVideo/zvid_main.cpp",
+          "src/gamez/zVideo/zvideo_holding.cpp",
+          "src/gamez/zVisual/vis_init.cpp",
+          "src/gamez/zVisual/vis_local.h",
+          "src/gamez/zVisual/vis_ripplefx.cpp",
+          "src/gamez/zVisual/vis_vector.h",
+          "src/gamez/zVisual/zvis.h",
+          "src/gamez/zVisual/zvisual_holding.cpp",
+          "src/gamez/zWeapon/zweapon.h",
+          "src/gamez/zWeapon/zweapon_holding.cpp",
+          "src/gamez/zWeapon/zwep_projectilelist.h",
+          "src/posix/posix_holding.cpp",
+          "src/posix/strcasecmp.cpp"
+        ],
+        "manifest_sha256": "3fe41f6935aebfa6deb33ace25152039f4713d11541f221ee3f4fb1021dd7f7b",
+        "phase": "B",
+        "requires": "the governed skeleton route (progress apply-order-skeleton) writes, before any segment apply, every header the skeleton writer changes or creates, the unbuilt holding files and the orphan deletions, from the frozen base src/ and the accepted order plans; static checks only, no compile",
+        "write_sha256": "db33a8575c8678e958bd2ecf45f93087f1d93c7385b11dbaf61e11c8dea4b688"
+      },
+      "dependencies": [
+        "socom:work:order-skeleton-route",
+        "socom:work:order-link",
+        "socom:work:order-segment-001",
+        "socom:work:order-segment-013",
+        "socom:work:order-segment-014",
+        "socom:work:order-segment-015",
+        "socom:work:order-segment-016",
+        "socom:work:order-segment-017",
+        "socom:work:order-segment-018",
+        "socom:work:order-segment-019",
+        "socom:work:order-segment-020",
+        "socom:work:order-segment-021",
+        "socom:work:order-segment-022",
+        "socom:work:order-segment-023",
+        "socom:work:order-segment-024",
+        "socom:work:order-segment-025",
+        "socom:work:order-segment-026",
+        "socom:work:order-segment-027",
+        "socom:work:order-segment-028",
+        "socom:work:order-segment-029",
+        "socom:work:order-segment-030",
+        "socom:work:order-segment-031",
+        "socom:work:order-segment-032",
+        "socom:work:order-segment-033",
+        "socom:work:order-segment-034",
+        "socom:work:order-segment-035",
+        "socom:work:order-segment-036",
+        "socom:work:order-segment-037",
+        "socom:work:order-segment-039",
+        "socom:work:order-segment-040",
+        "socom:work:order-segment-041",
+        "socom:work:order-segment-042",
+        "socom:work:order-segment-043",
+        "socom:work:order-segment-044",
+        "socom:work:order-segment-045",
+        "socom:work:order-segment-046",
+        "socom:work:order-segment-047",
+        "socom:work:order-segment-052",
+        "socom:work:order-segment-054",
+        "socom:work:order-segment-055",
+        "socom:work:order-segment-056",
+        "socom:work:order-segment-057",
+        "socom:work:order-segment-063",
+        "socom:work:order-segment-064",
+        "socom:work:order-segment-065",
+        "socom:work:order-segment-068",
+        "socom:work:order-segment-074",
+        "socom:work:order-segment-076"
+      ],
+      "evidence": [],
+      "handoff": null,
+      "id": "socom:work:order-skeleton-prepare",
+      "kind": "order-skeleton-prepare",
+      "lease": null,
+      "resources": [
+        "src/Apps/FTS/game/lobby_roomlist.cpp",
+        "src/Apps/FTS/game/mem_overload.cpp",
+        "src/Apps/FTS/game/orders.h",
+        "src/Apps/FTS/hud/hud.h",
+        "src/Apps/FTS/hud/hud_holding.cpp",
+        "src/Apps/FTS/state/state.h",
+        "src/Apps/FTS/state/state_holding.cpp",
+        "src/gamez/zAI/ai_main.cpp",
+        "src/gamez/zAI/zai.h",
+        "src/gamez/zAI/zai_holding.cpp",
+        "src/gamez/zAnim/zanim.h",
+        "src/gamez/zAnim/zanim_cmd_begin.cpp",
+        "src/gamez/zAnim/zanim_cmd_end.cpp",
+        "src/gamez/zAnim/zanim_holding.cpp",
+        "src/gamez/zArchive/zar.h",
+        "src/gamez/zArchive/zarchive_holding.cpp",
+        "src/gamez/zAssetLib/zassetlib.cpp",
+        "src/gamez/zBody/zbody.cpp",
+        "src/gamez/zBody/zbody.h",
+        "src/gamez/zBone/zbone.h",
+        "src/gamez/zBone/zbone_holding.cpp",
+        "src/gamez/zCamera/zcam.h",
+        "src/gamez/zCamera/zcamera_holding.cpp",
+        "src/gamez/zCharacter/char_dyn.cpp",
+        "src/gamez/zCharacter/char_main.cpp",
+        "src/gamez/zCharacter/zchar.h",
+        "src/gamez/zCharacter/zcharacter_holding.cpp",
+        "src/gamez/zConsole/zconsole.h",
+        "src/gamez/zEntity/zentity.h",
+        "src/gamez/zEntity/zentity_holding.cpp",
+        "src/gamez/zFTS/fts_anim_action.cpp",
+        "src/gamez/zFTS/fts_anim_camera.cpp",
+        "src/gamez/zFTS/fts_anim_hud.cpp",
+        "src/gamez/zFTS/fts_anim_player.cpp",
+        "src/gamez/zFTS/fts_anim_seal.cpp",
+        "src/gamez/zFTS/fts_autoplay.cpp",
+        "src/gamez/zFTS/fts_msgEditor.cpp",
+        "src/gamez/zFTS/fts_state.cpp",
+        "src/gamez/zFTS/fts_state.h",
+        "src/gamez/zFTS/zfts.h",
+        "src/gamez/zFTS/zfts_holding.cpp",
+        "src/gamez/zGame/game_anim_camera.cpp",
+        "src/gamez/zGame/game_anim_decal.cpp",
+        "src/gamez/zGame/game_anim_valve.cpp",
+        "src/gamez/zGame/game_anim_video.cpp",
+        "src/gamez/zGame/game_anim_wind.cpp",
+        "src/gamez/zGame/game_tree.cpp",
+        "src/gamez/zGame/zgame.h",
+        "src/gamez/zGame/zgame_holding.cpp",
+        "src/gamez/zGraph/graph_edge.cpp",
+        "src/gamez/zGraph/graph_graph.h",
+        "src/gamez/zGraph/graph_node.h",
+        "src/gamez/zGraph/graph_route.cpp",
+        "src/gamez/zGraph/graph_tree.h",
+        "src/gamez/zGrid/grid_clutter.h",
+        "src/gamez/zGrid/zgrid.h",
+        "src/gamez/zInput/zin_pad.cpp",
+        "src/gamez/zInput/zinput.h",
+        "src/gamez/zIntersect/zintersect.h",
+        "src/gamez/zIntersect/zintersect_holding.cpp",
+        "src/gamez/zMath/zmath.h",
+        "src/gamez/zMath/zmath_holding.cpp",
+        "src/gamez/zMath/zmath_intersect.cpp",
+        "src/gamez/zMath/zmath_vu.cpp",
+        "src/gamez/zMPEG/zmpeg.h",
+        "src/gamez/zMPEG/zmpeg_holding.cpp",
+        "src/gamez/zNetwork/znet.h",
+        "src/gamez/zNetwork/zNetGame.cpp",
+        "src/gamez/zNetwork/zNetMain.cpp",
+        "src/gamez/zNetwork/znetwork_holding.cpp",
+        "src/gamez/zNode/node_action.cpp",
+        "src/gamez/zNode/node_action.h",
+        "src/gamez/zNode/node_assetlib.h",
+        "src/gamez/zNode/node_lensflare.h",
+        "src/gamez/zNode/node_light.cpp",
+        "src/gamez/zNode/node_light.h",
+        "src/gamez/zNode/node_model.h",
+        "src/gamez/zNode/node_saveload.h",
+        "src/gamez/zNode/node_shadow.h",
+        "src/gamez/zNode/node_universe.cpp",
+        "src/gamez/zNode/node_wind.cpp",
+        "src/gamez/zNode/node_world.h",
+        "src/gamez/zNode/znode.h",
+        "src/gamez/zNode/znode_holding.cpp",
+        "src/gamez/zParticle/zparticle.h",
+        "src/gamez/zReader/zrdr.h",
+        "src/gamez/zReader/zrdr_local.cpp",
+        "src/gamez/zReader/zrdr_local.h",
+        "src/gamez/zReader/zrdr_util.cpp",
+        "src/gamez/zReader/zreader_holding.cpp",
+        "src/gamez/zRender/zrender.h",
+        "src/gamez/zRender/zrender_holding.cpp",
+        "src/gamez/zRender/zrndr_alpha.cpp",
+        "src/gamez/zRender/zrndr_main.cpp",
+        "src/gamez/zRender/zrndr_stack.cpp",
+        "src/gamez/zSave/zsav_main.cpp",
+        "src/gamez/zSave/zsave.h",
+        "src/gamez/zSeal/seal_gear.cpp",
+        "src/gamez/zSeal/zseal.h",
+        "src/gamez/zSeal/zseal_holding.cpp",
+        "src/gamez/zSound/zsnd.h",
+        "src/gamez/zSound/zsound_holding.cpp",
+        "src/gamez/zSystem/zsys.h",
+        "src/gamez/zSystem/zsys_bench.cpp",
+        "src/gamez/zSystem/zsys_main.cpp",
+        "src/gamez/zSystem/zsys_spr.h",
+        "src/gamez/zSystem/zsys_tty.cpp",
+        "src/gamez/zSystem/zsystem_holding.cpp",
+        "src/gamez/zTexture/ztex.h",
+        "src/gamez/zTexture/ztexture_holding.cpp",
+        "src/gamez/zTwoD/ztwod.h",
+        "src/gamez/zTwoD/ztwod_fade.cpp",
+        "src/gamez/zTwoD/ztwod_holding.cpp",
+        "src/gamez/zTwoD/ztwod_string.cpp",
+        "src/gamez/zUI/zui.h",
+        "src/gamez/zUI/zui_design.cpp",
+        "src/gamez/zUI/zui_holding.cpp",
+        "src/gamez/zUtil/util_localization.cpp",
+        "src/gamez/zUtil/util_stable.h",
+        "src/gamez/zUtil/util_stack.cpp",
+        "src/gamez/zUtil/util_stack.h",
+        "src/gamez/zUtil/util_statemachine.cpp",
+        "src/gamez/zUtil/util_systemio.cpp",
+        "src/gamez/zUtil/util_systemio.h",
+        "src/gamez/zUtil/util_zarchive.cpp",
+        "src/gamez/zUtil/zutil.h",
+        "src/gamez/zUtil/zutil_holding.cpp",
+        "src/gamez/zValve/zvalve.h",
+        "src/gamez/zValve/zvalve_holding.cpp",
+        "src/gamez/zVehicle/zvehicle.h",
+        "src/gamez/zVehicle/zvehicle_holding.cpp",
+        "src/gamez/zVideo/zvid.h",
+        "src/gamez/zVideo/zvid_capture.cpp",
+        "src/gamez/zVideo/zvid_main.cpp",
+        "src/gamez/zVideo/zvideo_holding.cpp",
+        "src/gamez/zVisual/vis_init.cpp",
+        "src/gamez/zVisual/vis_local.h",
+        "src/gamez/zVisual/vis_ripplefx.cpp",
+        "src/gamez/zVisual/vis_vector.h",
+        "src/gamez/zVisual/zvis.h",
+        "src/gamez/zVisual/zvisual_holding.cpp",
+        "src/gamez/zWeapon/zweapon.h",
+        "src/gamez/zWeapon/zweapon_holding.cpp",
+        "src/gamez/zWeapon/zwep_projectilelist.h",
+        "src/posix/posix_holding.cpp",
+        "src/posix/strcasecmp.cpp"
+      ],
+      "selection": "files",
+      "stage": "authored-function-order",
+      "status": "ready",
+      "title": "Write the skeleton headers, holding files and orphan deletions under src/ (146 files) before the segment applies"
+    },
+    {
+      "batch": {
         "batch_number": 1,
         "definitions": 19,
         "directories": [
           "src/Apps/FTS"
+        ],
+        "files": [
+          "src/Apps/FTS/main.cpp"
         ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
@@ -174168,7 +174550,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-001",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -174176,7 +174559,7 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/Apps/FTS"
+        "src/Apps/FTS/main.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -174274,6 +174657,13 @@
           "src/Apps/FTS/game",
           "src/Apps/FTS/state"
         ],
+        "files": [
+          "src/Apps/FTS/game/database.cpp",
+          "src/Apps/FTS/game/orders.cpp",
+          "src/Apps/FTS/getopt.cpp",
+          "src/Apps/FTS/options.cpp",
+          "src/Apps/FTS/state/st_core.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -174292,7 +174682,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-013",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -174300,9 +174691,11 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/Apps/FTS",
-        "src/Apps/FTS/game",
-        "src/Apps/FTS/state"
+        "src/Apps/FTS/game/database.cpp",
+        "src/Apps/FTS/game/orders.cpp",
+        "src/Apps/FTS/getopt.cpp",
+        "src/Apps/FTS/options.cpp",
+        "src/Apps/FTS/state/st_core.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -174406,6 +174799,12 @@
           "src/Apps/FTS",
           "src/gamez/zAI"
         ],
+        "files": [
+          "src/Apps/FTS/aidemo.cpp",
+          "src/gamez/zAI/ai_astar.cpp",
+          "src/gamez/zAI/ai_events.cpp",
+          "src/gamez/zAI/ai_map.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -174423,7 +174822,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-014",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -174431,8 +174831,10 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/Apps/FTS",
-        "src/gamez/zAI"
+        "src/Apps/FTS/aidemo.cpp",
+        "src/gamez/zAI/ai_astar.cpp",
+        "src/gamez/zAI/ai_events.cpp",
+        "src/gamez/zAI/ai_map.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -174531,6 +174933,11 @@
         "directories": [
           "src/gamez/zAI"
         ],
+        "files": [
+          "src/gamez/zAI/ai_mapio.cpp",
+          "src/gamez/zAI/ai_maps.cpp",
+          "src/gamez/zAI/ai_path.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -174547,7 +174954,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-015",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -174555,7 +174963,9 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zAI"
+        "src/gamez/zAI/ai_mapio.cpp",
+        "src/gamez/zAI/ai_maps.cpp",
+        "src/gamez/zAI/ai_path.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -174656,6 +175066,14 @@
           "src/gamez/zAnim",
           "src/gamez/zVehicle"
         ],
+        "files": [
+          "src/gamez/zAI/ai_log.cpp",
+          "src/gamez/zAI/ai_mapdata.cpp",
+          "src/gamez/zAI/ai_mapwalk.cpp",
+          "src/gamez/zAI/ai_vismap.cpp",
+          "src/gamez/zAnim/zanim_cmd_parse.cpp",
+          "src/gamez/zVehicle/vehicle_main.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -174675,7 +175093,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-016",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -174683,9 +175102,12 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zAI",
-        "src/gamez/zAnim",
-        "src/gamez/zVehicle"
+        "src/gamez/zAI/ai_log.cpp",
+        "src/gamez/zAI/ai_mapdata.cpp",
+        "src/gamez/zAI/ai_mapwalk.cpp",
+        "src/gamez/zAI/ai_vismap.cpp",
+        "src/gamez/zAnim/zanim_cmd_parse.cpp",
+        "src/gamez/zVehicle/vehicle_main.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -174787,6 +175209,10 @@
         "directories": [
           "src/gamez/zAnim"
         ],
+        "files": [
+          "src/gamez/zAnim/zanim_cmd_tick.cpp",
+          "src/gamez/zAnim/zanim_load.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -174802,7 +175228,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-017",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -174810,7 +175237,8 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zAnim"
+        "src/gamez/zAnim/zanim_cmd_tick.cpp",
+        "src/gamez/zAnim/zanim_load.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -174905,6 +175333,11 @@
         "directories": [
           "src/gamez/zAnim"
         ],
+        "files": [
+          "src/gamez/zAnim/anim_main.cpp",
+          "src/gamez/zAnim/zanim_anim.cpp",
+          "src/gamez/zAnim/zanim_set.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -174921,7 +175354,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-018",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -174929,7 +175363,9 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zAnim"
+        "src/gamez/zAnim/anim_main.cpp",
+        "src/gamez/zAnim/zanim_anim.cpp",
+        "src/gamez/zAnim/zanim_set.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -175023,6 +175459,9 @@
         "directories": [
           "src/gamez/zAnim"
         ],
+        "files": [
+          "src/gamez/zAnim/zanim_menu.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -175037,7 +175476,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-019",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -175045,7 +175485,7 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zAnim"
+        "src/gamez/zAnim/zanim_menu.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -175140,6 +175580,11 @@
           "src/gamez/zArchive",
           "src/gamez/zBone"
         ],
+        "files": [
+          "src/gamez/zArchive/zar_main.cpp",
+          "src/gamez/zArchive/zar_search.cpp",
+          "src/gamez/zBone/bone_archive.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -175156,7 +175601,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-020",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -175164,8 +175610,9 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zArchive",
-        "src/gamez/zBone"
+        "src/gamez/zArchive/zar_main.cpp",
+        "src/gamez/zArchive/zar_search.cpp",
+        "src/gamez/zBone/bone_archive.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -175269,6 +175716,14 @@
           "src/gamez/zCamera",
           "src/gamez/zSoftImage"
         ],
+        "files": [
+          "src/gamez/zBody/body.cpp",
+          "src/gamez/zBone/bone_init.cpp",
+          "src/gamez/zCamera/zcam_main.cpp",
+          "src/gamez/zCamera/zcam_update.cpp",
+          "src/gamez/zSoftImage/si_object.cpp",
+          "src/gamez/zSoftImage/si_script.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -175288,7 +175743,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-021",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -175296,10 +175752,12 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zBody",
-        "src/gamez/zBone",
-        "src/gamez/zCamera",
-        "src/gamez/zSoftImage"
+        "src/gamez/zBody/body.cpp",
+        "src/gamez/zBone/bone_init.cpp",
+        "src/gamez/zCamera/zcam_main.cpp",
+        "src/gamez/zCamera/zcam_update.cpp",
+        "src/gamez/zSoftImage/si_object.cpp",
+        "src/gamez/zSoftImage/si_script.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -175412,6 +175870,16 @@
           "src/gamez/zEntity",
           "src/gamez/zFTS"
         ],
+        "files": [
+          "src/gamez/zCamera/camera.cpp",
+          "src/gamez/zCamera/fov.cpp",
+          "src/gamez/zConsole/con_main.cpp",
+          "src/gamez/zConsole/con_packet.cpp",
+          "src/gamez/zConsole/con_ps2.cpp",
+          "src/gamez/zEntity/ent_main.cpp",
+          "src/gamez/zEntity/ent_target.cpp",
+          "src/gamez/zFTS/fts_main.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -175433,7 +175901,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-022",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -175441,10 +175910,14 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zCamera",
-        "src/gamez/zConsole",
-        "src/gamez/zEntity",
-        "src/gamez/zFTS"
+        "src/gamez/zCamera/camera.cpp",
+        "src/gamez/zCamera/fov.cpp",
+        "src/gamez/zConsole/con_main.cpp",
+        "src/gamez/zConsole/con_packet.cpp",
+        "src/gamez/zConsole/con_ps2.cpp",
+        "src/gamez/zEntity/ent_main.cpp",
+        "src/gamez/zEntity/ent_target.cpp",
+        "src/gamez/zFTS/fts_main.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -175551,6 +176024,11 @@
         "directories": [
           "src/gamez/zFTS"
         ],
+        "files": [
+          "src/gamez/zFTS/fts_action.cpp",
+          "src/gamez/zFTS/fts_mission.cpp",
+          "src/gamez/zFTS/fts_player.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -175567,7 +176045,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-023",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -175575,7 +176054,9 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zFTS"
+        "src/gamez/zFTS/fts_action.cpp",
+        "src/gamez/zFTS/fts_mission.cpp",
+        "src/gamez/zFTS/fts_player.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -175681,6 +176162,19 @@
           "src/gamez/zGame",
           "src/gamez/zTwoD"
         ],
+        "files": [
+          "src/gamez/zFTS/fts_controller.cpp",
+          "src/gamez/zFTS/fts_missioncam.cpp",
+          "src/gamez/zFTS/fts_net_bomb.cpp",
+          "src/gamez/zFTS/fts_net_game.cpp",
+          "src/gamez/zFTS/fts_net_grenade.cpp",
+          "src/gamez/zFTS/fts_net_persona.cpp",
+          "src/gamez/zFTS/fts_net_seal.cpp",
+          "src/gamez/zFTS/fts_objectivecam.cpp",
+          "src/gamez/zFTS/fts_remote.cpp",
+          "src/gamez/zGame/game_main.cpp",
+          "src/gamez/zTwoD/ztwod_messageq.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -175705,7 +176199,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-024",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -175713,9 +176208,17 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zFTS",
-        "src/gamez/zGame",
-        "src/gamez/zTwoD"
+        "src/gamez/zFTS/fts_controller.cpp",
+        "src/gamez/zFTS/fts_missioncam.cpp",
+        "src/gamez/zFTS/fts_net_bomb.cpp",
+        "src/gamez/zFTS/fts_net_game.cpp",
+        "src/gamez/zFTS/fts_net_grenade.cpp",
+        "src/gamez/zFTS/fts_net_persona.cpp",
+        "src/gamez/zFTS/fts_net_seal.cpp",
+        "src/gamez/zFTS/fts_objectivecam.cpp",
+        "src/gamez/zFTS/fts_remote.cpp",
+        "src/gamez/zGame/game_main.cpp",
+        "src/gamez/zTwoD/ztwod_messageq.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -175830,6 +176333,16 @@
           "src/gamez/zGraph",
           "src/gamez/zGrid"
         ],
+        "files": [
+          "src/gamez/zGame/game_state.cpp",
+          "src/gamez/zGraph/graph_graph.cpp",
+          "src/gamez/zGraph/graph_node.cpp",
+          "src/gamez/zGraph/graph_tree.cpp",
+          "src/gamez/zGrid/grid_cell.cpp",
+          "src/gamez/zGrid/grid_clutter.cpp",
+          "src/gamez/zGrid/grid_di.cpp",
+          "src/gamez/zGrid/grid_main.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -175851,7 +176364,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-025",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -175859,9 +176373,14 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zGame",
-        "src/gamez/zGraph",
-        "src/gamez/zGrid"
+        "src/gamez/zGame/game_state.cpp",
+        "src/gamez/zGraph/graph_graph.cpp",
+        "src/gamez/zGraph/graph_node.cpp",
+        "src/gamez/zGraph/graph_tree.cpp",
+        "src/gamez/zGrid/grid_cell.cpp",
+        "src/gamez/zGrid/grid_clutter.cpp",
+        "src/gamez/zGrid/grid_di.cpp",
+        "src/gamez/zGrid/grid_main.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -175977,6 +176496,19 @@
           "src/gamez/zMath",
           "src/gamez/zNode"
         ],
+        "files": [
+          "src/gamez/zInput/zin_cheats.cpp",
+          "src/gamez/zInput/zin_keyboard.cpp",
+          "src/gamez/zInput/zin_main.cpp",
+          "src/gamez/zIntersect/int_bbox.cpp",
+          "src/gamez/zIntersect/int_main.cpp",
+          "src/gamez/zIntersect/int_material.cpp",
+          "src/gamez/zMath/zmath_main.cpp",
+          "src/gamez/zMath/zmath_matrix.cpp",
+          "src/gamez/zMath/zmath_pnt3d.cpp",
+          "src/gamez/zMath/zmath_trig.cpp",
+          "src/gamez/zNode/node_io.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -176001,7 +176533,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-026",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -176009,10 +176542,17 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zInput",
-        "src/gamez/zIntersect",
-        "src/gamez/zMath",
-        "src/gamez/zNode"
+        "src/gamez/zInput/zin_cheats.cpp",
+        "src/gamez/zInput/zin_keyboard.cpp",
+        "src/gamez/zInput/zin_main.cpp",
+        "src/gamez/zIntersect/int_bbox.cpp",
+        "src/gamez/zIntersect/int_main.cpp",
+        "src/gamez/zIntersect/int_material.cpp",
+        "src/gamez/zMath/zmath_main.cpp",
+        "src/gamez/zMath/zmath_matrix.cpp",
+        "src/gamez/zMath/zmath_pnt3d.cpp",
+        "src/gamez/zMath/zmath_trig.cpp",
+        "src/gamez/zNode/node_io.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -176123,6 +176663,12 @@
         "directories": [
           "src/gamez/zNode"
         ],
+        "files": [
+          "src/gamez/zNode/node_main.cpp",
+          "src/gamez/zNode/node_model.cpp",
+          "src/gamez/zNode/node_saveload.cpp",
+          "src/gamez/zNode/node_shadow.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -176140,7 +176686,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-027",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -176148,7 +176695,10 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zNode"
+        "src/gamez/zNode/node_main.cpp",
+        "src/gamez/zNode/node_model.cpp",
+        "src/gamez/zNode/node_saveload.cpp",
+        "src/gamez/zNode/node_shadow.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -176251,6 +176801,16 @@
           "src/gamez/zNode",
           "src/gamez/zParticle"
         ],
+        "files": [
+          "src/gamez/zNode/node_assetlib.cpp",
+          "src/gamez/zNode/node_lensflare.cpp",
+          "src/gamez/zNode/node_util.cpp",
+          "src/gamez/zNode/node_wave.cpp",
+          "src/gamez/zNode/node_world.cpp",
+          "src/gamez/zParticle/zparticle.cpp",
+          "src/gamez/zParticle/zparticle_buf.cpp",
+          "src/gamez/zParticle/zparticle_instance.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -176272,7 +176832,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-028",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -176280,8 +176841,14 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zNode",
-        "src/gamez/zParticle"
+        "src/gamez/zNode/node_assetlib.cpp",
+        "src/gamez/zNode/node_lensflare.cpp",
+        "src/gamez/zNode/node_util.cpp",
+        "src/gamez/zNode/node_wave.cpp",
+        "src/gamez/zNode/node_world.cpp",
+        "src/gamez/zParticle/zparticle.cpp",
+        "src/gamez/zParticle/zparticle_buf.cpp",
+        "src/gamez/zParticle/zparticle_instance.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -176390,6 +176957,15 @@
           "src/gamez/zReader",
           "src/gamez/zRender"
         ],
+        "files": [
+          "src/gamez/zParticle/zparticle_source.cpp",
+          "src/gamez/zReader/zrdr_archive.cpp",
+          "src/gamez/zReader/zrdr_edit.cpp",
+          "src/gamez/zReader/zrdr_file.cpp",
+          "src/gamez/zReader/zrdr_main.cpp",
+          "src/gamez/zReader/zrdr_parse.cpp",
+          "src/gamez/zRender/zrndr_pipe.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -176410,7 +176986,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-029",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -176418,9 +176995,13 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zParticle",
-        "src/gamez/zReader",
-        "src/gamez/zRender"
+        "src/gamez/zParticle/zparticle_source.cpp",
+        "src/gamez/zReader/zrdr_archive.cpp",
+        "src/gamez/zReader/zrdr_edit.cpp",
+        "src/gamez/zReader/zrdr_file.cpp",
+        "src/gamez/zReader/zrdr_main.cpp",
+        "src/gamez/zReader/zrdr_parse.cpp",
+        "src/gamez/zRender/zrndr_pipe.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -176527,6 +177108,12 @@
           "src/gamez/zEntity",
           "src/gamez/zSeal"
         ],
+        "files": [
+          "src/gamez/zCharacter/char_type.cpp",
+          "src/gamez/zEntity/pickup_main.cpp",
+          "src/gamez/zSeal/seal.cpp",
+          "src/gamez/zSeal/seal_ex.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -176544,7 +177131,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-030",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -176552,9 +177140,10 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zCharacter",
-        "src/gamez/zEntity",
-        "src/gamez/zSeal"
+        "src/gamez/zCharacter/char_type.cpp",
+        "src/gamez/zEntity/pickup_main.cpp",
+        "src/gamez/zSeal/seal.cpp",
+        "src/gamez/zSeal/seal_ex.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -176654,6 +177243,10 @@
         "directories": [
           "src/gamez/zSeal"
         ],
+        "files": [
+          "src/gamez/zSeal/seal_ai.cpp",
+          "src/gamez/zSeal/seal_anim.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -176669,7 +177262,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-031",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -176677,7 +177271,8 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zSeal"
+        "src/gamez/zSeal/seal_ai.cpp",
+        "src/gamez/zSeal/seal_anim.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -176774,6 +177369,13 @@
         "directories": [
           "src/gamez/zSeal"
         ],
+        "files": [
+          "src/gamez/zSeal/seal_body.cpp",
+          "src/gamez/zSeal/seal_cfg.cpp",
+          "src/gamez/zSeal/seal_command.cpp",
+          "src/gamez/zSeal/seal_control.cpp",
+          "src/gamez/zSeal/seal_create.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -176792,7 +177394,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-032",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -176800,7 +177403,11 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zSeal"
+        "src/gamez/zSeal/seal_body.cpp",
+        "src/gamez/zSeal/seal_cfg.cpp",
+        "src/gamez/zSeal/seal_command.cpp",
+        "src/gamez/zSeal/seal_control.cpp",
+        "src/gamez/zSeal/seal_create.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -176897,6 +177504,10 @@
         "directories": [
           "src/gamez/zSeal"
         ],
+        "files": [
+          "src/gamez/zSeal/seal_dyn.cpp",
+          "src/gamez/zSeal/seal_env.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -176912,7 +177523,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-033",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -176920,7 +177532,8 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zSeal"
+        "src/gamez/zSeal/seal_dyn.cpp",
+        "src/gamez/zSeal/seal_env.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -177013,6 +177626,9 @@
         "directories": [
           "src/gamez/zSeal"
         ],
+        "files": [
+          "src/gamez/zSeal/seal_kit.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -177027,7 +177643,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-034",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -177035,7 +177652,7 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zSeal"
+        "src/gamez/zSeal/seal_kit.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -177131,6 +177748,12 @@
           "src/gamez/zAnim",
           "src/gamez/zSeal"
         ],
+        "files": [
+          "src/gamez/zAnim/anim.cpp",
+          "src/gamez/zSeal/seal_sensors.cpp",
+          "src/gamez/zSeal/seal_tasks.cpp",
+          "src/gamez/zSeal/seal_weapon.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -177148,7 +177771,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-035",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -177156,8 +177780,10 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zAnim",
-        "src/gamez/zSeal"
+        "src/gamez/zAnim/anim.cpp",
+        "src/gamez/zSeal/seal_sensors.cpp",
+        "src/gamez/zSeal/seal_tasks.cpp",
+        "src/gamez/zSeal/seal_weapon.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -177263,6 +177889,17 @@
           "src/gamez/zInput",
           "src/gamez/zSeal"
         ],
+        "files": [
+          "src/gamez/zInput/remote_control.cpp",
+          "src/gamez/zSeal/seal_aievent.cpp",
+          "src/gamez/zSeal/seal_aifollow.cpp",
+          "src/gamez/zSeal/seal_ailines.cpp",
+          "src/gamez/zSeal/seal_aiscan.cpp",
+          "src/gamez/zSeal/seal_aistate.cpp",
+          "src/gamez/zSeal/seal_handsig.cpp",
+          "src/gamez/zSeal/seal_squirm.cpp",
+          "src/gamez/zSeal/seal_unit.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -177285,7 +177922,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-036",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -177293,8 +177931,15 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zInput",
-        "src/gamez/zSeal"
+        "src/gamez/zInput/remote_control.cpp",
+        "src/gamez/zSeal/seal_aievent.cpp",
+        "src/gamez/zSeal/seal_aifollow.cpp",
+        "src/gamez/zSeal/seal_ailines.cpp",
+        "src/gamez/zSeal/seal_aiscan.cpp",
+        "src/gamez/zSeal/seal_aistate.cpp",
+        "src/gamez/zSeal/seal_handsig.cpp",
+        "src/gamez/zSeal/seal_squirm.cpp",
+        "src/gamez/zSeal/seal_unit.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -177397,6 +178042,10 @@
         "directories": [
           "src/gamez/zSeal"
         ],
+        "files": [
+          "src/gamez/zSeal/ai_target.cpp",
+          "src/gamez/zSeal/seal_airesponse.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -177412,7 +178061,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-037",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -177420,7 +178070,8 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zSeal"
+        "src/gamez/zSeal/ai_target.cpp",
+        "src/gamez/zSeal/seal_airesponse.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -177523,6 +178174,17 @@
           "src/gamez/zSound",
           "src/gamez/zSystem"
         ],
+        "files": [
+          "src/Apps/FTS/game/headset.cpp",
+          "src/gamez/zSound/zsnd_csnd.cpp",
+          "src/gamez/zSound/zsnd_csndgroup.cpp",
+          "src/gamez/zSound/zsnd_csndinstance.cpp",
+          "src/gamez/zSound/zsnd_csndsequence.cpp",
+          "src/gamez/zSound/zsnd_jukebox.cpp",
+          "src/gamez/zSystem/zsys_init.cpp",
+          "src/gamez/zSystem/zsys_memory.cpp",
+          "src/gamez/zSystem/zsys_sched.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -177545,7 +178207,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-039",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -177553,9 +178216,15 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/Apps/FTS/game",
-        "src/gamez/zSound",
-        "src/gamez/zSystem"
+        "src/Apps/FTS/game/headset.cpp",
+        "src/gamez/zSound/zsnd_csnd.cpp",
+        "src/gamez/zSound/zsnd_csndgroup.cpp",
+        "src/gamez/zSound/zsnd_csndinstance.cpp",
+        "src/gamez/zSound/zsnd_csndsequence.cpp",
+        "src/gamez/zSound/zsnd_jukebox.cpp",
+        "src/gamez/zSystem/zsys_init.cpp",
+        "src/gamez/zSystem/zsys_memory.cpp",
+        "src/gamez/zSystem/zsys_sched.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -177667,6 +178336,15 @@
           "src/gamez/zTexture",
           "src/gamez/zValve"
         ],
+        "files": [
+          "src/gamez/zSystem/zsys_spr.cpp",
+          "src/gamez/zTexture/ztex_handle.cpp",
+          "src/gamez/zTexture/ztex_main.cpp",
+          "src/gamez/zTexture/ztex_palette.cpp",
+          "src/gamez/zTexture/ztex_read.cpp",
+          "src/gamez/zValve/valve_list.cpp",
+          "src/gamez/zValve/valve_main.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -177687,7 +178365,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-040",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -177695,9 +178374,13 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zSystem",
-        "src/gamez/zTexture",
-        "src/gamez/zValve"
+        "src/gamez/zSystem/zsys_spr.cpp",
+        "src/gamez/zTexture/ztex_handle.cpp",
+        "src/gamez/zTexture/ztex_main.cpp",
+        "src/gamez/zTexture/ztex_palette.cpp",
+        "src/gamez/zTexture/ztex_read.cpp",
+        "src/gamez/zValve/valve_list.cpp",
+        "src/gamez/zValve/valve_main.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -177813,6 +178496,18 @@
           "src/gamez/zTwoD",
           "src/gamez/zUtil"
         ],
+        "files": [
+          "src/gamez/zTexture/ztex_manager.cpp",
+          "src/gamez/zTwoD/c2dbitmap_poly.cpp",
+          "src/gamez/zTwoD/c2dline.cpp",
+          "src/gamez/zTwoD/c2dstring.cpp",
+          "src/gamez/zTwoD/ztwod_bitmap.cpp",
+          "src/gamez/zTwoD/ztwod_font.cpp",
+          "src/gamez/zTwoD/ztwod_main.cpp",
+          "src/gamez/zTwoD/ztwod_poly.cpp",
+          "src/gamez/zUtil/util_bufio.cpp",
+          "src/gamez/zUtil/util_output.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -177839,7 +178534,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-041",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -177847,9 +178543,16 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zTexture",
-        "src/gamez/zTwoD",
-        "src/gamez/zUtil"
+        "src/gamez/zTexture/ztex_manager.cpp",
+        "src/gamez/zTwoD/c2dbitmap_poly.cpp",
+        "src/gamez/zTwoD/c2dline.cpp",
+        "src/gamez/zTwoD/c2dstring.cpp",
+        "src/gamez/zTwoD/ztwod_bitmap.cpp",
+        "src/gamez/zTwoD/ztwod_font.cpp",
+        "src/gamez/zTwoD/ztwod_main.cpp",
+        "src/gamez/zTwoD/ztwod_poly.cpp",
+        "src/gamez/zUtil/util_bufio.cpp",
+        "src/gamez/zUtil/util_output.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -177965,6 +178668,15 @@
           "src/gamez/zVideo",
           "src/gamez/zVisual"
         ],
+        "files": [
+          "src/gamez/zUtil/util_memcard.cpp",
+          "src/gamez/zUtil/util_sonyio.cpp",
+          "src/gamez/zUtil/util_stable.cpp",
+          "src/gamez/zVideo/zvid_draw.cpp",
+          "src/gamez/zVideo/zvid_init.cpp",
+          "src/gamez/zVisual/vis_main.cpp",
+          "src/gamez/zVisual/vis_mesh.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -177985,7 +178697,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-042",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -177993,9 +178706,13 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zUtil",
-        "src/gamez/zVideo",
-        "src/gamez/zVisual"
+        "src/gamez/zUtil/util_memcard.cpp",
+        "src/gamez/zUtil/util_sonyio.cpp",
+        "src/gamez/zUtil/util_stable.cpp",
+        "src/gamez/zVideo/zvid_draw.cpp",
+        "src/gamez/zVideo/zvid_init.cpp",
+        "src/gamez/zVisual/vis_main.cpp",
+        "src/gamez/zVisual/vis_mesh.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -178104,6 +178821,15 @@
           "src/gamez/zVisual",
           "src/gamez/zWeapon"
         ],
+        "files": [
+          "src/gamez/zVisual/vis_bands.cpp",
+          "src/gamez/zVisual/vis_decal.cpp",
+          "src/gamez/zVisual/vis_texfx.cpp",
+          "src/gamez/zWeapon/zwep_explosive.cpp",
+          "src/gamez/zWeapon/zwep_ftsweapon.cpp",
+          "src/gamez/zWeapon/zwep_global.cpp",
+          "src/gamez/zWeapon/zwep_weaponlist.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -178124,7 +178850,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-043",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -178132,8 +178859,13 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zVisual",
-        "src/gamez/zWeapon"
+        "src/gamez/zVisual/vis_bands.cpp",
+        "src/gamez/zVisual/vis_decal.cpp",
+        "src/gamez/zVisual/vis_texfx.cpp",
+        "src/gamez/zWeapon/zwep_explosive.cpp",
+        "src/gamez/zWeapon/zwep_ftsweapon.cpp",
+        "src/gamez/zWeapon/zwep_global.cpp",
+        "src/gamez/zWeapon/zwep_weaponlist.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -178238,6 +178970,13 @@
           "src/Apps/FTS/game",
           "src/gamez/zWeapon"
         ],
+        "files": [
+          "src/Apps/FTS/game/thezoom.cpp",
+          "src/gamez/zWeapon/zwep_ammo.cpp",
+          "src/gamez/zWeapon/zwep_projectile.cpp",
+          "src/gamez/zWeapon/zwep_projectilelist.cpp",
+          "src/gamez/zWeapon/zwep_weapon.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -178256,7 +178995,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-044",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -178264,8 +179004,11 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/Apps/FTS/game",
-        "src/gamez/zWeapon"
+        "src/Apps/FTS/game/thezoom.cpp",
+        "src/gamez/zWeapon/zwep_ammo.cpp",
+        "src/gamez/zWeapon/zwep_projectile.cpp",
+        "src/gamez/zWeapon/zwep_projectilelist.cpp",
+        "src/gamez/zWeapon/zwep_weapon.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -178365,6 +179108,10 @@
           "src/Apps/FTS/state",
           "src/gamez/zNetwork"
         ],
+        "files": [
+          "src/Apps/FTS/state/st_exit.cpp",
+          "src/gamez/zNetwork/zNetDme.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -178380,7 +179127,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-045",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -178388,8 +179136,8 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/Apps/FTS/state",
-        "src/gamez/zNetwork"
+        "src/Apps/FTS/state/st_exit.cpp",
+        "src/gamez/zNetwork/zNetDme.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -178484,6 +179232,9 @@
         "directories": [
           "src/gamez/zNetwork"
         ],
+        "files": [
+          "src/gamez/zNetwork/zNetMedius.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -178498,7 +179249,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-046",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -178506,7 +179258,7 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zNetwork"
+        "src/gamez/zNetwork/zNetMedius.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -178605,6 +179357,14 @@
           "src/gamez/zMPEG",
           "src/gamez/zNetwork"
         ],
+        "files": [
+          "src/Apps/FTS/game/reco.cpp",
+          "src/gamez/zMPEG/audiodec.cpp",
+          "src/gamez/zMPEG/playpss.cpp",
+          "src/gamez/zMPEG/strfile.cpp",
+          "src/gamez/zMPEG/zmpeg.cpp",
+          "src/gamez/zNetwork/zNetVoice.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -178624,7 +179384,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-047",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -178632,9 +179393,12 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/Apps/FTS/game",
-        "src/gamez/zMPEG",
-        "src/gamez/zNetwork"
+        "src/Apps/FTS/game/reco.cpp",
+        "src/gamez/zMPEG/audiodec.cpp",
+        "src/gamez/zMPEG/playpss.cpp",
+        "src/gamez/zMPEG/strfile.cpp",
+        "src/gamez/zMPEG/zmpeg.cpp",
+        "src/gamez/zNetwork/zNetVoice.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -178735,6 +179499,9 @@
         "directories": [
           "src/Apps/FTS/state"
         ],
+        "files": [
+          "src/Apps/FTS/state/st_menu.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -178749,7 +179516,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-052",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -178757,7 +179525,7 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/Apps/FTS/state"
+        "src/Apps/FTS/state/st_menu.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -178853,6 +179621,11 @@
           "src/gamez/zUI",
           "src/gamez/zVehicle"
         ],
+        "files": [
+          "src/Apps/FTS/state/st_load.cpp",
+          "src/gamez/zUI/zui.cpp",
+          "src/gamez/zVehicle/veh_turret.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -178869,7 +179642,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-054",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -178877,9 +179651,9 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/Apps/FTS/state",
-        "src/gamez/zUI",
-        "src/gamez/zVehicle"
+        "src/Apps/FTS/state/st_load.cpp",
+        "src/gamez/zUI/zui.cpp",
+        "src/gamez/zVehicle/veh_turret.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -178977,6 +179751,9 @@
         "directories": [
           "src/gamez/zUI"
         ],
+        "files": [
+          "src/gamez/zUI/zui_2d.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -178991,7 +179768,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-055",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -178999,7 +179777,7 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zUI"
+        "src/gamez/zUI/zui_2d.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -179094,6 +179872,12 @@
         "directories": [
           "src/gamez/zUI"
         ],
+        "files": [
+          "src/gamez/zUI/zui_cleanup.cpp",
+          "src/gamez/zUI/zui_spec.cpp",
+          "src/gamez/zUI/zui_tuner.cpp",
+          "src/gamez/zUI/zui_var.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -179111,7 +179895,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-056",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -179119,7 +179904,10 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zUI"
+        "src/gamez/zUI/zui_cleanup.cpp",
+        "src/gamez/zUI/zui_spec.cpp",
+        "src/gamez/zUI/zui_tuner.cpp",
+        "src/gamez/zUI/zui_var.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -179214,6 +180002,9 @@
         "directories": [
           "src/gamez/zUI"
         ],
+        "files": [
+          "src/gamez/zUI/zui_skb.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -179228,7 +180019,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-057",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -179236,7 +180028,7 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zUI"
+        "src/gamez/zUI/zui_skb.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -179331,6 +180123,12 @@
         "directories": [
           "src/Apps/FTS/hud"
         ],
+        "files": [
+          "src/Apps/FTS/hud/hud_lensflare.cpp",
+          "src/Apps/FTS/hud/hud_letterbox.cpp",
+          "src/Apps/FTS/hud/hud_main.cpp",
+          "src/Apps/FTS/hud/hud_teammatenames.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -179348,7 +180146,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-063",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -179356,7 +180155,10 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/Apps/FTS/hud"
+        "src/Apps/FTS/hud/hud_lensflare.cpp",
+        "src/Apps/FTS/hud/hud_letterbox.cpp",
+        "src/Apps/FTS/hud/hud_main.cpp",
+        "src/Apps/FTS/hud/hud_teammatenames.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -179476,6 +180278,17 @@
         "directories": [
           "src/Apps/FTS/hud"
         ],
+        "files": [
+          "src/Apps/FTS/hud/hud_bitmapreticule.cpp",
+          "src/Apps/FTS/hud/hud_bombmapitem.cpp",
+          "src/Apps/FTS/hud/hud_claymoremapitem.cpp",
+          "src/Apps/FTS/hud/hud_linemap.cpp",
+          "src/Apps/FTS/hud/hud_mapcompass.cpp",
+          "src/Apps/FTS/hud/hud_newhudmap.cpp",
+          "src/Apps/FTS/hud/hud_objectives.cpp",
+          "src/Apps/FTS/hud/hud_pausemenu.cpp",
+          "src/Apps/FTS/hud/hud_weaponsel.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -179498,7 +180311,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-064",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -179506,7 +180320,15 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/Apps/FTS/hud"
+        "src/Apps/FTS/hud/hud_bitmapreticule.cpp",
+        "src/Apps/FTS/hud/hud_bombmapitem.cpp",
+        "src/Apps/FTS/hud/hud_claymoremapitem.cpp",
+        "src/Apps/FTS/hud/hud_linemap.cpp",
+        "src/Apps/FTS/hud/hud_mapcompass.cpp",
+        "src/Apps/FTS/hud/hud_newhudmap.cpp",
+        "src/Apps/FTS/hud/hud_objectives.cpp",
+        "src/Apps/FTS/hud/hud_pausemenu.cpp",
+        "src/Apps/FTS/hud/hud_weaponsel.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -179612,6 +180434,14 @@
           "src/Apps/FTS/hud",
           "src/Apps/FTS/state"
         ],
+        "files": [
+          "src/Apps/FTS/hud/hud_actionbitmap.cpp",
+          "src/Apps/FTS/hud/hud_devtext.cpp",
+          "src/Apps/FTS/hud/hud_playermapitem.cpp",
+          "src/Apps/FTS/hud/hud_posebitmap.cpp",
+          "src/Apps/FTS/hud/hud_teamnames.cpp",
+          "src/Apps/FTS/state/st_mpexit.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -179631,7 +180461,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-065",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -179639,8 +180470,12 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/Apps/FTS/hud",
-        "src/Apps/FTS/state"
+        "src/Apps/FTS/hud/hud_actionbitmap.cpp",
+        "src/Apps/FTS/hud/hud_devtext.cpp",
+        "src/Apps/FTS/hud/hud_playermapitem.cpp",
+        "src/Apps/FTS/hud/hud_posebitmap.cpp",
+        "src/Apps/FTS/hud/hud_teamnames.cpp",
+        "src/Apps/FTS/state/st_mpexit.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -179748,6 +180583,15 @@
           "src/gamez/zSave",
           "src/gamez/zSystem"
         ],
+        "files": [
+          "src/Apps/FTS/hud/hud_fader.cpp",
+          "src/Apps/FTS/hud/hud_ingame_weaponsel.cpp",
+          "src/Apps/FTS/hud/hud_missioncams.cpp",
+          "src/gamez/zNetwork/zNetCnf.cpp",
+          "src/gamez/zSave/zsav_manager.cpp",
+          "src/gamez/zSave/zsav_module.cpp",
+          "src/gamez/zSystem/zsys_trc.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -179768,7 +180612,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-068",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -179776,10 +180621,13 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/Apps/FTS/hud",
-        "src/gamez/zNetwork",
-        "src/gamez/zSave",
-        "src/gamez/zSystem"
+        "src/Apps/FTS/hud/hud_fader.cpp",
+        "src/Apps/FTS/hud/hud_ingame_weaponsel.cpp",
+        "src/Apps/FTS/hud/hud_missioncams.cpp",
+        "src/gamez/zNetwork/zNetCnf.cpp",
+        "src/gamez/zSave/zsav_manager.cpp",
+        "src/gamez/zSave/zsav_module.cpp",
+        "src/gamez/zSystem/zsys_trc.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -179883,6 +180731,9 @@
         "directories": [
           "src/Apps/FTS/hud"
         ],
+        "files": [
+          "src/Apps/FTS/hud/hud_scorepopup.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -179897,7 +180748,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-074",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -179905,7 +180757,7 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/Apps/FTS/hud"
+        "src/Apps/FTS/hud/hud_scorepopup.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -180004,6 +180856,13 @@
           "src/gamez/zRender",
           "src/gamez/zSeal"
         ],
+        "files": [
+          "src/gamez/zGame/game_engine.cpp",
+          "src/gamez/zMath/zmath_pnt4d.cpp",
+          "src/gamez/zRender/zrndr_init.cpp",
+          "src/gamez/zSeal/seal_aimoves.cpp",
+          "src/gamez/zSeal/seal_ik.cpp"
+        ],
         "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile",
@@ -180022,7 +180881,8 @@
       },
       "dependencies": [
         "socom:work:order-segment-076",
-        "socom:work:order-skeleton-route"
+        "socom:work:order-skeleton-route",
+        "socom:work:order-skeleton-prepare"
       ],
       "evidence": [],
       "handoff": null,
@@ -180030,10 +180890,11 @@
       "kind": "order-apply-segment",
       "lease": null,
       "resources": [
-        "src/gamez/zGame",
-        "src/gamez/zMath",
-        "src/gamez/zRender",
-        "src/gamez/zSeal"
+        "src/gamez/zGame/game_engine.cpp",
+        "src/gamez/zMath/zmath_pnt4d.cpp",
+        "src/gamez/zRender/zrndr_init.cpp",
+        "src/gamez/zSeal/seal_aimoves.cpp",
+        "src/gamez/zSeal/seal_ik.cpp"
       ],
       "selection": "units",
       "stage": "authored-function-order",
@@ -180123,13 +180984,28 @@
       "title": "Review the link-order plan (621 objects in link order)"
     },
     {
+      "accepted": {
+        "at": "2026-11-02T04:41:27Z",
+        "by": "progress open-capability-gate",
+        "capability": "function-order-skeletons"
+      },
       "batch": {
         "capability": "authored-function-order",
         "phase": "B",
         "requires": "a registered route that writes each unit's skeleton source under its src/ directory in the accepted order plan's order (exact signatures, provisional bodies moved into place, marked stubs) and runs the static checks (signatures mangle to the ELF names, the written order predicts the target, annotations unchanged); no compile"
       },
       "dependencies": [],
-      "evidence": [],
+      "evidence": [
+        "capability-sha256:0956483d2341635a9b8e45ac0cb2758a2fd502acde5c77826cbc4024dd8df4a4",
+        "capability:function-order-skeletons",
+        "registered-command:order skeleton apply-check",
+        "registered-command:order skeleton decide",
+        "registered-command:progress accept-order-skeleton",
+        "registered-command:progress add-order-skeleton-prepare",
+        "registered-command:progress apply-order-skeleton",
+        "registered-command:progress handoff-order-skeleton",
+        "registered-command:progress open-capability-gate"
+      ],
       "handoff": null,
       "id": "socom:work:order-skeleton-route",
       "kind": "capability-gate",
@@ -180137,7 +181013,7 @@
       "resources": [],
       "selection": null,
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "accepted",
       "title": "Register the stage 5 skeleton route (skeleton source under src/, static checks, no compile)"
     },
     {
