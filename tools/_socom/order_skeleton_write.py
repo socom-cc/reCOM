@@ -1,10 +1,10 @@
-"""Stage 5 phase B round 2: the ``.cpp`` skeleton writer (``order skeleton write``), preview only.
+"""Stage 5 phase B rounds 2 and 3a: the skeleton writer (``order skeleton write``), preview only.
 
 The writer reads the skeleton manifest (``order skeleton manifest``: its own
 digest, the frozen body snapshot it names, the ``src/`` digest it was built on
 and the accepted order plans it cites must all still hold), the accepted order
 plans (row order) and ``src/``.  It writes a mirror of ``src/`` under a preview
-root inside ``build/`` (this round refuses every other root; round 3 adds the
+root inside ``build/`` (this round refuses every other root; round 3b adds the
 governed ``src/`` route) and a write manifest beside it.
 
 Per unit file (in the plan's order):
@@ -38,11 +38,19 @@ is kept verbatim (``body``) only where the ELF initializer cannot be rendered or
 it holds a dynamic initializer of a nobits object.
 
 ``--all`` also writes the unbuilt per-module holding files (BD4: copy-only,
-unowned and non-ELF code, overload ties held until decided) and removes the
-orphan ``.cpp`` files the moves leave empty.  Every judgment row and every
-default gets a flag; rows for which any default would be fabricated are not
-written and are listed as waiting.  The output is deterministic; the write
-manifest carries ``write_sha256`` over its canonical JSON.
+unowned and non-ELF code, overload ties held until decided), removes the
+orphan ``.cpp`` files the moves leave empty, and runs the header writer
+(``order_skeleton_headers``, round 3a) once for the tree: class declarations
+in fenced regions, new class bodies and headers, complete by-value types, the
+in-class bodies of out-of-line rows replaced by declarations, and per unit file
+the includes and forward declarations its rows need (a region at the end of
+its preamble).  Every judgment row and every default gets a flag; rows for
+which any default would be fabricated are not written and are listed as
+waiting.  The output is deterministic; the write manifest carries
+``write_sha256`` over its canonical JSON.  Each file keeps its own newline
+style (a new file takes the tree's); every recorded digest hashes
+LF-normalized text, so checkouts with different ``core.autocrlf`` results
+record the same digests.
 """
 
 from __future__ import annotations
@@ -88,7 +96,7 @@ FLAG_KINDS = (
     "overload-tie-held", "unparsed-body-held", "ambiguous-owner-held", "mixed-data-statement-held",
     "provisional-data-replaced", "provisional-data-kept", "local-static-owner-hypothesis", "local-static-in-body",
     "local-static-not-in-body", "local-static-order-conflict", "local-class-owner-hypothesis", "local-class-key-unproven",
-    "in-class-row", "by-value-undeclared",
+    "in-class-row", "by-value-undeclared", "header-body-replaced",
 )
 WAIT_KINDS = ("local-static-owner", "initializer-unrenderable", "overload-tie", "local-class-owner", "type-undefined")
 _ZERO_INIT = re.compile(r"^(?:0+|0x0+|0*\.0*f?|0\.0*f?|NULL|false|\{\s*0?\s*\})$", re.I)
@@ -113,6 +121,35 @@ def read_source(path: Path) -> tuple[str, str]:
     if lone_cr or (crlf and lone_lf):
         raise SocomError(f"{path.name} mixes newline styles: the skeleton writer keeps bytes exact only for one style")
     return text.replace("\r\n", "\n"), "\r\n" if crlf else "\n" if lone_lf else DEFAULT_NEWLINE
+
+
+def tree_newline(root: Path) -> str:
+    """The newline most ``src/`` files use in this checkout (CRLF on a tie or an empty tree), for files the write creates.
+
+    The working copy's newlines depend on the checkout (``core.autocrlf``); every
+    digest the writer and the check record hashes LF-normalized text instead.
+    """
+
+    from .order_skeleton import SOURCE_SUFFIXES
+
+    counts = Counter()
+    source = root / "src"
+    if source.is_dir():
+        for path in source.rglob("*"):
+            if path.is_file() and path.suffix.lower() in SOURCE_SUFFIXES:
+                data = path.read_bytes()
+                crlf = data.count(b"\r\n")
+                if crlf:
+                    counts["\r\n"] += 1
+                elif b"\n" in data:
+                    counts["\n"] += 1
+    return "\n" if counts["\n"] > counts["\r\n"] else DEFAULT_NEWLINE
+
+
+def normalized_sha256(data: bytes) -> str:
+    """SHA-256 of a file's bytes with CRLF taken as LF: the same for every checkout of the same content."""
+
+    return hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest()
 
 
 def split_blocks(path: str, text: str) -> tuple[str, str]:
@@ -179,6 +216,7 @@ class SkeletonInputs:
             raise SocomError("src/ changed since the skeleton manifest was built: rebuild it (order skeleton manifest)")
         self.src_sha256 = src_sha256
         self.scans = {scan.path: scan for scan in scans}
+        self.newline = tree_newline(root)
         self.elf = Elf32File(root / "support" / "socom.elf")
         chains: set[tuple[str, ...]] = set()
         seen: set[str] = set()
@@ -534,9 +572,11 @@ def _local_component(structured: dict[str, Any]) -> bool:
 
 
 class _Writer:
-    def __init__(self, inputs: SkeletonInputs) -> None:
+    def __init__(self, inputs: SkeletonInputs, *, headers: dict[str, Any] | None = None) -> None:
         self.inputs = inputs
         self.program = inputs.program
+        # The header writer's additions to unit files ({path: {"inserts": [(offset, text)], "tail": text}}), when headers are written.
+        self.headers = headers
         self.images = [(section.address, section.address + section.size) for section in inputs.elf.sections
                        if section.address and section.size and section.flags & 0x2]
         self.unit_tags = {unit["unit"]: PurePosixPath(unit["workspace_path"]).name.replace(".", "_") for _number, unit in inputs.units}
@@ -743,7 +783,11 @@ class _Writer:
 
     # -- one unit file -------------------------------------------------------------------
 
-    def unit_file(self, segment: int, unit: dict[str, Any]) -> tuple[str, list[dict[str, Any]]]:
+    def unit_file(self, segment: int, unit: dict[str, Any]) -> tuple[str, str, list[dict[str, Any]]]:
+        """(the unit file's text with LF newlines, the file's own newline, its entry records)."""
+
+        from .order_skeleton_headers import parse_regions
+
         path = unit["workspace_path"]
         text, newline = read_source(self.inputs.root / path)
         prefix, rest = split_blocks(path, text)
@@ -751,9 +795,26 @@ class _Writer:
         if scan is not None and scan.text != rest:
             raise SocomError(f"{path}: the authored content differs from the manifest's scan")
         existing = parse_fences(rest)
-        if existing:
-            raise SocomError(f"{path} already holds skeleton fences: rewriting written skeletons is the round 3 src/ route")
-        preamble = cut_preamble(rest, self._cuts(path))
+        if existing or parse_regions(rest)[0]:
+            raise SocomError(f"{path} already holds skeleton fences: rewriting written skeletons is the governed src/ route")
+        additions = (self.headers or {}).get(path) or {}
+        cuts = self._cuts(path)
+        inserts = sorted(additions.get("inserts") or [])
+        if inserts:
+            # Regions inside the preamble's class bodies: insert, then move each cut past the text inserted before it.
+            from .order_skeleton_headers import apply_edits
+
+            def shifted(offset: int, *, end: bool) -> int:
+                return offset + sum(len(text) for at, text in inserts if (at < offset if end else at <= offset))
+
+            cuts = [(shifted(start, end=False), shifted(stop, end=True)) for start, stop in cuts]
+            rest = apply_edits(rest, [(at, at, text) for at, text in inserts])
+        preamble = cut_preamble(rest, cuts)
+        tail = additions.get("tail") or ""
+        if tail:
+            if preamble and not preamble.endswith("\n\n"):
+                preamble += "\n" if preamble.endswith("\n") else "\n\n"
+            preamble += tail
         entries, rows = self._entries(segment, unit)
         out = prefix + preamble
         if entries:
@@ -762,7 +823,7 @@ class _Writer:
             if out and not out.endswith("\n\n"):
                 out += "\n"
             out += "\n\n".join(entries) + "\n"
-        return out.replace("\n", newline), rows
+        return out, newline, rows
 
     def _cuts(self, path: str) -> list[tuple[int, int]]:
         scan = self.inputs.scans.get(path)
@@ -908,9 +969,11 @@ class _Writer:
             entries.append(text)
             rows_out.append(record)
         for row in in_class:
+            detail = "stays in its class body (BD8): the header writer defines it there" if self.headers is not None else \
+                "stays in its class body (BD8): the header writer (--all) defines it there"
             rows_out.append({"kind": "in-class", "name": row["name"], "artifact": row["artifact"], "unit": name,
                              "segment": segment, "position": row.get("position"),
-                             "flags": [{"kind": "in-class-row", "detail": "stays in its class body (BD8); the class body is the round 3 declaration writer's"}]})
+                             "flags": [{"kind": "in-class-row", "detail": detail}]})
         return entries, rows_out
 
     def _local_class_owner(self, pending: list[dict[str, Any]], written: dict[str, dict[str, Any]],
@@ -1027,7 +1090,11 @@ class _Writer:
         kind = "bd6-declarator-rewrite" if body["action"] == "bd6-declarator-rewrite" else "out-of-line-head"
         flags.append({"kind": kind, "detail": f"{body['declarator']} -> {head}"})
         if body["action"] == "move-out-of-line":
-            flags.append({"kind": "header-body-pending", "detail": f"{body['path']}:{body['span']['start_line']} keeps its in-class body until round 3"})
+            where = f"{body['path']}:{body['span']['start_line']}"
+            if self.headers is None:
+                flags.append({"kind": "header-body-pending", "detail": f"{where} keeps its in-class body (headers are written by --all)"})
+            else:
+                flags.append({"kind": "header-body-replaced", "detail": f"{where}: the header keeps only its declaration"})
         extra["head"] = {"from": text[:keep_from], "to": head}
         extra["body_sha256"] = _sha(text[keep_from:])
         opening, closing = (["namespace {"], ["}"]) if namespace == "anonymous" else ([], [])
@@ -1425,10 +1492,19 @@ def holding_text(items: list[dict[str, Any]], inputs: SkeletonInputs) -> tuple[s
 # -- the write -----------------------------------------------------------------------------
 
 
-def render_skeletons(inputs: SkeletonInputs, *, segment: int | None) -> dict[str, Any]:
-    """Every file the write produces ({path: bytes or None for a deletion}) and the write manifest, without writing."""
+def render_skeletons(inputs: SkeletonInputs, *, segment: int | None, headers: bool = True) -> dict[str, Any]:
+    """Every file the write produces ({path: bytes or None for a deletion}) and the write manifest, without writing.
 
-    writer = _Writer(inputs)
+    ``--all`` also runs the header writer (``headers=False`` gives the round 2
+    tree without it, for the lint comparison).  Recorded digests hash
+    LF-normalized text, so every checkout of the same inputs records the same.
+    """
+
+    from .order_skeleton_headers import HeaderWriter
+
+    header_writer = HeaderWriter(inputs, newline=inputs.newline) if segment is None and headers else None
+    additions = header_writer.render() if header_writer is not None else None
+    writer = _Writer(inputs, headers=additions["units"] if additions is not None else None)
     selected = [(number, unit) for number, unit in inputs.units if segment is None or number == segment]
     if segment is not None and not selected:
         raise SocomError(f"segment {segment} has no accepted order plan")
@@ -1436,24 +1512,27 @@ def render_skeletons(inputs: SkeletonInputs, *, segment: int | None) -> dict[str
     records: list[dict[str, Any]] = []
     file_rows: list[dict[str, Any]] = []
     for number, unit in selected:
-        text, rows = writer.unit_file(number, unit)
-        data = text.encode("utf-8")
-        files[unit["workspace_path"]] = data
+        text, newline, rows = writer.unit_file(number, unit)
+        files[unit["workspace_path"]] = text.replace("\n", newline).encode("utf-8")
         for row in rows:
             row["path"] = unit["workspace_path"]
         records.extend(rows)
         file_rows.append({"path": unit["workspace_path"], "action": "unit", "unit": unit["unit"], "segment": number,
-                          "entries": sum(1 for row in rows if row["kind"] in ("function", "data")), "sha256": hashlib.sha256(data).hexdigest()})
+                          "entries": sum(1 for row in rows if row["kind"] in ("function", "data")), "sha256": _sha(text)})
+    if additions is not None:
+        for path, row in sorted(additions["headers"].items()):
+            text = row["prefix"] + row["text"]
+            files[path] = text.replace("\n", row["newline"]).encode("utf-8")
+            file_rows.append({"path": path, "action": row["action"], "sha256": _sha(text)})
     deleted: list[dict[str, Any]] = []
     if segment is None:
         for path, items in sorted(writer.held.items()):
             text, rows = holding_text(items, inputs)
-            data = text.replace("\n", DEFAULT_NEWLINE).encode("utf-8")
-            files[path] = data
+            files[path] = text.replace("\n", inputs.newline).encode("utf-8")
             for row in rows:
                 row["path"] = path
             records.extend(rows)
-            file_rows.append({"path": path, "action": "holding", "entries": len(rows), "sha256": hashlib.sha256(data).hexdigest()})
+            file_rows.append({"path": path, "action": "holding", "entries": len(rows), "sha256": _sha(text)})
         for path, record in sorted(inputs.files.items()):
             if not record["orphan"]:
                 continue
@@ -1463,9 +1542,8 @@ def render_skeletons(inputs: SkeletonInputs, *, segment: int | None) -> dict[str
             _prefix, rest = split_blocks(path, text)
             remaining = cut_preamble(rest, writer._cuts(path))
             if stays or data_stays:
-                data = (_prefix + remaining).replace("\n", newline).encode("utf-8")
-                files[path] = data
-                file_rows.append({"path": path, "action": "orphan-kept", "sha256": hashlib.sha256(data).hexdigest()})
+                files[path] = (_prefix + remaining).replace("\n", newline).encode("utf-8")
+                file_rows.append({"path": path, "action": "orphan-kept", "sha256": _sha(_prefix + remaining)})
                 continue
             files[path] = None
             deleted.append({"path": path, "definitions_moved": record["definitions"], "data_moved": len(record["data_definitions"]),
@@ -1474,7 +1552,8 @@ def render_skeletons(inputs: SkeletonInputs, *, segment: int | None) -> dict[str
     for row in records:
         for inner in row.get("nested") or []:
             flags.update(flag["kind"] for flag in inner.get("flags") or [])
-    judgment = judgment_defaults(inputs, writer)
+    header_record = header_writer.record() if header_writer is not None else None
+    judgment = judgment_defaults(inputs, writer, header_record)
     kinds = Counter(row["kind"] for row in records)
     kinds.update(inner["kind"] for row in records for inner in row.get("nested") or [])
     fences = Counter(row.get("fence") for row in records if row.get("fence"))
@@ -1493,6 +1572,7 @@ def render_skeletons(inputs: SkeletonInputs, *, segment: int | None) -> dict[str
         "data_between_conflicting_statics": sum(1 for row in records if (row.get("placement") or {}).get("between_conflicting_statics")),
         "replaced_data_statements": len(writer.replaced),
         "judgment_defaults": dict(sorted(Counter(row["default"] for row in judgment).items())),
+        "headers": header_record["summary"] if header_record is not None else {"written": False, "note": "headers are written by --all"},
     }
     manifest = {
         "kind": WRITE_KIND,
@@ -1500,6 +1580,8 @@ def render_skeletons(inputs: SkeletonInputs, *, segment: int | None) -> dict[str
         "selection": {"segment": segment} if segment is not None else {"all": True},
         "inputs": inputs.record(),
         "fence": "/* @socom-skeleton <stub|body> <mangled> */",
+        "region_fence": "/* @socom-skeleton decl <name> */ ... /* @socom-skeleton end <name> */",
+        "digests": "SHA-256 over LF-normalized text: checkout-independent",
         "summary": summary,
         "files": sorted(file_rows, key=lambda row: row["path"]),
         "deleted": deleted,
@@ -1508,15 +1590,27 @@ def render_skeletons(inputs: SkeletonInputs, *, segment: int | None) -> dict[str
         "waiting": sorted(writer.waiting, key=lambda row: (row["kind"], str(row.get("segment")), str(row.get("name")))),
         "order_conflicts": writer.conflicts,
         "replaced_data": writer.replaced,
+        "headers": header_record,
     }
     manifest["write_sha256"] = _digest(manifest)
     return {"files": files, "manifest": manifest}
 
 
-def judgment_defaults(inputs: SkeletonInputs, writer: _Writer) -> list[dict[str, Any]]:
+def judgment_defaults(inputs: SkeletonInputs, writer: _Writer, headers: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     """Every manifest judgment row with the writer's deterministic default, its flag and whether it waits."""
 
     waiting = {(row["kind"], row.get("artifact") or row.get("body")) for row in writer.waiting}
+    defined: dict[str, str] = {}
+    unwritten: dict[str, str] = {}
+    if headers is not None:
+        for region in headers["regions"]:
+            if region["kind"] in ("class", "type") and region.get("class"):
+                defined.setdefault(region["class"], region["path"])
+            for inner in region["nested"]:
+                defined.setdefault(inner["class"], region["path"])
+        unwritten = {row["type"]: row["kind"] for row in headers["waiting"] if row.get("type")}
+    readable = {row["type"]: "::".join("(anonymous namespace)" if part.startswith("@unnamed@") else part for part in row["chain"])
+                for row in inputs.manifest["declarations"]["types"]}
     rows = []
     for row in inputs.manifest["judgment"]:
         kind = row["kind"]
@@ -1540,10 +1634,24 @@ def judgment_defaults(inputs: SkeletonInputs, writer: _Writer) -> list[dict[str,
             default, flag, waits = ("written inside the first stub (in source order) that takes its address, as a struct "
                                     "with inline members"), "local-class-owner-hypothesis", True
         elif kind == "by-value-undeclared":
-            record = "DWARF record: True" in (row.get("detail") or "")
-            default = "the .cpp spells the type by name; its definition is the round 3 declaration writer's" + (
-                " (from its DWARF record)" if record else " (no record anywhere: a definition would be invented)")
-            flag, waits = "by-value-undeclared", not record
+            name = readable.get(row.get("type"), row.get("type"))
+            where = None
+            if headers is None:
+                record = "DWARF record: True" in (row.get("detail") or "")
+                default = "the .cpp spells the type by name; the header writer (--all) defines it" + (
+                    " from its DWARF record" if record else " only from a record (none exists: a definition would be invented)")
+                waits = not record
+            elif str(row.get("type") or "").startswith("std::"):
+                default, waits = "a provider (MSL) type: its definition comes from the provider's headers", False
+            elif name in defined:
+                default, waits, where = "the header writer defines it from its record", False, defined[name]
+            else:
+                default, waits = f"not defined: {unwritten.get(name, 'no record')} (a definition would be invented)", True
+            flag = "by-value-undeclared"
+            if where:
+                rows.append({"kind": kind, "key": key, "name": row.get("name"), "unit": row.get("unit"), "segment": row.get("segment"),
+                             "default": default, "flag": flag, "waits": waits, "where": where})
+                continue
         else:
             default, flag, waits = "listed", kind, True
         rows.append({"kind": kind, "key": key, "name": row.get("name"), "unit": row.get("unit"), "segment": row.get("segment"),
@@ -1558,7 +1666,7 @@ def preview_root(root: Path, value: str) -> Path:
     path = (path if path.is_absolute() else root / path).resolve()
     build = (root / "build").resolve()
     if path == build or not path.is_relative_to(build):
-        raise SocomError("this round writes skeletons only to a preview directory under build/ (the src/ route is round 3)")
+        raise SocomError("this round writes skeletons only to a preview directory under build/ (the src/ route is round 3b)")
     if path.is_relative_to((root / "src").resolve()):
         raise SocomError("the skeleton preview may not be written under src/")
     if path.exists():
@@ -1603,10 +1711,10 @@ def write_skeletons(root: Path, target: Path, rendered: dict[str, Any]) -> dict[
 
 
 def tree_digest(target: Path) -> str:
-    """SHA-256 over every file of a preview's src/ mirror (path and content digest)."""
+    """SHA-256 over every file of a preview's src/ mirror (path and LF-normalized content digest: checkout-independent)."""
 
     rows = []
     for path in sorted((target / "src").rglob("*"), key=lambda value: value.as_posix()):
         if path.is_file():
-            rows.append([path.relative_to(target).as_posix(), hashlib.sha256(path.read_bytes()).hexdigest()])
+            rows.append([path.relative_to(target).as_posix(), normalized_sha256(path.read_bytes())])
     return hashlib.sha256(canonical_json(rows).encode("utf-8")).hexdigest()

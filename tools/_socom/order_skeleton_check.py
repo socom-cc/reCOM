@@ -1,4 +1,4 @@
-"""Stage 5 phase B round 2: the static checks of a written skeleton tree (``order skeleton check``, read-only).
+"""Stage 5 phase B rounds 2 and 3a: the static checks of a written skeleton tree (``order skeleton check``, read-only).
 
 The check reads a preview written by ``order skeleton write`` (its write
 manifest and its ``src/`` mirror), the same verified inputs (skeleton manifest,
@@ -36,9 +36,18 @@ results is stage evidence.
   body lands exactly once.
 - **S5**: the source guards find nothing in the preview they do not find in
   ``src/`` (findings compared by rule and line text).
-- **S6** (``--lint``, report only): MSVC ``cl /Zs`` over the written files with a
-  small compatibility prelude; headers come in round 3, so its error counts are
-  reported, never failed on.
+- **S7** (headers, ``--all``): every written header, its generated regions
+  stripped, equals its ``src/`` file but for the in-class bodies of out-of-line
+  rows, whose declarations are re-derived; a new header is only its include
+  guard outside its regions; every region is paired and is the recorded text;
+  every planned member (and every own vtable slot member the writer declares)
+  is declared exactly once in its class over the whole preview tree.  S1 also
+  parses each generated declaration back in its class: the names must be the
+  region's recorded ones.
+- **S6** (``--lint``, report only): MSVC ``cl /Zs`` over the unit files with a
+  small compatibility prelude, with the written headers and (``--all``) without
+  them (the same render with the header writer off); unique diagnostics by
+  category and code are reported, never failed on.
 """
 
 from __future__ import annotations
@@ -67,6 +76,7 @@ from .util import SocomError, load_json
 _SHOWN = 12
 LINT_PRELUDE = """\
 /* order skeleton check --lint: MSVC stand-ins for Metrowerks and GNU spellings (lint only). */
+#define _ALLOW_KEYWORD_MACROS 1 /* else MSVC's STL headers stop the file (C1189) at the asm macro below */
 #define __attribute__(x)
 #define __inline__ __inline
 #define __asm__ __asm
@@ -120,10 +130,14 @@ def check_skeletons(root: Path, tracker: dict[str, Any], target: Path, *, manife
     report["s1"] = _s1(target, written, scans, program)
     report["s2"] = _s2(target, written, inputs, scans, program)
     report["s3"] = _s3(root, tracker, target, written)
-    report["s4"] = _s4(target, written, inputs)
+    report["s4"] = _s4(target, written, inputs, scans, program)
     report["s5"] = _s5(root, target)
-    report["s6"] = _s6(target, written) if lint else {"run": False, "note": "pass --lint for the optional cl /Zs report"}
-    checks = ("determinism", "s1", "s2", "s3", "s4", "s5")
+    report["s7"] = _s7(target, written, inputs, scans, program)
+    report["s1"]["headers"] = report["s7"].pop("s1_headers")
+    if not report["s1"]["headers"]["ok"]:
+        report["s1"]["ok"] = False
+    report["s6"] = _s6(root, target, written, inputs) if lint else {"run": False, "note": "pass --lint for the optional cl /Zs report"}
+    checks = ("determinism", "s1", "s2", "s3", "s4", "s5", "s7")
     report["ok"] = all(report[key]["ok"] for key in checks)
     report["failed"] = [key for key in checks if not report[key]["ok"]]
     return report
@@ -556,7 +570,9 @@ def _inner(text: str) -> str:
     return "\n".join(lines)
 
 
-def _s4(target: Path, written: dict[str, Any], inputs: SkeletonInputs) -> dict[str, Any]:
+def _s4(target: Path, written: dict[str, Any], inputs: SkeletonInputs, scans: dict[str, Any], program: Program) -> dict[str, Any]:
+    from .order_skeleton_headers import class_member_names
+
     problems: list[str] = []
     landed: Counter = Counter()
     checked = rewrites = 0
@@ -614,6 +630,21 @@ def _s4(target: Path, written: dict[str, Any], inputs: SkeletonInputs) -> dict[s
             continue
         if segment_units is None or (body.get("row") or {}).get("unit") in segment_units:
             expected.add(body["id"])
+    # An in-class body moved out of line lands once: the header must keep only its declaration (headers: --all).
+    header_bodies = 0
+    if written.get("headers") is not None:
+        replaced = {row["body"] for row in written["headers"]["replacements"]}
+        for body in inputs.manifest["bodies"]["definitions"]:
+            if body["action"] != "move-out-of-line":
+                continue
+            header_bodies += 1
+            if body["id"] not in replaced:
+                problems.append(f"{body['id']}: the header's in-class body of {body['mangled']} is not replaced by its declaration")
+                continue
+            scan = scans.get(body["path"])
+            if scan is not None and any(name == body["mangled"] and kind == "definition" for klass in scan.classes
+                                        if klass.chain and not klass.template for name, _line, kind in class_member_names(program, scan, klass)):
+                problems.append(f"{body['id']}: {body['mangled']} lands twice (its in-class body is still in the header)")
     missing = sorted(identity for identity in expected if landed[identity] == 0)
     if segment_units is not None:
         missing = [identity for identity in missing if inputs.bodies[identity]["action"] in ("move-in-place", "cross-file-move",
@@ -624,7 +655,7 @@ def _s4(target: Path, written: dict[str, Any], inputs: SkeletonInputs) -> dict[s
     if twice:
         problems.append(f"{len(twice)} snapshot bodies landed more than once: {', '.join(twice[:_SHOWN])}")
     return {"ok": not problems, "bodies_checked": checked, "head_rewrites": rewrites, "snapshot_bodies_landed": len(landed),
-            "problems": problems[:_SHOWN * 2]}
+            "header_bodies_replaced": header_bodies, "problems": problems[:_SHOWN * 2]}
 
 
 # -- S5 ------------------------------------------------------------------------------------
@@ -645,6 +676,147 @@ def _s5(root: Path, target: Path) -> dict[str, Any]:
         rows[name] = {"src": sum(baseline.values()), "preview": after["count"], "new": sum(new.values()),
                       "new_findings": [{"rule": rule, "text": text} for (rule, text) in sorted(new)][:_SHOWN]}
     return {"ok": new_total == 0, "new_findings": new_total, "guards": rows}
+
+
+# -- S7 ------------------------------------------------------------------------------------
+
+
+def _s7(target: Path, written: dict[str, Any], inputs: SkeletonInputs, scans: dict[str, Any], program: Program) -> dict[str, Any]:
+    """Headers: content outside the regions equals src/ but for the re-derived in-class replacements; members once."""
+
+    from .order_skeleton_headers import class_member_names, parse_regions, replacement_declaration, strip_regions
+
+    headers = written.get("headers")
+    if headers is None:
+        note = "headers are written by --all; this preview has none"
+        return {"ok": True, "run": False, "note": note, "s1_headers": {"ok": True, "run": False, "note": note}}
+    problems: list[str] = []
+    records: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in headers["regions"]:
+        records[row["path"]].append(row)
+    regions_found: dict[str, list[dict[str, Any]]] = {}
+    texts: dict[str, str] = {}
+    header_rows = [row for row in written["files"] if row["action"] in ("header", "new-header")]
+    region_paths = sorted({row["path"] for row in headers["regions"]})
+    for path in sorted({row["path"] for row in header_rows} | set(region_paths)):
+        copy = target / path
+        if not copy.is_file():
+            problems.append(f"{path} was not written")
+            continue
+        rest, _blocks = _authored(copy)
+        texts[path] = rest
+        found, fence_problems = parse_regions(rest)
+        problems.extend(f"{path}: {problem}" for problem in fence_problems)
+        regions_found[path] = found
+        expected = records.get(path, [])
+        if [row["name"] for row in found] != [row["name"] for row in expected]:
+            problems.append(f"{path}: its regions ({len(found)}) are not the {len(expected)} the write manifest records")
+            continue
+        lines = rest.split("\n")
+        for region, record in zip(found, expected):
+            if _sha("\n".join(lines[region["start"] : region["end"] + 1])) != record["region_sha256"]:
+                problems.append(f"{path}: region {region['name']} (line {region['start'] + 1}) differs from its recorded text")
+    identical = 0
+    for row in header_rows:
+        path = row["path"]
+        if path not in texts:
+            continue
+        found = regions_found[path]
+        splits = {index for index, record in enumerate(records.get(path, [])) if record.get("split")}
+        stripped = strip_regions(texts[path], found, splits)
+        source = inputs.scans.get(path)
+        if source is None:
+            guard = re.sub(r"\W", "_", PurePosixPath(path).name).upper()
+            expected = f"#ifndef {guard}\n#define {guard}\n#endif\n"
+        else:
+            edits = []
+            for body in inputs.manifest["bodies"]["definitions"]:
+                if body["action"] != "move-out-of-line" or body["path"] != path:
+                    continue
+                definition = next((item for item in source.definitions if item.in_class is not None and item.line == body["span"]["start_line"]
+                                   and _sha(source.text[item.start : item.end]) == body["sha256"]), None)
+                if definition is None:
+                    problems.append(f"{body['id']}: the in-class body is not in src/")
+                    continue
+                signature = inputs.signatures.get((body.get("row") or {}).get("artifact"))
+                edits.append((definition.start, definition.end, replacement_declaration(inputs.program, source, definition, signature)[0]))
+            from .order_skeleton_headers import apply_edits
+
+            expected = apply_edits(source.text, edits)
+        if stripped != expected:
+            got, want = stripped.split("\n"), expected.split("\n")
+            line = next((index for index, (a, b) in enumerate(zip(got, want)) if a != b), min(len(got), len(want)))
+            problems.append(f"{path}: outside its regions it differs from src/ (line {line + 1} of the stripped text)")
+        else:
+            identical += 1
+    # Every planned member is declared exactly once in its class (all bodies of the preview tree).
+    pools = list(scans.values()) + [scan for path, scan in sorted(inputs.scans.items()) if path not in scans and (target / path).is_file()]
+    declared: dict[tuple[str, ...], Counter] = defaultdict(Counter)
+    for scan in pools:
+        for klass in scan.classes:
+            if klass.chain and not klass.template:
+                declared[tuple(klass.chain)].update(name for name, _line, _kind in class_member_names(program, scan, klass))
+    # Classes the writer lists as waiting are not written: S7 reports them through the waiting list, not as missing.
+    skipped = {row["type"] for row in headers["waiting"]
+               if row["kind"] in ("provider-declaration", "function-local-class", "class-unplaced", "nested-in-unwritten-class")}
+    unspelled = {row.get("name") for row in headers["waiting"] if row["kind"] == "declaration-unspelled"}
+    missing, twice, checked, classes = [], [], 0, 0
+    for record in inputs.manifest["declarations"]["classes"]:
+        if record["class"] in skipped:
+            continue
+        chain = tuple(record["chain"])
+        wanted = {row["name"] for row in record["members_to_add"]} | set(record.get("members_declared_names") or [])
+        wanted |= {row["name"] for row in record["static_data_members"] if row["declared"] or row.get("declaration")}
+        wanted |= {row["member"] for row in (record.get("vtable") or {}).get("declare_virtual") or [] if row.get("declared") or row.get("declaration")}
+        wanted -= unspelled
+        classes += 1
+        for name in sorted(wanted):
+            checked += 1
+            count = declared[chain][name]
+            if count == 0:
+                missing.append(f"{record['class']}: {name}")
+            elif count > 1:
+                twice.append(f"{record['class']}: {name} ({count})")
+    if missing:
+        problems.append(f"{len(missing)} planned members are not declared in their class: {', '.join(missing[:_SHOWN])}")
+    if twice:
+        problems.append(f"{len(twice)} planned members are declared more than once: {', '.join(twice[:_SHOWN])}")
+    return {"ok": not problems, "run": True, "files": len(header_rows), "files_identical_outside_regions": identical,
+            "new_headers": sum(1 for row in header_rows if row["action"] == "new-header"), "regions": len(headers["regions"]),
+            "replacements": len(headers["replacements"]), "classes_checked": classes, "members_checked": checked,
+            "members_missing": len(missing), "members_declared_twice": len(twice), "problems": problems[: _SHOWN * 2],
+            "problem_count": len(problems), "s1_headers": _s1_headers(texts, regions_found, records, program)}
+
+
+def _s1_headers(texts: dict[str, str], found: dict[str, list[dict[str, Any]]], records: dict[str, list[dict[str, Any]]],
+                program: Program) -> dict[str, Any]:
+    """Each generated declaration, parsed back in its class with the preview's tables, mangles to a recorded name."""
+
+    from .order_skeleton_headers import class_member_names
+
+    failures: list[dict[str, Any]] = []
+    checked = 0
+    for path, regions in sorted(found.items()):
+        if [row["name"] for row in regions] != [row["name"] for row in records.get(path, [])]:
+            continue
+        scan = scan_text(path, texts[path])
+        for region, record in zip(regions, records.get(path, [])):
+            low, high = region["start"] + 1, region["end"] + 1
+            groups = [(record.get("chain"), record["members"] + record["static_members"])]
+            groups += [(row["chain"], row["members"] + row["static_members"]) for row in record["nested"]]
+            for chain, names in groups:
+                if not names:
+                    continue
+                got: Counter = Counter()
+                for klass in scan.classes:
+                    if klass.chain == tuple(chain or ()) and not klass.template:
+                        got.update(name for name, line, _kind in class_member_names(program, scan, klass) if low <= line <= high)
+                checked += len(names)
+                want = Counter(names)
+                if got != want:
+                    failures.append({"path": path, "region": record["name"], "line": low,
+                                     "missing": sorted(want - got)[:4], "unexpected": sorted(got - want)[:4]})
+    return {"ok": not failures, "run": True, "checked": checked, "failed": len(failures), "failures": failures[:_SHOWN * 2]}
 
 
 # -- S6 ------------------------------------------------------------------------------------
@@ -677,39 +849,109 @@ def _find_cl() -> tuple[Path | None, list[Path]]:
     return cl, [path for path in includes if path.is_dir()]
 
 
-def _s6(target: Path, written: dict[str, Any]) -> dict[str, Any]:
-    cl, includes = _find_cl()
-    if cl is None:
-        return {"run": False, "ok": True, "note": "cl.exe not found (set SOCOM_CL or install MSVC); lint skipped"}
-    lint = target / "lint"
-    lint.mkdir(exist_ok=True)
-    prelude = lint / "prelude.h"
+# The categories S6 reports MSVC's error codes in (anything else counts as "other").
+LINT_CATEGORIES = {
+    "undeclared name": ("C2065", "C3861", "C2653", "C2871", "C2039", "C2510", "C3083"),
+    "incomplete or unknown type": ("C2027", "C2079", "C2061", "C4430", "C2146", "C2143", "C2133", "C2512", "C2504", "C2501"),
+    "declaration mismatch": ("C2511", "C2556", "C2371", "C2084", "C2086", "C2365", "C2040", "C2556", "C2597", "C2350", "C2373"),
+    "conversion or call": ("C2664", "C2440", "C2660", "C2662", "C2665", "C2668", "C2672", "C2100", "C2228", "C2227", "C2819"),
+    "syntax": ("C2059", "C2144", "C2238", "C2062", "C2447", "C2601", "C2629", "C2470"),
+    "fatal": ("C1003", "C1004", "C1083", "C1075"),
+}
+
+
+def _lint_tree(cl: Path, includes: list[Path], tree: Path, files: list[str], work: Path) -> dict[str, Any]:
+    """``cl /Zs`` over the unit files of one tree: error counts by code, category and file."""
+
+    work.mkdir(parents=True, exist_ok=True)
+    prelude = work / "prelude.h"
     prelude.write_text(LINT_PRELUDE, encoding="utf-8")
-    files = [row["path"] for row in written["files"] if row["action"] == "unit"]
-    response = lint / "files.rsp"
-    response.write_text("\n".join(f'"{target / path}"' for path in files) + "\n", encoding="utf-8")
+    response = work / "files.rsp"
+    response.write_text("\n".join(f'"{tree / path}"' for path in files) + "\n", encoding="utf-8")
     environment = dict(os.environ, INCLUDE=";".join(str(path) for path in includes))
-    command = [str(cl), "/nologo", "/Zs", "/TP", "/w", f"/FI{prelude}", f"/I{target / 'src'}", f"@{response}"]
+    command = [str(cl), "/nologo", "/Zs", "/TP", "/w", f"/FI{prelude}", f"/I{tree / 'src'}", f"@{response}"]
     try:
-        completed = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=lint,
-                                   env=environment, check=False, timeout=1800)
+        completed = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=work,
+                                   env=environment, check=False, timeout=3600)
     except (OSError, subprocess.SubprocessError) as exc:
-        return {"run": False, "ok": True, "note": f"cl /Zs did not run: {type(exc).__name__}"}
+        return {"run": False, "note": f"cl /Zs did not run: {type(exc).__name__}"}
     errors: Counter = Counter()
     per_file: Counter = Counter()
+    unique: set[tuple[str, str, str]] = set()
+    by_unit: dict[str, set[str]] = defaultdict(set)  # unit file -> the files its diagnostics are in
     pattern = re.compile(r"^(?P<path>.+?)\((?P<line>\d+)\)\s*: (?:fatal )?error (?P<code>C\d+)")
-    base = str(target).lower().replace("/", "\\")
+    base = str(tree).lower().replace("/", "\\")
+    current = None
     for line in (completed.stdout + completed.stderr).splitlines():
-        match = pattern.match(line.strip())
+        stripped = line.strip()
+        if stripped and "(" not in stripped and stripped.lower().endswith((".cpp", ".c", ".cc")):
+            current = stripped.lower()  # cl echoes each source file's name before its diagnostics
+            continue
+        match = pattern.match(stripped)
         if not match:
             continue
         errors[match.group("code")] += 1
         path = match.group("path").lower().replace("/", "\\")
-        per_file[path[len(base) + 1 :] if path.startswith(base) else PurePosixPath(path.replace("\\", "/")).name] += 1
-    clean = sum(1 for path in files if not any(key.replace("\\", "/").endswith(path.lower()) for key in per_file))
-    return {"run": True, "ok": True, "files": len(files), "files_without_errors": clean, "errors": sum(errors.values()),
-            "by_code": dict(errors.most_common(15)), "most_errors": [{"file": path, "errors": count} for path, count in per_file.most_common(10)],
-            "note": "report only: headers and class declarations come in round 3, so undeclared names are expected"}
+        where = path[len(base) + 1 :] if path.startswith(base) else PurePosixPath(path.replace("\\", "/")).name
+        per_file[where] += 1
+        unique.add((where, match.group("line"), match.group("code")))
+        if current:
+            by_unit[current].add(where)
+    category_of = {code: name for name, codes in LINT_CATEGORIES.items() for code in codes}
+    categories: Counter = Counter()
+    for _where, _line, code in unique:
+        categories[category_of.get(code, "other")] += 1
+    names = {PurePosixPath(path).name.lower() for path in files}
+    clean = len(names - set(by_unit))
+    in_headers = sum(1 for where, _line, _code in unique if not where.endswith((".cpp", ".c", ".cc")))
+    return {"run": True, "files": len(files), "files_without_errors": clean, "errors": sum(errors.values()),
+            "unique_errors": len(unique), "unique_errors_in_headers": in_headers,
+            "by_category": dict(sorted(categories.items(), key=lambda item: (-item[1], item[0]))),
+            "by_code": dict(Counter(code for _where, _line, code in unique).most_common(15)),
+            "most_errors": [{"file": path, "errors": count} for path, count in per_file.most_common(10)],
+            "count": "by_category and by_code count unique diagnostics (file, line, code): a header's error counts once"}
+
+
+def _s6(root: Path, target: Path, written: dict[str, Any], inputs: SkeletonInputs) -> dict[str, Any]:
+    """Report only: the unit files linted with the written headers, and (``--all``) without them (the round 2 tree)."""
+
+    import shutil
+
+    cl, includes = _find_cl()
+    if cl is None:
+        return {"run": False, "ok": True, "note": "cl.exe not found (set SOCOM_CL or install MSVC); lint skipped"}
+    files = [row["path"] for row in written["files"] if row["action"] == "unit"]
+    lint = target / "lint"
+    after = _lint_tree(cl, includes, target, files, lint / "after")
+    report: dict[str, Any] = {"run": after.get("run", False), "ok": True, "after": after,
+                              "note": "report only: MSVC is not the target compiler; nothing fails on it"}
+    if written.get("headers") is None:
+        return report
+    # The same tree without the header writer: a mirror of src/ with the round 2 render.
+    before_tree = lint / "before"
+    if before_tree.exists():
+        shutil.rmtree(before_tree)
+    rendered = render_skeletons(inputs, segment=None, headers=False)
+    for path in sorted((root / "src").rglob("*"), key=lambda value: value.as_posix()):
+        relative = path.relative_to(root).as_posix()
+        if path.is_file() and relative not in rendered["files"]:
+            destination = before_tree / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(path, destination)
+    for relative, data in rendered["files"].items():
+        if data is not None:
+            destination = before_tree / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(data)
+    before = _lint_tree(cl, includes, before_tree, files, lint / "before-work")
+    report["before"] = before
+    if before.get("run") and after.get("run"):
+        categories = sorted(set(before["by_category"]) | set(after["by_category"]))
+        report["by_category"] = {name: {"before": before["by_category"].get(name, 0), "after": after["by_category"].get(name, 0)}
+                                 for name in categories}
+        for key in ("errors", "unique_errors", "unique_errors_in_headers", "files_without_errors"):
+            report[key] = {"before": before[key], "after": after[key]}
+    return report
 
 
 def headline(report: dict[str, Any]) -> dict[str, Any]:
@@ -719,14 +961,19 @@ def headline(report: dict[str, Any]) -> dict[str, Any]:
         "s2": ("ok", "units", "mismatches", "mismatches_explained", "unexplained_mismatches", "known_conflict_count",
                "written_order_differs_from_plan_count", "in_class_pending", "positioned_by_owner", "problem_count", "problems"),
         "s3": ("ok", "files_compared", "blocks_changed", "edges", "edge_digest_matches_baseline", "docblocks_ok", "source_trace_ok", "problems"),
-        "s4": ("ok", "bodies_checked", "head_rewrites", "snapshot_bodies_landed", "problems"),
+        "s4": ("ok", "bodies_checked", "head_rewrites", "snapshot_bodies_landed", "header_bodies_replaced", "problems"),
         "s5": ("ok", "new_findings"),
-        "s6": ("run", "files", "files_without_errors", "errors", "by_code", "note"),
+        "s7": ("ok", "run", "files", "files_identical_outside_regions", "new_headers", "regions", "replacements", "classes_checked",
+               "members_checked", "members_missing", "members_declared_twice", "problem_count", "problems", "note"),
+        "s6": ("run", "errors", "unique_errors", "unique_errors_in_headers", "files_without_errors", "by_category", "note"),
     }
     shown = {"ok": report["ok"], "failed": report["failed"], "write_sha256": report["write_sha256"]}
     for key, fields in keep.items():
         shown[key] = {field: report[key].get(field) for field in fields if field in report[key]}
     shown["s5"]["guards"] = {name: {k: v for k, v in row.items() if k != "new_findings" or v} for name, row in report["s5"]["guards"].items()}
+    shown["s1"]["headers"] = {key: value for key, value in report["s1"].get("headers", {}).items() if key != "failures" or value}
+    if report["s6"].get("after") and "errors" not in shown["s6"]:
+        shown["s6"].update({key: report["s6"]["after"].get(key) for key in ("errors", "files_without_errors", "by_category")})
     shown["s2"]["not_written"] = Counter(row["reason"] for row in report["s2"]["not_written"])
     shown["s2"]["known_conflicts"] = [
         f"{row['unit']} {row['region']}: {row['before']} / {row['after']}" + ("" if row["plan_basis_records"] else " (not in the plan's basis)")

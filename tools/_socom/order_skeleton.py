@@ -34,7 +34,12 @@ under ``src/``.  Per planned row it records:
    bases (RTTI base list with offsets, direct or indirect; DWARF inheritance
    for access, or as the only source of a class without RTTI), its static data
    members; and per named type whether a full definition or a forward
-   declaration is needed (by value or as a scope: full).
+   declaration is needed (by value or as a scope: full).  For the header
+   writer: each own vtable slot's declaration (a planned row's, else built like
+   one from the stage 3 prototype), the named types every declaration mentions,
+   and per type its record (one consistent DWARF record, else the stage 3 size),
+   its key, a complete definition from that record (enumerators, or members in
+   offset order with unspellable pieces flagged) and where a new one goes.
 3. **bodies**: every provisional definition under ``src/`` (namespace-scope
    definitions in ``.cpp`` files, and in-class definitions in headers of rows
    planned out of line), mapped by exact mangled name (overloads included) to
@@ -404,6 +409,25 @@ class _Dwarf:
         keys = {_DWARF_KEYS[die.tag_name] for die in self.composites.get(raw, []) if die.tag_name in _DWARF_KEYS}
         return keys.pop() if len(keys) == 1 else None
 
+    def shape(self, die: Any) -> Any:
+        """What two records of one name must share to count as one type (kind, size, members, enumerators)."""
+
+        from .type_identity import member_offset, type_ref
+
+        def target(ref: Any) -> Any:
+            if ref is None:
+                return None
+            modifiers, offset, fund = ref
+            inner = self.by_offset.get(offset) if offset is not None else None
+            return (bytes(modifiers), fund, (inner.tag_name, inner.string("name"), inner.integer("byte_size")) if inner is not None else None)
+
+        members = tuple(
+            (child.tag_name, child.string("name"), member_offset(child), child.integer("bit_size"), target(type_ref(child)))
+            for child in self.children.get(die.offset, []) if child.tag_name in ("member", "inheritance")
+        )
+        elements = die.attribute("element_list")
+        return (die.tag_name, die.integer("byte_size"), members, getattr(elements, "value", None))
+
     def bases(self, raw: str) -> list[dict[str, Any]] | None:
         """The inheritance records of every complete DIE spelled ``raw``, when they all agree."""
 
@@ -567,6 +591,33 @@ class _Types:
             sizes = {die.integer("byte_size") for die in self.dwarf.composites.get(chain[-1], [])}
             return sizes.pop() if len(sizes) == 1 else None
         return None
+
+
+def _enumerators(die: Any) -> tuple[list[list[Any]], str | None]:
+    """A DWARF 1 enum's ``[name, value]`` pairs (each constant ``byte_size`` wide, then the NUL-terminated name), by value."""
+
+    width = die.integer("byte_size")
+    attribute = die.attribute("element_list")
+    block = attribute.value if attribute is not None and isinstance(attribute.value, bytes) else b""
+    if width not in (1, 2, 4) or not block:
+        return [], "no decodable element list"
+    values: list[list[Any]] = []
+    index = 0
+    while index < len(block):
+        if index + width > len(block):
+            return values, "a truncated element list"
+        value = int.from_bytes(block[index : index + width], "little", signed=True)
+        index += width
+        end = block.find(b"\x00", index)
+        if end < 0:
+            return values, "an unterminated enumerator name"
+        name = block[index:end].decode("ascii", errors="replace")
+        index = end + 1
+        if not re.fullmatch(r"[A-Za-z_]\w*", name):
+            return values, f"an enumerator {name!r} that is not an identifier"
+        values.append([name, value])
+    order = sorted(range(len(values)), key=lambda position: (values[position][1], position))
+    return [values[position] for position in order], None if values else "no enumerators"
 
 
 def _component(base: str) -> dict[str, Any]:
@@ -850,11 +901,13 @@ class _Builder:
             member["conflict"] = "a vtable slot names a member stage 3 types as static"
         entry["member"] = member
         speller = self._site(structured, unit)
+        returned = None
         if special in ("__ct", "__dt") or "conversion" in structured["name"]:
             returns, source = None, "not-needed"
         else:
-            returns, source = self._returns(prototype, provisional, structured, speller)
+            returns, source, returned = self._return_node(prototype, provisional, structured, speller)
         entry["return"] = {"text": returns, "source": source}
+        entry["mentions"] = self._mentions(structured, returned)
         static = member["kind"] == "static"
         entry["declaration"] = (
             declaration_text(self.program, structured, returns, static=static, virtual=virtual) if member_of_class else None
@@ -878,10 +931,17 @@ class _Builder:
 
     def _returns(self, prototype: dict[str, Any] | None, provisional: list[dict[str, Any]], structured: dict[str, Any],
                  speller: Speller) -> tuple[str, str]:
+        text, source, _node = self._return_node(prototype, provisional, structured, speller)
+        return text, source
+
+    def _return_node(self, prototype: dict[str, Any] | None, provisional: list[dict[str, Any]], structured: dict[str, Any],
+                     speller: Speller) -> tuple[str, str, dict[str, Any] | None]:
+        """(the return type's text, its source, its type node: None for the unproven ``void``)."""
+
         if prototype is not None:
             node, _why = self.types.ghidra_node(prototype["returns"])
             if node is not None:
-                return speller.type(node), "stage3"
+                return speller.type(node), "stage3", node
         nodes = [rec["parsed"].returns for rec in provisional]
         rewritten = self.rewritten_returns.get(mangle(structured)) if structured.get("kind") == "function" else None
         if rewritten is not None:
@@ -889,10 +949,20 @@ class _Builder:
         for node in nodes:
             if node is not None:
                 try:
-                    return speller.type(node), "provisional"
+                    return speller.type(node), "provisional", node
                 except (MangleError, KeyError):
                     continue
-        return "void", "unproven"
+        return "void", "unproven", None
+
+    def _mentions(self, structured: dict[str, Any], returned: dict[str, Any] | None) -> list[str]:
+        """The named types a declaration spells: its parameters and its return type (pointer uses included)."""
+
+        found: set[tuple[str, ...]] = set()
+        for param in structured.get("params") or []:
+            _named_chains(param, found)
+        if returned is not None:
+            _named_chains(returned, found)
+        return sorted("::".join(chain) for chain in found)
 
     # -- declarations ---------------------------------------------------------------------
 
@@ -958,9 +1028,11 @@ class _Builder:
         record["members_declared"] = sum(1 for entry in members if entry["name"] in declared)
         record["members_to_add"] = [
             {"artifact": entry["artifact"], "name": entry["name"], "unit": entry["unit"], "declaration": entry["declaration"],
-             "member": entry["member"]["kind"], "member_source": entry["member"]["source"], "return_source": entry["return"]["source"]}
+             "member": entry["member"]["kind"], "member_source": entry["member"]["source"], "return_source": entry["return"]["source"],
+             "in_class": entry["in_class"], "mentions": entry.get("mentions") or []}
             for entry in members if entry["name"] not in declared
         ]
+        record["members_declared_names"] = sorted({entry["name"] for entry in members if entry["name"] in declared})
         planned_out_of_line = {entry["name"] for entry in members if not entry["in_class"]}
         record["in_class_bodies_to_move"] = sorted(
             ({"path": body["scan"].path, "line": body["definition"].line, "end_line": body["definition"].end_line, "name": body["mangled"]}
@@ -970,13 +1042,20 @@ class _Builder:
         record["static_data_members"] = [
             {"artifact": entry["artifact"], "name": entry["name"], "declared": entry["name"] in declared,
              "declaration": f"static {entry['declaration_type']};" if entry.get("declaration_type") else None,
-             "type_source": entry["type"]["source"]}
+             "type_source": entry["type"]["source"], "mentions": self._data_mentions(entry)}
             for entry in sorted(info["static_data"], key=lambda entry: entry["name"])
         ]
-        record["vtable"] = self._vtable(chain, components)
+        record["vtable"] = self._vtable(chain, components, {entry["name"]: entry for entry in info["members"]}, declared)
         record["bases"] = self._bases(chain, components)
         record["units"] = dict(sorted(info["units"].items()))
         return record
+
+    @staticmethod
+    def _data_mentions(entry: dict[str, Any]) -> list[str]:
+        found: set[tuple[str, ...]] = set()
+        if entry["type"].get("node") is not None:
+            _named_chains(entry["type"]["node"], found)
+        return sorted("::".join(chain) for chain in found)
 
     def _placement(self, chain: tuple[str, ...], info: dict[str, Any]) -> dict[str, Any]:
         if chain[0].startswith("@unnamed@"):
@@ -1026,7 +1105,8 @@ class _Builder:
         best = sorted(headers, key=lambda name: (-counts[name], len(name), name))[0]
         return headers[best]
 
-    def _vtable(self, chain: tuple[str, ...], components: list[dict[str, Any]]) -> dict[str, Any] | None:
+    def _vtable(self, chain: tuple[str, ...], components: list[dict[str, Any]], planned: dict[str, dict[str, Any]],
+                declared: set[str]) -> dict[str, Any] | None:
         row = self.facts.artifact_of(f"__vt__{mangle_qualified(components)}", "data")
         if row is None:
             return None
@@ -1079,9 +1159,41 @@ class _Builder:
             seen.add(member)
             position = primary.index(slot) if slot in primary else None
             new = position is not None and (inherited_slots is None or position >= inherited_slots)
-            declare.append({"member": member, "slot": position, "group": slot["group"], "new": new})
+            declare.append({"member": member, "slot": position, "group": slot["group"], "new": new, "declared": member in declared,
+                            **self._virtual_declaration(member, planned.get(member))})
+        # New primary slots whose target names no member (pure, null or unrelocated): their declarations cannot be written.
+        unnamed = [{"slot": index, "kind": slot["kind"]} for index, slot in enumerate(primary)
+                   if slot["kind"] in ("pure", "null", "unrelocated", "other") and (inherited_slots is None or index >= inherited_slots)]
         return {"artifact": row["id"], "name": f"__vt__{mangle_qualified(components)}", "size": size, "slots": slots,
-                "primary_slots": len(primary), "base_slots": inherited_slots, "declare_virtual": declare}
+                "primary_slots": len(primary), "base_slots": inherited_slots, "declare_virtual": declare,
+                "unnamed_new_slots": unnamed}
+
+    def _virtual_declaration(self, member: str, entry: dict[str, Any] | None) -> dict[str, Any]:
+        """The in-class declaration of a vtable slot's member: its planned signature, else built like one (stage 3 return)."""
+
+        if entry is not None:
+            return {"planned": True, "declaration": entry.get("declaration"), "return_source": entry["return"]["source"],
+                    "mentions": entry.get("mentions") or []}
+        structured = self.parsed.get(member) or parse_symbol(member)
+        if structured.get("kind") != "function":
+            return {"planned": False, "declaration": None, "return_source": None, "mentions": []}
+        row = self.facts.artifact_of(member, "function")
+        facts = self.stage3["functions"].get(row["address"]) if row else None
+        prototype = _split_signature(facts[0], facts[1]) if facts else None
+        if prototype and prototype["default"]:
+            prototype = None
+        provisional = [rec for rec in self.declared.get(member, []) if rec["parsed"].symbol is not None]
+        special = structured["name"].get("text") if "text" in structured["name"] else "conversion"
+        returned = None
+        if special in ("__ct", "__dt") or "conversion" in structured["name"]:
+            returns, source = None, "not-needed"
+        else:
+            returns, source, returned = self._return_node(prototype, provisional, structured, self._site(structured, ""))
+        try:
+            text = declaration_text(self.program, structured, returns, static=False, virtual=True)
+        except (MangleError, KeyError):
+            text = None
+        return {"planned": False, "declaration": text, "return_source": source, "mentions": self._mentions(structured, returned)}
 
     def _vtable_size(self, components: list[dict[str, Any]]) -> int | None:
         row = self.facts.artifact_of(f"__vt__{mangle_qualified(components)}", "data")
@@ -1129,8 +1241,8 @@ class _Builder:
             for base in sorted(rtti, key=lambda row: row["offset"]):
                 base_chain = chain_of(base["components"])
                 access = next((row["access"] for row in dwarf or [] if row["raw"] == base_chain[-1]), None)
-                rows.append({"class": "::".join(base_chain), "offset": base["offset"], "direct": base_chain not in indirect,
-                             "access": access, "source": "rtti" + ("+dwarf" if access else "")})
+                rows.append({"class": "::".join(base_chain), "components": base["components"], "offset": base["offset"],
+                             "direct": base_chain not in indirect, "access": access, "source": "rtti" + ("+dwarf" if access else "")})
             return {"source": "rtti", "bases": rows}
         if dwarf is not None:
             rows = [{"class": "::".join(chain_of(self.types.qualify(row["raw"]))) if row["raw"] else None, "offset": row["offset"],
@@ -1192,6 +1304,17 @@ class _Builder:
         for entry in data:
             if entry["type"].get("node") is not None:
                 note(entry["type"]["node"], by_value="data", unit=entry["unit"])
+        # Return types and the unplanned virtuals the class bodies declare are named too: a forward declaration at least.
+        mentioned: list[tuple[str, list[str]]] = [(entry["unit"], entry.get("mentions") or []) for entry in signatures]
+        for klass in classes:
+            units = sorted(klass["units"])
+            for row in (klass.get("vtable") or {}).get("declare_virtual") or []:
+                mentioned.extend((unit, row.get("mentions") or []) for unit in units[:1])
+        for unit, names in mentioned:
+            for name in names:
+                row = needs.setdefault(tuple(name.split("::")), blank())
+                row["units"].add(unit)
+        class_chains = {tuple(row["chain"]) for row in classes}
         result = []
         for chain in sorted(needs, key=lambda value: "::".join(value)):
             row = needs[chain]
@@ -1211,12 +1334,109 @@ class _Builder:
             else:
                 state = "undeclared"
             dwarf = bool(self.dwarf.composites.get(chain[-1]))
-            result.append({
-                "type": "::".join(chain), "uses": row["uses"], "by_value": sorted(row["by_value"]), "as_scope": row["scope"],
-                "src": state, "dwarf_record": dwarf, "need": "full" if row["by_value"] or row["scope"] else "forward",
-                "units": sorted(row["units"]),
-            })
+            need = "full" if row["by_value"] or row["scope"] else "forward"
+            record = self._type_record(chain)
+            entry: dict[str, Any] = {
+                "type": "::".join(chain), "chain": list(chain), "mangled": mangle_qualified([_component(part) for part in chain]),
+                "uses": row["uses"], "by_value": sorted(row["by_value"]), "as_scope": row["scope"],
+                "src": state, "dwarf_record": dwarf, "need": need, "units": sorted(row["units"]),
+                "provider": chain[0] == "std", "record": {key: value for key, value in record.items() if key != "die"},
+                "key": record.get("key") or self.dwarf.key(chain[-1]),
+            }
+            if state in ("undeclared", "forward-only") and not entry["provider"]:
+                if need == "full" or record.get("kind") == "enum":
+                    entry["definition"] = self._definition(chain, record)
+                if chain not in class_chains:
+                    entry["placement"] = self._placement(chain, {"units": Counter(row["units"])})
+            result.append(entry)
         return result
+
+    def _type_record(self, chain: tuple[str, ...]) -> dict[str, Any]:
+        """The record a type's definition can come from: one consistent DWARF record, else the stage 3 size."""
+
+        dies = self.dwarf.composites.get(chain[-1], [])
+        shapes = {self.dwarf.shape(die) for die in dies}
+        if dies and len(shapes) == 1:
+            die = dies[0]
+            kind = "enum" if die.tag_name == "enumeration_type" else _DWARF_KEYS[die.tag_name]
+            return {"source": "dwarf", "kind": kind, "key": kind, "size": die.integer("byte_size"), "die": die.offset,
+                    "basis": f"DIE 0x{die.offset:x}"}
+        size = self.stage3["types"].get("/project/" + "/".join(chain))
+        if size:
+            return {"source": "stage3", "kind": None, "size": size, "basis": "/project/" + "/".join(chain),
+                    **({"dwarf_records": len(dies)} if dies else {})}
+        if dies:
+            return {"source": None, "kind": None, "size": None, "basis": f"{len(dies)} DWARF records of {chain[-1]} disagree"}
+        return {"source": None, "kind": None, "size": None, "basis": "no DWARF or stage 3 record"}
+
+    def _definition(self, chain: tuple[str, ...], record: dict[str, Any]) -> dict[str, Any] | None:
+        """A complete type from its record: enumerators, or members in offset order (unspellable pieces flagged)."""
+
+        from .type_identity import member_offset, type_ref
+
+        if record.get("source") == "stage3":
+            return {"source": "stage3", "kind": record.get("kind"), "key": self.dwarf.key(chain[-1]) or "struct", "size": record["size"],
+                    "members": [], "bases": [], "unproven": ["members unknown: an opaque byte array of the stage 3 size"]}
+        if record.get("source") != "dwarf":
+            return None
+        die = self.dwarf.by_offset[record["die"]]
+        size = die.integer("byte_size")
+        if die.tag_name == "enumeration_type":
+            values, problem = _enumerators(die)
+            return {"source": "dwarf", "kind": "enum", "key": "enum", "size": size, "enumerators": values,
+                    "unproven": [problem] if problem else ([] if size == 4 else [f"a {size}-byte enum (the enum width is a compiler setting)"])}
+        unnamed = chain[0][len("@unnamed@") : -1] if chain[0].startswith("@unnamed@") else None
+        speller = Speller(self.program, [chain[:index] for index in range(len(chain), -1, -1)], inside_unnamed=unnamed)
+        members: list[dict[str, Any]] = []
+        bases: list[dict[str, Any]] = []
+        unproven: list[str] = []
+        for child in self.dwarf.children.get(die.offset, []):
+            ref = type_ref(child)
+            if child.tag_name == "inheritance":
+                target = self.dwarf.by_offset.get(ref[1]) if ref and ref[1] is not None else None
+                raw = target.string("name") if target is not None else None
+                access = next((name for name in ("public", "protected", "private") if child.attribute(name) is not None), None)
+                if raw is None:
+                    unproven.append("a base without a name")
+                    continue
+                bases.append({"class": "::".join(chain_of(self.types.qualify(raw))), "offset": member_offset(child), "access": access,
+                              "virtual": child.attribute("virtual") is not None})
+                continue
+            if child.tag_name != "member":
+                continue
+            name = child.string("name")
+            offset = member_offset(child)
+            bits = child.integer("bit_size")
+            if name and (name.startswith("_vptr") or name == "__vt"):
+                continue  # the vtable pointer: implicit in a class that declares virtuals
+            node, why = self.dwarf.type_node(ref, self.types.qualify) if ref else (None, "no type")
+            text = None
+            if node is not None and name and not name.startswith("@"):
+                try:
+                    text = speller.type(node, name) + (f" : {bits}" if bits else "")
+                except (MangleError, KeyError) as exc:
+                    why = f"cannot spell the type: {exc}"
+            elif node is not None:
+                why = "an unnamed member"
+            found: set[tuple[str, ...]] = set()
+            if node is not None:
+                _named_chains(node, found)
+            members.append({"name": name, "offset": offset, "bit_size": bits, "text": text, "size": self.types.size(node),
+                            **({"why": why} if text is None else {}), "mentions": sorted("::".join(item) for item in found)})
+        members.sort(key=lambda row: (row["offset"] if row["offset"] is not None else 1 << 30))
+        for index, member in enumerate(members):
+            if member["text"] is not None:
+                continue
+            following = next((row["offset"] for row in members[index + 1 :] if row["offset"] is not None), size)
+            width = following - member["offset"] if member["offset"] is not None and following is not None else None
+            member["placeholder_size"] = width
+            unproven.append(f"member {member['name'] or '(unnamed)'} at {member['offset']}: {member.get('why')}")
+        if any(row["bit_size"] for row in members):
+            unproven.append("bit-fields (their allocation order is a compiler setting)")
+        if speller.problems:
+            unproven.extend(sorted(set(speller.problems)))
+        return {"source": "dwarf", "kind": _DWARF_KEYS[die.tag_name], "key": _DWARF_KEYS[die.tag_name], "size": size,
+                "members": members, "bases": bases, "unproven": unproven}
 
     # -- bodies ---------------------------------------------------------------------------
 
@@ -1818,6 +2038,7 @@ def build_manifest(
         files = [row for row in files_all if row["path"] in paths]
         judgments = [row for row in judgments_all if row.get("segment") == segment or set(row.get("units") or []) & units]
     for entry in data:
+        entry["mentions"] = _Builder._data_mentions(entry)
         entry["type"] = {key: value for key, value in entry["type"].items() if key != "node"}
     selected_units = set(builder.segment_of_unit) if segment is None else {
         unit for unit, number in builder.segment_of_unit.items() if number == segment

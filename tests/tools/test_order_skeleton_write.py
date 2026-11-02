@@ -387,6 +387,78 @@ def test_order_conflicts_and_data_placements_are_recorded(rendered: dict) -> Non
 
 
 @needs_inputs
+def test_headers_keep_src_outside_their_regions(rendered: dict) -> None:
+    from tools._socom.order_skeleton_headers import apply_edits, parse_regions, replacement_declaration, strip_regions
+    from tools._socom.order_skeleton_write import _sha
+
+    inputs, manifest, files = rendered["inputs"], rendered["first"]["manifest"], rendered["first"]["files"]
+    headers = manifest["headers"]
+    rows = [row for row in manifest["files"] if row["action"] in ("header", "new-header")]
+    assert rows and headers["summary"]["replacements"] == len(headers["replacements"]) > 0
+    for row in rows:
+        path = row["path"]
+        prefix, rest = split_blocks(path, files[path].decode("utf-8").replace("\r\n", "\n"))
+        regions, problems = parse_regions(rest)
+        records = [region for region in headers["regions"] if region["path"] == path]
+        assert not problems and [region["name"] for region in regions] == [region["name"] for region in records], path
+        lines = rest.split("\n")
+        assert all(_sha("\n".join(lines[found["start"] : found["end"] + 1])) == record["region_sha256"]
+                   for found, record in zip(regions, records)), path
+        stripped = strip_regions(rest, regions, {index for index, record in enumerate(records) if record["split"]})
+        source = inputs.scans.get(path)
+        if source is None:
+            assert row["action"] == "new-header" and stripped.startswith("#ifndef ") and stripped.endswith("#endif\n")
+            continue
+        edits = []
+        for body in inputs.manifest["bodies"]["definitions"]:
+            if body["action"] == "move-out-of-line" and body["path"] == path:
+                definition = next(item for item in source.definitions if item.in_class and item.line == body["span"]["start_line"])
+                signature = inputs.signatures.get(body["row"]["artifact"])
+                edits.append((definition.start, definition.end, replacement_declaration(inputs.program, source, definition, signature)[0]))
+        assert stripped == apply_edits(source.text, edits), path
+        assert prefix == split_blocks(path, (inputs.root / path).read_bytes().decode("utf-8").replace("\r\n", "\n"))[0]
+
+
+@needs_inputs
+def test_header_regions_declare_each_member_once(rendered: dict) -> None:
+    inputs, headers = rendered["inputs"], rendered["first"]["manifest"]["headers"]
+    declared = {tuple(record["chain"]): set(record.get("members_declared_names") or []) for record in inputs.manifest["declarations"]["classes"]}
+    written: Counter = Counter()
+    for region in headers["regions"]:
+        for row in [region, *region["nested"]]:
+            chain = tuple(row.get("chain") or ())
+            for name in row["members"] + row["static_members"]:
+                written[(chain, name)] += 1
+                assert name not in declared.get(chain, set()), (chain, name)
+    assert written and max(written.values()) == 1
+    summary = headers["summary"]
+    assert summary["new_class_bodies"] + len([row for row in headers["waiting"] if row["kind"] in ("provider-declaration", "function-local-class")]) \
+        == inputs.manifest["summary"]["classes_new_body"]
+    assert {row["kind"] for row in headers["waiting"]} <= {"provider-declaration", "function-local-class", "type-no-record", "type-unplaced",
+                                                           "class-unplaced", "declaration-unspelled", "nested-in-unwritten-class"}
+
+
+@needs_inputs
+def test_recorded_digests_hash_lf_text(rendered: dict) -> None:
+    from tools._socom.order_skeleton_write import _sha
+
+    first = rendered["first"]
+    for row in first["manifest"]["files"]:
+        assert row["sha256"] == _sha(first["files"][row["path"]].decode("utf-8").replace("\r\n", "\n")), row["path"]
+
+
+@needs_inputs
+def test_segment_writes_leave_headers_to_the_whole_tree_write(rendered: dict) -> None:
+    from tools._socom.order_skeleton_write import render_skeletons
+
+    segment = render_skeletons(rendered["inputs"], segment=1)
+    assert segment["manifest"]["headers"] is None
+    assert all(path.endswith(".cpp") for path in segment["files"])
+    flags = {flag["kind"] for entry in segment["manifest"]["entries"] for flag in entry.get("flags") or []}
+    assert "header-body-replaced" not in flags
+
+
+@needs_inputs
 def test_the_cli_writes_a_preview_that_checks(root: Path) -> None:
     preview = root / "build" / "test-skeleton-preview"
     if preview.exists():

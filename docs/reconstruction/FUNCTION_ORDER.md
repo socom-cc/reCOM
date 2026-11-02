@@ -790,9 +790,10 @@ takes about 10 s once the stage 3 digests are cached.
 ## Skeleton writer
 
 Phase B round 2 registers the `.cpp` writer and its static checks
-(capability `function-order-skeleton-preview`). This round writes only a
-preview: `--root` must be a directory under `build/`, and `src/` is refused
-until round 3 adds the header writer and the governed route. Neither command
+(capability `function-order-skeleton-preview`); round 3a adds the header
+writer to `--all` ([Skeleton headers](#skeleton-headers)). The writer still
+writes only a preview: `--root` must be a directory under `build/`, and
+`src/` is refused until round 3b adds the governed route. Neither command
 changes tracker state.
 
 ```powershell
@@ -830,8 +831,16 @@ that is not one is refused. Each unit file contains:
    Fences carry no addresses. `source artifacts` accepts the fence grammar
    and never counts a fence as an artifact edge.
 
-Newlines follow each file's own style (all of `src/` is CRLF); a file that
-mixes styles is refused.
+With `--all`, the header writer's region for the unit (its includes, forward
+declarations and anonymous-namespace classes) ends the preamble, before the
+entries (see [Skeleton headers](#skeleton-headers)).
+
+Newlines follow each file's own style; a file the write creates takes the
+style most `src/` files have in the checkout, and a file that mixes styles is
+refused. The working copy's style depends on the checkout: the repository
+stores LF, and `core.autocrlf=true` checks it out as CRLF. Every recorded
+digest therefore hashes LF-normalized text (see
+[Skeleton headers](#skeleton-headers)).
 
 **Entry order.** The plans fix the order of the out-of-line functions and
 the order of each region's data. They do not fix where file-scope data go
@@ -874,7 +883,7 @@ both.
 | --- | --- |
 | moved body (`body`) | The snapshot text, byte-identical, inside the namespaces and `extern "C"` blocks it was written in. |
 | BD6 rewrite (`body`) | The manifest's ELF declarator, then the snapshot text from the end of its declarator: the body and any constructor initializer list are kept. Parameter names are carried over when the arity is unchanged. |
-| in-class body moved out of line (`body`) | The qualified head, then the body. The header keeps its in-class body until round 3 (`header-body-pending`). |
+| in-class body moved out of line (`body`) | The qualified head, then the body. With `--all` the header keeps only its declaration (`header-body-replaced`); a `--segment` write leaves the header alone (`header-body-pending`). |
 | stub | The manifest head and `{ }`, with its local statics in counter order (`static [const] T name [= init];`, each with a nested fence) and its function-local class (`struct Local` with inline members). The anonymous namespace is reopened where the head needs it. |
 | data | `[static] T [Class::]name [= init];` inside its namespaces. The type is the manifest's, with top-level `const` for `.rodata` (on the pointer itself, or on the array element). The initializer is the manifest's ELF rendering, an explicit zero (BD5), or none for nobits. Struct, enum and nested-array initializers are rendered from the DWARF layout: members in offset order, padding must be zero, unions, bit-fields and classes with bases are refused, and enums are written as casts. Relocated words become `&symbol`, `symbol[k]` (an element of a typed array) or a string literal. A non-relocated pointer word outside the image becomes a hex constant. |
 | kept provisional data (`body`) | The provisional statement, verbatim. This applies only where the ELF bytes cannot be rendered, or where a nobits object has a dynamic initializer. Every other provisional data definition is replaced; its text is kept in the write manifest (`replaced_data`). |
@@ -907,7 +916,7 @@ deterministic default, a flag and a `waits` bit in the write manifest.
 | local static that no function of the unit references | not written; waits |
 | function-local class (`Local$2354`) | written in the first stub, in source order, that takes the members' addresses; waits, since the true owner is unproven |
 | overload tie | held; waits |
-| by-value type that `src/` does not declare | spelled by name; waits only where no DWARF record exists, because a definition would be invented |
+| by-value type that `src/` does not declare | spelled by name; the header writer defines it from its DWARF or stage 3 record; a `std` type is the provider's; it waits only where no consistent record exists, because a definition would be invented |
 
 Unproven pieces are flagged, never decided silently:
 
@@ -961,14 +970,19 @@ its results is stage evidence.
   stage 4 annotation IDs.
 - **S6** (`--lint`, report only): MSVC `cl /Zs`, found through `SOCOM_CL` or
   `vswhere`, with a small compatibility prelude. It reports error counts and
-  never fails.
+  never fails. With `--all` it lints the tree with and without the written
+  headers (see [Skeleton headers](#skeleton-headers)).
+- **S7** (headers, `--all`): see [Skeleton headers](#skeleton-headers).
 
-**Measured (2026-11-01, `--all`, manifest `f61e19bf…`, snapshot `3084d9c8…`).**
-A write takes about 8 s and a check about 25 s; `--lint` adds the `cl` run.
+**Measured in round 2 (2026-11-01, `--all`, manifest `f61e19bf…`, snapshot
+`3084d9c8…`), before the header writer.** A write takes about 8 s and a check
+about 25 s; `--lint` adds the `cl` run.
 
 - **Output:** 250 files are written (219 unit files and 31 holding files) and
   57 orphans are removed. Two writes give the same `write_sha256`
-  (`d4bcf968…`) and tree digest (`d721374b…`).
+  (`d4bcf968…`) and tree digest (`d721374b…`). Those digests hashed the
+  checkout's bytes; the main checkout's LF working copy gave `8dc67220…` and
+  `61c16ca4…` from the same inputs (fixed in round 3a).
 - **Entries:** 4,632 out-of-line functions (3,870 stubs, 762 moved bodies)
   and 1,471 data entries (1,468 generated, 3 kept). Nested in them are 380
   local statics and the 2 function-local class members. The holding files
@@ -1031,3 +1045,194 @@ A write takes about 8 s and a check about 25 s; `--lint` adds the `cl` run.
   | S4 | 979 body entries and 161 head rewrites pass |
   | S5 | no new findings |
   | S6 | 102 of 219 unit files lint-clean, 5,655 errors, mostly undeclared names |
+
+## Skeleton headers
+
+Phase B round 3a adds the header writer to `order skeleton write --all`
+(still a preview under `build/`, no tracker change). Headers are written
+once for the whole tree: in round 3b one serialized prepare item owns them
+(BD3), so `--segment N` leaves every header alone. The writer follows BD2:
+it only adds to class bodies; full layouts wait for stages 6 and 7.
+
+**Inputs.** The declaration part of the skeleton manifest gives, per class
+the planned rows need, its body or the header a new body goes to, the
+members to add, the static data members, the vtable slots and the bases.
+Round 3a adds these fields:
+
+- each own vtable slot's declaration: the planned row's, or for a slot
+  target that is not planned, one built the same way (stage 3 return type,
+  else BD1 `void`, flagged);
+- the named types each declaration mentions (parameters and return type);
+- per named type, its record: one DWARF record (every record of that name
+  must agree), else the stage 3 size. A type `src/` does not define gets a
+  complete definition from that record: enumerators by value, or members in
+  offset order. The vtable pointer is left out, and a member whose type
+  cannot be spelled becomes a byte array of its extent, flagged. A type with
+  only a stage 3 size becomes a struct holding an opaque byte array, flagged.
+  The definition also records where a new type goes (the same rules as a new
+  class body).
+
+**Regions.** Everything the writer adds is fenced:
+
+```text
+/* @socom-skeleton decl <name> */
+...
+/* @socom-skeleton end <name> */
+```
+
+`<name>` is the class or type's mangled qualified name, or `forward` or
+`include`. `source artifacts` accepts these fences and never counts one as an
+artifact edge. A source file that already holds regions is refused this
+round. Each region's `region_sha256` is recorded, so the `src/` route can
+regenerate a region while its text is unedited, as it does for stubs.
+
+| Region | Where | Holds |
+| --- | --- | --- |
+| class members | before an existing body's closing brace | `public:`, then the nested types placed in the class (forward declarations, enums, classes), the own virtuals not declared yet in vtable-slot order, the other planned members in plan order, the `in_class` rows as in-class stubs, the missing static data members |
+| new class | before the include guard's `#endif`, or in the unit's `.cpp` for the anonymous namespace | the class key, its direct bases (RTTI, else DWARF; access from DWARF, else `public`, flagged), `public:`, the same members; a class used by value also gets its data members from its record |
+| type | enums after the leading includes; other types with the new classes | a complete by-value type from its record |
+| `forward` | after the leading includes | forward declarations of the class types the file's generated text names that `src/` never declares (DWARF key, else `class`, flagged) |
+| `include`, `forward` (unit files) | at the end of the unit's preamble, before the entries | the headers that define what the unit's rows need but the unit does not include: every class its rows are members of, and every type they need complete. Same-directory headers use the bare name, others the path from `src/`. The forward declarations also cover classes defined in headers the unit does not include. |
+
+New classes and types at one insertion point are ordered so that a base or
+a by-value member comes first. A header that does not exist yet (two
+module headers) is created with an include guard named after the file. Its
+users include it through their `include` region.
+
+**Replacements.** The 52 in-class bodies of rows planned out of line are
+replaced by declarations. Each body has already moved to its `.cpp`, so S4
+sees it land exactly once. The declaration is the body's own head, up to
+the declarator's end: a constructor initializer list moves with the body,
+and `inline` is dropped. Where that head's return type or `static`
+contradicts the row's signature (which the `.cpp` head is written from), the
+signature's declaration is written instead (`declaration-from-signature`, 9
+rows), because the two would not compile together.
+
+**Not written:**
+
+- the `std` record (MSL provider declarations);
+- `CSoftKeyboard::Local`, the function-local class the `.cpp` writer
+  declares inside its owner's stub;
+- by-value types without a consistent record. These wait, because a
+  definition would be invented.
+
+Existing class heads are never regenerated. Bodies that name no base while
+RTTI gives one, and bodies whose declared virtuals followed by the region's
+do not give the slot order, are flagged (`bases-not-in-body`,
+`virtual-slot-order`).
+
+**Checkout-independent digests.** The repository stores LF, and
+`core.autocrlf=true` checks it out as CRLF. The main checkout's working copy
+was LF. Round 2 hashed the bytes it wrote, and the tree digest hashed the
+mirror's bytes, so the same inputs gave `d4bcf968…`/`d721374b…` in a CRLF
+worktree and `8dc67220…`/`61c16ca4…` in the LF checkout. The snapshot and
+manifest digests were already independent: they read text with universal
+newlines.
+
+Now every recorded digest hashes LF-normalized text: the per-file
+`sha256`, `write_sha256` and the tree digest. Each file keeps its own
+newline style on write, and a new file takes the style most `src/` files
+have in the checkout. A CRLF worktree and the same worktree converted to LF
+give the same `write_sha256` and tree digest.
+
+**Checks.** `order skeleton check` adds:
+
+- **S7** (headers): every written header, with its regions stripped, equals
+  its `src/` file except for the replacements, which the check re-derives
+  from `src/` and the manifest. A region that split a line (3 one-line class
+  bodies) is rejoined. A new header holds only its include guard outside its
+  regions. Every region is paired and is its recorded text. Over the whole
+  preview tree, every planned member (with the own slot members the writer
+  declares and the static data members) is declared exactly once in its
+  class.
+- **S1** also parses every generated declaration back in its class with the
+  preview's tables: the mangled names must be the region's recorded ones.
+- **S4** also requires that no header still defines a body that moved out of
+  line.
+- **S6** (`--lint`) lints the unit files twice: once with the written
+  headers, and once with the same render with the header writer off. It
+  counts unique diagnostics (file, line, code), so a header's error counts
+  once, and groups them by category. The prelude defines
+  `_ALLOW_KEYWORD_MACROS`; without it, MSVC's STL headers stop every file
+  that includes them at the `asm` macro (C1189), which hid most errors in
+  round 2's count.
+
+**Measured (2026-11-01, `--all`, manifest `3fe41f69…`, snapshot
+`3084d9c8…`).** A write takes about 9 s, a check about 25 s, and `--lint`
+about 3 minutes for both trees.
+
+- **Files:** 56 headers are changed and 2 created (`zconsole.h`,
+  `state.h`), alongside the 219 unit files and 31 holding files. Two writes
+  give the same `write_sha256` (`412bd323…`) and tree digest (`e656f0a5…`).
+- **Regions (692):**
+
+  | Region | Count |
+  | --- | --- |
+  | class members | 230 |
+  | new classes | 150 top-level, plus nested |
+  | types | 16 top-level, plus nested |
+  | `forward` | 108 |
+  | `include` | 188 unit files |
+
+  In total there are 162 new class bodies and 25 type definitions (13 enums
+  and 12 classes from DWARF), with 3,351 member and 504 static data member
+  declarations. 235 of the members are unplanned virtuals, declared to keep
+  the slot order.
+- **Waiting:** 27 by-value types have no consistent record. For 24 of them
+  no record exists at all, for example `AI_SIGNAL`, `NetErrorCode`,
+  `SEAL_TASK` and `zdb::_tag_render_map_type`. For 3, the DWARF records
+  disagree: Metrowerks names nested types unqualified, as in
+  `CAiMap::region::TYPE` and `CZAnimArg::TYPE` (62 records of `TYPE`) and
+  `ActionItem::EVENT`. The 2 classes it does not write are listed above.
+- **Flags:**
+
+  | Flag | Count |
+  | --- | --- |
+  | include added | 576 |
+  | unplanned virtual | 235 |
+  | forward key unproven | 181 |
+  | key unproven | 102 |
+  | bases unknown | 56 |
+  | header body replaced | 52 |
+  | base access unproven | 47 |
+  | type from DWARF | 35 |
+  | virtual slot order | 13 |
+  | type unproven | 13 |
+  | declaration from signature | 9 |
+  | virtual slot unnamed | 6 |
+  | in-class stub | 4 |
+  | bases not in body | 3 |
+- **Checks:**
+
+  | Check | Result |
+  | --- | --- |
+  | determinism | pass |
+  | S1 | 6,103 entries, 355 local statics and 3,855 generated declarations pass; 2 unverifiable |
+  | S2 | pass; the 4 `CAiLinePtItr` in-class rows are found in their class body |
+  | S3 | pass |
+  | S4 | pass; the 52 header bodies are replaced |
+  | S5 | no new findings |
+  | S7 | 58 headers identical outside their regions; 432 classes and 4,754 members, each declared once |
+- **S6 (unique diagnostics):** 7,872 without the headers and 597 with them.
+  271 of the 597 are in headers. The 219 files report 8,468 and 15,077
+  diagnostics in total: once a file includes a header, that header's errors
+  repeat in it, so only 5 files are clean against 10.
+
+  | Category | Without headers | With headers |
+  | --- | --- | --- |
+  | undeclared name | 3,775 | 131 |
+  | incomplete or unknown type | 1,606 | 121 |
+  | syntax | 1,064 | 23 |
+  | declaration mismatch | 584 | 66 |
+  | conversion or call | 74 | 37 |
+  | fatal | 21 | 24 |
+  | other | 748 | 195 |
+
+  Most of the rest is not the header writer's to settle:
+
+  - override return types that differ from the provisional base
+    declarations (C2555, 97; BD1 and stage 6);
+  - provisional header code (`std::list::generic_iterator`, `zdb::CVisual`,
+    GNU `asm` on x64);
+  - types that headers use but do not include, such as `zdb::_RenderPhase`,
+    which is placed in `hud.h` but used in `node_world.h`.

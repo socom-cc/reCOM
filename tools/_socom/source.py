@@ -34,7 +34,7 @@ ARTIFACT_RE = re.compile(
     r"@socom-artifact\s+(defines|emits)\s+(\S+)\s+"
     r"(socom:[A-Za-z0-9_.-]+:[A-Za-z0-9_.:/+-]+)\s*$"
 )
-SKELETON_FENCE_RE = re.compile(r"^@socom-skeleton (?:stub|body) \S+$")
+SKELETON_FENCE_RE = re.compile(r"^@socom-skeleton (?:stub|body|decl|end) \S+$")
 
 AUDIT_ROOTS = (
     ".agent",
@@ -312,7 +312,7 @@ def source_artifacts(root: Path) -> dict[str, Any]:
                     }
                 )
             elif "@socom-skeleton" in value:
-                # Stage 5 skeleton fences (BD7) delimit definitions; they cite no artifact.
+                # Stage 5 skeleton fences (BD7) delimit definitions and generated declaration regions; they cite no artifact.
                 if not SKELETON_FENCE_RE.search(value):
                     errors.append(f"{relative}:{number}: malformed @socom-skeleton fence")
             else:

@@ -398,3 +398,12 @@ def test_manifest_over_the_accepted_plans(root: Path) -> None:
         assert entry["declaration_type"].startswith(spelled), entry["name"]
     assert not any(row.get("type") == "pointer" for row in manifest["judgment"])
     assert not any(row.get("type") == "pointer" for row in manifest["declarations"]["types"])
+    # Declarations for the header writer: every own vtable slot carries its declaration; complete types carry their record.
+    for record in manifest["declarations"]["classes"]:
+        for row in (record.get("vtable") or {}).get("declare_virtual") or []:
+            assert {"declared", "planned", "declaration", "mentions"} <= set(row)
+            assert row["declaration"] is None or row["declaration"].startswith("virtual ")
+    enums = [row for row in manifest["declarations"]["types"] if (row.get("definition") or {}).get("kind") == "enum"]
+    assert enums and all(row["definition"]["enumerators"] for row in enums)
+    assert all(row["record"]["source"] in ("dwarf", "stage3") for row in manifest["declarations"]["types"] if row.get("definition"))
+    assert all("mentions" in entry for entry in manifest["signatures"] if entry["linkage"] == "C++" and entry["s1"]["ok"])
