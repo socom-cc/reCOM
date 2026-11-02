@@ -1503,8 +1503,18 @@
       "resolution": null,
       "status": "open",
       "summary": "test_fingerprint persistent-bridge test is timing-flaky"
+    },
+    {
+      "details": "Found by verifier socom-skeleton-verifier-v3 in segment 052: src/Apps/FTS/state/st_menu.cpp keeps 'extern zdb::CTextureRelocMgr* g_relocDblBuf = NULL;' and 'extern CZAnimZAR* animfile = NULL;' above the new anonymous-namespace data stubs of the same names. In C++ an extern declaration with an initializer is a definition, so the writer should treat it as provisional data to replace (replaced_data), not preamble. Fix with the first Phase C correction pass (re-apply of segment 052).",
+      "id": "socom:workspace-issue:ad4e896b9c9a6d4b670f",
+      "kind": "problem",
+      "reported_at": "2026-11-02T06:35:44Z",
+      "reported_by": "parent-orchestrator",
+      "resolution": null,
+      "status": "open",
+      "summary": "Skeleton writer keeps 'extern T x = v;' provisional lines as declarations, duplicating the new data entry"
     }
   ],
-  "revision": 190,
+  "revision": 191,
   "schema_version": 1
 }
