@@ -321,6 +321,18 @@ def test_manifest_refuses_output_outside_build(root: Path) -> None:
     assert completed.returncode != 0 and "under build/" in completed.stdout + completed.stderr
 
 
+def test_manifest_refuses_a_snapshot_refresh_once_the_route_base_exists(root: Path) -> None:
+    from tools._socom.order_skeleton_route import BASE_DIR
+
+    if not (root / BASE_DIR / "src").is_dir():
+        pytest.skip("the skeleton route has not frozen its base")
+    completed = subprocess.run(
+        [sys.executable, "tools/socom.py", "order", "skeleton", "manifest", "--refresh-snapshot"],
+        cwd=root, text=True, encoding="utf-8", capture_output=True, check=False,
+    )
+    assert completed.returncode != 0 and "refused once the base exists" in completed.stdout + completed.stderr
+
+
 # -- real data -----------------------------------------------------------------------------
 
 
@@ -367,11 +379,23 @@ def test_s1_round_trips_every_authored_definition(root: Path, reference_source_g
 )
 def test_manifest_over_the_accepted_plans(root: Path) -> None:
     from tools._socom.order_skeleton import build_manifest, _digest as manifest_digest
+    from tools._socom.order_skeleton_route import MANIFEST_PATH, SNAPSHOT_PATH, provisional_root
     from tools._socom.tracker import load_tracker
+    from tools._socom.util import load_json
 
     tracker = load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
-    manifest, snapshot = build_manifest(root, tracker, graph_path=root / "build" / "source-graph" / "graph.json")
+    try:
+        # Every provisional input comes from the skeleton route's frozen base once it exists (src/ then holds skeletons).
+        source_root = provisional_root(root, tracker)
+    except SocomError as exc:
+        pytest.skip(str(exc))
+    manifest, snapshot = build_manifest(root, tracker, graph_path=root / "build" / "source-graph" / "graph.json", source_root=source_root)
     assert manifest["manifest_sha256"] == manifest_digest({key: value for key, value in manifest.items() if key != "manifest_sha256"})
+    # Over the plans the stored manifest cites, a rebuild reproduces it and its frozen body snapshot exactly.
+    stored = load_json(root / MANIFEST_PATH) if (root / MANIFEST_PATH).is_file() else None
+    if stored is not None and stored["inputs"]["plans"] == manifest["inputs"]["plans"] and (root / SNAPSHOT_PATH).is_file():
+        assert manifest["manifest_sha256"] == stored["manifest_sha256"]
+        assert snapshot["snapshot_sha256"] == load_json(root / SNAPSHOT_PATH)["snapshot_sha256"]
     s1 = manifest["s1"]
     assert s1["checked"] == manifest["summary"]["functions"] > 4000
     assert all(any("function-local class" in problem for problem in row["problems"]) for row in s1["failures"])

@@ -303,12 +303,20 @@ def test_source_artifacts_accept_skeleton_fences(tmp_path: Path) -> None:
 
 @pytest.fixture(scope="module")
 def rendered(root: Path) -> dict:
+    from tools._socom.order_skeleton_route import provisional_root
     from tools._socom.order_skeleton_write import SkeletonInputs, render_skeletons
     from tools._socom.tracker import load_tracker
 
+    tracker_path = root / ".agent" / "RECONSTRUCTION_PROGRESS.json"
+    try:
+        # The src/ the manifest was built on: the skeleton route's frozen base once it exists.
+        source_root = provisional_root(root, load_tracker(tracker_path))
+    except SocomError as exc:
+        pytest.skip(str(exc))
+
     def load() -> SkeletonInputs:
-        return SkeletonInputs(root, load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json"),
-                              manifest_path=INPUTS[0], snapshot_path=INPUTS[1])
+        return SkeletonInputs(root, load_tracker(tracker_path), manifest_path=INPUTS[0], snapshot_path=INPUTS[1],
+                              source_root=source_root)
 
     inputs = load()
     first = render_skeletons(inputs, segment=None)
@@ -334,7 +342,7 @@ def test_every_planned_row_is_written_once_or_listed(rendered: dict) -> None:
     for _number, unit in inputs.units:
         text = files[unit["workspace_path"]].decode("utf-8").replace("\r\n", "\n")
         _bom, blocks, rest = parse_blocks(text)
-        source = (inputs.root / unit["workspace_path"]).read_bytes().decode("utf-8").replace("\r\n", "\n")
+        source = (inputs.source_root / unit["workspace_path"]).read_bytes().decode("utf-8").replace("\r\n", "\n")
         assert blocks == parse_blocks(source)[1], unit["unit"]
         names = Counter(row["name"] for row in parse_fences(rest))
         names.update(inner["name"] for row in parse_fences(rest) for inner in row["nested"])
@@ -419,7 +427,7 @@ def test_headers_keep_src_outside_their_regions(rendered: dict) -> None:
         # The stage 4 blocks are kept; a header that held only its blocks gains stage 4's blank separator line.
         from tools._socom.order_skeleton_write import separated
 
-        assert prefix == separated(split_blocks(path, (inputs.root / path).read_bytes().decode("utf-8").replace("\r\n", "\n"))[0], rest)
+        assert prefix == separated(split_blocks(path, (inputs.source_root / path).read_bytes().decode("utf-8").replace("\r\n", "\n"))[0], rest)
 
 
 @needs_inputs
@@ -476,6 +484,10 @@ def test_the_cli_writes_a_preview_that_checks(root: Path) -> None:
             assert completed.returncode == 0, report
         assert report["ok"] and not report["failed"]
         assert report["s1"]["failed"] == 0 and report["s4"]["bodies_checked"] > 0
+        # Once the skeleton route froze its base, the preview reads its provisional inputs from there.
+        from tools._socom.order_skeleton_route import BASE_DIR
+
+        assert report["source"] == (f"{BASE_DIR}/src/" if (root / BASE_DIR / "src").is_dir() else "src/")
         refused = subprocess.run(
             [sys.executable, "tools/socom.py", "order", "skeleton", "write", "--all", "--root", "src/preview"],
             cwd=root, text=True, encoding="utf-8", capture_output=True, check=False,

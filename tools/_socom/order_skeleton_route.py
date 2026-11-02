@@ -224,6 +224,29 @@ def base_root(root: Path) -> Path:
     return root / BASE_DIR
 
 
+def _missing_base() -> SocomError:
+    return SocomError(f"{BASE_DIR}/src is missing: the frozen base the skeleton items were written from is gone "
+                      "(it is a frozen input like the body snapshot; restore it before any further skeleton work)")
+
+
+def provisional_root(root: Path, tracker: dict[str, Any]) -> Path | None:
+    """The root whose ``src/`` holds the skeleton generator's provisional inputs, for the read-only commands.
+
+    ``order skeleton manifest``, ``write`` and ``check`` read every provisional
+    input (headers, bodies, preamble, file-scope data) from the route's frozen
+    base once it exists: after a skeleton write, ``src/`` holds skeletons, never
+    provisional input.  Before the base exists that is ``src/`` itself (None).
+    A route that has written ``src/`` without its base is refused.
+    """
+
+    base = base_root(root)
+    if (base / "src").is_dir():
+        return base
+    if started(tracker):
+        raise _missing_base()
+    return None
+
+
 def tree_sha256(base: Path) -> str:
     from .order_skeleton_write import tree_digest
 
@@ -239,8 +262,7 @@ def route_inputs(root: Path, tracker: dict[str, Any], *, manifest_path: Path, sn
     if started(tracker):
         base = base_root(root)
         if not (base / "src").is_dir():
-            raise SocomError(f"{BASE_DIR}/src is missing: the frozen base the skeleton items were written from is gone "
-                             "(it is a frozen input like the body snapshot; restore it before any further skeleton work)")
+            raise _missing_base()
     inputs = SkeletonInputs(root, tracker, manifest_path=manifest_path, snapshot_path=snapshot_path, source_root=base)
     return inputs, base
 
@@ -592,25 +614,51 @@ def rollback_changes(root: Path, backups: dict[str, bytes | None]) -> None:
 def verify_skeleton(root: Path, tracker: dict[str, Any], item_id: str, *, manifest_path: Path, snapshot_path: Path) -> dict[str, Any]:
     """``order skeleton apply-check``: the record against fresh inputs, a fresh render and its checks, and src/."""
 
-    item = _skeleton_item(tracker, item_id)
-    record = item.get("order_skeleton")
-    if not isinstance(record, dict):
-        return {"ok": False, "work_item_id": item_id, "status": item.get("status"),
-                "problems": [f"{item_id} has no skeleton record: run {APPLY_ROUTE} first"]}
+    return verify_skeletons(root, tracker, [item_id], manifest_path=manifest_path, snapshot_path=snapshot_path)[0]
+
+
+def verify_skeletons(root: Path, tracker: dict[str, Any], item_ids: list[str], *, manifest_path: Path,
+                     snapshot_path: Path) -> list[dict[str, Any]]:
+    """The apply-check of each item, over one fresh render and one run of the static checks.
+
+    The route renders the whole tree from the same inputs for every item, so
+    the items share the render (under ``CHECK_DIR``: the item's own directory
+    for one item, ``all`` for several) and its check; each record is then
+    compared on its own.
+    """
+
+    reports: list[dict[str, Any]] = []
+    shared: tuple[Any, Path | None, dict[str, Any], dict[str, Any]] | None = None
+    for item_id in item_ids:
+        item = _skeleton_item(tracker, item_id)
+        record = item.get("order_skeleton")
+        if not isinstance(record, dict):
+            reports.append({"ok": False, "work_item_id": item_id, "status": item.get("status"),
+                            "problems": [f"{item_id} has no skeleton record: run {APPLY_ROUTE} first"]})
+            continue
+        if shared is None:
+            inputs, base = route_inputs(root, tracker, manifest_path=manifest_path, snapshot_path=snapshot_path)
+            target = root / CHECK_DIR / (item_id.replace(":", "-") if len(item_ids) == 1 else "all")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            rendered = render_tree(root, inputs, base, target)
+            report = check_tree(root, tracker, target, base, manifest_path=manifest_path, snapshot_path=snapshot_path)
+            shared = (inputs, base, rendered, report)
+        reports.append(_verify_record(root, tracker, item, record, *shared))
+    return reports
+
+
+def _verify_record(root: Path, tracker: dict[str, Any], item: dict[str, Any], record: dict[str, Any], inputs: Any,
+                   base: Path | None, rendered: dict[str, Any], report: dict[str, Any]) -> dict[str, Any]:
+    item_id = item["id"]
     problems: list[str] = []
     if record.get("kind") != RECORD_KIND or record.get("schema_version") != RECORD_SCHEMA or record.get("item") != item_id:
         problems.append("the record is not a skeleton apply record of this item")
-    inputs, base = route_inputs(root, tracker, manifest_path=manifest_path, snapshot_path=snapshot_path)
     problems.extend(_stale_inputs(tracker, inputs, base, record["inputs"]))
     own = _own_decisions(inputs, item_id)
     if own != record.get("decisions"):
         problems.append(f"the decisions file of {item_id} changed since the apply: re-apply")
     if sorted(row["path"] for row in record["files"]) != sorted(item.get("resources") or []):
         problems.append(f"the record's files are not {item_id}'s resources")
-    target = root / CHECK_DIR / item_id.replace(":", "-")
-    target.parent.mkdir(parents=True, exist_ok=True)
-    rendered = render_tree(root, inputs, base, target)
-    report = check_tree(root, tracker, target, base, manifest_path=manifest_path, snapshot_path=snapshot_path)
     if not report["ok"]:
         problems.append(f"the static checks fail over a fresh render: {', '.join(report['failed'])}")
     source = base if base is not None else root
@@ -759,7 +807,7 @@ def decide(root: Path, tracker: dict[str, Any], item_id: str, lease_owner: str, 
            basis: str, *, manifest_path: Path, snapshot_path: Path) -> dict[str, Any]:
     """``order skeleton decide``: settle one waiting row of the leased item in its decisions file."""
 
-    from .order_skeleton_write import DECISION_KINDS, DECISIONS_KIND, DECISIONS_SCHEMA, decisions_path, render_skeletons
+    from .order_skeleton_write import DECISIONS_KIND, DECISIONS_SCHEMA, decisions_path, render_skeletons
     from .tracker import _iso, _utc_now
 
     item = _skeleton_item(tracker, item_id)
@@ -772,14 +820,9 @@ def decide(root: Path, tracker: dict[str, Any], item_id: str, lease_owner: str, 
         raise SocomError(f"--{option} must not be empty")
     inputs, _base = route_inputs(root, tracker, manifest_path=manifest_path, snapshot_path=snapshot_path)
     rendered = render_skeletons(inputs, segment=None)
-    rows = waiting_rows(rendered, inputs)
     # A row this item decided already may be decided again (the new decision replaces it).
-    for (kind, key), row in inputs.decisions.items():
-        if row["item"] == item_id:
-            rows.append({"kind": kind, "key": key, "item": item_id, "option": DECISION_KINDS[kind], "decided": True,
-                         "candidates": _candidates(inputs, kind, key), "unit": _unit_of(inputs, kind, key),
-                         "name": row.get("name") or (_mangled_last_name(key) if kind == "type-no-record" else key)})
-    matches = [row for row in rows if artifact in (row.get("key"), row.get("name"))]
+    rows = waiting_rows(rendered, inputs) + decided_rows(inputs, item_id)
+    matches = [row for row in rows if artifact in (row.get("key"), row.get("name"), *(row.get("aliases") or []))]
     if not matches:
         raise SocomError(f"{artifact} is not a waiting row (order skeleton apply-check or the write manifest lists them)")
     row = matches[0]
@@ -815,6 +858,34 @@ def decide(root: Path, tracker: dict[str, Any], item_id: str, lease_owner: str, 
     return {"ok": True, "mutation_performed": True, "work_item_id": item_id, "decisions": relative, "decision": entry,
             "replaced": replaced, "count": len(current["decisions"]),
             "note": f"the decision takes effect at the next {APPLY_ROUTE} of {item_id}"}
+
+
+def decided_rows(inputs: Any, item_id: str) -> list[dict[str, Any]]:
+    """The rows ``item_id`` decided already, named as their waiting rows were, so a re-decision finds them by either name.
+
+    A decided type row is named by its readable type name (``ActionItem::EVENT``,
+    as ``waiting_rows`` names it), with the decision's stored name and the
+    mangled key's last component as aliases.
+    """
+
+    from .order_skeleton_write import DECISION_KINDS
+
+    readable = {row["mangled"]: _readable(tuple(row["chain"])) for row in inputs.manifest["declarations"]["types"]
+                if row.get("mangled") and row.get("chain")}
+    rows: list[dict[str, Any]] = []
+    for (kind, key), row in sorted(inputs.decisions.items()):
+        if row["item"] != item_id:
+            continue
+        stored = row.get("name")
+        if kind == "type-no-record":
+            name = readable.get(key) or stored or _mangled_last_name(key)
+            aliases = sorted({value for value in (stored, _mangled_last_name(key)) if value and value != name})
+        else:
+            name, aliases = stored or key, []
+        rows.append({"kind": kind, "key": key, "item": item_id, "option": DECISION_KINDS[kind], "decided": True,
+                     "candidates": _candidates(inputs, kind, key), "unit": _unit_of(inputs, kind, key), "name": name,
+                     "aliases": aliases})
+    return rows
 
 
 def _mangled_last_name(mangled: str) -> str:

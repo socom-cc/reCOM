@@ -636,7 +636,11 @@ It reads these inputs and refuses to run if any check fails:
   the ELF image.
 - **Source.** It scans every file under `src/` (`tools/_socom/cxx_scan.py`).
   `source_apply.parse_blocks` sets the stage 4 annotation blocks aside, so
-  line numbers count the authored content only.
+  line numbers count the authored content only. Once the skeleton route has
+  frozen its base ([Applying an item](#applying-an-item)), `src/` holds
+  skeletons: every provisional input (headers, bodies, preamble, file-scope
+  data) is then read from the base's `src/` instead
+  ([After the wave](#after-the-wave)).
 
 The scanner tokenizes each file and tracks its scopes: namespaces,
 `extern "C"`, class bodies and their members, enums, typedefs, forward
@@ -722,7 +726,7 @@ The frozen snapshot `build/stage5/provisional-bodies.json`
 text. Moves read from it, so donor and recipient applies stay independent.
 It is written once; later runs only compare it. If it changed, the command
 reports it stale and exits 1. `--refresh-snapshot` replaces it, before any
-apply starts.
+apply starts; once the route's base exists it is refused.
 
 **Data.** One entry per planned data row, with its type and source (BD5).
 Sources are tried in order: the DWARF variable record, the stage 3 type of
@@ -817,6 +821,8 @@ refuses to run unless all of these hold:
   every body's SHA-256;
 - the accepted order plans are the ones the manifest cites;
 - `src/` still has the authored-content digest the manifest was built on.
+  Once the route's base exists, that is the base's `src/`: the preview
+  mirrors it, and `order skeleton check` compares against it.
 
 Rows come from the plans in plan order. Signatures, data types, initializers
 and body actions come from the manifest. Body text comes from the snapshot.
@@ -1362,8 +1368,11 @@ A waiting row lands in exactly one item's files:
 | initializer the ELF bytes cannot render (10) | its unit's apply | `--initializer`, the text after `=` |
 
 `order skeleton decide` runs under the tracker lock, as the holder of the
-lease of the item the row lands in. It records `{kind, key, value, basis,
-by, at}` in `build/stage5/skeleton-decisions/<item>.json`
+lease of the item the row lands in. `--artifact` names the row by its key
+(artifact, body id or a type's mangled name) or by its readable name, also
+when the row is decided already: a type row is `ActionItem::EVENT` or
+`Q210ActionItem5EVENT`. It records `{kind, key, value, basis, by, at}` (and
+the readable `name`) in `build/stage5/skeleton-decisions/<item>.json`
 (`socom-order-skeleton-decisions`). A new decision of the same row replaces
 the old one. The writer reads every item's decisions file.
 
@@ -1436,6 +1445,35 @@ real applies `reference verify` reports the stored census as stale. Refresh
 it with `python tools/socom.py reference census --write` once the prepare item
 is accepted. The tests that count `src/` files derive their expectations
 from the tree.
+
+### After the wave
+
+The real route ran on 2026-11-02. The prepare and all 46 segment applies are
+accepted (tracker revision 4120), and `src/` holds the skeletons. The base
+`build/stage5/skeleton-route/base` holds the `src/` from before the wave.
+
+- **The read-only commands read the base.** Once the base exists,
+  `order skeleton manifest`, `order skeleton write` and `order skeleton
+  check` read every provisional input from the base's `src/`: headers,
+  bodies, preamble and file-scope data. Before the base exists they read
+  `src/`. A route that has written `src/` without its base is refused. Each
+  report names the tree it read (`source`). `--refresh-snapshot` is refused,
+  because the snapshot is frozen with the base.
+- **A correction rebuilds the manifest from the base.** `order skeleton
+  manifest --all --snapshot build/stage5/provisional-bodies.json` reproduces
+  the applied manifest `3fe41f69…` byte for byte, and the snapshot stays
+  `3084d9c8…` (`current`). `order skeleton write --all` then renders a tree
+  equal to the current `src/`. A changed manifest makes every skeleton
+  record stale, so each item is reopened and applied again.
+- **Tests.** The real-data tests render from the base. The pre-route steps
+  run on the live tracker with the route's mutations undone (`_unprepared`
+  in `tests/tools/test_order_skeleton_route.py`): no prepare item, the gate
+  blocked, and each apply as the decomposition left it. That state equals
+  the tracker before the route opened (revision 3929); adding the prepare to
+  it reproduces the real reservations and stage record. The post-wave tests
+  re-apply the prepare without writing: nothing changes and the recorded
+  files come back. They also run the apply-check of every accepted skeleton
+  item, over one shared render (`verify_skeletons`).
 
 ### Dry run (2026-11-01)
 

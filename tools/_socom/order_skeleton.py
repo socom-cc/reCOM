@@ -664,12 +664,15 @@ def _split_signature(name: str, signature: str | None) -> dict[str, Any] | None:
 
 
 class _Builder:
-    def __init__(self, root: Path, tracker: dict[str, Any], *, graph_path: Path, receipt_path: Path, fingerprint_path: Path) -> None:
+    def __init__(self, root: Path, tracker: dict[str, Any], *, graph_path: Path, receipt_path: Path, fingerprint_path: Path,
+                 source_root: Path | None = None) -> None:
         from .order_plan import order_context, stage4_baseline
         from .source_cache import ensure_source_cache
         from .source_emit_check import _Headers
 
         self.root = root
+        # The src/ the provisional inputs come from: the skeleton route's frozen base once it exists.
+        self.source_root = source_root if source_root is not None else root
         self.plans, self.link = accepted_plans(root, tracker)
         self.target, _derived = order_context(root, tracker, graph_path, evidence=False)
         baseline = stage4_baseline(tracker)
@@ -687,7 +690,7 @@ class _Builder:
         cache, _rebuilt = ensure_source_cache(root, graph_path=graph_path)
         self.facts = _Facts(root, cache)
         self.dwarf = _Dwarf(self.facts.elf)
-        self.scans, self.files = scan_sources(root)
+        self.scans, self.files = scan_sources(self.source_root)
         chains: set[tuple[str, ...]] = set()
         self.parsed: dict[str, dict[str, Any]] = {}
         for symbol in self.facts.elf.symbols():
@@ -697,7 +700,7 @@ class _Builder:
                 chains |= symbol_chains(structured)
         self.program = Program(self.scans, chains)
         self.types = _Types(self.program, self.stage3["types"], self.dwarf)
-        self.headers = _Headers(root, {})
+        self.headers = _Headers(self.source_root, {})
         self.scan_by_path = {scan.path: scan for scan in self.scans}
         # Units: the plan rows, the order target's classes.
         self.units: dict[str, dict[str, Any]] = {}
@@ -2005,12 +2008,18 @@ def build_manifest(
     receipt_path: Path | None = None,
     fingerprint_path: Path | None = None,
     segment: int | None = None,
+    source_root: Path | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """(the skeleton manifest, the fresh provisional-body snapshot)."""
+    """(the skeleton manifest, the fresh provisional-body snapshot).
+
+    ``source_root`` holds the ``src/`` the provisional inputs are read from (the
+    root's by default; ``order skeleton manifest`` passes the skeleton route's
+    frozen base once it exists, see ``order_skeleton_route.provisional_root``).
+    """
 
     builder = _Builder(
         root, tracker, graph_path=graph_path, receipt_path=receipt_path or root / RECEIPT_PATH,
-        fingerprint_path=fingerprint_path or root / FINGERPRINT_PATH,
+        fingerprint_path=fingerprint_path or root / FINGERPRINT_PATH, source_root=source_root,
     )
     if segment is not None and segment not in set(builder.segment_of_unit.values()):
         raise SocomError(f"segment {segment} has no accepted order plan")

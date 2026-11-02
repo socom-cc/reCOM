@@ -33,10 +33,12 @@ from tools._socom.order_skeleton_route import (
     audit_skeleton_records,
     blocks_sha256,
     handoff_skeleton,
+    provisional_root,
     record_sha256,
     record_skeleton,
     refuse_stage4_writes,
     skeleton_custody,
+    started,
 )
 from tools._socom.tracker import (
     accept_work,
@@ -50,6 +52,7 @@ from tools._socom.tracker import (
 from tools._socom.util import SocomError
 
 ROOT = Path(__file__).resolve().parents[2]
+TRACKER = ROOT / ".agent" / "RECONSTRUCTION_PROGRESS.json"
 INPUTS = (ROOT / "build" / "stage5" / "skeleton-manifest.json", ROOT / "build" / "stage5" / "provisional-bodies.json")
 needs_inputs = pytest.mark.skipif(
     not all(path.is_file() for path in INPUTS) or not (ROOT / "build" / "order-plans" / "socom-work-order-segment-001.json").is_file(),
@@ -64,21 +67,29 @@ BLOCK = (
 
 
 def _unprepared(tracker: dict) -> dict:
-    """The tracker before the skeleton route opened: gate blocked, no prepare item, directory resources.
+    """The tracker before the skeleton route opened: the route's mutations undone.
 
-    The real route is open (the skeleton gate accepted, the prepare added), so tests that open the
-    gate and add the prepare themselves start from the earlier state.
+    The real route has run (the gate accepted, the prepare added, applied and accepted, the 46
+    segment applies applied and accepted), so tests that open the gate, add the prepare and apply
+    start from the earlier state: the gate blocked, no prepare item, and each apply as the
+    decomposition left it (blocked on its plan and the route, its directories reserved, never
+    applied or reviewed).  The plans and their acceptances are the live ones, so the state follows
+    later plan changes.
     """
 
     tracker = copy.deepcopy(tracker)
     tracker["work_items"] = [row for row in tracker["work_items"] if row["id"] != ORDER_SKELETON_PREPARE_ID]
     for row in tracker["work_items"]:
         if row["id"] == ORDER_SKELETON_ROUTE_ID and row.get("status") == "accepted":
-            row.update(status="blocked", accepted=None, evidence=[])
+            row.pop("accepted", None)
+            row.update(status="blocked", evidence=[])
         if row.get("kind") == ORDER_APPLY_KIND:
             row["dependencies"] = [item for item in row["dependencies"] if item != ORDER_SKELETON_PREPARE_ID]
             row["resources"] = list(row["batch"]["directories"])
             row["batch"].pop("files", None)
+            for key in ("order_skeleton", "accepted", "review_history"):
+                row.pop(key, None)
+            row.update(status="blocked", lease=None, handoff=None, evidence=[])
     for stage in tracker["stages"]:
         (stage.get("decomposition") or {}).pop("skeleton_prepare", None)
     refresh_ready_and_stages(tracker)
@@ -86,8 +97,23 @@ def _unprepared(tracker: dict) -> dict:
 
 
 @pytest.fixture(scope="module")
-def tracker() -> dict:
-    return _unprepared(load_tracker(ROOT / ".agent" / "RECONSTRUCTION_PROGRESS.json"))
+def live() -> dict:
+    return load_tracker(TRACKER)
+
+
+@pytest.fixture(scope="module")
+def tracker(live: dict) -> dict:
+    return _unprepared(live)
+
+
+@pytest.fixture(scope="module")
+def source_root(live: dict) -> Path | None:
+    """The root of the src/ the skeletons render from: the route's frozen base once it exists, else the checkout's."""
+
+    try:
+        return provisional_root(ROOT, live)
+    except SocomError as exc:
+        pytest.skip(str(exc))
 
 
 def _applies(tracker: dict) -> list[dict]:
@@ -311,6 +337,20 @@ def test_stage_4_custody_counts_an_accepted_skeleton_write_as_its_stage_4_conten
     assert skeleton_custody(tmp_path, updated) == {}
 
 
+def test_provisional_inputs_come_from_the_frozen_base_once_it_exists(tmp_path: Path, tracker: dict) -> None:
+    from tools._socom.order_skeleton_route import BASE_DIR
+
+    # Before the base exists the read-only commands read src/ itself.
+    assert provisional_root(tmp_path, tracker) is None
+    # A route that has written src/ without its base is refused, never read from src/.
+    applied = _applied(tracker)
+    with pytest.raises(SocomError, match="frozen base"):
+        provisional_root(tmp_path, applied)
+    (tmp_path / BASE_DIR / "src").mkdir(parents=True)
+    assert provisional_root(tmp_path, applied) == tmp_path / BASE_DIR
+    assert provisional_root(tmp_path, tracker) == tmp_path / BASE_DIR
+
+
 def test_content_after_block_only_files_keeps_stage_4s_separator() -> None:
     from tools._socom.order_skeleton_write import separated
     from tools._socom.source_apply import render_file
@@ -348,10 +388,13 @@ def test_decisions_files_name_skeleton_items_and_decide_a_row_once(tmp_path: Pat
 
 
 # -- real data: renders with decisions, and the apply route without writing ---------------------
+#
+# The pre-route state is the tracker with the route's mutations undone (``_unprepared``) and the
+# src/ the manifest was built on, the route's frozen base once it exists (``source_root``).
 
 
 @needs_inputs
-def test_decisions_reach_the_render_and_its_checks(tracker: dict, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_decisions_reach_the_render_and_its_checks(tracker: dict, source_root: Path | None, monkeypatch: pytest.MonkeyPatch) -> None:
     from tools._socom.order_skeleton_check import check_skeletons
     from tools._socom.order_skeleton_route import waiting_rows
     from tools._socom.order_skeleton_write import DECISIONS_KIND, SkeletonInputs, decisions_path, render_skeletons, write_skeletons
@@ -361,7 +404,7 @@ def test_decisions_reach_the_render_and_its_checks(tracker: dict, monkeypatch: p
     monkeypatch.setattr(order_skeleton_write, "DECISIONS_DIR", decisions_dir)
     updated = _prepared(tracker)
     try:
-        inputs = SkeletonInputs(ROOT, updated, manifest_path=INPUTS[0], snapshot_path=INPUTS[1])
+        inputs = SkeletonInputs(ROOT, updated, manifest_path=INPUTS[0], snapshot_path=INPUTS[1], source_root=source_root)
         rows = waiting_rows(render_skeletons(inputs, segment=None), inputs)
         by_kind: dict[str, dict] = {}
         for row in rows:
@@ -387,7 +430,7 @@ def test_decisions_reach_the_render_and_its_checks(tracker: dict, monkeypatch: p
             existing = json.loads(path.read_text(encoding="utf-8"))["decisions"] if path.is_file() else []
             path.write_text(json.dumps({"kind": DECISIONS_KIND, "schema_version": 1, "work_item_id": item,
                                         "decisions": sorted(existing + rows_out, key=lambda row: (row["kind"], row["key"]))}), encoding="utf-8")
-        decided_inputs = SkeletonInputs(ROOT, updated, manifest_path=INPUTS[0], snapshot_path=INPUTS[1])
+        decided_inputs = SkeletonInputs(ROOT, updated, manifest_path=INPUTS[0], snapshot_path=INPUTS[1], source_root=source_root)
         rendered = render_skeletons(decided_inputs, segment=None)
         assert decided_inputs.unused_decisions() == []
         waiting = {(row["kind"], row["key"]) for row in waiting_rows(rendered, decided_inputs)}
@@ -401,8 +444,8 @@ def test_decisions_reach_the_render_and_its_checks(tracker: dict, monkeypatch: p
         assert regions, "the decided type is written in a region"
         if preview.exists():
             shutil.rmtree(preview)
-        write_skeletons(ROOT, preview, rendered)
-        report = check_skeletons(ROOT, updated, preview, manifest_path=INPUTS[0], snapshot_path=INPUTS[1])
+        write_skeletons(source_root or ROOT, preview, rendered)
+        report = check_skeletons(ROOT, updated, preview, manifest_path=INPUTS[0], snapshot_path=INPUTS[1], source_root=source_root)
         assert report["ok"], report["failed"]
     finally:
         if (ROOT / decisions_dir).exists():
@@ -412,9 +455,10 @@ def test_decisions_reach_the_render_and_its_checks(tracker: dict, monkeypatch: p
 
 
 @needs_inputs
-def test_the_prepare_apply_renders_checks_and_records_without_writing(tracker: dict, monkeypatch: pytest.MonkeyPatch) -> None:
-    from tools._socom.order_skeleton_route import RENDER_DIR, prepare_skeleton_apply, prepare_reservations, route_inputs
-    from tools._socom.order_skeleton_write import render_skeletons
+def test_the_prepare_reservations_come_from_the_pre_route_render(tracker: dict, live: dict, source_root: Path | None,
+                                                                 monkeypatch: pytest.MonkeyPatch) -> None:
+    from tools._socom.order_skeleton_route import prepare_reservations, prepare_skeleton_apply
+    from tools._socom.order_skeleton_write import SkeletonInputs, render_skeletons
 
     # The real decisions name the real prepare item, which this earlier-state tracker does not have yet.
     monkeypatch.setattr(order_skeleton_write, "DECISIONS_DIR", "build/test-skeleton-decisions-empty")
@@ -422,39 +466,93 @@ def test_the_prepare_apply_renders_checks_and_records_without_writing(tracker: d
     updated = copy.deepcopy(tracker)
     registered = set((capability_opening(ORDER_SKELETON_ROUTE_ID) or {}).get("commands") or [])
     open_capability_gate(updated, ORDER_SKELETON_ROUTE_ID, registered)
-    inputs, base = route_inputs(ROOT, updated, manifest_path=INPUTS[0], snapshot_path=INPUTS[1])
-    assert base is None
+    inputs = SkeletonInputs(ROOT, updated, manifest_path=INPUTS[0], snapshot_path=INPUTS[1], source_root=source_root)
     rendered = render_skeletons(inputs, segment=None)
     prepare_files, unit_files, counts = prepare_reservations(rendered, inputs)
     assert counts["orphan-deleted"] == len(rendered["manifest"]["deleted"]) and sum(map(len, unit_files.values())) == len(inputs.units)
-    add_skeleton_prepare(updated, prepare_files=prepare_files, unit_files=unit_files, manifest_sha256=inputs.manifest["manifest_sha256"],
-                         write_sha256=rendered["manifest"]["write_sha256"], counts=counts)
+    record = add_skeleton_prepare(updated, prepare_files=prepare_files, unit_files=unit_files,
+                                  manifest_sha256=inputs.manifest["manifest_sha256"], write_sha256=rendered["manifest"]["write_sha256"],
+                                  counts=counts)
     refresh_ready_and_stages(updated)
     assert audit_tracker(updated) == []
-    prepare = _item(updated, ORDER_SKELETON_PREPARE_ID)
-    prepare.update(status="in_progress", lease={"owner": "worker", "claimed_at": "2026-11-01T00:00:00Z",
-                                                "heartbeat_at": "2026-11-01T00:00:00Z", "expires_at": "2999-01-01T00:00:00Z"})
-    src_before = sorted((path.relative_to(ROOT).as_posix(), path.stat().st_mtime_ns) for path in (ROOT / "src").rglob("*") if path.is_file())
-    try:
-        record, changes = prepare_skeleton_apply(ROOT, updated, ORDER_SKELETON_PREPARE_ID, "worker", manifest_path=INPUTS[0],
-                                                 snapshot_path=INPUTS[1], write=False)
-    finally:
-        if (ROOT / RENDER_DIR).exists():
-            shutil.rmtree(ROOT / RENDER_DIR)
-    assert src_before == sorted((path.relative_to(ROOT).as_posix(), path.stat().st_mtime_ns) for path in (ROOT / "src").rglob("*") if path.is_file())
-    assert record["check"]["ok"] and record["check"]["s2"]["known_conflict_count"] == 6
-    assert set(changes) <= set(prepare["resources"]) and len(record["files"]) == len(prepare["resources"])
-    assert record["inputs"]["stage4_baseline_sha256"] == next(row for row in updated["stages"] if row["name"] == "source-correlation")["baseline"]["baseline_sha256"]
-    # Files the prepare creates have no before; deleted orphans no after; every written file keeps its stage 4 blocks.
-    assert all(row["before_sha256"] is None for row in record["files"] if row["action"] in ("holding", "new-header"))
-    assert all(row["after_sha256"] is None for row in record["files"] if row["action"] == "orphan-deleted")
-    assert {row["kind"] for row in record["waiting"]} == {"overload-tie", "type-no-record"} and record["known_conflicts"] == []
+    # The real route added its prepare from this render: its reservations and its stage record reproduce.
+    real = next((row for row in live["work_items"] if row["id"] == ORDER_SKELETON_PREPARE_ID), None)
+    stage = next(row for row in live["stages"] if row["name"] == "authored-function-order")
+    real_record = (stage.get("decomposition") or {}).get("skeleton_prepare")
+    if real is not None and real_record and real_record["manifest_sha256"] == inputs.manifest["manifest_sha256"]:
+        prepare = _item(updated, ORDER_SKELETON_PREPARE_ID)
+        assert prepare["resources"] == real["resources"] and prepare["batch"] == real["batch"]
+        assert {key: value for key, value in record.items() if key != "tracker_revision"} == \
+            {key: value for key, value in real_record.items() if key != "tracker_revision"}
+        for row in _applies(updated):
+            assert row["resources"] == _item(live, row["id"])["resources"], row["id"]
     # A segment apply waits for the accepted prepare.
     apply = _applies(updated)[0]
     apply.update(status="in_progress", lease={"owner": "worker", "claimed_at": "2026-11-01T00:00:00Z",
                                               "heartbeat_at": "2026-11-01T00:00:00Z", "expires_at": "2999-01-01T00:00:00Z"})
     with pytest.raises(SocomError, match="writes after the accepted prepare"):
         prepare_skeleton_apply(ROOT, updated, apply["id"], "worker", manifest_path=INPUTS[0], snapshot_path=INPUTS[1], write=False)
+
+
+# -- real data after the skeleton wave: the route re-renders what it wrote ----------------------
+
+
+def _src_state() -> list[tuple[str, int]]:
+    return sorted((path.relative_to(ROOT).as_posix(), path.stat().st_mtime_ns) for path in (ROOT / "src").rglob("*") if path.is_file())
+
+
+@needs_inputs
+def test_a_prepare_re_apply_renders_checks_and_reproduces_its_record_without_writing(live: dict, source_root: Path | None) -> None:
+    from tools._socom.order_skeleton_route import RENDER_DIR, prepare_skeleton_apply
+
+    if not started(live) or source_root is None:
+        pytest.skip("the skeleton route has not written src/ yet")
+    updated = copy.deepcopy(live)
+    prepare = _item(updated, ORDER_SKELETON_PREPARE_ID)
+    recorded = copy.deepcopy(prepare["order_skeleton"])
+    prepare.update(status="in_progress", lease={"owner": "worker", "claimed_at": "2026-11-01T00:00:00Z",
+                                                "heartbeat_at": "2026-11-01T00:00:00Z", "expires_at": "2999-01-01T00:00:00Z"})
+    before = _src_state()
+    try:
+        record, changes = prepare_skeleton_apply(ROOT, updated, ORDER_SKELETON_PREPARE_ID, "worker", manifest_path=INPUTS[0],
+                                                 snapshot_path=INPUTS[1], write=False)
+    finally:
+        if (ROOT / RENDER_DIR).exists():
+            shutil.rmtree(ROOT / RENDER_DIR)
+    assert _src_state() == before
+    # src/ already holds the render: nothing to write, and every file, input and decision is the recorded one.
+    assert changes == {}
+    for key in ("inputs", "decisions", "files", "files_sha256", "waiting", "known_conflicts"):
+        assert record[key] == recorded[key], key
+    assert record["check"]["ok"] and record["inputs"]["base_tree_sha256"] == recorded["inputs"]["base_tree_sha256"]
+    # The whole-tree write digest also covers later items' decisions: it is the last apply's.
+    records = [row["order_skeleton"] for row in live["work_items"] if isinstance(row.get("order_skeleton"), dict)]
+    assert record["write_sha256"] == max(records, key=lambda row: row["applied_at"])["write_sha256"]
+    assert record["inputs"]["stage4_baseline_sha256"] == next(
+        row for row in updated["stages"] if row["name"] == "source-correlation")["baseline"]["baseline_sha256"]
+    # Files the prepare creates have no before; deleted orphans no after.
+    assert all(row["before_sha256"] is None for row in record["files"] if row["action"] in ("holding", "new-header"))
+    assert all(row["after_sha256"] is None for row in record["files"] if row["action"] == "orphan-deleted")
+
+
+@needs_inputs
+def test_every_accepted_skeleton_item_passes_its_apply_check_on_the_current_src(live: dict, source_root: Path | None) -> None:
+    from tools._socom.order_skeleton_route import CHECK_DIR, skeleton_items, verify_skeletons
+
+    accepted = [row["id"] for row in skeleton_items(live) if row.get("status") == "accepted"]
+    if not accepted or source_root is None:
+        pytest.skip("no skeleton item is accepted yet")
+    target = ROOT / CHECK_DIR / "all"
+    try:
+        reports = verify_skeletons(ROOT, live, accepted, manifest_path=INPUTS[0], snapshot_path=INPUTS[1])
+    finally:
+        if target.exists():
+            shutil.rmtree(target)
+    assert [report["work_item_id"] for report in reports] == accepted
+    assert {report["work_item_id"]: report["problems"] for report in reports if not report["ok"]} == {}
+    # Each record is the one its handoff cited and its acceptance required.
+    for report in reports:
+        assert f"{RECORD_CITATION}{report['record_sha256']}" in _item(live, report["work_item_id"])["evidence"]
 
 
 def test_a_decided_type_row_keeps_its_readable_name() -> None:
@@ -465,3 +563,30 @@ def test_a_decided_type_row_keeps_its_readable_name() -> None:
     assert _mangled_last_name("Q36CAiMap6region4TYPE") == "TYPE"
     assert _mangled_last_name("7CDIType") == "CDIType"
     assert _mangled_last_name("plain") == "plain"
+
+
+def test_a_decided_type_row_is_found_by_its_readable_name_or_its_key() -> None:
+    from types import SimpleNamespace
+
+    from tools._socom.order_skeleton_route import decided_rows
+
+    prepare, other = ORDER_SKELETON_PREPARE_ID, "socom:work:order-segment-057-apply"
+    inputs = SimpleNamespace(
+        manifest={"declarations": {"types": [{"type": "ActionItem::EVENT", "mangled": "Q210ActionItem5EVENT", "chain": ["ActionItem", "EVENT"]},
+                                             {"type": "(anonymous namespace)::KIND", "mangled": "Q221@unnamed@zui_skb_cpp@4KIND",
+                                              "chain": ["@unnamed@zui_skb_cpp@", "KIND"]}]}},
+        decisions={
+            ("type-no-record", "Q210ActionItem5EVENT"): {"item": prepare, "name": "EVENT", "value": "enum EVENT {};"},
+            ("type-no-record", "Q221@unnamed@zui_skb_cpp@4KIND"): {"item": other, "value": "enum KIND {};"},
+            ("overload-tie", "src/a.cpp:1"): {"item": prepare, "value": "f__Fv"},
+        },
+        bodies={"src/a.cpp:1": {"candidates": ["f__Fv", "f__Fi"]}}, data={}, signatures={},
+    )
+    rows = {row["key"]: row for row in decided_rows(inputs, prepare)}
+    assert sorted(rows) == ["Q210ActionItem5EVENT", "src/a.cpp:1"]
+    event = rows["Q210ActionItem5EVENT"]
+    # The readable name, as waiting_rows names the row; the stored last-component name stays an alias.
+    assert event["name"] == "ActionItem::EVENT" and event["aliases"] == ["EVENT"] and event["option"] == "type"
+    assert rows["src/a.cpp:1"]["candidates"] == ["f__Fv", "f__Fi"] and rows["src/a.cpp:1"]["name"] == "src/a.cpp:1"
+    (kind,) = decided_rows(inputs, other)
+    assert kind["name"] == "(anonymous namespace)::KIND" and kind["aliases"] == ["KIND"]

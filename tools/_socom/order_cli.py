@@ -104,14 +104,18 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "(move, cross-file move, BD4 holding, BD6 declarator rewrite); per data row its type and source, ELF "
             "initializer and section; the rows needing judgment and counts per segment; writes the frozen body snapshot "
             "build/stage5/provisional-bodies.json once (then only compares it; --refresh-snapshot replaces it); --output "
-            "writes the manifest (with manifest_sha256) under build/.",
+            "writes the manifest (with manifest_sha256) under build/. Once the skeleton route's frozen base "
+            "build/stage5/skeleton-route/base exists, every provisional input (headers, bodies, preamble, file-scope data) "
+            "is read from its src/, never from the written src/, so a rebuild reproduces the manifest the route applied; "
+            "--refresh-snapshot is then refused.",
         ),
         spec(
             "order skeleton write",
             "order",
             "Stage 5 phase B (rounds 2 and 3a), preview only: from the skeleton manifest (its digest, the body snapshot, the src/ "
-            "digest and the cited accepted order plans must hold) write a mirror of src/ under --root (a directory under "
-            "build/; src/ is refused until the governed route of round 3b) where each unit file (--segment N, or --all) "
+            "digest and the cited accepted order plans must hold; the src/ is the skeleton route's frozen base once it "
+            "exists) write a mirror of that src/ under --root (a directory under "
+            "build/; src/ is refused: the governed route of round 3b writes it) where each unit file (--segment N, or --all) "
             "keeps its stage 4 blocks byte-identical and its authored preamble, then one entry per planned row fenced "
             "/* @socom-skeleton <stub|body> <mangled> */ in an order that keeps the plan's function and region data "
             "orders: moved bodies from the frozen snapshot (byte-identical but for recorded BD6 or out-of-line head "
@@ -529,33 +533,48 @@ def _order_skeleton_manifest(arguments: argparse.Namespace) -> int:
     from .constants import tracker_path
     from .order_skeleton import build_manifest, headline, settle_snapshot
     from .tracker import load_tracker
-    from .util import atomic_write_json
+    from .util import SocomError, atomic_write_json
 
     root = _root(arguments)
     output = _build_path(root, arguments.output, "skeleton manifests") if arguments.output else None
     snapshot_path = _build_path(root, arguments.snapshot, "body snapshots")
     receipt = _build_path(root, arguments.receipt, "receipt exports") if arguments.receipt else None
+    tracker = load_tracker(tracker_path(root))
+    base = _preview_base(root, tracker)
+    if base is not None and arguments.refresh_snapshot:
+        raise SocomError(f"the body snapshot is frozen with the skeleton route's base ({_source_label(root, base)}): "
+                         "--refresh-snapshot is refused once the base exists")
     manifest, snapshot = build_manifest(
-        root, load_tracker(tracker_path(root)), graph_path=_path(root, arguments.graph), receipt_path=receipt,
-        segment=arguments.segment,
+        root, tracker, graph_path=_path(root, arguments.graph), receipt_path=receipt, segment=arguments.segment,
+        source_root=base,
     )
     snapshot_state = settle_snapshot(snapshot_path, snapshot, refresh=arguments.refresh_snapshot)
     if output is not None:
         atomic_write_json(output, manifest)
     ok = snapshot_state["status"] != "stale"
-    report = {"ok": ok, "mutation_performed": False, "output": arguments.output, "snapshot": {"path": arguments.snapshot, **snapshot_state}}
+    source = _source_label(root, base)
+    report = {"ok": ok, "mutation_performed": False, "output": arguments.output, "source": source,
+              "snapshot": {"path": arguments.snapshot, **snapshot_state}}
     if not ok:
-        report["note"] = "src/ changed since the snapshot was frozen: pass --refresh-snapshot only if no skeleton apply has started"
+        report["note"] = (f"{source} changed since the snapshot was frozen: pass --refresh-snapshot only if no skeleton apply has started"
+                          if base is None else f"{source} differs from the snapshot frozen with it: restore the base, never refresh the snapshot")
     _emit({**report, **headline(manifest)})
     return 0 if ok else 1
 
 
 def _preview_base(root: Path, tracker: dict[str, Any]) -> Path | None:
-    """Once the skeleton route has written src/, previews render from its frozen base (the src/ the manifest was built on)."""
+    """The root of the src/ the read-only skeleton commands take their provisional inputs from (None: src/ itself).
 
-    from .order_skeleton_route import base_root, started
+    Once the skeleton route's frozen base exists, src/ holds skeletons: the manifest, previews and checks read the base.
+    """
 
-    return base_root(root) if started(tracker) else None
+    from .order_skeleton_route import provisional_root
+
+    return provisional_root(root, tracker)
+
+
+def _source_label(root: Path, base: Path | None) -> str:
+    return "src/" if base is None else f"{base.relative_to(root).as_posix()}/src/"
 
 
 def _order_skeleton_write(arguments: argparse.Namespace) -> int:
@@ -576,7 +595,7 @@ def _order_skeleton_write(arguments: argparse.Namespace) -> int:
     write_skeletons(base if base is not None else root, target, rendered)
     manifest = rendered["manifest"]
     _emit({
-        "ok": True, "mutation_performed": False, "root": arguments.preview_root,
+        "ok": True, "mutation_performed": False, "root": arguments.preview_root, "source": _source_label(root, base),
         "write_manifest": f"{arguments.preview_root.rstrip('/')}/skeleton-write.json",
         "write_sha256": manifest["write_sha256"], "tree_sha256": tree_digest(target), "summary": manifest["summary"],
         "waiting": manifest["waiting"], "order_conflicts": manifest["order_conflicts"],
@@ -598,14 +617,14 @@ def _order_skeleton_check(arguments: argparse.Namespace) -> int:
     target = preview_root(root, arguments.preview_root)
     output = _build_path(root, arguments.output, "skeleton check reports") if arguments.output else None
     tracker = load_tracker(tracker_path(root))
+    base = _preview_base(root, tracker)
     report = check_skeletons(
         root, tracker, target, manifest_path=_build_path(root, arguments.manifest, "skeleton manifests"),
-        snapshot_path=_build_path(root, arguments.snapshot, "body snapshots"), lint=arguments.lint,
-        source_root=_preview_base(root, tracker),
+        snapshot_path=_build_path(root, arguments.snapshot, "body snapshots"), lint=arguments.lint, source_root=base,
     )
     if output is not None:
         atomic_write_json(output, report)
-    _emit({**headline(report), "mutation_performed": False, "output": arguments.output})
+    _emit({**headline(report), "mutation_performed": False, "output": arguments.output, "source": _source_label(root, base)})
     return 0 if report["ok"] else 1
 
 

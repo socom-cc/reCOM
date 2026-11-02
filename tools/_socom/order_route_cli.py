@@ -70,8 +70,9 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "build/stage5/skeleton-decisions/<item>.json that the writer reads: a by-value type without a usable record "
             "(--type, its complete definition), an overload tie (--body, the candidate the body goes to), a local static or "
             "function-local class without an owner (--owner, an out-of-line function of the unit) or an initializer the "
-            "ELF bytes cannot render (--initializer); each with its --basis. A row lands in one item's files and is "
-            "decided under that item; an undecided row stays waiting and flagged.",
+            "ELF bytes cannot render (--initializer); each with its --basis. --artifact names the row by its key or its "
+            "readable name (a type: ActionItem::EVENT or Q210ActionItem5EVENT), also to re-decide a decided row. A row "
+            "lands in one item's files and is decided under that item; an undecided row stays waiting and flagged.",
             mutates=True,
         ),
         spec(
@@ -124,7 +125,8 @@ def register_skeleton(skeleton_commands: Any) -> None:
     decide = skeleton_commands.add_parser("decide")
     decide.add_argument("--item", required=True, help="the skeleton item whose files the row lands in")
     decide.add_argument("--lease-owner", required=True)
-    decide.add_argument("--artifact", required=True, help="the waiting row's key (artifact, body id or the type's mangled name)")
+    decide.add_argument("--artifact", required=True,
+                        help="the waiting row's key (artifact, body id or the type's mangled name) or its readable name")
     value = decide.add_mutually_exclusive_group(required=True)
     value.add_argument("--type", dest="type_text", help="the complete definition of a by-value type without a usable record")
     value.add_argument("--owner", dest="owner_name", help="the mangled name of the owning out-of-line function")
