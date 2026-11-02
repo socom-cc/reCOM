@@ -33,3 +33,101 @@
  * @socom-artifact defines main socom:data:0x4757c4
  * @socom-artifact defines main socom:data:0x4757c8
  * socom-owner-annotations end socom:work:source-segment-016 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "zai.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class MAP_FLOODFILL_STRUCT;
+class MAP_FOREACH_STRUCT;
+class MAP_LINEWALK_STRUCT;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub GetLocationWidth__6CAiMapFRC9CAiMapLoci */
+int CAiMap::GetLocationWidth(const CAiMapLoc &, int)
+{
+}
+
+/* @socom-skeleton stub _TravelLineCallback__FRC19MAP_LINEWALK_STRUCTPv */
+void _TravelLineCallback(const MAP_LINEWALK_STRUCT &, void *)
+{
+}
+
+/* @socom-skeleton stub _SeeLineCallback__FRC19MAP_LINEWALK_STRUCTPv */
+void _SeeLineCallback(const MAP_LINEWALK_STRUCT &, void *)
+{
+}
+
+/* @socom-skeleton stub _VisLineCallback__FRC19MAP_LINEWALK_STRUCTPv */
+void _VisLineCallback(const MAP_LINEWALK_STRUCT &, void *)
+{
+	/* @socom-skeleton stub grass_density$789 */
+	static float grass_density;
+	/* @socom-skeleton stub brush_density$792 */
+	static float brush_density;
+	/* @socom-skeleton stub forest_density$795 */
+	static float forest_density;
+}
+
+/* @socom-skeleton stub CanTravelLine__6CAiMapFRC9CAiMapLocRC9CAiMapLocP9CAiMapLoc */
+unsigned char CAiMap::CanTravelLine(const CAiMapLoc &, const CAiMapLoc &, CAiMapLoc *)
+{
+}
+
+/* @socom-skeleton stub CanSeeLine__6CAiMapFRC9CAiMapLocRC9CAiMapLocP9CAiMapLoc */
+unsigned char CAiMap::CanSeeLine(const CAiMapLoc &, const CAiMapLoc &, CAiMapLoc *)
+{
+}
+
+/* @socom-skeleton stub CanSeeLine__6CAiMapFRC9CAiMapLocPC6CPnt3DP9CAiMapLoc */
+void CAiMap::CanSeeLine(const CAiMapLoc &, const CPnt3D *, CAiMapLoc *)
+{
+}
+
+/* @socom-skeleton stub ComputeLineVisibility__6CAiMapFRC9CAiMapLocRC9CAiMapLoc */
+float CAiMap::ComputeLineVisibility(const CAiMapLoc &, const CAiMapLoc &)
+{
+	/* @socom-skeleton stub shadow_scale$821 */
+	static unsigned char shadow_scale[16] = {0, 0, 128, 63, 102, 102, 102, 63, 0, 0, 0, 63, 195, 245, 168, 62};
+}
+
+/* @socom-skeleton stub WalkLine__6CAiMapFRC9CAiMapLocRC9CAiMapLocPFRC19MAP_LINEWALK_STRUCTPv_bPv */
+void CAiMap::WalkLine(const CAiMapLoc &, const CAiMapLoc &, bool (*)(const MAP_LINEWALK_STRUCT &, void *), void *)
+{
+}
+
+/* @socom-skeleton stub WalkLine__6CAiMapFRC9CAiMapLocPC6CPnt3DPFRC19MAP_LINEWALK_STRUCTPv_bPv */
+void CAiMap::WalkLine(const CAiMapLoc &, const CPnt3D *, bool (*)(const MAP_LINEWALK_STRUCT &, void *), void *)
+{
+}
+
+/* @socom-skeleton stub FloodFill__6CAiMapFRC9CAiMapLocQ26CAiMap3DIRiPFR20MAP_FLOODFILL_STRUCTPv_bPv */
+void CAiMap::FloodFill(const CAiMapLoc &, CAiMap::DIR, int, bool (*)(MAP_FLOODFILL_STRUCT &, void *), void *)
+{
+}
+
+/* @socom-skeleton stub _tile_soil__FRC18MAP_FOREACH_STRUCTPv */
+void _tile_soil(const MAP_FOREACH_STRUCT &, void *)
+{
+}
+
+/* @socom-skeleton stub _tile_boundary__FRC18MAP_FOREACH_STRUCTPv */
+void _tile_boundary(const MAP_FOREACH_STRUCT &, void *)
+{
+}
+
+/* @socom-skeleton stub Tile__6CAiMapFPCQ26CAiMap6regionUiUi */
+unsigned char CAiMap::Tile(const CAiMap::region *, unsigned int, unsigned int)
+{
+}
+
+/* @socom-skeleton stub CountMapVisDir__6CAiMapFRC9CAiMapLocPiP9CAiMapLoci */
+void CAiMap::CountMapVisDir(const CAiMapLoc &, int *, CAiMapLoc *, int)
+{
+}
+
+/* @socom-skeleton stub CountMapTravelDir__6CAiMapFRC9CAiMapLocPiP9CAiMapLoci */
+void CAiMap::CountMapTravelDir(const CAiMapLoc &, int *, CAiMapLoc *, int)
+{
+}

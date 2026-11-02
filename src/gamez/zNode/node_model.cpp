@@ -27,7 +27,18 @@
 
 namespace zdb
 {
-	CModel::CModel(const char* name)
+
+}
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "gamez/zVisual/zvis.h"
+#include "znode.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton body __ct__Q23zdb6CModelFPCc */
+namespace zdb {
+CModel::CModel(const char* name)
 	{
 		m_AssetLib = NULL;
 		m_type = 7;
@@ -36,74 +47,208 @@ namespace zdb
 		m_variant = 0;
 		m_bForceExport = false;
 	}
+}
 
-	CModel* CModel::Create(CSaveLoad& sload, CAssetLib* library)
+/* @socom-skeleton stub __dt__Q23zdb6CModelFv */
+zdb::CModel::~CModel()
+{
+}
+
+/* @socom-skeleton stub Release__Q23zdb6CModelFPQ23zdb5CNode */
+void zdb::CModel::Release(zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub UpdateBBoxFromDI__Q23zdb5CNodeFb */
+CBBox * zdb::CNode::UpdateBBoxFromDI(bool)
+{
+}
+
+/* @socom-skeleton stub UpdateBBox__Q23zdb5CNodeFb */
+CBBox * zdb::CNode::UpdateBBox(bool)
+{
+}
+
+/* @socom-skeleton body ComputeFacadeMatrix__Q23zdb5CNodeFPC7CMatrixP7CMatrix */
+namespace zdb {
+void CNode::ComputeFacadeMatrix(const CMatrix* matrix, CMatrix* model)
 	{
-		CModel* model = new CModel(NULL);
 
-		if (library)
-			library->AddModel(model);
+	}
+}
 
-		if (model->Read(sload))
-			return model;
+/* @socom-skeleton body GetMesh__Q23zdb5CNodeFv */
+zdb::CMesh * zdb::CNode::GetMesh()
+	{
+		CVisual* mesh = NULL;
 
-		if (library)
+		if (!m_visual.empty())
 		{
-			auto target = std::find(
-				library->m_models.begin(),
-				library->m_models.end(),
-				model);
-
-			library->m_models.erase(target);
+			mesh = *m_visual.data();
 		}
 
-		return model;
+		if (!mesh || !mesh->m_has_lods)
+		{
+			mesh = NULL;
+		}
+
+		return static_cast<CMesh*>(mesh);
 	}
 
-	bool CModel::Read(CSaveLoad& sload)
+/* @socom-skeleton stub GetSubMesh__Q23zdb5CNodeFv */
+void zdb::CNode::GetSubMesh()
+{
+}
+
+/* @socom-skeleton stub GetFirstVisual__Q23zdb5CNodeFv */
+void zdb::CNode::GetFirstVisual()
+{
+}
+
+/* @socom-skeleton body CreateInstance__Q23zdb5CNodeFPQ23zdb6CModelPC6CPnt3DPC5CQuat */
+namespace zdb {
+CNode* CNode::CreateInstance(CModel* model, const CPnt3D* position, const CQuat* rotation)
 	{
-		tag_NODE_PARAMS nparams;
+		if (!model)
+			return NULL;
 
-		if (zar::CKey* modelkey = sload.m_zfile.GetOpenKey())
+		CNode* instance = model->Copy();
+
+		if (position)
+			instance->SetPosition(position->x, position->y, position->z);
+
+		if (rotation)
+			instance->SetRotation(rotation);
+
+		model->m_child.insert(model->m_child.begin(), instance);
+		model->m_parent = instance;
+		instance->m_model = model;
+		instance->SetModelname(model->m_name);
+		instance->m_type = (u32)TYPE::INSTANCE;
+
+		return instance;
+	}
+}
+
+/* @socom-skeleton body CreateInstance__Q23zdb5CNodeFPCcPC6CPnt3DPC5CQuat */
+namespace zdb {
+CNode* CNode::CreateInstance(const char* name, const CPnt3D* position, const CQuat* rotation)
+	{
+		if (!name)
+			return NULL;
+
+		if (!CWorld::m_world)
+			return NULL;
+
+		CModel* model = CWorld::GetModel(name);
+
+		if (!model)
+			return NULL;
+
+		CNode* instance = model->Copy();
+
+		if (position)
+			instance->SetPosition(position->x, position->y, position->z);
+
+		if (rotation)
+			instance->SetRotation(rotation);
+
+		model->m_child.insert(model->m_child.begin(), instance);
+		model->m_parent = instance;
+		instance->m_model = model;
+		instance->SetModelname(model->m_name);
+		instance->m_type = (u32)TYPE::INSTANCE;
+
+		return instance;
+	}
+}
+
+/* @socom-skeleton body CreateXRef__Q23zdb5CNodeFPQ23zdb6CModelPC6CPnt3DPC5CQuat */
+namespace zdb {
+CNode* CNode::CreateXRef(CModel* model, const CPnt3D* position, const CQuat* rotation)
+	{
+		if (!model)
+			return NULL;
+
+		CNode* xref = new CNode();
+
+		if (position)
+			xref->SetPosition(position->x, position->y, position->z);
+
+		if (rotation)
+			xref->SetRotation(rotation);
+
+		xref->m_type = static_cast<u32>(TYPE::CHILD);
+		xref->SetName("XRef");
+		xref->AddChild(model);
+	}
+}
+
+/* @socom-skeleton body CreateXRef__Q23zdb5CNodeFv */
+namespace zdb {
+CNode* CNode::CreateXRef()
+	{
+		CNode* xref = new CNode();
+		xref->m_type = static_cast<u32>(TYPE::CHILD);
+		xref->SetName("XRef");
+		return xref;
+	}
+}
+
+/* @socom-skeleton body Delete__Q23zdb5CNodeFPQ23zdb5CNode */
+zdb::CNode * zdb::CNode::Delete(zdb::CNode *)
+	{
+		if (m_type == static_cast<u32>(TYPE::MULTI_PARENT))
 		{
-			InitNodeParams(this);
-			
-			sload.m_zfile.Fetch("nparams", &nparams, sizeof(tag_NODE_PARAMS));
-			sload.m_zfile.Fetch("regionmask", &m_region_mask, sizeof(u32));
+			if (m_child.size() != 0)
+			{
+				CNode* child = *m_child.data();
+				RemoveFromParent();
 
-			m_matrix = nparams.m_matrix;
-			m_bbox.m_min = nparams.m_bbox.m_min;
-			m_bbox.m_max = nparams.m_bbox.m_max;
-			m_type = nparams.m_type;
-			m_active = nparams.m_active;
-
-			CNode::Read(sload);
-			SetName(modelkey->GetName());
+				if (m_parent)
+					m_parent->AddChild(child);
+			}
 		}
+		else if (m_type == static_cast<u32>(TYPE::INSTANCE))
+		{
+			// m_model->m_list.remove_if(this);
+
+			if (m_model->m_parent == this)
+				m_model->m_parent = NULL;
+
+			RemoveFromParent();
+		}
+		
+		// Very bad. Only putting this here because of 
+		// the decompilation output.
+		delete this;
 
 		return true;
 	}
 
-	CModel* CModelVector::GetModel(const char* name)
+/* @socom-skeleton body SetModel__Q23zdb5CNodeFPQ23zdb6CModel */
+namespace zdb {
+bool CNode::SetModel(CModel* model)
 	{
-		CModel* model = NULL;
-
-		if (name == NULL)
+		if (m_type != (u32)TYPE::CHILD || m_type != (u32)TYPE::INSTANCE)
 		{
-			model = NULL;
+			return false;
 		}
+
+		if (model)
+			DeleteChildren();
+
+		AddChild(model);
+
+		char* name;
+		m_model = model;
+
+		if (!model)
+			name = NULL;
 		else
-		{
-			for (auto it = begin(); it != end(); it++)
-			{
-				if (strcmp(name, (*it)->m_name) == 0)
-				{
-					model = *it;
-					break;
-				}
-			}
-		}
+			name = model->m_name;
 
-		return model;
+		SetModelname(name);
+		return true;
 	}
 }

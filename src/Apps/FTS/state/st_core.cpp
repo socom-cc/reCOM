@@ -42,6 +42,59 @@
 #include "gamez/zRender/zrender.h"
 #include "gamez/zVideo/zvid.h"
 
+/* @socom-skeleton decl include */
+#include "gamez/zFTS/fts_state.h"
+#include "gamez/zUtil/util_stable.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub mpegWorkspaceSize */
+unsigned int mpegWorkspaceSize = 1835008;
+
+/* @socom-skeleton stub gsTexAddr */
+unsigned int gsTexAddr = 9216;
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+std::__nInit std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+std::__wInit std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static CSTable MultiplayerMsgStrings;
+
+/* @socom-skeleton stub load_thread_stack */
+unsigned char load_thread_stack[69632];
+
+/* @socom-skeleton stub __dt__15CCinematicStateFv */
+CCinematicState::~CCinematicState()
+{
+}
+
+/* @socom-skeleton stub SetMovie__15CCinematicStateFPCc */
+void CCinematicState::SetMovie(const char *)
+{
+}
+
+/* @socom-skeleton body Init__15CCinematicStateFv */
+unsigned char CCinematicState::Init() { return true; }
+
+/* @socom-skeleton body Tick__15CCinematicStateFf */
+unsigned char CCinematicState::Tick(float dT) {}
+
+/* @socom-skeleton body UnInit__15CCinematicStateFv */
+void CCinematicState::UnInit() {}
+
+/* @socom-skeleton stub OnPush__10CCoreStateFi */
+void CCoreState::OnPush(int)
+{
+}
+
+/* @socom-skeleton stub OnPop__10CCoreStateFi */
+void CCoreState::OnPop(int)
+{
+}
+
+/* @socom-skeleton body __ct__10CCoreStateFv */
 CCoreState::CCoreState()
 {
 	m_name = zstrdup("CoreState");
@@ -52,6 +105,12 @@ CCoreState::CCoreState()
 	m_skip_swap = 0;
 }
 
+/* @socom-skeleton stub __dt__10CCoreStateFv */
+CCoreState::~CCoreState()
+{
+}
+
+/* @socom-skeleton body Init__10CCoreStateFv */
 bool CCoreState::Init()
 {
 	CZSealBody* seal = NULL;
@@ -88,7 +147,31 @@ bool CCoreState::Init()
 	return true;
 }
 
+/* @socom-skeleton body Tick__10CCoreStateFf */
 void CCoreState::Tick(f32 dT)
 {
 	zVid_Swap(true);
+}
+
+/* @socom-skeleton body UnInit__10CCoreStateFv */
+void CCoreState::UnInit() {}
+
+/* @socom-skeleton stub LoadThreadEntry__FPv */
+void LoadThreadEntry(void *)
+{
+}
+
+/* @socom-skeleton stub Load__10CCoreStateFb */
+void CCoreState::Load(bool)
+{
+}
+
+/* @socom-skeleton stub Unload__10CCoreStateFv */
+void CCoreState::Unload()
+{
+}
+
+/* @socom-skeleton stub auxUnload__10CCoreStateFv */
+void CCoreState::auxUnload()
+{
 }

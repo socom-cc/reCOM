@@ -92,11 +92,67 @@
 
 namespace zdb
 {
-	CWorld* CWorld::m_world = NULL;
-	f32 CWorld::m_scale = 1.0f;
-	f32 CWorld::m_invscale = 1.0f / CWorld::m_scale;
 
-	CWorld::CWorld(const char* name)
+	
+
+	
+}
+
+/* @socom-skeleton decl include */
+#include "Apps/FTS/hud/hud.h"
+#include "gamez/zIntersect/zintersect.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zReader/zrdr.h"
+#include "gamez/zRender/zrender.h"
+#include "node_light.h"
+#include "node_model.h"
+#include "znode.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+struct _zanim_cmd_hdr;
+namespace zdb {
+class CTextureAssetCharacters;
+}
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub m_scale__Q23zdb6CWorld */
+namespace zdb {
+float CWorld::m_scale = 10.0f;
+}
+
+/* @socom-skeleton stub m_invscale__Q23zdb6CWorld */
+namespace zdb {
+float CWorld::m_invscale = 0.10000000149011612f;
+}
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+unsigned char std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+unsigned char std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub m_world__Q23zdb6CWorld */
+namespace zdb {
+zdb::CWorld *CWorld::m_world;
+}
+
+/* @socom-skeleton body GetVersion__Q23zdb6CWorldFv */
+namespace zdb {
+s32 CWorld::GetVersion()
+	{
+		return 0x10001;
+	}
+}
+
+/* @socom-skeleton body Init__Q23zdb6CWorldFv */
+void zdb::CWorld::Init() {}
+
+/* @socom-skeleton body Uninit__Q23zdb6CWorldFv */
+void zdb::CWorld::Uninit() {}
+
+/* @socom-skeleton body __ct__Q23zdb6CWorldFPCc */
+namespace zdb {
+CWorld::CWorld(const char* name)
 	{
 		m_camera = NULL;
 		m_diInt = NULL;
@@ -123,18 +179,16 @@ namespace zdb
 		m_default_soiltype = 0;
 		m_default_soiltype_name = NULL;
 	}
-	
-	s32 CWorld::GetVersion()
-	{
-		return 0x10001;
-	}
+}
 
-	CModel* CWorld::GetModel(const char* name)
-	{
-		return CAssetMgr::m_assets.GetModel(name);
-	}
+/* @socom-skeleton stub __dt__Q23zdb6CWorldFv */
+zdb::CWorld::~CWorld()
+{
+}
 
-	bool CWorld::Initalize()
+/* @socom-skeleton body Initalize__Q23zdb6CWorldFv */
+namespace zdb {
+bool CWorld::Initalize()
 	{
 		CCamera* camera = new CCamera();
 
@@ -157,13 +211,56 @@ namespace zdb
 
 		return true;
 	}
+}
 
-	void CWorld::ReserveChildren(s32 count)
+/* @socom-skeleton body GetModel__Q23zdb6CWorldFPCc */
+namespace zdb {
+CModel* CWorld::GetModel(const char* name)
+	{
+		return CAssetMgr::m_assets.GetModel(name);
+	}
+}
+
+/* @socom-skeleton stub AddLightMap__Q23zdb6CWorldFPQ23zdb9CLightMap */
+void zdb::CWorld::AddLightMap(zdb::CLightMap *)
+{
+}
+
+/* @socom-skeleton stub DeleteLightMap__Q23zdb6CWorldFPQ23zdb9CLightMap */
+void zdb::CWorld::DeleteLightMap(zdb::CLightMap *)
+{
+}
+
+/* @socom-skeleton stub AddShadow__Q23zdb6CWorldFPQ23zdb5CNode */
+void zdb::CWorld::AddShadow(zdb::CNode *)
+{
+}
+
+/* @socom-skeleton body GarbageCollect__Q23zdb6CWorldFv */
+namespace zdb {
+void CWorld::GarbageCollect()
+	{
+		for (auto i = m_child.begin(); i != m_child.end(); ++i)
+		{
+			zdb::CNode* node = dynamic_cast<CCell*>(*i);
+
+			if (!node)
+				(*i)->ShrinkAtomBasePtrs();
+		}
+	}
+}
+
+/* @socom-skeleton body ReserveChildren__Q23zdb6CWorldFi */
+namespace zdb {
+void CWorld::ReserveChildren(s32 count)
 	{
 		m_child.reserve(count + m_child.capacity());
 	}
+}
 
-	void CWorld::AddChild(CNode* child)
+/* @socom-skeleton body AddChild__Q23zdb6CWorldFPQ23zdb5CNode */
+namespace zdb {
+void CWorld::AddChild(CNode* child)
 	{
 		CWorld* parent = static_cast<CWorld*>(child->m_parent);
 
@@ -203,54 +300,79 @@ namespace zdb
 			// dispatch them to the zRenderer.
 		}
 	}
+}
 
-	void CWorld::AddLandmark(CNode* landmark)
+/* @socom-skeleton stub DeleteChild__Q23zdb6CWorldFPQ23zdb5CNode */
+short zdb::CWorld::DeleteChild(zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub DeleteChildren__Q23zdb6CWorldFv */
+void zdb::CWorld::DeleteChildren()
+{
+}
+
+/* @socom-skeleton body Update__Q23zdb6CWorldFv */
+void zdb::CWorld::Update() {}
+
+/* @socom-skeleton body LandmarkList_Search__Q23zdb6CWorldFPQ23zdb5CNodeR6CStackRQ23zdb11CNodeVector */
+namespace zdb {
+void CWorld::LandmarkList_Search(CNode* node, CStack& matstack, CNodeVector& landmarks)
 	{
-		if (landmark->m_landmark)
-		{
-
-		}
-
-		// landmark->RemoveFromParent();
+		
 	}
+}
 
-	bool CWorld::DismemberWorldModel()
+/* @socom-skeleton body GenerateLandmarkList__Q23zdb6CWorldFv */
+namespace zdb {
+s32 CWorld::GenerateLandmarkList()
 	{
-		CModel* worldmodel = CAssetMgr::m_assets.GetModel("worldmodel");
+		CNodeVector landmarks;
+		CStack stack;
+		
+		CStack::m_pointer++;
+		CStack::m_top++;
 
-		if (!worldmodel)
+		// *CStack::m_top = CMatrix::identity;
+
+		m_numNoFarClipNodes = 0;
+		LandmarkList_Search(this, stack, landmarks);
+
+		auto it = landmarks.begin();
+		while (it != landmarks.end())
 		{
-			return false;
-		}
-
-		// ReserveChildren(worldmodel->m_reflist.size());
-
-		auto it = worldmodel->m_child.begin();
-
-		while (it != worldmodel->m_child.end())
-		{
-			CNode* child = *it;
-			m_child.insert(m_child.begin(), child);
-			child->m_parent = this;
-			// m_grid->Update();
+			AddChild(*it);
 			++it;
 		}
-
-		return true;
+		
+		return 1;
 	}
+}
 
-	void CWorld::GarbageCollect()
-	{
-		for (auto i = m_child.begin(); i != m_child.end(); ++i)
-		{
-			zdb::CNode* node = dynamic_cast<CCell*>(*i);
+/* @socom-skeleton stub ReleaseLandmarkList__Q23zdb6CWorldFv */
+void zdb::CWorld::ReleaseLandmarkList()
+{
+}
 
-			if (!node)
-				(*i)->ShrinkAtomBasePtrs();
-		}
-	}
+/* @socom-skeleton body LightList_Search__FPQ23zdb5CNodeRQ23zdb10CLightList */
+void LightList_Search(zdb::CNode* node, zdb::CLightList& lightList)
+{
+    if (!node)
+        return;
 
-	CLightList& CWorld::GenerateLightList()
+    if (node->m_type != (u32)zdb::CNode::TYPE::CELL)
+        return;
+
+    if (node->m_type == (u32)zdb::CNode::TYPE::LIGHT)
+        lightList.insert(lightList.begin(), dynamic_cast<zdb::CLight*>(node));
+
+    for (auto i = node->m_child.begin(); i != node->m_child.end(); ++i)
+        LightList_Search(*i, lightList);
+}
+
+/* @socom-skeleton body GenerateLightList__Q23zdb6CWorldFv */
+namespace zdb {
+CLightList& CWorld::GenerateLightList()
 	{
 		LightList_Search(this, m_lights);
 
@@ -291,37 +413,235 @@ namespace zdb
 
 		return m_lights;
 	}
+}
 
-	s32 CWorld::GenerateLandmarkList()
+/* @socom-skeleton stub ReleaseLightList__Q23zdb6CWorldFv */
+void zdb::CWorld::ReleaseLightList()
+{
+}
+
+/* @socom-skeleton body AddLandmark__Q23zdb6CWorldFPQ23zdb5CNode */
+namespace zdb {
+void CWorld::AddLandmark(CNode* landmark)
 	{
-		CNodeVector landmarks;
-		CStack stack;
-		
-		CStack::m_pointer++;
-		CStack::m_top++;
-
-		// *CStack::m_top = CMatrix::identity;
-
-		m_numNoFarClipNodes = 0;
-		LandmarkList_Search(this, stack, landmarks);
-
-		auto it = landmarks.begin();
-		while (it != landmarks.end())
+		if (landmark->m_landmark)
 		{
-			AddChild(*it);
+
+		}
+
+		// landmark->RemoveFromParent();
+	}
+}
+
+/* @socom-skeleton stub DeleteLandmark__Q23zdb6CWorldFPQ23zdb5CNode */
+void zdb::CWorld::DeleteLandmark(zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub FindLandmark__Q23zdb6CWorldFPCc */
+zdb::CNode * zdb::CWorld::FindLandmark(const char *)
+{
+}
+
+/* @socom-skeleton stub GetIntersect__Q23zdb6CWorldFPC6CPnt3DPC6CPnt3D */
+zdb::IntersectStruct * zdb::CWorld::GetIntersect(const CPnt3D *, const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub GetIntersects__Q23zdb6CWorldFPC6CPnt3DPC6CPnt3D */
+zdb::DiIntersect * zdb::CWorld::GetIntersects(const CPnt3D *, const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub GetAltitude__Q23zdb6CWorldFPC6CPnt3Df */
+zdb::IntersectStruct * zdb::CWorld::GetAltitude(const CPnt3D *, float)
+{
+}
+
+/* @socom-skeleton stub GetAltitudes__Q23zdb6CWorldFPC6CPnt3Df */
+zdb::DiIntersect * zdb::CWorld::GetAltitudes(const CPnt3D *, float)
+{
+}
+
+/* @socom-skeleton stub GetIntersectBatch__Q23zdb6CWorldFPPQ23zdb11DiIntersecti */
+void zdb::CWorld::GetIntersectBatch(zdb::DiIntersect **, int)
+{
+}
+
+/* @socom-skeleton stub InitDescendantsDI__Q23zdb6CWorldFv */
+void zdb::CWorld::InitDescendantsDI()
+{
+}
+
+/* @socom-skeleton stub InitDescendantsVisuals__Q23zdb6CWorldFv */
+void zdb::CWorld::InitDescendantsVisuals()
+{
+}
+
+/* @socom-skeleton stub diTick__Q23zdb6CWorldFfPv */
+bool zdb::CWorld::diTick(float, void *)
+{
+}
+
+/* @socom-skeleton stub RegIntersectDelayed__Q23zdb6CWorldFPQ23zdb11DiIntersectPC6CPnt3DPC6CPnt3D */
+int zdb::CWorld::RegIntersectDelayed(zdb::DiIntersect *, const CPnt3D *, const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub RegIgnoreNodeDelayed__Q23zdb6CWorldFPQ23zdb11DiIntersectPQ23zdb5CNode */
+void zdb::CWorld::RegIgnoreNodeDelayed(zdb::DiIntersect *, zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub ClearIgnoreNodeDelayed__Q23zdb6CWorldFPQ23zdb11DiIntersect */
+void zdb::CWorld::ClearIgnoreNodeDelayed(zdb::DiIntersect *)
+{
+}
+
+/* @socom-skeleton stub RegProximityDelayed__Q23zdb6CWorldFPQ23zdb11DiIntersectPC6CPnt3Df */
+int zdb::CWorld::RegProximityDelayed(zdb::DiIntersect *, const CPnt3D *, float)
+{
+}
+
+/* @socom-skeleton stub Segregate_CCells__Q23zdb6CWorldFPQ23zdb5CNodeRQ23zdb11CNodeVectorRQ23zdb11CNodeVector */
+void zdb::CWorld::Segregate_CCells(zdb::CNode *, zdb::CNodeVector &, zdb::CNodeVector &)
+{
+}
+
+/* @socom-skeleton body DismemberWorldModel__Q23zdb6CWorldFv */
+namespace zdb {
+bool CWorld::DismemberWorldModel()
+	{
+		CModel* worldmodel = CAssetMgr::m_assets.GetModel("worldmodel");
+
+		if (!worldmodel)
+		{
+			return false;
+		}
+
+		// ReserveChildren(worldmodel->m_reflist.size());
+
+		auto it = worldmodel->m_child.begin();
+
+		while (it != worldmodel->m_child.end())
+		{
+			CNode* child = *it;
+			m_child.insert(m_child.begin(), child);
+			child->m_parent = this;
+			// m_grid->Update();
 			++it;
 		}
-		
-		return 1;
-	}
 
-	CTexHandle* CWorld::GetTexHandle(char* name)
-	{
-		return CAssetMgr::m_assets.GetTexHandle(name);
+		return true;
 	}
-	
-	void CWorld::LandmarkList_Search(CNode* node, CStack& matstack, CNodeVector& landmarks)
-	{
-		
-	}
+}
+
+/* @socom-skeleton stub AddTextureAssetCharacter__Q23zdb6CWorldFQ23zdb12_RenderPhasePQ23zdb5CNode */
+void zdb::CWorld::AddTextureAssetCharacter(zdb::_RenderPhase, zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub AddTextureAssetCharacter__Q23zdb6CWorldFPcPQ23zdb5CNode */
+void zdb::CWorld::AddTextureAssetCharacter(char *, zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub AddTextureAssetCharacter__Q23zdb6CWorldFPQ23zdb9CAssetLibPQ23zdb5CNode */
+void zdb::CWorld::AddTextureAssetCharacter(zdb::CAssetLib *, zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub AddTextureAssetCharacterAll__Q23zdb6CWorldFPQ23zdb10CTexHandle */
+void zdb::CWorld::AddTextureAssetCharacterAll(zdb::CTexHandle *)
+{
+}
+
+/* @socom-skeleton stub AddTextureAssetDecals__Q23zdb6CWorldFPQ23zdb10CTexHandle */
+void zdb::CWorld::AddTextureAssetDecals(zdb::CTexHandle *)
+{
+}
+
+/* @socom-skeleton stub DeleteTextureAssetCharacter__Q23zdb6CWorldFPcPQ23zdb5CNode */
+void zdb::CWorld::DeleteTextureAssetCharacter(char *, zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub DeleteTextureAssetCharacter__Q23zdb6CWorldFQ23zdb12_RenderPhasePQ23zdb5CNode */
+void zdb::CWorld::DeleteTextureAssetCharacter(zdb::_RenderPhase, zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub DeleteTextureAssetCharacter__Q23zdb6CWorldFPQ23zdb9CAssetLibPQ23zdb5CNode */
+void zdb::CWorld::DeleteTextureAssetCharacter(zdb::CAssetLib *, zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub FindTextureAssetCharacter__Q23zdb6CWorldFPQ23zdb5CNode */
+void zdb::CWorld::FindTextureAssetCharacter(zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub WipeoutTextureAssetCharacters__Q23zdb6CWorldFv */
+void zdb::CWorld::WipeoutTextureAssetCharacters()
+{
+}
+
+/* @socom-skeleton stub ClearLightMapList__Q23zdb6CWorldFv */
+void zdb::CWorld::ClearLightMapList()
+{
+}
+
+/* @socom-skeleton stub ClearShadowList__Q23zdb6CWorldFv */
+void zdb::CWorld::ClearShadowList()
+{
+}
+
+/* @socom-skeleton stub RemoveDecals__Q23zdb6CWorldFv */
+void zdb::CWorld::RemoveDecals()
+{
+}
+
+/* @socom-skeleton stub TestFOV__Q23zdb26CTextureAssetCharacterListFPQ23zdb7CCameraPPQ23zdb23CTextureAssetCharacters */
+void zdb::CTextureAssetCharacterList::TestFOV(zdb::CCamera *, zdb::CTextureAssetCharacters **)
+{
+}
+
+/* @socom-skeleton stub TestFOV__Q23zdb23CTextureAssetCharactersFPQ23zdb7CCamera */
+void zdb::CTextureAssetCharacters::TestFOV(zdb::CCamera *)
+{
+}
+
+/* @socom-skeleton stub __ct__Q23zdb23CTextureAssetCharactersFPQ23zdb9CAssetLibPQ23zdb5CNodePQ23zdb11CDynTexList */
+zdb::CTextureAssetCharacters::CTextureAssetCharacters(zdb::CAssetLib *, zdb::CNode *, zdb::CDynTexList *)
+{
+}
+
+/* @socom-skeleton stub RegisterAnimCommands__5CWindFv */
+void CWind::RegisterAnimCommands()
+{
+}
+
+/* @socom-skeleton stub CmdParseWind__5CWindFP5_zrdr */
+_zanim_cmd_hdr * CWind::CmdParseWind(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub CmdTickWind__5CWindFP14_zanim_cmd_hdrPf */
+bool CWind::CmdTickWind(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub Tick__5CWindFf */
+void CWind::Tick(float)
+{
+}
+
+/* @socom-skeleton stub TickGoal__5CWindFf */
+void CWind::TickGoal(float)
+{
+}
+
+/* @socom-skeleton stub Reset__5CWindFv */
+void CWind::Reset()
+{
 }

@@ -356,19 +356,932 @@
 #include "gamez/zValve/zvalve.h"
 #include "gamez/zUI/zui.h"
 
+/* @socom-skeleton decl forward */
+class C2D;
+class MediusAccountGetIDResponse;
+class MediusAccountLoginResponse;
+class MediusAccountRegistrationResponse;
+class MediusAddPlayerToClanResponse;
+class MediusAddToBuddyListFwdConfirmationRequest;
+class MediusBanPlayerResponse;
+class MediusCallbackStatus;
+class MediusChannelInfoResponse;
+class MediusChannelListResponse;
+class MediusChatFwdMessage;
+class MediusChatToggleResponse;
+class MediusCheckMyClanInvitationsResponse;
+class MediusClearGameListFilterResponse;
+class MediusCreateChannelResponse;
+class MediusCreateClanResponse;
+class MediusCreateGameResponse;
+class MediusDisbandClanResponse;
+class MediusErrorCode;
+class MediusErrorMessage;
+class MediusFindWorldByNameResponse;
+class MediusGameInfoResponse;
+class MediusGameListResponse;
+class MediusGameWorldPlayerListResponse;
+class MediusGetAnnouncementsResponse;
+class MediusGetClanInvitationsSentResponse;
+class MediusGetClanMemberListResponse;
+class MediusGetMyClanMessagesResponse;
+class MediusGetMyClansResponse;
+class MediusGetPolicyResponse;
+class MediusGetWorldSecurityLevelResponse;
+class MediusInvitePlayerToClanResponse;
+class MediusJoinChannelResponse;
+class MediusJoinGameResponse;
+class MediusLadderListResponse;
+class MediusLadderPositionResponse;
+class MediusLobbyWorldPlayerListResponse;
+class MediusPlayerInfoResponse;
+class MediusRemovePlayerFromClanResponse;
+class MediusRespondToClanInvitationResponse;
+class MediusRevokeClanInvitationResponse;
+class MediusSendClanMessageResponse;
+class MediusSessionBeginResponse;
+class MediusSessionEndResponse;
+class MediusSetGameListFilterResponse;
+class MediusStatusResponse;
+class MediusTextFilterResponse;
+class MediusTransferClanLeadershipResponse;
+class MediusUpdateClanStatsResponse;
+class MediusVersionServerResponse;
+class NetConnectionInfo;
+class NetErrorCode;
+class RoomGame;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub GameListPage__24@unnamed@zNetMedius_cpp@ */
+namespace {
+unsigned char GameListPage[4] = {1, 0, 0, 0};
+}
+
+/* @socom-skeleton stub RoomListPage__24@unnamed@zNetMedius_cpp@ */
+namespace {
+unsigned char RoomListPage[4] = {1, 0, 0, 0};
+}
+
+/* @socom-skeleton stub PlayerClanID__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int PlayerClanID = -1;
+}
+
+/* @socom-skeleton stub g_bNeedTop10 */
+bool g_bNeedTop10 = 1;
+
+/* @socom-skeleton stub RemovePlayerFromClanID__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int RemovePlayerFromClanID = -1;
+}
+
+/* @socom-skeleton stub g_iLastMemberRanked__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int g_iLastMemberRanked = -1;
+}
+
+/* @socom-skeleton stub myConnectionIndex__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int myConnectionIndex;
+}
+
+/* @socom-skeleton stub AcctLoggedIn__24@unnamed@zNetMedius_cpp@ */
+namespace {
+unsigned char AcctLoggedIn;
+}
+
+/* @socom-skeleton stub UserLoggedIn__24@unnamed@zNetMedius_cpp@ */
+namespace {
+unsigned char UserLoggedIn;
+}
+
+/* @socom-skeleton stub ScreenNameLoggedIn__24@unnamed@zNetMedius_cpp@ */
+namespace {
+unsigned char ScreenNameLoggedIn;
+}
+
+/* @socom-skeleton stub MediusWorldID__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int MediusWorldID;
+}
+
+/* @socom-skeleton stub LobbyServerPort__24@unnamed@zNetMedius_cpp@ */
+namespace {
+unsigned char LobbyServerPort[8];
+}
+
+/* @socom-skeleton stub LobbyWorldID__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int LobbyWorldID;
+}
+
+/* @socom-skeleton stub DoLogin__24@unnamed@zNetMedius_cpp@ */
+namespace {
+bool DoLogin;
+}
+
+/* @socom-skeleton stub HaveStoredScreenNames__24@unnamed@zNetMedius_cpp@ */
+namespace {
+unsigned char HaveStoredScreenNames;
+}
+
+/* @socom-skeleton stub Ladder_Rating__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int Ladder_Rating;
+}
+
+/* @socom-skeleton stub UniversalGamePerformanceMetric__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int UniversalGamePerformanceMetric;
+}
+
+/* @socom-skeleton stub g_iCreateGameClanAffiliation__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int g_iCreateGameClanAffiliation;
+}
+
+/* @socom-skeleton stub g_bJoiningRandomGame__24@unnamed@zNetMedius_cpp@ */
+namespace {
 bool g_bJoiningRandomGame;
-s32 myConnectionIndex;
+}
 
-CUIVariable* uiv_LobbyWorldNameVar;
-CUIVariable* uiv_GameNameVar;
-CUIVariable* uiv_ClanNameVar;
-CUIVariable* uiv_ClanDescription;
+/* @socom-skeleton stub GlobalMapFilter__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int GlobalMapFilter;
+}
 
-s32 dme_joined_count;
-s32 accum_dme_joined_count;
+/* @socom-skeleton stub GlobalPlayerFilter__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int GlobalPlayerFilter;
+}
 
-bool ForceReport;
+/* @socom-skeleton stub GlobalSpeedFilter__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int GlobalSpeedFilter;
+}
 
+/* @socom-skeleton stub GlobalFireFilter__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int GlobalFireFilter;
+}
+
+/* @socom-skeleton stub GlobalLockedFilter__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int GlobalLockedFilter;
+}
+
+/* @socom-skeleton stub Team__24@unnamed@zNetMedius_cpp@ */
+namespace {
+signed char Team;
+}
+
+/* @socom-skeleton stub dme_joined_count__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int dme_joined_count;
+}
+
+/* @socom-skeleton stub accum_dme_joined_count__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int accum_dme_joined_count;
+}
+
+/* @socom-skeleton stub uiv_GameList__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int uiv_GameList;
+}
+
+/* @socom-skeleton stub uiv_RoomList__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int uiv_RoomList;
+}
+
+/* @socom-skeleton stub uiv_RoomPlayerList__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int uiv_RoomPlayerList;
+}
+
+/* @socom-skeleton stub uiv_MediusChatRecvVar__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int uiv_MediusChatRecvVar;
+}
+
+/* @socom-skeleton stub uiv_LobbyWorldNameVar__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int uiv_LobbyWorldNameVar;
+}
+
+/* @socom-skeleton stub uiv_GameNameVar__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int uiv_GameNameVar;
+}
+
+/* @socom-skeleton stub uiv_MediusMOTD__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int uiv_MediusMOTD;
+}
+
+/* @socom-skeleton stub uiv_MediusMyInvites__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int uiv_MediusMyInvites;
+}
+
+/* @socom-skeleton stub uiv_ClanInvitations__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int uiv_ClanInvitations;
+}
+
+/* @socom-skeleton stub uiv_ClanRoster__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int uiv_ClanRoster;
+}
+
+/* @socom-skeleton stub uiv_MediusLadderTop10__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int uiv_MediusLadderTop10;
+}
+
+/* @socom-skeleton stub uiv_MediusLadderRanking__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int uiv_MediusLadderRanking;
+}
+
+/* @socom-skeleton stub uiv_GameClock__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int uiv_GameClock;
+}
+
+/* @socom-skeleton stub uiv_ClanNameVar__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int uiv_ClanNameVar;
+}
+
+/* @socom-skeleton stub uiv_ClanDescription__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int uiv_ClanDescription;
+}
+
+/* @socom-skeleton stub ForceReport__24@unnamed@zNetMedius_cpp@ */
+namespace {
+unsigned char ForceReport;
+}
+
+/* @socom-skeleton stub ThreadId__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int ThreadId;
+}
+
+/* @socom-skeleton stub PlayerListRequestPending */
+static bool PlayerListRequestPending;
+
+/* @socom-skeleton stub RefreshDMEJoinedCountOutstanding */
+bool RefreshDMEJoinedCountOutstanding;
+
+/* @socom-skeleton stub theLobby */
+CZOnlineLobby theLobby;
+
+/* @socom-skeleton stub SessionKey__24@unnamed@zNetMedius_cpp@ */
+namespace {
+signed char SessionKey[17];
+}
+
+/* @socom-skeleton stub BriefingRoomVec__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int BriefingRoomVec[3];
+}
+
+/* @socom-skeleton stub RandomGameVec__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int RandomGameVec[41];
+}
+
+/* @socom-skeleton stub LadderRankingVec__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int LadderRankingVec[5];
+}
+
+/* @socom-skeleton stub LadderRankingTop10Vec__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int LadderRankingTop10Vec[5];
+}
+
+/* @socom-skeleton stub InvitationVec__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int InvitationVec[3];
+}
+
+/* @socom-skeleton stub ClanInvitationVec__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int ClanInvitationVec[3];
+}
+
+/* @socom-skeleton stub ClanMemberVec__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int ClanMemberVec[3];
+}
+
+/* @socom-skeleton stub AccessKey__24@unnamed@zNetMedius_cpp@ */
+namespace {
+unsigned char AccessKey[17];
+}
+
+/* @socom-skeleton stub LobbyServerIP__24@unnamed@zNetMedius_cpp@ */
+namespace {
+unsigned char LobbyServerIP[20];
+}
+
+/* @socom-skeleton stub PlayerDescription__24@unnamed@zNetMedius_cpp@ */
+namespace {
+unsigned char PlayerDescription[128];
+}
+
+/* @socom-skeleton stub AccountInfo__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int AccountInfo[17];
+}
+
+/* @socom-skeleton stub PlayerInfo__24@unnamed@zNetMedius_cpp@ */
+namespace {
+signed char PlayerInfo[328];
+}
+
+/* @socom-skeleton stub gNetLoginConnectionInfo__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int gNetLoginConnectionInfo[39];
+}
+
+/* @socom-skeleton stub gNetConnectionInfo__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int gNetConnectionInfo[39];
+}
+
+/* @socom-skeleton stub gGameNetConnectionInfo__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int gGameNetConnectionInfo[39];
+}
+
+/* @socom-skeleton stub StoredClanInfo__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int StoredClanInfo[92];
+}
+
+/* @socom-skeleton stub AccountPubKey__24@unnamed@zNetMedius_cpp@ */
+namespace {
+unsigned char AccountPubKey[64];
+}
+
+/* @socom-skeleton stub rsaKeyPair__24@unnamed@zNetMedius_cpp@ */
+namespace {
+unsigned char rsaKeyPair[128];
+}
+
+/* @socom-skeleton stub net_init_thread_stack */
+unsigned char net_init_thread_stack[102404];
+
+/* @socom-skeleton stub LastClone__12BriefingRoomFv */
+void BriefingRoom::LastClone()
+{
+}
+
+/* @socom-skeleton stub LookupMediusCallbackStatus__F20MediusCallbackStatus */
+void LookupMediusCallbackStatus(MediusCallbackStatus)
+{
+}
+
+/* @socom-skeleton stub PasswordSecurity__13CZOnlineLobbyFv */
+void CZOnlineLobby::PasswordSecurity()
+{
+}
+
+/* @socom-skeleton stub MapToGameLevel__FPCc */
+void MapToGameLevel(const char *)
+{
+}
+
+/* @socom-skeleton stub __dt__13CZOnlineLobbyFv */
+CZOnlineLobby::~CZOnlineLobby()
+{
+}
+
+/* @socom-skeleton stub GamePassesTypeFilter__Fi */
+void GamePassesTypeFilter(int)
+{
+}
+
+/* @socom-skeleton stub GamePassesFilters__FP8RoomGame */
+void GamePassesFilters(RoomGame *)
+{
+}
+
+/* @socom-skeleton stub UpdateGameListDisplay__Fv */
+void UpdateGameListDisplay()
+{
+}
+
+/* @socom-skeleton stub cbGameInfo__FiiiP22MediusGameInfoResponse */
+void cbGameInfo(int, int, int, MediusGameInfoResponse *)
+{
+}
+
+/* @socom-skeleton stub cbGameSecurityCheck__FiiiP35MediusGetWorldSecurityLevelResponse */
+void cbGameSecurityCheck(int, int, int, MediusGetWorldSecurityLevelResponse *)
+{
+}
+
+/* @socom-skeleton stub cbGameList__FiiiP22MediusGameListResponse */
+void cbGameList(int, int, int, MediusGameListResponse *)
+{
+}
+
+/* @socom-skeleton stub GetGameList__Fi */
+void GetGameList(int)
+{
+}
+
+/* @socom-skeleton stub UpdateRoomListDisplay__Fv */
+void UpdateRoomListDisplay()
+{
+}
+
+/* @socom-skeleton stub cbChannelInfo__FiiiP25MediusChannelInfoResponse */
+void cbChannelInfo(int, int, int, MediusChannelInfoResponse *)
+{
+}
+
+/* @socom-skeleton stub cbRoomList__FiiiP25MediusChannelListResponse */
+void cbRoomList(int, int, int, MediusChannelListResponse *)
+{
+}
+
+/* @socom-skeleton stub GetRoomList__Fi */
+void GetRoomList(int)
+{
+}
+
+/* @socom-skeleton stub _roomplayer_sort_aux__FR34MediusLobbyWorldPlayerListResponseR34MediusLobbyWorldPlayerListResponse */
+void _roomplayer_sort_aux(MediusLobbyWorldPlayerListResponse &, MediusLobbyWorldPlayerListResponse &)
+{
+}
+
+/* @socom-skeleton stub UpdateRoomPlayerListDisplay__Fv */
+void UpdateRoomPlayerListDisplay()
+{
+}
+
+/* @socom-skeleton stub cbRoomPlayerList__FiiiP34MediusLobbyWorldPlayerListResponse */
+void cbRoomPlayerList(int, int, int, MediusLobbyWorldPlayerListResponse *)
+{
+}
+
+/* @socom-skeleton stub cbBanSelfFromGame__FiiiP23MediusBanPlayerResponse */
+void cbBanSelfFromGame(int, int, int, MediusBanPlayerResponse *)
+{
+}
+
+/* @socom-skeleton stub BanSelfFromGame__13CZOnlineLobbyFv */
+void CZOnlineLobby::BanSelfFromGame()
+{
+}
+
+/* @socom-skeleton stub cbGetPolicyRequest__FiiiP23MediusGetPolicyResponse */
+void cbGetPolicyRequest(int, int, int, MediusGetPolicyResponse *)
+{
+}
+
+/* @socom-skeleton stub cbQuitClan__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP34MediusRemovePlayerFromClanResponse */
+void cbQuitClan(MediusErrorCode, MediusErrorCode, MediusErrorCode, MediusRemovePlayerFromClanResponse *)
+{
+}
+
+/* @socom-skeleton stub QuitClan__13CZOnlineLobbyFv */
+void CZOnlineLobby::QuitClan()
+{
+}
+
+/* @socom-skeleton stub cbSetGameListFilter__FiiiP31MediusSetGameListFilterResponse */
+void cbSetGameListFilter(int, int, int, MediusSetGameListFilterResponse *)
+{
+}
+
+/* @socom-skeleton stub cbVersionServer__FiiiP27MediusVersionServerResponse */
+void cbVersionServer(int, int, int, MediusVersionServerResponse *)
+{
+}
+
+/* @socom-skeleton stub cbUpdateAccountStats__FiiiP20MediusStatusResponse */
+void cbUpdateAccountStats(int, int, int, MediusStatusResponse *)
+{
+}
+
+/* @socom-skeleton stub cbGetPlayerStats__FiiiP24MediusPlayerInfoResponse */
+void cbGetPlayerStats(int, int, int, MediusPlayerInfoResponse *)
+{
+}
+
+/* @socom-skeleton stub cbLobbyServerConnect__Fi */
+void cbLobbyServerConnect(int)
+{
+}
+
+/* @socom-skeleton stub cbClientConnect__FiiPCc */
+void cbClientConnect(int, int, const char *)
+{
+}
+
+/* @socom-skeleton stub cbClientDisconnect__FiiPCc */
+void cbClientDisconnect(int, int, const char *)
+{
+}
+
+/* @socom-skeleton stub LobbyServerConnectStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG */
+void LobbyServerConnectStateHandler(CZOnlineLobby::LOBBY_STATE_FLAG)
+{
+}
+
+/* @socom-skeleton stub cbChatToggle__FiiiP24MediusChatToggleResponse */
+void cbChatToggle(int, int, int, MediusChatToggleResponse *)
+{
+}
+
+/* @socom-skeleton stub cbDMENetPingCallback__F12NetErrorCodePcUi */
+void cbDMENetPingCallback(NetErrorCode, char *, unsigned int)
+{
+}
+
+/* @socom-skeleton stub ForceStatusReport__13CZOnlineLobbyFv */
+void CZOnlineLobby::ForceStatusReport()
+{
+}
+
+/* @socom-skeleton stub cbRefreshDMEJoinedCount__FiiiP33MediusGameWorldPlayerListResponse */
+void cbRefreshDMEJoinedCount(int, int, int, MediusGameWorldPlayerListResponse *)
+{
+}
+
+/* @socom-skeleton stub RefreshDMEJoinedCount__Fv */
+void RefreshDMEJoinedCount()
+{
+}
+
+/* @socom-skeleton stub LobbyReadyToConnectStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG */
+void LobbyReadyToConnectStateHandler(CZOnlineLobby::LOBBY_STATE_FLAG)
+{
+	/* @socom-skeleton stub valve_mp_locked_game$2598 */
+	static int valve_mp_locked_game;
+	/* @socom-skeleton stub next_report_time$2605 */
+	static int next_report_time;
+}
+
+/* @socom-skeleton stub ClanCallbackExecuted__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int ClanCallbackExecuted;
+}
+
+/* @socom-skeleton stub wasMember__24@unnamed@zNetMedius_cpp@ */
+namespace {
+bool wasMember;
+}
+
+/* @socom-skeleton stub g_bExecutingLadderQuery */
+bool g_bExecutingLadderQuery;
+
+/* @socom-skeleton stub p_rdr_ed_seallist */
+int p_rdr_ed_seallist;
+
+/* @socom-skeleton stub p_rdr_ed_terrlist */
+int p_rdr_ed_terrlist;
+
+/* @socom-skeleton stub appcallback */
+static int appcallback;
+
+/* @socom-skeleton stub censor_userdata */
+static int censor_userdata;
+
+/* @socom-skeleton stub InvitePlayerToClanStatus__24@unnamed@zNetMedius_cpp@ */
+namespace {
+int InvitePlayerToClanStatus;
+}
+
+/* @socom-skeleton stub cbAccountLogin__FiiiP26MediusAccountLoginResponse */
+void cbAccountLogin(int, int, int, MediusAccountLoginResponse *)
+{
+}
+
+/* @socom-skeleton stub AccountLoginStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG */
+void AccountLoginStateHandler(CZOnlineLobby::LOBBY_STATE_FLAG)
+{
+}
+
+/* @socom-skeleton stub cbAccountLoginAfterRegister__FiiiP26MediusAccountLoginResponse */
+void cbAccountLoginAfterRegister(int, int, int, MediusAccountLoginResponse *)
+{
+}
+
+/* @socom-skeleton stub cbAccountRegistration__FiiiP33MediusAccountRegistrationResponse */
+void cbAccountRegistration(int, int, int, MediusAccountRegistrationResponse *)
+{
+}
+
+/* @socom-skeleton stub cbFilterAcctName__FiiiP24MediusTextFilterResponse */
+void cbFilterAcctName(int, int, int, MediusTextFilterResponse *)
+{
+}
+
+/* @socom-skeleton stub AccountRegistrationStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG */
+void AccountRegistrationStateHandler(CZOnlineLobby::LOBBY_STATE_FLAG)
+{
+}
+
+/* @socom-skeleton stub cbSessionBegin__FiiiP26MediusSessionBeginResponse */
+void cbSessionBegin(int, int, int, MediusSessionBeginResponse *)
+{
+}
+
+/* @socom-skeleton stub SessionBeginStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG */
+void SessionBeginStateHandler(CZOnlineLobby::LOBBY_STATE_FLAG)
+{
+}
+
+/* @socom-skeleton stub cbSessionEnd__FiiiP24MediusSessionEndResponse */
+void cbSessionEnd(int, int, int, MediusSessionEndResponse *)
+{
+}
+
+/* @socom-skeleton stub EndSessionStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG */
+void EndSessionStateHandler(CZOnlineLobby::LOBBY_STATE_FLAG)
+{
+}
+
+/* @socom-skeleton stub RegistrationFailureStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG */
+void RegistrationFailureStateHandler(CZOnlineLobby::LOBBY_STATE_FLAG)
+{
+}
+
+/* @socom-skeleton stub LoginFailureStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG */
+void LoginFailureStateHandler(CZOnlineLobby::LOBBY_STATE_FLAG)
+{
+}
+
+/* @socom-skeleton stub ConnectSuccessStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG */
+void ConnectSuccessStateHandler(CZOnlineLobby::LOBBY_STATE_FLAG)
+{
+}
+
+/* @socom-skeleton stub CreateFailureStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG */
+void CreateFailureStateHandler(CZOnlineLobby::LOBBY_STATE_FLAG)
+{
+}
+
+/* @socom-skeleton stub ConnectErrorStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG */
+void ConnectErrorStateHandler(CZOnlineLobby::LOBBY_STATE_FLAG)
+{
+}
+
+/* @socom-skeleton stub LobbyActiveStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG */
+void LobbyActiveStateHandler(CZOnlineLobby::LOBBY_STATE_FLAG)
+{
+}
+
+/* @socom-skeleton stub cbFindGameByName__FiiiP29MediusFindWorldByNameResponse */
+void cbFindGameByName(int, int, int, MediusFindWorldByNameResponse *)
+{
+}
+
+/* @socom-skeleton stub cbCreateGame__FiiiP24MediusCreateGameResponse */
+void cbCreateGame(int, int, int, MediusCreateGameResponse *)
+{
+}
+
+/* @socom-skeleton stub CreateNewGameStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG */
+void CreateNewGameStateHandler(CZOnlineLobby::LOBBY_STATE_FLAG)
+{
+}
+
+/* @socom-skeleton stub cbJoinGame__FiiiP22MediusJoinGameResponse */
+void cbJoinGame(int, int, int, MediusJoinGameResponse *)
+{
+}
+
+/* @socom-skeleton stub JoinGameStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG */
+void JoinGameStateHandler(CZOnlineLobby::LOBBY_STATE_FLAG)
+{
+}
+
+/* @socom-skeleton stub cbJoinRoom__FiiiP25MediusJoinChannelResponse */
+void cbJoinRoom(int, int, int, MediusJoinChannelResponse *)
+{
+}
+
+/* @socom-skeleton stub JoinRoomStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG */
+void JoinRoomStateHandler(CZOnlineLobby::LOBBY_STATE_FLAG)
+{
+}
+
+/* @socom-skeleton stub cbFindRoomByName__FiiiP29MediusFindWorldByNameResponse */
+void cbFindRoomByName(int, int, int, MediusFindWorldByNameResponse *)
+{
+}
+
+/* @socom-skeleton stub cbCreateRoom__FiiiP27MediusCreateChannelResponse */
+void cbCreateRoom(int, int, int, MediusCreateChannelResponse *)
+{
+}
+
+/* @socom-skeleton stub CreateRoomStateHandler__FQ213CZOnlineLobby16LOBBY_STATE_FLAG */
+void CreateRoomStateHandler(CZOnlineLobby::LOBBY_STATE_FLAG)
+{
+}
+
+/* @socom-skeleton stub cbGetMyClans__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP24MediusGetMyClansResponse */
+void cbGetMyClans(MediusErrorCode, MediusErrorCode, MediusErrorCode, MediusGetMyClansResponse *)
+{
+}
+
+/* @socom-skeleton stub GetClan__13CZOnlineLobbyFv */
+void CZOnlineLobby::GetClan()
+{
+}
+
+/* @socom-skeleton stub cbRespondToClanInvitation__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP37MediusRespondToClanInvitationResponse */
+void cbRespondToClanInvitation(MediusErrorCode, MediusErrorCode, MediusErrorCode, MediusRespondToClanInvitationResponse *)
+{
+}
+
+/* @socom-skeleton stub AcceptClanInvitation__13CZOnlineLobbyFi */
+void CZOnlineLobby::AcceptClanInvitation(int)
+{
+}
+
+/* @socom-skeleton stub DeclineClanInvitation__13CZOnlineLobbyFi */
+void CZOnlineLobby::DeclineClanInvitation(int)
+{
+}
+
+/* @socom-skeleton stub UpdateInvitations__Fv */
+void UpdateInvitations()
+{
+}
+
+/* @socom-skeleton stub HasClanInvitations__13CZOnlineLobbyFv */
+void CZOnlineLobby::HasClanInvitations()
+{
+}
+
+/* @socom-skeleton stub cbCheckMyClanInvitations__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP36MediusCheckMyClanInvitationsResponse */
+void cbCheckMyClanInvitations(MediusErrorCode, MediusErrorCode, MediusErrorCode, MediusCheckMyClanInvitationsResponse *)
+{
+}
+
+/* @socom-skeleton stub CheckClanInvitations__13CZOnlineLobbyFv */
+void CZOnlineLobby::CheckClanInvitations()
+{
+}
+
+/* @socom-skeleton stub cbGetMyClanMessages__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP31MediusGetMyClanMessagesResponse */
+void cbGetMyClanMessages(MediusErrorCode, MediusErrorCode, MediusErrorCode, MediusGetMyClanMessagesResponse *)
+{
+}
+
+/* @socom-skeleton stub cbSendClanMessage__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP29MediusSendClanMessageResponse */
+void cbSendClanMessage(MediusErrorCode, MediusErrorCode, MediusErrorCode, MediusSendClanMessageResponse *)
+{
+}
+
+/* @socom-skeleton stub cbFilterClanMessage__FPCcPv */
+void cbFilterClanMessage(const char *, void *)
+{
+}
+
+/* @socom-skeleton stub SendClanMessage__13CZOnlineLobbyFPCc */
+void CZOnlineLobby::SendClanMessage(const char *)
+{
+}
+
+/* @socom-skeleton stub cbTransferClanLeadership__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP36MediusTransferClanLeadershipResponse */
+void cbTransferClanLeadership(MediusErrorCode, MediusErrorCode, MediusErrorCode, MediusTransferClanLeadershipResponse *)
+{
+}
+
+/* @socom-skeleton stub TransferLeadership__13CZOnlineLobbyFPCc */
+void CZOnlineLobby::TransferLeadership(const char *)
+{
+}
+
+/* @socom-skeleton stub UpdateLadderRanking__Fv */
+void UpdateLadderRanking()
+{
+}
+
+/* @socom-skeleton stub UpdateLadderTop10__Fv */
+void UpdateLadderTop10()
+{
+}
+
+/* @socom-skeleton stub GetCurrentLadderPosition__13CZOnlineLobbyFv */
+int CZOnlineLobby::GetCurrentLadderPosition()
+{
+}
+
+/* @socom-skeleton stub GetLowestLadderPosition__13CZOnlineLobbyFv */
+int CZOnlineLobby::GetLowestLadderPosition()
+{
+}
+
+/* @socom-skeleton stub SetConnectionInfo__13CZOnlineLobbyFP17NetConnectionInfo */
+void CZOnlineLobby::SetConnectionInfo(NetConnectionInfo *)
+{
+}
+
+/* @socom-skeleton stub cbGetLadderTop10Descriptions__FiiiP24MediusPlayerInfoResponse */
+void cbGetLadderTop10Descriptions(int, int, int, MediusPlayerInfoResponse *)
+{
+}
+
+/* @socom-skeleton stub cbGetLadderTop10__FiiiP24MediusLadderListResponse */
+void cbGetLadderTop10(int, int, int, MediusLadderListResponse *)
+{
+}
+
+/* @socom-skeleton stub cbGetLadderInfo__FiiiP24MediusLadderListResponse */
+void cbGetLadderInfo(int, int, int, MediusLadderListResponse *)
+{
+}
+
+/* @socom-skeleton stub GetSurroundingLadderPosition__13CZOnlineLobbyFiib */
+void CZOnlineLobby::GetSurroundingLadderPosition(int, int, bool)
+{
+}
+
+/* @socom-skeleton stub cbGetLadderPosition__FiiiP28MediusLadderPositionResponse */
+void cbGetLadderPosition(int, int, int, MediusLadderPositionResponse *)
+{
+}
+
+/* @socom-skeleton stub GetLadderInfo__13CZOnlineLobbyFv */
+void CZOnlineLobby::GetLadderInfo()
+{
+}
+
+/* @socom-skeleton stub cbGetLadderRanking__FiiiP28MediusLadderPositionResponse */
+void cbGetLadderRanking(int, int, int, MediusLadderPositionResponse *)
+{
+}
+
+/* @socom-skeleton stub GetLadderRanking__13CZOnlineLobbyFv */
+void CZOnlineLobby::GetLadderRanking()
+{
+}
+
+/* @socom-skeleton stub UpdateLadderRating__13CZOnlineLobbyFi */
+void CZOnlineLobby::UpdateLadderRating(int)
+{
+}
+
+/* @socom-skeleton stub cbFilterPlayerDescription__FPCcPv */
+void cbFilterPlayerDescription(const char *, void *)
+{
+}
+
+/* @socom-skeleton stub SetPlayerDescription__13CZOnlineLobbyFPCc */
+void CZOnlineLobby::SetPlayerDescription(const char *)
+{
+}
+
+/* @socom-skeleton stub cbChatMessage__FiiiP20MediusChatFwdMessage */
+void cbChatMessage(int, int, int, MediusChatFwdMessage *)
+{
+}
+
+/* @socom-skeleton stub cbBuddyGetPermission__FiiiP42MediusAddToBuddyListFwdConfirmationRequest */
+void cbBuddyGetPermission(int, int, int, MediusAddToBuddyListFwdConfirmationRequest *)
+{
+}
+
+/* @socom-skeleton stub cbErrorMessage__FiiiP18MediusErrorMessage */
+void cbErrorMessage(int, int, int, MediusErrorMessage *)
+{
+}
+
+/* @socom-skeleton stub cbConnect__Fi */
+void cbConnect(int)
+{
+}
+
+/* @socom-skeleton stub AuxInitNetwork__Fv */
+void AuxInitNetwork()
+{
+}
+
+/* @socom-skeleton stub NetInitThreadEntry__FPv */
+void NetInitThreadEntry(void *)
+{
+}
+
+/* @socom-skeleton stub GetKeyPair__13CZOnlineLobbyFv */
+void CZOnlineLobby::GetKeyPair()
+{
+}
+
+/* @socom-skeleton body Init__13CZOnlineLobbyFv */
 void CZOnlineLobby::Init()
 {
 	if (!started)
@@ -391,4 +1304,349 @@ void CZOnlineLobby::Init()
 		// TODO:
 		// Implement std::deque as per the decomp
 	}
+}
+
+/* @socom-skeleton stub Open__13CZOnlineLobbyFv */
+void CZOnlineLobby::Open()
+{
+}
+
+/* @socom-skeleton stub Tick__13CZOnlineLobbyFv */
+void CZOnlineLobby::Tick()
+{
+}
+
+/* @socom-skeleton stub Close__13CZOnlineLobbyFv */
+void CZOnlineLobby::Close()
+{
+}
+
+/* @socom-skeleton stub ReleaseUIResources__13CZOnlineLobbyFv */
+void CZOnlineLobby::ReleaseUIResources()
+{
+}
+
+/* @socom-skeleton stub UnInit__13CZOnlineLobbyFv */
+void CZOnlineLobby::UnInit()
+{
+}
+
+/* @socom-skeleton stub Login__13CZOnlineLobbyFPCcPCc */
+void CZOnlineLobby::Login(const char *, const char *)
+{
+}
+
+/* @socom-skeleton stub Logout__13CZOnlineLobbyFv */
+void CZOnlineLobby::Logout()
+{
+}
+
+/* @socom-skeleton stub Bailout__13CZOnlineLobbyFv */
+void CZOnlineLobby::Bailout()
+{
+}
+
+/* @socom-skeleton stub Register__13CZOnlineLobbyFPCcPCc */
+void CZOnlineLobby::Register(const char *, const char *)
+{
+}
+
+/* @socom-skeleton stub RefreshGameList__13CZOnlineLobbyFP3C2D */
+void CZOnlineLobby::RefreshGameList(C2D *)
+{
+}
+
+/* @socom-skeleton stub RefreshRoomList__13CZOnlineLobbyFP3C2D */
+void CZOnlineLobby::RefreshRoomList(C2D *)
+{
+}
+
+/* @socom-skeleton stub RefreshRoomPlayerList__13CZOnlineLobbyFP3C2D */
+void CZOnlineLobby::RefreshRoomPlayerList(C2D *)
+{
+}
+
+/* @socom-skeleton stub cbGameWorldPlayerListCallback__FiiiP33MediusGameWorldPlayerListResponse */
+void cbGameWorldPlayerListCallback(int, int, int, MediusGameWorldPlayerListResponse *)
+{
+}
+
+/* @socom-skeleton stub RefreshGamePlayerList__13CZOnlineLobbyFP3C2D */
+void CZOnlineLobby::RefreshGamePlayerList(C2D *)
+{
+}
+
+/* @socom-skeleton stub CreateGame__13CZOnlineLobbyFv */
+void CZOnlineLobby::CreateGame()
+{
+}
+
+/* @socom-skeleton stub DoJoinRandomGame__Fv */
+void DoJoinRandomGame()
+{
+}
+
+/* @socom-skeleton stub cbRandomGameSecurity__FiiiP35MediusGetWorldSecurityLevelResponse */
+void cbRandomGameSecurity(int, int, int, MediusGetWorldSecurityLevelResponse *)
+{
+}
+
+/* @socom-skeleton stub cbRandomGameInfo__FiiiP22MediusGameInfoResponse */
+void cbRandomGameInfo(int, int, int, MediusGameInfoResponse *)
+{
+}
+
+/* @socom-skeleton stub cbGetRandomGameList__FiiiP22MediusGameListResponse */
+void cbGetRandomGameList(int, int, int, MediusGameListResponse *)
+{
+}
+
+/* @socom-skeleton stub cbClearGameListFilter__FiiiP33MediusClearGameListFilterResponse */
+void cbClearGameListFilter(int, int, int, MediusClearGameListFilterResponse *)
+{
+}
+
+/* @socom-skeleton stub GameIsPasswordProtected__13CZOnlineLobbyFPCc */
+void CZOnlineLobby::GameIsPasswordProtected(const char *)
+{
+}
+
+/* @socom-skeleton stub JoinGame__13CZOnlineLobbyFPCc */
+void CZOnlineLobby::JoinGame(const char *)
+{
+}
+
+/* @socom-skeleton stub IsTeamGame__13CZOnlineLobbyFv */
+void CZOnlineLobby::IsTeamGame()
+{
+}
+
+/* @socom-skeleton stub OnCorrectClanTeam__13CZOnlineLobbyFv */
+void CZOnlineLobby::OnCorrectClanTeam()
+{
+}
+
+/* @socom-skeleton stub JoinRoom__13CZOnlineLobbyFPCc */
+void CZOnlineLobby::JoinRoom(const char *)
+{
+}
+
+/* @socom-skeleton stub RejoinRoom__13CZOnlineLobbyFv */
+void CZOnlineLobby::RejoinRoom()
+{
+}
+
+/* @socom-skeleton stub cbCensor__FiiiP24MediusTextFilterResponse */
+void cbCensor(int, int, int, MediusTextFilterResponse *)
+{
+}
+
+/* @socom-skeleton stub Censor__13CZOnlineLobbyFPCcPFPCcPv_vPv */
+void CZOnlineLobby::Censor(const char *, void (*)(const char *, void *), void *)
+{
+}
+
+/* @socom-skeleton stub cbFilterChat__FPCcPv */
+void cbFilterChat(const char *, void *)
+{
+}
+
+/* @socom-skeleton stub SendChat__13CZOnlineLobbyFPCc */
+void CZOnlineLobby::SendChat(const char *)
+{
+}
+
+/* @socom-skeleton stub cbGetAnnouncements__FiiiP30MediusGetAnnouncementsResponse */
+void cbGetAnnouncements(int, int, int, MediusGetAnnouncementsResponse *)
+{
+}
+
+/* @socom-skeleton stub GetAnnouncements__13CZOnlineLobbyFv */
+void CZOnlineLobby::GetAnnouncements()
+{
+}
+
+/* @socom-skeleton stub cbUpdateClanStats__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP29MediusUpdateClanStatsResponse */
+void cbUpdateClanStats(MediusErrorCode, MediusErrorCode, MediusErrorCode, MediusUpdateClanStatsResponse *)
+{
+}
+
+/* @socom-skeleton stub UpdateClanStats__13CZOnlineLobbyFv */
+void CZOnlineLobby::UpdateClanStats()
+{
+}
+
+/* @socom-skeleton stub cbCreateClan__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP24MediusCreateClanResponse */
+void cbCreateClan(MediusErrorCode, MediusErrorCode, MediusErrorCode, MediusCreateClanResponse *)
+{
+}
+
+/* @socom-skeleton stub cbFilterClanName__FiiiP24MediusTextFilterResponse */
+void cbFilterClanName(int, int, int, MediusTextFilterResponse *)
+{
+}
+
+/* @socom-skeleton stub CreateClan__13CZOnlineLobbyFPCc */
+void CZOnlineLobby::CreateClan(const char *)
+{
+}
+
+/* @socom-skeleton stub cbInvitePlayerToClanInvitation__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP32MediusInvitePlayerToClanResponse */
+void cbInvitePlayerToClanInvitation(MediusErrorCode, MediusErrorCode, MediusErrorCode, MediusInvitePlayerToClanResponse *)
+{
+}
+
+/* @socom-skeleton stub cbInvitePlayerToClanGetID__FiiiP26MediusAccountGetIDResponse */
+void cbInvitePlayerToClanGetID(int, int, int, MediusAccountGetIDResponse *)
+{
+}
+
+/* @socom-skeleton stub InvitePlayerToClan__13CZOnlineLobbyFPCc */
+void CZOnlineLobby::InvitePlayerToClan(const char *)
+{
+}
+
+/* @socom-skeleton stub cbRemovePlayerFromClan__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP34MediusRemovePlayerFromClanResponse */
+void cbRemovePlayerFromClan(MediusErrorCode, MediusErrorCode, MediusErrorCode, MediusRemovePlayerFromClanResponse *)
+{
+}
+
+/* @socom-skeleton stub RemovePlayerFromClan__13CZOnlineLobbyFPCc */
+void CZOnlineLobby::RemovePlayerFromClan(const char *)
+{
+}
+
+/* @socom-skeleton stub cbRevokePlayerInvitation__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP34MediusRevokeClanInvitationResponse */
+void cbRevokePlayerInvitation(MediusErrorCode, MediusErrorCode, MediusErrorCode, MediusRevokeClanInvitationResponse *)
+{
+}
+
+/* @socom-skeleton stub RevokeInvite__13CZOnlineLobbyFPCc */
+void CZOnlineLobby::RevokeInvite(const char *)
+{
+}
+
+/* @socom-skeleton stub ClanHasInvitations__13CZOnlineLobbyFv */
+void CZOnlineLobby::ClanHasInvitations()
+{
+}
+
+/* @socom-skeleton stub cbAddPlayerToClan__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP29MediusAddPlayerToClanResponse */
+void cbAddPlayerToClan(MediusErrorCode, MediusErrorCode, MediusErrorCode, MediusAddPlayerToClanResponse *)
+{
+}
+
+/* @socom-skeleton stub cbClanInviteRevokeHack__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP34MediusRevokeClanInvitationResponse */
+void cbClanInviteRevokeHack(MediusErrorCode, MediusErrorCode, MediusErrorCode, MediusRevokeClanInvitationResponse *)
+{
+}
+
+/* @socom-skeleton stub ClanUpdateInvitations__Fv */
+void ClanUpdateInvitations()
+{
+}
+
+/* @socom-skeleton stub cbGetClanInvitationsSent__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP36MediusGetClanInvitationsSentResponse */
+void cbGetClanInvitationsSent(MediusErrorCode, MediusErrorCode, MediusErrorCode, MediusGetClanInvitationsSentResponse *)
+{
+}
+
+/* @socom-skeleton stub GetInvitedPlayers__13CZOnlineLobbyFv */
+void CZOnlineLobby::GetInvitedPlayers()
+{
+}
+
+/* @socom-skeleton stub UpdateClanMemberList__Fv */
+void UpdateClanMemberList()
+{
+}
+
+/* @socom-skeleton stub cbGetClanMemberDescriptions__FiiiP24MediusPlayerInfoResponse */
+void cbGetClanMemberDescriptions(int, int, int, MediusPlayerInfoResponse *)
+{
+}
+
+/* @socom-skeleton stub cbGetClanMemberLadderPosition__FiiiP28MediusLadderPositionResponse */
+void cbGetClanMemberLadderPosition(int, int, int, MediusLadderPositionResponse *)
+{
+}
+
+/* @socom-skeleton stub GetClanMemberRanking__Fv */
+void GetClanMemberRanking()
+{
+}
+
+/* @socom-skeleton stub cbGetClanMemberList__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP31MediusGetClanMemberListResponse */
+void cbGetClanMemberList(MediusErrorCode, MediusErrorCode, MediusErrorCode, MediusGetClanMemberListResponse *)
+{
+}
+
+/* @socom-skeleton stub GetClanRoster__13CZOnlineLobbyFv */
+void CZOnlineLobby::GetClanRoster()
+{
+}
+
+/* @socom-skeleton stub cbDisbandClan__F15MediusErrorCode15MediusErrorCode15MediusErrorCodeP25MediusDisbandClanResponse */
+void cbDisbandClan(MediusErrorCode, MediusErrorCode, MediusErrorCode, MediusDisbandClanResponse *)
+{
+}
+
+/* @socom-skeleton stub DisbandClan__13CZOnlineLobbyFv */
+void CZOnlineLobby::DisbandClan()
+{
+}
+
+/* @socom-skeleton stub IsMemberOfClan__13CZOnlineLobbyFv */
+void CZOnlineLobby::IsMemberOfClan()
+{
+}
+
+/* @socom-skeleton stub IsLeaderOfClan__13CZOnlineLobbyFPCc */
+void CZOnlineLobby::IsLeaderOfClan(const char *)
+{
+}
+
+/* @socom-skeleton stub GetMissionSequence__13CZOnlineLobbyFPUcPUc */
+void CZOnlineLobby::GetMissionSequence(unsigned char *, unsigned char *)
+{
+}
+
+/* @socom-skeleton stub SetMissionSequence__13CZOnlineLobbyFUcPUc */
+void CZOnlineLobby::SetMissionSequence(unsigned char, unsigned char *)
+{
+}
+
+/* @socom-skeleton stub ResetMissionSequence__13CZOnlineLobbyFv */
+void CZOnlineLobby::ResetMissionSequence()
+{
+}
+
+/* @socom-skeleton stub AdvanceMissionSequence__13CZOnlineLobbyFv */
+unsigned char CZOnlineLobby::AdvanceMissionSequence()
+{
+}
+
+/* @socom-skeleton stub MediusConnectionIndex__13CZOnlineLobbyFv */
+void CZOnlineLobby::MediusConnectionIndex()
+{
+}
+
+/* @socom-skeleton stub RecoverFromNetError__13CZOnlineLobbyFi */
+void CZOnlineLobby::RecoverFromNetError(int)
+{
+}
+
+/* @socom-skeleton stub SyncGameClock__13CZOnlineLobbyFi */
+void CZOnlineLobby::SyncGameClock(int)
+{
+}
+
+/* @socom-skeleton stub GetDMEJoinedCount__13CZOnlineLobbyFv */
+void CZOnlineLobby::GetDMEJoinedCount()
+{
+}
+
+/* @socom-skeleton stub SendEndGameReport__13CZOnlineLobbyFv */
+void CZOnlineLobby::SendEndGameReport()
+{
 }

@@ -228,3 +228,641 @@
  * @socom-artifact defines main socom:data:0x5090e0
  * @socom-artifact defines main socom:data:0x5096a8
  * socom-owner-annotations end socom:work:source-segment-076 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zReader/zrdr.h"
+#include "zanim.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub FireStand__9AnimTypes */
+short AnimTypes::FireStand = -1;
+
+/* @socom-skeleton stub FireCrouch__9AnimTypes */
+short AnimTypes::FireCrouch = -1;
+
+/* @socom-skeleton stub FireProne__9AnimTypes */
+short AnimTypes::FireProne = -1;
+
+/* @socom-skeleton stub FireCrouchWalk__9AnimTypes */
+short AnimTypes::FireCrouchWalk = -1;
+
+/* @socom-skeleton stub FireWalk__9AnimTypes */
+short AnimTypes::FireWalk = -1;
+
+/* @socom-skeleton stub FireJog__9AnimTypes */
+short AnimTypes::FireJog = -1;
+
+/* @socom-skeleton stub FireRun__9AnimTypes */
+short AnimTypes::FireRun = -1;
+
+/* @socom-skeleton stub FireWalkBackwards__9AnimTypes */
+short AnimTypes::FireWalkBackwards = -1;
+
+/* @socom-skeleton stub FireRunBackwards__9AnimTypes */
+short AnimTypes::FireRunBackwards = -1;
+
+/* @socom-skeleton stub FireCrouchWalkBackwards__9AnimTypes */
+short AnimTypes::FireCrouchWalkBackwards = -1;
+
+/* @socom-skeleton stub FireStep__9AnimTypes */
+short AnimTypes::FireStep = -1;
+
+/* @socom-skeleton stub PistolFireStand__9AnimTypes */
+short AnimTypes::PistolFireStand = -1;
+
+/* @socom-skeleton stub PistolFireCrouch__9AnimTypes */
+short AnimTypes::PistolFireCrouch = -1;
+
+/* @socom-skeleton stub PistolFireProne__9AnimTypes */
+short AnimTypes::PistolFireProne = -1;
+
+/* @socom-skeleton stub PistolFireCrouchWalk__9AnimTypes */
+short AnimTypes::PistolFireCrouchWalk = -1;
+
+/* @socom-skeleton stub PistolFireWalk__9AnimTypes */
+short AnimTypes::PistolFireWalk = -1;
+
+/* @socom-skeleton stub PistolFireJog__9AnimTypes */
+short AnimTypes::PistolFireJog = -1;
+
+/* @socom-skeleton stub PistolFireRun__9AnimTypes */
+short AnimTypes::PistolFireRun = -1;
+
+/* @socom-skeleton stub PistolFireWalkBackwards__9AnimTypes */
+short AnimTypes::PistolFireWalkBackwards = -1;
+
+/* @socom-skeleton stub PistolFireRunBackwards__9AnimTypes */
+short AnimTypes::PistolFireRunBackwards = -1;
+
+/* @socom-skeleton stub PistolFireCrouchWalkBackwards__9AnimTypes */
+short AnimTypes::PistolFireCrouchWalkBackwards = -1;
+
+/* @socom-skeleton stub PistolFireStep__9AnimTypes */
+short AnimTypes::PistolFireStep = -1;
+
+/* @socom-skeleton stub Walk__9AnimTypes */
+short AnimTypes::Walk = -1;
+
+/* @socom-skeleton stub FireCrouchStep__9AnimTypes */
+short AnimTypes::FireCrouchStep = -1;
+
+/* @socom-skeleton stub PistolFireCrouchStep__9AnimTypes */
+short AnimTypes::PistolFireCrouchStep = -1;
+
+/* @socom-skeleton stub Slide__9AnimTypes */
+short AnimTypes::Slide = -1;
+
+/* @socom-skeleton stub Rotate180__9AnimTypes */
+short AnimTypes::Rotate180 = -1;
+
+/* @socom-skeleton stub Jump__9AnimTypes */
+short AnimTypes::Jump = -1;
+
+/* @socom-skeleton stub StandAlert__9AnimTypes */
+short AnimTypes::StandAlert = -1;
+
+/* @socom-skeleton stub PistolStandAlert__9AnimTypes */
+short AnimTypes::PistolStandAlert = -1;
+
+/* @socom-skeleton stub PronePeekLeft__9AnimTypes */
+short AnimTypes::PronePeekLeft = -1;
+
+/* @socom-skeleton stub PronePeekRight__9AnimTypes */
+short AnimTypes::PronePeekRight = -1;
+
+/* @socom-skeleton stub PistolPronePeekLeft__9AnimTypes */
+short AnimTypes::PistolPronePeekLeft = -1;
+
+/* @socom-skeleton stub PistolPronePeekRight__9AnimTypes */
+short AnimTypes::PistolPronePeekRight = -1;
+
+/* @socom-skeleton stub TossGrenadePeekRight__9AnimTypes */
+short AnimTypes::TossGrenadePeekRight = -1;
+
+/* @socom-skeleton stub PistolTossGrenadePeekRight__9AnimTypes */
+short AnimTypes::PistolTossGrenadePeekRight = -1;
+
+/* @socom-skeleton stub TossGrenadePeekLeft__9AnimTypes */
+short AnimTypes::TossGrenadePeekLeft = -1;
+
+/* @socom-skeleton stub PistolTossGrenadePeekLeft__9AnimTypes */
+short AnimTypes::PistolTossGrenadePeekLeft = -1;
+
+/* @socom-skeleton stub KickGrenade__9AnimTypes */
+short AnimTypes::KickGrenade = -1;
+
+/* @socom-skeleton stub PlaceClaymore__9AnimTypes */
+short AnimTypes::PlaceClaymore = -1;
+
+/* @socom-skeleton stub PistolPlaceClaymore__9AnimTypes */
+short AnimTypes::PistolPlaceClaymore = -1;
+
+/* @socom-skeleton stub PistolReload__9AnimTypes */
+short AnimTypes::PistolReload = -1;
+
+/* @socom-skeleton stub RifleReload__9AnimTypes */
+short AnimTypes::RifleReload = -1;
+
+/* @socom-skeleton stub MovingPistolReload__9AnimTypes */
+short AnimTypes::MovingPistolReload = -1;
+
+/* @socom-skeleton stub MovingRifleReload__9AnimTypes */
+short AnimTypes::MovingRifleReload = -1;
+
+/* @socom-skeleton stub PistolCrouchReload__9AnimTypes */
+short AnimTypes::PistolCrouchReload = -1;
+
+/* @socom-skeleton stub RifleCrouchReload__9AnimTypes */
+short AnimTypes::RifleCrouchReload = -1;
+
+/* @socom-skeleton stub PistolProneReload__9AnimTypes */
+short AnimTypes::PistolProneReload = -1;
+
+/* @socom-skeleton stub RifleProneReload__9AnimTypes */
+short AnimTypes::RifleProneReload = -1;
+
+/* @socom-skeleton stub PistolReturnThrowGrenade__9AnimTypes */
+short AnimTypes::PistolReturnThrowGrenade = -1;
+
+/* @socom-skeleton stub RifleReturnThrowGrenade__9AnimTypes */
+short AnimTypes::RifleReturnThrowGrenade = -1;
+
+/* @socom-skeleton stub ProneThrowGrenade__9AnimTypes */
+short AnimTypes::ProneThrowGrenade = -1;
+
+/* @socom-skeleton stub PistolProneThrowGrenade__9AnimTypes */
+short AnimTypes::PistolProneThrowGrenade = -1;
+
+/* @socom-skeleton stub CrouchThrowGrenade__9AnimTypes */
+short AnimTypes::CrouchThrowGrenade = -1;
+
+/* @socom-skeleton stub PistolCrouchThrowGrenade__9AnimTypes */
+short AnimTypes::PistolCrouchThrowGrenade = -1;
+
+/* @socom-skeleton stub ThrowGrenade__9AnimTypes */
+short AnimTypes::ThrowGrenade = -1;
+
+/* @socom-skeleton stub PistolThrowGrenade__9AnimTypes */
+short AnimTypes::PistolThrowGrenade = -1;
+
+/* @socom-skeleton stub ProneTossGrenade__9AnimTypes */
+short AnimTypes::ProneTossGrenade = -1;
+
+/* @socom-skeleton stub PistolProneTossGrenade__9AnimTypes */
+short AnimTypes::PistolProneTossGrenade = -1;
+
+/* @socom-skeleton stub TossGrenade__9AnimTypes */
+short AnimTypes::TossGrenade = -1;
+
+/* @socom-skeleton stub PistolTossGrenade__9AnimTypes */
+short AnimTypes::PistolTossGrenade = -1;
+
+/* @socom-skeleton stub RifleM203Reload__9AnimTypes */
+short AnimTypes::RifleM203Reload = -1;
+
+/* @socom-skeleton stub StandStretch__9AnimTypes */
+short AnimTypes::StandStretch = -1;
+
+/* @socom-skeleton stub Slouch__9AnimTypes */
+short AnimTypes::Slouch = -1;
+
+/* @socom-skeleton stub SlouchSmoke__9AnimTypes */
+short AnimTypes::SlouchSmoke = -1;
+
+/* @socom-skeleton stub RunningJumpLaunch__9AnimTypes */
+short AnimTypes::RunningJumpLaunch = -1;
+
+/* @socom-skeleton stub PistolRunningJumpLaunch__9AnimTypes */
+short AnimTypes::PistolRunningJumpLaunch = -1;
+
+/* @socom-skeleton stub RunningJumpLand__9AnimTypes */
+short AnimTypes::RunningJumpLand = -1;
+
+/* @socom-skeleton stub PistolRunningJumpLand__9AnimTypes */
+short AnimTypes::PistolRunningJumpLand = -1;
+
+/* @socom-skeleton stub LandHard__9AnimTypes */
+short AnimTypes::LandHard = -1;
+
+/* @socom-skeleton stub PistolLandHard__9AnimTypes */
+short AnimTypes::PistolLandHard = -1;
+
+/* @socom-skeleton stub Stand2Prone__9AnimTypes */
+short AnimTypes::Stand2Prone = -1;
+
+/* @socom-skeleton stub PistolStand2Prone__9AnimTypes */
+short AnimTypes::PistolStand2Prone = -1;
+
+/* @socom-skeleton stub ProneTurn__9AnimTypes */
+short AnimTypes::ProneTurn = -1;
+
+/* @socom-skeleton stub PistolProneTurn__9AnimTypes */
+short AnimTypes::PistolProneTurn = -1;
+
+/* @socom-skeleton stub MovingRifle2Pistol__9AnimTypes */
+short AnimTypes::MovingRifle2Pistol = -1;
+
+/* @socom-skeleton stub MovingPistol2Rifle__9AnimTypes */
+short AnimTypes::MovingPistol2Rifle = -1;
+
+/* @socom-skeleton stub SwapRifle__9AnimTypes */
+short AnimTypes::SwapRifle = -1;
+
+/* @socom-skeleton stub StepUp__9AnimTypes */
+short AnimTypes::StepUp = -1;
+
+/* @socom-skeleton stub PistolStepUp__9AnimTypes */
+short AnimTypes::PistolStepUp = -1;
+
+/* @socom-skeleton stub ClimbMedium__9AnimTypes */
+short AnimTypes::ClimbMedium = -1;
+
+/* @socom-skeleton stub PistolClimbMedium__9AnimTypes */
+short AnimTypes::PistolClimbMedium = -1;
+
+/* @socom-skeleton stub ClimbOver__9AnimTypes */
+short AnimTypes::ClimbOver = -1;
+
+/* @socom-skeleton stub PistolClimbOver__9AnimTypes */
+short AnimTypes::PistolClimbOver = -1;
+
+/* @socom-skeleton stub CrouchStrafeLeft__9AnimTypes */
+short AnimTypes::CrouchStrafeLeft = -1;
+
+/* @socom-skeleton stub ProneRStrafe__9AnimTypes */
+short AnimTypes::ProneRStrafe = -1;
+
+/* @socom-skeleton stub PistolProneRStrafe__9AnimTypes */
+short AnimTypes::PistolProneRStrafe = -1;
+
+/* @socom-skeleton stub ProneLStrafe__9AnimTypes */
+short AnimTypes::ProneLStrafe = -1;
+
+/* @socom-skeleton stub PistolProneLStrafe__9AnimTypes */
+short AnimTypes::PistolProneLStrafe = -1;
+
+/* @socom-skeleton stub ProneCover__9AnimTypes */
+short AnimTypes::ProneCover = -1;
+
+/* @socom-skeleton stub PistolProneCover__9AnimTypes */
+short AnimTypes::PistolProneCover = -1;
+
+/* @socom-skeleton stub Die__9AnimTypes */
+short AnimTypes::Die = -1;
+
+/* @socom-skeleton stub PistolDie__9AnimTypes */
+short AnimTypes::PistolDie = -1;
+
+/* @socom-skeleton stub Death02__9AnimTypes */
+short AnimTypes::Death02 = -1;
+
+/* @socom-skeleton stub PistolDeath02__9AnimTypes */
+short AnimTypes::PistolDeath02 = -1;
+
+/* @socom-skeleton stub CrawlDeath01__9AnimTypes */
+short AnimTypes::CrawlDeath01 = -1;
+
+/* @socom-skeleton stub PistolCrawlDeath01__9AnimTypes */
+short AnimTypes::PistolCrawlDeath01 = -1;
+
+/* @socom-skeleton stub CrawlDeath02__9AnimTypes */
+short AnimTypes::CrawlDeath02 = -1;
+
+/* @socom-skeleton stub PistolCrawlDeath02__9AnimTypes */
+short AnimTypes::PistolCrawlDeath02 = -1;
+
+/* @socom-skeleton stub DeathCrouchBack01__9AnimTypes */
+short AnimTypes::DeathCrouchBack01 = -1;
+
+/* @socom-skeleton stub PistolDeathCrouchBack01__9AnimTypes */
+short AnimTypes::PistolDeathCrouchBack01 = -1;
+
+/* @socom-skeleton stub DeathCrouchChest01__9AnimTypes */
+short AnimTypes::DeathCrouchChest01 = -1;
+
+/* @socom-skeleton stub PistoDeathCrouchChest01__9AnimTypes */
+short AnimTypes::PistoDeathCrouchChest01 = -1;
+
+/* @socom-skeleton stub DeathCrouchChest02__9AnimTypes */
+short AnimTypes::DeathCrouchChest02 = -1;
+
+/* @socom-skeleton stub PistolDeathCrouchChest02__9AnimTypes */
+short AnimTypes::PistolDeathCrouchChest02 = -1;
+
+/* @socom-skeleton stub DeathCrouchHead01__9AnimTypes */
+short AnimTypes::DeathCrouchHead01 = -1;
+
+/* @socom-skeleton stub PistolDeathCrouchHead01__9AnimTypes */
+short AnimTypes::PistolDeathCrouchHead01 = -1;
+
+/* @socom-skeleton stub DeathStandHead01__9AnimTypes */
+short AnimTypes::DeathStandHead01 = -1;
+
+/* @socom-skeleton stub PistolDeathStandHead01__9AnimTypes */
+short AnimTypes::PistolDeathStandHead01 = -1;
+
+/* @socom-skeleton stub DeathProneChest01__9AnimTypes */
+short AnimTypes::DeathProneChest01 = -1;
+
+/* @socom-skeleton stub PistolDeathProneChest01__9AnimTypes */
+short AnimTypes::PistolDeathProneChest01 = -1;
+
+/* @socom-skeleton stub DeathStandLarm01__9AnimTypes */
+short AnimTypes::DeathStandLarm01 = -1;
+
+/* @socom-skeleton stub PistolDeathStandLarm01__9AnimTypes */
+short AnimTypes::PistolDeathStandLarm01 = -1;
+
+/* @socom-skeleton stub DeathStandChest03__9AnimTypes */
+short AnimTypes::DeathStandChest03 = -1;
+
+/* @socom-skeleton stub PistolDeathStandChest03__9AnimTypes */
+short AnimTypes::PistolDeathStandChest03 = -1;
+
+/* @socom-skeleton stub Stab__9AnimTypes */
+short AnimTypes::Stab = -1;
+
+/* @socom-skeleton stub PistolStab__9AnimTypes */
+short AnimTypes::PistolStab = -1;
+
+/* @socom-skeleton stub Stabbed__9AnimTypes */
+short AnimTypes::Stabbed = -1;
+
+/* @socom-skeleton stub CQB__9AnimTypes */
+short AnimTypes::CQB = -1;
+
+/* @socom-skeleton stub PistolCQB__9AnimTypes */
+short AnimTypes::PistolCQB = -1;
+
+/* @socom-skeleton stub CQBVictimFallBackwards__9AnimTypes */
+short AnimTypes::CQBVictimFallBackwards = -1;
+
+/* @socom-skeleton stub CQBVictimFallForwards__9AnimTypes */
+short AnimTypes::CQBVictimFallForwards = -1;
+
+/* @socom-skeleton stub ReceiveRestraints__9AnimTypes */
+short AnimTypes::ReceiveRestraints = -1;
+
+/* @socom-skeleton stub ApplyRestraints__9AnimTypes */
+short AnimTypes::ApplyRestraints = -1;
+
+/* @socom-skeleton stub PistolApplyRestraints__9AnimTypes */
+short AnimTypes::PistolApplyRestraints = -1;
+
+/* @socom-skeleton stub BuddyCarryStand__9AnimTypes */
+short AnimTypes::BuddyCarryStand = -1;
+
+/* @socom-skeleton stub PistolBuddyCarryStand__9AnimTypes */
+short AnimTypes::PistolBuddyCarryStand = -1;
+
+/* @socom-skeleton stub BuddyCarriedStand__9AnimTypes */
+short AnimTypes::BuddyCarriedStand = -1;
+
+/* @socom-skeleton stub BuddyCarryBody__9AnimTypes */
+short AnimTypes::BuddyCarryBody = -1;
+
+/* @socom-skeleton stub BuddyCarryWalk__9AnimTypes */
+short AnimTypes::BuddyCarryWalk = -1;
+
+/* @socom-skeleton stub PistolBuddyCarryWalk__9AnimTypes */
+short AnimTypes::PistolBuddyCarryWalk = -1;
+
+/* @socom-skeleton stub BuddyCarriedWalk__9AnimTypes */
+short AnimTypes::BuddyCarriedWalk = -1;
+
+/* @socom-skeleton stub BuddyCarryPickup__9AnimTypes */
+short AnimTypes::BuddyCarryPickup = -1;
+
+/* @socom-skeleton stub PistolBuddyCarryPickup__9AnimTypes */
+short AnimTypes::PistolBuddyCarryPickup = -1;
+
+/* @socom-skeleton stub BuddyCarriedPickup__9AnimTypes */
+short AnimTypes::BuddyCarriedPickup = -1;
+
+/* @socom-skeleton stub BuddyCarryStep__9AnimTypes */
+short AnimTypes::BuddyCarryStep = -1;
+
+/* @socom-skeleton stub PistolBuddyCarryStep__9AnimTypes */
+short AnimTypes::PistolBuddyCarryStep = -1;
+
+/* @socom-skeleton stub BuddyCarriedStep__9AnimTypes */
+short AnimTypes::BuddyCarriedStep = -1;
+
+/* @socom-skeleton stub FallForward01__9AnimTypes */
+short AnimTypes::FallForward01 = -1;
+
+/* @socom-skeleton stub FallBackward01__9AnimTypes */
+short AnimTypes::FallBackward01 = -1;
+
+/* @socom-skeleton stub DiveForward01__9AnimTypes */
+short AnimTypes::DiveForward01 = -1;
+
+/* @socom-skeleton stub LandForward01__9AnimTypes */
+short AnimTypes::LandForward01 = -1;
+
+/* @socom-skeleton stub LandBackward01__9AnimTypes */
+short AnimTypes::LandBackward01 = -1;
+
+/* @socom-skeleton stub GetupForward01__9AnimTypes */
+short AnimTypes::GetupForward01 = -1;
+
+/* @socom-skeleton stub GetupBackward01__9AnimTypes */
+short AnimTypes::GetupBackward01 = -1;
+
+/* @socom-skeleton stub DefuseBombBegin__9AnimTypes */
+short AnimTypes::DefuseBombBegin = -1;
+
+/* @socom-skeleton stub PistolDefuseBombBegin__9AnimTypes */
+short AnimTypes::PistolDefuseBombBegin = -1;
+
+/* @socom-skeleton stub DefuseBombLoop__9AnimTypes */
+short AnimTypes::DefuseBombLoop = -1;
+
+/* @socom-skeleton stub PistolDefuseBombLoop__9AnimTypes */
+short AnimTypes::PistolDefuseBombLoop = -1;
+
+/* @socom-skeleton stub DefuseBombEnd__9AnimTypes */
+short AnimTypes::DefuseBombEnd = -1;
+
+/* @socom-skeleton stub PistolDefuseBombEnd__9AnimTypes */
+short AnimTypes::PistolDefuseBombEnd = -1;
+
+/* @socom-skeleton stub Ladder2Slide__9AnimTypes */
+short AnimTypes::Ladder2Slide = -1;
+
+/* @socom-skeleton stub PistolLadder2Slide__9AnimTypes */
+short AnimTypes::PistolLadder2Slide = -1;
+
+/* @socom-skeleton stub LadderSlide__9AnimTypes */
+short AnimTypes::LadderSlide = -1;
+
+/* @socom-skeleton stub PistolLadderSlide__9AnimTypes */
+short AnimTypes::PistolLadderSlide = -1;
+
+/* @socom-skeleton stub LadderSlideLand__9AnimTypes */
+short AnimTypes::LadderSlideLand = -1;
+
+/* @socom-skeleton stub PistolLadderSlideLand__9AnimTypes */
+short AnimTypes::PistolLadderSlideLand = -1;
+
+/* @socom-skeleton stub m_defuse__7AnimSet */
+int AnimSet::m_defuse;
+
+/* @socom-skeleton stub numAnimTypes */
+static int numAnimTypes;
+
+/* @socom-skeleton stub loadCount */
+static int loadCount;
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub deathanim__7AnimSet */
+int AnimSet::deathanim[54];
+
+/* @socom-skeleton stub pistoldeathanim__7AnimSet */
+unsigned char AnimSet::pistoldeathanim[216];
+
+/* @socom-skeleton stub teammatedeathanim__7AnimSet */
+unsigned char AnimSet::teammatedeathanim[216];
+
+/* @socom-skeleton stub teammatepistoldeathanim__7AnimSet */
+unsigned char AnimSet::teammatepistoldeathanim[216];
+
+/* @socom-skeleton stub damageanim__7AnimSet */
+unsigned char AnimSet::damageanim[216];
+
+/* @socom-skeleton stub pistoldamageanim__7AnimSet */
+unsigned char AnimSet::pistoldamageanim[216];
+
+/* @socom-skeleton stub newNames__18@unnamed@anim_cpp@ */
+namespace {
+int newNames[3];
+}
+
+/* @socom-skeleton stub newNamesMap */
+unsigned char newNamesMap[16];
+
+/* @socom-skeleton stub animNamesMap */
+unsigned char animNamesMap[16];
+
+/* @socom-skeleton stub list__7AnimSet */
+int AnimSet::list[3];
+
+/* @socom-skeleton stub list__12CAnimAuxData */
+int CAnimAuxData::list[3];
+
+/* @socom-skeleton stub Clear__10CBlendableFv */
+void CBlendable::Clear()
+{
+}
+
+/* @socom-skeleton stub AddBlendable__10CBlendableFff8AnimType */
+void CBlendable::AddBlendable(float, float, AnimType)
+{
+}
+
+/* @socom-skeleton stub MaxTrans1__10CBlendableFv */
+float CBlendable::MaxTrans1()
+{
+}
+
+/* @socom-skeleton stub Contains__10CBlendableF8AnimType */
+void CBlendable::Contains(AnimType)
+{
+}
+
+/* @socom-skeleton stub CloseAll__7AnimSetFv */
+void AnimSet::CloseAll()
+{
+}
+
+/* @socom-skeleton stub Close__7AnimSetFv */
+void AnimSet::Close()
+{
+}
+
+/* @socom-skeleton stub GetAnimTypeMax__Fv */
+int GetAnimTypeMax()
+{
+}
+
+/* @socom-skeleton stub FindAnimType__FPCc */
+AnimType FindAnimType(const char *)
+{
+}
+
+/* @socom-skeleton stub Load__7AnimSetFP5_zrdr */
+void AnimSet::Load(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub AnimId__7AnimSetCF8AnimType */
+short AnimSet::AnimId(AnimType) const
+{
+}
+
+/* @socom-skeleton stub Inherit__7AnimSetFP7AnimSet */
+void AnimSet::Inherit(AnimSet *)
+{
+}
+
+/* @socom-skeleton stub Get__12CAnimAuxDataFUi */
+void CAnimAuxData::Get(unsigned int)
+{
+}
+
+/* @socom-skeleton stub Load__7AnimSetFv */
+void AnimSet::Load()
+{
+}
+
+/* @socom-skeleton stub InitializeAnimNames__Fv */
+void InitializeAnimNames()
+{
+}
+
+/* @socom-skeleton stub BaseAnim__7AnimSetF8AnimType */
+AnimType AnimSet::BaseAnim(AnimType)
+{
+}
+
+/* @socom-skeleton stub Clear__10CAnimsByFPFv */
+void CAnimsByFP::Clear()
+{
+}
+
+/* @socom-skeleton stub PistolAnim__10CAnimsByFPCF8AnimType */
+AnimType CAnimsByFP::PistolAnim(AnimType) const
+{
+}
+
+/* @socom-skeleton stub RifleFPAnim__10CAnimsByFPCF8AnimType */
+AnimType CAnimsByFP::RifleFPAnim(AnimType) const
+{
+}
+
+/* @socom-skeleton stub PistolFPAnim__10CAnimsByFPCF8AnimType */
+AnimType CAnimsByFP::PistolFPAnim(AnimType) const
+{
+}
+
+/* @socom-skeleton stub SetPistolAnim__10CAnimsByFPF8AnimType8AnimType */
+void CAnimsByFP::SetPistolAnim(AnimType, AnimType)
+{
+}
+
+/* @socom-skeleton stub DefineFPAnims__7AnimSetFv */
+void AnimSet::DefineFPAnims()
+{
+}
+
+/* @socom-skeleton stub SetMaxMotion__7AnimSetFv */
+void AnimSet::SetMaxMotion()
+{
+}
+
+/* @socom-skeleton stub AddBlendable__7AnimSetFiff */
+void AnimSet::AddBlendable(int, float, float)
+{
+}

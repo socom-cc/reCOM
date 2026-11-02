@@ -10,3 +10,44 @@
  * @socom-artifact defines main socom:data:0x476830
  * @socom-artifact defines main socom:data:0x530c70
  * socom-owner-annotations end socom:work:source-segment-047 */
+
+/* @socom-skeleton stub nonBlockReadReq */
+static int nonBlockReadReq;
+
+/* @socom-skeleton stub infile */
+static int infile[5];
+
+/* @socom-skeleton stub strFileOpen__FPCc */
+void strFileOpen(const char *)
+{
+}
+
+/* @socom-skeleton stub strFileRewind__Fv */
+void strFileRewind()
+{
+}
+
+/* @socom-skeleton stub strFileClose__Fv */
+void strFileClose()
+{
+}
+
+/* @socom-skeleton stub strFileRead__FPvi */
+int strFileRead(void *, int)
+{
+}
+
+/* @socom-skeleton stub setLoadImageTags__FPUiPviiUi */
+void setLoadImageTags(unsigned int *, void *, int, int, unsigned int)
+{
+}
+
+/* @socom-skeleton stub setLoadImageTagsYX__FPUiPviiiUi */
+void setLoadImageTagsYX(unsigned int *, void *, int, int, int, unsigned int)
+{
+}
+
+/* @socom-skeleton stub loadImage__FPUi */
+void loadImage(unsigned int *)
+{
+}

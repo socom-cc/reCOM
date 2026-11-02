@@ -33,3 +33,123 @@
  * @socom-artifact defines main socom:data:0x475b30
  * @socom-artifact defines main socom:data:0x4d6e10
  * socom-owner-annotations end socom:work:source-segment-025 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zIntersect/zintersect.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/znode.h"
+#include "zgrid.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub m_BBoxHitNodes__Q23zdb5CGrid */
+namespace zdb {
+unsigned char CGrid::m_BBoxHitNodes[32] = {0};
+}
+
+/* @socom-skeleton stub m_doIntersect__Q23zdb5CGrid */
+namespace zdb {
+unsigned char CGrid::m_doIntersect = 1;
+}
+
+/* @socom-skeleton stub m_doAltitude__Q23zdb5CGrid */
+namespace zdb {
+unsigned char CGrid::m_doAltitude = 1;
+}
+
+/* @socom-skeleton stub m_node */
+int m_node;
+
+/* @socom-skeleton stub stack */
+static unsigned char stack;
+
+/* @socom-skeleton stub cameraCollideFlagRequired__21@unnamed@grid_di_cpp@ */
+namespace {
+unsigned char cameraCollideFlagRequired;
+}
+
+/* @socom-skeleton stub _cmpdi_di */
+static int _cmpdi_di;
+
+/* @socom-skeleton stub _cmpdi_rs */
+static int _cmpdi_rs;
+
+/* @socom-skeleton stub NodeCheck */
+unsigned char NodeCheck;
+
+/* @socom-skeleton stub m_doBBoxIntersectNodes__Q23zdb5CGrid */
+namespace zdb {
+unsigned char CGrid::m_doBBoxIntersectNodes;
+}
+
+/* @socom-skeleton stub m_BBoxIntersectNodeCnt__Q23zdb5CGrid */
+namespace zdb {
+int CGrid::m_BBoxIntersectNodeCnt;
+}
+
+/* @socom-skeleton stub CellCheck */
+unsigned char CellCheck[1600];
+
+/* @socom-skeleton stub SetCameraCollideFlagRequired__3zdbFb */
+void zdb::SetCameraCollideFlagRequired(bool)
+{
+}
+
+/* @socom-skeleton stub _cmpdi__FPCvPCv */
+int _cmpdi(const void *, const void *)
+{
+}
+
+/* @socom-skeleton stub SortNearToFar__Q23zdb11DiIntersectFPiPf */
+void zdb::DiIntersect::SortNearToFar(int *, float *)
+{
+}
+
+/* @socom-skeleton stub GetNearestIntersect__Q23zdb11DiIntersectFv */
+zdb::IntersectStruct * zdb::DiIntersect::GetNearestIntersect()
+{
+}
+
+/* @socom-skeleton stub GetHighestAltitude__Q23zdb11DiIntersectFPC6CPnt3Df */
+zdb::IntersectStruct * zdb::DiIntersect::GetHighestAltitude(const CPnt3D *, float)
+{
+}
+
+/* @socom-skeleton stub GetAltitude__Q23zdb5CGridFPQ23zdb11DiIntersect */
+void zdb::CGrid::GetAltitude(zdb::DiIntersect *)
+{
+}
+
+/* @socom-skeleton stub GetIntersect__Q23zdb5CGridFPQ23zdb11DiIntersect */
+void zdb::CGrid::GetIntersect(zdb::DiIntersect *)
+{
+}
+
+/* @socom-skeleton stub GetIntersectBatch__Q23zdb5CGridFPPQ23zdb11DiIntersecti */
+void zdb::CGrid::GetIntersectBatch(zdb::DiIntersect **, int)
+{
+}
+
+/* @socom-skeleton stub NodeGetIntersectBatch__Q23zdb5CGridFPQ23zdb5CNodePPQ23zdb11DiIntersecti */
+void zdb::CGrid::NodeGetIntersectBatch(zdb::CNode *, zdb::DiIntersect **, int)
+{
+}
+
+/* @socom-skeleton stub InitDescendantsDI__Q23zdb5CGridFv */
+void zdb::CGrid::InitDescendantsDI()
+{
+}
+
+/* @socom-skeleton stub InitDescendantsVisuals__Q23zdb5CGridFv */
+void zdb::CGrid::InitDescendantsVisuals()
+{
+}
+
+/* @socom-skeleton stub NodeGetIntersect__Q23zdb5CGridFPQ23zdb5CNodePQ23zdb11DiIntersect */
+void zdb::CGrid::NodeGetIntersect(zdb::CNode *, zdb::DiIntersect *)
+{
+}
+
+/* @socom-skeleton stub NodeGetAltitude__Q23zdb5CGridFPQ23zdb5CNodePQ23zdb11DiIntersect */
+void zdb::CGrid::NodeGetAltitude(zdb::CNode *, zdb::DiIntersect *)
+{
+}

@@ -35,32 +35,44 @@
 
 #include "gamez/zSystem//zsys.h"
 
-void HookupLib(zdb::CAssetLib lib)
-{
-	zdb::CGSTexBuffer texbuf;
-
-	for (auto it = lib.m_palettes.begin(); it != lib.m_palettes.end(); ++it)
-	{
-		texbuf.m_dyntex_list.Add(*it, true);
-		texbuf.m_chainp = NULL;
-	}
-
-	for (auto it = lib.m_textures.begin(); it != lib.m_textures.end(); ++it)
-	{
-		texbuf.m_dyntex_list.Add(*it, true);
-		texbuf.m_chainp = NULL;
-	}
-
-	texbuf.Hookup(NULL);
-}
-
 namespace zdb
 {
-	CAssetList CAssetMgr::m_assets;
 
-	CAssetList g_assetsRecycle;
+	
 
-	CAssetLib::CAssetLib(const char* name)
+	
+}
+
+/* @socom-skeleton decl include */
+#include "Apps/FTS/hud/hud.h"
+#include "gamez/zTexture/ztex.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub m_conflictresolver__Q23zdb9CAssetLib */
+namespace zdb {
+int CAssetLib::m_conflictresolver;
+}
+
+/* @socom-skeleton stub g_assetsRecycle__Q23zdb27@unnamed@node_assetlib_cpp@ */
+namespace zdb {
+namespace {
+int g_assetsRecycle[4];
+}
+}
+
+/* @socom-skeleton stub m_assets__Q23zdb9CAssetMgr */
+namespace zdb {
+zdb::CAssetList CAssetMgr::m_assets;
+}
+
+/* @socom-skeleton stub EmptyAssetRecycleBin__3zdbFv */
+void zdb::EmptyAssetRecycleBin()
+{
+}
+
+/* @socom-skeleton body __ct__Q23zdb9CAssetLibFPCc */
+namespace zdb {
+CAssetLib::CAssetLib(const char* name)
 	{
 		m_name = NULL;
 		m_texture_buffer = NULL;
@@ -76,165 +88,33 @@ namespace zdb
 
 		m_name = zstrdup(name);
 	}
+}
 
-	CTexHandle* CAssetList::GetTexHandle(const char* name)
+/* @socom-skeleton stub __dt__Q23zdb9CAssetLibFv */
+zdb::CAssetLib::~CAssetLib()
+{
+}
+
+/* @socom-skeleton body RootName__Q23zdb9CAssetLibFv */
+char * zdb::CAssetLib::RootName()
 	{
-		CTexHandle* handle = NULL;
+		size_t length = strlen(m_name);
 
-		for (auto i = begin(); i != end(); i++)
+		for (s32 i = length - 1; i > -1; i--)
 		{
-			CTexHandle* handle = (*i)->m_textures.GetHandle(name);
+			char c = m_name[i];
 
-			if (handle)
-				return handle;
-		}
-
-		return NULL;
-	}
-
-	CTexHandle* CTexList::Append(CTexture* texture, bool search)
-	{
-		CTexHandle* handle = NULL;
-
-		if (search)
-		{
-			for (auto i = begin(); i != end(); i++)
+			if (c == '/' || c == '\\')
 			{
-				CTexHandle* h = *i;
-
-				if (h->m_texture == texture)
-				{
-					handle = h;
-					break;
-				}
+				return m_name + i + 1;
 			}
 		}
 
-		if (handle == NULL)
-		{
-			handle = CTexHandle::Create(texture);
-			insert(begin(), handle);
-		}
-
-		return handle;
+		return m_name;
 	}
 
-	bool CAssetLib::AddTexture(const char* name)
-	{
-		if (!name)
-			return false;
-
-		if (m_locked)
-			return false;
-
-		for (auto i = CAssetMgr::m_assets.begin(); i != CAssetMgr::m_assets.end(); i++)
-		{
-			CTexHandle* handle = (*i)->m_textures.GetHandle(name);
-
-			if (handle)
-			{
-				AddTexture(handle->m_texture);
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	bool CAssetLib::AddTexture(CTexture* texture)
-	{
-		if (!texture)
-			return false;
-
-		if (m_locked)
-			return false;
-
-		for (auto i = CAssetMgr::m_assets.begin(); i != CAssetMgr::m_assets.end(); i++)
-		{
-			CTexHandle* handle = (*i)->m_textures.GetHandle(texture->m_name);
-
-			if (handle)
-				break;
-		}
-
-		m_textures.Append(texture, true);
-		texture->m_AssetLib = this;
-
-		return true;
-	}
-
-	CModel* CAssetLib::AddModel(CModel* model)
-	{
-		char* name = NULL;
-
-		CAssetLib* library = NULL;
-		CAssetLib* resolved = NULL;
-		CModel* asset = NULL;
-
-		if (m_locked)
-			return NULL;
-
-		name = model->m_name;
-		asset = model;
-
-		for (auto i = CAssetMgr::m_assets.begin(); i != CAssetMgr::m_assets.end(); i++)
-		{
-			CModel* mdl = (*i)->m_models.GetModel(name);
-
-			if (mdl)
-			{
-				library = *i;
-				break;
-			}
-		}
-
-		if (!library)
-		{
-			m_models.insert(m_models.begin(), asset);
-			asset->m_AssetLib = this;
-		}
-
-		return asset;
-	}
-
-	CTexPalette* CAssetLib::AddPalette(CTexPalette* palette, bool checkDuplicate)
-	{
-		if (checkDuplicate)
-		{
-			for (auto i = m_palettes.begin(); i != m_palettes.end(); ++i)
-			{
-				if (palette == *i)
-					return NULL;
-			}
-		}
-
-		m_palettes.insert(m_palettes.begin(), palette);
-		palette->m_AssetLib = this;
-		
-		return NULL;
-	}
-
-	CModel* CAssetList::GetModel(const char* name)
-	{
-		if (m_cache_model)
-		{
-			if (name && !strcmp(m_cache_model->m_name, name))
-				return m_cache_model;
-		}
-
-		for (auto i = begin(); i != end(); i++)
-		{
-			CAssetLib* lib = *i;
-			CModel* model = lib->m_models.GetModel(name);
-
-			if (model)
-				return m_cache_model = model;
-		}
-
-		return NULL;
-	}
-
-	bool CAssetLib::IsNamed(const char* name) const
+/* @socom-skeleton body IsNamed__Q23zdb9CAssetLibFPCc */
+bool zdb::CAssetLib::IsNamed(const char *name)
 	{
 		bool isnamed = false;
 
@@ -276,25 +156,140 @@ namespace zdb
 
 		return isnamed;
 	}
-	
-	char* CAssetLib::RootName() const
+
+/* @socom-skeleton body AddTexture__Q23zdb9CAssetLibFPCc */
+namespace zdb {
+bool CAssetLib::AddTexture(const char* name)
 	{
-		size_t length = strlen(m_name);
+		if (!name)
+			return false;
 
-		for (s32 i = length - 1; i > -1; i--)
+		if (m_locked)
+			return false;
+
+		for (auto i = CAssetMgr::m_assets.begin(); i != CAssetMgr::m_assets.end(); i++)
 		{
-			char c = m_name[i];
+			CTexHandle* handle = (*i)->m_textures.GetHandle(name);
 
-			if (c == '/' || c == '\\')
+			if (handle)
 			{
-				return m_name + i + 1;
+				AddTexture(handle->m_texture);
+				return true;
 			}
 		}
 
-		return m_name;
+		return false;
 	}
+}
 
-	CAssetLib* CAssetList::FindLib(const char* name)
+/* @socom-skeleton body AddTexture__Q23zdb9CAssetLibFPQ23zdb8CTexture */
+namespace zdb {
+bool CAssetLib::AddTexture(CTexture* texture)
+	{
+		if (!texture)
+			return false;
+
+		if (m_locked)
+			return false;
+
+		for (auto i = CAssetMgr::m_assets.begin(); i != CAssetMgr::m_assets.end(); i++)
+		{
+			CTexHandle* handle = (*i)->m_textures.GetHandle(texture->m_name);
+
+			if (handle)
+				break;
+		}
+
+		m_textures.Append(texture, true);
+		texture->m_AssetLib = this;
+
+		return true;
+	}
+}
+
+/* @socom-skeleton body AddModel__Q23zdb9CAssetLibFPQ23zdb6CModel */
+namespace zdb {
+CModel* CAssetLib::AddModel(CModel* model)
+	{
+		char* name = NULL;
+
+		CAssetLib* library = NULL;
+		CAssetLib* resolved = NULL;
+		CModel* asset = NULL;
+
+		if (m_locked)
+			return NULL;
+
+		name = model->m_name;
+		asset = model;
+
+		for (auto i = CAssetMgr::m_assets.begin(); i != CAssetMgr::m_assets.end(); i++)
+		{
+			CModel* mdl = (*i)->m_models.GetModel(name);
+
+			if (mdl)
+			{
+				library = *i;
+				break;
+			}
+		}
+
+		if (!library)
+		{
+			m_models.insert(m_models.begin(), asset);
+			asset->m_AssetLib = this;
+		}
+
+		return asset;
+	}
+}
+
+/* @socom-skeleton body AddPalette__Q23zdb9CAssetLibFPQ23zdb11CTexPaletteb */
+namespace zdb {
+CTexPalette* CAssetLib::AddPalette(CTexPalette* palette, bool checkDuplicate)
+	{
+		if (checkDuplicate)
+		{
+			for (auto i = m_palettes.begin(); i != m_palettes.end(); ++i)
+			{
+				if (palette == *i)
+					return NULL;
+			}
+		}
+
+		m_palettes.insert(m_palettes.begin(), palette);
+		palette->m_AssetLib = this;
+		
+		return NULL;
+	}
+}
+
+/* @socom-skeleton stub Clear__Q23zdb10CAssetListFv */
+void zdb::CAssetList::Clear()
+{
+}
+
+/* @socom-skeleton body GetTexHandle__Q23zdb10CAssetListFPCc */
+namespace zdb {
+CTexHandle* CAssetList::GetTexHandle(const char* name)
+	{
+		CTexHandle* handle = NULL;
+
+		for (auto i = begin(); i != end(); i++)
+		{
+			CTexHandle* handle = (*i)->m_textures.GetHandle(name);
+
+			if (handle)
+				return handle;
+		}
+
+		return NULL;
+	}
+}
+
+/* @socom-skeleton body FindLib__Q23zdb10CAssetListFPCc */
+namespace zdb {
+CAssetLib* CAssetList::FindLib(const char* name)
 	{
 		CAssetLib* lib = NULL;
 		
@@ -346,8 +341,39 @@ namespace zdb
 
 		return lib;
 	}
-	
-	CAssetLib* CAssetMgr::GetLoadedLibRef(const char* name)
+}
+
+/* @socom-skeleton stub FindLib__Q23zdb10CAssetListFQ23zdb12_RenderPhase */
+zdb::CAssetLib * zdb::CAssetList::FindLib(zdb::_RenderPhase)
+{
+}
+
+/* @socom-skeleton body GetModel__Q23zdb10CAssetListFPCc */
+namespace zdb {
+CModel* CAssetList::GetModel(const char* name)
+	{
+		if (m_cache_model)
+		{
+			if (name && !strcmp(m_cache_model->m_name, name))
+				return m_cache_model;
+		}
+
+		for (auto i = begin(); i != end(); i++)
+		{
+			CAssetLib* lib = *i;
+			CModel* model = lib->m_models.GetModel(name);
+
+			if (model)
+				return m_cache_model = model;
+		}
+
+		return NULL;
+	}
+}
+
+/* @socom-skeleton body GetLoadedLibRef__Q23zdb9CAssetMgrFPCc */
+namespace zdb {
+CAssetLib* CAssetMgr::GetLoadedLibRef(const char* name)
 	{
 		CAssetLib* lib = m_assets.FindLib(name);
 
@@ -401,4 +427,9 @@ namespace zdb
 		
 		return lib;
 	}
+}
+
+/* @socom-skeleton stub ReleaseLibRef__Q23zdb9CAssetMgrFPQ23zdb9CAssetLib */
+void zdb::CAssetMgr::ReleaseLibRef(zdb::CAssetLib *)
+{
 }

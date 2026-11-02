@@ -24,7 +24,42 @@
 
 namespace zdb
 {
-    CDI::CDI()
+    
+
+    
+
+    
+
+}
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton body __ct__Q23zdb11DiIntersectFi */
+namespace zdb {
+DiIntersect::DiIntersect(s32 count)
+    {
+        m_BufCnt = count;
+        m_Intersects = static_cast<IntersectStruct*>(zmalloc(count << 5));
+        m_Node = NULL;
+        m_Cnt = 0;
+
+        m_Type = 0;
+        m_IntersectCharacters = false;
+        m_AltitudeCharacters = false;
+        m_ProximityCharacters = false;
+    }
+}
+
+/* @socom-skeleton stub __dt__Q23zdb11DiIntersectFv */
+zdb::DiIntersect::~DiIntersect()
+{
+}
+
+/* @socom-skeleton body __ct__Q23zdb3CDIFv */
+namespace zdb {
+CDI::CDI()
     {
         m_nrm = CPnt4D::zero;
         m_region = 0;
@@ -40,8 +75,49 @@ namespace zdb
 
         m_pts = NULL;
     }
-    
-    CDI* CDI::Create(CSaveLoad& sload)
+}
+
+/* @socom-skeleton stub __dt__Q23zdb3CDIFv */
+zdb::CDI::~CDI()
+{
+}
+
+/* @socom-skeleton body Allocate__Q23zdb3CDIFi */
+void zdb::CDI::Allocate(int size)
+    {
+        m_ptcount = size;
+        m_pts = static_cast<CPnt4D*>(zmalloc(m_ptcount << 4));
+    }
+
+/* @socom-skeleton stub Release__Q23zdb3CDIFv */
+unsigned int zdb::CDI::Release()
+{
+}
+
+/* @socom-skeleton body Free__Q23zdb3CDIFv */
+namespace zdb {
+void CDI::Free()
+    {
+        if (m_pts)
+        {
+            zfree(m_pts);
+        }
+
+        m_pts = NULL;
+        m_ditype = 0;
+        m_ptcount = 0;
+        m_material = 0;
+        m_cameratype = 0;
+        m_appflags = 0;
+        m_inside = false;
+        m_shadow = 0;
+        m_reserved = 0;
+    }
+}
+
+/* @socom-skeleton body Create__Q23zdb3CDIFRQ23zdb9CSaveLoad */
+namespace zdb {
+CDI* CDI::Create(CSaveLoad& sload)
     {
         CDI* di = NULL;
         zar::CKey* dikey = sload.m_zfile.GetOpenKey();
@@ -60,14 +136,11 @@ namespace zdb
 
         return di;
     }
+}
 
-    void CDI::Allocate(size_t size)
-    {
-        m_ptcount = size;
-        m_pts = static_cast<CPnt4D*>(zmalloc(m_ptcount << 4));
-    }
-    
-    bool CDI::Read(CSaveLoad& sload)
+/* @socom-skeleton body Read__Q23zdb3CDIFRQ23zdb9CSaveLoad */
+namespace zdb {
+bool CDI::Read(CSaveLoad& sload)
     {
         if (sload.m_zfile.GetOpenKey())
         {
@@ -86,51 +159,29 @@ namespace zdb
 
         return false;
     }
+}
 
-    void CDI::Free()
-    {
-        if (m_pts)
-        {
-            zfree(m_pts);
-        }
+/* @socom-skeleton stub GetMaterial__Q23zdb15IntersectStructFv */
+unsigned int zdb::IntersectStruct::GetMaterial()
+{
+}
 
-        m_pts = NULL;
-        m_ditype = 0;
-        m_ptcount = 0;
-        m_material = 0;
-        m_cameratype = 0;
-        m_appflags = 0;
-        m_inside = false;
-        m_shadow = 0;
-        m_reserved = 0;
-    }
+/* @socom-skeleton stub GetRegion__Q23zdb15IntersectStructFv */
+unsigned int zdb::IntersectStruct::GetRegion()
+{
+}
 
-    DiIntersect::DiIntersect(s32 count)
-    {
-        m_BufCnt = count;
-        m_Intersects = static_cast<IntersectStruct*>(zmalloc(count << 5));
-        m_Node = NULL;
-        m_Cnt = 0;
+/* @socom-skeleton stub IsInside__Q23zdb15IntersectStructFv */
+unsigned char zdb::IntersectStruct::IsInside()
+{
+}
 
-        m_Type = 0;
-        m_IntersectCharacters = false;
-        m_AltitudeCharacters = false;
-        m_ProximityCharacters = false;
-    }
-    
-    bool CDIVector::Exists(CDI* di)
-    {
-        const auto it = begin();
+/* @socom-skeleton stub GetIntersectedEdgePointsY__Q23zdb15IntersectStructFP6CPnt3D */
+void zdb::IntersectStruct::GetIntersectedEdgePointsY(CPnt3D *)
+{
+}
 
-        while (it != end())
-        {
-            if (*it == di)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
+/* @socom-skeleton stub GetIntersectedEdgePoints__Q23zdb15IntersectStructFP6CPnt3DP6CPnt3D */
+void zdb::IntersectStruct::GetIntersectedEdgePoints(CPnt3D *, CPnt3D *)
+{
 }

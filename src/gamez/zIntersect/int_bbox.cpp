@@ -20,3 +20,85 @@
  * @socom-artifact defines main socom:data:0x475bac
  * @socom-artifact defines main socom:data:0x4d7900
  * socom-owner-annotations end socom:work:source-segment-026 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/node_saveload.h"
+#include "zintersect.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub initCDIBBoxOnce */
+unsigned char initCDIBBoxOnce;
+
+/* @socom-skeleton stub bbox_poly */
+int bbox_poly[6];
+
+/* @socom-skeleton stub __ct__Q23zdb7CDIPolyFv */
+zdb::CDIPoly::CDIPoly()
+{
+}
+
+/* @socom-skeleton stub __dt__Q23zdb7CDIPolyFv */
+zdb::CDIPoly::~CDIPoly()
+{
+}
+
+/* @socom-skeleton stub __ct__Q23zdb7CDIBBoxFv */
+zdb::CDIBBox::CDIBBox()
+{
+}
+
+/* @socom-skeleton stub __dt__Q23zdb7CDIBBoxFv */
+zdb::CDIBBox::~CDIBBox()
+{
+}
+
+/* @socom-skeleton stub GetAltitude__Q23zdb7CDIPolyFPQ23zdb11DiIntersect */
+void zdb::CDIPoly::GetAltitude(zdb::DiIntersect *)
+{
+}
+
+/* @socom-skeleton stub intersect2d__FPC6CPnt3DPC6CPnt3DPC6CPnt3DP6CPnt3D */
+void intersect2d(const CPnt3D *, const CPnt3D *, const CPnt3D *, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub GetEdgeIntersects__Q23zdb3CDIFP6CPnt3DP6CPnt3DP6CPnt3D */
+int zdb::CDI::GetEdgeIntersects(CPnt3D *, CPnt3D *, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub GetEdgeIntersectsY__Q23zdb3CDIFP6CPnt3DP6CPnt3D */
+int zdb::CDI::GetEdgeIntersectsY(CPnt3D *, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub LoadTipAndTail__Q23zdb11DiIntersectFv */
+void zdb::DiIntersect::LoadTipAndTail()
+{
+}
+
+/* @socom-skeleton stub GetIntersect__Q23zdb7CDIPolyFPQ23zdb11DiIntersect */
+void zdb::CDIPoly::GetIntersect(zdb::DiIntersect *)
+{
+}
+
+/* @socom-skeleton stub SetEdgeVecsAndNorm__Q23zdb3CDIFv */
+void zdb::CDI::SetEdgeVecsAndNorm()
+{
+}
+
+/* @socom-skeleton stub GetAltitude__Q23zdb7CDIBBoxFPQ23zdb11DiIntersect */
+void zdb::CDIBBox::GetAltitude(zdb::DiIntersect *)
+{
+}
+
+/* @socom-skeleton stub GetIntersect__Q23zdb7CDIBBoxFPQ23zdb11DiIntersect */
+void zdb::CDIBBox::GetIntersect(zdb::DiIntersect *)
+{
+}
+
+/* @socom-skeleton stub SetCDIBBox__Q23zdb7CDIBBoxFv */
+void zdb::CDIBBox::SetCDIBBox()
+{
+}

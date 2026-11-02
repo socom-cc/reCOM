@@ -43,3 +43,101 @@
  * @socom-artifact defines main socom:data:0x4757ac
  * @socom-artifact defines main socom:data:0x4757b0
  * socom-owner-annotations end socom:work:source-segment-016 */
+
+/* @socom-skeleton decl include */
+#include "zai.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CAiVisMap;
+class MAP_LINEWALK_STRUCT;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub null_vismap */
+static int null_vismap;
+
+/* @socom-skeleton stub globalVisMap */
+static int globalVisMap[3];
+
+/* @socom-skeleton stub dynamicVisMap */
+static int dynamicVisMap[3];
+
+/* @socom-skeleton stub TickVisMaps__9CAiVisMapFf */
+void CAiVisMap::TickVisMaps(float)
+{
+	/* @socom-skeleton stub max_lines$909 */
+	static int max_lines;
+}
+
+/* @socom-skeleton stub RegisterDynamicVisMap__9CAiVisMapFP9CAiVisMapRC9CAiMapLoci */
+void CAiVisMap::RegisterDynamicVisMap(CAiVisMap *, const CAiMapLoc &, int)
+{
+	/* @socom-skeleton stub nosee_byte$1028 */
+	static unsigned char nosee_byte;
+}
+
+/* @socom-skeleton stub CenterRegion__6CAiMapCFRC9CAiMapLocRQ26CAiMap6region */
+void CAiMap::CenterRegion(const CAiMapLoc &, CAiMap::region &) const
+{
+}
+
+/* @socom-skeleton stub UpdateDynamicVisMap__9CAiVisMapFP9CAiVisMapRC9CAiMapLoc */
+void CAiVisMap::UpdateDynamicVisMap(CAiVisMap *, const CAiMapLoc &)
+{
+}
+
+/* @socom-skeleton stub ReleaseDynamicVisMap__9CAiVisMapFP9CAiVisMap */
+void CAiVisMap::ReleaseDynamicVisMap(CAiVisMap *)
+{
+}
+
+/* @socom-skeleton stub CloseAll__9CAiVisMapFv */
+void CAiVisMap::CloseAll()
+{
+}
+
+/* @socom-skeleton stub __ct__9CAiVisMapFv */
+CAiVisMap::CAiVisMap()
+{
+}
+
+/* @socom-skeleton stub __dt__9CAiVisMapFv */
+CAiVisMap::~CAiVisMap()
+{
+}
+
+/* @socom-skeleton stub GetMark__9CAiVisMapCFRC9CAiMapLoc */
+void CAiVisMap::GetMark(const CAiMapLoc &) const
+{
+}
+
+/* @socom-skeleton stub CheckBoxEdges__9CAiVisMapFRC9CAiMapLociR9CAiMapLocQ29CAiVisMap8VIS_TYPEbb */
+void CAiVisMap::CheckBoxEdges(const CAiMapLoc &, int, CAiMapLoc &, CAiVisMap::VIS_TYPE, bool, bool)
+{
+}
+
+/* @socom-skeleton stub FindEvadeLocation__9CAiVisMapFRC9CAiMapLocR9CAiMapLoc */
+void CAiVisMap::FindEvadeLocation(const CAiMapLoc &, CAiMapLoc &)
+{
+	/* @socom-skeleton stub max_spiral$1114 */
+	static int max_spiral;
+	/* @socom-skeleton stub min_spiral$1117 */
+	static int min_spiral;
+}
+
+/* @socom-skeleton stub UpdateVisibilityMap__6CAiMapFR9CAiVisMapRi */
+void CAiMap::UpdateVisibilityMap(CAiVisMap &, int &)
+{
+}
+
+/* @socom-skeleton stub visCallback__FRC19MAP_LINEWALK_STRUCTPv */
+void visCallback(const MAP_LINEWALK_STRUCT &, void *)
+{
+	/* @socom-skeleton stub prone_height$1272 */
+	static int prone_height;
+	/* @socom-skeleton stub crouch_height$1275 */
+	static int crouch_height;
+	/* @socom-skeleton stub stand_height$1278 */
+	static float stand_height;
+	/* @socom-skeleton stub use_taxi_cab$1281 */
+	static unsigned char use_taxi_cab;
+}

@@ -87,3 +87,212 @@
  * @socom-artifact defines main socom:data:0x476a90
  * @socom-artifact defines main socom:data:0x560660
  * socom-owner-annotations end socom:work:source-segment-076 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zCamera/zcam.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/node_world.h"
+#include "gamez/zSeal/zseal.h"
+#include "gamez/zTwoD/ztwod.h"
+#include "gamez/zUtil/util_stable.h"
+#include "hud.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub color_base */
+static const CPnt3D color_base = {0};
+
+/* @socom-skeleton stub TIMER_BKGRD_POSX1 */
+static float TIMER_BKGRD_POSX1 = 580.0f;
+
+/* @socom-skeleton stub TIMER_BKGRD_POSY1 */
+static float TIMER_BKGRD_POSY1 = 345.0f;
+
+/* @socom-skeleton stub TIMER_BKGRD_POSX2 */
+static float TIMER_BKGRD_POSX2 = 630.0f;
+
+/* @socom-skeleton stub TIMER_BKGRD_POSY2 */
+static float TIMER_BKGRD_POSY2 = 360.0f;
+
+/* @socom-skeleton stub TIMER_INSET_SIZE */
+static float TIMER_INSET_SIZE = 2.0f;
+
+/* @socom-skeleton stub c_szDefusingValve__32@unnamed@hud_bitmapreticule_cpp@ */
+namespace {
+char *c_szDefusingValve = "hud_defuse_timer";
+}
+
+/* @socom-skeleton stub g_fDefuseTime__32@unnamed@hud_bitmapreticule_cpp@ */
+namespace {
+float g_fDefuseTime = -1.0f;
+}
+
+/* @socom-skeleton stub BLOCKED_RED */
+float BLOCKED_RED = 130.0f;
+
+/* @socom-skeleton stub BLOCKED_GRN */
+float BLOCKED_GRN = 130.0f;
+
+/* @socom-skeleton stub BLOCKED_BLU */
+float BLOCKED_BLU = 130.0f;
+
+/* @socom-skeleton stub TRUE_RED */
+float TRUE_RED = 200.0f;
+
+/* @socom-skeleton stub TRUE_GRN */
+float TRUE_GRN = 200.0f;
+
+/* @socom-skeleton stub SCOPED_RED */
+float SCOPED_RED = 90.0f;
+
+/* @socom-skeleton stub SCOPED_GRN */
+float SCOPED_GRN = 90.0f;
+
+/* @socom-skeleton stub SCOPED_BLU */
+float SCOPED_BLU = 90.0f;
+
+/* @socom-skeleton stub TIMER_IMAGE_POSX1 */
+static float TIMER_IMAGE_POSX1;
+
+/* @socom-skeleton stub TIMER_IMAGE_POSY1 */
+static float TIMER_IMAGE_POSY1;
+
+/* @socom-skeleton stub TIMER_IMAGE_POSX2 */
+static float TIMER_IMAGE_POSX2;
+
+/* @socom-skeleton stub TIMER_IMAGE_POSY2 */
+static float TIMER_IMAGE_POSY2;
+
+/* @socom-skeleton stub TIMER_IMAGE_WIDTH */
+static float TIMER_IMAGE_WIDTH;
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static CSTable MultiplayerMsgStrings;
+
+/* @socom-skeleton stub hudStartDefuseTimer__Ff */
+void hudStartDefuseTimer(float)
+{
+}
+
+/* @socom-skeleton stub __ct__14BitmapReticuleFv */
+BitmapReticule::BitmapReticule()
+{
+}
+
+/* @socom-skeleton stub DefuseTick__14BitmapReticuleFf */
+void BitmapReticule::DefuseTick(float)
+{
+}
+
+/* @socom-skeleton stub Draw__14BitmapReticuleFPQ23zdb7CCamera */
+void BitmapReticule::Draw(zdb::CCamera *)
+{
+}
+
+/* @socom-skeleton stub UnInit__14BitmapReticuleFv */
+void BitmapReticule::UnInit()
+{
+}
+
+/* @socom-skeleton stub Init__14BitmapReticuleFPQ23zdb6CWorldP7C2DFont */
+void BitmapReticule::Init(zdb::CWorld *, C2DFont *)
+{
+}
+
+/* @socom-skeleton stub ThreatDirTick__14BitmapReticuleFP10CZSealBody */
+void BitmapReticule::ThreatDirTick(CZSealBody *)
+{
+	/* @socom-skeleton stub DIAGONAL_SCALAR$2747 */
+	static float DIAGONAL_SCALAR;
+	/* @socom-skeleton stub dirE$2750 */
+	static unsigned char dirE;
+	/* @socom-skeleton stub dirN$2751 */
+	static unsigned char dirN;
+	/* @socom-skeleton stub dirW$2752 */
+	static unsigned char dirW;
+	/* @socom-skeleton stub dirS$2753 */
+	static unsigned char dirS;
+}
+
+/* @socom-skeleton stub TRUE_BLU */
+float TRUE_BLU;
+
+/* @socom-skeleton stub HudTick__14BitmapReticuleFf */
+void BitmapReticule::HudTick(float)
+{
+}
+
+/* @socom-skeleton stub UpdateColor__14BitmapReticuleFv */
+void BitmapReticule::UpdateColor()
+{
+}
+
+/* @socom-skeleton stub UpdateAccuracy__14BitmapReticuleFv */
+void BitmapReticule::UpdateAccuracy()
+{
+	/* @socom-skeleton stub nudge_y$2873 */
+	static float nudge_y;
+	/* @socom-skeleton stub nudge_x$2876 */
+	static float nudge_x;
+	/* @socom-skeleton stub nudge_x2$2879 */
+	static float nudge_x2;
+	/* @socom-skeleton stub nudge_y2$2882 */
+	static float nudge_y2;
+	/* @socom-skeleton stub PT_NORTH$2885 */
+	static float PT_NORTH;
+	/* @socom-skeleton stub PT_EAST$2886 */
+	static float PT_EAST;
+	/* @socom-skeleton stub PT_SOUTH$2887 */
+	static float PT_SOUTH;
+	/* @socom-skeleton stub PT_WEST$2888 */
+	static float PT_WEST;
+	/* @socom-skeleton stub ne_x$2891 */
+	static float ne_x;
+	/* @socom-skeleton stub ne_y$2894 */
+	static float ne_y;
+	/* @socom-skeleton stub se_x$2899 */
+	static float se_x;
+	/* @socom-skeleton stub se_y$2902 */
+	static float se_y;
+	/* @socom-skeleton stub nw_x$2907 */
+	static float nw_x;
+	/* @socom-skeleton stub nw_y$2910 */
+	static float nw_y;
+	/* @socom-skeleton stub sw_x$2915 */
+	static float sw_x;
+	/* @socom-skeleton stub sw_y$2918 */
+	static float sw_y;
+}
+
+/* @socom-skeleton stub On__14BitmapReticuleFv */
+void BitmapReticule::On()
+{
+}
+
+/* @socom-skeleton stub Off__14BitmapReticuleFv */
+void BitmapReticule::Off()
+{
+}
+
+/* @socom-skeleton stub ChangeReticule__14BitmapReticuleFi */
+void BitmapReticule::ChangeReticule(int)
+{
+	/* @socom-skeleton stub debug_size$2950 */
+	static float debug_size;
+}
+
+/* @socom-skeleton stub SetGBarVal__14BitmapReticuleFf */
+void BitmapReticule::SetGBarVal(float)
+{
+	/* @socom-skeleton stub first$3045 */
+	static unsigned char first;
+}
+
+/* @socom-skeleton stub UpdateGBarColor__14BitmapReticuleFf */
+void BitmapReticule::UpdateGBarColor(float)
+{
+}
+
+/* @socom-skeleton stub TimerProgressTick__14BitmapReticuleFfP10CZSealBody */
+void BitmapReticule::TimerProgressTick(float, CZSealBody *)
+{
+}

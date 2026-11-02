@@ -36,3 +36,155 @@
  * @socom-artifact emits main socom:function:0x1c87c0
  * @socom-artifact emits main socom:function:0x1c8810
  * socom-owner-annotations end socom:work:source-segment-018 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zArchive/zar.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zSystem/zsys.h"
+#include "zanim.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class zanim_script_frame_header;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub TaskScheduler__9CZAnimSetFv */
+CSched_Manager * CZAnimSet::TaskScheduler()
+{
+}
+
+/* @socom-skeleton stub NewAnim__9CZAnimSetFPCc */
+CZAnim * CZAnimSet::NewAnim(const char *)
+{
+}
+
+/* @socom-skeleton stub GetAnimIndex__9CZAnimSetFP6CZAnim */
+int CZAnimSet::GetAnimIndex(CZAnim *)
+{
+}
+
+/* @socom-skeleton body Name__9CZAnimSetFPCc */
+void CZAnimSet::Name(const char* name)
+{
+    if (m_name)
+        zfree(m_name);
+
+    m_name = zstrdup(name);
+}
+
+/* @socom-skeleton stub Anim__9CZAnimSetFi */
+CZAnim * CZAnimSet::Anim(int)
+{
+}
+
+/* @socom-skeleton stub Anim__9CZAnimSetFPCc */
+CZAnim * CZAnimSet::Anim(const char *)
+{
+}
+
+/* @socom-skeleton stub GetName__9CZAnimSetFi */
+char * CZAnimSet::GetName(int)
+{
+}
+
+/* @socom-skeleton stub AddName__9CZAnimSetFPCc */
+int CZAnimSet::AddName(const char *)
+{
+}
+
+/* @socom-skeleton stub AddAnimEx__9CZAnimSetFP8CZAnimEx */
+void CZAnimSet::AddAnimEx(CZAnimEx *)
+{
+}
+
+/* @socom-skeleton stub SIScript__9CZAnimSetFi */
+_zanim_si_script * CZAnimSet::SIScript(int)
+{
+}
+
+/* @socom-skeleton stub _store_frame_data__FP16_zanim_si_scriptP25zanim_script_frame_headerP6CPnt3DP6CPnt3Difffb */
+void _store_frame_data(_zanim_si_script *, zanim_script_frame_header *, CPnt3D *, CPnt3D *, int, float, float, float, bool)
+{
+}
+
+/* @socom-skeleton stub load_si_script__FP16_zanim_si_scriptfbbb */
+void load_si_script(_zanim_si_script *, float, bool, bool, bool)
+{
+}
+
+/* @socom-skeleton stub SIScript__9CZAnimSetFPCcPCcbfbbb */
+int CZAnimSet::SIScript(const char *, const char *, bool, float, bool, bool, bool)
+{
+}
+
+/* @socom-skeleton body Init__9CZAnimSetFv */
+void CZAnimSet::Init()
+{
+    m_WasStarted = false;
+    m_IsStarted = false;
+    m_IsAvailable = true;
+    m_name = NULL;
+    m_si_script_count = 0;
+    m_si_script = NULL;
+    m_AnimExList = NULL;
+    m_anim_count = 0;
+    m_anim_max = 0;
+    m_anim_list = NULL;
+    m_node_states = NULL;
+    m_task_scheduler = NULL;
+}
+
+/* @socom-skeleton body Start__9CZAnimSetFv */
+bool CZAnimSet::Start()
+{
+    return false;
+}
+
+/* @socom-skeleton stub Reset__9CZAnimSetFv */
+void CZAnimSet::Reset()
+{
+}
+
+/* @socom-skeleton stub SaveNodeStates__9CZAnimSetFv */
+void CZAnimSet::SaveNodeStates()
+{
+}
+
+/* @socom-skeleton stub SaveNodeStates__9CZAnimSetFP15_zanim_node_ref */
+void CZAnimSet::SaveNodeStates(_zanim_node_ref *)
+{
+}
+
+/* @socom-skeleton stub Stop__9CZAnimSetFv */
+void CZAnimSet::Stop()
+{
+}
+
+/* @socom-skeleton stub Unload__9CZAnimSetFv */
+void CZAnimSet::Unload()
+{
+}
+
+/* @socom-skeleton stub GarbageCollect__9CZAnimSetFv */
+void CZAnimSet::GarbageCollect()
+{
+}
+
+/* @socom-skeleton stub Load__9CZAnimSetFRQ23zar4CZAR */
+void CZAnimSet::Load(zar::CZAR &)
+{
+}
+
+/* @socom-skeleton stub LoadSIScript__9CZAnimSetFRQ23zar4CZAR */
+void CZAnimSet::LoadSIScript(zar::CZAR &)
+{
+}
+
+/* @socom-skeleton stub Add__13CZAnimSetSaveFP15_zanim_node_ref */
+void CZAnimSetSave::Add(_zanim_node_ref *)
+{
+}
+
+/* @socom-skeleton stub Reset__13CZAnimSetSaveFv */
+void CZAnimSetSave::Reset()
+{
+}

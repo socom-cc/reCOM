@@ -21,8 +21,31 @@
 
 #include "gamez/zSystem/zsys.h"
 
+/* @socom-skeleton stub zTaskScheduler */
 CSched_Manager zTaskScheduler;
 
+/* @socom-skeleton stub __ct__14CSched_ManagerFv */
+CSched_Manager::CSched_Manager()
+{
+}
+
+/* @socom-skeleton body GetTask__14CSched_ManagerFUi */
+CSched_Task* CSched_Manager::GetTask(u32 id)
+{
+	u32 index = 0;
+
+	for (auto i = begin(); i != end(); ++i)
+	{
+		if (index == id)
+			return *i;
+
+		index++;
+	}
+
+	return NULL;
+}
+
+/* @socom-skeleton body AddTask__14CSched_ManagerFPCcPFfPv_bfPv */
 void CSched_Manager::AddTask(const char* name, bool(*func)(f32, void*), f32 priority, void* registrar)
 {
 	CSched_Task* task = NULL;
@@ -62,22 +85,21 @@ void CSched_Manager::AddTask(const char* name, bool(*func)(f32, void*), f32 prio
 	insert(begin(), task);
 }
 
-CSched_Task* CSched_Manager::GetTask(u32 id)
+/* @socom-skeleton body RemoveTask__14CSched_ManagerFPCcb */
+bool CSched_Manager::RemoveTask(const char* name, bool child)
 {
-	u32 index = 0;
-
 	for (auto i = begin(); i != end(); ++i)
 	{
-		if (index == id)
-			return *i;
-
-		index++;
+		if (!strcmp((*i)->m_name, name))
+		{
+			(*i)->m_removed = true;
+			return true;
+		}
 	}
-
-	return NULL;
 }
 
-bool CSched_Manager::RemoveTask(CSched_Task* task, bool child)
+/* @socom-skeleton body RemoveTask__14CSched_ManagerFPvb */
+bool CSched_Manager::RemoveTask(void *task, bool child)
 {
 	for (auto i = begin(); i != end(); ++i)
 	{
@@ -91,18 +113,22 @@ bool CSched_Manager::RemoveTask(CSched_Task* task, bool child)
 	return true;
 }
 
-bool CSched_Manager::RemoveTask(const char* name, bool child)
+/* @socom-skeleton stub Clear__14CSched_ManagerFv */
+void CSched_Manager::Clear()
 {
-	for (auto i = begin(); i != end(); ++i)
-	{
-		if (!strcmp((*i)->m_name, name))
-		{
-			(*i)->m_removed = true;
-			return true;
-		}
-	}
 }
 
+/* @socom-skeleton stub _task_cleanup__FP11CSched_Task */
+bool _task_cleanup(CSched_Task *)
+{
+}
+
+/* @socom-skeleton stub ClearFreeList__14CSched_ManagerFb */
+void CSched_Manager::ClearFreeList(bool)
+{
+}
+
+/* @socom-skeleton body Tick__14CSched_ManagerFf */
 bool CSched_Manager::Tick(f32 dT)
 {
 	m_inTick = true;
@@ -123,4 +149,9 @@ bool CSched_Manager::Tick(f32 dT)
 	}
 	m_inTick = false;
 	return true;
+}
+
+/* @socom-skeleton stub __dt__11CSched_TaskFv */
+CSched_Task::~CSched_Task()
+{
 }

@@ -23,15 +23,32 @@
 
 #include "znet.h"
 
-bool g_status = false;
+/* @socom-skeleton stub m_lastChannel__10CZNetVoice */
+int CZNetVoice::m_lastChannel = -1;
 
+/* @socom-skeleton stub m_uninited__10CZNetVoice */
+unsigned char CZNetVoice::m_uninited = 1;
+
+/* @socom-skeleton stub g_status */
+signed char g_status[2] = {0};
+
+/* @socom-skeleton stub m_done_with_thread__10CZNetVoice */
+unsigned char CZNetVoice::m_done_with_thread;
+
+/* @socom-skeleton stub theVoice */
 CZNetVoice theVoice;
 
-void PTT_HeartbeatPrepare()
+/* @socom-skeleton stub Init__10CZNetVoiceFPUi */
+void CZNetVoice::Init(unsigned int *)
 {
-
 }
 
+/* @socom-skeleton stub UnInit__10CZNetVoiceFv */
+void CZNetVoice::UnInit()
+{
+}
+
+/* @socom-skeleton body PreTick__10CZNetVoiceFv */
 bool CZNetVoice::PreTick()
 {
 	if (theNetwork.m_bNetwork && m_isOn)
@@ -42,6 +59,7 @@ bool CZNetVoice::PreTick()
 	return false;
 }
 
+/* @socom-skeleton body Tick__10CZNetVoiceFf */
 bool CZNetVoice::Tick(f32 dT)
 {
 	bool status = false;
@@ -65,4 +83,39 @@ bool CZNetVoice::Tick(f32 dT)
 	}
 
 	return status;
+}
+
+/* @socom-skeleton stub WorkerThread__10CZNetVoiceFv */
+void CZNetVoice::WorkerThread()
+{
+}
+
+/* @socom-skeleton stub RemoteSMUpdateCallback__10CZNetVoiceFPUi */
+void CZNetVoice::RemoteSMUpdateCallback(unsigned int *)
+{
+}
+
+/* @socom-skeleton stub IAmNewSessionMaster__10CZNetVoiceFv */
+void CZNetVoice::IAmNewSessionMaster()
+{
+}
+
+/* @socom-skeleton stub Channel__10CZNetVoiceFiUi */
+int CZNetVoice::Channel(int, unsigned int)
+{
+}
+
+/* @socom-skeleton stub Permit__10CZNetVoiceFPUi */
+void CZNetVoice::Permit(unsigned int *)
+{
+}
+
+/* @socom-skeleton stub ServerPermit__10CZNetVoiceFPUi */
+void CZNetVoice::ServerPermit(unsigned int *)
+{
+}
+
+/* @socom-skeleton stub HandleNewIPBuf__10CZNetVoiceFiPUi */
+void CZNetVoice::HandleNewIPBuf(int, unsigned int *)
+{
 }

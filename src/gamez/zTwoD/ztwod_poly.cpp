@@ -29,6 +29,12 @@
 #include "gamez/zMath/zmath_vu.h"
 #include "gamez/zVideo/zvid.h"
 
+/* @socom-skeleton decl include */
+#include "gamez/zCamera/zcam.h"
+#include "gamez/zTexture/ztex.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton body __ct__7C2DPolyFv */
 C2DPoly::C2DPoly()
 {
 	m_vertex[0][1] = -0.000006f;
@@ -90,14 +96,7 @@ C2DPoly::C2DPoly()
 	SetTrans(128.0f);
 }
 
-void C2DPoly::SetTrans(f32 transparency)
-{
-	m_RGB[0][3] = transparency;
-	m_RGB[1][3] = transparency;
-	m_RGB[2][3] = transparency;
-	m_isTrans = true;
-}
-
+/* @socom-skeleton body SetColor__7C2DPolyFfff */
 void C2DPoly::SetColor(f32 r, f32 g, f32 b)
 {
 	m_RGB[0][0] = r;
@@ -111,27 +110,26 @@ void C2DPoly::SetColor(f32 r, f32 g, f32 b)
 	m_RGB[2][2] = b;
 }
 
-void C2DPoly::SetUV(f32 v0u, f32 v0v, f32 v1u, f32 v1v, f32 v2u, f32 v2v)
+/* @socom-skeleton stub GetColor__7C2DPolyFv */
+void C2DPoly::GetColor()
 {
-	m_NewUV[0][0] = v0u;
-	m_NewUV[0][1] = -v0v;
-	m_NewUV[1][0] = v1u;
-	m_NewUV[1][1] = -v1v;
-	m_NewUV[2][0] = v2u;
-	m_NewUV[2][1] = -v2v;
 }
 
-void C2DPoly::Draw(zdb::CCamera* camera)
+/* @socom-skeleton body SetTrans__7C2DPolyFf */
+void C2DPoly::SetTrans(f32 transparency)
 {
-	MakePacket(camera);
-	C2D::Draw(camera);
+	m_RGB[0][3] = transparency;
+	m_RGB[1][3] = transparency;
+	m_RGB[2][3] = transparency;
+	m_isTrans = true;
 }
 
-void C2DPoly::MakePacket(zdb::CCamera* camera)
+/* @socom-skeleton stub GetTrans__7C2DPolyFv */
+float C2DPoly::GetTrans()
 {
-
 }
 
+/* @socom-skeleton body Load__7C2DPolyFffffffPQ23zdb8CTexture */
 void C2DPoly::Load(f32 v0x, f32 v0y, f32 v1x, f32 v1y, f32 v2x, f32 v2y, zdb::CTexture* texture)
 {
 	m_texture = texture;
@@ -153,32 +151,46 @@ void C2DPoly::Load(f32 v0x, f32 v0y, f32 v1x, f32 v1y, f32 v2x, f32 v2y, zdb::CT
 	m_vertex[2][1] = v2y * C2D::m_fYPixel;
 }
 
-void C2DBitmapPoly::SetColor(f32 r, f32 g, f32 b)
+/* @socom-skeleton body SetUV__7C2DPolyFffffff */
+void C2DPoly::SetUV(f32 v0u, f32 v0v, f32 v1u, f32 v1v, f32 v2u, f32 v2v)
 {
-	m_tris[0].SetColor(r, g, b);
-	m_tris[1].SetColor(r, g, b);
+	m_NewUV[0][0] = v0u;
+	m_NewUV[0][1] = -v0v;
+	m_NewUV[1][0] = v1u;
+	m_NewUV[1][1] = -v1v;
+	m_NewUV[2][0] = v2u;
+	m_NewUV[2][1] = -v2v;
 }
 
-void C2DBitmapPoly::SetTrans(f32 transparency)
+/* @socom-skeleton stub SetPos__7C2DPolyFffffff */
+void C2DPoly::SetPos(float, float, float, float, float, float)
 {
-	m_tris[0].SetTrans(transparency);
-	m_tris[1].SetTrans(transparency);
 }
 
-void C2DBitmapPoly::SetUV(f32 v0u, f32 v0v, f32 v1u, f32 v1v, f32 v2u, f32 v2v)
+/* @socom-skeleton body Draw__7C2DPolyFPQ23zdb7CCamera */
+void C2DPoly::Draw(zdb::CCamera* camera)
 {
-	m_tris[0].SetUV(v0u, v0v, v1u, v1v, v2u, v2v);
-	m_tris[1].SetUV(v0u, v0v, v1u, v1v, v2u, v2v);
+	MakePacket(camera);
+	C2D::Draw(camera);
 }
 
-void C2DBitmapPoly::Load(f32 v0x, f32 v0y, f32 v1x, f32 v1y, f32 v2x, f32 v2y, f32 v3x, f32 v3y, zdb::CTexture* texture)
+/* @socom-skeleton body MakePacket__7C2DPolyFPQ23zdb7CCamera */
+void C2DPoly::MakePacket(zdb::CCamera* camera)
 {
-	m_tris[0].Load(v0x, v0y, v1x, v1y, v2x, v2y, texture);
-	m_tris[1].Load(v0x, v0y, v2x, v2y, v3x, v3y, texture);
+
 }
 
-void C2DBitmapPoly::Draw(zdb::CCamera* camera)
+/* @socom-skeleton stub __ct__9C2DTriFanFv */
+C2DTriFan::C2DTriFan()
 {
-	m_tris[0].Draw(camera);
-	m_tris[1].Draw(camera);
+}
+
+/* @socom-skeleton stub __dt__9C2DTriFanFv */
+C2DTriFan::~C2DTriFan()
+{
+}
+
+/* @socom-skeleton stub Draw__9C2DTriFanFPQ23zdb7CCamera */
+void C2DTriFan::Draw(zdb::CCamera *)
+{
 }

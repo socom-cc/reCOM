@@ -90,3 +90,338 @@
 #include "zseal.h"
 
 #include "gamez/zAnim/zanim.h"
+
+/* @socom-skeleton decl include */
+#include "gamez/zAI/zai.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub _unknown */
+static int _unknown[10];
+
+/* @socom-skeleton body Create__8CAiStateF8AI_STATE */
+CAiState* CAiState::Create(AI_STATE state)
+{
+	CAiState* aiState;
+
+	switch (state)
+	{
+	case STATE_UNKNOWN:
+		break;
+	case STATE_SCRIPT:
+		aiState = new CAiSScript();
+		aiState->Reset(STATE_SCRIPT);
+		break;
+	case STATE_HOLD:
+		aiState = new CAiSHold();
+		aiState->Reset(STATE_HOLD);
+		break;
+	case STATE_AVOID:
+		aiState = new CAiSAvoid();
+		aiState->Reset(STATE_AVOID);
+		break;
+	case STATE_DEPLOY:
+		aiState = new CAiSDeploy();
+		aiState->Reset(STATE_DEPLOY);
+		break;
+	case STATE_LASING:
+		break;
+	case STATE_SURRENDER:
+		aiState = new CAiSSurrender();
+		aiState->Reset(STATE_SURRENDER);
+		break;
+	case STATE_RESTRAINED:
+		aiState = new CAiSRestrained();
+		aiState->Reset(STATE_RESTRAINED);
+		break;
+	case STATE_GOTO:
+		aiState = new CAiSGoto();
+		aiState->Reset(STATE_GOTO);
+		break;
+	case STATE_FOLLOW:
+		aiState = new CAiSFollow();
+		aiState->Reset(STATE_FOLLOW);
+		break;
+	case STATE_BREACH:
+		aiState = new CAiSBreach();
+		aiState->Reset(STATE_BREACH);
+		break;
+	case STATE_ACTION:
+		aiState = new CAiSAction();
+		aiState->Reset(STATE_ACTION);
+		break;
+	case STATE_PURSUE:
+		aiState = new CAiSPursue();
+		aiState->Reset(STATE_PURSUE);
+		break;
+	case STATE_ANIMATE:
+		aiState = new CAiSAnimate();
+		aiState->Reset(STATE_ANIMATE);
+		break;
+	case STATE_CQB:
+		aiState = new CAiSCQBAttack();
+		aiState->Reset(STATE_CQB);
+		break;
+	case STATE_FLEE:
+		aiState = new CAiSFlee();
+		aiState->Reset(STATE_FLEE);
+		break;
+	case STATE_PATHRECO:
+		aiState = new CAiSPathRecover();
+		aiState->Reset(STATE_PATHRECO);
+		break;
+	case STATE_RESCUED:
+		aiState = new CAiSRescued();
+		break;
+	case STATE_SUSPENDED:
+		aiState = new CAiSSuspended();
+		break;
+	case STATE_SHOTAT:
+		aiState = new CAiSShotAt();
+		break;
+	case STATE_RELOAD:
+		// aiState = new CAiSReload();
+		break;
+	case STATE_NOAMMO:
+		aiState = new CAiSNoAmmo();
+		break;
+	case STATE_PICKUP:
+		// aiState = new CAiSPickup();
+
+		break;
+	case STATE_HOSTAGE:
+		aiState = new CAiSHostage();
+		break;
+	case STATE_CORPSE:
+		// aiState = new CAiSCorpse();
+
+		break;
+	case STATE_EVENT:
+		aiState = new CAiSEvent();
+		break;
+	case STATE_TARGETING:
+		aiState = new CAiSTarget();
+		break;
+	case STATE_GRENADE:
+		aiState = new CAiSGrenade();
+		break;
+	case STATE_STUNNED:
+		// aiState = new CAiSStunned();
+		break;
+	case STATE_RUSH:
+		aiState = new CAiSRush();
+		break;
+	default:
+		break;
+	}
+
+	return NULL;
+}
+
+/* @socom-skeleton stub Signal__8CAiStateFQ28CAiState6SIGNALP11CSealCtrlAi */
+void CAiState::Signal(CAiState::SIGNAL, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub GetAiState__11CSealCtrlAiFv */
+void CSealCtrlAi::GetAiState()
+{
+}
+
+/* @socom-skeleton stub GetAiState__11CSealCtrlAiCFv */
+void CSealCtrlAi::GetAiState() const
+{
+}
+
+/* @socom-skeleton stub FindAiState__11CSealCtrlAiCF8AI_STATE */
+void CSealCtrlAi::FindAiState(AI_STATE) const
+{
+}
+
+/* @socom-skeleton stub ClearAiState__11CSealCtrlAiFb */
+void CSealCtrlAi::ClearAiState(bool)
+{
+}
+
+/* @socom-skeleton stub CanPushAiState__11CSealCtrlAiF8AI_STATE */
+void CSealCtrlAi::CanPushAiState(AI_STATE)
+{
+}
+
+/* @socom-skeleton stub SetAiState__11CSealCtrlAiF8AI_STATE */
+void CSealCtrlAi::SetAiState(AI_STATE)
+{
+}
+
+/* @socom-skeleton stub PushAiState__11CSealCtrlAiF8AI_STATEb */
+void CSealCtrlAi::PushAiState(AI_STATE, bool)
+{
+}
+
+/* @socom-skeleton stub PopAiState__11CSealCtrlAiFv */
+void CSealCtrlAi::PopAiState()
+{
+}
+
+/* @socom-skeleton stub PopToAiState__11CSealCtrlAiF8AI_STATE */
+void CSealCtrlAi::PopToAiState(AI_STATE)
+{
+}
+
+/* @socom-skeleton stub PopAiState__11CSealCtrlAiF8AI_STATE */
+void CSealCtrlAi::PopAiState(AI_STATE)
+{
+}
+
+/* @socom-skeleton stub UpdateStackFlags__11CSealCtrlAiFb */
+void CSealCtrlAi::UpdateStackFlags(bool)
+{
+}
+
+/* @socom-skeleton stub StateTick__11CSealCtrlAiFf */
+void CSealCtrlAi::StateTick(float)
+{
+}
+
+/* @socom-skeleton stub OnSignal__10CAiSPickupFQ28CAiState6SIGNALP11CSealCtrlAi */
+void CAiSPickup::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub Tick__10CAiSPickupFfP11CSealCtrlAi */
+void CAiSPickup::Tick(float, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub OnSignal__9CAiSAvoidFQ28CAiState6SIGNALP11CSealCtrlAi */
+void CAiSAvoid::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub Tick__9CAiSAvoidFfP11CSealCtrlAi */
+void CAiSAvoid::Tick(float, CSealCtrlAi *)
+{
+	/* @socom-skeleton stub AVOID_BUFFER$2632 */
+	static float AVOID_BUFFER;
+}
+
+/* @socom-skeleton stub OnSignal__11CAiSHostageFQ28CAiState6SIGNALP11CSealCtrlAi */
+void CAiSHostage::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub Tick__11CAiSHostageFfP11CSealCtrlAi */
+void CAiSHostage::Tick(float, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub OnSignal__8CAiSGotoFQ28CAiState6SIGNALP11CSealCtrlAi */
+void CAiSGoto::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub Tick__8CAiSGotoFfP11CSealCtrlAi */
+void CAiSGoto::Tick(float, CSealCtrlAi *)
+{
+	/* @socom-skeleton stub hacknumPercent$2724 */
+	static long hacknumPercent;
+	/* @socom-skeleton stub hacknumMin$2727 */
+	static long hacknumMin;
+	/* @socom-skeleton stub warnedWait$2730 */
+	static unsigned char warnedWait;
+	/* @socom-skeleton stub warnedAbort$2733 */
+	static unsigned char warnedAbort;
+	/* @socom-skeleton stub waitDistanceAi$2736 */
+	static int waitDistanceAi;
+	/* @socom-skeleton stub waitResetDistanceAi$2739 */
+	static int waitResetDistanceAi;
+	/* @socom-skeleton stub warnDistanceAi$2742 */
+	static int warnDistanceAi;
+	/* @socom-skeleton stub warnResetDistanceAi$2745 */
+	static int warnResetDistanceAi;
+	/* @socom-skeleton stub abortDistanceAi$2748 */
+	static int abortDistanceAi;
+	/* @socom-skeleton stub NormalWaitDistance$2777 */
+	static int NormalWaitDistance;
+}
+
+/* @socom-skeleton stub ActivateSeq__11CSealCtrlAiFPCcUi */
+void CSealCtrlAi::ActivateSeq(const char *, unsigned int)
+{
+}
+
+/* @socom-skeleton stub ActivateSequence__10CAiSScriptFPCcUi */
+void CAiSScript::ActivateSequence(const char *, unsigned int)
+{
+}
+
+/* @socom-skeleton stub GetStatus__10CAiSScriptCFv */
+void CAiSScript::GetStatus() const
+{
+	/* @socom-skeleton stub status_buffer$2808 */
+	static unsigned char status_buffer[64];
+}
+
+/* @socom-skeleton stub OnSignal__10CAiSScriptFQ28CAiState6SIGNALP11CSealCtrlAi */
+void CAiSScript::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub CanPursue__10CAiSScriptCFP11CSealCtrlAi */
+void CAiSScript::CanPursue(CSealCtrlAi *) const
+{
+}
+
+/* @socom-skeleton stub Tick__10CAiSScriptFfP11CSealCtrlAi */
+void CAiSScript::Tick(float, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub OnSignal__10CAiSBreachFQ28CAiState6SIGNALP11CSealCtrlAi */
+void CAiSBreach::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub GetStatus__10CAiSBreachCFv */
+void CAiSBreach::GetStatus() const
+{
+}
+
+/* @socom-skeleton stub Tick__10CAiSBreachFfP11CSealCtrlAi */
+void CAiSBreach::Tick(float, CSealCtrlAi *)
+{
+	/* @socom-skeleton stub breachTimeout$2919 */
+	static float breachTimeout;
+}
+
+/* @socom-skeleton stub OnSignal__13CAiSSuspendedFQ28CAiState6SIGNALP11CSealCtrlAi */
+void CAiSSuspended::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub Tick__13CAiSSuspendedFfP11CSealCtrlAi */
+void CAiSSuspended::Tick(float, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub OnSignal__11CAiSUnknownFQ28CAiState6SIGNALP11CSealCtrlAi */
+void CAiSUnknown::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub Tick__11CAiSUnknownFfP11CSealCtrlAi */
+void CAiSUnknown::Tick(float, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub OnSignal__13CAiSCQBAttackFQ28CAiState6SIGNALP11CSealCtrlAi */
+void CAiSCQBAttack::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub Tick__13CAiSCQBAttackFfP11CSealCtrlAi */
+void CAiSCQBAttack::Tick(float, CSealCtrlAi *)
+{
+}

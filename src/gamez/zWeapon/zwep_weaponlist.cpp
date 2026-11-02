@@ -10,3 +10,52 @@
  * @socom-artifact defines main socom:function:0x314dc0
  * @socom-artifact defines main socom:function:0x314f20
  * socom-owner-annotations end socom:work:source-segment-043 */
+
+/* @socom-skeleton decl include */
+#include "zweapon.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub __ct__12CZWeaponListFv */
+CZWeaponList::CZWeaponList()
+{
+}
+
+/* @socom-skeleton stub __dt__12CZWeaponListFv */
+CZWeaponList::~CZWeaponList()
+{
+}
+
+/* @socom-skeleton stub GetWeapon__12CZWeaponListFPCc */
+CZWeapon * CZWeaponList::GetWeapon(const char *)
+{
+}
+
+/* @socom-skeleton stub GetWeaponId__12CZWeaponListFPCc */
+EQUIP_ITEM CZWeaponList::GetWeaponId(const char *)
+{
+}
+
+/* @socom-skeleton stub GetWeaponName__12CZWeaponListF10EQUIP_ITEM */
+char * CZWeaponList::GetWeaponName(EQUIP_ITEM)
+{
+}
+
+/* @socom-skeleton stub GetWeapon__12CZWeaponListF10EQUIP_ITEM */
+CZWeapon * CZWeaponList::GetWeapon(EQUIP_ITEM)
+{
+}
+
+/* @socom-skeleton stub GetWeaponByIndex__12CZWeaponListFi */
+CZWeapon * CZWeaponList::GetWeaponByIndex(int)
+{
+}
+
+/* @socom-skeleton stub InitializeWeapons__12CZWeaponListFv */
+void CZWeaponList::InitializeWeapons()
+{
+}
+
+/* @socom-skeleton stub ClearAnimations__12CZWeaponListFv */
+void CZWeaponList::ClearAnimations()
+{
+}

@@ -25,6 +25,56 @@
 
 #include "zmath.h"
 
+/* @socom-skeleton stub zero__6CPnt3D */
+const CPnt3D CPnt3D::zero = {0};
+
+/* @socom-skeleton stub unit_x__6CPnt3D */
+const float CPnt3D::unit_x[3] = {0};
+
+/* @socom-skeleton stub unit_y__6CPnt3D */
+const CPnt3D CPnt3D::unit_y = {0};
+
+/* @socom-skeleton stub unit_z__6CPnt3D */
+const CPnt3D CPnt3D::unit_z = {0};
+
+/* @socom-skeleton stub unit_nz__6CPnt3D */
+const CPnt3D CPnt3D::unit_nz = {0};
+
+/* @socom-skeleton body Add__6CPnt3DCFPC6CPnt3DP6CPnt3D */
+void CPnt3D::Add(const CPnt3D *other, CPnt3D *out) const
+{
+	out->x = x + other->x;
+	out->y = y + other->y;
+	out->z = z + other->z;
+}
+
+/* @socom-skeleton body Sub__6CPnt3DCFPC6CPnt3DP6CPnt3D */
+void CPnt3D::Sub(const CPnt3D *other, CPnt3D *out) const
+{
+	out->x = x - other->x;
+	out->y = y - other->y;
+	out->z = z - other->z;
+}
+
+/* @socom-skeleton stub SubXZ__6CPnt3DCFPC6CPnt3DP6CPnt3D */
+void CPnt3D::SubXZ(const CPnt3D *, CPnt3D *) const
+{
+}
+
+/* @socom-skeleton stub ToRightXZ__6CPnt3DCFP6CPnt3D */
+void CPnt3D::ToRightXZ(CPnt3D *) const
+{
+}
+
+/* @socom-skeleton body Scale__6CPnt3DCFfP6CPnt3D */
+void CPnt3D::Scale(float scaleFactor, CPnt3D *out) const
+{
+	out->x = x * scaleFactor;
+	out->y = y * scaleFactor;
+	out->z = z * scaleFactor;
+}
+
+/* @socom-skeleton body Normalize__6CPnt3DFv */
 void CPnt3D::Normalize()
 {
 	f32 sqrMagnitude = sqrtf(z * z + x * x + y * y);
@@ -38,7 +88,8 @@ void CPnt3D::Normalize()
 	}
 }
 
-void CPnt3D::Normalize(CPnt3D* other)
+/* @socom-skeleton body Normalize__6CPnt3DCFP6CPnt3D */
+float CPnt3D::Normalize(CPnt3D *other) const
 {
 	f32 sqrMagnitude = sqrtf(z * z + x * x + y * y);
 
@@ -51,33 +102,8 @@ void CPnt3D::Normalize(CPnt3D* other)
 	}
 }
 
-void CPnt3D::Add(CPnt3D* other, CPnt3D* out)
-{
-	out->x = x + other->x;
-	out->y = y + other->y;
-	out->z = z + other->z;
-}
-
-void CPnt3D::Sub(CPnt3D* other, CPnt3D* out)
-{
-	out->x = x - other->x;
-	out->y = y - other->y;
-	out->z = z - other->z;
-}
-
-void CPnt3D::Scale(f32 scaleFactor, CPnt3D* out)
-{
-	out->x = x * scaleFactor;
-	out->y = y * scaleFactor;
-	out->z = z * scaleFactor;
-}
-
-void CPnt3D::Cross(const CPnt3D* a, CPnt3D* b, bool normalize)
-{
-
-}
-
-void CPnt3D::Interp(const CPnt3D* from, f32 step, CPnt3D* to)
+/* @socom-skeleton body Interp__6CPnt3DCFPC6CPnt3DfP6CPnt3D */
+void CPnt3D::Interp(const CPnt3D *from, float step, CPnt3D *to) const
 {
 	if (step == 0.0f)
 	{
@@ -104,4 +130,19 @@ void CPnt3D::Interp(const CPnt3D* from, f32 step, CPnt3D* to)
 			to->z += from->z * step;
 		}
 	}
+}
+
+/* @socom-skeleton stub Reflect__6CPnt3DFPC6CPnt3D */
+void CPnt3D::Reflect(const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub DistToVector__6CPnt3DCFPC6CPnt3DPC6CPnt3DP6CPnt3DPf */
+void CPnt3D::DistToVector(const CPnt3D *, const CPnt3D *, CPnt3D *, float *) const
+{
+}
+
+/* @socom-skeleton stub DistToVector__6CPnt3DCFPC6CPnt3DPC6CPnt3DPf */
+void CPnt3D::DistToVector(const CPnt3D *, const CPnt3D *, float *) const
+{
 }

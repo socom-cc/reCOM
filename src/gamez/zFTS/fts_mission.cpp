@@ -169,89 +169,245 @@
 #include "gamez/zVehicle/zvehicle.h"
 #include "gamez/zVideo/zvid.h"
 
+/* @socom-skeleton decl include */
+#include "gamez/zAI/zai.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/znode.h"
+#include "gamez/zReader/zrdr.h"
+#include "gamez/zUI/zui.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CLadderData;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub LADDER_MASK */
+static int LADDER_MASK = 32768;
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+unsigned char std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+unsigned char std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub g_fTacMapZoomInit__25@unnamed@fts_mission_cpp@ */
+namespace {
+float g_fTacMapZoomInit;
+}
+
+/* @socom-skeleton stub g_fTacMapZoomNear__25@unnamed@fts_mission_cpp@ */
+namespace {
+float g_fTacMapZoomNear;
+}
+
+/* @socom-skeleton stub g_fTacMapZoomFar__25@unnamed@fts_mission_cpp@ */
+namespace {
+float g_fTacMapZoomFar;
+}
+
+/* @socom-skeleton stub g_iNumUiVehicles__25@unnamed@fts_mission_cpp@ */
+namespace {
+int g_iNumUiVehicles;
+}
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub m_weaponmodelpostfix__8CMission */
+unsigned char CMission::m_weaponmodelpostfix[30];
+
+/* @socom-skeleton stub theMemCard */
+int theMemCard[10];
+
+/* @socom-skeleton stub theMission */
 CMission theMission;
 
-char** g_arrDefCharTypeNames[32];
-u32 g_iNumUiVehicles = 0;
+/* @socom-skeleton stub theUIVarManager */
+CUIVarManager theUIVarManager;
 
-char* CMission::m_weaponmodelpostfix = NULL;
+/* @socom-skeleton stub theValveSaveManager */
+int theValveSaveManager[6];
 
-void UpdateMissionArchive(const char* type, const char* path)
-{
-	std::string pathstr;
-
-	if (type)
-	{
-		pathstr.assign("run/", pathstr.length());
-
-		if (strncmp(type, "mp", 2) == 0)
-		{
-			pathstr.append("mp");
-		}
-		else
-		{
-			if (strncmp(type, "m", 1) == 0)
-			{
-				pathstr.append("sp/");
-			}
-		}
-	}
-
-	if (path)
-	{
-		if (strlen(path) != 0)
-		{
-			pathstr.assign("run/", pathstr.length());
-
-			if (strncmp(path, "mp", 2) == 0)
-			{
-				pathstr.append("mp/", strlen("mp/"));
-			}
-			else
-			{
-				if (strncmp(path, "m", 1) == 0)
-				{
-					pathstr.append("sp/", strlen("sp/"));
-				}
-			}
-
-			pathstr.append(path, strlen(path));
-			CRdrArchive::AddArchive("readerm.zar", pathstr.c_str());
-			CRdrArchive::OpenAll();
-		}
-	}
+/* @socom-skeleton stub g_arrDefCharTypeNames__25@unnamed@fts_mission_cpp@ */
+namespace {
+unsigned char g_arrDefCharTypeNames[2048];
 }
 
-s32 FilterMissionFolder(const char* prefix, const char* infix, const char* postfix, char* output)
-{
-	s32 result = 0;
-
-	if (!infix)
-	{
-		infix = "/";
-	}
-
-	// Multiplayer map?
-	if (strncmp(prefix, "mp", 2) == 0)
-	{
-		result = sprintf_s(output, 128, "%s/mp/%s", infix, postfix);
-	}
-	else
-	{
-		// Singleplayer map?
-		if (strncmp(prefix, "m", 1) == 0)
-		{
-			result = sprintf_s(output, 128, "%s/sp/%s", infix, postfix);
-		}
-		else
-		{
-			result = sprintf_s(output, 128, "%s/%s", infix, postfix);
-		}
-	}
-
-	return result;
+/* @socom-skeleton stub g_arrMapVis__25@unnamed@fts_mission_cpp@ */
+namespace {
+unsigned char g_arrMapVis[90];
 }
 
+/* @socom-skeleton stub g_arrMapVisCounts__25@unnamed@fts_mission_cpp@ */
+namespace {
+int g_arrMapVisCounts[10];
+}
+
+/* @socom-skeleton stub CreateCustomCharTypes__25@unnamed@fts_mission_cpp@FP11CVehicleRdrP5_zrdr */
+namespace {
+void CreateCustomCharTypes(CVehicleRdr *, _zrdr *)
+{
+	/* @socom-skeleton stub c_arrCustomCharTypeNames$2822 */
+	static char *const c_arrCustomCharTypeNames[32] = {"UiCharType1", "UiCharType2", "UiCharType3", "UiCharType4", "UiCharType5", "UiCharType6", "UiCharType7", "UiCharType8", "UiCharType9", "UiCharType10", "UiCharType11", "UiCharType12", "UiCharType13", "UiCharType14", "UiCharType15", "UiCharType16", "UiCharType17", "UiCharType18", "UiCharType19", "UiCharType20", "UiCharType21", "UiCharType22", "UiCharType23", "UiCharType24", "UiCharType25", "UiCharType26", "UiCharType27", "UiCharType28", "UiCharType29", "UiCharType30", "UiCharType31", "UiCharType32"};
+}
+}
+
+/* @socom-skeleton stub CreateCustomCharTypes__25@unnamed@fts_mission_cpp@FP5_zrdr */
+namespace {
+void CreateCustomCharTypes(_zrdr *)
+{
+}
+}
+
+/* @socom-skeleton stub ftsGetNumVisibleMaps__FUi */
+int ftsGetNumVisibleMaps(unsigned int)
+{
+}
+
+/* @socom-skeleton stub ftsGetTacMapZoom__Fv */
+float ftsGetTacMapZoom()
+{
+}
+
+/* @socom-skeleton stub ftsGetTacMapZoomFar__Fv */
+float ftsGetTacMapZoomFar()
+{
+}
+
+/* @socom-skeleton stub ftsGetTacMapZoomNear__Fv */
+float ftsGetTacMapZoomNear()
+{
+}
+
+/* @socom-skeleton stub ftsGetVisibleMap__FUii */
+unsigned char ftsGetVisibleMap(unsigned int, int)
+{
+}
+
+/* @socom-skeleton stub ftsIsMapInVisibleList__FUiUi */
+void ftsIsMapInVisibleList(unsigned int, unsigned int)
+{
+}
+
+/* @socom-skeleton stub GetCustomCharTypeName__Fi */
+char * GetCustomCharTypeName(int)
+{
+}
+
+/* @socom-skeleton stub GetDefCharTypeName__Fi */
+char * GetDefCharTypeName(int)
+{
+}
+
+/* @socom-skeleton stub LoadMissionMapVisibilities__25@unnamed@fts_mission_cpp@FP8CRdrFile */
+namespace {
+void LoadMissionMapVisibilities(CRdrFile *)
+{
+}
+}
+
+/* @socom-skeleton body UpdateCharWeaponUiVars__Fi */
+void UpdateCharWeaponUiVars(int index)
+{
+
+}
+
+/* @socom-skeleton stub UpdateMissionArchive__25@unnamed@fts_mission_cpp@FPCcPCc */
+namespace {
+void UpdateMissionArchive(const char *, const char *)
+{
+}
+}
+
+/* @socom-skeleton stub StartImageRecorderParse__FP5_zrdr */
+_zanim_cmd_hdr * StartImageRecorderParse(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub StartImageRecorderTick__FP14_zanim_cmd_hdrPf */
+bool StartImageRecorderTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub StopImageRecorderParse__FP5_zrdr */
+_zanim_cmd_hdr * StopImageRecorderParse(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub StopImageRecorderTick__FP14_zanim_cmd_hdrPf */
+bool StopImageRecorderTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton body HUDCmdParseOn__FP5_zrdr */
+_zanim_cmd_hdr* HUDCmdParseOn(_zrdr* reader)
+{
+    return NULL;
+}
+
+/* @socom-skeleton body HUDCmdParseOff__FP5_zrdr */
+_zanim_cmd_hdr* HUDCmdParseOff(_zrdr* reader)
+{
+    return NULL;
+}
+
+/* @socom-skeleton body HUDCmdTickControlSwitch__FP14_zanim_cmd_hdrPf */
+bool HUDCmdTickControlSwitch(_zanim_cmd_hdr* header, f32* dT)
+{
+    return false;
+}
+
+/* @socom-skeleton body HUDLetterBoxCmdParseOn__FP5_zrdr */
+_zanim_cmd_hdr*  HUDLetterBoxCmdParseOn(_zrdr* reader)
+{
+    return NULL;
+}
+
+/* @socom-skeleton body HUDLetterBoxCmdParseOff__FP5_zrdr */
+_zanim_cmd_hdr* HUDLetterBoxCmdParseOff(_zrdr* reader)
+{
+    return NULL;
+}
+
+/* @socom-skeleton body HUDLetterBoxCmdTick__FP14_zanim_cmd_hdrPf */
+bool HUDLetterBoxCmdTick(_zanim_cmd_hdr* header, f32* dT)
+{
+    return false;
+}
+
+/* @socom-skeleton stub HUDTriggerMissionCamParse__FP5_zrdr */
+_zanim_cmd_hdr * HUDTriggerMissionCamParse(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub HUDTriggerMissionCamBegin__FP14_zanim_cmd_hdr */
+void HUDTriggerMissionCamBegin(_zanim_cmd_hdr *)
+{
+}
+
+/* @socom-skeleton stub HUDTriggerMissionCamTick__FP14_zanim_cmd_hdrPf */
+bool HUDTriggerMissionCamTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub HUDStartDefuseTimerParse__FP5_zrdr */
+_zanim_cmd_hdr * HUDStartDefuseTimerParse(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub HUDStartDefuseTimerTick__FP14_zanim_cmd_hdrPf */
+bool HUDStartDefuseTimerTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton body __ct__8CMissionFv */
+CMission::CMission() : CSaveModule("CMission", NULL) {}
+
+/* @socom-skeleton stub __dt__8CMissionFv */
+CMission::~CMission()
+{
+}
+
+/* @socom-skeleton body Init__8CMissionFv */
 bool CMission::Init()
 {
 	// TODO:
@@ -337,68 +493,7 @@ bool CMission::Init()
 	return true;
 }
 
-void UpdateCharWeaponUiVars(u32 index)
-{
-
-}
-
-void CreateCustomCharTypes(CVehicleRdr* reader, _zrdr* start)
-{
-	g_iNumUiVehicles = 0;
-
-	if (_zrdr* vehicles = zrdr_findtag(start, "UiVehicles"))
-	{
-		_zrdr* node = NULL;
-		for (u32 i = 0; node = &vehicles->array[i], i < vehicles->array->integer - 1; i++)
-		{
-			char* name = zrdr_findstring(node, "Name");
-			CVehicleRdrEntry* entry = reader->GetEntryByName(name);
-
-			if (!entry)
-				continue;
-
-			strcpy(*g_arrDefCharTypeNames[i], entry->m_character);
-			CCharacterType* chartype_mod = CCharacterType::GetByNameMod(name);
-			CCharacterType* chartype = CCharacterType::Create(name, chartype_mod, false);
-			chartype->m_istemporary = true;
-
-			entry->SetCharacterName(name);
-			UpdateCharWeaponUiVars(i);
-		}
-	}
-}
-
-void CreateCustomCharTypes(_zrdr* start)
-{
-	g_iNumUiVehicles = 0;
-
-	if (_zrdr* vehicles = zrdr_findtag(start, "UiVehicles"))
-	{
-		_zrdr* node = NULL;
-		for (u32 i = 0; node = &vehicles->array[i], i < vehicles->array->integer - 1; i++)
-		{
-			char* name = zrdr_findstring(node, "Name");
-			CVehicleRdrEntry* entry = NULL; // TODO: replace this
-
-			if (!entry)
-				continue;
-
-			strcpy(*g_arrDefCharTypeNames[i], entry->m_character);
-			CCharacterType* chartype_mod = CCharacterType::GetByNameMod(name);
-			CCharacterType* chartype = CCharacterType::Create(name, chartype_mod, false);
-			chartype->m_istemporary = true;
-
-			entry->SetCharacterName(name);
-			UpdateCharWeaponUiVars(i);
-		}
-	}
-}
-
-void LoadMissionMapVisibilities(_zrdr* start)
-{
-
-}
-
+/* @socom-skeleton body PreOpen__8CMissionFPCc */
 void CMission::PreOpen(const char* db)
 {
 	extern char** g_arrDefCharTypeNames[32];
@@ -482,21 +577,47 @@ void CMission::PreOpen(const char* db)
 	LoadMissionMapVisibilities(mission);
 }
 
-void CMission::OpenVehicleRdr()
+/* @socom-skeleton stub FilterNavPointString__FPCc */
+void FilterNavPointString(const char *)
 {
-	if (!m_vehicleRdr)
-		return;
-
-	m_vehicleRdr->Open("vehicles.rdr");
 }
 
-void CMission::CloseVehicleRdr()
+/* @socom-skeleton stub CreateCompassNavPoints__8CMissionFv */
+void CMission::CreateCompassNavPoints()
 {
-	CCharacterType::CleanupTemporary();
-	if (m_vehicleRdr)
-		m_vehicleRdr->Close();
 }
 
+/* @socom-skeleton stub Open__8CMissionFPCci */
+void CMission::Open(const char *, int)
+{
+}
+
+/* @socom-skeleton stub ReOpen_Unload1__8CMissionFv */
+void CMission::ReOpen_Unload1()
+{
+}
+
+/* @socom-skeleton stub ReOpen_Unload2__8CMissionFv */
+void CMission::ReOpen_Unload2()
+{
+}
+
+/* @socom-skeleton stub ReOpen_Load__8CMissionFv */
+void CMission::ReOpen_Load()
+{
+}
+
+/* @socom-skeleton stub ZAnimLoad__8CMissionFv */
+void CMission::ZAnimLoad()
+{
+}
+
+/* @socom-skeleton stub Close__8CMissionFv */
+void CMission::Close()
+{
+}
+
+/* @socom-skeleton body Read__8CMissionFP5_zrdr */
 void CMission::Read(_zrdr* reader)
 {
 	m_ai_params.weather_factor = 0.0f;
@@ -522,6 +643,197 @@ void CMission::Read(_zrdr* reader)
 	}
 }
 
+/* @socom-skeleton stub tick__8CMissionFfPv */
+bool CMission::tick(float, void *)
+{
+}
+
+/* @socom-skeleton stub _OnMissionComplete__Fv */
+void _OnMissionComplete()
+{
+}
+
+/* @socom-skeleton body Tick__8CMissionFf */
+void CMission::Tick(f32 dT)
+{
+	m_timer += dT;
+
+	if (m_wait_before_falling > 0.0f)
+	{
+		m_wait_before_falling -= dT;
+	}
+
+	m_winlosstimer += m_winlossinc * dT;
+
+	if (!theNetwork.m_bNetwork)
+	{
+		if (m_pNetGame == NULL)
+		{
+			// TickObjectives(dT);
+		}
+	}
+	else
+	{
+		// CNetClock::Tick();
+	}
+
+	if (!m_ignore_objectives)
+	{
+		if (!m_valve_timeout->m_value)
+		{
+			OnMissionComplete(MISSION_TIMEOUT);
+		}
+
+		if (!m_valve_abort->m_value)
+		{
+			OnMissionComplete(MISSION_ABORTED);
+		}
+
+		if (!m_valve_failure->m_value)
+		{
+			OnMissionComplete(MISSION_FAILURE);
+		}
+
+		if (!m_valve_complete->m_value)
+		{
+			OnMissionComplete(MISSION_SUCCESS);
+		}
+	}
+	else if (m_valve_abort->m_value)
+	{
+		OnMissionComplete(MISSION_ABORTED);
+	}
+
+	// spawners.Tick(dT);
+	TickInFirefight(dT);
+}
+
+/* @socom-skeleton stub TickObjectives__8CMissionFf */
+void CMission::TickObjectives(float)
+{
+}
+
+/* @socom-skeleton stub CreateNetGame__8CMissionFv */
+CZNetGame * CMission::CreateNetGame()
+{
+}
+
+/* @socom-skeleton stub DestroyNetGame__8CMissionFv */
+void CMission::DestroyNetGame()
+{
+}
+
+/* @socom-skeleton body OnMissionComplete__8CMissionF13MISSION_STATE */
+void CMission::OnMissionComplete(MISSION_STATE state)
+{
+	if (state != m_state)
+	{
+		m_state = state;
+	}
+
+	if (!theNetwork.m_bNetwork)
+	{
+		if (m_state == MISSION_ABORTED || !ftsPlayer->m_isAlive)
+		{
+			if (m_valve_nofade)
+			{
+				m_DelayEndMission = false;
+
+				// _OnMissionComplete();
+				CVideo::Clear(0, 0, 0, 0);
+				// CFlashFXVector::Reset();
+				theMission.m_DelayEndMission = false;
+				m_FadingToEndMission = false;
+				appCamera->ResetDeathCam();
+				// theGame.Push(&m_exitState, 0);
+			}
+			else if (!m_FadingToEndMission)
+			{
+				m_FadingToEndMission = true;
+				theMission.m_FadingToEndMission = true;
+				m_fade_counter = 0;
+				m_next_fade_time = 1.0f;
+
+				// zTaskScheduler.AddTask("MissionFader", MissionFadeToEnd, fadeToEndMissionTick, 0.98f, this);
+			}
+			else
+			{
+				if (m_next_fade_time > 1.0f)
+				{
+					m_next_fade_time = 1.0f;
+				}
+
+				if (m_fade_counter > 0)
+				{
+					m_fade_counter = 0;
+				}
+			}
+		}
+	}
+	else
+	{
+		if (m_pNetGame)
+		{
+			// CZBombState::UninitBomb;
+
+			if (state == MISSION_ABORTED)
+			{
+				if (m_delay <= 1.0f)
+				{
+					m_delay = m_timer + 3.0f;
+				}
+				else if (m_delay < m_timer)
+				{
+					
+				}
+			}
+		}
+	}
+}
+
+/* @socom-skeleton stub FadeToEndMissionTick__8CMissionFf */
+bool CMission::FadeToEndMissionTick(float)
+{
+}
+
+/* @socom-skeleton stub fadeToEndMissionTick__8CMissionFfPv */
+bool CMission::fadeToEndMissionTick(float, void *)
+{
+}
+
+/* @socom-skeleton stub FadeToEndMission__8CMissionFfi */
+void CMission::FadeToEndMission(float, int)
+{
+}
+
+/* @socom-skeleton stub CreateLadderTable__8CMissionFv */
+void CMission::CreateLadderTable()
+{
+}
+
+/* @socom-skeleton stub GetLadderByIndex__11CLadderListFi */
+CLadderData * CLadderList::GetLadderByIndex(int)
+{
+}
+
+/* @socom-skeleton stub GetClosestLadder__11CLadderListFPC6CPnt3Df */
+void CLadderList::GetClosestLadder(const CPnt3D *, float)
+{
+	/* @socom-skeleton stub yThreshold$3625 */
+	static int yThreshold;
+}
+
+/* @socom-skeleton stub aiMapPlaceItem__FPQ23zdb5CNodeRC6CPnt3DiPC6CPnt3DPC6CPnt3D */
+void aiMapPlaceItem(zdb::CNode *, const CPnt3D &, int, const CPnt3D *, const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub ftsFixupAiMap__FP6CAiMap */
+void ftsFixupAiMap(CAiMap *)
+{
+}
+
+/* @socom-skeleton body OnMissionStart__8CMissionFv */
 void CMission::OnMissionStart()
 {
 	VALVE_STATE valveMissionState;
@@ -608,127 +920,167 @@ void CMission::OnMissionStart()
 	}
 }
 
-void CMission::OnMissionComplete(MISSION_STATE state)
+/* @socom-skeleton body Initialize__9CZNetGameFv */
+bool CZNetGame::Initialize()
 {
-	if (state != m_state)
-	{
-		m_state = state;
-	}
+    CRdrEditor rdr;
+    
+    m_pTimerValve = NULL;
+    m_pTimerAnim = NULL;
+    m_mp_major_game_state = MP_MAJOR_GAME_STATE::MP_MAJOR_UNKNOWN;
+    m_mp_minor_game_state = MP_MINOR_GAME_STATE::MP_MINOR_UNKNOWN;
+    m_my_major_game_state = MP_MAJOR_GAME_STATE::MP_MAJOR_UNKNOWN;
+    m_mpe3_round_count = 0;
+    m_net_ready_count = 0;
+    m_countdown = 0;
+    m_net_team = 0;
+    m_last_penalty = 0;
+    m_gate_clock = 0;
+    m_game_object_index = -1;
+    m_net_start_flag = MP_NET_READY::NET_READY_UNKNOWN;
+    m_bomb_clock_started = false;
+    m_persona_created = false;
+    m_bomb_created = false;
+    m_ready_to_play = false;
+    m_ten_second_launch = false;
+    m_use_bomb_pos = false;
+    m_ghost_ok = false;
+    m_pos_smooth = 50.0f;
+    m_bdown = false;
 
-	if (!theNetwork.m_bNetwork)
-	{
-		if (m_state == MISSION_ABORTED || !ftsPlayer->m_isAlive)
-		{
-			if (m_valve_nofade)
-			{
-				m_DelayEndMission = false;
+    m_uiv_SealList = theUIVarManager.Add("BSEALLISTVAR", NULL, UIVL_PERMANENT);
+    m_uiv_TerrList = theUIVarManager.Add("BTERRLISTVAR", NULL, UIVL_PERMANENT);
+    m_uiv_NoneList = theUIVarManager.Add("BNONELISTVAR", NULL, UIVL_PERMANENT);
+    m_uiv_ChatList = theUIVarManager.Add("BCHATLISTVAR", NULL, UIVL_PERMANENT);
 
-				// _OnMissionComplete();
-				CVideo::Clear(0, 0, 0, 0);
-				// CFlashFXVector::Reset();
-				theMission.m_DelayEndMission = false;
-				m_FadingToEndMission = false;
-				appCamera->ResetDeathCam();
-				// theGame.Push(&m_exitState, 0);
-			}
-			else if (!m_FadingToEndMission)
-			{
-				m_FadingToEndMission = true;
-				theMission.m_FadingToEndMission = true;
-				m_fade_counter = 0;
-				m_next_fade_time = 1.0f;
+    m_uiv_ChatList->Set(&rdr);
 
-				// zTaskScheduler.AddTask("MissionFader", MissionFadeToEnd, fadeToEndMissionTick, 0.98f, this);
-			}
-			else
-			{
-				if (m_next_fade_time > 1.0f)
-				{
-					m_next_fade_time = 1.0f;
-				}
+    m_pMajorGameStateValve = CValve::Create("mp_major_game_state", 0, VALVE_TYPE::VTYPE_PERM);
 
-				if (m_fade_counter > 0)
-				{
-					m_fade_counter = 0;
-				}
-			}
-		}
-	}
-	else
-	{
-		if (m_pNetGame)
-		{
-			// CZBombState::UninitBomb;
+    m_pJoinGameValve = CValve::Create("mp_join_game", VALVE_TYPE::VTYPE_PERM);
+    m_pPlayerTeamValve = CValve::Create("player_team", VALVE_TYPE::VTYPE_PERM);
+    m_pLateJoinerValve = CValve::Create("late_joiner", VALVE_TYPE::VTYPE_PERM);
+    m_was_late_joiner = false;
+    m_p45SecondClockValve = CValve::Create("mp_45_sec_clock", VALVE_TYPE::VTYPE_PERM);
+    m_pPenaltyValve = CValve::Create("mp_penalty", VALVE_TYPE::VTYPE_PERM);
+    m_pPlayerJoinCountValve = CValve::Create("player_join_count", VALVE_TYPE::VTYPE_PERM);
+    m_pPlayerReadyCountValve = CValve::Create("player_ready_count", VALVE_TYPE::VTYPE_PERM);
+    m_pMPPersistentValve = CValve::Create("mp_persistent", VALVE_TYPE::VTYPE_PERM);
+    m_pBombStatusValve = CValve::Create("mp_bomb", VALVE_TYPE::VTYPE_PERM);
+    m_pGameOverValve = CValve::Create("mp_game_over", 0, VALVE_TYPE::VTYPE_PERM);
+    m_pBombOwnerValve = CValve::Create("bomb_owner", VALVE_TYPE::VTYPE_PERM);
+    m_pRoundCountValve = CValve::Create("round_count", 0, VALVE_TYPE::VTYPE_PERM);
 
-			if (state == MISSION_ABORTED)
-			{
-				if (m_delay <= 1.0f)
-				{
-					m_delay = m_timer + 3.0f;
-				}
-				else if (m_delay < m_timer)
-				{
-					
-				}
-			}
-		}
-	}
+    return true;
 }
 
-void CMission::Tick(f32 dT)
+/* @socom-skeleton stub UnInitialize__9CZNetGameFv */
+void CZNetGame::UnInitialize()
 {
-	m_timer += dT;
-
-	if (m_wait_before_falling > 0.0f)
-	{
-		m_wait_before_falling -= dT;
-	}
-
-	m_winlosstimer += m_winlossinc * dT;
-
-	if (!theNetwork.m_bNetwork)
-	{
-		if (m_pNetGame == NULL)
-		{
-			// TickObjectives(dT);
-		}
-	}
-	else
-	{
-		// CNetClock::Tick();
-	}
-
-	if (!m_ignore_objectives)
-	{
-		if (!m_valve_timeout->m_value)
-		{
-			OnMissionComplete(MISSION_TIMEOUT);
-		}
-
-		if (!m_valve_abort->m_value)
-		{
-			OnMissionComplete(MISSION_ABORTED);
-		}
-
-		if (!m_valve_failure->m_value)
-		{
-			OnMissionComplete(MISSION_FAILURE);
-		}
-
-		if (!m_valve_complete->m_value)
-		{
-			OnMissionComplete(MISSION_SUCCESS);
-		}
-	}
-	else if (m_valve_abort->m_value)
-	{
-		OnMissionComplete(MISSION_ABORTED);
-	}
-
-	// spawners.Tick(dT);
-	TickInFirefight(dT);
 }
 
+/* @socom-skeleton stub SetE3RoundCount__9CZNetGameFi */
+void CZNetGame::SetE3RoundCount(int)
+{
+}
+
+/* @socom-skeleton stub NetworkTeam__9CZNetGameFUi */
+unsigned int CZNetGame::NetworkTeam(unsigned int)
+{
+}
+
+/* @socom-skeleton stub MPMajorGameState__9CZNetGameFQ29CZNetGame19MP_MAJOR_GAME_STATE */
+CZNetGame::MP_MAJOR_GAME_STATE CZNetGame::MPMajorGameState(CZNetGame::MP_MAJOR_GAME_STATE)
+{
+}
+
+/* @socom-skeleton stub MyMajorGameState__9CZNetGameFQ29CZNetGame19MP_MAJOR_GAME_STATE */
+CZNetGame::MP_MAJOR_GAME_STATE CZNetGame::MyMajorGameState(CZNetGame::MP_MAJOR_GAME_STATE)
+{
+}
+
+/* @socom-skeleton stub MyMinorGameState__9CZNetGameFQ29CZNetGame19MP_MINOR_GAME_STATE */
+CZNetGame::MP_MINOR_GAME_STATE CZNetGame::MyMinorGameState(CZNetGame::MP_MINOR_GAME_STATE)
+{
+}
+
+/* @socom-skeleton stub LateJoiner__9CZNetGameFb */
+bool CZNetGame::LateJoiner(bool)
+{
+}
+
+/* @socom-skeleton stub ResetScores__9CZNetGameFv */
+void CZNetGame::ResetScores()
+{
+}
+
+/* @socom-skeleton body MasterStartGame__9CZNetGameFv */
+void CZNetGame::MasterStartGame()
+{
+
+}
+
+/* @socom-skeleton stub TenSecondLaunch__9CZNetGameFb */
+void CZNetGame::TenSecondLaunch(bool)
+{
+}
+
+/* @socom-skeleton stub GetGameTime__8CMissionFv */
+void CMission::GetGameTime()
+{
+}
+
+/* @socom-skeleton stub SetE3Index__9CZNetGameFi */
+void CZNetGame::SetE3Index(int)
+{
+}
+
+/* @socom-skeleton stub SetInitialRead__9CNetClockFUib */
+void CNetClock::SetInitialRead(unsigned int, bool)
+{
+}
+
+/* @socom-skeleton stub Tick__9CNetClockFv */
+void CNetClock::Tick()
+{
+}
+
+/* @socom-skeleton stub DecrementRoundClockSec__9CZNetGameFi */
+void CZNetGame::DecrementRoundClockSec(int)
+{
+}
+
+/* @socom-skeleton stub OnSealTeam__9CZNetGameFv */
+void CZNetGame::OnSealTeam()
+{
+}
+
+/* @socom-skeleton stub Serialize__8CMissionFi */
+void CMission::Serialize(int)
+{
+}
+
+/* @socom-skeleton stub UnSerialize__8CMissionFPCcP8CRdrFilei */
+void CMission::UnSerialize(const char *, CRdrFile *, int)
+{
+}
+
+/* @socom-skeleton stub LoadMissionCams__8CMissionFP8CRdrFile */
+void CMission::LoadMissionCams(CRdrFile *)
+{
+}
+
+/* @socom-skeleton stub LoadObjectiveCams__8CMissionFP8CRdrFile */
+void CMission::LoadObjectiveCams(CRdrFile *)
+{
+}
+
+/* @socom-skeleton stub GetMissionCamByIdentifier__8CMissionFPCc */
+CMissionCam * CMission::GetMissionCamByIdentifier(const char *)
+{
+}
+
+/* @socom-skeleton body TickInFirefight__8CMissionFf */
 void CMission::TickInFirefight(f32 dT)
 {
 	// The "awareness counter" keeps track of how many entities -
@@ -773,4 +1125,19 @@ void CMission::TickInFirefight(f32 dT)
 
 		m_fighttimer = 4.0f;
 	}
+}
+
+/* @socom-skeleton stub _RecoverFromNetError__8CMissionFi */
+void CMission::_RecoverFromNetError(int)
+{
+}
+
+/* @socom-skeleton stub RecoverFromNetError__8CMissionFi */
+unsigned char CMission::RecoverFromNetError(int)
+{
+}
+
+/* @socom-skeleton stub Sample_ExtractionLoc__8CMissionFv */
+void CMission::Sample_ExtractionLoc()
+{
 }

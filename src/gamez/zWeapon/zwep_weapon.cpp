@@ -120,6 +120,39 @@
 
 #include "gamez/zNode/node_world.h"
 
+// 	RVA: 0x339A60 -> SCUS_971.34
+
+//	RVA: 0x339A30 -> SCUS_971.34
+//  RVA: 0x31EEB0 -> SCUS_972.05
+
+// TODO: Reimplement the zoom function properly
+
+/* @socom-skeleton decl include */
+#include "gamez/zAnim/zanim.h"
+#include "gamez/zIntersect/zintersect.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/node_model.h"
+#include "gamez/zNode/znode.h"
+#include "gamez/zReader/zrdr.h"
+#include "gamez/zSound/zsnd.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CZDecalSet;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub m_listWeapons__8CZWeapon */
+CZWeaponList CZWeapon::m_listWeapons;
+
+/* @socom-skeleton stub m_flyout_machine__8CZWeapon */
+unsigned char CZWeapon::m_flyout_machine[28];
+
+/* @socom-skeleton stub m_decalsets__10CZDecalSet */
+int CZDecalSet::m_decalsets[3];
+
+/* @socom-skeleton body __ct__8CZWeaponFv */
 CZWeapon::CZWeapon()
 {
 	// AI parameter setup
@@ -190,17 +223,307 @@ CZWeapon::CZWeapon()
 	m_hasFiremodes[4] = false;
 }
 
-void CZWeapon::AddLegalAmmo(CZAmmo* ammo)
+/* @socom-skeleton stub __dt__8CZWeaponFv */
+CZWeapon::~CZWeapon()
 {
-
 }
 
-// 	RVA: 0x339A60 -> SCUS_971.34
+/* @socom-skeleton stub CreateProjectileList__8CZWeaponFi */
+void CZWeapon::CreateProjectileList(int)
+{
+}
+
+/* @socom-skeleton stub DestroyProjectileList__8CZWeaponFv */
+void CZWeapon::DestroyProjectileList()
+{
+}
+
+/* @socom-skeleton stub CreateMarkList__8CZWeaponFv */
+void CZWeapon::CreateMarkList()
+{
+}
+
+/* @socom-skeleton stub DestroyMarkList__8CZWeaponFv */
+void CZWeapon::DestroyMarkList()
+{
+}
+
+/* @socom-skeleton stub CreateWeaponList__8CZWeaponFv */
+bool CZWeapon::CreateWeaponList()
+{
+}
+
+/* @socom-skeleton stub GetBulletPassSound__8CZWeaponFv */
+CSnd * CZWeapon::GetBulletPassSound()
+{
+}
+
+/* @socom-skeleton stub SetBulletPassSound__8CZWeaponFP4CSnd */
+void CZWeapon::SetBulletPassSound(CSnd *)
+{
+}
+
+/* @socom-skeleton stub Fire__8CZWeaponFPQ23zdb5CNodeP6CZAmmoPC6CPnt3DPC6CPnt3DPC6CPnt3DP12CZProjectileiPQ23zdb6CModelff */
+void CZWeapon::Fire(zdb::CNode *, CZAmmo *, const CPnt3D *, const CPnt3D *, const CPnt3D *, CZProjectile *, int, zdb::CModel *, float, float)
+{
+}
+
+/* @socom-skeleton stub Fire__8CZWeaponFPQ23zdb5CNodeP8CZWeaponP6CZAmmoPC6CPnt3DPC6CPnt3DPC6CPnt3DPQ23zdb6CModelP12CZProjectileUiff */
+void CZWeapon::Fire(zdb::CNode *, CZWeapon *, CZAmmo *, const CPnt3D *, const CPnt3D *, const CPnt3D *, zdb::CModel *, CZProjectile *, unsigned int, float, float)
+{
+}
+
+/* @socom-skeleton body Fire__8CZWeaponFR12CZProjectile */
+void CZWeapon::Fire(CZProjectile& projectile)
+{
+	zdb::CNode* instance = projectile.GetInstance();
+
+	if (instance && instance->m_parent != zdb::CWorld::m_world)
+		zdb::CWorld::m_world->AddChild(instance);
+
+	projectile.PreFireProjectile();
+
+	// if (!projectile.FireValidityCheck())
+		// m_pProjectileList.RemoveProjectile(projectile);
+}
+
+/* @socom-skeleton stub SetName__8CZWeaponFPCc */
+void CZWeapon::SetName(const char *)
+{
+}
+
+/* @socom-skeleton stub SetDescription__8CZWeaponFPCc */
+void CZWeapon::SetDescription(const char *)
+{
+}
+
+/* @socom-skeleton body HasFireMode__8CZWeaponCFi */
 bool CZWeapon::HasFireMode(s32 id) const
 {
 	return id >= 5 || m_hasFiremodes[id];
 }
 
+/* @socom-skeleton body SetHasFireMode__8CZWeaponF8FIREMODE */
+void CZWeapon::SetHasFireMode(FIREMODE newMode)
+{
+	m_hasFiremodes[static_cast<s32>(newMode)] = true;
+	
+	if (m_maxfiremode < newMode)
+		m_maxfiremode = newMode;
+}
+
+/* @socom-skeleton stub SetAmmoCapacity__8CZWeaponFi */
+void CZWeapon::SetAmmoCapacity(int)
+{
+}
+
+/* @socom-skeleton stub SetNumMags__8CZWeaponFi */
+void CZWeapon::SetNumMags(int)
+{
+}
+
+/* @socom-skeleton stub SetSoundRadius__8CZWeaponFf */
+void CZWeapon::SetSoundRadius(float)
+{
+}
+
+/* @socom-skeleton stub SetEncumbrance__8CZWeaponF11ENCUMBRANCE */
+void CZWeapon::SetEncumbrance(ENCUMBRANCE)
+{
+}
+
+/* @socom-skeleton stub SetMaxRange__8CZWeaponFf */
+void CZWeapon::SetMaxRange(float)
+{
+}
+
+/* @socom-skeleton stub SetEffectiveRange__8CZWeaponFf */
+void CZWeapon::SetEffectiveRange(float)
+{
+}
+
+/* @socom-skeleton stub SetImpactRadius__8CZWeaponFf */
+void CZWeapon::SetImpactRadius(float)
+{
+}
+
+/* @socom-skeleton stub SetMuzzleVelocity__8CZWeaponFf */
+void CZWeapon::SetMuzzleVelocity(float)
+{
+}
+
+/* @socom-skeleton stub SetAssociatedGearName__8CZWeaponFPCc */
+void CZWeapon::SetAssociatedGearName(const char *)
+{
+}
+
+/* @socom-skeleton stub SetModelName__8CZWeaponFPCc */
+void CZWeapon::SetModelName(const char *)
+{
+}
+
+/* @socom-skeleton stub SetIconTextureName__8CZWeaponFPCc */
+void CZWeapon::SetIconTextureName(const char *)
+{
+}
+
+/* @socom-skeleton body GetName__8CZWeaponCFv */
+char * CZWeapon::GetName() const { return m_name; }
+
+/* @socom-skeleton body GetDescription__8CZWeaponCFv */
+char * CZWeapon::GetDescription() const { return m_description; }
+
+/* @socom-skeleton stub GetAmmoCapacity__8CZWeaponFv */
+int CZWeapon::GetAmmoCapacity()
+{
+}
+
+/* @socom-skeleton stub GetNumMags__8CZWeaponFv */
+int CZWeapon::GetNumMags()
+{
+}
+
+/* @socom-skeleton stub GetEncumbrance__8CZWeaponFv */
+ENCUMBRANCE CZWeapon::GetEncumbrance()
+{
+}
+
+/* @socom-skeleton stub GetMaxRange__8CZWeaponFv */
+float CZWeapon::GetMaxRange()
+{
+}
+
+/* @socom-skeleton stub GetEffectiveRange__8CZWeaponFv */
+float CZWeapon::GetEffectiveRange()
+{
+}
+
+/* @socom-skeleton body GetImpactRadius__8CZWeaponCFv */
+float CZWeapon::GetImpactRadius() const { return m_impactradius; }
+
+/* @socom-skeleton stub GetMuzzleVelocity__8CZWeaponFv */
+float CZWeapon::GetMuzzleVelocity()
+{
+}
+
+/* @socom-skeleton body AddLegalAmmo__8CZWeaponFP6CZAmmo */
+void CZWeapon::AddLegalAmmo(CZAmmo* ammo)
+{
+
+}
+
+/* @socom-skeleton stub GetAssociatedGearName__8CZWeaponFv */
+char * CZWeapon::GetAssociatedGearName()
+{
+}
+
+/* @socom-skeleton body GetModelName__8CZWeaponCFv */
+char * CZWeapon::GetModelName() const { return m_modelname; }
+
+/* @socom-skeleton body GetIconTextureName__8CZWeaponCFv */
+char * CZWeapon::GetIconTextureName() const { return m_icontexname; }
+
+/* @socom-skeleton stub IsLegalAmmo__8CZWeaponFP6CZAmmo */
+void CZWeapon::IsLegalAmmo(CZAmmo *)
+{
+}
+
+/* @socom-skeleton stub SetHitAnimName__8CZWeaponFPCc */
+void CZWeapon::SetHitAnimName(const char *)
+{
+}
+
+/* @socom-skeleton stub SetFireAnimName__8CZWeaponFPCc */
+void CZWeapon::SetFireAnimName(const char *)
+{
+}
+
+/* @socom-skeleton stub SetDefaultSpecialAnimName__8CZWeaponFPCc */
+void CZWeapon::SetDefaultSpecialAnimName(const char *)
+{
+}
+
+/* @socom-skeleton stub SetSpecialMaterialAnimName__8CZWeaponFPCc */
+void CZWeapon::SetSpecialMaterialAnimName(const char *)
+{
+}
+
+/* @socom-skeleton stub AllocateSpecialMaterialAnimMem__8CZWeaponFv */
+bool CZWeapon::AllocateSpecialMaterialAnimMem()
+{
+}
+
+/* @socom-skeleton stub AllocateHitAnimMem__8CZWeaponFv */
+bool CZWeapon::AllocateHitAnimMem()
+{
+}
+
+/* @socom-skeleton stub GetHitAnimName__8CZWeaponFv */
+char * CZWeapon::GetHitAnimName()
+{
+}
+
+/* @socom-skeleton stub GetDefaultSpecialAnimName__8CZWeaponFv */
+char * CZWeapon::GetDefaultSpecialAnimName()
+{
+}
+
+/* @socom-skeleton stub GetSpecialMaterialAnimName__8CZWeaponFv */
+char * CZWeapon::GetSpecialMaterialAnimName()
+{
+}
+
+/* @socom-skeleton stub SetHitAnim__8CZWeaponFiP6CZAnim */
+void CZWeapon::SetHitAnim(int, CZAnim *)
+{
+}
+
+/* @socom-skeleton stub SetFireAnim__8CZWeaponFP6CZAnim */
+void CZWeapon::SetFireAnim(CZAnim *)
+{
+}
+
+/* @socom-skeleton stub SetDefaultSpecialAnim__8CZWeaponFP6CZAnim */
+void CZWeapon::SetDefaultSpecialAnim(CZAnim *)
+{
+}
+
+/* @socom-skeleton stub SetSpecialMaterialAnim__8CZWeaponFiP6CZAnim */
+void CZWeapon::SetSpecialMaterialAnim(int, CZAnim *)
+{
+}
+
+/* @socom-skeleton stub GetSpecialMaterialAnim__8CZWeaponFi */
+CZAnim * CZWeapon::GetSpecialMaterialAnim(int)
+{
+}
+
+/* @socom-skeleton stub GetFireAnimName__8CZWeaponFv */
+char * CZWeapon::GetFireAnimName()
+{
+}
+
+/* @socom-skeleton stub GetHitAnim__8CZWeaponFi */
+CZAnim * CZWeapon::GetHitAnim(int)
+{
+}
+
+/* @socom-skeleton stub GetDefaultSpecialAnim__8CZWeaponFv */
+CZAnim * CZWeapon::GetDefaultSpecialAnim()
+{
+}
+
+/* @socom-skeleton stub GetFireAnim__8CZWeaponFb */
+CZAnim * CZWeapon::GetFireAnim(bool)
+{
+}
+
+/* @socom-skeleton stub SetZoomedFireAnim__8CZWeaponFP6CZAnim */
+void CZWeapon::SetZoomedFireAnim(CZAnim *)
+{
+}
+
+/* @socom-skeleton body ClearAnims__8CZWeaponFv */
 void CZWeapon::ClearAnims()
 {
 	if (m_hitanim != NULL)
@@ -220,6 +543,322 @@ void CZWeapon::ClearAnims()
 	}
 }
 
+/* @socom-skeleton stub GetDecalSetName__8CZWeaponFv */
+char * CZWeapon::GetDecalSetName()
+{
+}
+
+/* @socom-skeleton stub SetDecalSetName__8CZWeaponFPCc */
+void CZWeapon::SetDecalSetName(const char *)
+{
+}
+
+/* @socom-skeleton stub SetReloadSoundName__8CZWeaponFPc */
+void CZWeapon::SetReloadSoundName(char *)
+{
+}
+
+/* @socom-skeleton stub PreTick__8CZWeaponFfPv */
+bool CZWeapon::PreTick(float, void *)
+{
+}
+
+/* @socom-skeleton stub PostTick__8CZWeaponFfPv */
+bool CZWeapon::PostTick(float, void *)
+{
+}
+
+/* @socom-skeleton stub GetDefaultAmmo__8CZWeaponFv */
+CZAmmo * CZWeapon::GetDefaultAmmo()
+{
+}
+
+/* @socom-skeleton stub GetDefaultAmmoId__8CZWeaponFv */
+EQUIP_AMMO CZWeapon::GetDefaultAmmoId()
+{
+}
+
+/* @socom-skeleton body IsDirectFire__8CZWeaponFv */
+bool CZWeapon::IsDirectFire()
+{
+	EQUIP_ITEM type = GetIDType(m_ID);
+
+	if (type == EQUIP_ITEM::EQUIP_LAUNCHED_GRENADE)
+	{
+		return false;
+	}
+
+	if (type == EQUIP_ITEM::GRENADE)
+	{
+		return false;
+	}
+
+	if (type == EQUIP_ITEM::EQUIP_EXPLOSIVE)
+	{
+		return false;
+	}
+
+	if (type == EQUIP_ITEM::EQUIP_EQUIPMENT)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+/* @socom-skeleton body GetIDType__8CZWeaponFv */
+EQUIP_ITEM CZWeapon::GetIDType() { return EQUIP_ITEM::EQUIP_NONE; }
+
+/* @socom-skeleton body IsPrimary__8CZWeaponF10EQUIP_ITEM */
+bool CZWeapon::IsPrimary(EQUIP_ITEM item)
+{
+	EQUIP_ITEM item_id = GetIDType(item);
+
+	if (item_id == EQUIP_ITEM::EQUIP_SMG)
+	{
+		return true;
+	}
+
+	if (item_id == EQUIP_ITEM::EQUIP_ASSAULT_RIFLE)
+	{
+		return true;
+	}
+
+	if (item_id == EQUIP_ITEM::EQUIP_SHOTGUN)
+	{
+		return true;
+	}
+
+	if (item_id == (EQUIP_ITEM::MARK46MOD0 | EQUIP_ITEM::MARK23))
+	{
+		return true;
+	}
+
+	if (item_id == EQUIP_ITEM::EQUIP_HEAVYWEAPON)
+	{
+		return true;
+	}
+
+	if (item_id == EQUIP_ITEM::EQUIP_SNIPER_RIFLE)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+/* @socom-skeleton body IsSecondary__8CZWeaponF10EQUIP_ITEM */
+bool CZWeapon::IsSecondary(EQUIP_ITEM item)
+{
+	return GetIDType(item) == EQUIP_ITEM::EQUIP_PISTOL;
+}
+
+/* @socom-skeleton stub UnpackItemAndAmmoEnums__8CZWeaponFUsP10EQUIP_ITEMP10EQUIP_AMMO */
+void CZWeapon::UnpackItemAndAmmoEnums(unsigned short, EQUIP_ITEM *, EQUIP_AMMO *)
+{
+}
+
+/* @socom-skeleton stub PackItemAndAmmoEnums__8CZWeaponF10EQUIP_ITEM10EQUIP_AMMO */
+unsigned short CZWeapon::PackItemAndAmmoEnums(EQUIP_ITEM, EQUIP_AMMO)
+{
+}
+
+/* @socom-skeleton body GetIDType__8CZWeaponF10EQUIP_ITEM */
+EQUIP_ITEM CZWeapon::GetIDType(EQUIP_ITEM id)
+{
+	if (id > EQUIP_ITEM::EQUIP_PISTOL && id < EQUIP_ITEM::EQUIP_SMG)
+	{
+		return EQUIP_ITEM::EQUIP_PISTOL;
+	}
+
+	if (id > EQUIP_ITEM::EQUIP_SMG && id < EQUIP_ITEM::EQUIP_ASSAULT_RIFLE)
+	{
+		return EQUIP_ITEM::EQUIP_SMG;
+	}
+
+	if (id > EQUIP_ITEM::EQUIP_ASSAULT_RIFLE && id < EQUIP_ITEM::EQUIP_SHOTGUN)
+	{
+		return EQUIP_ITEM::EQUIP_ASSAULT_RIFLE;
+	}
+
+	if (id > EQUIP_ITEM::EQUIP_SHOTGUN && id < EQUIP_ITEM::EQUIP_MACHINEGUN)
+	{
+		return EQUIP_ITEM::EQUIP_SHOTGUN;
+	}
+
+	if (id > EQUIP_ITEM::EQUIP_MACHINEGUN && id < EQUIP_ITEM::EQUIP_SNIPER_RIFLE)
+	{
+		return EQUIP_ITEM::EQUIP_MACHINEGUN;
+	}
+
+	if (id > EQUIP_ITEM::EQUIP_SNIPER_RIFLE && id < EQUIP_ITEM::GRENADE)
+	{
+		return EQUIP_ITEM::EQUIP_SNIPER_RIFLE;
+	}
+
+	if (id > EQUIP_ITEM::EQUIP_HEAVYWEAPON && id < EQUIP_ITEM::EQUIP_EXPLOSIVE)
+	{
+		return EQUIP_ITEM::EQUIP_HEAVYWEAPON;
+	}
+
+	if (id > EQUIP_ITEM::EQUIP_EXPLOSIVE && id < EQUIP_ITEM::EQUIP_MELEE)
+	{
+		return EQUIP_ITEM::EQUIP_EXPLOSIVE;
+	}
+
+	if (id > EQUIP_ITEM::EQUIP_MELEE && id < EQUIP_ITEM::EQUIP_LAUNCHED_GRENADE)
+	{
+		return EQUIP_ITEM::EQUIP_MELEE;
+	}
+
+	if (id > EQUIP_ITEM::EQUIP_LAUNCHED_GRENADE && id < EQUIP_ITEM::EQUIP_EQUIPMENT)
+	{
+		return EQUIP_ITEM::EQUIP_LAUNCHED_GRENADE;
+	}
+
+	if (id > EQUIP_ITEM::EQUIP_EQUIPMENT && id < EQUIP_ITEM::EQUIP_ARMOR)
+	{
+		return EQUIP_ITEM::EQUIP_EQUIPMENT;
+	}
+
+	if (id > EQUIP_ITEM::EQUIP_ARMOR && id < EQUIP_ITEM::EQUIP_END)
+	{
+		return EQUIP_ITEM::EQUIP_ARMOR;
+	}
+
+	if (id >= EQUIP_ITEM::EQUIP_END)
+	{
+		return EQUIP_ITEM::EQUIP_NONE;
+	}
+	
+	return EQUIP_ITEM::EQUIP_NONE;
+}
+
+/* @socom-skeleton body GetWeaponId__8CZWeaponFPCc */
+EQUIP_ITEM CZWeapon::GetWeaponId(const char *name) { return EQUIP_ITEM::EQUIP_NONE; }
+
+/* @socom-skeleton stub GetWeaponName__8CZWeaponF10EQUIP_ITEM */
+char * CZWeapon::GetWeaponName(EQUIP_ITEM)
+{
+}
+
+/* @socom-skeleton stub GetWeaponUIName__8CZWeaponF10EQUIP_ITEM */
+char * CZWeapon::GetWeaponUIName(EQUIP_ITEM)
+{
+}
+
+/* @socom-skeleton stub GetWeaponVUIName__8CZWeaponF10EQUIP_ITEM */
+char * CZWeapon::GetWeaponVUIName(EQUIP_ITEM)
+{
+}
+
+/* @socom-skeleton stub Init__10CZMarkListFv */
+void CZMarkList::Init()
+{
+}
+
+/* @socom-skeleton stub UnInit__10CZMarkListFv */
+void CZMarkList::UnInit()
+{
+}
+
+/* @socom-skeleton stub ReadDecalNames__10CZMarkListFPc */
+void CZMarkList::ReadDecalNames(char *)
+{
+}
+
+/* @socom-skeleton stub ReadWeaponDecals__10CZMarkListFP5_zrdr */
+void CZMarkList::ReadWeaponDecals(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub ReadBloodDecals__10CZMarkListFP5_zrdr */
+void CZMarkList::ReadBloodDecals(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub GetDecalNode__FPQ23zdb5CNode */
+zdb::CNode * GetDecalNode(zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub GetVisualNode__FPQ23zdb5CNode */
+zdb::CNode * GetVisualNode(zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub AddNewMark__10CZMarkListFPQ23zdb15IntersectStructP12CZProjectilef */
+void CZMarkList::AddNewMark(zdb::IntersectStruct *, CZProjectile *, float)
+{
+}
+
+/* @socom-skeleton stub DestroyDecalSet__10CZDecalSetFv */
+void CZDecalSet::DestroyDecalSet()
+{
+}
+
+/* @socom-skeleton stub GetDecalSetByName__10CZDecalSetFPCc */
+CZDecalSet * CZDecalSet::GetDecalSetByName(const char *)
+{
+}
+
+/* @socom-skeleton stub ReadDecalSet__10CZDecalSetFP5_zrdr */
+void CZDecalSet::ReadDecalSet(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub ReadDecalEntry__10CZDecalSetFP5_zrdr */
+void CZDecalSet::ReadDecalEntry(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub Init__8CZWeaponFv */
+void CZWeapon::Init()
+{
+}
+
+/* @socom-skeleton stub Open__8CZWeaponFv */
+void CZWeapon::Open()
+{
+}
+
+/* @socom-skeleton stub OpenDecals__8CZWeaponFv */
+void CZWeapon::OpenDecals()
+{
+}
+
+/* @socom-skeleton body Close__8CZWeaponFv */
+void CZWeapon::Close()
+{
+	// m_flyout_machine->ReleaseAllActive()
+}
+
+/* @socom-skeleton stub GetAccuracy__Q28CZWeapon9AI_PARAMSCFf */
+float CZWeapon::AI_PARAMS::GetAccuracy(float) const
+{
+}
+
+/* @socom-skeleton stub SetDefaults__Q28CZWeapon9AI_PARAMSF10EQUIP_ITEM */
+void CZWeapon::AI_PARAMS::SetDefaults(EQUIP_ITEM)
+{
+}
+
+/* @socom-skeleton stub RegisterTimer__8CZWeaponFPffb */
+void CZWeapon::RegisterTimer(float *, float, bool)
+{
+}
+
+/* @socom-skeleton stub RetrieveTimerRegistration__8CZWeaponFPPfPfPb */
+void CZWeapon::RetrieveTimerRegistration(float **, float *, bool *)
+{
+}
+
+/* @socom-skeleton stub TimerRegistered__8CZWeaponFv */
+unsigned char CZWeapon::TimerRegistered()
+{
+}
+
+/* @socom-skeleton body ClearTimer__8CZWeaponFv */
 void CZWeapon::ClearTimer()
 {
 	m_timer_pCurval = 0;
@@ -229,47 +868,7 @@ void CZWeapon::ClearTimer()
 	m_timer_bIncrTimer = 1;
 }
 
-void CZWeapon::Close()
+/* @socom-skeleton stub TimerCleared__8CZWeaponFv */
+unsigned char CZWeapon::TimerCleared()
 {
-	// m_flyout_machine->ReleaseAllActive()
-}
-
-void CZWeapon::Fire(CZProjectile& projectile)
-{
-	zdb::CNode* instance = projectile.GetInstance();
-
-	if (instance && instance->m_parent != zdb::CWorld::m_world)
-		zdb::CWorld::m_world->AddChild(instance);
-
-	projectile.PreFireProjectile();
-
-	// if (!projectile.FireValidityCheck())
-		// m_pProjectileList.RemoveProjectile(projectile);
-}
-
-//	RVA: 0x339A30 -> SCUS_971.34
-//  RVA: 0x31EEB0 -> SCUS_972.05
-void CZWeapon::SetHasFireMode(FIREMODE newMode)
-{
-	m_hasFiremodes[static_cast<s32>(newMode)] = true;
-	
-	if (m_maxfiremode < newMode)
-		m_maxfiremode = newMode;
-}
-
-// TODO: Reimplement the zoom function properly
-f32 CZFTSWeapon::GetZoomRange(u32 range_level) const
-{
-	f32 range = 0.0f;
-	
-	if (m_firstZoomLevel == 0 || range <= m_thirdZoomLevel)
-	{
-		range = 500.0f;
-	}
-	else
-	{
-
-	}
-
-	return range;
 }

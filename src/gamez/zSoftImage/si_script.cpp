@@ -28,3 +28,85 @@
  * @socom-artifact defines main socom:data:0x4758f0
  * @socom-artifact defines main socom:data:0x4758f4
  * socom-owner-annotations end socom:work:source-segment-021 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zAnim/zanim.h"
+#include "gamez/zArchive/zar.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub m_version__10CZSIScript */
+int CZSIScript::m_version = 5;
+
+/* @socom-skeleton stub numSiScript */
+int numSiScript;
+
+/* @socom-skeleton stub numSiCommon */
+int numSiCommon;
+
+/* @socom-skeleton stub list__16CZSIScriptCommon */
+int CZSIScriptCommon::list[3];
+
+/* @socom-skeleton stub __ct__16CZSIScriptCommonFv */
+CZSIScriptCommon::CZSIScriptCommon()
+{
+}
+
+/* @socom-skeleton stub __ct__10CZSIScriptFv */
+CZSIScript::CZSIScript()
+{
+}
+
+/* @socom-skeleton stub __ct__10CZSIScriptFPCc */
+CZSIScript::CZSIScript(const char *)
+{
+}
+
+/* @socom-skeleton stub Share__10CZSIScriptFP10CZSIScript */
+void CZSIScript::Share(CZSIScript *)
+{
+}
+
+/* @socom-skeleton stub Load__10CZSIScriptFPCcb */
+void CZSIScript::Load(const char *, bool)
+{
+}
+
+/* @socom-skeleton stub ReadIt__10CZSIScriptFRQ23zar4CZARiPv */
+int CZSIScript::ReadIt(zar::CZAR &, int, void *)
+{
+}
+
+/* @socom-skeleton stub CreateAndReadIt__10CZSIScriptFRQ23zar4CZARPCcPviPv */
+int CZSIScript::CreateAndReadIt(zar::CZAR &, const char *, void *, int, void *)
+{
+}
+
+/* @socom-skeleton stub Read__10CZSIScriptFRQ23zar4CZARi */
+void CZSIScript::Read(zar::CZAR &, int)
+{
+}
+
+/* @socom-skeleton stub __dt__10CZSIScriptFv */
+CZSIScript::~CZSIScript()
+{
+}
+
+/* @socom-skeleton stub GetObject__10CZSIScriptFPCcb */
+CZSIObject * CZSIScript::GetObject(const char *, bool)
+{
+}
+
+/* @socom-skeleton stub SetLoopTime__10CZSIScriptFf */
+void CZSIScript::SetLoopTime(float)
+{
+}
+
+/* @socom-skeleton stub SetFrameRate__10CZSIScriptFf */
+void CZSIScript::SetFrameRate(float)
+{
+}
+
+/* @socom-skeleton stub ReadLIP__10CZSIScriptFRQ23zar4CZARPCcPviPv */
+short CZSIScript::ReadLIP(zar::CZAR &, const char *, void *, int, void *)
+{
+}

@@ -64,25 +64,161 @@
 
 #include "zfts.h"
 
-bool doSquirm = false;
-CZSealBody* ftsPlayer = NULL;
+/* @socom-skeleton decl include */
+#include "gamez/zCharacter/zchar.h"
+#include "gamez/zEntity/zentity.h"
+#include "gamez/zReader/zrdr.h"
+#include "gamez/zSeal/zseal.h"
+#include "gamez/zVehicle/zvehicle.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+struct _zanim_cmd_hdr;
+/* @socom-skeleton end forward */
 
-CZSealBody* ftsGetPlayer()
+/* @socom-skeleton stub doSquirm */
+static unsigned char doSquirm;
+
+/* @socom-skeleton stub ftsPlayer */
+int ftsPlayer[2];
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub spawners */
+int spawners[8];
+
+/* @socom-skeleton body ftsSetSquirm__Fb */
+void ftsSetSquirm(bool squirm)
 {
-	return ftsPlayer;
+	doSquirm = squirm;
 }
 
-void ftsSetPlayer(CZSealBody* player)
-{
-	ftsPlayer = player;
-}
-
+/* @socom-skeleton body ftsGetSquirm__Fv */
 bool ftsGetSquirm()
 {
 	return doSquirm;
 }
 
-void ftsSetSquirm(bool squirm)
+/* @socom-skeleton stub ftsCreateSeal__FPC14CCharacterTypePCc17SEAL_CONTROL_TYPE */
+void ftsCreateSeal(const CCharacterType *, const char *, SEAL_CONTROL_TYPE)
 {
-	doSquirm = squirm;
+}
+
+/* @socom-skeleton stub IsInside__10CftsPlayerFv */
+void CftsPlayer::IsInside()
+{
+}
+
+/* @socom-skeleton stub RegisterAnimCommands__10CftsPlayerFv */
+void CftsPlayer::RegisterAnimCommands()
+{
+}
+
+/* @socom-skeleton stub CmdParseIndoorsTest__10CftsPlayerFP5_zrdr */
+_zanim_cmd_hdr * CftsPlayer::CmdParseIndoorsTest(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub CmdTickIndoorsTest__10CftsPlayerFP14_zanim_cmd_hdrPf */
+bool CftsPlayer::CmdTickIndoorsTest(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub CmdParseControls__10CftsPlayerFP5_zrdr */
+_zanim_cmd_hdr * CftsPlayer::CmdParseControls(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub CmdTickControls__10CftsPlayerFP14_zanim_cmd_hdrPf */
+bool CftsPlayer::CmdTickControls(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub CmdParseIsPlayerNode__10CftsPlayerFP5_zrdr */
+_zanim_cmd_hdr * CftsPlayer::CmdParseIsPlayerNode(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub CmdTickIsPlayerNode__10CftsPlayerFP14_zanim_cmd_hdrPf */
+bool CftsPlayer::CmdTickIsPlayerNode(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton body ftsSetPlayer__FP10CZSealBody */
+void ftsSetPlayer(CZSealBody* player)
+{
+	ftsPlayer = player;
+}
+
+/* @socom-skeleton body ftsGetPlayer__Fv */
+CZSealBody* ftsGetPlayer()
+{
+	return ftsPlayer;
+}
+
+/* @socom-skeleton stub ftsSetPlayerCount__Fi */
+void ftsSetPlayerCount(int)
+{
+}
+
+/* @socom-skeleton stub ParseTeamBlock__FP5_zrdr */
+void ParseTeamBlock(_zrdr *)
+{
+}
+
+/* @socom-skeleton body OpenVehicleRdr__8CMissionFv */
+void CMission::OpenVehicleRdr()
+{
+	if (!m_vehicleRdr)
+		return;
+
+	m_vehicleRdr->Open("vehicles.rdr");
+}
+
+/* @socom-skeleton body CloseVehicleRdr__8CMissionFv */
+void CMission::CloseVehicleRdr()
+{
+	CCharacterType::CleanupTemporary();
+	if (m_vehicleRdr)
+		m_vehicleRdr->Close();
+}
+
+/* @socom-skeleton stub LoadVehicles__8CMissionFUi */
+void CMission::LoadVehicles(unsigned int)
+{
+}
+
+/* @socom-skeleton stub LoadVehicle__8CMissionFP16CVehicleRdrEntryb */
+CZSealBody * CMission::LoadVehicle(CVehicleRdrEntry *, bool)
+{
+}
+
+/* @socom-skeleton stub InitalizeTeamValves__8CMissionFv */
+void CMission::InitalizeTeamValves()
+{
+}
+
+/* @socom-skeleton stub RefreshTeamValves__8CMissionFv */
+void CMission::RefreshTeamValves()
+{
+}
+
+/* @socom-skeleton stub DecrementTeamValves__8CMissionFP7CEntity */
+void CMission::DecrementTeamValves(CEntity *)
+{
+}
+
+/* @socom-skeleton stub RecycleEntity__8CMissionFP7CEntity */
+void CMission::RecycleEntity(CEntity *)
+{
+}
+
+/* @socom-skeleton stub Tick__9CSpawnersFf */
+void CSpawners::Tick(float)
+{
+}
+
+/* @socom-skeleton stub Clear__9CSpawnersFv */
+void CSpawners::Clear()
+{
 }

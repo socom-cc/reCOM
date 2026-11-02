@@ -150,52 +150,681 @@
 #include "gamez/zMath/zmath_vu.h"
 #include "gamez/zRender/zrender.h"
 
-s32 node_index = 0;
-zdb::CVisData* _vdataTex = NULL;
-std::deque<u32> zdb::CVisual::m_stack_vid;
-CMatrix zdb::CVisual::m_modelToWorld;
-CMatrix zdb::CVisual::m_WorldToModel;
-bool zdb::CVisual::m_applyShadow = true;
-bool zdb::CVisual::m_applyDetailTexture = false;
-bool zdb::CVisual::m_applyLocalLights = false;
-bool zdb::CVisual::m_fogEnable = false;
-bool zdb::CVisual::m_renderMap = false;
-bool zdb::CVisual::m_landmarkFlag = false;
-bool zdb::CVisual::m_lightingEnable = true;
-f32 zdb::CVisual::m_rangeSqdToCamera = 1.0f;
-_word128* zdb::CVisual::m_dmaChain = NULL;
-u32 zdb::CVisual::m_dmaQwc = 0;
-s32 zdb::CVisual::m_fovStatus = 0;
-f32 zdb::CVisual::m_GlobalLightScale = 1.0f;
-
-void hookupMesh(zar::CZAR* archive, zdb::CModel* model)
+namespace zdb
 {
-	u32* data = NULL;
-	_word128* meshword = NULL;
-	char buf[192];
+
 	
-	zdb::CMesh* mesh = model->GetMesh();
-	sprintf_s(buf, 192, "MESH_%s", model->m_name);
 
-	if (auto meshkey = archive->OpenKey(buf))
+	
+	
+
+}
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/node_light.h"
+#include "gamez/zTexture/ztex.h"
+#include "vis_local.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CVisBase;
+union _word128;
+namespace zdb {
+class AddonPoint;
+class CLightMapVector;
+}
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub NoAltFogBottomV */
+static const unsigned char NoAltFogBottomV[16] = {0};
+
+/* @socom-skeleton stub NoAltFogVectorV */
+static const unsigned char NoAltFogVectorV[16] = {0};
+
+/* @socom-skeleton stub _savedTS */
+void *_savedTS = &m_savedTS;
+
+/* @socom-skeleton stub m_customGlobalLightIdx__Q23zdb7CVisual */
+namespace zdb {
+int CVisual::m_customGlobalLightIdx = -1;
+}
+
+/* @socom-skeleton stub m_applyShadow__Q23zdb7CVisual */
+namespace zdb {
+bool CVisual::m_applyShadow = 1;
+}
+
+/* @socom-skeleton stub m_applyLocalLights__Q23zdb7CVisual */
+namespace zdb {
+bool CVisual::m_applyLocalLights = 1;
+}
+
+/* @socom-skeleton stub m_applyMultipass__Q23zdb7CVisual */
+namespace zdb {
+bool CVisual::m_applyMultipass = 1;
+}
+
+/* @socom-skeleton stub m_fogEnable__Q23zdb7CVisual */
+namespace zdb {
+bool CVisual::m_fogEnable = 1;
+}
+
+/* @socom-skeleton stub m_lightingEnable__Q23zdb7CVisual */
+namespace zdb {
+bool CVisual::m_lightingEnable = 1;
+}
+
+/* @socom-skeleton stub m_GlobalLightScale__Q23zdb7CVisual */
+namespace zdb {
+float CVisual::m_GlobalLightScale = 1.0f;
+}
+
+/* @socom-skeleton stub m_AmbientLightScale__Q23zdb7CVisual */
+namespace zdb {
+float CVisual::m_AmbientLightScale = 1.0f;
+}
+
+/* @socom-skeleton stub node_index */
+static int node_index = -1;
+
+/* @socom-skeleton stub m_instance_count__8CVisBase */
+int CVisBase::m_instance_count;
+
+/* @socom-skeleton stub m_camera__Q23zdb7CVisual */
+namespace zdb {
+zdb::CCamera *CVisual::m_camera;
+}
+
+/* @socom-skeleton stub m_primAlpha__Q23zdb7CVisual */
+namespace zdb {
+int CVisual::m_primAlpha;
+}
+
+/* @socom-skeleton stub m_sprEndOfMP__Q23zdb7CVisual */
+namespace zdb {
+_word128 *CVisual::m_sprEndOfMP;
+}
+
+/* @socom-skeleton stub m_landmarkFlag__Q23zdb7CVisual */
+namespace zdb {
+bool CVisual::m_landmarkFlag;
+}
+
+/* @socom-skeleton stub m_renderMap__Q23zdb7CVisual */
+namespace zdb {
+bool CVisual::m_renderMap;
+}
+
+/* @socom-skeleton stub m_applyScaleColor__Q23zdb7CVisual */
+namespace zdb {
+bool CVisual::m_applyScaleColor;
+}
+
+/* @socom-skeleton stub m_applyDetailTexture__Q23zdb7CVisual */
+namespace zdb {
+bool CVisual::m_applyDetailTexture;
+}
+
+/* @socom-skeleton stub m_dmaChain__Q23zdb7CVisual */
+namespace zdb {
+_word128 *CVisual::m_dmaChain;
+}
+
+/* @socom-skeleton stub m_dmaQwc__Q23zdb7CVisual */
+namespace zdb {
+unsigned int CVisual::m_dmaQwc;
+}
+
+/* @socom-skeleton stub m_opacity__Q23zdb7CVisual */
+namespace zdb {
+float CVisual::m_opacity;
+}
+
+/* @socom-skeleton body m_rangeSqdToCamera__Q23zdb7CVisual */
+f32 zdb::CVisual::m_rangeSqdToCamera = 1.0f;
+
+/* @socom-skeleton stub m_basefog_near__Q23zdb7CVisual */
+namespace zdb {
+float CVisual::m_basefog_near;
+}
+
+/* @socom-skeleton stub m_mtl_band__Q23zdb7CVisual */
+namespace zdb {
+int CVisual::m_mtl_band;
+}
+
+/* @socom-skeleton stub m_local_light_cnt__Q23zdb7CVisual */
+namespace zdb {
+int CVisual::m_local_light_cnt;
+}
+
+/* @socom-skeleton stub m_specMapTexture__Q23zdb7CVisual */
+namespace zdb {
+zdb::CTexHandle *CVisual::m_specMapTexture;
+}
+
+/* @socom-skeleton stub m_specMapCnt__Q23zdb7CVisual */
+namespace zdb {
+int CVisual::m_specMapCnt;
+}
+
+/* @socom-skeleton stub m_specMapGlobal__Q23zdb7CVisual */
+namespace zdb {
+bool CVisual::m_specMapGlobal;
+}
+
+/* @socom-skeleton stub m_lightMapTexture__Q23zdb7CVisual */
+namespace zdb {
+zdb::CTexHandle *CVisual::m_lightMapTexture;
+}
+
+/* @socom-skeleton stub m_lightMapCnt__Q23zdb7CVisual */
+namespace zdb {
+int CVisual::m_lightMapCnt;
+}
+
+/* @socom-skeleton stub m_shadowMapCnt__Q23zdb7CVisual */
+namespace zdb {
+int CVisual::m_shadowMapCnt;
+}
+
+/* @socom-skeleton stub m_envFrontMapTexture__Q23zdb7CVisual */
+namespace zdb {
+zdb::CTexHandle *CVisual::m_envFrontMapTexture;
+}
+
+/* @socom-skeleton stub m_envBackMapTexture__Q23zdb7CVisual */
+namespace zdb {
+zdb::CTexHandle *CVisual::m_envBackMapTexture;
+}
+
+/* @socom-skeleton stub m_fovClipWord__Q23zdb7CVisual */
+namespace zdb {
+unsigned int CVisual::m_fovClipWord;
+}
+
+/* @socom-skeleton stub m_ModelToWorld__Q23zdb7CVisual */
+namespace zdb {
+CMatrix *CVisual::m_ModelToWorld;
+}
+
+/* @socom-skeleton stub m_fovStatus__Q23zdb7CVisual */
+namespace zdb {
+int CVisual::m_fovStatus;
+}
+
+/* @socom-skeleton stub m_adjustBilinearRange__Q23zdb7CVisual */
+namespace zdb {
+float CVisual::m_adjustBilinearRange;
+}
+
+/* @socom-skeleton stub m_dmaSubfaceChain__Q23zdb7CVisual */
+namespace zdb {
+_word128 *CVisual::m_dmaSubfaceChain;
+}
+
+/* @socom-skeleton stub m_dmaSubfaceQwc__Q23zdb7CVisual */
+namespace zdb {
+int CVisual::m_dmaSubfaceQwc;
+}
+
+/* @socom-skeleton stub _DoMultipass */
+static unsigned char _DoMultipass;
+
+/* @socom-skeleton stub _DoDetail */
+static unsigned char _DoDetail;
+
+/* @socom-skeleton stub _TextureChange */
+static unsigned char _TextureChange;
+
+/* @socom-skeleton stub m_savedTS */
+unsigned char m_savedTS[512];
+
+/* @socom-skeleton stub _StartingMatrix */
+static unsigned char _StartingMatrix[64];
+
+/* @socom-skeleton stub m_customGlobalLight__Q23zdb7CVisual */
+namespace zdb {
+unsigned char CVisual::m_customGlobalLight[512];
+}
+
+/* @socom-skeleton stub m_stack_vid__Q23zdb7CVisual */
+namespace zdb {
+std::deque<unsigned int, std::allocator<unsigned int> > CVisual::m_stack_vid;
+}
+
+/* @socom-skeleton body m_basefog_color__Q23zdb7CVisual */
+namespace zdb {
+CPnt4D CVisual::m_basefog_color = CPnt4D::zero;
+}
+
+/* @socom-skeleton stub localLightBuf__Q23zdb7CVisual */
+namespace zdb {
+CPnt4D CVisual::localLightBuf[20];
+}
+
+/* @socom-skeleton stub localLightPtr__Q23zdb7CVisual */
+namespace zdb {
+zdb::CLight *CVisual::localLightPtr[10];
+}
+
+/* @socom-skeleton stub m_scaleColor__Q23zdb7CVisual */
+namespace zdb {
+float CVisual::m_scaleColor[3];
+}
+
+/* @socom-skeleton stub m_addColor__Q23zdb7CVisual */
+namespace zdb {
+float CVisual::m_addColor[3];
+}
+
+/* @socom-skeleton stub m_specMapList__Q23zdb7CVisual */
+namespace zdb {
+zdb::CLightMapVector CVisual::m_specMapList;
+}
+
+/* @socom-skeleton stub m_lightMapList__Q23zdb7CVisual */
+namespace zdb {
+zdb::CLightMapVector CVisual::m_lightMapList;
+}
+
+/* @socom-skeleton stub m_shadowMapList__Q23zdb7CVisual */
+namespace zdb {
+zdb::CLightMapVector CVisual::m_shadowMapList;
+}
+
+/* @socom-skeleton stub m_projectedMapList__Q23zdb7CVisual */
+namespace zdb {
+std::vector<CPnt3D *, std::allocator<CPnt3D *> > CVisual::m_projectedMapList;
+}
+
+/* @socom-skeleton stub m_WorldToModel__Q23zdb7CVisual */
+namespace zdb {
+CMatrix CVisual::m_WorldToModel;
+}
+
+/* @socom-skeleton stub visData */
+static unsigned char visData[96];
+
+/* @socom-skeleton stub decaldata */
+static unsigned char decaldata[288];
+
+/* @socom-skeleton stub Init__Q23zdb7CVisualFv */
+void zdb::CVisual::Init()
+{
+}
+
+/* @socom-skeleton body Create__Q23zdb7CVisualFRQ23zar4CZAR */
+namespace zdb {
+CVisual* CVisual::Create(zar::CZAR& archive)
 	{
-		if (archive->FetchLIP(meshkey, reinterpret_cast<void**>(meshword)))
+		CVisual* visual = NULL;
+		u32 vtype = 0;
+
+		archive.Fetch("vtype", &vtype);
+
+		switch (vtype)
 		{
-			u32 ofs = 0;
-			
-			strcat_s(buf, "_START");
-
-			archive->Fetch(buf, &ofs);
-			archive->Fetch(buf, &mesh->m_mtx_count);
-
-			data = &meshword->u32[ofs];
+		case 2:
+			visual = new CSubMesh();
+		case 1:
+			visual = new CMesh();
+		case 0:
+		case -1:
+			visual = new CVisual();
 		}
 
-		archive->CloseKey(meshkey);
+		if (visual)
+			visual->Read(archive);
+
+		return visual;
 	}
 }
 
-void hookupVisuals(zar::CZAR* archive, zar::CKey* key, zdb::CNode* node, zdb::CModel* model, zdb::CVisBase* vbase)
+/* @socom-skeleton body __ct__Q23zdb7CVisualFv */
+namespace zdb {
+CVisual::CVisual()
+	{
+		m_lodIndex = 0;
+		m_chainPtr = NULL;
+	}
+}
+
+/* @socom-skeleton stub __dt__Q23zdb7CVisualFv */
+zdb::CVisual::~CVisual()
+{
+}
+
+/* @socom-skeleton stub Flush__Q23zdb7CVisualFv */
+void zdb::CVisual::Flush()
+{
+}
+
+/* @socom-skeleton stub GetTextureSelectBlock__Q23zdb7CVisualFUiPP8_word128P8_word128P8_word128 */
+_word128 * zdb::CVisual::GetTextureSelectBlock(unsigned int, _word128 **, _word128 *, _word128 *)
+{
+}
+
+/* @socom-skeleton stub GetTextureSelectBlock_ver2__Q23zdb7CVisualFUiPP8_word128P8_word128P8_word128 */
+_word128 * zdb::CVisual::GetTextureSelectBlock_ver2(unsigned int, _word128 **, _word128 *, _word128 *)
+{
+}
+
+/* @socom-skeleton body ResolveTextureName__Q23zdb7CVisualFP8_word128P8_word128 */
+namespace zdb {
+CTexture* CVisual::ResolveTextureName(_word128* packet, _word128* offset)
+	{
+		CTexture* texture = NULL;
+
+		CTexHandle* handle = CWorld::GetTexHandle((char*)(packet->u8 + offset->u32[1]));
+
+		if (!handle)
+		{
+			handle = CWorld::GetTexHandle("null_xmas.bmp");
+		}
+
+		if (handle)
+		{
+			texture = handle->m_texture;
+			// m_dynTexList.Add(handle, true);
+
+			if (texture->m_palette)
+			{
+				// m_dynTexList.Add(texture->m_palette, true);
+			}
+		}
+
+		if (texture)
+		{
+			f32 r = texture->m_dmaRefVu.f32[1];
+			f32 g = texture->m_dmaRefVu.f32[2];
+			f32 b = texture->m_dmaRefVu.f32[3];
+			offset->u128 = texture->m_dmaRefVu.u128;
+			offset->f32[1] = r;
+			offset->f32[2] = g;
+			offset->f32[3] = b;
+			offset->u8[2] = 5;
+		}
+
+		return texture;
+	}
+}
+
+/* @socom-skeleton body ResolveTextureName__Q23zdb7CVisualFP8_word128Ui */
+zdb::CTexture * zdb::CVisual::ResolveTextureName(_word128 *packet, unsigned int offset)
+	{
+		if (CTexHandle* handle = CWorld::GetTexHandle(reinterpret_cast<char*>(packet->u8 + offset)))
+		{
+			m_dyntexList.Add(handle, true);
+
+			if (handle->m_texture->m_palette)
+				m_dyntexList.Add(handle->m_texture->m_palette, true);
+
+			return handle->m_texture;
+		}
+		else
+			return CWorld::GetTexHandle("null_xmas.bmp")->m_texture;
+
+		return NULL;
+	}
+
+/* @socom-skeleton body SetBuffer__Q23zdb7CVisualFP8_word128UiP8CVisBase */
+void zdb::CVisual::SetBuffer(_word128 *chain, unsigned int idx, ::CVisBase *vbase)
+	{
+		vbase->m_buffer_count++;
+		_word128* buffer = vbase->m_data_buffer;
+		m_chainPtr[idx] = *chain;
+		_word128* packet = &m_chainPtr[idx];
+
+		// Check a flag? Maybe if the chain has its buffer set?
+		if (packet->u8[2] != 0)
+			return;
+
+		// Store pointer to visual data
+		packet->u32[2] = reinterpret_cast<u32>(&vbase);
+
+		// Number of quadwords to loop over
+		u8 qwc = packet->u8[0];
+
+		for (u32 i = 1; i < qwc + 1; i++)
+		{
+			_word128& chainPkt = m_chainPtr[i];
+			u8 type = chainPkt.u8[2];
+
+			u32 pktOffset = chainPkt.u32[1];
+			u32 address = reinterpret_cast<u32>(&*buffer);
+
+			switch (type)
+			{
+			case 1:
+			case 2:
+			case 4:
+			case 7:
+				chainPkt.u32[1] = address + pktOffset;
+				break;
+			case 3:
+				break;
+			case 5:
+				break;
+			case 6:
+				CTexture* texture = ResolveTextureName(&*buffer, pktOffset);
+
+				// TODO: do some DMA ref BS down here
+				if (texture)
+				{
+					
+				}
+				break;
+			}
+		}
+	}
+
+/* @socom-skeleton stub CopyBuffer__Q23zdb7CVisualFPP8CVisBaseUi */
+void zdb::CVisual::CopyBuffer(::CVisBase **, unsigned int)
+{
+}
+
+/* @socom-skeleton body Release__Q23zdb7CVisualFv */
+namespace zdb {
+u32 CVisual::Release()
+	{
+		m_instance_cnt--;
+		return m_instance_cnt;
+	}
+}
+
+/* @socom-skeleton stub ComputeBBox__Q23zdb7CVisualFP5CBBox */
+void zdb::CVisual::ComputeBBox(CBBox *)
+{
+}
+
+/* @socom-skeleton stub UpdateCentroid__Q23zdb7CVisualFv */
+void zdb::CVisual::UpdateCentroid()
+{
+}
+
+/* @socom-skeleton body Read__Q23zdb7CVisualFRQ23zar4CZAR */
+namespace zdb {
+bool CVisual::Read(zar::CZAR& archive)
+	{
+		u32 detail_size = 0;
+
+		archive.Fetch("vparams", this, sizeof(tag_VIS_PARAMS));
+
+		if (m_detail_buff == NULL)
+			zfree(m_detail_buff);
+
+		m_detail_buff = NULL;
+		m_detail_cnt = 0;
+
+		archive.Fetch("detail_cnt", &m_detail_cnt);
+
+		if (!m_detail_cnt)
+			return false;
+
+		archive.Fetch("detail_size", &detail_size);
+		m_detail_buff = static_cast<zdb::CVisual*>(zmalloc(detail_size));
+		archive.Fetch("detail_buff", m_detail_buff, detail_size);
+
+		for (u32 i = 0; i < m_detail_cnt; i++)
+		{
+
+		}
+
+		return true;
+	}
+}
+
+/* @socom-skeleton stub Write__Q23zdb7CVisualFRQ23zar4CZAR */
+void zdb::CVisual::Write(zar::CZAR &)
+{
+}
+
+/* @socom-skeleton body DrawLOD__Q23zdb7CVisualFPQ23zdb9CLOD_bandfPf */
+namespace zdb {
+bool CVisual::DrawLOD(zdb::CLOD_band* lod, f32 range, f32* distance)
+	{
+		if (lod->m_minRangeNearSq < range || lod->m_maxRangeFarSq > range)
+			return false;
+
+		if (!lod->m_minFade)
+			return false;
+
+		if (lod->m_minRangeFarSq < range || lod->m_maxRangeFarSq > range)
+			return false;
+
+		*distance *= lod->m_minInvDeltaRangeSq * (range - lod->m_minRangeNearSq);
+		return true;
+	}
+}
+
+/* @socom-skeleton body AlphaEnable__Q23zdb7CVisualFb */
+void zdb::CVisual::AlphaEnable(bool enableAlpha) {}
+
+/* @socom-skeleton body LandmarkEnable__Q23zdb7CVisualFb */
+namespace zdb {
+void CVisual::LandmarkEnable(bool enable)
+	{
+		m_landmarkFlag = enable;
+		m_lightingEnable = !enable;
+	}
+}
+
+/* @socom-skeleton stub CalcWorldToUV__3zdbFP6CPnt3DP6CPnt3DP6CPnt3DPQ23zdb8CTexturefP7CMatrix */
+void zdb::CalcWorldToUV(CPnt3D *, CPnt3D *, CPnt3D *, zdb::CTexture *, float, CMatrix *)
+{
+}
+
+/* @socom-skeleton stub CalcWorldToUV__3zdbFP6CPnt3DP6CPnt3DPQ23zdb8CTexturefP7CMatrix */
+void zdb::CalcWorldToUV(CPnt3D *, CPnt3D *, zdb::CTexture *, float, CMatrix *)
+{
+}
+
+/* @socom-skeleton stub VuBatchProgram_Decals__Q23zdb7CVisualFP8_word128P16tag_ObjectHeader */
+_word128 * zdb::CVisual::VuBatchProgram_Decals(_word128 *, tag_ObjectHeader *)
+{
+}
+
+/* @socom-skeleton body Render__Q23zdb7CVisualFP7CMatrix */
+namespace zdb {
+void CVisual::Render(CMatrix* transform)
+	{
+		// if (m_renderState != 0)
+			VuUpdate(transform, 1.0f);
+	}
+}
+
+/* @socom-skeleton stub AddLocalLight__Q23zdb7CVisualFPQ23zdb6CLightP6CPnt3D */
+void zdb::CVisual::AddLocalLight(zdb::CLight *, CPnt3D *)
+{
+}
+
+/* @socom-skeleton body GetChainData__Q23zdb7CVisualFv */
+namespace zdb {
+bool CVisual::GetChainData()
+	{
+		if (!m_chainPtr)
+			return false;
+
+		u32 stackidx = m_stack_vid.size() - 1;
+		_word128* tag = &m_chainPtr[m_stack_vid[stackidx % m_stack_vid.size()]];
+		m_dmaChain = &tag[1];
+		m_dmaQwc = *tag[0].u8;
+
+		return true;
+	}
+}
+
+/* @socom-skeleton body NodeSetup__Q23zdb7CVisualFPQ23zdb5CNodePQ23zdb5CNodeP7CMatrixi */
+namespace zdb {
+void CVisual::NodeSetup(CNode* node, CNode* other, CMatrix* matrix, s32 status)
+	{
+		m_modelToWorld = *matrix;
+		Vu0MatrixInverseWithUniformScale(&m_WorldToModel, matrix);
+		m_fovStatus = status;
+
+		if (m_renderMap && node->m_light || other->m_light)
+		{
+			m_lightingEnable = true;
+
+			if (node->m_customGlobalLight < 0)
+				m_GlobalLightScale = 1.0f;
+			else
+				m_GlobalLightScale = node->m_customGlobalLight * 0.007874016f;
+
+			m_applyLocalLights = other->m_light_dynamic;
+		}
+		else
+		{
+			m_lightingEnable = false;
+			m_applyLocalLights = false;
+		}
+	}
+}
+
+/* @socom-skeleton stub VuObjectSetup__Q23zdb7CVisualFP8_word128P16tag_ObjectHeader */
+_word128 * zdb::CVisual::VuObjectSetup(_word128 *, tag_ObjectHeader *)
+{
+}
+
+/* @socom-skeleton stub VuBatchProgram__Q23zdb7CVisualFP8_word128P16tag_ObjectHeaderPQ23zdb17tag_DETAIL_PARAMS */
+_word128 * zdb::CVisual::VuBatchProgram(_word128 *, tag_ObjectHeader *, zdb::tag_DETAIL_PARAMS *)
+{
+}
+
+/* @socom-skeleton stub SaveTextureSelect__Q23zdb7CVisualFP8_word128PQ23zdb8CTextureUl */
+void zdb::CVisual::SaveTextureSelect(_word128 *, zdb::CTexture *, unsigned long)
+{
+}
+
+/* @socom-skeleton stub VuDetailMap__Q23zdb7CVisualFP8_word128PQ23zdb17tag_DETAIL_PARAMS */
+_word128 * zdb::CVisual::VuDetailMap(_word128 *, zdb::tag_DETAIL_PARAMS *)
+{
+}
+
+/* @socom-skeleton stub VuLightMap__Q23zdb7CVisualFP8_word128 */
+_word128 * zdb::CVisual::VuLightMap(_word128 *)
+{
+}
+
+/* @socom-skeleton stub VuShadowMap__Q23zdb7CVisualFP8_word128 */
+_word128 * zdb::CVisual::VuShadowMap(_word128 *)
+{
+}
+
+/* @socom-skeleton stub VuExecuteState0__Q23zdb7CVisualFP8_word128P8_word128 */
+_word128 * zdb::CVisual::VuExecuteState0(_word128 *, _word128 *)
+{
+}
+
+/* @socom-skeleton body VuUpdate__Q23zdb7CVisualFf */
+void zdb::CVisual::VuUpdate(float)
+	{
+		
+	}
+
+/* @socom-skeleton body hookupVisuals__FPQ23zar4CZARPQ23zar4CKeyPQ23zdb5CNodePQ23zdb6CModelP8CVisBase */
+void hookupVisuals(zar::CZAR *archive, zar::CKey *key, zdb::CNode *node, zdb::CModel *model, CVisBase *vbase)
 {
 	std::vector<zdb::CVisual*> visualsToRemove;
 
@@ -314,6 +943,35 @@ void hookupVisuals(zar::CZAR* archive, zar::CKey* key, zdb::CNode* node, zdb::CM
 	}
 }
 
+/* @socom-skeleton body hookupMesh__FPQ23zar4CZARPQ23zdb6CModel */
+void hookupMesh(zar::CZAR* archive, zdb::CModel* model)
+{
+	u32* data = NULL;
+	_word128* meshword = NULL;
+	char buf[192];
+	
+	zdb::CMesh* mesh = model->GetMesh();
+	sprintf_s(buf, 192, "MESH_%s", model->m_name);
+
+	if (auto meshkey = archive->OpenKey(buf))
+	{
+		if (archive->FetchLIP(meshkey, reinterpret_cast<void**>(meshword)))
+		{
+			u32 ofs = 0;
+			
+			strcat_s(buf, "_START");
+
+			archive->Fetch(buf, &ofs);
+			archive->Fetch(buf, &mesh->m_mtx_count);
+
+			data = &meshword->u32[ofs];
+		}
+
+		archive->CloseKey(meshkey);
+	}
+}
+
+/* @socom-skeleton body hookupVisuals__FPQ23zar4CZARPQ23zdb6CModel */
 void hookupVisuals(zar::CZAR* archive, zdb::CModel* model)
 {
 	zdb::CVisBase* vis = NULL;
@@ -350,284 +1008,44 @@ void hookupVisuals(zar::CZAR* archive, zdb::CModel* model)
 	}
 }
 
-namespace zdb
+/* @socom-skeleton body ApplyDecal__Q23zdb7CVisualFUifP6CPnt3DP7CMatrixPQ23zdb10CTexHandle */
+int zdb::CVisual::ApplyDecal(unsigned int, float, CPnt3D *, CMatrix *, zdb::CTexHandle *)
+    {
+        CDecal* applied = NULL;
+
+        for (auto i = m_decals.begin(); i != m_decals.end(); i++)
+        {
+            if (!(*i))
+                return;
+
+            if ((*i) == decal)
+            {
+                if (!applied)
+                    m_decals[m_decal_idx] = *i;
+                else
+                    applied = *i;
+
+                break;
+            }
+        }
+    }
+
+/* @socom-skeleton stub ApplyDecalRender__Q23zdb7CVisualFP7CMatrixPQ23zdb5CNodefP6CPnt3DP6CPnt3DPQ23zdb10CTexHandleP7CMatrix */
+void zdb::CVisual::ApplyDecalRender(CMatrix *, zdb::CNode *, float, CPnt3D *, CPnt3D *, zdb::CTexHandle *, CMatrix *)
 {
-	u32 CVisBase::m_instance_count = 0;
+}
 
-	CPnt4D CVisual::m_basefog_color = CPnt4D::zero;
+/* @socom-skeleton stub AttachDecal__Q23zdb7CVisualFUifUiPPQ23zdb10AddonPointPQ23zdb10CTexHandle */
+void zdb::CVisual::AttachDecal(unsigned int, float, unsigned int, zdb::AddonPoint **, zdb::CTexHandle *)
+{
+}
 
-	CCamera* CVisual::m_camera = NULL;
+/* @socom-skeleton stub RemoveDecal__Q23zdb7CVisualFPQ23zdb6CDecal */
+void zdb::CVisual::RemoveDecal(zdb::CDecal *)
+{
+}
 
-	f32 CVisual::m_adjustBilinearRange = 0.0f;
-
-	CVisBase::CVisBase(size_t size)
-	{
-		m_data_buffer = NULL;
-		m_buffer_count = 0;
-		m_data_size = size;
-		m_instance_count++;
-		m_active = true;
-	}
-
-	void CVisData::SetBilinear(_word128* qwc, bool bilinear)
-	{
-		while (m_nextGif->u8[2] != 8)
-		{
-			m_nextGif++;
-		}
-	}
-
-	CVisual::CVisual()
-	{
-		m_lodIndex = 0;
-		m_chainPtr = NULL;
-	}
-
-	CVisual* CVisual::Create(zar::CZAR& archive)
-	{
-		CVisual* visual = NULL;
-		u32 vtype = 0;
-
-		archive.Fetch("vtype", &vtype);
-
-		switch (vtype)
-		{
-		case 2:
-			visual = new CSubMesh();
-		case 1:
-			visual = new CMesh();
-		case 0:
-		case -1:
-			visual = new CVisual();
-		}
-
-		if (visual)
-			visual->Read(archive);
-
-		return visual;
-	}
-
-	void CVisual::LandmarkEnable(bool enable)
-	{
-		m_landmarkFlag = enable;
-		m_lightingEnable = !enable;
-	}
-
-	bool CVisual::Read(zar::CZAR& archive)
-	{
-		u32 detail_size = 0;
-
-		archive.Fetch("vparams", this, sizeof(tag_VIS_PARAMS));
-
-		if (m_detail_buff == NULL)
-			zfree(m_detail_buff);
-
-		m_detail_buff = NULL;
-		m_detail_cnt = 0;
-
-		archive.Fetch("detail_cnt", &m_detail_cnt);
-
-		if (!m_detail_cnt)
-			return false;
-
-		archive.Fetch("detail_size", &detail_size);
-		m_detail_buff = static_cast<zdb::CVisual*>(zmalloc(detail_size));
-		archive.Fetch("detail_buff", m_detail_buff, detail_size);
-
-		for (u32 i = 0; i < m_detail_cnt; i++)
-		{
-
-		}
-
-		return true;
-	}
-
-	bool CVisual::DrawLOD(zdb::CLOD_band* lod, f32 range, f32* distance)
-	{
-		if (lod->m_minRangeNearSq < range || lod->m_maxRangeFarSq > range)
-			return false;
-
-		if (!lod->m_minFade)
-			return false;
-
-		if (lod->m_minRangeFarSq < range || lod->m_maxRangeFarSq > range)
-			return false;
-
-		*distance *= lod->m_minInvDeltaRangeSq * (range - lod->m_minRangeNearSq);
-		return true;
-	}
-
-	void CVisual::SetBuffer(_word128* chain, u32 idx, CVisBase* vbase)
-	{
-		vbase->m_buffer_count++;
-		_word128* buffer = vbase->m_data_buffer;
-		m_chainPtr[idx] = *chain;
-		_word128* packet = &m_chainPtr[idx];
-
-		// Check a flag? Maybe if the chain has its buffer set?
-		if (packet->u8[2] != 0)
-			return;
-
-		// Store pointer to visual data
-		packet->u32[2] = reinterpret_cast<u32>(&vbase);
-
-		// Number of quadwords to loop over
-		u8 qwc = packet->u8[0];
-
-		for (u32 i = 1; i < qwc + 1; i++)
-		{
-			_word128& chainPkt = m_chainPtr[i];
-			u8 type = chainPkt.u8[2];
-
-			u32 pktOffset = chainPkt.u32[1];
-			u32 address = reinterpret_cast<u32>(&*buffer);
-
-			switch (type)
-			{
-			case 1:
-			case 2:
-			case 4:
-			case 7:
-				chainPkt.u32[1] = address + pktOffset;
-				break;
-			case 3:
-				break;
-			case 5:
-				break;
-			case 6:
-				CTexture* texture = ResolveTextureName(&*buffer, pktOffset);
-
-				// TODO: do some DMA ref BS down here
-				if (texture)
-				{
-					
-				}
-				break;
-			}
-		}
-	}
-	
-	bool CVisual::GetChainData()
-	{
-		if (!m_chainPtr)
-			return false;
-
-		u32 stackidx = m_stack_vid.size() - 1;
-		_word128* tag = &m_chainPtr[m_stack_vid[stackidx % m_stack_vid.size()]];
-		m_dmaChain = &tag[1];
-		m_dmaQwc = *tag[0].u8;
-
-		return true;
-	}
-
-	void CVisual::NodeSetup(CNode* node, CNode* other, CMatrix* matrix, s32 status)
-	{
-		m_modelToWorld = *matrix;
-		Vu0MatrixInverseWithUniformScale(&m_WorldToModel, matrix);
-		m_fovStatus = status;
-
-		if (m_renderMap && node->m_light || other->m_light)
-		{
-			m_lightingEnable = true;
-
-			if (node->m_customGlobalLight < 0)
-				m_GlobalLightScale = 1.0f;
-			else
-				m_GlobalLightScale = node->m_customGlobalLight * 0.007874016f;
-
-			m_applyLocalLights = other->m_light_dynamic;
-		}
-		else
-		{
-			m_lightingEnable = false;
-			m_applyLocalLights = false;
-		}
-	}
-
-	void CVisual::Render(CMatrix* transform)
-	{
-		// if (m_renderState != 0)
-			VuUpdate(transform, 1.0f);
-	}
-
-	void CVisual::VuUpdate(CMatrix* transform, f32 opacity)
-	{
-		
-	}
-
-	CTexture* CVisual::ResolveTextureName(_word128* packet, s32 offset)
-	{
-		if (CTexHandle* handle = CWorld::GetTexHandle(reinterpret_cast<char*>(packet->u8 + offset)))
-		{
-			m_dyntexList.Add(handle, true);
-
-			if (handle->m_texture->m_palette)
-				m_dyntexList.Add(handle->m_texture->m_palette, true);
-
-			return handle->m_texture;
-		}
-		else
-			return CWorld::GetTexHandle("null_xmas.bmp")->m_texture;
-
-		return NULL;
-	}
-
-	CTexture* CVisual::ResolveTextureName(_word128* packet, _word128* offset)
-	{
-		CTexture* texture = NULL;
-
-		CTexHandle* handle = CWorld::GetTexHandle((char*)(packet->u8 + offset->u32[1]));
-
-		if (!handle)
-		{
-			handle = CWorld::GetTexHandle("null_xmas.bmp");
-		}
-
-		if (handle)
-		{
-			texture = handle->m_texture;
-			// m_dynTexList.Add(handle, true);
-
-			if (texture->m_palette)
-			{
-				// m_dynTexList.Add(texture->m_palette, true);
-			}
-		}
-
-		if (texture)
-		{
-			f32 r = texture->m_dmaRefVu.f32[1];
-			f32 g = texture->m_dmaRefVu.f32[2];
-			f32 b = texture->m_dmaRefVu.f32[3];
-			offset->u128 = texture->m_dmaRefVu.u128;
-			offset->f32[1] = r;
-			offset->f32[2] = g;
-			offset->f32[3] = b;
-			offset->u8[2] = 5;
-		}
-
-		return texture;
-	}
-	
-	u32 CVisual::Release()
-	{
-		m_instance_cnt--;
-		return m_instance_cnt;
-	}
-	
-	bool CVisualVector::Exists(const CVisual* visual)
-	{
-		for (auto it = begin(); it != end(); it++)
-		{
-			if (*it == visual)
-				return true;
-		}
-
-		return false;
-	}
-
-	void CVisData::NextVertex(u32 stride)
-	{
-		
-	}
+/* @socom-skeleton stub DereferenceDecals__Q23zdb7CVisualFUi */
+void zdb::CVisual::DereferenceDecals(unsigned int)
+{
 }

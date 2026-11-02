@@ -14,3 +14,75 @@
  * @socom-artifact defines main socom:function:0x20f4b0
  * @socom-artifact defines main socom:data:0x44ef20
  * socom-owner-annotations end socom:work:source-segment-025 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zUtil/util_systemio.h"
+#include "graph_graph.h"
+#include "graph_node.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CGEdge;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub version__6CGraph */
+const int CGraph::version = 1;
+
+/* @socom-skeleton stub Create__6CGraphFR7CFileIOPFP6CGraphP6CGNodebRUiPv_vPFP6CGraphP6CGEdgebRUiPv_vPv */
+void CGraph::Create(CFileIO &, void (*)(CGraph *, CGNode *, bool, unsigned int &, void *), void (*)(CGraph *, CGEdge *, bool, unsigned int &, void *), void *)
+{
+}
+
+/* @socom-skeleton stub Read__6CGraphFR7CFileIOPFP6CGraphP6CGNodebRUiPv_vPFP6CGraphP6CGEdgebRUiPv_vPv */
+void CGraph::Read(CFileIO &, void (*)(CGraph *, CGNode *, bool, unsigned int &, void *), void (*)(CGraph *, CGEdge *, bool, unsigned int &, void *), void *)
+{
+}
+
+/* @socom-skeleton stub Create__6CGraphFPCc */
+CGraph * CGraph::Create(const char *)
+{
+}
+
+/* @socom-skeleton stub Destroy__6CGraphFP6CGraph */
+void CGraph::Destroy(CGraph *)
+{
+}
+
+/* @socom-skeleton stub __ct__6CGraphFPCc */
+CGraph::CGraph(const char *)
+{
+}
+
+/* @socom-skeleton stub __dt__6CGraphFv */
+CGraph::~CGraph()
+{
+}
+
+/* @socom-skeleton stub CreateNode__6CGraphFPCc */
+CGNode * CGraph::CreateNode(const char *)
+{
+}
+
+/* @socom-skeleton stub DeleteNode__6CGraphFP6CGNode */
+void CGraph::DeleteNode(CGNode *)
+{
+}
+
+/* @socom-skeleton stub CreateEdge__6CGraphFP6CGNodeP6CGNode */
+CGEdge * CGraph::CreateEdge(CGNode *, CGNode *)
+{
+}
+
+/* @socom-skeleton stub GetNodeByIndex__6CGraphFUi */
+CGNode * CGraph::GetNodeByIndex(unsigned int)
+{
+}
+
+/* @socom-skeleton stub GetNodeByNodeEx__6CGraphFPCv */
+void CGraph::GetNodeByNodeEx(const void *)
+{
+}
+
+/* @socom-skeleton stub FindEdge__6CGraphFP6CGNodeP6CGNode */
+CGEdge * CGraph::FindEdge(CGNode *, CGNode *)
+{
+}

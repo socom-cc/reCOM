@@ -15,31 +15,45 @@
 
 #include "gamez/zUtil/util_systemio.h"
 
-f32 lastRenderTime = 0.0f;
-f32 curRenderTime = 0.0f;
+/* @socom-skeleton decl include */
+#include "gamez/zSystem/zsys.h"
+/* @socom-skeleton end include */
 
-void zVid_FrameRestore()
+/* @socom-skeleton stub __ct__4CTTYFv */
+CTTY::CTTY()
 {
-
 }
 
-void zVid_Swap(bool doSwap)
+/* @socom-skeleton stub __dt__4CTTYFv */
+CTTY::~CTTY()
 {
-	lastRenderTime = 0.0f;
-	curRenderTime = 0.0f;
-
-	// zVid.frameTime = (curRenderTime - lastRenderTime) * zSys.timerScale;
-	// zVid.frameRate = 1.0f / zVid.frameTime + 0.5f;
-	// zVid.runTime += zVid.frameTime;
-	// zVid.frameNumber++;
 }
 
-void zVid_ClearColor(f32 red, f32 green, f32 blue)
+/* @socom-skeleton body Print__4CTTYFPci */
+void CTTY::Print(char *, int)
 {
-	
+    Print(string, strlen(string));
 }
 
-void CVideo::RestoreImage(const char* img, bool raw)
+/* @socom-skeleton body Render__4CTTYFv */
+void CTTY::Render()
+{
+    
+}
+
+/* @socom-skeleton body MaxFrameRate__6CVideoFi */
+f32 CVideo::MaxFrameRate(s32 fr)
+{
+	return 0.0f;
+}
+
+/* @socom-skeleton stub Fade__6CVideoFfUcUcUc */
+void CVideo::Fade(float, unsigned char, unsigned char, unsigned char)
+{
+}
+
+/* @socom-skeleton body RestoreImage__6CVideoFPc */
+void CVideo::RestoreImage(char *)
 {
 	if (!raw)
 	{
@@ -55,4 +69,14 @@ void CVideo::RestoreImage(const char* img, bool raw)
 		file.Close();
 		zfree(buf);
 	}
+}
+
+/* @socom-skeleton stub ReadGsMemory__6CVideoFUiP1Ui */
+void CVideo::ReadGsMemory(unsigned int, unsigned __int128 *, unsigned int)
+{
+}
+
+/* @socom-skeleton stub WriteGsMemory__6CVideoFUiP1Ui */
+void CVideo::WriteGsMemory(unsigned int, unsigned __int128 *, unsigned int)
+{
 }

@@ -28,83 +28,64 @@
 
 namespace zdb
 {
-	bool CNode::ReadDataBegin(CSaveLoad& sload)
-	{
-		zar::CKey* openkey = sload.m_zfile.GetOpenKey();
-		SetName(openkey->GetName());
-		zar::CKey* visualskey = sload.m_zfile.OpenKey("visuals");
-
-		// If the node has visuals
-		if (visualskey)
-		{
-			ReserveVisuals(visualskey->GetSize());
-			auto it = visualskey->begin();
-
-			while (it != visualskey->end())
-			{
-				zar::CKey* key = sload.m_zfile.OpenKey(*it);
-				
-				if (key)
-				{
-					CVisual* vis = CVisual::Create(sload.m_zfile);
-
-					if (vis)
-					{
-						AddVisual(vis);
-					}
-
-					sload.m_zfile.CloseKey(key);
-				}
-			}
-
-			sload.m_zfile.CloseKey(visualskey);
-		}
-
-		zar::CKey* dikey = sload.m_zfile.OpenKey("di");
-
-		if (dikey)
-		{
-			ReserveDI(dikey->GetSize());
-
-			auto it = dikey->begin();
-
-			while (it != dikey->end())
-			{
-				zar::CKey* key = sload.m_zfile.OpenKey(*it);
-
-				if (key)
-				{
-					CDI* di = CDI::Create(sload);
-
-					if (di)
-					{
-						AddDI(di);
-					}
-
-					sload.m_zfile.CloseKey(key);
-				}
-			}
-
-			sload.m_zfile.CloseKey(dikey);
-		}
-
-		return false;
-	}
 	
-	CSaveLoad::CSaveLoad()
+
+}
+
+/* @socom-skeleton body __ct__Q23zdb9CSaveLoadFv */
+namespace zdb {
+CSaveLoad::CSaveLoad()
 	{
 		m_world = NULL;
 		m_zfile = zar::CZAR();
 		m_zed_filename[0] = '\0';
 		m_version = 0;
 	}
+}
 
-	bool CSaveLoad::LoadAssetLib(CWorld* world, CAssetLib* library, u32 type)
+/* @socom-skeleton stub __dt__Q23zdb9CSaveLoadFv */
+zdb::CSaveLoad::~CSaveLoad()
+{
+}
+
+/* @socom-skeleton body FilterMissionFolder__FPCcPCcPCcPc */
+s32 FilterMissionFolder(const char* prefix, const char* infix, const char* postfix, char* output)
+{
+	s32 result = 0;
+
+	if (!infix)
 	{
-		return LoadAssetLib_PS2(world, library, type);
+		infix = "/";
 	}
 
-	bool CSaveLoad::LoadAssetLib_PS2(CWorld* world, CAssetLib* library, u32 type)
+	// Multiplayer map?
+	if (strncmp(prefix, "mp", 2) == 0)
+	{
+		result = sprintf_s(output, 128, "%s/mp/%s", infix, postfix);
+	}
+	else
+	{
+		// Singleplayer map?
+		if (strncmp(prefix, "m", 1) == 0)
+		{
+			result = sprintf_s(output, 128, "%s/sp/%s", infix, postfix);
+		}
+		else
+		{
+			result = sprintf_s(output, 128, "%s/%s", infix, postfix);
+		}
+	}
+
+	return result;
+}
+
+/* @socom-skeleton stub find_node__FPQ23zdb5CNodePCc */
+zdb::CNode * find_node(zdb::CNode *, const char *)
+{
+}
+
+/* @socom-skeleton body LoadAssetLib_PS2__Q23zdb9CSaveLoadFPQ23zdb6CWorldPQ23zdb9CAssetLibi */
+bool zdb::CSaveLoad::LoadAssetLib_PS2(zdb::CWorld *world, zdb::CAssetLib *library, int type)
 	{
 		bool success = true;
 
@@ -187,7 +168,9 @@ namespace zdb
 		return success;
 	}
 
-	bool CSaveLoad::LoadTextures_PS2(CAssetLib* library)
+/* @socom-skeleton body LoadTextures_PS2__Q23zdb9CSaveLoadFPQ23zdb9CAssetLib */
+namespace zdb {
+bool CSaveLoad::LoadTextures_PS2(CAssetLib* library)
 	{
 		CTexture* texture = NULL;
 		s32 renderphase;
@@ -226,8 +209,11 @@ namespace zdb
 		library->m_texture_buffer = m_zfile.ReleaseDataBuffer();
 		return true;
 	}
+}
 
-	bool CSaveLoad::LoadPalettes_PS2(CAssetLib* library)
+/* @socom-skeleton body LoadPalettes_PS2__Q23zdb9CSaveLoadFPQ23zdb9CAssetLib */
+namespace zdb {
+bool CSaveLoad::LoadPalettes_PS2(CAssetLib* library)
 	{
 		if (zar::CKey* paletteKey = m_zfile.OpenKey("palettes"))
 		{
@@ -248,8 +234,17 @@ namespace zdb
 
 		return true;
 	}
+}
 
-	CWorld* CSaveLoad::Load(const char* name)
+/* @socom-skeleton body LoadAssetLib__Q23zdb9CSaveLoadFPQ23zdb6CWorldPQ23zdb9CAssetLibi */
+unsigned char zdb::CSaveLoad::LoadAssetLib(zdb::CWorld *world, zdb::CAssetLib *library, int type)
+	{
+		return LoadAssetLib_PS2(world, library, type);
+	}
+
+/* @socom-skeleton body Load__Q23zdb9CSaveLoadFPCc */
+namespace zdb {
+CWorld* CSaveLoad::Load(const char* name)
 	{
 		f32 metersperunit = 0.0f;
 		CPnt3D shadowvector = CPnt3D::zero;
@@ -354,4 +349,9 @@ namespace zdb
 
 		return world;
 	}
+}
+
+/* @socom-skeleton stub Read__Q23zdb6CWorldFRQ23zdb9CSaveLoad */
+void zdb::CWorld::Read(zdb::CSaveLoad &)
+{
 }

@@ -62,36 +62,189 @@
 
 namespace zdb
 {
-	CTexManager* CTexManager::m_texmanager = NULL;
 
-	void CTexManager::doAddBuffer(const char* name, f32 param_2, f32 param_3)
-	{
-		
-	}
 	
-	void CBatchRelocator::AddToBatch(zdb::CTexHandle* handle) const
-	{
-		CDynTexList* dynTexList = CTexManager::m_texmanager->front();
-		dynTexList->Add(handle, true);
-	}
 
-	void CBatchRelocator::ClearAll()
-	{
+}
 
-	}
+/* @socom-skeleton decl include */
+#include "gamez/zNode/node_assetlib.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+union _word128;
+/* @socom-skeleton end forward */
 
-	void CBatchRelocator::EndBatchReloc()
-	{
+/* @socom-skeleton stub m_renderMapNum__Q23zdb8CTexture */
+namespace zdb {
+int CTexture::m_renderMapNum = 2;
+}
 
-	}
+/* @socom-skeleton stub m_renderMapNumBytes__Q23zdb8CTexture */
+namespace zdb {
+int CTexture::m_renderMapNumBytes = 65536;
+}
 
-	void CBatchRelocator::StartBatchReloc()
-	{
+/* @socom-skeleton stub m_shadowMapSize__Q23zdb8CTexture */
+namespace zdb {
+int CTexture::m_shadowMapSize = 256;
+}
 
-	}
+/* @socom-skeleton stub m_reflectionMapSize__Q23zdb8CTexture */
+namespace zdb {
+int CTexture::m_reflectionMapSize = 256;
+}
 
-	void CBatchRelocator::TakeDrawPacket(void* spr, s32 qwc)
+/* @socom-skeleton stub m_texmanager__Q23zdb11CTexManager */
+namespace zdb {
+zdb::CTexManager CTexManager::m_texmanager;
+}
+
+/* @socom-skeleton stub TexBufParams__Q23zdb11CTexManager */
+namespace zdb {
+float CTexManager::TexBufParams[4];
+}
+
+/* @socom-skeleton stub TexPhase__Q23zdb11CTexManager */
+namespace zdb {
+int CTexManager::TexPhase[17][3];
+}
+
+/* @socom-skeleton body TakeDrawPacket__Q23zdb15CBatchRelocatorFP1Ui */
+void zdb::CBatchRelocator::TakeDrawPacket(unsigned __int128 *spr, unsigned int qwc)
 	{
 		// zSysFifoKick(spr, qwc);
 	}
+
+/* @socom-skeleton body __ct__Q23zdb12CGSTexBufferFv */
+namespace zdb {
+CGSTexBuffer::CGSTexBuffer()
+	{
+		m_checkForOverflow = true;
+		m_startAddress = 0;
+		m_nextAddress = 0;
+		m_endAddress = 0;
+		m_assetLib = NULL;
+		m_chainp = NULL;
+		m_name = NULL;
+	}
+}
+
+/* @socom-skeleton stub __dt__Q23zdb12CGSTexBufferFv */
+zdb::CGSTexBuffer::~CGSTexBuffer()
+{
+}
+
+/* @socom-skeleton body Add__Q23zdb11CDynTexListFPQ23zdb11CDynTexList */
+namespace zdb {
+void CDynTexList::Add(CDynTexList* list)
+	{
+
+	}
+}
+
+/* @socom-skeleton body Add__Q23zdb11CDynTexListFPQ23zdb10CTexHandleb */
+namespace zdb {
+void CDynTexList::Add(CTexHandle* handle, bool check)
+	{
+
+	}
+}
+
+/* @socom-skeleton body Add__Q23zdb11CDynTexListFPQ23zdb11CTexPaletteb */
+namespace zdb {
+void CDynTexList::Add(CTexPalette* palette, bool check)
+	{
+
+	}
+}
+
+/* @socom-skeleton stub SetDynTexList__Q23zdb12CGSTexBufferFPQ23zdb11CDynTexList */
+void zdb::CGSTexBuffer::SetDynTexList(zdb::CDynTexList *)
+{
+}
+
+/* @socom-skeleton stub Add__Q23zdb12CGSTexBufferFPQ23zdb8CTexListb */
+void zdb::CGSTexBuffer::Add(zdb::CTexList *, bool)
+{
+}
+
+/* @socom-skeleton stub Setup__Q23zdb12CGSTexBufferFff */
+unsigned int zdb::CGSTexBuffer::Setup(float, float)
+{
+}
+
+/* @socom-skeleton body Hookup__Q23zdb12CGSTexBufferFPQ23zdb9CAssetLib */
+namespace zdb {
+void CGSTexBuffer::Hookup(CAssetLib* lib)
+	{
+		
+	}
+}
+
+/* @socom-skeleton stub RelocateAll__Q23zdb12CGSTexBufferFv */
+void zdb::CGSTexBuffer::RelocateAll()
+{
+}
+
+/* @socom-skeleton stub MakeChain__Q23zdb12CGSTexBufferFP1i */
+void zdb::CGSTexBuffer::MakeChain(unsigned __int128 *, int)
+{
+}
+
+/* @socom-skeleton stub refLoadImage__FP8_word128UiUiPvUiUiUi */
+_word128 * refLoadImage(_word128 *, unsigned int, unsigned int, void *, unsigned int, unsigned int, unsigned int)
+{
+}
+
+/* @socom-skeleton stub Load__Q23zdb12CGSTexBufferFb */
+unsigned __int128 * zdb::CGSTexBuffer::Load(bool)
+{
+}
+
+/* @socom-skeleton stub Add__Q23zdb12CGSTexBufferFPQ23zdb9CAssetLibb */
+void zdb::CGSTexBuffer::Add(zdb::CAssetLib *, bool)
+{
+}
+
+/* @socom-skeleton body doAddBuffer__Q23zdb11CTexManagerFPCcff */
+namespace zdb {
+void CTexManager::doAddBuffer(const char* name, f32 param_2, f32 param_3)
+	{
+		
+	}
+}
+
+/* @socom-skeleton stub doDelBuffer__Q23zdb11CTexManagerFPQ23zdb12CGSTexBuffer */
+void zdb::CTexManager::doDelBuffer(zdb::CGSTexBuffer *)
+{
+}
+
+/* @socom-skeleton stub WipePktBuf__Q23zdb11CTexManagerFv */
+void zdb::CTexManager::WipePktBuf()
+{
+}
+
+/* @socom-skeleton stub doSetupBuffers__Q23zdb11CTexManagerFPCc */
+void zdb::CTexManager::doSetupBuffers(const char *)
+{
+}
+
+/* @socom-skeleton stub DestroyBuffers__Q23zdb11CTexManagerFRQ23zdb11CTexManagerb */
+void zdb::CTexManager::DestroyBuffers(zdb::CTexManager &, bool)
+{
+}
+
+/* @socom-skeleton stub ClearPktBufs__Q23zdb11CTexManagerFRQ23zdb11CTexManagerb */
+void zdb::CTexManager::ClearPktBufs(zdb::CTexManager &, bool)
+{
+}
+
+/* @socom-skeleton stub UpdateTextureSelects__Q23zdb12CGSTexBufferFv */
+void zdb::CGSTexBuffer::UpdateTextureSelects()
+{
+}
+
+/* @socom-skeleton stub MIPUpdateTextureSelects__Q23zdb8CTextureFUiUi */
+void zdb::CTexture::MIPUpdateTextureSelects(unsigned int, unsigned int)
+{
 }

@@ -24,8 +24,69 @@
 #include "gamez/zUtil/util_systemio.h"
 #include "posix/strcasecmp.h"
 
-std::list<zar::CZAR*> CRdrArchive::m_list;
+/* @socom-skeleton decl forward */
+class CZAR;
+/* @socom-skeleton end forward */
 
+/* @socom-skeleton stub version__11CRdrArchive */
+const unsigned int CRdrArchive::version = 1;
+
+/* @socom-skeleton stub m_list__11CRdrArchive */
+std::list<CZAR *, std::allocator<CZAR *> > CRdrArchive::m_list;
+
+/* @socom-skeleton body OpenAll__11CRdrArchiveFv */
+void CRdrArchive::OpenAll()
+{
+	for (auto it = m_list.begin(); it != m_list.end(); it++)
+	{
+		CZAR* archive = *it;
+		archive->ReOpen(1, OpenFlags::READ);
+	}
+}
+
+/* @socom-skeleton body CloseAll__11CRdrArchiveFv */
+void CRdrArchive::CloseAll()
+{
+	for (auto it = m_list.begin(); it != m_list.end(); it++)
+	{
+		zar::CZAR* archive = *it;
+		archive->Close();
+	}
+}
+
+/* @socom-skeleton body RemoveArchive__11CRdrArchiveFPCcPCc */
+bool CRdrArchive::RemoveArchive(const char* name, const char* path)
+{
+	char fullPath[256];
+	sprintf_s(fullPath, 256, "%s/%s", path, name);
+
+	auto it = m_list.begin();
+
+	while (it != m_list.end())
+	{
+		CZAR* archive = *it;
+
+		if (!strstr(archive->m_filename, fullPath))
+		{
+			++it;
+			continue;
+		}
+		
+		m_list.erase(it);
+		archive->Close();
+
+		if (archive)
+		{
+			delete archive;
+		}
+
+		break;
+	}
+
+	return false;
+}
+
+/* @socom-skeleton body AddArchive__11CRdrArchiveFPCcPCc */
 zar::CZAR* CRdrArchive::AddArchive(const char* name, const char* path)
 {
 	char archiveName[256];
@@ -60,37 +121,7 @@ zar::CZAR* CRdrArchive::AddArchive(const char* name, const char* path)
 	return output;
 }
 
-bool CRdrArchive::RemoveArchive(const char* name, const char* path)
-{
-	char fullPath[256];
-	sprintf_s(fullPath, 256, "%s/%s", path, name);
-
-	auto it = m_list.begin();
-
-	while (it != m_list.end())
-	{
-		CZAR* archive = *it;
-
-		if (!strstr(archive->m_filename, fullPath))
-		{
-			++it;
-			continue;
-		}
-		
-		m_list.erase(it);
-		archive->Close();
-
-		if (archive)
-		{
-			delete archive;
-		}
-
-		break;
-	}
-
-	return false;
-}
-
+/* @socom-skeleton body FindRdr__11CRdrArchiveFPCc */
 CRdrFile* CRdrArchive::FindRdr(const char* reader)
 {
 	CRdrFile* rdr = NULL;
@@ -152,22 +183,4 @@ CRdrFile* CRdrArchive::FindRdr(const char* reader)
 	}
 
 	return rdr;
-}
-
-void CRdrArchive::OpenAll()
-{
-	for (auto it = m_list.begin(); it != m_list.end(); it++)
-	{
-		CZAR* archive = *it;
-		archive->ReOpen(1, OpenFlags::READ);
-	}
-}
-
-void CRdrArchive::CloseAll()
-{
-	for (auto it = m_list.begin(); it != m_list.end(); it++)
-	{
-		zar::CZAR* archive = *it;
-		archive->Close();
-	}
 }

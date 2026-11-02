@@ -36,8 +36,33 @@
 
 #include "posix/strcasecmp.h"
 
-CVehicleRdrEntry* _dest = NULL;
+/* @socom-skeleton decl include */
+#include "gamez/zAI/zai.h"
+/* @socom-skeleton end include */
 
+/* @socom-skeleton body Parse__9AI_PARAMSFP5_zrdr */
+void AI_PARAMS::Parse(_zrdr* reader)
+{
+
+}
+
+/* @socom-skeleton stub Merge__9AI_PARAMSFRC9AI_PARAMSRC9AI_PARAMS */
+void AI_PARAMS::Merge(const AI_PARAMS &, const AI_PARAMS &)
+{
+}
+
+/* @socom-skeleton stub __ct__11CVehicleRdrFv */
+CVehicleRdr::CVehicleRdr()
+{
+}
+
+/* @socom-skeleton body Close__11CVehicleRdrFv */
+void CVehicleRdr::Close()
+{
+	clear();
+}
+
+/* @socom-skeleton body Open__11CVehicleRdrFPCc */
 bool CVehicleRdr::Open(const char* name)
 {
 	CRdrFile* file = zrdr_read(name, NULL, 0);
@@ -46,11 +71,23 @@ bool CVehicleRdr::Open(const char* name)
 	return success;
 }
 
-void CVehicleRdr::Close()
+/* @socom-skeleton body GetEntryByName__11CVehicleRdrCFPCc */
+CVehicleRdrEntry * CVehicleRdr::GetEntryByName(const char *name) const
 {
-	clear();
+	if (!name)
+		return NULL;
+
+	for (auto i = begin(); i != end(); i++)
+	{
+		CVehicleRdrEntry entry = *i;
+		if (strcasecmp(entry.m_name, name) == 0)
+			return &entry;
+	}
+
+	return NULL;
 }
 
+/* @socom-skeleton body Load__11CVehicleRdrFP5_zrdr */
 bool CVehicleRdr::Load(_zrdr* file)
 {
 	_zrdr* node = NULL;
@@ -156,25 +193,36 @@ bool CVehicleRdr::Load(_zrdr* file)
 	return true;
 }
 
-CVehicleRdrEntry* CVehicleRdr::GetEntryByName(const char* name)
-{
-	if (!name)
-		return NULL;
-
-	for (auto i = begin(); i != end(); i++)
-	{
-		CVehicleRdrEntry entry = *i;
-		if (strcasecmp(entry.m_name, name) == 0)
-			return &entry;
-	}
-
-	return NULL;
-}
-
+/* @socom-skeleton body SetCharacterName__16CVehicleRdrEntryFPCc */
 void CVehicleRdrEntry::SetCharacterName(const char* name)
 {
 	if (!name)
 		m_character[0] = NULL;
 	else
 		strncpy(m_character, name, 48);
+}
+
+/* @socom-skeleton stub Randomize__16CVehicleRdrEntryFb */
+void CVehicleRdrEntry::Randomize(bool)
+{
+}
+
+/* @socom-skeleton stub GetStart__16CVehicleRdrEntryCFUiRPCcRi */
+void CVehicleRdrEntry::GetStart(unsigned int, const char *&, int &) const
+{
+}
+
+/* @socom-skeleton stub GetStartPos__16CVehicleRdrEntryCFv */
+char * CVehicleRdrEntry::GetStartPos() const
+{
+}
+
+/* @socom-skeleton stub GetStartDir__16CVehicleRdrEntryCFv */
+int CVehicleRdrEntry::GetStartDir() const
+{
+}
+
+/* @socom-skeleton stub GetStartMatrix__16CVehicleRdrEntryFR7CMatrixUi */
+unsigned char CVehicleRdrEntry::GetStartMatrix(CMatrix &, unsigned int)
+{
 }

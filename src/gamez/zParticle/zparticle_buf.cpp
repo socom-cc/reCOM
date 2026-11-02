@@ -33,3 +33,86 @@
  * @socom-artifact defines main socom:data:0x475bf8
  * @socom-artifact defines main socom:data:0x475bfc
  * socom-owner-annotations end socom:work:source-segment-076 */
+
+/* @socom-skeleton decl include */
+#include "zparticle.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub clipLimScreen__8Particle */
+int Particle::clipLimScreen = 40000;
+
+/* @socom-skeleton stub maxZ__8Particle */
+int Particle::maxZ = 10;
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+unsigned char std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+unsigned char std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub m_spr__Q28Particle13BufferElement */
+int Particle::BufferElement::m_spr;
+
+/* @socom-skeleton stub numParticles__8Particle */
+int Particle::numParticles;
+
+/* @socom-skeleton stub m_lastTexture__8Particle */
+int Particle::m_lastTexture;
+
+/* @socom-skeleton stub pParticleBuf__8Particle */
+int Particle::pParticleBuf;
+
+/* @socom-skeleton stub buffer__8Particle */
+unsigned char Particle::buffer[160000];
+
+/* @socom-skeleton stub bufferPtr__8Particle */
+unsigned char Particle::bufferPtr[20000];
+
+/* @socom-skeleton stub DrawPrep__8ParticleFv */
+float Particle::DrawPrep()
+{
+}
+
+/* @socom-skeleton stub DrawStreaked__Q28Particle13BufferElementFRA4_A4_f */
+void Particle::BufferElement::DrawStreaked(float (&)[4][4])
+{
+}
+
+/* @socom-skeleton stub DrawXZ__Q28Particle13BufferElementFRA4_A4_f */
+void Particle::BufferElement::DrawXZ(float (&)[4][4])
+{
+}
+
+/* @socom-skeleton stub DrawRotated__Q28Particle13BufferElementFRA4_A4_f */
+void Particle::BufferElement::DrawRotated(float (&)[4][4])
+{
+	/* @socom-skeleton stub XRate$1514 */
+	static int XRate;
+	/* @socom-skeleton stub YRate$1517 */
+	static int YRate;
+}
+
+/* @socom-skeleton stub Draw__Q28Particle13BufferElementFRA4_A4_f */
+void Particle::BufferElement::Draw(float (&)[4][4])
+{
+}
+
+/* @socom-skeleton stub DrawOne__8ParticleFv */
+void Particle::DrawOne()
+{
+}
+
+/* @socom-skeleton stub DrawFlush__8ParticleFv */
+void Particle::DrawFlush()
+{
+}
+
+/* @socom-skeleton stub Draw__8ParticleFv */
+void Particle::Draw()
+{
+}
+
+/* @socom-skeleton stub DrawRange__8ParticleFff */
+float Particle::DrawRange(float, float)
+{
+}

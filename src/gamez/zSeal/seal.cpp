@@ -204,8 +204,329 @@
 #include "gamez/zAI/zai.h"
 #include "gamez/zNode/znode.h"
 
-bool seal_init = false;
+/* @socom-skeleton decl include */
+#include "gamez/zAnim/zanim.h"
+#include "gamez/zBody/zbody.h"
+#include "gamez/zCharacter/zchar.h"
+#include "gamez/zEntity/zentity.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zSound/zsnd.h"
+#include "gamez/zValve/zvalve.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CCompass;
+class CCompassAnchor;
+/* @socom-skeleton end forward */
 
+/* @socom-skeleton stub m_heartbeat_sound__10CZSealBody */
+int CZSealBody::m_heartbeat_sound[3] = {0};
+
+/* @socom-skeleton stub stoppedV__10CZSealBody */
+const float CZSealBody::stoppedV = 0.029999999329447746f;
+
+/* @socom-skeleton stub m_renderShadow__10CZSealBody */
+unsigned char CZSealBody::m_renderShadow = 1;
+
+/* @socom-skeleton stub velocityFactor */
+float velocityFactor = 1.0f;
+
+/* @socom-skeleton stub m_allow_friendly_fire__10CZSealBody */
+unsigned char CZSealBody::m_allow_friendly_fire;
+
+/* @socom-skeleton stub m_sealanim__10CZSealBody */
+CSealAnim *CZSealBody::m_sealanim;
+
+/* @socom-skeleton stub m_delayed_footbomb_creation__10CZSealBody */
+unsigned char CZSealBody::m_delayed_footbomb_creation;
+
+/* @socom-skeleton stub m_heartbeat_sndisnt__10CZSealBody */
+CSndInstance *CZSealBody::m_heartbeat_sndisnt;
+
+/* @socom-skeleton stub m_heartbeat_curindex__10CZSealBody */
+int CZSealBody::m_heartbeat_curindex;
+
+/* @socom-skeleton stub player___10CZSealBody */
+int CZSealBody::player_;
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub m_aim_anims__10CZSealBody */
+int CZSealBody::m_aim_anims[3];
+
+/* @socom-skeleton stub m_delayed_footbomb_creation_pos__10CZSealBody */
+float CZSealBody::m_delayed_footbomb_creation_pos[3];
+
+/* @socom-skeleton stub m_compass__10CZSealBody */
+CCompass CZSealBody::m_compass;
+
+/* @socom-skeleton stub dilr00__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr00[72];
+}
+
+/* @socom-skeleton stub dilr01__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr01[72];
+}
+
+/* @socom-skeleton stub dilr02__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr02[72];
+}
+
+/* @socom-skeleton stub dilr03__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr03[72];
+}
+
+/* @socom-skeleton stub dilr04__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr04[72];
+}
+
+/* @socom-skeleton stub dilr05__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr05[72];
+}
+
+/* @socom-skeleton stub dilr06__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr06[72];
+}
+
+/* @socom-skeleton stub dilr07__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr07[72];
+}
+
+/* @socom-skeleton stub dilr08__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr08[72];
+}
+
+/* @socom-skeleton stub dilr09__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr09[72];
+}
+
+/* @socom-skeleton stub dilr10__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr10[72];
+}
+
+/* @socom-skeleton stub dilr11__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr11[72];
+}
+
+/* @socom-skeleton stub dilr12__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr12[72];
+}
+
+/* @socom-skeleton stub dilr13__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr13[72];
+}
+
+/* @socom-skeleton stub dilr14__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr14[72];
+}
+
+/* @socom-skeleton stub dilr15__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr15[72];
+}
+
+/* @socom-skeleton stub dilr16__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr16[72];
+}
+
+/* @socom-skeleton stub dilr17__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr17[72];
+}
+
+/* @socom-skeleton stub dilr18__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr18[72];
+}
+
+/* @socom-skeleton stub dilr19__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr19[72];
+}
+
+/* @socom-skeleton stub dilr20__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr20[72];
+}
+
+/* @socom-skeleton stub dilr21__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr21[72];
+}
+
+/* @socom-skeleton stub dilr22__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr22[72];
+}
+
+/* @socom-skeleton stub dilr23__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr23[72];
+}
+
+/* @socom-skeleton stub dilr24__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr24[72];
+}
+
+/* @socom-skeleton stub dilr25__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr25[72];
+}
+
+/* @socom-skeleton stub dilr26__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr26[72];
+}
+
+/* @socom-skeleton stub dilr27__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr27[72];
+}
+
+/* @socom-skeleton stub dilr28__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr28[72];
+}
+
+/* @socom-skeleton stub dilr29__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr29[72];
+}
+
+/* @socom-skeleton stub dilr30__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr30[72];
+}
+
+/* @socom-skeleton stub dilr31__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr31[72];
+}
+
+/* @socom-skeleton stub dilr32__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr32[72];
+}
+
+/* @socom-skeleton stub dilr33__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr33[72];
+}
+
+/* @socom-skeleton stub dilr34__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr34[72];
+}
+
+/* @socom-skeleton stub dilr35__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr35[72];
+}
+
+/* @socom-skeleton stub dilr36__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr36[72];
+}
+
+/* @socom-skeleton stub dilr37__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr37[72];
+}
+
+/* @socom-skeleton stub dilr38__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr38[72];
+}
+
+/* @socom-skeleton stub dilr39__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr39[72];
+}
+
+/* @socom-skeleton stub dilr40__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr40[72];
+}
+
+/* @socom-skeleton stub dilr41__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr41[72];
+}
+
+/* @socom-skeleton stub dilr42__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr42[72];
+}
+
+/* @socom-skeleton stub dilr43__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr43[72];
+}
+
+/* @socom-skeleton stub dilr44__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr44[72];
+}
+
+/* @socom-skeleton stub dilr45__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr45[72];
+}
+
+/* @socom-skeleton stub dilr46__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr46[72];
+}
+
+/* @socom-skeleton stub dilr47__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr47[72];
+}
+
+/* @socom-skeleton stub dilr48__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr48[72];
+}
+
+/* @socom-skeleton stub dilr49__18@unnamed@seal_cpp@ */
+namespace {
+unsigned char dilr49[72];
+}
+
+/* @socom-skeleton stub l_int */
+static int l_int[128];
+
+/* @socom-skeleton body SealInitCharacterDynamics__Fv */
+void SealInitCharacterDynamics()
+{
+    CRdrFile* dynamics = zrdr_read("dynamics.rdr");
+    if (!theCharacterDynamics.m_loaded && dynamics)
+    {
+        theCharacterDynamics.Load(dynamics);
+        zrdr_free(dynamics);
+    }
+
+    CZSealBody::InitLookAnims();
+}
+
+/* @socom-skeleton body __ct__10CZSealBodyFPQ23zdb5CNodeP14CCharacterType */
 CZSealBody::CZSealBody(zdb::CNode* node, CCharacterType* chartype) : CEntity(ENT_TYPE_SEAL, node), CBody()
 {
     m_MaxFollowerDistance = 0;
@@ -391,11 +712,424 @@ CZSealBody::CZSealBody(zdb::CNode* node, CCharacterType* chartype) : CEntity(ENT
     zVid_Assert(false, LONG_MAX, __FILE__, __LINE__);
 }
 
-CCharacterType* CZSealBody::GetCharacter() const
+/* @socom-skeleton body OnMissionStart__10CZSealBodyFv */
+void CZSealBody::OnMissionStart() {}
+
+/* @socom-skeleton body OnMissionEnd__10CZSealBodyFv */
+void CZSealBody::OnMissionEnd() {}
+
+/* @socom-skeleton stub OnRecycleEntity__10CZSealBodyFP7CEntity */
+void CZSealBody::OnRecycleEntity(CEntity *)
 {
-    return m_charType;
 }
 
+/* @socom-skeleton stub GetRootPart__10CZSealBodyCFv */
+CZBodyPart * CZSealBody::GetRootPart() const
+{
+}
+
+/* @socom-skeleton stub __dt__10CZSealBodyFv */
+CZSealBody::~CZSealBody()
+{
+}
+
+/* @socom-skeleton stub AddWeapon__10CZSealBodyF9SEAL_ITEM */
+void CZSealBody::AddWeapon(SEAL_ITEM)
+{
+}
+
+/* @socom-skeleton stub UpdateStance__10CZSealBodyFv */
+void CZSealBody::UpdateStance()
+{
+}
+
+/* @socom-skeleton stub UpdateLODFlags__10CZSealBodyFv */
+void CZSealBody::UpdateLODFlags()
+{
+}
+
+/* @socom-skeleton stub PreTick__10CZSealBodyFf */
+void CZSealBody::PreTick(float)
+{
+}
+
+/* @socom-skeleton stub Tick__10CZSealBodyFf */
+void CZSealBody::Tick(float)
+{
+	/* @socom-skeleton stub g_debug_timer$2685 */
+	static float g_debug_timer;
+	/* @socom-skeleton stub g_debug_counter$2688 */
+	static float g_debug_counter;
+	/* @socom-skeleton stub g_memmarker_delay$2691 */
+	static float g_memmarker_delay;
+	/* @socom-skeleton stub adren_incr2$2814 */
+	static float adren_incr2;
+}
+
+/* @socom-skeleton stub CreateAiEvent__10CZSealBodyFv */
+void CZSealBody::CreateAiEvent()
+{
+}
+
+/* @socom-skeleton stub UpdateAiEvent__10CZSealBodyFv */
+void CZSealBody::UpdateAiEvent()
+{
+	/* @socom-skeleton stub _speed_bias$2840 */
+	static float _speed_bias;
+	/* @socom-skeleton stub _speed_scale$2843 */
+	static float _speed_scale;
+	/* @socom-skeleton stub _crouch_scale$2846 */
+	static float _crouch_scale;
+	/* @socom-skeleton stub _prone_scale$2849 */
+	static float _prone_scale;
+	/* @socom-skeleton stub _default_scale$2852 */
+	static float _default_scale;
+	/* @socom-skeleton stub _throttle_threshold$2855 */
+	static float _throttle_threshold;
+}
+
+/* @socom-skeleton stub curChord__18@unnamed@seal_cpp@ */
+namespace {
+int curChord;
+}
+
+/* @socom-skeleton stub PostTick__10CZSealBodyFf */
+void CZSealBody::PostTick(float)
+{
+}
+
+/* @socom-skeleton stub collideCylinders__FfffffffffffffR6CPnt3DR6CPnt3D */
+void collideCylinders(float, float, float, float, float, float, float, float, float, float, float, float, float, CPnt3D &, CPnt3D &)
+{
+}
+
+/* @socom-skeleton stub CollidePlayers__10CZSealBodyFR6CPnt3D */
+void CZSealBody::CollidePlayers(CPnt3D &)
+{
+}
+
+/* @socom-skeleton stub HandleSliding__10CZSealBodyFf */
+void CZSealBody::HandleSliding(float)
+{
+}
+
+/* @socom-skeleton stub ComputeNextPosition__10CZSealBodyFf */
+void CZSealBody::ComputeNextPosition(float)
+{
+	/* @socom-skeleton stub MoveAwayFromWallFactor$3232 */
+	static float MoveAwayFromWallFactor;
+}
+
+/* @socom-skeleton stub PostPreTick__10CZSealBodyFf */
+void CZSealBody::PostPreTick(float)
+{
+}
+
+/* @socom-skeleton stub PrePostTick__10CZSealBodyFf */
+void CZSealBody::PrePostTick(float)
+{
+}
+
+/* @socom-skeleton stub HandleWeaponIntersect__10CZSealBodyFv */
+bool CZSealBody::HandleWeaponIntersect()
+{
+}
+
+/* @socom-skeleton stub PostComputeNextPosition__10CZSealBodyFf */
+void CZSealBody::PostComputeNextPosition(float)
+{
+	/* @socom-skeleton stub radius$3465 */
+	static float radius;
+}
+
+/* @socom-skeleton stub NormalizeToTerrain__10CZSealBodyFv */
+void CZSealBody::NormalizeToTerrain()
+{
+}
+
+/* @socom-skeleton body OnDeath__10CZSealBodyFv */
+void CZSealBody::OnDeath() {}
+
+/* @socom-skeleton stub SetHealth__10CZSealBodyFf15SEAL_DEATH_TYPE */
+float CZSealBody::SetHealth(float, SEAL_DEATH_TYPE)
+{
+}
+
+/* @socom-skeleton stub ResetToInitialState__10CZSealBodyFv */
+void CZSealBody::ResetToInitialState()
+{
+}
+
+/* @socom-skeleton stub _rethrow_grenade__FP6CValvePv */
+void _rethrow_grenade(CValve *, void *)
+{
+	/* @socom-skeleton stub vScale$3575 */
+	static float vScale;
+	/* @socom-skeleton stub hScale$3578 */
+	static float hScale;
+}
+
+/* @socom-skeleton stub PickupObject__10CZSealBodyFP7CPickup */
+void CZSealBody::PickupObject(CPickup *)
+{
+}
+
+/* @socom-skeleton stub PostMortemPreTick__10CZSealBodyFf */
+void CZSealBody::PostMortemPreTick(float)
+{
+}
+
+/* @socom-skeleton stub AdvancePiggyBack__10CZSealBodyFv */
+void CZSealBody::AdvancePiggyBack()
+{
+}
+
+/* @socom-skeleton stub RetreatPiggyBack__10CZSealBodyFv */
+void CZSealBody::RetreatPiggyBack()
+{
+}
+
+/* @socom-skeleton stub TeleportTo__10CZSealBodyFPC6CPnt3DPC5CQuat */
+void CZSealBody::TeleportTo(const CPnt3D *, const CQuat *)
+{
+}
+
+/* @socom-skeleton stub TeleportTo__10CZSealBodyFPC7CMatrix */
+void CZSealBody::TeleportTo(const CMatrix *)
+{
+}
+
+/* @socom-skeleton stub ResetAltitude__10CZSealBodyFf */
+void CZSealBody::ResetAltitude(float)
+{
+}
+
+/* @socom-skeleton stub SetSnakePathUpdate__10CZSealBodyFbUi */
+void CZSealBody::SetSnakePathUpdate(bool, unsigned int)
+{
+}
+
+/* @socom-skeleton stub ExecuteAction_KnifeAttack__10CZSealBodyFP10CZSealBody */
+void CZSealBody::ExecuteAction_KnifeAttack(CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub ExecuteAction_CQBAttack__10CZSealBodyFP10CZSealBody */
+void CZSealBody::ExecuteAction_CQBAttack(CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub ExecuteAction_ApplyRestraint__10CZSealBodyFP10CZSealBody */
+void CZSealBody::ExecuteAction_ApplyRestraint(CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub ExecuteDelayedAction_Climb__10CZSealBodyFv */
+void CZSealBody::ExecuteDelayedAction_Climb()
+{
+}
+
+/* @socom-skeleton stub ExecuteDelayedAction_Jump__10CZSealBodyFv */
+void CZSealBody::ExecuteDelayedAction_Jump()
+{
+}
+
+/* @socom-skeleton stub Death__10CSealStatsFRC10CZSealBody */
+void CSealStats::Death(const CZSealBody &)
+{
+}
+
+/* @socom-skeleton stub DeductKill__10CSealStatsFRC10CZSealBody */
+void CSealStats::DeductKill(const CZSealBody &)
+{
+}
+
+/* @socom-skeleton stub HeadShot__10CSealStatsFRC10CZSealBody */
+void CSealStats::HeadShot(const CZSealBody &)
+{
+}
+
+/* @socom-skeleton stub Hit__10CSealStatsFRC10CZSealBody */
+void CSealStats::Hit(const CZSealBody &)
+{
+}
+
+/* @socom-skeleton stub Kill__10CSealStatsFRC10CZSealBody */
+void CSealStats::Kill(const CZSealBody &)
+{
+}
+
+/* @socom-skeleton stub Reset__10CSealStatsFv */
+void CSealStats::Reset()
+{
+}
+
+/* @socom-skeleton stub IncrTimesSeen__10CSealStatsFi */
+void CSealStats::IncrTimesSeen(int)
+{
+}
+
+/* @socom-skeleton stub IncrGrenadesUsed__10CSealStatsFi */
+void CSealStats::IncrGrenadesUsed(int)
+{
+}
+
+/* @socom-skeleton stub IncrPrimaryRoundsFired__10CSealStatsFi */
+void CSealStats::IncrPrimaryRoundsFired(int)
+{
+}
+
+/* @socom-skeleton stub IncrSecondaryRoundsFired__10CSealStatsFi */
+void CSealStats::IncrSecondaryRoundsFired(int)
+{
+}
+
+/* @socom-skeleton stub GetPointsEarned__10CSealStatsCFiiif */
+int CSealStats::GetPointsEarned(int, int, int, float) const
+{
+}
+
+/* @socom-skeleton stub Shot__10CSealStatsFRC10CZSealBody */
+void CSealStats::Shot(const CZSealBody &)
+{
+}
+
+/* @socom-skeleton stub UpdateMvpScore__10CSealStatsFRC10CZSealBody */
+void CSealStats::UpdateMvpScore(const CZSealBody &)
+{
+}
+
+/* @socom-skeleton stub WasHit__10CSealStatsFRC10CZSealBody */
+void CSealStats::WasHit(const CZSealBody &)
+{
+}
+
+/* @socom-skeleton stub ActionAvailableMask__10CZSealBodyFv */
+unsigned int CZSealBody::ActionAvailableMask()
+{
+}
+
+/* @socom-skeleton stub ActionDisplayOn__10CZSealBodyFv */
+unsigned char CZSealBody::ActionDisplayOn()
+{
+}
+
+/* @socom-skeleton stub ActionAvailableMask__10CZSealBodyFUib */
+void CZSealBody::ActionAvailableMask(unsigned int, bool)
+{
+}
+
+/* @socom-skeleton stub ActionSelectionMask__10CZSealBodyFv */
+unsigned int CZSealBody::ActionSelectionMask()
+{
+}
+
+/* @socom-skeleton stub ActionSelectionMask__10CZSealBodyFUib */
+void CZSealBody::ActionSelectionMask(unsigned int, bool)
+{
+}
+
+/* @socom-skeleton stub ActionDisplayOn__10CZSealBodyFb */
+void CZSealBody::ActionDisplayOn(bool)
+{
+}
+
+/* @socom-skeleton stub ActionCommand__10CZSealBodyFv */
+unsigned int CZSealBody::ActionCommand()
+{
+}
+
+/* @socom-skeleton stub ActionCommand__10CZSealBodyFUi */
+void CZSealBody::ActionCommand(unsigned int)
+{
+}
+
+/* @socom-skeleton stub Open__8CCompassFv */
+void CCompass::Open()
+{
+}
+
+/* @socom-skeleton stub Close__8CCompassFv */
+void CCompass::Close()
+{
+}
+
+/* @socom-skeleton stub CreateAnchor__8CCompassFRC6CPnt3DPCc */
+CCompassAnchor * CCompass::CreateAnchor(const CPnt3D &, const char *)
+{
+}
+
+/* @socom-skeleton stub DeleteAnchor__8CCompassFP14CCompassAnchor */
+void CCompass::DeleteAnchor(CCompassAnchor *)
+{
+}
+
+/* @socom-skeleton stub CompassAnchor_MPBomb__10CZSealBodyFP14CCompassAnchor */
+unsigned char CZSealBody::CompassAnchor_MPBomb(CCompassAnchor *)
+{
+}
+
+/* @socom-skeleton stub CompassAnchor_MPBase__10CZSealBodyFP14CCompassAnchor */
+unsigned char CZSealBody::CompassAnchor_MPBase(CCompassAnchor *)
+{
+}
+
+/* @socom-skeleton stub CompassAnchor_Hostage__10CZSealBodyFP14CCompassAnchor */
+unsigned char CZSealBody::CompassAnchor_Hostage(CCompassAnchor *)
+{
+}
+
+/* @socom-skeleton stub CurrentPickup__10CZSealBodyFv */
+CPickup * CZSealBody::CurrentPickup()
+{
+}
+
+/* @socom-skeleton stub CurrentPickupSecondary__10CZSealBodyFv */
+CPickup * CZSealBody::CurrentPickupSecondary()
+{
+}
+
+/* @socom-skeleton stub SetCurZoomState__10CZSealBodyF9ZOOMSTATE */
+void CZSealBody::SetCurZoomState(ZOOMSTATE)
+{
+}
+
+/* @socom-skeleton stub IncrZoomState__10CZSealBodyFv */
+ZOOMSTATE CZSealBody::IncrZoomState()
+{
+}
+
+/* @socom-skeleton stub DecrZoomState__10CZSealBodyFv */
+ZOOMSTATE CZSealBody::DecrZoomState()
+{
+}
+
+/* @socom-skeleton stub NetworkPlayerCreate__10CZSealBodyFv */
+void CZSealBody::NetworkPlayerCreate()
+{
+}
+
+/* @socom-skeleton stub MakeGhost__10CZSealBodyFv */
+void CZSealBody::MakeGhost()
+{
+}
+
+/* @socom-skeleton stub UnMakeGhost__10CZSealBodyFv */
+void CZSealBody::UnMakeGhost()
+{
+}
+
+/* @socom-skeleton stub OpenHeartbeatSounds__10CZSealBodyFv */
+void CZSealBody::OpenHeartbeatSounds()
+{
+}
+
+/* @socom-skeleton stub CloseHeartbeatSounds__10CZSealBodyFv */
+void CZSealBody::CloseHeartbeatSounds()
+{
+}
+
+/* @socom-skeleton body StopAllHeartbeatSounds__10CZSealBodyFv */
 void CZSealBody::StopAllHeartbeatSounds()
 {
     if (m_heartbeat_sndisnt)
@@ -405,4 +1139,9 @@ void CZSealBody::StopAllHeartbeatSounds()
         m_heartbeat_sndisnt = NULL;
         m_heartbeat_curindex = 0xffffffff;
     }
+}
+
+/* @socom-skeleton stub TickHeartbeat__10CZSealBodyFv */
+void CZSealBody::TickHeartbeat()
+{
 }

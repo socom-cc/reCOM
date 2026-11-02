@@ -36,3 +36,85 @@
  * @socom-artifact defines main socom:data:0x476c44
  * @socom-artifact defines main socom:data:0x563070
  * socom-owner-annotations end socom:work:source-segment-076 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zFTS/fts_state.h"
+#include "gamez/zSeal/zseal.h"
+#include "gamez/zUtil/util_stable.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CZAnimZAR;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub c_arrStatFuncs__23@unnamed@st_mpexit_cpp@ */
+namespace {
+const void c_arrStatFuncs[6] = {0};
+}
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+std::__nInit std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+std::__wInit std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub animfile__23@unnamed@st_mpexit_cpp@ */
+namespace {
+CZAnimZAR *animfile;
+}
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static CSTable MultiplayerMsgStrings;
+
+/* @socom-skeleton stub CompareSeals__23@unnamed@st_mpexit_cpp@FP10CZSealBodyP10CZSealBody */
+namespace {
+bool CompareSeals(CZSealBody *, CZSealBody *)
+{
+}
+}
+
+/* @socom-skeleton stub SetFinalTeamTotalsUiVar__23@unnamed@st_mpexit_cpp@FbPCc */
+namespace {
+void SetFinalTeamTotalsUiVar(bool, const char *)
+{
+}
+}
+
+/* @socom-skeleton stub SetMpStatUiVars__23@unnamed@st_mpexit_cpp@Fv */
+namespace {
+void SetMpStatUiVars()
+{
+}
+}
+
+/* @socom-skeleton stub SetStatLbUiVar__23@unnamed@st_mpexit_cpp@FbPCcM10CZSealBodyFPCvPv_R10CSealStats */
+namespace {
+void SetStatLbUiVar(bool, const char *, CSealStats &(CZSealBody::*)())
+{
+}
+}
+
+/* @socom-skeleton stub TickMpStats__23@unnamed@st_mpexit_cpp@Fv */
+namespace {
+void TickMpStats()
+{
+}
+}
+
+/* @socom-skeleton stub __ct__12CMPExitStateFv */
+CMPExitState::CMPExitState()
+{
+}
+
+/* @socom-skeleton body Init__12CMPExitStateFv */
+unsigned char CMPExitState::Init() { return true; }
+
+/* @socom-skeleton body Tick__12CMPExitStateFf */
+unsigned char CMPExitState::Tick(float dT) {}
+
+/* @socom-skeleton body UnInit__12CMPExitStateFv */
+void CMPExitState::UnInit() {}
+
+/* @socom-skeleton stub LoadLibs__12CMPExitStateFv */
+void CMPExitState::LoadLibs()
+{
+}

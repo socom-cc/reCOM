@@ -26,3 +26,34 @@
  * @socom-artifact defines main socom:data:0x47692c
  * @socom-artifact defines main socom:data:0x476930
  * socom-owner-annotations end socom:work:source-segment-056 */
+
+/* @socom-skeleton stub _pSoundTuner */
+int _pSoundTuner;
+
+/* @socom-skeleton stub _pMusicTuner */
+int _pMusicTuner;
+
+/* @socom-skeleton stub _pBrightnessTuner */
+int _pBrightnessTuner;
+
+/* @socom-skeleton stub _pStickSensitivityTuner */
+int _pStickSensitivityTuner;
+
+/* @socom-skeleton stub _pStickAccelerationTuner */
+int _pStickAccelerationTuner;
+
+/* @socom-skeleton stub _pStickDeadZoneTuner */
+int _pStickDeadZoneTuner;
+
+/* @socom-skeleton stub _pDialogTuner */
+int _pDialogTuner;
+
+/* @socom-skeleton stub InitSystemTuners__Fv */
+void InitSystemTuners()
+{
+}
+
+/* @socom-skeleton stub UninitSystemTuners__Fv */
+void UninitSystemTuners()
+{
+}

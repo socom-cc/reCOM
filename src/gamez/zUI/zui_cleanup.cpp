@@ -69,3 +69,191 @@
  * @socom-artifact defines main socom:function:0x3a1c00
  * @socom-artifact emits main socom:function:0x3a1c10
  * socom-owner-annotations end socom:work:source-segment-056 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zReader/zrdr.h"
+#include "gamez/zTwoD/ztwod.h"
+#include "zui.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+namespace zdb {
+class CTextureRelocMgr;
+}
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub __dt__10ActionItemFv */
+ActionItem::~ActionItem()
+{
+}
+
+/* @socom-skeleton stub __ct__11CDlgObjSpecFR11CDlgObjSpec */
+CDlgObjSpec::CDlgObjSpec(CDlgObjSpec &)
+{
+}
+
+/* @socom-skeleton stub __dt__11CDlgObjSpecFv */
+CDlgObjSpec::~CDlgObjSpec()
+{
+}
+
+/* @socom-skeleton stub Copy__11CButtonSpecFv */
+void CButtonSpec::Copy()
+{
+}
+
+/* @socom-skeleton stub Copy__10CImageSpecFv */
+void CImageSpec::Copy()
+{
+}
+
+/* @socom-skeleton stub Copy__9CTextSpecFv */
+void CTextSpec::Copy()
+{
+}
+
+/* @socom-skeleton stub CreateDisplayObj__9CTextSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
+void CTextSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+{
+}
+
+/* @socom-skeleton stub Copy__8CTtySpecFv */
+void CTtySpec::Copy()
+{
+}
+
+/* @socom-skeleton stub CreateDisplayObj__8CTtySpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
+void CTtySpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+{
+}
+
+/* @socom-skeleton stub Copy__9CWrapSpecFv */
+void CWrapSpec::Copy()
+{
+}
+
+/* @socom-skeleton stub CreateDisplayObj__9CWrapSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
+void CWrapSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+{
+}
+
+/* @socom-skeleton stub Copy__11CScrollSpecFv */
+void CScrollSpec::Copy()
+{
+}
+
+/* @socom-skeleton stub CreateDisplayObj__11CScrollSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
+void CScrollSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+{
+}
+
+/* @socom-skeleton stub __dt__18CHandlerButtonSpecFv */
+CHandlerButtonSpec::~CHandlerButtonSpec()
+{
+}
+
+/* @socom-skeleton stub Copy__18CHandlerButtonSpecFv */
+void CHandlerButtonSpec::Copy()
+{
+}
+
+/* @socom-skeleton stub CreateDisplayObj__18CHandlerButtonSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
+void CHandlerButtonSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+{
+}
+
+/* @socom-skeleton stub Copy__14CUIListBoxSpecFv */
+void CUIListBoxSpec::Copy()
+{
+}
+
+/* @socom-skeleton stub Copy__14CSliderBarSpecFv */
+void CSliderBarSpec::Copy()
+{
+}
+
+/* @socom-skeleton stub Copy__17CHProgressBarSpecFv */
+void CHProgressBarSpec::Copy()
+{
+}
+
+/* @socom-skeleton stub Copy__13CCheckBoxSpecFv */
+void CCheckBoxSpec::Copy()
+{
+}
+
+/* @socom-skeleton stub Copy__11CTickerSpecFv */
+void CTickerSpec::Copy()
+{
+}
+
+/* @socom-skeleton stub CreateDisplayObj__11CTickerSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
+void CTickerSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+{
+}
+
+/* @socom-skeleton stub Copy__16CCycleButtonSpecFv */
+void CCycleButtonSpec::Copy()
+{
+}
+
+/* @socom-skeleton stub CreateDisplayObj__16CCycleButtonSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
+void CCycleButtonSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+{
+}
+
+/* @socom-skeleton stub Copy__15CRadioStripSpecFv */
+void CRadioStripSpec::Copy()
+{
+}
+
+/* @socom-skeleton stub CreateDisplayObj__15CRadioStripSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
+void CRadioStripSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+{
+}
+
+/* @socom-skeleton stub __dt__15CRadioStripSpecFv */
+CRadioStripSpec::~CRadioStripSpec()
+{
+}
+
+/* @socom-skeleton stub Copy__14CUIMapCtrlSpecFv */
+void CUIMapCtrlSpec::Copy()
+{
+}
+
+/* @socom-skeleton body __ct__15CUIVariableSpecFP5_zrdr */
+CUIVariableSpec::CUIVariableSpec(_zrdr* reader)
+{
+    m_name = zrdr_findstring(reader, "NAME");
+    m_array = NULL;
+    m_stable = CSTable(0, 1024);
+
+    _zrdr* var_value = zrdr_findtag(reader, "VALUE");
+
+    if (var_value && var_value->type == ZRDR_ARRAY && var_value->array->integer == 2)
+    {
+        if (var_value->array->integer == 1)
+        {
+            var_value = NULL;
+        }
+        else
+        {
+            var_value = &var_value[1];
+        }
+    }
+
+    if (var_value)
+    {
+        // m_array = new _zrdr(var_value, m_stable);
+    }
+}
+
+/* @socom-skeleton stub __ct__15CUIVariableSpecFP15CUIVariableSpec */
+CUIVariableSpec::CUIVariableSpec(CUIVariableSpec *)
+{
+}
+
+/* @socom-skeleton stub __dt__15CUIVariableSpecFv */
+CUIVariableSpec::~CUIVariableSpec()
+{
+}

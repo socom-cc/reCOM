@@ -24,8 +24,83 @@
 
 #include "zseal.h"
 
-void CZSealBody::SetupGear()
+/* @socom-skeleton decl include */
+#include "gamez/zCharacter/zchar.h"
+#include "gamez/zNode/znode.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub GetSeal__10CZSealBodyFPQ23zdb5CNode */
+CZSealBody * CZSealBody::GetSeal(zdb::CNode *)
 {
-	m_rifle_as_gear = FindGear("rifle");
-	m_pistol_as_gear = FindGear("pistol");
+}
+
+/* @socom-skeleton stub PreCreateSeal__10CZSealBodyFPC14CCharacterTypePCcPPQ23zdb5CNode */
+CCharacterType * CZSealBody::PreCreateSeal(const CCharacterType *, const char *, zdb::CNode **)
+{
+}
+
+/* @socom-skeleton body FindGear__10CZSealBodyFPCc */
+CCharacterGear* CZSealBody::FindGear(const char* name)
+{
+	for (auto i = CCharacterType::m_gear_list.begin(); i != CCharacterType::m_gear_list.end(); ++i)
+	{
+		CCharacterGear* gear = *i;
+		if (!strcmp(name, gear->m_name))
+			return gear;
+	}
+
+	return NULL;
+}
+
+/* @socom-skeleton stub PostCreateSeal__10CZSealBodyFP10CZSealBodyP9CSealCtrl */
+void CZSealBody::PostCreateSeal(CZSealBody *, CSealCtrl *)
+{
+	/* @socom-skeleton stub debug_uberii$2314 */
+	static int debug_uberii;
+	/* @socom-skeleton stub maxShadow$2345 */
+	static int maxShadow;
+}
+
+/* @socom-skeleton stub ReCreate__10CZSealBodyFP10CZSealBodyPC14CCharacterType */
+bool CZSealBody::ReCreate(CZSealBody *, const CCharacterType *)
+{
+}
+
+/* @socom-skeleton stub Create__10CZSealBodyFPC14CCharacterTypePCcP9CSealCtrl */
+CZSealBody * CZSealBody::Create(const CCharacterType *, const char *, CSealCtrl *)
+{
+}
+
+/* @socom-skeleton stub Destroy__10CZSealBodyFP10CZSealBody */
+void CZSealBody::Destroy(CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub DeleteCameraEffectsNode__10CZSealBodyFv */
+void CZSealBody::DeleteCameraEffectsNode()
+{
+}
+
+/* @socom-skeleton body GetCharacter__10CZSealBodyFv */
+CCharacterType * CZSealBody::GetCharacter()
+{
+    return m_charType;
+}
+
+/* @socom-skeleton stub CreateRemoteSeal__10CZSealBodyFiiPCciPcUcPUc */
+CZSealBody * CZSealBody::CreateRemoteSeal(int, int, const char *, int, char *, unsigned char, unsigned char *)
+{
+}
+
+/* @socom-skeleton stub DoRespawn__10CZSealBodyFv */
+void CZSealBody::DoRespawn()
+{
+}
+
+/* @socom-skeleton stub RemoteRespawn__10CZSealBodyFb */
+void CZSealBody::RemoteRespawn(bool)
+{
 }

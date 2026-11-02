@@ -19,3 +19,32 @@
  * @socom-artifact emits main socom:function:0x232620
  * @socom-artifact defines main socom:data:0x475be4
  * socom-owner-annotations end socom:work:source-segment-028 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zTexture/ztex.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub m_ripplefreepool__Q23zdb7CRipple */
+namespace zdb {
+int CRipple::m_ripplefreepool;
+}
+
+/* @socom-skeleton stub m_ripplepool__Q23zdb7CRipple */
+namespace zdb {
+unsigned char CRipple::m_ripplepool[12];
+}
+
+/* @socom-skeleton stub Init__Q23zdb7CRippleFv */
+void zdb::CRipple::Init()
+{
+}
+
+/* @socom-skeleton stub Uninit__Q23zdb7CRippleFv */
+void zdb::CRipple::Uninit()
+{
+}
+
+/* @socom-skeleton stub Tick__Q23zdb7CRippleFf */
+void zdb::CRipple::Tick(float)
+{
+}

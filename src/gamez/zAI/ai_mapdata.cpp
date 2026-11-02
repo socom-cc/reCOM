@@ -47,3 +47,136 @@
  * @socom-artifact defines main socom:data:0x475760
  * @socom-artifact defines main socom:data:0x475764
  * socom-owner-annotations end socom:work:source-segment-016 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zReader/zrdr.h"
+#include "zai.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub offset_length__Q26CAiMap6action */
+const float CAiMap::action::offset_length = 0.75f;
+
+/* @socom-skeleton stub AllocEx__6CAiMapFUi */
+char * CAiMap::AllocEx(unsigned int)
+{
+}
+
+/* @socom-skeleton stub FreeEx__6CAiMapFv */
+void CAiMap::FreeEx()
+{
+}
+
+/* @socom-skeleton stub GetMapEx__6CAiMapFRC9CAiMapLoc */
+void CAiMap::GetMapEx(const CAiMapLoc &)
+{
+}
+
+/* @socom-skeleton stub ValidateName__Q26CAiMap4nameFv */
+void CAiMap::name::ValidateName()
+{
+}
+
+/* @socom-skeleton stub GetCellName__6CAiMapFRC9CAiMapLoc */
+CAiMap::name * CAiMap::GetCellName(const CAiMapLoc &)
+{
+}
+
+/* @socom-skeleton stub SortByNames__Q26CAiMap5namesFv */
+void CAiMap::names::SortByNames()
+{
+}
+
+/* @socom-skeleton stub GetLocation__6CAiMapCFPCcR9CAiMapLoc */
+void CAiMap::GetLocation(const char *, CAiMapLoc &) const
+{
+}
+
+/* @socom-skeleton stub GetCellAction__6CAiMapFRC9CAiMapLoc */
+void CAiMap::GetCellAction(const CAiMapLoc &)
+{
+}
+
+/* @socom-skeleton stub FindActionLocation__6CAiMapFUiR9CAiMapLocPPQ26CAiMap6action */
+void CAiMap::FindActionLocation(unsigned int, CAiMapLoc &, CAiMap::action **)
+{
+}
+
+/* @socom-skeleton stub SetCellLink__6CAiMapFRC9CAiMapLocb */
+CAiMap::link * CAiMap::SetCellLink(const CAiMapLoc &, bool)
+{
+}
+
+/* @socom-skeleton stub GetCellLink__6CAiMapFRC9CAiMapLoc */
+CAiMap::link * CAiMap::GetCellLink(const CAiMapLoc &)
+{
+}
+
+/* @socom-skeleton stub GetRegion__6CAiMapFRC9CAiMapLoc */
+CAiMap::region * CAiMap::GetRegion(const CAiMapLoc &)
+{
+}
+
+/* @socom-skeleton stub GetRegion__6CAiMapFPCcR9CAiMapLoc */
+CAiMap::region * CAiMap::GetRegion(const char *, CAiMapLoc &)
+{
+}
+
+/* @socom-skeleton stub GetRegionContaining__6CAiMapFRC9CAiMapLocQ36CAiMap6region4TYPEb */
+void CAiMap::GetRegionContaining(const CAiMapLoc &, CAiMap::region::TYPE, bool)
+{
+}
+
+/* @socom-skeleton stub InflateRegion__Q26CAiMap6regionFiiiiPC6CAiMap */
+void CAiMap::region::InflateRegion(int, int, int, int, const CAiMap *)
+{
+}
+
+/* @socom-skeleton stub Union__Q26CAiMap6regionFRC9CAiMapLoc */
+void CAiMap::region::Union(const CAiMapLoc &)
+{
+}
+
+/* @socom-skeleton stub GetCenter__Q26CAiMap6regionCFR9CAiMapLoc */
+CAiMapLoc * CAiMap::region::GetCenter(CAiMapLoc &) const
+{
+}
+
+/* @socom-skeleton stub __ct__Q26CAiMap6readerFv */
+CAiMap::reader::reader()
+{
+}
+
+/* @socom-skeleton stub __dt__Q26CAiMap7readersFv */
+CAiMap::readers::~readers()
+{
+}
+
+/* @socom-skeleton stub SetReader__Q26CAiMap6readerFP8CRdrFile */
+void CAiMap::reader::SetReader(CRdrFile *)
+{
+}
+
+/* @socom-skeleton stub ReRoute__6CAiMapFPQ26CAiMap5route */
+void CAiMap::ReRoute(CAiMap::route *)
+{
+}
+
+/* @socom-skeleton stub _invalid_route__FRQ26CAiMap5route */
+bool _invalid_route(CAiMap::route &)
+{
+}
+
+/* @socom-skeleton stub ValidateRoutes__6CAiMapFb */
+void CAiMap::ValidateRoutes(bool)
+{
+}
+
+/* @socom-skeleton stub CreateGraph__6CAiMapFb */
+void CAiMap::CreateGraph(bool)
+{
+}
+
+/* @socom-skeleton stub DestroyGraph__6CAiMapFv */
+void CAiMap::DestroyGraph()
+{
+}

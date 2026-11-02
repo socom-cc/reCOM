@@ -42,23 +42,47 @@ extern CZAnimZAR* animfile = NULL;
 
 bool LoadWorld(const char* name);
 
-CMenuState::CMenuState()
-{
-	m_name = zstrdup("MenuState");
-	m_skip = 0;
-	m_skip_swap = 0;
+/* @socom-skeleton decl include */
+#include "gamez/zFTS/fts_state.h"
+#include "gamez/zUI/zui.h"
+#include "gamez/zUtil/util_stable.h"
+#include "gamez/zUtil/zutil.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CDblBufTextureRelocator;
+class CZAnimZAR;
+/* @socom-skeleton end forward */
 
-	TtySoundString = CSaferStr();
-	BackSoundString = CSaferStr();
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+std::__nInit std::__msl_ios_base_ninit;
 
-	SelectionSound = NULL;
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+std::__wInit std::__msl_ios_base_winit;
 
-	strncpy(m_DefaultMenu, "dlgIntroScreen.rdr", 64);
-
-	TtySoundString.reserve(64);
-	BackSoundString.reserve(64);
+/* @socom-skeleton stub g_pSkbLib__21@unnamed@st_menu_cpp@ */
+namespace {
+zdb::CAssetLib *g_pSkbLib;
 }
 
+/* @socom-skeleton stub animfile__21@unnamed@st_menu_cpp@ */
+namespace {
+CZAnimZAR *animfile;
+}
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static CSTable MultiplayerMsgStrings;
+
+/* @socom-skeleton stub g_relocDblBuf__21@unnamed@st_menu_cpp@ */
+namespace {
+CDblBufTextureRelocator g_relocDblBuf;
+}
+
+/* @socom-skeleton stub IOPRebootHandler__FQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv */
+unsigned char IOPRebootHandler(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *)
+{
+}
+
+/* @socom-skeleton body Init__10CMenuStateFv */
 bool CMenuState::Init()
 {
 	CInput::Flush();
@@ -121,6 +145,12 @@ bool CMenuState::Init()
 	return true;
 }
 
+/* @socom-skeleton stub SetSkipMenu__10CMenuStateFb */
+void CMenuState::SetSkipMenu(bool)
+{
+}
+
+/* @socom-skeleton body Tick__10CMenuStateFf */
 void CMenuState::Tick(f32 dT)
 {
 	m_menu->Tick(dT);
@@ -131,4 +161,32 @@ void CMenuState::Tick(f32 dT)
 
 	zVid_ClearColor(0.0f, 0.0f, 0.0f);
 	zVid_Swap(false);
+}
+
+/* @socom-skeleton stub OnPush__10CMenuStateFi */
+void CMenuState::OnPush(int)
+{
+}
+
+/* @socom-skeleton stub OnPop__10CMenuStateFi */
+void CMenuState::OnPop(int)
+{
+}
+
+/* @socom-skeleton body UnInit__10CMenuStateFv */
+void CMenuState::UnInit() {}
+
+/* @socom-skeleton stub RunEventAnim__10CMenuStateFPCcPCc */
+unsigned char CMenuState::RunEventAnim(const char *, const char *)
+{
+}
+
+/* @socom-skeleton stub HaltBackgroundMPEG__10CMenuStateFv */
+void CMenuState::HaltBackgroundMPEG()
+{
+}
+
+/* @socom-skeleton stub RestartBackgroundMPEG__10CMenuStateFv */
+void CMenuState::RestartBackgroundMPEG()
+{
 }

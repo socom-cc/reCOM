@@ -29,8 +29,22 @@
 
 #include "zvalve.h"
 
-std::list<CValve*> CValve::m_list;
+/* @socom-skeleton decl include */
+#include "gamez/zReader/zrdr.h"
+/* @socom-skeleton end include */
 
+/* @socom-skeleton stub m_list__6CValve */
+std::list<CValve *, std::allocator<CValve *> > CValve::m_list;
+
+/* @socom-skeleton stub valvePool */
+static unsigned char valvePool[28];
+
+/* @socom-skeleton stub FlushNames__10CValvePoolFb */
+void CValvePool::FlushNames(bool)
+{
+}
+
+/* @socom-skeleton body Acquire__10CValvePoolFPCc10VALVE_TYPE */
 CValve* CValvePool::Acquire(const char* name, VALVE_TYPE type)
 {
     CValve* valve = NULL;
@@ -98,4 +112,235 @@ CValve* CValvePool::Acquire(const char* name, VALVE_TYPE type)
     }
 
     return valve;
+}
+
+/* @socom-skeleton stub Release__10CValvePoolFP6CValve */
+void CValvePool::Release(CValve *)
+{
+}
+
+/* @socom-skeleton body Create__6CValveFPCcUi10VALVE_TYPE */
+CValve * CValve::Create(const char *name, unsigned int count, VALVE_TYPE type)
+{
+	return NULL;
+}
+
+/* @socom-skeleton body Create__6CValveFPCc10VALVE_TYPE */
+CValve* CValve::Create(const char* name, VALVE_TYPE type)
+{
+	CValve* valve = NULL;
+
+	if (name == NULL)
+	{
+		return NULL;
+	}
+
+	for (auto it = m_list.begin(); it != m_list.end(); ++it)
+	{
+		CValve* curValve = *it;
+		const char* valveName = curValve->m_name;
+
+		if (valveName != NULL && strcmp(valveName, name) == 0)
+		{
+			valve = curValve;
+		}
+	}
+	
+	if (valve == NULL)
+	{
+		valve = valvePool.Acquire(name, type);
+		m_list.insert(m_list.begin(), valve);
+	}
+	else
+	{
+		if (type == VALVE_TYPE::VTYPE_PERM && valve->m_type != (u32)VALVE_TYPE::VTYPE_PERSIST)
+		{
+			valve->m_type = (u32)VALVE_TYPE::VTYPE_PERM;
+		}
+
+		if (type == VALVE_TYPE::VTYPE_PERSIST)
+		{
+			valve->m_type = (u32)VALVE_TYPE::VTYPE_PERSIST;
+		}
+	}
+
+	return valve;
+}
+
+/* @socom-skeleton stub Destroy__6CValveFP6CValve */
+void CValve::Destroy(CValve *)
+{
+}
+
+/* @socom-skeleton body GetByName__6CValveFPCc */
+CValve* CValve::GetByName(const char* name)
+{
+	if (name)
+	{
+		auto it = m_list.begin();
+		while (it != m_list.end())
+		{
+			CValve* current = *it;
+
+			if (strcmp(current->m_name, name) == 0)
+			{
+				return current;
+			}
+			
+			++it;
+		}
+	}
+
+	return NULL;
+}
+
+/* @socom-skeleton body Init__6CValveFv */
+void CValve::Init() { }
+
+/* @socom-skeleton stub Uninit__6CValveFv */
+void CValve::Uninit()
+{
+}
+
+/* @socom-skeleton body Open__6CValveFPCc10VALVE_TYPE */
+bool CValve::Open(const char* name, VALVE_TYPE type)
+{
+	if (name)
+	{
+		CRdrFile* file = zrdr_read(name);
+		Parse(file, type);
+		zrdr_free(file);
+	}
+
+	if (valvePool.empty())
+	{
+		valvePool.reserve(256);
+
+		for (u32 i = 0; i < 256; i++)
+		{
+			CValve* valve = new CValve(NULL, 0, VALVE_TYPE::VTYPE_TEMP);
+			valve->m_name_pooled = true;
+			valve->m_pooled = true;
+			valve->m_type = (u32)VALVE_TYPE::VTYPE_PERM;
+			valve->m_value = 1;
+			valvePool.insert(valvePool.end(), valve);
+		}
+	}
+	
+	return true;
+}
+
+/* @socom-skeleton stub Reset__6CValveFv */
+void CValve::Reset()
+{
+}
+
+/* @socom-skeleton stub Close__6CValveFv */
+void CValve::Close()
+{
+}
+
+/* @socom-skeleton body Parse__6CValveFP8CRdrFile10VALVE_TYPE */
+bool CValve::Parse(CRdrFile *reader, VALVE_TYPE type)
+{
+	CValve* valve = NULL;
+	_zrdr* valves = zrdr_findtag(reader, "valves");
+
+	if (valves)
+	{
+		s32 idx = 1;
+		
+		if (valves->array->integer > 1)
+		{
+			do
+			{
+				VALVE_STATE vstate;
+				char* name = NULL;
+				s32 value = 0;
+				char* valve_type = NULL;
+				
+				_zrdr* node = &valves->array[idx];
+
+				name = zrdr_findstring(node, "name");
+				zrdr_findint(node, "value", &value);
+				valve_type = zrdr_findstring(node, "type");
+
+				VALVE_TYPE rdr_valve_type = VALVE_TYPE::VTYPE_NONE;
+
+				if (valve_type)
+				{
+					if (strcmp(valve_type, "PERM") == 0)
+					{
+						rdr_valve_type = VALVE_TYPE::VTYPE_PERM;
+					}
+					else if (strcmp(valve_type, "TEMP") == 0)
+					{
+						rdr_valve_type = VALVE_TYPE::VTYPE_TEMP;
+					}
+					else if (strcmp(valve_type, "PERSIST") == 0)
+					{
+						rdr_valve_type = VALVE_TYPE::VTYPE_PERSIST;
+					}
+				}
+
+				if (!name)
+				{
+					valve = NULL;
+				}
+				else
+				{
+					valve = GetByName(name);
+				}
+
+				if (!valve)
+				{
+					valve = valvePool.Acquire(name, type);
+					vstate = VALVE_STATE::VSTATE_DORMANT;
+
+					if (value != 0)
+					{
+						vstate = VALVE_STATE::VSTATE_PERMANENT;
+					}
+					
+					if (valve->m_value != value)
+					{
+						vstate = VALVE_STATE::VSTATE_TEMPORARY;
+					}
+
+					valve->m_value = value;
+
+					if (vstate != VALVE_STATE::VSTATE_DORMANT)
+					{
+						// valve->MakeCallbacks(vstate);
+					}
+
+					m_list.insert(m_list.begin(), valve);
+				}
+				
+				idx++;
+			}
+			while (idx < valves->array->integer);
+		}
+	}
+	
+	return true;
+}
+
+/* @socom-skeleton body MakeCallbacks__6CValveF11VALVE_STATE */
+void CValve::MakeCallbacks(VALVE_STATE state) {}
+
+/* @socom-skeleton body AddCallback__6CValveFUiPFP6CValvePv_vPv */
+void* CValve::AddCallback(size_t size, void(*callback)(CValve*, void*), void* buffer)
+{
+	m_callbacks.m_list.insert(m_callbacks.m_list.begin(), callback);
+	return callback;
+}
+
+/* @socom-skeleton body DeleteCallbacks__6CValveFv */
+void CValve::DeleteCallbacks()
+{
+	for (auto it = m_callbacks.m_list.begin(); it != m_callbacks.m_list.end(); it++)
+	{
+		m_callbacks.m_list.erase(m_callbacks.m_list.begin());
+	}
 }

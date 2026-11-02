@@ -19,3 +19,79 @@
  * @socom-artifact defines main socom:data:0x4764c4
  * @socom-artifact defines main socom:data:0x50e9e0
  * socom-owner-annotations end socom:work:source-segment-039 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zFTS/zfts.h"
+#include "gamez/zSound/zsnd.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub theHeadsetState__7Headset */
+unsigned char Headset::theHeadsetState;
+
+/* @socom-skeleton stub theHeadset__7Headset */
+int Headset::theHeadset;
+
+/* @socom-skeleton body ftsGetHeadset__7HeadsetFv */
+void * Headset::ftsGetHeadset() { return NULL; }
+
+/* @socom-skeleton stub __ct__7HeadsetFv */
+Headset::Headset()
+{
+}
+
+/* @socom-skeleton stub __dt__7HeadsetFv */
+Headset::~Headset()
+{
+}
+
+/* @socom-skeleton body ftsDeleteHeadset__7HeadsetFv */
+void Headset::ftsDeleteHeadset() {}
+
+/* @socom-skeleton stub Queue__7HeadsetFUiP4CSndi */
+void Headset::Queue(unsigned int, CSnd *, int)
+{
+}
+
+/* @socom-skeleton stub DeQueue__7HeadsetFPPiPUiPP4CSndPi */
+void Headset::DeQueue(int **, unsigned int *, CSnd **, int *)
+{
+}
+
+/* @socom-skeleton stub StaticSoundSysCallback__7HeadsetFUiUl */
+void Headset::StaticSoundSysCallback(unsigned int, unsigned long)
+{
+}
+
+/* @socom-skeleton stub SoundSysCallback__7HeadsetFUi */
+void Headset::SoundSysCallback(unsigned int)
+{
+}
+
+/* @socom-skeleton stub Tick__7HeadsetFf */
+void Headset::Tick(float)
+{
+}
+
+/* @socom-skeleton stub DisconnectedTick__7HeadsetFf */
+void Headset::DisconnectedTick(float)
+{
+}
+
+/* @socom-skeleton stub ConnectedTick__7HeadsetFf */
+void Headset::ConnectedTick(float)
+{
+	/* @socom-skeleton stub soundname$1360 */
+	static unsigned char soundname[60];
+	/* @socom-skeleton stub sound_mod$1363 */
+	static float sound_mod;
+}
+
+/* @socom-skeleton stub Remove__7HeadsetFibb */
+void Headset::Remove(int, bool, bool)
+{
+}
+
+/* @socom-skeleton stub StopSound__7HeadsetFiP4CSnd */
+void Headset::StopSound(int, CSnd *)
+{
+}

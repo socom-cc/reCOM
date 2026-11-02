@@ -17,3 +17,115 @@
  * @socom-artifact defines main socom:function:0x1c2370
  * @socom-artifact defines main socom:function:0x1c23c0
  * socom-owner-annotations end socom:work:source-segment-017 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zReader/zrdr.h"
+#include "zanim.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton body Unload__10CZAnimMainFv */
+bool CZAnimMain::Unload()
+{
+	// CZAnimNameTable::Unload();
+
+	if (m_animset_list)
+	{
+		for (u32 i = 0; i < m_animset_count; i++)
+		{
+			// CZAnimSet::Unload();
+		}
+
+		zfree(m_animset_list);
+		m_animset_list = NULL;
+	}
+
+	m_animset_count = 0;
+	m_CurAnimSet = NULL;
+
+	if (m_cmdset_list)
+	{
+		for (u32 i = 0; i < m_cmdset_count; i++)
+		{
+			// UnloadCmdSet(i);
+		}
+
+		zfree(m_cmdset_list);
+		m_cmdset_list = NULL;
+	}
+
+	m_cmdset_count = 0;
+	m_CurAnim = NULL;
+	m_CurSeq = NULL;
+
+	return true;
+}
+
+/* @socom-skeleton stub UnloadSIScript__10CZAnimMainFP16_zanim_si_script */
+void CZAnimMain::UnloadSIScript(_zanim_si_script *)
+{
+}
+
+/* @socom-skeleton stub UnloadCmdSet__10CZAnimMainFi */
+void CZAnimMain::UnloadCmdSet(int)
+{
+}
+
+/* @socom-skeleton stub Load__10CZAnimMainFPCcPCc */
+void CZAnimMain::Load(const char *, const char *)
+{
+}
+
+/* @socom-skeleton stub AnimLoadZRDFile__10CZAnimMainFPCcPCc */
+void CZAnimMain::AnimLoadZRDFile(const char *, const char *)
+{
+}
+
+/* @socom-skeleton stub AnimLoadAnimList__10CZAnimMainFPCcP5_zrdr */
+void CZAnimMain::AnimLoadAnimList(const char *, _zrdr *)
+{
+}
+
+/* @socom-skeleton stub AnimLoadNameZRDR__10CZAnimMainFP5_zrdrP5_zrdr */
+void CZAnimMain::AnimLoadNameZRDR(_zrdr *, _zrdr *)
+{
+}
+
+/* @socom-skeleton stub AnimLoadAnim__10CZAnimMainFP5_zrdrPci */
+void CZAnimMain::AnimLoadAnim(_zrdr *, char *, int)
+{
+}
+
+/* @socom-skeleton stub AnimLoadSeq__10CZAnimMainFP5_zrdr */
+void CZAnimMain::AnimLoadSeq(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub AnimLoadQuadAlignCmd__10CZAnimMainFPCci */
+void CZAnimMain::AnimLoadQuadAlignCmd(const char *, int)
+{
+}
+
+/* @socom-skeleton stub AnimParseCmd__10CZAnimMainFPCcP5_zrdr */
+_zanim_cmd_hdr * CZAnimMain::AnimParseCmd(const char *, _zrdr *)
+{
+}
+
+/* @socom-skeleton stub LoadZAR__10CZAnimMainFP9CZAnimZARPCc */
+void CZAnimMain::LoadZAR(CZAnimZAR *, const char *)
+{
+}
+
+/* @socom-skeleton stub OpenZAR__10CZAnimMainFPCc */
+CZAnimZAR * CZAnimMain::OpenZAR(const char *)
+{
+}
+
+/* @socom-skeleton stub CloseZAR__10CZAnimMainFP9CZAnimZAR */
+void CZAnimMain::CloseZAR(CZAnimZAR *)
+{
+}
+
+/* @socom-skeleton stub LoadZAR__10CZAnimMainFPCcPCc */
+void CZAnimMain::LoadZAR(const char *, const char *)
+{
+}

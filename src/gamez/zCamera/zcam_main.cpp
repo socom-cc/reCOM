@@ -54,20 +54,53 @@
 #include "gamez/zNode/node_world.h"
 #include "gamez/zSeal/zseal.h"
 
-bool fogCheck = true;
-
 namespace zdb
 {
-	bool CCamera::m_dynamics_controlled = true;
-	bool CCamera::m_do_region_test = true;
 	
-	CCamera::CCamera() : CNode()
+	
+
+}
+
+/* @socom-skeleton decl include */
+#include "gamez/zGrid/zgrid.h"
+#include "gamez/zNode/znode.h"
+#include "gamez/zReader/zrdr.h"
+#include "gamez/zVisual/zvis.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+struct _zanim_cmd_hdr;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub m_dynamics_controlled__Q23zdb7CCamera */
+namespace zdb {
+unsigned char CCamera::m_dynamics_controlled = 1;
+}
+
+/* @socom-skeleton stub m_do_region_test__Q23zdb7CCamera */
+namespace zdb {
+unsigned char CCamera::m_do_region_test = 1;
+}
+
+/* @socom-skeleton stub fogCheck */
+static unsigned char fogCheck = 1;
+
+/* @socom-skeleton body __ct__Q23zdb7CCameraFv */
+namespace zdb {
+CCamera::CCamera() : CNode()
 	{
 		m_yaw = 0.0f;
 		m_pitch = 0.0f;
 	}
-	
-	void CCamera::RegisterAnimCommands()
+}
+
+/* @socom-skeleton stub __dt__Q23zdb7CCameraFv */
+zdb::CCamera::~CCamera()
+{
+}
+
+/* @socom-skeleton body RegisterAnimCommands__Q23zdb7CCameraFv */
+namespace zdb {
+void CCamera::RegisterAnimCommands()
 	{
 		ZAnim.AddCmd("DYNAMICS_RELEASE_CAMERA", CmdParseRelease, NULL, CmdTickControlSwitch, NULL);
 		ZAnim.AddCmd("DYNAMICS_ACQUIRE_CAMERA", CmdParseAcquire, NULL, CmdTickControlSwitch, NULL);
@@ -76,54 +109,29 @@ namespace zdb
 		ZAnim.AddCmd("GET_CAMERA_REGION_TEST", CmdParseGetRegions, NULL, CmdTickGetRegions, NULL);
 		ZAnim.AddCmd("CAMERA_PARAMS", CmdParseParams, CmdBeginParams, CmdTickParams, NULL);
 	}
+}
 
-	void CCamera::CmdBeginParams(_zanim_cmd_hdr* header)
-	{
-		CCamera* worldCamera = zdb::CWorld::m_world->m_camera;
-
-		if (worldCamera != NULL)
-		{
-
-		}
-	}
-
-	_zanim_cmd_hdr* CCamera::CmdParseRelease(_zrdr* reader)
+/* @socom-skeleton body CmdParseRelease__Q23zdb7CCameraFP5_zrdr */
+namespace zdb {
+_zanim_cmd_hdr* CCamera::CmdParseRelease(_zrdr* reader)
 	{
 		_zanim_cmd_hdr* cmd = NULL;
 		return cmd;
 	}
+}
 
-	_zanim_cmd_hdr* CCamera::CmdParseAcquire(_zrdr* reader)
+/* @socom-skeleton body CmdParseAcquire__Q23zdb7CCameraFP5_zrdr */
+namespace zdb {
+_zanim_cmd_hdr* CCamera::CmdParseAcquire(_zrdr* reader)
 	{
 		_zanim_cmd_hdr* cmd = NULL;
 		return cmd;
 	}
+}
 
-	_zanim_cmd_hdr* CCamera::CmdParseIndoorsTest(_zrdr* reader)
-	{
-		_zanim_cmd_hdr* cmd = NULL;
-		return cmd;
-	}
-
-	_zanim_cmd_hdr* CCamera::CmdParseSetRegions(_zrdr* reader)
-	{
-		_zanim_cmd_hdr* cmd = NULL;
-		return cmd;
-	}
-
-	_zanim_cmd_hdr* CCamera::CmdParseGetRegions(_zrdr* reader)
-	{
-		_zanim_cmd_hdr* cmd = NULL;
-		return cmd;
-	}
-
-	_zanim_cmd_hdr* CCamera::CmdParseParams(_zrdr* reader)
-	{
-		_zanim_cmd_hdr* cmd = NULL;
-		return cmd;
-	}
-
-	bool CCamera::CmdTickControlSwitch(_zanim_cmd_hdr* header, f32* dT)
+/* @socom-skeleton body CmdTickControlSwitch__Q23zdb7CCameraFP14_zanim_cmd_hdrPf */
+namespace zdb {
+bool CCamera::CmdTickControlSwitch(_zanim_cmd_hdr* header, f32* dT)
 	{
 		if (header->timeless)
 		{
@@ -136,28 +144,217 @@ namespace zdb
 
 		return true;
 	}
+}
 
-	bool CCamera::CmdTickIndoorsTest(_zanim_cmd_hdr* header, f32* dT)
+/* @socom-skeleton body CmdParseIndoorsTest__Q23zdb7CCameraFP5_zrdr */
+namespace zdb {
+_zanim_cmd_hdr* CCamera::CmdParseIndoorsTest(_zrdr* reader)
+	{
+		_zanim_cmd_hdr* cmd = NULL;
+		return cmd;
+	}
+}
+
+/* @socom-skeleton body CmdTickIndoorsTest__Q23zdb7CCameraFP14_zanim_cmd_hdrPf */
+namespace zdb {
+bool CCamera::CmdTickIndoorsTest(_zanim_cmd_hdr* header, f32* dT)
 	{
 		return true;
 	}
+}
 
-	bool CCamera::CmdTickSetRegions(_zanim_cmd_hdr* header, f32* dT)
+/* @socom-skeleton body CmdParseSetRegions__Q23zdb7CCameraFP5_zrdr */
+namespace zdb {
+_zanim_cmd_hdr* CCamera::CmdParseSetRegions(_zrdr* reader)
+	{
+		_zanim_cmd_hdr* cmd = NULL;
+		return cmd;
+	}
+}
+
+/* @socom-skeleton body CmdTickSetRegions__Q23zdb7CCameraFP14_zanim_cmd_hdrPf */
+namespace zdb {
+bool CCamera::CmdTickSetRegions(_zanim_cmd_hdr* header, f32* dT)
 	{
 		return true;
 	}
+}
 
-	bool CCamera::CmdTickGetRegions(_zanim_cmd_hdr* header, f32* dT)
+/* @socom-skeleton body CmdParseGetRegions__Q23zdb7CCameraFP5_zrdr */
+namespace zdb {
+_zanim_cmd_hdr* CCamera::CmdParseGetRegions(_zrdr* reader)
+	{
+		_zanim_cmd_hdr* cmd = NULL;
+		return cmd;
+	}
+}
+
+/* @socom-skeleton body CmdTickGetRegions__Q23zdb7CCameraFP14_zanim_cmd_hdrPf */
+namespace zdb {
+bool CCamera::CmdTickGetRegions(_zanim_cmd_hdr* header, f32* dT)
 	{
 		return true;
 	}
+}
 
-	bool CCamera::CmdTickParams(_zanim_cmd_hdr* header, f32* dT)
+/* @socom-skeleton body CmdParseParams__Q23zdb7CCameraFP5_zrdr */
+namespace zdb {
+_zanim_cmd_hdr* CCamera::CmdParseParams(_zrdr* reader)
+	{
+		_zanim_cmd_hdr* cmd = NULL;
+		return cmd;
+	}
+}
+
+/* @socom-skeleton body CmdBeginParams__Q23zdb7CCameraFP14_zanim_cmd_hdr */
+namespace zdb {
+void CCamera::CmdBeginParams(_zanim_cmd_hdr* header)
+	{
+		CCamera* worldCamera = zdb::CWorld::m_world->m_camera;
+
+		if (worldCamera != NULL)
+		{
+
+		}
+	}
+}
+
+/* @socom-skeleton body CmdTickParams__Q23zdb7CCameraFP14_zanim_cmd_hdrPf */
+namespace zdb {
+bool CCamera::CmdTickParams(_zanim_cmd_hdr* header, f32* dT)
 	{
 		return true;
 	}
+}
 
-	bool CCamera::TestLandmarkFOG(CPnt3D* pos, f32 radius)
+/* @socom-skeleton body SetHalfHorizontalFOVRadians__Q23zdb7CCameraFf */
+namespace zdb {
+void CCamera::SetHalfHorizontalFOVRadians(f32 radians)
+	{
+		m_hfov = radians;
+		m_sin.x = sinf(radians);
+		m_cos.x = cosf(radians);
+		m_tan.x = m_sin.x / m_cos.x;
+		m_cot.x = 1.0f / m_tan.x;
+		m_scrZ = m_farCorner[0][2] * m_cot.x;
+	}
+}
+
+/* @socom-skeleton stub SetHalfVerticalFOVRadians__Q23zdb7CCameraFf */
+void zdb::CCamera::SetHalfVerticalFOVRadians(float)
+{
+}
+
+/* @socom-skeleton body SetFarClip__Q23zdb7CCameraFf */
+namespace zdb {
+void CCamera::SetFarClip(f32 farclip)
+	{
+		m_far_plane = farclip;
+		m_farCorner[0][1] = farclip;
+	}
+}
+
+/* @socom-skeleton stub SetMidClip__Q23zdb7CCameraFf */
+void zdb::CCamera::SetMidClip(float)
+{
+}
+
+/* @socom-skeleton stub SetNearClip__Q23zdb7CCameraFf */
+void zdb::CCamera::SetNearClip(float)
+{
+}
+
+/* @socom-skeleton stub UpdateFrustum__Q23zdb7CCameraFv */
+void zdb::CCamera::UpdateFrustum()
+{
+}
+
+/* @socom-skeleton stub find_convex_hull_xz__Q23zdb7CCameraFP6CPnt3Di */
+int zdb::CCamera::find_convex_hull_xz(CPnt3D *, int)
+{
+}
+
+/* @socom-skeleton stub theta_x_z__Q23zdb7CCameraFP6CPnt3DP6CPnt3DPfPf */
+void zdb::CCamera::theta_x_z(CPnt3D *, CPnt3D *, float *, float *)
+{
+}
+
+/* @socom-skeleton stub TestFOV__Q23zdb7CCameraFP5PNT4DPUib */
+zdb::tag_ZVIS_FOV zdb::CCamera::TestFOV(PNT4D *, unsigned int *, bool)
+{
+}
+
+/* @socom-skeleton stub SetCameraCanSeeRegions__Q23zdb7CCameraFUi */
+void zdb::CCamera::SetCameraCanSeeRegions(unsigned int)
+{
+}
+
+/* @socom-skeleton stub SetPlayerCanSeeRegions__Q23zdb7CCameraFUi */
+void zdb::CCamera::SetPlayerCanSeeRegions(unsigned int)
+{
+}
+
+/* @socom-skeleton body CanSeeRegion__Q23zdb7CCameraFUi */
+namespace zdb {
+bool CCamera::CanSeeRegion(u32 mask)
+	{
+		if (!mask)
+			mask = 1;
+
+		if (m_do_region_test && (m_SeeRegions & mask) != 0)
+			return true;
+
+		return false;
+	}
+}
+
+/* @socom-skeleton stub PlayerCanSeeRegion__Q23zdb7CCameraFUi */
+unsigned char zdb::CCamera::PlayerCanSeeRegion(unsigned int)
+{
+}
+
+/* @socom-skeleton stub GetPlayerCanSeeRegion__Q23zdb7CCameraFv */
+unsigned int zdb::CCamera::GetPlayerCanSeeRegion()
+{
+}
+
+/* @socom-skeleton stub GetScaledRangeSquared__Q23zdb7CCameraFP6CPnt3D */
+float zdb::CCamera::GetScaledRangeSquared(CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub InsideMidPlane__Q23zdb7CCameraFPQ23zdb5CCell */
+unsigned char zdb::CCamera::InsideMidPlane(zdb::CCell *)
+{
+}
+
+/* @socom-skeleton stub InsideMidPlane__Q23zdb7CCameraFPQ23zdb5CNode */
+unsigned char zdb::CCamera::InsideMidPlane(zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub GetZ__Q23zdb7CCameraFP6CPnt3D */
+float zdb::CCamera::GetZ(CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub GetScaledZSquared__Q23zdb7CCameraFP6CPnt3D */
+float zdb::CCamera::GetScaledZSquared(CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub GetLandmarkFarPlane__Q23zdb7CCameraFPQ23zdb6CWorld */
+void zdb::CCamera::GetLandmarkFarPlane(zdb::CWorld *)
+{
+}
+
+/* @socom-skeleton stub TestFOG__Q23zdb7CCameraFPC6CPnt3Df */
+unsigned char zdb::CCamera::TestFOG(const CPnt3D *, float)
+{
+}
+
+/* @socom-skeleton body TestLandmarkFOG__Q23zdb7CCameraFPC6CPnt3Df */
+unsigned char zdb::CCamera::TestLandmarkFOG(const CPnt3D *pos, float radius)
 	{
 		bool canSee = false;
 
@@ -183,30 +380,7 @@ namespace zdb
 		return canSee || (m_fog_enabled & fogCheck) != 0;
 	}
 
-	bool CCamera::CanSeeRegion(u32 mask)
-	{
-		if (!mask)
-			mask = 1;
-
-		if (m_do_region_test && (m_SeeRegions & mask) != 0)
-			return true;
-
-		return false;
-	}
-
-	void CCamera::SetHalfHorizontalFOVRadians(f32 radians)
-	{
-		m_hfov = radians;
-		m_sin.x = sinf(radians);
-		m_cos.x = cosf(radians);
-		m_tan.x = m_sin.x / m_cos.x;
-		m_cot.x = 1.0f / m_tan.x;
-		m_scrZ = m_farCorner[0][2] * m_cot.x;
-	}
-
-	void CCamera::SetFarClip(f32 farclip)
-	{
-		m_far_plane = farclip;
-		m_farCorner[0][1] = farclip;
-	}
+/* @socom-skeleton stub GetVuMtxSet__Q23zdb7CCameraFv */
+unsigned __int128 * zdb::CCamera::GetVuMtxSet()
+{
 }

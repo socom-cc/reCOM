@@ -32,34 +32,101 @@
 
 #include "zsys_spr.h"
 
-_word128* sprBeingWritten = NULL;
-_word128* sprBeingKicked = NULL;
+/* @socom-skeleton decl include */
+#include "zsys.h"
+/* @socom-skeleton end include */
 
-_word128* zsysSprGetPacket(_word128* packet = NULL)
+/* @socom-skeleton stub mfifoBase */
+static unsigned char mfifoBase[262144] = {0};
+
+/* @socom-skeleton stub mfifoDrainTADR */
+static int mfifoDrainTADR;
+
+/* @socom-skeleton stub sprBeingKicked */
+static _word128 *sprBeingKicked;
+
+/* @socom-skeleton stub sprBeingWritten */
+static _word128 *sprBeingWritten;
+
+/* @socom-skeleton stub InterruptFromVIF0__Fi */
+void InterruptFromVIF0(int)
 {
-	sprBeingWritten = (_word128*)zSys.sprPacketBegin;
-
-	if (sprBeingWritten == sprBeingKicked)
-	{
-		sprBeingWritten = (_word128*)(zSys.sprPx ^ 1);
-		zSys.sprPx ^= 1;
-	}
-
-	if (packet)
-		*packet = (_word128&)zSys.sprPacketEnd[zSys.sprPx - 16];
-
-	zSys.sprPx ^= 1;
-	return sprBeingWritten;
 }
 
-long128* zsys_AllocScratchpad()
+/* @socom-skeleton stub __ct__3CVUFUi */
+CVU::CVU(unsigned int)
 {
-	long128* spr = (long128*)zcalloc(1024, sizeof(long128));
-	zSys.sprPacketBegin = spr;
-	return spr;
 }
 
+/* @socom-skeleton stub __dt__3CVUFv */
+CVU::~CVU()
+{
+}
+
+/* @socom-skeleton stub Code__3CVUFP1Ui */
+void CVU::Code(unsigned __int128 *, unsigned int)
+{
+}
+
+/* @socom-skeleton stub zSysAddDMA__FP1P1 */
+unsigned __int128 * zSysAddDMA(unsigned __int128 *, unsigned __int128 *)
+{
+}
+
+/* @socom-skeleton stub zSysFifoInit__Fv */
+void zSysFifoInit()
+{
+}
+
+/* @socom-skeleton stub zSysFifoDisable__Fv */
+void zSysFifoDisable()
+{
+}
+
+/* @socom-skeleton stub zSysFifoEnable__FUi */
+void zSysFifoEnable(unsigned int)
+{
+}
+
+/* @socom-skeleton stub zSysSprGetPacket__FPP1 */
+void zSysSprGetPacket(unsigned __int128 **)
+{
+}
+
+/* @socom-skeleton body zSysFifoEnd__Fv */
+void zSysFifoEnd()
+{
+
+}
+
+/* @socom-skeleton body zSysFifoKick__FP1Ui */
+void zSysFifoKick(unsigned __int128 *packet, unsigned int qwc)
+{
+
+}
+
+/* @socom-skeleton stub m_sprPacket__4CSPR */
+int CSPR::m_sprPacket;
+
+/* @socom-skeleton stub m_sprPacketEnd__4CSPR */
+int CSPR::m_sprPacketEnd;
+
+/* @socom-skeleton stub m_refCount__3CVU */
+int CVU::m_refCount;
+
+/* @socom-skeleton stub m_VifHandlerID__3CVU */
+int CVU::m_VifHandlerID;
+
+/* @socom-skeleton stub m_running */
+static int m_running;
+
+/* @socom-skeleton body Kick__4CSPRFP8_word128b */
 _word128* CSPR::Kick(_word128* packet, bool doKick)
 {
 	return NULL;
+}
+
+/* @socom-skeleton stub Copy__4CSPRFP8_word128P8_word128i */
+_word128 * CSPR::Copy(_word128 *, _word128 *, int)
+{
 }

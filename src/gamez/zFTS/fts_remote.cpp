@@ -55,3 +55,239 @@
  * @socom-artifact defines main socom:data:0x4c5690
  * @socom-artifact defines main socom:data:0x4c56d0
  * socom-owner-annotations end socom:work:source-segment-076 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "gamez/zSeal/zseal.h"
+#include "zfts.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class AckUnion;
+class R_SEND_TO;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub m_PositionBroadcastSchedule__11CZNetObject */
+unsigned char CZNetObject::m_PositionBroadcastSchedule[24];
+
+/* @socom-skeleton stub m_RotationBroadcastSchedule__11CZNetObject */
+unsigned char CZNetObject::m_RotationBroadcastSchedule[24];
+
+/* @socom-skeleton stub m_FlagsBroadcastSchedule__11CZNetObject */
+unsigned char CZNetObject::m_FlagsBroadcastSchedule[24];
+
+/* @socom-skeleton stub m_FlashBroadcastSchedule__11CZNetObject */
+unsigned char CZNetObject::m_FlashBroadcastSchedule[24];
+
+/* @socom-skeleton stub m_GrenadePosBroadcastSchedule__11CZNetObject */
+unsigned char CZNetObject::m_GrenadePosBroadcastSchedule[24];
+
+/* @socom-skeleton stub m_GrenadeVelBroadcastSchedule__11CZNetObject */
+unsigned char CZNetObject::m_GrenadeVelBroadcastSchedule[24];
+
+/* @socom-skeleton stub zRemoteClientConnectsCallback__FiiPCc */
+void zRemoteClientConnectsCallback(int, int, const char *)
+{
+}
+
+/* @socom-skeleton stub zRemoteClientDisconnectsCallback__FiiPCc */
+void zRemoteClientDisconnectsCallback(int, int, const char *)
+{
+}
+
+/* @socom-skeleton stub zRemoteClientJoinsCallback__Fii */
+void zRemoteClientJoinsCallback(int, int)
+{
+}
+
+/* @socom-skeleton stub zRemoteClientLeavesCallback__Fii */
+void zRemoteClientLeavesCallback(int, int)
+{
+}
+
+/* @socom-skeleton stub zDoClientLeavesCallback__Fi */
+void zDoClientLeavesCallback(int)
+{
+}
+
+/* @socom-skeleton stub zRemoteDelayedAction__FPQ29CZNetwork18TypeRTimeFixStruct */
+void zRemoteDelayedAction(CZNetwork::TypeRTimeFixStruct *)
+{
+}
+
+/* @socom-skeleton stub SaveFireMessage__FP10CZSealBodyPC6CPnt3D */
+void SaveFireMessage(CZSealBody *, const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub SendHitMessage__FiiiffbUc */
+void SendHitMessage(int, int, int, float, float, bool, unsigned char)
+{
+}
+
+/* @socom-skeleton stub HitPacketHandler__FiiiPv */
+void HitPacketHandler(int, int, int, void *)
+{
+}
+
+/* @socom-skeleton stub NetSendPushBlend__FUiiib */
+void NetSendPushBlend(unsigned int, int, int, bool)
+{
+}
+
+/* @socom-skeleton stub PushBlendAnimPacketHandler__FiiiPv */
+void PushBlendAnimPacketHandler(int, int, int, void *)
+{
+}
+
+/* @socom-skeleton stub NetSendAiOrders__FUiUiUiPv */
+void NetSendAiOrders(unsigned int, unsigned int, unsigned int, void *)
+{
+}
+
+/* @socom-skeleton stub AiOrdersPacketHandler__FiiiPv */
+void AiOrdersPacketHandler(int, int, int, void *)
+{
+}
+
+/* @socom-skeleton stub SendZAnimNetworkPacket__FPvi */
+void SendZAnimNetworkPacket(void *, int)
+{
+}
+
+/* @socom-skeleton stub ZAnimNetworkPacketHandler__FiiiPv */
+int ZAnimNetworkPacketHandler(int, int, int, void *)
+{
+}
+
+/* @socom-skeleton stub NetSendActionAnim__FiUiUci */
+void NetSendActionAnim(int, unsigned int, unsigned char, int)
+{
+}
+
+/* @socom-skeleton stub ActionAnimPacketHandler__FiiiPv */
+void ActionAnimPacketHandler(int, int, int, void *)
+{
+}
+
+/* @socom-skeleton stub E3IndexPacketHandler__FiiiPv */
+void E3IndexPacketHandler(int, int, int, void *)
+{
+}
+
+/* @socom-skeleton stub NetSendE3Index__FiUiib */
+void NetSendE3Index(int, unsigned int, int, bool)
+{
+}
+
+/* @socom-skeleton stub TeamSwitchPacketHandler__FiiiPv */
+void TeamSwitchPacketHandler(int, int, int, void *)
+{
+}
+
+/* @socom-skeleton stub NetSendRequestTeamSwitch__Fi */
+void NetSendRequestTeamSwitch(int)
+{
+}
+
+/* @socom-skeleton stub ReadyPacketHandler__FiiiPv */
+void ReadyPacketHandler(int, int, int, void *)
+{
+}
+
+/* @socom-skeleton stub SendMessageMessage__Fi9R_SEND_TOi */
+void SendMessageMessage(int, R_SEND_TO, int)
+{
+}
+
+/* @socom-skeleton stub MessagePacketHandler__FiiiPv */
+void MessagePacketHandler(int, int, int, void *)
+{
+}
+
+/* @socom-skeleton stub ChatPacketHandler__FiiiPv */
+void ChatPacketHandler(int, int, int, void *)
+{
+}
+
+/* @socom-skeleton stub AuxSendChatMsg__FPCcPv */
+void AuxSendChatMsg(const char *, void *)
+{
+}
+
+/* @socom-skeleton stub SendChatMsg__FPCc */
+void SendChatMsg(const char *)
+{
+}
+
+/* @socom-skeleton stub SendWeaponPUMessage__FUsUsP6CPnt3DP5CQuat */
+void SendWeaponPUMessage(unsigned short, unsigned short, CPnt3D *, CQuat *)
+{
+}
+
+/* @socom-skeleton stub WeaponPUPacketHandler__FiiiPv */
+void WeaponPUPacketHandler(int, int, int, void *)
+{
+}
+
+/* @socom-skeleton stub SendAmmoPUMessage__FiPUsPUsUsP6CPnt3D */
+void SendAmmoPUMessage(int, unsigned short *, unsigned short *, unsigned short, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub AmmoPUPacketHandler__FiiiPv */
+void AmmoPUPacketHandler(int, int, int, void *)
+{
+}
+
+/* @socom-skeleton stub SendMayIPickupMessage__FiUsPUsUcUc */
+void SendMayIPickupMessage(int, unsigned short, unsigned short *, unsigned char, unsigned char)
+{
+}
+
+/* @socom-skeleton stub PickupMayIPacketHandler__FiiiPv */
+void PickupMayIPacketHandler(int, int, int, void *)
+{
+}
+
+/* @socom-skeleton stub SendPickupAckMessage__FiUsUc8AckUnion */
+void SendPickupAckMessage(int, unsigned short, unsigned char, AckUnion)
+{
+}
+
+/* @socom-skeleton stub PickupAckPacketHandler__FiiiPv */
+void PickupAckPacketHandler(int, int, int, void *)
+{
+}
+
+/* @socom-skeleton stub SendVoteMessage__Fiib */
+void SendVoteMessage(int, int, bool)
+{
+}
+
+/* @socom-skeleton stub VoterPacketHandler__FiiiPv */
+void VoterPacketHandler(int, int, int, void *)
+{
+}
+
+/* @socom-skeleton stub BombStatePacketHandler__FiiiPv */
+void BombStatePacketHandler(int, int, int, void *)
+{
+}
+
+/* @socom-skeleton stub SendBombStateRequest__FiUcPC6CPnt3D */
+void SendBombStateRequest(int, unsigned char, const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub SendGameSignalMessage__FiUcUcUcib */
+void SendGameSignalMessage(int, unsigned char, unsigned char, unsigned char, int, bool)
+{
+}
+
+/* @socom-skeleton stub GameSignalPacketHandler__FiiiPv */
+void GameSignalPacketHandler(int, int, int, void *)
+{
+}

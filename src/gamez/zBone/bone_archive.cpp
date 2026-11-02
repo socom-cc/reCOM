@@ -4,3 +4,23 @@
  * @socom-artifact defines main socom:function:0x1dd220
  * @socom-artifact defines main socom:function:0x1dd420
  * socom-owner-annotations end socom:work:source-segment-020 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zAnim/zanim.h"
+#include "zbone.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub __dt__14CScriptArchiveFv */
+CScriptArchive::~CScriptArchive()
+{
+}
+
+/* @socom-skeleton stub Fetch__14CScriptArchiveFPCcP10CZSIScriptb */
+void CScriptArchive::Fetch(const char *, CZSIScript *, bool)
+{
+}
+
+/* @socom-skeleton stub LoadAll__14CScriptArchiveFv */
+void CScriptArchive::LoadAll()
+{
+}

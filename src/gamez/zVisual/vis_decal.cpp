@@ -34,39 +34,110 @@
 
 namespace zdb
 {
-    CDecalPool CDecal::m_tempPool;
-    CMeshDecalPool CMeshDecal::m_tempPool;
-
-    void CVisual::ApplyDecal(CDecal* decal)
-    {
-        CDecal* applied = NULL;
-
-        for (auto i = m_decals.begin(); i != m_decals.end(); i++)
-        {
-            if (!(*i))
-                return;
-
-            if ((*i) == decal)
-            {
-                if (!applied)
-                    m_decals[m_decal_idx] = *i;
-                else
-                    applied = *i;
-
-                break;
-            }
-        }
-    }
 
     // TODO: Implement this function
-    void CDecalPool::RecycleTick()
-    {
-
-    }
 
     // TODO: Implement this function
-    void CMeshDecalPool::RecycleTick()
+}
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "gamez/zTexture/ztex.h"
+#include "vis_vector.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+namespace zdb {
+class AddonPoint;
+}
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub m_tempPool__Q23zdb6CDecal */
+namespace zdb {
+int CDecal::m_tempPool[5];
+}
+
+/* @socom-skeleton stub m_permPool__Q23zdb6CDecal */
+namespace zdb {
+int CDecal::m_permPool[5];
+}
+
+/* @socom-skeleton stub m_tempPool__Q23zdb10CMeshDecal */
+namespace zdb {
+int CMeshDecal::m_tempPool[5];
+}
+
+/* @socom-skeleton stub m_permPool__Q23zdb10CMeshDecal */
+namespace zdb {
+int CMeshDecal::m_permPool[5];
+}
+
+/* @socom-skeleton stub UVCompare__3zdbFP6CPnt3DP6CPnt3DP6CPnt3D */
+void zdb::UVCompare(CPnt3D *, CPnt3D *, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub Init__Q23zdb10CDecalPoolFUiUi */
+void zdb::CDecalPool::Init(unsigned int, unsigned int)
+{
+}
+
+/* @socom-skeleton stub Get__Q23zdb10CDecalPoolFb */
+void zdb::CDecalPool::Get(bool)
+{
+}
+
+/* @socom-skeleton body RecycleTick__Q23zdb10CDecalPoolFv */
+namespace zdb {
+void CDecalPool::RecycleTick()
     {
 
     }
+}
+
+/* @socom-skeleton stub PutTempDecal__Q23zdb6CDecalFPQ23zdb6CDecal */
+void zdb::CDecal::PutTempDecal(zdb::CDecal *)
+{
+}
+
+/* @socom-skeleton stub PutPermDecal__Q23zdb6CDecalFPQ23zdb6CDecal */
+void zdb::CDecal::PutPermDecal(zdb::CDecal *)
+{
+}
+
+/* @socom-skeleton stub Init__Q23zdb14CMeshDecalPoolFUiUi */
+void zdb::CMeshDecalPool::Init(unsigned int, unsigned int)
+{
+}
+
+/* @socom-skeleton stub PutTempDecal__Q23zdb10CMeshDecalFPQ23zdb10CMeshDecal */
+void zdb::CMeshDecal::PutTempDecal(zdb::CMeshDecal *)
+{
+}
+
+/* @socom-skeleton body RecycleTick__Q23zdb14CMeshDecalPoolFv */
+namespace zdb {
+void CMeshDecalPool::RecycleTick()
+    {
+
+    }
+}
+
+/* @socom-skeleton stub AddDecal__Q23zdb6CDecalFfPPQ23zdb10AddonPointUiPQ23zdb10CTexHandlePQ23zdb7CVisualUi */
+void zdb::CDecal::AddDecal(float, zdb::AddonPoint **, unsigned int, zdb::CTexHandle *, zdb::CVisual *, unsigned int)
+{
+}
+
+/* @socom-skeleton stub Tick__Q23zdb6CDecalFf */
+void zdb::CDecal::Tick(float)
+{
+}
+
+/* @socom-skeleton stub FreeMem__Q23zdb10CMeshDecalFv */
+void zdb::CMeshDecal::FreeMem()
+{
+}
+
+/* @socom-skeleton stub Uninit__Q23zdb14CMeshDecalPoolFv */
+void zdb::CMeshDecalPool::Uninit()
+{
 }

@@ -9,3 +9,23 @@
  * @socom-artifact defines main socom:function:0x21b800
  * @socom-artifact defines main socom:data:0x44f1f0
  * socom-owner-annotations end socom:work:source-segment-026 */
+
+/* @socom-skeleton decl include */
+#include "zinput.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub cheatTimer__6CCheat */
+const float CCheat::cheatTimer = 1.0f;
+
+/* @socom-skeleton stub m_list__6CCheat */
+int CCheat::m_list[3];
+
+/* @socom-skeleton stub TickAll__6CCheatFfP4CPad */
+void CCheat::TickAll(float, CPad *)
+{
+}
+
+/* @socom-skeleton stub Update__6CCheatFfP4CPad */
+void CCheat::Update(float, CPad *)
+{
+}

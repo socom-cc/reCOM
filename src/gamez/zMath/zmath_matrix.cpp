@@ -27,11 +27,36 @@
 
 #include "zmath.h"
 
-CMatrix::CMatrix()
+/// Transform a matrix by a point.
+
+// TODO: Implement matrix conversion to quaternion
+
+/* @socom-skeleton decl include */
+#include "gamez/zRender/zrender.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub identity__7CMatrix */
+const CMatrix CMatrix::identity = {0};
+
+/* @socom-skeleton stub m_pointer__6CStack */
+CMatrix *CStack::m_pointer = (CMatrix *)0xffffffff;
+
+/* @socom-skeleton body m_top__6CStack */
+CMatrix* CStack::m_top = CStack::m_stack;
+
+/* @socom-skeleton stub m_stack__6CStack */
+CMatrix CStack::m_stack[64];
+
+/* @socom-skeleton body SetRows__7CMatrixFPC6CPnt3DPC6CPnt3DPC6CPnt3DPC6CPnt3D */
+void CMatrix::SetRows(const CPnt3D* m0, const CPnt3D* m1, const CPnt3D* m2, const CPnt3D* m3)
 {
-	*this = CMatrix::identity;
+	if (m0) memcpy(this->m_matrix[0], m0, sizeof(CPnt3D));
+	if (m1) memcpy(this->m_matrix[1], m1, sizeof(CPnt3D));
+	if (m2) memcpy(this->m_matrix[2], m2, sizeof(CPnt3D));
+	if (m3) memcpy(this->m_matrix[3], m3, sizeof(CPnt3D));
 }
 
+/* @socom-skeleton body __ct__7CMatrixFffffffffffffffff */
 CMatrix::CMatrix(f32 m00, f32 m01, f32 m02, f32 m03, f32 m10, f32 m11, f32 m12, f32 m13, f32 m20, f32 m21, f32 m22, f32 m23, f32 m30, f32 m31, f32 m32, f32 m33)
 {
 	m_matrix[0][0] = m00;
@@ -55,150 +80,89 @@ CMatrix::CMatrix(f32 m00, f32 m01, f32 m02, f32 m03, f32 m10, f32 m11, f32 m12, 
 	m_matrix[3][3] = m33;
 }
 
-const float* CMatrix::operator[](const int row)
+/* @socom-skeleton stub SetRotate__7CMatrixFPC6CPnt3D */
+void CMatrix::SetRotate(const CPnt3D *)
 {
-	return m_matrix[row];
 }
 
-const float* CMatrix::GetTranslate() const
+/* @socom-skeleton body ToQuat__7CMatrixCFP5CQuat */
+CQuat * CMatrix::ToQuat(CQuat *q) const
 {
-	return m_matrix[3];
+	*q = CQuat::identity;
 }
 
-/// Transform a matrix by a point.
-void CMatrix::Transform(CPnt3D* point, s32 count)
+/* @socom-skeleton body Vu0MatrixInverseWithUniformScale__FP7CMatrixP7CMatrix */
+void Vu0MatrixInverseWithUniformScale(CMatrix* dst, CMatrix* src)
 {
-	m_matrix[3][0] = point->x;
-	m_matrix[3][1] = point->y;
-	m_matrix[3][2] = point->z;
-	m_matrix[3][3] = 1.0f;
+	f32 s0 = src->m_matrix[0][0] * src->m_matrix[1][1] - src->m_matrix[1][0] * src->m_matrix[0][1];
+	f32 s1 = src->m_matrix[0][0] * src->m_matrix[1][2] - src->m_matrix[1][0] * src->m_matrix[0][2];
+	f32 s2 = src->m_matrix[0][0] * src->m_matrix[1][3] - src->m_matrix[1][0] * src->m_matrix[0][3];
+	f32 s3 = src->m_matrix[0][1] * src->m_matrix[1][2] - src->m_matrix[1][1] * src->m_matrix[0][2];
+	f32 s4 = src->m_matrix[0][1] * src->m_matrix[1][3] - src->m_matrix[1][1] * src->m_matrix[0][3];
+	f32 s5 = src->m_matrix[0][2] * src->m_matrix[1][3] - src->m_matrix[1][2] * src->m_matrix[0][3];
+
+	f32 c5 = src->m_matrix[2][2] * src->m_matrix[3][3] - src->m_matrix[3][2] * src->m_matrix[2][3];
+	f32 c4 = src->m_matrix[2][1] * src->m_matrix[3][3] - src->m_matrix[3][1] * src->m_matrix[2][3];
+	f32 c3 = src->m_matrix[2][1] * src->m_matrix[3][2] - src->m_matrix[3][1] * src->m_matrix[2][2];
+	f32 c2 = src->m_matrix[2][0] * src->m_matrix[3][3] - src->m_matrix[3][0] * src->m_matrix[2][3];
+	f32 c1 = src->m_matrix[2][0] * src->m_matrix[3][2] - src->m_matrix[3][0] * src->m_matrix[2][2];
+	f32 c0 = src->m_matrix[2][0] * src->m_matrix[3][1] - src->m_matrix[3][0] * src->m_matrix[2][1];
+
+	f32 div = (s0 * c5 - s1 * c4 + s2 * c3 + s3 * c2 - s4 * c1 + s5 * c0);
+
+	// Check against divide by zero
+	if (div <= 0.0000000125f)
+		return;
+
+	f32 invdet = 1.0f / div;
+
+	dst->m_matrix[0][0] = (src->m_matrix[1][1] * c5 - src->m_matrix[1][2] * c4 + src->m_matrix[1][3] * c3) * invdet;
+	dst->m_matrix[0][1] = (-src->m_matrix[0][1] * c5 + src->m_matrix[0][2] * c4 - src->m_matrix[0][3] * c3) * invdet;
+	dst->m_matrix[0][2] = (src->m_matrix[3][1] * s5 - src->m_matrix[3][2] * s4 + src->m_matrix[3][3] * s3) * invdet;
+	dst->m_matrix[0][3] = (src->m_matrix[2][1] * s5 - src->m_matrix[2][2] * s4 + src->m_matrix[2][3] * s3) * invdet;
+
+	dst->m_matrix[1][0] = (-src->m_matrix[1][0] * c5 + src->m_matrix[1][2] * c2 - src->m_matrix[1][3] * c1) * invdet;
+	dst->m_matrix[1][1] = (src->m_matrix[0][0] * c5 - src->m_matrix[0][2] * c2 + src->m_matrix[0][3] * c1) * invdet;
+	dst->m_matrix[1][2] = (-src->m_matrix[3][0] * s5 + src->m_matrix[3][2] * s2 - src->m_matrix[3][3] * s1) * invdet;
+	dst->m_matrix[1][3] = (src->m_matrix[2][0] * s5 - src->m_matrix[2][2] * s2 + src->m_matrix[2][3] * s1) * invdet;
+
+	dst->m_matrix[2][0] = (src->m_matrix[1][0] * c4 - src->m_matrix[1][1] * c2 + src->m_matrix[1][3] * c0) * invdet;
+	dst->m_matrix[2][1] = (-src->m_matrix[0][0] * c4 + src->m_matrix[0][1] * c2 - src->m_matrix[0][3] * c0) * invdet;
+	dst->m_matrix[2][2] = (src->m_matrix[3][0] * s4 - src->m_matrix[3][1] * s2 + src->m_matrix[3][3] * s0) * invdet;
+	dst->m_matrix[2][3] = (-src->m_matrix[2][0] * s4 + src->m_matrix[2][1] * s2 - src->m_matrix[2][3] * s0) * invdet;
+
+	dst->m_matrix[3][0] = (-src->m_matrix[1][0] * c3 + src->m_matrix[1][1] * c1 - src->m_matrix[1][2] * c0) * invdet;
+	dst->m_matrix[3][1] = (src->m_matrix[0][0] * c3 - src->m_matrix[0][1] * c1 + src->m_matrix[0][2] * c0) * invdet;
+	dst->m_matrix[3][2] = (-src->m_matrix[3][0] * s3 + src->m_matrix[3][1] * s1 - src->m_matrix[3][2] * s0) * invdet;
+	dst->m_matrix[3][3] = (src->m_matrix[2][0] * s3 - src->m_matrix[2][1] * s1 + src->m_matrix[2][2] * s0) * invdet;
 }
 
-void CMatrix::Multiply(const CMatrix* first, const CMatrix* second)
+/* @socom-skeleton body SetZero__7CMatrixFv */
+void CMatrix::SetZero()
 {
-	// First row
-	m_matrix[0][0] = 
-		(first->m_matrix[0][0] * second->m_matrix[0][0]) + 
-		(first->m_matrix[0][1] * second->m_matrix[1][0]) + 
-		(first->m_matrix[0][2] * second->m_matrix[2][0]) + 
-		(first->m_matrix[0][3] * second->m_matrix[3][0]);
-
-	m_matrix[0][1] =
-		(first->m_matrix[0][0] * second->m_matrix[0][1]) +
-		(first->m_matrix[0][1] * second->m_matrix[1][1]) +
-		(first->m_matrix[0][2] * second->m_matrix[2][1]) +
-		(first->m_matrix[0][3] * second->m_matrix[3][1]);
-
-	m_matrix[0][2] =
-		(first->m_matrix[0][0] * second->m_matrix[0][2]) +
-		(first->m_matrix[0][1] * second->m_matrix[1][2]) +
-		(first->m_matrix[0][2] * second->m_matrix[2][2]) +
-		(first->m_matrix[0][3] * second->m_matrix[3][2]);
-
-	m_matrix[0][3] =
-		(first->m_matrix[0][0] * second->m_matrix[0][3]) +
-		(first->m_matrix[0][1] * second->m_matrix[1][3]) +
-		(first->m_matrix[0][2] * second->m_matrix[2][3]) +
-		(first->m_matrix[0][3] * second->m_matrix[3][3]);
-
-	// Second row
-	m_matrix[1][0] =
-		(first->m_matrix[1][0] * second->m_matrix[0][0]) +
-		(first->m_matrix[1][1] * second->m_matrix[1][0]) +
-		(first->m_matrix[1][2] * second->m_matrix[2][0]) +
-		(first->m_matrix[1][3] * second->m_matrix[3][0]);
-
-	m_matrix[1][1] =
-		(first->m_matrix[1][0] * second->m_matrix[0][1]) +
-		(first->m_matrix[1][1] * second->m_matrix[1][1]) +
-		(first->m_matrix[1][2] * second->m_matrix[2][1]) +
-		(first->m_matrix[1][3] * second->m_matrix[3][1]);
-
-	m_matrix[1][2] =
-		(first->m_matrix[1][0] * second->m_matrix[0][2]) +
-		(first->m_matrix[1][1] * second->m_matrix[1][2]) +
-		(first->m_matrix[1][2] * second->m_matrix[2][2]) +
-		(first->m_matrix[1][3] * second->m_matrix[3][2]);
-
-	m_matrix[1][3] =
-		(first->m_matrix[1][0] * second->m_matrix[0][3]) +
-		(first->m_matrix[1][1] * second->m_matrix[1][3]) +
-		(first->m_matrix[1][2] * second->m_matrix[2][3]) +
-		(first->m_matrix[1][3] * second->m_matrix[3][3]);
-
-	// Third row
-	m_matrix[2][0] =
-		(first->m_matrix[2][0] * second->m_matrix[0][0]) +
-		(first->m_matrix[2][1] * second->m_matrix[1][0]) +
-		(first->m_matrix[2][2] * second->m_matrix[2][0]) +
-		(first->m_matrix[2][3] * second->m_matrix[3][0]);
-
-	m_matrix[2][1] =
-		(first->m_matrix[2][0] * second->m_matrix[0][1]) +
-		(first->m_matrix[2][1] * second->m_matrix[1][1]) +
-		(first->m_matrix[2][2] * second->m_matrix[2][1]) +
-		(first->m_matrix[2][3] * second->m_matrix[3][1]);
-
-	m_matrix[2][2] =
-		(first->m_matrix[2][0] * second->m_matrix[0][2]) +
-		(first->m_matrix[2][1] * second->m_matrix[1][2]) +
-		(first->m_matrix[2][2] * second->m_matrix[2][2]) +
-		(first->m_matrix[2][3] * second->m_matrix[3][2]);
-
-	m_matrix[2][3] =
-		(first->m_matrix[2][0] * second->m_matrix[0][3]) +
-		(first->m_matrix[2][1] * second->m_matrix[1][3]) +
-		(first->m_matrix[2][2] * second->m_matrix[2][3]) +
-		(first->m_matrix[2][3] * second->m_matrix[3][3]);
-
-	// Fourth row
-	m_matrix[3][0] =
-		(first->m_matrix[3][0] * second->m_matrix[0][0]) +
-		(first->m_matrix[3][1] * second->m_matrix[1][0]) +
-		(first->m_matrix[3][2] * second->m_matrix[2][0]) +
-		(first->m_matrix[3][3] * second->m_matrix[3][0]);
-
-	m_matrix[3][1] =
-		(first->m_matrix[3][0] * second->m_matrix[0][1]) +
-		(first->m_matrix[3][1] * second->m_matrix[1][1]) +
-		(first->m_matrix[3][2] * second->m_matrix[2][1]) +
-		(first->m_matrix[3][3] * second->m_matrix[3][1]);
-
-	m_matrix[3][2] =
-		(first->m_matrix[3][0] * second->m_matrix[0][2]) +
-		(first->m_matrix[3][1] * second->m_matrix[1][2]) +
-		(first->m_matrix[3][2] * second->m_matrix[2][2]) +
-		(first->m_matrix[3][3] * second->m_matrix[3][2]);
-
-	m_matrix[3][3] =
-		(first->m_matrix[3][0] * second->m_matrix[0][3]) +
-		(first->m_matrix[3][1] * second->m_matrix[1][3]) +
-		(first->m_matrix[3][2] * second->m_matrix[2][3]) +
-		(first->m_matrix[3][3] * second->m_matrix[3][3]);
+	memset(this, 0, sizeof(CMatrix));
 }
 
-void CMatrix::ToEuler(CPnt3D* p)
+/* @socom-skeleton body ToEuler__7CMatrixCFP6CPnt3D */
+void CMatrix::ToEuler(CPnt3D *p) const
 {
 	p->x = acosf(-m_matrix[1][2]);
 	p->y = atan2f(-m_matrix[2][2], m_matrix[0][2]);
 	p->z = atan2f(-m_matrix[1][0], m_matrix[1][1]);
 }
 
-// TODO: Implement matrix conversion to quaternion
-void CMatrix::ToQuat(CQuat* q)
+/* @socom-skeleton body Multiply__6CStackFPC7CMatrixb */
+CMatrix * CStack::Multiply(const CMatrix *matrix, bool other)
 {
-	*q = CQuat::identity;
-}
+	CMatrix m = *m_top;
+	if (other)
+	{
+		m_top++;
+		m_pointer++;
+		zMathMulMatrix(m_top, &m, matrix);
+	}
+	else
+		zMathMulMatrix(m_top, m_top, matrix);
 
-void CMatrix::SetRows(const CPnt3D* m0, const CPnt3D* m1, const CPnt3D* m2, const CPnt3D* m3)
-{
-	if (m0) memcpy(this->m_matrix[0], m0, sizeof(CPnt3D));
-	if (m1) memcpy(this->m_matrix[1], m1, sizeof(CPnt3D));
-	if (m2) memcpy(this->m_matrix[2], m2, sizeof(CPnt3D));
-	if (m3) memcpy(this->m_matrix[3], m3, sizeof(CPnt3D));
-}
-
-void CMatrix::SetZero()
-{
-	memset(this, 0, sizeof(CMatrix));
+	return m_top;
 }

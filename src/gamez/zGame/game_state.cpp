@@ -46,8 +46,39 @@
 
 #include "zgame.h"
 
-std::vector<CGameStateChangeCmd*> m_pool;
+/* @socom-skeleton decl include */
+#include "gamez/zFTS/fts_state.h"
+/* @socom-skeleton end include */
 
+/* @socom-skeleton stub m_pool */
+static std::vector<CGameStateChangeCmd *, std::allocator<CGameStateChangeCmd *> > m_pool;
+
+/* @socom-skeleton stub __dt__19CGameStateChangeCmdFv */
+CGameStateChangeCmd::~CGameStateChangeCmd()
+{
+}
+
+/* @socom-skeleton stub Acquire__19CGameStateChangeCmdFUiP10CGameStateUi */
+void CGameStateChangeCmd::Acquire(unsigned int, CGameState *, unsigned int)
+{
+}
+
+/* @socom-skeleton stub Release__19CGameStateChangeCmdFP19CGameStateChangeCmd */
+void CGameStateChangeCmd::Release(CGameStateChangeCmd *)
+{
+}
+
+/* @socom-skeleton stub CreatePool__19CGameStateChangeCmdFUi */
+void CGameStateChangeCmd::CreatePool(unsigned int)
+{
+}
+
+/* @socom-skeleton stub DestroyPool__19CGameStateChangeCmdFv */
+void CGameStateChangeCmd::DestroyPool()
+{
+}
+
+/* @socom-skeleton body Switch__5CGameFP10CGameStateUi */
 CGameState* CGame::Switch(CGameState* state, u32 index)
 {
 	CGameState* currentState = NULL;
@@ -105,4 +136,19 @@ CGameState* CGame::Switch(CGameState* state, u32 index)
 	}
 
 	return currentState;
+}
+
+/* @socom-skeleton stub Push__5CGameFP10CGameStateUi */
+CGameState * CGame::Push(CGameState *, unsigned int)
+{
+}
+
+/* @socom-skeleton stub Pop__5CGameFUi */
+CGameState * CGame::Pop(unsigned int)
+{
+}
+
+/* @socom-skeleton stub PopTo__5CGameFP10CGameStateUi */
+CGameState * CGame::PopTo(CGameState *, unsigned int)
+{
 }

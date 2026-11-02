@@ -8,3 +8,17 @@
  * @socom-artifact defines main socom:data:0x475c6c
  * @socom-artifact defines main socom:data:0x475c70
  * socom-owner-annotations end socom:work:source-segment-076 */
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+unsigned char std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+unsigned char std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub ZDB */
+unsigned char ZDB[208];
+
+/* @socom-skeleton stub zRndrInit__Fv */
+void zRndrInit()
+{
+}

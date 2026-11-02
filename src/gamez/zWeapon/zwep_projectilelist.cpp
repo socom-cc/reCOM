@@ -24,3 +24,241 @@
  * @socom-artifact defines main socom:function:0x31c940
  * @socom-artifact defines main socom:function:0x31c990
  * socom-owner-annotations end socom:work:source-segment-044 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zArchive/zar.h"
+#include "gamez/zIntersect/zintersect.h"
+#include "zweapon.h"
+#include "zwep_projectilelist.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class PlacedExplosive;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub __ct__10ZWepReaderFv */
+ZWepReader::ZWepReader()
+{
+}
+
+/* @socom-skeleton stub __dt__10ZWepReaderFv */
+ZWepReader::~ZWepReader()
+{
+}
+
+/* @socom-skeleton body Read__10ZWepReaderFRQ23zar4CZARP12CZWeaponListP10CZAmmoList */
+bool ZWepReader::Read(zar::CZAR &archive, CZWeaponList *weapons, CZAmmoList *ammo)
+{
+	u32 version = 0;
+
+	archive.Fetch("WEAPON_ZAR_VERSION", &version);
+	
+	if (version != 0)
+	{
+		return false;
+	}
+
+	char key_name_buf[256];
+	char str_val[256];
+	s32 int_val;
+	f32 f_val;
+	
+	auto ammunition_key = archive.OpenKey("Ammunition");
+	sprintf_s(key_name_buf, 256, "AMMO:NumEntries");
+	u32 num_ammo_entries = 0;
+	
+	if (archive.Fetch(key_name_buf, &num_ammo_entries))
+	{
+		for (u32 i = 0; i < num_ammo_entries; i++)
+		{
+			sprintf_s(key_name_buf, 256, "AMMO%d", i);
+			auto key = archive.OpenKey(key_name_buf);
+
+			CZAmmo zammo;
+
+			if (archive.FetchString("Name", str_val, 255))
+			{
+				// zammo.SetName(str_val);
+			}
+
+			if (archive.Fetch("ID", &int_val))
+			{
+				// zammo.SetID(int_val);
+			}
+
+			if (archive.FetchString("DESCRIPTION", str_val, 255))
+			{
+				// zammo.SetDescription(str_val);
+			}
+
+			if (archive.FetchString("HitAnimName", str_val, 255))
+			{
+				// zammo.SetHitAnimName(str_val);
+			}
+
+			if (archive.Fetch("ImpactDamage", &f_val))
+			{
+				// zammo.SetImpactDamage(f_val);
+			}
+
+			if (archive.Fetch("Stun", &f_val))
+			{
+				// zammo.SetStun(f_val);
+			}
+
+			if (archive.Fetch("ArmorPierce", &f_val))
+			{
+				// zAmmo.SetArmorPierce(f_val);
+			}
+
+			if (archive.Fetch("ExplosionDamage", &f_val))
+			{
+				// zammo.SetExplosionDamage(f_val);
+			}
+
+			if (archive.Fetch("ExplosionRadius", &f_val))
+			{
+				// zammo.SetExplosionRadius(f_val);
+			}
+
+			// ammo.AddAmmo(&ammo);
+
+			archive.CloseKey(key);
+		}
+	}
+
+	return true;
+}
+
+/* @socom-skeleton stub __ct__16CZProjectileListFi */
+CZProjectileList::CZProjectileList(int)
+{
+}
+
+/* @socom-skeleton stub __dt__16CZProjectileListFv */
+CZProjectileList::~CZProjectileList()
+{
+}
+
+/* @socom-skeleton stub Init__16CZProjectileListFv */
+void CZProjectileList::Init()
+{
+}
+
+/* @socom-skeleton stub Clear__16CZProjectileListFv */
+void CZProjectileList::Clear()
+{
+}
+
+/* @socom-skeleton stub Clear__16CZProjectileListFi */
+void CZProjectileList::Clear(int)
+{
+}
+
+/* @socom-skeleton stub UnInit__16CZProjectileListFv */
+void CZProjectileList::UnInit()
+{
+}
+
+/* @socom-skeleton stub GetNextFreeProjectile__16CZProjectileListFv */
+CZProjectile * CZProjectileList::GetNextFreeProjectile()
+{
+}
+
+/* @socom-skeleton stub FreeIdx__16CZProjectileListFi */
+void CZProjectileList::FreeIdx(int)
+{
+}
+
+/* @socom-skeleton stub FindLastUsed__16CZProjectileListFv */
+void CZProjectileList::FindLastUsed()
+{
+}
+
+/* @socom-skeleton stub PreTick__16CZProjectileListFf */
+void CZProjectileList::PreTick(float)
+{
+}
+
+/* @socom-skeleton stub PostTick__16CZProjectileListFf */
+void CZProjectileList::PostTick(float)
+{
+}
+
+/* @socom-skeleton stub NetRemoveProjectile__16CZProjectileListFP12CZProjectile */
+void CZProjectileList::NetRemoveProjectile(CZProjectile *)
+{
+}
+
+/* @socom-skeleton stub RemoveProjectile__16CZProjectileListFP12CZProjectile */
+void CZProjectileList::RemoveProjectile(CZProjectile *)
+{
+}
+
+/* @socom-skeleton stub RemoveExplosive__16CZProjectileListFP15PlacedExplosive */
+void CZProjectileList::RemoveExplosive(PlacedExplosive *)
+{
+}
+
+/* @socom-skeleton stub GetNumRemoteExplosives__16CZProjectileListFi */
+int CZProjectileList::GetNumRemoteExplosives(int)
+{
+}
+
+/* @socom-skeleton body GetNextDirectFireDI__16CZProjectileListFPPQ23zdb11DiIntersectPi */
+bool CZProjectileList::GetNextDirectFireDI(zdb::DiIntersect** di, s32* free_handle)
+{
+	if (m_directFireDI[0])
+	{
+		if (m_direct_firstfree < 60)
+		{
+			*di = m_directFireDI[m_direct_firstfree];
+			*free_handle = m_direct_firstfree;
+
+			m_directFireDIUsed[m_direct_firstfree] = true;
+
+			while (m_direct_firstfree < 60 && m_directFireDIUsed[m_direct_firstfree])
+				m_direct_firstfree++;
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+/* @socom-skeleton stub ReleaseDirectFireDI__16CZProjectileListFPPQ23zdb11DiIntersectPi */
+void CZProjectileList::ReleaseDirectFireDI(zdb::DiIntersect **, int *)
+{
+}
+
+/* @socom-skeleton body GetNextIndirectFireDI__16CZProjectileListFPPQ23zdb11DiIntersectPi */
+bool CZProjectileList::GetNextIndirectFireDI(zdb::DiIntersect** di, s32* free_handle)
+{
+	if (m_indirectFireDI[0])
+	{
+		if (m_indirect_firstfree < 60)
+		{
+			*di = m_indirectFireDI[m_indirect_firstfree];
+			*free_handle = m_indirect_firstfree;
+
+			m_indirectFireDIUsed[m_indirect_firstfree] = true;
+
+			while (m_indirect_firstfree < 60 && m_indirectFireDIUsed[m_indirect_firstfree])
+				m_indirect_firstfree++;
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+/* @socom-skeleton stub ReleaseIndirectFireDI__16CZProjectileListFPPQ23zdb11DiIntersectPi */
+void CZProjectileList::ReleaseIndirectFireDI(zdb::DiIntersect **, int *)
+{
+}
+
+/* @socom-skeleton stub AcquireProjectile__16CZProjectileListFR8CZWeaponR6CZAmmo */
+CZProjectile * CZProjectileList::AcquireProjectile(CZWeapon &, CZAmmo &)
+{
+}

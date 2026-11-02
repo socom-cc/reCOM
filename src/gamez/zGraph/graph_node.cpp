@@ -5,3 +5,30 @@
  * @socom-artifact defines main socom:function:0x20f6c0
  * @socom-artifact defines main socom:function:0x20f780
  * socom-owner-annotations end socom:work:source-segment-025 */
+
+/* @socom-skeleton decl include */
+#include "graph_node.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CGEdge;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub __ct__6CGNodeFPCc */
+CGNode::CGNode(const char *)
+{
+}
+
+/* @socom-skeleton stub __dt__6CGNodeFv */
+CGNode::~CGNode()
+{
+}
+
+/* @socom-skeleton stub SetName__6CGNodeFPCc */
+void CGNode::SetName(const char *)
+{
+}
+
+/* @socom-skeleton stub FindEdge__6CGNodeFP6CGNode */
+CGEdge * CGNode::FindEdge(CGNode *)
+{
+}

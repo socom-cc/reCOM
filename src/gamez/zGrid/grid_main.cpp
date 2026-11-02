@@ -46,33 +46,535 @@
 
 namespace zdb
 {
-    CCell::CCell(CPnt3D* origin, f32 offset)
-    {
-        CPnt3D boxextents;
-        
-        m_bbox.m_max = *origin;
 
-        boxextents.x = offset - 0.001f;
-        boxextents.y = 0.0f;
-        boxextents.z = boxextents.x;
-
-        m_bbox.m_min = m_bbox.m_max;
-
-        CPnt3D max = m_bbox.m_max;
-
-        max.Add(origin, &boxextents);
-        
-        m_type = (u32)TYPE::CELL;
-
-        m_lightList.erase(m_lightList.begin(), m_lightList.end());
-    }
-
-    CGrid::CGrid()
-    {
-        
-    }
     
-    bool CGrid::Create(CWorld* world, const tag_GRID_PARAMS* params)
+	
+
+    
+
+}
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "grid_clutter.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub N_ATOMS__Q23zdb5CGrid */
+namespace zdb {
+const unsigned int CGrid::N_ATOMS = 16384;
+}
+
+/* @socom-skeleton stub xMinCell */
+int xMinCell;
+
+/* @socom-skeleton stub zMinCell */
+int zMinCell;
+
+/* @socom-skeleton stub xMaxCell */
+int xMaxCell;
+
+/* @socom-skeleton stub zMaxCell */
+int zMaxCell;
+
+/* @socom-skeleton stub xCurCell */
+int xCurCell;
+
+/* @socom-skeleton stub zCurCell */
+int zCurCell;
+
+/* @socom-skeleton body __ct__Q23zdb5CGridFv */
+namespace zdb {
+CGrid::CGrid()
+    {
+        
+    }
+}
+
+/* @socom-skeleton stub __dt__Q23zdb5CGridFv */
+zdb::CGrid::~CGrid()
+{
+}
+
+/* @socom-skeleton body gridGetAtomBasePtr__Q23zdb5CGridFii */
+namespace zdb {
+CGridAtom** CGrid::gridGetAtomBasePtr(s32 x, s32 y)
+    {
+        u32 xCellCount = 0;
+        u32 yCellCount = 0;
+        u32 cellLength = 0;
+
+        if (x < 0)
+            x = 0;
+
+        xCellCount = m_CellCount.cx;
+        cellLength = xCellCount - 1;
+
+        if (x <= cellLength)
+            cellLength = x;
+
+        if (y < 0)
+            y = 0;
+
+        yCellCount = m_CellCount.cy - 1;
+
+        if (y <= yCellCount)
+            yCellCount = y;
+
+        return m_Atoms + cellLength + yCellCount * xCellCount;
+    }
+}
+
+/* @socom-skeleton body gridAddNodeToGrids__Q23zdb5CGridFPQ23zdb5CNode */
+namespace zdb {
+void CGrid::gridAddNodeToGrids(CNode* node)
+    {
+        if (!node)
+            return;
+
+        CBBox* bbox = NULL;
+
+        if (node->m_use_parent_bbox)
+        {
+            bbox = &node->m_parent->m_bbox;
+
+            if (node->m_parent->m_use_parent_bbox)
+                bbox = node->m_parent->GetBBox();
+        }
+        else
+            bbox = &node->m_bbox;
+
+        CPnt3D worldToCell;
+        f32 x = 0.0f;
+        f32 y = 0.0f;
+        f32 z = 0.0f;
+        // TODO: Write a function that translates two points
+        // node->m_matrix.Transform();
+
+        if (x < worldToCell.x)
+        {
+            worldToCell.x = x;
+            x = worldToCell.x;
+        }
+
+        if (y < worldToCell.y)
+        {
+            worldToCell.y = y;
+            y = worldToCell.y;
+        }
+
+        if (z < worldToCell.z)
+        {
+            worldToCell.z = z;
+            z = worldToCell.z;
+        }
+
+
+    }
+}
+
+/* @socom-skeleton body gridRemoveNodeFromGrids__Q23zdb5CGridFPQ23zdb5CNode */
+namespace zdb {
+void CGrid::gridRemoveNodeFromGrids(CNode* node)
+    {
+        for (u32 i = 0; i < node->m_AtomCnt; i++)
+        {
+            CGridAtom* atom = node->GetAtom(i);
+
+            if (!atom->Next)
+            {
+                atom->Prev->Next = NULL;
+            }
+            else
+            {
+                atom->Prev->Next = atom->Next;
+                atom->Next->Prev = atom->Prev;
+            }
+
+            if (m_AtomFreePtr < m_AtomFreeCnt - 1)
+            {
+                atom->Ent = NULL;
+                atom->Next = NULL;
+                atom->Prev = NULL;
+
+                u32 ptr = m_AtomFreePtr;
+
+                m_AtomFreePtr = ptr + 1;
+                m_FreeAtoms[ptr] = atom;
+            }
+        }
+
+        node->SetAtomCnt(0);
+    }
+}
+
+/* @socom-skeleton stub SetCellBoundary__Q23zdb5CGridF6CPnt3D6CPnt3D */
+void zdb::CGrid::SetCellBoundary(CPnt3D, CPnt3D)
+{
+}
+
+/* @socom-skeleton stub GetNextCell__Q23zdb5CGridFv */
+zdb::CCell * zdb::CGrid::GetNextCell()
+{
+}
+
+/* @socom-skeleton body addOrderedCellAtom__Q23zdb5CGridFiib */
+namespace zdb {
+void CGrid::addOrderedCellAtom(s32 ix, s32 iy, bool dummy)
+    {
+        if ((m_ix >= ix && ix > m_ixb) && (m_iz >= iy && iy > m_izb))
+            return;
+
+        s32 x = ix;
+        if (ix < 0)
+            x = 0;
+
+        u32 sizeX = m_CellCount.cx;
+        u32 count = sizeX - 1;
+
+        if (x <= count)
+            count = x;
+
+        s32 z = iy;
+        if (iy < 0)
+            z = 0;
+
+        u32 sizeY = m_CellCount.cy - 1;
+
+        if (z <= sizeY)
+            sizeY = z;
+
+        CGridAtom* atom = m_Atoms[count + sizeY * sizeX];
+
+        if (!atom)
+            return;
+
+        if (atom->Ent->m_TickNum > m_TickNum)
+            return;
+
+        if (!dummy || gridCellOut(ix, iy))
+            return;
+
+        s32 i = m_orderedCells.m_gridCellAtomCnt;
+
+        atom->Ent->m_TickNum = m_TickNum;
+        m_orderedCells.m_Atoms[i].cellAtom = atom;
+        m_orderedCells.m_Atoms[i].ring = abs(ix - m_orderedCells.m_viewX) + abs(iy - m_orderedCells.m_viewZ);
+        m_orderedCells.m_Atoms[i].x = ix;
+        m_orderedCells.m_Atoms[i].z = iy;
+        m_orderedCells.m_gridCellAtomCnt++;
+    }
+}
+
+/* @socom-skeleton body buildOrderedCellAtomList__Q23zdb5CGridFPC6CPnt3D */
+namespace zdb {
+void CGrid::buildOrderedCellAtomList(const CPnt3D* point)
+    {
+
+    }
+}
+
+/* @socom-skeleton body SetTraversalExtents__Q23zdb5CGridFPC6CPnt3Dib */
+namespace zdb {
+void CGrid::SetTraversalExtents(const CPnt3D* point, s32 tick, bool lineWalk)
+    {
+        // TODO: Implement this function
+    }
+}
+
+/* @socom-skeleton body SetTraversalBoundaryOrdered__Q23zdb5CGridFPC6CPnt3DPC6CPnt3Dib */
+namespace zdb {
+void CGrid::SetTraversalBoundaryOrdered(const CPnt3D* point, const CPnt3D* boundary, s32 tick, bool lineWalk)
+    {
+        CPnt3D xCell;
+        CPnt3D zCell;
+
+        SetTraversalExtents(boundary, tick, lineWalk);
+
+        if (tick == 1)
+        {
+            m_orderedCells.m_gridCellAtomCnt = 0;
+            m_orderedCells.m_rt_gridCellAtomCnt = 0;
+            // gridGetGridXandZIndex(&xCell, &zCell, boundary->x, boundary->z);
+            // addOrderedCellAtom(&xCell, &zCell, true);
+            m_TickNum++;
+        }
+        else
+        {
+            for (u32 i = 0; i < m_PntCnt; i++)
+            {
+                // TODO: do stuff here
+            }
+
+            m_TickNum++;
+            // buildOrderedCellAtomList(point);
+            m_TickNum++;
+        }
+    }
+}
+
+/* @socom-skeleton body SetTraversalBoundary__Q23zdb5CGridFPC6CPnt3Dib */
+namespace zdb {
+void CGrid::SetTraversalBoundary(const CPnt3D* point, s32 tick, bool lineWalk)
+    {
+        // TODO: Implement this function
+
+        SetTraversalExtents(point, tick, lineWalk);
+
+        if (tick == 1)
+        {
+            m_TickNum++;
+            return;
+        }
+
+        for (u32 i = 0; i < m_PntCnt; i++)
+        {
+
+        }
+
+        m_TickNum++;
+    }
+}
+
+/* @socom-skeleton body gridCellOut__Q23zdb5CGridFii */
+namespace zdb {
+bool CGrid::gridCellOut(s32 ix, s32 iy)
+    {
+        m_CurCellOut = 0;
+
+        if (m_PntCnt != 1 && m_PntCnt != 2 || m_LineWalk)
+        {
+            m_CurCellOut = 1;
+            for (u32 i = 0; i < m_PntCnt; i++)
+            {
+                f32 curCell = (m_CellDim * 0.5f + m_origin.z + iy * m_CellDim)
+                            - (m_Pnts[i].z * m_Edge[i].z)
+                            + (m_CellDim * 0.5f + m_origin.x + ix * m_CellDim)
+                            - (m_Pnts[i].x * m_Edge[i].x);
+
+                if (curCell < -m_GridCellToI)
+                    return true;
+
+                if (m_LineWalk && m_GridCellToI < curCell)
+                    return true;
+            }
+
+            m_CurCellOut = 0;
+            if (2 < m_PntCnt)
+                m_RowCellIn = 1;
+        }
+
+        return false;
+    }
+}
+
+/* @socom-skeleton body StartTraversal__Q23zdb5CGridFv */
+namespace zdb {
+CGridAtom* CGrid::StartTraversal()
+    {
+        m_xx = m_ix;
+        m_zz = m_iz;
+        m_iz_start = m_zz;
+        m_iz_next_row = m_izb;
+        m_NextAtom = NULL;
+        m_zz--;
+        m_RowCellIn = 0;
+        m_CurCellOut = 1;
+        m_iz_dir = 1;
+        return m_NextAtom = GetNextAtom();
+    }
+}
+
+/* @socom-skeleton body StartTraversalOrdered__Q23zdb5CGridFv */
+namespace zdb {
+CGridAtom* CGrid::StartTraversalOrdered()
+    {
+        m_NextAtom = NULL;
+        return m_NextAtom = GetNextAtomOrdered();
+    }
+}
+
+/* @socom-skeleton body gridGetNextIndex__Q23zdb5CGridFv */
+namespace zdb {
+bool CGrid::gridGetNextIndex()
+    {
+        bool valid = false;
+
+        if (m_PntCnt < 3)
+        {
+            if (m_zz < m_izb - 1)
+            {
+                valid = true;
+                m_zz++;
+            }
+            else if (m_xx < m_ixb - 1)
+            {
+                valid = true;
+                m_xx++;
+                m_zz = m_iz;
+                m_RowCellIn = 0;
+            }
+        }
+        else
+        {
+            if (m_CurCellOut == 0 && m_zz < m_iz_next_row)
+                m_iz_next_row = m_zz;
+
+            if (m_iz_dir < 0)
+            {
+                if (m_CurCellOut == 0 && m_iz < m_zz)
+                {
+                    m_zz--;
+                    return true;
+                }
+
+                m_zz = m_iz_start;
+                m_iz_dir = 1;
+                m_CurCellOut = 0;
+            }
+
+            if (m_RowCellIn == 0 || m_CurCellOut == 0 && m_zz < m_izb - 1)
+            {
+                valid = true;
+                m_zz++;
+            }
+            else if (m_xx < m_ixb - 1)
+            {
+                m_xx++;
+
+                if (m_iz_next_row == m_izb)
+                {
+                    m_zz = m_iz;
+                    m_iz_dir = 1;
+                }
+                else
+                {
+                    m_zz = m_iz_next_row;
+
+                    if (m_iz < m_zz)
+                        m_zz++;
+
+                    m_iz_dir = -1;
+                }
+
+                valid = true;
+                m_iz_next_row = m_izb;
+                m_iz_start = m_zz;
+                m_RowCellIn = 0;
+            }
+            else
+            {
+                m_RowCellIn = 0;
+                m_CurCellOut = 0;
+                valid = false;
+            }
+        }
+
+        return valid;
+    }
+}
+
+/* @socom-skeleton stub gridGetGridXandZIndex__Q23zdb5CGridFPiPiff */
+void zdb::CGrid::gridGetGridXandZIndex(int *, int *, float, float)
+{
+}
+
+/* @socom-skeleton body GetNextAtom__Q23zdb5CGridFv */
+namespace zdb {
+CGridAtom* CGrid::GetNextAtom()
+    {
+        // TODO: Implement this function
+        return m_NextAtom;
+    }
+}
+
+/* @socom-skeleton body GetNextAtomOrdered__Q23zdb5CGridFv */
+namespace zdb {
+CGridAtom* CGrid::GetNextAtomOrdered()
+    {
+        CNode* atom_node = NULL;
+
+        while (!m_NextAtom)
+        {
+            if (!m_NextAtom)
+            {
+                s32 runtimeAtomCnt = m_orderedCells.m_rt_gridCellAtomCnt;
+
+                if (runtimeAtomCnt == m_orderedCells.m_gridCellAtomCnt)
+                {
+                    return NULL;
+                }
+
+                m_ring = m_orderedCells.m_Atoms[runtimeAtomCnt].ring;
+                runtimeAtomCnt = m_orderedCells.m_rt_gridCellAtomCnt;
+                m_orderedCells.m_rt_gridCellAtomCnt = runtimeAtomCnt + 1;
+                m_NextAtom = m_orderedCells.m_Atoms[runtimeAtomCnt].cellAtom;
+            }
+            else
+            {
+                m_NextAtom = m_NextAtom->Next;
+            }
+
+            atom_node = m_NextAtom->Ent;
+
+            if (!atom_node->m_active)
+            {
+                break;
+            }
+        }
+        
+        return m_NextAtom;
+    }
+}
+
+/* @socom-skeleton stub Insert__Q23zdb5CGridFPQ23zdb5CNode */
+void zdb::CGrid::Insert(zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub Remove__Q23zdb5CGridFPQ23zdb5CNode */
+void zdb::CGrid::Remove(zdb::CNode *)
+{
+}
+
+/* @socom-skeleton body Update__Q23zdb5CGridFPQ23zdb5CNode */
+namespace zdb {
+void CGrid::Update(CNode* node)
+    {
+        for (u32 i = 0; i < node->m_AtomCnt; i++)
+        {
+            CGridAtom* atom = node->GetAtom(i);
+
+            if (!atom->Next)
+            {
+                atom->Prev->Next = NULL;
+            }
+            else
+            {
+                atom->Prev->Next = atom->Next;
+                atom->Next->Prev = atom->Prev;
+            }
+
+            if (m_AtomFreePtr < m_AtomFreeCnt - 1)
+            {
+                atom->Ent = NULL;
+                atom->Next = NULL;
+                atom->Prev = NULL;
+
+                u32 ptr = m_AtomFreePtr;
+
+                m_AtomFreePtr = ptr + 1;
+                m_FreeAtoms[ptr] = atom;
+            }
+        }
+
+        node->SetAtomCnt(0);
+        gridAddNodeToGrids(node);
+    }
+}
+
+/* @socom-skeleton body Create__Q23zdb5CGridFPQ23zdb6CWorldPCQ23zdb15tag_GRID_PARAMS */
+namespace zdb {
+bool CGrid::Create(CWorld* world, const tag_GRID_PARAMS* params)
     {
         CBBox bbox;
         
@@ -185,8 +687,37 @@ namespace zdb
 
         return true;
     }
-	
-    bool CGrid::Read(CSaveLoad& sload)
+}
+
+/* @socom-skeleton stub Destroy__Q23zdb5CGridFv */
+void zdb::CGrid::Destroy()
+{
+}
+
+/* @socom-skeleton stub AddClutter__Q23zdb5CGridFPQ23zdb8CClutter */
+void zdb::CGrid::AddClutter(zdb::CClutter *)
+{
+}
+
+/* @socom-skeleton stub DeleteClutter__Q23zdb5CGridFv */
+void zdb::CGrid::DeleteClutter()
+{
+}
+
+/* @socom-skeleton body GetCell__Q23zdb9CGridAtomFv */
+namespace zdb {
+CNode* CGridAtom::GetCell()
+    {
+        if (Ent->m_type != (u32)CNode::TYPE::CELL)
+            return NULL;
+
+        return Ent;
+    }
+}
+
+/* @socom-skeleton body Read__Q23zdb5CGridFRQ23zdb9CSaveLoad */
+namespace zdb {
+bool CGrid::Read(CSaveLoad& sload)
     {
         s32 posts = 16;
         f32 dimensions = 640.0f;
@@ -200,419 +731,9 @@ namespace zdb
 
         return false;
     }
-
-    void CGrid::Update(CNode* node)
-    {
-        for (u32 i = 0; i < node->m_AtomCnt; i++)
-        {
-            CGridAtom* atom = node->GetAtom(i);
-
-            if (!atom->Next)
-            {
-                atom->Prev->Next = NULL;
-            }
-            else
-            {
-                atom->Prev->Next = atom->Next;
-                atom->Next->Prev = atom->Prev;
-            }
-
-            if (m_AtomFreePtr < m_AtomFreeCnt - 1)
-            {
-                atom->Ent = NULL;
-                atom->Next = NULL;
-                atom->Prev = NULL;
-
-                u32 ptr = m_AtomFreePtr;
-
-                m_AtomFreePtr = ptr + 1;
-                m_FreeAtoms[ptr] = atom;
-            }
-        }
-
-        node->SetAtomCnt(0);
-        gridAddNodeToGrids(node);
-    }
-
-    void CGrid::SetTraversalBoundary(const CPnt3D* point, s32 tick, bool lineWalk)
-    {
-        // TODO: Implement this function
-
-        SetTraversalExtents(point, tick, lineWalk);
-
-        if (tick == 1)
-        {
-            m_TickNum++;
-            return;
-        }
-
-        for (u32 i = 0; i < m_PntCnt; i++)
-        {
-
-        }
-
-        m_TickNum++;
-    }
-
-    void CGrid::SetTraversalBoundaryOrdered(const CPnt3D* point, const CPnt3D* boundary, s32 tick, bool lineWalk)
-    {
-        CPnt3D xCell;
-        CPnt3D zCell;
-
-        SetTraversalExtents(boundary, tick, lineWalk);
-
-        if (tick == 1)
-        {
-            m_orderedCells.m_gridCellAtomCnt = 0;
-            m_orderedCells.m_rt_gridCellAtomCnt = 0;
-            // gridGetGridXandZIndex(&xCell, &zCell, boundary->x, boundary->z);
-            // addOrderedCellAtom(&xCell, &zCell, true);
-            m_TickNum++;
-        }
-        else
-        {
-            for (u32 i = 0; i < m_PntCnt; i++)
-            {
-                // TODO: do stuff here
-            }
-
-            m_TickNum++;
-            // buildOrderedCellAtomList(point);
-            m_TickNum++;
-        }
-    }
-
-    void CGrid::SetTraversalExtents(const CPnt3D* point, s32 tick, bool lineWalk)
-    {
-        // TODO: Implement this function
-    }
-
-    CGridAtom* CGrid::StartTraversal()
-    {
-        m_xx = m_ix;
-        m_zz = m_iz;
-        m_iz_start = m_zz;
-        m_iz_next_row = m_izb;
-        m_NextAtom = NULL;
-        m_zz--;
-        m_RowCellIn = 0;
-        m_CurCellOut = 1;
-        m_iz_dir = 1;
-        return m_NextAtom = GetNextAtom();
-    }
-
-    CGridAtom* CGrid::StartTraversalOrdered()
-    {
-        m_NextAtom = NULL;
-        return m_NextAtom = GetNextAtomOrdered();
-    }
-
-    CGridAtom* CGrid::GetNextAtom()
-    {
-        // TODO: Implement this function
-        return m_NextAtom;
-    }
-
-    CGridAtom* CGrid::GetNextAtomOrdered()
-    {
-        CNode* atom_node = NULL;
-
-        while (!m_NextAtom)
-        {
-            if (!m_NextAtom)
-            {
-                s32 runtimeAtomCnt = m_orderedCells.m_rt_gridCellAtomCnt;
-
-                if (runtimeAtomCnt == m_orderedCells.m_gridCellAtomCnt)
-                {
-                    return NULL;
-                }
-
-                m_ring = m_orderedCells.m_Atoms[runtimeAtomCnt].ring;
-                runtimeAtomCnt = m_orderedCells.m_rt_gridCellAtomCnt;
-                m_orderedCells.m_rt_gridCellAtomCnt = runtimeAtomCnt + 1;
-                m_NextAtom = m_orderedCells.m_Atoms[runtimeAtomCnt].cellAtom;
-            }
-            else
-            {
-                m_NextAtom = m_NextAtom->Next;
-            }
-
-            atom_node = m_NextAtom->Ent;
-
-            if (!atom_node->m_active)
-            {
-                break;
-            }
-        }
-        
-        return m_NextAtom;
-    }
-
-    void CGrid::addOrderedCellAtom(s32 ix, s32 iy, bool dummy)
-    {
-        if ((m_ix >= ix && ix > m_ixb) && (m_iz >= iy && iy > m_izb))
-            return;
-
-        s32 x = ix;
-        if (ix < 0)
-            x = 0;
-
-        u32 sizeX = m_CellCount.cx;
-        u32 count = sizeX - 1;
-
-        if (x <= count)
-            count = x;
-
-        s32 z = iy;
-        if (iy < 0)
-            z = 0;
-
-        u32 sizeY = m_CellCount.cy - 1;
-
-        if (z <= sizeY)
-            sizeY = z;
-
-        CGridAtom* atom = m_Atoms[count + sizeY * sizeX];
-
-        if (!atom)
-            return;
-
-        if (atom->Ent->m_TickNum > m_TickNum)
-            return;
-
-        if (!dummy || gridCellOut(ix, iy))
-            return;
-
-        s32 i = m_orderedCells.m_gridCellAtomCnt;
-
-        atom->Ent->m_TickNum = m_TickNum;
-        m_orderedCells.m_Atoms[i].cellAtom = atom;
-        m_orderedCells.m_Atoms[i].ring = abs(ix - m_orderedCells.m_viewX) + abs(iy - m_orderedCells.m_viewZ);
-        m_orderedCells.m_Atoms[i].x = ix;
-        m_orderedCells.m_Atoms[i].z = iy;
-        m_orderedCells.m_gridCellAtomCnt++;
-    }
-    
-    void CGrid::buildOrderedCellAtomList(const CPnt3D* point)
-    {
-
-    }
-
-    bool CGrid::gridCellOut(s32 ix, s32 iy)
-    {
-        m_CurCellOut = 0;
-
-        if (m_PntCnt != 1 && m_PntCnt != 2 || m_LineWalk)
-        {
-            m_CurCellOut = 1;
-            for (u32 i = 0; i < m_PntCnt; i++)
-            {
-                f32 curCell = (m_CellDim * 0.5f + m_origin.z + iy * m_CellDim)
-                            - (m_Pnts[i].z * m_Edge[i].z)
-                            + (m_CellDim * 0.5f + m_origin.x + ix * m_CellDim)
-                            - (m_Pnts[i].x * m_Edge[i].x);
-
-                if (curCell < -m_GridCellToI)
-                    return true;
-
-                if (m_LineWalk && m_GridCellToI < curCell)
-                    return true;
-            }
-
-            m_CurCellOut = 0;
-            if (2 < m_PntCnt)
-                m_RowCellIn = 1;
-        }
-
-        return false;
-    }
-
-    void CGrid::gridAddNodeToGrids(CNode* node)
-    {
-        if (!node)
-            return;
-
-        CBBox* bbox = NULL;
-
-        if (node->m_use_parent_bbox)
-        {
-            bbox = &node->m_parent->m_bbox;
-
-            if (node->m_parent->m_use_parent_bbox)
-                bbox = node->m_parent->GetBBox();
-        }
-        else
-            bbox = &node->m_bbox;
-
-        CPnt3D worldToCell;
-        f32 x = 0.0f;
-        f32 y = 0.0f;
-        f32 z = 0.0f;
-        // TODO: Write a function that translates two points
-        // node->m_matrix.Transform();
-
-        if (x < worldToCell.x)
-        {
-            worldToCell.x = x;
-            x = worldToCell.x;
-        }
-
-        if (y < worldToCell.y)
-        {
-            worldToCell.y = y;
-            y = worldToCell.y;
-        }
-
-        if (z < worldToCell.z)
-        {
-            worldToCell.z = z;
-            z = worldToCell.z;
-        }
-
-
-    }
-
-    void CGrid::gridRemoveNodeFromGrids(CNode* node)
-    {
-        for (u32 i = 0; i < node->m_AtomCnt; i++)
-        {
-            CGridAtom* atom = node->GetAtom(i);
-
-            if (!atom->Next)
-            {
-                atom->Prev->Next = NULL;
-            }
-            else
-            {
-                atom->Prev->Next = atom->Next;
-                atom->Next->Prev = atom->Prev;
-            }
-
-            if (m_AtomFreePtr < m_AtomFreeCnt - 1)
-            {
-                atom->Ent = NULL;
-                atom->Next = NULL;
-                atom->Prev = NULL;
-
-                u32 ptr = m_AtomFreePtr;
-
-                m_AtomFreePtr = ptr + 1;
-                m_FreeAtoms[ptr] = atom;
-            }
-        }
-
-        node->SetAtomCnt(0);
-    }
-
-    CGridAtom** CGrid::gridGetAtomBasePtr(s32 x, s32 y)
-    {
-        u32 xCellCount = 0;
-        u32 yCellCount = 0;
-        u32 cellLength = 0;
-
-        if (x < 0)
-            x = 0;
-
-        xCellCount = m_CellCount.cx;
-        cellLength = xCellCount - 1;
-
-        if (x <= cellLength)
-            cellLength = x;
-
-        if (y < 0)
-            y = 0;
-
-        yCellCount = m_CellCount.cy - 1;
-
-        if (y <= yCellCount)
-            yCellCount = y;
-
-        return m_Atoms + cellLength + yCellCount * xCellCount;
-    }
-
-    bool CGrid::gridGetNextIndex()
-    {
-        bool valid = false;
-
-        if (m_PntCnt < 3)
-        {
-            if (m_zz < m_izb - 1)
-            {
-                valid = true;
-                m_zz++;
-            }
-            else if (m_xx < m_ixb - 1)
-            {
-                valid = true;
-                m_xx++;
-                m_zz = m_iz;
-                m_RowCellIn = 0;
-            }
-        }
-        else
-        {
-            if (m_CurCellOut == 0 && m_zz < m_iz_next_row)
-                m_iz_next_row = m_zz;
-
-            if (m_iz_dir < 0)
-            {
-                if (m_CurCellOut == 0 && m_iz < m_zz)
-                {
-                    m_zz--;
-                    return true;
-                }
-
-                m_zz = m_iz_start;
-                m_iz_dir = 1;
-                m_CurCellOut = 0;
-            }
-
-            if (m_RowCellIn == 0 || m_CurCellOut == 0 && m_zz < m_izb - 1)
-            {
-                valid = true;
-                m_zz++;
-            }
-            else if (m_xx < m_ixb - 1)
-            {
-                m_xx++;
-
-                if (m_iz_next_row == m_izb)
-                {
-                    m_zz = m_iz;
-                    m_iz_dir = 1;
-                }
-                else
-                {
-                    m_zz = m_iz_next_row;
-
-                    if (m_iz < m_zz)
-                        m_zz++;
-
-                    m_iz_dir = -1;
-                }
-
-                valid = true;
-                m_iz_next_row = m_izb;
-                m_iz_start = m_zz;
-                m_RowCellIn = 0;
-            }
-            else
-            {
-                m_RowCellIn = 0;
-                m_CurCellOut = 0;
-                valid = false;
-            }
-        }
-
-        return valid;
-    }
-
-    CNode* CGridAtom::GetCell()
-    {
-        if (Ent->m_type != (u32)CNode::TYPE::CELL)
-            return NULL;
-
-        return Ent;
-    }
+}
+
+/* @socom-skeleton stub ReadClutter__Q23zdb5CGridFPCcPCc */
+void zdb::CGrid::ReadClutter(const char *, const char *)
+{
 }

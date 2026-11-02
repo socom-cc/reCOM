@@ -34,9 +34,90 @@
 
 #include "zsnd.h"
 
-bool CSndJukebox::m_isinfight = false;
+/* @socom-skeleton decl include */
+#include "gamez/zReader/zrdr.h"
+/* @socom-skeleton end include */
 
+/* @socom-skeleton stub m_jukebox_stopped__11CSndJukebox */
+unsigned char CSndJukebox::m_jukebox_stopped = 1;
+
+/* @socom-skeleton stub m_cursound__11CSndJukebox */
+int CSndJukebox::m_cursound;
+
+/* @socom-skeleton stub m_cursequence__11CSndJukebox */
+int CSndJukebox::m_cursequence;
+
+/* @socom-skeleton stub m_currentmode__11CSndJukebox */
+signed char CSndJukebox::m_currentmode;
+
+/* @socom-skeleton stub m_playlists_loaded__11CSndJukebox */
+unsigned char CSndJukebox::m_playlists_loaded;
+
+/* @socom-skeleton stub m_isinfight__11CSndJukebox */
+unsigned char CSndJukebox::m_isinfight;
+
+/* @socom-skeleton stub m_queue__11CSndJukebox */
+unsigned char CSndJukebox::m_queue[8];
+
+/* @socom-skeleton stub m_playlist__11CSndJukebox */
+unsigned char CSndJukebox::m_playlist[24];
+
+/* @socom-skeleton stub m_weights__11CSndJukebox */
+unsigned char CSndJukebox::m_weights[24];
+
+/* @socom-skeleton stub Cleanup__11CSndJukeboxFv */
+void CSndJukebox::Cleanup()
+{
+}
+
+/* @socom-skeleton stub LoadPlaylists__11CSndJukeboxFPCc */
+void CSndJukebox::LoadPlaylists(const char *)
+{
+}
+
+/* @socom-skeleton stub LoadMusicLists__11CSndJukeboxFP5_zrdri */
+void CSndJukebox::LoadMusicLists(_zrdr *, int)
+{
+}
+
+/* @socom-skeleton body Tick__11CSndJukeboxFf */
+void CSndJukebox::Tick(float delta) {}
+
+/* @socom-skeleton stub FadeOut__11CSndJukeboxFv */
+void CSndJukebox::FadeOut()
+{
+}
+
+/* @socom-skeleton stub ClearQueue__11CSndJukeboxFv */
+void CSndJukebox::ClearQueue()
+{
+}
+
+/* @socom-skeleton stub Play__11CSndJukeboxF10MUSIC_MODEP4CSnd */
+void CSndJukebox::Play(MUSIC_MODE, CSnd *)
+{
+}
+
+/* @socom-skeleton body IsInFight__11CSndJukeboxFb */
+void CSndJukebox::IsInFight(bool inFight) { m_isinfight = inFight; }
+
+/* @socom-skeleton stub PlayRandom__11CSndJukeboxF10MUSIC_MODE */
+void CSndJukebox::PlayRandom(MUSIC_MODE)
+{
+}
+
+/* @socom-skeleton stub NormalizeWeights__11CSndJukeboxF10MUSIC_MODE */
+void CSndJukebox::NormalizeWeights(MUSIC_MODE)
+{
+}
+
+/* @socom-skeleton body Start__11CSndJukeboxFv */
 void CSndJukebox::Start()
 {
 
+}
+
+/* @socom-skeleton stub Stop__11CSndJukeboxFv */
+void CSndJukebox::Stop()
+{
 }

@@ -70,8 +70,44 @@
 
 #include "gamez/zNetwork/znet.h"
 
-CHUD* theHUD;
+/* @socom-skeleton decl include */
+#include "gamez/zCamera/zcam.h"
+#include "gamez/zGame/zgame.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/node_world.h"
+#include "gamez/zSeal/zseal.h"
+#include "gamez/zTexture/ztex.h"
+#include "gamez/zTwoD/ztwod.h"
+#include "gamez/zUtil/util_stable.h"
+/* @socom-skeleton end include */
 
+/* @socom-skeleton stub c_szCornerBoxesTx */
+static char *const c_szCornerBoxesTx = "newweapnbkrnd.tif";
+
+/* @socom-skeleton stub g_fElemsFadeInTime__22@unnamed@hud_main_cpp@ */
+namespace {
+float g_fElemsFadeInTime = -1.0f;
+}
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+std::__nInit std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+std::__wInit std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub theHUD */
+CHUD *theHUD;
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static CSTable MultiplayerMsgStrings;
+
+/* @socom-skeleton stub m_hud_textcolor__4CHUD */
+CPnt4D CHUD::m_hud_textcolor;
+
+/* @socom-skeleton stub X_WeaponBackground */
+static C2DBitmap X_WeaponBackground;
+
+/* @socom-skeleton body hudInit__Fv */
 s32 hudInit()
 {
     CRdrFile* hud = zrdr_read("hud.rdr", "data/common");
@@ -136,27 +172,145 @@ s32 hudInit()
     return zrdr_free(hud);
 }
 
+/* @socom-skeleton body __ct__4CHUDFv */
 CHUD::CHUD()
 {
 
 }
 
+/* @socom-skeleton body GetHUDOwner__4CHUDFv */
 CZSealBody* CHUD::GetHUDOwner()
 {
     return appCamera->m_entity;
 }
 
-void CHUD::Init(zdb::CWorld* world)
+/* @socom-skeleton stub HudText_to_upper__4CHUDFPc */
+void CHUD::HudText_to_upper(char *)
 {
-
 }
 
+/* @socom-skeleton stub ReleaseHUD__4CHUDFPP4CHUD */
+unsigned char CHUD::ReleaseHUD(CHUD **)
+{
+}
+
+/* @socom-skeleton stub __dt__4CHUDFv */
+CHUD::~CHUD()
+{
+}
+
+/* @socom-skeleton stub DrawPhase__4CHUDFQ23zdb12_RenderPhasePQ23zdb7CCamera */
+void CHUD::DrawPhase(zdb::_RenderPhase, zdb::CCamera *)
+{
+}
+
+/* @socom-skeleton stub GetTextureByName__FPQ23zdb6CWorldPCc */
+zdb::CTexture * GetTextureByName(zdb::CWorld *, const char *)
+{
+}
+
+/* @socom-skeleton body ReInit_Uninit__4CHUDFv */
+void CHUD::ReInit_Uninit()
+{
+    // CZNewHudMap::UninitMap();
+}
+
+/* @socom-skeleton body ReInit_Init__4CHUDFv */
 void CHUD::ReInit_Init()
 {
 
 }
 
-void CHUD::ReInit_Uninit()
+/* @socom-skeleton body Init__4CHUDFPQ23zdb6CWorld */
+void CHUD::Init(zdb::CWorld* world)
 {
-    // CZNewHudMap::UninitMap();
+
+}
+
+/* @socom-skeleton stub PauseGame__4CHUDFv */
+unsigned char CHUD::PauseGame()
+{
+}
+
+/* @socom-skeleton stub Tick__4CHUDFf */
+void CHUD::Tick(float)
+{
+	/* @socom-skeleton stub wasalive$2787 */
+	static unsigned char wasalive;
+	/* @socom-skeleton stub tempstr$3048 */
+	static unsigned char tempstr[120];
+	/* @socom-skeleton stub seconds$3049 */
+	static int seconds;
+}
+
+/* @socom-skeleton stub Flash__4CHUDFfRC6CPnt3Dfff */
+void CHUD::Flash(float, const CPnt3D &, float, float, float)
+{
+}
+
+/* @socom-skeleton stub PreDITick__4CHUDFf */
+void CHUD::PreDITick(float)
+{
+}
+
+/* @socom-skeleton stub PostDITick__4CHUDFf */
+void CHUD::PostDITick(float)
+{
+}
+
+/* @socom-skeleton body On__4CHUDFv */
+void CHUD::On() {}
+
+/* @socom-skeleton body Off__4CHUDFv */
+void CHUD::Off() {}
+
+/* @socom-skeleton stub IsOn__4CHUDFv */
+unsigned char CHUD::IsOn()
+{
+}
+
+/* @socom-skeleton stub ZoomOut__4CHUDFv */
+void CHUD::ZoomOut()
+{
+	/* @socom-skeleton stub zoomtext$2973 */
+	static unsigned char zoomtext[10];
+}
+
+/* @socom-skeleton stub ZoomIn__4CHUDFv */
+void CHUD::ZoomIn()
+{
+}
+
+/* @socom-skeleton stub SwitchToFullScreenMap__4CHUDFv */
+void CHUD::SwitchToFullScreenMap()
+{
+}
+
+/* @socom-skeleton stub SwitchToCompassMap__4CHUDFv */
+void CHUD::SwitchToCompassMap()
+{
+}
+
+/* @socom-skeleton stub Add2D__4CHUDFP3C2Dib */
+void CHUD::Add2D(C2D *, int, bool)
+{
+}
+
+/* @socom-skeleton stub SetupFiremode__4CHUDFP10CZSealBody */
+void CHUD::SetupFiremode(CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub SetupAmmoCount__4CHUDFP10CZSealBody */
+void CHUD::SetupAmmoCount(CZSealBody *)
+{
+	/* @socom-skeleton stub newstr$3014 */
+	static char newstr[80];
+}
+
+/* @socom-skeleton stub DoRangeText__4CHUDFP10CZSealBody10MENU_STATE */
+void CHUD::DoRangeText(CZSealBody *, MENU_STATE)
+{
+	/* @socom-skeleton stub tempstr$3031 */
+	static char tempstr[120];
 }

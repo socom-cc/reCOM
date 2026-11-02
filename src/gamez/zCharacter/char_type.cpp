@@ -78,40 +78,63 @@
 
 #include "gamez/zReader/zrdr.h"
 
-std::list<CCharacterType*> CCharacterType::m_char_list;
-std::list<CCharacterGear*> CCharacterType::m_gear_list;
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/znode.h"
+#include "gamez/zWeapon/zweapon.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CCharacterWeapPacked;
+class CHARACTER_SOUND;
+/* @socom-skeleton end forward */
 
-bool DeleteTemporaryCharType(CCharacterType* chartype)
+/* @socom-skeleton stub m_rdr_file__14CCharacterType */
+int CCharacterType::m_rdr_file;
+
+/* @socom-skeleton stub _angle_units */
+static int _angle_units;
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub m_char_list__14CCharacterType */
+std::list<CCharacterType *, std::allocator<CCharacterType *> > CCharacterType::m_char_list;
+
+/* @socom-skeleton stub m_gear_list__14CCharacterType */
+std::list<CCharacterGear *, std::allocator<CCharacterGear *> > CCharacterType::m_gear_list;
+
+/* @socom-skeleton stub m_anim_set_names__14CCharacterType */
+int CCharacterType::m_anim_set_names[3];
+
+/* @socom-skeleton stub m_ModelCache__20CCharacterModelCache */
+int CCharacterModelCache::m_ModelCache[3];
+
+/* @socom-skeleton stub FindGear__18CCharacterGearListCFPCc */
+CCharacterGear * CCharacterGearList::FindGear(const char *) const
 {
-    if (!chartype)
-        return false;
-
-    if (!chartype->m_istemporary)
-        return false;
-
-    delete chartype;
-    return true;
 }
 
-CCharacterType::CCharacterType()
+/* @socom-skeleton stub AddWeapon__18CCharacterWeapListF10EQUIP_ITEM */
+void CCharacterWeapList::AddWeapon(EQUIP_ITEM)
 {
-    m_name = NULL;
-    m_ref_count = 0;
-    m_model_file = NULL;
-    m_model_file = NULL;
-    m_parentID = 0;
-    m_model = NULL;
-
-    m_weapons.reserve(8);
-
-    m_controller_id = 0;
 }
 
-CCharacterType::CCharacterType(const char* name, const CCharacterType* other)
+/* @socom-skeleton stub SetupCharacterWeapon__14CCharacterWeapF10EQUIP_ITEM */
+void CCharacterWeap::SetupCharacterWeapon(EQUIP_ITEM)
 {
-
 }
 
+/* @socom-skeleton stub KorusGetPackedWeapons__14CCharacterTypeFP20CCharacterWeapPacked */
+void CCharacterType::KorusGetPackedWeapons(CCharacterWeapPacked *)
+{
+}
+
+/* @socom-skeleton stub UnPack__14CCharacterTypeFPC20CCharacterWeapPackedP14CCharacterType */
+void CCharacterType::UnPack(const CCharacterWeapPacked *, CCharacterType *)
+{
+}
+
+/* @socom-skeleton body Open__14CCharacterTypeFPCc */
 bool CCharacterType::Open(const char* path)
 {
     _zrdr* reader = zrdr_read(path);
@@ -140,6 +163,21 @@ bool CCharacterType::Open(const char* path)
     return true;
 }
 
+/* @socom-skeleton body GetByNameMod__14CCharacterTypeFPCc */
+CCharacterType* CCharacterType::GetByNameMod(const char* name)
+{
+    for (auto i = m_char_list.begin(); i != m_char_list.end(); i++)
+    {
+        CCharacterType* chartype = *i;
+
+        if (strcmp(chartype->m_name, name))
+            return chartype;
+    }
+
+    return NULL;
+}
+
+/* @socom-skeleton body Create__14CCharacterTypeFPCcPC14CCharacterTypeb */
 CCharacterType* CCharacterType::Create(const char* name, const CCharacterType* other, bool destroyCopy)
 {
     CCharacterType* ctype = GetByNameMod(name);
@@ -154,20 +192,156 @@ CCharacterType* CCharacterType::Create(const char* name, const CCharacterType* o
     return ctype;
 }
 
-CCharacterType* CCharacterType::GetByNameMod(const char* name)
+/* @socom-skeleton body DeleteTemporaryCharType__FP14CCharacterType */
+bool DeleteTemporaryCharType(CCharacterType* chartype)
 {
-    for (auto i = m_char_list.begin(); i != m_char_list.end(); i++)
-    {
-        CCharacterType* chartype = *i;
+    if (!chartype)
+        return false;
 
-        if (strcmp(chartype->m_name, name))
-            return chartype;
-    }
+    if (!chartype->m_istemporary)
+        return false;
 
-    return NULL;
+    delete chartype;
+    return true;
 }
 
+/* @socom-skeleton body CleanupTemporary__14CCharacterTypeFv */
 void CCharacterType::CleanupTemporary()
 {
     CCharacterType::m_char_list.remove_if(DeleteTemporaryCharType);
+}
+
+/* @socom-skeleton body Parse__13HEALTH_PARAMSFP5_zrdr */
+void HEALTH_PARAMS::Parse(_zrdr* reader)
+{
+    _zrdr* health = zrdr_findtag(reader, "health");
+
+    if (health)
+    {
+        zrdr_findreal(health, "head", &m_head_health, 1);
+        m_head_healthMax = m_head_health;
+
+        zrdr_findreal(health, "body", &m_body_health, 1);
+        m_body_healthMax = m_body_health;
+
+        zrdr_findreal(health, "larm", &m_larm_health, 1);
+        m_larm_healthMax = m_larm_health;
+
+        zrdr_findreal(health, "rarm", &m_rarm_health, 1);
+        m_rarm_healthMax = m_rarm_health;
+
+        zrdr_findreal(health, "rleg", &m_rleg_health, 1);
+        m_rleg_healthMax = m_rleg_health;
+
+        zrdr_findreal(health, "lleg", &m_lleg_health, 1);
+        m_lleg_healthMax = m_lleg_health;
+    }
+
+    _zrdr* armor = zrdr_findtag(reader, "armor");
+
+    if (armor)
+    {
+        zrdr_findreal(armor, "head", &m_armor_head, 1);
+        zrdr_findreal(armor, "body", &m_armor_body, 1);
+        zrdr_findreal(armor, "larm", &m_armor_larm, 1);
+        zrdr_findreal(armor, "rarm", &m_armor_rarm, 1);
+        zrdr_findreal(armor, "rleg", &m_armor_rleg, 1);
+        zrdr_findreal(armor, "lleg", &m_armor_lleg, 1);
+    }
+}
+
+/* @socom-skeleton body __ct__14CCharacterTypeFPCcPC14CCharacterType */
+CCharacterType::CCharacterType(const char* name, const CCharacterType* other)
+{
+
+}
+
+/* @socom-skeleton stub __dt__14CCharacterTypeFv */
+CCharacterType::~CCharacterType()
+{
+}
+
+/* @socom-skeleton stub Parse__14CCharacterTypeFP5_zrdr */
+void CCharacterType::Parse(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub Acquire__14CCharacterTypeCFv */
+CCharacterType * CCharacterType::Acquire() const
+{
+}
+
+/* @socom-skeleton stub CreateLODs__14CCharacterTypeFPQ23zdb5CNode */
+void CCharacterType::CreateLODs(zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub Release__14CCharacterTypeFv */
+int CCharacterType::Release()
+{
+}
+
+/* @socom-skeleton stub CreateInstance__14CCharacterTypeFPCc */
+zdb::CNode * CCharacterType::CreateInstance(const char *)
+{
+}
+
+/* @socom-skeleton stub CreateInstance__14CCharacterGearCFPCc */
+zdb::CNode * CCharacterGear::CreateInstance(const char *) const
+{
+}
+
+/* @socom-skeleton stub GetCharacterSoundTypeString__F15CHARACTER_SOUND */
+void GetCharacterSoundTypeString(CHARACTER_SOUND)
+{
+}
+
+/* @socom-skeleton stub GetCharacterSoundType__FPCc */
+void GetCharacterSoundType(const char *)
+{
+}
+
+/* @socom-skeleton stub AcquireSoundHandles__14CCharacterTypeFv */
+void CCharacterType::AcquireSoundHandles()
+{
+}
+
+/* @socom-skeleton stub InitMultiplayerMessages__14CCharacterTypeFP5_zrdr */
+void CCharacterType::InitMultiplayerMessages(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub ClearMultiplayerMessageSounds__14CCharacterTypeFv */
+void CCharacterType::ClearMultiplayerMessageSounds()
+{
+}
+
+/* @socom-skeleton stub PlayAt__14CCharacterTypeF15CHARACTER_SOUNDUiPC6CPnt3D */
+void CCharacterType::PlayAt(CHARACTER_SOUND, unsigned int, const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub match_name_to_chartype__14CCharacterTypeFP8CRdrFilePCcPCc */
+char * CCharacterType::match_name_to_chartype(CRdrFile *, const char *, const char *)
+{
+}
+
+/* @socom-skeleton stub RdrFetch_CharacterType__14CCharacterTypeFPCc */
+CCharacterType * CCharacterType::RdrFetch_CharacterType(const char *)
+{
+}
+
+/* @socom-skeleton stub GetBaseName__14CCharacterTypeFv */
+char * CCharacterType::GetBaseName()
+{
+}
+
+/* @socom-skeleton stub GetWeaponByIndex__14CCharacterTypeCFUi */
+EQUIP_ITEM CCharacterType::GetWeaponByIndex(unsigned int) const
+{
+}
+
+/* @socom-skeleton stub RemoveWeapon__18CCharacterWeapListF10EQUIP_ITEM */
+void CCharacterWeapList::RemoveWeapon(EQUIP_ITEM)
+{
 }

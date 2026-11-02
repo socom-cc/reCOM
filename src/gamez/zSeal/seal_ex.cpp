@@ -9,7 +9,17 @@
 
 #include "zseal.h"
 
-void CSealEx::OnWeaponHit(CNode* node, zdb::IntersectStruct* intersection, CZProjectile* projectile)
+/* @socom-skeleton decl include */
+#include "gamez/zIntersect/zintersect.h"
+#include "gamez/zNode/znode.h"
+#include "gamez/zWeapon/zweapon.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton body OnWeaponHit__7CSealExFPQ23zdb5CNodePQ23zdb15IntersectStructP12CZProjectile */
+void CSealEx::OnWeaponHit(zdb::CNode *node, zdb::IntersectStruct *intersection, CZProjectile *projectile)
 {
     m_seal->OnWeaponHit(intersection, projectile);
 }

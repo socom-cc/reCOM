@@ -108,148 +108,440 @@
 
 #include "zanim.h"
 
-u32* seq_offset_stack = NULL;
-u32 seq_offset_stack_size = 0;
+/* @socom-skeleton decl include */
+#include "gamez/zArchive/zar.h"
+#include "gamez/zIntersect/zintersect.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/znode.h"
+#include "gamez/zParticle/zparticle.h"
+#include "gamez/zReader/zrdr.h"
+#include "gamez/zTexture/ztex.h"
+#include "gamez/zValve/zvalve.h"
+#include "gamez/zWeapon/zweapon.h"
+/* @socom-skeleton end include */
 
-_zanim_cmd_hdr* zAnimLoad_If(_zrdr* tag)
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+unsigned char std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+unsigned char std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub OnWeaponHitInit__6CZAnimFv */
+void CZAnim::OnWeaponHitInit()
 {
-    _zanim_cmd_hdr* cmd = NULL;
-
-    if (tag)
-    {
-        cmd = (_zanim_cmd_hdr*)zcalloc(1, 8);
-        cmd->data_type &= DATATYPE_IF;
-        cmd = ZAnim.AnimParseExpression(cmd, tag);
-    }
-
-    ZAnim.m_CurSeq->m_IF_NestLevel++;
-    cmd->data_size = ZAnim.m_CurSeq->m_IF_NestLevel;
-    return cmd;
 }
 
-_zanim_cmd_hdr* zAnimLoad_Else(_zrdr* tag)
+/* @socom-skeleton stub __dt__8CZAnimExFv */
+CZAnimEx::~CZAnimEx()
 {
-    _zanim_cmd_hdr* cmd = NULL;
-    
-    if (tag)
-    {
-        cmd = (_zanim_cmd_hdr*)zcalloc(1, 8);
-        cmd->data_type &= DATATYPE_IF;
-    }
-
-    cmd->data_size = ZAnim.m_CurSeq->m_IF_NestLevel;
-    return cmd;
 }
 
-_zanim_cmd_hdr* zAnimLoad_ElseIf(_zrdr* tag)
+/* @socom-skeleton stub Add__14CZAnimExVectorFP8CZAnimEx */
+void CZAnimExVector::Add(CZAnimEx *)
 {
-    _zanim_cmd_hdr* cmd = NULL;
-
-    if (tag)
-    {
-        cmd = (_zanim_cmd_hdr*)zcalloc(1, 8);
-        cmd->data_type &= DATATYPE_IF;
-        cmd = ZAnim.AnimParseExpression(cmd, tag);
-    }
-
-    cmd->data_size = ZAnim.m_CurSeq->m_IF_NestLevel;
-    return cmd;
 }
 
-_zanim_cmd_hdr* zAnimLoad_EndIf(_zrdr* tag)
+/* @socom-skeleton stub Free__14CZAnimExVectorFv */
+void CZAnimExVector::Free()
 {
-    _zanim_cmd_hdr* cmd = NULL;
-
-    if (tag)
-    {
-        cmd = (_zanim_cmd_hdr*)zcalloc(1, 8);
-        cmd->data_type &= DATATYPE_END_IF;
-    }
-
-    cmd->data_size = ZAnim.m_CurSeq->m_IF_NestLevel;
-    ZAnim.m_CurSeq->m_IF_NestLevel--;
-
-    return cmd;
 }
 
-_zanim_cmd_hdr* zAnimLoadWhile(_zrdr* tag)
+/* @socom-skeleton stub Reset__14CZAnimExVectorFv */
+void CZAnimExVector::Reset()
 {
-    _zanim_cmd_hdr* cmd = NULL;
-    
-    if (tag)
-    {
-        cmd = (_zanim_cmd_hdr*)zcalloc(1, 8);
-        cmd->data_type &= DATATYPE_WHILE;
-
-        if (tag->type == ZRDR_ARRAY && tag->array->integer == DATATYPE_IF)
-        {
-            _zrdr* evaluation = NULL;
-
-            if (tag->array->integer != 1)
-            {
-                evaluation = &tag->array[1];
-            }
-
-            bool isTrue = false;
-            if (evaluation->type == ZRDR_STRING)
-            {
-                isTrue = strcmp(evaluation->string, "true") == 0;
-            }
-
-            if (isTrue)
-            {
-                cmd->timeless = true;
-                seq_offset_stack = (u32*)zrealloc(seq_offset_stack, (seq_offset_stack_size + 1) * sizeof(u32));
-
-                if (ZAnim.m_CurSeq)
-                {
-                    seq_offset_stack[seq_offset_stack_size] = ZAnim.m_CurSeq->seq_data_size;
-                }
-
-                seq_offset_stack_size++;
-                return cmd;
-            }
-        }
-
-        cmd = ZAnim.AnimParseExpression(cmd, tag);
-        
-        seq_offset_stack = (u32*)zrealloc(seq_offset_stack, (seq_offset_stack_size + 1) * sizeof(u32));
-
-        if (ZAnim.m_CurSeq)
-        {
-            seq_offset_stack[seq_offset_stack_size] = ZAnim.m_CurSeq->seq_data_size;
-        }
-
-        seq_offset_stack_size++;
-        return cmd;
-    }
 }
 
-void CZAnimSet::Name(const char* name)
+/* @socom-skeleton stub OnWeaponHit__8CZAnimExFPQ23zdb5CNodePQ23zdb15IntersectStructP12CZProjectile */
+void CZAnimEx::OnWeaponHit(zdb::CNode *, zdb::IntersectStruct *, CZProjectile *)
 {
-    if (m_name)
-        zfree(m_name);
-
-    m_name = zstrdup(name);
 }
 
-bool CZAnimSet::Start()
+/* @socom-skeleton stub Reset__8CZAnimExFPfPf */
+void CZAnimEx::Reset(float *, float *)
 {
-    return false;
 }
 
-void CZAnimSet::Init()
+/* @socom-skeleton stub HealthInit__6CZAnimFv */
+void CZAnim::HealthInit()
 {
-    m_WasStarted = false;
-    m_IsStarted = false;
-    m_IsAvailable = true;
-    m_name = NULL;
-    m_si_script_count = 0;
-    m_si_script = NULL;
-    m_AnimExList = NULL;
-    m_anim_count = 0;
-    m_anim_max = 0;
-    m_anim_list = NULL;
-    m_node_states = NULL;
-    m_task_scheduler = NULL;
+}
+
+/* @socom-skeleton stub GetHealth__6CZAnimFv */
+float CZAnim::GetHealth()
+{
+}
+
+/* @socom-skeleton stub NetworkPacketSize__10CZAnimMainFPv */
+int CZAnimMain::NetworkPacketSize(void *)
+{
+}
+
+/* @socom-skeleton stub NetworkReceive__10CZAnimMainFPv */
+int CZAnimMain::NetworkReceive(void *)
+{
+}
+
+/* @socom-skeleton stub Activate__6CZAnimFP6CZAnim */
+CZAnim * CZAnim::Activate(CZAnim *)
+{
+}
+
+/* @socom-skeleton stub ActivateEx__6CZAnimFie */
+void CZAnim::ActivateEx(int, ...)
+{
+}
+
+/* @socom-skeleton stub ActivateArgV__6CZAnimFPc */
+CZAnim * CZAnim::ActivateArgV(char *)
+{
+}
+
+/* @socom-skeleton stub ActivateArg__6CZAnimFie */
+void CZAnim::ActivateArg(int, ...)
+{
+}
+
+/* @socom-skeleton stub Copy__14CZAnimArgCharPFv */
+void CZAnimArgCharP::Copy()
+{
+}
+
+/* @socom-skeleton stub __dt__14CZAnimArgCharPFv */
+CZAnimArgCharP::~CZAnimArgCharP()
+{
+}
+
+/* @socom-skeleton stub __ct__13CZAnimArgNodeFQ29CZAnimArg4TYPEPQ23zdb5CNode */
+CZAnimArgNode::CZAnimArgNode(CZAnimArg::TYPE, zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub Copy__13CZAnimArgNodeFv */
+void CZAnimArgNode::Copy()
+{
+}
+
+/* @socom-skeleton stub Copy__14CZAnimArgValveFv */
+void CZAnimArgValve::Copy()
+{
+}
+
+/* @socom-skeleton stub Copy__12CZAnimArgCmdFv */
+void CZAnimArgCmd::Copy()
+{
+}
+
+/* @socom-skeleton stub __ct__14CZAnimArgPnt3DFQ29CZAnimArg4TYPEPC6CPnt3D */
+CZAnimArgPnt3D::CZAnimArgPnt3D(CZAnimArg::TYPE, const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub Copy__14CZAnimArgPnt3DFv */
+void CZAnimArgPnt3D::Copy()
+{
+}
+
+/* @socom-skeleton stub GetPnt3D__13CZAnimArgListFQ29CZAnimArg4TYPE */
+void CZAnimArgList::GetPnt3D(CZAnimArg::TYPE)
+{
+}
+
+/* @socom-skeleton stub GetCharP__13CZAnimArgListFi */
+char * CZAnimArgList::GetCharP(int)
+{
+}
+
+/* @socom-skeleton stub GetValve__13CZAnimArgListFi */
+CValve * CZAnimArgList::GetValve(int)
+{
+}
+
+/* @socom-skeleton stub GetCmd__13CZAnimArgListFi */
+void CZAnimArgList::GetCmd(int)
+{
+}
+
+/* @socom-skeleton stub AddNetworkPacketArgs__13CZAnimArgListFP6CZAnimP18ZAnimNetworkPacket */
+ZAnimNetworkPacket * CZAnimArgList::AddNetworkPacketArgs(CZAnim *, ZAnimNetworkPacket *)
+{
+}
+
+/* @socom-skeleton stub ParseNetworkPacketArgs__13CZAnimArgListFP6CZAnimP18ZAnimNetworkPacket */
+void CZAnimArgList::ParseNetworkPacketArgs(CZAnim *, ZAnimNetworkPacket *)
+{
+}
+
+/* @socom-skeleton stub __dt__13CZAnimArgListFv */
+CZAnimArgList::~CZAnimArgList()
+{
+}
+
+/* @socom-skeleton stub ActivateSequence__6CZAnimFPCc */
+void CZAnim::ActivateSequence(const char *)
+{
+}
+
+/* @socom-skeleton stub StopSequence__6CZAnimFPCc */
+void CZAnim::StopSequence(const char *)
+{
+}
+
+/* @socom-skeleton stub PauseSequence__6CZAnimFPCc */
+void CZAnim::PauseSequence(const char *)
+{
+}
+
+/* @socom-skeleton stub ResumeSequence__6CZAnimFPCc */
+void CZAnim::ResumeSequence(const char *)
+{
+}
+
+/* @socom-skeleton stub SequenceExists__6CZAnimFPCc */
+unsigned char CZAnim::SequenceExists(const char *)
+{
+}
+
+/* @socom-skeleton stub SequenceRunning__6CZAnimFPCc */
+unsigned char CZAnim::SequenceRunning(const char *)
+{
+}
+
+/* @socom-skeleton stub Refresh__6CZAnimFb */
+void CZAnim::Refresh(bool)
+{
+}
+
+/* @socom-skeleton stub Reset__6CZAnimFv */
+void CZAnim::Reset()
+{
+}
+
+/* @socom-skeleton stub Start__6CZAnimFv */
+void CZAnim::Start()
+{
+}
+
+/* @socom-skeleton stub RestartClones__6CZAnimFv */
+void CZAnim::RestartClones()
+{
+}
+
+/* @socom-skeleton stub MakeClones__6CZAnimFv */
+void CZAnim::MakeClones()
+{
+}
+
+/* @socom-skeleton stub FindClones__6CZAnimFPQ23zdb5CNodePQ23zdb5CNodeP6CZAnim */
+CZAnim * CZAnim::FindClones(zdb::CNode *, zdb::CNode *, CZAnim *)
+{
+}
+
+/* @socom-skeleton stub GetAvailable__6CZAnimFv */
+CZAnim * CZAnim::GetAvailable()
+{
+}
+
+/* @socom-skeleton stub Running__6CZAnimFv */
+unsigned char CZAnim::Running()
+{
+}
+
+/* @socom-skeleton stub Pause__6CZAnimFv */
+void CZAnim::Pause()
+{
+}
+
+/* @socom-skeleton stub Resume__6CZAnimFv */
+void CZAnim::Resume()
+{
+}
+
+/* @socom-skeleton stub Stop__6CZAnimFv */
+void CZAnim::Stop()
+{
+}
+
+/* @socom-skeleton stub GetRootNode__6CZAnimFv */
+zdb::CNode * CZAnim::GetRootNode()
+{
+}
+
+/* @socom-skeleton stub Tick__6CZAnimFf */
+unsigned char CZAnim::Tick(float)
+{
+}
+
+/* @socom-skeleton stub State__6CZAnimFi */
+void CZAnim::State(int)
+{
+}
+
+/* @socom-skeleton stub StopParticleSources__6CZAnimFv */
+void CZAnim::StopParticleSources()
+{
+}
+
+/* @socom-skeleton stub DeleteParticleSources__6CZAnimFv */
+void CZAnim::DeleteParticleSources()
+{
+}
+
+/* @socom-skeleton stub StopSounds__6CZAnimFv */
+void CZAnim::StopSounds()
+{
+}
+
+/* @socom-skeleton stub StopLights__6CZAnimFb */
+void CZAnim::StopLights(bool)
+{
+}
+
+/* @socom-skeleton stub StopAnims__6CZAnimFv */
+void CZAnim::StopAnims()
+{
+}
+
+/* @socom-skeleton stub GarbageCollect__6CZAnimFv */
+void CZAnim::GarbageCollect()
+{
+}
+
+/* @socom-skeleton stub Priority__6CZAnimFf */
+void CZAnim::Priority(float)
+{
+}
+
+/* @socom-skeleton stub GetNode__6CZAnimFib */
+zdb::CNode * CZAnim::GetNode(int, bool)
+{
+}
+
+/* @socom-skeleton stub GetNodeRef__6CZAnimFi */
+_zanim_node_ref * CZAnim::GetNodeRef(int)
+{
+}
+
+/* @socom-skeleton stub GetNodes__6CZAnimFv */
+void CZAnim::GetNodes()
+{
+}
+
+/* @socom-skeleton stub SaveNodeStates__6CZAnimFb */
+void CZAnim::SaveNodeStates(bool)
+{
+}
+
+/* @socom-skeleton stub CreateRootNode__6CZAnimFv */
+void CZAnim::CreateRootNode()
+{
+}
+
+/* @socom-skeleton stub CreateInstanceNode__6CZAnimFv */
+void CZAnim::CreateInstanceNode()
+{
+}
+
+/* @socom-skeleton stub ClearNodePtrs__6CZAnimFv */
+void CZAnim::ClearNodePtrs()
+{
+}
+
+/* @socom-skeleton stub ClearValvePtrs__6CZAnimFv */
+void CZAnim::ClearValvePtrs()
+{
+}
+
+/* @socom-skeleton stub Name__6CZAnimFPCc */
+void CZAnim::Name(const char *)
+{
+}
+
+/* @socom-skeleton stub GetName__6CZAnimFv */
+char * CZAnim::GetName()
+{
+}
+
+/* @socom-skeleton stub GetName__6CZAnimFi */
+char * CZAnim::GetName(int)
+{
+}
+
+/* @socom-skeleton stub AddName__6CZAnimFPCc */
+int CZAnim::AddName(const char *)
+{
+}
+
+/* @socom-skeleton stub AddValve__6CZAnimFPCc */
+int CZAnim::AddValve(const char *)
+{
+}
+
+/* @socom-skeleton stub GetValve__6CZAnimFi */
+CValve * CZAnim::GetValve(int)
+{
+}
+
+/* @socom-skeleton stub GetParticleSource__6CZAnimFi */
+Particle::Source * CZAnim::GetParticleSource(int)
+{
+}
+
+/* @socom-skeleton stub GetTexture__6CZAnimFi */
+zdb::CTexHandle * CZAnim::GetTexture(int)
+{
+}
+
+/* @socom-skeleton stub GetSoundRef__6CZAnimFi */
+_zanim_sound * CZAnim::GetSoundRef(int)
+{
+}
+
+/* @socom-skeleton stub GetCallAnimRef__6CZAnimFii */
+_zanim_call_anim_ref * CZAnim::GetCallAnimRef(int, int)
+{
+}
+
+/* @socom-skeleton stub GetCallAnimRef__6CZAnimFi */
+_zanim_call_anim_ref * CZAnim::GetCallAnimRef(int)
+{
+}
+
+/* @socom-skeleton stub AddNewNodeRef__6CZAnimFiii */
+void CZAnim::AddNewNodeRef(int, int, int)
+{
+}
+
+/* @socom-skeleton stub GetNodeRefName__6CZAnimFi */
+char * CZAnim::GetNodeRefName(int)
+{
+}
+
+/* @socom-skeleton stub LoadNodeNames__6CZAnimFP5_zrdrPCcii */
+int CZAnim::LoadNodeNames(_zrdr *, const char *, int, int)
+{
+}
+
+/* @socom-skeleton stub LoadSaveNodeStates__6CZAnimFP5_zrdr */
+void CZAnim::LoadSaveNodeStates(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub Copy__6CZAnimFv */
+CZAnim * CZAnim::Copy()
+{
+}
+
+/* @socom-skeleton stub ExecuteSpecialSequence__6CZAnimFi */
+void CZAnim::ExecuteSpecialSequence(int)
+{
+}
+
+/* @socom-skeleton stub Unload__6CZAnimFv */
+void CZAnim::Unload()
+{
+}
+
+/* @socom-skeleton stub Load__6CZAnimFRQ23zar4CZAR */
+void CZAnim::Load(zar::CZAR &)
+{
 }

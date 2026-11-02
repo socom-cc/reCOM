@@ -65,6 +65,37 @@
 
 #include "zai.h"
 
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub NoExpire__8CAiEvent */
+const float CAiEvent::NoExpire = -99.0f;
+
+/* @socom-skeleton stub bit_count__8CAiEvent */
+int CAiEvent::bit_count = 32;
+
+/* @socom-skeleton stub nextId__8CAiEvent */
+unsigned char CAiEvent::nextId[4];
+
+/* @socom-skeleton stub m_pool__8CAiEvent */
+int CAiEvent::m_pool[3];
+
+/* @socom-skeleton stub m_inuse__8CAiEvent */
+int CAiEvent::m_inuse[3];
+
+/* @socom-skeleton stub m_persist__8CAiEvent */
+unsigned char CAiEvent::m_persist[12];
+
+/* @socom-skeleton stub m_callbacks__8CAiEvent */
+unsigned char CAiEvent::m_callbacks[12];
+
+/* @socom-skeleton stub GetEventString__8CAiEventFQ28CAiEvent5EVENT */
+char * CAiEvent::GetEventString(CAiEvent::EVENT)
+{
+}
+
+/* @socom-skeleton body GetEventRate__8CAiEventFQ28CAiEvent5EVENT */
 f32 CAiEvent::GetEventRate(EVENT event)
 {
 	f32 rate = 0.0f;
@@ -90,4 +121,74 @@ f32 CAiEvent::GetEventRate(EVENT event)
 	}
 
 	return rate;
+}
+
+/* @socom-skeleton stub GetEventFromString__8CAiEventFPCcQ28CAiEvent5EVENT */
+void CAiEvent::GetEventFromString(const char *, CAiEvent::EVENT)
+{
+}
+
+/* @socom-skeleton stub Open__8CAiEventFUi */
+void CAiEvent::Open(unsigned int)
+{
+}
+
+/* @socom-skeleton stub Close__8CAiEventFv */
+void CAiEvent::Close()
+{
+}
+
+/* @socom-skeleton stub Acquire__8CAiEventFv */
+CAiEvent * CAiEvent::Acquire()
+{
+}
+
+/* @socom-skeleton stub Create__8CAiEventFP8CAiEvent */
+CAiEvent * CAiEvent::Create(CAiEvent *)
+{
+}
+
+/* @socom-skeleton stub Release__8CAiEventFP8CAiEvent */
+void CAiEvent::Release(CAiEvent *)
+{
+}
+
+/* @socom-skeleton stub Tick__8CAiEventFfPv */
+bool CAiEvent::Tick(float, void *)
+{
+}
+
+/* @socom-skeleton stub GetFirstEvent__8CAiEventFQ28CAiEvent11EVENT_CLASS */
+void CAiEvent::GetFirstEvent(CAiEvent::EVENT_CLASS)
+{
+}
+
+/* @socom-skeleton stub GetNextEvent__8CAiEventFPC6CPnt3DRQ28CAiEvent8iteratorf */
+void CAiEvent::GetNextEvent(const CPnt3D *, CAiEvent::iterator &, float)
+{
+}
+
+/* @socom-skeleton stub __ct__8CAiEventFv */
+CAiEvent::CAiEvent()
+{
+}
+
+/* @socom-skeleton stub Initalize__8CAiEventFv */
+void CAiEvent::Initalize()
+{
+}
+
+/* @socom-skeleton stub Tick__8CAiEventFf */
+void CAiEvent::Tick(float)
+{
+}
+
+/* @socom-skeleton stub MakeMaskEx__8CAiEventFQ28CAiEvent5EVENTe */
+void CAiEvent::MakeMaskEx(CAiEvent::EVENT, ...)
+{
+}
+
+/* @socom-skeleton stub Create__9CAiEventQFUi */
+void CAiEventQ::Create(unsigned int)
+{
 }

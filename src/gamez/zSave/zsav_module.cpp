@@ -9,6 +9,12 @@
 
 #include "zsave.h"
 
+/* @socom-skeleton decl include */
+#include "gamez/zArchive/zar.h"
+#include "gamez/zReader/zrdr.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton body __ct__11CSaveModuleFPCcP12CSaveManager */
 CSaveModule::CSaveModule(const char* name, CSaveManager* manager)
 {
 	m_ModuleName = zstrdup(name);
@@ -18,4 +24,24 @@ CSaveModule::CSaveModule(const char* name, CSaveManager* manager)
 
 	if (m_Manager)
 		m_Manager->RegisterModule(this);
+}
+
+/* @socom-skeleton stub __dt__11CSaveModuleFv */
+CSaveModule::~CSaveModule()
+{
+}
+
+/* @socom-skeleton stub SaveRdr__11CSaveModuleFPCcP8CRdrFile */
+unsigned char CSaveModule::SaveRdr(const char *, CRdrFile *)
+{
+}
+
+/* @socom-skeleton stub UnSerialize__11CSaveModuleFPCcP8CRdrFilei */
+void CSaveModule::UnSerialize(const char *, CRdrFile *, int)
+{
+}
+
+/* @socom-skeleton stub UnSerialize__11CSaveModuleFPCcPQ23zar4CZARi */
+void CSaveModule::UnSerialize(const char *, zar::CZAR *, int)
+{
 }

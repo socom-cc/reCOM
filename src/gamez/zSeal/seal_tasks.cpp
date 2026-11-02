@@ -110,6 +110,61 @@
 
 #include "zseal.h"
 
+/* @socom-skeleton decl include */
+#include "gamez/zReader/zrdr.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class TASK_SELECT;
+struct _zanim_cmd_hdr;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub ai_cmdid */
+unsigned char ai_cmdid[24] = {0};
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton body RegisterCommands__11CSealCtrlAiFv */
+bool CSealCtrlAi::RegisterCommands()
+{
+	ZAnim.AddCmd("ai::ACTION", CTAction::Parse, NULL, CTAction::Tick, NULL);
+	ZAnim.AddCmd("ai::COMM", CTComm::Parse, NULL, CTComm::Tick, NULL);
+	ZAnim.AddCmd("ai::DEBUG", CTDebug::Parse, NULL, CTDebug::Tick, NULL);
+	ZAnim.AddCmd("ai::DOOR", CTDoor::Parse, CTDoor::Begin, CTDoor::Tick, CTDoor::End);
+	ZAnim.AddCmd("ai::EVENT", CTEvent::Parse, CTEvent::Begin, CTEvent::Tick, NULL);
+	ZAnim.AddCmd("ai::FIREMODE", CTFireMode::Parse, CTFireMode::Begin, CTFireMode::Tick, NULL);
+	ZAnim.AddCmd("ai::FIREWEAPON", CTFireWeapon::Parse, CTFireWeapon::Begin, CTFireWeapon::Tick, NULL);
+	ZAnim.AddCmd("ai::GOTO", CTGoto::Parse, CTGoto::Begin, CTGoto::Tick, CTGoto::End);
+	ZAnim.AddCmd("ai::HOLD", CTHold::Parse, CTHold::Begin, CTHold::Tick, CTHold::End);
+	ZAnim.AddCmd("ai::INSTATE", CTInState::Parse, NULL, CTInState::Tick, NULL);
+	ZAnim.AddCmd("ai::INVIEW", CTInView::Parse, NULL, CTInView::Tick, NULL);
+	ZAnim.AddCmd("ai::LOOKAT", CTLookAt::Parse, CTLookAt::Begin, CTLookAt::Tick, NULL);
+	ZAnim.AddCmd("ai::MACRO", CTMacro::Parse, CTMacro::Begin, CTMacro::Tick, NULL);
+	ZAnim.AddCmd("ai::MAP", CTMap::Parse, NULL, CTMap::Tick, NULL);
+	ZAnim.AddCmd("ai::MOVE", CTMove::Parse, CTMove::Begin, CTMove::Tick, CTMove::End);
+	ZAnim.AddCmd("ai::PAINT", CTPaint::Parse, NULL, CTPaint::Tick, NULL);
+	ZAnim.AddCmd("ai::PARAM", CTParam::Parse, NULL, CTParam::Tick, NULL);
+	ZAnim.AddCmd("ai::PURSUE", CTPursue::Parse, CTPursue::Begin, CTPursue::Tick, CTPursue::End);
+	ZAnim.AddCmd("ai::ANIMATE", CTPlay::Parse, CTPlay::Begin, CTPlay::Tick, CTPlay::End);
+	ZAnim.AddCmd("ai::INRANGE", CTRange::Parse, NULL, CTRange::Tick, NULL);
+	ZAnim.AddCmd("ai::INREGION", CTRegion::Parse, NULL, CTRegion::Tick, NULL);
+	ZAnim.AddCmd("ai::SELECT", CTSelect::Parse, NULL, CTSelect::Tick, NULL);
+	ZAnim.AddCmd("ai::SETMODE", CTSetMode::Parse, NULL, CTSetMode::Tick, NULL);
+	ZAnim.AddCmd("ai::SETANIMSET", CTSetAnimSet::Parse, NULL, CTSetAnimSet::Tick, NULL);
+	ZAnim.AddCmd("ai::SIGNAL", CTSignal::Parse, NULL, CTSignal::Tick, NULL);
+	ZAnim.AddCmd("ai::SOUND", CTSound::Parse, CTSound::Begin, CTSound::Tick, CTSound::End);
+	ZAnim.AddCmd("ai::STANCE", CTStance::Parse, CTStance::Begin, CTStance::Tick, CTStance::End);
+	ZAnim.AddCmd("ai::STATE", CTState::Parse, NULL, CTState::Tick, NULL);
+	ZAnim.AddCmd("ai::STOPALL", CTStopAll::Parse, NULL, CTStopAll::Tick, NULL);
+	ZAnim.AddCmd("ai::SPECIAL", CTSpecial::Parse, CTSpecial::Begin, CTSpecial::Tick, CTSpecial::End);
+	ZAnim.AddCmd("ai::TEAM", CTTeam::Parse, NULL, CTTeam::Tick, NULL);
+	ZAnim.AddCmd("ai::VALVE", CTValve::Parse, NULL, CTValve::Tick, NULL);
+	ZAnim.AddCmd("ai::WAIT", CTWait::Parse, CTWait::Begin, CTValve::Tick, NULL);
+
+    return true;
+}
+
+/* @socom-skeleton body Parse__8CTActionFP5_zrdr */
 _zanim_cmd_hdr* CTAction::Parse(_zrdr* reader)
 {
 	// Look inside the "action" tag to find a string value
@@ -132,466 +187,562 @@ _zanim_cmd_hdr* CTAction::Parse(_zrdr* reader)
 	return NULL;
 }
 
+/* @socom-skeleton body Tick__8CTActionFP14_zanim_cmd_hdrPf */
 bool CTAction::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
+/* @socom-skeleton body Parse__6CTCommFP5_zrdr */
 _zanim_cmd_hdr* CTComm::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Tick__6CTCommFP14_zanim_cmd_hdrPf */
 bool CTComm::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
+/* @socom-skeleton body Parse__7CTDebugFP5_zrdr */
 _zanim_cmd_hdr* CTDebug::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Tick__7CTDebugFP14_zanim_cmd_hdrPf */
 bool CTDebug::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
-void CTDoor::Begin(_zanim_cmd_hdr* header)
-{
-
-}
-
-void CTDoor::End(_zanim_cmd_hdr* header)
-{
-
-}
-
+/* @socom-skeleton body Parse__6CTDoorFP5_zrdr */
 _zanim_cmd_hdr* CTDoor::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Begin__6CTDoorFP14_zanim_cmd_hdr */
+void CTDoor::Begin(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body Tick__6CTDoorFP14_zanim_cmd_hdrPf */
 bool CTDoor::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
-void CTEvent::Begin(_zanim_cmd_hdr* header)
+/* @socom-skeleton body End__6CTDoorFP14_zanim_cmd_hdr */
+void CTDoor::End(_zanim_cmd_hdr* header)
 {
 
 }
 
+/* @socom-skeleton body Parse__7CTEventFP5_zrdr */
 _zanim_cmd_hdr* CTEvent::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Begin__7CTEventFP14_zanim_cmd_hdr */
+void CTEvent::Begin(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body Tick__7CTEventFP14_zanim_cmd_hdrPf */
 bool CTEvent::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
-void CTFireMode::Begin(_zanim_cmd_hdr* header)
-{
-
-}
-
+/* @socom-skeleton body Parse__10CTFireModeFP5_zrdr */
 _zanim_cmd_hdr* CTFireMode::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Begin__10CTFireModeFP14_zanim_cmd_hdr */
+void CTFireMode::Begin(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body Tick__10CTFireModeFP14_zanim_cmd_hdrPf */
 bool CTFireMode::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
-void CTFireWeapon::Begin(_zanim_cmd_hdr* header)
-{
-
-}
-
+/* @socom-skeleton body Parse__12CTFireWeaponFP5_zrdr */
 _zanim_cmd_hdr* CTFireWeapon::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Begin__12CTFireWeaponFP14_zanim_cmd_hdr */
+void CTFireWeapon::Begin(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body Tick__12CTFireWeaponFP14_zanim_cmd_hdrPf */
 bool CTFireWeapon::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
-void CTGoto::Begin(_zanim_cmd_hdr* header)
-{
-
-}
-
-void CTGoto::End(_zanim_cmd_hdr* header)
-{
-
-}
-
+/* @socom-skeleton body Parse__6CTGotoFP5_zrdr */
 _zanim_cmd_hdr* CTGoto::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Begin__6CTGotoFP14_zanim_cmd_hdr */
+void CTGoto::Begin(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body Tick__6CTGotoFP14_zanim_cmd_hdrPf */
 bool CTGoto::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
-void CTHold::Begin(_zanim_cmd_hdr* header)
+/* @socom-skeleton body End__6CTGotoFP14_zanim_cmd_hdr */
+void CTGoto::End(_zanim_cmd_hdr* header)
 {
 
 }
 
-void CTHold::End(_zanim_cmd_hdr* header)
-{
-
-}
-
+/* @socom-skeleton body Parse__6CTHoldFP5_zrdr */
 _zanim_cmd_hdr* CTHold::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Begin__6CTHoldFP14_zanim_cmd_hdr */
+void CTHold::Begin(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body Tick__6CTHoldFP14_zanim_cmd_hdrPf */
 bool CTHold::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
+/* @socom-skeleton body End__6CTHoldFP14_zanim_cmd_hdr */
+void CTHold::End(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton stub get_state_fixup__FPCc */
+void get_state_fixup(const char *)
+{
+}
+
+/* @socom-skeleton body Parse__9CTInStateFP5_zrdr */
 _zanim_cmd_hdr* CTInState::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Tick__9CTInStateFP14_zanim_cmd_hdrPf */
 bool CTInState::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
+/* @socom-skeleton body Parse__8CTInViewFP5_zrdr */
 _zanim_cmd_hdr* CTInView::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Tick__8CTInViewFP14_zanim_cmd_hdrPf */
 bool CTInView::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
-void CTLookAt::Begin(_zanim_cmd_hdr* header)
-{
-
-}
-
+/* @socom-skeleton body Parse__8CTLookAtFP5_zrdr */
 _zanim_cmd_hdr* CTLookAt::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Begin__8CTLookAtFP14_zanim_cmd_hdr */
+void CTLookAt::Begin(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body Tick__8CTLookAtFP14_zanim_cmd_hdrPf */
 bool CTLookAt::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
-void CTMacro::Begin(_zanim_cmd_hdr* header)
-{
-
-}
-
+/* @socom-skeleton body Parse__7CTMacroFP5_zrdr */
 _zanim_cmd_hdr* CTMacro::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Begin__7CTMacroFP14_zanim_cmd_hdr */
+void CTMacro::Begin(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body Tick__7CTMacroFP14_zanim_cmd_hdrPf */
 bool CTMacro::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
+/* @socom-skeleton body Parse__5CTMapFP5_zrdr */
 _zanim_cmd_hdr* CTMap::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Tick__5CTMapFP14_zanim_cmd_hdrPf */
 bool CTMap::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
-void CTMove::Begin(_zanim_cmd_hdr* header)
-{
-
-}
-
-void CTMove::End(_zanim_cmd_hdr* header)
-{
-
-}
-
+/* @socom-skeleton body Parse__6CTMoveFP5_zrdr */
 _zanim_cmd_hdr* CTMove::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Begin__6CTMoveFP14_zanim_cmd_hdr */
+void CTMove::Begin(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body Tick__6CTMoveFP14_zanim_cmd_hdrPf */
 bool CTMove::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
+/* @socom-skeleton body End__6CTMoveFP14_zanim_cmd_hdr */
+void CTMove::End(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body Parse__7CTPaintFP5_zrdr */
 _zanim_cmd_hdr* CTPaint::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Tick__7CTPaintFP14_zanim_cmd_hdrPf */
 bool CTPaint::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
+/* @socom-skeleton stub get_param__FPCc */
+void get_param(const char *)
+{
+}
+
+/* @socom-skeleton body Parse__7CTParamFP5_zrdr */
 _zanim_cmd_hdr* CTParam::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Tick__7CTParamFP14_zanim_cmd_hdrPf */
 bool CTParam::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
-void CTPlay::Begin(_zanim_cmd_hdr* header)
-{
-
-}
-
-void CTPlay::Create(s32 count, u32* param_2, f32 param_3, f32 param_4)
-{
-
-}
-
-void CTPlay::End(_zanim_cmd_hdr* header)
-{
-
-}
-
-_zanim_cmd_hdr* CTPlay::Parse(_zrdr* reader)
-{
-	return NULL;
-}
-
-bool CTPlay::Tick(_zanim_cmd_hdr* header, f32* dT)
-{
-	return false;
-}
-
-void CTPursue::Begin(_zanim_cmd_hdr* header)
-{
-
-}
-
-void CTPursue::End(_zanim_cmd_hdr* header)
-{
-
-}
-
+/* @socom-skeleton body Parse__8CTPursueFP5_zrdr */
 _zanim_cmd_hdr* CTPursue::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Begin__8CTPursueFP14_zanim_cmd_hdr */
+void CTPursue::Begin(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body Tick__8CTPursueFP14_zanim_cmd_hdrPf */
 bool CTPursue::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
-_zanim_cmd_hdr* CTRange::Parse(_zrdr* reader)
+/* @socom-skeleton body End__8CTPursueFP14_zanim_cmd_hdr */
+void CTPursue::End(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body Create__6CTPlayFiPUiff */
+void CTPlay::Create(s32 count, u32* param_2, f32 param_3, f32 param_4)
+{
+
+}
+
+/* @socom-skeleton body Parse__6CTPlayFP5_zrdr */
+_zanim_cmd_hdr* CTPlay::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
-bool CTRange::Tick(_zanim_cmd_hdr* header, f32* dT)
+/* @socom-skeleton body Begin__6CTPlayFP14_zanim_cmd_hdr */
+void CTPlay::Begin(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body End__6CTPlayFP14_zanim_cmd_hdr */
+void CTPlay::End(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body Tick__6CTPlayFP14_zanim_cmd_hdrPf */
+bool CTPlay::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
-_zanim_cmd_hdr* CTRegion::Parse(_zrdr* reader)
+/* @socom-skeleton stub Create__8CTSelectFP10CZSealBody */
+TASK_SELECT * CTSelect::Create(CZSealBody *)
 {
-	return NULL;
 }
 
-bool CTRegion::Tick(_zanim_cmd_hdr* header, f32* dT)
-{
-	return false;
-}
-
-void CTSelect::Begin(_zanim_cmd_hdr* header)
-{
-
-}
-
-void CTSelect::End(_zanim_cmd_hdr* header)
-{
-
-}
-
+/* @socom-skeleton body Parse__8CTSelectFP5_zrdr */
 _zanim_cmd_hdr* CTSelect::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Tick__8CTSelectFP14_zanim_cmd_hdrPf */
 bool CTSelect::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
-_zanim_cmd_hdr* CTSetAnimSet::Parse(_zrdr* reader)
-{
-	return NULL;
-}
-
-bool CTSetAnimSet::Tick(_zanim_cmd_hdr* header, f32* dT)
-{
-	return false;
-}
-
+/* @socom-skeleton body Parse__9CTSetModeFP5_zrdr */
 _zanim_cmd_hdr* CTSetMode::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Tick__9CTSetModeFP14_zanim_cmd_hdrPf */
 bool CTSetMode::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
+/* @socom-skeleton body Parse__12CTSetAnimSetFP5_zrdr */
+_zanim_cmd_hdr* CTSetAnimSet::Parse(_zrdr* reader)
+{
+	return NULL;
+}
+
+/* @socom-skeleton body Tick__12CTSetAnimSetFP14_zanim_cmd_hdrPf */
+bool CTSetAnimSet::Tick(_zanim_cmd_hdr* header, f32* dT)
+{
+	return false;
+}
+
+/* @socom-skeleton body GetSignalByName__8CTSignalFPCc */
 AiSig CTSignal::GetSignalByName(const char* signal)
 {
 	return AiSig::AISIG_UNKNOWN;
 }
 
+/* @socom-skeleton body Parse__8CTSignalFP5_zrdr */
 _zanim_cmd_hdr* CTSignal::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Tick__8CTSignalFP14_zanim_cmd_hdrPf */
 bool CTSignal::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
-void CTSound::Begin(_zanim_cmd_hdr* header)
-{
-
-}
-
-void CTSound::End(_zanim_cmd_hdr* header)
-{
-
-}
-
+/* @socom-skeleton body Parse__7CTSoundFP5_zrdr */
 _zanim_cmd_hdr* CTSound::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Begin__7CTSoundFP14_zanim_cmd_hdr */
+void CTSound::Begin(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body End__7CTSoundFP14_zanim_cmd_hdr */
+void CTSound::End(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body Tick__7CTSoundFP14_zanim_cmd_hdrPf */
 bool CTSound::Tick(_zanim_cmd_hdr* header, f32* delta)
 {
 	return false;
 }
 
-void CTSpecial::Begin(_zanim_cmd_hdr* header)
-{
-
-}
-
-void CTSpecial::End(_zanim_cmd_hdr* header)
-{
-
-}
-
+/* @socom-skeleton body Parse__9CTSpecialFP5_zrdr */
 _zanim_cmd_hdr* CTSpecial::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Begin__9CTSpecialFP14_zanim_cmd_hdr */
+void CTSpecial::Begin(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body End__9CTSpecialFP14_zanim_cmd_hdr */
+void CTSpecial::End(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body Tick__9CTSpecialFP14_zanim_cmd_hdrPf */
 bool CTSpecial::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
-void CTStance::Begin(_zanim_cmd_hdr* header)
-{
-
-}
-
-void CTStance::End(_zanim_cmd_hdr* header)
-{
-
-}
-
+/* @socom-skeleton body Parse__8CTStanceFP5_zrdr */
 _zanim_cmd_hdr* CTStance::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Begin__8CTStanceFP14_zanim_cmd_hdr */
+void CTStance::Begin(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body End__8CTStanceFP14_zanim_cmd_hdr */
+void CTStance::End(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body Tick__8CTStanceFP14_zanim_cmd_hdrPf */
 bool CTStance::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
+/* @socom-skeleton body Parse__7CTStateFP5_zrdr */
 _zanim_cmd_hdr* CTState::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Tick__7CTStateFP14_zanim_cmd_hdrPf */
 bool CTState::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
+/* @socom-skeleton body Parse__9CTStopAllFP5_zrdr */
 _zanim_cmd_hdr* CTStopAll::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Tick__9CTStopAllFP14_zanim_cmd_hdrPf */
 bool CTStopAll::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
+/* @socom-skeleton body Parse__7CTRangeFP5_zrdr */
+_zanim_cmd_hdr* CTRange::Parse(_zrdr* reader)
+{
+	return NULL;
+}
+
+/* @socom-skeleton body Tick__7CTRangeFP14_zanim_cmd_hdrPf */
+bool CTRange::Tick(_zanim_cmd_hdr* header, f32* dT)
+{
+	return false;
+}
+
+/* @socom-skeleton body Parse__8CTRegionFP5_zrdr */
+_zanim_cmd_hdr* CTRegion::Parse(_zrdr* reader)
+{
+	return NULL;
+}
+
+/* @socom-skeleton body Tick__8CTRegionFP14_zanim_cmd_hdrPf */
+bool CTRegion::Tick(_zanim_cmd_hdr* header, f32* dT)
+{
+	return false;
+}
+
+/* @socom-skeleton body Parse__6CTTeamFP5_zrdr */
 _zanim_cmd_hdr* CTTeam::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Tick__6CTTeamFP14_zanim_cmd_hdrPf */
 bool CTTeam::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
+/* @socom-skeleton body Parse__7CTValveFP5_zrdr */
 _zanim_cmd_hdr* CTValve::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Tick__7CTValveFP14_zanim_cmd_hdrPf */
 bool CTValve::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;
 }
 
-void CTWait::Begin(_zanim_cmd_hdr* header)
-{
-
-}
-
+/* @socom-skeleton body Parse__6CTWaitFP5_zrdr */
 _zanim_cmd_hdr* CTWait::Parse(_zrdr* reader)
 {
 	return NULL;
 }
 
+/* @socom-skeleton body Begin__6CTWaitFP14_zanim_cmd_hdr */
+void CTWait::Begin(_zanim_cmd_hdr* header)
+{
+
+}
+
+/* @socom-skeleton body Tick__6CTWaitFP14_zanim_cmd_hdrPf */
 bool CTWait::Tick(_zanim_cmd_hdr* header, f32* dT)
 {
 	return false;

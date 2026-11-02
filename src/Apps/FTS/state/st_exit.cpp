@@ -31,3 +31,58 @@
  * @socom-artifact defines main socom:data:0x4766c0
  * @socom-artifact defines main socom:data:0x511e70
  * socom-owner-annotations end socom:work:source-segment-076 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zFTS/fts_state.h"
+#include "gamez/zSeal/zseal.h"
+#include "gamez/zUtil/util_stable.h"
+#include "state.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CZAnimZAR;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+std::__nInit std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+std::__wInit std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub animfile__21@unnamed@st_exit_cpp@ */
+namespace {
+CZAnimZAR *animfile;
+}
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static CSTable MultiplayerMsgStrings;
+
+/* @socom-skeleton stub SetRoundStatUiVars__21@unnamed@st_exit_cpp@Fii */
+namespace {
+void SetRoundStatUiVars(int, int)
+{
+}
+}
+
+/* @socom-skeleton stub Advance__10CEntityItrFv */
+void CEntityItr::Advance()
+{
+}
+
+/* @socom-skeleton stub GetSeal__10CEntityItrCFv */
+CZSealBody * CEntityItr::GetSeal() const
+{
+}
+
+/* @socom-skeleton stub __ct__10CExitStateFv */
+CExitState::CExitState()
+{
+}
+
+/* @socom-skeleton body Init__10CExitStateFv */
+unsigned char CExitState::Init() { return true; }
+
+/* @socom-skeleton body Tick__10CExitStateFf */
+unsigned char CExitState::Tick(float dT) {}
+
+/* @socom-skeleton body UnInit__10CExitStateFv */
+void CExitState::UnInit() {}

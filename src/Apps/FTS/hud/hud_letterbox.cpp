@@ -14,6 +14,15 @@
 #include "hud.h"
 #include "gamez/zVideo/zvid.h"
 
+/* @socom-skeleton decl include */
+#include "gamez/zCamera/zcam.h"
+#include "gamez/zUtil/util_stable.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static CSTable MultiplayerMsgStrings;
+
+/* @socom-skeleton body __ct__10CLetterBoxFv */
 CLetterBox::CLetterBox()
 {
     for (u32 i = 0; i < 2; i++)
@@ -30,22 +39,14 @@ CLetterBox::CLetterBox()
     m_curpos = 0.0f;
 }
 
-void CLetterBox::AddLetterbox()
-{
-    m_slidedir = SLIDE_IN;
-}
-
-void CLetterBox::RemoveLetterbox()
-{
-    m_slidedir = SLIDE_OUT;
-}
-
+/* @socom-skeleton body Draw__10CLetterBoxFPQ23zdb7CCamera */
 void CLetterBox::Draw(zdb::CCamera* camera)
 {
     m_bitmap[0].Draw(camera);
     m_bitmap[1].Draw(camera);
 }
 
+/* @socom-skeleton body Tick__10CLetterBoxFf */
 void CLetterBox::Tick(f32 dT)
 {
     if (m_slidedir == SLIDE_OUT)
@@ -87,4 +88,16 @@ void CLetterBox::Tick(f32 dT)
             }
         }
     }
+}
+
+/* @socom-skeleton body AddLetterbox__10CLetterBoxFv */
+void CLetterBox::AddLetterbox()
+{
+    m_slidedir = SLIDE_IN;
+}
+
+/* @socom-skeleton body RemoveLetterbox__10CLetterBoxFv */
+void CLetterBox::RemoveLetterbox()
+{
+    m_slidedir = SLIDE_OUT;
 }

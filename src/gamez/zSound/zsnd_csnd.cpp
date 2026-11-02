@@ -113,35 +113,130 @@
 #include "gamez/zSeal/zseal.h"
 #include "gamez/zSystem/zsys.h"
 
-s32 g_iReverbTime = 0;
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/znode.h"
+#include "gamez/zUtil/zutil.h"
+/* @socom-skeleton end include */
 
-bool vagArchiveIsOpen = false;
-bool bnkArchiveIsOpen = false;
-bool snd_system_initialized = false;
+/* @socom-skeleton stub cur_mission_name */
+static unsigned char cur_mission_name[128] = {78, 111, 110, 101, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-zar::CZAR CSnd::m_bnkArchive;
+/* @socom-skeleton stub g_iReverbDepth__23@unnamed@zsnd_csnd_cpp@ */
+namespace {
+int g_iReverbDepth = 10922;
+}
+
+/* @socom-skeleton stub g_iReverbTime__23@unnamed@zsnd_csnd_cpp@ */
+namespace {
+int g_iReverbTime = 240;
+}
+
+/* @socom-skeleton stub m_vagoffset__4CSnd */
+int CSnd::m_vagoffset = -1;
+
+/* @socom-skeleton stub m_bnkoffset__4CSnd */
+int CSnd::m_bnkoffset = -1;
+
+/* @socom-skeleton stub m_bShowSubtitles__4CSnd */
+unsigned char CSnd::m_bShowSubtitles = 1;
+
+/* @socom-skeleton stub m_curID__4CSnd */
+int CSnd::m_curID;
+
+/* @socom-skeleton stub m_curbank__4CSnd */
+int CSnd::m_curbank;
+
+/* @socom-skeleton stub m_listener__4CSnd */
+zdb::CNode *CSnd::m_listener;
+
+/* @socom-skeleton stub m_listenerIsValid__4CSnd */
+bool CSnd::m_listenerIsValid;
+
+/* @socom-skeleton stub m_isDisabled__4CSnd */
+unsigned char CSnd::m_isDisabled;
+
+/* @socom-skeleton stub m_DisplaySounds__4CSnd */
+unsigned char CSnd::m_DisplaySounds;
+
+/* @socom-skeleton stub m_debugMusic__4CSnd */
+unsigned char CSnd::m_debugMusic;
+
+/* @socom-skeleton stub m_hasreverb__4CSnd */
+bool CSnd::m_hasreverb;
+
+/* @socom-skeleton stub m_num_streams_used__4CSnd */
+int CSnd::m_num_streams_used;
+
+/* @socom-skeleton stub m_num_sounds_playing__4CSnd */
+int CSnd::m_num_sounds_playing;
+
+/* @socom-skeleton stub m_errorsound__4CSnd */
+int CSnd::m_errorsound;
+
+/* @socom-skeleton stub m_max_num_vags__4CSnd */
+int CSnd::m_max_num_vags;
+
+/* @socom-skeleton stub m_vagEnabled__4CSnd */
+bool CSnd::m_vagEnabled;
+
+/* @socom-skeleton stub m_fadetime__4CSnd */
+float CSnd::m_fadetime;
+
+/* @socom-skeleton stub m_fadepct__4CSnd */
+float CSnd::m_fadepct;
+
+/* @socom-skeleton stub vagArchiveIsOpen */
+static bool vagArchiveIsOpen;
+
+/* @socom-skeleton stub bnkArchiveIsOpen */
+static bool bnkArchiveIsOpen;
+
+/* @socom-skeleton stub _sound_rdr */
+static int _sound_rdr;
+
+/* @socom-skeleton stub _sound_sets_rdr */
+static int _sound_sets_rdr;
+
+/* @socom-skeleton stub _sound_mission_rdr */
+static int _sound_mission_rdr;
+
+/* @socom-skeleton stub snd_system_initialized */
+static bool snd_system_initialized;
+
+/* @socom-skeleton stub sound_map */
+static unsigned char sound_map[16];
+
+/* @socom-skeleton stub m_soundbank__4CSnd */
+std::vector<CSnd *, std::allocator<CSnd *> > CSnd::m_soundbank;
+
+/* @socom-skeleton stub m_bankloaded__4CSnd */
+std::vector<CSnd *, std::allocator<CSnd *> > CSnd::m_bankloaded;
+
+/* @socom-skeleton stub m_soundlist__4CSnd */
+std::vector<CSnd *, std::allocator<CSnd *> > CSnd::m_soundlist;
+
+/* @socom-skeleton stub m_vagArchive__4CSnd */
 zar::CZAR CSnd::m_vagArchive;
 
-CSnd* CSnd::m_listener = NULL;
-bool CSnd::m_hasreverb = false;
-bool CSnd::m_listenerIsValid = false;
+/* @socom-skeleton stub m_bnkArchive__4CSnd */
+zar::CZAR CSnd::m_bnkArchive;
 
-u8* CSnd::m_snd_data = NULL;
-u32 CSnd::m_snd_len = 0;
+/* @socom-skeleton stub m_listenermatrix__4CSnd */
+unsigned char CSnd::m_listenermatrix[64];
 
-f32 CSnd::m_fadetime = 0.0f;
+/* @socom-skeleton stub m_fadegroup__4CSnd */
+int CSnd::m_fadegroup[7];
 
-s32 CSnd::m_max_num_vags = 0;
-bool CSnd::m_isDisabled = false;
-bool CSnd::m_bShowSubtitles = false;
-bool CSnd::m_vagEnabled = false;
-std::vector<CSnd*> CSnd::m_soundlist;
-std::unordered_map<const char*, CSnd*> CSnd::m_soundmap;
+/* @socom-skeleton stub m_fade_oldvol__4CSnd */
+unsigned char CSnd::m_fade_oldvol[28];
 
-bool CFileCD::m_streamingSndActive = false;
+/* @socom-skeleton stub GetSoundRdrFile__Fv */
+void GetSoundRdrFile()
+{
+}
 
-_zrdr* sound_rdr = NULL;
-
+/* @socom-skeleton body __ct__4CSndFv */
 CSnd::CSnd()
 {
 	if (!m_isDisabled)
@@ -150,6 +245,17 @@ CSnd::CSnd()
 	}
 }
 
+/* @socom-skeleton stub __dt__4CSndFv */
+CSnd::~CSnd()
+{
+}
+
+/* @socom-skeleton stub IOPRebootHandler__FQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv */
+bool IOPRebootHandler(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *)
+{
+}
+
+/* @socom-skeleton body Init__4CSndFv */
 void CSnd::Init()
 {
 	if (m_isDisabled)
@@ -165,18 +271,12 @@ void CSnd::Init()
 	}
 }
 
-void CSnd::Open()
+/* @socom-skeleton stub Uninit__4CSndFv */
+void CSnd::Uninit()
 {
-	CFileCD::m_streamingSndActive = true;
-
-	if (!sound_rdr)
-		sound_rdr = zrdr_read("sounds.rdr", NULL, 0);
-
-	m_max_num_vags = 6;
-	// TODO: Write wrapper for the 989snd library
-	// snd_InitVAGStreamingEx(6, 0xf000, 1, 1);
 }
 
+/* @socom-skeleton body NetOpen__4CSndFv */
 void CSnd::NetOpen()
 {
 	if (!sound_rdr)
@@ -192,6 +292,204 @@ void CSnd::NetOpen()
 	}
 }
 
+/* @socom-skeleton body UIOpen__4CSndFv */
+void CSnd::UIOpen()
+{
+	if (sound_rdr == NULL)
+	{
+		sound_rdr = zrdr_read("sounds.rdr");
+	}
+
+	if (m_vagEnabled)
+	{
+		m_max_num_vags = 4;
+	}
+}
+
+/* @socom-skeleton body Open__4CSndFv */
+void CSnd::Open()
+{
+	CFileCD::m_streamingSndActive = true;
+
+	if (!sound_rdr)
+		sound_rdr = zrdr_read("sounds.rdr", NULL, 0);
+
+	m_max_num_vags = 6;
+	// TODO: Write wrapper for the 989snd library
+	// snd_InitVAGStreamingEx(6, 0xf000, 1, 1);
+}
+
+/* @socom-skeleton body Close__4CSndFv */
+void CSnd::Close()
+{
+	m_max_num_vags = 0;
+	// Headset::ftsDeleteHeadset();
+}
+
+/* @socom-skeleton stub CleanupLoading__4CSndFv */
+void CSnd::CleanupLoading()
+{
+}
+
+/* @socom-skeleton body GetSoundByName__4CSndFPCc */
+CSnd* CSnd::GetSoundByName(const char* name)
+{
+	if (m_isDisabled)
+	{
+		return NULL;
+	}
+
+	auto sound = m_soundmap.find(name);
+
+	if (sound == m_soundmap.end())
+	{
+		return NULL;
+	}
+	else
+	{
+		return sound->second;
+	}
+
+	return NULL;
+}
+
+/* @socom-skeleton stub SetupSoundGroups__4CSndFv */
+void CSnd::SetupSoundGroups()
+{
+}
+
+/* @socom-skeleton stub SetupJukebox__4CSndFPCc */
+void CSnd::SetupJukebox(const char *)
+{
+}
+
+/* @socom-skeleton stub LoadSounds__4CSndFPCc */
+void CSnd::LoadSounds(const char *)
+{
+}
+
+/* @socom-skeleton stub LoadSounds__4CSndFPCcPCc */
+void CSnd::LoadSounds(const char *, const char *)
+{
+}
+
+/* @socom-skeleton body AddNewCSnd__4CSndFP4CSnd */
+void CSnd::AddNewCSnd(CSnd* sound)
+{
+	if (!m_isDisabled)
+	{
+		m_soundmap[sound->m_name] = sound;
+		m_soundlist.insert(m_soundlist.begin(), sound);
+	}
+}
+
+/* @socom-skeleton stub LoadBank__4CSndFPCc */
+void CSnd::LoadBank(const char *)
+{
+}
+
+/* @socom-skeleton body LoadCSnd__4CSndFP5_zrdr */
+void CSnd::LoadCSnd(_zrdr* reader)
+{
+
+}
+
+/* @socom-skeleton stub SetSubtitles__4CSndFb */
+void CSnd::SetSubtitles(bool)
+{
+}
+
+/* @socom-skeleton body GetSubtitles__4CSndFv */
+bool CSnd::GetSubtitles()
+{
+	return m_bShowSubtitles;
+}
+
+/* @socom-skeleton stub PlaySound__4CSndFP12CSndInstanceUi */
+CSndInstance * CSnd::PlaySound(CSndInstance *, unsigned int)
+{
+}
+
+/* @socom-skeleton stub PlaySoundVol__4CSndFfP12CSndInstanceUi */
+CSndInstance * CSnd::PlaySoundVol(float, CSndInstance *, unsigned int)
+{
+}
+
+/* @socom-skeleton stub PlaySoundVolPanPitch__4CSndFfiiP12CSndInstanceUi */
+CSndInstance * CSnd::PlaySoundVolPanPitch(float, int, int, CSndInstance *, unsigned int)
+{
+}
+
+/* @socom-skeleton stub PlaySound3D__4CSndFPC6CPnt3DfiP12CSndInstanceUi */
+CSndInstance * CSnd::PlaySound3D(const CPnt3D *, float, int, CSndInstance *, unsigned int)
+{
+}
+
+/* @socom-skeleton stub PlaySound__4CSndFbP12CSndInstanceUi */
+CSndInstance * CSnd::PlaySound(bool, CSndInstance *, unsigned int)
+{
+}
+
+/* @socom-skeleton stub PlaySoundVol__4CSndFfbP12CSndInstanceUi */
+CSndInstance * CSnd::PlaySoundVol(float, bool, CSndInstance *, unsigned int)
+{
+}
+
+/* @socom-skeleton stub PlaySound3D__4CSndFPC6CPnt3DbfiP12CSndInstanceUi */
+CSndInstance * CSnd::PlaySound3D(const CPnt3D *, bool, float, int, CSndInstance *, unsigned int)
+{
+}
+
+/* @socom-skeleton stub PlaySoundVolPanPitch__4CSndFfiibP12CSndInstanceUi */
+CSndInstance * CSnd::PlaySoundVolPanPitch(float, int, int, bool, CSndInstance *, unsigned int)
+{
+}
+
+/* @socom-skeleton stub CalcVolPan__4CSndFPC6CPnt3DfPiPi */
+void CSnd::CalcVolPan(const CPnt3D *, float, int *, int *)
+{
+}
+
+/* @socom-skeleton body CalcVol__4CSndFff */
+float CSnd::CalcVol(f32 volume, f32 masterVolume)
+{
+	return 0.0f;
+}
+
+/* @socom-skeleton stub StreamSoundVolPan__4CSndFiiP12CSndInstance */
+void CSnd::StreamSoundVolPan(int, int, CSndInstance *)
+{
+	/* @socom-skeleton stub soundname$1876 */
+	static unsigned char soundname[60];
+}
+
+/* @socom-skeleton body vagReadOffset__4CSndFPCcRUiRUi */
+bool CSnd::vagReadOffset(const char* name, u32& offset, u32& size)
+{
+	if (m_isDisabled)
+	{
+		return false;
+	}
+
+	zar::CKey* key = m_vagArchive.FindKey(name);
+	
+	if (key)
+	{
+		offset = key->GetOffset();
+		size = key->GetSize();
+		m_vagArchive.CloseKey(key);
+		return true;
+	}
+	
+	return false;
+}
+
+/* @socom-skeleton stub UnloadAllSounds__4CSndFv */
+void CSnd::UnloadAllSounds()
+{
+}
+
+/* @socom-skeleton body PostTick__4CSndFfPv */
 bool CSnd::PostTick(f32 dT, void* buf)
 {
 	if (!m_listenerIsValid)
@@ -242,86 +540,42 @@ bool CSnd::PostTick(f32 dT, void* buf)
 	return false;
 }
 
-void CSnd::UIOpen()
+/* @socom-skeleton stub OnListenerDeath__4CSndFv */
+void CSnd::OnListenerDeath()
 {
-	if (sound_rdr == NULL)
-	{
-		sound_rdr = zrdr_read("sounds.rdr");
-	}
-
-	if (m_vagEnabled)
-	{
-		m_max_num_vags = 4;
-	}
 }
 
-void CSnd::Close()
+/* @socom-skeleton stub PlayErrorSound__4CSndFv */
+void CSnd::PlayErrorSound()
 {
-	m_max_num_vags = 0;
-	// Headset::ftsDeleteHeadset();
 }
 
-bool CSnd::vagReadOffset(const char* name, u32& offset, u32& size)
+/* @socom-skeleton stub WaitForCDRead__4CSndFv */
+void CSnd::WaitForCDRead()
 {
-	if (m_isDisabled)
-	{
-		return false;
-	}
-
-	zar::CKey* key = m_vagArchive.FindKey(name);
-	
-	if (key)
-	{
-		offset = key->GetOffset();
-		size = key->GetSize();
-		m_vagArchive.CloseKey(key);
-		return true;
-	}
-	
-	return false;
 }
 
-void CSnd::AddNewCSnd(CSnd* sound)
+/* @socom-skeleton stub SetReverbDepth__4CSndFPCf */
+void CSnd::SetReverbDepth(const float *)
 {
-	if (!m_isDisabled)
-	{
-		m_soundmap[sound->m_name] = sound;
-		m_soundlist.insert(m_soundlist.begin(), sound);
-	}
 }
 
-CSnd* CSnd::GetSoundByName(const char* name)
+/* @socom-skeleton stub SetReverbSeconds__4CSndFPCf */
+void CSnd::SetReverbSeconds(const float *)
 {
-	if (m_isDisabled)
-	{
-		return NULL;
-	}
-
-	auto sound = m_soundmap.find(name);
-
-	if (sound == m_soundmap.end())
-	{
-		return NULL;
-	}
-	else
-	{
-		return sound->second;
-	}
-
-	return NULL;
 }
 
-bool CSnd::GetSubtitles()
+/* @socom-skeleton stub SetGroupVol__4CSndFif */
+void CSnd::SetGroupVol(int, float)
 {
-	return m_bShowSubtitles;
 }
 
-float CSnd::CalcVol(f32 volume, f32 masterVolume)
+/* @socom-skeleton stub SetGroupVolTemp__4CSndFffiiiiiii */
+void CSnd::SetGroupVolTemp(float, float, int, int, int, int, int, int, int)
 {
-	return 0.0f;
 }
 
-void CSnd::LoadCSnd(_zrdr* reader)
+/* @socom-skeleton stub ResetGroupVolTemp__4CSndFv */
+void CSnd::ResetGroupVolTemp()
 {
-
 }

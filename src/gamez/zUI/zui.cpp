@@ -85,21 +85,305 @@
 
 #include "zui.h"
 
-CUIVarManager theUIVarManager;
+/* @socom-skeleton decl include */
+#include "gamez/zAnim/zanim.h"
+#include "gamez/zGame/zgame.h"
+#include "gamez/zInput/zinput.h"
+#include "gamez/zNode/node_assetlib.h"
+#include "gamez/zNode/znode.h"
+#include "gamez/zReader/zrdr.h"
+#include "gamez/zTexture/ztex.h"
+#include "gamez/zTwoD/ztwod.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class ActionItem;
+/* @socom-skeleton end forward */
 
-s32 ZuiInit()
-{
-    CRdrFile* params = zrdr_read("UiParams.rdr", "data/common");
-
-    return zrdr_free(params);
+/* @socom-skeleton stub g_bCenterSinceEdge__17@unnamed@zui_cpp@ */
+namespace {
+unsigned char g_bCenterSinceEdge = 1;
 }
 
-void CUIVariable::Set(_zrdr* reader)
-{
-    
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+unsigned char std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+unsigned char std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub glocal_anims__17@unnamed@zui_cpp@ */
+namespace {
+int glocal_anims;
 }
 
-CUIVariable* CUIVarManager::Add(const char* name, _zrdr* reader, UIVAR_LONGEVITY longevity)
+/* @socom-skeleton stub LoadDialogsFromReader */
+unsigned char LoadDialogsFromReader;
+
+/* @socom-skeleton stub g_fStickX__17@unnamed@zui_cpp@ */
+namespace {
+float g_fStickX;
+}
+
+/* @socom-skeleton stub g_fStickY__17@unnamed@zui_cpp@ */
+namespace {
+float g_fStickY;
+}
+
+/* @socom-skeleton stub g_pTtySound__17@unnamed@zui_cpp@ */
+namespace {
+int g_pTtySound;
+}
+
+/* @socom-skeleton stub g_pCurMenu__17@unnamed@zui_cpp@ */
+namespace {
+int g_pCurMenu;
+}
+
+/* @socom-skeleton stub g_pFaderNode__17@unnamed@zui_cpp@ */
+namespace {
+int g_pFaderNode;
+}
+
+/* @socom-skeleton stub g_hasAnims */
+unsigned char g_hasAnims;
+
+/* @socom-skeleton stub g_relocBatch__17@unnamed@zui_cpp@ */
+namespace {
+int g_relocBatch;
+}
+
+/* @socom-skeleton stub zUIScheduler__17@unnamed@zui_cpp@ */
+namespace {
+unsigned char zUIScheduler[32];
+}
+
+/* @socom-skeleton stub GetLocalAnims__Fv */
+CZAnimSet * GetLocalAnims()
 {
-    return NULL;
+}
+
+/* @socom-skeleton stub zUISchedulerClear__Fv */
+void zUISchedulerClear()
+{
+}
+
+/* @socom-skeleton stub Add2dNode__FP3C2DPQ23zdb16CTextureRelocMgrPQ23zdb5CNode */
+zdb::CNode * Add2dNode(C2D *, zdb::CTextureRelocMgr *, zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub DidStickMoveNext__Fv */
+void DidStickMoveNext()
+{
+}
+
+/* @socom-skeleton stub DidStickMovePrev__Fv */
+void DidStickMovePrev()
+{
+}
+
+/* @socom-skeleton stub GetButton__FPCc */
+void GetButton(const char *)
+{
+}
+
+/* @socom-skeleton stub GetStickDir__Fv */
+void GetStickDir()
+{
+}
+
+/* @socom-skeleton body HookupLib__FPQ23zdb9CAssetLib */
+void HookupLib(zdb::CAssetLib *lib)
+{
+	zdb::CGSTexBuffer texbuf;
+
+	for (auto it = lib.m_palettes.begin(); it != lib.m_palettes.end(); ++it)
+	{
+		texbuf.m_dyntex_list.Add(*it, true);
+		texbuf.m_chainp = NULL;
+	}
+
+	for (auto it = lib.m_textures.begin(); it != lib.m_textures.end(); ++it)
+	{
+		texbuf.m_dyntex_list.Add(*it, true);
+		texbuf.m_chainp = NULL;
+	}
+
+	texbuf.Hookup(NULL);
+}
+
+/* @socom-skeleton stub InitButton__FP9C2DButtonPQ23zdb10CTexHandlePQ23zdb10CTexHandlePQ23zdb10CTexHandlePQ23zdb10CTexHandlePCc */
+void InitButton(C2DButton *, zdb::CTexHandle *, zdb::CTexHandle *, zdb::CTexHandle *, zdb::CTexHandle *, const char *)
+{
+}
+
+/* @socom-skeleton stub IsStickNearCenter__Ff */
+void IsStickNearCenter(float)
+{
+}
+
+/* @socom-skeleton stub PlayCountSound__Fv */
+void PlayCountSound()
+{
+}
+
+/* @socom-skeleton stub PlaySelectionSound__Fv */
+void PlaySelectionSound()
+{
+}
+
+/* @socom-skeleton stub PrepTexture__FPCcPQ23zdb16CTextureRelocMgr */
+zdb::CTexHandle * PrepTexture(const char *, zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub SetFaderOpacity__Ff */
+void SetFaderOpacity(float)
+{
+}
+
+/* @socom-skeleton stub UiGetCurMenu__Fv */
+CGameMenu * UiGetCurMenu()
+{
+}
+
+/* @socom-skeleton stub UiGetDirStickMoved__Fv */
+void UiGetDirStickMoved()
+{
+}
+
+/* @socom-skeleton stub __as__10ActionItemFRC10ActionItem */
+void ActionItem::operator=(const ActionItem &)
+{
+}
+
+/* @socom-skeleton stub __ct__9CGameMenuFv */
+CGameMenu::CGameMenu()
+{
+}
+
+/* @socom-skeleton stub __dt__9CGameMenuFv */
+CGameMenu::~CGameMenu()
+{
+}
+
+/* @socom-skeleton stub AddNode__9CGameMenuFP3C2DPQ23zdb16CTextureRelocMgr */
+zdb::CNode * CGameMenu::AddNode(C2D *, zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton body Clear__9CGameMenuFv */
+void CGameMenu::Clear()
+{
+
+}
+
+/* @socom-skeleton stub Draw2dOnly__9CGameMenuFv */
+void CGameMenu::Draw2dOnly()
+{
+}
+
+/* @socom-skeleton body DrawForeplane__9CGameMenuFv */
+void CGameMenu::DrawForeplane()
+{
+	thePipe.m_node = m_pForeplaneNode;
+	// Enable orthographic view for UI layer
+	thePipe.m_simpletrans = true;
+	thePipe.RenderUiNode(m_pForeplaneNode);
+	// Disable orthographic view for UI layer
+	thePipe.m_simpletrans = false;
+}
+
+/* @socom-skeleton stub HandlePad__9CGameMenuFPC4CPad */
+void CGameMenu::HandlePad(const CPad *)
+{
+}
+
+/* @socom-skeleton body Init__9CGameMenuFPQ23zdb16CTextureRelocMgrP9CZAnimZAR */
+bool CGameMenu::Init(zdb::CTextureRelocMgr* manager, CZAnimZAR* archive)
+{
+	Clear();
+
+	animfile = archive;
+
+	zVid.pcrtcDo = false;
+
+	if (!manager)
+		m_Reloc = NULL;
+	else
+		m_Reloc = manager;
+
+	// m_Reloc->ClearAll();
+
+	// TODO: Implement the rest of this function
+
+	return true;
+}
+
+/* @socom-skeleton body LoadFromDesign__9CGameMenuFRC14CGameDlgDesignP9CZAnimZAR */
+void CGameMenu::LoadFromDesign(const CGameDlgDesign &design, CZAnimZAR *animfile)
+{
+	
+}
+
+/* @socom-skeleton stub RunEventAnim__9CGameMenuFQ210ActionItem5EVENTPCc */
+void CGameMenu::RunEventAnim(ActionItem::EVENT, const char *)
+{
+}
+
+/* @socom-skeleton stub MakeNextButtonActive__9CGameMenuFv */
+void CGameMenu::MakeNextButtonActive()
+{
+}
+
+/* @socom-skeleton stub MakePrevButtonActive__9CGameMenuFv */
+void CGameMenu::MakePrevButtonActive()
+{
+}
+
+/* @socom-skeleton stub MakeButtonActive__9CGameMenuFPCc */
+void CGameMenu::MakeButtonActive(const char *)
+{
+}
+
+/* @socom-skeleton stub HaltBackgroundMPEG__9CGameMenuFv */
+void CGameMenu::HaltBackgroundMPEG()
+{
+}
+
+/* @socom-skeleton stub RestartBackgroundMPEG__9CGameMenuFv */
+void CGameMenu::RestartBackgroundMPEG()
+{
+}
+
+/* @socom-skeleton stub TickMPEG__9CGameMenuFv */
+void CGameMenu::TickMPEG()
+{
+}
+
+/* @socom-skeleton stub PrepModels__9CGameMenuFRC14CGameDlgDesign */
+void CGameMenu::PrepModels(const CGameDlgDesign &)
+{
+}
+
+/* @socom-skeleton stub ParseButtonAnim__FP5_zrdrP10ActionItem */
+void ParseButtonAnim(_zrdr *, ActionItem *)
+{
+}
+
+/* @socom-skeleton stub SwitchMenu__9CGameMenuFPc */
+void CGameMenu::SwitchMenu(char *)
+{
+}
+
+/* @socom-skeleton body Tick__9CGameMenuFf */
+void CGameMenu::Tick(float dT) {}
+
+/* @socom-skeleton stub PreGetSprPacket__23CDblBufTextureRelocatorFPQ23zdb10CTexHandle */
+void CDblBufTextureRelocator::PreGetSprPacket(zdb::CTexHandle *)
+{
+}
+
+/* @socom-skeleton stub TakeDrawPacket__23CDblBufTextureRelocatorFP1Ui */
+void CDblBufTextureRelocator::TakeDrawPacket(unsigned __int128 *, unsigned int)
+{
 }

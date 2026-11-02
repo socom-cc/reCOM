@@ -15,9 +15,30 @@
 
 #include "zseal.h"
 
+/* @socom-skeleton decl forward */
+class SEAL_HANDSIGNAL;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub m_handSignal */
+static int m_handSignal[24];
+
+/* @socom-skeleton stub __ct__11CHandSignalFv */
+CHandSignal::CHandSignal()
+{
+}
+
+/* @socom-skeleton body InitHandSignals__10CZSealBodyFv */
 void CZSealBody::InitHandSignals()
 {
 	char buf[256];
 
 	sprintf(buf, "Signal %s", "follow");
+}
+
+/* @socom-skeleton stub DoHandSignal__10CZSealBodyF15SEAL_HANDSIGNAL */
+void CZSealBody::DoHandSignal(SEAL_HANDSIGNAL)
+{
 }

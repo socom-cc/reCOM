@@ -73,16 +73,37 @@
 
 #include "posix/strcasecmp.h"
 
-CZAnimMain ZAnim;
-bool CZAnimMain::m_LoadFromZAR = false;
-
 static f32 _x;
 
-char* _local_wildcard_str = NULL;
-char* _local_wildcard_ptr = NULL;
-char* _input_str_ptr = NULL;
-u32 _digit_count = 0;
+/* @socom-skeleton decl include */
+#include "gamez/zArchive/zar.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/znode.h"
+#include "gamez/zReader/zrdr.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class __sFILE;
+/* @socom-skeleton end forward */
 
+/* @socom-skeleton stub _input_str_ptr */
+static char *_input_str_ptr;
+
+/* @socom-skeleton stub _digit_count */
+static unsigned int _digit_count;
+
+/* @socom-skeleton stub _local_wildcard_str */
+static char *_local_wildcard_str;
+
+/* @socom-skeleton stub ZAnim */
+CZAnimMain ZAnim;
+
+/* @socom-skeleton stub _digit_ptr */
+static int _digit_ptr[5];
+
+/* @socom-skeleton stub _digit_val */
+static int _digit_val[5];
+
+/* @socom-skeleton body Open__10CZAnimMainFv */
 void CZAnimMain::Open()
 {
 	if (m_IsOpen)
@@ -123,6 +144,7 @@ void CZAnimMain::Open()
 	m_IsOpen = true;
 }
 
+/* @socom-skeleton body Close__10CZAnimMainFv */
 bool CZAnimMain::Close()
 {
 	bool unloaded = Unload();
@@ -149,112 +171,67 @@ bool CZAnimMain::Close()
 	return unloaded;
 }
 
-bool CZAnimMain::Unload()
+/* @socom-skeleton stub InvExp__10CZAnimMainFf */
+float CZAnimMain::InvExp(float)
 {
-	// CZAnimNameTable::Unload();
+}
 
-	if (m_animset_list)
+/* @socom-skeleton stub GetNetworkPacket__10CZAnimMainFi */
+ZAnimNetworkPacket * CZAnimMain::GetNetworkPacket(int)
+{
+}
+
+/* @socom-skeleton stub FreeNetworkPacketBuffer__10CZAnimMainFv */
+void CZAnimMain::FreeNetworkPacketBuffer()
+{
+}
+
+/* @socom-skeleton stub AddPath__10CZAnimMainFPCc */
+void CZAnimMain::AddPath(const char *)
+{
+}
+
+/* @socom-skeleton stub OpenFile__10CZAnimMainFPCcPCc */
+__sFILE * CZAnimMain::OpenFile(const char *, const char *)
+{
+}
+
+/* @socom-skeleton stub ActivateBegin__10CZAnimMainFP6CZAnim */
+void CZAnimMain::ActivateBegin(CZAnim *)
+{
+}
+
+/* @socom-skeleton body SplitName__10CZAnimMainFPCcPPc */
+char * CZAnimMain::SplitName(const char *name, char **splitname)
+{
+	char* haystack = NULL;
+
+	if (!name)
 	{
-		for (u32 i = 0; i < m_animset_count; i++)
-		{
-			// CZAnimSet::Unload();
-		}
-
-		zfree(m_animset_list);
-		m_animset_list = NULL;
+		*splitname = NULL;
+		haystack = NULL;
 	}
-
-	m_animset_count = 0;
-	m_CurAnimSet = NULL;
-
-	if (m_cmdset_list)
+	else
 	{
-		for (u32 i = 0; i < m_cmdset_count; i++)
+		char* separator = strstr(name, "::");
+
+		if (!separator)
 		{
-			// UnloadCmdSet(i);
-		}
-
-		zfree(m_cmdset_list);
-		m_cmdset_list = NULL;
-	}
-
-	m_cmdset_count = 0;
-	m_CurAnim = NULL;
-	m_CurSeq = NULL;
-
-	return true;
-}
-
-bool CZAnimMain::CmdValid() const
-{
-	_zsequence* sequence = m_CurSeq;
-	return *sequence->cmd_pc < sequence->name_index + sequence->seq_data_size;
-}
-
-void CZAnimMain::CmdNext()
-{
-	m_CurSeq->cmd_pc += *m_CurSeq->cmd_pc;
-	m_CurSeq->cmd_state = 2;
-}
-
-void CZAnimMain::CmdNext(s32 program_counter)
-{
-	m_CurSeq->cmd_pc += program_counter;
-	m_CurSeq->cmd_state = 2;
-}
-
-void CZAnimMain::CmdSet(s32 program_counter)
-{
-	m_CurSeq->cmd_pc = (s8*)m_CurSeq->loop_counter + program_counter;
-	m_CurSeq->cmd_state = 2;
-}
-
-bool CZAnimMain::NewAnimSet(u32 index)
-{
-	while (m_animset_count <= index)
-	{
-		m_animset_list = static_cast<CZAnimSet*>(zrealloc(m_animset_list, m_animset_count + 1 * sizeof(CZAnimSet)));
-		memset(&m_animset_list[m_animset_count], 0, sizeof(CZAnimSet));
-		m_animset_list[m_animset_count].Init();
-		m_animset_list[m_animset_count].Name("None");
-		m_animset_count++;
-	}
-
-	return true;
-}
-
-u32 CZAnimMain::GetCmd(u32 index, char* name, bool alloc)
-{
-	for (u32 i = 0; i < m_cmdset_list[index].count; i++)
-	{
-		if (alloc)
-		{
-			zanim_cmd* command = static_cast<zanim_cmd*>(zrealloc(m_cmdset_list[index].cmd_list, m_cmdset_list[index].count + 1));
-			m_cmdset_list[index].cmd_list = command;
-			zanim_cmd* buf = (zanim_cmd*)m_cmdset_list[index].cmd_list->name + m_cmdset_list[index].count * 6;
-			memset(buf, 0, sizeof(zanim_cmd));
-			buf->name = zstrdup(name);
-			buf->cmd_val.index.set = index;
-			buf->cmd_val.index.cmd = m_cmdset_list[index].count;
-			m_cmdset_list[index].count++;
+			*splitname = name;
 		}
 		else
 		{
-
+			haystack = zstrdup(name);
+			separator = strstr(haystack, "::");
+			*separator = '\0';
+			*splitname = separator + 2;
 		}
 	}
 
-	return 0;
+	return haystack;
 }
 
-_zanim_cmd_set* CZAnimMain::GetCmdEntry(char* name, bool param_2)
-{
-	char* buf = NULL;
-	char* splitname = SplitName(name, &buf);
-
-	return NULL;
-}
-
+/* @socom-skeleton body GetCmdSet__10CZAnimMainFPcb */
 _zanim_cmd_set* CZAnimMain::GetCmdSet(char* name, bool param_2)
 {
 	_zanim_cmd_set* current_set = NULL;
@@ -280,6 +257,89 @@ _zanim_cmd_set* CZAnimMain::GetCmdSet(char* name, bool param_2)
 	}
 }
 
+/* @socom-skeleton body GetCmd__10CZAnimMainFiPcb */
+int CZAnimMain::GetCmd(int index, char *name, bool alloc)
+{
+	for (u32 i = 0; i < m_cmdset_list[index].count; i++)
+	{
+		if (alloc)
+		{
+			zanim_cmd* command = static_cast<zanim_cmd*>(zrealloc(m_cmdset_list[index].cmd_list, m_cmdset_list[index].count + 1));
+			m_cmdset_list[index].cmd_list = command;
+			zanim_cmd* buf = (zanim_cmd*)m_cmdset_list[index].cmd_list->name + m_cmdset_list[index].count * 6;
+			memset(buf, 0, sizeof(zanim_cmd));
+			buf->name = zstrdup(name);
+			buf->cmd_val.index.set = index;
+			buf->cmd_val.index.cmd = m_cmdset_list[index].count;
+			m_cmdset_list[index].count++;
+		}
+		else
+		{
+
+		}
+	}
+
+	return 0;
+}
+
+/* @socom-skeleton stub GetCmdEntry__10CZAnimMainFUs */
+zanim_cmd * CZAnimMain::GetCmdEntry(unsigned short)
+{
+}
+
+/* @socom-skeleton body GetCmdEntry__10CZAnimMainFPCcb */
+zanim_cmd * CZAnimMain::GetCmdEntry(const char *name, bool param_2)
+{
+	char* buf = NULL;
+	char* splitname = SplitName(name, &buf);
+
+	return NULL;
+}
+
+/* @socom-skeleton body AddCmd__10CZAnimMainFPCcPFP5_zrdr_P14_zanim_cmd_hdrPFP14_zanim_cmd_hdr_vPFP14_zanim_cmd_hdrPf_bPFP14_zanim_cmd_hdr_v */
+_zanim_cmd_hdr* CZAnimMain::AddCmd(const char* name,
+	_zanim_cmd_hdr* (*parser)(_zrdr*),
+	void(*begin)(_zanim_cmd_hdr*),
+	bool(*tick)(_zanim_cmd_hdr*, float*),
+	void(*end)(_zanim_cmd_hdr*))
+{
+	return 0;
+}
+
+/* @socom-skeleton body CmdNext__10CZAnimMainFv */
+void CZAnimMain::CmdNext()
+{
+	m_CurSeq->cmd_pc += *m_CurSeq->cmd_pc;
+	m_CurSeq->cmd_state = 2;
+}
+
+/* @socom-skeleton body CmdNext__10CZAnimMainFi */
+void CZAnimMain::CmdNext(s32 program_counter)
+{
+	m_CurSeq->cmd_pc += program_counter;
+	m_CurSeq->cmd_state = 2;
+}
+
+/* @socom-skeleton body CmdSet__10CZAnimMainFi */
+void CZAnimMain::CmdSet(s32 program_counter)
+{
+	m_CurSeq->cmd_pc = (s8*)m_CurSeq->loop_counter + program_counter;
+	m_CurSeq->cmd_state = 2;
+}
+
+/* @socom-skeleton body CmdValid__10CZAnimMainFv */
+bool CZAnimMain::CmdValid()
+{
+	_zsequence* sequence = m_CurSeq;
+	return *sequence->cmd_pc < sequence->name_index + sequence->seq_data_size;
+}
+
+/* @socom-skeleton stub CmdTick__10CZAnimMainFPf */
+unsigned char CZAnimMain::CmdTick(float *)
+{
+}
+
+/* @socom-skeleton body GetAnimSetIndex__10CZAnimMainFPCcb */
 u32 CZAnimMain::GetAnimSetIndex(const char* animName, bool searchList)
 {
 	for (u32 i = 0; i < m_animset_count; i++)
@@ -322,7 +382,43 @@ u32 CZAnimMain::GetAnimSetIndex(const char* animName, bool searchList)
 	return 0;
 }
 
-CZAnimSet* CZAnimMain::GetAnimSet(u32 i)
+/* @socom-skeleton body NewAnimSet__10CZAnimMainFi */
+bool CZAnimMain::NewAnimSet(int index)
+{
+	while (m_animset_count <= index)
+	{
+		m_animset_list = static_cast<CZAnimSet*>(zrealloc(m_animset_list, m_animset_count + 1 * sizeof(CZAnimSet)));
+		memset(&m_animset_list[m_animset_count], 0, sizeof(CZAnimSet));
+		m_animset_list[m_animset_count].Init();
+		m_animset_list[m_animset_count].Name("None");
+		m_animset_count++;
+	}
+
+	return true;
+}
+
+/* @socom-skeleton stub NewAnim__10CZAnimMainFPCcPCc */
+void CZAnimMain::NewAnim(const char *, const char *)
+{
+}
+
+/* @socom-skeleton stub GetAnim__10CZAnimMainFii */
+CZAnim * CZAnimMain::GetAnim(int, int)
+{
+}
+
+/* @socom-skeleton stub GetAnim__10CZAnimMainFPCcPCc */
+CZAnim * CZAnimMain::GetAnim(const char *, const char *)
+{
+}
+
+/* @socom-skeleton stub GetAnimIndex__10CZAnimMainFP6CZAnimPiPi */
+void CZAnimMain::GetAnimIndex(CZAnim *, int *, int *)
+{
+}
+
+/* @socom-skeleton body GetAnimSet__10CZAnimMainFi */
+CZAnimSet * CZAnimMain::GetAnimSet(int i)
 {
 	if (i < 0 || m_animset_count <= 1)
 		return NULL;
@@ -332,96 +428,162 @@ CZAnimSet* CZAnimMain::GetAnimSet(u32 i)
 	return NULL;
 }
 
-char* CZAnimMain::SplitName(char* name, char** splitname)
+/* @socom-skeleton stub GetAnimSet__10CZAnimMainFPCc */
+CZAnimSet * CZAnimMain::GetAnimSet(const char *)
 {
-	char* haystack = NULL;
-
-	if (!name)
-	{
-		*splitname = NULL;
-		haystack = NULL;
-	}
-	else
-	{
-		char* separator = strstr(name, "::");
-
-		if (!separator)
-		{
-			*splitname = name;
-		}
-		else
-		{
-			haystack = zstrdup(name);
-			separator = strstr(haystack, "::");
-			*separator = '\0';
-			*splitname = separator + 2;
-		}
-	}
-
-	return haystack;
 }
 
-bool CZAnimMain::InitCommands()
+/* @socom-skeleton stub NewSeq__10CZAnimMainFPCc */
+_zsequence * CZAnimMain::NewSeq(const char *)
 {
-	//AddCmd("QUAD_ALIGN", NULL, NULL, zAnimQuadAlignTick, NULL);
-	//
-	//ZAnim.m_cmd_if = *AddCmd("IF", zAnimLoad_If, NULL, zAnimIfTick, NULL);
-	//ZAnim.m_cmd_elseif = *AddCmd("ELSEIF", zAnimLoad_ElseIf, NULL, zAnimGoToEndIf, NULL);
-	//ZAnim.m_cmd_else = *AddCmd("Else", zAnimLoad_ElseIf, NULL, zAnimGoToEndIf, NULL);
-	//ZAnim.m_cmd_endif = *AddCmd("ENDIF", zAnimLoad_EndIf, NULL, zAnimEndIfTick, NULL);
-	//
-	//ZAnim.AddCmd("NODE_ACTIVE", zAnimLoadNodeActive, NULL, zAnimNodeActiveTick, NULL);
-	//ZAnim.AddCmd("NODE_RENDERED", zAnimLoadNodeRendered, NULL, zAnimRangeTestTick, NULL);
-	//ZAnim.AddCmd("RANGE_TEST", zAnimLoadRangeTest, NULL, zAnimRangeTestTick, NULL);
-	//ZAnim.AddCmd("RANDOM_WEIGHT", zAnimLoadRandomWeight, NULL, zAnimRandomWeightTick, NULL);
-	//ZAnim.AddCmd("FAIL", zAnimLoadFail, NULL, zAnimFailTick, NULL);
-	//ZAnim.AddCmd("ANIM_HEALTH", zAnimLoadAnimHealthTest, NULL, zAnimHealthTestTick, NULL);
-	//ZAnim.AddCmd("ANIM_LOD", zAnimLoadAnimLODTest, NULL, zAnimLODTestTick, NULL);
-	//ZAnim.AddCmd("LOOP", zAnimLoadLoop, NULL, zAnimLoopTick, NULL);
-	//ZAnim.AddCmd("WAIT", zAnimLoadWait, zAnimWaitBegin, zAnimWaitTick, NULL);
-	//ZAnim.AddCmd("OBJECT_BLENDMODE", zAnimLoadObjectBlendMode, NULL, zAnimObjectBlendModeTick, NULL);
-	//ZAnim.AddCmd("OBJECT_ACTIVE_STATE", zAnimLoadObjectActiveState, NULL, zAnimObjectActiveStateTick, NULL);
-	//ZAnim.AddCmd("OBJECT_TRANSLATE_STATE", zAnimLoadObjectTranslateState, NULL, zAnimObjectTranslateStateTick, NULL);
-	//ZAnim.AddCmd("OBJECT_ROTATE_STATE", zAnimLoadObjectRotateState, NULL, zAnimObjectRotateStateTick, NULL);
-	//ZAnim.AddCmd("OBJECT_MOTION", zAnimLoadObjectMotion, zAnimObjectMotionBegin, zAnimObjectMotionTick, NULL);
-	//ZAnim.AddCmd("OBJECT_MOTION_FROM_TO", zAnimLoadObjectMotionFromTo, zAnimObjectMotionFromToBegin, zAnimObjectMotionFromToTick, NULL);
-	//ZAnim.AddCmd("OBJECT_OPACITY_FROM_TO", zAnimLoadObjectOpacityFromTo, zAnimObjectOpacityFromToBegin, zAnimObjectOpacityFromToTick, NULL);
-	//ZAnim.AddCmd("OBJECT_MOTION_SI_SCRIPT", zAnimLoadObjectMotionSIScript, zAnimMultiObjectMotionScriptBegin, zAnimMultiObjectMotionScriptTick, NULL);
-	//ZAnim.AddCmd("PARTICLE_SOURCE", zAnimLoadParticleSource, NULL, zAnimParticleSourceTick, NULL);
-	//ZAnim.AddCmd("CAMERA", zAnimLoadCamera, zAnimCameraBegin, zAnimCameraTick, NULL);
-	//ZAnim.AddCmd("DESTRUCTION_SOURCE", zAnimLoadDestructor, NULL, zAnimDestructorTick, NULL);
-	//ZAnim.AddCmd("SOUND", zAnimLoadSound, NULL, zAnimSoundTick, NULL);
-	//ZAnim.AddCmd("LIGHT", zAnimLoadLight, NULL, zAnimLightTick, NULL);
-	//ZAnim.AddCmd("WHILE", zAnimLoadWhile, NULL, zAnimWhileTick, NULL);
-	//
-	//ZAnim.m_cmd_endwhile = *ZAnim.AddCmd("END_WHILE", zAnimLoadEndWhile, NULL, zAnimEndWhileTick, NULL);
-	//ZAnim.m_cmd_ExprOperator = *ZAnim.AddCmd("EXPRESSION", NULL, NULL, NULL, NULL);
-	//
-	//ZAnim.AddCmd("BREAK", zAnimLoadBreak, NULL, zAnimBreakTick, NULL);
-	//ZAnim.AddCmd("CALL_ANIMATION", zAnimLoadCallAnim, zAnimCallAnimBegin, zAnimCallAnimTick, NULL);
-	//ZAnim.AddCmd("STOP_ANIMATION", zAnimLoadStopAnim, NULL, zAnimStopAnimTick, NULL);
-	//ZAnim.AddCmd("PAUSE_ANIMATION", zAnimLoadPauseAnim, NULL, zAnimPauseAnimTick, NULL);
-	//ZAnim.AddCmd("RESUME_ANIMATION", zAnimLoadResumeAnim, NULL, zAnimResumeAnimTick, NULL);
-	//ZAnim.AddCmd("INVALIDATE_ANIMATION", zAnimLoadInvalidateAnim, NULL, zAnimInvalidateAnimTick, NULL);
-	//ZAnim.AddCmd("CALL_SEQUENCE", zAnimLoadCallSequence, NULL, zAnimCallSequenceTick, NULL);
-	//ZAnim.AddCmd("STOP_SEQUENCE", zAnimLoadStopSequence, NULL, zAnimStopSequenceTick, NULL);
-	//ZAnim.AddCmd("DEBUG", zAnimLoadDebug, NULL, zAnimDebugTick, NULL);
-	//ZAnim.AddCmd("OBJECT_ADD_CHILD", zAnimLoadObjectAddChild, NULL, zAnimObjectAddChildTick, NULL);
-	//ZAnim.AddCmd("OBJECT_DELETE_CHILD", zAnimLoadObjectDeleteChild, NULL, zAnimObjectDeleteChildTick, NULL);
-	//ZAnim.AddCmd("MESSAGE", zAnimLoadMessage, NULL, zAnimMessageTick, NULL);
-	//ZAnim.AddCmd("TIMER", zAnimLoadTimer, NULL, zAnimTimerTick, NULL);
-	//ZAnim.AddCmd("FIRE_WEAPON", zAnimLoadFireWeapon, NULL, zAnimFireWeaponTick, NULL);
-	//ZAnim.AddCmd("ui::UI_COMMAND", zAnimLoadUIMenu, NULL, zAnimUIMenuTick, NULL);
-	//ZAnim.AddCmd("ui::UI_APP_COMMAND", zAnimLoadUIAppMenu, NULL, zAnimUIAppMenuTick, NULL);
-
-	return true;
 }
 
-_zanim_cmd_hdr* CZAnimMain::AddCmd(const char* name,
-	_zanim_cmd_hdr* (*parser)(_zrdr*),
-	void(*begin)(_zanim_cmd_hdr*),
-	bool(*tick)(_zanim_cmd_hdr*, float*),
-	void(*end)(_zanim_cmd_hdr*))
+/* @socom-skeleton stub SeqSetName__10CZAnimMainFPCc */
+void CZAnimMain::SeqSetName(const char *)
 {
-	return 0;
+}
+
+/* @socom-skeleton stub SeqSetState__10CZAnimMainFi */
+void CZAnimMain::SeqSetState(int)
+{
+}
+
+/* @socom-skeleton stub SeqAppendCmd__10CZAnimMainFP14_zanim_cmd_hdr */
+void CZAnimMain::SeqAppendCmd(_zanim_cmd_hdr *)
+{
+}
+
+/* @socom-skeleton stub SeqTick__10CZAnimMainFf */
+void CZAnimMain::SeqTick(float)
+{
+}
+
+/* @socom-skeleton stub SeqFirst__10CZAnimMainFv */
+void CZAnimMain::SeqFirst()
+{
+}
+
+/* @socom-skeleton stub SeqNext__10CZAnimMainFv */
+void CZAnimMain::SeqNext()
+{
+}
+
+/* @socom-skeleton stub SeqValid__10CZAnimMainFv */
+void CZAnimMain::SeqValid()
+{
+}
+
+/* @socom-skeleton stub StateRunning__10CZAnimMainFi */
+void CZAnimMain::StateRunning(int)
+{
+}
+
+/* @socom-skeleton stub SeqRunning__10CZAnimMainFv */
+void CZAnimMain::SeqRunning()
+{
+}
+
+/* @socom-skeleton stub ActivateSequence__10CZAnimMainFPCc */
+void CZAnimMain::ActivateSequence(const char *)
+{
+}
+
+/* @socom-skeleton stub StopSequence__10CZAnimMainFPCc */
+void CZAnimMain::StopSequence(const char *)
+{
+}
+
+/* @socom-skeleton stub PauseSequence__10CZAnimMainFPCc */
+void CZAnimMain::PauseSequence(const char *)
+{
+}
+
+/* @socom-skeleton stub ResumeSequence__10CZAnimMainFPCc */
+void CZAnimMain::ResumeSequence(const char *)
+{
+}
+
+/* @socom-skeleton stub SequenceExists__10CZAnimMainFPCc */
+void CZAnimMain::SequenceExists(const char *)
+{
+}
+
+/* @socom-skeleton stub SequenceRunning__10CZAnimMainFPCc */
+void CZAnimMain::SequenceRunning(const char *)
+{
+}
+
+/* @socom-skeleton stub GetNodeSearchScope__10CZAnimMainFPCcPi */
+void CZAnimMain::GetNodeSearchScope(const char *, int *)
+{
+}
+
+/* @socom-skeleton stub GetDatabaseNode__10CZAnimMainFPCci */
+zdb::CNode * CZAnimMain::GetDatabaseNode(const char *, int)
+{
+}
+
+/* @socom-skeleton stub GetDirectionRelativeToNode__10CZAnimMainFP6CPnt3DPQ23zdb5CNode */
+void CZAnimMain::GetDirectionRelativeToNode(CPnt3D *, zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub GetName__15CZAnimNameTableFi */
+char * CZAnimNameTable::GetName(int)
+{
+}
+
+/* @socom-skeleton stub AddName__15CZAnimNameTableFPCc */
+int CZAnimNameTable::AddName(const char *)
+{
+}
+
+/* @socom-skeleton stub Unload__15CZAnimNameTableFv */
+void CZAnimNameTable::Unload()
+{
+}
+
+/* @socom-skeleton stub Load__15CZAnimNameTableFRQ23zar4CZAR */
+void CZAnimNameTable::Load(zar::CZAR &)
+{
+}
+
+/* @socom-skeleton stub GetName__20CZAnimNameIndexTableFP9CZAnimSeti */
+char * CZAnimNameIndexTable::GetName(CZAnimSet *, int)
+{
+}
+
+/* @socom-skeleton stub AddName__20CZAnimNameIndexTableFP9CZAnimSetPCc */
+int CZAnimNameIndexTable::AddName(CZAnimSet *, const char *)
+{
+}
+
+/* @socom-skeleton stub Unload__20CZAnimNameIndexTableFv */
+void CZAnimNameIndexTable::Unload()
+{
+}
+
+/* @socom-skeleton stub Load__20CZAnimNameIndexTableFRQ23zar4CZAR */
+void CZAnimNameIndexTable::Load(zar::CZAR &)
+{
+}
+
+/* @socom-skeleton stub AnimSchedulerTick__10CZAnimMainFfPv */
+bool CZAnimMain::AnimSchedulerTick(float, void *)
+{
+}
+
+/* @socom-skeleton stub ZAnimWildcardInit__FPc */
+char * ZAnimWildcardInit(char *)
+{
+}
+
+/* @socom-skeleton stub ZAnimWildcardNext__Fv */
+char * ZAnimWildcardNext()
+{
+}
+
+/* @socom-skeleton stub ZAnimWildcardApply__FPCc */
+char * ZAnimWildcardApply(const char *)
+{
 }

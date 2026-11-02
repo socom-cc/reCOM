@@ -50,21 +50,41 @@
 #include "gamez/zSave/zsave.h"
 #include "gamez/zVisual/zvis.h"
 
-char database[32];
-
 extern zar::CZAR archive = zar::CZAR();
 extern zdb::CWorld* theWorld = NULL;
 
-extern char* GetDatabase()
+/* @socom-skeleton decl include */
+#include "gamez/zUtil/util_stable.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+std::__nInit std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+std::__wInit std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub theWorld */
+static zdb::CWorld *theWorld;
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static CSTable MultiplayerMsgStrings;
+
+/* @socom-skeleton stub archive */
+static zar::CZAR archive;
+
+/* @socom-skeleton body testLoad__Fv */
+extern bool testLoad()
 {
-	return database;
+	return false;
 }
 
-extern char* SetDatabase(const char* db)
+/* @socom-skeleton body testUnload__Fv */
+extern bool testUnload()
 {
-	return strcpy(database, db);
+	return false;
 }
 
+/* @socom-skeleton body LoadWorld__FPCc */
 extern bool LoadWorld(const char* name)
 {
 	char strbuf[1024];
@@ -145,17 +165,8 @@ extern bool LoadWorld(const char* name)
 	return true;
 }
 
+/* @socom-skeleton body UnloadTheWorld__Fv */
 extern bool UnloadTheWorld()
-{
-	return false;
-}
-
-extern bool testLoad()
-{
-	return false;
-}
-
-extern bool testUnload()
 {
 	return false;
 }

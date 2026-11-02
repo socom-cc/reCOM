@@ -20,3 +20,78 @@
  * @socom-artifact emits main socom:function:0x2f2940
  * @socom-artifact emits main socom:function:0x2f29b0
  * socom-owner-annotations end socom:work:source-segment-039 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zReader/zrdr.h"
+#include "zsnd.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub __ct__12CSndSequenceFv */
+CSndSequence::CSndSequence()
+{
+}
+
+/* @socom-skeleton stub __dt__12CSndSequenceFv */
+CSndSequence::~CSndSequence()
+{
+}
+
+/* @socom-skeleton stub CreateSequence__12CSndSequenceFP5_zrdr */
+void CSndSequence::CreateSequence(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub Tick__12CSndSequenceFf */
+void CSndSequence::Tick(float)
+{
+}
+
+/* @socom-skeleton stub Play__12CSndSequenceFv */
+void CSndSequence::Play()
+{
+}
+
+/* @socom-skeleton stub Stop__12CSndSequenceFv */
+void CSndSequence::Stop()
+{
+}
+
+/* @socom-skeleton stub IsFading__12CSndSequenceFv */
+void CSndSequence::IsFading()
+{
+}
+
+/* @socom-skeleton stub FadeOut__12CSndSequenceFv */
+void CSndSequence::FadeOut()
+{
+}
+
+/* @socom-skeleton stub __ct__17CSndSequenceEntryFP4CSndf */
+CSndSequenceEntry::CSndSequenceEntry(CSnd *, float)
+{
+}
+
+/* @socom-skeleton stub Tick__17CSndSequenceEntryFf */
+void CSndSequenceEntry::Tick(float)
+{
+}
+
+/* @socom-skeleton stub Play__17CSndSequenceEntryFv */
+void CSndSequenceEntry::Play()
+{
+}
+
+/* @socom-skeleton stub Stop__17CSndSequenceEntryFv */
+void CSndSequenceEntry::Stop()
+{
+}
+
+/* @socom-skeleton stub FadeOut__17CSndSequenceEntryFv */
+void CSndSequenceEntry::FadeOut()
+{
+}
+
+/* @socom-skeleton stub IsFading__17CSndSequenceEntryFv */
+void CSndSequenceEntry::IsFading()
+{
+}

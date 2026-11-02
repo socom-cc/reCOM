@@ -52,3 +52,118 @@
  * @socom-artifact defines main socom:data:0x47665c
  * @socom-artifact defines main socom:data:0x476660
  * socom-owner-annotations end socom:work:source-segment-043 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zNode/node_saveload.h"
+#include "vis_local.h"
+#include "zvis.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub __ct__Q23zdb11CLOD_ObjectFv */
+zdb::CLOD_Object::CLOD_Object()
+{
+}
+
+/* @socom-skeleton stub __dt__Q23zdb11CLOD_ObjectFv */
+zdb::CLOD_Object::~CLOD_Object()
+{
+}
+
+/* @socom-skeleton stub Read__Q23zdb11CLOD_ObjectFPQ23zdb9CSaveLoad */
+void zdb::CLOD_Object::Read(zdb::CSaveLoad *)
+{
+}
+
+/* @socom-skeleton stub __ct__Q23zdb15CSubSurf_ObjectFv */
+zdb::CSubSurf_Object::CSubSurf_Object()
+{
+}
+
+/* @socom-skeleton stub __dt__Q23zdb15CSubSurf_ObjectFv */
+zdb::CSubSurf_Object::~CSubSurf_Object()
+{
+}
+
+/* @socom-skeleton stub __ct__Q23zdb16CMaterial_ObjectFv */
+zdb::CMaterial_Object::CMaterial_Object()
+{
+}
+
+/* @socom-skeleton stub __dt__Q23zdb16CMaterial_ObjectFv */
+zdb::CMaterial_Object::~CMaterial_Object()
+{
+}
+
+/* @socom-skeleton stub Read__Q23zdb16CMaterial_ObjectFPQ23zdb9CSaveLoad */
+void zdb::CMaterial_Object::Read(zdb::CSaveLoad *)
+{
+}
+
+/* @socom-skeleton stub __ct__Q23zdb16CPreLight_ObjectFv */
+zdb::CPreLight_Object::CPreLight_Object()
+{
+}
+
+/* @socom-skeleton stub __dt__Q23zdb16CPreLight_ObjectFv */
+zdb::CPreLight_Object::~CPreLight_Object()
+{
+}
+
+/* @socom-skeleton stub __ct__Q23zdb24CScrollingTexture_ObjectFv */
+zdb::CScrollingTexture_Object::CScrollingTexture_Object()
+{
+}
+
+/* @socom-skeleton stub __dt__Q23zdb24CScrollingTexture_ObjectFv */
+zdb::CScrollingTexture_Object::~CScrollingTexture_Object()
+{
+}
+
+/* @socom-skeleton stub Read__Q23zdb24CScrollingTexture_ObjectFPQ23zdb9CSaveLoad */
+void zdb::CScrollingTexture_Object::Read(zdb::CSaveLoad *)
+{
+}
+
+/* @socom-skeleton stub Clear__Q23zdb8CVisDataFv */
+void zdb::CVisData::Clear()
+{
+}
+
+/* @socom-skeleton stub SelectVertex__Q23zdb8CVisDataFPQ23zdb7CVisualUiUi */
+void zdb::CVisData::SelectVertex(zdb::CVisual *, unsigned int, unsigned int)
+{
+}
+
+/* @socom-skeleton stub SearchVertex__Q23zdb8CVisDataFv */
+void zdb::CVisData::SearchVertex()
+{
+}
+
+/* @socom-skeleton stub ReplaceTextureData__Q23zdb8CVisDataFP1 */
+void zdb::CVisData::ReplaceTextureData(unsigned __int128 *)
+{
+}
+
+/* @socom-skeleton body SetBilinear__Q23zdb8CVisDataFP1Ui */
+void zdb::CVisData::SetBilinear(unsigned __int128 *qwc, unsigned int bilinear)
+	{
+		while (m_nextGif->u8[2] != 8)
+		{
+			m_nextGif++;
+		}
+	}
+
+/* @socom-skeleton body NextVertex__Q23zdb8CVisDataFUi */
+namespace zdb {
+void CVisData::NextVertex(u32 stride)
+	{
+		
+	}
+}
+
+/* @socom-skeleton stub ColConvTo3D__FUi */
+void ColConvTo3D(unsigned int)
+{
+	/* @socom-skeleton stub scale$1285 */
+	static float scale;
+}

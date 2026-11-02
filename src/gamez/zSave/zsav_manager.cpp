@@ -19,6 +19,18 @@
 
 #include "zsave.h"
 
+/* @socom-skeleton decl include */
+#include "gamez/zArchive/zar.h"
+#include "gamez/zReader/zrdr.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CIO;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub g_KeyToilet */
+static int g_KeyToilet[3];
+
+/* @socom-skeleton body __ct__12CSaveManagerFP3CIO */
 CSaveManager::CSaveManager(CIO* io)
 {
 	m_pFile = io;
@@ -26,7 +38,38 @@ CSaveManager::CSaveManager(CIO* io)
 	m_TempBuffer = NULL;
 }
 
+/* @socom-skeleton stub __dt__12CSaveManagerFv */
+CSaveManager::~CSaveManager()
+{
+}
+
+/* @socom-skeleton body RegisterModule__12CSaveManagerFP11CSaveModule */
 void CSaveManager::RegisterModule(CSaveModule* module)
 {
 
+}
+
+/* @socom-skeleton stub Save__12CSaveManagerFPCciiPc */
+bool CSaveManager::Save(const char *, int, int, char *)
+{
+}
+
+/* @socom-skeleton stub RemoveExtension__FPCc */
+void RemoveExtension(const char *)
+{
+}
+
+/* @socom-skeleton stub Load__12CSaveManagerFPCci */
+bool CSaveManager::Load(const char *, int)
+{
+}
+
+/* @socom-skeleton stub GetHeader__12CSaveManagerFPCciPQ212CSaveManager11CSaveHeader */
+bool CSaveManager::GetHeader(const char *, int, CSaveManager::CSaveHeader *)
+{
+}
+
+/* @socom-skeleton stub SaveRdr__12CSaveManagerFPQ23zar4CKeyPCcP8CRdrFile */
+bool CSaveManager::SaveRdr(zar::CKey *, const char *, CRdrFile *)
+{
 }

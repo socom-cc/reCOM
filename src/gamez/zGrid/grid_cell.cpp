@@ -12,3 +12,62 @@
  * @socom-artifact defines main socom:function:0x217300
  * @socom-artifact defines main socom:function:0x217380
  * socom-owner-annotations end socom:work:source-segment-025 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/znode.h"
+#include "grid_clutter.h"
+#include "zgrid.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton body __ct__Q23zdb5CCellFPC6CPnt3Df */
+zdb::CCell::CCell(const CPnt3D *origin, float offset)
+    {
+        CPnt3D boxextents;
+        
+        m_bbox.m_max = *origin;
+
+        boxextents.x = offset - 0.001f;
+        boxextents.y = 0.0f;
+        boxextents.z = boxextents.x;
+
+        m_bbox.m_min = m_bbox.m_max;
+
+        CPnt3D max = m_bbox.m_max;
+
+        max.Add(origin, &boxextents);
+        
+        m_type = (u32)TYPE::CELL;
+
+        m_lightList.erase(m_lightList.begin(), m_lightList.end());
+    }
+
+/* @socom-skeleton stub UpdateBBox__Q23zdb5CCellFb */
+CBBox * zdb::CCell::UpdateBBox(bool)
+{
+}
+
+/* @socom-skeleton stub __dt__Q23zdb5CCellFv */
+zdb::CCell::~CCell()
+{
+}
+
+/* @socom-skeleton stub DeleteClutter__Q23zdb5CCellFv */
+void zdb::CCell::DeleteClutter()
+{
+}
+
+/* @socom-skeleton stub AddClutter__Q23zdb5CCellFPQ23zdb8CClutter */
+void zdb::CCell::AddClutter(zdb::CClutter *)
+{
+}
+
+/* @socom-skeleton stub RenderClutter__Q23zdb5CCellFPQ23zdb5CCell */
+void zdb::CCell::RenderClutter(zdb::CCell *)
+{
+}
+
+/* @socom-skeleton stub GetMidPoint__Q23zdb5CCellFP6CPnt3D */
+void zdb::CCell::GetMidPoint(CPnt3D *)
+{
+}

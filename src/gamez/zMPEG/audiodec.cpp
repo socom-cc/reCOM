@@ -10,3 +10,52 @@
  * @socom-artifact defines main socom:function:0x334b80
  * @socom-artifact defines main socom:function:0x334bd0
  * socom-owner-annotations end socom:work:source-segment-047 */
+
+/* @socom-skeleton decl forward */
+class AudioDec;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub audioDecCreate__FP8AudioDecPUcii */
+void audioDecCreate(AudioDec *, unsigned char *, int, int)
+{
+}
+
+/* @socom-skeleton stub audioDecReset__FP8AudioDec */
+void audioDecReset(AudioDec *)
+{
+}
+
+/* @socom-skeleton stub audioDecDelete__FP8AudioDec */
+void audioDecDelete(AudioDec *)
+{
+}
+
+/* @socom-skeleton stub audioDecBeginPut__FP8AudioDecPPUcPiPPUcPi */
+void audioDecBeginPut(AudioDec *, unsigned char **, int *, unsigned char **, int *)
+{
+}
+
+/* @socom-skeleton stub audioDecEndPut__FP8AudioDeci */
+void audioDecEndPut(AudioDec *, int)
+{
+}
+
+/* @socom-skeleton stub audioDecIsPreset__FP8AudioDec */
+void audioDecIsPreset(AudioDec *)
+{
+}
+
+/* @socom-skeleton stub audioDecStart__FP8AudioDec */
+void audioDecStart(AudioDec *)
+{
+}
+
+/* @socom-skeleton stub audioDecSendToIOP__FP8AudioDec */
+void audioDecSendToIOP(AudioDec *)
+{
+}
+
+/* @socom-skeleton stub sendToIOP2area__FiiiiPUciPUci */
+int sendToIOP2area(int, int, int, int, unsigned char *, int, unsigned char *, int)
+{
+}

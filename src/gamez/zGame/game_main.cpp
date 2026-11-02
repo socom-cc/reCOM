@@ -33,8 +33,23 @@
 #include "gamez/zVideo/zvid.h"
 #include "gamez/zUI/zui.h"
 
-COurGame theGame;
+/* @socom-skeleton decl forward */
+class CGameName;
+/* @socom-skeleton end forward */
 
+/* @socom-skeleton stub NetTickThreadRunState */
+static bool NetTickThreadRunState = 1;
+
+/* @socom-skeleton stub OurGameName */
+CGameName OurGameName;
+
+/* @socom-skeleton stub NetTickSleepTime */
+static int NetTickSleepTime;
+
+/* @socom-skeleton stub net_tick_thread_stack */
+unsigned char net_tick_thread_stack[69632];
+
+/* @socom-skeleton body __ct__5CGameFv */
 CGame::CGame()
 {
 	m_Active = false;
@@ -47,12 +62,12 @@ CGame::CGame()
 	m_maxtick = 0;
 }
 
-void CGame::StartPlay()
+/* @socom-skeleton stub __dt__5CGameFv */
+CGame::~CGame()
 {
-	m_Active = true;
-	Switch(m_InitialState, 0);
 }
 
+/* @socom-skeleton body Tick__5CGameFf */
 bool CGame::Tick(f32 dT)
 {
 	CGameState* state = NULL;
@@ -88,50 +103,7 @@ bool CGame::Tick(f32 dT)
 	return false;
 }
 
-bool CGameMenu::Init(zdb::CTextureRelocMgr* manager, CZAnimZAR* archive)
+/* @socom-skeleton stub NetTickThreadEntry__FPv */
+void NetTickThreadEntry(void *)
 {
-	Clear();
-
-	animfile = archive;
-
-	zVid.pcrtcDo = false;
-
-	if (!manager)
-		m_Reloc = NULL;
-	else
-		m_Reloc = manager;
-
-	// m_Reloc->ClearAll();
-
-	// TODO: Implement the rest of this function
-
-	return true;
-}
-
-void CGameMenu::Draw2DOnly()
-{
-	thePipe.m_node = m_pBackplaneNode;
-	thePipe.m_simpletrans = true;
-	thePipe.RenderUiNode(&m_nodeTop);
-	thePipe.m_simpletrans = false;
-}
-
-void CGameMenu::DrawForeplane()
-{
-	thePipe.m_node = m_pForeplaneNode;
-	// Enable orthographic view for UI layer
-	thePipe.m_simpletrans = true;
-	thePipe.RenderUiNode(m_pForeplaneNode);
-	// Disable orthographic view for UI layer
-	thePipe.m_simpletrans = false;
-}
-
-void CGameMenu::Clear()
-{
-
-}
-
-void CGameMenu::LoadFromDesign(CGameDlgDesign* design, CZAnimZAR* animfile)
-{
-	
 }

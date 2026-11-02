@@ -6,3 +6,77 @@
  * @socom-artifact defines main socom:function:0x2f9600
  * @socom-artifact defines main socom:data:0x476564
  * socom-owner-annotations end socom:work:source-segment-040 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zNode/node_saveload.h"
+#include "ztex.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub m_freeAfterLoad__Q23zdb8CTexture */
+namespace zdb {
+int CTexture::m_freeAfterLoad;
+}
+
+/* @socom-skeleton stub po2__FUi */
+unsigned int po2(unsigned int)
+{
+}
+
+/* @socom-skeleton stub LoadGS__Q23zdb8CTextureFUiPcPvUiUiUi */
+void zdb::CTexture::LoadGS(unsigned int, char *, void *, unsigned int, unsigned int, unsigned int)
+{
+}
+
+/* @socom-skeleton stub SetupSpecialTextures__Q23zdb8CTextureFv */
+void zdb::CTexture::SetupSpecialTextures()
+{
+}
+
+/* @socom-skeleton body Read__Q23zdb8CTextureFRQ23zdb9CSaveLoad */
+namespace zdb {
+bool CTexture::Read(zdb::CSaveLoad& sload)
+	{
+		_word128 texturePacket;
+		bool success = false;
+
+		if (zar::CKey* dataKey = sload.m_zfile.FindKey("texdat"))
+		{
+			success = true;
+			sload.m_zfile.FetchLIP(dataKey, reinterpret_cast<void**>(&texturePacket));
+
+			memcpy(this, &texturePacket, sizeof(TEXTURE_PARAMS));
+
+			_word128* texGifPtr = &texturePacket;
+			void* bufferPtr = static_cast<void*>(&texGifPtr[1].u32[0]);
+
+			m_buffer = static_cast<void*>(bufferPtr);
+		}
+
+		switch (m_texelBitSize)
+		{
+		case 4:
+			m_format = 20;
+			break;
+		case 8:
+			m_format = 19;
+			break;
+		case 16:
+			m_palettized = true;
+			break;
+		case 24:
+			m_format = 1;
+			goto nopal;
+		case 32:
+			m_format = 0;
+			goto nopal;
+		}
+
+		if (!m_transp_1bit)
+			m_format = 19;
+		else
+			m_format = 2;
+nopal:
+		m_palID = 0;
+		return success;
+	}
+}

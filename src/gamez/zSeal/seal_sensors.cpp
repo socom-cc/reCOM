@@ -124,3 +124,248 @@
  * @socom-artifact defines main socom:data:0x509000
  * @socom-artifact defines main socom:data:0x509010
  * socom-owner-annotations end socom:work:source-segment-076 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zEntity/zentity.h"
+#include "gamez/zIntersect/zintersect.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/znode.h"
+#include "gamez/zWeapon/zweapon.h"
+#include "zseal.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub diPoolSize */
+static int diPoolSize = 6;
+
+/* @socom-skeleton stub diMaxFire */
+static int diMaxFire = 2;
+
+/* @socom-skeleton stub diMaxSpecial */
+static int diMaxSpecial = 1;
+
+/* @socom-skeleton stub vis_rate_min */
+static float vis_rate_min = -0.15000000596046448f;
+
+/* @socom-skeleton stub vis_rate_max */
+static float vis_rate_max = 1.149999976158142f;
+
+/* @socom-skeleton stub vis_rate_see */
+static float vis_rate_see = 1.0f;
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+unsigned char std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+unsigned char std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub diFireCount */
+static int diFireCount;
+
+/* @socom-skeleton stub diSpecialCount */
+static int diSpecialCount;
+
+/* @socom-skeleton stub diStopper */
+static int diStopper;
+
+/* @socom-skeleton stub diNonVolCount */
+static int diNonVolCount;
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub range */
+static unsigned char range[128];
+
+/* @socom-skeleton stub sorted */
+static unsigned char sorted[128];
+
+/* @socom-skeleton stub _colorViewDir */
+static int _colorViewDir[3];
+
+/* @socom-skeleton stub _colorEntVisible */
+static int _colorEntVisible[3];
+
+/* @socom-skeleton stub _colorEntNoBlock */
+static int _colorEntNoBlock[3];
+
+/* @socom-skeleton stub _colorPlayerNoSee */
+static int _colorPlayerNoSee[3];
+
+/* @socom-skeleton stub _diPool */
+static int _diPool[10];
+
+/* @socom-skeleton stub PreTick__11CSealCtrlAiFfPv */
+bool CSealCtrlAi::PreTick(float, void *)
+{
+	/* @socom-skeleton stub snooze_rate$2473 */
+	static float snooze_rate;
+	/* @socom-skeleton stub snoozer_sleep_radius$2476 */
+	static float snoozer_sleep_radius;
+	/* @socom-skeleton stub snoozer_wakeup_radius$2479 */
+	static int snoozer_wakeup_radius;
+	/* @socom-skeleton stub snoozer_height$2482 */
+	static float snoozer_height;
+	/* @socom-skeleton stub active_limit$2485 */
+	static int active_limit;
+	/* @socom-skeleton stub debug_snoozer$2490 */
+	static int debug_snoozer;
+}
+
+/* @socom-skeleton stub PrePostTick__11CSealCtrlAiFfPv */
+bool CSealCtrlAi::PrePostTick(float, void *)
+{
+}
+
+/* @socom-skeleton stub PostTick__11CSealCtrlAiFfPv */
+bool CSealCtrlAi::PostTick(float, void *)
+{
+}
+
+/* @socom-skeleton stub CleanupDiPool__FP10CZSealBody */
+void CleanupDiPool(CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub OpenDiPool__11CSealCtrlAiFv */
+void CSealCtrlAi::OpenDiPool()
+{
+}
+
+/* @socom-skeleton stub CloseDiPool__11CSealCtrlAiFv */
+void CSealCtrlAi::CloseDiPool()
+{
+}
+
+/* @socom-skeleton stub _GetTargetPerception__9CSealCtrlFR7CTarget */
+void CSealCtrl::_GetTargetPerception(CTarget &)
+{
+	/* @socom-skeleton stub vSquaredThreshold$2606 */
+	static float vSquaredThreshold;
+}
+
+/* @socom-skeleton stub SensorPreTick__11CSealCtrlAiFf */
+void CSealCtrlAi::SensorPreTick(float)
+{
+	/* @socom-skeleton stub AVOID_THRESHOLD$2651 */
+	static float AVOID_THRESHOLD;
+	/* @socom-skeleton stub CQB_THRESHOLD$2654 */
+	static float CQB_THRESHOLD;
+	/* @socom-skeleton stub AWARE_THRESHOLD$2657 */
+	static float AWARE_THRESHOLD;
+	/* @socom-skeleton stub pickupSearchRadius$2692 */
+	static float pickupSearchRadius;
+}
+
+/* @socom-skeleton stub SensorPreTick__9CSealCtrlFf */
+void CSealCtrl::SensorPreTick(float)
+{
+}
+
+/* @socom-skeleton stub OnSetTargetVisible__11CSealCtrlAiFR7CTargetbPQ23zdb11DiIntersect */
+void CSealCtrlAi::OnSetTargetVisible(CTarget &, bool, zdb::DiIntersect *)
+{
+	/* @socom-skeleton stub surprisedRange$2792 */
+	static int surprisedRange;
+}
+
+/* @socom-skeleton stub SetTarget__9CSealCtrlFP7CTarget */
+void CSealCtrl::SetTarget(CTarget *)
+{
+}
+
+/* @socom-skeleton stub OnSetTargetVisible__9CSealCtrlFR7CTargetbPQ23zdb11DiIntersect */
+void CSealCtrl::OnSetTargetVisible(CTarget &, bool, zdb::DiIntersect *)
+{
+}
+
+/* @socom-skeleton stub SensorTick__9CSealCtrlFf */
+void CSealCtrl::SensorTick(float)
+{
+	/* @socom-skeleton stub v_min$2826 */
+	static int v_min;
+	/* @socom-skeleton stub v_max$2829 */
+	static int v_max;
+	/* @socom-skeleton stub nominal_time_base$2868 */
+	static float nominal_time_base;
+}
+
+/* @socom-skeleton stub NotifyTargetDown__11CSealCtrlAiFP10CZSealBody */
+void CSealCtrlAi::NotifyTargetDown(CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub NotifyTargetDown__9CSealCtrlFP10CZSealBody */
+void CSealCtrl::NotifyTargetDown(CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub EnemyCallout__11CSealCtrlAiFPC7CTargetP7CEntity */
+void CSealCtrlAi::EnemyCallout(const CTarget *, CEntity *)
+{
+	/* @socom-skeleton stub MoveSqThresh$2902 */
+	static float MoveSqThresh;
+	/* @socom-skeleton stub HighHeight$2905 */
+	static float HighHeight;
+}
+
+/* @socom-skeleton stub SensorTick__11CSealCtrlAiFf */
+void CSealCtrlAi::SensorTick(float)
+{
+}
+
+/* @socom-skeleton stub RegisterCanSee__11CSealCtrlAiFRiPC6CPnt3D */
+void CSealCtrlAi::RegisterCanSee(int &, const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub ComputeVisibility__9CSealCtrlFPQ23zdb11DiIntersectP7CTarget */
+float CSealCtrl::ComputeVisibility(zdb::DiIntersect *, CTarget *)
+{
+	/* @socom-skeleton stub watch_id$2956 */
+	static int watch_id;
+	/* @socom-skeleton stub zero_range_probability$2961 */
+	static float zero_range_probability;
+	/* @socom-skeleton stub prone_factor$2964 */
+	static float prone_factor;
+	/* @socom-skeleton stub crouch_factor$2967 */
+	static float crouch_factor;
+	/* @socom-skeleton stub ff_min$2981 */
+	static float ff_min;
+	/* @socom-skeleton stub ff_max$2984 */
+	static float ff_max;
+}
+
+/* @socom-skeleton stub ComputeVisibility__9CSealCtrlFPQ23zdb11DiIntersectPQ23zdb5CNode */
+float CSealCtrl::ComputeVisibility(zdb::DiIntersect *, zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub SetViewFOV__9CSealCtrlFf */
+void CSealCtrl::SetViewFOV(float)
+{
+}
+
+/* @socom-skeleton stub UpdateViewCone__9CSealCtrlFv */
+void CSealCtrl::UpdateViewCone()
+{
+}
+
+/* @socom-skeleton stub UpdateViewCone__11CSealCtrlAiFv */
+void CSealCtrlAi::UpdateViewCone()
+{
+}
+
+/* @socom-skeleton stub GetWeaponEffectiveRange__10CAiWepHintFP8CZWeapon */
+float CAiWepHint::GetWeaponEffectiveRange(CZWeapon *)
+{
+}
+
+/* @socom-skeleton stub GetWeaponAccuracy__10CAiWepHintFP8CZWeaponfb */
+float CAiWepHint::GetWeaponAccuracy(CZWeapon *, float, bool)
+{
+}
+
+/* @socom-skeleton stub PerturbAimVector__11CSealCtrlAiFP6CPnt3D */
+void CSealCtrlAi::PerturbAimVector(CPnt3D *)
+{
+}

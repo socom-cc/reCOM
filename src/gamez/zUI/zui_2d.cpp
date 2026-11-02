@@ -206,3 +206,935 @@
  * @socom-artifact defines main socom:data:0x4768f8
  * @socom-artifact defines main socom:data:0x4768fc
  * socom-owner-annotations end socom:work:source-segment-076 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zCamera/zcam.h"
+#include "gamez/zInput/zinput.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/node_assetlib.h"
+#include "gamez/zReader/zrdr.h"
+#include "gamez/zTexture/ztex.h"
+#include "gamez/zTwoD/ztwod.h"
+#include "zui.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class C2DAnimCmdHdr;
+class CCheckBoxSpec;
+class CCorners;
+class CCycleButtonSpec;
+class CHandlerButtonSpec;
+class CRadioStripSpec;
+class CScrollSpec;
+class CSliderBarSpec;
+class CUIListBox;
+class CUIListBoxSpec;
+class CUIMapCtrlAnimCmdHdr;
+class CUIMapCtrlSpec;
+class ColumnData;
+struct _zanim_cmd_hdr;
+/* @socom-skeleton end forward */
+/* @socom-skeleton decl Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImpl */
+namespace {
+class CListItemArrayTypeImpl : public CListItemTypeImpl
+{
+public:
+	virtual ~CListItemArrayTypeImpl();
+	virtual void DrawPrep(const CUIListBox &, int, int, int);
+	virtual void Finish();
+	virtual void GetString();
+	virtual void PrepListItem(const std::vector<ColumnData *, std::allocator<ColumnData *> > &, C2DFont *, float, zdb::CTextureRelocMgr *);
+	virtual void SetFont(C2DFont *);
+	virtual void SetPos(int, int, int, int);
+	virtual void SetScale(float);
+	virtual void SetColor(int, int, int);
+	virtual void SetSequenceTime(float, float);
+	virtual void Tick(float);
+	virtual void VisualGratification(zdb::CTextureRelocMgr *);
+	virtual void IsEnabled();
+	CListItemArrayTypeImpl(_zrdr *, const std::vector<ColumnData *, std::allocator<ColumnData *> > &);
+	CListItemArrayTypeImpl(_zrdr *, const std::vector<ColumnData *, std::allocator<ColumnData *> > &, C2DFont *, float);
+};
+}
+/* @socom-skeleton end Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImpl */
+/* @socom-skeleton decl Q220@unnamed@zui_2d_cpp@22CListItemImageTypeImpl */
+namespace {
+class CListItemImageTypeImpl : public CListItemTypeImpl
+{
+public:
+	virtual ~CListItemImageTypeImpl();
+	virtual void DrawPrep(const CUIListBox &, int, int, int);
+	virtual void GetString();
+	virtual void PrepListItem(const std::vector<ColumnData *, std::allocator<ColumnData *> > &, C2DFont *, float, zdb::CTextureRelocMgr *);
+	virtual void SetFont(C2DFont *);
+	virtual void SetPos(int, int, int, int);
+	virtual void SetScale(float);
+	virtual void SetColor(int, int, int);
+	virtual void VisualGratification(zdb::CTextureRelocMgr *);
+};
+}
+/* @socom-skeleton end Q220@unnamed@zui_2d_cpp@22CListItemImageTypeImpl */
+/* @socom-skeleton decl Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImpl */
+namespace {
+class CListItemStringTypeImpl : public CListItemTypeImpl
+{
+public:
+	virtual ~CListItemStringTypeImpl();
+	virtual void DrawPrep(const CUIListBox &, int, int, int);
+	virtual void GetString();
+	virtual void PrepListItem(const std::vector<ColumnData *, std::allocator<ColumnData *> > &, C2DFont *, float, zdb::CTextureRelocMgr *);
+	virtual void SetFont(C2DFont *);
+	virtual void SetPos(int, int, int, int);
+	virtual void SetScale(float);
+	virtual void SetColor(int, int, int);
+	virtual void Tick(float);
+	virtual void VisualGratification(zdb::CTextureRelocMgr *);
+};
+}
+/* @socom-skeleton end Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImpl */
+/* @socom-skeleton decl Q220@unnamed@zui_2d_cpp@26CListItemTimedTextTypeImpl */
+namespace {
+class CListItemTimedTextTypeImpl : public CListItemStringTypeImpl
+{
+public:
+	virtual ~CListItemTimedTextTypeImpl();
+	virtual void Finish();
+	virtual void SetSequenceTime(float, float);
+	virtual void Tick(float);
+	virtual void VisualGratification(zdb::CTextureRelocMgr *);
+};
+}
+/* @socom-skeleton end Q220@unnamed@zui_2d_cpp@26CListItemTimedTextTypeImpl */
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+unsigned char std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+unsigned char std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub VisualGratification__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFPQ23zdb16CTextureRelocMgr */
+namespace {
+void CListItemArrayTypeImpl::VisualGratification(zdb::CTextureRelocMgr *)
+{
+}
+}
+
+/* @socom-skeleton stub Tick__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFf */
+namespace {
+void CListItemArrayTypeImpl::Tick(float)
+{
+}
+}
+
+/* @socom-skeleton stub SetSequenceTime__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFff */
+namespace {
+void CListItemArrayTypeImpl::SetSequenceTime(float, float)
+{
+}
+}
+
+/* @socom-skeleton stub SetColor__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFiii */
+namespace {
+void CListItemArrayTypeImpl::SetColor(int, int, int)
+{
+}
+}
+
+/* @socom-skeleton stub SetScale__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFf */
+namespace {
+void CListItemArrayTypeImpl::SetScale(float)
+{
+}
+}
+
+/* @socom-skeleton stub SetPos__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFiiii */
+namespace {
+void CListItemArrayTypeImpl::SetPos(int, int, int, int)
+{
+}
+}
+
+/* @socom-skeleton stub IsEnabled__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFv */
+namespace {
+void CListItemArrayTypeImpl::IsEnabled()
+{
+}
+}
+
+/* @socom-skeleton stub SetFont__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFP7C2DFont */
+namespace {
+void CListItemArrayTypeImpl::SetFont(C2DFont *)
+{
+}
+}
+
+/* @socom-skeleton stub GetString__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFv */
+namespace {
+void CListItemArrayTypeImpl::GetString()
+{
+}
+}
+
+/* @socom-skeleton stub Finish__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFv */
+namespace {
+void CListItemArrayTypeImpl::Finish()
+{
+}
+}
+
+/* @socom-skeleton stub __dt__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFv */
+namespace {
+CListItemArrayTypeImpl::~CListItemArrayTypeImpl()
+{
+}
+}
+
+/* @socom-skeleton stub VisualGratification__Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImplFPQ23zdb16CTextureRelocMgr */
+namespace {
+void CListItemStringTypeImpl::VisualGratification(zdb::CTextureRelocMgr *)
+{
+}
+}
+
+/* @socom-skeleton stub Tick__Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImplFf */
+namespace {
+void CListItemStringTypeImpl::Tick(float)
+{
+}
+}
+
+/* @socom-skeleton stub SetColor__Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImplFiii */
+namespace {
+void CListItemStringTypeImpl::SetColor(int, int, int)
+{
+}
+}
+
+/* @socom-skeleton stub SetScale__Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImplFf */
+namespace {
+void CListItemStringTypeImpl::SetScale(float)
+{
+}
+}
+
+/* @socom-skeleton stub SetPos__Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImplFiiii */
+namespace {
+void CListItemStringTypeImpl::SetPos(int, int, int, int)
+{
+}
+}
+
+/* @socom-skeleton stub SetFont__Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImplFP7C2DFont */
+namespace {
+void CListItemStringTypeImpl::SetFont(C2DFont *)
+{
+}
+}
+
+/* @socom-skeleton stub PrepListItem__Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImplFRCQ23std54vector<P10ColumnData,Q23std24allocator<P10ColumnData>>P7C2DFontfPQ23zdb16CTextureRelocMgr */
+namespace {
+void CListItemStringTypeImpl::PrepListItem(const std::vector<ColumnData *, std::allocator<ColumnData *> > &, C2DFont *, float, zdb::CTextureRelocMgr *)
+{
+}
+}
+
+/* @socom-skeleton stub GetString__Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImplFv */
+namespace {
+void CListItemStringTypeImpl::GetString()
+{
+}
+}
+
+/* @socom-skeleton stub VisualGratification__Q220@unnamed@zui_2d_cpp@26CListItemTimedTextTypeImplFPQ23zdb16CTextureRelocMgr */
+namespace {
+void CListItemTimedTextTypeImpl::VisualGratification(zdb::CTextureRelocMgr *)
+{
+}
+}
+
+/* @socom-skeleton stub Tick__Q220@unnamed@zui_2d_cpp@26CListItemTimedTextTypeImplFf */
+namespace {
+void CListItemTimedTextTypeImpl::Tick(float)
+{
+}
+}
+
+/* @socom-skeleton stub SetSequenceTime__Q220@unnamed@zui_2d_cpp@26CListItemTimedTextTypeImplFff */
+namespace {
+void CListItemTimedTextTypeImpl::SetSequenceTime(float, float)
+{
+}
+}
+
+/* @socom-skeleton stub Finish__Q220@unnamed@zui_2d_cpp@26CListItemTimedTextTypeImplFv */
+namespace {
+void CListItemTimedTextTypeImpl::Finish()
+{
+}
+}
+
+/* @socom-skeleton stub __dt__Q220@unnamed@zui_2d_cpp@26CListItemTimedTextTypeImplFv */
+namespace {
+CListItemTimedTextTypeImpl::~CListItemTimedTextTypeImpl()
+{
+}
+}
+
+/* @socom-skeleton stub VisualGratification__Q220@unnamed@zui_2d_cpp@22CListItemImageTypeImplFPQ23zdb16CTextureRelocMgr */
+namespace {
+void CListItemImageTypeImpl::VisualGratification(zdb::CTextureRelocMgr *)
+{
+}
+}
+
+/* @socom-skeleton stub SetColor__Q220@unnamed@zui_2d_cpp@22CListItemImageTypeImplFiii */
+namespace {
+void CListItemImageTypeImpl::SetColor(int, int, int)
+{
+}
+}
+
+/* @socom-skeleton stub SetScale__Q220@unnamed@zui_2d_cpp@22CListItemImageTypeImplFf */
+namespace {
+void CListItemImageTypeImpl::SetScale(float)
+{
+}
+}
+
+/* @socom-skeleton stub SetPos__Q220@unnamed@zui_2d_cpp@22CListItemImageTypeImplFiiii */
+namespace {
+void CListItemImageTypeImpl::SetPos(int, int, int, int)
+{
+}
+}
+
+/* @socom-skeleton stub SetFont__Q220@unnamed@zui_2d_cpp@22CListItemImageTypeImplFP7C2DFont */
+namespace {
+void CListItemImageTypeImpl::SetFont(C2DFont *)
+{
+}
+}
+
+/* @socom-skeleton stub PrepListItem__Q220@unnamed@zui_2d_cpp@22CListItemImageTypeImplFRCQ23std54vector<P10ColumnData,Q23std24allocator<P10ColumnData>>P7C2DFontfPQ23zdb16CTextureRelocMgr */
+namespace {
+void CListItemImageTypeImpl::PrepListItem(const std::vector<ColumnData *, std::allocator<ColumnData *> > &, C2DFont *, float, zdb::CTextureRelocMgr *)
+{
+}
+}
+
+/* @socom-skeleton stub GetString__Q220@unnamed@zui_2d_cpp@22CListItemImageTypeImplFv */
+namespace {
+void CListItemImageTypeImpl::GetString()
+{
+	/* @socom-skeleton stub ach$1865 */
+	static unsigned char ach = 0;
+}
+}
+
+/* @socom-skeleton stub g_fCounterSpeedFactor__20@unnamed@zui_2d_cpp@ */
+namespace {
+float g_fCounterSpeedFactor = 1.0f;
+}
+
+/* @socom-skeleton stub g_fTtySpeedFactor__20@unnamed@zui_2d_cpp@ */
+namespace {
+float g_fTtySpeedFactor = 1.0f;
+}
+
+/* @socom-skeleton stub DrawPrep__Q220@unnamed@zui_2d_cpp@22CListItemImageTypeImplFRC10CUIListBoxiii */
+namespace {
+void CListItemImageTypeImpl::DrawPrep(const CUIListBox &, int, int, int)
+{
+}
+}
+
+/* @socom-skeleton stub __dt__Q220@unnamed@zui_2d_cpp@22CListItemImageTypeImplFv */
+namespace {
+CListItemImageTypeImpl::~CListItemImageTypeImpl()
+{
+}
+}
+
+/* @socom-skeleton stub UiSetCounterSpeedFactor__Ff */
+void UiSetCounterSpeedFactor(float)
+{
+}
+
+/* @socom-skeleton stub UiSetTtySpeedFactor__Ff */
+void UiSetTtySpeedFactor(float)
+{
+}
+
+/* @socom-skeleton stub GetZAnimCmdType__10C2DCounterFPCc */
+void C2DCounter::GetZAnimCmdType(const char *)
+{
+}
+
+/* @socom-skeleton stub ParseZAnimCmd__10C2DCounterFP5_zrdr */
+void C2DCounter::ParseZAnimCmd(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub Tick__10C2DCounterFf */
+void C2DCounter::Tick(float)
+{
+}
+
+/* @socom-skeleton stub TickZAnimCmd__10C2DCounterFP14_zanim_cmd_hdrPfPb */
+void C2DCounter::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+{
+}
+
+/* @socom-skeleton stub __ct__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFP5_zrdrRCQ23std54vector<P10ColumnData,Q23std24allocator<P10ColumnData>> */
+namespace {
+CListItemArrayTypeImpl::CListItemArrayTypeImpl(_zrdr *, const std::vector<ColumnData *, std::allocator<ColumnData *> > &)
+{
+}
+}
+
+/* @socom-skeleton stub __ct__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFP5_zrdrRCQ23std54vector<P10ColumnData,Q23std24allocator<P10ColumnData>>P7C2DFontf */
+namespace {
+CListItemArrayTypeImpl::CListItemArrayTypeImpl(_zrdr *, const std::vector<ColumnData *, std::allocator<ColumnData *> > &, C2DFont *, float)
+{
+}
+}
+
+/* @socom-skeleton stub DrawPrep__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFRC10CUIListBoxiii */
+namespace {
+void CListItemArrayTypeImpl::DrawPrep(const CUIListBox &, int, int, int)
+{
+}
+}
+
+/* @socom-skeleton stub PrepListItem__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFRCQ23std54vector<P10ColumnData,Q23std24allocator<P10ColumnData>>P7C2DFontfPQ23zdb16CTextureRelocMgr */
+namespace {
+void CListItemArrayTypeImpl::PrepListItem(const std::vector<ColumnData *, std::allocator<ColumnData *> > &, C2DFont *, float, zdb::CTextureRelocMgr *)
+{
+	/* @socom-skeleton stub achFallback$3573 */
+	static unsigned char achFallback = 0;
+}
+}
+
+/* @socom-skeleton stub DrawPrep__Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImplFRC10CUIListBoxiii */
+namespace {
+void CListItemStringTypeImpl::DrawPrep(const CUIListBox &, int, int, int)
+{
+}
+}
+
+/* @socom-skeleton stub __ct__17CRenderableStringFv */
+CRenderableString::CRenderableString()
+{
+}
+
+/* @socom-skeleton stub __dt__17CRenderableStringFv */
+CRenderableString::~CRenderableString()
+{
+}
+
+/* @socom-skeleton stub Update__17CRenderableStringFv */
+void CRenderableString::Update()
+{
+}
+
+/* @socom-skeleton stub Draw__17CRenderableStringFRC7CMatrixPQ23zdb16CTextureRelocMgr */
+void CRenderableString::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub LoadSpec__12CWrappedTextFRC9CWrapSpec */
+void CWrappedText::LoadSpec(const CWrapSpec &)
+{
+}
+
+/* @socom-skeleton stub SetString__12CWrappedTextFPCc */
+void CWrappedText::SetString(const char *)
+{
+}
+
+/* @socom-skeleton stub __dt__12CWrappedTextFv */
+CWrappedText::~CWrappedText()
+{
+}
+
+/* @socom-skeleton stub Draw__12CWrappedTextFRC7CMatrixPQ23zdb16CTextureRelocMgr */
+void CWrappedText::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub LoadSpec__17CRenderableStringFRC9CTextSpec */
+void CRenderableString::LoadSpec(const CTextSpec &)
+{
+}
+
+/* @socom-skeleton stub UpdateUIVar__17CRenderableStringFP11CUIVariable */
+void CRenderableString::UpdateUIVar(CUIVariable *)
+{
+}
+
+/* @socom-skeleton stub Draw__9CPlainBmpFRC7CMatrixPQ23zdb16CTextureRelocMgr */
+void CPlainBmp::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub LoadSpec__9CPlainBmpFRC10CImageSpecPQ23zdb10CTexHandle */
+void CPlainBmp::LoadSpec(const CImageSpec &, zdb::CTexHandle *)
+{
+}
+
+/* @socom-skeleton stub Tick__9CPlainBmpFf */
+void CPlainBmp::Tick(float)
+{
+}
+
+/* @socom-skeleton stub Draw__9CTeleTypeFRC7CMatrixPQ23zdb16CTextureRelocMgr */
+void CTeleType::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub LoadSpec__9CTeleTypeFRC8CTtySpec */
+void CTeleType::LoadSpec(const CTtySpec &)
+{
+}
+
+/* @socom-skeleton stub SetString__9CTeleTypeFPCc */
+void CTeleType::SetString(const char *)
+{
+}
+
+/* @socom-skeleton stub ParseZAnimCmd__9CTeleTypeFP5_zrdr */
+void CTeleType::ParseZAnimCmd(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub TickZAnimCmd__9CTeleTypeFP14_zanim_cmd_hdrPfPb */
+void CTeleType::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+{
+}
+
+/* @socom-skeleton stub GetZAnimCmdType__9CTeleTypeFPCc */
+void CTeleType::GetZAnimCmdType(const char *)
+{
+}
+
+/* @socom-skeleton stub Tick__9CTeleTypeFf */
+void CTeleType::Tick(float)
+{
+}
+
+/* @socom-skeleton stub Draw__13C3StateButtonFRC7CMatrixPQ23zdb16CTextureRelocMgr */
+void C3StateButton::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub __ct__9C2DButtonFv */
+C2DButton::C2DButton()
+{
+}
+
+/* @socom-skeleton stub __dt__9C2DButtonFv */
+C2DButton::~C2DButton()
+{
+}
+
+/* @socom-skeleton stub HandlePad__9C2DButtonFPC4CPadi */
+unsigned char C2DButton::HandlePad(const CPad *, int)
+{
+}
+
+/* @socom-skeleton stub LoadSpec__9C2DButtonFRC11CButtonSpec */
+void C2DButton::LoadSpec(const CButtonSpec &)
+{
+}
+
+/* @socom-skeleton stub ParseZAnimCmd__9C2DButtonFP5_zrdr */
+C2DAnimCmdHdr * C2DButton::ParseZAnimCmd(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub TickZAnimCmd__9C2DButtonFP14_zanim_cmd_hdrPfPb */
+unsigned char C2DButton::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+{
+}
+
+/* @socom-skeleton stub GetZAnimCmdType__9C2DButtonFPCc */
+int C2DButton::GetZAnimCmdType(const char *)
+{
+}
+
+/* @socom-skeleton stub SetActive__9C2DButtonFv */
+void C2DButton::SetActive()
+{
+}
+
+/* @socom-skeleton stub LoadSpec__14CHandlerButtonFRC18CHandlerButtonSpec */
+void CHandlerButton::LoadSpec(const CHandlerButtonSpec &)
+{
+}
+
+/* @socom-skeleton stub HandlePad__14CHandlerButtonFPC4CPadi */
+void CHandlerButton::HandlePad(const CPad *, int)
+{
+}
+
+/* @socom-skeleton stub Tick__14CHandlerButtonFf */
+void CHandlerButton::Tick(float)
+{
+}
+
+/* @socom-skeleton stub LoadSpec__10CUIListBoxFRC14CUIListBoxSpecPQ23zdb10CTexHandlePQ23zdb16CTextureRelocMgr */
+void CUIListBox::LoadSpec(const CUIListBoxSpec &, zdb::CTexHandle *, zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub __dt__10CUIListBoxFv */
+CUIListBox::~CUIListBox()
+{
+}
+
+/* @socom-skeleton stub UpdateUIVar__10CUIListBoxFP11CUIVariable */
+void CUIListBox::UpdateUIVar(CUIVariable *)
+{
+}
+
+/* @socom-skeleton stub Tick__10CUIListBoxFf */
+void CUIListBox::Tick(float)
+{
+}
+
+/* @socom-skeleton stub HandlePad__10CUIListBoxFPC4CPadi */
+void CUIListBox::HandlePad(const CPad *, int)
+{
+}
+
+/* @socom-skeleton stub Draw__10CUIListBoxFRC7CMatrixPQ23zdb16CTextureRelocMgr */
+void CUIListBox::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub GetZAnimCmdType__10CUIListBoxFPCc */
+void CUIListBox::GetZAnimCmdType(const char *)
+{
+}
+
+/* @socom-skeleton stub ParseZAnimCmd__10CUIListBoxFP5_zrdr */
+void CUIListBox::ParseZAnimCmd(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub TickZAnimCmd__10CUIListBoxFP14_zanim_cmd_hdrPfPb */
+void CUIListBox::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+{
+}
+
+/* @socom-skeleton stub GetZAnimCmdType__10CSliderBarFPCc */
+void CSliderBar::GetZAnimCmdType(const char *)
+{
+}
+
+/* @socom-skeleton stub ParseZAnimCmd__10CSliderBarFP5_zrdr */
+void CSliderBar::ParseZAnimCmd(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub TickZAnimCmd__10CSliderBarFP14_zanim_cmd_hdrPfPb */
+void CSliderBar::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+{
+}
+
+/* @socom-skeleton stub LoadSpec__10CSliderBarFRC14CSliderBarSpecPQ23zdb10CTexHandle */
+void CSliderBar::LoadSpec(const CSliderBarSpec &, zdb::CTexHandle *)
+{
+}
+
+/* @socom-skeleton stub Tick__9C2DButtonFf */
+void C2DButton::Tick(float)
+{
+}
+
+/* @socom-skeleton stub Draw__10CSliderBarFRC7CMatrixPQ23zdb16CTextureRelocMgr */
+void CSliderBar::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub HandlePad__10CSliderBarFPC4CPadi */
+void CSliderBar::HandlePad(const CPad *, int)
+{
+}
+
+/* @socom-skeleton stub UpdateUIVar__10CSliderBarFP11CUIVariable */
+void CSliderBar::UpdateUIVar(CUIVariable *)
+{
+}
+
+/* @socom-skeleton stub UpdateUIVar__13CHProgressBarFP11CUIVariable */
+void CHProgressBar::UpdateUIVar(CUIVariable *)
+{
+}
+
+/* @socom-skeleton stub LoadSpec__13CHProgressBarFRC17CHProgressBarSpecPQ23zdb10CTexHandle */
+void CHProgressBar::LoadSpec(const CHProgressBarSpec &, zdb::CTexHandle *)
+{
+}
+
+/* @socom-skeleton stub Tick__13CHProgressBarFf */
+void CHProgressBar::Tick(float)
+{
+}
+
+/* @socom-skeleton stub Draw__13CHProgressBarFRC7CMatrixPQ23zdb16CTextureRelocMgr */
+void CHProgressBar::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub HandlePad__9CCheckBoxFPC4CPadi */
+void CCheckBox::HandlePad(const CPad *, int)
+{
+}
+
+/* @socom-skeleton stub LoadSpec__9CCheckBoxFRC13CCheckBoxSpecPQ23zdb10CTexHandle */
+void CCheckBox::LoadSpec(const CCheckBoxSpec &, zdb::CTexHandle *)
+{
+}
+
+/* @socom-skeleton stub Draw__9CCheckBoxFRC7CMatrixPQ23zdb16CTextureRelocMgr */
+void CCheckBox::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub GetZAnimCmdType__11CRadioStripFPCc */
+void CRadioStrip::GetZAnimCmdType(const char *)
+{
+}
+
+/* @socom-skeleton stub ParseZAnimCmd__11CRadioStripFP5_zrdr */
+void CRadioStrip::ParseZAnimCmd(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub TickZAnimCmd__11CRadioStripFP14_zanim_cmd_hdrPfPb */
+void CRadioStrip::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+{
+}
+
+/* @socom-skeleton stub LoadSpec__11CRadioStripFPC15CRadioStripSpecPQ23zdb10CTexHandle */
+void CRadioStrip::LoadSpec(const CRadioStripSpec *, zdb::CTexHandle *)
+{
+}
+
+/* @socom-skeleton stub HandlePad__11CRadioStripFPC4CPadi */
+void CRadioStrip::HandlePad(const CPad *, int)
+{
+}
+
+/* @socom-skeleton stub PressActive__11CRadioStripFv */
+void CRadioStrip::PressActive()
+{
+}
+
+/* @socom-skeleton stub Tick__11CRadioStripFf */
+void CRadioStrip::Tick(float)
+{
+}
+
+/* @socom-skeleton stub __dt__12CCycleButtonFv */
+CCycleButton::~CCycleButton()
+{
+}
+
+/* @socom-skeleton stub HandlePad__12CCycleButtonFPC4CPadi */
+void CCycleButton::HandlePad(const CPad *, int)
+{
+}
+
+/* @socom-skeleton stub Draw__12CCycleButtonFRC7CMatrixPQ23zdb16CTextureRelocMgr */
+void CCycleButton::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub LoadSpec__12CCycleButtonFRC16CCycleButtonSpecPQ23zdb16CTextureRelocMgr */
+void CCycleButton::LoadSpec(const CCycleButtonSpec &, zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub HandlePad__12CPopUpDialogFPC4CPadi */
+void CPopUpDialog::HandlePad(const CPad *, int)
+{
+}
+
+/* @socom-skeleton stub Tick__12CPopUpDialogFf */
+void CPopUpDialog::Tick(float)
+{
+}
+
+/* @socom-skeleton stub Draw__12CPopUpDialogFRC7CMatrixPQ23zdb16CTextureRelocMgr */
+void CPopUpDialog::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub Load__12CPopUpDialogFPQ23zdb16CTextureRelocMgr */
+void CPopUpDialog::Load(zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub Draw__11CScrollTextFRC7CMatrixPQ23zdb16CTextureRelocMgr */
+void CScrollText::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub LoadSpec__11CScrollTextFRC11CScrollSpec */
+void CScrollText::LoadSpec(const CScrollSpec &)
+{
+}
+
+/* @socom-skeleton stub Tick__11CScrollTextFf */
+void CScrollText::Tick(float)
+{
+}
+
+/* @socom-skeleton stub HandlePad__11CScrollTextFPC4CPadi */
+void CScrollText::HandlePad(const CPad *, int)
+{
+}
+
+/* @socom-skeleton stub Tick__15CTickerTapeTextFf */
+void CTickerTapeText::Tick(float)
+{
+}
+
+/* @socom-skeleton stub Draw__15CTickerTapeTextFRC7CMatrixPQ23zdb16CTextureRelocMgr */
+void CTickerTapeText::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub SetString__15CTickerTapeTextFPCc */
+void CTickerTapeText::SetString(const char *)
+{
+}
+
+/* @socom-skeleton stub LoadSpec__15CTickerTapeTextFRC11CTickerSpec */
+void CTickerTapeText::LoadSpec(const CTickerSpec &)
+{
+}
+
+/* @socom-skeleton stub __ct__9C2DVisualFP3C2DPQ23zdb16CTextureRelocMgr */
+C2DVisual::C2DVisual(C2D *, zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub ParseZAnimCmd__17CRenderableStringFP5_zrdr */
+C2DAnimCmdHdr * CRenderableString::ParseZAnimCmd(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub TickZAnimCmd__17CRenderableStringFP14_zanim_cmd_hdrPfPb */
+unsigned char CRenderableString::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+{
+}
+
+/* @socom-skeleton stub GetZAnimCmdType__17CRenderableStringFPCc */
+int CRenderableString::GetZAnimCmdType(const char *)
+{
+}
+
+/* @socom-skeleton stub ParseZAnimCmd__12CPopUpDialogFP5_zrdr */
+void CPopUpDialog::ParseZAnimCmd(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub TickZAnimCmd__12CPopUpDialogFP14_zanim_cmd_hdrPfPb */
+void CPopUpDialog::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+{
+}
+
+/* @socom-skeleton stub GetZAnimCmdType__12CPopUpDialogFPCc */
+void CPopUpDialog::GetZAnimCmdType(const char *)
+{
+}
+
+/* @socom-skeleton stub Render__9C2DVisualFP7CMatrix */
+void C2DVisual::Render(CMatrix *)
+{
+}
+
+/* @socom-skeleton stub __ct__10CUIMapCtrlFv */
+CUIMapCtrl::CUIMapCtrl()
+{
+}
+
+/* @socom-skeleton stub __dt__10CUIMapCtrlFv */
+CUIMapCtrl::~CUIMapCtrl()
+{
+}
+
+/* @socom-skeleton stub CalcAlternateZoomedPos__10CUIMapCtrlCFP6CPnt3DRC8CCornersRC6CPnt3Df */
+void CUIMapCtrl::CalcAlternateZoomedPos(CPnt3D *, const CCorners &, const CPnt3D &, float) const
+{
+	/* @socom-skeleton stub c_arrAnchors$3348 */
+	static const unsigned char c_arrAnchors[16] = {0, 1, 2, 5, 3, 6, 0, 1, 4, 0, 7, 2, 8, 3, 4, 0};
+}
+
+/* @socom-skeleton stub HandlePad__10CUIMapCtrlFPC4CPadi */
+void CUIMapCtrl::HandlePad(const CPad *, int)
+{
+}
+
+/* @socom-skeleton stub LoadSpec__10CUIMapCtrlFRC14CUIMapCtrlSpecP7C2DFontPQ23zdb9CAssetLibPQ23zdb16CTextureRelocMgr */
+void CUIMapCtrl::LoadSpec(const CUIMapCtrlSpec &, C2DFont *, zdb::CAssetLib *, zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub Draw__10CUIMapCtrlFRC7CMatrixPQ23zdb16CTextureRelocMgr */
+void CUIMapCtrl::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub IsCovered__10CUIMapCtrlCFffRC6CPnt3Df */
+void CUIMapCtrl::IsCovered(float, float, const CPnt3D &, float) const
+{
+}
+
+/* @socom-skeleton stub OnPan__10CUIMapCtrlCFRC20CUIMapCtrlAnimCmdHdrf */
+void CUIMapCtrl::OnPan(const CUIMapCtrlAnimCmdHdr &, float) const
+{
+	/* @socom-skeleton stub prev_frame$3451 */
+	static int prev_frame;
+	/* @socom-skeleton stub accum_time$3454 */
+	static float accum_time;
+}
+
+/* @socom-skeleton stub ParseZAnimCmd__10CUIMapCtrlFP5_zrdr */
+void CUIMapCtrl::ParseZAnimCmd(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub TickZAnimCmd__10CUIMapCtrlFP14_zanim_cmd_hdrPfPb */
+void CUIMapCtrl::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+{
+}
+
+/* @socom-skeleton stub GetZAnimCmdType__10CUIMapCtrlFPCc */
+void CUIMapCtrl::GetZAnimCmdType(const char *)
+{
+}
+
+/* @socom-skeleton stub __ct__8ListItemFP5_zrdrRCQ23std54vector<P10ColumnData,Q23std24allocator<P10ColumnData>> */
+ListItem::ListItem(_zrdr *, const std::vector<ColumnData *, std::allocator<ColumnData *> > &)
+{
+}
+
+/* @socom-skeleton stub __dt__8ListItemFv */
+ListItem::~ListItem()
+{
+}
+
+/* @socom-skeleton stub __dt__Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImplFv */
+namespace {
+CListItemStringTypeImpl::~CListItemStringTypeImpl()
+{
+}
+}
+
+/* @socom-skeleton stub UpdateUIVar__8C2DClockFP11CUIVariable */
+void C2DClock::UpdateUIVar(CUIVariable *)
+{
+}

@@ -335,55 +335,112 @@
 
 namespace sealai
 {
-	const char* get_aiseq(AI_SEQUENCE sequence)
-	{
-		const char* str;
 
-		switch (sequence)
-		{
-		case AIS_AWARE0:
-			str = "on_aware0";
-			break;
-		case AIS_AWARE1:
-			str = "on_aware0";
-			break;
-		case AIS_AWARE2:
-			str = "on_aware0";
-			break;
-		case AIS_AWARE3:
-			str = "on_aware0";
-			break;
-		default:
-			str = "on_awarex";
-		}
+}
 
-		return str;
-	}
+/* @socom-skeleton decl include */
+#include "gamez/zAI/zai.h"
+#include "gamez/zAnim/zanim.h"
+#include "gamez/zEntity/zentity.h"
+#include "gamez/zInput/zinput.h"
+#include "gamez/zIntersect/zintersect.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zValve/zvalve.h"
+#include "gamez/zWeapon/zweapon.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class AI_FIREPARAMS;
+class AI_REACTION;
+class AI_SIGNAL;
+class AI_SOUND;
+class CAiWepHint;
+class CHARACTER_SOUND;
+class MAP_LINEWALK_STRUCT;
+class SEAL_TASK;
+class STUN_TYPE;
+/* @socom-skeleton end forward */
 
-	AI_MODE get_mode(const char* name)
+/* @socom-skeleton stub accelRate */
+static float accelRate[3] = {0.44999998807907104f, 0.25f, 0.5f};
+
+/* @socom-skeleton stub decelRate */
+static float decelRate[3] = {1.25f, 1.0f, 10.0f};
+
+/* @socom-skeleton stub aiDeployList__11CSealCtrlAi */
+const EQUIP_ITEM CSealCtrlAi::aiDeployList[11] = {(EQUIP_ITEM)121, (EQUIP_ITEM)122, (EQUIP_ITEM)123, (EQUIP_ITEM)124, (EQUIP_ITEM)125, (EQUIP_ITEM)171, (EQUIP_ITEM)172, (EQUIP_ITEM)173, (EQUIP_ITEM)174, (EQUIP_ITEM)152, (EQUIP_ITEM)255};
+
+/* @socom-skeleton stub rateRotateMax__2ai */
+float ai::rateRotateMax = 1.0f;
+
+/* @socom-skeleton stub rateStrafeMax__2ai */
+float ai::rateStrafeMax = 0.5f;
+
+/* @socom-skeleton stub minTurnAngle__2ai */
+float ai::minTurnAngle = 0.5235987901687622f;
+
+/* @socom-skeleton stub eventNoise__2ai */
+unsigned char ai::eventNoise[8] = {0, 0, 160, 64, 0, 0, 240, 65};
+
+/* @socom-skeleton stub pathShortLimit__2ai */
+int ai::pathShortLimit = 25000;
+
+/* @socom-skeleton stub underfire_hit_delta__2ai */
+float ai::underfire_hit_delta = 2.0f;
+
+/* @socom-skeleton stub underfire_thip_delta__2ai */
+float ai::underfire_thip_delta = 2.0f;
+
+/* @socom-skeleton stub underfire_threshold__2ai */
+float ai::underfire_threshold = 1.5f;
+
+/* @socom-skeleton stub underfire_return__2ai */
+float ai::underfire_return = 0.75f;
+
+/* @socom-skeleton stub throttleEps */
+static unsigned char throttleEps[4] = {10, 215, 35, 60};
+
+/* @socom-skeleton stub aiAccuracyAngle__11CSealCtrlAi */
+float CSealCtrlAi::aiAccuracyAngle = 0.2617993950843811f;
+
+/* @socom-skeleton stub aiEnabled__11CSealCtrlAi */
+unsigned char CSealCtrlAi::aiEnabled = 1;
+
+/* @socom-skeleton stub aiSoundHandle__11CSealCtrlAi */
+int CSealCtrlAi::aiSoundHandle[2] = {0};
+
+/* @socom-skeleton stub aiSoundInstance__11CSealCtrlAi */
+unsigned char CSealCtrlAi::aiSoundInstance[8] = {0};
+
+/* @socom-skeleton stub aiLogEnabled__11CSealCtrlAi */
+unsigned char CSealCtrlAi::aiLogEnabled;
+
+/* @socom-skeleton stub aiLogFlag__11CSealCtrlAi */
+unsigned char CSealCtrlAi::aiLogFlag;
+
+/* @socom-skeleton stub aiLogFile__11CSealCtrlAi */
+int CSealCtrlAi::aiLogFile;
+
+/* @socom-skeleton stub _dT */
+static float _dT;
+
+/* @socom-skeleton stub _dTI */
+static float _dTI;
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton body get_mode__6sealaiFPCc */
+namespace sealai {
+AI_MODE get_mode(const char* name)
 	{
 		AI_MODE mode;
 		return mode;
 	}
+}
 
-	const char* get_stance(SEAL_STANCE stance)
-	{
-		return "";
-	}
-
-	SEAL_STANCE get_stance(const char* name)
-	{
-		SEAL_STANCE stance;
-		return stance;
-	}
-
-	AI_STATE get_state(const char* name)
-	{
-		AI_STATE state;
-		return state;
-	}
-
-	const char* get_state(AI_STATE state)
+/* @socom-skeleton body get_state__6sealaiF8AI_STATE */
+namespace sealai {
+const char* get_state(AI_STATE state)
 	{
 		const char* str;
 
@@ -487,6 +544,109 @@ namespace sealai
 	}
 }
 
+/* @socom-skeleton body get_state__6sealaiFPCc */
+namespace sealai {
+AI_STATE get_state(const char* name)
+	{
+		AI_STATE state;
+		return state;
+	}
+}
+
+/* @socom-skeleton body get_aiseq__6sealaiFUi */
+char * sealai::get_aiseq(unsigned int sequence)
+	{
+		const char* str;
+
+		switch (sequence)
+		{
+		case AIS_AWARE0:
+			str = "on_aware0";
+			break;
+		case AIS_AWARE1:
+			str = "on_aware0";
+			break;
+		case AIS_AWARE2:
+			str = "on_aware0";
+			break;
+		case AIS_AWARE3:
+			str = "on_aware0";
+			break;
+		default:
+			str = "on_awarex";
+		}
+
+		return str;
+	}
+
+/* @socom-skeleton body get_stance__6sealaiF11SEAL_STANCE */
+namespace sealai {
+const char* get_stance(SEAL_STANCE stance)
+	{
+		return "";
+	}
+}
+
+/* @socom-skeleton body get_stance__6sealaiFPCc */
+namespace sealai {
+SEAL_STANCE get_stance(const char* name)
+	{
+		SEAL_STANCE stance;
+		return stance;
+	}
+}
+
+/* @socom-skeleton stub AcquireDatabaseHandles__11CSealCtrlAiFv */
+void CSealCtrlAi::AcquireDatabaseHandles()
+{
+}
+
+/* @socom-skeleton stub ReleaseDatabaseHandles__11CSealCtrlAiFv */
+void CSealCtrlAi::ReleaseDatabaseHandles()
+{
+}
+
+/* @socom-skeleton stub SetAiAccuracyAngle__11CSealCtrlAiFf */
+void CSealCtrlAi::SetAiAccuracyAngle(float)
+{
+}
+
+/* @socom-skeleton stub PlayAiSound__11CSealCtrlAiF8AI_SOUND */
+void CSealCtrlAi::PlayAiSound(AI_SOUND)
+{
+}
+
+/* @socom-skeleton stub StopAiSound__11CSealCtrlAiF8AI_SOUND */
+void CSealCtrlAi::StopAiSound(AI_SOUND)
+{
+}
+
+/* @socom-skeleton stub GetAiLog__11CSealCtrlAiFv */
+void CSealCtrlAi::GetAiLog()
+{
+}
+
+/* @socom-skeleton stub SetAiLogEnabled__11CSealCtrlAiFbb */
+void CSealCtrlAi::SetAiLogEnabled(bool, bool)
+{
+}
+
+/* @socom-skeleton stub SetAiEnabled__11CSealCtrlAiFbb */
+void CSealCtrlAi::SetAiEnabled(bool, bool)
+{
+}
+
+/* @socom-skeleton stub GetAiStateEnum__11CSealCtrlAiCFv */
+void CSealCtrlAi::GetAiStateEnum() const
+{
+}
+
+/* @socom-skeleton stub AiStateIs__11CSealCtrlAiCF8AI_STATE */
+void CSealCtrlAi::AiStateIs(AI_STATE) const
+{
+}
+
+/* @socom-skeleton body get_valve__11CSealCtrlAiFPCc */
 SEAL_VALVE CSealCtrlAi::get_valve(const char* valve)
 {
 	if (valve)
@@ -525,6 +685,7 @@ SEAL_VALVE CSealCtrlAi::get_valve(const char* valve)
 	return SEAL_VALVE::VALVE_ERROR;
 }
 
+/* @socom-skeleton body get_valve__11CSealCtrlAiF10SEAL_VALVE */
 const char* CSealCtrlAi::get_valve(SEAL_VALVE valve)
 {
 	switch (valve)
@@ -540,4 +701,704 @@ const char* CSealCtrlAi::get_valve(SEAL_VALVE valve)
 	default:
 		return "error";
 	}
+}
+
+/* @socom-skeleton stub GetStatusString__11CSealCtrlAiFv */
+char * CSealCtrlAi::GetStatusString()
+{
+}
+
+/* @socom-skeleton stub __ct__11CSealCtrlAiFv */
+CSealCtrlAi::CSealCtrlAi()
+{
+}
+
+/* @socom-skeleton stub __dt__11CSealCtrlAiFv */
+CSealCtrlAi::~CSealCtrlAi()
+{
+}
+
+/* @socom-skeleton stub Initalize__11CSealCtrlAiFv */
+void CSealCtrlAi::Initalize()
+{
+	/* @socom-skeleton stub string$2639 */
+	static unsigned char string[64];
+}
+
+/* @socom-skeleton stub OnMissionStart__11CSealCtrlAiFv */
+void CSealCtrlAi::OnMissionStart()
+{
+}
+
+/* @socom-skeleton stub OnMissionEnd__11CSealCtrlAiFv */
+void CSealCtrlAi::OnMissionEnd()
+{
+}
+
+/* @socom-skeleton stub InitAiBrain__11CSealCtrlAiFv */
+void CSealCtrlAi::InitAiBrain()
+{
+}
+
+/* @socom-skeleton stub CreateAiEvent__9CSealCtrlFQ28CAiEvent5EVENTffbPC6CPnt3DUi */
+void CSealCtrl::CreateAiEvent(CAiEvent::EVENT, float, float, bool, const CPnt3D *, unsigned int)
+{
+}
+
+/* @socom-skeleton stub UpdateEventMask__11CSealCtrlAiFv */
+void CSealCtrlAi::UpdateEventMask()
+{
+	/* @socom-skeleton stub sleeper_ignore$2774 */
+	static int sleeper_ignore;
+	/* @socom-skeleton stub hostage_ignore$2777 */
+	static int hostage_ignore;
+	/* @socom-skeleton stub navyseal_ignore$2780 */
+	static int navyseal_ignore;
+}
+
+/* @socom-skeleton stub OnWeaponEvent__11CSealCtrlAiFP12CZProjectileUiPv */
+void CSealCtrlAi::OnWeaponEvent(CZProjectile *, unsigned int, void *)
+{
+	/* @socom-skeleton stub player_threshold$2799 */
+	static float player_threshold;
+	/* @socom-skeleton stub helpattack_range$2802 */
+	static int helpattack_range;
+}
+
+/* @socom-skeleton stub OnWeaponHit__11CSealCtrlAiFPQ23zdb15IntersectStructP12CZProjectile */
+void CSealCtrlAi::OnWeaponHit(zdb::IntersectStruct *, CZProjectile *)
+{
+}
+
+/* @socom-skeleton stub OnStunDamage__11CSealCtrlAiF9STUN_TYPEfPC6CPnt3D */
+void CSealCtrlAi::OnStunDamage(STUN_TYPE, float, const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub OnSetHealth__11CSealCtrlAiFff */
+void CSealCtrlAi::OnSetHealth(float, float)
+{
+}
+
+/* @socom-skeleton stub OnDeath__11CSealCtrlAiFv */
+void CSealCtrlAi::OnDeath()
+{
+}
+
+/* @socom-skeleton stub OnStateChange__11CSealCtrlAiF10SEAL_STATE10SEAL_STATE */
+void CSealCtrlAi::OnStateChange(SEAL_STATE, SEAL_STATE)
+{
+}
+
+/* @socom-skeleton stub AnimIsPlaying__11CSealCtrlAiF8AnimType */
+void CSealCtrlAi::AnimIsPlaying(AnimType)
+{
+}
+
+/* @socom-skeleton stub PlayAnim__11CSealCtrlAiFPCc10SEAL_STATE */
+void CSealCtrlAi::PlayAnim(const char *, SEAL_STATE)
+{
+}
+
+/* @socom-skeleton stub PlayAnim__11CSealCtrlAiF8AnimType10SEAL_STATE */
+void CSealCtrlAi::PlayAnim(AnimType, SEAL_STATE)
+{
+}
+
+/* @socom-skeleton stub Dump__9CSealCtrlFv */
+void CSealCtrl::Dump()
+{
+}
+
+/* @socom-skeleton stub Dump__11CSealCtrlAiFv */
+void CSealCtrlAi::Dump()
+{
+}
+
+/* @socom-skeleton stub Tick__11CSealCtrlAiFf */
+void CSealCtrlAi::Tick(float)
+{
+	/* @socom-skeleton stub threat_rate$2957 */
+	static float threat_rate;
+	/* @socom-skeleton stub courage_rate$2960 */
+	static float courage_rate;
+	/* @socom-skeleton stub visual_rate$2963 */
+	static float visual_rate;
+	/* @socom-skeleton stub audio_rate$2966 */
+	static float audio_rate;
+	/* @socom-skeleton stub underfire_rate$2969 */
+	static float underfire_rate;
+}
+
+/* @socom-skeleton stub PostTick__11CSealCtrlAiFf */
+void CSealCtrlAi::PostTick(float)
+{
+}
+
+/* @socom-skeleton stub GetAiNetState__11CSealCtrlAiCFv */
+unsigned int CSealCtrlAi::GetAiNetState() const
+{
+}
+
+/* @socom-skeleton stub SetAiNetState__11CRemoteCtrlFUi */
+void CRemoteCtrl::SetAiNetState(unsigned int)
+{
+}
+
+/* @socom-skeleton stub AcquireRemoteAi__10CZSealBodyFP10CZSealBody */
+void CZSealBody::AcquireRemoteAi(CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub PostMortemPreTick__11CSealCtrlAiFf */
+void CSealCtrlAi::PostMortemPreTick(float)
+{
+}
+
+/* @socom-skeleton stub PreTick__11CSealCtrlAiFf */
+void CSealCtrlAi::PreTick(float)
+{
+	/* @socom-skeleton stub logFrameNum$3101 */
+	static long logFrameNum;
+}
+
+/* @socom-skeleton stub OnRecycleEntity__11CSealCtrlAiFP7CEntity */
+void CSealCtrlAi::OnRecycleEntity(CEntity *)
+{
+}
+
+/* @socom-skeleton stub ResetToInitialState__11CSealCtrlAiFv */
+void CSealCtrlAi::ResetToInitialState()
+{
+}
+
+/* @socom-skeleton stub ClearGoal__9CSealCtrlF9GOAL_TYPE */
+void CSealCtrl::ClearGoal(GOAL_TYPE)
+{
+}
+
+/* @socom-skeleton stub SetGoalPos__9CSealCtrlF9GOAL_TYPEPC6CPnt3Df */
+void CSealCtrl::SetGoalPos(GOAL_TYPE, const CPnt3D *, float)
+{
+}
+
+/* @socom-skeleton stub SetGoalDir__9CSealCtrlF9GOAL_TYPEPC6CPnt3Db */
+void CSealCtrl::SetGoalDir(GOAL_TYPE, const CPnt3D *, bool)
+{
+}
+
+/* @socom-skeleton stub SetSnoozing__11CSealCtrlAiFb */
+void CSealCtrlAi::SetSnoozing(bool)
+{
+}
+
+/* @socom-skeleton stub SetSleeping__11CSealCtrlAiFb */
+void CSealCtrlAi::SetSleeping(bool)
+{
+}
+
+/* @socom-skeleton stub SetAiMode__11CSealCtrlAiF7AI_MODE */
+void CSealCtrlAi::SetAiMode(AI_MODE)
+{
+}
+
+/* @socom-skeleton stub ComputeTurnThrottle__9CSealCtrlFPC6CPnt3DPC6CPnt3DPf */
+float CSealCtrl::ComputeTurnThrottle(const CPnt3D *, const CPnt3D *, float *)
+{
+	/* @socom-skeleton stub noTurnThreshold$3253 */
+	static float noTurnThreshold;
+	/* @socom-skeleton stub fineTuneThreshold$3256 */
+	static float fineTuneThreshold;
+	/* @socom-skeleton stub throttleFudge$3259 */
+	static float throttleFudge;
+}
+
+/* @socom-skeleton stub LadderClimbTick__11CSealCtrlAiFf */
+void CSealCtrlAi::LadderClimbTick(float)
+{
+	/* @socom-skeleton stub mmt_move$3307 */
+	static float mmt_move;
+	/* @socom-skeleton stub _look$3310 */
+	static const unsigned char _look[12] = {0};
+}
+
+/* @socom-skeleton stub awareRangeMin */
+static const float awareRangeMin[5] = {0.0f, 0.05000000074505806f, 0.4000000059604645f, 0.6000000238418579f, 0.800000011920929f};
+
+/* @socom-skeleton stub awareRangeMax */
+static const float awareRangeMax[5] = {0.05000000074505806f, 0.4000000059604645f, 0.6000000238418579f, 0.800000011920929f, 1.0f};
+
+/* @socom-skeleton stub _look_ahead__FRC19MAP_LINEWALK_STRUCTPv */
+void _look_ahead(const MAP_LINEWALK_STRUCT &, void *)
+{
+}
+
+/* @socom-skeleton stub PathFollowTick__11CSealCtrlAiFf */
+void CSealCtrlAi::PathFollowTick(float)
+{
+	/* @socom-skeleton stub k_fudge$3241 */
+	static float k_fudge;
+	/* @socom-skeleton stub k$3421 */
+	static float k;
+	/* @socom-skeleton stub stuckThreshold$3433 */
+	static float stuckThreshold;
+	/* @socom-skeleton stub edge_tolerance$3442 */
+	static float edge_tolerance;
+	/* @socom-skeleton stub edge_correction_tolerance$3445 */
+	static float edge_correction_tolerance;
+	/* @socom-skeleton stub tscale_min$3469 */
+	static int tscale_min;
+	/* @socom-skeleton stub tscale_max$3472 */
+	static int tscale_max;
+	/* @socom-skeleton stub strafeFactor$3478 */
+	static float strafeFactor;
+}
+
+/* @socom-skeleton stub SetThrottle__11CSealCtrlAiFUif */
+void CSealCtrlAi::SetThrottle(unsigned int, float)
+{
+}
+
+/* @socom-skeleton stub AllStop__11CSealCtrlAiFb */
+void CSealCtrlAi::AllStop(bool)
+{
+}
+
+/* @socom-skeleton stub IdleTick__11CSealCtrlAiFf */
+void CSealCtrlAi::IdleTick(float)
+{
+	/* @socom-skeleton stub idle_limit$3507 */
+	static float idle_limit;
+}
+
+/* @socom-skeleton stub CreepTick__11CSealCtrlAiFf */
+void CSealCtrlAi::CreepTick(float)
+{
+}
+
+/* @socom-skeleton stub CreepTick__9CSealCtrlFf */
+void CSealCtrl::CreepTick(float)
+{
+	/* @socom-skeleton stub move_tolerance$3532 */
+	static float move_tolerance;
+}
+
+/* @socom-skeleton stub SlideTick__11CSealCtrlAiFf */
+unsigned char CSealCtrlAi::SlideTick(float)
+{
+}
+
+/* @socom-skeleton stub SlideTick__9CSealCtrlFf */
+unsigned char CSealCtrl::SlideTick(float)
+{
+	/* @socom-skeleton stub move_tolerance$3566 */
+	static int move_tolerance;
+}
+
+/* @socom-skeleton stub SetDebug__11CSealCtrlAiFb */
+void CSealCtrlAi::SetDebug(bool)
+{
+}
+
+/* @socom-skeleton stub PutAiLog__11CSealCtrlAiFUiUiPCv */
+void CSealCtrlAi::PutAiLog(unsigned int, unsigned int, const void *)
+{
+}
+
+/* @socom-skeleton stub Debug__11CSealCtrlAiFPCce */
+void CSealCtrlAi::Debug(const char *, ...)
+{
+}
+
+/* @socom-skeleton stub Output__11CSealCtrlAiFPCce */
+void CSealCtrlAi::Output(const char *, ...)
+{
+}
+
+/* @socom-skeleton stub SetTarget__11CSealCtrlAiFP7CTarget */
+void CSealCtrlAi::SetTarget(CTarget *)
+{
+}
+
+/* @socom-skeleton stub SetValve__11CSealCtrlAiF10SEAL_VALVEUi */
+void CSealCtrlAi::SetValve(SEAL_VALVE, unsigned int)
+{
+}
+
+/* @socom-skeleton stub SelectFireParams__11CSealCtrlAiFv */
+void CSealCtrlAi::SelectFireParams()
+{
+}
+
+/* @socom-skeleton stub CanAttack__11CSealCtrlAiFP7CEntity */
+unsigned char CSealCtrlAi::CanAttack(CEntity *)
+{
+}
+
+/* @socom-skeleton stub SetSprayTimer__11CSealCtrlAiFf */
+void CSealCtrlAi::SetSprayTimer(float)
+{
+}
+
+/* @socom-skeleton stub AttackTick__11CSealCtrlAiFfb */
+unsigned char CSealCtrlAi::AttackTick(float, bool)
+{
+	/* @socom-skeleton stub max_dot$3740 */
+	static float max_dot;
+	/* @socom-skeleton stub min_dot$3743 */
+	static float min_dot;
+}
+
+/* @socom-skeleton stub FireWhenReady__11CSealCtrlAiFR13AI_FIREPARAMSf */
+unsigned char CSealCtrlAi::FireWhenReady(AI_FIREPARAMS &, float)
+{
+	/* @socom-skeleton stub look_dot_threshold$3770 */
+	static float look_dot_threshold;
+}
+
+/* @socom-skeleton stub ChooseWeapon__11CSealCtrlAiFR10CAiWepHint */
+void CSealCtrlAi::ChooseWeapon(CAiWepHint &)
+{
+}
+
+/* @socom-skeleton stub GetDuckStance__11CSealCtrlAiCFP10CZSealBodyR11SEAL_STANCE */
+void CSealCtrlAi::GetDuckStance(CZSealBody *, SEAL_STANCE &) const
+{
+	/* @socom-skeleton stub duckRange$3858 */
+	static float duckRange;
+	/* @socom-skeleton stub duckThreshold$3861 */
+	static float duckThreshold;
+}
+
+/* @socom-skeleton stub SetStance__11CSealCtrlAiF11SEAL_STANCE */
+unsigned char CSealCtrlAi::SetStance(SEAL_STANCE)
+{
+}
+
+/* @socom-skeleton stub SetStanceDelayed__11CSealCtrlAiF11SEAL_STANCEf */
+unsigned char CSealCtrlAi::SetStanceDelayed(SEAL_STANCE, float)
+{
+}
+
+/* @socom-skeleton stub DoSetStance__11CSealCtrlAiF11SEAL_STANCE */
+unsigned char CSealCtrlAi::DoSetStance(SEAL_STANCE)
+{
+}
+
+/* @socom-skeleton stub SetupAnimations__11CSealCtrlAiFv */
+void CSealCtrlAi::SetupAnimations()
+{
+}
+
+/* @socom-skeleton stub GetRouteComplete__11CSealCtrlAiCFv */
+void CSealCtrlAi::GetRouteComplete() const
+{
+}
+
+/* @socom-skeleton stub GetRouteFailed__11CSealCtrlAiCFv */
+ASTAR_STATUS CSealCtrlAi::GetRouteFailed() const
+{
+}
+
+/* @socom-skeleton stub ClearRoute__11CSealCtrlAiFv */
+void CSealCtrlAi::ClearRoute()
+{
+}
+
+/* @socom-skeleton stub GetDefaultRouteType__11CSealCtrlAiFv */
+void CSealCtrlAi::GetDefaultRouteType()
+{
+}
+
+/* @socom-skeleton stub GetDefaultRouteBias__11CSealCtrlAiFv */
+float CSealCtrlAi::GetDefaultRouteBias()
+{
+	/* @socom-skeleton stub default_bias$3965 */
+	static int default_bias;
+	/* @socom-skeleton stub aware_scale$3968 */
+	static int aware_scale;
+}
+
+/* @socom-skeleton stub SetRoute__11CSealCtrlAiFRC9CAiMapLoc */
+void CSealCtrlAi::SetRoute(const CAiMapLoc &)
+{
+}
+
+/* @socom-skeleton stub SetRoute__11CSealCtrlAiFPC9CAiMapLoci */
+void CSealCtrlAi::SetRoute(const CAiMapLoc *, int)
+{
+}
+
+/* @socom-skeleton stub SetRouteType__11CSealCtrlAiFQ27CAiPath9PATH_TYPEf */
+void CSealCtrlAi::SetRouteType(CAiPath::PATH_TYPE, float)
+{
+}
+
+/* @socom-skeleton stub SetRouteSearchLimit__11CSealCtrlAiFUi */
+void CSealCtrlAi::SetRouteSearchLimit(unsigned int)
+{
+}
+
+/* @socom-skeleton stub GetValve__11CSealCtrlAiCF10SEAL_VALVE */
+void CSealCtrlAi::GetValve(SEAL_VALVE) const
+{
+}
+
+/* @socom-skeleton stub SetHoldFire__11CSealCtrlAiFb */
+unsigned char CSealCtrlAi::SetHoldFire(bool)
+{
+}
+
+/* @socom-skeleton stub AnimSignal__11CSealCtrlAiFP6CZAnim9AI_SIGNAL */
+void CSealCtrlAi::AnimSignal(CZAnim *, AI_SIGNAL)
+{
+}
+
+/* @socom-skeleton stub ActivateEx__11CSealCtrlAiF9SEAL_TASKbe */
+void CSealCtrlAi::ActivateEx(SEAL_TASK, bool, ...)
+{
+}
+
+/* @socom-skeleton stub SetDoReaction__11CSealCtrlAiFbRC11AI_REACTIONb */
+void CSealCtrlAi::SetDoReaction(bool, const AI_REACTION &, bool)
+{
+}
+
+/* @socom-skeleton stub DoReaction__11CSealCtrlAiFv */
+void CSealCtrlAi::DoReaction()
+{
+}
+
+/* @socom-skeleton stub SetAiAware__11CSealCtrlAiFfUi */
+void CSealCtrlAi::SetAiAware(float, unsigned int)
+{
+}
+
+/* @socom-skeleton stub SetAiAware__11CSealCtrlAiF8AI_AWAREPC6CPnt3D */
+void CSealCtrlAi::SetAiAware(AI_AWARE, const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub AcquireAiAware__11CSealCtrlAiFP11CSealCtrlAi */
+void CSealCtrlAi::AcquireAiAware(CSealCtrlAi *)
+{
+	/* @socom-skeleton stub aware_scale$4166 */
+	static float aware_scale;
+}
+
+/* @socom-skeleton stub GetAiAware__11CSealCtrlAiFf */
+AI_AWARE CSealCtrlAi::GetAiAware(float)
+{
+}
+
+/* @socom-skeleton stub GetAiAware__11CSealCtrlAiCFv */
+AI_AWARE CSealCtrlAi::GetAiAware() const
+{
+}
+
+/* @socom-skeleton stub PerformCollisionActions__11CSealCtrlAiFv */
+void CSealCtrlAi::PerformCollisionActions()
+{
+}
+
+/* @socom-skeleton stub PerformReticleActions__11CSealCtrlAiFv */
+void CSealCtrlAi::PerformReticleActions()
+{
+}
+
+/* @socom-skeleton stub PerformProximityActions__11CSealCtrlAiFv */
+void CSealCtrlAi::PerformProximityActions()
+{
+}
+
+/* @socom-skeleton stub OnActionButton__11CSealCtrlAiFv */
+void CSealCtrlAi::OnActionButton()
+{
+}
+
+/* @socom-skeleton stub ConfirmAiState__11CSealCtrlAiFP8CAiStateb */
+void CSealCtrlAi::ConfirmAiState(CAiState *, bool)
+{
+}
+
+/* @socom-skeleton stub PlayAiSound__11CSealCtrlAiF15CHARACTER_SOUND */
+void CSealCtrlAi::PlayAiSound(CHARACTER_SOUND)
+{
+}
+
+/* @socom-skeleton stub FindPeekDir__FP6CAiMapRC9CAiMapLocQ26CAiMap3DIR */
+void FindPeekDir(CAiMap *, const CAiMapLoc &, CAiMap::DIR)
+{
+}
+
+/* @socom-skeleton stub FindCoverLoc__11CSealCtrlAiFPC6CPnt3DR9CAiMapLocR9SEAL_PEEKi */
+void CSealCtrlAi::FindCoverLoc(const CPnt3D *, CAiMapLoc &, SEAL_PEEK &, int)
+{
+}
+
+/* @socom-skeleton stub OnSignal__10CAiSActionFQ28CAiState6SIGNALP11CSealCtrlAi */
+void CAiSAction::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub Tick__10CAiSActionFfP11CSealCtrlAi */
+void CAiSAction::Tick(float, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub reset__13AI_FIREPARAMSFv */
+void AI_FIREPARAMS::reset()
+{
+}
+
+/* @socom-skeleton stub setup__13AI_FIREPARAMSFP5CZKitPC6CPnt3DPC6CPnt3DUi */
+void AI_FIREPARAMS::setup(CZKit *, const CPnt3D *, const CPnt3D *, unsigned int)
+{
+}
+
+/* @socom-skeleton stub ComputeProjectileFireParams__11CSealCtrlAiFR13AI_FIREPARAMS */
+void CSealCtrlAi::ComputeProjectileFireParams(AI_FIREPARAMS &)
+{
+	/* @socom-skeleton stub g$4392 */
+	static float g;
+	/* @socom-skeleton stub max_y$4397 */
+	static float max_y;
+}
+
+/* @socom-skeleton stub UpdateThrowFireParams__11CSealCtrlAiFR13AI_FIREPARAMSb */
+void CSealCtrlAi::UpdateThrowFireParams(AI_FIREPARAMS &, bool)
+{
+}
+
+/* @socom-skeleton stub ComputeThrowFireParams__11CSealCtrlAiFR13AI_FIREPARAMS */
+void CSealCtrlAi::ComputeThrowFireParams(AI_FIREPARAMS &)
+{
+	/* @socom-skeleton stub nominal_x_velocity$4433 */
+	static float nominal_x_velocity;
+}
+
+/* @socom-skeleton stub OnSignal__10CAiSDeployFQ28CAiState6SIGNALP11CSealCtrlAi */
+void CAiSDeploy::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub CanDeployItem__10CAiSDeployFP5CZKit10EQUIP_ITEM */
+void CAiSDeploy::CanDeployItem(CZKit *, EQUIP_ITEM)
+{
+}
+
+/* @socom-skeleton stub Tick__10CAiSDeployFfP11CSealCtrlAi */
+void CAiSDeploy::Tick(float, CSealCtrlAi *)
+{
+	/* @socom-skeleton stub aimTolerance$4473 */
+	static int aimTolerance;
+}
+
+/* @socom-skeleton stub OnSignal__11CAiSGrenadeFQ28CAiState6SIGNALP11CSealCtrlAi */
+void CAiSGrenade::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub is_throwtype__F10EQUIP_ITEM */
+void is_throwtype(EQUIP_ITEM)
+{
+}
+
+/* @socom-skeleton stub SetReturnVelocity__11CSealCtrlAiFP12CZProjectileP6CPnt3Db */
+void CSealCtrlAi::SetReturnVelocity(CZProjectile *, CPnt3D *, bool)
+{
+	/* @socom-skeleton stub vScale$4631 */
+	static float vScale;
+	/* @socom-skeleton stub hScale$4634 */
+	static float hScale;
+}
+
+/* @socom-skeleton stub Tick__11CAiSGrenadeFfP11CSealCtrlAi */
+void CAiSGrenade::Tick(float, CSealCtrlAi *)
+{
+	/* @socom-skeleton stub tb_timeToParent$4684 */
+	static float tb_timeToParent;
+	/* @socom-skeleton stub tb_timeToThrow$4687 */
+	static float tb_timeToThrow;
+	/* @socom-skeleton stub minTimeForSafeSealReturn$4690 */
+	static float minTimeForSafeSealReturn;
+	/* @socom-skeleton stub defaultTimeToPickup$4693 */
+	static float defaultTimeToPickup;
+	/* @socom-skeleton stub AcceptableRangeErrorSQ$4704 */
+	static float AcceptableRangeErrorSQ;
+	/* @socom-skeleton stub allowThrowbacks$4712 */
+	static unsigned char allowThrowbacks;
+	/* @socom-skeleton stub floodFillDistanceSQ$4746 */
+	static float floodFillDistanceSQ;
+}
+
+/* @socom-skeleton stub OnSignal__11CAiSAnimateFQ28CAiState6SIGNALP11CSealCtrlAi */
+void CAiSAnimate::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub Tick__11CAiSAnimateFfP11CSealCtrlAi */
+void CAiSAnimate::Tick(float, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub OnSignal__10CAiSPursueFQ28CAiState6SIGNALP11CSealCtrlAi */
+void CAiSPursue::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub GetStatus__10CAiSPursueCFv */
+void CAiSPursue::GetStatus() const
+{
+}
+
+/* @socom-skeleton stub Tick__10CAiSPursueFfP11CSealCtrlAi */
+void CAiSPursue::Tick(float, CSealCtrlAi *)
+{
+	/* @socom-skeleton stub pursuitRange$4923 */
+	static int pursuitRange;
+	/* @socom-skeleton stub pursuitClose$4926 */
+	static int pursuitClose;
+	/* @socom-skeleton stub pursuitBubble$4929 */
+	static int pursuitBubble;
+	/* @socom-skeleton stub pursuitTime$4932 */
+	static float pursuitTime;
+	/* @socom-skeleton stub pursuitHold$4935 */
+	static float pursuitHold;
+	/* @socom-skeleton stub pursuitPanic$4938 */
+	static float pursuitPanic;
+	/* @socom-skeleton stub pursuitSearch$4941 */
+	static int pursuitSearch;
+	/* @socom-skeleton stub pursueSearchLook$4944 */
+	static signed char pursueSearchLook;
+}
+
+/* @socom-skeleton stub ChooseLookDir__11CSealCtrlAiFRC9CAiMapLocPC6CPnt3DbP9CAiMapLociPi */
+CAiMap::DIR CSealCtrlAi::ChooseLookDir(const CAiMapLoc &, const CPnt3D *, bool, CAiMapLoc *, int, int *)
+{
+}
+
+/* @socom-skeleton stub OnSignal__11CAiSRescuedFQ28CAiState6SIGNALP11CSealCtrlAi */
+void CAiSRescued::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub SetExtractValve__11CAiSRescuedFP6CValve */
+void CAiSRescued::SetExtractValve(CValve *)
+{
+}
+
+/* @socom-skeleton stub Tick__11CAiSRescuedFfP11CSealCtrlAi */
+void CAiSRescued::Tick(float, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub InGuardRegion__11CSealCtrlAiFv */
+void CSealCtrlAi::InGuardRegion()
+{
+}
+
+/* @socom-skeleton stub HasSniperRifle__11CSealCtrlAiFv */
+void CSealCtrlAi::HasSniperRifle()
+{
 }

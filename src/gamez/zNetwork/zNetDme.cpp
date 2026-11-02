@@ -32,3 +32,145 @@
  * @socom-artifact defines main socom:function:0x322320
  * @socom-artifact defines main socom:data:0x4766c8
  * socom-owner-annotations end socom:work:source-segment-045 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zUtil/zutil.h"
+#include "znet.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class NetObjectLifespan;
+class NetOwnershipStatus;
+class NetThresholdMethod;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub gIRXLoaded */
+static bool gIRXLoaded;
+
+/* @socom-skeleton stub theNetwork */
+CZNetwork theNetwork;
+
+/* @socom-skeleton stub __ct__19CZBroadcastScheduleFUi18NetThresholdMethodd */
+CZBroadcastSchedule::CZBroadcastSchedule(unsigned int, NetThresholdMethod, double)
+{
+}
+
+/* @socom-skeleton stub zNetInit__9CZNetworkFv */
+void CZNetwork::zNetInit()
+{
+}
+
+/* @socom-skeleton stub IOPRebootHandler__FQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv */
+bool IOPRebootHandler(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *)
+{
+}
+
+/* @socom-skeleton stub zNetLoadIRX__9CZNetworkFv */
+bool CZNetwork::zNetLoadIRX()
+{
+}
+
+/* @socom-skeleton stub zNetInitEx__9CZNetworkFv */
+void CZNetwork::zNetInitEx()
+{
+}
+
+/* @socom-skeleton stub zNetInitialize__9CZNetworkFv */
+void CZNetwork::zNetInitialize()
+{
+}
+
+/* @socom-skeleton body zNetUpdate__9CZNetworkFv */
+bool CZNetwork::zNetUpdate()
+{
+	return false;
+}
+
+/* @socom-skeleton stub zNetTick__9CZNetworkFv */
+void CZNetwork::zNetTick()
+{
+}
+
+/* @socom-skeleton stub AddToFixList__9CZNetworkFPQ29CZNetwork18TypeRTimeFixStruct */
+void CZNetwork::AddToFixList(CZNetwork::TypeRTimeFixStruct *)
+{
+}
+
+/* @socom-skeleton stub zNetClose__9CZNetworkFv */
+void CZNetwork::zNetClose()
+{
+}
+
+/* @socom-skeleton stub zNetCreateObject__9CZNetworkFPi18NetOwnershipStatus17NetObjectLifespanUiiUiiPvPci */
+void CZNetwork::zNetCreateObject(int *, NetOwnershipStatus, NetObjectLifespan, unsigned int, int, unsigned int, int, void *, char *, int)
+{
+}
+
+/* @socom-skeleton stub zNetGetObject__9CZNetworkFi */
+void CZNetwork::zNetGetObject(int)
+{
+}
+
+/* @socom-skeleton stub zNetGetGameClient__9CZNetworkFi */
+void CZNetwork::zNetGetGameClient(int)
+{
+}
+
+/* @socom-skeleton stub zNetGetClient__9CZNetworkFii */
+void CZNetwork::zNetGetClient(int, int)
+{
+}
+
+/* @socom-skeleton stub zNetGetMyGameClientIndex__9CZNetworkFv */
+int CZNetwork::zNetGetMyGameClientIndex()
+{
+}
+
+/* @socom-skeleton stub zNetGetGameSessionMasterClientIndex__9CZNetworkFv */
+int CZNetwork::zNetGetGameSessionMasterClientIndex()
+{
+}
+
+/* @socom-skeleton stub zNetGetTime__9CZNetworkFv */
+int CZNetwork::zNetGetTime()
+{
+}
+
+/* @socom-skeleton stub zNetGetLocalTime__9CZNetworkFv */
+int CZNetwork::zNetGetLocalTime()
+{
+}
+
+/* @socom-skeleton stub zNetGetValidGameClientCount__9CZNetworkFv */
+int CZNetwork::zNetGetValidGameClientCount()
+{
+}
+
+/* @socom-skeleton stub zNetConnect__9CZNetworkFPFiiPCc_vPFiiPCc_v */
+void CZNetwork::zNetConnect(void (*)(int, int, const char *), void (*)(int, int, const char *))
+{
+}
+
+/* @socom-skeleton stub zNetJoin__9CZNetworkFPFii_vPFii_v */
+void CZNetwork::zNetJoin(void (*)(int, int), void (*)(int, int))
+{
+}
+
+/* @socom-skeleton stub zNetLeaveAndDisconnect__9CZNetworkFv */
+void CZNetwork::zNetLeaveAndDisconnect()
+{
+}
+
+/* @socom-skeleton stub zNetSendApplicationMessage__9CZNetworkFciiiiPUcb */
+void CZNetwork::zNetSendApplicationMessage(char, int, int, int, int, unsigned char *, bool)
+{
+}
+
+/* @socom-skeleton stub zNetRegisterRemoteObjectCallback__9CZNetworkFiPFii_vPFiii_vPFiii_vPFii_v */
+void CZNetwork::zNetRegisterRemoteObjectCallback(int, void (*)(int, int), void (*)(int, int, int), void (*)(int, int, int), void (*)(int, int))
+{
+}
+
+/* @socom-skeleton stub zNetRemoteObjectUpdateCallback__9CZNetworkFiii */
+void CZNetwork::zNetRemoteObjectUpdateCallback(int, int, int)
+{
+}

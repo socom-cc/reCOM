@@ -45,7 +45,94 @@
 
 namespace zdb
 {
-    void CMesh::SetMeshTextureSelects(_word128* wtexture, _word128* wname)
+
+}
+
+/* @socom-skeleton decl include */
+#include "gamez/zArchive/zar.h"
+#include "gamez/zMath/zmath.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+union _word128;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub locals */
+static int locals;
+
+/* @socom-skeleton stub localsI */
+static int localsI;
+
+/* @socom-skeleton stub Init__Q23zdb5CMeshFv */
+void zdb::CMesh::Init()
+{
+}
+
+/* @socom-skeleton body __ct__Q23zdb5CMeshFv */
+namespace zdb {
+CMesh::CMesh()
+    {
+
+    }
+}
+
+/* @socom-skeleton stub InitMatrices__Q23zdb5CMeshFv */
+void zdb::CMesh::InitMatrices()
+{
+}
+
+/* @socom-skeleton stub AddLOD__Q23zdb5CMeshFPQ23zdb5CMeshf */
+void zdb::CMesh::AddLOD(zdb::CMesh *, float)
+{
+}
+
+/* @socom-skeleton stub SetLOD__Q23zdb5CMeshFUif */
+void zdb::CMesh::SetLOD(unsigned int, float)
+{
+}
+
+/* @socom-skeleton stub SetLOD__Q23zdb5CMeshFUiUi */
+void zdb::CMesh::SetLOD(unsigned int, unsigned int)
+{
+}
+
+/* @socom-skeleton stub Clone__Q23zdb5CMeshFv */
+zdb::CMesh * zdb::CMesh::Clone()
+{
+}
+
+/* @socom-skeleton stub ComputeBBox__Q23zdb5CMeshFP5CBBox */
+void zdb::CMesh::ComputeBBox(CBBox *)
+{
+}
+
+/* @socom-skeleton stub UpdateCentroid__Q23zdb5CMeshFv */
+void zdb::CMesh::UpdateCentroid()
+{
+}
+
+/* @socom-skeleton stub __dt__Q23zdb5CMeshFv */
+zdb::CMesh::~CMesh()
+{
+}
+
+/* @socom-skeleton stub Read__Q23zdb5CMeshFRQ23zar4CZAR */
+void zdb::CMesh::Read(zar::CZAR &)
+{
+}
+
+/* @socom-skeleton stub Write__Q23zdb5CMeshFRQ23zar4CZAR */
+void zdb::CMesh::Write(zar::CZAR &)
+{
+}
+
+/* @socom-skeleton stub SetMeshBuffer__Q23zdb5CMeshFP8_word128P8_word128P8_word128 */
+void zdb::CMesh::SetMeshBuffer(_word128 *, _word128 *, _word128 *)
+{
+}
+
+/* @socom-skeleton body SetMeshTextureSelects__Q23zdb5CMeshFP8_word128P8_word128 */
+namespace zdb {
+void CMesh::SetMeshTextureSelects(_word128* wtexture, _word128* wname)
     {
         if (!wtexture->u8[2])
         {
@@ -67,22 +154,40 @@ namespace zdb
             }
         }
     }
+}
 
-    CMesh::CMesh()
-    {
-
-    }
-
-    CSubMesh::CSubMesh()
-    {
-
-    }
-
-    CSubMesh::CSubMesh(CMesh* mesh)
+/* @socom-skeleton body __ct__Q23zdb8CSubMeshFPQ23zdb5CMesh */
+namespace zdb {
+CSubMesh::CSubMesh(CMesh* mesh)
     {
         field4_0x4 = true;
         field14_0x1c = 3;
         m_matrix_id = 0xabcd;
         m_mesh = mesh;
     }
+}
+
+/* @socom-skeleton stub __dt__Q23zdb8CSubMeshFv */
+zdb::CSubMesh::~CSubMesh()
+{
+}
+
+/* @socom-skeleton stub Read__Q23zdb8CSubMeshFRQ23zar4CZAR */
+void zdb::CSubMesh::Read(zar::CZAR &)
+{
+}
+
+/* @socom-skeleton stub Write__Q23zdb8CSubMeshFRQ23zar4CZAR */
+void zdb::CSubMesh::Write(zar::CZAR &)
+{
+}
+
+/* @socom-skeleton stub RemoveMeshDecal__Q23zdb5CMeshFPQ23zdb10CMeshDecal */
+void zdb::CMesh::RemoveMeshDecal(zdb::CMeshDecal *)
+{
+}
+
+/* @socom-skeleton stub DereferenceDecals__Q23zdb5CMeshFUi */
+void zdb::CMesh::DereferenceDecals(unsigned int)
+{
 }

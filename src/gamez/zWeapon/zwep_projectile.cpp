@@ -58,6 +58,267 @@
 #include "zwep_projectilelist.h"
 #include "gamez/zNetwork/znet.h"
 
+/* @socom-skeleton decl include */
+#include "gamez/zAnim/zanim.h"
+#include "gamez/zIntersect/zintersect.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/node_model.h"
+#include "gamez/zNode/znode.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CFlyout;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub m_tracerpool__12CZTracerPool */
+int CZTracerPool::m_tracerpool[3];
+
+/* @socom-skeleton stub __ct__12CZProjectileFv */
+CZProjectile::CZProjectile()
+{
+}
+
+/* @socom-skeleton stub __dt__12CZProjectileFv */
+CZProjectile::~CZProjectile()
+{
+}
+
+/* @socom-skeleton body SetProjectile__12CZProjectileFPQ23zdb5CNodeP8CZWeaponP6CZAmmoPC6CPnt3DPC6CPnt3DPC6CPnt3DiPQ23zdb6CModelff */
+bool CZProjectile::SetProjectile(zdb::CNode *owner, CZWeapon *weapon, CZAmmo *ammo, const CPnt3D *startpos, const CPnt3D *velscale, const CPnt3D *vel, int id, zdb::CModel *model, float time, float removal_time)
+{
+	m_weapon = weapon;
+
+	if (m_weapon)
+	{
+		m_currange = m_weapon->GetMaxRange();
+	}
+
+	if (m_weapon->m_ID < EQUIP_ITEM::EQUIP_SMG)
+	{
+		m_useflyout = false;
+	}
+	else
+	{
+		m_useflyout = true;
+	}
+
+	m_ammo = ammo;
+
+	m_framestartpos = startpos;
+	m_frameendpos = startpos;
+
+	m_intersecthandle = -1;
+
+	velscale.Scale(m_weapon->GetMuzzleVelocity(), &m_vel);
+	m_vel.Add(&vel, &m_vel);
+
+	if (model)
+	{
+		m_instance->SetModel(model);
+	}
+
+	m_owner = owner;
+	m_time = time;
+	m_removaltime = removal_time;
+	m_pickup = NULL;
+
+	m_done = false;
+
+	return true;
+}
+
+/* @socom-skeleton body PreFireProjectile__12CZProjectileFv */
+void CZProjectile::PreFireProjectile()
+{
+	if (m_shottype == PROJECTILE_TYPE::ONE_FRAME)
+	{
+		// CZWeapon::m_pProjectileList.GetNextDirectFireDI(&m_di, &m_di_handle);
+		m_removeASAP = false;
+	}
+	else
+	{
+		// CZWeapon::m_pProjectileList.GetNextIndirectFireDI(&m_di, &m_di_handle);
+		m_removeASAP = false;
+	}
+}
+
+/* @socom-skeleton body FireValidityCheck__12CZProjectileFv */
+bool CZProjectile::FireValidityCheck()
+{
+	// Created projectiles are validated by the server only.
+	if (theNetwork.m_bNetwork)
+		return false;
+	
+	if (!m_weapon)
+		return false;
+
+	if (!m_weapon->IsDirectFire())
+		return false;
+
+	return true;
+}
+
+/* @socom-skeleton stub SetVelW__12CZProjectileFPC6CPnt3D */
+void CZProjectile::SetVelW(const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub SetModelOrientation__12CZProjectileFbPC6CPnt3D */
+void CZProjectile::SetModelOrientation(bool, const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub PreTick__12CZProjectileFf */
+void CZProjectile::PreTick(float)
+{
+}
+
+/* @socom-skeleton stub PostTick__12CZProjectileFf */
+void CZProjectile::PostTick(float)
+{
+}
+
+/* @socom-skeleton stub HandleIntersections__12CZProjectileFf */
+void CZProjectile::HandleIntersections(float)
+{
+}
+
+/* @socom-skeleton stub HandleTimers__12CZProjectileFv */
+void CZProjectile::HandleTimers()
+{
+}
+
+/* @socom-skeleton stub DoMiss__12CZProjectileFfP6CPnt3D */
+void CZProjectile::DoMiss(float, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub DoHit__12CZProjectileFPQ23zdb15IntersectStructffP6CPnt3D */
+void CZProjectile::DoHit(zdb::IntersectStruct *, float, float, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub HandleBounce__12CZProjectileFPQ23zdb15IntersectStructfP6CPnt3D */
+void CZProjectile::HandleBounce(zdb::IntersectStruct *, float, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub HandleShotgunImpact__12CZProjectileFPQ23zdb15IntersectStructffP6CPnt3D */
+void CZProjectile::HandleShotgunImpact(zdb::IntersectStruct *, float, float, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub HandleImpact__12CZProjectileFPQ23zdb15IntersectStructffP6CPnt3D */
+void CZProjectile::HandleImpact(zdb::IntersectStruct *, float, float, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub Cleanup__12CZProjectileFv */
+void CZProjectile::Cleanup()
+{
+}
+
+/* @socom-skeleton stub Detonate__12CZProjectileFv */
+void CZProjectile::Detonate()
+{
+}
+
+/* @socom-skeleton stub HandleDelayedDetonate__12CZProjectileFv */
+void CZProjectile::HandleDelayedDetonate()
+{
+}
+
+/* @socom-skeleton stub HandleDetonateExplosion__12CZProjectileFv */
+void CZProjectile::HandleDetonateExplosion()
+{
+}
+
+/* @socom-skeleton body GetInstance__12CZProjectileFv */
+zdb::CNode * CZProjectile::GetInstance()
+{
+	return m_instance;
+}
+
+/* @socom-skeleton stub SetInstance__12CZProjectileFPQ23zdb5CNode */
+void CZProjectile::SetInstance(zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub GetExplosionDamage__12CZProjectileFv */
+float CZProjectile::GetExplosionDamage()
+{
+}
+
+/* @socom-skeleton stub GetDamage__12CZProjectileFPC6CPnt3Df */
+float CZProjectile::GetDamage(const CPnt3D *, float)
+{
+}
+
+/* @socom-skeleton stub GetDamage__12CZProjectileFPC6CPnt3DPfPff */
+void CZProjectile::GetDamage(const CPnt3D *, float *, float *, float)
+{
+}
+
+/* @socom-skeleton body ResolveDamage__12CZProjectileFPfPfff */
+f32 CZProjectile::ResolveDamage(f32* health, f32* armor, f32 damage, f32 multiplier)
+{
+	f32 armorpct = damage - *armor * (multiplier / 10.0f);
+	f32 healthpct = damage - armorpct;
+
+	if (armorpct <= 0.0f)
+	{
+		armorpct = 0.0f;
+		healthpct = damage - 0.0f;
+	}
+
+	healthpct = *armor - healthpct / 4.0f;
+	*armor = healthpct;
+
+	if (healthpct <= 0.0f)
+		*armor = 0.0f;
+
+	healthpct = *health;
+	*health = healthpct - armorpct;
+
+	if (healthpct - armorpct <= 0.0f)
+		*health = 0.0f;
+
+	return *health;
+}
+
+/* @socom-skeleton stub SetAnimInstance__12CZProjectileFP6CZAnim */
+void CZProjectile::SetAnimInstance(CZAnim *)
+{
+}
+
+/* @socom-skeleton stub IsInRange__12CZProjectileFPC6CPnt3Df */
+void CZProjectile::IsInRange(const CPnt3D *, float)
+{
+}
+
+/* @socom-skeleton stub ReportGrenadeStatus__12CZProjectileFv */
+void CZProjectile::ReportGrenadeStatus()
+{
+}
+
+/* @socom-skeleton stub UpdateGrenade__12CZProjectileFP6CPnt3DP6CPnt3D13GRENADE_STATE */
+void CZProjectile::UpdateGrenade(CPnt3D *, CPnt3D *, GRENADE_STATE)
+{
+}
+
+/* @socom-skeleton stub SetProjectileState__12CZProjectileF16PROJECTILE_STATEb */
+void CZProjectile::SetProjectileState(PROJECTILE_STATE, bool)
+{
+}
+
+/* @socom-skeleton stub WasDetonated__12CZProjectileFv */
+void CZProjectile::WasDetonated()
+{
+}
+
+/* @socom-skeleton body Reset__12CZProjectileFv */
 void CZProjectile::Reset()
 {
 	if (m_pickup != NULL)
@@ -115,149 +376,52 @@ void CZProjectile::Reset()
 	}
 }
 
-zdb::CNode* CZProjectile::GetInstance() const
+/* @socom-skeleton stub __ct__7CFlyoutFv */
+CFlyout::CFlyout()
 {
-	return m_instance;
 }
 
-f32 CZProjectile::ResolveDamage(f32* health, f32* armor, f32 damage, f32 multiplier)
+/* @socom-skeleton stub __dt__7CFlyoutFv */
+CFlyout::~CFlyout()
 {
-	f32 armorpct = damage - *armor * (multiplier / 10.0f);
-	f32 healthpct = damage - armorpct;
-
-	if (armorpct <= 0.0f)
-	{
-		armorpct = 0.0f;
-		healthpct = damage - 0.0f;
-	}
-
-	healthpct = *armor - healthpct / 4.0f;
-	*armor = healthpct;
-
-	if (healthpct <= 0.0f)
-		*armor = 0.0f;
-
-	healthpct = *health;
-	*health = healthpct - armorpct;
-
-	if (healthpct - armorpct <= 0.0f)
-		*health = 0.0f;
-
-	return *health;
 }
 
-bool CZProjectile::FireValidityCheck()
+/* @socom-skeleton stub __ct__14CFlyoutMachineFv */
+CFlyoutMachine::CFlyoutMachine()
 {
-	// Created projectiles are validated by the server only.
-	if (theNetwork.m_bNetwork)
-		return false;
-	
-	if (!m_weapon)
-		return false;
-
-	if (!m_weapon->IsDirectFire())
-		return false;
-
-	return true;
 }
 
-void CZProjectile::PreFireProjectile()
+/* @socom-skeleton stub __dt__14CFlyoutMachineFv */
+CFlyoutMachine::~CFlyoutMachine()
 {
-	if (m_shottype == PROJECTILE_TYPE::ONE_FRAME)
-	{
-		// CZWeapon::m_pProjectileList.GetNextDirectFireDI(&m_di, &m_di_handle);
-		m_removeASAP = false;
-	}
-	else
-	{
-		// CZWeapon::m_pProjectileList.GetNextIndirectFireDI(&m_di, &m_di_handle);
-		m_removeASAP = false;
-	}
 }
 
-bool CZProjectile::SetProjectile(zdb::CNode* owner, CZWeapon* weapon, CZAmmo* ammo,
-	const CPnt3D& startpos, CPnt3D& velscale, CPnt3D& vel,
-	s32 id, zdb::CModel* model, f32 time, f32 removal_time)
+/* @socom-skeleton stub Init__14CFlyoutMachineFUi */
+void CFlyoutMachine::Init(unsigned int)
 {
-	m_weapon = weapon;
-
-	if (m_weapon)
-	{
-		m_currange = m_weapon->GetMaxRange();
-	}
-
-	if (m_weapon->m_ID < EQUIP_ITEM::EQUIP_SMG)
-	{
-		m_useflyout = false;
-	}
-	else
-	{
-		m_useflyout = true;
-	}
-
-	m_ammo = ammo;
-
-	m_framestartpos = startpos;
-	m_frameendpos = startpos;
-
-	m_intersecthandle = -1;
-
-	velscale.Scale(m_weapon->GetMuzzleVelocity(), &m_vel);
-	m_vel.Add(&vel, &m_vel);
-
-	if (model)
-	{
-		m_instance->SetModel(model);
-	}
-
-	m_owner = owner;
-	m_time = time;
-	m_removaltime = removal_time;
-	m_pickup = NULL;
-
-	m_done = false;
-
-	return true;
 }
 
-bool CZProjectileList::GetNextDirectFireDI(zdb::DiIntersect** di, s32* free_handle)
+/* @socom-skeleton stub HookupReset__14CFlyoutMachineFv */
+void CFlyoutMachine::HookupReset()
 {
-	if (m_directFireDI[0])
-	{
-		if (m_direct_firstfree < 60)
-		{
-			*di = m_directFireDI[m_direct_firstfree];
-			*free_handle = m_direct_firstfree;
-
-			m_directFireDIUsed[m_direct_firstfree] = true;
-
-			while (m_direct_firstfree < 60 && m_directFireDIUsed[m_direct_firstfree])
-				m_direct_firstfree++;
-		}
-
-		return true;
-	}
-
-	return false;
 }
 
-bool CZProjectileList::GetNextIndirectFireDI(zdb::DiIntersect** di, s32* free_handle)
+/* @socom-skeleton stub ReleaseAllActive__14CFlyoutMachineFv */
+void CFlyoutMachine::ReleaseAllActive()
 {
-	if (m_indirectFireDI[0])
-	{
-		if (m_indirect_firstfree < 60)
-		{
-			*di = m_indirectFireDI[m_indirect_firstfree];
-			*free_handle = m_indirect_firstfree;
+}
 
-			m_indirectFireDIUsed[m_indirect_firstfree] = true;
+/* @socom-skeleton stub AcquireFlyout__14CFlyoutMachineFR6CPnt3DR6CPnt3DP6CZAnimP8CZWeaponfP7CMatrixP5CBBox */
+void CFlyoutMachine::AcquireFlyout(CPnt3D &, CPnt3D &, CZAnim *, CZWeapon *, float, CMatrix *, CBBox *)
+{
+}
 
-			while (m_indirect_firstfree < 60 && m_indirectFireDIUsed[m_indirect_firstfree])
-				m_indirect_firstfree++;
-		}
+/* @socom-skeleton stub ReleaseFlyout__14CFlyoutMachineFP7CFlyouti */
+void CFlyoutMachine::ReleaseFlyout(CFlyout *, int)
+{
+}
 
-		return true;
-	}
-
-	return false;
+/* @socom-skeleton stub Tick__14CFlyoutMachineFf */
+void CFlyoutMachine::Tick(float)
+{
 }

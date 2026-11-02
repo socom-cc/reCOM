@@ -31,7 +31,95 @@
 #include "zfts.h"
 #include "gamez/zSeal/zseal.h"
 
-void CZSealBody::AttemptBombDefuse() const
-{
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class TypeBombStatus;
+/* @socom-skeleton end forward */
 
+/* @socom-skeleton stub m_BombPositionFieldID__11CZBombState */
+int CZBombState::m_BombPositionFieldID;
+
+/* @socom-skeleton stub m_BombStateFieldID__11CZBombState */
+unsigned char CZBombState::m_BombStateFieldID[4];
+
+/* @socom-skeleton stub m_BombHolderFieldID__11CZBombState */
+int CZBombState::m_BombHolderFieldID;
+
+/* @socom-skeleton stub m_BombDefuserFieldID__11CZBombState */
+int CZBombState::m_BombDefuserFieldID;
+
+/* @socom-skeleton stub m_NetStructIndexBombObject__11CZBombState */
+int CZBombState::m_NetStructIndexBombObject;
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub m_BombStatus__11CZBombState */
+TypeBombStatus CZBombState::m_BombStatus;
+
+/* @socom-skeleton stub zNetRegisterBomb__11CZBombStateFv */
+void CZBombState::zNetRegisterBomb()
+{
+}
+
+/* @socom-skeleton stub RemoteBombCreationCallback__11CZBombStateFii */
+void CZBombState::RemoteBombCreationCallback(int, int)
+{
+}
+
+/* @socom-skeleton stub RemoteBombUpdateCallback__11CZBombStateFiii */
+void CZBombState::RemoteBombUpdateCallback(int, int, int)
+{
+}
+
+/* @socom-skeleton stub RemoteBombPostUpdateCallback__11CZBombStateFiii */
+void CZBombState::RemoteBombPostUpdateCallback(int, int, int)
+{
+}
+
+/* @socom-skeleton stub RemoteBombDeletionCallback__11CZBombStateFii */
+void CZBombState::RemoteBombDeletionCallback(int, int)
+{
+}
+
+/* @socom-skeleton stub CreateLocalBomb__11CZBombStateFv */
+int CZBombState::CreateLocalBomb()
+{
+}
+
+/* @socom-skeleton stub UpdateLocalBomb__11CZBombStateFv */
+void CZBombState::UpdateLocalBomb()
+{
+}
+
+/* @socom-skeleton stub RequestNewBombState__11CZBombStateFiQ211CZBombState13EnumBombStatePC6CPnt3D */
+void CZBombState::RequestNewBombState(int, CZBombState::EnumBombState, const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub HandleBombStateRequest__11CZBombStateFiUcP6CPnt3D */
+void CZBombState::HandleBombStateRequest(int, unsigned char, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub ChangeBombState__11CZBombStateFv */
+void CZBombState::ChangeBombState()
+{
+}
+
+/* @socom-skeleton stub CreateBombHere__11CZBombStateFP6CPnt3D */
+void CZBombState::CreateBombHere(CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub InitBomb__11CZBombStateFv */
+void CZBombState::InitBomb()
+{
+}
+
+/* @socom-skeleton stub UninitBomb__11CZBombStateFv */
+void CZBombState::UninitBomb()
+{
 }

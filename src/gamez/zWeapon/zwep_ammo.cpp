@@ -25,7 +25,89 @@
 
 #include "zweapon.h"
 
-void CZAmmo::SetName(const char* name)
+/* @socom-skeleton stub m_ammolist__6CZAmmo */
+unsigned char CZAmmo::m_ammolist[12];
+
+/* @socom-skeleton body __ct__6CZAmmoFv */
+CZAmmo::CZAmmo() {}
+
+/* @socom-skeleton stub __dt__6CZAmmoFv */
+CZAmmo::~CZAmmo()
+{
+}
+
+/* @socom-skeleton body SetName__6CZAmmoFPc */
+void CZAmmo::SetName(char *name)
 {
     
+}
+
+/* @socom-skeleton stub SetDescription__6CZAmmoFPc */
+void CZAmmo::SetDescription(char *)
+{
+}
+
+/* @socom-skeleton stub SetHitAnim__6CZAmmoFPCc */
+void CZAmmo::SetHitAnim(const char *)
+{
+}
+
+/* @socom-skeleton stub SetImpactDamage__6CZAmmoFf */
+void CZAmmo::SetImpactDamage(float)
+{
+}
+
+/* @socom-skeleton stub SetStun__6CZAmmoFf */
+void CZAmmo::SetStun(float)
+{
+}
+
+/* @socom-skeleton stub SetArmorPierce__6CZAmmoFf */
+void CZAmmo::SetArmorPierce(float)
+{
+}
+
+/* @socom-skeleton stub SetExplosionDamage__6CZAmmoFf */
+void CZAmmo::SetExplosionDamage(float)
+{
+}
+
+/* @socom-skeleton stub SetExplosionRadius__6CZAmmoFf */
+void CZAmmo::SetExplosionRadius(float)
+{
+}
+
+/* @socom-skeleton stub GetName__6CZAmmoFv */
+char * CZAmmo::GetName()
+{
+}
+
+/* @socom-skeleton stub GetImpactDamage__6CZAmmoFv */
+float CZAmmo::GetImpactDamage()
+{
+}
+
+/* @socom-skeleton stub GetArmorPierce__6CZAmmoFv */
+float CZAmmo::GetArmorPierce()
+{
+}
+
+/* @socom-skeleton stub GetExplosionDamage__6CZAmmoFv */
+float CZAmmo::GetExplosionDamage()
+{
+}
+
+/* @socom-skeleton stub GetExplosionRadius__6CZAmmoFv */
+float CZAmmo::GetExplosionRadius()
+{
+}
+
+/* @socom-skeleton stub GetAmmo__6CZAmmoF10EQUIP_AMMO */
+CZAmmo * CZAmmo::GetAmmo(EQUIP_AMMO)
+{
+}
+
+/* @socom-skeleton stub GetAmmoId__6CZAmmoFPCc */
+EQUIP_AMMO CZAmmo::GetAmmoId(const char *)
+{
 }

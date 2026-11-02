@@ -25,13 +25,55 @@
 
 #include <cstdlib>
 
-bool mpegBuffAlloc = false;
-bool rgb32Alloc = false;
-bool path3tagAlloc = false;
-bool demuxBuffAlloc = false;
-bool audioBuffAlloc = false;
-void* rsrcs = 0;
+/* @socom-skeleton stub BlockingPSSPlayback */
+unsigned char BlockingPSSPlayback;
 
+/* @socom-skeleton stub internal_init__19@unnamed@zmpeg_cpp@ */
+namespace {
+unsigned char internal_init;
+}
+
+/* @socom-skeleton stub p_mp__19@unnamed@zmpeg_cpp@ */
+namespace {
+int p_mp;
+}
+
+/* @socom-skeleton stub mpegBuffAlloc__19@unnamed@zmpeg_cpp@ */
+namespace {
+unsigned char mpegBuffAlloc;
+}
+
+/* @socom-skeleton stub rgb32Alloc__19@unnamed@zmpeg_cpp@ */
+namespace {
+unsigned char rgb32Alloc;
+}
+
+/* @socom-skeleton stub path3tagAlloc__19@unnamed@zmpeg_cpp@ */
+namespace {
+unsigned char path3tagAlloc;
+}
+
+/* @socom-skeleton stub demuxBuffAlloc__19@unnamed@zmpeg_cpp@ */
+namespace {
+unsigned char demuxBuffAlloc;
+}
+
+/* @socom-skeleton stub audioBuffAlloc__19@unnamed@zmpeg_cpp@ */
+namespace {
+unsigned char audioBuffAlloc;
+}
+
+/* @socom-skeleton stub rsrcs__19@unnamed@zmpeg_cpp@ */
+namespace {
+int rsrcs[12];
+}
+
+/* @socom-skeleton stub Init__5CMPEGFPvi */
+void CMPEG::Init(void *, int)
+{
+}
+
+/* @socom-skeleton body Uninit__5CMPEGFv */
 void CMPEG::Uninit()
 {
     // uninitPssAudio();
@@ -62,4 +104,44 @@ void CMPEG::Uninit()
     }
 
     rsrcs = NULL;
+}
+
+/* @socom-skeleton stub Run__5CMPEGFPCcbb */
+void CMPEG::Run(const char *, bool, bool)
+{
+}
+
+/* @socom-skeleton stub Tick__5CMPEGFi */
+void CMPEG::Tick(int)
+{
+}
+
+/* @socom-skeleton stub IdleTick__5CMPEGFv */
+void CMPEG::IdleTick()
+{
+}
+
+/* @socom-skeleton stub End__5CMPEGFv */
+void CMPEG::End()
+{
+}
+
+/* @socom-skeleton stub Done__5CMPEGFv */
+unsigned char CMPEG::Done()
+{
+}
+
+/* @socom-skeleton stub Loop__5CMPEGFv */
+void CMPEG::Loop()
+{
+}
+
+/* @socom-skeleton stub SetMaxHeight__5CMPEGFi */
+void CMPEG::SetMaxHeight(int)
+{
+}
+
+/* @socom-skeleton stub SetDisplayHeight__5CMPEGFi */
+void CMPEG::SetDisplayHeight(int)
+{
 }

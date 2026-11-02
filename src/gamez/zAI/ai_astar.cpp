@@ -64,3 +64,106 @@
  * @socom-artifact defines main socom:data:0x475740
  * @socom-artifact defines main socom:data:0x475748
  * socom-owner-annotations end socom:work:source-segment-014 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zSeal/zseal.h"
+#include "zai.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CAiStar;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub bias__10CAiPlanner */
+float CAiPlanner::bias = 1.0f;
+
+/* @socom-skeleton stub timerlimit */
+static int timerlimit = 33;
+
+/* @socom-skeleton stub timeroffset */
+static int timeroffset;
+
+/* @socom-skeleton stub comp */
+signed char comp;
+
+/* @socom-skeleton stub path_queue__2ai */
+int ai::path_queue[6];
+
+/* @socom-skeleton stub __dt__7CAiStarFv */
+CAiStar::~CAiStar()
+{
+}
+
+/* @socom-skeleton stub find_path__7CAiStarFP7CAiPath */
+void CAiStar::find_path(CAiPath *)
+{
+	/* @socom-skeleton stub defaultDirections$1063 */
+	static unsigned char defaultDirections[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+	/* @socom-skeleton stub customDirections$1064 */
+	static unsigned char customDirections[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+}
+
+/* @socom-skeleton stub CreatePlanner__7CAiPathFv */
+CAiStar * CAiPath::CreatePlanner()
+{
+	/* @socom-skeleton stub defaultPlanner$1125 */
+	static unsigned char defaultPlanner[8];
+	/* @socom-skeleton stub basicPlanner$1128 */
+	static unsigned char basicPlanner[8];
+	/* @socom-skeleton stub stealthPlanner$1131 */
+	static unsigned char stealthPlanner[8];
+	/* @socom-skeleton stub restrainedPlanner$1134 */
+	static unsigned char restrainedPlanner[8];
+}
+
+/* @socom-skeleton stub _plan_path__2ai */
+int ai::_plan_path;
+
+/* @socom-skeleton stub DeletePlanner__7CAiPathFv */
+void CAiPath::DeletePlanner()
+{
+}
+
+/* @socom-skeleton stub FlushPlannerQueue__2aiFv */
+void ai::FlushPlannerQueue()
+{
+}
+
+/* @socom-skeleton stub PathPlanBegin__2aiFP7CAiPath */
+void ai::PathPlanBegin(CAiPath *)
+{
+}
+
+/* @socom-skeleton stub PathPlanAddLeg__2aiFP6CAiMapRC9CAiMapLocRC9CAiMapLoc */
+unsigned char ai::PathPlanAddLeg(CAiMap *, const CAiMapLoc &, const CAiMapLoc &)
+{
+}
+
+/* @socom-skeleton stub PathPlanAbort__2aiFv */
+void ai::PathPlanAbort()
+{
+}
+
+/* @socom-skeleton stub PathPlanExecute__2aiFv */
+void ai::PathPlanExecute()
+{
+}
+
+/* @socom-skeleton stub AbortPathPlan__2aiFP7CAiPath */
+void ai::AbortPathPlan(CAiPath *)
+{
+}
+
+/* @socom-skeleton stub ResetPathPlan__2aiFv */
+void ai::ResetPathPlan()
+{
+}
+
+/* @socom-skeleton stub TickPathPlanner__2aiFfPv */
+bool ai::TickPathPlanner(float, void *)
+{
+}
+
+/* @socom-skeleton stub PathPlanImmediate__2aiFP6CAiMapRC9CAiMapLocRC9CAiMapLocP7CAiPath */
+void ai::PathPlanImmediate(CAiMap *, const CAiMapLoc &, const CAiMapLoc &, CAiPath *)
+{
+}

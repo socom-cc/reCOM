@@ -16,8 +16,26 @@
 
 namespace zdb
 {
-	void CCamera::Update(tag_ZCAM_TYPE type)
+}
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub GetFogVisibility__Q23zdb7CCameraCFPC6CPnt3DPC6CPnt3D */
+float zdb::CCamera::GetFogVisibility(const CPnt3D *, const CPnt3D *) const
+{
+}
+
+/* @socom-skeleton body Update__Q23zdb7CCameraFQ23zdb13tag_ZCAM_TYPE */
+namespace zdb {
+void CCamera::Update(tag_ZCAM_TYPE type)
 	{
 		
 	}
+}
+
+/* @socom-skeleton stub UpdateDirectionalFog__Q23zdb7CCameraFv */
+void zdb::CCamera::UpdateDirectionalFog()
+{
 }

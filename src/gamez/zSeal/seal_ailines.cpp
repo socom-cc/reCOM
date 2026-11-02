@@ -38,3 +38,83 @@
  * @socom-artifact defines main socom:data:0x4763a0
  * @socom-artifact defines main socom:data:0x5099d0
  * socom-owner-annotations end socom:work:source-segment-076 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "zseal.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub ai_line_opacity__2ai */
+float ai::ai_line_opacity = 1.0f;
+
+/* @socom-skeleton stub ai_line_opacity_start__2ai */
+float ai::ai_line_opacity_start = 1.0f;
+
+/* @socom-skeleton stub ai_line_opacity_end__2ai */
+float ai::ai_line_opacity_end = 1.0f;
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+unsigned char std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+unsigned char std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub ai_line_stack__2ai */
+unsigned char ai::ai_line_stack;
+
+/* @socom-skeleton stub ai_line_mask__2ai */
+int ai::ai_line_mask;
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub ai_line_pos__2ai */
+float ai::ai_line_pos[3];
+
+/* @socom-skeleton stub ai_line_color__2ai */
+int ai::ai_line_color[3];
+
+/* @socom-skeleton stub PushLineColor__2aiFRC6CPnt3D */
+void ai::PushLineColor(const CPnt3D &)
+{
+}
+
+/* @socom-skeleton stub PopLineColor__2aiFv */
+void ai::PopLineColor()
+{
+}
+
+/* @socom-skeleton stub SetLineOpacity__2aiFf */
+void ai::SetLineOpacity(float)
+{
+}
+
+/* @socom-skeleton stub GetLineOpacity__2aiFv */
+float ai::GetLineOpacity()
+{
+}
+
+/* @socom-skeleton stub SetLineFuncOpacity__2aiFff */
+void ai::SetLineFuncOpacity(float, float)
+{
+}
+
+/* @socom-skeleton stub SetLineFuncOpacity__2aiFf */
+void ai::SetLineFuncOpacity(float)
+{
+}
+
+/* @socom-skeleton stub MoveTo__2aiFRC6CPnt3D */
+void ai::MoveTo(const CPnt3D &)
+{
+}
+
+/* @socom-skeleton stub LineTo__2aiFRC6CPnt3D */
+void ai::LineTo(const CPnt3D &)
+{
+}
+
+/* @socom-skeleton stub DrawLine__2aiFQ22ai9LINE_TYPEPC6CPnt3DPC6CPnt3D */
+void ai::DrawLine(ai::LINE_TYPE, const CPnt3D *, const CPnt3D *)
+{
+}

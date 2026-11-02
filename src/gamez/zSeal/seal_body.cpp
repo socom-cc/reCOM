@@ -138,53 +138,513 @@
 
 #include "zseal.h"
 
-SEAL_STANCE CZSealBody::GetStance(char flag) const
+/* @socom-skeleton decl include */
+#include "gamez/zAnim/zanim.h"
+#include "gamez/zBody/zbody.h"
+#include "gamez/zMath/zmath.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class ACTIVE_ANIM;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub stand_throw */
+static const int stand_throw[3] = {0};
+
+/* @socom-skeleton stub crouch_throw */
+static const int crouch_throw[3] = {0};
+
+/* @socom-skeleton stub prone_throw */
+static const int prone_throw[3] = {0};
+
+/* @socom-skeleton stub stand_toss */
+static const int stand_toss[3] = {0};
+
+/* @socom-skeleton stub crouch_toss */
+static const int crouch_toss[3] = {0};
+
+/* @socom-skeleton stub prone_toss */
+static const int prone_toss[3] = {0};
+
+/* @socom-skeleton stub stand_peek_rtoss */
+static const int stand_peek_rtoss[3] = {0};
+
+/* @socom-skeleton stub stand_peek_ltoss */
+static const int stand_peek_ltoss[3] = {0};
+
+/* @socom-skeleton stub running_rifle_throw */
+static const int running_rifle_throw[3] = {0};
+
+/* @socom-skeleton stub running_pistol_throw */
+static const int running_pistol_throw[3] = {0};
+
+/* @socom-skeleton stub PRONE_THROW_FRAC */
+static float PRONE_THROW_FRAC = 0.6600000262260437f;
+
+/* @socom-skeleton stub CROUCH_THROW_FRAC */
+static float CROUCH_THROW_FRAC = 0.699999988079071f;
+
+/* @socom-skeleton stub STAND_THROW_FRAC */
+static float STAND_THROW_FRAC = 0.46000000834465027f;
+
+/* @socom-skeleton stub PRONE_TOSS_FRAC */
+static float PRONE_TOSS_FRAC = 0.5600000023841858f;
+
+/* @socom-skeleton stub STAND_TOSS_FRAC */
+static float STAND_TOSS_FRAC = 0.6899999976158142f;
+
+/* @socom-skeleton stub RIGHT_LEAN_FRAC */
+static float RIGHT_LEAN_FRAC = 0.550000011920929f;
+
+/* @socom-skeleton stub LEFT_LEAN_FRAC */
+static float LEFT_LEAN_FRAC = 0.8700000047683716f;
+
+/* @socom-skeleton stub CROUCH_TOSS_FRAC */
+static float CROUCH_TOSS_FRAC;
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub newanims */
+static unsigned char newanims[20];
+
+/* @socom-skeleton stub GetSpeedState__10CZSealBodyFv */
+void CZSealBody::GetSpeedState()
+{
+}
+
+/* @socom-skeleton body GetStance__10CZSealBodyCFb */
+SEAL_STATE CZSealBody::GetStance(bool flag) const
 {
 	return SEAL_STANCE::STANCE_NONE;
 }
 
-bool CZSealBody::DamageBody(f32 damage, f32 multiplier)
+/* @socom-skeleton stub BodySetState__10CZSealBodyFi */
+void CZSealBody::BodySetState(int)
 {
-	s8 retidx = 0;
+}
 
-	if (m_body_health <= 0.0f || damage == 0.0f)
-		return false;
+/* @socom-skeleton stub ClearStack__10CZSealBodyFUib */
+void CZSealBody::ClearStack(unsigned int, bool)
+{
+}
 
-	CZProjectile::ResolveDamage(&m_body_health, &m_armor[3], damage, multiplier);
+/* @socom-skeleton stub PopBlend__10CZSealBodyFv */
+CZBodyAnimBlend * CZSealBody::PopBlend()
+{
+}
 
-	if (m_body_health <= m_body_healthMax * 0.1)
-	{
-		retidx = 4;
-	}
-	else
-	{
-		retidx = 3;
+/* @socom-skeleton stub PushBlend__10CZSealBodyF8AnimTypeib */
+CZBodyAnimBlend * CZSealBody::PushBlend(AnimType, int, bool)
+{
+}
 
-		if (m_body_healthMax * 0.3f < m_body_health)
-		{
-			if (m_body_health <= m_body_healthMax * 0.7f)
-			{
-				retidx = 2;
-			}
-			else
-			{
-				retidx = 0;
+/* @socom-skeleton stub IsCurrentBlend__10CZSealBodyCF8AnimType */
+void CZSealBody::IsCurrentBlend(AnimType) const
+{
+}
 
-				if (m_body_health <= m_body_healthMax * 0.9f)
-				{
-					retidx = 1;
-				}
-			}
-		}
-			
-		if (retidx != 4 && retidx == 3 || retidx == 2)
-			m_retmods += 3.0f;
+/* @socom-skeleton stub CanTurn__10CZSealBodyFv */
+void CZSealBody::CanTurn()
+{
+}
 
-		// AnimType damageAnim = FindRandomDamageAnim(DAMAGE_LOCATION::BODY);
-		SEAL_STANCE stance = GetStance(false);
-		// WeaponHitAnim(damageAnim, stance, false);
-		return true;
-	}
+/* @socom-skeleton stub CanInterrupt__10CZSealBodyFv */
+void CZSealBody::CanInterrupt()
+{
+}
 
-	return false;
+/* @socom-skeleton stub CanHeadLook__10CZSealBodyFv */
+void CZSealBody::CanHeadLook()
+{
+}
+
+/* @socom-skeleton stub CanPitch__10CZSealBodyFv */
+void CZSealBody::CanPitch()
+{
+}
+
+/* @socom-skeleton stub AddBlendOverlay__10CZSealBodyF8AnimType */
+CZBodyAnimBlend * CZSealBody::AddBlendOverlay(AnimType)
+{
+}
+
+/* @socom-skeleton stub SetMovingRifleReload__10CZSealBodyFP11ACTIVE_ANIM */
+void CZSealBody::SetMovingRifleReload(ACTIVE_ANIM *)
+{
+}
+
+/* @socom-skeleton stub SetMovingPistolReload__10CZSealBodyFP11ACTIVE_ANIM */
+void CZSealBody::SetMovingPistolReload(ACTIVE_ANIM *)
+{
+}
+
+/* @socom-skeleton stub SetMovingChangeToRifle__10CZSealBodyFP11ACTIVE_ANIM */
+void CZSealBody::SetMovingChangeToRifle(ACTIVE_ANIM *)
+{
+}
+
+/* @socom-skeleton stub SetMovingChangeToPistol__10CZSealBodyFP11ACTIVE_ANIM */
+void CZSealBody::SetMovingChangeToPistol(ACTIVE_ANIM *)
+{
+}
+
+/* @socom-skeleton stub SealAnim__10CZSealBodyFbfff */
+CZBodyAnimBlend * CZSealBody::SealAnim(bool, float, float, float)
+{
+}
+
+/* @socom-skeleton stub IsStopped__10CZSealBodyFfff */
+void CZSealBody::IsStopped(float, float, float)
+{
+}
+
+/* @socom-skeleton stub SmoothXZThrottles__10CZSealBodyFRfRf */
+void CZSealBody::SmoothXZThrottles(float &, float &)
+{
+}
+
+/* @socom-skeleton stub InStateStand__10CZSealBodyFfff */
+CZBodyAnimBlend * CZSealBody::InStateStand(float, float, float)
+{
+}
+
+/* @socom-skeleton stub StandStill__10CZSealBodyFfff */
+CZBodyAnimBlend * CZSealBody::StandStill(float, float, float)
+{
+}
+
+/* @socom-skeleton stub StandTurning__10CZSealBodyFfff */
+CZBodyAnimBlend * CZSealBody::StandTurning(float, float, float)
+{
+}
+
+/* @socom-skeleton stub UpdateQuadrant__10CZSealBodyFRfRfb */
+void CZSealBody::UpdateQuadrant(float &, float &, bool)
+{
+}
+
+/* @socom-skeleton stub CanCrouch__10CZSealBodyFv */
+void CZSealBody::CanCrouch()
+{
+}
+
+/* @socom-skeleton stub InStateCrouch__10CZSealBodyFfff */
+CZBodyAnimBlend * CZSealBody::InStateCrouch(float, float, float)
+{
+}
+
+/* @socom-skeleton stub InStateProne__10CZSealBodyFfff */
+CZBodyAnimBlend * CZSealBody::InStateProne(float, float, float)
+{
+}
+
+/* @socom-skeleton stub InStateHang__10CZSealBodyFfff */
+CZBodyAnimBlend * CZSealBody::InStateHang(float, float, float)
+{
+}
+
+/* @socom-skeleton stub InStateClimbLadder__10CZSealBodyFfff */
+CZBodyAnimBlend * CZSealBody::InStateClimbLadder(float, float, float)
+{
+}
+
+/* @socom-skeleton stub InStateCarrying__10CZSealBodyFfff */
+CZBodyAnimBlend * CZSealBody::InStateCarrying(float, float, float)
+{
+}
+
+/* @socom-skeleton stub InStateCarried__10CZSealBodyFfff */
+CZBodyAnimBlend * CZSealBody::InStateCarried(float, float, float)
+{
+}
+
+/* @socom-skeleton stub TurnControl__10CZSealBodyFff */
+CZBodyAnimBlend * CZSealBody::TurnControl(float, float)
+{
+}
+
+/* @socom-skeleton stub ProneControl__10CZSealBodyFfff */
+CZBodyAnimBlend * CZSealBody::ProneControl(float, float, float)
+{
+}
+
+/* @socom-skeleton stub InAirControl__10CZSealBodyFfff */
+CZBodyAnimBlend * CZSealBody::InAirControl(float, float, float)
+{
+}
+
+/* @socom-skeleton stub MoveControl__10CZSealBodyFff */
+CZBodyAnimBlend * CZSealBody::MoveControl(float, float)
+{
+}
+
+/* @socom-skeleton stub CrouchMoveControl__10CZSealBodyFfff */
+CZBodyAnimBlend * CZSealBody::CrouchMoveControl(float, float, float)
+{
+}
+
+/* @socom-skeleton stub CheckAnim__10CZSealBodyFv */
+void CZSealBody::CheckAnim()
+{
+}
+
+/* @socom-skeleton stub StanceChanged__10CZSealBodyFv */
+void CZSealBody::StanceChanged()
+{
+}
+
+/* @socom-skeleton stub SetStance__10CZSealBodyF10SEAL_STATE */
+void CZSealBody::SetStance(SEAL_STATE)
+{
+}
+
+/* @socom-skeleton stub Stand__10CZSealBodyFi */
+void CZSealBody::Stand(int)
+{
+}
+
+/* @socom-skeleton stub Stand_0__10CZSealBodyFii */
+CZBodyAnimBlend * CZSealBody::Stand_0(int, int)
+{
+}
+
+/* @socom-skeleton stub Crouch__10CZSealBodyFv */
+CZBodyAnimBlend * CZSealBody::Crouch()
+{
+}
+
+/* @socom-skeleton stub Crouch_0__10CZSealBodyFif */
+CZBodyAnimBlend * CZSealBody::Crouch_0(int, float)
+{
+}
+
+/* @socom-skeleton stub Prone__10CZSealBodyFv */
+CZBodyAnimBlend * CZSealBody::Prone()
+{
+}
+
+/* @socom-skeleton stub Prone_0__10CZSealBodyFi */
+CZBodyAnimBlend * CZSealBody::Prone_0(int)
+{
+}
+
+/* @socom-skeleton stub SetStanceIdle__10CZSealBodyF8AnimType */
+CZBodyAnimBlend * CZSealBody::SetStanceIdle(AnimType)
+{
+}
+
+/* @socom-skeleton stub Hang_0__10CZSealBodyFii */
+CZBodyAnimBlend * CZSealBody::Hang_0(int, int)
+{
+}
+
+/* @socom-skeleton stub BlendedClimb__10CZSealBodyFf */
+CZBodyAnimBlend * CZSealBody::BlendedClimb(float)
+{
+}
+
+/* @socom-skeleton stub Climb__10CZSealBodyFf */
+CZBodyAnimBlend * CZSealBody::Climb(float)
+{
+}
+
+/* @socom-skeleton stub ClimbOver__10CZSealBodyFf */
+void CZSealBody::ClimbOver(float)
+{
+}
+
+/* @socom-skeleton stub PostFall__10CZSealBodyFv */
+void CZSealBody::PostFall()
+{
+}
+
+/* @socom-skeleton stub BeginThrowItem__10CZSealBodyFfRf */
+void CZSealBody::BeginThrowItem(float, float &)
+{
+}
+
+/* @socom-skeleton stub GetThrowAnim__10CZSealBodyFfR8AnimTypeRfRfR6CPnt3D */
+void CZSealBody::GetThrowAnim(float, AnimType &, float &, float &, CPnt3D &)
+{
+	/* @socom-skeleton stub stand_throw_offset$3258 */
+	static float stand_throw_offset[3];
+	/* @socom-skeleton stub stand_toss_offset$3261 */
+	static int stand_toss_offset[3];
+	/* @socom-skeleton stub crouch_throw_offset$3264 */
+	static float crouch_throw_offset[3];
+	/* @socom-skeleton stub prone_throw_offset$3267 */
+	static int prone_throw_offset[3];
+	/* @socom-skeleton stub prone_toss_offset$3270 */
+	static int prone_toss_offset[3];
+	/* @socom-skeleton stub peek_right_offset$3273 */
+	static float peek_right_offset[3];
+	/* @socom-skeleton stub peek_left_offset$3276 */
+	static float peek_left_offset[3];
+	/* @socom-skeleton stub moving_threshold_sq$3279 */
+	static float moving_threshold_sq;
+}
+
+/* @socom-skeleton stub GetPutativeFirePointW__10CZSealBodyFbbR6CPnt3D */
+void CZSealBody::GetPutativeFirePointW(bool, bool, CPnt3D &)
+{
+}
+
+/* @socom-skeleton stub ClimbLadder__10CZSealBodyFv */
+CZBodyAnimBlend * CZSealBody::ClimbLadder()
+{
+}
+
+/* @socom-skeleton stub ClimbLadderDown__10CZSealBodyFv */
+CZBodyAnimBlend * CZSealBody::ClimbLadderDown()
+{
+}
+
+/* @socom-skeleton stub SlideLadderDown__10CZSealBodyFv */
+CZBodyAnimBlend * CZSealBody::SlideLadderDown()
+{
+}
+
+/* @socom-skeleton stub DoWallStop__10CZSealBodyFv */
+void CZSealBody::DoWallStop()
+{
+}
+
+/* @socom-skeleton stub OKToJump__FP9CSealCtrl */
+void OKToJump(CSealCtrl *)
+{
+}
+
+/* @socom-skeleton stub OKToStand__FP10CZSealBody */
+void OKToStand(CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub DropBody__10CZSealBodyFv */
+void CZSealBody::DropBody()
+{
+}
+
+/* @socom-skeleton stub FlingBody__10CZSealBodyFPC6CPnt3Dff */
+CZBodyAnimBlend * CZSealBody::FlingBody(const CPnt3D *, float, float)
+{
+}
+
+/* @socom-skeleton stub Jump__10CZSealBodyFv */
+CZBodyAnimBlend * CZSealBody::Jump()
+{
+}
+
+/* @socom-skeleton stub RaiseBinoculars__10CZSealBodyFv */
+CZBodyAnimBlend * CZSealBody::RaiseBinoculars()
+{
+}
+
+/* @socom-skeleton stub LowerBinoculars__10CZSealBodyFv */
+CZBodyAnimBlend * CZSealBody::LowerBinoculars()
+{
+}
+
+/* @socom-skeleton stub AbortPeek__10CZSealBodyFv */
+void CZSealBody::AbortPeek()
+{
+}
+
+/* @socom-skeleton stub PeekBaseState__10CZSealBodyFv */
+SEAL_STATE CZSealBody::PeekBaseState()
+{
+}
+
+/* @socom-skeleton stub BaseState__10CZSealBodyFv */
+SEAL_STATE CZSealBody::BaseState()
+{
+}
+
+/* @socom-skeleton stub ClearToBase__10CZSealBodyFb */
+void CZSealBody::ClearToBase(bool)
+{
+}
+
+/* @socom-skeleton stub UpdatePeek__10CZSealBodyFv */
+void CZSealBody::UpdatePeek()
+{
+}
+
+/* @socom-skeleton stub RePose__10CZSealBodyF9SEAL_ITEM */
+void CZSealBody::RePose(SEAL_ITEM)
+{
+}
+
+/* @socom-skeleton stub PerformAction__10CZSealBodyF8AnimType10SEAL_STATE */
+CZBodyAnimBlend * CZSealBody::PerformAction(AnimType, SEAL_STATE)
+{
+}
+
+/* @socom-skeleton stub Recoil__10CZSealBodyFv */
+void CZSealBody::Recoil()
+{
+}
+
+/* @socom-skeleton stub UseVelY__10CZSealBodyFv */
+void CZSealBody::UseVelY()
+{
+}
+
+/* @socom-skeleton stub Tick_0__10CZSealBodyFf */
+void CZSealBody::Tick_0(float)
+{
+}
+
+/* @socom-skeleton stub BlendOverlayPreTick__10CZSealBodyFff */
+void CZSealBody::BlendOverlayPreTick(float, float)
+{
+}
+
+/* @socom-skeleton stub PickupBuddyCallback__FPvPv */
+CZBodyAnimBlend * PickupBuddyCallback(void *, void *)
+{
+}
+
+/* @socom-skeleton stub CrouchToPickupBuddyCallback__FPvPv */
+void CrouchToPickupBuddyCallback(void *, void *)
+{
+}
+
+/* @socom-skeleton stub CrouchToPickupBuddy__10CZSealBodyFP10CZSealBody */
+CZBodyAnimBlend * CZSealBody::CrouchToPickupBuddy(CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub PickupBuddy__10CZSealBodyFP10CZSealBody */
+CZBodyAnimBlend * CZSealBody::PickupBuddy(CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub PutdownBuddy__10CZSealBodyFv */
+CZBodyAnimBlend * CZSealBody::PutdownBuddy()
+{
+}
+
+/* @socom-skeleton stub DetachBody__10CZSealBodyFv */
+void CZSealBody::DetachBody()
+{
+}
+
+/* @socom-skeleton stub RestoreCameraPosition__FPvPv */
+void RestoreCameraPosition(void *, void *)
+{
+}
+
+/* @socom-skeleton stub StabBuddy__10CZSealBodyFP10CZSealBody */
+CZBodyAnimBlend * CZSealBody::StabBuddy(CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub RestrainBuddy__10CZSealBodyFP10CZSealBody */
+CZBodyAnimBlend * CZSealBody::RestrainBuddy(CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub Action__10CZSealBodyF8AnimTypebiii */
+void CZSealBody::Action(AnimType, bool, int, int, int)
+{
 }

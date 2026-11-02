@@ -62,3 +62,325 @@
  * @socom-artifact defines main socom:function:0x315e80
  * @socom-artifact defines main socom:function:0x315e90
  * socom-owner-annotations end socom:work:source-segment-043 */
+
+/* @socom-skeleton decl include */
+#include "zweapon.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CTargetMods;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton body __ct__11CZFTSWeaponFv */
+CZFTSWeapon::CZFTSWeapon() {}
+
+/* @socom-skeleton stub AccuracyBurstCnt_Min__11CZFTSWeaponCFv */
+int CZFTSWeapon::AccuracyBurstCnt_Min() const
+{
+}
+
+/* @socom-skeleton stub AccuracyBurstCnt_Max__11CZFTSWeaponCFv */
+int CZFTSWeapon::AccuracyBurstCnt_Max() const
+{
+}
+
+/* @socom-skeleton stub AccuracyBurstCnt_Min__11CZFTSWeaponFi */
+void CZFTSWeapon::AccuracyBurstCnt_Min(int)
+{
+}
+
+/* @socom-skeleton stub AccuracyBurstCnt_Max__11CZFTSWeaponFi */
+void CZFTSWeapon::AccuracyBurstCnt_Max(int)
+{
+}
+
+/* @socom-skeleton stub AccuracyScalar_Min__11CZFTSWeaponFf */
+void CZFTSWeapon::AccuracyScalar_Min(float)
+{
+}
+
+/* @socom-skeleton stub AccuracyScalar_Max__11CZFTSWeaponFf */
+void CZFTSWeapon::AccuracyScalar_Max(float)
+{
+}
+
+/* @socom-skeleton stub Recoil__11CZFTSWeaponFv */
+void CZFTSWeapon::Recoil()
+{
+}
+
+/* @socom-skeleton stub SetReticuleKnock__11CTargetModsFf */
+void CTargetMods::SetReticuleKnock(float)
+{
+}
+
+/* @socom-skeleton stub SetReticuleKnock_Return__11CTargetModsFf */
+void CTargetMods::SetReticuleKnock_Return(float)
+{
+}
+
+/* @socom-skeleton stub SetReticuleKnock_Max__11CTargetModsFf */
+void CTargetMods::SetReticuleKnock_Max(float)
+{
+}
+
+/* @socom-skeleton stub GetReticuleKnock__11CTargetModsCFv */
+float CTargetMods::GetReticuleKnock() const
+{
+}
+
+/* @socom-skeleton stub GetReticuleKnock_Return__11CTargetModsCFv */
+float CTargetMods::GetReticuleKnock_Return() const
+{
+}
+
+/* @socom-skeleton stub GetReticuleKnock_Max__11CTargetModsCFv */
+float CTargetMods::GetReticuleKnock_Max() const
+{
+}
+
+/* @socom-skeleton stub SetTarget_DilateUponFire__11CTargetModsFf */
+void CTargetMods::SetTarget_DilateUponFire(float)
+{
+}
+
+/* @socom-skeleton stub SetTarget_DilateUponMovement__11CTargetModsFf */
+void CTargetMods::SetTarget_DilateUponMovement(float)
+{
+}
+
+/* @socom-skeleton stub SetTarget_Constrict__11CTargetModsFf */
+void CTargetMods::SetTarget_Constrict(float)
+{
+}
+
+/* @socom-skeleton stub SetTarget_Min__11CTargetModsFf */
+void CTargetMods::SetTarget_Min(float)
+{
+}
+
+/* @socom-skeleton stub SetTarget_Max__11CTargetModsFf */
+void CTargetMods::SetTarget_Max(float)
+{
+}
+
+/* @socom-skeleton stub GetTarget_DilateUponMovement__11CTargetModsCFv */
+float CTargetMods::GetTarget_DilateUponMovement() const
+{
+}
+
+/* @socom-skeleton stub GetTarget_DilateUponMovementSqrt__11CTargetModsCFv */
+float CTargetMods::GetTarget_DilateUponMovementSqrt() const
+{
+}
+
+/* @socom-skeleton stub GetTarget_Constrict__11CTargetModsCFv */
+float CTargetMods::GetTarget_Constrict() const
+{
+}
+
+/* @socom-skeleton stub GetTarget_Min__11CTargetModsCFv */
+float CTargetMods::GetTarget_Min() const
+{
+}
+
+/* @socom-skeleton stub GetTarget_Max__11CTargetModsCFv */
+float CTargetMods::GetTarget_Max() const
+{
+}
+
+/* @socom-skeleton stub SetSniper_DistPPFrame_PosX__11CTargetModsFf */
+void CTargetMods::SetSniper_DistPPFrame_PosX(float)
+{
+}
+
+/* @socom-skeleton stub SetSniper_DistPPFrame_PosY__11CTargetModsFf */
+void CTargetMods::SetSniper_DistPPFrame_PosY(float)
+{
+}
+
+/* @socom-skeleton stub GetSniper_DistPPFrame_PosX__11CTargetModsCFv */
+float CTargetMods::GetSniper_DistPPFrame_PosX() const
+{
+}
+
+/* @socom-skeleton stub GetSniper_DistPPFrame_PosY__11CTargetModsCFv */
+float CTargetMods::GetSniper_DistPPFrame_PosY() const
+{
+}
+
+/* @socom-skeleton stub SetSniper_DistLimit_PosX__11CTargetModsFf */
+void CTargetMods::SetSniper_DistLimit_PosX(float)
+{
+}
+
+/* @socom-skeleton stub SetSniper_DistLimit_PosY__11CTargetModsFf */
+void CTargetMods::SetSniper_DistLimit_PosY(float)
+{
+}
+
+/* @socom-skeleton stub GetSniper_DistLimit_PosX__11CTargetModsCFv */
+float CTargetMods::GetSniper_DistLimit_PosX() const
+{
+}
+
+/* @socom-skeleton stub GetSniper_DistLimit_PosY__11CTargetModsCFv */
+float CTargetMods::GetSniper_DistLimit_PosY() const
+{
+}
+
+/* @socom-skeleton stub SetSniper_DecayRate__11CTargetModsFf */
+void CTargetMods::SetSniper_DecayRate(float)
+{
+}
+
+/* @socom-skeleton stub GetSniper_DecayRate__11CTargetModsCFv */
+float CTargetMods::GetSniper_DecayRate() const
+{
+}
+
+/* @socom-skeleton stub SetFireRifle_KickRate__11CTargetModsFf */
+void CTargetMods::SetFireRifle_KickRate(float)
+{
+}
+
+/* @socom-skeleton stub SetFireRifle_KickReturnRate__11CTargetModsFf */
+void CTargetMods::SetFireRifle_KickReturnRate(float)
+{
+}
+
+/* @socom-skeleton stub SetFireRifle_KickBaseDist__11CTargetModsFf */
+void CTargetMods::SetFireRifle_KickBaseDist(float)
+{
+}
+
+/* @socom-skeleton stub SetFireRifle_KickRandomDist__11CTargetModsFf */
+void CTargetMods::SetFireRifle_KickRandomDist(float)
+{
+}
+
+/* @socom-skeleton stub GetFireRifle_KickRate__11CTargetModsCFv */
+float CTargetMods::GetFireRifle_KickRate() const
+{
+}
+
+/* @socom-skeleton stub GetFireRifle_KickReturnRate__11CTargetModsCFv */
+float CTargetMods::GetFireRifle_KickReturnRate() const
+{
+}
+
+/* @socom-skeleton stub GetFireRifle_KickBaseDist__11CTargetModsCFv */
+float CTargetMods::GetFireRifle_KickBaseDist() const
+{
+}
+
+/* @socom-skeleton stub GetFireRifle_KickRandomDist__11CTargetModsCFv */
+float CTargetMods::GetFireRifle_KickRandomDist() const
+{
+}
+
+/* @socom-skeleton stub SetRumbleHigh_Time__11CZFTSWeaponFf */
+void CZFTSWeapon::SetRumbleHigh_Time(float)
+{
+}
+
+/* @socom-skeleton stub GetRumbleHigh_Enable__11CZFTSWeaponCFv */
+unsigned char CZFTSWeapon::GetRumbleHigh_Enable() const
+{
+}
+
+/* @socom-skeleton stub GetRumbleHigh_Time__11CZFTSWeaponCFv */
+float CZFTSWeapon::GetRumbleHigh_Time() const
+{
+}
+
+/* @socom-skeleton stub SetRumbleLow_Time__11CZFTSWeaponFf */
+void CZFTSWeapon::SetRumbleLow_Time(float)
+{
+}
+
+/* @socom-skeleton stub SetRumbleLow_Power__11CZFTSWeaponFf */
+void CZFTSWeapon::SetRumbleLow_Power(float)
+{
+}
+
+/* @socom-skeleton stub GetRumbleLow_Enable__11CZFTSWeaponCFv */
+unsigned char CZFTSWeapon::GetRumbleLow_Enable() const
+{
+}
+
+/* @socom-skeleton stub GetRumbleLow_Time__11CZFTSWeaponCFv */
+float CZFTSWeapon::GetRumbleLow_Time() const
+{
+}
+
+/* @socom-skeleton stub GetRumbleLow_Power__11CZFTSWeaponCFv */
+float CZFTSWeapon::GetRumbleLow_Power() const
+{
+}
+
+/* @socom-skeleton stub GetZoommode__11CZFTSWeaponFi */
+float CZFTSWeapon::GetZoommode(int)
+{
+}
+
+/* @socom-skeleton stub AddZoommode__11CZFTSWeaponFf */
+void CZFTSWeapon::AddZoommode(float)
+{
+}
+
+/* @socom-skeleton stub ResolveFTSDamage__11CZFTSWeaponFf */
+float CZFTSWeapon::ResolveFTSDamage(float)
+{
+}
+
+/* @socom-skeleton stub IsM203Weapon__11CZFTSWeaponFv */
+void CZFTSWeapon::IsM203Weapon()
+{
+}
+
+/* @socom-skeleton stub IsGrenadeLauncherWeapon__11CZFTSWeaponFv */
+void CZFTSWeapon::IsGrenadeLauncherWeapon()
+{
+}
+
+/* @socom-skeleton stub IsGrenadeLauncherAmmo__11CZFTSWeaponFv */
+void CZFTSWeapon::IsGrenadeLauncherAmmo()
+{
+}
+
+/* @socom-skeleton stub GetWiggleReport__11CTargetModsFv */
+float CTargetMods::GetWiggleReport()
+{
+}
+
+/* @socom-skeleton stub SetWiggleReport__11CTargetModsFf */
+void CTargetMods::SetWiggleReport(float)
+{
+}
+
+/* @socom-skeleton stub TargetMods__11CZFTSWeaponFi */
+CTargetMods * CZFTSWeapon::TargetMods(int)
+{
+}
+
+/* @socom-skeleton stub __ct__11CTargetModsFv */
+CTargetMods::CTargetMods()
+{
+}
+
+/* @socom-skeleton body GetZoomRange__11CZFTSWeaponFUi */
+float CZFTSWeapon::GetZoomRange(unsigned int range_level)
+{
+	f32 range = 0.0f;
+	
+	if (m_firstZoomLevel == 0 || range <= m_thirdZoomLevel)
+	{
+		range = 500.0f;
+	}
+	else
+	{
+
+	}
+
+	return range;
+}

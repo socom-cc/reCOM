@@ -37,3 +37,54 @@
  * @socom-artifact emits main socom:function:0x220090
  * @socom-artifact emits main socom:function:0x220160
  * socom-owner-annotations end socom:work:source-segment-026 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zReader/zrdr.h"
+#include "zintersect.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub m_materialex_map__16CMaterialExArray */
+unsigned char CMaterialExArray::m_materialex_map[16];
+
+/* @socom-skeleton stub m_materialex_list__16CMaterialExArray */
+int CMaterialExArray::m_materialex_list[3];
+
+/* @socom-skeleton stub __ct__11CMaterialExFv */
+CMaterialEx::CMaterialEx()
+{
+}
+
+/* @socom-skeleton stub ResolveMaterialIndex__16CMaterialExArrayFPCc */
+int CMaterialExArray::ResolveMaterialIndex(const char *)
+{
+}
+
+/* @socom-skeleton stub ResolveDecalMaterialIndex__16CMaterialExArrayFPCci */
+int CMaterialExArray::ResolveDecalMaterialIndex(const char *, int)
+{
+}
+
+/* @socom-skeleton stub UnInit__16CMaterialExArrayFv */
+void CMaterialExArray::UnInit()
+{
+}
+
+/* @socom-skeleton stub CreateDefaultMaterials__16CMaterialExArrayFv */
+void CMaterialExArray::CreateDefaultMaterials()
+{
+}
+
+/* @socom-skeleton stub GetWeaponAnimMaterialEx__16CMaterialExArrayFUi */
+void CMaterialExArray::GetWeaponAnimMaterialEx(unsigned int)
+{
+}
+
+/* @socom-skeleton stub ReadMaterials__16CMaterialExArrayFP8CRdrFile */
+void CMaterialExArray::ReadMaterials(CRdrFile *)
+{
+}
+
+/* @socom-skeleton stub SetDefaultMaterial__16CMaterialExArrayFi */
+void CMaterialExArray::SetDefaultMaterial(int)
+{
+}

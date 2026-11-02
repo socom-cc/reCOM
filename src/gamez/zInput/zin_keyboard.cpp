@@ -30,3 +30,109 @@
  * @socom-artifact defines main socom:data:0x4d7800
  * @socom-artifact defines main socom:data:0x4d7880
  * socom-owner-annotations end socom:work:source-segment-026 */
+
+/* @socom-skeleton decl include */
+#include "zinput.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class KeyInput;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub newKeyPress */
+static int newKeyPress;
+
+/* @socom-skeleton stub key_shift */
+static int key_shift;
+
+/* @socom-skeleton stub key_alt */
+static int key_alt;
+
+/* @socom-skeleton stub key_capsLock */
+static int key_capsLock;
+
+/* @socom-skeleton stub key_ctrl */
+static int key_ctrl;
+
+/* @socom-skeleton stub key_appleOrStart */
+static int key_appleOrStart;
+
+/* @socom-skeleton stub key_numLock */
+static int key_numLock;
+
+/* @socom-skeleton stub cdUsbKeybd */
+static int cdUsbKeybd[10];
+
+/* @socom-skeleton stub sdata */
+static int sdata[8];
+
+/* @socom-skeleton stub info */
+static unsigned char info[128];
+
+/* @socom-skeleton stub location */
+static unsigned char location[128];
+
+/* @socom-skeleton stub kdata */
+static unsigned char kdata[128];
+
+/* @socom-skeleton stub __ct__9CKeyboardFv */
+CKeyboard::CKeyboard()
+{
+}
+
+/* @socom-skeleton stub __dt__9CKeyboardFv */
+CKeyboard::~CKeyboard()
+{
+}
+
+/* @socom-skeleton stub Tick__9CKeyboardFf */
+void CKeyboard::Tick(float)
+{
+}
+
+/* @socom-skeleton stub InitKeyreadStuff__Fv */
+int InitKeyreadStuff()
+{
+}
+
+/* @socom-skeleton stub GetKeyReadThisFrame__FP8KeyInput */
+void GetKeyReadThisFrame(KeyInput *)
+{
+	/* @socom-skeleton stub oldKeyPress$595 */
+	static int oldKeyPress;
+	/* @socom-skeleton stub repeatTimer$598 */
+	static int repeatTimer;
+	/* @socom-skeleton stub repeatTimeout$601 */
+	static int repeatTimeout;
+}
+
+/* @socom-skeleton stub GetNewKeyPress__FPUc */
+unsigned char GetNewKeyPress(unsigned char *)
+{
+	/* @socom-skeleton stub lastKeys$643 */
+	static unsigned char lastKeys[7] = {0};
+}
+
+/* @socom-skeleton stub sceUsbKeybdInit__Fv */
+void sceUsbKeybdInit()
+{
+}
+
+/* @socom-skeleton stub sceUsbKeybdGetInfo__FPUc */
+void sceUsbKeybdGetInfo(unsigned char *)
+{
+}
+
+/* @socom-skeleton stub sceUsbKeybdRead__FUiPUc */
+void sceUsbKeybdRead(unsigned int, unsigned char *)
+{
+}
+
+/* @socom-skeleton stub sceUsbKeybdGetLocation__FiPUc */
+void sceUsbKeybdGetLocation(int, unsigned char *)
+{
+}
+
+/* @socom-skeleton stub sceUsbKeybdSync__Fi */
+int sceUsbKeybdSync(int)
+{
+}

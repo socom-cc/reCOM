@@ -68,3 +68,126 @@
  * @socom-artifact defines main socom:data:0x476b80
  * @socom-artifact defines main socom:data:0x561e10
  * socom-owner-annotations end socom:work:source-segment-076 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "gamez/zUtil/util_stable.h"
+#include "hud.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class NetBandwidthInfo;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub LineSpacing */
+static float LineSpacing = 13.0f;
+
+/* @socom-skeleton stub LineBaseY */
+static float LineBaseY = 19.0f;
+
+/* @socom-skeleton stub LineBaseX */
+static float LineBaseX = 6.0f;
+
+/* @socom-skeleton stub stayTime */
+static float stayTime = 2.0f;
+
+/* @socom-skeleton stub decTime */
+static float decTime = 0.032999999821186066f;
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+std::__nInit std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+std::__wInit std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub _assetNum */
+unsigned int _assetNum;
+
+/* @socom-skeleton stub _assetTotal */
+unsigned int _assetTotal;
+
+/* @socom-skeleton stub LineWidX */
+static float LineWidX;
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static CSTable MultiplayerMsgStrings;
+
+/* @socom-skeleton stub _assetStrings */
+char _assetStrings[30][128];
+
+/* @socom-skeleton stub TaskLineColor */
+CPnt4D TaskLineColor[4];
+
+/* @socom-skeleton stub maxTime */
+static float maxTime[30];
+
+/* @socom-skeleton stub keepTime */
+static float keepTime[30];
+
+/* @socom-skeleton stub maxTimeX */
+static float maxTimeX[8];
+
+/* @socom-skeleton stub keepTimeX */
+static float keepTimeX[8];
+
+/* @socom-skeleton stub GetAssetReport__4CHUDFv */
+void CHUD::GetAssetReport()
+{
+}
+
+/* @socom-skeleton stub DrawTaskLine__FiPfff */
+void DrawTaskLine(int, float *, float, float)
+{
+}
+
+/* @socom-skeleton stub StatusLine__4CHUDFv */
+void CHUD::StatusLine()
+{
+	/* @socom-skeleton stub reportTime$2627 */
+	static float reportTime;
+	/* @socom-skeleton stub showTriCnt$2637 */
+	static unsigned char showTriCnt;
+	/* @socom-skeleton stub showTimers$2640 */
+	static unsigned char showTimers;
+	/* @socom-skeleton stub printTime$2650 */
+	static float printTime;
+	/* @socom-skeleton stub accumRate$2653 */
+	static float accumRate;
+	/* @socom-skeleton stub avgRate$2656 */
+	static float avgRate;
+	/* @socom-skeleton stub numSamples$2659 */
+	static int numSamples;
+	/* @socom-skeleton stub numSecs$2662 */
+	static int numSecs;
+	/* @socom-skeleton stub accumPTTTime$2665 */
+	static float accumPTTTime;
+	/* @socom-skeleton stub avgPTTTime$2668 */
+	static int avgPTTTime;
+	/* @socom-skeleton stub nbi$2671 */
+	static NetBandwidthInfo nbi = {0};
+	/* @socom-skeleton stub fpsMax$2681 */
+	static int fpsMax;
+	/* @socom-skeleton stub fpsMin$2684 */
+	static int fpsMin;
+	/* @socom-skeleton stub fpsCount$2687 */
+	static int fpsCount;
+	/* @socom-skeleton stub fpsSum$2690 */
+	static int fpsSum;
+	/* @socom-skeleton stub shadowTime$2751 */
+	static int shadowTime;
+	/* @socom-skeleton stub shadowRingTime$2752 */
+	static int shadowRingTime;
+	/* @socom-skeleton stub shadowNoRingTime$2753 */
+	static int shadowNoRingTime;
+	/* @socom-skeleton stub landmarkTime$2754 */
+	static int landmarkTime;
+	/* @socom-skeleton stub particleTime$2755 */
+	static int particleTime;
+	/* @socom-skeleton stub characterTime$2756 */
+	static int characterTime;
+	/* @socom-skeleton stub charCommonTime$2757 */
+	static int charCommonTime;
+	/* @socom-skeleton stub alphaTime$2758 */
+	static int alphaTime;
+	/* @socom-skeleton stub miscTime$2759 */
+	static int miscTime;
+}

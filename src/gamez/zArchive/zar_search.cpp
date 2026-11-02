@@ -36,127 +36,184 @@
 
 namespace zar
 {
-	bool CZAR::Fetch(CKey* key, void* buf, size_t size)
+
+}
+
+/* @socom-skeleton decl forward */
+class CIO;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub hackStr */
+char *hackStr;
+
+/* @socom-skeleton body __ct__Q23zar4CKeyFPCc */
+zar::CKey::CKey(const char *name)
 	{
-		CKey* openKey = NULL;
-
-		if (!m_pFile)
-			return false;
-
-		openKey = OpenKey(key);
-
-		if (!openKey)
-			return false;
-
-		if (!m_pFile->IsOpen())
-			return false;
-
-		if (key->m_size == 0)
-		{
-			CloseKey(key);
-			return false;
-		}
-
-		s32 offset = key->m_offset;
-		size_t position = m_pFile->fseek(offset, SEEK_SET);
-
-		if (offset == position && size <= key->m_size)
-		{
-			offset = m_pFile->fread(buf, size);
-			ZAR_SECURE(m_bSecure, buf, size);
-
-			CloseKey(key);
-			return size == offset;
-		}
-
-		return false;
+		m_name = name;
+		m_size = 0;
+		m_offset = 0;
 	}
 
-	bool CZAR::Fetch(const char* name, s32(*callback)(CZAR*, s32, void*), void* buf)
+/* @socom-skeleton body __ct__Q23zar4CKeyFv */
+namespace zar {
+CKey::CKey()
 	{
-		CKey* key = NULL;
+		m_name = NULL;
+		m_size = 0;
+		m_offset = 0;
+	}
+}
 
-		key = GetOpenKey();
+/* @socom-skeleton body InsertKey__Q23zar4CKeyFPQ23zar4CKey */
+namespace zar {
+CKey* CKey::InsertKey(CKey* key)
+	{
+		insert(begin(), key);
+		return key;
+	}
+}
+
+/* @socom-skeleton body Write__Q23zar4CKeyFPQ23zar4CZAR */
+namespace zar {
+bool CKey::Write(CZAR* archive)
+	{
+		archive->Securify(m_name, 4);
+		archive->m_pFile->fwrite(m_name, 4);
+		archive->Unsecurify(m_name, 4);
+
+		archive->Securify(&m_offset, 4);
+		archive->m_pFile->fwrite(&m_offset, 4);
+		archive->Unsecurify(&m_offset, 4);
+
+		archive->Securify(&m_size, 4);
+		archive->m_pFile->fwrite(&m_size, 4);
+		archive->Unsecurify(&m_size, 4);
+
+		archive->Securify(this, 4);
+		archive->m_pFile->fwrite(this, 4);
+		archive->Unsecurify(this, 4);
+
+		for (auto it = begin(); it != end(); ++it)
+		{
+			CKey* key = *it;
+			key->Write(archive);
+		}
+
+		return true;
+	}
+}
+
+/* @socom-skeleton body Read__Q23zar4CKeyFPQ23zar4CZARP3CIOi */
+bool zar::CKey::Read(zar::CZAR *archive, CIO *buffer, int stableOffset)
+	{
+		struct KEY
+		{
+			s32 m_name;
+			u32 m_offset;
+			u32 m_size;
+			u32 m_count;
+		} key_t;
+
+		buffer->fread(&key_t, sizeof(KEY));
+
+		if (archive->m_root != this)
+		{
+			m_name = (char*)key_t.m_name + stableOffset;
+			m_size = key_t.m_size;
+			m_offset = key_t.m_offset;
+		}
+		
+		while (key_t.m_count != 0)
+		{
+			CKey* archiveKey = archive->NewKey(NULL);
+			archiveKey->Read(archive, buffer, stableOffset);
+			insert(begin(), archiveKey);
+			key_t.m_count--;
+		}
+
+		return true;
+	}
+
+/* @socom-skeleton body FindKey__Q23zar4CKeyFPCc */
+namespace zar {
+CKey* CKey::FindKey(const char* name)
+	{
+		for (auto i = begin(); i != end(); i++)
+		{
+			CKey* current = *i;
+
+			if (current->m_size != -1 && strcasecmp(current->m_name, name) == 0)
+				return current;
+		}
+
+		return NULL;
+	}
+}
+
+/* @socom-skeleton body Fetch__Q23zar4CZARFPCcPb */
+namespace zar {
+bool CZAR::Fetch(const char* name, bool* buf)
+	{
+		CKey* key = GetOpenKey();
+		s8 cBool = false;
 
 		if (!key)
 			return false;
 
 		key = key->FindKey(name);
 
-		if (!m_pFile)
-			return false;
+		if (Fetch(key, &cBool, sizeof(s8)))
+			*buf = cBool != 0;
 
-		CKey* bufferKey = OpenKey(key);
-
-		if (!m_pFile->IsOpen() || !bufferKey)
-			return false;
-
-		if (m_pFile->fseek(key->m_offset, SEEK_SET) == -1)
-			return false;
-
-		hackStr = key->m_name;
-
-		s32 result = callback(this, key->m_size, buf);
-
-		if (result > 0 && result <= key->m_size)
-		{
-			CloseKey(key);
-			return true;
-		}
-
-		CloseKey(key);
-		return false;
+		return true;
 	}
+}
 
-	bool CZAR::Fetch(const char* name, void* buf, size_t size)
+/* @socom-skeleton body Fetch__Q23zar4CZARFPCcPi */
+namespace zar {
+bool CZAR::Fetch(const char* name, s32* buf)
 	{
-		s32 offset, position = 0;
-		CKey* key = NULL;
-		CKey* bufferKey = NULL;
-
-		key = GetOpenKey();
+		CKey* key = GetOpenKey();
 
 		if (!key)
 			return false;
 
-		if (!m_pFile)
-			return false;
+		key = key->FindKey(name);
+		return Fetch(key, buf, sizeof(f32));
+	}
+}
 
-		if (!m_pFile->IsOpen())
+/* @socom-skeleton body Fetch__Q23zar4CZARFPCcPUi */
+namespace zar {
+bool CZAR::Fetch(const char* name, u32* buf)
+	{
+		CKey* key = GetOpenKey();
+
+		if (!key)
 			return false;
 
 		key = key->FindKey(name);
-		bufferKey = OpenKey(key);
-
-		if (!bufferKey)
-			return false;
-
-		if (key->m_size == 0)
-		{
-			CloseKey(key);
-			return false;
-		}
-
-		offset = key->m_offset;
-		position = m_pFile->fseek(offset, SEEK_SET);
-
-		if (offset == position && size <= key->m_size)
-		{
-			offset = m_pFile->fread(buf, size);
-			Unsecurify(buf, size);
-
-			if (size == offset)
-			{
-				CloseKey(key);
-				return true;
-			}
-		}
-
-		CloseKey(key);
-		return false;
+		return Fetch(key, buf, sizeof(u32));
 	}
+}
 
-	bool CZAR::Fetch(const char* name, char** array)
+/* @socom-skeleton body Fetch__Q23zar4CZARFPCcPf */
+namespace zar {
+bool CZAR::Fetch(const char* name, f32* buf)
+	{
+		CKey* key = GetOpenKey();
+
+		if (!key)
+			return false;
+
+		key = key->FindKey(name);
+		return Fetch(key, buf, sizeof(f32));
+	}
+}
+
+/* @socom-skeleton body Fetch__Q23zar4CZARFPCcPPc */
+namespace zar {
+bool CZAR::Fetch(const char* name, char** array)
 	{
 		size_t size = 0;
 		char* strArray = NULL;
@@ -184,137 +241,10 @@ namespace zar
 		//return Fetch(key, strArray, keySize, 0);
 		return true;
 	}
+}
 
-	bool CZAR::Fetch(const char* name, f32* buf)
-	{
-		CKey* key = GetOpenKey();
-
-		if (!key)
-			return false;
-
-		key = key->FindKey(name);
-		return Fetch(key, buf, sizeof(f32));
-	}
-
-	bool CZAR::Fetch(const char* name, u32* buf)
-	{
-		CKey* key = GetOpenKey();
-
-		if (!key)
-			return false;
-
-		key = key->FindKey(name);
-		return Fetch(key, buf, sizeof(u32));
-	}
-
-	bool CZAR::Fetch(const char* name, s32* buf)
-	{
-		CKey* key = GetOpenKey();
-
-		if (!key)
-			return false;
-
-		key = key->FindKey(name);
-		return Fetch(key, buf, sizeof(f32));
-	}
-
-	bool CZAR::Fetch(const char* name, bool* buf)
-	{
-		CKey* key = GetOpenKey();
-		s8 cBool = false;
-
-		if (!key)
-			return false;
-
-		key = key->FindKey(name);
-
-		if (Fetch(key, &cBool, sizeof(s8)))
-			*buf = cBool != 0;
-
-		return true;
-	}
-
-	bool CZAR::FetchAll(s32(*callback)(CZAR*, char*, void*, s32, void*), void* buf)
-	{
-		s32 count = 0;
-		bool valid = false;
-		CKey* key = GetOpenKey();
-
-		if (!m_pFile)
-			return false;
-
-		if (!m_pFile->IsOpen())
-			return false;
-
-		for (auto i = key->begin(); i != key->end(); i++)
-		{
-			CKey* current = *i;
-
-			CKey* bufferKey = OpenKey(current);
-
-			if (!bufferKey)
-			{
-				CloseKey(current);
-				continue;
-			}
-
-			if (m_pFile->fseek(key->m_offset, SEEK_CUR) == -1)
-				continue;
-
-			void* listPointers = NULL;
-			FetchLIP(current, &listPointers);
-			s32 result = callback(this, current->m_name, listPointers, current->m_size, buf);
-
-			if (result > 0)
-				valid = result <= current->m_size;
-
-			CloseKey(current);
-
-			if (valid)
-				count++;
-		}
-
-		return count != 0;
-	}
-
-	bool CZAR::FetchLIP(CKey* key, void** buf)
-	{
-		bool success = false;
-		bool isOpen = false;
-
-		if (!m_pFile)
-			return false;
-
-		if (!m_pFile->IsOpen())
-			return false;
-
-		CKey* openKey = OpenKey(key);
-
-		if (!openKey)
-			return false;
-
-		if (key->m_size == 0)
-		{
-			CloseKey(key);
-			return false;
-		}
-
-		s32 offset = key->m_offset;
-
-		if (offset == m_pFile->fseek(offset, SEEK_SET))
-		{
-			if (m_pFile->fread(key->m_size, buf) != 0)
-			{
-				CloseKey(key);
-				return true;
-			}
-		}
-
-		CloseKey(key);
-		return false;
-	}
-
-	size_t CZAR::FetchString(const char* name, char* buf, size_t size)
+/* @socom-skeleton body FetchString__Q23zar4CZARFPCcPci */
+int zar::CZAR::FetchString(const char *name, char *buf, int size)
 	{
 		CKey* key = NULL;
 		CKey* stringKey = NULL;
@@ -363,5 +293,349 @@ namespace zar
 
 		CloseKey(key);
 		return 0;
+	}
+
+/* @socom-skeleton body Fetch__Q23zar4CZARFPCcPvi */
+void zar::CZAR::Fetch(const char *name, void *buf, int size)
+	{
+		s32 offset, position = 0;
+		CKey* key = NULL;
+		CKey* bufferKey = NULL;
+
+		key = GetOpenKey();
+
+		if (!key)
+			return false;
+
+		if (!m_pFile)
+			return false;
+
+		if (!m_pFile->IsOpen())
+			return false;
+
+		key = key->FindKey(name);
+		bufferKey = OpenKey(key);
+
+		if (!bufferKey)
+			return false;
+
+		if (key->m_size == 0)
+		{
+			CloseKey(key);
+			return false;
+		}
+
+		offset = key->m_offset;
+		position = m_pFile->fseek(offset, SEEK_SET);
+
+		if (offset == position && size <= key->m_size)
+		{
+			offset = m_pFile->fread(buf, size);
+			Unsecurify(buf, size);
+
+			if (size == offset)
+			{
+				CloseKey(key);
+				return true;
+			}
+		}
+
+		CloseKey(key);
+		return false;
+	}
+
+/* @socom-skeleton body Fetch__Q23zar4CZARFPCcPFRQ23zar4CZARiPv_iPv */
+void zar::CZAR::Fetch(const char *name, int (*callback)(zar::CZAR &, int, void *), void *buf)
+	{
+		CKey* key = NULL;
+
+		key = GetOpenKey();
+
+		if (!key)
+			return false;
+
+		key = key->FindKey(name);
+
+		if (!m_pFile)
+			return false;
+
+		CKey* bufferKey = OpenKey(key);
+
+		if (!m_pFile->IsOpen() || !bufferKey)
+			return false;
+
+		if (m_pFile->fseek(key->m_offset, SEEK_SET) == -1)
+			return false;
+
+		hackStr = key->m_name;
+
+		s32 result = callback(this, key->m_size, buf);
+
+		if (result > 0 && result <= key->m_size)
+		{
+			CloseKey(key);
+			return true;
+		}
+
+		CloseKey(key);
+		return false;
+	}
+
+/* @socom-skeleton body FetchAll__Q23zar4CZARFPFRQ23zar4CZARPCcPviPv_iPv */
+bool zar::CZAR::FetchAll(int (*callback)(zar::CZAR &, const char *, void *, int, void *), void *buf)
+	{
+		s32 count = 0;
+		bool valid = false;
+		CKey* key = GetOpenKey();
+
+		if (!m_pFile)
+			return false;
+
+		if (!m_pFile->IsOpen())
+			return false;
+
+		for (auto i = key->begin(); i != key->end(); i++)
+		{
+			CKey* current = *i;
+
+			CKey* bufferKey = OpenKey(current);
+
+			if (!bufferKey)
+			{
+				CloseKey(current);
+				continue;
+			}
+
+			if (m_pFile->fseek(key->m_offset, SEEK_CUR) == -1)
+				continue;
+
+			void* listPointers = NULL;
+			FetchLIP(current, &listPointers);
+			s32 result = callback(this, current->m_name, listPointers, current->m_size, buf);
+
+			if (result > 0)
+				valid = result <= current->m_size;
+
+			CloseKey(current);
+
+			if (valid)
+				count++;
+		}
+
+		return count != 0;
+	}
+
+/* @socom-skeleton body Insert__Q23zar4CZARFPCci */
+namespace zar {
+CKey* CZAR::Insert(const char* name, s32 value)
+	{
+		CKey* newKey = NewKey(name);
+		CKey* openKey = GetOpenKey();
+
+		bool insertionSuccess = Insert(newKey, &value, sizeof(value));
+
+		if (!insertionSuccess && newKey)
+		{
+			delete newKey;
+			newKey = NULL;
+		}
+		else
+		{
+			openKey->InsertKey(newKey);
+		}
+
+		return newKey;
+	}
+}
+
+/* @socom-skeleton body Insert__Q23zar4CZARFPCcUi */
+namespace zar {
+CKey* CZAR::Insert(const char* name, u32 value)
+	{
+		CKey* newKey = NewKey(name);
+		CKey* openKey = GetOpenKey();
+
+		bool insertionSuccess = Insert(newKey, &value, sizeof(value));
+
+		if (!insertionSuccess && newKey)
+		{
+			delete newKey;
+			newKey = NULL;
+		}
+		else
+		{
+			openKey->InsertKey(newKey);
+		}
+
+		return newKey;
+	}
+}
+
+/* @socom-skeleton body Insert__Q23zar4CZARFPCcPCvi */
+zar::CKey * zar::CZAR::Insert(const char *name, const void *buf, int size)
+	{
+		CKey* newKey = NewKey(name);
+		CKey* openKey = GetOpenKey();
+
+		bool insertionSuccess = Insert(newKey, buf, size);
+
+		if (!insertionSuccess && newKey)
+		{
+			delete newKey;
+			newKey = NULL;
+		}
+		else
+		{
+			openKey->InsertKey(newKey);
+		}
+
+		return newKey;
+	}
+
+/* @socom-skeleton body Insert__Q23zar4CZARFPQ23zar4CKeyPCvi */
+void zar::CZAR::Insert(zar::CKey *key, const void *buf, int size)
+	{
+		s32 keySize, writeOffset, position, keyPad = 0;
+		char padChar = 0;
+		bool validPosition, validOffset = false;
+
+		if (!buf)
+			return false;
+
+		if (size <= 0)
+			return false;
+
+		keySize = size;
+
+		position = m_pFile->fseek(0, SEEK_END);
+		validPosition = position != -1;
+
+		if (!validPosition)
+			return false;
+
+		if (!m_bSecure)
+		{
+			writeOffset = m_pFile->fwrite(buf, size);
+		}
+		else
+		{
+			void* arrBuf = calloc(1, size);
+			void* dest = arrBuf;
+			memcpy(dest, buf, size);
+
+			ZAR_SECURE(m_bSecure, buf, size)
+		}
+
+		validOffset = size == writeOffset;
+
+		if (!validOffset)
+			return false;
+
+		key->m_offset = position;
+		key->m_size = size;
+
+		keyPad = size % m_data_padded;
+		keySize = 0;
+
+		if (keyPad != 0)
+			keySize = m_data_padded - keyPad;
+
+		padChar = '�';
+
+		if (!m_bSecure)
+			padChar = 'P';
+
+		for (s32 i = 0; i < keySize; i++)
+			m_pFile->fwrite(&padChar, 1);
+
+		return true;
+	}
+
+/* @socom-skeleton body Unsecurify__Q23zar4CZARFPvi */
+void zar::CZAR::Unsecurify(void *buf, int size)
+	{
+		ZAR_SECURE(m_bSecure, buf, size)
+	}
+
+/* @socom-skeleton body Securify__Q23zar4CZARFPvi */
+void zar::CZAR::Securify(void *buf, int size)
+	{
+		ZAR_SECURE(m_bSecure, buf, size)
+	}
+
+/* @socom-skeleton body Fetch__Q23zar4CZARFPQ23zar4CKeyPviUi */
+void zar::CZAR::Fetch(zar::CKey *, void *, int, unsigned int)
+	{
+		CKey* openKey = NULL;
+
+		if (!m_pFile)
+			return false;
+
+		openKey = OpenKey(key);
+
+		if (!openKey)
+			return false;
+
+		if (!m_pFile->IsOpen())
+			return false;
+
+		if (key->m_size == 0)
+		{
+			CloseKey(key);
+			return false;
+		}
+
+		s32 offset = key->m_offset;
+		size_t position = m_pFile->fseek(offset, SEEK_SET);
+
+		if (offset == position && size <= key->m_size)
+		{
+			offset = m_pFile->fread(buf, size);
+			ZAR_SECURE(m_bSecure, buf, size);
+
+			CloseKey(key);
+			return size == offset;
+		}
+
+		return false;
+	}
+
+/* @socom-skeleton body FetchLIP__Q23zar4CZARFPQ23zar4CKeyPPv */
+namespace zar {
+bool CZAR::FetchLIP(CKey* key, void** buf)
+	{
+		bool success = false;
+		bool isOpen = false;
+
+		if (!m_pFile)
+			return false;
+
+		if (!m_pFile->IsOpen())
+			return false;
+
+		CKey* openKey = OpenKey(key);
+
+		if (!openKey)
+			return false;
+
+		if (key->m_size == 0)
+		{
+			CloseKey(key);
+			return false;
+		}
+
+		s32 offset = key->m_offset;
+
+		if (offset == m_pFile->fseek(offset, SEEK_SET))
+		{
+			if (m_pFile->fread(key->m_size, buf) != 0)
+			{
+				CloseKey(key);
+				return true;
+			}
+		}
+
+		CloseKey(key);
+		return false;
 	}
 }

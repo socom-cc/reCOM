@@ -91,3 +91,36 @@
  * @socom-artifact emits main socom:function:0x1934a0
  * @socom-artifact emits main socom:function:0x1934f0
  * socom-owner-annotations end socom:work:source-segment-015 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zUtil/util_systemio.h"
+#include "zai.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub version__6CAiMap */
+const int CAiMap::version = 19;
+
+/* @socom-skeleton stub read_lines__6CAiMapFR7CFileIO */
+void CAiMap::read_lines(CFileIO &)
+{
+}
+
+/* @socom-skeleton stub read_routes__6CAiMapFR7CFileIO */
+void CAiMap::read_routes(CFileIO &)
+{
+}
+
+/* @socom-skeleton stub read_readers__6CAiMapFR7CFileIO */
+void CAiMap::read_readers(CFileIO &)
+{
+}
+
+/* @socom-skeleton stub Read__6CAiMapFR7CFileIO */
+void CAiMap::Read(CFileIO &)
+{
+}
+
+/* @socom-skeleton stub read_cells__6CAiMapFR7CFileIO */
+void CAiMap::read_cells(CFileIO &)
+{
+}

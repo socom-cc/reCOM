@@ -147,7 +147,377 @@
 
 #include "zseal.h"
 
-f32 CZKit::GetCurZoom() const
+/* @socom-skeleton decl include */
+#include "gamez/zEntity/zentity.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zTexture/ztex.h"
+#include "gamez/zWeapon/zweapon.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CTargetMods;
+class CZAmmoPickupInstance;
+class PlacedExplosive;
+/* @socom-skeleton end forward */
+/* @socom-skeleton decl Q222@unnamed@seal_kit_cpp@18CSavedFireModeInfo */
+namespace {
+class CSavedFireModeInfo
+{
+public:
+	CSavedFireModeInfo();
+};
+}
+/* @socom-skeleton end Q222@unnamed@seal_kit_cpp@18CSavedFireModeInfo */
+
+/* @socom-skeleton stub m_lase_delay__5CZKit */
+float CZKit::m_lase_delay = 16.0f;
+
+/* @socom-skeleton stub m_lase_dist_max__5CZKit */
+int CZKit::m_lase_dist_max = 10;
+
+/* @socom-skeleton stub g_iNumSavedFireModes__22@unnamed@seal_kit_cpp@ */
+namespace {
+int g_iNumSavedFireModes;
+}
+
+/* @socom-skeleton stub recoil_constscl */
+static float recoil_constscl;
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub g_arrSavedFireModeInfo__22@unnamed@seal_kit_cpp@ */
+namespace {
+unsigned char g_arrSavedFireModeInfo[240];
+}
+
+/* @socom-skeleton stub __ct__Q222@unnamed@seal_kit_cpp@18CSavedFireModeInfoFv */
+namespace {
+CSavedFireModeInfo::CSavedFireModeInfo()
+{
+}
+}
+
+/* @socom-skeleton stub sealSaveFireModes__Fv */
+void sealSaveFireModes()
+{
+}
+
+/* @socom-skeleton stub SetCurItemState__5CZKitFUi */
+void CZKit::SetCurItemState(unsigned int)
+{
+}
+
+/* @socom-skeleton stub SetCurItemEnum__5CZKitF10EQUIP_ITEM */
+void CZKit::SetCurItemEnum(EQUIP_ITEM)
+{
+}
+
+/* @socom-skeleton stub GetCurItemEnum__5CZKitCFv */
+EQUIP_ITEM CZKit::GetCurItemEnum() const
+{
+}
+
+/* @socom-skeleton stub GetItemIndex__5CZKitCF10EQUIP_ITEM */
+int CZKit::GetItemIndex(EQUIP_ITEM) const
+{
+}
+
+/* @socom-skeleton stub GetAmmoIndex__5CZKitF10EQUIP_AMMOi */
+void CZKit::GetAmmoIndex(EQUIP_AMMO, int)
+{
+}
+
+/* @socom-skeleton stub GetItemIndex__5CZKitF9SEAL_ITEM */
+int CZKit::GetItemIndex(SEAL_ITEM)
+{
+}
+
+/* @socom-skeleton stub HasItem__5CZKitCF10EQUIP_ITEM */
+void CZKit::HasItem(EQUIP_ITEM) const
+{
+}
+
+/* @socom-skeleton stub HasSniperRifle__5CZKitFv */
+void CZKit::HasSniperRifle()
+{
+}
+
+/* @socom-skeleton stub __ct__5CZKitFv */
+CZKit::CZKit()
+{
+}
+
+/* @socom-skeleton stub __dt__5CZKitFv */
+CZKit::~CZKit()
+{
+}
+
+/* @socom-skeleton stub NVG_Enabled__5CZKitCFv */
+void CZKit::NVG_Enabled() const
+{
+}
+
+/* @socom-skeleton stub NVG_Enabled__5CZKitFb */
+void CZKit::NVG_Enabled(bool)
+{
+}
+
+/* @socom-skeleton stub GetCurItemIDType__5CZKitFv */
+void CZKit::GetCurItemIDType()
+{
+}
+
+/* @socom-skeleton stub GetCurItemType__5CZKitFv */
+SEAL_ITEM CZKit::GetCurItemType()
+{
+}
+
+/* @socom-skeleton stub Init__5CZKitFv */
+void CZKit::Init()
+{
+}
+
+/* @socom-skeleton stub UnInit__5CZKitFv */
+void CZKit::UnInit()
+{
+}
+
+/* @socom-skeleton stub PostSetupItems__5CZKitFv */
+void CZKit::PostSetupItems()
+{
+}
+
+/* @socom-skeleton stub Setup2XAmmo__5CZKitFv */
+void CZKit::Setup2XAmmo()
+{
+}
+
+/* @socom-skeleton stub SetupBinocular__5CZKitFv */
+void CZKit::SetupBinocular()
+{
+}
+
+/* @socom-skeleton stub InitItemModel__5CZKitFPCcPCc */
+void CZKit::InitItemModel(const char *, const char *)
+{
+}
+
+/* @socom-skeleton stub ReParentToPistol__5CZKitFv */
+void CZKit::ReParentToPistol()
+{
+}
+
+/* @socom-skeleton stub ReParentToRifle__5CZKitFv */
+void CZKit::ReParentToRifle()
+{
+}
+
+/* @socom-skeleton stub UseItemModel__5CZKitFiPCc */
+void CZKit::UseItemModel(int, const char *)
+{
+}
+
+/* @socom-skeleton stub GetCurWeapon__5CZKitFPP11CZFTSWeaponPP6CZAmmo */
+void CZKit::GetCurWeapon(CZFTSWeapon **, CZAmmo **)
+{
+}
+
+/* @socom-skeleton stub GetWeapon__5CZKitFiPP11CZFTSWeaponPP6CZAmmo */
+void CZKit::GetWeapon(int, CZFTSWeapon **, CZAmmo **)
+{
+}
+
+/* @socom-skeleton stub FireCur__5CZKitFPC6CPnt3DPC6CPnt3DPC6CPnt3D */
+CZProjectile * CZKit::FireCur(const CPnt3D *, const CPnt3D *, const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub Fire__5CZKitFiPC6CPnt3DPC6CPnt3DPC6CPnt3D */
+CZProjectile * CZKit::Fire(int, const CPnt3D *, const CPnt3D *, const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub ChangeItemModel__5CZKitFiiib */
+void CZKit::ChangeItemModel(int, int, int, bool)
+{
+}
+
+/* @socom-skeleton stub CanChangeItem__5CZKitFv */
+void CZKit::CanChangeItem()
+{
+}
+
+/* @socom-skeleton stub SetCurItemByIndex__5CZKitFi */
+void CZKit::SetCurItemByIndex(int)
+{
+}
+
+/* @socom-skeleton stub GetCurNumMags__5CZKitFv */
+void CZKit::GetCurNumMags()
+{
+}
+
+/* @socom-skeleton stub GetNumMags__5CZKitFi */
+int CZKit::GetNumMags(int)
+{
+}
+
+/* @socom-skeleton stub CycleFireMode__5CZKitFv */
+void CZKit::CycleFireMode()
+{
+}
+
+/* @socom-skeleton stub FindNextGrenadeLauncherAmmo__5CZKitFi */
+void CZKit::FindNextGrenadeLauncherAmmo(int)
+{
+}
+
+/* @socom-skeleton stub GetMaxAmmoCount__5CZKitFi */
+int CZKit::GetMaxAmmoCount(int)
+{
+}
+
+/* @socom-skeleton stub GetCurMaxAmmoCount__5CZKitFv */
+int CZKit::GetCurMaxAmmoCount()
+{
+}
+
+/* @socom-skeleton stub EmptyAmmoCountTotal__5CZKitFi */
+void CZKit::EmptyAmmoCountTotal(int)
+{
+}
+
+/* @socom-skeleton stub GetAmmoCount__5CZKitFi */
+int CZKit::GetAmmoCount(int)
+{
+}
+
+/* @socom-skeleton stub GetCurAmmoCount__5CZKitFv */
+int CZKit::GetCurAmmoCount()
+{
+}
+
+/* @socom-skeleton stub SetCurFireMode__5CZKitF8FIREMODE */
+void CZKit::SetCurFireMode(FIREMODE)
+{
+}
+
+/* @socom-skeleton stub GetCurFireMode__5CZKitFv */
+FIREMODE CZKit::GetCurFireMode()
+{
+}
+
+/* @socom-skeleton stub GetCurItem__5CZKitCFv */
+CZFTSWeapon * CZKit::GetCurItem() const
+{
+}
+
+/* @socom-skeleton stub GetItemByIndex__5CZKitFi */
+CZFTSWeapon * CZKit::GetItemByIndex(int)
+{
+}
+
+/* @socom-skeleton stub Recoil__5CZKitFP11CZFTSWeapon */
+void CZKit::Recoil(CZFTSWeapon *)
+{
+	/* @socom-skeleton stub basebump_y$3108 */
+	static int basebump_y;
+	/* @socom-skeleton stub randbump_y$3111 */
+	static int randbump_y;
+	/* @socom-skeleton stub basebump_x$3114 */
+	static int basebump_x;
+	/* @socom-skeleton stub randbump_x$3117 */
+	static int randbump_x;
+}
+
+/* @socom-skeleton stub Reload__5CZKitFv */
+void CZKit::Reload()
+{
+}
+
+/* @socom-skeleton stub TickReticule__5CZKitFf */
+void CZKit::TickReticule(float)
+{
+}
+
+/* @socom-skeleton stub TickExplosives__5CZKitFf */
+void CZKit::TickExplosives(float)
+{
+	/* @socom-skeleton stub r_offset$3288 */
+	static float r_offset[3];
+	/* @socom-skeleton stub l_offset$3291 */
+	static int l_offset[3];
+	/* @socom-skeleton stub can_fire$3296 */
+	static unsigned char can_fire;
+}
+
+/* @socom-skeleton stub TickFlashlight__5CZKitFf */
+void CZKit::TickFlashlight(float)
+{
+}
+
+/* @socom-skeleton stub Apply_LensEffects__5CZKitFbP6CPnt3D */
+void CZKit::Apply_LensEffects(bool, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub PreTick__5CZKitFf */
+void CZKit::PreTick(float)
+{
+}
+
+/* @socom-skeleton stub Tick__5CZKitFf */
+void CZKit::Tick(float)
+{
+}
+
+/* @socom-skeleton stub WillFireWeapon__5CZKitFv */
+void CZKit::WillFireWeapon()
+{
+}
+
+/* @socom-skeleton stub GetFireDelay__5CZKitFv */
+float CZKit::GetFireDelay()
+{
+}
+
+/* @socom-skeleton stub DetonateRemoteExplosives__5CZKitFv */
+void CZKit::DetonateRemoteExplosives()
+{
+}
+
+/* @socom-skeleton stub HandlePlacingExlosive__5CZKitF10EQUIP_ITEMff */
+void CZKit::HandlePlacingExlosive(EQUIP_ITEM, float, float)
+{
+}
+
+/* @socom-skeleton stub FetchLaseTarget__5CZKitFv */
+void CZKit::FetchLaseTarget()
+{
+}
+
+/* @socom-skeleton stub Timer_PlaceC4__FPvPv */
+void Timer_PlaceC4(void *, void *)
+{
+}
+
+/* @socom-skeleton stub TickLaserDesignator__5CZKitFf */
+void CZKit::TickLaserDesignator(float)
+{
+}
+
+/* @socom-skeleton stub HandleFireWeapon__5CZKitFiff */
+void CZKit::HandleFireWeapon(int, float, float)
+{
+}
+
+/* @socom-skeleton stub IsZoomed__5CZKitFv */
+void CZKit::IsZoomed()
+{
+}
+
+/* @socom-skeleton body GetCurZoom__5CZKitFv */
+float CZKit::GetCurZoom()
 {
     f32 zoom = 1.0f;
     CZFTSWeapon* item = m_item[m_selected_item];
@@ -163,4 +533,269 @@ f32 CZKit::GetCurZoom() const
     }
 
     return zoom;
+}
+
+/* @socom-skeleton stub UpdateCurItemReticule__5CZKitFv */
+int CZKit::UpdateCurItemReticule()
+{
+}
+
+/* @socom-skeleton stub CurReticuleTypeChanged__5CZKitFv */
+void CZKit::CurReticuleTypeChanged()
+{
+}
+
+/* @socom-skeleton stub SetCurReticule__5CZKitFv */
+void CZKit::SetCurReticule()
+{
+}
+
+/* @socom-skeleton stub GetReticuleByIndex__5CZKitFi */
+int CZKit::GetReticuleByIndex(int)
+{
+}
+
+/* @socom-skeleton stub GetItemName__5CZKitFi */
+char * CZKit::GetItemName(int)
+{
+}
+
+/* @socom-skeleton stub GetFiremodeGraphic__5CZKitFi */
+zdb::CTexHandle * CZKit::GetFiremodeGraphic(int)
+{
+}
+
+/* @socom-skeleton stub GetFiremodeName__5CZKitFi */
+char * CZKit::GetFiremodeName(int)
+{
+}
+
+/* @socom-skeleton stub GetIcon__5CZKitFi */
+zdb::CTexHandle * CZKit::GetIcon(int)
+{
+}
+
+/* @socom-skeleton stub GetSelectedItemNum__5CZKitFv */
+int CZKit::GetSelectedItemNum()
+{
+}
+
+/* @socom-skeleton stub GetNumItems__5CZKitCFv */
+int CZKit::GetNumItems() const
+{
+}
+
+/* @socom-skeleton stub SetBody__5CZKitFP10CZSealBody */
+void CZKit::SetBody(CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub SetItem__5CZKitFUi10EQUIP_ITEM */
+void CZKit::SetItem(unsigned int, EQUIP_ITEM)
+{
+}
+
+/* @socom-skeleton stub SetItemAmmo__5CZKitFUiP6CZAmmoii */
+void CZKit::SetItemAmmo(unsigned int, CZAmmo *, int, int)
+{
+}
+
+/* @socom-skeleton stub SetItemAmmo__5CZKitFUiP6CZAmmo */
+unsigned char CZKit::SetItemAmmo(unsigned int, CZAmmo *)
+{
+}
+
+/* @socom-skeleton stub isSelectableItem__5CZKitFi */
+void CZKit::isSelectableItem(int)
+{
+}
+
+/* @socom-skeleton stub ItemHasAmmo__5CZKitF10EQUIP_ITEM */
+void CZKit::ItemHasAmmo(EQUIP_ITEM)
+{
+}
+
+/* @socom-skeleton stub CurItemHasAmmo__5CZKitFv */
+unsigned char CZKit::CurItemHasAmmo()
+{
+}
+
+/* @socom-skeleton stub ItemHasAmmo__5CZKitFi8FIREMODE */
+void CZKit::ItemHasAmmo(int, FIREMODE)
+{
+}
+
+/* @socom-skeleton stub ItemHasAmmo__5CZKitFi */
+void CZKit::ItemHasAmmo(int)
+{
+}
+
+/* @socom-skeleton stub CurWeaponIsM203Mode__5CZKitFv */
+void CZKit::CurWeaponIsM203Mode()
+{
+}
+
+/* @socom-skeleton stub WeaponIsGrenadeLauncherMode__5CZKitFi */
+void CZKit::WeaponIsGrenadeLauncherMode(int)
+{
+}
+
+/* @socom-skeleton stub CurMagHasAmmo__5CZKitFv */
+void CZKit::CurMagHasAmmo()
+{
+}
+
+/* @socom-skeleton stub SetCurAccuracy__5CZKitFv */
+void CZKit::SetCurAccuracy()
+{
+}
+
+/* @socom-skeleton stub GetTotalEnc__5CZKitFv */
+int CZKit::GetTotalEnc()
+{
+}
+
+/* @socom-skeleton stub FireGrenade__5CZKitFPC6CPnt3DPC6CPnt3D */
+CZProjectile * CZKit::FireGrenade(const CPnt3D *, const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub HandleRemotePlaceExplosive__5CZKitFPC6CPnt3DPC5CQuat */
+PlacedExplosive * CZKit::HandleRemotePlaceExplosive(const CPnt3D *, const CQuat *)
+{
+}
+
+/* @socom-skeleton stub FillWeaponEnum__5CZKitFiPP11CZFTSWeapon */
+void CZKit::FillWeaponEnum(int, CZFTSWeapon **)
+{
+}
+
+/* @socom-skeleton stub SetItemByIndex__5CZKitFiP8CZWeapon */
+void CZKit::SetItemByIndex(int, CZWeapon *)
+{
+}
+
+/* @socom-skeleton stub CurItemHasFiremodeGraphic__5CZKitFv */
+void CZKit::CurItemHasFiremodeGraphic()
+{
+}
+
+/* @socom-skeleton stub WeaponInfoChanged__5CZKitFv */
+void CZKit::WeaponInfoChanged()
+{
+}
+
+/* @socom-skeleton stub HandlePlaceMPBomb__5CZKitFPC6CPnt3D */
+void CZKit::HandlePlaceMPBomb(const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub PickupMPBomb__5CZKitFv */
+void CZKit::PickupMPBomb()
+{
+}
+
+/* @socom-skeleton stub PickupAmmo__5CZKitFP7CPickup */
+void CZKit::PickupAmmo(CPickup *)
+{
+}
+
+/* @socom-skeleton stub PickupAmmo__5CZKitFP11CZFTSWeaponP6CZAmmoPi */
+void CZKit::PickupAmmo(CZFTSWeapon *, CZAmmo *, int *)
+{
+}
+
+/* @socom-skeleton stub CanAddAmmo__5CZKitFii */
+void CZKit::CanAddAmmo(int, int)
+{
+}
+
+/* @socom-skeleton stub AddAmmo__5CZKitFii */
+int CZKit::AddAmmo(int, int)
+{
+}
+
+/* @socom-skeleton stub FillAmmoPickupInstance__5CZKitFP20CZAmmoPickupInstancei */
+void CZKit::FillAmmoPickupInstance(CZAmmoPickupInstance *, int)
+{
+}
+
+/* @socom-skeleton stub RemoveAmmo__5CZKitFi */
+void CZKit::RemoveAmmo(int)
+{
+}
+
+/* @socom-skeleton stub RemoveItemAndAmmo__5CZKitFi */
+void CZKit::RemoveItemAndAmmo(int)
+{
+}
+
+/* @socom-skeleton stub UpdateNumItems__5CZKitFv */
+void CZKit::UpdateNumItems()
+{
+}
+
+/* @socom-skeleton stub PendingPickupHandled__5CZKitFv */
+void CZKit::PendingPickupHandled()
+{
+}
+
+/* @socom-skeleton stub SetWeaponInfoChanged__5CZKitFv */
+void CZKit::SetWeaponInfoChanged()
+{
+}
+
+/* @socom-skeleton stub IsUsingScope__5CZKitFv */
+void CZKit::IsUsingScope()
+{
+}
+
+/* @socom-skeleton stub IsUsingItem__5CZKitF10EQUIP_ITEM */
+void CZKit::IsUsingItem(EQUIP_ITEM)
+{
+}
+
+/* @socom-skeleton stub IsUsingItem__5CZKitFi */
+void CZKit::IsUsingItem(int)
+{
+}
+
+/* @socom-skeleton stub SniperTick__5CZKitFfR11CTargetMods */
+void CZKit::SniperTick(float, CTargetMods &)
+{
+}
+
+/* @socom-skeleton stub InitializeSniperKick__5CZKitFv */
+void CZKit::InitializeSniperKick()
+{
+}
+
+/* @socom-skeleton stub Binocs_Enabled__5CZKitFb */
+void CZKit::Binocs_Enabled(bool)
+{
+}
+
+/* @socom-skeleton stub IsUsingBinocs__5CZKitFv */
+void CZKit::IsUsingBinocs()
+{
+}
+
+/* @socom-skeleton stub ScreenOffsetX__5CZKitFv */
+float CZKit::ScreenOffsetX()
+{
+}
+
+/* @socom-skeleton stub ScreenOffsetY__5CZKitFv */
+float CZKit::ScreenOffsetY()
+{
+}
+
+/* @socom-skeleton stub IncrScreenOffsetY__5CZKitFf */
+void CZKit::IncrScreenOffsetY(float)
+{
+}
+
+/* @socom-skeleton stub ResetScreenOffsetXY__5CZKitFv */
+void CZKit::ResetScreenOffsetXY()
+{
 }

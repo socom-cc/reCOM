@@ -71,148 +71,45 @@
 
 namespace zar
 {
-	CKey::CKey()
-	{
-		m_name = NULL;
-		m_size = 0;
-		m_offset = 0;
-	}
 
-	CKey::CKey(char* name)
-	{
-		m_name = name;
-		m_size = 0;
-		m_offset = 0;
-	}
+	
+	
 
-	CKey::~CKey()
-	{
-		clear();
-	}
+	
 
-	CKey* CKey::InsertKey(CKey* key)
-	{
-		insert(begin(), key);
-		return key;
-	}
+}
 
-	CKey* CKey::FindKey(const char* name)
-	{
-		for (auto i = begin(); i != end(); i++)
-		{
-			CKey* current = *i;
+/* @socom-skeleton decl include */
+#include "gamez/zUtil/util_stable.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CIO;
+/* @socom-skeleton end forward */
 
-			if (current->m_size != -1 && strcasecmp(current->m_name, name) == 0)
-				return current;
-		}
+/* @socom-skeleton stub DEFAULT_ZAR_NAME */
+static const char *DEFAULT_ZAR_NAME = "ROOT";
 
-		return NULL;
-	}
+/* @socom-skeleton stub DELETED_ZAR_NAME */
+static const char *DELETED_ZAR_NAME = "DELETED";
 
-	bool CKey::Read(CZAR* archive, CBufferIO* buffer, s64 stableOffset)
-	{
-		struct KEY
-		{
-			s32 m_name;
-			u32 m_offset;
-			u32 m_size;
-			u32 m_count;
-		} key_t;
+/* @socom-skeleton stub m_memalign__Q23zar4CZAR */
+namespace zar {
+unsigned char CZAR::m_memalign = 1;
+}
 
-		buffer->fread(&key_t, sizeof(KEY));
+/* @socom-skeleton stub DoMemAlign__Q23zar4CZARFv */
+unsigned char zar::CZAR::DoMemAlign()
+{
+}
 
-		if (archive->m_root != this)
-		{
-			m_name = (char*)key_t.m_name + stableOffset;
-			m_size = key_t.m_size;
-			m_offset = key_t.m_offset;
-		}
-		
-		while (key_t.m_count != 0)
-		{
-			CKey* archiveKey = archive->NewKey(NULL);
-			archiveKey->Read(archive, buffer, stableOffset);
-			insert(begin(), archiveKey);
-			key_t.m_count--;
-		}
+/* @socom-skeleton stub DoMemAlign__Q23zar4CZARFb */
+void zar::CZAR::DoMemAlign(bool)
+{
+}
 
-		return true;
-	}
-
-	bool CKey::Write(CZAR* archive)
-	{
-		archive->Securify(m_name, 4);
-		archive->m_pFile->fwrite(m_name, 4);
-		archive->Unsecurify(m_name, 4);
-
-		archive->Securify(&m_offset, 4);
-		archive->m_pFile->fwrite(&m_offset, 4);
-		archive->Unsecurify(&m_offset, 4);
-
-		archive->Securify(&m_size, 4);
-		archive->m_pFile->fwrite(&m_size, 4);
-		archive->Unsecurify(&m_size, 4);
-
-		archive->Securify(this, 4);
-		archive->m_pFile->fwrite(this, 4);
-		archive->Unsecurify(this, 4);
-
-		for (auto it = begin(); it != end(); ++it)
-		{
-			CKey* key = *it;
-			key->Write(archive);
-		}
-
-		return true;
-	}
-
-	bool CKey::Write(CZAR* archive, FILE* file)
-	{
-		archive->Securify(m_name, 4);
-		fwrite(m_name, 1, sizeof(s32), file);
-		archive->Unsecurify(m_name, 4);
-
-		archive->Securify(&m_offset, 4);
-		fwrite(&m_offset, 1, sizeof(s32), file);
-		archive->Unsecurify(&m_offset, 4);
-
-		archive->Securify(&m_size, 4);
-		fwrite(&m_size, 1, sizeof(s32), file);
-		archive->Unsecurify(&m_size, 4);
-
-		archive->Securify(this, 4);
-		fwrite(this, 1, sizeof(s32), file);
-		archive->Unsecurify(this, 4);
-
-		for (auto i = begin(); i != end(); ++i)
-		{
-			CKey* key = *i;
-			key->Write(archive, file);
-		}
-
-		return true;
-	}
-
-	void CKey::fixupKey(CSTable* table, CKey* key)
-	{
-		char* keyname = table->FindString(key->m_name);
-		key->m_name = keyname;
-
-		auto key_iterator = key->begin();
-
-		for (auto i = key->begin(); i != key->end(); i++)
-		{
-			CKey* child = *key_iterator;
-
-			char* childname = table->FindString(child->m_name);
-			child->m_name = childname;
-
-			for (auto j = child->begin(); j != child->end(); j++)
-				fixupKey(table, *j);
-		}
-	}
-
-	CZAR::CZAR(const char* name, CIO* io)
+/* @socom-skeleton body __ct__Q23zar4CZARFPCcP3CIO */
+namespace zar {
+CZAR::CZAR(const char* name, CIO* io)
 	{
 		m_pFileAlloc = NULL;
 		m_databuffer = NULL;
@@ -267,8 +164,11 @@ namespace zar
 
 		m_root = new CKey("DEFAULT_ZAR_NAME");
 	}
+}
 
-	CZAR::~CZAR()
+/* @socom-skeleton body __dt__Q23zar4CZARFv */
+namespace zar {
+CZAR::~CZAR()
 	{
 		if (m_pFile != NULL)
 		{
@@ -278,8 +178,39 @@ namespace zar
 			}
 		}
 	}
+}
 
-	void CZAR::Close()
+/* @socom-skeleton body SetFilename__Q23zar4CZARFPCc */
+namespace zar {
+void CZAR::SetFilename(const char* name)
+	{
+		if (m_filename && m_filename != "DEFAULT_ZAR_NAME")
+		{
+			if (name == m_filename)
+				return;
+
+			zfree(m_filename);
+			m_filename = NULL;
+		}
+
+		if (!name || name == "DEFAULT_ZAR_NAME")
+			m_filename = "DEFAULT_ZAR_NAME";
+		else
+			m_filename = zstrdup(name);
+	}
+}
+
+/* @socom-skeleton body CloseKeepDir__Q23zar4CZARFv */
+namespace zar {
+void CZAR::CloseKeepDir()
+	{
+		m_pFile->Close();
+	}
+}
+
+/* @socom-skeleton body Close__Q23zar4CZARFv */
+namespace zar {
+void CZAR::Close()
 	{
 		if (!m_pFile)
 			return;
@@ -309,8 +240,11 @@ namespace zar
 
 		m_root->erase(m_root->begin(), m_root->end());
 	}
+}
 
-	void CZAR::Close(bool clearBuffer)
+/* @socom-skeleton body Close__Q23zar4CZARFb */
+namespace zar {
+void CZAR::Close(bool clearBuffer)
 	{
 		if (!m_pFileAlloc)
 		{
@@ -331,102 +265,40 @@ namespace zar
 
 		m_stable->Destroy();
 	}
+}
 
-	void CZAR::CloseKeepDir()
+/* @socom-skeleton body ReOpen__Q23zar4CZARFiUi */
+unsigned char zar::CZAR::ReOpen(int appver, unsigned int mode)
 	{
-		m_pFile->Close();
-	}
-
-	CKey* CZAR::CreateKey(const char* name)
-	{
-		CKey* key = NULL;
-
-		// TODO:
-		// Redo this function definition
-
-		return key;
-	}
-
-	CKey* CZAR::NewKey(const char* name)
-	{
-		CKey* key = NULL;
-
-		if (!name)
+		if (!m_pFileAlloc)
 		{
-			m_key_buffer.insert(m_key_buffer.begin(), new CKey());
+			m_pFileAlloc = new CFileIO();
+			m_pFile = new CBufferIO();
 		}
-		else
+		
+		if (!m_pFileAlloc->IsOpen())
+			return true;
+
+		if (!m_filename)
+			return false;
+
+		if (m_pFileAlloc->Open(m_filename))
 		{
-			char* keyName = m_stable->CreateString(name);
-			key = new CKey(keyName);
-			m_key_buffer.insert(m_key_buffer.begin(), key);
+			SetFilename(m_filename);
+			m_data_padded = 16;
+
+			if (ReadDirectory(appver, mode)) 
+				m_tail.appversion = appver;
+			else 
+				Close();
 		}
 
-		key = m_key_buffer.front();
-
-		return key;
+		return false;
 	}
 
-	CKey* CZAR::FindKey(const char* name)
-	{
-		CKey* key = NULL;
-
-		if (m_keys.empty())
-			key = m_root;
-		else
-			key = m_keys.front();
-
-		if (key != NULL)
-			return key->FindKey(name);
-
-		return key;
-	}
-
-	CKey* CZAR::OpenKey(const char* keyName)
-	{
-		CKey* key = NULL;
-
-		if (!m_pFile)
-			return NULL;
-
-		if (!m_pFile->IsOpen())
-			return NULL;
-
-		if (m_keys.empty())
-			key = m_root;
-		else
-			key = m_keys.front();
-
-		key = key->FindKey(keyName);
-
-		if (key)
-			m_keys.insert(m_keys.begin(), key);
-
-		return key;
-	}
-
-	CKey* CZAR::OpenKey(CKey* key)
-	{
-		if (!key)
-			return NULL;
-
-		m_keys.insert(m_keys.begin(), key);
-		return key;
-	}
-
-	CKey* CZAR::GetOpenKey() const
-	{
-		CKey* key;
-
-		if (m_keys.empty())
-			key = m_root;
-		else
-			key = m_keys.front();
-
-		return key;
-	}
-
-	bool CZAR::Open(const char* name, s32 version, u32 mode, size_t padded_size)
+/* @socom-skeleton body Open__Q23zar4CZARFPCciUiUi */
+namespace zar {
+bool CZAR::Open(const char* name, s32 version, u32 mode, size_t padded_size)
 	{
 		if (!name)
 			return false;
@@ -488,160 +360,120 @@ namespace zar
 
 		return false;
 	}
-	
-	bool CZAR::ReOpen(s32 appver, s32 mode)
+}
+
+/* @socom-skeleton body CreateKey__Q23zar4CZARFPCc */
+namespace zar {
+CKey* CZAR::CreateKey(const char* name)
 	{
-		if (!m_pFileAlloc)
-		{
-			m_pFileAlloc = new CFileIO();
-			m_pFile = new CBufferIO();
-		}
-		
-		if (!m_pFileAlloc->IsOpen())
-			return true;
+		CKey* key = NULL;
 
-		if (!m_filename)
-			return false;
+		// TODO:
+		// Redo this function definition
 
-		if (m_pFileAlloc->Open(m_filename))
-		{
-			SetFilename(m_filename);
-			m_data_padded = 16;
-
-			if (ReadDirectory(appver, mode)) 
-				m_tail.appversion = appver;
-			else 
-				Close();
-		}
-
-		return false;
+		return key;
 	}
-	
-	void CZAR::CloseKey(CKey* key)
+}
+
+/* @socom-skeleton body CloseKey__Q23zar4CZARFPQ23zar4CKey */
+namespace zar {
+void CZAR::CloseKey(CKey* key)
 	{
 		if (key && !m_keys.empty())
 			m_keys.erase(m_keys.begin());
 	}
+}
 
-	bool CZAR::Insert(zar::CKey* key, void* buf, size_t size)
+/* @socom-skeleton body OpenKey__Q23zar4CZARFPCc */
+namespace zar {
+CKey* CZAR::OpenKey(const char* keyName)
 	{
-		s32 keySize, writeOffset, position, keyPad = 0;
-		char padChar = 0;
-		bool validPosition, validOffset = false;
+		CKey* key = NULL;
 
-		if (!buf)
-			return false;
+		if (!m_pFile)
+			return NULL;
 
-		if (size <= 0)
-			return false;
+		if (!m_pFile->IsOpen())
+			return NULL;
 
-		keySize = size;
-
-		position = m_pFile->fseek(0, SEEK_END);
-		validPosition = position != -1;
-
-		if (!validPosition)
-			return false;
-
-		if (!m_bSecure)
-		{
-			writeOffset = m_pFile->fwrite(buf, size);
-		}
+		if (m_keys.empty())
+			key = m_root;
 		else
-		{
-			void* arrBuf = calloc(1, size);
-			void* dest = arrBuf;
-			memcpy(dest, buf, size);
+			key = m_keys.front();
 
-			ZAR_SECURE(m_bSecure, buf, size)
-		}
+		key = key->FindKey(keyName);
 
-		validOffset = size == writeOffset;
+		if (key)
+			m_keys.insert(m_keys.begin(), key);
 
-		if (!validOffset)
-			return false;
+		return key;
+	}
+}
 
-		key->m_offset = position;
-		key->m_size = size;
+/* @socom-skeleton body FindKey__Q23zar4CZARFPCc */
+namespace zar {
+CKey* CZAR::FindKey(const char* name)
+	{
+		CKey* key = NULL;
 
-		keyPad = size % m_data_padded;
-		keySize = 0;
+		if (m_keys.empty())
+			key = m_root;
+		else
+			key = m_keys.front();
 
-		if (keyPad != 0)
-			keySize = m_data_padded - keyPad;
+		if (key != NULL)
+			return key->FindKey(name);
 
-		padChar = '�';
+		return key;
+	}
+}
 
-		if (!m_bSecure)
-			padChar = 'P';
+/* @socom-skeleton body OpenKey__Q23zar4CZARFPQ23zar4CKey */
+namespace zar {
+CKey* CZAR::OpenKey(CKey* key)
+	{
+		if (!key)
+			return NULL;
 
-		for (s32 i = 0; i < keySize; i++)
-			m_pFile->fwrite(&padChar, 1);
+		m_keys.insert(m_keys.begin(), key);
+		return key;
+	}
+}
 
-		return true;
+/* @socom-skeleton body GetOpenKey__Q23zar4CZARFv */
+zar::CKey * zar::CZAR::GetOpenKey()
+	{
+		CKey* key;
+
+		if (m_keys.empty())
+			key = m_root;
+		else
+			key = m_keys.front();
+
+		return key;
 	}
 
-	CKey* CZAR::Insert(const char* name, void* buf, size_t size)
+/* @socom-skeleton body GetSize__Q23zar4CZARFPCc */
+namespace zar {
+size_t CZAR::GetSize(const char* name)
 	{
-		CKey* newKey = NewKey(name);
-		CKey* openKey = GetOpenKey();
+		CKey* key = NULL;
 
-		bool insertionSuccess = Insert(newKey, buf, size);
+		if (m_keys.empty()) key = m_root;
+		else key = m_root->front();
 
-		if (!insertionSuccess && newKey)
-		{
-			delete newKey;
-			newKey = NULL;
-		}
-		else
-		{
-			openKey->InsertKey(newKey);
-		}
+		key = key->FindKey(name);
 
-		return newKey;
+		if (!key) return -1;
+		else return key->m_size;
+
+		return 0;
 	}
+}
 
-	CKey* CZAR::Insert(const char* name, u32 value)
-	{
-		CKey* newKey = NewKey(name);
-		CKey* openKey = GetOpenKey();
-
-		bool insertionSuccess = Insert(newKey, &value, sizeof(value));
-
-		if (!insertionSuccess && newKey)
-		{
-			delete newKey;
-			newKey = NULL;
-		}
-		else
-		{
-			openKey->InsertKey(newKey);
-		}
-
-		return newKey;
-	}
-
-	CKey* CZAR::Insert(const char* name, s32 value)
-	{
-		CKey* newKey = NewKey(name);
-		CKey* openKey = GetOpenKey();
-
-		bool insertionSuccess = Insert(newKey, &value, sizeof(value));
-
-		if (!insertionSuccess && newKey)
-		{
-			delete newKey;
-			newKey = NULL;
-		}
-		else
-		{
-			openKey->InsertKey(newKey);
-		}
-
-		return newKey;
-	}
-
-	bool CZAR::ReadDirectory(s32 appver, u32 mode)
+/* @socom-skeleton body ReadDirectory__Q23zar4CZARFiUi */
+namespace zar {
+bool CZAR::ReadDirectory(s32 appver, u32 mode)
 	{
 		CBufferIO bufferIO;
 		size_t key_size = 0;
@@ -739,128 +571,94 @@ namespace zar
 
 		return true;
 	}
+}
 
-	bool CZAR::ReadDirectory_V2(s32 appver, u32 mode)
+/* @socom-skeleton body ReleaseDataBuffer__Q23zar4CZARFv */
+namespace zar {
+void* CZAR::ReleaseDataBuffer()
 	{
-		CBufferIO bufferIO;
-		s32 padding, key_ofs = 0;
-		size_t key_size, header_size = 0;
+		void* buffer = NULL;
 
-		void* stable_ptr = NULL;
-		void* key_ptr = NULL;
+		if (!m_databuffer)
+			return NULL;
 		
-		// No file memory allocator?
-		if (!m_pFileAlloc)
-			return false;
+		CBufferIO* fileAlloc = dynamic_cast<CBufferIO*>(m_pFile);
 
-		// Is the file open?
-		if (!m_pFileAlloc->IsOpen())
-			return false;
+		if (fileAlloc)
+			fileAlloc->Release();
 
-		// Is the file corrupted/invalid?
-		if (m_pFileAlloc->fseek(0, SEEK_SET) == -1)
-			return false;
+		buffer = m_databuffer;
+		m_databuffer = NULL;
 
-		header_size = m_pFileAlloc->fread(&m_head, sizeof(HEAD));
+		return buffer;
+	}
+}
 
-		if (header_size != sizeof(HEAD))
-			return false;
+/* @socom-skeleton body fixupKey__Q23zar4CKeyFP7CSTablePv */
+void zar::CKey::fixupKey(CSTable *table, void *key)
+	{
+		char* keyname = table->FindString(key->m_name);
+		key->m_name = keyname;
 
-		// Deobfuscate the header.
-		Unsecurify(&m_head, sizeof(HEAD));
-		
-		// Is this ZAR version compatible?
-		if (m_head.version != ZAR_VERSION_2)
-			return false;
+		auto key_iterator = key->begin();
 
-		stable_ptr = zmalloc(m_head.stable_size);
-
-		// Read key names into memory.
-		m_pFileAlloc->fread(stable_ptr, m_head.stable_size);
-
-		// Deobfuscate the string table contents.
-		Unsecurify(stable_ptr, m_head.stable_size);
-
-		// If a table already exists, destroy it.
-		// Populate the new table with our strings.
-		m_stable->Destroy();
-		m_stable->LoadTable(stable_ptr, m_head.stable_size, true);
-
-		// Clean out the key buffers and prepare them for new keys.
-		// A reservation here is made to reduce future allocations.
-		m_key_buffer.clear();
-		m_key_buffer.reserve(m_head.key_count);
-
-		m_root->erase(m_root->begin(), m_root->end());
-
-		key_size = (s64)m_head.key_count << 4;
-		key_ptr = malloc(key_size);
-
-		// Begin reading key bytes into memory.
-		// ZAR keys have the option of being "securified",
-		// which means their data is scrambled.
-		m_pFileAlloc->fread(key_ptr, key_size);
-		Unsecurify(key_ptr, key_size);
-
-		bufferIO.Open(key_ptr, key_size);
-
-		// Keys can contain other keys. The root kickstarts the process of
-		// adding its children to their keyring.
-		// 
-		// ZAR headers have a field to keep track of where the string table
-		// should be put in memory. (m_tail.stable_ofs)
-		// 
-		// The field is then subtracted from where the string table is allocated,
-		// which is then used as an input here to retrieve what the key's name is in memory.
-		m_root->Read(this, &bufferIO, (s64)stable_ptr - m_head.stable_ofs);
-		bufferIO.Close();
-
-		// Calculate the alignment per key.
-		// This is a new field exclusive to SOCOM 1 and beyond.
-		padding = m_head.padding;
-		key_ofs = key_size + m_head.stable_size + sizeof(HEAD);
-		s32 align = key_ofs % padding;
-
-		padding = !align ? 0 : padding - align;
-
-		m_pFileAlloc->fseek(padding, SEEK_CUR);
-
-		if ((mode & 32) == 0)
+		for (auto i = key->begin(); i != key->end(); i++)
 		{
-			if (header_size != 0)
-			{
-				m_databuffer_size = m_head.offset;
-				m_databuffer = zmalloc(m_databuffer_size);
-				m_rootOffset = padding + key_ofs;
-				m_pFileAlloc->fseek(m_rootOffset, SEEK_CUR);
-				m_pFileAlloc->fread(m_databuffer, m_databuffer_size);
-				Unsecurify(m_databuffer, m_databuffer_size);
+			CKey* child = *key_iterator;
 
-				if (m_pFileAlloc != NULL)
-				{
-					m_pFileAlloc->Close();
-					delete m_pFileAlloc;
+			char* childname = table->FindString(child->m_name);
+			child->m_name = childname;
 
-					m_pFile = NULL;
-					m_pFileAlloc = NULL;
-
-					m_pFileAlloc = new CFileIO();
-					m_pFile = new CBufferIO();
-
-					m_pFile->Open(m_databuffer, m_databuffer_size);
-					m_rootOffset = 0;
-				}
-			}
+			for (auto j = child->begin(); j != child->end(); j++)
+				fixupKey(table, *j);
 		}
-		else
-		{
-			m_rootOffset = padding + key_ofs;
-		}
-
-		return true;
 	}
 
-	bool CZAR::WriteDirectory()
+/* @socom-skeleton body _countKeys__FPQ23zar4CKey */
+s32 _countKeys(zar::CKey* key)
+{
+    s32 count = 1;
+
+    auto base_it = key->begin();
+
+    while (base_it != key->end())
+    {
+        zar::CKey* level1_key = *base_it;
+        s32 count_lvl1 = 1;
+
+        auto level1_it = level1_key->begin();
+
+        while (level1_it != level1_key->end())
+        {
+            zar::CKey* level2_key = *level1_it;
+            s32 count_lvl2 = 1;
+
+            auto level2_it = level2_key->begin();
+            
+            while (level2_it != level2_key->end())
+            {
+                zar::CKey* level3_key = *level2_it;
+                
+                s32 count_lvl3 = _countKeys(level3_key);
+                count_lvl2 = count_lvl2 + count_lvl3;
+
+                ++level2_it;
+            }
+
+            ++level1_it;
+            count_lvl1 = count_lvl1 + count_lvl2;
+        }
+        
+        ++base_it;
+        count = count + count_lvl1;
+    }
+
+    return count;
+}
+
+/* @socom-skeleton body WriteDirectory__Q23zar4CZARFv */
+namespace zar {
+bool CZAR::WriteDirectory()
 	{
 		bool success = false;
 
@@ -909,113 +707,27 @@ namespace zar
 
 		return true;
 	}
+}
 
-	bool CZAR::WriteDirectory(FILE* file)
-	{
-		bool success = false;
-
-		if (!file)
-			return false;
-
-		fwrite((void*)m_pFile->m_file, 1, m_pFile->m_filesize, file);
-
-		if (fseek(file, 0, SEEK_END) == -1)
-			return false;
-
-		m_tail.version = ZAR_VERSION_1;
-		m_tail.offset = ftell(file);
-		m_tail.key_count = _countKeys(m_root);
-		m_stable->Pack(CKey::fixupKey, m_root);
-		m_tail.stable_size = m_stable->m_bytes;
-		m_tail.stable_ofs = (s32)m_stable->m_buffer;
-
-		if (!m_bSecure)
-		{
-			fwrite(m_stable->m_buffer, 1, m_stable->m_bytes, file);
-			s32 pos = ftell(file);
-			s32 align = pos % 16;
-			s32 nextpos = 16 - align;
-			char padding = '\0';
-
-			for (u32 i = 0; i < nextpos; i++)
-				fwrite(&padding, 1, 1, file);
-		}
-		else
-		{
-			void* array = zcalloc(1, m_stable->m_bytes);
-			memcpy(array, m_stable->m_buffer, m_stable->m_bytes);
-			Securify(array, m_stable->m_bytes);
-			m_pFile->fwrite(array, m_stable->m_bytes);
-			zfree(array);
-		}
-
-		m_root->Write(this, file);
-		Securify(&m_tail, sizeof(TAIL));
-		fwrite(&m_tail, 1, sizeof(TAIL), file);
-		Unsecurify(&m_tail, sizeof(TAIL));
-
-		m_modified = false;
-
-		return success;
-	}
-	
-	size_t CZAR::GetSize(const char* name)
+/* @socom-skeleton body NewKey__Q23zar4CZARFPCc */
+namespace zar {
+CKey* CZAR::NewKey(const char* name)
 	{
 		CKey* key = NULL;
 
-		if (m_keys.empty()) key = m_root;
-		else key = m_root->front();
-
-		key = key->FindKey(name);
-
-		if (!key) return -1;
-		else return key->m_size;
-
-		return 0;
-	}
-
-	void* CZAR::ReleaseDataBuffer()
-	{
-		void* buffer = NULL;
-
-		if (!m_databuffer)
-			return NULL;
-		
-		CBufferIO* fileAlloc = dynamic_cast<CBufferIO*>(m_pFile);
-
-		if (fileAlloc)
-			fileAlloc->Release();
-
-		buffer = m_databuffer;
-		m_databuffer = NULL;
-
-		return buffer;
-	}
-
-	void CZAR::SetFilename(const char* name)
-	{
-		if (m_filename && m_filename != "DEFAULT_ZAR_NAME")
+		if (!name)
 		{
-			if (name == m_filename)
-				return;
-
-			zfree(m_filename);
-			m_filename = NULL;
+			m_key_buffer.insert(m_key_buffer.begin(), new CKey());
+		}
+		else
+		{
+			char* keyName = m_stable->CreateString(name);
+			key = new CKey(keyName);
+			m_key_buffer.insert(m_key_buffer.begin(), key);
 		}
 
-		if (!name || name == "DEFAULT_ZAR_NAME")
-			m_filename = "DEFAULT_ZAR_NAME";
-		else
-			m_filename = zstrdup(name);
-	}
+		key = m_key_buffer.front();
 
-	void CZAR::Securify(void* buf, size_t size)
-	{
-		ZAR_SECURE(m_bSecure, buf, size)
-	}
-
-	void CZAR::Unsecurify(void* buf, size_t size)
-	{
-		ZAR_SECURE(m_bSecure, buf, size)
+		return key;
 	}
 }

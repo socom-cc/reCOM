@@ -42,3 +42,122 @@
  * @socom-artifact defines main socom:data:0x475c44
  * @socom-artifact defines main socom:data:0x475c48
  * socom-owner-annotations end socom:work:source-segment-076 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "gamez/zTexture/ztex.h"
+#include "zparticle.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+unsigned char std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+unsigned char std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub distanceFactor__Q28Particle6Source */
+float Particle::Source::distanceFactor;
+
+/* @socom-skeleton stub frequencyFactor__Q28Particle6Source */
+float Particle::Source::frequencyFactor;
+
+/* @socom-skeleton stub referencePositionW__Q28Particle6Source */
+float Particle::Source::referencePositionW[3];
+
+/* @socom-skeleton stub list__Q28Particle6Source */
+unsigned char Particle::Source::list[12];
+
+/* @socom-skeleton stub Uninit__Q38Particle6Source4ListFv */
+void Particle::Source::List::Uninit()
+{
+}
+
+/* @socom-skeleton stub Create__Q28Particle6SourceFv */
+Particle::Source * Particle::Source::Create()
+{
+}
+
+/* @socom-skeleton stub TexturesClear__Q28Particle6SourceFv */
+void Particle::Source::TexturesClear()
+{
+}
+
+/* @socom-skeleton stub Default__Q28Particle6SourceFv */
+void Particle::Source::Default()
+{
+}
+
+/* @socom-skeleton stub TexturesAdd__Q28Particle6SourceFPQ23zdb10CTexHandle */
+void Particle::Source::TexturesAdd(zdb::CTexHandle *)
+{
+}
+
+/* @socom-skeleton stub TextureSequenceClear__Q28Particle6SourceFv */
+void Particle::Source::TextureSequenceClear()
+{
+}
+
+/* @socom-skeleton stub TextureSequenceAdd__Q28Particle6SourceFfPQ23zdb10CTexHandle */
+void Particle::Source::TextureSequenceAdd(float, zdb::CTexHandle *)
+{
+}
+
+/* @socom-skeleton stub ColorSequenceClear__Q28Particle6SourceFv */
+void Particle::Source::ColorSequenceClear()
+{
+}
+
+/* @socom-skeleton stub ColorSequenceAdd__Q28Particle6SourceFfffff */
+void Particle::Source::ColorSequenceAdd(float, float, float, float, float)
+{
+}
+
+/* @socom-skeleton stub ScaleSequenceClear__Q28Particle6SourceFv */
+void Particle::Source::ScaleSequenceClear()
+{
+}
+
+/* @socom-skeleton stub ScaleSequenceAdd__Q28Particle6SourceFff */
+void Particle::Source::ScaleSequenceAdd(float, float)
+{
+}
+
+/* @socom-skeleton stub __ct__Q28Particle6SourceFv */
+Particle::Source::Source()
+{
+}
+
+/* @socom-skeleton stub __dt__Q28Particle6SourceFv */
+Particle::Source::~Source()
+{
+}
+
+/* @socom-skeleton stub Tick__Q28Particle6SourceFf */
+void Particle::Source::Tick(float)
+{
+}
+
+/* @socom-skeleton stub SetActive__Q28Particle6SourceFb */
+void Particle::Source::SetActive(bool)
+{
+}
+
+/* @socom-skeleton stub Reset__Q28Particle6SourceFv */
+void Particle::Source::Reset()
+{
+}
+
+/* @socom-skeleton stub CheckExtents__Q28Particle6SourceF6CPnt4Df */
+void Particle::Source::CheckExtents(CPnt4D, float)
+{
+}
+
+/* @socom-skeleton stub GetBBox__Q28Particle6SourceFP5CBBox */
+void Particle::Source::GetBBox(CBBox *)
+{
+}
+
+/* @socom-skeleton stub RenderBBox__Q28Particle6SourceFv */
+void Particle::Source::RenderBBox()
+{
+}

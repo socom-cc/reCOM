@@ -14,12 +14,23 @@
 #include "gamez/zAnim/zanim.h"
 #include "gamez/zGame/zgame.h"
 
-_options gopt;
+/* @socom-skeleton stub goptind */
+int goptind = 1;
 
-void process_arguments(int argc, char** argv)
+/* @socom-skeleton stub gopterr */
+int gopterr = 1;
+
+/* @socom-skeleton stub goptarg */
+char *goptarg;
+
+/* @socom-skeleton stub goptopt */
+int goptopt;
+
+/* @socom-skeleton stub getopt__FiPCPcPCc */
+int getopt(int, char *const *, const char *)
 {
-	zSys.cdSounds = false;
-	CZAnimMain::m_LoadFromZAR = true;
-
-	
+	/* @socom-skeleton stub optchr$20 */
+	static int optchr;
+	/* @socom-skeleton stub dash$23 */
+	static int dash;
 }

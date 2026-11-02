@@ -43,80 +43,152 @@
 
 #include "zanim.h"
 
-bool zAnimQuadAlignTick(_zanim_cmd_hdr* header, f32* dT)
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/znode.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class _zanim_object_motion_script;
+class zanim_script_frame_header;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+unsigned char std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+unsigned char std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub zAnimDestructorTick__FP14_zanim_cmd_hdrPf */
+bool zAnimDestructorTick(_zanim_cmd_hdr *, float *)
 {
-    return true;
 }
 
-bool zAnimIfTick(_zanim_cmd_hdr* header, f32* dT)
+/* @socom-skeleton stub zAnimTimerTick__FP14_zanim_cmd_hdrPf */
+bool zAnimTimerTick(_zanim_cmd_hdr *, float *)
 {
-    ZAnim.m_CurSeq->m_IF_NestLevel++;
-
-    while (!CZAnimExpression::ProcExpr(dT))
-    {
-        _zanim_cmd_hdr* header = NULL;
-        bool evaluated = false;
-
-        while (!evaluated)
-        {
-            if (!ZAnim.CmdValid())
-            {
-                evaluated = true;
-                break;
-            }
-
-            if (ZAnim.m_CurSeq)
-                header = reinterpret_cast<_zanim_cmd_hdr*>(ZAnim.m_CurSeq->cmd_pc);
-
-            if (header->data_type != ZAnim.m_cmd_else.data_type)
-                if (header->data_type != ZAnim.m_cmd_elseif.data_type)
-                    if (header->data_type != ZAnim.m_cmd_endif.data_type)
-                        continue;
-
-            if (header->data_size == ZAnim.m_CurSeq->m_IF_NestLevel)
-            {
-                evaluated = true;
-                if (header->data_type == ZAnim.m_cmd_endif.data_type)
-                    ZAnim.m_CurSeq->m_IF_NestLevel--;
-            }
-        }
-
-        if (!ZAnim.m_CurSeq)
-            header = NULL;
-        else
-            header = reinterpret_cast<_zanim_cmd_hdr*>(ZAnim.m_CurSeq->cmd_pc);
-
-        if (header->data_type != ZAnim.m_cmd_elseif.data_type)
-            evaluated = true;
-    }
-
-    return true;
 }
 
-bool zAnimWhileTick(_zanim_cmd_hdr* header, f32* dT)
+/* @socom-skeleton stub zAnimMessageTick__FP14_zanim_cmd_hdrPf */
+bool zAnimMessageTick(_zanim_cmd_hdr *, float *)
 {
-    // what does this even mean
-    if (header[1].data_type == 0)
-    {
-        ZAnim.CmdNext(8);
-        if (CZAnimExpression::ProcExpr(dT))
-            ZAnim.CmdSet(header[1].data_size);
-    }
-
-    return true;
 }
 
-bool zAnimEndIfTick(_zanim_cmd_hdr* header, f32* dT)
+/* @socom-skeleton stub zAnimParticleSourceTick__FP14_zanim_cmd_hdrPf */
+bool zAnimParticleSourceTick(_zanim_cmd_hdr *, float *)
 {
-    ZAnim.m_CurSeq->m_IF_NestLevel--;
-    return true;
 }
 
-bool zAnimGoToEndIf(_zanim_cmd_hdr* header, f32* dT)
+/* @socom-skeleton stub zAnimCameraBegin__FP14_zanim_cmd_hdr */
+void zAnimCameraBegin(_zanim_cmd_hdr *)
 {
-    return true;
 }
 
+/* @socom-skeleton stub zAnimCameraTick__FP14_zanim_cmd_hdrPf */
+bool zAnimCameraTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimSoundTick__FP14_zanim_cmd_hdrPf */
+bool zAnimSoundTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimLightTick__FP14_zanim_cmd_hdrPf */
+bool zAnimLightTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimObjectBlendModeTick__FP14_zanim_cmd_hdrPf */
+bool zAnimObjectBlendModeTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimObjectActiveStateTick__FP14_zanim_cmd_hdrPf */
+bool zAnimObjectActiveStateTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimObjectTranslateStateTick__FP14_zanim_cmd_hdrPf */
+bool zAnimObjectTranslateStateTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimObjectRotateStateTick__FP14_zanim_cmd_hdrPf */
+bool zAnimObjectRotateStateTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimObjectMotionBegin__FP14_zanim_cmd_hdr */
+void zAnimObjectMotionBegin(_zanim_cmd_hdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimObjectMotionTick__FP14_zanim_cmd_hdrPf */
+bool zAnimObjectMotionTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub ComputeRunTime__15CZAnimFromToAccFP6CPnt3DP6CPnt3D */
+void CZAnimFromToAcc::ComputeRunTime(CPnt3D *, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub Tick__15CZAnimFromToAccFfP6CPnt3D */
+void CZAnimFromToAcc::Tick(float, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub zAnimObjectMotionFromToBegin__FP14_zanim_cmd_hdr */
+void zAnimObjectMotionFromToBegin(_zanim_cmd_hdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimObjectMotionFromToTick__FP14_zanim_cmd_hdrPf */
+bool zAnimObjectMotionFromToTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimObjectOpacityFromToBegin__FP14_zanim_cmd_hdr */
+void zAnimObjectOpacityFromToBegin(_zanim_cmd_hdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimObjectOpacityFromToTick__FP14_zanim_cmd_hdrPf */
+bool zAnimObjectOpacityFromToTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub apply_script_frame__FP27_zanim_object_motion_scriptP16_zanim_si_scriptPQ23zdb5CNodeP25zanim_script_frame_headerfPf */
+void apply_script_frame(_zanim_object_motion_script *, _zanim_si_script *, zdb::CNode *, zanim_script_frame_header *, float, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimObjectMotionScriptTick__FP14_zanim_cmd_hdrPf */
+bool zAnimObjectMotionScriptTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimMultiObjectMotionScriptBegin__FP14_zanim_cmd_hdr */
+void zAnimMultiObjectMotionScriptBegin(_zanim_cmd_hdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimMultiObjectMotionScriptTick__FP14_zanim_cmd_hdrPf */
+bool zAnimMultiObjectMotionScriptTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimObjectAddChildTick__FP14_zanim_cmd_hdrPf */
+bool zAnimObjectAddChildTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimObjectDeleteChildTick__FP14_zanim_cmd_hdrPf */
+bool zAnimObjectDeleteChildTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton body zAnimLoopTick__FP14_zanim_cmd_hdrPf */
 bool zAnimLoopTick(_zanim_cmd_hdr* header, f32* dT)
 {
     ZAnim.m_CurSeq->loop_counter++;
@@ -141,6 +213,12 @@ bool zAnimLoopTick(_zanim_cmd_hdr* header, f32* dT)
     return false;
 }
 
+/* @socom-skeleton stub zAnimWaitBegin__FP14_zanim_cmd_hdr */
+void zAnimWaitBegin(_zanim_cmd_hdr *)
+{
+}
+
+/* @socom-skeleton body zAnimWaitTick__FP14_zanim_cmd_hdrPf */
 bool zAnimWaitTick(_zanim_cmd_hdr* header, f32* dT)
 {
     bool status = false;
@@ -188,6 +266,47 @@ bool zAnimWaitTick(_zanim_cmd_hdr* header, f32* dT)
     return status;
 }
 
+/* @socom-skeleton body IsOperator__16CZAnimExpressionFPCc */
+bool CZAnimExpression::IsOperator(const char* operation)
+{
+    bool is_not = strcmp(operation, "!") == 0;
+    bool is_and = strcmp(operation, "&&") == 0;
+    bool is_or = strcmp(operation, "||") == 0;
+    bool is_start_tag = strcmp(operation, "(") == 0;
+    bool is_end_tag = strcmp(operation, ")") == 0;
+    
+    if (is_not || is_and || is_or || is_start_tag || is_end_tag)
+    {
+        return true;
+    }
+
+    return false;
+}
+
+/* @socom-skeleton body ProcExpr__16CZAnimExpressionFPf */
+bool CZAnimExpression::ProcExpr(f32* dT)
+{
+    s8* program_counter = NULL;
+    
+    if (!ZAnim.m_CurSeq)
+    {
+        return false;
+    }
+    else
+    {
+        program_counter = ZAnim.m_CurSeq->cmd_pc;
+    }
+
+    do
+    {
+        
+    }
+    while (true);
+
+    return true;
+}
+
+/* @socom-skeleton body NewCmd__16CZAnimExpressionFPCc */
 _zanim_cmd_hdr* CZAnimExpression::NewCmd(const char* operation)
 {
     if (operation)

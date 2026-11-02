@@ -21,3 +21,26 @@
  * socom-owner-annotations end socom:work:source-segment-076 */
 
 #include "zfts.h"
+
+/* @socom-skeleton decl include */
+#include "gamez/zIntersect/zintersect.h"
+#include "gamez/zMath/zmath.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub di */
+static int di[9];
+
+/* @socom-skeleton stub hit */
+static float hit[8];
+
+/* @socom-skeleton stub ftsGetAltitudeApprox__FPC6CPnt3Dfb */
+zdb::IntersectStruct * ftsGetAltitudeApprox(const CPnt3D *, float, bool)
+{
+	/* @socom-skeleton stub useaimap$2199 */
+	static unsigned char useaimap;
+	/* @socom-skeleton stub compare$2202 */
+	static unsigned char compare;
+}

@@ -72,12 +72,41 @@
 #include "gamez/zUtil/util_stable.h"
 #include "posix/strcasecmp.h"
 
-CGameDlgDesign::CGameDlgDesign()
+/* @socom-skeleton decl include */
+#include "gamez/zReader/zrdr.h"
+#include "gamez/zTwoD/ztwod.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CCheckBoxSpec;
+namespace zdb {
+class CTextureRelocMgr;
+}
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub LoadDlgObjects__22@unnamed@zui_spec_cpp@FPQ23std58vector<13CDesignDlgObj,Q23std26allocator<13CDesignDlgObj>>P5_zrdrPCcPFP5_zrdrPCc_P11CDlgObjSpec */
+namespace {
+void LoadDlgObjects(std::vector<CDesignDlgObj, std::allocator<CDesignDlgObj> > *, _zrdr *, const char *, CDlgObjSpec *(*)(_zrdr *, const char *))
 {
-    m_useMpeg = false;
+}
 }
 
-CDlgObjSpec* GetObjectSpec(_zrdr* reader, char* name)
+/* @socom-skeleton stub __ct__10CImageSpecFP5_zrdr */
+CImageSpec::CImageSpec(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub CreateDisplayObj__10CImageSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
+void CImageSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+{
+}
+
+/* @socom-skeleton stub GetControlSpec__FP5_zrdrPCc */
+void GetControlSpec(_zrdr *, const char *)
+{
+}
+
+/* @socom-skeleton body GetObjectSpec__FP5_zrdrPCc */
+CDlgObjSpec * GetObjectSpec(_zrdr *reader, const char *name)
 {
     if (!name)
     {
@@ -186,36 +215,17 @@ CDlgObjSpec* GetObjectSpec(_zrdr* reader, char* name)
     }
 }
 
-void LoadDlgObjects(std::vector<CDesignDlgObj*>& objects, _zrdr* reader, char* name, CButtonSpec*(*SpecGetter)(_zrdr*, char*))
+/* @socom-skeleton stub Copy__12CCounterSpecFv */
+void CCounterSpec::Copy()
 {
-    auto dlg_object = zrdr_findtag(reader, name);
-
-    for (u32 i = 1; i < dlg_object->array->integer - 1; i++)
-    {
-        auto tag = &dlg_object->array[i];
-        
-        char* obj_name = zrdr_findstring(tag, "NAME");
-        char* obj_type = zrdr_findstring(tag, "TYPE");
-        s32 obj_xpos = 0;
-        s32 obj_ypos = 0;
-
-        zrdr_findint (tag, "XPOS", &obj_xpos);
-        zrdr_findint (tag, "YPOS", &obj_ypos);
-
-        auto spec_tag = zrdr_findtag(tag, "SPEC");
-
-        if (spec_tag)
-        {
-            CDlgObjSpec* spec = SpecGetter(spec_tag, obj_name);
-
-            if (spec)
-            {
-                objects.resize(objects.size() + 1);
-            }
-        }
-    }
 }
 
+/* @socom-skeleton stub CreateDisplayObj__12CCounterSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
+void CCounterSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+{
+}
+
+/* @socom-skeleton body LoadFromRdr__14CGameDlgDesignFP5_zrdr */
 void CGameDlgDesign::LoadFromRdr(_zrdr* reader)
 {
     if (auto background_tag = zrdr_findtag(reader, "BACKGROUND"))
@@ -259,28 +269,102 @@ void CGameDlgDesign::LoadFromRdr(_zrdr* reader)
     }
 }
 
-CUIVariableSpec::CUIVariableSpec(_zrdr* reader)
+/* @socom-skeleton stub LoadModels__14CGameDlgDesignFP5_zrdr */
+void CGameDlgDesign::LoadModels(_zrdr *)
 {
-    m_name = zrdr_findstring(reader, "NAME");
-    m_array = NULL;
-    m_stable = CSTable(0, 1024);
+}
 
-    _zrdr* var_value = zrdr_findtag(reader, "VALUE");
+/* @socom-skeleton stub __ct__11CButtonSpecFP5_zrdr */
+CButtonSpec::CButtonSpec(_zrdr *)
+{
+}
 
-    if (var_value && var_value->type == ZRDR_ARRAY && var_value->array->integer == 2)
-    {
-        if (var_value->array->integer == 1)
-        {
-            var_value = NULL;
-        }
-        else
-        {
-            var_value = &var_value[1];
-        }
-    }
+/* @socom-skeleton stub InitializeButton__11CButtonSpecCFP9C2DButtonPQ23zdb16CTextureRelocMgr */
+void CButtonSpec::InitializeButton(C2DButton *, zdb::CTextureRelocMgr *) const
+{
+}
 
-    if (var_value)
-    {
-        // m_array = new _zrdr(var_value, m_stable);
-    }
+/* @socom-skeleton stub CreateDisplayObj__11CButtonSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
+void CButtonSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+{
+}
+
+/* @socom-skeleton stub __ct__18CHandlerButtonSpecFP5_zrdr */
+CHandlerButtonSpec::CHandlerButtonSpec(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub __ct__14CUIListBoxSpecFP5_zrdr */
+CUIListBoxSpec::CUIListBoxSpec(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub CreateDisplayObj__14CUIListBoxSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
+void CUIListBoxSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+{
+}
+
+/* @socom-skeleton stub CreateDisplayObj__14CSliderBarSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
+void CSliderBarSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+{
+}
+
+/* @socom-skeleton stub CreateDisplayObj__17CHProgressBarSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
+void CHProgressBarSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+{
+}
+
+/* @socom-skeleton stub __ct__13CCheckBoxSpecFP5_zrdr */
+CCheckBoxSpec::CCheckBoxSpec(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub __ct__13CCheckBoxSpecFR13CCheckBoxSpec */
+CCheckBoxSpec::CCheckBoxSpec(CCheckBoxSpec &)
+{
+}
+
+/* @socom-skeleton stub CreateDisplayObj__13CCheckBoxSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
+void CCheckBoxSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+{
+}
+
+/* @socom-skeleton stub __ct__15CRadioStripSpecFP5_zrdr */
+CRadioStripSpec::CRadioStripSpec(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub __ct__16CCycleButtonSpecFP5_zrdr */
+CCycleButtonSpec::CCycleButtonSpec(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub __dt__13CDesignDlgObjFv */
+CDesignDlgObj::~CDesignDlgObj()
+{
+}
+
+/* @socom-skeleton stub __as__13CDesignDlgObjFRC13CDesignDlgObj */
+void CDesignDlgObj::operator=(const CDesignDlgObj &)
+{
+}
+
+/* @socom-skeleton stub __ct__14CUIMapCtrlSpecFP5_zrdr */
+CUIMapCtrlSpec::CUIMapCtrlSpec(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub CreateDisplayObj__14CUIMapCtrlSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
+void CUIMapCtrlSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+{
+}
+
+/* @socom-skeleton stub Copy__10CClockSpecFv */
+void CClockSpec::Copy()
+{
+}
+
+/* @socom-skeleton stub CreateDisplayObj__10CClockSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
+void CClockSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+{
 }

@@ -47,11 +47,245 @@
 #include "gamez/zSystem/zsys.h"
 #include "gamez/zUtil/util_stack.h"
 
-std::list<char*> zrdr_symbols;
+/* @socom-skeleton stub cur_zrdr_flags */
+static int cur_zrdr_flags;
 
-s32 defcount = 0;
-bool init = false;
+/* @socom-skeleton stub cur_zrdr_path */
+static unsigned char cur_zrdr_path[768];
 
+/* @socom-skeleton stub fstack */
+int fstack[3];
+
+/* @socom-skeleton stub zrdr_symbols */
+std::list<char *, std::allocator<char *> > zrdr_symbols;
+
+/* @socom-skeleton body pop__10CFileStackFb */
+void CFileStack::pop(bool close)
+{
+    if (!empty())
+    {
+        CBufferIO* top = front();
+
+        if (close)
+        {
+            top->Close();
+        }
+        else
+        {
+            top->Release();
+        }
+    }
+
+    erase(begin(), end());
+}
+
+/* @socom-skeleton body MakeUnion__8CRdrFileFPCcb */
+_zrdr* CRdrFile::MakeUnion(const char* name, bool isstr)
+{
+	char* end;
+	_zrdr* zunion = zrdr_alloc(sizeof(_zrdr), 1);
+	zunion->type = ZRDR_NULL;
+
+	size_t size = strlen(name);
+
+	if (!isstr && size > 0)
+	{
+		s64 inum = strtol(name, &end, 10);
+
+		if (size == end - name)
+		{
+			zunion->type = ZRDR_INTEGER;
+			zunion->integer = inum;
+			return zunion;
+		}
+
+		double dnum = strtod(name, &end);
+
+		if (size == end - name)
+		{
+			zunion->type = ZRDR_REAL;
+			zunion->real = dnum;
+			return zunion;
+		}
+	}
+
+	zunion->type = ZRDR_STRING;
+	char* str = m_strings.CreateString(name);
+	zunion->string = str;
+	return zunion;
+}
+
+/* @socom-skeleton body ValidateFormat__8CRdrFileFv */
+bool CRdrFile::ValidateFormat()
+{
+	CBufferIO* file = NULL;
+	char symbol = '\0';
+	bool validated = false;
+	bool endline = false;
+	bool comment = false;
+	s32 index = 0;
+	
+	do
+	{
+		while (true)
+		{
+			file = fstack.front();
+
+			// Reached end of file?
+			if (!file->fread(&symbol, 1))
+				break;
+
+			validated = true;
+			
+			if (!validated)
+			{
+				file->fseek(0, SEEK_SET);
+				return index == 0;
+			}
+
+			// Tag begin
+			if (symbol == '(')
+				if (!endline && !comment) index++;
+
+			// Tag end
+			if (symbol == ')')
+				if (!endline && !comment) index--;
+
+			// New-line
+			if (symbol == '\n')
+				if (!endline) comment = false;
+
+			// Carriage return
+			if (symbol == '\r')
+				if (!endline) comment = false;
+
+			// Comment
+			if (symbol == ';')
+				if (!endline) comment = true;
+
+			// Include path
+			if (symbol == '\"' && !comment)
+				endline = (bool)(endline ^ 1);
+		}
+
+		if (fstack.size() == 1)
+		{
+			validated = false;
+			file->fseek(0, SEEK_SET);
+			return index == 0;
+		}
+
+		fstack.pop(true);
+	} while (true);
+}
+
+/* @socom-skeleton body _get_pptoken__FPc */
+int _get_pptoken(char* token)
+{
+	s32 tokenidx = 0;
+	char preprocbuf[MAX_ZRDR_PATH_LEN + 1];
+	
+	do
+	{
+		bool valid = true;
+
+		while (true)
+		{
+			CBufferIO* file = fstack.front();
+			bool readtoken = file->fread(token, 1);
+
+			// Reached the end of the line?
+			if (!readtoken)
+			{
+				break;
+			}
+			
+			if (!valid)
+			{
+				return pptoken_undef;
+			}
+
+			if (isalpha(*token) != 0)
+			{
+				// #ifdef SYMBOL
+				if (strcmp(preprocbuf, "ifdef") == 0)
+				{
+					return pptoken_ifdef;
+				}
+
+				// #else
+				if (strcmp(preprocbuf, "else") == 0)
+				{
+					return pptoken_else;
+				}
+
+				// #endif
+				if (strcmp(preprocbuf, "endif") == 0)
+				{
+					return pptoken_endif;
+				}
+
+				// #include "path/to/rdr"
+				if (strcmp(preprocbuf, "include") == 0)
+				{
+					return pptoken_include;
+				}
+			}
+
+			if (tokenidx > MAX_ZRDR_PATH_LEN)
+			{
+				return pptoken_undef;
+			}
+
+			preprocbuf[tokenidx] = *token;
+			preprocbuf[tokenidx + 1] = '\0';
+			tokenidx++;
+		}
+
+		if (fstack.size() < 2)
+		{
+			valid = false;
+			return pptoken_undef;
+		}
+		
+		fstack.pop(true);
+	} while (true);
+}
+
+/* @socom-skeleton body _eval_defined__FPc */
+bool _eval_defined(char* token)
+{
+	s32 symidx = 0;
+	char symbolbuf[MAX_ZRDR_PATH_LEN + 1];
+	
+	while (fstack.size() > 2);
+	{
+		while (!fstack.front()->fread(token, 1))
+		{
+			if (symidx > MAX_ZRDR_PATH_LEN)
+				return false;
+
+			if (isalpha(*token))
+			{
+				symbolbuf[symidx] = *token;
+				symbolbuf[symidx + 1] = '\0';
+				symidx++;
+
+				for (auto i = zrdr_symbols.begin(); i != zrdr_symbols.end(); ++i)
+					if (strcmp(symbolbuf, *i) == 0)
+						return *i != zrdr_symbols.front();
+					
+			}
+		}
+
+		fstack.pop(true);
+	}
+	
+
+	return true;
+}
+
+/* @socom-skeleton body _preproc_filter__FPcb */
 bool _preproc_filter(char* token, bool param_2)
 {
 	bool done = false;
@@ -221,285 +455,7 @@ bool _preproc_filter(char* token, bool param_2)
 	return false;
 }
 
-int _get_pptoken(char* token)
-{
-	s32 tokenidx = 0;
-	char preprocbuf[MAX_ZRDR_PATH_LEN + 1];
-	
-	do
-	{
-		bool valid = true;
-
-		while (true)
-		{
-			CBufferIO* file = fstack.front();
-			bool readtoken = file->fread(token, 1);
-
-			// Reached the end of the line?
-			if (!readtoken)
-			{
-				break;
-			}
-			
-			if (!valid)
-			{
-				return pptoken_undef;
-			}
-
-			if (isalpha(*token) != 0)
-			{
-				// #ifdef SYMBOL
-				if (strcmp(preprocbuf, "ifdef") == 0)
-				{
-					return pptoken_ifdef;
-				}
-
-				// #else
-				if (strcmp(preprocbuf, "else") == 0)
-				{
-					return pptoken_else;
-				}
-
-				// #endif
-				if (strcmp(preprocbuf, "endif") == 0)
-				{
-					return pptoken_endif;
-				}
-
-				// #include "path/to/rdr"
-				if (strcmp(preprocbuf, "include") == 0)
-				{
-					return pptoken_include;
-				}
-			}
-
-			if (tokenidx > MAX_ZRDR_PATH_LEN)
-			{
-				return pptoken_undef;
-			}
-
-			preprocbuf[tokenidx] = *token;
-			preprocbuf[tokenidx + 1] = '\0';
-			tokenidx++;
-		}
-
-		if (fstack.size() < 2)
-		{
-			valid = false;
-			return pptoken_undef;
-		}
-		
-		fstack.pop(true);
-	} while (true);
-}
-
-bool _eval_defined(char* token)
-{
-	s32 symidx = 0;
-	char symbolbuf[MAX_ZRDR_PATH_LEN + 1];
-	
-	while (fstack.size() > 2);
-	{
-		while (!fstack.front()->fread(token, 1))
-		{
-			if (symidx > MAX_ZRDR_PATH_LEN)
-				return false;
-
-			if (isalpha(*token))
-			{
-				symbolbuf[symidx] = *token;
-				symbolbuf[symidx + 1] = '\0';
-				symidx++;
-
-				for (auto i = zrdr_symbols.begin(); i != zrdr_symbols.end(); ++i)
-					if (strcmp(symbolbuf, *i) == 0)
-						return *i != zrdr_symbols.front();
-					
-			}
-		}
-
-		fstack.pop(true);
-	}
-	
-
-	return true;
-}
-
-void _resolveA(_zrdr* self, _zrdr* root, char* name)
-{
-	if (self->type == ZRDR_STRING)
-		self->string = self->string - (s32)name;
-
-	if (self->type != ZRDR_ARRAY)
-		return;
-
-	for (u32 i = 1; self->array->integer; i++)
-	{
-		_zrdr* node = &self->array[i];
-
-		if (node->type == ZRDR_STRING)
-			node->string = node->string - (s32)name;
-
-		if (node->type == ZRDR_ARRAY)
-		{
-			for (u32 j = 1; j < node->array->integer; j++)
-				_resolveA(&node->array[j], root, name);
-
-			node->string = self->string - (s32)name;
-		}
-	}
-
-	self->string = self->string - (s32)name;
-}
-
-void _resolveB(_zrdr* self, _zrdr* root, char* name)
-{
-	if (self->type == ZRDR_STRING)
-	{
-		// Assign string pointer to point at the entry in the string table
-		self->string += (s32)name;
-	}
-
-	if (self->type != ZRDR_ARRAY)
-		return;
-
-	self->string += (s32)root;
-
-	for (u32 i = 1; i < self->array->integer; i++)
-	{
-		_zrdr* child = &self->array[i];
-
-		if (child->type == ZRDR_STRING)
-			child->string += (s32)name;
-
-		if (child->type == ZRDR_ARRAY)
-		{
-			child->string += (s32)root;
-
-			for (u32 j = 1; j < child->array->integer; j++)
-				_resolveB(&child->array[j], root, name);
-		}
-	}
-}
-
-CRdrFile* zrdr_read(const char* name, const char* path, s32 flags)
-{
-	if (path && strlen(path) < MAX_ZRDR_PATH_LEN)
-		strcpy(cur_zrdr_path, path);
-
-	cur_zrdr_flags = flags;
-
-	CRdrFile* rdrfile = CRdrArchive::FindRdr(name);
-
-	// Is the reader file compiled?
-	if ((flags & ZRDR_FLAG_RAW) == 0 || rdrfile)
-		return rdrfile;
-
-	CBufferIO* io = new CBufferIO();
-
-	// Search for it in the game disc directory
-	if (!io->Open(zrdr_findfile(name, path)))
-	{
-		// Search wasn't successful.
-		io->Close();
-		return NULL;
-	}
-
-	fstack.insert(fstack.begin(), io);
-
-	rdrfile = new CRdrFile();
-
-	// Check for any syntax errors
-	if (rdrfile->ValidateFormat())
-	{
-		// Begin tokenization and create tag structure
-		_zrdr* array = rdrfile->ReadArray();
-		rdrfile->type = array->type;
-		rdrfile->array = array->array;
-		rdrfile->length = 1;
-
-		// Why is this here?
-		zfree(array);
-	}
-	// Syntax error check failed
-	else
-	{
-		// delete array;
-		rdrfile = NULL;
-	}
-
-	if (!fstack.empty())
-		fstack.erase(fstack.begin(), fstack.end());
-
-	io->Close();
-	
-	return rdrfile;
-}
-
-_zrdr* CRdrFile::ReadArray()
-{
-	std::list<_zrdr*> arrays;
-	_zrdr* array = NULL;
-	char token = 1;
-	bool endtag = false;
-	
-	while (!endtag && token != 0)
-	{
-		token = ReadToken(&array);
-		
-		if (array)
-		{
-			arrays.insert(arrays.end(), array);
-		}
-
-		// Is the token the start of a new tag?
-		if (token == '(')
-		{
-			arrays.insert(arrays.end(), ReadArray());
-		}
-		// Is the token the end of the tag we're in?
-		else if (token == ')')
-		{
-			endtag = true;
-		}
-	}
-
-	// Allocate a parent and child node
-	_zrdr* parent = zrdr_alloc(sizeof(_zrdr), 1);
-	parent->type = ZRDR_ARRAY;
-	
-	_zrdr* child = zrdr_alloc(sizeof(_zrdr), arrays.size() + 1);
-	child->type = ZRDR_INTEGER;
-
-	// Set parent node equal to child, and append the size of
-	// the child node to the first array element
-	parent->array = child;
-	parent->array->type = ZRDR_INTEGER;
-
-	parent->array->integer = arrays.size() + 1;
-
-	// When working with readers of version 2,
-	// The first index (0) is ALWAYS used to store the length.
-	// This means that zReader arrays start at index 1.
-	// In future zReader versions this was put into the
-	// "length" bitfield.
-	// When iterating through them, target the second index to access
-	// the arrays.
-	for (u32 i = 1; i < parent->array->integer; i++)
-	{
-		// The arrangement of each zReader node should go as follows:
-		// Length, name, array
-		array = arrays.front();
-		arrays.erase(arrays.begin());
-
-		parent->array[i] = *array;
-
-		zfree(array);
-	}
-	
-	return parent;
-}
-
+/* @socom-skeleton body ReadToken__8CRdrFileFPP5_zrdr */
 char CRdrFile::ReadToken(_zrdr** array)
 {
 	CBufferIO* file = NULL;
@@ -624,40 +580,122 @@ char CRdrFile::ReadToken(_zrdr** array)
 	fstack.pop(true);
 }
 
-
-
-_zrdr* CRdrFile::MakeUnion(const char* name, bool isstr)
+/* @socom-skeleton body ReadArray__8CRdrFileFv */
+_zrdr* CRdrFile::ReadArray()
 {
-	char* end;
-	_zrdr* zunion = zrdr_alloc(sizeof(_zrdr), 1);
-	zunion->type = ZRDR_NULL;
-
-	size_t size = strlen(name);
-
-	if (!isstr && size > 0)
+	std::list<_zrdr*> arrays;
+	_zrdr* array = NULL;
+	char token = 1;
+	bool endtag = false;
+	
+	while (!endtag && token != 0)
 	{
-		s64 inum = strtol(name, &end, 10);
-
-		if (size == end - name)
+		token = ReadToken(&array);
+		
+		if (array)
 		{
-			zunion->type = ZRDR_INTEGER;
-			zunion->integer = inum;
-			return zunion;
+			arrays.insert(arrays.end(), array);
 		}
 
-		double dnum = strtod(name, &end);
-
-		if (size == end - name)
+		// Is the token the start of a new tag?
+		if (token == '(')
 		{
-			zunion->type = ZRDR_REAL;
-			zunion->real = dnum;
-			return zunion;
+			arrays.insert(arrays.end(), ReadArray());
+		}
+		// Is the token the end of the tag we're in?
+		else if (token == ')')
+		{
+			endtag = true;
 		}
 	}
 
-	zunion->type = ZRDR_STRING;
-	char* str = m_strings.CreateString(name);
-	zunion->string = str;
-	return zunion;
+	// Allocate a parent and child node
+	_zrdr* parent = zrdr_alloc(sizeof(_zrdr), 1);
+	parent->type = ZRDR_ARRAY;
+	
+	_zrdr* child = zrdr_alloc(sizeof(_zrdr), arrays.size() + 1);
+	child->type = ZRDR_INTEGER;
+
+	// Set parent node equal to child, and append the size of
+	// the child node to the first array element
+	parent->array = child;
+	parent->array->type = ZRDR_INTEGER;
+
+	parent->array->integer = arrays.size() + 1;
+
+	// When working with readers of version 2,
+	// The first index (0) is ALWAYS used to store the length.
+	// This means that zReader arrays start at index 1.
+	// In future zReader versions this was put into the
+	// "length" bitfield.
+	// When iterating through them, target the second index to access
+	// the arrays.
+	for (u32 i = 1; i < parent->array->integer; i++)
+	{
+		// The arrangement of each zReader node should go as follows:
+		// Length, name, array
+		array = arrays.front();
+		arrays.erase(arrays.begin());
+
+		parent->array[i] = *array;
+
+		zfree(array);
+	}
+	
+	return parent;
 }
 
+/* @socom-skeleton body zrdr_read__FPCcPCci */
+CRdrFile* zrdr_read(const char* name, const char* path, s32 flags)
+{
+	if (path && strlen(path) < MAX_ZRDR_PATH_LEN)
+		strcpy(cur_zrdr_path, path);
+
+	cur_zrdr_flags = flags;
+
+	CRdrFile* rdrfile = CRdrArchive::FindRdr(name);
+
+	// Is the reader file compiled?
+	if ((flags & ZRDR_FLAG_RAW) == 0 || rdrfile)
+		return rdrfile;
+
+	CBufferIO* io = new CBufferIO();
+
+	// Search for it in the game disc directory
+	if (!io->Open(zrdr_findfile(name, path)))
+	{
+		// Search wasn't successful.
+		io->Close();
+		return NULL;
+	}
+
+	fstack.insert(fstack.begin(), io);
+
+	rdrfile = new CRdrFile();
+
+	// Check for any syntax errors
+	if (rdrfile->ValidateFormat())
+	{
+		// Begin tokenization and create tag structure
+		_zrdr* array = rdrfile->ReadArray();
+		rdrfile->type = array->type;
+		rdrfile->array = array->array;
+		rdrfile->length = 1;
+
+		// Why is this here?
+		zfree(array);
+	}
+	// Syntax error check failed
+	else
+	{
+		// delete array;
+		rdrfile = NULL;
+	}
+
+	if (!fstack.empty())
+		fstack.erase(fstack.begin(), fstack.end());
+
+	io->Close();
+	
+	return rdrfile;
+}

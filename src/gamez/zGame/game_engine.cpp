@@ -25,6 +25,28 @@
 
 char* GetDatabase();
 
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+unsigned char std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+unsigned char std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton body StartPlay__5CGameFv */
+void CGame::StartPlay()
+{
+	m_Active = true;
+	Switch(m_InitialState, 0);
+}
+
+/* @socom-skeleton stub StopPlay__5CGameFv */
+void CGame::StopPlay()
+{
+}
+
+/* @socom-skeleton body StartEngine__5CGameFv */
 bool CGame::StartEngine()
 {
 	// zTaskScheduler.Clear();
@@ -51,36 +73,7 @@ bool CGame::StartEngine()
 	return true;
 }
 
-bool COurGame::StartEngine()
+/* @socom-skeleton stub StopEngine__5CGameFv */
+void CGame::StopEngine()
 {
-	if (!CGame::StartEngine())
-		return false;
-
-	// Display loading screen
-	CVideo::RestoreImage("RUN\\LOADING.RAW", true);
-
-	// After the image is loaded into the back buffer,
-	// bring it to the main one
-	zVid_Swap(true);
-
-	zdb::CTexManager::m_texmanager->doAddBuffer("default", 0.0f, 0.0f);
-
-	theMission.Init();
-
-	char* db = GetDatabase();
-
-	if (db)
-	{
-		size_t dblen = strlen(db);
-
-		if (dblen != 0)
-			theMission.PreOpen(db);
-	}
-
-	zdb::CAssetLib* fontLib = zdb::CAssetMgr::GetLoadedLibRef("common/assetlib/font");
-	fontLib->m_autoload = false;
-
-	theLobby.Init();
-
-	return true;
 }

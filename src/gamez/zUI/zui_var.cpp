@@ -21,3 +21,96 @@
  * @socom-artifact defines main socom:function:0x39ea70
  * @socom-artifact defines main socom:function:0x39ebc0
  * socom-owner-annotations end socom:work:source-segment-056 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zReader/zrdr.h"
+#include "gamez/zUtil/util_stable.h"
+#include "zui.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub Destroy__11CUIVariableFv */
+void CUIVariable::Destroy()
+{
+}
+
+/* @socom-skeleton stub DetachAll__11CUIVariableFv */
+void CUIVariable::DetachAll()
+{
+}
+
+/* @socom-skeleton body Set__11CUIVariableFP5_zrdr */
+void CUIVariable::Set(_zrdr* reader)
+{
+    
+}
+
+/* @socom-skeleton stub UpdateDependents__11CUIVariableFv */
+void CUIVariable::UpdateDependents()
+{
+}
+
+/* @socom-skeleton stub __as__11CUIVariableFPCc */
+CUIVariable * CUIVariable::operator=(const char *)
+{
+}
+
+/* @socom-skeleton stub Format__11CUIVariableFP5_zrdrPci */
+char * CUIVariable::Format(_zrdr *, char *, int)
+{
+}
+
+/* @socom-skeleton stub _Refresh__FP5_zrdrP7CSTable */
+void _Refresh(_zrdr *, CSTable *)
+{
+}
+
+/* @socom-skeleton stub AttachUIVar__10UIVarMixinFP11CUIVariable */
+void UIVarMixin::AttachUIVar(CUIVariable *)
+{
+}
+
+/* @socom-skeleton stub DetachUIVar__10UIVarMixinFP11CUIVariable */
+void UIVarMixin::DetachUIVar(CUIVariable *)
+{
+}
+
+/* @socom-skeleton stub __dt__13CUIVarManagerFv */
+CUIVarManager::~CUIVarManager()
+{
+}
+
+/* @socom-skeleton stub Reset__13CUIVarManagerFv */
+void CUIVarManager::Reset()
+{
+}
+
+/* @socom-skeleton stub CollectGarbage__13CUIVarManagerFv */
+void CUIVarManager::CollectGarbage()
+{
+}
+
+/* @socom-skeleton stub FindDormantVar__13CUIVarManagerFPCcP5_zrdr15UIVAR_LONGEVITY */
+CUIVariable * CUIVarManager::FindDormantVar(const char *, _zrdr *, UIVAR_LONGEVITY)
+{
+}
+
+/* @socom-skeleton stub Find__13CUIVarManagerFPCc */
+CUIVariable * CUIVarManager::Find(const char *)
+{
+}
+
+/* @socom-skeleton body Add__13CUIVarManagerFPCcP5_zrdr15UIVAR_LONGEVITY */
+CUIVariable* CUIVarManager::Add(const char* name, _zrdr* reader, UIVAR_LONGEVITY longevity)
+{
+    return NULL;
+}
+
+/* @socom-skeleton stub Serialize__13CUIVarManagerFi */
+void CUIVarManager::Serialize(int)
+{
+}
+
+/* @socom-skeleton stub UnSerialize__13CUIVarManagerFPCcP8CRdrFilei */
+void CUIVarManager::UnSerialize(const char *, CRdrFile *, int)
+{
+}

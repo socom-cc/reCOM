@@ -28,6 +28,22 @@
 
 #include "gamez/zNode/node_assetlib.h"
 
+/* @socom-skeleton decl include */
+#include "gamez/zCamera/zcam.h"
+#include "gamez/zReader/zrdr.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub Tick__16C2DMessageStringFf */
+void C2DMessageString::Tick(float)
+{
+}
+
+/* @socom-skeleton stub SetString__16C2DMessageStringFPCc */
+void C2DMessageString::SetString(const char *)
+{
+}
+
+/* @socom-skeleton body __ct__12C2DMessage_QFv */
 C2DMessage_Q::C2DMessage_Q()
 {
     m_scale = 1.0f;
@@ -50,6 +66,7 @@ C2DMessage_Q::C2DMessage_Q()
     m_bEnabled = true;
 }
 
+/* @socom-skeleton body Init__12C2DMessage_QFP7C2DFontP8CRdrFile */
 void C2DMessage_Q::Init(C2DFont* font, CRdrFile* reader)
 {
     m_font = font;
@@ -131,6 +148,39 @@ void C2DMessage_Q::Init(C2DFont* font, CRdrFile* reader)
     }
 }
 
+/* @socom-skeleton stub __dt__12C2DMessage_QFv */
+C2DMessage_Q::~C2DMessage_Q()
+{
+}
+
+/* @socom-skeleton stub Clear_Messages__12C2DMessage_QFv */
+void C2DMessage_Q::Clear_Messages()
+{
+}
+
+/* @socom-skeleton stub LastMessage__12C2DMessage_QFv */
+char * C2DMessage_Q::LastMessage()
+{
+}
+
+/* @socom-skeleton body SetBkgColor__12C2DMessage_QFfff */
+void C2DMessage_Q::SetBkgColor(f32 r, f32 g, f32 b)
+{
+    m_background1.SetColor(r, g, b);
+    m_background2.SetColor(r, g, b);
+}
+
+/* @socom-skeleton stub Add_Message__12C2DMessage_QFPCci */
+void C2DMessage_Q::Add_Message(const char *, int)
+{
+}
+
+/* @socom-skeleton stub Add_Message__12C2DMessage_QFPCciii */
+void C2DMessage_Q::Add_Message(const char *, int, int, int)
+{
+}
+
+/* @socom-skeleton body ScrollUp__12C2DMessage_QFv */
 void C2DMessage_Q::ScrollUp()
 {
     m_target_top = -m_YMargin;
@@ -138,8 +188,12 @@ void C2DMessage_Q::ScrollUp()
     m_moveTime = 0;
 }
 
-void C2DMessage_Q::SetBkgColor(f32 r, f32 g, f32 b)
+/* @socom-skeleton stub Tick__12C2DMessage_QFf */
+void C2DMessage_Q::Tick(float)
 {
-    m_background1.SetColor(r, g, b);
-    m_background2.SetColor(r, g, b);
+}
+
+/* @socom-skeleton stub Draw__12C2DMessage_QFPQ23zdb7CCamera */
+void C2DMessage_Q::Draw(zdb::CCamera *)
+{
 }

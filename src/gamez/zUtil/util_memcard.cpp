@@ -39,3 +39,167 @@
  * @socom-artifact defines main socom:data:0x4765bc
  * @socom-artifact defines main socom:data:0x510c40
  * socom-owner-annotations end socom:work:source-segment-042 */
+
+/* @socom-skeleton decl include */
+#include "zutil.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub ascii_special */
+unsigned char ascii_special[132] = {64, 129, 32, 0, 73, 129, 33, 0, 104, 129, 34, 0, 148, 129, 35, 0, 144, 129, 36, 0, 147, 129, 37, 0, 149, 129, 38, 0, 102, 129, 39, 0, 105, 129, 40, 0, 106, 129, 41, 0, 150, 129, 42, 0, 123, 129, 43, 0, 67, 129, 44, 0, 124, 129, 45, 0, 68, 129, 46, 0, 94, 129, 47, 0, 70, 129, 58, 0, 71, 129, 59, 0, 113, 129, 60, 0, 129, 129, 61, 0, 114, 129, 62, 0, 72, 129, 63, 0, 151, 129, 64, 0, 109, 129, 91, 0, 143, 129, 92, 0, 110, 129, 93, 0, 79, 129, 94, 0, 81, 129, 95, 0, 101, 129, 96, 0, 111, 129, 123, 0, 98, 129, 124, 0, 112, 129, 125, 0, 80, 129, 126, 0};
+
+/* @socom-skeleton stub ascii_table */
+static unsigned char ascii_table[12] = {79, 130, 48, 0, 96, 130, 65, 0, 129, 130, 97, 0};
+
+/* @socom-skeleton stub m_initcount__8CMemCard */
+int CMemCard::m_initcount;
+
+/* @socom-skeleton stub m_mod_mcman__8CMemCard */
+int CMemCard::m_mod_mcman;
+
+/* @socom-skeleton stub m_mod_mcserv__8CMemCard */
+int CMemCard::m_mod_mcserv;
+
+/* @socom-skeleton stub __ct__8CMemCardFv */
+CMemCard::CMemCard()
+{
+}
+
+/* @socom-skeleton stub __dt__8CMemCardFv */
+CMemCard::~CMemCard()
+{
+}
+
+/* @socom-skeleton stub Init__8CMemCardFv */
+void CMemCard::Init()
+{
+}
+
+/* @socom-skeleton stub Uninit__8CMemCardFv */
+void CMemCard::Uninit()
+{
+}
+
+/* @socom-skeleton stub SaveGame__8CMemCardFPCcPc */
+void CMemCard::SaveGame(const char *, char *)
+{
+}
+
+/* @socom-skeleton stub LoadGame__8CMemCardFPCc */
+void CMemCard::LoadGame(const char *)
+{
+}
+
+/* @socom-skeleton stub SaveConfig__8CMemCardFPCc */
+void CMemCard::SaveConfig(const char *)
+{
+}
+
+/* @socom-skeleton stub LoadConfig__8CMemCardFPCc */
+void CMemCard::LoadConfig(const char *)
+{
+}
+
+/* @socom-skeleton stub IsInserted__8CMemCardFv */
+void CMemCard::IsInserted()
+{
+}
+
+/* @socom-skeleton stub IsFormatted__8CMemCardFv */
+void CMemCard::IsFormatted()
+{
+}
+
+/* @socom-skeleton stub Format__8CMemCardFv */
+void CMemCard::Format()
+{
+}
+
+/* @socom-skeleton stub GetFreeSpace__8CMemCardFv */
+void CMemCard::GetFreeSpace()
+{
+}
+
+/* @socom-skeleton stub Ascii2Sjis__FUc */
+unsigned short Ascii2Sjis(unsigned char)
+{
+}
+
+/* @socom-skeleton stub CreateIconFiles__8CMemCardFv */
+void CMemCard::CreateIconFiles()
+{
+	/* @socom-skeleton stub icon$1247 */
+	static unsigned char icon[964];
+	/* @socom-skeleton stub bgcolor$1248 */
+	static unsigned char bgcolor[64] = {128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 128, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0};
+	/* @socom-skeleton stub lightdir$1249 */
+	static unsigned char lightdir[48] = {0, 0, 0, 63, 0, 0, 0, 63, 0, 0, 0, 63, 0, 0, 0, 0, 0, 0, 0, 0, 205, 204, 204, 190, 205, 204, 204, 189, 0, 0, 0, 0, 0, 0, 0, 191, 0, 0, 0, 191, 0, 0, 0, 63, 0, 0, 0, 0};
+	/* @socom-skeleton stub lightcol$1250 */
+	static unsigned char lightcol[48] = {143, 194, 245, 62, 143, 194, 245, 62, 143, 194, 245, 60, 0, 0, 0, 0, 0, 0, 0, 63, 195, 245, 168, 62, 205, 204, 76, 62, 0, 0, 0, 0, 41, 92, 15, 62, 41, 92, 15, 62, 92, 143, 194, 62, 0, 0, 0, 0};
+	/* @socom-skeleton stub ambient$1251 */
+	static unsigned char ambient[16] = {0, 0, 0, 63, 0, 0, 0, 63, 0, 0, 0, 63, 0, 0, 0, 0};
+}
+
+/* @socom-skeleton stub Exists__8CMemCardFPCc */
+void CMemCard::Exists(const char *)
+{
+}
+
+/* @socom-skeleton stub mkdir__8CMemCardFPCc */
+void CMemCard::mkdir(const char *)
+{
+}
+
+/* @socom-skeleton stub chdir__8CMemCardFPCc */
+void CMemCard::chdir(const char *)
+{
+}
+
+/* @socom-skeleton stub Open__10CMemCardIOFPCcUi */
+void CMemCardIO::Open(const char *, unsigned int)
+{
+}
+
+/* @socom-skeleton stub Close__10CMemCardIOFv */
+void CMemCardIO::Close()
+{
+}
+
+/* @socom-skeleton stub IsOpen__10CMemCardIOCFv */
+void CMemCardIO::IsOpen() const
+{
+}
+
+/* @socom-skeleton stub GetSize__10CMemCardIOCFv */
+void CMemCardIO::GetSize() const
+{
+}
+
+/* @socom-skeleton stub ftell__10CMemCardIOCFv */
+void CMemCardIO::ftell() const
+{
+}
+
+/* @socom-skeleton stub fseek__10CMemCardIOFii */
+void CMemCardIO::fseek(int, int)
+{
+}
+
+/* @socom-skeleton stub fread__10CMemCardIOFiPPv */
+void CMemCardIO::fread(int, void **)
+{
+}
+
+/* @socom-skeleton stub fread__10CMemCardIOFPvi */
+void CMemCardIO::fread(void *, int)
+{
+}
+
+/* @socom-skeleton stub fwrite__10CMemCardIOFPCvi */
+void CMemCardIO::fwrite(const void *, int)
+{
+}
+
+/* @socom-skeleton stub fflush__10CMemCardIOFv */
+void CMemCardIO::fflush()
+{
+}

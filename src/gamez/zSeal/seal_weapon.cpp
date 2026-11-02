@@ -24,3 +24,108 @@
  * @socom-artifact defines main socom:data:0x5090a0
  * @socom-artifact defines main socom:data:0x5090c0
  * socom-owner-annotations end socom:work:source-segment-076 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/znode.h"
+#include "zseal.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class WEAPON_STATE;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub nullAimPoint */
+static int nullAimPoint[3];
+
+/* @socom-skeleton stub GetWeaponState__10CZSealBodyCFv */
+void CZSealBody::GetWeaponState() const
+{
+}
+
+/* @socom-skeleton stub WepWaitOff__10CZSealBodyFv */
+void CZSealBody::WepWaitOff()
+{
+}
+
+/* @socom-skeleton stub WepWaitOn__10CZSealBodyFv */
+void CZSealBody::WepWaitOn()
+{
+}
+
+/* @socom-skeleton stub SetWeaponState__10CZSealBodyF12WEAPON_STATE */
+void CZSealBody::SetWeaponState(WEAPON_STATE)
+{
+}
+
+/* @socom-skeleton stub WeaponsTick__10CZSealBodyFf */
+void CZSealBody::WeaponsTick(float)
+{
+}
+
+/* @socom-skeleton stub GetFirepointPos__10CZSealBodyFR6CPnt3DPCc */
+void CZSealBody::GetFirepointPos(CPnt3D &, const char *)
+{
+}
+
+/* @socom-skeleton stub GetFirepointNode__10CZSealBodyFPCc */
+zdb::CNode * CZSealBody::GetFirepointNode(const char *)
+{
+}
+
+/* @socom-skeleton stub GetNodePos__10CZSealBodyFPCQ23zdb5CNodeR6CPnt3Db */
+void CZSealBody::GetNodePos(const zdb::CNode *, CPnt3D &, bool)
+{
+}
+
+/* @socom-skeleton stub SetAimDirR__10CZSealBodyFPC6CPnt3Db */
+unsigned char CZSealBody::SetAimDirR(const CPnt3D *, bool)
+{
+}
+
+/* @socom-skeleton stub CalcAimGoal__10CZSealBodyFPC6CPnt3DPC6CPnt3DP6CPnt3D */
+unsigned char CZSealBody::CalcAimGoal(const CPnt3D *, const CPnt3D *, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub SetAimPointW__10CZSealBodyFPC6CPnt3DPC6CPnt3Db */
+void CZSealBody::SetAimPointW(const CPnt3D *, const CPnt3D *, bool)
+{
+}
+
+/* @socom-skeleton stub UpdateAimParams__10CZSealBodyFv */
+void CZSealBody::UpdateAimParams()
+{
+}
+
+/* @socom-skeleton stub GetAP__10CZSealBodyFR6CPnt3D */
+void CZSealBody::GetAP(CPnt3D &)
+{
+}
+
+/* @socom-skeleton stub GetFP__10CZSealBodyFR6CPnt3D */
+void CZSealBody::GetFP(CPnt3D &)
+{
+}
+
+/* @socom-skeleton stub UpdateAimDir__10CZSealBodyFb */
+unsigned char CZSealBody::UpdateAimDir(bool)
+{
+}
+
+/* @socom-skeleton stub CanProneAim__10CZSealBodyFv */
+void CZSealBody::CanProneAim()
+{
+}
+
+/* @socom-skeleton stub GetAimDot__10CZSealBodyFv */
+float CZSealBody::GetAimDot()
+{
+}
+
+/* @socom-skeleton stub CanAttainAim__10CZSealBodyFR6CPnt3D */
+void CZSealBody::CanAttainAim(CPnt3D &)
+{
+}

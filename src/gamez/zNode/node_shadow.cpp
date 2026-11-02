@@ -13,3 +13,35 @@
  * @socom-artifact defines main socom:data:0x475bcc
  * @socom-artifact defines main socom:data:0x475bd0
  * socom-owner-annotations end socom:work:source-segment-027 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zTexture/ztex.h"
+#include "node_shadow.h"
+#include "znode.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+namespace zdb {
+class _tag_render_map_type;
+}
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub shadowTemplate */
+static unsigned char shadowTemplate[208] = {12, 128, 0, 0, 0, 0, 0, 16, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 76, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 0, 36, 53, 96, 113, 53, 36, 113, 96, 68, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0};
+
+/* @socom-skeleton stub boxAdjust */
+static float boxAdjust[3];
+
+/* @socom-skeleton stub __ct__Q23zdb10CRenderMapFPQ23zdb5CNodeQ23zdb20_tag_render_map_typePCQ23zdb8CTexture */
+zdb::CRenderMap::CRenderMap(zdb::CNode *, zdb::_tag_render_map_type, const zdb::CTexture *)
+{
+	/* @socom-skeleton stub mapNum$1137 */
+	static int mapNum;
+}
+
+/* @socom-skeleton stub __dt__Q23zdb10CRenderMapFv */
+zdb::CRenderMap::~CRenderMap()
+{
+}
+
+/* @socom-skeleton body Update__Q23zdb10CRenderMapFv */
+void zdb::CRenderMap::Update() {}

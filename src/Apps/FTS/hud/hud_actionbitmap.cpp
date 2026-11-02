@@ -69,3 +69,176 @@
  * @socom-artifact defines main socom:data:0x476b40
  * @socom-artifact defines main socom:data:0x560710
  * socom-owner-annotations end socom:work:source-segment-076 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zGame/zgame.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zTwoD/ztwod.h"
+#include "gamez/zUtil/util_stable.h"
+#include "hud.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CActionTxtr;
+class CActionTxtrMachine;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub color_base */
+static const CPnt3D color_base = {0};
+
+/* @socom-skeleton stub color_incr */
+static const CPnt3D color_incr = {0};
+
+/* @socom-skeleton stub ACTIONICON_CENTERX */
+static float ACTIONICON_CENTERX = 306.0f;
+
+/* @socom-skeleton stub ACTIONICON_YPOS */
+static float ACTIONICON_YPOS = 365.0f;
+
+/* @socom-skeleton stub ACTIONICON_WIDTH */
+static float ACTIONICON_WIDTH = 50.0f;
+
+/* @socom-skeleton stub ACTIONICON_HEIGHT */
+static float ACTIONICON_HEIGHT = 50.0f;
+
+/* @socom-skeleton stub TEXT_SCALAR */
+static float TEXT_SCALAR = 1.4600000381469727f;
+
+/* @socom-skeleton stub BOMBTIMER_BKGRD_POSX1 */
+static float BOMBTIMER_BKGRD_POSX1 = 580.0f;
+
+/* @socom-skeleton stub BOMBTIMER_BKGRD_POSY1 */
+static float BOMBTIMER_BKGRD_POSY1 = 345.0f;
+
+/* @socom-skeleton stub BOMBTIMER_BKGRD_POSX2 */
+static float BOMBTIMER_BKGRD_POSX2 = 630.0f;
+
+/* @socom-skeleton stub BOMBTIMER_BKGRD_POSY2 */
+static float BOMBTIMER_BKGRD_POSY2 = 360.0f;
+
+/* @socom-skeleton stub BOMBTIMER_INSET_SIZE */
+static float BOMBTIMER_INSET_SIZE = 2.0f;
+
+/* @socom-skeleton stub BOMBTIMER_SCALAR */
+static float BOMBTIMER_SCALAR = 0.20000000298023224f;
+
+/* @socom-skeleton stub posWeaponTakenStr */
+static PNT2D posWeaponTakenStr = {0.0f, 435.0f};
+
+/* @socom-skeleton stub DEFAULT_ACTION_NAME */
+static char *DEFAULT_ACTION_NAME = "UNKNOWN";
+
+/* @socom-skeleton stub color_scalar_rate */
+static float color_scalar_rate = 4.0f;
+
+/* @socom-skeleton stub ACTIONICON_HWIDTH */
+static float ACTIONICON_HWIDTH;
+
+/* @socom-skeleton stub ACTIONICON_HHEIGHT */
+static float ACTIONICON_HHEIGHT;
+
+/* @socom-skeleton stub BOMBTIMER_IMAGE_POSX1 */
+static float BOMBTIMER_IMAGE_POSX1;
+
+/* @socom-skeleton stub BOMBTIMER_IMAGE_POSY1 */
+static float BOMBTIMER_IMAGE_POSY1;
+
+/* @socom-skeleton stub BOMBTIMER_IMAGE_POSY2 */
+static float BOMBTIMER_IMAGE_POSY2;
+
+/* @socom-skeleton stub BOMBTIMER_IMAGE_WIDTH */
+static float BOMBTIMER_IMAGE_WIDTH;
+
+/* @socom-skeleton stub color_scalar */
+static float color_scalar;
+
+/* @socom-skeleton stub bFadeColor */
+static unsigned char bFadeColor;
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static CSTable MultiplayerMsgStrings;
+
+/* @socom-skeleton stub ActionTxtrPool */
+static CActionTxtr ActionTxtrPool[18];
+
+/* @socom-skeleton stub ActionTxtrMachine_HUD */
+static CActionTxtrMachine ActionTxtrMachine_HUD;
+
+/* @socom-skeleton stub color_canvas */
+static CPnt3D color_canvas;
+
+/* @socom-skeleton stub Add__18CActionTxtrMachineFP11CActionTxtr */
+unsigned int CActionTxtrMachine::Add(CActionTxtr *)
+{
+}
+
+/* @socom-skeleton stub UpdateDriverPickup__18CActionTxtrMachineFv */
+unsigned char CActionTxtrMachine::UpdateDriverPickup()
+{
+}
+
+/* @socom-skeleton stub SpecializeActionString__18CActionTxtrMachineFv */
+void CActionTxtrMachine::SpecializeActionString()
+{
+	/* @socom-skeleton stub tempstr$2631 */
+	static char tempstr[128] = {85, 78, 85, 83, 69, 68, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+}
+
+/* @socom-skeleton stub TickTransparencyFade__18CActionTxtrMachineFb */
+void CActionTxtrMachine::TickTransparencyFade(bool)
+{
+}
+
+/* @socom-skeleton stub Open__18CActionTxtrMachineFUi */
+unsigned int CActionTxtrMachine::Open(unsigned int)
+{
+}
+
+/* @socom-skeleton stub Render_ver_2__18CActionTxtrMachineFR14CZActionBitmap */
+unsigned char CActionTxtrMachine::Render_ver_2(CZActionBitmap &)
+{
+	/* @socom-skeleton stub mainicon_normal$2751 */
+	static const CPnt3D mainicon_normal = {0};
+	/* @socom-skeleton stub sideicon_normal$2754 */
+	static const CPnt3D sideicon_normal = {0};
+	/* @socom-skeleton stub mainicon_nvg$2757 */
+	static const CPnt3D mainicon_nvg = {0};
+	/* @socom-skeleton stub sideicon_nvg$2760 */
+	static const CPnt3D sideicon_nvg = {0};
+}
+
+/* @socom-skeleton stub Init__14CZActionBitmapFP4CHUDP7C2DFont */
+void CZActionBitmap::Init(CHUD *, C2DFont *)
+{
+}
+
+/* @socom-skeleton stub UnInit__14CZActionBitmapFv */
+void CZActionBitmap::UnInit()
+{
+}
+
+/* @socom-skeleton stub HudTick__14CZActionBitmapF10MENU_STATE */
+void CZActionBitmap::HudTick(MENU_STATE)
+{
+}
+
+/* @socom-skeleton stub Init__19CZStaticRadioBitmapFP4CHUD */
+void CZStaticRadioBitmap::Init(CHUD *)
+{
+}
+
+/* @socom-skeleton stub HudTick__19CZStaticRadioBitmapF10MENU_STATE */
+void CZStaticRadioBitmap::HudTick(MENU_STATE)
+{
+}
+
+/* @socom-skeleton stub Init__20CZDynamicRadioBitmapFP4CHUD */
+void CZDynamicRadioBitmap::Init(CHUD *)
+{
+}
+
+/* @socom-skeleton stub HudTick__20CZDynamicRadioBitmapF10MENU_STATE */
+void CZDynamicRadioBitmap::HudTick(MENU_STATE)
+{
+	/* @socom-skeleton stub off_time$2914 */
+	static float off_time;
+}

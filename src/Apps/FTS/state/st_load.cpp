@@ -37,3 +37,77 @@
  * @socom-artifact defines main socom:data:0x4768c4
  * @socom-artifact defines main socom:data:0x53b230
  * socom-owner-annotations end socom:work:source-segment-076 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zFTS/fts_state.h"
+#include "gamez/zNode/node_assetlib.h"
+#include "gamez/zReader/zrdr.h"
+#include "gamez/zUtil/util_stable.h"
+#include "state.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+namespace zdb {
+class CTextureRelocMgr;
+}
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub gAllowGhosts */
+unsigned char gAllowGhosts = 1;
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+std::__nInit std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+std::__wInit std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub g_pMissionLoadingLib__21@unnamed@st_load_cpp@ */
+namespace {
+zdb::CAssetLib *g_pMissionLoadingLib;
+}
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static CSTable MultiplayerMsgStrings;
+
+/* @socom-skeleton stub PrepControls__9CLoadMenuFPQ23zdb16CTextureRelocMgr */
+void CLoadMenu::PrepControls(zdb::CTextureRelocMgr *)
+{
+}
+
+/* @socom-skeleton stub MyTick__9CLoadMenuFf */
+void CLoadMenu::MyTick(float)
+{
+}
+
+/* @socom-skeleton stub __ct__10CLoadStateFv */
+CLoadState::CLoadState()
+{
+}
+
+/* @socom-skeleton stub __dt__10CLoadStateFv */
+CLoadState::~CLoadState()
+{
+}
+
+/* @socom-skeleton body Init__10CLoadStateFv */
+unsigned char CLoadState::Init() { return true; }
+
+/* @socom-skeleton body Tick__10CLoadStateFf */
+unsigned char CLoadState::Tick(float dT) {}
+
+/* @socom-skeleton body UnInit__10CLoadStateFv */
+void CLoadState::UnInit() {}
+
+/* @socom-skeleton stub AbortLoad__10CLoadStateFPCc */
+void CLoadState::AbortLoad(const char *)
+{
+}
+
+/* @socom-skeleton stub Parse__9CE3ConfigFP5_zrdr */
+void CE3Config::Parse(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub Parse__17CE3MissionPlayersFP5_zrdr */
+void CE3MissionPlayers::Parse(_zrdr *)
+{
+}

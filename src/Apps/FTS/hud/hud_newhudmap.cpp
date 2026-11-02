@@ -57,39 +57,227 @@
 
 #include "hud.h"
 
-std::map<s32, LINE_DATA*> tacmap_polys;
-std::map<s32, LINE_DATA*> tacmap_lines;
-
-bool hudAddPolyType(_zrdr* node)
+/* @socom-skeleton decl include */
+#include "gamez/zCamera/zcam.h"
+#include "gamez/zGame/zgame.h"
+#include "gamez/zInput/zinput.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/node_world.h"
+#include "gamez/zSeal/zseal.h"
+#include "gamez/zTexture/ztex.h"
+#include "gamez/zTwoD/ztwod.h"
+#include "gamez/zUtil/util_stable.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CZMPBombMapItem;
+namespace {
+class COverlayLine;
+}
+/* @socom-skeleton end forward */
+/* @socom-skeleton decl Q227@unnamed@hud_newhudmap_cpp@12COverlayLine */
+namespace {
+class COverlayLine : public C2DLine
 {
-    s32 type;
-    LINE_DATA line;
-    
-    zrdr_findint(node, "Type", &type);
+public:
+	virtual ~COverlayLine();
+	COverlayLine();
+};
+}
+/* @socom-skeleton end Q227@unnamed@hud_newhudmap_cpp@12COverlayLine */
 
-    tacmap_polys.insert({ type, &line });
-    
-    zrdr_findPNT3D(node, "Color", &line.color);
-    zrdr_findreal(node, "Opacity", &line.opacity);
-    line.opacity *= 128.0f;
-    zrdr_findreal(node, "Width", &line._fWidth);
-
-    return true;
+/* @socom-skeleton stub g_fShowTime__27@unnamed@hud_newhudmap_cpp@ */
+namespace {
+float g_fShowTime = -1.0f;
 }
 
-bool hudAddLineType(_zrdr* node)
+/* @socom-skeleton stub g_pFov__27@unnamed@hud_newhudmap_cpp@ */
+namespace {
+zdb::CTexture *g_pFov;
+}
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static CSTable MultiplayerMsgStrings;
+
+/* @socom-skeleton stub g_arrHorGridLines__27@unnamed@hud_newhudmap_cpp@ */
+namespace {
+::COverlayLine g_arrHorGridLines[7];
+}
+
+/* @socom-skeleton stub g_arrVertGridLines__27@unnamed@hud_newhudmap_cpp@ */
+namespace {
+::COverlayLine g_arrVertGridLines[9];
+}
+
+/* @socom-skeleton stub g_arrHashLines__27@unnamed@hud_newhudmap_cpp@ */
+namespace {
+::COverlayLine g_arrHashLines[60];
+}
+
+/* @socom-skeleton stub g_bmpScrollDown__27@unnamed@hud_newhudmap_cpp@ */
+namespace {
+C2DBitmapPoly g_bmpScrollDown;
+}
+
+/* @socom-skeleton stub g_bmpScrollLeft__27@unnamed@hud_newhudmap_cpp@ */
+namespace {
+C2DBitmapPoly g_bmpScrollLeft;
+}
+
+/* @socom-skeleton stub g_bmpScrollRight__27@unnamed@hud_newhudmap_cpp@ */
+namespace {
+C2DBitmapPoly g_bmpScrollRight;
+}
+
+/* @socom-skeleton stub g_bmpScrollUp__27@unnamed@hud_newhudmap_cpp@ */
+namespace {
+C2DBitmapPoly g_bmpScrollUp;
+}
+
+/* @socom-skeleton stub g_lineNorthIndBarb__27@unnamed@hud_newhudmap_cpp@ */
+namespace {
+::COverlayLine g_lineNorthIndBarb;
+}
+
+/* @socom-skeleton stub g_lineNorthIndFrontShaft__27@unnamed@hud_newhudmap_cpp@ */
+namespace {
+::COverlayLine g_lineNorthIndFrontShaft;
+}
+
+/* @socom-skeleton stub g_lineNorthIndRearShaft__27@unnamed@hud_newhudmap_cpp@ */
+namespace {
+::COverlayLine g_lineNorthIndRearShaft;
+}
+
+/* @socom-skeleton stub g_strNorthIndN__27@unnamed@hud_newhudmap_cpp@ */
+namespace {
+C2DString g_strNorthIndN;
+}
+
+/* @socom-skeleton stub __ct__Q227@unnamed@hud_newhudmap_cpp@12COverlayLineFv */
+namespace {
+COverlayLine::COverlayLine()
 {
-    s32 type;
-    LINE_DATA line;
-    
-    zrdr_findint(node, "Type", &type);
+}
+}
 
-    tacmap_lines.insert({ type, &line });
-    
-    zrdr_findPNT3D(node, "Color", &line.color);
-    zrdr_findreal(node, "Opacity", &line.opacity);
-    line.opacity *= 128.0f;
-    zrdr_findreal(node, "Width", &line._fWidth);
+/* @socom-skeleton stub SetupNorthIndicator__27@unnamed@hud_newhudmap_cpp@FP10CZSealBody */
+namespace {
+void SetupNorthIndicator(CZSealBody *)
+{
+}
+}
 
-    return true;
+/* @socom-skeleton stub __ct__11CZNewHudMapFv */
+CZNewHudMap::CZNewHudMap()
+{
+}
+
+/* @socom-skeleton stub __dt__11CZNewHudMapFv */
+CZNewHudMap::~CZNewHudMap()
+{
+}
+
+/* @socom-skeleton stub GetZoomOut__11CZNewHudMapCFv */
+float CZNewHudMap::GetZoomOut() const
+{
+}
+
+/* @socom-skeleton stub ReInit__11CZNewHudMapFv */
+void CZNewHudMap::ReInit()
+{
+}
+
+/* @socom-skeleton stub InitMap__11CZNewHudMapFPQ23zdb6CWorld */
+void CZNewHudMap::InitMap(zdb::CWorld *)
+{
+}
+
+/* @socom-skeleton body UninitMap__11CZNewHudMapFv */
+void CZNewHudMap::UninitMap() {}
+
+/* @socom-skeleton stub MapWorldPointToUV__11CZNewHudMapFPC6CPnt3DPC5CBBoxPQ23zdb8CTexture */
+void CZNewHudMap::MapWorldPointToUV(const CPnt3D *, const CBBox *, zdb::CTexture *)
+{
+}
+
+/* @socom-skeleton stub RefreshBackground__11CZNewHudMapFPQ23zdb6CWorld */
+void CZNewHudMap::RefreshBackground(zdb::CWorld *)
+{
+}
+
+/* @socom-skeleton stub SetMapScreenPos__11CZNewHudMapFffff */
+void CZNewHudMap::SetMapScreenPos(float, float, float, float)
+{
+}
+
+/* @socom-skeleton stub SetWorldWidth__11CZNewHudMapFf */
+void CZNewHudMap::SetWorldWidth(float)
+{
+}
+
+/* @socom-skeleton stub CalcDrawPos__11CZNewHudMapCFf */
+float CZNewHudMap::CalcDrawPos(float) const
+{
+}
+
+/* @socom-skeleton stub CalcNewMatrix__11CZNewHudMapFv */
+void CZNewHudMap::CalcNewMatrix()
+{
+}
+
+/* @socom-skeleton stub GetScrollPermissions__11CZNewHudMapCFv */
+void CZNewHudMap::GetScrollPermissions() const
+{
+	/* @socom-skeleton stub boxFallback$2760 */
+	static CBBox boxFallback;
+}
+
+/* @socom-skeleton stub SwitchMapToFullScreen__11CZNewHudMapFv */
+void CZNewHudMap::SwitchMapToFullScreen()
+{
+}
+
+/* @socom-skeleton body SwitchToCompassMap__11CZNewHudMapFv */
+void CZNewHudMap::SwitchToCompassMap() { }
+
+/* @socom-skeleton stub HandleScrolling__11CZNewHudMapFff */
+void CZNewHudMap::HandleScrolling(float, float)
+{
+}
+
+/* @socom-skeleton stub TickCompassMap__11CZNewHudMapFP4CPad10MENU_STATE */
+void CZNewHudMap::TickCompassMap(CPad *, MENU_STATE)
+{
+}
+
+/* @socom-skeleton stub TickFullScreenMap__11CZNewHudMapFP4CPad10MENU_STATE */
+void CZNewHudMap::TickFullScreenMap(CPad *, MENU_STATE)
+{
+}
+
+/* @socom-skeleton stub HudTick__11CZNewHudMapFP4CPadf */
+void CZNewHudMap::HudTick(CPad *, float)
+{
+}
+
+/* @socom-skeleton stub Draw__11CZNewHudMapFPQ23zdb7CCamera */
+void CZNewHudMap::Draw(zdb::CCamera *)
+{
+}
+
+/* @socom-skeleton stub TickFullScreenAnims__11CZNewHudMapCFf */
+void CZNewHudMap::TickFullScreenAnims(float) const
+{
+	/* @socom-skeleton stub fArrowPulseTime$3011 */
+	static float fArrowPulseTime;
+}
+
+/* @socom-skeleton stub UpdateExplosives__11CZNewHudMapFv */
+void CZNewHudMap::UpdateExplosives()
+{
+}
+
+/* @socom-skeleton stub FindMPBombItem__11CZNewHudMapFv */
+CZMPBombMapItem * CZNewHudMap::FindMPBombItem()
+{
 }

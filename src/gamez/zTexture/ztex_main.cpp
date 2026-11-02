@@ -23,11 +23,22 @@
 
 namespace zdb
 {
-	u32 CTexture::m_baseAddress = 0;
-	u32 CTexture::m_endAddress = 0;
-	u32 CTexture::m_startAddress = 0;
 	
-	CTexture::CTexture(const char* name)
+
+	
+
+}
+
+/* @socom-skeleton decl forward */
+union _word128;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub UNNAMED_TEX */
+static const char *UNNAMED_TEX = "NA";
+
+/* @socom-skeleton body __ct__Q23zdb8CTextureFPCc */
+namespace zdb {
+CTexture::CTexture(const char* name)
 	{
 		m_name = "UNNAMED_TEX";
 		m_palette = NULL;
@@ -64,147 +75,54 @@ namespace zdb
 			m_name = zstrdup(name);
 		}
 	}
+}
 
-	CTexture::~CTexture()
-	{
-		
-	}
-
-	void CTexture::Init()
-	{
-		m_baseAddress = zVid.textureBaseAddr;
-		m_endAddress = zVid.textureEndAddr;
-		m_startAddress = zVid.textureBaseAddr + 0x200;
-	}
-
-	bool CTexture::Read(zdb::CSaveLoad& sload)
-	{
-		_word128 texturePacket;
-		bool success = false;
-
-		if (zar::CKey* dataKey = sload.m_zfile.FindKey("texdat"))
-		{
-			success = true;
-			sload.m_zfile.FetchLIP(dataKey, reinterpret_cast<void**>(&texturePacket));
-
-			memcpy(this, &texturePacket, sizeof(TEXTURE_PARAMS));
-
-			_word128* texGifPtr = &texturePacket;
-			void* bufferPtr = static_cast<void*>(&texGifPtr[1].u32[0]);
-
-			m_buffer = static_cast<void*>(bufferPtr);
-		}
-
-		switch (m_texelBitSize)
-		{
-		case 4:
-			m_format = 20;
-			break;
-		case 8:
-			m_format = 19;
-			break;
-		case 16:
-			m_palettized = true;
-			break;
-		case 24:
-			m_format = 1;
-			goto nopal;
-		case 32:
-			m_format = 0;
-			goto nopal;
-		}
-
-		if (!m_transp_1bit)
-			m_format = 19;
-		else
-			m_format = 2;
-nopal:
-		m_palID = 0;
-		return success;
-	}
-	
-	u16 CTexture::Release_HTEX()
+/* @socom-skeleton body Release_HTEX__Q23zdb8CTextureFv */
+namespace zdb {
+u16 CTexture::Release_HTEX()
 	{
 		u16 count = m_htex_count;
 		m_htex_count = count - 1;
 		return count - 1;
 	}
+}
 
-	CTexHandle* CTexHandle::Create(CTexture* texture)
-	{
-		CTexHandle* handle = new CTexHandle();
-
-		handle->m_name = NULL;
-		handle->m_count = 0;
-		handle->m_texture = NULL;
-		handle->m_libref = false;
-
-		if (handle->m_texture != NULL)
-		{
-			handle->m_texture->Release_HTEX();
-		}
-
-		handle->m_texture = texture;
-
-		if (texture != NULL)
-		{
-			char* name = texture->m_name;
-
-			if (handle->m_name != NULL)
-			{
-				zfree(handle->m_name);
-			}
-
-			handle->m_name = NULL;
-
-			if (name == NULL)
-			{
-				handle->m_name = NULL;
-			}
-			else
-			{
-				handle->m_name = strdup(name);
-			}
-
-			texture->m_htex_count++;
-		}
-
-		handle->m_count++;
-		return handle;
-	}
-
-	void CDynTexList::Add(CTexPalette* palette, bool check)
-	{
-
-	}
-
-	void CDynTexList::Add(CTexHandle* handle, bool check)
-	{
-
-	}
-
-	void CDynTexList::Add(CDynTexList* list)
-	{
-
-	}
-
-	CGSTexBuffer::CGSTexBuffer()
-	{
-		m_checkForOverflow = true;
-		m_startAddress = 0;
-		m_nextAddress = 0;
-		m_endAddress = 0;
-		m_assetLib = NULL;
-		m_chainp = NULL;
-		m_name = NULL;
-	}
-
-	void CGSTexBuffer::Hookup(CAssetLib* lib)
+/* @socom-skeleton body __dt__Q23zdb8CTextureFv */
+namespace zdb {
+CTexture::~CTexture()
 	{
 		
 	}
+}
 
-	CTexHandle* CTexList::GetHandle(const char* name)
+/* @socom-skeleton stub SetName__Q23zdb8CTextureFPCc */
+void zdb::CTexture::SetName(const char *)
+{
+}
+
+/* @socom-skeleton stub Compute64WordMemoryUsage__Q23zdb8CTextureFv */
+void zdb::CTexture::Compute64WordMemoryUsage()
+{
+}
+
+/* @socom-skeleton stub CopyTextureSelect__Q23zdb8CTextureFP8_word128 */
+_word128 * zdb::CTexture::CopyTextureSelect(_word128 *)
+{
+}
+
+/* @socom-skeleton stub SetGifPtrs__Q23zdb8CTextureFv */
+void zdb::CTexture::SetGifPtrs()
+{
+}
+
+/* @socom-skeleton stub GetHandle__Q23zdb8CTexListFPQ23zdb8CTexture */
+zdb::CTexHandle * zdb::CTexList::GetHandle(zdb::CTexture *)
+{
+}
+
+/* @socom-skeleton body GetHandle__Q23zdb8CTexListFPCc */
+namespace zdb {
+CTexHandle* CTexList::GetHandle(const char* name)
 	{
 		for (auto i = begin(); i != end(); ++i)
 		{
@@ -221,5 +139,39 @@ nopal:
 
 		return NULL;
 	}
+}
 
+/* @socom-skeleton body Append__Q23zdb8CTexListFPQ23zdb8CTextureb */
+namespace zdb {
+CTexHandle* CTexList::Append(CTexture* texture, bool search)
+	{
+		CTexHandle* handle = NULL;
+
+		if (search)
+		{
+			for (auto i = begin(); i != end(); i++)
+			{
+				CTexHandle* h = *i;
+
+				if (h->m_texture == texture)
+				{
+					handle = h;
+					break;
+				}
+			}
+		}
+
+		if (handle == NULL)
+		{
+			handle = CTexHandle::Create(texture);
+			insert(begin(), handle);
+		}
+
+		return handle;
+	}
+}
+
+/* @socom-skeleton stub Free__Q23zdb8CTexListFv */
+void zdb::CTexList::Free()
+{
 }

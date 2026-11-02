@@ -9,3 +9,55 @@
  * @socom-artifact defines main socom:data:0x4d8d70
  * @socom-artifact defines main socom:data:0x4d9180
  * socom-owner-annotations end socom:work:source-segment-026 */
+
+/* @socom-skeleton stub m_exp_scl */
+static float m_exp_scl = 25.600000381469727f;
+
+/* @socom-skeleton stub tableInit */
+static unsigned char tableInit;
+
+/* @socom-skeleton stub exptbl */
+static unsigned char exptbl[1028];
+
+/* @socom-skeleton stub sintbl */
+static unsigned char sintbl[1028];
+
+/* @socom-skeleton stub costbl */
+static unsigned char costbl[1028];
+
+/* @socom-skeleton body init_trig_table__Fv */
+void init_trig_table()
+{
+	if (!tableInit)
+	{
+		s32 i = 0;
+		s32 j = 0;
+		do
+		{
+			f32 x = i * 0.02454369f;
+			f32 calc = sinf(x);
+			*(sintbl + j) = calc;
+			calc = cosf(x);
+			*(costbl + j) = calc;
+			i++;
+			calc = expf(i * 10.0f) / 256.0f;
+			*(exptbl + j) = calc;
+			j += 4;
+		} while (i < 257);
+		tableInit = true;
+	}
+}
+
+/* @socom-skeleton body uninit_trig_table__Fv */
+void uninit_trig_table()
+{
+	if (tableInit)
+	{
+		tableInit = false;
+	}
+}
+
+/* @socom-skeleton stub exp_tl__Ff */
+float exp_tl(float)
+{
+}

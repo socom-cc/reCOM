@@ -48,17 +48,150 @@
 
 #include "gamez/zSeal/zseal.h"
 
-bool CSndInstance::m_allpaused = false;
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+/* @socom-skeleton end include */
 
-std::list<CSndInstance*> CSndInstance::m_instancelist;
-CSndInstance* CZSealBody::m_heartbeat_sndisnt = NULL;
-s32 CZSealBody::m_heartbeat_curindex = 0;
+/* @socom-skeleton stub m_mastervol__12CSndInstance */
+float CSndInstance::m_mastervol = 1.0f;
 
+/* @socom-skeleton stub m_allpaused__12CSndInstance */
+bool CSndInstance::m_allpaused;
+
+/* @socom-skeleton stub numSoundInstances */
+int numSoundInstances;
+
+/* @socom-skeleton stub m_instancelist__12CSndInstance */
+std::list<CSndInstance *, std::allocator<CSndInstance *> > CSndInstance::m_instancelist;
+
+/* @socom-skeleton stub m_sound_instance_pool__12CSndInstance */
+std::vector<CSnd *, std::allocator<CSnd *> > CSndInstance::m_sound_instance_pool;
+
+/* @socom-skeleton stub m_removallist__12CSndInstance */
+int CSndInstance::m_removallist[3];
+
+/* @socom-skeleton stub Cleanup__12CSndInstanceFv */
+void CSndInstance::Cleanup()
+{
+}
+
+/* @socom-skeleton stub AcquireSoundInstance__12CSndInstanceFUiP4CSnd */
+CSndInstance * CSndInstance::AcquireSoundInstance(unsigned int, CSnd *)
+{
+}
+
+/* @socom-skeleton body ReleaseSoundInstance__12CSndInstanceFP12CSndInstance */
 void CSndInstance::ReleaseSoundInstance(CSndInstance* instance)
 {
     
 }
 
+/* @socom-skeleton stub InitInstance__12CSndInstanceFUiP4CSnd */
+void CSndInstance::InitInstance(unsigned int, CSnd *)
+{
+	/* @socom-skeleton stub pushcounter$1052 */
+	static int pushcounter;
+}
+
+/* @socom-skeleton body Stop__12CSndInstanceFv */
+void CSndInstance::Stop()
+{
+    if (!m_isDisabled)
+    {
+        if (m_handle == 0xffffffff)
+        {
+            m_terminateASAP = true;
+            m_terminateOnFinish = true;
+        }
+        else
+        {
+            // TODO: Wrappers for 989snd
+            // snd_StopSound(m_handle);
+        }
+    }
+}
+
+/* @socom-skeleton stub SetVol__12CSndInstanceFf */
+void CSndInstance::SetVol(float)
+{
+}
+
+/* @socom-skeleton stub SetPan__12CSndInstanceFi */
+void CSndInstance::SetPan(int)
+{
+}
+
+/* @socom-skeleton stub SetPitch__12CSndInstanceFi */
+void CSndInstance::SetPitch(int)
+{
+}
+
+/* @socom-skeleton stub SetPos__12CSndInstanceFPC6CPnt3D */
+void CSndInstance::SetPos(const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub Remove__12CSndInstanceFUibb */
+void CSndInstance::Remove(unsigned int, bool, bool)
+{
+}
+
+/* @socom-skeleton stub AwarenessUpgrade__12CSndInstanceFUi */
+void CSndInstance::AwarenessUpgrade(unsigned int)
+{
+}
+
+/* @socom-skeleton stub PostTick__12CSndInstanceFfPv */
+void CSndInstance::PostTick(float, void *)
+{
+}
+
+/* @socom-skeleton stub Tick__12CSndInstanceFf */
+void CSndInstance::Tick(float)
+{
+}
+
+/* @socom-skeleton stub FadeOut__12CSndInstanceFf */
+void CSndInstance::FadeOut(float)
+{
+}
+
+/* @socom-skeleton stub IsFading__12CSndInstanceFv */
+void CSndInstance::IsFading()
+{
+}
+
+/* @socom-skeleton stub IsPlaying__12CSndInstanceFv */
+void CSndInstance::IsPlaying()
+{
+}
+
+/* @socom-skeleton stub Set3D__12CSndInstanceFf */
+void CSndInstance::Set3D(float)
+{
+}
+
+/* @socom-skeleton stub TerminateOnFinish__12CSndInstanceFv */
+void CSndInstance::TerminateOnFinish()
+{
+}
+
+/* @socom-skeleton stub UIStopAllSounds__12CSndInstanceFv */
+void CSndInstance::UIStopAllSounds()
+{
+}
+
+/* @socom-skeleton stub StopAllSounds__12CSndInstanceFv */
+void CSndInstance::StopAllSounds()
+{
+}
+
+/* @socom-skeleton stub StopAllSounds__12CSndInstanceF10SOUND_MODE */
+void CSndInstance::StopAllSounds(SOUND_MODE)
+{
+}
+
+/* @socom-skeleton body PauseAllSounds__12CSndInstanceFv */
 void CSndInstance::PauseAllSounds()
 {
     if (!m_isDisabled)
@@ -96,19 +229,32 @@ void CSndInstance::PauseAllSounds()
     }
 }
 
-void CSndInstance::Stop()
+/* @socom-skeleton stub ResumeAllSounds__12CSndInstanceFv */
+void CSndInstance::ResumeAllSounds()
 {
-    if (!m_isDisabled)
-    {
-        if (m_handle == 0xffffffff)
-        {
-            m_terminateASAP = true;
-            m_terminateOnFinish = true;
-        }
-        else
-        {
-            // TODO: Wrappers for 989snd
-            // snd_StopSound(m_handle);
-        }
-    }
+}
+
+/* @socom-skeleton stub Init__12CSndInstanceFv */
+void CSndInstance::Init()
+{
+}
+
+/* @socom-skeleton stub DebugSoundList__12CSndInstanceFv */
+void CSndInstance::DebugSoundList()
+{
+}
+
+/* @socom-skeleton stub RemoveFromList__12CSndInstanceFv */
+void CSndInstance::RemoveFromList()
+{
+}
+
+/* @socom-skeleton stub InitInstancePool__12CSndInstanceFi */
+void CSndInstance::InitInstancePool(int)
+{
+}
+
+/* @socom-skeleton stub PlaySoundCallback__12CSndInstanceFUiUl */
+void CSndInstance::PlaySoundCallback(unsigned int, unsigned long)
+{
 }

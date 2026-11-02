@@ -68,44 +68,135 @@
 
 #include "gamez/zSystem/zsys.h"
 
-bool CZAnimExpression::ProcExpr(f32* dT)
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "gamez/zReader/zrdr.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class _zanim_blend_fix;
+namespace zdb {
+class BLENDMODE;
+}
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+unsigned char std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+unsigned char std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub seq_offset_stack */
+static unsigned int *seq_offset_stack;
+
+/* @socom-skeleton stub seq_offset_stack_size */
+static unsigned int seq_offset_stack_size;
+
+/* @socom-skeleton stub zAnim_GetSequenceOffsetStackSize__Fv */
+int zAnim_GetSequenceOffsetStackSize()
 {
-    s8* program_counter = NULL;
-    
-    if (!ZAnim.m_CurSeq)
-    {
-        return false;
-    }
-    else
-    {
-        program_counter = ZAnim.m_CurSeq->cmd_pc;
-    }
-
-    do
-    {
-        
-    }
-    while (true);
-
-    return true;
 }
 
-bool CZAnimExpression::IsOperator(const char* operation)
+/* @socom-skeleton stub zAnim_ResetSequenceOffsetStackSize__Fv */
+void zAnim_ResetSequenceOffsetStackSize()
 {
-    bool is_not = strcmp(operation, "!") == 0;
-    bool is_and = strcmp(operation, "&&") == 0;
-    bool is_or = strcmp(operation, "||") == 0;
-    bool is_start_tag = strcmp(operation, "(") == 0;
-    bool is_end_tag = strcmp(operation, ")") == 0;
-    
-    if (is_not || is_and || is_or || is_start_tag || is_end_tag)
-    {
-        return true;
-    }
-
-    return false;
 }
 
+/* @socom-skeleton stub zAnimGetDirectionFromAzimuthZenith__FffP6CPnt3D */
+void zAnimGetDirectionFromAzimuthZenith(float, float, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub zAnimCmdAddData__FP14_zanim_cmd_hdrPvi */
+_zanim_cmd_hdr * zAnimCmdAddData(_zanim_cmd_hdr *, void *, int)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadDestructor__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadDestructor(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadParticleSource__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadParticleSource(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadCamera__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadCamera(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadSound__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadSound(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub GetBlendMode__15CZAnimBlendModeFPC5_zrdr */
+void CZAnimBlendMode::GetBlendMode(const _zrdr *)
+{
+}
+
+/* @socom-skeleton stub GetBlendModes__15CZAnimBlendModeFPC5_zrdrPiPiPiPiPf */
+void CZAnimBlendMode::GetBlendModes(const _zrdr *, int *, int *, int *, int *, float *)
+{
+}
+
+/* @socom-skeleton stub GetBlendValueSequence__15CZAnimBlendModeFP14_zanim_cmd_hdrP5_zrdrPfPi */
+_zanim_cmd_hdr * CZAnimBlendMode::GetBlendValueSequence(_zanim_cmd_hdr *, _zrdr *, float *, int *)
+{
+}
+
+/* @socom-skeleton stub GetBlendSequenceValue__15CZAnimBlendModeFPQ23zdb9BLENDMODEP16_zanim_blend_fixif */
+void CZAnimBlendMode::GetBlendSequenceValue(zdb::BLENDMODE *, _zanim_blend_fix *, int, float)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadLight__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadLight(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadObjectBlendMode__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadObjectBlendMode(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadObjectActiveState__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadObjectActiveState(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadObjectTranslateState__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadObjectTranslateState(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadObjectRotateState__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadObjectRotateState(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadObjectMotionFromTo__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadObjectMotionFromTo(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadObjectOpacityFromTo__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadObjectOpacityFromTo(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadLoop__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadLoop(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadWait__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadWait(_zrdr *)
+{
+}
+
+/* @socom-skeleton body AnimParseExpression__10CZAnimMainFP14_zanim_cmd_hdrP5_zrdr */
 _zanim_cmd_hdr* CZAnimMain::AnimParseExpression(_zanim_cmd_hdr* header, _zrdr* reader)
 {
     if (!reader || reader->type != ZRDR_ARRAY)
@@ -220,4 +311,310 @@ _zanim_cmd_hdr* CZAnimMain::AnimParseExpression(_zanim_cmd_hdr* header, _zrdr* r
             }
         }
     }
+}
+
+/* @socom-skeleton body zAnimLoadWhile__FP5_zrdr */
+_zanim_cmd_hdr* zAnimLoadWhile(_zrdr* tag)
+{
+    _zanim_cmd_hdr* cmd = NULL;
+    
+    if (tag)
+    {
+        cmd = (_zanim_cmd_hdr*)zcalloc(1, 8);
+        cmd->data_type &= DATATYPE_WHILE;
+
+        if (tag->type == ZRDR_ARRAY && tag->array->integer == DATATYPE_IF)
+        {
+            _zrdr* evaluation = NULL;
+
+            if (tag->array->integer != 1)
+            {
+                evaluation = &tag->array[1];
+            }
+
+            bool isTrue = false;
+            if (evaluation->type == ZRDR_STRING)
+            {
+                isTrue = strcmp(evaluation->string, "true") == 0;
+            }
+
+            if (isTrue)
+            {
+                cmd->timeless = true;
+                seq_offset_stack = (u32*)zrealloc(seq_offset_stack, (seq_offset_stack_size + 1) * sizeof(u32));
+
+                if (ZAnim.m_CurSeq)
+                {
+                    seq_offset_stack[seq_offset_stack_size] = ZAnim.m_CurSeq->seq_data_size;
+                }
+
+                seq_offset_stack_size++;
+                return cmd;
+            }
+        }
+
+        cmd = ZAnim.AnimParseExpression(cmd, tag);
+        
+        seq_offset_stack = (u32*)zrealloc(seq_offset_stack, (seq_offset_stack_size + 1) * sizeof(u32));
+
+        if (ZAnim.m_CurSeq)
+        {
+            seq_offset_stack[seq_offset_stack_size] = ZAnim.m_CurSeq->seq_data_size;
+        }
+
+        seq_offset_stack_size++;
+        return cmd;
+    }
+}
+
+/* @socom-skeleton stub zAnimLoadEndWhile__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadEndWhile(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadBreak__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadBreak(_zrdr *)
+{
+}
+
+/* @socom-skeleton body zAnimLoad_If__FP5_zrdr */
+_zanim_cmd_hdr* zAnimLoad_If(_zrdr* tag)
+{
+    _zanim_cmd_hdr* cmd = NULL;
+
+    if (tag)
+    {
+        cmd = (_zanim_cmd_hdr*)zcalloc(1, 8);
+        cmd->data_type &= DATATYPE_IF;
+        cmd = ZAnim.AnimParseExpression(cmd, tag);
+    }
+
+    ZAnim.m_CurSeq->m_IF_NestLevel++;
+    cmd->data_size = ZAnim.m_CurSeq->m_IF_NestLevel;
+    return cmd;
+}
+
+/* @socom-skeleton body zAnimLoad_ElseIf__FP5_zrdr */
+_zanim_cmd_hdr* zAnimLoad_ElseIf(_zrdr* tag)
+{
+    _zanim_cmd_hdr* cmd = NULL;
+
+    if (tag)
+    {
+        cmd = (_zanim_cmd_hdr*)zcalloc(1, 8);
+        cmd->data_type &= DATATYPE_IF;
+        cmd = ZAnim.AnimParseExpression(cmd, tag);
+    }
+
+    cmd->data_size = ZAnim.m_CurSeq->m_IF_NestLevel;
+    return cmd;
+}
+
+/* @socom-skeleton body zAnimLoad_Else__FP5_zrdr */
+_zanim_cmd_hdr* zAnimLoad_Else(_zrdr* tag)
+{
+    _zanim_cmd_hdr* cmd = NULL;
+    
+    if (tag)
+    {
+        cmd = (_zanim_cmd_hdr*)zcalloc(1, 8);
+        cmd->data_type &= DATATYPE_IF;
+    }
+
+    cmd->data_size = ZAnim.m_CurSeq->m_IF_NestLevel;
+    return cmd;
+}
+
+/* @socom-skeleton body zAnimLoad_EndIf__FP5_zrdr */
+_zanim_cmd_hdr* zAnimLoad_EndIf(_zrdr* tag)
+{
+    _zanim_cmd_hdr* cmd = NULL;
+
+    if (tag)
+    {
+        cmd = (_zanim_cmd_hdr*)zcalloc(1, 8);
+        cmd->data_type &= DATATYPE_END_IF;
+    }
+
+    cmd->data_size = ZAnim.m_CurSeq->m_IF_NestLevel;
+    ZAnim.m_CurSeq->m_IF_NestLevel--;
+
+    return cmd;
+}
+
+/* @socom-skeleton stub zAnimLoadNodeActive__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadNodeActive(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadNodeRendered__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadNodeRendered(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadRangeTest__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadRangeTest(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadRandomWeight__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadRandomWeight(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadFail__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadFail(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadAnimHealthTest__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadAnimHealthTest(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadAnimLODTest__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadAnimLODTest(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadCallAnim__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadCallAnim(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadStopAnim__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadStopAnim(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadPauseAnim__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadPauseAnim(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadResumeAnim__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadResumeAnim(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadInvalidateAnim__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadInvalidateAnim(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadCallSequence__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadCallSequence(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadStopSequence__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadStopSequence(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub GetTranslation__18CZAnimObjectMotionFP5_zrdrPfPfPfPf */
+void CZAnimObjectMotion::GetTranslation(_zrdr *, float *, float *, float *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadObjectMotion__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadObjectMotion(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadObjectMotionSIScriptForObject__FP5_zrdriPCc */
+void zAnimLoadObjectMotionSIScriptForObject(_zrdr *, int, const char *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadObjectMotionSIScript__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadObjectMotionSIScript(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadObjectAddChild__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadObjectAddChild(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadObjectDeleteChild__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadObjectDeleteChild(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadDebug__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadDebug(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadTimer__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadTimer(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadMessage__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadMessage(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimLoadFireWeapon__FP5_zrdr */
+_zanim_cmd_hdr * zAnimLoadFireWeapon(_zrdr *)
+{
+}
+
+/* @socom-skeleton body InitCommands__10CZAnimMainFv */
+bool CZAnimMain::InitCommands()
+{
+	//AddCmd("QUAD_ALIGN", NULL, NULL, zAnimQuadAlignTick, NULL);
+	//
+	//ZAnim.m_cmd_if = *AddCmd("IF", zAnimLoad_If, NULL, zAnimIfTick, NULL);
+	//ZAnim.m_cmd_elseif = *AddCmd("ELSEIF", zAnimLoad_ElseIf, NULL, zAnimGoToEndIf, NULL);
+	//ZAnim.m_cmd_else = *AddCmd("Else", zAnimLoad_ElseIf, NULL, zAnimGoToEndIf, NULL);
+	//ZAnim.m_cmd_endif = *AddCmd("ENDIF", zAnimLoad_EndIf, NULL, zAnimEndIfTick, NULL);
+	//
+	//ZAnim.AddCmd("NODE_ACTIVE", zAnimLoadNodeActive, NULL, zAnimNodeActiveTick, NULL);
+	//ZAnim.AddCmd("NODE_RENDERED", zAnimLoadNodeRendered, NULL, zAnimRangeTestTick, NULL);
+	//ZAnim.AddCmd("RANGE_TEST", zAnimLoadRangeTest, NULL, zAnimRangeTestTick, NULL);
+	//ZAnim.AddCmd("RANDOM_WEIGHT", zAnimLoadRandomWeight, NULL, zAnimRandomWeightTick, NULL);
+	//ZAnim.AddCmd("FAIL", zAnimLoadFail, NULL, zAnimFailTick, NULL);
+	//ZAnim.AddCmd("ANIM_HEALTH", zAnimLoadAnimHealthTest, NULL, zAnimHealthTestTick, NULL);
+	//ZAnim.AddCmd("ANIM_LOD", zAnimLoadAnimLODTest, NULL, zAnimLODTestTick, NULL);
+	//ZAnim.AddCmd("LOOP", zAnimLoadLoop, NULL, zAnimLoopTick, NULL);
+	//ZAnim.AddCmd("WAIT", zAnimLoadWait, zAnimWaitBegin, zAnimWaitTick, NULL);
+	//ZAnim.AddCmd("OBJECT_BLENDMODE", zAnimLoadObjectBlendMode, NULL, zAnimObjectBlendModeTick, NULL);
+	//ZAnim.AddCmd("OBJECT_ACTIVE_STATE", zAnimLoadObjectActiveState, NULL, zAnimObjectActiveStateTick, NULL);
+	//ZAnim.AddCmd("OBJECT_TRANSLATE_STATE", zAnimLoadObjectTranslateState, NULL, zAnimObjectTranslateStateTick, NULL);
+	//ZAnim.AddCmd("OBJECT_ROTATE_STATE", zAnimLoadObjectRotateState, NULL, zAnimObjectRotateStateTick, NULL);
+	//ZAnim.AddCmd("OBJECT_MOTION", zAnimLoadObjectMotion, zAnimObjectMotionBegin, zAnimObjectMotionTick, NULL);
+	//ZAnim.AddCmd("OBJECT_MOTION_FROM_TO", zAnimLoadObjectMotionFromTo, zAnimObjectMotionFromToBegin, zAnimObjectMotionFromToTick, NULL);
+	//ZAnim.AddCmd("OBJECT_OPACITY_FROM_TO", zAnimLoadObjectOpacityFromTo, zAnimObjectOpacityFromToBegin, zAnimObjectOpacityFromToTick, NULL);
+	//ZAnim.AddCmd("OBJECT_MOTION_SI_SCRIPT", zAnimLoadObjectMotionSIScript, zAnimMultiObjectMotionScriptBegin, zAnimMultiObjectMotionScriptTick, NULL);
+	//ZAnim.AddCmd("PARTICLE_SOURCE", zAnimLoadParticleSource, NULL, zAnimParticleSourceTick, NULL);
+	//ZAnim.AddCmd("CAMERA", zAnimLoadCamera, zAnimCameraBegin, zAnimCameraTick, NULL);
+	//ZAnim.AddCmd("DESTRUCTION_SOURCE", zAnimLoadDestructor, NULL, zAnimDestructorTick, NULL);
+	//ZAnim.AddCmd("SOUND", zAnimLoadSound, NULL, zAnimSoundTick, NULL);
+	//ZAnim.AddCmd("LIGHT", zAnimLoadLight, NULL, zAnimLightTick, NULL);
+	//ZAnim.AddCmd("WHILE", zAnimLoadWhile, NULL, zAnimWhileTick, NULL);
+	//
+	//ZAnim.m_cmd_endwhile = *ZAnim.AddCmd("END_WHILE", zAnimLoadEndWhile, NULL, zAnimEndWhileTick, NULL);
+	//ZAnim.m_cmd_ExprOperator = *ZAnim.AddCmd("EXPRESSION", NULL, NULL, NULL, NULL);
+	//
+	//ZAnim.AddCmd("BREAK", zAnimLoadBreak, NULL, zAnimBreakTick, NULL);
+	//ZAnim.AddCmd("CALL_ANIMATION", zAnimLoadCallAnim, zAnimCallAnimBegin, zAnimCallAnimTick, NULL);
+	//ZAnim.AddCmd("STOP_ANIMATION", zAnimLoadStopAnim, NULL, zAnimStopAnimTick, NULL);
+	//ZAnim.AddCmd("PAUSE_ANIMATION", zAnimLoadPauseAnim, NULL, zAnimPauseAnimTick, NULL);
+	//ZAnim.AddCmd("RESUME_ANIMATION", zAnimLoadResumeAnim, NULL, zAnimResumeAnimTick, NULL);
+	//ZAnim.AddCmd("INVALIDATE_ANIMATION", zAnimLoadInvalidateAnim, NULL, zAnimInvalidateAnimTick, NULL);
+	//ZAnim.AddCmd("CALL_SEQUENCE", zAnimLoadCallSequence, NULL, zAnimCallSequenceTick, NULL);
+	//ZAnim.AddCmd("STOP_SEQUENCE", zAnimLoadStopSequence, NULL, zAnimStopSequenceTick, NULL);
+	//ZAnim.AddCmd("DEBUG", zAnimLoadDebug, NULL, zAnimDebugTick, NULL);
+	//ZAnim.AddCmd("OBJECT_ADD_CHILD", zAnimLoadObjectAddChild, NULL, zAnimObjectAddChildTick, NULL);
+	//ZAnim.AddCmd("OBJECT_DELETE_CHILD", zAnimLoadObjectDeleteChild, NULL, zAnimObjectDeleteChildTick, NULL);
+	//ZAnim.AddCmd("MESSAGE", zAnimLoadMessage, NULL, zAnimMessageTick, NULL);
+	//ZAnim.AddCmd("TIMER", zAnimLoadTimer, NULL, zAnimTimerTick, NULL);
+	//ZAnim.AddCmd("FIRE_WEAPON", zAnimLoadFireWeapon, NULL, zAnimFireWeaponTick, NULL);
+	//ZAnim.AddCmd("ui::UI_COMMAND", zAnimLoadUIMenu, NULL, zAnimUIMenuTick, NULL);
+	//ZAnim.AddCmd("ui::UI_APP_COMMAND", zAnimLoadUIAppMenu, NULL, zAnimUIAppMenuTick, NULL);
+
+	return true;
 }

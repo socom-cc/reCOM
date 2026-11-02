@@ -32,3 +32,129 @@
  * @socom-artifact defines main socom:data:0x52cc40
  * @socom-artifact defines main socom:data:0x530c40
  * socom-owner-annotations end socom:work:source-segment-047 */
+
+/* @socom-skeleton decl forward */
+class playPssRsrcs;
+class sceMpeg;
+class sceMpegCbData;
+class sceMpegCbDataStr;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub doAudio */
+static bool doAudio = 1;
+
+/* @socom-skeleton stub _Max_Height */
+int _Max_Height = 480;
+
+/* @socom-skeleton stub _Display_Height */
+unsigned char _Display_Height[4] = {192, 1, 0, 0};
+
+/* @socom-skeleton stub isStarted */
+static int isStarted;
+
+/* @socom-skeleton stub fileRead */
+static int fileRead;
+
+/* @socom-skeleton stub OKtoFillBuff */
+unsigned char OKtoFillBuff;
+
+/* @socom-skeleton stub gFrameCount */
+static int gFrameCount;
+
+/* @socom-skeleton stub muxBuffFullness */
+static int muxBuffFullness;
+
+/* @socom-skeleton stub path3tag */
+static int path3tag;
+
+/* @socom-skeleton stub demuxBuff */
+static int demuxBuff;
+
+/* @socom-skeleton stub demuxBuffSize */
+static int demuxBuffSize;
+
+/* @socom-skeleton stub demuxBuffPast */
+static int demuxBuffPast;
+
+/* @socom-skeleton stub demuxBuffPresent */
+static int demuxBuffPresent;
+
+/* @socom-skeleton stub demuxBuffFuture */
+static int demuxBuffFuture;
+
+/* @socom-skeleton stub dbp */
+static int dbp[2];
+
+/* @socom-skeleton stub audioDec */
+static unsigned char audioDec[92];
+
+/* @socom-skeleton stub muxBuff */
+static unsigned char muxBuff[16384];
+
+/* @socom-skeleton stub disp */
+static unsigned char disp[40];
+
+/* @socom-skeleton stub initPssAudio__FP12playPssRsrcs */
+void initPssAudio(playPssRsrcs *)
+{
+}
+
+/* @socom-skeleton stub uninitPssAudio__Fv */
+void uninitPssAudio()
+{
+}
+
+/* @socom-skeleton stub startPss__FP7sceMpegPFPvi_iP12playPssRsrcsUiUi */
+void startPss(sceMpeg *, int (*)(void *, int), playPssRsrcs *, unsigned int, unsigned int)
+{
+}
+
+/* @socom-skeleton stub tickPss__FP7sceMpegP12playPssRsrcsUi */
+void tickPss(sceMpeg *, playPssRsrcs *, unsigned int)
+{
+}
+
+/* @socom-skeleton stub testdonePss__FP7sceMpeg */
+void testdonePss(sceMpeg *)
+{
+}
+
+/* @socom-skeleton stub stopPss__FP7sceMpeg */
+void stopPss(sceMpeg *)
+{
+}
+
+/* @socom-skeleton stub playPss__FPFPvi_iP12playPssRsrcs */
+void playPss(int (*)(void *, int), playPssRsrcs *)
+{
+}
+
+/* @socom-skeleton stub videoCallback__FP7sceMpegP16sceMpegCbDataStrPv */
+void videoCallback(sceMpeg *, sceMpegCbDataStr *, void *)
+{
+}
+
+/* @socom-skeleton stub audioCallback__FP7sceMpegP16sceMpegCbDataStrPv */
+void audioCallback(sceMpeg *, sceMpegCbDataStr *, void *)
+{
+}
+
+/* @socom-skeleton stub nodataCallback__FP7sceMpegP13sceMpegCbDataPv */
+void nodataCallback(sceMpeg *, sceMpegCbData *, void *)
+{
+}
+
+/* @socom-skeleton stub backgroundCallback__FP7sceMpegP13sceMpegCbDataPv */
+void backgroundCallback(sceMpeg *, sceMpegCbData *, void *)
+{
+}
+
+/* @socom-skeleton stub errorCallback__FP7sceMpegP13sceMpegCbDataPv */
+void errorCallback(sceMpeg *, sceMpegCbData *, void *)
+{
+}
+
+/* @socom-skeleton stub fillBuff__FP7sceMpegi */
+void fillBuff(sceMpeg *, int)
+{
+}

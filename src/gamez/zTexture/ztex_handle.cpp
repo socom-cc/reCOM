@@ -4,3 +4,63 @@
  * @socom-artifact defines main socom:function:0x2f9750
  * @socom-artifact defines main socom:function:0x2f97e0
  * socom-owner-annotations end socom:work:source-segment-040 */
+
+/* @socom-skeleton decl include */
+#include "ztex.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton body Create__Q23zdb10CTexHandleFPQ23zdb8CTexture */
+namespace zdb {
+CTexHandle* CTexHandle::Create(CTexture* texture)
+	{
+		CTexHandle* handle = new CTexHandle();
+
+		handle->m_name = NULL;
+		handle->m_count = 0;
+		handle->m_texture = NULL;
+		handle->m_libref = false;
+
+		if (handle->m_texture != NULL)
+		{
+			handle->m_texture->Release_HTEX();
+		}
+
+		handle->m_texture = texture;
+
+		if (texture != NULL)
+		{
+			char* name = texture->m_name;
+
+			if (handle->m_name != NULL)
+			{
+				zfree(handle->m_name);
+			}
+
+			handle->m_name = NULL;
+
+			if (name == NULL)
+			{
+				handle->m_name = NULL;
+			}
+			else
+			{
+				handle->m_name = strdup(name);
+			}
+
+			texture->m_htex_count++;
+		}
+
+		handle->m_count++;
+		return handle;
+	}
+}
+
+/* @socom-skeleton stub Destroy__Q23zdb10CTexHandleFPQ23zdb10CTexHandle */
+void zdb::CTexHandle::Destroy(zdb::CTexHandle *)
+{
+}
+
+/* @socom-skeleton stub SetTexture__Q23zdb10CTexHandleFPQ23zdb8CTexture */
+void zdb::CTexHandle::SetTexture(zdb::CTexture *)
+{
+}

@@ -30,12 +30,79 @@
 
 #include "gamez/zNetwork/znet.h"
 
-void ftsNetworkGameInit()
+/* @socom-skeleton stub m_WorldStrFieldID__11CZGameState */
+int CZGameState::m_WorldStrFieldID;
+
+/* @socom-skeleton stub m_MaxGameTimeFieldID__11CZGameState */
+int CZGameState::m_MaxGameTimeFieldID;
+
+/* @socom-skeleton stub m_InitialClockFieldID__11CZGameState */
+int CZGameState::m_InitialClockFieldID;
+
+/* @socom-skeleton stub m_CurrentRTimeFieldID__11CZGameState */
+int CZGameState::m_CurrentRTimeFieldID;
+
+/* @socom-skeleton stub m_VersionNoFieldID__11CZGameState */
+int CZGameState::m_VersionNoFieldID;
+
+/* @socom-skeleton stub m_FlagsFieldID__11CZGameState */
+int CZGameState::m_FlagsFieldID;
+
+/* @socom-skeleton stub m_RoundWinnerFieldID__11CZGameState */
+int CZGameState::m_RoundWinnerFieldID;
+
+/* @socom-skeleton stub m_Score00FieldID__11CZGameState */
+int CZGameState::m_Score00FieldID;
+
+/* @socom-skeleton stub m_Score08FieldID__11CZGameState */
+int CZGameState::m_Score08FieldID;
+
+/* @socom-skeleton stub m_RoundIndexFieldID__11CZGameState */
+int CZGameState::m_RoundIndexFieldID;
+
+/* @socom-skeleton stub m_RoundBlockFieldID__11CZGameState */
+int CZGameState::m_RoundBlockFieldID;
+
+/* @socom-skeleton stub m_LJBlockFieldID__11CZGameState */
+int CZGameState::m_LJBlockFieldID;
+
+/* @socom-skeleton stub m_NetStructIndexGameObject__11CZGameState */
+int CZGameState::m_NetStructIndexGameObject;
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub zNetRegisterGame__11CZGameStateFv */
+void CZGameState::zNetRegisterGame()
 {
-	CZNetGame* netGame = theMission.netGame;
+}
 
-	if (theNetwork.m_bSessionMaster)
-	{
+/* @socom-skeleton stub RemoteGameUpdateCallback__11CZGameStateFiii */
+void CZGameState::RemoteGameUpdateCallback(int, int, int)
+{
+}
 
-	}
+/* @socom-skeleton stub RemoteGamePostUpdateCallback__11CZGameStateFiii */
+void CZGameState::RemoteGamePostUpdateCallback(int, int, int)
+{
+}
+
+/* @socom-skeleton stub RemoteGameCreationCallback__11CZGameStateFii */
+void CZGameState::RemoteGameCreationCallback(int, int)
+{
+}
+
+/* @socom-skeleton stub RemoteGameDeletionCallback__11CZGameStateFii */
+void CZGameState::RemoteGameDeletionCallback(int, int)
+{
+}
+
+/* @socom-skeleton stub CreateLocalGame__11CZGameStateFP9CZNetGame */
+int CZGameState::CreateLocalGame(CZNetGame *)
+{
+}
+
+/* @socom-skeleton stub UpdateLocalGame__11CZGameStateFP9CZNetGame */
+void CZGameState::UpdateLocalGame(CZNetGame *)
+{
 }

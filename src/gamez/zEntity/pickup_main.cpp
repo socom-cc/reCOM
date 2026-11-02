@@ -33,3 +33,135 @@
  * @socom-artifact defines main socom:data:0x474efc
  * @socom-artifact defines main socom:data:0x474f00
  * socom-owner-annotations end socom:work:source-segment-030 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/znode.h"
+#include "zentity.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub nextPickupId__7CPickup */
+unsigned short CPickup::nextPickupId = 1;
+
+/* @socom-skeleton stub bit_count__7CPickup */
+int CPickup::bit_count = 32;
+
+/* @socom-skeleton stub m_nextNetPickupId__7CPickup */
+unsigned char CPickup::m_nextNetPickupId = 1;
+
+/* @socom-skeleton stub m_mpbombnode__7CPickup */
+zdb::CNode *CPickup::m_mpbombnode;
+
+/* @socom-skeleton stub m_isOpen__7CPickup */
+unsigned char CPickup::m_isOpen;
+
+/* @socom-skeleton stub m_list__7CPickup */
+int CPickup::m_list[3];
+
+/* @socom-skeleton stub m_pool__7CPickup */
+int CPickup::m_pool[3];
+
+/* @socom-skeleton stub Open__7CPickupFUi */
+void CPickup::Open(unsigned int)
+{
+}
+
+/* @socom-skeleton stub Close__7CPickupFb */
+void CPickup::Close(bool)
+{
+}
+
+/* @socom-skeleton stub DebugPickups__7CPickupFv */
+void CPickup::DebugPickups()
+{
+}
+
+/* @socom-skeleton stub NetworkCreate__7CPickupFUcQ27CPickup7PU_TYPEPQ23zdb5CNodePv */
+void CPickup::NetworkCreate(unsigned char, CPickup::PU_TYPE, zdb::CNode *, void *)
+{
+}
+
+/* @socom-skeleton stub GetVisibleByUnit__7CPickupFUi */
+void CPickup::GetVisibleByUnit(unsigned int)
+{
+}
+
+/* @socom-skeleton stub SetVisibleByUnit__7CPickupFUi */
+void CPickup::SetVisibleByUnit(unsigned int)
+{
+}
+
+/* @socom-skeleton stub Create__7CPickupFQ27CPickup7PU_TYPEPQ23zdb5CNodePv */
+void CPickup::Create(CPickup::PU_TYPE, zdb::CNode *, void *)
+{
+}
+
+/* @socom-skeleton stub Destroy__7CPickupFP7CPickup */
+void CPickup::Destroy(CPickup *)
+{
+}
+
+/* @socom-skeleton stub DestroyNetPickups__7CPickupFUc */
+void CPickup::DestroyNetPickups(unsigned char)
+{
+}
+
+/* @socom-skeleton stub GetFirst__7CPickupFv */
+void CPickup::GetFirst()
+{
+}
+
+/* @socom-skeleton stub GetNext__7CPickupFRQ33std44list<P7CPickup,Q23std20allocator<P7CPickup>>19generic_iterator<0>Q27CPickup7PU_TYPE */
+void CPickup::GetNext(std::list<CPickup *, std::allocator<CPickup *> >::generic_iterator<0> &, CPickup::PU_TYPE)
+{
+}
+
+/* @socom-skeleton stub GetNext__7CPickupFRQ33std44list<P7CPickup,Q23std20allocator<P7CPickup>>19generic_iterator<0>PC6CPnt3DfQ27CPickup7PU_TYPE */
+void CPickup::GetNext(std::list<CPickup *, std::allocator<CPickup *> >::generic_iterator<0> &, const CPnt3D *, float, CPickup::PU_TYPE)
+{
+}
+
+/* @socom-skeleton stub GetClosest__7CPickupFPC6CPnt3DfQ27CPickup7PU_TYPEPP7CPickup */
+void CPickup::GetClosest(const CPnt3D *, float, CPickup::PU_TYPE, CPickup **)
+{
+}
+
+/* @socom-skeleton stub FindPickup__7CPickupFUi */
+CPickup * CPickup::FindPickup(unsigned int)
+{
+}
+
+/* @socom-skeleton stub IsNetIdUsed__7CPickupFUcUc */
+void CPickup::IsNetIdUsed(unsigned char, unsigned char)
+{
+}
+
+/* @socom-skeleton stub GetEntityIDFromNetID__7CPickupFUs */
+unsigned short CPickup::GetEntityIDFromNetID(unsigned short)
+{
+}
+
+/* @socom-skeleton stub FindNetPickup__7CPickupFUi */
+CPickup * CPickup::FindNetPickup(unsigned int)
+{
+}
+
+/* @socom-skeleton stub CleanupAmmoPickup__7CPickupFP7CPickup */
+void CPickup::CleanupAmmoPickup(CPickup *)
+{
+}
+
+/* @socom-skeleton stub GetMPBomb__7CPickupFv */
+CPickup * CPickup::GetMPBomb()
+{
+}
+
+/* @socom-skeleton stub GetPosW__7CPickupCFv */
+CPnt3D * CPickup::GetPosW() const
+{
+}
+
+/* @socom-skeleton stub GetPickupNetEntityID__7CPickupFv */
+unsigned short CPickup::GetPickupNetEntityID()
+{
+}

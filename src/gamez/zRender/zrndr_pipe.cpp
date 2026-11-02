@@ -95,140 +95,132 @@
 #include "gamez/zVisual/zvis.h"
 #include "gamez/zVideo/zvid.h"
 
-u32 numCharactersRendered = 0;
-f32 bilinearDistance = 0.0f;
-bool FirstVisDrawn = false;
-CStack stack;
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "gamez/zTexture/ztex.h"
+/* @socom-skeleton end include */
 
-void BuildNodeLocalLightList(zdb::CNode* node, zdb::CNode* light)
+/* @socom-skeleton stub FirstVisDrawn */
+bool FirstVisDrawn = 1;
+
+/* @socom-skeleton stub m_first_alpha_add__Q25CPipe6CAlpha */
+unsigned char CPipe::CAlpha::m_first_alpha_add = 1;
+
+/* @socom-skeleton stub AppliedToNodeNum */
+static int AppliedToNodeNum = 1;
+
+/* @socom-skeleton stub __doParticles */
+unsigned char __doParticles = 1;
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+unsigned char std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+unsigned char std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub VifHandlerID */
+static int VifHandlerID;
+
+/* @socom-skeleton stub m_last_alpha_insert__Q25CPipe6CAlpha */
+float CPipe::CAlpha::m_last_alpha_insert;
+
+/* @socom-skeleton stub stack */
+static unsigned char stack;
+
+/* @socom-skeleton stub _AlphaBufUsed */
+int _AlphaBufUsed;
+
+/* @socom-skeleton stub numCharactersRendered */
+unsigned int numCharactersRendered;
+
+/* @socom-skeleton stub thePipe */
+CPipe thePipe;
+
+/* @socom-skeleton stub _vdataTex */
+static unsigned char _vdataTex[96];
+
+/* @socom-skeleton stub assetWait */
+unsigned int assetWait[17];
+
+/* @socom-skeleton body __ct__5CPipeFv */
+CPipe::CPipe()
 {
-	// TODO: Implement this function.
-	// It should gather up a list of local lights
-	// and add them to the visual instances list.
+	m_wireframe = false;
+	m_terrain = false;
+	m_alpha.m_visualList = zmalloc(22400);
+	m_alpha.m_next = m_alpha.m_visualList;
+	m_delayedNodeNum = 0;
+	
+	m_drawDI = false;
+	m_drawBBox = false;
+	m_drawNormal = false;
+	m_reticuleDraw = false;
+	m_LODFilter = false;
+
+	m_opacity_stack = static_cast<f32*>(zcalloc(4, 32));
+	*m_opacity_stack = 1.0f;
+	m_opacity_stack_size = 32;
+	m_opacity_stack_index = 0;
+
+	m_DelayedNodes.reserve(48);
+	
+	m_texIntIdx = 0;
+	m_texLoadIdx = 0;
 }
 
+/* @socom-skeleton stub __dt__5CPipeFv */
+CPipe::~CPipe()
+{
+}
+
+/* @socom-skeleton stub InterruptFromVIF1__Fi */
+void InterruptFromVIF1(int)
+{
+}
+
+/* @socom-skeleton stub FIFO_Insert__Fi */
+void FIFO_Insert(int)
+{
+}
+
+/* @socom-skeleton stub FIFO_Signal__5CPipeFPQ23zdb12CGSTexBufferPUi */
+void CPipe::FIFO_Signal(zdb::CGSTexBuffer *, unsigned int *)
+{
+}
+
+/* @socom-skeleton stub FIFO_Signal__5CPipeFPQ23zdb12CGSTexBuffer */
+void CPipe::FIFO_Signal(zdb::CGSTexBuffer *)
+{
+}
+
+/* @socom-skeleton stub Init__5CPipeFv */
+void CPipe::Init()
+{
+}
+
+/* @socom-skeleton stub Uninit__5CPipeFv */
+void CPipe::Uninit()
+{
+}
+
+/* @socom-skeleton body Flush__5CPipeFv */
+void CPipe::Flush()
+{
+	
+}
+
+/* @socom-skeleton stub RenderLineWorld__F6CPnt4D6CPnt4D6CPnt4D6CPnt4D */
+void RenderLineWorld(CPnt4D, CPnt4D, CPnt4D, CPnt4D)
+{
+}
+
+/* @socom-skeleton body RenderAtom__5CPipeFPQ23zdb5CNode */
 void CPipe::RenderAtom(zdb::CNode* atomNode)
 {
 	m_node = atomNode;
 }
 
-void CPipe::RenderNode(zdb::CNode* node, zdb::tag_ZVIS_FOV fov)
-{
-	bool doAlpha = false;
-
-	if (!node->m_active)
-		return;
-
-	if (!node->m_hasVisuals)
-		return;
-
-	if (!m_camera->CanSeeRegion(node->m_region_mask))
-		return;
-
-	CBench::countNodes++;
-
-	CMatrix nodeTransform = *stack.Multiply(&node->m_matrix, true);
-
-	// Take care of any nodes in the frustum
-	if (fov != zdb::tag_ZVIS_FOV::ZVIS_FOV_ALL_IN)
-	{
-		CBBox* bbox = NULL;
-
-		PNT4D bboxtransform;
-		PNT3D bboxmin;
-		PNT3D bboxmax;
-
-		PNT4D mx = reinterpret_cast<PNT4D&>(nodeTransform.m_matrix[0]);
-		PNT4D my = reinterpret_cast<PNT4D&>(nodeTransform.m_matrix[1]);
-		PNT4D mz = reinterpret_cast<PNT4D&>(nodeTransform.m_matrix[2]);
-		PNT4D mw = reinterpret_cast<PNT4D&>(nodeTransform.m_matrix[3]);
-
-		if (node->m_use_parent_bbox)
-			bbox = node->m_parent->GetBBox();
-		else
-			bbox = &node->m_bbox;
-
-		bboxmin = bbox->m_min;
-		bboxmax = bbox->m_max;
-
-		bboxtransform.w = 1.0f;
-		bboxtransform.x = bboxmin.x;
-		bboxtransform.y = bboxmin.y;
-		bboxtransform.z = bboxmax.z;
-
-		// TODO: do bbox transform math here
-		for (u32 i = 8; i > 0; i--)
-		{
-
-		}
-	}
-
-	if (node->m_mtx_is_identity && !m_drawCharacters)
-	{
-		node->m_mtx_is_identity = false;
-		CStack::m_pointer--;
-		CStack::m_top--;
-	}
-	else
-	{
-		zdb::CVisual::m_stack_vid.push_back(node->m_vid);
-
-		// Add node to opacity stack
-		if (node->m_Opacity < 0.99f)
-		{
-			m_opacity_stack++;
-			if (m_opacity_stack_index == m_opacity_stack_size)
-			{
-				// Extend stack
-				m_opacity_stack = static_cast<f32*>(zrealloc(m_opacity_stack, (m_opacity_stack_size + 1) * 4));
-				m_opacity_stack_size++;
-			}
-
-			doAlpha = true;
-			m_opacity_stack[m_opacity_stack_index] *= node->m_Opacity;
-		}
-
-		if (node->m_facade)
-			// Compute sprite billboard for this node
-			node->ComputeFacadeMatrix(&m_camera->m_matrix, &nodeTransform);
-
-		if (node->m_visual.size() != 0)
-		{
-			if (!m_LODFilter)
-				RenderVisual(node, fov);
-			else if (!RenderVisual(node, fov))
-			{
-				CStack::m_pointer--;
-				CStack::m_top--;
-
-				if (doAlpha)
-					m_opacity_stack_index--;
-
-				zdb::CVisual::m_stack_vid.pop_back();
-				return;
-			}
-		}
-
-		for (auto i = node->m_child.begin(); i != node->m_child.end(); ++i)
-		{
-			zdb::CNode* child = *i;
-
-			if (!child->m_hasMesh)
-				RenderNode(child, fov);
-			else
-				RenderMesh(child, NULL, NULL, zdb::tag_ZVIS_FOV::ZVIS_FOV_CLIP);
-		}
-
-		CStack::m_pointer--;
-		CStack::m_top--;
-
-		if (doAlpha)
-			m_opacity_stack_index--;
-
-		zdb::CVisual::m_stack_vid.pop_back();
-	}
-}
-
+/* @socom-skeleton body RenderWorld__5CPipeFPQ23zdb6CWorld */
 u32 CPipe::RenderWorld(zdb::CWorld* world)
 {
 	numCharactersRendered = 0;
@@ -372,6 +364,163 @@ u32 CPipe::RenderWorld(zdb::CWorld* world)
 	return true;
 }
 
+/* @socom-skeleton stub BuildLightMapList__5CPipeFPQ23zdb5CNode */
+void CPipe::BuildLightMapList(zdb::CNode *)
+{
+}
+
+/* @socom-skeleton body BuildNodeLocalLightList__FPQ23zdb5CNodePQ23zdb5CNode */
+void BuildNodeLocalLightList(zdb::CNode* node, zdb::CNode* light)
+{
+	// TODO: Implement this function.
+	// It should gather up a list of local lights
+	// and add them to the visual instances list.
+}
+
+/* @socom-skeleton body RenderNode__5CPipeFPQ23zdb5CNodeQ23zdb12tag_ZVIS_FOV */
+void CPipe::RenderNode(zdb::CNode* node, zdb::tag_ZVIS_FOV fov)
+{
+	bool doAlpha = false;
+
+	if (!node->m_active)
+		return;
+
+	if (!node->m_hasVisuals)
+		return;
+
+	if (!m_camera->CanSeeRegion(node->m_region_mask))
+		return;
+
+	CBench::countNodes++;
+
+	CMatrix nodeTransform = *stack.Multiply(&node->m_matrix, true);
+
+	// Take care of any nodes in the frustum
+	if (fov != zdb::tag_ZVIS_FOV::ZVIS_FOV_ALL_IN)
+	{
+		CBBox* bbox = NULL;
+
+		PNT4D bboxtransform;
+		PNT3D bboxmin;
+		PNT3D bboxmax;
+
+		PNT4D mx = reinterpret_cast<PNT4D&>(nodeTransform.m_matrix[0]);
+		PNT4D my = reinterpret_cast<PNT4D&>(nodeTransform.m_matrix[1]);
+		PNT4D mz = reinterpret_cast<PNT4D&>(nodeTransform.m_matrix[2]);
+		PNT4D mw = reinterpret_cast<PNT4D&>(nodeTransform.m_matrix[3]);
+
+		if (node->m_use_parent_bbox)
+			bbox = node->m_parent->GetBBox();
+		else
+			bbox = &node->m_bbox;
+
+		bboxmin = bbox->m_min;
+		bboxmax = bbox->m_max;
+
+		bboxtransform.w = 1.0f;
+		bboxtransform.x = bboxmin.x;
+		bboxtransform.y = bboxmin.y;
+		bboxtransform.z = bboxmax.z;
+
+		// TODO: do bbox transform math here
+		for (u32 i = 8; i > 0; i--)
+		{
+
+		}
+	}
+
+	if (node->m_mtx_is_identity && !m_drawCharacters)
+	{
+		node->m_mtx_is_identity = false;
+		CStack::m_pointer--;
+		CStack::m_top--;
+	}
+	else
+	{
+		zdb::CVisual::m_stack_vid.push_back(node->m_vid);
+
+		// Add node to opacity stack
+		if (node->m_Opacity < 0.99f)
+		{
+			m_opacity_stack++;
+			if (m_opacity_stack_index == m_opacity_stack_size)
+			{
+				// Extend stack
+				m_opacity_stack = static_cast<f32*>(zrealloc(m_opacity_stack, (m_opacity_stack_size + 1) * 4));
+				m_opacity_stack_size++;
+			}
+
+			doAlpha = true;
+			m_opacity_stack[m_opacity_stack_index] *= node->m_Opacity;
+		}
+
+		if (node->m_facade)
+			// Compute sprite billboard for this node
+			node->ComputeFacadeMatrix(&m_camera->m_matrix, &nodeTransform);
+
+		if (node->m_visual.size() != 0)
+		{
+			if (!m_LODFilter)
+				RenderVisual(node, fov);
+			else if (!RenderVisual(node, fov))
+			{
+				CStack::m_pointer--;
+				CStack::m_top--;
+
+				if (doAlpha)
+					m_opacity_stack_index--;
+
+				zdb::CVisual::m_stack_vid.pop_back();
+				return;
+			}
+		}
+
+		for (auto i = node->m_child.begin(); i != node->m_child.end(); ++i)
+		{
+			zdb::CNode* child = *i;
+
+			if (!child->m_hasMesh)
+				RenderNode(child, fov);
+			else
+				RenderMesh(child, NULL, NULL, zdb::tag_ZVIS_FOV::ZVIS_FOV_CLIP);
+		}
+
+		CStack::m_pointer--;
+		CStack::m_top--;
+
+		if (doAlpha)
+			m_opacity_stack_index--;
+
+		zdb::CVisual::m_stack_vid.pop_back();
+	}
+}
+
+/* @socom-skeleton body RenderMesh__5CPipeFPQ23zdb5CNodePQ23zdb5CMeshP7CMatrixQ23zdb12tag_ZVIS_FOV */
+void CPipe::RenderMesh(zdb::CNode *node, zdb::CMesh *mesh, CMatrix *mvp, zdb::tag_ZVIS_FOV fov) {}
+
+/* @socom-skeleton stub SaveDelayedNode__5CPipeFP7CMatrixPQ23zdb5CNodeQ23zdb12tag_ZVIS_FOV */
+void CPipe::SaveDelayedNode(CMatrix *, zdb::CNode *, zdb::tag_ZVIS_FOV)
+{
+}
+
+/* @socom-skeleton stub RenderDelayedNodes__5CPipeFv */
+void CPipe::RenderDelayedNodes()
+{
+}
+
+/* @socom-skeleton stub RenderNodeShadow__5CPipeFPQ23zdb5CNode */
+void CPipe::RenderNodeShadow(zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub RenderMeshShadow__5CPipeFPQ23zdb5CNodePQ23zdb5CMeshP7CMatrix */
+void CPipe::RenderMeshShadow(zdb::CNode *, zdb::CMesh *, CMatrix *)
+{
+	/* @socom-skeleton stub shadowLOD$2090 */
+	static int shadowLOD;
+}
+
+/* @socom-skeleton body RenderVisual__5CPipeFPQ23zdb5CNodeQ23zdb12tag_ZVIS_FOV */
 bool CPipe::RenderVisual(zdb::CNode* node, zdb::tag_ZVIS_FOV fov)
 {
 	CMatrix mat = *CStack::m_top;
@@ -478,6 +627,17 @@ bool CPipe::RenderVisual(zdb::CNode* node, zdb::tag_ZVIS_FOV fov)
 	return true;
 }
 
+/* @socom-skeleton stub Add__Q25CPipe6CAlphaFPQ23zdb5CNodePQ23zdb5CNodePQ23zdb7CVisualQ23zdb12tag_ZVIS_FOVf */
+void CPipe::CAlpha::Add(zdb::CNode *, zdb::CNode *, zdb::CVisual *, zdb::tag_ZVIS_FOV, float)
+{
+}
+
+/* @socom-skeleton stub Render__Q25CPipe6CAlphaFv */
+void CPipe::CAlpha::Render()
+{
+}
+
+/* @socom-skeleton body RenderUiNode__5CPipeFPQ23zdb5CNode */
 void CPipe::RenderUiNode(zdb::CNode* node)
 {
 	CStack::m_top++;
@@ -488,6 +648,7 @@ void CPipe::RenderUiNode(zdb::CNode* node)
 	CStack::m_top--;
 }
 
+/* @socom-skeleton body RenderUiNodeRecursive__5CPipeFPQ23zdb5CNode */
 void CPipe::RenderUiNodeRecursive(zdb::CNode* node)
 {
 	bool doAlpha = false;
@@ -538,9 +699,4 @@ void CPipe::RenderUiNodeRecursive(zdb::CNode* node)
 	}
 
 	zdb::CVisual::m_stack_vid.pop_back();
-}
-
-void CPipe::Flush()
-{
-	
 }

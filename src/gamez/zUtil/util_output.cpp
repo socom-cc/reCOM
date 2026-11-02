@@ -15,15 +15,31 @@
 
 #include "zutil.h"
 
-COutput* debug;
+/* @socom-skeleton stub debug */
+COutput *debug;
 
-bool dumpLog = true;
-
+/* @socom-skeleton body zUtilInit__FPCc */
 void zUtilInit(const char* log)
 {
 	debug = new COutput(log, false);
 }
 
+/* @socom-skeleton stub zUtilUninit__Fv */
+void zUtilUninit()
+{
+}
+
+/* @socom-skeleton stub RegisterRebootCallback__11CIOPManagerFPFQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv_bPv */
+void CIOPManager::RegisterRebootCallback(bool (*)(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *), void *)
+{
+}
+
+/* @socom-skeleton stub UnRegisterRebootCallback__11CIOPManagerFi */
+void CIOPManager::UnRegisterRebootCallback(int)
+{
+}
+
+/* @socom-skeleton body __ct__7COutputFPCcb */
 COutput::COutput(const char* file, bool doLog)
 {
 	m_doLog = doLog;
@@ -35,7 +51,13 @@ COutput::COutput(const char* file, bool doLog)
 	}
 }
 
+/* @socom-skeleton body DumpLog__7COutputFPCc */
 void COutput::DumpLog(const char* file)
 {
 	return;
+}
+
+/* @socom-skeleton stub __dt__7COutputFv */
+COutput::~COutput()
+{
 }

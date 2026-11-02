@@ -15,3 +15,73 @@
  * @socom-artifact defines main socom:function:0x1ed930
  * @socom-artifact defines main socom:data:0x475924
  * socom-owner-annotations end socom:work:source-segment-022 */
+
+/* @socom-skeleton decl include */
+#include "zconsole.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CPacket;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub _counter */
+static int _counter;
+
+/* @socom-skeleton stub OnRecvPacket__7CPacketFPCv */
+void CPacket::OnRecvPacket(const void *)
+{
+}
+
+/* @socom-skeleton stub __ct__7CPacketFP7CPacketUiUi */
+CPacket::CPacket(CPacket *, unsigned int, unsigned int)
+{
+}
+
+/* @socom-skeleton stub __ct__7CPacketFUiPCvUiUi */
+CPacket::CPacket(unsigned int, const void *, unsigned int, unsigned int)
+{
+}
+
+/* @socom-skeleton stub __dt__7CPacketFv */
+CPacket::~CPacket()
+{
+}
+
+/* @socom-skeleton stub CopyTo__7CPacketFPvi */
+void CPacket::CopyTo(void *, int)
+{
+}
+
+/* @socom-skeleton stub GetPacketType__7CPacketCFv */
+void CPacket::GetPacketType() const
+{
+}
+
+/* @socom-skeleton stub GetFlags__7CPacketCFv */
+void CPacket::GetFlags() const
+{
+}
+
+/* @socom-skeleton stub GetPacketID__7CPacketCFv */
+void CPacket::GetPacketID() const
+{
+}
+
+/* @socom-skeleton stub Compare__7CPacketFP7CPacketP7CPacket */
+void CPacket::Compare(CPacket *, CPacket *)
+{
+}
+
+/* @socom-skeleton stub __dt__10CPacketMsgFv */
+CPacketMsg::~CPacketMsg()
+{
+}
+
+/* @socom-skeleton stub GetArgCount__10CPacketMsgCFv */
+void CPacketMsg::GetArgCount() const
+{
+}
+
+/* @socom-skeleton stub GetArg__10CPacketMsgCFUi */
+void CPacketMsg::GetArg(unsigned int) const
+{
+}

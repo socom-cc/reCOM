@@ -107,11 +107,86 @@ namespace zdb
 {
 	static CMesh* last_mesh = NULL;
 
-	u32 numNodes = 0;
+	
 
-	u32 CGrid::N_ATOMS = 0;
+	// TODO: Implement this function
 
-	CNode::CNode()
+	
+
+	
+
+}
+
+/* @socom-skeleton decl include */
+#include "gamez/zIntersect/zintersect.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zTexture/ztex.h"
+#include "node_light.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+namespace zdb {
+class BLENDMODE;
+class CTickLightList;
+}
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub UNNAMED_NODE */
+static const char *UNNAMED_NODE = "NA";
+
+/* @socom-skeleton stub DELETED_NODE */
+static const char *DELETED_NODE = "DELETED_NODE";
+
+/* @socom-skeleton stub NodeUniverse__3zdb */
+namespace zdb {
+zdb::CNodeUniverse *NodeUniverse;
+}
+
+/* @socom-skeleton stub numNodes */
+int numNodes;
+
+/* @socom-skeleton stub m_tick_list__Q23zdb6CLight */
+namespace zdb {
+zdb::CTickLightList CLight::m_tick_list;
+}
+
+/* @socom-skeleton body InitNodeParams__3zdbFPQ23zdb15tag_NODE_PARAMSPCQ23zdb15tag_NODE_PARAMS */
+namespace zdb {
+void InitNodeParams(tag_NODE_PARAMS* nparams, const tag_NODE_PARAMS* other)
+	{
+		nparams->m_type                         = other != NULL ? other->m_type : 0;
+		nparams->m_active                       = other != NULL ? other->m_active : false;
+		nparams->m_dynamic_motion               = other != NULL ? other->m_dynamic_motion : false;
+		nparams->m_dynamic_light                = other != NULL ? other->m_dynamic_light : false;
+		nparams->m_landmark                     = other != NULL ? other->m_landmark : false;
+		nparams->m_light                        = other != NULL ? other->m_light : false;
+		nparams->m_prelight                     = other != NULL ? other->m_prelight : false;
+		nparams->m_fog                          = other != NULL ? other->m_fog : false;
+		nparams->m_transparent                  = other != NULL ? other->m_transparent : false;
+		nparams->m_facade                       = other != NULL ? other->m_facade : false;
+		nparams->m_reflective                   = other != NULL ? other->m_reflective : false;
+		nparams->m_bumpmap                      = other != NULL ? other->m_bumpmap : false;
+		nparams->m_hasDI                        = other != NULL ? other->m_hasDI : false;
+		nparams->m_region_shift                 = other != NULL ? other->m_region_shift : 0;
+		nparams->m_has_visuals_prior_to_export  = other != NULL ? other->m_has_visuals_prior_to_export : false;
+		nparams->m_shadow                       = other != NULL ? other->m_shadow : false;
+		nparams->m_worldchild                   = other != NULL ? other->m_worldchild : false;
+		nparams->m_char_common                  = other != NULL ? other->m_char_common : false;
+		nparams->m_NOTUSED                      = other != NULL ? other->m_NOTUSED : false;
+		nparams->m_hasVisuals                   = other != NULL ? other->m_hasVisuals : false;
+		nparams->m_hasMesh                      = other != NULL ? other->m_hasMesh : false;
+		nparams->m_scrolling_texture            = other != NULL ? other->m_scrolling_texture : false;
+		nparams->m_light_dynamic                = other != NULL ? other->m_light_dynamic : false;
+		nparams->m_light_static                 = other != NULL ? other->m_light_static : false;
+		nparams->m_clutter                      = other != NULL ? other->m_clutter : false;
+		nparams->m_mtx_is_identity              = other != NULL ? other->m_mtx_is_identity : false;
+		nparams->m_use_parent_bbox              = other != NULL ? other->m_use_parent_bbox : false;
+		nparams->m_apply_clip                   = other != NULL ? other->m_apply_clip : false;
+	}
+}
+
+/* @socom-skeleton body __ct__Q23zdb5CNodeFv */
+namespace zdb {
+CNode::CNode()
 	{
 		m_matrix = CMatrix::identity;
 
@@ -146,161 +221,16 @@ namespace zdb
 		numNodes++;
 		m_name = "UNNAMED_NODE";
 	}
+}
 
-	CNode* CNode::Create(const char* name)
-	{
-		CNode* node = new CNode();
-		char* str = NULL;
-
-		if (name)
-		{
-			str = node->m_name;
-
-			if (str && str != "UNNAMED_NODE")
-			{
-				zfree(str);
-			}
-
-			str = zstrdup("Node");
-			node->m_name = str;
-		}
-		else
-		{
-			str = node->m_name;
-
-			if (str && str != "UNNAMED_NODE")
-			{
-				zfree(str);
-			}
-
-			if (!str)
-			{
-				node->m_name = "UNNAMED_NODE";
-			}
-			else
-			{
-				str = zstrdup(name);
-				node->m_name = str;
-			}
-		}
-
-		return node;
-	}
-
-	void InitNodeParams(tag_NODE_PARAMS* nparams, const tag_NODE_PARAMS* other)
-	{
-		nparams->m_type                         = other != NULL ? other->m_type : 0;
-		nparams->m_active                       = other != NULL ? other->m_active : false;
-		nparams->m_dynamic_motion               = other != NULL ? other->m_dynamic_motion : false;
-		nparams->m_dynamic_light                = other != NULL ? other->m_dynamic_light : false;
-		nparams->m_landmark                     = other != NULL ? other->m_landmark : false;
-		nparams->m_light                        = other != NULL ? other->m_light : false;
-		nparams->m_prelight                     = other != NULL ? other->m_prelight : false;
-		nparams->m_fog                          = other != NULL ? other->m_fog : false;
-		nparams->m_transparent                  = other != NULL ? other->m_transparent : false;
-		nparams->m_facade                       = other != NULL ? other->m_facade : false;
-		nparams->m_reflective                   = other != NULL ? other->m_reflective : false;
-		nparams->m_bumpmap                      = other != NULL ? other->m_bumpmap : false;
-		nparams->m_hasDI                        = other != NULL ? other->m_hasDI : false;
-		nparams->m_region_shift                 = other != NULL ? other->m_region_shift : 0;
-		nparams->m_has_visuals_prior_to_export  = other != NULL ? other->m_has_visuals_prior_to_export : false;
-		nparams->m_shadow                       = other != NULL ? other->m_shadow : false;
-		nparams->m_worldchild                   = other != NULL ? other->m_worldchild : false;
-		nparams->m_char_common                  = other != NULL ? other->m_char_common : false;
-		nparams->m_NOTUSED                      = other != NULL ? other->m_NOTUSED : false;
-		nparams->m_hasVisuals                   = other != NULL ? other->m_hasVisuals : false;
-		nparams->m_hasMesh                      = other != NULL ? other->m_hasMesh : false;
-		nparams->m_scrolling_texture            = other != NULL ? other->m_scrolling_texture : false;
-		nparams->m_light_dynamic                = other != NULL ? other->m_light_dynamic : false;
-		nparams->m_light_static                 = other != NULL ? other->m_light_static : false;
-		nparams->m_clutter                      = other != NULL ? other->m_clutter : false;
-		nparams->m_mtx_is_identity              = other != NULL ? other->m_mtx_is_identity : false;
-		nparams->m_use_parent_bbox              = other != NULL ? other->m_use_parent_bbox : false;
-		nparams->m_apply_clip                   = other != NULL ? other->m_apply_clip : false;
-	}
-
-	bool CNode::AddVisual(CVisual* visual)
-	{
-		if (visual && !m_visual.Exists(visual))
-		{
-			visual->m_refcount++;
-			m_visual.insert(m_visual.begin(), visual);
-
-			SetParentHasVisuals();
-
-			return true;
-		}
-
-		return false;
-	}
-
-	bool CNode::AddDI(CDI* di)
-	{
-		if (di && !m_di.Exists(di))
-		{
-			di->m_refcount++;
-			m_di.insert(m_di.begin(), di);
-			m_modified = true;
-
-			return true;
-		}
-
-		return false;
-	}
-	
-	bool CNode::DeleteVisual(CVisual* visual, bool doChildren)
-	{
-		std::vector<CVisual*>::iterator it;
-
-		// Look for copies, I guess.
-		for (it = m_visual.begin(); it != m_visual.end(); ++it)
-			if (*it == visual)
-				break;
-
-		// std::remove_copy(m_visual.begin(), m_visual.end(), it, visual);
-
-		// m_visual.erase(it);
-
-		bool released = visual->Release();
-
-		if (doChildren && !released)
-		{
-			if (visual)
-				// delete visual;
-
-			m_hasVisuals = false;
-		}
-
-		m_modified = true;
-		return true;
-	}
-
-	s32 CNode::DeleteVisuals()
-	{
-		for (auto i = m_visual.begin(); i != m_visual.end(); ++i)
-		{
-			(*i)->Release();
-			delete (*i);
-		}
-
-		m_visual.clear();
-		m_hasVisuals = false;
-
-		return 0;
-	}
-
-	void CNode::ComputeFacadeMatrix(const CMatrix* matrix, CMatrix* model)
-	{
-
-	}
-
-	CNode* CNode::Copy()
+/* @socom-skeleton body Copy__Q23zdb5CNodeCFv */
+zdb::CNode * zdb::CNode::Copy() const
 	{
 		return _Copy(NULL);
 	}
 
-	// TODO: Implement this function
-	CNode* CNode::_Copy(CNode* other)
+/* @socom-skeleton body _Copy__Q23zdb5CNodeCFPQ23zdb5CNode */
+zdb::CNode * zdb::CNode::_Copy(zdb::CNode *other) const
 	{
 		if (!other)
 			other = new CNode();
@@ -459,37 +389,133 @@ namespace zdb
 		return other;
 	}
 
-	bool CNode::Delete()
+/* @socom-skeleton body Release__Q23zdb5CNodeFv */
+namespace zdb {
+short CNode::Release()
 	{
-		if (m_type == static_cast<u32>(TYPE::MULTI_PARENT))
-		{
-			if (m_child.size() != 0)
-			{
-				CNode* child = *m_child.data();
-				RemoveFromParent();
+		m_count--;
 
-				if (m_parent)
-					m_parent->AddChild(child);
+		if (m_count < 0)
+		{
+			m_count = 0;
+		}
+
+		return m_count;
+	}
+}
+
+/* @socom-skeleton body SetParentHasVisuals__Q23zdb5CNodeFv */
+namespace zdb {
+void CNode::SetParentHasVisuals()
+	{
+		m_hasVisuals = true;
+
+		if (m_parent && !m_parent->m_modified)
+			m_parent->SetParentHasVisuals();
+
+		CModel* model = dynamic_cast<CModel*>(this);
+
+		if (!model)
+			return;
+
+		for (auto i = model->m_list.begin(); i != model->m_list.end(); ++i)
+		{
+			CAssetLib* assetlib = *i;
+
+			for (auto j = assetlib->m_models.begin(); j != assetlib->m_models.end(); ++j)
+			{
+				CNode* node = *j;
+
+				if (node->m_hasVisuals)
+					node->SetParentHasVisuals();
 			}
 		}
-		else if (m_type == static_cast<u32>(TYPE::INSTANCE))
-		{
-			// m_model->m_list.remove_if(this);
+	}
+}
 
-			if (m_model->m_parent == this)
-				m_model->m_parent = NULL;
-
-			RemoveFromParent();
-		}
-		
-		// Very bad. Only putting this here because of 
-		// the decompilation output.
-		delete this;
-
-		return true;
+/* @socom-skeleton body ReserveVisuals__Q23zdb5CNodeFi */
+void zdb::CNode::ReserveVisuals(int size)
+	{
+		m_visual.reserve(size);
 	}
 
-	void CNode::AddChild(CNode* node)
+/* @socom-skeleton body AddVisual__Q23zdb5CNodeFPQ23zdb7CVisual */
+namespace zdb {
+bool CNode::AddVisual(CVisual* visual)
+	{
+		if (visual && !m_visual.Exists(visual))
+		{
+			visual->m_refcount++;
+			m_visual.insert(m_visual.begin(), visual);
+
+			SetParentHasVisuals();
+
+			return true;
+		}
+
+		return false;
+	}
+}
+
+/* @socom-skeleton body DeleteVisual__Q23zdb5CNodeFPQ23zdb7CVisualb */
+namespace zdb {
+bool CNode::DeleteVisual(CVisual* visual, bool doChildren)
+	{
+		std::vector<CVisual*>::iterator it;
+
+		// Look for copies, I guess.
+		for (it = m_visual.begin(); it != m_visual.end(); ++it)
+			if (*it == visual)
+				break;
+
+		// std::remove_copy(m_visual.begin(), m_visual.end(), it, visual);
+
+		// m_visual.erase(it);
+
+		bool released = visual->Release();
+
+		if (doChildren && !released)
+		{
+			if (visual)
+				// delete visual;
+
+			m_hasVisuals = false;
+		}
+
+		m_modified = true;
+		return true;
+	}
+}
+
+/* @socom-skeleton body DeleteVisuals__Q23zdb5CNodeFv */
+namespace zdb {
+s32 CNode::DeleteVisuals()
+	{
+		for (auto i = m_visual.begin(); i != m_visual.end(); ++i)
+		{
+			(*i)->Release();
+			delete (*i);
+		}
+
+		m_visual.clear();
+		m_hasVisuals = false;
+
+		return 0;
+	}
+}
+
+/* @socom-skeleton body RemoveFromParent__Q23zdb5CNodeFv */
+void zdb::CNode::RemoveFromParent() {}
+
+/* @socom-skeleton body ReserveChildren__Q23zdb5CNodeFi */
+void zdb::CNode::ReserveChildren(int size)
+	{
+		m_child.reserve(size);
+	}
+
+/* @socom-skeleton body AddChild__Q23zdb5CNodeFPQ23zdb5CNode */
+namespace zdb {
+void CNode::AddChild(CNode* node)
 	{
 		CNode* parent = node->m_parent;
 		if (node && parent != this)
@@ -514,8 +540,11 @@ namespace zdb
 			m_child.insert(m_child.begin(), child);
 		}
 	}
+}
 
-	s32 CNode::DeleteChild(CNode* child)
+/* @socom-skeleton body DeleteChild__Q23zdb5CNodeFPQ23zdb5CNode */
+namespace zdb {
+s32 CNode::DeleteChild(CNode* child)
 	{
 		s32 count = child->m_count;
 
@@ -548,26 +577,11 @@ namespace zdb
 		
 		return 0;
 	}
+}
 
-	CNode* CNode::FindChild(CNode* child, bool nested)
-	{
-		if (!child)
-			return NULL;
-
-		for (auto i = m_child.begin(); i != m_child.end(); ++i)
-		{
-			if (*i == child)
-				return *i;
-		}
-
-		if (nested)
-		{
-			for (auto i = m_child.begin(); i != m_child.end(); ++i)
-				return (*i)->FindChild(child, nested);
-		}
-	}
-
-	CNode* CNode::FindChild(const char* name, bool nested)
+/* @socom-skeleton body FindChild__Q23zdb5CNodeFPCcb */
+namespace zdb {
+CNode* CNode::FindChild(const char* name, bool nested)
 	{
 		if (!name)
 			return NULL;
@@ -599,93 +613,148 @@ namespace zdb
 
 		return NULL;
 	}
+}
 
-	void CNode::DeleteChildren()
+/* @socom-skeleton body FindChild__Q23zdb5CNodeFPQ23zdb5CNodeb */
+namespace zdb {
+CNode* CNode::FindChild(CNode* child, bool nested)
 	{
+		if (!child)
+			return NULL;
+
 		for (auto i = m_child.begin(); i != m_child.end(); ++i)
 		{
-			DeleteChild(*i);
-			delete* i;
+			if (*i == child)
+				return *i;
 		}
-	}
 
-	void CNode::ReserveChildren(size_t size)
-	{
-		m_child.reserve(size);
-	}
-
-	void CNode::ReserveDI(size_t size)
-	{
-		// m_di.reserve(size);
-	}
-
-	void CNode::ReserveVisuals(size_t size)
-	{
-		m_visual.reserve(size);
-	}
-
-	void CNode::SetParentHasVisuals()
-	{
-		m_hasVisuals = true;
-
-		if (m_parent && !m_parent->m_modified)
-			m_parent->SetParentHasVisuals();
-
-		CModel* model = dynamic_cast<CModel*>(this);
-
-		if (!model)
-			return;
-
-		for (auto i = model->m_list.begin(); i != model->m_list.end(); ++i)
+		if (nested)
 		{
-			CAssetLib* assetlib = *i;
-
-			for (auto j = assetlib->m_models.begin(); j != assetlib->m_models.end(); ++j)
-			{
-				CNode* node = *j;
-
-				if (node->m_hasVisuals)
-					node->SetParentHasVisuals();
-			}
+			for (auto i = m_child.begin(); i != m_child.end(); ++i)
+				return (*i)->FindChild(child, nested);
 		}
 	}
+}
 
-	void CNode::SetDynamicLight(bool self_light, bool apply_to_children)
+/* @socom-skeleton stub SetNodeEx__Q23zdb5CNodeFPQ23zdb7CNodeExb */
+void zdb::CNode::SetNodeEx(zdb::CNodeEx *, bool)
+{
+}
+
+/* @socom-skeleton body UpdateGrid__Q23zdb5CNodeFv */
+namespace zdb {
+bool CNode::UpdateGrid()
 	{
-		m_light_dynamic = self_light;
-
-		if (apply_to_children)
-		{
-			auto child_iterator = m_child.begin();
-			while (child_iterator != m_child.end())
-			{
-				CNode* child = *child_iterator;
-
-				child->m_light_dynamic = m_light_dynamic;
-				child->SetDynamicLight(self_light, apply_to_children);
-
-				++child_iterator;
-			}
-		}
-	}
-
-	bool CNode::InheritRegionMasks(u32 pmask, u32 cmask)
-	{
-		if (m_type == (u32)TYPE::CELL)
+		if (!m_parent)
 			return false;
 
-		u32 parent = cmask | m_region_mask;
-		u32 child = pmask | 1 << m_region_shift;
+		if (m_type != (u32)TYPE::GRID)
+			return false;
 
-		m_region_mask = m_type == (u32)TYPE::LIGHT ? parent : child;
-
-		for (u32 i = 0; i < m_child.size(); i++)
-			m_child[i]->InheritRegionMasks(parent, child);
-
+		((CGrid*)m_parent)->Update(this);
 		return true;
 	}
+}
 
-	f32 CNode::GetRadius() const
+/* @socom-skeleton body SetMatrix__Q23zdb5CNodeFPC7CMatrix */
+namespace zdb {
+void CNode::SetMatrix(const CMatrix* matrix)
+	{
+		m_matrix = *matrix;
+		UpdateGrid();
+		m_modified = true;
+
+		if (m_nodeEx)
+		{
+			m_nodeEx->OnMove(this);
+		}
+	}
+}
+
+/* @socom-skeleton body SetPosition__Q23zdb5CNodeFfff */
+namespace zdb {
+void CNode::SetPosition(f32 x, f32 y, f32 z)
+	{
+		m_matrix.m_matrix[3][0] = x;
+		m_matrix.m_matrix[3][1] = y;
+		m_matrix.m_matrix[3][2] = z;
+
+		UpdateGrid();
+		m_modified = true;
+
+		if (m_nodeEx)
+		{
+			m_nodeEx->OnMove(this);
+		}
+	}
+}
+
+/* @socom-skeleton stub SetRotation__Q23zdb5CNodeFRC5CQuat */
+void zdb::CNode::SetRotation(const CQuat &)
+{
+}
+
+/* @socom-skeleton stub SetRotation__Q23zdb5CNodeFPC6CPnt3D */
+void zdb::CNode::SetRotation(const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub SetScale__Q23zdb5CNodeFf */
+void zdb::CNode::SetScale(float)
+{
+}
+
+/* @socom-skeleton stub SetScale__Q23zdb5CNodeFP6CPnt3D */
+void zdb::CNode::SetScale(CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub GetScale__Q23zdb5CNodeFv */
+float zdb::CNode::GetScale()
+{
+}
+
+/* @socom-skeleton body GetScale__Q23zdb5CNodeFP6CPnt3D */
+CPnt3D * zdb::CNode::GetScale(CPnt3D *scale)
+	{
+		scale->x = m_matrix.m_matrix[0][0];
+		scale->y = m_matrix.m_matrix[1][1];
+		scale->z = m_matrix.m_matrix[2][2];
+		return scale;
+	}
+
+/* @socom-skeleton body GetRotation__Q23zdb5CNodeCFP6CPnt3D */
+CPnt3D * zdb::CNode::GetRotation(CPnt3D *rotation) const
+	{
+		return NULL;
+	}
+
+/* @socom-skeleton body GetRadiusSq__Q23zdb5CNodeFv */
+float zdb::CNode::GetRadiusSq()
+	{
+		f32 radius = 0.0f;
+
+		f32 minX = m_bbox.m_min.x;
+		f32 minY = m_bbox.m_min.y;
+		f32 minZ = m_bbox.m_min.z;
+
+		f32 maxX = m_bbox.m_max.x;
+		f32 maxY = m_bbox.m_max.y;
+		f32 maxZ = m_bbox.m_max.z;
+
+		f32 min = minZ * minZ + minX * minX + minY * minY;
+		f32 max = maxZ * maxZ + maxX * maxX + maxY * maxY;
+
+		if (min <= max)
+		{
+			radius = max;
+		}
+
+		return radius;
+	}
+
+/* @socom-skeleton body GetRadius__Q23zdb5CNodeFv */
+float zdb::CNode::GetRadius()
 	{
 		f32 radius = 0.0f;
 
@@ -709,207 +778,64 @@ namespace zdb
 		return radius;
 	}
 
-	f32 CNode::GetRadiusSq() const
-	{
-		f32 radius = 0.0f;
+/* @socom-skeleton stub Rendered__Q23zdb5CNodeFv */
+bool zdb::CNode::Rendered()
+{
+}
 
-		f32 minX = m_bbox.m_min.x;
-		f32 minY = m_bbox.m_min.y;
-		f32 minZ = m_bbox.m_min.z;
+/* @socom-skeleton stub _Copy__Q23zdb6CLightCFPQ23zdb5CNode */
+zdb::CNode * zdb::CLight::_Copy(zdb::CNode *) const
+{
+}
 
-		f32 maxX = m_bbox.m_max.x;
-		f32 maxY = m_bbox.m_max.y;
-		f32 maxZ = m_bbox.m_max.z;
+/* @socom-skeleton stub _Copy__Q23zdb9CLightMapCFPQ23zdb5CNode */
+zdb::CNode * zdb::CLightMap::_Copy(zdb::CNode *) const
+{
+}
 
-		f32 min = minZ * minZ + minX * minX + minY * minY;
-		f32 max = maxZ * maxZ + maxX * maxX + maxY * maxY;
+/* @socom-skeleton body __ct__Q23zdb6CLightFv */
+namespace zdb {
+CLight::CLight()
+    {
+        m_type = (u32)TYPE::LIGHT;
+        m_invMaxRange = 0.0f;
+        m_maxRange = 0.0f;
+        m_diffuse.x = 128.0f;
+        m_diffuse.y = 128.0f;
+        m_diffuse.z = 128.0f;
+        m_opacity = 64.0f;
+        m_appliedToNode = 0;
+    }
+}
 
-		if (min <= max)
-		{
-			radius = max;
-		}
+/* @socom-skeleton stub __dt__Q23zdb6CLightFv */
+zdb::CLight::~CLight()
+{
+}
 
-		return radius;
-	}
+/* @socom-skeleton stub UpdateBBox__Q23zdb6CLightFb */
+CBBox * zdb::CLight::UpdateBBox(bool)
+{
+}
 
-	CPnt3D* CNode::GetScale(CPnt3D* scale) const
-	{
-		scale->x = m_matrix.m_matrix[0][0];
-		scale->y = m_matrix.m_matrix[1][1];
-		scale->z = m_matrix.m_matrix[2][2];
-		return scale;
-	}
+/* @socom-skeleton stub __ct__Q23zdb9CLightMapFv */
+zdb::CLightMap::CLightMap()
+{
+}
 
-	CPnt3D* CNode::GetRotation(const CPnt3D* rotation) const
-	{
-		return NULL;
-	}
+/* @socom-skeleton stub __dt__Q23zdb9CLightMapFv */
+zdb::CLightMap::~CLightMap()
+{
+}
 
-	void CNode::SetMatrix(const CMatrix* matrix)
-	{
-		m_matrix = *matrix;
-		UpdateGrid();
-		m_modified = true;
+/* @socom-skeleton stub SetTexture__Q23zdb9CLightMapFPQ23zdb8CTexture */
+void zdb::CLightMap::SetTexture(zdb::CTexture *)
+{
+}
 
-		if (m_nodeEx)
-		{
-			m_nodeEx->OnMove(this);
-		}
-	}
-	
-	bool CNode::SetActive(bool active)
-	{
-		m_active = active;
-		return m_active;
-	}
-
-	bool CNode::SetModel(CModel* model)
-	{
-		if (m_type != (u32)TYPE::CHILD || m_type != (u32)TYPE::INSTANCE)
-		{
-			return false;
-		}
-
-		if (model)
-			DeleteChildren();
-
-		AddChild(model);
-
-		char* name;
-		m_model = model;
-
-		if (!model)
-			name = NULL;
-		else
-			name = model->m_name;
-
-		SetModelname(name);
-		return true;
-	}
-
-	void CNode::SetModelname(const char* name)
-	{
-		if (m_modelname)
-		{
-			zfree(m_modelname);
-			m_modelname = NULL;
-		}
-
-		if (!name)
-			return;
-
-		m_modelname = zstrdup(name);
-	}
-
-	CBBox* CNode::GetBBox()
-	{
-		if (m_use_parent_bbox)
-		{
-			return m_parent->GetBBox();
-		}
-
-		return &m_bbox;
-	}
-	
-	CMesh* CNode::GetMesh() const
-	{
-		CVisual* mesh = NULL;
-
-		if (!m_visual.empty())
-		{
-			mesh = *m_visual.data();
-		}
-
-		if (!mesh || !mesh->m_has_lods)
-		{
-			mesh = NULL;
-		}
-
-		return static_cast<CMesh*>(mesh);
-	}
-
-	CGridAtom* CNode::GetAtom(s16 index)
-	{
-		CGridAtom* atom = NULL;
-
-		if (index < m_AtomAlloc)
-		{
-			atom = m_Atom[index];
-		}
-
-		return atom;
-	}
-
-	void CNode::InsertAtom(CGridAtom* atom)
-	{
-		s16 index = 0;
-		m_AtomCnt = index + 1;
-		m_Atom[index] = atom;
-	}
-
-	void CNode::FreeAtom()
-	{
-		if (m_Atom)
-		{
-			zfree(m_Atom);
-		}
-
-		m_Atom = NULL;
-		m_AtomAlloc = 0;
-	}
-
-	bool CNode::UpdateGrid()
-	{
-		if (!m_parent)
-			return false;
-
-		if (m_type != (u32)TYPE::GRID)
-			return false;
-
-		((CGrid*)m_parent)->Update(this);
-		return true;
-	}
-
-	void CNode::ShrinkAtomBasePtrs()
-	{
-		if (m_AtomCnt > m_AtomAlloc)
-			return;
-
-		CGridAtom** atom = (CGridAtom**)zmalloc(m_AtomCnt << 2);
-		memcpy(atom, m_Atom, m_AtomCnt << 2);
-		zfree(m_Atom);
-		m_Atom = atom;
-		m_AtomAlloc = m_AtomCnt;
-	}
-
-	void CNode::SetAtomCnt(u16 count)
-	{
-		m_AtomCnt = count;
-	}
-
-	CMatrix& CNode::BuildMTW(CMatrix& mat)
-	{
-		if (m_type == (u32)TYPE::GRID)
-		{
-			// set identity matrix
-		}
-
-		return CMatrix();
-	}
-
-	short CNode::Release()
-	{
-		m_count--;
-
-		if (m_count < 0)
-		{
-			m_count = 0;
-		}
-
-		return m_count;
-	}
-
-	void CNode::SetName(const char* name)
+/* @socom-skeleton body SetName__Q23zdb5CNodeFPCc */
+namespace zdb {
+void CNode::SetName(const char* name)
 	{
 		char* str = m_name;
 
@@ -927,29 +853,28 @@ namespace zdb
 
 		m_name = str;
 	}
+}
 
-	void CNode::SetPosition(f32 x, f32 y, f32 z)
+/* @socom-skeleton stub __dt__Q23zdb5CNodeFv */
+zdb::CNode::~CNode()
+{
+}
+
+/* @socom-skeleton body DeleteChildren__Q23zdb5CNodeFv */
+namespace zdb {
+void CNode::DeleteChildren()
 	{
-		m_matrix.m_matrix[3][0] = x;
-		m_matrix.m_matrix[3][1] = y;
-		m_matrix.m_matrix[3][2] = z;
-
-		UpdateGrid();
-		m_modified = true;
-
-		if (m_nodeEx)
+		for (auto i = m_child.begin(); i != m_child.end(); ++i)
 		{
-			m_nodeEx->OnMove(this);
+			DeleteChild(*i);
+			delete* i;
 		}
 	}
+}
 
-	void CNode::TransformToWorld(const CPnt3D& point)
-	{
-		// TODO:
-		// Implement this function
-	}
-
-	void CNode::AllocateAtomBasePtrs(s32 x, s32 y)
+/* @socom-skeleton body AllocateAtomBasePtrs__Q23zdb5CNodeFii */
+namespace zdb {
+void CNode::AllocateAtomBasePtrs(s32 x, s32 y)
 	{
 		u16 allocCnt = 0;
 
@@ -974,85 +899,261 @@ namespace zdb
 			m_Atom = static_cast<CGridAtom**>(zrealloc(m_Atom, allocCnt << 2));
 		}
 	}
+}
 
-	bool CNodeVector::Exists(const CNode* node) const
+/* @socom-skeleton body ShrinkAtomBasePtrs__Q23zdb5CNodeFv */
+namespace zdb {
+void CNode::ShrinkAtomBasePtrs()
 	{
-		auto it = begin();
-		auto last = end();
+		if (m_AtomCnt > m_AtomAlloc)
+			return;
 
-		while (it != last)
+		CGridAtom** atom = (CGridAtom**)zmalloc(m_AtomCnt << 2);
+		memcpy(atom, m_Atom, m_AtomCnt << 2);
+		zfree(m_Atom);
+		m_Atom = atom;
+		m_AtomAlloc = m_AtomCnt;
+	}
+}
+
+/* @socom-skeleton body FreeAtom__Q23zdb5CNodeFv */
+namespace zdb {
+void CNode::FreeAtom()
+	{
+		if (m_Atom)
 		{
-			if (*it == node)
-			{
-				break;
-			}
-
-			it++;
+			zfree(m_Atom);
 		}
 
-		return it != last;
+		m_Atom = NULL;
+		m_AtomAlloc = 0;
+	}
+}
+
+/* @socom-skeleton body InsertAtom__Q23zdb5CNodeFPQ23zdb9CGridAtom */
+namespace zdb {
+void CNode::InsertAtom(CGridAtom* atom)
+	{
+		s16 index = 0;
+		m_AtomCnt = index + 1;
+		m_Atom[index] = atom;
+	}
+}
+
+/* @socom-skeleton body GetAtom__Q23zdb5CNodeFi */
+zdb::CGridAtom * zdb::CNode::GetAtom(int index)
+	{
+		CGridAtom* atom = NULL;
+
+		if (index < m_AtomAlloc)
+		{
+			atom = m_Atom[index];
+		}
+
+		return atom;
 	}
 
-	CNode* CNodeVector::GetNode(const char* name) const
+/* @socom-skeleton body SetAtomCnt__Q23zdb5CNodeFi */
+void zdb::CNode::SetAtomCnt(int count)
 	{
-		CNode* node = NULL;
+		m_AtomCnt = count;
+	}
 
-		if (!name)
+/* @socom-skeleton stub SetDynamic__Q23zdb5CNodeFbb */
+void zdb::CNode::SetDynamic(bool, bool)
+{
+}
+
+/* @socom-skeleton stub SetDynamicMotion__Q23zdb5CNodeFbb */
+void zdb::CNode::SetDynamicMotion(bool, bool)
+{
+}
+
+/* @socom-skeleton body SetDynamicLight__Q23zdb5CNodeFbb */
+namespace zdb {
+void CNode::SetDynamicLight(bool self_light, bool apply_to_children)
+	{
+		m_light_dynamic = self_light;
+
+		if (apply_to_children)
 		{
-			return NULL;
+			auto child_iterator = m_child.begin();
+			while (child_iterator != m_child.end())
+			{
+				CNode* child = *child_iterator;
+
+				child->m_light_dynamic = m_light_dynamic;
+				child->SetDynamicLight(self_light, apply_to_children);
+
+				++child_iterator;
+			}
+		}
+	}
+}
+
+/* @socom-skeleton stub SetUseParentBBoxTree__Q23zdb5CNodeFb */
+void zdb::CNode::SetUseParentBBoxTree(bool)
+{
+}
+
+/* @socom-skeleton stub SetApplyDecals__Q23zdb5CNodeFb */
+void zdb::CNode::SetApplyDecals(bool)
+{
+}
+
+/* @socom-skeleton stub SetApplyMultipassEffects__Q23zdb5CNodeFb */
+void zdb::CNode::SetApplyMultipassEffects(bool)
+{
+}
+
+/* @socom-skeleton stub SetApplyClutterFlag__Q23zdb5CNodeFb */
+void zdb::CNode::SetApplyClutterFlag(bool)
+{
+}
+
+/* @socom-skeleton body ReserveDI__Q23zdb5CNodeFi */
+void zdb::CNode::ReserveDI(int size)
+	{
+		// m_di.reserve(size);
+	}
+
+/* @socom-skeleton body AddDI__Q23zdb5CNodeFPQ23zdb3CDI */
+namespace zdb {
+bool CNode::AddDI(CDI* di)
+	{
+		if (di && !m_di.Exists(di))
+		{
+			di->m_refcount++;
+			m_di.insert(m_di.begin(), di);
+			m_modified = true;
+
+			return true;
+		}
+
+		return false;
+	}
+}
+
+/* @socom-skeleton stub VisualEffectsTick__Q23zdb5CNodeFfPv */
+bool zdb::CNode::VisualEffectsTick(float, void *)
+{
+}
+
+/* @socom-skeleton stub ApplyDecal__Q23zdb5CNodeFPQ23zdb5CNodefP6CPnt3DP6CPnt3DP6CPnt3DPQ23zdb10CTexHandlefP6CPnt3D */
+void zdb::CNode::ApplyDecal(zdb::CNode *, float, CPnt3D *, CPnt3D *, CPnt3D *, zdb::CTexHandle *, float, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub RemoveDecals__Q23zdb5CNodeFv */
+void zdb::CNode::RemoveDecals()
+{
+}
+
+/* @socom-skeleton stub ScrollTexture__Q23zdb5CNodeFPQ23zdb5CNodeffb */
+void zdb::CNode::ScrollTexture(zdb::CNode *, float, float, bool)
+{
+}
+
+/* @socom-skeleton stub SetDescendantDI__Q23zdb5CNodeFb */
+void zdb::CNode::SetDescendantDI(bool)
+{
+}
+
+/* @socom-skeleton stub SetDescendantVisuals__Q23zdb5CNodeFb */
+void zdb::CNode::SetDescendantVisuals(bool)
+{
+}
+
+/* @socom-skeleton stub FindMeshTextures__Q23zdb5CNodeFv */
+void zdb::CNode::FindMeshTextures()
+{
+}
+
+/* @socom-skeleton body Create__Q23zdb5CNodeFPCc */
+namespace zdb {
+CNode* CNode::Create(const char* name)
+	{
+		CNode* node = new CNode();
+		char* str = NULL;
+
+		if (name)
+		{
+			str = node->m_name;
+
+			if (str && str != "UNNAMED_NODE")
+			{
+				zfree(str);
+			}
+
+			str = zstrdup("Node");
+			node->m_name = str;
 		}
 		else
 		{
-			auto it = begin();
-			auto last = end();
+			str = node->m_name;
 
-			while (it != last)
+			if (str && str != "UNNAMED_NODE")
 			{
-				CNode* node = *it;
-				bool found = false;
-
-				if (node != NULL && node->m_name != 0)
-				{
-					found = strcmp(name, node->m_name);
-				}
-
-				if (found)
-				{
-					break;
-				}
+				zfree(str);
 			}
 
-			if (it != last)
+			if (!str)
 			{
-				node = *it;
+				node->m_name = "UNNAMED_NODE";
+			}
+			else
+			{
+				str = zstrdup(name);
+				node->m_name = str;
 			}
 		}
 
 		return node;
 	}
+}
 
-	bool CNodeVector::Remove(const CNode* node)
+/* @socom-skeleton stub SetActive__Q23zdb6CLightFb */
+unsigned char zdb::CLight::SetActive(bool)
+{
+}
+
+/* @socom-skeleton stub SetBlendMode__Q23zdb5CNodeFRCQ23zdb9BLENDMODEbbb */
+void zdb::CNode::SetBlendMode(const zdb::BLENDMODE &, bool, bool, bool)
+{
+}
+
+/* @socom-skeleton body SetModelname__Q23zdb5CNodeFPCc */
+namespace zdb {
+void CNode::SetModelname(const char* name)
 	{
-		auto it = begin();
-		auto last = end();
-
-		for (; it != last; it++)
+		if (m_modelname)
 		{
-			if (*it == node)
-			{
-				break;
-			}
+			zfree(m_modelname);
+			m_modelname = NULL;
 		}
 
-		const CNode* found = node;
+		if (!name)
+			return;
 
-		if (it != last)
-		{
-			it = std::remove_copy(it + 1, last, it, found);
-		}
+		m_modelname = zstrdup(name);
+	}
+}
 
-		erase(it, last);
+/* @socom-skeleton body InheritRegionMasks__Q23zdb5CNodeFUiUi */
+namespace zdb {
+bool CNode::InheritRegionMasks(u32 pmask, u32 cmask)
+	{
+		if (m_type == (u32)TYPE::CELL)
+			return false;
 
-		return it != last;
+		u32 parent = cmask | m_region_mask;
+		u32 child = pmask | 1 << m_region_shift;
+
+		m_region_mask = m_type == (u32)TYPE::LIGHT ? parent : child;
+
+		for (u32 i = 0; i < m_child.size(); i++)
+			m_child[i]->InheritRegionMasks(parent, child);
+
+		return true;
 	}
 }

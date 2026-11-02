@@ -37,3 +37,79 @@
  * @socom-artifact defines main socom:data:0x475940
  * @socom-artifact defines main socom:data:0x475944
  * socom-owner-annotations end socom:work:source-segment-022 */
+
+/* @socom-skeleton decl include */
+#include "zentity.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub rrTargetListCount__7CEntity */
+int CEntity::rrTargetListCount = 2;
+
+/* @socom-skeleton stub rrTargetListFirst__7CEntity */
+int CEntity::rrTargetListFirst;
+
+/* @socom-skeleton stub m_target_inc__7CEntity */
+int CEntity::m_target_inc[3];
+
+/* @socom-skeleton stub m_target_add__7CEntity */
+int CEntity::m_target_add[3];
+
+/* @socom-skeleton stub m_target_rem__7CEntity */
+int CEntity::m_target_rem[3];
+
+/* @socom-skeleton stub _sort_target__FRC7CTargetRC7CTarget */
+bool _sort_target(const CTarget &, const CTarget &)
+{
+}
+
+/* @socom-skeleton stub SetUpdateTargetList__7CEntityFb */
+void CEntity::SetUpdateTargetList(bool)
+{
+}
+
+/* @socom-skeleton stub SetIncludeInTargetList__7CEntityFb */
+void CEntity::SetIncludeInTargetList(bool)
+{
+}
+
+/* @socom-skeleton stub ReplaceTargetList__7CEntityFP7CEntityP7CEntity */
+void CEntity::ReplaceTargetList(CEntity *, CEntity *)
+{
+}
+
+/* @socom-skeleton stub OnUpdateTargetList__7CEntityFbb */
+void CEntity::OnUpdateTargetList(bool, bool)
+{
+	/* @socom-skeleton stub range_tolerance$1225 */
+	static float range_tolerance;
+}
+
+/* @socom-skeleton stub RefreshAwareCounters__7CEntityFv */
+void CEntity::RefreshAwareCounters()
+{
+}
+
+/* @socom-skeleton stub UpdateTargetList__7CEntityFb */
+void CEntity::UpdateTargetList(bool)
+{
+}
+
+/* @socom-skeleton stub FindTarget__11CTargetListFP7CEntity */
+CTarget * CTargetList::FindTarget(CEntity *)
+{
+}
+
+/* @socom-skeleton stub __ct__7CTargetFv */
+CTarget::CTarget()
+{
+}
+
+/* @socom-skeleton stub Update__7CTargetFP7CEntityP7CEntity */
+float CTarget::Update(CEntity *, CEntity *)
+{
+}
+
+/* @socom-skeleton stub GetRange__7CTargetFv */
+float CTarget::GetRange()
+{
+}

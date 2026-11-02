@@ -20,3 +20,69 @@
  * @socom-artifact emits main socom:function:0x314600
  * @socom-artifact defines main socom:data:0x475414
  * socom-owner-annotations end socom:work:source-segment-043 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zNode/znode.h"
+#include "gamez/zTexture/ztex.h"
+#include "zvis.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub uvlimit__3zdb */
+namespace zdb {
+short uvlimit = 20480;
+}
+
+/* @socom-skeleton stub m_texfxfreepool__Q23zdb10CTextureFX */
+namespace zdb {
+int CTextureFX::m_texfxfreepool;
+}
+
+/* @socom-skeleton stub m_texfxpool__Q23zdb10CTextureFX */
+namespace zdb {
+int CTextureFX::m_texfxpool[3];
+}
+
+/* @socom-skeleton stub vdata__3zdb */
+namespace zdb {
+static unsigned char vdata[96];
+}
+
+/* @socom-skeleton stub InitScrollTexture__Q23zdb10CTextureFXFffbPQ23zdb7CVisualPQ23zdb5CNode */
+void zdb::CTextureFX::InitScrollTexture(float, float, bool, zdb::CVisual *, zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub Init__Q23zdb10CTextureFXFv */
+void zdb::CTextureFX::Init()
+{
+}
+
+/* @socom-skeleton stub Uninit__Q23zdb10CTextureFXFv */
+void zdb::CTextureFX::Uninit()
+{
+}
+
+/* @socom-skeleton stub Clear__Q23zdb10CTextureFXFb */
+void zdb::CTextureFX::Clear(bool)
+{
+}
+
+/* @socom-skeleton stub InTexfxpool__Q23zdb10CTextureFXFPQ23zdb7CVisual */
+void zdb::CTextureFX::InTexfxpool(zdb::CVisual *)
+{
+}
+
+/* @socom-skeleton stub Tick__Q23zdb10CTextureFXFf */
+void zdb::CTextureFX::Tick(float)
+{
+}
+
+/* @socom-skeleton stub LimitUVs__3zdbFPsPsPs */
+void zdb::LimitUVs(short *, short *, short *)
+{
+}
+
+/* @socom-skeleton stub ScrollTexture__Q23zdb10CTextureFXFf */
+void zdb::CTextureFX::ScrollTexture(float)
+{
+}

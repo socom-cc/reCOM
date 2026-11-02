@@ -98,7 +98,292 @@
 
 #include "zseal.h"
 
+/* @socom-skeleton decl include */
+#include "gamez/zAI/zai.h"
+#include "gamez/zAnim/zanim.h"
+#include "gamez/zEntity/zentity.h"
+#include "gamez/zMath/zmath.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class MAP_LINEWALK_STRUCT;
+class UNIT_MESSAGE;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub ShouldConfirmVoiceCommands */
+static unsigned char ShouldConfirmVoiceCommands = 1;
+
+/* @socom-skeleton stub bgAutoMessagesOn */
+static unsigned char bgAutoMessagesOn = 1;
+
+/* @socom-skeleton stub m_created_units_test__9CSealUnit */
+unsigned char CSealUnit::m_created_units_test;
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub m_list__9CSealUnit */
+int CSealUnit::m_list[3];
+
+/* @socom-skeleton stub Create__9CSealUnitFUi */
+CSealUnit * CSealUnit::Create(unsigned int)
+{
+}
+
+/* @socom-skeleton stub GetUnitByTeam__9CSealUnitFUi */
+CSealUnit * CSealUnit::GetUnitByTeam(unsigned int)
+{
+}
+
+/* @socom-skeleton stub GetMyLookDir__9CSealUnitFP6CPnt3DP6CPnt3DP10CZSealBody */
+void CSealUnit::GetMyLookDir(CPnt3D *, CPnt3D *, CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub can_run_anim__FPCc */
+CZAnim * can_run_anim(const char *)
+{
+	/* @socom-skeleton stub run_once$2378 */
+	static unsigned char run_once;
+}
+
+/* @socom-skeleton stub AllowCommand__9CSealUnitFP10CZSealBody10FT_COMMANDPv */
+void CSealUnit::AllowCommand(CZSealBody *, FT_COMMAND, void *)
+{
+}
+
+/* @socom-skeleton stub __ct__9CSealUnitFUi */
+CSealUnit::CSealUnit(unsigned int)
+{
+}
+
+/* @socom-skeleton stub SealJoinUnit__9CSealUnitFP10CZSealBody */
+void CSealUnit::SealJoinUnit(CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub EscorteeJoinUnit__9CSealUnitFP10CZSealBody */
+void CSealUnit::EscorteeJoinUnit(CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub SealLeaveUnit__9CSealUnitFP10CZSealBody */
+void CSealUnit::SealLeaveUnit(CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub Revive__9CSealUnitFP10CZSealBody */
+void CSealUnit::Revive(CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub IsMemberOfUnit__9CSealUnitFUiP10CZSealBodyb */
+void CSealUnit::IsMemberOfUnit(unsigned int, CZSealBody *, bool)
+{
+}
+
+/* @socom-skeleton stub IsMemberOfUnit__9CSealUnitFP10CZSealBodyb */
+void CSealUnit::IsMemberOfUnit(CZSealBody *, bool)
+{
+}
+
+/* @socom-skeleton stub GetSealByIndex__9CSealUnitFUi */
+CZSealBody * CSealUnit::GetSealByIndex(unsigned int)
+{
+}
+
+/* @socom-skeleton stub PrivateNotify__9CSealUnitFP10CZSealBody12UNIT_MESSAGEPv */
+void CSealUnit::PrivateNotify(CZSealBody *, UNIT_MESSAGE, void *)
+{
+}
+
+/* @socom-skeleton stub DistributeNotify__9CSealUnitFP10CZSealBody12UNIT_MESSAGEPv */
+void CSealUnit::DistributeNotify(CZSealBody *, UNIT_MESSAGE, void *)
+{
+}
+
+/* @socom-skeleton stub Notify__9CSealUnitFP10CZSealBody12UNIT_MESSAGEPv */
+void CSealUnit::Notify(CZSealBody *, UNIT_MESSAGE, void *)
+{
+}
+
+/* @socom-skeleton stub UnInit__9CSealUnitFv */
+void CSealUnit::UnInit()
+{
+}
+
+/* @socom-skeleton stub CreateMultiPlayerUnits__9CSealUnitFv */
+void CSealUnit::CreateMultiPlayerUnits()
+{
+}
+
+/* @socom-skeleton stub InitalizeSealUnit__9CSealUnitFP10CZSealBody */
+void CSealUnit::InitalizeSealUnit(CZSealBody *)
+{
+}
+
+/* @socom-skeleton stub CreateSinglePlayerUnits__9CSealUnitFv */
+void CSealUnit::CreateSinglePlayerUnits()
+{
+}
+
+/* @socom-skeleton stub AddBreachMember__FP10CAiSBreachP11CSealCtrlAi */
+void AddBreachMember(CAiSBreach *, CSealCtrlAi *)
+{
+}
+
+/* @socom-skeleton stub SetFormation__9CSealUnitFP10CZSealBodyP6CPnt3D */
+CZSealBody * CSealUnit::SetFormation(CZSealBody *, CPnt3D *)
+{
+	/* @socom-skeleton stub Xoff$2886 */
+	static float Xoff;
+	/* @socom-skeleton stub Zoff$2889 */
+	static float Zoff;
+	/* @socom-skeleton stub UoffMult$2892 */
+	static float UoffMult;
+	/* @socom-skeleton stub EoffMult$2895 */
+	static float EoffMult;
+}
+
+/* @socom-skeleton stub VoiceHandSignal__9CSealUnitFP10CZSealBody10FT_COMMANDPvb */
+void CSealUnit::VoiceHandSignal(CZSealBody *, FT_COMMAND, void *, bool)
+{
+}
+
+/* @socom-skeleton stub HandleSupport__9CSealUnitFP10CZSealBody10FT_COMMANDPvb */
+void CSealUnit::HandleSupport(CZSealBody *, FT_COMMAND, void *, bool)
+{
+}
+
+/* @socom-skeleton stub GetUnitNameStringFromUnitNum__FiPc */
+void GetUnitNameStringFromUnitNum(int, char *)
+{
+}
+
+/* @socom-skeleton stub GetSoundNameStringFromCmd__Fi10FT_COMMANDPci */
+void GetSoundNameStringFromCmd(int, FT_COMMAND, char *, int)
+{
+}
+
+/* @socom-skeleton stub GetWeaponNameStringFromSRString__FPcPc */
+void GetWeaponNameStringFromSRString(char *, char *)
+{
+}
+
+/* @socom-skeleton stub GetNodeNameStringFromSRString__FPcPc */
+void GetNodeNameStringFromSRString(char *, char *)
+{
+}
+
+/* @socom-skeleton stub SetConfirmVoiceCommands__9CSealUnitFb */
+void CSealUnit::SetConfirmVoiceCommands(bool)
+{
+}
+
+/* @socom-skeleton stub GetConfirmVoiceCommands__9CSealUnitFv */
+unsigned char CSealUnit::GetConfirmVoiceCommands()
+{
+}
+
+/* @socom-skeleton stub ConfirmCommand__9CSealUnitFP10CZSealBody10FT_COMMANDPc */
+void CSealUnit::ConfirmCommand(CZSealBody *, FT_COMMAND, char *)
+{
+}
+
+/* @socom-skeleton stub GetUnitLeaderHandle__9CSealUnitFv */
+SEAL_HANDLE CSealUnit::GetUnitLeaderHandle()
+{
+}
+
+/* @socom-skeleton stub IssueCommand__9CSealUnitFP10CZSealBody10FT_COMMANDPvb */
+void CSealUnit::IssueCommand(CZSealBody *, FT_COMMAND, void *, bool)
+{
+	/* @socom-skeleton stub targetOffset$2842 */
+	static float targetOffset;
+	/* @socom-skeleton stub breachState$3368 */
+	static unsigned char breachState[96];
+}
+
+/* @socom-skeleton stub CommandNotifyFromChild__9CSealUnitFP9CSealUnitP10CZSealBody10FT_COMMANDPv */
+void CSealUnit::CommandNotifyFromChild(CSealUnit *, CZSealBody *, FT_COMMAND, void *)
+{
+}
+
+/* @socom-skeleton stub GetLeader__9CSealUnitCFv */
+CZSealBody * CSealUnit::GetLeader() const
+{
+}
+
+/* @socom-skeleton stub GetTail__9CSealUnitFv */
+CZSealBody * CSealUnit::GetTail()
+{
+}
+
+/* @socom-skeleton stub Tick__9CSealUnitFfPv */
+void CSealUnit::Tick(float, void *)
+{
+}
+
+/* @socom-skeleton body TickAll__9CSealUnitFfPv */
 bool CSealUnit::TickAll(f32 dT, void* buf)
 {
 	return false;
+}
+
+/* @socom-skeleton stub GetPlayAutoMessages__Fv */
+unsigned char GetPlayAutoMessages()
+{
+}
+
+/* @socom-skeleton stub SetPlayAutoMessages__Fb */
+void SetPlayAutoMessages(bool)
+{
+}
+
+/* @socom-skeleton stub PlayRemoteMsg__FP7CEntityi */
+void PlayRemoteMsg(CEntity *, int)
+{
+}
+
+/* @socom-skeleton stub GetAwareCounter__9CSealUnitCFv */
+unsigned int CSealUnit::GetAwareCounter() const
+{
+}
+
+/* @socom-skeleton stub UpdatePointOutState__9CSealUnitFv */
+void CSealUnit::UpdatePointOutState()
+{
+}
+
+/* @socom-skeleton stub ResetPointOutState__9CSealUnitFv */
+void CSealUnit::ResetPointOutState()
+{
+}
+
+/* @socom-skeleton stub GetMyPointOutTurnDir__9CSealUnitFP10CZSealBodyPP6CPnt3D */
+void CSealUnit::GetMyPointOutTurnDir(CZSealBody *, CPnt3D **)
+{
+}
+
+/* @socom-skeleton stub GetMyPointOutAnimStart__9CSealUnitFP10CZSealBody */
+void CSealUnit::GetMyPointOutAnimStart(CZSealBody *)
+{
+	/* @socom-skeleton stub startAnimLengthSqThreshold$3822 */
+	static float startAnimLengthSqThreshold;
+	/* @socom-skeleton stub startAnimDotThreshold$3827 */
+	static long startAnimDotThreshold;
+}
+
+/* @socom-skeleton stub _check_proximity__FRC19MAP_LINEWALK_STRUCTPv */
+void _check_proximity(const MAP_LINEWALK_STRUCT &, void *)
+{
+}
+
+/* @socom-skeleton stub CheckPathProximity__10CZSealBodyCFRC7CAiPathif */
+void CZSealBody::CheckPathProximity(const CAiPath &, int, float) const
+{
+}
+
+/* @socom-skeleton stub CheckPathProximity__9CSealUnitCFRC7CAiPathif */
+void CSealUnit::CheckPathProximity(const CAiPath &, int, float) const
+{
 }

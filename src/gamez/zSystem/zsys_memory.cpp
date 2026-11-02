@@ -21,139 +21,50 @@
 #include "gamez/zReader/zrdr.h"
 #include "gamez/zVideo/zvid.h"
 
-bool postinited = false;
-size_t _HeapSize = 0;
+/* @socom-skeleton stub __HeapSizePS2 */
+int __HeapSizePS2;
 
-int InterruptDmacBusError()
+/* @socom-skeleton stub _new__FUiPCci */
+void * _new(unsigned int, const char *, int)
 {
-	printf("DMAC Bus Error Interrupt (dma chain error)\n");
-	printf("Please contact you neighborhood friendly software expert\n");
-	abort();
 }
 
-void zSysInit()
+/* @socom-skeleton stub _delete_vec__FPvPCci */
+void _delete_vec(void *, const char *, int)
 {
-	// size_t allocsize = zsys_FullAllocAndFree();
-	zsys_AllocScratchpad();
-	// zSys.isT10K = 0x1ffffff < allocsize;
-
-	zSys.isCdBoot = false;
 }
 
-void zSysReset()
+/* @socom-skeleton stub _new_vec__FUiPCci */
+void * _new_vec(unsigned int, const char *, int)
 {
-	zSys.timerTicksPerSecond = static_cast<u32>(zVid.hblnkRate);
-	zSys.timerScale = 1.0f / zSys.timerTicksPerSecond;
 }
 
-size_t zsys_FullAllocAndFree()
+/* @socom-skeleton stub _malloc__FUiPCci */
+void * _malloc(unsigned int, const char *, int)
 {
-	void* ptr = NULL;
-	size_t size = 0;
-
-	size = 4096;
-
-	do
-	{
-		ptr = malloc(size);
-
-		if (ptr == NULL)
-		{
-			break;
-		}
-
-		free(ptr);
-
-		size += 4096;
-
-	} while (size < 0x2000001);
-
-	_HeapSize = size - 16;
-
-	return _HeapSize;
 }
 
-void zSysPostInit()
+/* @socom-skeleton stub _memalign__FUiUiPCci */
+void * _memalign(unsigned int, unsigned int, const char *, int)
 {
-	if (!postinited)
-	{
-		postinited = true;
-	}
 }
 
-void zVid_Assert(bool condition, unsigned int mask, const char* file, int line)
+/* @socom-skeleton stub _realloc__FPvUiPCci */
+void * _realloc(void *, unsigned int, const char *, int)
 {
-	if (!condition)
-	{
-		// zSysFifoEnd();
-		char buffer[256];
-		sprintf_s(buffer, 256, "A S S E R T: %s : %d", file, line);
-		theTerminal.Print(buffer, 256);
-		theTerminal.Render();
-		// abort();
-	}
 }
 
-void* operator new(size_t size)
+/* @socom-skeleton stub _calloc__FUiUiPCci */
+void * _calloc(unsigned int, unsigned int, const char *, int)
 {
-	return __malloc(size, __FILE__, __LINE__);
 }
 
-void* __malloc(size_t size, const char* file, int line)
+/* @socom-skeleton stub _strdup__FPCcPCci */
+char * _strdup(const char *, const char *, int)
 {
-	void* p = malloc(size);
-	zVid_Assert(size == 0 || p != NULL, INT_MAX, __FILE__, __LINE__);
-	return p;
 }
 
-void* __calloc(size_t num, size_t size, const char* file, int line)
+/* @socom-skeleton stub zsys_MemoryReport__Fv */
+void zsys_MemoryReport()
 {
-	size_t calc_size = num * size;
-	void* p = malloc(calc_size);
-
-	if (p == NULL)
-	{
-		zVid_Assert(false, INT_MAX, __FILE__, __LINE__);
-		return NULL;
-	}
-
-	memset(p, 0, calc_size);
-	zVid_Assert(calc_size == 0 || p != NULL, INT_MAX, __FILE__, __LINE__);
-	return p;
-}
-
-void* __realloc(void* ptr, size_t new_size, const char* file, int line)
-{
-	void* p = realloc(ptr, new_size);
-	zVid_Assert(new_size == 0 || p != NULL, INT_MAX, __FILE__, __LINE__);
-	return p;
-}
-
-void* __memalign(size_t alignment, size_t size, const char* file, int line)
-{
-	void* p = _aligned_malloc(size, alignment);
-	zVid_Assert(alignment == 0 || p != NULL, INT_MAX, __FILE__, __LINE__);
-	return p;
-}
-
-char* __strdup(const char* str, const char* file, int line)
-{
-	size_t len = strlen(str);
-	len++;
-	char* p = (char*)malloc(len);
-
-	if (p == NULL)
-	{
-		zVid_Assert(false, INT_MAX, __FILE__, __LINE__);
-		return NULL;
-	}
-
-	strcpy(p, str);
-	zVid_Assert(len == 0 || p != NULL, INT_MAX, __FILE__, __LINE__);
-	return p;
-}
-
-void __free(void* block, const char* file, int line)
-{
-	free(block);
 }

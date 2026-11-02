@@ -29,27 +29,220 @@
 #include "gamez/zSystem/zsys.h"
 #include "gamez/zUtil/util_stack.h"
 
-char* buffer = NULL;
+/* @socom-skeleton decl include */
+#include "gamez/zArchive/zar.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zUtil/util_stable.h"
+#include "gamez/zUtil/util_systemio.h"
+/* @socom-skeleton end include */
 
-s32 CRdrArchive::version = 1;
-
-CRdrFile::CRdrFile() : _zrdr()
+/* @socom-skeleton body zrdr_tobool__FPC5_zrdrPb */
+unsigned char zrdr_tobool(const _zrdr *reader, bool *output)
 {
-	m_buffer = NULL;
-	m_size = 0;
-}
+	if (!reader)
+		return false;
 
-const char* zrdr_findfile(const char* name, const char* dir)
-{
-	if (dir)
+	// Invalid pointer
+	if (!output)
+		return false;
+
+	if (reader->type == ZRDR_ARRAY && reader->array->integer > 1)
+		reader = reader->array;
+
+	if (reader->type == ZRDR_INTEGER)
 	{
-		sprintf_s(buffer, 64, "%s/%s", name, dir);
-		name = buffer;
+		if (reader->integer == 0)
+			*output = false;
+		else
+			*output = true;
 	}
 
-	return name;
+	if (reader->type == ZRDR_STRING)
+	{
+		if (strcasecmp(reader->string, "true") == 0 || strcasecmp(reader->string, "on") == 0)
+		{
+			*output = true;
+			return true;
+		}
+		else if (strcasecmp(reader->string, "false") == 0 || strcasecmp(reader->string, "off") == 0)
+		{
+			*output = false;
+			return true;
+		}
+	}
+
+	return false;
 }
 
+/* @socom-skeleton body zrdr_toINT__FPC5_zrdrPii */
+bool zrdr_toINT(const _zrdr *reader, int *output, int size)
+{
+	if (!reader)
+		return false;
+
+	if (reader->type != ZRDR_ARRAY)
+		return false;
+
+	if (reader->array->integer < size + 1)
+		return false;
+
+	for (u32 i = 1; i < size + 1; i++)
+	{
+		s32 integer = 0;
+		_zrdr* node = &reader->array[i];
+
+		if (node->type == ZRDR_REAL)
+			integer = static_cast<s32>(node->real);
+
+		if (node->type == ZRDR_INTEGER)
+			integer = node->integer;
+
+		*output = integer;
+	}
+
+	return true;
+}
+
+/* @socom-skeleton body zrdr_toREAL__FPC5_zrdrPfi */
+bool zrdr_toREAL(const _zrdr *reader, float *output, int size)
+{
+	if (!reader)
+		return false;
+
+	if (reader->type != ZRDR_ARRAY)
+		return false;
+
+	if (reader->array->integer < size + 1)
+		return false;
+
+	for (u32 i = 1; i < size; i++)
+	{
+		s32 integer = 0;
+		_zrdr* node = &reader->array[i];
+
+		if (node->type == ZRDR_INTEGER)
+			integer = static_cast<f32>(node->integer);
+
+		if (node->type == ZRDR_REAL)
+			integer = node->real;
+
+		*output = integer;
+	}
+
+	return true;
+}
+
+/* @socom-skeleton body zrdr_findSTRING__FPC5_zrdrPCcPPCc */
+unsigned char zrdr_findSTRING(const _zrdr *reader, const char *name, const char **list)
+{
+	auto tag = zrdr_findtag_startidx(reader, name, 1);
+
+	if (!tag)
+		return false;
+
+	if (!list)
+		return false;
+
+	if (tag->type )
+
+	if (tag->type == ZRDR_ARRAY)
+	{
+		if (tag->array->length > 1)
+			tag = &tag->array[1];
+	}
+
+	if (tag->type == ZRDR_STRING)
+	{
+		*list = tag->string;
+		return true;
+	}
+
+	if (tag->type == ZRDR_INTEGER && tag->integer == 0)
+	{
+		*list = NULL;
+		return true;
+	}
+
+	return false;
+}
+
+/* @socom-skeleton body zrdr_findPNT3D__FPC5_zrdrPCcP5PNT3D */
+bool zrdr_findPNT3D(const _zrdr *reader, const char *name, PNT3D *output)
+{
+	_zrdr* tag = zrdr_findtag_startidx(reader, name, 1);
+
+	if (!tag)
+		return false;
+
+	if (tag->type != ZRDR_ARRAY)
+		return false;
+
+	if (tag->array->integer < 3)
+		return false;
+
+	f32 axis = 0.0f;
+
+	for (u32 i = 0; i < 3; i++)
+	{
+		_zrdr* node = &tag->array[1];
+
+		if (node[i].type == ZRDR_REAL)
+			axis = node[i].real;
+
+		if (node[i].type == ZRDR_INTEGER)
+			axis = static_cast<f32>(node[i].integer);
+
+		(&output->x)[i] = axis;
+	}
+
+	return true;
+}
+
+/* @socom-skeleton body zrdr_findPNT2D__FPC5_zrdrPCcP5PNT2D */
+bool zrdr_findPNT2D(const _zrdr *reader, const char *name, PNT2D *output)
+{
+	_zrdr* tag = zrdr_findtag_startidx(reader, name, 1);
+
+	if (!tag)
+		return false;
+
+	if (tag->type != ZRDR_ARRAY)
+		return false;
+
+	if (tag->array->integer < 3)
+		return false;
+
+	f32 axis = 0.0f;
+
+	for (u32 i = 0; i < 2; i++)
+	{
+		_zrdr* node = &tag->array[1];
+
+		if (node[i].type == ZRDR_REAL)
+			axis = node[i].real;
+
+		if (node[i].type == ZRDR_INTEGER)
+			axis = static_cast<f32>(node[i].integer);
+
+		(&output->x)[i] = axis;
+	}
+
+	return true;
+}
+
+/* @socom-skeleton stub zrdr_findIPNT2D__FPC5_zrdrPCcP6IPNT2D */
+void zrdr_findIPNT2D(const _zrdr *, const char *, IPNT2D *)
+{
+}
+
+/* @socom-skeleton body zrdr_findbool__FPC5_zrdrPCcPb */
+unsigned char zrdr_findbool(const _zrdr *reader, const char *tag, bool *output)
+{
+	_zrdr* rdr = zrdr_findtag_startidx(reader, tag, 1);
+	return zrdr_tobool(rdr, output);
+}
+
+/* @socom-skeleton body zrdr_free__FP8CRdrFile */
 bool zrdr_free(CRdrFile* file)
 {
 	if (!file)
@@ -75,97 +268,93 @@ bool zrdr_free(CRdrFile* file)
 	return false;
 }
 
-bool CRdrFile::ValidateFormat()
+/* @socom-skeleton body __ct__8CRdrFileFv */
+CRdrFile::CRdrFile() : _zrdr()
 {
-	CBufferIO* file = NULL;
-	char symbol = '\0';
-	bool validated = false;
-	bool endline = false;
-	bool comment = false;
-	s32 index = 0;
-	
-	do
+	m_buffer = NULL;
+	m_size = 0;
+}
+
+/* @socom-skeleton stub __dt__8CRdrFileFv */
+CRdrFile::~CRdrFile()
+{
+}
+
+/* @socom-skeleton stub Pack__8CRdrFileFP5_zrdrP5_zrdri */
+_zrdr * CRdrFile::Pack(_zrdr *, _zrdr *, int)
+{
+}
+
+/* @socom-skeleton stub _fixup__FP7CSTablePv */
+void _fixup(CSTable *, void *)
+{
+}
+
+/* @socom-skeleton stub Pack__8CRdrFileFv */
+unsigned int CRdrFile::Pack()
+{
+}
+
+/* @socom-skeleton body _resolveA__FP5_zrdrPC5_zrdrPCc */
+void _resolveA(_zrdr *self, const _zrdr *root, const char *name)
+{
+	if (self->type == ZRDR_STRING)
+		self->string = self->string - (s32)name;
+
+	if (self->type != ZRDR_ARRAY)
+		return;
+
+	for (u32 i = 1; self->array->integer; i++)
 	{
-		while (true)
+		_zrdr* node = &self->array[i];
+
+		if (node->type == ZRDR_STRING)
+			node->string = node->string - (s32)name;
+
+		if (node->type == ZRDR_ARRAY)
 		{
-			file = fstack.front();
+			for (u32 j = 1; j < node->array->integer; j++)
+				_resolveA(&node->array[j], root, name);
 
-			// Reached end of file?
-			if (!file->fread(&symbol, 1))
-				break;
-
-			validated = true;
-			
-			if (!validated)
-			{
-				file->fseek(0, SEEK_SET);
-				return index == 0;
-			}
-
-			// Tag begin
-			if (symbol == '(')
-				if (!endline && !comment) index++;
-
-			// Tag end
-			if (symbol == ')')
-				if (!endline && !comment) index--;
-
-			// New-line
-			if (symbol == '\n')
-				if (!endline) comment = false;
-
-			// Carriage return
-			if (symbol == '\r')
-				if (!endline) comment = false;
-
-			// Comment
-			if (symbol == ';')
-				if (!endline) comment = true;
-
-			// Include path
-			if (symbol == '\"' && !comment)
-				endline = (bool)(endline ^ 1);
+			node->string = self->string - (s32)name;
 		}
+	}
 
-		if (fstack.size() == 1)
-		{
-			validated = false;
-			file->fseek(0, SEEK_SET);
-			return index == 0;
-		}
-
-		fstack.pop(true);
-	} while (true);
+	self->string = self->string - (s32)name;
 }
 
-CRdrFile* CRdrFile::Load(zar::CZAR* archive, zar::CKey* key)
+/* @socom-skeleton body _resolveB__FP5_zrdrPC5_zrdrPCc */
+void _resolveB(_zrdr *self, const _zrdr *root, const char *name)
 {
-	if (!key)
-		return NULL;
+	if (self->type == ZRDR_STRING)
+	{
+		// Assign string pointer to point at the entry in the string table
+		self->string += (s32)name;
+	}
 
-	if (key->GetSize() == -1)
-		return NULL;
+	if (self->type != ZRDR_ARRAY)
+		return;
 
-	size_t keySize = key->GetSize();
+	self->string += (s32)root;
 
-	void* zrdr_buf = zmalloc(keySize);
+	for (u32 i = 1; i < self->array->integer; i++)
+	{
+		_zrdr* child = &self->array[i];
 
-	if (!archive->Fetch(key, zrdr_buf, keySize))
-		return NULL;
+		if (child->type == ZRDR_STRING)
+			child->string += (s32)name;
 
-	CRdrFile* rdrFile = new CRdrFile();
-	CSTable stable = CSTable(0, 1024);
+		if (child->type == ZRDR_ARRAY)
+		{
+			child->string += (s32)root;
 
-	rdrFile->m_strings = stable;
-	rdrFile->m_buffer = static_cast<char*>(zrdr_buf);
-	rdrFile->m_size = keySize;
-	rdrFile->type = ZRDR_ARRAY;
-	rdrFile->array = NULL;
-	rdrFile->Resolve(false);
-
-	return rdrFile;
+			for (u32 j = 1; j < child->array->integer; j++)
+				_resolveB(&child->array[j], root, name);
+		}
+	}
 }
 
+/* @socom-skeleton body Resolve__8CRdrFileFb */
 bool CRdrFile::Resolve(bool resolveA)
 {
 	_zrdr* header = NULL;
@@ -228,4 +417,43 @@ bool CRdrFile::Resolve(bool resolveA)
 
 	m_strings.LoadTable(table, *(u32*)start, false);
 	return true;
+}
+
+/* @socom-skeleton body Load__8CRdrFileFPQ23zar4CZARPQ23zar4CKey */
+CRdrFile* CRdrFile::Load(zar::CZAR* archive, zar::CKey* key)
+{
+	if (!key)
+		return NULL;
+
+	if (key->GetSize() == -1)
+		return NULL;
+
+	size_t keySize = key->GetSize();
+
+	void* zrdr_buf = zmalloc(keySize);
+
+	if (!archive->Fetch(key, zrdr_buf, keySize))
+		return NULL;
+
+	CRdrFile* rdrFile = new CRdrFile();
+	CSTable stable = CSTable(0, 1024);
+
+	rdrFile->m_strings = stable;
+	rdrFile->m_buffer = static_cast<char*>(zrdr_buf);
+	rdrFile->m_size = keySize;
+	rdrFile->type = ZRDR_ARRAY;
+	rdrFile->array = NULL;
+	rdrFile->Resolve(false);
+
+	return rdrFile;
+}
+
+/* @socom-skeleton stub Insert__8CRdrFileFPQ23zar4CZARPQ23zar4CKey */
+zar::CKey * CRdrFile::Insert(zar::CZAR *, zar::CKey *)
+{
+}
+
+/* @socom-skeleton stub ReadPacked__8CRdrFileFR7CFileIOUi */
+unsigned char CRdrFile::ReadPacked(CFileIO &, unsigned int)
+{
 }

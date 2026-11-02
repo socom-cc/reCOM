@@ -17,3 +17,83 @@
  * @socom-artifact defines main socom:function:0x300980
  * @socom-artifact defines main socom:data:0x4753c8
  * socom-owner-annotations end socom:work:source-segment-041 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zCamera/zcam.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zTexture/ztex.h"
+#include "ztwod.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub zOffset */
+static int zOffset = 2;
+
+/* @socom-skeleton stub __ct__7C2DLineFv */
+C2DLine::C2DLine()
+{
+}
+
+/* @socom-skeleton stub SetColor__7C2DLineFfff */
+void C2DLine::SetColor(float, float, float)
+{
+}
+
+/* @socom-skeleton stub SetTrans__7C2DLineFf */
+void C2DLine::SetTrans(float)
+{
+}
+
+/* @socom-skeleton stub Load__7C2DLineFffffPQ23zdb8CTexture */
+void C2DLine::Load(float, float, float, float, zdb::CTexture *)
+{
+}
+
+/* @socom-skeleton stub SetPos__7C2DLineFiiii */
+void C2DLine::SetPos(int, int, int, int)
+{
+}
+
+/* @socom-skeleton stub SetUV__7C2DLineFffff */
+void C2DLine::SetUV(float, float, float, float)
+{
+}
+
+/* @socom-skeleton stub Draw__7C2DLineFPQ23zdb7CCamera */
+void C2DLine::Draw(zdb::CCamera *)
+{
+}
+
+/* @socom-skeleton stub MakePacket__7C2DLineFPQ23zdb7CCamera */
+void C2DLine::MakePacket(zdb::CCamera *)
+{
+}
+
+/* @socom-skeleton stub FillClipInfo__7C2DLineFPA4_fPA4_fPA4_f */
+void C2DLine::FillClipInfo(float (*)[4], float (*)[4], float (*)[4])
+{
+}
+
+/* @socom-skeleton stub SetClipInfo__7C2DLineFPA4_fPA4_fPA4_fi */
+void C2DLine::SetClipInfo(float (*)[4], float (*)[4], float (*)[4], int)
+{
+}
+
+/* @socom-skeleton stub Draw3DLine__FP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4D */
+void Draw3DLine(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *)
+{
+}
+
+/* @socom-skeleton stub Draw2DLine__FP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4D */
+void Draw2DLine(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *)
+{
+}
+
+/* @socom-skeleton stub clip3DLine__FP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4D */
+void clip3DLine(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *)
+{
+}
+
+/* @socom-skeleton stub clip3DLine__FP6CPnt4DP6CPnt4DP6CPnt4D */
+void clip3DLine(CPnt4D *, CPnt4D *, CPnt4D *)
+{
+}

@@ -3,3 +3,12 @@
  * @socom-artifact defines main socom:function:0x231ca0
  * @socom-artifact defines main socom:function:0x231d00
  * socom-owner-annotations end socom:work:source-segment-028 */
+
+/* @socom-skeleton decl include */
+#include "node_lensflare.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub __ct__Q23zdb10CLensFlareFv */
+zdb::CLensFlare::CLensFlare()
+{
+}

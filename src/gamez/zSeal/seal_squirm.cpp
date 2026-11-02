@@ -26,3 +26,82 @@
  * socom-owner-annotations end socom:work:source-segment-076 */
 
 #include "gamez/zUtil/util_stable.h"
+
+/* @socom-skeleton decl include */
+#include "gamez/zIntersect/zintersect.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zWeapon/zweapon.h"
+#include "zseal.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class STUN_TYPE;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub __ct__15CSealCtrlSquirmFv */
+CSealCtrlSquirm::CSealCtrlSquirm()
+{
+}
+
+/* @socom-skeleton stub __dt__15CSealCtrlSquirmFv */
+CSealCtrlSquirm::~CSealCtrlSquirm()
+{
+}
+
+/* @socom-skeleton stub Initalize__15CSealCtrlSquirmFv */
+void CSealCtrlSquirm::Initalize()
+{
+}
+
+/* @socom-skeleton stub OnWeaponHit__15CSealCtrlSquirmFPQ23zdb15IntersectStructP12CZProjectile */
+void CSealCtrlSquirm::OnWeaponHit(zdb::IntersectStruct *, CZProjectile *)
+{
+}
+
+/* @socom-skeleton stub OnStunDamage__15CSealCtrlSquirmF9STUN_TYPEfPC6CPnt3D */
+void CSealCtrlSquirm::OnStunDamage(STUN_TYPE, float, const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub OnSetHealth__15CSealCtrlSquirmFff */
+void CSealCtrlSquirm::OnSetHealth(float, float)
+{
+}
+
+/* @socom-skeleton stub OnDeath__15CSealCtrlSquirmFv */
+void CSealCtrlSquirm::OnDeath()
+{
+}
+
+/* @socom-skeleton stub ResetToInitialState__15CSealCtrlSquirmFv */
+void CSealCtrlSquirm::ResetToInitialState()
+{
+}
+
+/* @socom-skeleton stub PreTick__15CSealCtrlSquirmFf */
+void CSealCtrlSquirm::PreTick(float)
+{
+	/* @socom-skeleton stub _hackPitchFactor$2295 */
+	static float _hackPitchFactor;
+	/* @socom-skeleton stub item_index$2311 */
+	static int item_index;
+	/* @socom-skeleton stub star_scale$2314 */
+	static float star_scale;
+}
+
+/* @socom-skeleton stub Tick__15CSealCtrlSquirmFf */
+void CSealCtrlSquirm::Tick(float)
+{
+}
+
+/* @socom-skeleton stub PostMortemPreTick__15CSealCtrlSquirmFf */
+void CSealCtrlSquirm::PostMortemPreTick(float)
+{
+}
+
+/* @socom-skeleton stub OnActionButton__15CSealCtrlSquirmFv */
+void CSealCtrlSquirm::OnActionButton()
+{
+}

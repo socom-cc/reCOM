@@ -34,3 +34,120 @@
  * @socom-artifact defines main socom:data:0x475b54
  * @socom-artifact defines main socom:data:0x475b58
  * socom-owner-annotations end socom:work:source-segment-076 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zArchive/zar.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/znode.h"
+#include "grid_clutter.h"
+#include "zgrid.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+unsigned char std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+unsigned char std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub stack */
+static unsigned char stack;
+
+/* @socom-skeleton stub Add__Q23zdb12CClutterListFPQ23zdb8CClutter */
+void zdb::CClutterList::Add(zdb::CClutter *)
+{
+}
+
+/* @socom-skeleton stub Render__Q23zdb12CClutterListFPQ23zdb5CCell */
+void zdb::CClutterList::Render(zdb::CCell *)
+{
+}
+
+/* @socom-skeleton stub Free__Q23zdb12CClutterListFv */
+void zdb::CClutterList::Free()
+{
+}
+
+/* @socom-skeleton stub __ct__Q23zdb8CClutterFPQ23zdb5CNode */
+zdb::CClutter::CClutter(zdb::CNode *)
+{
+}
+
+/* @socom-skeleton stub Read__Q23zdb8CClutterFPQ23zar4CZAR */
+void zdb::CClutter::Read(zar::CZAR *)
+{
+}
+
+/* @socom-skeleton stub GetTranslate__Q23zdb8CClutterFv */
+void zdb::CClutter::GetTranslate()
+{
+}
+
+/* @socom-skeleton stub GetMatrix__Q23zdb8CClutterFv */
+void zdb::CClutter::GetMatrix()
+{
+}
+
+/* @socom-skeleton stub Render__Q23zdb8CClutterFP6CPnt3D */
+void zdb::CClutter::Render(CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub __dt__Q23zdb12CClutterAnimFv */
+zdb::CClutterAnim::~CClutterAnim()
+{
+}
+
+/* @socom-skeleton stub TickForce__Q23zdb12CClutterAnimFP6CPnt3DP6CPnt3Dff */
+void zdb::CClutterAnim::TickForce(CPnt3D *, CPnt3D *, float, float)
+{
+}
+
+/* @socom-skeleton stub __ct__Q23zdb19CClutterAnimManagerFv */
+zdb::CClutterAnimManager::CClutterAnimManager()
+{
+}
+
+/* @socom-skeleton stub __dt__Q23zdb19CClutterAnimManagerFv */
+zdb::CClutterAnimManager::~CClutterAnimManager()
+{
+}
+
+/* @socom-skeleton stub ClearAnimations__Q23zdb19CClutterAnimManagerFb */
+void zdb::CClutterAnimManager::ClearAnimations(bool)
+{
+}
+
+/* @socom-skeleton stub ClearEffectors__Q23zdb19CClutterAnimManagerFv */
+void zdb::CClutterAnimManager::ClearEffectors()
+{
+}
+
+/* @socom-skeleton stub TestCellMid__Q23zdb19CClutterAnimManagerFP6CPnt3DP6CPnt3D */
+void zdb::CClutterAnimManager::TestCellMid(CPnt3D *, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub ClutterTick__Q23zdb19CClutterAnimManagerFPQ23zdb8CClutter */
+void zdb::CClutterAnimManager::ClutterTick(zdb::CClutter *)
+{
+}
+
+/* @socom-skeleton stub l_Tick__Q23zdb19CClutterAnimManagerFfPv */
+void zdb::CClutterAnimManager::l_Tick(float, void *)
+{
+}
+
+/* @socom-skeleton stub Tick__Q23zdb19CClutterAnimManagerFfPv */
+bool zdb::CClutterAnimManager::Tick(float, void *)
+{
+}
+
+/* @socom-skeleton stub RegisterEffector__Q23zdb19CClutterAnimManagerFPCvPC6CPnt3DfPC6CPnt3D */
+void zdb::CClutterAnimManager::RegisterEffector(const void *, const CPnt3D *, float, const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub UnRegisterEffector__Q23zdb19CClutterAnimManagerFPCv */
+void zdb::CClutterAnimManager::UnRegisterEffector(const void *)
+{
+}

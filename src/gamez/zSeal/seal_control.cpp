@@ -105,47 +105,274 @@
 
 #include "zseal.h"
 
-f32 CSealCtrl::m_bobbing1stperson_amplitude = 0.0f;
-f32 CSealCtrl::m_bobbing1stperson_rate = 0.0f;
-f32 CSealCtrl::m_crawl1stperson_amplitude = 0.0f;
-f32 CSealCtrl::m_crawl1stperson_rate = 0.0f;
+/* @socom-skeleton decl include */
+#include "gamez/zEntity/zentity.h"
+#include "gamez/zGame/zgame.h"
+#include "gamez/zInput/zinput.h"
+#include "gamez/zIntersect/zintersect.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/node_action.h"
+#include "gamez/zWeapon/zweapon.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CHARACTER_SOUND;
+class STUN_TYPE;
+/* @socom-skeleton end forward */
 
-void CSealCtrl::StopRumbler()
-{
-    CPad* pad;
-    
-    if (m_padid < 2)
-    {
-        pad = CInput::m_pads[m_padid];
-    }
-    else
-    {
-        pad = NULL;
-    }
+/* @socom-skeleton stub FLASHBANG_DOT */
+static const float FLASHBANG_DOT = 0;
 
-    if (pad)
-    {
-        pad->m_ActData = 0;
-        pad->m_IsAnalog = false;
-    }
+/* @socom-skeleton stub m_bobbing1stperson_enabled__9CSealCtrl */
+unsigned char CSealCtrl::m_bobbing1stperson_enabled = 1;
 
-    m_highrumbletime = 0.0f;
-    m_rumbletime = 0.0f;
-    m_rumblestr = 0.0f;
+/* @socom-skeleton stub m_bobbing1stperson_amplitude__9CSealCtrl */
+float CSealCtrl::m_bobbing1stperson_amplitude[2] = {0};
 
-    CInput::Flush();
-    CZSealBody::StopAllHeartbeatSounds();
+/* @socom-skeleton stub m_bobbing1stperson_rate__9CSealCtrl */
+float CSealCtrl::m_bobbing1stperson_rate[2] = {0};
+
+/* @socom-skeleton stub hackPitchFactor */
+float hackPitchFactor = 1.0f;
+
+/* @socom-skeleton stub RumbleIsOn__26@unnamed@seal_control_cpp@ */
+namespace {
+unsigned char RumbleIsOn = 1;
 }
 
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton body __ct__9CSealCtrlFv */
+CSealCtrl::CSealCtrl() : CEntityCtrl() {}
+
+/* @socom-skeleton stub __dt__9CSealCtrlFv */
+CSealCtrl::~CSealCtrl()
+{
+}
+
+/* @socom-skeleton stub OnWeaponEvent__9CSealCtrlFP12CZProjectileUiPv */
+void CSealCtrl::OnWeaponEvent(CZProjectile *, unsigned int, void *)
+{
+}
+
+/* @socom-skeleton stub OnRecycleEntity__9CSealCtrlFP7CEntity */
+void CSealCtrl::OnRecycleEntity(CEntity *)
+{
+}
+
+/* @socom-skeleton stub OnMissionStart__9CSealCtrlFv */
+void CSealCtrl::OnMissionStart()
+{
+}
+
+/* @socom-skeleton stub OnMissionEnd__9CSealCtrlFv */
+void CSealCtrl::OnMissionEnd()
+{
+}
+
+/* @socom-skeleton stub Initalize__9CSealCtrlFv */
+void CSealCtrl::Initalize()
+{
+}
+
+/* @socom-skeleton stub OnWeaponHit__9CSealCtrlFPQ23zdb15IntersectStructP12CZProjectile */
+void CSealCtrl::OnWeaponHit(zdb::IntersectStruct *, CZProjectile *)
+{
+}
+
+/* @socom-skeleton stub OnStunDamage__9CSealCtrlF9STUN_TYPEfPC6CPnt3D */
+void CSealCtrl::OnStunDamage(STUN_TYPE, float, const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub OnSetHealth__9CSealCtrlFff */
+void CSealCtrl::OnSetHealth(float, float)
+{
+}
+
+/* @socom-skeleton stub OnDeath__9CSealCtrlFv */
+void CSealCtrl::OnDeath()
+{
+}
+
+/* @socom-skeleton stub PlayAiSound__9CSealCtrlF15CHARACTER_SOUND */
+void CSealCtrl::PlayAiSound(CHARACTER_SOUND)
+{
+}
+
+/* @socom-skeleton stub ResetToInitialState__9CSealCtrlFv */
+void CSealCtrl::ResetToInitialState()
+{
+}
+
+/* @socom-skeleton stub SetTrigger__9CSealCtrlFbf */
+void CSealCtrl::SetTrigger(bool, float)
+{
+}
+
+/* @socom-skeleton stub SetTrigger__9CSealCtrlFb */
+void CSealCtrl::SetTrigger(bool)
+{
+}
+
+/* @socom-skeleton body GetMenuState__9CSealCtrlFv */
 MENU_STATE CSealCtrl::GetMenuState()
 {
     return m_menustate;
 }
 
+/* @socom-skeleton body SetMenuState__9CSealCtrlF10MENU_STATE */
 void CSealCtrl::SetMenuState(MENU_STATE state)
 {
     if (state < stateLast)
     {
         m_menustate = state;
     }
+}
+
+/* @socom-skeleton stub PostTick__9CSealCtrlFf */
+void CSealCtrl::PostTick(float)
+{
+	/* @socom-skeleton stub step_count$2779 */
+	static int step_count;
+	/* @socom-skeleton stub start_opacity$2787 */
+	static float start_opacity;
+	/* @socom-skeleton stub end_opacity$2790 */
+	static float end_opacity;
+	/* @socom-skeleton stub end_time_scale$2793 */
+	static float end_time_scale;
+}
+
+/* @socom-skeleton stub Tick__9CSealCtrlFf */
+void CSealCtrl::Tick(float)
+{
+	/* @socom-skeleton stub _scale$2809 */
+	static float _scale;
+}
+
+/* @socom-skeleton stub OKToPeek__FP9CSealCtrlf9SEAL_PEEK */
+void OKToPeek(CSealCtrl *, float, SEAL_PEEK)
+{
+}
+
+/* @socom-skeleton stub ThrottlesPreTick__9CSealCtrlFP4CPadf */
+void CSealCtrl::ThrottlesPreTick(CPad *, float)
+{
+	/* @socom-skeleton stub pitchSpeedControl$2856 */
+	static float pitchSpeedControl;
+	/* @socom-skeleton stub yawSpeedControl$2859 */
+	static float yawSpeedControl;
+	/* @socom-skeleton stub use_piecewise$2862 */
+	static unsigned char use_piecewise;
+	/* @socom-skeleton stub fangle$2879 */
+	static float fangle;
+}
+
+/* @socom-skeleton stub PreTick__9CSealCtrlFf */
+void CSealCtrl::PreTick(float)
+{
+}
+
+/* @socom-skeleton stub TickAimPitch__9CSealCtrlFff */
+void CSealCtrl::TickAimPitch(float, float)
+{
+}
+
+/* @socom-skeleton stub CanPlaceBomb__9CSealCtrlFP11CNodeAction */
+void CSealCtrl::CanPlaceBomb(CNodeAction *)
+{
+}
+
+/* @socom-skeleton stub CanPerformAction__9CSealCtrlFP11CNodeAction */
+void CSealCtrl::CanPerformAction(CNodeAction *)
+{
+}
+
+/* @socom-skeleton stub TickVictims__9CSealCtrlFv */
+void CSealCtrl::TickVictims()
+{
+	/* @socom-skeleton stub range_threshold$3175 */
+	static float range_threshold;
+}
+
+/* @socom-skeleton stub TickPickups__9CSealCtrlFf */
+void CSealCtrl::TickPickups(float)
+{
+	/* @socom-skeleton stub lastpickup$3201 */
+	static int lastpickup;
+}
+
+/* @socom-skeleton stub PerformCollisionActions__9CSealCtrlFv */
+void CSealCtrl::PerformCollisionActions()
+{
+}
+
+/* @socom-skeleton stub PerformReticleActions__9CSealCtrlFv */
+void CSealCtrl::PerformReticleActions()
+{
+}
+
+/* @socom-skeleton stub PerformProximityActions__9CSealCtrlFv */
+void CSealCtrl::PerformProximityActions()
+{
+}
+
+/* @socom-skeleton stub SampleActionAvailable__9CSealCtrlFv */
+void CSealCtrl::SampleActionAvailable()
+{
+}
+
+/* @socom-skeleton stub OnActionButton__9CSealCtrlFv */
+void CSealCtrl::OnActionButton()
+{
+}
+
+/* @socom-skeleton stub GetThrowAverage__9CSealCtrlFv */
+float CSealCtrl::GetThrowAverage()
+{
+}
+
+/* @socom-skeleton stub TriggerPowerReset__9CSealCtrlFv */
+void CSealCtrl::TriggerPowerReset()
+{
+}
+
+/* @socom-skeleton stub SetCameraZoom__9CSealCtrlFff */
+void CSealCtrl::SetCameraZoom(float, float)
+{
+}
+
+/* @socom-skeleton stub UpdateHudWeapon__9CSealCtrlFv */
+void CSealCtrl::UpdateHudWeapon()
+{
+}
+
+/* @socom-skeleton stub GetZoomLevel__9CSealCtrlFv */
+float CSealCtrl::GetZoomLevel()
+{
+}
+
+/* @socom-skeleton stub GetZoomIncrement__9CSealCtrlFv */
+float CSealCtrl::GetZoomIncrement()
+{
+}
+
+/* @socom-skeleton stub SetRumbleOn__Fb */
+void SetRumbleOn(bool)
+{
+}
+
+/* @socom-skeleton stub IsRumbleOn__Fv */
+unsigned char IsRumbleOn()
+{
+}
+
+/* @socom-skeleton stub SetHighRumbleTime__9CSealCtrlFf */
+void CSealCtrl::SetHighRumbleTime(float)
+{
+}
+
+/* @socom-skeleton stub SetLowRumbleTime__9CSealCtrlFff */
+void CSealCtrl::SetLowRumbleTime(float, float)
+{
 }

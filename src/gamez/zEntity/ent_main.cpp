@@ -53,20 +53,44 @@
 
 #include "zentity.h"
 
-u32 recycler_index = 0;
-CEntity* recycler = NULL;
-std::vector<CEntity*> CEntity::m_list;
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/znode.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CEntityList;
+/* @socom-skeleton end forward */
 
-CEntity::CEntity(TYPE type, zdb::CNode* node)
-{
-	
-}
+/* @socom-skeleton stub invalidId__7CEntity */
+const int CEntity::invalidId = -1;
 
+/* @socom-skeleton stub recycler_index */
+static unsigned int recycler_index = 4294967295;
+
+/* @socom-skeleton stub nextEntityId__7CEntity */
+int CEntity::nextEntityId;
+
+/* @socom-skeleton stub recycler */
+static int recycler[3];
+
+/* @socom-skeleton stub m_list__7CEntity */
+CEntityList CEntity::m_list;
+
+/* @socom-skeleton stub m_recycle__7CEntity */
+int CEntity::m_recycle[3];
+
+/* @socom-skeleton body OpenRecycler__7CEntityFUi */
 void CEntity::OpenRecycler(u32 index)
 {
 	recycler_index = index;
 }
 
+/* @socom-skeleton stub CloseRecycler__7CEntityFv */
+void CEntity::CloseRecycler()
+{
+}
+
+/* @socom-skeleton body EntityIsValid__7CEntityFP7CEntity */
 bool CEntity::EntityIsValid(CEntity* entity)
 {
 	bool valid = false;
@@ -85,7 +109,53 @@ bool CEntity::EntityIsValid(CEntity* entity)
 	return valid;
 }
 
-u32 CEntity::GetEntityIndex() const
+/* @socom-skeleton stub CreateEntity__7CEntityFP7CEntityb */
+void CEntity::CreateEntity(CEntity *, bool)
+{
+}
+
+/* @socom-skeleton stub RecycleEntity__7CEntityFP7CEntity */
+void CEntity::RecycleEntity(CEntity *)
+{
+}
+
+/* @socom-skeleton stub RecycleEntity__7CEntityFUiP7CEntityb */
+void CEntity::RecycleEntity(unsigned int, CEntity *, bool)
+{
+}
+
+/* @socom-skeleton stub CreateRecycler__7CEntityFv */
+CEntity * CEntity::CreateRecycler()
+{
+}
+
+/* @socom-skeleton stub DoRecycleEntity__7CEntityFP7CEntity */
+void CEntity::DoRecycleEntity(CEntity *)
+{
+}
+
+/* @socom-skeleton stub RemoveAll__7CEntityFv */
+void CEntity::RemoveAll()
+{
+}
+
+/* @socom-skeleton stub PreTickAll__7CEntityFfPv */
+bool CEntity::PreTickAll(float, void *)
+{
+}
+
+/* @socom-skeleton stub TickAll__7CEntityFfPv */
+bool CEntity::TickAll(float, void *)
+{
+}
+
+/* @socom-skeleton stub PostTickAll__7CEntityFfPv */
+bool CEntity::PostTickAll(float, void *)
+{
+}
+
+/* @socom-skeleton body GetEntityIndex__7CEntityFPC7CEntity */
+int CEntity::GetEntityIndex(const CEntity *)
 {
 	u32 index = -1;
 
@@ -97,16 +167,29 @@ u32 CEntity::GetEntityIndex() const
 	return index;
 }
 
-std::vector<CEntity*>& CEntity::GetEntityList()
+/* @socom-skeleton body __ct__7CEntityFQ27CEntity4TYPEPQ23zdb5CNode */
+CEntity::CEntity(TYPE type, zdb::CNode* node)
 {
-	return m_list;
+	
 }
 
-bool CEntity::IsAlive() const
+/* @socom-skeleton stub __dt__7CEntityFv */
+CEntity::~CEntity()
 {
-	return m_isAlive;
 }
 
+/* @socom-skeleton body GetNode__7CEntityFv */
+zdb::CNode * CEntity::GetNode()
+{
+	return m_node;
+}
+
+/* @socom-skeleton stub SetTeamMask__7CEntityFUi */
+void CEntity::SetTeamMask(unsigned int)
+{
+}
+
+/* @socom-skeleton body JoinTeam__7CEntityFUi */
 void CEntity::JoinTeam(u32 team)
 {
 	if (team < 32)
@@ -115,27 +198,7 @@ void CEntity::JoinTeam(u32 team)
 	}
 }
 
-void CEntity::OnDeath()
-{
-	m_isAlive = false;
-	m_control->OnDeath();
-}
-
-void CEntity::SetController(CEntityCtrl* controller)
-{
-	if (m_control)
-	{
-		m_control->m_entity = NULL;
-	}
-
-	m_control = controller;
-
-	if (m_control)
-	{
-		m_control->m_entity = this;
-	}
-}
-
+/* @socom-skeleton body SetDisplayName__7CEntityFPCc */
 void CEntity::SetDisplayName(const char* name)
 {
 	if (m_display_name)
@@ -148,7 +211,60 @@ void CEntity::SetDisplayName(const char* name)
 	m_display_name = zstrdup(name);
 }
 
-zdb::CNode* CEntity::GetNode() const
+/* @socom-skeleton stub ResetToInitialState__7CEntityFv */
+void CEntity::ResetToInitialState()
 {
-	return m_node;
+}
+
+/* @socom-skeleton body OnMissionStart__7CEntityFv */
+void CEntity::OnMissionStart() {}
+
+/* @socom-skeleton body OnMissionEnd__7CEntityFv */
+void CEntity::OnMissionEnd() {}
+
+/* @socom-skeleton stub TeleportTo__7CEntityFPC7CMatrix */
+void CEntity::TeleportTo(const CMatrix *)
+{
+}
+
+/* @socom-skeleton stub TeleportTo__7CEntityFPC6CPnt3DPC5CQuat */
+void CEntity::TeleportTo(const CPnt3D *, const CQuat *)
+{
+}
+
+/* @socom-skeleton stub GetTargetPosW__7CEntityFP6CPnt3D */
+CPnt3D * CEntity::GetTargetPosW(CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub UpdateAiMapLoc__7CEntityFRb */
+void CEntity::UpdateAiMapLoc(bool &)
+{
+}
+
+/* @socom-skeleton stub OnRecycleEntity__7CEntityFP7CEntity */
+void CEntity::OnRecycleEntity(CEntity *)
+{
+}
+
+/* @socom-skeleton body OnDeath__7CEntityFv */
+void CEntity::OnDeath()
+{
+	m_isAlive = false;
+	m_control->OnDeath();
+}
+
+/* @socom-skeleton stub GetEntity__11CEntityListCFPCc */
+CEntity * CEntityList::GetEntity(const char *) const
+{
+}
+
+/* @socom-skeleton stub GetEntityById__11CEntityListCFUi */
+CEntity * CEntityList::GetEntityById(unsigned int) const
+{
+}
+
+/* @socom-skeleton stub GetEntityByIndex__11CEntityListCFUi */
+CEntity * CEntityList::GetEntityByIndex(unsigned int) const
+{
 }

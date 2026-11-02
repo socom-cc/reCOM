@@ -20,3 +20,68 @@
  * @socom-artifact defines main socom:data:0x44ec60
  * @socom-artifact defines main socom:data:0x475af4
  * socom-owner-annotations end socom:work:source-segment-024 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zInput/zinput.h"
+#include "zfts.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub g_pCurrentConfig__28@unnamed@fts_controller_cpp@ */
+namespace {
+int g_pCurrentConfig;
+}
+
+/* @socom-skeleton stub g_vecConfigs__28@unnamed@fts_controller_cpp@ */
+namespace {
+int g_vecConfigs[3];
+}
+
+/* @socom-skeleton stub GetButtonState__13CCtrlrConfigsFQ210PadBtnFunc1_RC4CPad */
+void CCtrlrConfigs::GetButtonState(PadBtnFunc::_, const CPad &)
+{
+}
+
+/* @socom-skeleton stub IsJumpAndActionShared__13CCtrlrConfigsFv */
+void CCtrlrConfigs::IsJumpAndActionShared()
+{
+}
+
+/* @socom-skeleton stub GetFireButtonPressure__13CCtrlrConfigsFRC4CPad */
+float CCtrlrConfigs::GetFireButtonPressure(const CPad &)
+{
+}
+
+/* @socom-skeleton stub GetFwdBackStickPos__13CCtrlrConfigsFRC4CPad */
+float CCtrlrConfigs::GetFwdBackStickPos(const CPad &)
+{
+}
+
+/* @socom-skeleton stub GetPitchStickPosDilated__13CCtrlrConfigsFRC4CPad */
+float CCtrlrConfigs::GetPitchStickPosDilated(const CPad &)
+{
+}
+
+/* @socom-skeleton stub GetRotateStickPosDilated__13CCtrlrConfigsFRC4CPad */
+float CCtrlrConfigs::GetRotateStickPosDilated(const CPad &)
+{
+}
+
+/* @socom-skeleton stub GetStrafeStickPos__13CCtrlrConfigsFRC4CPad */
+float CCtrlrConfigs::GetStrafeStickPos(const CPad &)
+{
+}
+
+/* @socom-skeleton stub Init__13CCtrlrConfigsFv */
+void CCtrlrConfigs::Init()
+{
+}
+
+/* @socom-skeleton stub SelectConfig__13CCtrlrConfigsFPCc */
+void CCtrlrConfigs::SelectConfig(const char *)
+{
+}
+
+/* @socom-skeleton stub SetButtonState__13CCtrlrConfigsFP4CPadQ210PadBtnFunc1_9KEY_STATE */
+void CCtrlrConfigs::SetButtonState(CPad *, PadBtnFunc::_, KEY_STATE)
+{
+}

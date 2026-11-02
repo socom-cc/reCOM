@@ -18,3 +18,68 @@
  * @socom-artifact defines main socom:data:0x476400
  * @socom-artifact defines main socom:data:0x509b40
  * socom-owner-annotations end socom:work:source-segment-037 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zEntity/zentity.h"
+#include "gamez/zMath/zmath.h"
+#include "zseal.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub __ct__9CAiTargetFv */
+CAiTarget::CAiTarget()
+{
+}
+
+/* @socom-skeleton stub UpdateTarget__9CAiTargetFP7CTargetf */
+unsigned char CAiTarget::UpdateTarget(CTarget *, float)
+{
+}
+
+/* @socom-skeleton stub SetTarget__9CAiTargetFP7CTargetf */
+void CAiTarget::SetTarget(CTarget *, float)
+{
+}
+
+/* @socom-skeleton stub UpdateLastKnownPosW__9CAiTargetFv */
+void CAiTarget::UpdateLastKnownPosW()
+{
+}
+
+/* @socom-skeleton stub GetTimeSinceLastSighting__9CAiTargetCFv */
+float CAiTarget::GetTimeSinceLastSighting() const
+{
+}
+
+/* @socom-skeleton stub GetTimeAcquired__9CAiTargetCFv */
+float CAiTarget::GetTimeAcquired() const
+{
+}
+
+/* @socom-skeleton stub GetTimeVisible__9CAiTargetCFv */
+float CAiTarget::GetTimeVisible() const
+{
+}
+
+/* @socom-skeleton stub Tick__9CAiTargetFP7CEntityf */
+void CAiTarget::Tick(CEntity *, float)
+{
+}
+
+/* @socom-skeleton stub OnSetVisible__9CAiTargetFb */
+void CAiTarget::OnSetVisible(bool)
+{
+}
+
+/* @socom-skeleton stub ModifyAimDir__9CAiTargetFP6CPnt3Dff */
+void CAiTarget::ModifyAimDir(CPnt3D *, float, float)
+{
+}
+
+/* @socom-skeleton stub CheckLineOfFire__2aiFPC7CEntityPC7CTargetf */
+void ai::CheckLineOfFire(const CEntity *, const CTarget *, float)
+{
+	/* @socom-skeleton stub height$1495 */
+	static float height;
+	/* @socom-skeleton stub offset$1498 */
+	static float offset[3];
+}

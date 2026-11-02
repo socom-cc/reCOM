@@ -9,3 +9,41 @@
  * @socom-artifact defines main socom:data:0x476d10
  * @socom-artifact defines main socom:data:0x583fc0
  * socom-owner-annotations end socom:work:source-segment-068 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zUtil/zutil.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub m_hddStatus */
+static unsigned char m_hddStatus;
+
+/* @socom-skeleton stub tid */
+static int tid;
+
+/* @socom-skeleton stub g_stack */
+static unsigned char g_stack[8192];
+
+/* @socom-skeleton stub TRC_PowerOffHandler__FPv */
+void TRC_PowerOffHandler(void *)
+{
+}
+
+/* @socom-skeleton stub TRC_PowerOffThread_Aux__Fv */
+void TRC_PowerOffThread_Aux()
+{
+}
+
+/* @socom-skeleton stub TRC_PowerOffThread__FPv */
+void TRC_PowerOffThread(void *)
+{
+}
+
+/* @socom-skeleton stub _UnPreparePowerOff__FQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv */
+bool _UnPreparePowerOff(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *)
+{
+}
+
+/* @socom-skeleton stub TRC_PreparePowerOff */
+extern "C" void TRC_PreparePowerOff(void)
+{
+}

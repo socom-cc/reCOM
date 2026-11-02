@@ -17,11 +17,24 @@
 
 #include "zbone.h"
 
-bool is_init = false;
-u32 bone_archive_version = 0;
+/* @socom-skeleton stub pBuffer_MotionRdr */
+void *pBuffer_MotionRdr;
 
-CScriptArchive boneArchive;
+/* @socom-skeleton stub Sizeof_MotionRdr */
+unsigned int Sizeof_MotionRdr;
 
+/* @socom-skeleton stub bone_archive_version */
+static unsigned int bone_archive_version;
+
+/* @socom-skeleton stub is_init__23@unnamed@bone_init_cpp@ */
+namespace {
+unsigned char is_init;
+}
+
+/* @socom-skeleton stub boneArchive */
+int boneArchive[45];
+
+/* @socom-skeleton body zBoneInit__Fv */
 bool zBoneInit()
 {
     if (!is_init)
@@ -32,6 +45,7 @@ bool zBoneInit()
     return true;
 }
 
+/* @socom-skeleton body zBoneOpen__Fv */
 bool zBoneOpen()
 {
     bool isopen = false;
@@ -61,12 +75,19 @@ bool zBoneOpen()
     return opened;
 }
 
+/* @socom-skeleton body zBoneClose__Fv */
+bool zBoneClose()
+{
+    return true;
+}
+
+/* @socom-skeleton body zBoneLoadAll__Fv */
 bool zBoneLoadAll()
 {
     return true;
 }
 
-bool zBoneClose()
+/* @socom-skeleton stub zBoneUnloadAll__Fv */
+void zBoneUnloadAll()
 {
-    return true;
 }

@@ -19,3 +19,81 @@
  * @socom-artifact defines main socom:data:0x47591c
  * @socom-artifact defines main socom:data:0x475920
  * socom-owner-annotations end socom:work:source-segment-022 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zSystem/zsys.h"
+#include "zconsole.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CPacket;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub m_debug__8CConsole */
+int CConsole::m_debug = 5;
+
+/* @socom-skeleton stub _on_status__FP7CPacketP8CConsolePv */
+void _on_status(CPacket *, CConsole *, void *)
+{
+}
+
+/* @socom-skeleton stub _on_ping__FP7CPacketP8CConsolePv */
+void _on_ping(CPacket *, CConsole *, void *)
+{
+}
+
+/* @socom-skeleton stub _on_error__FP7CPacketP8CConsolePv */
+void _on_error(CPacket *, CConsole *, void *)
+{
+}
+
+/* @socom-skeleton stub __ct__8CConsoleFQ23std59basic_string<c,Q23std14char_traits<c>,Q23std12allocator<c>> */
+CConsole::CConsole(std::basic_string<char, std::char_traits<char>, std::allocator<char> >)
+{
+}
+
+/* @socom-skeleton stub __dt__8CConsoleFv */
+CConsole::~CConsole()
+{
+}
+
+/* @socom-skeleton stub RecvPacket__8CConsoleFP7CPacket */
+void CConsole::RecvPacket(CPacket *)
+{
+	/* @socom-skeleton stub level$436 */
+	static int level;
+}
+
+/* @socom-skeleton stub Debug__8CConsoleFiPCce */
+void CConsole::Debug(int, const char *, ...)
+{
+}
+
+/* @socom-skeleton stub Debug__8CConsoleFiP7CPacketPCc */
+void CConsole::Debug(int, CPacket *, const char *)
+{
+}
+
+/* @socom-skeleton stub OnConnect__8CConsoleFv */
+void CConsole::OnConnect()
+{
+}
+
+/* @socom-skeleton stub FindHandler__8CConsoleFUi */
+void CConsole::FindHandler(unsigned int)
+{
+}
+
+/* @socom-skeleton stub __ct__8CHandlerFPCcUiPFP7CPacketP8CConsolePv_vPv */
+CHandler::CHandler(const char *, unsigned int, void (*)(CPacket *, CConsole *, void *), void *)
+{
+}
+
+/* @socom-skeleton stub __dt__8CHandlerFv */
+CHandler::~CHandler()
+{
+}
+
+/* @socom-skeleton stub Dispatch__8CHandlerFP7CPacketP8CConsole */
+void CHandler::Dispatch(CPacket *, CConsole *)
+{
+}

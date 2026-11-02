@@ -24,3 +24,196 @@
  * @socom-artifact defines main socom:data:0x476578
  * @socom-artifact defines main socom:data:0x47657c
  * socom-owner-annotations end socom:work:source-segment-041 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zCamera/zcam.h"
+#include "gamez/zMath/zmath.h"
+#include "ztwod.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+namespace zdb {
+class CTextureRelocMgr;
+}
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub delta1X */
+static int delta1X = 16;
+
+/* @socom-skeleton stub delta0X */
+static int delta0X;
+
+/* @socom-skeleton stub delta0Y */
+static int delta0Y;
+
+/* @socom-skeleton stub delta1Y */
+static int delta1Y;
+
+/* @socom-skeleton body __ct__9C2DStringFv */
+C2DString::C2DString()
+{
+    m_string = (char*)zmalloc(17);
+    m_stringlen_max = 16;
+    m_numChars = 0;
+    m_Ustring = (char*)zmalloc(17);
+    *m_Ustring = '\0';
+    m_Ustringlen_max = 16;
+    m_numUChars = 0;
+    m_font = NULL;
+    m_scale = 1.0f;
+    m_revnum = 0;
+    m_color.x = 255.0f;
+    m_color.y = 255.0f;
+    m_color.z = 255.0f;
+    m_color.w = 128.0f;
+    m_firstCharPos = 0;
+    m_elapsedTime = 0.0f;
+}
+
+/* @socom-skeleton stub __dt__9C2DStringFv */
+C2DString::~C2DString()
+{
+}
+
+/* @socom-skeleton stub ClearAndWipe__9C2DStringFv */
+void C2DString::ClearAndWipe()
+{
+}
+
+/* @socom-skeleton stub Off__9C2DStringFv */
+void C2DString::Off()
+{
+}
+
+/* @socom-skeleton stub On__9C2DStringFv */
+void C2DString::On()
+{
+}
+
+/* @socom-skeleton stub Tick__9C2DStringFf */
+void C2DString::Tick(float)
+{
+}
+
+/* @socom-skeleton stub Draw__9C2DStringFPQ23zdb16CTextureRelocMgrPQ23zdb7CCameraf */
+void C2DString::Draw(zdb::CTextureRelocMgr *, zdb::CCamera *, float)
+{
+}
+
+/* @socom-skeleton stub MakePacket__9C2DStringFPQ23zdb16CTextureRelocMgri */
+void C2DString::MakePacket(zdb::CTextureRelocMgr *, int)
+{
+}
+
+/* @socom-skeleton body Draw__9C2DStringFPQ23zdb7CCamera */
+void C2DString::Draw(zdb::CCamera* camera)
+{
+    
+}
+
+/* @socom-skeleton stub Format__9C2DStringFPCce */
+void C2DString::Format(const char *, ...)
+{
+}
+
+/* @socom-skeleton body SetString__9C2DStringFPCc */
+void C2DString::SetString(const char* string)
+{
+    m_string = zstrdup(string);
+}
+
+/* @socom-skeleton body Load__9C2DStringFfPCcP7C2DFontii */
+void C2DString::Load(f32 scale, const char* message, C2DFont* font, s32 x, s32 y)
+{
+    m_scale = scale;
+    Load(message, font, x, y);
+}
+
+/* @socom-skeleton body Load__9C2DStringFPCcP7C2DFontii */
+void C2DString::Load(const char* message, C2DFont* font, s32 x, s32 y)
+{
+    m_pos.x = x;
+    m_pos.y = y;
+    SetString(message);
+    m_font = font;
+
+    if (m_color.w >= 128.0f)
+    {
+        SetTrans(m_color.w);
+    }
+}
+
+/* @socom-skeleton body Load__9C2DStringFPCcP7C2DFontiiii */
+void C2DString::Load(const char* message, C2DFont* font, s32 x, s32 y, s32 width, s32 height)
+{
+    m_pos.x = x;
+    m_pos.y = y;
+    SetString(message);
+    m_font = font;
+
+    if (m_color.w >= 128.0f)
+    {
+        SetTrans(m_color.w);
+    }
+
+    m_charwidth = width;
+    m_charheight = height;
+}
+
+/* @socom-skeleton stub Update__9C2DStringFv */
+void C2DString::Update()
+{
+}
+
+/* @socom-skeleton body AddCharacter__9C2DStringFc */
+void C2DString::AddCharacter(char character)
+{
+    m_numChars += 1;
+
+    m_string = (char*)zrealloc(m_string, m_numChars + 1);
+
+    if (m_numChars < 2)
+    {
+        *m_string = character;
+        m_string[1] = '\0';
+    }
+    else
+    {
+        m_string[m_numChars - 1] = character;
+        m_string[m_numChars] = '\0';
+    }
+
+    if (character != '\n')
+    {
+        s32 length = static_cast<s32>(m_length);
+        C2DFontEntry* entry = m_font->GetEntry(character);
+
+        if (entry)
+        {
+            if (entry->m_displaywidth == -1)
+            {
+                length = static_cast<s32>(length + m_scale * entry->m_width * m_font->m_scale_factor);
+            }
+            else
+            {
+                length += entry->m_displaywidth;
+            }
+
+            m_length += static_cast<f32>(length + entry->m_xspacing + entry->m_rKerning >> 4);
+        }
+    }
+}
+
+/* @socom-skeleton stub NewLine__9C2DStringFv */
+void C2DString::NewLine()
+{
+}
+
+/* @socom-skeleton stub UpdatePos__9C2DStringFv */
+void C2DString::UpdatePos()
+{
+}
+
+/* @socom-skeleton stub SetFont__9C2DStringFP7C2DFont */
+void C2DString::SetFont(C2DFont *)
+{
+}

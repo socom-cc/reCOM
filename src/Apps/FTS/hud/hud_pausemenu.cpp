@@ -28,6 +28,29 @@
 #include "gamez/zSeal/zseal.h"
 #include "gamez/zVideo/zvid.h"
 
+/* @socom-skeleton decl include */
+#include "gamez/zCamera/zcam.h"
+#include "gamez/zInput/zinput.h"
+#include "gamez/zUtil/util_stable.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class Action;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub g_fFadeoutTime__27@unnamed@hud_pausemenu_cpp@ */
+namespace {
+float g_fFadeoutTime = -1.0f;
+}
+
+/* @socom-skeleton stub g_fTimeInPauseMenu__27@unnamed@hud_pausemenu_cpp@ */
+namespace {
+float g_fTimeInPauseMenu;
+}
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static CSTable MultiplayerMsgStrings;
+
+/* @socom-skeleton body __ct__11CZPauseTestFv */
 CZPauseTest::CZPauseTest()
 {
     m_numselections = 0;
@@ -40,44 +63,12 @@ CZPauseTest::CZPauseTest()
     m_scrolldownsound = NULL;
 }
 
-void CZPauseTest::ReInit()
+/* @socom-skeleton stub ClosePauseMenu__11CZPauseTestFv */
+void CZPauseTest::ClosePauseMenu()
 {
-    m_numselections = 5;
-    
-    m_selections[0].Load(1.2f, "RESUME", m_ttf_font, 240, 200);
-    m_selections[0].m_color.x = 86.0f;
-    m_selections[0].m_color.y = 63.0f;
-    m_selections[0].m_color.z = 27.0f;
-
-    m_selections[1].Load(1.2f, "ABORT", m_ttf_font, 240, 232);
-    m_selections[1].m_color.x = 86.0f;
-    m_selections[1].m_color.y = 63.0f;
-    m_selections[1].m_color.z = 27.0f;
-
-    m_selections[2].Load(1.2f, "INVERT PITCH: OFF", m_ttf_font, 240, 264);
-    m_selections[2].m_color.x = 86.0f;
-    m_selections[2].m_color.y = 63.0f;
-    m_selections[2].m_color.z = 27.0f;
-
-    m_selections[3].Load(1.2f, "AUTO AIM: OFF", m_ttf_font, 240, 296);
-    m_selections[3].m_color.x = 86.0f;
-    m_selections[3].m_color.y = 63.0f;
-    m_selections[3].m_color.z = 27.0f;
-
-    m_selections[4].Load(1.2f, "REPLAY", m_ttf_font, 240, 328);
-    m_selections[4].m_color.x = 86.0f;
-    m_selections[4].m_color.y = 63.0f;
-    m_selections[4].m_color.z = 27.0f;
 }
 
-void CZPauseTest::Draw(zdb::CCamera* camera)
-{
-    for (u32 i = 0; i < m_numselections; i++)
-    {
-        m_selections[i].Draw(NULL);
-    }
-}
-
+/* @socom-skeleton body OpenPauseMenu__11CZPauseTestFv */
 void CZPauseTest::OpenPauseMenu()
 {
     CZSealBody* owner = CHUD::GetHUDOwner();
@@ -113,4 +104,83 @@ void CZPauseTest::OpenPauseMenu()
 
     m_oldmenustate = control->GetMenuState();
     control->SetMenuState(statePauseTestMenu);
+}
+
+/* @socom-skeleton stub HandleSelectionInput__11CZPauseTestFRC4CPad */
+void CZPauseTest::HandleSelectionInput(const CPad &)
+{
+	/* @socom-skeleton stub c_arrInputsToActions$2591 */
+	static const Action c_arrInputsToActions[5][3] = {{{(Selection)5, 1}, {(Selection)5, 1}, {(Selection)5, 0}}, {{(Selection)1, 1}, {(Selection)5, 1}, {(Selection)5, 0}}, {{(Selection)2, 0}, {(Selection)5, 1}, {(Selection)2, 0}}, {{(Selection)3, 1}, {(Selection)5, 1}, {(Selection)5, 0}}, {{(Selection)4, 0}, {(Selection)5, 1}, {(Selection)4, 0}}};
+}
+
+/* @socom-skeleton stub Init__11CZPauseTestFv */
+void CZPauseTest::Init()
+{
+}
+
+/* @socom-skeleton body ReInit__11CZPauseTestFv */
+void CZPauseTest::ReInit()
+{
+    m_numselections = 5;
+    
+    m_selections[0].Load(1.2f, "RESUME", m_ttf_font, 240, 200);
+    m_selections[0].m_color.x = 86.0f;
+    m_selections[0].m_color.y = 63.0f;
+    m_selections[0].m_color.z = 27.0f;
+
+    m_selections[1].Load(1.2f, "ABORT", m_ttf_font, 240, 232);
+    m_selections[1].m_color.x = 86.0f;
+    m_selections[1].m_color.y = 63.0f;
+    m_selections[1].m_color.z = 27.0f;
+
+    m_selections[2].Load(1.2f, "INVERT PITCH: OFF", m_ttf_font, 240, 264);
+    m_selections[2].m_color.x = 86.0f;
+    m_selections[2].m_color.y = 63.0f;
+    m_selections[2].m_color.z = 27.0f;
+
+    m_selections[3].Load(1.2f, "AUTO AIM: OFF", m_ttf_font, 240, 296);
+    m_selections[3].m_color.x = 86.0f;
+    m_selections[3].m_color.y = 63.0f;
+    m_selections[3].m_color.z = 27.0f;
+
+    m_selections[4].Load(1.2f, "REPLAY", m_ttf_font, 240, 328);
+    m_selections[4].m_color.x = 86.0f;
+    m_selections[4].m_color.y = 63.0f;
+    m_selections[4].m_color.z = 27.0f;
+}
+
+/* @socom-skeleton stub Clear__11CZPauseTestFv */
+void CZPauseTest::Clear()
+{
+}
+
+/* @socom-skeleton stub HudTick__11CZPauseTestFP4CPadf */
+void CZPauseTest::HudTick(CPad *, float)
+{
+}
+
+/* @socom-skeleton body Draw__11CZPauseTestFPQ23zdb7CCamera */
+void CZPauseTest::Draw(zdb::CCamera* camera)
+{
+    for (u32 i = 0; i < m_numselections; i++)
+    {
+        m_selections[i].Draw(NULL);
+    }
+}
+
+/* @socom-skeleton stub On__11CZPauseTestFv */
+void CZPauseTest::On()
+{
+}
+
+/* @socom-skeleton stub Off__11CZPauseTestFv */
+void CZPauseTest::Off()
+{
+}
+
+/* @socom-skeleton stub TickOffState__11CZPauseTestFRC4CPadf */
+void CZPauseTest::TickOffState(const CPad &, float)
+{
+	/* @socom-skeleton stub bConnected$2697 */
+	static unsigned char bConnected;
 }

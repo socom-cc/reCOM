@@ -16,3 +16,65 @@
  * @socom-artifact defines main socom:function:0x1de0b0
  * @socom-artifact defines main socom:data:0x4758ec
  * socom-owner-annotations end socom:work:source-segment-021 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zAnim/zanim.h"
+#include "gamez/zArchive/zar.h"
+#include "gamez/zMath/zmath.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub numSiObject */
+int numSiObject;
+
+/* @socom-skeleton stub siStringTable */
+unsigned char siStringTable[28];
+
+/* @socom-skeleton stub __ct__10CZSIObjectFv */
+CZSIObject::CZSIObject()
+{
+}
+
+/* @socom-skeleton stub Initalize__10CZSIObjectFP16CZSIScriptCommon */
+void CZSIObject::Initalize(CZSIScriptCommon *)
+{
+}
+
+/* @socom-skeleton stub Read__10CZSIObjectFP10CZSIScriptRQ23zar4CZAR */
+void CZSIObject::Read(CZSIScript *, zar::CZAR &)
+{
+}
+
+/* @socom-skeleton stub __dt__10CZSIObjectFv */
+CZSIObject::~CZSIObject()
+{
+}
+
+/* @socom-skeleton stub GetVelRaw__10CZSIObjectFP10CZSIScriptiiP6CPnt3D */
+CPnt3D * CZSIObject::GetVelRaw(CZSIScript *, int, int, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub GetPosRaw__10CZSIObjectFiifP6CPnt3D */
+CPnt3D * CZSIObject::GetPosRaw(int, int, float, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub GetRotRaw__10CZSIObjectFiifP5CQuat */
+CQuat * CZSIObject::GetRotRaw(int, int, float, CQuat *)
+{
+}
+
+/* @socom-skeleton stub GetPosFast__10CZSIObjectFiifP6CPnt3D */
+CPnt3D * CZSIObject::GetPosFast(int, int, float, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub GetRotFast__10CZSIObjectFiifP5CQuat */
+CQuat * CZSIObject::GetRotFast(int, int, float, CQuat *)
+{
+}
+
+/* @socom-skeleton stub Read__10CZSIObjectFPUcUiPCc */
+void CZSIObject::Read(unsigned char *, unsigned int, const char *)
+{
+}

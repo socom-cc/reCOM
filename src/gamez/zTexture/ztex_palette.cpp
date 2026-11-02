@@ -12,9 +12,18 @@
 
 namespace zdb
 {
-    u32 CTexPalette::m_palId = 0;
 
-    CTexPalette::CTexPalette(const char* name)
+    
+}
+
+/* @socom-skeleton stub m_palId__Q23zdb11CTexPalette */
+namespace zdb {
+unsigned int CTexPalette::m_palId;
+}
+
+/* @socom-skeleton body __ct__Q23zdb11CTexPaletteFPCc */
+namespace zdb {
+CTexPalette::CTexPalette(const char* name)
     {
         m_name = zstrdup(name);
         m_gsaddr = m_palId;
@@ -29,8 +38,16 @@ namespace zdb
         m_AssetLib = NULL;
         m_palId++;
     }
-    
-    bool CTexPalette::Read(CSaveLoad& sload)
+}
+
+/* @socom-skeleton stub __dt__Q23zdb11CTexPaletteFv */
+zdb::CTexPalette::~CTexPalette()
+{
+}
+
+/* @socom-skeleton body Read__Q23zdb11CTexPaletteFRQ23zdb9CSaveLoad */
+namespace zdb {
+bool CTexPalette::Read(CSaveLoad& sload)
     {
         if (sload.m_zfile.Fetch("par", this, sizeof(PALETTE_PARAMS)))
         {

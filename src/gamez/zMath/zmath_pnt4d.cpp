@@ -14,3 +14,32 @@
  * @socom-artifact defines main socom:data:0x44f5b0
  * @socom-artifact defines main socom:data:0x44f5c0
  * socom-owner-annotations end socom:work:source-segment-076 */
+
+/* @socom-skeleton decl include */
+#include "zmath.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub zero__6CPnt4D */
+const CPnt4D CPnt4D::zero = {0};
+
+/* @socom-skeleton stub unit_x__6CPnt4D */
+const int CPnt4D::unit_x[4] = {0};
+
+/* @socom-skeleton stub unit_y__6CPnt4D */
+const int CPnt4D::unit_y[4] = {0};
+
+/* @socom-skeleton stub unit_z__6CPnt4D */
+const int CPnt4D::unit_z[4] = {0};
+
+/* @socom-skeleton stub unit_w__6CPnt4D */
+const int CPnt4D::unit_w[4] = {0};
+
+/* @socom-skeleton stub Rotate_AxisX__6CPnt4DFf */
+void CPnt4D::Rotate_AxisX(float)
+{
+}
+
+/* @socom-skeleton stub Rotate_AxisY__6CPnt4DFf */
+void CPnt4D::Rotate_AxisY(float)
+{
+}

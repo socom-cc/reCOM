@@ -48,23 +48,38 @@
 #include "gamez/zInput/zinput.h"
 #include "gamez/zMath/zmath.h"
 
-float pad_dt = 0.0f;
+/* @socom-skeleton decl include */
+#include "gamez/zUtil/zutil.h"
+/* @socom-skeleton end include */
 
-bool CInput::m_init = false;
-CPad* CInput::m_pads[2];
-CKeyboard* CInput::m_keyboard = NULL;
+/* @socom-skeleton stub m_pads__6CInput */
+CPad *CInput::m_pads[2] = {0};
 
-void CInput::Init()
-{
-	m_init = OpenPadIO() != false;
-	m_init = true;
-}
+/* @socom-skeleton stub min_sensitivity */
+static float min_sensitivity = 0.5f;
 
+/* @socom-skeleton stub deadZoneScaleFactor */
+static float deadZoneScaleFactor = 2.0f;
+
+/* @socom-skeleton stub m_init__6CInput */
+bool CInput::m_init;
+
+/* @socom-skeleton stub m_keyboard__6CInput */
+CKeyboard *CInput::m_keyboard;
+
+/* @socom-skeleton stub pad_dt */
+static float pad_dt;
+
+/* @socom-skeleton stub m_DmaBufArray */
+unsigned char m_DmaBufArray[512];
+
+/* @socom-skeleton body OpenPadIO__6CInputFv */
 int CInput::OpenPadIO()
 {
 	return 1;
 }
 
+/* @socom-skeleton body ClosePadIO__6CInputFv */
 void CInput::ClosePadIO()
 {
 	for (int i = 0; i < 2; i++)
@@ -73,6 +88,145 @@ void CInput::ClosePadIO()
 	}
 }
 
+/* @socom-skeleton body __ct__4CPadFii */
+CPad::CPad(int port, int slot)
+{
+    m_port = port;
+    m_slot = slot;
+}
+
+/* @socom-skeleton body IsOpen__4CPadCFv */
+bool CPad::IsOpen() const
+{
+    return m_open != 0;
+}
+
+/* @socom-skeleton body Flush__4CPadFv */
+void CPad::Flush()
+{
+    
+}
+
+/* @socom-skeleton stub __dt__4CPadFv */
+CPad::~CPad()
+{
+}
+
+/* @socom-skeleton stub SetSensitivity__4CPadFif */
+void CPad::SetSensitivity(int, float)
+{
+}
+
+/* @socom-skeleton stub GetSensitivity__4CPadFi */
+float CPad::GetSensitivity(int)
+{
+}
+
+/* @socom-skeleton stub SetAcceleration__4CPadFif */
+void CPad::SetAcceleration(int, float)
+{
+}
+
+/* @socom-skeleton stub GetAcceleration__4CPadFi */
+float CPad::GetAcceleration(int)
+{
+}
+
+/* @socom-skeleton stub SetDeadZone__4CPadFif */
+void CPad::SetDeadZone(int, float)
+{
+}
+
+/* @socom-skeleton stub GetDeadZone__4CPadFi */
+float CPad::GetDeadZone(int)
+{
+}
+
+/* @socom-skeleton stub SetPreset__4CPadFii */
+void CPad::SetPreset(int, int)
+{
+}
+
+/* @socom-skeleton stub ReadControlFile__10CStickTypeFi */
+void CStickType::ReadControlFile(int)
+{
+}
+
+/* @socom-skeleton stub CheckStickVelocity__4CPadFRfRfi */
+void CPad::CheckStickVelocity(float &, float &, int)
+{
+}
+
+/* @socom-skeleton stub Dilate__4CPadFRfRfi */
+void CPad::Dilate(float &, float &, int)
+{
+	/* @socom-skeleton stub which_dilation$649 */
+	static int which_dilation;
+}
+
+/* @socom-skeleton body Tick__4CPadFf */
+void CPad::Tick(f32 delta)
+{
+    pad_dt = delta;
+}
+
+/* @socom-skeleton stub GetSingleClick__4CPadF10PAD_BUTTON */
+void CPad::GetSingleClick(PAD_BUTTON)
+{
+}
+
+/* @socom-skeleton stub GetDoubleClick__4CPadF10PAD_BUTTON */
+void CPad::GetDoubleClick(PAD_BUTTON)
+{
+}
+
+/* @socom-skeleton body GetTwoButtons__4CPadF10PAD_BUTTON10PAD_BUTTON */
+bool CPad::GetTwoButtons(PAD_BUTTON button1, PAD_BUTTON button2)
+{
+    bool falling = false;
+
+    falling = m_state[(u32)button1] == KEY_DOWN;
+    
+    if (falling)
+    {
+        falling = m_state[(u32)button2] == KEY_FALLING;
+    }
+
+    return falling;
+}
+
+/* @socom-skeleton body SetButtonState__4CPadF10PAD_BUTTON9KEY_STATE */
+void CPad::SetButtonState(PAD_BUTTON button, KEY_STATE state)
+{
+    m_state[(u8)button] = state;
+    m_click[(u8)button] = -3;
+}
+
+/* @socom-skeleton stub UpdateButton__4CPadF10PAD_BUTTONUi */
+void CPad::UpdateButton(PAD_BUTTON, unsigned int)
+{
+}
+
+/* @socom-skeleton stub IOPRebootHandler__6CInputFQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv */
+bool CInput::IOPRebootHandler(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *)
+{
+}
+
+/* @socom-skeleton body Init__6CInputFv */
+void CInput::Init()
+{
+	m_init = OpenPadIO() != false;
+	m_init = true;
+}
+
+/* @socom-skeleton body Uninit__6CInputFv */
+void CInput::Uninit()
+{
+	ClosePadIO();
+	m_init = false;
+}
+
+/* @socom-skeleton body Tick__6CInputFf */
 void CInput::Tick(f32 dT)
 {
 	for (s32 pad = 0; pad < 2; pad++)
@@ -84,6 +238,19 @@ void CInput::Tick(f32 dT)
 	}
 }
 
+/* @socom-skeleton body Flush__6CInputFv */
+void CInput::Flush()
+{
+	for (s32 pad = 0; pad < 2; pad++)
+	{
+		if (m_pads[pad] != NULL)
+		{
+			m_pads[pad]->Flush();
+		}
+	}
+}
+
+/* @socom-skeleton body CreatePad__6CInputFUi */
 CPad* CInput::CreatePad(u32 slot)
 {
 	CPad* pad;
@@ -112,6 +279,7 @@ CPad* CInput::CreatePad(u32 slot)
 	return pad;
 }
 
+/* @socom-skeleton body DeletePad__6CInputFUi */
 void CInput::DeletePad(u32 slot)
 {
 	CPad* pad = m_pads[slot];
@@ -121,21 +289,4 @@ void CInput::DeletePad(u32 slot)
 		// delete pad;
 		m_pads[slot] = NULL;
 	}
-}
-
-void CInput::Flush()
-{
-	for (s32 pad = 0; pad < 2; pad++)
-	{
-		if (m_pads[pad] != NULL)
-		{
-			m_pads[pad]->Flush();
-		}
-	}
-}
-
-void CInput::Uninit()
-{
-	ClosePadIO();
-	m_init = false;
 }

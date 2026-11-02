@@ -70,3 +70,126 @@
  * @socom-artifact defines main socom:data:0x475c20
  * @socom-artifact defines main socom:data:0x475c24
  * socom-owner-annotations end socom:work:source-segment-076 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "gamez/zTexture/ztex.h"
+#include "gamez/zVisual/zvis.h"
+#include "zparticle.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+unsigned char std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+unsigned char std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub fadeFactor__Q28Particle8Instance */
+int Particle::Instance::fadeFactor;
+
+/* @socom-skeleton stub ageFactor__Q28Particle8Instance */
+float Particle::Instance::ageFactor;
+
+/* @socom-skeleton stub spawnFactor__Q28Particle8Instance */
+int Particle::Instance::spawnFactor;
+
+/* @socom-skeleton stub m_dT__Q28Particle8Instance */
+float Particle::Instance::m_dT;
+
+/* @socom-skeleton stub m_instance_pool__Q28Particle8Instance */
+int Particle::Instance::m_instance_pool;
+
+/* @socom-skeleton stub list__Q28Particle8Instance */
+unsigned char Particle::Instance::list[12];
+
+/* @socom-skeleton stub Create__Q28Particle5PropsFv */
+Particle::Props * Particle::Props::Create()
+{
+}
+
+/* @socom-skeleton stub Branch__Q28Particle5PropsFv */
+Particle::Props * Particle::Props::Branch()
+{
+}
+
+/* @socom-skeleton stub DecRefCount__Q28Particle5PropsFi */
+void Particle::Props::DecRefCount(int)
+{
+}
+
+/* @socom-skeleton stub GetTexture__Q28Particle5PropsCFfRPQ23zdb10CTexHandle */
+void Particle::Props::GetTexture(float, zdb::CTexHandle *&) const
+{
+}
+
+/* @socom-skeleton stub GetColor__Q28Particle5PropsCFfR6CPnt4D */
+void Particle::Props::GetColor(float, CPnt4D &) const
+{
+}
+
+/* @socom-skeleton stub GetScale__Q28Particle5PropsCFfRf */
+void Particle::Props::GetScale(float, float &) const
+{
+}
+
+/* @socom-skeleton stub GetOpacity__Q28Particle5PropsCFf */
+float Particle::Props::GetOpacity(float) const
+{
+}
+
+/* @socom-skeleton stub Uninit__Q38Particle8Instance4ListFv */
+void Particle::Instance::List::Uninit()
+{
+}
+
+/* @socom-skeleton stub Tick__Q38Particle8Instance4ListFf */
+void Particle::Instance::List::Tick(float)
+{
+}
+
+/* @socom-skeleton stub Render__8ParticleFv */
+void Particle::Render()
+{
+}
+
+/* @socom-skeleton stub __ct__Q28Particle8InstanceFRC6CPnt4DRC6CPnt4DRC6CPnt3DfffPQ23zdb10CTexHandlePQ28Particle5PropsPQ28Particle6Source */
+Particle::Instance::Instance(const CPnt4D &, const CPnt4D &, const CPnt3D &, float, float, float, zdb::CTexHandle *, Particle::Props *, Particle::Source *)
+{
+}
+
+/* @socom-skeleton stub __dt__Q28Particle8InstanceFv */
+Particle::Instance::~Instance()
+{
+}
+
+/* @socom-skeleton stub Expire__Q28Particle8InstanceFv */
+void Particle::Instance::Expire()
+{
+}
+
+/* @socom-skeleton stub Render__Q28Particle8InstanceFRC7CMatrix */
+void Particle::Instance::Render(const CMatrix &)
+{
+	/* @socom-skeleton stub OutputOnceOnly$1584 */
+	static unsigned char OutputOnceOnly;
+}
+
+/* @socom-skeleton stub __ct__Q28Particle20Destruction_InstanceFRC6CPnt4DRC6CPnt4DRC6CPnt3DfffPQ23zdb7CVisual6CPnt3DPQ28Particle5Props */
+Particle::Destruction_Instance::Destruction_Instance(const CPnt4D &, const CPnt4D &, const CPnt3D &, float, float, float, zdb::CVisual *, CPnt3D, Particle::Props *)
+{
+}
+
+/* @socom-skeleton stub Create__Q28Particle20Destruction_InstanceFRC6CPnt4DRC6CPnt4DRC6CPnt3DfffPQ23zdb7CVisual6CPnt3DPQ28Particle5Props */
+void Particle::Destruction_Instance::Create(const CPnt4D &, const CPnt4D &, const CPnt3D &, float, float, float, zdb::CVisual *, CPnt3D, Particle::Props *)
+{
+}
+
+/* @socom-skeleton stub Render__Q28Particle20Destruction_InstanceFRC7CMatrix */
+void Particle::Destruction_Instance::Render(const CMatrix &)
+{
+}
+
+/* @socom-skeleton stub Tick__Q28Particle20Destruction_InstanceFf */
+void Particle::Destruction_Instance::Tick(float)
+{
+}

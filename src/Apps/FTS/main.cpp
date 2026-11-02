@@ -58,6 +58,44 @@
 bool LoadWorld(const char* name);
 char* SetDatabase(const char* db);
 
+/* @socom-skeleton decl include */
+#include "gamez/zUtil/util_stable.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub MultiplayerMsgStrings */
+static CSTable MultiplayerMsgStrings;
+
+/* @socom-skeleton stub twelve_pool */
+static _zmalloc twelve_pool;
+
+/* @socom-skeleton stub four_pool */
+static _zmalloc four_pool;
+
+/* @socom-skeleton stub theGame */
+COurGame theGame;
+
+/* @socom-skeleton body __nw__FUi */
+void* operator new(size_t size)
+{
+	return __malloc(size, __FILE__, __LINE__);
+}
+
+/* @socom-skeleton stub __nwa__FUi */
+void * operator new[](unsigned int)
+{
+}
+
+/* @socom-skeleton stub __dl__FPv */
+void operator delete(void *)
+{
+}
+
+/* @socom-skeleton stub __dla__FPv */
+void operator delete[](void *)
+{
+}
+
+/* @socom-skeleton body main */
 int main(int argc, char** argv)
 {
 	process_arguments(argc, argv);
@@ -80,4 +118,54 @@ int main(int argc, char** argv)
 	theGame.StartPlay();
 
 	while (true) theGame.Tick(0);
+}
+
+/* @socom-skeleton body StartEngine__8COurGameFv */
+bool COurGame::StartEngine()
+{
+	if (!CGame::StartEngine())
+		return false;
+
+	// Display loading screen
+	CVideo::RestoreImage("RUN\\LOADING.RAW", true);
+
+	// After the image is loaded into the back buffer,
+	// bring it to the main one
+	zVid_Swap(true);
+
+	zdb::CTexManager::m_texmanager->doAddBuffer("default", 0.0f, 0.0f);
+
+	theMission.Init();
+
+	char* db = GetDatabase();
+
+	if (db)
+	{
+		size_t dblen = strlen(db);
+
+		if (dblen != 0)
+			theMission.PreOpen(db);
+	}
+
+	zdb::CAssetLib* fontLib = zdb::CAssetMgr::GetLoadedLibRef("common/assetlib/font");
+	fontLib->m_autoload = false;
+
+	theLobby.Init();
+
+	return true;
+}
+
+/* @socom-skeleton stub StopEngine__8COurGameFv */
+void COurGame::StopEngine()
+{
+}
+
+/* @socom-skeleton stub StartPlay__8COurGameFv */
+void COurGame::StartPlay()
+{
+}
+
+/* @socom-skeleton stub StopPlay__8COurGameFv */
+void COurGame::StopPlay()
+{
 }

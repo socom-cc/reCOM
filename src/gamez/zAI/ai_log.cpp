@@ -7,3 +7,30 @@
  * @socom-artifact defines main socom:function:0x1a94f0
  * @socom-artifact defines main socom:data:0x4757d0
  * socom-owner-annotations end socom:work:source-segment-016 */
+
+/* @socom-skeleton decl include */
+#include "zai.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub m_log__6CAiLog */
+int CAiLog::m_log;
+
+/* @socom-skeleton stub __ct__6CAiLogFb */
+CAiLog::CAiLog(bool)
+{
+}
+
+/* @socom-skeleton stub __dt__6CAiLogFv */
+CAiLog::~CAiLog()
+{
+}
+
+/* @socom-skeleton stub Create__6CAiLogFPCcb */
+void CAiLog::Create(const char *, bool)
+{
+}
+
+/* @socom-skeleton stub Write__6CAiLogFUiUiUiPCv */
+void CAiLog::Write(unsigned int, unsigned int, unsigned int, const void *)
+{
+}

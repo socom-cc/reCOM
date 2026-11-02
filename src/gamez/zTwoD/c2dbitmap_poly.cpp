@@ -23,3 +23,111 @@
  * @socom-artifact defines main socom:function:0x2fe6f0
  * @socom-artifact defines main socom:data:0x43a860
  * socom-owner-annotations end socom:work:source-segment-041 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zCamera/zcam.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zTexture/ztex.h"
+#include "ztwod.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class CPtItr;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub r */
+static float r[4] = {1.0f, 0.0f, 0.0f, 1.0f};
+
+/* @socom-skeleton stub __ct__13C2DBitmapPolyFv */
+C2DBitmapPoly::C2DBitmapPoly()
+{
+}
+
+/* @socom-skeleton body Load__13C2DBitmapPolyFffffffffPQ23zdb8CTexture */
+void C2DBitmapPoly::Load(f32 v0x, f32 v0y, f32 v1x, f32 v1y, f32 v2x, f32 v2y, f32 v3x, f32 v3y, zdb::CTexture* texture)
+{
+	m_tris[0].Load(v0x, v0y, v1x, v1y, v2x, v2y, texture);
+	m_tris[1].Load(v0x, v0y, v2x, v2y, v3x, v3y, texture);
+}
+
+/* @socom-skeleton body Draw__13C2DBitmapPolyFPQ23zdb7CCamera */
+void C2DBitmapPoly::Draw(zdb::CCamera* camera)
+{
+	m_tris[0].Draw(camera);
+	m_tris[1].Draw(camera);
+}
+
+/* @socom-skeleton stub SetPos__13C2DBitmapPolyFffffffff */
+void C2DBitmapPoly::SetPos(float, float, float, float, float, float, float, float)
+{
+}
+
+/* @socom-skeleton stub SetCenterPos__13C2DBitmapPolyF5PNT2Dff */
+void C2DBitmapPoly::SetCenterPos(PNT2D, float, float)
+{
+}
+
+/* @socom-skeleton stub SetUV__13C2DBitmapPolyFffff */
+void C2DBitmapPoly::SetUV(float, float, float, float)
+{
+}
+
+/* @socom-skeleton body SetUV__13C2DBitmapPolyFffffffff */
+void C2DBitmapPoly::SetUV(float, float, float, float, float, float, float, float)
+{
+	m_tris[0].SetUV(v0u, v0v, v1u, v1v, v2u, v2v);
+	m_tris[1].SetUV(v0u, v0v, v1u, v1v, v2u, v2v);
+}
+
+/* @socom-skeleton body SetColor__13C2DBitmapPolyFfff */
+void C2DBitmapPoly::SetColor(f32 r, f32 g, f32 b)
+{
+	m_tris[0].SetColor(r, g, b);
+	m_tris[1].SetColor(r, g, b);
+}
+
+/* @socom-skeleton body SetTrans__13C2DBitmapPolyFf */
+void C2DBitmapPoly::SetTrans(f32 transparency)
+{
+	m_tris[0].SetTrans(transparency);
+	m_tris[1].SetTrans(transparency);
+}
+
+/* @socom-skeleton stub GetTrans__13C2DBitmapPolyFv */
+float C2DBitmapPoly::GetTrans()
+{
+}
+
+/* @socom-skeleton stub SetUseFrameBufferAlpha__13C2DBitmapPolyFb */
+void C2DBitmapPoly::SetUseFrameBufferAlpha(bool)
+{
+}
+
+/* @socom-skeleton stub FlipImage_Xaxis__13C2DBitmapPolyFv */
+void C2DBitmapPoly::FlipImage_Xaxis()
+{
+}
+
+/* @socom-skeleton stub FlipImage_Yaxis__13C2DBitmapPolyFv */
+void C2DBitmapPoly::FlipImage_Yaxis()
+{
+}
+
+/* @socom-skeleton stub FlipImage_XYaxis__13C2DBitmapPolyFv */
+void C2DBitmapPoly::FlipImage_XYaxis()
+{
+}
+
+/* @socom-skeleton stub Rotate_Zaxis__13C2DBitmapPolyFf */
+void C2DBitmapPoly::Rotate_Zaxis(float)
+{
+}
+
+/* @socom-skeleton stub Rotate_Zaxis__13C2DBitmapPolyFff */
+void C2DBitmapPoly::Rotate_Zaxis(float, float)
+{
+}
+
+/* @socom-skeleton stub SetSegments__15C2DWidePolylineFP6CPtItrf */
+void C2DWidePolyline::SetSegments(CPtItr *, float)
+{
+}

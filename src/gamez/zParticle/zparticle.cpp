@@ -29,3 +29,106 @@
  * @socom-artifact defines main socom:data:0x475bec
  * @socom-artifact defines main socom:data:0x475bf0
  * socom-owner-annotations end socom:work:source-segment-076 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/node_model.h"
+#include "gamez/zNode/znode.h"
+#include "gamez/zTexture/ztex.h"
+#include "zparticle.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+namespace zdb {
+class CDIVector;
+}
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub __msl_ios_base_ninit__3std */
+unsigned char std::__msl_ios_base_ninit;
+
+/* @socom-skeleton stub __msl_ios_base_winit__3std */
+unsigned char std::__msl_ios_base_winit;
+
+/* @socom-skeleton stub particle_node_count__8Particle */
+int Particle::particle_node_count;
+
+/* @socom-skeleton stub particle_node_free_list__8Particle */
+int Particle::particle_node_free_list[3];
+
+/* @socom-skeleton stub m_dyntexlist__8Particle */
+zdb::CDynTexList Particle::m_dyntexlist;
+
+/* @socom-skeleton stub Init__8ParticleFv */
+void Particle::Init()
+{
+}
+
+/* @socom-skeleton stub Open__8ParticleFv */
+void Particle::Open()
+{
+}
+
+/* @socom-skeleton stub Tick__8ParticleFfPv */
+bool Particle::Tick(float, void *)
+{
+}
+
+/* @socom-skeleton stub GetDynTexList__8ParticleFv */
+zdb::CDynTexList * Particle::GetDynTexList()
+{
+}
+
+/* @socom-skeleton stub AddDynTexture__8ParticleFPQ23zdb10CTexHandle */
+void Particle::AddDynTexture(zdb::CTexHandle *)
+{
+}
+
+/* @socom-skeleton stub ReserveNodePool__8ParticleFv */
+void Particle::ReserveNodePool()
+{
+}
+
+/* @socom-skeleton stub FreeNodePool__8ParticleFv */
+void Particle::FreeNodePool()
+{
+}
+
+/* @socom-skeleton stub Close__8ParticleFv */
+void Particle::Close()
+{
+}
+
+/* @socom-skeleton stub FlushDynTexList__8ParticleFv */
+void Particle::FlushDynTexList()
+{
+}
+
+/* @socom-skeleton stub PullVisuals__8ParticleFPQ23zdb5CNodePQ23zdb9CDIVector */
+void Particle::PullVisuals(zdb::CNode *, zdb::CDIVector *)
+{
+}
+
+/* @socom-skeleton stub CreateVisuals__8ParticleFP6CPnt3DP6CPnt3DP6CPnt3D6CPnt3D6CPnt3D6CPnt3D7CMatrixPQ23zdb10CTexHandleP6CPnt4DfPQ23zdb6CModelP6CPnt3DP6CPnt3DP6CPnt3DPQ28Particle5Propsf */
+void Particle::CreateVisuals(CPnt3D *, CPnt3D *, CPnt3D *, CPnt3D, CPnt3D, CPnt3D, CMatrix, zdb::CTexHandle *, CPnt4D *, float, zdb::CModel *, CPnt3D *, CPnt3D *, CPnt3D *, Particle::Props *, float)
+{
+}
+
+/* @socom-skeleton stub Create3Sided__8ParticleFPQ23zdb9CDIVectorPQ23zdb5CNodeP6CPnt4DPQ23zdb10CTexHandlefPQ23zdb6CModelP6CPnt3DP6CPnt3DP6CPnt3DP6CPnt3DPQ28Particle5Propsf */
+void Particle::Create3Sided(zdb::CDIVector *, zdb::CNode *, CPnt4D *, zdb::CTexHandle *, float, zdb::CModel *, CPnt3D *, CPnt3D *, CPnt3D *, CPnt3D *, Particle::Props *, float)
+{
+}
+
+/* @socom-skeleton stub DestructionManager__8ParticleFPQ23zdb5CNodePcP6CPnt4DfP6CPnt3DP6CPnt3DP6CPnt3DP6CPnt3Dif */
+void Particle::DestructionManager(zdb::CNode *, char *, CPnt4D *, float, CPnt3D *, CPnt3D *, CPnt3D *, CPnt3D *, int, float)
+{
+}
+
+/* @socom-skeleton stub GetFreeInstance__8ParticleFv */
+zdb::CNode * Particle::GetFreeInstance()
+{
+}
+
+/* @socom-skeleton stub ReleaseInstance__8ParticleFPQ23zdb5CNode */
+void Particle::ReleaseInstance(zdb::CNode *)
+{
+}

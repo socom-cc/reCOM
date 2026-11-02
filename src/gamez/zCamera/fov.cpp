@@ -10,15 +10,16 @@
 
 #include "gamez/zSeal/zseal.h"
 
-CHUD* CameraZoom::m_hud = NULL;
-CZSealBody* CameraZoom::m_seal = NULL;
+/* @socom-skeleton decl forward */
+struct PNT4D;
+/* @socom-skeleton end forward */
 
-void CameraZoom::AttachHud(CHUD* hud)
+/* @socom-skeleton stub sceVu0ClipBBox__FPA4_fP5PNT4D */
+unsigned int sceVu0ClipBBox(float (*)[4], PNT4D *)
 {
-	m_hud = hud;
 }
 
-void CameraZoom::AttachSeal(CZSealBody* seal)
+/* @socom-skeleton stub _OutsideGuardBand__FPfPfPA4_fPA4_fi */
+int _OutsideGuardBand(float *, float *, float (*)[4], float (*)[4], int)
 {
-	m_seal = seal;
 }

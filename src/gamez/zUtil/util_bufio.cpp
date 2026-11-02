@@ -20,6 +20,7 @@
 
 #include "util_systemio.h"
 
+/* @socom-skeleton body __ct__9CBufferIOFv */
 CBufferIO::CBufferIO()
 {
 	m_buffer = NULL;
@@ -29,6 +30,7 @@ CBufferIO::CBufferIO()
 	CFileIO();
 }
 
+/* @socom-skeleton body __ct__9CBufferIOFRC9CBufferIO */
 CBufferIO::CBufferIO(const CBufferIO& other)
 {
 	m_filesize = other.m_filesize;
@@ -37,6 +39,7 @@ CBufferIO::CBufferIO(const CBufferIO& other)
 	m_buffer = other.m_buffer;
 }
 
+/* @socom-skeleton body Open__9CBufferIOFPvUi */
 bool CBufferIO::Open(void* buf, size_t size)
 {
 	m_filesize = size;
@@ -46,7 +49,18 @@ bool CBufferIO::Open(void* buf, size_t size)
 	return true;
 }
 
-bool CBufferIO::Open(const char* buf)
+/* @socom-skeleton body Release__9CBufferIOFv */
+void CBufferIO::Release()
+{
+	m_bufsize = 0;
+	m_filesize = 0;
+	m_buffer = NULL;
+	m_file = NULL;
+	CFileIO::Release();
+}
+
+/* @socom-skeleton body Open__9CBufferIOFPCcUi */
+bool CBufferIO::Open(const char *, unsigned int)
 {
 	bool success = CFileIO::Open(buf);
 	bool isOpen = CFileIO::IsOpen();
@@ -64,20 +78,7 @@ bool CBufferIO::Open(const char* buf)
 	return success;
 }
 
-void CBufferIO::Close()
-{
-	if (m_buffer != NULL)
-	{
-		free(m_buffer);
-	}
-
-	m_file = NULL;
-	m_bufsize = 0;
-	m_buffer = NULL;
-	m_filesize = 0;
-	CFileIO::Close();
-}
-
+/* @socom-skeleton body LoadBuffer__9CBufferIOFv */
 bool CBufferIO::LoadBuffer()
 {
 	bool success = false;
@@ -121,74 +122,39 @@ bool CBufferIO::LoadBuffer()
 	return success;
 }
 
-void CBufferIO::Release()
+/* @socom-skeleton body Close__9CBufferIOFv */
+void CBufferIO::Close()
 {
-	m_bufsize = 0;
-	m_filesize = 0;
-	m_buffer = NULL;
+	if (m_buffer != NULL)
+	{
+		free(m_buffer);
+	}
+
 	m_file = NULL;
-	CFileIO::Release();
+	m_bufsize = 0;
+	m_buffer = NULL;
+	m_filesize = 0;
+	CFileIO::Close();
 }
 
-size_t CBufferIO::fread(int offset, void** buf)
-{
-	int position = ftell();
-	size_t fileSize = m_filesize;
-
-	if (position < fileSize)
-	{
-		if (fileSize <= position + offset)
-		{
-			offset = fileSize - position;
-		}
-
-		*buf = (void*)m_file;
-		m_file = m_file + offset;
-	}
-	else
-	{
-		offset = 0;
-	}
-
-	return offset;
-}
-
-size_t CBufferIO::fread(void* buf, size_t size)
+/* @socom-skeleton body ftell__9CBufferIOCFv */
+unsigned int CBufferIO::ftell() const
 {
 	int position = 0;
-	size_t offset = 0;
-	size_t fileSize = 0;
 
-	offset = size;
-	if (m_buffer == NULL)
+	if (!m_buffer)
 	{
-		position = CFileIO::fread(buf, offset);
-		offset = position;
+		position = CFileIO::ftell();
 	}
 	else
 	{
-		position = ftell();
-		fileSize = m_filesize;
-
-		if (position < fileSize)
-		{
-			if (fileSize <= position + size)
-			{
-				offset = (fileSize - position);
-			}
-
-			memcpy(buf, (void*)m_file, offset);
-			m_file = m_file + offset;
-		}
-		else
-		{
-			offset = 0;
-		}
+		position = m_file - (s64)m_buffer;
 	}
 
-	return offset;
+	return position;
 }
 
+/* @socom-skeleton body fseek__9CBufferIOFii */
 size_t CBufferIO::fseek(int offset, int mode)
 {
 	int pos = 0;
@@ -230,23 +196,80 @@ size_t CBufferIO::fseek(int offset, int mode)
 	return pos;
 }
 
-size_t CBufferIO::ftell()
+/* @socom-skeleton body fread__9CBufferIOFPvi */
+unsigned int CBufferIO::fread(void *buf, int size)
 {
 	int position = 0;
+	size_t offset = 0;
+	size_t fileSize = 0;
 
-	if (!m_buffer)
+	offset = size;
+	if (m_buffer == NULL)
 	{
-		position = CFileIO::ftell();
+		position = CFileIO::fread(buf, offset);
+		offset = position;
 	}
 	else
 	{
-		position = m_file - (s64)m_buffer;
+		position = ftell();
+		fileSize = m_filesize;
+
+		if (position < fileSize)
+		{
+			if (fileSize <= position + size)
+			{
+				offset = (fileSize - position);
+			}
+
+			memcpy(buf, (void*)m_file, offset);
+			m_file = m_file + offset;
+		}
+		else
+		{
+			offset = 0;
+		}
 	}
 
-	return position;
+	return offset;
 }
 
-size_t CBufferIO::fwrite(const void* buf, size_t size)
+/* @socom-skeleton body fread__9CBufferIOFiPPv */
+size_t CBufferIO::fread(int offset, void** buf)
+{
+	int position = ftell();
+	size_t fileSize = m_filesize;
+
+	if (position < fileSize)
+	{
+		if (fileSize <= position + offset)
+		{
+			offset = fileSize - position;
+		}
+
+		*buf = (void*)m_file;
+		m_file = m_file + offset;
+	}
+	else
+	{
+		offset = 0;
+	}
+
+	return offset;
+}
+
+/* @socom-skeleton body freadchar__9CBufferIOFPc */
+char CBufferIO::freadchar(char *buf) { return 0; }
+
+/* @socom-skeleton stub fflush__9CBufferIOFv */
+void CBufferIO::fflush()
+{
+}
+
+/* @socom-skeleton body fwrite__9CBufferIOFPCc */
+unsigned int CBufferIO::fwrite(const char *buf) { return 0; }
+
+/* @socom-skeleton body fwrite__9CBufferIOFPCvi */
+unsigned int CBufferIO::fwrite(const void *buf, int size)
 {
 	if (!m_buffer)
 	{

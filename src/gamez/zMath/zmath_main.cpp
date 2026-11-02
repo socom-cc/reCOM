@@ -38,49 +38,81 @@
 
 #include "zmath.h"
 
-f32* sintbl = NULL;
-f32* costbl = NULL;
-f32* exptbl = NULL;
+/* @socom-skeleton stub zero__5CQuat */
+const int CQuat::zero[4] = {0};
 
-bool tableInit = false;
+/* @socom-skeleton stub identity__5CQuat */
+const CQuat CQuat::identity = {0};
 
-const CPnt3D CPnt3D::zero = { 0.0f, 0.0f, 0.0f };
-const CPnt3D CPnt3D::unit_nz = { 0.0f, 0.0f, 0.0f };
-const CPnt4D CPnt4D::zero = { 0.0f, 0.0f, 0.0f, 0.0f };
-const CQuat CQuat::identity = { CPnt3D(1.0f, 0.0f, 0.0f), 0.0f };
-const CMatrix CMatrix::identity = { 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f };
-
-void init_trig_table()
+/* @socom-skeleton stub Resize__5CBitsFUi */
+void CBits::Resize(unsigned int)
 {
-	if (!tableInit)
-	{
-		s32 i = 0;
-		s32 j = 0;
-		do
-		{
-			f32 x = i * 0.02454369f;
-			f32 calc = sinf(x);
-			*(sintbl + j) = calc;
-			calc = cosf(x);
-			*(costbl + j) = calc;
-			i++;
-			calc = expf(i * 10.0f) / 256.0f;
-			*(exptbl + j) = calc;
-			j += 4;
-		} while (i < 257);
-		tableInit = true;
-	}
 }
 
-void uninit_trig_table()
+/* @socom-skeleton stub GetIntersect__5CBBoxFP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4Db */
+void CBBox::GetIntersect(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, bool)
 {
-	if (tableInit)
-	{
-		tableInit = false;
-	}
 }
 
-CQuat CQuat::Apply(CQuat& quat, CPnt3D& point)
+/* @socom-skeleton stub MakeXRot__5CQuatFf */
+void CQuat::MakeXRot(float)
+{
+}
+
+/* @socom-skeleton stub MakeYRot__5CQuatFf */
+void CQuat::MakeYRot(float)
+{
+}
+
+/* @socom-skeleton stub MakeZRot__5CQuatFf */
+void CQuat::MakeZRot(float)
+{
+}
+
+/* @socom-skeleton stub MakeYXRot__5CQuatFff */
+void CQuat::MakeYXRot(float, float)
+{
+}
+
+/* @socom-skeleton stub MakeYXZRot__5CQuatFfff */
+void CQuat::MakeYXZRot(float, float, float)
+{
+}
+
+/* @socom-skeleton body Normalize__5CQuatCFP5CQuat */
+void CQuat::Normalize(CQuat *) const
+{
+	f32 length = sqrtf(quat.w * quat.w + quat.vec.z * quat.vec.z * quat.vec.y + quat.vec.y * quat.vec.x + quat.vec.x);
+	return quat;
+}
+
+/* @socom-skeleton stub Normalize__5CQuatFv */
+CQuat * CQuat::Normalize()
+{
+}
+
+/* @socom-skeleton body ToMatrix__5CQuatCFP7CMatrix */
+void CQuat::ToMatrix(CMatrix *) const
+{
+	// TODO:
+	// Port matrix quaternion to matrix conversion function
+}
+
+/* @socom-skeleton body Mul__5CQuatCFPC5CQuatP5CQuat */
+CQuat CQuat::Mul(const CQuat *left, CQuat *right) const
+{
+	// TODO:
+	// This will remain empty until I replace the proprietary VU calls with my own
+	return CQuat();
+}
+
+/* @socom-skeleton stub ToEuler__5CQuatCFP6CPnt3D */
+void CQuat::ToEuler(CPnt3D *) const
+{
+}
+
+/* @socom-skeleton body Apply__5CQuatCFPC6CPnt3DP6CPnt3Di */
+CQuat CQuat::Apply(const CPnt3D *, CPnt3D *, int) const
 {
 	// TODO:
 	// what does THIS do?
@@ -88,26 +120,28 @@ CQuat CQuat::Apply(CQuat& quat, CPnt3D& point)
 	return CQuat();
 }
 
-CQuat CQuat::Normalize(CQuat& quat, CQuat& rhs)
+/* @socom-skeleton stub Align__5CQuatFRC6CPnt3DRC6CPnt3D */
+void CQuat::Align(const CPnt3D &, const CPnt3D &)
 {
-	f32 length = sqrtf(quat.w * quat.w + quat.vec.z * quat.vec.z * quat.vec.y + quat.vec.y * quat.vec.x + quat.vec.x);
-	return quat;
 }
 
-CQuat CQuat::Mul(CQuat& left, CQuat& right)
+/* @socom-skeleton stub Div__5CQuatCFPC5CQuatP5CQuat */
+void CQuat::Div(const CQuat *, CQuat *) const
 {
-	// TODO:
-	// This will remain empty until I replace the proprietary VU calls with my own
-	return CQuat();
 }
 
-void CQuat::ToMatrix(CQuat& quat, CMatrix& matrix)
+/* @socom-skeleton stub Slerp__5CQuatCFPC5CQuatfP5CQuat */
+void CQuat::Slerp(const CQuat *, float, CQuat *) const
 {
-	// TODO:
-	// Port matrix quaternion to matrix conversion function
 }
 
-CQuat CQuat::Exp(CQuat& quat, CPnt3D& point)
+/* @socom-skeleton stub SlerpFaster__5CQuatCFPC5CQuatfP5CQuat */
+void CQuat::SlerpFaster(const CQuat *, float, CQuat *) const
+{
+}
+
+/* @socom-skeleton body Exp__5CQuatFPC6CPnt3D */
+void CQuat::Exp(const CPnt3D *)
 {
 	f32 pointLengthSqr = point.z * point.z + point.y * point.y + point.x * point.x;
 
@@ -129,24 +163,32 @@ CQuat CQuat::Exp(CQuat& quat, CPnt3D& point)
 	return quat;
 }
 
-void CQuat::MakeYXZ(f32 x, f32 y, f32 z, CQuat& out)
+/* @socom-skeleton stub Exp__5CQuatFPC6CPnt3Df */
+void CQuat::Exp(const CPnt3D *, float)
 {
-	f32 halfX = x * 0.5f;
-	f32 sinHalfX = sinf(halfX);
-	halfX = cosf(halfX);
+}
 
-	f32 halfY = x * 0.5f;
-	f32 sinHalfY = sinf(halfY);
-	halfY = cosf(halfY);
+/* @socom-skeleton stub Ln__5CQuatFP6CPnt3D */
+void CQuat::Ln(CPnt3D *)
+{
+}
 
-	f32 zMul = sinHalfX * sinHalfY;
-	sinHalfX *= halfY;
+/* @socom-skeleton stub Pow__5CQuatFfP5CQuat */
+void CQuat::Pow(float, CQuat *)
+{
+}
 
-	f32 zSin = sinf(z * 0.5f);
-	f32 zCos = cosf(z * 0.5f);
+/* @socom-skeleton stub zMath_Init__Fv */
+void zMath_Init()
+{
+}
 
-	out.w = zMul * zSin + halfX * halfY * zCos;
-	out.vec.x = sinHalfX * zSin + halfX * sinHalfY * zCos;
-	out.vec.y = sinHalfX * zCos - halfX * sinHalfY * zSin;
-	out.vec.z = halfX * halfY * zSin - zMul * zCos;
+/* @socom-skeleton stub __ct__6CFRectFv */
+CFRect::CFRect()
+{
+}
+
+/* @socom-skeleton stub CircleSegmentClip__Q23zdb11CCircleClipFP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4D */
+void zdb::CCircleClip::CircleSegmentClip(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *)
+{
 }
