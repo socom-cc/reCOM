@@ -136,15 +136,27 @@ source and static checks, no compile), which waits for its plan and for
 `socom:work:order-skeleton-route`, and a phase C `order-compile-segment`
 (exact-compiler build and order check), which waits for that apply and for
 `socom:work:order-compile-route`. Both reserve the units' `src/`
-directories. The compile route names the compiler blocker. No registered
-capability opens either `capability-gate` item. The seed becomes the stage
-gate over every compile item and the link plan. The stage row's
+directories. The compile route names the compiler blocker. The seed becomes
+the stage gate over every compile item and the link plan. The stage row's
 `decomposition` records the order-target and stage 4 baseline digests and
 `producer_sha256` over every segment item's units, which the audit
 recomputes. Generic handoff and acceptance of an order plan item re-run
 `order plan validate --check` and need the plan's SHA-256 cited; they
 refuse the phase B and C items and the stage gate. See
 [FUNCTION_ORDER.md](FUNCTION_ORDER.md#order-plans).
+
+The active capability `function-order-skeletons` opens
+`socom:work:order-skeleton-route`; no capability opens the compile route
+yet. `progress add-order-skeleton-prepare` adds the serialized
+`order-skeleton-prepare` item (BD3). Each phase B apply then also waits for
+it and reserves exactly its units' files (`batch.files`). The decomposition
+records `skeleton_prepare` with `resources_sha256` over every reservation,
+which the audit recomputes. `progress apply-order-skeleton` records an
+`order_skeleton` record on the item: the inputs, per-file before/after
+SHA-256s, the flags, conflicts and waiting rows. The items close only through
+`progress handoff-order-skeleton` and `progress accept-order-skeleton`, and
+the audit requires the record, its cited digest and both routes. See
+[FUNCTION_ORDER.md](FUNCTION_ORDER.md#skeleton-route).
 
 The `source-correlation` stage gate closes only through its registered
 route. Generic `progress work handoff` and `progress work accept` refuse

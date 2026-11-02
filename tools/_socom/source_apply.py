@@ -176,6 +176,12 @@ def applied_state(tracker: dict[str, Any], plan_item_id: str, plan_sha256: str) 
         moves.extend(row for row in record.get("moves") or [] if isinstance(row, dict))
         created.update(str(path) for path in record.get("created") or [])
         retired.extend(row for row in record.get("retired") or [] if isinstance(row, dict))
+    if found:
+        from .order_skeleton_route import skeleton_deletions
+
+        # Stage 5's chain of custody: an orphan file an accepted skeleton item removed (its bodies moved) is retired.
+        known = {str(row.get("path")) for row in retired}
+        retired.extend(row for row in skeleton_deletions(tracker) if row["path"] not in known)
     return {"moves": moves, "created": sorted(created), "retired": retired} if found else None
 
 
@@ -593,9 +599,12 @@ def annotate(root: Path, tracker: dict[str, Any], plan_item_id: str, *, write: b
         )
     written: list[str] = []
     if write and not problems and result["changes"]:
+        from .order_skeleton_route import refuse_stage4_writes
+
         for path, text in result["changes"].items():
             overlay.write(path, _bytes(text))
         written = overlay.changed()
+        refuse_stage4_writes(tracker, written)
         overlay.commit()
     return {
         "ok": not problems and (write or not drift),
@@ -761,6 +770,10 @@ def prepare_apply(
             f"refused: {len(outside)} paths lie outside the reservation of {item_id} "
             f"({', '.join(reservation['directories'])}): {_shown(outside)}"
         )
+    from .order_skeleton_route import refuse_stage4_writes
+
+    # A file a stage 5 skeleton item wrote is rewritten only once that item is reopened.
+    refuse_stage4_writes(tracker, overlay.changed())
     files = []
     for path in managed:
         data = overlay.read(path)
@@ -826,8 +839,16 @@ def verify_source_apply(root: Path, tracker: dict[str, Any], item: dict[str, Any
         problems.append(f"the record applied plan {record.get('plan_sha256')}, the accepted plan is {sha}")
     if record.get("owner_map_sha256") != owner_map_sha256(plan):
         problems.append("the record's owner-map digest differs from the accepted plan's")
+    from .order_skeleton_route import skeleton_custody
+
+    custody = skeleton_custody(root, tracker)
     for row in record.get("files") or []:
         path = root / str(row.get("path"))
+        held = custody.get(str(row.get("path")))
+        if held is not None and (held.get("before_sha256") == row.get("sha256") or held.get("before_content_sha256") == row.get("content_sha256")):
+            # Stage 5's chain of custody: an accepted skeleton item wrote this file from exactly this stage 4 content,
+            # and its stage 4 blocks are unchanged.
+            continue
         if not path.is_file():
             problems.append(f"{row.get('path')} is missing")
             continue

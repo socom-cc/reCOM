@@ -318,19 +318,23 @@ def test_the_producer_decomposes_the_stage_and_plans_hand_off_only_when_valid(
     assert ORDER_STAGE in next(row for row in tracker["blockers"] if row["id"] == COMPILER_BLOCKER)["blocks"]
     code, refused = _decompose(root, capsys)
     assert code == 2 and "already decomposed" in refused["error"]
-    for gate_id in (ORDER_SKELETON_ROUTE_ID, ORDER_COMPILE_ROUTE_ID):
-        code, refused = _run(capsys, "--root", str(root), "progress", "open-capability-gate", "--item", gate_id,
-                             "--expected-revision", _revision(root))
-        assert code == 2 and "no registered capability opens" in refused["error"]
+    # The skeleton route is registered (function-order-skeletons opens its gate); the compile route is not.
+    code, opened = _run(capsys, "--root", str(root), "progress", "open-capability-gate", "--item", ORDER_SKELETON_ROUTE_ID,
+                        "--expected-revision", _revision(root), "--dry-run")
+    assert code == 0 and opened["ok"] and opened["capability"] == "function-order-skeletons", opened
+    code, refused = _run(capsys, "--root", str(root), "progress", "open-capability-gate", "--item", ORDER_COMPILE_ROUTE_ID,
+                         "--expected-revision", _revision(root))
+    assert code == 2 and "no registered capability opens" in refused["error"]
 
     # The audit holds the structure: the routes stay blocked, the items wait for them, the record binds the items.
-    for gate_id in (ORDER_SKELETON_ROUTE_ID, ORDER_COMPILE_ROUTE_ID):
+    for gate_id, message in ((ORDER_SKELETON_ROUTE_ID, "must be accepted by progress open-capability-gate"),
+                             (ORDER_COMPILE_ROUTE_ID, "no active capability opens it")):
         broken = copy.deepcopy(tracker)
         next(row for row in broken["work_items"] if row["id"] == gate_id)["status"] = "accepted"
-        assert any("no active capability opens it" in text for text in audit_tracker(broken))
+        assert any(message in text for text in audit_tracker(broken))
     broken = copy.deepcopy(tracker)
     next(row for row in broken["work_items"] if row["id"] == "socom:work:order-segment-001-apply")["status"] = "ready"
-    assert any("order applies must stay blocked" in text for text in audit_tracker(broken))
+    assert any("the order applies must stay blocked" in text for text in audit_tracker(broken))
     broken = copy.deepcopy(tracker)
     next(row for row in broken["work_items"] if row["id"] == "socom:work:order-segment-001-compile")["dependencies"] = [
         "socom:work:order-segment-001", ORDER_COMPILE_ROUTE_ID,

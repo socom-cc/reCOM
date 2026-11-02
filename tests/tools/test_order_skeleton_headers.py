@@ -174,8 +174,10 @@ def _tree(tmp_path: Path) -> SimpleNamespace:
     unit = {"unit": "unit.cpp", "workspace_path": "src/game/unit.cpp",
             "functions": [{"artifact": "f1"}, {"artifact": "f2"}], "data": [{"rows": [{"artifact": "d1"}]}]}
     manifest = {"declarations": {"classes": classes, "types": types}, "bodies": {"definitions": bodies}}
-    return SimpleNamespace(root=tmp_path, program=program, scans=scans, manifest=manifest, units=[(1, unit)], signatures=signature,
-                           data={"d1": {"unit": "unit.cpp", "const": False, "mentions": []}})
+    # The writer's inputs: src/ is read from source_root (the root itself before the skeleton route writes src/); no decisions.
+    return SimpleNamespace(root=tmp_path, source_root=tmp_path, program=program, scans=scans, manifest=manifest, units=[(1, unit)],
+                           signatures=signature, data={"d1": {"unit": "unit.cpp", "const": False, "mentions": []}},
+                           decision=lambda kind, key: None)
 
 
 def test_the_header_writer_adds_regions_and_keeps_everything_else(tmp_path: Path) -> None:

@@ -1424,6 +1424,17 @@ Applied files are reported (`apply_files_unchanged`) but never fail,
 because later stages edit source bodies. Both audits use the stage's
 current baseline, which an accepted amendment replaces (below).
 
+**Stage 5 skeleton writes.** A file that an accepted stage 5 skeleton item
+wrote counts as its stage 4 state in `source apply-check`, in the gate's
+recomputed state and in `audit source-baseline` when three things hold: the
+file is still that record's after-content, its stage 4 blocks are
+byte-identical, and the record's before digest is one that stage 4 recorded.
+So the baseline digest still holds. An orphan the item deleted counts as a
+retired file in `source plan validate`'s applied state. `progress
+apply-source-plan` and `source annotate --write` refuse a file that a
+skeleton item in review or accepted wrote, until that item is reopened
+([Skeleton route](FUNCTION_ORDER.md#skeleton-route)).
+
 ### Amending an accepted plan
 
 ```powershell

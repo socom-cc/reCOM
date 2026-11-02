@@ -37,9 +37,13 @@ These are not stage evidence. The mangler the signature check uses is
 registered (see [Metrowerks name mangling](#metrowerks-name-mangling)), and so
 are the generator's read-only inputs (`order skeleton manifest`, capability
 `function-order-skeleton-inputs`; see [Skeleton manifests](#skeleton-manifests))
-and its `.cpp` writer and static checks, which write only a preview under
-`build/` so far (`order skeleton write` and `order skeleton check`, capability
+and its `.cpp` writer, header writer and static checks, which write a preview
+under `build/` (`order skeleton write` and `order skeleton check`, capability
 `function-order-skeleton-preview`; see [Skeleton writer](#skeleton-writer)).
+The governed route that writes `src/` is registered too (capability
+`function-order-skeletons`; see [Skeleton route](#skeleton-route)): one
+serialized prepare item, then the 46 segment applies, each accepted by an
+independent verifier.
 
 **Phase C, needs the exact compiler.** A probe harness compiles a unit and
 reads its object's section and symbol order (C1). The emission rule is
@@ -51,10 +55,11 @@ C waits. The stage gate waits for every phase C item: the stage is not
 accepted without the compiler.
 
 The producer opens phase A only. The phase B items wait for
-`socom:work:order-skeleton-route` (deferred capability
-`function-order-skeletons`). The phase C items and the stage gate wait for
-`socom:work:order-compile-route` (deferred capability
-`function-order-compile`). No registered capability opens either gate yet.
+`socom:work:order-skeleton-route`, which the active capability
+`function-order-skeletons` opens (`progress open-capability-gate`). The phase
+C items and the stage gate wait for `socom:work:order-compile-route`
+(deferred capability `function-order-compile`), which no registered
+capability opens yet.
 
 ## Metrowerks name mangling
 
@@ -433,9 +438,10 @@ stage 4's decomposition graph and match the baseline. It replaces the stage
 | --- | --- | --- | --- |
 | `socom:work:order-segment-NNN`, one per stage 4 segment holding authored units | `order-plan-segment` | the accepted stage 4 gate | `build/order-plans` |
 | `socom:work:order-link` | `order-plan-link` | the accepted stage 4 gate | `build/order-plans` |
-| `socom:work:order-segment-NNN-apply` (phase B: skeleton source and static checks, no compile) | `order-apply-segment` | its plan and the skeleton route | its units' `src/` directories |
+| `socom:work:order-segment-NNN-apply` (phase B: skeleton source and static checks, no compile) | `order-apply-segment` | its plan and the skeleton route (and, once added, the prepare item) | its units' `src/` directories, narrowed to its units' files when the prepare item is added ([Skeleton route](#skeleton-route)) |
 | `socom:work:order-segment-NNN-compile` (phase C: exact-compiler build and object-order check) | `order-compile-segment` | its apply and the compile route | its units' `src/` directories |
-| `socom:work:order-skeleton-route` | `capability-gate` | a registered skeleton generator | nothing |
+| `socom:work:order-skeleton-prepare` (added later by `progress add-order-skeleton-prepare`, BD3) | `order-skeleton-prepare` | the skeleton route, the link plan and every order plan | the headers, holding files and orphan deletions the skeleton writer makes |
+| `socom:work:order-skeleton-route` | `capability-gate` | the registered skeleton route (`function-order-skeletons`) | nothing |
 | `socom:work:order-compile-route` | `capability-gate` | a registered compile route (the compiler license) | nothing |
 | `socom:work:authored-function-order-seed`, now the gate | `stage-gate` | every compile item and the link plan | nothing |
 
@@ -791,10 +797,10 @@ takes about 10 s once the stage 3 digests are cached.
 
 Phase B round 2 registers the `.cpp` writer and its static checks
 (capability `function-order-skeleton-preview`); round 3a adds the header
-writer to `--all` ([Skeleton headers](#skeleton-headers)). The writer still
-writes only a preview: `--root` must be a directory under `build/`, and
-`src/` is refused until round 3b adds the governed route. Neither command
-changes tracker state.
+writer to `--all` ([Skeleton headers](#skeleton-headers)). These commands
+write only a preview: `--root` must be a directory under `build/`, and `src/`
+is refused. Only the governed route of round 3b writes `src/`
+([Skeleton route](#skeleton-route)). Neither command changes tracker state.
 
 ```powershell
 python tools/socom.py order skeleton write --all --root build/stage5/skeleton-preview
@@ -888,10 +894,11 @@ both.
 | data | `[static] T [Class::]name [= init];` inside its namespaces. The type is the manifest's, with top-level `const` for `.rodata` (on the pointer itself, or on the array element). The initializer is the manifest's ELF rendering, an explicit zero (BD5), or none for nobits. Struct, enum and nested-array initializers are rendered from the DWARF layout: members in offset order, padding must be zero, unions, bit-fields and classes with bases are refused, and enums are written as casts. Relocated words become `&symbol`, `symbol[k]` (an element of a typed array) or a string literal. A non-relocated pointer word outside the image becomes a hex constant. |
 | kept provisional data (`body`) | The provisional statement, verbatim. This applies only where the ELF bytes cannot be rendered, or where a nobits object has a dynamic initializer. Every other provisional data definition is replaced; its text is kept in the write manifest (`replaced_data`). |
 
-A canonical stub's digest is recorded (`stub_sha256`). An existing fenced
-file is refused this round. Round 3's regeneration rule is that a stub is
-regenerated only while its text equals the canonical stub, and that `body`
-text is only ever moved.
+A canonical stub's digest is recorded (`stub_sha256`). The writer refuses a
+file that already holds fences. The governed route therefore never rewrites
+a written file: it renders again from its frozen base, so a stub is always
+the canonical one, `body` text is only ever moved, and a hand-edited file is
+refused ([Skeleton route](#skeleton-route)).
 
 **`--all` only.** The write also produces:
 
@@ -1082,9 +1089,9 @@ Round 3a adds these fields:
 
 `<name>` is the class or type's mangled qualified name, or `forward` or
 `include`. `source artifacts` accepts these fences and never counts one as an
-artifact edge. A source file that already holds regions is refused this
-round. Each region's `region_sha256` is recorded, so the `src/` route can
-regenerate a region while its text is unedited, as it does for stubs.
+artifact edge. A source file that already holds regions is refused. Each
+region's `region_sha256` is recorded; the `src/` route regenerates regions
+from its frozen base, never from a written file.
 
 | Region | Where | Holds |
 | --- | --- | --- |
@@ -1236,3 +1243,242 @@ about 3 minutes for both trees.
     GNU `asm` on x64);
   - types that headers use but do not include, such as `zdb::_RenderPhase`,
     which is placed in `hud.h` but used in `node_world.h`.
+
+## Skeleton route
+
+Phase B round 3b registers the governed route that writes `src/` (capability
+`function-order-skeletons`). The design is BD3: one serialized prepare item
+before the 46 segment applies. The route renders exactly what
+[Skeleton writer](#skeleton-writer) and [Skeleton headers](#skeleton-headers)
+describe, and puts it into `src/` one item at a time, each under its lease.
+None of its checks is stage evidence.
+
+```powershell
+python tools/socom.py progress open-capability-gate --item socom:work:order-skeleton-route --expected-revision <n>
+python tools/socom.py progress add-order-skeleton-prepare --expected-revision <n> [--dry-run]
+python tools/socom.py progress work claim --item <item> --owner <worker> --lease-minutes 120 --expected-revision <n>
+python tools/socom.py progress apply-order-skeleton --item <item> --owner <worker> --expected-revision <n> [--dry-run]
+python tools/socom.py order skeleton decide --item <item> --lease-owner <worker> --artifact <key> `
+  (--type <definition> | --owner <mangled function> | --body <mangled candidate> | --initializer <text>) --basis "<evidence>"
+python tools/socom.py order skeleton apply-check --item <item>
+python tools/socom.py progress handoff-order-skeleton --item <item> --owner <worker> --summary <summary> --expected-revision <n>
+python tools/socom.py progress accept-order-skeleton --item <item> --accepter <verifier> --evidence <review> --expected-revision <n>
+```
+
+`<item>` is `socom:work:order-skeleton-prepare` first, then any
+`socom:work:order-segment-NNN-apply`.
+
+### The prepare item
+
+`progress add-order-skeleton-prepare` is the registered tracker change of
+BD3. It runs once, before any skeleton apply has started. It renders the
+whole tree from the current inputs and then:
+
+- adds `socom:work:order-skeleton-prepare` (kind `order-skeleton-prepare`). The
+  item depends on the skeleton route gate, the link plan and every accepted
+  order plan. It reserves:
+  - every header the writer changes or creates;
+  - the header that a waiting by-value type would be defined in once it is
+    decided;
+  - the unbuilt holding files;
+  - the orphan files the moves leave empty, which it deletes;
+- makes each `order-segment-NNN-apply` depend on the prepare item too. Each
+  apply's resources narrow from its directories to its units' files
+  (`batch.files`). The decomposed `batch.directories` stay as they were;
+- returns every apply to `blocked` until the prepare is accepted;
+- records `skeleton_prepare` in the stage's decomposition: the manifest and
+  write digests, the file counts and `resources_sha256`, the digest of every
+  reservation, which `progress audit` recomputes.
+
+The order plan items, the link plan and their acceptances are not touched;
+the command refuses if they would change. It is not a re-decomposition.
+
+### Applying an item
+
+`progress apply-order-skeleton` runs under the item's lease, inside the
+tracker lock. A segment apply also needs the accepted prepare item.
+
+1. **Base.** The first write of the route freezes the base: a copy of `src/`
+   under `build/stage5/skeleton-route/base`. Its scan digest must be the
+   manifest's `src_sha256`. Every later apply renders from that copy, so
+   items applied earlier never change what a later item renders. The base is
+   a frozen input like the body snapshot: keep it until phase B is accepted.
+2. **Stale inputs.** The route refuses:
+   - a stage 4 baseline other than the decomposition's (`d29bca43…`), or an
+     open stage 4 amendment;
+   - a plan built against another stage 4 baseline;
+   - accepted order plans other than the ones the manifest cites, at their
+     cited SHA-256s;
+   - a changed manifest, snapshot or base;
+   - for a segment apply, any input that differs from the prepare's record.
+3. **Render and check.** The whole tree is rendered into
+   `build/stage5/skeleton-route/render`, with every item's decisions, and
+   `order skeleton check`'s checks run over it: determinism, S1-S5 and S7.
+   Any failure refuses the apply.
+4. **Scope.** The route refuses:
+   - a decision that no longer applies;
+   - a rendered file that no skeleton item reserves;
+   - a rendered file of another item in review or accepted that differs
+     from that item's record (that item must be reopened first);
+   - one of its own files that changed outside the route: it must be its
+     base, or this item's last write;
+   - a render that changes a file's stage 4 blocks.
+5. **Write.** It writes its own files, byte for byte the render's, and
+   deletes its orphans. It then records `order_skeleton` on the item (kind
+   `socom-order-skeleton-apply`):
+   - the inputs: the manifest, snapshot, base `src_sha256` and base tree
+     digest, order target, plan and link-plan SHA-256s, and the stage 4
+     baseline;
+   - the item's decisions file digest;
+   - `write_sha256`;
+   - per file: its action, its `before_sha256` and `after_sha256`
+     (LF-normalized, null for a created or a deleted file), its stage 4
+     content digest and its stage 4 block digests;
+   - the static check summary;
+   - the scope's entries and regions, its flags by kind, the derived
+     local-static order conflicts of its units, and its waiting rows.
+
+   The record's lines go into the item's evidence (`order-skeleton-…`). If
+   the tracker write fails, every file is restored.
+
+A re-apply after a rejection (`progress work reject`) or a reopen replaces
+the record. The previous record moves to the review history, and the files
+it left count as the item's last write. A re-apply never parses the written
+files: it renders again from the base and the snapshot, so a stub is
+regenerated and a body is moved again. A file edited by hand is neither its
+base nor the item's last write, so the route refuses it instead of
+overwriting it (BD7).
+
+### Waiting rows and decisions
+
+A waiting row lands in exactly one item's files:
+
+| Row | Lands in | Settled with |
+| --- | --- | --- |
+| by-value type without a usable record (27) | the prepare, or the apply of the unit file it goes in (one, in `zui_skb.cpp`) | `--type`, its complete definition (`enum/struct/class/union <Name> …`) |
+| overload tie (11) | the prepare (its holding file) | `--body`, the candidate the body moves to as a BD6 rewrite |
+| local static without an owner (5) | its unit's apply | `--owner`, an out-of-line function of the unit |
+| member of the function-local class (2, one class) | `zui_skb.cpp`'s apply | `--owner` |
+| initializer the ELF bytes cannot render (10) | its unit's apply | `--initializer`, the text after `=` |
+
+`order skeleton decide` runs under the tracker lock, as the holder of the
+lease of the item the row lands in. It records `{kind, key, value, basis,
+by, at}` in `build/stage5/skeleton-decisions/<item>.json`
+(`socom-order-skeleton-decisions`). A new decision of the same row replaces
+the old one. The writer reads every item's decisions file.
+
+A decided entry carries a `decided` flag with its basis. A decided tie's
+body lands in its candidate's unit file. A decided type is written as a
+region at the type's placement. A row nobody decides stays waiting and
+flagged; no default is silent. A decision changes the render only at the
+next apply of its item. Overload ties change the holding files, so they are
+decided before the prepare is applied.
+
+### Review
+
+`order skeleton apply-check --item` is read-only. It renders into
+`build/stage5/skeleton-route/check/` and checks that:
+
+- the inputs are not stale and the item's decisions file is the recorded one;
+- the fresh render passes every static check and reproduces the recorded
+  after-content of each of the item's files;
+- `src/` holds exactly that content with unchanged stage 4 blocks.
+
+`progress handoff-order-skeleton` is run by the lease holder. It re-runs the
+apply-check and cites the record's digest (`order-skeleton-record-sha256:`).
+`progress accept-order-skeleton` is run by an independent `socom-verifier`.
+The verifier must never have applied or handed off any skeleton item, and
+must not be a tool maintainer. The command re-runs the apply-check and
+requires the record that the handoff cited. Generic `progress work handoff`
+and `progress work accept` refuse skeleton items. `progress audit` requires
+the record, the citation and both routes on every item in review or
+accepted.
+
+`progress work reopen` returns an accepted skeleton item for re-apply. Its
+files and record stay, and the review history keeps the acceptance and a
+copy of the record. A segment apply can be reopened while its compile item
+has not started. The prepare can be reopened while no segment apply is in
+progress or awaiting acceptance. Its ready applies wait for it again, and
+accepted applies keep their acceptance, because the prepare's files are not
+theirs.
+
+### Stage 4 chain of custody
+
+The stage 4 baseline hashes every file a stage 4 apply recorded, and stage 5
+rewrites many of them. A file written by an **accepted** skeleton item counts
+as its stage 4 state when:
+
+- its content is still the record's after-content;
+- its stage 4 blocks are byte-identical;
+- the record's before digest is a SHA-256 (or authored-content digest) that
+  stage 4 recorded for it.
+
+This holds in `source apply-check`, in the gate's recomputed state (so
+`audit source-baseline` keeps `apply_files_unchanged` and the state digest
+stays `d29bca43…`), and in `source gate-check` and
+`progress accept-source-amendment`. The orphans an accepted item deleted
+count as retired files in `source plan validate`'s applied state. The writer
+also keeps stage 4's block form: blocks, one blank line, then the file's
+content, even where a file held only its blocks before. S3 checks that form.
+
+A later stage 4 amendment cannot rewrite such a file. `progress
+apply-source-plan` and `source annotate --write` refuse a file that a skeleton
+item in review or accepted wrote, until that item is reopened. After the
+amendment is accepted, the new stage 4 baseline makes the stage 5 inputs
+stale, and the order plans and manifest are rebuilt before any re-apply.
+
+### Refreshing the census and source counts
+
+The reference census counts `src/` files (`source_correlation`:
+`current_source_file_count` and the original-path matches). The prepare item
+deletes 57 orphans and creates 31 holding files and 2 headers, so after the
+real applies `reference verify` reports the stored census as stale. Refresh
+it with `python tools/socom.py reference census --write` once the prepare item
+is accepted. The tests that count `src/` files derive their expectations
+from the tree.
+
+### Dry run (2026-11-01)
+
+The run used a scratch copy of the repository: a copy of the tracker at
+revision 3929, the main checkout's `src/` and the `build/` inputs (manifest
+`3fe41f69…`, snapshot `3084d9c8…`). The tracker reached revision 3947. The
+steps were: open the gate, add the prepare item, then apply, check, hand off
+and accept the prepare and segments 057, 001 and 035.
+
+- **Prepare:** it reserves 146 files: 56 headers changed, 2 headers created,
+  31 holding files and 57 orphans deleted. 144 of them change; the render
+  leaves `graph_node.h` and `util_stack.h` as they are. It writes 399
+  regions. 37 rows wait under it: 11 overload ties and 26 types.
+- **Segment 057** (`zui_skb.cpp`): 75 entries, 8 regions and 1 local-static
+  order conflict (`keyDefault$1791` / `c_arrEnumNames$2086`). The owner of
+  the function-local class was decided (the default, now recorded), and the
+  re-apply changed no byte. 3 rows still wait: 2 initializers and 1 type.
+- **Segment 001** (`main.cpp`): 13 entries and 1 region.
+- **Segment 035** (4 units): 359 entries, 6 regions and 1 waiting
+  initializer.
+- **Checks:** every apply passed every check over the whole render:
+  - determinism over 365 files;
+  - S1: 6,103 entries;
+  - S2: 6 conflicts, and the 5 mismatches all inside them;
+  - S3: 8,918 edges with the baseline digest;
+  - S4: 979 bodies;
+  - S5: no new finding;
+  - S7: 58 headers.
+- **Digests:** the write digest is `db33a857…` without decisions and
+  `10df0013…` after the 057 decision. The base tree digest is `e3f341fd…`.
+- **Times:** each apply, apply-check, handoff and acceptance takes about
+  33-35 s.
+- **Stage 4 afterwards:** all 46 `source apply-check`s pass. The gate checks
+  pass (with the receipt skipped). The recomputed stage 4 state is
+  `d29bca43…`, and `audit source-baseline` passes with
+  `apply_files_unchanged`. `reference verify` reports the census stale, as
+  expected.
+- **Waiting rows left:** 53 over 13 items: 27 types, 11 ties, 5 local
+  statics and 10 initializers.
+
+A first run found two stage 4 breaks, now fixed:
+
+- files that held only their stage 4 blocks lost stage 4's separator line,
+  so `source annotate --check` reported drift;
+- the deleted orphans failed the contradiction rows of `source plan
+  validate`.

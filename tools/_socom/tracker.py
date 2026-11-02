@@ -23,11 +23,16 @@ from .capabilities import CAPABILITY_GATE_ACCEPTER, capability_opening
 from .ghidra import normalize_receipt_scope
 from .locking import exclusive_state_lock
 from .order_plan import (
+    ORDER_APPLY_KIND,
+    ORDER_COMPILE_KIND,
     ORDER_COMPILE_ROUTE_ID,
     ORDER_LINK_KIND,
     ORDER_PLAN_KINDS,
+    ORDER_PREPARE_KIND,
     ORDER_ROUTED_KINDS,
     ORDER_SEGMENT_KIND,
+    ORDER_SKELETON_KINDS,
+    ORDER_SKELETON_PREPARE_ID,
     ORDER_SKELETON_ROUTE_ID,
     ORDER_STAGE,
     audit_function_order,
@@ -1128,6 +1133,12 @@ def audit_tracker(
                 # An accepted stage 4 item keeps its acceptance while an open
                 # amendment revises and re-applies the items it waits for.
                 unmet = []
+            if unmet == [ORDER_SKELETON_PREPARE_ID] and kind == ORDER_APPLY_KIND and any(
+                isinstance(entry, dict) and entry.get("reopened_at")
+                for entry in (_work_by_id(tracker).get(ORDER_SKELETON_PREPARE_ID) or {}).get("review_history") or []
+            ):
+                # An accepted segment apply keeps its acceptance while the reopened prepare is re-applied.
+                unmet = []
             if unmet:
                 errors.append(f"{item_id} is accepted before dependencies {unmet}")
         lease = item.get("lease")
@@ -1235,6 +1246,9 @@ def audit_tracker(
         errors.append(f"{RECON_STAGE} items cite a different function graph")
     errors.extend(_audit_source_correlation(items, stage_rows))
     errors.extend(audit_function_order(tracker))
+    from .order_skeleton_route import audit_skeleton_records
+
+    errors.extend(audit_skeleton_records(tracker))
     from .source_gate import audit_source_gate
 
     errors.extend(audit_source_gate(tracker))
@@ -1592,8 +1606,10 @@ def handoff_work(
         raise SocomError(f"{item_id} is an undecomposed stage seed")
     if item.get("kind") == "stage-gate" and item.get("stage") == SOURCE_STAGE:
         raise SocomError(f"{item_id} is the {SOURCE_STAGE} stage gate; use progress handoff-source-gate")
+    if item.get("stage") == ORDER_STAGE and item.get("kind") in ORDER_SKELETON_KINDS:
+        raise SocomError(f"{item_id} is a {ORDER_STAGE} skeleton item; use progress handoff-order-skeleton")
     if item.get("stage") == ORDER_STAGE and item.get("kind") in ("stage-gate", *ORDER_ROUTED_KINDS):
-        raise SocomError(f"{item_id} closes through a {ORDER_STAGE} skeleton or compile route, which is not registered yet")
+        raise SocomError(f"{item_id} closes through the {ORDER_STAGE} compile route, which is not registered yet")
     if item["lease"]["owner"] != owner:
         raise SocomError(f"{item_id} is leased by {item['lease']['owner']}")
     if "ghidra-writer" in item.get("resources", []):
@@ -1683,8 +1699,10 @@ def accept_work(
         )
     if item.get("kind") == "stage-gate" and item.get("stage") == SOURCE_STAGE:
         raise SocomError(f"{item_id} is the {SOURCE_STAGE} stage gate; use progress accept-source-gate")
+    if item.get("stage") == ORDER_STAGE and item.get("kind") in ORDER_SKELETON_KINDS:
+        raise SocomError(f"{item_id} is a {ORDER_STAGE} skeleton item; use progress accept-order-skeleton")
     if item.get("stage") == ORDER_STAGE and item.get("kind") in ("stage-gate", *ORDER_ROUTED_KINDS):
-        raise SocomError(f"{item_id} closes through a {ORDER_STAGE} skeleton or compile route, which is not registered yet")
+        raise SocomError(f"{item_id} closes through the {ORDER_STAGE} compile route, which is not registered yet")
     _accept_work_item(item, accepter, evidence)
 
 
@@ -1771,6 +1789,13 @@ def reject_work(
         # rework reapplies the same plan idempotently; history keeps a copy.
         record["source_apply"] = copy.deepcopy(item["source_apply"])
         kept = [text for text in item.get("evidence", []) if str(text).startswith("source-")]
+    if isinstance(item.get("order_skeleton"), dict):
+        # A rejected skeleton item keeps its written files and record; the rework re-applies and replaces it.
+        from .order_skeleton_route import RECORD_CITATION
+
+        record["order_skeleton"] = copy.deepcopy(item["order_skeleton"])
+        kept = [text for text in item.get("evidence", []) if str(text).startswith("order-skeleton-")
+                and not str(text).startswith(RECORD_CITATION)]
     item.setdefault("review_history", []).append(record)
     item["status"] = "ready"
     item["handoff"] = None
@@ -1797,8 +1822,11 @@ def reopen_work(
     item = by_id.get(item_id)
     if not item:
         raise SocomError(f"unknown work item: {item_id}")
+    if item.get("kind") in ORDER_SKELETON_KINDS:
+        _reopen_skeleton(tracker, item, reviewer, reason, evidence)
+        return
     if item.get("kind") not in ("recon-plan-group", *ORDER_PLAN_KINDS):
-        raise SocomError(f"{item_id} is not a reconstruction or order plan item")
+        raise SocomError(f"{item_id} is not a reconstruction, order plan or skeleton item")
     if item["status"] != "accepted":
         raise SocomError(f"{item_id} is {item['status']}, not accepted")
     apply = by_id.get(f"{item_id}-apply")
@@ -1834,6 +1862,64 @@ def reopen_work(
     item["evidence"] = []
     if apply is not None:
         apply["status"] = "blocked"
+
+
+def _reopen_skeleton(tracker: dict[str, Any], item: dict[str, Any], reviewer: str, reason: str, evidence: list[str]) -> None:
+    """Return an accepted stage 5 skeleton item (the prepare or a segment apply) for re-apply.
+
+    Its files stay written and its record stays with it, so the re-apply
+    starts from them and replaces the record (the review history keeps a
+    copy of it and of the acceptance).  A segment apply reopens while its
+    compile item has not started; the prepare while no segment apply is in
+    progress or awaiting acceptance (ready applies wait for it again; accepted
+    ones keep their acceptance, since the prepare's files are not theirs).
+    """
+
+    from .order_skeleton_route import RECORD_CITATION
+
+    by_id = _work_by_id(tracker)
+    item_id = item["id"]
+    if item["status"] != "accepted":
+        raise SocomError(f"{item_id} is {item['status']}, not accepted")
+    if item.get("kind") == ORDER_APPLY_KIND:
+        compile_item = by_id.get(item_id.removesuffix("-apply") + "-compile") or {}
+        if compile_item.get("status") not in _UNSTARTED_STATUSES:
+            raise SocomError(f"{compile_item.get('id')} has started: its skeleton is not reopened under it")
+        dependents: list[dict[str, Any]] = []
+    else:
+        applies = [row for row in tracker["work_items"] if row.get("kind") == ORDER_APPLY_KIND]
+        if busy := [row["id"] for row in applies if row["status"] in ("in_progress", "awaiting_acceptance")]:
+            raise SocomError(f"segment applies are in progress or under review ({', '.join(busy[:6])}): reopen the prepare after them")
+        dependents = [row for row in applies if row["status"] == "ready"]
+    handoff = item.get("handoff") or {}
+    if not reviewer.strip():
+        raise SocomError("reviewer must not be empty")
+    if handoff.get("owner") == reviewer:
+        raise SocomError(f"{item_id} cannot be reopened by its handoff owner {reviewer}")
+    if not reason.strip():
+        raise SocomError("reopen reason must not be empty")
+    item.setdefault("review_history", []).append(
+        {
+            "handoff": handoff,
+            "handoff_evidence": item.get("evidence", []),
+            "accepted": item.get("accepted"),
+            "order_skeleton": copy.deepcopy(item.get("order_skeleton")),
+            "reopened_by": reviewer.strip(),
+            "reopened_at": _iso(_utc_now()),
+            "reason": reason.strip(),
+            "evidence": sorted(set(evidence)),
+        }
+    )
+    item["status"] = "ready"
+    item["handoff"] = None
+    item.pop("accepted", None)
+    # The record's lines stay with the record; the handoff's citation of it does not.
+    item["evidence"] = [
+        text for text in item.get("evidence") or []
+        if str(text).startswith("order-skeleton-") and not str(text).startswith(RECORD_CITATION)
+    ]
+    for row in dependents:
+        row["status"] = "blocked"
 
 
 SOURCE_REOPEN_KINDS = (SEGMENT_PLAN_KIND, PROVIDER_PLAN_KIND)
@@ -3005,6 +3091,36 @@ def work_packet(
         )
         packet_extra = {"plan": plan}
         allowed_paths = [plan]
+        ghidra_scope = None
+    elif kind in ORDER_SKELETON_KINDS:
+        # Stage 5 phase B: the governed skeleton route writes only the item's reserved files under src/.
+        from .order_skeleton_route import CHECK_DIR, RENDER_DIR, ROUTE_DIR
+        from .order_skeleton_write import decisions_path
+
+        role = "socom-source-worker"
+        skill = "socom-source-model-recovery"
+        decisions = decisions_path(item_id)
+        apply = f"python tools/socom.py progress apply-order-skeleton --item {item_id} --owner {owner} --expected-revision <n>"
+        validation = [
+            f"{apply} --dry-run (renders the whole tree into {RENDER_DIR} from the frozen base and runs the static checks; "
+            "refuses stale inputs and any change outside the item's files)",
+            f"python tools/socom.py order skeleton decide --item {item_id} --lease-owner {owner} --artifact <waiting row> "
+            "(--type <definition> | --owner <mangled function> | --body <mangled candidate> | --initializer <text>) --basis \"<evidence>\" "
+            f"(only the waiting rows the dry run lists for this item; an undecided row stays waiting and flagged; writes {decisions})",
+            f"{apply} (writes the item's files under src/ and records before/after SHA-256s, flags, conflicts and waiting rows)",
+            f"python tools/socom.py order skeleton apply-check --item {item_id}",
+            "python tools/socom.py audit docblocks",
+            "python tools/socom.py audit source-trace",
+            f"acceptance (independent socom-verifier, not a skeleton worker, not a tool maintainer): python tools/socom.py "
+            f"order skeleton apply-check --item {item_id}; then python tools/socom.py progress accept-order-skeleton --item {item_id} "
+            "--accepter <verifier> --evidence <review evidence> --expected-revision <n>",
+        ]
+        handoff = (
+            f"python tools/socom.py progress handoff-order-skeleton --item {item_id} --owner {owner} --summary <summary> "
+            "--expected-revision <n> (re-runs order skeleton apply-check and cites the record's SHA-256)"
+        )
+        packet_extra = {"decisions": decisions, "route_dir": ROUTE_DIR, "check_dir": CHECK_DIR}
+        allowed_paths = [*item.get("resources", []), decisions, f"{ROUTE_DIR}/"]
         ghidra_scope = None
     elif kind == "stage-gate" and item["stage"] == SOURCE_STAGE:
         # A file-only stage: the live program must still be the stage 3 baseline.

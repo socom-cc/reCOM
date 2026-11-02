@@ -96,9 +96,20 @@ FLAG_KINDS = (
     "overload-tie-held", "unparsed-body-held", "ambiguous-owner-held", "mixed-data-statement-held",
     "provisional-data-replaced", "provisional-data-kept", "local-static-owner-hypothesis", "local-static-in-body",
     "local-static-not-in-body", "local-static-order-conflict", "local-class-owner-hypothesis", "local-class-key-unproven",
-    "in-class-row", "by-value-undeclared", "header-body-replaced",
+    "in-class-row", "by-value-undeclared", "header-body-replaced", "decided",
 )
 WAIT_KINDS = ("local-static-owner", "initializer-unrenderable", "overload-tie", "local-class-owner", "type-undefined")
+# `order skeleton decide`: the waiting rows a lease holder may settle, and the option that settles each.
+DECISIONS_DIR = "build/stage5/skeleton-decisions"
+DECISIONS_KIND = "socom-order-skeleton-decisions"
+DECISIONS_SCHEMA = 1
+DECISION_KINDS = {
+    "type-no-record": "type",
+    "overload-tie": "body",
+    "local-static-owner": "owner",
+    "local-class-owner": "owner",
+    "initializer-unrenderable": "initializer",
+}
 _ZERO_INIT = re.compile(r"^(?:0+|0x0+|0*\.0*f?|0\.0*f?|NULL|false|\{\s*0?\s*\})$", re.I)
 
 
@@ -167,6 +178,19 @@ def split_blocks(path: str, text: str) -> tuple[str, str]:
     return prefix, rest
 
 
+def separated(prefix: str, rest: str) -> str:
+    """The stage 4 blocks with the blank separator line stage 4 writes before a file's own content.
+
+    A file that held only its blocks has no separator yet; once the skeleton
+    adds content, ``source annotate`` expects one (blocks, a blank line, the
+    rest), or it reports the file as drifted.
+    """
+
+    if prefix and rest and not prefix.endswith("\n\n") and prefix.endswith("\n"):
+        return prefix + "\n"
+    return prefix
+
+
 def verify_manifest(manifest: Any) -> dict[str, Any]:
     if not isinstance(manifest, dict) or manifest.get("kind") != MANIFEST_KIND or manifest.get("schema_version") != MANIFEST_SCHEMA:
         raise SocomError(f"the skeleton manifest is not a {MANIFEST_KIND} (schema {MANIFEST_SCHEMA})")
@@ -192,13 +216,66 @@ def verify_snapshot(snapshot: Any, manifest: dict[str, Any]) -> dict[str, Any]:
     return snapshot
 
 
-class SkeletonInputs:
-    """The verified manifest, snapshot, accepted plans and ``src/`` scan the writer and the check read."""
+def decisions_path(item_id: str) -> str:
+    """The decisions file of a stage 5 skeleton item (``order skeleton decide``)."""
 
-    def __init__(self, root: Path, tracker: dict[str, Any], *, manifest_path: Path, snapshot_path: Path) -> None:
+    return f"{DECISIONS_DIR}/{item_id.replace(':', '-')}.json"
+
+
+def load_decisions(root: Path, tracker: dict[str, Any]) -> tuple[dict[tuple[str, str], dict[str, Any]], list[dict[str, Any]]]:
+    """Every recorded skeleton decision ({(kind, key): row with its item}) and the files' records (item, path, SHA-256, count).
+
+    A decisions file belongs to a skeleton item (the prepare or a segment
+    apply) of the tracker, at that item's path; one row is decided in one
+    file only.
+    """
+
+    from .order_plan import ORDER_APPLY_KIND, ORDER_PREPARE_KIND
+
+    directory = root / DECISIONS_DIR
+    found: dict[tuple[str, str], dict[str, Any]] = {}
+    records: list[dict[str, Any]] = []
+    if not directory.is_dir():
+        return found, records
+    kinds = {row["id"]: row.get("kind") for row in tracker.get("work_items") or []}
+    for path in sorted(directory.glob("*.json"), key=lambda value: value.name):
+        value = load_json(path)
+        relative = path.relative_to(root).as_posix()
+        if not isinstance(value, dict) or value.get("kind") != DECISIONS_KIND or value.get("schema_version") != DECISIONS_SCHEMA:
+            raise SocomError(f"{relative} is not a {DECISIONS_KIND} (schema {DECISIONS_SCHEMA})")
+        item = value.get("work_item_id")
+        if kinds.get(item) not in (ORDER_PREPARE_KIND, ORDER_APPLY_KIND) or decisions_path(str(item)) != relative:
+            raise SocomError(f"{relative} names no skeleton item of the tracker at its own path ({item!r})")
+        rows = value.get("decisions")
+        if not isinstance(rows, list):
+            raise SocomError(f"{relative}: decisions must be a list")
+        for row in rows:
+            if not isinstance(row, dict) or row.get("kind") not in DECISION_KINDS or not isinstance(row.get("key"), str) \
+                    or not isinstance(row.get("value"), str) or not str(row.get("basis") or "").strip():
+                raise SocomError(f"{relative}: a decision needs a known kind, a key, a value and a basis: {row!r}")
+            key = (row["kind"], row["key"])
+            if key in found:
+                raise SocomError(f"{row['kind']} {row['key']} is decided twice ({found[key]['item']} and {item})")
+            found[key] = {**row, "item": item}
+        records.append({"item": item, "path": relative, "sha256": _sha(canonical_json(value)), "count": len(rows)})
+    return found, records
+
+
+class SkeletonInputs:
+    """The verified manifest, snapshot, accepted plans and ``src/`` scan the writer and the check read.
+
+    ``source_root`` holds the ``src/`` the manifest was built on (the root
+    itself by default; the governed route's frozen base once stage 5 has
+    written ``src/``).  The decisions of ``order skeleton decide`` are read
+    from ``build/stage5/skeleton-decisions``.
+    """
+
+    def __init__(self, root: Path, tracker: dict[str, Any], *, manifest_path: Path, snapshot_path: Path,
+                 source_root: Path | None = None) -> None:
         from .elf import Elf32File
 
         self.root = root
+        self.source_root = source_root if source_root is not None else root
         for path, what in ((manifest_path, "skeleton manifest"), (snapshot_path, "body snapshot")):
             if not path.is_file():
                 raise SocomError(f"the {what} {path.name} does not exist: run `order skeleton manifest --output {MANIFEST_PATH}`")
@@ -210,13 +287,16 @@ class SkeletonInputs:
         if cited != current or (self.manifest["inputs"].get("link_plan") or {}).get("sha256") != link.get("sha256"):
             raise SocomError("the accepted order plans are not the ones the skeleton manifest cites: rebuild the manifest")
         self.plans = sorted(plans, key=lambda row: row["plan"]["segment_number"])
-        scans, files = scan_sources(root)
+        scans, files = scan_sources(self.source_root)
         src_sha256 = _digest(sorted((path, row["authored_sha256"]) for path, row in files.items()))
         if src_sha256 != self.manifest["inputs"]["src_sha256"]:
-            raise SocomError("src/ changed since the skeleton manifest was built: rebuild it (order skeleton manifest)")
+            where = "src/" if self.source_root == root else "the frozen base src/"
+            raise SocomError(f"{where} changed since the skeleton manifest was built: rebuild it (order skeleton manifest)")
         self.src_sha256 = src_sha256
         self.scans = {scan.path: scan for scan in scans}
-        self.newline = tree_newline(root)
+        self.newline = tree_newline(self.source_root)
+        self.decisions, self.decision_files = load_decisions(root, tracker)
+        self.used_decisions: set[tuple[str, str]] = set()
         self.elf = Elf32File(root / "support" / "socom.elf")
         chains: set[tuple[str, ...]] = set()
         seen: set[str] = set()
@@ -248,7 +328,7 @@ class SkeletonInputs:
         return self._layouts
 
     def record(self) -> dict[str, Any]:
-        return {
+        record = {
             "manifest_sha256": self.manifest["manifest_sha256"],
             "snapshot_sha256": self.snapshot["snapshot_sha256"],
             "src_sha256": self.src_sha256,
@@ -256,6 +336,22 @@ class SkeletonInputs:
             "plans": self.manifest["inputs"]["plans"],
             "link_plan": self.manifest["inputs"].get("link_plan"),
         }
+        if self.decision_files:
+            # Only present with decisions, so a tree without any keeps its digests.
+            record["decisions"] = self.decision_files
+        return record
+
+    def decision(self, kind: str, key: str | None) -> dict[str, Any] | None:
+        return self.decisions.get((kind, key)) if key is not None else None
+
+    def decided_flag(self, row: dict[str, Any]) -> dict[str, Any]:
+        """The flag of an entry a decision settles; the decision counts as used (an unused one no longer applies)."""
+
+        self.used_decisions.add((row["kind"], row["key"]))
+        return {"kind": "decided", "detail": f"{row['kind']} decided under {row['item']}: {row['basis']}"}
+
+    def unused_decisions(self) -> list[dict[str, Any]]:
+        return [row for key, row in sorted(self.decisions.items()) if key not in self.used_decisions]
 
 
 # -- DWARF layouts for struct, enum and nested-array initializers ---------------------------
@@ -770,6 +866,18 @@ class _Writer:
             action = body["action"]
             if action == "preamble":
                 self.preamble_bodies.add(body["id"])
+            elif action == "judgment" and body.get("judgment") == "overload-tie" and \
+                    (decision := self.inputs.decision("overload-tie", body["id"])) is not None:
+                # Decided: the body moves to the chosen candidate row with its declarator rewritten (BD6).
+                rows = {signature["name"]: signature for signature in self.inputs.signatures.values()}
+                chosen = rows.get(decision["value"])
+                if decision["value"] not in (body.get("candidates") or []) or chosen is None:
+                    raise SocomError(f"{body['id']}: the decision names {decision['value']}, not a planned candidate "
+                                     f"({', '.join(body.get('candidates') or [])})")
+                self.inputs.body_for_row[chosen["artifact"]] = {
+                    **body, "action": "bd6-declarator-rewrite", "decided": self.inputs.decided_flag(decision),
+                    "row": {"artifact": chosen["artifact"], "unit": chosen["unit"], "segment": chosen["segment"]},
+                }
             elif action == "bd4-holding" or action == "judgment":
                 flag = {"overload-tie": "overload-tie-held", "unparsed-body": "unparsed-body-held",
                         "ambiguous-owner": "ambiguous-owner-held"}.get(body.get("judgment") or "", "bd4-held")
@@ -789,7 +897,7 @@ class _Writer:
         from .order_skeleton_headers import parse_regions
 
         path = unit["workspace_path"]
-        text, newline = read_source(self.inputs.root / path)
+        text, newline = read_source(self.inputs.source_root / path)
         prefix, rest = split_blocks(path, text)
         scan = self.inputs.scans.get(path)
         if scan is not None and scan.text != rest:
@@ -816,7 +924,7 @@ class _Writer:
                 preamble += "\n" if preamble.endswith("\n") else "\n\n"
             preamble += tail
         entries, rows = self._entries(segment, unit)
-        out = prefix + preamble
+        out = separated(prefix, preamble) + preamble
         if entries:
             if out and not out.endswith("\n"):
                 out += "\n"
@@ -878,6 +986,14 @@ class _Writer:
                 counters[row["artifact"]] = datum["structured"].get("number") or 0
                 owner = datum.get("owner_function") or {}
                 chosen = owner.get("artifact")
+                decision = self.inputs.decision("local-static-owner", row["artifact"])
+                if decision is not None and (chosen is None or chosen not in written_functions):
+                    found = [artifact for artifact, function in written_functions.items() if function["name"] == decision["value"]]
+                    if len(found) != 1:
+                        raise SocomError(f"{row['name']}: the decided owner {decision['value']} is not an out-of-line row of {name}")
+                    owners[row["artifact"]] = found[0]
+                    flags[row["artifact"]].append(self.inputs.decided_flag(decision))
+                    continue
                 if chosen is None:
                     candidates = sorted((artifact for artifact in owner.get("candidates") or [] if artifact in written_functions),
                                         key=lambda artifact: order_of[artifact])
@@ -912,7 +1028,22 @@ class _Writer:
                 if row["artifact"] in owners:
                     statics[owners[row["artifact"]]].append(row)
         pending = local_class.pop("pending", [])
-        if pending:
+        decided = sorted({(row["value"], row["item"], row["basis"]) for row in (
+            self.inputs.decision("local-class-owner", member["artifact"]) for member in pending) if row is not None})
+        if pending and decided:
+            # Decided: the function-local class is declared in the chosen stub (one class, one owner).
+            values = {value for value, _item, _basis in decided}
+            found = [artifact for artifact, function in written_functions.items() if function["name"] in values]
+            if len(values) != 1 or len(found) != 1 or found[0] in self.inputs.body_for_row:
+                raise SocomError(f"{name}: the function-local class needs one decided owner among the unit's stubs, not {sorted(values)}")
+            local_class[found[0]] = pending
+            for row in pending:
+                owners[row["artifact"]] = found[0]
+                decision = self.inputs.decision("local-class-owner", row["artifact"])
+                if decision is not None:
+                    self.inputs.decided_flag(decision)
+                flags[row["artifact"]].append({"kind": "decided", "detail": f"local-class-owner decided under {decided[0][1]}: {decided[0][2]}"})
+        elif pending:
             owner = self._local_class_owner(pending, written_functions, order_of)
             if owner is None:
                 for row in pending:
@@ -1000,6 +1131,8 @@ class _Writer:
         if body is not None:
             text, extra = self._moved(body, signature, tag)
             record["flags"].extend(extra.pop("flags_", []))
+            if body.get("decided"):
+                record["flags"].append(body["decided"])
             record.update(fence="body", source=body["id"], move=body["action"], **extra)
             for local in sorted(statics, key=lambda item: self.inputs.data[item["artifact"]]["structured"].get("number") or 0):
                 variable = self.inputs.data[local["artifact"]]["structured"].get("variable") or local["name"]
@@ -1024,7 +1157,7 @@ class _Writer:
                 lines.append(f"\t/* @socom-skeleton stub {local['name']} */")
                 lines.append(f"\t{declaration}")
             if members:
-                lines.extend(self._local_class(members, nested))
+                lines.extend(self._local_class(members, nested, flags))
             head = signature["definition"]
             content = [head, "{", *lines, "}"]
             if signature.get("namespace") == "anonymous":
@@ -1037,7 +1170,8 @@ class _Writer:
             record["nested"] = nested
         return entry, record
 
-    def _local_class(self, members: list[dict[str, Any]], nested: list[dict[str, Any]]) -> list[str]:
+    def _local_class(self, members: list[dict[str, Any]], nested: list[dict[str, Any]],
+                     flags: dict[str, list[dict[str, Any]]] | None = None) -> list[str]:
         first = self.inputs.signatures[members[0]["artifact"]]["structured"]
         local = next(component for component in first["scope"] if "local" in component)
         lines = [f"\tstruct {local['name']}", "\t{"]
@@ -1046,7 +1180,7 @@ class _Writer:
             declaration = (signature.get("declaration") or "").rstrip(";")
             lines += [f"\t\t/* @socom-skeleton stub {row['name']} */", f"\t\t{declaration}", "\t\t{", "\t\t}"]
             nested.append({"kind": "local-class-member", "name": row["name"], "artifact": row["artifact"], "position": row.get("position"),
-                           "flags": _signature_flags(signature) + [
+                           "flags": (flags or {}).get(row["artifact"], []) + _signature_flags(signature) + [
                                {"kind": "local-class-key-unproven", "detail": f"written struct {local['name']} (members public)"}]})
         lines.append("\t};")
         return lines
@@ -1194,15 +1328,21 @@ class _Writer:
                 try:
                     value, dwarf = self._render(datum, node, speller, unnamed)
                 except Unrenderable as exc:
-                    self.waiting.append({"kind": "initializer-unrenderable", "artifact": datum["artifact"], "name": datum["name"],
-                                         "unit": datum["unit"], "segment": datum["segment"], "detail": str(exc)})
-                    return None, flags
+                    if (decision := self.inputs.decision("initializer-unrenderable", datum["artifact"])) is None:
+                        self.waiting.append({"kind": "initializer-unrenderable", "artifact": datum["artifact"], "name": datum["name"],
+                                             "unit": datum["unit"], "segment": datum["segment"], "detail": str(exc)})
+                        return None, flags
+                    value, dwarf = decision["value"], False
+                    flags.append(self.inputs.decided_flag(decision))
                 if dwarf:
                     flags.append({"kind": "initializer-from-dwarf", "detail": "rendered from the DWARF layout"})
         elif initializer["kind"] == "unknown":
-            self.waiting.append({"kind": "initializer-unrenderable", "artifact": datum["artifact"], "name": datum["name"],
-                                 "unit": datum["unit"], "segment": datum["segment"], "detail": initializer.get("basis") or "unknown"})
-            return None, flags
+            if (decision := self.inputs.decision("initializer-unrenderable", datum["artifact"])) is None:
+                self.waiting.append({"kind": "initializer-unrenderable", "artifact": datum["artifact"], "name": datum["name"],
+                                     "unit": datum["unit"], "segment": datum["segment"], "detail": initializer.get("basis") or "unknown"})
+                return None, flags
+            value = decision["value"]
+            flags.append(self.inputs.decided_flag(decision))
         storage = ""
         if local or (datum["storage"] == "static" and unnamed is None):
             storage = "static "
@@ -1521,7 +1661,7 @@ def render_skeletons(inputs: SkeletonInputs, *, segment: int | None, headers: bo
                           "entries": sum(1 for row in rows if row["kind"] in ("function", "data")), "sha256": _sha(text)})
     if additions is not None:
         for path, row in sorted(additions["headers"].items()):
-            text = row["prefix"] + row["text"]
+            text = separated(row["prefix"], row["text"]) + row["text"]
             files[path] = text.replace("\n", row["newline"]).encode("utf-8")
             file_rows.append({"path": path, "action": row["action"], "sha256": _sha(text)})
     deleted: list[dict[str, Any]] = []
@@ -1538,7 +1678,7 @@ def render_skeletons(inputs: SkeletonInputs, *, segment: int | None, headers: bo
                 continue
             stays = [body for body in inputs.manifest["bodies"]["definitions"] if body["path"] == path and body["id"] in writer.preamble_bodies]
             data_stays = [row for row in record["data_definitions"] if row["action"] in ("preamble", "judgment")]
-            text, newline = read_source(inputs.root / path)
+            text, newline = read_source(inputs.source_root / path)
             _prefix, rest = split_blocks(path, text)
             remaining = cut_preamble(rest, writer._cuts(path))
             if stays or data_stays:
@@ -1611,10 +1751,21 @@ def judgment_defaults(inputs: SkeletonInputs, writer: _Writer, headers: dict[str
         unwritten = {row["type"]: row["kind"] for row in headers["waiting"] if row.get("type")}
     readable = {row["type"]: "::".join("(anonymous namespace)" if part.startswith("@unnamed@") else part for part in row["chain"])
                 for row in inputs.manifest["declarations"]["types"]}
+    mangled_types = {row["type"]: row.get("mangled") for row in inputs.manifest["declarations"]["types"]}
     rows = []
     for row in inputs.manifest["judgment"]:
         kind = row["kind"]
         key = row.get("artifact") or row.get("body") or row.get("type")
+        decision = {
+            "overload-tie": lambda: inputs.decision("overload-tie", row.get("body")),
+            "local-static-owner": lambda: inputs.decision("local-static-owner", row.get("artifact")),
+            "s1-failure": lambda: inputs.decision("local-class-owner", row.get("artifact")),
+            "by-value-undeclared": lambda: inputs.decision("type-no-record", mangled_types.get(row.get("type"))),
+        }.get(kind, lambda: None)()
+        if decision is not None:
+            rows.append({"kind": kind, "key": key, "name": row.get("name"), "unit": row.get("unit"), "segment": row.get("segment"),
+                         "default": f"decided under {decision['item']}: {decision['value']}", "flag": "decided", "waits": False})
+            continue
         if kind == "signature-contradiction":
             default, flag, waits = "bd6: the declarator is rewritten to the ELF signature, the body kept (C3 checks it)", "bd6-declarator-rewrite", False
         elif kind in ("copy-only-body", "unowned-body"):

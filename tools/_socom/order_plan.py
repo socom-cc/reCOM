@@ -77,8 +77,14 @@ ORDER_LINK_KIND = "order-plan-link"
 ORDER_APPLY_KIND = "order-apply-segment"
 ORDER_COMPILE_KIND = "order-compile-segment"
 ORDER_PLAN_KINDS = (ORDER_SEGMENT_KIND, ORDER_LINK_KIND)
+# Phase B round 3b (BD3): one serialized prepare item before the applies owns every header, holding file and
+# orphan deletion the skeleton writer makes; `progress add-order-skeleton-prepare` adds it.
+ORDER_SKELETON_PREPARE_ID = "socom:work:order-skeleton-prepare"
+ORDER_PREPARE_KIND = "order-skeleton-prepare"
+# Closed by the skeleton route (progress handoff-order-skeleton / accept-order-skeleton).
+ORDER_SKELETON_KINDS = (ORDER_PREPARE_KIND, ORDER_APPLY_KIND)
 # Phase B (skeletons) and phase C (compile): no generic handoff or acceptance closes them.
-ORDER_ROUTED_KINDS = (ORDER_APPLY_KIND, ORDER_COMPILE_KIND)
+ORDER_ROUTED_KINDS = (ORDER_APPLY_KIND, ORDER_COMPILE_KIND, ORDER_PREPARE_KIND)
 ORDER_ITEM_KINDS = (*ORDER_PLAN_KINDS, *ORDER_ROUTED_KINDS)
 ORDER_PLAN_RESOURCES = ["build/order-plans"]
 ORDER_PLAN_DIR = "build/order-plans"
@@ -443,6 +449,9 @@ def audit_function_order(tracker: dict[str, Any]) -> list[str]:
             errors.append(f"{row['id']} order plan resources are not file-only")
         if any(batch.get(key) != value for key, value in digests.items()) or len(str(batch.get("segment_target_sha256"))) != 64:
             errors.append(f"{row['id']} must cite the decomposition's digests and its segment target digest")
+    prepares = [row for row in items if row.get("kind") == ORDER_PREPARE_KIND]
+    prepare = prepares[0] if prepares else None
+    errors.extend(_audit_prepare(prepares, plans, applies, decomposition))
     for suffix, rows, route_id in (("-apply", applies, ORDER_SKELETON_ROUTE_ID), ("-compile", compiles, ORDER_COMPILE_ROUTE_ID)):
         for row in rows:
             plan_id = str(row["id"]).removesuffix(suffix)
@@ -453,10 +462,19 @@ def audit_function_order(tracker: dict[str, Any]) -> list[str]:
                 continue
             # Phase B waits for its plan, phase C for its phase B apply; each behind its own route.
             before = plan_id if suffix == "-apply" else f"{plan_id}-apply"
-            if row.get("dependencies") != [before, route_id]:
-                errors.append(f"{row['id']} must depend on {before} and {route_id}")
+            narrowed = suffix == "-apply" and prepare is not None
+            expected = [before, route_id, ORDER_SKELETON_PREPARE_ID] if narrowed else [before, route_id]
+            if row.get("dependencies") != expected:
+                errors.append(f"{row['id']} must depend on {' and '.join(expected)}")
             resources = list(row.get("resources") or [])
-            if not resources or resources != batch.get("directories") or not all(str(value).startswith("src/") for value in resources):
+            directories = batch.get("directories") or []
+            if narrowed:
+                # BD3: once the prepare item exists, an apply reserves exactly its units' files (inside its directories).
+                if not resources or resources != batch.get("files") or not all(
+                    str(value).startswith("src/") and str(PurePosixPath(str(value)).parent) in directories for value in resources
+                ):
+                    errors.append(f"{row['id']} must reserve exactly its units' files, inside its decomposed directories")
+            elif not resources or resources != directories or not all(str(value).startswith("src/") for value in resources):
                 errors.append(f"{row['id']} must reserve its units' src/ directories")
             if batch.get("units") != (plan.get("batch") or {}).get("units"):
                 errors.append(f"{row['id']} plans other units than {plan_id}")
@@ -467,7 +485,8 @@ def audit_function_order(tracker: dict[str, Any]) -> list[str]:
             errors.append(f"{ORDER_LINK_ID} must depend only on the accepted {SOURCE_STAGE} gate and own build/order-plans")
         if any((row.get("batch") or {}).get(key) != value for key, value in digests.items()):
             errors.append(f"{ORDER_LINK_ID} must cite the decomposition's digests")
-    gated = {ORDER_SKELETON_ROUTE_ID: ("order applies", applies), ORDER_COMPILE_ROUTE_ID: ("order compile items", compiles)}
+    gated = {ORDER_SKELETON_ROUTE_ID: ("the skeleton prepare and the order applies", prepares + applies),
+             ORDER_COMPILE_ROUTE_ID: ("order compile items", compiles)}
     for row in routes:
         batch = row.get("batch") or {}
         if batch.get("capability") != ORDER_STAGE:
@@ -488,6 +507,128 @@ def audit_function_order(tracker: dict[str, Any]) -> list[str]:
     elif decomposition.get("producer_sha256") != producer_digest(decomposition, segments):
         errors.append(f"{ORDER_STAGE} producer_sha256 differs from the record and its items")
     return errors
+
+
+# -- phase B round 3b: the serialized prepare item (BD3) -------------------------------------
+
+
+PREPARE_REQUIRES = (
+    "the governed skeleton route (progress apply-order-skeleton) writes, before any segment apply, every header the "
+    "skeleton writer changes or creates, the unbuilt holding files and the orphan deletions, from the frozen base "
+    "src/ and the accepted order plans; static checks only, no compile"
+)
+
+
+def skeleton_resources_digest(prepare: dict[str, Any], applies: list[dict[str, Any]]) -> str:
+    """The digest of the files the prepare item and every segment apply reserve (``skeleton_prepare.resources_sha256``)."""
+
+    return _digest({
+        "prepare": list(prepare.get("resources") or []),
+        "applies": [[row["id"], list(row.get("resources") or [])] for row in sorted(applies, key=lambda row: row["id"])],
+    })
+
+
+def _sorted_files(values: Any) -> bool:
+    return (isinstance(values, list) and bool(values) and all(isinstance(value, str) and value.startswith("src/") for value in values)
+            and values == sorted(set(values), key=str.casefold))
+
+
+def _audit_prepare(prepares: list[dict[str, Any]], plans: list[dict[str, Any]], applies: list[dict[str, Any]],
+                   decomposition: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    record = decomposition.get("skeleton_prepare")
+    if not prepares:
+        if record is not None:
+            errors.append(f"{ORDER_STAGE} records a skeleton prepare item that does not exist")
+        return errors
+    if len(prepares) > 1 or prepares[0]["id"] != ORDER_SKELETON_PREPARE_ID:
+        return errors + [f"{ORDER_STAGE} needs exactly one {ORDER_SKELETON_PREPARE_ID} item"]
+    prepare = prepares[0]
+    wanted = [ORDER_SKELETON_ROUTE_ID, ORDER_LINK_ID, *sorted(row["id"] for row in plans)]
+    if prepare.get("dependencies") != wanted:
+        errors.append(f"{ORDER_SKELETON_PREPARE_ID} must depend on {ORDER_SKELETON_ROUTE_ID}, {ORDER_LINK_ID} and every order plan")
+    resources = prepare.get("resources")
+    if not _sorted_files(resources) or resources != (prepare.get("batch") or {}).get("files"):
+        errors.append(f"{ORDER_SKELETON_PREPARE_ID} must reserve its files (sorted, unique, under src/) as its batch lists them")
+    elif shared := sorted(set(resources) & {value for row in applies for value in row.get("resources") or []}):
+        errors.append(f"{ORDER_SKELETON_PREPARE_ID} shares files with segment applies: {_shown(shared)}")
+    if not isinstance(record, dict) or record.get("item") != ORDER_SKELETON_PREPARE_ID:
+        errors.append(f"{ORDER_STAGE} decomposition must record the skeleton prepare item (skeleton_prepare)")
+    elif record.get("resources_sha256") != skeleton_resources_digest(prepare, applies):
+        errors.append(f"{ORDER_STAGE} skeleton_prepare.resources_sha256 differs from the prepare and apply reservations")
+    return errors
+
+
+def add_skeleton_prepare(tracker: dict[str, Any], *, prepare_files: list[str], unit_files: dict[str, list[str]],
+                         manifest_sha256: str, write_sha256: str, counts: dict[str, int]) -> dict[str, Any]:
+    """Add the serialized prepare item and narrow every segment apply to its unit files (BD3); mutates ``tracker``.
+
+    The plan items, the link plan and their acceptances are left byte for
+    byte: only the prepare item is new, and each apply (not started yet)
+    gains it as a dependency, with its resources narrowed from its
+    directories to the files the skeleton writer writes for its units.
+    Returns the ``skeleton_prepare`` record of the stage's decomposition.
+    """
+
+    import copy
+
+    stage = _stage(tracker, ORDER_STAGE)
+    decomposition = stage.get("decomposition")
+    items = tracker["work_items"]
+    by_id = {row["id"]: row for row in items}
+    if not isinstance(decomposition, dict) or (by_id.get(ORDER_SEED_ID) or {}).get("kind") != "stage-gate":
+        raise SocomError(f"{ORDER_STAGE} is not decomposed")
+    if ORDER_SKELETON_PREPARE_ID in by_id or decomposition.get("skeleton_prepare"):
+        raise SocomError(f"{ORDER_SKELETON_PREPARE_ID} already exists")
+    plans = sorted((row for row in items if row.get("kind") in ORDER_PLAN_KINDS), key=lambda row: row["id"])
+    if waiting := [row["id"] for row in plans if row.get("status") != "accepted"]:
+        raise SocomError(f"the prepare item reads accepted order plans only: {_shown(waiting)} are not accepted")
+    applies = [row for row in items if row.get("kind") == ORDER_APPLY_KIND]
+    for row in applies:
+        if row.get("status") not in ("blocked", "ready") or row.get("lease") or row.get("order_skeleton"):
+            raise SocomError(f"{row['id']} has started ({row.get('status')}): the reservations are narrowed only before any apply")
+    if sorted(unit_files) != sorted(row["id"] for row in applies):
+        raise SocomError("the unit files must name every segment apply exactly once")
+    for row in applies:
+        files = unit_files[row["id"]]
+        directories = (row.get("batch") or {}).get("directories") or []
+        if not _sorted_files(files) or any(str(PurePosixPath(value).parent) not in directories for value in files):
+            raise SocomError(f"{row['id']}: its unit files {files} are not sorted files inside its directories {directories}")
+    if not _sorted_files(prepare_files):
+        raise SocomError("the prepare files must be sorted, unique files under src/")
+    if shared := sorted(set(prepare_files) & {value for files in unit_files.values() for value in files}):
+        raise SocomError(f"the prepare files and the unit files overlap: {_shown(shared)}")
+    untouched = copy.deepcopy(plans)
+    prepare = _item(
+        ORDER_SKELETON_PREPARE_ID, ORDER_PREPARE_KIND,
+        f"Write the skeleton headers, holding files and orphan deletions under src/ ({len(prepare_files)} files) before the segment applies",
+        [ORDER_SKELETON_ROUTE_ID, ORDER_LINK_ID, *(row["id"] for row in plans if row.get("kind") == ORDER_SEGMENT_KIND)],
+        list(prepare_files),
+        {"batch_number": 0, "phase": "B", "files": list(prepare_files), "counts": dict(sorted(counts.items())),
+         "manifest_sha256": manifest_sha256, "write_sha256": write_sha256, "requires": PREPARE_REQUIRES},
+    )
+    prepare["selection"] = "files"
+    position = next(index for index, row in enumerate(items) if row.get("kind") == ORDER_APPLY_KIND)
+    items.insert(position, prepare)
+    for row in applies:
+        row["dependencies"] = [*row["dependencies"], ORDER_SKELETON_PREPARE_ID]
+        row["resources"] = list(unit_files[row["id"]])
+        row["batch"]["files"] = list(unit_files[row["id"]])
+        # A ready apply (the route gate is open) waits for the prepare again.
+        row["status"] = "blocked"
+    if sorted((row for row in tracker["work_items"] if row.get("kind") in ORDER_PLAN_KINDS), key=lambda row: row["id"]) != untouched:
+        raise SocomError("the order plan items changed while the prepare item was added")
+    record = {
+        "item": ORDER_SKELETON_PREPARE_ID,
+        "manifest_sha256": manifest_sha256,
+        "write_sha256": write_sha256,
+        "prepare_file_count": len(prepare_files),
+        "apply_file_count": sum(len(files) for files in unit_files.values()),
+        "resources_sha256": skeleton_resources_digest(prepare, applies),
+        "tracker_revision": tracker["revision"] + 1,
+    }
+    decomposition["skeleton_prepare"] = record
+    return record
 
 
 # -- plans: drafting ------------------------------------------------------------------------

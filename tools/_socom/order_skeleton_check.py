@@ -115,28 +115,31 @@ def load_write_manifest(target: Path) -> dict[str, Any]:
 
 
 def check_skeletons(root: Path, tracker: dict[str, Any], target: Path, *, manifest_path: Path, snapshot_path: Path,
-                    lint: bool = False) -> dict[str, Any]:
+                    lint: bool = False, source_root: Path | None = None) -> dict[str, Any]:
+    """Every static check of a written tree; ``source_root`` holds the ``src/`` it was written from (default: the root's)."""
+
+    base = source_root if source_root is not None else root
     written = load_write_manifest(target)
-    inputs = SkeletonInputs(root, tracker, manifest_path=manifest_path, snapshot_path=snapshot_path)
+    inputs = SkeletonInputs(root, tracker, manifest_path=manifest_path, snapshot_path=snapshot_path, source_root=source_root)
     selection = written["selection"]
     segment = selection.get("segment")
     report: dict[str, Any] = {"kind": "socom-order-skeleton-check", "root": target.name, "selection": selection,
                               "write_sha256": written["write_sha256"]}
-    again = SkeletonInputs(root, tracker, manifest_path=manifest_path, snapshot_path=snapshot_path)
-    report["determinism"] = _determinism(root, target, inputs, again, written, segment)
+    again = SkeletonInputs(root, tracker, manifest_path=manifest_path, snapshot_path=snapshot_path, source_root=source_root)
+    report["determinism"] = _determinism(base, target, inputs, again, written, segment)
     scans = _preview_scans(target, written)
     program = Program(list(scans.values()) + [scan for path, scan in inputs.scans.items() if path not in scans and
                                               (target / path).is_file()], inputs.chains)
     report["s1"] = _s1(target, written, scans, program)
     report["s2"] = _s2(target, written, inputs, scans, program)
-    report["s3"] = _s3(root, tracker, target, written)
+    report["s3"] = _s3(root, tracker, target, written, base=base)
     report["s4"] = _s4(target, written, inputs, scans, program)
-    report["s5"] = _s5(root, target)
+    report["s5"] = _s5(base, target)
     report["s7"] = _s7(target, written, inputs, scans, program)
     report["s1"]["headers"] = report["s7"].pop("s1_headers")
     if not report["s1"]["headers"]["ok"]:
         report["s1"]["ok"] = False
-    report["s6"] = _s6(root, target, written, inputs) if lint else {"run": False, "note": "pass --lint for the optional cl /Zs report"}
+    report["s6"] = _s6(base, target, written, inputs) if lint else {"run": False, "note": "pass --lint for the optional cl /Zs report"}
     checks = ("determinism", "s1", "s2", "s3", "s4", "s5", "s7")
     report["ok"] = all(report[key]["ok"] for key in checks)
     report["failed"] = [key for key in checks if not report[key]["ok"]]
@@ -409,6 +412,10 @@ def _owner_problems(unit: dict[str, Any], owner_of: dict[str, str], inputs: Skel
                 continue
             owner = datum.get("owner_function") or {}
             allowed = {owner["artifact"]} if owner.get("artifact") else set(owner.get("candidates") or [])
+            decision = inputs.decision("local-static-owner", row["artifact"])
+            if decision is not None:
+                # A static without a usable owner goes where `order skeleton decide --owner` put it.
+                allowed.add(artifact_of.get(decision["value"]))
             if artifact_of.get(fence) not in allowed:
                 found.append(f"{row['name']} in {fence}")
     return found
@@ -499,18 +506,21 @@ def _class_definitions(scans: dict[str, Any], inputs: SkeletonInputs, program: P
 # -- S3 ------------------------------------------------------------------------------------
 
 
-def _s3(root: Path, tracker: dict[str, Any], target: Path, written: dict[str, Any]) -> dict[str, Any]:
+def _s3(root: Path, tracker: dict[str, Any], target: Path, written: dict[str, Any], *, base: Path | None = None) -> dict[str, Any]:
     from .source import audit_docblocks, audit_source_trace, source_artifacts
     from .source_gate import BASELINE_KIND, _digest as gate_digest, _stage_row
     from .source_plan import SOURCE_STAGE
 
     problems: list[str] = []
     changed, compared = [], 0
+    uncanonical: list[str] = []
+    written_paths = {row["path"] for row in written["files"]}
     deleted = {row["path"] for row in written["deleted"]}
-    for path in sorted((root / "src").rglob("*"), key=lambda value: value.as_posix()):
+    source = base if base is not None else root
+    for path in sorted((source / "src").rglob("*"), key=lambda value: value.as_posix()):
         if not path.is_file() or path.suffix.lower() not in (".cpp", ".c", ".cc", ".h", ".hpp", ".inc"):
             continue
-        relative = path.relative_to(root).as_posix()
+        relative = path.relative_to(source).as_posix()
         _rest, blocks = _authored(path)
         copy = target / relative
         if relative in deleted:
@@ -524,6 +534,13 @@ def _s3(root: Path, tracker: dict[str, Any], target: Path, written: dict[str, An
         compared += 1
         if written_blocks != blocks:
             changed.append(relative)
+        elif written_blocks and relative in written_paths:
+            # Stage 4's own form (blocks, one blank line, the rest): otherwise `source annotate --check` reports drift.
+            from .source_apply import render_file
+
+            text = copy.read_bytes().decode("utf-8").replace("\r\n", "\n")
+            if render_file(text, {}, set(), assembly=relative.casefold().endswith(".s")) != text:
+                uncanonical.append(relative)
     for row in written["files"]:
         if row["action"] == "holding":
             _rest, blocks = _authored(target / row["path"])
@@ -531,10 +548,13 @@ def _s3(root: Path, tracker: dict[str, Any], target: Path, written: dict[str, An
                 problems.append(f"{row['path']} (holding) holds stage 4 blocks")
     if changed:
         problems.append(f"{len(changed)} files' stage 4 blocks changed: {', '.join(changed[:_SHOWN])}")
+    if uncanonical:
+        problems.append(f"{len(uncanonical)} files are not in stage 4's block form (source annotate would report drift): "
+                        + ", ".join(uncanonical[:_SHOWN]))
     def edges(base: Path) -> list[tuple[str, str, str, str]]:
         return sorted({(row["relation"], row["section"], row["artifact_id"], row["path"]) for row in source_artifacts(base)["artifacts"]})
 
-    before, after = edges(root), edges(target)
+    before, after = edges(source), edges(target)
     if before != after:
         problems.append(f"the @socom-artifact edges differ ({len(before)} in src/, {len(after)} in the preview)")
     stage = _stage_row(tracker, SOURCE_STAGE)

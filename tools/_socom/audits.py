@@ -229,6 +229,13 @@ def workflow_contracts(root: Path, commands: list[dict[str, Any]]) -> dict[str, 
         "order plan draft": False,
         "order plan decide": True,
         "order plan validate": False,
+        # Stage 5 phase B: the governed skeleton route writes src/ and the tracker; apply-check only reads (its render is a build/ product).
+        "progress add-order-skeleton-prepare": True,
+        "progress apply-order-skeleton": True,
+        "order skeleton decide": True,
+        "order skeleton apply-check": False,
+        "progress handoff-order-skeleton": True,
+        "progress accept-order-skeleton": True,
         "progress amend-source-plan": True,
         "progress accept-source-amendment": True,
     }
@@ -383,7 +390,13 @@ def pipeline_reachability(root: Path, commands: list[dict[str, Any]]) -> dict[st
     # A stage whose planning producer is registered but whose closing route is
     # still a deferred capability: it may be decomposed, never accepted yet.
     partial_producers = {
-        "authored-function-order": {"progress decompose-stage", "order plan validate"},
+        "authored-function-order": {
+            "progress decompose-stage",
+            "order plan validate",
+            "progress add-order-skeleton-prepare",
+            "progress apply-order-skeleton",
+            "progress accept-order-skeleton",
+        },
     }
     tracker = load_tracker(root / ".agent" / "RECONSTRUCTION_PROGRESS.json")
     blockers = {

@@ -12,7 +12,12 @@ A source-apply-segment item writes only its reserved src/ directories, from
 its accepted owner plan, through `progress apply-source-plan` (dry run
 first); never hand-edit generated owner-annotation blocks. A
 source-apply-provider item writes no file: the route records its archive
-members' ownership in tracker evidence only.
+members' ownership in tracker evidence only. A stage 5 skeleton item
+(socom:work:order-skeleton-prepare, then each order-segment-NNN-apply) writes
+only its reserved files, through `progress apply-order-skeleton` (dry run
+first); settle its waiting rows only with `order skeleton decide` and a
+basis, leave the others waiting, never hand-edit fenced skeleton entries or
+regions, and hand off with `progress handoff-order-skeleton`.
 
 Do not edit support inputs, tools, docs, manifests, or canonical ledgers unless
 the packet explicitly owns them. Never patch candidate output or self-accept.

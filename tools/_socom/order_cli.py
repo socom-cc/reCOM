@@ -236,6 +236,9 @@ def register(commands: Any) -> None:
     check.add_argument("--lint", action="store_true", help="also run the report-only S6 (MSVC cl /Zs)")
     check.add_argument("--output", help="write the full report as JSON under build/")
     check.set_defaults(handler=_order_skeleton_check)
+    from . import order_route_cli
+
+    order_route_cli.register_skeleton(skeleton_commands)
 
 
 def _path(root: Path, value: str) -> Path:
@@ -547,6 +550,14 @@ def _order_skeleton_manifest(arguments: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def _preview_base(root: Path, tracker: dict[str, Any]) -> Path | None:
+    """Once the skeleton route has written src/, previews render from its frozen base (the src/ the manifest was built on)."""
+
+    from .order_skeleton_route import base_root, started
+
+    return base_root(root) if started(tracker) else None
+
+
 def _order_skeleton_write(arguments: argparse.Namespace) -> int:
     from .cli import _build_path, _emit, _root
     from .constants import tracker_path
@@ -555,12 +566,14 @@ def _order_skeleton_write(arguments: argparse.Namespace) -> int:
 
     root = _root(arguments)
     target = preview_root(root, arguments.preview_root)
+    tracker = load_tracker(tracker_path(root))
+    base = _preview_base(root, tracker)
     inputs = SkeletonInputs(
-        root, load_tracker(tracker_path(root)), manifest_path=_build_path(root, arguments.manifest, "skeleton manifests"),
-        snapshot_path=_build_path(root, arguments.snapshot, "body snapshots"),
+        root, tracker, manifest_path=_build_path(root, arguments.manifest, "skeleton manifests"),
+        snapshot_path=_build_path(root, arguments.snapshot, "body snapshots"), source_root=base,
     )
     rendered = render_skeletons(inputs, segment=arguments.segment)
-    write_skeletons(root, target, rendered)
+    write_skeletons(base if base is not None else root, target, rendered)
     manifest = rendered["manifest"]
     _emit({
         "ok": True, "mutation_performed": False, "root": arguments.preview_root,
@@ -584,9 +597,11 @@ def _order_skeleton_check(arguments: argparse.Namespace) -> int:
     root = _root(arguments)
     target = preview_root(root, arguments.preview_root)
     output = _build_path(root, arguments.output, "skeleton check reports") if arguments.output else None
+    tracker = load_tracker(tracker_path(root))
     report = check_skeletons(
-        root, load_tracker(tracker_path(root)), target, manifest_path=_build_path(root, arguments.manifest, "skeleton manifests"),
+        root, tracker, target, manifest_path=_build_path(root, arguments.manifest, "skeleton manifests"),
         snapshot_path=_build_path(root, arguments.snapshot, "body snapshots"), lint=arguments.lint,
+        source_root=_preview_base(root, tracker),
     )
     if output is not None:
         atomic_write_json(output, report)

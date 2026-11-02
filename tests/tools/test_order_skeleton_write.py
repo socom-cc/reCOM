@@ -416,7 +416,10 @@ def test_headers_keep_src_outside_their_regions(rendered: dict) -> None:
                 signature = inputs.signatures.get(body["row"]["artifact"])
                 edits.append((definition.start, definition.end, replacement_declaration(inputs.program, source, definition, signature)[0]))
         assert stripped == apply_edits(source.text, edits), path
-        assert prefix == split_blocks(path, (inputs.root / path).read_bytes().decode("utf-8").replace("\r\n", "\n"))[0]
+        # The stage 4 blocks are kept; a header that held only its blocks gains stage 4's blank separator line.
+        from tools._socom.order_skeleton_write import separated
+
+        assert prefix == separated(split_blocks(path, (inputs.root / path).read_bytes().decode("utf-8").replace("\r\n", "\n"))[0], rest)
 
 
 @needs_inputs

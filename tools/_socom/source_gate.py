@@ -931,15 +931,31 @@ def audit_baseline_files(root: Path, tracker: dict[str, Any], *, strict: bool) -
 
 
 def _applied_files(root: Path, tracker: dict[str, Any]) -> list[list[Any]]:
-    """[path, current SHA-256 or None] of every file a stage 4 apply record names."""
+    """[path, current SHA-256 or None] of every file a stage 4 apply record names.
 
-    paths = sorted(
-        {
-            str(entry.get("path"))
-            for item in _stage_items(tracker)
-            if isinstance(item.get("source_apply"), dict)
-            for entry in item["source_apply"].get("files") or []
-            if isinstance(entry, dict)
-        }
-    )
-    return [[path, sha256_file(root / path) if (root / path).is_file() else None] for path in paths]
+    Stage 5's chain of custody: a file an accepted skeleton item wrote counts
+    as its stage 4 content when it is still that record's "after", its stage 4
+    blocks are unchanged and the record's "before" is a content stage 4
+    recorded for it; so the stage 4 state (and its baseline digest) holds.
+    """
+
+    from .order_skeleton_route import skeleton_custody
+
+    recorded: dict[str, set[str]] = {}
+    for item in _stage_items(tracker):
+        if isinstance(item.get("source_apply"), dict):
+            for entry in item["source_apply"].get("files") or []:
+                if isinstance(entry, dict):
+                    # As source apply-check accepts it: the recorded file, or its authored content (another plan's
+                    # block may have been added to a shared file since).
+                    recorded.setdefault(str(entry.get("path")), set()).update(
+                        {f"sha256:{entry.get('sha256')}", f"content:{entry.get('content_sha256')}"})
+    custody = skeleton_custody(root, tracker)
+    rows = []
+    for path in sorted(recorded):
+        held = custody.get(path)
+        if held is not None and ({f"sha256:{held.get('before_sha256')}", f"content:{held.get('before_content_sha256')}"} & recorded[path]):
+            rows.append([path, held["before_sha256"]])
+        else:
+            rows.append([path, sha256_file(root / path) if (root / path).is_file() else None])
+    return rows

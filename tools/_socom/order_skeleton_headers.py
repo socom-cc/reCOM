@@ -333,6 +333,16 @@ class HeaderWriter:
             if chain in self.classes or row.get("provider") or row["src"] not in ("undeclared", "forward-only"):
                 continue
             if row.get("definition") is None:
+                decision = self.inputs.decision("type-no-record", row.get("mangled")) if row["need"] == "full" and row["by_value"] else None
+                if decision is not None:
+                    # Decided (order skeleton decide --type): the lease holder's definition text, written verbatim.
+                    text = decision["value"].strip()
+                    if not re.match(rf"^(?:enum|struct|class|union)\s+{re.escape(chain[-1])}\b", text):
+                        raise SocomError(f"the decided definition of {_readable(chain)} does not define {chain[-1]}: {text[:60]!r}")
+                    self.types[chain] = {**row, "definition": {"kind": "enum" if text.startswith("enum") else "decided",
+                                                               "source": "decision", "text": text, "members": [], "decision": decision}}
+                    self._place(chain, "type", (row.get("placement") or {}).get("path"))
+                    continue
                 if row["need"] == "full" and row["by_value"]:
                     self.waiting.append({"kind": "type-no-record", "type": _readable(chain), "units": row["units"],
                                          "detail": f"by value as {' and '.join(row['by_value'])}; {row['record']['basis']}: "
@@ -383,7 +393,7 @@ class HeaderWriter:
         if code and path not in self.unit_paths:
             self.waiting.append({"kind": unplaced, "type": _readable(chain), "detail": f"{path} is not a planned unit file"})
             return
-        if not code and not (self.inputs.root / path).is_file():
+        if not code and not (self.inputs.source_root / path).is_file():
             users = set((self.classes.get(chain) or {}).get("units") or {}) | set((self.types.get(chain) or {}).get("units") or [])
             self.new_headers[path] |= users
         (self.top if self._enum(chain) else self.bottom)[path].append(chain)
@@ -464,6 +474,9 @@ class HeaderWriter:
         row = self.types.get(chain) or {}
         definition = row.get("definition")
         name = chain[-1]
+        if record is None and definition.get("source") == "decision":
+            flags.append(self.inputs.decided_flag(definition["decision"]))
+            return definition["text"].split("\n"), [], []
         if record is None:
             self._record_flags(definition, row["record"]["basis"], flags, f"the {definition['kind'] or 'type'}")
             if definition["kind"] == "enum":
@@ -845,9 +858,9 @@ class HeaderWriter:
     def _header(self, path: str, chains: list[tuple[str, ...]]) -> dict[str, Any]:
         from .order_skeleton_write import read_source, split_blocks
 
-        exists = (self.inputs.root / path).is_file()
+        exists = (self.inputs.source_root / path).is_file()
         if exists:
-            raw, newline = read_source(self.inputs.root / path)
+            raw, newline = read_source(self.inputs.source_root / path)
             prefix, rest = split_blocks(path, raw)
             scan = self.inputs.scans[path]
             if scan.text != rest:

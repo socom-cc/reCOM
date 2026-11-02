@@ -64,7 +64,7 @@ from .recon import (
 )
 from .fingerprint import SWEEP_MODES, compare_fingerprints, program_fingerprint
 from .type_apply import ApplyFailure, build_apply_program, execute_apply_program
-from . import order_cli, provider_archive, recon_repair_cli, source_amend_cli, source_apply_cli, source_gate_cli, source_plan_cli, type_plan_cli
+from . import order_cli, order_route_cli, provider_archive, recon_repair_cli, source_amend_cli, source_apply_cli, source_gate_cli, source_plan_cli, type_plan_cli
 from .source import (
     audit_docblocks,
     audit_independence,
@@ -3157,6 +3157,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     *source_amend_cli.specs(_spec),
     *provider_archive.specs(_spec),
     *order_cli.specs(_spec),
+    *order_route_cli.specs(_spec),
     _spec("verify asm", "verification", "Read function and assembly evidence from Ghidra.", ghidra_requirement="required"),
     _spec("verify functional", "verification", "List or run one deterministic behavioral smoke target."),
     _spec("verify functional-batch", "verification", "Run a reviewed batch of behavioral smoke targets."),
@@ -3696,6 +3697,7 @@ def build_parser() -> argparse.ArgumentParser:
     source_amend_cli.register(progress_commands)
     provider_archive.register(commands)
     order_cli.register(commands)
+    order_route_cli.register_progress(progress_commands)
 
     verify = commands.add_parser("verify")
     verify_commands = verify.add_subparsers(dest="verification", required=True)

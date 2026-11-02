@@ -35,9 +35,16 @@ one per stage 4 segment holding authored units, plus the link-order plan. A
 planner drafts, decides and validates each plan (`order plan draft`,
 `order plan decide`, `order plan validate`), and an independent reviewer
 accepts it; handoff and acceptance re-run `order plan validate --check`.
-Its phase B applies (skeleton source, static checks, no compile) wait for
-`socom:work:order-skeleton-route`, which opens once a skeleton generator is
-registered. Its phase C compile items and the stage gate wait for
+Its phase B (skeleton source, static checks, no compile) waits for
+`socom:work:order-skeleton-route`, which `progress open-capability-gate`
+opens now that the skeleton route is registered. `progress
+add-order-skeleton-prepare` adds one serialized prepare item (headers, holding
+files, orphan deletions) before the segment applies, which then reserve only
+their units' files. Each item is written with `progress apply-order-skeleton`
+under its lease (waiting rows settled with `order skeleton decide`), handed
+off with `progress handoff-order-skeleton` and accepted by an independent
+verifier with `progress accept-order-skeleton`; both re-run
+`order skeleton apply-check`. Its phase C compile items and the stage gate wait for
 `socom:work:order-compile-route`, which opens only once the compiler license
 (`socom:blocker:metrowerks-flexlm-license`) works and a compile route exists
 ([FUNCTION_ORDER.md](FUNCTION_ORDER.md)).

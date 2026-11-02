@@ -238,7 +238,7 @@ def _leaf_commands(parser: argparse.ArgumentParser, prefix: tuple[str, ...] = ()
 
 def test_command_registry_exactly_matches_parser() -> None:
     registered = {row.path for row in COMMAND_SPECS}
-    assert len(registered) == len(COMMAND_SPECS) == 163
+    assert len(registered) == len(COMMAND_SPECS) == 169
     assert _leaf_commands(build_parser()) == registered
 
 
@@ -317,8 +317,13 @@ def test_workspace_issue_ledger_replaces_shadow_state(root: Path) -> None:
 
 
 def test_source_inventory(root: Path) -> None:
+    from tools._socom.source import SOURCE_SUFFIXES
+
     owners = source_owners(root)
-    assert len(owners) == 354  # 316 provisional files + 38 created by the stage-4 applies
+    # Every source file under src/ (stage 4 created 38; the stage 5 skeleton route creates holding files and headers and
+    # deletes emptied orphans), so the count comes from the tree.
+    files = sorted(path.relative_to(root).as_posix() for path in (root / "src").rglob("*") if path.is_file() and path.suffix in SOURCE_SUFFIXES)
+    assert [owner["path"] for owner in owners] == sorted(files, key=str.casefold) and len(owners) >= 300
     assert len({owner["id"] for owner in owners}) == len(owners)
 
 
