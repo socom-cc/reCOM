@@ -222,6 +222,21 @@ def test_ghidra_types_are_qualified_from_their_category() -> None:
     assert types.size({"t": "array", "size": 3, "of": {"t": "pointer", "to": {"t": "builtin", "code": "v"}}}) == 12
 
 
+def test_ghidras_untyped_pointer_is_void_pointer_never_a_class() -> None:
+    class _NoDwarf:
+        composites: dict = {}
+
+    program, _scans = _program()
+    types = _Types(program, {}, _NoDwarf())
+    void = {"t": "builtin", "code": "v"}
+    assert types.ghidra_node("pointer") == ({"t": "pointer", "to": void}, None)
+    assert types.ghidra_node("pointer *")[0] == {"t": "pointer", "to": {"t": "pointer", "to": void}}
+    assert types.ghidra_node("pointer[2]")[0] == {"t": "array", "size": 2, "of": {"t": "pointer", "to": void}}
+    assert types.size(types.ghidra_node("pointer")[0]) == 4
+    # A class merely named like it is still looked up as a class.
+    assert types.ghidra_node("pointer_t")[0]["t"] == "named"
+
+
 def test_holding_file_is_per_module() -> None:
     assert holding_file("src/gamez/zSeal/seal_ai.cpp") == "src/gamez/zSeal/zseal_holding.cpp"
     assert holding_file("src/Apps/FTS/hud/hud_main.cpp") == "src/Apps/FTS/hud/hud_holding.cpp"
@@ -374,3 +389,12 @@ def test_manifest_over_the_accepted_plans(root: Path) -> None:
         assert entry["type"]["source"] in DATA_TYPE_SOURCES
         assert (entry["initializer"]["kind"] == "none") == entry["nobits"]
     assert {row["kind"] for row in manifest["judgment"]} <= set(JUDGMENT_KINDS)
+    # Ghidra's untyped pointer is never a class: void *, or const char * where it points at a string literal.
+    generic = [entry for entry in manifest["data"] if entry["type"].get("generic_pointer")]
+    assert generic and all(entry["type"]["basis"] == "pointer" for entry in generic)
+    for entry in generic:
+        literal = any("literal" in row and row["offset"] == 0 for row in entry["initializer"].get("relocations") or [])
+        spelled = "const char *" if literal else "void *"
+        assert entry["declaration_type"].startswith(spelled), entry["name"]
+    assert not any(row.get("type") == "pointer" for row in manifest["judgment"])
+    assert not any(row.get("type") == "pointer" for row in manifest["declarations"]["types"])

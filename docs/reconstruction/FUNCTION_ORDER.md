@@ -722,8 +722,10 @@ apply starts.
 Sources are tried in order: the DWARF variable record, the stage 3 type of
 the same size, the provisional declaration of the same size, then a type
 built from the direct load and store widths. That last one, and the byte
-array used when nothing else applies, are flagged `unproven`. The entry also
-records:
+array used when nothing else applies, are flagged `unproven`. Ghidra's
+untyped `pointer` is never spelled as a class: it is `void *`, or
+`const char *` where the word points at a string literal, and the type
+records `generic_pointer`. The entry also records:
 
 - the initializer from the ELF bytes: relocated words as `&symbol` (string
   literals as text), explicit zeros, none for nobits; rendered for scalars and
@@ -746,12 +748,12 @@ takes about 10 s once the stage 3 digests are cached.
   members of zui_skb.cpp's function-local class `CSoftKeyboard::Local`
   (`Local$2354`), which cannot be defined out of line. Over every authored
   non-copy ELF function (4,822) these are the only failures.
-- **Judgment (268 rows):**
+- **Judgment (267 rows):**
 
   | Kind | Rows |
   | --- | --- |
   | signature contradictions (BD6) | 109 |
-  | by-value types `src` does not declare | 70 |
+  | by-value types `src` does not declare | 69 |
   | unowned bodies | 36 |
   | copy-only bodies | 23 |
   | local statics without one owning function | 16 |
@@ -780,8 +782,10 @@ takes about 10 s once the stage 3 digests are cached.
 - **Return type:** 2,629 from stage 3, 279 provisional, 301 not needed and
   1,429 unproven.
 - **Data (1,862):** types from DWARF 446, stage 3 83, provisional 65,
-  access width 953 and unproven 315. Initializers: 443 from ELF bytes (409
-  rendered), 71 explicit zeros and 1,348 nobits.
+  access width 953 and unproven 315. Initializers: 443 from ELF bytes (419
+  rendered), 71 explicit zeros and 1,348 nobits. Ten stage 3 types are
+  Ghidra's untyped `pointer`: 9 point at a string literal (`const char *`),
+  1 is `void *`.
 
 ## Skeleton writer
 
@@ -829,18 +833,40 @@ that is not one is refused. Each unit file contains:
 Newlines follow each file's own style (all of `src/` is CRLF); a file that
 mixes styles is refused.
 
-**Entry order.** The order keeps the plan's out-of-line function positions
-and each region's data positions. A local static or a function-local class
-member sits inside its owning function, so data and functions interleave
-where the plan requires it. Where nothing constrains the order, file-scope
-data comes first. In 6 units (`seal_ai`, `seal_command`, `seal_unit`,
-`zui_2d`, `zui_skb`, `hud_main`) the plan contradicts itself. Their local
-statics' data positions and their owners' function positions form a cycle:
-for example, the `$2300` counter belongs to the function at position 7 and
-`$2333` to position 1. In those units the function order and the file-scope
-data order are kept, the local statics stay in their owners, and S2 reports
-the data rows that end up out of order. Either the plans or the emission
-rule for local statics must change (phase C, C2).
+**Entry order.** The plans fix the order of the out-of-line functions and
+the order of each region's data. They do not fix where file-scope data go
+between the functions. The writer keeps the plan's function order. A local
+static or a function-local class member sits inside its owning function, in
+counter order. File-scope data are then placed by one rule:
+
+- Take a region's rows in plan order. Each run of file-scope rows between two
+  local statics goes right after the function that holds the earlier static.
+- A run with no static before it goes before the first function.
+- Runs that land in the same place are ordered by region, then position.
+
+So each file-scope datum is written as early as its region's order allows.
+Each region's declaration order (file-scope rows, plus local statics at
+their owner's place) then equals its address order, except across a
+conflict. Each data entry records its `placement`: `before-functions`, or
+`after-local-static-owner` with that function and static.
+
+A **local-static order conflict** is a pair of consecutive statics of a
+region that the planned function order cannot keep in order. Either the
+second one's owner comes first, or one function holds both and the counters
+run backwards, or file-scope rows lie between two statics of one function.
+The writer keeps the plan's function order and leaves both statics in their
+owners. It records the conflict in the write manifest's `order_conflicts`
+(`local-static-order-conflict`): both rows with their owners, the region, the
+file-scope rows between them, and whether the plan's basis names either
+static (`plan_basis_records`). A run inside the conflict still follows the
+earlier static's owner (`between_conflicting_statics`). Either the plans or
+the emission rule for local statics must change (phase C, C2).
+
+A static that several functions reference is not fixed by the manifest. The
+writer puts it in the candidate with the fewest order conflicts in its
+region, the first in source order on a tie. It passes over a candidate that
+already declares a static of the same name, because one block cannot declare
+both.
 
 **Entries.**
 
@@ -877,11 +903,11 @@ deterministic default, a flag and a `waits` bit in the write manifest.
 | signature contradiction | BD6 rewrite |
 | copy-only and unowned bodies | holding file |
 | unparsed body | holding file |
-| local static with several referencing functions | declared in the first of them in source order (`local-static-owner-hypothesis`) |
+| local static with several referencing functions | declared in the one that best keeps its region's order, the first in source order on a tie (`local-static-owner-hypothesis`) |
 | local static that no function of the unit references | not written; waits |
 | function-local class (`Local$2354`) | written in the first stub, in source order, that takes the members' addresses; waits, since the true owner is unproven |
 | overload tie | held; waits |
-| by-value type that `src/` does not declare | spelled by name; waits only where no DWARF record exists, because a definition would be invented. Ghidra's untyped `pointer` is written `void *`, or `const char *` for a string literal. |
+| by-value type that `src/` does not declare | spelled by name; waits only where no DWARF record exists, because a definition would be invented |
 
 Unproven pieces are flagged, never decided silently:
 
@@ -912,6 +938,15 @@ its results is stage evidence.
   must name one of that unit's rows (LOCAL names may repeat across units).
   Every row is written once, or listed with its reason. In-class rows are
   looked up in class bodies.
+  - Every local static must be written in its manifest owner, or in one of
+    its candidates where several functions reference it.
+  - S2 derives the local-static order conflicts itself, from the plan's
+    region order and each static's owner. A static that is not written yet
+    still counts at its owner's place.
+  - The write manifest must flag exactly the derived conflicts. A conflict
+    S2 does not derive fails, and so does a derived one left unflagged.
+  - A predictor mismatch passes only inside a conflict's span (`known_conflicts`).
+    Every other mismatch fails.
 - **S3:** the stage 4 blocks are byte-identical, the `@socom-artifact` edges
   are the same set with the stage 4 baseline's edge digest, and
   `audit docblocks` and `audit source-trace` pass over the preview.
@@ -928,16 +963,36 @@ its results is stage evidence.
   `vswhere`, with a small compatibility prelude. It reports error counts and
   never fails.
 
-**Measured (2026-11-01, `--all`, manifest `67dd7426…`, snapshot `3084d9c8…`).**
-A write takes about 7 s and a check about 20 s; `--lint` adds the `cl` run.
+**Measured (2026-11-01, `--all`, manifest `f61e19bf…`, snapshot `3084d9c8…`).**
+A write takes about 8 s and a check about 25 s; `--lint` adds the `cl` run.
 
 - **Output:** 250 files are written (219 unit files and 31 holding files) and
-  57 orphans are removed. Two writes give the same `write_sha256` and tree
-  digest.
+  57 orphans are removed. Two writes give the same `write_sha256`
+  (`d4bcf968…`) and tree digest (`d721374b…`).
 - **Entries:** 4,632 out-of-line functions (3,870 stubs, 762 moved bodies)
   and 1,471 data entries (1,468 generated, 3 kept). Nested in them are 380
   local statics and the 2 function-local class members. The holding files
   carry 136 bodies and 78 data statements.
+- **Placement:** 1,442 file-scope data entries come before the functions and
+  29 come right after a local static's owner. One of these, zui_skb's
+  `c_szRecipValve`, lies between two conflicting statics.
+- **Order conflicts (6):**
+
+  | Unit | Region | Statics | In the plan's basis |
+  | --- | --- | --- | --- |
+  | seal_ai | between .sdata and .bss | `k_fudge$3241` / `noTurnThreshold$3253` | yes (plan 031) |
+  | seal_command | between .sdata and .bss | `always_allow$2300` / `rangeSqThreshold$2333` | yes (plan 032, left for phase C) |
+  | seal_unit | between .sdata and .bss | `targetOffset$2842` / `Xoff$2886` | yes (plan 036) |
+  | zui_skb | .rodata | `keyDefault$1791` / `c_arrEnumNames$2086` | no |
+  | hud_main | .bss | `tempstr$3031` / `tempstr$3048` | no (DWARF-proven function order) |
+  | hud_main | .bss | `tempstr$3048` / `tempstr$3060` | no |
+
+  - zui_skb: `keyDefault$1791` is referenced only by functions planned
+    after `StrToSkbKey`, which holds `$2086`.
+  - hud_main: `tempstr$3060` goes in `Init`, because `Tick`, the other
+    function that references it, already declares a `tempstr`.
+  - zui_2d is no longer a conflict: `achFallback$3573` goes in
+    `PrepListItem`, the first referencing function after `ach$1865`'s owner.
 - **Moves:** 464 in place, 137 across files, 109 BD6 and 52 out of line;
   all 898 snapshot bodies land exactly once.
 - **Flags:**
@@ -955,12 +1010,13 @@ A write takes about 7 s and a check about 20 s; `--lint` adds the `cl` run.
   | out-of-line head (header body pending) | 52 |
   | local static missing from its moved body | 21 |
   | parameter names dropped | 14 |
+  | local-static order conflict (both rows of each) | 12 |
   | overload ties held | 11 |
   | local static owner hypothesis | 11 |
   | DWARF-rendered initializer | 11 |
-  | generic pointer | 10 |
+  | generic pointer (the manifest's `void *` / `const char *`) | 10 |
 
-- **Judgment (268):** 226 get a default that settles them; 42 wait (24
+- **Judgment (267):** 225 get a default that settles them; 42 wait (24
   undeclared types without any record, 11 overload ties, 5 local statics
   without an owner, the 2 local-class members). A further 10 data rows wait
   for a type, because their byte-array type holds relocated words.
@@ -970,7 +1026,7 @@ A write takes about 7 s and a check about 20 s; `--lint` adds the `cl` run.
   | --- | --- |
   | determinism | pass |
   | S1 | 6,103 entries and 355 local statics pass, 2 unverifiable |
-  | S2 | fails on 7 data rows, all in the 6 contradicting units; 15 rows waiting, 21 local statics missing from their moved bodies, the 4 `CAiLinePtItr` in-class rows waiting for their class body (round 3) |
+  | S2 | pass: the 6 derived conflicts are exactly the flagged ones, and its 5 data mismatches all lie inside them (none unexplained); 15 rows waiting, 21 local statics missing from their moved bodies, the 4 `CAiLinePtItr` in-class rows waiting for their class body (round 3) |
   | S3 | 0 blocks changed, 8,918 edges, digest equal to the baseline's |
   | S4 | 979 body entries and 161 head rewrites pass |
   | S5 | no new findings |

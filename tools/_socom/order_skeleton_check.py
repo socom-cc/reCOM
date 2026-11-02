@@ -19,7 +19,13 @@ results is stage evidence.
   addresses) it gives the target order; every planned row of the unit is
   written exactly once in its own unit and nowhere else; rows the writer could
   not write are listed with their reason; in-class rows are looked up in class
-  bodies.
+  bodies.  Every local static is written in its manifest owner (one of its
+  candidates where several functions reference it).  The local-static order
+  conflicts are derived from the plan's region order and the written owners
+  (two consecutive statics of a region whose owners the planned function order
+  writes the other way round, or file-scope rows between two statics of one
+  function); the write manifest must flag exactly these, and a mismatch
+  passes only inside a conflict's span.
 - **S3**: every stage 4 annotation block is byte-identical to ``src/``'s, the
   ``@socom-artifact`` edges are the same set and keep the stage 4 baseline's
   edge digest, and ``audit docblocks`` / ``audit source-trace`` pass over the
@@ -243,7 +249,9 @@ def _s2(target: Path, written: dict[str, Any], inputs: SkeletonInputs, scans: di
     fences_by_path = {path: parse_fences(scan.text) for path, scan in scans.items()}
     entries = _entries_by_file(written)
     problems: list[str] = []
-    mismatches: list[dict[str, Any]] = []
+    explained: list[dict[str, Any]] = []
+    unexplained: list[dict[str, Any]] = []
+    conflicts: list[dict[str, Any]] = []
     plan_order: list[dict[str, Any]] = []
     not_written: list[dict[str, Any]] = []
     positioned_by_owner: list[str] = []
@@ -258,10 +266,12 @@ def _s2(target: Path, written: dict[str, Any], inputs: SkeletonInputs, scans: di
             continue
         checked_units += 1
         rank: dict[str, tuple[int, int]] = {}
+        owner_of: dict[str, str] = {}  # a local static -> the entry it sits in
         for index, fence in enumerate(fences):
             rank.setdefault(fence["name"], (index, 0))
             for sub, inner in enumerate(fence["nested"], start=1):
                 rank.setdefault(inner["name"], (index, sub))
+                owner_of.setdefault(inner["name"], fence["name"])
         # Local statics declared in moved bodies have no fence: they sit at their owner's place, in counter order.
         for entry in entries.get(path, []):
             if entry.get("fence") != "body" or entry["name"] not in rank:
@@ -270,6 +280,20 @@ def _s2(target: Path, written: dict[str, Any], inputs: SkeletonInputs, scans: di
                      and any(flag["kind"] == "local-static-in-body" for flag in inner["flags"])]
             for sub, inner in enumerate(found, start=1):
                 rank.setdefault(inner["name"], (rank[entry["name"]][0], sub))
+        # A static not written yet (waiting for its type or initializer, or missing from its moved body) still has its
+        # owner's place: the write manifest's nesting must agree with the file's, and every owner with the manifest's.
+        for entry in entries.get(path, []):
+            for inner in entry.get("nested") or []:
+                if inner["kind"] != "local-static":
+                    continue
+                if owner_of.setdefault(inner["name"], entry["name"]) != entry["name"]:
+                    problems.append(f"{inner['name']} is written in {owner_of[inner['name']]}, its write-manifest record nests it in {entry['name']}")
+        wrong_owner = _owner_problems(unit, owner_of, inputs)
+        if wrong_owner:
+            problems.append(f"{len(wrong_owner)} local statics of {unit['unit']} are not written in their owner: {', '.join(wrong_owner[:3])}")
+        artifact_of = {row["name"]: row["artifact"] for region in unit["data"] for row in region["rows"]}
+        places = {name: (rank[owner][0], inputs.data[artifact_of[name]]["structured"].get("number") or 0)
+                  for name, owner in owner_of.items() if owner in rank and name in artifact_of}
         rows = [("function", row) for row in unit["functions"]] + [
             ("data", row) for region in unit["data"] for row in region["rows"]
         ]
@@ -329,23 +353,110 @@ def _s2(target: Path, written: dict[str, Any], inputs: SkeletonInputs, scans: di
             for row in region["rows"]:
                 row["position"] = index_of[row["position"]]
         found = predict(derived, addresses)
+        unit_conflicts = _derived_conflicts(unit, number, rank, places)
+        conflicts.extend(unit_conflicts)
         for row in found["mismatches"]:
-            mismatches.append({"unit": unit["unit"], "segment": number, **row})
-    conflicts = {row["unit"] for row in written.get("order_conflicts") or []}
-    known = [row for row in mismatches if row["unit"] in conflicts and row["scope"] == "data"]
-    unexplained = [row for row in mismatches if row not in known]
-    if mismatches:
-        problems.append(f"{len(mismatches)} rows of the written order differ from the target under the rule"
-                        + (f" ({len(known)} in the {len(conflicts)} units whose plan contradicts itself through local-static owners)" if known else ""))
+            record = {"unit": unit["unit"], "segment": number, **row}
+            (explained if _explains(unit_conflicts, unit, row) else unexplained).append(record)
+    # The writer's flagged conflicts must be exactly the ones the plan data give.
+    flagged = {_conflict_key(row) for row in written.get("order_conflicts") or [] if row.get("kind") == "local-static-order-conflict"}
+    expected = {_conflict_key(row) for row in conflicts}
+    if extra := sorted(flagged - expected):
+        problems.append(f"the write manifest flags {len(extra)} local-static order conflicts the plan data do not give: "
+                        + "; ".join(" ".join(key) for key in extra[:3]))
+    if missing := sorted(expected - flagged):
+        problems.append(f"{len(missing)} local-static order conflicts the plan data give are not flagged in the write manifest: "
+                        + "; ".join(" ".join(key) for key in missing[:3]))
+    if unexplained:
+        problems.append(f"{len(unexplained)} rows of the written order differ from the target under the rule outside every "
+                        "local-static order conflict")
     pending_in_class = [row for row in in_class if not row["class_body"]]
     return {
-        "ok": not problems, "units": checked_units, "mismatches": len(mismatches), "mismatches_in_plan_conflicts": len(known),
-        "unexplained_mismatches": unexplained[:_SHOWN], "plan_conflict_mismatches": known[:_SHOWN],
+        "ok": not problems, "units": checked_units, "mismatches": len(explained) + len(unexplained),
+        "mismatches_explained": len(explained), "unexplained_mismatches": unexplained[:_SHOWN],
+        "explained_mismatches": explained[:_SHOWN], "known_conflicts": conflicts, "known_conflict_count": len(conflicts),
         "written_order_differs_from_plan": plan_order[:_SHOWN], "written_order_differs_from_plan_count": len(plan_order),
         "not_written": not_written, "positioned_by_owner": sorted(positioned_by_owner),
         "in_class_rows": in_class, "in_class_pending": len(pending_in_class), "problems": problems[:_SHOWN * 2],
         "problem_count": len(problems),
     }
+
+
+def _owner_problems(unit: dict[str, Any], owner_of: dict[str, str], inputs: SkeletonInputs) -> list[str]:
+    """Local statics written outside their manifest owner (or, for one several functions reference, outside its candidates)."""
+
+    artifact_of = {row["name"]: row["artifact"] for row in unit["functions"]}
+    found = []
+    for region in unit["data"]:
+        for row in region["rows"]:
+            fence = owner_of.get(row["name"])
+            datum = inputs.data.get(row["artifact"]) or {}
+            if fence is None or datum.get("storage") != "local-static":
+                continue
+            owner = datum.get("owner_function") or {}
+            allowed = {owner["artifact"]} if owner.get("artifact") else set(owner.get("candidates") or [])
+            if artifact_of.get(fence) not in allowed:
+                found.append(f"{row['name']} in {fence}")
+    return found
+
+
+def _derived_conflicts(unit: dict[str, Any], segment: int, rank: dict[str, tuple[int, int]],
+                       places: dict[str, tuple[int, int]]) -> list[dict[str, Any]]:
+    """The local-static order conflicts the plan's region order and the owners give.
+
+    A region's rows are taken in plan (address) order: the written file-scope
+    rows, and every local static at its place ``(owner entry, counter)``; the
+    plan's function order fixes the owners' entries.  Two consecutive statics
+    conflict when the second one's place comes first, or when file-scope rows
+    lie between them and both sit in one function.
+    """
+
+    from .order_skeleton_write import plan_basis_mentions
+
+    found = []
+    for region in unit["data"]:
+        rows = [row for row in sorted(region["rows"], key=lambda row: row["position"])
+                if row["name"] in places or rank.get(row["name"], (0, 1))[1] == 0]
+        previous, run = None, []
+        for row in [*rows, None]:
+            if row is not None and row["name"] not in places:
+                run.append(row["name"])
+                continue
+            if previous is not None and row is not None:
+                a, b = places[previous["name"]], places[row["name"]]
+                if a > b or (run and a[0] >= b[0]):
+                    basis = plan_basis_mentions(unit, [previous["name"], row["name"]])
+                    found.append({"unit": unit["unit"], "segment": segment, "region": region["label"],
+                                  "before": previous["name"], "after": row["name"], "between": run,
+                                  "positions": [previous["position"], row["position"]],
+                                  "plan_basis_records": bool(basis)})
+            previous, run = row, []
+    return found
+
+
+def _explains(conflicts: list[dict[str, Any]], unit: dict[str, Any], mismatch: dict[str, Any]) -> bool:
+    """A data mismatch is forced when its pair crosses the plan-order span of one of the region's conflicts.
+
+    The predictor compares rows that are consecutive among the written ones,
+    so the pair spans the unwritten rows between them.  It is explained when
+    that span and a conflict's span share more than an end point; where every
+    row is written, that means the pair lies inside the conflict's span.
+    """
+
+    if mismatch.get("scope") != "data":
+        return False
+    positions = {row["name"]: row["position"] for region in unit["data"] if region["label"] == mismatch["region"] for row in region["rows"]}
+    if mismatch["before"] not in positions or mismatch["after"] not in positions:
+        return False
+    low, high = sorted((positions[mismatch["before"]], positions[mismatch["after"]]))
+    return any(row["region"] == mismatch["region"] and max(low, row["positions"][0]) < min(high, row["positions"][1])
+               for row in conflicts)
+
+
+def _conflict_key(row: dict[str, Any]) -> tuple[str, str, str, str]:
+    before, after = row["before"], row["after"]
+    return (row["unit"], row["region"], before["name"] if isinstance(before, dict) else before,
+            after["name"] if isinstance(after, dict) else after)
 
 
 def _local(name: str) -> bool:
@@ -605,8 +716,8 @@ def headline(report: dict[str, Any]) -> dict[str, Any]:
     keep = {
         "determinism": ("ok", "renders_identical", "files_checked", "problems"),
         "s1": ("ok", "checked", "local_statics_checked", "failed", "unverifiable"),
-        "s2": ("ok", "units", "mismatches", "mismatches_in_plan_conflicts", "unexplained_mismatches", "written_order_differs_from_plan_count",
-               "in_class_pending", "positioned_by_owner", "problem_count", "problems"),
+        "s2": ("ok", "units", "mismatches", "mismatches_explained", "unexplained_mismatches", "known_conflict_count",
+               "written_order_differs_from_plan_count", "in_class_pending", "positioned_by_owner", "problem_count", "problems"),
         "s3": ("ok", "files_compared", "blocks_changed", "edges", "edge_digest_matches_baseline", "docblocks_ok", "source_trace_ok", "problems"),
         "s4": ("ok", "bodies_checked", "head_rewrites", "snapshot_bodies_landed", "problems"),
         "s5": ("ok", "new_findings"),
@@ -617,4 +728,8 @@ def headline(report: dict[str, Any]) -> dict[str, Any]:
         shown[key] = {field: report[key].get(field) for field in fields if field in report[key]}
     shown["s5"]["guards"] = {name: {k: v for k, v in row.items() if k != "new_findings" or v} for name, row in report["s5"]["guards"].items()}
     shown["s2"]["not_written"] = Counter(row["reason"] for row in report["s2"]["not_written"])
+    shown["s2"]["known_conflicts"] = [
+        f"{row['unit']} {row['region']}: {row['before']} / {row['after']}" + ("" if row["plan_basis_records"] else " (not in the plan's basis)")
+        for row in report["s2"]["known_conflicts"]
+    ]
     return shown

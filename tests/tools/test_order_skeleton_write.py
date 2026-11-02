@@ -12,13 +12,16 @@ import pytest
 from tools._socom.cxx_scan import Program, definition_text, function_symbol, scan_text
 from tools._socom.guards import guard_text, run_guard
 from tools._socom.mw_mangle import mangle
+from tools._socom.order_skeleton_check import _derived_conflicts, _explains
 from tools._socom.order_skeleton_write import (
     WRITE_KIND,
+    _choose_owner,
     _entry_order,
     _head_end,
     _top_level_const,
     cut_preamble,
     parse_fences,
+    plan_basis_mentions,
     preview_root,
     read_source,
     split_blocks,
@@ -137,18 +140,124 @@ def _rows(names: list[str]) -> list[dict]:
     return [{"artifact": name, "name": name, "position": index} for index, name in enumerate(names, start=1)]
 
 
+def _region(label: str, names: list[str]) -> dict:
+    return {"region": label, "label": label, "rows": _rows(names)}
+
+
+def _pairs(conflicts: list[dict]) -> list[tuple[str, str, list[str]]]:
+    return [(row["before"]["name"], row["after"]["name"], [item["name"] for item in row["between"]]) for row in conflicts]
+
+
 def test_entry_order_interleaves_data_with_the_owners_of_local_statics() -> None:
     chain = _rows(["f1", "f2", "f3"])
-    order_of = {row["artifact"]: row["position"] for row in chain}
-    data = [{"region": 21, "rows": _rows(["g1", "s_in_f2", "g2"])}]
-    owners = {"s_in_f2": "f2"}
-    order = _entry_order(chain, order_of, data, [21], owners, set(), relax=False)
+    data = [_region(".bss", ["g1", "s_in_f2", "g2"])]
+    order, placements, conflicts = _entry_order(chain, data, {"s_in_f2": "f2"}, set(), {"s_in_f2": 10})
     assert order == [("d", "g1"), ("f", "f1"), ("f", "f2"), ("d", "g2"), ("f", "f3")]
-    # A local static whose owner contradicts the data order makes a cycle; relaxed, the pins constrain nothing.
-    data = [{"region": 21, "rows": _rows(["s_in_f3", "s_in_f1"])}]
+    assert placements["g1"] == {"after": None, "local_static": None, "conflict": False}
+    assert placements["g2"] == {"after": "f2", "local_static": "s_in_f2", "conflict": False}
+    assert conflicts == []
+    # Rows that land in one place go by region, then position; a waiting row constrains nothing.
+    data = [_region(".bss", ["s_in_f1", "b1", "b2"]), _region(".data", ["d1", "s_waits", "d2"])]
+    order, _placements, _conflicts = _entry_order(chain, data, {"s_in_f1": "f1"}, {"s_waits"}, {"s_in_f1": 1})
+    assert order == [("d", "d1"), ("d", "d2"), ("f", "f1"), ("d", "b1"), ("d", "b2"), ("f", "f2"), ("f", "f3")]
+
+
+def test_entry_order_keeps_placement_where_another_region_conflicts() -> None:
+    """A conflict in one region leaves every other region's interleaving intact (seal_ai: _look$3310 before awareRangeMin)."""
+
+    chain = _rows(["f1", "f2", "f3", "f4"])
+    data = [_region(".rodata", ["s_in_f3", "g1"]), _region(".bss", ["s_in_f4", "s_in_f2"])]
+    owners = {"s_in_f3": "f3", "s_in_f4": "f4", "s_in_f2": "f2"}
+    order, placements, conflicts = _entry_order(chain, data, owners, set(), {"s_in_f3": 3, "s_in_f4": 1, "s_in_f2": 2})
+    assert order == [("f", "f1"), ("f", "f2"), ("f", "f3"), ("d", "g1"), ("f", "f4")]
+    assert placements["g1"]["after"] == "f3" and not placements["g1"]["conflict"]
+    assert _pairs(conflicts) == [("s_in_f4", "s_in_f2", [])]
+    assert conflicts[0]["region"]["label"] == ".bss"
+
+
+def test_entry_order_runs_between_conflicting_statics_follow_the_earlier_owner() -> None:
+    chain = _rows(["f1", "f2", "f3"])
+    data = [_region(".rodata", ["s_in_f3", "g1", "s_in_f1", "g2"])]
     owners = {"s_in_f3": "f3", "s_in_f1": "f1"}
-    assert _entry_order(chain, order_of, data, [21], owners, set(), relax=False) is None
-    assert _entry_order(chain, order_of, data, [21], owners, set(), relax=True) == [("f", "f1"), ("f", "f2"), ("f", "f3")]
+    order, placements, conflicts = _entry_order(chain, data, owners, set(), {"s_in_f3": 1, "s_in_f1": 2})
+    assert order == [("f", "f1"), ("d", "g2"), ("f", "f2"), ("f", "f3"), ("d", "g1")]
+    assert placements["g1"] == {"after": "f3", "local_static": "s_in_f3", "conflict": True}
+    assert placements["g2"] == {"after": "f1", "local_static": "s_in_f1", "conflict": False}
+    assert _pairs(conflicts) == [("s_in_f3", "s_in_f1", ["g1"])]
+
+
+def test_statics_of_one_function_conflict_only_against_counter_order_or_around_file_scope_data() -> None:
+    chain = _rows(["f1", "f2"])
+    owners = {"a": "f2", "b": "f2"}
+    # In counter order with nothing between: no conflict.
+    assert _entry_order(chain, [_region(".bss", ["a", "b"])], owners, set(), {"a": 5, "b": 7})[2] == []
+    # Counters against the data order.
+    assert _pairs(_entry_order(chain, [_region(".bss", ["a", "b"])], owners, set(), {"a": 9, "b": 7})[2]) == [("a", "b", [])]
+    # A file-scope row between two statics of one function has no place.
+    order, placements, conflicts = _entry_order(chain, [_region(".bss", ["a", "g", "b"])], owners, set(), {"a": 5, "b": 7})
+    assert _pairs(conflicts) == [("a", "b", ["g"])] and placements["g"]["conflict"] and order[-1] == ("d", "g")
+
+
+def test_choose_owner_keeps_the_region_order_and_avoids_a_second_static_of_one_name() -> None:
+    chain = _rows(["f1", "f2", "f3", "f4", "f5"])
+    index = {row["artifact"]: number for number, row in enumerate(chain)}
+    region = _region(".sdata", ["s_in_f3", "g", "h"])
+    owners = {"s_in_f3": "f3"}
+    counters = {"s_in_f3": 1865, "h": 3573}
+    variables = {"s_in_f3": "ach", "h": "achFallback"}
+    # zui_2d: the first referencing function would put h before s_in_f3; the first that keeps the order wins.
+    assert _choose_owner(region, "h", ["f1", "f4", "f5"], owners, set(), index, counters, variables) == ("f4", 1)
+    assert owners == {"s_in_f3": "f3"}
+    # Ties go to the first in source order.
+    assert _choose_owner(region, "h", ["f4", "f5"], owners, set(), index, counters, variables) == ("f4", 0)
+    # hud_main: a candidate already holding a static of the same name is passed over (count None: the first was).
+    owners["t"] = "f4"
+    counters["t"], variables["t"], variables["h"] = 3048, "tempstr", "tempstr"
+    assert _choose_owner(region, "h", ["f4", "f5"], owners, set(), index, counters, variables) == ("f5", None)
+    # ... unless every candidate does.
+    assert _choose_owner(region, "h", ["f4"], owners, set(), index, counters, variables) == ("f4", 0)
+
+
+def test_plan_basis_mentions_name_the_rows_that_record_a_static() -> None:
+    unit = {
+        "functions": [
+            {"artifact": "socom:function:0x1", "name": "PathFollowTick__11CSealCtrlAiFf", "basis": "k_fudge$3241 is a shared static"},
+            {"artifact": "socom:function:0x2", "name": "Other__Fv", "basis": "counter k_fudge$32410 is another one"},
+        ],
+        "settled": [{"artifact": "socom:function:0x2", "basis": "noTurnThreshold$3253 agrees"}],
+        "open": [],
+        "notes": ["xoff$1 was checked"],
+    }
+    assert plan_basis_mentions(unit, ["k_fudge$3241", "noTurnThreshold$3253"]) == ["Other__Fv", "PathFollowTick__11CSealCtrlAiFf"]
+    assert plan_basis_mentions(unit, ["xoff$1"]) == ["notes"]
+    assert plan_basis_mentions(unit, ["k_fudge$324"]) == []
+
+
+def test_s2_derives_the_conflicts_and_explains_only_mismatches_inside_them() -> None:
+    unit = {"unit": "u.cpp", "functions": [], "data": [
+        {"label": ".bss", "rows": [{"name": name, "position": index} for index, name in enumerate(
+            ["s3", "g", "s1", "g2", "w", "g3"], start=1)]},
+    ]}
+    # Written file-scope rows rank (entry, 0); statics sit at (owner entry, counter), written or not ("w" waits).
+    rank = {"g": (5, 0), "g2": (1, 0), "g3": (2, 0), "s3": (4, 1), "s1": (0, 1)}
+    places = {"s3": (4, 2300), "s1": (0, 2333), "w": (3, 2400)}
+    conflicts = _derived_conflicts(unit, 7, rank, places)
+    assert [(row["before"], row["after"], row["between"], row["positions"]) for row in conflicts] == [("s3", "s1", ["g"], [1, 3])]
+    assert conflicts[0]["segment"] == 7 and conflicts[0]["plan_basis_records"] is False
+
+    def mismatch(before: str, after: str) -> dict:
+        return {"scope": "data", "region": ".bss", "before": before, "after": after}
+
+    assert _explains(conflicts, unit, mismatch("g", "s1"))
+    assert _explains(conflicts, unit, mismatch("s3", "g"))
+    # A pair that only touches the span is not explained; nor is a function mismatch or another region's.
+    assert not _explains(conflicts, unit, mismatch("s1", "g2"))
+    assert not _explains(conflicts, unit, {**mismatch("g", "s1"), "scope": "functions"})
+    assert not _explains(conflicts, unit, {**mismatch("g", "s1"), "region": ".data"})
+    # The predictor pairs rows consecutive among the written ones: a pair across unwritten rows crossing the span counts.
+    unit["data"][0]["rows"][2]["name"] = "s1_waits"
+    places["s1_waits"] = places.pop("s1")
+    assert _explains(_derived_conflicts(unit, 7, rank, places), unit, mismatch("g", "g2"))
 
 
 def test_preview_root_is_a_build_directory_only(tmp_path: Path) -> None:
@@ -254,6 +363,27 @@ def test_bodies_land_once_and_judgment_rows_all_get_a_default(rendered: dict) ->
     assert all(rendered["first"]["files"][path] is None for path in orphans)
     holding = [row["path"] for row in manifest["files"] if row["action"] == "holding"]
     assert holding and all(path.endswith("_holding.cpp") for path in holding)
+
+
+@needs_inputs
+def test_order_conflicts_and_data_placements_are_recorded(rendered: dict) -> None:
+    manifest = rendered["first"]["manifest"]
+    conflicts = manifest["order_conflicts"]
+    for row in conflicts:
+        assert row["kind"] == "local-static-order-conflict" and row["region"] and row["before"]["name"] != row["after"]["name"]
+        assert row["before"]["owner"] and row["after"]["owner"] and row["plan_basis_records"] == bool(row["plan_basis"])
+    flagged = {inner["name"] for entry in manifest["entries"] for inner in entry.get("nested") or []
+               if any(flag["kind"] == "local-static-order-conflict" for flag in inner["flags"])}
+    assert flagged == {row[key]["name"] for row in conflicts for key in ("before", "after")}
+    data = [entry for entry in manifest["entries"] if entry["kind"] == "data"]
+    assert data and all(entry["placement"]["rule"] in ("before-functions", "after-local-static-owner") for entry in data)
+    assert all((entry["placement"]["after"] is None) == (entry["placement"]["rule"] == "before-functions") for entry in data)
+    assert sum(manifest["summary"]["data_placement"].values()) == len(data)
+    assert manifest["summary"]["order_conflicts"] == len(conflicts)
+    # No entry nests two local statics of one name: one block cannot declare both.
+    for entry in manifest["entries"]:
+        names = [inner["name"].rsplit("$", 1)[0] for inner in entry.get("nested") or [] if inner["kind"] == "local-static"]
+        assert len(names) == len(set(names)), entry["name"]
 
 
 @needs_inputs

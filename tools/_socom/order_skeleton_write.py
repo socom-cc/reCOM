@@ -16,9 +16,13 @@ Per unit file (in the plan's order):
    merged);
 3. one fenced entry per planned row, ``/* @socom-skeleton <stub|body> <mangled> */``
    (no addresses), in an order that keeps the plan's function order and each
-   region's data order (local statics and function-local classes sit inside
-   their owning function, so data and functions interleave where the plan
-   requires it).
+   region's data order: local statics and function-local classes sit inside
+   their owning function, and each run of file-scope data between two local
+   statics of a region goes right after the earlier static's owner (before the
+   first function when no static precedes it).  Where the planned function
+   order cannot keep two statics of a region in order, the pair is flagged
+   ``local-static-order-conflict`` (both rows, the region, whether the plan's
+   basis records it); the function order and the owners are kept.
 
 A ``body`` entry is a provisional definition moved from the frozen snapshot,
 byte-identical except for a recorded head rewrite: BD6 (the declarator becomes
@@ -44,11 +48,11 @@ manifest carries ``write_sha256`` over its canonical JSON.
 from __future__ import annotations
 
 import hashlib
-import heapq
 import re
 import shutil
 import struct
 from collections import Counter, defaultdict
+from collections.abc import Iterator
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -83,8 +87,8 @@ FLAG_KINDS = (
     "parameter-names-dropped", "out-of-line-head", "header-body-pending", "bd4-held", "bd4-held-data",
     "overload-tie-held", "unparsed-body-held", "ambiguous-owner-held", "mixed-data-statement-held",
     "provisional-data-replaced", "provisional-data-kept", "local-static-owner-hypothesis", "local-static-in-body",
-    "local-static-not-in-body", "local-class-owner-hypothesis", "local-class-key-unproven", "in-class-row",
-    "by-value-undeclared",
+    "local-static-not-in-body", "local-static-order-conflict", "local-class-owner-hypothesis", "local-class-key-unproven",
+    "in-class-row", "by-value-undeclared",
 )
 WAIT_KINDS = ("local-static-owner", "initializer-unrenderable", "overload-tie", "local-class-owner", "type-undefined")
 _ZERO_INIT = re.compile(r"^(?:0+|0x0+|0*\.0*f?|0\.0*f?|NULL|false|\{\s*0?\s*\})$", re.I)
@@ -797,36 +801,55 @@ class _Writer:
                 out_of_line.append(row)
         written_functions = {row["artifact"]: row for row in out_of_line}
         order_of = {row["artifact"]: (row["position"] if row.get("position") is not None else 10**6) for row in out_of_line}
+        chain = sorted(out_of_line, key=lambda row: (order_of[row["artifact"]], row["artifact"]))
+        index = {row["artifact"]: number for number, row in enumerate(chain)}
         # Local statics and local-class members: pinned to an owning function of this unit.
         owners: dict[str, str] = {}
         flags: dict[str, list[dict[str, Any]]] = defaultdict(list)
         statics: dict[str, list[dict[str, Any]]] = defaultdict(list)
-        data_rows: list[tuple[int, dict[str, Any], dict[str, Any]]] = []
-        regions = [region["region"] for region in unit["data"]]
+        counters: dict[str, int] = {}
+        hypotheses: list[tuple[dict[str, Any], dict[str, Any], list[str]]] = []
         for region in unit["data"]:
             for row in region["rows"]:
                 datum = self.inputs.data[row["artifact"]]
-                data_rows.append((region["region"], row, datum))
                 if datum["storage"] != "local-static":
                     continue
+                counters[row["artifact"]] = datum["structured"].get("number") or 0
                 owner = datum.get("owner_function") or {}
                 chosen = owner.get("artifact")
                 if chosen is None:
-                    candidates = [artifact for artifact in owner.get("candidates") or [] if artifact in written_functions]
+                    candidates = sorted((artifact for artifact in owner.get("candidates") or [] if artifact in written_functions),
+                                        key=lambda artifact: order_of[artifact])
                     if owner.get("basis") == "several functions" and candidates:
-                        chosen = min(candidates, key=lambda artifact: order_of[artifact])
-                        flags[row["artifact"]].append({"kind": "local-static-owner-hypothesis",
-                                                       "detail": f"first of {len(candidates)} referencing functions in source order"})
+                        hypotheses.append((region, row, candidates))
                     else:
                         self.waiting.append({"kind": "local-static-owner", "artifact": row["artifact"], "name": row["name"],
                                              "unit": name, "segment": segment, "detail": owner.get("basis")})
-                        continue
+                    continue
                 if chosen not in written_functions:
                     self.waiting.append({"kind": "local-static-owner", "artifact": row["artifact"], "name": row["name"],
                                          "unit": name, "segment": segment, "detail": "its owner is not an out-of-line row of the unit"})
                     continue
                 owners[row["artifact"]] = chosen
-                statics[chosen].append(row)
+        waiting_data = {row["artifact"] for row in self.waiting if row["kind"] == "local-static-owner"}
+        variables = {artifact: self.inputs.data[artifact]["structured"].get("variable") for artifact in counters}
+        undecided = {row["artifact"] for _region, row, _candidates in hypotheses}
+        for region, row, candidates in hypotheses:
+            undecided.discard(row["artifact"])
+            chosen, fewer = _choose_owner(region, row["artifact"], candidates, owners, waiting_data | undecided, index, counters, variables)
+            owners[row["artifact"]] = chosen
+            detail = f"first of {len(candidates)} referencing functions in source order"
+            if chosen != candidates[0]:
+                first = written_functions[candidates[0]]["name"]
+                reason = (f"{fewer} order conflict(s) fewer than {first}" if fewer is not None else
+                          f"{first} already declares a static named {variables[row['artifact']]}")
+                detail = (f"{written_functions[chosen]['name']}: of {len(candidates)} referencing functions, the one that best "
+                          f"keeps the {region['label']} declaration order ({reason})")
+            flags[row["artifact"]].append({"kind": "local-static-owner-hypothesis", "detail": detail})
+        for region in unit["data"]:
+            for row in region["rows"]:
+                if row["artifact"] in owners:
+                    statics[owners[row["artifact"]]].append(row)
         pending = local_class.pop("pending", [])
         if pending:
             owner = self._local_class_owner(pending, written_functions, order_of)
@@ -842,19 +865,29 @@ class _Writer:
                                      "detail": f"default owner {detail}; the true owner is unproven"})
                 for row in pending:
                     owners[row["artifact"]] = artifact
-        # The order: functions by position, each region's data by position, pinned rows at their owner.
-        chain = sorted(out_of_line, key=lambda row: (order_of[row["artifact"]], row["artifact"]))
-        waiting_data = {row["artifact"] for row in self.waiting if row["kind"] == "local-static-owner"}
-        order = _entry_order(chain, order_of, unit["data"], regions, owners, waiting_data, relax=False)
-        if order is None:
-            order = _entry_order(chain, order_of, unit["data"], regions, owners, waiting_data, relax=True)
-            pinned = sorted(self.inputs.data[artifact]["name"] for artifact in owners if artifact.startswith("socom:data:"))
+        # The order: functions by position, pinned rows at their owner, file-scope data interleaved (_entry_order).
+        order, placements, conflicts = _entry_order(chain, unit["data"], owners, waiting_data, counters)
+        for step in conflicts:
+            before, after, region = step["before"], step["after"], step["region"]
+            owner_names = [written_functions[owners[row["artifact"]]]["name"] for row in (before, after)]
+            if owner_names[0] != owner_names[1]:
+                why = f"the planned function order puts {owner_names[1]} before {owner_names[0]}"
+            elif counters[before["artifact"]] > counters[after["artifact"]]:
+                why = f"the static counters of {owner_names[0]} run against the data order"
+            else:
+                why = f"file-scope data lie between two statics of {owner_names[0]}"
+            basis = plan_basis_mentions(unit, [before["name"], after["name"]])
             self.conflicts.append({
-                "unit": name, "segment": segment, "local_statics": pinned,
-                "detail": "the plan's data order and function order contradict each other through the owners of its local "
-                          "statics: function order and file-scope data order are kept, the local statics stay in their "
-                          "owners, and S2 lists the data rows out of order",
+                "kind": "local-static-order-conflict", "unit": name, "segment": segment, "region": region["label"],
+                "before": {"name": before["name"], "owner": owner_names[0], "position": before.get("position")},
+                "after": {"name": after["name"], "owner": owner_names[1], "position": after.get("position")},
+                "between": [row["name"] for row in step["between"]],
+                "plan_basis_records": bool(basis), "plan_basis": basis,
+                "detail": f"{why}: the planned function order is kept and both statics stay in their owners (phase C)",
             })
+            for row, other in ((before, after), (after, before)):
+                flags[row["artifact"]].append({"kind": "local-static-order-conflict",
+                                               "detail": f"{region['label']}: against {other['name']}"})
         rows_out: list[dict[str, Any]] = []
         entries: list[str] = []
         for kind, artifact in order:
@@ -865,6 +898,13 @@ class _Writer:
                 text, record = self._data_entry(self.inputs.data[artifact], tag, segment, name, flags.get(artifact, []))
                 if text is None:
                     continue
+                place = placements[artifact]
+                record["placement"] = {
+                    "rule": "after-local-static-owner" if place["after"] else "before-functions",
+                    "after": written_functions[place["after"]]["name"] if place["after"] else None,
+                    "local_static": self.inputs.data[place["local_static"]]["name"] if place["local_static"] else None,
+                    **({"between_conflicting_statics": True} if place["conflict"] else {}),
+                }
             entries.append(text)
             rows_out.append(record)
         for row in in_class:
@@ -1102,17 +1142,14 @@ class _Writer:
         return f"{storage}{text}" + (f" = {value}" if value is not None else "") + ";", flags
 
     def _type_node(self, datum: dict[str, Any], variable: str, tag: str) -> tuple[dict[str, Any] | None, str | None]:
+        """The manifest type parsed back, and how the manifest spelled Ghidra's untyped ``pointer`` (None otherwise)."""
+
         text = datum.get("declaration_type") or ""
-        if datum["type"].get("source") == "stage3" and datum["type"].get("basis") == "pointer":
-            literal = any("literal" in row for row in datum["initializer"].get("relocations") or [])
-            if literal:
-                return {"t": "pointer", "to": {"t": "builtin", "code": "c", "cv": "C"}}, "const char * (it points at a string literal)"
-            return {"t": "pointer", "to": {"t": "builtin", "code": "v"}}, "void *"
         tokens, _comments = tokenize(text + ";")
         rows = data_symbols(self.program, [token for token in tokens if token.text != ";"], (), tag)
         if len(rows) != 1 or rows[0].type is None or rows[0].name != variable:
             return None, None
-        return rows[0].type, None
+        return rows[0].type, datum["type"].get("generic_pointer")
 
     def _render(self, datum: dict[str, Any], node: dict[str, Any], speller: Speller, unnamed: str | None) -> tuple[str, bool]:
         data = bytes.fromhex(datum["initializer"]["hex"])
@@ -1160,55 +1197,123 @@ class _Writer:
         raise Unrenderable(f"a {kind} type")
 
 
-def _entry_order(chain: list[dict[str, Any]], order_of: dict[str, int], regions_rows: list[dict[str, Any]], regions: list[int],
-                 owners: dict[str, str], waiting: set[str], *, relax: bool) -> list[tuple[str, str]] | None:
-    """A topological order of the unit's entries (None on a cycle).
+def _region_steps(region: dict[str, Any], owners: dict[str, str], skip: set[str], index: dict[str, int],
+                  counters: dict[str, int]) -> Iterator[tuple[dict[str, Any] | None, list[dict[str, Any]], dict[str, Any] | None, bool]]:
+    """A region's rows in plan order, cut at its pinned rows: ``(pinned before, file-scope run, pinned after, conflict)``.
 
-    Out-of-line functions keep their position order; each region's data keeps
-    its position order, a pinned row (local static, function-local class
-    member) standing for its owner.  Ties go to data first (file-scope data
-    as early as the constraints allow), then by region and position.  With
-    ``relax`` the pinned rows constrain nothing.
+    A pinned row (local static) is written at its owner's place, in counter
+    order inside it: its slot is ``(owner index, counter)``.  Two consecutive
+    pinned rows conflict when the second one's slot comes first, or when a
+    run of file-scope rows lies between them and they share an owner (no
+    file-scope place exists between them).  Rows in ``skip`` (not written) are
+    left out.
     """
 
-    nodes: dict[tuple[str, str], tuple[Any, ...]] = {}
-    edges: dict[tuple[str, str], set[tuple[str, str]]] = defaultdict(set)
-    indegree: Counter = Counter()
-    for row in chain:
-        nodes[("f", row["artifact"])] = (1, order_of[row["artifact"]], 0, row["artifact"])
-    keys: dict[str, tuple[str, str]] = {}
-    for region in regions_rows:
-        for row in region["rows"]:
-            if row["artifact"] in owners:
-                if not relax:
-                    keys[row["artifact"]] = ("f", owners[row["artifact"]])
-            elif row["artifact"] not in waiting:
-                key = ("d", row["artifact"])
-                keys[row["artifact"]] = key
-                nodes[key] = (0, regions.index(region["region"]), row.get("position") or 0, row["artifact"])
+    def slot(row: dict[str, Any]) -> tuple[int, int]:
+        return index[owners[row["artifact"]]], counters.get(row["artifact"], 0)
 
-    def edge(a: tuple[str, str], b: tuple[str, str]) -> None:
-        if a != b and b not in edges[a]:
-            edges[a].add(b)
-            indegree[b] += 1
+    rows = [row for row in sorted(region["rows"], key=lambda row: row.get("position") or 0)
+            if row["artifact"] in owners or row["artifact"] not in skip]
+    previous: dict[str, Any] | None = None
+    run: list[dict[str, Any]] = []
+    for row in [*rows, None]:
+        if row is not None and row["artifact"] not in owners:
+            run.append(row)
+            continue
+        conflict = previous is not None and row is not None and (
+            slot(previous) > slot(row) or (bool(run) and slot(previous)[0] >= slot(row)[0]))
+        yield previous, run, row, conflict
+        previous, run = row, []
 
-    for a, b in zip(chain, chain[1:]):
-        edge(("f", a["artifact"]), ("f", b["artifact"]))
-    for region in regions_rows:
-        ordered = [row for row in sorted(region["rows"], key=lambda row: row.get("position") or 0) if row["artifact"] in keys]
-        for a, b in zip(ordered, ordered[1:]):
-            edge(keys[a["artifact"]], keys[b["artifact"]])
-    ready = [(nodes[key], key) for key in nodes if not indegree[key]]
-    heapq.heapify(ready)
+
+def _choose_owner(region: dict[str, Any], artifact: str, candidates: list[str], owners: dict[str, str], skip: set[str],
+                  index: dict[str, int], counters: dict[str, int], variables: dict[str, str | None]) -> tuple[str, int | None]:
+    """The owner of a local static several functions reference: ``(owner, conflicts fewer than the first candidate)``.
+
+    ``candidates`` are in source order.  A candidate that already holds a
+    static of the same variable name is passed over (one block cannot declare
+    both), unless every candidate does.  Of the rest, the one with the fewest
+    local-static order conflicts in the static's region (against the owners
+    already fixed; ``skip`` rows are left out) wins, the first in source order
+    on a tie.  The count is None when the first candidate was passed over.
+    ``owners`` is restored on return.
+    """
+
+    taken = {owners[other] for other in counters
+             if other != artifact and other in owners and variables.get(other) == variables.get(artifact)}
+    usable = [candidate for candidate in candidates if candidate not in taken] or candidates
+    counts = []
+    previous = owners.get(artifact)
+    for candidate in usable:
+        owners[artifact] = candidate
+        counts.append(sum(1 for step in _region_steps(region, owners, skip, index, counters) if step[3]))
+    if previous is None:
+        owners.pop(artifact, None)
+    else:
+        owners[artifact] = previous
+    chosen = usable[counts.index(min(counts))]
+    return chosen, (counts[0] - min(counts) if usable[0] == candidates[0] else None)
+
+
+def _entry_order(chain: list[dict[str, Any]], regions_rows: list[dict[str, Any]], owners: dict[str, str], waiting: set[str],
+                 counters: dict[str, int]) -> tuple[list[tuple[str, str]], dict[str, dict[str, Any]], list[dict[str, Any]]]:
+    """The unit's entry order, each file-scope datum's placement, and the local-static order conflicts.
+
+    Out-of-line functions keep the plan's order (``chain``); a pinned row
+    (local static, function-local class member) sits in its owner.  File-scope
+    data are interleaved by one deterministic rule: each run of file-scope rows
+    between two pinned rows of a region goes right after the earlier pinned
+    row's owner, or before the first function when no pinned row precedes it
+    (as early as the region's order allows).  Runs that land in one place go
+    by region, then position.  Then every region's declaration order equals
+    its plan (address) order, except across a conflict (``_region_steps``),
+    which the planned function order forces: its run still follows the
+    earlier static's owner, and one pair inside the conflict's span is out of
+    order.
+    """
+
+    index = {row["artifact"]: number for number, row in enumerate(chain)}
+    gaps: dict[int, list[tuple[tuple[int, int, str], str]]] = defaultdict(list)
+    placements: dict[str, dict[str, Any]] = {}
+    conflicts: list[dict[str, Any]] = []
+    for rank, region in enumerate(regions_rows):
+        for before, run, after, conflict in _region_steps(region, owners, waiting, index, counters):
+            gap = index[owners[before["artifact"]]] + 1 if before is not None else 0
+            for row in run:
+                gaps[gap].append(((rank, row.get("position") or 0, row["artifact"]), row["artifact"]))
+                placements[row["artifact"]] = {"after": chain[gap - 1]["artifact"] if gap else None,
+                                               "local_static": before["artifact"] if before is not None else None,
+                                               "conflict": conflict}
+            if conflict:
+                conflicts.append({"region": region, "before": before, "after": after, "between": run})
     order: list[tuple[str, str]] = []
-    while ready:
-        _rank, key = heapq.heappop(ready)
-        order.append(key)
-        for following in sorted(edges[key]):
-            indegree[following] -= 1
-            if not indegree[following]:
-                heapq.heappush(ready, (nodes[following], following))
-    return order if len(order) == len(nodes) else None
+    for gap in range(len(chain) + 1):
+        order.extend(("d", artifact) for _key, artifact in sorted(gaps.get(gap, [])))
+        if gap < len(chain):
+            order.append(("f", chain[gap]["artifact"]))
+    return order, placements, conflicts
+
+
+def plan_basis_mentions(unit: dict[str, Any], names: list[str]) -> list[str]:
+    """The plan rows of a unit whose recorded basis names one of ``names`` (function rows by name; settled, open rows and notes too)."""
+
+    pattern = re.compile("|".join(re.escape(name) + r"(?![\w$])" for name in names))
+    by_artifact = {row.get("artifact"): row.get("name") for row in unit.get("functions") or []}
+    found: set[str] = set()
+    for row in unit.get("functions") or []:
+        if isinstance(row.get("basis"), str) and pattern.search(row["basis"]):
+            found.add(row.get("name") or row.get("artifact"))
+    for key in ("settled", "open"):
+        for row in unit.get(key) or []:
+            if not isinstance(row, dict):
+                if isinstance(row, str) and pattern.search(row):
+                    found.add(key)
+            elif isinstance(row.get("basis"), str) and pattern.search(row["basis"]):
+                found.add(by_artifact.get(row.get("artifact")) or row.get("artifact") or key)
+    for note in unit.get("notes") or []:
+        if pattern.search(note if isinstance(note, str) else canonical_json(note)):
+            found.add("notes")
+    return sorted(str(item) for item in found)
 
 
 def _signature_flags(signature: dict[str, Any]) -> list[dict[str, Any]]:
@@ -1384,6 +1489,8 @@ def render_skeletons(inputs: SkeletonInputs, *, segment: int | None) -> dict[str
         "flags": dict(sorted(flags.items())),
         "waiting": dict(sorted(Counter(row["kind"] for row in writer.waiting).items())),
         "order_conflicts": len(writer.conflicts),
+        "data_placement": dict(sorted(Counter(row["placement"]["rule"] for row in records if row.get("placement")).items())),
+        "data_between_conflicting_statics": sum(1 for row in records if (row.get("placement") or {}).get("between_conflicting_statics")),
         "replaced_data_statements": len(writer.replaced),
         "judgment_defaults": dict(sorted(Counter(row["default"] for row in judgment).items())),
     }
@@ -1427,19 +1534,16 @@ def judgment_defaults(inputs: SkeletonInputs, writer: _Writer) -> list[dict[str,
         elif kind == "local-static-owner":
             waits = ("local-static-owner", row.get("artifact")) in waiting
             default = "not written: no defining function of the unit references it" if waits else \
-                "declared in the first referencing function in source order"
+                "declared in the referencing function that best keeps its region's declaration order (the first in source order on a tie)"
             flag = "local-static-owner" if waits else "local-static-owner-hypothesis"
         elif kind == "s1-failure":
             default, flag, waits = ("written inside the first stub (in source order) that takes its address, as a struct "
                                     "with inline members"), "local-class-owner-hypothesis", True
         elif kind == "by-value-undeclared":
             record = "DWARF record: True" in (row.get("detail") or "")
-            if row.get("type") == "pointer":
-                default, flag, waits = "Ghidra's untyped pointer: written void * (const char * for a string literal)", "generic-pointer", False
-            else:
-                default = "the .cpp spells the type by name; its definition is the round 3 declaration writer's" + (
-                    " (from its DWARF record)" if record else " (no record anywhere: a definition would be invented)")
-                flag, waits = "by-value-undeclared", not record
+            default = "the .cpp spells the type by name; its definition is the round 3 declaration writer's" + (
+                " (from its DWARF record)" if record else " (no record anywhere: a definition would be invented)")
+            flag, waits = "by-value-undeclared", not record
         else:
             default, flag, waits = "listed", kind, True
         rows.append({"kind": kind, "key": key, "name": row.get("name"), "unit": row.get("unit"), "segment": row.get("segment"),

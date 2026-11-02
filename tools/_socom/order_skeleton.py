@@ -489,6 +489,7 @@ _GHIDRA_BUILTINS = {
     "qword": ["unsigned", "long", "long"], "float": ["float"], "double": ["double"], "longdouble": ["long", "double"],
     "wchar_t": ["wchar_t"], "uint16": ["__int128"], "int16": ["__int128"],
 }
+GHIDRA_POINTER = "pointer"  # Ghidra's built-in untyped pointer: void * (const char * for a string literal), never a class
 _PROVISIONAL_CATEGORIES = ("unresolved", "anonymous")
 _BUILTIN_SIZES = {"v": None, "b": 1, "c": 1, "s": 2, "i": 4, "l": 8, "x": 8, "f": 4, "d": 8, "r": 8, "w": 4, "1": 16, "e": None}
 
@@ -524,6 +525,8 @@ class _Types:
             return None, "undefined"
         if base in _GHIDRA_BUILTINS:
             node: dict[str, Any] = builtin_node(_GHIDRA_BUILTINS[base])
+        elif base == GHIDRA_POINTER:
+            node = {"t": "pointer", "to": builtin_node(["void"])}
         else:
             if not re.fullmatch(r"[A-Za-z_@$][\w@$]*", base):
                 return None, f"Ghidra type {base!r} cannot be spelled"
@@ -1448,6 +1451,12 @@ class _Builder:
         entry["storage"] = "static" if binding == "LOCAL" and not entry["static_member"] and kind not in ("local_static", "local_static_guard") else (
             "local-static" if kind in ("local_static", "local_static_guard") else "external")
         entry["type"] = self._data_type(row, address, size, structured, entry)
+        if entry["type"].get("generic_pointer") and not nobits:
+            # Ghidra's untyped pointer at a string literal is a const char * (anything else stays void *).
+            relocations = self._initializer(address, size, nobits, entry["type"]["node"]).get("relocations") or []
+            if any("literal" in relocation and relocation["offset"] == 0 for relocation in relocations):
+                entry["type"]["node"] = {"t": "pointer", "to": {**builtin_node(["char"]), "cv": "C"}}
+                entry["type"]["generic_pointer"] = "const char * (it points at a string literal)"
         node = entry["type"].get("node")
         variable = structured["variable"] if kind in ("local_static", "local_static_guard") else (
             structured["name"]["text"] if kind == "data" else structured.get("name", name))
@@ -1488,7 +1497,10 @@ class _Builder:
         if ghidra and (size is None or ghidra[1] == size):
             node, _why = self.types.ghidra_node(ghidra[0])
             if node is not None and self.types.size(node) in (None, size):
-                return {"source": "stage3", "node": node, "basis": ghidra[0]}
+                found = {"source": "stage3", "node": node, "basis": ghidra[0]}
+                if re.fullmatch(rf"\s*{GHIDRA_POINTER}\s*", ghidra[0]):
+                    found["generic_pointer"] = "void *"
+                return found
         for record in self.declared.get(row["name"], []):
             node = record["parsed"].type
             if node is None or record["parsed"].error:
