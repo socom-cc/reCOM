@@ -336,7 +336,7 @@ class HeaderWriter:
                 decision = self.inputs.decision("type-no-record", row.get("mangled")) if row["need"] == "full" and row["by_value"] else None
                 if decision is not None:
                     # Decided (order skeleton decide --type): the lease holder's definition text, written verbatim.
-                    text = decision["value"].strip()
+                    text = decision["value"].replace("\r\n", "\n").replace("\r", "\n").strip()
                     if not re.match(rf"^(?:enum|struct|class|union)\s+{re.escape(chain[-1])}\b", text):
                         raise SocomError(f"the decided definition of {_readable(chain)} does not define {chain[-1]}: {text[:60]!r}")
                     self.types[chain] = {**row, "definition": {"kind": "enum" if text.startswith("enum") else "decided",

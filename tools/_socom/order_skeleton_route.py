@@ -766,7 +766,8 @@ def decide(root: Path, tracker: dict[str, Any], item_id: str, lease_owner: str, 
     _lease(item, lease_owner)
     if not basis.strip():
         raise SocomError("a decision needs --basis: the evidence or judgment it rests on")
-    text = value.strip()
+    # One newline style: decision text lands in LF-hashed files (a Windows shell may hand over CRLF).
+    text = value.replace("\r\n", "\n").replace("\r", "\n").strip()
     if not text:
         raise SocomError(f"--{option} must not be empty")
     inputs, _base = route_inputs(root, tracker, manifest_path=manifest_path, snapshot_path=snapshot_path)
@@ -776,7 +777,8 @@ def decide(root: Path, tracker: dict[str, Any], item_id: str, lease_owner: str, 
     for (kind, key), row in inputs.decisions.items():
         if row["item"] == item_id:
             rows.append({"kind": kind, "key": key, "item": item_id, "option": DECISION_KINDS[kind], "decided": True,
-                         "candidates": _candidates(inputs, kind, key), "unit": _unit_of(inputs, kind, key), "name": key})
+                         "candidates": _candidates(inputs, kind, key), "unit": _unit_of(inputs, kind, key),
+                         "name": row.get("name") or (_mangled_last_name(key) if kind == "type-no-record" else key)})
     matches = [row for row in rows if artifact in (row.get("key"), row.get("name"))]
     if not matches:
         raise SocomError(f"{artifact} is not a waiting row (order skeleton apply-check or the write manifest lists them)")
@@ -804,6 +806,8 @@ def decide(root: Path, tracker: dict[str, Any], item_id: str, lease_owner: str, 
                                                          "work_item_id": item_id, "decisions": []}
     entry = {"kind": row["kind"], "key": row["key"], "value": text, "basis": basis.strip(), "by": lease_owner,
              "at": _iso(_utc_now())}
+    if row.get("name") and row["name"] != row["key"]:
+        entry["name"] = row["name"]
     replaced = [old for old in current["decisions"] if (old["kind"], old["key"]) == (entry["kind"], entry["key"])]
     current["decisions"] = sorted([old for old in current["decisions"] if old not in replaced] + [entry],
                                   key=lambda old: (old["kind"], old["key"]))
@@ -811,6 +815,23 @@ def decide(root: Path, tracker: dict[str, Any], item_id: str, lease_owner: str, 
     return {"ok": True, "mutation_performed": True, "work_item_id": item_id, "decisions": relative, "decision": entry,
             "replaced": replaced, "count": len(current["decisions"]),
             "note": f"the decision takes effect at the next {APPLY_ROUTE} of {item_id}"}
+
+
+def _mangled_last_name(mangled: str) -> str:
+    """The last component of a mangled type name (``Q210ActionItem5EVENT`` -> ``EVENT``), else the name itself."""
+
+    index, count = 0, 1
+    if mangled.startswith("Q") and len(mangled) > 1 and mangled[1].isdigit():
+        index, count = 2, int(mangled[1])
+    last = mangled
+    for _ in range(count):
+        digits = re.match(r"\d+", mangled[index:])
+        if not digits:
+            return mangled
+        length = int(digits.group())
+        start = index + len(digits.group())
+        last, index = mangled[start:start + length], start + length
+    return last or mangled
 
 
 def _candidates(inputs: Any, kind: str, key: str) -> list[str]:

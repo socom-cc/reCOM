@@ -63,9 +63,31 @@ BLOCK = (
 )
 
 
+def _unprepared(tracker: dict) -> dict:
+    """The tracker before the skeleton route opened: gate blocked, no prepare item, directory resources.
+
+    The real route is open (the skeleton gate accepted, the prepare added), so tests that open the
+    gate and add the prepare themselves start from the earlier state.
+    """
+
+    tracker = copy.deepcopy(tracker)
+    tracker["work_items"] = [row for row in tracker["work_items"] if row["id"] != ORDER_SKELETON_PREPARE_ID]
+    for row in tracker["work_items"]:
+        if row["id"] == ORDER_SKELETON_ROUTE_ID and row.get("status") == "accepted":
+            row.update(status="blocked", accepted=None, evidence=[])
+        if row.get("kind") == ORDER_APPLY_KIND:
+            row["dependencies"] = [item for item in row["dependencies"] if item != ORDER_SKELETON_PREPARE_ID]
+            row["resources"] = list(row["batch"]["directories"])
+            row["batch"].pop("files", None)
+    for stage in tracker["stages"]:
+        (stage.get("decomposition") or {}).pop("skeleton_prepare", None)
+    refresh_ready_and_stages(tracker)
+    return tracker
+
+
 @pytest.fixture(scope="module")
 def tracker() -> dict:
-    return load_tracker(ROOT / ".agent" / "RECONSTRUCTION_PROGRESS.json")
+    return _unprepared(load_tracker(ROOT / ".agent" / "RECONSTRUCTION_PROGRESS.json"))
 
 
 def _applies(tracker: dict) -> list[dict]:
@@ -390,9 +412,12 @@ def test_decisions_reach_the_render_and_its_checks(tracker: dict, monkeypatch: p
 
 
 @needs_inputs
-def test_the_prepare_apply_renders_checks_and_records_without_writing(tracker: dict) -> None:
+def test_the_prepare_apply_renders_checks_and_records_without_writing(tracker: dict, monkeypatch: pytest.MonkeyPatch) -> None:
     from tools._socom.order_skeleton_route import RENDER_DIR, prepare_skeleton_apply, prepare_reservations, route_inputs
     from tools._socom.order_skeleton_write import render_skeletons
+
+    # The real decisions name the real prepare item, which this earlier-state tracker does not have yet.
+    monkeypatch.setattr(order_skeleton_write, "DECISIONS_DIR", "build/test-skeleton-decisions-empty")
 
     updated = copy.deepcopy(tracker)
     registered = set((capability_opening(ORDER_SKELETON_ROUTE_ID) or {}).get("commands") or [])
@@ -430,3 +455,13 @@ def test_the_prepare_apply_renders_checks_and_records_without_writing(tracker: d
                                               "heartbeat_at": "2026-11-01T00:00:00Z", "expires_at": "2999-01-01T00:00:00Z"})
     with pytest.raises(SocomError, match="writes after the accepted prepare"):
         prepare_skeleton_apply(ROOT, updated, apply["id"], "worker", manifest_path=INPUTS[0], snapshot_path=INPUTS[1], write=False)
+
+
+def test_a_decided_type_row_keeps_its_readable_name() -> None:
+    # Re-deciding a type row checks the definition against the type's own name, not its mangled key.
+    from tools._socom.order_skeleton_route import _mangled_last_name
+
+    assert _mangled_last_name("Q210ActionItem5EVENT") == "EVENT"
+    assert _mangled_last_name("Q36CAiMap6region4TYPE") == "TYPE"
+    assert _mangled_last_name("7CDIType") == "CDIType"
+    assert _mangled_last_name("plain") == "plain"
