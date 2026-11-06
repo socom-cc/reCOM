@@ -20,9 +20,11 @@ A conflict writes nothing: the route reports its hunks and writes marker
 files under ``build/`` for a source worker, whose resolved file is passed back
 with ``--resolutions`` and recorded by digest.
 
-Every merged or resolved file must keep the render's fence lines (the same
-sequence, so the order the fences give is the planned one) and its stage 4
-blocks.  Contents are kept LF-normalized in a content-addressed blob store
+Before the per-file merge, ``order_skeleton_carry`` carries every entry the
+new render moves across files (or renames) by its fence, so a port-lane edit
+follows its body.  Every merged or resolved file must keep the render's fence
+lines (the same sequence, so the order the fences give is the planned one)
+and its stage 4 blocks; a merge that does not is a conflict to resolve.  Contents are kept LF-normalized in a content-addressed blob store
 under ``build/stage5/skeleton-route/blobs`` so ``order skeleton apply-check``
 can re-run a recorded merge.
 """
@@ -43,7 +45,10 @@ BLOB_DIR = f"{ROUTE_DIR}/blobs"
 CONFLICT_DIR = f"{ROUTE_DIR}/conflicts"
 CONFLICT_KIND = "socom-order-skeleton-conflicts"
 CONFLICT_SCHEMA = 1
-MERGE_KINDS = ("render", "kept", "same", "clean", "resolved")
+MERGE_KINDS = ("render", "kept", "same", "clean", "carried", "resolved")
+# A resolution that settles a conflicting file as deleted: an empty marker file <dir>/<path><suffix>.
+DELETION_SUFFIX = ".socom-deleted"
+CONFLICT_KEYS = ("ancestor_sha256", "ours_sha256", "theirs_sha256", "carry_sha256")
 _FENCE = re.compile(r"/\* @socom-skeleton (?:stub|body|decl|end) \S+ \*/")
 _MARKERS = ("<<<<<<< ", "||||||| ", "=======", ">>>>>>> ")
 _SHOWN = 12
@@ -249,17 +254,27 @@ def fence_lines(data: bytes | None) -> list[str]:
     return [line.strip() for line in _text(data).splitlines() if _FENCE.search(line)]
 
 
-def check_merged(path: str, merged: bytes | None, render: bytes | None) -> list[str]:
-    """A merged or resolved file keeps the render's fences (same sequence) and stage 4 blocks, with no conflict marker."""
+def check_merged(path: str, merged: bytes | None, render: bytes | None, *, resolved: bool = False) -> list[str]:
+    """A merged or resolved file keeps the render's fences (same sequence) and stage 4 blocks, with no conflict marker.
+
+    A resolution may keep (as port code without fences) a file the render
+    deletes; a merge may not, and nothing may delete a file the render writes.
+    """
 
     from .source_apply import parse_blocks
 
-    if merged is None or render is None:
-        return [] if merged == render else [f"{path}: the merge keeps the file the render {'deletes' if render is None else 'writes'}"]
+    if merged is None:
+        return [] if render is None else [f"{path}: the merge deletes the file the render writes"]
     problems = []
     text = _text(merged)
     if any(line.startswith(_MARKERS) for line in text.splitlines()):
         problems.append(f"{path}: conflict markers remain")
+    if render is None:
+        if not resolved:
+            problems.append(f"{path}: the merge keeps the file the render deletes")
+        elif fence_lines(merged):
+            problems.append(f"{path}: a kept file the render deletes may hold no @socom-skeleton fence")
+        return problems
     if fence_lines(merged) != fence_lines(render):
         problems.append(f"{path}: its @socom-skeleton fence lines differ from the render's (a fence was dropped, added or moved)")
     try:
@@ -298,7 +313,8 @@ def write_conflict_report(root: Path, item_id: str, rows: list[dict[str, Any]], 
         "files": rows,
         "markers": conflict_marker_root(item_id),
         "resolve": (f"copy each marked file to <dir>/<path> under build/ (not under {CONFLICT_DIR}), resolve every hunk "
-                    "keeping the fence lines and stage 4 blocks, then re-run progress apply-order-skeleton with "
+                    "keeping the fence lines and stage 4 blocks (or, for a file the render deletes, create the empty "
+                    f"marker <dir>/<path>{DELETION_SUFFIX} to delete it), then re-run progress apply-order-skeleton with "
                     "--resolutions <dir>"),
     }
     relative = conflict_report_path(item_id)
@@ -325,16 +341,19 @@ def load_resolutions(root: Path, item_id: str, directory: Path | None, conflicts
     problems = []
     for path, now in sorted(conflicts.items()):
         row = listed.get(path)
-        keys = ("ancestor_sha256", "ours_sha256", "theirs_sha256")
-        if row is None or any(row.get(key) != now.get(key) for key in keys):
+        if row is None or any(row.get(key) != now.get(key) for key in CONFLICT_KEYS):
             problems.append(f"{path}: the conflict report is stale (src/ or the render changed since): re-run without --resolutions")
             continue
-        file = directory / path
-        if not file.is_file():
-            problems.append(f"{path}: no resolved file at {(directory / path).relative_to(root).as_posix()}")
-            continue
-        data = file.read_bytes()
-        found[path] = {"data": data, "path": file.relative_to(root).as_posix(), "sha256": sha(data)}
+        file, marker = directory / path, directory / (path + DELETION_SUFFIX)
+        if file.is_file() and marker.is_file():
+            problems.append(f"{path}: both a resolved file and the deletion marker {DELETION_SUFFIX}")
+        elif marker.is_file():
+            found[path] = {"data": None, "path": marker.relative_to(root).as_posix(), "sha256": None, "deleted": True}
+        elif file.is_file():
+            data = file.read_bytes()
+            found[path] = {"data": data, "path": file.relative_to(root).as_posix(), "sha256": sha(data)}
+        else:
+            problems.append(f"{path}: no resolved file at {file.relative_to(root).as_posix()}")
     if problems:
         raise SocomError("refused, resolutions:\n- " + "\n- ".join(problems[:_SHOWN]))
     return found

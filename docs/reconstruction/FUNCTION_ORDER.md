@@ -1412,8 +1412,10 @@ write, never what `src/` holds now:
 - the fresh render passes every static check and has the recorded render
   digest of each of the item's files;
 - a merged file comes out of the recorded ancestor and live content again
-  (both from the blob store) with the recorded digest; a resolved file is the
-  stored resolution and keeps the render's fence lines and stage 4 blocks;
+  (both from the blob store) with the recorded digest; a `carried` file comes
+  out of its recorded effective inputs again; a resolved file is the stored
+  resolution (or a recorded deletion) and keeps the render's fence lines and
+  stage 4 blocks; a pending carry's texts are in the blob store;
 - a file that changed after the write is **drift** (`drift`, by path): later
   work, such as the functional port lane, edits written files on purpose.
   Drift is reported, never a failure. A file whose stage 4 blocks changed
@@ -1660,7 +1662,8 @@ file the port lane edited where the render changed is a merge conflict.
 #### Re-apply as a merge
 
 A reopened skeleton item is claimed and applied again (the prepare first, when it was
-reopened). Per file, the route merges:
+reopened). The fence-keyed carry runs first ([Carrying moved entries](#carrying-moved-entries)).
+Then, per file, the route merges:
 
 | Input | Content |
 | --- | --- |
@@ -1677,6 +1680,10 @@ the same or adjacent lines conflict, and so does a file one side deletes
 while the other changed it. Merges run on LF text and are written in the
 file's own newline style.
 
+A file whose merge is clean but breaks the render's fences or stage 4
+blocks is a conflict too (its report row lists the `check` problems, its
+marker file is the merged text), so a resolution can settle it.
+
 A conflict writes nothing for the item. The apply refuses and writes
 `build/stage5/skeleton-route/conflicts/<item>.json`
 (`socom-order-skeleton-conflicts`: per file the ancestor, ours and theirs
@@ -1684,8 +1691,12 @@ digests and each hunk's line ranges and text) and marker files under
 `conflicts/<item>/src/…`. A source worker resolves each marked file into
 `<dir>/src/…` under `build/` (not under `conflicts/`, which each run
 replaces) and re-runs the apply with `--resolutions <dir>`. The resolution
-is used only while the conflict report's digests are the current ones; the
-row records it as `resolved` with its path and SHA-256.
+is used only while the conflict report's digests are the current ones
+(including `carry_sha256`, the digest of the carry's effective inputs); the
+row records it as `resolved` with its path and SHA-256. A file the render
+deletes is resolved as deleted by an empty marker
+`<dir>/<path>.socom-deleted`, or as content without fences (port code
+the render has no place for).
 
 A merged or resolved file must keep the render's fence lines (the same
 sequence: the order the fences give is the planned one) and its stage 4
@@ -1697,6 +1708,51 @@ to it. The record names the amendments it re-applies for (`amendments`,
 evidence line `order-skeleton-reapply`), and `progress audit` requires it on
 every item in review or accepted that an absorbed reopening or a rebase sent
 back.
+
+#### Carrying moved entries
+
+The per-file merge cannot follow an entry the new render moves to another
+file (a held body that gets an owner in a new unit file, a class region that
+moves to another header). `order_skeleton_carry` therefore identifies every
+entry by its fence before the merge: a top-level `stub`/`body` fence up to
+the next top-level fence (indented local-static stubs belong to their
+function), or a `decl … end` region. An entry is matched in its own file
+first, then anywhere in the tree when its name is unique there, then by the
+body id of its `/* held from <id> */` line (the write manifest gives the id
+of a moved body whose fence name the BD6 declarator rewrite changed).
+
+- **Moved entries.** For each entry the render places in the item's files
+  whose live text differs from its ancestor and that crossed a file or a
+  name, the entry's body at the render's place is
+  `merge3(ancestor, live, render)`; the live entry's old place takes back its
+  ancestor text, or loses the entry, so the per-file merge sees no change
+  there. An overlap is an entry-level conflict of the destination file (its
+  report row lists `entries` with both sides). Without an ancestor (a fence
+  the port lane added) the live code fills a canonical stub; a rendered body
+  that differs conflicts.
+- **Across items.** An entry moved into another item's file is recorded
+  `pending` on the record's `carried` list, with its ancestor and live texts
+  in the blob store; that item's re-apply carries it from the record
+  (`merged`, `via`). An entry an item carried in from another item's live
+  file is recorded `merged` with `from`; that item's later re-apply finds it
+  `carried-by` and drops its copy, or reports a conflict when the copy was
+  edited after the carry.
+- **Unowned port fences.** A live fence with no ancestor anywhere whose name
+  the render places nowhere keeps its code; its fence line becomes
+  `/* port: <kind> <name> (no owner in the render) */` (`port-comment`). In a
+  file the render changed the code is placed on the render's side, after the
+  live entry before it that the render keeps.
+- **Entry-by-entry retry.** A file that still conflicts is merged again with
+  its preamble (the text before the first fence) and each entry the port lane
+  edited merged on their own, so an edit next to a block the render moves is
+  no conflict; the retry is kept only when it merges (`entry_merges` lists
+  them).
+
+A file whose effective inputs differ from the live file or the render is
+recorded `carried`, with `carry` (the inner merge kind and the effective
+inputs' digests, both stored as blobs). The record lists every entry on
+`carried` (name, live name, from, to, destination item, state and text
+digests) and counts them in `carried_by_state`.
 
 ### Dry run (2026-11-01)
 

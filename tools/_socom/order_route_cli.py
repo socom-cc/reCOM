@@ -273,12 +273,13 @@ def _progress_add_prepare(arguments: argparse.Namespace) -> int:
 
 def _summary(record: dict[str, Any]) -> dict[str, Any]:
     keep = ("item", "write_sha256", "files_sha256", "changed", "check", "entries", "regions", "flags", "known_conflicts",
-            "waiting_by_kind", "decisions", "merges", "amendments", "reserved_added")
+            "waiting_by_kind", "decisions", "merges", "amendments", "reserved_added", "carried_by_state")
     shown = {key: record.get(key) for key in keep}
     shown["inputs"] = {key: value for key, value in record["inputs"].items() if key not in ("plans",)}
     shown["file_count"] = len(record["files"])
     shown["changed_count"] = len(record["changed"])
     shown["changed"] = record["changed"][:20]
+    shown["carried"] = [{key: row.get(key) for key in ("name", "state", "from", "to", "to_item")} for row in record.get("carried") or []][:40]
     return shown
 
 

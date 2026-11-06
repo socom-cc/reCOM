@@ -571,6 +571,10 @@ def prepare_skeleton_apply(root: Path, tracker: dict[str, Any], item_id: str, ow
     }
     if amendments:
         record["amendments"] = amendments
+    if carried := carried_entries(rows):
+        # Entries the fence-keyed carry moved with their live text (merged here, pending for another item, ...).
+        record["carried"] = carried
+        record["carried_by_state"] = dict(sorted(Counter(str(row.get("state") or "conflict") for row in carried).items()))
     if grown:
         record["reserved_added"] = grown
     if write:
@@ -606,52 +610,118 @@ def _prior_rows(tracker: dict[str, Any], item: dict[str, Any]) -> dict[str, dict
     return found
 
 
+def _ancestor(root: Path, row: dict[str, Any] | None, base_data: bytes | None, theirs: bytes | None) -> tuple[str | None, bytes | None]:
+    """(digest, content) of a file's merge ancestor: its last skeleton write's render, else the base's content."""
+
+    from .order_skeleton_merge import get_blob, lf
+
+    if row is None:
+        return _sha(base_data), lf(base_data)
+    digest = record_ancestor(row)
+    content = get_blob(root, digest)
+    if content is None and digest is not None and _sha(theirs) == digest:
+        content = lf(theirs)  # the current inputs still render the previous write
+    return digest, content
+
+
+def _carry(root: Path, tracker: dict[str, Any], item: dict[str, Any], rendered: dict[str, Any], source: Path,
+           prior: dict[str, dict[str, Any]], paths: list[str], entry_level: set[str] | None = None) -> Any:
+    """The fence-keyed carry over the whole tree (``order_skeleton_carry``) for the item's files."""
+
+    from .order_skeleton_carry import carry_entries
+
+    files = rendered["files"]
+    owners = file_owners(tracker)
+    ancestors: dict[str, bytes | None] = {}
+    live: dict[str, bytes | None] = {}
+    for path in sorted(set(owners) | set(files) | set(paths)):
+        base_data = _read(source / path)
+        ancestors[path] = _ancestor(root, prior.get(path), base_data, files[path] if path in files else base_data)[1]
+        live[path] = _read(root / path)
+    # A moved body's id (path:line) from the write manifest: its fence name may differ from the held one (BD6).
+    sources = {(row["path"], row["name"]): row["source"] for row in (rendered.get("manifest") or {}).get("entries") or []
+               if isinstance(row, dict) and row.get("path") and row.get("name") and ":" in str(row.get("source") or "")}
+    records = {other["id"]: other["order_skeleton"] for other in skeleton_items(tracker) if isinstance(other.get("order_skeleton"), dict)}
+    return carry_entries(item["id"], paths, ancestors, live, dict(files), sources, owners, records, root, entry_level)
+
+
+def _merge_one(root: Path, path: str, source: Path, files: dict[str, bytes | None], prior: dict[str, dict[str, Any]],
+               carry: Any) -> dict[str, Any]:
+    """One file's merge over the carry's effective inputs, with its conflict row (None when it merges)."""
+
+    from .order_skeleton_carry import carry_sha256
+    from .order_skeleton_merge import check_merged, merge_file
+
+    base_data = _read(source / path)
+    theirs = files[path] if path in files else base_data
+    ours = _read(root / path)
+    ancestor_sha, ancestor = _ancestor(root, prior.get(path), base_data, theirs)
+    ours_in = carry.ours[path] if path in carry.ours else ours
+    theirs_in = carry.theirs[path] if path in carry.theirs else theirs
+    carried = _sha(ours_in) != _sha(ours) or _sha(theirs_in) != _sha(theirs)
+    try:
+        merged = merge_file(ancestor_sha, ancestor, ours_in, theirs_in)
+    except SocomError as failure:
+        raise SocomError(f"{path}: {failure}; the ancestors are stored when the item is reopened for a stage 4 amendment "
+                         "(progress reopen-order-skeleton), before its inputs change") from None
+    entry_conflicts = carry.conflicts.get(path) or []
+    broken = (check_merged(path, merged.data, theirs)
+              if merged.kind != "conflict" and not entry_conflicts and (carried or merged.kind == "clean") else [])
+    found = {"path": path, "base": base_data, "theirs": theirs, "ours": ours, "ancestor_sha": ancestor_sha, "ancestor": ancestor,
+             "merged": merged, "ours_in": ours_in, "theirs_in": theirs_in, "carried": carried, "carry": carry,
+             "conflict": None, "marker": None}
+    if merged.kind == "conflict" or entry_conflicts or broken:
+        row = {"path": path, "ancestor_sha256": ancestor_sha, "ours_sha256": _sha(ours), "theirs_sha256": _sha(theirs),
+               "reason": merged.reason, "hunks": merged.conflicts}
+        if carried:
+            row["carry_sha256"] = carry_sha256(ours_in, theirs_in)
+        if entry_conflicts:
+            row["entries"] = entry_conflicts
+            row["reason"] = row["reason"] or f"{len(entry_conflicts)} carried entries conflict"
+        if broken:
+            row["check"] = broken
+            row["reason"] = row["reason"] or "the merge breaks the render's structure"
+        found["conflict"] = row
+        found["marker"] = merged.marked if merged.kind == "conflict" else merged.data
+    return found
+
+
 def _merge_scope(root: Path, tracker: dict[str, Any], item: dict[str, Any], rendered: dict[str, Any], source: Path,
                  resolutions: Path | None) -> tuple[list[dict[str, Any]], dict[str, bytes | None], list[bytes | None]]:
     """(record rows, file changes, blobs to store) of an item's files, each merged; a conflict refuses with a report.
 
     The ancestor of a file is its previous render (the blob store, or the
     current render when that still has the recorded digest), or the base's
-    content for a file no skeleton item wrote yet.
+    content for a file no skeleton item wrote yet.  The fence-keyed carry
+    runs first: an entry the render moved across files or names takes its
+    live text along, and the per-file merge then sees the effective inputs.
+    A file that still conflicts is merged again with its edited entries
+    merged one by one; the second merge is kept when it is clean.  An
+    entry-level conflict, or a merge that breaks the render's fences or
+    stage 4 blocks, is a conflict of its file, settled by a resolution.
     """
 
-    from .order_skeleton_merge import (
-        check_merged, conflict_marker_root, get_blob, lf, load_resolutions, merge_file, write_conflict_report,
-    )
+    from .order_skeleton_merge import check_merged, conflict_marker_root, load_resolutions, write_conflict_report
 
     item_id = item["id"]
     files = rendered["files"]
     prior = _prior_rows(tracker, item)
-    merges = []
-    conflicts: dict[str, dict[str, Any]] = {}
-    markers: dict[str, bytes] = {}
-    for path in sorted(item.get("resources") or [], key=str.casefold):
-        base_data = _read(source / path)
-        theirs = files[path] if path in files else base_data
-        ours = _read(root / path)
-        row = prior.get(path)
-        if row is None:
-            ancestor_sha, ancestor = _sha(base_data), lf(base_data)
-        else:
-            ancestor_sha = record_ancestor(row)
-            ancestor = get_blob(root, ancestor_sha)
-            if ancestor is None and ancestor_sha is not None and _sha(theirs) == ancestor_sha:
-                ancestor = lf(theirs)  # the current inputs still render the previous write
-        try:
-            merged = merge_file(ancestor_sha, ancestor, ours, theirs)
-        except SocomError as failure:
-            raise SocomError(f"{path}: {failure}; the ancestors are stored when the item is reopened for a stage 4 amendment "
-                             "(progress reopen-order-skeleton), before its inputs change") from None
-        if merged.kind == "conflict":
-            conflicts[path] = {"path": path, "ancestor_sha256": ancestor_sha, "ours_sha256": _sha(ours),
-                               "theirs_sha256": _sha(theirs), "reason": merged.reason, "hunks": merged.conflicts}
-            if merged.marked is not None:
-                markers[path] = merged.marked
-        merges.append((path, base_data, theirs, ours, ancestor_sha, ancestor, merged))
+    paths = sorted(item.get("resources") or [], key=str.casefold)
+    carry = _carry(root, tracker, item, rendered, source, prior, paths)
+    merges = {path: _merge_one(root, path, source, files, prior, carry) for path in paths}
+    if retry := {path for path, found in merges.items() if found["conflict"] is not None}:
+        again = _carry(root, tracker, item, rendered, source, prior, paths, entry_level=retry)
+        for path in sorted(retry):
+            second = _merge_one(root, path, source, files, prior, again)
+            if second["conflict"] is None:
+                merges[path] = second
+    conflicts = {path: found["conflict"] for path, found in merges.items() if found["conflict"] is not None}
+    markers = {path: found["marker"] for path, found in merges.items() if found["conflict"] is not None and found["marker"] is not None}
     resolved = load_resolutions(root, item_id, resolutions, conflicts)
     if unresolved := sorted(path for path in conflicts if path not in resolved):
         report = write_conflict_report(root, item_id, [conflicts[path] for path in sorted(conflicts)], markers)
-        hunks = sum(len(conflicts[path]["hunks"]) for path in unresolved)
+        hunks = sum(len(conflicts[path]["hunks"]) + len(conflicts[path].get("entries") or []) + len(conflicts[path].get("check") or [])
+                    for path in unresolved)
         raise SocomError(
             f"refused, nothing written: {len(unresolved)} files conflict ({hunks} hunks) between src/ and the new render: "
             f"{_shown(unresolved)}. The hunks (lines, both sides) are in {report} and marker files under "
@@ -660,38 +730,54 @@ def _merge_scope(root: Path, tracker: dict[str, Any], item: dict[str, Any], rend
         )
     rows: list[dict[str, Any]] = []
     changes: dict[str, bytes | None] = {}
-    blobs: list[bytes | None] = []
+    blobs: list[bytes | None] = list(carry.blobs)
     problems: list[str] = []
-    for path, base_data, theirs, ours, ancestor_sha, ancestor, merged in merges:
+    for path in paths:
+        found = merges[path]
+        merged, theirs, ours, used = found["merged"], found["theirs"], found["ours"], found["carry"]
         kind, after = merged.kind, merged.data
         if path in resolved:
             kind, after = "resolved", resolved[path]["data"]
-        if kind in ("clean", "resolved"):
             # The port lane edits bodies; the planned order (fences) and stage 4's annotations stay the render's.
-            problems.extend(check_merged(path, after, theirs))
-        if kind in ("render", "clean", "resolved") and (_sha(ours) != _sha(after) or (ours is None) != (after is None)):
+            problems.extend(check_merged(path, after, theirs, resolved=True))
+        elif found["carried"]:
+            kind = "carried"
+        if kind in ("render", "clean", "resolved", "carried") and (_sha(ours) != _sha(after) or (ours is None) != (after is None)):
             changes[path] = after
         entry = {
             "path": path,
             "action": _action(rendered, path),
-            "base_sha256": _sha(base_data),
-            "base_content_sha256": _content(base_data),
+            "base_sha256": _sha(found["base"]),
+            "base_content_sha256": _content(found["base"]),
             "before_sha256": _sha(ours),
             "before_content_sha256": _content(ours),
             "stage4_blocks_sha256": blocks_sha256(ours),
-            "ancestor_sha256": ancestor_sha,
+            "ancestor_sha256": found["ancestor_sha"],
             "rendered_sha256": _sha(theirs),
             "after_sha256": _sha(after),
             "after_stage4_blocks_sha256": blocks_sha256(after),
             "merge": kind,
         }
+        if found["carried"]:
+            entry["carry"] = {"merge": merged.kind, "ours_sha256": _sha(found["ours_in"]), "theirs_sha256": _sha(found["theirs_in"])}
+            blobs.extend((found["ours_in"], found["theirs_in"]))
+        if used.merged_here.get(path):
+            entry["entry_merges"] = sorted(used.merged_here[path])
+        if used.entries.get(path):
+            entry["carried"] = sorted(used.entries[path], key=lambda row: (str(row.get("name")), str(row.get("from")), str(row.get("to"))))
         if path in resolved:
-            entry["resolution"] = {"path": resolved[path]["path"], "sha256": resolved[path]["sha256"]}
+            entry["resolution"] = {key: resolved[path][key] for key in ("path", "sha256", "deleted") if key in resolved[path]}
         rows.append(entry)
-        blobs.extend((ancestor, ours, theirs, after))
+        blobs.extend((found["ancestor"], ours, theirs, after))
     if problems:
-        raise SocomError("refused, the merged files break the render's structure:\n- " + "\n- ".join(problems[:_SHOWN]))
+        raise SocomError("refused, the resolved files break the render's structure:\n- " + "\n- ".join(problems[:_SHOWN]))
     return rows, changes, blobs
+
+
+def carried_entries(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The carried entries recorded on a record's file rows (each on its destination, or its origin when pending)."""
+
+    return [row for file in rows for row in file.get("carried") or []]
 
 
 def grow_prepare(tracker: dict[str, Any], item: dict[str, Any], paths: list[str]) -> list[str]:
@@ -859,7 +945,24 @@ def verify_written(root: Path, record: dict[str, Any], rendered: dict[str, bytes
             problems.append(f"{path}: a fresh render differs from the recorded write")
             continue
         kind = row.get("merge")
-        if kind == "clean":
+        for carried in row.get("carried") or []:
+            if carried.get("state") == "pending" and any(
+                    carried.get(key) and get_blob(root, carried[key]) is None for key in ("live_sha256", "ancestor_sha256")):
+                problems.append(f"{path}: the pending carry of {carried.get('name')} is not in the blob store")
+        if kind == "carried":
+            carry = row.get("carry") or {}
+            ancestor = get_blob(root, row.get("ancestor_sha256"))
+            ours_in, theirs_in = get_blob(root, carry.get("ours_sha256")), get_blob(root, carry.get("theirs_sha256"))
+            if (row.get("ancestor_sha256") and ancestor is None) or (carry.get("ours_sha256") and ours_in is None) \
+                    or (carry.get("theirs_sha256") and theirs_in is None):
+                problems.append(f"{path}: the recorded carry's merge inputs are not in the blob store")
+            else:
+                again = merge_file(row.get("ancestor_sha256"), ancestor, ours_in, theirs_in)
+                if again.kind == "conflict" or _sha(again.data) != row["after_sha256"]:
+                    problems.append(f"{path}: the recorded carry does not reproduce its write")
+                else:
+                    problems.extend(check_merged(path, again.data, render))
+        elif kind == "clean":
             ancestor, before = get_blob(root, row.get("ancestor_sha256")), get_blob(root, row.get("before_sha256"))
             if (row.get("ancestor_sha256") and ancestor is None) or (row.get("before_sha256") and before is None):
                 problems.append(f"{path}: the recorded merge's inputs are not in the blob store")
@@ -867,12 +970,16 @@ def verify_written(root: Path, record: dict[str, Any], rendered: dict[str, bytes
                 again = merge_file(row.get("ancestor_sha256"), ancestor, before, render)
                 if again.kind != "clean" or _sha(again.data) != row["after_sha256"]:
                     problems.append(f"{path}: the recorded merge does not reproduce its write")
+        elif kind == "resolved" and (row.get("resolution") or {}).get("deleted"):
+            if row.get("after_sha256") is not None:
+                problems.append(f"{path}: a deletion resolution must delete the file")
+            problems.extend(check_merged(path, None, render, resolved=True))
         elif kind == "resolved":
             resolution = get_blob(root, row.get("after_sha256"))
             if resolution is None or (row.get("resolution") or {}).get("sha256") != row.get("after_sha256"):
                 problems.append(f"{path}: the recorded resolution is not in the blob store")
             else:
-                problems.extend(check_merged(path, resolution, render))
+                problems.extend(check_merged(path, resolution, render, resolved=True))
         elif kind in ("kept", "same") and row.get("before_sha256") != row.get("after_sha256"):
             problems.append(f"{path}: a kept file must be written unchanged")
         elif kind in (None, "render") and row.get("after_sha256") != _sha(render):
