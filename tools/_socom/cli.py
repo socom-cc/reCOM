@@ -74,6 +74,7 @@ from .source import (
 )
 from .order_plan import ORDER_PLAN_KINDS
 from .order_target import ORDER_STAGE
+from .port_toolchain import bootstrap_port_toolchain, verify_port_toolchain
 from .source_apply import verify_source_apply
 from .source_graph import SEGMENT_SIZE as SOURCE_SEGMENT_SIZE, segments_markdown, source_graph
 from .source_plan import SOURCE_APPLY_KINDS, SOURCE_STAGE, apply_reservations
@@ -2797,6 +2798,18 @@ def _toolchain_verify(arguments: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def _port_toolchain_bootstrap(arguments: argparse.Namespace) -> int:
+    report = bootstrap_port_toolchain(force=arguments.force)
+    _emit(report)
+    return 0 if report["ok"] else 1
+
+
+def _port_toolchain_verify(arguments: argparse.Namespace) -> int:
+    report = verify_port_toolchain(identity_only=arguments.identity_only)
+    _emit(report)
+    return 0 if report["ok"] else 1
+
+
 def _doctor(arguments: argparse.Namespace) -> int:
     report = run_doctor(
         _root(arguments),
@@ -2894,6 +2907,22 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     _spec("policy show", "docs", "Show machine-readable reconstruction policy and stage order."),
     _spec("toolchain bootstrap", "toolchain", "Acquire and verify the pinned Metrowerks toolchain.", mutates=True),
     _spec("toolchain verify", "toolchain", "Verify pinned compiler identity and optional compile readiness."),
+    _spec(
+        "port toolchain bootstrap",
+        "port",
+        "Install the pinned open-source ps2dev v2.0.0 release (GCC 15.2.0, ps2sdk) for the functional port "
+        "into a Linux environment (WSL 2 on Windows; SOCOM_WSL_DISTRO, SOCOM_PS2DEV): size and SHA-256 checked "
+        "before extraction into a staging directory, a no-op when the pinned install is present, --force "
+        "reinstalls. It never substitutes for the Metrowerks exact compiler.",
+        mutates=True,
+    ),
+    _spec(
+        "port toolchain verify",
+        "port",
+        "Check the functional-port ps2dev install (pinned file sizes and SHA-256s, GCC banners) and, unless "
+        "--identity-only, build a C++ probe twice in separate directories and require identical ELF32 "
+        "little-endian R5900 executables loaded at 0x00100000.",
+    ),
     _spec("reference census", "reference", "Parse the immutable ELF into a deterministic evidence census.", mutates=True),
     _spec("reference verify", "reference", "Deep-compare the complete stored census with a fresh ELF parse."),
     _spec("reference show", "reference", "Query stored reference sections or symbols."),
@@ -3207,6 +3236,19 @@ def build_parser() -> argparse.ArgumentParser:
     verify = toolchain_commands.add_parser("verify")
     verify.add_argument("--identity-only", action="store_true")
     verify.set_defaults(handler=_toolchain_verify)
+
+    port = commands.add_parser("port", help="functional port lane (open-source ps2dev toolchain)")
+    port_commands = port.add_subparsers(dest="port_command", required=True)
+    port_toolchain = port_commands.add_parser("toolchain")
+    port_toolchain_commands = port_toolchain.add_subparsers(
+        dest="port_toolchain_command", required=True
+    )
+    port_bootstrap = port_toolchain_commands.add_parser("bootstrap")
+    port_bootstrap.add_argument("--force", action="store_true")
+    port_bootstrap.set_defaults(handler=_port_toolchain_bootstrap)
+    port_verify = port_toolchain_commands.add_parser("verify")
+    port_verify.add_argument("--identity-only", action="store_true")
+    port_verify.set_defaults(handler=_port_toolchain_verify)
 
     reference = commands.add_parser("reference")
     reference_commands = reference.add_subparsers(dest="reference_command", required=True)

@@ -38,3 +38,5 @@ and supersede host assumptions.
 The workspace does not claim a license for the payload, distribute a
 `license.dat`, or bypass licensing. Users control lawful access and
 redistribution of the compiler and any required SDK/provider inputs.
+
+The functional port's separate open-source GCC/ps2sdk toolchain is described in [PORT_TOOLCHAIN.md](PORT_TOOLCHAIN.md).

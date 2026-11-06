@@ -11,6 +11,8 @@ Generated from `python tools/socom.py commands --json`.
 | `python tools/socom.py policy show` | docs | no | none | no | Show machine-readable reconstruction policy and stage order. |
 | `python tools/socom.py toolchain bootstrap` | toolchain | yes | none | no | Acquire and verify the pinned Metrowerks toolchain. |
 | `python tools/socom.py toolchain verify` | toolchain | no | none | no | Verify pinned compiler identity and optional compile readiness. |
+| `python tools/socom.py port toolchain bootstrap` | port | yes | none | no | Install the pinned open-source ps2dev v2.0.0 release (GCC 15.2.0, ps2sdk) for the functional port into a Linux environment (WSL 2 on Windows; SOCOM_WSL_DISTRO, SOCOM_PS2DEV): size and SHA-256 checked before extraction into a staging directory, a no-op when the pinned install is present, --force reinstalls. It never substitutes for the Metrowerks exact compiler. |
+| `python tools/socom.py port toolchain verify` | port | no | none | no | Check the functional-port ps2dev install (pinned file sizes and SHA-256s, GCC banners) and, unless --identity-only, build a C++ probe twice in separate directories and require identical ELF32 little-endian R5900 executables loaded at 0x00100000. |
 | `python tools/socom.py reference census` | reference | yes | none | no | Parse the immutable ELF into a deterministic evidence census. |
 | `python tools/socom.py reference verify` | reference | no | none | no | Deep-compare the complete stored census with a fresh ELF parse. |
 | `python tools/socom.py reference show` | reference | no | none | no | Query stored reference sections or symbols. |
