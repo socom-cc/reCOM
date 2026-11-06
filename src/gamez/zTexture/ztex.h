@@ -17,6 +17,9 @@
 
 /* port: forward declarations for names this header uses */
 class CPipe;
+class CDblBufTextureRelocator;
+namespace zdb { class CAssetLib; }
+void HookupLib(zdb::CAssetLib *); /* zui.cpp (0x384750) */
 namespace zdb { class CNode; }
 namespace zdb { class CVisual; }
 #include <vector>
@@ -85,6 +88,7 @@ namespace zdb
 		s32 m_id;
 		void* m_buffer;
 		u32 m_slots;
+		CLoadImage* m_loadimage; /* DWARF +0x1c */
 		/* @socom-skeleton decl Q23zdb11CTexPalette */
 public:
 		~CTexPalette();
@@ -120,14 +124,17 @@ public:
 		u16 m_palID;
 		u16 m_htex_count;
 		u16 m_gsWords;
-		_word128 m_dmaRef;
+		_word128 m_dmaRef; /* DMA REF tag to the GIF select block, VIF FLUSH + DIRECT (CVisual::GetTextureSelectBlock_ver2) */
 		_word128 m_dmaRefVu;
+		u64* m_TEX0; /* DWARF sceGsTex0 *: the TEX0 A+D data inside m_gifSelect (SetGifPtrs) */
+		u64* m_MIP1; /* DWARF sceGsMiptbp1 * */
+		u64* m_MIP2; /* DWARF sceGsMiptbp2 * */
 		std::vector<CTexture*> m_reverse_miplist;
 		CLoadImage* m_loadimage;
 		/* @socom-skeleton decl Q23zdb8CTexture */
 public:
 		void SetName(const char *);
-		void Compute64WordMemoryUsage();
+		unsigned int Compute64WordMemoryUsage(); /* 0x2f8c30 returns the size in 64-word GS blocks */
 		_word128 * CopyTextureSelect(_word128 *);
 		void SetGifPtrs();
 		void MIPUpdateTextureSelects(unsigned int, unsigned int);
@@ -172,6 +179,8 @@ public:
 	private:
 		friend class CGSTexBuffer; /* port: unproven access - CGSTexBuffer::Load (0x2fb610) reads both lists */
 		friend class ::CPipe; /* port: unproven access - CPipe::RenderWorld (0x245744) clears both lists */
+		friend class ::CDblBufTextureRelocator; /* port: unproven access - PreGetSprPacket (0x380600) clears both lists */
+		friend void ::HookupLib(zdb::CAssetLib *); /* port: unproven access - 0x384750 fills a stack buffer's lists */
 		CTexList m_tex_list;
 		CTexPalList m_pal_list;
 	};
@@ -195,7 +204,7 @@ public:
 
 		s64* m_chainp;
 
-		std::vector<void*> m_pktbuf;
+		std::vector<_word128> m_pktbuf; /* port: unproven element type (DWARF vector@97e52daa4c); Load sizes it in qwords for the upload chain */
 
 		CDynTexList m_dyntex_list;
 		/* @socom-skeleton decl Q23zdb12CGSTexBuffer */
@@ -267,6 +276,10 @@ public:
 		virtual void EndBatchReloc() const {} /* EndBatchReloc__Q23zdb16CTextureRelocMgrCFv */
 		virtual void PreGetSprPacket(zdb::CTexHandle* handle) {} /* PreGetSprPacket__Q23zdb16CTextureRelocMgrFPQ23zdb10CTexHandle */
 		virtual void StartBatchReloc() const {} /* StartBatchReloc__Q23zdb16CTextureRelocMgrCFv */
+		/* vtable slot +0x18 (after StartBatchReloc in __vt__23CDblBufTextureRelocator 0x473130 and
+		 * __vt__Q23zdb15CBatchRelocator 0x472aa0); C2DBitmap::MakePacket calls it through the base.
+		 * port: no CTextureRelocMgr body exists in the ELF; a no-op default stands in. */
+		virtual void TakeDrawPacket(unsigned __int128 *, unsigned int) {}
 	};
 
 	class CBatchRelocator : public CTextureRelocMgr

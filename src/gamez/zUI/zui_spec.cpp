@@ -83,6 +83,10 @@ class CTextureRelocMgr;
 }
 /* @socom-skeleton end forward */
 
+/* port: zui.cpp functions this file calls (no shared header declares them) */
+zdb::CTexHandle * PrepTexture(const char *, zdb::CTextureRelocMgr *);
+void ParseButtonAnim(_zrdr *, ActionItem *);
+
 /* @socom-skeleton stub GetType__12CCounterSpecFv */
 void CCounterSpec::GetType() /* port: stub, returns a type-name string in the ELF */
 {
@@ -90,24 +94,101 @@ void CCounterSpec::GetType() /* port: stub, returns a type-name string in the EL
 
 /* @socom-skeleton stub LoadDlgObjects__22@unnamed@zui_spec_cpp@FPQ23std58vector<13CDesignDlgObj,Q23std26allocator<13CDesignDlgObj>>P5_zrdrPCcPFP5_zrdrPCc_P11CDlgObjSpec */
 namespace {
-void LoadDlgObjects(std::vector<CDesignDlgObj, std::allocator<CDesignDlgObj> > *, _zrdr *, const char *, CDlgObjSpec *(*)(_zrdr *, const char *))
+void LoadDlgObjects(std::vector<CDesignDlgObj, std::allocator<CDesignDlgObj> > *objects, _zrdr *reader, const char *group, CDlgObjSpec *(*getSpec)(_zrdr *, const char *))
 {
+	/* 0x39a9f0: each entry of the group array is { NAME TYPE XPOS YPOS SPEC CHILDOF };
+	 * the getter builds the spec for TYPE from the SPEC tag. */
+	_zrdr* list = zrdr_findtag(reader, group);
+	u32 count = (list != NULL && list->IsArray()) ? list->array->integer - 1 : 0;
+
+	for (u32 i = 0; i < count; i++)
+	{
+		_zrdr* entry = list->Get(i);
+		char* name = zrdr_findstring(entry, "NAME");
+		char* type = zrdr_findstring(entry, "TYPE");
+		s32 x = 0;
+		s32 y = 0;
+
+		zrdr_findint(entry, "XPOS", &x, 1);
+		zrdr_findint(entry, "YPOS", &y, 1);
+
+		_zrdr* spectag = zrdr_findtag(entry, "SPEC");
+		CDlgObjSpec* spec = spectag ? getSpec(spectag, type) : NULL;
+
+		if (spec == NULL)
+			continue;
+
+		objects->resize(objects->size() + 1);
+		CDesignDlgObj& obj = objects->back();
+
+		if (obj.m_spec != NULL)
+			delete obj.m_spec;
+
+		obj.m_spec = spec;
+		obj.m_x = x;
+		obj.m_y = y;
+		obj.m_name = (name != NULL && *name != '\0') ? name : "unnamed";
+		obj.m_parent = zrdr_findstring(entry, "CHILDOF");
+	}
 }
 }
 
 /* @socom-skeleton stub __ct__10CImageSpecFP5_zrdr */
-CImageSpec::CImageSpec(_zrdr *reader) : CDlgObjSpec(reader) /* port: base constructor needed to compile */
+CImageSpec::CImageSpec(_zrdr *reader) : CDlgObjSpec(reader)
 {
+	/* 0x39a840 */
+	m_pulse = false;
+	m_xsize = 0;
+	m_ysize = 0;
+	m_filename = zrdr_findstring(reader, "FILENAME");
+	/* port: unproven spelling - the ELF reads SIZE with zrdr_findIPNT2D (no port body);
+	 * its two integers are read here one by one */
+	zrdr_findint(reader, "SIZE", &m_xsize, 1);
+	zrdr_findint(reader, "SIZE", &m_ysize, 2);
+	zrdr_findint(reader, "XSIZE", &m_xsize, 1);
+	zrdr_findint(reader, "YSIZE", &m_ysize, 1);
+
+	if (zrdr_findtag(reader, "PULSE"))
+	{
+		zrdr_findreal(reader, "PULSE", &m_period, 1);
+		m_pulse = true;
+	}
 }
 
 /* @socom-skeleton stub CreateDisplayObj__10CImageSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-void CImageSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CImageSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *reloc) const
 {
+	/* 0x39a6b0: a CPlainBmp of the named texture (a string UI variable names it when set) */
+	const char* name;
+
+	if (m_uivar == NULL)
+	{
+		name = m_filename.c_str();
+	}
+	else
+	{
+		CUIVariable* var = theUIVarManager.Add(m_uivar->m_name, m_uivar->m_array, (UIVAR_LONGEVITY)m_uivar->m_type);
+		name = var->type == ZRDR_STRING ? var->string : NULL;
+	}
+
+	zdb::CTexHandle* handle = PrepTexture(name, reloc);
+	CPlainBmp* bmp = new CPlainBmp();
+	bmp->LoadSpec(*this, handle);
+	return bmp;
 }
 
 /* @socom-skeleton stub GetControlSpec__FP5_zrdrPCc */
-void GetControlSpec(_zrdr *, const char *)
+CDlgObjSpec * GetControlSpec(_zrdr *, const char *type)
 {
+	/* port: not written - 0x39a210 builds BUTTON, SCROLLINGTEXT, HANDLERBUTTON, LISTBOX,
+	 * SLIDERBAR, CHECKBOX, CYCLEBUTTON, RADIOSTRIP and MAPCONTROL specs; no control is
+	 * created yet. */
+#ifdef SOCOM_PORT
+	static int traced = 0;
+	if (traced++ < 24)
+		SOCOM_PORT_TRACE("UI: control spec %s not written", type ? type : "(null)");
+#endif
+	return NULL;
 }
 
 /* @socom-skeleton stub __ct__9CTextSpecFP5_zrdr */
@@ -116,113 +197,22 @@ CTextSpec::CTextSpec(_zrdr* reader) : CDlgObjSpec(reader) /* port: stub; the fie
 }
 
 /* @socom-skeleton body GetObjectSpec__FP5_zrdrPCc */
-CDlgObjSpec * GetObjectSpec(_zrdr *reader, const char *name)
+CDlgObjSpec * GetObjectSpec(_zrdr *reader, const char *type)
 {
-    if (!name)
-    {
-        return NULL;
-    }
+	/* 0x399670: TEXT, IMAGE, TELETYPE, WRAPPEDTEXT, TICKERTAPETEXT, PROGRESSBAR, COUNTER,
+	 * CLOCK. port: only IMAGE is written; the other types are skipped (NULL). */
+	if (type == NULL)
+		return NULL;
 
-    if (!strcmp("TEXT", name))
-    {
-        CTextSpec* text_spec = new CTextSpec(reader); /* port: 0x399ab0 calls __ct__9CTextSpecFP5_zrdr with the reader */
-        text_spec->m_uivar = NULL;
+	if (strcmp("IMAGE", type) == 0)
+		return new CImageSpec(reader);
 
-        if (reader)
-        {
-            CUIVariableSpec* uivar = NULL;
-            auto uivar_tag = zrdr_findtag(reader, "UIVAR");
-
-            if (uivar_tag)
-            {
-                uivar = new CUIVariableSpec(uivar_tag);
-            }
-
-            text_spec->m_uivar = uivar;
-            text_spec->m_caption = "";
-            text_spec->m_font = "";
-            text_spec->m_scale = 1.0f;
-            text_spec->m_hCentered = false;
-
-            char* caption = zrdr_findstring(reader, "CAPTION");
-            char* font = zrdr_findstring(reader, "FONT");
-
-            if (caption)
-            {
-                text_spec->m_caption = caption;
-            }
-            else
-            {
-                text_spec->m_caption = "";
-            }
-
-            zrdr_findreal(reader, "SCALE", &text_spec->m_scale, 1);
-
-            if (zrdr_findtag(reader, "HCENTERED"))
-            {
-                text_spec->m_hCentered = true;
-            }
-
-            if (zrdr_findtag(reader, "COLOR"))
-            {
-                zrdr_findPNT3D(reader, "COLOR", &text_spec->m_color);
-            }
-            else
-            {
-                text_spec->m_color.x = 128.0f;
-                text_spec->m_color.y = 128.0f;
-                text_spec->m_color.z = 128.0f;
-            }
-
-            if (font)
-            {
-                text_spec->m_hasFont = false;
-                text_spec->m_font = "";
-            }
-            else
-            {
-                text_spec->m_hasFont = true;
-                text_spec->m_font = font;
-            }
-        }
-
-        return text_spec;
-    }
-    
-    if (!strcmp("IMAGE", name))
-    {
-        
-    }
-    
-    if (!strcmp("TELETYPE", name))
-    {
-        
-    }
-    
-    if (!strcmp("WRAPPEDTEXT", name))
-    {
-        
-    }
-    
-    if (!strcmp("TICKERTAPETEXT", name))
-    {
-        
-    }
-    
-    if (!strcmp("PROGRESSBAR", name))
-    {
-        
-    }
-    
-    if (!strcmp("COUNTER", name))
-    {
-        
-    }
-    
-    if (!strcmp("CLOCK", name))
-    {
-        
-    }
+#ifdef SOCOM_PORT
+	static int traced = 0;
+	if (traced++ < 24)
+		SOCOM_PORT_TRACE("UI: object spec %s not written", type);
+#endif
+	return NULL;
 }
 
 /* @socom-skeleton stub Copy__12CCounterSpecFv */
@@ -231,52 +221,70 @@ void CCounterSpec::Copy()
 }
 
 /* @socom-skeleton stub CreateDisplayObj__12CCounterSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-void CCounterSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CCounterSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 {
 }
 
 /* @socom-skeleton body LoadFromRdr__14CGameDlgDesignFP5_zrdr */
 void CGameDlgDesign::LoadFromRdr(_zrdr* reader)
 {
-    if (auto background_tag = zrdr_findtag(reader, "BACKGROUND"))
-    {
-        char* type = zrdr_findstring(background_tag, "TYPE");
-        char* filename = zrdr_findstring(background_tag, "FILENAME");
-        
-        if (type)
-        {
-            if (!strcasecmp(type, "IMAGE"))
-            {
-                m_useMpeg = false;
-            }
-            else if (!strcasecmp(type, "MPEG"))
-            {
-                m_useMpeg = true;
-            }
-        }
+	/* 0x398f50 */
+	m_libs.clear();
+	m_font = "";
+	m_background = "";
+	m_useMpeg = false;
+	m_script = "";
+	m_animations.clear();
+	m_controls.clear();
+	m_objects.clear();
+	m_models.clear();
 
-        if (filename)
-        {
-            m_filename = "";
-        }
-        else
-        {
-            m_filename = filename;
-        }
-    }
+	if (char* lib = zrdr_findstring(reader, "LIBRARY"))
+	{
+		m_libs.resize(m_libs.size() + 1);
+		m_libs.back() = lib;
+	}
 
-    if (auto anim_tag = zrdr_findtag(reader, "ANIMATIONS"))
-    {
-        for (u32 i = 1; i < anim_tag->array->integer; i++)
-        {
-            auto tag = &anim_tag->array[i];
+	_zrdr* libs = zrdr_findtag(reader, "LIBRARIES");
+	u32 count = (libs != NULL && libs->IsArray()) ? libs->array->integer - 1 : 0;
 
-            if (tag && tag->type == ZRDR_ARRAY)
-            {
-                
-            }
-        }
-    }
+	for (u32 i = 0; i < count; i++)
+	{
+		_zrdr* item = libs->Get(i);
+		char* name = item->type == ZRDR_STRING ? item->string : NULL;
+		m_libs.resize(m_libs.size() + 1);
+		m_libs.back() = name;
+	}
+
+	m_font = zrdr_findstring(reader, "FONT");
+	m_fontlib = zrdr_findtag(reader, "NOFONTLIB") == NULL;
+
+	if (_zrdr* background = zrdr_findtag(reader, "BACKGROUND"))
+	{
+		if (char* type = zrdr_findstring(background, "TYPE"))
+		{
+			if (strcasecmp(type, "IMAGE") == 0)
+				m_useMpeg = false;
+			else if (strcasecmp(type, "MPEG") == 0)
+				m_useMpeg = true;
+		}
+
+		m_background = zrdr_findstring(background, "FILENAME");
+	}
+
+	_zrdr* anims = zrdr_findtag(reader, "ANIMATIONS");
+	count = (anims != NULL && anims->IsArray()) ? anims->array->integer - 1 : 0;
+
+	for (u32 i = 0; i < count; i++)
+	{
+		m_animations.resize(m_animations.size() + 1);
+		ParseButtonAnim(anims->Get(i), &m_animations.back());
+	}
+
+	LoadDlgObjects(&m_controls, reader, "CONTROLS", GetControlSpec);
+	LoadDlgObjects(&m_objects, reader, "OBJECTS", GetObjectSpec);
+	m_script = zrdr_findstring(reader, "SCRIPT_LIBRARY");
+	LoadModels(reader);
 }
 
 /* @socom-skeleton stub LoadModels__14CGameDlgDesignFP5_zrdr */
@@ -295,7 +303,7 @@ void CButtonSpec::InitializeButton(C2DButton *, zdb::CTextureRelocMgr *) const
 }
 
 /* @socom-skeleton stub CreateDisplayObj__11CButtonSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-void CButtonSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CButtonSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 {
 }
 
@@ -310,17 +318,17 @@ CUIListBoxSpec::CUIListBoxSpec(_zrdr *reader) : CImageSpec(reader) /* port: base
 }
 
 /* @socom-skeleton stub CreateDisplayObj__14CUIListBoxSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-void CUIListBoxSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CUIListBoxSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 {
 }
 
 /* @socom-skeleton stub CreateDisplayObj__14CSliderBarSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-void CSliderBarSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CSliderBarSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 {
 }
 
 /* @socom-skeleton stub CreateDisplayObj__17CHProgressBarSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-void CHProgressBarSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CHProgressBarSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 {
 }
 
@@ -335,7 +343,7 @@ CCheckBoxSpec::CCheckBoxSpec(CCheckBoxSpec &other) : CButtonSpec(other) /* port:
 }
 
 /* @socom-skeleton stub CreateDisplayObj__13CCheckBoxSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-void CCheckBoxSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CCheckBoxSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 {
 }
 
@@ -365,7 +373,7 @@ CUIMapCtrlSpec::CUIMapCtrlSpec(_zrdr *reader) : CDlgObjSpec(reader) /* port: bas
 }
 
 /* @socom-skeleton stub CreateDisplayObj__14CUIMapCtrlSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-void CUIMapCtrlSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CUIMapCtrlSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 {
 }
 
@@ -375,7 +383,7 @@ void CClockSpec::Copy()
 }
 
 /* @socom-skeleton stub CreateDisplayObj__10CClockSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-void CClockSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CClockSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 {
 }
 

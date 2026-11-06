@@ -204,7 +204,7 @@ public:
 	void SetPos(s32 x, s32 y);
 	void SetUV(f32 u0, f32 v0, f32 u1, f32 v1);
 	void SetColor(f32 red, f32 green, f32 blue);
-private:
+protected: /* port: protected (was private) - CPlainBmp::SetMapOffset reads the size */
 	s32 m_x;
 	s32 m_y;
 
@@ -288,17 +288,36 @@ public:
 	/* @socom-skeleton end 13C2DBitmapPoly */
 };
 
-class CPlainBmp : public C2D
+/* DWARF: bases C2DBitmap @0 and UIVarMixin @0x80, then m_pulsing @0x88, m_period @0x8c,
+ * m_curtrans @0x90 (160 bytes).
+ * port: unproven model - UIVarMixin is declared in zui.h after this header, so its
+ * part (vptr, m_uivar @0x84) is not a base here; m_mixin_uivar stands for its m_uivar. */
+class CPlainBmp : public C2DBitmap
 {
 public:
-	CPlainBmp() {}
+	CPlainBmp()
+	{
+		/* 0x1d6300 */
+		m_mixin_uivar = NULL;
+		SetColor(128.0f, 128.0f, 128.0f);
+		SetTrans(128.0f);
+		m_isTrans = true;
+		SetCanHandleInput(false);
+		m_pulsing = false;
+		m_period = 1.0f;
+	}
+
+	CUIVariable* m_mixin_uivar;
+	bool m_pulsing;
+	f32 m_period;
+	f32 m_curtrans;
 	/* @socom-skeleton decl 9CPlainBmp */
 public:
 	virtual ~CPlainBmp() {}
-	virtual void Draw(zdb::CCamera *) {} /* port: stub; 0x393820 tail-calls C2DBitmap::Draw (DWARF: CPlainBmp bases are C2DBitmap @0 and UIVarMixin @0x80, not C2D) */
+	virtual void Draw(zdb::CCamera *camera) { C2DBitmap::Draw(camera); } /* 0x393820 tail-calls C2DBitmap::Draw */
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual void Tick(float);
-	virtual void SetMapOffset(int, int) {} /* port: stub; 0x393800 calls C2DBitmap::SetPos(x, y, x + m_iWidth, y + m_iHeight) */
+	virtual void SetMapOffset(int x, int y) { C2DBitmap::SetPos(x, y, x + m_iWidth, y + m_iHeight); } /* 0x393800 */
 	virtual void UpdateUIVar(CUIVariable *) {}
 	void LoadSpec(const CImageSpec &, zdb::CTexHandle *);
 	/* @socom-skeleton end 9CPlainBmp */
@@ -472,7 +491,9 @@ public:
 	s32 m_rKerning;
 };
 
-class C2DFont : public C2D
+/* DWARF: 48 bytes, no base class: vptr (__vt__7C2DFont: GetAssetLibs) then m_charlist @4,
+ * a vector of 40-byte C2DFontEntry values */
+class C2DFont
 {
 public:
 	C2DFont();
@@ -481,7 +502,7 @@ public:
 	C2DFontEntry* GetEntry(char character);
 	u32 GetIndex(char character);
 	
-	std::vector<C2DFontEntry*> m_charlist;
+	std::vector<C2DFontEntry> m_charlist;
 	zdb::CTexHandle* m_pTexHandle;
 	zdb::CTexHandle* m_pGlowTexHandle;
 	s32 m_displaytop;

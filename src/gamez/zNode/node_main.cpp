@@ -152,14 +152,20 @@ zdb::CTickLightList CLight::m_tick_list;
 namespace zdb {
 void InitNodeParams(tag_NODE_PARAMS* nparams, const tag_NODE_PARAMS* other)
 	{
-		nparams->m_type                         = other != NULL ? other->m_type : 0;
-		nparams->m_active                       = other != NULL ? other->m_active : false;
+		/* 0x228850: without a source node the defaults are type 1, active, light, fog and
+		 * apply_clip; matrix identity. port: m_bbox is left as is there (the ELF copies an
+		 * uninitialised stack box). */
+		nparams->m_matrix                       = other != NULL ? other->m_matrix : CMatrix::identity;
+		if (other != NULL)
+			nparams->m_bbox = other->m_bbox;
+		nparams->m_type                         = other != NULL ? other->m_type : 1;
+		nparams->m_active                       = other != NULL ? other->m_active : true;
 		nparams->m_dynamic_motion               = other != NULL ? other->m_dynamic_motion : false;
 		nparams->m_dynamic_light                = other != NULL ? other->m_dynamic_light : false;
 		nparams->m_landmark                     = other != NULL ? other->m_landmark : false;
-		nparams->m_light                        = other != NULL ? other->m_light : false;
+		nparams->m_light                        = other != NULL ? other->m_light : true;
 		nparams->m_prelight                     = other != NULL ? other->m_prelight : false;
-		nparams->m_fog                          = other != NULL ? other->m_fog : false;
+		nparams->m_fog                          = other != NULL ? other->m_fog : true;
 		nparams->m_transparent                  = other != NULL ? other->m_transparent : false;
 		nparams->m_facade                       = other != NULL ? other->m_facade : false;
 		nparams->m_reflective                   = other != NULL ? other->m_reflective : false;
@@ -170,16 +176,17 @@ void InitNodeParams(tag_NODE_PARAMS* nparams, const tag_NODE_PARAMS* other)
 		nparams->m_shadow                       = other != NULL ? other->m_shadow : false;
 		nparams->m_worldchild                   = other != NULL ? other->m_worldchild : false;
 		nparams->m_char_common                  = other != NULL ? other->m_char_common : false;
-		nparams->m_NOTUSED                      = other != NULL ? other->m_NOTUSED : false;
 		nparams->m_hasVisuals                   = other != NULL ? other->m_hasVisuals : false;
 		nparams->m_hasMesh                      = other != NULL ? other->m_hasMesh : false;
 		nparams->m_scrolling_texture            = other != NULL ? other->m_scrolling_texture : false;
 		nparams->m_light_dynamic                = other != NULL ? other->m_light_dynamic : false;
 		nparams->m_light_static                 = other != NULL ? other->m_light_static : false;
 		nparams->m_clutter                      = other != NULL ? other->m_clutter : false;
+		/* port: unproven - the ELF leaves m_mtx_is_identity and m_NOTUSED alone; cleared here so a new node has no stale bits */
 		nparams->m_mtx_is_identity              = other != NULL ? other->m_mtx_is_identity : false;
+		nparams->m_NOTUSED                      = other != NULL ? other->m_NOTUSED : false;
 		nparams->m_use_parent_bbox              = other != NULL ? other->m_use_parent_bbox : false;
-		nparams->m_apply_clip                   = other != NULL ? other->m_apply_clip : false;
+		nparams->m_apply_clip                   = other != NULL ? other->m_apply_clip : true;
 	}
 }
 
@@ -218,7 +225,7 @@ CNode::CNode()
 		}
 
 		numNodes++;
-		m_name = "UNNAMED_NODE";
+		m_name = const_cast<char*>(UNNAMED_NODE); /* the shared "NA" name (was a separate literal, so Create/SetName freed it) */
 	}
 }
 
@@ -618,6 +625,7 @@ CNode* CNode::FindChild(const char* name, bool nested)
 namespace zdb {
 CNode* CNode::FindChild(CNode* child, bool nested)
 	{
+		/* 0x227430: a direct child, else (nested) the first hit in each child's subtree */
 		if (!child)
 			return NULL;
 
@@ -627,11 +635,15 @@ CNode* CNode::FindChild(CNode* child, bool nested)
 				return *i;
 		}
 
+		CNode* found = NULL;
+
 		if (nested)
 		{
-			for (auto i = m_child.begin(); i != m_child.end(); ++i)
-				return (*i)->FindChild(child, nested);
+			for (auto i = m_child.begin(); found == NULL && i != m_child.end(); ++i)
+				found = (*i)->FindChild(child, true);
 		}
+
+		return found;
 	}
 }
 
@@ -838,12 +850,12 @@ void CNode::SetName(const char* name)
 	{
 		char* str = m_name;
 
-		if (str && str != "UNNAMED_NODE")
+		if (str && str != UNNAMED_NODE)
 		{
 			zfree(str);
 		}
 
-		str = "UNNAMED_NODE";
+		str = const_cast<char*>(UNNAMED_NODE);
 
 		if (name)
 		{
@@ -1072,41 +1084,13 @@ void zdb::CNode::FindMeshTextures()
 namespace zdb {
 CNode* CNode::Create(const char* name)
 	{
+		/* 0x224b30: an unnamed node is called "Node" */
 		CNode* node = new CNode();
-		char* str = NULL;
 
-		if (name)
-		{
-			str = node->m_name;
+		if (node->m_name != NULL && node->m_name != UNNAMED_NODE)
+			_free(node->m_name, "node_main.cpp", 0x3c3);
 
-			if (str && str != "UNNAMED_NODE")
-			{
-				zfree(str);
-			}
-
-			str = zstrdup("Node");
-			node->m_name = str;
-		}
-		else
-		{
-			str = node->m_name;
-
-			if (str && str != "UNNAMED_NODE")
-			{
-				zfree(str);
-			}
-
-			if (!str)
-			{
-				node->m_name = "UNNAMED_NODE";
-			}
-			else
-			{
-				str = zstrdup(name);
-				node->m_name = str;
-			}
-		}
-
+		node->m_name = _strdup(name != NULL ? name : "Node", "node_main.cpp", 0x3c4);
 		return node;
 	}
 }

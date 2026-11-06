@@ -8,7 +8,9 @@
 /* held from src/gamez/zUI/zui_spec.cpp:6 */
 CGameDlgDesign::CGameDlgDesign()
 {
+    /* 0x380e10: empty vectors and strings */
     m_useMpeg = false;
+    m_fontlib = true; /* port: unproven - the ctor leaves +0x50 unset; LoadFromRdr always writes it */
 }
 
 /* @socom-skeleton body LoadDlgObjects__FRQ23std60vector<P13CDesignDlgObj,Q23std27allocator<P13CDesignDlgObj>>P5_zrdrPcPFP5_zrdrPc_P11CButtonSpec */

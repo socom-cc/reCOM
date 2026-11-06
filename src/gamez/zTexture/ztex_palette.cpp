@@ -9,6 +9,7 @@
 #include "ztex.h"
 #include "gamez/zArchive/zar.h"
 #include "gamez/zNode/node_saveload.h"
+#include <eekernel.h> /* FlushCache */
 
 namespace zdb
 {
@@ -25,16 +26,15 @@ unsigned int CTexPalette::m_palId;
 namespace zdb {
 CTexPalette::CTexPalette(const char* name)
     {
-        m_name = zstrdup(name);
+        /* 0x2f9a10 */
+        m_name = _strdup(name, "ztex_palette.cpp", 0x2c);
+        m_loadimage = NULL;
         m_gsaddr = m_palId;
         m_slots = 0;
-        m_buffer = 0;
-        
         m_size = 0;
-        m_format = 0;
-        m_combo_pal = false;
+        m_buffer = NULL;
         m_dynamic = false;
-
+        m_unused = 0;
         m_AssetLib = NULL;
         m_palId++;
     }
@@ -49,17 +49,20 @@ zdb::CTexPalette::~CTexPalette()
 namespace zdb {
 bool CTexPalette::Read(CSaveLoad& sload)
     {
-        if (sload.m_zfile.Fetch("par", this, sizeof(PALETTE_PARAMS)))
+        /* 0x2f98b0: "par" is PALETTE_PARAMS; "buf" the CLUT, copied into a 128-byte-aligned
+         * buffer for the GIF image transfer. m_id keeps the file's palette id (it matches
+         * the CBP field the textures carry, see CTexture::Read). */
+        bool ok = sload.m_zfile.Fetch("par", this, 8);
+
+        if (ok)
         {
-            m_buffer = zmalloc(m_size);
+            m_loadimage = static_cast<CLoadImage*>(_malloc(0x60, "ztex_palette.cpp", 0x6f));
+            m_buffer = _memalign(0x80, m_size, "ztex_palette.cpp", 0x70);
             sload.m_zfile.Fetch("buf", m_buffer, m_size);
-        }
-        else
-        {
-            return false;
         }
 
         m_id = m_gsaddr;
-        return true;
+        FlushCache(0);
+        return ok;
     }
 }

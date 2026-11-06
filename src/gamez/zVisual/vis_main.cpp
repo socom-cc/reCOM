@@ -536,8 +536,38 @@ _word128 * zdb::CVisual::GetTextureSelectBlock(unsigned int, _word128 **, _word1
 }
 
 /* @socom-skeleton stub GetTextureSelectBlock_ver2__Q23zdb7CVisualFUiPP8_word128P8_word128P8_word128 */
-_word128 * zdb::CVisual::GetTextureSelectBlock_ver2(unsigned int, _word128 **, _word128 *, _word128 *)
+_word128 * zdb::CVisual::GetTextureSelectBlock_ver2(unsigned int qwc, _word128 **select, _word128 *dmaRef, _word128 *dmaRefVu)
 {
+	/* 0x30d9b0: *select points at a header qword followed by a qwc-qword GIF select block
+	 * (GIFtag + A+D registers). The header is cleared (byte 12 = 2), the select pointer
+	 * moves past it, and the qword after the block becomes VIF MSCALF 0. Two DMA tags are
+	 * built for callers to copy into a chain:
+	 *   dmaRef   = REF qwc -> block;      VIF FLUSH, DIRECT qwc   (GIF path 2 through VIF1)
+	 *   dmaRefVu = REF qwc+2 -> header;   VIF STCYCL 1,1, UNPACK V4-32 qwc+1 at 0 (FLG) */
+	_word128* header = *select;
+
+	*select = header + 1;
+	header->u64[0] = 0;
+	header->u64[1] = 0;
+	header->u8[12] = (header->u8[12] & ~2) | 2;
+
+	_word128* after = *select + qwc;
+	after->u32[0] = 0x15000000;
+	after->u32[1] = 0;
+	after->u32[2] = 0;
+	after->u32[3] = 0;
+
+	dmaRef->u32[0] = qwc | 0x30000000;
+	dmaRef->u32[1] = (u32)*select;
+	dmaRef->u32[2] = 0x11000000;
+	dmaRef->u32[3] = qwc | 0x50000000;
+
+	dmaRefVu->u32[0] = (qwc + 2) | 0x30000000;
+	dmaRefVu->u32[1] = (u32)header;
+	dmaRefVu->u32[2] = 0x01000101;
+	dmaRefVu->u32[3] = ((qwc + 1) << 16) | 0x6c008000;
+
+	return header;
 }
 
 /* @socom-skeleton body ResolveTextureName__Q23zdb7CVisualFP8_word128P8_word128 */

@@ -20,8 +20,8 @@ void C2D::Init()
 	m_botx = 2368.0f;
 	m_topy = 1824.0f;
 	m_boty = 2272.0f;
-	m_fXPixel = 1.0f / 1280.0f;
-	m_fYPixel = 1.0f / 960.0f;
+	m_fXPixel = 1.0f; /* 0x303c84/0x303c88: both 1.0 (0x3f800000) */
+	m_fYPixel = 1.0f;
 }
 
 /* @socom-skeleton body Open__3C2DFv */

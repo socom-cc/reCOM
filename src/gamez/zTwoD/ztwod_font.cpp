@@ -32,6 +32,7 @@
 /* @socom-skeleton body __ct__7C2DFontFv */
 C2DFont::C2DFont()
 {
+    /* 0x2ff3b0 */
     m_pTexHandle = NULL;
     m_pGlowTexHandle = NULL;
     m_displaytop = 0;
@@ -43,359 +44,145 @@ C2DFont::C2DFont()
 /* @socom-skeleton body GetIndex__7C2DFontFc */
 u32 C2DFont::GetIndex(char character)
 {
-    u32 index = 0;
-
-    while (true)
+    /* 0x2ff350: -1 when the character is not in the font */
+    for (u32 i = 0; i < m_charlist.size(); i++)
     {
-        if (m_charlist.size() <= index)
-        {
-            return -1;
-        }
-
-        if (character == m_charlist[index * 40]->m_char)
-        {
-            break;
-        }
-
-        index++;
+        if (character == m_charlist[i].m_char)
+            return i;
     }
 
-    return index;
+    return (u32)-1;
 }
 
 /* @socom-skeleton body GetEntry__7C2DFontFc */
 C2DFontEntry* C2DFont::GetEntry(char character)
 {
-    C2DFontEntry* entry = NULL;
+    /* 0x2ff260: a missing character falls back to a letter (c % 26 + 'A'), then to
+     * entry c % count */
+    int count = (int)m_charlist.size();
 
-    for (u32 i = 0; i < m_charlist.size(); i++)
+    for (int i = 0; i < count; i++)
     {
-        entry = m_charlist[i * 0x28];
-
-        if (character == entry->m_char)
-        {
-            return entry;
-        }
+        if (character == m_charlist[i].m_char)
+            return &m_charlist[i];
     }
 
-    u32 i = 0;
-    while (true)
+    for (int i = 0; i < count; i++)
     {
-        if (i >= m_charlist.size())
-        {
-            return m_charlist[character % m_charlist.size() * 0x28];
-        }
-
-        entry = m_charlist[i * 0x28];
-
-        if ((character % 0x26 + 'A') == entry->m_char)
-        {
-            break;
-        }
-
-        i++;
+        if ((char)(character % 26 + 'A') == m_charlist[i].m_char)
+            return &m_charlist[i];
     }
 
-    return entry;
+    return &m_charlist[(int)character % count];
 }
 
 /* @socom-skeleton body Load__7C2DFontFP8CRdrFilePCc */
+/* port: helpers for the inlined _zrdr element reads in Load (0x2fea10) */
+static _zrdr* FontItem(_zrdr* array, u32 index)
+{
+    return array ? array->Get(index) : NULL;
+}
+
+static s32 FontInt(const _zrdr* item)
+{
+    return item ? item->GetInt() : 0;
+}
+
 void C2DFont::Load(CRdrFile* font, const char* name)
 {
+    /* 0x2fea10: the face `name` under "faces": its texture (and glow texture), the
+     * display top/bottom, x spacing, opacity, scale, and one entry per charoffsets item
+     * { char { left top } { right bottom } baseline lKerning rKerning }. Texel extents are
+     * kept in 12.4 fixed point; t runs bottom-up (height - y). */
+    _zrdr* face = zrdr_findtag(zrdr_findtag(font, "faces"), name);
+    char* texture = zrdr_findstring(face, "texture");
+    char* glowtexture = zrdr_findstring(face, "glowtexture");
     s32 topy = 0;
     s32 boty = 0;
     s32 xspacing = 0;
-    
-    auto faces = zrdr_findtag(font, "faces");
-    auto font_name = zrdr_findtag(faces, name);
 
-    char* texture = zrdr_findstring(font_name, "texture");
-    char* glowtexture = zrdr_findstring(font_name, "glowtexture");
+    zrdr_findint(face, "topy", &topy, 1);
+    zrdr_findint(face, "boty", &boty, 1);
+    zrdr_findint(face, "xspacing", &xspacing, 1);
+    zrdr_findreal(face, "opacity", &m_opacity, 1);
 
-    zrdr_findint(font_name, "topy", &topy);
-    zrdr_findint(font_name, "boty", &boty);
-    zrdr_findint(font_name, "xspacing", &xspacing);
-    zrdr_findreal(font_name, "opacity", &m_opacity);
-
-    if (!zrdr_findtag(font_name, "scale"))
-    {
+    if (zrdr_findtag(face, "scale") == NULL)
         m_scale_factor = 1.0f;
-    }
     else
-    {
-        zrdr_findreal(font_name, "scale", &m_scale_factor);
-    }
+        zrdr_findreal(face, "scale", &m_scale_factor, 1);
 
-    if (texture)
-    {
+    if (texture != NULL)
         m_pTexHandle = zdb::CAssetMgr::m_assets.GetTexHandle(texture);
-    }
 
-    if (glowtexture)
-    {
+    if (glowtexture != NULL)
         m_pGlowTexHandle = zdb::CAssetMgr::m_assets.GetTexHandle(glowtexture);
-    }
 
-    auto charoffsets = zrdr_findtag(font_name, "charoffsets");
-    u32 i = 0;
-    s32 length = 0;
-    s32 node_length = 0;
+    _zrdr* offsets = zrdr_findtag(face, "charoffsets");
+    s32 count = (offsets != NULL && offsets->IsArray()) ? offsets->array->integer - 1 : 0;
+    u32 widths = 0;
 
-    if (!charoffsets)
+    for (s32 i = 0; i < count; i++)
     {
-        length = 0;
+        _zrdr* item = FontItem(offsets, i);
+        _zrdr* chr = FontItem(item, 0);
+        char c = 0;
+
+        if (chr->type == ZRDR_STRING)
+            c = *chr->string;
+        else if (chr->type == ZRDR_INTEGER)
+            c = (char)chr->integer;
+
+        if ((s32)GetIndex(c) != -1)
+            continue;
+
+        _zrdr* topleft = FontItem(item, 1);
+        _zrdr* botright = FontItem(item, 2);
+        s32 left = FontInt(FontItem(topleft, 0));
+        s32 top = FontInt(FontItem(topleft, 1));
+        s32 right = FontInt(FontItem(botright, 0));
+        s32 bottom = FontInt(FontItem(botright, 1));
+        u32 height = m_pTexHandle ? m_pTexHandle->m_texture->m_height : 0;
+        s32 baseline = 0;
+        s32 lkern = 0;
+        s32 rkern = 0;
+
+        zrdr_findint(item, "baseline", &baseline, 1);
+        zrdr_findint(item, "lKerning", &lkern, 1);
+        zrdr_findint(item, "rKerning", &rkern, 1);
+
+        s32 span = (right - 1) - left;
+        C2DFontEntry entry;
+        entry.m_char = c;
+        entry.m_offset = left << 4;
+        entry.m_width = (span + 1) * 16;
+        entry.m_displaywidth = -16;
+        entry.m_xspacing = 0; /* set for every entry below */
+        entry.m_top = ((height - 1) - top) * 16;
+        entry.m_bottom = (height - bottom) * 16;
+        entry.m_baseline = baseline << 4;
+        entry.m_lKerning = lkern << 4;
+        entry.m_rKerning = rkern << 4;
+        m_charlist.push_back(entry);
+
+        u32 index = GetIndex(c);
+        widths += span;
+
+        if (c == ' ')
+            m_charlist[index].m_displaywidth = 0x80;
     }
-    else if (charoffsets->type == ZRDR_ARRAY)
-    {
-        length = charoffsets->array->integer - 1;
-    }
-    else
-    {
-        length = 0;
-    }
 
-    if (length > 0)
-    {
-        do
-        {
-            _zrdr* node = NULL;
-            char font_char = 0;
-            
-            node_length = 0;
+    m_avgWidth = (f32)widths / (f32)count;
+    m_displaytop = (s32)(f32)topy;
+    m_displaybottom = (s32)(f32)boty;
 
-            if (charoffsets->type == ZRDR_ARRAY)
-            {
-                node_length = charoffsets->array->integer - 1;
-            }
-
-            if (i < node_length)
-            {
-                node = &charoffsets->array[i + 1];
-            }
-            else
-            {
-                node = NULL;
-            }
-
-            if (node->type == ZRDR_ARRAY)
-            {
-                node_length = node->array->integer - 1;
-            }
-            else
-            {
-                node_length = 0;
-            }
-
-            if (node_length == 0)
-            {
-                node = NULL;
-            }
-            else
-            {
-                node = &node->array[1];
-            }
-
-            if (node->type == ZRDR_STRING)
-            {
-                font_char = *node->string;
-            }
-            else if (node->type == ZRDR_INTEGER)
-            {
-                font_char = (char)node->integer;
-            }
-
-            node_length = 0;
-
-            if (node->type == ZRDR_ARRAY)
-            {
-                node_length = node->array->integer - 1;
-            }
-
-            if (node_length < 2)
-            {
-                node = NULL;
-            }
-            else
-            {
-                node = &node->array[2];
-            }
-
-            node_length = 0;
-
-            if (node->type == ZRDR_ARRAY)
-            {
-                node_length = node->array->integer - 1;
-            }
-
-            if (node_length < 3)
-            {
-                node = NULL;
-            }
-            else
-            {
-                node = &node->array[3];
-            }
-
-            u32 char_idx = -1;
-            for (char_idx = 0; char_idx < m_charlist.size(); char_idx++)
-            {
-                if (font_char == m_charlist[char_idx]->m_char)
-                {
-                    char_idx = -1;
-                    break;
-                }
-            }
-
-            if (char_idx == -1)
-            {
-                if (node->type == ZRDR_ARRAY)
-                {
-                    node_length = node->array->integer - 1;
-                }
-
-                if (node_length == 0)
-                {
-                    node = NULL;
-                }
-                else
-                {
-                    node = &node->array[1];
-                }
-
-                u32 value = 0;
-                
-                if (node->type == ZRDR_INTEGER)
-                {
-                    value = node->integer;
-                }
-                else if (node->type == ZRDR_REAL)
-                {
-                    value = static_cast<s32>(node->real);
-                }
-                else
-                {
-                    value = 0;
-                }
-
-                node_length = 0;
-
-                if (m_pTexHandle)
-                {
-                    node_length = m_pTexHandle->m_texture->m_height;
-                }
-
-                node_length = 0;
-
-                if (node->type == ZRDR_ARRAY)
-                {
-                    node_length = node->array->integer - 1;
-                }
-
-                if (node_length < 2)
-                {
-                    node = NULL;
-                }
-                else
-                {
-                    node = &node->array[2];
-                }
-
-                if (node->type == ZRDR_INTEGER)
-                {
-                    value = node->integer;
-                }
-                else if (node->type == ZRDR_REAL)
-                {
-                    value = static_cast<s32>(node->real);
-                }
-                else
-                {
-                    value = 0;
-                }
-
-                if (node->type == ZRDR_ARRAY)
-                {
-                    node_length = node->array->integer - 1;
-                }
-                else
-                {
-                    node_length = 0;
-                }
-
-                if (node_length == 0)
-                {
-                    node = NULL;
-                }
-                else
-                {
-                    node = &node->array[1];
-                }
-
-                if (node->type == ZRDR_INTEGER)
-                {
-                    value = node->integer;
-                }
-                else if (node->type == ZRDR_REAL)
-                {
-                    value = static_cast<s32>(node->real);
-                }
-                else
-                {
-                    value = 0;
-                }
-
-                if (node->type == ZRDR_ARRAY)
-                {
-                    node_length = node->array->integer - 1;
-                }
-                else
-                {
-                    node_length = node->array->integer - 1;
-                }
-
-                if (node_length < 2)
-                {
-                    node = NULL;
-                }
-                else
-                {
-                    node = &node->array[2];
-                }
-
-                if (node->type == ZRDR_INTEGER)
-                {
-                    value = node->integer;
-                }
-                else if (node->type == ZRDR_REAL)
-                {
-                    value = static_cast<s32>(node->real);
-                }
-                else
-                {
-                    value = 0;
-                }
-
-                C2DFontEntry entry;
-
-                zrdr_findint(node, "baseline", &entry.m_baseline);
-                zrdr_findint(node, "lKerning", &entry.m_lKerning);
-                zrdr_findint(node, "rKerning", &entry.m_rKerning);
-
-                entry.m_offset = entry.m_baseline << 4;
-                entry.m_width = entry.m_lKerning << 4;
-                entry.m_displaywidth = entry.m_rKerning << 4;
-                entry.m_char = font_char;
-                
-                m_charlist.insert(m_charlist.begin(), &entry);
-            }
-
-            i++;
-        }
-        while (i < length);
-    }
+    for (u32 i = 0; i < m_charlist.size(); i++)
+        m_charlist[i].m_xspacing = (s32)(f32)xspacing << 4;
 }
 
 /* @socom-skeleton stub SetXSpacing__7C2DFontFf */
-void C2DFont::SetXSpacing(float)
+void C2DFont::SetXSpacing(float spacing)
 {
+    /* 0x2fe9a0 */
+    for (u32 i = 0; i < m_charlist.size(); i++)
+        m_charlist[i].m_xspacing = (s32)spacing << 4;
 }

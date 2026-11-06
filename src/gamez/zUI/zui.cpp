@@ -133,7 +133,7 @@ float g_fStickY;
 
 /* @socom-skeleton stub g_pTtySound__17@unnamed@zui_cpp@ */
 namespace {
-int g_pTtySound;
+CSnd *g_pTtySound; /* LoadFromDesign (0x382d18) stores CSnd::GetSoundByName's result */
 }
 
 /* @socom-skeleton stub g_pCurMenu__17@unnamed@zui_cpp@ */
@@ -143,7 +143,7 @@ CGameMenu *g_pCurMenu; /* port: the ctor stores `this` here (0x384118) */
 
 /* @socom-skeleton stub g_pFaderNode__17@unnamed@zui_cpp@ */
 namespace {
-int g_pFaderNode;
+zdb::CNode *g_pFaderNode; /* the MENUFADER node (0x382548) */
 }
 
 /* @socom-skeleton stub g_hasAnims */
@@ -151,7 +151,7 @@ unsigned char g_hasAnims;
 
 /* @socom-skeleton stub g_relocBatch__17@unnamed@zui_cpp@ */
 namespace {
-int g_relocBatch;
+zdb::CBatchRelocator g_relocBatch; /* CGameMenu::Init's relocator when none is given (0x382db8) */
 }
 
 /* @socom-skeleton stub zUIScheduler__17@unnamed@zui_cpp@ */
@@ -170,8 +170,14 @@ void zUISchedulerClear()
 }
 
 /* @socom-skeleton stub Add2dNode__FP3C2DPQ23zdb16CTextureRelocMgrPQ23zdb5CNode */
-zdb::CNode * Add2dNode(C2D *, zdb::CTextureRelocMgr *, zdb::CNode *)
+zdb::CNode * Add2dNode(C2D *object, zdb::CTextureRelocMgr *reloc, zdb::CNode *parent)
 {
+	/* 0x384e00: a node named "Add2dNode" carrying a C2DVisual of the object, under parent */
+	zdb::CNode* node = zdb::CNode::Create("Add2dNode");
+	node->AddVisual(new C2DVisual(object, reloc));
+	parent->FindChild(node, true); /* the ELF ignores the result */
+	parent->AddChild(node);
+	return node;
 }
 
 /* @socom-skeleton stub DidStickMoveNext__Fv */
@@ -235,8 +241,19 @@ void PlaySelectionSound()
 }
 
 /* @socom-skeleton stub PrepTexture__FPCcPQ23zdb16CTextureRelocMgr */
-zdb::CTexHandle * PrepTexture(const char *, zdb::CTextureRelocMgr *)
+zdb::CTexHandle * PrepTexture(const char *name, zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x384560: the loaded texture of that name, added to the relocator's batch */
+	if (name == NULL)
+		return NULL;
+
+	zdb::CTexHandle* handle = zdb::CAssetMgr::m_assets.GetTexHandle(name);
+
+	if (handle == NULL || handle->m_texture == NULL)
+		return NULL;
+
+	reloc->AddToBatch(handle);
+	return handle;
 }
 
 /* @socom-skeleton stub SetFaderOpacity__Ff */
@@ -260,6 +277,7 @@ void ActionItem::operator=(const ActionItem &)
 }
 
 void RegisterMenuNode(zdb::CNode *); /* zanim_menu.cpp (0x1d6760) */
+CRdrFile * FetchMissionFontsRdr(); /* zanim_menu.cpp (0x1d5e40) */
 
 /* @socom-skeleton stub __ct__9CGameMenuFv */
 CGameMenu::CGameMenu()
@@ -281,12 +299,15 @@ CGameMenu::CGameMenu()
 	m_pForeplaneNode->SetPosition(0.0f, 0.0f, 16777210.0f); /* 0x4b7ffffa */
 	RegisterMenuNode(&m_nodeTop);
 
-	/* port: not written yet - 0x3841ac-0x38425c also set up the full-screen black fade
-	 * bitmap (_bmpFade: no texture, Load(0, 0, 640, 448), SetColor(0, 0, 0), trans 128),
-	 * zero m_numCommands/m_activeButton, clear g_hasAnims and reserve _vecModelInstances
-	 * (64) and _vecLibs (32); the port's CPlainBmp (C2D, not C2DBitmap) and CGameMenu lack
-	 * those members. */
+	/* 0x3841ac: the fader is an untextured black full-screen bitmap, opaque */
+	_bmpFade.m_hasTexture = false;
+	_bmpFade.C2DBitmap::Load(0.0f, 0.0f, 640.0f, 448.0f, NULL);
+	_bmpFade.SetColor(0.0f, 0.0f, 0.0f);
+	_bmpFade.SetTrans(128.0f);
+	m_numCommands = 0;
+	m_activeButton = 0;
 	g_hasAnims = false;
+	_vecLibs.reserve(0x20); /* port: _vecModelInstances (reserve 0x40) is not modelled */
 }
 
 /* @socom-skeleton stub __dt__9CGameMenuFv */
@@ -329,28 +350,163 @@ void CGameMenu::HandlePad(const CPad *)
 /* @socom-skeleton body Init__9CGameMenuFPQ23zdb16CTextureRelocMgrP9CZAnimZAR */
 bool CGameMenu::Init(zdb::CTextureRelocMgr* manager, CZAnimZAR* archive)
 {
+	/* 0x382d80: read this menu's design (GetReaderFileName in data/common/dialog) and
+	 * build it, inside one relocation batch. */
 	Clear();
-
 	animfile = archive;
-
 	zVid.pcrtcDo = false;
+	m_Reloc = manager ? manager : &g_relocBatch;
+	m_Reloc->StartBatchReloc();
 
-	if (!manager)
-		m_Reloc = NULL;
-	else
-		m_Reloc = manager;
+	if (animfile != NULL)
+	{
+		char* name = GetReaderFileName();
+		CGameDlgDesign design;
+		bool loaded = false;
 
-	// m_Reloc->ClearAll();
+		if (CRdrFile* rdr = zrdr_read(name, "data/common/dialog", LoadDialogsFromReader))
+		{
+			design.LoadFromRdr(rdr);
+			zrdr_free(rdr);
+			loaded = true;
+		}
 
-	// TODO: Implement the rest of this function
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("UI: design %s %s: %u libs (%s), font '%s', background '%s' (%s), %u controls, %u objects, %u animations, script '%s'",
+			name, loaded ? "read" : "missing", (u32)design.m_libs.size(), design.m_libs.size() ? design.m_libs[0].c_str() : "",
+			design.m_font.c_str(), design.m_background.c_str(), design.m_useMpeg ? "mpeg" : "image",
+			(u32)design.m_controls.size(), (u32)design.m_objects.size(), (u32)design.m_animations.size(), design.m_script.c_str());
+#endif
 
+		if (loaded)
+		{
+			m_ReaderName = name;
+			LoadFromDesign(design, animfile);
+		}
+	}
+
+	m_Reloc->EndBatchReloc();
 	return true;
 }
 
 /* @socom-skeleton body LoadFromDesign__9CGameMenuFRC14CGameDlgDesignP9CZAnimZAR */
 void CGameMenu::LoadFromDesign(const CGameDlgDesign &design, CZAnimZAR *animfile)
 {
-	
+	/* 0x382180 */
+	Clear();
+	/* port: not written - UiSetCounterSpeedFactor(1.0f) and UiSetTtySpeedFactor(1.0f) */
+
+	for (u32 i = 0; i < design.m_libs.size(); i++)
+	{
+		const char* name = design.m_libs[i].c_str();
+
+		if (*name != '\0')
+		{
+			zdb::CAssetLib* lib = zdb::CAssetMgr::GetLoadedLibRef(name);
+			lib->m_autoload = false;
+			HookupLib(lib);
+			_vecLibs.push_back(lib);
+		}
+	}
+
+	const char* fontname = design.m_font.c_str();
+
+	if (design.m_fontlib)
+	{
+		_pFontLib = zdb::CAssetMgr::GetLoadedLibRef("common/assetlib/font");
+		_pFontLib->m_autoload = false;
+	}
+	else
+	{
+		_pFontLib = NULL;
+	}
+
+	_font.Load(FetchMissionFontsRdr(), fontname);
+	m_Reloc->AddToBatch(_font.m_pTexHandle);
+
+	const char* background = design.m_background.c_str();
+
+	if (!design.m_useMpeg)
+	{
+		zdb::CTextureRelocMgr* reloc = m_Reloc;
+		zdb::CTexHandle* handle = NULL;
+
+		if (background != NULL)
+		{
+			handle = zdb::CAssetMgr::m_assets.GetTexHandle(background);
+
+			if (handle == NULL || handle->m_texture == NULL)
+				handle = NULL;
+			else
+				reloc->AddToBatch(handle);
+		}
+
+		if (handle != NULL && handle->m_texture != NULL)
+		{
+			_bmpBackground.C2DBitmap::Load(0.0f, 0.0f, 640.0f, 448.0f, handle);
+			Add2dNode(&_bmpBackground, reloc, m_pBackplaneNode);
+		}
+	}
+
+	/* port: not written - 0x382408-0x3824c0 copy design.m_animations into m_commands
+	 * (Type, strdup'd Animation and Argument, State, flags), count m_numCommands and set
+	 * g_hasAnims; without them the menu runs no event animations. */
+
+	g_pFaderNode = Add2dNode(&_bmpFade, m_Reloc, m_pForeplaneNode);
+	g_pFaderNode->SetName("MENUFADER");
+	_bmpFade.SetTrans(128.0f);
+
+	/* Controls, then the other objects: each spec makes its display object, hung on a
+	 * node under the named parent (else the backplane) at its design position. */
+	for (u32 i = 0; i < design.m_controls.size(); i++)
+	{
+		const CDesignDlgObj& obj = design.m_controls[i];
+		C2D* item = obj.m_spec->CreateDisplayObj(&_font, m_Reloc);
+		zdb::CNode* parent = *obj.m_parent.c_str() ? m_nodeTop.FindChild(obj.m_parent.c_str(), true) : NULL;
+
+		if (parent == NULL)
+			parent = m_pBackplaneNode;
+
+		zdb::CNode* node = Add2dNode(item, m_Reloc, parent);
+		node->SetPosition((f32)obj.m_x, (f32)obj.m_y, 0.0f);
+		node->SetName(obj.m_name.c_str());
+		m_ScreenControls.push_back(item);
+		/* port: not written - a spec with children (HasChildren/NumChildren/GetChild) adds
+		 * each child the same way, appended to the control's own list. */
+	}
+
+	for (u32 i = 0; i < design.m_objects.size(); i++)
+	{
+		const CDesignDlgObj& obj = design.m_objects[i];
+		C2D* item = obj.m_spec->CreateDisplayObj(&_font, m_Reloc);
+		zdb::CNode* parent = *obj.m_parent.c_str() ? m_nodeTop.FindChild(obj.m_parent.c_str(), true) : NULL;
+
+		if (parent == NULL)
+			parent = m_pBackplaneNode;
+
+		zdb::CNode* node = Add2dNode(item, m_Reloc, parent);
+		node->SetPosition((f32)obj.m_x, (f32)obj.m_y, 0.0f);
+		node->SetName(obj.m_name.c_str());
+		m_ScreenElements.push_back(item);
+	}
+
+	PrepControls(m_Reloc);
+	PrepModels(design);
+
+	/* the fader moves to the end of the foreplane, in front of everything */
+	m_pForeplaneNode->DeleteChild(g_pFaderNode);
+	m_pForeplaneNode->AddChild(g_pFaderNode);
+
+	/* port: not written - PrepSkbsForDisplay(m_pForeplaneNode, m_Reloc, &_font), the
+	 * pop-up dialog node (CMenuStack::GetPopUp, CPopUpDialog::Load, "POPUP", hidden),
+	 * the ZAnim script path when g_hasAnims, the first active button, and the MPEG
+	 * background (CMPEG::Run) when design.m_useMpeg. */
+
+	if (!g_hasAnims)
+		_bmpFade.SetTrans(0.0f);
+
+
+	g_pTtySound = CSnd::GetSoundByName(theGame.m_menuState.TtySoundString.c_str());
 }
 
 /* @socom-skeleton stub RunEventAnim__9CGameMenuFQ210ActionItem5EVENTPCc */
@@ -407,11 +563,42 @@ void CGameMenu::SwitchMenu(char *)
 void CGameMenu::Tick(float dT) {}
 
 /* @socom-skeleton stub PreGetSprPacket__23CDblBufTextureRelocatorFPQ23zdb10CTexHandle */
-void CDblBufTextureRelocator::PreGetSprPacket(zdb::CTexHandle *)
+void CDblBufTextureRelocator::PreGetSprPacket(zdb::CTexHandle *handle)
 {
+	/* 0x380600: upload the texture (and its palette) into the half of the UI texture area
+	 * being filled - a GIF DMA chain sent and waited on - then switch halves, so the
+	 * previous draw's texture stays in GS memory while its packet drains. */
+	bool sync = false;
+	_pSavedPalette = NULL;
+
+	if (handle != NULL)
+	{
+		zdb::CGSTexBuffer* buffer = _arrGsBufs[_iGsBufToFill];
+		buffer->m_dyntex_list.Add(handle, true);
+		buffer->m_chainp = NULL;
+
+		zdb::CTexPalette* palette = handle->m_texture->m_palette;
+
+		if (palette != NULL && palette == _pSavedPalette)
+			sync = true;
+
+		_pSavedPalette = palette;
+		_arrGsBufs[_iGsBufToFill]->Load(true);
+
+		buffer = _arrGsBufs[_iGsBufToFill];
+		buffer->m_dyntex_list.m_tex_list.clear();
+		buffer->m_dyntex_list.m_pal_list.clear();
+		buffer->m_chainp = NULL;
+		_iGsBufToFill = _iGsBufToFill == 0;
+	}
+
+	if (handle == NULL || sync)
+		sceDmaSync(zSys.DmaToGif, 0, 0);
 }
 
 /* @socom-skeleton stub TakeDrawPacket__23CDblBufTextureRelocatorFP1Ui */
-void CDblBufTextureRelocator::TakeDrawPacket(unsigned __int128 *, unsigned int)
+void CDblBufTextureRelocator::TakeDrawPacket(unsigned __int128 *packet, unsigned int qwc)
 {
+	/* 0x3805f0 */
+	zSysFifoKick(packet, qwc);
 }

@@ -64,92 +64,65 @@ C2DBitmap::C2DBitmap()
 /* @socom-skeleton body Draw__9C2DBitmapFPQ23zdb7CCamera */
 void C2DBitmap::Draw(zdb::CCamera* camera)
 {
+	/* 0x303900: as Draw(matrix, reloc) with no transform, through a temporary batch
+	 * relocator on the stack (the ELF stores __vt__Q23zdb15CBatchRelocator at sp+0x3c). */
+	zdb::CBatchRelocator reloc;
+
 	if (!IsOn())
-	{
 		return;
-	}
 
-	if (!m_hasTexture)
+	if (m_hasTexture && (m_pTexHandle == NULL || m_pTexHandle->m_texture == NULL))
 	{
-		zdb::CTexture* texture = NULL;
-		
-		if (!m_pTexHandle)
-		{
-			texture = NULL;
-		}
-		else
-		{
-			texture = m_pTexHandle->m_texture;
-		}
-
-		if (!texture)
-		{
-			if (first)
-			{
-				first = false;
-			}
-
-			/*SDL_SetRenderDrawColor(theWindow->GetRenderer(), m_RGB[0][0], m_RGB[0][1], m_RGB[0][2], 255);
-			SDL_RenderFillRect(theWindow->GetRenderer(), &m_rect);*/
-		}
+		if (first)
+			first = false;
 	}
 	else
 	{
-		/*SDL_RenderTexture(theWindow->GetRenderer(), m_pSDLTexture, NULL, &m_rect);*/
+		MakePacket(camera, &reloc, NULL);
 	}
+
+	C2D::Draw(camera);
 }
 
 /* @socom-skeleton body Draw__9C2DBitmapFRC7CMatrixPQ23zdb16CTextureRelocMgr */
 void C2DBitmap::Draw(const CMatrix& transform, zdb::CTextureRelocMgr* reloc)
 {
-	zdb::CTexture* texture = NULL;
+	/* 0x303830: a textured bitmap whose handle has no texture draws nothing (first is
+	 * cleared); the children always draw. */
+	zdb::CCamera* camera = m_p2dcamera;
 
 	if (!IsOn())
-	{
 		return;
-	}
 
-	if (!m_hasTexture)
+	if (m_hasTexture && (m_pTexHandle == NULL || m_pTexHandle->m_texture == NULL))
 	{
-		if (m_pTexHandle == NULL)
-		{
-			texture = NULL;
-		}
-		else
-		{
-			texture = m_pTexHandle->m_texture;
-		}
-
-		if (texture == NULL)
-		{
-			if (first)
-			{
-				first = false;
-			}
-
-			C2D::Draw(m_p2dcamera);
-			return;
-		}
+		if (first)
+			first = false;
+	}
+	else
+	{
+		MakePacket(camera, reloc, &transform);
 	}
 
-	MakePacket(m_p2dcamera, reloc, &transform); /* port: the ELF has only MakePacket__9C2DBitmapFPQ23zdb7CCameraPQ23zdb16CTextureRelocMgrPC7CMatrix */
-	C2D::Draw(m_p2dcamera);
+	C2D::Draw(camera);
 }
 
 /* @socom-skeleton body SetColor__9C2DBitmapFfff */
 void C2DBitmap::SetColor(f32 red, f32 green, f32 blue)
 {
+	/* 0x303810: both corners */
 	m_RGB[0][0] = red;
 	m_RGB[0][1] = green;
 	m_RGB[0][2] = blue;
-	m_RGB[1][2] = red;
-	m_RGB[1][2] = green;
-	m_RGB[2][2] = blue;
+	m_RGB[1][0] = red;
+	m_RGB[1][1] = green;
+	m_RGB[1][2] = blue;
 }
 
 /* @socom-skeleton body SetTrans__9C2DBitmapFf */
 void C2DBitmap::SetTrans(float transparency)
 {
+	/* 0x3037e0: alpha of both corners (128 = opaque); enables blending */
 	m_RGB[0][3] = transparency;
 	m_RGB[1][3] = transparency;
 	m_isTrans = true;
@@ -158,12 +131,14 @@ void C2DBitmap::SetTrans(float transparency)
 /* @socom-skeleton body GetTrans__9C2DBitmapFv */
 float C2DBitmap::GetTrans()
 {
-	return m_isTrans;
+	/* 0x3037d0 */
+	return m_RGB[0][3];
 }
 
 /* @socom-skeleton body SetUV__9C2DBitmapFffff */
 void C2DBitmap::SetUV(f32 u0, f32 v0, f32 u1, f32 v1)
 {
+	/* 0x3037b0: T is stored negated (the ctor's defaults are 0.01,-0.01 .. 0.99,-0.99) */
 	m_NewUV[0][0] = u0;
 	m_NewUV[0][1] = -v0;
 	m_NewUV[1][0] = u1;
@@ -173,104 +148,158 @@ void C2DBitmap::SetUV(f32 u0, f32 v0, f32 u1, f32 v1)
 /* @socom-skeleton body Load__9C2DBitmapFffPQ23zdb10CTexHandle */
 void C2DBitmap::Load(f32 x, f32 y, zdb::CTexHandle* handle)
 {
-	zdb::CTexture* texture = NULL;
-
+	/* 0x3036d0: position at (x, y), sized to the texture */
 	m_pTexHandle = handle;
 
-	if (!m_hasTexture)
+	if (m_hasTexture && (handle == NULL || handle->m_texture == NULL))
 	{
-		if (handle != NULL)
-		{
-			texture = handle->m_texture;
-		}
+		if (first)
+			first = false;
 
-		if (texture == NULL && !first)
-		{
-			return;
-		}
-
-		first = false;
 		return;
 	}
 
-	if (m_pTexHandle == NULL)
+	if (m_pTexHandle != NULL && m_pTexHandle->m_texture != NULL)
 	{
-		texture = NULL;
-	}
-	else
-	{
-		texture = m_pTexHandle->m_texture;
-	}
-
-	if (texture != NULL)
-	{
-		m_x = static_cast<s32>(x);
-		m_y = static_cast<s32>(y);
+		m_x = (s32)x;
+		m_y = (s32)y;
 		m_iWidth = m_pTexHandle->m_texture->m_width;
-		m_iWidth = m_pTexHandle->m_texture->m_height;
+		m_iHeight = m_pTexHandle->m_texture->m_height;
 	}
 }
 
 /* @socom-skeleton body Load__9C2DBitmapFffffPQ23zdb10CTexHandle */
-void C2DBitmap::Load(f32 x, f32 y, f32 width, f32 height, zdb::CTexHandle* handle)
+void C2DBitmap::Load(f32 x, f32 y, f32 x1, f32 y1, zdb::CTexHandle* handle)
 {
+	/* 0x3035d0: the rectangle (x, y)-(x1, y1) */
 	m_pTexHandle = handle;
-	
-	m_x = static_cast<s32>(x);
-	m_y = static_cast<s32>(y);
-	m_iWidth = static_cast<s32>(width) - m_x;
-	m_iHeight = static_cast<s32>(height) - m_y;
-	
-	if (m_hasTexture)
+	m_x = (s32)x;
+	m_y = (s32)y;
+	m_iWidth = (s32)x1 - m_x;
+	m_iHeight = (s32)y1 - m_y;
+
+	if (m_hasTexture && (handle == NULL || handle->m_texture == NULL))
 	{
-		
+		if (first)
+			first = false;
 	}
 }
 
 /* @socom-skeleton body SetPos__9C2DBitmapFii */
 void C2DBitmap::SetPos(s32 x, s32 y)
 {
-	zdb::CTexture* texture = NULL;
-
-	if (m_pTexHandle == NULL)
-	{
-		texture = NULL;
-	}
-	else
-	{
-		texture = m_pTexHandle->m_texture;
-	}
+	/* 0x303580 */
+	zdb::CTexture* texture = m_pTexHandle ? m_pTexHandle->m_texture : NULL;
 
 	if (texture != NULL)
 	{
 		m_x = x;
 		m_y = y;
 		m_iWidth = m_pTexHandle->m_texture->m_width;
-		m_iWidth = m_pTexHandle->m_texture->m_height;
+		m_iHeight = m_pTexHandle->m_texture->m_height;
 	}
 }
 
 /* @socom-skeleton body SetPos__9C2DBitmapFiiii */
-void C2DBitmap::SetPos(s32 x, s32 y, s32 width, s32 height)
+void C2DBitmap::SetPos(s32 x, s32 y, s32 x1, s32 y1)
 {
+	/* 0x303560 */
 	m_x = x;
 	m_y = y;
-	m_iWidth = width - x;
-	m_iHeight = height - y;
+	m_iWidth = x1 - x;
+	m_iHeight = y1 - y;
 }
 
 /* @socom-skeleton body MakePacket__9C2DBitmapFPQ23zdb7CCameraPQ23zdb16CTextureRelocMgrPC7CMatrix */
 void C2DBitmap::MakePacket(zdb::CCamera *camera, zdb::CTextureRelocMgr *reloc, const CMatrix *transform)
 {
-	// TODO:
-	// Add more to this function
+	/* 0x3031c0: one GS SPRITE in a scratchpad DMA packet for the VIF1 MFIFO:
+	 *   [REF -> texture select block (TEX0/TEX1/CLAMP...), VIF FLUSH + DIRECT]  if textured
+	 *   CNT 7 (VIF NOP, DIRECT 7)
+	 *   GIFtag NLOOP 2 EOP PRE, PRIM = SPRITE | TME (m_hasTexture) | ABE (m_isTrans) |
+	 *          AA1 (m_isAA), PACKED, NREG 3: ST RGBAQ XYZ2
+	 *   corner 0: ST m_NewUV[0], RGBAQ ftoi0(m_RGB[0]), XYZ2 ftoi4(x, y, z, 1/16)
+	 *   corner 1: ST m_NewUV[1], RGBAQ ftoi0(m_RGB[1]), XYZ2 ftoi4(x + w, y + h, z, 1/16)
+	 * The corners go through the transform (rows 0-2 scale x, y, z; row 3 adds), then
+	 * x * m_fXPixel + m_screen.left, y * m_fYPixel + m_screen.top (GS window offsets).
+	 * The relocator uploads the texture first (PreGetSprPacket) and takes the packet. */
+	reloc->PreGetSprPacket(m_pTexHandle);
 
-	reloc->AddToBatch(m_pTexHandle);
+	_word128* packet = reinterpret_cast<_word128*>(zSysSprGetPacket(NULL));
+	_word128* p = packet;
+	zdb::CTexture* texture = m_pTexHandle ? m_pTexHandle->m_texture : NULL;
+
+	if (texture != NULL)
+		*p++ = texture->m_dmaRef;
+
+	p->u32[0] = 0x10000007; /* DMAtag CNT 7 */
+	p->u32[1] = 0;
+	p->u32[2] = 0;          /* VIF NOP */
+	p->u32[3] = 0x50000007; /* VIF DIRECT 7 */
+	p++;
+
+	u64 prim = 6; /* SPRITE */
+
+	if (m_hasTexture)
+		prim |= 0x10;
+	if (m_isTrans)
+		prim |= 0x40;
+	if (m_isAA)
+		prim |= 0x80;
+
+	p->u64[0] = 0x8002 | (1ull << 46) | (prim << 47) | (3ull << 60);
+	p->u64[1] = 0x412; /* ST, RGBAQ, XYZ2 */
+	p++;
+
+	f32 corner[2][3] =
+	{
+		{ (f32)m_x, (f32)m_y, 0.0f },
+		{ (f32)(m_x + m_iWidth), (f32)(m_y + m_iHeight), 0.0f },
+	};
+
+	if (transform != NULL)
+	{
+		for (int i = 0; i < 2; i++)
+		{
+			f32 x = corner[i][0], y = corner[i][1], z = corner[i][2];
+
+			for (int c = 0; c < 3; c++)
+				corner[i][c] = transform->m_matrix[0][c] * x + transform->m_matrix[1][c] * y + transform->m_matrix[2][c] * z + transform->m_matrix[3][c];
+		}
+	}
+
+	for (int i = 0; i < 2; i++)
+	{
+		f32 xyzw[4] =
+		{
+			corner[i][0] * m_fXPixel + (f32)camera->m_screen.left,
+			corner[i][1] * m_fYPixel + (f32)camera->m_screen.top,
+			corner[i][2],
+			0.0625f,
+		};
+
+		p->f32[0] = m_NewUV[i][0];
+		p->f32[1] = m_NewUV[i][1];
+		p->f32[2] = m_NewUV[i][2];
+		p->f32[3] = m_NewUV[i][3];
+		p++;
+
+		for (int c = 0; c < 4; c++)
+			p->u32[c] = (u32)(s32)m_RGB[i][c]; /* vftoi0 */
+		p++;
+
+		for (int c = 0; c < 4; c++)
+			p->u32[c] = (u32)(s32)(xyzw[c] * 16.0f); /* vftoi4 */
+		p++;
+	}
+
+	reloc->TakeDrawPacket(reinterpret_cast<unsigned __int128*>(packet), (u32)(p - packet));
 }
 
 /* @socom-skeleton body Reset__9C2DBitmapFv */
 void C2DBitmap::Reset()
 {
+	/* 0x3031a0 */
 	m_x = 0;
 	m_y = 0;
 	m_pTexHandle = NULL;

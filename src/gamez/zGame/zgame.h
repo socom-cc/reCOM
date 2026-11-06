@@ -182,13 +182,17 @@ public:
 	CSaferStr m_ReaderName;
 	CSaferStr m_MPEGName;
 	C2DButton m_ScreenControls;
+	s32 m_activeButton;                      /* DWARF +0x660 */
+	C2D m_ScreenElements;                    /* DWARF +0x664: the OBJECTS' display objects */
+	std::vector<zdb::CAssetLib*> _vecLibs;   /* DWARF +0x680 */
+	s32 m_numCommands;                       /* DWARF +0x86c */
 
 	zdb::CTextureRelocMgr* m_Reloc;
 	/* @socom-skeleton decl 9CGameMenu */
 public:
 	virtual ~CGameMenu();
 	virtual void MyTick(float) {} /* ELF 0x321320: empty (emitted from zui.h) */
-	virtual char * GetReaderFileName() { return NULL; } /* port: stub; ELF 0x382ef0 returns the word at +12 of the pointer at +0x874 (m_ReaderName storage unproven) */
+	virtual char * GetReaderFileName() { return const_cast<char*>(m_ReaderName.c_str()); } /* 0x382ef0: m_ReaderName's characters (+12 in the MSL string rep) */
 	virtual void PrepControls(zdb::CTextureRelocMgr *) {} /* ELF 0x321330: empty (emitted from zui.h) */
 	CGameMenu();
 	zdb::CNode * AddNode(C2D *, zdb::CTextureRelocMgr *);

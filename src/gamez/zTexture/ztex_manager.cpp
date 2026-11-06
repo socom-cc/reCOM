@@ -70,6 +70,8 @@ namespace zdb
 /* @socom-skeleton decl include */
 #include "gamez/zNode/node_assetlib.h"
 /* @socom-skeleton end include */
+#include <eekernel.h> /* FlushCache */
+#include <algorithm> /* std::find */
 /* @socom-skeleton decl forward */
 union _word128;
 /* @socom-skeleton end forward */
@@ -146,7 +148,28 @@ void CDynTexList::Add(CDynTexList* list)
 namespace zdb {
 void CDynTexList::Add(CTexHandle* handle, bool check)
 	{
+		/* 0x2fc610: append the handle (unless check finds its texture already listed),
+		 * then its palette (unless check finds it already listed). */
+		if (check && m_tex_list.GetHandle(handle->m_texture) != NULL)
+			return;
 
+		m_tex_list.push_back(handle);
+
+		CTexPalette* palette = handle->m_texture->m_palette;
+
+		if (palette == NULL)
+			return;
+
+		if (check)
+		{
+			for (CTexPalList::iterator i = m_pal_list.begin(); i != m_pal_list.end(); ++i)
+			{
+				if (*i == palette)
+					return;
+			}
+		}
+
+		m_pal_list.push_back(palette);
 	}
 }
 
@@ -154,7 +177,17 @@ void CDynTexList::Add(CTexHandle* handle, bool check)
 namespace zdb {
 void CDynTexList::Add(CTexPalette* palette, bool check)
 	{
+		/* 0x2fc550 */
+		if (check)
+		{
+			for (CTexPalList::iterator i = m_pal_list.begin(); i != m_pal_list.end(); ++i)
+			{
+				if (*i == palette)
+					return;
+			}
+		}
 
+		m_pal_list.push_back(palette);
 	}
 }
 
@@ -175,9 +208,107 @@ unsigned int zdb::CGSTexBuffer::Setup(float, float)
 
 /* @socom-skeleton body Hookup__Q23zdb12CGSTexBufferFPQ23zdb9CAssetLib */
 namespace zdb {
+/* port: helper for the palette test Hookup repeats inline */
+static bool PaletteMatches(const CTexPalette* pal, const CTexture* tex)
+{
+	/* the test Hookup (0x2fbc50) repeats inline: same id, same library name */
+	return tex->m_palID == pal->m_id && strcmp(pal->m_AssetLib->m_name, tex->m_AssetLib->m_name) == 0;
+}
+
 void CGSTexBuffer::Hookup(CAssetLib* lib)
 	{
-		
+		/* 0x2fbc50: give every listed handle its texture's GS address and resolve the
+		 * palette of each palettized texture: first among this buffer's palettes, then
+		 * the library's, then every loaded library's (a palette found there is added to
+		 * this buffer, which then needs a new chain). A mip child (m_is_mip_child) lists,
+		 * in its m_reverse_miplist, every texture here whose MIPTBP1/2 names its GS
+		 * address (TBP1 bits 0-13, TBP2 bits 20-33, TBP3 bits 40-53). */
+		for (CTexList::iterator h = m_dyntex_list.m_tex_list.begin(); h != m_dyntex_list.m_tex_list.end(); ++h)
+		{
+			CTexture* tex = (*h)->m_texture;
+			(*h)->m_gsAddr = tex->m_gsaddr;
+
+			if (tex->m_palettized)
+			{
+				bool found = false;
+				CTexPalList& pals = m_dyntex_list.m_pal_list;
+
+				for (CTexPalList::iterator p = pals.begin(); p != pals.end() && !found; ++p)
+				{
+					if (PaletteMatches(*p, tex))
+					{
+						tex->m_palette = *p;
+						found = true;
+					}
+				}
+
+				if (!found && lib != NULL)
+				{
+					for (CTexPalList::iterator p = lib->m_palettes.begin(); p != lib->m_palettes.end() && !found; ++p)
+					{
+						if (PaletteMatches(*p, tex))
+						{
+							tex->m_palette = *p;
+							found = true;
+						}
+					}
+				}
+
+				for (CAssetList::iterator l = CAssetMgr::m_assets.begin(); !found && l != CAssetMgr::m_assets.end(); ++l)
+				{
+					CTexPalList& libpals = (*l)->m_palettes;
+
+					for (CTexPalList::iterator p = libpals.begin(); p != libpals.end() && !found; ++p)
+					{
+						if (PaletteMatches(*p, tex))
+						{
+							tex->m_palette = *p;
+							found = true;
+						}
+					}
+
+					if (found)
+					{
+						CTexPalette* pal = tex->m_palette;
+
+						if (std::find(pals.begin(), pals.end(), pal) == pals.end())
+							pals.push_back(pal);
+
+						m_chainp = NULL;
+					}
+				}
+			}
+
+			if (tex->m_is_mip_child)
+			{
+				u32 addr = tex->m_gsaddr;
+
+				for (CTexList::iterator o = m_dyntex_list.m_tex_list.begin(); o != m_dyntex_list.m_tex_list.end(); ++o)
+				{
+					CTexture* parent = *o ? (*o)->m_texture : NULL;
+					bool match = false;
+
+					if (parent->m_MIP1 != NULL)
+					{
+						u64 m = *parent->m_MIP1;
+
+						if ((m & 0x3fff) == addr || ((m >> 20) & 0x3fff) == addr || ((m >> 40) & 0x3fff) == addr)
+							match = true;
+					}
+
+					if (parent->m_MIP2 != NULL)
+					{
+						u64 m = *parent->m_MIP2;
+
+						if ((m & 0x3fff) == addr || ((m >> 20) & 0x3fff) == addr || ((m >> 40) & 0x3fff) == addr)
+							match = true;
+					}
+
+					if (match)
+						tex->m_reverse_miplist.push_back(parent);
+				}
+			}
+		}
 	}
 }
 
@@ -187,13 +318,115 @@ void zdb::CGSTexBuffer::RelocateAll()
 }
 
 /* @socom-skeleton stub MakeChain__Q23zdb12CGSTexBufferFP1i */
-void zdb::CGSTexBuffer::MakeChain(unsigned __int128 *, int)
+_word128 * refLoadImage(_word128 *, unsigned int, unsigned int, void *, unsigned int, unsigned int, unsigned int); /* defined below (0x2fb840) */
+
+void zdb::CGSTexBuffer::MakeChain(unsigned __int128 *chain, int)
 {
+	/* 0x2fb9a0 (port: the skeleton declares void; the ELF returns the chain start, which
+	 * Load keeps from its own argument). Lays the palettes, then the textures, out from
+	 * m_startAddress in 64-word blocks (skipping any that would overflow when
+	 * m_checkForOverflow), appends an image upload for each one with a buffer, and ends
+	 * with a DMA END tag carrying GIFtag A+D TEXFLUSH. */
+	_word128* p = reinterpret_cast<_word128*>(chain);
+	m_nextAddress = m_startAddress;
+
+	for (CTexPalList::iterator i = m_dyntex_list.m_pal_list.begin(); i != m_dyntex_list.m_pal_list.end(); ++i)
+	{
+		CTexPalette* pal = *i;
+		u32 blocks = pal->m_size / 256;
+
+		if (m_checkForOverflow && m_nextAddress + blocks >= m_endAddress)
+			continue;
+
+		if (m_nextAddress != pal->m_gsaddr)
+			pal->m_gsaddr = m_nextAddress;
+
+		m_nextAddress += blocks;
+
+		if (pal->m_buffer != NULL)
+			p = refLoadImage(p, pal->m_gsaddr, pal->m_format, pal->m_buffer, pal->m_size, 16, 16);
+	}
+
+	for (CTexList::iterator i = m_dyntex_list.m_tex_list.begin(); i != m_dyntex_list.m_tex_list.end(); ++i)
+	{
+		CTexture* tex = (*i)->m_texture;
+
+		if (tex == NULL)
+			continue;
+
+		if (m_checkForOverflow && m_nextAddress + tex->m_gsWords >= m_endAddress)
+			continue;
+
+		if (m_nextAddress != tex->m_gsaddr)
+			tex->m_gsaddr = m_nextAddress;
+
+		m_nextAddress += tex->m_gsWords;
+
+		if (tex->m_buffer != NULL)
+			p = refLoadImage(p, tex->m_gsaddr, tex->m_format, tex->m_buffer, tex->m_size, tex->m_width, tex->m_height);
+	}
+
+	p[0].u64[0] = 0x70000002;            /* DMAtag END, 2 qwords */
+	p[0].u64[1] = 0;
+	p[1].u64[0] = 0x1000000000008001ull; /* GIFtag NLOOP 1, EOP, PACKED, NREG 1 */
+	p[1].u64[1] = 0xe;                   /* A+D */
+	p[2].u64[0] = 0;
+	p[2].u64[1] = 0x3f;                  /* TEXFLUSH */
+	FlushCache(0);
 }
 
 /* @socom-skeleton stub refLoadImage__FP8_word128UiUiPvUiUiUi */
-_word128 * refLoadImage(_word128 *, unsigned int, unsigned int, void *, unsigned int, unsigned int, unsigned int)
+_word128 * refLoadImage(_word128 *p, unsigned int gsaddr, unsigned int psm, void *buffer, unsigned int size, unsigned int width, unsigned int height)
 {
+	/* 0x2fb840: a host-to-local image transfer as a DMA chain for the GIF (path 3):
+	 *   CNT 6: GIFtag A+D x4 - BITBLTBUF (DBP gsaddr, DBW width/64 (at least 1),
+	 *          DPSM = SPSM = psm), TRXPOS 0, TRXREG width x height, TRXDIR 0 (host to
+	 *          local) - then GIFtag IMAGE, EOP, NLOOP size/16;
+	 *   REF size/16 -> buffer (the pixels are sent in place).
+	 * Over 0x7fff qwords the rest follows as CNT 1 (GIFtag IMAGE) + REF; the ELF starts
+	 * that second REF at buffer + 0x80000. */
+	u64 bw = width <= 64 ? 1 : width >> 6;
+	u32 qwc = size >> 4;
+	u32 rest = 0;
+
+	if (qwc >= 0x8000)
+	{
+		rest = qwc - 0x7fff;
+		qwc = 0x7fff;
+	}
+
+	p[0].u64[0] = 0x10000006;            /* DMAtag CNT 6 */
+	p[0].u64[1] = 0;
+	p[1].u64[0] = 0x1000000000000004ull; /* GIFtag NLOOP 4, PACKED, NREG 1 */
+	p[1].u64[1] = 0xe;                   /* A+D */
+	p[2].u64[0] = ((u64)psm << 24) | ((u64)gsaddr << 32) | (bw << 48) | ((u64)psm << 56);
+	p[2].u64[1] = 0x50;                  /* BITBLTBUF */
+	p[3].u64[0] = 0;
+	p[3].u64[1] = 0x51;                  /* TRXPOS */
+	p[4].u64[0] = (u64)width | ((u64)height << 32);
+	p[4].u64[1] = 0x52;                  /* TRXREG */
+	p[5].u64[0] = 0;
+	p[5].u64[1] = 0x53;                  /* TRXDIR */
+	p[6].u64[0] = (u64)qwc | 0x8000 | (2ull << 58); /* GIFtag IMAGE, EOP */
+	p[6].u64[1] = 0;
+	p[7].u32[0] = qwc | 0x30000000;      /* DMAtag REF */
+	p[7].u32[1] = (u32)buffer;
+	p[7].u64[1] = 0;
+	p += 8;
+
+	if (rest != 0)
+	{
+		p[0].u64[0] = 0x10000001;        /* DMAtag CNT 1 */
+		p[0].u64[1] = 0;
+		p[1].u64[0] = (u64)rest | 0x8000 | (2ull << 58);
+		p[1].u64[1] = 0;
+		p[2].u32[0] = rest | 0x30000000;
+		p[2].u32[1] = (u32)buffer + 0x80000;
+		p[2].u64[1] = 0;
+		p += 3;
+	}
+
+	return p;
 }
 
 /* @socom-skeleton stub Load__Q23zdb12CGSTexBufferFb */
@@ -203,10 +436,52 @@ unsigned __int128 * zdb::CGSTexBuffer::Load(bool upload)
 	if (m_dyntex_list.m_tex_list.size() == 0 && m_dyntex_list.m_pal_list.size() == 0)
 		return NULL;
 
-	/* port: the upload path (Hookup, MakeChain or the address re-layout, then
-	 * UpdateTextureSelects and the GIF DMA of m_chainp) is not written yet; reaching it
-	 * stops with this location (-fsanitize=return). */
-	(void)upload;
+	if (upload)
+		Hookup(m_assetLib);
+
+	if (m_chainp == NULL)
+	{
+		/* 11 qwords an image (8, or 11 when split) plus the 3-qword END/TEXFLUSH tail. */
+		u32 qwc = (m_dyntex_list.m_tex_list.size() + m_dyntex_list.m_pal_list.size()) * 11 + 3;
+		m_pktbuf.clear();
+		m_pktbuf.resize(qwc); /* port: unproven fill value - 0x2fb6ac passes the qword at 0x43a850 */
+		MakeChain(reinterpret_cast<unsigned __int128*>(m_pktbuf.data()), qwc);
+		m_chainp = reinterpret_cast<s64*>(m_pktbuf.data());
+	}
+	else
+	{
+		/* The chain stands: only re-lay the GS addresses in the same order. */
+		m_nextAddress = m_startAddress;
+
+		for (CTexPalList::iterator i = m_dyntex_list.m_pal_list.begin(); i != m_dyntex_list.m_pal_list.end(); ++i)
+		{
+			if ((*i)->m_gsaddr != m_nextAddress)
+				(*i)->m_gsaddr = m_nextAddress;
+
+			m_nextAddress += (*i)->m_size / 256;
+		}
+
+		for (CTexList::iterator i = m_dyntex_list.m_tex_list.begin(); i != m_dyntex_list.m_tex_list.end(); ++i)
+		{
+			CTexture* tex = (*i)->m_texture;
+
+			if (tex->m_gsaddr != m_nextAddress)
+				tex->m_gsaddr = m_nextAddress;
+
+			m_nextAddress += tex->m_gsWords;
+		}
+	}
+
+	if (upload)
+	{
+		UpdateTextureSelects();
+		void* chain = m_chainp;
+		sceDmaSync(zSys.DmaToGif, 0, 0);
+		sceDmaSend(zSys.DmaToGif, chain);
+		sceDmaSync(zSys.DmaToGif, 0, 0);
+	}
+
+	return reinterpret_cast<unsigned __int128*>(m_chainp);
 }
 
 /* @socom-skeleton stub Add__Q23zdb12CGSTexBufferFPQ23zdb9CAssetLibb */
@@ -275,6 +550,50 @@ void zdb::CTexManager::ClearPktBufs(zdb::CTexManager &, bool)
 /* @socom-skeleton stub UpdateTextureSelects__Q23zdb12CGSTexBufferFv */
 void zdb::CGSTexBuffer::UpdateTextureSelects()
 {
+	/* 0x2f9f20: re-lay palettes then textures from m_startAddress and patch each texture's
+	 * select packet: TEX0.TBP0 (bits 0-13) = its block and TEX0.CBP (bits 37-50) = its
+	 * palette's block, through the cached pointer and its uncached alias (| 0x20000000)
+	 * so the DMA sees the change without a cache flush; mip parents follow a child. */
+	m_nextAddress = m_startAddress;
+
+	for (CTexPalList::iterator i = m_dyntex_list.m_pal_list.begin(); i != m_dyntex_list.m_pal_list.end(); ++i)
+	{
+		(*i)->m_gsaddr = m_nextAddress;
+		m_nextAddress += (*i)->m_size / 256;
+	}
+
+	for (CTexList::iterator i = m_dyntex_list.m_tex_list.begin(); i != m_dyntex_list.m_tex_list.end(); ++i)
+	{
+		CTexHandle* handle = *i;
+		CTexture* tex = handle->m_texture;
+		u32 old = handle->m_gsAddr;
+		u32 addr = m_nextAddress;
+
+		handle->m_gsAddr = addr;
+
+		volatile u16* tbp = reinterpret_cast<u16*>(tex->m_TEX0);
+
+		if ((*tbp & 0x3fff) != addr)
+		{
+			*tbp = (*tbp & ~0x3fff) | (addr & 0x3fff);
+			volatile u16* uncached = reinterpret_cast<u16*>((u32)tex->m_TEX0 | 0x20000000);
+			*uncached = (*uncached & ~0x3fff) | (addr & 0x3fff);
+		}
+
+		for (std::vector<CTexture*>::iterator m = tex->m_reverse_miplist.begin(); m != tex->m_reverse_miplist.end(); ++m)
+			(*m)->MIPUpdateTextureSelects(old, addr);
+
+		if (tex->m_palette != NULL)
+		{
+			const u64 keep = 0xfff8001fffffffffull;
+			u64 cbp = (u64)(tex->m_palette->m_gsaddr & 0x3fff) << 37;
+			*tex->m_TEX0 = (*tex->m_TEX0 & keep) | cbp;
+			volatile u64* uncached = reinterpret_cast<u64*>((u32)tex->m_TEX0 | 0x20000000);
+			*uncached = (*uncached & keep) | cbp;
+		}
+
+		m_nextAddress = addr + tex->m_gsWords;
+	}
 }
 
 /* @socom-skeleton stub MIPUpdateTextureSelects__Q23zdb8CTextureFUiUi */

@@ -771,18 +771,74 @@ void CRenderableString::UpdateUIVar(CUIVariable *)
 }
 
 /* @socom-skeleton stub Draw__9CPlainBmpFRC7CMatrixPQ23zdb16CTextureRelocMgr */
-void CPlainBmp::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+zdb::CTexHandle * PrepTexture(const char *, zdb::CTextureRelocMgr *); /* zui.cpp (0x384560) */
+
+void CPlainBmp::Draw(const CMatrix &transform, zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x390e10: a string UI variable names the texture to show; a new name reloads it
+	 * over the same rectangle. */
+	CUIVariable* var = m_mixin_uivar;
+
+	if (var != NULL && var->type == ZRDR_STRING)
+	{
+		const char* name = var->string;
+		const char* current = m_pTexHandle ? m_pTexHandle->m_name : "";
+
+		if (strcasecmp(name, current) != 0)
+		{
+			zdb::CTexHandle* handle = PrepTexture(name, reloc);
+
+			if (handle != NULL)
+				C2DBitmap::Load((f32)m_x, (f32)m_y, (f32)(m_x + m_iWidth), (f32)(m_y + m_iHeight), handle);
+		}
+	}
+
+	C2DBitmap::Draw(transform, reloc);
 }
 
 /* @socom-skeleton stub LoadSpec__9CPlainBmpFRC10CImageSpecPQ23zdb10CTexHandle */
-void CPlainBmp::LoadSpec(const CImageSpec &, zdb::CTexHandle *)
+void CPlainBmp::LoadSpec(const CImageSpec &spec, zdb::CTexHandle *handle)
 {
+	/* 0x390d40 */
+	m_pulsing = spec.m_pulse;
+	m_period = spec.m_period;
+
+	if (m_pulsing)
+		m_curtrans = 0.0f;
+
+	CUIVariable* var = NULL;
+
+	if (spec.m_uivar != NULL)
+		var = theUIVarManager.Add(spec.m_uivar->m_name, spec.m_uivar->m_array, (UIVAR_LONGEVITY)spec.m_uivar->m_type);
+
+	if (var != NULL)
+	{
+		/* port: unproven - the ELF attaches through the UIVarMixin part (AttachUIVar, then
+		 * UpdateUIVar through its vtable +0xc); the port's CPlainBmp has no such base. */
+		m_mixin_uivar = var;
+		UpdateUIVar(var);
+	}
+
+	C2DBitmap::Load(0.0f, 0.0f, (f32)spec.m_xsize, (f32)spec.m_ysize, handle);
 }
 
 /* @socom-skeleton stub Tick__9CPlainBmpFf */
-void CPlainBmp::Tick(float)
+void CPlainBmp::Tick(float dT)
 {
+	/* 0x390c80: a pulsing image's alpha follows 64 + 64 sin(t), one cycle per m_period */
+	if (m_pulsing)
+	{
+		const f32 TWO_PI = 6.2831855f;
+		m_curtrans += (dT / m_period) * TWO_PI;
+
+		if (m_curtrans > TWO_PI)
+			m_curtrans -= TWO_PI;
+
+		if (m_curtrans < 0.0f)
+			m_curtrans += TWO_PI;
+
+		SetTrans(sinf(m_curtrans) * 64.0f + 64.0f);
+	}
 }
 
 /* @socom-skeleton stub GetSpacing__9CTeleTypeFv */
@@ -1133,8 +1189,11 @@ void CTickerTapeText::LoadSpec(const CTickerSpec &)
 }
 
 /* @socom-skeleton stub __ct__9C2DVisualFP3C2DPQ23zdb16CTextureRelocMgr */
-C2DVisual::C2DVisual(C2D *, zdb::CTextureRelocMgr *)
+C2DVisual::C2DVisual(C2D *object, zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x388ee0: a visual that draws a C2D object with its relocator */
+	m_2d = object;
+	m_reloc = reloc;
 }
 
 /* @socom-skeleton stub ParseZAnimCmd__17CRenderableStringFP5_zrdr */
@@ -1168,8 +1227,21 @@ int CPopUpDialog::GetZAnimCmdType(const char *)
 }
 
 /* @socom-skeleton stub Render__9C2DVisualFP7CMatrix */
-void C2DVisual::Render(CMatrix *)
+void C2DVisual::Render(CMatrix *transform)
 {
+	/* 0x386ec0: under a translucent UI node the object's alpha follows the opacity stack
+	 * (0.99 counts as opaque); then it draws with the node's matrix. */
+	f32 opacity = thePipe.m_opacity_stack[thePipe.m_opacity_stack_index];
+
+	if (opacity < 1.0f)
+	{
+		if (opacity == 0.99f)
+			opacity = 1.0f;
+
+		m_2d->SetTrans(128.0f * opacity);
+	}
+
+	m_2d->Draw(*transform, m_reloc);
 }
 
 /* @socom-skeleton stub __ct__10CUIMapCtrlFv */

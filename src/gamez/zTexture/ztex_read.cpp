@@ -36,47 +36,53 @@ void zdb::CTexture::SetupSpecialTextures()
 namespace zdb {
 bool CTexture::Read(zdb::CSaveLoad& sload)
 	{
-		_word128 texturePacket;
+		/* 0x2f90e0: "texdat" is loaded in place: TEXTURE_PARAMS (16 bytes), two u32 skips,
+		 * then the image at +0x18 + skip0 and the GIF select block after it (+ m_size +
+		 * skip1). The select block gets its DMA REF headers, this back-pointer in the
+		 * GIFtag's top word, and the TEX0/MIPTBP pointers. */
+		_word128* texdat = NULL;
 		bool success = false;
+		zar::CKey* key = sload.m_zfile.FindKey("texdat");
 
-		if (zar::CKey* dataKey = sload.m_zfile.FindKey("texdat"))
+		if (key != NULL && sload.m_zfile.FetchLIP(key, reinterpret_cast<void**>(&texdat)))
 		{
 			success = true;
-			sload.m_zfile.FetchLIP(dataKey, reinterpret_cast<void**>(&texturePacket));
+			memcpy(this, texdat, 16);
+			m_loadimage = static_cast<CLoadImage*>(_malloc(0x60, "ztex_read.cpp", 0x1d5));
 
-			memcpy(this, &texturePacket, sizeof(TEXTURE_PARAMS));
-
-			_word128* texGifPtr = &texturePacket;
-			void* bufferPtr = static_cast<void*>(&texGifPtr[1].u32[0]);
-
-			m_buffer = static_cast<void*>(bufferPtr);
+			u8* p = (u8*)texdat + 0x18;
+			p += texdat[1].u32[0];
+			m_buffer = p;
+			p += m_size;
+			p += texdat[1].u32[1];
+			m_gifSelect = (_word128*)p;
+			m_vuSelect = CVisual::GetTextureSelectBlock_ver2(m_selectQwc, &m_gifSelect, &m_dmaRef, &m_dmaRefVu);
+			m_gsWords = (u16)Compute64WordMemoryUsage();
+			m_gifSelect->u32[3] = (u32)this;
+			SetGifPtrs();
 		}
 
 		switch (m_texelBitSize)
 		{
 		case 4:
-			m_format = 20;
+			m_format = 0x14; /* PSMT4 */
 			break;
 		case 8:
-			m_format = 19;
-			break;
-		case 16:
-			m_palettized = true;
+			m_format = 0x13; /* PSMT8 */
 			break;
 		case 24:
-			m_format = 1;
-			goto nopal;
+			m_format = 1; /* PSMCT24 */
+			break;
 		case 32:
-			m_format = 0;
-			goto nopal;
+			m_format = 0; /* PSMCT32 */
+			break;
+		default: /* 16 and anything else */
+			m_format = m_palettized ? 0x13 : 2; /* PSMT8 / PSMCT16 */
+			break;
 		}
 
-		if (!m_transp_1bit)
-			m_format = 19;
-		else
-			m_format = 2;
-nopal:
-		m_palID = 0;
+		/* CBP (bits 37-50) of TEX0 names the palette; the ELF reads it unguarded. */
+		m_palID = (u16)((*m_TEX0 >> 37) & 0x3fff);
 		return success;
 	}
 }

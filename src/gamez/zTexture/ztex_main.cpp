@@ -51,40 +51,37 @@ void CTexture::Init()
 namespace zdb {
 CTexture::CTexture(const char* name)
 	{
-		m_name = "UNNAMED_TEX";
+		/* 0x2f8e90 */
+		m_name = (char*)UNNAMED_TEX;
 		m_palette = NULL;
-
-		m_texelBitSize = 0;
+		m_texelBitSize = 16;
+		m_height = 0;
+		m_width = 0;
+		m_gsaddr = 0;
+		m_gifSelect = NULL;
+		m_vuSelect = NULL;
 		m_selectQwc = 0;
 		m_pal_offset = 0;
+		m_palID = 0;
 		m_transparent = false;
 		m_palettized = false;
 		m_is_mip_child = false;
 		m_bumpmap = false;
-		m_bilinear = false;
+		m_bilinear = true;
 		m_transp_1bit = false;
 		m_dynamic = false;
 		m_context = false;
-
-		m_width = 0;
-		m_height = 0;
-		m_gsaddr = 0;
-		m_palID = 0;
-
 		m_AssetLib = NULL;
 		m_htex_count = 0;
 
-		if (m_name && m_name != "UNNAMED_TEX")
-		{
-			zfree(m_name);
-		}
+		if (m_name != NULL && m_name != UNNAMED_TEX)
+			_free(m_name, "ztex_main.cpp", 0x131);
 
-		m_name = "UNNAMED_TEX";
-
-		if (name)
-		{
-			m_name = zstrdup(name);
-		}
+		m_name = name ? _strdup(name, "ztex_main.cpp", 0x132) : (char*)UNNAMED_TEX;
+		m_loadimage = NULL;
+		m_TEX0 = NULL;
+		m_MIP1 = NULL;
+		m_MIP2 = NULL;
 	}
 }
 
@@ -112,23 +109,110 @@ void zdb::CTexture::SetName(const char *)
 }
 
 /* @socom-skeleton stub Compute64WordMemoryUsage__Q23zdb8CTextureFv */
-void zdb::CTexture::Compute64WordMemoryUsage()
+unsigned int zdb::CTexture::Compute64WordMemoryUsage()
 {
+	/* 0x2f8c30: GS memory in 64-word (256-byte) blocks. Narrow 8- and 4-bit images
+	 * (twice as wide as tall, under 2048 bits a row) are counted twice. */
+	u32 bits = m_texelBitSize;
+	u32 size = (u32)m_width * m_height;
+
+	if (bits < 9 && (u32)m_height * 2 < m_width && bits * m_width < 0x800)
+		size *= 2;
+
+	if (bits == 32 || bits == 24)
+	{
+		if (m_palettized)
+			size >>= 2;
+		else if (m_transp_1bit)
+			size >>= 1;
+	}
+	else if (bits == 16)
+	{
+		if (m_palettized)
+			size >>= 2;
+		else
+			size >>= 1;
+	}
+	else if (bits == 8)
+	{
+		size >>= 2;
+	}
+	else if (bits == 4)
+	{
+		size >>= 4;
+	}
+
+	if (size & 0x3f)
+		size += 0x40 - (size & 0x3f);
+
+	return size >> 6;
 }
 
 /* @socom-skeleton stub CopyTextureSelect__Q23zdb8CTextureFP8_word128 */
-_word128 * zdb::CTexture::CopyTextureSelect(_word128 *)
+_word128 * zdb::CTexture::CopyTextureSelect(_word128 *dst)
 {
+	/* 0x2f8be0: copy the select block that m_dmaRef references (qwc in its low half-word). */
+	u32 qwc = m_dmaRef.u16[0];
+	memcpy(dst, (void*)m_dmaRef.u32[1], qwc * 16);
+	return dst + qwc;
 }
 
 /* @socom-skeleton stub SetGifPtrs__Q23zdb8CTextureFv */
 void zdb::CTexture::SetGifPtrs()
 {
+	/* 0x2f8aa0: find the A+D data words for TEX0, MIPTBP1 and MIPTBP2 of this texture's
+	 * context (TEX0_1 6 / TEX0_2 7, MIPTBP1_1 0x34 / _2 0x35, MIPTBP2_1 0x36 / _2 0x37)
+	 * in the select packet; NLOOP is the GIFtag's low 15 bits. */
+	u32 ctx = m_context ? 1 : 0;
+	u32 nloop = m_gifSelect[0].u16[0] & 0x7fff;
+	_word128* p = m_gifSelect;
+	u32 i;
+
+	m_TEX0 = NULL;
+
+	for (i = 0; i < nloop; i++, p++)
+	{
+		if (p[1].u32[2] == 6 + ctx)
+		{
+			m_TEX0 = (u64*)&p[1];
+			break;
+		}
+	}
+
+	p = m_gifSelect;
+
+	for (i = 0; i < nloop; i++, p++)
+	{
+		if (p[1].u32[2] == 0x34 + ctx)
+		{
+			m_MIP1 = (u64*)&p[1];
+			break;
+		}
+	}
+
+	p = m_gifSelect;
+
+	for (i = 0; i < nloop; i++, p++)
+	{
+		if (p[1].u32[2] == 0x36 + ctx)
+		{
+			m_MIP2 = (u64*)&p[1];
+			break;
+		}
+	}
 }
 
 /* @socom-skeleton stub GetHandle__Q23zdb8CTexListFPQ23zdb8CTexture */
-zdb::CTexHandle * zdb::CTexList::GetHandle(zdb::CTexture *)
+zdb::CTexHandle * zdb::CTexList::GetHandle(zdb::CTexture *texture)
 {
+	/* 0x2f8a30 */
+	for (iterator i = begin(); i != end(); ++i)
+	{
+		if ((*i)->m_texture == texture)
+			return *i;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton body GetHandle__Q23zdb8CTexListFPCc */

@@ -92,12 +92,12 @@ CScrollSpec::~CScrollSpec()
 }
 
 /* @socom-skeleton stub GetChild__18CHandlerButtonSpecCFi */
-void CHandlerButtonSpec::GetChild(int) const /* port: stub, returns a child spec pointer in the ELF */
+CDlgObjSpec * CHandlerButtonSpec::GetChild(int) const /* port: stub, returns a child spec pointer in the ELF */
 {
 }
 
 /* @socom-skeleton stub NumChildren__18CHandlerButtonSpecCFv */
-void CHandlerButtonSpec::NumChildren() const /* port: stub, returns int in the ELF */
+int CHandlerButtonSpec::NumChildren() const /* port: stub, returns int in the ELF */
 {
 }
 
@@ -152,17 +152,17 @@ void CRadioStripSpec::GetType() /* port: stub, returns a type-name string in the
 }
 
 /* @socom-skeleton stub GetChild__15CRadioStripSpecCFi */
-void CRadioStripSpec::GetChild(int) const /* port: stub, returns a child spec pointer in the ELF */
+CDlgObjSpec * CRadioStripSpec::GetChild(int) const /* port: stub, returns a child spec pointer in the ELF */
 {
 }
 
 /* @socom-skeleton stub NumChildren__15CRadioStripSpecCFv */
-void CRadioStripSpec::NumChildren() const /* port: stub, returns int in the ELF */
+int CRadioStripSpec::NumChildren() const /* port: stub, returns int in the ELF */
 {
 }
 
 /* @socom-skeleton stub HasChildren__15CRadioStripSpecCFv */
-void CRadioStripSpec::HasChildren() const /* port: stub, returns bool in the ELF */
+bool CRadioStripSpec::HasChildren() const /* port: stub, returns bool in the ELF */
 {
 }
 
@@ -197,7 +197,7 @@ void CTextSpec::Copy()
 }
 
 /* @socom-skeleton stub CreateDisplayObj__9CTextSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-void CTextSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CTextSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 {
 }
 
@@ -207,7 +207,7 @@ void CTtySpec::Copy()
 }
 
 /* @socom-skeleton stub CreateDisplayObj__8CTtySpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-void CTtySpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CTtySpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 {
 }
 
@@ -217,7 +217,7 @@ void CWrapSpec::Copy()
 }
 
 /* @socom-skeleton stub CreateDisplayObj__9CWrapSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-void CWrapSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CWrapSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 {
 }
 
@@ -227,12 +227,12 @@ void CScrollSpec::Copy()
 }
 
 /* @socom-skeleton stub CreateDisplayObj__11CScrollSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-void CScrollSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CScrollSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 {
 }
 
 /* @socom-skeleton stub HasChildren__18CHandlerButtonSpecCFv */
-void CHandlerButtonSpec::HasChildren() const /* port: stub, returns bool in the ELF */
+bool CHandlerButtonSpec::HasChildren() const /* port: stub, returns bool in the ELF */
 {
 }
 
@@ -247,7 +247,7 @@ void CHandlerButtonSpec::Copy()
 }
 
 /* @socom-skeleton stub CreateDisplayObj__18CHandlerButtonSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-void CHandlerButtonSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CHandlerButtonSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 {
 }
 
@@ -277,7 +277,7 @@ void CTickerSpec::Copy()
 }
 
 /* @socom-skeleton stub CreateDisplayObj__11CTickerSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-void CTickerSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CTickerSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 {
 }
 
@@ -287,7 +287,7 @@ void CCycleButtonSpec::Copy()
 }
 
 /* @socom-skeleton stub CreateDisplayObj__16CCycleButtonSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-void CCycleButtonSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CCycleButtonSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 {
 }
 
@@ -297,7 +297,7 @@ void CRadioStripSpec::Copy()
 }
 
 /* @socom-skeleton stub CreateDisplayObj__15CRadioStripSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-void CRadioStripSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CRadioStripSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 {
 }
 

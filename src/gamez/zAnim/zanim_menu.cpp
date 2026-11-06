@@ -247,6 +247,7 @@
 #include "gamez/zWeapon/zweapon.h"
 #include "zanim.h"
 /* @socom-skeleton end include */
+#include "gamez/zFTS/zfts.h" /* theMission (FetchMissionFontsRdr) */
 /* @socom-skeleton decl forward */
 class C2DAnimCmdHdr;
 namespace {
@@ -460,6 +461,8 @@ void Unload_MissionReader()
 /* @socom-skeleton stub FetchMissionFontsRdr__Fv */
 CRdrFile * FetchMissionFontsRdr()
 {
+	/* 0x1d5e40 */
+	return theMission.m_fontsRdr;
 }
 
 /* @socom-skeleton stub CleanPopup__10CMenuStackFv */
