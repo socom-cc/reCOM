@@ -2546,7 +2546,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 4296,
+  "revision": 4374,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -186809,7 +186809,7 @@
       ],
       "selection": "files",
       "stage": "authored-function-order",
-      "status": "blocked",
+      "status": "ready",
       "title": "Write the skeleton headers, holding files and orphan deletions under src/ (146 files) before the segment applies"
     },
     {
@@ -187690,6 +187690,10 @@
       "title": "Compile the order skeletons of segment 013 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:52:06Z",
+        "by": "socom-order-rereviewer-2"
+      },
       "batch": {
         "batch_number": 14,
         "definitions": 98,
@@ -187711,8 +187715,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-014.json sha256:00ca54e10d59cdce5ca95247828611fe49ab08e908263ba094bffd5f4e4b2b79",
+        "build/order-plans/socom-work-order-segment-014.json sha256:00ca54e10d59cdce5ca95247828611fe49ab08e908263ba094bffd5f4e4b2b79 matches handoff; validate --check ok (0 open/mismatch/stale); independent fresh draft equals plan; prev diff (own script build/order-plans/socom-order-rereviewer-2/cmp.py): 0 rows removed, 0 unit changes, prev rows' relative order/class/in_class/data/not_placed unchanged; additions = user placements only: ai_main.cpp (11 fn, link pos 179 0x17de90-0x17f068 after aidemo.cpp), ai_cell.cpp (CAiCell ctor 0x185200), ai_map.cpp +read_scanlines 0x188e90 (pos 1, run end), all hypothesis reverse-address, no counter/literal evidence; spot checks (build/order-plans/socom-order-rereviewer-2/spot.py, all rows): out-of-line rows strictly reverse-address, every first_user re-derived from refs, proven first DWARF lines, local-static counters, data rows address order.",
+        "build/order-plans/socom-work-order-segment-014.prev.json sha256:8208b5f365b268db77dcb667bb801e2c19c3cf6859573ad5507e2ce5c6533247 (the reopened accepted plan, kept)",
+        "order plan draft (stage-4 baseline 17256eb1) then order plan validate --check ok (0 open, 0 mismatches, not stale); prev/new row diff in build/order-plans/socom-order-replanner-1/diff.txt"
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-1",
+        "submitted_at": "2026-11-06T11:41:08Z",
+        "summary": "re-drafted on stage-4 baseline 17256eb1: new units ai_main.cpp (11 fn) and ai_cell.cpp (1 fn), ai_map.cpp +read_scanlines__6CAiMapFR7CFileIO, all hypothesis by the reverse-address rule; every prev row unchanged and in the same order; 0 decisions to carry, 0 open; validate --check ok, 0 mismatches"
+      },
       "id": "socom:work:order-segment-014",
       "kind": "order-plan-segment",
       "lease": null,
@@ -187747,7 +187760,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 014 (4 units, 85 definitions)"
     },
     {
@@ -188532,6 +188545,10 @@
       "title": "Compile the order skeletons of segment 014 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:52:13Z",
+        "by": "socom-order-rereviewer-2"
+      },
       "batch": {
         "batch_number": 15,
         "definitions": 85,
@@ -188550,8 +188567,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-015.json sha256:4f1a53ed4d421697f16a2d410dcb7eabd0f88227974a03e32cab015b6c162074",
+        "build/order-plans/socom-work-order-segment-015.json sha256:4f1a53ed4d421697f16a2d410dcb7eabd0f88227974a03e32cab015b6c162074 matches handoff; validate --check ok (0 open/mismatch/stale); independent fresh draft equals plan; prev diff (own script build/order-plans/socom-order-rereviewer-2/cmp.py): 0 rows removed, 0 unit changes, prev rows' relative order/class/in_class/data/not_placed unchanged; segment target digest unchanged; rows identical to prev; spot checks (build/order-plans/socom-order-rereviewer-2/spot.py, all rows): out-of-line rows strictly reverse-address, every first_user re-derived from refs, proven first DWARF lines, local-static counters, data rows address order.",
+        "build/order-plans/socom-work-order-segment-015.prev.json sha256:701278dfd03d8360fe2f29320dc8309b85355e9b91446a3946ea39b5cf400d90 (the reopened accepted plan, kept)",
+        "order plan draft (stage-4 baseline 17256eb1) then order plan validate --check ok (0 open, 0 mismatches, not stale); prev/new row diff in build/order-plans/socom-order-replanner-1/diff.txt"
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-1",
+        "submitted_at": "2026-11-06T11:41:16Z",
+        "summary": "re-drafted on stage-4 baseline 17256eb1 (segment target unchanged; prev plan validated as carried): rows identical to the prev plan, 0 decisions, 0 open; validate --check ok, 0 mismatches"
+      },
       "id": "socom:work:order-segment-015",
       "kind": "order-plan-segment",
       "lease": null,
@@ -188610,7 +188636,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 015 (3 units, 85 definitions)"
     },
     {
@@ -189386,6 +189412,10 @@
       "title": "Compile the order skeletons of segment 015 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:52:21Z",
+        "by": "socom-order-rereviewer-2"
+      },
       "batch": {
         "batch_number": 16,
         "definitions": 167,
@@ -189408,8 +189438,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-016.json sha256:5f706c4b327ea2003b87b2e3b087c69c04d8f8478b29ba9d2b3d9de45d99fb68",
+        "build/order-plans/socom-work-order-segment-016.json sha256:5f706c4b327ea2003b87b2e3b087c69c04d8f8478b29ba9d2b3d9de45d99fb68 matches handoff; validate --check ok (0 open/mismatch/stale); independent fresh draft equals plan; prev diff (own script build/order-plans/socom-order-rereviewer-2/cmp.py): 0 rows removed, 0 unit changes, prev rows' relative order/class/in_class/data/not_placed unchanged; additions = ai_search.cpp (4 fn 0x1a9590-0x1a9e40, link pos 192 between ai_log.cpp and zanim_cmd_parse.cpp; _find_look/_find_cover first_user FindLookLoc/FindCoverLoc, not adjacent so out-of-line) and ai_mapwalk.cpp stage7 copies 0x1a9160/0x1a9170 (CPnt3D ctor/operator=, user zmath.h placement, listed only; no in-unit caller - stage 7 note); spot checks (build/order-plans/socom-order-rereviewer-2/spot.py, all rows): out-of-line rows strictly reverse-address, every first_user re-derived from refs, proven first DWARF lines, local-static counters, data rows address order.",
+        "build/order-plans/socom-work-order-segment-016.prev.json sha256:228fb8a7278cd27069adfe9f33756cc049df76f9721f04b5e319a77bebb5b97a (the reopened accepted plan, kept)",
+        "order plan draft (stage-4 baseline 17256eb1) then order plan validate --check ok (0 open, 0 mismatches, not stale); prev/new row diff in build/order-plans/socom-order-replanner-1/diff.txt"
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-1",
+        "submitted_at": "2026-11-06T11:41:24Z",
+        "summary": "re-drafted on stage-4 baseline 17256eb1: new unit ai_search.cpp (4 fn, hypothesis, reverse-address rule); ai_mapwalk.cpp stage7 copies +0x1a9160/+0x1a9170 (listed only); every prev row unchanged and in the same order; 0 decisions, 0 open; validate --check ok, 0 mismatches"
+      },
       "id": "socom:work:order-segment-016",
       "kind": "order-plan-segment",
       "lease": null,
@@ -189456,7 +189495,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 016 (6 units, 163 definitions)"
     },
     {
@@ -190336,6 +190375,10 @@
       "title": "Compile the order skeletons of segment 016 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:52:29Z",
+        "by": "socom-order-rereviewer-2"
+      },
       "batch": {
         "batch_number": 17,
         "definitions": 77,
@@ -190353,8 +190396,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-017.json sha256:7e76587b57b81e14347fe6511a823c926b9537c62ed80218f1e078ed3877b7fa",
+        "build/order-plans/socom-work-order-segment-017.json sha256:7e76587b57b81e14347fe6511a823c926b9537c62ed80218f1e078ed3877b7fa matches handoff; validate --check ok (0 open/mismatch/stale); independent fresh draft equals plan; prev diff (own script build/order-plans/socom-order-rereviewer-2/cmp.py): 0 rows removed, 0 unit changes, prev rows' relative order/class/in_class/data/not_placed unchanged; additions = 24 zAnim begin/tick rows (0x1b7c80-0x1b8f20, 0x1bfe80) by reverse-address, CallAnimBegin pos 47 before CallAnimTick pos 48 as the decision note says; ProcExpr 0x1b9230 first_user 0x1b8de0 confirmed (in-unit callers WhileTick 0x1b8de0, IfTick 0x1b8f20, self) and stays out-of-line: 4 out-of-line rows lie between WhileTick and ProcExpr (NewCmd between IfTick and it); spot checks (build/order-plans/socom-order-rereviewer-2/spot.py, all rows): out-of-line rows strictly reverse-address, every first_user re-derived from refs, proven first DWARF lines, local-static counters, data rows address order.",
+        "build/order-plans/socom-work-order-segment-017.prev.json sha256:c9a6c448961a35688b9327efa9b8860ca87343d6be2b75e441a380c4a31c949a (the reopened accepted plan, kept)",
+        "order plan draft (stage-4 baseline 17256eb1) then order plan validate --check ok (0 open, 0 mismatches, not stale); prev/new row diff in build/order-plans/socom-order-replanner-1/diff.txt"
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-1",
+        "submitted_at": "2026-11-06T11:41:31Z",
+        "summary": "re-drafted on stage-4 baseline 17256eb1: zanim_cmd_tick.cpp +24 command begin/tick functions (0x1b7c80..0x1bfe80, hypothesis, reverse-address rule); ProcExpr__16CZAnimExpressionFPf gains first_user 0x1b8de0 (not adjacent, stays out-of-line); prev rows unchanged and in the same order; 0 decisions, 0 open; validate --check ok, 0 mismatches"
+      },
       "id": "socom:work:order-segment-017",
       "kind": "order-plan-segment",
       "lease": null,
@@ -190401,7 +190453,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 017 (2 units, 53 definitions)"
     },
     {
@@ -192039,6 +192091,10 @@
       "title": "Compile the order skeletons of segment 019 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:52:37Z",
+        "by": "socom-order-rereviewer-2"
+      },
       "batch": {
         "batch_number": 20,
         "definitions": 76,
@@ -192059,8 +192115,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-020.json sha256:fc755a2e755701fcb8c83550341dca4744790f0a1fbe8d6c06752472778083c5",
+        "build/order-plans/socom-work-order-segment-020.json sha256:fc755a2e755701fcb8c83550341dca4744790f0a1fbe8d6c06752472778083c5 matches handoff; validate --check ok (0 open/mismatch/stale); independent fresh draft equals plan; prev diff (own script build/order-plans/socom-order-rereviewer-2/cmp.py): 0 rows removed, 0 unit changes, prev rows' relative order/class/in_class/data/not_placed unchanged; additions = zbody_main.cpp (PartInSpace 0x1dc520, link pos 202) and zanim_sequence.cpp (14 fn 0x1dc6a0-0x1dd080, pos 203 before bone_archive.cpp) + RTList<ACTIVE_ANIM> Begin/Next/Add copies 0x1dd100-0x1dd170 (users RenormAnims/PushAnim in-unit), hypothesis reverse-address; spot checks (build/order-plans/socom-order-rereviewer-2/spot.py, all rows): out-of-line rows strictly reverse-address, every first_user re-derived from refs, proven first DWARF lines, local-static counters, data rows address order.",
+        "build/order-plans/socom-work-order-segment-020.prev.json sha256:c9c09bd014cd405d430785367568197fdb8fbb873a4729b1e28b1094f59a039d (the reopened accepted plan, kept)",
+        "order plan draft (stage-4 baseline 17256eb1) then order plan validate --check ok (0 open, 0 mismatches, not stale); prev/new row diff in build/order-plans/socom-order-replanner-1/diff.txt"
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-1",
+        "submitted_at": "2026-11-06T11:41:39Z",
+        "summary": "re-drafted on stage-4 baseline 17256eb1: new units zbody_main.cpp (1 fn) and zanim_sequence.cpp (14 fn, 3 stage7 copies), hypothesis by the reverse-address rule; prev rows unchanged; 0 decisions, 0 open; validate --check ok, 0 mismatches"
+      },
       "id": "socom:work:order-segment-020",
       "kind": "order-plan-segment",
       "lease": null,
@@ -192095,7 +192160,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 020 (3 units, 61 definitions)"
     },
     {
@@ -193382,6 +193447,10 @@
       "title": "Compile the order skeletons of segment 021 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:52:45Z",
+        "by": "socom-order-rereviewer-2"
+      },
       "batch": {
         "batch_number": 22,
         "definitions": 186,
@@ -193407,8 +193476,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-022.json sha256:355ce7211cfe334504345a48e0200b47a29925d1b5775c149cca3ddd80a207e2",
+        "build/order-plans/socom-work-order-segment-022.json sha256:355ce7211cfe334504345a48e0200b47a29925d1b5775c149cca3ddd80a207e2 matches handoff; validate --check ok (0 open/mismatch/stale); independent fresh draft differs only in ent_main.cpp's 2 settled deferred-in-span rows (fresh draft raises the same 2 open rows, same reason); prev diff (own script build/order-plans/socom-order-rereviewer-2/cmp.py): 0 rows removed, 0 unit changes, prev rows' relative order/class/in_class/data/not_placed unchanged; settled rows carried verbatim; 0x44cd78 deletedId/0x44cd80 unknownId still unowned deferrals (findings source-segment-030/035) inside ent_main .rodata run 0x44cd70-0x44cd90; additions = ent_entity.cpp (8 fn 0x1f1e20-0x1f2000 + CEntityCtrl inline copies 0x1f1fd0-0x1f1ff0) and ent_control.cpp (4 fn 0x1f2030-0x1f20a0), link pos 218/219 after ent_target.cpp; note CEntityCtrl RTTI/vtable 0x44ce00/0x44ce10/0x471b80 remain stage-4 unresolved (stage-4 follow-up, not this plan); spot checks (build/order-plans/socom-order-rereviewer-2/spot.py, all rows): out-of-line rows strictly reverse-address, every first_user re-derived from refs, proven first DWARF lines, local-static counters, data rows address order.",
+        "build/order-plans/socom-work-order-segment-022.prev.json sha256:cb376d92ad266a4c803ec4c5c28106a2eb3ce5b14c11076faa2851c2c66d8a61 (the reopened accepted plan, kept)",
+        "order plan draft (stage-4 baseline 17256eb1) then order plan validate --check ok (0 open, 0 mismatches, not stale); prev/new row diff in build/order-plans/socom-order-replanner-1/diff.txt"
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-1",
+        "submitted_at": "2026-11-06T11:41:46Z",
+        "summary": "re-drafted on stage-4 baseline 17256eb1: new units ent_entity.cpp (8 fn, 3 stage7 copies) and ent_control.cpp (4 fn), hypothesis by the reverse-address rule; prev rows unchanged; the 2 ent_main.cpp deferred-in-span settlements (deletedId/unknownId__7CEntity, data-link-order in source-segment-030/035) carried, deferrals re-confirmed; 0 dropped, 0 open; validate --check ok, 0 mismatches"
+      },
       "id": "socom:work:order-segment-022",
       "kind": "order-plan-segment",
       "lease": null,
@@ -193443,7 +193521,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 022 (8 units, 174 definitions)"
     },
     {
@@ -194374,6 +194452,10 @@
       "title": "Compile the order skeletons of segment 022 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:52:52Z",
+        "by": "socom-order-rereviewer-2"
+      },
       "batch": {
         "batch_number": 23,
         "definitions": 174,
@@ -194392,8 +194474,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-023.json sha256:3e78aedf6cd568f4e5d9ea854446e47286a53216729c5173716206018ab3a96a",
+        "build/order-plans/socom-work-order-segment-023.json sha256:3e78aedf6cd568f4e5d9ea854446e47286a53216729c5173716206018ab3a96a matches handoff; validate --check ok (0 open/mismatch/stale); independent fresh draft equals plan; prev diff (own script build/order-plans/socom-order-rereviewer-2/cmp.py): 0 rows removed, 0 unit changes, prev rows' relative order/class/in_class/data/not_placed unchanged; segment target digest unchanged; rows identical to prev; spot checks (build/order-plans/socom-order-rereviewer-2/spot.py, all rows): out-of-line rows strictly reverse-address, every first_user re-derived from refs, proven first DWARF lines, local-static counters, data rows address order.",
+        "build/order-plans/socom-work-order-segment-023.prev.json sha256:9b0e47afdc899f4cb4acd6d9c513b7873984a2995f062a962bd0701013efb885 (the reopened accepted plan, kept)",
+        "order plan draft (stage-4 baseline 17256eb1) then order plan validate --check ok (0 open, 0 mismatches, not stale); prev/new row diff in build/order-plans/socom-order-replanner-1/diff.txt"
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-1",
+        "submitted_at": "2026-11-06T11:42:02Z",
+        "summary": "re-drafted on stage-4 baseline 17256eb1 (segment target unchanged; prev plan validated as carried): rows identical to the prev plan, 0 decisions, 0 open; validate --check ok, 0 mismatches"
+      },
       "id": "socom:work:order-segment-023",
       "kind": "order-plan-segment",
       "lease": null,
@@ -194440,7 +194531,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 023 (3 units, 174 definitions)"
     },
     {
@@ -195210,6 +195301,10 @@
       "title": "Compile the order skeletons of segment 023 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:53:08Z",
+        "by": "socom-order-rereviewer-1"
+      },
       "batch": {
         "batch_number": 24,
         "definitions": 282,
@@ -195238,8 +195333,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-024.json sha256:49d83a9aedf72cbeadd86be0aef69b93bb65cf32722773c06e6edcec22430b66",
+        "build/order-plans/socom-work-order-segment-024.json sha256:49d83a9aedf72cbeadd86be0aef69b93bb65cf32722773c06e6edcec22430b66 matches handoff; validate --check ok (0 open/mismatch/stale/problem); independent re-draft equals plan (JSON diff 0). vs .prev sha256:0aaa8dad: 0 rows removed, 0 unit/scope/class/basis/position changes, existing units' open/settled/notes unchanged; additions = user placements only: fts_network.cpp 5 fn (findAlign 0x2016f0..ftsNetworkGameUninit 0x201290), fts_network_dme.cpp 5 fn (DMEinit 0x201fd0..DMEDisconnectFromGameServer 0x201800), fts_objectivecam Reset/ClearValves at pos 9/8 (lowest addresses), CPnt3D::Cross 0x201650 as stage-7 copy (zmath.h; sits right after its first user ftsNetworkPlayerInit 0x2014d0); all GLOBAL, no DWARF line, reverse-address hypothesis; every unit one contiguous run in link order (source sql). Spot checks: CCtrlrConfigs::Init counter 799 re-derived; static-initializer ranks re-derived from __sinit refs in 10 units (fts_remote 7 rows) ok; data rows ascending; not_placed reasons ok. Scratch build/order-plans/socom-order-rereviewer-1/.",
+        "build/order-plans/socom-work-order-segment-024.prev.json sha256:0aaa8dad7319a73c54c8cfcbd105f87ae54ce0ecc19bfd3f4502ef91632de3f5 (pre-rebase plan, kept)",
+        "order plan draft (stage-4 baseline 17256eb1) after progress rebase-function-order; order plan validate --check ok (0 open, 0 mismatches, 0 stale); diff vs .prev: no row removed or moved unit, no existing row renumbered or reclassed"
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-2",
+        "submitted_at": "2026-11-06T11:39:08Z",
+        "summary": "re-drafted on baseline 17256eb1: +2 units fts_network.cpp (5 fn), fts_network_dme.cpp (5 fn) and +2 fts_objectivecam rows (Reset/ClearValves of CMissionObjectiveCamList), all reverse-address hypothesis; 0 prior decisions; 0 open"
+      },
       "id": "socom:work:order-segment-024",
       "kind": "order-plan-segment",
       "lease": null,
@@ -195274,7 +195378,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 024 (11 units, 270 definitions)"
     },
     {
@@ -196272,6 +196376,10 @@
       "title": "Compile the order skeletons of segment 024 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:53:55Z",
+        "by": "socom-order-rereviewer-1"
+      },
       "batch": {
         "batch_number": 25,
         "definitions": 156,
@@ -196298,8 +196406,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-025.json sha256:da200c4906ba3678e0ef6f5b1c02531d5e75c3c1918b5f767a78abef01d8b0e8",
+        "build/order-plans/socom-work-order-segment-025.json sha256:da200c4906ba3678e0ef6f5b1c02531d5e75c3c1918b5f767a78abef01d8b0e8 matches handoff; validate --check ok (0 open/mismatch/stale/problem); independent re-draft equals plan (JSON diff 0). vs .prev sha256:9fe87bc6: 0 rows removed, 0 unit/scope/class/basis/position changes, existing units unchanged; additions = user placements only: graph_route.cpp 5 fn (CGRoute ct 0x20f910..PostProcess 0x20f7d0), graph_edge.cpp 3 fn (CGEdge ct 0x20fa30..dt 0x20f940), ztex_dyn.cpp holding only stage-7 copy socom:function:0x2174d0 (~CDynTexList, binding 13, header ztex.h per target; no function/data/not_placed rows - the handoff summary's 'data/not-placed only' is inexact, the plan matches the target); all GLOBAL, no DWARF line, reverse-address hypothesis; each unit one contiguous run in link order (BuildRoute 0x20fa60 stays graph_tree.cpp). Adjacent 0x217560/0x2175f0 vector dtors and game_engine.cpp 0x20e5d0-0x20e7a0 are outside every unit of this plan per the stage-4 baseline (unresolved / other primary segment). Spot checks: sinit ranks re-derived from __sinit refs (game_state, graph_tree, grid_di, grid_clutter 3 rows) ok; data ascending; not_placed reasons ok. Scratch build/order-plans/socom-order-rereviewer-1/.",
+        "build/order-plans/socom-work-order-segment-025.prev.json sha256:9fe87bc6bbd7b4d10b7385a0693b0b999489777bd0922023ef08baf25e760ae4 (pre-rebase plan, kept)",
+        "order plan draft (stage-4 baseline 17256eb1) after progress rebase-function-order; order plan validate --check ok (0 open, 0 mismatches, 0 stale); diff vs .prev: no row removed or moved unit, no existing row renumbered or reclassed"
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-2",
+        "submitted_at": "2026-11-06T11:39:16Z",
+        "summary": "re-drafted on baseline 17256eb1: +3 units graph_route.cpp (5 fn), graph_edge.cpp (3 fn), ztex_dyn.cpp (data/not-placed only), all reverse-address hypothesis; 0 prior decisions; 0 open"
+      },
       "id": "socom:work:order-segment-025",
       "kind": "order-plan-segment",
       "lease": null,
@@ -196358,7 +196475,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 025 (8 units, 148 definitions)"
     },
     {
@@ -197285,6 +197402,10 @@
       "title": "Compile the order skeletons of segment 025 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:54:12Z",
+        "by": "socom-order-rereviewer-1"
+      },
       "batch": {
         "batch_number": 26,
         "definitions": 216,
@@ -197312,8 +197433,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-026.json sha256:b7f2812e1bcf262f87030e57c8a4d0320666a626f27c5c276fcf2e4c64722317",
+        "build/order-plans/socom-work-order-segment-026.json sha256:b7f2812e1bcf262f87030e57c8a4d0320666a626f27c5c276fcf2e4c64722317 matches handoff; validate --check ok (0 open/mismatch/stale/problem, 2 settled). Independent re-draft (fresh path, no carried decisions) differs only in the 2 zmath_pnt3d settled rows (0x44f540 unit_x, 0x44f570 unit_nz: open constraint-conflict in draft, settled in plan). vs .prev sha256:9cf2698b: 0 rows removed, 0 unit/scope/class/basis/position changes, settled bases byte-identical; additions = user placement node_vector.cpp only: 11 fn (CLightMapVector::Exists 0x224700 pos 1 .. CNodeVector::Remove 0x224260 pos 11), all GLOBAL, no DWARF line, reverse-address hypothesis, one run between node_io.cpp and node_main.cpp; 0x223170 CMatrix::operator const float(&)[4][4] (user: zmath.h) and 0x224740 remove_copy WEAK stay outside every unit (stage-4 unresolved rows, no target). Settled challenge: recon asm __sinit_zmath_pnt3d.cpp 0x46b420 - all 0.0f stores ascend 0x44f530..0x44f574; only the lui-loaded -1.0f (unit_nz.z) and 1.0f (unit_z.z) stores are hoisted, so the sinit rank unit_nz<unit_x is scheduling, address (declaration) order stands. Spot checks: counters re-derived (CPad::Dilate 649, CPad::Tick 755, GetKeyReadThisFrame 595, GetNewKeyPress 643, CMatrix::ToQuat 563); sinit ranks re-derived for 5 units ok; data ascending; not_placed ok. Scratch build/order-plans/socom-order-rereviewer-1/.",
+        "build/order-plans/socom-work-order-segment-026.prev.json sha256:9cf2698254279b4937230963d35730457bb1023a52f57cde3e0eb872d604556e (pre-rebase plan, kept)",
+        "order plan draft (stage-4 baseline 17256eb1) after progress rebase-function-order; order plan validate --check ok (0 open, 0 mismatches, 0 stale); diff vs .prev: no row removed or moved unit, no existing row renumbered or reclassed"
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-2",
+        "submitted_at": "2026-11-06T11:39:24Z",
+        "summary": "re-drafted on baseline 17256eb1: +1 unit node_vector.cpp (11 fn, reverse-address hypothesis); the 2 zmath_pnt3d data decisions (0x44f540, 0x44f570, address order over __sinit_ scheduling) carried unchanged; 0 open"
+      },
       "id": "socom:work:order-segment-026",
       "kind": "order-plan-segment",
       "lease": null,
@@ -197348,7 +197478,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 026 (11 units, 205 definitions)"
     },
     {
@@ -198331,6 +198461,10 @@
       "title": "Compile the order skeletons of segment 026 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:54:33Z",
+        "by": "socom-order-rereviewer-1"
+      },
       "batch": {
         "batch_number": 27,
         "definitions": 136,
@@ -198351,8 +198485,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-027.json sha256:93e4ef220413f66372e667b5fc54447b26d88c594e06fc7be222933c1339d0df",
+        "build/order-plans/socom-work-order-segment-027.json sha256:93e4ef220413f66372e667b5fc54447b26d88c594e06fc7be222933c1339d0df matches handoff; validate --check ok (0 open/mismatch/stale/problem); independent re-draft equals plan (JSON diff 0). vs .prev sha256:d53b9dd0: 0 rows removed, 0 unit/scope/class/basis/position changes, existing units unchanged; additions = user placement node_projectedmap.cpp only: CProjectedMap_Object ct 0x22b2d0 pos 1, dt 0x22b260 pos 2, GLOBAL, no DWARF line, reverse-address hypothesis, one run between node_saveload.cpp (to 0x22b220) and node_shadow.cpp (from 0x22b310); callers are CWorld ct/dt in node_world.cpp. Spot checks: counters re-derived (CNode::_Copy 1263, CRenderMap ct 1137, CRenderMap::Update 1161); sinit ranks re-derived (node_main, node_shadow) ok; data ascending; not_placed ok. Scratch build/order-plans/socom-order-rereviewer-1/.",
+        "build/order-plans/socom-work-order-segment-027.prev.json sha256:d53b9dd0844a50a25f495eb70563a071afd616ff723880d2175c2631bbbd6f50 (pre-rebase plan, kept)",
+        "order plan draft (stage-4 baseline 17256eb1) after progress rebase-function-order; order plan validate --check ok (0 open, 0 mismatches, 0 stale); diff vs .prev: no row removed or moved unit, no existing row renumbered or reclassed"
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-2",
+        "submitted_at": "2026-11-06T11:39:32Z",
+        "summary": "re-drafted on baseline 17256eb1: +1 unit node_projectedmap.cpp (2 fn, CProjectedMap_Object ct/dt, reverse-address hypothesis); 0 prior decisions; 0 open"
+      },
       "id": "socom:work:order-segment-027",
       "kind": "order-plan-segment",
       "lease": null,
@@ -198399,7 +198542,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 027 (4 units, 134 definitions)"
     },
     {
@@ -199203,6 +199346,10 @@
       "title": "Compile the order skeletons of segment 027 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:54:48Z",
+        "by": "socom-order-rereviewer-1"
+      },
       "batch": {
         "batch_number": 28,
         "definitions": 192,
@@ -199226,8 +199373,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-028.json sha256:09149fee0eb1867beb7eeb452c56ef8804c727d23afdb936957a8892f3f90a7f",
+        "build/order-plans/socom-work-order-segment-028.json sha256:09149fee0eb1867beb7eeb452c56ef8804c727d23afdb936957a8892f3f90a7f matches handoff; validate --check ok (0 open/mismatch/stale/problem); independent re-draft equals plan (JSON diff 0). vs .prev sha256:5f2aefb0: 0 rows removed, 0 unit/scope/class/basis/position changes (units unchanged); additions = user placement node_world.cpp only: SetDIBBox 0x22c420 pos 62, SetMaterial 0x22c3c0 pos 63 (lowest addresses = last in source, start of node_world.cpp after node_util.cpp 0x22c1a0), GLOBAL, no DWARF line, reverse-address hypothesis; node_world stays one contiguous run; callers CZSealBody::AddDIPolys (seal_cfg.cpp). Spot checks: counters re-derived (DrawRotated 1514, Instance::Render 1584); sinit ranks re-derived from __sinit refs in 7 units ok; data ascending; not_placed ok. Scratch build/order-plans/socom-order-rereviewer-1/.",
+        "build/order-plans/socom-work-order-segment-028.prev.json sha256:5f2aefb03ba89fa75c46a87ceec2580d8e5282d5b5881415502c4ffa4721d6f0 (pre-rebase plan, kept)",
+        "order plan draft (stage-4 baseline 17256eb1) after progress rebase-function-order; order plan validate --check ok (0 open, 0 mismatches, 0 stale); diff vs .prev: no row removed or moved unit, no existing row renumbered or reclassed"
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-2",
+        "submitted_at": "2026-11-06T11:39:39Z",
+        "summary": "re-drafted on baseline 17256eb1: +2 node_world.cpp rows (SetDIBBox 62, SetMaterial 63; lowest addresses, reverse-address hypothesis); 0 prior decisions; 0 open"
+      },
       "id": "socom:work:order-segment-028",
       "kind": "order-plan-segment",
       "lease": null,
@@ -199262,7 +199418,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 028 (8 units, 190 definitions)"
     },
     {
@@ -200153,6 +200309,10 @@
       "title": "Compile the order skeletons of segment 028 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:55:03Z",
+        "by": "socom-order-rereviewer-1"
+      },
       "batch": {
         "batch_number": 29,
         "definitions": 160,
@@ -200176,8 +200336,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-029.json sha256:c4ec58e3fc7c24c59fad2a1db069ac58a29f44194acd00b7299f846bf3b8c9ad",
+        "build/order-plans/socom-work-order-segment-029.json sha256:c4ec58e3fc7c24c59fad2a1db069ac58a29f44194acd00b7299f846bf3b8c9ad matches handoff; validate --check ok (0 open/mismatch/stale/problem); independent re-draft equals plan (JSON diff 0). vs .prev sha256:2da1cf7c: 0 rows removed, 0 unit/scope/class/basis/position changes (zrdr_main's 3 prior rows keep pos 1-3); additions = user placements only: zrdr_main.cpp 14 fn at pos 4-17 (_zrdr ct 0x23e140 .. zrdr_finduint 0x23d6a0, all below the prior rows), zrdr_local.cpp zrdr_relocate 0x2416d0 (LOCAL static, pos 1) and zrdr_pack 0x241530 (pos 2); no DWARF line, not weak/inline, reverse-address hypothesis; each unit one contiguous run in link order (zrdr_local between zrdr_edit to 0x241510 and zrndr_pipe). Spot checks: counters re-derived (zrdr_findfile 711, _zrdr::Clone 734, _preproc_filter 840, RenderWorld 1749, RenderMeshShadow 2090, RenderUiNodeRecursive 2254); sinit ranks re-derived for 4 units ok; data ascending; not_placed ok. Scratch build/order-plans/socom-order-rereviewer-1/.",
+        "build/order-plans/socom-work-order-segment-029.prev.json sha256:2da1cf7c7b048daa70e9517b00d906d359afe9702865242b38daf88b71578de1 (pre-rebase plan, kept)",
+        "order plan draft (stage-4 baseline 17256eb1) after progress rebase-function-order; order plan validate --check ok (0 open, 0 mismatches, 0 stale); diff vs .prev: no row removed or moved unit, no existing row renumbered or reclassed"
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-2",
+        "submitted_at": "2026-11-06T11:39:48Z",
+        "summary": "re-drafted on baseline 17256eb1: +14 zrdr_main.cpp rows (positions 4-17) and +1 unit zrdr_local.cpp (2 fn: zrdr_relocate, zrdr_pack), all reverse-address hypothesis; 0 prior decisions; 0 open"
+      },
       "id": "socom:work:order-segment-029",
       "kind": "order-plan-segment",
       "lease": null,
@@ -200224,7 +200393,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 029 (7 units, 144 definitions)"
     },
     {
@@ -201106,6 +201275,10 @@
       "title": "Compile the order skeletons of segment 029 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:54:20Z",
+        "by": "socom-order-rereviewer-3"
+      },
       "batch": {
         "batch_number": 30,
         "definitions": 259,
@@ -201125,8 +201298,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-030.json sha256:31928158414f8332da3b5a965aa3c7e0391266e91648b0af0fbdc508482ffcac",
+        "build/order-plans/socom-work-order-segment-030.prev.json sha256:1ff8f779532f2c220946a54fea607171f22ab1df56958d1bf364b21464e0cbb4 (accepted plan before the rebase)",
+        "order plan validate --check: ok, 0 open, 0 mismatches, no stale input (stage 4 baseline 17256eb1, order d43c60e5)",
+        "sha256 31928158 equals handoff; .prev 1ff8f779 = the accepted plan; validate --check ok (0 open, 0 mismatches, 0 stale); fresh draft in build/order-plans/socom-order-rereviewer-3/ equals the plan JSON-aware except carried decided/settled rows; independent check: out-of-line rows strictly reverse-address, data rows ascending per region, constrained carriers monotone, not_placed reasons derived. vs .prev: 0 rows added/removed, no unit/class/basis/position change, segment target c891ad3a unchanged. Settled seal.cpp 0x450d30 re-checked: order findings still deferred-in-span data-link-order (source-segment-034); basis-only settlement holds (its FootInSpace aside is now dated: FootInSpace is seal_ik.cpp). Spot: Tick 2685 = g_debug_timer$2685, ComputeNextPosition 3232 = MoveAwayFromWallFactor$3232; 79 constrained."
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-3",
+        "submitted_at": "2026-11-06T11:41:54Z",
+        "summary": "Re-drafted onto stage-4 baseline 17256eb1 / order d43c60e5. Segment target unchanged (c891ad3a): every row, not_placed and stage7 target equals the accepted .prev plan; its 1 settled row (seal.cpp) carried unchanged; 0 open."
+      },
       "id": "socom:work:order-segment-030",
       "kind": "order-plan-segment",
       "lease": null,
@@ -201185,7 +201367,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 030 (4 units, 259 definitions)"
     },
     {
@@ -202025,6 +202207,10 @@
       "title": "Compile the order skeletons of segment 030 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:53:16Z",
+        "by": "socom-order-rereviewer-3"
+      },
       "batch": {
         "batch_number": 31,
         "definitions": 306,
@@ -202042,8 +202228,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-031.json sha256:64384340c84390b00af37a5d0d88553ff41ea4b72b9903b8ba5f9330880f9d2f",
+        "build/order-plans/socom-work-order-segment-031.prev.json sha256:cd83a04c1cd26394bde20de26dcf81a67a2b653aa85f8c53907e9acaa2208596 (accepted plan before the rebase)",
+        "order plan validate --check: ok, 0 open, 0 mismatches, no stale input (stage 4 baseline 17256eb1, order d43c60e5)",
+        "sha256 64384340 equals handoff; .prev cd83a04c = the accepted plan; validate --check ok (0 open, 0 mismatches, 0 stale); fresh draft in build/order-plans/socom-order-rereviewer-3/ equals the plan JSON-aware except carried decided/settled rows; independent check: out-of-line rows strictly reverse-address, data rows ascending per region, constrained carriers monotone, not_placed reasons derived. vs .prev: 0 rows added/removed, no unit/class/basis/position change, segment target 4c5e3601 unchanged; 2 decided + 5 settled seal_ai rows carried verbatim. Re-challenged PFT/CTT: init$3242 GPREL16 test/set pairs at 0x2653b4, 0x265d44, 0x265ebc (three inlined sites) vs init$3254 single 0x266ab8; rule order stands."
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-3",
+        "submitted_at": "2026-11-06T11:42:20Z",
+        "summary": "Re-drafted onto stage-4 baseline 17256eb1 / order d43c60e5. Segment target unchanged (4c5e3601): every row equals the accepted .prev plan; its 2 decided rows and 5 settled rows (seal_ai.cpp) carried unchanged; 0 open."
+      },
       "id": "socom:work:order-segment-031",
       "kind": "order-plan-segment",
       "lease": null,
@@ -202090,7 +202285,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 031 (2 units, 306 definitions)"
     },
     {
@@ -202860,6 +203055,10 @@
       "title": "Compile the order skeletons of segment 031 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:53:23Z",
+        "by": "socom-order-rereviewer-3"
+      },
       "batch": {
         "batch_number": 32,
         "definitions": 294,
@@ -202881,8 +203080,18 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-032.json sha256:44b5ed6b42a5f6ebfdf3cac02045270b9196f668a687eaa4bf6e13fa07b72ce0",
+        "build/order-plans/socom-work-order-segment-032.prev.json sha256:31e1fb4afb8e6833c4ce6bcd27a0a723d233e90114605b6cb399d014cbc1fd81 (accepted plan before the rebase)",
+        "evidence: order sql targets (binding GLOBAL, class definition for every new row); order draft --unit seal_body/seal_cfg/seal_ctrl: new adjacencies have no conflicts or contradicting labels; GetObjAnim__9CObjAnimsFi only caller Action 0x26ea00 (R_MIPS_26 0x26ea7c), not adjacent -> out-of-line; docs/reconstruction/decisions/stage4-function-placements.md",
+        "order plan validate --check: ok, 0 open, 0 mismatches, no stale input (stage 4 baseline 17256eb1, order d43c60e5)",
+        "sha256 44b5ed6b equals handoff; .prev 31e1fb4a = the accepted plan; validate --check ok (0 open, 0 mismatches, 0 stale); fresh draft in build/order-plans/socom-order-rereviewer-3/ equals the plan JSON-aware except carried decided/settled rows; independent check: out-of-line rows strictly reverse-address, data rows ascending per region, constrained carriers monotone, not_placed reasons derived. vs .prev: 0 rows removed, no unit change, existing rows keep class/basis and relative order (seal_body 85, seal_cfg 27 positions shifted by insertion only). Additions = the user placements only: new unit seal_ctrl.cpp 11 GLOBAL defs, one run 0x283730-0x2842c0 between seal_command (ends 0x283728) and seal_control, pos 1-11 reverse-address, no data/literal relocs (extern objects only); seal_body +7 GLOBAL defs at its run edges (0x26e700-0x26e9f0 pos 90-92 before Action 0x26ea00; 0x27d510-0x27d9b0 pos 1-4 after the CActiveAnimList dtor copy, before seal_cfg 0x27da60); GetObjAnim/~CObjAnims GLOBAL so out-of-line; seal_cfg +1 GetDynamics 0x281070 pos 1 (run end). order draft --unit: new adjacencies carry no conflict, constraint or contradicting label. Settled seal_command rows re-checked: init$2301 single site 0x282b60, init$2334 0x283660, FOLLOW 0x283350 still the unit highest."
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-3",
+        "submitted_at": "2026-11-06T11:42:55Z",
+        "summary": "Re-drafted onto stage-4 baseline 17256eb1 / order d43c60e5 (target 38811189). New unit seal_ctrl.cpp (11 CSealCtrl functions 0x283730-0x284260) and new rows seal_body.cpp +7 (0x26e700/0x26e990/0x26e9f0, 0x27d510-0x27d9b0) and seal_cfg.cpp +1 (GetDynamics 0x281070) from the user's stage-4 placements: all GLOBAL definitions, drafted by the reverse-address rule (hypothesis), no counter/label evidence on their adjacencies, nothing open. Every unchanged row, its 4 decisions and 4 settled rows (seal_body, seal_command) carried unchanged; 0 open."
+      },
       "id": "socom:work:order-segment-032",
       "kind": "order-plan-segment",
       "lease": null,
@@ -202929,7 +203138,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 032 (5 units, 275 definitions)"
     },
     {
@@ -203785,6 +203994,10 @@
       "title": "Compile the order skeletons of segment 032 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:53:31Z",
+        "by": "socom-order-rereviewer-3"
+      },
       "batch": {
         "batch_number": 33,
         "definitions": 219,
@@ -203802,8 +204015,18 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-033.json sha256:dd685aadc1c39932de9903206fd6b9c3f97bb95f736958158cf0828078cef01b",
+        "build/order-plans/socom-work-order-segment-033.prev.json sha256:1210323cc642c78cd8ae039b8244b01c996820ce0f7448c5fb2943c65a4b974a (accepted plan before the rebase)",
+        "evidence: order sql targets (GLOBAL definitions); order draft --unit seal_env.cpp (no conflicts on the new adjacencies); docs/reconstruction/decisions/stage4-function-placements.md",
+        "order plan validate --check: ok, 0 open, 0 mismatches, no stale input (stage 4 baseline 17256eb1, order d43c60e5)",
+        "sha256 dd685aad equals handoff; .prev 1210323c = the accepted plan; validate --check ok (0 open, 0 mismatches, 0 stale); fresh draft in build/order-plans/socom-order-rereviewer-3/ equals the plan JSON-aware except carried decided/settled rows; independent check: out-of-line rows strictly reverse-address, data rows ascending per region, constrained carriers monotone, not_placed reasons derived. vs .prev: 0 rows removed, no unit/class/basis change, seal_env 165 rows shifted +2 by insertion only, seal_dyn unchanged. Additions = user placements: UpdateAiMapLoc 0x2a4700 (pos 2), ftmask_create 0x2a4bf0 (pos 1), GLOBAL defs at the end of seal_env run (after its tail copies, before seal_ex 0x2a4d20), single run; no conflicts on the new adjacencies."
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-3",
+        "submitted_at": "2026-11-06T11:43:04Z",
+        "summary": "Re-drafted onto stage-4 baseline 17256eb1 / order d43c60e5 (target 2a9be051). New rows seal_env.cpp +2 (UpdateAiMapLoc 0x2a4700, ftmask_create 0x2a4bf0; the user's placements at the end of seal_env.cpp): GLOBAL definitions drafted by the reverse-address rule (positions 1-2, hypothesis), no counter/label evidence on their adjacencies. seal_dyn.cpp and every other row equal the accepted .prev plan; no decisions to carry; 0 open."
+      },
       "id": "socom:work:order-segment-033",
       "kind": "order-plan-segment",
       "lease": null,
@@ -203862,7 +204085,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 033 (2 units, 217 definitions)"
     },
     {
@@ -204618,6 +204841,10 @@
       "title": "Compile the order skeletons of segment 033 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:53:39Z",
+        "by": "socom-order-rereviewer-3"
+      },
       "batch": {
         "batch_number": 34,
         "definitions": 140,
@@ -204634,8 +204861,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-034.json sha256:db9795e4db9227b975259b811d901445491b7a5a41d1123c6a0551402ba5259e",
+        "build/order-plans/socom-work-order-segment-034.prev.json sha256:9c0f10fbec92cf23e75b36faf5eeba0d06de6fb5b55d8300fd075e3b3d1d2a75 (accepted plan before the rebase)",
+        "order plan validate --check: ok, 0 open, 0 mismatches, no stale input (stage 4 baseline 17256eb1, order d43c60e5)",
+        "sha256 db9795e4 equals handoff; .prev 9c0f10fb = the accepted plan; validate --check ok (0 open, 0 mismatches, 0 stale); fresh draft in build/order-plans/socom-order-rereviewer-3/ equals the plan JSON-aware except carried decided/settled rows; independent check: out-of-line rows strictly reverse-address, data rows ascending per region, constrained carriers monotone, not_placed reasons derived. vs .prev: 0 rows added/removed, no change, segment target 25fc0d72 unchanged. Spot: Recoil 3108 = basebump_y$3108, TickExplosives 3288 = r_offset$3288; 11 constrained."
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-3",
+        "submitted_at": "2026-11-06T11:42:37Z",
+        "summary": "Re-drafted onto stage-4 baseline 17256eb1 / order d43c60e5. Segment target unchanged (25fc0d72): every row of seal_kit.cpp equals the accepted .prev plan; no decisions to carry; 0 open."
+      },
       "id": "socom:work:order-segment-034",
       "kind": "order-plan-segment",
       "lease": null,
@@ -204682,7 +204918,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 034 (1 units, 140 definitions)"
     },
     {
@@ -206900,6 +207136,10 @@
       "title": "Compile the order skeletons of segment 037 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:51:18Z",
+        "by": "socom-order-rereviewer-4"
+      },
       "batch": {
         "batch_number": 39,
         "definitions": 233,
@@ -206925,8 +207165,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-039.json sha256:4be0c82bc5fac57bb87407186f6db91a008518a0f8eca4ba06b362e3114707ec",
+        "build/order-plans/socom-work-order-segment-039.json sha256:4be0c82bc5fac57bb87407186f6db91a008518a0f8eca4ba06b362e3114707ec equals handoff; validate --check ok (0 open/mismatch/stale); re-draft JSON-identical; vs .prev 26ab6427: 0 rows removed/moved, units unchanged in order, existing rows same class/basis and relative order (9 zsys_memory rows renumbered +3), added only user placements zsys_bench.cpp Reset__6CBenchFv 0x2f3730 (between headset/zsys_sched) and zsys_memory _delete/_free/zsys_FullAllocAndFree 0x2f48a0-0x2f4920 at pos 3..1 (reverse-address, contiguous after _new 0x2f4830, no findings); independent check vs order-target cache d43c60e5: every definition listed once, desc position = address order, data ascending. Scratch build/order-plans/socom-order-rereviewer-4/",
+        "build/order-plans/socom-work-order-segment-039.prev.json sha256:26ab642751b590ee0f9dd2572a15d64ce9049e5cce72ad5c734f52867a1afeae (accepted plan before the rebase onto stage-4 baseline 17256eb1)",
+        "order plan validate --check ok (0 open, 0 mismatches, 0 stale); diff vs .prev: +4 rows (zsys_bench 1, zsys_memory 3), 0 removed, 9 renumbered zsys_memory rows with unchanged relative order"
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-4",
+        "submitted_at": "2026-11-06T11:37:43Z",
+        "summary": "re-drafted after the rebase onto stage-4 baseline 17256eb1: 10 units (new zsys_bench.cpp, 1 hypothesis row Reset__6CBenchFv), 149 function rows (0 in-class), 65 data rows; zsys_memory.cpp gained 3 rows (0x2f48a0-0x2f4920, positions 1-3 by the reverse-address rule), the other 229 rows unchanged but renumbering; no prior decisions to carry; 0 open; validate --check ok, 0 mismatches"
+      },
       "id": "socom:work:order-segment-039",
       "kind": "order-plan-segment",
       "lease": null,
@@ -206985,7 +207234,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 039 (9 units, 229 definitions)"
     },
     {
@@ -207957,6 +208206,10 @@
       "title": "Compile the order skeletons of segment 039 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:51:42Z",
+        "by": "socom-order-rereviewer-4"
+      },
       "batch": {
         "batch_number": 40,
         "definitions": 89,
@@ -207979,8 +208232,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-040.json sha256:f38eae10ca978ae78051bb56e2e4258ad0b69c16d97a64135167ff3290f238ef",
+        "build/order-plans/socom-work-order-segment-040.json sha256:f38eae10ca978ae78051bb56e2e4258ad0b69c16d97a64135167ff3290f238ef equals handoff; validate --check ok (0 open/mismatch/stale); vs .prev: 0 rows removed/moved, 7 units unchanged, existing rows same class/basis and relative order (11 ztex_main rows renumbered +1); only addition zdb::CTexture::Init 0x2f90b0 (user placement) at ztex_main pos 1 (highest address, reverse-address); re-draft JSON-identical; independent check vs order-target cache d43c60e5: every definition listed once, desc position = address order, data ascending, no findings. Scratch build/order-plans/socom-order-rereviewer-4/",
+        "build/order-plans/socom-work-order-segment-040.prev.json sha256:9f136e5e6b4efb29ffe137e41453c67b0594a9a835ccfac04a3a14858812af19 (accepted plan before the rebase onto stage-4 baseline 17256eb1)",
+        "order plan validate --check ok (0 open, 0 mismatches, 0 stale); diff vs .prev: +1 row (ztex_main 0x2f90b0), 0 removed, 11 renumbered ztex_main rows with unchanged relative order"
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-4",
+        "submitted_at": "2026-11-06T11:38:38Z",
+        "summary": "re-drafted after the rebase onto stage-4 baseline 17256eb1: 7 units, 66 function rows (0 in-class), 18 data rows; ztex_main.cpp gained 1 row (0x2f90b0, position 1 by the reverse-address rule), the other 88 rows unchanged but renumbering; no prior decisions to carry; 0 open; validate --check ok, 0 mismatches"
+      },
       "id": "socom:work:order-segment-040",
       "kind": "order-plan-segment",
       "lease": null,
@@ -208015,7 +208277,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 040 (7 units, 88 definitions)"
     },
     {
@@ -208915,6 +209177,10 @@
       "title": "Compile the order skeletons of segment 040 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:51:50Z",
+        "by": "socom-order-rereviewer-4"
+      },
       "batch": {
         "batch_number": 41,
         "definitions": 188,
@@ -208941,8 +209207,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-041.json sha256:1da4450ad52bcc1d6f9ddbb03e59806d291dc36422ff2e95e33ea19e6cabd365",
+        "build/order-plans/socom-work-order-segment-041.json sha256:1da4450ad52bcc1d6f9ddbb03e59806d291dc36422ff2e95e33ea19e6cabd365 equals handoff; validate --check ok (0 open/mismatch/stale); vs .prev: 0 rows removed/moved, prior 10 units keep order, existing rows unchanged; additions only user placements: ztwod_main C2D 6 rows 0x300bf0-0x300d10 (between c2dline/ztwod_poly), ztwod_bitmap C2DBitmap 14 rows 0x3030e0-0x3039c0, new ztwod_init.cpp Open/Init 0x303c10/0x303c60 (before util_bufio), c2dbitmap_poly stage7 copy __dt__7C2DLineFv 0x2fe8e0 (binding 13, ztwod.h); all reverse-address; ztwod_main/bitmap no longer units_by_neighbour; re-draft JSON-identical; independent check vs order-target cache d43c60e5: every definition listed once, desc position = address order, data ascending, no findings. Scratch build/order-plans/socom-order-rereviewer-4/",
+        "build/order-plans/socom-work-order-segment-041.prev.json sha256:44b1026ea4530b6fca9c76955b12d3daac9dcb0dbc1940848a5d953c5ff2d07a (accepted plan before the rebase onto stage-4 baseline 17256eb1)",
+        "order plan validate --check ok (0 open, 0 mismatches, 0 stale); diff vs .prev: +22 rows (ztwod_bitmap 14, ztwod_main 6, ztwod_init 2), 0 removed, 0 changed; order sql targets: 0x2fe8e0 __dt__7C2DLineFv class copy binding 13 header ztwod.h"
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-4",
+        "submitted_at": "2026-11-06T11:39:55Z",
+        "summary": "re-drafted after the rebase onto stage-4 baseline 17256eb1: 11 units (new ztwod_init.cpp, 2 rows), 135 function rows (0 in-class), 15 data rows; ztwod_main.cpp (+6) and ztwod_bitmap.cpp (+14) now own their C2D/C2DBitmap functions, all placed by the reverse-address rule (hypothesis); c2dbitmap_poly.cpp gained stage-7 copy __dt__7C2DLineFv (0x2fe8e0); the other 166 rows unchanged; no prior decisions to carry; 0 open; validate --check ok, 0 mismatches"
+      },
       "id": "socom:work:order-segment-041",
       "kind": "order-plan-segment",
       "lease": null,
@@ -208977,7 +209252,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 041 (10 units, 166 definitions)"
     },
     {
@@ -209929,6 +210204,10 @@
       "title": "Compile the order skeletons of segment 041 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:51:58Z",
+        "by": "socom-order-rereviewer-4"
+      },
       "batch": {
         "batch_number": 42,
         "definitions": 270,
@@ -209954,8 +210233,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-042.json sha256:0530039c3cff98d50bcab6bb9d307ac2b8e6af30928dd7845244b91458dd5868",
+        "build/order-plans/socom-work-order-segment-042.json sha256:0530039c3cff98d50bcab6bb9d307ac2b8e6af30928dd7845244b91458dd5868 equals handoff; validate --check ok (0 open/mismatch/stale); vs .prev: 0 rows removed/moved, prior 7 units keep order, existing rows unchanged; additions only user units beachball.cpp Uninit 0x305e40 (util_sonyio<.<util_stable), zvid_video.cpp Clear/Brightness 0x307870/0x307790, zvid_main.cpp ZTestOff/On/OnWriteSet 0x3079e0-0x307920 (util_memcard<..<zvid_init), reverse-address; re-draft JSON-identical; independent check vs order-target cache d43c60e5: every definition listed once, desc position = address order, data ascending, no findings. Scratch build/order-plans/socom-order-rereviewer-4/",
+        "build/order-plans/socom-work-order-segment-042.prev.json sha256:04494101b4d99c2303c59adde0e295dbcf99bd1bfcd1de83129ae625350524a5 (accepted plan before the rebase onto stage-4 baseline 17256eb1)",
+        "order plan validate --check ok (0 open, 0 mismatches, 0 stale); diff vs .prev: +6 rows (zvid_main 3, zvid_video 2, beachball 1), 0 removed, 0 changed"
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-4",
+        "submitted_at": "2026-11-06T11:40:50Z",
+        "summary": "re-drafted after the rebase onto stage-4 baseline 17256eb1: 10 units (new beachball.cpp 1 row, zvid_video.cpp 2 rows, zvid_main.cpp 3 rows; all hypothesis by the reverse-address rule), 148 function rows (0 in-class), 103 data rows; the other 264 rows unchanged; no prior decisions to carry; 0 open; validate --check ok, 0 mismatches"
+      },
       "id": "socom:work:order-segment-042",
       "kind": "order-plan-segment",
       "lease": null,
@@ -210026,7 +210314,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 042 (7 units, 264 definitions)"
     },
     {
@@ -210999,6 +211287,10 @@
       "title": "Compile the order skeletons of segment 042 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:54:02Z",
+        "by": "socom-order-rereviewer-4"
+      },
       "batch": {
         "batch_number": 43,
         "definitions": 152,
@@ -211022,8 +211314,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-043.json sha256:6e7783e03440d99791f8db4edb49942fdd53ce86e311d0a6f9c97843901f0f6e",
+        "build/order-plans/socom-work-order-segment-043.json sha256:6e7783e03440d99791f8db4edb49942fdd53ce86e311d0a6f9c97843901f0f6e equals handoff; validate --check ok (0 open/mismatch/stale); vs .prev: 0 rows removed/moved, prior 7 units keep order, existing rows unchanged; only addition new unit zwep_ammolist.cpp CZAmmoList 7 rows 0x314f50-0x3153f0 (between zwep_weaponlist/zwep_explosive), reverse-address; re-draft JSON-identical; independent check vs order-target cache d43c60e5: every definition listed once, desc position = address order, data ascending, no findings. Scratch build/order-plans/socom-order-rereviewer-4/",
+        "build/order-plans/socom-work-order-segment-043.prev.json sha256:f537c9480d7b04d776f58e0a4b767339a7b306ad9a2c6247c0ccd6d9dbc6784f (accepted plan before the rebase onto stage-4 baseline 17256eb1)",
+        "order plan validate --check ok (0 open, 0 mismatches, 0 stale); diff vs .prev: +7 rows (zwep_ammolist), 0 removed, 0 changed"
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-4",
+        "submitted_at": "2026-11-06T11:42:10Z",
+        "summary": "re-drafted after the rebase onto stage-4 baseline 17256eb1: 8 units (new zwep_ammolist.cpp, 7 CZAmmoList rows, hypothesis by the reverse-address rule), 126 function rows (0 in-class), 11 data rows; the other 145 rows unchanged; no prior decisions to carry; 0 open; validate --check ok, 0 mismatches"
+      },
       "id": "socom:work:order-segment-043",
       "kind": "order-plan-segment",
       "lease": null,
@@ -211058,7 +211359,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 043 (7 units, 145 definitions)"
     },
     {
@@ -211925,6 +212226,10 @@
       "title": "Compile the order skeletons of segment 043 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:53:00Z",
+        "by": "socom-order-rereviewer-4"
+      },
       "batch": {
         "batch_number": 44,
         "definitions": 228,
@@ -211945,8 +212250,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-044.json sha256:b9e751a1c379d9e26032c0002faada036de69dc916a5bc82823a795235f51677",
+        "build/order-plans/socom-work-order-segment-044.json sha256:b9e751a1c379d9e26032c0002faada036de69dc916a5bc82823a795235f51677 equals handoff; validate --check ok (0 open/mismatch/stale); segment_target_sha256 unchanged vs .prev (only order/stage4 digests rebased), every row identical to .prev (5 units, 193 fn incl. 8 proven thezoom dwarf-line rows, 19 data); re-draft JSON-identical; independent check vs order-target cache d43c60e5: every definition listed once, desc position = address order, data ascending, no findings. Scratch build/order-plans/socom-order-rereviewer-4/",
+        "build/order-plans/socom-work-order-segment-044.prev.json sha256:a067e8236ec5241d0d8fe9a9871e4642b1a457d77c9ebdc8e64e6986e94bee98 (accepted plan before the rebase onto stage-4 baseline 17256eb1)",
+        "order plan validate --check ok (0 open, 0 mismatches, 0 stale); diff vs .prev: 0 rows added/removed/changed; segment_target_sha256 6acee3400ce8acec4d067abf86de202038943723bf8a25aa101d8c087bb2544b before and after"
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-4",
+        "submitted_at": "2026-11-06T11:43:19Z",
+        "summary": "re-drafted after the rebase onto stage-4 baseline 17256eb1: segment target digest unchanged (6acee340), 5 units, 193 function rows (0 in-class; 8 proven by DWARF lines), 19 data rows; all 228 rows identical to the accepted plan, only the order and stage-4 baseline digests move; no prior decisions to carry; 0 open; validate --check ok, 0 mismatches"
+      },
       "id": "socom:work:order-segment-044",
       "kind": "order-plan-segment",
       "lease": null,
@@ -211981,7 +212295,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 044 (5 units, 228 definitions)"
     },
     {
@@ -219045,6 +219359,10 @@
       "title": "Compile the order skeletons of segment 074 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:53:46Z",
+        "by": "socom-order-rereviewer-3"
+      },
       "batch": {
         "batch_number": 76,
         "definitions": 34,
@@ -219065,8 +219383,18 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-segment-076.json sha256:d085547f60024d21b416b0377b573e7b193504b10c737aeb2401755e273c2de2",
+        "build/order-plans/socom-work-order-segment-076.prev.json sha256:3be482a5ab68f5c8e3dac55deb160ea1ef7fb144d713b55420c8f76a9631f6ea (accepted plan before the rebase)",
+        "evidence: order sql targets (GLOBAL definitions); reference relocations --symbol FootInSpace__10CZSealBodyFP10CZBodyAnimP6CPnt3DP6CPnt3Dffb; docs/reconstruction/decisions/stage4-function-placements.md",
+        "order plan validate --check: ok, 0 open, 0 mismatches, no stale input (stage 4 baseline 17256eb1, order d43c60e5)",
+        "sha256 d085547f equals handoff; .prev 3be482a5 = the accepted plan; validate --check ok (0 open, 0 mismatches, 0 stale); fresh draft in build/order-plans/socom-order-rereviewer-3/ equals the plan JSON-aware except carried decided/settled rows; independent check: out-of-line rows strictly reverse-address, data rows ascending per region, constrained carriers monotone, not_placed reasons derived. vs .prev: other 4 units unchanged. Additions = user placement seal_ik.cpp: FootInSpace 0x2a4dd0 pos 1, TurnSetup 0x2a4d30 pos 2, one run 0x2a4d30-0x2a4f64 between seal_ex and seal_kit. Out-of-line call for FootInSpace upheld: symbol GLOBAL FUNC (an in-class member is implicitly inline and MW emits an uninlined body as a binding-13/WEAK copy, never GLOBAL); only refs R_MIPS_26 0x2a4d88/0x2a4dac from TurnSetup, so on-demand emission would give the same layout and the binding decides; TurnSetup called from seal_body 0x279d20/0x27a6d8."
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-3",
+        "submitted_at": "2026-11-06T11:43:11Z",
+        "summary": "Re-drafted onto stage-4 baseline 17256eb1 / order d43c60e5 (target dc44fbd9). New rows seal_ik.cpp +2 (FootInSpace 0x2a4dd0 pos 1, TurnSetup 0x2a4d30 pos 2; the user's placement). FootInSpace's only caller is TurnSetup (R_MIPS_26 0x2a4d88, 0x2a4dac) and it sits right after it, so on-demand emission would predict the same layout; kept out-of-line by the rule because it is a GLOBAL definition (in-class copies are binding-13/LOCAL). Other 4 units equal the accepted .prev plan; 0 open."
+      },
       "id": "socom:work:order-segment-076",
       "kind": "order-plan-segment",
       "lease": null,
@@ -219137,7 +219465,7 @@
       ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Plan the definition order of segment 076 (5 units, 32 definitions)"
     },
     {
@@ -219984,6 +220312,10 @@
       "title": "Compile the order skeletons of segment 076 with the exact compiler and verify the object order"
     },
     {
+      "accepted": {
+        "at": "2026-11-06T11:55:44Z",
+        "by": "socom-order-rereviewer-4"
+      },
       "batch": {
         "batch_number": 0,
         "link_order_sha256": "8c0948caa5edaad53ec41467512cdf0f328be7270d5490929e709defc1e14118",
@@ -219994,8 +220326,17 @@
       "dependencies": [
         "socom:work:source-correlation-seed"
       ],
-      "evidence": [],
-      "handoff": null,
+      "evidence": [
+        "build/order-plans/socom-work-order-link.json sha256:9822ba8d83f3f28267944e0a4ed700224a068356cc14f7f1aa61f73c3a941e15",
+        "build/order-plans/socom-work-order-link.json sha256:9822ba8d83f3f28267944e0a4ed700224a068356cc14f7f1aa61f73c3a941e15 equals handoff; validate --check ok (link_order_sha256 8c0948ca, 643 objects, 0 violations); JSON-identical to a fresh order link-spec (24 regions checked, COMMON skipped, seal_ai .bss/_fbss split as before); vs .prev 1ac47958: 621 objects keep relative order, 0 removed, +22 = the user's new units each between its address neighbours (e.g. headset<zsys_bench<zsys_sched, ztwod_bitmap<ztwod_init<util_bufio, util_memcard<zvid_video<zvid_main<zvid_init, zwep_weaponlist<zwep_ammolist<zwep_explosive); every one of the 241 segment-plan units appears once; .text 632 objects strictly ascending in link order; all 46 segment plans accepted. Scratch build/order-plans/socom-order-rereviewer-4/",
+        "build/order-plans/socom-work-order-link.prev.json sha256:1ac47958390367ebf302e2753e62336e89904d29962ae3d13d86e4e6fb90216c (accepted link plan before the rebase, link_order_sha256 fb46c910)",
+        "order plan validate --check ok (equals current order link-spec, 0 violations); every order-plan-segment item handed off or accepted before this draft (25 awaiting_acceptance, 21 accepted)"
+      ],
+      "handoff": {
+        "owner": "socom-order-replanner-4",
+        "submitted_at": "2026-11-06T11:44:30Z",
+        "summary": "re-drafted the link plan (order link-spec) after the rebase onto stage-4 baseline 17256eb1: 643 objects (621 before), link_order_sha256 8c0948ca; the 22 added objects are the user's new units (ai_main, ai_cell, ai_search, zbody_main, zanim_sequence, ent_entity, ent_control, fts_network, fts_network_dme, graph_route, graph_edge, ztex_dyn, node_vector, node_projectedmap, zrdr_local, seal_ctrl, zsys_bench, ztwod_init, beachball, zvid_video, zvid_main, zwep_ammolist); 0 removed; the 621 prior objects keep their relative order; static check 0 violations; validate --check ok"
+      },
       "id": "socom:work:order-link",
       "kind": "order-plan-link",
       "lease": null,
@@ -220050,7 +220391,7 @@
       ],
       "selection": null,
       "stage": "authored-function-order",
-      "status": "ready",
+      "status": "accepted",
       "title": "Review the link-order plan (621 objects in link order)"
     },
     {
