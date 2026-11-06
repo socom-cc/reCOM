@@ -83,6 +83,15 @@ typedef struct {
 	sceGifTag giftag1;
 } sceGsLoadImage;
 
+/* sceGsSetDefAlphaEnv (0x14f048) layout: ALPHA_1, PABE, TEXA, FBA_1 as register/address pairs
+ * (64 bytes, the A+D data behind a GIF tag; zRndrInit 0x241850 builds two in ZDB). */
+typedef struct {
+	unsigned long long alpha1, alpha1addr;
+	unsigned long long pabe, pabeaddr;
+	unsigned long long texa, texaaddr;
+	unsigned long long fba1, fba1addr;
+} sceGsAlphaEnv;
+
 #define SCE_GS_NOINTERLACE 0
 #define SCE_GS_INTERLACE 1
 #define SCE_GS_FIELD 0
@@ -109,6 +118,7 @@ int sceGsSetDefClear(sceGsClear *cp, short ztest, short x, short y, short w, sho
 void sceGsSetDefDBuff(sceGsDBuff *dp, short psm, short w, short h, short ztest, short zpsm, short clear);
 int sceGsSetDefLoadImage(sceGsLoadImage *lp, short dbp, short dbw, short dpsm, short x, short y, short w, short h);
 int sceGsExecLoadImage(sceGsLoadImage *lp, unsigned __int128 *srcaddr);
+int sceGsSetDefAlphaEnv(sceGsAlphaEnv *ap, short pabe);
 
 #ifdef __cplusplus
 }

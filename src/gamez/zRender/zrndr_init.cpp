@@ -9,6 +9,41 @@
  * @socom-artifact defines main socom:data:0x475c70
  * socom-owner-annotations end socom:work:source-segment-076 */
 
+#include <eekernel.h> /* FlushCache */
+#include <eetypes.h> /* u_long128 */
+#include <libdma.h> /* sceDmaSend, sceDmaSync */
+#include <libgraph.h> /* sceGifTag, sceGsAlphaEnv, sceGsSetDefAlphaEnv */
+
+#include "gamez/zRender/zrender.h" /* zRndrInit */
+#include "gamez/zSystem/zsys.h" /* zSys */
+#include "gamez/zVisual/zvis.h" /* zdb::CVisual::Init */
+
+/* The VU1 microcode and its data segment (zrndr_vu1.vsm): DMA chains for VIF1, each led by a
+ * DMA END tag. */
+extern u_long128 vu1_CodeSegment1[];
+extern u_long128 vu1_DataSegment1[];
+
+/* ZDB has no DWARF record; layout from the stores in zRndrInit, its only accessor. port: guess -
+ * the type and field names. Each m_alpha entry is a GS packet: GIF tag (A+D, NLOOP m_nloop)
+ * followed by the alpha registers from sceGsSetDefAlphaEnv. */
+struct tag_ZDB_ALPHA
+{
+	s32 m_nloop;          /* +0x00 */
+	sceGifTag m_tag;      /* +0x10 */
+	sceGsAlphaEnv m_env;  /* +0x20 */
+};
+
+struct tag_ZDB
+{
+	u8 m_flag0;                  /* +0x00 */
+	u8 m_flag1;                  /* +0x01 */
+	tag_ZDB_ALPHA m_alpha[2];    /* +0x10, +0x70 */
+};
+
+#ifdef SOCOM_PORT
+static_assert(sizeof(tag_ZDB) == 208, "ZDB is 208 bytes (ELF symbol size)");
+#endif
+
 #ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
 std::__nInit std::__msl_ios_base_ninit;
@@ -18,9 +53,39 @@ std::__wInit std::__msl_ios_base_winit;
 #endif
 
 /* @socom-skeleton stub ZDB */
-unsigned char ZDB[208];
+tag_ZDB ZDB; /* 208 bytes */
 
 /* @socom-skeleton stub zRndrInit__Fv */
 void zRndrInit()
 {
+	/* 0x241850: clear the ZDB flags; fill VU1 data memory (0x1100c000, 1024 qwords) with
+	 * 0xcdcdcdcd; write back the data cache; DMA the VU1 data segment, then the microcode, to
+	 * VIF1 and wait for each; build ZDB's two alpha packets (the first with ALPHA_1 0x88,
+	 * Cs * As); then CVisual::Init. */
+	ZDB.m_flag0 = 0;
+	ZDB.m_flag1 = 0;
+
+	volatile u64* vu1mem = (volatile u64*)0x1100c000;
+
+	for (u32 i = 0; i < 1024 * 2; i++)
+		vu1mem[i] = 0xcdcdcdcdcdcdcdcdull;
+
+	FlushCache(0);
+
+	sceDmaSend(zSys.DmaToVif1, (void*)((u32)vu1_DataSegment1 & 0x0fffffff));
+	sceDmaSync(zSys.DmaToVif1, 0, 0);
+	sceDmaSend(zSys.DmaToVif1, (void*)((u32)vu1_CodeSegment1 & 0x0fffffff));
+	sceDmaSync(zSys.DmaToVif1, 0, 0);
+
+	/* GIF tags: NLOOP m_nloop, EOP, NREG 1, REGS0 A+D (0xe) */
+	ZDB.m_alpha[0].m_nloop = sceGsSetDefAlphaEnv(&ZDB.m_alpha[0].m_env, 0);
+	ZDB.m_alpha[0].m_env.alpha1 = 0x88;
+	ZDB.m_alpha[0].m_tag.tag[0] = (u64)(ZDB.m_alpha[0].m_nloop & 0x7fff) | (1ull << 15) | (1ull << 60);
+	ZDB.m_alpha[0].m_tag.tag[1] = 0xe;
+
+	ZDB.m_alpha[1].m_nloop = sceGsSetDefAlphaEnv(&ZDB.m_alpha[1].m_env, 0);
+	ZDB.m_alpha[1].m_tag.tag[0] = (u64)(ZDB.m_alpha[1].m_nloop & 0x7fff) | (1ull << 15) | (1ull << 60);
+	ZDB.m_alpha[1].m_tag.tag[1] = 0xe;
+
+	zdb::CVisual::Init();
 }

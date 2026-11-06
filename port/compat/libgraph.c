@@ -348,3 +348,18 @@ stuck:
     socom_port_trace("sceGsExecLoadImage: GIF DMA busy");
     return -1;
 }
+
+/* 0x14f048: ALPHA_1 (Cs - Cd) * As + Cd, PABE = pabe, TEXA TA0 0x7f / AEM / TA1 0x81, FBA_1 0;
+ * returns the number of A+D registers (4). */
+int sceGsSetDefAlphaEnv(sceGsAlphaEnv *ap, short pabe)
+{
+    ap->alpha1addr = 0x42;
+    ap->alpha1 = 0x44;
+    ap->pabeaddr = 0x49;
+    ap->pabe = (unsigned long long)(long long)pabe;
+    ap->texaaddr = 0x3b;
+    ap->texa = (0x81ull << 32) | 0x807f;
+    ap->fba1addr = 0x4a;
+    ap->fba1 = 0;
+    return 4;
+}

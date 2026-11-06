@@ -1,0 +1,527 @@
+; zrndr_vu0.vsm - VU0 microcode (vu0_CodeSegment)
+;
+; Placement: docs/reconstruction/decisions/stage4-microcode-placements.md, "## zrender/zrndr_vu0.vsm".
+; The ELF keeps only symbols for this object, so the file carries no @socom-artifact/@socom-anchor
+; lines (placement checker gap: socom:workspace-issue:b0377204ac179e9fac53).
+;
+; Assembled with dvp-as (ps2dev dvp binutils); the bytes equal support/socom.elf 0x426480-0x4272df.
+; Every label is the ELF's own local symbol _$NAME; dvp-as recreates the ELF's .dma.N/.vif.N/.vu.N
+; local symbols one for one (two VIF MPG chunks). There is no data segment.
+;
+; Upload: zMath_Init 0x2205b0 (called by CGame::StartEngine 0x20e73c) builds a CVU for VU0 and sends
+; this DMA packet with CVU::Code 0x2f5d30 after FlushCache. zRndrInit does not touch VU0.
+; Calls: the EE loads arguments into VF registers (macro mode, lqc2) and starts a routine with
+; VCALLMS <slot>; the routine ends with the E bit and the EE reads results back (sqc2):
+;   slot  0 vu0GetIntersect         (no VCALLMS 0 in the EE code)
+;   slot  2 vu0IntersectPlaneTest   CDIPoly::GetIntersect 0x21d980 (0x21d9e4)
+;   slot  4 vu0IntersectWithEdges   CDIPoly::GetIntersect 0x21d980 (0x21da30)
+;   slot  6 vu0LoadTipAndTail       (none) VU0 qwords 0, 1 = vf01, vf02 (segment tip, tail)
+;   slot  8 vu0IntersectBBox        CDIBBox::GetIntersect 0x21d580, CBBox::GetIntersect 0x221880
+;   slot 10 vu0QuatToMatrix         (none) vf01 quaternion -> rows in vf02-vf04
+;   slot 12 vu0QuatApply            CQuat::Apply 0x221240: vf01 quaternion, vf02 point -> vf03
+; (slot = VCALLMS immediate; no VCALLMSR in the EE code)
+
+	.text
+	.p2align 4
+	.global	vu0_CodeSegment
+vu0_CodeSegment:
+	DMAend *
+	MPG 0, *
+
+; Slot table (VCALLMS immediate = slot):
+	nop                                	b vu0GetIntersect
+	nop                                	nop
+	nop                                	b vu0IntersectPlaneTest
+	nop                                	nop
+	nop                                	b vu0IntersectWithEdges
+	nop                                	nop
+	nop                                	b vu0LoadTipAndTail
+	nop                                	nop
+	nop                                	b vu0IntersectBBox
+	nop                                	nop
+	nop                                	b vu0QuatToMatrix
+	nop                                	nop
+	nop                                	b vu0QuatApply
+	nop                                	nop
+
+; Slot 12: rotate vf02 by the quaternion vf01 -> vf03.
+vu0QuatApply:
+	mul[i].xyz vf05xyz,vf01xyz,vf02xyz 	loi 0x3f800000
+	addw.w vf07w,vf01w,vf01w           	mr32.xyzw vf12xyzw,vf01xyzw
+	addi.xyzw vf10xyzw,vf00xyzw,i      	mr32.xyzw vf15xyzw,vf02xyzw
+	addz.x vf13x,vf00x,vf02z           	nop
+	addz.x vf14x,vf00x,vf01z           	nop
+	mulw.w vf11w,vf07w,vf01w           	nop
+	mulax.w accw,vf10w,vf05x           	nop
+	madday.w accw,vf10w,vf05y          	nop
+	maddz.w vf06w,vf10w,vf05z          	nop
+	subw.w vf11w,vf11w,vf00w           	nop
+	addx.z vf12z,vf00z,vf01x           	nop
+	addx.z vf15z,vf00z,vf02x           	nop
+	addx.y vf13y,vf00y,vf02x           	nop
+	addx.y vf14y,vf00y,vf01x           	nop
+	mulw.xyz vf16xyz,vf02xyz,vf11w     	nop
+	mulw.xyz vf17xyz,vf01xyz,vf06w     	nop
+	addy.z vf13z,vf00z,vf02y           	nop
+	addy.z vf14z,vf00z,vf01y           	nop
+	nop                                	nop
+	nop                                	nop
+	mul.xyz vf18xyz,vf12xyz,vf13xyz    	nop
+	mul.xyz vf19xyz,vf14xyz,vf15xyz    	nop
+	add.xyz vf16xyz,vf16xyz,vf17xyz    	nop
+	nop                                	nop
+	sub.xyz vf18xyz,vf18xyz,vf19xyz    	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	mulw.xyz vf18xyz,vf18xyz,vf07w     	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	add.xyz vf03xyz,vf16xyz,vf18xyz    	nop
+	nop[e]                             	nop	; E bit: stop after the next pair
+	nop                                	nop
+
+; Slot 10: quaternion vf01 -> rotation matrix rows vf02-vf04.
+vu0QuatToMatrix:
+	add.xyz vf05xyz,vf01xyz,vf01xyz    	nop
+	nop                                	nop
+	addaw.xyz accxyz,vf00xyz,vf00w     	nop
+	nop                                	nop
+	mul.xyz vf06xyz,vf01xyz,vf05xyz    	mr32.xy vf07xy,vf05xy
+	addx.z vf07z,vf00z,vf05x           	nop
+	mulw[i].xyz vf08xyz,vf05xyz,vf01w  	loi 0xbf800000
+	nop                                	nop
+	muli.xyz vf06xyz,vf06xyz,i         	nop
+	mul.xyz vf09xyz,vf07xyz,vf05xyz    	nop
+	addz.y vf02y,vf06y,vf06z           	nop
+	addy.x vf12x,vf09x,vf08y           	nop
+	addz.x vf03x,vf06x,vf06z           	nop
+	nop                                	nop
+	addx.z vf02z,vf08z,vf09x           	nop
+	nop                                	nop
+	addw.xyz vf10xyz,vf00xyz,vf00w     	nop
+	addz.y vf12y,vf08y,vf09z           	nop
+	nop                                	mr32.xy vf02xy,vf02xy
+	addx.y vf04y,vf06y,vf06x           	nop
+	subz.x vf03x,vf09x,vf08z           	nop
+	addy.x vf03x,vf00x,vf12y           	nop
+	maddy.z vf04z,vf10z,vf04y          	nop
+	maddx.x vf02x,vf10x,vf02x          	nop
+	maddx.y vf03y,vf10y,vf03x          	nop
+	suby.z vf02z,vf09z,vf08y           	nop
+	subx.y vf04y,vf09y,vf08x           	nop
+	addx.z vf03z,vf00z,vf12x           	nop
+	nop[e]                             	nop	; E bit: stop after the next pair
+	nop                                	nop
+
+; Slot 6: store the segment end points vf01/vf02 to VU0 qwords 0/1.
+vu0LoadTipAndTail:
+	nop                                	nop
+	nop                                	sq.xyzw vf01xyzw,0(vi00)
+	nop                                	sq.xyzw vf02xyzw,1(vi00)
+	nop[e]                             	nop	; E bit: stop after the next pair
+	nop                                	nop
+
+; Slot 8: segment against the six faces of a box (NextFace0-5).
+vu0IntersectBBox:
+	nop                                	lq.xyzw vf02xyzw,1(vi00)
+	nop                                	lq.xyzw vf01xyzw,0(vi00)
+	nop[i]                             	loi 0x3f800000
+	nop                                	mtir vi09,vf04w
+	sub.xyz vf07xyz,vf02xyz,vf04xyz    	nop
+	nop                                	iaddiu vi02,vi00,0xe0
+	nop                                	nop
+	nop                                	nop
+	nop                                	fmand vi04,vi02
+	sub.xyz vf06xyz,vf03xyz,vf02xyz    	nop
+	nop                                	iaddiu vi10,vi00,0x40
+	nop                                	nop
+	nop                                	iand vi06,vi09,vi10
+	nop                                	fmand vi05,vi02
+	sub.xyz vf08xyz,vf01xyz,vf03xyz    	nop
+	sub.xyz vf09xyz,vf01xyz,vf04xyz    	iand vi06,vi06,vi04
+	sub.xyz vf05xyz,vf01xyz,vf02xyz    	nop
+NextFace0:
+	nop                                	ibne vi06,vi00,NextFace1
+	nop                                	nop
+	nop                                	div q,vf07y,vf05y
+	nop                                	waitq
+	mulq.xyz vf10xyz,vf05xyz,q         	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	sub.xyz vf10xyz,vf02xyz,vf10xyz    	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	sub.xyz vf11xyz,vf10xyz,vf03xyz    	nop
+	nop                                	iaddiu vi06,vi00,0xa0
+	nop                                	nop
+	nop                                	nop
+	nop                                	fmand vi07,vi06
+	nop                                	ibgtz vi07,NextFace1
+	sub.xyz vf11xyz,vf04xyz,vf10xyz    	nop
+	addx.xyz vf30xyz,vf00xyz,vf00x     	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	fmand vi07,vi06
+	addi.y vf30y,vf00y,i               	ibeq vi07,vi00,IntersectionDone
+NextFace1:
+	nop                                	iaddiu vi10,vi00,0x20
+	nop                                	nop
+	nop                                	iand vi06,vi09,vi10
+	nop                                	iand vi06,vi06,vi04
+	nop                                	nop
+	nop                                	ibne vi06,vi00,NextFace2
+	nop                                	nop
+	nop                                	div q,vf07z,vf05z
+	nop                                	waitq
+	mulq.xyz vf10xyz,vf05xyz,q         	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	sub.xyz vf10xyz,vf02xyz,vf10xyz    	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	sub.xyz vf11xyz,vf10xyz,vf03xyz    	nop
+	nop                                	iaddiu vi06,vi00,0xc0
+	nop                                	nop
+	nop                                	nop
+	nop                                	fmand vi07,vi06
+	nop                                	ibgtz vi07,NextFace2
+	sub.xyz vf11xyz,vf04xyz,vf10xyz    	nop
+	addx.xyz vf30xyz,vf00xyz,vf00x     	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	fmand vi07,vi06
+	addi.z vf30z,vf00z,i               	ibeq vi07,vi00,IntersectionDone
+NextFace2:
+	nop                                	iaddiu vi10,vi00,0x80
+	nop                                	nop
+	nop                                	iand vi06,vi09,vi10
+	nop                                	nop
+	nop                                	iand vi06,vi06,vi04
+	nop                                	nop
+	nop                                	ibne vi06,vi00,NextFace3
+	nop                                	nop
+	nop                                	div q,vf07x,vf05x
+	nop                                	waitq
+	mulq.xyz vf10xyz,vf05xyz,q         	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	sub.xyz vf10xyz,vf02xyz,vf10xyz    	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	sub.xyz vf11xyz,vf10xyz,vf03xyz    	nop
+	nop                                	iaddiu vi06,vi00,0x60
+	nop                                	nop
+	nop                                	nop
+	nop                                	fmand vi07,vi06
+	nop                                	ibgtz vi07,NextFace3
+	sub.xyz vf11xyz,vf04xyz,vf10xyz    	nop
+	addx.xyz vf30xyz,vf00xyz,vf00x     	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	fmand vi07,vi06
+	addi.x vf30x,vf00x,i               	ibeq vi07,vi00,IntersectionDone
+NextFace3:
+	nop                                	iaddiu vi10,vi00,0x20
+	nop                                	nop
+	nop                                	iand vi06,vi09,vi10
+	nop                                	nop
+	nop                                	iand vi06,vi06,vi05
+	nop                                	nop
+	nop                                	ibne vi06,vi00,NextFace4
+	nop                                	nop
+	nop                                	div q,vf06z,vf05z
+	nop                                	waitq
+	mulq.xyz vf10xyz,vf05xyz,q         	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	add.xyz vf10xyz,vf02xyz,vf10xyz    	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	sub.xyz vf11xyz,vf10xyz,vf03xyz    	nop
+	nop                                	iaddiu vi06,vi00,0xc0
+	nop                                	nop
+	nop                                	nop
+	nop                                	fmand vi07,vi06
+	nop                                	ibgtz vi07,NextFace4
+	sub.xyz vf11xyz,vf04xyz,vf10xyz    	nop
+	addx.xyz vf30xyz,vf00xyz,vf00x     	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	fmand vi07,vi06
+	subi.z vf30z,vf00z,i               	ibeq vi07,vi00,IntersectionDone
+NextFace4:
+	nop                                	iaddiu vi10,vi00,0x80
+	nop                                	nop
+	nop                                	iand vi06,vi09,vi10
+	nop                                	nop
+	nop                                	iand vi06,vi06,vi05
+	nop                                	nop
+	nop                                	ibne vi06,vi00,NextFace5
+	nop                                	nop
+	nop                                	div q,vf06x,vf05x
+	nop                                	waitq
+	mulq.xyz vf10xyz,vf05xyz,q         	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	add.xyz vf10xyz,vf02xyz,vf10xyz    	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	sub.xyz vf11xyz,vf10xyz,vf03xyz    	nop
+	nop                                	iaddiu vi06,vi00,0x60
+	nop                                	nop
+	nop                                	nop
+	nop                                	fmand vi07,vi06
+	nop                                	ibgtz vi07,NextFace5
+	sub.xyz vf11xyz,vf04xyz,vf10xyz    	nop
+	addx.xyz vf30xyz,vf00xyz,vf00x     	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	fmand vi07,vi06
+	subi.x vf30x,vf00x,i               	ibeq vi07,vi00,IntersectionDone
+NextFace5:
+	nop                                	iaddiu vi10,vi00,0x40
+	nop                                	nop
+	nop                                	iand vi06,vi09,vi10
+	nop                                	nop
+	nop                                	iand vi06,vi06,vi05
+	nop                                	nop
+	nop                                	ibne vi06,vi00,NoIntersections
+	nop                                	nop
+	nop                                	div q,vf06y,vf05y
+	nop                                	waitq
+	mulq.xyz vf10xyz,vf05xyz,q         	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	add.xyz vf10xyz,vf02xyz,vf10xyz    	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	sub.xyz vf11xyz,vf10xyz,vf03xyz    	nop
+	nop                                	iaddiu vi06,vi00,0xa0
+	nop                                	nop
+	nop                                	nop
+	nop                                	fmand vi07,vi06
+	nop                                	ibgtz vi07,NoIntersections
+	sub.xyz vf11xyz,vf04xyz,vf10xyz    	nop
+	addx.xyz vf30xyz,vf00xyz,vf00x     	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	fmand vi07,vi06
+	subi.y vf30y,vf00y,i               	ibeq vi07,vi00,IntersectionDone
+	nop                                	nop
+	nop                                	b NoIntersections
+	nop                                	nop
+IntersectionDone:
+	nop[i]                             	loi 0x3f800000
+	addi.w vf10w,vf10w,i               	nop
+NoIntersections:
+	nop                                	nop
+	nop[e]                             	nop	; E bit: stop after the next pair
+	nop                                	nop
+
+; Slot 0: segment against an edge list (NextEdge, NextEdgeList).
+vu0GetIntersect:
+	sub[i].xyz vf26xyz,vf02xyz,vf04xyz 	loi 0xb727c5ac
+	sub.xyz vf27xyz,vf01xyz,vf04xyz    	nop
+	nop                                	iaddiu vi04,vi00,0x155
+	addi.xyz vf29xyz,vf00xyz,i         	mtir vi10,vf03w
+	mul.xyz vf26xyz,vf26xyz,vf03xyz    	nop
+	mul[i].xyz vf27xyz,vf27xyz,vf03xyz 	loi 0xbf800054
+	addi.w vf29w,vf00w,i               	nop
+	nop                                	mtir vi11,vf02w
+	mulax.w accw,vf00w,vf26x           	nop
+	madday.w accw,vf00w,vf26y          	nop
+	maddz.w vf30w,vf00w,vf26z          	nop
+	mulax.w accw,vf00w,vf27x           	nop
+	madday.w accw,vf00w,vf27y          	nop
+	maddz.w vf31w,vf00w,vf27z          	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	addw.z vf31z,vf00z,vf30w           	nop
+	nop                                	iaddiu vi05,vi00,0x30
+	nop                                	nop
+	nop                                	nop
+	sub.zw vf29zw,vf31zw,vf29zw        	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	fmand vi02,vi05
+	subw.z vf29z,vf31z,vf31w           	ibeq vi02,vi00,vu0_NoIntersect
+	nop                                	isub vi06,vi02,vi11
+	nop                                	nop
+	nop                                	ibeq vi06,vi00,vu0_NoIntersect
+	nop                                	nop
+	nop                                	div q,vf31z,vf29z
+	sub.xyz vf29xyz,vf01xyz,vf02xyz    	nop
+	nop                                	waitq
+	mulq.xyz vf29xyz,vf29xyz,q         	nop
+	add.xyz vf29xyz,vf29xyz,vf02xyz    	nop
+	nop                                	nop
+	nop                                	iaddi vi04,vi04,-3
+	nop                                	nop
+	sub.xyz vf25xyz,vf29xyz,vf04xyz    	nop
+	nop                                	nop
+NextEdge:
+	nop                                	ibeq vi10,vi00,vu0_IntersectDone
+	addw[i].x vf30x,vf00x,vf30w        	loi 0xbf800000
+	mul.xyz vf25xyz,vf25xyz,vf05xyz    	iaddi vi10,vi10,-1
+	nop                                	nop
+	nop[i]                             	loi 0xb727c5ac
+	mulai.w accw,vf00w,i               	nop
+	maddax.w accw,vf00w,vf25x          	nop
+	madday.w accw,vf00w,vf25y          	nop
+	maddz.w vf31w,vf00w,vf25z          	nop
+	nop                                	nop
+	nop                                	iaddiu vi05,vi00,0x10
+	nop                                	iaddiu vi04,vi04,3
+	nop                                	fmand vi06,vi05
+	nop                                	nop
+	nop                                	ibne vi06,vi00,vu0_NoIntersect
+	nop                                	nop
+	nop                                	jr vi04
+	nop                                	nop
+NextEdgeList:
+	sub.xyz vf25xyz,vf29xyz,vf06xyz    	nop
+	addx.xyz vf05xyz,vf07xyz,vf00x     	b NextEdge
+	nop                                	nop
+	sub.xyz vf25xyz,vf29xyz,vf08xyz    	nop
+	addx.xyz vf05xyz,vf09xyz,vf00x     	b NextEdge
+	nop                                	nop
+	sub.xyz vf25xyz,vf29xyz,vf10xyz    	nop
+	addx.xyz vf05xyz,vf11xyz,vf00x     	b NextEdge
+	nop                                	nop
+	sub.xyz vf25xyz,vf29xyz,vf12xyz    	nop
+	addx.xyz vf05xyz,vf13xyz,vf00x     	b NextEdge
+	nop                                	nop
+	sub.xyz vf25xyz,vf29xyz,vf14xyz    	nop
+	addx.xyz vf05xyz,vf15xyz,vf00x     	b NextEdge
+	nop                                	nop
+	sub.xyz vf25xyz,vf29xyz,vf16xyz    	nop
+	addx.xyz vf05xyz,vf17xyz,vf00x     	b NextEdge
+	nop                                	nop
+	sub.xyz vf25xyz,vf29xyz,vf18xyz    	nop
+	addx.xyz vf05xyz,vf19xyz,vf00x     	b NextEdge
+	nop                                	nop
+	sub.xyz vf25xyz,vf29xyz,vf20xyz    	nop
+	addx.xyz vf05xyz,vf21xyz,vf00x     	b NextEdge
+	nop                                	nop
+	sub.xyz vf25xyz,vf29xyz,vf22xyz    	nop
+	addx.xyz vf05xyz,vf23xyz,vf00x     	b NextEdge
+	nop                                	nop
+vu0_IntersectDone:
+	nop                                	iaddiu vi05,vi00,0x20
+	nop                                	iand vi02,vi02,vi05
+	nop                                	nop
+	addx.w vf29w,vf00w,vf00x           	ibeq vi02,vi00,NormalOK
+	nop                                	nop
+	muli.xyz vf03xyz,vf03xyz,i         	nop
+NormalOK:
+	nop[e]                             	nop	; E bit: stop after the next pair
+	nop                                	nop
+vu0_NoIntersect:
+	nop                                	mr32.w vf29w,vf00w
+	nop[e]                             	nop	; E bit: stop after the next pair
+	nop                                	nop
+
+; Slot 2: segment against the polygon plane.
+vu0IntersectPlaneTest:
+	nop                                	lq.xyzw vf02xyzw,1(vi00)
+	nop                                	lq.xyzw vf01xyzw,0(vi00)
+	sub.xyz vf07xyz,vf05xyz,vf04xyz    	nop
+	add.xyz vf06xyz,vf00xyz,vf04xyz    	nop
+	sub[i].xyz vf26xyz,vf02xyz,vf04xyz 	loi 0xb727c5ac
+	sub.xyz vf27xyz,vf01xyz,vf04xyz    	nop
+	nop                                	nop
+	addi.xyz vf29xyz,vf00xyz,i         	nop
+	mul.xyz vf26xyz,vf26xyz,vf03xyz    	nop
+	mul[i].xyz vf27xyz,vf27xyz,vf03xyz 	loi 0xbf800054
+	nop                                	nop
+	nop                                	mtir vi11,vf02w
+	mulax.w accw,vf00w,vf26x           	nop
+	madday.w accw,vf00w,vf26y          	nop
+	maddz.w vf30w,vf00w,vf26z          	nop
+	mulax.w accw,vf00w,vf27x           	nop
+	madday.w accw,vf00w,vf27y          	nop
+	maddz.w vf31w,vf00w,vf27z          	nop
+	opmula.xyz accxyz,vf03xyz,vf07xyz  	nop
+	opmsub.xyz vf08xyz,vf07xyz,vf03xyz 	nop
+	nop                                	nop
+	addw.z vf31z,vf00z,vf30w           	nop
+	nop                                	iaddiu vi05,vi00,0x30
+	nop                                	nop
+	nop                                	nop
+	sub.zw vf29zw,vf31zw,vf29zw        	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	fmand vi02,vi05
+	nop                                	nop
+	subw.z vf29z,vf31z,vf31w           	ibeq vi02,vi00,vu0_FailPlaneTest
+	nop                                	isub vi06,vi02,vi11
+	nop                                	ibeq vi02,vi05,vu0_FailPlaneTest
+	nop                                	nop
+	nop                                	ibeq vi06,vi00,vu0_FailPlaneTest
+	nop                                	nop
+	addx.w vf29w,vf00w,vf00x           	div q,vf31z,vf29z
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	sub.xyz vf29xyz,vf01xyz,vf02xyz    	nop
+	nop                                	waitq
+	mulq.xyz vf29xyz,vf29xyz,q         	nop
+	add.xyz vf29xyz,vf29xyz,vf02xyz    	nop
+	nop[e]                             	nop	; E bit: stop after the next pair
+	nop                                	nop
+vu0_FailPlaneTest:
+	nop                                	mr32.w vf29w,vf00w
+	nop[e]                             	nop	; E bit: stop after the next pair
+	nop                                	nop
+
+; Slot 4: inside test of the plane hit point against the polygon edges.
+vu0IntersectWithEdges:
+	sub.xyz vf25xyz,vf29xyz,vf06xyz    	nop
+	nop                                	nop
+	addw.x vf30x,vf00x,vf30w           	nop
+	nop                                	nop
+	mul.xyz vf25xyz,vf25xyz,vf08xyz    	nop
+	sub.xyz vf07xyz,vf05xyz,vf04xyz    	nop
+	add[i].xyz vf06xyz,vf00xyz,vf05xyz 	loi 0xb727c5ac
+	mulai.w accw,vf00w,i               	nop
+	maddax.w accw,vf00w,vf25x          	nop
+	madday.w accw,vf00w,vf25y          	nop
+	maddz.w vf31w,vf00w,vf25z          	nop
+	nop                                	nop
+	nop                                	iaddiu vi05,vi00,0x10
+	nop                                	nop
+	nop                                	fmand vi06,vi05
+	opmula.xyz accxyz,vf03xyz,vf07xyz  	nop
+	opmsub.xyz vf08xyz,vf07xyz,vf03xyz 	ibne vi06,vi00,vu0_NoIntersect3
+	nop                                	iaddiu vi05,vi00,0x20
+	nop                                	iand vi02,vi02,vi05
+	nop                                	nop
+	addx.w vf29w,vf00w,vf00x           	ibeq vi02,vi00,NormalOK3
+	nop[i]                             	loi 0xbf800000
+	muli.xyz vf03xyz,vf03xyz,i         	nop
+NormalOK3:
+	nop[e]                             	nop	; E bit: stop after the next pair
+	nop                                	nop
+vu0_NoIntersect3:
+	nop                                	mr32.w vf29w,vf00w
+	nop[e]                             	nop	; E bit: stop after the next pair
+	nop                                	nop
+	.EndMPG
+	.EndDmaData

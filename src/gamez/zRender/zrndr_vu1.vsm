@@ -1,0 +1,2297 @@
+; zrndr_vu1.vsm - VU1 microcode (vu1_CodeSegment1) and its data segment (vu1_DataSegment1)
+;
+; Placement: docs/reconstruction/decisions/stage4-microcode-placements.md, "## zrender/zrndr_vu1.vsm"
+; (user decision 2026-11-06). The ELF keeps only symbols for this object, so the file carries no
+; @socom-artifact/@socom-anchor lines: the placement checker cannot verify symbol-only microcode yet
+; (socom:workspace-issue:b0377204ac179e9fac53).
+;
+; Assembled with dvp-as (ps2dev dvp binutils); the bytes equal support/socom.elf 0x4272e0-0x42af5f.
+; Every label is the ELF's own local symbol _$NAME (EE address of the instruction pair); dvp-as
+; also recreates the ELF's .dma.N/.vif.N/.vu.N local symbols one for one. The one MPG below is split
+; by the assembler every 256 instructions (8 VIF MPG chunks, as in the ELF). zRndrInit (0x241850)
+; DMAs vu1_DataSegment1 and then vu1_CodeSegment1 to VIF1 once at start-up.
+;
+; ---- EE -> VU1 contract (CVisual::VuUpdate 0x30a900 and its Vu* helpers) ----
+; Object packet (one per visual): DMA CNT, VIF STCYCL 1,1 + UNPACK V4-32 with FLG (addresses relative
+; to TOPS, i.e. into the current input buffer) of the object header, then VIF MSCALF 0 (0x15000000)
+; = VU1_STATE_0 (CVisual::VuExecuteState0 0x30b740; saved texture selects m_savedTS 0x511340 are
+; copied in before the MSCALF). Header, in qwords from XTOP (vi01):
+;   hdr[0]  x light qwords at hdr[19..] (0: keep VU1_LIGHT_DIRS/COLORS), y command entries,
+;           z multipass entries, w flags: bit 0 matrix setup (VuObjectSetup sets it), bit 1 the
+;           header holds only a GS packet (hdr[1..8]) to XGKICK
+;   hdr[1]  x local-light qwords
+;   hdr[2]  -> VU1_OBJ_PARAMS     x clip word (CVisual::m_fovClipWord >> 8, or 63), y global light
+;                                 scale, z ambient light scale (CVisual::VuObjectSetup 0x30c350)
+;   hdr[3]  -> VU1_OBJ_HDR3 (not read here)
+;   hdr[4..5]  -> VU1_FOG         fog vectors in model space (when CVisual::m_fogEnable)
+;   hdr[6..9]  model -> world matrix (CVisual::m_ModelToWorld)
+;   hdr[10..16] -> VU1_CAM_VECS   7 camera vectors (CCamera +976) in model space
+;   hdr[17] -> VU1_ADD_COLOR (w opacity), hdr[18] -> VU1_SCALE_COLOR
+;   hdr[19..26] optional global light directions and colours (hdr[0].x qwords)
+;   then the command entries -> VU1_PROGRAM, local lights -> VU1_LOCAL_LIGHTS, multipass entries
+;   -> VU1_MP_LIST. Command entry: x command code (below), y list index the clip loops resume at,
+;   z per-command count (lights, passes), w unused here.
+; Batch packets (model data, DMA REF from the model buffers): UNPACK into the input buffer and VIF
+; MSCNT, which resumes after vuSleep at vuProcessCommands: the command list runs once per batch.
+; Batch layout from XTOP: [1] GIF tag (strips: NLOOP = vertex count), [2] x offset of the triangle
+; list, z vertex count, w triangle count, [3] decompression offset xyz / scale w, [4..] vertices,
+; 3 qwords each (packed position, ST + normal, colour; see vuDecompress).
+; The camera's VU matrix set (CCamera::GetVuMtxSet 0x1e44b0, CCamera +0x3c0, 25 qwords kicked by
+; CPipe::RenderWorld through zSysFifoKick) is the only other writer seen for VU1 qwords 4-26.
+; port: unproven which of 4-26 it covers.
+;
+; ---- Command codes (x of a command entry = 2 * slot in MY_ENTRY) ----
+;   0 VU1_STATE_0         2 vuGatherClipTri      4 vuGatherClipLine     6 vuFrontFace
+;   8-14 vuXForm0-3      16-22 vuFog0-3          24-30 vuGlobalLight0-3 32-38 vuLocalLight0-3
+;  40 vuGatherFixKick    42-46 vuFixKick1-3      48/50 vuMPDetailMap0/1 52/54 vuMPSpecMap0/1
+;  56/58 vuMPLightMap0/1 60/62 vuMPShadowMap0/1  64 vuGatherFixKickShadow 66 vuSleep
+;  68 vuProcessCommands  70/72 vuColorToFloat0/1 74 vuProcessNextCommand 76 vuNextClipTri
+;  78 vuNextClipLine     80 vuFixInBuf           82 vuCMesh             84-90 vuInitLight0-3
+;  92-98 vuScaleColor0-3 100 vuBaseTextureKick   102 vuBuildNormals     104-112 vuDecompress0-4
+; 114 vuMultipassing    116 vuNotMultipassing
+; Per-vertex stages come in variants that pick source, destination and count:
+;   0 batch vertices (XTOP+4, count [2].z) -> VU1_VTX_A
+;   1 clipped polygon (vi08, count vi10)   -> VU1_VTX_B
+;   2 line pair (VU1_VTX_A, count 2)       -> VU1_VTX_B
+;   3 strip (XTOP+2, count [1].NLOOP)      -> VU1_VTX_A+1, behind the GIF tag
+; Example, the render-map pass of VuUpdate (CVisual::m_renderMap): vuDecompress0 (104), or vuCMesh
+; (82) + vuBuildNormals (102) for a CMesh, [vuFrontFace (6)], vuXForm0 (8),
+; vuGatherFixKickShadow (64), vuSleep (66).
+;
+; ---- VU1 data memory (qword addresses) ----
+	.equ	VU1_MVP, 0			; 0-3 object -> clip matrix (state 0 matrix setup)
+	.equ	VU1_WORLD_CLIP, 4		; 4-7 world -> clip matrix (camera set)
+	.equ	VU1_WORLD_MTX_B, 8		; 8-11 second world matrix; x model -> vf13-vf16 for the
+						; clippers. port: guess on its meaning
+	.equ	VU1_LIGHT_DIRS, 16		; 16-19 global light directions (x model -> vf05-vf08)
+	.equ	VU1_LIGHT_COLORS, 20		; 20-23 global light colours (-> vf09-vf12)
+	.equ	VU1_SHADOW_GIFTAG, 26		; GIF tag for vuGatherFixKickShadow
+	.equ	VU1_OBJ_PARAMS, 27		; hdr[2]
+	.equ	VU1_FOG, 28			; 28-29 hdr[4..5]
+	.equ	VU1_CAM_VECS, 30		; 30-36 hdr[10..16]
+	.equ	VU1_CMESH_SAVE, 37		; vuCMesh/vuBuildNormals save slot (x)
+	.equ	VU1_OBJ_HDR3, 38		; hdr[3]
+	.equ	VU1_MP_STATE, 39		; x next VU1_MP_LIST entry, w kick mask (0 while multipassing,
+						; 2 otherwise)
+	.equ	VU1_VTX_A, 0x28			; 40.. vertex work buffer: STQ, RGBA, XYZ per vertex
+	.equ	VU1_CLIP_PKT, 0x70		; 112 GIF tag + vertices of a clipped polygon
+	.equ	VU1_VTX_B, 0x96			; 150.. work buffer for clipped polygons and lines
+	.equ	VU1_KICK_A, 0x122		; 290-299 per-triangle GS packet A (tag + 3 vertices)
+	.equ	VU1_KICK_B, 0x12c		; 300-309 per-triangle GS packet B (double buffered with A)
+	.equ	VU1_ADD_COLOR, 0x147		; 327 hdr[17]
+	.equ	VU1_SCALE_COLOR, 0x148		; 328 hdr[18]
+	.equ	VU1_KICK_STATE, 0x149		; 329 x/y current and next per-triangle packet, z saved vi15
+	.equ	VU1_TEX_KICK, 0x14a		; 330-337 GS packet from hdr[1..8] (texture select, alpha)
+	.equ	VU1_COLOR128, 0x152		; 338 (128, 128, 128, 128), used by vuCMesh
+	.equ	VU1_PASS_SAVE, 0x153		; 339 x/y/z source, destination, count of a light/pass loop
+	.equ	VU1_PROGRAM, 0x154		; 340-359 command entries
+	.equ	VU1_MP_LIST, 0x168		; 360-399 multipass entries
+	.equ	VU1_LOCAL_LIGHTS, 0x190		; 400-422 local lights
+	.equ	VU1_GIF_EOP, 0x1a7		; 423 GIF tag NLOOP 0, EOP, kicked before some packets
+						; (port: guess - closes a PATH1 transfer)
+	.equ	VU1_BUF0, 0x1a8			; 424-723 input buffer 0 (BASE)
+	.equ	VU1_BUF_SIZE, 0x12c		; 300: input buffer 1 is 724-1023 (OFFSET)
+
+	.text
+	.p2align 4
+	.global	vu1_CodeSegment1
+vu1_CodeSegment1:
+	DMAend *
+	MPG 0, *
+
+; State 0, entered by VIF MSCALF 0: read the object header at XTOP (vi01).
+; flags (hdr[0].w) bit 1: hdr[1..8] is a GS packet; copy it to VU1_TEX_KICK, XGKICK, sleep.
+VU1_STATE_0:
+	nop                                	xtop vi01
+	nop                                	ilw.w vi05,0(vi01)w
+	nop                                	ilw.x vi03,0(vi01)x
+	nop                                	ilw.y vi04,0(vi01)y
+	nop                                	ilw.z vi06,0(vi01)z
+	nop                                	iaddiu vi08,vi00,2
+	nop                                	iand vi09,vi05,vi08
+	nop                                	nop
+	nop                                	ibeq vi09,vi00,NextState0Proc0
+	nop                                	nop
+	nop                                	iaddiu vi02,vi00,VU1_TEX_KICK
+	nop                                	lq.xyzw vf17xyzw,1(vi01)
+	nop                                	lq.xyzw vf18xyzw,2(vi01)
+	nop                                	lq.xyzw vf20xyzw,3(vi01)
+	nop                                	lq.xyzw vf21xyzw,4(vi01)
+	nop                                	sq.xyzw vf17xyzw,0(vi02)
+	nop                                	sq.xyzw vf18xyzw,1(vi02)
+	nop                                	sq.xyzw vf20xyzw,2(vi02)
+	nop                                	sq.xyzw vf21xyzw,3(vi02)
+	nop                                	lq.xyzw vf17xyzw,5(vi01)
+	nop                                	lq.xyzw vf18xyzw,6(vi01)
+	nop                                	lq.xyzw vf20xyzw,7(vi01)
+	nop                                	lq.xyzw vf21xyzw,8(vi01)
+	nop                                	sq.xyzw vf17xyzw,4(vi02)
+	nop                                	sq.xyzw vf18xyzw,5(vi02)
+	nop                                	sq.xyzw vf20xyzw,6(vi02)
+	nop                                	sq.xyzw vf21xyzw,7(vi02)
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	xgkick vi02
+	nop                                	nop
+	nop                                	b vuSleep
+	nop                                	nop
+
+; flags bit 0 clear: skip the matrix setup.
+NextState0Proc0:
+	nop                                	iaddiu vi08,vi00,1
+	nop                                	iand vi09,vi05,vi08
+	nop                                	iaddiu vi07,vi01,2
+	nop                                	ibeq vi09,vi00,NextState0Proc1
+	nop                                	nop
+
+; hdr[17]/hdr[18] -> VU1_ADD_COLOR/VU1_SCALE_COLOR; VU1_WORLD_CLIP x hdr[6..9] -> VU1_MVP;
+; VU1_WORLD_MTX_B x model -> vf13-vf16; light directions x model -> vf05-vf08, colours -> vf09-vf12;
+; hdr[2..5] and hdr[10..16] -> VU1_OBJ_PARAMS, VU1_OBJ_HDR3, VU1_FOG, VU1_CAM_VECS.
+MatrixSetup:
+	nop                                	lq.xyzw vf05xyzw,17(vi01)
+	nop                                	lq.xyzw vf06xyzw,18(vi01)
+	nop                                	lq.xyzw vf17xyzw,6(vi01)
+	nop                                	lq.xyzw vf09xyzw,VU1_WORLD_CLIP(vi00)
+	nop                                	lq.xyzw vf10xyzw,VU1_WORLD_CLIP+1(vi00)
+	nop                                	lq.xyzw vf11xyzw,VU1_WORLD_CLIP+2(vi00)
+	nop                                	lq.xyzw vf12xyzw,VU1_WORLD_CLIP+3(vi00)
+	nop                                	sq.xyzw vf05xyzw,VU1_ADD_COLOR(vi00)
+	nop                                	sq.xyzw vf06xyzw,VU1_SCALE_COLOR(vi00)
+	mulax.xyzw accxyzw,vf09xyzw,vf17x  	lq.xyzw vf18xyzw,7(vi01)
+	madday.xyzw accxyzw,vf10xyzw,vf17y 	lq.xyzw vf19xyzw,8(vi01)
+	maddaz.xyzw accxyzw,vf11xyzw,vf17z 	lq.xyzw vf20xyzw,9(vi01)
+	nop                                	ibne vi03,vi00,NEW_GLOBAL_LIGHT_NORMALS
+	nop                                	iaddiu vi07,vi01,0x13
+	maddw.xyzw vf01xyzw,vf12xyzw,vf17w 	lq.xyzw vf21xyzw,VU1_LIGHT_DIRS(vi00)
+	mulax.xyzw accxyzw,vf09xyzw,vf18x  	lq.xyzw vf22xyzw,VU1_LIGHT_DIRS+1(vi00)
+	madday.xyzw accxyzw,vf10xyzw,vf18y 	lq.xyzw vf23xyzw,VU1_LIGHT_DIRS+2(vi00)
+	maddaz.xyzw accxyzw,vf11xyzw,vf18z 	lq.xyzw vf24xyzw,VU1_LIGHT_DIRS+3(vi00)
+	nop                                	b DONE_GLOBAL_LIGHT_NORMAL_LOAD
+	nop                                	nop
+
+; hdr[0].x != 0: light directions from hdr[19..22].
+NEW_GLOBAL_LIGHT_NORMALS:
+	maddw.xyzw vf01xyzw,vf12xyzw,vf17w 	lq.xyzw vf21xyzw,19(vi01)
+	mulax.xyzw accxyzw,vf09xyzw,vf18x  	lq.xyzw vf22xyzw,20(vi01)
+	madday.xyzw accxyzw,vf10xyzw,vf18y 	lq.xyzw vf23xyzw,21(vi01)
+	maddaz.xyzw accxyzw,vf11xyzw,vf18z 	lq.xyzw vf24xyzw,22(vi01)
+DONE_GLOBAL_LIGHT_NORMAL_LOAD:
+	maddw.xyzw vf02xyzw,vf12xyzw,vf18w 	lq.xyzw vf25xyzw,VU1_WORLD_MTX_B(vi00)
+	mulax.xyzw accxyzw,vf09xyzw,vf19x  	lq.xyzw vf26xyzw,VU1_WORLD_MTX_B+1(vi00)
+	madday.xyzw accxyzw,vf10xyzw,vf19y 	lq.xyzw vf27xyzw,VU1_WORLD_MTX_B+2(vi00)
+	maddaz.xyzw accxyzw,vf11xyzw,vf19z 	lq.xyzw vf28xyzw,VU1_WORLD_MTX_B+3(vi00)
+	maddw.xyzw vf03xyzw,vf12xyzw,vf19w 	lq.xyzw vf05xyzw,2(vi01)
+	mulax.xyzw accxyzw,vf09xyzw,vf20x  	nop
+	madday.xyzw accxyzw,vf10xyzw,vf20y 	lq.xyzw vf07xyzw,3(vi01)
+	maddaz.xyzw accxyzw,vf11xyzw,vf20z 	lq.xyzw vf08xyzw,4(vi01)
+	maddw.xyzw vf04xyzw,vf12xyzw,vf20w 	sq.xyzw vf05xyzw,VU1_OBJ_PARAMS(vi00)
+	mulax.xyzw accxyzw,vf25xyzw,vf17x  	sq.xyzw vf01xyzw,VU1_MVP(vi00)
+	madday.xyzw accxyzw,vf26xyzw,vf17y 	sq.xyzw vf02xyzw,VU1_MVP+1(vi00)
+	maddaz.xyzw accxyzw,vf27xyzw,vf17z 	sq.xyzw vf03xyzw,VU1_MVP+2(vi00)
+	maddw.xyzw vf13xyzw,vf28xyzw,vf17w 	sq.xyzw vf04xyzw,VU1_MVP+3(vi00)
+	nop                                	ibne vi03,vi00,NEW_GLOBAL_LIGHT_COLORS
+	nop                                	nop
+	mulax.xyzw accxyzw,vf25xyzw,vf18x  	lq.xyzw vf09xyzw,VU1_LIGHT_COLORS(vi00)
+	madday.xyzw accxyzw,vf26xyzw,vf18y 	lq.xyzw vf10xyzw,VU1_LIGHT_COLORS+1(vi00)
+	maddaz.xyzw accxyzw,vf27xyzw,vf18z 	lq.xyzw vf11xyzw,VU1_LIGHT_COLORS+2(vi00)
+	maddw.xyzw vf14xyzw,vf28xyzw,vf18w 	lq.xyzw vf12xyzw,VU1_LIGHT_COLORS+3(vi00)
+	nop                                	b DONE_GLOBAL_LIGHT_COLOR_LOAD
+	nop                                	nop
+
+; hdr[0].x != 0: light colours from hdr[23..26].
+NEW_GLOBAL_LIGHT_COLORS:
+	mulax.xyzw accxyzw,vf25xyzw,vf18x  	lq.xyzw vf09xyzw,23(vi01)
+	madday.xyzw accxyzw,vf26xyzw,vf18y 	lq.xyzw vf10xyzw,24(vi01)
+	maddaz.xyzw accxyzw,vf27xyzw,vf18z 	lq.xyzw vf11xyzw,25(vi01)
+	maddw.xyzw vf14xyzw,vf28xyzw,vf18w 	lq.xyzw vf12xyzw,26(vi01)
+DONE_GLOBAL_LIGHT_COLOR_LOAD:
+	mulax.xyzw accxyzw,vf25xyzw,vf19x  	iadd vi07,vi07,vi03
+	madday.xyzw accxyzw,vf26xyzw,vf19y 	sq.xyzw vf07xyzw,VU1_OBJ_HDR3(vi00)
+	maddaz.xyzw accxyzw,vf27xyzw,vf19z 	sq.xyzw vf08xyzw,VU1_FOG(vi00)
+	maddw.xyzw vf15xyzw,vf28xyzw,vf19w 	lq.xyzw vf05xyzw,5(vi01)
+	mulax.xyzw accxyzw,vf25xyzw,vf20x  	lq.xyzw vf06xyzw,10(vi01)
+	madday.xyzw accxyzw,vf26xyzw,vf20y 	lq.xyzw vf07xyzw,11(vi01)
+	maddaz.xyzw accxyzw,vf27xyzw,vf20z 	lq.xyzw vf08xyzw,12(vi01)
+	maddw.xyzw vf16xyzw,vf28xyzw,vf20w 	sq.xyzw vf05xyzw,VU1_FOG+1(vi00)
+	mulax.xyzw accxyzw,vf21xyzw,vf17x  	lq.xyzw vf28xyzw,13(vi01)
+	madday.xyzw accxyzw,vf22xyzw,vf17y 	lq.xyzw vf27xyzw,14(vi01)
+	maddaz.xyzw accxyzw,vf23xyzw,vf17z 	lq.xyzw vf26xyzw,15(vi01)
+	maddw.xyzw vf05xyzw,vf24xyzw,vf17w 	lq.xyzw vf25xyzw,16(vi01)
+	mulax.xyzw accxyzw,vf21xyzw,vf18x  	sq.xyzw vf28xyzw,VU1_CAM_VECS+3(vi00)
+	madday.xyzw accxyzw,vf22xyzw,vf18y 	sq.xyzw vf06xyzw,VU1_CAM_VECS(vi00)
+	maddaz.xyzw accxyzw,vf23xyzw,vf18z 	sq.xyzw vf07xyzw,VU1_CAM_VECS+1(vi00)
+	maddw.xyzw vf06xyzw,vf24xyzw,vf18w 	sq.xyzw vf08xyzw,VU1_CAM_VECS+2(vi00)
+	mulax.xyzw accxyzw,vf21xyzw,vf19x  	sq.xyzw vf27xyzw,VU1_CAM_VECS+4(vi00)
+	madday.xyzw accxyzw,vf22xyzw,vf19y 	sq.xyzw vf26xyzw,VU1_CAM_VECS+5(vi00)
+	maddaz.xyzw accxyzw,vf23xyzw,vf19z 	sq.xyzw vf25xyzw,VU1_CAM_VECS+6(vi00)
+	maddw.xyzw vf07xyzw,vf24xyzw,vf19w 	nop
+	nop                                	move.xyzw vf08xyzw,vf24xyzw
+
+; Copy hdr[0].y command entries to VU1_PROGRAM (two qwords per pass).
+NextState0Proc1:
+	nop                                	ilw.x vi11,1(vi01)x
+	nop                                	ibeq vi04,vi00,NextState0Proc2
+	nop                                	iadd vi08,vi00,vi07
+	nop                                	iadd vi07,vi07,vi04
+	nop                                	iaddiu vi05,vi00,VU1_PROGRAM
+NEXT_PROGRAM_ENTRY:
+	nop                                	lqi.xyzw vf17xyzw,(vi08++)
+	nop                                	lqi.xyzw vf18xyzw,(vi08++)
+	nop                                	iaddi vi04,vi04,-2
+	nop                                	ibltz vi04,NextState0Proc2
+	nop                                	sqi.xyzw vf17xyzw,(vi05++)
+	nop                                	ibgtz vi04,NEXT_PROGRAM_ENTRY
+	nop                                	sqi.xyzw vf18xyzw,(vi05++)
+
+; Copy hdr[1].x local-light qwords to VU1_LOCAL_LIGHTS.
+NextState0Proc2:
+	nop                                	nop
+	nop                                	ibeq vi11,vi00,NextState0Proc3
+	nop                                	iadd vi08,vi00,vi07
+	nop                                	iadd vi07,vi07,vi11
+	nop                                	iaddiu vi05,vi00,VU1_LOCAL_LIGHTS
+NEXT_LL_ENTRY:
+	nop                                	lqi.xyzw vf17xyzw,(vi08++)
+	nop                                	lqi.xyzw vf18xyzw,(vi08++)
+	nop                                	iaddi vi11,vi11,-2
+	nop                                	ibltz vi11,NextState0Proc3
+	nop                                	sqi.xyzw vf17xyzw,(vi05++)
+	nop                                	ibgtz vi11,NEXT_LL_ENTRY
+	nop                                	sqi.xyzw vf18xyzw,(vi05++)
+
+; Copy hdr[0].z multipass entries to VU1_MP_LIST.
+NextState0Proc3:
+	nop                                	nop
+	nop                                	ibeq vi06,vi00,NextState0ProcEnd
+	nop                                	iaddiu vi05,vi00,VU1_MP_LIST
+NEXT_MP_ENTRY:
+	nop                                	lqi.xyzw vf17xyzw,(vi07++)
+	nop                                	lqi.xyzw vf18xyzw,(vi07++)
+	nop                                	iaddi vi06,vi06,-2
+	nop                                	ibltz vi06,NextState0ProcEnd
+	nop                                	sqi.xyzw vf17xyzw,(vi05++)
+	nop                                	ibgtz vi06,NEXT_MP_ENTRY
+	nop                                	sqi.xyzw vf18xyzw,(vi05++)
+NextState0ProcEnd:
+	nop                                	nop
+	nop                                	b vuSleep
+	nop                                	nop
+
+; Command 100: XGKICK the GS packet in VU1_TEX_KICK.
+vuBaseTextureKick:
+	nop                                	iaddiu vi02,vi00,VU1_TEX_KICK
+	nop                                	nop
+	nop                                	xgkick vi02
+	nop                                	nop
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+
+; Commands 92-98: vertex colours x VU1_SCALE_COLOR. port: guess from the name and hdr[18].
+vuScaleColor:
+	nop                                	lq.xyzw vf20xyzw,1(vi04)
+	nop                                	lq.xyzw vf21xyzw,2(vi03)
+	nop                                	lq.xyzw vf29xyzw,VU1_SCALE_COLOR(vi00)
+	nop                                	iaddiu vi13,vi00,6
+	nop                                	nop
+VU1_SCALECOLOR_LOOP:
+	add.xyz vf30xyz,vf21xyz,vf00xyz    	ibeq vi09,vi00,SCALECOLOR_DONE
+	mulax.xyz accxyz,vf29xyz,vf20x     	iaddi vi04,vi04,3
+	madday.xyz accxyz,vf29xyz,vf20y    	isubiu vi09,vi09,1
+	maddaz.xyz accxyz,vf29xyz,vf20z    	lq.xyzw vf20xyzw,1(vi04)
+	maddw.xyz vf24xyz,vf29xyz,vf29w    	fmand vi07,vi13
+	nop                                	iaddi vi03,vi03,3
+	nop                                	ibne vi07,vi00,VU1_SCALECOLOR_LOOP
+	nop                                	lq.xyzw vf21xyzw,2(vi03)
+	nop                                	sq.xyz vf24xyz,-2(vi04)
+	nop                                	b VU1_SCALECOLOR_LOOP
+	nop                                	nop
+SCALECOLOR_DONE:
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+vuScaleColor0:
+	nop                                	iaddiu vi03,vi01,4
+	nop                                	iaddiu vi04,vi00,VU1_VTX_A
+	nop                                	b vuScaleColor
+	nop                                	ilw.z vi09,2(vi01)z
+vuScaleColor1:
+	nop                                	iaddi vi03,vi08,0
+	nop                                	iaddiu vi04,vi00,VU1_VTX_B
+	nop                                	b vuScaleColor
+	nop                                	iaddiu vi09,vi10,0
+vuScaleColor2:
+	nop                                	iaddiu vi03,vi00,VU1_VTX_A
+	nop                                	iaddiu vi04,vi00,VU1_VTX_B
+	nop                                	b vuScaleColor
+	nop                                	iaddi vi09,vi00,2
+vuScaleColor3:
+	nop                                	ilw.x vi10,1(vi01)x
+	nop                                	iaddiu vi03,vi01,2
+	nop                                	iaddiu vi04,vi00,VU1_VTX_A
+	nop                                	iaddiu vi11,vi00,0x7fff
+	nop                                	b vuScaleColor
+	nop                                	iand vi09,vi10,vi11
+
+; Commands 84-90: start the per-vertex light colour. port: guess from the name.
+vuInitLight:
+	nop                                	lq.xyzw vf28xyzw,VU1_ADD_COLOR(vi00)
+	nop                                	nop
+	nop                                	nop
+VU1_INITLIGHT_LOOP:
+	nop                                	iaddi vi09,vi09,-3
+	nop                                	sq.xyzw vf28xyzw,1(vi04)
+	nop                                	sq.xyzw vf28xyzw,4(vi04)
+	nop                                	sq.xyzw vf28xyzw,7(vi04)
+	nop                                	ibgtz vi09,VU1_INITLIGHT_LOOP
+	nop                                	iaddi vi04,vi04,9
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+vuInitLight0:
+	nop                                	iaddiu vi04,vi00,VU1_VTX_A
+	nop                                	b vuInitLight
+	nop                                	ilw.z vi09,2(vi01)z
+vuInitLight1:
+	nop                                	iaddiu vi04,vi00,VU1_VTX_B
+	nop                                	b vuInitLight
+	nop                                	iaddiu vi09,vi10,0
+vuInitLight2:
+	nop                                	iaddiu vi04,vi00,VU1_VTX_B
+	nop                                	b vuInitLight
+	nop                                	iaddi vi09,vi00,2
+vuInitLight3:
+	nop                                	ilw.x vi10,1(vi01)x
+	nop                                	nop
+	nop                                	iaddiu vi04,vi00,VU1_VTX_A+1
+	nop                                	iaddiu vi11,vi00,0x7fff
+	nop                                	b vuInitLight
+	nop                                	iand vi09,vi10,vi11
+
+; Colour conversion helpers (commands 70/72 enter at vuColorToFloat0/1).
+vuColorToFloatTmp:
+	nop[i]                             	loi 0x41a00000
+	nop                                	lq.xyzw vf20xyzw,0(vi03)
+	addi.z vf20z,vf00z,i               	nop
+	nop                                	nop
+	nop[i]                             	loi 0x41f00000
+	nop                                	nop
+	addx.xy vf20xy,vf20xy,vf00x        	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	addi.w vf20w,vf00w,i               	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+VU1_COLORFLOATLOOP:
+	addx.xyzw vf24xyzw,vf20xyzw,vf00x  	isubiu vi09,vi09,1
+	nop                                	nop
+	nop                                	iaddi vi03,vi03,3
+	nop                                	ibgtz vi09,VU1_COLORFLOATLOOP
+	nop                                	sq.xyzw vf24xyzw,-3(vi03)
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+vuColorToFloat:
+	nop                                	lq.xyzw vf20xyzw,0(vi03)
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+VU1_COLORFLOAT_LOOP:
+	itof0.xyzw vf24xyzw,vf20xyzw       	isubiu vi09,vi09,1
+	nop                                	lq.xyzw vf20xyzw,3(vi03)
+	nop                                	iaddi vi03,vi03,3
+	nop                                	ibgtz vi09,VU1_COLORFLOAT_LOOP
+	nop                                	sq.xyzw vf24xyzw,-3(vi03)
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+vuColorToFloat0:
+	nop                                	iaddiu vi03,vi01,6
+	nop                                	ilw.z vi09,2(vi01)z
+	nop                                	b vuColorToFloat
+	nop                                	nop
+vuColorToFloat1:
+	nop                                	ilw.x vi09,1(vi01)x
+	nop                                	iaddiu vi03,vi01,4
+	nop                                	iaddiu vi11,vi00,0x7fff
+	nop                                	nop
+	nop                                	iand vi09,vi09,vi11
+	nop                                	b vuColorToFloat
+	nop                                	nop
+
+; Command 80: rebuild a strip batch in the input buffer. port: guess from the name.
+vuFixInBuf:
+	nop                                	ilw.x vi10,1(vi01)x
+	nop                                	nop
+	nop                                	iaddiu vi11,vi00,0x7fff
+	nop[i]                             	loi 0x40400000
+	nop                                	iand vi10,vi10,vi11
+	nop                                	nop
+	nop                                	mfir.z vf20z,vi10
+	addi.x vf18x,vf00x,i               	mfir.x vf17x,vi10
+	nop                                	mfir.x vf19x,vi10
+	nop                                	nop
+	nop                                	nop
+	itof0.x vf17x,vf17x                	nop
+	itof0.x vf19x,vf19x                	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	div q,vf17x,vf18x
+	muli.x vf19x,vf19x,i               	waitq
+	addq.x vf18x,vf00x,q               	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	ftoi0.x vf18x,vf18x                	nop
+	ftoi0.x vf19x,vf19x                	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	mtir vi09,vf18x
+	nop                                	mtir vi03,vf19x
+	nop                                	nop
+	nop                                	nop
+	nop                                	mfir.w vf20w,vi09
+	nop                                	iaddiu vi04,vi03,2
+	nop                                	mfir.x vf20x,vi04
+	nop                                	iadd vi02,vi01,vi04
+	nop                                	iaddi vi02,vi02,-1
+COPY_VERT:
+	nop                                	lq.xyzw vf28xyzw,-1(vi02)
+	nop                                	lq.xyzw vf29xyzw,-2(vi02)
+	nop                                	lq.xyzw vf30xyzw,-3(vi02)
+	nop                                	nop
+	nop                                	sq.xyzw vf28xyzw,0(vi02)
+	nop                                	sq.xyzw vf29xyzw,-1(vi02)
+	nop                                	sq.xyzw vf30xyzw,-2(vi02)
+	nop                                	iaddi vi02,vi02,-3
+	nop                                	iaddi vi10,vi10,-1
+	nop                                	nop
+	nop                                	ibne vi10,vi00,COPY_VERT
+	nop                                	nop
+	nop                                	sq.xyzw vf20xyzw,2(vi01)
+	nop                                	iadd vi02,vi01,vi04
+	nop                                	iaddi vi04,vi00,0
+	nop                                	iaddiu vi11,vi00,0
+	nop                                	iaddiu vi06,vi00,1
+NEXT_TRI_IDX:
+	nop                                	isw.x vi11,0(vi02)x
+	nop                                	iaddiu vi11,vi11,3
+	nop                                	nop
+	nop                                	nop
+	nop                                	isw.y vi11,0(vi02)y
+	nop                                	iaddiu vi11,vi11,3
+	nop                                	nop
+	nop                                	nop
+	nop                                	isw.z vi11,0(vi02)z
+	nop                                	iaddiu vi11,vi11,3
+	nop                                	nop
+	nop                                	nop
+	nop                                	isw.w vi06,0(vi02)w
+	nop                                	iaddiu vi02,vi02,2
+	nop                                	iaddi vi09,vi09,-1
+	nop                                	iaddi vi04,vi04,1
+	nop                                	ibne vi09,vi00,NEXT_TRI_IDX
+	nop                                	nop
+	nop                                	ilw.x vi04,2(vi01)x
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	iadd vi02,vi04,vi01
+	nop                                	ilw.x vi10,1(vi01)x
+	nop                                	nop
+	nop                                	iaddiu vi03,vi01,4
+	nop                                	iaddiu vi11,vi00,0x7fff
+	nop                                	iand vi09,vi10,vi11
+	nop                                	nop
+VTX_NEXT_NORMAL_X:
+	nop                                	nop
+	nop                                	lq.xyzw vf26xyzw,0(vi03)
+	nop                                	lq.xyzw vf28xyzw,3(vi03)
+	nop                                	lq.xyzw vf29xyzw,6(vi03)
+	sub.xyz vf26xyz,vf26xyz,vf28xyz    	nop
+	sub.xyz vf28xyz,vf29xyz,vf28xyz    	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	opmula.xyz accxyz,vf28xyz,vf26xyz  	nop
+	opmsub.xyz vf29xyz,vf26xyz,vf28xyz 	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	ftoi15.xyz vf29xyz,vf29xyz         	iaddiu vi03,vi03,9
+	nop                                	iaddiu vi02,vi02,2
+	nop                                	iaddi vi09,vi09,-3
+	nop                                	ibgtz vi09,VTX_NEXT_NORMAL_X
+	nop                                	sq.xyzw vf29xyzw,-1(vi02)
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+
+; Commands 104-110: unpack two vertices per pass in place: position itof4 + batch[3].xyz,
+; ST itof12, normal itof15, colour itof0.
+vuDecompress:
+	nop                                	lq.xyzw vf27xyzw,3(vi01)
+	nop                                	lq.xyzw vf20xyzw,0(vi03)
+	nop                                	lq.xyzw vf30xyzw,1(vi03)
+	nop                                	lq.xyzw vf19xyzw,2(vi03)
+	nop                                	lq.xyzw vf26xyzw,3(vi03)
+	nop                                	lq.xyzw vf18xyzw,4(vi03)
+	itof4.xyz vf21xyz,vf20xyz          	lq.xyzw vf24xyzw,5(vi03)
+	itof15.zw vf31zw,vf30zw            	nop
+	itof0.xyzw vf22xyzw,vf19xyzw       	nop
+	itof4.xyz vf25xyz,vf26xyz          	nop
+	itof15.zw vf17zw,vf18zw            	nop
+	itof0.xyzw vf23xyzw,vf24xyzw       	nop
+	add.xyz vf21xyz,vf21xyz,vf27xyz    	nop
+	add.xyz vf25xyz,vf25xyz,vf27xyz    	iaddiu vi03,vi03,6
+	itof15.w vf25w,vf26w               	nop
+	itof12.xy vf17xy,vf18xy            	nop
+	itof15.w vf21w,vf20w               	lq.xyzw vf20xyzw,0(vi03)
+	itof12.xy vf31xy,vf30xy            	lq.xyzw vf30xyzw,1(vi03)
+	nop                                	lq.xyzw vf26xyzw,3(vi03)
+	nop                                	lq.xyzw vf18xyzw,4(vi03)
+NextDecompressVtx:
+	nop                                	iaddi vi09,vi09,-2
+	itof4.xyz vf21xyz,vf20xyz          	sq.xyzw vf21xyzw,-6(vi03)
+	itof15.zw vf31zw,vf30zw            	sq.xyzw vf31xyzw,-5(vi03)
+	nop                                	ibltz vi09,vuProcessNextCommand
+	nop                                	sq.xyzw vf22xyzw,-4(vi03)
+	itof4.xyz vf25xyz,vf26xyz          	sq.xyzw vf25xyzw,-3(vi03)
+	itof15.zw vf17zw,vf18zw            	sq.xyzw vf17xyzw,-2(vi03)
+	add.xyz vf21xyz,vf21xyz,vf27xyz    	sq.xyzw vf23xyzw,-1(vi03)
+	add.xyz vf25xyz,vf25xyz,vf27xyz    	iaddiu vi03,vi03,6
+	itof15.w vf25w,vf26w               	lq.xyzw vf19xyzw,-4(vi03)
+	itof12.xy vf17xy,vf18xy            	lq.xyzw vf24xyzw,-1(vi03)
+	itof15.w vf21w,vf20w               	lq.xyzw vf20xyzw,0(vi03)
+	itof12.xy vf31xy,vf30xy            	lq.xyzw vf30xyzw,1(vi03)
+	itof0.xyzw vf22xyzw,vf19xyzw       	lq.xyzw vf26xyzw,3(vi03)
+	itof0.xyzw vf23xyzw,vf24xyzw       	ibgtz vi09,NextDecompressVtx
+	nop                                	lq.xyzw vf18xyzw,4(vi03)
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+
+; Variants 0-3 (see the header); 4 uses vuDecompressN.
+vuDecompress0:
+	nop                                	iaddiu vi03,vi01,4
+	nop                                	b vuDecompress
+	nop                                	ilw.z vi09,2(vi01)z
+vuDecompress1:
+	nop                                	iaddi vi03,vi08,0
+	nop                                	b vuDecompress
+	nop                                	iaddiu vi09,vi10,0
+vuDecompress2:
+	nop                                	iaddiu vi03,vi00,VU1_VTX_A
+	nop                                	b vuDecompress
+	nop                                	iaddi vi09,vi00,2
+vuDecompress3:
+	nop                                	ilw.x vi10,1(vi01)x
+	nop                                	iaddiu vi03,vi01,2
+	nop                                	iaddiu vi11,vi00,0x7fff
+	nop                                	b vuDecompress
+	nop                                	iand vi09,vi10,vi11
+
+; Command 112: as vuDecompress, but position itof15 x batch[3].w.
+vuDecompressN:
+	nop                                	lq.xyzw vf27xyzw,3(vi01)
+	nop                                	lq.xyzw vf20xyzw,0(vi03)
+	nop                                	lq.xyzw vf30xyzw,1(vi03)
+	nop                                	lq.xyzw vf19xyzw,2(vi03)
+	nop                                	lq.xyzw vf26xyzw,3(vi03)
+	nop                                	lq.xyzw vf18xyzw,4(vi03)
+	itof15.xyz vf21xyz,vf20xyz         	lq.xyzw vf24xyzw,5(vi03)
+	itof15.zw vf31zw,vf30zw            	nop
+	itof0.xyzw vf22xyzw,vf19xyzw       	nop
+	itof15.xyz vf25xyz,vf26xyz         	nop
+	itof15.zw vf17zw,vf18zw            	iaddiu vi03,vi03,6
+	itof0.xyzw vf23xyzw,vf24xyzw       	nop
+	mulw.xyz vf21xyz,vf21xyz,vf27w     	nop
+	mulw.xyz vf25xyz,vf25xyz,vf27w     	nop
+	itof15.w vf25w,vf26w               	nop
+	itof12.xy vf17xy,vf18xy            	nop
+	itof15.w vf21w,vf20w               	lq.xyzw vf20xyzw,0(vi03)
+	itof12.xy vf31xy,vf30xy            	lq.xyzw vf30xyzw,1(vi03)
+	nop                                	lq.xyzw vf26xyzw,3(vi03)
+	nop                                	lq.xyzw vf18xyzw,4(vi03)
+NextDecompressVtxN:
+	nop                                	iaddi vi09,vi09,-2
+	itof15.xyz vf21xyz,vf20xyz         	sq.xyzw vf21xyzw,-6(vi03)
+	itof15.zw vf31zw,vf30zw            	sq.xyzw vf31xyzw,-5(vi03)
+	nop                                	ibltz vi09,vuProcessNextCommand
+	nop                                	sq.xyzw vf22xyzw,-4(vi03)
+	itof15.xyz vf25xyz,vf26xyz         	sq.xyzw vf25xyzw,-3(vi03)
+	itof15.zw vf17zw,vf18zw            	sq.xyzw vf17xyzw,-2(vi03)
+	mulw.xyz vf21xyz,vf21xyz,vf27w     	sq.xyzw vf23xyzw,-1(vi03)
+	mulw.xyz vf25xyz,vf25xyz,vf27w     	iaddiu vi03,vi03,6
+	itof15.w vf25w,vf26w               	lq.xyzw vf19xyzw,-4(vi03)
+	itof12.xy vf17xy,vf18xy            	lq.xyzw vf24xyzw,-1(vi03)
+	itof15.w vf21w,vf20w               	lq.xyzw vf20xyzw,0(vi03)
+	itof12.xy vf31xy,vf30xy            	lq.xyzw vf30xyzw,1(vi03)
+	itof0.xyzw vf22xyzw,vf19xyzw       	lq.xyzw vf26xyzw,3(vi03)
+	itof0.xyzw vf23xyzw,vf24xyzw       	ibgtz vi09,NextDecompressVtxN
+	nop                                	lq.xyzw vf18xyzw,4(vi03)
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+vuDecompress4:
+	nop                                	iaddiu vi03,vi01,4
+	nop                                	b vuDecompressN
+	nop                                	ilw.z vi09,2(vi01)z
+
+; Commands 8-14: position x VU1_MVP, divide by w (Q); write STQ, RGBA, XYZ per vertex to the
+; destination; sets VU1_MP_STATE.x to the first multipass entry.
+vuXForm:
+	nop                                	lq.xyzw vf20xyzw,0(vi03)
+	nop                                	lq.xy vf30xy,1(vi03)
+	nop                                	iaddiu vi05,vi00,VU1_MP_LIST
+	nop                                	isw.x vi05,VU1_MP_STATE(vi00)x
+	mulax.xyzw accxyzw,vf01xyzw,vf20x  	nop
+	madday.xyzw accxyzw,vf02xyzw,vf20y 	iaddi vi03,vi03,3
+	maddaz.xyzw accxyzw,vf03xyzw,vf20z 	nop
+	maddw.xyzw vf27xyzw,vf04xyzw,vf00w 	lq.xyzw vf20xyzw,0(vi03)
+	addw[i].z vf30z,vf00z,vf00w        	loi 0x437e0000
+	addi.w vf26w,vf00w,i               	nop
+	nop                                	nop
+	addx.xyzw vf28xyzw,vf27xyzw,vf00x  	div q,vf00w,vf27w
+	mulax.xyzw accxyzw,vf01xyzw,vf20x  	nop
+	madday.xyzw accxyzw,vf02xyzw,vf20y 	iaddi vi03,vi03,3
+	maddaz.xyzw accxyzw,vf03xyzw,vf20z 	nop
+	maddw.xyzw vf27xyzw,vf04xyzw,vf00w 	lq.xyzw vf20xyzw,0(vi03)
+	nop                                	nop
+	addx.xyzw vf29xyzw,vf28xyzw,vf00x  	nop
+	addq.xyz vf17xyz,vf00xyz,q         	nop
+	addx.xyzw vf28xyzw,vf27xyzw,vf00x  	nop
+X_PROC_NEXT:
+	nop                                	div q,vf00w,vf27w
+	mulw.w vf31w,vf00w,vf29w           	lq.xyzw vf24xyzw,-4(vi03)
+	mul.xyz vf26xyz,vf29xyz,vf17xyz    	iaddi vi09,vi09,-1
+	mulx.xyz vf31xyz,vf30xyz,vf17x     	iaddi vi04,vi04,3
+	mulax.xyzw accxyzw,vf01xyzw,vf20x  	lq.xy vf30xy,-2(vi03)
+	madday.xyzw accxyzw,vf02xyzw,vf20y 	iaddi vi03,vi03,3
+	maddaz.xyzw accxyzw,vf03xyzw,vf20z 	sq.xyzw vf24xyzw,-2(vi04)
+	maddw.xyzw vf27xyzw,vf04xyzw,vf00w 	lq.xyzw vf20xyzw,0(vi03)
+	addq.xyz vf17xyz,vf00xyz,q         	sq.xyzw vf26xyzw,-1(vi04)
+	addx.xyzw vf29xyzw,vf28xyzw,vf00x  	ibgtz vi09,X_PROC_NEXT
+	addx.xyzw vf28xyzw,vf27xyzw,vf00x  	sq.xyzw vf31xyzw,-3(vi04)
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+vuXForm0:
+	nop                                	iaddiu vi03,vi01,4
+	nop                                	iaddiu vi04,vi00,VU1_VTX_A
+	nop                                	b vuXForm
+	nop                                	ilw.z vi09,2(vi01)z
+
+; Variant 1 first closes the previous PATH1 packet with VU1_GIF_EOP.
+vuXForm1:
+	nop                                	iaddiu vi04,vi00,VU1_GIF_EOP
+	nop                                	xgkick vi04
+	nop                                	nop
+	nop                                	iaddi vi03,vi08,0
+	nop                                	iaddiu vi04,vi00,VU1_VTX_B
+	nop                                	b vuXForm
+	nop                                	iaddiu vi09,vi10,0
+vuXForm2:
+	nop                                	iaddiu vi03,vi00,VU1_VTX_A
+	nop                                	iaddiu vi04,vi00,VU1_VTX_B
+	nop                                	b vuXForm
+	nop                                	iaddi vi09,vi00,2
+vuXForm3:
+	nop                                	ilw.x vi10,1(vi01)x
+	nop                                	iaddiu vi03,vi01,2
+	nop                                	iaddiu vi04,vi00,VU1_VTX_A+1
+	nop                                	iaddiu vi11,vi00,0x7fff
+	nop                                	b vuXForm
+	nop                                	iand vi09,vi10,vi11
+
+; Commands 16-22: fog from VU1_FOG.
+vuFog:
+	nop                                	lq.xyzw vf17xyzw,VU1_FOG(vi00)
+	nop                                	lq.xyzw vf18xyzw,VU1_FOG+1(vi00)
+	nop                                	lq.xyzw vf20xyzw,0(vi03)
+	nop                                	lq.xyzw vf21xyzw,3(vi03)
+	nop                                	lq.xyzw vf24xyzw,2(vi04)
+	nop                                	lq.xyzw vf25xyzw,5(vi04)
+	nop                                	lq.xyzw vf30xyzw,0(vi04)
+	nop                                	lq.xyzw vf31xyzw,3(vi04)
+	sub.xyz vf22xyz,vf20xyz,vf17xyz    	nop
+	sub.xyz vf23xyz,vf21xyz,vf17xyz    	nop
+	mulw.w vf14w,vf30w,vf18w           	nop
+	mulw.w vf15w,vf31w,vf18w           	nop
+VTX_PROC_F:
+	mul.xyz vf26xyz,vf22xyz,vf18xyz    	iaddi vi03,vi03,6
+	mul.xyz vf27xyz,vf23xyz,vf18xyz    	iaddi vi04,vi04,6
+	addw.w vf14w,vf14w,vf17w           	lq.xyzw vf20xyzw,0(vi03)
+	addw.w vf15w,vf15w,vf17w           	lq.xyzw vf21xyzw,3(vi03)
+	mulax.w accw,vf00w,vf26x           	nop
+	madday.w accw,vf00w,vf26y          	nop
+	maddz[i].w vf26w,vf00w,vf26z       	loi 0x437f0000
+	minii.w vf14w,vf14w,i              	lq.xyzw vf24xyzw,2(vi04)
+	minii.w vf15w,vf15w,i              	lq.xyzw vf25xyzw,5(vi04)
+	mulax.w accw,vf00w,vf27x           	lq.xyzw vf30xyzw,0(vi04)
+	madday.w accw,vf00w,vf27y          	lq.xyzw vf31xyzw,3(vi04)
+	maddz[i].w vf27w,vf00w,vf27z       	loi 0x3f800000
+	minii.w vf26w,vf26w,i              	nop
+	maxx.w vf14w,vf14w,vf00x           	nop
+	maxx.w vf15w,vf15w,vf00x           	nop
+	minii.w vf27w,vf27w,i              	nop
+	maxx.w vf28w,vf26w,vf00x           	nop
+	maxx.w vf29w,vf27w,vf00x           	nop
+	sub.xyz vf22xyz,vf20xyz,vf17xyz    	nop
+	sub.xyz vf23xyz,vf21xyz,vf17xyz    	iaddi vi09,vi09,-2
+	mulw.w vf14w,vf14w,vf28w           	nop
+	mulw.w vf15w,vf15w,vf29w           	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	sq.w vf14w,-4(vi04)
+	nop                                	ibltz vi09,FogDone
+	nop                                	nop
+	nop                                	sq.w vf15w,-1(vi04)
+	mulw.w vf14w,vf30w,vf18w           	ibgtz vi09,VTX_PROC_F
+	mulw.w vf15w,vf31w,vf18w           	nop
+FogDone:
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+vuFog0:
+	nop                                	ilw.z vi09,2(vi01)z
+	nop                                	iaddiu vi03,vi01,4
+	nop                                	iaddiu vi04,vi00,VU1_VTX_A
+	nop                                	b vuFog
+	nop                                	nop
+vuFog1:
+	nop                                	iaddi vi03,vi08,0
+	nop                                	iaddiu vi04,vi00,VU1_VTX_B
+	nop                                	iaddiu vi09,vi10,0
+	nop                                	b vuFog
+	nop                                	nop
+vuFog2:
+	nop                                	iaddi vi09,vi00,2
+	nop                                	iaddiu vi03,vi00,VU1_VTX_A
+	nop                                	iaddiu vi04,vi00,VU1_VTX_B
+	nop                                	b vuFog
+	nop                                	nop
+vuFog3:
+	nop                                	ilw.x vi10,1(vi01)x
+	nop                                	iaddiu vi03,vi01,2
+	nop                                	iaddiu vi04,vi00,VU1_VTX_A+1
+	nop                                	iaddiu vi11,vi00,0x7fff
+	nop                                	iand vi09,vi10,vi11
+	nop                                	b vuFog
+	nop                                	nop
+
+; Commands 32-38: add each local light (VU1_LOCAL_LIGHTS, count in the entry .z).
+vuFirstLocalLight:
+	nop                                	iaddiu vi05,vi00,VU1_LOCAL_LIGHTS
+	nop                                	isw.x vi03,VU1_PASS_SAVE(vi00)x
+	nop                                	isw.y vi04,VU1_PASS_SAVE(vi00)y
+	nop                                	isw.z vi09,VU1_PASS_SAVE(vi00)z
+	nop                                	ilw.z vi07,VU1_PROGRAM-1(vi14)z
+vuNextLocalLight:
+	nop                                	ilw.x vi03,VU1_PASS_SAVE(vi00)x
+	nop                                	ilw.y vi04,VU1_PASS_SAVE(vi00)y
+	nop                                	ilw.z vi09,VU1_PASS_SAVE(vi00)z
+	nop                                	lq.xyzw vf28xyzw,1(vi05)
+	nop                                	lq.xyzw vf17xyzw,0(vi05)
+	nop                                	iaddiu vi05,vi05,2
+	nop                                	iaddi vi07,vi07,-1
+	nop                                	lq.xyzw vf24xyzw,0(vi03)
+	nop                                	lq.xyzw vf25xyzw,1(vi03)
+	nop                                	nop
+	nop                                	nop
+	sub.xyz vf30xyz,vf17xyz,vf24xyz    	nop
+	nop                                	mr32.yz vf26yz,vf25yz
+	nop                                	nop
+	nop                                	iaddiu vi03,vi03,3
+	nop                                	nop
+	addw.x vf26x,vf00x,vf24w           	erleng p,vf30
+	mul.xyz vf20xyz,vf30xyz,vf30xyz    	nop
+	nop                                	lq.xyzw vf24xyzw,0(vi03)
+	nop                                	lq.xyzw vf25xyzw,1(vi03)
+	mul.xyzw vf31xyzw,vf30xyzw,vf26xyzw	nop
+	nop                                	nop
+	addw.x vf26x,vf00x,vf24w           	nop
+	nop                                	nop
+	mulax.w accw,vf00w,vf31x           	nop
+	madday.w accw,vf00w,vf31y          	nop
+	maddz.w vf31w,vf00w,vf31z          	nop
+	mulax.w accw,vf00w,vf20x           	mr32.yz vf26yz,vf25yz
+	madday.w accw,vf00w,vf20y          	nop
+	maddz.w vf20w,vf00w,vf20z          	nop
+	maxx.w vf31w,vf31w,vf00x           	nop
+	nop                                	iaddiu vi03,vi03,3
+	nop                                	nop
+	subw.w vf22w,vf17w,vf20w           	nop
+	sub.xyz vf30xyz,vf17xyz,vf24xyz    	nop
+	nop                                	nop
+	nop                                	waitp
+vuNextLocalLightVertex:
+	mulw.w vf22w,vf22w,vf28w           	nop
+	nop                                	mfp.x vf19x,p
+	nop                                	erleng p,vf30
+	mul.xyz vf20xyz,vf30xyz,vf30xyz    	lq.xyzw vf24xyzw,0(vi03)
+	maxx.w vf22w,vf22w,vf00x           	lq.xyzw vf25xyzw,1(vi03)
+	mulx.w vf21w,vf31w,vf19x           	nop
+	nop                                	nop
+	mul.xyzw vf31xyzw,vf30xyzw,vf26xyzw	nop
+	miniw.w vf22w,vf22w,vf00w          	mr32.yz vf26yz,vf25yz
+	miniw.w vf21w,vf21w,vf00w          	nop
+	nop                                	nop
+	mulax.w accw,vf00w,vf31x           	nop
+	madday.w accw,vf00w,vf31y          	nop
+	mulw.w vf21w,vf21w,vf22w           	nop
+	maddz.w vf31w,vf00w,vf31z          	nop
+	mulax.w accw,vf00w,vf20x           	nop
+	madday.w accw,vf00w,vf20y          	lq.xyzw vf27xyzw,1(vi04)
+	mulw.xyz vf21xyz,vf28xyz,vf21w     	nop
+	maddz.w vf20w,vf00w,vf20z          	nop
+	maxx.w vf31w,vf31w,vf00x           	nop
+	addw.x vf26x,vf00x,vf24w           	nop
+	add.xyz vf27xyz,vf21xyz,vf27xyz    	iaddiu vi03,vi03,3
+	subw.w vf22w,vf17w,vf20w           	iaddi vi09,vi09,-1
+	sub.xyz vf30xyz,vf17xyz,vf24xyz    	iaddiu vi04,vi04,3
+	nop                                	ibne vi09,vi00,vuNextLocalLightVertex
+	nop                                	sq.xyzw vf27xyzw,-2(vi04)
+	nop                                	ibne vi07,vi00,vuNextLocalLight
+	nop                                	nop
+LocalLightsDone:
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+vuLocalLight0:
+	nop                                	iaddiu vi03,vi01,4
+	nop                                	iaddiu vi04,vi00,VU1_VTX_A
+	nop                                	b vuFirstLocalLight
+	nop                                	ilw.z vi09,2(vi01)z
+vuLocalLight1:
+	nop                                	iaddi vi03,vi08,0
+	nop                                	iaddiu vi04,vi00,VU1_VTX_B
+	nop                                	b vuFirstLocalLight
+	nop                                	iaddiu vi09,vi10,0
+vuLocalLight2:
+	nop                                	iaddiu vi03,vi00,VU1_VTX_A
+	nop                                	iaddiu vi04,vi00,VU1_VTX_B
+	nop                                	b vuFirstLocalLight
+	nop                                	iaddi vi09,vi00,2
+vuLocalLight3:
+	nop                                	ilw.x vi10,1(vi01)x
+	nop                                	iaddiu vi03,vi01,2
+	nop                                	iaddiu vi04,vi00,VU1_VTX_A
+	nop                                	iaddiu vi11,vi00,0x7fff
+	nop                                	b vuFirstLocalLight
+	nop                                	iand vi09,vi10,vi11
+
+; Commands 24-30: directional lights (vf05-vf12) scaled by VU1_OBJ_PARAMS.yz.
+vuGlobalLight:
+	muly.xyzw vf13xyzw,vf09xyzw,vf31y  	lq.xyzw vf20xyzw,0(vi03)
+	muly.xyzw vf14xyzw,vf10xyzw,vf31y  	lq.xyzw vf21xyzw,1(vi03)
+	muly.xyzw vf15xyzw,vf11xyzw,vf31y  	lq.xyzw vf22xyzw,3(vi03)
+	mulz.xyzw vf16xyzw,vf12xyzw,vf31z  	lq.xyzw vf23xyzw,4(vi03)
+	mulaw.xyzw accxyzw,vf05xyzw,vf20w  	nop
+	maddaz.xyzw accxyzw,vf06xyzw,vf21z 	nop
+	maddw.xyzw vf29xyzw,vf07xyzw,vf21w 	nop
+	mulaw.xyzw accxyzw,vf05xyzw,vf22w  	nop
+	maddaz.xyzw accxyzw,vf06xyzw,vf23z 	nop
+	maddw.xyzw vf30xyzw,vf07xyzw,vf23w 	nop
+	nop                                	iaddiu vi03,vi03,6
+	nop                                	iaddiu vi04,vi04,6
+	maxx.xyz vf29xyz,vf29xyz,vf00x     	nop
+	maxx.xyz vf30xyz,vf30xyz,vf00x     	nop
+NEXT_GL:
+	nop                                	lq.xyzw vf17xyzw,-5(vi04)
+	nop                                	lq.xyzw vf28xyzw,-2(vi04)
+	mulax.xyzw accxyzw,vf13xyzw,vf29x  	iaddi vi09,vi09,-2
+	madday.xyzw accxyzw,vf14xyzw,vf29y 	lq.xyzw vf18xyzw,-4(vi03)
+	maddaz.xyzw accxyzw,vf15xyzw,vf29z 	lq.xyzw vf19xyzw,-1(vi03)
+	maddaw.xyz accxyz,vf16xyz,vf00w    	lq.xyzw vf20xyzw,0(vi03)
+	mulax.w accw,vf00w,vf00x           	lq.xyzw vf21xyzw,1(vi03)
+	maddw.xyzw vf24xyzw,vf17xyzw,vf00w 	lq.xyzw vf22xyzw,3(vi03)
+	mul.xyzw vf26xyzw,vf18xyzw,vf24xyzw	lq.xyzw vf23xyzw,4(vi03)
+	mulax.xyzw accxyzw,vf13xyzw,vf30x  	nop
+	madday.xyzw accxyzw,vf14xyzw,vf30y 	nop
+	maddaz.xyzw accxyzw,vf15xyzw,vf30z 	iaddiu vi03,vi03,6
+	maddaw.xyz accxyz,vf16xyz,vf00w    	iaddiu vi04,vi04,6
+	mulax.w accw,vf00w,vf00x           	nop
+	maddw.xyzw vf25xyzw,vf28xyzw,vf00w 	nop
+	mul.xyzw vf27xyzw,vf19xyzw,vf25xyzw	nop
+	mulaw.xyzw accxyzw,vf05xyzw,vf20w  	nop
+	maddaz.xyzw accxyzw,vf06xyzw,vf21z 	nop
+	maddw.xyzw vf29xyzw,vf07xyzw,vf21w 	nop
+	mulaw.xyzw accxyzw,vf05xyzw,vf22w  	nop
+	maddaz.xyzw accxyzw,vf06xyzw,vf23z 	nop
+	maddw.xyzw vf30xyzw,vf07xyzw,vf23w 	nop
+	nop                                	sq.xyzw vf26xyzw,-11(vi04)
+	nop                                	sq.xyzw vf27xyzw,-8(vi04)
+	maxx.xyz vf29xyz,vf29xyz,vf00x     	ibgtz vi09,NEXT_GL
+	maxx.xyz vf30xyz,vf30xyz,vf00x     	nop
+VU1_GL_D:
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+vuGlobalLight0:
+	nop                                	lq.xyzw vf31xyzw,VU1_OBJ_PARAMS(vi00)
+	nop                                	iaddiu vi03,vi01,4
+	nop                                	iaddiu vi04,vi00,VU1_VTX_A
+	nop                                	b vuGlobalLight
+	nop                                	ilw.z vi09,2(vi01)z
+vuGlobalLight1:
+	nop                                	lq.xyzw vf31xyzw,VU1_OBJ_PARAMS(vi00)
+	nop                                	iaddi vi03,vi08,0
+	nop                                	iaddiu vi04,vi00,VU1_VTX_B
+	nop                                	b vuGlobalLight
+	nop                                	iaddiu vi09,vi10,0
+vuGlobalLight2:
+	nop                                	lq.xyzw vf31xyzw,VU1_OBJ_PARAMS(vi00)
+	nop                                	iaddiu vi03,vi00,VU1_VTX_A
+	nop                                	iaddiu vi04,vi00,VU1_VTX_B
+	nop                                	b vuGlobalLight
+	nop                                	iaddi vi09,vi00,2
+vuGlobalLight3:
+	nop                                	lq.xyzw vf31xyzw,VU1_OBJ_PARAMS(vi00)
+	nop                                	ilw.x vi10,1(vi01)x
+	nop                                	iaddiu vi03,vi01,2
+	nop                                	iaddiu vi04,vi00,VU1_VTX_A+1
+	nop                                	iaddiu vi11,vi00,0x7fff
+	nop                                	b vuGlobalLight
+	nop                                	iand vi09,vi10,vi11
+
+; Command 6: per-triangle facing test against VU1_CAM_VECS, sets the triangle flags.
+vuFrontFace:
+	nop                                	ilw.x vi04,2(vi01)x
+	nop                                	ilw.w vi09,2(vi01)w
+	nop                                	lq.xyzw vf26xyzw,VU1_CAM_VECS(vi00)
+	nop                                	iaddiu vi03,vi01,4
+	nop                                	iadd vi04,vi04,vi01
+	nop                                	ilw.x vi08,0(vi04)x
+	nop                                	lq.xyzw vf29xyzw,1(vi04)
+	nop                                	iaddiu vi05,vi00,0x10
+	nop                                	nop
+	nop                                	iadd vi11,vi03,vi08
+	itof15.xyzw vf29xyzw,vf29xyzw      	lq.xyzw vf28xyzw,0(vi11)
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	sub.xyzw vf27xyzw,vf26xyzw,vf28xyzw	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+FF_NEXT:
+	mul.xyzw vf30xyzw,vf27xyzw,vf29xyzw	ilw.x vi08,2(vi04)x
+	nop                                	lq.xyzw vf29xyzw,3(vi04)
+	nop                                	ilw.w vi12,0(vi04)w
+	nop                                	nop
+	mulax.w accw,vf00w,vf30x           	iadd vi11,vi03,vi08
+	madday.w accw,vf00w,vf30y          	lq.xyzw vf28xyzw,0(vi11)
+	maddz.w vf30w,vf00w,vf30z          	iaddiu vi08,vi00,0x7ffe
+	nop                                	iand vi12,vi12,vi08
+	itof15.xyzw vf29xyzw,vf29xyzw      	iaddiu vi08,vi00,1
+	nop                                	nop
+	nop                                	fmand vi13,vi05
+	nop                                	ibgtz vi13,DONE_WITH_FRONT_FACE
+	nop                                	nop
+	nop                                	ior vi12,vi12,vi08
+DONE_WITH_FRONT_FACE:
+	nop                                	isw.w vi12,0(vi04)w
+	sub.xyzw vf27xyzw,vf26xyzw,vf28xyzw	iaddi vi09,vi09,-1
+	nop                                	iaddi vi04,vi04,2
+	nop                                	ibgtz vi09,FF_NEXT
+	nop                                	nop
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+VU1_REVERSE_NORM:
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+
+; Command 40: for each triangle of the batch list (batch[2].x/.w), gather its three vertices
+; from VU1_VTX_A, add VU1_ADD_COLOR, ftoi4 XYZ / ftoi0 RGBA into VU1_KICK_A or _B behind the GIF
+; tag (batch[1]) and XGKICK; triangles whose flags and VU1_MP_STATE.w are both 0 are skipped.
+vuGatherFixKick:
+	addw[i].xyz vf20xyz,vf00xyz,vf00w  	loi 0x3f000000
+	addai[i].xyz accxyz,vf00xyz,i      	loi 0xbf800000
+	addai.w accw,vf00w,i               	nop
+	nop                                	lq.xyzw vf19xyzw,1(vi01)
+vuGatherFixKickBegin:
+	nop                                	ilw.x vi04,2(vi01)x
+	nop                                	iaddiu vi11,vi00,0x7fff
+	nop                                	iaddiu vi11,vi11,4
+	nop                                	iadd vi04,vi04,vi01
+	nop                                	sq.xyzw vf19xyzw,VU1_KICK_A(vi00)
+	nop                                	sq.xyzw vf19xyzw,VU1_KICK_B(vi00)
+	nop                                	isw.x vi11,VU1_KICK_A(vi00)x
+	nop                                	isw.x vi11,VU1_KICK_B(vi00)x
+	nop                                	ilw.w vi13,2(vi01)w
+	nop                                	lq.w vf20w,VU1_ADD_COLOR(vi00)
+	nop                                	ilw.x vi02,VU1_KICK_STATE(vi00)x
+	nop                                	ilw.y vi08,VU1_KICK_STATE(vi00)y
+VTX_KICK_X:
+	nop                                	ilw.w vi12,0(vi04)w
+	nop                                	iaddiu vi11,vi00,1
+	nop                                	ilw.x vi05,0(vi04)x
+	nop                                	ilw.y vi06,0(vi04)y
+	nop                                	iand vi03,vi12,vi11
+	nop                                	ilw.w vi11,VU1_MP_STATE(vi00)w
+	nop                                	ilw.z vi07,0(vi04)z
+	nop                                	ibeq vi03,vi00,KICK_3
+	nop                                	nop
+	nop                                	ior vi03,vi12,vi11
+	nop                                	ibeq vi03,vi00,KICK_3
+KICK_2:
+	nop                                	lq.xyzw vf18xyzw,41(vi05)
+	nop                                	lq.xyzw vf27xyzw,41(vi06)
+	nop                                	lq.xyzw vf30xyzw,41(vi07)
+	nop                                	lq.xyzw vf19xyzw,42(vi05)
+	madd.xyzw vf18xyzw,vf18xyzw,vf20xyzw	lq.xyzw vf28xyzw,42(vi06)
+	madd.xyzw vf27xyzw,vf27xyzw,vf20xyzw	lq.xyzw vf31xyzw,42(vi07)
+	madd.xyzw vf30xyzw,vf30xyzw,vf20xyzw	lq.xyzw vf17xyzw,40(vi05)
+	ftoi4.xyzw vf19xyzw,vf19xyzw       	lq.xyzw vf26xyzw,40(vi06)
+	ftoi0.xyzw vf18xyzw,vf18xyzw       	lq.xyzw vf29xyzw,40(vi07)
+	ftoi4.xyzw vf28xyzw,vf28xyzw       	iadd vi11,vi00,vi02
+	ftoi0.xyzw vf27xyzw,vf27xyzw       	iadd vi02,vi00,vi08
+	ftoi4.xyzw vf31xyzw,vf31xyzw       	iadd vi08,vi00,vi11
+	ftoi0.xyzw vf30xyzw,vf30xyzw       	sq.xyzw vf17xyzw,1(vi02)
+	nop                                	sq.xyzw vf26xyzw,4(vi02)
+	nop                                	sq.xyzw vf29xyzw,7(vi02)
+	nop                                	sq.xyzw vf18xyzw,2(vi02)
+	nop                                	sq.xyzw vf27xyzw,5(vi02)
+	nop                                	sq.xyzw vf30xyzw,8(vi02)
+	nop                                	sq.xyzw vf19xyzw,3(vi02)
+	nop                                	sq.xyzw vf28xyzw,6(vi02)
+	nop                                	sq.xyzw vf31xyzw,9(vi02)
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	xgkick vi02
+	nop                                	nop
+KICK_3:
+	nop                                	iaddi vi13,vi13,-1
+	nop                                	iaddi vi04,vi04,2
+	nop                                	ibgtz vi13,VTX_KICK_X
+	nop                                	nop
+	nop                                	isw.x vi02,VU1_KICK_STATE(vi00)x
+	nop                                	b vuProcessNextCommand
+	nop                                	isw.y vi08,VU1_KICK_STATE(vi00)y
+
+; Command 64: as vuGatherFixKick with the GIF tag from VU1_SHADOW_GIFTAG.
+vuGatherFixKickShadow:
+	nop                                	lq.xyzw vf19xyzw,VU1_SHADOW_GIFTAG(vi00)
+	nop                                	b vuGatherFixKickBegin
+	nop                                	nop
+
+; Commands 42-46: convert a whole vertex run to GS format and XGKICK it as one packet
+; (1: clipped polygon in VU1_CLIP_PKT, 2: line pair, 3: strip behind its GIF tag at VU1_VTX_A).
+vuFixKick:
+	addw[i].xyz vf28xyz,vf00xyz,vf00w  	loi 0x3f000000
+	addai[i].xyz accxyz,vf00xyz,i      	loi 0xbf800000
+	addai.w accw,vf00w,i               	nop
+	nop                                	lq.w vf28w,VU1_ADD_COLOR(vi00)
+	nop                                	lq.xyzw vf18xyzw,1(vi03)
+	nop                                	iaddi vi05,vi04,-1
+	nop                                	lq.xyzw vf19xyzw,2(vi03)
+	nop                                	lq.xyzw vf17xyzw,0(vi03)
+	madd.xyzw vf31xyzw,vf18xyzw,vf28xyzw	nop
+	nop                                	nop
+	ftoi4.xyzw vf30xyzw,vf19xyzw       	iaddi vi03,vi03,3
+	addx.xyzw vf21xyzw,vf17xyzw,vf00x  	nop
+	nop                                	lq.xyzw vf18xyzw,1(vi03)
+	ftoi0.xyzw vf29xyzw,vf31xyzw       	lq.xyzw vf19xyzw,2(vi03)
+	nop                                	lq.xyzw vf17xyzw,0(vi03)
+	nop                                	iaddi vi03,vi03,3
+VU1_FIX_NEXT:
+	madd.xyzw vf31xyzw,vf18xyzw,vf28xyzw	sq.xyzw vf30xyzw,2(vi04)
+	nop                                	sq.xyzw vf29xyzw,1(vi04)
+	nop                                	sq.xyzw vf21xyzw,0(vi04)
+	ftoi4.xyzw vf30xyzw,vf19xyzw       	lq.xyzw vf18xyzw,1(vi03)
+	addx.xyzw vf21xyzw,vf17xyzw,vf00x  	lq.xyzw vf19xyzw,2(vi03)
+	nop                                	lq.xyzw vf17xyzw,0(vi03)
+	ftoi0.xyzw vf29xyzw,vf31xyzw       	iaddi vi09,vi09,-1
+	nop                                	iaddi vi04,vi04,3
+	nop                                	ibgtz vi09,VU1_FIX_NEXT
+	nop                                	iaddi vi03,vi03,3
+	nop                                	iaddiu vi06,vi00,VU1_GIF_EOP
+	nop                                	xgkick vi06
+	nop                                	nop
+	nop                                	xgkick vi05
+	nop                                	nop
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+vuFixKick1:
+	nop                                	iaddiu vi04,vi00,VU1_CLIP_PKT+1
+	nop                                	ilw.w vi05,-1(vi04)w
+	nop                                	ilw.w vi06,VU1_MP_STATE(vi00)w
+	nop                                	iaddiu vi03,vi00,VU1_VTX_B
+	nop                                	iadd vi09,vi10,vi00
+	nop                                	nop
+	nop                                	ior vi06,vi06,vi05
+	nop                                	nop
+	nop                                	ibne vi06,vi00,vuFixKick
+	nop                                	nop
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+vuFixKick2:
+	nop                                	iaddiu vi03,vi00,VU1_VTX_B
+	nop                                	iaddiu vi04,vi00,VU1_CLIP_PKT+1
+	nop                                	b vuFixKick
+	nop                                	iaddi vi09,vi00,2
+vuFixKick3:
+	nop                                	lq.xyzw vf19xyzw,1(vi01)
+	nop                                	iaddiu vi05,vi00,VU1_VTX_A
+	nop                                	ilw.x vi10,1(vi01)x
+	nop                                	iaddiu vi03,vi00,VU1_VTX_A+1
+	nop                                	iaddiu vi04,vi00,VU1_VTX_A+1
+	nop                                	sq.xyzw vf19xyzw,0(vi05)
+	nop                                	iaddiu vi11,vi00,0x7fff
+	nop                                	iand vi09,vi10,vi11
+	nop                                	b vuFixKick
+	nop                                	nop
+
+; Command 66: end the batch (E bit). The next VIF MSCNT resumes at vuProcessCommands.
+vuSleep:
+	nop[e]                             	nop	; E bit: stop after the next pair
+	nop                                	nop
+
+; Command 68 / MSCNT entry: vi01 = XTOP, restart the command list.
+vuProcessCommands:
+	nop                                	xtop vi01
+	nop                                	iaddiu vi14,vi00,0
+
+; Command 74: jump to MY_ENTRY + VU1_PROGRAM[vi14].x.
+vuProcessNextCommand:
+	nop                                	ilw.x vi05,VU1_PROGRAM(vi14)x
+	nop                                	iaddiu vi04,vi00,MY_ENTRY
+	nop                                	iaddiu vi14,vi14,1
+	nop                                	nop
+	nop                                	iadd vi03,vi05,vi04
+	nop                                	nop
+	nop                                	jr vi03
+	nop                                	nop
+
+; Command table: slot k serves command code 2k.
+MY_ENTRY:
+	nop                                	b VU1_STATE_0
+	nop                                	nop
+	nop                                	b vuGatherClipTri
+	nop                                	nop
+	nop                                	b vuGatherClipLine
+	nop                                	nop
+	nop                                	b vuFrontFace
+	nop                                	nop
+	nop                                	b vuXForm0
+	nop                                	nop
+	nop                                	b vuXForm1
+	nop                                	nop
+	nop                                	b vuXForm2
+	nop                                	nop
+	nop                                	b vuXForm3
+	nop                                	nop
+	nop                                	b vuFog0
+	nop                                	nop
+	nop                                	b vuFog1
+	nop                                	nop
+	nop                                	b vuFog2
+	nop                                	nop
+	nop                                	b vuFog3
+	nop                                	nop
+	nop                                	b vuGlobalLight0
+	nop                                	nop
+	nop                                	b vuGlobalLight1
+	nop                                	nop
+	nop                                	b vuGlobalLight2
+	nop                                	nop
+	nop                                	b vuGlobalLight3
+	nop                                	nop
+	nop                                	b vuLocalLight0
+	nop                                	nop
+	nop                                	b vuLocalLight1
+	nop                                	nop
+	nop                                	b vuLocalLight2
+	nop                                	nop
+	nop                                	b vuLocalLight3
+	nop                                	nop
+	nop                                	b vuGatherFixKick
+	nop                                	nop
+	nop                                	b vuFixKick1
+	nop                                	nop
+	nop                                	b vuFixKick2
+	nop                                	nop
+	nop                                	b vuFixKick3
+	nop                                	nop
+	nop                                	b vuMPDetailMap0
+	nop                                	nop
+	nop                                	b vuMPDetailMap1
+	nop                                	nop
+	nop                                	b vuMPSpecMap0
+	nop                                	nop
+	nop                                	b vuMPSpecMap1
+	nop                                	nop
+	nop                                	b vuMPLightMap0
+	nop                                	nop
+	nop                                	b vuMPLightMap1
+	nop                                	nop
+	nop                                	b vuMPShadowMap0
+	nop                                	nop
+	nop                                	b vuMPShadowMap1
+	nop                                	nop
+	nop                                	b vuGatherFixKickShadow
+	nop                                	nop
+	nop                                	b vuSleep
+	nop                                	nop
+	nop                                	b vuProcessCommands
+	nop                                	nop
+	nop                                	b vuColorToFloat0
+	nop                                	nop
+	nop                                	b vuColorToFloat1
+	nop                                	nop
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+	nop                                	b vuNextClipTri
+	nop                                	nop
+	nop                                	b vuNextClipLine
+	nop                                	nop
+	nop                                	b vuFixInBuf
+	nop                                	nop
+	nop                                	b vuCMesh
+	nop                                	nop
+	nop                                	b vuInitLight0
+	nop                                	nop
+	nop                                	b vuInitLight1
+	nop                                	nop
+	nop                                	b vuInitLight2
+	nop                                	nop
+	nop                                	b vuInitLight3
+	nop                                	nop
+	nop                                	b vuScaleColor0
+	nop                                	nop
+	nop                                	b vuScaleColor1
+	nop                                	nop
+	nop                                	b vuScaleColor2
+	nop                                	nop
+	nop                                	b vuScaleColor3
+	nop                                	nop
+	nop                                	b vuBaseTextureKick
+	nop                                	nop
+	nop                                	b vuBuildNormals
+	nop                                	nop
+	nop                                	b vuDecompress0
+	nop                                	nop
+	nop                                	b vuDecompress1
+	nop                                	nop
+	nop                                	b vuDecompress2
+	nop                                	nop
+	nop                                	b vuDecompress3
+	nop                                	nop
+	nop                                	b vuDecompress4
+	nop                                	nop
+	nop                                	b vuMultipassing
+	nop                                	nop
+	nop                                	b vuNotMultipassing
+	nop                                	nop
+
+; Command 2: triangles that cross the frustum: clip each one (VU1_TRI_CLIPPER) and run the
+; command list again from the entry's .y on the clipped polygon; vuNextClipTri (76) loops.
+vuGatherClipTri:
+	nop                                	ilw.x vi15,2(vi01)x
+	nop                                	ilw.w vi12,2(vi01)w
+	nop                                	nop
+	nop                                	nop
+	nop                                	iadd vi15,vi15,vi01
+ClippedTriLoop:
+	nop                                	iaddiu vi03,vi01,4
+	nop                                	iaddiu vi11,vi00,1
+	nop                                	ilw.w vi13,0(vi15)w
+	nop                                	ilw.x vi05,0(vi15)x
+	nop                                	ilw.y vi06,0(vi15)y
+	nop                                	ilw.z vi07,0(vi15)z
+	nop                                	iand vi11,vi13,vi11
+	nop                                	iaddi vi15,vi15,2
+	nop                                	ibeq vi11,vi00,vuNextClipTri
+	nop                                	isw.z vi15,VU1_KICK_STATE(vi00)z
+	nop                                	iaddiu vi11,vi00,2
+	nop                                	iand vi13,vi13,vi11
+	nop                                	isw.w vi13,VU1_CLIP_PKT(vi00)w
+DrawClippedTri:
+	nop                                	iadd vi05,vi03,vi05
+	nop                                	lq.xyzw vf17xyzw,0(vi05)
+	nop                                	lq.xyzw vf18xyzw,1(vi05)
+	nop                                	lq.xyzw vf19xyzw,2(vi05)
+	nop                                	iadd vi06,vi03,vi06
+	nop                                	lq.xyzw vf26xyzw,0(vi06)
+	nop                                	lq.xyzw vf27xyzw,1(vi06)
+	nop                                	lq.xyzw vf28xyzw,2(vi06)
+	nop                                	iadd vi07,vi03,vi07
+	nop                                	lq.xyzw vf29xyzw,0(vi07)
+	nop                                	lq.xyzw vf30xyzw,1(vi07)
+	nop                                	lq.xyzw vf31xyzw,2(vi07)
+	nop                                	iaddiu vi10,vi00,3
+	nop                                	iaddiu vi11,vi00,3
+	nop                                	bal vi15,VU1_TRI_CLIPPER
+	nop                                	nop
+	nop                                	ibeq vi10,vi00,vuNextClipTri
+	nop                                	nop
+ProcessClippedTri:
+	nop                                	lq.xyzw vf22xyzw,0(vi01)
+	nop                                	iaddiu vi11,vi10,0x7fff
+	nop                                	iaddiu vi11,vi11,1
+	nop                                	isw.x vi11,VU1_CLIP_PKT(vi00)x
+	nop                                	sq.yz vf22yz,VU1_CLIP_PKT(vi00)
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+vuNextClipTri:
+	nop                                	iaddi vi12,vi12,-1
+	nop                                	ilw.z vi15,VU1_KICK_STATE(vi00)z
+	nop                                	ibeq vi12,vi00,ClippedTriDone
+	nop                                	nop
+	nop                                	ilw.y vi14,VU1_PROGRAM(vi14)y
+	nop                                	b ClippedTriLoop
+	nop                                	nop
+ClippedTriDone:
+	nop                                	b vuSleep
+	nop                                	nop
+
+; Command 4: the same for lines (VU1_LINE_CLIPPER); vuNextClipLine (78) loops.
+vuGatherClipLine:
+	nop                                	ilw.x vi10,1(vi01)x
+	nop                                	nop
+	nop                                	iaddiu vi11,vi00,0x7fff
+	nop                                	iand vi12,vi10,vi11
+	nop                                	iaddiu vi10,vi01,2
+	nop                                	iaddi vi12,vi12,-1
+	nop                                	lq.xyzw vf22xyzw,0(vi01)
+	nop                                	iaddiu vi11,vi11,3
+	nop                                	nop
+	nop                                	isw.x vi11,VU1_CLIP_PKT(vi00)x
+	nop                                	sq.yzw vf22yzw,VU1_CLIP_PKT(vi00)
+ClippedLineLoop:
+	nop                                	lq.xyzw vf17xyzw,0(vi10)
+	nop                                	lq.xyzw vf19xyzw,1(vi10)
+	nop                                	lq.xyzw vf18xyzw,2(vi10)
+	nop                                	lq.xyzw vf21xyzw,3(vi10)
+	nop                                	lq.xyzw vf23xyzw,4(vi10)
+	nop                                	lq.xyzw vf22xyzw,5(vi10)
+	nop                                	iaddiu vi10,vi10,3
+	nop                                	iaddiu vi11,vi00,2
+	nop                                	bal vi15,VU1_LINE_CLIPPER
+	nop                                	nop
+	nop                                	ibeq vi11,vi00,vuNextClipLine
+	nop                                	nop
+	nop                                	sq.xyzw vf17xyzw,VU1_VTX_A(vi00)
+	nop                                	sq.xyzw vf19xyzw,VU1_VTX_A+1(vi00)
+	nop                                	sq.xyzw vf18xyzw,VU1_VTX_A+2(vi00)
+	nop                                	sq.xyzw vf21xyzw,VU1_VTX_A+3(vi00)
+	nop                                	sq.xyzw vf23xyzw,VU1_VTX_A+4(vi00)
+	nop                                	sq.xyzw vf22xyzw,VU1_VTX_A+5(vi00)
+	nop                                	iaddiu vi04,vi00,VU1_GIF_EOP
+	nop                                	xgkick vi04
+	nop                                	nop
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+vuNextClipLine:
+	nop                                	iaddi vi12,vi12,-1
+	nop                                	nop
+	nop                                	ibeq vi12,vi00,ClippedLineDone
+	nop                                	nop
+	nop                                	ilw.y vi14,VU1_PROGRAM(vi14)y
+	nop                                	b ClippedLineLoop
+	nop                                	nop
+ClippedLineDone:
+	nop                                	b vuSleep
+	nop                                	nop
+
+; Command 114: VU1_MP_STATE.w = 0.
+vuMultipassing:
+	nop                                	isw.w vi00,VU1_MP_STATE(vi00)w
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+
+; Command 116: VU1_MP_STATE.w = 2.
+vuNotMultipassing:
+	nop                                	iaddiu vi03,vi00,2
+	nop                                	isw.w vi03,VU1_MP_STATE(vi00)w
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+
+; Multipass texture layers from VU1_MP_LIST (detail 48/50, specular/env 52/54, light map
+; 56/58, shadow 60/62); variant 0 returns through vi06 to vuGatherFixKick, 1 to vuFixKick1.
+vuFirstDetailMap:
+	nop                                	ilw.x vi05,VU1_MP_STATE(vi00)x
+	nop                                	isw.x vi03,VU1_PASS_SAVE(vi00)x
+	nop                                	isw.y vi04,VU1_PASS_SAVE(vi00)y
+	nop                                	isw.z vi09,VU1_PASS_SAVE(vi00)z
+	nop                                	ilw.z vi07,VU1_PROGRAM-1(vi14)z
+vuNextDetailMap:
+	nop                                	ilw.x vi03,VU1_PASS_SAVE(vi00)x
+	nop                                	ilw.y vi04,VU1_PASS_SAVE(vi00)y
+	nop                                	ilw.z vi09,VU1_PASS_SAVE(vi00)z
+	nop                                	iaddi vi07,vi07,-1
+	nop                                	xgkick vi05
+	nop                                	nop
+	nop                                	lq.xyzw vf25xyzw,0(vi03)
+	nop                                	lq.x vf30x,7(vi05)
+	nop                                	iaddiu vi05,vi05,8
+	nop                                	nop
+	nop                                	isw.x vi05,VU1_MP_STATE(vi00)x
+NextDetailMapVertex:
+	mulx.xy vf25xy,vf25xy,vf30x        	nop
+	nop                                	iaddi vi09,vi09,-1
+	nop                                	iaddiu vi03,vi03,3
+	nop                                	nop
+	nop                                	sq.xy vf25xy,0(vi04)
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	lq.xyzw vf25xyzw,0(vi03)
+	nop                                	nop
+	nop                                	ibne vi09,vi00,NextDetailMapVertex
+	nop                                	iaddiu vi04,vi04,3
+	nop                                	ibne vi07,vi00,vuNextDetailMap
+	nop                                	nop
+	nop                                	jr vi06
+	nop                                	nop
+vuMPDetailMap0:
+	nop                                	iaddiu vi03,vi00,VU1_VTX_A
+	nop                                	iaddiu vi04,vi00,VU1_VTX_A
+	nop                                	iaddiu vi06,vi00,vuGatherFixKick
+	nop                                	b vuFirstDetailMap
+	nop                                	ilw.z vi09,2(vi01)z
+vuMPDetailMap1:
+	nop                                	iaddiu vi03,vi00,VU1_VTX_B
+	nop                                	iaddiu vi04,vi00,VU1_VTX_B
+	nop                                	iaddiu vi06,vi00,vuFixKick1
+	nop                                	b vuFirstDetailMap
+	nop                                	iaddiu vi09,vi10,0
+vuFirstLightMap:
+	nop                                	ilw.x vi05,VU1_MP_STATE(vi00)x
+	nop                                	isw.x vi03,VU1_PASS_SAVE(vi00)x
+	nop                                	isw.y vi04,VU1_PASS_SAVE(vi00)y
+	nop                                	isw.z vi09,VU1_PASS_SAVE(vi00)z
+	nop                                	ilw.z vi07,VU1_PROGRAM-1(vi14)z
+	nop                                	xgkick vi05
+	nop                                	nop
+	nop                                	iaddiu vi05,vi05,6
+vuNextLightMap:
+	nop                                	ilw.x vi03,VU1_PASS_SAVE(vi00)x
+	nop                                	ilw.y vi04,VU1_PASS_SAVE(vi00)y
+	nop                                	ilw.z vi09,VU1_PASS_SAVE(vi00)z
+	nop                                	iaddi vi07,vi07,-1
+	nop                                	lq.xyzw vf24xyzw,0(vi03)
+	nop                                	lq.xyzw vf25xyzw,1(vi03)
+	nop                                	lq.xyzw vf17xyzw,2(vi05)
+	nop                                	lq.xyzw vf21xyzw,0(vi05)
+	nop                                	lq.xyzw vf27xyzw,1(vi05)
+	addx.xyzw vf20xyzw,vf17xyzw,vf00x  	iaddiu vi05,vi05,3
+	nop                                	nop
+	nop                                	isw.x vi05,VU1_MP_STATE(vi00)x
+NextLightMapVertex:
+	sub.xyz vf30xyz,vf21xyz,vf24xyz    	mr32.yz vf26yz,vf25yz
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	addw.x vf26x,vf00x,vf24w           	nop
+	mulax.xyzw accxyzw,vf01xyzw,vf24x  	nop
+	madday.xyzw accxyzw,vf02xyzw,vf24y 	nop
+	maddaz.xyzw accxyzw,vf03xyzw,vf24z 	nop
+	maddw.xyzw vf29xyzw,vf04xyzw,vf00w 	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	div q,vf00w,vf29w
+	nop                                	mr32.xy vf29xy,vf26xy
+	nop[i]                             	loi 0xbf800000
+	nop                                	nop
+	nop                                	nop
+	addx.z vf29z,vf00z,vf26x           	nop
+	muli.yz vf29yz,vf29yz,i            	nop
+	opmula.xyz accxyz,vf29xyz,vf26xyz  	nop
+	opmsub.xyz vf28xyz,vf26xyz,vf29xyz 	nop
+	muly.xyz vf29xyz,vf29xyz,vf27y     	nop
+	muly.xyz vf28xyz,vf28xyz,vf27y     	nop
+	mul.xyz vf31xyz,vf30xyz,vf29xyz    	nop
+	mulax.w accw,vf00w,vf31x           	nop
+	madday.w accw,vf00w,vf31y          	nop
+	maddz.w vf23w,vf00w,vf31z          	nop
+	mul.xyz vf31xyz,vf30xyz,vf28xyz    	iaddiu vi03,vi03,3
+	mulax.w accw,vf00w,vf31x           	nop
+	madday.w accw,vf00w,vf31y          	nop
+	maddz[i].w vf22w,vf00w,vf31z       	loi 0x3f000000
+	addw.x vf22x,vf00x,vf23w           	nop
+	addw.y vf22y,vf00y,vf22w           	nop
+	addi.xy vf22xy,vf22xy,i            	nop
+	mul.xyz vf31xyz,vf30xyz,vf26xyz    	nop
+	mulax.w accw,vf00w,vf31x           	nop
+	madday.w accw,vf00w,vf31y          	nop
+	maddz.w vf23w,vf00w,vf31z          	nop
+	abs.w vf23w,vf23w                  	nop
+	mulq.xy vf22xy,vf22xy,q            	nop
+	subw.z vf23z,vf27z,vf23w           	nop
+	mulz[i].w vf23w,vf27w,vf23z        	loi 0x3f000000
+	miniw.w vf23w,vf23w,vf00w          	nop
+	maxx.w vf23w,vf23w,vf00x           	nop
+	muli.w vf23w,vf23w,i               	nop
+	mulw.xyzw vf20xyzw,vf17xyzw,vf23w  	nop
+	nop                                	lq.xyzw vf24xyzw,0(vi03)
+	nop                                	lq.xyzw vf25xyzw,1(vi03)
+	nop                                	sq.xy vf22xy,0(vi04)
+	nop                                	sq.xyzw vf20xyzw,1(vi04)
+	nop                                	iaddi vi09,vi09,-1
+	nop                                	ibne vi09,vi00,NextLightMapVertex
+	nop                                	iaddiu vi04,vi04,3
+	nop                                	ibne vi07,vi00,vuNextLightMap
+	nop                                	nop
+	nop                                	jr vi06
+	nop                                	nop
+vuMPLightMap0:
+	nop                                	iaddiu vi03,vi01,4
+	nop                                	iaddiu vi04,vi00,VU1_VTX_A
+	nop                                	iaddiu vi06,vi00,vuGatherFixKick
+	nop                                	b vuFirstLightMap
+	nop                                	ilw.z vi09,2(vi01)z
+vuMPLightMap1:
+	nop                                	iaddiu vi03,vi08,0
+	nop                                	iaddiu vi04,vi00,VU1_VTX_B
+	nop                                	iaddiu vi06,vi00,vuFixKick1
+	nop                                	b vuFirstLightMap
+	nop                                	iaddiu vi09,vi10,0
+vuFirstEnvMap:
+	nop                                	ilw.x vi05,VU1_MP_STATE(vi00)x
+	nop                                	isw.x vi03,VU1_PASS_SAVE(vi00)x
+	nop                                	isw.y vi04,VU1_PASS_SAVE(vi00)y
+	nop                                	isw.z vi09,VU1_PASS_SAVE(vi00)z
+	nop                                	ilw.z vi07,VU1_PROGRAM-1(vi14)z
+vuNextEnvMap:
+	nop                                	ilw.x vi03,VU1_PASS_SAVE(vi00)x
+	nop                                	ilw.y vi04,VU1_PASS_SAVE(vi00)y
+	nop                                	ilw.z vi09,VU1_PASS_SAVE(vi00)z
+	nop                                	iaddi vi07,vi07,-1
+	nop                                	xgkick vi05
+	nop                                	nop
+	nop                                	lq.xyzw vf17xyzw,6(vi05)
+	nop                                	lq.xyzw vf18xyzw,7(vi05)
+	nop                                	lq.xyzw vf19xyzw,8(vi05)
+	nop                                	lq.xyzw vf27xyzw,9(vi05)
+	addw.x vf20x,vf00x,vf17w           	lq.xyzw vf24xyzw,0(vi03)
+	addw.y vf20y,vf00y,vf18w           	lq.xyzw vf25xyzw,1(vi03)
+	addw.z vf20z,vf00z,vf19w           	iaddiu vi05,vi05,11
+	addw.x vf30x,vf00x,vf27w           	nop
+	nop                                	isw.x vi05,VU1_MP_STATE(vi00)x
+	nop                                	nop
+NextEnvMapVertex:
+	sub.xyz vf28xyz,vf20xyz,vf24xyz    	mr32.yz vf29yz,vf25yz
+	nop[i]                             	loi 0x42700000
+	nop                                	nop
+	addi.w vf27w,vf00w,i               	nop
+	addw.x vf29x,vf00x,vf24w           	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	mul.xyz vf21xyz,vf28xyz,vf29xyz    	nop
+	mulax.w accw,vf00w,vf21x           	nop
+	madday.w accw,vf00w,vf21y          	nop
+	maddz.w vf21w,vf00w,vf21z          	nop
+	nop[i]                             	loi 0x49742400
+	nop                                	nop
+	nop                                	nop
+	mulw.xyz vf22xyz,vf29xyz,vf21w     	iaddi vi09,vi09,-1
+	muli.w vf21w,vf21w,i               	nop
+	maxy[i].w vf21w,vf21w,vf00y        	loi 0x40000000
+	nop                                	iaddiu vi03,vi03,3
+	nop                                	iaddiu vi04,vi04,3
+	nop                                	lq.xyzw vf24xyzw,0(vi03)
+	muli.xyz vf22xyz,vf22xyz,i         	nop
+	miniw.w vf21w,vf21w,vf00w          	nop
+	nop                                	nop
+	nop                                	nop
+	sub.xyz vf26xyz,vf22xyz,vf28xyz    	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	mulax.xyz accxyz,vf17xyz,vf26x     	nop
+	madday.xyz accxyz,vf18xyz,vf26y    	nop
+	maddz.xyz vf26xyz,vf19xyz,vf26z    	nop
+	nop                                	nop
+	nop[i]                             	loi 0x49742400
+	nop                                	nop
+	muli.y vf21y,vf26y,i               	erleng p,vf26
+	nop                                	nop
+	nop                                	waitp
+	nop                                	mfp.z vf23z,p
+	maxy.y vf21y,vf21y,vf00y           	nop
+	nop                                	nop
+	nop                                	nop
+	mulz.xyz vf26xyz,vf26xyz,vf23z     	nop
+	miniw.y vf21y,vf21y,vf00w          	nop
+	nop                                	nop
+	nop                                	nop
+	addw.xz vf26xz,vf26xz,vf00w        	lq.xyzw vf25xyzw,1(vi03)
+	muly.w vf21w,vf21w,vf21y           	nop
+	nop                                	nop
+	nop                                	nop
+	mulx.xz vf26xz,vf26xz,vf30x        	nop
+	mulw.w vf27w,vf27w,vf21w           	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	mr32.y vf26y,vf26y
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	sq.xyzw vf27xyzw,-2(vi04)
+	nop                                	ibne vi09,vi00,NextEnvMapVertex
+	nop                                	sq.xy vf26xy,-3(vi04)
+	nop                                	ibne vi07,vi00,vuNextEnvMap
+	nop                                	nop
+	nop                                	jr vi06
+	nop                                	nop
+vuMPSpecMap0:
+	nop                                	iaddiu vi03,vi01,4
+	nop                                	iaddiu vi04,vi00,VU1_VTX_A
+	nop                                	iaddiu vi06,vi00,vuGatherFixKick
+	nop                                	b vuFirstEnvMap
+	nop                                	ilw.z vi09,2(vi01)z
+vuMPSpecMap1:
+	nop                                	iadd vi03,vi00,vi08
+	nop                                	iaddiu vi04,vi00,VU1_VTX_B
+	nop                                	iaddiu vi06,vi00,vuFixKick1
+	nop                                	b vuFirstEnvMap
+	nop                                	iaddiu vi09,vi10,0
+vuFirstShadowMap:
+	nop                                	ilw.x vi05,VU1_MP_STATE(vi00)x
+	nop                                	isw.x vi03,VU1_PASS_SAVE(vi00)x
+	nop                                	isw.y vi04,VU1_PASS_SAVE(vi00)y
+	nop                                	isw.z vi09,VU1_PASS_SAVE(vi00)z
+	nop                                	ilw.z vi07,VU1_PROGRAM-1(vi14)z
+vuNextShadowMap:
+	nop                                	ilw.x vi03,VU1_PASS_SAVE(vi00)x
+	nop                                	ilw.y vi04,VU1_PASS_SAVE(vi00)y
+	nop                                	ilw.z vi09,VU1_PASS_SAVE(vi00)z
+	nop                                	iaddi vi07,vi07,-1
+	nop                                	xgkick vi05
+	nop                                	nop
+	nop                                	lq.xyzw vf23xyzw,11(vi05)
+	nop                                	lq.xyzw vf24xyzw,0(vi03)
+	nop                                	lq.xyzw vf25xyzw,1(vi03)
+	nop[i]                             	loi 0xbf800000
+	nop                                	lq.xyzw vf21xyzw,10(vi05)
+	muli.xyzw vf23xyzw,vf23xyzw,i      	lq.xyzw vf17xyzw,6(vi05)
+	nop                                	lq.xyzw vf18xyzw,7(vi05)
+	nop                                	lq.xyzw vf19xyzw,8(vi05)
+	nop                                	lq.xyzw vf27xyzw,12(vi05)
+	nop                                	lq.xyzw vf28xyzw,13(vi05)
+	nop                                	lq.xyzw vf20xyzw,9(vi05)
+	nop                                	iaddiu vi05,vi05,14
+	nop                                	nop
+	nop                                	isw.x vi05,VU1_MP_STATE(vi00)x
+NextShadowVertex:
+	sub.xyz vf30xyz,vf21xyz,vf24xyz    	mr32.z vf26z,vf24z
+	mulax.xyz accxyz,vf17xyz,vf24x     	nop
+	madday.xyz accxyz,vf18xyz,vf24y    	nop
+	maddaz.xyz accxyz,vf19xyz,vf24z    	nop
+	maddw.xyz vf22xyz,vf20xyz,vf00w    	mr32.y vf26y,vf26y
+	mulax.xyzw accxyzw,vf01xyzw,vf24x  	move.zw vf26zw,vf25zw
+	madday.xyzw accxyzw,vf02xyzw,vf24y 	nop
+	maddaz.xyzw accxyzw,vf03xyzw,vf24z 	nop
+	maddw.xyzw vf29xyzw,vf04xyzw,vf00w 	nop
+	nop                                	mr32.xyz vf26xyz,vf26xyz
+	nop                                	nop
+	nop                                	nop
+	nop                                	div q,vf00w,vf29w
+	mul.xyz vf30xyz,vf30xyz,vf26xyz    	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	mulax.w accw,vf00w,vf30x           	nop
+	madday.w accw,vf00w,vf30y          	nop
+	maddz.w vf30w,vf00w,vf30z          	nop
+	mul.xyz vf29xyz,vf23xyz,vf26xyz    	nop
+	nop                                	nop
+	mulq.xy vf22xy,vf22xy,q            	nop
+	miniz.w vf30w,vf30w,vf27z          	nop
+	mulax.w accw,vf00w,vf29x           	move.xyzw vf26xyzw,vf28xyzw
+	madday.w accw,vf00w,vf29y          	iaddiu vi03,vi03,3
+	maddz.w vf29w,vf00w,vf29z          	sq.xy vf22xy,0(vi04)
+	subw.z vf31z,vf27z,vf30w           	nop
+	nop                                	nop
+	nop                                	nop
+	miniw.w vf29w,vf29w,vf00w          	nop
+	miniw.w vf30w,vf30w,vf00w          	nop
+	nop                                	nop
+	mulw.z vf31z,vf31z,vf27w           	nop
+	maxy.w vf29w,vf29w,vf00y           	nop
+	maxy.w vf30w,vf30w,vf00y           	nop
+	nop                                	nop
+	miniw.z vf31z,vf31z,vf00w          	nop
+	mulw.w vf29w,vf29w,vf30w           	nop
+	mulw.w vf26w,vf26w,vf29w           	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	lq.xyzw vf24xyzw,0(vi03)
+	nop                                	lq.xyzw vf25xyzw,1(vi03)
+	nop                                	iaddi vi09,vi09,-1
+	nop                                	sq.xyzw vf26xyzw,1(vi04)
+	nop                                	ibne vi09,vi00,NextShadowVertex
+	nop                                	iaddiu vi04,vi04,3
+	nop                                	ibne vi07,vi00,vuNextShadowMap
+	nop                                	nop
+	nop                                	jr vi06
+	nop                                	nop
+vuMPShadowMap0:
+	nop                                	iaddiu vi03,vi01,4
+	nop                                	iaddiu vi04,vi00,VU1_VTX_A
+	nop                                	iaddiu vi06,vi00,vuGatherFixKick
+	nop                                	b vuFirstShadowMap
+	nop                                	ilw.z vi09,2(vi01)z
+vuMPShadowMap1:
+	nop                                	iadd vi03,vi00,vi08
+	nop                                	iaddiu vi04,vi00,VU1_VTX_B
+	nop                                	iaddiu vi06,vi00,vuFixKick1
+	nop                                	b vuFirstShadowMap
+	nop                                	iaddiu vi09,vi10,0
+
+; Command 102: normals from the triangle list. port: guess from the name.
+vuBuildNormals:
+	nop                                	ilw.x vi04,2(vi01)x
+	nop                                	iaddiu vi03,vi01,4
+	nop                                	iadd vi04,vi04,vi01
+	nop                                	ilw.w vi13,2(vi01)w
+	nop                                	ilw.x vi05,0(vi04)x
+	nop                                	ilw.y vi06,0(vi04)y
+	nop                                	ilw.z vi07,0(vi04)z
+	nop                                	nop
+	nop                                	iadd vi05,vi03,vi05
+	nop                                	lq.xyzw vf17xyzw,0(vi05)
+	nop                                	iadd vi06,vi03,vi06
+	nop                                	lq.xyzw vf18xyzw,0(vi06)
+	nop                                	iadd vi07,vi03,vi07
+	nop                                	lq.xyzw vf19xyzw,0(vi07)
+	nop                                	nop
+	nop                                	nop
+NextTriBuildNormal:
+	sub.xyz vf26xyz,vf17xyz,vf18xyz    	iaddi vi13,vi13,-1
+	sub.xyz vf28xyz,vf19xyz,vf18xyz    	iaddi vi04,vi04,2
+	nop                                	nop
+	nop                                	ilw.x vi05,0(vi04)x
+	nop                                	ilw.y vi06,0(vi04)y
+	opmula.xyz accxyz,vf28xyz,vf26xyz  	ilw.z vi07,0(vi04)z
+	opmsub.xyz vf29xyz,vf26xyz,vf28xyz 	nop
+	nop                                	iadd vi05,vi03,vi05
+	nop                                	lq.xyzw vf17xyzw,0(vi05)
+	nop                                	iadd vi06,vi03,vi06
+	ftoi15.xyz vf29xyz,vf29xyz         	lq.xyzw vf18xyzw,0(vi06)
+	nop                                	iadd vi07,vi03,vi07
+	nop                                	lq.xyzw vf19xyzw,0(vi07)
+	nop                                	ibgtz vi13,NextTriBuildNormal
+	nop                                	sq.xyzw vf29xyzw,-1(vi04)
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+
+; Line clipping against one plane (helper of VU1_LINE_CLIPPER).
+CLIP_LINE_CHECK:
+	sub.xyzw vf25xyzw,vf21xyzw,vf28xyzw	nop
+	sub.xyzw vf26xyzw,vf17xyzw,vf28xyzw	nop
+	nop                                	nop
+	nop                                	nop
+	mul.xyz vf25xyz,vf25xyz,vf30xyz    	nop
+	mul.xyz vf26xyz,vf26xyz,vf30xyz    	nop
+	nop                                	nop
+	nop                                	nop
+	mulax.w accw,vf00w,vf25x           	nop
+	madday.w accw,vf00w,vf25y          	iaddiu vi07,vi00,0x20
+	maddz.w vf25w,vf00w,vf25z          	nop
+	addw.z vf25z,vf00z,vf25w           	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	mulax.w accw,vf00w,vf26x           	fmand vi07,vi07
+	madday.w accw,vf00w,vf26y          	iaddiu vi13,vi00,0x10
+	maddz.w vf26w,vf00w,vf26z          	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	fmand vi13,vi13
+	nop                                	nop
+	nop                                	ior vi13,vi13,vi07
+	subz.w vf25w,vf26w,vf25z           	iaddiu vi07,vi00,0x30
+	nop                                	ibeq vi13,vi00,CLIP_LINE_END
+	nop                                	nop
+	nop                                	ibeq vi13,vi07,CLIP_LINE_OUT
+	nop                                	nop
+	nop                                	div q,vf26w,vf25w
+	sub.xyzw vf25xyzw,vf21xyzw,vf17xyzw	nop
+	sub.xyzw vf26xyzw,vf22xyzw,vf18xyzw	nop
+	sub.xyzw vf27xyzw,vf23xyzw,vf19xyzw	nop
+	nop                                	waitq
+	mulq.xyzw vf25xyzw,vf25xyzw,q      	nop
+	mulq.xyzw vf26xyzw,vf26xyzw,q      	nop
+	mulq.xyzw vf27xyzw,vf27xyzw,q      	nop
+	nop                                	nop
+	add.xyzw vf25xyzw,vf25xyzw,vf17xyzw	nop
+	add.xyzw vf26xyzw,vf26xyzw,vf18xyzw	iaddiu vi07,vi00,0x10
+	add.xyzw vf27xyzw,vf27xyzw,vf19xyzw	nop
+	nop                                	ibeq vi13,vi07,CO_NEXT_IN_LINE
+	nop                                	nop
+	nop                                	b CI_NEXT_OUT_LINE
+	nop                                	nop
+CO_NEXT_IN_LINE:
+	addx.xyzw vf17xyzw,vf25xyzw,vf00x  	nop
+	addx.xyzw vf18xyzw,vf26xyzw,vf00x  	nop
+	addx.xyzw vf19xyzw,vf27xyzw,vf00x  	nop
+	nop                                	b CLIP_LINE_END
+	nop                                	nop
+CI_NEXT_OUT_LINE:
+	addx.xyzw vf21xyzw,vf25xyzw,vf00x  	nop
+	addx.xyzw vf22xyzw,vf26xyzw,vf00x  	nop
+	addx.xyzw vf23xyzw,vf27xyzw,vf00x  	nop
+	nop                                	b CLIP_LINE_END
+	nop                                	nop
+CLIP_LINE_OUT:
+	nop                                	iaddiu vi11,vi00,0
+CLIP_LINE_END:
+	nop                                	jr vi02
+	nop                                	nop
+
+; Command 82: CMesh vertex blending (one weight or all weights); colours x VU1_COLOR128.
+vuCMesh:
+	nop                                	iaddi vi04,vi01,0
+	nop                                	iaddiu vi02,vi01,5
+	nop                                	lqi.xyzw vf23xyzw,(vi04++)
+	nop                                	lqi.xyzw vf24xyzw,(vi04++)
+	nop                                	lqi.xyzw vf25xyzw,(vi04++)
+	nop                                	lqi.xyzw vf26xyzw,(vi04++)
+	nop                                	ilwr.x vi05,(vi04)x
+	nop                                	ilwr.w vi10,(vi04)w
+	nop                                	ilwr.w vi04,(vi02)w
+	nop                                	iaddiu vi07,vi00,1
+	nop                                	iand vi07,vi05,vi07
+	nop                                	nop
+	nop                                	ibgtz vi07,CMESH_DO_ALL
+	nop                                	nop
+CMESH_ONE_WT_OR_FIRST:
+	nop                                	iaddiu vi03,vi00,VU1_VTX_A
+	nop                                	isw.x vi03,VU1_CMESH_SAVE(vi00)x
+	nop                                	iadd vi06,vi03,vi04
+	nop                                	iadd vi09,vi00,vi10
+	nop                                	lq.xyzw vf19xyzw,0(vi02)
+	nop                                	lq.xyzw vf20xyzw,1(vi02)
+	nop                                	nop
+	nop                                	nop
+CMESH_ONE_WT_OR_FIRST_LOOP:
+	itof15[i].xyz vf19xyz,vf19xyz      	loi 0x41200000
+	itof15.xyzw vf20xyzw,vf20xyzw      	nop
+	nop                                	nop
+	nop                                	nop
+	muli.xyz vf19xyz,vf19xyz,i         	nop
+	nop                                	nop
+	nop                                	nop
+	mulw.xyz vf19xyz,vf19xyz,vf20w     	nop
+	mulw.xyz vf20xyz,vf20xyz,vf20w     	nop
+	nop                                	nop
+	nop                                	nop
+	mulax.xyz accxyz,vf23xyz,vf19x     	nop
+	madday.xyz accxyz,vf24xyz,vf19y    	iaddiu vi02,vi02,2
+	maddaz.xyz accxyz,vf25xyz,vf19z    	nop
+	maddw.xyz vf27xyz,vf26xyz,vf20w    	ilwr.w vi04,(vi02)w
+	mulax.xyz accxyz,vf23xyz,vf20x     	isubiu vi10,vi10,1
+	madday.xyz accxyz,vf24xyz,vf20y    	nop
+	maddz.xyz vf28xyz,vf25xyz,vf20z    	nop
+	nop                                	sq.xyz vf27xyz,0(vi06)
+	nop                                	lq.xyzw vf19xyzw,0(vi02)
+	nop                                	lq.xyzw vf20xyzw,1(vi02)
+	nop                                	sq.xyz vf28xyz,1(vi06)
+	nop                                	ibne vi10,vi00,CMESH_ONE_WT_OR_FIRST_LOOP
+	nop                                	iadd vi06,vi03,vi04
+	nop                                	b ALL_DONE_CHECK
+	nop                                	nop
+CMESH_DO_ALL:
+	nop                                	ilw.x vi03,VU1_CMESH_SAVE(vi00)x
+	nop                                	nop
+	nop                                	lq.xyzw vf19xyzw,0(vi02)
+	nop                                	lq.xyzw vf20xyzw,1(vi02)
+	nop                                	iadd vi06,vi03,vi04
+	nop                                	nop
+	nop                                	lq.xyzw vf29xyzw,0(vi06)
+	nop                                	lq.xyzw vf30xyzw,1(vi06)
+CMESH_DO_ALL_LOOP:
+	itof15[i].xyz vf19xyz,vf19xyz      	loi 0x41200000
+	itof15.xyzw vf20xyzw,vf20xyzw      	nop
+	nop                                	nop
+	nop                                	nop
+	muli.xyz vf19xyz,vf19xyz,i         	nop
+	nop                                	nop
+	nop                                	nop
+	mulaw.xyz accxyz,vf29xyz,vf00w     	nop
+	mulw.xyz vf19xyz,vf19xyz,vf20w     	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	nop
+	maddax.xyz accxyz,vf23xyz,vf19x    	nop
+	madday.xyz accxyz,vf24xyz,vf19y    	iaddiu vi02,vi02,2
+	maddaz.xyz accxyz,vf25xyz,vf19z    	nop
+	maddw.xyz vf27xyz,vf26xyz,vf20w    	ilwr.w vi04,(vi02)w
+	mulaw.xyz accxyz,vf30xyz,vf00w     	nop
+	mulw.xyz vf20xyz,vf20xyz,vf20w     	nop
+	nop                                	nop
+	nop                                	iadd vi12,vi03,vi04
+	nop                                	nop
+	maddax.xyz accxyz,vf23xyz,vf20x    	isubiu vi10,vi10,1
+	madday.xyz accxyz,vf24xyz,vf20y    	sq.xyz vf27xyz,0(vi06)
+	maddz.xyz vf28xyz,vf25xyz,vf20z    	lq.xyzw vf19xyzw,0(vi02)
+	nop                                	lq.xyzw vf29xyzw,0(vi12)
+	nop                                	lq.xyzw vf20xyzw,1(vi02)
+	nop                                	lq.xyzw vf30xyzw,1(vi12)
+	nop                                	sq.xyz vf28xyz,1(vi06)
+	nop                                	ibne vi10,vi00,CMESH_DO_ALL_LOOP
+	nop                                	iadd vi06,vi03,vi04
+ALL_DONE_CHECK:
+	nop[e]                             	nop	; E bit: stop after the next pair
+	nop                                	nop
+	nop                                	xtop vi01
+	nop                                	iaddiu vi07,vi00,4
+	nop                                	iand vi07,vi05,vi07
+	nop                                	nop
+	nop                                	ibeq vi07,vi00,vuCMesh
+	nop                                	nop
+REARRANGE_CMESH:
+	nop                                	ilw.x vi02,VU1_CMESH_SAVE(vi00)x
+	nop                                	iaddiu vi03,vi01,4
+	nop                                	lq.xyzw vf28xyzw,VU1_COLOR128(vi00)
+CMESH_Y:
+	nop                                	lq.xyzw vf27xyzw,1(vi03)
+	nop                                	lq.xyzw vf30xyzw,1(vi02)
+	nop                                	lq.xyzw vf29xyzw,0(vi02)
+	nop                                	iaddiu vi02,vi02,2
+	mulz.w vf30w,vf00w,vf30z           	isubiu vi09,vi09,1
+	addy.z vf30z,vf00z,vf30y           	nop
+	itof12.xy vf27xy,vf27xy            	nop
+	nop                                	nop
+	nop                                	nop
+	nop                                	mr32.w vf29w,vf30w
+	nop                                	sq.xy vf27xy,1(vi03)
+	nop                                	sq.zw vf30zw,1(vi03)
+	nop                                	sq.xyzw vf28xyzw,2(vi03)
+	nop                                	sq.xyzw vf29xyzw,0(vi03)
+	nop                                	ibne vi09,vi00,CMESH_Y
+	nop                                	iaddiu vi03,vi03,3
+	nop                                	b vuProcessNextCommand
+	nop                                	nop
+
+; Clip a line against the Z-, X-, X+, Y-, Y+ planes (VU1_OBJ_PARAMS.x mask).
+VU1_LINE_CLIPPER:
+	nop                                	ilw.x vi04,VU1_OBJ_PARAMS(vi00)x
+ZMINUSLINE:
+	nop                                	iaddiu vi08,vi00,0x20
+	nop                                	iand vi08,vi04,vi08
+	nop                                	ibeq vi08,vi00,XMINUSLINE
+	nop                                	lq.xyzw vf28xyzw,VU1_CAM_VECS+1(vi00)
+	nop                                	lq.xyzw vf30xyzw,VU1_CAM_VECS+2(vi00)
+	nop                                	bal vi02,CLIP_LINE_CHECK
+	nop                                	nop
+	nop                                	ibeq vi11,vi00,END_ALL_LINE
+	nop                                	nop
+XMINUSLINE:
+	nop                                	iaddiu vi08,vi00,2
+	nop                                	iand vi08,vi04,vi08
+	nop                                	ibeq vi08,vi00,XPLUSLINE
+	nop                                	lq.xyzw vf28xyzw,VU1_CAM_VECS(vi00)
+	nop                                	lq.xyzw vf30xyzw,VU1_CAM_VECS+3(vi00)
+	nop                                	bal vi02,CLIP_LINE_CHECK
+	nop                                	nop
+	nop                                	ibeq vi11,vi00,END_ALL_LINE
+	nop                                	nop
+XPLUSLINE:
+	nop                                	iaddiu vi08,vi00,1
+	nop                                	iand vi08,vi04,vi08
+	nop                                	ibeq vi08,vi00,YMINUSLINE
+	nop                                	lq.xyzw vf28xyzw,VU1_CAM_VECS(vi00)
+	nop                                	lq.xyzw vf30xyzw,VU1_CAM_VECS+4(vi00)
+	nop                                	bal vi02,CLIP_LINE_CHECK
+	nop                                	nop
+	nop                                	ibeq vi11,vi00,END_ALL_LINE
+YMINUSLINE:
+	nop                                	iaddiu vi08,vi00,8
+	nop                                	iand vi08,vi04,vi08
+	nop                                	ibeq vi08,vi00,YPLUSLINE
+	nop                                	lq.xyzw vf28xyzw,VU1_CAM_VECS(vi00)
+	nop                                	lq.xyzw vf30xyzw,VU1_CAM_VECS+5(vi00)
+	nop                                	bal vi02,CLIP_LINE_CHECK
+	nop                                	nop
+	nop                                	ibeq vi11,vi00,END_ALL_LINE
+	nop                                	nop
+YPLUSLINE:
+	nop                                	iaddiu vi08,vi00,4
+	nop                                	iand vi08,vi04,vi08
+	nop                                	ibeq vi08,vi00,END_ALL_LINE
+	nop                                	lq.xyzw vf28xyzw,VU1_CAM_VECS(vi00)
+	nop                                	lq.xyzw vf30xyzw,VU1_CAM_VECS+6(vi00)
+	nop                                	bal vi02,CLIP_LINE_CHECK
+	nop                                	nop
+	nop                                	ibeq vi11,vi00,END_ALL_LINE
+	nop                                	nop
+END_ALL_LINE:
+	nop                                	jr vi15
+	nop                                	nop
+
+; Clip a triangle against the Z-, X-, X+, Y-, Y+ planes (VU1_OBJ_PARAMS.x mask).
+VU1_TRI_CLIPPER:
+	mulax.xyzw accxyzw,vf13xyzw,vf17x  	ilw.x vi04,VU1_OBJ_PARAMS(vi00)x
+	madday.xyzw accxyzw,vf14xyzw,vf17y 	iaddiu vi05,vi00,VU1_VTX_A
+	maddaz.xyzw accxyzw,vf15xyzw,vf17z 	iadd vi08,vi00,vi05
+	maddw.xyzw vf23xyzw,vf16xyzw,vf00w 	iaddiu vi06,vi00,0x4c
+CLIP_TRI:
+	mulax.xyzw accxyzw,vf13xyzw,vf26x  	sq.xyzw vf17xyzw,0(vi08)
+	madday.xyzw accxyzw,vf14xyzw,vf26y 	sq.xyzw vf18xyzw,1(vi08)
+	maddaz.xyzw accxyzw,vf15xyzw,vf26z 	sq.xyzw vf19xyzw,2(vi08)
+	maddw.xyzw vf24xyzw,vf16xyzw,vf00w 	sq.xyzw vf26xyzw,3(vi08)
+	mulax.xyzw accxyzw,vf13xyzw,vf29x  	sq.xyzw vf27xyzw,4(vi08)
+	madday.xyzw accxyzw,vf14xyzw,vf29y 	sq.xyzw vf28xyzw,5(vi08)
+	maddaz.xyzw accxyzw,vf15xyzw,vf29z 	sq.xyzw vf29xyzw,6(vi08)
+	maddw.xyzw vf25xyzw,vf16xyzw,vf00w 	sq.xyzw vf30xyzw,7(vi08)
+	clipw.xyz vf23xyz,vf23w            	sq.xyzw vf31xyzw,8(vi08)
+	clipw.xyz vf24xyz,vf24w            	sq.xyzw vf17xyzw,9(vi08)
+	nop                                	sq.xyzw vf18xyzw,10(vi08)
+	clipw.xyz vf25xyz,vf25w            	sq.xyzw vf19xyzw,11(vi08)
+TRI_ZMINUS:
+	nop                                	iaddiu vi08,vi00,0x20
+	nop                                	iand vi08,vi04,vi08
+	nop                                	ibeq vi08,vi00,TRI_XMINUS
+	nop                                	lq.xyzw vf28xyzw,VU1_CAM_VECS+1(vi00)
+	nop                                	lq.xyzw vf30xyzw,VU1_CAM_VECS+2(vi00)
+	nop                                	iadd vi08,vi00,vi05
+	nop                                	iadd vi09,vi00,vi06
+	nop                                	iaddiu vi10,vi00,3
+	nop                                	iaddiu vi11,vi00,0
+	nop                                	lqi.xyzw vf21xyzw,(vi08++)
+	nop                                	lqi.xyzw vf22xyzw,(vi08++)
+	nop                                	lqi.xyzw vf23xyzw,(vi08++)
+TRI_LOOP_ZM:
+	nop                                	bal vi02,CLIP_PLANE_CHECK
+	nop                                	nop
+	nop                                	isubiu vi10,vi10,1
+	nop                                	nop
+	nop                                	ibne vi10,vi00,TRI_LOOP_ZM
+	nop                                	nop
+	nop                                	iadd vi08,vi00,vi06
+	nop                                	bal vi02,SAVE_LAST_VERTEX
+	nop                                	ibeq vi11,vi00,TRI_END_ALL
+	nop                                	iadd vi08,vi00,vi06
+	nop                                	iadd vi06,vi00,vi05
+	nop                                	iadd vi05,vi00,vi08
+TRI_XMINUS:
+	nop                                	iaddiu vi08,vi00,2
+	nop                                	iand vi08,vi04,vi08
+	nop                                	ibeq vi08,vi00,TRI_XPLUS
+	nop                                	lq.xyzw vf28xyzw,VU1_CAM_VECS(vi00)
+	nop                                	lq.xyzw vf30xyzw,VU1_CAM_VECS+3(vi00)
+	nop                                	iadd vi08,vi00,vi05
+	nop                                	iadd vi09,vi00,vi06
+	nop                                	iadd vi10,vi00,vi11
+	nop                                	iaddiu vi11,vi00,0
+	nop                                	lqi.xyzw vf21xyzw,(vi08++)
+	nop                                	lqi.xyzw vf22xyzw,(vi08++)
+	nop                                	lqi.xyzw vf23xyzw,(vi08++)
+TRI_LOOP_XM:
+	nop                                	bal vi02,CLIP_PLANE_CHECK
+	nop                                	nop
+	nop                                	isubiu vi10,vi10,1
+	nop                                	nop
+	nop                                	ibne vi10,vi00,TRI_LOOP_XM
+	nop                                	nop
+	nop                                	iadd vi08,vi00,vi06
+	nop                                	bal vi02,SAVE_LAST_VERTEX
+	nop                                	ibeq vi11,vi00,TRI_END_ALL
+	nop                                	iadd vi08,vi00,vi06
+	nop                                	iadd vi06,vi00,vi05
+	nop                                	iadd vi05,vi00,vi08
+TRI_XPLUS:
+	nop                                	iaddiu vi08,vi00,1
+	nop                                	iand vi08,vi04,vi08
+	nop                                	ibeq vi08,vi00,TRI_YMINUS
+	nop                                	lq.xyzw vf28xyzw,VU1_CAM_VECS(vi00)
+	nop                                	lq.xyzw vf30xyzw,VU1_CAM_VECS+4(vi00)
+	nop                                	iadd vi08,vi00,vi05
+	nop                                	iadd vi09,vi00,vi06
+	nop                                	iadd vi10,vi00,vi11
+	nop                                	iaddiu vi11,vi00,0
+	nop                                	lqi.xyzw vf21xyzw,(vi08++)
+	nop                                	lqi.xyzw vf22xyzw,(vi08++)
+	nop                                	lqi.xyzw vf23xyzw,(vi08++)
+TRI_LOOP_XP:
+	nop                                	bal vi02,CLIP_PLANE_CHECK
+	nop                                	nop
+	nop                                	isubiu vi10,vi10,1
+	nop                                	nop
+	nop                                	ibne vi10,vi00,TRI_LOOP_XP
+	nop                                	nop
+	nop                                	iadd vi08,vi00,vi06
+	nop                                	bal vi02,SAVE_LAST_VERTEX
+	nop                                	nop
+	nop                                	ibeq vi11,vi00,TRI_END_ALL
+	nop                                	iadd vi08,vi00,vi06
+	nop                                	iadd vi06,vi00,vi05
+	nop                                	iadd vi05,vi00,vi08
+TRI_YMINUS:
+	nop                                	iaddiu vi08,vi00,8
+	nop                                	iand vi08,vi04,vi08
+	nop                                	ibeq vi08,vi00,TRI_YPLUS
+	nop                                	lq.xyzw vf28xyzw,VU1_CAM_VECS(vi00)
+	nop                                	lq.xyzw vf30xyzw,VU1_CAM_VECS+5(vi00)
+	nop                                	iadd vi08,vi00,vi05
+	nop                                	iadd vi09,vi00,vi06
+	nop                                	iadd vi10,vi00,vi11
+	nop                                	iaddiu vi11,vi00,0
+	nop                                	lqi.xyzw vf21xyzw,(vi08++)
+	nop                                	lqi.xyzw vf22xyzw,(vi08++)
+	nop                                	lqi.xyzw vf23xyzw,(vi08++)
+TRI_LOOP_YM:
+	nop                                	bal vi02,CLIP_PLANE_CHECK
+	nop                                	nop
+	nop                                	isubiu vi10,vi10,1
+	nop                                	nop
+	nop                                	ibne vi10,vi00,TRI_LOOP_YM
+	nop                                	nop
+	nop                                	iadd vi08,vi00,vi06
+	nop                                	bal vi02,SAVE_LAST_VERTEX
+	nop                                	nop
+	nop                                	ibeq vi11,vi00,TRI_END_ALL
+	nop                                	iadd vi08,vi00,vi06
+	nop                                	iadd vi06,vi00,vi05
+	nop                                	iadd vi05,vi00,vi08
+TRI_YPLUS:
+	nop                                	iaddiu vi08,vi00,4
+	nop                                	iand vi08,vi04,vi08
+	nop                                	ibeq vi08,vi00,TRI_FINISHED
+	nop                                	lq.xyzw vf28xyzw,VU1_CAM_VECS(vi00)
+	nop                                	lq.xyzw vf30xyzw,VU1_CAM_VECS+6(vi00)
+	nop                                	iadd vi08,vi00,vi05
+	nop                                	iadd vi09,vi00,vi06
+	nop                                	iadd vi10,vi00,vi11
+	nop                                	iaddiu vi11,vi00,0
+	nop                                	lqi.xyzw vf21xyzw,(vi08++)
+	nop                                	lqi.xyzw vf22xyzw,(vi08++)
+	nop                                	lqi.xyzw vf23xyzw,(vi08++)
+TRI_LOOP_YP:
+	nop                                	bal vi02,CLIP_PLANE_CHECK
+	nop                                	nop
+	nop                                	isubiu vi10,vi10,1
+	nop                                	nop
+	nop                                	ibne vi10,vi00,TRI_LOOP_YP
+	nop                                	nop
+	nop                                	iadd vi08,vi00,vi06
+	nop                                	bal vi02,SAVE_LAST_VERTEX
+	nop                                	nop
+	nop                                	ibeq vi11,vi00,TRI_END_ALL
+	nop                                	iadd vi08,vi00,vi06
+	nop                                	iadd vi06,vi00,vi05
+	nop                                	iadd vi05,vi00,vi08
+TRI_FINISHED:
+	nop                                	iaddi vi08,vi05,0
+	nop                                	iadd vi10,vi00,vi11
+TRI_END_ALL:
+	nop                                	jr vi15
+	nop                                	nop
+SAVE_LAST_VERTEX:
+	nop                                	lq.xyzw vf21xyzw,0(vi08)
+	nop                                	lq.xyzw vf22xyzw,1(vi08)
+	nop                                	lq.xyzw vf23xyzw,2(vi08)
+	nop                                	sqi.xyzw vf21xyzw,(vi09++)
+	nop                                	sqi.xyzw vf22xyzw,(vi09++)
+	nop                                	sqi.xyzw vf23xyzw,(vi09++)
+	nop                                	jr vi02
+	nop                                	nop
+CLIP_PLANE_CHECK:
+	addx.xyzw vf17xyzw,vf21xyzw,vf00x  	lqi.xyzw vf21xyzw,(vi08++)
+	addx.xyzw vf18xyzw,vf22xyzw,vf00x  	lqi.xyzw vf22xyzw,(vi08++)
+	addx.xyzw vf19xyzw,vf23xyzw,vf00x  	lqi.xyzw vf23xyzw,(vi08++)
+	sub.xyzw vf25xyzw,vf21xyzw,vf28xyzw	nop
+	sub.xyzw vf26xyzw,vf17xyzw,vf28xyzw	nop
+	nop                                	nop
+	nop                                	nop
+	mul.xyz vf25xyz,vf25xyz,vf30xyz    	nop
+	mul.xyz vf26xyz,vf26xyz,vf30xyz    	nop
+	nop                                	nop
+	nop                                	nop
+	mulax.w accw,vf00w,vf25x           	nop
+	madday.w accw,vf00w,vf25y          	iaddiu vi07,vi00,0x20
+	maddz.w vf25w,vf00w,vf25z          	nop
+	addw.z vf25z,vf00z,vf25w           	nop
+	mulax.w accw,vf00w,vf26x           	nop
+	madday.w accw,vf00w,vf26y          	nop
+	maddz.w vf26w,vf00w,vf26z          	nop
+	nop                                	fmand vi07,vi07
+	nop                                	iaddiu vi13,vi00,0x10
+	nop                                	nop
+	subz.w vf25w,vf26w,vf25z           	fmand vi13,vi13
+	nop                                	ior vi13,vi13,vi07
+	nop                                	iaddiu vi07,vi00,0x30
+	nop                                	ibeq vi13,vi00,CI_NEXT_IN
+	nop                                	div q,vf26w,vf25w
+	nop                                	ibeq vi13,vi07,CLIP_PLANE_END
+	nop                                	nop
+	nop                                	nop
+	sub.xyzw vf25xyzw,vf21xyzw,vf17xyzw	nop
+	sub.xyzw vf26xyzw,vf22xyzw,vf18xyzw	nop
+	sub.xyzw vf27xyzw,vf23xyzw,vf19xyzw	nop
+	nop                                	nop
+	mulq.xyzw vf25xyzw,vf25xyzw,q      	nop
+	mulq.xyzw vf26xyzw,vf26xyzw,q      	nop
+	mulq.xyzw vf27xyzw,vf27xyzw,q      	nop
+	nop                                	nop
+	add.xyzw vf25xyzw,vf25xyzw,vf17xyzw	nop
+	add.xyzw vf26xyzw,vf26xyzw,vf18xyzw	iaddiu vi07,vi00,0x10
+	add.xyzw vf27xyzw,vf27xyzw,vf19xyzw	nop
+	nop                                	ibeq vi13,vi07,CO_NEXT_IN
+	nop                                	nop
+	nop                                	b CI_NEXT_OUT
+	nop                                	nop
+CO_NEXT_IN:
+	nop                                	sqi.xyzw vf25xyzw,(vi09++)
+	nop                                	sqi.xyzw vf26xyzw,(vi09++)
+	nop                                	sqi.xyzw vf27xyzw,(vi09++)
+	nop                                	iaddiu vi11,vi11,1
+	nop                                	b CLIP_PLANE_END
+	nop                                	nop
+CI_NEXT_OUT:
+	nop                                	sqi.xyzw vf17xyzw,(vi09++)
+	nop                                	sqi.xyzw vf18xyzw,(vi09++)
+	nop                                	sqi.xyzw vf19xyzw,(vi09++)
+	nop                                	sqi.xyzw vf25xyzw,(vi09++)
+	nop                                	sqi.xyzw vf26xyzw,(vi09++)
+	nop                                	sqi.xyzw vf27xyzw,(vi09++)
+	nop                                	iaddiu vi11,vi11,2
+	nop                                	b CLIP_PLANE_END
+	nop                                	nop
+CI_NEXT_IN:
+	nop                                	sqi.xyzw vf17xyzw,(vi09++)
+	nop                                	sqi.xyzw vf18xyzw,(vi09++)
+	nop                                	sqi.xyzw vf19xyzw,(vi09++)
+	nop                                	iaddiu vi11,vi11,1
+CLIP_PLANE_END:
+	nop                                	jr vi02
+	nop                                	nop
+	.EndMPG
+	.EndDmaData
+
+; ---- vu1_DataSegment1: initial VU1 data memory and the double-buffer setup ----
+	.global	vu1_DataSegment1
+vu1_DataSegment1:
+	DMAend *
+	BASE VU1_BUF0
+	OFFSET VU1_BUF_SIZE
+	STCYCL 1, 1
+	UNPACK V4_32, VU1_ADD_COLOR, *
+	.float	0.0, 0.0, 0.0, 1.0		; add colour 0, opacity 1
+	.EndUnpack
+	STCYCL 1, 1
+	UNPACK V4_32, VU1_SCALE_COLOR, *
+	.float	0.0, 1.0, 0.0, 1.0
+	.EndUnpack
+	STCYCL 1, 1
+	UNPACK V4_32, VU1_MVP, *
+	.int	0, 0, 0, 1			; rewritten by every matrix setup
+	.EndUnpack
+	STCYCL 1, 1
+	UNPACK V4_32, VU1_KICK_STATE, *
+	.int	VU1_KICK_A, VU1_KICK_B, 0, 0
+	.EndUnpack
+	STCYCL 1, 1
+	UNPACK V4_32, VU1_MP_STATE, *
+	.int	VU1_MP_LIST, 0, 0, 1
+	.EndUnpack
+	STCYCL 1, 1
+	UNPACK V4_32, VU1_COLOR128, *
+	.float	128.0, 128.0, 128.0, 128.0
+	.EndUnpack
+	STCYCL 1, 1
+	UNPACK V4_32, VU1_GIF_EOP, *
+	.int	0x00008000, 0x10000000, 0x0000000e, 0	; NLOOP 0, EOP, NREG 1, REGS A+D
+	.EndUnpack
+	.EndDmaData

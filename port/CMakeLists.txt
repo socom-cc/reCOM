@@ -5,7 +5,7 @@
 #   cmake --build <build> -- -k        # keep going to collect every failure
 #
 # Targets:
-#   socom_game  - every src/ unit, including the *_holding.cpp files
+#   socom_game  - every src/ unit, including the *_holding.cpp files and the .vsm microcode
 #   socom_port  - the ELF: socom_game + port/compat + ps2sdk
 # Nothing built here is evidence for the matching lane.
 cmake_minimum_required(VERSION 3.13)
@@ -36,7 +36,32 @@ set(SOCOM_PORT_FLAGS
   -fno-builtin-free
   -include "${CMAKE_CURRENT_SOURCE_DIR}/include/socom_port_prefix.h")
 
-add_library(socom_game STATIC ${SOCOM_GAME_SOURCES})
+# VU microcode (src/**/*.vsm, e.g. zRender/zrndr_vu1.vsm): assembled with the ps2dev dvp-as and
+# archived with the game units, so the ELF gets vu0_CodeSegment, vu1_CodeSegment1 and
+# vu1_DataSegment1 (section .vutext; the DVP overlay tables are not loaded).
+file(GLOB_RECURSE SOCOM_VSM_SOURCES CONFIGURE_DEPENDS "${SOCOM_ROOT}/src/*.vsm")
+set(SOCOM_VSM_OBJECTS "")
+if(SOCOM_VSM_SOURCES)
+  find_program(SOCOM_DVP_AS dvp-as HINTS "$ENV{PS2DEV}/dvp/bin")
+  if(NOT SOCOM_DVP_AS)
+    message(FATAL_ERROR "socom port: dvp-as not found (ps2dev dvp binutils, $PS2DEV/dvp/bin)")
+  endif()
+  foreach(_vsm ${SOCOM_VSM_SOURCES})
+    file(RELATIVE_PATH _rel "${SOCOM_ROOT}/src" "${_vsm}")
+    set(_obj "${CMAKE_CURRENT_BINARY_DIR}/vsm/${_rel}.o")
+    get_filename_component(_dir "${_obj}" DIRECTORY)
+    add_custom_command(OUTPUT "${_obj}"
+      COMMAND "${CMAKE_COMMAND}" -E make_directory "${_dir}"
+      COMMAND "${SOCOM_DVP_AS}" -o "${_obj}" "${_vsm}"
+      DEPENDS "${_vsm}"
+      COMMENT "dvp-as ${_rel}"
+      VERBATIM)
+    list(APPEND SOCOM_VSM_OBJECTS "${_obj}")
+  endforeach()
+  set_source_files_properties(${SOCOM_VSM_OBJECTS} PROPERTIES EXTERNAL_OBJECT TRUE GENERATED TRUE)
+endif()
+
+add_library(socom_game STATIC ${SOCOM_GAME_SOURCES} ${SOCOM_VSM_OBJECTS})
 target_compile_definitions(socom_game PRIVATE SOCOM_PORT _EE SOCOM_PORT_TRACE_ON)
 target_include_directories(socom_game PRIVATE
   "${SOCOM_ROOT}/src"
