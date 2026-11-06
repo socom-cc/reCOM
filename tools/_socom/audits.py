@@ -236,6 +236,9 @@ def workflow_contracts(root: Path, commands: list[dict[str, Any]]) -> dict[str, 
         "order skeleton apply-check": False,
         "progress handoff-order-skeleton": True,
         "progress accept-order-skeleton": True,
+        # After a stage 4 amendment: reopen (tracker; the merge-ancestor blobs are build/ products) and rebase (tracker, frozen base).
+        "progress reopen-order-skeleton": True,
+        "progress rebase-function-order": True,
         "progress amend-source-plan": True,
         "progress accept-source-amendment": True,
     }

@@ -1530,7 +1530,9 @@ So the baseline digest still holds. An orphan the item deleted counts as a
 retired file in `source plan validate`'s applied state. `progress
 apply-source-plan` and `source annotate --write` refuse a file that a
 skeleton item in review or accepted wrote, until that item is reopened
-([Skeleton route](FUNCTION_ORDER.md#skeleton-route)).
+([Skeleton route](FUNCTION_ORDER.md#skeleton-route)); a re-apply for an
+amendment rewrites only the files of skeleton items reopened for that
+amendment (below).
 
 ### Amending an accepted plan
 
@@ -1575,6 +1577,17 @@ locked mutation it then:
 The stage stays `accepted`. Accepted stage 4 items that wait for an amended
 item (the gate, the other applies, the data reconciles) keep their
 acceptance. The plan file is not touched.
+
+**Stage 5 items built on the plan.** Once stage 5 has written skeletons,
+open the amendment's stage 5 side before the re-apply:
+`progress reopen-order-skeleton --amendment socom:source-amendment:NNN`
+sends back the order plans and skeleton items built on the amended plan and
+stores their merge ancestors. `progress apply-source-plan` rewrites a
+skeleton-written file only when its item was reopened for this amendment.
+After the acceptance, `progress rebase-function-order` moves stage 5 onto the
+new baseline, and the reopened skeleton items are re-applied as merges that
+keep later `src/` edits
+([After a stage 4 amendment](FUNCTION_ORDER.md#after-a-stage-4-amendment)).
 
 **Revision and re-apply.** The planner revises the plan, validates it and
 hands it off with `progress work handoff`, citing the new SHA-256. An

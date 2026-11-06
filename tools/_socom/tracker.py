@@ -1246,9 +1246,11 @@ def audit_tracker(
         errors.append(f"{RECON_STAGE} items cite a different function graph")
     errors.extend(_audit_source_correlation(items, stage_rows))
     errors.extend(audit_function_order(tracker))
+    from .order_reopen import audit_reopenings
     from .order_skeleton_route import audit_skeleton_records
 
     errors.extend(audit_skeleton_records(tracker))
+    errors.extend(audit_reopenings(tracker))
     from .source_gate import audit_source_gate
 
     errors.extend(audit_source_gate(tracker))
@@ -1437,12 +1439,18 @@ def require_revision(tracker: dict[str, Any], expected_revision: int) -> None:
 
 
 def _refresh_ready_and_stages(tracker: dict[str, Any]) -> None:
+    from .order_reopen import held_items
+
     items = _work_by_id(tracker)
+    # A stage 5 item an open reopening sent back waits for the rebase that absorbs its stage 4 amendment.
+    held = held_items(tracker)
     for item in tracker["work_items"]:
         if item["status"] != "blocked":
             continue
         if item.get("kind") in ("stage-seed", CAPABILITY_GATE_KIND):
             # A seed waits for its producer, a capability gate for its route.
+            continue
+        if item["id"] in held:
             continue
         if all(items[dep]["status"] == "accepted" for dep in item["dependencies"]):
             item["status"] = "ready"

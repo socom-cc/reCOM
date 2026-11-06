@@ -41,11 +41,17 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "orphan deletions; a segment apply: its unit files with their include regions): the first write freezes the "
             "base src/ under build/stage5/skeleton-route/base; every apply renders the whole tree from it (with every "
             "item's decisions), runs the static checks (determinism, S1-S5, S7) over the render, refuses stale inputs "
-            "(plan SHA-256s, stage 4 baseline, manifest, snapshot, base), a render that touches a file no skeleton item "
-            "reserves or another applied item's file, and own files changed outside the route, then writes its files and "
-            "records per-file before/after SHA-256s (LF-normalized), stage 4 block digests, the write and manifest "
-            "digests, flags by kind, the derived local-static order conflicts and the waiting rows; a re-apply replaces "
-            "the record (the review history keeps it); --dry-run writes nothing under src/ or the tracker.",
+            "(stage 5's stage 4 baseline, open amendments, plans neither current nor carried) and a render that touches a "
+            "file no skeleton item reserves (a re-applied prepare reserves the new headers and holding files its render "
+            "adds) or changes another applied item's recorded render; each own file is a three-way merge of its previous "
+            "render (blob store), the live src/ file and the new render, so later edits survive; a conflict writes nothing "
+            "and reports the hunks under build/stage5/skeleton-route/conflicts/ until --resolutions <dir> supplies each "
+            "resolved file; merged and resolved files keep the render's fence lines and stage 4 blocks. It records per file "
+            "the base, before (live), ancestor, rendered and after SHA-256s (LF-normalized), the merge kind and any "
+            "resolution, stage 4 block digests, the write and manifest digests, the amendments it re-applies for, flags by "
+            "kind, the derived local-static order conflicts and the waiting rows, and stores the merge inputs in the blob "
+            "store; a re-apply replaces the record (the review history keeps it); --dry-run writes nothing under src/ or "
+            "the tracker.",
             mutates=True,
         ),
         spec(
@@ -78,10 +84,39 @@ def specs(spec: Any) -> tuple[Any, ...]:
         spec(
             "order skeleton apply-check",
             "order",
-            "Read-only check of an applied stage 5 skeleton item: its inputs are not stale (plans, stage 4 baseline, "
-            "manifest, snapshot, frozen base, its decisions file), a fresh render from the base passes every static check "
-            "and reproduces the recorded write of each of its files, and src/ holds exactly the recorded after-content with "
-            "unchanged stage 4 blocks; the render goes under build/stage5/skeleton-route/check/.",
+            "Read-only check of an applied stage 5 skeleton item's own recorded write: its inputs are not stale (stage 5's "
+            "stage 4 baseline, no open amendment, plans current or carried, its decisions file), a fresh render from the "
+            "frozen base passes every static check and reproduces the recorded render of each of its files, a merged file "
+            "comes out of the recorded ancestor and live content again (blob store) and a resolved one is the stored "
+            "resolution with the render's fences and stage 4 blocks; files src/ changed since the write (later port-lane "
+            "edits) are reported as drift, not failure, and changed stage 4 blocks fail; inputs changed since the apply "
+            "are a note while the render still reproduces the write; the render goes under build/stage5/skeleton-route/check/.",
+        ),
+        spec(
+            "progress reopen-order-skeleton",
+            "progress",
+            "While a stage 4 amendment is open, send back the stage 5 items built on the amended stage 4 plans: the order "
+            "plan of each amended segment, the skeleton items whose recorded files the amended stage 4 applies recorded "
+            "(the prepare too when one of its files is among them), each apply's plan and each plan's apply, plus --item; "
+            "refuses leased or in-review items, a started compile item, an amendment that is not open and a stale revision. "
+            "Each item gets a review-history entry and stays blocked until a rebase absorbs the accepted amendment; the stage "
+            "row records the reopening. First renders the tree from the still-current inputs and stores every file that is a "
+            "skeleton record's render in the merge-ancestor blob store under build/; progress apply-source-plan then may "
+            "rewrite the reopened items' files for that amendment.",
+            mutates=True,
+        ),
+        spec(
+            "progress rebase-function-order",
+            "progress",
+            "Once the stage 4 amendments are accepted (no amendment open), move stage 5 onto the new stage 4 baseline those "
+            "amendments recorded: rebuild the order target, record the rebase (the absorbed amendments, previous digests, "
+            "changed segments, reopened and carried plans, the base delta) in the decomposition, cite the new digests on "
+            "every order item, re-derive each changed segment's units, target digest, directories and unit files, reopen "
+            "every accepted plan the new target no longer validates (and its apply) and the link plan when the link order "
+            "changed, mark the reopenings absorbed, and advance the frozen skeleton base (current stage 4 blocks over its "
+            "authored content, new stage 4 files as blocks; their edges must have the baseline's digest). Plans built on an "
+            "absorbed baseline whose segment target is unchanged stay accepted (carried).",
+            mutates=True,
         ),
     )
 
@@ -98,8 +133,31 @@ def register_progress(progress_commands: Any) -> None:
     apply.add_argument("--owner", required=True, help="the lease owner")
     apply.add_argument("--expected-revision", type=int, required=True)
     _inputs(apply)
+    apply.add_argument("--resolutions", help="a directory under build/ holding the resolved copy <dir>/<path> of each file "
+                                              "the last conflict report lists")
     apply.add_argument("--dry-run", action="store_true")
     apply.set_defaults(handler=_progress_apply)
+
+    reopen = progress_commands.add_parser("reopen-order-skeleton")
+    reopen.add_argument("--amendment", required=True, help="the open stage 4 amendment (socom:source-amendment:NNN)")
+    reopen.add_argument("--item", action="append", default=[], help="repeatable; a further stage 5 item built on it")
+    reopen.add_argument("--by", required=True, help="who reopens (not the handoff owner of a reopened item)")
+    reopen.add_argument("--reason", required=True)
+    reopen.add_argument("--evidence", action="append", required=True, help="repeatable; at least one")
+    reopen.add_argument("--expected-revision", type=int, required=True)
+    _inputs(reopen)
+    reopen.add_argument("--dry-run", action="store_true")
+    reopen.set_defaults(handler=_progress_reopen)
+
+    rebase = progress_commands.add_parser("rebase-function-order")
+    rebase.add_argument("--by", required=True)
+    rebase.add_argument("--reason", required=True)
+    rebase.add_argument("--evidence", action="append", required=True, help="repeatable; at least one")
+    rebase.add_argument("--expected-revision", type=int, required=True)
+    rebase.add_argument("--graph", default="build/source-graph/graph.json", help="stage 4's decomposition graph")
+    _inputs(rebase)
+    rebase.add_argument("--dry-run", action="store_true")
+    rebase.set_defaults(handler=_progress_rebase)
 
     handoff = progress_commands.add_parser("handoff-order-skeleton")
     handoff.add_argument("--item", required=True)
@@ -215,7 +273,7 @@ def _progress_add_prepare(arguments: argparse.Namespace) -> int:
 
 def _summary(record: dict[str, Any]) -> dict[str, Any]:
     keep = ("item", "write_sha256", "files_sha256", "changed", "check", "entries", "regions", "flags", "known_conflicts",
-            "waiting_by_kind", "decisions")
+            "waiting_by_kind", "decisions", "merges", "amendments", "reserved_added")
     shown = {key: record.get(key) for key in keep}
     shown["inputs"] = {key: value for key, value in record["inputs"].items() if key not in ("plans",)}
     shown["file_count"] = len(record["files"])
@@ -227,12 +285,13 @@ def _summary(record: dict[str, Any]) -> dict[str, Any]:
 def _progress_apply(arguments: argparse.Namespace) -> int:
     from .cli import _emit, _root
     from .constants import tracker_path
+    from .order_skeleton_merge import resolution_directory
     from .order_skeleton_route import commit_changes, prepare_skeleton_apply, record_skeleton, rollback_changes
     from .snapshot import write_snapshot
     from .tracker import _iso, _utc_now, load_tracker, mutate
 
     root = _root(arguments)
-    paths = _paths(root, arguments)
+    paths = {**_paths(root, arguments), "resolutions": resolution_directory(root, arguments.resolutions)}
     if arguments.dry_run:
         tracker = load_tracker(tracker_path(root))
         captured: dict[str, Any] = {}
@@ -352,3 +411,102 @@ def _order_skeleton_apply_check(arguments: argparse.Namespace) -> int:
         atomic_write_json(output, report)
     _emit({**report, "output": arguments.output})
     return 0 if report["ok"] else 1
+
+
+# -- after a stage 4 amendment: reopen, rebase ------------------------------------------------------
+
+
+def _capture(root: Any, tracker: dict[str, Any], paths: dict[str, Any]) -> dict[str, Any]:
+    from .order_reopen import capture_ancestors
+
+    return capture_ancestors(root, tracker, manifest_path=paths["manifest_path"], snapshot_path=paths["snapshot_path"])
+
+
+def _progress_reopen(arguments: argparse.Namespace) -> int:
+    from .cli import _emit, _root
+    from .constants import tracker_path
+    from .order_reopen import reopen_for_amendment
+    from .order_skeleton_merge import has_blob
+    from .snapshot import write_snapshot
+    from .tracker import load_tracker, mutate, require_revision
+
+    root = _root(arguments)
+    paths = _paths(root, arguments)
+    tracker = load_tracker(tracker_path(root))
+    require_revision(tracker, arguments.expected_revision)
+    # The merge ancestors, while the inputs still render the recorded writes (before anything is reopened).
+    capture = _capture(root, tracker, paths)
+    captured: dict[str, Any] = {}
+
+    def operation(current: dict[str, Any]) -> None:
+        captured["record"] = reopen_for_amendment(
+            current, arguments.amendment, arguments.item, arguments.by, arguments.reason, arguments.evidence,
+            lambda digest: has_blob(root, digest), captured=capture["captured"])
+
+    def shown(current: dict[str, Any]) -> dict[str, Any]:
+        record = captured["record"]
+        statuses = {item_id: _item(current, item_id)["status"] for item_id in record["items"]}
+        return {"reopening": record, "statuses": statuses, "capture": capture}
+
+    if arguments.dry_run:
+        preview, errors = _dry(tracker, arguments.expected_revision, operation)
+        _emit({"ok": not errors, "dry_run": True, "mutation_performed": False, "revision": tracker["revision"],
+               **shown(preview), "errors": errors})
+        return 0 if not errors else 1
+    updated = mutate(tracker_path(root), arguments.expected_revision, operation)
+    write_snapshot(root, updated)
+    _emit({"ok": True, "dry_run": False, "mutation_performed": True, "revision": updated["revision"], **shown(updated)})
+    return 0
+
+
+def _progress_rebase(arguments: argparse.Namespace) -> int:
+    from .cli import _build_path, _emit, _root
+    from .constants import tracker_path
+    from .order_plan import order_context
+    from .order_reopen import accepted_plan_files, advance_base, base_changes, rebase_function_order
+    from .order_skeleton_merge import has_blob
+    from .snapshot import write_snapshot
+    from .tracker import load_tracker, mutate, require_revision
+
+    root = _root(arguments)
+    paths = _paths(root, arguments)
+    graph = _build_path(root, arguments.graph, "source graphs")
+    tracker = load_tracker(tracker_path(root))
+    require_revision(tracker, arguments.expected_revision)
+    capture = _capture(root, tracker, paths)
+    state: dict[str, Any] = {}
+
+    def operation(current: dict[str, Any], *, write: bool) -> None:
+        target, derived = order_context(root, current, graph)
+        entry = rebase_function_order(
+            current, target, derived or {}, accepted_plan_files(root, current), by=arguments.by, reason=arguments.reason,
+            evidence=arguments.evidence, available=lambda digest: has_blob(root, digest))
+        if write:
+            summary, undo = advance_base(root, current, entry["amendments"])
+            state["undo"] = undo
+            entry["base"] = summary
+        else:
+            entry["base"] = {"files": sorted(base_changes(root, current, entry["amendments"]), key=str.casefold)}
+        state["entry"] = entry
+
+    def shown() -> dict[str, Any]:
+        entry = state["entry"]
+        return {"rebase": {key: entry.get(key) for key in (
+            "number", "amendments", "stage4_baseline_sha256", "order_sha256", "segments_changed", "reopened", "carried",
+            "reopenings", "base")}, "previous": entry.get("previous"), "capture": capture}
+
+    if arguments.dry_run:
+        _preview, errors = _dry(tracker, arguments.expected_revision, lambda current: operation(current, write=False))
+        _emit({"ok": not errors, "dry_run": True, "mutation_performed": False, "revision": tracker["revision"],
+               **shown(), "errors": errors})
+        return 0 if not errors else 1
+    try:
+        updated = mutate(tracker_path(root), arguments.expected_revision, lambda current: operation(current, write=True))
+    except BaseException:
+        # The tracker was not written: the frozen base goes back too.
+        if "undo" in state:
+            state["undo"]()
+        raise
+    write_snapshot(root, updated)
+    _emit({"ok": True, "dry_run": False, "mutation_performed": True, "revision": updated["revision"], **shown()})
+    return 0

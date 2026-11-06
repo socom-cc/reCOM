@@ -1520,11 +1520,14 @@
       "kind": "problem",
       "reported_at": "2026-11-06T00:54:06Z",
       "reported_by": "socom-parent",
-      "resolution": null,
-      "status": "open",
+      "resolution": {
+        "resolved_at": "2026-11-06T06:53:25Z",
+        "summary": "order skeleton apply-check now verifies an item's own recorded write (the fresh render reproduces the recorded render digest; a merged file is re-merged from the blob store) and reports files src/ changed since the write as drift (listed by path, never a failure; changed stage 4 blocks still fail). A skeleton re-apply is a three-way merge (previous render, live src/, new render) that keeps later edits. test_order_skeleton_route.py: the prepare re-apply test checks the rendered digests and that every merge keeps src/ (no write); the every-accepted-item test passes with drift equal to the files changed since the write. Full tools suite: 931 passed. Route documented in FUNCTION_ORDER.md 'After a stage 4 amendment'."
+      },
+      "status": "resolved",
       "summary": "Stage-5 skeleton route tests compare live src/ against the recorded write; the functional port lane edits src/ by design"
     }
   ],
-  "revision": 192,
+  "revision": 193,
   "schema_version": 1
 }

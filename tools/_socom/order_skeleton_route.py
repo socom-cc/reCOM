@@ -58,6 +58,7 @@ from .order_plan import (
     segment_item_id,
     stage4_baseline,
 )
+from .order_skeleton_merge import record_ancestor
 from .util import SocomError, atomic_write_json, canonical_json, load_json
 
 ROUTE_DIR = "build/stage5/skeleton-route"
@@ -376,8 +377,13 @@ def _record_lines(record: dict[str, Any]) -> list[str]:
     if record.get("decisions"):
         lines.append(f"order-skeleton-decisions {record['decisions']['path']} sha256:{record['decisions']['sha256']} "
                      f"count:{record['decisions']['count']}")
+    if record.get("amendments"):
+        lines.append(f"order-skeleton-reapply {' '.join(record['amendments'])}")
+    if record.get("merges"):
+        lines.append("order-skeleton-merges " + " ".join(f"{kind}:{count}" for kind, count in record["merges"].items()))
     for row in record["files"]:
-        lines.append(f"order-skeleton-file {row['path']} before:{row['before_sha256'] or '-'} after:{row['after_sha256'] or '-'}")
+        merge = f" merge:{row['merge']}" if row.get("merge") not in (None, "render", "kept", "same") else ""
+        lines.append(f"order-skeleton-file {row['path']} before:{row['before_sha256'] or '-'} after:{row['after_sha256'] or '-'}{merge}")
     return lines
 
 
@@ -414,30 +420,43 @@ def _skeleton_item(tracker: dict[str, Any], item_id: str) -> dict[str, Any]:
     return item
 
 
-def _stale_inputs(tracker: dict[str, Any], inputs: Any, base: Path | None, recorded: dict[str, Any] | None) -> list[str]:
-    """Problems with the inputs against the tracker and (if given) a record's inputs."""
+INPUT_KEYS = ("manifest_sha256", "snapshot_sha256", "src_sha256", "order_sha256", "plans", "link_plan",
+              "stage4_baseline_sha256", "base_tree_sha256")
+
+
+def _stale_inputs(tracker: dict[str, Any], inputs: Any, base: Path | None) -> list[str]:
+    """Problems with the inputs against the tracker: stage 5's baseline, open amendments, plans on another baseline.
+
+    A plan built on a stage 4 baseline a stage 5 rebase absorbed is current
+    (``order skeleton manifest`` checked its segment's target is unchanged).
+    """
+
+    from .order_plan import absorbed_baselines
 
     problems: list[str] = []
     decomposition = next((row.get("decomposition") or {} for row in tracker.get("stages") or [] if row.get("name") == ORDER_STAGE), {})
     current = stage4_baseline(tracker)
     if current is None or current != decomposition.get("stage4_baseline_sha256"):
-        problems.append(f"the stage 4 baseline {current} is not the one stage 5 was decomposed against "
-                        f"({decomposition.get('stage4_baseline_sha256')}): the order plans are stale")
+        problems.append(f"the stage 4 baseline {current} is not stage 5's ({decomposition.get('stage4_baseline_sha256')}): "
+                        "progress rebase-function-order absorbs the accepted stage 4 amendments first")
     from .tracker import open_source_amendments
 
     if opened := [row.get("id") for row in open_source_amendments(tracker)]:
         problems.append(f"stage 4 amendments are open ({', '.join(map(str, opened))}): their plans may change the files")
+    absorbed = absorbed_baselines(tracker)
     for row in inputs.plans:
-        if (row["plan"].get("inputs") or {}).get("stage4_baseline_sha256") != current:
+        planned = (row["plan"].get("inputs") or {}).get("stage4_baseline_sha256")
+        if planned != current and planned not in absorbed:
             problems.append(f"{row['path']} was planned against another stage 4 baseline")
             break
-    if recorded is not None:
-        now = {**_inputs_record(tracker, inputs, base)}
-        for key in ("manifest_sha256", "snapshot_sha256", "src_sha256", "order_sha256", "plans", "link_plan",
-                    "stage4_baseline_sha256", "base_tree_sha256"):
-            if now.get(key) != recorded.get(key):
-                problems.append(f"stale input {key}: the record has {str(recorded.get(key))[:16]}, now {str(now.get(key))[:16]}")
     return problems
+
+
+def _changed_inputs(tracker: dict[str, Any], inputs: Any, base: Path | None, recorded: dict[str, Any]) -> list[str]:
+    """The record's inputs that differ from the current ones (a carried record: its write must still render the same)."""
+
+    now = _inputs_record(tracker, inputs, base)
+    return [key for key in INPUT_KEYS if now.get(key) != recorded.get(key)]
 
 
 def _inputs_record(tracker: dict[str, Any], inputs: Any, base: Path | None) -> dict[str, Any]:
@@ -452,11 +471,16 @@ def _own_decisions(inputs: Any, item_id: str) -> dict[str, Any] | None:
 
 
 def prepare_skeleton_apply(root: Path, tracker: dict[str, Any], item_id: str, owner: str, *, manifest_path: Path,
-                           snapshot_path: Path, write: bool) -> tuple[dict[str, Any], dict[str, bytes | None]]:
+                           snapshot_path: Path, write: bool,
+                           resolutions: Path | None = None) -> tuple[dict[str, Any], dict[str, bytes | None]]:
     """The record of one skeleton apply and its file changes ({path: bytes, or None to delete}); refuses what it may not do.
 
     With ``write`` the first write of the route freezes the base (src/ as the
-    manifest was built on it); without it, nothing under src/ is touched.
+    manifest was built on it) and the merge inputs go into the blob store;
+    without it, nothing under src/ is touched.  Each file is merged
+    (``order_skeleton_merge``): the previous render, the live file and the new
+    render.  A conflict writes nothing and leaves a report under build/ unless
+    ``resolutions`` holds a resolved copy of every conflicting file.
     """
 
     item = _skeleton_item(tracker, item_id)
@@ -468,19 +492,10 @@ def prepare_skeleton_apply(root: Path, tracker: dict[str, Any], item_id: str, ow
             raise SocomError(f"{ORDER_SKELETON_PREPARE_ID} does not exist: run progress add-order-skeleton-prepare first")
         if prepare.get("status") != "accepted" or not isinstance(prepare.get("order_skeleton"), dict):
             raise SocomError(f"{ORDER_SKELETON_PREPARE_ID} is {prepare.get('status')}: a segment apply writes after the accepted prepare")
+        # The prepare's own write must still be what the current inputs render: the check of other applied items below.
     first = not started(tracker)
     inputs, base = route_inputs(root, tracker, manifest_path=manifest_path, snapshot_path=snapshot_path)
-    problems = _stale_inputs(tracker, inputs, base, None)
-    if item["kind"] == ORDER_APPLY_KIND:
-        prepare_inputs = by_id[ORDER_SKELETON_PREPARE_ID]["order_skeleton"]["inputs"]
-        now = _inputs_record(tracker, inputs, base)
-        problems.extend(
-            f"stale input {key}: {ORDER_SKELETON_PREPARE_ID} was applied with {str(prepare_inputs.get(key))[:16]}, now {str(now.get(key))[:16]} "
-            "(re-apply the prepare first)"
-            for key in ("manifest_sha256", "snapshot_sha256", "src_sha256", "order_sha256", "plans", "link_plan",
-                        "stage4_baseline_sha256", "base_tree_sha256")
-            if now.get(key) != prepare_inputs.get(key)
-        )
+    problems = _stale_inputs(tracker, inputs, base)
     if problems:
         raise SocomError("refused, stale inputs:\n- " + "\n- ".join(problems))
     target = root / RENDER_DIR
@@ -495,10 +510,21 @@ def prepare_skeleton_apply(root: Path, tracker: dict[str, Any], item_id: str, ow
         shown = headline(report)
         raise SocomError(f"the static checks fail over the render ({', '.join(report['failed'])}): "
                          + canonical_json({key: shown[key] for key in report["failed"]})[:2000])
+    from .order_reopen import item_amendments
+
     files = rendered["files"]
     owners = file_owners(tracker)
+    amendments = item_amendments(tracker, item_id)
+    grown: list[str] = []
     if orphaned := sorted(path for path in files if path not in owners):
-        raise SocomError(f"the render writes {len(orphaned)} files no skeleton item reserves: {_shown(orphaned)}")
+        units = {row["path"] for row in rendered["manifest"]["files"] if row["action"] == "unit"}
+        if item["kind"] == ORDER_PREPARE_KIND and isinstance(item.get("order_skeleton"), dict) and not (set(orphaned) & units):
+            # A re-applied prepare (after a stage 4 amendment, say) reserves the headers and holding files the new render adds.
+            grown = grow_prepare(tracker, item, orphaned)
+        else:
+            raise SocomError(f"the render writes {len(orphaned)} files no skeleton item reserves: {_shown(orphaned)}"
+                             + ("" if item["kind"] == ORDER_PREPARE_KIND else
+                                f" (reopen {ORDER_SKELETON_PREPARE_ID}: its re-apply for the amendment reserves new headers)"))
     # Another item's applied files must be what the current inputs give (else that item is reopened first).
     source = base if base is not None else root
     drifted = []
@@ -508,31 +534,11 @@ def prepare_skeleton_apply(root: Path, tracker: dict[str, Any], item_id: str, ow
             continue
         for row in record["files"]:
             wanted = files[row["path"]] if row["path"] in files else _read(source / row["path"])
-            if _sha(wanted) != row["after_sha256"]:
+            if _sha(wanted) != record_ancestor(row):
                 drifted.append(f"{row['path']} ({other['id']})")
     if drifted:
         raise SocomError(f"the current inputs change files of other applied skeleton items (reopen them): {_shown(drifted)}")
-    previous = item.get("order_skeleton") if isinstance(item.get("order_skeleton"), dict) else None
-    previous_after = {row["path"]: row["after_sha256"] for row in (previous or {}).get("files") or []}
-    changes: dict[str, bytes | None] = {}
-    rows = []
-    for path in sorted(item.get("resources") or [], key=str.casefold):
-        before = _read(source / path)
-        after = files[path] if path in files else before
-        current = _read(root / path)
-        if _sha(current) not in (_sha(before), previous_after.get(path, _sha(before))):
-            raise SocomError(f"{path} changed outside the skeleton route (it is neither its base nor this item's last write)")
-        if _sha(current) != _sha(after) or (current is None) != (after is None):
-            changes[path] = after
-        rows.append({
-            "path": path,
-            "action": _action(rendered, path),
-            "before_sha256": _sha(before),
-            "before_content_sha256": _content(before),
-            "stage4_blocks_sha256": blocks_sha256(before),
-            "after_sha256": _sha(after),
-            "after_stage4_blocks_sha256": blocks_sha256(after),
-        })
+    rows, changes, blobs = _merge_scope(root, tracker, item, rendered, source, resolutions)
     no_blocks = _digest([])
     for row in rows:
         kept = row["stage4_blocks_sha256"] if row["before_sha256"] is not None else no_blocks
@@ -558,14 +564,145 @@ def prepare_skeleton_apply(root: Path, tracker: dict[str, Any], item_id: str, ow
         "files": rows,
         "files_sha256": _digest(rows),
         "changed": sorted(changes, key=str.casefold),
+        "merges": dict(sorted(Counter(row["merge"] for row in rows).items())),
         "check": compact_check(report),
         **summary,
     }
+    if amendments:
+        record["amendments"] = amendments
+    if grown:
+        record["reserved_added"] = grown
+    if write:
+        from .order_skeleton_merge import put_blob
+
+        # The merge inputs and result of every file, so apply-check can re-run the merge and a later re-apply finds its ancestor.
+        for data in blobs:
+            put_blob(root, data)
     if write and first:
         freeze_base(root)
         if tree_sha256(base_root(root)) != record["inputs"]["base_tree_sha256"]:
             raise SocomError("the frozen base differs from src/ as it was rendered")
     return record, changes
+
+
+def _prior_rows(tracker: dict[str, Any], item: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """{path: the record row of its last skeleton write}: the item's own previous record first, then other items' records."""
+
+    found: dict[str, dict[str, Any]] = {}
+    for other in skeleton_items(tracker):
+        record = other.get("order_skeleton")
+        if other["id"] != item["id"] and isinstance(record, dict):
+            found.update({str(row["path"]): row for row in record.get("files") or []})
+    own = item.get("order_skeleton")
+    if isinstance(own, dict):
+        found.update({str(row["path"]): row for row in own.get("files") or []})
+    return found
+
+
+def _merge_scope(root: Path, tracker: dict[str, Any], item: dict[str, Any], rendered: dict[str, Any], source: Path,
+                 resolutions: Path | None) -> tuple[list[dict[str, Any]], dict[str, bytes | None], list[bytes | None]]:
+    """(record rows, file changes, blobs to store) of an item's files, each merged; a conflict refuses with a report.
+
+    The ancestor of a file is its previous render (the blob store, or the
+    current render when that still has the recorded digest), or the base's
+    content for a file no skeleton item wrote yet.
+    """
+
+    from .order_skeleton_merge import (
+        check_merged, conflict_marker_root, get_blob, lf, load_resolutions, merge_file, write_conflict_report,
+    )
+
+    item_id = item["id"]
+    files = rendered["files"]
+    prior = _prior_rows(tracker, item)
+    merges = []
+    conflicts: dict[str, dict[str, Any]] = {}
+    markers: dict[str, bytes] = {}
+    for path in sorted(item.get("resources") or [], key=str.casefold):
+        base_data = _read(source / path)
+        theirs = files[path] if path in files else base_data
+        ours = _read(root / path)
+        row = prior.get(path)
+        if row is None:
+            ancestor_sha, ancestor = _sha(base_data), lf(base_data)
+        else:
+            ancestor_sha = record_ancestor(row)
+            ancestor = get_blob(root, ancestor_sha)
+            if ancestor is None and ancestor_sha is not None and _sha(theirs) == ancestor_sha:
+                ancestor = lf(theirs)  # the current inputs still render the previous write
+        try:
+            merged = merge_file(ancestor_sha, ancestor, ours, theirs)
+        except SocomError as failure:
+            raise SocomError(f"{path}: {failure}; the ancestors are stored when the item is reopened for a stage 4 amendment "
+                             "(progress reopen-order-skeleton), before its inputs change") from None
+        if merged.kind == "conflict":
+            conflicts[path] = {"path": path, "ancestor_sha256": ancestor_sha, "ours_sha256": _sha(ours),
+                               "theirs_sha256": _sha(theirs), "reason": merged.reason, "hunks": merged.conflicts}
+            if merged.marked is not None:
+                markers[path] = merged.marked
+        merges.append((path, base_data, theirs, ours, ancestor_sha, ancestor, merged))
+    resolved = load_resolutions(root, item_id, resolutions, conflicts)
+    if unresolved := sorted(path for path in conflicts if path not in resolved):
+        report = write_conflict_report(root, item_id, [conflicts[path] for path in sorted(conflicts)], markers)
+        hunks = sum(len(conflicts[path]["hunks"]) for path in unresolved)
+        raise SocomError(
+            f"refused, nothing written: {len(unresolved)} files conflict ({hunks} hunks) between src/ and the new render: "
+            f"{_shown(unresolved)}. The hunks (lines, both sides) are in {report} and marker files under "
+            f"{conflict_marker_root(item_id)}/; a source worker resolves each into <dir>/<path> under build/ and the apply "
+            "is re-run with --resolutions <dir>"
+        )
+    rows: list[dict[str, Any]] = []
+    changes: dict[str, bytes | None] = {}
+    blobs: list[bytes | None] = []
+    problems: list[str] = []
+    for path, base_data, theirs, ours, ancestor_sha, ancestor, merged in merges:
+        kind, after = merged.kind, merged.data
+        if path in resolved:
+            kind, after = "resolved", resolved[path]["data"]
+        if kind in ("clean", "resolved"):
+            # The port lane edits bodies; the planned order (fences) and stage 4's annotations stay the render's.
+            problems.extend(check_merged(path, after, theirs))
+        if kind in ("render", "clean", "resolved") and (_sha(ours) != _sha(after) or (ours is None) != (after is None)):
+            changes[path] = after
+        entry = {
+            "path": path,
+            "action": _action(rendered, path),
+            "base_sha256": _sha(base_data),
+            "base_content_sha256": _content(base_data),
+            "before_sha256": _sha(ours),
+            "before_content_sha256": _content(ours),
+            "stage4_blocks_sha256": blocks_sha256(ours),
+            "ancestor_sha256": ancestor_sha,
+            "rendered_sha256": _sha(theirs),
+            "after_sha256": _sha(after),
+            "after_stage4_blocks_sha256": blocks_sha256(after),
+            "merge": kind,
+        }
+        if path in resolved:
+            entry["resolution"] = {"path": resolved[path]["path"], "sha256": resolved[path]["sha256"]}
+        rows.append(entry)
+        blobs.extend((ancestor, ours, theirs, after))
+    if problems:
+        raise SocomError("refused, the merged files break the render's structure:\n- " + "\n- ".join(problems[:_SHOWN]))
+    return rows, changes, blobs
+
+
+def grow_prepare(tracker: dict[str, Any], item: dict[str, Any], paths: list[str]) -> list[str]:
+    """Reserve ``paths`` (new headers and holding files of a re-render) for the prepare; the audit's digest follows."""
+
+    from .order_plan import skeleton_resources_digest
+
+    resources = sorted(set(item.get("resources") or []) | set(paths), key=str.casefold)
+    item["resources"] = list(resources)
+    item.setdefault("batch", {})["files"] = list(resources)
+    stage = next((row for row in tracker.get("stages") or [] if row.get("name") == ORDER_STAGE), {})
+    record = (stage.get("decomposition") or {}).get("skeleton_prepare")
+    if isinstance(record, dict):
+        applies = [row for row in tracker.get("work_items") or [] if row.get("kind") == ORDER_APPLY_KIND]
+        record["resources_sha256"] = skeleton_resources_digest(item, applies)
+        record["prepare_file_count"] = len(resources)
+        record.setdefault("reserved_added", []).extend(sorted(paths, key=str.casefold))
+    return sorted(paths, key=str.casefold)
 
 
 def _read(path: Path) -> bytes | None:
@@ -651,9 +788,13 @@ def _verify_record(root: Path, tracker: dict[str, Any], item: dict[str, Any], re
                    base: Path | None, rendered: dict[str, Any], report: dict[str, Any]) -> dict[str, Any]:
     item_id = item["id"]
     problems: list[str] = []
+    notes: list[str] = []
     if record.get("kind") != RECORD_KIND or record.get("schema_version") != RECORD_SCHEMA or record.get("item") != item_id:
         problems.append("the record is not a skeleton apply record of this item")
-    problems.extend(_stale_inputs(tracker, inputs, base, record["inputs"]))
+    problems.extend(_stale_inputs(tracker, inputs, base))
+    if changed := _changed_inputs(tracker, inputs, base, record["inputs"]):
+        # A record carried across a manifest rebuild or a stage 5 rebase: its write must still be what they render.
+        notes.append(f"inputs changed since the apply ({', '.join(changed)}): the fresh render must still reproduce its write")
     own = _own_decisions(inputs, item_id)
     if own != record.get("decisions"):
         problems.append(f"the decisions file of {item_id} changed since the apply: re-apply")
@@ -662,17 +803,10 @@ def _verify_record(root: Path, tracker: dict[str, Any], item: dict[str, Any], re
     if not report["ok"]:
         problems.append(f"the static checks fail over a fresh render: {', '.join(report['failed'])}")
     source = base if base is not None else root
-    for row in record["files"]:
-        path = row["path"]
-        rendered_now = rendered["files"][path] if path in rendered["files"] else _read(source / path)
-        if _sha(rendered_now) != row["after_sha256"]:
-            problems.append(f"{path}: a fresh render differs from the recorded write")
-        current = _read(root / path)
-        if _sha(current) != row["after_sha256"]:
-            problems.append(f"{path}: src/ differs from the recorded write" if current is not None or row["after_sha256"] is not None
-                            else f"{path} is missing")
-        elif current is not None and blocks_sha256(current) != row["after_stage4_blocks_sha256"]:
-            problems.append(f"{path}: its stage 4 blocks changed")
+    rendered_files = {row["path"]: rendered["files"][row["path"]] if row["path"] in rendered["files"] else _read(source / row["path"])
+                      for row in record["files"]}
+    found, drift = verify_written(root, record, rendered_files)
+    problems.extend(found)
     return {
         "ok": not problems,
         "mutation_performed": False,
@@ -683,11 +817,67 @@ def _verify_record(root: Path, tracker: dict[str, Any], item: dict[str, Any], re
         "render_write_sha256": rendered["manifest"]["write_sha256"],
         "file_count": len(record["files"]),
         "changed_count": len(record.get("changed") or []),
+        "merges": record.get("merges"),
         "check": compact_check(report),
         "known_conflicts": len(record.get("known_conflicts") or []),
         "waiting": record.get("waiting_by_kind"),
+        "drift": drift,
+        "drift_count": len(drift),
+        "notes": notes,
         "problems": problems,
     }
+
+
+def verify_written(root: Path, record: dict[str, Any], rendered: dict[str, bytes | None]) -> tuple[list[str], list[str]]:
+    """(problems, drift) of a record's own write: the fresh render and the recorded merge reproduce it.
+
+    The check is of what the item wrote, never of what ``src/`` holds now:
+    the fresh render of each file must have the recorded render digest, and a
+    merged file must come out of the recorded ancestor and live content again
+    (both from the blob store) with the recorded digest; a resolved file is
+    the stored resolution and keeps the render's fences and blocks.  A file
+    that changed after the write (later port-lane edits) is drift, reported
+    by path; a change of its stage 4 blocks is a problem, because annotations
+    change only through stage 4.
+    """
+
+    from .order_skeleton_merge import check_merged, get_blob, merge_file
+
+    problems: list[str] = []
+    drift: list[str] = []
+    for row in record["files"]:
+        path = row["path"]
+        render = rendered.get(path)
+        if _sha(render) != record_ancestor(row):
+            problems.append(f"{path}: a fresh render differs from the recorded write")
+            continue
+        kind = row.get("merge")
+        if kind == "clean":
+            ancestor, before = get_blob(root, row.get("ancestor_sha256")), get_blob(root, row.get("before_sha256"))
+            if (row.get("ancestor_sha256") and ancestor is None) or (row.get("before_sha256") and before is None):
+                problems.append(f"{path}: the recorded merge's inputs are not in the blob store")
+            else:
+                again = merge_file(row.get("ancestor_sha256"), ancestor, before, render)
+                if again.kind != "clean" or _sha(again.data) != row["after_sha256"]:
+                    problems.append(f"{path}: the recorded merge does not reproduce its write")
+        elif kind == "resolved":
+            resolution = get_blob(root, row.get("after_sha256"))
+            if resolution is None or (row.get("resolution") or {}).get("sha256") != row.get("after_sha256"):
+                problems.append(f"{path}: the recorded resolution is not in the blob store")
+            else:
+                problems.extend(check_merged(path, resolution, render))
+        elif kind in ("kept", "same") and row.get("before_sha256") != row.get("after_sha256"):
+            problems.append(f"{path}: a kept file must be written unchanged")
+        elif kind in (None, "render") and row.get("after_sha256") != _sha(render):
+            problems.append(f"{path}: the recorded write is not the render")
+        current = _read(root / path)
+        if _sha(current) != row["after_sha256"]:
+            drift.append(path)
+            if current is not None and row["after_sha256"] is not None and blocks_sha256(current) != row["after_stage4_blocks_sha256"]:
+                problems.append(f"{path}: its stage 4 blocks changed after the write")
+        elif current is not None and blocks_sha256(current) != row["after_stage4_blocks_sha256"]:
+            problems.append(f"{path}: its stage 4 blocks changed")
+    return problems, drift
 
 
 def skeleton_workers(tracker: dict[str, Any]) -> set[str]:
@@ -784,7 +974,8 @@ def audit_skeleton_records(tracker: dict[str, Any]) -> list[str]:
                 errors.append(f"{item['id']} has an invalid skeleton record")
                 continue
             paths = [row.get("path") for row in record.get("files") or []]
-            if set(paths) - set(item.get("resources") or []):
+            # A reopened item's record may predate a rebase that changed its reservation; its re-apply replaces it.
+            if set(paths) - set(item.get("resources") or []) and status in ("awaiting_acceptance", "accepted"):
                 errors.append(f"{item['id']}'s skeleton record names files outside its resources")
             if record.get("files_sha256") != _digest([{key: value for key, value in row.items()} for row in record.get("files") or []]):
                 errors.append(f"{item['id']}'s skeleton record files digest differs from its files")
@@ -926,9 +1117,12 @@ def _unit_of(inputs: Any, kind: str, key: str) -> str | None:
 def skeleton_custody(root: Path, tracker: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Files an ACCEPTED skeleton item wrote that are still its record's "after" with their stage 4 blocks unchanged.
 
-    ``{path: {"item", "before_sha256", "before_content_sha256", "after_sha256"}}``.
-    Stage 4's checks take such a file as its stage 4 state when the record's
-    before digests are the ones stage 4 recorded.
+    ``{path: {"item", "before_sha256", "before_content_sha256", "after_sha256", "states"}}``.
+    Stage 4's checks take such a file as its stage 4 state when one of its
+    ``states`` (``[sha256, content_sha256]`` pairs) is one stage 4 recorded:
+    the content the write started from (``before``), and for a file that is
+    exactly its render also the frozen base it was rendered from (a re-apply
+    that leaves an unamended file as it was keeps the original custody).
     """
 
     found: dict[str, dict[str, Any]] = {}
@@ -942,8 +1136,11 @@ def skeleton_custody(root: Path, tracker: dict[str, Any]) -> dict[str, dict[str,
                 continue
             if current is not None and blocks_sha256(current) != row.get("after_stage4_blocks_sha256"):
                 continue
+            states = [[row.get("before_sha256"), row.get("before_content_sha256")]]
+            if "base_sha256" in row and row.get("after_sha256") == record_ancestor(row):
+                states.append([row.get("base_sha256"), row.get("base_content_sha256")])
             found[str(row["path"])] = {"item": item["id"], **{key: row.get(key) for key in (
-                "before_sha256", "before_content_sha256", "after_sha256")}}
+                "before_sha256", "before_content_sha256", "after_sha256")}, "states": states}
     return found
 
 
@@ -956,9 +1153,20 @@ def skeleton_deletions(tracker: dict[str, Any]) -> list[dict[str, Any]]:
         if item.get("status") != "accepted" or not isinstance(record, dict):
             continue
         for row in record.get("files") or []:
-            if row.get("after_sha256") is None and row.get("before_sha256") is not None:
-                rows.append({"path": str(row["path"]), "sha256": row["before_sha256"], "bytes": None, "by": item["id"]})
+            # The base digest: a re-apply finds the orphan deleted already (its before is then absent).
+            base = row.get("base_sha256", row.get("before_sha256"))
+            if row.get("after_sha256") is None and base is not None:
+                rows.append({"path": str(row["path"]), "sha256": base, "bytes": None, "by": item["id"]})
     return sorted(rows, key=lambda row: row["path"])
+
+
+def skeleton_changes(row: dict[str, Any]) -> bool:
+    """Whether the skeleton render of a record row's file differs from its frozen base (the route changes the file).
+
+    A record from before merges has the base as its before; a merge record keeps the base digest itself.
+    """
+
+    return row.get("base_sha256", row.get("before_sha256")) != record_ancestor(row)
 
 
 def skeleton_written(tracker: dict[str, Any]) -> dict[str, str]:
@@ -969,19 +1177,48 @@ def skeleton_written(tracker: dict[str, Any]) -> dict[str, str]:
         record = item.get("order_skeleton")
         if item.get("status") in ("awaiting_acceptance", "accepted") and isinstance(record, dict):
             for row in record.get("files") or []:
-                if row.get("before_sha256") != row.get("after_sha256"):
+                if skeleton_changes(row):
                     found[str(row["path"])] = item["id"]
     return found
 
 
-def refuse_stage4_writes(tracker: dict[str, Any], paths: list[str]) -> None:
-    """Stage 4 refuses to rewrite a file an accepted (or handed-off) skeleton item wrote until that item is reopened."""
+def refuse_stage4_writes(tracker: dict[str, Any], paths: list[str], amendments: list[str] | None = None) -> None:
+    """Stage 4 refuses to rewrite a file an accepted (or handed-off) skeleton item wrote until that item is reopened.
+
+    A re-apply for open stage 4 ``amendments`` rewrites a skeleton-written
+    file only when its skeleton item was reopened for one of them
+    (``progress reopen-order-skeleton``, which stores the merge ancestors the
+    later skeleton re-apply needs); a file of an item reopened otherwise, or
+    for another amendment, is refused too.
+    """
 
     written = skeleton_written(tracker)
     blocked = sorted(path for path in paths if path in written)
     if blocked:
         items = sorted({written[path] for path in blocked})
+        route = (f"progress reopen-order-skeleton --amendment {amendments[0]}" if amendments else "progress work reopen")
         raise SocomError(
             f"refused: {len(blocked)} files hold stage 5 skeleton writes of {', '.join(items)} ({_shown(blocked)}); "
-            "reopen those items first (progress work reopen), then re-apply them after this stage 4 change"
+            f"reopen those items first ({route}), then re-apply them after this stage 4 change"
+        )
+    if not amendments:
+        return
+    from .order_reopen import reopenings
+
+    allowed = {str(item) for row in reopenings(tracker) if row.get("status") == "open" and row.get("amendment") in amendments
+               for item in row.get("items") or []}
+    others: dict[str, str] = {}
+    for item in skeleton_items(tracker):
+        record = item.get("order_skeleton")
+        if item["id"] in allowed or not isinstance(record, dict):
+            continue
+        for row in record.get("files") or []:
+            if skeleton_changes(row):
+                others[str(row["path"])] = item["id"]
+    if blocked := sorted(path for path in paths if path in others):
+        items = sorted({others[path] for path in blocked})
+        raise SocomError(
+            f"refused: {len(blocked)} files hold stage 5 skeleton writes of {', '.join(items)} ({_shown(blocked)}), which were "
+            f"not reopened for {', '.join(amendments)}: reopen them with progress reopen-order-skeleton --amendment "
+            f"{amendments[0]} --item <item> first"
         )

@@ -1,0 +1,776 @@
+"""Stage 5 after a stage 4 amendment: reopen what it touches, absorb the new baseline, re-apply as a merge.
+
+The skeleton route (``order_skeleton_route``) wrote ``src/`` from stage 4's
+accepted baseline.  A later stage 4 amendment (``source_amend``) changes
+plans, annotations and files that stage 5 items are built on:
+
+* ``progress reopen-order-skeleton`` runs while the amendment is open.  It
+  sends back, with a review-history entry, the stage 5 items built on the
+  amended stage 4 plans: the order plan of each amended segment, the
+  skeleton items whose recorded files the amended stage 4 applies recorded
+  (the stage 4 re-apply rewrites their blocks), the plans of those applies,
+  and any ``--item``.  They stay blocked until the amendment is absorbed, and
+  the stage row records the reopening (``reopenings``).  Before the tracker
+  changes, the whole tree is rendered from the still-current inputs and every
+  file whose render is a skeleton record's write is stored in the blob store:
+  the merge ancestors of the later re-apply.  ``progress apply-source-plan``
+  then may rewrite those items' files for that amendment.
+* ``progress rebase-function-order`` runs once the amendment is accepted.  It
+  builds the order target over the new stage 4 baseline, records the rebase
+  (``decomposition.rebases``) with the amendments it absorbs, moves the
+  decomposition and every order item's cited digests to the new baseline,
+  re-derives the units, target digest and files of each changed segment, and
+  reopens every accepted plan the new target no longer validates (with its
+  apply), and the link plan when the link order changed.  It advances the
+  frozen base: the current stage 4 blocks over the base's authored content,
+  and the files stage 4 created as their blocks.  Plans built on an absorbed
+  baseline whose segment target is unchanged stay accepted ("carried").
+* The planners re-draft and the reviewers accept the reopened plans as in
+  phase A; the manifest is rebuilt; each reopened skeleton item is re-applied
+  as a three-way merge (``order_skeleton_merge``) and reviewed as before.
+"""
+
+from __future__ import annotations
+
+import copy
+import re
+import shutil
+from pathlib import Path
+from typing import Any, Callable
+
+from .order_plan import (
+    ORDER_APPLY_KIND,
+    ORDER_COMPILE_KIND,
+    ORDER_LINK_ID,
+    ORDER_LINK_KIND,
+    ORDER_PREPARE_KIND,
+    ORDER_SEGMENT_KIND,
+    ORDER_SKELETON_KINDS,
+    ORDER_SKELETON_PREPARE_ID,
+    ORDER_STAGE,
+    _digest,
+    _open_amendments,
+    _stage,
+    _unit_directories,
+    producer_digest,
+    segment_target_digest,
+    segment_units,
+    skeleton_resources_digest,
+    stage4_baseline,
+)
+from .source_plan import SEGMENT_APPLY_KIND, SEGMENT_PLAN_KIND, SOURCE_STAGE
+from .order_skeleton_merge import record_ancestor
+from .util import SocomError
+
+REOPENING_PREFIX = "socom:order-reopening:"
+REOPENING_KIND = "socom-order-reopening"
+REBASE_KIND = "socom-order-rebase"
+SCHEMA = 1
+REOPEN_ROUTE = "progress reopen-order-skeleton"
+REBASE_ROUTE = "progress rebase-function-order"
+REOPENABLE_KINDS = (ORDER_SEGMENT_KIND, ORDER_LINK_KIND, ORDER_APPLY_KIND, ORDER_PREPARE_KIND)
+# The items whose batch cites the decomposition's order-target and stage 4 baseline digests.
+CITING_KINDS = (ORDER_SEGMENT_KIND, ORDER_LINK_KIND, ORDER_APPLY_KIND, ORDER_COMPILE_KIND)
+_ID = re.compile(r"^socom:order-reopening:(\d{3,})$")
+_BUSY = ("in_progress", "awaiting_acceptance")
+_SHOWN = 12
+
+
+def _now() -> str:
+    from .tracker import _iso, _utc_now
+
+    return _iso(_utc_now())
+
+
+def _by_id(tracker: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {row["id"]: row for row in tracker.get("work_items") or [] if isinstance(row, dict) and "id" in row}
+
+
+def _shown(values: list[str]) -> str:
+    return ", ".join(values[:_SHOWN]) + (f", +{len(values) - _SHOWN} more" if len(values) > _SHOWN else "")
+
+
+def reopenings(tracker: dict[str, Any]) -> list[dict[str, Any]]:
+    return [row for row in _stage(tracker, ORDER_STAGE).get("reopenings") or [] if isinstance(row, dict)]
+
+
+def held_items(tracker: dict[str, Any]) -> dict[str, str]:
+    """{item: reopening} of the items an open reopening holds: they stay blocked until a rebase absorbs it."""
+
+    return {str(item): str(row.get("id")) for row in reopenings(tracker) if row.get("status") == "open"
+            for item in row.get("items") or []}
+
+
+def rebases(tracker: dict[str, Any]) -> list[dict[str, Any]]:
+    decomposition = _stage(tracker, ORDER_STAGE).get("decomposition") or {}
+    return [row for row in decomposition.get("rebases") or [] if isinstance(row, dict)]
+
+
+def absorbed_baselines(tracker: dict[str, Any]) -> list[str]:
+    """The earlier stage 4 baselines stage 5 was based on (each rebase's previous), oldest first."""
+
+    return [str((row.get("previous") or {}).get("stage4_baseline_sha256")) for row in rebases(tracker)]
+
+
+def item_amendments(tracker: dict[str, Any], item_id: str) -> list[str]:
+    """The amendments of every absorbed reopening that sent ``item_id`` back (a re-apply records them)."""
+
+    found = {str(row.get("amendment")) for row in reopenings(tracker) if row.get("status") == "absorbed"
+             and item_id in (row.get("items") or [])}
+    for rebase in rebases(tracker):
+        if any(entry.get("item") == item_id for entry in rebase.get("reopened") or []):
+            found.update(str(name) for name in rebase.get("amendments") or [])
+    return sorted(found)
+
+
+def _amendment(tracker: dict[str, Any], amendment_id: str) -> dict[str, Any]:
+    from .source_amend import amendments
+
+    row = next((row for row in amendments(tracker) if row.get("id") == amendment_id), None)
+    if row is None:
+        raise SocomError(f"unknown stage 4 amendment: {amendment_id}")
+    return row
+
+
+# -- selection ------------------------------------------------------------------------------
+
+
+def stage4_files(tracker: dict[str, Any], amendment: dict[str, Any]) -> set[str]:
+    """Every file the amendment's stage 4 applies recorded (written, created, moved or removed), before and after a re-apply."""
+
+    by_id = _by_id(tracker)
+    files: set[str] = set()
+    for apply_id in amendment.get("applies") or []:
+        item = by_id.get(str(apply_id)) or {}
+        records = [item.get("source_apply")] + [
+            entry.get("source_apply") for entry in item.get("review_history") or []
+            if isinstance(entry, dict) and amendment.get("id") in (entry.get("amendments") or [])
+        ]
+        for record in records:
+            if not isinstance(record, dict):
+                continue
+            files.update(str(row.get("path")) for row in record.get("files") or [] if isinstance(row, dict))
+            files.update(str(path) for path in record.get("created") or [])
+            files.update(str(path) for path in record.get("removed") or [])
+            for move in record.get("moves") or []:
+                files.update(str(move.get(key)) for key in ("from", "to") if isinstance(move, dict) and move.get(key))
+    return files
+
+
+def _stage4_plans(tracker: dict[str, Any], amendment: dict[str, Any]) -> list[str]:
+    """The stage 4 segment plans the amendment changes: its own, or a data reconcile's segment applies' plans."""
+
+    by_id = _by_id(tracker)
+    item = by_id.get(str(amendment.get("item"))) or {}
+    if item.get("kind") == SEGMENT_PLAN_KIND:
+        return [item["id"]]
+    return sorted(str(apply_id).removesuffix("-apply") for apply_id in amendment.get("applies") or []
+                  if (by_id.get(str(apply_id)) or {}).get("kind") == SEGMENT_APPLY_KIND)
+
+
+def select_items(tracker: dict[str, Any], amendment: dict[str, Any], extra: list[str]) -> dict[str, str]:
+    """{stage 5 item: why} built on the amended stage 4 plans, with each apply's plan and each plan's apply."""
+
+    by_id = _by_id(tracker)
+    chosen: dict[str, str] = {}
+    plans = set(_stage4_plans(tracker, amendment))
+    for row in tracker.get("work_items") or []:
+        if row.get("kind") == ORDER_SEGMENT_KIND and (row.get("batch") or {}).get("stage4_item") in plans:
+            chosen[row["id"]] = f"plans the units of the amended {row['batch']['stage4_item']}"
+    files = stage4_files(tracker, amendment)
+    for row in tracker.get("work_items") or []:
+        record = row.get("order_skeleton")
+        if row.get("kind") in ORDER_SKELETON_KINDS and isinstance(record, dict):
+            hit = sorted({str(entry.get("path")) for entry in record.get("files") or []} & files, key=str.casefold)
+            if hit:
+                chosen.setdefault(row["id"], f"its files {_shown(hit)} are files the stage 4 re-apply rewrites")
+    for item_id in extra:
+        item = by_id.get(item_id)
+        if item is None or item.get("kind") not in REOPENABLE_KINDS:
+            raise SocomError(f"--item {item_id} is not a stage 5 order plan, link plan, segment apply or the skeleton prepare")
+        chosen.setdefault(item_id, "named with --item")
+    for item_id in sorted(chosen):
+        kind = by_id[item_id].get("kind")
+        if kind == ORDER_APPLY_KIND:
+            chosen.setdefault(item_id.removesuffix("-apply"), f"the plan of the reopened {item_id}")
+        elif kind == ORDER_SEGMENT_KIND and f"{item_id}-apply" in by_id:
+            chosen.setdefault(f"{item_id}-apply", f"the apply of the reopened {item_id}")
+    return dict(sorted(chosen.items()))
+
+
+# -- reopening -------------------------------------------------------------------------------
+
+
+def _refusals(tracker: dict[str, Any], ids: list[str]) -> list[str]:
+    from .tracker import _UNSTARTED_STATUSES
+
+    by_id = _by_id(tracker)
+    problems = []
+    for item_id in ids:
+        item = by_id[item_id]
+        if item.get("lease") or item.get("status") == "in_progress":
+            problems.append(f"{item_id} is leased by {(item.get('lease') or {}).get('owner')}: release it first")
+        elif item.get("status") == "awaiting_acceptance":
+            problems.append(f"{item_id} is awaiting acceptance: accept or reject it first")
+        if item.get("kind") == ORDER_APPLY_KIND:
+            compile_item = by_id.get(item_id.removesuffix("-apply") + "-compile") or {}
+            if compile_item.get("status") not in _UNSTARTED_STATUSES:
+                problems.append(f"{compile_item.get('id')} has started: its skeleton is not reopened under it")
+        if item.get("kind") == ORDER_PREPARE_KIND and item.get("status") == "accepted":
+            busy = [row["id"] for row in tracker["work_items"] if row.get("kind") == ORDER_APPLY_KIND and row["id"] not in ids
+                    and row.get("status") in _BUSY]
+            if busy:
+                problems.append(f"segment applies are in progress or under review ({_shown(busy)}): reopen the prepare after them")
+    return problems
+
+
+def _missing_ancestors(tracker: dict[str, Any], ids: list[str], available: Callable[[str], bool]) -> list[str]:
+    by_id = _by_id(tracker)
+    missing = []
+    for item_id in ids:
+        record = by_id[item_id].get("order_skeleton")
+        if by_id[item_id].get("kind") not in ORDER_SKELETON_KINDS or not isinstance(record, dict):
+            continue
+        for row in record.get("files") or []:
+            digest = record_ancestor(row)
+            if digest and not available(digest):
+                missing.append(f"{row.get('path')} ({item_id})")
+    return missing
+
+
+def _send_back(item: dict[str, Any], note: dict[str, Any]) -> None:
+    from .order_skeleton_route import RECORD_CITATION
+
+    entry = {**note, "handoff": item.get("handoff"), "handoff_evidence": list(item.get("evidence") or []),
+             "accepted": item.get("accepted")}
+    if item.get("kind") in ORDER_SKELETON_KINDS:
+        entry["order_skeleton"] = copy.deepcopy(item.get("order_skeleton"))
+        # The record's lines stay with the record; the handoff's citation of it does not.
+        item["evidence"] = [text for text in item.get("evidence") or []
+                            if str(text).startswith("order-skeleton-") and not str(text).startswith(RECORD_CITATION)]
+    else:
+        item["evidence"] = []
+    item.setdefault("review_history", []).append(entry)
+    item["status"] = "blocked"
+    item["handoff"] = None
+    item.pop("accepted", None)
+
+
+def _block_dependents(tracker: dict[str, Any]) -> None:
+    """A ready stage 5 item waits again once one of its dependencies is sent back."""
+
+    by_id = _by_id(tracker)
+    for row in tracker.get("work_items") or []:
+        if row.get("stage") == ORDER_STAGE and row.get("status") == "ready" and any(
+            (by_id.get(dep) or {}).get("status") != "accepted" for dep in row.get("dependencies") or []
+        ):
+            row["status"] = "blocked"
+
+
+def reopen_for_amendment(tracker: dict[str, Any], amendment_id: str, extra: list[str], by: str, reason: str,
+                         evidence: list[str], available: Callable[[str], bool], *, captured: int = 0) -> dict[str, Any]:
+    """``progress reopen-order-skeleton``: send back the stage 5 items an open stage 4 amendment is built under."""
+
+    amendment = _amendment(tracker, amendment_id)
+    if amendment.get("status") != "open":
+        raise SocomError(f"{amendment_id} is {amendment.get('status')}, not open: stage 5 items are reopened while its stage 4 "
+                         f"re-apply is pending (after its acceptance, {REBASE_ROUTE} reopens what the new target changes)")
+    opener, stated = by.strip(), reason.strip()
+    lines = sorted({str(text).strip() for text in evidence if str(text).strip()})
+    if not opener:
+        raise SocomError("--by must not be empty")
+    if not stated:
+        raise SocomError("the reopen reason must not be empty")
+    if not lines:
+        raise SocomError("a reopen needs at least one --evidence line")
+    if not (_stage(tracker, ORDER_STAGE).get("decomposition")):
+        raise SocomError(f"{ORDER_STAGE} is not decomposed: nothing is built on the amendment")
+    chosen = select_items(tracker, amendment, extra)
+    if not chosen:
+        raise SocomError(f"{amendment_id} selects no stage 5 item (no order plan plans its segment and no skeleton item wrote "
+                         "its files): name items with --item if some are built on it")
+    by_id = _by_id(tracker)
+    if problems := _refusals(tracker, list(chosen)):
+        raise SocomError("refused:\n- " + "\n- ".join(problems))
+    # Accepted items are sent back; an item already sent back (another amendment's reopening, a rejection) is held too,
+    # so this amendment's stage 4 re-apply may rewrite its files.
+    reopened = list(chosen)
+    sent = [item_id for item_id in reopened if by_id[item_id].get("status") == "accepted"]
+    if owners := sorted({item_id for item_id in sent if (by_id[item_id].get("handoff") or {}).get("owner") == opener}):
+        raise SocomError(f"{opener} handed off {_shown(owners)}: an item is not reopened by its handoff owner")
+    if missing := _missing_ancestors(tracker, reopened, available):
+        raise SocomError(f"no merge ancestor is stored for {len(missing)} recorded files and the current inputs do not render "
+                         f"them: {_shown(missing)}")
+    held = held_items(tracker)
+    skipped = {item_id: by_id[item_id].get("status") for item_id in reopened if item_id not in sent}
+    number = len(reopenings(tracker)) + 1
+    identifier = f"{REOPENING_PREFIX}{number:03d}"
+    now = _now()
+    note = {"order_reopening": identifier, "amendment": amendment_id, "reopened_by": opener, "reopened_at": now,
+            "reason": stated, "evidence": lines}
+    for item_id in reopened:
+        item = by_id[item_id]
+        if item_id in sent:
+            _send_back(item, note)
+        else:
+            item.setdefault("review_history", []).append({**note, "status_before": item.get("status"),
+                                                          "already_held_by": held.get(item_id)})
+            item["status"] = "blocked"
+    _block_dependents(tracker)
+    ancestors = sorted(
+        [str(row.get("path")), record_ancestor(row)]
+        for item_id in reopened if isinstance(by_id[item_id].get("order_skeleton"), dict)
+        for row in by_id[item_id]["order_skeleton"].get("files") or [] if record_ancestor(row)
+    )
+    record = {
+        "kind": REOPENING_KIND,
+        "schema_version": SCHEMA,
+        "id": identifier,
+        "amendment": amendment_id,
+        "status": "open",
+        "items": sorted(reopened),
+        "reasons": {item_id: chosen[item_id] for item_id in reopened},
+        "sent_back": sorted(sent),
+        "held_as": dict(sorted(skipped.items())),
+        "already_held": sorted(item_id for item_id in skipped if item_id in held),
+        "opened_by": opener,
+        "opened_at": now,
+        "reason": stated,
+        "evidence": lines,
+        "ancestors": {"files": len(ancestors), "sha256": _digest(ancestors), "captured": captured},
+        "route": REOPEN_ROUTE,
+    }
+    _stage(tracker, ORDER_STAGE).setdefault("reopenings", []).append(record)
+    return record
+
+
+def capture_ancestors(root: Path, tracker: dict[str, Any], *, manifest_path: Path, snapshot_path: Path) -> dict[str, Any]:
+    """Store every file whose current render is a skeleton record's render: the merge ancestors of later re-applies.
+
+    Rendering needs the inputs the records were written from (the accepted
+    plans the manifest cites, the frozen base), so it runs before anything is
+    reopened; once inputs have changed it fails, and the ancestors stored by
+    an earlier capture (or by the applies themselves) must serve.
+    """
+
+    from .order_skeleton_merge import put_blob, sha
+    from .order_skeleton_route import route_inputs, skeleton_items
+    from .order_skeleton_write import render_skeletons
+
+    records = [item for item in skeleton_items(tracker) if isinstance(item.get("order_skeleton"), dict)]
+    if not records:
+        return {"captured": 0, "files": 0, "error": None}
+    try:
+        inputs, base = route_inputs(root, tracker, manifest_path=manifest_path, snapshot_path=snapshot_path)
+        rendered = render_skeletons(inputs, segment=None)
+    except SocomError as failure:
+        return {"captured": 0, "files": 0, "error": str(failure)}
+    source = base if base is not None else root
+    stored = total = 0
+    for item in records:
+        for row in item["order_skeleton"].get("files") or []:
+            digest = record_ancestor(row)
+            if not digest:
+                continue
+            total += 1
+            path = str(row["path"])
+            data = rendered["files"][path] if path in rendered["files"] else (
+                (source / path).read_bytes() if (source / path).is_file() else None)
+            if sha(data) == digest:
+                put_blob(root, data)
+                stored += 1
+    return {"captured": stored, "files": total, "error": None}
+
+
+def accepted_plan_files(root: Path, tracker: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """{item: {"plan", "sha256"}} of every accepted order plan (segments and link), at the SHA-256 its acceptance cites."""
+
+    from .order_plan import order_plan_path
+    from .util import load_json, sha256_file
+
+    found: dict[str, dict[str, Any]] = {}
+    problems = []
+    for item in tracker.get("work_items") or []:
+        if item.get("kind") not in (ORDER_SEGMENT_KIND, ORDER_LINK_KIND) or item.get("status") != "accepted":
+            continue
+        relative = order_plan_path(item["id"])
+        path = root / relative
+        if not path.is_file():
+            problems.append(f"{relative} does not exist")
+            continue
+        digest = sha256_file(path)
+        if not any(digest in str(line) for line in item.get("evidence") or []):
+            problems.append(f"{relative} (sha256 {digest[:12]}) is not the plan {item['id']} was accepted with")
+            continue
+        found[item["id"]] = {"plan": load_json(path), "sha256": digest}
+    if problems:
+        raise SocomError("the rebase reads the accepted order plans: " + "; ".join(problems[:_SHOWN]))
+    return found
+
+
+# -- rebase: absorbing accepted amendments -----------------------------------------------------
+
+
+def absorbable(tracker: dict[str, Any]) -> tuple[str, str, list[str]]:
+    """(stage 5's baseline, stage 4's current baseline, the accepted amendments between them); refuses otherwise."""
+
+    from .source_amend import baseline_chain
+
+    decomposition = _stage(tracker, ORDER_STAGE).get("decomposition")
+    if not isinstance(decomposition, dict):
+        raise SocomError(f"{ORDER_STAGE} is not decomposed")
+    if opened := _open_amendments(tracker):
+        raise SocomError(f"{SOURCE_STAGE} amendments are open ({', '.join(opened)}): stage 5 absorbs accepted amendments only")
+    previous, current = decomposition.get("stage4_baseline_sha256"), stage4_baseline(tracker)
+    if current is None:
+        raise SocomError(f"{SOURCE_STAGE} has no file baseline")
+    if previous == current:
+        raise SocomError(f"stage 5 is already based on the current {SOURCE_STAGE} baseline {current}: nothing to absorb")
+    chain = [row for row in baseline_chain(tracker)]
+    shas = [row.get("baseline_sha256") for row in chain]
+    if previous not in shas or shas[-1] != current:
+        raise SocomError(f"stage 5's baseline {previous} is not an earlier {SOURCE_STAGE} baseline of the current {current}")
+    names: list[str] = []
+    for row in chain[shas.index(previous) + 1:]:
+        if not row.get("amendments"):
+            raise SocomError(f"{SOURCE_STAGE} baseline {row.get('baseline_sha256')} came from no accepted amendment")
+        names.extend(str(name) for name in row["amendments"])
+    return str(previous), str(current), sorted(set(names))
+
+
+def _reopen_by_rebase(tracker: dict[str, Any], item: dict[str, Any], note: dict[str, Any], why: str,
+                      reopened: list[dict[str, Any]]) -> None:
+    if item.get("status") != "accepted":
+        return
+    if item.get("lease") or item.get("status") in _BUSY:
+        raise SocomError(f"{item['id']} is {item.get('status')}: finish or reject it before the rebase")
+    _send_back(item, {**note, "reason": f"{note['reason']}: {why}"})
+    reopened.append({"item": item["id"], "why": why})
+
+
+def rebase_function_order(tracker: dict[str, Any], target: dict[str, Any], derived: dict[str, Any],
+                          plans: dict[str, dict[str, Any]], *, by: str, reason: str, evidence: list[str],
+                          available: Callable[[str], bool]) -> dict[str, Any]:
+    """``progress rebase-function-order``: move stage 5 onto the stage 4 baseline accepted amendments recorded.
+
+    ``plans`` holds the plan file of every accepted order plan (segment and
+    link), at the SHA-256 its acceptance cites.  Mutates ``tracker`` and
+    returns the rebase record (``decomposition.rebases``).
+    """
+
+    from .order_plan import validate_link_plan, validate_order_plan
+    from .order_target import link_order
+
+    opener, stated = by.strip(), reason.strip()
+    lines = sorted({str(text).strip() for text in evidence if str(text).strip()})
+    if not opener or not stated or not lines:
+        raise SocomError("a rebase needs --by, --reason and at least one --evidence line")
+    previous, current, names = absorbable(tracker)
+    inputs = target.get("inputs") or {}
+    if inputs.get("stage4_baseline_sha256") != current or inputs.get("changed_since_baseline"):
+        raise SocomError(f"the order target is not built over the current {SOURCE_STAGE} baseline {current}")
+    if target["summary"].get("problems"):
+        raise SocomError(f"the order target has {target['summary']['problems']} ownership problems: {target['problems']}")
+    stage = _stage(tracker, ORDER_STAGE)
+    decomposition = stage["decomposition"]
+    by_id = _by_id(tracker)
+    items = [row for row in tracker["work_items"] if row.get("stage") == ORDER_STAGE]
+    plan_items = sorted((row for row in items if row.get("kind") == ORDER_SEGMENT_KIND), key=lambda row: row["id"])
+    by_segment, neighbours = segment_units(target)
+    known = {int(row["batch"]["segment_number"]): row for row in plan_items}
+    if added := sorted(set(by_segment) - set(known)):
+        raise SocomError(f"the new target gives authored units to segments without an order plan item ({added}): "
+                         "new segment items are not supported by the rebase (decide how to add them first)")
+    if emptied := sorted(set(known) - set(by_segment)):
+        raise SocomError(f"segments {emptied} lose every authored unit in the new target: retiring their items is not "
+                         "supported by the rebase")
+    for row in items:
+        if row.get("lease") or row.get("status") in _BUSY:
+            raise SocomError(f"{row['id']} is {row.get('status')}: finish, reject or release stage 5 work before the rebase")
+    held = held_items(tracker)
+    if stray := sorted({reopening for reopening in held.values()
+                        if next(row for row in reopenings(tracker) if row["id"] == reopening).get("amendment") not in names}):
+        raise SocomError(f"open reopenings {stray} name amendments the rebase does not absorb")
+    spec = link_order(target)
+    prepare = by_id.get(ORDER_SKELETON_PREPARE_ID)
+    applies = [row for row in items if row.get("kind") == ORDER_APPLY_KIND]
+    entry: dict[str, Any] = {
+        "kind": REBASE_KIND,
+        "schema_version": SCHEMA,
+        "number": len(rebases(tracker)) + 1,
+        "amendments": names,
+        "by": opener,
+        "at": _now(),
+        "reason": stated,
+        "evidence": lines,
+        "previous": {key: copy.deepcopy(decomposition.get(key)) for key in (
+            "stage4_baseline_sha256", "order_sha256", "graph_sha256", "link_order_sha256", "producer_sha256", "unit_count",
+            "units_by_neighbour")},
+        "stage4_baseline_sha256": current,
+        "order_sha256": target["order_sha256"],
+        "link_order_sha256": spec["link_order_sha256"],
+        "segments_changed": [],
+        "reopened": [],
+        "carried": [],
+        "reopenings": sorted(set(held.values())),
+        "tracker_revision": tracker["revision"] + 1,
+    }
+    if prepare is not None and isinstance(decomposition.get("skeleton_prepare"), dict):
+        entry["previous"]["resources_sha256"] = decomposition["skeleton_prepare"].get("resources_sha256")
+    digests = {"order_sha256": target["order_sha256"], "stage4_baseline_sha256": current}
+    moved = {row["unit"] for row in neighbours}
+    for number, plan_item in sorted(known.items()):
+        units = list(by_segment[number])
+        target_digest = segment_target_digest(target, units)
+        batch = plan_item["batch"]
+        if units == batch.get("units") and target_digest == batch.get("segment_target_sha256"):
+            continue
+        entry["segments_changed"].append({
+            "segment": number, "units_before": list(batch.get("units") or []), "units_after": units,
+            "target_before": batch.get("segment_target_sha256"), "target_after": target_digest,
+        })
+        unit_rows = [row for row in target["units"] if row["unit"] in set(units)]
+        directories = _unit_directories(target, units)
+        paths = {row["unit"]: row.get("workspace_path") for row in target["units"]}
+        files = sorted({str(paths[name]) for name in units}, key=str.casefold)
+        common = {"units": units, "units_by_neighbour": [name for name in units if name in moved],
+                  "definitions": sum(row["counts"]["definition"] for row in unit_rows), "segment_target_sha256": target_digest}
+        plan_item["batch"].update(common)
+        for suffix in ("-apply", "-compile"):
+            item = by_id.get(f"{plan_item['id']}{suffix}")
+            if item is None:
+                continue
+            item["batch"].update(common, directories=list(directories))
+            if suffix == "-apply" and prepare is not None:
+                item["batch"]["files"] = list(files)
+                item["resources"] = list(files)
+            else:
+                item["resources"] = list(directories)
+    # The decomposition and every order item cite the new baseline and target.
+    decomposition.update(digests, graph_sha256=inputs.get("graph_sha256"), link_order_sha256=spec["link_order_sha256"],
+                         unit_count=sum(len(units) for units in by_segment.values()), units_by_neighbour=neighbours)
+    for row in items:
+        if row.get("kind") in CITING_KINDS and isinstance(row.get("batch"), dict):
+            row["batch"].update(digests)
+    if ORDER_LINK_ID in by_id:
+        by_id[ORDER_LINK_ID]["batch"].update(link_order_sha256=spec["link_order_sha256"], objects=len(spec["objects"]))
+    decomposition["producer_sha256"] = producer_digest(
+        decomposition, {str(row["batch"]["segment_number"]): list(row["batch"]["units"]) for row in plan_items})
+    decomposition.setdefault("rebases", []).append(entry)
+    # The reopenings of the absorbed amendments let their items go.
+    for row in reopenings(tracker):
+        if row.get("status") == "open":
+            row.update(status="absorbed", absorbed_by=entry["number"], absorbed_at=entry["at"])
+    # Every accepted plan must still validate against the new target (carried), else it is reopened with its apply.
+    note = {"order_rebase": entry["number"], "amendments": names, "reopened_by": opener, "reopened_at": entry["at"],
+            "reason": stated, "evidence": lines}
+    changed = {row["segment"] for row in entry["segments_changed"]}
+    for plan_item in plan_items:
+        if plan_item.get("status") != "accepted":
+            continue
+        number = int(plan_item["batch"]["segment_number"])
+        plan = (plans.get(plan_item["id"]) or {}).get("plan")
+        report = validate_order_plan(tracker, plan, target, derived, check=True) if plan is not None else {
+            "ok": False, "problems": ["its plan file is missing"]}
+        if report["ok"] and number not in changed:
+            entry["carried"].append({"item": plan_item["id"], "plan_sha256": plans[plan_item["id"]]["sha256"]})
+            continue
+        why = ("its segment changed in the new order target" if number in changed
+               else "it no longer validates: " + "; ".join(report["problems"][:3]))
+        _reopen_by_rebase(tracker, plan_item, note, why, entry["reopened"])
+        apply = by_id.get(f"{plan_item['id']}-apply")
+        if apply is not None:
+            _reopen_by_rebase(tracker, apply, note, f"the plan {plan_item['id']} is reopened ({why})", entry["reopened"])
+    link = by_id.get(ORDER_LINK_ID)
+    if link is not None and link.get("status") == "accepted":
+        plan = (plans.get(ORDER_LINK_ID) or {}).get("plan")
+        report = validate_link_plan(tracker, plan, target) if plan is not None else {"ok": False, "problems": ["missing"]}
+        if report["ok"]:
+            entry["carried"].append({"item": ORDER_LINK_ID, "plan_sha256": plans[ORDER_LINK_ID]["sha256"]})
+        else:
+            _reopen_by_rebase(tracker, link, note, "the link order changed: " + "; ".join(report["problems"][:2]),
+                              entry["reopened"])
+    if missing := _missing_ancestors(tracker, [row["item"] for row in entry["reopened"]], available):
+        raise SocomError(f"no merge ancestor is stored for {len(missing)} recorded files the rebase reopens: {_shown(missing)}")
+    _block_dependents(tracker)
+    if prepare is not None and isinstance(decomposition.get("skeleton_prepare"), dict):
+        decomposition["skeleton_prepare"]["resources_sha256"] = skeleton_resources_digest(prepare, applies)
+        decomposition["skeleton_prepare"]["apply_file_count"] = sum(len(row.get("resources") or []) for row in applies)
+    return entry
+
+
+# -- the frozen base after a rebase --------------------------------------------------------------
+
+
+def base_changes(root: Path, tracker: dict[str, Any], names: list[str]) -> dict[str, bytes]:
+    """The frozen base's new files: the current stage 4 blocks over its authored content (new stage 4 files: blocks only).
+
+    The files are those the absorbed amendments' stage 4 applies recorded.
+    A stage 4 move or retirement after the base was frozen is refused (the
+    body snapshot is keyed by the base's paths).
+    """
+
+    from .order_skeleton_route import base_root
+    from .source_amend import amendments
+    from .source_apply import parse_blocks
+
+    base = base_root(root)
+    if not (base / "src").is_dir():
+        return {}
+    rows = [row for row in amendments(tracker) if row.get("id") in names]
+    by_id = _by_id(tracker)
+    paths: set[str] = set()
+    problems: list[str] = []
+    for amendment in rows:
+        for apply_id in amendment.get("applies") or []:
+            record = (by_id.get(str(apply_id)) or {}).get("source_apply") or {}
+            paths.update(str(row.get("path")) for row in record.get("files") or [] if isinstance(row, dict))
+            for move in record.get("moves") or []:
+                if (base / str(move.get("from"))).is_file():
+                    problems.append(f"{move.get('from')} -> {move.get('to')} (a stage 4 move after the skeleton wave)")
+            for row in record.get("retired") or []:
+                if (base / str(row.get("path"))).is_file():
+                    problems.append(f"{row.get('path')} (a stage 4 retirement after the skeleton wave)")
+    if problems:
+        raise SocomError("the frozen base cannot follow: " + _shown(sorted(problems)))
+    changes: dict[str, bytes] = {}
+    for path in sorted(paths, key=str.casefold):
+        live = root / path
+        if not live.is_file():
+            raise SocomError(f"{path}: the file stage 4 recorded is missing")
+        _bom, blocks, _rest = parse_blocks(live.read_bytes().replace(b"\r\n", b"\n").decode("utf-8", "surrogateescape"))
+        old = (base / path).read_bytes() if (base / path).is_file() else None
+        updated = with_blocks(old, blocks)
+        if old is None or updated != old:
+            changes[path] = updated
+    return changes
+
+
+def with_blocks(data: bytes | None, blocks: dict[str, str]) -> bytes:
+    """``data`` with its stage 4 blocks replaced by ``blocks`` (LF texts), in stage 4's form and the file's newline style."""
+
+    from .source_apply import parse_blocks
+
+    text = data.decode("utf-8", "surrogateescape") if data is not None else ""
+    newline = "\r\n" if "\r\n" in text else "\n"
+    bom, _old, rest = parse_blocks(text) if data is not None else ("", {}, "")
+    head = "".join(blocks[key].replace("\r\n", "\n").replace("\n", newline) for key in sorted(blocks))
+    body = bom + head + newline + rest if head and rest else bom + head + rest
+    return body.encode("utf-8", "surrogateescape")
+
+
+def advance_base(root: Path, tracker: dict[str, Any], names: list[str]) -> tuple[dict[str, Any], Callable[[], None]]:
+    """Write the frozen base's new files (the previous base kept under ``base-history``); returns (summary, undo).
+
+    The advanced base's ``@socom-artifact`` edges must have the stage 4
+    baseline's edge digest, or nothing is changed.
+    """
+
+    from .order_skeleton_route import ROUTE_DIR, base_root, tree_sha256
+    from .source import source_artifacts
+    from .source_apply import Overlay
+    from .source_gate import BASELINE_KIND, _digest as gate_digest
+    from .order_skeleton_merge import sha
+
+    base = base_root(root)
+    if not (base / "src").is_dir():
+        return {"files": [], "base_tree_sha256_before": None, "base_tree_sha256": None}, lambda: None
+    changes = base_changes(root, tracker, names)
+    before_tree = tree_sha256(base)
+    history = root / ROUTE_DIR / "base-history" / before_tree[:16]
+    if not history.exists():
+        shutil.copytree(base / "src", history / "src")
+    overlay = Overlay(base)
+    rows = []
+    for path, data in changes.items():
+        rows.append({"path": path, "before_sha256": sha(overlay.disk(path)), "after_sha256": sha(data)})
+        overlay.write(path, data)
+    backups = overlay.commit()
+
+    def undo() -> None:
+        overlay.rollback(backups)
+
+    baseline = _stage(tracker, SOURCE_STAGE).get("baseline") or {}
+    recorded = ((baseline.get("state") or {}).get("annotations") or {}).get("sha256") if baseline.get("kind") == BASELINE_KIND else None
+    edges = sorted({(row["relation"], row["section"], row["artifact_id"], row["path"]) for row in source_artifacts(base)["artifacts"]})
+    if recorded and gate_digest([list(edge) for edge in edges]) != recorded:
+        undo()
+        raise SocomError("the advanced base's @socom-artifact edges do not have the stage 4 baseline's edge digest "
+                         "(src/ does not hold the accepted stage 4 annotations)")
+    return {"files": rows, "base_tree_sha256_before": before_tree, "base_tree_sha256": tree_sha256(base),
+            "history": history.relative_to(root).as_posix()}, undo
+
+
+# -- audit -------------------------------------------------------------------------------------
+
+
+def audit_reopenings(tracker: dict[str, Any]) -> list[str]:
+    """The reopenings and rebases of stage 5: well-formed, traced in the items' history, held items blocked."""
+
+    from .source_amend import amendments
+
+    stage = _stage(tracker, ORDER_STAGE)
+    rows = stage.get("reopenings")
+    chain = rebases(tracker)
+    if rows is None and not chain:
+        return []
+    errors: list[str] = []
+    known = {row.get("id"): row for row in amendments(tracker)}
+    by_id = _by_id(tracker)
+    absorbed = {name for rebase in chain for name in rebase.get("amendments") or []}
+    for number, row in enumerate(rows or [], 1):
+        label = str(row.get("id")) if isinstance(row, dict) else f"reopening {number}"
+        if not isinstance(row, dict) or row.get("kind") != REOPENING_KIND or row.get("schema_version") != SCHEMA:
+            errors.append(f"{label} must be a {REOPENING_KIND} schema {SCHEMA} record")
+            continue
+        if row.get("id") != f"{REOPENING_PREFIX}{number:03d}":
+            errors.append(f"{ORDER_STAGE} reopening {number} must have ID {REOPENING_PREFIX}{number:03d}")
+        amendment = known.get(row.get("amendment"))
+        if amendment is None:
+            errors.append(f"{label} names an unknown {SOURCE_STAGE} amendment {row.get('amendment')}")
+            continue
+        listed = row.get("items")
+        if not isinstance(listed, list) or not listed or listed != sorted(set(listed)):
+            errors.append(f"{label} must list its items once each, sorted")
+            continue
+        for item_id in listed:
+            item = by_id.get(item_id) or {}
+            if item.get("stage") != ORDER_STAGE or item.get("kind") not in REOPENABLE_KINDS:
+                errors.append(f"{label} names {item_id}, which is not a reopenable {ORDER_STAGE} item")
+            elif not any(isinstance(entry, dict) and entry.get("order_reopening") == row["id"] for entry in item.get("review_history") or []):
+                errors.append(f"{label}: {item_id} has no review-history entry for it")
+            elif row.get("status") == "open" and item.get("status") != "blocked":
+                errors.append(f"{item_id} is {item.get('status')} although {label} holds it until a rebase absorbs {row['amendment']}")
+            elif (row.get("status") == "absorbed" and item.get("kind") in ORDER_SKELETON_KINDS
+                  and item.get("status") in ("awaiting_acceptance", "accepted")
+                  and row["amendment"] not in ((item.get("order_skeleton") or {}).get("amendments") or [])):
+                errors.append(f"{item_id} is {item.get('status')} without a re-apply for {row['amendment']} ({label})")
+        if row.get("status") == "open":
+            if row["amendment"] in absorbed:
+                errors.append(f"{label} is open although a rebase absorbed {row['amendment']}")
+        elif row.get("status") == "absorbed":
+            if row["amendment"] not in absorbed or amendment.get("status") != "accepted":
+                errors.append(f"{label} is absorbed but no rebase absorbed the accepted {row['amendment']}")
+        else:
+            errors.append(f"{label} has invalid status {row.get('status')!r}")
+    decomposition = stage.get("decomposition") or {}
+    for index, rebase in enumerate(chain):
+        label = f"{ORDER_STAGE} rebase {index + 1}"
+        if rebase.get("kind") != REBASE_KIND or rebase.get("number") != index + 1:
+            errors.append(f"{label} must be a {REBASE_KIND} record numbered {index + 1}")
+            continue
+        following = chain[index + 1]["previous"]["stage4_baseline_sha256"] if index + 1 < len(chain) else decomposition.get(
+            "stage4_baseline_sha256")
+        if rebase.get("stage4_baseline_sha256") != following:
+            errors.append(f"{label} does not lead to the baseline after it")
+        for name in rebase.get("amendments") or []:
+            if (known.get(name) or {}).get("status") != "accepted":
+                errors.append(f"{label} absorbs {name}, which is not an accepted {SOURCE_STAGE} amendment")
+        if not rebase.get("amendments") or not rebase.get("by") or not rebase.get("evidence"):
+            errors.append(f"{label} must record its amendments, its author and evidence")
+    for item in tracker.get("work_items") or []:
+        record = item.get("order_skeleton")
+        if item.get("kind") in ORDER_SKELETON_KINDS and isinstance(record, dict) and item.get("status") in ("awaiting_acceptance", "accepted"):
+            if missing := sorted(set(item_amendments(tracker, item["id"])) - set(record.get("amendments") or [])):
+                errors.append(f"{item['id']} is {item.get('status')} without a re-apply for {', '.join(missing)}")
+    return errors

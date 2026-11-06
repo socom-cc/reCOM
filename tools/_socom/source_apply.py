@@ -772,8 +772,8 @@ def prepare_apply(
         )
     from .order_skeleton_route import refuse_stage4_writes
 
-    # A file a stage 5 skeleton item wrote is rewritten only once that item is reopened.
-    refuse_stage4_writes(tracker, overlay.changed())
+    # A file a stage 5 skeleton item wrote is rewritten only once that item is reopened (for this amendment, on a re-apply).
+    refuse_stage4_writes(tracker, overlay.changed(), amendments)
     files = []
     for path in managed:
         data = overlay.read(path)
@@ -845,7 +845,8 @@ def verify_source_apply(root: Path, tracker: dict[str, Any], item: dict[str, Any
     for row in record.get("files") or []:
         path = root / str(row.get("path"))
         held = custody.get(str(row.get("path")))
-        if held is not None and (held.get("before_sha256") == row.get("sha256") or held.get("before_content_sha256") == row.get("content_sha256")):
+        if held is not None and any(sha == row.get("sha256") or content == row.get("content_sha256")
+                                    for sha, content in held.get("states") or []):
             # Stage 5's chain of custody: an accepted skeleton item wrote this file from exactly this stage 4 content,
             # and its stage 4 blocks are unchanged.
             continue

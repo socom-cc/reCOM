@@ -159,6 +159,46 @@ def _open_amendments(tracker: dict[str, Any]) -> list[str]:
     return sorted(str(row.get("id")) for row in rows if isinstance(row, dict) and row.get("status") == "open")
 
 
+# A plan built on a stage 4 baseline that a stage 5 rebase absorbed keeps these global digests ("carried") while
+# its segment's own target digest is unchanged and its rows still validate (``progress rebase-function-order``).
+CARRIED_KEYS = ("order_sha256", "stage4_baseline_sha256", "evidence_sha256")
+
+
+def absorbed_baselines(tracker: dict[str, Any]) -> set[str]:
+    """The earlier stage 4 baselines stage 5 was based on before its rebases (each rebase's previous baseline)."""
+
+    decomposition = _stage(tracker, ORDER_STAGE).get("decomposition") or {}
+    return {str((row.get("previous") or {}).get("stage4_baseline_sha256")) for row in decomposition.get("rebases") or []
+            if isinstance(row, dict)}
+
+
+def held_by(tracker: dict[str, Any], item_id: Any) -> str | None:
+    """The open stage 5 reopening that holds ``item_id`` until a rebase absorbs its stage 4 amendment, or None."""
+
+    for row in _stage(tracker, ORDER_STAGE).get("reopenings") or []:
+        if isinstance(row, dict) and row.get("status") == "open" and item_id in (row.get("items") or []):
+            return f"{row.get('id')} ({row.get('amendment')})"
+    return None
+
+
+def require_not_held(tracker: dict[str, Any], item_id: Any) -> None:
+    if hold := held_by(tracker, item_id):
+        raise SocomError(f"{item_id} is held by the open reopening {hold}: it is re-planned once the stage 4 amendment is "
+                         "accepted and progress rebase-function-order absorbs it")
+
+
+def plan_is_current(tracker: dict[str, Any], plan: dict[str, Any], target: dict[str, Any]) -> bool:
+    """A segment plan built on the current target and baseline, or carried from an absorbed baseline (segment unchanged)."""
+
+    inputs = plan.get("inputs") or {}
+    if inputs.get("order_sha256") == target["order_sha256"] and inputs.get("stage4_baseline_sha256") == stage4_baseline(tracker):
+        return True
+    units = [unit.get("unit") for unit in plan.get("units") or [] if isinstance(unit, dict)]
+    return (inputs.get("stage4_baseline_sha256") in absorbed_baselines(tracker)
+            and units == current_segment(target, plan.get("segment_number"))
+            and inputs.get("segment_target_sha256") == segment_target_digest(target, units))
+
+
 # -- the units of each segment item ---------------------------------------------------------
 
 
@@ -825,6 +865,7 @@ def draft_order_plan(
     settled open rows, notes) wherever their artifacts remain.
     """
 
+    require_not_held(tracker, item["id"])
     number = (item.get("batch") or {}).get("segment_number")
     units = current_segment(target, number)
     if not units:
@@ -1155,12 +1196,23 @@ def validate_order_plan(
     units = current_segment(target, number)
     expected_inputs = order_inputs(tracker, target, derived, units)
     stale = [key for key in INPUT_FIELDS if (plan.get("inputs") or {}).get(key) != expected_inputs[key]]
-    if "stage4_baseline_sha256" in stale:
+    if hold := held_by(tracker, item_id):
+        problems.append(f"{item_id} is held by the open reopening {hold}: re-draft it after the amendment's acceptance and "
+                        "progress rebase-function-order")
+    planned_on = (plan.get("inputs") or {}).get("stage4_baseline_sha256")
+    carried = bool(stale) and planned_on in absorbed_baselines(tracker) and not ({"segment_target_sha256", "graph_sha256"} & set(stale))
+    if carried:
+        notes.append(f"carried from the absorbed stage 4 baseline {planned_on}: the segment's target is unchanged, so its "
+                     f"{', '.join(key for key in stale if key in CARRIED_KEYS)} are kept (progress rebase-function-order)")
+        stale_reported = [key for key in stale if key not in CARRIED_KEYS]
+    else:
+        stale_reported = stale
+    if "stage4_baseline_sha256" in stale_reported:
         problems.append(
             f"stale stage 4 baseline: the plan cites {(plan.get('inputs') or {}).get('stage4_baseline_sha256')}, the current "
             f"baseline is {expected_inputs['stage4_baseline_sha256']}: re-draft (order plan draft --item {item_id})"
         )
-    other = [key for key in stale if key != "stage4_baseline_sha256"]
+    other = [key for key in stale_reported if key != "stage4_baseline_sha256"]
     if other:
         unchanged = "segment_target_sha256" not in stale
         problems.append(
@@ -1267,7 +1319,7 @@ def validate_order_plan(
         opened = [f"{unit.get('unit')}:{row.get('artifact')} ({row.get('kind')})" for unit in plan["units"] for row in unit.get("open") or []]
         problems.append(f"{summary['open']} open rows remain: {_shown(opened)}")
     report.update(ok=not problems, segment_number=number, units=units, summary=summary, mismatches=mismatches,
-                  unverified_in_class=unverified, inputs=expected_inputs, stale=stale)
+                  unverified_in_class=unverified, inputs=expected_inputs, stale=stale, carried=carried)
     return report
 
 
@@ -1275,24 +1327,34 @@ def validate_link_plan(tracker: dict[str, Any], plan: Any, target: dict[str, Any
     """The link-order plan must be exactly the current ``order link-spec`` output, with a clean static check."""
 
     problems: list[str] = []
+    notes: list[str] = []
     expected = link_order(target)
     if expected.get("stage4_baseline_sha256") != stage4_baseline(tracker):
         problems.append("the order target was not built over the current stage 4 baseline")
+    if hold := held_by(tracker, ORDER_LINK_ID):
+        problems.append(f"{ORDER_LINK_ID} is held by the open reopening {hold}: re-draft it after progress rebase-function-order")
     if not isinstance(plan, dict) or plan.get("kind") != expected["kind"]:
         problems.append(f"the link plan is not a {expected['kind']} file")
     else:
-        if plan.get("stage4_baseline_sha256") != expected["stage4_baseline_sha256"]:
+        # A link plan built on an absorbed baseline keeps its baseline and order digests while its link order holds.
+        carried = plan.get("stage4_baseline_sha256") in absorbed_baselines(tracker) and plan.get(
+            "stage4_baseline_sha256") != expected["stage4_baseline_sha256"]
+        ignored = {"stage4_baseline_sha256", "order_sha256"} if carried else {"stage4_baseline_sha256"}
+        if carried:
+            notes.append(f"carried from the absorbed stage 4 baseline {plan.get('stage4_baseline_sha256')}: the link order is "
+                         "checked, its baseline and order digests are kept (progress rebase-function-order)")
+        elif plan.get("stage4_baseline_sha256") != expected["stage4_baseline_sha256"]:
             problems.append(
                 f"stale stage 4 baseline: the link plan cites {plan.get('stage4_baseline_sha256')}, the current baseline is "
                 f"{expected['stage4_baseline_sha256']}: re-draft (order plan draft --item {ORDER_LINK_ID})"
             )
-        differing = sorted(key for key in set(plan) | set(expected) if key != "stage4_baseline_sha256" and plan.get(key) != expected.get(key))
+        differing = sorted(key for key in set(plan) | set(expected) if key not in ignored and plan.get(key) != expected.get(key))
         if differing:
             problems.append(f"the link plan differs from the current link-order specification in {differing}: re-draft")
         if not expected["check"]["ok"]:
             problems.append(f"the link order violates {expected['check']['violations']} region orders")
     return {
-        "kind": "socom-order-plan-validation", "ok": not problems, "work_item_id": ORDER_LINK_ID, "problems": problems, "notes": [],
+        "kind": "socom-order-plan-validation", "ok": not problems, "work_item_id": ORDER_LINK_ID, "problems": problems, "notes": notes,
         "summary": {"objects": len(expected["objects"]), "link_order_sha256": expected["link_order_sha256"],
                     "violations": expected["check"]["violations"]},
     }

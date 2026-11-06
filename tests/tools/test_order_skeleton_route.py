@@ -520,18 +520,22 @@ def test_a_prepare_re_apply_renders_checks_and_reproduces_its_record_without_wri
         if (ROOT / RENDER_DIR).exists():
             shutil.rmtree(ROOT / RENDER_DIR)
     assert _src_state() == before
-    # src/ already holds the render: nothing to write, and every file, input and decision is the recorded one.
+    # The inputs are the recorded ones, so the fresh render is the recorded write of every file: the merge keeps
+    # src/ as it is (later port-lane edits included) and writes nothing.
     assert changes == {}
-    for key in ("inputs", "decisions", "files", "files_sha256", "waiting", "known_conflicts"):
+    for key in ("inputs", "decisions", "waiting", "known_conflicts"):
         assert record[key] == recorded[key], key
+    assert {row["path"]: row["rendered_sha256"] for row in record["files"]} == {row["path"]: row["after_sha256"] for row in recorded["files"]}
+    assert {row["merge"] for row in record["files"]} == {"kept"} and all(row["after_sha256"] == row["before_sha256"] for row in record["files"])
     assert record["check"]["ok"] and record["inputs"]["base_tree_sha256"] == recorded["inputs"]["base_tree_sha256"]
     # The whole-tree write digest also covers later items' decisions: it is the last apply's.
     records = [row["order_skeleton"] for row in live["work_items"] if isinstance(row.get("order_skeleton"), dict)]
     assert record["write_sha256"] == max(records, key=lambda row: row["applied_at"])["write_sha256"]
     assert record["inputs"]["stage4_baseline_sha256"] == next(
         row for row in updated["stages"] if row["name"] == "source-correlation")["baseline"]["baseline_sha256"]
-    # Files the prepare creates have no before; deleted orphans no after.
-    assert all(row["before_sha256"] is None for row in record["files"] if row["action"] in ("holding", "new-header"))
+    # Files the prepare creates have no base (the first record: no before); deleted orphans no after.
+    assert all(row["before_sha256"] is None for row in recorded["files"] if row["action"] in ("holding", "new-header"))
+    assert all(row["base_sha256"] is None for row in record["files"] if row["action"] in ("holding", "new-header"))
     assert all(row["after_sha256"] is None for row in record["files"] if row["action"] == "orphan-deleted")
 
 
@@ -549,10 +553,20 @@ def test_every_accepted_skeleton_item_passes_its_apply_check_on_the_current_src(
         if target.exists():
             shutil.rmtree(target)
     assert [report["work_item_id"] for report in reports] == accepted
+    # Each item's own recorded write is checked (the fresh render reproduces it), not what src/ holds now.
     assert {report["work_item_id"]: report["problems"] for report in reports if not report["ok"]} == {}
+    # Later edits of the written files (the functional port lane) are drift, listed by path and never a failure.
+    for report in reports:
+        record = _item(live, report["work_item_id"])["order_skeleton"]
+        changed = sorted(row["path"] for row in record["files"] if _lf_sha(ROOT / row["path"]) != row["after_sha256"])
+        assert sorted(report["drift"]) == changed and report["drift_count"] == len(changed)
     # Each record is the one its handoff cited and its acceptance required.
     for report in reports:
         assert f"{RECORD_CITATION}{report['record_sha256']}" in _item(live, report["work_item_id"])["evidence"]
+
+
+def _lf_sha(path: Path) -> str | None:
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest() if path.is_file() else None
 
 
 def test_a_decided_type_row_keeps_its_readable_name() -> None:

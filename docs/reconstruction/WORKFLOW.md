@@ -44,7 +44,10 @@ their units' files. Each item is written with `progress apply-order-skeleton`
 under its lease (waiting rows settled with `order skeleton decide`), handed
 off with `progress handoff-order-skeleton` and accepted by an independent
 verifier with `progress accept-order-skeleton`; both re-run
-`order skeleton apply-check`. Its phase C compile items and the stage gate wait for
+`order skeleton apply-check`. A stage 4 amendment reopens the stage 5 items
+built on it (`progress reopen-order-skeleton`), stage 5 absorbs the accepted
+amendment (`progress rebase-function-order`), and the reopened skeletons are
+re-applied as merges that keep later `src/` edits. Its phase C compile items and the stage gate wait for
 `socom:work:order-compile-route`, which opens only once the compiler license
 (`socom:blocker:metrowerks-flexlm-license`) works and a compile route exists
 ([FUNCTION_ORDER.md](FUNCTION_ORDER.md)).

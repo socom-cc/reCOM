@@ -447,7 +447,7 @@ def _order_sql(arguments: argparse.Namespace) -> int:
 def _order_plan_draft(arguments: argparse.Namespace) -> int:
     from .cli import _build_path, _emit, _root
     from .constants import tracker_path
-    from .order_plan import ORDER_LINK_ID, draft_order_plan, order_context, order_plan_path, plan_item
+    from .order_plan import ORDER_LINK_ID, draft_order_plan, order_context, order_plan_path, plan_item, require_not_held
     from .order_target import link_order
     from .tracker import load_tracker
     from .util import SocomError, atomic_write_json, load_json
@@ -455,6 +455,8 @@ def _order_plan_draft(arguments: argparse.Namespace) -> int:
     root = _root(arguments)
     tracker = load_tracker(tracker_path(root))
     item = plan_item(tracker, arguments.item)
+    # A plan a stage 4 amendment reopened is re-drafted once a stage 5 rebase absorbed the accepted amendment.
+    require_not_held(tracker, item["id"])
     relative = arguments.output or order_plan_path(item["id"])
     output = _build_path(root, relative, "order plans")
     if relative == order_plan_path(item["id"]) and item.get("status") in ("awaiting_acceptance", "accepted"):

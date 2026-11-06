@@ -158,6 +158,18 @@ SHA-256s, the flags, conflicts and waiting rows. The items close only through
 the audit requires the record, its cited digest and both routes. See
 [FUNCTION_ORDER.md](FUNCTION_ORDER.md#skeleton-route).
 
+After a stage 4 amendment, `progress reopen-order-skeleton` records a
+`socom-order-reopening` under the stage row's `reopenings` and sends its
+items back with review-history entries; the ready refresh keeps them blocked
+while it is open. `progress rebase-function-order` appends a
+`socom-order-rebase` entry to the decomposition's `rebases`, moves the
+decomposition's and every order item's cited digests to the new stage 4
+baseline and marks the reopenings absorbed. The audit checks both records,
+holds open reopenings' items blocked, and requires a re-apply naming the
+amendment (`order_skeleton.amendments`) on every skeleton item in review or
+accepted that an absorbed reopening or a rebase sent back. See
+[FUNCTION_ORDER.md](FUNCTION_ORDER.md#after-a-stage-4-amendment).
+
 The `source-correlation` stage gate closes only through its registered
 route. Generic `progress work handoff` and `progress work accept` refuse
 it. Its reviewer, the lease owner, hands it off with

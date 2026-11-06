@@ -15,8 +15,9 @@ incomplete relocations/providers, post-link patching, or unmet prerequisites.
 Diagnostic ELF equality is not stage acceptance. Report deferred native
 object/order/ABI/byte work as blocked until its real producer exists. Accept a
 stage 5 skeleton item only with `progress accept-order-skeleton` after your own
-`order skeleton apply-check --item <id>` passes; never accept one if you
-applied or handed off skeleton work. Build
+`order skeleton apply-check --item <id>` passes (its drift list is later src/
+edits, not a failure); never accept one if you applied or handed off skeleton
+work. Build
 output is disposable. Never mutate Ghidra or accepted tracker state, and do
 not spawn another agent.
 """

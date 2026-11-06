@@ -666,7 +666,7 @@ def _split_signature(name: str, signature: str | None) -> dict[str, Any] | None:
 class _Builder:
     def __init__(self, root: Path, tracker: dict[str, Any], *, graph_path: Path, receipt_path: Path, fingerprint_path: Path,
                  source_root: Path | None = None) -> None:
-        from .order_plan import order_context, stage4_baseline
+        from .order_plan import order_context, plan_is_current
         from .source_cache import ensure_source_cache
         from .source_emit_check import _Headers
 
@@ -675,12 +675,8 @@ class _Builder:
         self.source_root = source_root if source_root is not None else root
         self.plans, self.link = accepted_plans(root, tracker)
         self.target, _derived = order_context(root, tracker, graph_path, evidence=False)
-        baseline = stage4_baseline(tracker)
-        stale = [
-            row["item"] for row in self.plans
-            if row["plan"].get("inputs", {}).get("order_sha256") != self.target["order_sha256"]
-            or row["plan"].get("inputs", {}).get("stage4_baseline_sha256") != baseline
-        ]
+        # A plan carried across a stage 5 rebase (its segment's target unchanged) is current too.
+        stale = [row["item"] for row in self.plans if not plan_is_current(tracker, row["plan"], self.target)]
         if stale:
             raise SocomError(
                 f"{len(stale)} accepted order plans are stale against the current order target or stage 4 baseline "

@@ -574,10 +574,11 @@ plan's current SHA-256 (`<plan> sha256:<sha>`). `progress work accept`
 re-runs it and refuses a plan whose SHA-256 is not the one the handoff
 cited. The reviewer is an independent `socom-source-owner-scrutinizer`.
 `order plan draft` refuses to rewrite the packet-path plan of a handed-off
-or accepted item. An accepted plan whose inputs went stale (a new stage 4
-baseline, say) returns to its planner with `progress work reopen` (not by
-its handoff owner; its apply has not started), which keeps the review
-history; the re-draft then keeps the decisions.
+or accepted item. An accepted plan whose inputs went stale returns to its
+planner with `progress work reopen` (not by its handoff owner; its apply has
+not started), which keeps the review history; the re-draft then keeps the
+decisions. Once its skeleton apply has started, a stage 4 amendment reopens
+it instead ([After a stage 4 amendment](#after-a-stage-4-amendment)).
 
 ### Dry run (2026-11-01)
 
@@ -901,10 +902,11 @@ both.
 | kept provisional data (`body`) | The provisional statement, verbatim. This applies only where the ELF bytes cannot be rendered, or where a nobits object has a dynamic initializer. Every other provisional data definition is replaced; its text is kept in the write manifest (`replaced_data`). |
 
 A canonical stub's digest is recorded (`stub_sha256`). The writer refuses a
-file that already holds fences. The governed route therefore never rewrites
-a written file: it renders again from its frozen base, so a stub is always
-the canonical one, `body` text is only ever moved, and a hand-edited file is
-refused ([Skeleton route](#skeleton-route)).
+file that already holds fences. The governed route therefore never parses a
+written file: it renders again from its frozen base, so a stub is always the
+canonical one and `body` text is only ever moved. A re-apply merges that
+render with the file in `src/`, so later edits survive
+([Skeleton route](#skeleton-route)).
 
 **`--all` only.** The write also produces:
 
@@ -1263,7 +1265,7 @@ None of its checks is stage evidence.
 python tools/socom.py progress open-capability-gate --item socom:work:order-skeleton-route --expected-revision <n>
 python tools/socom.py progress add-order-skeleton-prepare --expected-revision <n> [--dry-run]
 python tools/socom.py progress work claim --item <item> --owner <worker> --lease-minutes 120 --expected-revision <n>
-python tools/socom.py progress apply-order-skeleton --item <item> --owner <worker> --expected-revision <n> [--dry-run]
+python tools/socom.py progress apply-order-skeleton --item <item> --owner <worker> --expected-revision <n> [--resolutions <dir>] [--dry-run]
 python tools/socom.py order skeleton decide --item <item> --lease-owner <worker> --artifact <key> `
   (--type <definition> | --owner <mangled function> | --body <mangled candidate> | --initializer <text>) --basis "<evidence>"
 python tools/socom.py order skeleton apply-check --item <item>
@@ -1310,50 +1312,65 @@ tracker lock. A segment apply also needs the accepted prepare item.
    items applied earlier never change what a later item renders. The base is
    a frozen input like the body snapshot: keep it until phase B is accepted.
 2. **Stale inputs.** The route refuses:
-   - a stage 4 baseline other than the decomposition's (`d29bca43…`), or an
-     open stage 4 amendment;
-   - a plan built against another stage 4 baseline;
+   - a stage 4 baseline other than stage 5's (the decomposition's
+     `d29bca43…`, or the one the last rebase absorbed), or an open stage 4
+     amendment;
+   - a plan built against another stage 4 baseline (a plan carried from an
+     absorbed baseline is current: the manifest checked that its segment's
+     target is unchanged);
    - accepted order plans other than the ones the manifest cites, at their
      cited SHA-256s;
-   - a changed manifest, snapshot or base;
-   - for a segment apply, any input that differs from the prepare's record.
+   - a changed manifest, snapshot or base.
 3. **Render and check.** The whole tree is rendered into
    `build/stage5/skeleton-route/render`, with every item's decisions, and
    `order skeleton check`'s checks run over it: determinism, S1-S5 and S7.
    Any failure refuses the apply.
 4. **Scope.** The route refuses:
    - a decision that no longer applies;
-   - a rendered file that no skeleton item reserves;
-   - a rendered file of another item in review or accepted that differs
-     from that item's record (that item must be reopened first);
-   - one of its own files that changed outside the route: it must be its
-     base, or this item's last write;
+   - a rendered file that no skeleton item reserves. A re-applied prepare
+     (after a stage 4 amendment, say) reserves the new headers and holding
+     files its render adds (`reserved_added`; the decomposition's `resources_sha256`
+     follows), never a unit file;
+   - a rendered file of another item in review or accepted whose render
+     differs from that item's recorded render (that item must be reopened
+     first). A segment apply needs the accepted prepare; this check keeps the
+     prepare's own write current;
    - a render that changes a file's stage 4 blocks.
-5. **Write.** It writes its own files, byte for byte the render's, and
-   deletes its orphans. It then records `order_skeleton` on the item (kind
-   `socom-order-skeleton-apply`):
+5. **Merge.** Each of its own files is a three-way merge
+   ([Re-apply as a merge](#re-apply-as-a-merge)) of its previous render, the
+   live file in `src/` and the new render. The first write of a file merges
+   from its base, so an unedited file simply takes the render. A conflict
+   writes nothing.
+6. **Write.** It writes its own files and deletes its orphans. It then
+   records `order_skeleton` on the item (kind `socom-order-skeleton-apply`):
    - the inputs: the manifest, snapshot, base `src_sha256` and base tree
      digest, order target, plan and link-plan SHA-256s, and the stage 4
      baseline;
    - the item's decisions file digest;
    - `write_sha256`;
-   - per file: its action, its `before_sha256` and `after_sha256`
-     (LF-normalized, null for a created or a deleted file), its stage 4
-     content digest and its stage 4 block digests;
+   - per file: its action, `base_sha256` (the frozen base), `before_sha256`
+     (the live file), `ancestor_sha256`, `rendered_sha256` and `after_sha256`
+     (what was written), all LF-normalized and null for an absent file; the
+     `merge` kind and any `resolution`; the base and before content digests
+     and the stage 4 block digests. A record from before merges has only
+     `before_sha256` (the base) and `after_sha256` (the render);
+   - `merges` by kind and, for a re-apply after a stage 4 amendment,
+     `amendments`;
    - the static check summary;
    - the scope's entries and regions, its flags by kind, the derived
      local-static order conflicts of its units, and its waiting rows.
 
-   The record's lines go into the item's evidence (`order-skeleton-…`). If
-   the tracker write fails, every file is restored.
+   The record's lines go into the item's evidence (`order-skeleton-…`). The
+   ancestor, live, rendered and written contents go into the blob store
+   (`build/stage5/skeleton-route/blobs`, LF-normalized, by SHA-256). If the
+   tracker write fails, every file is restored.
 
 A re-apply after a rejection (`progress work reject`) or a reopen replaces
-the record. The previous record moves to the review history, and the files
-it left count as the item's last write. A re-apply never parses the written
-files: it renders again from the base and the snapshot, so a stub is
-regenerated and a body is moved again. A file edited by hand is neither its
-base nor the item's last write, so the route refuses it instead of
-overwriting it (BD7).
+the record. The previous record moves to the review history. A re-apply
+never parses the written files: it renders again from the base and the
+snapshot, so a stub is regenerated and a body is moved again, and the merge
+keeps what later work changed in `src/` (BD7 refused such files before
+merges existed).
 
 ### Waiting rows and decisions
 
@@ -1386,12 +1403,21 @@ decided before the prepare is applied.
 ### Review
 
 `order skeleton apply-check --item` is read-only. It renders into
-`build/stage5/skeleton-route/check/` and checks that:
+`build/stage5/skeleton-route/check/` and checks the item's own recorded
+write, never what `src/` holds now:
 
-- the inputs are not stale and the item's decisions file is the recorded one;
-- the fresh render passes every static check and reproduces the recorded
-  after-content of each of the item's files;
-- `src/` holds exactly that content with unchanged stage 4 blocks.
+- the inputs are not stale and the item's decisions file is the recorded one.
+  Inputs that changed since the apply (a rebuilt manifest, a rebase) are a
+  note while the render still reproduces the write;
+- the fresh render passes every static check and has the recorded render
+  digest of each of the item's files;
+- a merged file comes out of the recorded ancestor and live content again
+  (both from the blob store) with the recorded digest; a resolved file is the
+  stored resolution and keeps the render's fence lines and stage 4 blocks;
+- a file that changed after the write is **drift** (`drift`, by path): later
+  work, such as the functional port lane, edits written files on purpose.
+  Drift is reported, never a failure. A file whose stage 4 blocks changed
+  fails, because annotations change only through stage 4.
 
 `progress handoff-order-skeleton` is run by the lease holder. It re-runs the
 apply-check and cites the record's digest (`order-skeleton-record-sha256:`).
@@ -1419,8 +1445,12 @@ as its stage 4 state when:
 
 - its content is still the record's after-content;
 - its stage 4 blocks are byte-identical;
-- the record's before digest is a SHA-256 (or authored-content digest) that
-  stage 4 recorded for it.
+- the content the write started from is one stage 4 recorded for it (its
+  SHA-256 or authored-content digest): the record's before digest, or, for a
+  file that is exactly its render, the frozen base it was rendered from (so a
+  re-apply that leaves an unamended file as it was keeps its custody). A
+  later edit of the file (drift) ends the custody, as it ends stage 4's own
+  `source apply-check` of that file.
 
 This holds in `source apply-check`, in the gate's recomputed state (so
 `audit source-baseline` keeps `apply_files_unchanged` and the state digest
@@ -1432,9 +1462,13 @@ content, even where a file held only its blocks before. S3 checks that form.
 
 A later stage 4 amendment cannot rewrite such a file. `progress
 apply-source-plan` and `source annotate --write` refuse a file that a skeleton
-item in review or accepted wrote, until that item is reopened. After the
-amendment is accepted, the new stage 4 baseline makes the stage 5 inputs
-stale, and the order plans and manifest are rebuilt before any re-apply.
+item in review or accepted wrote, until that item is reopened. A re-apply for
+an amendment also refuses the file of a skeleton item that was not reopened
+for that amendment with `progress reopen-order-skeleton`. After the amendment
+is accepted, the new stage 4 baseline makes the stage 5 inputs stale:
+`progress rebase-function-order` absorbs it, and the reopened order plans and
+the manifest are rebuilt before any re-apply
+([After a stage 4 amendment](#after-a-stage-4-amendment)).
 
 ### Refreshing the census and source counts
 
@@ -1462,18 +1496,165 @@ accepted (tracker revision 4120), and `src/` holds the skeletons. The base
 - **A correction rebuilds the manifest from the base.** `order skeleton
   manifest --all --snapshot build/stage5/provisional-bodies.json` reproduces
   the applied manifest `3fe41f69…` byte for byte, and the snapshot stays
-  `3084d9c8…` (`current`). `order skeleton write --all` then renders a tree
-  equal to the current `src/`. A changed manifest makes every skeleton
-  record stale, so each item is reopened and applied again.
+  `3084d9c8…` (`current`). `order skeleton write --all` then renders the
+  tree the records wrote (`src/` differs where later work edited it). A
+  changed manifest leaves a record valid while the fresh render of its files
+  is unchanged; an item whose files render differently is reopened and
+  applied again, as a merge.
 - **Tests.** The real-data tests render from the base. The pre-route steps
   run on the live tracker with the route's mutations undone (`_unprepared`
   in `tests/tools/test_order_skeleton_route.py`): no prepare item, the gate
   blocked, and each apply as the decomposition left it. That state equals
   the tracker before the route opened (revision 3929); adding the prepare to
   it reproduces the real reservations and stage record. The post-wave tests
-  re-apply the prepare without writing: nothing changes and the recorded
-  files come back. They also run the apply-check of every accepted skeleton
-  item, over one shared render (`verify_skeletons`).
+  re-apply the prepare without writing: the fresh render is every recorded
+  write, so each merge keeps `src/` as it is (`kept`, later edits included)
+  and nothing is written. They also run the apply-check of every accepted
+  skeleton item, over one shared render (`verify_skeletons`), and compare its
+  drift with the files `src/` changed since the write.
+
+### After a stage 4 amendment
+
+A stage 4 amendment ([SOURCE_CORRELATION.md](SOURCE_CORRELATION.md#amending-an-accepted-plan))
+changes plans, annotations and files that accepted stage 5 items are built
+on, and `src/` holds skeletons that later work edited on purpose (the
+functional port lane). The route reopens what the amendment touches, moves
+stage 5 onto the new baseline once the amendment is accepted, and re-applies
+the reopened items as merges:
+
+```powershell
+python tools/socom.py progress reopen-order-skeleton --amendment socom:source-amendment:NNN [--item <stage 5 item>] `
+  --by <name> --reason "<why>" --evidence "<line>" --expected-revision <n> [--dry-run]
+#   stage 4: revise, re-apply (progress apply-source-plan) and accept the amendment (progress accept-source-amendment)
+python tools/socom.py progress rebase-function-order --by <name> --reason "<why>" --evidence "<line>" --expected-revision <n> [--dry-run]
+#   re-draft, validate, hand off and accept the reopened plans (order plan draft / validate, progress work handoff / accept)
+python tools/socom.py order skeleton manifest --all --snapshot build/stage5/provisional-bodies.json --output build/stage5/skeleton-manifest.json
+#   re-apply the reopened skeleton items (the prepare first), hand off and accept them as above
+```
+
+#### Reopen while the amendment is open
+
+`progress reopen-order-skeleton` selects the stage 5 items built on the
+amended stage 4 plans:
+
+- the order plan of each amended stage 4 segment plan (for a data reconcile:
+  of its segment applies' plans);
+- every skeleton item whose record lists a file the amendment's stage 4
+  applies recorded (written, created, moved or removed). The stage 4
+  re-apply rewrites those files' blocks. The prepare is selected this way
+  when the amendment annotates one of its headers;
+- each selected apply's plan, each selected plan's apply, and any `--item`
+  (an order plan, the link plan, a segment apply or the prepare). Name the
+  prepare when the revision will add or retire files or stubs whose
+  declarations live in headers: the re-apply of a segment refuses while the
+  new render changes a file of an item that was not reopened.
+
+It refuses an amendment that is not open, a leased item, an item awaiting
+acceptance, a started compile item, the prepare while a segment apply is in
+progress or under review, an opener who handed off a reopened item, and a
+stale revision. Each accepted item is sent back (`blocked`, its handoff and
+acceptance moved to a review-history entry with `order_reopening`,
+`amendment`, the opener, reason and evidence; a skeleton item keeps its
+record, copied into the entry). An item that is already sent back, by
+another amendment's reopening for example, is held too, with a note entry.
+The stage row records the reopening under `reopenings`
+(`socom:order-reopening:NNN`, kind `socom-order-reopening`: the amendment,
+the items and why each was chosen, status `open`, the ancestors' digest).
+While it is open its items stay blocked: the ready refresh skips them, and
+`order plan draft` and `order plan validate` refuse them. Before the tracker
+changes, the command renders the whole tree from the still-current inputs
+and stores every file whose render is a skeleton record's write in the blob
+store: the merge ancestors of the later re-apply. It refuses when a reopened
+item's ancestor is neither stored nor rendered.
+
+`progress apply-source-plan` then may rewrite the files of the items
+reopened for that amendment. It refuses the file of any other skeleton item.
+
+#### Rebase once it is accepted
+
+`progress rebase-function-order` runs
+when no stage 4 amendment is open and the current stage 4 baseline follows
+stage 5's through accepted amendments only (`baseline_history`). It builds
+the order target over the new baseline and, in one tracker mutation:
+
+- appends a `socom-order-rebase` entry to the decomposition's `rebases`: the
+  absorbed amendments, the previous digests (stage 4 baseline, order target,
+  graph, link order, producer, units by neighbour, reservations), the
+  changed segments (units and target digest before and after), the reopened
+  and carried plans, the absorbed reopenings and the base delta;
+- moves the decomposition and every order item's cited digests to the new
+  baseline and target, and recomputes `producer_sha256`;
+- re-derives, for each segment whose units or target digest changed, the
+  batch of its plan, apply and compile items: units, definitions, target
+  digest, directories, and the apply's unit files (new units, such as a new
+  file stage 4 created, are reserved here);
+- marks the open reopenings `absorbed`; their items become ready as usual;
+- reopens every accepted plan whose segment changed or that no longer
+  validates against the new target, with its apply, and the link plan when
+  its link order changed (review-history entries with `order_rebase`);
+- advances the frozen base: each file the absorbed amendments' stage 4
+  applies recorded gets its current stage 4 blocks over the base's own
+  authored content, and a file stage 4 created enters the base as its
+  blocks. The previous base is kept under
+  `build/stage5/skeleton-route/base-history/<tree digest>`. The advanced
+  base's `@socom-artifact` edges must have the stage 4 baseline's edge
+  digest. A stage 4 move or retirement after the wave is refused (the body
+  snapshot is keyed by the base's paths).
+
+It refuses an open amendment, a baseline that is already stage 5's, stage 5
+work in progress or under review, a new target that gives units to a segment
+without order items or empties one, and a reopened item without a stored
+merge ancestor.
+
+**Carried plans.** An accepted plan built on an absorbed baseline stays
+accepted while its segment's target digest is unchanged and its rows
+validate against the new target. `order plan validate` then keeps its order,
+baseline and evidence digests as a note (`carried`), and
+`order skeleton manifest` and the route accept it. A carried link plan keeps
+its baseline and order digests while its objects are unchanged. Reopened
+plans are re-drafted (the decisions carry over), validated, handed off and
+accepted as in phase A; then the manifest is rebuilt.
+
+#### Re-apply as a merge
+
+A reopened skeleton item is claimed and applied again (the prepare first, when it was
+reopened). Per file, the route merges:
+
+| Input | Content |
+| --- | --- |
+| ancestor | the previous render of the file: the record row's `rendered_sha256` (`after_sha256` for a record from before merges), from the blob store, or the fresh render when it still has that digest; for a file no skeleton item wrote yet, the frozen base's content |
+| ours | the live file under `src/` |
+| theirs | the new render |
+
+Equal sides decide by digest: theirs equal to the ancestor keeps ours
+(`kept`), ours equal to the ancestor takes the render (`render`), and equal
+ours and theirs stay (`same`). Otherwise a deterministic,
+standard-library line merge (`order_skeleton_merge`: the classic merge3
+over `difflib` matching blocks) merges the two changes (`clean`). Changes to
+the same or adjacent lines conflict, and so does a file one side deletes
+while the other changed it. Merges run on LF text and are written in the
+file's own newline style.
+
+A conflict writes nothing for the item. The apply refuses and writes
+`build/stage5/skeleton-route/conflicts/<item>.json`
+(`socom-order-skeleton-conflicts`: per file the ancestor, ours and theirs
+digests and each hunk's line ranges and text) and marker files under
+`conflicts/<item>/src/…`. A source worker resolves each marked file into
+`<dir>/src/…` under `build/` (not under `conflicts/`, which each run
+replaces) and re-runs the apply with `--resolutions <dir>`. The resolution
+is used only while the conflict report's digests are the current ones; the
+row records it as `resolved` with its path and SHA-256.
+
+A merged or resolved file must keep the render's fence lines (the same
+sequence: the order the fences give is the planned one) and its stage 4
+blocks, and hold no conflict marker. The static checks S1-S7 still run over
+the pure render: the merged result carries edits that S1, S4, S5 and S7
+would rightly report against the generated text (port-lane signatures,
+bodies and declarations), so only the fence, block and marker checks apply
+to it. The record names the amendments it re-applies for (`amendments`,
+evidence line `order-skeleton-reapply`), and `progress audit` requires it on
+every item in review or accepted that an absorbed reopening or a rebase sent
+back.
 
 ### Dry run (2026-11-01)
 

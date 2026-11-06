@@ -954,8 +954,10 @@ def _applied_files(root: Path, tracker: dict[str, Any]) -> list[list[Any]]:
     rows = []
     for path in sorted(recorded):
         held = custody.get(path)
-        if held is not None and ({f"sha256:{held.get('before_sha256')}", f"content:{held.get('before_content_sha256')}"} & recorded[path]):
-            rows.append([path, held["before_sha256"]])
+        state = next((sha for sha, content in (held or {}).get("states") or []
+                      if {f"sha256:{sha}", f"content:{content}"} & recorded[path]), None)
+        if state is not None:
+            rows.append([path, state])
         else:
             rows.append([path, sha256_file(root / path) if (root / path).is_file() else None])
     return rows
