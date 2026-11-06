@@ -47,6 +47,7 @@
 #include "zsnd.h"
 
 #include "gamez/zSeal/zseal.h"
+#include <989snd.h> /* snd_StopSound */
 
 /* @socom-skeleton decl include */
 #include "gamez/zMath/zmath.h"
@@ -179,6 +180,28 @@ void CSndInstance::TerminateOnFinish()
 /* @socom-skeleton stub UIStopAllSounds__12CSndInstanceFv */
 void CSndInstance::UIStopAllSounds()
 {
+	/* 0x2ef540: stop every live instance; one without a sound handle yet is marked to
+	 * end as soon as it starts */
+	if (m_isDisabled)
+		return;
+
+	for (std::list<CSndInstance*>::iterator it = m_instancelist.begin(); it != m_instancelist.end(); ++it)
+	{
+		CSndInstance* instance = *it;
+
+		if (instance == NULL || m_isDisabled)
+			continue;
+
+		if (instance->m_handle == 0xffffffff)
+		{
+			instance->m_terminateASAP = true;
+			instance->m_terminateOnFinish = true;
+		}
+		else
+		{
+			snd_StopSound(instance->m_handle);
+		}
+	}
 }
 
 /* @socom-skeleton stub StopAllSounds__12CSndInstanceFv */

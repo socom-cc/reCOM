@@ -216,6 +216,8 @@
 #include "gamez/zTexture/ztex.h"
 #include "gamez/zTwoD/ztwod.h"
 #include "zui.h"
+#include "gamez/zGame/zgame.h" /* theGame (CTeleType::LoadSpec) */
+#include "gamez/zSound/zsnd.h" /* CSnd (CTeleType) */
 #include <new> /* port: placement new for C2DButton::m_commands */
 
 /* @socom-skeleton end include */
@@ -666,8 +668,10 @@ void UiSetCounterSpeedFactor(float)
 }
 
 /* @socom-skeleton stub UiSetTtySpeedFactor__Ff */
-void UiSetTtySpeedFactor(float)
+void UiSetTtySpeedFactor(float factor)
 {
+	/* 0x393260 */
+	g_fTtySpeedFactor = factor;
 }
 
 /* @socom-skeleton stub GetZAnimCmdType__10C2DCounterFPCc */
@@ -894,44 +898,332 @@ void CPlainBmp::Tick(float dT)
 }
 
 /* @socom-skeleton stub GetSpacing__9CTeleTypeFv */
-float CTeleType::GetSpacing() /* port: stub; 0x390c70 returns the f32 at +0x3cc */
+CGameMenu * UiGetCurMenu(); /* zui.cpp (0x384540) */
+
+float CTeleType::GetSpacing()
 {
-	return 0.0f;
+	/* 0x390c70 */
+	return m_spacing;
 }
 
 /* @socom-skeleton stub Draw__9CTeleTypeFRC7CMatrixPQ23zdb16CTextureRelocMgr */
-void CTeleType::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+void CTeleType::Draw(const CMatrix &transform, zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x390920: the text at the node origin (the zero point through the matrix, VU0 in the
+	 * ELF), its oldest lines skipped while it is taller than MAXHEIGHT, then the cursor
+	 * block after the last character. The ELF reads m_font's metrics before its NULL test. */
+	CPnt3D origin = CPnt3D::zero;
+	f32 x = transform.m_matrix[0][0] * origin.x + transform.m_matrix[1][0] * origin.y + transform.m_matrix[2][0] * origin.z + transform.m_matrix[3][0];
+	f32 y = transform.m_matrix[0][1] * origin.x + transform.m_matrix[1][1] * origin.y + transform.m_matrix[2][1] * origin.z + transform.m_matrix[3][1];
+	CMatrix unit;
+
+	f32 factor = m_font != NULL ? m_font->m_scale_factor : 1.0f;
+	f32 height = (f32)(m_font->m_displaybottom - m_font->m_displaytop) * (m_scale * factor);
+	factor = m_font != NULL ? m_font->m_scale_factor : 1.0f;
+	f32 width = 20.0f * (m_scale * factor);
+
+	C2DString::Tick(0.0f);
+	m_pos.y = (s32)y << 4;
+	m_pos.x = (s32)x << 4;
+	UpdatePos();
+
+	s32 lines = m_numLines;
+
+	if (m_maxHeight > 0 && m_maxHeight < (s32)((f32)m_numLines * GetSpacing()))
+	{
+		lines = m_numLines;
+		const char* c = GetString();
+		s32 first = 0;
+
+		while (!((f32)lines * GetSpacing() <= (f32)m_maxHeight))
+		{
+			char ch;
+
+			do
+			{
+				ch = *c;
+				first++;
+				c++;
+			} while (ch != '\n');
+
+			lines--;
+		}
+
+		m_firstCharPos = first;
+	}
+	else
+	{
+		m_firstCharPos = 0;
+	}
+
+	s32 length = strlen(GetString());
+
+	if (GetString()[length - 1] == '\n')
+		lines--;
+
+	if (strlen(GetString()) == 0)
+		return;
+
+	C2DString::Draw(reloc, NULL, 0.0f);
+
+	if (m_showCursor && GetString()[0] != ' ')
+	{
+		f32 down = (f32)lines * m_spacing;
+		f32 left = (f32)(m_shortLength + 2);
+		m_cursor.Load(left, y + down, width + left, (y - height) + down, NULL);
+		m_cursor.Draw(unit, reloc);
+	}
 }
 
 /* @socom-skeleton stub LoadSpec__9CTeleTypeFRC8CTtySpec */
-void CTeleType::LoadSpec(const CTtySpec &)
+void CTeleType::LoadSpec(const CTtySpec &spec)
 {
+	/* 0x3906e0: the CRenderableString part inline (as CRenderableString::LoadSpec 0x390fb0),
+	 * then the teletype keys; the caption goes to m_text and the shown string starts
+	 * empty. The cursor is an untextured opaque block. */
+	m_scale = spec.m_scale;
+	SetString(spec.m_caption.c_str());
+	m_isCentered = spec.m_hCentered;
+	m_specColor.x = spec.m_color.x;
+	m_specColor.y = spec.m_color.y;
+	m_specColor.z = spec.m_color.z;
+	m_color.x = m_specColor.x;
+	m_color.y = m_specColor.y;
+	m_color.z = m_specColor.z;
+
+	if (spec.m_hasFont)
+	{
+		m_alternateFont = new C2DFont();
+		m_alternateFont->Load(FetchMissionFontsRdr(), spec.m_font.c_str());
+		SetFont(m_alternateFont);
+	}
+
+	SetCanHandleInput(false);
+
+	/* port: not written - a spec UIVAR attaches the string to its UI variable
+	 * (theUIVarManager.Add, AttachUIVar, UpdateUIVar), as in CRenderableString::LoadSpec */
+
+	m_interval = spec.m_interval;
+	m_advance = 0.0f;
+	m_lineStart = 0.0f;
+	m_maxLength = spec.m_maxLength;
+	m_maxHeight = spec.m_maxHeight;
+	m_spacing = spec.m_spacing;
+
+	if (m_maxLength == 0.0f)
+		m_maxLength = 100000.0f;
+
+	C2DString::SetString("");
+	m_pulseRate = spec.m_pulseRate;
+
+	if (m_pulseRate == 0.0f)
+		m_pulseRate = 1.0f;
+
+	m_sound = CSnd::GetSoundByName(theGame.m_menuState.TtySoundString.c_str());
+	m_cursor.m_hasTexture = false;
+	m_cursor.SetTrans(128.0f);
+	m_showCursor = !spec.m_noCursor;
 }
 
 /* @socom-skeleton stub SetString__9CTeleTypeFPCc */
-void CTeleType::SetString(const char *)
+void CTeleType::SetString(const char *string)
 {
+	/* 0x390640: restart typing with a new text (the shown string empties). The ELF copies
+	 * with sprintf("%s") into the 768-byte m_text without a length check. */
+	C2DString::SetString("");
+
+	if (string == NULL || *string == '\0')
+	{
+		m_textLength = 0;
+		m_index = 0;
+		return;
+	}
+
+	m_index = 0;
+	m_reset3b8 = 0;
+	m_advance = 0.0f;
+	m_lineStart = 0.0f;
+	m_textLength = strlen(string);
+	m_cursorPhase = 0.0f;
+	sprintf(m_text, "%s", string);
+	Update();
 }
 
 /* @socom-skeleton stub ParseZAnimCmd__9CTeleTypeFP5_zrdr */
 C2DAnimCmdHdr * CTeleType::ParseZAnimCmd(_zrdr *)
 {
+	/* port: not written - 0x3904e0 builds CONTINUE / CAPTION command headers; the port
+	 * loads compiled scripts, so their headers come from the ZAR */
+	return NULL;
 }
 
 /* @socom-skeleton stub TickZAnimCmd__9CTeleTypeFP14_zanim_cmd_hdrPfPb */
-bool CTeleType::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+bool CTeleType::TickZAnimCmd(_zanim_cmd_hdr *header, float *, bool *result)
 {
+	/* 0x390400: Continue (GetUICommandType(NULL) + 3) ends a #P pause; Caption (+ 1) types
+	 * a new text. Continue leaves *result alone. */
+	C2DAnimCmdHdr* cmd = reinterpret_cast<C2DAnimCmdHdr*>(header);
+
+	if ((s32)cmd->m_command_type - (GetUICommandType(NULL) + 2) == 1)
+	{
+		m_pause = 0.0f;
+		return true;
+	}
+
+	CZAnim* anim = ZAnim.m_CurAnim;
+
+	if ((s32)cmd->m_command_type - GetUICommandType(NULL) != 1)
+		return false;
+
+	SetString(anim->GetName(cmd->m_argument_index));
+	Update();
+	*result = true;
+	return true;
 }
 
 /* @socom-skeleton stub GetZAnimCmdType__9CTeleTypeFPCc */
-int CTeleType::GetZAnimCmdType(const char *)
+int CTeleType::GetZAnimCmdType(const char *name)
 {
+	/* 0x390330: Continue, then CRenderableString's Caption inline (0x388cf0); NULL gives
+	 * the next free type */
+	if (name == NULL)
+		return GetUICommandType(NULL) + 2 + 2;
+
+	if (*name == '\0')
+		return 0;
+
+	if (strcasecmp("Continue", name) == 0)
+		return GetUICommandType(NULL) + 2 + 1;
+
+	if (strcasecmp("Caption", name) == 0)
+		return GetUICommandType(NULL) + 1;
+
+	return GetUICommandType(name);
 }
 
 /* @socom-skeleton stub Tick__9CTeleTypeFf */
-void CTeleType::Tick(float)
+void CTeleType::Tick(float dT)
 {
+	/* 0x38fe80: type the text. Each tick the advance grows by INTERVAL x scale; when it
+	 * passes the end of the shown line the next character is added (and the TELETYPE sound
+	 * plays), then Tick(0) runs again. A space past MAXLENGTH wraps the line; '\n' and "#N"
+	 * break it; "#P<seconds> " pauses. ON_TTY_DONE runs when the last character is typed.
+	 * The tail of the text (its last m_numLines characters) is added at once, then the
+	 * cursor pulses: alpha 96 + 32 sin(phase). */
+	if (!IsOn())
+		return;
+
+	dT *= g_fTtySpeedFactor;
+
+	if (!(m_pause <= 0.0f))
+	{
+		m_pause -= dT;
+		return;
+	}
+
+	UpdatePos();
+
+	if (!(m_index < m_textLength - m_numLines))
+	{
+		if (m_text[m_index] != '\0')
+		{
+			while (m_text[m_index] != '\0')
+				AddCharacter(m_text[m_index++]);
+
+#ifdef SOCOM_PORT
+			/* port: the ELF plays m_sound without a NULL test; the port has no sounds */
+			if (m_sound != NULL)
+#endif
+			m_sound->PlaySound(true, NULL, 255);
+		}
+
+		const f32 TWO_PI = 6.2831855f;
+		m_cursorPhase += dT * m_pulseRate;
+
+		if (!(m_cursorPhase <= TWO_PI))
+			m_cursorPhase -= TWO_PI;
+
+		m_cursor.SetTrans(96.0f + 32.0f * sinf(m_cursorPhase));
+		C2DString::Tick(dT);
+		return;
+	}
+
+	f32 factor = m_font != NULL ? m_font->m_scale_factor : 1.0f;
+	f32 previous = m_advance;
+	m_advance += (dT * m_interval) * (m_scale * factor);
+
+	if (m_advance > m_maxLength && m_text[m_index] == ' ' && (f32)m_shortLength > m_maxLength)
+	{
+		NewLine();
+		m_lineStart += (f32)m_shortLength;
+		m_advance -= (f32)m_shortLength;
+		m_index++;
+
+		if (m_advance < 0.0f)
+			m_advance = 0.0f;
+		else
+			Tick(0.0f);
+	}
+	else if (m_text[m_index] == '\n')
+	{
+		NewLine();
+		m_lineStart = m_length;
+		m_advance = 0.01f;
+		m_index++;
+	}
+	else if (m_text[m_index] == '#')
+	{
+		m_index++;
+
+		if (m_text[m_index] == 'N')
+		{
+			NewLine();
+			m_lineStart = m_length;
+			m_advance = 0.01f;
+			m_index++;
+		}
+		else if (m_text[m_index] == 'P')
+		{
+			m_index++;
+			char seconds[256];
+			memset(seconds, 0, sizeof(seconds));
+
+			while (m_text[m_index] != ' ' && m_index < m_textLength)
+			{
+				/* port: the ELF appends with sprintf(seconds, "%s%c", seconds, c) */
+				size_t end = strlen(seconds);
+				seconds[end] = m_text[m_index];
+				seconds[end + 1] = '\0';
+				m_index++;
+			}
+
+			m_index++;
+			m_pause = (f32)atof(seconds);
+		}
+	}
+	else if (!(m_advance + m_lineStart <= m_length))
+	{
+		if (m_index < m_textLength)
+		{
+			if (dT > 0.0f && m_sound != NULL)
+				m_sound->PlaySound(true, NULL, 255);
+
+			AddCharacter(m_text[m_index]);
+			UpdatePos();
+			m_index++;
+
+			if (m_index == m_textLength)
+				UiGetCurMenu()->RunEventAnim(ActionItem::ON_TTY_DONE, NULL);
+
+			Tick(0.0f);
+		}
+		else if (previous + m_lineStart <= m_length)
+		{
+			UiGetCurMenu()->RunEventAnim(ActionItem::ON_TTY_DONE, NULL);
+		}
+	}
+
+	C2DString::Tick(dT);
 }
 
 /* @socom-skeleton stub Draw__13C3StateButtonFRC7CMatrixPQ23zdb16CTextureRelocMgr */

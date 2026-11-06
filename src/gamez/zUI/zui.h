@@ -65,6 +65,7 @@ class ColumnData;
 class CUIVariable;
 class CUIVariableSpec;
 class CUIVarManager;
+class CSnd;
 
 s32 ZuiInit();
 
@@ -254,15 +255,32 @@ public:
 	/* @socom-skeleton end 11CButtonSpec */
 };
 
-class CTtySpec : public CDlgObjSpec
+/* no DWARF; a TEXT spec (GetObjectSpec 0x399a98 runs __ct__9CTextSpecFP5_zrdr first, 60
+ * bytes) plus the teletype keys, in the order of the ELF layout */
+class CTtySpec : public CTextSpec
 {
 public:
-	s32 m_maxHeight;
-	f32 m_pulseRate;
-	f32 m_spacing;
-	f32 m_interval;
-	f32 m_maxLength;
-	bool m_noCursor;
+	/* port: no out-of-line symbol; inlined in GetObjectSpec (0x399ab8) */
+	CTtySpec(_zrdr* reader) : CTextSpec(reader)
+	{
+		m_interval = 0.0f;
+		m_maxLength = 0.0f;
+		m_spacing = 0.0f;
+		m_pulseRate = 0.0f;
+		m_maxHeight = -1;
+		zrdr_findint(reader, "MAXHEIGHT", &m_maxHeight, 1);
+		zrdr_findreal(reader, "PULSERATE", &m_pulseRate, 1);
+		zrdr_findreal(reader, "SPACING", &m_spacing, 1);
+		zrdr_findreal(reader, "INTERVAL", &m_interval, 1);
+		zrdr_findreal(reader, "MAXLENGTH", &m_maxLength, 1);
+		m_noCursor = zrdr_findtag(reader, "NOCURSOR") != NULL;
+	}
+	f32 m_interval;   /* +0x24 INTERVAL: typing speed */
+	f32 m_maxLength;  /* +0x28 MAXLENGTH: line width before a word wraps */
+	f32 m_spacing;    /* +0x2c SPACING: line height */
+	f32 m_pulseRate;  /* +0x30 PULSERATE: cursor pulse rate */
+	s32 m_maxHeight;  /* +0x34 MAXHEIGHT (-1): lines scroll off above this height */
+	bool m_noCursor;  /* +0x38 NOCURSOR */
 	/* @socom-skeleton decl 8CTtySpec */
 public:
 	virtual ~CTtySpec() {}
@@ -677,6 +695,26 @@ public:
 class CTeleType : public CRenderableString
 {
 public:
+	/* no DWARF; layout (1168 bytes) from CTtySpec::CreateDisplayObj (0x3a0840), LoadSpec
+	 * (0x3906e0), SetString (0x390640), Tick (0x38fe80) and Draw (0x390920).
+	 * port: no out-of-line ctor in the ELF - CreateDisplayObj constructs it inline. */
+	CTeleType() : m_sound(NULL), m_pause(0.0f) {}
+	char m_text[768];      /* +0xac the whole text, typed into the string a character at a time */
+	f32 m_cursorPhase;     /* +0x3ac cursor pulse angle (radians) */
+	s32 m_textLength;      /* +0x3b0 strlen(m_text) */
+	s32 m_index;           /* +0x3b4 next character of m_text to type */
+	s32 m_reset3b8;        /* +0x3b8 only zeroed (SetString); no reader seen */
+	f32 m_interval;        /* +0x3bc spec INTERVAL */
+	f32 m_maxLength;       /* +0x3c0 spec MAXLENGTH (0 means 100000) */
+	s32 m_maxHeight;       /* +0x3c4 spec MAXHEIGHT */
+	f32 m_advance;         /* +0x3c8 typing distance accumulated on this line */
+	f32 m_spacing;         /* +0x3cc spec SPACING (GetSpacing) */
+	f32 m_pulseRate;       /* +0x3d0 spec PULSERATE (0 means 1) */
+	f32 m_lineStart;       /* +0x3d4 string length where this line started */
+	CPlainBmp m_cursor;    /* +0x3e0 the cursor block (untextured) */
+	CSnd* m_sound;         /* +0x480 the menu TELETYPE sound */
+	f32 m_pause;           /* +0x484 seconds left of a #P pause */
+	bool m_showCursor;     /* +0x488 !spec NOCURSOR */
 	virtual ~CTeleType();
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual void Tick(float);

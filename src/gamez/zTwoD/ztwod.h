@@ -331,7 +331,7 @@ public:
 
 	void AddCharacter(char character);
 
-	void SetString(const char* string);
+	virtual void SetString(const char* string); /* virtual: __vt__9C2DString +0x5c (0x472d0c) */
 
 	void Draw(zdb::CCamera* camera);
 

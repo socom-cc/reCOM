@@ -47,3 +47,9 @@ int snd_InitVAGStreamingEx(int streams, int buffer_size, int a2, int a3)
     (void)a3;
     return 0;
 }
+
+/* Offline: no sound plays, so there is nothing to stop. */
+void snd_StopSound(unsigned int handle)
+{
+    (void)handle;
+}

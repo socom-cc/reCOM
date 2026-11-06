@@ -324,11 +324,17 @@ void zSysReset()
 }
 
 /* @socom-skeleton stub SleepAlarmCB__FiUsPv */
-void SleepAlarmCB(int, unsigned short, void *)
+void SleepAlarmCB(int, unsigned short, void *thread)
 {
+	/* 0x2f49c0: wake the sleeping thread (the alarm's argument) */
+	iWakeupThread((s32)thread);
 }
 
 /* @socom-skeleton stub zSysSleep__Fi */
-void zSysSleep(int)
+void zSysSleep(int ticks)
 {
+	/* 0x2f4980: sleep this thread for ticks H-blanks (an alarm wakes it); lower-priority
+	 * threads (the mission loader) run meanwhile */
+	SetAlarm((u16)ticks, SleepAlarmCB, (void *)GetThreadId());
+	SleepThread();
 }

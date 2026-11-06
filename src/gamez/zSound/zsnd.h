@@ -149,8 +149,8 @@ public:
 	static void OnListenerDeath();
 	static void PlayErrorSound();
 	void WaitForCDRead();
-	void SetReverbDepth(const float *);
-	void SetReverbSeconds(const float *);
+	static void SetReverbDepth(const float *); /* static: CMission::PreOpen 0x1f8d84 passes the float pointer in a0 */
+	static void SetReverbSeconds(const float *); /* static: as SetReverbDepth (0x1f8dc0) */
 	static void SetGroupVol(int, float);
 	static void SetGroupVolTemp(float, float, int, int, int, int, int, int, int);
 	void ResetGroupVolTemp();
@@ -217,7 +217,7 @@ public:
 	void IsPlaying();
 	void Set3D(float);
 	void TerminateOnFinish();
-	void UIStopAllSounds();
+	static void UIStopAllSounds(); /* static: 0x2ef540 uses no this (UIStopAllSounds__FP13C2DAnimCmdHdrPf passes none) */
 	static void StopAllSounds();
 	static void StopAllSounds(SOUND_MODE);
 	static void ResumeAllSounds();

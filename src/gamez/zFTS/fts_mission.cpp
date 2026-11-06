@@ -170,7 +170,17 @@
 #include "gamez/zSystem/zsys.h"
 #include "gamez/zVehicle/zvehicle.h"
 #include "gamez/zVideo/zvid.h"
-#include <eekernel.h> /* CreateSema, SemaParam */
+#include <eekernel.h> /* CreateSema, SemaParam, SignalSema */
+#include "gamez/zSound/zsnd.h" /* CSnd, CSndJukebox (CMission::Open) */
+#include "gamez/zIntersect/zintersect.h" /* CMaterialExArray */
+#include "gamez/zParticle/zparticle.h" /* Particle::Open */
+#include "gamez/zNode/node_action.h" /* CNodeAction::Open */
+#include "gamez/zWeapon/zweapon.h" /* CZWeapon::Open, OpenDecals */
+#include "gamez/zEntity/zentity.h" /* CEntity::m_list, CPickup::Open */
+
+char* GetDatabase(); /* zanim_menu.cpp (0x1d6770) */
+void ftsFixupAiMap(CAiMap *); /* below (0x1f47d0) */
+extern CAiMaps AiMaps; /* ai_maps.cpp (0x49b190) */
 
 /* @socom-skeleton decl include */
 #include "gamez/zAI/zai.h"
@@ -318,8 +328,48 @@ void UpdateCharWeaponUiVars(int index)
 
 /* @socom-skeleton stub UpdateMissionArchive__25@unnamed@fts_mission_cpp@FPCcPCc */
 namespace {
-void UpdateMissionArchive(const char *, const char *)
+/* port: no symbol - UpdateMissionArchive repeats this for both names: run/ + mp/ (mp*)
+ * or sp/ (m*) + the database name */
+std::string MissionArchivePath(const char* db)
 {
+	std::string path = "run/";
+
+	if (strncmp(db, "mp", 2) == 0)
+		path.append("mp/");
+	else if (strncmp(db, "m", 1) == 0)
+		path.append("sp/");
+
+	path.append(db);
+	return path;
+}
+
+void UpdateMissionArchive(const char *previous, const char *db)
+{
+	/* 0x1fa090: swap the readerm.zar archive from the previous mission's directory to
+	 * the new one's */
+	if (previous != NULL)
+		CRdrArchive::RemoveArchive("readerm.zar", MissionArchivePath(previous).c_str());
+
+	if (db != NULL && strlen(db) != 0)
+	{
+		CRdrArchive::AddArchive("readerm.zar", MissionArchivePath(db).c_str());
+		CRdrArchive::OpenAll();
+	}
+}
+
+/* port: no symbol - PreOpen (0x1f8bcc) reads each TacMapZoom element inline: a real, an
+ * integer as a real, anything else 0 */
+f32 MissionRealAt(_zrdr* array, u32 index)
+{
+	_zrdr* item = array->Get(index);
+
+	if (item->type == ZRDR_REAL)
+		return item->real;
+
+	if (item->type == ZRDR_INTEGER)
+		return (f32)item->integer;
+
+	return 0.0f;
 }
 }
 
@@ -531,84 +581,99 @@ bool CMission::Init()
 /* @socom-skeleton body PreOpen__8CMissionFPCc */
 void CMission::PreOpen(const char* db)
 {
-	/* port: block-scope externs of g_arrDefCharTypeNames/g_iNumUiVehicles removed; the ELF objects are this unit's unnamed-namespace ones */
+	/* 0x1f8750: open the mission's reader archive and read mission.rdr: the loading-
+	 * screen asset library, UI variables, valves, the mission settings (Read), the weapon
+	 * model postfix, vehicles and custom character types, map visibilities, the tactical
+	 * map zoom and the reverb; DBNAME holds the database name. */
+	if (db == NULL || *db == '\0')
+		return;
 
-	if (db && *db != '\0')
+	UpdateMissionArchive(m_database, db);
+
+	if (db != NULL)
 	{
-		UpdateMissionArchive(m_database, db);
 		m_database = m_db_string;
-		strcpy(m_db_string, db); /* port: was MSVC strcpy_s */
+		strcpy(m_db_string, db);
 	}
 	else
 	{
 		m_database = NULL;
-		return;
 	}
 
-	CRdrFile* mission = zrdr_read("mission.rdr"); /* port: was _zrdr *; LoadMissionMapVisibilities takes CRdrFile * */
-	char* loadingscreenassets = zrdr_findstring(mission, "LoadingScreenAssets");
+	CRdrFile* mission = zrdr_read("mission.rdr", NULL, 0);
+	char* assets = zrdr_findstring(mission, "LoadingScreenAssets");
 
-	if (!loadingscreenassets)
-	{
-		m_strLoadingScrLib = "";
-	}
+	if (assets != NULL)
+		m_strLoadingScrLib.assign(assets, strlen(assets));
 	else
-	{
-		size_t len = strlen(loadingscreenassets);
-		m_strLoadingScrLib.assign(loadingscreenassets, len); /* port: CSaferStr is a std::string */
-	}
+		m_strLoadingScrLib = "";
 
 	_zrdr* uivars = zrdr_findtag(mission, "UiVars");
-	_zrdr* node = NULL;
 
-	for (u32 i = 1; node = &uivars->array[i], i < uivars->array->integer - 1; i++)
+	for (s32 i = 0; i < (s32)(uivars != NULL && uivars->IsArray() ? uivars->array->integer - 1 : 0); i++)
 	{
-		CUIVariableSpec spec(node);
+		CUIVariableSpec spec(uivars->Get(i));
 		theUIVarManager.Add(spec.m_name, spec.m_array, (UIVAR_LONGEVITY)spec.m_type);
 	}
 
 	_zrdr* valves = zrdr_findtag(mission, "Valves");
 
-	for (u32 i = 1; node = &valves->array[i], i < valves->array->integer - 1; i++)
+	for (s32 i = 0; i < (s32)(valves != NULL && valves->IsArray() ? valves->array->integer - 1 : 0); i++)
 	{
+		_zrdr* node = valves->Get(i);
 		char* name = zrdr_findstring(node, "NAME");
+		VALVE_TYPE type = zrdr_findtag(node, "PERM") != NULL ? VALVE_TYPE::VTYPE_PERM : VALVE_TYPE::VTYPE_TEMP;
 
-		VALVE_TYPE vtype = VALVE_TYPE::VTYPE_PERM;
-
-		if (!zrdr_findtag(node, "PERM"))
-			vtype = VALVE_TYPE::VTYPE_TEMP;
-
-		if (zrdr_findtag(node, "PERSIST"))
-			vtype = VALVE_TYPE::VTYPE_PERSIST;
+		if (zrdr_findtag(node, "PERSIST") != NULL)
+			type = VALVE_TYPE::VTYPE_PERSIST;
 
 		s32 value = 0;
 		zrdr_findint(node, "VALUE", &value, 1);
-
-		CValve::Create(name, value, vtype);
+		CValve::Create(name, value, type);
 	}
 
 	Read(mission);
 
-	const char* weapon_model_postfix[4];
-	weapon_model_postfix[0] = NULL;
+	char empty[1];
+	empty[0] = '\0';
+	const char* postfix = NULL;
+	zrdr_findSTRING(mission, "WEAPON_MODEL_POSTFIX", &postfix);
 
-	zrdr_findSTRING(mission, "WEAPON_MODEL_POSTFIX", weapon_model_postfix);
+	if (postfix == NULL)
+		postfix = empty;
 
-	if (weapon_model_postfix[0] != NULL)
-		strncpy(m_weaponmodelpostfix, *weapon_model_postfix, 30);
-
+	strncpy(m_weaponmodelpostfix, postfix, 30);
 	CloseVehicleRdr();
 	OpenVehicleRdr();
 
-	for (u32 i = 0; i < 32; i++)
-		g_arrDefCharTypeNames[i] = 0;
+	for (s32 i = 0; i < 32; i++)
+		g_arrDefCharTypeNames[i * 64] = 0;
 
-	if (!theNetwork.m_bNetwork)
-		CreateCustomCharTypes(m_vehicleRdr, mission);
-	else
+	if (theNetwork.m_bNetwork)
 		CreateCustomCharTypes(mission);
+	else
+		CreateCustomCharTypes(m_vehicleRdr, mission);
 
 	LoadMissionMapVisibilities(mission);
+
+	/* TacMapZoom (init, near, far); a missing value takes its default */
+	_zrdr* zoom = zrdr_findtag(mission, "TacMapZoom");
+	s32 count = zoom != NULL && zoom->IsArray() ? zoom->array->integer - 1 : 0;
+	g_fTacMapZoomInit = count >= 1 ? MissionRealAt(zoom, 0) : 1.0f;
+	g_fTacMapZoomNear = count >= 2 ? MissionRealAt(zoom, 1) : 2.2f;
+	g_fTacMapZoomFar = count >= 3 ? MissionRealAt(zoom, 2) : 0.55f;
+
+	_zrdr* reverb = zrdr_findtag(mission, "Reverb");
+	f32 depth = 0.0f;
+	CSnd::SetReverbDepth(zrdr_findreal(reverb, "Depth", &depth, 1) ? &depth : NULL);
+	f32 seconds = 0.0f;
+	CSnd::SetReverbSeconds(zrdr_findreal(reverb, "Seconds", &seconds, 1) ? &seconds : NULL);
+	zrdr_free(mission);
+
+	CUIVariable* name = theUIVarManager.Add("DBNAME", NULL, (UIVAR_LONGEVITY)1);
+
+	if (name != NULL)
+		*name = db;
 }
 
 /* @socom-skeleton stub FilterNavPointString__FPCc */
@@ -622,8 +687,164 @@ void CMission::CreateCompassNavPoints()
 }
 
 /* @socom-skeleton stub Open__8CMissionFPCci */
-void CMission::Open(const char *, int)
+void CMission::Open(const char *db, int ai)
 {
+	/* 0x1f7f50: open the mission on the loaded world: its reader archive, scheduler
+	 * tasks, sounds, materials, valves, AI maps, compass, particles, zAnim scripts,
+	 * objective and mission cameras, node actions, ladders, decals, vehicles (the
+	 * characters, the player among them), handles, AI events, pickups, units, then the
+	 * world's DI and visuals. Most of these subsystems are not written yet (see their
+	 * stubs). */
+	zdb::CWorld* world = zdb::CWorld::m_world;
+	m_wait_before_falling = 10.0f;
+	char path[1024] = "run/";
+	char* database = GetDatabase();
+
+	if (database != NULL)
+	{
+		if (strncmp(database, "mp", 2) == 0)
+			strcat(path, "mp/");
+		else if (strncmp(database, "m", 1) == 0)
+			strcat(path, "sp/");
+
+		strcat(path, database);
+		CRdrArchive::AddArchive("readerm.zar", path);
+		CRdrArchive::OpenAll();
+	}
+
+	if (db == NULL)
+		return;
+
+	m_anchor_extraction.reserve(8);
+	/* port: not written - m_objanchor_vec (+0x98) is not declared; the ELF reserves 16 */
+	CZSealBody::m_compass.Open();
+
+	if (db != NULL)
+	{
+		m_database = m_db_string;
+		strcpy(m_db_string, db);
+	}
+	else
+	{
+		m_database = NULL;
+	}
+
+	m_timer = 0.0f;
+	m_chars_loaded = false;
+	m_load_ai = ai;
+	zTaskScheduler.AddTask("diTick", zdb::CWorld::diTick, 5.0f, NULL);
+	zTaskScheduler.AddTask("Mission", tick, 0.98f, this);
+	zTaskScheduler.AddTask("Update visual effects", zdb::CNode::VisualEffectsTick, 0.5f, NULL);
+
+	CSnd::Close();
+	CSnd::LoadSounds("HUDUI");
+	CSnd::LoadSounds("VOICE");
+	CSnd::LoadSounds("WEAPONS");
+	CSnd::LoadSounds("SMUS");
+	CSnd::LoadSounds("TCM_ECHO");
+
+	if (theNetwork.m_bNetwork)
+		CSnd::LoadSounds("run/sounds.rdr", "MULTI");
+
+	char name[32];
+	sprintf(name, "%s_vce", m_database);
+	CSnd::LoadSounds(m_database, name);
+	sprintf(name, "%s_efx", m_database);
+	CSnd::LoadSounds(m_database, name);
+	sprintf(name, "%s_amb", m_database);
+	CSnd::LoadSounds(m_database, name);
+	sprintf(name, "%s_svo", m_database);
+	CSnd::LoadSounds(m_database, name);
+	sprintf(name, "%s_smu", m_database);
+	CSnd::LoadSounds(m_database, name);
+	CSnd::SetupSoundGroups();
+	CSnd::SetupJukebox("sndjukeboxm.rdr");
+	CSnd::CleanupLoading();
+	CSndJukebox::Start();
+
+	CMaterialExArray::ReadMaterials(m_materialsRdr);
+	world->m_default_soiltype = CMaterialExArray::ResolveMaterialIndex(world->m_default_soiltype_name);
+	CMaterialExArray::SetDefaultMaterial(world->m_default_soiltype);
+
+	m_valve_complete = CValve::Create("mission_complete", VALVE_TYPE::VTYPE_PERM);
+	m_valve_failure = CValve::Create("mission_failure", VALVE_TYPE::VTYPE_PERM);
+	m_valve_abort = CValve::Create("mission_abort", VALVE_TYPE::VTYPE_PERM);
+	m_valve_timeout = CValve::Create("mission_timeout", VALVE_TYPE::VTYPE_PERM);
+	CValve::Create("mission_replay", 0, VALVE_TYPE::VTYPE_PERM);
+	m_valve_nofade = CValve::Create("nofade", VALVE_TYPE::VTYPE_PERM);
+	InitalizeTeamValves();
+
+	char mapdir[64];
+
+	if (strncmp(m_database, "mp", 2) == 0)
+		sprintf(mapdir, "/run/mp/%s/", m_database);
+	else if (strncmp(m_database, "m", 1) == 0)
+		sprintf(mapdir, "/run/sp/%s/", m_database);
+	else
+		sprintf(mapdir, "/run/%s/", m_database);
+
+	AiMaps.ReadMapSet(CAiMaps::default_mapset, mapdir);
+	CreateCompassNavPoints();
+	Particle::Open();
+	ZAnimLoad();
+
+	if (CRdrFile* objectives = zrdr_read("hudobjectives.rdr", NULL, 0))
+	{
+		LoadObjectiveCams(objectives);
+		zrdr_free(objectives);
+	}
+
+	CRdrFile* cams = zrdr_read("missioncams.rdr", NULL, 0);
+	LoadMissionCams(cams);
+	zrdr_free(cams);
+	CNodeAction::Open(world, "actions.rdr");
+	CreateLadderTable();
+	CCharacterModelCache::m_ModelCache[1] = 0;
+	CZWeapon::OpenDecals();
+	/* port: not written - the ELF runs m_pMarklist->Init() when CreateMarkList made one
+	 * (CZWeapon::m_pMarklist, 0x476680, is not declared; CreateMarkList is not written) */
+
+	if (theNetwork.m_bNetwork)
+		CZSealBody::NetworkPlayerCreate();
+
+	CZSealBody::InitDecalHandles();
+	LoadVehicles(ai);
+	CCharacterType::AcquireSoundHandles();
+	CZWeapon::Open();
+	CSealCtrlAi::AcquireDatabaseHandles();
+
+	if (!m_chars_loaded)
+		SignalSema(m_CharLoadSem);
+
+	m_chars_loaded = true;
+	CZSealBody::InitDatabaseHandles();
+	u32 entities = (u32)CEntity::m_list.size(); /* port: guess - the ELF passes the first word of CEntity::m_list (0x4bc420), taken here as its count */
+	CAiEvent::Open(entities);
+
+	if (!theNetwork.m_bNetwork)
+		CPickup::Open(entities);
+
+	if (!theNetwork.m_bNetwork)
+		CSealUnit::CreateSinglePlayerUnits();
+	else
+		CSealUnit::CreateMultiPlayerUnits();
+
+	RefreshTeamValves();
+
+	for (CAiMaps::iterator i = AiMaps.begin(); i != AiMaps.end(); ++i)
+		ftsFixupAiMap((CAiMap*)*i);
+
+	world->InitDescendantsDI();
+	world->InitDescendantsVisuals();
+
+	if (theNetwork.m_bNetwork)
+	{
+		m_sealbombshack = world->FindChild("seal_tent", true);
+		m_terroristbombshack = world->FindChild("terrorist_tent", true);
+	}
+
+	Sample_ExtractionLoc();
+	m_state = (MISSION_STATE)1;
 }
 
 /* @socom-skeleton stub ReOpen_Unload1__8CMissionFv */

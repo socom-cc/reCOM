@@ -594,8 +594,8 @@ public:
 	/// INITIALIZATION
 	/// -------------------------------------------
 
-	void InitDatabaseHandles();
-	void InitDecalHandles();
+	static void InitDatabaseHandles(); /* static: CMission::Open (0x1f8480) passes no this */
+	static void InitDecalHandles(); /* static: CMission::Open (0x1f843c) passes no this */
 	void InitHandSignals();
 	static CRdrFile* InitMotionRdrFile(); /* static: CMission::Init 0x1f90f8 calls it with no receiver */
 

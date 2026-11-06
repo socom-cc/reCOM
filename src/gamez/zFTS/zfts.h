@@ -161,7 +161,7 @@ public:
 	f32 m_objectives_timer;
 	bool m_ignore_objectives;
 
-	bool m_load_ai;
+	u32 m_load_ai; /* DWARF uint (CMission::Open stores the AI flags) */
 	AI_PARAMS m_ai_params;
 
 	f32 m_seefarther_binocs;

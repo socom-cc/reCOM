@@ -134,6 +134,9 @@ int recoIsRecognizing()
 /* @socom-skeleton stub recoInit__Fv */
 int recoInit()
 {
+	/* 0x336d90: voice recognition starts later (recoInit2); clear the request */
+	recoShouldInit = false;
+	return 1;
 }
 
 /* @socom-skeleton stub recoInit2__Fv */

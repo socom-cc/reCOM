@@ -49,6 +49,15 @@
 #include "gamez/zRender/zrender.h"
 #include "gamez/zSave/zsave.h"
 #include "gamez/zVisual/zvis.h"
+#include "gamez/zFTS/zfts.h" /* theMission, ftsGetPlayer (testLoad) */
+#include "gamez/zGame/zgame.h" /* gopt */
+#include "gamez/zReader/zrdr.h" /* CRdrArchive */
+#include "gamez/zSeal/zseal.h" /* CZSealBody */
+#include "gamez/zSound/zsnd.h" /* CSnd::m_listener */
+#include "gamez/zWeapon/zweapon.h" /* CZWeapon lists */
+
+char* GetDatabase(); /* zanim_menu.cpp (0x1d6770) */
+extern bool LoadWorld(const char* name); /* below (0x172b60) */
 
 /* port: removed pre-skeleton duplicate definitions of archive and theWorld; the skeleton stubs below (static, binary LOCAL) define them */
 
@@ -76,7 +85,55 @@ static zar::CZAR archive;
 /* @socom-skeleton body testLoad__Fv */
 extern bool testLoad()
 {
-	return false;
+	/* 0x173610: the mission load (the loader thread): the world, the weapon lists, the
+	 * mission (AI load flags from the options), the camera on the player and the
+	 * player's cheat flags. No player means failure. */
+	char* db = GetDatabase();
+	CRdrArchive::RemoveArchive("readerc.zar", "run/ui");
+
+	if (!LoadWorld(db))
+		return false;
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("LOAD: world %s loaded (world %p, camera %p, %u asset libs)", db, zdb::CWorld::m_world,
+		zdb::CWorld::m_world ? zdb::CWorld::m_world->m_camera : NULL, (u32)zdb::CAssetMgr::m_assets.size());
+#endif
+	CZWeapon::CreateProjectileList(100);
+	CZWeapon::CreateMarkList();
+	CZWeapon::CreateWeaponList();
+	u32 ai = 0;
+
+	if (gopt.loadAi)
+	{
+		ai = 1;
+
+		if (gopt.noEnemy)
+			ai |= 2;
+
+		if (gopt.noBravo)
+			ai |= 4;
+
+		if (gopt.noAlpha)
+			ai |= 8;
+	}
+
+	theMission.Open(db, ai);
+	theMission.m_ignore_objectives = gopt.noObjectives;
+	appCamera->AttachTo(ftsGetPlayer());
+	CSnd::m_listener = appCamera->m_camera;
+	CZSealBody* player = ftsGetPlayer();
+
+	if (player != NULL)
+	{
+		player->m_invincible = gopt.noDie ? 1 : 0;
+		player->m_invisible = gopt.noSee ? 1 : 0;
+		player->m_infiniteammo = gopt.infiniteAmmo ? 1 : 0;
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("LOAD: testLoad player %p", player);
+#endif
+	return player != NULL;
 }
 
 /* @socom-skeleton body testUnload__Fv */

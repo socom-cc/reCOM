@@ -179,6 +179,7 @@ public:
 		void Add(CDynTexList* list);
 	private:
 		friend class CGSTexBuffer; /* port: unproven access - CGSTexBuffer::Load (0x2fb610) reads both lists */
+		friend class CBatchRelocator; /* port: unproven access - Start/EndBatchReloc and ClearAll (0x2f9ab0-0x2f9ca0) clear and read buffer 0's lists */
 		friend class ::CPipe; /* port: unproven access - CPipe::RenderWorld (0x245744) clears both lists */
 		friend class ::CDblBufTextureRelocator; /* port: unproven access - PreGetSprPacket (0x380600) clears both lists */
 		friend void ::HookupLib(zdb::CAssetLib *); /* port: unproven access - 0x384750 fills a stack buffer's lists */

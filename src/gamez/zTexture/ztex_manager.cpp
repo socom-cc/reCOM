@@ -71,6 +71,7 @@ namespace zdb
 #include "gamez/zNode/node_assetlib.h"
 /* @socom-skeleton end include */
 #include <eekernel.h> /* FlushCache */
+#include "gamez/zReader/zrdr.h" /* zrdr_read (doSetupBuffers) */
 #include <algorithm> /* std::find */
 /* @socom-skeleton decl forward */
 union _word128;
@@ -202,8 +203,24 @@ void zdb::CGSTexBuffer::Add(zdb::CTexList *, bool)
 }
 
 /* @socom-skeleton stub Setup__Q23zdb12CGSTexBufferFff */
-unsigned int zdb::CGSTexBuffer::Setup(float, float)
+unsigned int zdb::CGSTexBuffer::Setup(float start, float end)
 {
+	/* 0x2fc100: cover [start, end) of the texture area (fractions; unsigned conversions);
+	 * a changed range resets the allocation. Returns the last address. */
+	u32 base = CTexture::m_baseAddress;
+	u32 range = CTexture::m_endAddress - base;
+	u32 first = (u32)((f32)base + start * (f32)range);
+	u32 last = (u32)(((f32)base + end * (f32)range) - 1.0f);
+
+	if (m_startAddress != first || m_endAddress != last)
+	{
+		m_nextAddress = first;
+		m_startAddress = first;
+		m_endAddress = last;
+		m_chainp = NULL;
+	}
+
+	return m_endAddress;
 }
 
 /* @socom-skeleton body Hookup__Q23zdb12CGSTexBufferFPQ23zdb9CAssetLib */
@@ -315,6 +332,27 @@ void CGSTexBuffer::Hookup(CAssetLib* lib)
 /* @socom-skeleton stub RelocateAll__Q23zdb12CGSTexBufferFv */
 void zdb::CGSTexBuffer::RelocateAll()
 {
+	/* 0x2fbb90: re-lay the GS addresses from the start, palettes then textures, in list
+	 * order (the chain stands; Load does the same inline) */
+	m_nextAddress = m_startAddress;
+
+	for (CTexPalList::iterator i = m_dyntex_list.m_pal_list.begin(); i != m_dyntex_list.m_pal_list.end(); ++i)
+	{
+		if ((*i)->m_gsaddr != m_nextAddress)
+			(*i)->m_gsaddr = m_nextAddress;
+
+		m_nextAddress += (*i)->m_size / 256;
+	}
+
+	for (CTexList::iterator i = m_dyntex_list.m_tex_list.begin(); i != m_dyntex_list.m_tex_list.end(); ++i)
+	{
+		CTexture* tex = (*i)->m_texture;
+
+		if (tex->m_gsaddr != m_nextAddress)
+			tex->m_gsaddr = m_nextAddress;
+
+		m_nextAddress += tex->m_gsWords;
+	}
 }
 
 /* @socom-skeleton stub MakeChain__Q23zdb12CGSTexBufferFP1i */
@@ -533,8 +571,67 @@ void zdb::CTexManager::WipePktBuf()
 }
 
 /* @socom-skeleton stub doSetupBuffers__Q23zdb11CTexManagerFPCc */
+namespace {
+/* port: no symbol - doSetupBuffers repeats this inline for each buffer: a named
+ * CGSTexBuffer over [start, end) of the texture area, appended; returns its index */
+s32 SetupBuffer(zdb::CTexManager& manager, const char* name, f32 start, f32 end)
+{
+	zdb::CGSTexBuffer* buffer = new zdb::CGSTexBuffer();
+
+	if (buffer->m_name != NULL)
+		_free(buffer->m_name, "ztex_manager.cpp", 93);
+
+	buffer->m_name = NULL;
+	buffer->m_name = name ? _strdup(name, "ztex_manager.cpp", 94) : NULL;
+	buffer->Setup(start, end);
+	/* port: the ELF vector is vector_pod<Ui> holding CGSTexBuffer * (see doAddBuffer) */
+	manager.push_back(reinterpret_cast<zdb::CDynTexList*>(buffer));
+	return manager.size() - 1;
+}
+}
+
 void zdb::CTexManager::doSetupBuffers(const char *)
 {
+	/* 0x2fa3c0: the game's GS texture buffers. dyntex.rdr "boundaries" x splits the
+	 * texture area: P0 = x, P1 = x + (1 - x) / 2, P2 = P0 + (P1 - P0) / 2,
+	 * P3 = P1 + (1 - P1) / 2. Each render phase's buffers go to TexPhase[phase]; phases
+	 * with two buffers (B1, B2) double-buffer [P0, P1) and [P1, 1). The name is unused. */
+	if (CRdrFile* dyntex = zrdr_read("dyntex.rdr", NULL, 0))
+	{
+		PNT2D boundaries;
+
+		if (zrdr_findPNT2D(dyntex, "boundaries", &boundaries))
+		{
+			f32 x = boundaries.x;
+			TexBufParams[0] = x;
+			TexBufParams[1] = x + 0.5f * (1.0f - x);
+			TexBufParams[3] = TexBufParams[1] + 0.5f * (1.0f - TexBufParams[1]);
+			TexBufParams[2] = TexBufParams[0] + 0.5f * (TexBufParams[1] - TexBufParams[0]);
+		}
+
+		zrdr_free(dyntex);
+	}
+
+	TexPhase[15][0] = SetupBuffer(m_texmanager, "TexShadow:A", 0.0f, TexBufParams[0]);
+
+	for (s32 hud = 12; hud < 14; hud++)
+	{
+		char name[64];
+		sprintf(name, "TexHUD%d:B1", hud - 12);
+		TexPhase[hud][0] = SetupBuffer(m_texmanager, name, TexBufParams[0], TexBufParams[1]);
+		sprintf(name, "TexHUD%d:B2", hud - 12);
+		TexPhase[hud][1] = SetupBuffer(m_texmanager, name, TexBufParams[1], 1.0f);
+	}
+
+	TexPhase[14][0] = SetupBuffer(m_texmanager, "TexHUDSmall:A", 0.0f, TexBufParams[0]);
+	TexPhase[2][0] = SetupBuffer(m_texmanager, "TexCommonCS:B1", TexBufParams[0], TexBufParams[1]);
+	TexPhase[2][1] = SetupBuffer(m_texmanager, "TexCommonCS:B2", TexBufParams[1], 1.0f);
+	TexPhase[11][0] = SetupBuffer(m_texmanager, "TexAlpha:B1", TexBufParams[0], TexBufParams[1]);
+	TexPhase[11][1] = SetupBuffer(m_texmanager, "TexAlpha:B2", TexBufParams[1], 1.0f);
+	TexPhase[0][0] = SetupBuffer(m_texmanager, "TexWorld:B", TexBufParams[0], 1.0f);
+	TexPhase[16][0] = SetupBuffer(m_texmanager, "TexCustomCS:0", 0.0f, 0.001f);
+	TexPhase[16][1] = SetupBuffer(m_texmanager, "TexCustomCS:1", 0.0f, 0.001f);
+	TexPhase[16][2] = SetupBuffer(m_texmanager, "TexCustomCS:2", 0.0f, 0.001f);
 }
 
 /* @socom-skeleton stub DestroyBuffers__Q23zdb11CTexManagerFRQ23zdb11CTexManagerb */

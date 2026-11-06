@@ -212,8 +212,13 @@ void CTtySpec::Copy()
 }
 
 /* @socom-skeleton stub CreateDisplayObj__8CTtySpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-C2D * CTtySpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CTtySpec::CreateDisplayObj(C2DFont *font, zdb::CTextureRelocMgr *) const
 {
+	/* 0x3a0840: a CTeleType (1168 bytes, constructed inline) in the dialog font */
+	CTeleType* text = new CTeleType();
+	text->SetFont(font);
+	text->LoadSpec(*this);
+	return text;
 }
 
 /* @socom-skeleton stub Copy__9CWrapSpecFv */

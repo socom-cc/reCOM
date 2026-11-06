@@ -434,7 +434,7 @@ public:
 	bool AllocateSpecialMaterialAnimMem();
 
 	bool CreateProjectileList();
-	bool CreateWeaponList();
+	static bool CreateWeaponList(); /* static: testLoad (0x173660) passes no this */
 
 	void DestroyProjectileList();
 
@@ -607,7 +607,7 @@ public:
 	void RemoveWeaponEventCallback(void (*)(CZProjectile *, unsigned int, void *));
 	static void MakeWeaponEventCallbacks(unsigned int, CZProjectile *);
 	static void CreateProjectileList(int);
-	void CreateMarkList();
+	static void CreateMarkList(); /* static: testLoad (0x173658) passes no this */
 	void DestroyMarkList();
 	static CSnd * GetBulletPassSound();
 	int GetAmmoCapacity();

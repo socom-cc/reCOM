@@ -265,8 +265,14 @@ CAppCamera::~CAppCamera()
 }
 
 /* @socom-skeleton stub AttachTo__10CAppCameraFP10CZSealBody */
-unsigned char CAppCamera::AttachTo(CZSealBody *)
+unsigned char CAppCamera::AttachTo(CZSealBody *seal)
 {
+	/* 0x1eb420: without a seal nothing changes */
+	if (seal == NULL)
+		return false;
+
+	/* port: not written - following a seal (camera params from theCharacterDynamics,
+	 * the seal's first-person/third-person setup); reaching here stops the port */
 }
 
 /* @socom-skeleton body SetZoom__10CAppCameraFf */

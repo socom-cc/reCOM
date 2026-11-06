@@ -42,6 +42,14 @@
 #include "gamez/zSeal/zseal.h"
 #include "gamez/zRender/zrender.h"
 #include "gamez/zVideo/zvid.h"
+#include "gamez/zNetwork/znet.h" /* theNetwork (CCoreState::Load) */
+#include "gamez/zTexture/ztex.h" /* CTexManager (CCoreState::Load) */
+#include <eekernel.h> /* CreateThread, StartThread, ExitDeleteThread, ThreadParam, _gp */
+#include <stdlib.h> /* exit */
+#include <string.h> /* memset */
+
+bool testLoad(); /* database.cpp (0x173610) */
+char* GetDatabase(); /* zanim_menu.cpp (0x1d6770) */
 
 /* @socom-skeleton decl include */
 #include "gamez/zFTS/fts_state.h"
@@ -66,7 +74,11 @@ std::__wInit std::__msl_ios_base_winit;
 static CSTable MultiplayerMsgStrings;
 
 /* @socom-skeleton stub load_thread_stack */
+#ifdef SOCOM_PORT
+unsigned char load_thread_stack[69632] __attribute__((aligned(16))); /* port: the thread stack (+0x800) must be quadword aligned; the ELF places it at 0x48a0d0 */
+#else
 unsigned char load_thread_stack[69632];
+#endif
 
 /* @socom-skeleton stub __dt__15CCinematicStateFv */
 CCinematicState::~CCinematicState()
@@ -162,11 +174,67 @@ void CCoreState::UnInit() {}
 /* @socom-skeleton stub LoadThreadEntry__FPv */
 void LoadThreadEntry(void *)
 {
+	/* 0x17cbe0: the mission loader thread (CCoreState::Load): sky colour, GS texture
+	 * buffers, testLoad (the world and the mission; a failure exits the program),
+	 * multiplayer exit-screen libraries, then loading is over */
+	theGame.m_coreState.skyColor[0] = 190;
+	theGame.m_coreState.skyColor[1] = 220;
+	theGame.m_coreState.skyColor[2] = 250;
+	zdb::CTexManager::m_texmanager.doSetupBuffers(GetDatabase());
+
+	if (!testLoad())
+		exit(0);
+
+	if (theNetwork.m_bNetwork)
+		theGame.m_MPexitState.LoadLibs();
+
+	theGame.m_coreState.m_loading = false;
+	ExitDeleteThread();
 }
 
 /* @socom-skeleton stub Load__10CCoreStateFb */
-void CCoreState::Load(bool)
+void CCoreState::Load(bool threaded)
 {
+	/* 0x17ca90: load the mission, on a priority-6 thread over load_thread_stack (guard
+	 * bytes 250 at both ends, 234 in the 64 KB stack) or inline. The ELF's priority test
+	 * (movz) leaves 6 either way. */
+	m_loading = true;
+	m_loadstarted = true;
+	zsys_FullAllocAndFree();
+
+	if (threaded)
+	{
+		memset(load_thread_stack, 250, 0x800);
+		memset(load_thread_stack + 0x10800, 250, 0x800);
+		memset(load_thread_stack + 0x800, 234, 0x10000);
+
+		ThreadParam param;
+		param.entry = (void *)LoadThreadEntry;
+		param.stack = load_thread_stack + 0x800;
+		param.stackSize = 0x10000;
+		param.gpReg = &_gp;
+		param.initPriority = 6;
+		param.option = 0;
+		m_LoadThreadId = CreateThread(&param);
+
+		if (m_LoadThreadId != 0)
+			StartThread(m_LoadThreadId, this);
+
+		return;
+	}
+
+	skyColor[0] = 190;
+	skyColor[1] = 220;
+	skyColor[2] = 250;
+	zdb::CTexManager::m_texmanager.doSetupBuffers(GetDatabase());
+
+	if (!testLoad())
+		exit(0);
+
+	if (theNetwork.m_bNetwork)
+		theGame.m_MPexitState.LoadLibs();
+
+	m_loading = false;
 }
 
 /* @socom-skeleton stub Unload__10CCoreStateFv */

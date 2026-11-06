@@ -251,6 +251,8 @@ void CZWeapon::DestroyMarkList()
 /* @socom-skeleton stub CreateWeaponList__8CZWeaponFv */
 bool CZWeapon::CreateWeaponList()
 {
+	/* 0x31f430 */
+	return true;
 }
 
 /* @socom-skeleton stub GetBulletPassSound__8CZWeaponFv */

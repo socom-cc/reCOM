@@ -6,6 +6,7 @@ class CZSealBody;
 struct _zrdr;
 
 #include "gamez/zGame/zgame.h" /* CGameMenu: base of CLoadMenu */
+#include "gamez/zUI/zui.h" /* CRenderableString (CLoadMenu) */
 /* @socom-skeleton decl 9CE3Config */
 class CE3Config
 {
@@ -32,6 +33,11 @@ public:
 class CLoadMenu : public CGameMenu
 {
 public:
+	/* no DWARF; layout (3520 bytes) from CLoadState::Init (0x37f5a8, which constructs it
+	 * inline), PrepControls (0x37fa30) and MyTick (0x37f940) */
+	CPlainBmp m_bitmaps[5];      /* +0x890 loading, loading glow, launch, launch glow, waiting glow */
+	CRenderableString m_text[3]; /* +0xbb0 the multiplayer lines (client count, WAITING, HOST SELECTING MISSION) */
+	f32 m_pulseTime;             /* +0xdb4 glow pulse, wraps at 1 */
 	virtual ~CLoadMenu();
 	virtual void MyTick(float);
 	virtual char * GetReaderFileName();

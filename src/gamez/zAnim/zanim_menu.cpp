@@ -250,6 +250,11 @@
 #include "gamez/zFTS/zfts.h" /* theMission (FetchMissionFontsRdr) */
 #include "gamez/zGame/zgame.h" /* theGame (UISwitchMenu) */
 #include "gamez/zUI/zui.h" /* C2DVisual (zAnimUIMenuTick) */
+#include "gamez/zSound/zsnd.h" /* CSnd, CSndInstance (UISysPostInit, UIStopAllSounds) */
+#include "gamez/zSystem/zsys.h" /* zSysPostInit (UISysPostInit) */
+#include "gamez/zUtil/util_systemio.h" /* CFileCD (UISysPostInit) */
+
+void UiSetTtySpeedFactor(float); /* zui_2d.cpp (0x393260) */
 /* @socom-skeleton decl forward */
 class C2DAnimCmdHdr;
 namespace {
@@ -387,9 +392,17 @@ unsigned char OnSetSkbPurpose(C2DAnimCmdHdr *, float *)
 
 /* @socom-skeleton stub OnSetTtySpeedFactor__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf */
 namespace {
-unsigned char OnSetTtySpeedFactor(C2DAnimCmdHdr *, float *)
+unsigned char OnSetTtySpeedFactor(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d6a50: the teletype speed factor from the argument (INPUT_STRING: the anim's
+	 * first argument). The ELF passes a NULL name to atof. */
+	const char* name = ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+
+	if (name != NULL && strcmp(name, "INPUT_STRING") == 0)
+		name = ZAnim.m_CurAnim->m_arg_list->GetCharP(0);
+
+	UiSetTtySpeedFactor((f32)atof(name));
+	return true;
 }
 }
 
@@ -557,9 +570,20 @@ CMenuHistory::CMenuHistory()
 }
 
 /* @socom-skeleton stub UISetMission__FP13C2DAnimCmdHdrPf */
-unsigned char UISetMission(C2DAnimCmdHdr *, float *)
+unsigned char UISetMission(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d5a60: the database name (INPUT_STRING: the anim's first argument); the mission
+	 * pre-opens with the background movie halted */
+	char* name = ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+
+	if (name != NULL && strcmp(name, "INPUT_STRING") == 0)
+		name = ZAnim.m_CurAnim->m_arg_list->GetCharP(0);
+
+	theGame.m_menuState.HaltBackgroundMPEG();
+	strcpy(database, name);
+	theMission.PreOpen(name);
+	theGame.m_menuState.RestartBackgroundMPEG();
+	return true;
 }
 
 /* @socom-skeleton stub UIPopUpDialog__FP13C2DAnimCmdHdrPf */
@@ -1374,7 +1398,9 @@ unsigned char UIHasClanInvitations(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UIStopAllSounds__FP13C2DAnimCmdHdrPf */
 unsigned char UIStopAllSounds(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d0e20 */
+	CSndInstance::UIStopAllSounds();
+	return true;
 }
 
 /* @socom-skeleton stub UIRebootIOP__FP13C2DAnimCmdHdrPf */
@@ -1475,7 +1501,25 @@ unsigned char UIPasswordSecurity(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UISysPostInit__FP13C2DAnimCmdHdrPf */
 unsigned char UISysPostInit(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d0870: zSysPostInit with VAG streaming closed around it */
+	bool streaming;
+
+	if (CFileCD::m_streamingSndActive)
+	{
+		CSnd::Close();
+		streaming = true;
+	}
+	else
+	{
+		streaming = false;
+	}
+
+	zSysPostInit();
+
+	if (streaming)
+		CSnd::UIOpen();
+
+	return true;
 }
 
 /* @socom-skeleton stub UISysLoadIRX__FP13C2DAnimCmdHdrPf */
@@ -1659,7 +1703,7 @@ int GetUICommandType(const char *name)
 	if (name == NULL)
 		return 0x95;
 
-	if (*name == ' ')
+	if (*name == '\0')
 		return 0;
 
 	for (u32 i = 0; UICommandTable[i].id != 0; i++)
@@ -1720,8 +1764,18 @@ bool zAnimUIMenuTick(_zanim_cmd_hdr *header, float *dT)
 		static u32 portCalls = 0;
 
 		if (portCalls++ < 40)
-			SOCOM_PORT_TRACE("UI: UI_COMMAND 0x%x (%s) arg '%s'", id, id < 0x95 && UICommandTable[id ? id - 1 : 0].id == id ? UICommandTable[id - 1].name : "?",
+		{
+			const char* portName = "?";
+
+			for (u32 i = 0; UICommandTable[i].id != 0; i++)
+			{
+				if (UICommandTable[i].id == id)
+					portName = UICommandTable[i].name;
+			}
+
+			SOCOM_PORT_TRACE("UI: UI_COMMAND 0x%x (%s) arg '%s'", id, portName,
 				anim->GetName(cmd->m_argument_index) ? anim->GetName(cmd->m_argument_index) : "");
+		}
 	}
 #endif
 

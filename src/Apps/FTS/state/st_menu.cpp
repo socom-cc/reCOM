@@ -380,9 +380,13 @@ unsigned char CMenuState::RunEventAnim(const char *, const char *)
 /* @socom-skeleton stub HaltBackgroundMPEG__10CMenuStateFv */
 void CMenuState::HaltBackgroundMPEG()
 {
+	/* 0x3788b0: tail-calls the menu's */
+	m_menu->HaltBackgroundMPEG();
 }
 
 /* @socom-skeleton stub RestartBackgroundMPEG__10CMenuStateFv */
 void CMenuState::RestartBackgroundMPEG()
 {
+	/* 0x3788a0: tail-calls the menu's */
+	m_menu->RestartBackgroundMPEG();
 }

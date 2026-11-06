@@ -45,6 +45,17 @@
 #include "gamez/zUtil/util_stable.h"
 #include "state.h"
 /* @socom-skeleton end include */
+#include "gamez/zAnim/zanim.h" /* ZAnim (CLoadState::Init) */
+#include "gamez/zFTS/zfts.h" /* theMission */
+#include "gamez/zInput/zinput.h" /* CInput::Tick */
+#include "gamez/zNetwork/znet.h" /* theNetwork */
+#include "gamez/zSound/zsnd.h" /* CSnd::UnloadAllSounds */
+#include "gamez/zSystem/zsys.h" /* zSys, zSysSleep, zSysFifoEnd */
+#include "gamez/zVideo/zvid.h" /* zVid_Swap, zVid_Sync0 */
+#include <eekernel.h> /* InitThread */
+#include <libgraph.h> /* sceGsSyncPath */
+
+int recoInit(); /* reco.cpp (0x336d90) */
 /* @socom-skeleton decl forward */
 namespace zdb {
 class CTextureRelocMgr;
@@ -82,13 +93,32 @@ void CLoadMenu::PrepControls(zdb::CTextureRelocMgr *)
 }
 
 /* @socom-skeleton stub MyTick__9CLoadMenuFf */
-void CLoadMenu::MyTick(float)
+void CLoadMenu::MyTick(float dT)
 {
+	/* 0x37f940: the three glow images pulse together, alpha 32 (1 + sin(pi t)), once a second */
+	m_pulseTime += dT;
+
+	if (!(m_pulseTime <= 1.0f))
+		m_pulseTime -= 1.0f;
+
+	f32 alpha = (64.0f * (1.0f + sinf((3.1415927f * m_pulseTime) / 1.0f))) / 2.0f;
+	m_bitmaps[1].SetTrans(alpha);
+	m_bitmaps[3].SetTrans(alpha);
+	m_bitmaps[4].SetTrans(alpha);
 }
 
 /* @socom-skeleton stub __ct__10CLoadStateFv */
 CLoadState::CLoadState()
 {
+	/* 0x37f8a0 */
+	SetName("LoadState");
+	m_menu = NULL;
+	m_e3config = NULL;
+#ifndef SOCOM_PORT
+	InitThread();
+#endif
+	/* port: ps2sdk's _InitSys has already run InitThread; a second call would start a second
+	 * libkernel top thread, so the port leaves it out */
 }
 
 /* @socom-skeleton stub __dt__10CLoadStateFv */
@@ -97,10 +127,141 @@ CLoadState::~CLoadState()
 }
 
 /* @socom-skeleton body Init__10CLoadStateFv */
-bool CLoadState::Init() { return true; }
+bool CLoadState::Init()
+{
+	/* 0x37f550: hold the mission's loading-screen library, build the load screen
+	 * (dlgLoad.rdr with run/ldzanim.zar) and read e3config.rdr. Multiplayer resets the
+	 * net game here (port: not written - theNetwork.m_bNetwork is false offline). */
+	m_abort = false;
+	theGame.m_maxtick = 0.0f;
+	const char* library = theMission.m_strLoadingScrLib.c_str();
+
+	if (library != NULL && *library != '\0')
+	{
+		g_pMissionLoadingLib = zdb::CAssetMgr::GetLoadedLibRef(library);
+		g_pMissionLoadingLib->m_autoload = false;
+	}
+
+	m_menu = new CLoadMenu();
+	CZAnimZAR* zar = ZAnim.OpenZAR("run/ldzanim.zar");
+	m_menu->Init(NULL, zar);
+
+	if (zar != NULL)
+		ZAnim.CloseZAR(zar);
+
+	m_fadeup = true;
+	m_fadedown = false;
+	m_time_elapsed = 0.0f;
+	m_voiceover_started = false;
+	m_waiting_for_x = true;
+
+	if (CRdrFile* config = zrdr_read("e3config.rdr", NULL, 0))
+	{
+		m_e3config = new CE3Config();
+		m_e3config->Parse(config);
+		zrdr_free(config);
+	}
+
+	if (!theNetwork.m_bNetwork)
+		recoInit();
+
+	zVid_Sync0();
+	return true;
+}
 
 /* @socom-skeleton body Tick__10CLoadStateFf */
-bool CLoadState::Tick(float dT) {}
+bool CLoadState::Tick(float dT)
+{
+	/* 0x37e940 (single player): start CCoreState::Load (its thread) once, fade the load
+	 * screen in, and when the loader thread has finished fade it out over half a second
+	 * and switch to the core state. Each frame draws the load menu's 2D, then sleeps a
+	 * thirtieth of a second while loading so the loader runs. port: not written - the
+	 * multiplayer branches (client count, WAITING, the net game states). */
+	CInput::Tick(dT);
+
+	if (m_abort && (!theGame.m_coreState.m_loadstarted || !theGame.m_coreState.m_loading))
+	{
+		theGame.Switch(&theGame.m_menuState, 0);
+		return false;
+	}
+
+	if (!m_fadedown && !theGame.m_coreState.m_loading && !m_waiting_for_x)
+	{
+		m_fadedown = true;
+		m_time_elapsed = 0.0f;
+	}
+	else if (!m_fadeup)
+	{
+		if (!m_voiceover_started && !m_fadedown)
+		{
+			m_voiceover_started = true;
+			CSnd::UnloadAllSounds();
+			m_waiting_for_x = false;
+			m_menu->m_bitmaps[0].Enable(true);
+			m_menu->m_bitmaps[1].Enable(true);
+			m_menu->m_bitmaps[2].Enable(false);
+			m_menu->m_bitmaps[3].Enable(false);
+			m_menu->m_bitmaps[4].Enable(false);
+			theGame.m_coreState.Load(true);
+		}
+
+		m_menu->m_bitmaps[0].Enable(true);
+		m_menu->m_bitmaps[1].Enable(true);
+		m_menu->m_bitmaps[2].Enable(false);
+		m_menu->m_bitmaps[3].Enable(false);
+		m_menu->m_bitmaps[4].Enable(false);
+	}
+
+	if (m_fadeup)
+	{
+		m_time_elapsed += dT;
+
+		if (!(m_time_elapsed <= 0.5f))
+		{
+			m_time_elapsed = 0.5f;
+			m_fadeup = false;
+		}
+
+		f32 t = m_time_elapsed / 0.5f;
+
+		if (!(t <= 1.0f))
+			t = 1.0f;
+		else if (t < 0.0f)
+			t = 0.0f;
+
+		m_menu->_bmpFade.SetTrans(128.0f * (1.0f - t));
+	}
+
+	if (m_fadedown)
+	{
+		m_time_elapsed += dT;
+
+		if (!(m_time_elapsed <= 0.5f))
+		{
+			theGame.Switch(&theGame.m_coreState, 0);
+			return false;
+		}
+
+		f32 t = 1.0f - m_time_elapsed / 0.5f;
+
+		if (!(t <= 1.0f))
+			t = 1.0f;
+		else if (t < 0.0f)
+			t = 0.0f;
+
+		m_menu->_bmpFade.SetTrans(128.0f * (1.0f - t));
+	}
+
+	m_menu->Tick(dT);
+	m_menu->Draw2dOnly();
+	zSysFifoEnd();
+	zVid_Swap(true);
+
+	if (!m_fadeup && !m_fadedown)
+		zSysSleep(zSys.timerTicksPerSecond / 30); /* the ELF picks 30 for both net and offline */
+
+	return false;
+}
 
 /* @socom-skeleton stub __dt__9CLoadMenuFv */
 CLoadMenu::~CLoadMenu()
@@ -108,7 +269,29 @@ CLoadMenu::~CLoadMenu()
 }
 
 /* @socom-skeleton body UnInit__10CLoadStateFv */
-void CLoadState::UnInit() {}
+void CLoadState::UnInit()
+{
+	/* 0x37e5a0 */
+	zSysFifoEnd();
+	sceGsSyncPath(0, 0);
+
+	if (m_menu != NULL)
+		delete m_menu;
+
+	m_menu = NULL;
+
+	if (m_e3config != NULL)
+		delete m_e3config;
+
+	m_e3config = NULL;
+	zdb::CAssetMgr::ReleaseLibRef(g_pMissionLoadingLib);
+	g_pMissionLoadingLib = NULL;
+	zdb::EmptyAssetRecycleBin();
+	theUIVarManager.Reset();
+
+	if (m_abort && !theGame.m_coreState.m_loading)
+		theGame.m_coreState.Unload();
+}
 
 /* @socom-skeleton stub AbortLoad__10CLoadStateFPCc */
 void CLoadState::AbortLoad(const char *)

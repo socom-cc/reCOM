@@ -393,6 +393,8 @@ void C2DString::AddCharacter(char character)
 /* @socom-skeleton stub NewLine__9C2DStringFv */
 void C2DString::NewLine()
 {
+	/* 0x302170: tail-calls AddCharacter with a line feed */
+	AddCharacter('\n');
 }
 
 /* @socom-skeleton stub UpdatePos__9C2DStringFv */

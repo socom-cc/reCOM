@@ -248,7 +248,7 @@ CTextSpec::CTextSpec(_zrdr* reader) : CDlgObjSpec(reader)
 CDlgObjSpec * GetObjectSpec(_zrdr *reader, const char *type)
 {
 	/* 0x399670: TEXT, IMAGE, TELETYPE, WRAPPEDTEXT, TICKERTAPETEXT, PROGRESSBAR, COUNTER,
-	 * CLOCK. port: TEXT and IMAGE are written; the other types are skipped (NULL). */
+	 * CLOCK. port: TEXT, IMAGE and TELETYPE are written; the other types are skipped (NULL). */
 	if (type == NULL)
 		return NULL;
 
@@ -257,6 +257,9 @@ CDlgObjSpec * GetObjectSpec(_zrdr *reader, const char *type)
 
 	if (strcmp("IMAGE", type) == 0)
 		return new CImageSpec(reader);
+
+	if (strcmp("TELETYPE", type) == 0)
+		return new CTtySpec(reader);
 
 #ifdef SOCOM_PORT
 	static int traced = 0;

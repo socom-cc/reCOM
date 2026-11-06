@@ -321,6 +321,8 @@ void SetFaderOpacity(float)
 /* @socom-skeleton stub UiGetCurMenu__Fv */
 CGameMenu * UiGetCurMenu()
 {
+	/* 0x384540 */
+	return g_pCurMenu;
 }
 
 /* @socom-skeleton stub UiGetDirStickMoved__Fv */
@@ -520,6 +522,12 @@ void CGameMenu::Clear()
 /* @socom-skeleton stub Draw2dOnly__9CGameMenuFv */
 void CGameMenu::Draw2dOnly()
 {
+	/* 0x383550: the whole menu tree (m_nodeTop, at the menu's start) as UI, with the
+	 * backplane as the pipe's node */
+	thePipe.m_node = m_pBackplaneNode;
+	thePipe.m_simpletrans = true;
+	thePipe.RenderUiNode(&m_nodeTop);
+	thePipe.m_simpletrans = false;
 }
 
 /* @socom-skeleton body DrawForeplane__9CGameMenuFv */

@@ -98,6 +98,7 @@ void zSysInit();
 void zSysPostInit();
 void zSysMain();
 void zSysReset();
+void zSysSleep(int ticks); /* zSysSleep__Fi (zsys_init.cpp 0x2f4980) */
 
 void zSysFifoKick(unsigned __int128* packet, u32 qwc); /* zSysFifoKick__FP1Ui */
 void zSysFifoEnd();

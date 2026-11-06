@@ -21,6 +21,8 @@
 class CHUD;
 class CSnd;
 class CGameMenu;
+class CLoadMenu;
+class CE3Config;
 
 namespace zdb
 {
@@ -85,11 +87,13 @@ protected:
 
 	zdb::CWorld* m_world;
 
+public: /* port: unproven access - CLoadState::Tick (0x37e978) and LoadThreadEntry (0x17cbf0, 0x17cc5c) reach these */
 	u32 skyColor[3];
 
 	s32 m_LoadThreadId;
 	bool m_loading;
 	bool m_loadstarted;
+protected:
 	CHUD* m_hud;
 	s32 m_skip_swap;
 	/* @socom-skeleton decl 10CCoreState */
@@ -154,8 +158,8 @@ public:
 	virtual bool Tick(float);
 
 private:
-	void* m_menu;
-	void* m_e3config;
+	CLoadMenu* m_menu;      /* DWARF CLoadMenu* */
+	CE3Config* m_e3config;  /* DWARF CE3Config* */
 
 	bool m_fadeup;
 	bool m_fadedown;
