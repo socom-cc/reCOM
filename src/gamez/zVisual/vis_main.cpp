@@ -149,6 +149,9 @@
 #include "gamez/zNode/node_world.h"
 #include "gamez/zMath/zmath_vu.h"
 #include "gamez/zRender/zrender.h"
+#include "gamez/zSystem/zsys_spr.h" /* CSPR, zSysSprGetPacket */
+#include "gamez/zVideo/zvid.h" /* zVid_ZTestOnWriteSet */
+#include <libvu0.h> /* sceVu0ApplyMatrix, sceVu0CopyMatrix */
 
 namespace zdb
 {
@@ -181,10 +184,12 @@ static const unsigned char NoAltFogBottomV[16] = {0};
 /* @socom-skeleton stub NoAltFogVectorV */
 static const unsigned char NoAltFogVectorV[16] = {0};
 
-extern unsigned char m_savedTS[512]; /* defined below (GLOBAL m_savedTS, 512 bytes) */
+extern _word128 m_savedTS[32]; /* defined below (GLOBAL m_savedTS, 512 bytes) */
 
 /* @socom-skeleton stub _savedTS */
-void *_savedTS = &m_savedTS;
+/* the end of the texture selects saved for the next object packet (SaveTextureSelect;
+   VuExecuteState0 copies them in and resets it) */
+_word128 *_savedTS = m_savedTS;
 
 /* @socom-skeleton stub m_customGlobalLightIdx__Q23zdb7CVisual */
 namespace zdb {
@@ -408,7 +413,9 @@ static unsigned char _DoDetail;
 static unsigned char _TextureChange;
 
 /* @socom-skeleton stub m_savedTS */
-unsigned char m_savedTS[512];
+/* DMA tags (REF/CNT + STCYCL + UNPACK) of saved texture selects; qword-typed because
+   CSPR::Copy DMAs it to the scratchpad (port: the ELF's element type is not recorded) */
+_word128 m_savedTS[32];
 
 /* @socom-skeleton stub _StartingMatrix */
 static unsigned char _StartingMatrix[64];
@@ -479,6 +486,89 @@ static unsigned char visData[96];
 /* @socom-skeleton stub decaldata */
 static unsigned char decaldata[288];
 
+/* port: file-local helpers, not ELF functions - CVisual::VuUpdate 0x30a900 and VuBatchProgram
+   0x30bda0 write these steps inline at every use */
+
+/* a fresh scratchpad packet (CSPR::m_sprPacket); qwords 1-2 (the tag_ObjectHeader) cleared */
+static inline _word128* VuNewPacket()
+{
+	_word128* packet = reinterpret_cast<_word128*>(
+		zSysSprGetPacket(reinterpret_cast<unsigned __int128**>(&CSPR::m_sprPacketEnd)));
+
+	CSPR::m_sprPacket = packet;
+	packet[1].u128 = 0;
+	packet[2].u128 = 0;
+	return packet;
+}
+
+/* one VU1 command entry {x code, y index, z count}; w is not written */
+static inline _word128* VuCommand(_word128* p, u32 code, u32 index, u32 count)
+{
+	p->u32[0] = code;
+	p->u32[1] = index;
+	p->u32[2] = count;
+	return p + 1;
+}
+
+/* copy qwc qwords of a chain into the scratchpad packet, kicking whenever it fills; kick
+   again when less than 1.5 times the chain is left, then kick (a new packet) */
+static _word128* VuCopyChain(_word128* p, _word128* chain, u32 qwc)
+{
+	u32 total = qwc;
+
+	while (qwc != 0)
+	{
+		u32 room = CSPR::m_sprPacketEnd - p;
+		u32 n = qwc < room ? qwc : room;
+
+		qwc -= n;
+		p = CSPR::Copy(p, chain, n);
+		chain += n;
+
+		if (qwc != 0)
+			p = CSPR::Kick(p, true);
+	}
+
+	if ((u32)(CSPR::m_sprPacketEnd - p) < (total * 3) >> 1)
+		p = CSPR::Kick(p, true);
+
+	return CSPR::Kick(p, true);
+}
+
+/* the multipass entries after a batch program (their count goes to the header) */
+static _word128* VuMultipass(zdb::CVisual* visual, _word128* p, tag_ObjectHeader* header, zdb::tag_DETAIL_PARAMS* detail)
+{
+	if (!_DoMultipass)
+		return p;
+
+	_word128* start = p;
+	zdb::CVisual::m_sprEndOfMP = p + 40;
+
+	if (detail != NULL && zdb::CVisual::m_applyDetailTexture)
+		p = visual->VuDetailMap(p, detail);
+
+	if (zdb::CVisual::m_shadowMapCnt != 0)
+		p = visual->VuShadowMap(p);
+
+	if (zdb::CVisual::m_lightMapCnt != 0)
+		p = visual->VuLightMap(p);
+
+	header->m_multipass_qwc += p - start;
+	return p;
+}
+
+/* a detail chain: its own batch program and multipass entries, then the chain */
+static _word128* VuDetailPacket(zdb::CVisual* visual, zdb::tag_DETAIL_PARAMS* detail, _word128* chain)
+{
+	_word128* packet = VuNewPacket();
+	tag_ObjectHeader* header = reinterpret_cast<tag_ObjectHeader*>(packet + 1);
+	_word128* p = visual->VuBatchProgram(packet + 3, header, detail);
+
+	p = VuMultipass(visual, p, header, detail);
+	p = visual->VuExecuteState0(p, packet);
+	return VuCopyChain(p, chain, detail->m_chain_qwc);
+}
+
 /* @socom-skeleton stub Init__Q23zdb7CVisualFv */
 void zdb::CVisual::Init()
 {
@@ -539,18 +629,36 @@ CVisual* CVisual::Create(zar::CZAR& archive)
 namespace zdb {
 CVisual::CVisual()
 	{
-		m_lodIndex = 0;
-		m_chainPtr = NULL;
-		m_detail_buff = NULL; /* 0x30e0d0/0x30e0c8: +96 and +100 (detail buffer and count) */
-		m_detail_cnt = 0;
-		/* 0x30df68-0x30e0b8 (the vparams fields after the flag word) */
-		m_vtype = -1;
-		m_lod_band = 0;
+		/* 0x30de40: the flag word cleared, then bits 1, 3-7, 14-16 set and 9, 17, 18 cleared */
+		m_ref_count = 0;
+
+		*reinterpret_cast<u32*>(static_cast<tag_VIS_PARAMS*>(this)) = 0; /* sw zero,0(this) */
+		m_field1 = 1;
+		m_flag3 = 1;
+		m_light_map_enable = 1;
+		m_ambient_light_enable = 1;
+		m_global_light_enable = 1;
+		m_flag7 = 1;
+		m_flag9 = 0;
+		m_apply_multipass = 1;
+		m_shadow_map_enable = 1;
+		m_apply_decals = 1;
+		m_flag17 = 0;
+		m_flag18 = 0;
+
 		m_unk06 = 0;
 		m_unk07 = 0;
+		m_lod_band = 0;
+		m_vtype = -1;
+		m_render_mode = 3;
 		m_unk08[0] = 0;
 		m_unk08[1] = 0;
 		m_centroid = CPnt3D::zero;
+		m_detail_cnt = 0;
+		m_detail_params = NULL;
+
+		m_has_lods = false; /* port: legacy members (zvis.h) */
+		m_instance_cnt = 0;
 	}
 }
 
@@ -606,38 +714,29 @@ _word128 * zdb::CVisual::GetTextureSelectBlock_ver2(unsigned int qwc, _word128 *
 
 /* @socom-skeleton body ResolveTextureName__Q23zdb7CVisualFP8_word128P8_word128 */
 namespace zdb {
-CTexture* CVisual::ResolveTextureName(_word128* packet, _word128* offset)
+CTexture* CVisual::ResolveTextureName(_word128* packet, _word128* entry)
 	{
+		/* 0x30d910: as the offset version (entry x name offset), then the entry becomes the
+		   texture's VU select REF, type 5 */
 		CTexture* texture = NULL;
+		CTexHandle* handle = CWorld::GetTexHandle(reinterpret_cast<char*>(packet->u8 + entry->u32[1]));
 
-		CTexHandle* handle = CWorld::GetTexHandle((char*)(packet->u8 + offset->u32[1]));
-
-		if (!handle)
-		{
+		if (handle == NULL)
 			handle = CWorld::GetTexHandle("null_xmas.bmp");
-		}
 
-		if (handle)
+		if (handle != NULL)
 		{
 			texture = handle->m_texture;
-			// m_dynTexList.Add(handle, true);
+			m_dyn_tex_list.Add(handle, true);
 
-			if (texture->m_palette)
-			{
-				// m_dynTexList.Add(texture->m_palette, true);
-			}
+			if (texture->m_palette != NULL)
+				m_dyn_tex_list.Add(texture->m_palette, true);
 		}
 
-		if (texture)
+		if (texture != NULL)
 		{
-			f32 r = texture->m_dmaRefVu.f32[1];
-			f32 g = texture->m_dmaRefVu.f32[2];
-			f32 b = texture->m_dmaRefVu.f32[3];
-			offset->u128 = texture->m_dmaRefVu.u128;
-			offset->f32[1] = r;
-			offset->f32[2] = g;
-			offset->f32[3] = b;
-			offset->u8[2] = 5;
+			*entry = texture->m_dmaRefVu;
+			entry->u8[2] = 5;
 		}
 
 		return texture;
@@ -647,70 +746,149 @@ CTexture* CVisual::ResolveTextureName(_word128* packet, _word128* offset)
 /* @socom-skeleton body ResolveTextureName__Q23zdb7CVisualFP8_word128Ui */
 zdb::CTexture * zdb::CVisual::ResolveTextureName(_word128 *packet, unsigned int offset)
 	{
-		if (CTexHandle* handle = CWorld::GetTexHandle(reinterpret_cast<char*>(packet->u8 + offset)))
+		/* 0x30d890: the texture named at packet + offset (bytes), else null_xmas.bmp; it and its
+		   palette join the visual's texture list */
+		CTexture* texture = NULL;
+		CTexHandle* handle = CWorld::GetTexHandle(reinterpret_cast<char*>(packet->u8 + offset));
+
+		if (handle == NULL)
+			handle = CWorld::GetTexHandle("null_xmas.bmp");
+
+		if (handle != NULL)
 		{
-			m_dyntexList.Add(handle, true);
+			texture = handle->m_texture;
+			m_dyn_tex_list.Add(handle, true);
 
-			if (handle->m_texture->m_palette)
-				m_dyntexList.Add(handle->m_texture->m_palette, true);
-
-			return handle->m_texture;
+			if (texture->m_palette != NULL)
+				m_dyn_tex_list.Add(texture->m_palette, true);
 		}
-		else
-			return CWorld::GetTexHandle("null_xmas.bmp")->m_texture;
 
-		return NULL;
+		return texture;
 	}
 
 /* @socom-skeleton body SetBuffer__Q23zdb7CVisualFP8_word128UiP8CVisBase */
-void zdb::CVisual::SetBuffer(_word128 *chain, unsigned int idx, ::CVisBase *vbase)
+void zdb::CVisual::SetBuffer(_word128 *chain, unsigned int instance, ::CVisBase *vbase)
 	{
+		/* 0x30d4f0: install an instance's chain (header qword: x count, byte 2 "relocated",
+		   z the CVisBase; then count DMA tags with a type in byte 2) and relocate it once:
+		   types 1/2/4/7 address the model buffer, 6 names a texture (it becomes the texture's VU
+		   select REF, type 5, one qword shorter when a type 3 follows), 5 is such a REF, 3 is
+		   batch data - copied out of the buffer (type 8) for some textures or a nonzero z, else
+		   relocated. The detail records' texture names are resolved once too. */
 		vbase->m_buffer_count++;
-		_word128* buffer = vbase->m_data_buffer;
-		m_chainPtr[idx] = *chain;
-		_word128* packet = &m_chainPtr[idx];
 
-		// Check a flag? Maybe if the chain has its buffer set?
-		if (packet->u8[2] != 0)
+		if (instance >= m_buffers.size())
+			m_buffers.resize(instance + 1, NULL); /* port: guard - the ELF stores into m_buffers' storage without a size check */
+
+		m_buffers[instance] = chain;
+		_word128* header = m_buffers[instance];
+
+		if (header->u8[2] != 0)
 			return;
 
-		// Store pointer to visual data
-		packet->u32[2] = reinterpret_cast<u32>(&vbase);
+		header->u32[2] = reinterpret_cast<u32>(vbase);
 
-		// Number of quadwords to loop over
-		u8 qwc = packet->u8[0];
+		_word128* base = vbase->m_data_buffer;
+		CTexture* texture = NULL;
+		u32 count = header->u16[0];
+		_word128* tag = header + 1;
 
-		for (u32 i = 1; i < qwc + 1; i++)
+		for (u32 i = 0; i < count; i++, tag++)
 		{
-			_word128& chainPkt = m_chainPtr[i];
-			u8 type = chainPkt.u8[2];
-
-			u32 pktOffset = chainPkt.u32[1];
-			u32 address = reinterpret_cast<u32>(&*buffer);
-
-			switch (type)
+			switch (tag->u8[2])
 			{
 			case 1:
 			case 2:
 			case 4:
 			case 7:
-				chainPkt.u32[1] = address + pktOffset;
+				tag->u32[1] += reinterpret_cast<u32>(base);
 				break;
-			case 3:
-				break;
-			case 5:
-				break;
-			case 6:
-				CTexture* texture = ResolveTextureName(&*buffer, pktOffset);
 
-				// TODO: do some DMA ref BS down here
-				if (texture)
+			case 3:
+				if (texture != NULL)
 				{
-					
+					u32 qwc = tag->u16[0];
+					u16 keep = tag->u16[6];
+					bool plain = texture->m_transparent && !texture->m_bumpmap &&
+						!(texture->m_transp_1bit && !texture->m_bilinear);
+
+					if (keep != 0 || (!plain && texture->m_transp_1bit))
+					{
+						_word128* src = reinterpret_cast<_word128*>(tag->u32[1] + reinterpret_cast<u32>(base));
+						_word128* copy = static_cast<_word128*>(_malloc(qwc * 16, "vis_main.cpp", 742));
+						_word128* dst = copy;
+
+						do /* ELF quirk kept: a zero count would copy 65536 qwords */
+						{
+							*dst++ = *src++;
+						} while (--qwc != 0);
+
+						tag->u32[1] = reinterpret_cast<u32>(copy);
+						tag->u8[2] = 8;
+
+						if (keep != 0)
+							m_alloc_blocks.insert(m_alloc_blocks.end(), 1, copy);
+					}
+					else
+						tag->u32[1] += reinterpret_cast<u32>(base);
 				}
+				break;
+
+			case 5:
+				if (texture == NULL)
+					texture = *reinterpret_cast<CTexture**>(tag->u32[1] + 12); /* the GIF tag's top word (CTexture::Read) */
+				break;
+
+			case 6:
+				texture = ResolveTextureName(base, tag->u32[1]);
+
+				if (texture != NULL)
+				{
+					*tag = texture->m_dmaRefVu;
+					tag->u8[2] = 5;
+				}
+
+				if (tag[1].u8[2] == 3)
+					tag->u16[0]--;
+				break;
+
+			default:
 				break;
 			}
 		}
+
+		tag_DETAIL_PARAMS* detail = m_detail_params;
+
+		if (detail != NULL && detail->m_resolved == 0)
+		{
+			for (u32 i = 0; i < m_detail_cnt; i++, detail++)
+			{
+				for (u32 j = 0; j < detail->m_tex_cnt; j++)
+				{
+					CTexture* tex = NULL;
+					u32 name = reinterpret_cast<u32>(detail->m_tex[j].m_texture);
+					CTexHandle* handle = CWorld::GetTexHandle(reinterpret_cast<char*>(base->u8 + name));
+
+					if (handle == NULL)
+						handle = CWorld::GetTexHandle("null_xmas.bmp");
+
+					if (handle != NULL)
+					{
+						tex = handle->m_texture;
+						m_dyn_tex_list.Add(handle, true);
+
+						if (tex->m_palette != NULL)
+							m_dyn_tex_list.Add(tex->m_palette, true);
+					}
+
+					detail->m_tex[j].m_texture = tex;
+				}
+			}
+
+			m_detail_params->m_resolved = 1;
+		}
+
+		m_buffers[instance]->u8[2] = 1;
 	}
 
 /* @socom-skeleton stub CopyBuffer__Q23zdb7CVisualFPP8CVisBaseUi */
@@ -741,29 +919,38 @@ void zdb::CVisual::UpdateCentroid()
 namespace zdb {
 bool CVisual::Read(zar::CZAR& archive)
 	{
-		u32 detail_size = 0;
+		/* 0x30d130: "vparams" over the parameter block, the render mode from bit 10, then the
+		   detail records; each record's m_tex points into the 12-byte entries after them */
+		u32 detail_size;
 
-		archive.Fetch("vparams", static_cast<tag_VIS_PARAMS*>(this), sizeof(tag_VIS_PARAMS)); /* port: into the base, not over GCC's vptr at `this` */
+		archive.Fetch("vparams", static_cast<tag_VIS_PARAMS*>(this), sizeof(tag_VIS_PARAMS)); /* port: into the base, not over GCC's vptr at the object start */
 
-		/* 0x30d160: +28 (port: not declared) is -2 when vparams bit 10 is set, else 3 */
-		if (m_detail_buff != NULL)
-			zfree(m_detail_buff);
+		if (m_flag10)
+			m_render_mode = -2;
+		else
+			m_render_mode = 3;
 
-		m_detail_buff = NULL;
+		if (m_detail_params != NULL)
+			_free(m_detail_params, "vis_main.cpp", 938);
+
+		m_detail_params = NULL;
 		m_detail_cnt = 0;
+		archive.Fetch("detail_cnt", &m_detail_cnt, sizeof(u32));
 
-		archive.Fetch("detail_cnt", &m_detail_cnt);
-
-		if (!m_detail_cnt)
-			return true; /* 0x30d1c4: no details is not a failure; Read always returns true */
-
-		archive.Fetch("detail_size", &detail_size);
-		m_detail_buff = static_cast<zdb::CVisual*>(zmalloc(detail_size));
-		archive.Fetch("detail_buff", m_detail_buff, detail_size);
-
-		for (u32 i = 0; i < m_detail_cnt; i++)
+		if (m_detail_cnt != 0)
 		{
+			archive.Fetch("detail_size", &detail_size, sizeof(u32));
+			m_detail_params = static_cast<tag_DETAIL_PARAMS*>(_malloc(detail_size, "vis_main.cpp", 951));
+			archive.Fetch("detail_buff", m_detail_params, detail_size);
 
+			tag_DETAIL_PARAMS* detail = m_detail_params;
+			tag_DETAIL_TEX* tex = reinterpret_cast<tag_DETAIL_TEX*>(m_detail_params + m_detail_cnt);
+
+			for (u32 i = 0; i < m_detail_cnt; i++, detail++)
+			{
+				detail->m_tex = tex;
+				tex += detail->m_tex_cnt;
+			}
 		}
 
 		return true;
@@ -777,24 +964,40 @@ void zdb::CVisual::Write(zar::CZAR &)
 
 /* @socom-skeleton body DrawLOD__Q23zdb7CVisualFPQ23zdb9CLOD_bandfPf */
 namespace zdb {
-bool CVisual::DrawLOD(zdb::CLOD_band* lod, f32 range, f32* distance)
+bool CVisual::DrawLOD(zdb::CLOD_band* lod, f32 range, f32* opacity)
 	{
-		if (lod->m_minRangeNearSq < range || lod->m_maxRangeFarSq > range)
+		/* 0x30cfe0: inside (minNear, maxFar) the visual draws; in a fade band its opacity is
+		   scaled by the distance into the band */
+		if (range <= lod->m_minRangeNearSq || !(range < lod->m_maxRangeFarSq))
 			return false;
 
-		if (!lod->m_minFade)
-			return false;
+		if (!lod->m_minFade && !lod->m_maxFade)
+			return true;
 
-		if (lod->m_minRangeFarSq < range || lod->m_maxRangeFarSq > range)
-			return false;
+		if (!(range < lod->m_minRangeFarSq) && range <= lod->m_maxRangeNearSq)
+			return true;
 
-		*distance *= lod->m_minInvDeltaRangeSq * (range - lod->m_minRangeNearSq);
+		if (lod->m_minFade && range <= lod->m_minRangeFarSq)
+		{
+			*opacity *= lod->m_minInvDeltaRangeSq * (range - lod->m_minRangeNearSq);
+			return true;
+		}
+
+		if (!lod->m_maxFade || range < lod->m_maxRangeNearSq)
+			return true;
+
+		*opacity *= lod->m_maxInvDeltaRangeSq * (lod->m_maxRangeFarSq - range);
 		return true;
 	}
 }
 
 /* @socom-skeleton body AlphaEnable__Q23zdb7CVisualFb */
-void zdb::CVisual::AlphaEnable(bool enableAlpha) {}
+void zdb::CVisual::AlphaEnable(bool enableAlpha)
+{
+	/* 0x30cfd0 */
+	m_primAlpha = enableAlpha;
+	zVid_ZTestOnWriteSet(enableAlpha);
+}
 
 /* @socom-skeleton body LandmarkEnable__Q23zdb7CVisualFb */
 namespace zdb {
@@ -824,8 +1027,9 @@ _word128 * zdb::CVisual::VuBatchProgram_Decals(_word128 *, tag_ObjectHeader *)
 namespace zdb {
 void CVisual::Render(CMatrix* transform)
 	{
-		// if (m_renderState != 0)
-			VuUpdate(1.0f); /* port: 0x30c9ac calls VuUpdate__Q23zdb7CVisualFf with 1.0f */
+		/* 0x30c990: only a visual with instance chains draws */
+		if (m_buffers.size() != 0)
+			VuUpdate(1.0f);
 	}
 }
 
@@ -838,36 +1042,55 @@ void zdb::CVisual::AddLocalLight(zdb::CLight *, CPnt3D *)
 namespace zdb {
 bool CVisual::GetChainData()
 	{
-		if (!m_chainPtr)
+		/* 0x30c7c0: the chain of the instance on top of m_stack_vid (header qword: x qwords,
+		   w>>16 subface qwords at qword offset w&0xffff); true when a detail chain follows, which
+		   shortens the base chain to record 0's offset */
+		_word128* header = m_buffers[m_stack_vid.back()];
+
+		m_dmaChain = header + 1;
+		m_dmaQwc = header->u16[0];
+		m_dmaSubfaceQwc = header->u16[7];
+
+		if (m_dmaSubfaceQwc != 0)
+			m_dmaSubfaceChain = m_dmaChain + header->u16[6];
+		else
+			m_dmaSubfaceChain = NULL;
+
+		if (m_detail_params == NULL)
 			return false;
 
-		u32 stackidx = m_stack_vid.size() - 1;
-		_word128* tag = &m_chainPtr[m_stack_vid[stackidx % m_stack_vid.size()]];
-		m_dmaChain = &tag[1];
-		m_dmaQwc = *tag[0].u8;
+		if (m_applyDetailTexture && m_apply_multipass)
+		{
+			m_dmaQwc = m_detail_params->m_chain_ofs;
+			return true;
+		}
 
-		return true;
+		return false;
 	}
 }
 
 /* @socom-skeleton body NodeSetup__Q23zdb7CVisualFPQ23zdb5CNodePQ23zdb5CNodeP7CMatrixi */
 namespace zdb {
-void CVisual::NodeSetup(CNode* node, CNode* other, CMatrix* matrix, s32 status)
+void CVisual::NodeSetup(CNode* atom, CNode* node, CMatrix* matrix, s32 status)
 	{
-		m_ModelToWorld = matrix; /* port: 0x30c6ec stores the pointer */
-		Vu0MatrixInverseWithUniformScale(&m_WorldToModel, matrix);
+		/* 0x30c6d0: the object matrices and FOV status for the next visuals; lighting for a
+		   dynamic-motion atom or a dynamic-light node (not in the render-map pass), with the
+		   atom's custom global light level (/127, or 1 when negative); clutter gets no local
+		   lights */
+		m_ModelToWorld = matrix;
+		Vu0MatrixInverseWithUniformScale(&m_WorldToModel, m_ModelToWorld);
 		m_fovStatus = status;
 
-		if (m_renderMap && node->m_light || other->m_light)
+		if (!m_renderMap && (atom->m_dynamic_motion || node->m_dynamic_light))
 		{
 			m_lightingEnable = true;
 
-			if (node->m_customGlobalLight < 0)
+			if (atom->m_customGlobalLight < 0)
 				m_GlobalLightScale = 1.0f;
 			else
-				m_GlobalLightScale = node->m_customGlobalLight * 0.007874016f;
+				m_GlobalLightScale = atom->m_customGlobalLight * 0.007874016f;
 
-			m_applyLocalLights = other->m_light_dynamic;
+			m_applyLocalLights = !node->m_clutter;
 		}
 		else
 		{
@@ -878,23 +1101,314 @@ void CVisual::NodeSetup(CNode* node, CNode* other, CMatrix* matrix, s32 status)
 }
 
 /* @socom-skeleton stub VuObjectSetup__Q23zdb7CVisualFP8_word128P16tag_ObjectHeader */
-_word128 * zdb::CVisual::VuObjectSetup(_word128 *, tag_ObjectHeader *)
+_word128 * zdb::CVisual::VuObjectSetup(_word128 *p, tag_ObjectHeader *header)
 {
+	/* 0x30c350: the object part of the VU1 header from hdr[2] (p): clip word and light
+	   scales, fog vectors (hdr[4..5]), model-to-world (hdr[6..9]), the camera's 7 clip vectors
+	   in model space (hdr[10..16]), add colour + opacity (hdr[17]), scale colour (hdr[18]) */
+	bool notMesh = m_vtype != 1;
+
+	if (m_render_mode == -2)
+		p[0].u32[0] = 63;
+	else
+		p[0].u32[0] = m_fovClipWord >> 8;
+
+	p[0].f32[1] = m_global_light_enable ? m_GlobalLightScale : 0.0f;
+	p[0].f32[2] = m_ambient_light_enable ? m_AmbientLightScale : 0.0f;
+
+	/* vmulax/vmadday/vmaddaz/vmaddw with m_WorldToModel (sceVu0ApplyMatrix computes the same) */
+	CPnt4D* clip = &m_camera->m_ClipSet.ViewPlanePoint; /* +976: 7 consecutive CPnt4D */
+
+	for (u32 i = 0; i < 7; i++)
+		sceVu0ApplyMatrix(p[8 + i].f32, m_WorldToModel.m_matrix, reinterpret_cast<f32*>(&clip[i]));
+
+	sceVu0CopyMatrix(reinterpret_cast<f32(*)[4]>(&p[4]), m_ModelToWorld->m_matrix);
+
+	if (m_fogEnable)
+	{
+		const f32* fog[2];
+
+		if (m_landmarkFlag)
+		{
+			fog[0] = reinterpret_cast<f32*>(&m_camera->m_landmark_fog_alt[0]);
+			fog[1] = reinterpret_cast<f32*>(&m_camera->m_landmark_fog_alt[1]);
+		}
+		else if (m_camera->m_fog_alt_enabled)
+		{
+			fog[0] = reinterpret_cast<f32*>(&m_camera->m_fog_alt[0]);
+			fog[1] = reinterpret_cast<f32*>(&m_camera->m_fog_alt[1]);
+		}
+		else
+		{
+			/* ELF quirk: the asm reads two qwords from NoAltFogBottomV; the second is the
+			   adjacent NoAltFogVectorV (both zero) */
+			fog[0] = reinterpret_cast<const f32*>(NoAltFogBottomV);
+			fog[1] = reinterpret_cast<const f32*>(NoAltFogVectorV);
+		}
+
+		for (u32 i = 0; i < 2; i++)
+			sceVu0ApplyMatrix(p[2 + i].f32, m_WorldToModel.m_matrix, const_cast<f32*>(fog[i]));
+
+		if (m_landmarkFlag)
+		{
+			p[2].f32[3] = 255.0f;
+			p[3].f32[3] = 0.0f;
+		}
+		else
+		{
+			p[2].f32[3] = m_camera->m_fogA;
+			p[3].f32[3] = m_camera->m_fogB;
+		}
+	}
+
+	if (m_applyScaleColor)
+	{
+		if (notMesh)
+		{
+			p[16].f32[0] = m_scaleColor[0] * 0.33f;
+			p[16].f32[1] = m_scaleColor[1] * 0.33f;
+			p[16].f32[2] = m_scaleColor[2] * 0.33f;
+		}
+		else
+		{
+			p[16].f32[0] = (m_scaleColor[0] * 1.4f) * 0.33f;
+			p[16].f32[1] = (m_scaleColor[1] * 1.4f) * 0.33f;
+			p[16].f32[2] = (m_scaleColor[2] * 1.4f) * 0.33f;
+		}
+
+		p[16].u32[3] = 0x42b5d174; /* 90.909 */
+	}
+
+	if (!(m_opacity <= 1.0f))
+		m_opacity = 1.0f;
+	else if (m_opacity < 0.0f)
+		m_opacity = 0.0f;
+
+	p[15].f32[0] = m_addColor[0];
+	p[15].f32[1] = m_addColor[1];
+	p[15].f32[2] = m_addColor[2];
+	p[15].f32[3] = m_opacity;
+
+	header->m_setup = 0; /* sw zero over the flag word, then bit 0 */
+	header->m_gs_packet = 0;
+	header->m_unused = 0;
+	header->m_setup = 1;
+	return p + 17;
 }
 
 /* @socom-skeleton stub VuBatchProgram__Q23zdb7CVisualFP8_word128P16tag_ObjectHeaderPQ23zdb17tag_DETAIL_PARAMS */
-_word128 * zdb::CVisual::VuBatchProgram(_word128 *, tag_ObjectHeader *, zdb::tag_DETAIL_PARAMS *)
+_word128 * zdb::CVisual::VuBatchProgram(_word128 *p, tag_ObjectHeader *header, zdb::tag_DETAIL_PARAMS *detail)
 {
+	/* 0x30bda0: the command list the VU1 runs on every batch of the chain (entries
+	   {code, index, count}; index = entries before the per-vertex stages). Mode 3 is the full
+	   program: decompress, [front face], clip-tested (m_fovStatus 0) or plain transform, base
+	   texture kick, fog, lights, scale colour, kick, multipass; other modes a fixed lit strip
+	   program. ELF quirk kept: the detail loop tests the same record count times. */
+	_word128* start = p;
+	bool doDetail = detail != NULL && _DoDetail;
+	bool texKick = doDetail || _TextureChange;
+	u32 n = 0;
+
+	if (m_render_mode == 3)
+	{
+		if (m_vtype == 1)
+		{
+			p = VuCommand(p, VU1_CMESH, 0, 1);
+			p = VuCommand(p, VU1_BUILD_NORMALS, 0, 1);
+			n += 2;
+		}
+		else
+		{
+			p = VuCommand(p, m_flag17 ? VU1_DECOMPRESS4 : VU1_DECOMPRESS0, 0, 1);
+			n++;
+		}
+
+		if (m_flag3)
+		{
+			p = VuCommand(p, VU1_FRONT_FACE, 0, 1);
+			n++;
+		}
+
+		if (m_fovStatus == 0)
+		{
+			p = VuCommand(p, VU1_GATHER_CLIP_TRI, 0, 1);
+			n++;
+			p = VuCommand(p, VU1_XFORM1, n, 1);
+
+			if (texKick)
+				p = VuCommand(p, VU1_BASE_TEXTURE_KICK, 0, 1);
+
+			if (m_fogEnable)
+				p = VuCommand(p, VU1_FOG1, n, 1);
+
+			if (m_lightingEnable)
+			{
+				p = VuCommand(p, VU1_INIT_LIGHT1, n, 1);
+
+				if (m_applyLocalLights && m_local_light_cnt != 0)
+					p = VuCommand(p, VU1_LOCAL_LIGHT1, n, m_local_light_cnt);
+
+				p = VuCommand(p, VU1_GLOBAL_LIGHT1, n, 1);
+			}
+
+			if (m_applyScaleColor)
+				p = VuCommand(p, VU1_SCALE_COLOR1, n, 1);
+
+			p = VuCommand(p, VU1_FIX_KICK1, n, 1);
+
+			if (_DoMultipass)
+			{
+				p = VuCommand(p, VU1_MULTIPASSING, n, 1);
+
+				if (doDetail)
+				{
+					for (u32 i = 0; i < detail->m_tex_cnt; i++)
+					{
+						if (m_rangeSqdToCamera <= detail->m_range_sqd_to_camera)
+							p = VuCommand(p, VU1_MP_DETAIL_MAP1, n, 1);
+					}
+				}
+
+				for (u32 i = 0; i < (u32)m_shadowMapCnt; i++)
+					p = VuCommand(p, VU1_MP_SHADOW_MAP1, n, 1);
+
+				if (m_lightMapCnt != 0)
+					p = VuCommand(p, VU1_MP_LIGHT_MAP1, n, m_lightMapCnt);
+
+				p = VuCommand(p, VU1_NOT_MULTIPASSING, n, 1);
+			}
+
+			p = VuCommand(p, VU1_NEXT_CLIP_TRI, n, 1);
+		}
+		else
+		{
+			if (texKick)
+			{
+				p = VuCommand(p, VU1_BASE_TEXTURE_KICK, 0, 1);
+				n++;
+			}
+
+			p = VuCommand(p, VU1_XFORM0, 0, 1);
+
+			if (m_fogEnable)
+				p = VuCommand(p, VU1_FOG0, n, 1);
+
+			if (m_lightingEnable)
+			{
+				p = VuCommand(p, VU1_INIT_LIGHT0, n, 1);
+
+				if (m_applyLocalLights && m_local_light_cnt != 0)
+					p = VuCommand(p, VU1_LOCAL_LIGHT0, n, m_local_light_cnt);
+
+				p = VuCommand(p, VU1_GLOBAL_LIGHT0, n, 1);
+			}
+
+			if (m_applyScaleColor)
+				p = VuCommand(p, VU1_SCALE_COLOR0, n, 1);
+
+			p = VuCommand(p, VU1_GATHER_FIX_KICK, n, 1);
+
+			if (_DoMultipass)
+			{
+				p = VuCommand(p, VU1_MULTIPASSING, n, 1);
+
+				if (doDetail)
+				{
+					for (u32 i = 0; i < detail->m_tex_cnt; i++)
+					{
+						if (m_rangeSqdToCamera <= detail->m_range_sqd_to_camera)
+							p = VuCommand(p, VU1_MP_DETAIL_MAP0, n, 1);
+					}
+				}
+
+				for (u32 i = 0; i < (u32)m_shadowMapCnt; i++)
+					p = VuCommand(p, VU1_MP_SHADOW_MAP0, n, 1);
+
+				if (m_lightMapCnt != 0)
+					p = VuCommand(p, VU1_MP_LIGHT_MAP0, n, m_lightMapCnt);
+
+				p = VuCommand(p, VU1_NOT_MULTIPASSING, n, 1);
+			}
+		}
+	}
+	else
+	{
+		p = VuCommand(p, VU1_COLOR_TO_FLOAT1, 0, 1);
+		p = VuCommand(p, VU1_GATHER_CLIP_LINE, 0, 1);
+		n += 2;
+		p = VuCommand(p, VU1_XFORM2, n, 1);
+
+		if (m_fogEnable)
+			p = VuCommand(p, VU1_FOG2, n, 1);
+
+		if (m_lightingEnable)
+		{
+			p = VuCommand(p, VU1_INIT_LIGHT2, n, 1);
+			p = VuCommand(p, VU1_GLOBAL_LIGHT2, n, 1);
+		}
+
+		p = VuCommand(p, VU1_FIX_KICK2, n, 1);
+		p = VuCommand(p, VU1_NEXT_CLIP_LINE, n, 1);
+	}
+
+	p = VuCommand(p, VU1_SLEEP, n, 1);
+	header->m_batch_qwc = p - start;
+	return p;
 }
 
 /* @socom-skeleton stub SaveTextureSelect__Q23zdb7CVisualFP8_word128PQ23zdb8CTextureUl */
-void zdb::CVisual::SaveTextureSelect(_word128 *, zdb::CTexture *, unsigned long)
+void zdb::CVisual::SaveTextureSelect(_word128 *cursor, zdb::CTexture *texture, u64 alpha)
 {
+	/* 0x30bcd0: queue (through the uncached alias) a REF of the texture's TEX0_1 select qword
+	   to header qword idx+3 and, for an alpha other than 0x4000000000000000 and the
+	   texture's own, an ALPHA_1 A+D qword to idx+1; idx = the cursor's header qword */
+	s32 idx = (cursor - reinterpret_cast<_word128*>(CSPR::m_sprPacket)) - 1;
+	_word128* ts = reinterpret_cast<_word128*>(reinterpret_cast<u32>(_savedTS) | 0x20000000);
+	u32 select = texture->m_dmaRef.u32[1]; /* the GIF select block */
+
+	ts[0].u32[0] = 0x30000001;         /* REF 1 */
+	ts[0].u32[1] = select + 48;        /* qword 3: TEX0_1 */
+	ts[0].u32[2] = 0x01000101;         /* STCYCL 1,1 */
+	ts[0].u32[3] = (idx + 3) | 0x6c018000; /* UNPACK V4-32 1 qword, FLG */
+	_savedTS += 1;
+
+	if (alpha != 0x4000000000000000ULL && *reinterpret_cast<u64*>(select + 16) != alpha)
+	{
+		ts[1].u32[0] = 0x10000001;     /* CNT 1 */
+		ts[1].u32[1] = 0;
+		ts[1].u32[2] = 0x01000101;
+		ts[1].u32[3] = (idx + 1) | 0x6c018000;
+		ts[2].u64[0] = alpha;
+		ts[2].u64[1] = 0x42;           /* ALPHA_1 */
+		_savedTS += 2;
+	}
 }
 
 /* @socom-skeleton stub VuDetailMap__Q23zdb7CVisualFP8_word128PQ23zdb17tag_DETAIL_PARAMS */
-_word128 * zdb::CVisual::VuDetailMap(_word128 *, zdb::tag_DETAIL_PARAMS *)
+_word128 * zdb::CVisual::VuDetailMap(_word128 *p, zdb::tag_DETAIL_PARAMS *detail)
 {
+	/* 0x30bc00: one 8-qword multipass entry per detail texture (its select block copied in)
+	   while inside the detail range and below m_sprEndOfMP. ELF quirk kept: the range test
+	   reads the same record every time. */
+	for (u32 i = 0; i < detail->m_tex_cnt; i++)
+	{
+		if (m_rangeSqdToCamera <= detail->m_range_sqd_to_camera)
+		{
+			if (m_sprEndOfMP < p + 8)
+				break;
+
+			tag_DETAIL_TEX* tex = &detail->m_tex[i];
+			tex->m_texture->CopyTextureSelect(p);
+
+			if (tex->m_select_x != 0)
+				p[1].u16[0] = tex->m_select_x;
+
+			p[7].f32[0] = tex->m_pass_x;
+			p += 8;
+		}
+	}
+
+	return p;
 }
 
 /* @socom-skeleton stub VuLightMap__Q23zdb7CVisualFP8_word128 */
@@ -908,199 +1422,397 @@ _word128 * zdb::CVisual::VuShadowMap(_word128 *)
 }
 
 /* @socom-skeleton stub VuExecuteState0__Q23zdb7CVisualFP8_word128P8_word128 */
-_word128 * zdb::CVisual::VuExecuteState0(_word128 *, _word128 *)
+_word128 * zdb::CVisual::VuExecuteState0(_word128 *cursor, _word128 *packet)
 {
+	/* 0x30b740: close a packet: its qword 0 becomes DMA CNT + STCYCL 1,1 + UNPACK V4-32 (FLG)
+	   of the header qwords; then VIF MSCALF 0 (VU1_STATE_0) - in the CNT data, or after the
+	   saved texture selects, which are copied in first */
+	_word128* p = cursor;
+	_word128* spr = reinterpret_cast<_word128*>(CSPR::m_sprPacket);
+
+	if (_savedTS == m_savedTS)
+	{
+		p->u32[0] = 0x15000000; /* MSCALF 0 */
+		p->u32[1] = 0;
+		p->u32[2] = 0;
+		p->u32[3] = 0;
+		p++;
+	}
+
+	s32 headerQwc = (cursor - spr) - 1;
+	s32 qwc = (p - spr) - 1;
+
+	packet->u32[0] = qwc | 0x10000000;
+	packet->u32[1] = 0;
+	packet->u32[2] = 0x01000101;
+	packet->u32[3] = (headerQwc << 16) | 0x6c008000;
+
+	if (m_savedTS < _savedTS)
+	{
+		p = CSPR::Copy(p, m_savedTS, _savedTS - m_savedTS);
+		_savedTS = m_savedTS;
+		p->u32[0] = 0x10000000; /* CNT 0 */
+		p->u32[1] = 0;
+		p->u32[2] = 0x15000000; /* MSCALF 0 */
+		p->u32[3] = 0;
+		p++;
+	}
+
+	return p;
 }
 
 /* @socom-skeleton body VuUpdate__Q23zdb7CVisualFf */
-void zdb::CVisual::VuUpdate(float)
+void zdb::CVisual::VuUpdate(float opacity)
 	{
-		
+		/* 0x30a900: draw the instance on top of m_stack_vid. Packets go through the scratchpad
+		   (CSPR) into the VIF1 MFIFO: an object packet (header + local lights, MSCALF 0), then
+		   a batch-program packet followed by the instance chain (DMA tags into the model
+		   buffer; each batch ends in MSCNT), then detail/subface chains with their programs
+		   and the decals. The render-map pass sends one packet with a shadow program. */
+		m_opacity = opacity;
+		_savedTS = m_savedTS;
+		m_mtl_band = 0;
+		m_specMapCnt = 0;
+		_DoDetail = GetChainData();
+
+		_word128* packet;
+		_word128* p;
+		tag_ObjectHeader* header;
+
+		if (m_renderMap)
+		{
+			packet = VuNewPacket();
+			header = reinterpret_cast<tag_ObjectHeader*>(packet + 1);
+			p = VuObjectSetup(packet + 3, header);
+
+			_word128* start = p;
+			u32 n = 0;
+
+			if (m_vtype == 1)
+			{
+				p = VuCommand(p, VU1_CMESH, 0, 1);
+				p = VuCommand(p, VU1_BUILD_NORMALS, 0, 1);
+				n += 2;
+			}
+			else
+			{
+				p = VuCommand(p, m_flag17 ? VU1_DECOMPRESS4 : VU1_DECOMPRESS0, 0, 1);
+				n++;
+			}
+
+			if (m_flag3 && m_vtype != 1)
+			{
+				n++;
+				p = VuCommand(p, VU1_FRONT_FACE, 0, 1);
+			}
+
+			p = VuCommand(p, VU1_XFORM0, 0, 1);
+			p = VuCommand(p, VU1_GATHER_FIX_KICK_SHADOW, n, 1);
+			p = VuCommand(p, VU1_SLEEP, n, 1);
+			header->m_batch_qwc = p - start;
+
+			p = VuExecuteState0(p, packet);
+			VuCopyChain(p, m_dmaChain, m_dmaQwc);
+			return;
+		}
+
+		_DoMultipass = m_applyMultipass && m_apply_multipass;
+
+		if (_DoMultipass)
+		{
+			m_shadowMapCnt = m_shadow_map_enable ? m_shadowMapList.size() : 0;
+			m_lightMapCnt = m_light_map_enable ? m_lightMapList.size() : 0;
+			m_specMapGlobal = false;
+		}
+		else
+		{
+			m_shadowMapCnt = 0;
+			m_lightMapCnt = 0;
+		}
+
+		_TextureChange = m_lightMapCnt != 0 || m_shadowMapCnt != 0 || m_specMapCnt != 0 ||
+			m_specMapGlobal || _DoDetail;
+
+		/* the object packet */
+		packet = VuNewPacket();
+		header = reinterpret_cast<tag_ObjectHeader*>(packet + 1);
+		p = VuObjectSetup(packet + 3, header);
+
+		if (m_lightingEnable && m_customGlobalLightIdx != -1)
+			m_GlobalLightScale = m_customGlobalLightIdx * 0.007874016f; /* ELF quirk: after VuObjectSetup used the old scale */
+		else
+			header->m_light_qwc = 0;
+
+		if (m_lightingEnable && m_applyLocalLights && m_local_light_cnt != 0)
+		{
+			CPnt4D* light = localLightBuf;
+
+			for (u32 i = 0; i < (u32)m_local_light_cnt; i++)
+			{
+				p[0].f32[0] = light[0].x;
+				p[0].f32[1] = light[0].y;
+				p[0].f32[2] = light[0].z;
+				p[0].f32[3] = light[0].w;
+				p[1].f32[0] = light[1].x;
+				p[1].f32[1] = light[1].y;
+				p[1].f32[2] = light[1].z;
+				p[1].f32[3] = light[1].w;
+				p += 2;
+				light += 2;
+			}
+
+			header->m_local_light_qwc = m_local_light_cnt * 2;
+		}
+
+		p = VuExecuteState0(p, packet);
+		p = CSPR::Kick(p, true);
+
+		/* the base chain */
+		if (m_dmaQwc != 0)
+		{
+			packet = VuNewPacket();
+			header = reinterpret_cast<tag_ObjectHeader*>(packet + 1);
+			p = VuBatchProgram(packet + 3, header, NULL);
+			p = VuMultipass(this, p, header, NULL);
+			p = VuExecuteState0(p, packet);
+			p = VuCopyChain(p, m_dmaChain, m_dmaQwc);
+		}
+
+		if (_DoMultipass)
+		{
+			tag_DETAIL_PARAMS* detail = m_detail_params;
+			u32 i = 0;
+
+			if (detail != NULL && _DoDetail)
+			{
+				for (; i < m_detail_cnt; i++, detail++)
+				{
+					_word128* chain = m_dmaChain + detail->m_chain_ofs;
+
+					if (m_dmaSubfaceChain != NULL && !(chain < m_dmaSubfaceChain))
+						break;
+
+					p = VuDetailPacket(this, detail, chain);
+				}
+			}
+
+			if (m_dmaSubfaceQwc != 0)
+			{
+				packet = VuNewPacket();
+				header = reinterpret_cast<tag_ObjectHeader*>(packet + 1);
+				p = VuBatchProgram(packet + 3, header, NULL);
+				p = VuMultipass(this, p, header, NULL);
+				p = VuExecuteState0(p, packet);
+				p = VuCopyChain(p, m_dmaSubfaceChain, m_dmaSubfaceQwc);
+
+				if (detail != NULL && _DoDetail)
+				{
+					for (; i < m_detail_cnt; i++, detail++)
+						p = VuDetailPacket(this, detail, m_dmaChain + detail->m_chain_ofs);
+				}
+			}
+		}
+
+		/* decals: a CMesh's list (+108), else the instance's m_decals entry. port: not
+		   written - the decal records are not recovered and CDecal::AddDecal is a stub, so
+		   both lists stay empty (VuBatchProgram_Decals + VuExecuteState0, then per decal its
+		   select qword(s) and a CSPR::Copy of its chain) */
+		if (m_vtype == 1)
+		{
+		}
+		else if (m_stack_vid.back() < m_decals.size() /* port: guard */ && m_decals[m_stack_vid.back()] != NULL)
+		{
+		}
+
+		CSPR::Kick(p, false);
 	}
 
 /* @socom-skeleton body hookupVisuals__FPQ23zar4CZARPQ23zar4CKeyPQ23zdb5CNodePQ23zdb6CModelP8CVisBase */
 void hookupVisuals(zar::CZAR *archive, zar::CKey *key, zdb::CNode *node, zdb::CModel *model, CVisBase *vbase)
 {
-	std::vector<zdb::CVisual*> visualsToRemove;
-
-	char node_name[1024];
-	char node_light_name[1024];
-
-	u32 bufidx = 0;
-	u32 vis_id = 0;
-	u32 child_vis_id = 0;
-	u32 node_ofs = 0;
-	
-	if (!node)
+	/* 0x30a330: give every visual of the node one chain slot (m_buffers) and decal slot per
+	   model instance and point it at its chain in the model buffer, found by key
+	   "N<node>_I<instance>_V<visual>" (a "_L" key also makes the node dynamically lit);
+	   a model without instances (or forced/mesh) uses instance 0 and the older
+	   "N<node>_<visual>" key. Visuals without a chain are deleted; children that are not
+	   instance nodes (type 2) recurse. */
+	if (node == NULL)
 		return;
 
-	if (node->m_hasMesh)
+	std::vector<zdb::CVisual*> visualsToRemove;
+	char node_name[1024];
+	char node_light_name[1024];
+	u32 node_ofs = 0;
+
+	if (!node->m_hasMesh)
 		node->GetSubMesh();
 
-	if (node->m_visual.size() != 0 || node->m_hasVisuals)
+	if (node->m_visual.size() != 0 || node->m_has_visuals_prior_to_export)
 		node_index++;
 
-	for (auto i = model->m_list.begin(); i != model->m_list.end(); i++)
+	u32 instance = 0;
+
+	for (CRefList::iterator i = model->m_list.begin(); i != model->m_list.end(); ++i, instance++)
 	{
-		zdb::CNode* n = *i; /* 0x30a444: the model's instance list holds the instance nodes */
-		zdb::CNode* child = n->FindChild(node->m_name, true);
+		zdb::CNode* child = (*i)->FindChild(node->m_name, true); /* virtual in the ELF */
 
-		if (!child)
-			child = n;
+		if (child == NULL)
+			child = *i;
 
-		child->m_vid = vis_id;
+		child->m_vid = instance;
 
-		for (auto j = node->m_visual.begin(); j != node->m_visual.end(); j++)
+		for (u32 v = 0; v < node->m_visual.size(); v++)
 		{
-			zdb::CVisual* visual = *j;
+			zdb::CVisual* visual = node->m_visual[v];
 
-			sprintf(node_name, "N%03d_I%03d_V%02d", node_index, vis_id, child_vis_id);
+			visual->m_buffers.push_back(NULL);
+			visual->m_decals.push_back(NULL);
+
+			sprintf(node_name, "N%03d_I%03d_V%02d", node_index, instance, v);
 			strcpy(node_light_name, node_name);
 			strcat(node_light_name, "_L");
 
 			bool found = archive->Fetch(node_light_name, &node_ofs, sizeof(u32));
 
-			if (!found)
-				found = archive->Fetch(node_name, &node_ofs, sizeof(u32));
-			else
+			if (found)
 				child->SetDynamicLight(true, false);
+			else
+				found = archive->Fetch(node_name, &node_ofs, sizeof(u32));
 
 			if (found)
 			{
 				vbase->m_node_ofs = node_ofs;
-				visual->SetBuffer(&vbase->m_data_buffer[vbase->m_node_ofs], bufidx, vbase);
+				visual->SetBuffer(reinterpret_cast<_word128*>(reinterpret_cast<u8*>(vbase->m_data_buffer) + vbase->m_node_ofs), instance, vbase);
 			}
 			else
-				visualsToRemove.insert(visualsToRemove.begin(), visual);
+				visualsToRemove.push_back(visual);
 		}
-
-		bufidx++;
 	}
 
-	if (model->m_list.size() == 0 || model->m_bForceExport || model->GetMesh())
+	if (model->m_list.size() == 0 || model->m_bForceExport || model->GetMesh() != NULL)
 	{
-		for (u32 i = 0; i < node->m_visual.size(); i++)
+		for (u32 v = 0; v < node->m_visual.size(); v++)
 		{
-			zdb::CVisual* visual = node->m_visual[i];
+			zdb::CVisual* visual = node->m_visual[v];
 
-			sprintf(node_name, "N%03d_I%03d_V%02d", node_index, 0, i);
+			visual->m_buffers.push_back(NULL);
+			visual->m_decals.push_back(NULL);
+
+			sprintf(node_name, "N%03d_I%03d_V%02d", node_index, 0, v);
 			strcpy(node_light_name, node_name);
 			strcat(node_light_name, "_L");
 
 			bool found = archive->Fetch(node_light_name, &node_ofs, sizeof(u32));
 
-			if (!found)
-				found = archive->Fetch(node_name, &node_ofs, sizeof(u32));
-			else
+			if (found)
 				node->SetDynamicLight(true, false);
+			else
+				found = archive->Fetch(node_name, &node_ofs, sizeof(u32));
 
 			if (!found)
 			{
-				sprintf(node_name, "N%03d_%03d", node_index, i);
+				sprintf(node_name, "N%03d_%03d", node_index, v);
 				strcpy(node_light_name, node_name);
 				strcat(node_light_name, "_L");
 
-				if (!found)
-					found = archive->Fetch(node_name, &node_ofs, sizeof(u32));
-				else
-					node->SetDynamicLight(true, false);
+				found = archive->Fetch(node_light_name, &node_ofs, sizeof(u32));
 
 				if (found)
-				{
-					vbase->m_node_ofs = node_ofs;
-					visual->m_chainPtr = (_word128*)((u8*)vbase->m_data_buffer + vbase->m_node_ofs);
-					visual->SetBuffer(visual->m_chainPtr, 0, vbase);
-				}
+					node->SetDynamicLight(true, false);
 				else
-				{
-					visualsToRemove.insert(visualsToRemove.begin(), visual);
-				}
+					found = archive->Fetch(node_name, &node_ofs, sizeof(u32));
 			}
+
+			if (found)
+			{
+				vbase->m_node_ofs = node_ofs;
+				visual->SetBuffer(reinterpret_cast<_word128*>(reinterpret_cast<u8*>(vbase->m_data_buffer) + vbase->m_node_ofs), 0, vbase);
+			}
+			else
+				visualsToRemove.push_back(visual);
 		}
 	}
 
-	for (auto i = visualsToRemove.begin(); i != visualsToRemove.end(); ++i)
+	if (visualsToRemove.size() != 0)
 	{
-		zdb::CVisual* visual = *i;
-		node->DeleteVisual(visual, true);
+		for (u32 v = 0; v < visualsToRemove.size(); v++)
+			node->DeleteVisual(visualsToRemove[v], true);
+
+		visualsToRemove.clear();
 	}
 
-	for (auto i = node->m_child.begin(); i != node->m_child.end(); i++)
+	for (u32 c = 0; c < node->m_child.size(); c++)
 	{
-		zdb::CNode* parent = *i;
-		zdb::CNode* child = NULL;
+		zdb::CNode* child = node->m_child[c];
 
-		if (parent->m_type == (u32)zdb::CNode::TYPE::INSTANCE)
-			child = parent;
-
-		if (!child)
-			hookupVisuals(archive, key, parent, model, vbase);
+		if (child->m_type != 2) /* instance nodes are hooked through their model */
+			hookupVisuals(archive, key, child, model, vbase);
 	}
 }
 
 /* @socom-skeleton body hookupMesh__FPQ23zar4CZARPQ23zdb6CModel */
 void hookupMesh(zar::CZAR* archive, zdb::CModel* model)
 {
-	u32* data = NULL;
-	_word128* meshword = NULL;
+	/* 0x30a1f0: a mesh model's buffer "MESH_<model>": LOD 0 = {vertex = the buffer, chain =
+	   buffer + "MESH_<model>_START"}, one empty instance slot, texture selects resolved.
+	   The slot stays NULL: only clones (CMesh::Clone) draw. */
 	char buf[192];
-	
 	zdb::CMesh* mesh = model->GetMesh();
-	snprintf(buf, 192, "MESH_%s", model->m_name);
 
-	if (auto meshkey = archive->OpenKey(buf))
+	sprintf(buf, "MESH_%s", model->m_name);
+
+	if (zar::CKey* key = archive->OpenKey(buf))
 	{
-		if (archive->FetchLIP(meshkey, reinterpret_cast<void**>(meshword)))
+		_word128* data = NULL;
+
+		if (archive->FetchLIP(key, reinterpret_cast<void**>(&data)))
 		{
-			u32 ofs = 0;
-			
+			s32 start;
+
 			strcat(buf, "_START");
+			archive->Fetch(buf, &start);
+			archive->Fetch("mtx_count", &mesh->m_mtx_count);
 
-			archive->Fetch(buf, &ofs);
-			archive->Fetch(buf, &mesh->m_mtx_count);
+			_word128* chain = reinterpret_cast<_word128*>(reinterpret_cast<u8*>(data) + start);
 
-			data = &meshword->u32[ofs];
+			mesh->m_buffers.push_back(NULL);
+			mesh->m_decals.push_back(NULL);
+			mesh->m_lods[0].m_chain = chain;
+			mesh->m_lods[0].m_vertex = data;
+			mesh->SetMeshTextureSelects(chain, data);
 		}
 
-		archive->CloseKey(meshkey);
+		archive->CloseKey(key);
 	}
 }
 
 /* @socom-skeleton body hookupVisuals__FPQ23zar4CZARPQ23zdb6CModel */
 void hookupVisuals(zar::CZAR* archive, zdb::CModel* model)
 {
-	CVisBase* vis = NULL;
-
-	if (model->GetMesh())
+	/* 0x30a040: a mesh model goes to hookupMesh; otherwise the model's buffer (key = model
+	   name, loaded in place: CVisBase external) is hooked from the model node down. Without
+	   the key the ELF builds and drops a copy of the model's visual list (no effect). */
+	if (model->GetMesh() != NULL)
 	{
-		// hookupMesh(archive, model);
+		hookupMesh(archive, model);
 		return;
 	}
 
 	node_index = -1;
 
-	if (zar::CKey* key = archive->OpenKey(model->m_name))
-	{
-		vis = new CVisBase(key->GetSize(), true); /* external = true: the inlined constructor (0x30a110) sets +0x10 to 1 and allocates nothing */
+	zar::CKey* key = archive->OpenKey(model->m_name);
 
-		if (!archive->FetchLIP(key, reinterpret_cast<void**>(vis)))
-		{
-			if (!vis->m_active)
-			{
-				if (vis->m_data_buffer)
-					zfree(vis->m_data_buffer);
+	if (key == NULL)
+		return;
 
-				vis->m_data_buffer = NULL;
-			}
+	CVisBase* vis = new CVisBase(key->GetSize(), true); /* the inlined constructor (0x30a110): size from the key, nothing allocated */
 
-			CVisBase::m_instance_count--;
-			delete vis;
-		}
-		else 
-			hookupVisuals(archive, key, model, model, vis);
+	if (archive->FetchLIP(key, reinterpret_cast<void**>(&vis->m_data_buffer)))
+		hookupVisuals(archive, key, model, model, vis);
+	else
+		delete vis; /* the inlined destructor: frees an owned buffer, drops the instance count */
 
-		archive->CloseKey(key);
-	}
+	archive->CloseKey(key);
 }
 
 /* @socom-skeleton body ApplyDecal__Q23zdb7CVisualFUifP6CPnt3DP7CMatrixPQ23zdb10CTexHandle */

@@ -90,6 +90,21 @@ if(SOCOM_PORT_FAKE_PAD)
   target_compile_definitions(socom_port PRIVATE "SOCOM_PORT_FAKE_PAD=${SOCOM_PORT_FAKE_PAD}")
 endif()
 
+# Test hook, off by default: a scratch build configured with -DSOCOM_PORT_VU1_TEST=ON draws one
+# hand-built VU1 triangle at the end of every menu frame through CVisual::Render (port/test/
+# vu1_test.cpp wraps zSysFifoEnd), to prove the EE -> VU1 packet contract before the game
+# loop runs. Never set it in the default build.
+option(SOCOM_PORT_VU1_TEST "port test hook: one VU1 triangle per menu frame" OFF)
+if(SOCOM_PORT_VU1_TEST)
+  message(STATUS "socom port: TEST HOOK SOCOM_PORT_VU1_TEST")
+  set(_vu1_test "${CMAKE_CURRENT_SOURCE_DIR}/test/vu1_test.cpp")
+  target_sources(socom_port PRIVATE "${_vu1_test}")
+  set_source_files_properties("${_vu1_test}" PROPERTIES
+    COMPILE_OPTIONS "${SOCOM_PORT_FLAGS}"
+    INCLUDE_DIRECTORIES "${SOCOM_ROOT}/src")
+  target_link_options(socom_port PRIVATE "-Wl,--wrap=_Z11zSysFifoEndv")
+endif()
+
 # INTERIM allocator (port/interim/zsys_memory_interim.c). The game allocator in
 # src/gamez/zSystem/zsys_memory.cpp is held for the stage-4 amendment wave and still
 # has empty stub bodies; _delete__FPvPCci has no owning unit. Each function is wrapped

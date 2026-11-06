@@ -8,12 +8,13 @@
 class CSPR
 {
 public:
-	_word128* Copy(_word128* toSADR, _word128* toMADR, s32 toQWC);
-	_word128* Kick(_word128* packet, bool unknown1);
+	/* both static: callers pass the packet in a0 (CVisual::VuUpdate 0x30a900) */
+	static _word128* Copy(_word128* toSPR, _word128* fromMem, s32 qwc);
+	static _word128* Kick(_word128* end, bool getNext);
 	/* @socom-skeleton decl 4CSPR */
 public:
-	static int m_sprPacketEnd;
-	static int m_sprPacket;
+	static _word128* m_sprPacketEnd; /* last usable qword of m_sprPacket (zSysSprGetPacket) */
+	static _word128* m_sprPacket;    /* the scratchpad packet being written */
 	/* @socom-skeleton end 4CSPR */
 };
 #endif

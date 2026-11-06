@@ -396,4 +396,7 @@ public:
 	static CAMVIEW m_oldview;
 	/* @socom-skeleton end 10CameraZoom */
 };
+/* VU0 helpers of TestFOV (GLOBAL functions in fov.cpp) */
+unsigned int sceVu0ClipBBox(float (*)[4], PNT4D *);
+int _OutsideGuardBand(float *, float *, float (*)[4], float (*)[4], int);
 #endif

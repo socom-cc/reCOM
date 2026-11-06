@@ -395,8 +395,30 @@ void zdb::CCamera::theta_x_z(CPnt3D *, CPnt3D *, float *, float *)
 }
 
 /* @socom-skeleton stub TestFOV__Q23zdb7CCameraFP5PNT4DPUib */
-zdb::tag_ZVIS_FOV zdb::CCamera::TestFOV(PNT4D *, unsigned int *, bool)
+zdb::tag_ZVIS_FOV zdb::CCamera::TestFOV(PNT4D *corners, unsigned int *clipWord, bool guardBand)
 {
+	/* 0x1e4d20: clip the 8 bbox corners against mtxWorldToClip: out when every corner is
+	   past one plane of m_fovMask's low byte, in when none straddles a plane of its high
+	   byte; a straddling box is clipped only when guardBand and some corner leaves the
+	   guard band (the GS scissor takes the rest) */
+	unsigned int local;
+	unsigned int* word = clipWord != NULL ? clipWord : &local;
+
+	*word = sceVu0ClipBBox(m_mtxSet.mtxWorldToClip, corners);
+
+	if (*word & (m_fovMask & 0x3f))
+		return tag_ZVIS_FOV::ZVIS_FOV_ALL_OUT;
+
+	if (!(*word & (m_fovMask & 0x3f00)))
+		return tag_ZVIS_FOV::ZVIS_FOV_ALL_IN;
+
+	if (!guardBand)
+		return tag_ZVIS_FOV::ZVIS_FOV_ALL_IN;
+
+	if (_OutsideGuardBand(m_guardBand_min, m_guardBand_max, m_mtxSet.m_vu->mtxWorldToScreen, reinterpret_cast<f32(*)[4]>(corners), 8))
+		return tag_ZVIS_FOV::ZVIS_FOV_CLIP;
+
+	return tag_ZVIS_FOV::ZVIS_FOV_ALL_IN;
 }
 
 /* @socom-skeleton stub SetCameraCanSeeRegions__Q23zdb7CCameraFUi */
@@ -434,8 +456,12 @@ unsigned int zdb::CCamera::GetPlayerCanSeeRegion()
 }
 
 /* @socom-skeleton stub GetScaledRangeSquared__Q23zdb7CCameraFP6CPnt3D */
-float zdb::CCamera::GetScaledRangeSquared(CPnt3D *)
+float zdb::CCamera::GetScaledRangeSquared(CPnt3D *point)
 {
+	/* 0x1e4bc0: m_RangeScale times the squared distance to the camera position */
+	CPnt3D d = *point;
+	d.Sub(reinterpret_cast<const CPnt3D*>(m_matrix.m_matrix[3]), &d);
+	return m_RangeScale * (d.x * d.x + d.y * d.y + d.z * d.z);
 }
 
 /* @socom-skeleton stub InsideMidPlane__Q23zdb7CCameraFPQ23zdb5CCell */
@@ -489,8 +515,15 @@ float zdb::CCamera::GetZ(CPnt3D *)
 }
 
 /* @socom-skeleton stub GetScaledZSquared__Q23zdb7CCameraFP6CPnt3D */
-float zdb::CCamera::GetScaledZSquared(CPnt3D *)
+float zdb::CCamera::GetScaledZSquared(CPnt3D *point)
 {
+	/* 0x1e4820: m_RangeScale times the squared view depth: ((position - point) . z axis)^2
+	   (VU0 vsub/vmul and a w sum) */
+	f32 d = (m_matrix.m_matrix[3][0] - point->x) * m_matrix.m_matrix[2][0]
+	      + (m_matrix.m_matrix[3][1] - point->y) * m_matrix.m_matrix[2][1]
+	      + (m_matrix.m_matrix[3][2] - point->z) * m_matrix.m_matrix[2][2];
+
+	return d * d * m_RangeScale;
 }
 
 /* @socom-skeleton stub GetLandmarkFarPlane__Q23zdb7CCameraFPQ23zdb6CWorld */

@@ -97,6 +97,8 @@
 #include "gamez/zParticle/zparticle.h"
 #include "gamez/zSystem/zsys.h"
 #include <eeregs.h>
+#include <eekernel.h> /* AddIntcHandler, EnableIntc */
+#include <libdma.h> /* sceDmaSync */
 
 /* @socom-skeleton decl include */
 #include "gamez/zMath/zmath.h"
@@ -127,7 +129,7 @@ std::__wInit std::__msl_ios_base_winit;
 static int VifHandlerID;
 
 /* @socom-skeleton stub m_last_alpha_insert__Q25CPipe6CAlpha */
-float CPipe::CAlpha::m_last_alpha_insert;
+std::list<void*>::iterator CPipe::CAlpha::m_last_alpha_insert;
 
 /* @socom-skeleton stub stack */
 static CStack stack; /* 1-byte LOCAL object: CStack has only static data */
@@ -152,7 +154,7 @@ CPipe::CPipe()
 {
 	m_wireframe = false;
 	m_terrain = false;
-	m_alpha.m_visualList = zmalloc(22400);
+	m_alpha.m_visualList = static_cast<tag_DelayedNode*>(_malloc(0x36b00, "zrndr_pipe.cpp", 2270)); /* 2000 records */
 	m_alpha.m_next = m_alpha.m_visualList;
 	m_delayedNodeNum = 0;
 	
@@ -179,28 +181,98 @@ CPipe::~CPipe()
 }
 
 /* @socom-skeleton stub InterruptFromVIF1__Fi */
-void InterruptFromVIF1(int)
+int InterruptFromVIF1(int cause)
 {
+	/* 0x2461d0 (INTC handler, CPipe::Init): VIF1 stopped at a FIFO_Insert marker. The next
+	   texture-load record: start its buffer's upload chain on the GIF channel (PATH3) after
+	   the previous one, timing it, and/or re-point the texture selects of a buffer now in
+	   use; then let VIF1 go on (FBRST STC). The ELF returns with sync + ei. */
+	if (cause == 5)
+	{
+		zdb::tag_TexLoadCmds* cmd = &thePipe.m_texLoadChain[thePipe.m_texIntIdx++];
+
+		if (cmd->pTexAsset != NULL)
+		{
+			*cmd->pWaitTime = *T0_COUNT;
+			sceDmaSync(zSys.DmaToGif, 0, 0);
+
+			if (cmd->pTexAsset->m_pktbuf.size() != 0)
+			{
+				*D2_QWC = 0;
+				*D2_TADR = reinterpret_cast<u32>(cmd->pTexAsset->m_chainp) & 0x0fffffff;
+				*D2_CHCR = 0x145; /* chain, TTE, STR */
+				__asm__ volatile("sync.l"); /* port: GCC spelling of the ELF's sync */
+			}
+
+			*cmd->pWaitTime = *T0_COUNT - *cmd->pWaitTime;
+		}
+
+		if (cmd->pTexAssetUsed != NULL)
+			cmd->pTexAssetUsed->UpdateTextureSelects();
+
+		*VIF1_FBRST = 8; /* STC */
+		__asm__ volatile("sync.l");
+	}
+
+	__asm__ volatile("sync.l\n\tei");
+	return 0;
 }
 
 /* @socom-skeleton stub FIFO_Insert__Fi */
-void FIFO_Insert(int)
+void FIFO_Insert(int marker)
 {
+	/* 0x246160: a 2-qword MFIFO packet: DMA CNT 1 (the marker in the address word) with VIF
+	   FLUSH, then a VIF NOP with the interrupt bit: VIF1 stops there and InterruptFromVIF1
+	   runs the next texture-load record */
+	u32* p = reinterpret_cast<u32*>(zSysSprGetPacket(NULL));
+
+	p[0] = 0x10000001;
+	p[1] = marker;
+	p[2] = 0x11000000;
+	p[3] = 0;
+	p[4] = 0x80000000;
+	p[5] = 0;
+	p[6] = 0;
+	p[7] = 0;
+	zSysFifoKick(reinterpret_cast<unsigned __int128*>(p), 2);
 }
 
 /* @socom-skeleton stub FIFO_Signal__5CPipeFPQ23zdb12CGSTexBufferPUi */
-void CPipe::FIFO_Signal(zdb::CGSTexBuffer *, unsigned int *)
+void CPipe::FIFO_Signal(zdb::CGSTexBuffer *buffer, unsigned int *waitTime)
 {
+	/* 0x2460a0: build the buffer's upload chain (Load without sending) and queue it for the
+	   VIF1 interrupt */
+	if (buffer == NULL)
+		return;
+
+	buffer->Load(false);
+
+	u32 idx = m_texLoadIdx++;
+	m_texLoadChain[idx].pTexAsset = buffer;
+	m_texLoadChain[idx].pTexAssetUsed = NULL;
+	m_texLoadChain[idx].pWaitTime = waitTime;
+	FIFO_Insert(0x44444444);
 }
 
 /* @socom-skeleton stub FIFO_Signal__5CPipeFPQ23zdb12CGSTexBuffer */
-void CPipe::FIFO_Signal(zdb::CGSTexBuffer *)
+void CPipe::FIFO_Signal(zdb::CGSTexBuffer *buffer)
 {
+	/* 0x246010: queue a buffer whose texture selects the interrupt re-points */
+	if (buffer == NULL)
+		return;
+
+	u32 idx = m_texLoadIdx++;
+	m_texLoadChain[idx].pTexAsset = NULL;
+	m_texLoadChain[idx].pTexAssetUsed = buffer;
+	FIFO_Insert(0x55555555);
 }
 
 /* @socom-skeleton stub Init__5CPipeFv */
 void CPipe::Init()
 {
+	/* 0x245fd0: the VIF1 interrupt handler for the texture-load markers */
+	VifHandlerID = AddIntcHandler(5, InterruptFromVIF1, 0);
+	EnableIntc(5);
 }
 
 /* @socom-skeleton stub Uninit__5CPipeFv */
@@ -222,7 +294,31 @@ void RenderLineWorld(CPnt4D, CPnt4D, CPnt4D, CPnt4D)
 /* @socom-skeleton body RenderAtom__5CPipeFPQ23zdb5CNode */
 void CPipe::RenderAtom(zdb::CNode* atomNode)
 {
+	/* 0x245810: a grid atom's node, when it has visuals and its region is visible (clipped
+	   nodes only): the camera's FOV mask (the near-plane bit only for clipped nodes), the
+	   light maps, the fog test, then the node or mesh path */
 	m_node = atomNode;
+
+	if (!atomNode->m_hasVisuals)
+		return;
+
+	if (atomNode->m_apply_clip && !m_camera->CanSeeRegion(1 << atomNode->m_region_shift))
+		return;
+
+	m_camera->m_fovMask = atomNode->m_apply_clip ? 0x3f3f : 0x3f2f;
+	BuildLightMapList(atomNode);
+
+	bool fog = false;
+
+	if (atomNode->m_fog)
+		fog = m_camera->TestFOG(reinterpret_cast<CPnt3D*>(atomNode->m_matrix.m_matrix[3]), atomNode->GetRadius());
+
+	m_doFog = fog;
+
+	if (!atomNode->m_hasMesh)
+		RenderNode(atomNode, zdb::tag_ZVIS_FOV::ZVIS_FOV_CLIP);
+	else
+		RenderMesh(atomNode, NULL, NULL, zdb::tag_ZVIS_FOV::ZVIS_FOV_CLIP);
 }
 
 /* @socom-skeleton body RenderWorld__5CPipeFPQ23zdb6CWorld */
@@ -360,7 +456,7 @@ u32 CPipe::RenderWorld(zdb::CWorld* world)
 
 			if (first != NULL)
 			{
-				first->m_renderState = -3; /* +0x1c (m_render_mode in the live type) */
+				first->m_render_mode = -3; /* +0x1c */
 				first->Render(CStack::m_top);
 			}
 
@@ -438,7 +534,7 @@ u32 CPipe::RenderWorld(zdb::CWorld* world)
 
 				if (first != NULL)
 				{
-					first->m_renderState = -3;
+					first->m_render_mode = -3;
 					first->Render(CStack::m_top);
 				}
 
@@ -640,123 +736,241 @@ void BuildNodeLocalLightList(zdb::CNode* node, zdb::CNode* light)
 /* @socom-skeleton body RenderNode__5CPipeFPQ23zdb5CNodeQ23zdb12tag_ZVIS_FOV */
 void CPipe::RenderNode(zdb::CNode* node, zdb::tag_ZVIS_FOV fov)
 {
-	bool doAlpha = false;
-
-	if (!node->m_active)
+	/* 0x243730: push the node matrix, FOV-test its bbox (8 corners through the stack matrix)
+	   unless the parent was all in, then its visuals and children with the node's instance
+	   id on m_stack_vid and its opacity on the opacity stack. Characters are only marked
+	   in view unless m_drawCharacters. */
+	if (!node->m_active || !node->m_hasVisuals)
 		return;
 
-	if (!node->m_hasVisuals)
-		return;
-
-	if (!m_camera->CanSeeRegion(node->m_region_mask))
+	if (node->m_apply_clip && !m_camera->CanSeeRegion(1 << node->m_region_shift))
 		return;
 
 	CBench::countNodes++;
+	CMatrix* matrix = stack.Multiply(&node->m_matrix, true);
 
-	CMatrix nodeTransform = *stack.Multiply(&node->m_matrix, true);
-
-	// Take care of any nodes in the frustum
 	if (fov != zdb::tag_ZVIS_FOV::ZVIS_FOV_ALL_IN)
 	{
-		CBBox* bbox = NULL;
+		CBBox* bbox = node->m_use_parent_bbox ? node->m_parent->GetBBox() : &node->m_bbox;
+		PNT3D lo = bbox->m_min;
+		PNT3D hi = bbox->m_max;
+		PNT4D corner[8];
 
-		PNT4D bboxtransform;
-		PNT3D bboxmin;
-		PNT3D bboxmax;
+		/* corner order of the asm */
+		const f32 cx[8] = { lo.x, lo.x, hi.x, hi.x, lo.x, lo.x, hi.x, hi.x };
+		const f32 cy[8] = { lo.y, lo.y, lo.y, lo.y, hi.y, hi.y, hi.y, hi.y };
+		const f32 cz[8] = { hi.z, lo.z, lo.z, hi.z, hi.z, lo.z, lo.z, hi.z };
 
-		PNT4D mx = reinterpret_cast<PNT4D&>(nodeTransform.m_matrix[0]);
-		PNT4D my = reinterpret_cast<PNT4D&>(nodeTransform.m_matrix[1]);
-		PNT4D mz = reinterpret_cast<PNT4D&>(nodeTransform.m_matrix[2]);
-		PNT4D mw = reinterpret_cast<PNT4D&>(nodeTransform.m_matrix[3]);
-
-		if (node->m_use_parent_bbox)
-			bbox = node->m_parent->GetBBox();
-		else
-			bbox = &node->m_bbox;
-
-		bboxmin = bbox->m_min;
-		bboxmax = bbox->m_max;
-
-		bboxtransform.w = 1.0f;
-		bboxtransform.x = bboxmin.x;
-		bboxtransform.y = bboxmin.y;
-		bboxtransform.z = bboxmax.z;
-
-		// TODO: do bbox transform math here
-		for (u32 i = 8; i > 0; i--)
+		for (u32 i = 0; i < 8; i++)
 		{
+			f32 v[4] = { cx[i], cy[i], cz[i], 1.0f };
+			sceVu0ApplyMatrix(reinterpret_cast<f32*>(&corner[i]), matrix->m_matrix, v);
+		}
 
+		fov = m_camera->TestFOV(corner, &zdb::CVisual::m_fovClipWord, true);
+
+		if (fov == zdb::tag_ZVIS_FOV::ZVIS_FOV_ALL_OUT)
+		{
+			CStack::m_pointer--;
+			CStack::m_top--;
+			return;
 		}
 	}
 
-	if (node->m_mtx_is_identity && !m_drawCharacters)
+	if (node->m_character && !m_drawCharacters)
 	{
-		node->m_mtx_is_identity = false;
+		node->m_character_infov = 1;
 		CStack::m_pointer--;
 		CStack::m_top--;
+		return;
 	}
-	else
+
+	zdb::CVisual::m_stack_vid.push_back(node->m_vid);
+
+	f32 nodeOpacity = node->m_Opacity;
+	bool doAlpha = false;
+
+	if (nodeOpacity < 0.99f)
 	{
-		zdb::CVisual::m_stack_vid.push_back(node->m_vid);
+		m_opacity_stack_index++;
 
-		// Add node to opacity stack
-		if (node->m_Opacity < 0.99f)
+		if (m_opacity_stack_index == m_opacity_stack_size)
 		{
-			m_opacity_stack++;
-			if (m_opacity_stack_index == m_opacity_stack_size)
-			{
-				// Extend stack
-				m_opacity_stack = static_cast<f32*>(zrealloc(m_opacity_stack, (m_opacity_stack_size + 1) * 4));
-				m_opacity_stack_size++;
-			}
-
-			doAlpha = true;
-			m_opacity_stack[m_opacity_stack_index] *= node->m_Opacity;
+			m_opacity_stack = static_cast<f32*>(_realloc(m_opacity_stack, (m_opacity_stack_size + 1) * 4, "zrndr_pipe.cpp", 2840));
+			m_opacity_stack_size++;
 		}
 
-		if (node->m_facade)
-			// Compute sprite billboard for this node
-			node->ComputeFacadeMatrix(&m_camera->m_matrix, &nodeTransform);
+		doAlpha = true;
+		m_opacity_stack[m_opacity_stack_index] = nodeOpacity * m_opacity_stack[m_opacity_stack_index - 1];
+	}
 
-		if (node->m_visual.size() != 0)
+	if (node->m_facade)
+		node->ComputeFacadeMatrix(&m_camera->m_matrix, matrix);
+
+	if (node->m_visual.size() != 0)
+	{
+		if (!m_LODFilter)
+			RenderVisual(node, fov);
+		else if (!RenderVisual(node, fov))
 		{
-			if (!m_LODFilter)
-				RenderVisual(node, fov);
-			else if (!RenderVisual(node, fov))
+			CStack::m_pointer--;
+			CStack::m_top--;
+
+			if (doAlpha)
+				m_opacity_stack_index--;
+
+			zdb::CVisual::m_stack_vid.pop_back();
+			return;
+		}
+	}
+
+	for (u32 i = 0; i < node->m_child.size(); i++)
+	{
+		zdb::CNode* child = node->m_child[i];
+
+		if (!child->m_hasMesh)
+			RenderNode(child, fov);
+		else
+			RenderMesh(child, NULL, NULL, zdb::tag_ZVIS_FOV::ZVIS_FOV_CLIP);
+	}
+
+	CStack::m_pointer--;
+	CStack::m_top--;
+
+	if (doAlpha)
+		m_opacity_stack_index--;
+
+	zdb::CVisual::m_stack_vid.pop_back();
+}
+
+/* @socom-skeleton body RenderMesh__5CPipeFPQ23zdb5CNodePQ23zdb5CMeshP7CMatrixQ23zdb12tag_ZVIS_FOV */
+/* port: GetSubMesh__Q23zdb5CNodeFv is still a void stub (node_model.cpp); the const inline
+   declared beside it returns NULL, so no sub-mesh matrices are written yet */
+static inline zdb::CSubMesh* RenderMeshSubMesh(zdb::CNode* node)
+{
+	return static_cast<const zdb::CNode*>(node)->GetSubMesh();
+}
+
+void CPipe::RenderMesh(zdb::CNode *node, zdb::CMesh *mesh, CMatrix *mvp, zdb::tag_ZVIS_FOV fov)
+{
+	/* 0x2431a0: a skinned mesh node: FOV test and LOD as RenderNode, then its sub-mesh nodes
+	   write their stack matrices (uncached) into the mesh's matrix palette, which the mesh
+	   chain's type-9 tags point at; other children are delayed. The mesh itself is drawn
+	   last, with an identity model matrix. */
+	if (!node->m_active)
+		return;
+
+	CBench::countNodes++;
+	zdb::CMesh* own = node->GetMesh();
+
+	if (own != NULL)
+	{
+		if (!m_camera->CanSeeRegion(1 << node->m_region_shift))
+			return;
+
+		mesh = own;
+	}
+
+	CMatrix* matrix = stack.Multiply(&node->m_matrix, true);
+
+	if (own != NULL)
+	{
+		if (fov != zdb::tag_ZVIS_FOV::ZVIS_FOV_ALL_IN)
+		{
+			CBBox* bbox = node->m_use_parent_bbox ? node->m_parent->GetBBox() : &node->m_bbox;
+			PNT3D lo = bbox->m_min;
+			PNT3D hi = bbox->m_max;
+			PNT4D corner[8];
+			const f32 cx[8] = { lo.x, lo.x, hi.x, hi.x, lo.x, lo.x, hi.x, hi.x };
+			const f32 cy[8] = { lo.y, lo.y, lo.y, lo.y, hi.y, hi.y, hi.y, hi.y };
+			const f32 cz[8] = { hi.z, lo.z, lo.z, hi.z, hi.z, lo.z, lo.z, hi.z };
+
+			for (u32 i = 0; i < 8; i++)
 			{
+				f32 v[4] = { cx[i], cy[i], cz[i], 1.0f };
+				sceVu0ApplyMatrix(reinterpret_cast<f32*>(&corner[i]), matrix->m_matrix, v);
+			}
+
+			fov = m_camera->TestFOV(corner, &zdb::CVisual::m_fovClipWord, true);
+
+			if (fov == zdb::tag_ZVIS_FOV::ZVIS_FOV_ALL_OUT)
+			{
+				if (node->m_character)
+					node->m_character_infov = 0;
+
 				CStack::m_pointer--;
 				CStack::m_top--;
-
-				if (doAlpha)
-					m_opacity_stack_index--;
-
-				zdb::CVisual::m_stack_vid.pop_back();
 				return;
 			}
 		}
 
-		for (auto i = node->m_child.begin(); i != node->m_child.end(); ++i)
+		if (node->m_character && !m_drawCharacters)
 		{
-			zdb::CNode* child = *i;
-
-			if (!child->m_hasMesh)
-				RenderNode(child, fov);
-			else
-				RenderMesh(child, NULL, NULL, zdb::tag_ZVIS_FOV::ZVIS_FOV_CLIP);
+			node->m_character_infov = 1;
+			CStack::m_pointer--;
+			CStack::m_top--;
+			return;
 		}
 
+		CStack::m_top++;
+		CStack::m_pointer++;
+		sceVu0CopyMatrix(CStack::m_top->m_matrix, const_cast<f32(*)[4]>(CMatrix::identity.m_matrix));
+		zdb::CVisual::m_addColor[0] = 0.0f;
+		zdb::CVisual::m_addColor[1] = 0.0f;
+		zdb::CVisual::m_addColor[2] = 0.0f;
+		mvp = matrix;
+	}
+
+	f32 nodeOpacity = node->m_Opacity;
+	bool doAlpha = false;
+
+	if (nodeOpacity < 0.99f)
+	{
+		m_opacity_stack_index++;
+
+		if (m_opacity_stack_index == m_opacity_stack_size)
+		{
+			m_opacity_stack = static_cast<f32*>(_realloc(m_opacity_stack, (m_opacity_stack_size + 1) * 4, "zrndr_pipe.cpp", 2840));
+			m_opacity_stack_size++;
+		}
+
+		doAlpha = true;
+		m_opacity_stack[m_opacity_stack_index] = nodeOpacity * m_opacity_stack[m_opacity_stack_index - 1];
+	}
+
+	node->GetFirstVisual(); /* result unused in the ELF */
+	zdb::CSubMesh* sub = RenderMeshSubMesh(node);
+
+	if (own == NULL && sub == NULL)
+		SaveDelayedNode(mvp, node, fov);
+
+	if (sub != NULL)
+		sceVu0CopyMatrix(reinterpret_cast<f32(*)[4]>(reinterpret_cast<u32>(mesh->m_matrices[sub->m_matrix_id]) | 0x20000000), matrix->m_matrix);
+
+	for (u32 i = 0; i < node->m_child.size(); i++)
+	{
+		zdb::CNode* child = node->m_child[i];
+
+		if (RenderMeshSubMesh(child) == NULL && child->GetMesh() == NULL)
+			SaveDelayedNode(mvp, child, fov);
+		else
+			RenderMesh(child, mesh, mvp, fov);
+	}
+
+	if (own != NULL)
+	{
 		CStack::m_pointer--;
 		CStack::m_top--;
-
-		if (doAlpha)
-			m_opacity_stack_index--;
-
-		zdb::CVisual::m_stack_vid.pop_back();
+		own->SetLOD(0, m_camera->GetScaledRangeSquared(reinterpret_cast<CPnt3D*>(matrix->m_matrix[3])));
+		RenderVisual(node, fov);
 	}
-}
 
-/* @socom-skeleton body RenderMesh__5CPipeFPQ23zdb5CNodePQ23zdb5CMeshP7CMatrixQ23zdb12tag_ZVIS_FOV */
-void CPipe::RenderMesh(zdb::CNode *node, zdb::CMesh *mesh, CMatrix *mvp, zdb::tag_ZVIS_FOV fov) {}
+	if (doAlpha)
+		m_opacity_stack_index--;
+
+	CStack::m_pointer--; /* the ELF tests node != NULL here */
+	CStack::m_top--;
+}
 
 /* @socom-skeleton stub SaveDelayedNode__5CPipeFP7CMatrixPQ23zdb5CNodeQ23zdb12tag_ZVIS_FOV */
 void CPipe::SaveDelayedNode(CMatrix *, zdb::CNode *, zdb::tag_ZVIS_FOV)
@@ -783,118 +997,225 @@ void CPipe::RenderMeshShadow(zdb::CNode *, zdb::CMesh *, CMatrix *)
 /* @socom-skeleton body RenderVisual__5CPipeFPQ23zdb5CNodeQ23zdb12tag_ZVIS_FOV */
 bool CPipe::RenderVisual(zdb::CNode* node, zdb::tag_ZVIS_FOV fov)
 {
-	CMatrix mat = *CStack::m_top;
-	CBench::countRenderNodes++;
+	/* 0x2424f0: draw (or queue for the alpha pass) each visual of the node with the matrix on
+	   top of CStack. A LOD-banded visual outside its band is skipped (false with m_LODFilter).
+	   Fog, detail range and the bilinear distance are set per visual first. */
+	CMatrix* modelToWorld = CStack::m_top;
+	bool result = true;
+	u32 drawn = 0;
 
+	CBench::countRenderNodes++;
 	f32 opacity = m_opacity_stack[m_opacity_stack_index];
 
 	for (u32 i = 0; i < node->m_visual.size(); i++)
 	{
 		zdb::CVisual* visual = node->m_visual[i];
 
-		// Does this visual contain LODs?
-		if (!visual->m_lodIndex)
+		if (visual->m_lod_band != 0)
 		{
-			CPnt3D position;
+			f32 range = m_camera->GetScaledRangeSquared(reinterpret_cast<CPnt3D*>(modelToWorld->m_matrix[3]));
+			zdb::CLOD_band* lod = NULL;
+			u32 band = visual->m_lod_band;
 
-			zdb::CVisual::m_fogEnable = m_doFog;
+			if (band <= m_world->m_LOD_Object.size())
+				lod = &m_world->m_LOD_Object[band - 1];
 
-			// Should fog affect the rendering of this visual?
-			if (zdb::CVisual::m_fogEnable)
-				zdb::CVisual::m_fogEnable = visual->m_doFog;
-
-			if (visual->m_detail_cnt != 0)
+			if (lod != NULL && !visual->DrawLOD(lod, range, &opacity))
 			{
-				// Transform the visual around the center..
-				CStack::m_top->Transform(&visual->m_centroid, 1);
+				if (m_LODFilter)
+					result = false;
 
-				// Determine the visual to use based upon distance from the camera.
-				zdb::CVisual::m_rangeSqdToCamera = m_camera->GetScaledRangeSquared(position);
-				zdb::CVisual::m_applyDetailTexture = false;
-
-				//for (u32 j = 0; j < visual->m_detail_cnt; j++)
-				//	if (zdb::CVisual::m_rangeSqdToCamera <= visual->m_detail_buff[j].m_range_sqd_to_camera)
-				//		zdb::CVisual::m_applyDetailTexture = true;
-			}
-
-			// Does this visual have bilinear filtering for textures?
-			bool adjustBilinear = false;
-			if (zdb::CVisual::m_adjustBilinearRange > 0.0f && visual->m_bilinear)
-			{
-				CStack::m_top->Transform(&visual->m_centroid, 1);
-				
-				// Use more detailed textures when the camera is up close.
-				if (m_camera->GetScaledRangeSquared(position) < zdb::CVisual::m_adjustBilinearRange)
-					adjustBilinear = true;
-				else
-				{
-					// Camera is far away, so we'll need to use a texture with no bilinear filtering.
-					u32 vidx = zdb::CVisual::m_stack_vid.size() - 1;
-					
-					_vdataTex.SetBilinear(visual->m_gifSelect, false);
-				}
-			}
-
-			// Are there any visuals on the UI layer?
-			if (m_doUI || visual->m_ui && opacity >= 1.0f && !adjustBilinear || m_simpletrans)
-			{
-				if (FirstVisDrawn)
-				{
-					FirstVisDrawn = false;
-					zdb::CVisual::NodeSetup(m_node, node, &mat, static_cast<s32>(fov));
-
-					if (zdb::CVisual::m_applyLocalLights)
-						// Why do UI nodes need to have lights?
-						BuildNodeLocalLightList(m_node, node);
-				}
-
-				// TODO: Fix this function. A matrix apparently isn't used or passed into
-				// CVisual::VuUpdate. What???
-				// Expected: visual->Render(mat);
-				visual->Render(&mat);
-				CBench::countVisuals++;
-			}
-			else if (opacity >= 0.0078125f)
-			{
-				m_alpha.Add(m_node, node, visual, fov, opacity);
-				// m_alpha.m_dyntexlist.Add(visual->m_dyntexList);
+				continue;
 			}
 		}
-		else
+
+		zdb::CVisual::m_fogEnable = m_doFog && visual->m_field1; /* flag bit 1 (Ghidra m_fog_enable) */
+
+		if (visual->m_detail_cnt != 0)
 		{
-			CPnt3D pos(mat.m_matrix[0][3], mat.m_matrix[1][3], mat.m_matrix[2][3]);
-			f32 scaledRange = m_camera->GetScaledRangeSquared(pos);
+			CPnt3D centre;
+			modelToWorld->Transform(&visual->m_centroid, &centre, 1);
+			zdb::CVisual::m_rangeSqdToCamera = m_camera->GetScaledRangeSquared(&centre);
+			zdb::CVisual::m_applyDetailTexture = false;
 
-			u32 index = visual->m_lodIndex;
-			zdb::CLOD_band* lod = NULL;
-
-			if (!index)
-				lod = NULL;
-			else
+			for (u32 j = 0; j < visual->m_detail_cnt; j++)
 			{
-				//if (index <= m_world->m_LOD_Object.size())
-					//lod = m_world->m_LOD_Object[index];
+				if (zdb::CVisual::m_rangeSqdToCamera <= visual->m_detail_params[j].m_range_sqd_to_camera)
+				{
+					zdb::CVisual::m_applyDetailTexture = true;
+					break;
+				}
+			}
+		}
+
+		bool nearBilinear = false;
+
+		if (zdb::CVisual::m_adjustBilinearRange > 0.0f && visual->m_adjust_bilinear)
+		{
+			CPnt3D centre;
+			modelToWorld->Transform(&visual->m_centroid, &centre, 1);
+
+			if (m_camera->GetScaledRangeSquared(&centre) < zdb::CVisual::m_adjustBilinearRange)
+				nearBilinear = true;
+			else
+				_vdataTex.SetBilinear(reinterpret_cast<unsigned __int128*>(visual->m_buffers[zdb::CVisual::m_stack_vid.back()]), 0);
+		}
+
+		drawn++;
+
+		if (m_doUI || (!visual->m_alpha_blend && !(opacity < 1.0f) && !nearBilinear) || m_simpletrans)
+		{
+			if (FirstVisDrawn)
+			{
+				FirstVisDrawn = false;
+				zdb::CVisual::NodeSetup(m_node, node, modelToWorld, static_cast<s32>(fov));
+
+				if (zdb::CVisual::m_applyLocalLights)
+					BuildNodeLocalLightList(m_node, node);
 			}
 
-			if (!lod || visual->DrawLOD(lod, scaledRange, &opacity))
-				if (m_LODFilter)
-					return false;
+			visual->Render(modelToWorld);
+			CBench::countVisuals++;
+		}
+		else if (opacity > 0.0078125f)
+		{
+			m_alpha.Add(m_node, node, visual, fov, opacity);
+			m_alpha.m_dyntexlist.Add(&visual->m_dyn_tex_list);
 		}
 	}
 
 	FirstVisDrawn = true;
 
-	return true;
+	if (drawn != 0)
+		node->m_frameRendered = static_cast<u8>(zVid.frameNumber);
+
+	return result;
 }
 
 /* @socom-skeleton stub Add__Q25CPipe6CAlphaFPQ23zdb5CNodePQ23zdb5CNodePQ23zdb7CVisualQ23zdb12tag_ZVIS_FOVf */
-void CPipe::CAlpha::Add(zdb::CNode *, zdb::CNode *, zdb::CVisual *, zdb::tag_ZVIS_FOV, float)
+void CPipe::CAlpha::Add(zdb::CNode *atom, zdb::CNode *node, zdb::CVisual *visual, zdb::tag_ZVIS_FOV fov, float opacity)
 {
+	/* 0x241ff0: record a transparent visual with its matrix and render state, sorted into
+	   the draw list by view depth (farthest first) from the last insert. ELF quirk kept:
+	   m_next moves on even when the 2000 records are used up. */
+	tag_DelayedNode* entry = m_next++;
+
+	if (!(entry < m_visualList + 2000))
+		return;
+
+	CBench::countAlphaNodes++;
+	sceVu0CopyMatrix(entry->m_matrix.m_matrix, CStack::m_top->m_matrix);
+	entry->m_atom = atom;
+	entry->m_node = node;
+	entry->m_addColor[0] = zdb::CVisual::m_addColor[0];
+	entry->m_addColor[1] = zdb::CVisual::m_addColor[1];
+	entry->m_addColor[2] = zdb::CVisual::m_addColor[2];
+	entry->m_globalLightScale = zdb::CVisual::m_GlobalLightScale;
+	entry->m_fov = static_cast<u8>(fov);
+	entry->m_visual = visual;
+	entry->m_lighting = zdb::CVisual::m_lightingEnable;
+	entry->m_fog = zdb::CVisual::m_fogEnable;
+	entry->m_vid = zdb::CVisual::m_stack_vid.back() & 0x1fff;
+	entry->m_opacity = opacity;
+
+	CPnt3D centre;
+	CStack::m_top->Transform(&visual->m_centroid, &centre, 1);
+
+	if (visual->m_flag18)
+		entry->m_depth = 1e8f;
+	else
+		entry->m_depth = m_camera->GetScaledZSquared(&centre);
+
+	if (m_first_alpha_add)
+	{
+		m_first_alpha_add = 0;
+		m_last_alpha_insert = m_drawList.begin();
+	}
+
+	std::list<void*>::iterator i = m_last_alpha_insert;
+	f32 depth = entry->m_depth;
+
+	if (i == m_drawList.begin())
+	{
+		while (i != m_drawList.end() && !(static_cast<tag_DelayedNode*>(*i)->m_depth <= depth))
+			++i;
+	}
+	else if (static_cast<tag_DelayedNode*>(*i)->m_depth <= depth)
+	{
+		while (i != m_drawList.begin() && !(depth <= static_cast<tag_DelayedNode*>(*i)->m_depth))
+			--i;
+
+		if (static_cast<tag_DelayedNode*>(m_drawList.front())->m_depth <= depth)
+			i = m_drawList.begin();
+		else
+			++i;
+	}
+	else
+	{
+		while (i != m_drawList.end() && !(static_cast<tag_DelayedNode*>(*i)->m_depth <= depth))
+			++i;
+	}
+
+	m_last_alpha_insert = m_drawList.insert(i, entry);
 }
 
 /* @socom-skeleton stub Render__Q25CPipe6CAlphaFv */
 void CPipe::CAlpha::Render()
 {
+	/* 0x241d30: draw the recorded transparent visuals farthest first, each with its saved
+	   state, interleaved with the particle ranges between them; then restore the defaults */
+	zdb::CVisual::AlphaEnable(true);
+	zdb::CVisual::m_applyShadow = false;
+	zdb::CVisual::m_applyMultipass = false;
+
+	if (m_drawList.size() == 0)
+		Particle::Draw();
+	else
+	{
+		f32 range = Particle::DrawPrep();
+
+		for (std::list<void*>::iterator i = m_drawList.begin(); i != m_drawList.end(); ++i)
+		{
+			tag_DelayedNode* entry = static_cast<tag_DelayedNode*>(*i);
+
+			if (entry->m_depth < range && __doParticles)
+				range = Particle::DrawRange(range, entry->m_depth);
+
+			zdb::CVisual* visual = entry->m_visual;
+
+			if (visual->m_adjust_bilinear)
+				_vdataTex.SetBilinear(reinterpret_cast<unsigned __int128*>(visual->m_buffers[entry->m_vid]), 1);
+
+			zdb::CVisual::m_lightingEnable = entry->m_lighting;
+			zdb::CVisual::m_fogEnable = entry->m_fog;
+			zdb::CVisual::m_addColor[0] = entry->m_addColor[0];
+			zdb::CVisual::m_addColor[1] = entry->m_addColor[1];
+			zdb::CVisual::m_addColor[2] = entry->m_addColor[2];
+
+			zdb::CVisual::m_stack_vid.push_back(entry->m_vid);
+			zdb::CVisual::NodeSetup(entry->m_atom, entry->m_node, &entry->m_matrix, entry->m_fov);
+
+			if (zdb::CVisual::m_applyLocalLights)
+				BuildNodeLocalLightList(entry->m_atom, entry->m_node);
+
+			zdb::CVisual::m_GlobalLightScale = entry->m_globalLightScale;
+			visual->VuUpdate(entry->m_opacity);
+			CBench::countAlphaVisuals++;
+			zdb::CVisual::m_stack_vid.pop_back();
+		}
+
+		zdb::CVisual::m_GlobalLightScale = 1.0f;
+
+		if (__doParticles)
+			Particle::DrawFlush();
+	}
+
+	zdb::CVisual::m_addColor[0] = 0.0f;
+	zdb::CVisual::m_addColor[1] = 0.0f;
+	zdb::CVisual::m_addColor[2] = 0.0f;
+	zdb::CVisual::AlphaEnable(false);
+	zdb::CVisual::m_applyMultipass = true;
+	m_first_alpha_add = 1;
 }
 
 /* @socom-skeleton body RenderUiNode__5CPipeFPQ23zdb5CNode */

@@ -138,6 +138,26 @@ public:
 	/// </summary>
 	/* port: the ELF has only the nested CPipe::CAlpha (Add__Q25CPipe6CAlpha..., m_first_alpha_add__Q25CPipe6CAlpha);
 	   defined here, ahead of m_alpha, with the data members of the former global CAlpha */
+	/* DWARF has only the declaration (CAlpha::m_visualList is a tag_DelayedNode*); the
+	   112-byte layout is from CPipe::CAlpha::Add 0x241ff0 (stride 0x70) and Render 0x241d30 */
+	struct tag_DelayedNode
+	{
+		CMatrix m_matrix;            /* +0x00 CStack::m_top at Add */
+		f32 m_depth;                 /* +0x40 scaled view depth squared (1e8: vparams bit 18) */
+		zdb::CVisual* m_visual;      /* +0x44 */
+		u8 m_fov;                    /* +0x48 tag_ZVIS_FOV */
+		zdb::CNode* m_atom;          /* +0x4c CPipe::m_node */
+		zdb::CNode* m_node;          /* +0x50 */
+		f32 m_addColor[3];           /* +0x54 CVisual::m_addColor */
+		u16 m_lighting : 1;          /* +0x60 CVisual::m_lightingEnable */
+		u16 m_fog : 1;               /* CVisual::m_fogEnable */
+		u16 m_unk02 : 1;
+		u16 m_vid : 13;              /* CVisual::m_stack_vid top */
+		f32 m_opacity;               /* +0x64 */
+		f32 m_globalLightScale;      /* +0x68 CVisual::m_GlobalLightScale */
+		u32 m_unk6c;
+	};
+
 	class CAlpha
 	{
 		friend class CPipe;
@@ -145,12 +165,12 @@ public:
 		void Add(zdb::CNode *, zdb::CNode *, zdb::CVisual *, zdb::tag_ZVIS_FOV, float);
 		void Render();
 		static unsigned char m_first_alpha_add;
-		static float m_last_alpha_insert;
+		static std::list<void*>::iterator m_last_alpha_insert; /* 4 bytes: the insertion hint (Add) */
 	private:
-		zdb::CCamera* m_camera; /* port: unproven - members of the former global CAlpha */
-		void* m_visualList;
-		void* m_next;
-		std::list<void*> m_drawList;
+		zdb::CCamera* m_camera;          /* DWARF CPipe::CAlpha (48 bytes) */
+		tag_DelayedNode* m_visualList;   /* 2000 records (CPipe ctor) */
+		tag_DelayedNode* m_next;
+		std::list<void*> m_drawList;     /* records, farthest first */
 		zdb::CDynTexList m_dyntexlist;
 	};
 

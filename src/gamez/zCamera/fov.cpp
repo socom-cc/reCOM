@@ -15,11 +15,75 @@ struct PNT4D;
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub sceVu0ClipBBox__FPA4_fP5PNT4D */
-unsigned int sceVu0ClipBBox(float (*)[4], PNT4D *)
+unsigned int sceVu0ClipBBox(float (*m)[4], PNT4D *corners)
 {
+	/* 0x1e87e0: VU0 vclipw.xyz of the 8 corners through m. The clip flag register keeps the
+	   last 4 judgements (6 bits each); low byte = AND of the flags over the corners (6 bits),
+	   bits 8.. = their OR. port: C for the VU0 macro code */
+	u32 all = 63;
+	u32 any = 0;
+	u32 cf = 0;
+
+	for (u32 i = 0; i < 8; i++)
+	{
+		const f32* v = reinterpret_cast<const f32*>(&corners[i]);
+		f32 c[4];
+
+		for (u32 k = 0; k < 4; k++)
+			c[k] = m[0][k] * v[0] + m[1][k] * v[1] + m[2][k] * v[2] + m[3][k] * v[3];
+
+		f32 w = c[3] < 0.0f ? -c[3] : c[3];
+		u32 flags = 0;
+
+		if (c[0] > w) flags |= 1;
+		if (c[0] < -w) flags |= 2;
+		if (c[1] > w) flags |= 4;
+		if (c[1] < -w) flags |= 8;
+		if (c[2] > w) flags |= 16;
+		if (c[2] < -w) flags |= 32;
+
+		cf = ((cf << 6) | flags) & 0xffffff;
+		all &= cf;
+		any |= cf;
+	}
+
+	return all | (any << 8);
 }
 
 /* @socom-skeleton stub _OutsideGuardBand__FPfPfPA4_fPA4_fi */
-int _OutsideGuardBand(float *, float *, float (*)[4], float (*)[4], int)
+int _OutsideGuardBand(float *bandMin, float *bandMax, float (*m)[4], float (*points)[4], int count)
 {
+	/* 0x1e8750: a point through m is outside when x or y passes the band scaled by its w,
+	   or w passes the band's w (VU0 vsub.xyw, zero/sign sticky flags 0xc0). Returns the
+	   flags of the first such point, else 0. port: C for the VU0 macro code */
+	for (int i = 0; i < count; i++)
+	{
+		f32 p[4];
+
+		for (u32 k = 0; k < 4; k++)
+			p[k] = m[0][k] * points[i][0] + m[1][k] * points[i][1] + m[2][k] * points[i][2] + m[3][k] * points[i][3];
+
+		f32 d[6];
+		d[0] = p[0] - bandMin[0] * p[3];
+		d[1] = p[1] - bandMin[1] * p[3];
+		d[2] = p[3] - bandMin[3];
+		d[3] = bandMax[0] * p[3] - p[0];
+		d[4] = bandMax[1] * p[3] - p[1];
+		d[5] = bandMax[3] - p[3];
+
+		int flags = 0;
+
+		for (u32 k = 0; k < 6; k++)
+		{
+			if (d[k] == 0.0f)
+				flags |= 0x40; /* ZS */
+			else if (d[k] < 0.0f)
+				flags |= 0x80; /* SS */
+		}
+
+		if (flags != 0)
+			return flags;
+	}
+
+	return 0;
 }

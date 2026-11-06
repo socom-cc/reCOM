@@ -328,6 +328,12 @@ public:
 	void Code(unsigned __int128 *, unsigned int);
 	static int m_VifHandlerID;
 	static int m_refCount;
+	/* layout from the constructor 0x2f5e20 and Code 0x2f5d30 (a 16-byte stack object in
+	   zMath_Init) */
+	u32 m_unit;           /* 0 = VU0, else VU1 */
+	sceDmaChan* m_dma;    /* zSys.DmaToVif0 or DmaToVif1 */
+	unsigned __int128* m_code; /* the last chain sent (Code) */
+	u32 m_memQwc;         /* data memory: 256 (VU0) or 1024 (VU1) qwords */
 };
 /* @socom-skeleton end 3CVU */
 #endif

@@ -63,10 +63,67 @@ void hookupVisuals(zar::CZAR* archive, zar::CKey* key, zdb::CNode* node, zdb::CM
 
 /* node_index (vis_main.cpp) and _vdataTex (zrndr_pipe.cpp) are file-local (LOCAL symbols) */
 
-// Header for OpenFlight models.
+/* The VU1 object header at qwords 1-2 of every CVisual::VuUpdate scratchpad packet (hdr[0]
+ * and hdr[1] of VU1_STATE_0, see src/gamez/zRender/zrndr_vu1.vsm). VuUpdate clears both
+ * qwords, VuObjectSetup sets m_setup, VuBatchProgram the entry count, the multipass helpers
+ * add to m_multipass_qwc. Layout: the Ghidra tag_ObjectHeader (32 bytes) and these writers. */
 struct tag_ObjectHeader
 {
-	
+	u32 m_light_qwc;        /* hdr[0].x global-light qwords at hdr[19..]; VuUpdate leaves it 0 */
+	u32 m_batch_qwc;        /* hdr[0].y command entries after the header (VuBatchProgram) */
+	u32 m_multipass_qwc;    /* hdr[0].z multipass entries */
+	u32 m_setup : 1;        /* hdr[0].w bit 0: object matrix setup (VuObjectSetup) */
+	u32 m_gs_packet : 1;    /* bit 1: hdr[1..8] is a GS packet to XGKICK (texture headers,
+	                           GetTextureSelectBlock_ver2); name from the microcode */
+	u32 m_unused : 30;
+	u32 m_local_light_qwc;  /* hdr[1].x: 2 qwords per local light (VuUpdate) */
+	u32 m_unk14[3];         /* hdr[1].yzw: not written by the EE */
+};
+
+/* The VU1 command codes of a VuBatchProgram entry {x code, y list index, z count}: the
+ * MY_ENTRY slot (code / 2) of the handler in zrndr_vu1.vsm; names are its labels. */
+enum tag_VU1_COMMAND
+{
+	VU1_GATHER_CLIP_TRI = 2,
+	VU1_GATHER_CLIP_LINE = 4,
+	VU1_FRONT_FACE = 6,
+	VU1_XFORM0 = 8,
+	VU1_XFORM1 = 10,
+	VU1_XFORM2 = 12,
+	VU1_FOG0 = 16,
+	VU1_FOG1 = 18,
+	VU1_FOG2 = 20,
+	VU1_GLOBAL_LIGHT0 = 24,
+	VU1_GLOBAL_LIGHT1 = 26,
+	VU1_GLOBAL_LIGHT2 = 28,
+	VU1_LOCAL_LIGHT0 = 32,
+	VU1_LOCAL_LIGHT1 = 34,
+	VU1_GATHER_FIX_KICK = 40,
+	VU1_FIX_KICK1 = 42,
+	VU1_FIX_KICK2 = 44,
+	VU1_MP_DETAIL_MAP0 = 48,
+	VU1_MP_DETAIL_MAP1 = 50,
+	VU1_MP_LIGHT_MAP0 = 56,
+	VU1_MP_LIGHT_MAP1 = 58,
+	VU1_MP_SHADOW_MAP0 = 60,
+	VU1_MP_SHADOW_MAP1 = 62,
+	VU1_GATHER_FIX_KICK_SHADOW = 64,
+	VU1_SLEEP = 66,
+	VU1_COLOR_TO_FLOAT1 = 72,
+	VU1_NEXT_CLIP_TRI = 76,
+	VU1_NEXT_CLIP_LINE = 78,
+	VU1_CMESH = 82,
+	VU1_INIT_LIGHT0 = 84,
+	VU1_INIT_LIGHT1 = 86,
+	VU1_INIT_LIGHT2 = 88,
+	VU1_SCALE_COLOR0 = 92,
+	VU1_SCALE_COLOR1 = 94,
+	VU1_BASE_TEXTURE_KICK = 100,
+	VU1_BUILD_NORMALS = 102,
+	VU1_DECOMPRESS0 = 104,
+	VU1_DECOMPRESS4 = 112,
+	VU1_MULTIPASSING = 114,
+	VU1_NOT_MULTIPASSING = 116
 };
 
 struct tag_VIS_VERTEX
@@ -100,16 +157,31 @@ namespace zdb
 		
 	};
 
+	/* the flag word: bit positions from the asm masks (VuObjectSetup 0x30c350 0x20/0x40,
+	 * VuBatchProgram 0x30bda0 0x8 and bit 17, GetChainData 0x30c7c0 0x4000, VuUpdate 0x30a900
+	 * 0x10/0x4000/0x8000, Read 0x30d130 bit 10); names from the Ghidra tag_VIS_PARAMS */
 	struct tag_VIS_PARAMS
 	{
-		// TODO:
-		// Figure out the rest of the struct
-		u32 m_parent_has_visuals : 1;
-		u32 m_field1 : 1;
-		u32 m_doFog : 1;
-		u32 m_bilinear : 1;
-		u32 m_ui : 1;
-		u32 m_unused : 27;
+		u32 m_transparent : 1;          /* bit 0 */
+		u32 m_field1 : 1;               /* bit 1 (Ghidra m_fog_enable; CNode::_Copy port code names it m_field1) */
+		u32 m_flag2 : 1;                /* bit 2 */
+		u32 m_flag3 : 1;                /* bit 3: VuBatchProgram adds vuFrontFace (back-face test) */
+		u32 m_light_map_enable : 1;     /* bit 4: VuUpdate takes the light-map count */
+		u32 m_ambient_light_enable : 1; /* bit 5: VuObjectSetup passes m_AmbientLightScale */
+		u32 m_global_light_enable : 1;  /* bit 6: VuObjectSetup passes m_GlobalLightScale */
+		u32 m_flag7 : 1;                /* bit 7 */
+		u32 m_bumpmap : 1;              /* bit 8 */
+		u32 m_flag9 : 1;                /* bit 9 */
+		u32 m_flag10 : 1;               /* bit 10: CVisual::Read sets m_render_mode -2 */
+		u32 m_alpha_blend : 1;          /* bit 11 */
+		u32 m_flag12 : 1;               /* bit 12 */
+		u32 m_adjust_bilinear : 1;      /* bit 13 */
+		u32 m_apply_multipass : 1;      /* bit 14: multipass and detail chains (VuUpdate, GetChainData) */
+		u32 m_shadow_map_enable : 1;    /* bit 15: VuUpdate takes the shadow-map count */
+		u32 m_apply_decals : 1;         /* bit 16 */
+		u32 m_flag17 : 1;               /* bit 17: vuDecompress4 instead of vuDecompress0 */
+		u32 m_flag18 : 1;               /* bit 18 */
+		u32 m_unused : 13;
 		/* +4 on, from the Ghidra tag_VIS_PARAMS (24 bytes: the "vparams" record that
 		 * CVisual::Read 0x30d130 fetches whole) */
 		s8 m_vtype; /* -1 CVisual, 1 CMesh, 2 CSubMesh (set by their ctors, then by vparams) */
@@ -120,9 +192,25 @@ namespace zdb
 		CPnt3D m_centroid;
 	};
 
+	/* one entry of a visual's 16-byte detail records ("detail_buff", CVisual::Read 0x30d130,
+	 * which points each m_tex at its share of the 12-byte entries after the records) */
+	struct tag_DETAIL_TEX
+	{
+		CTexture* m_texture; /* a texture-name offset in the file; SetBuffer 0x30d4f0 resolves it */
+		u16 m_select_x;      /* nonzero: replaces qword 1 x (low half) of the copied select (VuDetailMap) */
+		u16 m_unk06;
+		f32 m_pass_x;        /* VuDetailMap: qword 7 x of the multipass entry */
+	};
+
 	struct tag_DETAIL_PARAMS
 	{
-		f32 m_range_sqd_to_camera;
+		f32 m_range_sqd_to_camera; /* VuBatchProgram: detail passes while the range is inside */
+		u16 m_tex_cnt;             /* entries at m_tex */
+		u16 m_resolved;            /* record 0: SetBuffer sets 1 once the names are resolved */
+		u16 m_chain_ofs;           /* qwords from CVisual::m_dmaChain to this detail chain; record 0's
+		                              is also the length of the base chain (GetChainData) */
+		u16 m_chain_qwc;           /* qwords of this detail chain (VuUpdate) */
+		tag_DETAIL_TEX* m_tex;
 	};
 
 	/* CVisBase is a global class (symbols __ct__8CVisBaseFUib, m_instance_count__8CVisBase),
@@ -179,7 +267,7 @@ public:
 
 		static void Init(); /* zRndrInit 0x241850 calls it with no object */
 
-		bool Read(zar::CZAR& archive);
+		virtual bool Read(zar::CZAR& archive); /* vtable slot __vt__Q23zdb7CVisual +0x18; Create calls it */
 
 		void ApplyDecal(CDecal* decal);
 
@@ -235,35 +323,23 @@ public:
 		static f32 m_rangeSqdToCamera;
 		static f32 m_adjustBilinearRange;
 
-		bool m_lodIndex;
+		/* members in ELF order (the Ghidra CVisual, 104 bytes; offsets are the Metrowerks ones -
+		   GCC puts its vptr first, the ELF has it at +32) */
+		s32 m_ref_count;                       /* +24: instances sharing this visual (Clone, Release) */
+		s32 m_render_mode;                     /* +28: 3, or -2 for vparams bit 10 (Read); CPipe
+		                                          sets -3; VuBatchProgram runs its full program at 3 */
+		std::vector<CDecal*> m_decals;         /* +36: decal list per instance (m_stack_vid top) */
+		std::vector<_word128*> m_buffers;      /* +48: chain header per instance (SetBuffer) */
+		std::vector<_word128*> m_alloc_blocks; /* +60: chain parts SetBuffer copied out of the model buffer */
+		CDynTexList m_dyn_tex_list;            /* +72: textures the chains use */
+		tag_DETAIL_PARAMS* m_detail_params;    /* +96: "detail_buff" (Read) */
+		u32 m_detail_cnt;                      /* +100 */
+
+		/* port: legacy members of the earlier port, not in the ELF layout. CNode::_Copy
+		   (node_main.cpp) and CModel (node_model.cpp) still name them; nothing in this unit
+		   sets them. */
 		bool m_has_lods;
-
-		std::vector<CVisual*> m_vis_child;
-
-		u32 m_refcount;
-		CVisual* m_detail_buff;
-		u32 m_detail_cnt;
-		size_t m_detail_size;
-
 		u32 m_instance_cnt;
-
-		_word128* m_chainPtr;
-		_word128* m_gifSelect;
-		
-		CDynTexList m_dyntexList;
-
-		std::vector<CDecal*> m_decals;
-		s32 m_decal_idx;
-
-		s32 m_renderState;
-
-		f32 m_range_sqd_to_camera;
-
-		CShader* m_shader;
-
-		f32 m_r;
-		f32 m_g;
-		f32 m_b;
 		/* @socom-skeleton decl Q23zdb7CVisual */
 public:
 		virtual ~CVisual();
@@ -280,7 +356,7 @@ public:
 		_word128 * VuBatchProgram_Decals(_word128 *, tag_ObjectHeader *);
 		_word128 * VuObjectSetup(_word128 *, tag_ObjectHeader *);
 		_word128 * VuBatchProgram(_word128 *, tag_ObjectHeader *, zdb::tag_DETAIL_PARAMS *);
-		static void SaveTextureSelect(_word128 *, zdb::CTexture *, unsigned long);
+		static void SaveTextureSelect(_word128 *, zdb::CTexture *, u64); /* MW unsigned long is 64-bit (sd of the alpha); u64 spells it for both compilers */
 		_word128 * VuDetailMap(_word128 *, zdb::tag_DETAIL_PARAMS *);
 		_word128 * VuLightMap(_word128 *);
 		_word128 * VuShadowMap(_word128 *);
@@ -315,20 +391,36 @@ public:
 		/* @socom-skeleton end Q23zdb7CVisual */
 	};
 
+	class CMeshDecal;
+
+	/* A skinned (matrix-palette) mesh: vtype 1. Layout: the Ghidra CMesh (140 bytes) and the
+	 * constructor 0x30f990 / Clone 0x30f330 / AddLOD 0x30f7b0. */
 	class CMesh : public CVisual
 	{
 	public:
+		/* 12 bytes (vector element stride in insert 0x30fd40) */
+		struct CMeshLOD
+		{
+			f32 m_range_sqd;     /* upper range (squared) of this LOD; FLT_MAX for the last */
+			_word128* m_vertex;  /* vertex buffer; SetMeshBuffer adds it to chain types 7, 10-12 */
+			_word128* m_chain;   /* chain header (count qword + DMA tags); Clone/AddLOD own a copy */
+		};
+
 		CMesh();
 
 		void SetMeshTextureSelects(_word128* wtexture, _word128* wname);
-		
-		u32 m_mtx_count;
+
+		CMesh* m_clone_src;            /* +104: the mesh this one was cloned from */
+		CMeshDecal* m_mesh_decals;     /* +108: decal list (next at +4) */
+		std::vector<CMeshLOD> m_lods;  /* +112 */
+		u32 m_mtx_count;               /* +124 */
+		std::vector<CMatrix*> m_matrices; /* +128: InitMatrices allocates m_mtx_count matrices */
 		/* @socom-skeleton decl Q23zdb5CMesh */
 public:
 		virtual ~CMesh();
 		virtual void ComputeBBox(CBBox *);
 		virtual void UpdateCentroid();
-		virtual void Read(zar::CZAR &);
+		virtual bool Read(zar::CZAR &); /* 0x30f140: tail-calls CVisual::Read */
 		virtual void Write(zar::CZAR &);
 		virtual void InitMatrices();
 		static void Init();
@@ -342,19 +434,22 @@ public:
 		/* @socom-skeleton end Q23zdb5CMesh */
 	};
 
+	/* vtype 2: a part of a CMesh drawn with one of its matrices. The ELF class derives from
+	 * CVisual (constructor 0x30ef40 calls __ct__Q23zdb7CVisualFv, vtable __vt__Q23zdb8CSubMesh
+	 * has no InitMatrices slot, Ghidra CSubMesh is 112 bytes). port: deviation - the base stays
+	 * CMesh while CNode::_Copy (node_main.cpp) static_casts a CMesh* to CSubMesh*; the CMesh
+	 * part is unused (its constructor's LOD entry is the only cost). */
 	class CSubMesh : public CMesh
 	{
 	public:
 		CSubMesh(CMesh* mesh);
-	
-		bool field4_0x4;
-		u32 field14_0x1c;
-		u32 m_matrix_id;
-		CMesh* m_mesh;
+
+		u32 m_matrix_id; /* +104: "matrix_id" (Read); 0xabcd until read */
+		CMesh* m_mesh;   /* +108 */
 		/* @socom-skeleton decl Q23zdb8CSubMesh */
 public:
 		virtual ~CSubMesh();
-		virtual void Read(zar::CZAR &);
+		virtual bool Read(zar::CZAR &); /* 0x30ee90: "matrix_id", then CVisual::Read */
 		virtual void Write(zar::CZAR &);
 		/* @socom-skeleton end Q23zdb8CSubMesh */
 	};

@@ -37,6 +37,10 @@
 /* @socom-skeleton end include */
 #include <eeregs.h> /* D_CTRL, D_RBOR, D8_*, D1/D2 channel registers */
 #include <libgraph.h> /* sceGsSyncPath */
+#include <eekernel.h> /* AddIntcHandler, EnableIntc */
+#include <libdma.h> /* sceDmaSend, sceDmaSync */
+
+static void VU0ProgramDone();
 
 /* @socom-skeleton stub mfifoBase */
 /* The 256 KB MFIFO ring (D_RBOR/D_RBSR); the DMAC needs it aligned to its size. The
@@ -53,28 +57,81 @@ static _word128 *sprBeingKicked;
 static _word128 *sprBeingWritten;
 
 /* @socom-skeleton stub InterruptFromVIF0__Fi */
-void InterruptFromVIF0(int)
+int InterruptFromVIF0(int cause)
 {
+	/* 0x2f5f20 (INTC handler, CVU): a VIF0 interrupt ends the running VU0 program; restart
+	   VIF0 (FBRST STC). The ELF returns with sync + ei. */
+	if (cause == 4)
+	{
+		VU0ProgramDone(); /* m_running = 0 (m_running is defined further down) */
+		*VIF0_FBRST = 8;
+		__asm__ volatile("sync.l"); /* port: GCC spelling of the ELF's sync */
+	}
+
+	__asm__ volatile("sync.l\n\tei");
+	return 0;
 }
 
 /* @socom-skeleton stub __ct__3CVUFUi */
-CVU::CVU(unsigned int)
+CVU::CVU(unsigned int unit)
 {
+	/* 0x2f5e20: the first VU0 user installs the VIF0 handler and fills VU0 data memory with
+	   0xcdcdcdcd */
+	if (m_refCount == 0 && unit == 0)
+	{
+		m_VifHandlerID = AddIntcHandler(4, InterruptFromVIF0, 0);
+		EnableIntc(4);
+
+		volatile u32* mem = reinterpret_cast<volatile u32*>(0x11004000);
+
+		for (u32 i = 0; i < 256 * 4; i++)
+			mem[i] = 0xcdcdcdcd;
+	}
+
+	m_refCount++;
+	m_unit = unit;
+
+	if (unit == 0)
+	{
+		m_memQwc = 256;
+		m_dma = zSys.DmaToVif0;
+	}
+	else
+	{
+		m_memQwc = 1024;
+		m_dma = zSys.DmaToVif1;
+	}
 }
 
 /* @socom-skeleton stub __dt__3CVUFv */
 CVU::~CVU()
 {
+	/* 0x2f5d90: the last VU0 user removes the VIF0 handler */
+	m_refCount--;
+
+	if (m_refCount == 0 && m_unit == 0)
+	{
+		DisableIntc(4);
+		RemoveIntcHandler(4, m_VifHandlerID);
+	}
 }
 
 /* @socom-skeleton stub Code__3CVUFP1Ui */
-void CVU::Code(unsigned __int128 *, unsigned int)
+void CVU::Code(unsigned __int128 *code, unsigned int)
 {
+	/* 0x2f5d30: send a microcode chain (DMA END-led, MPG) to the unit's VIF and wait */
+	m_code = code;
+	sceDmaSync(m_dma, 0, 0);
+	sceDmaSend(m_dma, code);
+	sceDmaSync(m_dma, 0, 0);
 }
 
 /* @socom-skeleton stub zSysAddDMA__FP1P1 */
-unsigned __int128 * zSysAddDMA(unsigned __int128 *, unsigned __int128 *)
+unsigned __int128 * zSysAddDMA(unsigned __int128 *to, unsigned __int128 *from)
 {
+	/* 0x2f5d20: copy one qword, return the next */
+	*to = *from;
+	return to + 1;
 }
 
 /* @socom-skeleton stub zSysFifoInit__Fv */
@@ -229,10 +286,10 @@ void zSysFifoKick(unsigned __int128 *packet, unsigned int qwc)
 }
 
 /* @socom-skeleton stub m_sprPacket__4CSPR */
-int CSPR::m_sprPacket;
+_word128 *CSPR::m_sprPacket;
 
 /* @socom-skeleton stub m_sprPacketEnd__4CSPR */
-int CSPR::m_sprPacketEnd;
+_word128 *CSPR::m_sprPacketEnd;
 
 /* @socom-skeleton stub m_refCount__3CVU */
 int CVU::m_refCount;
@@ -243,13 +300,54 @@ int CVU::m_VifHandlerID;
 /* @socom-skeleton stub m_running */
 static int m_running;
 
-/* @socom-skeleton body Kick__4CSPRFP8_word128b */
-_word128* CSPR::Kick(_word128* packet, bool doKick)
+/* port: file-local helper, not an ELF function - InterruptFromVIF0 (above) clears m_running
+   through it because the fenced definition comes after the handler */
+static void VU0ProgramDone()
 {
-	return NULL;
+	m_running = 0;
+}
+
+/* @socom-skeleton body Kick__4CSPRFP8_word128b */
+_word128* CSPR::Kick(_word128* end, bool getNext)
+{
+	/* 0x2f5810: kick m_sprPacket up to `end` into the MFIFO; with getNext, start the next
+	   packet (zSysSprGetPacket inlined: the half not being kicked, m_sprPacketEnd updated) */
+	s32 qwc = end - m_sprPacket;
+
+	if (qwc > 0)
+	{
+		zSysFifoKick(reinterpret_cast<unsigned __int128*>(m_sprPacket), qwc);
+
+		if (getNext)
+		{
+			sprBeingWritten = reinterpret_cast<_word128*>(zSys.sprPx * 0x1f30 + 0x70000000);
+
+			if (sprBeingWritten == sprBeingKicked)
+			{
+				zSys.sprPx ^= 1;
+				sprBeingWritten = reinterpret_cast<_word128*>(zSys.sprPx * 0x1f30 + 0x70000000);
+			}
+
+			m_sprPacketEnd = reinterpret_cast<_word128*>(zSys.sprPacketEnd[zSys.sprPx]) - 1;
+			m_sprPacket = sprBeingWritten;
+			zSys.sprPx ^= 1;
+		}
+	}
+
+	return m_sprPacket;
 }
 
 /* @socom-skeleton stub Copy__4CSPRFP8_word128P8_word128i */
-_word128 * CSPR::Copy(_word128 *, _word128 *, int)
+_word128 * CSPR::Copy(_word128 *toSPR, _word128 *fromMem, int qwc)
 {
+	/* 0x2f57b0: toSPR DMA (channel 9) of qwc qwords into the packet; returns the qword after
+	   them. Not waited for: zSysFifoKick waits for channel 9 before it kicks. */
+	while (*D9_CHCR & 0x100)
+		;
+
+	*D9_MADR = reinterpret_cast<u32>(fromMem);
+	*D9_SADR = reinterpret_cast<u32>(toSPR);
+	*D9_QWC = qwc;
+	*D9_CHCR = 0x101;
+	return toSPR + qwc;
 }

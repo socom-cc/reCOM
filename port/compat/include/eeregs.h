@@ -85,4 +85,21 @@
 #define GS_BGCOLOR ((volatile unsigned long long *)0x120000e0)
 #endif
 
+/* toSPR channel (CSPR::Copy), VIF1 FBRST and the GIF channel QWC (InterruptFromVIF1) */
+#ifndef D9_MADR
+#define D9_MADR ((volatile unsigned int *)0x1000d410)
+#endif
+#ifndef D9_QWC
+#define D9_QWC ((volatile unsigned int *)0x1000d420)
+#endif
+#ifndef D9_SADR
+#define D9_SADR ((volatile unsigned int *)0x1000d480)
+#endif
+#ifndef VIF1_FBRST
+#define VIF1_FBRST ((volatile unsigned int *)0x10003c10)
+#endif
+#ifndef D2_QWC
+#define D2_QWC ((volatile unsigned int *)0x1000a020)
+#endif
+
 #endif /* SOCOM_COMPAT_EEREGS_H */

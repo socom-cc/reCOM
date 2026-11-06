@@ -43,6 +43,9 @@
 
 #include "zvis.h"
 
+#include <string.h> /* memcpy */
+#include <libvu0.h> /* sceVu0UnitMatrix */
+
 namespace zdb
 {
 
@@ -57,7 +60,9 @@ union _word128;
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub locals */
-static int locals;
+/* 0x476654: the 1184-byte block CMesh::Init allocates; nothing else in the ELF reads it.
+   port: element type unproven (the earlier port had int) */
+static void* locals;
 
 /* @socom-skeleton stub localsI */
 static int localsI;
@@ -65,59 +70,171 @@ static int localsI;
 /* @socom-skeleton stub Init__Q23zdb5CMeshFv */
 void zdb::CMesh::Init()
 {
+	/* 0x30fa90 */
+	locals = _malloc(1184, "vis_mesh.cpp", 42);
+	localsI = 0;
 }
 
 /* @socom-skeleton body __ct__Q23zdb5CMeshFv */
 namespace zdb {
 CMesh::CMesh()
     {
-        m_vtype = 1; /* 0x30fa04 */
+        /* 0x30f990: vtype 1, mode 3, one LOD {FLT_MAX, 0, 0} */
+        m_vtype = 1;
+        m_clone_src = NULL;
+        m_render_mode = 3;
+
+        CMeshLOD lod;
+        lod.m_range_sqd = 3.4028235e38f; /* 0x7f7fffff */
+        lod.m_vertex = NULL;
+        lod.m_chain = NULL;
+        m_lods.reserve(1);
+        m_lods.insert(m_lods.end(), 1, lod);
+
+        m_mtx_count = 0;
+        m_mesh_decals = NULL;
     }
 }
 
 /* @socom-skeleton stub InitMatrices__Q23zdb5CMeshFv */
 void zdb::CMesh::InitMatrices()
 {
+	/* 0x30f8f0: append m_mtx_count unit matrices */
+	for (u32 i = 0; i < m_mtx_count; i++)
+	{
+		CMatrix* mtx = static_cast<CMatrix*>(::operator new(sizeof(CMatrix))); /* __nw__FUi(64) */
+
+		if (mtx != NULL)
+			sceVu0UnitMatrix(mtx->m_matrix);
+
+		m_matrices.insert(m_matrices.end(), 1, mtx);
+	}
+}
+
+/* port: file-local helper, not an ELF function - Clone 0x30f330 and AddLOD 0x30f7b0 expand the
+   same inline (both malloc at vis_mesh.cpp line 87): copy LOD 0 of `from` into `to`'s last LOD
+   and relocate the copy for `to` */
+static void CopyMeshLOD(zdb::CMesh* to, zdb::CMesh* from)
+{
+	_word128* vertex = from->m_lods[0].m_vertex;
+	_word128* chain = from->m_lods[0].m_chain;
+	u32 size = (chain->u16[0] + 1) * 16;
+	_word128* copy = static_cast<_word128*>(_malloc(size, "vis_mesh.cpp", 87));
+
+	memcpy(copy, chain, size);
+	to->SetMeshBuffer(copy, vertex, chain);
+	to->m_dyn_tex_list.Add(&from->m_dyn_tex_list);
+	to->m_lods.back().m_chain = copy;
+	to->m_lods.back().m_vertex = vertex;
 }
 
 /* @socom-skeleton stub AddLOD__Q23zdb5CMeshFPQ23zdb5CMeshf */
-void zdb::CMesh::AddLOD(zdb::CMesh *, float)
+void zdb::CMesh::AddLOD(zdb::CMesh *lod, float range)
 {
+	/* 0x30f7b0: append lod's LOD 0 (a relocated copy of its chain); the previous LOD ends at
+	   range (squared) */
+	m_lods.insert(m_lods.end(), 1, lod->m_lods[0]);
+	CopyMeshLOD(this, lod);
+	m_lods[m_lods.size() - 2].m_range_sqd = range * range;
 }
 
 /* @socom-skeleton stub SetLOD__Q23zdb5CMeshFUif */
-void zdb::CMesh::SetLOD(unsigned int, float)
+void zdb::CMesh::SetLOD(unsigned int instance, float rangeSqd)
 {
+	/* 0x30f740: the instance draws the first LOD whose range is beyond rangeSqd */
+	if (m_lods.size() < 2)
+		return;
+
+	for (CMeshLOD* lod = &m_lods[0]; lod != &m_lods[0] + m_lods.size(); lod++)
+	{
+		if (rangeSqd < lod->m_range_sqd)
+		{
+			m_buffers[instance] = lod->m_chain;
+			return;
+		}
+	}
 }
 
 /* @socom-skeleton stub SetLOD__Q23zdb5CMeshFUiUi */
-void zdb::CMesh::SetLOD(unsigned int, unsigned int)
+void zdb::CMesh::SetLOD(unsigned int instance, unsigned int lod)
 {
+	/* 0x30f710 */
+	m_buffers[instance] = m_lods[lod].m_chain;
 }
 
 /* @socom-skeleton stub Clone__Q23zdb5CMeshFv */
 zdb::CMesh * zdb::CMesh::Clone()
 {
+	/* 0x30f330: a new CMesh with this one's members (memberwise assignment), its own
+	   matrices and a relocated copy of LOD 0's chain as instance 0's buffer. ELF quirks kept:
+	   the copied m_matrices (this mesh's pointers) stay in front of the ones InitMatrices
+	   appends, and the copied m_lods keep this mesh's other LOD chains. */
+	CMesh* mesh = new CMesh();
+
+	*mesh = *this;
+	mesh->m_ref_count = 0;
+	m_ref_count++;
+	mesh->m_clone_src = this; /* __dynamic_cast to CMesh of this */
+	mesh->InitMatrices();     /* virtual */
+	CopyMeshLOD(mesh, this);
+	mesh->m_buffers[0] = mesh->m_lods.back().m_chain;
+	return mesh;
 }
 
 /* @socom-skeleton stub ComputeBBox__Q23zdb5CMeshFP5CBBox */
 void zdb::CMesh::ComputeBBox(CBBox *)
 {
+	/* 0x30f320: empty */
 }
 
 /* @socom-skeleton stub UpdateCentroid__Q23zdb5CMeshFv */
 void zdb::CMesh::UpdateCentroid()
 {
+	/* 0x30f310: empty */
 }
 
 /* @socom-skeleton stub __dt__Q23zdb5CMeshFv */
 zdb::CMesh::~CMesh()
 {
+	/* 0x30f150: drop the decals; a clone releases its source and frees its LOD chains; the
+	   matrices are deleted */
+	bool clone = m_clone_src != NULL;
+
+	DereferenceDecals(0); /* the same loop, inlined in the ELF */
+
+	if (clone)
+	{
+		m_clone_src->Release();
+
+		while (m_lods.size() != 0)
+		{
+			CMeshLOD* lod = &m_lods.back();
+
+			if (lod->m_chain != NULL)
+				_free(lod->m_chain, "vis_mesh.cpp", 238);
+
+			lod->m_chain = NULL;
+			m_lods.pop_back();
+		}
+
+		m_clone_src = reinterpret_cast<CMesh*>(0xdeadbeef);
+	}
+
+	while (m_matrices.size() != 0)
+	{
+		CMatrix* mtx = m_matrices.back();
+		m_matrices.pop_back();
+
+		if (mtx != NULL)
+			::operator delete(mtx);
+	}
 }
 
 /* @socom-skeleton stub Read__Q23zdb5CMeshFRQ23zar4CZAR */
-void zdb::CMesh::Read(zar::CZAR &)
+bool zdb::CMesh::Read(zar::CZAR &archive)
 {
+	/* 0x30f140 */
+	return CVisual::Read(archive);
 }
 
 /* @socom-skeleton stub Write__Q23zdb5CMeshFRQ23zar4CZAR */
@@ -126,8 +243,33 @@ void zdb::CMesh::Write(zar::CZAR &)
 }
 
 /* @socom-skeleton stub SetMeshBuffer__Q23zdb5CMeshFP8_word128P8_word128P8_word128 */
-void zdb::CMesh::SetMeshBuffer(_word128 *, _word128 *, _word128 *)
+void zdb::CMesh::SetMeshBuffer(_word128 *chain, _word128 *vertex, _word128 *)
 {
+	/* 0x30f050: relocate a chain copy: types 7, 10, 11, 12 address the vertex buffer, type 9
+	   holds a matrix index (the third argument is unused) */
+	m_mesh_decals = NULL;
+	chain->u32[2] = reinterpret_cast<u32>(vertex);
+
+	u32 count = chain->u16[0];
+	_word128* tag = chain + 1;
+
+	for (u32 i = 0; i < count; i++, tag++)
+	{
+		switch (tag->u8[2])
+		{
+		case 7:
+		case 10:
+		case 11:
+		case 12:
+			tag->u32[1] += reinterpret_cast<u32>(vertex);
+			break;
+		case 9:
+			tag->u32[1] = reinterpret_cast<u32>(m_matrices[tag->u32[1]]);
+			break;
+		default:
+			break;
+		}
+	}
 }
 
 /* @socom-skeleton body SetMeshTextureSelects__Q23zdb5CMeshFP8_word128P8_word128 */
@@ -160,9 +302,9 @@ void CMesh::SetMeshTextureSelects(_word128* wtexture, _word128* wname)
 namespace zdb {
 CSubMesh::CSubMesh(CMesh* mesh)
     {
-        field4_0x4 = true;
-        m_vtype = 2; /* 0x30ef6c */
-        field14_0x1c = 3;
+        /* 0x30ef40 */
+        m_vtype = 2;
+        m_render_mode = 3;
         m_matrix_id = 0xabcd;
         m_mesh = mesh;
     }
@@ -171,11 +313,15 @@ CSubMesh::CSubMesh(CMesh* mesh)
 /* @socom-skeleton stub __dt__Q23zdb8CSubMeshFv */
 zdb::CSubMesh::~CSubMesh()
 {
+	/* 0x30eee0: only the CVisual part */
 }
 
 /* @socom-skeleton stub Read__Q23zdb8CSubMeshFRQ23zar4CZAR */
-void zdb::CSubMesh::Read(zar::CZAR &)
+bool zdb::CSubMesh::Read(zar::CZAR &archive)
 {
+	/* 0x30ee90 */
+	archive.Fetch("matrix_id", &m_matrix_id);
+	return CVisual::Read(archive);
 }
 
 /* @socom-skeleton stub Write__Q23zdb8CSubMeshFRQ23zar4CZAR */
@@ -191,4 +337,8 @@ void zdb::CMesh::RemoveMeshDecal(zdb::CMeshDecal *)
 /* @socom-skeleton stub DereferenceDecals__Q23zdb5CMeshFUi */
 void zdb::CMesh::DereferenceDecals(unsigned int)
 {
+	/* 0x30ed60: each decal (next at +4): FreeMem, clear +0/+4/+8/+16/+48/+52, PutTempDecal.
+	   port: not written - the CMeshDecal record is not recovered and CDecal::AddDecal is a
+	   stub, so the list stays empty */
+	m_mesh_decals = NULL;
 }

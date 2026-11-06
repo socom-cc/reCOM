@@ -38,6 +38,12 @@
 
 #include "zmath.h"
 
+#include "gamez/zSystem/zsys.h" /* CVU */
+#include <eekernel.h> /* FlushCache */
+
+/* the VU0 microcode (zrender/zrndr_vu0.vsm): a VIF0 DMA chain led by a DMA END tag */
+extern u_long128 vu0_CodeSegment[];
+
 /* @socom-skeleton stub zero__5CQuat */
 const CQuat CQuat::zero = { CPnt3D(0.0f, 0.0f, 0.0f), 0.0f }; /* values: __sinit_zmath_main.cpp */
 
@@ -184,20 +190,44 @@ void CQuat::ToEuler(CPnt3D *) const
 /* @socom-skeleton body Apply__5CQuatCFPC6CPnt3DP6CPnt3Di */
 void CQuat::Apply(const CPnt3D *in, CPnt3D *out, int count) const
 {
-	/* 0x221240: rotate count points by this quaternion. The ELF loads the quaternion and
-	 * each point (w 0) into VU0 and runs the VU0 micro subroutine at 0x60 (vcallms).
-	 * port: guess - the micro subroutine is not reconstructed; this is the standard
-	 * rotation q p q* it is used for (unproven) */
+	/* 0x221240: rotate count points by this quaternion with the VU0 micro subroutine at
+	   0x60 (zrndr_vu0.vsm, loaded by zMath_Init): vf1 = quaternion, vf2 = point (w 0),
+	   result vf3; qmtc2.i waits for the subroutine. port: GCC inline-asm spelling; the
+	   quaternion is copied to an aligned local because GCC does not align CQuat to 16
+	   bytes (the ELF loads it from `this`). */
+	f32 quat[4] __attribute__((aligned(16)));
+	f32 point[4] __attribute__((aligned(16)));
+	f32 result[4] __attribute__((aligned(16)));
+
+	quat[0] = vec.x;
+	quat[1] = vec.y;
+	quat[2] = vec.z;
+	quat[3] = w;
+
 	for (; count != 0; count--, in++, out++)
 	{
-		f32 px = in->x, py = in->y, pz = in->z;
-		/* t = 2 (v x p) */
-		f32 tx = 2.0f * (vec.y * pz - vec.z * py);
-		f32 ty = 2.0f * (vec.z * px - vec.x * pz);
-		f32 tz = 2.0f * (vec.x * py - vec.y * px);
-		out->x = px + w * tx + (vec.y * tz - vec.z * ty);
-		out->y = py + w * ty + (vec.z * tx - vec.x * tz);
-		out->z = pz + w * tz + (vec.x * ty - vec.y * tx);
+		point[0] = in->x;
+		point[1] = in->y;
+		point[2] = in->z;
+		point[3] = 0.0f;
+
+		__asm__ volatile(
+			"qmtc2.i $0, $vf0\n\t"
+			"lqc2 $vf1, 0(%0)\n\t"
+			"lqc2 $vf2, 0(%1)\n\t"
+			"vcallms 0x60\n\t"
+			"vnop\n\t"
+			"vnop\n\t"
+			"qmtc2.i $0, $vf0\n\t"
+			"sqc2 $vf3, 0(%2)\n\t"
+			"qmtc2.i $0, $vf0\n\t"
+			:
+			: "r"(quat), "r"(point), "r"(result)
+			: "memory");
+
+		out->x = result[0];
+		out->y = result[1];
+		out->z = result[2];
 	}
 }
 
@@ -264,6 +294,13 @@ void CQuat::Pow(float, CQuat *)
 /* @socom-skeleton stub zMath_Init__Fv */
 void zMath_Init()
 {
+	/* 0x2205b0 (CGame::StartEngine): the trig tables, then the VU0 microcode
+	   (zrndr_vu0.vsm, vu0_CodeSegment) through a temporary CVU */
+	init_trig_table();
+
+	CVU vu(0);
+	FlushCache(0);
+	vu.Code(reinterpret_cast<unsigned __int128*>(reinterpret_cast<u32>(vu0_CodeSegment) & 0x0fffffff), 0);
 }
 
 /* @socom-skeleton stub __ct__6CFRectFv */
