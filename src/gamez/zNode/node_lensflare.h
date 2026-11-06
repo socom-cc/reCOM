@@ -14,7 +14,7 @@ namespace zdb
 
 	/* @socom-skeleton decl Q23zdb10CLensFlare */
 public:
-	virtual ~CLensFlare();
+	virtual ~CLensFlare() {} /* __dt__Q23zdb10CLensFlareFv (inline, 0x231d00): member and base destruction only */
 	CLensFlare();
 	/* @socom-skeleton end Q23zdb10CLensFlare */
 	};

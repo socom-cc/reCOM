@@ -17,9 +17,6 @@
 
 extern void Vu0MatrixInverseWithUniformScale(CMatrix* m0, CMatrix* m1);
 
-extern void zMathCopyVector(PNT3D& out, PNT3D& in);
-extern void zMathAddVector(PNT3D& sum, PNT3D& addend, PNT3D& summand);
-extern void zMathSubVector(PNT3D& diff, PNT3D& subend, PNT3D& diffand);
 extern void zMathScaleVector();
 extern void zMathFTOI0Vector();
 extern void zMathFTOI4Vector();
@@ -33,10 +30,15 @@ extern void zMathRotTransPers();
 
 extern void zMathClipBBox();
 
-extern void zMathCopyMatrix(CMatrix* dest, const CMatrix* src);
+/* zMathCopyMatrix/zMathUnitMatrix/zMathMulMatrix are not in the ELF: the call sites call libvu0
+   directly (CPipe::RenderWorld 0x2448dc sceVu0CopyMatrix; CStack::Multiply 0x221dfc sceVu0MulMatrix) */
+inline void zMathCopyMatrix(CMatrix* dest, const CMatrix* src)
+{
+	sceVu0CopyMatrix(dest->m_matrix, const_cast<float(*)[4]>(src->m_matrix));
+}
 extern void zMathApplyMatrix();
-extern void zMathUnitMatrix(CMatrix& mat);
-extern void zMathMulMatrix(CMatrix* m0, CMatrix* m1, CMatrix* out);
+inline void zMathUnitMatrix(CMatrix& mat) { sceVu0UnitMatrix(mat.m_matrix); } /* port: unproven (caller st_core.cpp not checked) */
+inline void zMathMulMatrix(CMatrix* m0, CMatrix* m1, CMatrix* m2) { sceVu0MulMatrix(m0->m_matrix, m1->m_matrix, m2->m_matrix); }
 extern void zMathCameraMatrix();
 extern void zMathViewScreenMatrix();
 extern void zMathTransMatrix();

@@ -334,6 +334,11 @@ std::__nInit std::__msl_ios_base_ninit;
 std::__wInit std::__msl_ios_base_winit;
 #endif
 
+/* @socom-skeleton stub __dt__10C2DCounterFv */
+C2DCounter::~C2DCounter()
+{
+}
+
 /* @socom-skeleton stub VisualGratification__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFPQ23zdb16CTextureRelocMgr */
 namespace {
 void CListItemArrayTypeImpl::VisualGratification(zdb::CTextureRelocMgr *)
@@ -423,6 +428,77 @@ namespace {
 void CListItemStringTypeImpl::Tick(float)
 {
 }
+}
+
+/* @socom-skeleton stub __dt__9CTeleTypeFv */
+CTeleType::~CTeleType()
+{
+}
+
+/* @socom-skeleton stub Tick__13C3StateButtonFf */
+void C3StateButton::Tick(float dT) /* 0x394020: virtual Tick on _strCaption (+0x20) */
+{
+	_strCaption.Tick(dT);
+}
+
+/* @socom-skeleton stub __dt__14CHandlerButtonFv */
+CHandlerButton::~CHandlerButton()
+{
+}
+
+/* @socom-skeleton stub SetNormal__10CUIListBoxFv */
+void CUIListBox::SetNormal() /* port: stub */
+{
+}
+
+/* @socom-skeleton stub SetActive__10CUIListBoxFv */
+void CUIListBox::SetActive() /* port: stub */
+{
+}
+
+/* @socom-skeleton stub __dt__10CSliderBarFv */
+CSliderBar::~CSliderBar()
+{
+}
+
+/* @socom-skeleton stub __dt__13CHProgressBarFv */
+CHProgressBar::~CHProgressBar()
+{
+}
+
+/* @socom-skeleton stub UpdateUIVar__9CCheckBoxFP11CUIVariable */
+void CCheckBox::UpdateUIVar(CUIVariable *)
+{
+}
+
+/* @socom-skeleton stub __dt__9CCheckBoxFv */
+CCheckBox::~CCheckBox()
+{
+}
+
+/* @socom-skeleton stub __dt__11CRadioStripFv */
+CRadioStrip::~CRadioStrip()
+{
+}
+
+/* @socom-skeleton stub __dt__11CScrollTextFv */
+CScrollText::~CScrollText()
+{
+}
+
+/* @socom-skeleton stub __dt__15CTickerTapeTextFv */
+CTickerTapeText::~CTickerTapeText()
+{
+}
+
+/* @socom-skeleton stub Get2DVisual__9C2DVisualFv */
+void C2DVisual::Get2DVisual() /* port: 0x393690 returns this; void is the skeleton placeholder */
+{
+}
+
+/* @socom-skeleton stub __dt__9C2DVisualFv */
+C2DVisual::~C2DVisual()
+{
 }
 
 /* @socom-skeleton stub SetColor__Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImplFiii */
@@ -709,6 +785,12 @@ void CPlainBmp::Tick(float)
 {
 }
 
+/* @socom-skeleton stub GetSpacing__9CTeleTypeFv */
+float CTeleType::GetSpacing() /* port: stub; 0x390c70 returns the f32 at +0x3cc */
+{
+	return 0.0f;
+}
+
 /* @socom-skeleton stub Draw__9CTeleTypeFRC7CMatrixPQ23zdb16CTextureRelocMgr */
 void CTeleType::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
 {
@@ -821,6 +903,11 @@ void CUIListBox::UpdateUIVar(CUIVariable *)
 
 /* @socom-skeleton stub Tick__10CUIListBoxFf */
 void CUIListBox::Tick(float)
+{
+}
+
+/* @socom-skeleton stub SetPressed__10CUIListBoxFv */
+void CUIListBox::SetPressed() /* port: stub */
 {
 }
 
@@ -1009,6 +1096,12 @@ void CScrollText::LoadSpec(const CScrollSpec &)
 {
 }
 
+/* @socom-skeleton stub GetSpacing__12CWrappedTextFv */
+float CWrappedText::GetSpacing() /* port: stub; 0x389380 returns (f32) of the s32 at +0xb0 */
+{
+	return 0.0f;
+}
+
 /* @socom-skeleton stub Tick__11CScrollTextFf */
 void CScrollText::Tick(float)
 {
@@ -1145,8 +1238,30 @@ ListItem::ListItem(_zrdr *, const std::vector<ColumnData *, std::allocator<Colum
 {
 }
 
+/* @socom-skeleton stub IsEnabled__17CListItemTypeImplFv */
+bool CListItemTypeImpl::IsEnabled()
+{
+	return true;
+}
+
 /* @socom-skeleton stub __dt__8ListItemFv */
 ListItem::~ListItem()
+{
+}
+
+/* @socom-skeleton stub Finish__17CListItemTypeImplFv */
+void CListItemTypeImpl::Finish()
+{
+}
+
+/* @socom-skeleton stub SetSequenceTime__17CListItemTypeImplFff */
+float CListItemTypeImpl::SetSequenceTime(float time, float) /* 0x385650 returns its first argument */
+{
+	return time;
+}
+
+/* @socom-skeleton stub __dt__17CListItemTypeImplFv */
+CListItemTypeImpl::~CListItemTypeImpl()
 {
 }
 
@@ -1157,7 +1272,28 @@ CListItemStringTypeImpl::~CListItemStringTypeImpl()
 }
 }
 
+/* @socom-skeleton stub Tick__17CListItemTypeImplFf */
+void CListItemTypeImpl::Tick(float)
+{
+}
+
 /* @socom-skeleton stub UpdateUIVar__8C2DClockFP11CUIVariable */
 void C2DClock::UpdateUIVar(CUIVariable *)
+{
+}
+
+/* @socom-skeleton stub SetMapOffset__17CRenderableStringFii */
+void CRenderableString::SetMapOffset(int, int) /* port: stub; 0x3853c0 stores (f32)x, (f32)y at +0x94/+0x98 and 0 at +0x9c */
+{
+}
+
+/* @socom-skeleton stub Tick__17CRenderableStringFf */
+void CRenderableString::Tick(float dT) /* 0x3853b0 tail-calls C2DString::Tick */
+{
+	C2DString::Tick(dT);
+}
+
+/* @socom-skeleton stub __dt__8C2DClockFv */
+C2DClock::~C2DClock()
 {
 }

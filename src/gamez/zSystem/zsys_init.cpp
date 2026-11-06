@@ -80,9 +80,9 @@ void CIOPManager::RebootIOP(CIOPManager::RebootMode)
 /* @socom-skeleton body zSysInit__Fv */
 void zSysInit()
 {
-	// size_t allocsize = zsys_FullAllocAndFree();
-	zsys_AllocScratchpad();
-	// zSys.isT10K = 0x1ffffff < allocsize;
+	/* port: 0x2f4df0 calls zsys_FullAllocAndFree and sets isT10K from it; zsys_AllocScratchpad is not in the ELF */
+	size_t allocsize = zsys_FullAllocAndFree();
+	zSys.isT10K = 0x1ffffff < allocsize;
 
 	zSys.isCdBoot = false;
 }

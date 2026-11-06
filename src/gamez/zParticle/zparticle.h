@@ -121,7 +121,6 @@ public:
 			     f32 param_5, f32 param_6, zdb::CTexHandle*, Props* properties, Source* source);
 
 		void Expire();
-		void Render(const CMatrix& transform);
 		/* @socom-skeleton decl Q28Particle8Instance */
 public:
 		class List
@@ -130,7 +129,8 @@ public:
 			void Uninit();
 			void Tick(float);
 		};
-		virtual void Tick(float);
+		virtual void Tick(float) {} /* port: stub (Tick__Q28Particle8InstanceFf, emitted via zparticle.h) */
+		virtual void Render(const CMatrix &); /* port: virtual - __vt__Q28Particle8Instance slot 1 */
 		Instance(const CPnt4D &, const CPnt4D &, const CPnt3D &, float, float, float, zdb::CTexHandle *, Particle::Props *, Particle::Source *);
 		~Instance();
 		static float ageFactor;

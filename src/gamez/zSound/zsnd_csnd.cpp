@@ -193,7 +193,7 @@ static bool vagArchiveIsOpen;
 static bool bnkArchiveIsOpen;
 
 /* @socom-skeleton stub _sound_rdr */
-static int _sound_rdr;
+static _zrdr* _sound_rdr; /* port: 4-byte LOCAL object; NetOpen stores zrdr_read's result in it (0x2ee168) */
 
 /* @socom-skeleton stub _sound_sets_rdr */
 static int _sound_sets_rdr;
@@ -251,8 +251,9 @@ CSnd::~CSnd()
 }
 
 /* @socom-skeleton stub IOPRebootHandler__FQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv */
-bool IOPRebootHandler(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *)
+static bool IOPRebootHandler(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *) /* port: LOCAL in the ELF */
 {
+	return false; /* port: stub */
 }
 
 /* @socom-skeleton body Init__4CSndFv */
@@ -279,8 +280,8 @@ void CSnd::Uninit()
 /* @socom-skeleton body NetOpen__4CSndFv */
 void CSnd::NetOpen()
 {
-	if (!sound_rdr)
-		sound_rdr = zrdr_read("sounds.rdr", NULL, 0);
+	if (!_sound_rdr)
+		_sound_rdr = zrdr_read("sounds.rdr", NULL, 0);
 
 	// snd_SetMasterVolume(8, 0x400);
 
@@ -295,9 +296,9 @@ void CSnd::NetOpen()
 /* @socom-skeleton body UIOpen__4CSndFv */
 void CSnd::UIOpen()
 {
-	if (sound_rdr == NULL)
+	if (_sound_rdr == NULL)
 	{
-		sound_rdr = zrdr_read("sounds.rdr");
+		_sound_rdr = zrdr_read("sounds.rdr");
 	}
 
 	if (m_vagEnabled)
@@ -311,8 +312,8 @@ void CSnd::Open()
 {
 	CFileCD::m_streamingSndActive = true;
 
-	if (!sound_rdr)
-		sound_rdr = zrdr_read("sounds.rdr", NULL, 0);
+	if (!_sound_rdr)
+		_sound_rdr = zrdr_read("sounds.rdr", NULL, 0);
 
 	m_max_num_vags = 6;
 	// TODO: Write wrapper for the 989snd library

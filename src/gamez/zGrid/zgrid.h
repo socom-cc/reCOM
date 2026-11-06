@@ -37,7 +37,6 @@ namespace zdb
 			s32 z;
 		};
 
-		CCell(CPnt3D* origin, f32 offset);
 	private:
 		CLightList m_lightList;
 		CClutterList m_clutterList;
@@ -45,9 +44,9 @@ namespace zdb
 		/* @socom-skeleton decl Q23zdb5CCell */
 public:
 		virtual ~CCell();
-		virtual unsigned char IsCell();
+		virtual unsigned char IsCell() { return 1; } /* IsCell__Q23zdb5CCellFv (inline, 0x217000) */
 		virtual CBBox * UpdateBBox(bool);
-		virtual void Copy(zdb::CNode *) const;
+		virtual zdb::CNode* Copy(zdb::CNode *) const { return NULL; } /* Copy__Q23zdb5CCellCFPQ23zdb5CNode (inline, 0x216ff0): v0 = 0 */
 		CCell(const CPnt3D *, float);
 		void DeleteClutter();
 		void AddClutter(zdb::CClutter *);

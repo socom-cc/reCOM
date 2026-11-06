@@ -500,8 +500,7 @@ bool CMission::Init()
 /* @socom-skeleton body PreOpen__8CMissionFPCc */
 void CMission::PreOpen(const char* db)
 {
-	extern char** g_arrDefCharTypeNames[32];
-	extern u32 g_iNumUiVehicles;
+	/* port: block-scope externs of g_arrDefCharTypeNames/g_iNumUiVehicles removed; the ELF objects are this unit's unnamed-namespace ones */
 
 	if (db && *db != '\0')
 	{

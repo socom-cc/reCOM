@@ -731,9 +731,9 @@ protected:
 	s32 m_field8_0x14;
 	/* @socom-skeleton decl 8CAiState */
 public:
-	virtual void GetStatus() const;
-	virtual void GetScriptResponse() const;
-	virtual ~CAiState();
+	virtual const char * GetStatus() const { return ""; } /* ELF 0x2591f0 returns "" (0x4511e8) */
+	virtual const char * GetScriptResponse() const { return NULL; } /* ELF 0x26c5f0 returns 0 */
+	virtual ~CAiState() {}
 	void Signal(CAiState::SIGNAL, CSealCtrlAi *);
 	/* @socom-skeleton end 8CAiState */
 };
@@ -746,9 +746,9 @@ public:
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
-	virtual void GetStatus() const;
+	virtual const char * GetStatus() const; /* override: CAiState::GetStatus returns const char * */
 	virtual bool CanPursue(CSealCtrlAi *) const;
-	virtual ~CAiSScript();
+	virtual ~CAiSScript() {}
 	void ActivateSequence(const char *, unsigned int);
 	/* @socom-skeleton end 10CAiSScript */
 };
@@ -760,7 +760,7 @@ class CAiSHold : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
-	virtual ~CAiSHold();
+	virtual ~CAiSHold() {}
 	/* @socom-skeleton end 8CAiSHold */
 };
 
@@ -771,7 +771,7 @@ class CAiSAvoid : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
-	virtual ~CAiSAvoid();
+	virtual ~CAiSAvoid() {}
 	/* @socom-skeleton end 9CAiSAvoid */
 };
 
@@ -782,8 +782,8 @@ class CAiSDeploy : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
-	virtual bool CanAttack() const;
-	virtual ~CAiSDeploy();
+	virtual bool CanAttack() const { return false; } /* ELF: move v0,zero */
+	virtual ~CAiSDeploy() {}
 	void CanDeployItem(CZKit *, EQUIP_ITEM);
 	/* @socom-skeleton end 10CAiSDeploy */
 };
@@ -795,9 +795,9 @@ class CAiSSurrender : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
-	virtual bool CanAttack() const;
-	virtual void GetScriptResponse() const;
-	virtual ~CAiSSurrender();
+	virtual bool CanAttack() const { return false; } /* ELF: move v0,zero */
+	virtual const char * GetScriptResponse() const { return "on_surrender"; } /* ELF returns "on_surrender" (0x458238) */
+	virtual ~CAiSSurrender() {}
 	/* @socom-skeleton end 13CAiSSurrender */
 };
 
@@ -808,10 +808,10 @@ class CAiSRestrained : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
-	virtual bool CanAttack() const;
-	virtual bool CanScan() const;
-	virtual void GetScriptResponse() const;
-	virtual ~CAiSRestrained();
+	virtual bool CanAttack() const { return false; } /* ELF: move v0,zero */
+	virtual bool CanScan() const { return false; } /* ELF: move v0,zero */
+	virtual const char * GetScriptResponse() const { return "on_restrained"; } /* ELF returns "on_restrained" (0x458178) */
+	virtual ~CAiSRestrained() {}
 	/* @socom-skeleton end 14CAiSRestrained */
 };
 
@@ -827,7 +827,7 @@ class CAiSGoto : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
-	virtual ~CAiSGoto();
+	virtual ~CAiSGoto() {}
 	/* @socom-skeleton end 8CAiSGoto */
 };
 
@@ -838,8 +838,8 @@ class CAiSFollow : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
-	virtual void GetStatus() const;
-	virtual ~CAiSFollow();
+	virtual const char * GetStatus() const; /* override: CAiState::GetStatus returns const char * */
+	virtual ~CAiSFollow() {}
 	/* @socom-skeleton end 10CAiSFollow */
 };
 
@@ -850,9 +850,9 @@ class CAiSBreach : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
-	virtual void GetStatus() const;
-	virtual bool CanPursue(CSealCtrlAi *) const;
-	virtual ~CAiSBreach();
+	virtual const char * GetStatus() const; /* override: CAiState::GetStatus returns const char * */
+	virtual bool CanPursue(CSealCtrlAi *) const { return false; } /* ELF: move v0,zero */
+	virtual ~CAiSBreach() {}
 	/* @socom-skeleton end 10CAiSBreach */
 };
 
@@ -863,7 +863,7 @@ class CAiSAction : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
-	virtual ~CAiSAction();
+	virtual ~CAiSAction() {}
 	/* @socom-skeleton end 10CAiSAction */
 };
 
@@ -874,9 +874,9 @@ class CAiSPursue : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
-	virtual void GetStatus() const;
-	virtual bool CanAttack() const;
-	virtual ~CAiSPursue();
+	virtual const char * GetStatus() const; /* override: CAiState::GetStatus returns const char * */
+	virtual bool CanAttack() const { return true; } /* port: stub; ELF 0x26c660 returns !(bit 0 of the word at +4), CAiState layout unproven */
+	virtual ~CAiSPursue() {}
 	/* @socom-skeleton end 10CAiSPursue */
 };
 
@@ -887,7 +887,7 @@ class CAiSAnimate : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
-	virtual ~CAiSAnimate();
+	virtual ~CAiSAnimate() {}
 	/* @socom-skeleton end 11CAiSAnimate */
 };
 
@@ -898,8 +898,8 @@ class CAiSCQBAttack : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
-	virtual bool CanAttack() const;
-	virtual ~CAiSCQBAttack();
+	virtual bool CanAttack() const { return false; } /* ELF: move v0,zero */
+	virtual ~CAiSCQBAttack() {}
 	/* @socom-skeleton end 13CAiSCQBAttack */
 };
 
@@ -911,9 +911,9 @@ public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
 	virtual bool CanAttack() const;
-	virtual bool CanScan() const;
-	virtual bool CanPursue(CSealCtrlAi *) const;
-	virtual ~CAiSFlee();
+	virtual bool CanScan() const { return false; } /* ELF: move v0,zero */
+	virtual bool CanPursue(CSealCtrlAi *) const { return false; } /* ELF: move v0,zero */
+	virtual ~CAiSFlee() {}
 	/* @socom-skeleton end 8CAiSFlee */
 };
 
@@ -924,10 +924,10 @@ class CAiSPathRecover : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
-	virtual void GetStatus() const;
-	virtual bool CanAttack() const;
-	virtual bool CanPursue(CSealCtrlAi *) const;
-	virtual ~CAiSPathRecover();
+	virtual const char * GetStatus() const; /* override: CAiState::GetStatus returns const char * */
+	virtual bool CanAttack() const { return false; } /* ELF: move v0,zero */
+	virtual bool CanPursue(CSealCtrlAi *) const { return false; } /* ELF: move v0,zero */
+	virtual ~CAiSPathRecover() {}
 	/* @socom-skeleton end 15CAiSPathRecover */
 };
 
@@ -938,10 +938,10 @@ class CAiSRescued : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
-	virtual bool CanAttack() const;
-	virtual bool CanScan() const;
-	virtual void GetScriptResponse() const;
-	virtual ~CAiSRescued();
+	virtual bool CanAttack() const { return false; } /* ELF: move v0,zero */
+	virtual bool CanScan() const { return false; } /* ELF: move v0,zero */
+	virtual const char * GetScriptResponse() const { return "on_rescued"; } /* ELF returns "on_rescued" (0x4511d8) */
+	virtual ~CAiSRescued() {}
 	void SetExtractValve(CValve *);
 	/* @socom-skeleton end 11CAiSRescued */
 };
@@ -953,9 +953,9 @@ class CAiSSuspended : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
-	virtual bool CanAttack() const;
-	virtual bool CanPursue(CSealCtrlAi *) const;
-	virtual ~CAiSSuspended();
+	virtual bool CanAttack() const { return false; } /* ELF: move v0,zero */
+	virtual bool CanPursue(CSealCtrlAi *) const { return false; } /* ELF: move v0,zero */
+	virtual ~CAiSSuspended() {}
 	/* @socom-skeleton end 13CAiSSuspended */
 };
 
@@ -966,8 +966,8 @@ class CAiSShotAt : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
-	virtual bool CanPursue(CSealCtrlAi *) const;
-	virtual ~CAiSShotAt();
+	virtual bool CanPursue(CSealCtrlAi *) const { return false; } /* ELF: move v0,zero */
+	virtual ~CAiSShotAt() {}
 	/* @socom-skeleton end 10CAiSShotAt */
 };
 
@@ -978,8 +978,8 @@ class CAiSNoAmmo : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
-	virtual bool CanAttack() const;
-	virtual ~CAiSNoAmmo();
+	virtual bool CanAttack() const { return false; } /* ELF: move v0,zero */
+	virtual ~CAiSNoAmmo() {}
 	/* @socom-skeleton end 10CAiSNoAmmo */
 };
 
@@ -990,7 +990,7 @@ class CAiSHostage : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
-	virtual ~CAiSHostage();
+	virtual ~CAiSHostage() {}
 	/* @socom-skeleton end 11CAiSHostage */
 };
 
@@ -1007,10 +1007,10 @@ public:
 	class EVENT_STATE;
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *);
-	virtual void GetStatus() const;
+	virtual const char * GetStatus() const; /* override: CAiState::GetStatus returns const char * */
 	virtual bool CanAttack() const;
 	virtual bool CanPursue(CSealCtrlAi *) const;
-	virtual ~CAiSEvent();
+	virtual ~CAiSEvent() {}
 	void ComputeNextState(CAiSEvent::EVENT_STATE &, float);
 	/* @socom-skeleton end 9CAiSEvent */
 };
@@ -1022,7 +1022,7 @@ class CAiSTarget : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *); /* port: an override returns its base's type */
-	virtual ~CAiSTarget();
+	virtual ~CAiSTarget() {}
 	/* @socom-skeleton end 10CAiSTarget */
 };
 
@@ -1033,9 +1033,9 @@ class CAiSGrenade : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *); /* port: an override returns its base's type */
-	virtual bool CanAttack() const; /* port: an override returns its base's type */
-	virtual bool CanPursue(CSealCtrlAi *) const; /* port: an override returns its base's type */
-	virtual ~CAiSGrenade();
+	virtual bool CanAttack() const { return false; } /* ELF: move v0,zero */
+	virtual bool CanPursue(CSealCtrlAi *) const { return false; } /* ELF: move v0,zero */
+	virtual ~CAiSGrenade() {}
 	/* @socom-skeleton end 11CAiSGrenade */
 };
 
@@ -1046,8 +1046,8 @@ class CAiSStunResponse : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *); /* port: an override returns its base's type */
-	virtual bool CanAttack() const; /* port: an override returns its base's type */
-	virtual ~CAiSStunResponse();
+	virtual bool CanAttack() const { return false; } /* ELF: move v0,zero */
+	virtual ~CAiSStunResponse() {}
 	/* @socom-skeleton end 16CAiSStunResponse */
 };
 
@@ -1058,7 +1058,7 @@ class CAiSRush : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *); /* port: an override returns its base's type */
-	virtual ~CAiSRush();
+	virtual ~CAiSRush() {}
 	void SetTarget(CZSealBody *);
 	/* @socom-skeleton end 8CAiSRush */
 };

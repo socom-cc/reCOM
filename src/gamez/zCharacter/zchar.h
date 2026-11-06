@@ -190,7 +190,7 @@ public:
 class CharacterDynamics
 {
 public:
-	void Load(_zrdr* reader);
+	/* port: provisional Load(_zrdr *) removed; the ELF one is Load(const CRdrFile &) (skeleton region) */
 
 	f32 m_gravity = 98.1f;
 	f32 m_DamageToNewtons = 235.0f;

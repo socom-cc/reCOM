@@ -70,6 +70,12 @@ zdb::CAssetLib *g_pMissionLoadingLib;
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static CSTable MultiplayerMsgStrings;
 
+/* @socom-skeleton stub GetReaderFileName__9CLoadMenuFv */
+char * CLoadMenu::GetReaderFileName() /* 0x37fdd0 returns the literal at 0x460a20 */
+{
+	return (char *)"dlgLoad.rdr";
+}
+
 /* @socom-skeleton stub PrepControls__9CLoadMenuFPQ23zdb16CTextureRelocMgr */
 void CLoadMenu::PrepControls(zdb::CTextureRelocMgr *)
 {
@@ -95,6 +101,11 @@ bool CLoadState::Init() { return true; }
 
 /* @socom-skeleton body Tick__10CLoadStateFf */
 bool CLoadState::Tick(float dT) {}
+
+/* @socom-skeleton stub __dt__9CLoadMenuFv */
+CLoadMenu::~CLoadMenu()
+{
+}
 
 /* @socom-skeleton body UnInit__10CLoadStateFv */
 void CLoadState::UnInit() {}

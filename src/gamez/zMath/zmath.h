@@ -29,6 +29,7 @@
 #ifndef ZMATH_H
 #define ZMATH_H
 #include <cmath>
+#include <libvu0.h>
 
 #include "gamez/zSystem/zsys.h"
 
@@ -189,8 +190,20 @@ public:
 	void Add(CPnt3D* other, CPnt3D* out);
 	void Sub(CPnt3D* other, CPnt3D* out);
 	void Scale(f32 scaleFactor, CPnt3D* out);
-	void Cross(const CPnt3D* a, CPnt3D* b, bool normalize);
-	void Interp(const CPnt3D* from, f32 step, CPnt3D* to);
+	/* Cross__6CPnt3DCFPC6CPnt3DP6CPnt3Db (inline, 0x201650): w = 1 copies, sceVu0OuterProduct,
+	   optional sceVu0Normalize, xyz stored to out */
+	void Cross(const CPnt3D* other, CPnt3D* out, bool normalize) const
+	{
+		sceVu0FVECTOR a = { x, y, z, 1.0f };
+		sceVu0FVECTOR b = { other->x, other->y, other->z, 1.0f };
+		sceVu0FVECTOR r;
+		sceVu0OuterProduct(r, a, b);
+		if (normalize)
+			sceVu0Normalize(r, r);
+		out->x = r[0];
+		out->y = r[1];
+		out->z = r[2];
+	}
 	/* @socom-skeleton decl 6CPnt3D */
 public:
 	void Add(const CPnt3D *, CPnt3D *) const;
@@ -269,7 +282,6 @@ public:
 	static CQuat Mul(CQuat& left, CQuat& right);
 	static void ToMatrix(CQuat& quat, CMatrix& matrix);
 	static CQuat Exp(CQuat& quat, CPnt3D& point);
-	static void MakeYXZ(f32 x, f32 y, f32 z, CQuat& quat);
 
 	CPnt3D vec;
 	f32 w;
@@ -303,22 +315,63 @@ class CMatrix
 public:
 	static const CMatrix identity;
 
-	const float* operator[](const s32 row);
 public:
-	CMatrix();
+	/* __ct__7CMatrixFv (inline, emitted via zmath_matrix.h; 0x222460 calls sceVu0UnitMatrix(this)) */
+	CMatrix() { sceVu0UnitMatrix(m_matrix); }
 	CMatrix(f32 m00, f32 m01, f32 m02, f32 m03, f32 m10, f32 m11, f32 m12, f32 m13, f32 m20, f32 m21, f32 m22, f32 m23, f32 m30, f32 m31, f32 m32, f32 m33);
 
-	const float* GetTranslate() const;
+	/* __cl__7CMatrixCFUiUi (inline, 0x1e45f0): this + r * 16 + c * 4 */
+	const f32& operator()(u32 r, u32 c) const { return m_matrix[r][c]; }
 
-	void Transform(CPnt3D* point, s32 count);
-	void Multiply(const CMatrix* first, const CMatrix* second);
+	/* GetTranslate__7CMatrixCFv (inline, 0x233db0): this + 0x30 */
+	const float* GetTranslate() const { return m_matrix[3]; }
+
+	/* Transform__7CMatrixCFP6CPnt3Di (inline, 0x1eb350): p = row0*x + row1*y + row2*z + row3, in place */
+	void Transform(CPnt3D* points, s32 count) const
+	{
+		for (; count != 0; count--, points++)
+		{
+			f32 px = points->x, py = points->y, pz = points->z;
+			points->x = m_matrix[0][0] * px + m_matrix[1][0] * py + m_matrix[2][0] * pz + m_matrix[3][0];
+			points->y = m_matrix[0][1] * px + m_matrix[1][1] * py + m_matrix[2][1] * pz + m_matrix[3][1];
+			points->z = m_matrix[0][2] * px + m_matrix[1][2] * py + m_matrix[2][2] * pz + m_matrix[3][2];
+		}
+	}
+
+	/* Transform__7CMatrixCFPC6CPnt3DP6CPnt3Di (inline, 0x1f5ef0): as above, in -> out */
+	void Transform(const CPnt3D* in, CPnt3D* out, s32 count) const
+	{
+		for (; count != 0; count--, in++, out++)
+		{
+			f32 px = in->x, py = in->y, pz = in->z;
+			out->x = m_matrix[0][0] * px + m_matrix[1][0] * py + m_matrix[2][0] * pz + m_matrix[3][0];
+			out->y = m_matrix[0][1] * px + m_matrix[1][1] * py + m_matrix[2][1] * pz + m_matrix[3][1];
+			out->z = m_matrix[0][2] * px + m_matrix[1][2] * py + m_matrix[2][2] * pz + m_matrix[3][2];
+		}
+	}
+
+	/* Rotate__7CMatrixCFPC6CPnt3DP6CPnt3Di (inline, 0x1bd170): rows 0-2 only, in -> out */
+	void Rotate(const CPnt3D* in, CPnt3D* out, s32 count) const
+	{
+		for (; count != 0; count--, in++, out++)
+		{
+			f32 px = in->x, py = in->y, pz = in->z;
+			out->x = m_matrix[0][0] * px + m_matrix[1][0] * py + m_matrix[2][0] * pz;
+			out->y = m_matrix[0][1] * px + m_matrix[1][1] * py + m_matrix[2][1] * pz;
+			out->z = m_matrix[0][2] * px + m_matrix[1][2] * py + m_matrix[2][2] * pz;
+		}
+	}
+
+	/* Multiply__7CMatrixCFPC7CMatrixP7CMatrix (inline, 0x218de0): tail call sceVu0MulMatrix(out, other, this) */
+	void Multiply(const CMatrix* other, CMatrix* out) const
+	{
+		sceVu0MulMatrix(out->m_matrix, const_cast<float(*)[4]>(other->m_matrix), const_cast<float(*)[4]>(m_matrix));
+	}
 
 	void SetRotation(const CPnt3D* rotation);
 	void SetRows(const CPnt3D* first, const CPnt3D* second, const CPnt3D* third, const CPnt3D* fourth);
 	void SetZero();
 
-	void ToEuler(CPnt3D* p);
-	void ToQuat(CQuat* q);
 public:
 	f32 m_matrix[4][4];
 	/* @socom-skeleton decl 7CMatrix */

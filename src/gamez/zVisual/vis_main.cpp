@@ -232,6 +232,34 @@ static int node_index = -1;
 /* @socom-skeleton stub m_instance_count__8CVisBase */
 int CVisBase::m_instance_count;
 
+/* port: __ct__8CVisBaseFUib (0x30d470) - this unit defines it (owner annotation); body from the assembly */
+CVisBase::CVisBase(unsigned int size, bool external)
+{
+	if (!external && size != 0)
+		m_data_buffer = (_word128*)zmalloc(size);
+	else
+		m_data_buffer = NULL;
+
+	m_buffer_count = 0;
+	m_data_size = size;
+	m_instance_count++;
+	m_active = external;
+}
+
+/* port: __dt__8CVisBaseFv (0x30ddc0) - frees an owned buffer, then drops the instance count */
+CVisBase::~CVisBase()
+{
+	if (!m_active)
+	{
+		if (m_data_buffer != NULL)
+			zfree(m_data_buffer);
+
+		m_data_buffer = NULL;
+	}
+
+	m_instance_count--;
+}
+
 /* @socom-skeleton stub m_camera__Q23zdb7CVisual */
 namespace zdb {
 zdb::CCamera *CVisual::m_camera;
@@ -468,7 +496,7 @@ CVisual* CVisual::Create(zar::CZAR& archive)
 		switch (vtype)
 		{
 		case 2:
-			visual = new CSubMesh();
+			visual = new CSubMesh(NULL); /* port: 0x30e1e4 passes a1 = 0 */
 		case 1:
 			visual = new CMesh();
 		case 0:
@@ -732,7 +760,7 @@ namespace zdb {
 void CVisual::Render(CMatrix* transform)
 	{
 		// if (m_renderState != 0)
-			VuUpdate(transform, 1.0f);
+			VuUpdate(1.0f); /* port: 0x30c9ac calls VuUpdate__Q23zdb7CVisualFf with 1.0f */
 	}
 }
 
@@ -761,7 +789,7 @@ bool CVisual::GetChainData()
 namespace zdb {
 void CVisual::NodeSetup(CNode* node, CNode* other, CMatrix* matrix, s32 status)
 	{
-		m_modelToWorld = *matrix;
+		m_ModelToWorld = matrix; /* port: 0x30c6ec stores the pointer */
 		Vu0MatrixInverseWithUniformScale(&m_WorldToModel, matrix);
 		m_fovStatus = status;
 

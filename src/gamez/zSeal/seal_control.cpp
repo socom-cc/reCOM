@@ -143,7 +143,7 @@ unsigned char RumbleIsOn = 1;
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton body __ct__9CSealCtrlFv */
-CSealCtrl::CSealCtrl() : CEntityCtrl() {}
+CSealCtrl::CSealCtrl() : CEntityCtrl(3) {} /* ELF 0x288348: __ct__11CEntityCtrlFi(this, 3) */
 
 /* @socom-skeleton stub __dt__9CSealCtrlFv */
 CSealCtrl::~CSealCtrl()

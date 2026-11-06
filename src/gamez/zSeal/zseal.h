@@ -1424,17 +1424,16 @@ public:
 	~CSealCtrl();
 
 	virtual bool AllowCommand(CZSealBody* seal, FT_COMMAND command, void* buffer);
-	virtual bool CanDefuseBomb(CNodeAction* action) const;
-	virtual bool CanPlaceBomb(CNodeAction* action) const;
-	virtual bool CanPerformAction(CNodeAction* action) const;
+	/* port: provisional virtual CanDefuseBomb/CanPlaceBomb/CanPerformAction (const) and
+	   ComputeTurnThrottle(const CPnt3D &, const CPnt3D &, f32 &) removed: not in the ELF and not in
+	   __vt__9CSealCtrl; the ELF members are the non-virtual skeleton declarations below. */
 	virtual void ClearGoal(GOAL_TYPE type);
 	virtual void ClearLook(AI_LOOK look);
-	virtual bool ComputeTurnThrottle(const CPnt3D& velWorld, const CPnt3D& velLocal, f32& throttle);
 	// virtual float ComputeVisibility(zdb::DiIntersection* intersection, CTarget* target);
 
-	virtual bool IsAi() const;
-	virtual bool IsPlayer() const;
-	virtual bool IsRemote() const;
+	virtual bool IsAi() const { return false; } /* ELF 0x1fe1b0: move v0,zero */
+	virtual bool IsPlayer() const { return true; } /* ELF 0x1e8850: li v0,1 */
+	virtual bool IsRemote() const { return false; } /* ELF 0x1fe1c0: move v0,zero */
 
 	bool CreateAiEvent(CAiEvent::EVENT event, f32 expiration, f32 radius, bool flag, CPnt3D* position, s32 dummy);
 
@@ -1552,7 +1551,7 @@ public:
 	virtual void PostMortemPreTick(float);
 	virtual void OnDeath();
 	virtual void PlayAiSound(CHARACTER_SOUND);
-	virtual CSealCtrlAi * GetSealCtrlAi();
+	virtual CSealCtrlAi * GetSealCtrlAi() { return NULL; } /* ELF 0x1fd560: move v0,zero */
 	virtual void PostTick(float);
 	virtual void Initalize();
 	virtual void OnWeaponEvent(CZProjectile *, unsigned int, void *);
@@ -1563,10 +1562,10 @@ public:
 	virtual void ResetToInitialState();
 	virtual void OnMissionStart();
 	virtual void OnMissionEnd();
-	virtual void OnStateChange(SEAL_STATE, SEAL_STATE);
+	virtual void OnStateChange(SEAL_STATE, SEAL_STATE) {} /* ELF 0x1fe1d0: empty */
 	virtual void Dump();
-	virtual unsigned int GetAiNetState() const;
-	virtual void SetAiNetState(unsigned int);
+	virtual unsigned int GetAiNetState() const { return m_ai_net_state; } /* ELF 0x1fe1e0: lw v0,0xe4(a0) */
+	virtual void SetAiNetState(unsigned int state) { m_ai_net_state = state; } /* ELF 0x1fe1f0: sw a1,0xe4(a0) */
 	virtual void PerturbAimVector(CPnt3D *);
 	virtual void OnActionButton();
 	virtual void PerformCollisionActions();
@@ -1643,9 +1642,9 @@ public:
 	virtual void SetThrottle(unsigned int, float);
 	virtual void PlayAiSound(CHARACTER_SOUND);
 	virtual bool AllowCommand(CZSealBody *, FT_COMMAND, void *); /* port: an override returns its base's type */
-	virtual bool IsPlayer() const; /* port: base CSealCtrl::IsPlayer returns bool (DWARF fund_type 3) */
-	virtual bool IsAi() const; /* port: an override returns its base's type */
-	virtual CSealCtrlAi * GetSealCtrlAi();
+	virtual bool IsPlayer() const { return false; } /* port: base CSealCtrl::IsPlayer returns bool (DWARF fund_type 3); ELF 0x26c850: move v0,zero */
+	virtual bool IsAi() const { return true; } /* ELF 0x26c860: li v0,1 */
+	virtual CSealCtrlAi * GetSealCtrlAi() { return this; } /* ELF 0x26c830: move v0,a0 */
 	virtual void PostTick(float);
 	virtual void Initalize();
 	virtual void OnWeaponEvent(CZProjectile *, unsigned int, void *);
@@ -1671,7 +1670,7 @@ public:
 	virtual void UpdateViewCone();
 	virtual void OnSetTargetVisible(CTarget &, bool, zdb::DiIntersect *);
 	virtual void SetTarget(CTarget *);
-	virtual void GetJumpFlag() const;
+	virtual bool GetJumpFlag() const { return false; } /* ELF 0x26c840: move v0,zero; bool unproven */
 	static void AcquireDatabaseHandles();
 	static void ReleaseDatabaseHandles();
 	static void SetAiAccuracyAngle(float);
@@ -1801,7 +1800,7 @@ public:
 	virtual void OnSetHealth(float, float);
 	virtual void ResetToInitialState();
 	virtual void OnActionButton();
-	virtual void GetJumpFlag() const;
+	virtual bool GetJumpFlag() const { return false; } /* ELF 0x2e24a0: move v0,zero; bool unproven */
 	CSealCtrlSquirm();
 	/* @socom-skeleton end 15CSealCtrlSquirm */
 };
@@ -2090,7 +2089,7 @@ class CAiSCorpse : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *); /* port: an override returns its base's type */
-	virtual ~CAiSCorpse();
+	virtual ~CAiSCorpse() {}
 	void SetCorpse(CEntity *);
 };
 /* @socom-skeleton end 10CAiSCorpse */
@@ -2100,7 +2099,7 @@ class CAiSPickup : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *); /* port: an override returns its base's type */
-	virtual ~CAiSPickup();
+	virtual ~CAiSPickup() {}
 };
 /* @socom-skeleton end 10CAiSPickup */
 /* @socom-skeleton decl 10CAiSReload */
@@ -2109,8 +2108,8 @@ class CAiSReload : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *); /* port: an override returns its base's type */
-	virtual bool CanAttack() const; /* port: an override returns its base's type */
-	virtual ~CAiSReload();
+	virtual bool CanAttack() const { return false; } /* ELF: move v0,zero */
+	virtual ~CAiSReload() {}
 };
 /* @socom-skeleton end 10CAiSReload */
 /* @socom-skeleton decl 11CAiSUnknown */
@@ -2119,7 +2118,7 @@ class CAiSUnknown : public CAiState
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
 	virtual bool Tick(float, CSealCtrlAi *); /* port: an override returns its base's type */
-	virtual ~CAiSUnknown();
+	virtual ~CAiSUnknown() {}
 };
 /* @socom-skeleton end 11CAiSUnknown */
 /* @socom-skeleton decl 9CAiTarget */

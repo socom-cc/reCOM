@@ -1110,7 +1110,7 @@ public:
 	virtual ~CZSIScript();
 	virtual void Read(zar::CZAR &, int);
 	virtual short ReadLIP(zar::CZAR &, const char *, void *, int, void *);
-	virtual void SetTimeScale(float);
+	virtual void SetTimeScale(float scale) { m_tScale = scale; } /* SetTimeScale__10CZSIScriptFf (inline, 0x1de110): DWARF m_tScale +0xc */
 	CZSIScript();
 	CZSIScript(const char *);
 	void Share(CZSIScript *);
@@ -1477,8 +1477,8 @@ class CZAnimArg
 {
 public:
 	enum TYPE {}; /* port: unproven - enumerators and width unknown */
-	virtual ~CZAnimArg();
-	virtual void Copy(); /* port: unproven return type (derived Copy stubs are void) */
+	virtual ~CZAnimArg() {} /* __dt__9CZAnimArgFv (inline, 0x1cd910): empty body */
+	virtual void Copy() = 0; /* port: __vt__9CZAnimArg slot 1 is empty (pure); return type unproven (derived Copy stubs are void) */
 };
 /* @socom-skeleton decl 14CZAnimArgCharP */
 class CZAnimArgCharP : public CZAnimArg
@@ -1513,7 +1513,7 @@ public:
 class CZAnimArgNode : public CZAnimArg
 {
 public:
-	virtual ~CZAnimArgNode();
+	virtual ~CZAnimArgNode() {} /* port: stub (inline __dt__13CZAnimArgNodeFv) */
 	virtual void Copy();
 	CZAnimArgNode(CZAnimArg::TYPE, zdb::CNode *);
 };
@@ -1522,7 +1522,7 @@ public:
 class CZAnimArgPnt3D : public CZAnimArg
 {
 public:
-	virtual ~CZAnimArgPnt3D();
+	virtual ~CZAnimArgPnt3D() {} /* port: stub (inline __dt__14CZAnimArgPnt3DFv) */
 	virtual void Copy();
 	CZAnimArgPnt3D(CZAnimArg::TYPE, const CPnt3D *);
 };

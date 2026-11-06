@@ -47,7 +47,7 @@ COutput::COutput(const char* file, bool doLog)
 
 	if (file != NULL)
 	{
-		m_fileIO->Open(file);
+		m_fileIO->Open(file, 0x1a); /* port: 0x3043f8 passes 0x1a */
 	}
 }
 

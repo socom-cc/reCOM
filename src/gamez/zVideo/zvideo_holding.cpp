@@ -1,5 +1,7 @@
 /* Unbuilt holding file (stage 5 BD4): provisional code that owns no planned artifact, held here by order skeleton write. */
 
+#include "zvid.h"
+
 /* @socom-skeleton body lastRenderTime */
 /* held from src/gamez/zVideo/zvid_draw.cpp:5 */
 f32 lastRenderTime = 0.0f;

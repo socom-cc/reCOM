@@ -135,6 +135,11 @@ CZObjectiveList::CZObjectiveList()
 {
 }
 
+/* @socom-skeleton stub __dt__15CZObjectiveListFv */
+CZObjectiveList::~CZObjectiveList()
+{
+}
+
 /* @socom-skeleton stub AddObjective__15CZObjectiveListFRC20CMissionObjectiveCamf */
 unsigned char CZObjectiveList::AddObjective(const CMissionObjectiveCam &, float)
 {

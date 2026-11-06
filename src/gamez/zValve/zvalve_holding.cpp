@@ -1,8 +1,9 @@
 /* Unbuilt holding file (stage 5 BD4): provisional code that owns no planned artifact, held here by order skeleton write. */
+#include "gamez/zValve/zvalve.h"
 
 /* @socom-skeleton body Set__6CValveFi */
 /* held from src/gamez/zValve/valve_main.cpp:247 */
-bool CValve::Set(s32 value)
+bool CValve::Set(u32 value)
 {
 	VALVE_STATE state;
 

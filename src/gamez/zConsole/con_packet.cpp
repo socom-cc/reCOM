@@ -85,3 +85,8 @@ void CPacketMsg::GetArgCount() const
 void CPacketMsg::GetArg(unsigned int) const
 {
 }
+
+/* @socom-skeleton stub GetPacketMsg__10CPacketMsgFv */
+void CPacketMsg::GetPacketMsg() /* port: 0x1ed4f0 returns this; void is the skeleton placeholder */
+{
+}

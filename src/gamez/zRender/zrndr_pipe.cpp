@@ -236,12 +236,12 @@ u32 CPipe::RenderWorld(zdb::CWorld* world)
 
 	/* port: the binary (0x24481c-0x24488c) scales the fog colour by 255 (fptosi) into a
 	   u32[3], writes FOGCOL with SetGSReg(0x3d, r | g << 8 | b << 16), then calls
-	   zVid_ClearColor(u32*) - the only zVid_ClearColor symbol. The SetGSReg call is left
-	   out until zvid.h declares SetGSReg(short, u64) (SetGSReg__FsUl). */
+	   zVid_ClearColor(u32*) - the only zVid_ClearColor symbol. */
 	u32 color[3];
 	color[0] = (s32)(255.0f * world->m_camera->m_fog_color.x);
 	color[1] = (s32)(255.0f * world->m_camera->m_fog_color.y);
 	color[2] = (s32)(255.0f * world->m_camera->m_fog_color.z);
+	SetGSReg(0x3d, (u64)color[0] | ((u64)color[1] << 8) | ((u64)color[2] << 16)); /* port: 0x244864-0x244888 (FOGCOL) */
 	zVid_ClearColor(color);
 
 	zdb::CDecal::m_tempPool.RecycleTick();
@@ -288,6 +288,7 @@ u32 CPipe::RenderWorld(zdb::CWorld* world)
 	m_alpha.m_camera = m_camera;
 	m_drawCharacters = false;
 
+	static f32 bilinearDistance = 10000.0f; /* port: bilinearDistance$1749, guarded init to 0x461c4000 at 0x244a90 */
 	zdb::CVisual::m_adjustBilinearRange = bilinearDistance;
 
 	zdb::CGrid* grid = world->m_grid;

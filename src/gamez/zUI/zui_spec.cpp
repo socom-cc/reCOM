@@ -83,6 +83,11 @@ class CTextureRelocMgr;
 }
 /* @socom-skeleton end forward */
 
+/* @socom-skeleton stub GetType__12CCounterSpecFv */
+void CCounterSpec::GetType() /* port: stub, returns a type-name string in the ELF */
+{
+}
+
 /* @socom-skeleton stub LoadDlgObjects__22@unnamed@zui_spec_cpp@FPQ23std58vector<13CDesignDlgObj,Q23std26allocator<13CDesignDlgObj>>P5_zrdrPCcPFP5_zrdrPCc_P11CDlgObjSpec */
 namespace {
 void LoadDlgObjects(std::vector<CDesignDlgObj, std::allocator<CDesignDlgObj> > *, _zrdr *, const char *, CDlgObjSpec *(*)(_zrdr *, const char *))
@@ -102,6 +107,11 @@ void CImageSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 
 /* @socom-skeleton stub GetControlSpec__FP5_zrdrPCc */
 void GetControlSpec(_zrdr *, const char *)
+{
+}
+
+/* @socom-skeleton stub __ct__9CTextSpecFP5_zrdr */
+CTextSpec::CTextSpec(_zrdr* reader) : CDlgObjSpec(reader) /* port: stub; the field reads after the inlined base are not written */
 {
 }
 
@@ -366,5 +376,10 @@ void CClockSpec::Copy()
 
 /* @socom-skeleton stub CreateDisplayObj__10CClockSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
 void CClockSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+{
+}
+
+/* @socom-skeleton stub GetType__10CClockSpecFv */
+void CClockSpec::GetType() /* port: stub, returns a type-name string in the ELF */
 {
 }

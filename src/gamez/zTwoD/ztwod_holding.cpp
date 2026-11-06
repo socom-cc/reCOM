@@ -1,5 +1,14 @@
 /* Unbuilt holding file (stage 5 BD4): provisional code that owns no planned artifact, held here by order skeleton write. */
 
+#include "ztwod.h"
+#include "gamez/zVideo/zvid.h"
+#include "gamez/zCamera/zcam.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zTexture/ztex.h"
+#include "gamez/zInput/zinput.h"
+#include "gamez/zNode/node_assetlib.h"
+#include "gamez/zReader/zrdr.h"
+
 /* @socom-skeleton body __ct__9C2DBitmapFv */
 /* held from src/gamez/zTwoD/ztwod_bitmap.cpp:4 */
 C2DBitmap::C2DBitmap()
@@ -440,6 +449,12 @@ void C2D::Off()
 	m_on = false;
 }
 
+/* @socom-skeleton stub __dt__3C2DFv */
+/* port: stage-4 left 0x300d10 without an owner */
+C2D::~C2D()
+{
+}
+
 /* @socom-skeleton body Load__9C2DStringFPCcP10C2DTTFFontiiii */
 /* held from src/gamez/zTwoD/ztwod_string.cpp:85 */
 void C2DString::Load(const char* message, C2DTTFFont* font, s32 x, s32 y, s32 width, s32 height)
@@ -477,4 +492,10 @@ void C2DString::Load(f32 scale, const char* message, C2DTTFFont* font, s32 x, s3
 {
     m_scale = scale;
     Load(message, font, x, y);
+}
+
+/* @socom-skeleton stub __dt__7C2DLineFv */
+/* port: stage-4 left 0x2fe8e0 without an owner */
+C2DLine::~C2DLine()
+{
 }

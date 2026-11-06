@@ -1,5 +1,8 @@
 /* Unbuilt holding file (stage 5 BD4): provisional code that owns no planned artifact, held here by order skeleton write. */
 
+#include "znet.h"
+#include "gamez/zUI/zui.h"
+
 /* @socom-skeleton body g_bJoiningRandomGame */
 /* held from src/gamez/zNetwork/zNetMedius.cpp:6 */
 bool g_bJoiningRandomGame;

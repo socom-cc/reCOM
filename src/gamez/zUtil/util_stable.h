@@ -22,7 +22,6 @@ public:
 	void Destroy();
 
 	char* CreateString(const char* str);
-	char* FindString(const char* str);
 
 	/* Pack: the binary has only Pack__7CSTableFPFP7CSTablePv_vPv, declared below */
 

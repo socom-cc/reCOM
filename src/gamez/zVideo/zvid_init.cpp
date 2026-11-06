@@ -155,7 +155,7 @@ void zVid_Open()
 }
 
 /* @socom-skeleton stub SetGSReg__FsUl */
-void SetGSReg(short, unsigned long)
+void SetGSReg(short, u64) /* port: MW `unsigned long` is 64-bit; 0x308500 stores a1 with sd */
 {
 }
 

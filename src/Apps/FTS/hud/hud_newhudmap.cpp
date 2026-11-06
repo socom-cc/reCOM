@@ -160,6 +160,13 @@ COverlayLine::COverlayLine()
 }
 }
 
+/* @socom-skeleton stub __dt__Q227@unnamed@hud_newhudmap_cpp@12COverlayLineFv */
+namespace {
+COverlayLine::~COverlayLine()
+{
+}
+}
+
 /* @socom-skeleton stub SetupNorthIndicator__27@unnamed@hud_newhudmap_cpp@FP10CZSealBody */
 namespace {
 void SetupNorthIndicator(CZSealBody *)

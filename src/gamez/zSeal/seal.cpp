@@ -519,7 +519,7 @@ void SealInitCharacterDynamics()
     CRdrFile* dynamics = zrdr_read("dynamics.rdr");
     if (!theCharacterDynamics.m_loaded && dynamics)
     {
-        theCharacterDynamics.Load(dynamics);
+        theCharacterDynamics.Load(*dynamics); /* port: Load__17CharacterDynamicsFRC8CRdrFile */
         zrdr_free(dynamics);
     }
 

@@ -91,7 +91,6 @@ namespace zar
 		friend class CZAREditor;
 	public:
 		CKey();
-		CKey(char* name);
 		~CKey();
 
 		/* fixupKey: the binary has only fixupKey__Q23zar4CKeyFP7CSTablePv (CSTable*, void*), declared below */
@@ -99,9 +98,7 @@ namespace zar
 		CKey* InsertKey(CKey* key);
 		CKey* FindKey(const char* name);
 
-		bool Read(CZAR* file, CBufferIO* io, s64 offset);
 		bool Write(CZAR* archive);
-		bool Write(CZAR* archive, FILE* file);
 		
 		char* GetName() const
 		{
@@ -169,7 +166,6 @@ public:
 		/// <param name="count"> - The size of the archive.</param>
 		/// <param name="mode"> - The read mode.</param>
 		/// <returns>Whether or not the operation was successful.</returns>
-		bool ReOpen(s32 appver, s32 mode);
 
 		CKey* CreateKey(const char* name);
 
@@ -207,8 +203,6 @@ public:
 		/// <param name="key"> - The key to close.</param>
 		void CloseKey(CKey* key);
 
-		bool Insert(CKey* key, void* buf, size_t size);
-		CKey* Insert(const char* name, void* buf, size_t size);
 		CKey* Insert(const char* name, u32 value);
 		CKey* Insert(const char* name, s32 value);
 
@@ -226,10 +220,8 @@ public:
 		/// <param name="appver"> - The internal "FTS" version.</param>
 		/// <param name="mode"> - The file mode represented by a number.</param>
 		/// <returns>Whether or not the reading was successful.</returns>
-		bool ReadDirectory_V2(s32 appver, u32 mode);
 		
 		bool WriteDirectory();
-		bool WriteDirectory(FILE* file);
 
 		void SetFilename(const char* name);
 		size_t GetSize(const char* key);
@@ -241,7 +233,6 @@ public:
 		/// <param name="buf"> - The buffer that stores the bytes of the resource.</param>
 		/// <param name="size"> - The size of the resource.</param>
 		/// <returns>Whether or not the fetch was successful.</returns>
-		bool Fetch(CKey* key, void* buf, size_t size);
 
 		/// <summary>
 		/// Fetches a resource of arbitrary size, and fixes up the key so it can be added.
@@ -250,7 +241,6 @@ public:
 		/// <param name="callback"> - The fixup function pointer to call.</param>
 		/// <param name="buf"> - The buffer that will store the resource post-fixup.</param>
 		/// <returns>Whether or not the fetch was successful.</returns>
-		bool Fetch(const char* name, s32(*callback)(CZAR*, s32, void*), void* buf);
 
 		/// <summary>
 		/// Fetches a resource of an arbitrary size.
@@ -259,7 +249,6 @@ public:
 		/// <param name="buf"> - The buffer that stores the bytes of the resource.</param>
 		/// <param name="size"> - The size of the resource.</param>
 		/// <returns>Whether or not the fetch was successful.</returns>
-		bool Fetch(const char* name, void* buf, size_t size);
 
 		/// <summary>
 		/// Fetches a string.
@@ -301,7 +290,6 @@ public:
 		/// <returns>Whether or not the fetch was successful.</returns>
 		bool Fetch(const char* name, bool* buf);
 
-		bool FetchAll(s32(*callback)(CZAR*, char*, void*, s32, void*), void* buf);
 
 		/// Fetches a list of pointers.
 		/// @param key The key to fetch the list of pointers.
@@ -309,14 +297,10 @@ public:
 		/// @return Whether or not the fetch was successful.
 		bool FetchLIP(CKey* key, void** buf);
 
-		size_t FetchString(const char* name, char* buf, size_t length);
 
-		CKey* GetOpenKey() const;
 
 		void* ReleaseDataBuffer();
 
-		void Securify(void* buf, size_t size);
-		void Unsecurify(void* buf, size_t size);
 
 		char* m_filename;
 		CFileIO* m_pFileAlloc;

@@ -58,7 +58,7 @@ void CZNetwork::zNetInit()
 }
 
 /* @socom-skeleton stub IOPRebootHandler__FQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv */
-bool IOPRebootHandler(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *)
+static bool IOPRebootHandler(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *)
 {
 }
 

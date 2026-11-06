@@ -90,7 +90,7 @@ public:
 	CEntity(TYPE type, zdb::CNode* node);
 
 	static bool EntityIsValid(CEntity* entity);
-	static std::vector<CEntity*>& GetEntityList();
+	static CEntityList& GetEntityList(); /* DWARF: returns CEntityList& */
 	static void OpenRecycler(u32 index);
 	static CEntity* CreateRecycler();
 	
@@ -175,7 +175,7 @@ public:
 	/* @socom-skeleton decl 7CEntity */
 public:
 	virtual ~CEntity();
-	virtual CPnt3D * GetPosW() const;
+	virtual CPnt3D * GetPosW() const { return (CPnt3D *)&m_node->m_matrix.m_matrix[3][0]; } /* ELF 0x177290: lw v0,0x1c(a0); addiu v0,v0,0x30 */
 	virtual void PreTick(float);
 	virtual void Tick(float);
 	virtual void PostPreTick(float);
@@ -221,17 +221,17 @@ public:
 class CEntityCtrl
 {
 public:
-	CEntityCtrl();
-	~CEntityCtrl();
+	CEntityCtrl(s32 type); /* ELF __ct__11CEntityCtrlFi: CSealCtrl passes 3 (0x28834c); the body ignores it */
+	/* virtuals in __vt__11CEntityCtrl (0x471b80) order */
+	virtual ~CEntityCtrl();
 
-	virtual void PreTick(f32 delta);
-	virtual void Tick(f32 delta);
-	virtual void PostMortemPreTick(f32 delta);
+	virtual void PreTick(f32 delta); /* port: ELF 0x1f2040 returns 0; void kept (overrides in zSeal/zInput) */
+	virtual void Tick(f32 delta); /* port: ELF 0x1f2030 returns 0; void kept (overrides in zSeal/zInput) */
+	virtual void PostMortemPreTick(f32 delta) {} /* port: ELF 0x1f1fd0 returns 1; void kept (overrides in zSeal/zInput) */
 
-	virtual void SetThrottle(f32 throttle, s32 pad);
-	virtual void GetRemoteControl() const;
-
-	virtual void OnDeath();
+	virtual void OnDeath() {} /* ELF 0x1ee3c0: empty */
+	virtual void GetRemoteControl() {} /* ELF 0x1f1fe0 (non-const) returns 0; void kept (CRemoteCtrl override in zInput) */
+	virtual void SetThrottle(u32 index, f32 throttle) { m_throttle[index] = throttle; } /* ELF 0x1f1ff0: swc1 $f12,8+4*index(a0) */
 
 	CEntity* m_entity;
 	f32 m_throttle[3];

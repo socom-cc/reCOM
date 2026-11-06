@@ -69,6 +69,11 @@ CZMPBombMapItem::CZMPBombMapItem(zdb::CNode *)
 {
 }
 
+/* @socom-skeleton stub __dt__15CZMPBombMapItemFv */
+CZMPBombMapItem::~CZMPBombMapItem()
+{
+}
+
 /* @socom-skeleton stub Tick__15CZMPBombMapItemFP11CZNewHudMapf */
 bool CZMPBombMapItem::Tick(CZNewHudMap *, float)
 {

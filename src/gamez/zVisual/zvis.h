@@ -123,8 +123,8 @@ namespace zdb
 	class CVisData
 	{
 	public:
-		CVisData();
-		~CVisData();
+		CVisData() {} /* port: unproven - not in the ELF (inlined at its call sites) */
+		~CVisData() {} /* __dt__Q23zdb8CVisDataFv (inline, 0x231d80): empty body */
 
 		void Clear();
 		void NextVertex(u32 vertex);
@@ -181,7 +181,6 @@ public:
 		
 		bool DrawLOD(CLOD_band* lod, f32 range, f32* distance);
 		void Render(CMatrix* transform);
-		void VuUpdate(CMatrix* transform, f32 opacity);
 
 		void SetupShaders();
 
@@ -217,7 +216,6 @@ public:
 
 		static f32 m_GlobalLightScale;
 
-		static CMatrix m_modelToWorld;
 		static CMatrix m_WorldToModel;
 
 		static CCamera* m_camera;
@@ -266,7 +264,7 @@ public:
 		virtual void ComputeBBox(CBBox *);
 		virtual void UpdateCentroid();
 		virtual void Write(zar::CZAR &);
-		virtual void Get2DVisual();
+		virtual void Get2DVisual() {} /* Get2DVisual__Q23zdb7CVisualFv (inline, 0x1d0320) returns 0 (a C2DVisual *); void kept until zui.h's C2DVisual override changes */
 		static void Flush();
 		static _word128 * GetTextureSelectBlock(unsigned int, _word128 **, _word128 *, _word128 *);
 		static _word128 * GetTextureSelectBlock_ver2(unsigned int, _word128 **, _word128 *, _word128 *);
@@ -341,7 +339,6 @@ public:
 	class CSubMesh : public CMesh
 	{
 	public:
-		CSubMesh();
 		CSubMesh(CMesh* mesh);
 	
 		bool field4_0x4;

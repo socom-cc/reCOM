@@ -1348,7 +1348,7 @@ void CAiSPursue::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub GetStatus__10CAiSPursueCFv */
-void CAiSPursue::GetStatus() const
+const char * CAiSPursue::GetStatus() const
 {
 }
 

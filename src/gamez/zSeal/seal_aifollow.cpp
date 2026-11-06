@@ -88,7 +88,7 @@ void CAiSFollow::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub GetStatus__10CAiSFollowCFv */
-void CAiSFollow::GetStatus() const
+const char * CAiSFollow::GetStatus() const
 {
 }
 

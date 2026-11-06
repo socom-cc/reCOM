@@ -155,8 +155,9 @@ void CMemCard::chdir(const char *)
 }
 
 /* @socom-skeleton stub Open__10CMemCardIOFPCcUi */
-void CMemCardIO::Open(const char *, unsigned int)
+unsigned char CMemCardIO::Open(const char *, unsigned int)
 {
+	return 0; /* port: stub */
 }
 
 /* @socom-skeleton stub Close__10CMemCardIOFv */
@@ -175,8 +176,9 @@ size_t CMemCardIO::GetSize() const
 }
 
 /* @socom-skeleton stub ftell__10CMemCardIOCFv */
-void CMemCardIO::ftell() const
+int CMemCardIO::ftell() const
 {
+	return 0; /* port: stub */
 }
 
 /* @socom-skeleton stub fseek__10CMemCardIOFii */
@@ -190,13 +192,15 @@ size_t CMemCardIO::fread(int, void **)
 }
 
 /* @socom-skeleton stub fread__10CMemCardIOFPvi */
-void CMemCardIO::fread(void *, int)
+unsigned int CMemCardIO::fread(void *, int)
 {
+	return 0; /* port: stub */
 }
 
 /* @socom-skeleton stub fwrite__10CMemCardIOFPCvi */
-void CMemCardIO::fwrite(const void *, int)
+unsigned int CMemCardIO::fwrite(const void *, int)
 {
+	return 0; /* port: stub */
 }
 
 /* @socom-skeleton stub fflush__10CMemCardIOFv */

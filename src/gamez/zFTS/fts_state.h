@@ -120,7 +120,7 @@ private:
 	s32 m_iopregh;
 	/* @socom-skeleton decl 10CMenuState */
 public:
-	virtual ~CMenuState();
+	virtual ~CMenuState() {}
 	virtual void OnPush(int);
 	virtual void OnPop(int);
 	void SetSkipMenu(bool);
@@ -208,7 +208,7 @@ private:
 	void* m_menu;
 	/* @socom-skeleton decl 10CExitState */
 public:
-	virtual ~CExitState();
+	virtual ~CExitState() {}
 	CExitState();
 	/* @socom-skeleton end 10CExitState */
 };
@@ -232,7 +232,7 @@ private:
 	void* m_menu;
 	/* @socom-skeleton decl 12CMPExitState */
 public:
-	virtual ~CMPExitState();
+	virtual ~CMPExitState() {}
 	CMPExitState();
 	void LoadLibs();
 	/* @socom-skeleton end 12CMPExitState */

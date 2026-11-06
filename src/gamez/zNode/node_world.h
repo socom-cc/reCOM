@@ -26,7 +26,7 @@ namespace zdb
 
 		static s32 GetVersion();
 		static CModel* GetModel(const char* name);
-		static CTexHandle* GetTexHandle(char* name);
+		static CTexHandle* GetTexHandle(const char* name);
 
 		static void Init();
 		static void Uninit();

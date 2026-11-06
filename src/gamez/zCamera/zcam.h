@@ -177,7 +177,6 @@ namespace zdb
 
 		f32 GetScaledRangeSquared(const CPnt3D& point) { return 0.0f; }
 
-		bool TestLandmarkFOG(CPnt3D* pos, f32 radius);
 		bool CanSeeRegion(u32 mask);
 
 		void SetHalfHorizontalFOVRadians(f32 radians);
@@ -285,7 +284,6 @@ public:
 	void APFirstPersonCam(CMatrix& matrix);
 	void APTeatherCam(CMatrix& transform, float offset);
 	
-	void LookAt(CPnt3D* origin, CPnt3D* direction, CMatrix& mat);
 
 	void FTSTick(f32 delta);
 	void Tick(f32 dT);

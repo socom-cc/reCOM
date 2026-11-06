@@ -16,7 +16,7 @@ class CBody
 {
 public:
 	void SmoothAnims(f32 scale);
-	CZBodyPart* FindPart(const char* name);
+	/* port: provisional non-const FindPart removed; the ELF one is FindPart(const char *) const */
 	CZBodyPart* NewBodyPart(zdb::CNode* node, CZBodyPart* part); /* port: returns CZBodyPart* (Ghidra 0x1e34b0, skeleton stub) */
 	zdb::CNode& NullNode() const;
 protected:
@@ -88,7 +88,7 @@ private:
 public:
 	virtual ~CZBodyAnim();
 	virtual void SetTimeScale(float);
-	virtual void NullNode() const;
+	virtual s32 NullNode() const { return -1; } /* ELF 0x1df110: li v0,-1; return width unproven */
 	void SetCallbackIndex(int, int);
 	void GetCallbackIndex(int);
 	void Setup(int, float, float);

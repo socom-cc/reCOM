@@ -83,7 +83,7 @@ public:
 	// static bool CmdTickCmp(_zanim_cmd_hdr* header, float* delta);
 
 	static CValve* Create(const char* name, VALVE_TYPE type);
-	static CValve* Create(const char* name, s32 count, VALVE_TYPE type);
+	/* port: Create(const char *, s32, VALVE_TYPE) removed; the ELF one takes unsigned int (skeleton region) */
 	static void Destroy(CValve* valve);
 
 	static CValve* GetByName(const char* name);
@@ -99,7 +99,7 @@ public:
 	void MakeCallbacks(VALVE_STATE state);
 	void DeleteCallbacks();
 
-	bool Set(s32 value);
+	bool Set(u32 value); /* ELF: Set__6CValveFUi */
 
 	OP_TYPE ParseOperator(const char* op);
 
@@ -112,7 +112,7 @@ public:
 	CValveCBList m_callbacks;
 	/* @socom-skeleton decl 6CValve */
 public:
-	CValve * Create(const char *, unsigned int, VALVE_TYPE);
+	static CValve * Create(const char *, unsigned int, VALVE_TYPE); /* port: static (called as CValve::Create) */
 	static void Uninit();
 	static bool Parse(CRdrFile *, VALVE_TYPE); /* port: static; CValve::Open passes (file, type) in a0/a1 (0x2f667c) */
 	static bool CmdTickCmp(_zanim_cmd_hdr *, float *);

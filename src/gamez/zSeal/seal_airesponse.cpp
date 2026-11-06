@@ -211,7 +211,7 @@ bool CAiSEvent::CanPursue(CSealCtrlAi *) const
 }
 
 /* @socom-skeleton stub GetStatus__9CAiSEventCFv */
-void CAiSEvent::GetStatus() const
+const char * CAiSEvent::GetStatus() const
 {
 }
 
@@ -256,7 +256,7 @@ void CAiSPathRecover::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub GetStatus__15CAiSPathRecoverCFv */
-void CAiSPathRecover::GetStatus() const
+const char * CAiSPathRecover::GetStatus() const
 {
 }
 

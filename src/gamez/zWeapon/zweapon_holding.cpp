@@ -1,4 +1,5 @@
 /* Unbuilt holding file (stage 5 BD4): provisional code that owns no planned artifact, held here by order skeleton write. */
+#include "gamez/zWeapon/zweapon.h"
 
 /* @socom-skeleton body personMaterialId__4zwep */
 /* held from src/gamez/zWeapon/zwep_global.cpp:5 */

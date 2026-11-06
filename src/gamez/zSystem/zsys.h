@@ -32,12 +32,12 @@
 /// -------------------------------------------
 /// ALLOCATION MACROS
 /// -------------------------------------------
-#define zmalloc(size) __malloc(size, __FILE__, __LINE__)
-#define zcalloc(num, size) __calloc(num, size, __FILE__, __LINE__)
-#define zrealloc(ptr, new_size) __realloc(ptr, new_size, __FILE__, __LINE__)
-#define zmemalign(alignment, size) __memalign(alignment, size, __FILE__, __LINE__)
-#define zstrdup(str) __strdup(str, __FILE__, __LINE__)
-#define zfree(block) __free(block, __FILE__, __LINE__)
+#define zmalloc(size) _malloc(size, __FILE__, __LINE__)
+#define zcalloc(num, size) _calloc(num, size, __FILE__, __LINE__)
+#define zrealloc(ptr, new_size) _realloc(ptr, new_size, __FILE__, __LINE__)
+#define zmemalign(alignment, size) _memalign(alignment, size, __FILE__, __LINE__)
+#define zstrdup(str) _strdup(str, __FILE__, __LINE__)
+#define zfree(block) _free(block, __FILE__, __LINE__)
 /* @socom-skeleton decl forward */
 class CPacket;
 /* @socom-skeleton end forward */
@@ -59,18 +59,19 @@ typedef bool(*ScheduledTask)(float, void*);
 void zVid_Assert(bool condition, unsigned int mask, char* source, int line); /* zVid_Assert__FbUiPci */
 
 void* operator new(size_t size);
-void* __malloc(size_t size, const char* file, int line);
-void* __calloc(size_t num, size_t size, const char* file, int line);
-void* __realloc(void* ptr, size_t new_size, const char* file, int line);
-void* __memalign(size_t alignment, size_t size, const char* file, int line);
-char* __strdup(const char* str, const char* file, int line);
-void __free(void* block, const char* file, int line);
+void* _malloc(size_t size, const char* file, int line);
+void* _calloc(size_t num, size_t size, const char* file, int line);
+void* _realloc(void* ptr, size_t new_size, const char* file, int line);
+void* _memalign(size_t alignment, size_t size, const char* file, int line);
+char* _strdup(const char* str, const char* file, int line);
+void _free(void* block, const char* file, int line);
+/* port: transitional - Apps/FTS/main.cpp operator new still calls __malloc; remove once it calls _malloc */
+inline void* __malloc(size_t size, const char* file, int line) { return _malloc(size, file, line); }
 
 extern CSched_Manager zTaskScheduler;
-extern size_t _HeapSize;
+extern size_t __HeapSize; /* C name __HeapSize */
 extern _zsys_public zSys;
 extern CTTY theTerminal;
-extern bool postinit;
 /* postinited is file-local in zsys_init.cpp (LOCAL symbol) */
 extern char gamez_GameRoot[256];
 extern char gamez_GameRunPath[256];
@@ -97,7 +98,6 @@ void zSysFifoKick(_word128* packet, u32 qwc);
 void zSysFifoEnd();
 
 size_t zsys_FullAllocAndFree();
-long128* zsys_AllocScratchpad();
 
 struct four
 {
@@ -114,10 +114,18 @@ template<typename T>
 class _zmalloc
 {
 public:
-	_zmalloc(size_t count);
-	~_zmalloc();
+	/* __ct__15_zmalloc<4four>FUi (0x141830) / __ct__17_zmalloc<6twelve>FUi (0x1418f0); the ELF has no destructor */
+	_zmalloc(size_t count)
+	{
+		m_bytes = sizeof(T);
+		m_size = count;
+		m_count = 0;
+		m_peak = 0;
+		m_overflow = 0;
+		init_page();
+	}
 
-	void init_page();
+	void init_page() {} /* port: stub (init_page__15_zmalloc<4four>Fv) */
 	T* acquire(size_t size);
 	bool release(T* page);
 private:

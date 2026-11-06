@@ -81,6 +81,91 @@ class CTextureRelocMgr;
 }
 /* @socom-skeleton end forward */
 
+/* @socom-skeleton stub GetType__11CScrollSpecFv */
+void CScrollSpec::GetType() /* port: stub, returns a type-name string in the ELF */
+{
+}
+
+/* @socom-skeleton stub __dt__11CScrollSpecFv */
+CScrollSpec::~CScrollSpec()
+{
+}
+
+/* @socom-skeleton stub GetChild__18CHandlerButtonSpecCFi */
+void CHandlerButtonSpec::GetChild(int) const /* port: stub, returns a child spec pointer in the ELF */
+{
+}
+
+/* @socom-skeleton stub NumChildren__18CHandlerButtonSpecCFv */
+void CHandlerButtonSpec::NumChildren() const /* port: stub, returns int in the ELF */
+{
+}
+
+/* @socom-skeleton stub GetType__18CHandlerButtonSpecFv */
+void CHandlerButtonSpec::GetType() /* port: stub, returns a type-name string in the ELF */
+{
+}
+
+/* @socom-skeleton stub GetType__14CUIListBoxSpecFv */
+void CUIListBoxSpec::GetType() /* port: stub, returns a type-name string in the ELF */
+{
+}
+
+/* @socom-skeleton stub __dt__14CUIListBoxSpecFv */
+CUIListBoxSpec::~CUIListBoxSpec()
+{
+}
+
+/* @socom-skeleton stub GetType__14CSliderBarSpecFv */
+void CSliderBarSpec::GetType() /* port: stub, returns a type-name string in the ELF */
+{
+}
+
+/* @socom-skeleton stub __dt__14CSliderBarSpecFv */
+CSliderBarSpec::~CSliderBarSpec()
+{
+}
+
+/* @socom-skeleton stub GetType__13CCheckBoxSpecFv */
+void CCheckBoxSpec::GetType() /* port: stub, returns a type-name string in the ELF */
+{
+}
+
+/* @socom-skeleton stub __dt__13CCheckBoxSpecFv */
+CCheckBoxSpec::~CCheckBoxSpec()
+{
+}
+
+/* @socom-skeleton stub GetType__16CCycleButtonSpecFv */
+void CCycleButtonSpec::GetType() /* port: stub, returns a type-name string in the ELF */
+{
+}
+
+/* @socom-skeleton stub __dt__16CCycleButtonSpecFv */
+CCycleButtonSpec::~CCycleButtonSpec()
+{
+}
+
+/* @socom-skeleton stub GetType__15CRadioStripSpecFv */
+void CRadioStripSpec::GetType() /* port: stub, returns a type-name string in the ELF */
+{
+}
+
+/* @socom-skeleton stub GetChild__15CRadioStripSpecCFi */
+void CRadioStripSpec::GetChild(int) const /* port: stub, returns a child spec pointer in the ELF */
+{
+}
+
+/* @socom-skeleton stub NumChildren__15CRadioStripSpecCFv */
+void CRadioStripSpec::NumChildren() const /* port: stub, returns int in the ELF */
+{
+}
+
+/* @socom-skeleton stub HasChildren__15CRadioStripSpecCFv */
+void CRadioStripSpec::HasChildren() const /* port: stub, returns bool in the ELF */
+{
+}
+
 /* @socom-skeleton stub __dt__10ActionItemFv */
 ActionItem::~ActionItem()
 {
@@ -143,6 +228,11 @@ void CScrollSpec::Copy()
 
 /* @socom-skeleton stub CreateDisplayObj__11CScrollSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
 void CScrollSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+{
+}
+
+/* @socom-skeleton stub HasChildren__18CHandlerButtonSpecCFv */
+void CHandlerButtonSpec::HasChildren() const /* port: stub, returns bool in the ELF */
 {
 }
 
@@ -255,5 +345,15 @@ CUIVariableSpec::CUIVariableSpec(CUIVariableSpec *)
 
 /* @socom-skeleton stub __dt__15CUIVariableSpecFv */
 CUIVariableSpec::~CUIVariableSpec()
+{
+}
+
+/* @socom-skeleton stub GetType__14CUIMapCtrlSpecFv */
+void CUIMapCtrlSpec::GetType() /* port: stub, returns a type-name string in the ELF */
+{
+}
+
+/* @socom-skeleton stub __dt__14CUIMapCtrlSpecFv */
+CUIMapCtrlSpec::~CUIMapCtrlSpec()
 {
 }

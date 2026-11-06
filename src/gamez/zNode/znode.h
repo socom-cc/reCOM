@@ -85,9 +85,11 @@ struct _cellData
 	u32 offColor[2];
 };
 
+/* numNodes is a global C name in the ELF (stub in node_main.cpp) */
+extern int numNodes;
+
 namespace zdb
 {
-	extern u32 numNodes;
 
 	extern CNodeUniverse* NodeUniverse;
 	extern CWorld* theWorld;
@@ -152,9 +154,9 @@ namespace zdb
 	class CNodeVector : public std::vector<CNode*>
 	{
 	public:
-		bool Exists(const CNode* node) const;
+		bool Exists(const CNode* node);
 		bool Remove(const CNode* node);
-		CNode* GetNode(const char* name) const;
+		CNode* GetNode(const char* name);
 	};
 
 	class CNode : public tag_NODE_PARAMS
@@ -193,8 +195,6 @@ namespace zdb
 		static CNode* Read(CSaveLoad& sload, CNode* node);
 		virtual bool Read(CSaveLoad& sload);
 		bool ReadDataBegin(CSaveLoad& sload);
-		CNode* Copy();
-		CNode* _Copy(CNode* other);
 		bool Delete();
 		
 		void AddChild(CNode* child);
@@ -215,7 +215,6 @@ namespace zdb
 
 		CMatrix& BuildMTW(CMatrix& mat);
 
-		void ReserveChildren(size_t size);
 		void ReserveDI(size_t size);
 		void ReserveVisuals(size_t size);
 
@@ -245,7 +244,6 @@ namespace zdb
 		void SetScale(f32 scaleFactor);
 		void SetScale(CPnt3D* scale);
 
-		void TransformToWorld(const CPnt3D& point);
 		
 		CPnt3D* GetRotation(const CPnt3D* rotation) const;
 		CPnt3D* GetScale(CPnt3D* scale) const;
@@ -254,7 +252,7 @@ namespace zdb
 		f32 GetRadius() const;
 		f32 GetRadiusSq() const;
 
-		CBBox* GetBBox();
+		CBBox* GetBBox() const;
 		
 		CMesh* GetMesh() const;
 		CSubMesh* GetSubMesh() const { return NULL; }
@@ -292,7 +290,7 @@ public:
 		virtual ~CNode();
 		virtual zdb::CNode * _Copy(zdb::CNode *) const;
 		virtual void ReserveChildren(int);
-		virtual unsigned char IsCell();
+		virtual unsigned char IsCell() { return 0; } /* IsCell__Q23zdb5CNodeFv (inline, 0x1e44a0) */
 		virtual CBBox * UpdateBBox(bool);
 		virtual CBBox * UpdateBBoxFromDI(bool);
 		void TransformToWorld(CPnt3D &) const;

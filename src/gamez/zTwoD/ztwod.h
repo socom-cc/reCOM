@@ -142,13 +142,14 @@ public:
 	virtual void SetUseFrameBufferAlpha(bool enable);
 	virtual void SetMapOffset(s32 x, s32 y) {}
 
-	void Enable(bool enable);
-	void On();
-	void Off();
+	/* port: Enable/On/Off/CanHandleInput/SetCanHandleInput are virtual: C2D slots in __vt__9CPlainBmp (0x4739e0) */
+	virtual void Enable(bool enable);
+	virtual void On();
+	virtual void Off();
 	
 	bool IsOn() const;
-	bool CanHandleInput();
-	void SetCanHandleInput(bool enable);
+	virtual bool CanHandleInput();
+	virtual void SetCanHandleInput(bool enable);
 
 	CUIVariable* m_uivar;
 
@@ -164,7 +165,7 @@ public:
 	/* @socom-skeleton decl 3C2D */
 public:
 	virtual ~C2D();
-	virtual int GetZAnimCmdType(const char *);
+	virtual int GetZAnimCmdType(const char *) { return 0; } /* port: stub; 0x174b10 tail-calls GetUICommandType__FPCc with a0 = 0 */
 	/* @socom-skeleton end 3C2D */
 };
 
@@ -214,8 +215,8 @@ private:
 	s32 m_iHeight;
 	/* @socom-skeleton decl 9C2DBitmap */
 public:
-	virtual ~C2DBitmap();
-	virtual void GetAssetLibs(C2D::CLibList &);
+	virtual ~C2DBitmap() {}
+	virtual void GetAssetLibs(C2D::CLibList &) {} /* port: stub; 0x1748a0 adds m_pTexHandle->m_texture->m_AssetLib if absent, then walks the children */
 	/* @socom-skeleton end 9C2DBitmap */
 };
 
@@ -240,8 +241,8 @@ public:
 	zdb::CTexture* m_texture;
 	/* @socom-skeleton decl 7C2DPoly */
 public:
-	virtual ~C2DPoly();
-	virtual void GetAssetLibs(C2D::CLibList &);
+	virtual ~C2DPoly() {}
+	virtual void GetAssetLibs(C2D::CLibList &) {} /* port: stub; 0x3019d0 adds m_texture->m_AssetLib if absent, then walks the children */
 	void GetColor();
 	float GetTrans();
 	void SetPos(float, float, float, float, float, float);
@@ -267,9 +268,9 @@ public:
 	zdb::CTexture* m_texture;
 	/* @socom-skeleton decl 13C2DBitmapPoly */
 public:
-	virtual ~C2DBitmapPoly();
+	virtual ~C2DBitmapPoly() {}
 	virtual void SetUseFrameBufferAlpha(bool);
-	virtual void GetAssetLibs(C2D::CLibList &);
+	virtual void GetAssetLibs(C2D::CLibList &) {} /* port: stub; 0x2fd190 adds m_texture->m_AssetLib if absent, then walks the children */
 	C2DBitmapPoly();
 	void SetPos(float, float, float, float, float, float, float, float);
 	void SetCenterPos(PNT2D, float, float);
@@ -290,12 +291,12 @@ public:
 	CPlainBmp() {}
 	/* @socom-skeleton decl 9CPlainBmp */
 public:
-	virtual ~CPlainBmp();
-	virtual void Draw(zdb::CCamera *);
+	virtual ~CPlainBmp() {}
+	virtual void Draw(zdb::CCamera *) {} /* port: stub; 0x393820 tail-calls C2DBitmap::Draw (DWARF: CPlainBmp bases are C2DBitmap @0 and UIVarMixin @0x80, not C2D) */
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual void Tick(float);
-	virtual void SetMapOffset(int, int);
-	virtual void UpdateUIVar(CUIVariable *);
+	virtual void SetMapOffset(int, int) {} /* port: stub; 0x393800 calls C2DBitmap::SetPos(x, y, x + m_iWidth, y + m_iHeight) */
+	virtual void UpdateUIVar(CUIVariable *) {}
 	void LoadSpec(const CImageSpec &, zdb::CTexHandle *);
 	/* @socom-skeleton end 9CPlainBmp */
 };
@@ -358,14 +359,14 @@ public:
 	/* @socom-skeleton decl 9C2DString */
 public:
 	virtual ~C2DString();
-	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
+	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *) {}
 	virtual void Off();
 	virtual void On();
-	virtual void SetTrans(float);
+	virtual void SetTrans(float trans) { m_color.w = trans; } /* 0x17bfa0: swc1 f12,0x5c(a0) */
 	virtual void Tick(float);
 	virtual void Format(const char *, ...);
-	virtual char * GetString();
-	virtual float GetSpacing();
+	virtual char * GetString() { return m_string; } /* 0x201260 */
+	virtual float GetSpacing() { return 0.0f; } /* 0x201280 */
 	virtual void ClearAndWipe();
 	void Draw(zdb::CTextureRelocMgr *, zdb::CCamera *, float);
 	void MakePacket(zdb::CTextureRelocMgr *, int);
@@ -381,7 +382,7 @@ class C2DMessageString : public C2D
 
 	/* @socom-skeleton decl 16C2DMessageString */
 public:
-	virtual ~C2DMessageString();
+	virtual ~C2DMessageString() {}
 	virtual void Tick(float);
 	virtual void SetString(const char *);
 	/* @socom-skeleton end 16C2DMessageString */
@@ -418,7 +419,7 @@ class C2DOrderItem : public C2DBitmap
 	bool m_bArrow;
 	/* @socom-skeleton decl 12C2DOrderItem */
 public:
-	virtual ~C2DOrderItem();
+	virtual ~C2DOrderItem() {} /* 0x1747e0, emitted from orders.h */
 	virtual void Draw(zdb::CCamera *);
 	virtual void SetTrans(float);
 	virtual void Tick(float);
@@ -444,7 +445,7 @@ class PoseBitmap : public C2DBitmap
 	f32 m_trans;
 	/* @socom-skeleton decl 10PoseBitmap */
 public:
-	virtual ~PoseBitmap();
+	virtual ~PoseBitmap() {}
 	virtual void Draw(zdb::CCamera *);
 	virtual void Tick(float);
 	PoseBitmap();
@@ -488,7 +489,7 @@ public:
 	f32 m_scale_factor;
 	/* @socom-skeleton decl 7C2DFont */
 public:
-	virtual void GetAssetLibs(C2D::CLibList &);
+	virtual void GetAssetLibs(C2D::CLibList &) {} /* port: stub; 0x2ff490 adds the font texture's asset lib if absent */
 	void SetXSpacing(float);
 	/* @socom-skeleton end 7C2DFont */
 };
@@ -565,7 +566,7 @@ public:
 	bool _bCaptionCentered;
 	/* @socom-skeleton decl 13C3StateButton */
 public:
-	virtual ~C3StateButton();
+	virtual ~C3StateButton() {}
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual void Tick(float);
 	/* @socom-skeleton end 13C3StateButton */
@@ -605,15 +606,15 @@ public:
 	virtual ~C2DButton();
 	virtual void Tick(float);
 	virtual bool HandlePad(const CPad *, int);
-	virtual void SetCanHandleInput(bool);
+	virtual void SetCanHandleInput(bool) {} /* port: stub (0x393840) */
 	virtual void SetActive();
-	virtual void SetNormal();
+	virtual void SetNormal() {} /* port: stub (0x387ad0) */
 	virtual C2DAnimCmdHdr * ParseZAnimCmd(_zrdr *);
 	virtual bool TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
 	virtual int GetZAnimCmdType(const char *);
-	virtual void SetBackgroundAlpha(float);
-	virtual void SetPressed();
-	virtual void DrawBackground(const CMatrix &, zdb::CTextureRelocMgr *);
+	virtual void SetBackgroundAlpha(float alpha) { _bmp.SetTrans(128.0f * alpha); } /* 0x393a00 */
+	virtual void SetPressed() {} /* port: stub (0x389d20) */
+	virtual void DrawBackground(const CMatrix &, zdb::CTextureRelocMgr *) {} /* port: stub (0x393940) */
 	C2DButton();
 	void LoadSpec(const CButtonSpec &);
 	/* @socom-skeleton end 9C2DButton */

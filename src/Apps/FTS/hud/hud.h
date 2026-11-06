@@ -122,7 +122,7 @@ public:
 	f32 m_curpos;
 	/* @socom-skeleton decl 10CLetterBox */
 public:
-	virtual ~CLetterBox();
+	virtual ~CLetterBox() {}
 	/* @socom-skeleton end 10CLetterBox */
 };
 
@@ -144,7 +144,7 @@ private:
 	f32 m_min_brightness;
 	/* @socom-skeleton decl 6CFader */
 public:
-	virtual ~CFader();
+	virtual ~CFader() {}
 	virtual void Tick(float);
 	CFader();
 	void FadeIn(float);
@@ -184,7 +184,7 @@ private:
 	f32 m_LightNodeOpacityRange;
 	/* @socom-skeleton decl 18CLensFlareSaturate */
 public:
-	virtual ~CLensFlareSaturate();
+	virtual ~CLensFlareSaturate() {}
 	virtual void Tick(float);
 	CLensFlareSaturate();
 	void LoadRdr(const char *);
@@ -388,7 +388,7 @@ private:
 	s32 m_cursound;
 	/* @socom-skeleton decl 10CWeaponSel */
 public:
-	virtual ~CWeaponSel();
+	virtual ~CWeaponSel() {}
 	CWeaponSel();
 	void Init(zdb::CWorld *, C2DFont *);
 	void UnInit();
@@ -483,7 +483,7 @@ private:
 	EQUIP_ITEM m_selected_item_index[6];
 	/* @socom-skeleton decl 16CInGameWeaponSel */
 public:
-	virtual ~CInGameWeaponSel();
+	virtual ~CInGameWeaponSel() {}
 	CInGameWeaponSel();
 	void Init(zdb::CWorld *, C2DFont *);
 	void UnInit();
@@ -532,7 +532,7 @@ private:
 	C2DBitmap m_healthdot[4];
 	/* @socom-skeleton decl 10CTeamNames */
 public:
-	virtual ~CTeamNames();
+	virtual ~CTeamNames() {}
 	virtual void Tick(float);
 	CTeamNames();
 	void SetOpacity(float);
@@ -642,7 +642,7 @@ private:
 	f32 xMargin;
 	/* @socom-skeleton decl 14CTeamMateNames */
 public:
-	virtual ~CTeamMateNames();
+	virtual ~CTeamMateNames() {}
 	virtual void Tick(float);
 	void Init(C2DFont *);
 	void UnInit();
@@ -684,7 +684,7 @@ public:
 	CSnd* m_scrolldownsound;
 	/* @socom-skeleton decl 11CZPauseTest */
 public:
-	virtual ~CZPauseTest();
+	virtual ~CZPauseTest() {}
 	virtual void Off();
 	virtual void On();
 	void HandleSelectionInput(const CPad &);
@@ -757,7 +757,7 @@ public:
 	C2DString m_enemy_name;
 	/* @socom-skeleton decl 14BitmapReticule */
 public:
-	virtual ~BitmapReticule();
+	virtual ~BitmapReticule() {}
 	virtual void Draw(zdb::CCamera *);
 	virtual void Off();
 	virtual void On();
@@ -791,7 +791,7 @@ private:
 	CHUD* m_parent;
 	/* @socom-skeleton decl 14CZActionBitmap */
 public:
-	virtual ~CZActionBitmap();
+	virtual ~CZActionBitmap() {}
 	void Init(CHUD *, C2DFont *);
 	void UnInit();
 	void HudTick(MENU_STATE);
@@ -809,7 +809,7 @@ private:
 	CHUD* m_pParent;
 	/* @socom-skeleton decl 19CZStaticRadioBitmap */
 public:
-	virtual ~CZStaticRadioBitmap();
+	virtual ~CZStaticRadioBitmap() {}
 	void Init(CHUD *);
 	void HudTick(MENU_STATE);
 	/* @socom-skeleton end 19CZStaticRadioBitmap */
@@ -823,7 +823,7 @@ private:
 	CHUD* m_pParent;
 	/* @socom-skeleton decl 20CZDynamicRadioBitmap */
 public:
-	virtual ~CZDynamicRadioBitmap();
+	virtual ~CZDynamicRadioBitmap() {}
 	void Init(CHUD *);
 	void HudTick(MENU_STATE);
 	/* @socom-skeleton end 20CZDynamicRadioBitmap */
@@ -1117,7 +1117,7 @@ public:
 class CZLineMap : public CZMapItem
 {
 public:
-	virtual ~CZLineMap();
+	virtual ~CZLineMap() {}
 	virtual bool Tick(CZNewHudMap *, float);
 	virtual void Draw(zdb::CCamera *);
 	virtual void Clip(CZNewHudMap *);

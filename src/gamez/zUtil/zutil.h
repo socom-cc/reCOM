@@ -105,16 +105,17 @@ public:
 class CMemCardIO : public CIO
 {
 public:
-	virtual void Open(const char *, unsigned int);
+	/* port: return types follow the CIO slots (__vt__10CMemCardIO 0x472e50) */
+	virtual unsigned char Open(const char *, unsigned int = 1);
 	virtual void Close();
 	virtual bool IsOpen() const;
 	virtual size_t GetSize() const;
-	virtual unsigned int GetMode() const;
-	virtual void ftell() const;
+	virtual unsigned int GetMode() const { return m_mode; } /* GetMode__10CMemCardIOCFv (inline, 0x306860): +0x14 */
+	virtual int ftell() const;
 	virtual size_t fseek(int, int);
-	virtual void fread(void *, int);
+	virtual unsigned int fread(void *, int);
 	virtual size_t fread(int, void **);
-	virtual void fwrite(const void *, int);
+	virtual unsigned int fwrite(const void *, int);
 	virtual void fflush();
 };
 /* @socom-skeleton end 10CMemCardIO */

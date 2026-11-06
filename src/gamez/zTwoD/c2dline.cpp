@@ -97,3 +97,8 @@ void clip3DLine(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *)
 void clip3DLine(CPnt4D *, CPnt4D *, CPnt4D *)
 {
 }
+
+/* @socom-skeleton stub GetAssetLibs__7C2DLineFRQ23C2D8CLibList */
+void C2DLine::GetAssetLibs(C2D::CLibList &) /* port: stub */
+{
+}

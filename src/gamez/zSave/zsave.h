@@ -49,7 +49,7 @@ public:
 	CSaveModule(const char*, CSaveManager*);
 
 	bool SaveRdr(const char*, CRdrFile*);
-	bool TestFlags(const s32 flags);
+	/* port: provisional non-const TestFlags(s32) removed; the ELF one is the const virtual below */
 
 	void UnSerialize(const char*, zar::CZAR*, s32);
 	void UnSerialize(const char*, CRdrFile*, s32);
@@ -62,7 +62,7 @@ public:
 	/* @socom-skeleton decl 11CSaveModule */
 public:
 	virtual ~CSaveModule();
-	virtual unsigned char TestFlags(int) const;
+	virtual unsigned char TestFlags(int flags) const { return flags == m_Flags ? 1 : (flags & m_Flags) != 0; } /* ELF 0x1f2580: m_Flags at +0x10 */
 	/* @socom-skeleton end 11CSaveModule */
 };
 #endif

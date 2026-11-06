@@ -63,8 +63,8 @@ extern CVehicleRdrEntry* _dest;
 class CTurret
 {
 public:
-	virtual ~CTurret();
-	virtual void GetPosW() const;
+	virtual ~CTurret() {}
+	virtual void GetPosW() const {} /* port: stub; ELF 0x37cfc0 returns this + 0x290 (CPnt3D * member unproven) */
 	virtual void PreTick(float);
 	virtual void Tick(float);
 	virtual void PostTick(float);

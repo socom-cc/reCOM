@@ -37,7 +37,7 @@
 /* @socom-skeleton end include */
 
 /* @socom-skeleton body zrdr_tobool__FPC5_zrdrPb */
-unsigned char zrdr_tobool(const _zrdr *reader, bool *output)
+bool zrdr_tobool(const _zrdr *reader, bool *output)
 {
 	if (!reader)
 		return false;
@@ -133,7 +133,7 @@ bool zrdr_toREAL(const _zrdr *reader, float *output, int size)
 }
 
 /* @socom-skeleton body zrdr_findSTRING__FPC5_zrdrPCcPPCc */
-unsigned char zrdr_findSTRING(const _zrdr *reader, const char *name, const char **list)
+bool zrdr_findSTRING(const _zrdr *reader, const char *name, const char **list)
 {
 	auto tag = zrdr_findtag_startidx(reader, name, 1);
 
@@ -236,7 +236,7 @@ void zrdr_findIPNT2D(const _zrdr *, const char *, IPNT2D *)
 }
 
 /* @socom-skeleton body zrdr_findbool__FPC5_zrdrPCcPb */
-unsigned char zrdr_findbool(const _zrdr *reader, const char *tag, bool *output)
+bool zrdr_findbool(const _zrdr *reader, const char *tag, bool *output)
 {
 	_zrdr* rdr = zrdr_findtag_startidx(reader, tag, 1);
 	return zrdr_tobool(rdr, output);
@@ -432,7 +432,7 @@ CRdrFile* CRdrFile::Load(zar::CZAR* archive, zar::CKey* key)
 
 	void* zrdr_buf = zmalloc(keySize);
 
-	if (!archive->Fetch(key, zrdr_buf, keySize))
+	if (!archive->Fetch(key, zrdr_buf, keySize, 0)) /* port: 4th argument 0 (0x23c274) */
 		return NULL;
 
 	CRdrFile* rdrFile = new CRdrFile();

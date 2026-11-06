@@ -1,4 +1,6 @@
 /* Unbuilt holding file (stage 5 BD4): provisional code that owns no planned artifact, held here by order skeleton write. */
+#include "gamez/zGame/zgame.h"
+#include "gamez/zRender/zrender.h"
 
 /* @socom-skeleton body Draw2DOnly__9CGameMenuFv */
 /* held from src/gamez/zGame/game_main.cpp:83 */

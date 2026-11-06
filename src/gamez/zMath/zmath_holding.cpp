@@ -2,6 +2,8 @@
 
 /* @socom-skeleton body MakeYXZ__5CQuatFfffR5CQuat */
 /* held from src/gamez/zMath/zmath_main.cpp:96 */
+/* port: not in the ELF (only MakeYXZRot__5CQuatFfff, zmath_main.cpp); nothing calls it */
+#if 0
 void CQuat::MakeYXZ(f32 x, f32 y, f32 z, CQuat& out)
 {
 	f32 halfX = x * 0.5f;
@@ -23,30 +25,42 @@ void CQuat::MakeYXZ(f32 x, f32 y, f32 z, CQuat& out)
 	out.vec.y = sinHalfX * zCos - halfX * sinHalfY * zSin;
 	out.vec.z = halfX * halfY * zSin - zMul * zCos;
 }
+#endif
 
 /* @socom-skeleton body __ct__7CMatrixFv */
 /* held from src/gamez/zMath/zmath_matrix.cpp:3 */
+/* port: inline in zmath.h (0x222460 calls sceVu0UnitMatrix) */
+#if 0
 CMatrix::CMatrix()
 {
 	*this = CMatrix::identity;
 }
+#endif
 
 /* @socom-skeleton body __vc__7CMatrixFi */
 /* held from src/gamez/zMath/zmath_matrix.cpp:31 */
+/* port: not in the ELF; declaration removed */
+#if 0
 const float* CMatrix::operator[](const int row)
 {
 	return m_matrix[row];
 }
+#endif
 
 /* @socom-skeleton body GetTranslate__7CMatrixCFv */
 /* held from src/gamez/zMath/zmath_matrix.cpp:36 */
+/* port: inline in zmath.h */
+#if 0
 const float* CMatrix::GetTranslate() const
 {
 	return m_matrix[3];
 }
+#endif
 
 /* @socom-skeleton body Transform__7CMatrixFP6CPnt3Di */
 /* held from src/gamez/zMath/zmath_matrix.cpp:42 */
+/* port: not in the ELF; the const Transform overloads are inline in zmath.h */
+#if 0
 void CMatrix::Transform(CPnt3D* point, s32 count)
 {
 	m_matrix[3][0] = point->x;
@@ -54,9 +68,12 @@ void CMatrix::Transform(CPnt3D* point, s32 count)
 	m_matrix[3][2] = point->z;
 	m_matrix[3][3] = 1.0f;
 }
+#endif
 
 /* @socom-skeleton body Multiply__7CMatrixFPC7CMatrixPC7CMatrix */
 /* held from src/gamez/zMath/zmath_matrix.cpp:50 */
+/* port: not in the ELF; Multiply__7CMatrixCFPC7CMatrixP7CMatrix is inline in zmath.h */
+#if 0
 void CMatrix::Multiply(const CMatrix* first, const CMatrix* second)
 {
 	// First row
@@ -159,16 +176,22 @@ void CMatrix::Multiply(const CMatrix* first, const CMatrix* second)
 		(first->m_matrix[3][2] * second->m_matrix[2][3]) +
 		(first->m_matrix[3][3] * second->m_matrix[3][3]);
 }
+#endif
 
 /* @socom-skeleton body Cross__6CPnt3DFPC6CPnt3DP6CPnt3Db */
 /* held from src/gamez/zMath/zmath_pnt3d.cpp:52 */
+/* port: the ELF's const Cross__6CPnt3DCFPC6CPnt3DP6CPnt3Db is inline in zmath.h */
+#if 0
 void CPnt3D::Cross(const CPnt3D* a, CPnt3D* b, bool normalize)
 {
 
 }
+#endif
 
 /* @socom-skeleton body zMathCopyVector__FR5PNT3DR5PNT3D */
 /* held from src/gamez/zMath/zmath_vu.cpp:49 */
+/* port: not in the ELF; nothing calls it */
+#if 0
 void zMathCopyVector(PNT3D& out, PNT3D& in)
 {
 #ifdef PS2 && PS2DEV
@@ -178,9 +201,12 @@ void zMathCopyVector(PNT3D& out, PNT3D& in)
 	out.z = in.z;
 #endif
 }
+#endif
 
 /* @socom-skeleton body zMathAddVector__FR5PNT3DR5PNT3DR5PNT3D */
 /* held from src/gamez/zMath/zmath_vu.cpp:59 */
+/* port: not in the ELF; nothing calls it */
+#if 0
 void zMathAddVector(PNT3D& sum, PNT3D& addend, PNT3D& summand)
 {
 	PNT3D work;
@@ -189,9 +215,12 @@ void zMathAddVector(PNT3D& sum, PNT3D& addend, PNT3D& summand)
 	work.z = addend.z + summand.z;
 	zMathCopyVector(sum, work);
 }
+#endif
 
 /* @socom-skeleton body zMathSubVector__FR5PNT3DR5PNT3DR5PNT3D */
 /* held from src/gamez/zMath/zmath_vu.cpp:68 */
+/* port: not in the ELF; nothing calls it */
+#if 0
 void zMathSubVector(PNT3D& diff, PNT3D& subend, PNT3D& diffand)
 {
 	PNT3D work;
@@ -200,9 +229,12 @@ void zMathSubVector(PNT3D& diff, PNT3D& subend, PNT3D& diffand)
 	work.z = subend.z - diffand.z;
 	zMathCopyVector(diff, work);
 }
+#endif
 
 /* @socom-skeleton body zMathUnitMatrix__FR7CMatrix */
 /* held from src/gamez/zMath/zmath_vu.cpp:77 */
+/* port: not in the ELF; inline libvu0 wrapper in zmath_vu.h */
+#if 0
 void zMathUnitMatrix(CMatrix& mat)
 {
 	memset(&mat, 0, sizeof(CMatrix));
@@ -211,9 +243,12 @@ void zMathUnitMatrix(CMatrix& mat)
 	mat.m_matrix[2][2] = 1.0f;
 	mat.m_matrix[3][3] = 1.0f;
 }
+#endif
 
 /* @socom-skeleton body zMathCopyMatrix__FP7CMatrixPC7CMatrix */
 /* held from src/gamez/zMath/zmath_vu.cpp:86 */
+/* port: not in the ELF; inline libvu0 wrapper in zmath_vu.h */
+#if 0
 void zMathCopyMatrix(CMatrix* dest, const CMatrix* src)
 {
 	s32 i, j, k;
@@ -223,9 +258,12 @@ void zMathCopyMatrix(CMatrix* dest, const CMatrix* src)
 	for (i = 0; i < 16; i++)
 		pA[i] = pB[i];
 }
+#endif
 
 /* @socom-skeleton body zMathMulMatrix__FP7CMatrixP7CMatrixP7CMatrix */
 /* held from src/gamez/zMath/zmath_vu.cpp:96 */
+/* port: not in the ELF; inline libvu0 wrapper in zmath_vu.h */
+#if 0
 void zMathMulMatrix(CMatrix* m0, CMatrix* m1, CMatrix* out)
 {
 	s32 i, j, k;
@@ -245,3 +283,4 @@ void zMathMulMatrix(CMatrix* m0, CMatrix* m1, CMatrix* out)
 	for (i = 0; i < 16; i++)
 		pQ[i] = pM[i];
 ;}
+#endif

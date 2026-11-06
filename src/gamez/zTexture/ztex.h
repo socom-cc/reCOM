@@ -257,9 +257,9 @@ public:
 	public:
 		virtual void AddToBatch(zdb::CTexHandle* handle) const {}
 		virtual void ClearAll() {}
-		virtual void EndBatchReloc() {}
-		virtual void PreGetSprPacket() {}
-		virtual void StartBatchReloc() {}
+		virtual void EndBatchReloc() const {} /* EndBatchReloc__Q23zdb16CTextureRelocMgrCFv */
+		virtual void PreGetSprPacket(zdb::CTexHandle* handle) {} /* PreGetSprPacket__Q23zdb16CTextureRelocMgrFPQ23zdb10CTexHandle */
+		virtual void StartBatchReloc() const {} /* StartBatchReloc__Q23zdb16CTextureRelocMgrCFv */
 	};
 
 	class CBatchRelocator : public CTextureRelocMgr
@@ -267,9 +267,6 @@ public:
 	public:
 		void AddToBatch(zdb::CTexHandle* handle) const;
 		void ClearAll();
-		void EndBatchReloc();
-		void StartBatchReloc();
-		void TakeDrawPacket(void* spr, int qwc);
 		/* @socom-skeleton decl Q23zdb15CBatchRelocator */
 public:
 		virtual void EndBatchReloc() const;

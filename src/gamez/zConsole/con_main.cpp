@@ -56,6 +56,11 @@ CConsole::~CConsole()
 {
 }
 
+/* @socom-skeleton stub GetPacketMsg__7CPacketFv */
+void CPacket::GetPacketMsg() /* port: 0x1ed050 returns NULL; void is the skeleton placeholder */
+{
+}
+
 /* @socom-skeleton stub RecvPacket__8CConsoleFP7CPacket */
 void CConsole::RecvPacket(CPacket *)
 {

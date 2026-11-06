@@ -23,7 +23,7 @@ void zVid_Open();
 void zVid_Swap(bool doSwap);
 void zVid_FrameRestore();
 void zVid_ClearColor(u32* color); /* port: binary has only zVid_ClearColor__FPUi */
-void zVid_ClearColor(f32 red, f32 green, f32 blue); /* port: unproven, no such symbol in the binary; kept for existing callers */
+void SetGSReg(short reg, u64 value); /* port: SetGSReg__FsUl (0x308500); MW unsigned long is 64-bit */
 void zVid_Sync0();
 void zVid_ZTestOn();
 void zVid_ZTestOff();

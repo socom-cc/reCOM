@@ -1,4 +1,6 @@
 /* Unbuilt holding file (stage 5 BD4): provisional code that owns no planned artifact, held here by order skeleton write. */
+#include "gamez/zSeal/zseal.h"
+#include "gamez/zInput/zinput.h"
 
 /* @socom-skeleton body seal_init */
 /* held from src/gamez/zSeal/seal.cpp:6 */
@@ -6,11 +8,15 @@ bool seal_init = false;
 
 /* @socom-skeleton body m_crawl1stperson_amplitude__9CSealCtrl */
 /* held from src/gamez/zSeal/seal_control.cpp:5 */
+#if 0 /* port: not an ELF object; seal_dyn.cpp writes CSealCtrl::m_bobbing1stperson_amplitude[1] */
 f32 CSealCtrl::m_crawl1stperson_amplitude = 0.0f;
+#endif
 
 /* @socom-skeleton body m_crawl1stperson_rate__9CSealCtrl */
 /* held from src/gamez/zSeal/seal_control.cpp:6 */
+#if 0 /* port: not an ELF object; seal_dyn.cpp writes CSealCtrl::m_bobbing1stperson_rate[1] */
 f32 CSealCtrl::m_crawl1stperson_rate = 0.0f;
+#endif
 
 /* @socom-skeleton body StopRumbler__9CSealCtrlFv */
 /* held from src/gamez/zSeal/seal_control.cpp:8 */
@@ -53,4 +59,19 @@ void CTSelect::Begin(_zanim_cmd_hdr* header)
 void CTSelect::End(_zanim_cmd_hdr* header)
 {
 
+}
+
+/* @socom-skeleton stub PostMortemPreTick__9CSealCtrlFf */
+void CSealCtrl::PostMortemPreTick(float)
+{
+}
+
+/* @socom-skeleton stub PerturbAimVector__9CSealCtrlFP6CPnt3D */
+void CSealCtrl::PerturbAimVector(CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub UpdateAiMapLoc__10CZSealBodyFRb */
+void CZSealBody::UpdateAiMapLoc(bool &)
+{
 }

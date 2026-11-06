@@ -52,7 +52,7 @@ enum MUSIC_MODE
 
 /* vagArchiveIsOpen, bnkArchiveIsOpen, snd_system_initialized and sound_map are
    file-local in zsnd_csnd.cpp (LOCAL symbols) */
-extern _zrdr* sound_rdr;
+/* port: sound_rdr removed - the binary's object is the LOCAL _sound_rdr in zsnd_csnd.cpp */
 
 class CSnd
 {

@@ -41,8 +41,8 @@ enum ZRDR_TYPE
 /* cur_zrdr_flags, cur_zrdr_path (768 bytes) are file-local in zrdr_parse.cpp (LOCAL symbols) */
 extern std::list<char*> zrdr_symbols;
 
-void _resolveA(_zrdr* self, _zrdr* root, char* tag);
-void _resolveB(_zrdr* self, _zrdr* root, char* tag);
+void _resolveA(_zrdr* self, const _zrdr* root, const char* tag); /* _resolveA__FP5_zrdrPC5_zrdrPCc */
+void _resolveB(_zrdr* self, const _zrdr* root, const char* tag); /* _resolveB__FP5_zrdrPC5_zrdrPCc */
 int _get_pptoken(char* token);
 bool _preproc_filter(char* token, bool param_2);
 bool _eval_defined(char* token);
@@ -73,9 +73,9 @@ void zrdr_freearray(_zrdr* array);
 /// @param reader A zReader array node.
 /// @param tag The name of the tag to find.
 /// @return The string from the found node. If NULL, this means that the tag doesn't exist.
-char* zrdr_findstring(_zrdr* reader, const char* tag);
+char* zrdr_findstring(const _zrdr* reader, const char* tag);
 
-bool zrdr_findSTRING(_zrdr* reader, const char* tag, const char** list);
+bool zrdr_findSTRING(const _zrdr* reader, const char* tag, const char** list);
 
 /// Finds an integer.
 /// @param reader A zReader array node.
@@ -83,7 +83,7 @@ bool zrdr_findSTRING(_zrdr* reader, const char* tag, const char** list);
 /// @param output The output of the search, stored as a pointer.
 /// @param startidx The start index of the array. Usually 1.
 /// @return Successful if true, failure otherwise.
-bool zrdr_findint(_zrdr* reader, const char* tag, s32* output, s32 startidx = 1);
+bool zrdr_findint(const _zrdr* reader, const char* tag, s32* output, s32 startidx = 1);
 
 /// Finds an unsigned integer. Will convert to a signed integer.
 /// @param reader A zReader array node.
@@ -91,7 +91,7 @@ bool zrdr_findint(_zrdr* reader, const char* tag, s32* output, s32 startidx = 1)
 /// @param output The output of the search, stored as a pointer.
 /// @param startidx The start index of the array. Usually 1.
 /// @return Successful if true, failure otherwise.
-bool zrdr_finduint(_zrdr* reader, const char* tag, u32* output, s32 startidx = 1);
+bool zrdr_finduint(const _zrdr* reader, const char* tag, u32* output, s32 startidx = 1);
 
 /// Finds a float, or a real decimal number.
 /// @param reader A zReader array node.
@@ -99,7 +99,7 @@ bool zrdr_finduint(_zrdr* reader, const char* tag, u32* output, s32 startidx = 1
 /// @param output The output of the search, stored as a pointer.
 /// @param startidx The start index of the array. Usually 1.
 /// @return Successful if true, failure otherwise.
-bool zrdr_findreal(_zrdr* reader, const char* tag, f32* output, s32 startidx = 1);
+bool zrdr_findreal(const _zrdr* reader, const char* tag, f32* output, s32 startidx = 1);
 
 /// Finds a boolean.
 /// @param reader A zReader array node.
@@ -107,21 +107,21 @@ bool zrdr_findreal(_zrdr* reader, const char* tag, f32* output, s32 startidx = 1
 /// @param output The output of the search, stored as a pointer.
 /// @param startidx The start index of the array. Usually 1.
 /// @return Successful if true, failure otherwise.
-bool zrdr_findbool(_zrdr* reader, const char* tag, bool* output);
+bool zrdr_findbool(const _zrdr* reader, const char* tag, bool* output);
 
 /// Finds a vector consisting of X and Y coordinates.
 /// @param reader A zReader array node.
 /// @param tag The name of the tag to find.
 /// @param output The output of the search, stored as a pointer.
 /// @return Successful if true, failure otherwise.
-bool zrdr_findPNT2D(_zrdr* reader, const char* tag, PNT2D* output);
+bool zrdr_findPNT2D(const _zrdr* reader, const char* tag, PNT2D* output);
 
 /// Finds a vector consisting of X, Y, and Z coordinates.
 /// @param reader A zReader array node.
 /// @param tag The name of the tag to find.
 /// @param output The output of the search, stored as a pointer.
 /// @return Successful if true, failure otherwise.
-bool zrdr_findPNT3D(_zrdr* reader, const char* tag, PNT3D* output);
+bool zrdr_findPNT3D(const _zrdr* reader, const char* tag, PNT3D* output);
 
 /// Finds a tag in a list of nodes.
 /// A tag is the name associated with an array, or array-less object.
@@ -143,13 +143,14 @@ _zrdr* zrdr_findtag_startidx(const _zrdr* reader, const char* tag, int startidx)
 /// @param output The output of the search, stored as a pointer.
 /// @param startidx The size of the element in bytes.
 /// @return Whether or not the cast/search was successful.
-bool zrdr_toINT(_zrdr* reader, s32* output, s32 startidx);
+bool zrdr_toINT(const _zrdr* reader, s32* output, s32 startidx);
+bool zrdr_toREAL(const _zrdr* reader, f32* output, s32 size); /* zrdr_toREAL__FPC5_zrdrPfi */
 
 /// Converts an output value into a true or false value.
 /// @param reader A zReader array node.
 /// @param output The output of the search, stored as a pointer.
 /// @return Whether or not the cast/search was successful.
-bool zrdr_tobool(_zrdr* reader, bool* output);
+bool zrdr_tobool(const _zrdr* reader, bool* output);
 
 /// Goes to the next tag in a node list and returns it.
 /// @param reader A zReader array node.
@@ -157,22 +158,40 @@ bool zrdr_tobool(_zrdr* reader, bool* output);
 /// @param size The size of the element in bytes.
 /// @param other The other tag to go towards.
 /// @return The tag node of the array. NULL if not found.
-_zrdr* _zrdr_nexttag(_zrdr* reader, const char* tag, size_t size, _zrdr* other);
+_zrdr* _zrdr_nexttag(const _zrdr* reader, const char* tag, s32 size, _zrdr* other); /* _zrdr_nexttag__FPC5_zrdrPCciP5_zrdr */
 
 struct _zrdr
 {
 	_zrdr();
 	_zrdr(_zrdr* reader, CSTable* stable);
 	
-	void Clone(const _zrdr* other, const CSTable* table);
-	
-	inline _zrdr*    Get(s32 offset = 0) const;
-	inline u32       GetLength()         const;
-	inline s32       GetInt()            const;
-	inline f32       GetFloat()          const;
-	inline ZRDR_TYPE GetType()           const;
-	inline bool      IsArray()           const;
-	inline bool      IsString()          const;
+	/* Get__5_zrdrFUi (inline, 0x3a75a0): element offset + 1 of an array, NULL past the end */
+	_zrdr* Get(u32 offset = 0)
+	{
+		u32 len = 0;
+
+		if (IsArray())
+			len = array->integer - 1;
+
+		if (offset < len)
+			return &array[offset + 1];
+
+		return NULL;
+	}
+	/* GetInt__5_zrdrCFv (inline, 0x3a7550) */
+	s32 GetInt() const
+	{
+		if (type == ZRDR_INTEGER)
+			return integer;
+		else if (type == ZRDR_REAL)
+			return static_cast<s32>(real);
+
+		return 0;
+	}
+	ZRDR_TYPE GetType() const { return static_cast<ZRDR_TYPE>(type); } /* port: unproven - not in the ELF */
+	/* IsArray__5_zrdrCFv (inline, 0x1aba20) */
+	bool IsArray() const { return type == ZRDR_ARRAY; }
+	bool IsString() const { return type == ZRDR_STRING; } /* port: unproven - not in the ELF */
 	
 	bool Write(FILE* file);
 

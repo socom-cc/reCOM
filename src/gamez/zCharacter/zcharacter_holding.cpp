@@ -1,4 +1,5 @@
 /* Unbuilt holding file (stage 5 BD4): provisional code that owns no planned artifact, held here by order skeleton write. */
+#include "gamez/zCharacter/zchar.h"
 
 /* @socom-skeleton body __ct__14CCharacterTypeFv */
 /* held from src/gamez/zCharacter/char_type.cpp:23 */

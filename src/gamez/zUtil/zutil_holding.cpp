@@ -1,12 +1,17 @@
 /* Unbuilt holding file (stage 5 BD4): provisional code that owns no planned artifact, held here by order skeleton write. */
 
+#include <string.h>
+#include "gamez/zUtil/zutil.h"
+#include "gamez/zUtil/util_stable.h"
+#include "gamez/zUtil/util_systemio.h"
+
 /* @socom-skeleton body dumpLog */
 /* held from src/gamez/zUtil/util_output.cpp:5 */
-bool dumpLog = true;
+bool dumpLog = true; /* port: unproven - not in the ELF; Apps/FTS/main.cpp:110 still reads it */
 
 /* @socom-skeleton body __ct__7CSTableFv */
 /* held from src/gamez/zUtil/util_stable.cpp:5 */
-CSTable::CSTable()
+CSTable::CSTable() /* port: unproven - not in the ELF (only __ct__7CSTableFUiUi); by-value CSTable members still default-construct */
 {
 	m_owner = false;
 	m_buffer = NULL;

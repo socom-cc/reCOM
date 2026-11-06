@@ -177,6 +177,13 @@ namespace {
 ::CTeamDisplay g_oTerrs2Ds;
 }
 
+/* @socom-skeleton stub __dt__Q228@unnamed@hud_scorepopup_cpp@9CScoreBmpFv */
+namespace {
+CScoreBmp::~CScoreBmp()
+{
+}
+}
+
 /* @socom-skeleton stub GetTeamMembers__28@unnamed@hud_scorepopup_cpp@FPP10CZSealBodyPib */
 namespace {
 int GetTeamMembers(CZSealBody **, int *, bool)
@@ -225,6 +232,13 @@ void CTeamDisplay::AddRow(CZSealBody *const *, const int *, int, float)
 /* @socom-skeleton stub SetupTeam__Q228@unnamed@hud_scorepopup_cpp@12CTeamDisplayFffffPCcM9CZNetGameFPCvPCv_ib */
 namespace {
 void CTeamDisplay::SetupTeam(float, float, float, float, const char *, int (CZNetGame::*)() const, bool)
+{
+}
+}
+
+/* @socom-skeleton stub __dt__Q228@unnamed@hud_scorepopup_cpp@11CScorePopupFv */
+namespace {
+CScorePopup::~CScorePopup()
 {
 }
 }

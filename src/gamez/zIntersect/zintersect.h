@@ -123,7 +123,7 @@ public:
     class CDIVector : public std::vector<CDI*>
     {
     public:
-        bool Exists(CDI* di);
+        bool Exists(const CDI* di); /* Exists__Q23zdb9CDIVectorFPCQ23zdb3CDI */
     };
 
     class CDIPoly : public CDI

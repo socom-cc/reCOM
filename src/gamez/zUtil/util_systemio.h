@@ -80,24 +80,20 @@ public:
 class CIO
 {
 public:
-	virtual void Init() {}
-	virtual bool Open(void* buf) { return false; }
-	virtual bool Open(const char* buf) { return false; }
-	virtual void Close() {}
-
-	virtual bool IsOpen() const { return false; }
-	virtual unsigned int GetMode() const { return m_mode; }
-	virtual size_t GetSize() const { return m_filesize; }
-
-	virtual size_t fread(int offset, void** buf) { return 0; }
-	virtual size_t fread(void* buf, size_t size) { return 0; }
+	/* port: virtual set and order from __vt__3CIO (0x472e10): 12 slots, all empty (pure)
+	   except fwrite(const char *); no virtual destructor */
+	virtual unsigned char Open(const char* name, unsigned int mode = 1) = 0; /* port: default = the mode every one-argument caller passes (zrdr_read 0x23e5cc, _preproc_filter 0x23ef18, CVideo::RestoreImage 0x308c48) */
+	virtual void Close() = 0;
+	virtual bool IsOpen() const = 0;
+	virtual size_t GetSize() const = 0;
+	virtual unsigned int GetMode() const = 0;
+	virtual int ftell() const = 0;
+	virtual size_t fseek(int offset, int origin) = 0;
+	virtual unsigned int fread(void* buf, int size) = 0;
+	virtual size_t fread(int offset, void** buf) = 0;
+	virtual unsigned int fwrite(const void* buf, int size) = 0;
 	virtual size_t fwrite(const char* buf);
-	virtual size_t fwrite(const void* buf, size_t size) { return 0; }
-
-	virtual size_t fseek(int offset, int origin) { return 0; }
-	virtual size_t ftell() { return 0; }
-
-	virtual void fflush() {}
+	virtual void fflush() = 0;
 public:
 	s64 m_file;
 	size_t m_filesize;
@@ -115,31 +111,22 @@ public:
 	static char m_root_path[256]; /* 256-byte initialized array ("host0:.\\") */
 	static bool m_write_status;
 
-	virtual void Init() {}
-	virtual bool Open(void* buf) { return false; }
-	virtual bool Open(const char* file);
+	/* port: vtable __vt__7CFileIO (0x472dd0) slot order; Release__7CFileIOFv is not virtual */
 	virtual void Close();
-	virtual void Release();
-
 	virtual bool IsOpen() const;
-	virtual unsigned int GetMode() const;
 	virtual size_t GetSize() const;
-
-	virtual size_t fread(int offset, void** buf);
-	virtual size_t fread(void* buf, size_t size);
-	virtual size_t fwrite(const char* buf);
-	virtual size_t fwrite(const void* buf, size_t size);
-
+	virtual unsigned int GetMode() const;
 	virtual size_t fseek(int offset, int origin);
-	virtual size_t ftell();
-
+	virtual size_t fread(int offset, void** buf);
+	virtual size_t fwrite(const char* buf);
 	virtual void fflush();
+	void Release();
 
 protected:
 	CFileCD* m_cd;
 	/* @socom-skeleton decl 7CFileIO */
 public:
-	virtual unsigned char Open(const char *, unsigned int);
+	virtual unsigned char Open(const char *, unsigned int = 1); /* port: default = the mode every one-argument caller passes (zrdr_read 0x23e5cc, _preproc_filter 0x23ef18, CVideo::RestoreImage 0x308c48) */
 	virtual int ftell() const;
 	virtual unsigned int fread(void *, int);
 	virtual unsigned int fwrite(const void *, int);
@@ -157,27 +144,22 @@ public:
 	void CopyFileIO(const CFileIO* io);
 	bool LoadBuffer();
 
-	virtual bool Open(void* buf, size_t size);
-	virtual bool Open(const char* buf);
+	/* port: vtable __vt__9CBufferIO (0x472d90): the CFileIO slots, then Open(void *, unsigned int)
+	   and freadchar; Release__9CBufferIOFv is not virtual */
 	virtual void Close();
-	virtual void Release();
-
 	virtual bool IsOpen() const;
-
-	virtual size_t fread(int offset, void** buf);
-	virtual size_t fread(void* buf, size_t size);
-	virtual char freadchar(char* buf);
-	virtual size_t fwrite(const char* buf);
-	virtual size_t fwrite(const void* buf, size_t size);
-
 	virtual size_t fseek(int offset, int origin);
-	virtual size_t ftell();
+	virtual size_t fread(int offset, void** buf);
+	virtual size_t fwrite(const char* buf);
+	virtual unsigned char Open(void* buf, unsigned int size); /* Open__9CBufferIOFPvUi */
+	virtual char freadchar(char* buf);
+	void Release();
 private:
 	void* m_buffer;
 	size_t m_bufsize;
 	/* @socom-skeleton decl 9CBufferIO */
 public:
-	virtual unsigned char Open(const char *, unsigned int);
+	virtual unsigned char Open(const char *, unsigned int = 1); /* port: default = the mode every one-argument caller passes (zrdr_read 0x23e5cc, _preproc_filter 0x23ef18, CVideo::RestoreImage 0x308c48) */
 	virtual int ftell() const;
 	virtual unsigned int fread(void *, int);
 	virtual unsigned int fwrite(const void *, int);

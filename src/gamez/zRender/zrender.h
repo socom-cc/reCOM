@@ -77,7 +77,6 @@ void zRndrInit();
 
 extern CPipe thePipe;
 extern u32 numCharactersRendered;
-extern f32 bilinearDistance;
 extern bool FirstVisDrawn;
 
 struct LOD
@@ -107,7 +106,6 @@ namespace zdb
 class CStack
 {
 public:
-	static CMatrix* Multiply(CMatrix* matrix, bool other);
 	
 	// TODO:
 	// This class is dangerous, specifically because it's targeting memory in static cache.
@@ -129,27 +127,32 @@ public:
 class LODVec : public std::vector<LOD*> {};
 
 /// <summary>
-/// Handles transparency.
-/// </summary>
-class CAlpha
-{
-	friend class CPipe;
-public:
-	void Add(zdb::CNode* parent, zdb::CNode* child, zdb::CVisual* visual, zdb::tag_ZVIS_FOV fov, f32 alpha);
-private:
-	zdb::CCamera* m_camera;
-	void* m_visualList;
-	void* m_next;
-	std::list<void*> m_drawList;
-	zdb::CDynTexList m_dyntexlist;
-};
-
-/// <summary>
 /// Base rendering pipeline for GameZ.
 /// </summary>
 class CPipe
 {
 public:
+	/// <summary>
+	/// Handles transparency.
+	/// </summary>
+	/* port: the ELF has only the nested CPipe::CAlpha (Add__Q25CPipe6CAlpha..., m_first_alpha_add__Q25CPipe6CAlpha);
+	   defined here, ahead of m_alpha, with the data members of the former global CAlpha */
+	class CAlpha
+	{
+		friend class CPipe;
+	public:
+		void Add(zdb::CNode *, zdb::CNode *, zdb::CVisual *, zdb::tag_ZVIS_FOV, float);
+		void Render();
+		static unsigned char m_first_alpha_add;
+		static float m_last_alpha_insert;
+	private:
+		zdb::CCamera* m_camera; /* port: unproven - members of the former global CAlpha */
+		void* m_visualList;
+		void* m_next;
+		std::list<void*> m_drawList;
+		zdb::CDynTexList m_dyntexlist;
+	};
+
 	CPipe();
 
 	static void Init();
@@ -207,14 +210,6 @@ public:
 	u32 m_delayedNodeNum;
 	/* @socom-skeleton decl 5CPipe */
 public:
-	class CAlpha
-	{
-	public:
-		void Add(zdb::CNode *, zdb::CNode *, zdb::CVisual *, zdb::tag_ZVIS_FOV, float);
-		void Render();
-		static unsigned char m_first_alpha_add;
-		static float m_last_alpha_insert;
-	};
 	~CPipe();
 	void FIFO_Signal(zdb::CGSTexBuffer *, unsigned int *);
 	void FIFO_Signal(zdb::CGSTexBuffer *);

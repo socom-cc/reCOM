@@ -1,5 +1,8 @@
 /* Unbuilt holding file (stage 5 BD4): provisional code that owns no planned artifact, held here by order skeleton write. */
 
+#include "gamez/zFTS/fts_state.h"
+#include "gamez/zUtil/zutil.h"
+
 /* @socom-skeleton body __ct__10CMenuStateFv */
 /* held from src/Apps/FTS/state/st_menu.cpp:16 */
 CMenuState::CMenuState()

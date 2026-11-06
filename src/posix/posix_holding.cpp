@@ -2,6 +2,8 @@
 
 /* @socom-skeleton body unparsed:src/posix/strcasecmp.cpp:37 */
 /* held from src/posix/strcasecmp.cpp:37 */
+/* port: provider - strcasecmp is newlib (artifacts.library=newlib); never defined in src/ */
+#if 0
 int
 __strcasecmp (const char *s1, const char *s2 LOCALE_PARAM)
 {
@@ -18,3 +20,4 @@ __strcasecmp (const char *s1, const char *s2 LOCALE_PARAM)
 			break;
 	return result;
 }
+#endif

@@ -368,7 +368,7 @@ unsigned char zdb::CCamera::TestLandmarkFOG(const CPnt3D *pos, float radius)
 					canSee = false;
 			}
 
-			CPnt3D& camPos = (CPnt3D&)(m_matrix[3][0]);
+			CPnt3D& camPos = (CPnt3D&)(m_matrix(3, 0)); /* port: CMatrix has no operator[]; __cl__7CMatrixCFUiUi is emitted by this unit */
 			CPnt3D out;
 			pos->Sub(&camPos, &out);
 

@@ -1,5 +1,7 @@
 /* Unbuilt holding file (stage 5 BD4): provisional code that owns no planned artifact, held here by order skeleton write. */
 
+#include "gamez/zArchive/zar.h"
+
 /* @socom-skeleton body __dt__Q23zar4CKeyFv */
 /* held from src/gamez/zArchive/zar_main.cpp:21 */
 namespace zar {
@@ -11,6 +13,8 @@ CKey::~CKey()
 
 /* @socom-skeleton body Write__Q23zar4CKeyFPQ23zar4CZARP7__sFILE */
 /* held from src/gamez/zArchive/zar_main.cpp:102 */
+/* port: not in the ELF (only Write__Q23zar4CKeyFPQ23zar4CZAR, zar_search.cpp) */
+#if 0
 namespace zar {
 bool CKey::Write(CZAR* archive, FILE* file)
 	{
@@ -39,9 +43,12 @@ bool CKey::Write(CZAR* archive, FILE* file)
 		return true;
 	}
 }
+#endif
 
 /* @socom-skeleton body ReadDirectory_V2__Q23zar4CZARFiUi */
 /* held from src/gamez/zArchive/zar_main.cpp:676 */
+/* port: not in the ELF (only ReadDirectory__Q23zar4CZARFiUi, zar_main.cpp) */
+#if 0
 namespace zar {
 bool CZAR::ReadDirectory_V2(s32 appver, u32 mode)
 	{
@@ -163,9 +170,12 @@ bool CZAR::ReadDirectory_V2(s32 appver, u32 mode)
 		return true;
 	}
 }
+#endif
 
 /* @socom-skeleton body WriteDirectory__Q23zar4CZARFP7__sFILE */
 /* held from src/gamez/zArchive/zar_main.cpp:846 */
+/* port: not in the ELF (only WriteDirectory__Q23zar4CZARFv, zar_main.cpp) */
+#if 0
 namespace zar {
 bool CZAR::WriteDirectory(FILE* file)
 	{
@@ -216,3 +226,4 @@ bool CZAR::WriteDirectory(FILE* file)
 		return success;
 	}
 }
+#endif

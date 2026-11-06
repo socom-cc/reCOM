@@ -735,6 +735,11 @@ unsigned char rsaKeyPair[128];
 /* @socom-skeleton stub net_init_thread_stack */
 unsigned char net_init_thread_stack[102404];
 
+/* @socom-skeleton stub IsAClone__12BriefingRoomFv */
+void BriefingRoom::IsAClone() /* port: 0x32fea0 returns false */
+{
+}
+
 /* @socom-skeleton stub LastClone__12BriefingRoomFv */
 void BriefingRoom::LastClone()
 {
@@ -802,6 +807,16 @@ void UpdateRoomListDisplay()
 
 /* @socom-skeleton stub cbChannelInfo__FiiiP25MediusChannelInfoResponse */
 void cbChannelInfo(int, int, int, MediusChannelInfoResponse *)
+{
+}
+
+/* @socom-skeleton stub CloneIndex__12BriefingRoomFv */
+void BriefingRoom::CloneIndex() /* port: 0x32e800 returns 0 */
+{
+}
+
+/* @socom-skeleton stub BaseSrc__12BriefingRoomFv */
+void BriefingRoom::BaseSrc() /* port: 0x32e4b0 returns this; void is the skeleton placeholder */
 {
 }
 

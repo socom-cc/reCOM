@@ -358,7 +358,7 @@ void CAiSScript::ActivateSequence(const char *, unsigned int)
 }
 
 /* @socom-skeleton stub GetStatus__10CAiSScriptCFv */
-void CAiSScript::GetStatus() const
+const char * CAiSScript::GetStatus() const
 {
 	/* @socom-skeleton stub status_buffer$2808 */
 	static unsigned char status_buffer[64];
@@ -385,7 +385,7 @@ void CAiSBreach::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub GetStatus__10CAiSBreachCFv */
-void CAiSBreach::GetStatus() const
+const char * CAiSBreach::GetStatus() const
 {
 }
 

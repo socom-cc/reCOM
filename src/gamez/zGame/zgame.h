@@ -139,7 +139,7 @@ protected:
 	CCinematicState m_cinematicSubState;
 	/* @socom-skeleton decl 8COurGame */
 public:
-	virtual ~COurGame();
+	virtual ~COurGame() {}
 	virtual void StartPlay();
 	virtual void StopPlay();
 	virtual void StopEngine();
@@ -183,9 +183,9 @@ public:
 	/* @socom-skeleton decl 9CGameMenu */
 public:
 	virtual ~CGameMenu();
-	virtual void MyTick(float);
-	virtual char * GetReaderFileName();
-	virtual void PrepControls(zdb::CTextureRelocMgr *);
+	virtual void MyTick(float) {} /* ELF 0x321320: empty (emitted from zui.h) */
+	virtual char * GetReaderFileName() { return NULL; } /* port: stub; ELF 0x382ef0 returns the word at +12 of the pointer at +0x874 (m_ReaderName storage unproven) */
+	virtual void PrepControls(zdb::CTextureRelocMgr *) {} /* ELF 0x321330: empty (emitted from zui.h) */
 	CGameMenu();
 	zdb::CNode * AddNode(C2D *, zdb::CTextureRelocMgr *);
 	void Draw2dOnly();

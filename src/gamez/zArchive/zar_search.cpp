@@ -162,7 +162,7 @@ bool CZAR::Fetch(const char* name, bool* buf)
 
 		key = key->FindKey(name);
 
-		if (Fetch(key, &cBool, sizeof(s8)))
+		if (Fetch(key, &cBool, sizeof(s8), 0)) /* port: 4th argument 0 (0x1dc098, 0x1dc018) */
 			*buf = cBool != 0;
 
 		return true;
@@ -179,7 +179,7 @@ bool CZAR::Fetch(const char* name, s32* buf)
 			return false;
 
 		key = key->FindKey(name);
-		return Fetch(key, buf, sizeof(f32));
+		return Fetch(key, buf, sizeof(f32), 0); /* port: 4th argument 0 (0x1dc098, 0x1dc018) */
 	}
 }
 
@@ -193,7 +193,7 @@ bool CZAR::Fetch(const char* name, u32* buf)
 			return false;
 
 		key = key->FindKey(name);
-		return Fetch(key, buf, sizeof(u32));
+		return Fetch(key, buf, sizeof(u32), 0); /* port: 4th argument 0 (0x1dc098, 0x1dc018) */
 	}
 }
 
@@ -207,7 +207,7 @@ bool CZAR::Fetch(const char* name, f32* buf)
 			return false;
 
 		key = key->FindKey(name);
-		return Fetch(key, buf, sizeof(f32));
+		return Fetch(key, buf, sizeof(f32), 0); /* port: 4th argument 0 (0x1dc098, 0x1dc018) */
 	}
 }
 

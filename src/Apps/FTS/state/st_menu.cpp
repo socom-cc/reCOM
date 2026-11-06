@@ -79,7 +79,7 @@ CDblBufTextureRelocator g_relocDblBuf;
 }
 
 /* @socom-skeleton stub IOPRebootHandler__FQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv */
-unsigned char IOPRebootHandler(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *)
+static unsigned char IOPRebootHandler(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *)
 {
 }
 
@@ -160,7 +160,8 @@ bool CMenuState::Tick(f32 dT)
 	if (zdb::CWorld::m_world != NULL && zdb::CWorld::m_world->m_camera)
 		zdb::CWorld::m_world->m_camera->Update(zdb::tag_ZCAM_TYPE::ZCAM_NORMAL);
 
-	zVid_ClearColor(0.0f, 0.0f, 0.0f);
+	/* port: no clear-colour call here: 0x379240 never calls zVid_ClearColor; the clear happens in
+	   CPipe::RenderWorld (0x244780, called at 0x379340), which passes the fog colour as u32[3]. */
 	zVid_Swap(false);
 }
 

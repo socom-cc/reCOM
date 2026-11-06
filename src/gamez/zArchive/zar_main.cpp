@@ -282,7 +282,7 @@ unsigned char zar::CZAR::ReOpen(int appver, unsigned int mode)
 		if (!m_filename)
 			return false;
 
-		if (m_pFileAlloc->Open(m_filename))
+		if (m_pFileAlloc->Open(m_filename, mode)) /* port: 0x1d960c passes the mode */
 		{
 			SetFilename(m_filename);
 			m_data_padded = 16;
@@ -309,7 +309,7 @@ bool CZAR::Open(const char* name, s32 version, u32 mode, size_t padded_size)
 			m_pFile = new CBufferIO();
 		}
 
-		if (!m_pFileAlloc->Open(name))
+		if (!m_pFileAlloc->Open(name, mode)) /* port: 0x1d927c passes the mode */
 			return false;
 
 		if (name && name == "DEFAULT_ZAR_NAME")

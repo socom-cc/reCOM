@@ -81,3 +81,8 @@ void CFlashFXVector::Draw(zdb::CCamera *)
 void CFlashFXVector::Reset()
 {
 }
+
+/* @socom-skeleton stub __dt__8CFlashFXFv */
+CFlashFX::~CFlashFX()
+{
+}

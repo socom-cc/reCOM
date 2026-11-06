@@ -40,7 +40,7 @@ CBufferIO::CBufferIO(const CBufferIO& other)
 }
 
 /* @socom-skeleton body Open__9CBufferIOFPvUi */
-bool CBufferIO::Open(void* buf, size_t size)
+unsigned char CBufferIO::Open(void* buf, unsigned int size)
 {
 	m_filesize = size;
 	m_bufsize = size;
@@ -60,9 +60,9 @@ void CBufferIO::Release()
 }
 
 /* @socom-skeleton body Open__9CBufferIOFPCcUi */
-unsigned char CBufferIO::Open(const char *buf, unsigned int)
+unsigned char CBufferIO::Open(const char *buf, unsigned int mode)
 {
-	bool success = CFileIO::Open(buf);
+	bool success = CFileIO::Open(buf, mode); /* port: 0x3041b4 passes the mode through */
 	bool isOpen = CFileIO::IsOpen();
 
 	if (isOpen)
@@ -266,7 +266,7 @@ void CBufferIO::fflush()
 }
 
 /* @socom-skeleton body fwrite__9CBufferIOFPCc */
-unsigned int CBufferIO::fwrite(const char *buf) { return 0; }
+size_t CBufferIO::fwrite(const char *buf) { return 0; }
 
 /* @socom-skeleton body fwrite__9CBufferIOFPCvi */
 unsigned int CBufferIO::fwrite(const void *buf, int size)
