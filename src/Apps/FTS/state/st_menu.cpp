@@ -318,7 +318,17 @@ bool CMenuState::Tick(f32 dT)
 
 		/* port: no clear-colour call here: the clear happens in CPipe::RenderWorld
 		   (0x244780), which passes the fog colour as u32[3]. */
+#ifdef SOCOM_PORT
+		static u32 portFrame = 0;
+		if (portFrame < 4)
+			SOCOM_PORT_TRACE("MENU: frame %u RenderWorld (camera %p)", portFrame, thePipe.m_camera);
+#endif
 		thePipe.RenderWorld(zdb::CWorld::m_world);
+#ifdef SOCOM_PORT
+		if (portFrame < 4)
+			SOCOM_PORT_TRACE("MENU: frame %u RenderWorld returned", portFrame);
+		portFrame++;
+#endif
 	}
 
 	m_menu->DrawForeplane();
@@ -327,6 +337,14 @@ bool CMenuState::Tick(f32 dT)
 	reinterpret_cast<zdb::CGSTexBuffer*>(zdb::CTexManager::m_texmanager[0])->Load(true);
 
 	zSysFifoEnd();
+#ifdef SOCOM_PORT
+	{
+		static u32 portSwap = 0;
+		if (portSwap < 4 || portSwap == 30 || portSwap == 300)
+			SOCOM_PORT_TRACE("MENU: frame %u swap", portSwap);
+		portSwap++;
+	}
+#endif
 
 	if (m_skip_swap > 0)
 	{

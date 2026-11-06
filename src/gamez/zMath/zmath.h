@@ -197,7 +197,7 @@ public:
 	void Normalize();
 	void Normalize(CPnt3D* other);
 	void Add(CPnt3D* other, CPnt3D* out);
-	void Sub(CPnt3D* other, CPnt3D* out);
+	/* port: Sub(CPnt3D*, CPnt3D*) is not declared: the ELF has only Sub__6CPnt3DCFPC6CPnt3DP6CPnt3D (below) */
 	void Scale(f32 scaleFactor, CPnt3D* out);
 	/* Cross__6CPnt3DCFPC6CPnt3DP6CPnt3Db (inline, 0x201650): w = 1 copies, sceVu0OuterProduct,
 	   optional sceVu0Normalize, xyz stored to out */

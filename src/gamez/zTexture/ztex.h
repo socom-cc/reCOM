@@ -16,6 +16,7 @@
 #define ZTEXTURE_H
 
 /* port: forward declarations for names this header uses */
+class CPipe;
 namespace zdb { class CNode; }
 namespace zdb { class CVisual; }
 #include <vector>
@@ -170,6 +171,7 @@ public:
 		void Add(CDynTexList* list);
 	private:
 		friend class CGSTexBuffer; /* port: unproven access - CGSTexBuffer::Load (0x2fb610) reads both lists */
+		friend class ::CPipe; /* port: unproven access - CPipe::RenderWorld (0x245744) clears both lists */
 		CTexList m_tex_list;
 		CTexPalList m_pal_list;
 	};

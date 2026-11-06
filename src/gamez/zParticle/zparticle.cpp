@@ -74,6 +74,8 @@ bool Particle::Tick(float, void *)
 /* @socom-skeleton stub GetDynTexList__8ParticleFv */
 zdb::CDynTexList * Particle::GetDynTexList()
 {
+	/* 0x234230 */
+	return &m_dyntexlist;
 }
 
 /* @socom-skeleton stub AddDynTexture__8ParticleFPQ23zdb10CTexHandle */

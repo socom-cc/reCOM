@@ -101,8 +101,13 @@ void zdb::CNode::GetSubMesh()
 }
 
 /* @socom-skeleton stub GetFirstVisual__Q23zdb5CNodeFv */
-void zdb::CNode::GetFirstVisual()
+zdb::CVisual * zdb::CNode::GetFirstVisual()
 {
+	/* 0x229460: the first entry of m_visual, or NULL when it is empty */
+	if (m_visual.size() == 0)
+		return NULL;
+
+	return m_visual[0];
 }
 
 /* @socom-skeleton body CreateInstance__Q23zdb5CNodeFPQ23zdb6CModelPC6CPnt3DPC5CQuat */

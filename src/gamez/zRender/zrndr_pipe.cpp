@@ -94,6 +94,9 @@
 #include "gamez/zMath/zmath_vu.h"
 #include "gamez/zVisual/zvis.h"
 #include "gamez/zVideo/zvid.h"
+#include "gamez/zParticle/zparticle.h"
+#include "gamez/zSystem/zsys.h"
+#include <eeregs.h>
 
 /* @socom-skeleton decl include */
 #include "gamez/zMath/zmath.h"
@@ -223,25 +226,57 @@ void CPipe::RenderAtom(zdb::CNode* atomNode)
 }
 
 /* @socom-skeleton body RenderWorld__5CPipeFPQ23zdb6CWorld */
+/* port: file-local helpers, not ELF functions - 0x244780 writes these inline: the bench
+   stamp (RCNT0 as an unsigned float times zSys.timerScale) and the two texture-chain
+   records it fills before each FIFO_Insert. */
+static inline f32 RenderWorldBenchTime()
+{
+	return (f32)*T0_COUNT * zSys.timerScale;
+}
+
+static inline void RenderWorldTexLoad(CPipe* pipe, zdb::CGSTexBuffer* buffer, u32* waitTime)
+{
+	buffer->Load(false);
+	u32 idx = pipe->m_texLoadIdx++;
+	pipe->m_texLoadChain[idx].pTexAsset = buffer;
+	pipe->m_texLoadChain[idx].pTexAssetUsed = NULL;
+	pipe->m_texLoadChain[idx].pWaitTime = waitTime;
+	FIFO_Insert(0x44444444);
+}
+
+static inline void RenderWorldTexUsed(CPipe* pipe, zdb::CGSTexBuffer* buffer)
+{
+	u32 idx = pipe->m_texLoadIdx++;
+	pipe->m_texLoadChain[idx].pTexAsset = NULL;
+	pipe->m_texLoadChain[idx].pTexAssetUsed = buffer;
+	FIFO_Insert(0x55555555);
+}
+
+static inline zdb::CGSTexBuffer* RenderWorldTexBuffer(s32 index)
+{
+	return reinterpret_cast<zdb::CGSTexBuffer*>(zdb::CTexManager::m_texmanager[index]); /* port: see doAddBuffer */
+}
+
 u32 CPipe::RenderWorld(zdb::CWorld* world)
 {
+	/* 0x244780: clear and fog colour, shadow maps, the grid in two passes (rings 0-1,
+	   then the rest, with the texture-buffer chain for the character sets between),
+	   landmarks, particles, the character sets, the alpha pass; returns the alpha
+	   buffer half in use. */
 	numCharactersRendered = 0;
-	
-	// TODO: get register value REG_RCNT0_COUNT
-	// and substitute here
-	CBench::drawTimeX = zSys.timerScale;
+	u32 alphaBuf = 0;
+	CBench::drawTimeX[0] = RenderWorldBenchTime();
 
+	m_delayedNodeNum = 0;
 	m_texLoadIdx = 0;
 	m_texIntIdx = 0;
 
-	/* port: the binary (0x24481c-0x24488c) scales the fog colour by 255 (fptosi) into a
-	   u32[3], writes FOGCOL with SetGSReg(0x3d, r | g << 8 | b << 16), then calls
-	   zVid_ClearColor(u32*) - the only zVid_ClearColor symbol. */
+	zdb::CCamera* camera = m_camera;
 	u32 color[3];
-	color[0] = (s32)(255.0f * world->m_camera->m_fog_color.x);
-	color[1] = (s32)(255.0f * world->m_camera->m_fog_color.y);
-	color[2] = (s32)(255.0f * world->m_camera->m_fog_color.z);
-	SetGSReg(0x3d, (u64)color[0] | ((u64)color[1] << 8) | ((u64)color[2] << 16)); /* port: 0x244864-0x244888 (FOGCOL) */
+	color[0] = (s32)(255.0f * camera->m_fog_color.x);
+	color[1] = (s32)(255.0f * camera->m_fog_color.y);
+	color[2] = (s32)(255.0f * camera->m_fog_color.z);
+	SetGSReg(0x3d, ((u64)color[2] << 16) | (u64)color[0] | ((u64)color[1] << 8)); /* FOGCOL */
 	zVid_ClearColor(color);
 
 	zdb::CDecal::m_tempPool.RecycleTick();
@@ -249,17 +284,22 @@ u32 CPipe::RenderWorld(zdb::CWorld* world)
 
 	m_polys = false;
 	m_world = world;
+	zdb::CGrid* grid = world->m_grid; /* port: the binary's CWorld holds the CGrid by value (+0x670) */
 
 	CStack::m_top++;
 	CStack::m_pointer++;
-	*CStack::m_top = CMatrix::identity;
 	zMathCopyMatrix(CStack::m_top, &CMatrix::identity);
 
 	zdb::CVisual::m_stack_vid.push_back(0);
 
 	world->Update();
+	zSysFifoKick(m_camera->GetVuMtxSet(), 0x19);
 	zdb::CVisual::AlphaEnable(false);
 	m_drawCharacters = true;
+
+	zdb::CGSTexBuffer* world0 = RenderWorldTexBuffer(zdb::CTexManager::TexPhase[0][0]);
+	if (world0 != NULL)
+		RenderWorldTexUsed(this, world0);
 
 	if (world->m_shadows.size() != 0)
 	{
@@ -270,109 +310,318 @@ u32 CPipe::RenderWorld(zdb::CWorld* world)
 
 		for (auto i = world->m_shadows.begin(); i != world->m_shadows.end(); ++i)
 		{
-			zdb::CRenderMap* shadow = *i;
+			zdb::CNode* caster = (*i)->m_node;
 
-			m_node = shadow;
-			shadow->Update();
+			if (caster == NULL)
+				continue;
 
-			// if (!shadow->m_hasMesh)
-				// RenderNodeShadow();
-			// else
-				// RenderMeshShadow();
+			m_node = caster;
+			(*i)->Update();
+
+			if (caster->m_hasMesh)
+				RenderMeshShadow(caster, NULL, NULL);
+			else
+				RenderNodeShadow(caster);
 		}
 
 		zdb::CVisual::m_renderMap = false;
 		zVid_FrameRestore();
+		zSysFifoKick(m_camera->GetVuMtxSet(), 0x19);
 	}
 
+	CBench::drawTimeX[0] = RenderWorldBenchTime();
 	m_alpha.m_camera = m_camera;
 	m_drawCharacters = false;
 
-	static f32 bilinearDistance = 10000.0f; /* port: bilinearDistance$1749, guarded init to 0x461c4000 at 0x244a90 */
+	static f32 bilinearDistance = 10000.0f; /* bilinearDistance$1749, guarded init (init$1750) */
 	zdb::CVisual::m_adjustBilinearRange = bilinearDistance;
 
-	zdb::CGrid* grid = world->m_grid;
+	camera = m_camera;
+	grid->SetTraversalBoundaryOrdered((CPnt3D*)camera->m_matrix.m_matrix[3], camera->m_fullfrustum, camera->m_fullfrustum_points, false);
+	zdb::CGridAtom* atom = grid->StartTraversalOrdered();
+	CBench::drawTimeX[1] = RenderWorldBenchTime();
 
-	for (zdb::CGridAtom* atom = grid->StartTraversalOrdered(); grid->m_ring < 2; atom = grid->GetNextAtomOrdered())
+	/* rings 0 and 1 */
+	while (atom != NULL && grid->m_ring < 2)
 	{
 		zdb::CCell* cell = static_cast<zdb::CCell*>(atom->GetCell());
 
-		if (!cell)
+		if (cell != NULL)
 		{
-			m_node = atom->Ent;
-			bool applyShadow = false;
+			m_cell = cell;
+			cell = m_cell;
 
-			if (m_node->m_clutter && m_node->m_shadow)
-				applyShadow = true;
+			CBBox* bbox = cell->GetBBox();
+			CPnt3D centre;
+			bbox->m_min.Interp(&bbox->m_max, 0.5f, &centre);
+			m_doFog = m_camera->TestFOG(&centre, zdb::CWorld::m_world->m_grid->m_ClutterTol + zdb::CWorld::m_world->m_grid->m_GridCellTol);
 
-			zdb::CVisual::m_applyShadow = !applyShadow;
-			RenderAtom(m_node);
+			zdb::CVisual* first = cell->GetFirstVisual();
+
+			if (first != NULL)
+			{
+				first->m_renderState = -3; /* +0x1c (m_render_mode in the live type) */
+				first->Render(CStack::m_top);
+			}
+
+			cell->RenderClutter(cell);
 		}
 		else
 		{
-			CBBox* bbox = NULL;
-			CPnt3D bboxExtents;
+			m_node = atom->Ent;
+			bool shadowed = false;
+
+			if (m_node->m_dynamic_motion && m_node->m_dynamic_light && m_node->m_shadow == 1)
+				shadowed = true;
+
+			zdb::CVisual::m_applyShadow = !shadowed;
+			RenderAtom(m_node);
+		}
+
+		atom = grid->GetNextAtomOrdered();
+	}
+
+	/* the character texture sets in view */
+	zdb::CTextureAssetCharacterList* characters = &m_world->m_TextureAssetCharacters;
+	m_assetCommon = NULL;
+
+	zdb::CTextureAssetCharacters* common;
+	zdb::CTextureAssetCharacterList::iterator cur = characters->TestFOV(m_camera, &common);
+	zdb::CTextureAssetCharacters* set = NULL;
+	s8 phase = 0;
+
+	if (cur != characters->end())
+	{
+		set = (zdb::CTextureAssetCharacters*)*cur;
+		phase = (s8)set->m_assetLib->m_renderphase;
+
+		zdb::CGSTexBuffer* buffer;
+
+		if (set->m_texBuffer != NULL)
+		{
+			m_assetCharacter[0] = set->m_texBuffer;
+			m_assetCharacter[0]->Setup(0.0f, zdb::CTexManager::TexBufParams[0]);
+			buffer = m_assetCharacter[0];
+		}
+		else
+		{
+			m_assetCharacter[0] = RenderWorldTexBuffer(zdb::CTexManager::TexPhase[(u8)phase][2]);
+			buffer = m_assetCharacter[0];
+		}
+
+		if (buffer != NULL)
+			RenderWorldTexLoad(this, buffer, &assetWait[(u8)phase]);
+	}
+
+	zdb::CVisual::m_applyShadow = false;
+	CBench::drawTimeX[2] = RenderWorldBenchTime();
+
+	/* the remaining rings */
+	bool farClip = m_world->m_numNoFarClipNodes != 0;
+
+	while (atom != NULL)
+	{
+		zdb::CCell* cell = static_cast<zdb::CCell*>(atom->GetCell());
+
+		if (cell != NULL)
+		{
 			m_cell = cell;
 
-			if (m_cell->m_use_parent_bbox)
-				bbox = &m_cell->m_parent->m_bbox;
-			else
-				bbox = &m_cell->m_bbox;
+			if (!farClip || m_camera->InsideMidPlane(cell))
+			{
+				CBBox* bbox = cell->GetBBox();
+				CPnt3D centre;
+				bbox->m_min.Interp(&bbox->m_max, 0.5f, &centre);
+				m_doFog = m_camera->TestFOG(&centre, zdb::CWorld::m_world->m_grid->m_ClutterTol + zdb::CWorld::m_world->m_grid->m_GridCellTol);
 
-			bbox->m_min.Interp(&bbox->m_max, 0.5f, &bboxExtents);
-			// TODO: implement all this
-			// m_camera->TestFOG(
-			// &bboxExtents, 
-			// zdb::CWorld::m_world->m_grid.m_ClutterToI
-			// + zdb::CWorld::m_world->m_grid.m_GridCellToI);
+				zdb::CVisual* first = cell->GetFirstVisual();
 
-			//zdb::CVisual* firstVisual = m_cell->GetFirstVisual();
+				if (first != NULL)
+				{
+					first->m_renderState = -3;
+					first->Render(CStack::m_top);
+				}
 
-			//if (firstVisual)
-			//{
-				//firstVisual->m_render_priority = -3;
-				//firstVisual->Render(CStack::m_top);
-			//}
-
-			//m_cell->RenderClutter();
+				cell->RenderClutter(cell);
+			}
 		}
+		else
+		{
+			m_node = atom->Ent;
+
+			if (!farClip || m_camera->InsideMidPlane(m_node) || !m_node->m_apply_clip)
+				RenderAtom(m_node);
+		}
+
+		atom = grid->GetNextAtomOrdered();
 	}
+
+	CBench::drawTimeX[3] = RenderWorldBenchTime();
 
 	if (world->m_landmarks.size() != 0)
 	{
+		zdb::CVisual::m_lightMapList.clear();
+		zdb::CVisual::m_shadowMapList.clear();
+		zdb::CVisual::m_specMapList.clear();
 		zdb::CVisual::LandmarkEnable(true);
+
+		u32 fovMask = m_camera->m_fovMask;
+		m_camera->m_fovMask = 0x3f2f;
 
 		for (auto i = world->m_landmarks.begin(); i != world->m_landmarks.end(); ++i)
 		{
-			zdb::CNode* landmark = *i;
+			m_node = *i;
+			zdb::CNode* landmark = m_node;
+			bool fog = false;
 
-			if (landmark->m_landmark)
-			{
-				f32 radius = landmark->GetRadius();
-				m_doFog = m_camera->TestLandmarkFOG((CPnt3D*)(landmark->m_matrix.m_matrix[3]), radius);
-			}
+			if (landmark->m_fog)
+				fog = m_camera->TestLandmarkFOG((CPnt3D*)landmark->m_matrix.m_matrix[3], landmark->GetRadius());
 
+			m_doFog = fog;
 			RenderNode(m_node, zdb::tag_ZVIS_FOV::ZVIS_FOV_CLIP);
 		}
 
+		m_camera->m_fovMask = fovMask;
 		zdb::CVisual::LandmarkEnable(false);
 	}
 
-	for (auto i = world->m_child.begin(); i != world->m_child.end(); ++i)
-	{
-		zdb::CNode* child = *i;
-		// child->SetActive(true);
-		RenderNode(child, zdb::tag_ZVIS_FOV::ZVIS_FOV_ALL_IN);
-	}
+	CBench::drawTimeX[4] = RenderWorldBenchTime();
+	Particle::Render();
+	m_alpha.m_dyntexlist.Add(Particle::GetDynTexList());
+	CBench::drawTimeX[5] = RenderWorldBenchTime();
 
 	m_drawCharacters = true;
+
+	if (set == NULL)
+	{
+		m_assetCommon = RenderWorldTexBuffer(zdb::CTexManager::TexPhase[zdb::CHARSETCOMMON][0]);
+
+		if (m_assetCommon != NULL)
+			RenderWorldTexLoad(this, m_assetCommon, &assetWait[zdb::CHARSETCOMMON]);
+
+		alphaBuf ^= 1;
+	}
+	else
+	{
+		/* render each in-view set while the next one's buffer is set up; the two
+		   character buffers alternate */
+		while (cur != characters->end())
+		{
+			zdb::CNodeVector* nodes = &set->m_nodes;
+
+			do
+			{
+				++cur;
+
+				if (cur == characters->end())
+					break;
+
+				set = (zdb::CTextureAssetCharacters*)*cur;
+			} while (set->m_numInFOV == 0);
+
+			if (cur == characters->end())
+			{
+				m_assetCommon = RenderWorldTexBuffer(zdb::CTexManager::TexPhase[zdb::CHARSETCOMMON][alphaBuf]);
+
+				if (m_assetCommon != NULL)
+					RenderWorldTexLoad(this, m_assetCommon, &assetWait[zdb::CHARSETCOMMON]);
+			}
+			else
+			{
+				phase = (s8)set->m_assetLib->m_renderphase;
+
+				if (set->m_texBuffer != NULL)
+				{
+					m_assetCharacter[1] = set->m_texBuffer;
+
+					if (alphaBuf != 0)
+						m_assetCharacter[1]->Setup(zdb::CTexManager::TexBufParams[1], 1.0f);
+					else
+						m_assetCharacter[1]->Setup(zdb::CTexManager::TexBufParams[0], zdb::CTexManager::TexBufParams[1]);
+				}
+				else
+				{
+					m_assetCharacter[1] = RenderWorldTexBuffer(zdb::CTexManager::TexPhase[(u8)phase][alphaBuf]);
+				}
+			}
+
+			if (m_assetCharacter[0] != NULL)
+				RenderWorldTexUsed(this, m_assetCharacter[0]);
+
+			for (auto i = nodes->begin(); i != nodes->end(); ++i)
+			{
+				zdb::CNode* node = *i;
+
+				if (node->m_character_infov && node->m_active)
+				{
+					if (m_assetCommon == NULL && m_assetCharacter[1] != NULL)
+						RenderWorldTexLoad(this, m_assetCharacter[1], &assetWait[(u8)phase]);
+
+					RenderAtom(node);
+					numCharactersRendered++;
+				}
+			}
+
+			alphaBuf ^= 1;
+			m_assetCharacter[0] = m_assetCharacter[1];
+		}
+
+		zdb::CVisual::m_GlobalLightScale = 1.0f;
+	}
+
+	_AlphaBufUsed = alphaBuf;
+	m_assetAlpha = RenderWorldTexBuffer(zdb::CTexManager::TexPhase[zdb::ALPHA][alphaBuf]);
+	m_assetAlpha->SetDynTexList(&m_alpha.m_dyntexlist);
+	m_assetAlpha->Add(&m_world->m_TextureDecals, true);
+
+	if (m_assetAlpha != NULL)
+		RenderWorldTexLoad(this, m_assetAlpha, &assetWait[zdb::ALPHA]);
+
+	CBench::drawTimeX[6] = RenderWorldBenchTime();
+
+	zdb::CGSTexBuffer* buffer = m_assetCommon;
+
+	if (buffer != NULL && (common != NULL || m_delayedNodeNum != 0))
+	{
+		if (buffer != NULL)
+			RenderWorldTexUsed(this, buffer);
+
+		if (common != NULL)
+		{
+			for (auto i = common->m_nodes.begin(); i != common->m_nodes.end(); ++i)
+				RenderAtom(*i);
+		}
+
+		zdb::CVisual::m_applyLocalLights = true;
+		RenderDelayedNodes();
+		zdb::CVisual::m_applyLocalLights = false;
+		zdb::CVisual::m_GlobalLightScale = 1.0f;
+	}
+
+	zdb::CVisual::m_adjustBilinearRange = 0.0f;
+	CBench::drawTimeX[7] = RenderWorldBenchTime();
+
+	m_assetHUD1 = RenderWorldTexBuffer(zdb::CTexManager::TexPhase[zdb::HUDSET1][alphaBuf ^ 1]);
+
+	if (m_assetHUD1 != NULL)
+		RenderWorldTexLoad(this, m_assetHUD1, &assetWait[zdb::HUDSET1]);
+
+	if (m_assetAlpha != NULL)
+		RenderWorldTexUsed(this, m_assetAlpha);
+
+	m_alpha.Render();
+	m_alpha.m_next = m_alpha.m_visualList;
+	m_alpha.m_drawList.erase(m_alpha.m_drawList.begin(), m_alpha.m_drawList.end());
+	m_alpha.m_dyntexlist.m_tex_list.clear();
+	m_alpha.m_dyntexlist.m_pal_list.clear();
 
 	CStack::m_pointer--;
 	CStack::m_top--;
 
 	zdb::CVisual::m_stack_vid.pop_back();
+	CBench::drawTimeX[8] = RenderWorldBenchTime();
 
-	return true;
+	return alphaBuf;
 }
 
 /* @socom-skeleton stub BuildLightMapList__5CPipeFPQ23zdb5CNode */

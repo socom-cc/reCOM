@@ -606,13 +606,40 @@ void zdb::CWorld::RemoveDecals()
 }
 
 /* @socom-skeleton stub TestFOV__Q23zdb26CTextureAssetCharacterListFPQ23zdb7CCameraPPQ23zdb23CTextureAssetCharacters */
-void zdb::CTextureAssetCharacterList::TestFOV(zdb::CCamera *, zdb::CTextureAssetCharacters **)
+zdb::CTextureAssetCharacterList::iterator zdb::CTextureAssetCharacterList::TestFOV(zdb::CCamera *camera, zdb::CTextureAssetCharacters **common)
 {
+	/* 0x22daf0: the first in-view character set that is not the common set; the first
+	   in-view common set (CHARSETCOMMON) goes to *common. */
+	iterator found = end();
+	*common = NULL;
+
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		CTextureAssetCharacters* chars = (CTextureAssetCharacters*)*it;
+		s8 phase = (s8)chars->m_assetLib->m_renderphase;
+
+		if (chars->TestFOV(camera) != 0)
+		{
+			if (phase == CHARSETCOMMON)
+			{
+				if (*common == NULL)
+					*common = chars;
+			}
+			else if (found == end())
+			{
+				found = it;
+			}
+		}
+	}
+
+	return found;
 }
 
 /* @socom-skeleton stub TestFOV__Q23zdb23CTextureAssetCharactersFPQ23zdb7CCamera */
-void zdb::CTextureAssetCharacters::TestFOV(zdb::CCamera *)
+int zdb::CTextureAssetCharacters::TestFOV(zdb::CCamera *)
 {
+	/* port: stub - 0x22d880 sets m_character_infov per node from CCamera::TestFOV on its
+	   bbox corners and returns the in-view count; not written yet */
 }
 
 /* @socom-skeleton stub __ct__Q23zdb23CTextureAssetCharactersFPQ23zdb9CAssetLibPQ23zdb5CNodePQ23zdb11CDynTexList */

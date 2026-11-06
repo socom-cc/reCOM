@@ -328,7 +328,7 @@ public:
 		void SetBlendMode(const zdb::BLENDMODE &, bool, bool, bool);
 		zdb::CMesh * GetMesh();
 		void GetSubMesh();
-		void GetFirstVisual();
+		zdb::CVisual * GetFirstVisual();
 		static zdb::CNode * Delete(zdb::CNode *);
 		float GetClosestNode(const CPnt3D *, const CPnt3D *, float, float, float, float);
 		/* @socom-skeleton end Q23zdb5CNode */

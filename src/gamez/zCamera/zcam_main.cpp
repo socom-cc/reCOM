@@ -53,6 +53,7 @@
 #include "gamez/zMath/zmath.h"
 #include "gamez/zNode/node_world.h"
 #include "gamez/zSeal/zseal.h"
+#include "gamez/zVideo/zvid.h"
 
 namespace zdb
 {
@@ -88,6 +89,120 @@ static bool fogCheck = 1; /* DWARF uchar = MW bool */
 namespace zdb {
 CCamera::CCamera() : CNode()
 	{
+		/* 0x1e7780 (m_frustum, m_fullfrustum, the lens-flare vectors and the fog-alt
+		   points are constructed by their own types) */
+		m_fullfrustum_points = 0;
+		m_Zmin = zVid.minZ;
+		m_Zmax = zVid.maxZ;
+
+		m_fog_enabled = 1;
+		/* the binary reads m_far_plane here, before it is set below */
+		m_fog_near = m_far_plane * 0.4f;
+		m_fog_far = m_far_plane * 0.9f;
+		m_fog_mid = m_fog_far;
+		m_fog_density = 1.0f;
+		m_fog_color.x = 0.4f;
+		m_fog_color.y = 0.0f;
+		m_fog_color.z = 0.0f;
+		m_fog_color.w = 1.0f;
+		m_directional_fog_enabled = 0;
+		m_px_fog_color.x = 1.0f;
+		m_px_fog_color.y = 0.0f;
+		m_px_fog_color.z = 0.0f;
+		m_nx_fog_color.x = 0.0f;
+		m_nx_fog_color.y = 1.0f;
+		m_nx_fog_color.z = 0.0f;
+		m_pz_fog_color.x = 1.0f;
+		m_pz_fog_color.y = 0.0f;
+		m_pz_fog_color.z = 1.0f;
+		m_nz_fog_color.x = 1.0f;
+		m_nz_fog_color.y = 1.0f;
+		m_nz_fog_color.z = 0.0f;
+		m_fog_alt_enabled = 1;
+		m_fog_top = 20.0f;
+		m_fog_bottom = 0.0f;
+		m_landmark_fog_top = 120.0f;
+		m_landmark_fog_bottom = 100.0f;
+		m_RangeScale = 1.0f;
+
+		m_fog_alt[0].x = 0.0f;
+		m_fog_alt[0].y = m_fog_bottom;
+		m_fog_alt[0].z = 0.0f;
+		m_fog_alt[0].w = 1.0f;
+		m_fog_alt[1].x = 0.0f;
+		m_fog_alt[1].y = 1.0f / (m_fog_top - m_fog_bottom);
+		m_fog_alt[1].z = 0.0f;
+		m_fog_alt[1].w = 0.0f;
+		m_landmark_fog_alt[0].x = 0.0f;
+		m_landmark_fog_alt[0].y = m_landmark_fog_bottom;
+		m_landmark_fog_alt[0].z = 0.0f;
+		m_landmark_fog_alt[0].w = 1.0f;
+		m_landmark_fog_alt[1].x = 0.0f;
+		m_landmark_fog_alt[1].y = 1.0f / (m_landmark_fog_top - m_landmark_fog_bottom);
+		m_landmark_fog_alt[1].z = 0.0f;
+		m_landmark_fog_alt[1].w = 0.0f;
+		m_fog_alt[1].y = 1.0f / (m_fog_top - m_fog_bottom);
+		m_fog_alt[0].y = m_fog_bottom;
+		m_landmark_fog_alt[1].y = 1.0f / (m_landmark_fog_top - m_landmark_fog_bottom);
+		m_landmark_fog_alt[0].y = m_landmark_fog_bottom;
+
+		m_flags_unused = 0;
+		m_PlayerCanSeeRegions = 0;
+		m_CameraCanSeeRegions = 0;
+		m_SeeRegions = 1;
+
+		m_screenAspect.x = zVid.aspect[0];
+		m_screenAspect.y = zVid.aspect[1];
+		m_screenCenter.x = 2048.0f;
+		m_screenCenter.y = 2048.0f;
+		m_screenOffset.x = 0.0f;
+		m_screenOffset.y = 0.0f;
+		m_screen.left = 0x6c0;
+		m_screen.right = 0x940;
+		m_screen.top = 0x720;
+		m_screen.bottom = 0x8e0;
+		m_screenConstant.x = (f32)((m_screen.right - m_screen.left) / 640);
+		m_screenConstant.y = (f32)((m_screen.bottom - m_screen.top) / 448);
+
+		m_guardBand_min[0] = 0.0f;
+		m_guardBand_min[1] = 0.0f;
+		m_guardBand_min[2] = 0.0f;
+		m_guardBand_min[3] = m_near_plane;
+		m_guardBand_max[0] = 4096.0f;
+		m_guardBand_max[1] = 4096.0f;
+		m_guardBand_max[2] = 0.0f;
+		m_guardBand_max[3] = m_far_plane;
+
+		m_vecClipVolume[0] = 320.0f;
+		m_vecClipVolume[1] = 448.0f;
+		m_vecClipVolume[2] = m_Zmin;
+		m_vecClipVolume[3] = m_Zmax;
+
+		f32 scale = CWorld::m_scale;
+		m_near_plane = scale * 1.0f;
+		m_guardBand_min[3] = m_near_plane;
+		m_far_plane = scale * 150.0f;
+		m_guardBand_max[3] = m_far_plane;
+
+		m_hfov = 0.61086524f;
+		f32 hfov = m_hfov;
+		m_sin.x = sinf(hfov);
+		m_cos.x = cosf(hfov);
+		m_tan.x = m_sin.x / m_cos.x;
+		m_cot.x = 1.0f / m_tan.x;
+		m_scrZ = m_vecClipVolume[0] * m_cot.x;
+
+		m_vfov = 0.42760566f;
+		m_vfov = (448.0f * m_hfov) / 640.0f;
+		f32 vfov = m_vfov;
+		m_sin.y = sinf(vfov);
+		m_cos.y = cosf(vfov);
+		m_tan.y = m_sin.y / m_cos.y;
+		m_cot.y = 1.0f / m_tan.y;
+
+		m_mtxSet.m_vu = (tag_FrameSetup*)0x70003e60;
+		m_fovMask = 0x3f3f;
+
 		m_yaw = 0.0f;
 		m_pitch = 0.0f;
 	}
@@ -324,13 +439,48 @@ float zdb::CCamera::GetScaledRangeSquared(CPnt3D *)
 }
 
 /* @socom-skeleton stub InsideMidPlane__Q23zdb7CCameraFPQ23zdb5CCell */
-unsigned char zdb::CCamera::InsideMidPlane(zdb::CCell *)
+unsigned char zdb::CCamera::InsideMidPlane(zdb::CCell *cell)
 {
+	/* 0x1e4b10: the cell reaches inside the mid plane when its view depth minus its
+	   radius is short of m_mid_plane. */
+	CPnt3D pos;
+	pos.x = cell->m_matrix.m_matrix[3][0];
+	pos.y = cell->m_matrix.m_matrix[3][1];
+	pos.z = cell->m_matrix.m_matrix[3][2];
+
+	f32 mid = m_mid_plane;
+	f32 depth = (m_matrix.m_matrix[3][0] - pos.x) * m_matrix.m_matrix[2][0]
+	          + (m_matrix.m_matrix[3][1] - pos.y) * m_matrix.m_matrix[2][1]
+	          + (m_matrix.m_matrix[3][2] - pos.z) * m_matrix.m_matrix[2][2]; /* VU0 vsub/vmul + w sum */
+
+	return !(mid <= depth - cell->GetRadius());
 }
 
 /* @socom-skeleton stub InsideMidPlane__Q23zdb7CCameraFPQ23zdb5CNode */
-unsigned char zdb::CCamera::InsideMidPlane(zdb::CNode *)
+unsigned char zdb::CCamera::InsideMidPlane(zdb::CNode *node)
 {
+	/* 0x1e4910: the node's bbox centre, moved by the node matrix, against the mid plane
+	   less half the bbox diagonal. */
+	CBBox* bbox = node->GetBBox();
+	CPnt3D mid;
+	bbox->m_min.Interp(&bbox->m_max, 0.5f, &mid);
+
+	const f32 (*m)[4] = node->m_matrix.m_matrix;
+	CPnt3D pos;
+	pos.x = m[0][0] * mid.x + m[1][0] * mid.y + m[2][0] * mid.z + m[3][0];
+	pos.y = m[0][1] * mid.x + m[1][1] * mid.y + m[2][1] * mid.z + m[3][1];
+	pos.z = m[0][2] * mid.x + m[1][2] * mid.y + m[2][2] * mid.z + m[3][2];
+
+	f32 depth = (m_matrix.m_matrix[3][0] - pos.x) * m_matrix.m_matrix[2][0]
+	          + (m_matrix.m_matrix[3][1] - pos.y) * m_matrix.m_matrix[2][1]
+	          + (m_matrix.m_matrix[3][2] - pos.z) * m_matrix.m_matrix[2][2];
+
+	bbox = node->GetBBox();
+	CPnt3D extent;
+	bbox->m_max.Sub(&bbox->m_min, &extent);
+	f32 half = 0.5f * sqrtf(extent.x * extent.x + extent.y * extent.y + extent.z * extent.z);
+
+	return !(m_mid_plane <= depth - half);
 }
 
 /* @socom-skeleton stub GetZ__Q23zdb7CCameraFP6CPnt3D */
@@ -349,8 +499,27 @@ void zdb::CCamera::GetLandmarkFarPlane(zdb::CWorld *)
 }
 
 /* @socom-skeleton stub TestFOG__Q23zdb7CCameraFPC6CPnt3Df */
-unsigned char zdb::CCamera::TestFOG(const CPnt3D *, float)
+unsigned char zdb::CCamera::TestFOG(const CPnt3D *worldPos, float radius)
 {
+	/* 0x1e4610: below the fog top (altitude fog), or fogged when fogCheck is set and the
+	   sphere reaches past m_fog_near in view depth. */
+	bool fogged = m_fog_enabled != 0;
+	bool below = false;
+
+	if (fogged)
+	{
+		if (m_fog_alt_enabled)
+			below = worldPos->y - radius < m_fog_top;
+
+		f32 depth = (m_matrix.m_matrix[3][0] - worldPos->x) * m_matrix.m_matrix[2][0]
+		          + (m_matrix.m_matrix[3][1] - worldPos->y) * m_matrix.m_matrix[2][1]
+		          + (m_matrix.m_matrix[3][2] - worldPos->z) * m_matrix.m_matrix[2][2];
+
+		if (radius + depth < m_fog_near)
+			fogged = false;
+	}
+
+	return (below | (fogged & fogCheck)) != 0;
 }
 
 /* @socom-skeleton body TestLandmarkFOG__Q23zdb7CCameraFPC6CPnt3Df */
@@ -383,4 +552,6 @@ unsigned char zdb::CCamera::TestLandmarkFOG(const CPnt3D *pos, float radius)
 /* @socom-skeleton stub GetVuMtxSet__Q23zdb7CCameraFv */
 unsigned __int128 * zdb::CCamera::GetVuMtxSet()
 {
+	/* 0x1e44b0 */
+	return (unsigned __int128*)m_mtxSet.m_vu;
 }

@@ -35,11 +35,25 @@ const CPnt4D CPnt4D::unit_z(0.0f, 0.0f, 1.0f, 0.0f); /* values: __sinit_zmath_pn
 const CPnt4D CPnt4D::unit_w(0.0f, 0.0f, 0.0f, 1.0f); /* values: __sinit_zmath_pnt4d.cpp */
 
 /* @socom-skeleton stub Rotate_AxisX__6CPnt4DFf */
-void CPnt4D::Rotate_AxisX(float)
+void CPnt4D::Rotate_AxisX(float angle)
 {
+	/* 0x222f30 */
+	f32 c = cosf(angle);
+	f32 s = sinf(angle);
+	f32 oy = y;
+	f32 oz = z;
+	y = oy * c + oz * -s;
+	z = oy * s + oz * c;
 }
 
 /* @socom-skeleton stub Rotate_AxisY__6CPnt4DFf */
-void CPnt4D::Rotate_AxisY(float)
+void CPnt4D::Rotate_AxisY(float angle)
 {
+	/* 0x222ed0 */
+	f32 c = cosf(angle);
+	f32 s = sinf(angle);
+	f32 ox = x;
+	f32 oz = z;
+	x = ox * c + oz * s;
+	z = oz * c - ox * s;
 }

@@ -65,6 +65,8 @@ public:
 		CCell::GRIDCELLATOM m_Atoms[MAX_NUM_CELL_ATOMS];
 	};
 
+	class CClutterAnimManager;
+
 	class CGrid : tag_GRID_PARAMS
 	{
 	public:
@@ -97,6 +99,7 @@ public:
 
 		CFRect m_extents;
 		CWorld* m_world;
+		CClutterAnimManager* m_ClutterAnimManager; /* DWARF member at +0x28 */
 
 		bool m_ClutterCreated;
 
@@ -107,8 +110,8 @@ public:
 		s32 m_AtomFreePtr;
 
 		f32 m_InvCellDim;
-		f32 m_GridCellToI;
-		f32 m_ClutterToI;
+		f32 m_GridCellTol; /* DWARF spelling */
+		f32 m_ClutterTol;
 		s32 m_TickNum;
 
 		bool m_LineWalk;

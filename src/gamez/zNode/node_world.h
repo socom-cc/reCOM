@@ -105,11 +105,9 @@ namespace zdb
 		CNodeVector m_landmarks;
 		u32 m_numNoFarClipNodes;
 
-		// TODO:
-		// implement this type
-		// CTextureAssetCharacterList m_TextureAssetCharacters;
-		// CTexList m_TextureCharacterCommon;
-		// CTexList m_TextureDecals;
+		CTextureAssetCharacterList m_TextureAssetCharacters; /* DWARF members (CPipe::RenderWorld 0x244c7c, 0x245498) */
+		CTexList m_TextureCharacterCommon;
+		CTexList m_TextureDecals;
 		CTexture* m_shadowTex[4];
 		CTexHandle* m_shadowTexH;
 		/* @socom-skeleton decl Q23zdb6CWorld */

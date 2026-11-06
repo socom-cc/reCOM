@@ -161,7 +161,7 @@ namespace zdb {
 class CTextureAssetCharacterList : public std::list<void const*> /* port: element type from MSL pointer storage in DWARF; real element unproven */
 {
 public:
-	void TestFOV(zdb::CCamera *, zdb::CTextureAssetCharacters **);
+	iterator TestFOV(zdb::CCamera *, zdb::CTextureAssetCharacters **); /* returns the iterator through the hidden result pointer (0x22daf0) */
 };
 }
 /* @socom-skeleton end Q23zdb26CTextureAssetCharacterList */
@@ -170,8 +170,14 @@ namespace zdb {
 class CTextureAssetCharacters
 {
 public:
-	void TestFOV(zdb::CCamera *);
+	int TestFOV(zdb::CCamera *); /* 0x22d880 returns the in-view count it leaves at +0x0 */
 	CTextureAssetCharacters(zdb::CAssetLib *, zdb::CNode *, zdb::CDynTexList *);
+	/* port: unproven names - members from the accesses in the constructor (0x22d6d0), TestFOV
+	   (0x22d880) and CPipe::RenderWorld (0x244ce0); no DWARF class body */
+	s32 m_numInFOV;          /* +0x00 */
+	CAssetLib* m_assetLib;   /* +0x04 */
+	CNodeVector m_nodes;     /* +0x08 */
+	CGSTexBuffer* m_texBuffer; /* +0x14 */
 };
 }
 /* @socom-skeleton end Q23zdb23CTextureAssetCharacters */

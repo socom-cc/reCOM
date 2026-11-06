@@ -180,7 +180,7 @@ public:
 
 		
 		bool DrawLOD(CLOD_band* lod, f32 range, f32* distance);
-		void Render(CMatrix* transform);
+		virtual void Render(CMatrix* transform); /* vtable slot after the destructor (__vt__Q23zdb7CVisual +0xc); C2DVisual overrides it */
 
 		void SetupShaders();
 

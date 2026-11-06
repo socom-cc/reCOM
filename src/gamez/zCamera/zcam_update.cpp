@@ -31,7 +31,149 @@ float zdb::CCamera::GetFogVisibility(const CPnt3D *, const CPnt3D *) const
 namespace zdb {
 void CCamera::Update(tag_ZCAM_TYPE type)
 	{
-		
+		/* 0x1e7f30: rebuild the frustum, the VU1 frame-setup packet (DMA CNT of 24 qwords:
+		   FLUSH, STCYCL 1/1, UNPACK V4-32 of 23 qwords to VU1 address 4), the view, clip
+		   and screen matrices, the clip planes and the fog terms. */
+		m_type = type;
+
+		if (type == ZCAM_NORMAL)
+			UpdateFrustum();
+
+		tag_FrameSetup* vu = m_mtxSet.m_vu;
+		vu->dmaTag.u32[0] = 0x10000018;
+		vu->dmaTag.u32[1] = 0;
+		vu->dmaTag.u32[2] = 0;
+		vu->dmaTag.u32[3] = 0;
+		vu->vifTag.u32[0] = 0;
+		vu->vifTag.u32[1] = 0x11000000;
+		vu->vifTag.u32[2] = 0x01000101;
+		vu->vifTag.u32[3] = 0x6c170004;
+		/* sq of 0x3035c000_00008000 then sd of 0x412 over the upper half */
+		vu->shadowGifTag.u32[0] = 0x8000;
+		vu->shadowGifTag.u32[1] = 0x3035c000;
+		vu->shadowGifTag.u32[2] = 0x412;
+		vu->shadowGifTag.u32[3] = 0;
+
+		f32 farPlane = m_landmark_far_plane;
+
+		sceVu0ViewScreenMatrix(m_mtxSet.mtxViewToScreen, m_scrZ, m_screenAspect.x, m_screenAspect.y,
+			m_screenCenter.x + m_screenOffset.x, m_screenCenter.y + m_screenOffset.y,
+			m_Zmin, m_Zmax, m_near_plane, farPlane);
+
+		f32 invDepth = 1.0f / (farPlane - m_near_plane);
+		sceVu0UnitMatrix(m_mtxSet.mtxViewToClip);
+		m_mtxSet.mtxViewToClip[0][0] = (m_screenAspect.x * m_scrZ) / m_vecClipVolume[0];
+		m_mtxSet.mtxViewToClip[1][1] = (m_screenAspect.y * m_scrZ) / m_vecClipVolume[1];
+		m_mtxSet.mtxViewToClip[2][2] = invDepth * (farPlane + m_near_plane);
+		m_mtxSet.mtxViewToClip[2][3] = 1.0f;
+		m_mtxSet.mtxViewToClip[3][2] = invDepth * ((-2.0f * farPlane) * m_near_plane);
+		m_mtxSet.mtxViewToClip[3][3] = 0.0f;
+
+		/* the same projection to the mid plane, for m_mtxSet.mtxWorldToClip */
+		sceVu0FMATRIX midToClip;
+		f32 invMid = 1.0f / (m_mid_plane - m_near_plane);
+		sceVu0UnitMatrix(midToClip);
+		midToClip[0][0] = (m_screenAspect.x * m_scrZ) / m_vecClipVolume[0];
+		midToClip[1][1] = (m_screenAspect.y * m_scrZ) / m_vecClipVolume[1];
+		midToClip[2][3] = 1.0f;
+		midToClip[2][2] = invMid * (m_mid_plane + m_near_plane);
+		midToClip[3][3] = 0.0f;
+		midToClip[3][2] = invMid * ((-2.0f * m_mid_plane) * m_near_plane);
+
+		sceVu0UnitMatrix(vu->mtxClipToScreen);
+		vu->mtxClipToScreen[0][0] = m_screenAspect.x * m_vecClipVolume[0];
+		vu->mtxClipToScreen[1][1] = m_screenAspect.y * m_vecClipVolume[1];
+		vu->mtxClipToScreen[2][2] = -0.5f * (m_Zmax - m_Zmin);
+		vu->mtxClipToScreen[3][0] = m_screenCenter.x + m_screenOffset.x;
+		vu->mtxClipToScreen[3][1] = m_screenCenter.y + m_screenOffset.y;
+		vu->mtxClipToScreen[3][2] = 0.5f * (m_Zmax + m_Zmin);
+		vu->mtxClipToScreen[3][3] = 1.0f;
+
+		/* world to view: the camera matrix with y and z negated, inverted */
+		sceVu0CopyVector(m_mtxSet.mtxWorldToView[0], m_matrix.m_matrix[0]);
+		sceVu0ScaleVector(m_mtxSet.mtxWorldToView[1], m_matrix.m_matrix[1], -1.0f);
+		sceVu0ScaleVector(m_mtxSet.mtxWorldToView[2], m_matrix.m_matrix[2], -1.0f);
+		m_mtxSet.mtxWorldToView[3][0] = m_matrix.m_matrix[3][0];
+		m_mtxSet.mtxWorldToView[3][1] = m_matrix.m_matrix[3][1];
+		m_mtxSet.mtxWorldToView[3][2] = m_matrix.m_matrix[3][2];
+		m_mtxSet.mtxWorldToView[3][3] = 1.0f;
+		sceVu0InversMatrix(m_mtxSet.mtxWorldToView, m_mtxSet.mtxWorldToView);
+
+		sceVu0MulMatrix(vu->mtxWorldToClip, m_mtxSet.mtxViewToClip, m_mtxSet.mtxWorldToView);
+		sceVu0MulMatrix(vu->mtxWorldToScreen, m_mtxSet.mtxViewToScreen, m_mtxSet.mtxWorldToView);
+		sceVu0MulMatrix(m_mtxSet.mtxWorldToClip, midToClip, m_mtxSet.mtxWorldToView);
+
+		m_ClipSet.LeftPlaneNormal.x = 1.0f;
+		m_ClipSet.LeftPlaneNormal.y = 0.0f;
+		m_ClipSet.LeftPlaneNormal.z = 0.0f;
+		m_ClipSet.LeftPlaneNormal.w = 0.0f;
+		m_ClipSet.TopPlaneNormal.x = 0.0f;
+		m_ClipSet.TopPlaneNormal.y = -1.0f;
+		m_ClipSet.TopPlaneNormal.z = 0.0f;
+		m_ClipSet.TopPlaneNormal.w = 0.0f;
+		m_ClipSet.NearPlaneNormal.x = 0.0f;
+		m_ClipSet.NearPlaneNormal.y = 0.0f;
+		m_ClipSet.NearPlaneNormal.z = -1.0f;
+		m_ClipSet.NearPlaneNormal.w = 0.0f;
+
+		static f32 hardClip = 1.3f; /* hardClip$1111, guarded init (init$1112) */
+		f32 angle = (320.0f * hardClip) / (m_screenAspect.x * m_scrZ);
+		m_ClipSet.LeftPlaneNormal.Rotate_AxisY(angle);
+		m_ClipSet.RightPlaneNormal.x = -m_ClipSet.LeftPlaneNormal.x;
+		m_ClipSet.RightPlaneNormal.y = m_ClipSet.LeftPlaneNormal.y;
+		m_ClipSet.RightPlaneNormal.z = m_ClipSet.LeftPlaneNormal.z;
+		m_ClipSet.RightPlaneNormal.w = m_ClipSet.LeftPlaneNormal.w;
+
+		static f32 verticalFov = 0.785f; /* verticalFov$1114, guarded init (init$1115) */
+		m_ClipSet.TopPlaneNormal.Rotate_AxisX(angle * verticalFov);
+		m_ClipSet.BottomPlaneNormal.x = m_ClipSet.TopPlaneNormal.x;
+		m_ClipSet.BottomPlaneNormal.y = -m_ClipSet.TopPlaneNormal.y;
+		m_ClipSet.BottomPlaneNormal.z = m_ClipSet.TopPlaneNormal.z;
+		m_ClipSet.BottomPlaneNormal.w = m_ClipSet.TopPlaneNormal.w;
+
+		sceVu0ApplyMatrix((f32*)&m_ClipSet.LeftPlaneNormal, m_matrix.m_matrix, (f32*)&m_ClipSet.LeftPlaneNormal);
+		sceVu0ApplyMatrix((f32*)&m_ClipSet.RightPlaneNormal, m_matrix.m_matrix, (f32*)&m_ClipSet.RightPlaneNormal);
+		sceVu0ApplyMatrix((f32*)&m_ClipSet.TopPlaneNormal, m_matrix.m_matrix, (f32*)&m_ClipSet.TopPlaneNormal);
+		sceVu0ApplyMatrix((f32*)&m_ClipSet.BottomPlaneNormal, m_matrix.m_matrix, (f32*)&m_ClipSet.BottomPlaneNormal);
+		sceVu0ApplyMatrix((f32*)&m_ClipSet.NearPlaneNormal, m_matrix.m_matrix, (f32*)&m_ClipSet.NearPlaneNormal);
+
+		m_ClipSet.ViewPlanePoint.x = m_matrix.m_matrix[3][0];
+		m_ClipSet.ViewPlanePoint.y = m_matrix.m_matrix[3][1];
+		m_ClipSet.ViewPlanePoint.z = m_matrix.m_matrix[3][2];
+		m_ClipSet.ViewPlanePoint.w = 1.0f;
+
+		sceVu0FVECTOR nearOffset;
+		sceVu0FVECTOR pushed;
+		sceVu0FVECTOR nearPoint;
+		sceVu0ScaleVector(nearOffset, (f32*)&m_ClipSet.NearPlaneNormal, m_near_plane);
+		sceVu0ScaleVector(pushed, nearOffset, 1.0001f);
+		sceVu0AddVector(nearPoint, (f32*)&m_ClipSet.ViewPlanePoint, pushed);
+		m_ClipSet.NearPlanePoint.x = nearPoint[0];
+		m_ClipSet.NearPlanePoint.y = nearPoint[1];
+		m_ClipSet.NearPlanePoint.z = nearPoint[2];
+		m_ClipSet.NearPlanePoint.w = nearPoint[3];
+
+		m_fogB = -255.0f / (m_fog_far - m_fog_near);
+		m_fogA = 255.0f - m_fog_near * m_fogB;
+		vu->fogA[0] = 0.0f;
+		vu->fogA[1] = 0.0f;
+		vu->fogA[2] = 0.0f;
+		vu->fogA[3] = m_fogA;
+		vu->fogB[0] = 0.0f;
+		vu->fogB[1] = 0.0f;
+		vu->fogB[2] = 0.0f;
+		vu->fogB[3] = m_fogB;
+
+		if (m_fog_alt_enabled)
+		{
+			m_fog_alt[1].y = 1.0f / (m_fog_top - m_fog_bottom);
+			m_fog_alt[0].y = m_fog_bottom;
+			m_landmark_fog_alt[1].y = 1.0f / (m_landmark_fog_top - m_landmark_fog_bottom);
+			m_landmark_fog_alt[0].y = m_landmark_fog_bottom;
+		}
+
+		if (m_directional_fog_enabled)
+			UpdateDirectionalFog();
 	}
 }
 

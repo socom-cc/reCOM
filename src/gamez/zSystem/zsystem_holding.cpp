@@ -30,7 +30,7 @@ u32 CBench::countAlphaVisuals = 0;
 
 /* @socom-skeleton body drawTimeX__6CBench */
 /* held from src/gamez/zSystem/zsys_bench.cpp:9 */
-f32 CBench::drawTimeX = 0.0f;
+f32 CBench::drawTimeX[10];
 
 /* @socom-skeleton body zSys */
 /* held from src/gamez/zSystem/zsys_main.cpp:3 */

@@ -183,7 +183,7 @@ public:
 	static void DrawFlush();
 	static void Draw();
 	static float DrawRange(float, float);
-	void Render();
+	static void Render(); /* static: Render__8ParticleFv (0x237130) never reads a0; CPipe::RenderWorld calls it with no object */
 	static unsigned char bufferPtr[20000];
 	static unsigned char buffer[160000];
 	static int clipLimScreen;

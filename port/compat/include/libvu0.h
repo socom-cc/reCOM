@@ -20,6 +20,19 @@ void sceVu0MulMatrix(sceVu0FMATRIX m0, sceVu0FMATRIX m1, sceVu0FMATRIX m2);
 void sceVu0OuterProduct(sceVu0FVECTOR v0, sceVu0FVECTOR v1, sceVu0FVECTOR v2);
 /* v0 = normalized v1 (CPnt3D::Cross 0x2016bc) */
 void sceVu0Normalize(sceVu0FVECTOR v0, sceVu0FVECTOR v1);
+/* v0 = m0 * v1, rows of m0 weighted by v1.xyzw (0x152218; CCamera::Update 0x1e839c) */
+void sceVu0ApplyMatrix(sceVu0FVECTOR v0, sceVu0FMATRIX m0, sceVu0FVECTOR v1);
+/* inverse of a rigid transform: transposed 3x3, negated rotated translation (0x152360) */
+void sceVu0InversMatrix(sceVu0FMATRIX m0, sceVu0FMATRIX m1);
+/* v0 = v1 + v2 (0x152438) */
+void sceVu0AddVector(sceVu0FVECTOR v0, sceVu0FVECTOR v1, sceVu0FVECTOR v2);
+/* v0 = v1 * t (0x152480) */
+void sceVu0ScaleVector(sceVu0FVECTOR v0, sceVu0FVECTOR v1, float t);
+/* v0 = v1, one 128-bit copy (0x1524c8) */
+void sceVu0CopyVector(sceVu0FVECTOR v0, sceVu0FVECTOR v1);
+/* view-to-screen projection (0x152a28; CCamera::Update 0x1e8020) */
+void sceVu0ViewScreenMatrix(sceVu0FMATRIX m, float scrz, float ax, float ay, float cx, float cy,
+                            float zmin, float zmax, float nearz, float farz);
 
 #ifdef __cplusplus
 }

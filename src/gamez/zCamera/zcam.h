@@ -105,12 +105,15 @@ namespace zdb
 		s32 bottom;
 	};
 
+	struct tag_FrameSetup;
+
 	struct tag_ZCAM_MTX_SET
 	{
 		f32 mtxWorldToView[4][4];
 		f32 mtxWorldToClip[4][4];
 		f32 mtxViewToClip[4][4];
 		f32 mtxViewToScreen[4][4];
+		tag_FrameSetup* m_vu; /* DWARF member at +0x100: the VU1 frame-setup packet (scratchpad 0x70003e60) */
 	};
 
 	struct tag_FrameSetup
@@ -148,7 +151,7 @@ namespace zdb
 		CPnt4D LeftPlaneNormal;
 		CPnt4D RightPlaneNormal;
 		CPnt4D TopPlaneNormal;
-		CPnt4D BottompPlaneNormal;
+		CPnt4D BottomPlaneNormal;
 	};
 
 	class CCamera : public CNode, public tag_CAMERA_PARAMS
@@ -191,7 +194,7 @@ namespace zdb
 	
 		CPnt3D m_frustum[3];
 		CPnt3D m_fullfrustum[6];
-		s32 m_full_frustum_points;
+		s32 m_fullfrustum_points; /* DWARF spelling */
 
 		PNT2D m_sin;
 		PNT2D m_cos;
@@ -206,9 +209,9 @@ namespace zdb
 
 		std::vector<void*> m_lensflare_vec;
 
-		bool m_PlayerCanSeeRegions;
-		bool m_CameraCanSeeRegions;
-		bool m_SeeRegions;
+		u32 m_PlayerCanSeeRegions; /* DWARF uint */
+		u32 m_CameraCanSeeRegions;
+		u32 m_SeeRegions;
 		bool m_IsInside;
 		
 		s32 m_AboveMaterial;

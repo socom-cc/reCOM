@@ -20,6 +20,7 @@ namespace zdb
 public:
 		virtual ~CRenderMap();
 		CRenderMap(zdb::CNode *, zdb::_tag_render_map_type, const zdb::CTexture *);
+		zdb::CNode* m_node; /* port: unproven name - the CNode* at +0x180, right after CLightMap (CRenderMap::Update 0x22b310, CPipe::RenderWorld 0x2449ac) */
 		/* @socom-skeleton end Q23zdb10CRenderMap */
 	};
 }

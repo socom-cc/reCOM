@@ -13,6 +13,6 @@ public:
 	static u32 countClutterNodes;
 	static u32 countVisuals;
 	static u32 countAlphaVisuals;
-	static f32 drawTimeX;
+	static f32 drawTimeX[10]; /* DWARF array_type float[0..9] (hud_devtext.cpp); CPipe::RenderWorld fills [0..8] */
 };
 #endif
