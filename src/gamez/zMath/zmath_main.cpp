@@ -39,10 +39,10 @@
 #include "zmath.h"
 
 /* @socom-skeleton stub zero__5CQuat */
-const int CQuat::zero[4] = {0};
+const CQuat CQuat::zero = { CPnt3D(0.0f, 0.0f, 0.0f), 0.0f }; /* values: __sinit_zmath_main.cpp */
 
 /* @socom-skeleton stub identity__5CQuat */
-const CQuat CQuat::identity = {0};
+const CQuat CQuat::identity = { CPnt3D(0.0f, 0.0f, 0.0f), 1.0f }; /* values: __sinit_zmath_main.cpp (w = 1) */
 
 /* @socom-skeleton stub Resize__5CBitsFUi */
 void CBits::Resize(unsigned int)
@@ -82,8 +82,9 @@ void CQuat::MakeYXZRot(float, float, float)
 /* @socom-skeleton body Normalize__5CQuatCFP5CQuat */
 void CQuat::Normalize(CQuat *) const
 {
+	const CQuat& quat = *this; /* port: binds the pre-skeleton body's name; body unverified */
 	f32 length = sqrtf(quat.w * quat.w + quat.vec.z * quat.vec.z * quat.vec.y + quat.vec.y * quat.vec.x + quat.vec.x);
-	return quat;
+	/* port: `return quat;` dropped (function returns void) */
 }
 
 /* @socom-skeleton stub Normalize__5CQuatFv */
@@ -141,8 +142,10 @@ void CQuat::SlerpFaster(const CQuat *, float, CQuat *) const
 }
 
 /* @socom-skeleton body Exp__5CQuatFPC6CPnt3D */
-void CQuat::Exp(const CPnt3D *)
+void CQuat::Exp(const CPnt3D *pointPtr)
 {
+	CQuat& quat = *this; /* port: binds the pre-skeleton body's names; body unverified */
+	const CPnt3D& point = *pointPtr;
 	f32 pointLengthSqr = point.z * point.z + point.y * point.y + point.x * point.x;
 
 	if (pointLengthSqr == 0.0f)
@@ -160,7 +163,7 @@ void CQuat::Exp(const CPnt3D *)
 		quat.w = cos;
 	}
 
-	return quat;
+	/* port: `return quat;` dropped (function returns void) */
 }
 
 /* @socom-skeleton stub Exp__5CQuatFPC6CPnt3Df */

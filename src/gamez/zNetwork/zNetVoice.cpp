@@ -68,9 +68,9 @@ bool CZNetVoice::Tick(f32 dT)
 	{
 		// RotateReadyThreadQueue(5);
 
-		if (g_status != false)
+		if (g_status[0] != false) /* port: lb/sb g_status+0 at 0x333698/0x3336a4 */
 		{
-			g_status = false;
+			g_status[0] = false;
 		}
 
 		// s32 heartbeat = PTT_Heartbeat(1000000);

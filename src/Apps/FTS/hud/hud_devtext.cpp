@@ -93,11 +93,13 @@ static float stayTime = 2.0f;
 /* @socom-skeleton stub decTime */
 static float decTime = 0.032999999821186066f;
 
+#ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
 std::__nInit std::__msl_ios_base_ninit;
 
 /* @socom-skeleton stub __msl_ios_base_winit__3std */
 std::__wInit std::__msl_ios_base_winit;
+#endif
 
 /* @socom-skeleton stub _assetNum */
 unsigned int _assetNum;

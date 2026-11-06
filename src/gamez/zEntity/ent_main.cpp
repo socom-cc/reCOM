@@ -155,13 +155,13 @@ bool CEntity::PostTickAll(float, void *)
 }
 
 /* @socom-skeleton body GetEntityIndex__7CEntityFPC7CEntity */
-int CEntity::GetEntityIndex(const CEntity *)
+int CEntity::GetEntityIndex(const CEntity *entity) /* port: static (no C qualifier); the body read `this` */
 {
 	u32 index = -1;
 
-	if (this)
+	if (entity)
 	{
-		index = m_index;
+		index = entity->m_index;
 	}
 	
 	return index;

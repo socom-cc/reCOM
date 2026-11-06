@@ -26,6 +26,7 @@
  * socom-owner-annotations end socom:work:source-segment-076 */
 
 #include "zmath.h"
+#include "zmath_vu.h" /* zMathMulMatrix */
 
 /// Transform a matrix by a point.
 
@@ -36,7 +37,10 @@
 /* @socom-skeleton end include */
 
 /* @socom-skeleton stub identity__7CMatrix */
-const CMatrix CMatrix::identity = {0};
+const CMatrix CMatrix::identity(1.0f, 0.0f, 0.0f, 0.0f,
+                                 0.0f, 1.0f, 0.0f, 0.0f,
+                                 0.0f, 0.0f, 1.0f, 0.0f,
+                                 0.0f, 0.0f, 0.0f, 1.0f); /* values: __sinit_zmath_matrix.cpp (16-float ctor call) */
 
 /* @socom-skeleton stub m_pointer__6CStack */
 CMatrix *CStack::m_pointer = (CMatrix *)0xffffffff;
@@ -159,10 +163,10 @@ CMatrix * CStack::Multiply(const CMatrix *matrix, bool other)
 	{
 		m_top++;
 		m_pointer++;
-		zMathMulMatrix(m_top, &m, matrix);
+		zMathMulMatrix(m_top, &m, const_cast<CMatrix*>(matrix)); /* port: callee takes CMatrix* (zMathMulMatrix__FP7CMatrixP7CMatrixP7CMatrix) */
 	}
 	else
-		zMathMulMatrix(m_top, m_top, matrix);
+		zMathMulMatrix(m_top, m_top, const_cast<CMatrix*>(matrix));
 
 	return m_top;
 }

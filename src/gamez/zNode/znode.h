@@ -202,7 +202,7 @@ namespace zdb
 		void DeleteChildren();
 		void RemoveFromParent();
 
-		CGridAtom* GetAtom(s16 index);
+		/* GetAtom: the binary has only GetAtom__Q23zdb5CNodeFi (int), declared below */
 		void InsertAtom(CGridAtom* atom);
 		void FreeAtom();
 		bool UpdateGrid();

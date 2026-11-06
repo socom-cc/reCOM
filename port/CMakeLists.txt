@@ -5,7 +5,7 @@
 #   cmake --build <build> -- -k        # keep going to collect every failure
 #
 # Targets:
-#   socom_game  - every src/ unit except *_holding.cpp (never built)
+#   socom_game  - every src/ unit, including the *_holding.cpp files
 #   socom_port  - the ELF: socom_game + port/compat + ps2sdk
 # Nothing built here is evidence for the matching lane.
 cmake_minimum_required(VERSION 3.13)
@@ -16,12 +16,14 @@ get_filename_component(SOCOM_ROOT "${SOCOM_ROOT}" ABSOLUTE)
 
 file(GLOB_RECURSE SOCOM_GAME_SOURCES CONFIGURE_DEPENDS
   "${SOCOM_ROOT}/src/*.cpp" "${SOCOM_ROOT}/src/*.c")
-list(FILTER SOCOM_GAME_SOURCES EXCLUDE REGEX "_holding\\.cpp$")
+# *_holding.cpp files are built too: they hold the only provisional code for functions
+# stage 4 left without an owning unit (the matching lane never builds them).
 
 set(SOCOM_PORT_FLAGS
   -std=gnu++17
   -fno-exceptions
-  -fno-rtti
+  # Metrowerks accepted members that reuse a type's name (e.g. `f32 f32[4]` in _word128).
+  -Wno-changes-meaning
   -include "${CMAKE_CURRENT_SOURCE_DIR}/include/socom_port_prefix.h")
 
 add_library(socom_game STATIC ${SOCOM_GAME_SOURCES})

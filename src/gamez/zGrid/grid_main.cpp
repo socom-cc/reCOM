@@ -678,7 +678,7 @@ bool CGrid::Create(CWorld* world, const tag_GRID_PARAMS* params)
                 m_Atoms[cx + cy * m_CellCount.cx] = NULL;
 
                 CCell* cell = new CCell(&cellpos, m_CellDim);
-                sprintf_s(buf, 24, "cell%06d", i);
+                snprintf(buf, 24, "cell%06d", i);
                 cell->SetName(buf);
                 world->AddChild(cell);
                 i++;

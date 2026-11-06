@@ -16,11 +16,8 @@ class CZBodyPart;
 
 extern CAppCamera* appCamera;
 
-extern bool fogCheck;
-extern bool camera_tether_intersects_something;
-extern f32 save_short_tether_length;
-extern f32 DeltaRot;
-extern f32 DeltaAim;
+/* fogCheck (zcam_main.cpp) and camera_tether_intersects_something, save_short_tether_length,
+   DeltaRot, DeltaAim (camera.cpp) are file-local (LOCAL symbols; DWARF local_variable) */
 
 void GetFirstPersonCameraPos(CAppCamera* appCamera);
 void FirstToThirdPersonTransition(CAppCamera* appCamera);

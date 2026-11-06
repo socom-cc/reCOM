@@ -5,17 +5,18 @@
 
 #ifndef ZNETWORK_H
 #define ZNETWORK_H
+
+/* port: forward declarations for names this header uses */
+class C2D;
 #include <list>
 
 #include <rsa/rsadef.h>
+#include <dme.h> /* port: NetOwnershipStatus, NetObjectLifespan, NetThresholdMethod (Medius DME; header name unproven) */
 
 #include "gamez/zMath/zmath.h"
 #include "gamez/zSystem/zsys.h"
 /* @socom-skeleton decl forward */
 class NetConnectionInfo;
-class NetObjectLifespan;
-class NetOwnershipStatus;
-class NetThresholdMethod;
 class sceNetcnfifData;
 /* @socom-skeleton end forward */
 
@@ -32,7 +33,7 @@ class CValve;
 
 class CUIVariable;
 
-extern bool g_status;
+extern signed char g_status[2]; /* port: symtab g_status size 2; CZNetVoice::Tick uses +0 with lb/sb */
 
 extern CZNetwork theNetwork;
 extern CZNetVoice theVoice;
@@ -40,26 +41,7 @@ extern CZOnlineLobby theLobby;
 
 void PTT_HeartbeatPrepare();
 
-enum class MP_MINOR_GAME_STATE
-{
-	MP_MINOR_UNKNOWN,
-	MP_MINOR_NOTREADY,
-	MP_MINOR_READY
-};
-
-enum class MP_MAJOR_GAME_STATE
-{
-	MP_MAJOR_UNKNOWN,
-	MP_MAJOR_MENUS,
-	MP_MAJOR_LOADING,
-	MP_MAJOR_INPLAY,
-	MP_MAJOR_ROUNDOVER,
-	MP_MAJOR_NEWROUND,
-	MP_MAJOR_GAMEOVER,
-	MP_MAJOR_PLAY,
-	MP_MAJOR_GAMELOBBY,
-	MP_MAJOR_GHOST
-};
+/* port: the global MP_MINOR_GAME_STATE / MP_MAJOR_GAME_STATE duplicates were removed; the binary's types are CZNetGame::MP_*_GAME_STATE (Q29CZNetGame19MP_MAJOR_GAME_STATE) */
 
 enum class MP_GAME_TYPE
 {
@@ -165,7 +147,7 @@ public:
 		MP_CLAN_DISBANDED
 	};
 public:
-	f32 zNetGetTime();
+	int zNetGetTime(); /* port: 0x321700 returns lw 0xdc(a0) in v0, not $f0 */
 	bool zNetUpdate();
 	void zNetRequestObjectPrivateOwnership();
 public:
@@ -266,6 +248,26 @@ public:
 class CZNetGame
 {
 public:
+	enum MP_MAJOR_GAME_STATE
+	{
+		MP_MAJOR_UNKNOWN = 0,
+		MP_MAJOR_MENUS = 1,
+		MP_MAJOR_LOADING = 2,
+		MP_MAJOR_INPLAY = 3,
+		MP_MAJOR_ROUNDOVER = 4,
+		MP_MAJOR_NEWROUND = 5,
+		MP_MAJOR_GAMEOVER = 6,
+		MP_MAJOR_PLAY = 12,
+		MP_MAJOR_GAMELOBBY = 13,
+		MP_MAJOR_GHOST = 14
+	};
+	enum MP_MINOR_GAME_STATE
+	{
+		MP_MINOR_UNKNOWN = 0,
+		MP_MINOR_NOTREADY = 1,
+		MP_MINOR_READY = 2
+	};
+
 	bool Initialize();
 
 	void MasterStartGame();
@@ -346,25 +348,7 @@ public:
 	s32 m_e3_index;
 	/* @socom-skeleton decl 9CZNetGame */
 public:
-	enum MP_MAJOR_GAME_STATE
-	{
-		MP_MAJOR_UNKNOWN = 0,
-		MP_MAJOR_MENUS = 1,
-		MP_MAJOR_LOADING = 2,
-		MP_MAJOR_INPLAY = 3,
-		MP_MAJOR_ROUNDOVER = 4,
-		MP_MAJOR_NEWROUND = 5,
-		MP_MAJOR_GAMEOVER = 6,
-		MP_MAJOR_PLAY = 12,
-		MP_MAJOR_GAMELOBBY = 13,
-		MP_MAJOR_GHOST = 14
-	};
-	enum MP_MINOR_GAME_STATE
-	{
-		MP_MINOR_UNKNOWN = 0,
-		MP_MINOR_NOTREADY = 1,
-		MP_MINOR_READY = 2
-	};
+	/* port: MP_MAJOR_GAME_STATE and MP_MINOR_GAME_STATE moved to the top of the class so the members below can use them */
 	void UnInitialize();
 	void SetE3RoundCount(int);
 	unsigned int NetworkTeam(unsigned int);

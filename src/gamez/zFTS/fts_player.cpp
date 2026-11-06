@@ -76,10 +76,10 @@ struct _zanim_cmd_hdr;
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub doSquirm */
-static unsigned char doSquirm;
+static bool doSquirm;
 
 /* @socom-skeleton stub ftsPlayer */
-int ftsPlayer[2];
+CZSealBody* ftsPlayer; /* port: typed as zfts.h declares it; the ELF object is 8 bytes and ftsGetPlayer loads one word */
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];

@@ -97,6 +97,12 @@
 
 #ifndef ZAI_H
 #define ZAI_H
+
+/* port: forward declarations for names this header uses */
+class CGraph;
+class CValve;
+class CZKit;
+class CZSealBody;
 #include <vector>
 
 #include "gamez/zMath/zmath.h"
@@ -116,6 +122,10 @@ class CAiAStar;
 class CAiPlanner;
 class CAiPathStats;
 class CAiMapLoc;
+class CAiEventHandle; /* port: unproven: only std::list<CAiEventHandle> instances in DWARF */
+
+/* port: opaque declaration; the definition is in gamez/zWeapon/zweapon.h (DWARF byte_size 1) */
+enum class EQUIP_ITEM : unsigned char;
 
 class CEntity;
 
@@ -177,7 +187,7 @@ enum class FIRETEAM
 	FT_ALL
 };
 
-enum FT_COMMAND
+enum FT_COMMAND : unsigned char /* DWARF byte_size 1; lets other headers declare it opaquely */
 {
 	CMD_UNKNOWN,
 	CMD_ACTION,
@@ -208,7 +218,7 @@ enum FT_COMMAND
 	CMD_AWARE,
 	CMD_AWAKE,
 	CMD_RADIO_CHANNEL_ZERO,
-	CMD_RADIO_CHANNEL,ONE,
+	CMD_RADIO_CHANNEL_ONE,
 	CMD_RADIO_CHANNEL_TWO,
 	CMD_RADIO_CHANNEL_THREE,
 	CMD_RADIO_CHANNEL_ONOFF,
@@ -399,7 +409,7 @@ public:
 	s32 dummy;
 	/* @socom-skeleton decl 8CAiEvent */
 public:
-	class EVENT_CLASS;
+	enum EVENT_CLASS { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
 	class iterator;
 	static char * GetEventString(CAiEvent::EVENT);
 	static void GetEventFromString(const char *, CAiEvent::EVENT);
@@ -457,7 +467,7 @@ public:
 	public:
 		void ValidateName();
 	};
-	class names : public std::vector
+	class names : public std::vector<name>
 	{
 	public:
 		void SortByNames();
@@ -468,14 +478,20 @@ public:
 		reader();
 		void SetReader(CRdrFile *);
 	};
-	class readers : public std::vector
+	class readers : public std::vector<reader>
 	{
 	public:
 		~readers();
 	};
+	class line; /* defined after CAiMapLoc */
+	class spore; /* defined after CAiMapLoc */
+	class spores : public std::vector<spore> /* DWARF: CAiMap::spores, byte_size 12 */
+	{
+	};
 	class region
 	{
 	public:
+		enum TYPE { }; /* port: unproven: named by the mangled CAiMap::region::TYPE parameters; enumerators not in DWARF (m_type is a 5-bit field) */
 		void InflateRegion(int, int, int, int, const CAiMap *);
 		void Union(const CAiMapLoc &);
 		CAiMapLoc * GetCenter(CAiMapLoc &) const;
@@ -546,6 +562,29 @@ public:
 	static const unsigned char invalid[4];
 	static const int max_value;
 	/* @socom-skeleton end 9CAiMapLoc */
+};
+
+struct line_data /* DWARF: line_data, byte_size 4 */
+{
+	u32 m_type : 5;
+	u32 m_id : 8;
+	u32 m_polygon : 1;
+	u32 m_outline : 1;
+	u32 m_unused : 17;
+};
+
+class CAiMap::line : public CAiMapLocVec, public line_data /* DWARF: CAiMap::line, byte_size 16 */
+{
+};
+
+class CAiMap::spore /* DWARF: CAiMap::spore, byte_size 12 */
+{
+public:
+	CAiMapLoc m_loc;
+	u32 m_dir : 4;
+	u32 m_id : 12;
+	u32 m_unused : 16;
+	f32 m_altitude;
 };
 
 class CAiPathStats
@@ -706,9 +745,9 @@ public:
 	/* @socom-skeleton decl 10CAiSScript */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
+	virtual bool Tick(float, CSealCtrlAi *);
 	virtual void GetStatus() const;
-	virtual void CanPursue(CSealCtrlAi *) const;
+	virtual bool CanPursue(CSealCtrlAi *) const;
 	virtual ~CAiSScript();
 	void ActivateSequence(const char *, unsigned int);
 	/* @socom-skeleton end 10CAiSScript */
@@ -720,7 +759,7 @@ class CAiSHold : public CAiState
 	/* @socom-skeleton decl 8CAiSHold */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
+	virtual bool Tick(float, CSealCtrlAi *);
 	virtual ~CAiSHold();
 	/* @socom-skeleton end 8CAiSHold */
 };
@@ -731,7 +770,7 @@ class CAiSAvoid : public CAiState
 	/* @socom-skeleton decl 9CAiSAvoid */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
+	virtual bool Tick(float, CSealCtrlAi *);
 	virtual ~CAiSAvoid();
 	/* @socom-skeleton end 9CAiSAvoid */
 };
@@ -742,8 +781,8 @@ class CAiSDeploy : public CAiState
 	/* @socom-skeleton decl 10CAiSDeploy */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
-	virtual void CanAttack() const;
+	virtual bool Tick(float, CSealCtrlAi *);
+	virtual bool CanAttack() const;
 	virtual ~CAiSDeploy();
 	void CanDeployItem(CZKit *, EQUIP_ITEM);
 	/* @socom-skeleton end 10CAiSDeploy */
@@ -755,8 +794,8 @@ class CAiSSurrender : public CAiState
 	/* @socom-skeleton decl 13CAiSSurrender */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
-	virtual void CanAttack() const;
+	virtual bool Tick(float, CSealCtrlAi *);
+	virtual bool CanAttack() const;
 	virtual void GetScriptResponse() const;
 	virtual ~CAiSSurrender();
 	/* @socom-skeleton end 13CAiSSurrender */
@@ -768,9 +807,9 @@ class CAiSRestrained : public CAiState
 	/* @socom-skeleton decl 14CAiSRestrained */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
-	virtual void CanAttack() const;
-	virtual void CanScan() const;
+	virtual bool Tick(float, CSealCtrlAi *);
+	virtual bool CanAttack() const;
+	virtual bool CanScan() const;
 	virtual void GetScriptResponse() const;
 	virtual ~CAiSRestrained();
 	/* @socom-skeleton end 14CAiSRestrained */
@@ -787,7 +826,7 @@ class CAiSGoto : public CAiState
 	/* @socom-skeleton decl 8CAiSGoto */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
+	virtual bool Tick(float, CSealCtrlAi *);
 	virtual ~CAiSGoto();
 	/* @socom-skeleton end 8CAiSGoto */
 };
@@ -798,7 +837,7 @@ class CAiSFollow : public CAiState
 	/* @socom-skeleton decl 10CAiSFollow */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
+	virtual bool Tick(float, CSealCtrlAi *);
 	virtual void GetStatus() const;
 	virtual ~CAiSFollow();
 	/* @socom-skeleton end 10CAiSFollow */
@@ -810,9 +849,9 @@ class CAiSBreach : public CAiState
 	/* @socom-skeleton decl 10CAiSBreach */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
+	virtual bool Tick(float, CSealCtrlAi *);
 	virtual void GetStatus() const;
-	virtual void CanPursue(CSealCtrlAi *) const;
+	virtual bool CanPursue(CSealCtrlAi *) const;
 	virtual ~CAiSBreach();
 	/* @socom-skeleton end 10CAiSBreach */
 };
@@ -823,7 +862,7 @@ class CAiSAction : public CAiState
 	/* @socom-skeleton decl 10CAiSAction */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
+	virtual bool Tick(float, CSealCtrlAi *);
 	virtual ~CAiSAction();
 	/* @socom-skeleton end 10CAiSAction */
 };
@@ -834,9 +873,9 @@ class CAiSPursue : public CAiState
 	/* @socom-skeleton decl 10CAiSPursue */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
+	virtual bool Tick(float, CSealCtrlAi *);
 	virtual void GetStatus() const;
-	virtual void CanAttack() const;
+	virtual bool CanAttack() const;
 	virtual ~CAiSPursue();
 	/* @socom-skeleton end 10CAiSPursue */
 };
@@ -847,7 +886,7 @@ class CAiSAnimate : public CAiState
 	/* @socom-skeleton decl 11CAiSAnimate */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
+	virtual bool Tick(float, CSealCtrlAi *);
 	virtual ~CAiSAnimate();
 	/* @socom-skeleton end 11CAiSAnimate */
 };
@@ -858,8 +897,8 @@ class CAiSCQBAttack : public CAiState
 	/* @socom-skeleton decl 13CAiSCQBAttack */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
-	virtual void CanAttack() const;
+	virtual bool Tick(float, CSealCtrlAi *);
+	virtual bool CanAttack() const;
 	virtual ~CAiSCQBAttack();
 	/* @socom-skeleton end 13CAiSCQBAttack */
 };
@@ -870,10 +909,10 @@ class CAiSFlee : public CAiState
 	/* @socom-skeleton decl 8CAiSFlee */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
-	virtual void CanAttack() const;
-	virtual void CanScan() const;
-	virtual void CanPursue(CSealCtrlAi *) const;
+	virtual bool Tick(float, CSealCtrlAi *);
+	virtual bool CanAttack() const;
+	virtual bool CanScan() const;
+	virtual bool CanPursue(CSealCtrlAi *) const;
 	virtual ~CAiSFlee();
 	/* @socom-skeleton end 8CAiSFlee */
 };
@@ -884,10 +923,10 @@ class CAiSPathRecover : public CAiState
 	/* @socom-skeleton decl 15CAiSPathRecover */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
+	virtual bool Tick(float, CSealCtrlAi *);
 	virtual void GetStatus() const;
-	virtual void CanAttack() const;
-	virtual void CanPursue(CSealCtrlAi *) const;
+	virtual bool CanAttack() const;
+	virtual bool CanPursue(CSealCtrlAi *) const;
 	virtual ~CAiSPathRecover();
 	/* @socom-skeleton end 15CAiSPathRecover */
 };
@@ -898,9 +937,9 @@ class CAiSRescued : public CAiState
 	/* @socom-skeleton decl 11CAiSRescued */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
-	virtual void CanAttack() const;
-	virtual void CanScan() const;
+	virtual bool Tick(float, CSealCtrlAi *);
+	virtual bool CanAttack() const;
+	virtual bool CanScan() const;
 	virtual void GetScriptResponse() const;
 	virtual ~CAiSRescued();
 	void SetExtractValve(CValve *);
@@ -913,9 +952,9 @@ class CAiSSuspended : public CAiState
 	/* @socom-skeleton decl 13CAiSSuspended */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
-	virtual void CanAttack() const;
-	virtual void CanPursue(CSealCtrlAi *) const;
+	virtual bool Tick(float, CSealCtrlAi *);
+	virtual bool CanAttack() const;
+	virtual bool CanPursue(CSealCtrlAi *) const;
 	virtual ~CAiSSuspended();
 	/* @socom-skeleton end 13CAiSSuspended */
 };
@@ -926,8 +965,8 @@ class CAiSShotAt : public CAiState
 	/* @socom-skeleton decl 10CAiSShotAt */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
-	virtual void CanPursue(CSealCtrlAi *) const;
+	virtual bool Tick(float, CSealCtrlAi *);
+	virtual bool CanPursue(CSealCtrlAi *) const;
 	virtual ~CAiSShotAt();
 	/* @socom-skeleton end 10CAiSShotAt */
 };
@@ -938,8 +977,8 @@ class CAiSNoAmmo : public CAiState
 	/* @socom-skeleton decl 10CAiSNoAmmo */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
-	virtual void CanAttack() const;
+	virtual bool Tick(float, CSealCtrlAi *);
+	virtual bool CanAttack() const;
 	virtual ~CAiSNoAmmo();
 	/* @socom-skeleton end 10CAiSNoAmmo */
 };
@@ -950,7 +989,7 @@ class CAiSHostage : public CAiState
 	/* @socom-skeleton decl 11CAiSHostage */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
+	virtual bool Tick(float, CSealCtrlAi *);
 	virtual ~CAiSHostage();
 	/* @socom-skeleton end 11CAiSHostage */
 };
@@ -967,10 +1006,10 @@ class CAiSEvent : public CAiState
 public:
 	class EVENT_STATE;
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
+	virtual bool Tick(float, CSealCtrlAi *);
 	virtual void GetStatus() const;
-	virtual void CanAttack() const;
-	virtual void CanPursue(CSealCtrlAi *) const;
+	virtual bool CanAttack() const;
+	virtual bool CanPursue(CSealCtrlAi *) const;
 	virtual ~CAiSEvent();
 	void ComputeNextState(CAiSEvent::EVENT_STATE &, float);
 	/* @socom-skeleton end 9CAiSEvent */
@@ -982,7 +1021,7 @@ class CAiSTarget : public CAiState
 	/* @socom-skeleton decl 10CAiSTarget */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
+	virtual bool Tick(float, CSealCtrlAi *); /* port: an override returns its base's type */
 	virtual ~CAiSTarget();
 	/* @socom-skeleton end 10CAiSTarget */
 };
@@ -993,9 +1032,9 @@ class CAiSGrenade : public CAiState
 	/* @socom-skeleton decl 11CAiSGrenade */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
-	virtual void CanAttack() const;
-	virtual void CanPursue(CSealCtrlAi *) const;
+	virtual bool Tick(float, CSealCtrlAi *); /* port: an override returns its base's type */
+	virtual bool CanAttack() const; /* port: an override returns its base's type */
+	virtual bool CanPursue(CSealCtrlAi *) const; /* port: an override returns its base's type */
 	virtual ~CAiSGrenade();
 	/* @socom-skeleton end 11CAiSGrenade */
 };
@@ -1006,8 +1045,8 @@ class CAiSStunResponse : public CAiState
 	/* @socom-skeleton decl 16CAiSStunResponse */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
-	virtual void CanAttack() const;
+	virtual bool Tick(float, CSealCtrlAi *); /* port: an override returns its base's type */
+	virtual bool CanAttack() const; /* port: an override returns its base's type */
 	virtual ~CAiSStunResponse();
 	/* @socom-skeleton end 16CAiSStunResponse */
 };
@@ -1018,7 +1057,7 @@ class CAiSRush : public CAiState
 	/* @socom-skeleton decl 8CAiSRush */
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
+	virtual bool Tick(float, CSealCtrlAi *); /* port: an override returns its base's type */
 	virtual ~CAiSRush();
 	void SetTarget(CZSealBody *);
 	/* @socom-skeleton end 8CAiSRush */
@@ -1090,7 +1129,7 @@ class CAiVismap
 
 };
 /* @socom-skeleton decl 9CAiEventQ */
-class CAiEventQ : public std::list
+class CAiEventQ : public std::list<CAiEventHandle>
 {
 public:
 	void Create(unsigned int);
@@ -1107,8 +1146,13 @@ public:
 	static int m_log;
 };
 /* @socom-skeleton end 6CAiLog */
+struct AIMAPS_PARAMS /* DWARF: byte_size 36 */
+{
+	u32 m_map_count;
+	u32 m_reserved[8];
+};
 /* @socom-skeleton decl 7CAiMaps */
-class CAiMaps : public std::list, private AIMAPS_PARAMS
+class CAiMaps : public std::list<void const*>, private AIMAPS_PARAMS /* port: element type from MSL pointer storage in DWARF; real element unproven */
 {
 public:
 	CAiMap::spores m_spores;
@@ -1170,7 +1214,7 @@ public:
 class CAiVisMap
 {
 public:
-	class VIS_TYPE;
+	enum VIS_TYPE { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
 	static void TickVisMaps(float);
 	static void RegisterDynamicVisMap(CAiVisMap *, const CAiMapLoc &, int);
 	void UpdateDynamicVisMap(CAiVisMap *, const CAiMapLoc &);

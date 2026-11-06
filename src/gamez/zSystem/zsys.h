@@ -46,26 +46,17 @@ class CPacket;
 /// PRIMITIVE TYPES
 /// -------------------------------------------
 
-typedef uint8_t    u8;  // unsigned char
-typedef uint16_t   u16; // unsigned short
-typedef uint32_t   u32; // unsigned int
-typedef uint64_t   u64; // unsigned long
-typedef int8_t     s8;  // char
-typedef int16_t    s16; // short
-typedef int32_t    s32; // int
-typedef int64_t    s64; // long
-typedef float      f32; // float
-typedef double     f64;
+#include "zsys_primitive.h"
 
 class _zsys_public;
 
 class CTTY;
 class CSched_Manager;
 
-typedef unsigned long long long128;
+#include <eetypes.h> /* long128: 128-bit (DWARF _word128::u128 is 16 bytes) */
 typedef bool(*ScheduledTask)(float, void*);
 
-void zVid_Assert(bool condition, unsigned int mask, const char* source, int line);
+void zVid_Assert(bool condition, unsigned int mask, char* source, int line); /* zVid_Assert__FbUiPci */
 
 void* operator new(size_t size);
 void* __malloc(size_t size, const char* file, int line);
@@ -80,7 +71,7 @@ extern size_t _HeapSize;
 extern _zsys_public zSys;
 extern CTTY theTerminal;
 extern bool postinit;
-extern bool postinited;
+/* postinited is file-local in zsys_init.cpp (LOCAL symbol) */
 extern char gamez_GameRoot[256];
 extern char gamez_GameRunPath[256];
 
@@ -94,8 +85,7 @@ union _word128
 	u8 u8[16];
 };
 
-extern _word128* sprBeingWritten;
-extern _word128* sprBeingKicked;
+/* sprBeingWritten, sprBeingKicked are file-local in zsys_spr.cpp (LOCAL symbols) */
 
 void InitSystemTuners();
 void zSysInit();
@@ -225,8 +215,7 @@ public:
 class CTTY
 {
 public:
-	void Print(char* string);
-	void Print(char* buffer, size_t size);
+	/* Print: the binary has only Print__4CTTYFPci (char*, int), declared below */
 	void Render();
 private:
 	char m_buffer[1024];

@@ -13,8 +13,8 @@
 #include <vector>
 
 #include "gamez/zSystem/zsys.h"
-#include "gamez/zutil/util_stable.h"
-#include "gamez/zutil/util_systemio.h"
+#include "gamez/zUtil/util_stable.h"
+#include "gamez/zUtil/util_systemio.h"
 
 #define ZAR_VERSION_1 0x20001
 #define ZAR_VERSION_2 0x20002
@@ -45,7 +45,7 @@
 			}\
 		}\
 
-static char* hackStr;
+extern char* hackStr; /* GLOBAL symbol hackStr, defined in zar_search.cpp */
 static bool m_memalign = false;
 
 static char g_gamePath[1024] = "D:/";
@@ -94,7 +94,7 @@ namespace zar
 		CKey(char* name);
 		~CKey();
 
-		static void fixupKey(CSTable* table, CKey* key);
+		/* fixupKey: the binary has only fixupKey__Q23zar4CKeyFP7CSTablePv (CSTable*, void*), declared below */
 
 		CKey* InsertKey(CKey* key);
 		CKey* FindKey(const char* name);
@@ -349,14 +349,14 @@ public:
 		unsigned char ReOpen(int, unsigned int);
 		zar::CKey * GetOpenKey();
 		int FetchString(const char *, char *, int);
-		void Fetch(const char *, void *, int);
-		void Fetch(const char *, int (*)(zar::CZAR &, int, void *), void *);
+		bool Fetch(const char *, void *, int); /* bool: v0 = sltu zero,v0 at the epilogue (0x1dbb30) */
+		bool Fetch(const char *, int (*)(zar::CZAR &, int, void *), void *); /* bool: v0 = andi s4,0xff (0x1dba10) */
 		bool FetchAll(int (*)(zar::CZAR &, const char *, void *, int, void *), void *);
 		zar::CKey * Insert(const char *, const void *, int);
-		void Insert(zar::CKey *, const void *, int);
+		bool Insert(zar::CKey *, const void *, int); /* bool: returns v0, tested by Insert(const char*, const void*, int) */
 		void Unsecurify(void *, int);
 		void Securify(void *, int);
-		void Fetch(zar::CKey *, void *, int, unsigned int);
+		bool Fetch(zar::CKey *, void *, int, unsigned int); /* port: bool from the body; returns v0 = s4 (0x1db0a0) */
 		static unsigned char m_memalign;
 		/* @socom-skeleton end Q23zar4CZAR */
 	};

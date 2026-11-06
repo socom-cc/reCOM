@@ -14,8 +14,12 @@
 
 #ifndef ZGAME_H
 #define ZGAME_H
+
+/* port: forward declarations for names this header uses */
+class ActionItem;
 #include "gamez/zFTS/fts_state.h"
 #include "gamez/zTwoD/ztwod.h"
+#include "gamez/zUI/zui.h" /* ActionItem::EVENT (nested enum) */
 
 class CGame;
 class COurGame;
@@ -31,7 +35,7 @@ namespace zdb
 	class CNode;
 }
 
-enum MENU_STATE
+enum MENU_STATE : unsigned char /* DWARF byte_size 1; zseal.h declares it opaquely */
 {
 	stateNone,
 	stateWeaponSel,
@@ -52,7 +56,7 @@ enum GAME_NAME
 void process_arguments(int argc, char** argv);
 
 extern COurGame theGame;
-extern std::vector<CGameStateChangeCmd*> m_pool;
+/* port: m_pool is file-local (static) data in game_state.cpp (ELF local symbol) */
 
 struct _options
 {

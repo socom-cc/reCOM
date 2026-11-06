@@ -42,11 +42,13 @@
 class CZAnimZAR;
 /* @socom-skeleton end forward */
 
+#ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
 std::__nInit std::__msl_ios_base_ninit;
 
 /* @socom-skeleton stub __msl_ios_base_winit__3std */
 std::__wInit std::__msl_ios_base_winit;
+#endif
 
 /* @socom-skeleton stub animfile__21@unnamed@st_exit_cpp@ */
 namespace {
@@ -79,10 +81,10 @@ CExitState::CExitState()
 }
 
 /* @socom-skeleton body Init__10CExitStateFv */
-unsigned char CExitState::Init() { return true; }
+bool CExitState::Init() { return true; }
 
 /* @socom-skeleton body Tick__10CExitStateFf */
-unsigned char CExitState::Tick(float dT) {}
+bool CExitState::Tick(float dT) {}
 
 /* @socom-skeleton body UnInit__10CExitStateFv */
 void CExitState::UnInit() {}

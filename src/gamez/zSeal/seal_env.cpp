@@ -271,8 +271,8 @@
 #include "gamez/zWeapon/zweapon.h"
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
-class AckUnion;
-class CDIType;
+/* port: AckUnion is declared in gamez/zSeal/zseal.h */
+/* port: CDIType is declared in gamez/zSeal/zseal.h */
 class CMaterialEx;
 class CZAmmoPickupInstance;
 class MPSealStats;
@@ -324,11 +324,13 @@ static float AutoAimDistSqd = 900.0f;
 /* @socom-skeleton stub AutoAimMinDist */
 static float AutoAimMinDist = 60.0f;
 
+#ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
-unsigned char std::__msl_ios_base_ninit;
+std::__nInit std::__msl_ios_base_ninit;
 
 /* @socom-skeleton stub __msl_ios_base_winit__3std */
-unsigned char std::__msl_ios_base_winit;
+std::__wInit std::__msl_ios_base_winit;
+#endif
 
 /* @socom-skeleton stub m_dropanim__10CZSealBody */
 int CZSealBody::m_dropanim;
@@ -897,7 +899,7 @@ bool CZSealBody::DamageBody(f32 damage, f32 multiplier)
 			m_retmods += 3.0f;
 
 		// AnimType damageAnim = FindRandomDamageAnim(DAMAGE_LOCATION::BODY);
-		SEAL_STANCE stance = GetStance(false);
+		SEAL_STATE stance = GetStance(false); /* port: GetStance returns SEAL_STATE */
 		// WeaponHitAnim(damageAnim, stance, false);
 		return true;
 	}

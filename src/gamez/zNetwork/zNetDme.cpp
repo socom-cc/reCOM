@@ -38,9 +38,7 @@
 #include "znet.h"
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
-class NetObjectLifespan;
-class NetOwnershipStatus;
-class NetThresholdMethod;
+/* port: NetObjectLifespan, NetOwnershipStatus, NetThresholdMethod are DME enums from <dme.h> (via znet.h) */
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub gIRXLoaded */

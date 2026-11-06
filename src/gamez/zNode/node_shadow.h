@@ -3,25 +3,17 @@
 #include "node_light.h"
 /* @socom-skeleton decl forward */
 namespace zdb {
-class _tag_render_map_type;
+/* enum: the CRenderMap constructor stores it with sb and masks it with 0xff (0x22bca8) */
+enum _tag_render_map_type : unsigned char {}; /* port: unproven - enumerators unknown */
 }
 /* @socom-skeleton end forward */
 
 namespace zdb
 {
-	// TODO:
-	// figure out what is in this unknown struct
-	// it is taken as a parameter in the constructor of
-	// CRenderMap::CRenderMap(CNode*, tag_render_map_type, CTexture*)
-	struct tag_render_map_type
-	{
-
-	};
-
 	class CRenderMap : public CLightMap
 	{
 	public:
-		CRenderMap(CNode*, tag_render_map_type, CTexture*);
+		/* constructor: the binary has only CRenderMap(CNode*, _tag_render_map_type, const CTexture*), declared below */
 
 		void Update();
 		/* @socom-skeleton decl Q23zdb10CRenderMap */

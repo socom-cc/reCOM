@@ -162,6 +162,14 @@ namespace zdb {
 class CTextureRelocMgr;
 }
 /* @socom-skeleton end forward */
+/* port: TwoDAxis::_ from MoveToNextPos__Q221@unnamed@zui_skb_cpp@8CSkbGridCFPiPiQ321@unnamed@zui_skb_cpp@8TwoDAxis1_PFi_i;
+ * 0x3a6bb0 takes it as one byte and tests it against zero. Struct-vs-namespace and enumerators unproven. */
+namespace {
+struct TwoDAxis
+{
+	enum _ {};
+};
+}
 /* @socom-skeleton decl Q221@unnamed@zui_skb_cpp@12CBmpWithNode */
 namespace {
 class CBmpWithNode : public CPlainBmp

@@ -351,12 +351,12 @@ namespace sealai
 /* @socom-skeleton decl forward */
 class AI_FIREPARAMS;
 class AI_REACTION;
-class AI_SIGNAL;
-class AI_SOUND;
+/* port: AI_SIGNAL is declared in gamez/zSeal/zseal.h */
+/* port: AI_SOUND is declared in gamez/zSeal/zseal.h */
 class CAiWepHint;
-class CHARACTER_SOUND;
+/* port: CHARACTER_SOUND is declared in gamez/zCharacter/zchar.h */
 class MAP_LINEWALK_STRUCT;
-class SEAL_TASK;
+/* port: SEAL_TASK is declared in gamez/zSeal/zseal.h */
 class STUN_TYPE;
 /* @socom-skeleton end forward */
 
@@ -554,7 +554,7 @@ AI_STATE get_state(const char* name)
 }
 
 /* @socom-skeleton body get_aiseq__6sealaiFUi */
-char * sealai::get_aiseq(unsigned int sequence)
+const char * sealai::get_aiseq(unsigned int sequence) /* port: the body returns const char * */
 	{
 		const char* str;
 
@@ -1242,7 +1242,7 @@ void CAiSAction::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub Tick__10CAiSActionFfP11CSealCtrlAi */
-void CAiSAction::Tick(float, CSealCtrlAi *)
+bool CAiSAction::Tick(float, CSealCtrlAi *)
 {
 }
 
@@ -1288,7 +1288,7 @@ void CAiSDeploy::CanDeployItem(CZKit *, EQUIP_ITEM)
 }
 
 /* @socom-skeleton stub Tick__10CAiSDeployFfP11CSealCtrlAi */
-void CAiSDeploy::Tick(float, CSealCtrlAi *)
+bool CAiSDeploy::Tick(float, CSealCtrlAi *)
 {
 	/* @socom-skeleton stub aimTolerance$4473 */
 	static int aimTolerance;
@@ -1314,7 +1314,7 @@ void CSealCtrlAi::SetReturnVelocity(CZProjectile *, CPnt3D *, bool)
 }
 
 /* @socom-skeleton stub Tick__11CAiSGrenadeFfP11CSealCtrlAi */
-void CAiSGrenade::Tick(float, CSealCtrlAi *)
+bool CAiSGrenade::Tick(float, CSealCtrlAi *)
 {
 	/* @socom-skeleton stub tb_timeToParent$4684 */
 	static float tb_timeToParent;
@@ -1338,7 +1338,7 @@ void CAiSAnimate::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub Tick__11CAiSAnimateFfP11CSealCtrlAi */
-void CAiSAnimate::Tick(float, CSealCtrlAi *)
+bool CAiSAnimate::Tick(float, CSealCtrlAi *)
 {
 }
 
@@ -1353,7 +1353,7 @@ void CAiSPursue::GetStatus() const
 }
 
 /* @socom-skeleton stub Tick__10CAiSPursueFfP11CSealCtrlAi */
-void CAiSPursue::Tick(float, CSealCtrlAi *)
+bool CAiSPursue::Tick(float, CSealCtrlAi *)
 {
 	/* @socom-skeleton stub pursuitRange$4923 */
 	static int pursuitRange;
@@ -1389,7 +1389,7 @@ void CAiSRescued::SetExtractValve(CValve *)
 }
 
 /* @socom-skeleton stub Tick__11CAiSRescuedFfP11CSealCtrlAi */
-void CAiSRescued::Tick(float, CSealCtrlAi *)
+bool CAiSRescued::Tick(float, CSealCtrlAi *)
 {
 }
 

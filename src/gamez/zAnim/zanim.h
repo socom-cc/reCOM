@@ -17,9 +17,18 @@
 
 #ifndef ZANIM_H
 #define ZANIM_H
+
+/* port: forward declarations for names this header uses */
+enum class DAMAGE_LOCATION; /* defined in gamez/zEntity/zentity.h, which includes this header */
+class CBody;
+class CZBodyAnim;
+class CZSIScript;
+class CZSIScriptCommon;
+class CZSealBody;
 #include <string>
 
 #include "gamez/zNode/znode.h"
+#include "gamez/zParticle/zparticle.h" /* Particle::Source (CZAnim::GetParticleSource) */
 #include "gamez/zMath/zmath.h"
 #include "gamez/zReader/zrdr.h"
 #include "gamez/zValve/zvalve.h"
@@ -135,12 +144,8 @@ namespace zdb
 
 extern CZAnimMain ZAnim;
 
-extern u32* seq_offset_stack;
-extern u32 seq_offset_stack_size;
-
-extern char* _local_wildcard_str;
-extern char* _input_str_ptr;
-extern u32 _digit_count;
+/* seq_offset_stack, seq_offset_stack_size (zanim_cmd_parse.cpp) and _local_wildcard_str,
+   _input_str_ptr, _digit_count (anim_main.cpp) are file-local (LOCAL symbols) */
 
 static bool CmdAddNode(zdb::CNode node);
 static bool CmdRemoveNode(zdb::CNode node);
@@ -563,13 +568,7 @@ public:
 	/* @socom-skeleton end 7AnimSet */
 };
 
-struct SequenceData
-{
-	f32 m_fraction;
-	CPnt4D m_data;
-};
-
-class Sequence : std::vector<SequenceData*> {};
+/* Particle sequences: Particle::Sequence<T> in gamez/zParticle/zparticle.h */
 
 class CAnimsByFP
 {
@@ -1471,6 +1470,16 @@ public:
 	void KillPopUp();
 };
 /* @socom-skeleton end 10CMenuStack */
+/* CZAnimArg has no DWARF record. The ELF has __vt__9CZAnimArg (16 bytes: two
+   slots, matching the derived ~dtor and Copy), __dt__9CZAnimArgFv and the nested
+   type Q29CZAnimArg4TYPE. */
+class CZAnimArg
+{
+public:
+	enum TYPE {}; /* port: unproven - enumerators and width unknown */
+	virtual ~CZAnimArg();
+	virtual void Copy(); /* port: unproven return type (derived Copy stubs are void) */
+};
 /* @socom-skeleton decl 14CZAnimArgCharP */
 class CZAnimArgCharP : public CZAnimArg
 {

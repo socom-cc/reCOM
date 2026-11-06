@@ -10,20 +10,24 @@
  * @socom-artifact defines main socom:data:0x4d9180
  * socom-owner-annotations end socom:work:source-segment-026 */
 
+#include <math.h>
+
+#include "zmath.h"
+
 /* @socom-skeleton stub m_exp_scl */
 static float m_exp_scl = 25.600000381469727f;
 
 /* @socom-skeleton stub tableInit */
-static unsigned char tableInit;
+static bool tableInit; /* 1-byte flag (set true/false by the bodies below) */
 
 /* @socom-skeleton stub exptbl */
-static unsigned char exptbl[1028];
+static f32 exptbl[257]; /* 1028 bytes: 257 floats written by init_trig_table */
 
 /* @socom-skeleton stub sintbl */
-static unsigned char sintbl[1028];
+static f32 sintbl[257]; /* 1028 bytes: 257 floats written by init_trig_table */
 
 /* @socom-skeleton stub costbl */
-static unsigned char costbl[1028];
+static f32 costbl[257]; /* 1028 bytes: 257 floats written by init_trig_table */
 
 /* @socom-skeleton body init_trig_table__Fv */
 void init_trig_table()
@@ -42,7 +46,7 @@ void init_trig_table()
 			i++;
 			calc = expf(i * 10.0f) / 256.0f;
 			*(exptbl + j) = calc;
-			j += 4;
+			j += 1; /* port: was `j += 4`, a byte offset; the tables are now f32 arrays */
 		} while (i < 257);
 		tableInit = true;
 	}

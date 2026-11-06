@@ -73,16 +73,16 @@ struct _zanim_cmd_hdr;
 
 /* @socom-skeleton stub m_dynamics_controlled__Q23zdb7CCamera */
 namespace zdb {
-unsigned char CCamera::m_dynamics_controlled = 1;
+bool CCamera::m_dynamics_controlled = 1;
 }
 
 /* @socom-skeleton stub m_do_region_test__Q23zdb7CCamera */
 namespace zdb {
-unsigned char CCamera::m_do_region_test = 1;
+bool CCamera::m_do_region_test = 1;
 }
 
 /* @socom-skeleton stub fogCheck */
-static unsigned char fogCheck = 1;
+static bool fogCheck = 1; /* DWARF uchar = MW bool */
 
 /* @socom-skeleton body __ct__Q23zdb7CCameraFv */
 namespace zdb {

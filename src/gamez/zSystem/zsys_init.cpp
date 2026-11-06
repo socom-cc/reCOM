@@ -44,6 +44,7 @@
 /* @socom-skeleton decl include */
 #include "gamez/zUtil/zutil.h"
 /* @socom-skeleton end include */
+#include "gamez/zVideo/zvid.h" /* zVid (zSysReset) */
 /* @socom-skeleton decl forward */
 class CIOPManager;
 /* @socom-skeleton end forward */
@@ -55,7 +56,7 @@ static unsigned char usbdargs[43] = {104, 117, 98, 61, 49, 0, 100, 101, 118, 61,
 static unsigned char sndargs[20] = {115, 116, 114, 101, 97, 109, 95, 112, 114, 105, 111, 114, 105, 116, 121, 61, 49, 56, 0, 0};
 
 /* @socom-skeleton stub postinited */
-static unsigned char postinited;
+static bool postinited; /* 1-byte flag (set true by zSysPostInit) */
 
 /* @socom-skeleton stub m_last_id__Q211CIOPManager11CRegistrant */
 int CIOPManager::CRegistrant::m_last_id;

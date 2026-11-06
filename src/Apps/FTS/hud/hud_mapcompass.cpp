@@ -85,7 +85,7 @@ static unsigned char g_anchor_fading;
 static CSTable MultiplayerMsgStrings;
 
 /* @socom-skeleton stub navpoint_vec */
-std::vector navpoint_vec;
+std::vector<nav_package> navpoint_vec;
 
 /* @socom-skeleton stub InitHUD_Compass__10MapCompassFPQ23zdb6CWorld */
 void MapCompass::InitHUD_Compass(zdb::CWorld *)

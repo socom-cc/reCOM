@@ -112,11 +112,13 @@ static int AppliedToNodeNum = 1;
 /* @socom-skeleton stub __doParticles */
 unsigned char __doParticles = 1;
 
+#ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
-unsigned char std::__msl_ios_base_ninit;
+std::__nInit std::__msl_ios_base_ninit;
 
 /* @socom-skeleton stub __msl_ios_base_winit__3std */
-unsigned char std::__msl_ios_base_winit;
+std::__wInit std::__msl_ios_base_winit;
+#endif
 
 /* @socom-skeleton stub VifHandlerID */
 static int VifHandlerID;
@@ -125,7 +127,7 @@ static int VifHandlerID;
 float CPipe::CAlpha::m_last_alpha_insert;
 
 /* @socom-skeleton stub stack */
-static unsigned char stack;
+static CStack stack; /* 1-byte LOCAL object: CStack has only static data */
 
 /* @socom-skeleton stub _AlphaBufUsed */
 int _AlphaBufUsed;
@@ -137,7 +139,7 @@ unsigned int numCharactersRendered;
 CPipe thePipe;
 
 /* @socom-skeleton stub _vdataTex */
-static unsigned char _vdataTex[96];
+static zdb::CVisData _vdataTex; /* port: unproven type - 96-byte LOCAL object the body uses as a CVisData */
 
 /* @socom-skeleton stub assetWait */
 unsigned int assetWait[17];
@@ -232,7 +234,15 @@ u32 CPipe::RenderWorld(zdb::CWorld* world)
 	m_texLoadIdx = 0;
 	m_texIntIdx = 0;
 
-	zVid_ClearColor(world->m_camera->m_fog_color.x, world->m_camera->m_fog_color.y, world->m_camera->m_fog_color.z);
+	/* port: the binary (0x24481c-0x24488c) scales the fog colour by 255 (fptosi) into a
+	   u32[3], writes FOGCOL with SetGSReg(0x3d, r | g << 8 | b << 16), then calls
+	   zVid_ClearColor(u32*) - the only zVid_ClearColor symbol. The SetGSReg call is left
+	   out until zvid.h declares SetGSReg(short, u64) (SetGSReg__FsUl). */
+	u32 color[3];
+	color[0] = (s32)(255.0f * world->m_camera->m_fog_color.x);
+	color[1] = (s32)(255.0f * world->m_camera->m_fog_color.y);
+	color[2] = (s32)(255.0f * world->m_camera->m_fog_color.z);
+	zVid_ClearColor(color);
 
 	zdb::CDecal::m_tempPool.RecycleTick();
 	zdb::CMeshDecal::m_tempPool.RecycleTick();
@@ -571,7 +581,7 @@ bool CPipe::RenderVisual(zdb::CNode* node, zdb::tag_ZVIS_FOV fov)
 					// Camera is far away, so we'll need to use a texture with no bilinear filtering.
 					u32 vidx = zdb::CVisual::m_stack_vid.size() - 1;
 					
-					_vdataTex->SetBilinear(visual->m_gifSelect, false);
+					_vdataTex.SetBilinear(visual->m_gifSelect, false);
 				}
 			}
 

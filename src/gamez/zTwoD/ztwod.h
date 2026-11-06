@@ -63,14 +63,28 @@
 #ifndef ZTWOD_H
 #define ZTWOD_H
 
+/* port: forward declarations for names this header uses */
+class CButtonSpec;
+class CImageSpec;
+
 #include "gamez/zAnim/zanim.h"
 #include "gamez/zCamera/zcam.h"
 #include "gamez/zInput/zinput.h"
 #include "gamez/zSystem/zsys.h"
 /* @socom-skeleton decl forward */
 class C2DAnimCmdHdr;
-class CPtItr;
 /* @socom-skeleton end forward */
+
+/* port: CPtItr had no declaration. DWARF class_type CPtItr size 4 (vptr only); no __vt__6CPtItr, so
+ * abstract. Slot order and signatures from __vt__Q225@unnamed@hud_linemap_cpp@12CAiLinePtItr @0x4746c0:
+ * Advance 0x3cab20, GetPt 0x3cabe0 (returns two floats through the hidden struct pointer), IsValid 0x3c91c0. */
+class CPtItr
+{
+public:
+	virtual void Advance() = 0;
+	virtual PNT2D GetPt() const = 0; /* port: unproven 8-byte two-float type */
+	virtual bool IsValid() const = 0;
+};
 
 class C2D;
 class C2DFont;
@@ -119,7 +133,7 @@ public:
 	virtual void Reset() {}
 	virtual void Tick(f32 dT) {}
 	virtual bool TickZAnimCmd(_zanim_cmd_hdr* header, f32* delta, bool* enable) { return false; }
-	virtual bool ParseZAnimCmd(_zrdr* reader) { return false; }
+	virtual C2DAnimCmdHdr* ParseZAnimCmd(_zrdr* reader) { return NULL; } /* port: DWARF ParseZAnimCmd__3C2DFP5_zrdr returns C2DAnimCmdHdr* */
 	virtual bool HandlePad(const CPad* pad, int index) { return false; }
 
 	virtual void SetActive() {}
@@ -590,12 +604,12 @@ public:
 public:
 	virtual ~C2DButton();
 	virtual void Tick(float);
-	virtual unsigned char HandlePad(const CPad *, int);
+	virtual bool HandlePad(const CPad *, int);
 	virtual void SetCanHandleInput(bool);
 	virtual void SetActive();
 	virtual void SetNormal();
 	virtual C2DAnimCmdHdr * ParseZAnimCmd(_zrdr *);
-	virtual unsigned char TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
+	virtual bool TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
 	virtual int GetZAnimCmdType(const char *);
 	virtual void SetBackgroundAlpha(float);
 	virtual void SetPressed();

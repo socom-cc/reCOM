@@ -16,7 +16,7 @@
 #include "zseal.h"
 
 /* @socom-skeleton decl forward */
-class SEAL_HANDSIGNAL;
+/* port: SEAL_HANDSIGNAL is declared in gamez/zSeal/zseal.h */
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub MultiplayerMsgStrings */

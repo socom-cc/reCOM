@@ -6,7 +6,9 @@
 
 #ifndef ZPARTICLE_H
 #define ZPARTICLE_H
-#include "gamez/zAnim/zanim.h"
+#include <vector>
+
+#include "gamez/zNode/znode.h"
 
 enum PARTICLE_TYPE
 {
@@ -20,14 +22,29 @@ enum PARTICLE_TYPE
 class Particle
 {
 public:
+	/* DWARF Particle::SequenceEntry<T> (8/20 bytes) and Sequence (12 bytes, base
+	   std::vector<Particle::SequenceEntry<T>>) instances for zdb::CTexHandle*, CPnt4D, float */
+	template <typename T>
+	class SequenceEntry
+	{
+	public:
+		f32 m_fraction;
+		T m_data;
+	};
+
+	template <typename T>
+	class Sequence : public std::vector<SequenceEntry<T> > /* port: scope of Sequence unproven (DWARF names the instances bare) */
+	{
+	};
+
 	class Props
 	{
 	public:
 		s32 m_refCount;
 
-		Sequence m_textureSeq;
-		Sequence m_colorSeq;
-		Sequence m_scaleSeq;
+		Sequence<zdb::CTexHandle*> m_textureSeq;
+		Sequence<CPnt4D> m_colorSeq;
+		Sequence<f32> m_scaleSeq;
 
 		zdb::CModel* m_model;
 		f32 m_friction;
@@ -97,6 +114,9 @@ public:
 	class Instance
 	{
 	public:
+		/* inline default constructor: Destruction_Instance's constructor (0x2368a0) sets the
+		   Instance vtable itself and calls no Instance constructor */
+		Instance() {} /* port: unproven body (the inlined code also zeroes +0x4 and +0x40) */
 		Instance(CPnt4D* param_1, CPnt4D* param_2, CPnt4D* param_3, f32 param_4,
 			     f32 param_5, f32 param_6, zdb::CTexHandle*, Props* properties, Source* source);
 

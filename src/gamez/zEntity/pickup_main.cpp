@@ -112,12 +112,12 @@ void CPickup::GetFirst()
 }
 
 /* @socom-skeleton stub GetNext__7CPickupFRQ33std44list<P7CPickup,Q23std20allocator<P7CPickup>>19generic_iterator<0>Q27CPickup7PU_TYPE */
-void CPickup::GetNext(std::list<CPickup *, std::allocator<CPickup *> >::generic_iterator<0> &, CPickup::PU_TYPE)
+void CPickup::GetNext(std::list<CPickup *>::iterator &, CPickup::PU_TYPE)
 {
 }
 
 /* @socom-skeleton stub GetNext__7CPickupFRQ33std44list<P7CPickup,Q23std20allocator<P7CPickup>>19generic_iterator<0>PC6CPnt3DfQ27CPickup7PU_TYPE */
-void CPickup::GetNext(std::list<CPickup *, std::allocator<CPickup *> >::generic_iterator<0> &, const CPnt3D *, float, CPickup::PU_TYPE)
+void CPickup::GetNext(std::list<CPickup *>::iterator &, const CPnt3D *, float, CPickup::PU_TYPE)
 {
 }
 

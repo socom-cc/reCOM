@@ -153,6 +153,7 @@ public:
 class CDlgObjSpec
 {
 public:
+	CDlgObjSpec(_zrdr* reader); /* port: no out-of-line symbol; inlined into CImageSpec 0x39a840 and CButtonSpec 0x397d90 (sets m_uivar from the reader); body not written */
 	CUIVariableSpec* m_uivar;
 	/* @socom-skeleton decl 11CDlgObjSpec */
 public:
@@ -167,6 +168,7 @@ public:
 class CTextSpec : public CDlgObjSpec
 {
 public:
+	CTextSpec(_zrdr* reader); /* port: __ct__9CTextSpecFP5_zrdr 0x399fe0 (annotated in zui_spec.cpp, no skeleton stub) */
 	std::string m_caption;
 	std::string m_font;
 	bool m_hasFont;
@@ -384,7 +386,7 @@ public:
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual void Tick(float);
 	virtual C2DAnimCmdHdr * ParseZAnimCmd(_zrdr *);
-	virtual unsigned char TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
+	virtual bool TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
 	virtual int GetZAnimCmdType(const char *);
 	virtual void SetMapOffset(int, int);
 	virtual void UpdateUIVar(CUIVariable *);
@@ -407,9 +409,9 @@ class C2DCounter : public CRenderableString
 public:
 	virtual ~C2DCounter();
 	virtual void Tick(float);
-	virtual void ParseZAnimCmd(_zrdr *);
-	virtual void TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
-	virtual void GetZAnimCmdType(const char *);
+	virtual C2DAnimCmdHdr * ParseZAnimCmd(_zrdr *);
+	virtual bool TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
+	virtual int GetZAnimCmdType(const char *);
 };
 /* @socom-skeleton end 10C2DCounter */
 /* @socom-skeleton decl 9C2DVisual */
@@ -428,7 +430,7 @@ class CCheckBox : public C2DButton, public UIVarMixin
 public:
 	virtual ~CCheckBox();
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
-	virtual void HandlePad(const CPad *, int);
+	virtual bool HandlePad(const CPad *, int);
 	virtual void UpdateUIVar(CUIVariable *);
 	void LoadSpec(const CCheckBoxSpec &, zdb::CTexHandle *);
 };
@@ -451,7 +453,7 @@ class CCycleButton : public C2DButton
 public:
 	virtual ~CCycleButton();
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
-	virtual void HandlePad(const CPad *, int);
+	virtual bool HandlePad(const CPad *, int);
 	void LoadSpec(const CCycleButtonSpec &, zdb::CTextureRelocMgr *);
 };
 /* @socom-skeleton end 12CCycleButton */
@@ -496,7 +498,7 @@ class CHandlerButton : public C2DButton
 public:
 	virtual ~CHandlerButton();
 	virtual void Tick(float);
-	virtual void HandlePad(const CPad *, int);
+	virtual bool HandlePad(const CPad *, int);
 	void LoadSpec(const CHandlerButtonSpec &);
 };
 /* @socom-skeleton end 14CHandlerButton */
@@ -521,10 +523,10 @@ public:
 	virtual ~CPopUpDialog();
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual void Tick(float);
-	virtual void HandlePad(const CPad *, int);
-	virtual void ParseZAnimCmd(_zrdr *);
-	virtual void TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
-	virtual void GetZAnimCmdType(const char *);
+	virtual bool HandlePad(const CPad *, int);
+	virtual C2DAnimCmdHdr * ParseZAnimCmd(_zrdr *);
+	virtual bool TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
+	virtual int GetZAnimCmdType(const char *);
 	void Load(zdb::CTextureRelocMgr *);
 };
 /* @socom-skeleton end 12CPopUpDialog */
@@ -534,10 +536,10 @@ class CRadioStrip : public C2DButton
 public:
 	virtual ~CRadioStrip();
 	virtual void Tick(float);
-	virtual void HandlePad(const CPad *, int);
-	virtual void ParseZAnimCmd(_zrdr *);
-	virtual void TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
-	virtual void GetZAnimCmdType(const char *);
+	virtual bool HandlePad(const CPad *, int);
+	virtual C2DAnimCmdHdr * ParseZAnimCmd(_zrdr *);
+	virtual bool TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
+	virtual int GetZAnimCmdType(const char *);
 	void LoadSpec(const CRadioStripSpec *, zdb::CTexHandle *);
 	void PressActive();
 };
@@ -573,7 +575,7 @@ public:
 	virtual ~CWrappedText();
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual void SetString(const char *);
-	virtual void GetSpacing();
+	virtual float GetSpacing();
 	void LoadSpec(const CWrapSpec &);
 };
 /* @socom-skeleton end 12CWrappedText */
@@ -584,7 +586,7 @@ public:
 	virtual ~CScrollText();
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual void Tick(float);
-	virtual void HandlePad(const CPad *, int);
+	virtual bool HandlePad(const CPad *, int);
 	void LoadSpec(const CScrollSpec &);
 };
 /* @socom-skeleton end 11CScrollText */
@@ -594,10 +596,10 @@ class CSliderBar : public C2DButton, public UIVarMixin
 public:
 	virtual ~CSliderBar();
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
-	virtual void HandlePad(const CPad *, int);
-	virtual void ParseZAnimCmd(_zrdr *);
-	virtual void TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
-	virtual void GetZAnimCmdType(const char *);
+	virtual bool HandlePad(const CPad *, int);
+	virtual C2DAnimCmdHdr * ParseZAnimCmd(_zrdr *);
+	virtual bool TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
+	virtual int GetZAnimCmdType(const char *);
 	virtual void UpdateUIVar(CUIVariable *);
 	void LoadSpec(const CSliderBarSpec &, zdb::CTexHandle *);
 };
@@ -619,11 +621,11 @@ public:
 	virtual ~CTeleType();
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual void Tick(float);
-	virtual void ParseZAnimCmd(_zrdr *);
-	virtual void TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
-	virtual void GetZAnimCmdType(const char *);
+	virtual C2DAnimCmdHdr * ParseZAnimCmd(_zrdr *);
+	virtual bool TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
+	virtual int GetZAnimCmdType(const char *);
 	virtual void SetString(const char *);
-	virtual void GetSpacing();
+	virtual float GetSpacing();
 	void LoadSpec(const CTtySpec &);
 };
 /* @socom-skeleton end 9CTeleType */
@@ -645,12 +647,12 @@ public:
 	virtual ~CUIListBox();
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual void Tick(float);
-	virtual void HandlePad(const CPad *, int);
+	virtual bool HandlePad(const CPad *, int);
 	virtual void SetActive();
 	virtual void SetNormal();
-	virtual void ParseZAnimCmd(_zrdr *);
-	virtual void TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
-	virtual void GetZAnimCmdType(const char *);
+	virtual C2DAnimCmdHdr * ParseZAnimCmd(_zrdr *);
+	virtual bool TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
+	virtual int GetZAnimCmdType(const char *);
 	virtual void UpdateUIVar(CUIVariable *);
 	virtual void SetPressed();
 	void LoadSpec(const CUIListBoxSpec &, zdb::CTexHandle *, zdb::CTextureRelocMgr *);
@@ -673,10 +675,10 @@ class CUIMapCtrl : public C2D
 public:
 	virtual ~CUIMapCtrl();
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
-	virtual void HandlePad(const CPad *, int);
-	virtual void ParseZAnimCmd(_zrdr *);
-	virtual void TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
-	virtual void GetZAnimCmdType(const char *);
+	virtual bool HandlePad(const CPad *, int);
+	virtual C2DAnimCmdHdr * ParseZAnimCmd(_zrdr *);
+	virtual bool TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
+	virtual int GetZAnimCmdType(const char *);
 	CUIMapCtrl();
 	void CalcAlternateZoomedPos(CPnt3D *, const CCorners &, const CPnt3D &, float) const;
 	void LoadSpec(const CUIMapCtrlSpec &, C2DFont *, zdb::CAssetLib *, zdb::CTextureRelocMgr *);

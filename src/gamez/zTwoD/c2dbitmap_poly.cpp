@@ -72,7 +72,7 @@ void C2DBitmapPoly::SetUV(float, float, float, float)
 }
 
 /* @socom-skeleton body SetUV__13C2DBitmapPolyFffffffff */
-void C2DBitmapPoly::SetUV(float, float, float, float, float, float, float, float)
+void C2DBitmapPoly::SetUV(float v0u, float v0v, float v1u, float v1v, float v2u, float v2v, float, float) /* port: names for the existing 6-value body */
 {
 	m_tris[0].SetUV(v0u, v0v, v1u, v1v, v2u, v2v);
 	m_tris[1].SetUV(v0u, v0v, v1u, v1v, v2u, v2v);

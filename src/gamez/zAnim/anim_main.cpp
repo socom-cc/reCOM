@@ -217,7 +217,7 @@ char * CZAnimMain::SplitName(const char *name, char **splitname)
 
 		if (!separator)
 		{
-			*splitname = name;
+			*splitname = const_cast<char*>(name); /* port: const_cast for GCC */
 		}
 		else
 		{

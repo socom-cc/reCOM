@@ -37,7 +37,7 @@ public:
 	virtual void PreUnInit() = 0;
 	virtual void UnInit() = 0;
 
-	virtual void Tick(f32 dT) = 0;
+	virtual bool Tick(f32 dT) = 0;
 
 	virtual void OnPop() = 0;
 	virtual void OnPush() = 0;
@@ -57,7 +57,7 @@ public:
 	void PreUnInit() {}
 	void UnInit();
 
-	void Tick(f32 dT);
+	bool Tick(f32 dT);
 
 	void OnPop() {}
 	void OnPush() {}
@@ -99,7 +99,7 @@ public:
 	void PreUnInit() {}
 	void UnInit();
 
-	void Tick(f32 dT);
+	bool Tick(f32 dT);
 
 	void OnPop() {}
 	void OnPush() {}
@@ -134,11 +134,11 @@ class CLoadState : public CGameState
 {
 public:
 	void PreInit() {}
-	virtual unsigned char Init();
+	virtual bool Init();
 	void PreUnInit() {}
 	void UnInit();
 
-	virtual unsigned char Tick(float);
+	virtual bool Tick(float);
 
 	void OnPop() {}
 	void OnPush() {}
@@ -167,11 +167,11 @@ class CCinematicState : public CGameState
 {
 public:
 	void PreInit() {}
-	virtual unsigned char Init();
+	virtual bool Init();
 	void PreUnInit() {}
 	void UnInit();
 
-	virtual unsigned char Tick(float);
+	virtual bool Tick(float);
 
 	void OnPop() {}
 	void OnPush() {}
@@ -193,11 +193,11 @@ class CExitState : public CGameState
 {
 public:
 	void PreInit() {}
-	virtual unsigned char Init();
+	virtual bool Init();
 	void PreUnInit() {}
 	void UnInit();
 
-	virtual unsigned char Tick(float);
+	virtual bool Tick(float);
 
 	void OnPop() {}
 	void OnPush() {}
@@ -217,11 +217,11 @@ class CMPExitState : public CGameState
 {
 public:
 	void PreInit() {}
-	virtual unsigned char Init();
+	virtual bool Init();
 	void PreUnInit() {}
 	void UnInit();
 
-	virtual unsigned char Tick(float);
+	virtual bool Tick(float);
 
 	void OnPop() {}
 	void OnPush() {}
@@ -246,7 +246,7 @@ public:
 	void PreUnInit() {}
 	void UnInit() {}
 
-	void Tick(f32 dT);
+	bool Tick(f32 dT);
 
 	void OnPop() {}
 	void OnPush() {}
@@ -260,7 +260,7 @@ public:
 	void PreUnInit() {}
 	void UnInit() {}
 
-	void Tick(f32 dT);
+	bool Tick(f32 dT);
 
 	void OnPop() {}
 	void OnPush() {}

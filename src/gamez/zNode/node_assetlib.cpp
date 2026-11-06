@@ -56,7 +56,7 @@ int CAssetLib::m_conflictresolver;
 /* @socom-skeleton stub g_assetsRecycle__Q23zdb27@unnamed@node_assetlib_cpp@ */
 namespace zdb {
 namespace {
-int g_assetsRecycle[4];
+CAssetList g_assetsRecycle; /* 16-byte LOCAL object used as a CAssetList (FindLib, begin, end, erase) */
 }
 }
 

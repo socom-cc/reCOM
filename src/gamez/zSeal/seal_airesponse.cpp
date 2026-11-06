@@ -99,7 +99,7 @@ void CAiSShotAt::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub Tick__10CAiSShotAtFfP11CSealCtrlAi */
-void CAiSShotAt::Tick(float, CSealCtrlAi *)
+bool CAiSShotAt::Tick(float, CSealCtrlAi *)
 {
 }
 
@@ -109,7 +109,7 @@ void CAiSReload::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub Tick__10CAiSReloadFfP11CSealCtrlAi */
-void CAiSReload::Tick(float, CSealCtrlAi *)
+bool CAiSReload::Tick(float, CSealCtrlAi *)
 {
 	/* @socom-skeleton stub maxReloadRange$2324 */
 	static int maxReloadRange;
@@ -131,7 +131,7 @@ void FindTraversableNeighbor(const CPnt3D *, CAiMapLoc &)
 }
 
 /* @socom-skeleton stub Tick__10CAiSNoAmmoFfP11CSealCtrlAi */
-void CAiSNoAmmo::Tick(float, CSealCtrlAi *)
+bool CAiSNoAmmo::Tick(float, CSealCtrlAi *)
 {
 }
 
@@ -146,7 +146,7 @@ void CAiSSurrender::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub Tick__13CAiSSurrenderFfP11CSealCtrlAi */
-void CAiSSurrender::Tick(float, CSealCtrlAi *)
+bool CAiSSurrender::Tick(float, CSealCtrlAi *)
 {
 }
 
@@ -156,7 +156,7 @@ void CAiSHold::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub Tick__8CAiSHoldFfP11CSealCtrlAi */
-void CAiSHold::Tick(float, CSealCtrlAi *)
+bool CAiSHold::Tick(float, CSealCtrlAi *)
 {
 }
 
@@ -171,7 +171,7 @@ void CAiSCorpse::SetCorpse(CEntity *)
 }
 
 /* @socom-skeleton stub Tick__10CAiSCorpseFfP11CSealCtrlAi */
-void CAiSCorpse::Tick(float, CSealCtrlAi *)
+bool CAiSCorpse::Tick(float, CSealCtrlAi *)
 {
 }
 
@@ -181,7 +181,7 @@ void CAiSStunResponse::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub Tick__16CAiSStunResponseFfP11CSealCtrlAi */
-void CAiSStunResponse::Tick(float, CSealCtrlAi *)
+bool CAiSStunResponse::Tick(float, CSealCtrlAi *)
 {
 }
 
@@ -191,7 +191,7 @@ void CAiSRestrained::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub Tick__14CAiSRestrainedFfP11CSealCtrlAi */
-void CAiSRestrained::Tick(float, CSealCtrlAi *)
+bool CAiSRestrained::Tick(float, CSealCtrlAi *)
 {
 }
 
@@ -201,12 +201,12 @@ void CAiSEvent::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub CanAttack__9CAiSEventCFv */
-void CAiSEvent::CanAttack() const
+bool CAiSEvent::CanAttack() const
 {
 }
 
 /* @socom-skeleton stub CanPursue__9CAiSEventCFP11CSealCtrlAi */
-void CAiSEvent::CanPursue(CSealCtrlAi *) const
+bool CAiSEvent::CanPursue(CSealCtrlAi *) const
 {
 }
 
@@ -221,7 +221,7 @@ void CAiSEvent::ComputeNextState(CAiSEvent::EVENT_STATE &, float)
 }
 
 /* @socom-skeleton stub Tick__9CAiSEventFfP11CSealCtrlAi */
-void CAiSEvent::Tick(float, CSealCtrlAi *)
+bool CAiSEvent::Tick(float, CSealCtrlAi *)
 {
 }
 
@@ -231,7 +231,7 @@ void CAiSTarget::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub Tick__10CAiSTargetFfP11CSealCtrlAi */
-void CAiSTarget::Tick(float, CSealCtrlAi *)
+bool CAiSTarget::Tick(float, CSealCtrlAi *)
 {
 }
 
@@ -241,12 +241,12 @@ void CAiSFlee::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub CanAttack__8CAiSFleeCFv */
-void CAiSFlee::CanAttack() const
+bool CAiSFlee::CanAttack() const
 {
 }
 
 /* @socom-skeleton stub Tick__8CAiSFleeFfP11CSealCtrlAi */
-void CAiSFlee::Tick(float, CSealCtrlAi *)
+bool CAiSFlee::Tick(float, CSealCtrlAi *)
 {
 }
 
@@ -261,7 +261,7 @@ void CAiSPathRecover::GetStatus() const
 }
 
 /* @socom-skeleton stub Tick__15CAiSPathRecoverFfP11CSealCtrlAi */
-void CAiSPathRecover::Tick(float, CSealCtrlAi *)
+bool CAiSPathRecover::Tick(float, CSealCtrlAi *)
 {
 }
 
@@ -276,7 +276,7 @@ void CAiSRush::SetTarget(CZSealBody *)
 }
 
 /* @socom-skeleton stub Tick__8CAiSRushFfP11CSealCtrlAi */
-void CAiSRush::Tick(float, CSealCtrlAi *)
+bool CAiSRush::Tick(float, CSealCtrlAi *)
 {
 	/* @socom-skeleton stub rush_threshold$2899 */
 	static int rush_threshold;

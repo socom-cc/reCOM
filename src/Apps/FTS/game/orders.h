@@ -4,6 +4,13 @@
  * @socom-artifact emits main socom:function:0x178cc0
  * socom-owner-annotations end socom:work:source-segment-013 */
 
+#ifndef ORDERS_H
+#define ORDERS_H
+
+#include "gamez/zAI/zai.h" /* FT_COMMAND, FIRETEAM (by value in RecoTuple, TEAM_TABLE) */
+
+class CSealUnit;
+
 /* @socom-skeleton decl 18_GSAPI_NOTIFY_TYPE */
 enum _GSAPI_NOTIFY_TYPE
 {
@@ -78,3 +85,4 @@ public:
 	char explanation[128];
 };
 /* @socom-skeleton end 10TEAM_TABLE */
+#endif

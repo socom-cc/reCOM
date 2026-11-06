@@ -14,6 +14,10 @@
 #ifndef ZRENDER_H
 #define ZRENDER_H
 #include <string>
+#include <list>
+#include <vector>
+
+#include <libgraph.h> /* sceGsAlpha */
 
 #include "gamez/zArchive/zar.h"
 #include "gamez/zMath/zmath.h"
@@ -43,28 +47,31 @@ namespace zdb
 	enum class tag_ZVIS_FOV;
 }
 
-enum class _RenderPhase
+namespace zdb
 {
-	WORLD,
-	HUD_OBSOLETE,
-	CHARSET,
-	COMMON,
-	CHARSET1,
-	CHARSET2,
-	CHARSET3,
-	CHARSET4,
-	CHARSET5,
-	CHARSET6,
-	CHARSET7,
-	CHARSET8,
-	ALPHA,
-	HUDSET1,
-	HUDSET2,
-	HUDSETSMALL,
-	SHADOW,
-	CHARSETCUSTOM,
-	NUM_RENDER_PHASES
-};
+	/* DWARF zdb::_RenderPhase: enumeration, byte_size 1 */
+	enum _RenderPhase
+	{
+		WORLD = 0,
+		HUD_OBSOLETE = 1,
+		CHARSETCOMMON = 2,
+		CHARSET1 = 3,
+		CHARSET2 = 4,
+		CHARSET3 = 5,
+		CHARSET4 = 6,
+		CHARSET5 = 7,
+		CHARSET6 = 8,
+		CHARSET7 = 9,
+		CHARSET8 = 10,
+		ALPHA = 11,
+		HUDSET1 = 12,
+		HUDSET2 = 13,
+		HUDSETSMALL = 14,
+		SHADOW = 15,
+		CHARSETCUSTOM = 16,
+		NUM_RENDER_PHASES = 17
+	};
+}
 
 void zRndrInit();
 
@@ -80,11 +87,19 @@ struct LOD
 	f32 m_dist;
 };
 
-struct BLENDMODE
+namespace zdb
 {
-	u32 mode1;
-	u32 mode2;
-};
+	/* DWARF zdb::BLENDMODE: 8 bytes; m_alpha and m_alphaWORD both at +0 */
+	class BLENDMODE
+	{
+	public:
+		union
+		{
+			sceGsAlpha m_alpha;
+			u64 m_alphaWORD;
+		};
+	};
+}
 
 /// <summary>
 /// Matrix transform stack.
@@ -109,7 +124,7 @@ public:
 	/* @socom-skeleton end 6CStack */
 };
 
-extern CStack stack;
+/* `stack` is a file-local CStack (1-byte LOCAL symbol) in zrndr_pipe.cpp, grid_clutter.cpp and grid_di.cpp */
 
 class LODVec : public std::vector<LOD*> {};
 
@@ -212,6 +227,11 @@ public:
 	/* @socom-skeleton end 5CPipe */
 };
 
+/* CFilterPlaneObj: DWARF class, 12 bytes, base std::list (MSL __list_imp<void const*>) */
+class CFilterPlaneObj : public std::list<const void*> /* port: element type from MSL pointer storage in DWARF; real element unproven */
+{
+};
+
 namespace zdb
 {
 	class CLOD_band
@@ -222,97 +242,54 @@ namespace zdb
 		f32 m_minInvDeltaRangeSq;
 		f32 m_maxRangeNearSq;
 		f32 m_maxRangeFarSq;
+		f32 m_maxInvDeltaRangeSq;
 		u32 m_minFade : 1;
 		u32 m_maxFade : 1;
 		u32 m_unused : 30;
 		u32 m_padding;
 	};
+
+	class CMaterial_band
+	{
+	public:
+		CPnt3D m_rgb;
+		f32 m_opacity;
+		f32 m_intensity;
+		u8 m_material_id;
+		BLENDMODE* m_pBlendmode;
+	};
+
+	class CSubSurf_band
+	{
+	public:
+		f32 m_distanceSq_Near;
+		f32 m_distanceSq_Far;
+		s32 m_density_Near;
+		s32 m_density_Far;
+		f32 m_pushFactor;
+	};
+
+	class CPreLight_band
+	{
+	public:
+		CPnt3D m_position;
+		CPnt3D m_color;
+		f32 m_minRange;
+		f32 m_maxRangeSq;
+		bool m_dynamic;
+		CFilterPlaneObj m_filterPlane_Obj;
+	};
+
+	class CScrollingTexture_band
+	{
+	public:
+		char m_modelname[256];
+		char m_nodename[256];
+		f32 m_du;
+		f32 m_dv;
+	};
 }
 
-
-class CMaterial_band
-{
-public:
-	CPnt3D m_rgb;
-	f32 m_opacity;
-	f32 m_intensity;
-	u8 m_material_id;
-	BLENDMODE* m_pBlendmode;
-};
-
-class CSubSurf_band
-{
-public:
-	f32 m_distanceSq_Near;
-	f32 m_distanceSq_Far;
-	s32 m_density_Near;
-	s32 m_density_Far;
-	f32 m_pushFactor;
-};
-
-class CPreLight_band
-{
-public:
-	CPnt3D m_position;
-	CPnt3D m_color;
-	f32 m_minRange;
-	f32 m_maxRangeSq;
-	bool m_dynamic;
-	// CFilterPlane -- idk what this type is, it's a std::list of something
-};
-
-class CProjectedMap_band
-{
-	// TODO:
-	// guess what is inside this class
-	// CodeWarrior doesn't have a definition for this for some reason
-public:
-};
-
-class CScrollingTexture_band
-{
-public:
-	char m_modelname[256];
-	char m_nodename[256];
-	f32 m_du;
-	f32 m_dv;
-};
-
-class CLOD_Object : public std::vector<zdb::CLOD_band*>
-{
-public:
-	zar::CKey* Read(zdb::CSaveLoad* sload);
-	
-	s32 m_bandMax;
-};
-
-class CMaterial_Object : public std::vector<CMaterial_band*>
-{
-private:
-	s32 m_bandMax;
-};
-
-class CSubSurf_Object : public std::vector<CSubSurf_band*>
-{
-private:
-	s32 m_bandMax;
-};
-
-class CPreLight_Object : public std::vector<CPreLight_band*>
-{
-private:
-	s32 m_bandMax;
-};
-
-class CProjectedMap_Object : public std::vector<CProjectedMap_band*>
-{
-private:
-	s32 m_bandMax;
-};
-
-class CScrollingTexture_Object : public std::vector<CScrollingTexture_band*>
-{
-private:
-	s32 m_bandMax;
-};
+/* The band containers (zdb::CLOD_Object, CMaterial_Object, ...) are declared in
+   gamez/zVisual/vis_local.h with their element types from DWARF. */
 #endif

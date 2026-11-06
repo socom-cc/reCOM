@@ -94,6 +94,7 @@
 #include "gamez/zReader/zrdr.h"
 #include "gamez/zTexture/ztex.h"
 #include "gamez/zTwoD/ztwod.h"
+#include "gamez/zVideo/zvid.h" /* zVid (CGameMenu::Init) */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class ActionItem;
@@ -104,11 +105,13 @@ namespace {
 unsigned char g_bCenterSinceEdge = 1;
 }
 
+#ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
-unsigned char std::__msl_ios_base_ninit;
+std::__nInit std::__msl_ios_base_ninit;
 
 /* @socom-skeleton stub __msl_ios_base_winit__3std */
-unsigned char std::__msl_ios_base_winit;
+std::__wInit std::__msl_ios_base_winit;
+#endif
 
 /* @socom-skeleton stub glocal_anims__17@unnamed@zui_cpp@ */
 namespace {
@@ -196,13 +199,13 @@ void HookupLib(zdb::CAssetLib *lib)
 {
 	zdb::CGSTexBuffer texbuf;
 
-	for (auto it = lib.m_palettes.begin(); it != lib.m_palettes.end(); ++it)
+	for (auto it = lib->m_palettes.begin(); it != lib->m_palettes.end(); ++it)
 	{
 		texbuf.m_dyntex_list.Add(*it, true);
 		texbuf.m_chainp = NULL;
 	}
 
-	for (auto it = lib.m_textures.begin(); it != lib.m_textures.end(); ++it)
+	for (auto it = lib->m_textures.begin(); it != lib->m_textures.end(); ++it)
 	{
 		texbuf.m_dyntex_list.Add(*it, true);
 		texbuf.m_chainp = NULL;

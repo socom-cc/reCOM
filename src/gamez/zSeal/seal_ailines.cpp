@@ -53,11 +53,13 @@ float ai::ai_line_opacity_start = 1.0f;
 /* @socom-skeleton stub ai_line_opacity_end__2ai */
 float ai::ai_line_opacity_end = 1.0f;
 
+#ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
-unsigned char std::__msl_ios_base_ninit;
+std::__nInit std::__msl_ios_base_ninit;
 
 /* @socom-skeleton stub __msl_ios_base_winit__3std */
-unsigned char std::__msl_ios_base_winit;
+std::__wInit std::__msl_ios_base_winit;
+#endif
 
 /* @socom-skeleton stub ai_line_stack__2ai */
 unsigned char ai::ai_line_stack;

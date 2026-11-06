@@ -60,7 +60,7 @@ unsigned char CGrid::m_doAltitude = 1;
 int m_node;
 
 /* @socom-skeleton stub stack */
-static unsigned char stack;
+static CStack stack; /* 1-byte LOCAL object: CStack has only static data */
 
 /* @socom-skeleton stub cameraCollideFlagRequired__21@unnamed@grid_di_cpp@ */
 namespace {

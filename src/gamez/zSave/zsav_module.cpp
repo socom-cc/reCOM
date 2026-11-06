@@ -32,7 +32,7 @@ CSaveModule::~CSaveModule()
 }
 
 /* @socom-skeleton stub SaveRdr__11CSaveModuleFPCcP8CRdrFile */
-unsigned char CSaveModule::SaveRdr(const char *, CRdrFile *)
+bool CSaveModule::SaveRdr(const char *, CRdrFile *) /* port: MW bool (DWARF fund_type 3) */
 {
 }
 

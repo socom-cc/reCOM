@@ -93,7 +93,7 @@ void CAiSFollow::GetStatus() const
 }
 
 /* @socom-skeleton stub Tick__10CAiSFollowFfP11CSealCtrlAi */
-void CAiSFollow::Tick(float, CSealCtrlAi *)
+bool CAiSFollow::Tick(float, CSealCtrlAi *)
 {
 }
 

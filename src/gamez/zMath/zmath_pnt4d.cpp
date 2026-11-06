@@ -20,19 +20,19 @@
 /* @socom-skeleton end include */
 
 /* @socom-skeleton stub zero__6CPnt4D */
-const CPnt4D CPnt4D::zero = {0};
+const CPnt4D CPnt4D::zero(0.0f, 0.0f, 0.0f, 0.0f); /* values: __sinit_zmath_pnt4d.cpp */
 
 /* @socom-skeleton stub unit_x__6CPnt4D */
-const int CPnt4D::unit_x[4] = {0};
+const CPnt4D CPnt4D::unit_x(1.0f, 0.0f, 0.0f, 0.0f); /* values: __sinit_zmath_pnt4d.cpp */
 
 /* @socom-skeleton stub unit_y__6CPnt4D */
-const int CPnt4D::unit_y[4] = {0};
+const CPnt4D CPnt4D::unit_y(0.0f, 1.0f, 0.0f, 0.0f); /* values: __sinit_zmath_pnt4d.cpp */
 
 /* @socom-skeleton stub unit_z__6CPnt4D */
-const int CPnt4D::unit_z[4] = {0};
+const CPnt4D CPnt4D::unit_z(0.0f, 0.0f, 1.0f, 0.0f); /* values: __sinit_zmath_pnt4d.cpp */
 
 /* @socom-skeleton stub unit_w__6CPnt4D */
-const int CPnt4D::unit_w[4] = {0};
+const CPnt4D CPnt4D::unit_w(0.0f, 0.0f, 0.0f, 1.0f); /* values: __sinit_zmath_pnt4d.cpp */
 
 /* @socom-skeleton stub Rotate_AxisX__6CPnt4DFf */
 void CPnt4D::Rotate_AxisX(float)

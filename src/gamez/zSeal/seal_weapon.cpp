@@ -31,7 +31,7 @@
 #include "zseal.h"
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
-class WEAPON_STATE;
+/* port: WEAPON_STATE is declared in gamez/zSeal/zseal.h */
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub MultiplayerMsgStrings */

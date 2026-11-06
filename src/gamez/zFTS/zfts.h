@@ -31,12 +31,20 @@ class CObjAnchor;
 class CObjAnchorVec;
 
 class CVehicleRdr;
+class CVehicleRdrEntry;
+class CMissionCam;
 
 class CZNetGame;
 
+/* port: unproven: only the mangled Q210PadBtnFunc1_ is known (an enum `_` scoped by PadBtnFunc); enumerators not in DWARF */
+namespace PadBtnFunc
+{
+	enum _ { };
+}
+
 extern CMission theMission;
 extern CZSealBody* ftsPlayer;
-extern bool doSquirm;
+/* port: doSquirm is file-local (static) data in fts_player.cpp (ELF local symbol) */
 
 CZSealBody* ftsGetPlayer();
 void ftsSetPlayer(CZSealBody* player);
@@ -110,7 +118,7 @@ class CMission : CSaveModule
 public:
 	CMission();
 
-	static char* m_weaponmodelpostfix;
+	static char m_weaponmodelpostfix[30]; /* ELF: 30-byte object; filled by strncpy(..., 30) */
 	static f32 nextFrameDelta;
 
 	bool Init();
@@ -306,7 +314,7 @@ public:
 };
 /* @socom-skeleton end 13CCtrlrConfigs */
 /* @socom-skeleton decl 11CLadderList */
-class CLadderList : public std::vector
+class CLadderList : public std::vector<CLadderData>
 {
 public:
 	CLadderData * GetLadderByIndex(int);

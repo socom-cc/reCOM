@@ -20,9 +20,7 @@
 #include "znode.h"
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
-namespace zdb {
-class _tag_render_map_type;
-}
+/* zdb::_tag_render_map_type: an enum declared in node_shadow.h */
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub shadowTemplate */

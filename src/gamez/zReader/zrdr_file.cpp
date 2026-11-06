@@ -24,7 +24,7 @@
  * socom-owner-annotations end socom:work:source-segment-029 */
 
 #include "zrdr.h"
-#include "Apps/FTS/gamever.h"
+/* port: removed #include "Apps/FTS/gamever.h" (header deleted with the PC-only code in 5b05af1; nothing here uses it) */
 
 #include "gamez/zSystem/zsys.h"
 #include "gamez/zUtil/util_stack.h"

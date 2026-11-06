@@ -37,7 +37,7 @@
 std::list<CValve *, std::allocator<CValve *> > CValve::m_list;
 
 /* @socom-skeleton stub valvePool */
-static unsigned char valvePool[28];
+static CValvePool valvePool; /* port: typed; the skeleton placeholder was the 28-byte ELF object */
 
 /* @socom-skeleton stub FlushNames__10CValvePoolFb */
 void CValvePool::FlushNames(bool)
@@ -333,7 +333,7 @@ void CValve::MakeCallbacks(VALVE_STATE state) {}
 void* CValve::AddCallback(size_t size, void(*callback)(CValve*, void*), void* buffer)
 {
 	m_callbacks.m_list.insert(m_callbacks.m_list.begin(), callback);
-	return callback;
+	return reinterpret_cast<void *>(callback); /* port: GCC has no implicit function-pointer to void * conversion */
 }
 
 /* @socom-skeleton body DeleteCallbacks__6CValveFv */

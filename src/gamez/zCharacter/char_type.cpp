@@ -85,7 +85,7 @@
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class CCharacterWeapPacked;
-class CHARACTER_SOUND;
+/* port: CHARACTER_SOUND is declared in gamez/zCharacter/zchar.h */
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub m_rdr_file__14CCharacterType */

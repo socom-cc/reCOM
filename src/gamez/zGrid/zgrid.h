@@ -94,7 +94,7 @@ public:
 		CGridAtom** gridGetAtomBasePtr(s32 x, s32 y);
 		bool gridGetNextIndex();
 
-		static u32 N_ATOMS;
+		static const u32 N_ATOMS; /* const: 0x4000 in read-only data (N_ATOMS__Q23zdb5CGrid) */
 
 		CFRect m_extents;
 		CWorld* m_world;
@@ -193,4 +193,8 @@ public:
 };
 }
 /* @socom-skeleton end Q23zdb19CClutterAnimManager */
+namespace zdb
+{
+	void SetCameraCollideFlagRequired(bool); /* SetCameraCollideFlagRequired__3zdbFb (grid_di.cpp) */
+}
 #endif

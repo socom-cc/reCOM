@@ -352,6 +352,7 @@
  * socom-owner-annotations end socom:work:source-segment-047 */
 
 #include "znet.h"
+#include <medius.h> /* port: MediusErrorCode, MediusCallbackStatus (Medius lobby; header name unproven) */
 
 #include "gamez/zValve/zvalve.h"
 #include "gamez/zUI/zui.h"
@@ -364,7 +365,6 @@ class MediusAccountRegistrationResponse;
 class MediusAddPlayerToClanResponse;
 class MediusAddToBuddyListFwdConfirmationRequest;
 class MediusBanPlayerResponse;
-class MediusCallbackStatus;
 class MediusChannelInfoResponse;
 class MediusChannelListResponse;
 class MediusChatFwdMessage;
@@ -375,7 +375,6 @@ class MediusCreateChannelResponse;
 class MediusCreateClanResponse;
 class MediusCreateGameResponse;
 class MediusDisbandClanResponse;
-class MediusErrorCode;
 class MediusErrorMessage;
 class MediusFindWorldByNameResponse;
 class MediusGameInfoResponse;
@@ -408,7 +407,6 @@ class MediusTransferClanLeadershipResponse;
 class MediusUpdateClanStatsResponse;
 class MediusVersionServerResponse;
 class NetConnectionInfo;
-class NetErrorCode;
 class RoomGame;
 /* @socom-skeleton end forward */
 

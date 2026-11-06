@@ -52,40 +52,45 @@
 
 #ifndef ZSEAL_H
 #define ZSEAL_H
-#include "Apps/FTS/hud/hud.h"
+/* port: hud.h and zui.h are not included here: zinput.h includes this header for CSealCtrl, and
+   both of them reach zinput.h again (via zgame.h/ztwod.h); this header needs only the names below. */
+class CCompassAnchor;
+class CPad;
+/* port: opaque declaration; the definition is in gamez/zGame/zgame.h (DWARF byte_size 1) */
+enum MENU_STATE : unsigned char;
 
 #include "gamez/zAI/zai.h"
 #include "gamez/zAnim/zanim.h"
 #include "gamez/zBody/zbody.h"
+#include "gamez/zCharacter/zchar.h" /* CHARACTER_SOUND (by value) */
 #include "gamez/zEntity/zentity.h"
 #include "gamez/zMath/zmath.h"
 #include "gamez/zNode/node_action.h"
 #include "gamez/zSound/zsnd.h"
 #include "gamez/zSystem/zsys.h"
-#include "gamez/zUI/zui.h"
 #include "gamez/zWeapon/zweapon.h"
 /* @socom-skeleton decl forward */
 class ACTIVE_ANIM;
 class AI_FIREPARAMS;
 class AI_REACTION;
-class AI_SIGNAL;
-class AI_SOUND;
-class AckUnion;
+enum AI_SIGNAL { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
+enum AI_SOUND { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
+union AckUnion { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
 class CAiWepHint;
 class CCompass;
-class CDIType;
-class CHARACTER_SOUND;
+enum CDIType { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
+/* port: CHARACTER_SOUND is declared in gamez/zCharacter/zchar.h */
 class CMaterialEx;
 class CTargetMods;
 class CZAmmoPickupInstance;
 class MPSealStats;
 class PlacedExplosive;
-class SEAL_HANDSIGNAL;
-class SEAL_TASK;
-class STUN_TYPE;
+enum SEAL_HANDSIGNAL { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
+enum SEAL_TASK { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
+class STUN_TYPE { }; /* port: unproven: passed by value; kept a class to match zinput.h's forward declaration; contents not in DWARF */
 class TASK_SELECT;
-class UNIT_MESSAGE;
-class WEAPON_STATE;
+enum UNIT_MESSAGE { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
+enum WEAPON_STATE { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
 /* @socom-skeleton end forward */
 /* @socom-skeleton decl 8AI_AWARE */
 enum AI_AWARE
@@ -225,7 +230,7 @@ enum class AiSig
 
 namespace sealai
 {
-	const char* get_aiseq(AI_SEQUENCE sequence);
+	const char* get_aiseq(unsigned int sequence); /* mangled get_aiseq__6sealaiFUi */
 
 	AI_MODE get_mode(const char* name);
 
@@ -278,7 +283,7 @@ public:
 
 	void* GetIcon(s32 index) const;
 	f32 GetFireDelay() const;
-	CZWeapon* GetCurItem() const;
+	CZFTSWeapon* GetCurItem() const; /* port: Ghidra 0x2abd40 returns CZFTSWeapon * */
 	s32 GetNumItems() const;
 	f32 GetCurZoom() const;
 
@@ -515,6 +520,17 @@ public:
 	s16 m_sMvpScore;
 	s32 m_iRoundsWon;
 	s32 m_iRoundsTied;
+
+	/* ELF accessors (const, result in v0); st_mpexit.cpp takes their addresses. Bodies are one load each:
+	 * GetHeadShots 0x3212f0 = m_headshots, GetKills 0x321300 = m_kills, GetTimesWasHit 0x321270 = m_washit,
+	 * GetBasesDestroyed 0x3de0b0 = m_bases_blown, GetRescues 0x3de0c0 = m_hostages_rescued,
+	 * GetHitPct 0x3de0d0 = fptosi(100.0f * m_hit_percent + 0.5f) */
+	int GetHeadShots() const;
+	int GetKills() const;
+	int GetTimesWasHit() const;
+	int GetBasesDestroyed() const;
+	int GetRescues() const;
+	int GetHitPct() const;
 	/* @socom-skeleton decl 10CSealStats */
 public:
 	void Death(const CZSealBody &);
@@ -537,7 +553,7 @@ public:
 class CSealEx : public zdb::CNodeEx
 {
 public:
-	void OnWeaponHit(CNode* node, zdb::IntersectStruct* intersection, CZProjectile* projectile);
+	/* port: OnWeaponHit is declared virtual in the skeleton region */
 
 	CZSealBody* m_seal;
 	/* @socom-skeleton decl 7CSealEx */
@@ -638,7 +654,7 @@ public:
 	/// STANCE
 	/// -------------------------------------------
 
-	SEAL_STANCE UpdateStance();	
+	void UpdateStance(); /* port: returns nothing (assembly 0x256c80 never sets v0) */
 	SEAL_STANCE SetStance(SEAL_STANCE stance);
 	SEAL_STANCE GetStance(char flag) const;
 
@@ -704,7 +720,7 @@ public:
 	void AttemptBombDefuse() const;
 
 	CCharacterType* GetCharacter() const;
-	CCharacterGear* CZSealBody::FindGear(const char* name);
+	CCharacterGear* FindGear(const char* name);
 
 	f32 GetFormationHeading(f32 heading) const;
 	void UpdateFollowParams(f32 heading);
@@ -1400,7 +1416,7 @@ public:
 	/* @socom-skeleton end 9CSealUnit */
 };
 
-class CSealCtrl : CEntityCtrl
+class CSealCtrl : public CEntityCtrl /* port: public; units downcast CEntityCtrl * (CEntity::m_control) to CSealCtrl * */
 {
 	friend class CAppCamera;
 public:
@@ -1427,10 +1443,9 @@ public:
 	
 	void StopRumbler();
 	
-	static f32 m_bobbing1stperson_amplitude;
-	static f32 m_bobbing1stperson_rate;
-	static f32 m_crawl1stperson_amplitude;
-	static f32 m_crawl1stperson_rate;
+	/* [0] walk, [1] crawl: 8-byte ELF objects; CharacterDynamics::Load writes +0 and +4 (Ghidra 0x28b000) */
+	static f32 m_bobbing1stperson_amplitude[2];
+	static f32 m_bobbing1stperson_rate[2];
 	
 	u32 m_padid;
 
@@ -1457,7 +1472,7 @@ public:
 
 	u32 m_targetSum;
 	CAiDecay m_targetThreat;
-	CSealUnit m_unit;
+	CSealUnit* m_unit; /* DWARF: CSealCtrl::m_unit is CSealUnit * */
 
 	u32 m_ai_net_state;
 	TRIGGER m_trigger;
@@ -1611,7 +1626,7 @@ public:
 	/* @socom-skeleton end 9CSealCtrl */
 };
 
-class CSealCtrlAi : CSealCtrl
+class CSealCtrlAi : public CSealCtrl
 {
 public:
 	static bool RegisterCommands();
@@ -1627,9 +1642,9 @@ public:
 	virtual void OnDeath();
 	virtual void SetThrottle(unsigned int, float);
 	virtual void PlayAiSound(CHARACTER_SOUND);
-	virtual void AllowCommand(CZSealBody *, FT_COMMAND, void *);
-	virtual unsigned char IsPlayer() const;
-	virtual void IsAi() const;
+	virtual bool AllowCommand(CZSealBody *, FT_COMMAND, void *); /* port: an override returns its base's type */
+	virtual bool IsPlayer() const; /* port: base CSealCtrl::IsPlayer returns bool (DWARF fund_type 3) */
+	virtual bool IsAi() const; /* port: an override returns its base's type */
 	virtual CSealCtrlAi * GetSealCtrlAi();
 	virtual void PostTick(float);
 	virtual void Initalize();
@@ -1770,7 +1785,7 @@ public:
 	/* @socom-skeleton end 11CSealCtrlAi */
 };
 
-class CSealCtrlSquirm : CSealCtrl
+class CSealCtrlSquirm : public CSealCtrl
 {
 
 	/* @socom-skeleton decl 15CSealCtrlSquirm */
@@ -2074,7 +2089,7 @@ class CAiSCorpse : public CAiState
 {
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
+	virtual bool Tick(float, CSealCtrlAi *); /* port: an override returns its base's type */
 	virtual ~CAiSCorpse();
 	void SetCorpse(CEntity *);
 };
@@ -2084,7 +2099,7 @@ class CAiSPickup : public CAiState
 {
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
+	virtual bool Tick(float, CSealCtrlAi *); /* port: an override returns its base's type */
 	virtual ~CAiSPickup();
 };
 /* @socom-skeleton end 10CAiSPickup */
@@ -2093,8 +2108,8 @@ class CAiSReload : public CAiState
 {
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
-	virtual void CanAttack() const;
+	virtual bool Tick(float, CSealCtrlAi *); /* port: an override returns its base's type */
+	virtual bool CanAttack() const; /* port: an override returns its base's type */
 	virtual ~CAiSReload();
 };
 /* @socom-skeleton end 10CAiSReload */
@@ -2103,7 +2118,7 @@ class CAiSUnknown : public CAiState
 {
 public:
 	virtual void OnSignal(CAiState::SIGNAL, CSealCtrlAi *);
-	virtual void Tick(float, CSealCtrlAi *);
+	virtual bool Tick(float, CSealCtrlAi *); /* port: an override returns its base's type */
 	virtual ~CAiSUnknown();
 };
 /* @socom-skeleton end 11CAiSUnknown */
@@ -2131,6 +2146,10 @@ public:
 	static float GetWeaponAccuracy(CZWeapon *, float, bool);
 };
 /* @socom-skeleton end 10CAiWepHint */
+/* DWARF: CCompassAnchorVec, byte_size 12, MSL pointer-vector storage */
+class CCompassAnchorVec : public std::vector<CCompassAnchor *> /* port: unproven element: DWARF keeps only MSL pointer storage */
+{
+};
 /* @socom-skeleton decl 8CCompass */
 class CCompass : public CCompassAnchorVec
 {
@@ -2152,7 +2171,7 @@ public:
 class ai
 {
 public:
-	class LINE_TYPE;
+	enum LINE_TYPE { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
 	static void FlushPlannerQueue();
 	void PathPlanBegin(CAiPath *);
 	static unsigned char PathPlanAddLeg(CAiMap *, const CAiMapLoc &, const CAiMapLoc &);

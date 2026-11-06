@@ -291,7 +291,7 @@ void CAiSPickup::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub Tick__10CAiSPickupFfP11CSealCtrlAi */
-void CAiSPickup::Tick(float, CSealCtrlAi *)
+bool CAiSPickup::Tick(float, CSealCtrlAi *)
 {
 }
 
@@ -301,7 +301,7 @@ void CAiSAvoid::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub Tick__9CAiSAvoidFfP11CSealCtrlAi */
-void CAiSAvoid::Tick(float, CSealCtrlAi *)
+bool CAiSAvoid::Tick(float, CSealCtrlAi *)
 {
 	/* @socom-skeleton stub AVOID_BUFFER$2632 */
 	static float AVOID_BUFFER;
@@ -313,7 +313,7 @@ void CAiSHostage::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub Tick__11CAiSHostageFfP11CSealCtrlAi */
-void CAiSHostage::Tick(float, CSealCtrlAi *)
+bool CAiSHostage::Tick(float, CSealCtrlAi *)
 {
 }
 
@@ -323,7 +323,7 @@ void CAiSGoto::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub Tick__8CAiSGotoFfP11CSealCtrlAi */
-void CAiSGoto::Tick(float, CSealCtrlAi *)
+bool CAiSGoto::Tick(float, CSealCtrlAi *)
 {
 	/* @socom-skeleton stub hacknumPercent$2724 */
 	static long hacknumPercent;
@@ -370,12 +370,12 @@ void CAiSScript::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub CanPursue__10CAiSScriptCFP11CSealCtrlAi */
-void CAiSScript::CanPursue(CSealCtrlAi *) const
+bool CAiSScript::CanPursue(CSealCtrlAi *) const
 {
 }
 
 /* @socom-skeleton stub Tick__10CAiSScriptFfP11CSealCtrlAi */
-void CAiSScript::Tick(float, CSealCtrlAi *)
+bool CAiSScript::Tick(float, CSealCtrlAi *)
 {
 }
 
@@ -390,7 +390,7 @@ void CAiSBreach::GetStatus() const
 }
 
 /* @socom-skeleton stub Tick__10CAiSBreachFfP11CSealCtrlAi */
-void CAiSBreach::Tick(float, CSealCtrlAi *)
+bool CAiSBreach::Tick(float, CSealCtrlAi *)
 {
 	/* @socom-skeleton stub breachTimeout$2919 */
 	static float breachTimeout;
@@ -402,7 +402,7 @@ void CAiSSuspended::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub Tick__13CAiSSuspendedFfP11CSealCtrlAi */
-void CAiSSuspended::Tick(float, CSealCtrlAi *)
+bool CAiSSuspended::Tick(float, CSealCtrlAi *)
 {
 }
 
@@ -412,7 +412,7 @@ void CAiSUnknown::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub Tick__11CAiSUnknownFfP11CSealCtrlAi */
-void CAiSUnknown::Tick(float, CSealCtrlAi *)
+bool CAiSUnknown::Tick(float, CSealCtrlAi *)
 {
 }
 
@@ -422,6 +422,6 @@ void CAiSCQBAttack::OnSignal(CAiState::SIGNAL, CSealCtrlAi *)
 }
 
 /* @socom-skeleton stub Tick__13CAiSCQBAttackFfP11CSealCtrlAi */
-void CAiSCQBAttack::Tick(float, CSealCtrlAi *)
+bool CAiSCQBAttack::Tick(float, CSealCtrlAi *)
 {
 }

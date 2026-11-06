@@ -22,7 +22,7 @@ namespace zdb
 		bool Read(CSaveLoad&);
 
 		bool SetActive(bool);
-		CBBox& UpdateBBox(bool);
+		CBBox* UpdateBBox(bool);
 
 		f32 m_maxRangeSq;
 		f32 m_maxRange;

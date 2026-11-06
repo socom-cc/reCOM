@@ -1,5 +1,11 @@
 #ifndef STATE_H
 #define STATE_H
+
+/* port: forward declarations for names this header uses */
+class CZSealBody;
+struct _zrdr;
+
+#include "gamez/zGame/zgame.h" /* CGameMenu: base of CLoadMenu */
 /* @socom-skeleton decl 9CE3Config */
 class CE3Config
 {

@@ -26,10 +26,11 @@
 /* @socom-skeleton body zrdr_findfile__FPCcPCc */
 const char* zrdr_findfile(const char* name, const char* dir)
 {
+	static char _buffer[256]; /* local static _buffer$711 (256 bytes; 0x5056b0) */
 	if (dir)
 	{
-		sprintf_s(buffer, 64, "%s/%s", name, dir);
-		name = buffer;
+		snprintf(_buffer, sizeof(_buffer), "%s/%s", dir, name); /* asm 0x23e4e0: sprintf(buf, fmt, a1, a0) */
+		name = _buffer;
 	}
 
 	return name;
@@ -71,10 +72,12 @@ void zrdr_freearray(_zrdr* reader)
 /* @socom-skeleton body Clone__5_zrdrFP5_zrdrP7CSTable */
 void _zrdr::Clone(_zrdr *other, CSTable *table)
 {
-	if (!zrdr_init)
+	static bool warnonce; /* local static warnonce$734 */
+	static bool init; /* local static init$735 */
+	if (!init)
 	{
 		warnonce = true;
-		zrdr_init = true;
+		init = true;
 	}
 
 	if (other == NULL)

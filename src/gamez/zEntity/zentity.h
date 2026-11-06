@@ -30,6 +30,8 @@ class CZBodyPart;
 class CModel;
 class CCameraParams;
 
+class CEntityList;
+
 class CTargetList : public std::vector<CTarget*> {
 	/* @socom-skeleton decl 11CTargetList */
 public:
@@ -58,8 +60,7 @@ enum class SEAL_CONTROL_TYPE
 	CTRL_MISC
 };
 
-extern CEntity* recycler;
-extern u32 recycler_index;
+/* port: recycler and recycler_index are file-local (static) data in ent_main.cpp (ELF local symbols) */
 extern CSealAnim* m_sealanim;
 extern CharacterDynamics theCharacterDynamics;
 
@@ -125,7 +126,7 @@ public:
 
 	void SetController(CEntityCtrl* controller);
 
-	static std::vector<CEntity*> m_list;
+	static CEntityList m_list; /* DWARF: CEntity::m_list is CEntityList */
 	
 	u32 m_id;
 	u32 m_index;
@@ -300,7 +301,7 @@ private:
 	bool m_visible_by_units;
 	/* @socom-skeleton decl 7CPickup */
 public:
-	class PU_TYPE;
+	enum PU_TYPE { }; /* port: unproven: passed by value (Q27CPickup7PU_TYPE); enumerators not in DWARF (m_type is a 7-bit field) */
 	static void Open(unsigned int);
 	static void Close(bool);
 	void DebugPickups();
@@ -311,8 +312,9 @@ public:
 	static void Destroy(CPickup *);
 	static void DestroyNetPickups(unsigned char);
 	void GetFirst();
-	void GetNext(std::list<CPickup *, std::allocator<CPickup *> >::generic_iterator<0> &, CPickup::PU_TYPE);
-	void GetNext(std::list<CPickup *, std::allocator<CPickup *> >::generic_iterator<0> &, const CPnt3D *, float, CPickup::PU_TYPE);
+	/* port: MSL list::generic_iterator<0> is the library's list<CPickup *>::iterator typedef */
+	void GetNext(std::list<CPickup *>::iterator &, CPickup::PU_TYPE);
+	void GetNext(std::list<CPickup *>::iterator &, const CPnt3D *, float, CPickup::PU_TYPE);
 	void GetClosest(const CPnt3D *, float, CPickup::PU_TYPE, CPickup **);
 	static CPickup * FindPickup(unsigned int);
 	void IsNetIdUsed(unsigned char, unsigned char);
@@ -332,7 +334,7 @@ public:
 	/* @socom-skeleton end 7CPickup */
 };
 /* @socom-skeleton decl 11CEntityList */
-class CEntityList : public std::list
+class CEntityList : public std::list<void const*> /* port: element type from MSL pointer storage in DWARF; real element unproven */
 {
 public:
 	CEntity * GetEntity(const char *) const;

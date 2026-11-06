@@ -24,7 +24,7 @@ public:
 	char* CreateString(const char* str);
 	char* FindString(const char* str);
 
-	size_t Pack(void(*fixup)(CSTable*, zar::CKey*), void* buffer);
+	/* Pack: the binary has only Pack__7CSTableFPFP7CSTablePv_vPv, declared below */
 
 	int Relocate(char* buffer);
 

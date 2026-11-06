@@ -595,8 +595,9 @@ void* CZAR::ReleaseDataBuffer()
 }
 
 /* @socom-skeleton body fixupKey__Q23zar4CKeyFP7CSTablePv */
-void zar::CKey::fixupKey(CSTable *table, void *key)
+void zar::CKey::fixupKey(CSTable *table, void *keyPtr)
 	{
+		CKey* key = static_cast<CKey*>(keyPtr); /* port: the body was written for a CKey* parameter */
 		char* keyname = table->FindString(key->m_name);
 		key->m_name = keyname;
 

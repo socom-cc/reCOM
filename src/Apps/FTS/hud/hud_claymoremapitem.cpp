@@ -76,7 +76,7 @@ CZClaymoreMapItem::CZClaymoreMapItem(CZSealBody *, CZProjectile *)
 }
 
 /* @socom-skeleton stub Tick__17CZClaymoreMapItemFP11CZNewHudMapf */
-unsigned char CZClaymoreMapItem::Tick(CZNewHudMap *, float)
+bool CZClaymoreMapItem::Tick(CZNewHudMap *, float)
 {
 }
 

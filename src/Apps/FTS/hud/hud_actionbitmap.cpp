@@ -83,10 +83,10 @@ class CActionTxtrMachine;
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub color_base */
-static const CPnt3D color_base = {0};
+static const CPnt3D color_base(86.0f, 63.0f, 27.0f); /* port: __sinit_hud_actionbitmap.cpp stores 0x42ac0000/0x427c0000/0x41d80000 at 0x465db0 */
 
 /* @socom-skeleton stub color_incr */
-static const CPnt3D color_incr = {0};
+static const CPnt3D color_incr(44.0f, 48.0f, 13.5f); /* port: __sinit_hud_actionbitmap.cpp stores 0x42300000/0x42400000/0x41580000 at 0x465dc0 */
 
 /* @socom-skeleton stub ACTIONICON_CENTERX */
 static float ACTIONICON_CENTERX = 306.0f;
@@ -197,13 +197,13 @@ unsigned int CActionTxtrMachine::Open(unsigned int)
 unsigned char CActionTxtrMachine::Render_ver_2(CZActionBitmap &)
 {
 	/* @socom-skeleton stub mainicon_normal$2751 */
-	static const CPnt3D mainicon_normal = {0};
+	static const CPnt3D mainicon_normal(128.0f, 128.0f, 128.0f); /* port: guarded init at 0x3d6f08 */
 	/* @socom-skeleton stub sideicon_normal$2754 */
-	static const CPnt3D sideicon_normal = {0};
+	static const CPnt3D sideicon_normal(100.0f, 100.0f, 100.0f); /* port: guarded init at 0x3d6f44 */
 	/* @socom-skeleton stub mainicon_nvg$2757 */
-	static const CPnt3D mainicon_nvg = {0};
+	static const CPnt3D mainicon_nvg(0.0f, 128.0f, 0.0f); /* port: guarded init at 0x3d6f80 */
 	/* @socom-skeleton stub sideicon_nvg$2760 */
-	static const CPnt3D sideicon_nvg = {0};
+	static const CPnt3D sideicon_nvg(0.0f, 128.0f, 0.0f); /* port: guarded init at 0x3d6fc0 */
 }
 
 /* @socom-skeleton stub Init__14CZActionBitmapFP4CHUDP7C2DFont */

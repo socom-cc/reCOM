@@ -17,7 +17,7 @@
 #include <iostream>
 #include <stdio.h>
 
-#include "Apps/FTS/gamever.h"
+/* port: removed #include "Apps/FTS/gamever.h" (header deleted with the PC-only code in 5b05af1; nothing here uses it) */
 #include "gamez/zReader/zrdr.h"
 #include "gamez/zVideo/zvid.h"
 

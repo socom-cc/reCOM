@@ -38,14 +38,14 @@
 
 #include "gamez/zGame/zgame.h"
 #include "gamez/zPhysics/zphysics.h"
+#include "gamez/zRender/zrender.h" /* zdb::_RenderPhase (CHUD::DrawPhase) */
+#include "gamez/zAI/zai.h" /* FT_COMMAND, CAiMap */
 #include "gamez/zUI/zui.h"
 /* @socom-skeleton decl forward */
 class C2DLine;
 class CActionTxtr;
 class CMD_TABLE;
 class CZMPBombMapItem;
-class NetClientMetric;
-class Selection;
 /* @socom-skeleton end forward */
 /* @socom-skeleton decl 10LINE_TYPES */
 enum LINE_TYPES
@@ -63,34 +63,13 @@ enum LINE_TYPES
 };
 /* @socom-skeleton end 10LINE_TYPES */
 /* @socom-skeleton decl Q23zdb12_RenderPhase */
-namespace zdb {
-enum _RenderPhase
-{
-	WORLD = 0,
-	HUD_OBSOLETE = 1,
-	CHARSETCOMMON = 2,
-	CHARSET1 = 3,
-	CHARSET2 = 4,
-	CHARSET3 = 5,
-	CHARSET4 = 6,
-	CHARSET5 = 7,
-	CHARSET6 = 8,
-	CHARSET7 = 9,
-	CHARSET8 = 10,
-	ALPHA = 11,
-	HUDSET1 = 12,
-	HUDSET2 = 13,
-	HUDSETSMALL = 14,
-	SHADOW = 15,
-	CHARSETCUSTOM = 16,
-	NUM_RENDER_PHASES = 17
-};
-}
+/* port: zdb::_RenderPhase is defined in gamez/zRender/zrender.h (included above) */
 /* @socom-skeleton end Q23zdb12_RenderPhase */
 
 enum class FIRETEAM;
 
 class CMissionCam;
+class CMissionObjectiveCam;
 
 namespace zdb
 {
@@ -439,7 +418,7 @@ class CInGameWeaponSel : public C2D
 {
 public:
 	void HudTick(f32 delta);
-	void GetPrevItem(s32 param_1);
+	int GetPrevItem(s32 curitem); /* port: DWARF GetPrevItem__16CInGameWeaponSelFi returns int */
 	void Clear();
 	void Init(zdb::CWorld* world);
 	void SelectWeapon();
@@ -1009,6 +988,29 @@ class CCompassAnchor
 {
 
 };
+
+/* port: DWARF class_type nav_package (die 0x302ada, hud_mapcompass.cpp CU), byte_size 20; element of navpoint_vec */
+class nav_package
+{
+public:
+	s32 m_dist;
+	CCompassAnchor* m_this_anchor;
+	CHudCompassAnchor* m_hud_anchor;
+	CHudCompassAnchor* m_hud_arrow;
+	bool m_show_arrow;
+	bool m_override_showme;
+};
+/* port: DWARF enumeration_type Selection (die 0x23bfcd, byte_size 1), element_list values 0-5 */
+enum Selection
+{
+	SEL_RESUME = 0,
+	SEL_ABORT = 1,
+	SEL_INVERT = 2,
+	SEL_REPLAY = 3,
+	SEL_AUTOAIM = 4,
+	SEL_NUM_SELECTIONS = 5
+};
+
 /* @socom-skeleton decl 6Action */
 class Action
 {
@@ -1037,7 +1039,7 @@ public:
 };
 /* @socom-skeleton end 11CActionTxtr */
 /* @socom-skeleton decl 18CActionTxtrMachine */
-class CActionTxtrMachine : public std::vector
+class CActionTxtrMachine : public std::vector<unsigned int> /* port: element type from MSL pointer storage in DWARF; real element unproven */
 {
 public:
 	CPnt3D *m_main_iconcolor;
@@ -1078,12 +1080,25 @@ public:
 	void Reset();
 };
 /* @socom-skeleton end 14CFlashFXVector */
+/* port: CZMapItem had no declaration; DWARF class_type size 4 (vptr only). Virtual order from
+ * __vt__9CZMapItem @0x4745a0; inline bodies emitted from this header: Tick 0x3c34a0 returns 0,
+ * Draw 0x3c34b0, PostDraw 0x3c3080, Clip 0x3c3090 are empty, ~CZMapItem 0x3c3450. */
+class CZMapItem
+{
+public:
+	virtual ~CZMapItem() {}
+	virtual bool Tick(CZNewHudMap* map, f32 dT) { return false; }
+	virtual void Draw(zdb::CCamera* camera) {}
+	virtual void PostDraw(zdb::CCamera* camera) {}
+	virtual void Clip(CZNewHudMap* map) {}
+};
+
 /* @socom-skeleton decl 17CZClaymoreMapItem */
 class CZClaymoreMapItem : public CZMapItem
 {
 public:
 	virtual ~CZClaymoreMapItem();
-	virtual unsigned char Tick(CZNewHudMap *, float);
+	virtual bool Tick(CZNewHudMap *, float);
 	virtual void Draw(zdb::CCamera *);
 	CZClaymoreMapItem(CZSealBody *, CZProjectile *);
 	static float m_U0;
@@ -1103,7 +1118,7 @@ class CZLineMap : public CZMapItem
 {
 public:
 	virtual ~CZLineMap();
-	virtual unsigned char Tick(CZNewHudMap *, float);
+	virtual bool Tick(CZNewHudMap *, float);
 	virtual void Draw(zdb::CCamera *);
 	virtual void Clip(CZNewHudMap *);
 	CZLineMap();
@@ -1127,7 +1142,7 @@ class CZMPBombMapItem : public CZMapItem
 {
 public:
 	virtual ~CZMPBombMapItem();
-	virtual unsigned char Tick(CZNewHudMap *, float);
+	virtual bool Tick(CZNewHudMap *, float);
 	virtual void Draw(zdb::CCamera *);
 	CZMPBombMapItem(zdb::CNode *);
 	static float m_U0;
@@ -1175,7 +1190,7 @@ class CZPlayerMapItem : public CZMapItem
 {
 public:
 	virtual ~CZPlayerMapItem();
-	virtual unsigned char Tick(CZNewHudMap *, float);
+	virtual bool Tick(CZNewHudMap *, float);
 	virtual void Draw(zdb::CCamera *);
 	virtual void PostDraw(zdb::CCamera *);
 	virtual void Clip(CZNewHudMap *);
@@ -1194,6 +1209,14 @@ public:
 	static zdb::CTexture *m_deadbliptex;
 };
 /* @socom-skeleton end 15CZPlayerMapItem */
+/* port: DWARF class_type NetClientMetric (die 0x3e5675, hud_devtext.cpp CU), byte_size 8 */
+class NetClientMetric
+{
+public:
+	f32 AverageRate;
+	f32 MaxAverageRate;
+};
+
 /* @socom-skeleton decl 16NetBandwidthInfo */
 class NetBandwidthInfo
 {

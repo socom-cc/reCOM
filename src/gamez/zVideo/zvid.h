@@ -22,14 +22,15 @@ void zVid_Uninit();
 void zVid_Open();
 void zVid_Swap(bool doSwap);
 void zVid_FrameRestore();
-void zVid_ClearColor(f32 red, f32 green, f32 blue);
+void zVid_ClearColor(u32* color); /* port: binary has only zVid_ClearColor__FPUi */
+void zVid_ClearColor(f32 red, f32 green, f32 blue); /* port: unproven, no such symbol in the binary; kept for existing callers */
 void zVid_Sync0();
 void zVid_ZTestOn();
 void zVid_ZTestOff();
 void zVid_ZTestOnWriteSet(bool set);
 
 void zvid_MpegReset();
-void zvid_SetVideoMode(_zvid_mode mode);
+void zvid_SetVideoMode(_zvid_mode mode, bool sync); /* port: zvid_SetVideoMode__F10_zvid_modeb */
 
 void uninitPssAudio();
 
@@ -84,7 +85,6 @@ class CVideo
 {
 public:
 	static void Clear(u8 r, u8 g, u8 b, u8 a) { }
-	static void RestoreImage(const char* img, bool raw = false);
 	static f32 MaxFrameRate(s32 fr);
 
 	static s32 m_defaultFrameRate;

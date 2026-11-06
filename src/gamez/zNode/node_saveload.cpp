@@ -61,18 +61,18 @@ s32 FilterMissionFolder(const char* prefix, const char* infix, const char* postf
 	// Multiplayer map?
 	if (strncmp(prefix, "mp", 2) == 0)
 	{
-		result = sprintf_s(output, 128, "%s/mp/%s", infix, postfix);
+		result = snprintf(output, 128, "%s/mp/%s", infix, postfix);
 	}
 	else
 	{
 		// Singleplayer map?
 		if (strncmp(prefix, "m", 1) == 0)
 		{
-			result = sprintf_s(output, 128, "%s/sp/%s", infix, postfix);
+			result = snprintf(output, 128, "%s/sp/%s", infix, postfix);
 		}
 		else
 		{
-			result = sprintf_s(output, 128, "%s/%s", infix, postfix);
+			result = snprintf(output, 128, "%s/%s", infix, postfix);
 		}
 	}
 
@@ -134,7 +134,7 @@ bool zdb::CSaveLoad::LoadAssetLib_PS2(zdb::CWorld *world, zdb::CAssetLib *librar
 			std::string temp(library->RootName());
 			temp.assign(temp.substr(0, 4));
 
-			sprintf_s(m_zed_filename, "run/%s/%s%s.zed", library->m_name, temp.c_str(), "_mdl");
+			snprintf(m_zed_filename, sizeof(m_zed_filename), "run/%s/%s%s.zed", library->m_name, temp.c_str(), "_mdl");
 
 			if (!m_zfile.Open(m_zed_filename, CWorld::GetVersion(), 1, 16))
 			{
@@ -256,9 +256,9 @@ CWorld* CSaveLoad::Load(const char* name)
 		zdb::CWorld* world = NULL;
 		
 		FilterMissionFolder(name, "/run", name, m_zed_filename);
-		strcat_s(m_zed_filename, "/");
-		strcat_s(m_zed_filename, name);
-		strcat_s(m_zed_filename, ".zed");
+		strcat(m_zed_filename, "/");
+		strcat(m_zed_filename, name);
+		strcat(m_zed_filename, ".zed");
 
 		u32 version = zdb::CWorld::GetVersion();
 
@@ -352,6 +352,6 @@ CWorld* CSaveLoad::Load(const char* name)
 }
 
 /* @socom-skeleton stub Read__Q23zdb6CWorldFRQ23zdb9CSaveLoad */
-void zdb::CWorld::Read(zdb::CSaveLoad &)
+bool zdb::CWorld::Read(zdb::CSaveLoad &)
 {
 }

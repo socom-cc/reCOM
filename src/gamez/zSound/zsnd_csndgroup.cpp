@@ -18,22 +18,22 @@
 /* @socom-skeleton end include */
 
 /* @socom-skeleton stub PlaySound__9CSndGroupFP12CSndInstanceUi */
-void CSndGroup::PlaySound(CSndInstance *, unsigned int)
+CSndInstance* CSndGroup::PlaySound(CSndInstance *, unsigned int)
 {
 }
 
 /* @socom-skeleton stub PlaySoundVol__9CSndGroupFfP12CSndInstanceUi */
-void CSndGroup::PlaySoundVol(float, CSndInstance *, unsigned int)
+CSndInstance* CSndGroup::PlaySoundVol(float, CSndInstance *, unsigned int)
 {
 }
 
 /* @socom-skeleton stub PlaySound3D__9CSndGroupFPC6CPnt3DfiP12CSndInstanceUi */
-void CSndGroup::PlaySound3D(const CPnt3D *, float, int, CSndInstance *, unsigned int)
+CSndInstance* CSndGroup::PlaySound3D(const CPnt3D *, float, int, CSndInstance *, unsigned int)
 {
 }
 
 /* @socom-skeleton stub PlaySoundVolPanPitch__9CSndGroupFfiiP12CSndInstanceUi */
-void CSndGroup::PlaySoundVolPanPitch(float, int, int, CSndInstance *, unsigned int)
+CSndInstance* CSndGroup::PlaySoundVolPanPitch(float, int, int, CSndInstance *, unsigned int)
 {
 }
 

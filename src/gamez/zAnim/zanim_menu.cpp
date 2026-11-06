@@ -264,7 +264,7 @@ public:
 /* @socom-skeleton end Q224@unnamed@zanim_menu_cpp@17CSelectedCharsItr */
 
 /* @socom-skeleton stub database */
-static unsigned char database[64] = {0};
+static char database[64] = {0}; /* string buffer (strcpy target in SetDatabase) */
 
 /* @socom-skeleton stub DEFAULT_ARGNAME */
 static const char *DEFAULT_ARGNAME = "NO_ARG";

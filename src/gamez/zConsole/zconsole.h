@@ -1,5 +1,8 @@
 #ifndef ZCONSOLE_H
 #define ZCONSOLE_H
+
+/* port: forward declarations for names this header uses */
+class CConsole;
 /* @socom-skeleton decl forward */
 class CPacket;
 /* @socom-skeleton end forward */

@@ -83,7 +83,7 @@ CZPlayerMapItem::CZPlayerMapItem(CEntity *)
 }
 
 /* @socom-skeleton stub Tick__15CZPlayerMapItemFP11CZNewHudMapf */
-unsigned char CZPlayerMapItem::Tick(CZNewHudMap *, float)
+bool CZPlayerMapItem::Tick(CZNewHudMap *, float)
 {
 }
 

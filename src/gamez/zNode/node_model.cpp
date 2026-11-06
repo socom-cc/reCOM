@@ -196,34 +196,39 @@ CNode* CNode::CreateXRef()
 }
 
 /* @socom-skeleton body Delete__Q23zdb5CNodeFPQ23zdb5CNode */
-zdb::CNode * zdb::CNode::Delete(zdb::CNode *)
+zdb::CNode * zdb::CNode::Delete(zdb::CNode *node)
 	{
-		if (m_type == static_cast<u32>(TYPE::MULTI_PARENT))
-		{
-			if (m_child.size() != 0)
-			{
-				CNode* child = *m_child.data();
-				RemoveFromParent();
+		/* port: static (a0 is the node; 0x228fd0). The body was written against `this`;
+		   members are now reached through `node`, and the result is NULL as in the binary. */
+		if (!node)
+			return NULL;
 
-				if (m_parent)
-					m_parent->AddChild(child);
+		if (node->m_type == static_cast<u32>(TYPE::MULTI_PARENT))
+		{
+			if (node->m_child.size() != 0)
+			{
+				CNode* child = *node->m_child.data();
+				node->RemoveFromParent();
+
+				if (node->m_parent)
+					node->m_parent->AddChild(child);
 			}
 		}
-		else if (m_type == static_cast<u32>(TYPE::INSTANCE))
+		else if (node->m_type == static_cast<u32>(TYPE::INSTANCE))
 		{
 			// m_model->m_list.remove_if(this);
 
-			if (m_model->m_parent == this)
-				m_model->m_parent = NULL;
+			if (node->m_model->m_parent == node)
+				node->m_model->m_parent = NULL;
 
-			RemoveFromParent();
+			node->RemoveFromParent();
 		}
 		
 		// Very bad. Only putting this here because of 
 		// the decompilation output.
-		delete this;
+		delete node;
 
-		return true;
+		return NULL;
 	}
 
 /* @socom-skeleton body SetModel__Q23zdb5CNodeFPQ23zdb6CModel */

@@ -48,14 +48,22 @@ class CZAnimZAR;
 
 /* @socom-skeleton stub c_arrStatFuncs__23@unnamed@st_mpexit_cpp@ */
 namespace {
-const void c_arrStatFuncs[6] = {0};
+/* port: 72 bytes = 6 Metrowerks 12-byte member pointers; __sinit_st_mpexit.cpp copies them from 0x43bbb8 (stride 16):
+ * CSealStats::GetKills 0x321300, GetHeadShots 0x3212f0, GetHitPct 0x3de0d0, GetTimesWasHit 0x321270,
+ * GetRescues 0x3de0c0, GetBasesDestroyed 0x3de0b0 (all const, result in v0) */
+int (CSealStats::* const c_arrStatFuncs[6])() const = {
+	&CSealStats::GetKills, &CSealStats::GetHeadShots, &CSealStats::GetHitPct,
+	&CSealStats::GetTimesWasHit, &CSealStats::GetRescues, &CSealStats::GetBasesDestroyed
+};
 }
 
+#ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
 std::__nInit std::__msl_ios_base_ninit;
 
 /* @socom-skeleton stub __msl_ios_base_winit__3std */
 std::__wInit std::__msl_ios_base_winit;
+#endif
 
 /* @socom-skeleton stub animfile__23@unnamed@st_mpexit_cpp@ */
 namespace {
@@ -106,10 +114,10 @@ CMPExitState::CMPExitState()
 }
 
 /* @socom-skeleton body Init__12CMPExitStateFv */
-unsigned char CMPExitState::Init() { return true; }
+bool CMPExitState::Init() { return true; }
 
 /* @socom-skeleton body Tick__12CMPExitStateFf */
-unsigned char CMPExitState::Tick(float dT) {}
+bool CMPExitState::Tick(float dT) {}
 
 /* @socom-skeleton body UnInit__12CMPExitStateFv */
 void CMPExitState::UnInit() {}

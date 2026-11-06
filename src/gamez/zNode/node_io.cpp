@@ -14,6 +14,8 @@
  * @socom-artifact emits main socom:function:0x224220
  * socom-owner-annotations end socom:work:source-segment-026 */
 
+#include <algorithm>
+
 #include "znode.h"
 #include "node_model.h"
 #include "node_world.h"
@@ -427,7 +429,7 @@ CMatrix& CNode::BuildMTW(CMatrix& mat)
 			// set identity matrix
 		}
 
-		return CMatrix();
+		return mat; /* port: was `return CMatrix();` (a reference to a temporary) */
 	}
 }
 

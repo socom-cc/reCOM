@@ -1,5 +1,9 @@
 ﻿#ifndef ZWEAPON_PROJECTILELIST_H
 #define ZWEAPON_PROJECTILELIST_H
+
+/* port: forward declarations for names this header uses */
+class CZAmmo;
+class CZWeapon;
 #include "vector"
 
 #include "gamez/zIntersect/zintersect.h"

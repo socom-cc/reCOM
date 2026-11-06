@@ -30,7 +30,7 @@ CTTY::~CTTY()
 }
 
 /* @socom-skeleton body Print__4CTTYFPci */
-void CTTY::Print(char *, int)
+void CTTY::Print(char *string, int)
 {
     Print(string, strlen(string));
 }
@@ -53,13 +53,9 @@ void CVideo::Fade(float, unsigned char, unsigned char, unsigned char)
 }
 
 /* @socom-skeleton body RestoreImage__6CVideoFPc */
-void CVideo::RestoreImage(char *)
+void CVideo::RestoreImage(char *img)
 {
-	if (!raw)
-	{
-		return;
-	}
-	
+	/* port: dropped the raw-flag early return; the binary has only RestoreImage(char *) and its one caller passed raw = true */
 	void* buf = NULL;
 	CFileIO file;
 	if (file.Open(img))

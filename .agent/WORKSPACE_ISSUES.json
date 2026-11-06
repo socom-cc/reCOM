@@ -1513,8 +1513,18 @@
       "resolution": null,
       "status": "open",
       "summary": "Skeleton writer keeps 'extern T x = v;' provisional lines as declarations, duplicating the new data entry"
+    },
+    {
+      "details": "test_order_skeleton_route.py::test_a_prepare_re_apply_renders_checks_and_reproduces_its_record_without_writing and ::test_every_accepted_skeleton_item_passes_its_apply_check_on_the_current_src fail with 'src/ differs from the recorded write' after the port-lane P1 edits (AGENTS.md 'Functional port lane', 2026-11-05). The stage-5 records stay valid (before/after digests); the tests should check apply records against the recorded post-wave tree (e.g. rebuilt from the frozen base plus the record) rather than live src/, and order skeleton apply-check should report later src edits as superseded rather than failing.",
+      "id": "socom:workspace-issue:9b8136fff135ee876bc0",
+      "kind": "problem",
+      "reported_at": "2026-11-06T00:54:06Z",
+      "reported_by": "socom-parent",
+      "resolution": null,
+      "status": "open",
+      "summary": "Stage-5 skeleton route tests compare live src/ against the recorded write; the functional port lane edits src/ by design"
     }
   ],
-  "revision": 191,
+  "revision": 192,
   "schema_version": 1
 }

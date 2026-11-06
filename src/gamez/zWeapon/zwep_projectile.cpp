@@ -106,13 +106,13 @@ bool CZProjectile::SetProjectile(zdb::CNode *owner, CZWeapon *weapon, CZAmmo *am
 
 	m_ammo = ammo;
 
-	m_framestartpos = startpos;
-	m_frameendpos = startpos;
+	m_framestartpos = *startpos; /* port: the parameters are const CPnt3D * (mangled PC6CPnt3D) */
+	m_frameendpos = *startpos;
 
 	m_intersecthandle = -1;
 
-	velscale.Scale(m_weapon->GetMuzzleVelocity(), &m_vel);
-	m_vel.Add(&vel, &m_vel);
+	velscale->Scale(m_weapon->GetMuzzleVelocity(), &m_vel);
+	m_vel.Add(vel, &m_vel);
 
 	if (model)
 	{

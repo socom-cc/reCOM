@@ -106,7 +106,7 @@
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class MAP_LINEWALK_STRUCT;
-class UNIT_MESSAGE;
+/* port: UNIT_MESSAGE is declared in gamez/zSeal/zseal.h */
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub ShouldConfirmVoiceCommands */

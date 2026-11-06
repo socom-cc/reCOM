@@ -1,5 +1,8 @@
 ﻿#ifndef ZINTERSECT_H
 #define ZINTERSECT_H
+
+/* port: forward declarations for names this header uses */
+class CRdrFile;
 #include <vector>
 
 #include "gamez/zMath/zmath.h"

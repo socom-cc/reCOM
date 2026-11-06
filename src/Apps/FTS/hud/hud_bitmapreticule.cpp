@@ -99,7 +99,7 @@
 /* @socom-skeleton end include */
 
 /* @socom-skeleton stub color_base */
-static const CPnt3D color_base = {0};
+static const CPnt3D color_base(86.0f, 63.0f, 27.0f); /* port: __sinit_hud_bitmapreticule.cpp stores 0x42ac0000/0x427c0000/0x41d80000 at 0x4659b0 */
 
 /* @socom-skeleton stub TIMER_BKGRD_POSX1 */
 static float TIMER_BKGRD_POSX1 = 580.0f;

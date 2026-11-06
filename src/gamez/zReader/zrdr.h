@@ -38,8 +38,7 @@ enum ZRDR_TYPE
 	ZRDR_ARRAY
 };
 
-extern s32 cur_zrdr_flags;
-extern char cur_zrdr_path[256];
+/* cur_zrdr_flags, cur_zrdr_path (768 bytes) are file-local in zrdr_parse.cpp (LOCAL symbols) */
 extern std::list<char*> zrdr_symbols;
 
 void _resolveA(_zrdr* self, _zrdr* root, char* tag);
@@ -129,7 +128,7 @@ bool zrdr_findPNT3D(_zrdr* reader, const char* tag, PNT3D* output);
 /// @param reader A zReader array node.
 /// @param tag The name of the tag to find.
 /// @return The tag node of the array. NULL if not found.
-_zrdr* zrdr_findtag(_zrdr* reader, const char* tag);
+_zrdr* zrdr_findtag(const _zrdr* reader, const char* tag); /* zrdr_findtag__FPC5_zrdrPCc */
 
 /// Finds a tag in a list of nodes, which takes in a starting index.
 /// A tag is the name associated with an array, or array-less object.
@@ -137,7 +136,7 @@ _zrdr* zrdr_findtag(_zrdr* reader, const char* tag);
 /// @param tag The name of the tag to find.
 /// @param startidx The index to start the search. Usually 1 because of a length reservation.
 /// @return The tag node of the array. NULL if not found.
-_zrdr* zrdr_findtag_startidx(_zrdr* reader, const char* tag, u32 startidx);
+_zrdr* zrdr_findtag_startidx(const _zrdr* reader, const char* tag, int startidx); /* zrdr_findtag_startidx__FPC5_zrdrPCci */
 
 /// Converts an output value into an integer.
 /// @param reader A zReader array node.
@@ -229,9 +228,9 @@ public:
 class CRdrArchive : public zar::CZAR
 {
 public:
-	static s32 version; 
+	static const u32 version; /* const: version__11CRdrArchive is in read-only data */
 	
-	static std::list<CZAR*> m_list;
+	static std::list<zar::CZAR*> m_list;
 
 	static CZAR* AddArchive(const char* name, const char* path);
 	static bool RemoveArchive(const char* name, const char* path);

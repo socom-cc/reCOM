@@ -100,8 +100,7 @@
 #include "gamez/zVisual/zvis.h"
 #include "gamez/zUtil/zutil.h"
 
-extern char* UNNAMED_NODE = "UNNAMED_NODE";
-extern char* DELETED_NODE = "DELETED_NODE";
+/* UNNAMED_NODE, DELETED_NODE: the skeleton definitions below (LOCAL symbols; UNNAMED_NODE is "NA") */
 
 namespace zdb
 {
@@ -205,7 +204,7 @@ CNode::CNode()
 		m_customGlobalLight = false;
 		m_flatten = false;
 		m_modified = false;
-		m_parent = false;
+		m_parent = NULL; /* port: was `= false` (pointer member) */
 		m_unused = 0;
 		m_frameRendered = false;
 		m_region_mask = 0;
@@ -242,7 +241,7 @@ zdb::CNode * zdb::CNode::_Copy(zdb::CNode *other) const
 				zfree(other->m_name);
 
 			if (!m_name)
-				m_name = UNNAMED_NODE;
+				const_cast<CNode*>(this)->m_name = const_cast<char*>(UNNAMED_NODE); /* port: const_cast - body writes this in a const method as written (unverified) */
 			else
 				other->m_name = zstrdup(m_name);
 
@@ -255,7 +254,7 @@ zdb::CNode * zdb::CNode::_Copy(zdb::CNode *other) const
 			}
 
 			if (other->m_name)
-				m_name = zstrdup(other->m_name);
+				const_cast<CNode*>(this)->m_name = zstrdup(other->m_name); /* port: const_cast as above */
 
 			other->m_modelname = m_name;
 			other->SetModel(m_model);
@@ -359,7 +358,7 @@ zdb::CNode * zdb::CNode::_Copy(zdb::CNode *other) const
 						zfree(instance->m_name);
 
 					if (!child->m_name)
-						m_name = UNNAMED_NODE;
+						const_cast<CNode*>(this)->m_name = const_cast<char*>(UNNAMED_NODE); /* port: const_cast as above */
 					else
 						instance->m_name = zstrdup(m_name);
 
@@ -372,7 +371,7 @@ zdb::CNode * zdb::CNode::_Copy(zdb::CNode *other) const
 					}
 
 					if (instance->m_name)
-						m_name = zstrdup(instance->m_name);
+						const_cast<CNode*>(this)->m_name = zstrdup(instance->m_name); /* port: const_cast as above */
 
 					instance->m_modelname = m_name;
 					instance->SetModel(m_model);
@@ -1113,7 +1112,7 @@ CNode* CNode::Create(const char* name)
 }
 
 /* @socom-skeleton stub SetActive__Q23zdb6CLightFb */
-unsigned char zdb::CLight::SetActive(bool)
+bool zdb::CLight::SetActive(bool)
 {
 }
 

@@ -25,14 +25,14 @@
 #include "posix/strcasecmp.h"
 
 /* @socom-skeleton decl forward */
-class CZAR;
+namespace zar { class CZAR; } /* port: CZAR is zar::CZAR */
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub version__11CRdrArchive */
 const unsigned int CRdrArchive::version = 1;
 
 /* @socom-skeleton stub m_list__11CRdrArchive */
-std::list<CZAR *, std::allocator<CZAR *> > CRdrArchive::m_list;
+std::list<zar::CZAR *, std::allocator<zar::CZAR *> > CRdrArchive::m_list;
 
 /* @socom-skeleton body OpenAll__11CRdrArchiveFv */
 void CRdrArchive::OpenAll()
@@ -58,7 +58,7 @@ void CRdrArchive::CloseAll()
 bool CRdrArchive::RemoveArchive(const char* name, const char* path)
 {
 	char fullPath[256];
-	sprintf_s(fullPath, 256, "%s/%s", path, name);
+	snprintf(fullPath, 256, "%s/%s", path, name);
 
 	auto it = m_list.begin();
 
@@ -94,11 +94,11 @@ zar::CZAR* CRdrArchive::AddArchive(const char* name, const char* path)
 
 	if (!path)
 	{
-		strcpy_s(archiveName, name);
+		strcpy(archiveName, name);
 	}
 	else
 	{
-		sprintf_s(archiveName, 256, "%s/%s", path, name);
+		snprintf(archiveName, 256, "%s/%s", path, name);
 	}
 
 	for (auto it = m_list.begin(); it != m_list.end(); it++)

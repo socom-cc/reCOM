@@ -60,7 +60,7 @@ void CBufferIO::Release()
 }
 
 /* @socom-skeleton body Open__9CBufferIOFPCcUi */
-bool CBufferIO::Open(const char *, unsigned int)
+unsigned char CBufferIO::Open(const char *buf, unsigned int)
 {
 	bool success = CFileIO::Open(buf);
 	bool isOpen = CFileIO::IsOpen();
@@ -138,7 +138,7 @@ void CBufferIO::Close()
 }
 
 /* @socom-skeleton body ftell__9CBufferIOCFv */
-unsigned int CBufferIO::ftell() const
+int CBufferIO::ftell() const
 {
 	int position = 0;
 

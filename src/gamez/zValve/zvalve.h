@@ -5,9 +5,15 @@
 
 #ifndef ZVALVE_H
 #define ZVALVE_H
+
+/* port: forward declarations for names this header uses */
+struct _zanim_cmd_hdr;
 #include <list>
 
+#include <vector>
+
 #include "gamez/zReader/zrdr.h"
+#include "gamez/zSave/zsave.h" /* CSaveModule: base of CValveSaveManager */
 #include "gamez/zUtil/zutil.h"
 
 class CValve;
@@ -49,9 +55,7 @@ enum class VALVE_STATE
 	VSTATE_PERSISTENT
 };
 
-class CValvePool;
-
-extern CValvePool valvePool;
+/* port: valvePool is file-local (static) data in valve_list.cpp (ELF local symbol) */
 
 class CValveCBList
 {
@@ -74,7 +78,7 @@ public:
 	static void Close();
 	static void Reset();
 
-	static bool Parse(_zrdr* file, VALVE_TYPE type);
+	/* port: the only Parse in the ELF takes CRdrFile * (skeleton region) */
 	// static _zanim_cmd_hdr* CmdParseCmp(_zrdr* reader);
 	// static bool CmdTickCmp(_zanim_cmd_hdr* header, float* delta);
 
@@ -110,7 +114,7 @@ public:
 public:
 	CValve * Create(const char *, unsigned int, VALVE_TYPE);
 	static void Uninit();
-	bool Parse(CRdrFile *, VALVE_TYPE);
+	static bool Parse(CRdrFile *, VALVE_TYPE); /* port: static; CValve::Open passes (file, type) in a0/a1 (0x2f667c) */
 	static bool CmdTickCmp(_zanim_cmd_hdr *, float *);
 	static _zanim_cmd_hdr * CmdParseCmp(_zrdr *);
 	~CValve();

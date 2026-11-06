@@ -13,6 +13,8 @@
 
 #ifndef ZUTIL_H
 #define ZUTIL_H
+#include <vector>
+
 #include "util_systemio.h"
 
 #include "gamez/zSystem/zsys_primitive.h"
@@ -50,7 +52,8 @@ public:
 class CIOPManager
 {
 public:
-	std::vector m_reboot_callback_vec;
+	class CRegistrant;
+	std::vector<CRegistrant> m_reboot_callback_vec;
 	enum RebootMode
 	{
 		FirstBoot = 0,
@@ -104,13 +107,13 @@ class CMemCardIO : public CIO
 public:
 	virtual void Open(const char *, unsigned int);
 	virtual void Close();
-	virtual void IsOpen() const;
-	virtual void GetSize() const;
-	virtual void GetMode() const;
+	virtual bool IsOpen() const;
+	virtual size_t GetSize() const;
+	virtual unsigned int GetMode() const;
 	virtual void ftell() const;
-	virtual void fseek(int, int);
+	virtual size_t fseek(int, int);
 	virtual void fread(void *, int);
-	virtual void fread(int, void **);
+	virtual size_t fread(int, void **);
 	virtual void fwrite(const void *, int);
 	virtual void fflush();
 };

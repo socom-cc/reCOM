@@ -54,7 +54,7 @@ struct _FILECD
 class CFileCD
 {
 public:
-	static int BuildTOC();
+	static void BuildTOC(); /* void: v0 is not set after the final call (0x305010) */
 	static char* CreatePath(const char* dir, const char* path);
 	static _FILECD* Find(const char* file);
 	static size_t Read(void* buf, int count);
@@ -112,7 +112,7 @@ public:
 
 	static void SetRootPath(const char* rootPath);
 
-	static const char* m_root_path;
+	static char m_root_path[256]; /* 256-byte initialized array ("host0:.\\") */
 	static bool m_write_status;
 
 	virtual void Init() {}
@@ -177,8 +177,8 @@ private:
 	size_t m_bufsize;
 	/* @socom-skeleton decl 9CBufferIO */
 public:
-	virtual bool Open(const char *, unsigned int);
-	virtual unsigned int ftell() const;
+	virtual unsigned char Open(const char *, unsigned int);
+	virtual int ftell() const;
 	virtual unsigned int fread(void *, int);
 	virtual unsigned int fwrite(const void *, int);
 	virtual void fflush();

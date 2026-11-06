@@ -181,6 +181,8 @@ static const unsigned char NoAltFogBottomV[16] = {0};
 /* @socom-skeleton stub NoAltFogVectorV */
 static const unsigned char NoAltFogVectorV[16] = {0};
 
+extern unsigned char m_savedTS[512]; /* defined below (GLOBAL m_savedTS, 512 bytes) */
+
 /* @socom-skeleton stub _savedTS */
 void *_savedTS = &m_savedTS;
 
@@ -470,7 +472,7 @@ CVisual* CVisual::Create(zar::CZAR& archive)
 		case 1:
 			visual = new CMesh();
 		case 0:
-		case -1:
+		case (u32)-1: /* port: cast - vtype is u32 */
 			visual = new CVisual();
 		}
 
@@ -951,7 +953,7 @@ void hookupMesh(zar::CZAR* archive, zdb::CModel* model)
 	char buf[192];
 	
 	zdb::CMesh* mesh = model->GetMesh();
-	sprintf_s(buf, 192, "MESH_%s", model->m_name);
+	snprintf(buf, 192, "MESH_%s", model->m_name);
 
 	if (auto meshkey = archive->OpenKey(buf))
 	{
@@ -959,7 +961,7 @@ void hookupMesh(zar::CZAR* archive, zdb::CModel* model)
 		{
 			u32 ofs = 0;
 			
-			strcat_s(buf, "_START");
+			strcat(buf, "_START");
 
 			archive->Fetch(buf, &ofs);
 			archive->Fetch(buf, &mesh->m_mtx_count);
@@ -974,7 +976,7 @@ void hookupMesh(zar::CZAR* archive, zdb::CModel* model)
 /* @socom-skeleton body hookupVisuals__FPQ23zar4CZARPQ23zdb6CModel */
 void hookupVisuals(zar::CZAR* archive, zdb::CModel* model)
 {
-	zdb::CVisBase* vis = NULL;
+	CVisBase* vis = NULL;
 
 	if (model->GetMesh())
 	{
@@ -986,7 +988,7 @@ void hookupVisuals(zar::CZAR* archive, zdb::CModel* model)
 
 	if (zar::CKey* key = archive->OpenKey(model->m_name))
 	{
-		vis = new zdb::CVisBase(key->GetSize());
+		vis = new CVisBase(key->GetSize(), true); /* external = true: the inlined constructor (0x30a110) sets +0x10 to 1 and allocates nothing */
 
 		if (!archive->FetchLIP(key, reinterpret_cast<void**>(vis)))
 		{
@@ -998,7 +1000,7 @@ void hookupVisuals(zar::CZAR* archive, zdb::CModel* model)
 				vis->m_data_buffer = NULL;
 			}
 
-			zdb::CVisBase::m_instance_count--;
+			CVisBase::m_instance_count--;
 			delete vis;
 		}
 		else 
@@ -1011,6 +1013,9 @@ void hookupVisuals(zar::CZAR* archive, zdb::CModel* model)
 /* @socom-skeleton body ApplyDecal__Q23zdb7CVisualFUifP6CPnt3DP7CMatrixPQ23zdb10CTexHandle */
 int zdb::CVisual::ApplyDecal(unsigned int, float, CPnt3D *, CMatrix *, zdb::CTexHandle *)
     {
+#if 0 /* port: this body was written for an ApplyDecal(CDecal*) member (no such symbol);
+         it does not fit the static ApplyDecal__Q23zdb7CVisualFUifP6CPnt3DP7CMatrixPQ23zdb10CTexHandle */
+
         CDecal* applied = NULL;
 
         for (auto i = m_decals.begin(); i != m_decals.end(); i++)
@@ -1028,6 +1033,8 @@ int zdb::CVisual::ApplyDecal(unsigned int, float, CPnt3D *, CMatrix *, zdb::CTex
                 break;
             }
         }
+    
+#endif
     }
 
 /* @socom-skeleton stub ApplyDecalRender__Q23zdb7CVisualFP7CMatrixPQ23zdb5CNodefP6CPnt3DP6CPnt3DPQ23zdb10CTexHandleP7CMatrix */

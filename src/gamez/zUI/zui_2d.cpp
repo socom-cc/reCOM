@@ -233,6 +233,27 @@ class CUIMapCtrlSpec;
 class ColumnData;
 struct _zanim_cmd_hdr;
 /* @socom-skeleton end forward */
+/* port: CListItemTypeImpl had no declaration. Slot order from __vt__17CListItemTypeImpl @0x473290 (13 slots,
+ * zero = pure): ~ 0x385600, DrawPrep, Finish 0x385660 (empty), GetString, PrepListItem, SetFont, SetPos, SetScale,
+ * SetColor, SetSequenceTime 0x385650 (returns f12), Tick 0x385500 (empty), VisualGratification, IsEnabled 0x385710
+ * (returns 1). Out-of-line definitions (annotated here) are not written in P1. */
+class CListItemTypeImpl
+{
+public:
+	virtual ~CListItemTypeImpl();
+	virtual void DrawPrep(const CUIListBox &, int, int, int) = 0;
+	virtual void Finish();
+	virtual const char * GetString() = 0; /* port: unproven const; derived bodies return a char pointer in v0 */
+	virtual void PrepListItem(const std::vector<ColumnData *, std::allocator<ColumnData *> > &, C2DFont *, float, zdb::CTextureRelocMgr *) = 0;
+	virtual void SetFont(C2DFont *) = 0;
+	virtual void SetPos(int, int, int, int) = 0;
+	virtual void SetScale(float) = 0;
+	virtual void SetColor(int, int, int) = 0;
+	virtual float SetSequenceTime(float, float);
+	virtual void Tick(float);
+	virtual void VisualGratification(zdb::CTextureRelocMgr *) = 0;
+	virtual bool IsEnabled();
+};
 /* @socom-skeleton decl Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImpl */
 namespace {
 class CListItemArrayTypeImpl : public CListItemTypeImpl
@@ -241,16 +262,16 @@ public:
 	virtual ~CListItemArrayTypeImpl();
 	virtual void DrawPrep(const CUIListBox &, int, int, int);
 	virtual void Finish();
-	virtual void GetString();
+	virtual const char * GetString();
 	virtual void PrepListItem(const std::vector<ColumnData *, std::allocator<ColumnData *> > &, C2DFont *, float, zdb::CTextureRelocMgr *);
 	virtual void SetFont(C2DFont *);
 	virtual void SetPos(int, int, int, int);
 	virtual void SetScale(float);
 	virtual void SetColor(int, int, int);
-	virtual void SetSequenceTime(float, float);
+	virtual float SetSequenceTime(float, float);
 	virtual void Tick(float);
 	virtual void VisualGratification(zdb::CTextureRelocMgr *);
-	virtual void IsEnabled();
+	virtual bool IsEnabled();
 	CListItemArrayTypeImpl(_zrdr *, const std::vector<ColumnData *, std::allocator<ColumnData *> > &);
 	CListItemArrayTypeImpl(_zrdr *, const std::vector<ColumnData *, std::allocator<ColumnData *> > &, C2DFont *, float);
 };
@@ -263,7 +284,7 @@ class CListItemImageTypeImpl : public CListItemTypeImpl
 public:
 	virtual ~CListItemImageTypeImpl();
 	virtual void DrawPrep(const CUIListBox &, int, int, int);
-	virtual void GetString();
+	virtual const char * GetString();
 	virtual void PrepListItem(const std::vector<ColumnData *, std::allocator<ColumnData *> > &, C2DFont *, float, zdb::CTextureRelocMgr *);
 	virtual void SetFont(C2DFont *);
 	virtual void SetPos(int, int, int, int);
@@ -280,7 +301,7 @@ class CListItemStringTypeImpl : public CListItemTypeImpl
 public:
 	virtual ~CListItemStringTypeImpl();
 	virtual void DrawPrep(const CUIListBox &, int, int, int);
-	virtual void GetString();
+	virtual const char * GetString();
 	virtual void PrepListItem(const std::vector<ColumnData *, std::allocator<ColumnData *> > &, C2DFont *, float, zdb::CTextureRelocMgr *);
 	virtual void SetFont(C2DFont *);
 	virtual void SetPos(int, int, int, int);
@@ -298,18 +319,20 @@ class CListItemTimedTextTypeImpl : public CListItemStringTypeImpl
 public:
 	virtual ~CListItemTimedTextTypeImpl();
 	virtual void Finish();
-	virtual void SetSequenceTime(float, float);
+	virtual float SetSequenceTime(float, float);
 	virtual void Tick(float);
 	virtual void VisualGratification(zdb::CTextureRelocMgr *);
 };
 }
 /* @socom-skeleton end Q220@unnamed@zui_2d_cpp@26CListItemTimedTextTypeImpl */
 
+#ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
-unsigned char std::__msl_ios_base_ninit;
+std::__nInit std::__msl_ios_base_ninit;
 
 /* @socom-skeleton stub __msl_ios_base_winit__3std */
-unsigned char std::__msl_ios_base_winit;
+std::__wInit std::__msl_ios_base_winit;
+#endif
 
 /* @socom-skeleton stub VisualGratification__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFPQ23zdb16CTextureRelocMgr */
 namespace {
@@ -327,7 +350,7 @@ void CListItemArrayTypeImpl::Tick(float)
 
 /* @socom-skeleton stub SetSequenceTime__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFff */
 namespace {
-void CListItemArrayTypeImpl::SetSequenceTime(float, float)
+float CListItemArrayTypeImpl::SetSequenceTime(float, float)
 {
 }
 }
@@ -355,7 +378,7 @@ void CListItemArrayTypeImpl::SetPos(int, int, int, int)
 
 /* @socom-skeleton stub IsEnabled__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFv */
 namespace {
-void CListItemArrayTypeImpl::IsEnabled()
+bool CListItemArrayTypeImpl::IsEnabled()
 {
 }
 }
@@ -369,7 +392,7 @@ void CListItemArrayTypeImpl::SetFont(C2DFont *)
 
 /* @socom-skeleton stub GetString__Q220@unnamed@zui_2d_cpp@22CListItemArrayTypeImplFv */
 namespace {
-void CListItemArrayTypeImpl::GetString()
+const char * CListItemArrayTypeImpl::GetString()
 {
 }
 }
@@ -439,7 +462,7 @@ void CListItemStringTypeImpl::PrepListItem(const std::vector<ColumnData *, std::
 
 /* @socom-skeleton stub GetString__Q220@unnamed@zui_2d_cpp@23CListItemStringTypeImplFv */
 namespace {
-void CListItemStringTypeImpl::GetString()
+const char * CListItemStringTypeImpl::GetString()
 {
 }
 }
@@ -460,7 +483,7 @@ void CListItemTimedTextTypeImpl::Tick(float)
 
 /* @socom-skeleton stub SetSequenceTime__Q220@unnamed@zui_2d_cpp@26CListItemTimedTextTypeImplFff */
 namespace {
-void CListItemTimedTextTypeImpl::SetSequenceTime(float, float)
+float CListItemTimedTextTypeImpl::SetSequenceTime(float, float)
 {
 }
 }
@@ -523,7 +546,7 @@ void CListItemImageTypeImpl::PrepListItem(const std::vector<ColumnData *, std::a
 
 /* @socom-skeleton stub GetString__Q220@unnamed@zui_2d_cpp@22CListItemImageTypeImplFv */
 namespace {
-void CListItemImageTypeImpl::GetString()
+const char * CListItemImageTypeImpl::GetString()
 {
 	/* @socom-skeleton stub ach$1865 */
 	static unsigned char ach = 0;
@@ -565,12 +588,12 @@ void UiSetTtySpeedFactor(float)
 }
 
 /* @socom-skeleton stub GetZAnimCmdType__10C2DCounterFPCc */
-void C2DCounter::GetZAnimCmdType(const char *)
+int C2DCounter::GetZAnimCmdType(const char *)
 {
 }
 
 /* @socom-skeleton stub ParseZAnimCmd__10C2DCounterFP5_zrdr */
-void C2DCounter::ParseZAnimCmd(_zrdr *)
+C2DAnimCmdHdr * C2DCounter::ParseZAnimCmd(_zrdr *)
 {
 }
 
@@ -580,7 +603,7 @@ void C2DCounter::Tick(float)
 }
 
 /* @socom-skeleton stub TickZAnimCmd__10C2DCounterFP14_zanim_cmd_hdrPfPb */
-void C2DCounter::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+bool C2DCounter::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
 {
 }
 
@@ -702,17 +725,17 @@ void CTeleType::SetString(const char *)
 }
 
 /* @socom-skeleton stub ParseZAnimCmd__9CTeleTypeFP5_zrdr */
-void CTeleType::ParseZAnimCmd(_zrdr *)
+C2DAnimCmdHdr * CTeleType::ParseZAnimCmd(_zrdr *)
 {
 }
 
 /* @socom-skeleton stub TickZAnimCmd__9CTeleTypeFP14_zanim_cmd_hdrPfPb */
-void CTeleType::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+bool CTeleType::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
 {
 }
 
 /* @socom-skeleton stub GetZAnimCmdType__9CTeleTypeFPCc */
-void CTeleType::GetZAnimCmdType(const char *)
+int CTeleType::GetZAnimCmdType(const char *)
 {
 }
 
@@ -737,7 +760,7 @@ C2DButton::~C2DButton()
 }
 
 /* @socom-skeleton stub HandlePad__9C2DButtonFPC4CPadi */
-unsigned char C2DButton::HandlePad(const CPad *, int)
+bool C2DButton::HandlePad(const CPad *, int)
 {
 }
 
@@ -752,7 +775,7 @@ C2DAnimCmdHdr * C2DButton::ParseZAnimCmd(_zrdr *)
 }
 
 /* @socom-skeleton stub TickZAnimCmd__9C2DButtonFP14_zanim_cmd_hdrPfPb */
-unsigned char C2DButton::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+bool C2DButton::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
 {
 }
 
@@ -772,7 +795,7 @@ void CHandlerButton::LoadSpec(const CHandlerButtonSpec &)
 }
 
 /* @socom-skeleton stub HandlePad__14CHandlerButtonFPC4CPadi */
-void CHandlerButton::HandlePad(const CPad *, int)
+bool CHandlerButton::HandlePad(const CPad *, int)
 {
 }
 
@@ -802,7 +825,7 @@ void CUIListBox::Tick(float)
 }
 
 /* @socom-skeleton stub HandlePad__10CUIListBoxFPC4CPadi */
-void CUIListBox::HandlePad(const CPad *, int)
+bool CUIListBox::HandlePad(const CPad *, int)
 {
 }
 
@@ -812,32 +835,32 @@ void CUIListBox::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
 }
 
 /* @socom-skeleton stub GetZAnimCmdType__10CUIListBoxFPCc */
-void CUIListBox::GetZAnimCmdType(const char *)
+int CUIListBox::GetZAnimCmdType(const char *)
 {
 }
 
 /* @socom-skeleton stub ParseZAnimCmd__10CUIListBoxFP5_zrdr */
-void CUIListBox::ParseZAnimCmd(_zrdr *)
+C2DAnimCmdHdr * CUIListBox::ParseZAnimCmd(_zrdr *)
 {
 }
 
 /* @socom-skeleton stub TickZAnimCmd__10CUIListBoxFP14_zanim_cmd_hdrPfPb */
-void CUIListBox::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+bool CUIListBox::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
 {
 }
 
 /* @socom-skeleton stub GetZAnimCmdType__10CSliderBarFPCc */
-void CSliderBar::GetZAnimCmdType(const char *)
+int CSliderBar::GetZAnimCmdType(const char *)
 {
 }
 
 /* @socom-skeleton stub ParseZAnimCmd__10CSliderBarFP5_zrdr */
-void CSliderBar::ParseZAnimCmd(_zrdr *)
+C2DAnimCmdHdr * CSliderBar::ParseZAnimCmd(_zrdr *)
 {
 }
 
 /* @socom-skeleton stub TickZAnimCmd__10CSliderBarFP14_zanim_cmd_hdrPfPb */
-void CSliderBar::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+bool CSliderBar::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
 {
 }
 
@@ -857,7 +880,7 @@ void CSliderBar::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
 }
 
 /* @socom-skeleton stub HandlePad__10CSliderBarFPC4CPadi */
-void CSliderBar::HandlePad(const CPad *, int)
+bool CSliderBar::HandlePad(const CPad *, int)
 {
 }
 
@@ -887,7 +910,7 @@ void CHProgressBar::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
 }
 
 /* @socom-skeleton stub HandlePad__9CCheckBoxFPC4CPadi */
-void CCheckBox::HandlePad(const CPad *, int)
+bool CCheckBox::HandlePad(const CPad *, int)
 {
 }
 
@@ -902,17 +925,17 @@ void CCheckBox::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
 }
 
 /* @socom-skeleton stub GetZAnimCmdType__11CRadioStripFPCc */
-void CRadioStrip::GetZAnimCmdType(const char *)
+int CRadioStrip::GetZAnimCmdType(const char *)
 {
 }
 
 /* @socom-skeleton stub ParseZAnimCmd__11CRadioStripFP5_zrdr */
-void CRadioStrip::ParseZAnimCmd(_zrdr *)
+C2DAnimCmdHdr * CRadioStrip::ParseZAnimCmd(_zrdr *)
 {
 }
 
 /* @socom-skeleton stub TickZAnimCmd__11CRadioStripFP14_zanim_cmd_hdrPfPb */
-void CRadioStrip::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+bool CRadioStrip::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
 {
 }
 
@@ -922,7 +945,7 @@ void CRadioStrip::LoadSpec(const CRadioStripSpec *, zdb::CTexHandle *)
 }
 
 /* @socom-skeleton stub HandlePad__11CRadioStripFPC4CPadi */
-void CRadioStrip::HandlePad(const CPad *, int)
+bool CRadioStrip::HandlePad(const CPad *, int)
 {
 }
 
@@ -942,7 +965,7 @@ CCycleButton::~CCycleButton()
 }
 
 /* @socom-skeleton stub HandlePad__12CCycleButtonFPC4CPadi */
-void CCycleButton::HandlePad(const CPad *, int)
+bool CCycleButton::HandlePad(const CPad *, int)
 {
 }
 
@@ -957,7 +980,7 @@ void CCycleButton::LoadSpec(const CCycleButtonSpec &, zdb::CTextureRelocMgr *)
 }
 
 /* @socom-skeleton stub HandlePad__12CPopUpDialogFPC4CPadi */
-void CPopUpDialog::HandlePad(const CPad *, int)
+bool CPopUpDialog::HandlePad(const CPad *, int)
 {
 }
 
@@ -992,7 +1015,7 @@ void CScrollText::Tick(float)
 }
 
 /* @socom-skeleton stub HandlePad__11CScrollTextFPC4CPadi */
-void CScrollText::HandlePad(const CPad *, int)
+bool CScrollText::HandlePad(const CPad *, int)
 {
 }
 
@@ -1027,7 +1050,7 @@ C2DAnimCmdHdr * CRenderableString::ParseZAnimCmd(_zrdr *)
 }
 
 /* @socom-skeleton stub TickZAnimCmd__17CRenderableStringFP14_zanim_cmd_hdrPfPb */
-unsigned char CRenderableString::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+bool CRenderableString::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
 {
 }
 
@@ -1037,17 +1060,17 @@ int CRenderableString::GetZAnimCmdType(const char *)
 }
 
 /* @socom-skeleton stub ParseZAnimCmd__12CPopUpDialogFP5_zrdr */
-void CPopUpDialog::ParseZAnimCmd(_zrdr *)
+C2DAnimCmdHdr * CPopUpDialog::ParseZAnimCmd(_zrdr *)
 {
 }
 
 /* @socom-skeleton stub TickZAnimCmd__12CPopUpDialogFP14_zanim_cmd_hdrPfPb */
-void CPopUpDialog::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+bool CPopUpDialog::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
 {
 }
 
 /* @socom-skeleton stub GetZAnimCmdType__12CPopUpDialogFPCc */
-void CPopUpDialog::GetZAnimCmdType(const char *)
+int CPopUpDialog::GetZAnimCmdType(const char *)
 {
 }
 
@@ -1074,7 +1097,7 @@ void CUIMapCtrl::CalcAlternateZoomedPos(CPnt3D *, const CCorners &, const CPnt3D
 }
 
 /* @socom-skeleton stub HandlePad__10CUIMapCtrlFPC4CPadi */
-void CUIMapCtrl::HandlePad(const CPad *, int)
+bool CUIMapCtrl::HandlePad(const CPad *, int)
 {
 }
 
@@ -1103,17 +1126,17 @@ void CUIMapCtrl::OnPan(const CUIMapCtrlAnimCmdHdr &, float) const
 }
 
 /* @socom-skeleton stub ParseZAnimCmd__10CUIMapCtrlFP5_zrdr */
-void CUIMapCtrl::ParseZAnimCmd(_zrdr *)
+C2DAnimCmdHdr * CUIMapCtrl::ParseZAnimCmd(_zrdr *)
 {
 }
 
 /* @socom-skeleton stub TickZAnimCmd__10CUIMapCtrlFP14_zanim_cmd_hdrPfPb */
-void CUIMapCtrl::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+bool CUIMapCtrl::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
 {
 }
 
 /* @socom-skeleton stub GetZAnimCmdType__10CUIMapCtrlFPCc */
-void CUIMapCtrl::GetZAnimCmdType(const char *)
+int CUIMapCtrl::GetZAnimCmdType(const char *)
 {
 }
 

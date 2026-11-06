@@ -22,6 +22,7 @@ class CZWeapon;
 class CZWeaponList;
 class CZProjectile;
 class CZProjectileList;
+class CZAmmoList;
 
 namespace zdb
 {
@@ -38,7 +39,7 @@ enum class ENCUMBRANCE
 	NUM_ECUMBTYPES
 };
 
-enum class EQUIP_ITEM
+enum class EQUIP_ITEM : unsigned char /* DWARF byte_size 1; zai.h declares it opaquely */
 {
 	EQUIP_NONE = 0xff,
 
@@ -267,7 +268,7 @@ namespace zwep
 class ZWepReader
 {
 public:
-	ZWepReader() = delete;
+	ZWepReader(); /* port: the ELF defines __ct__10ZWepReaderFv */
 	ZWepReader(const ZWepReader&) = delete;
 
 	static bool Read(zar::CZAR& archive, CZWeaponList* weapons, void* ammo); // TODO: Consider adding the CZAmmoList class
@@ -458,9 +459,7 @@ public:
 	char*        GetModelName()                  const;
 	char*        GetName()                       const;
 	char*        GetSpecialMaterialAnimName()    const { return m_specialmaterialanimname; }
-	char*        GetWeaponName(EQUIP_ITEM id)    const;
-	char*        GetWeaponUIName(EQUIP_ITEM id)  const;
-	char*        GetWeaponVUIName(EQUIP_ITEM id) const;
+	/* port: GetWeaponName/GetWeaponUIName/GetWeaponVUIName are static (mangled F10EQUIP_ITEM, no const); declared in the skeleton region */
 
 	s32          GetAmmoCapacity()               const { return m_ammocap; }
 	s32          GetNumMags()                    const { return m_nummags; }
@@ -475,7 +474,7 @@ public:
 	CZAnim*      GetHitAnim()                    const;
 	CZAnim*      GetSpecialMaterialAnim()        const;
 
-	CSnd*        GetBulletPassSound()            const { return m_bulletPassSound; }
+	/* port: GetBulletPassSound is static (GetBulletPassSound__8CZWeaponFv); declared in the skeleton region */
 
 	CZAmmo*      GetDefaultAmmo()                const;
 

@@ -77,10 +77,10 @@ public:
 	virtual void Advance()
 	{
 	}
-	virtual void GetPt() const
+	virtual PNT2D GetPt() const
 	{
 	}
-	virtual unsigned char IsValid() const
+	virtual bool IsValid() const
 	{
 	}
 	void FindValid()
@@ -91,7 +91,18 @@ public:
 /* @socom-skeleton end Q225@unnamed@hud_linemap_cpp@12CAiLinePtItr */
 
 /* @socom-skeleton stub _linedata */
-static const LINE_DATA _linedata[9] = {0};
+/* port: values from __sinit_hud_linemap.cpp (0x46fe48-0x4701a4), 20-byte entries from 0x465560 */
+static const LINE_DATA _linedata[9] = {
+	{ { 200.0f, 200.0f, 200.0f }, 100.0f, 1.0f },
+	{ { 200.0f, 0.0f, 200.0f }, 100.0f, 1.0f },
+	{ { 0.0f, 255.0f, 0.0f }, 100.0f, 1.0f },
+	{ { 30.0f, 255.0f, 30.0f }, 255.0f, 1.0f },
+	{ { 60.0f, 60.0f, 60.0f }, 100.0f, 1.0f },
+	{ { 200.0f, 200.0f, 0.0f }, 100.0f, 1.0f },
+	{ { 0.0f, 0.0f, 255.0f }, 100.0f, 1.0f },
+	{ { 255.0f, 0.0f, 0.0f }, 100.0f, 1.0f },
+	{ { 0.0f, 255.0f, 0.0f }, 100.0f, 1.0f }
+};
 
 /* @socom-skeleton stub g_fPulseTrans__25@unnamed@hud_linemap_cpp@ */
 namespace {
@@ -103,12 +114,12 @@ static CSTable MultiplayerMsgStrings;
 
 /* @socom-skeleton stub g_mapLineProps__25@unnamed@hud_linemap_cpp@ */
 namespace {
-std::map g_mapLineProps;
+std::map<int, LINE_DATA> g_mapLineProps; /* port: only map instance is map<i,9LINE_DATA>; ctor/dtor 0x3caef0/0x3caf10 at 0x560510 */
 }
 
 /* @socom-skeleton stub g_mapPolyProps__25@unnamed@hud_linemap_cpp@ */
 namespace {
-std::map g_mapPolyProps;
+std::map<int, LINE_DATA> g_mapPolyProps; /* port: same ctor/dtor at 0x560530 */
 }
 
 /* @socom-skeleton stub m_pi__9CZLineMap */
@@ -132,12 +143,11 @@ float CZLineMap::m_uvo[2][4];
 /* @socom-skeleton body hudAddLineType__FP5_zrdr */
 bool hudAddLineType(_zrdr* node)
 {
-    s32 type;
-    LINE_DATA line;
+    s32 type = 0;
     
     zrdr_findint(node, "Type", &type);
 
-    tacmap_lines.insert({ type, &line });
+    LINE_DATA& line = g_mapLineProps[type]; /* port: tacmap_lines lives only in the unbuilt holding file; 0x3caa50 find_or_inserts into g_mapLineProps */
     
     zrdr_findPNT3D(node, "Color", &line.color);
     zrdr_findreal(node, "Opacity", &line.opacity);
@@ -150,12 +160,11 @@ bool hudAddLineType(_zrdr* node)
 /* @socom-skeleton body hudAddPolyType__FP5_zrdr */
 bool hudAddPolyType(_zrdr* node)
 {
-    s32 type;
-    LINE_DATA line;
+    s32 type = 0;
     
     zrdr_findint(node, "Type", &type);
 
-    tacmap_polys.insert({ type, &line });
+    LINE_DATA& line = g_mapPolyProps[type]; /* port: tacmap_polys lives only in the unbuilt holding file */
     
     zrdr_findPNT3D(node, "Color", &line.color);
     zrdr_findreal(node, "Opacity", &line.opacity);
@@ -188,7 +197,7 @@ void CZLineMap::SetupPolygon(const CAiMap::line &, float, bool)
 }
 
 /* @socom-skeleton stub Tick__9CZLineMapFP11CZNewHudMapf */
-unsigned char CZLineMap::Tick(CZNewHudMap *, float)
+bool CZLineMap::Tick(CZNewHudMap *, float)
 {
 	/* @socom-skeleton stub transp_delta$2609 */
 	static float transp_delta;
@@ -213,7 +222,7 @@ void CZLineMap::TickLines(const CAiMap &, float, bool)
 void CZLineMap::TickRegions(const CAiMap &, bool)
 {
 	/* @socom-skeleton stub ld$2688 */
-	static LINE_DATA &ld = _linedata[1];
+	static const LINE_DATA &ld = _linedata[1]; /* port: _linedata is const */
 }
 
 /* @socom-skeleton stub TickWayPoints__9CZLineMapFRC6CAiMapb */

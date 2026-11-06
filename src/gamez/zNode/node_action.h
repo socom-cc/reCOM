@@ -9,6 +9,10 @@
 
 #ifndef NODE_ACTION_H
 #define NODE_ACTION_H
+
+/* port: forward declarations for names this header uses */
+class CZAnim;
+class CZSealBody;
 #include "znode.h"
 
 class CNodeAction : public zdb::CNodeEx

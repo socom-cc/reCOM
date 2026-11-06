@@ -13,6 +13,11 @@
 class CSnd;
 class CSndInstance;
 
+namespace zdb
+{
+	class CNode;
+}
+
 enum SOUND_TYPE
 {
 	SND_NONE,
@@ -45,11 +50,9 @@ enum MUSIC_MODE
 	MODE_9
 };
 
-extern bool vagArchiveIsOpen;
-extern bool bnkArchiveIsOpen;
-extern bool snd_system_initialized;
+/* vagArchiveIsOpen, bnkArchiveIsOpen, snd_system_initialized and sound_map are
+   file-local in zsnd_csnd.cpp (LOCAL symbols) */
 extern _zrdr* sound_rdr;
-extern std::unordered_map<const char*, CSnd*> sound_map;
 
 class CSnd
 {
@@ -72,7 +75,7 @@ public:
 	float CalcVol(f32 volume, f32 masterVolume);
 	void SetupJukebox();
 
-	static CSnd* m_listener;
+	static zdb::CNode* m_listener; /* type: skeleton definition m_listener__4CSnd */
 
 	static f32 m_fadetime;
 
@@ -248,8 +251,7 @@ public:
 	static void IsInFight(bool inFight);
 	
 	static bool m_isinfight;
-	f32 m_weights;
-	MUSIC_MODE m_currentmode;
+	/* port: m_weights/m_currentmode are the statics below (symbols m_weights__11CSndJukebox, m_currentmode__11CSndJukebox) */
 	/* @socom-skeleton decl 11CSndJukebox */
 public:
 	static void LoadPlaylists(const char *);
@@ -292,10 +294,10 @@ class CSndGroup : public CSnd
 {
 public:
 	virtual ~CSndGroup();
-	virtual void PlaySound(CSndInstance *, unsigned int);
-	virtual void PlaySoundVol(float, CSndInstance *, unsigned int);
-	virtual void PlaySound3D(const CPnt3D *, float, int, CSndInstance *, unsigned int);
-	virtual void PlaySoundVolPanPitch(float, int, int, CSndInstance *, unsigned int);
+	virtual CSndInstance* PlaySound(CSndInstance *, unsigned int);
+	virtual CSndInstance* PlaySoundVol(float, CSndInstance *, unsigned int);
+	virtual CSndInstance* PlaySound3D(const CPnt3D *, float, int, CSndInstance *, unsigned int);
+	virtual CSndInstance* PlaySoundVolPanPitch(float, int, int, CSndInstance *, unsigned int);
 	static void LoadSoundGroups();
 	void LoadCSndGroup(_zrdr *);
 	void NormalizeWeights();

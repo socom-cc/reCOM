@@ -32,7 +32,7 @@ unsigned char is_init;
 }
 
 /* @socom-skeleton stub boneArchive */
-int boneArchive[45];
+CScriptArchive boneArchive; /* port: typed as zbone.h declares it (the skeleton placeholder was int[45], the 180-byte ELF object) */
 
 /* @socom-skeleton body zBoneInit__Fv */
 bool zBoneInit()

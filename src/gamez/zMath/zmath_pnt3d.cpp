@@ -26,19 +26,19 @@
 #include "zmath.h"
 
 /* @socom-skeleton stub zero__6CPnt3D */
-const CPnt3D CPnt3D::zero = {0};
+const CPnt3D CPnt3D::zero(0.0f, 0.0f, 0.0f); /* values: __sinit_zmath_pnt3d.cpp */
 
 /* @socom-skeleton stub unit_x__6CPnt3D */
-const float CPnt3D::unit_x[3] = {0};
+const CPnt3D CPnt3D::unit_x(1.0f, 0.0f, 0.0f); /* values: __sinit_zmath_pnt3d.cpp */
 
 /* @socom-skeleton stub unit_y__6CPnt3D */
-const CPnt3D CPnt3D::unit_y = {0};
+const CPnt3D CPnt3D::unit_y(0.0f, 1.0f, 0.0f); /* values: __sinit_zmath_pnt3d.cpp */
 
 /* @socom-skeleton stub unit_z__6CPnt3D */
-const CPnt3D CPnt3D::unit_z = {0};
+const CPnt3D CPnt3D::unit_z(0.0f, 0.0f, 1.0f); /* values: __sinit_zmath_pnt3d.cpp */
 
 /* @socom-skeleton stub unit_nz__6CPnt3D */
-const CPnt3D CPnt3D::unit_nz = {0};
+const CPnt3D CPnt3D::unit_nz(0.0f, 0.0f, -1.0f); /* values: __sinit_zmath_pnt3d.cpp */
 
 /* @socom-skeleton body Add__6CPnt3DCFPC6CPnt3DP6CPnt3D */
 void CPnt3D::Add(const CPnt3D *other, CPnt3D *out) const
@@ -107,7 +107,7 @@ void CPnt3D::Interp(const CPnt3D *from, float step, CPnt3D *to) const
 {
 	if (step == 0.0f)
 	{
-		to = this;
+		to = const_cast<CPnt3D*>(this); /* port: const_cast for GCC; assignment to the local pointer kept as written */
 	}
 	else
 	{

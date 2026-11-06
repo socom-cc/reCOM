@@ -70,7 +70,7 @@ CZMPBombMapItem::CZMPBombMapItem(zdb::CNode *)
 }
 
 /* @socom-skeleton stub Tick__15CZMPBombMapItemFP11CZNewHudMapf */
-unsigned char CZMPBombMapItem::Tick(CZNewHudMap *, float)
+bool CZMPBombMapItem::Tick(CZNewHudMap *, float)
 {
 }
 

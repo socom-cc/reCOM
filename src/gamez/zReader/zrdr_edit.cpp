@@ -156,11 +156,11 @@ bool _OutputASCII(FILE* out, _zrdr* reader, s32 offset)
         {
             if (_NeedQuotes(reader))
             {
-                fprintf_s(out, " \"%s\" ", reader->string);
+                fprintf(out, " \"%s\" ", reader->string);
                 return true;
             }
 
-            fprintf_s(out, " %s ", reader->string);
+            fprintf(out, " %s ", reader->string);
             return true;
         }
 
@@ -171,11 +171,11 @@ bool _OutputASCII(FILE* out, _zrdr* reader, s32 offset)
                 return true;
             }
 			
-            fprintf_s(out, " %i ", reader->integer);
+            fprintf(out, " %i ", reader->integer);
         }
         else
         {
-            fprintf_s(out, " %f ", reader->real);
+            fprintf(out, " %f ", reader->real);
         }
 
         return true;
@@ -247,7 +247,7 @@ bool _OutputASCII(FILE* out, _zrdr* reader, s32 offset)
 
     if (grouparray)
     {
-        fprintf_s(out, "(\n");
+        fprintf(out, "(\n");
 
         node_idx = 0;
 
@@ -255,14 +255,14 @@ bool _OutputASCII(FILE* out, _zrdr* reader, s32 offset)
         {
             do
             {
-                fprintf_s(out, " ");
+                fprintf(out, " ");
                 node_idx++;
             } while (node_idx < offset + 1);
         }
     }
     else
     {
-        fprintf_s(out, "(");
+        fprintf(out, "(");
     }
 
     node_idx = 0;
@@ -372,7 +372,7 @@ bool _OutputASCII(FILE* out, _zrdr* reader, s32 offset)
 
     if (ungrouparray)
     {
-        fprintf_s(out, ")\n");
+        fprintf(out, ")\n");
 
         node_idx = 0;
 
@@ -380,7 +380,7 @@ bool _OutputASCII(FILE* out, _zrdr* reader, s32 offset)
         {
             do
             {
-                fprintf_s(out, " ");
+                fprintf(out, " ");
                 node_idx++;
             } while (node_idx < offset - 1);
 
@@ -394,7 +394,7 @@ bool _OutputASCII(FILE* out, _zrdr* reader, s32 offset)
 
             if (child_count == node_idx)
             {
-                fprintf_s(out, "\n");
+                fprintf(out, "\n");
 
                 child_count = 0;
 
@@ -402,7 +402,7 @@ bool _OutputASCII(FILE* out, _zrdr* reader, s32 offset)
                 {
                     do
                     {
-                        fprintf_s(out, " ");
+                        fprintf(out, " ");
                         child_count++;
                     } while (child_count < offset - 1);
                 }
@@ -412,7 +412,7 @@ bool _OutputASCII(FILE* out, _zrdr* reader, s32 offset)
     }
     else
     {
-        fprintf_s(out, ")");
+        fprintf(out, ")");
     }
 
     type = static_cast<ZRDR_TYPE>(reader->type);
@@ -426,7 +426,7 @@ bool _OutputASCII(FILE* out, _zrdr* reader, s32 offset)
 
     if (child_count == node_idx)
     {
-        fprintf_s(out, "\n");
+        fprintf(out, "\n");
 
         child_count = 0;
 
@@ -434,7 +434,7 @@ bool _OutputASCII(FILE* out, _zrdr* reader, s32 offset)
         {
             do
             {
-                fprintf_s(out, " ");
+                fprintf(out, " ");
                 child_count++;
             } while (child_count < offset - 1);
         }

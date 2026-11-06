@@ -139,7 +139,7 @@ int CSnd::m_vagoffset = -1;
 int CSnd::m_bnkoffset = -1;
 
 /* @socom-skeleton stub m_bShowSubtitles__4CSnd */
-unsigned char CSnd::m_bShowSubtitles = 1;
+bool CSnd::m_bShowSubtitles = 1;
 
 /* @socom-skeleton stub m_curID__4CSnd */
 int CSnd::m_curID;
@@ -154,7 +154,7 @@ zdb::CNode *CSnd::m_listener;
 bool CSnd::m_listenerIsValid;
 
 /* @socom-skeleton stub m_isDisabled__4CSnd */
-unsigned char CSnd::m_isDisabled;
+bool CSnd::m_isDisabled;
 
 /* @socom-skeleton stub m_DisplaySounds__4CSnd */
 unsigned char CSnd::m_DisplaySounds;
@@ -205,7 +205,7 @@ static int _sound_mission_rdr;
 static bool snd_system_initialized;
 
 /* @socom-skeleton stub sound_map */
-static unsigned char sound_map[16];
+static unsigned char sound_map[16]; /* port: unproven type (16-byte LOCAL object; no body uses it) */
 
 /* @socom-skeleton stub m_soundbank__4CSnd */
 std::vector<CSnd *, std::allocator<CSnd *> > CSnd::m_soundbank;

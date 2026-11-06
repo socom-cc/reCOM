@@ -54,11 +54,13 @@ class CTextureRelocMgr;
 /* @socom-skeleton stub gAllowGhosts */
 unsigned char gAllowGhosts = 1;
 
+#ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
 std::__nInit std::__msl_ios_base_ninit;
 
 /* @socom-skeleton stub __msl_ios_base_winit__3std */
 std::__wInit std::__msl_ios_base_winit;
+#endif
 
 /* @socom-skeleton stub g_pMissionLoadingLib__21@unnamed@st_load_cpp@ */
 namespace {
@@ -89,10 +91,10 @@ CLoadState::~CLoadState()
 }
 
 /* @socom-skeleton body Init__10CLoadStateFv */
-unsigned char CLoadState::Init() { return true; }
+bool CLoadState::Init() { return true; }
 
 /* @socom-skeleton body Tick__10CLoadStateFf */
-unsigned char CLoadState::Tick(float dT) {}
+bool CLoadState::Tick(float dT) {}
 
 /* @socom-skeleton body UnInit__10CLoadStateFv */
 void CLoadState::UnInit() {}

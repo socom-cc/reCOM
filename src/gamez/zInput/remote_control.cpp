@@ -52,7 +52,7 @@ void CRemoteCtrl::OnCommand(CZSealBody *, FT_COMMAND, void *, bool)
 }
 
 /* @socom-skeleton stub AllowCommand__11CRemoteCtrlFP10CZSealBody10FT_COMMANDPv */
-void CRemoteCtrl::AllowCommand(CZSealBody *, FT_COMMAND, void *)
+bool CRemoteCtrl::AllowCommand(CZSealBody *, FT_COMMAND, void *)
 {
 }
 

@@ -51,10 +51,10 @@
 static int cur_zrdr_flags;
 
 /* @socom-skeleton stub cur_zrdr_path */
-static unsigned char cur_zrdr_path[768];
+static char cur_zrdr_path[768]; /* path string buffer (MAX_ZRDR_PATH_LEN + 1) */
 
 /* @socom-skeleton stub fstack */
-int fstack[3];
+CFileStack fstack; /* 12-byte GLOBAL object declared in util_stack.h */
 
 /* @socom-skeleton stub zrdr_symbols */
 std::list<char *, std::allocator<char *> > zrdr_symbols;
@@ -288,6 +288,8 @@ bool _eval_defined(char* token)
 /* @socom-skeleton body _preproc_filter__FPcb */
 bool _preproc_filter(char* token, bool param_2)
 {
+	static s32 defcount; /* local static defcount$840 */
+	static bool init; /* local static init$841 */
 	bool done = false;
 	s32 defidx = defcount;
 	char pathbuf[MAX_ZRDR_PATH_LEN + 1];

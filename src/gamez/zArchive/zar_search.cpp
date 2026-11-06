@@ -31,8 +31,8 @@
 
 #include "zar.h"
 
-#include "gamez/zutil/util_stable.h"
-#include "gamez/zutil/util_systemio.h"
+#include "gamez/zUtil/util_stable.h"
+#include "gamez/zUtil/util_systemio.h"
 
 namespace zar
 {
@@ -49,7 +49,7 @@ char *hackStr;
 /* @socom-skeleton body __ct__Q23zar4CKeyFPCc */
 zar::CKey::CKey(const char *name)
 	{
-		m_name = name;
+		m_name = const_cast<char*>(name); /* port: const_cast for GCC */
 		m_size = 0;
 		m_offset = 0;
 	}
@@ -296,7 +296,7 @@ int zar::CZAR::FetchString(const char *name, char *buf, int size)
 	}
 
 /* @socom-skeleton body Fetch__Q23zar4CZARFPCcPvi */
-void zar::CZAR::Fetch(const char *name, void *buf, int size)
+bool zar::CZAR::Fetch(const char *name, void *buf, int size)
 	{
 		s32 offset, position = 0;
 		CKey* key = NULL;
@@ -345,7 +345,7 @@ void zar::CZAR::Fetch(const char *name, void *buf, int size)
 	}
 
 /* @socom-skeleton body Fetch__Q23zar4CZARFPCcPFRQ23zar4CZARiPv_iPv */
-void zar::CZAR::Fetch(const char *name, int (*callback)(zar::CZAR &, int, void *), void *buf)
+bool zar::CZAR::Fetch(const char *name, int (*callback)(zar::CZAR &, int, void *), void *buf)
 	{
 		CKey* key = NULL;
 
@@ -369,7 +369,7 @@ void zar::CZAR::Fetch(const char *name, int (*callback)(zar::CZAR &, int, void *
 
 		hackStr = key->m_name;
 
-		s32 result = callback(this, key->m_size, buf);
+		s32 result = callback(*this, key->m_size, buf); /* port: callback takes CZAR& */
 
 		if (result > 0 && result <= key->m_size)
 		{
@@ -411,7 +411,7 @@ bool zar::CZAR::FetchAll(int (*callback)(zar::CZAR &, const char *, void *, int,
 
 			void* listPointers = NULL;
 			FetchLIP(current, &listPointers);
-			s32 result = callback(this, current->m_name, listPointers, current->m_size, buf);
+			s32 result = callback(*this, current->m_name, listPointers, current->m_size, buf); /* port: callback takes CZAR& */
 
 			if (result > 0)
 				valid = result <= current->m_size;
@@ -493,7 +493,7 @@ zar::CKey * zar::CZAR::Insert(const char *name, const void *buf, int size)
 	}
 
 /* @socom-skeleton body Insert__Q23zar4CZARFPQ23zar4CKeyPCvi */
-void zar::CZAR::Insert(zar::CKey *key, const void *buf, int size)
+bool zar::CZAR::Insert(zar::CKey *key, const void *buf, int size)
 	{
 		s32 keySize, writeOffset, position, keyPad = 0;
 		char padChar = 0;
@@ -564,7 +564,7 @@ void zar::CZAR::Securify(void *buf, int size)
 	}
 
 /* @socom-skeleton body Fetch__Q23zar4CZARFPQ23zar4CKeyPviUi */
-void zar::CZAR::Fetch(zar::CKey *, void *, int, unsigned int)
+bool zar::CZAR::Fetch(zar::CKey *key, void *buf, int size, unsigned int)
 	{
 		CKey* openKey = NULL;
 

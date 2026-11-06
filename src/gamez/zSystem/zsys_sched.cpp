@@ -105,7 +105,7 @@ bool CSched_Manager::RemoveTask(void *task, bool child)
 	{
 		if (task == *i)
 		{
-			task->m_removed = true;
+			static_cast<CSched_Task*>(task)->m_removed = true; /* port: parameter is void* (RemoveTask__14CSched_ManagerFPvb) */
 			return true;
 		}
 	}

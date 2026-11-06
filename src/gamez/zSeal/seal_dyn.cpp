@@ -21,6 +21,7 @@
 #include "zseal.h"
 
 #include "gamez/zCharacter/zchar.h"
+#include "gamez/zNode/node_world.h" /* zdb::CWorld::m_scale */
 
 /* @socom-skeleton decl include */
 #include "gamez/zReader/zrdr.h"
@@ -33,8 +34,9 @@ static unsigned char MultiplayerMsgStrings[28];
 CharacterDynamics theCharacterDynamics;
 
 /* @socom-skeleton body Load__17CharacterDynamicsFRC8CRdrFile */
-void CharacterDynamics::Load(const CRdrFile &reader)
+void CharacterDynamics::Load(const CRdrFile &reader_ref)
 {
+    _zrdr* reader = const_cast<CRdrFile *>(&reader_ref); /* port: the zrdr_find* calls take _zrdr * (Ghidra passes &param->super_zrdr) */
     if (!m_loaded)
     {
         m_loaded = true;
@@ -236,22 +238,22 @@ void CharacterDynamics::Load(const CRdrFile &reader)
         {
             if (zrdr_findreal(bobbing_firstperson, "Walk_Amplitude", &fval, 1))
             {
-                CSealCtrl::m_bobbing1stperson_amplitude = fval;
+                CSealCtrl::m_bobbing1stperson_amplitude[0] = fval;
             }
 
             if (zrdr_findreal(bobbing_firstperson, "Walk_Rate", &fval, 1))
             {
-                CSealCtrl::m_bobbing1stperson_rate = fval;
+                CSealCtrl::m_bobbing1stperson_rate[0] = fval;
             }
 
             if (zrdr_findreal(bobbing_firstperson, "Crawl_Amplitude", &fval, 1))
             {
-                CSealCtrl::m_crawl1stperson_amplitude = fval;
+                CSealCtrl::m_bobbing1stperson_amplitude[1] = fval; /* port: was m_crawl1stperson_amplitude (not an ELF object) */
             }
 
             if (zrdr_findreal(bobbing_firstperson, "Crawl_Rate", &fval, 1))
             {
-                CSealCtrl::m_crawl1stperson_rate = fval;
+                CSealCtrl::m_bobbing1stperson_rate[1] = fval; /* port: was m_crawl1stperson_rate (not an ELF object) */
             }
         }
 

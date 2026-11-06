@@ -115,7 +115,7 @@
 #include "gamez/zWeapon/zweapon.h"
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
-class CHARACTER_SOUND;
+/* port: CHARACTER_SOUND is declared in gamez/zCharacter/zchar.h */
 class STUN_TYPE;
 /* @socom-skeleton end forward */
 

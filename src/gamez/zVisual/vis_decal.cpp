@@ -53,22 +53,22 @@ class AddonPoint;
 
 /* @socom-skeleton stub m_tempPool__Q23zdb6CDecal */
 namespace zdb {
-int CDecal::m_tempPool[5];
+CDecalPool CDecal::m_tempPool; /* 20-byte pool; CDecalPool layout unproven (vis_vector.h TODO) */
 }
 
 /* @socom-skeleton stub m_permPool__Q23zdb6CDecal */
 namespace zdb {
-int CDecal::m_permPool[5];
+CDecalPool CDecal::m_permPool; /* port: unproven type */
 }
 
 /* @socom-skeleton stub m_tempPool__Q23zdb10CMeshDecal */
 namespace zdb {
-int CMeshDecal::m_tempPool[5];
+CMeshDecalPool CMeshDecal::m_tempPool; /* 20-byte pool; layout unproven */
 }
 
 /* @socom-skeleton stub m_permPool__Q23zdb10CMeshDecal */
 namespace zdb {
-int CMeshDecal::m_permPool[5];
+CMeshDecalPool CMeshDecal::m_permPool; /* port: unproven type */
 }
 
 /* @socom-skeleton stub UVCompare__3zdbFP6CPnt3DP6CPnt3DP6CPnt3D */

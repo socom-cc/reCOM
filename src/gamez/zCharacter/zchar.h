@@ -16,7 +16,7 @@
 #include "gamez/zSystem/zsys.h"
 /* @socom-skeleton decl forward */
 class CCharacterWeapPacked;
-class CHARACTER_SOUND;
+enum CHARACTER_SOUND { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
 /* @socom-skeleton end forward */
 
 struct AnimSet;
@@ -24,6 +24,9 @@ struct AnimSet;
 class CSnd;
 
 class CVehicleRdrEntry;
+
+/* port: opaque declaration; the definition is in gamez/zWeapon/zweapon.h (DWARF byte_size 1) */
+enum class EQUIP_ITEM : unsigned char;
 
 namespace zdb
 {
@@ -294,7 +297,7 @@ public:
 	/* @socom-skeleton end 17CharacterDynamics */
 };
 /* @socom-skeleton decl 18CCharacterGearList */
-class CCharacterGearList : public std::list
+class CCharacterGearList : public std::list<void const*> /* port: element type from MSL pointer storage in DWARF; real element unproven */
 {
 public:
 	CCharacterGear * FindGear(const char *) const;
@@ -308,7 +311,7 @@ public:
 };
 /* @socom-skeleton end 20CCharacterModelCache */
 /* @socom-skeleton decl 18CCharacterWeapList */
-class CCharacterWeapList : public std::vector
+class CCharacterWeapList : public std::vector<CCharacterWeap>
 {
 public:
 	void AddWeapon(EQUIP_ITEM);

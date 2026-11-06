@@ -50,18 +50,19 @@
 #include "gamez/zSave/zsave.h"
 #include "gamez/zVisual/zvis.h"
 
-extern zar::CZAR archive = zar::CZAR();
-extern zdb::CWorld* theWorld = NULL;
+/* port: removed pre-skeleton duplicate definitions of archive and theWorld; the skeleton stubs below (static, binary LOCAL) define them */
 
 /* @socom-skeleton decl include */
 #include "gamez/zUtil/util_stable.h"
 /* @socom-skeleton end include */
 
+#ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
 std::__nInit std::__msl_ios_base_ninit;
 
 /* @socom-skeleton stub __msl_ios_base_winit__3std */
 std::__wInit std::__msl_ios_base_winit;
+#endif
 
 /* @socom-skeleton stub theWorld */
 static zdb::CWorld *theWorld;

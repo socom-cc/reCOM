@@ -45,6 +45,7 @@
  * socom-owner-annotations end socom:work:source-segment-076 */
 
 /* @socom-skeleton decl include */
+#include <stdio.h>
 #include "gamez/zValve/zvalve.h"
 #include "zvid.h"
 /* @socom-skeleton end include */
@@ -59,16 +60,16 @@ unsigned char framecode[192] = {11, 128, 0, 0, 0, 0, 0, 16, 14, 0, 0, 0, 0, 0, 0
 unsigned char brightnesscode[128] = {7, 128, 0, 0, 0, 0, 0, 16, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 73, 0, 0, 0, 0, 0, 0, 0, 66, 0, 0, 0, 0, 0, 0, 0, 70, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 108, 0, 114, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 148, 0, 142, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 13, 0, 5, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0};
 
 /* @socom-skeleton stub finalcode */
-long finalcode[32] = {1152921504606879759, 14, 655360, 76, 125344325594112, 24, 125819314631540736, 64, 28588544384, 6, 0, 20, 1, 69, 6949375511963383076, 68, 196608, 71, 278, 0, 2155905152, 1, 0, 3, 1912630272, 4, 469772288, 3, 2382402560, 4, 327693, 71};
+s64 finalcode[32] = {1152921504606879759, 14, 655360, 76, 125344325594112, 24, 125819314631540736, 64, 28588544384, 6, 0, 20, 1, 69, 6949375511963383076, 68, 196608, 71, 278, 0, 2155905152, 1, 0, 3, 1912630272, 4, 469772288, 3, 2382402560, 4, 327693, 71};
 
 /* @socom-skeleton stub mpegcode */
-long mpegcode[26] = {1152921504606879756, 14, 655360, 76, 655360, 77, 133040906988544, 24, 133040906988544, 25, 62768919848353792, 64, 62768919848353792, 65, 131072, 71, 6, 0, 549755813888, 1, 2030070784, 4, 2264962048, 4, 327693, 71};
+s64 mpegcode[26] = {1152921504606879756, 14, 655360, 76, 655360, 77, 133040906988544, 24, 133040906988544, 25, 62768919848353792, 64, 62768919848353792, 65, 131072, 71, 6, 0, 549755813888, 1, 2030070784, 4, 2264962048, 4, 327693, 71};
 
 /* @socom-skeleton stub zon_writeon */
 unsigned char zon_writeon[80] = {4, 128, 0, 0, 0, 0, 0, 16, 14, 0, 0, 0, 0, 0, 0, 0, 13, 0, 5, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 13, 0, 5, 0, 0, 0, 0, 0, 72, 0, 0, 0, 0, 0, 0, 0, 24, 1, 0, 10, 0, 0, 0, 0, 78, 0, 0, 0, 0, 0, 0, 0, 24, 1, 0, 10, 0, 0, 0, 0, 79, 0, 0, 0, 0, 0, 0, 0};
 
 /* @socom-skeleton stub vramcode */
-long vramcode[20] = {1152921504606879753, 14, 1, 26, 1048576, 76, 0, 24, 288230376218820608, 64, 0, 71, 6, 0, 4575657221408423936, 1, 0, 5, 1073758208, 5};
+s64 vramcode[20] = {1152921504606879753, 14, 1, 26, 1048576, 76, 0, 24, 288230376218820608, 64, 0, 71, 6, 0, 4575657221408423936, 1, 0, 5, 1073758208, 5};
 
 /* @socom-skeleton stub ztest_off_vif */
 unsigned char ztest_off_vif[80] = {4, 128, 0, 0, 0, 0, 0, 16, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 72, 0, 0, 0, 0, 0, 0, 0, 24, 1, 0, 10, 1, 0, 0, 0, 78, 0, 0, 0, 0, 0, 0, 0, 24, 1, 0, 10, 1, 0, 0, 0, 79, 0, 0, 0, 0, 0, 0, 0};
@@ -89,16 +90,18 @@ static unsigned char spawnRateLimits[20] = {1, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 
 static unsigned char ageRateLimits[20] = {0, 0, 128, 63, 0, 0, 192, 63, 0, 0, 0, 64, 0, 0, 32, 64, 0, 0, 64, 64};
 
 /* @socom-skeleton stub picframecode */
-long picframecode[86] = {1152921504606879786, 14, 1, 26, 655360, 76, 0, 24, 288230376218820608, 64, 0, 71, 4575657221408423936, 1, 129, 0, 105906176, 4, 105916416, 4, 106954752, 4, 106964992, 4, 108003328, 4, 108013568, 4, 118489088, 4, 118499328, 4, 119537664, 4, 119547904, 4, 120586240, 4, 120596480, 4, 4575657221408423936, 1, 109051904, 4, 109062144, 4, 110100480, 4, 110110720, 4, 111149056, 4, 111159296, 4, 112197632, 4, 112207872, 4, 113246208, 4, 113256448, 4, 114294784, 4, 114305024, 4, 115343360, 4, 115353600, 4, 116391936, 4, 116402176, 4, 117440512, 4, 117450752, 4, 327693, 71, 125344325594112, 24, 125819314631540736, 64, 0, 0};
+s64 picframecode[86] = {1152921504606879786, 14, 1, 26, 655360, 76, 0, 24, 288230376218820608, 64, 0, 71, 4575657221408423936, 1, 129, 0, 105906176, 4, 105916416, 4, 106954752, 4, 106964992, 4, 108003328, 4, 108013568, 4, 118489088, 4, 118499328, 4, 119537664, 4, 119547904, 4, 120586240, 4, 120596480, 4, 4575657221408423936, 1, 109051904, 4, 109062144, 4, 110100480, 4, 110110720, 4, 111149056, 4, 111159296, 4, 112197632, 4, 112207872, 4, 113246208, 4, 113256448, 4, 114294784, 4, 114305024, 4, 115343360, 4, 115353600, 4, 116391936, 4, 116402176, 4, 117440512, 4, 117450752, 4, 327693, 71, 125344325594112, 24, 125819314631540736, 64, 0, 0};
 
+#ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
-unsigned char std::__msl_ios_base_ninit;
+std::__nInit std::__msl_ios_base_ninit;
 
 /* @socom-skeleton stub __msl_ios_base_winit__3std */
-unsigned char std::__msl_ios_base_winit;
+std::__wInit std::__msl_ios_base_winit;
+#endif
 
 /* @socom-skeleton stub theTerminal */
-int theTerminal;
+CTTY theTerminal; /* port: declared extern CTTY in zsys.h */
 
 /* @socom-skeleton stub lodLevel */
 CValve *lodLevel;
@@ -110,7 +113,7 @@ unsigned char zvid[624];
 _zvid_public zVid;
 
 /* @socom-skeleton body zvid_SetVideoMode__F10_zvid_modeb */
-void zvid_SetVideoMode(_zvid_mode, bool)
+void zvid_SetVideoMode(_zvid_mode mode, bool)
 {
 	zVid.vidMode = mode;
 	zVid.videoMode = mode;
@@ -130,7 +133,7 @@ void zVid_Init(_zvid_mode mode)
 	zVid.displayBuf = NULL;
 	zVid.frameRate = 144.0f;
 	zVid.hblnkRate = 15750.0f;
-	zvid_SetVideoMode(mode);
+	zvid_SetVideoMode(mode, false); /* port: call site 0x30878c passes a1 = 0 */
 
 	if (lodLevel == NULL)
 	{
@@ -191,8 +194,8 @@ void SetDynamicLOD(int)
 /* @socom-skeleton body zVid_Swap__Fb */
 void zVid_Swap(bool doSwap)
 {
-	lastRenderTime = 0.0f;
-	curRenderTime = 0.0f;
+	f32 lastRenderTime = 0.0f; /* port: unproven, undeclared in the existing body */
+	f32 curRenderTime = 0.0f;
 
 	// zVid.frameTime = (curRenderTime - lastRenderTime) * zSys.timerScale;
 	// zVid.frameRate = 1.0f / zVid.frameTime + 0.5f;
@@ -213,7 +216,7 @@ void zVid_Assert(bool condition, unsigned int mask, char *file, int line)
 	{
 		// zSysFifoEnd();
 		char buffer[256];
-		sprintf_s(buffer, 256, "A S S E R T: %s : %d", file, line);
+		snprintf(buffer, 256, "A S S E R T: %s : %d", file, line); /* port: was MSVC sprintf_s */
 		theTerminal.Print(buffer, 256);
 		theTerminal.Render();
 		// abort();

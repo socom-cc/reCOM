@@ -45,7 +45,6 @@ namespace zdb
 	class CModel;
 	
 	class CVisData;
-	class CVisBase;
 	class CVisual;
 	class CMesh;
 	class CDecal;
@@ -59,10 +58,9 @@ namespace zdb
 
 void hookupMesh(zar::CZAR* archive, zdb::CModel* model);
 void hookupVisuals(zar::CZAR* archive, zdb::CModel* model);
-void hookupVisuals(zar::CZAR* archive, zar::CKey* key, zdb::CNode* node, zdb::CModel* model, zdb::CVisBase* vis);
+void hookupVisuals(zar::CZAR* archive, zar::CKey* key, zdb::CNode* node, zdb::CModel* model, CVisBase* vis);
 
-extern s32 node_index;
-extern zdb::CVisData* _vdataTex;
+/* node_index (vis_main.cpp) and _vdataTex (zrndr_pipe.cpp) are file-local (LOCAL symbols) */
 
 // Header for OpenFlight models.
 struct tag_ObjectHeader
@@ -119,19 +117,8 @@ namespace zdb
 		f32 m_range_sqd_to_camera;
 	};
 
-	class CVisBase
-	{
-	public:
-		CVisBase(size_t size);
-		
-		static u32 m_instance_count;
-
-		_word128* m_data_buffer;
-		s32 m_buffer_count;
-		size_t m_data_size;
-		u32 m_node_ofs;
-		bool m_active;
-	};
+	/* CVisBase is a global class (symbols __ct__8CVisBaseFUib, m_instance_count__8CVisBase),
+	   declared in vis_local.h */
 
 	class CVisData
 	{
@@ -188,7 +175,7 @@ public:
 
 		void ApplyDecal(CDecal* decal);
 
-		void SetBuffer(_word128* wvis, u32 size, CVisBase* visdata);
+		/* SetBuffer: the binary has only SetBuffer__Q23zdb7CVisualFP8_word128UiP8CVisBase, declared below */
 		bool GetChainData();
 
 		
@@ -205,19 +192,19 @@ public:
 
 		static std::deque<u32> m_stack_vid;
 
-		static std::vector<CPnt3D*> m_lightMapList;
-		static std::vector<CPnt3D*> m_shadowMapList;
+		static CLightMapVector m_lightMapList; /* type: skeleton definitions (12 bytes) */
+		static CLightMapVector m_shadowMapList;
 		static std::vector<CPnt3D*> m_projectedMapList;
 
 		static _word128* m_dmaChain; // Pointer to packet list containing texture/vertex data
 		static u32 m_dmaQwc; // Amount of quadwords/packets in the chain
 
-		static void* localLightBuf;
-		static CLight* localLightPtr;
+		static CPnt4D localLightBuf[20]; /* 320 bytes (localLightBuf__Q23zdb7CVisual) */
+		static CLight* localLightPtr[10]; /* 40 bytes */
 
-		static CPnt4D m_addColor;
+		static f32 m_addColor[3]; /* 12 bytes */
 		static CPnt4D m_basefog_color;
-		static CPnt4D m_basefog_near;
+		static f32 m_basefog_near; /* 4 bytes */
 
 		static bool m_applyDetailTexture;
 		static bool m_applyLocalLights;
@@ -379,7 +366,7 @@ public:
 		static void PutPermDecal(zdb::CDecal *);
 		void AddDecal(float, zdb::AddonPoint **, unsigned int, zdb::CTexHandle *, zdb::CVisual *, unsigned int);
 		static void Tick(float);
-		static int m_permPool[5];
+		static CDecalPool m_permPool; /* port: unproven type - 20-byte object like m_tempPool (skeleton had int[5]) */
 		/* @socom-skeleton end Q23zdb6CDecal */
 	};
 
@@ -391,7 +378,7 @@ public:
 public:
 		static void PutTempDecal(zdb::CMeshDecal *);
 		void FreeMem();
-		static int m_permPool[5];
+		static CMeshDecalPool m_permPool; /* port: unproven type - 20-byte object like m_tempPool (skeleton had int[5]) */
 		/* @socom-skeleton end Q23zdb10CMeshDecal */
 	};
 
@@ -401,5 +388,13 @@ public:
 		C2D* m_node2d;
 		CTextureRelocMgr* m_reloc;
 	};
+}
+namespace zdb
+{
+	/* free functions defined in vis_main.cpp, vis_decal.cpp, vis_texfx.cpp (GLOBAL symbols) */
+	void CalcWorldToUV(CPnt3D *, CPnt3D *, CPnt3D *, zdb::CTexture *, float, CMatrix *);
+	void CalcWorldToUV(CPnt3D *, CPnt3D *, zdb::CTexture *, float, CMatrix *);
+	void UVCompare(CPnt3D *, CPnt3D *, CPnt3D *);
+	void LimitUVs(short *, short *, short *);
 }
 #endif

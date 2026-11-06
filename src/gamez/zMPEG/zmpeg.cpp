@@ -80,7 +80,7 @@ void CMPEG::Uninit()
 
     if (mpegBuffAlloc)
     {
-        free(rsrcs);
+        free((void *)rsrcs[0]); /* port: rsrcs is a 48-byte playPssRsrcs; 0x333ec0 frees and clears its +0 word */
     }
 
     if (rgb32Alloc)
@@ -103,7 +103,7 @@ void CMPEG::Uninit()
 
     }
 
-    rsrcs = NULL;
+    rsrcs[0] = 0;
 }
 
 /* @socom-skeleton stub Run__5CMPEGFPCcbb */

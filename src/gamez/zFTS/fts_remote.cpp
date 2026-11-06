@@ -58,12 +58,13 @@
 
 /* @socom-skeleton decl include */
 #include "gamez/zMath/zmath.h"
+#include "gamez/zNetwork/znet.h" /* CZNetwork */
 #include "gamez/zSeal/zseal.h"
 #include "zfts.h"
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
-class AckUnion;
-class R_SEND_TO;
+union AckUnion; /* port: AckUnion is defined in gamez/zSeal/zseal.h */
+enum R_SEND_TO { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub MultiplayerMsgStrings */

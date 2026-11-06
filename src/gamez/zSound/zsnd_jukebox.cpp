@@ -54,7 +54,7 @@ signed char CSndJukebox::m_currentmode;
 unsigned char CSndJukebox::m_playlists_loaded;
 
 /* @socom-skeleton stub m_isinfight__11CSndJukebox */
-unsigned char CSndJukebox::m_isinfight;
+bool CSndJukebox::m_isinfight;
 
 /* @socom-skeleton stub m_queue__11CSndJukebox */
 unsigned char CSndJukebox::m_queue[8];

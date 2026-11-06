@@ -52,11 +52,13 @@ class _zanim_object_motion_script;
 class zanim_script_frame_header;
 /* @socom-skeleton end forward */
 
+#ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
-unsigned char std::__msl_ios_base_ninit;
+std::__nInit std::__msl_ios_base_ninit;
 
 /* @socom-skeleton stub __msl_ios_base_winit__3std */
-unsigned char std::__msl_ios_base_winit;
+std::__wInit std::__msl_ios_base_winit;
+#endif
 
 /* @socom-skeleton stub zAnimDestructorTick__FP14_zanim_cmd_hdrPf */
 bool zAnimDestructorTick(_zanim_cmd_hdr *, float *)

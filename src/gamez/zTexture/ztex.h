@@ -10,6 +10,10 @@
 
 #ifndef ZTEXTURE_H
 #define ZTEXTURE_H
+
+/* port: forward declarations for names this header uses */
+namespace zdb { class CNode; }
+namespace zdb { class CVisual; }
 #include <vector>
 
 #include "gamez/zSystem/zsys.h"
@@ -132,6 +136,8 @@ public:
 		/* @socom-skeleton end Q23zdb8CTexture */
 	};
 
+	class CTexHandle;
+
 	class CTexList : public std::vector<CTexHandle*> 
 	{
 	public:
@@ -209,7 +215,7 @@ public:
 	class CTexManager : public std::vector<CDynTexList*>
 	{
 	public:
-		static CTexManager* m_texmanager;
+		static CTexManager m_texmanager; /* object: m_texmanager__Q23zdb11CTexManager is a 28-byte object */
 
 		void doAddBuffer(const char* name, f32 param_2, f32 param_3);
 

@@ -165,12 +165,12 @@ void CMemCardIO::Close()
 }
 
 /* @socom-skeleton stub IsOpen__10CMemCardIOCFv */
-void CMemCardIO::IsOpen() const
+bool CMemCardIO::IsOpen() const
 {
 }
 
 /* @socom-skeleton stub GetSize__10CMemCardIOCFv */
-void CMemCardIO::GetSize() const
+size_t CMemCardIO::GetSize() const
 {
 }
 
@@ -180,12 +180,12 @@ void CMemCardIO::ftell() const
 }
 
 /* @socom-skeleton stub fseek__10CMemCardIOFii */
-void CMemCardIO::fseek(int, int)
+size_t CMemCardIO::fseek(int, int)
 {
 }
 
 /* @socom-skeleton stub fread__10CMemCardIOFiPPv */
-void CMemCardIO::fread(int, void **)
+size_t CMemCardIO::fread(int, void **)
 {
 }
 

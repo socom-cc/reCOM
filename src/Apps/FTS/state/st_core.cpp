@@ -34,6 +34,7 @@
  * @socom-artifact defines main socom:data:0x48a090
  * socom-owner-annotations end socom:work:source-segment-076 */
 
+#include "Apps/FTS/hud/hud.h" /* CHUD, theHUD: zseal.h no longer includes hud.h */
 #include "gamez/zFTS/zfts.h"
 #include "gamez/zGame/zgame.h"
 #include "gamez/zNode/node_world.h"
@@ -53,11 +54,13 @@ unsigned int mpegWorkspaceSize = 1835008;
 /* @socom-skeleton stub gsTexAddr */
 unsigned int gsTexAddr = 9216;
 
+#ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
 std::__nInit std::__msl_ios_base_ninit;
 
 /* @socom-skeleton stub __msl_ios_base_winit__3std */
 std::__wInit std::__msl_ios_base_winit;
+#endif
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static CSTable MultiplayerMsgStrings;
@@ -76,10 +79,10 @@ void CCinematicState::SetMovie(const char *)
 }
 
 /* @socom-skeleton body Init__15CCinematicStateFv */
-unsigned char CCinematicState::Init() { return true; }
+bool CCinematicState::Init() { return true; }
 
 /* @socom-skeleton body Tick__15CCinematicStateFf */
-unsigned char CCinematicState::Tick(float dT) {}
+bool CCinematicState::Tick(float dT) {}
 
 /* @socom-skeleton body UnInit__15CCinematicStateFv */
 void CCinematicState::UnInit() {}
@@ -148,7 +151,7 @@ bool CCoreState::Init()
 }
 
 /* @socom-skeleton body Tick__10CCoreStateFf */
-void CCoreState::Tick(f32 dT)
+bool CCoreState::Tick(f32 dT)
 {
 	zVid_Swap(true);
 }

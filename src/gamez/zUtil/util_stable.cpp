@@ -115,7 +115,7 @@ int CSTable::Relocate(void *buffer)
 	}
 
 	char* src = m_buffer;
-	int offset = buffer - src;
+	int offset = (char*)buffer - src; /* port: void* arithmetic is a GCC error */
 
 	memcpy(buffer, src, m_bytes);
 

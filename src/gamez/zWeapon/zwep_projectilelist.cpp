@@ -63,14 +63,14 @@ bool ZWepReader::Read(zar::CZAR &archive, CZWeaponList *weapons, CZAmmoList *amm
 	f32 f_val;
 	
 	auto ammunition_key = archive.OpenKey("Ammunition");
-	sprintf_s(key_name_buf, 256, "AMMO:NumEntries");
+	snprintf(key_name_buf, 256, "AMMO:NumEntries"); /* port: was MSVC sprintf_s (twice in this body) */
 	u32 num_ammo_entries = 0;
 	
 	if (archive.Fetch(key_name_buf, &num_ammo_entries))
 	{
 		for (u32 i = 0; i < num_ammo_entries; i++)
 		{
-			sprintf_s(key_name_buf, 256, "AMMO%d", i);
+			snprintf(key_name_buf, 256, "AMMO%d", i);
 			auto key = archive.OpenKey(key_name_buf);
 
 			CZAmmo zammo;

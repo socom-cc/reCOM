@@ -40,14 +40,11 @@ class CMatrix;
 
 void zMath_Init();
 
-extern bool tableInit;
+/* tableInit, sintbl, costbl, exptbl are file-local in zmath_trig.cpp (LOCAL symbols) */
 
 const f32 PI = 3.141593f;
 const f32 RAD_TO_DEG = 0.01745329f;
 
-extern f32* sintbl;
-extern f32* costbl;
-extern f32* exptbl;
 
 void init_trig_table();
 void uninit_trig_table();
@@ -206,7 +203,7 @@ public:
 	void Reflect(const CPnt3D *);
 	void DistToVector(const CPnt3D *, const CPnt3D *, CPnt3D *, float *) const;
 	void DistToVector(const CPnt3D *, const CPnt3D *, float *) const;
-	static const float unit_x[3];
+	static const CPnt3D unit_x; /* 12 bytes; CPnt3D per __sinit_zmath_pnt3d.cpp stores (was float[3]) */
 	static const CPnt3D unit_y;
 	static const CPnt3D unit_z;
 	/* @socom-skeleton end 6CPnt3D */
@@ -254,10 +251,10 @@ public:
 public:
 	void Rotate_AxisX(float);
 	void Rotate_AxisY(float);
-	static const int unit_w[4];
-	static const int unit_x[4];
-	static const int unit_y[4];
-	static const int unit_z[4];
+	static const CPnt4D unit_w; /* 16 bytes; CPnt4D per __sinit_zmath_pnt4d.cpp stores (was int[4]) */
+	static const CPnt4D unit_x;
+	static const CPnt4D unit_y;
+	static const CPnt4D unit_z;
 	/* @socom-skeleton end 6CPnt4D */
 };
 
@@ -297,7 +294,7 @@ public:
 	void Exp(const CPnt3D *, float);
 	void Ln(CPnt3D *);
 	void Pow(float, CQuat *);
-	static const int zero[4];
+	static const CQuat zero; /* 16 bytes; CQuat per __sinit_zmath_main.cpp stores (was int[4]) */
 	/* @socom-skeleton end 5CQuat */
 };
 

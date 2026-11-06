@@ -47,6 +47,7 @@
 #include "gamez/zNetwork/znet.h"
 #include "gamez/zSeal/zseal.h"
 #include "gamez/zUtil/util_stable.h"
+#include "hud.h" /* C2DBitmap, CHudBrightText: zseal.h no longer includes hud.h */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class C2D;

@@ -54,9 +54,14 @@
 #include "gamez/zGame/zgame.h"
 #include "gamez/zSound/zsnd.h"
 #include "gamez/zSystem/zsys.h"
+#include "gamez/zFTS/zfts.h" /* theMission */
+#include "gamez/zNetwork/znet.h" /* theLobby */
+#include "gamez/zNode/node_assetlib.h" /* zdb::CAssetMgr, zdb::CAssetLib */
+#include "gamez/zVideo/zvid.h" /* CVideo, zVid_Swap */
 
 bool LoadWorld(const char* name);
 char* SetDatabase(const char* db);
+char* GetDatabase(); /* port: GetDatabase__Fv, defined in zanim_menu.cpp */
 
 /* @socom-skeleton decl include */
 #include "gamez/zUtil/util_stable.h"
@@ -66,10 +71,10 @@ char* SetDatabase(const char* db);
 static CSTable MultiplayerMsgStrings;
 
 /* @socom-skeleton stub twelve_pool */
-static _zmalloc twelve_pool;
+static _zmalloc<twelve> twelve_pool(0x10000); /* port: DWARF _zmalloc<twelve>; __sinit_main.cpp 0x469ebc passes 0x10000 */
 
 /* @socom-skeleton stub four_pool */
-static _zmalloc four_pool;
+static _zmalloc<four> four_pool(0x2000); /* port: DWARF _zmalloc<four>; __sinit_main.cpp 0x469ecc passes 0x2000 */
 
 /* @socom-skeleton stub theGame */
 COurGame theGame;
@@ -127,13 +132,13 @@ bool COurGame::StartEngine()
 		return false;
 
 	// Display loading screen
-	CVideo::RestoreImage("RUN\\LOADING.RAW", true);
+	CVideo::RestoreImage("RUN\\LOADING.RAW"); /* port: binary has only RestoreImage__6CVideoFPc; 0x140550 passes one string */
 
 	// After the image is loaded into the back buffer,
 	// bring it to the main one
 	zVid_Swap(true);
 
-	zdb::CTexManager::m_texmanager->doAddBuffer("default", 0.0f, 0.0f);
+	zdb::CTexManager::m_texmanager.doAddBuffer("default", 0.0f, 0.0f);
 
 	theMission.Init();
 

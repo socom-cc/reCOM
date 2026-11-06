@@ -161,9 +161,11 @@
 #include "gamez/zAnim/zanim.h"
 #include "gamez/zBone/zbone.h"
 #include "gamez/zCharacter/zchar.h"
+#include "Apps/FTS/hud/hud.h" /* hudInit, theHUD */
 #include "gamez/zFTS/zfts.h"
 #include "gamez/zNetwork/znet.h"
 #include "gamez/zNode/node_world.h"
+#include "gamez/zReader/zrdr_local.h" /* CRdrEditor */
 #include "gamez/zSeal/zseal.h"
 #include "gamez/zSystem/zsys.h"
 #include "gamez/zVehicle/zvehicle.h"
@@ -183,11 +185,13 @@ class CLadderData;
 /* @socom-skeleton stub LADDER_MASK */
 static int LADDER_MASK = 32768;
 
+#ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
-unsigned char std::__msl_ios_base_ninit;
+std::__nInit std::__msl_ios_base_ninit;
 
 /* @socom-skeleton stub __msl_ios_base_winit__3std */
-unsigned char std::__msl_ios_base_winit;
+std::__wInit std::__msl_ios_base_winit;
+#endif
 
 /* @socom-skeleton stub g_fTacMapZoomInit__25@unnamed@fts_mission_cpp@ */
 namespace {
@@ -213,7 +217,7 @@ int g_iNumUiVehicles;
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub m_weaponmodelpostfix__8CMission */
-unsigned char CMission::m_weaponmodelpostfix[30];
+char CMission::m_weaponmodelpostfix[30];
 
 /* @socom-skeleton stub theMemCard */
 int theMemCard[10];
@@ -503,7 +507,7 @@ void CMission::PreOpen(const char* db)
 	{
 		UpdateMissionArchive(m_database, db);
 		m_database = m_db_string;
-		strcpy_s(m_db_string, db);
+		strcpy(m_db_string, db); /* port: was MSVC strcpy_s */
 	}
 	else
 	{
@@ -511,7 +515,7 @@ void CMission::PreOpen(const char* db)
 		return;
 	}
 
-	_zrdr* mission = zrdr_read("mission.rdr");
+	CRdrFile* mission = zrdr_read("mission.rdr"); /* port: was _zrdr *; LoadMissionMapVisibilities takes CRdrFile * */
 	char* loadingscreenassets = zrdr_findstring(mission, "LoadingScreenAssets");
 
 	if (!loadingscreenassets)
@@ -913,7 +917,7 @@ void CMission::OnMissionStart()
 		if (m_pNetGame)
 		{
 			if (theNetwork.m_bSessionMaster)
-				m_pNetGame->m_mp_major_game_state = MP_MAJOR_GAME_STATE::MP_MAJOR_INPLAY;
+				m_pNetGame->m_mp_major_game_state = CZNetGame::MP_MAJOR_INPLAY;
 
 			m_pNetGame->MasterStartGame();
 		}

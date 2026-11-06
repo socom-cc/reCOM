@@ -17,7 +17,7 @@ class CBody
 public:
 	void SmoothAnims(f32 scale);
 	CZBodyPart* FindPart(const char* name);
-	void* NewBodyPart(zdb::CNode* node, CZBodyPart* part);
+	CZBodyPart* NewBodyPart(zdb::CNode* node, CZBodyPart* part); /* port: returns CZBodyPart* (Ghidra 0x1e34b0, skeleton stub) */
 	zdb::CNode& NullNode() const;
 protected:
 	bool m_take_snapshot;

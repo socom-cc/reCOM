@@ -69,7 +69,7 @@ void CanDeploy(CZKit *, EQUIP_ITEM, CNodeAction *)
 }
 
 /* @socom-skeleton stub AllowCommand__11CSealCtrlAiFP10CZSealBody10FT_COMMANDPv */
-void CSealCtrlAi::AllowCommand(CZSealBody *, FT_COMMAND, void *)
+bool CSealCtrlAi::AllowCommand(CZSealBody *, FT_COMMAND, void *)
 {
 	/* @socom-skeleton stub always_allow$2300 */
 	static unsigned char always_allow;

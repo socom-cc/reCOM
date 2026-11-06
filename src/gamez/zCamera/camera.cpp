@@ -91,7 +91,7 @@ static float CamRotZ_up = -3.0f;
 CAppCamera *appCamera;
 
 /* @socom-skeleton stub camera_tether_intersects_something */
-static unsigned char camera_tether_intersects_something;
+static bool camera_tether_intersects_something; /* DWARF uchar = MW bool */
 
 /* @socom-skeleton stub peekCur__20@unnamed@camera_cpp@ */
 namespace {

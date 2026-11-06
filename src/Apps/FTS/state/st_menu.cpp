@@ -37,8 +37,7 @@
 #include "gamez/zSystem/zsys.h"
 #include "gamez/zVideo/zvid.h"
 
-extern zdb::CTextureRelocMgr* g_relocDblBuf = NULL;
-extern CZAnimZAR* animfile = NULL;
+/* port: removed pre-skeleton duplicates of g_relocDblBuf and animfile; the skeleton stubs (@unnamed@st_menu_cpp@) define them */
 
 bool LoadWorld(const char* name);
 
@@ -53,11 +52,13 @@ class CDblBufTextureRelocator;
 class CZAnimZAR;
 /* @socom-skeleton end forward */
 
+#ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
 std::__nInit std::__msl_ios_base_ninit;
 
 /* @socom-skeleton stub __msl_ios_base_winit__3std */
 std::__wInit std::__msl_ios_base_winit;
+#endif
 
 /* @socom-skeleton stub g_pSkbLib__21@unnamed@st_menu_cpp@ */
 namespace {
@@ -140,7 +141,7 @@ bool CMenuState::Init()
 	//CSnd::LoadSounds("sounds.rdr", "SMUS");
 	CSnd::UIOpen();
 
-	m_menu->Init(g_relocDblBuf, animfile);
+	m_menu->Init(&g_relocDblBuf, animfile); /* port: g_relocDblBuf is a CDblBufTextureRelocator object */
 
 	return true;
 }
@@ -151,7 +152,7 @@ void CMenuState::SetSkipMenu(bool)
 }
 
 /* @socom-skeleton body Tick__10CMenuStateFf */
-void CMenuState::Tick(f32 dT)
+bool CMenuState::Tick(f32 dT)
 {
 	m_menu->Tick(dT);
 	

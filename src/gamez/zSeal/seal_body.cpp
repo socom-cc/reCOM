@@ -215,7 +215,7 @@ void CZSealBody::GetSpeedState()
 /* @socom-skeleton body GetStance__10CZSealBodyCFb */
 SEAL_STATE CZSealBody::GetStance(bool flag) const
 {
-	return SEAL_STANCE::STANCE_NONE;
+	return SEAL_STATE::stateStand; /* port: was SEAL_STANCE::STANCE_NONE (same value 0); GetStance returns SEAL_STATE (Ghidra 0x27d2a0) */
 }
 
 /* @socom-skeleton stub BodySetState__10CZSealBodyFi */

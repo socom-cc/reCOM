@@ -91,7 +91,7 @@ void LoadDlgObjects(std::vector<CDesignDlgObj, std::allocator<CDesignDlgObj> > *
 }
 
 /* @socom-skeleton stub __ct__10CImageSpecFP5_zrdr */
-CImageSpec::CImageSpec(_zrdr *)
+CImageSpec::CImageSpec(_zrdr *reader) : CDlgObjSpec(reader) /* port: base constructor needed to compile */
 {
 }
 
@@ -115,7 +115,7 @@ CDlgObjSpec * GetObjectSpec(_zrdr *reader, const char *name)
 
     if (!strcmp("TEXT", name))
     {
-        CTextSpec* text_spec = new CTextSpec();
+        CTextSpec* text_spec = new CTextSpec(reader); /* port: 0x399ab0 calls __ct__9CTextSpecFP5_zrdr with the reader */
         text_spec->m_uivar = NULL;
 
         if (reader)
@@ -275,7 +275,7 @@ void CGameDlgDesign::LoadModels(_zrdr *)
 }
 
 /* @socom-skeleton stub __ct__11CButtonSpecFP5_zrdr */
-CButtonSpec::CButtonSpec(_zrdr *)
+CButtonSpec::CButtonSpec(_zrdr *reader) : CDlgObjSpec(reader) /* port: base constructor needed to compile */
 {
 }
 
@@ -290,12 +290,12 @@ void CButtonSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 }
 
 /* @socom-skeleton stub __ct__18CHandlerButtonSpecFP5_zrdr */
-CHandlerButtonSpec::CHandlerButtonSpec(_zrdr *)
+CHandlerButtonSpec::CHandlerButtonSpec(_zrdr *reader) : CButtonSpec(reader) /* port: base constructor needed to compile */
 {
 }
 
 /* @socom-skeleton stub __ct__14CUIListBoxSpecFP5_zrdr */
-CUIListBoxSpec::CUIListBoxSpec(_zrdr *)
+CUIListBoxSpec::CUIListBoxSpec(_zrdr *reader) : CImageSpec(reader) /* port: base constructor needed to compile */
 {
 }
 
@@ -315,12 +315,12 @@ void CHProgressBarSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) con
 }
 
 /* @socom-skeleton stub __ct__13CCheckBoxSpecFP5_zrdr */
-CCheckBoxSpec::CCheckBoxSpec(_zrdr *)
+CCheckBoxSpec::CCheckBoxSpec(_zrdr *reader) : CButtonSpec(reader) /* port: base constructor needed to compile */
 {
 }
 
 /* @socom-skeleton stub __ct__13CCheckBoxSpecFR13CCheckBoxSpec */
-CCheckBoxSpec::CCheckBoxSpec(CCheckBoxSpec &)
+CCheckBoxSpec::CCheckBoxSpec(CCheckBoxSpec &other) : CButtonSpec(other) /* port: base constructor needed to compile */
 {
 }
 
@@ -330,12 +330,12 @@ void CCheckBoxSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 }
 
 /* @socom-skeleton stub __ct__15CRadioStripSpecFP5_zrdr */
-CRadioStripSpec::CRadioStripSpec(_zrdr *)
+CRadioStripSpec::CRadioStripSpec(_zrdr *reader) : CButtonSpec(reader) /* port: base constructor needed to compile */
 {
 }
 
 /* @socom-skeleton stub __ct__16CCycleButtonSpecFP5_zrdr */
-CCycleButtonSpec::CCycleButtonSpec(_zrdr *)
+CCycleButtonSpec::CCycleButtonSpec(_zrdr *reader) : CButtonSpec(reader) /* port: base constructor needed to compile */
 {
 }
 
@@ -350,7 +350,7 @@ void CDesignDlgObj::operator=(const CDesignDlgObj &)
 }
 
 /* @socom-skeleton stub __ct__14CUIMapCtrlSpecFP5_zrdr */
-CUIMapCtrlSpec::CUIMapCtrlSpec(_zrdr *)
+CUIMapCtrlSpec::CUIMapCtrlSpec(_zrdr *reader) : CDlgObjSpec(reader) /* port: base constructor needed to compile */
 {
 }
 

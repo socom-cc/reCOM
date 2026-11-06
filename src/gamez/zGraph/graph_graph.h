@@ -1,5 +1,8 @@
 #ifndef GRAPH_GRAPH_H
 #define GRAPH_GRAPH_H
+
+/* port: forward declarations for names this header uses */
+class CGRoute;
 #include "graph_node.h"
 #include "graph_edge.h"
 #include "graph_tree.h"

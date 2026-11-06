@@ -1,10 +1,16 @@
 #ifndef ZINPUT_H
 #define ZINPUT_H
+
+/* port: forward declarations for names this header uses */
+class CIOPManager;
+class CPnt3D;
+class CZSealBody;
 #include "gamez/zSystem/zsys.h"
+#include "gamez/zUtil/zutil.h" /* CIOPManager::RebootPhase/RebootMode */
 
 #include <map>
 /* @socom-skeleton decl forward */
-class STUN_TYPE;
+/* STUN_TYPE: declared by gamez/zSeal/zseal.h, included below before CRemoteCtrl (its only use here) */
 /* @socom-skeleton end forward */
 
 class CInput;
@@ -12,7 +18,7 @@ class CPad;
 class CKeyboard;
 class CMouse;
 
-extern float pad_dt;
+/* pad_dt is file-local in zin_main.cpp (LOCAL symbol) */
 
 enum KEY_STATE
 {
@@ -96,7 +102,7 @@ class CPad
 {
 public:
 	CPad() { }
-	CPad(u32 port, u32 slot);
+	/* constructor: the binary has only __ct__4CPadFii, declared below */
 
 	void SetButtonState(PAD_BUTTON button, KEY_STATE state);
 	
@@ -105,7 +111,7 @@ public:
 	void Tick(f32 delta);
 
 	bool GetTwoButtons(PAD_BUTTON button1, PAD_BUTTON button2);
-	bool IsOpen();
+	/* IsOpen: the binary has only IsOpen__4CPadCFv (const), declared below */
 
 	s32 m_port;
 	s32 m_slot;
@@ -194,6 +200,10 @@ public:
 	void Tick(float);
 };
 /* @socom-skeleton end 9CKeyboard */
+
+/* CSealCtrl: base of CRemoteCtrl. Included after this header's own declarations because the
+   zseal.h chain (zui.h -> ztwod.h) includes this header again. */
+#include "gamez/zSeal/zseal.h"
 /* @socom-skeleton decl 11CRemoteCtrl */
 class CRemoteCtrl : public CSealCtrl
 {
@@ -204,9 +214,9 @@ public:
 	virtual void PostMortemPreTick(float);
 	virtual void OnDeath();
 	virtual void GetRemoteControl();
-	virtual void AllowCommand(CZSealBody *, FT_COMMAND, void *);
-	virtual void IsPlayer() const;
-	virtual void IsRemote() const;
+	virtual bool AllowCommand(CZSealBody *, FT_COMMAND, void *); /* port: bool = CSealCtrl::AllowCommand (override) */
+	virtual bool IsPlayer() const; /* port: bool = CSealCtrl::IsPlayer (override) */
+	virtual bool IsRemote() const; /* port: bool = CSealCtrl::IsRemote (override) */
 	virtual void PostTick(float);
 	virtual void OnStunDamage(STUN_TYPE, float, const CPnt3D *);
 	virtual void SetAiNetState(unsigned int);
