@@ -10,6 +10,7 @@ heading (stage-4 `name_basis: "user"` and per-entry `decision` objects, see
 | --- | --- |
 | [stage4-function-placements.md](stage4-function-placements.md) | Source files for the 194 stage-4 unresolved functions (2026-11-05/06): one `## module/file` heading per destination, `.h` headings for inline and template code |
 | [stage4-compiler-copies.md](stage4-compiler-copies.md) | The 10 compiler copies among them and the headers they come from |
+| [stage4-microcode-placements.md](stage4-microcode-placements.md) | Source file for the VU1 microcode, which has no DWARF or source path (2026-11-06) |
 
 Stored revisions live in [history/](history/). `stage4-function-placements.fe2f75ed....md` is
 the revision that 19 accepted stage-4 plans cite. It predates the 2026-11-06 move of

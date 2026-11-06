@@ -1526,8 +1526,18 @@
       },
       "status": "resolved",
       "summary": "Stage-5 skeleton route tests compare live src/ against the recorded write; the functional port lane edits src/ by design"
+    },
+    {
+      "details": "docs/reconstruction/decisions/stage4-microcode-placements.md records the user's 2026-11-06 decision to place the VU1 microcode (vu1_CodeSegment1 0x4272e0, vu1_DataSegment1 0x42aea0, local _$VU1_* labels) in zrender/zrndr_vu1.vsm. The tracker holds these only as symbols (no function/data artifact), so 'source placements check' reports 'no ELF artifact has this name' and 'names no source or header file'. Needed: an artifact kind (or census rows) for VU microcode segments, .vsm as a recognised source suffix, and an annotation form so stage-4 ownership of the file can be accepted. Until then the port lane writes src/gamez/zRender/zrndr_vu1.vsm without @socom-artifact lines.",
+      "id": "socom:workspace-issue:b0377204ac179e9fac53",
+      "kind": "problem",
+      "reported_at": "2026-11-06T21:39:53Z",
+      "reported_by": "socom-parent",
+      "resolution": null,
+      "status": "open",
+      "summary": "source placements check cannot verify symbol-only microcode placements (.vsm)"
     }
   ],
-  "revision": 193,
+  "revision": 194,
   "schema_version": 1
 }
