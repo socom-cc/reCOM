@@ -94,6 +94,30 @@ Generated import plans, receipt scopes, reports, and receipts belong under
 The tracker exposes work only when accepted dependencies permit it.
 `authored-byte-match` may progress after eligible authored-order work but must
 join the main chain before linked-byte acceptance.
+### Functional port lane
+
+A separate lane builds a working, non-matching ELF from `src/` with the
+open-source ps2dev toolchain (GCC and ps2sdk, pinned in
+[PORT_TOOLCHAIN.md](docs/reconstruction/PORT_TOOLCHAIN.md)). It exists because
+no lawful Metrowerks compiler is available; it never substitutes for
+exact-compiler, order, ABI, relocation, or byte evidence, and the license
+blocker stays visible on the matching stages.
+
+- `src/` stays the single game source for both lanes. Port-only code (build,
+  boot glue, SDK compatibility layer, forced-include prefix) lives under
+  `port/`. GCC-only spellings in `src/` go behind `#ifdef SOCOM_PORT`, only
+  where one spelling cannot serve both compilers.
+- Compatibility shims and offline stubs (SDK, online, voice, sound) are
+  allowed only under `port/compat/`; `guard provider` keeps rejecting them in
+  `src/`.
+- Port edits to `src/` fix the shared source (signatures, declarations,
+  bodies) and must keep the stage-4 annotation blocks and skeleton fences
+  intact. They are evidence-backed in the same order as other work: assembly
+  and DWARF first, then Ghidra, then guesses, which stay flagged.
+- Port results are judged by building with the pinned toolchain and by
+  behaviour in an emulator. Emulator paths, BIOS files, and disc data are
+  user-local; never record or commit them.
+
 An undecomposed `stage-seed` is a closed placeholder, not executable work: it
 cannot be claimed, handed off, or accepted until a real stage-specific producer
 and acceptance route replace it. Current deferred capabilities and blockers are
