@@ -238,6 +238,11 @@ public:
 	s32 m_rtime_delta;
 	bool m_initial_read_set;
 	bool m_clock_running;
+
+	/* Inline in the ELF (no out-of-line copy): `new CZNetGame` in CMission::Init 0x1f9124
+	 * stores exactly these members. */
+	CNetClock() : m_max_game_time(0), m_initial_read(0), m_time_in_round(0), m_game_time(0),
+		m_total_time(0), m_initial_read_set(false), m_clock_running(true) {}
 	/* @socom-skeleton decl 9CNetClock */
 public:
 	void SetInitialRead(unsigned int, bool);

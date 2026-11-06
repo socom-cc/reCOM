@@ -82,6 +82,7 @@ public:
 	static bool delflag(CIOPManager::CRegistrant &); /* delflag__11CIOPManagerFRQ211CIOPManager11CRegistrant (0x2f5240) */
 };
 /* @socom-skeleton end 11CIOPManager */
+extern CIOPManager theIOPManager; /* zsys_init.cpp (0x50ea60) */
 /* @socom-skeleton decl 8CMemCard */
 class CMemCard
 {

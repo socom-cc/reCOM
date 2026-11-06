@@ -170,6 +170,7 @@
 #include "gamez/zSystem/zsys.h"
 #include "gamez/zVehicle/zvehicle.h"
 #include "gamez/zVideo/zvid.h"
+#include <eekernel.h> /* CreateSema, SemaParam */
 
 /* @socom-skeleton decl include */
 #include "gamez/zAI/zai.h"
@@ -414,86 +415,116 @@ CMission::~CMission()
 /* @socom-skeleton body Init__8CMissionFv */
 bool CMission::Init()
 {
-	// TODO:
-	// Implement all these
+	/* 0x1f8e30 */
+	zdb::CDIBBox::SetCDIBBox();
 	ZAnim.Open();
 	CSealCtrlAi::RegisterCommands();
-	// CValve::RegisterCommands();
-	// zdb::CCamera::RegisterAnimCommands();
-	// CAppCamera::RegisterAnimCommands();
-	// CftsPlayer::RegisterAnimCommands();
-	// zdb::CWind::RegisterAnimCommands();
+	CValve::RegisterCommands();
+	zdb::CCamera::RegisterAnimCommands();
+	CAppCamera::RegisterAnimCommands();
+	CftsPlayer::RegisterAnimCommands();
+	CWind::RegisterAnimCommands();
 
 	ZAnim.AddCmd("HUD_ON", HUDCmdParseOn, NULL, HUDCmdTickControlSwitch, NULL);
 	ZAnim.AddCmd("HUD_OFF", HUDCmdParseOff, NULL, HUDCmdTickControlSwitch, NULL);
 	ZAnim.AddCmd("HUD_LETTERBOX_ON", HUDLetterBoxCmdParseOn, NULL, HUDLetterBoxCmdTick, NULL);
 	ZAnim.AddCmd("HUD_LETTERBOX_OFF", HUDLetterBoxCmdParseOff, NULL, HUDLetterBoxCmdTick, NULL);
+	ZAnim.AddCmd("HUD_TRIGGER_MISSION_CAM", HUDTriggerMissionCamParse, HUDTriggerMissionCamBegin, HUDTriggerMissionCamTick, NULL);
+	ZAnim.AddCmd("HUD_START_DEFUSE_TIMER", HUDStartDefuseTimerParse, NULL, HUDStartDefuseTimerTick, NULL);
+	ZAnim.AddCmd("START_IMAGE_RECORDER", StartImageRecorderParse, NULL, StartImageRecorderTick, NULL);
+	ZAnim.AddCmd("STOP_IMAGE_RECORDER", StopImageRecorderParse, NULL, StopImageRecorderTick, NULL);
+
+	BodyAnimCallbackList.Clear();
+	/* port: 0x1f8ff8-0x1f902c then empties the list's pointer vector once more inline
+	 * (a temporary vector, clear(), swap(), destroy the temporary); the list class has
+	 * no recovered members yet, and Clear() above already leaves it empty. */
 
 	m_chars_loaded = false;
-	
+
+	static SemaParam Sparam; /* Sparam$3119 */
+	Sparam.maxCount = 1;
+	Sparam.initCount = 0;
+	Sparam.option = 0;
+	m_CharLoadSem = CreateSema(&Sparam);
+
+	/* A 6.4 MB block is held while the reader archives load, then freed, with
+	 * CZAR's aligned allocation switched off around it. */
+	void* block = _malloc(0x619000, "fts_mission.cpp", 1149);
+	bool memalign = zar::CZAR::DoMemAlign();
+	zar::CZAR::DoMemAlign(false);
 	CRdrArchive::AddArchive("readerc.zar", "run");
 	CRdrArchive::AddArchive("readerc.zar", "run/ui");
 	CRdrArchive::OpenAll();
+	zar::CZAR::DoMemAlign(memalign);
+	_free(block, "fts_mission.cpp", 1162);
 
 	zBoneInit();
 	zBoneOpen();
 	zBoneLoadAll();
 	zBoneClose();
 
-	CZNetGame* netgame = new CZNetGame();
+	CZSealBody::InitMotionRdrFile();
+	CSnd::Init();
+	CSnd::UIOpen();
 
-	netgame->m_clock.m_max_game_time = 0;
-	netgame->m_clock.m_game_time = 0;
-	netgame->m_clock.m_time_in_round = 0;
-	netgame->m_clock.m_initial_read = 0;
-	netgame->m_clock.m_total_time = 0;
-	netgame->m_clock.m_initial_read_set = false;
-	netgame->m_clock.m_clock_running = false;
-	netgame->Initialize();
+	m_pNetGame = new CZNetGame();
 
-	m_pNetGame = netgame;
-
-	CRdrFile* hud_rdr = zrdr_read("hud.rdr");
-
-	if (hud_rdr)
+	if (m_pNetGame != NULL)
 	{
-		zrdr_findPNT2D(hud_rdr, "static_radio", &m_pNetGame->m_static_radio_loc);
-		zrdr_findPNT2D(hud_rdr, "dynamic_radio", &m_pNetGame->m_dynamic_radio_loc);
+		m_pNetGame->Initialize();
 	}
 
-	zrdr_free(hud_rdr);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("CMission::Init: archives, bones, sound and net game set up");
+#endif
+
+	if (m_pNetGame != NULL)
+	{
+		CRdrFile* hud_rdr = zrdr_read("hud.rdr", NULL, 0);
+
+		if (hud_rdr != NULL)
+		{
+			zrdr_findPNT2D(hud_rdr, "static_radio", &m_pNetGame->m_static_radio_loc);
+			zrdr_findPNT2D(hud_rdr, "dynamic_radio", &m_pNetGame->m_dynamic_radio_loc);
+		}
+
+		zrdr_free(hud_rdr);
+	}
 
 	CValve::Open("global_valves.rdr", VALVE_TYPE::VTYPE_PERM);
 	m_valve_complete = CValve::Create("mission_complete", VALVE_TYPE::VTYPE_PERM);
 	m_valve_failure = CValve::Create("mission_failure", VALVE_TYPE::VTYPE_PERM);
 	m_valve_abort = CValve::Create("mission_abort", VALVE_TYPE::VTYPE_PERM);
 	m_valve_timeout = CValve::Create("mission_timeout", VALVE_TYPE::VTYPE_PERM);
-	m_valve_nofade = CValve::Create("mission_nofade", VALVE_TYPE::VTYPE_PERM);
+	m_valve_nofade = CValve::Create("nofade", VALVE_TYPE::VTYPE_PERM);
 
-	m_ordersRdr = zrdr_read("orders.rdr");
-	m_materialsRdr = zrdr_read("materials.rdr");
-	m_decalsRdr = zrdr_read("decals.rdr");
-	m_fontsRdr = zrdr_read("fonts.rdr");
-	m_messagesRdr = zrdr_read("messages.rdr");
-	m_subtitlesRdr = zrdr_read("subtitles.rdr");
-	m_smallmessagesRdr = zrdr_read("small_messages.rdr");
+	CZWeapon::Init();
 
-	// Particle::Init();
+	m_ordersRdr = zrdr_read("orders.rdr", NULL, 0);
+	m_materialsRdr = zrdr_read("materials.rdr", NULL, 0);
+	m_decalsRdr = zrdr_read("decals.rdr", NULL, 0);
+	m_fontsRdr = zrdr_read("fonts.rdr", NULL, 0);
+	m_messagesRdr = zrdr_read("messages.rdr", NULL, 0);
+	m_subtitlesRdr = zrdr_read("subtitles.rdr", NULL, 0);
+	m_smallmessagesRdr = zrdr_read("small_messages.rdr", NULL, 0);
+
+	Particle::Init();
 	SealInitCharacterDynamics();
 
 	m_vehicleRdr = new CVehicleRdr();
 
-	// AnimSet::Load();
+	AnimSet::Load();
 	CCharacterType::Open("character.rdr");
-	// CCtrlrConfigs::Init()
-	
-	// ZuiInit();
+	CCtrlrConfigs::Init();
+	ZuiInit();
 	hudInit();
-
-	// TODO: Implement CTurret
-	//CTurret::Init("ai_turrets.rdr", "data/common");
+	CTurret::Init("ai_turrets.rdr", "data/common");
 	CRdrArchive::RemoveArchive("readerc.zar", "run");
 
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("CMission::Init done (orders %p materials %p fonts %p messages %p)",
+		(void*)m_ordersRdr, (void*)m_materialsRdr, (void*)m_fontsRdr, (void*)m_messagesRdr);
+#endif
 	return true;
 }
 

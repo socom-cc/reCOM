@@ -105,6 +105,7 @@ class CFileIO : public CIO
 public:
 	CFileIO();
 	CFileIO(const CFileIO& other);
+	~CFileIO() { Close(); } /* inline in the binary: a stack CBufferIO's end calls Close through the CBufferIO, then the CFileIO vtable (ReadDirectory 0x1d8b64-0x1d8b9c) */
 
 	static void SetRootPath(const char* rootPath);
 
@@ -140,6 +141,7 @@ class CBufferIO : public CFileIO
 public:
 	CBufferIO();
 	CBufferIO(const CBufferIO& other);
+	~CBufferIO() { Close(); } /* inline in the binary (see ~CFileIO) */
 
 	void CopyFileIO(const CFileIO* io);
 	bool LoadBuffer();
@@ -155,8 +157,10 @@ public:
 	virtual char freadchar(char* buf);
 	void Release();
 private:
-	void* m_buffer;
-	size_t m_bufsize;
+	void* m_buffer; /* +0x10 */
+	size_t m_bufsize; /* +0x14: allocated size (LoadBuffer 0x3040e8) */
+	size_t m_size; /* +0x18: data size (fseek 0x303fb8) port: name unproven */
+	char* m_pos; /* +0x1c: read position (fread 0x303f20) port: name unproven */
 	/* @socom-skeleton decl 9CBufferIO */
 public:
 	virtual unsigned char Open(const char *, unsigned int = 1); /* port: default = the mode every one-argument caller passes (zrdr_read 0x23e5cc, _preproc_filter 0x23ef18, CVideo::RestoreImage 0x308c48) */

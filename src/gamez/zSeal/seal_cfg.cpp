@@ -75,6 +75,11 @@ unsigned char bodyPartNames_map[16];
 /* @socom-skeleton stub InitMotionRdrFile__10CZSealBodyFv */
 CRdrFile * CZSealBody::InitMotionRdrFile()
 {
+	/* 0x281030 */
+	if (m_motionRdrFile == NULL)
+		m_motionRdrFile = zrdr_read("motion.rdr", "data/common", 0);
+
+	return m_motionRdrFile;
 }
 
 /* @socom-skeleton stub BodyId__FPCc */

@@ -55,7 +55,6 @@ namespace zar
 {
 	class CZAR;
 	class CKey;
-	class CKeyVec : public std::vector<CKey*> {};
 	class CKeyRing : public std::list<CKey*> {};
 
 	struct HEAD
@@ -72,6 +71,7 @@ namespace zar
 		s32 version;
 	};
 	
+	/* The 96-byte directory trailer at the end of an archive (ReadDirectory 0x1d8904). */
 	struct TAIL
 	{
 		s32 flags;
@@ -85,6 +85,8 @@ namespace zar
 		s32 version;
 	};
 
+	/* DWARF zar::CKey (24 bytes): the child list, then the name, size and data offset.
+	 * A key whose m_size is -1 is deleted (FindKey 0x1dc164). */
 	class CKey : public CKeyRing
 	{
 		friend class CZAR;
@@ -92,8 +94,6 @@ namespace zar
 	public:
 		CKey();
 		~CKey();
-
-		/* fixupKey: the binary has only fixupKey__Q23zar4CKeyFP7CSTablePv (CSTable*, void*), declared below */
 
 		CKey* InsertKey(CKey* key);
 		CKey* FindKey(const char* name);
@@ -126,206 +126,63 @@ public:
 		/* @socom-skeleton end Q23zar4CKey */
 	};
 
+	/* Keys read from an archive are stored by value (NewKey 0x1d8068 inserts 24-byte
+	 * CKey copies; ReadDirectory reserves key_count first so they never move). */
+	class CKeyVec : public std::vector<CKey> {};
+
+	/* DWARF zar::CZAR (164 bytes), with a virtual destructor (__vt__Q23zar4CZAR). */
 	class CZAR
 	{
 		friend class CKey;
 		friend class CRdrArchive;
 	public:
 		CZAR(const char* name = NULL, CIO* io = NULL);
-		~CZAR();
+		virtual ~CZAR();
 
-		/// <summary>
-		/// Opens a ZAR file for reading into main memory.
-		/// </summary>
-		/// <param name="name"> - The name of the archive.</param>
-		/// <param name="version"> - The version of the archive.</param>
-		/// <param name="mode"> - The read mode for opening the file.</param>
-		/// <param name="padded_size"> - The amount of padding bytes labelled "P" that exist in the file.</param>
-		/// <returns>Whether or not the operation was successful.</returns>
 		bool Open(const char* name, s32 version, u32 mode, size_t padded_size);
-		
-		/// <summary>
-		/// Closes the ZAR file descriptor, and frees the resources associated with it.
-		/// </summary>
 		void Close();
-
-		/// <summary>
-		/// Closes the ZAR file descriptor, and frees the resources associated with it.
-		/// </summary>
-		/// <param name="clearBuffer"> - If the buffer object should be cleared out. </param>
 		void Close(bool clearBuffer);
-
-		/// <summary>
-		/// Closes the ZAR file descriptor, but keeps the directory entries in memory for later use.
-		/// </summary>
 		void CloseKeepDir();
 
-		/// <summary>
-		/// Re-opens a previously closed ZAR file.
-		/// </summary>
-		/// <param name="count"> - The size of the archive.</param>
-		/// <param name="mode"> - The read mode.</param>
-		/// <returns>Whether or not the operation was successful.</returns>
-
 		CKey* CreateKey(const char* name);
-
-		/// <summary>
-		/// Creates a new key and adds it to the buffer.
-		/// </summary>
-		/// <param name="name"> - The name of the key to create.</param>
-		/// <returns>The key added to the buffer.</returns>
 		CKey* NewKey(const char* name);
-
-		/// <summary>
-		/// Opens a key for reading into memory.
-		/// </summary>
-		/// <param name="name"> - The name of the key to find and open.</param>
-		/// <returns>The opened key.</returns>
 		CKey* OpenKey(const char* name);
-
-		/// <summary>
-		/// Opens a key for reading into memory.
-		/// </summary>
-		/// <param name="key">The reference of the key to open.</param>
-		/// <returns>The opened key.</returns>
 		CKey* OpenKey(CKey* key);
-
-		/// <summary>
-		/// Finds a key in the key buffer.
-		/// </summary>
-		/// <param name="name"> - The name of the key to find.</param>
-		/// <returns>The key found in the buffer.</returns>
 		CKey* FindKey(const char* name);
-
-		/// <summary>
-		/// Closes a key from the key ring, and frees its resources.
-		/// </summary>
-		/// <param name="key"> - The key to close.</param>
 		void CloseKey(CKey* key);
 
 		CKey* Insert(const char* name, u32 value);
 		CKey* Insert(const char* name, s32 value);
 
-		/// <summary>
-		/// Reads all keys and strings into memory.
-		/// </summary>
-		/// <param name="appver"> - The internal "FTS" version.</param>
-		/// <param name="mode"> - The file mode represented by a number.</param>
-		/// <returns>Whether or not the reading was successful.</returns>
 		bool ReadDirectory(int appver, u32 mode);
-
-		/// <summary>
-		/// Reads all keys and strings into memory. Only works on release S1 and demos of S2.
-		/// </summary>
-		/// <param name="appver"> - The internal "FTS" version.</param>
-		/// <param name="mode"> - The file mode represented by a number.</param>
-		/// <returns>Whether or not the reading was successful.</returns>
-		
 		bool WriteDirectory();
 
 		void SetFilename(const char* name);
 		size_t GetSize(const char* key);
 
-		/// <summary>
-		/// Fetches a resource of an arbitrary size.
-		/// </summary>
-		/// <param name="key"> - The key that points to a resource.</param>
-		/// <param name="buf"> - The buffer that stores the bytes of the resource.</param>
-		/// <param name="size"> - The size of the resource.</param>
-		/// <returns>Whether or not the fetch was successful.</returns>
-
-		/// <summary>
-		/// Fetches a resource of arbitrary size, and fixes up the key so it can be added.
-		/// </summary>
-		/// <param name="name"> - The name of the key to search and open.</param>
-		/// <param name="callback"> - The fixup function pointer to call.</param>
-		/// <param name="buf"> - The buffer that will store the resource post-fixup.</param>
-		/// <returns>Whether or not the fetch was successful.</returns>
-
-		/// <summary>
-		/// Fetches a resource of an arbitrary size.
-		/// </summary>
-		/// <param name="name"> - The name of the key to search and open.</param>
-		/// <param name="buf"> - The buffer that stores the bytes of the resource.</param>
-		/// <param name="size"> - The size of the resource.</param>
-		/// <returns>Whether or not the fetch was successful.</returns>
-
-		/// <summary>
-		/// Fetches a string.
-		/// </summary>
-		/// <param name="name"> - The name of the key to search and open.</param>
-		/// <param name="buf"> - The buffer that stores the string.</param>
-		/// <returns>Whether or not the fetch was successful.</returns>
 		bool Fetch(const char* name, char** buf);
-
-		/// <summary>
-		/// Fetches a float.
-		/// </summary>
-		/// <param name="name"> - The name of the key to search and open.</param>
-		/// <param name="buf"> - The buffer that stores the float.</param>
-		/// <returns>Whether or not the fetch was successful.</returns>
 		bool Fetch(const char* name, f32* buf);
-
-		/// <summary>
-		/// Fetches an unsigned integer.
-		/// </summary>
-		/// <param name="name"> - The name of the key to search and open.</param>
-		/// <param name="buf"> - The buffer that stores the unsigned integer.</param>
-		/// <returns>Whether or not the fetch was successful.</returns>
 		bool Fetch(const char* name, u32* buf);
-
-		/// <summary>
-		/// Fetches an integer.
-		/// </summary>
-		/// <param name="name"> - The name of the key to search and open.</param>
-		/// <param name="buf"> - The buffer that stores the integer.</param>
-		/// <returns>Whether or not the fetch was successful.</returns>
 		bool Fetch(const char* name, s32* buf);
-
-		/// <summary>
-		/// Fetches a boolean.
-		/// </summary>
-		/// <param name="name"> - The name of the key to search and open.</param>
-		/// <param name="buf"> - The buffer that stores the boolean.</param>
-		/// <returns>Whether or not the fetch was successful.</returns>
 		bool Fetch(const char* name, bool* buf);
-
-
-		/// Fetches a list of pointers.
-		/// @param key The key to fetch the list of pointers.
-		/// @param buf The list of pointers.
-		/// @return Whether or not the fetch was successful.
 		bool FetchLIP(CKey* key, void** buf);
-
-
 
 		void* ReleaseDataBuffer();
 
-
-		char* m_filename;
-		CFileIO* m_pFileAlloc;
-		CBufferIO* m_pFile;
-
-		CKeyRing m_keys;
-
-		void* m_databuffer;
-		size_t m_databuffer_size;
-
-		bool m_modified;
-		bool m_data_padded;
-
-		s32 m_rootOffset;
-		
-		HEAD m_head;
-		TAIL m_tail;
-
-		CKey* m_root;
-		CSTable* m_stable;
-
-		CKeyVec m_key_buffer;
-
-		bool m_bCompress;
-		bool m_bSecure;
+		CKeyRing m_keys; /* +0x04: the open-key stack, innermost first */
+		CIO* m_pFileAlloc; /* +0x10: the stream this archive allocated (and deletes) */
+		CIO* m_pFile; /* +0x14: the stream it reads */
+		void* m_databuffer; /* +0x18 */
+		size_t m_databuffer_size; /* +0x1c */
+		bool m_modified; /* +0x20 */
+		u32 m_data_padded; /* +0x24 */
+		TAIL m_tail; /* +0x28 */
+		CKey* m_root; /* +0x88 */
+		CSTable* m_stable; /* +0x8c */
+		char* m_filename; /* +0x90 */
+		CKeyVec m_key_buffer; /* +0x94 */
+		bool m_bCompress; /* +0xa0 */
+		bool m_bSecure; /* +0xa1 */
 		/* @socom-skeleton decl Q23zar4CZAR */
 public:
 		static unsigned char DoMemAlign();

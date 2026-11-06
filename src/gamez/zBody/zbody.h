@@ -137,4 +137,5 @@ public:
 	void AddCallback(const char *, float);
 };
 /* @socom-skeleton end 22CZBodyAnimCallbackList */
+extern CZBodyAnimCallbackList BodyAnimCallbackList; /* body.cpp; cleared by CMission::Init 0x1f8ff0 */
 #endif

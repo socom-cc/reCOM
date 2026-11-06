@@ -34,18 +34,18 @@ namespace zdb
 
 /* @socom-skeleton body __ct__Q23zdb9CSaveLoadFv */
 namespace zdb {
-CSaveLoad::CSaveLoad()
-	{
-		m_world = NULL;
-		m_zfile = zar::CZAR();
-		m_zed_filename[0] = '\0';
-		m_version = 0;
-	}
+CSaveLoad::CSaveLoad() : m_world(NULL), m_zfile(NULL, NULL)
+{
+	/* 0x22b220 */
+	m_zed_filename[0] = '\0';
+}
 }
 
 /* @socom-skeleton stub __dt__Q23zdb9CSaveLoadFv */
 zdb::CSaveLoad::~CSaveLoad()
 {
+	/* 0x22b1c0 */
+	m_zfile.Close();
 }
 
 /* @socom-skeleton body FilterMissionFolder__FPCcPCcPCcPc */

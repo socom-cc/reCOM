@@ -57,68 +57,66 @@ void CRdrArchive::CloseAll()
 /* @socom-skeleton body RemoveArchive__11CRdrArchiveFPCcPCc */
 bool CRdrArchive::RemoveArchive(const char* name, const char* path)
 {
+	/* 0x23bcd0: closes and deletes every archive whose file name contains path/name. */
 	char fullPath[256];
-	snprintf(fullPath, 256, "%s/%s", path, name);
+	sprintf(fullPath, "%s/%s", path, name);
 
-	auto it = m_list.begin();
+	bool removed = false;
+	std::list<zar::CZAR*>::iterator it = m_list.begin();
 
 	while (it != m_list.end())
 	{
-		CZAR* archive = *it;
+		zar::CZAR* archive = *it;
 
-		if (!strstr(archive->m_filename, fullPath))
+		if (strstr(archive->m_filename, fullPath) == NULL)
 		{
 			++it;
 			continue;
 		}
-		
-		m_list.erase(it);
+
+		it = m_list.erase(it);
 		archive->Close();
-
-		if (archive)
-		{
-			delete archive;
-		}
-
-		break;
+		delete archive;
+		removed = true;
 	}
 
-	return false;
+	return removed;
 }
 
 /* @socom-skeleton body AddArchive__11CRdrArchiveFPCcPCc */
 zar::CZAR* CRdrArchive::AddArchive(const char* name, const char* path)
 {
-	char archiveName[256];
-	CZAR* output = NULL;
+	/* 0x23bb80: one archive per file name (case-insensitive); not opened here. */
+	char archiveName[1024];
+	zar::CZAR* output = NULL;
 
-	if (!path)
-	{
-		strcpy(archiveName, name);
-	}
+	if (path != NULL)
+		sprintf(archiveName, "%s/%s", path, name);
 	else
-	{
-		snprintf(archiveName, 256, "%s/%s", path, name);
-	}
+		strcpy(archiveName, name);
 
-	for (auto it = m_list.begin(); it != m_list.end(); it++)
+	for (std::list<zar::CZAR*>::iterator it = m_list.begin(); it != m_list.end(); ++it)
 	{
-		CZAR* archive = *it;
-
-		if (strcasecmp(archive->m_filename, archiveName) == 0)
+		if (strcasecmp((*it)->m_filename, archiveName) == 0)
 		{
-			output = archive;
+			output = *it;
 			break;
 		}
 	}
 
 	if (output == NULL)
 	{
-		output = new CZAR(archiveName, NULL);
-		m_list.insert(m_list.end(), output);
+		output = new CRdrArchive(archiveName);
+		m_list.push_back(output);
 	}
 
 	return output;
+}
+
+/* @socom-skeleton stub __dt__11CRdrArchiveFv */
+CRdrArchive::~CRdrArchive()
+{
+	/* 0x23be10: only the CZAR destructor runs. */
 }
 
 /* @socom-skeleton body FindRdr__11CRdrArchiveFPCc */

@@ -28,6 +28,12 @@ set(SOCOM_PORT_FLAGS
   # __ubsan_handle_missing_return (port/compat/port_diag.c) instead of running into the
   # next function. Compile-only; libubsan is not linked.
   -fsanitize=return
+  # Metrowerks never removes a malloc/free pair; GCC does when it treats them as
+  # builtins. zsys_FullAllocAndFree (0x2f4920) probes the heap size with exactly such a
+  # pair, so with the builtins it never sees a failure, reports 32 MB and zSysInit
+  # (0x2f4df0) sets zSys.isT10K. Calling them as plain functions keeps the probe.
+  -fno-builtin-malloc
+  -fno-builtin-free
   -include "${CMAKE_CURRENT_SOURCE_DIR}/include/socom_port_prefix.h")
 
 add_library(socom_game STATIC ${SOCOM_GAME_SOURCES})
@@ -47,7 +53,7 @@ target_include_directories(socom_port PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/compa
 target_compile_definitions(socom_port PRIVATE SOCOM_PORT _EE SOCOM_PORT_TRACE_ON)
 target_link_libraries(socom_port PRIVATE
   -Wl,--whole-archive socom_game -Wl,--no-whole-archive
-  -liopreboot -lpatches -lcdvd -ldebug -lkernel)
+  -liopreboot -lpatches -lcdvd -ldebug -leedebug -lkernel)
 
 # INTERIM allocator (port/interim/zsys_memory_interim.c). The game allocator in
 # src/gamez/zSystem/zsys_memory.cpp is held for the stage-4 amendment wave and still

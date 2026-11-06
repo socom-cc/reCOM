@@ -156,7 +156,7 @@ int main(int argc, char** argv)
 	}
 
 #ifdef SOCOM_PORT
-	SOCOM_PORT_TRACE("M2: zSysInit done");
+	SOCOM_PORT_TRACE("M2: zSysInit done (heap probe %u bytes, isT10K %d)", (unsigned int)__HeapSize, zSys.isT10K);
 #endif
 
 	if (gopt.dumpLog)

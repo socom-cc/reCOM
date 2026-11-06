@@ -129,6 +129,9 @@ public:
 class COurGame : public CGame
 {
 public:
+	/* Inline in the ELF (__sinit_main.cpp 0x469ee4-0x469f90): after the members are
+	 * built, the front end is the initial state. */
+	COurGame() { m_InitialState = &m_menuState; }
 	bool StartEngine();
 	friend int main(int argc, char** argv); /* port: unproven access - main (0x140d48) reads m_menuState.m_skip */
 protected:

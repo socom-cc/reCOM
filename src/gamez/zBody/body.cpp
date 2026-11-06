@@ -109,7 +109,7 @@ class ACTIVE_ANIM;
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub BodyAnimCallbackList */
-int BodyAnimCallbackList[3];
+CZBodyAnimCallbackList BodyAnimCallbackList; /* port: unproven layout; the ELF object is 12 bytes, a pointer vector (Clear 0x1df300) */
 
 /* @socom-skeleton body Orient__10CZBodyPartFv */
 void CZBodyPart::Orient()

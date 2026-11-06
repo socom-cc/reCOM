@@ -112,6 +112,7 @@
 #include "gamez/zReader/zrdr.h"
 #include "gamez/zSeal/zseal.h"
 #include "gamez/zSystem/zsys.h"
+#include <989snd.h> /* snd_StartSoundSystem, snd_SetReverbType, snd_AutoReverb, snd_InitVAGStreamingEx */
 
 /* @socom-skeleton decl include */
 #include "gamez/zMath/zmath.h"
@@ -259,17 +260,55 @@ static bool IOPRebootHandler(CIOPManager::RebootPhase, CIOPManager::RebootMode, 
 /* @socom-skeleton body Init__4CSndFv */
 void CSnd::Init()
 {
+	/* 0x2ee1d0: open the VAG and bank archives once (directory only, data streamed
+	 * from the disc), start the sound system and its instance pool. */
 	if (m_isDisabled)
-	{
 		return;
-	}
 
-	if (!vagArchiveIsOpen)
+	if (!m_isDisabled && !vagArchiveIsOpen)
 	{
 		vagArchiveIsOpen = true;
+		_FILECD* file = CFileCD::Find("RUN\\SOUNDS\\VAGSTORE.ZAR;1");
+
+		if (file != NULL)
+			m_vagoffset = file->startSector;
+
 		m_vagArchive.Open("RUN\\SOUNDS\\VAGSTORE.ZAR", 0, 0x21, 16);
 		m_vagArchive.CloseKeepDir();
 	}
+
+	if (!m_isDisabled && !bnkArchiveIsOpen)
+	{
+		bnkArchiveIsOpen = true;
+		_FILECD* file = CFileCD::Find("RUN\\SOUNDS\\BNKSTORE.ZAR;1");
+
+		if (file != NULL)
+			m_bnkoffset = file->startSector;
+
+		char rootPath[256];
+		strcpy(rootPath, CFileIO::m_root_path);
+		CFileIO::SetRootPath("cdrom0:\\");
+		m_bnkArchive.Open("run/sounds/bnkstore.zar", 0, 0x21, 16);
+		CFileIO::SetRootPath(rootPath);
+		m_bnkArchive.CloseKeepDir();
+	}
+
+	snd_StartSoundSystem();
+	CSndInstance::Init();
+
+	if (_sound_rdr == NULL)
+		_sound_rdr = zrdr_read("sounds.rdr", NULL, 0);
+
+	snd_SetReverbType(3, 3);
+
+	if (m_hasreverb)
+	{
+		snd_AutoReverb(3, 0, g_iReverbTime, 3);
+		m_hasreverb = false;
+	}
+
+	theIOPManager.RegisterRebootCallback(IOPRebootHandler, NULL);
+	snd_system_initialized = true;
 }
 
 /* @socom-skeleton stub Uninit__4CSndFv */
@@ -296,14 +335,15 @@ void CSnd::NetOpen()
 /* @socom-skeleton body UIOpen__4CSndFv */
 void CSnd::UIOpen()
 {
+	/* 0x2ee0e0 */
 	if (_sound_rdr == NULL)
-	{
-		_sound_rdr = zrdr_read("sounds.rdr");
-	}
+		_sound_rdr = zrdr_read("sounds.rdr", NULL, 0);
 
 	if (m_vagEnabled)
 	{
+		CFileCD::m_streamingSndActive = true;
 		m_max_num_vags = 4;
+		snd_InitVAGStreamingEx(4, 0xf000, 1, 1);
 	}
 }
 

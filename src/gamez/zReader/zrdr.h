@@ -258,6 +258,10 @@ public:
 
 	static void OpenAll();
 	static void CloseAll();
+
+	/* Inline in the ELF: AddArchive (0x23bc68) runs the CZAR constructor, then stores
+	 * __vt__11CRdrArchive. */
+	CRdrArchive(const char* name) : zar::CZAR(name, NULL) {}
 	/* @socom-skeleton decl 11CRdrArchive */
 public:
 	virtual ~CRdrArchive();

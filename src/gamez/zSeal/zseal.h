@@ -591,7 +591,7 @@ public:
 	void InitDatabaseHandles();
 	void InitDecalHandles();
 	void InitHandSignals();
-	CRdrFile* InitMotionRdrFile();
+	static CRdrFile* InitMotionRdrFile(); /* static: CMission::Init 0x1f90f8 calls it with no receiver */
 
 	void SetupGear();
 	void SetupEyes();

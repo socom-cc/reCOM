@@ -17,6 +17,13 @@ int snd_StreamSafeCdRead(unsigned int lsn, unsigned int sectors, void *buf, sceC
 int snd_StreamSafeCdSync(int mode);
 int snd_StreamSafeCdGetError(void);
 
+/* Sound-system start and set-up the game calls from CSnd::Init (0x2ee2c4-0x2ee31c) and
+ * CSnd::UIOpen (0x2ee124); argument meanings unproven, return values unused there. */
+int snd_StartSoundSystem(void);
+void snd_SetReverbType(int core, int type);
+void snd_AutoReverb(int core, int depth, int time, int channels);
+int snd_InitVAGStreamingEx(int streams, int buffer_size, int a2, int a3);
+
 #ifdef __cplusplus
 }
 #endif

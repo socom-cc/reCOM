@@ -621,6 +621,8 @@ zdb::CTextureAssetCharacters::CTextureAssetCharacters(zdb::CAssetLib *, zdb::CNo
 /* @socom-skeleton stub RegisterAnimCommands__5CWindFv */
 void CWind::RegisterAnimCommands()
 {
+	/* 0x22d6a0 */
+	ZAnim.AddCmd("WIND", CmdParseWind, NULL, CmdTickWind, NULL);
 }
 
 /* @socom-skeleton stub CmdParseWind__5CWindFP5_zrdr */

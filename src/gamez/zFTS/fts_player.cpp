@@ -112,6 +112,10 @@ void CftsPlayer::IsInside()
 /* @socom-skeleton stub RegisterAnimCommands__10CftsPlayerFv */
 void CftsPlayer::RegisterAnimCommands()
 {
+	/* 0x1fdef0 */
+	ZAnim.AddCmd("PLAYER_INDOORS", CmdParseIndoorsTest, NULL, CmdTickIndoorsTest, NULL);
+	ZAnim.AddCmd("PLAYER_CONTROLS", CmdParseControls, NULL, CmdTickControls, NULL);
+	ZAnim.AddCmd("IS_PLAYER_NODE", CmdParseIsPlayerNode, NULL, CmdTickIsPlayerNode, NULL);
 }
 
 /* @socom-skeleton stub CmdParseIndoorsTest__10CftsPlayerFP5_zrdr */
