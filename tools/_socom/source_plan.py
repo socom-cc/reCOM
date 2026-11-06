@@ -1071,8 +1071,7 @@ def _check_entry_decisions(
         block = decisions.heading(entry["decision"], where, problems)
         if block is None:
             continue
-        if identity not in block["listed"]:
-            problems.append(decisions.not_listed(block, where, identity))
+        decisions.placed(block, where, [identity], problems)
         destination = block["destination"]
         if destination["header"]:
             emitted = {
@@ -1158,9 +1157,7 @@ def _check_name_basis(
         elif (block := decisions.heading(owner["decision"], label, problems)) is not None:
             if why := _decision_destination(block, unit, owner.get("workspace_path")):
                 problems.append(f"{label} decision heading {block['heading']!r} {why}")
-            for identity in artifacts:
-                if identity not in decided and identity not in block["listed"]:
-                    problems.append(decisions.not_listed(block, label, identity))
+            decisions.placed(block, label, [identity for identity in artifacts if identity not in decided], problems)
     else:
         provisional = owner.get("provisional_file")
         if not isinstance(provisional, str) or PurePosixPath(provisional).name.casefold() != unit.casefold():
@@ -1380,7 +1377,8 @@ def validate_source_plan(
     cited_files: set[str] = set()
     graph_units = {str(unit.get("tu", "")).casefold() for unit in graph["units"]}
     clusters = {row["id"]: row for row in graph.get("clusters") or [] if isinstance(row, dict) and "id" in row}
-    # User decisions the rows cite: each file read once, the name index built on first use.
+    # User decisions the rows cite: each file revision read once, the name index built on first use.  A citation
+    # of an earlier stored revision whose placements still hold is a review note (``decision_revisions``).
     decisions = DecisionCheck(root, graph)
     header_emits = plan.get("header_emits") if isinstance(plan.get("header_emits"), list) else []
     row_units: list[tuple[dict[str, Any], str, str]] = []
@@ -1827,6 +1825,11 @@ def validate_source_plan(
     }
     if "contradictions" in plan:
         report["summary"]["contradictions"] = contradictions
+    # Citations of an earlier stored revision of a decision file whose placements still hold: never silent.
+    report["decision_revisions"] = list(decisions.notes)
+    if decisions.notes:
+        report["summary"]["decision_revisions"] = len(decisions.notes)
+        review.extend(decisions.notes)
     report["applied"] = applied is not None
     return done()
 

@@ -1034,6 +1034,17 @@ when the apply's reservation is inferred.
   artifact into. A line lists an artifact by its start address, else by
   its readable declaration; a declaration that names several artifacts
   lists none and needs its address;
+- a cited SHA-256 that is not the current file's names a stored earlier
+  revision, `history/<stem>.<sha256><suffix>` beside the file, whose
+  content has that digest (else it is a problem). The checks above run
+  against that revision, and the current file's heading must still exist,
+  name the same destination and list every artifact the row or entry
+  places from it. Then the citation holds, and a review note says so
+  (`cites revision X; current Y; this heading's placements for the row
+  unchanged`, also in `decision_revisions` and the gate review's
+  `decision_revisions`). Otherwise each difference is a problem and the
+  plan is amended to cite the current file
+  ([decisions/README.md](decisions/README.md));
 - an unresolved row's `suggest` (schema 2) has exactly `owner`, `rule`
   and `basis` strings and a `confidence`;
 - a unit (an authored or provider row's `translation_unit`) that another
@@ -1226,8 +1237,18 @@ It reports:
   medium unit candidate. `source plan validate` would refuse such a
   `user` row.
 
+- the file's stored earlier revisions (`revisions`: `history/<stem>.<sha256><suffix>`,
+  each with the digest of its content, which must be its name's) and
+  every citation of the file in the plans of the stage 4 plan items
+  (`citations`): the row or entry, the revision it cites (`current`,
+  `stored` or `unknown`), the artifacts it places, and whether it holds
+  as `source plan validate` checks it. A broken citation (its plan must be
+  amended) or a bad stored revision is a problem.
+
 The exit status is 0 only when none of these problems remain. The output
-also gives the file's LF-normalized SHA-256 to cite in `decision`.
+also gives the file's LF-normalized SHA-256 to cite in `decision`. Before a
+cited decision file is edited, its current bytes are stored as its revision
+([decisions/README.md](decisions/README.md)).
 
 ## Notes for the apply route
 

@@ -177,9 +177,12 @@ Note: Begin and Tick handlers are written as pairs per command in this file (bin
 ## zmath/zmath.h
 Note: inline in their classes (MW binding 13); each kept copy sits in a file that used it.
 - 0x201650  CPnt3D::Cross(const CPnt3D *, CPnt3D *, bool) const
-- CMatrix::operator const float (&)[4][4]() const
 - CPnt3D::CPnt3D()
 - CPnt3D::operator=(const CPnt3D &)
+
+## zmath/zmath_matrix.h
+Note: DWARF names Z:\dev\gamez\zmath\zmath_matrix.h as CMatrix's header (dwarf_cus 0x1e45f0, 0x1eb350, 0x3c5bc0).
+- CMatrix::operator const float (&)[4][4]() const
 
 ## ztwod/ztwod.h
 Note: inline in C2DLine's class (its copy sits between c2dbitmap_poly.cpp and ztwod_font.cpp).

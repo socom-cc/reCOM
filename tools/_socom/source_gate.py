@@ -475,6 +475,8 @@ def review_gate(
     plans: list[tuple[str, dict[str, Any]]] = []
     unresolved: list[dict[str, Any]] = []
     apply_drift: list[str] = []
+    # Plan rows citing an earlier stored revision of a user decision file whose placements still hold (notes).
+    decision_revisions: list[str] = []
     for item in _stage_items(tracker):
         if item.get("kind") not in SOURCE_PLAN_KINDS or item.get("status") != "accepted":
             continue
@@ -487,6 +489,7 @@ def review_gate(
         report = validate_source_plan(root, tracker, plan, graph, section_of=section_of, applied=applied_state(tracker, item["id"], sha))
         if not report["ok"]:
             problems.append(f"{relative} does not validate ({len(report['problems'])} problems): {_shown(report['problems'])}")
+        decision_revisions.extend(f"{relative}: {note}" for note in report.get("decision_revisions") or [])
         owner_map = owner_map_sha256(plan)
         artifacts = sum(len(owner.get("artifacts") or []) for owner in plan.get("owners") or [] if isinstance(owner, dict))
         plan_unresolved = [row for row in plan.get("unresolved") or [] if isinstance(row, dict)]
@@ -592,8 +595,10 @@ def review_gate(
         "deferrals": deferrals,
         "receipt": receipt,
         "apply_drift": sorted(set(apply_drift), key=str.casefold),
+        "decision_revisions": decision_revisions,
         "counts": {
             "apply_drift": len(set(apply_drift)),
+            "decision_revisions": len(decision_revisions),
             "problems": len(problems),
             "plans": len(rows),
             "unresolved": len(unresolved),

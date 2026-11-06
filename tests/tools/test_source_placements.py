@@ -5,12 +5,13 @@ from __future__ import annotations
 import copy
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from tools._socom import cli
 from tools._socom.source_graph import build_source_graph
-from tools._socom.source_placements import ArtifactIndex, heading_destination, normalized_sha256, parse_decisions
+from tools._socom.source_placements import ArtifactIndex, heading_destination, normalized_sha256, parse_decisions, revision_path
 from tools._socom.source_plan import validate_source_plan
 from tools._socom.tracker import load_tracker
 
@@ -351,3 +352,152 @@ def test_placements_check_passes_a_clean_file(tmp_path: Path, capsys) -> None:
     report = json.loads(capsys.readouterr().out)
     assert code == 0 and report["ok"], report["summary"]
     assert report["summary"]["placed"] == 2 and report["summary"]["destinations"] == 2
+
+
+# -- revisions of a decision file -----------------------------------------------------------------
+
+
+def _revise(root: Path, text: str, *, store: bool = True) -> None:
+    """Store the current decision file as its revision under history/ (unless ``store`` is false), then write ``text``."""
+
+    path = root / DECISIONS
+    if store:
+        old = path.read_bytes()
+        stored = root / revision_path(DECISIONS, normalized_sha256(old))
+        stored.parent.mkdir(parents=True, exist_ok=True)
+        stored.write_bytes(old)
+    path.write_text(text, encoding="utf-8", newline="\n")
+
+
+def _entry_cited(user) -> dict:
+    """The user-named plan with an entry decision too: a_first placed by the user into a.cpp."""
+
+    plan = copy.deepcopy(user[3])
+    _cite(plan, 0, "socom:function:0x140000", "zfoo/a.cpp")
+    plan["owners"][0]["confidence"] = "medium"
+    return plan
+
+
+def test_revision_paths_sit_in_history_beside_the_file() -> None:
+    assert revision_path("docs/reconstruction/decisions/placements.md", "ab" * 32) == (
+        "docs/reconstruction/decisions/history/placements." + "ab" * 32 + ".md"
+    )
+
+
+def test_a_stored_earlier_revision_with_unchanged_placements_holds_with_a_note(user) -> None:
+    root = user[0]
+    plan = _entry_cited(user)
+    cited = normalized_sha256(DECISION_TEXT.encode("utf-8"))
+    # The user adds a heading and a note, and moves a line the plan's citations do not place.
+    revised = DECISION_TEXT.replace("## zfoo/zfoo_empty.cpp\n- a_first\n", "## zfoo/zfoo_empty.cpp\nNote: reconsidered.\n") + (
+        "\n## zfoo/zfoo_later.cpp\n- a_first\n"
+    )
+    _revise(root, revised)
+    report = _report(user, copy.deepcopy(plan))
+    assert report["ok"], report["problems"]
+    current = normalized_sha256(revised.encode("utf-8"))
+    notes = [note for note in report["review"] if "cites revision" in note]
+    assert len(notes) == 2 and report["decision_revisions"] == notes and report["summary"]["decision_revisions"] == 2
+    assert notes[0] == (
+        f"owner 1 (a.cpp) entry socom:function:0x140000 cites revision {cited} of {DECISIONS}; current {current}; "
+        "this heading's placements for the row unchanged"
+    )
+    assert notes[1].startswith("owner 3 (zfoo_box.cpp) cites revision")
+    # Citing the current file needs no note.
+    current_plan = copy.deepcopy(plan)
+    for owner in current_plan["owners"]:
+        for value in [owner.get("decision")] + [entry.get("decision") for entry in owner["artifacts"] if isinstance(entry, dict)]:
+            if value:
+                value["sha256"] = current
+    report = _report(user, current_plan)
+    assert report["ok"] and report["decision_revisions"] == [] and "decision_revisions" not in report["summary"]
+    # A CRLF checkout of the stored revision is still that revision.
+    (root / revision_path(DECISIONS, cited)).write_bytes(DECISION_TEXT.replace("\n", "\r\n").encode("utf-8"))
+    assert _report(user, copy.deepcopy(plan))["ok"]
+
+
+_BOX = "## zfoo/zfoo_box.cpp\nNote: the CBox accessors are their own file (the user's reading of the neighbours).\n- CBox::Get()\n"
+REVISION_DEFECTS = [
+    # The row's artifact moved to another heading: the plan must be amended.
+    (DECISION_TEXT.replace(_BOX, "## zfoo/zfoo_box.cpp\n").replace("## zfoo/zfoo_empty.cpp\n", "## zfoo/zfoo_empty.cpp\n- CBox::Get()\n"),
+     "heading 'zfoo/zfoo_box.cpp' no longer lists socom:function:0x140010; amend the plan to cite the current file"),
+    # The entry's heading is gone.
+    (DECISION_TEXT.replace("## zfoo/a.cpp\n- a_first\n", ""), "the current file has no heading 'zfoo/a.cpp'; amend the plan to cite it"),
+]
+
+
+@pytest.mark.parametrize(("revised", "message"), REVISION_DEFECTS)
+def test_a_stored_revision_whose_placements_changed_is_a_problem(user, revised: str, message: str) -> None:
+    plan = _entry_cited(user)
+    _revise(user[0], revised)
+    report = _report(user, plan)
+    assert not report["ok"] and any(message in problem for problem in report["problems"]), report["problems"]
+    cited = normalized_sha256(DECISION_TEXT.encode("utf-8"))
+    assert all(f"cites revision {cited}" in problem for problem in report["problems"] if message in problem)
+
+
+def test_an_unstored_or_tampered_revision_is_a_problem(user) -> None:
+    root = user[0]
+    plan = _entry_cited(user)
+    cited = normalized_sha256(DECISION_TEXT.encode("utf-8"))
+    _revise(root, DECISION_TEXT + "\nNote: a later thought.\n", store=False)
+    problems = _report(user, copy.deepcopy(plan))["problems"]
+    assert any(f"not the cited {cited}, and no stored revision {revision_path(DECISIONS, cited)} exists" in problem
+               for problem in problems), problems
+    # A stored file whose content is not the revision its name gives is no revision.
+    stored = root / revision_path(DECISIONS, cited)
+    stored.parent.mkdir(parents=True, exist_ok=True)
+    stored.write_text(DECISION_TEXT + "- edited\n", encoding="utf-8")
+    problems = _report(user, copy.deepcopy(plan))["problems"]
+    assert any("has LF-normalized SHA-256" in problem and "not its name's" in problem for problem in problems), problems
+
+
+def test_placements_check_lists_the_file_revisions_and_plan_citations(tmp_path: Path, capsys) -> None:
+    _check_workspace(tmp_path)
+    relative = "build/decisions/clean.md"
+    first = "## zdir/zdir.h\n- CDir::Run()\n\n## rt/rtlist.h\n- fooHelper\n"
+    (tmp_path / relative).write_text(first, encoding="utf-8")
+
+    def check(*extra: str) -> tuple[int, Any]:
+        code = cli.main(["--root", str(tmp_path), "source", "placements", "check", "--file", relative, *extra])
+        out = capsys.readouterr().out
+        return code, (json.loads(out) if extra else out)
+
+    code, report = check("--json")
+    assert code == 0 and report["citations"] == [] and report["revisions"] == []
+    placed = {row["heading"]: row["artifacts"][0] for row in report["destinations"]}
+    item = placed["rt/rtlist.h"]["item"]
+    plan_file = tmp_path / "build" / "source-plans" / f"{item.replace(':', '-')}.json"
+    plan = json.loads(plan_file.read_text(encoding="utf-8")) if plan_file.is_file() else {"owners": []}
+    cite = {"file": relative, "sha256": normalized_sha256(first.encode()), "heading": "rt/rtlist.h"}
+    plan["owners"].append({"translation_unit": "rtlist.cpp", "name_basis": "user", "decision": cite,
+                           "artifacts": [placed["rt/rtlist.h"]["id"]]})
+    plan_file.write_text(json.dumps(plan), encoding="utf-8")
+    code, report = check("--json")
+    assert code == 0 and [(row["revision"], row["holds"]) for row in report["citations"]] == [("current", True)]
+
+    # The revision is stored, then the file revised keeping the cited placements: the citation holds, with a note.
+    stored = tmp_path / revision_path(relative, cite["sha256"])
+    stored.parent.mkdir(parents=True)
+    stored.write_text(first, encoding="utf-8")
+    (tmp_path / relative).write_text(first + "\n## zdir/zdir_more.cpp\nNote: later.\n", encoding="utf-8")
+    code, report = check("--json")
+    assert code == 0, report["summary"]
+    assert report["revisions"] == [
+        {"path": revision_path(relative, cite["sha256"]), "sha256": cite["sha256"], "content_sha256": cite["sha256"], "ok": True}
+    ]
+    (row,) = report["citations"]
+    assert (row["revision"], row["holds"], row["item"]) == ("stored", True, item)
+    assert row["notes"] and row["notes"][0].endswith("this heading's placements for the row unchanged")
+    summary = report["summary"]
+    assert (summary["citations_on_revision"], summary["broken_citations"], summary["citing_plans"]) == (1, 0, 1)
+    code, text = check()
+    assert code == 0 and f"revision {cite['sha256']} (placements unchanged): {item.removeprefix('socom:work:')}" in text
+
+    # A revision that moves the cited artifact breaks the citation; a tampered stored revision is reported.
+    (tmp_path / relative).write_text("## zdir/zdir.h\n- CDir::Run()\n- fooHelper\n\n## rt/rtlist.h\nNote: moved.\n", encoding="utf-8")
+    code, report = check("--json")
+    assert code == 1 and report["summary"]["broken_citations"] == 1 and "no longer lists" in report["citations"][0]["problems"][0]
+    stored.write_text(first + "- edited\n", encoding="utf-8")
+    code, text = check()
+    assert code == 1 and "not its name's" in text and "BROKEN" in text and text.rstrip().endswith("NOT OK")

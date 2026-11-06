@@ -28,10 +28,21 @@ An owner plan row cites a heading with a ``decision`` object ``{file,
 sha256, heading}``: the repo-relative decision file, the SHA-256 of its
 bytes with CRLF normalized to LF, and the heading as written
 (``source plan validate`` checks it; see ``DecisionCheck``).
+
+A decision file is revised in place.  Before an edit its current bytes are
+stored unchanged as ``history/<stem>.<sha256><suffix>`` beside it (the
+LF-normalized SHA-256 in the name; see ``revision_path``), so a citation of
+an earlier revision still resolves without git history.  Such a citation
+holds while the current file's heading still names the same destination and
+still lists every artifact the citing row or entry places from it; it is
+then reported as a note, otherwise it is a problem (the plan is amended to
+cite the current file).  A digest with no stored revision is a problem.
+
 ``source placements check --file`` reports every line's artifact, the
 unmatched, ambiguous, mismatched and duplicate lines, each destination's
-path, plan items and plan state, and the contiguity of each source file's
-functions in address order.
+path, plan items and plan state, the contiguity of each source file's
+functions in address order, the file's stored revisions, and every plan
+citation of the file with the revision it cites and whether it holds.
 """
 
 from __future__ import annotations
@@ -43,7 +54,7 @@ import sqlite3
 import sys
 from collections import defaultdict
 from contextlib import closing
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
 
 from .source_owner import readable
@@ -54,6 +65,8 @@ TITLE_RE = re.compile(r"^#(?!#)")
 ITEM_RE = re.compile(r"^\s*[-*+]\s+(?P<text>.*?)\s*$")
 ADDRESS_RE = re.compile(r"^(?P<address>0x[0-9a-fA-F]+)(?:\s+(?P<rest>.*))?$")
 SHA_RE = re.compile(r"^[0-9a-f]{64}$")
+# Stored earlier revisions of a decision file: <dir>/history/<stem>.<LF sha256><suffix>.
+HISTORY_DIRECTORY = "history"
 # A decision is user knowledge: decision evidence, below binary evidence (AGENTS.md precedence).
 DECISION_CONFIDENCES = ("medium", "low")
 SHOWN = 3
@@ -67,6 +80,28 @@ def normalized_sha256(data: bytes) -> str:
     """The SHA-256 of ``data`` with CRLF line ends normalized to LF (the same digest on every checkout)."""
 
     return hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest()
+
+
+def revision_path(relative: str, sha256: str) -> str:
+    """The repo-relative path of a decision file's stored revision ``sha256``: ``history/<stem>.<sha256><suffix>`` beside it."""
+
+    path = PurePosixPath(relative)
+    return (path.parent / HISTORY_DIRECTORY / f"{path.stem}.{sha256}{path.suffix}").as_posix()
+
+
+def stored_revisions(root: Path, relative: str) -> list[dict[str, Any]]:
+    """The stored revisions of a decision file: each one's path, the digest its name gives, its own digest and ``ok``."""
+
+    path = PurePosixPath(relative)
+    directory = root / path.parent / HISTORY_DIRECTORY
+    pattern = re.compile(re.escape(path.stem) + r"\.(?P<sha>[0-9a-f]{64})" + re.escape(path.suffix) + "$")
+    rows = []
+    for entry in sorted(directory.iterdir() if directory.is_dir() else [], key=lambda value: value.name):
+        if entry.is_file() and (match := pattern.match(entry.name)):
+            actual = normalized_sha256(entry.read_bytes())
+            rows.append({"path": revision_path(relative, match["sha"]), "sha256": match["sha"], "content_sha256": actual,
+                         "ok": actual == match["sha"]})
+    return rows
 
 
 # -- parsing -------------------------------------------------------------------------
@@ -245,22 +280,37 @@ class ArtifactIndex:
 
 
 class DecisionCheck:
-    """The decisions an owner plan's rows cite, each file read once and the index built on first use.
+    """The decisions an owner plan's rows cite, each file revision read once and the index built on first use.
 
     ``heading(decision, where, problems)`` checks one ``{file, sha256,
-    heading}`` object: the file is repo-relative and exists, its
-    LF-normalized SHA-256 is the cited one and the heading is one of its
-    ``##`` headings.  It returns the heading's block with its
-    ``destination`` and ``listed`` (each artifact a line under it resolves to,
-    with that line), or ``None`` after adding the problems.
+    heading}`` object: the file is repo-relative and exists, the cited
+    LF-normalized SHA-256 is the current file's or a stored revision's
+    (``revision_path``, whose content has that digest), and the heading is
+    one of that revision's ``##`` headings.  It returns the heading's block
+    with its ``destination`` and ``listed`` (each artifact a line under it
+    resolves to, with that line), or ``None`` after adding the problems.  A
+    block of an earlier revision also carries ``revision`` (``{cited,
+    current}``) and ``current``, the current file's block of the heading
+    (empty when it has none).
+
+    ``placed(block, where, identities, problems)`` checks the artifacts the
+    citing row or entry places from the heading: each is listed under it,
+    and for an earlier revision the current heading still names the same
+    destination and still lists each of them.  Then the citation holds and a
+    note goes to ``notes``; otherwise each difference is a problem.
     """
 
-    def __init__(self, root: Path, graph: dict[str, Any]) -> None:
+    def __init__(
+        self, root: Path, graph: dict[str, Any] | None = None, *, index: ArtifactIndex | None = None,
+        notes: list[str] | None = None,
+    ) -> None:
         self.root = root
-        self.graph = graph
+        self.graph = graph or {}
+        self.notes: list[str] = notes if notes is not None else []
         self._files: dict[str, tuple[str, dict[str, Any]] | str] = {}
-        self._index: ArtifactIndex | None = None
-        self._blocks: dict[tuple[str, str], dict[str, Any]] = {}
+        self._revisions: dict[tuple[str, str], dict[str, Any] | str] = {}
+        self._index = index
+        self._blocks: dict[tuple[str, str, str], dict[str, Any]] = {}
 
     @property
     def index(self) -> ArtifactIndex:
@@ -268,18 +318,62 @@ class DecisionCheck:
             self._index = ArtifactIndex.from_graph(self.graph)
         return self._index
 
+    def _load(self, relative: str) -> tuple[str, dict[str, Any]] | str:
+        path = self.root / relative
+        if not path.is_file():
+            return "does not exist"
+        data = path.read_bytes()
+        try:
+            return normalized_sha256(data), parse_decisions(data.decode("utf-8-sig"))
+        except UnicodeDecodeError:
+            return "is not UTF-8 text"
+
     def _read(self, relative: str) -> tuple[str, dict[str, Any]] | str:
         if relative not in self._files:
-            path = self.root / relative
-            if not path.is_file():
-                self._files[relative] = "does not exist"
-            else:
-                data = path.read_bytes()
-                try:
-                    self._files[relative] = (normalized_sha256(data), parse_decisions(data.decode("utf-8-sig")))
-                except UnicodeDecodeError:
-                    self._files[relative] = "is not UTF-8 text"
+            self._files[relative] = self._load(relative)
         return self._files[relative]
+
+    def _revision(self, relative: str, cited: str) -> dict[str, Any] | str:
+        """The parsed stored revision ``cited`` of ``relative``, or why there is none."""
+
+        key = (relative, cited)
+        if key not in self._revisions:
+            stored = revision_path(relative, cited)
+            read = self._load(stored)
+            if read == "does not exist":
+                self._revisions[key] = f"no stored revision {stored} exists"
+            elif isinstance(read, str):
+                self._revisions[key] = f"its stored revision {stored} {read}"
+            elif read[0] != cited:
+                self._revisions[key] = f"its stored revision {stored} has LF-normalized SHA-256 {read[0]}, not its name's"
+            else:
+                self._revisions[key] = read[1]
+        return self._revisions[key]
+
+    def _block(self, relative: str, sha: str, parsed: dict[str, Any], heading: str) -> dict[str, Any]:
+        key = (relative, sha, heading)
+        if key not in self._blocks:
+            block = next((row for row in parsed["headings"] if row["heading"] == heading), None)
+            if block is None:
+                self._blocks[key] = {}
+            else:
+                listed: dict[str, int] = {}
+                unresolved: list[int] = []
+                for entry in block["entries"]:
+                    result = self.index.resolve(entry)
+                    if result["status"] == "resolved":
+                        listed.setdefault(result["artifacts"][0], entry["line"])
+                    else:
+                        unresolved.append(entry["line"])
+                self._blocks[key] = {
+                    **block,
+                    "file": relative,
+                    "sha256": sha,
+                    "destination": heading_destination(self.root, heading),
+                    "listed": listed,
+                    "unresolved_lines": unresolved,
+                }
+        return self._blocks[key]
 
     def heading(self, decision: Any, where: str, problems: list[str]) -> dict[str, Any] | None:
         if not isinstance(decision, dict) or set(decision) != set(DECISION_FIELDS) or not all(
@@ -300,45 +394,100 @@ class DecisionCheck:
             problems.append(f"{where} decision file {relative} {read}")
             return None
         actual, parsed = read
-        if actual != cited:
-            problems.append(f"{where} decision file {relative} has LF-normalized SHA-256 {actual}, not the cited {cited}")
-            return None
-        key = (relative, heading)
-        if key not in self._blocks:
-            block = next((row for row in parsed["headings"] if row["heading"] == heading), None)
-            if block is None:
-                self._blocks[key] = {}
-            else:
-                listed: dict[str, int] = {}
-                unresolved: list[int] = []
-                for entry in block["entries"]:
-                    result = self.index.resolve(entry)
-                    if result["status"] == "resolved":
-                        listed.setdefault(result["artifacts"][0], entry["line"])
-                    else:
-                        unresolved.append(entry["line"])
-                self._blocks[key] = {
-                    **block,
-                    "file": relative,
-                    "destination": heading_destination(self.root, heading),
-                    "listed": listed,
-                    "unresolved_lines": unresolved,
-                }
-        block = self._blocks[key]
+        revision = None
+        if actual == cited:
+            block = self._block(relative, actual, parsed, heading)
+        else:
+            # An earlier revision, stored unchanged under history/ before the file was revised.
+            stored = self._revision(relative, cited)
+            if isinstance(stored, str):
+                problems.append(
+                    f"{where} decision file {relative} has LF-normalized SHA-256 {actual}, not the cited {cited}, and {stored}"
+                )
+                return None
+            block = self._block(relative, cited, stored, heading)
+            revision = {"cited": cited, "current": actual}
         if not block:
-            problems.append(f"{where} decision heading {heading!r} is not a ## heading of {relative}")
+            problems.append(
+                f"{where} decision heading {heading!r} is not a ## heading of {relative}"
+                + (f" (revision {cited})" if revision else "")
+            )
             return None
         if block["destination"]["path"] is None:
             problems.append(f"{where} decision heading {heading!r} {block['destination']['error']}")
             return None
-        return block
+        if revision is None:
+            return block
+        return {**block, "revision": revision, "current": self._block(relative, actual, parsed, heading)}
+
+    def placed(self, block: dict[str, Any], where: str, identities: Iterable[str], problems: list[str]) -> bool:
+        """Whether the cited heading lists each of ``identities`` (and, for an earlier revision, the current file still does)."""
+
+        identities = list(identities)
+        missing = [identity for identity in identities if identity not in block["listed"]]
+        problems.extend(self.not_listed(block, where, identity) for identity in missing)
+        revision = block.get("revision")
+        if revision is None or missing:
+            return not missing
+        cited = f"{where} cites revision {revision['cited']} of {block['file']}; current {revision['current']}"
+        current = block["current"]
+        if not current:
+            problems.append(f"{cited}: the current file has no heading {block['heading']!r}; amend the plan to cite it")
+            return False
+        if current["destination"]["path"] != block["destination"]["path"]:
+            problems.append(
+                f"{cited}: heading {block['heading']!r} now names {current['destination']['path']}, not "
+                f"{block['destination']['path']}; amend the plan to cite the current file"
+            )
+            return False
+        gone = [identity for identity in identities if identity not in current["listed"]]
+        problems.extend(
+            f"{cited}: heading {block['heading']!r} no longer lists {identity}; amend the plan to cite the current file"
+            for identity in gone
+        )
+        if not gone:
+            self.notes.append(f"{cited}; this heading's placements for the row unchanged")
+        return not gone
 
     def not_listed(self, block: dict[str, Any], where: str, identity: str) -> str:
         text = f"{where} {identity} is not listed under heading {block['heading']!r} of {block['file']}"
+        if block.get("revision"):
+            text += f" (revision {block['revision']['cited']})"
         if block["unresolved_lines"]:
             lines = ", ".join(map(str, block["unresolved_lines"][:SHOWN]))
             text += f" (lines {lines} name no single artifact: source placements check --file {block['file']} lists them)"
         return text
+
+
+def plan_citations(plan: Any) -> list[tuple[str, Any, list[str]]]:
+    """Every decision an owner plan cites: ``(where, decision, the artifacts it places from the heading)``.
+
+    An entry's decision places its artifact; a ``user`` row's places the
+    row's artifacts whose entries cite no decision of their own (as
+    ``source plan validate`` checks them, with its labels).
+    """
+
+    from .source_plan import artifact_id
+
+    found: list[tuple[str, Any, list[str]]] = []
+    owners = plan.get("owners") if isinstance(plan, dict) else None
+    for number, owner in enumerate(owners if isinstance(owners, list) else [], 1):
+        if not isinstance(owner, dict):
+            continue
+        label = f"owner {number} ({owner.get('translation_unit') or owner.get('library') or owner.get('classification')})"
+        decided: set[str] = set()
+        artifacts: list[str] = []
+        for entry in owner.get("artifacts") or []:
+            identity = artifact_id(entry)
+            if identity is None:
+                continue
+            artifacts.append(identity)
+            if isinstance(entry, dict) and "decision" in entry:
+                decided.add(identity)
+                found.append((f"{label} entry {identity}", entry["decision"], [identity]))
+        if "decision" in owner:
+            found.append((label, owner["decision"], [identity for identity in artifacts if identity not in decided]))
+    return found
 
 
 # -- placements check ----------------------------------------------------------------
@@ -400,6 +549,51 @@ def _plan_states(root: Path, items: set[str]) -> dict[str, dict[str, Any]]:
     return states
 
 
+def _citations(root: Path, index: ArtifactIndex, relative: str, sha256: str, items: set[str]) -> list[dict[str, Any]]:
+    """Every citation of decision file ``relative`` in the plans of ``items``, checked as ``source plan validate`` checks it.
+
+    ``revision`` is ``current`` (the current file's digest), ``stored`` (an
+    earlier revision under ``history/``) or ``unknown``; ``holds`` says
+    whether the citation still validates (for a stored revision: the current
+    heading still names the destination and lists the row's artifacts).
+    """
+
+    from .source_plan import plan_path
+    from .util import SocomError, load_json
+
+    check = DecisionCheck(root, index=index)
+    rows: list[dict[str, Any]] = []
+    for item in sorted(items):
+        path = root / plan_path(item)
+        try:
+            plan = load_json(path) if path.is_file() else None
+        except (SocomError, UnicodeDecodeError, ValueError):
+            plan = None
+        for where, decision, identities in plan_citations(plan):
+            if not isinstance(decision, dict) or decision.get("file") != relative:
+                continue
+            cited = decision.get("sha256")
+            problems: list[str] = []
+            check.notes.clear()
+            block = check.heading(decision, where, problems)
+            if block is not None:
+                check.placed(block, where, identities, problems)
+            stored = isinstance(cited, str) and SHA_RE.match(cited) and (root / revision_path(relative, cited)).is_file()
+            rows.append({
+                "item": item,
+                "plan": plan_path(item),
+                "where": where,
+                "heading": decision.get("heading"),
+                "sha256": cited,
+                "revision": "current" if cited == sha256 else ("stored" if stored else "unknown"),
+                "artifacts": identities,
+                "holds": not problems,
+                "notes": list(check.notes),
+                "problems": problems,
+            })
+    return rows
+
+
 def placements_report(root: Path, cache: Path, decision_file: Path) -> dict[str, Any]:
     """Check one decision file against the ELF artifacts, the plans and the ``src/`` owners (read-only)."""
 
@@ -411,9 +605,9 @@ def placements_report(root: Path, cache: Path, decision_file: Path) -> dict[str,
 
         raise SocomError(f"{decision_file} is not UTF-8 text") from exc
     try:
-        shown_file = decision_file.resolve().relative_to(root.resolve()).as_posix()
+        shown_file, inside = decision_file.resolve().relative_to(root.resolve()).as_posix(), True
     except ValueError:
-        shown_file = str(decision_file)
+        shown_file, inside = str(decision_file), False
     with closing(sqlite3.connect(f"file:{cache.as_posix()}?mode=ro", uri=True)) as connection:
         index = ArtifactIndex.from_cache(connection)
         artifacts = {
@@ -430,6 +624,7 @@ def placements_report(root: Path, cache: Path, decision_file: Path) -> dict[str,
         ):
             candidates[identity].append((unit, strength))
         graph_units = {str(unit).casefold() for (unit,) in connection.execute("SELECT tu FROM units")}
+        plan_items = {str(item) for (item,) in connection.execute("SELECT DISTINCT item FROM artifacts WHERE item IS NOT NULL")}
 
     def brief(identity: str) -> dict[str, Any]:
         return {"id": identity, "address": f"0x{index.address[identity]:x}", "declaration": index.declaration(identity)}
@@ -543,6 +738,11 @@ def placements_report(root: Path, cache: Path, decision_file: Path) -> dict[str,
                 destination["elf_objections"].append({"id": row["id"], "address": row["address"], "why": "; ".join(reasons)})
         objections += len(destination["elf_objections"])
 
+    # The stored earlier revisions of the file and every plan citation of it (a revision it cites, whether it holds).
+    sha256 = normalized_sha256(data)
+    revisions = stored_revisions(root, shown_file) if inside else []
+    citations = _citations(root, index, shown_file, sha256, plan_items) if inside else []
+
     invalid = [{"heading": row["heading"], "line": row["line"], "error": row["error"]} for row in destinations if row.get("error")]
     placed = sum(row["placed"] for row in destinations)
     summary = {
@@ -563,14 +763,21 @@ def placements_report(root: Path, cache: Path, decision_file: Path) -> dict[str,
         "elf_objections": objections,
         "reassigned": len(reassigned),
         "plan_items": len(by_item),
+        "stored_revisions": len(revisions),
+        "bad_revisions": sum(1 for row in revisions if not row["ok"]),
+        "citations": len(citations),
+        "citing_plans": len({row["item"] for row in citations}),
+        "citations_current": sum(1 for row in citations if row["revision"] == "current" and row["holds"]),
+        "citations_on_revision": sum(1 for row in citations if row["revision"] != "current" and row["holds"]),
+        "broken_citations": sum(1 for row in citations if not row["holds"]),
     }
     failures = ("unmatched", "ambiguous", "mismatched", "duplicates", "outside_heading", "invalid_headings",
-                "contiguity_conflicts", "elf_objections")
+                "contiguity_conflicts", "elf_objections", "bad_revisions", "broken_citations")
     return {
         "ok": not any(summary[key] for key in failures),
         "mutation_performed": False,
         "file": shown_file,
-        "sha256": normalized_sha256(data),
+        "sha256": sha256,
         "summary": summary,
         "destinations": destinations,
         "items": sorted(by_item.values(), key=lambda row: row["item"]),
@@ -582,6 +789,8 @@ def placements_report(root: Path, cache: Path, decision_file: Path) -> dict[str,
         "repeated_headings": parsed["repeated"],
         "invalid_headings": invalid,
         "reassigned": reassigned,
+        "revisions": revisions,
+        "citations": citations,
     }
 
 
@@ -623,6 +832,24 @@ def report_text(report: dict[str, Any]) -> str:
     if report["reassigned"]:
         lines.append(f"placements that move an annotated artifact: {len(report['reassigned'])}")
         lines.extend(f"  {row['id']}: {row['from']} -> {row['to']}" for row in report["reassigned"][:SHOWN])
+    for row in report["revisions"]:
+        if not row["ok"]:
+            lines.append(f"stored revision {row['path']} has LF-normalized SHA-256 {row['content_sha256']}, not its name's")
+    if report["citations"]:
+        lines.append(
+            f"plan citations: {summary['citations']} in {summary['citing_plans']} plans; {summary['citations_current']} of "
+            f"the current file, {summary['citations_on_revision']} of a stored earlier revision that still hold, "
+            f"{summary['broken_citations']} broken"
+        )
+        older: dict[str, set[str]] = defaultdict(set)
+        for row in report["citations"]:
+            if row["revision"] != "current" and row["holds"]:
+                older[row["sha256"]].add(row["item"].removeprefix("socom:work:"))
+        for sha, items in sorted(older.items()):
+            lines.append(f"  revision {sha} (placements unchanged): {', '.join(sorted(items))}")
+        for row in report["citations"]:
+            for problem in row["problems"][:SHOWN]:
+                lines.append(f"  BROKEN {row['item'].removeprefix('socom:work:')}: {problem}")
     lines.append("ok" if report["ok"] else "NOT OK")
     return "\n".join(lines)
 
@@ -642,7 +869,10 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "mismatched and duplicate lines, each heading's src/ path in on-disk letter case (new or existing, header), "
             "the stage 4 plan items and plan state of its artifacts, the contiguity of each source file's functions "
             "(its src/ owners plus the placed ones, no function another file owns in between) and, for a file the graph "
-            "does not know, clusters or strong/medium unit candidates naming another unit.",
+            "does not know, clusters or strong/medium unit candidates naming another unit; the file's stored earlier "
+            "revisions (history/<stem>.<sha256><suffix>, each named by its content's digest) and every plan citation of "
+            "the file with the revision it cites and whether it still holds (a stored revision's: the current heading "
+            "names the same destination and lists the citing row's artifacts).",
         ),
     )
 
