@@ -14,8 +14,44 @@
 
 /* @socom-skeleton decl include */
 #include "gamez/zCamera/zcam.h"
-#include "gamez/zInput/zinput.h"
-#include "gamez/zMath/zmath.h"
-#include "gamez/zNode/node_assetlib.h"
-#include "gamez/zReader/zrdr.h"
 /* @socom-skeleton end include */
+
+/* @socom-skeleton stub __dt__3C2DFv */
+/* port: stage-4 left 0x300d10 without an owner */
+C2D::~C2D()
+{
+}
+
+/* @socom-skeleton body Draw__3C2DFPQ23zdb7CCamera */
+void C2D::Draw(zdb::CCamera* camera)
+{
+	if (!m_on)
+		return;
+
+	for (auto i = begin(); i != end(); ++i)
+		(*i)->Draw(camera);
+}
+
+/* @socom-skeleton body Off__3C2DFv */
+void C2D::Off()
+{
+	m_on = false;
+}
+
+/* @socom-skeleton body On__3C2DFv */
+void C2D::On()
+{
+	m_on = true;
+}
+
+/* @socom-skeleton body IsOn__3C2DCFv */
+bool C2D::IsOn() const
+{
+	return m_on == true;
+}
+
+/* @socom-skeleton body Enable__3C2DFb */
+void C2D::Enable(bool enable)
+{
+	m_on = enable;
+}

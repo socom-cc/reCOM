@@ -403,6 +403,16 @@ static unsigned char di1[72];
 /* @socom-skeleton stub projDirDown */
 static int projDirDown[3];
 
+/* @socom-skeleton stub ftmask_create__FP5_zrdr */
+void ftmask_create(_zrdr *)
+{
+}
+
+/* @socom-skeleton stub UpdateAiMapLoc__10CZSealBodyFRb */
+void CZSealBody::UpdateAiMapLoc(bool &)
+{
+}
+
 /* @socom-skeleton stub SealGetIntersect__10CZSealBodyFPC6CPnt3DPC6CPnt3D */
 zdb::IntersectStruct * CZSealBody::SealGetIntersect(const CPnt3D *, const CPnt3D *)
 {

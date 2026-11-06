@@ -651,3 +651,13 @@ void CWind::TickGoal(float)
 void CWind::Reset()
 {
 }
+
+/* @socom-skeleton stub SetDIBBox__FPQ23zdb5CNodePC5CBBoxb */
+void SetDIBBox(zdb::CNode *, const CBBox *, bool)
+{
+}
+
+/* @socom-skeleton stub SetMaterial__FPQ23zdb5CNodei */
+void SetMaterial(zdb::CNode *, int)
+{
+}

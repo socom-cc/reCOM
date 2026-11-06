@@ -8,5 +8,21 @@
  * @socom-artifact defines main socom:data:0x508d30
  * socom-owner-annotations end socom:work:source-segment-076 */
 
+/* @socom-skeleton decl include */
+#include "gamez/zBody/zbody.h"
+#include "gamez/zMath/zmath.h"
+#include "zseal.h"
+/* @socom-skeleton end include */
+
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
+
+/* @socom-skeleton stub FootInSpace__10CZSealBodyFP10CZBodyAnimP6CPnt3DP6CPnt3Dffb */
+void CZSealBody::FootInSpace(CZBodyAnim *, CPnt3D *, CPnt3D *, float, float, bool)
+{
+}
+
+/* @socom-skeleton stub TurnSetup__10CZSealBodyFi */
+void CZSealBody::TurnSetup(int)
+{
+}

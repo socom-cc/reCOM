@@ -73,6 +73,11 @@ namespace {
 unsigned char bodyPartNames_map[16];
 }
 
+/* @socom-skeleton stub GetDynamics__10CZSealBodyFv */
+CharacterDynamics * CZSealBody::GetDynamics()
+{
+}
+
 /* @socom-skeleton stub InitMotionRdrFile__10CZSealBodyFv */
 CRdrFile * CZSealBody::InitMotionRdrFile()
 {

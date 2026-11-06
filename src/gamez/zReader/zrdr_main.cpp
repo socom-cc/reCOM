@@ -105,3 +105,175 @@ void _zrdr::Clone(_zrdr *other, CSTable *table)
 
 	}
 }
+
+/* @socom-skeleton body __ct__5_zrdrFP5_zrdrP7CSTable */
+_zrdr::_zrdr(_zrdr* other, CSTable* stable)
+{
+	type = ZRDR_NULL;
+	isclone = false;
+	packed = false;
+	unused = 0;
+	length = 0;
+
+	Clone(other, stable);
+}
+
+/* @socom-skeleton stub DeleteChildren__5_zrdrFv */
+void _zrdr::DeleteChildren()
+{
+}
+
+/* @socom-skeleton stub __dt__5_zrdrFv */
+_zrdr::~_zrdr()
+{
+}
+
+/* @socom-skeleton stub zrdr_flat_findtag_startidx__FPC5_zrdrPCci */
+_zrdr * zrdr_flat_findtag_startidx(const _zrdr *, const char *, int)
+{
+}
+
+/* @socom-skeleton stub zrdr_flat_nexttag__FPC5_zrdrPCcP5_zrdr */
+_zrdr * zrdr_flat_nexttag(const _zrdr *, const char *, _zrdr *)
+{
+}
+
+/* @socom-skeleton body zrdr_findtag_startidx__FPC5_zrdrPCci */
+_zrdr * zrdr_findtag_startidx(const _zrdr *reader, const char *name, int startidx)
+{
+	if (!reader)
+		return NULL;
+
+	if (!reader->IsArray())
+		return NULL;
+	
+	for (s32 length = reader->array->integer; startidx < length; startidx++)
+	{
+		_zrdr* node = &reader->array[startidx];
+
+		if (node->IsArray())
+		{
+			node = zrdr_findtag_startidx(node, name, 1);
+
+			if (node)
+				return node;
+		}
+		else if (node->IsString() && strcmp(node->string, name) == 0)
+			return &node[1];
+	}
+
+	return NULL;
+}
+
+/* @socom-skeleton body zrdr_findtag__FPC5_zrdrPCc */
+_zrdr * zrdr_findtag(const _zrdr *reader, const char *name)
+{
+	return zrdr_findtag_startidx(reader, name, 1);
+}
+
+/* @socom-skeleton body _zrdr_nexttag__FPC5_zrdrPCciP5_zrdr */
+_zrdr * _zrdr_nexttag(const _zrdr *reader, const char *name, int size, _zrdr *other)
+{
+	_zrdr* node = reader->array;
+
+	if (node->integer <= 1)
+		return NULL;
+
+	if (node == other)
+		other = NULL;
+
+	if (node->type == ZRDR_ARRAY)
+		return _zrdr_nexttag(node, name, size, other);
+
+	if (node->type == ZRDR_STRING && !other)
+	{
+		if (strncmp(node->string, name, size) == 0)
+			return &node[1];
+	}
+
+	return NULL;
+}
+
+/* @socom-skeleton stub zrdr_nexttag__FPC5_zrdrPCcP5_zrdr */
+_zrdr * zrdr_nexttag(const _zrdr *, const char *, _zrdr *)
+{
+}
+
+/* @socom-skeleton body zrdr_findstring__FPC5_zrdrPCc */
+char * zrdr_findstring(const _zrdr *reader, const char *name)
+{
+	auto tag = zrdr_findtag_startidx(reader, name, 1);
+
+	if (!tag)
+		return NULL;
+
+	if (tag->type == ZRDR_STRING)
+		return tag->string;
+
+	if (tag->type == ZRDR_ARRAY && tag->array[1].type == ZRDR_STRING)
+		return tag->array[1].string;
+
+	return NULL;
+}
+
+/* @socom-skeleton body zrdr_findreal__FPC5_zrdrPCcPfi */
+bool zrdr_findreal(const _zrdr *reader, const char *name, float *output, int count)
+{
+	/* port: body from 0x23d9d0 - element i + 1 of the tag array goes to output[i]; other types leave it */
+	_zrdr* tag = zrdr_findtag_startidx(reader, name, 1);
+
+	if (!tag || tag->type != ZRDR_ARRAY)
+		return false;
+
+	if (tag->array->integer < count + 1)
+		return false;
+
+	for (s32 i = 0; i < count; i++)
+	{
+		_zrdr* node = &tag->array[i + 1];
+
+		if (node->type == ZRDR_REAL)
+			output[i] = node->real;
+		else if (node->type == ZRDR_INTEGER)
+			output[i] = static_cast<f32>(node->integer);
+	}
+
+	return true;
+}
+
+/* @socom-skeleton body zrdr_findint__FPC5_zrdrPCcPii */
+bool zrdr_findint(const _zrdr *reader, const char *name, int *output, int count)
+{
+	/* port: body from 0x23d8c0 - element i + 1 of the tag array goes to output[i]; other types leave it */
+	_zrdr* tag = zrdr_findtag_startidx(reader, name, 1);
+
+	if (!tag || tag->type != ZRDR_ARRAY)
+		return false;
+
+	if (tag->array->integer < count + 1)
+		return false;
+
+	for (s32 i = 0; i < count; i++)
+	{
+		_zrdr* node = &tag->array[i + 1];
+
+		if (node->type == ZRDR_REAL)
+			output[i] = static_cast<s32>(node->real);
+		else if (node->type == ZRDR_INTEGER)
+			output[i] = node->integer;
+	}
+
+	return true;
+}
+
+/* @socom-skeleton stub zrdr_findRfloat__FPC5_zrdrPCcP6Rfloat */
+void zrdr_findRfloat(const _zrdr *, const char *, Rfloat *)
+{
+}
+
+/* @socom-skeleton body zrdr_finduint__FPC5_zrdrPCcPUii */
+bool zrdr_finduint(const _zrdr *reader, const char *name, unsigned int *output, int startidx)
+{
+	_zrdr* tag = zrdr_findtag_startidx(reader, name, 1); /* port: 0x23d6b8 passes 1 */
+	return zrdr_toINT(tag, reinterpret_cast<s32*>(output), startidx);
+}

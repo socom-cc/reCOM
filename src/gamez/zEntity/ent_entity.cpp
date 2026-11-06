@@ -12,3 +12,59 @@
  * @socom-artifact defines main socom:function:0x1f1ff0
  * @socom-artifact defines main socom:function:0x1f2000
  * socom-owner-annotations end socom:work:source-segment-022 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "zentity.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton body SetController__7CEntityFP11CEntityCtrl */
+void CEntity::SetController(CEntityCtrl* controller)
+{
+	if (m_control)
+	{
+		m_control->m_entity = NULL;
+	}
+
+	m_control = controller;
+
+	if (m_control)
+	{
+		m_control->m_entity = this;
+	}
+}
+
+/* @socom-skeleton stub PreTick__7CEntityFf */
+void CEntity::PreTick(float)
+{
+}
+
+/* @socom-skeleton stub Tick__7CEntityFf */
+void CEntity::Tick(float)
+{
+}
+
+/* @socom-skeleton stub PostPreTick__7CEntityFf */
+void CEntity::PostPreTick(float)
+{
+}
+
+/* @socom-skeleton stub PrePostTick__7CEntityFf */
+void CEntity::PrePostTick(float)
+{
+}
+
+/* @socom-skeleton stub PostTick__7CEntityFf */
+void CEntity::PostTick(float)
+{
+}
+
+/* @socom-skeleton stub ComputeNextPosition__7CEntityFf */
+void CEntity::ComputeNextPosition(float)
+{
+}
+
+/* @socom-skeleton stub UpdateNextPosition__7CEntityFv */
+void CEntity::UpdateNextPosition()
+{
+}

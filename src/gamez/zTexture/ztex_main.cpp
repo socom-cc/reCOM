@@ -37,6 +37,16 @@ union _word128;
 /* @socom-skeleton stub UNNAMED_TEX */
 static const char *UNNAMED_TEX = "NA";
 
+/* @socom-skeleton body Init__Q23zdb8CTextureFv */
+namespace zdb {
+void CTexture::Init()
+	{
+		m_baseAddress = zVid.textureBaseAddr;
+		m_endAddress = zVid.textureEndAddr;
+		m_startAddress = zVid.textureBaseAddr + 0x200;
+	}
+}
+
 /* @socom-skeleton body __ct__Q23zdb8CTextureFPCc */
 namespace zdb {
 CTexture::CTexture(const char* name)

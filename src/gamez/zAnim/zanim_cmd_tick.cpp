@@ -87,6 +87,12 @@ std::__nInit std::__msl_ios_base_ninit;
 std::__wInit std::__msl_ios_base_winit;
 #endif
 
+/* @socom-skeleton body zAnimQuadAlignTick__FP14_zanim_cmd_hdrPf */
+bool zAnimQuadAlignTick(_zanim_cmd_hdr* header, f32* dT)
+{
+    return true;
+}
+
 /* @socom-skeleton stub zAnimDestructorTick__FP14_zanim_cmd_hdrPf */
 bool zAnimDestructorTick(_zanim_cmd_hdr *, float *)
 {
@@ -344,4 +350,172 @@ _zanim_cmd_hdr* CZAnimExpression::NewCmd(const char* operation)
     }
 
     return NULL;
+}
+
+/* @socom-skeleton body zAnimIfTick__FP14_zanim_cmd_hdrPf */
+bool zAnimIfTick(_zanim_cmd_hdr* header, f32* dT)
+{
+    ZAnim.m_CurSeq->m_IF_NestLevel++;
+
+    while (!CZAnimExpression::ProcExpr(dT))
+    {
+        _zanim_cmd_hdr* header = NULL;
+        bool evaluated = false;
+
+        while (!evaluated)
+        {
+            if (!ZAnim.CmdValid())
+            {
+                evaluated = true;
+                break;
+            }
+
+            if (ZAnim.m_CurSeq)
+                header = reinterpret_cast<_zanim_cmd_hdr*>(ZAnim.m_CurSeq->cmd_pc);
+
+            if (header->data_type != ZAnim.m_cmd_else.data_type)
+                if (header->data_type != ZAnim.m_cmd_elseif.data_type)
+                    if (header->data_type != ZAnim.m_cmd_endif.data_type)
+                        continue;
+
+            if (header->data_size == ZAnim.m_CurSeq->m_IF_NestLevel)
+            {
+                evaluated = true;
+                if (header->data_type == ZAnim.m_cmd_endif.data_type)
+                    ZAnim.m_CurSeq->m_IF_NestLevel--;
+            }
+        }
+
+        if (!ZAnim.m_CurSeq)
+            header = NULL;
+        else
+            header = reinterpret_cast<_zanim_cmd_hdr*>(ZAnim.m_CurSeq->cmd_pc);
+
+        if (header->data_type != ZAnim.m_cmd_elseif.data_type)
+            evaluated = true;
+    }
+
+    return true;
+}
+
+/* @socom-skeleton body zAnimGoToEndIf__FP14_zanim_cmd_hdrPf */
+bool zAnimGoToEndIf(_zanim_cmd_hdr* header, f32* dT)
+{
+    return true;
+}
+
+/* @socom-skeleton body zAnimEndIfTick__FP14_zanim_cmd_hdrPf */
+bool zAnimEndIfTick(_zanim_cmd_hdr* header, f32* dT)
+{
+    ZAnim.m_CurSeq->m_IF_NestLevel--;
+    return true;
+}
+
+/* @socom-skeleton body zAnimWhileTick__FP14_zanim_cmd_hdrPf */
+bool zAnimWhileTick(_zanim_cmd_hdr* header, f32* dT)
+{
+    // what does this even mean
+    if (header[1].data_type == 0)
+    {
+        ZAnim.CmdNext(8);
+        if (CZAnimExpression::ProcExpr(dT))
+            ZAnim.CmdSet(header[1].data_size);
+    }
+
+    return true;
+}
+
+/* @socom-skeleton stub zAnimEndWhileTick__FP14_zanim_cmd_hdrPf */
+bool zAnimEndWhileTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimBreakTick__FP14_zanim_cmd_hdrPf */
+bool zAnimBreakTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimNodeActiveTick__FP14_zanim_cmd_hdrPf */
+bool zAnimNodeActiveTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimNodeRenderedTick__FP14_zanim_cmd_hdrPf */
+bool zAnimNodeRenderedTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimRangeTestTick__FP14_zanim_cmd_hdrPf */
+bool zAnimRangeTestTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimHealthTestTick__FP14_zanim_cmd_hdrPf */
+bool zAnimHealthTestTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimLODTestTick__FP14_zanim_cmd_hdrPf */
+bool zAnimLODTestTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimRandomWeightTick__FP14_zanim_cmd_hdrPf */
+bool zAnimRandomWeightTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimFailTick__FP14_zanim_cmd_hdrPf */
+bool zAnimFailTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimCallAnimBegin__FP14_zanim_cmd_hdr */
+void zAnimCallAnimBegin(_zanim_cmd_hdr *)
+{
+}
+
+/* @socom-skeleton stub zAnimCallAnimTick__FP14_zanim_cmd_hdrPf */
+bool zAnimCallAnimTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimStopAnimTick__FP14_zanim_cmd_hdrPf */
+bool zAnimStopAnimTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimPauseAnimTick__FP14_zanim_cmd_hdrPf */
+bool zAnimPauseAnimTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimResumeAnimTick__FP14_zanim_cmd_hdrPf */
+bool zAnimResumeAnimTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimInvalidateAnimTick__FP14_zanim_cmd_hdrPf */
+bool zAnimInvalidateAnimTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimCallSequenceTick__FP14_zanim_cmd_hdrPf */
+bool zAnimCallSequenceTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimStopSequenceTick__FP14_zanim_cmd_hdrPf */
+bool zAnimStopSequenceTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimFireWeaponTick__FP14_zanim_cmd_hdrPf */
+bool zAnimFireWeaponTick(_zanim_cmd_hdr *, float *)
+{
+}
+
+/* @socom-skeleton stub zAnimDebugTick__FP14_zanim_cmd_hdrPf */
+bool zAnimDebugTick(_zanim_cmd_hdr *, float *)
+{
 }

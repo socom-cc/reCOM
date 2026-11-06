@@ -3,3 +3,17 @@
  * @socom-artifact defines main socom:function:0x22b260
  * @socom-artifact defines main socom:function:0x22b2d0
  * socom-owner-annotations end socom:work:source-segment-027 */
+
+/* @socom-skeleton decl include */
+#include "node_assetlib.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub __ct__Q23zdb20CProjectedMap_ObjectFv */
+zdb::CProjectedMap_Object::CProjectedMap_Object()
+{
+}
+
+/* @socom-skeleton stub __dt__Q23zdb20CProjectedMap_ObjectFv */
+zdb::CProjectedMap_Object::~CProjectedMap_Object()
+{
+}

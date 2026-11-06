@@ -4,3 +4,23 @@
  * @socom-artifact defines main socom:function:0x20f990
  * @socom-artifact defines main socom:function:0x20fa30
  * socom-owner-annotations end socom:work:source-segment-025 */
+
+/* @socom-skeleton decl include */
+#include "graph_edge.h"
+#include "graph_node.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub __ct__6CGEdgeFP6CGNodeP6CGNodef */
+CGEdge::CGEdge(CGNode *, CGNode *, float)
+{
+}
+
+/* @socom-skeleton stub Delete__6CGEdgeFP6CGEdge */
+void CGEdge::Delete(CGEdge *)
+{
+}
+
+/* @socom-skeleton stub __dt__6CGEdgeFv */
+CGEdge::~CGEdge()
+{
+}

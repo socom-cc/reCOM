@@ -133,6 +133,8 @@ public:
 	bool m_TickGoal;
 };
 /* @socom-skeleton end 5CWind */
+/* port: forward declaration for the region below (zdb::CLightMap is in node_light.h) */
+namespace zdb { class CLightMap; }
 /* @socom-skeleton decl Q23zdb15CLightMapVector */
 namespace zdb {
 class CLightMapVector : public std::vector<unsigned int> /* port: element type from MSL pointer storage in DWARF; real element unproven */
@@ -144,11 +146,13 @@ public:
 /* @socom-skeleton end Q23zdb15CLightMapVector */
 /* @socom-skeleton decl Q23zdb20CProjectedMap_Object */
 namespace zdb {
-class CProjectedMap_Object : public std::vector
+/* DWARF zdb::CProjectedMap_Object: 16 bytes, base std::vector (MSL __vector_pod<unsigned int>) */
+class CProjectedMap_Object : public std::vector<unsigned int> /* port: element type from MSL pointer storage in DWARF; real element unproven */
 {
 public:
 	CProjectedMap_Object();
 	~CProjectedMap_Object();
+	s32 m_bandMax;
 };
 }
 /* @socom-skeleton end Q23zdb20CProjectedMap_Object */

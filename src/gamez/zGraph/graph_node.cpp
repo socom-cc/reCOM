@@ -7,11 +7,9 @@
  * socom-owner-annotations end socom:work:source-segment-025 */
 
 /* @socom-skeleton decl include */
+#include "graph_edge.h"
 #include "graph_node.h"
 /* @socom-skeleton end include */
-/* @socom-skeleton decl forward */
-class CGEdge;
-/* @socom-skeleton end forward */
 
 /* @socom-skeleton stub __ct__6CGNodeFPCc */
 CGNode::CGNode(const char *)

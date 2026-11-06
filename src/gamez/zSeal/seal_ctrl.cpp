@@ -12,3 +12,87 @@
  * @socom-artifact defines main socom:function:0x284180
  * @socom-artifact defines main socom:function:0x284260
  * socom-owner-annotations end socom:work:source-segment-032 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "zseal.h"
+/* @socom-skeleton end include */
+#include "gamez/zInput/zinput.h" /* port: CInput/CPad for StopRumbler (moved from zseal_holding.cpp) */
+
+/* @socom-skeleton body StopRumbler__9CSealCtrlFv */
+void CSealCtrl::StopRumbler()
+{
+    CPad* pad;
+    
+    if (m_padid < 2)
+    {
+        pad = CInput::m_pads[m_padid];
+    }
+    else
+    {
+        pad = NULL;
+    }
+
+    if (pad)
+    {
+        pad->m_ActData = 0;
+        pad->m_IsAnalog = false;
+    }
+
+    m_highrumbletime = 0.0f;
+    m_rumbletime = 0.0f;
+    m_rumblestr = 0.0f;
+
+    CInput::Flush();
+    CZSealBody::StopAllHeartbeatSounds();
+}
+
+/* @socom-skeleton stub TickRumbler__9CSealCtrlFf */
+void CSealCtrl::TickRumbler(float)
+{
+}
+
+/* @socom-skeleton stub GetThrottleFromSpeed__9CSealCtrlFfi */
+float CSealCtrl::GetThrottleFromSpeed(float, int)
+{
+}
+
+/* @socom-skeleton stub GetSpeedFromThrottle__9CSealCtrlFfi */
+float CSealCtrl::GetSpeedFromThrottle(float, int)
+{
+}
+
+/* @socom-skeleton stub PostMortemPreTick__9CSealCtrlFf */
+void CSealCtrl::PostMortemPreTick(float)
+{
+}
+
+/* @socom-skeleton stub UpdateAiVisMap__9CSealCtrlFv */
+void CSealCtrl::UpdateAiVisMap()
+{
+}
+
+/* @socom-skeleton stub SetViewRange__9CSealCtrlFf */
+void CSealCtrl::SetViewRange(float)
+{
+}
+
+/* @socom-skeleton stub PerturbAimVector__9CSealCtrlFP6CPnt3D */
+void CSealCtrl::PerturbAimVector(CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub TickMPBomb__9CSealCtrlFf */
+void CSealCtrl::TickMPBomb(float)
+{
+}
+
+/* @socom-skeleton stub InitMPBomb__9CSealCtrlFv */
+void CSealCtrl::InitMPBomb()
+{
+}
+
+/* @socom-skeleton stub MPBomb_TimerAvailable__9CSealCtrlFb */
+void CSealCtrl::MPBomb_TimerAvailable(bool)
+{
+}

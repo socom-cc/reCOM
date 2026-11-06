@@ -151,10 +151,12 @@
 /* @socom-skeleton decl include */
 #include "gamez/zAnim/zanim.h"
 #include "gamez/zBody/zbody.h"
+#include "gamez/zCharacter/zchar.h"
 #include "gamez/zMath/zmath.h"
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class ACTIVE_ANIM;
+class CAiDecay;
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub stand_throw */
@@ -216,6 +218,26 @@ static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub newanims */
 static unsigned char newanims[20];
+
+/* @socom-skeleton stub SetPartAsGear__10CZSealBodyFP10CZBodyPartP14CCharacterGear */
+void CZSealBody::SetPartAsGear(CZBodyPart *, CCharacterGear *)
+{
+}
+
+/* @socom-skeleton stub ConfigureAuxPartAnim__10CZSealBodyFP10CZBodyAnim */
+void CZSealBody::ConfigureAuxPartAnim(CZBodyAnim *)
+{
+}
+
+/* @socom-skeleton stub __dt__9CObjAnimsFv */
+CObjAnims::~CObjAnims()
+{
+}
+
+/* @socom-skeleton stub GetObjAnim__9CObjAnimsFi */
+void CObjAnims::GetObjAnim(int)
+{
+}
 
 /* @socom-skeleton stub GetSpeedState__10CZSealBodyFv */
 void CZSealBody::GetSpeedState()
@@ -656,5 +678,20 @@ CZBodyAnimBlend * CZSealBody::RestrainBuddy(CZSealBody *)
 
 /* @socom-skeleton stub Action__10CZSealBodyF8AnimTypebiii */
 void CZSealBody::Action(AnimType, bool, int, int, int)
+{
+}
+
+/* @socom-skeleton stub Adrenaline__10CZSealBodyFv */
+CAiDecay * CZSealBody::Adrenaline()
+{
+}
+
+/* @socom-skeleton stub AdrenalineIncr__10CZSealBodyFf */
+void CZSealBody::AdrenalineIncr(float)
+{
+}
+
+/* @socom-skeleton stub FindValidReticleGotoLoc__10CZSealBodyFPi */
+void CZSealBody::FindValidReticleGotoLoc(int *)
 {
 }

@@ -39,11 +39,9 @@
 /* @socom-skeleton decl include */
 #include "graph_graph.h"
 #include "graph_node.h"
+#include "graph_route.h"
 #include "graph_tree.h"
 /* @socom-skeleton end include */
-/* @socom-skeleton decl forward */
-class CGRoute;
-/* @socom-skeleton end forward */
 
 /* @socom-skeleton stub m_treeEdge__6CGraph */
 int CGraph::m_treeEdge;

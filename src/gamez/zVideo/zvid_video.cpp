@@ -3,3 +3,15 @@
  * @socom-artifact defines main socom:function:0x307790
  * @socom-artifact defines main socom:function:0x307870
  * socom-owner-annotations end socom:work:source-segment-042 */
+
+/* @socom-skeleton decl include */
+#include "zvid.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton body Clear__6CVideoFUcUcUcUc */
+void CVideo::Clear(unsigned char r, unsigned char g, unsigned char b, unsigned char a) { }
+
+/* @socom-skeleton stub Brightness__6CVideoFf */
+void CVideo::Brightness(float)
+{
+}

@@ -57,3 +57,13 @@ unsigned char CMissionObjectiveCam::IsDisplayOn() const
 void CMissionObjectiveCam::IsInvalid() const
 {
 }
+
+/* @socom-skeleton stub ClearValves__24CMissionObjectiveCamListFv */
+void CMissionObjectiveCamList::ClearValves()
+{
+}
+
+/* @socom-skeleton stub Reset__24CMissionObjectiveCamListFv */
+void CMissionObjectiveCamList::Reset()
+{
+}

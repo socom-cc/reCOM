@@ -357,8 +357,10 @@
 #include "gamez/zValve/zvalve.h"
 #include "gamez/zUI/zui.h"
 
+/* @socom-skeleton decl include */
+#include "gamez/zTwoD/ztwod.h"
+/* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
-class C2D;
 class MediusAccountGetIDResponse;
 class MediusAccountLoginResponse;
 class MediusAccountRegistrationResponse;
@@ -735,7 +737,7 @@ unsigned char rsaKeyPair[128];
 /* @socom-skeleton stub net_init_thread_stack */
 unsigned char net_init_thread_stack[102404];
 
-/* @socom-skeleton stub IsAClone__12BriefingRoomFv */
+/* port: stub IsAClone__12BriefingRoomFv (no owner in the render) */
 void BriefingRoom::IsAClone() /* port: 0x32fea0 returns false */
 {
 }
@@ -810,13 +812,13 @@ void cbChannelInfo(int, int, int, MediusChannelInfoResponse *)
 {
 }
 
-/* @socom-skeleton stub CloneIndex__12BriefingRoomFv */
-void BriefingRoom::CloneIndex() /* port: 0x32e800 returns 0 */
+/* port: stub BaseSrc__12BriefingRoomFv (no owner in the render) */
+void BriefingRoom::BaseSrc() /* port: 0x32e4b0 returns this; void is the skeleton placeholder */
 {
 }
 
-/* @socom-skeleton stub BaseSrc__12BriefingRoomFv */
-void BriefingRoom::BaseSrc() /* port: 0x32e4b0 returns this; void is the skeleton placeholder */
+/* port: stub CloneIndex__12BriefingRoomFv (no owner in the render) */
+void BriefingRoom::CloneIndex() /* port: 0x32e800 returns 0 */
 {
 }
 

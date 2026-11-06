@@ -3,3 +3,17 @@
  * @socom-artifact defines main socom:function:0x241530
  * @socom-artifact defines main socom:function:0x2416d0
  * socom-owner-annotations end socom:work:source-segment-029 */
+
+/* @socom-skeleton decl include */
+#include "zrdr.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub zrdr_relocate__FP5_zrdrP5_zrdr */
+_zrdr * zrdr_relocate(_zrdr *, _zrdr *)
+{
+}
+
+/* @socom-skeleton stub zrdr_pack__FP5_zrdrPvUi */
+void zrdr_pack(_zrdr *, void *, unsigned int)
+{
+}

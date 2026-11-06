@@ -73,6 +73,7 @@
 
 /* @socom-skeleton decl include */
 #include "gamez/zMath/zmath.h"
+#include "gamez/zUtil/util_systemio.h"
 #include "zai.h"
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
@@ -85,6 +86,11 @@ const unsigned short CAiMap::action::invalid[2] = {65535, 0};
 
 /* @socom-skeleton stub _dummy_cell */
 static unsigned char _dummy_cell[8];
+
+/* @socom-skeleton stub read_scanlines__6CAiMapFR7CFileIO */
+void CAiMap::read_scanlines(CFileIO &)
+{
+}
 
 /* @socom-skeleton stub dummy_cell__6CAiMapFv */
 CAiCell * CAiMap::dummy_cell()

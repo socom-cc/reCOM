@@ -128,10 +128,13 @@ char* __strdup(const char* str, const char* file, int line)
 
 /* @socom-skeleton body __free__FPvPCci */
 /* held from src/gamez/zSystem/zsys_memory.cpp:142 */
-void _free(void* block, const char* file, int line) /* port: _free__FPvPCci (no owning unit) */
+/* port: duplicate of the gamez/zSystem/zsys_memory.cpp stub _free__FPvPCci (this body is its candidate) */
+#if 0
+void _free(void* block, const char* file, int line)
 {
 	free(block);
 }
+#endif
 
 /* @socom-skeleton body zsysSprGetPacket__FP8_word128 */
 /* held from src/gamez/zSystem/zsys_spr.cpp:6 */

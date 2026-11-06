@@ -86,7 +86,7 @@ void CPacketMsg::GetArg(unsigned int) const
 {
 }
 
-/* @socom-skeleton stub GetPacketMsg__10CPacketMsgFv */
+/* port: stub GetPacketMsg__10CPacketMsgFv (no owner in the render) */
 void CPacketMsg::GetPacketMsg() /* port: 0x1ed4f0 returns this; void is the skeleton placeholder */
 {
 }

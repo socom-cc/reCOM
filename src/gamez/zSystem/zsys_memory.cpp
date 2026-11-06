@@ -29,6 +29,46 @@
 /* @socom-skeleton stub __HeapSizePS2 */
 int __HeapSizePS2;
 
+/* @socom-skeleton body zsys_FullAllocAndFree__Fv */
+size_t zsys_FullAllocAndFree()
+{
+	void* ptr = NULL;
+	size_t size = 0;
+
+	size = 4096;
+
+	do
+	{
+		ptr = malloc(size);
+
+		if (ptr == NULL)
+		{
+			break;
+		}
+
+		free(ptr);
+
+		size += 4096;
+
+	} while (size < 0x2000001);
+
+	__HeapSize = size - 16;
+
+	return __HeapSize;
+}
+
+/* @socom-skeleton stub _free__FPvPCci */
+void _free(void *block, const char *, int)
+{
+	/* port: body carried from zsystem_holding.cpp (held from zsys_memory.cpp:142) */
+	free(block);
+}
+
+/* @socom-skeleton stub _delete__FPvPCci */
+void _delete(void *, const char *, int)
+{
+}
+
 /* @socom-skeleton stub _new__FUiPCci */
 void * _new(unsigned int size, const char *, int)
 {

@@ -193,7 +193,7 @@ public:
 
 	void TickFade();
 
-	void MakePacket(zdb::CCamera* camera, zdb::CTextureRelocMgr* reloc, const CMatrix& transform);
+	/* port: MakePacket(..., const CMatrix&) is not declared: the ELF has only the const CMatrix* overload (the region below) */
 
 	void Reset();
 

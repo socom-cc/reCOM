@@ -12,8 +12,7 @@ namespace zdb
 		enum { MIN_POOL_SIZE = 3000, POOL_INCREMENT = 100 }; /* port: AddNode 0x224684 (0xbb8, 0x64) */
 		bool AddNode(CNode* node);
 		void RemoveNode(CNode* node);
-		CNode* GetElement(s32 index);
-		u32 GetIndex(CNode* node);
+		/* port: GetElement/GetIndex are declared in the region below (GetElement__Q23zdb13CNodeUniverseFi, GetIndex__Q23zdb13CNodeUniverseFPQ23zdb5CNode) */
 	public:
 		bool m_locked;
 		/* @socom-skeleton decl Q23zdb13CNodeUniverse */

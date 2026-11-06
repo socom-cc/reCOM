@@ -6,3 +6,33 @@
  * @socom-artifact defines main socom:function:0x20f870
  * @socom-artifact defines main socom:function:0x20f910
  * socom-owner-annotations end socom:work:source-segment-025 */
+
+/* @socom-skeleton decl include */
+#include "graph_node.h"
+#include "graph_route.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub __ct__7CGRouteFv */
+CGRoute::CGRoute()
+{
+}
+
+/* @socom-skeleton stub __dt__7CGRouteFv */
+CGRoute::~CGRoute()
+{
+}
+
+/* @socom-skeleton stub Append__7CGRouteFP6CGNode */
+void CGRoute::Append(CGNode *)
+{
+}
+
+/* @socom-skeleton stub Clear__7CGRouteFv */
+void CGRoute::Clear()
+{
+}
+
+/* @socom-skeleton stub PostProcess__7CGRouteFv */
+void CGRoute::PostProcess()
+{
+}

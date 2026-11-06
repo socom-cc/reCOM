@@ -195,7 +195,7 @@ void C2DTriFan::Draw(zdb::CCamera *)
 {
 }
 
-/* @socom-skeleton stub GetAssetLibs__9C2DTriFanFRQ23C2D8CLibList */
+/* port: stub GetAssetLibs__9C2DTriFanFRQ23C2D8CLibList (no owner in the render) */
 void C2DTriFan::GetAssetLibs(C2D::CLibList &) /* port: stub */
 {
 }

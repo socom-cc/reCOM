@@ -335,7 +335,7 @@ public:
 };
 /* @socom-skeleton end 20CMissionObjectiveCam */
 /* @socom-skeleton decl 24CMissionObjectiveCamList */
-class CMissionObjectiveCamList : public std::list
+class CMissionObjectiveCamList : public std::list<void const*> /* port: element type unproven; GCC needs an argument (stub bodies only) */
 {
 public:
 	void ClearValves();

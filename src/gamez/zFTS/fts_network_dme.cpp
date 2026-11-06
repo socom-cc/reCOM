@@ -6,3 +6,28 @@
  * @socom-artifact defines main socom:function:0x201920
  * @socom-artifact defines main socom:function:0x201fd0
  * socom-owner-annotations end socom:work:source-segment-024 */
+
+/* @socom-skeleton stub DMEinit__Fv */
+void DMEinit()
+{
+}
+
+/* @socom-skeleton stub DMERegister__Fv */
+void DMERegister()
+{
+}
+
+/* @socom-skeleton stub DMEConnectToGameServer__Fv */
+void DMEConnectToGameServer()
+{
+}
+
+/* @socom-skeleton stub DMEJoinGameServer__Fv */
+void DMEJoinGameServer()
+{
+}
+
+/* @socom-skeleton stub DMEDisconnectFromGameServer__Fv */
+void DMEDisconnectFromGameServer()
+{
+}

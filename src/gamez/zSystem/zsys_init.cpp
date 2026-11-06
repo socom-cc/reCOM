@@ -68,7 +68,7 @@ static unsigned char usbdargs[43] = {104, 117, 98, 61, 49, 0, 100, 101, 118, 61,
 /* @socom-skeleton stub sndargs */
 static unsigned char sndargs[20] = {115, 116, 114, 101, 97, 109, 95, 112, 114, 105, 111, 114, 105, 116, 121, 61, 49, 56, 0, 0};
 
-/* @socom-skeleton stub IrxFiles */
+/* port: stub IrxFiles (no owner in the render) */
 /* port: no DWARF type; 9 x 16 bytes {module id, path, arg length, args} read by RebootIOP
  * (0x2f50c0); paths and arguments from the initialised data at 0x43a750 */
 struct IrxFile
@@ -237,7 +237,7 @@ void CIOPManager::RebootIOP(CIOPManager::RebootMode mode)
 	postinited = false;
 }
 
-/* @socom-skeleton stub delflag__11CIOPManagerFRQ211CIOPManager11CRegistrant */
+/* port: stub delflag__11CIOPManagerFRQ211CIOPManager11CRegistrant (no owner in the render) */
 bool CIOPManager::delflag(CIOPManager::CRegistrant& reg)
 {
 	/* 0x2f5240 */

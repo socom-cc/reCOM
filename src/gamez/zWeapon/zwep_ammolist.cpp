@@ -8,3 +8,42 @@
  * @socom-artifact defines main socom:function:0x3152a0
  * @socom-artifact defines main socom:function:0x3153f0
  * socom-owner-annotations end socom:work:source-segment-043 */
+
+/* @socom-skeleton decl include */
+#include "zweapon.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub __ct__10CZAmmoListFv */
+CZAmmoList::CZAmmoList()
+{
+}
+
+/* @socom-skeleton stub __dt__10CZAmmoListFv */
+CZAmmoList::~CZAmmoList()
+{
+}
+
+/* @socom-skeleton stub AddAmmo__10CZAmmoListFP6CZAmmo */
+void CZAmmoList::AddAmmo(CZAmmo *)
+{
+}
+
+/* @socom-skeleton stub GetAmmo__10CZAmmoListFPCc */
+CZAmmo * CZAmmoList::GetAmmo(const char *)
+{
+}
+
+/* @socom-skeleton stub GetAmmo__10CZAmmoListFi */
+CZAmmo * CZAmmoList::GetAmmo(int)
+{
+}
+
+/* @socom-skeleton stub GetAmmo__10CZAmmoListF10EQUIP_AMMO */
+CZAmmo * CZAmmoList::GetAmmo(EQUIP_AMMO)
+{
+}
+
+/* @socom-skeleton stub GetAmmoId__10CZAmmoListFPCc */
+EQUIP_AMMO CZAmmoList::GetAmmoId(const char *)
+{
+}

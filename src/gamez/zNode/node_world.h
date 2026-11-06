@@ -9,6 +9,7 @@
 #include "node_wind.h"
 #include "node_vector.h"
 #include "gamez/zVisual/vis_local.h" /* zdb::CLOD_Object ... held by value in CWorld */
+#include "node_assetlib.h" /* port: zdb::CProjectedMap_Object, held by value in CWorld */
 
 namespace zdb
 {

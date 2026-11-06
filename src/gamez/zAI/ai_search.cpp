@@ -5,3 +5,31 @@
  * @socom-artifact defines main socom:function:0x1a9d50
  * @socom-artifact defines main socom:function:0x1a9e40
  * socom-owner-annotations end socom:work:source-segment-016 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "zai.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class MAP_FLOODFILL_STRUCT;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub _find_cover__FR20MAP_FLOODFILL_STRUCTPv */
+void _find_cover(MAP_FLOODFILL_STRUCT &, void *)
+{
+}
+
+/* @socom-skeleton stub _find_look__FR20MAP_FLOODFILL_STRUCTPv */
+void _find_look(MAP_FLOODFILL_STRUCT &, void *)
+{
+}
+
+/* @socom-skeleton stub FindCoverLoc__6CAiMapFRC9CAiMapLocPC6CPnt3DR9CAiMapLocRQ26CAiMap3DIRi */
+void CAiMap::FindCoverLoc(const CAiMapLoc &, const CPnt3D *, CAiMapLoc &, CAiMap::DIR &, int)
+{
+}
+
+/* @socom-skeleton stub FindLookLoc__6CAiMapFRC9CAiMapLocPC6CPnt3DR9CAiMapLocRQ26CAiMap3DIRi */
+void CAiMap::FindLookLoc(const CAiMapLoc &, const CPnt3D *, CAiMapLoc &, CAiMap::DIR &, int)
+{
+}

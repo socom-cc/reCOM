@@ -4,3 +4,18 @@
  * @socom-artifact defines main socom:function:0x307980
  * @socom-artifact defines main socom:function:0x3079e0
  * socom-owner-annotations end socom:work:source-segment-042 */
+
+/* @socom-skeleton stub zVid_ZTestOff__Fv */
+void zVid_ZTestOff()
+{
+}
+
+/* @socom-skeleton stub zVid_ZTestOn__Fv */
+void zVid_ZTestOn()
+{
+}
+
+/* @socom-skeleton stub zVid_ZTestOnWriteSet__Fb */
+void zVid_ZTestOnWriteSet(bool)
+{
+}

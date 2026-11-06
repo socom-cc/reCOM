@@ -12,3 +12,231 @@
  * @socom-artifact defines main socom:function:0x224650
  * @socom-artifact defines main socom:function:0x224700
  * socom-owner-annotations end socom:work:source-segment-026 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zIntersect/zintersect.h"
+#include "gamez/zVisual/vis_vector.h"
+#include "gamez/zVisual/zvis.h"
+#include "node_assetlib.h"
+#include "node_light.h"
+#include "node_model.h"
+#include "node_universe.h"
+#include "znode.h"
+/* @socom-skeleton end include */
+#include <algorithm> /* port: std::remove_copy (bodies moved from znode_holding.cpp) */
+
+/* @socom-skeleton stub Exists__Q23zdb15CLightMapVectorFPCQ23zdb9CLightMap */
+void zdb::CLightMapVector::Exists(const zdb::CLightMap *)
+{
+}
+
+/* @socom-skeleton body AddNode__Q23zdb13CNodeUniverseFPQ23zdb5CNode */
+namespace zdb {
+bool CNodeUniverse::AddNode(CNode* node)
+	{
+		if (m_locked)
+			return false;
+
+		CNode* universeNode = node;
+		u32 universeSize = size();
+
+		if (universeSize == capacity())
+		{
+			if (capacity() < MIN_POOL_SIZE)
+				reserve(MIN_POOL_SIZE);
+			else
+				reserve(capacity() + POOL_INCREMENT);
+		}
+
+		insert(end(), universeNode); /* port: 0x2246d0 inserts at data + size */
+
+		return true;
+	}
+}
+
+/* @socom-skeleton body RemoveNode__Q23zdb13CNodeUniverseFPQ23zdb5CNode */
+namespace zdb {
+void CNodeUniverse::RemoveNode(CNode* node)
+	{
+		for (auto i = begin(); i != end(); ++i)
+		{
+			if (*i == node)
+			{
+				*i = NULL;
+				break;
+			}
+		}
+	}
+}
+
+/* @socom-skeleton body GetIndex__Q23zdb13CNodeUniverseFPQ23zdb5CNode */
+int zdb::CNodeUniverse::GetIndex(zdb::CNode *node)
+	{
+		/* port: 0x2245c0 returns the 0-based position, or -1 when absent */
+		u32 index = 0;
+		for (auto i = begin(); i != end(); ++i, index++)
+		{
+			if (*i == node)
+				return index;
+		}
+
+		return (u32)-1;
+	}
+
+/* @socom-skeleton body GetElement__Q23zdb13CNodeUniverseFi */
+zdb::CNode * zdb::CNodeUniverse::GetElement(int index)
+	{
+		CNode* node;
+
+		if (index < 0)
+			return NULL;
+
+		if (index <= size())
+			return at(index);
+
+		return NULL;
+	}
+
+/* @socom-skeleton body GetModel__Q23zdb12CModelVectorFPCc */
+namespace zdb {
+CModel* CModelVector::GetModel(const char* name)
+	{
+		CModel* model = NULL;
+
+		if (name == NULL)
+		{
+			model = NULL;
+		}
+		else
+		{
+			for (auto it = begin(); it != end(); it++)
+			{
+				if (strcmp(name, (*it)->m_name) == 0)
+				{
+					model = *it;
+					break;
+				}
+			}
+		}
+
+		return model;
+	}
+}
+
+/* @socom-skeleton body Exists__Q23zdb13CVisualVectorFPCQ23zdb7CVisual */
+namespace zdb {
+bool CVisualVector::Exists(const CVisual* visual)
+	{
+		for (auto it = begin(); it != end(); it++)
+		{
+			if (*it == visual)
+				return true;
+		}
+
+		return false;
+	}
+}
+
+/* @socom-skeleton body Exists__Q23zdb9CDIVectorFPCQ23zdb3CDI */
+/* port: the held loop never advanced its iterator - 0x224420 scans [begin, end) and returns found != end */
+bool zdb::CDIVector::Exists(const zdb::CDI *di)
+    {
+        for (auto it = begin(); it != end(); ++it)
+        {
+            if (*it == di)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+/* @socom-skeleton body GetNode__Q23zdb11CNodeVectorFPCc */
+zdb::CNode * zdb::CNodeVector::GetNode(const char *name)
+	{
+		/* port: loop fixed from 0x224350 - advance the iterator; match when strcmp(...) == 0 */
+		CNode* node = NULL;
+
+		if (!name)
+		{
+			return NULL;
+		}
+		else
+		{
+			auto it = begin();
+			auto last = end();
+
+			while (it != last)
+			{
+				CNode* node = *it;
+				bool found = false;
+
+				if (node != NULL && node->m_name != 0)
+				{
+					found = strcmp(name, node->m_name) == 0;
+				}
+
+				if (found)
+				{
+					break;
+				}
+
+				it++;
+			}
+
+			if (it != last)
+			{
+				node = *it;
+			}
+		}
+
+		return node;
+	}
+
+/* @socom-skeleton body Exists__Q23zdb11CNodeVectorFPCQ23zdb5CNode */
+bool zdb::CNodeVector::Exists(const zdb::CNode *node)
+	{
+		auto it = begin();
+		auto last = end();
+
+		while (it != last)
+		{
+			if (*it == node)
+			{
+				break;
+			}
+
+			it++;
+		}
+
+		return it != last;
+	}
+
+/* @socom-skeleton body Remove__Q23zdb11CNodeVectorFPCQ23zdb5CNode */
+namespace zdb {
+bool CNodeVector::Remove(const CNode* node)
+	{
+		auto it = begin();
+		auto last = end();
+
+		for (; it != last; it++)
+		{
+			if (*it == node)
+			{
+				break;
+			}
+		}
+
+		const CNode* found = node;
+
+		if (it != last)
+		{
+			it = std::remove_copy(it + 1, last, it, found);
+		}
+
+		erase(it, last);
+
+		return it != last;
+	}
+}

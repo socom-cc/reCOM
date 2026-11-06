@@ -76,6 +76,7 @@
  * socom-owner-annotations end socom:work:source-segment-023 */
 
 /* @socom-skeleton decl include */
+#include "gamez/zGraph/graph_edge.h"
 #include "gamez/zGraph/graph_graph.h"
 #include "gamez/zGraph/graph_node.h"
 #include "gamez/zMath/zmath.h"
@@ -84,7 +85,6 @@
 /* @socom-skeleton decl forward */
 class CAiCell;
 class CAiMaps;
-class CGEdge;
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub default_mapset__7CAiMaps */

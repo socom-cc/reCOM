@@ -5,3 +5,30 @@
  * @socom-artifact defines main socom:function:0x1f2050
  * @socom-artifact defines main socom:function:0x1f20a0
  * socom-owner-annotations end socom:work:source-segment-022 */
+
+/* @socom-skeleton decl include */
+#include "zentity.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub __ct__11CEntityCtrlFi */
+CEntityCtrl::CEntityCtrl(s32)
+{
+	/* ELF 0x1f20a0: m_entity = 0; memset(m_throttle, 0, 12) */
+	m_entity = NULL;
+	m_throttle[0] = m_throttle[1] = m_throttle[2] = 0.0f;
+}
+
+/* @socom-skeleton stub __dt__11CEntityCtrlFv */
+CEntityCtrl::~CEntityCtrl()
+{
+}
+
+/* @socom-skeleton stub PreTick__11CEntityCtrlFf */
+void CEntityCtrl::PreTick(float)
+{
+}
+
+/* @socom-skeleton stub Tick__11CEntityCtrlFf */
+void CEntityCtrl::Tick(float)
+{
+}

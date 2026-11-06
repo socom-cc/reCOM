@@ -86,12 +86,5 @@ public:
 }
 /* @socom-skeleton end Q23zdb15CSubSurf_Object */
 
-namespace zdb {
-/* DWARF zdb::CProjectedMap_Object: 16 bytes, base std::vector (MSL __vector_pod<unsigned int>) */
-class CProjectedMap_Object : public std::vector<unsigned int> /* port: element type from MSL pointer storage in DWARF; real element unproven */
-{
-public:
-	s32 m_bandMax;
-};
-}
+/* port: zdb::CProjectedMap_Object is defined in gamez/zNode/node_assetlib.h (its skeleton region) */
 #endif

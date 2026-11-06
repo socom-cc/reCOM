@@ -46,11 +46,11 @@
 #include "gamez/zInput/zinput.h"
 #include "gamez/zNetwork/znet.h"
 #include "gamez/zSeal/zseal.h"
+#include "gamez/zTwoD/ztwod.h"
 #include "gamez/zUtil/util_stable.h"
 #include "hud.h" /* C2DBitmap, CHudBrightText: zseal.h no longer includes hud.h */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
-class C2D;
 class CHudBrightText;
 namespace {
 class CScoreBmp;
@@ -177,7 +177,7 @@ namespace {
 ::CTeamDisplay g_oTerrs2Ds;
 }
 
-/* @socom-skeleton stub __dt__Q228@unnamed@hud_scorepopup_cpp@9CScoreBmpFv */
+/* port: stub __dt__Q228@unnamed@hud_scorepopup_cpp@9CScoreBmpFv (no owner in the render) */
 namespace {
 CScoreBmp::~CScoreBmp()
 {
@@ -236,7 +236,7 @@ void CTeamDisplay::SetupTeam(float, float, float, float, const char *, int (CZNe
 }
 }
 
-/* @socom-skeleton stub __dt__Q228@unnamed@hud_scorepopup_cpp@11CScorePopupFv */
+/* port: stub __dt__Q228@unnamed@hud_scorepopup_cpp@11CScorePopupFv (no owner in the render) */
 namespace {
 CScorePopup::~CScorePopup()
 {

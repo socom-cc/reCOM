@@ -3,3 +3,30 @@
  * @socom-artifact defines main socom:function:0x303c10
  * @socom-artifact defines main socom:function:0x303c60
  * socom-owner-annotations end socom:work:source-segment-041 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zCamera/zcam.h"
+#include "gamez/zInput/zinput.h"
+#include "gamez/zMath/zmath.h"
+#include "gamez/zNode/node_assetlib.h"
+#include "gamez/zReader/zrdr.h"
+#include "ztwod.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton body Init__3C2DFv */
+void C2D::Init()
+{
+	m_topx = 1728.0f;
+	m_botx = 2368.0f;
+	m_topy = 1824.0f;
+	m_boty = 2272.0f;
+	m_fXPixel = 1.0f / 1280.0f;
+	m_fYPixel = 1.0f / 960.0f;
+}
+
+/* @socom-skeleton body Open__3C2DFv */
+void C2D::Open()
+{
+	if (m_p2dcamera == NULL)
+		m_p2dcamera = new zdb::CCamera();
+}

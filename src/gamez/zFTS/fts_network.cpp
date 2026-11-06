@@ -7,3 +7,41 @@
  * @socom-artifact defines main socom:function:0x201650
  * @socom-artifact defines main socom:function:0x2016f0
  * socom-owner-annotations end socom:work:source-segment-024 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "gamez/zSeal/zseal.h"
+/* @socom-skeleton end include */
+#include "gamez/zFTS/zfts.h" /* port: theMission for ftsNetworkGameInit (moved from zfts_holding.cpp) */
+#include "gamez/zNetwork/znet.h" /* port: CZNetGame, theNetwork */
+
+/* @socom-skeleton stub findAlign__FP10CZSealBodyP6CPnt3DP7CMatrixi */
+void findAlign(CZSealBody *, CPnt3D *, CMatrix *, int)
+{
+}
+
+/* @socom-skeleton stub ftsNetworkPlayerInit__Fv */
+void ftsNetworkPlayerInit()
+{
+}
+
+/* @socom-skeleton stub ftsNetworkSealInit__Fv */
+void ftsNetworkSealInit()
+{
+}
+
+/* @socom-skeleton body ftsNetworkGameInit__Fv */
+void ftsNetworkGameInit()
+{
+	CZNetGame* netGame = theMission.netGame;
+
+	if (theNetwork.m_bSessionMaster)
+	{
+
+	}
+}
+
+/* @socom-skeleton stub ftsNetworkGameUninit__Fv */
+void ftsNetworkGameUninit()
+{
+}

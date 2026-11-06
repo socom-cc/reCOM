@@ -31,17 +31,13 @@
  * socom-owner-annotations end socom:work:source-segment-076 */
 
 /* @socom-skeleton decl include */
+#include "gamez/zIntersect/zintersect.h"
 #include "gamez/zMath/zmath.h"
 #include "gamez/zNode/node_model.h"
 #include "gamez/zNode/znode.h"
 #include "gamez/zTexture/ztex.h"
 #include "zparticle.h"
 /* @socom-skeleton end include */
-/* @socom-skeleton decl forward */
-namespace zdb {
-class CDIVector;
-}
-/* @socom-skeleton end forward */
 
 #ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */

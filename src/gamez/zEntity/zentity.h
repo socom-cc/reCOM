@@ -224,7 +224,6 @@ public:
 class CEntityCtrl
 {
 public:
-	CEntityCtrl(s32 type); /* ELF __ct__11CEntityCtrlFi: CSealCtrl passes 3 (0x28834c); the body ignores it */
 	/* virtuals in __vt__11CEntityCtrl (0x471b80) order */
 	virtual ~CEntityCtrl();
 
@@ -233,16 +232,14 @@ public:
 	virtual void PostMortemPreTick(f32 delta) {} /* port: ELF 0x1f1fd0 returns 1; void kept (overrides in zSeal/zInput) */
 
 	virtual void OnDeath() {} /* ELF 0x1ee3c0: empty */
-	virtual void GetRemoteControl() {} /* ELF 0x1f1fe0 (non-const) returns 0; void kept (CRemoteCtrl override in zInput) */
-	virtual void SetThrottle(u32 index, f32 throttle) { m_throttle[index] = throttle; } /* ELF 0x1f1ff0: swc1 $f12,8+4*index(a0) */
 
 	CEntity* m_entity;
 	f32 m_throttle[3];
 	/* @socom-skeleton decl 11CEntityCtrl */
 public:
-	virtual void GetRemoteControl();
-	virtual void SetThrottle(unsigned int, float);
-	CEntityCtrl(int);
+	virtual void GetRemoteControl() {} /* ELF 0x1f1fe0 (non-const) returns 0; void kept (CRemoteCtrl override in zInput) */
+	virtual void SetThrottle(unsigned int index, float throttle) { m_throttle[index] = throttle; } /* ELF 0x1f1ff0: swc1 $f12,8+4*index(a0) */
+	CEntityCtrl(int type); /* ELF __ct__11CEntityCtrlFi: CSealCtrl passes 3 (0x28834c); the body ignores it */
 	/* @socom-skeleton end 11CEntityCtrl */
 };
 

@@ -12,3 +12,64 @@
  * @socom-artifact defines main socom:function:0x17ee60
  * @socom-artifact defines main socom:function:0x17eeb0
  * socom-owner-annotations end socom:work:source-segment-014 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zMath/zmath.h"
+#include "gamez/zSeal/zseal.h"
+#include "zai.h"
+/* @socom-skeleton end include */
+
+/* @socom-skeleton stub LeadTargetG__3CAiFPC6CPnt3DPC6CPnt3DfPC6CPnt3DPC6CPnt3DP6CPnt3D */
+void CAi::LeadTargetG(const CPnt3D *, const CPnt3D *, float, const CPnt3D *, const CPnt3D *, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub Extrapolate__3CAiFPC6CPnt3DPC6CPnt3DfP6CPnt3D */
+void CAi::Extrapolate(const CPnt3D *, const CPnt3D *, float, CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub AlignToPoint__3CAiFPC7CMatrixPC6CPnt3DP7CMatrixf */
+void CAi::AlignToPoint(const CMatrix *, const CPnt3D *, CMatrix *, float)
+{
+}
+
+/* @socom-skeleton stub GetToRightXZ__3CAiFPC6CPnt3DP6CPnt3Db */
+float CAi::GetToRightXZ(const CPnt3D *, CPnt3D *, bool)
+{
+}
+
+/* @socom-skeleton stub is_moving__2aiFPC6CPnt3Df */
+void ai::is_moving(const CPnt3D *, float)
+{
+}
+
+/* @socom-skeleton stub MakeNoise__2aiFP6CPnt3DRC5PNT2D */
+CPnt3D * ai::MakeNoise(CPnt3D *, const PNT2D &)
+{
+}
+
+/* @socom-skeleton stub AddNoise__2aiFPC6CPnt3DP6CPnt3DRC5PNT2D */
+CPnt3D * ai::AddNoise(const CPnt3D *, CPnt3D *, const PNT2D &)
+{
+}
+
+/* @socom-skeleton stub AddNoise__2aiFP6CPnt3DRC5PNT2D */
+CPnt3D * ai::AddNoise(CPnt3D *, const PNT2D &)
+{
+}
+
+/* @socom-skeleton stub elevate__2aiFR6CPnt3Dff */
+void ai::elevate(CPnt3D &, float, float)
+{
+}
+
+/* @socom-skeleton stub quadratic__2aiFfffRfRf */
+void ai::quadratic(float, float, float, float &, float &)
+{
+}
+
+/* @socom-skeleton stub get_clock_direction__2aiFPC6CPnt3D */
+void ai::get_clock_direction(const CPnt3D *)
+{
+}

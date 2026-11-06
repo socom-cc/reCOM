@@ -17,12 +17,10 @@
 
 /* @socom-skeleton decl include */
 #include "gamez/zUtil/util_systemio.h"
+#include "graph_edge.h"
 #include "graph_graph.h"
 #include "graph_node.h"
 /* @socom-skeleton end include */
-/* @socom-skeleton decl forward */
-class CGEdge;
-/* @socom-skeleton end forward */
 
 /* @socom-skeleton stub version__6CGraph */
 const int CGraph::version = 1;

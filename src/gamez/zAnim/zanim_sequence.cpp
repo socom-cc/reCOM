@@ -18,3 +18,82 @@
  * @socom-artifact defines main socom:function:0x1dd130
  * @socom-artifact defines main socom:function:0x1dd170
  * socom-owner-annotations end socom:work:source-segment-020 */
+
+/* @socom-skeleton decl include */
+#include "gamez/zBody/zbody.h"
+#include "gamez/zMath/zmath.h"
+#include "zanim.h"
+/* @socom-skeleton end include */
+/* @socom-skeleton decl forward */
+class ACTIVE_ANIM;
+/* @socom-skeleton end forward */
+
+/* @socom-skeleton stub QFromRot__FP5CQuatPC6CPnt3D */
+CQuat * QFromRot(CQuat *, const CPnt3D *)
+{
+}
+
+/* @socom-skeleton stub quadW__Ff */
+float quadW(float)
+{
+}
+
+/* @socom-skeleton stub GetFractionalRotations__FPC6CPnt3DPfPf */
+void GetFractionalRotations(const CPnt3D *, float *, float *)
+{
+}
+
+/* @socom-skeleton stub ClipToBox__FRC6CPnt3DRC6CPnt3DR6CPnt3Dffff */
+void ClipToBox(const CPnt3D &, const CPnt3D &, CPnt3D &, float, float, float, float)
+{
+}
+
+/* @socom-skeleton stub PlaneConstant__FRC6CPnt3DRC6CPnt3D */
+float PlaneConstant(const CPnt3D &, const CPnt3D &)
+{
+}
+
+/* @socom-skeleton stub LineIntersectPlane__FfRC6CPnt3DRC6CPnt3DRC6CPnt3D */
+float LineIntersectPlane(float, const CPnt3D &, const CPnt3D &, const CPnt3D &)
+{
+}
+
+/* @socom-skeleton stub PointAlongLine__FRC6CPnt3DRC6CPnt3DfR6CPnt3D */
+void PointAlongLine(const CPnt3D &, const CPnt3D &, float, CPnt3D &)
+{
+}
+
+/* @socom-skeleton stub Start__9CSequenceFfff */
+void CSequence::Start(float, float, float)
+{
+}
+
+/* @socom-skeleton stub Clear__9CSequenceFv */
+void CSequence::Clear()
+{
+}
+
+/* @socom-skeleton stub Tick__9CSequenceFf */
+float CSequence::Tick(float)
+{
+}
+
+/* @socom-skeleton stub LinearWeight__9CSequenceFv */
+float CSequence::LinearWeight()
+{
+}
+
+/* @socom-skeleton stub Weight__9CSequenceFv */
+float CSequence::Weight()
+{
+}
+
+/* @socom-skeleton stub RenormAnims__FP15CActiveAnimListf */
+void RenormAnims(CActiveAnimList *, float)
+{
+}
+
+/* @socom-skeleton stub PushAnim__FP15CActiveAnimListP11ACTIVE_ANIMf */
+void PushAnim(CActiveAnimList *, ACTIVE_ANIM *, float)
+{
+}
