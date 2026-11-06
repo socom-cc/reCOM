@@ -1128,6 +1128,37 @@ the result (in `--format`) there and prints only its columns and row count.
 | `local_symbols` | every LOCAL symbol in symbol-table order with its artifact and cluster: index runs are local-symbol blocks |
 | `contradictions`, `provisional_files`, `meta` | graph contradictions, `src/` files, and the cache's input digests |
 
+## Looking up an artifact's owner (`source owner`)
+
+```powershell
+python tools/socom.py source owner zrdr_findint
+python tools/socom.py source owner CAiSRescued::CanScan --json
+python tools/socom.py source owner 0x23d8c0
+```
+
+Read-only. The query is an artifact ID, a `0x` address (an address inside an
+artifact finds it), an ELF symbol name, a readable name or a substring of
+either; a mangled name no ELF symbol has (a holding fence's provisional
+spelling) finds the artifacts with its qualified name. Several matches are
+listed briefly (`*` marks exact ones); full detail is shown for a single
+match, for the only exact match, or for each match with `--all`. The detail
+gives the artifact's range, names, bindings and readable declarations
+(`reference demangle`'s grammar), its classification, the
+`@socom-artifact` edges under `src/` (the `owner:` line names the `defines`
+owner, else what the plans say), each owner plan that lists it (owner row
+and basis, or the `unresolved` reason in full, contradictions, header
+emits, notes), whether each plan file still has a SHA-256 the tracker cites
+for its item (plans under `build/` are disposable: a missing or changed
+plan is reported, not trusted), the gate deferral in force, the cache's
+`tu_candidates` and `signals`, and every `@socom-skeleton body|stub` fence
+holding its code: file and line, whether it is a module `*_holding.cpp`
+file, `held from`, any `#if 0` around the fence or inside the entry, and,
+for a member, the header `decl` region of its class. A fence matches by an
+ELF name, or, when no ELF symbol has the fence's name, by the same
+qualified name with another signature (`other signature`). A query no
+artifact matches still lists the fences of exactly that name. The cache is
+opened (and rebuilt) as `source sql` opens it.
+
 ## Notes for the apply route
 
 - Read owner entries through `source_plan.artifact_ids(owner)`: schema 2

@@ -64,7 +64,7 @@ from .recon import (
 )
 from .fingerprint import SWEEP_MODES, compare_fingerprints, program_fingerprint
 from .type_apply import ApplyFailure, build_apply_program, execute_apply_program
-from . import order_cli, order_route_cli, provider_archive, recon_repair_cli, source_amend_cli, source_apply_cli, source_gate_cli, source_plan_cli, type_plan_cli
+from . import order_cli, order_route_cli, provider_archive, recon_repair_cli, source_amend_cli, source_apply_cli, source_gate_cli, source_owner, source_plan_cli, type_plan_cli
 from .source import (
     audit_docblocks,
     audit_independence,
@@ -3180,6 +3180,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
         "Build deterministic ELF-only translation-unit evidence, classification candidates and address segments.",
     ),
     _spec("source audit", "source", "Audit soCOM workspace independence."),
+    *source_owner.specs(_spec),
     *source_plan_cli.specs(_spec),
     *source_apply_cli.specs(_spec),
     *source_gate_cli.specs(_spec),
@@ -3733,6 +3734,7 @@ def build_parser() -> argparse.ArgumentParser:
     graph_command.set_defaults(handler=_source_graph)
     source_audit = source_commands.add_parser("audit")
     source_audit.set_defaults(handler=_source_audit)
+    source_owner.register(source_commands)
     source_plan_cli.register(source_commands)
     source_apply_cli.register(source_commands, progress_commands)
     source_gate_cli.register(source_commands, progress_commands, audit_commands)
