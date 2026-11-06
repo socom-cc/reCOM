@@ -21,6 +21,7 @@ from tools._socom.capabilities import capability_opening
 from tools._socom.order_plan import (
     ORDER_APPLY_KIND,
     ORDER_PREPARE_KIND,
+    ORDER_SKELETON_KINDS,
     ORDER_SKELETON_PREPARE_ID,
     ORDER_SKELETON_ROUTE_ID,
     add_skeleton_prepare,
@@ -79,10 +80,23 @@ def _unprepared(tracker: dict) -> dict:
     decomposition left it (blocked on its plan and the route, its directories reserved, never
     applied or reviewed).  The plans and their acceptances are the live ones, so the state follows
     later plan changes; ``tracker`` is already ``settled`` (no stage 4 amendment or stage 5
-    reopening in flight holds a plan back).
+    reopening in flight holds a plan back).  The stage 5 reopenings and rebases keep their plan
+    rows (every reopening holds a plan); their skeleton-item rows, which the route's writes
+    caused, are dropped with those items' history.
     """
 
     tracker = copy.deepcopy(tracker)
+    skeleton = {row["id"] for row in tracker["work_items"] if row.get("kind") in ORDER_SKELETON_KINDS}
+    stage5 = next(row for row in tracker["stages"] if row["name"] == "authored-function-order")
+    for reopening in stage5.get("reopenings") or []:
+        for key in ("items", "sent_back", "already_held"):
+            reopening[key] = [item for item in reopening.get(key) or [] if item not in skeleton]
+        for key in ("held_as", "reasons"):
+            reopening[key] = {item: value for item, value in (reopening.get(key) or {}).items() if item not in skeleton}
+        assert reopening["items"], f"{reopening['id']} holds only skeleton items: the pre-route state cannot keep it"
+    for rebase in (stage5.get("decomposition") or {}).get("rebases") or []:
+        rebase["reopened"] = [row for row in rebase.get("reopened") or [] if row.get("item") not in skeleton]
+        rebase.pop("released", None)
     tracker["work_items"] = [row for row in tracker["work_items"] if row["id"] != ORDER_SKELETON_PREPARE_ID]
     for row in tracker["work_items"]:
         if row["id"] == ORDER_SKELETON_ROUTE_ID and row.get("status") == "accepted":
@@ -566,8 +580,25 @@ def test_decisions_files_name_skeleton_items_and_decide_a_row_once(tmp_path: Pat
 # src/ the manifest was built on, the route's frozen base once it exists (``source_root``).
 
 
+def _live_overlays(monkeypatch: pytest.MonkeyPatch, live: dict) -> None:
+    """The frozen base's overlays come from the live skeleton records, which the pre-route tracker lacks.
+
+    Once a rebase advances the base, a path a skeleton write deleted and a stage 4 amendment created
+    again holds the new unit file, and the manifest scans the deleted provisional file there instead
+    (``provisional_overlays``, found through the route's records).  The pre-route render reads the
+    src/ the manifest was built on: the base with those overlays.
+    """
+
+    from tools._socom import order_skeleton_route
+
+    real = order_skeleton_route.provisional_overlays
+    monkeypatch.setattr(order_skeleton_route, "provisional_overlays",
+                        lambda root, _tracker, source_root: real(root, live, source_root))
+
+
 @needs_inputs
-def test_decisions_reach_the_render_and_its_checks(tracker: dict, source_root: Path | None, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_decisions_reach_the_render_and_its_checks(tracker: dict, live: dict, source_root: Path | None,
+                                                   monkeypatch: pytest.MonkeyPatch) -> None:
     from tools._socom.order_skeleton_check import check_skeletons
     from tools._socom.order_skeleton_route import waiting_rows
     from tools._socom.order_skeleton_write import DECISIONS_KIND, SkeletonInputs, decisions_path, render_skeletons, write_skeletons
@@ -575,6 +606,7 @@ def test_decisions_reach_the_render_and_its_checks(tracker: dict, source_root: P
     decisions_dir = "build/test-skeleton-decisions"
     preview = ROOT / "build" / "test-skeleton-route-preview"
     monkeypatch.setattr(order_skeleton_write, "DECISIONS_DIR", decisions_dir)
+    _live_overlays(monkeypatch, live)
     updated = _prepared(tracker)
     try:
         inputs = SkeletonInputs(ROOT, updated, manifest_path=INPUTS[0], snapshot_path=INPUTS[1], source_root=source_root)
@@ -635,6 +667,7 @@ def test_the_prepare_reservations_come_from_the_pre_route_render(tracker: dict, 
 
     # The real decisions name the real prepare item, which this earlier-state tracker does not have yet.
     monkeypatch.setattr(order_skeleton_write, "DECISIONS_DIR", "build/test-skeleton-decisions-empty")
+    _live_overlays(monkeypatch, live)
 
     updated = copy.deepcopy(tracker)
     registered = set((capability_opening(ORDER_SKELETON_ROUTE_ID) or {}).get("commands") or [])
@@ -698,7 +731,10 @@ def test_a_prepare_re_apply_renders_checks_and_reproduces_its_record_without_wri
     assert changes == {}
     for key in ("inputs", "decisions", "waiting", "known_conflicts"):
         assert record[key] == recorded[key], key
-    assert {row["path"]: row["rendered_sha256"] for row in record["files"]} == {row["path"]: row["after_sha256"] for row in recorded["files"]}
+    # The recorded render: a merge re-apply keeps it as rendered_sha256 (its after is the merge, live edits carried);
+    # a first write wrote the render itself (its after).
+    assert {row["path"]: row["rendered_sha256"] for row in record["files"]} == \
+        {row["path"]: row.get("rendered_sha256", row["after_sha256"]) for row in recorded["files"]}
     assert {row["merge"] for row in record["files"]} == {"kept"} and all(row["after_sha256"] == row["before_sha256"] for row in record["files"])
     assert record["check"]["ok"] and record["inputs"]["base_tree_sha256"] == recorded["inputs"]["base_tree_sha256"]
     # The whole-tree write digest also covers later items' decisions: it is the last apply's.
@@ -706,8 +742,10 @@ def test_a_prepare_re_apply_renders_checks_and_reproduces_its_record_without_wri
     assert record["write_sha256"] == max(records, key=lambda row: row["applied_at"])["write_sha256"]
     assert record["inputs"]["stage4_baseline_sha256"] == next(
         row for row in updated["stages"] if row["name"] == "source-correlation")["baseline"]["baseline_sha256"]
-    # Files the prepare creates have no base (the first record: no before); deleted orphans no after.
-    assert all(row["before_sha256"] is None for row in recorded["files"] if row["action"] in ("holding", "new-header"))
+    # Files the prepare creates have no base (the first record, the earliest kept: no before); deleted orphans no after.
+    history = _item(live, ORDER_SKELETON_PREPARE_ID).get("review_history") or []
+    first = next((entry["order_skeleton"] for entry in history if isinstance(entry.get("order_skeleton"), dict)), recorded)
+    assert all(row["before_sha256"] is None for row in first["files"] if row["action"] in ("holding", "new-header"))
     assert all(row["base_sha256"] is None for row in record["files"] if row["action"] in ("holding", "new-header"))
     assert all(row["after_sha256"] is None for row in record["files"] if row["action"] == "orphan-deleted")
 
