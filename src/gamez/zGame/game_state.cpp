@@ -51,7 +51,7 @@
 /* @socom-skeleton end include */
 
 /* @socom-skeleton stub m_pool */
-static std::vector<CGameStateChangeCmd *, std::allocator<CGameStateChangeCmd *> > m_pool;
+static std::vector<CGameStateChangeCmd, std::allocator<CGameStateChangeCmd> > m_pool; /* port: the ELF instance is __vector_imp<CGameStateChangeCmd> (12-byte elements, 0x4d6d70) */
 
 /* @socom-skeleton stub __dt__19CGameStateChangeCmdFv */
 CGameStateChangeCmd::~CGameStateChangeCmd()
@@ -59,96 +59,168 @@ CGameStateChangeCmd::~CGameStateChangeCmd()
 }
 
 /* @socom-skeleton stub Acquire__19CGameStateChangeCmdFUiP10CGameStateUi */
-void CGameStateChangeCmd::Acquire(unsigned int, CGameState *, unsigned int)
+CGameStateChangeCmd * CGameStateChangeCmd::Acquire(unsigned int type, CGameState * state, unsigned int index)
 {
+	/* 0x20c140: the first free pool entry, else a heap command (not pool-owned, not marked in use). */
+	for (std::vector<CGameStateChangeCmd>::iterator it = m_pool.begin(); it != m_pool.end(); ++it)
+	{
+		if (!it->m_active)
+		{
+			it->m_type = type;
+			it->m_toState = state;
+			it->m_toStateIdx = index;
+			it->m_active = true;
+			return &*it;
+		}
+	}
+
+	CGameStateChangeCmd* cmd = (CGameStateChangeCmd*)operator new(sizeof(CGameStateChangeCmd));
+
+	if (cmd != NULL)
+	{
+		cmd->m_pooled = false;
+		cmd->m_active = false;
+		cmd->m_type = type;
+		cmd->m_toState = state;
+		cmd->m_toStateIdx = index;
+	}
+
+	return cmd;
 }
 
 /* @socom-skeleton stub Release__19CGameStateChangeCmdFP19CGameStateChangeCmd */
-void CGameStateChangeCmd::Release(CGameStateChangeCmd *)
+void CGameStateChangeCmd::Release(CGameStateChangeCmd * cmd)
 {
+	/* 0x20c0d0 */
+	if (cmd == NULL)
+		return;
+
+	if (cmd->m_pooled)
+	{
+		cmd->m_type = 0;
+		cmd->m_toState = NULL;
+		cmd->m_toStateIdx = 0;
+		cmd->m_active = false;
+	}
+	else
+	{
+		operator delete(cmd);
+	}
 }
 
 /* @socom-skeleton stub CreatePool__19CGameStateChangeCmdFUi */
-void CGameStateChangeCmd::CreatePool(unsigned int)
+void CGameStateChangeCmd::CreatePool(unsigned int count)
 {
+	/* 0x20c050: resize, then mark every entry pool-owned. */
+	m_pool.resize(count);
+
+	for (std::vector<CGameStateChangeCmd>::iterator it = m_pool.begin(); it != m_pool.end(); ++it)
+	{
+		it->m_pooled = true;
+	}
 }
 
 /* @socom-skeleton stub DestroyPool__19CGameStateChangeCmdFv */
 void CGameStateChangeCmd::DestroyPool()
 {
+	/* 0x20bf80: swap with an empty vector, releasing the storage. */
+	std::vector<CGameStateChangeCmd> empty;
+	m_pool.swap(empty);
 }
 
 /* @socom-skeleton body Switch__5CGameFP10CGameStateUi */
 CGameState* CGame::Switch(CGameState* state, u32 index)
 {
-	CGameState* currentState = NULL;
-	CGameStateChangeCmd* command = NULL;
-
+	/* 0x20be00 (Acquire inlined): queue a switch; Tick runs UnInit/Init. */
 	if (state == NULL)
-	{
 		return NULL;
-	}
-	else
-	{
-		// Check if the current state is inside the queue
-		if (m_CurrentState < 16)
-		{
-			currentState = m_Stack[m_CurrentState];
-		}
-		else
-		{
-			currentState = NULL;
-		}
 
-		for (auto it = m_pool.begin(); it != m_pool.end(); it++)
-		{
-			CGameStateChangeCmd* stateChange = *it;
+	CGameState* current = m_CurrentState < 16 ? m_Stack[m_CurrentState] : NULL;
 
-			// Is the state inactive in the pool?
-			// If it is, use it
-			if (!stateChange->m_active)
-			{
-				stateChange->m_type = 2;
-				stateChange->m_toState = state;
-				stateChange->m_toStateIdx = index;
-				command = stateChange;
-				break;
-			}
-		}
+	CGameStateChangeCmd* cmd = CGameStateChangeCmd::Acquire(2, state, index);
+	m_StateChangeQueue.push_back(cmd);
 
-		if (command != NULL)
-		{
-			command->m_active = true;
-			command->m_type = 2;
-			command->m_toState = state;
-			command->m_toStateIdx = index;
-		}
+	if (current != NULL)
+		current->PreUnInit();
 
-		m_StateChangeQueue.push_back(command);
+	state->PreInit();
 
-		// Dispatch event
-		if (currentState != NULL)
-		{
-			currentState->OnPush();
-		}
-
-		state->Init();
-	}
-
-	return currentState;
+	return current;
 }
 
 /* @socom-skeleton stub Push__5CGameFP10CGameStateUi */
-CGameState * CGame::Push(CGameState *, unsigned int)
+CGameState * CGame::Push(CGameState * state, unsigned int index)
 {
+	/* 0x20bc90 (Acquire inlined) */
+	if (state == NULL)
+		return NULL;
+
+	CGameState* current = m_CurrentState < 16 ? m_Stack[m_CurrentState] : NULL;
+
+	CGameStateChangeCmd* cmd = CGameStateChangeCmd::Acquire(1, state, index);
+	m_StateChangeQueue.push_back(cmd);
+
+	state->PreInit();
+
+	return current;
 }
 
 /* @socom-skeleton stub Pop__5CGameFUi */
-CGameState * CGame::Pop(unsigned int)
+CGameState * CGame::Pop(unsigned int index)
 {
+	/* 0x20bb40 (Acquire inlined) */
+	CGameState* current = m_CurrentState < 16 ? m_Stack[m_CurrentState] : NULL;
+
+	CGameStateChangeCmd* cmd = CGameStateChangeCmd::Acquire(0, NULL, index);
+	m_StateChangeQueue.push_back(cmd);
+
+	if (current != NULL)
+		current->PreUnInit();
+
+	return current;
 }
 
 /* @socom-skeleton stub PopTo__5CGameFP10CGameStateUi */
-CGameState * CGame::PopTo(CGameState *, unsigned int)
+CGameState * CGame::PopTo(CGameState * state, unsigned int index)
 {
+	/* 0x20b980: queue one pop per level above the target (to the bottom when NULL). */
+	if (state != NULL)
+	{
+		u32 top = m_CurrentState;
+		u32 target = top;
+
+		while (m_Stack[target] != state) /* the ELF searches without a lower bound */
+			target--;
+
+		if (target >= top)
+			return NULL;
+
+		while (target < top && m_Stack[top] != state)
+		{
+			CGameState* current = m_CurrentState < 16 ? m_Stack[m_CurrentState] : NULL;
+
+			CGameStateChangeCmd* cmd = CGameStateChangeCmd::Acquire(0, NULL, index);
+			m_StateChangeQueue.push_back(cmd);
+
+			if (current != NULL)
+				current->PreUnInit();
+
+			top--;
+		}
+
+		return m_Stack[top];
+	}
+
+	for (u32 n = m_CurrentState; n != 0; n--)
+	{
+		CGameState* current = m_CurrentState < 16 ? m_Stack[m_CurrentState] : NULL;
+
+		CGameStateChangeCmd* cmd = CGameStateChangeCmd::Acquire(0, NULL, index);
+		m_StateChangeQueue.push_back(cmd);
+
+		if (current != NULL)
+			current->PreUnInit();
+	}
+
+	return m_Stack[0];
 }

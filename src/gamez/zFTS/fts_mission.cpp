@@ -555,7 +555,7 @@ void CMission::PreOpen(const char* db)
 	else
 	{
 		size_t len = strlen(loadingscreenassets);
-		m_strLoadingScrLib.assign(&loadingscreenassets, len);
+		m_strLoadingScrLib.assign(loadingscreenassets, len); /* port: CSaferStr is a std::string */
 	}
 
 	_zrdr* uivars = zrdr_findtag(mission, "UiVars");

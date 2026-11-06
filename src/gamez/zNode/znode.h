@@ -190,7 +190,7 @@ namespace zdb
 		static CNode* CreateXRef();
 		static CNode* CreateXRef(CModel* model, const CPnt3D* position, const CQuat* rotation);
 
-		CNode* Create(const char* name);
+		static CNode* Create(const char* name); /* static: CGameMenu::CGameMenu (0x384134) passes only the name */
 
 		static CNode* Read(CSaveLoad& sload, CNode* node);
 		virtual bool Read(CSaveLoad& sload);

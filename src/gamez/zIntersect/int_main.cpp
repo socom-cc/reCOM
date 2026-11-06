@@ -80,6 +80,8 @@ CDI::CDI()
 /* @socom-skeleton stub __dt__Q23zdb3CDIFv */
 zdb::CDI::~CDI()
 {
+	/* 0x21c590 */
+	Free();
 }
 
 /* @socom-skeleton body Allocate__Q23zdb3CDIFi */
@@ -142,22 +144,22 @@ CDI* CDI::Create(CSaveLoad& sload)
 namespace zdb {
 bool CDI::Read(CSaveLoad& sload)
     {
-        if (sload.m_zfile.GetOpenKey())
-        {
-            if (sload.m_zfile.Fetch("params", this, sizeof(DI_PARAMS)))
-            {
-                m_refcount = 0;
+        /* 0x21c340. The params go into the DI_PARAMS base, not over GCC's vptr at `this`. */
+        if (!sload.m_zfile.GetOpenKey())
+            return false;
 
-                if (!m_pts)
-                {
-                    return false;
-                }
-                
-                return sload.m_zfile.Fetch("points", m_pts, m_ptcount);
-            }
-        }
+        if (!sload.m_zfile.Fetch("params", static_cast<DI_PARAMS*>(this), sizeof(DI_PARAMS)))
+            return false;
 
-        return false;
+        if (m_ditype == 0)
+            m_ditype = 3;
+
+        Allocate((int)m_ptcount);
+
+        bool result = sload.m_zfile.Fetch("points", m_pts, m_ptcount * sizeof(CPnt4D));
+        m_refcount = 0;
+
+        return result;
     }
 }
 

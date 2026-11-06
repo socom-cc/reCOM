@@ -276,7 +276,16 @@ void zVid_ClearColor(unsigned int *)
 /* @socom-skeleton body zVid_Sync0__Fv */
 void zVid_Sync0()
 {
+	/* 0x308160: restart the frame clock on an odd field. */
+	zVid.frameNumber = 0;
+	zvid.vsync_odd = 1;
+	zVid.frameRate = 60;
+	zVid.frameTime = 1.0f / 60.0f; /* 0x3c888889 */
 
+	while (sceGsSyncV(0) == 0)
+		;
+
+	*T0_COUNT = 0;
 }
 
 /* @socom-skeleton stub SetDynamicLOD__Fi */

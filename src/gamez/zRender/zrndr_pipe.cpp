@@ -664,7 +664,7 @@ void CPipe::RenderUiNodeRecursive(zdb::CNode* node)
 {
 	bool doAlpha = false;
 
-	if (node->m_active)
+	if (!node->m_active) /* 0x241adc: inactive nodes are skipped (the test was inverted) */
 		return;
 
 	CBench::countNodes++;

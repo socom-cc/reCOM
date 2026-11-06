@@ -197,8 +197,16 @@ _word128 * refLoadImage(_word128 *, unsigned int, unsigned int, void *, unsigned
 }
 
 /* @socom-skeleton stub Load__Q23zdb12CGSTexBufferFb */
-unsigned __int128 * zdb::CGSTexBuffer::Load(bool)
+unsigned __int128 * zdb::CGSTexBuffer::Load(bool upload)
 {
+	/* 0x2fb610: nothing to upload while the buffer holds no textures or palettes. */
+	if (m_dyntex_list.m_tex_list.size() == 0 && m_dyntex_list.m_pal_list.size() == 0)
+		return NULL;
+
+	/* port: the upload path (Hookup, MakeChain or the address re-layout, then
+	 * UpdateTextureSelects and the GIF DMA of m_chainp) is not written yet; reaching it
+	 * stops with this location (-fsanitize=return). */
+	(void)upload;
 }
 
 /* @socom-skeleton stub Add__Q23zdb12CGSTexBufferFPQ23zdb9CAssetLibb */
@@ -208,9 +216,34 @@ void zdb::CGSTexBuffer::Add(zdb::CAssetLib *, bool)
 
 /* @socom-skeleton body doAddBuffer__Q23zdb11CTexManagerFPCcff */
 namespace zdb {
-void CTexManager::doAddBuffer(const char* name, f32 param_2, f32 param_3)
+u32 CTexManager::doAddBuffer(const char* name, f32 start, f32 end)
 	{
-		
+		/* 0x2fb190: a new GS texture buffer over [start, end) of the texture area, appended. */
+		CGSTexBuffer* buffer = new CGSTexBuffer();
+
+		if (buffer->m_name != NULL)
+			_free(buffer->m_name, "ztex_manager.cpp", 0x5d);
+		buffer->m_name = NULL;
+		buffer->m_name = name ? _strdup(name, "ztex_manager.cpp", 0x5e) : NULL;
+
+		u32 base = CTexture::m_baseAddress;
+		u32 range = CTexture::m_endAddress - base;
+		u32 first = (u32)((f32)base + start * (f32)range);
+		u32 last = (u32)(((f32)base + end * (f32)range) - 1.0f);
+
+		if (buffer->m_startAddress != first || buffer->m_endAddress != last)
+		{
+			buffer->m_nextAddress = first;
+			buffer->m_startAddress = first;
+			buffer->m_endAddress = last;
+			buffer->m_chainp = NULL;
+		}
+
+		/* port: the ELF vector is vector_pod<Ui> holding CGSTexBuffer *; the base stays
+		 * vector<CDynTexList *> until the held AddToBatch (ztexture_holding.cpp) is amended. */
+		push_back(reinterpret_cast<CDynTexList*>(buffer));
+
+		return size() - 1;
 	}
 }
 

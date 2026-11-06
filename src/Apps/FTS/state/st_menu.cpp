@@ -36,6 +36,14 @@
 #include "gamez/zRender/zrender.h"
 #include "gamez/zSystem/zsys.h"
 #include "gamez/zVideo/zvid.h"
+#include "gamez/zFTS/zfts.h" /* theMission */
+#include "gamez/zNetwork/znet.h" /* theNetwork */
+#include "gamez/zAnim/zanim.h" /* ZAnim */
+#include "gamez/zSound/zsnd.h" /* CSnd */
+#include "gamez/zValve/zvalve.h" /* CValve */
+#include "gamez/zReader/zrdr.h" /* zrdr_read, CRdrArchive */
+#include "gamez/zTexture/ztex.h" /* zdb::CTexManager */
+#include <989snd.h> /* snd_SetReverbType */
 
 /* port: removed pre-skeleton duplicates of g_relocDblBuf and animfile; the skeleton stubs (@unnamed@st_menu_cpp@) define them */
 
@@ -78,71 +86,202 @@ namespace {
 CDblBufTextureRelocator g_relocDblBuf;
 }
 
+static _zrdr* ReadUISounds(CRdrFile* uisounds, CSaferStr& teletype, CSaferStr& back); /* below */
+
 /* @socom-skeleton stub IOPRebootHandler__FQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv */
-static unsigned char IOPRebootHandler(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *)
+static bool IOPRebootHandler(CIOPManager::RebootPhase phase, CIOPManager::RebootMode, void *)
 {
+	/* 0x3798e0: drop the sounds before the IOP reboot, reload the front end's after it.
+	 * The ELF writes the menu state's strings and sound directly (0x476ff0-0x476ff8). */
+	if (phase == CIOPManager::PreReboot)
+	{
+		CSnd::Close();
+		return true;
+	}
+
+	snd_SetReverbType(3, 3);
+	CSnd::LoadSounds("sounds.rdr", "HUDUI");
+	CSnd::LoadSounds("sounds.rdr", "SMUS");
+	CSnd::UIOpen();
+
+	CMenuState& menu = theGame.m_menuState;
+	CRdrFile* uisounds = zrdr_read("uisounds.rdr", "data/common/dialog", 0);
+	char* selection = NULL;
+
+	if (uisounds != NULL)
+	{
+		if (_zrdr* sounds = ReadUISounds(uisounds, menu.TtySoundString, menu.BackSoundString))
+			selection = zrdr_findstring(sounds, "SELECTION");
+	}
+
+	menu.SelectionSound = CSnd::GetSoundByName(selection ? selection : "");
+
+	if (uisounds != NULL)
+		zrdr_free(uisounds);
+
+	return true;
+}
+
+/* The front end's menu (vtable __vt__14CMenuStateMenu 0x473070; inline members emitted
+ * here): a CGameMenu whose reader is the menu state's default dialog. */
+class CMenuStateMenu : public CGameMenu
+{
+public:
+	virtual ~CMenuStateMenu() {} /* 0x378db0 */
+	/* 0x379aa0 returns &theGame.m_menuState.m_DefaultMenu (0x476ffc) */
+	virtual char * GetReaderFileName() { return theGame.m_menuState.m_DefaultMenu; }
+};
+
+/* Reads the TELETYPE and BACK sound names from the dialog SOUNDS block; returns the block. */
+static _zrdr* ReadUISounds(CRdrFile* uisounds, CSaferStr& teletype, CSaferStr& back)
+{
+	_zrdr* sounds = zrdr_findtag(uisounds, "SOUNDS");
+
+	if (sounds != NULL)
+	{
+		char* tty = zrdr_findstring(sounds, "TELETYPE");
+
+		if (tty != NULL)
+			teletype.assign(tty, strlen(tty));
+		else
+			teletype.replace(0, CSaferStr::npos, "", 0);
+
+		char* bk = zrdr_findstring(sounds, "BACK");
+
+		if (bk != NULL)
+			back.assign(bk, strlen(bk));
+		else
+			back.replace(0, CSaferStr::npos, "", 0);
+	}
+
+	return sounds;
 }
 
 /* @socom-skeleton body Init__10CMenuStateFv */
 bool CMenuState::Init()
 {
+	/* 0x3793e0 */
 	CInput::Flush();
 
 	if (m_skip)
-		return true;
+	{
+		if (theNetwork.m_bNetwork)
+		{
+			theMission.CreateNetGame();
+			/* port: unproven - 0x379428-0x379440 then call DMEinit, DMEConnectToGameServer,
+			 * DMEJoinGameServer (user-placed, no body yet) and ftsNetworkGameInit; online is
+			 * an offline stub in the port, so they are not called. */
+		}
 
+		theGame.Switch(&theGame.m_loadState, 0);
+		return true;
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("MENU: CMenuState::Init");
+#endif
 	zar::CZAR* archive = CRdrArchive::AddArchive("readerc.zar", "run/ui");
 
 	if (archive)
 		archive->ReOpen(CRdrArchive::version, 1);
 
-	// zdb::CTexManager::m_texmanager->doSetupBuffers();
+	zdb::CTexManager::m_texmanager.doSetupBuffers("ui");
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("MENU: readerc.zar %p, loading world ui", archive);
+#endif
 
 	LoadWorld("ui");
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("MENU: LoadWorld done (world %p)", zdb::CWorld::m_world);
+#endif
 
 	if (zdb::CWorld::m_world)
 	{
 		zdb::CCamera* camera = zdb::CWorld::m_world->m_camera;
 
-		camera->SetPosition(320.0f, 0.0f, 320.0f);
-		camera->Update(zdb::tag_ZCAM_TYPE::ZCAM_NORMAL);
-		zdb::CVisual::m_camera = camera;
-		thePipe.m_camera = camera;
+		if (camera)
+		{
+			camera->SetPosition(320.0f, 0.0f, 320.0f);
+			camera->Update(zdb::tag_ZCAM_TYPE::ZCAM_NORMAL);
+			zdb::CVisual::m_camera = camera;
+			thePipe.m_camera = camera;
+		}
 	}
 
+	g_pSkbLib = zdb::CAssetMgr::GetLoadedLibRef("ui/assetlib/uisk");
+	HookupLib(g_pSkbLib);
 	zdb::CAssetMgr::GetLoadedLibRef("common/assetlib/font");
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("MENU: asset libs uisk %p", g_pSkbLib);
+#endif
 
-	m_menu = new CGameMenu();
+	m_menu = new CMenuStateMenu();
 
-	if (CRdrFile* uisounds = zrdr_read("uisounds.rdr", "data/common/dialog"))
+	/* Two halves of the texture area for the double-buffered UI relocator. */
+	u32 buf0 = zdb::CTexManager::m_texmanager.doAddBuffer("CDblBufTextureRelocator 0", 0.0f, 0.5f);
+	g_relocDblBuf._arrGsBufs[0] = reinterpret_cast<zdb::CGSTexBuffer*>(zdb::CTexManager::m_texmanager[buf0]); /* port: see doAddBuffer */
+	u32 buf1 = zdb::CTexManager::m_texmanager.doAddBuffer("CDblBufTextureRelocator 1", 0.5f, 1.0f);
+	g_relocDblBuf._arrGsBufs[1] = reinterpret_cast<zdb::CGSTexBuffer*>(zdb::CTexManager::m_texmanager[buf1]);
+
+	if (CRdrFile* uisounds = zrdr_read("uisounds.rdr", "data/common/dialog", 0))
 	{
-		if (_zrdr* sounds = zrdr_findtag(uisounds, "SOUNDS"))
-		{
-			char* teletype = zrdr_findstring(sounds, "TELETYPE");
-
-			if (!teletype)
-				TtySoundString = NULL;
-			else
-				TtySoundString = teletype;
-
-			char* back = zrdr_findstring(sounds, "BACK");
-
-			if (!back)
-				BackSoundString = NULL;
-			else
-				BackSoundString = back;
-		}
-
+		ReadUISounds(uisounds, TtySoundString, BackSoundString);
 		zrdr_free(uisounds);
 	}
 
 	CSnd::Close();
-	//CSnd::LoadSounds("sounds.rdr", "HUDUI");
-	//CSnd::LoadSounds("sounds.rdr", "SMUS");
+	CSnd::LoadSounds("sounds.rdr", "HUDUI");
+	CSnd::LoadSounds("sounds.rdr", "SMUS");
 	CSnd::UIOpen();
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("MENU: sounds loaded, opening run/uizanim.zar");
+#endif
 
-	m_menu->Init(&g_relocDblBuf, animfile); /* port: g_relocDblBuf is a CDblBufTextureRelocator object */
+	animfile = NULL;
+	animfile = ZAnim.OpenZAR("run/uizanim.zar");
 
+	m_menu->Init(&g_relocDblBuf, animfile);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("MENU: CGameMenu::Init done (animfile %p)", animfile);
+#endif
+
+	/* The binary reads uisounds.rdr again for the selection sound (0x379714). */
+	CRdrFile* uisounds = zrdr_read("uisounds.rdr", "data/common/dialog", 0);
+	char* selection = NULL;
+
+	if (uisounds != NULL)
+	{
+		if (_zrdr* sounds = ReadUISounds(uisounds, TtySoundString, BackSoundString))
+			selection = zrdr_findstring(sounds, "SELECTION");
+	}
+
+	SelectionSound = CSnd::GetSoundByName(selection ? selection : "");
+
+	if (uisounds != NULL)
+		zrdr_free(uisounds);
+
+	zVid.pcrtcDo = false;
+	thePipe.m_doUI = true;
+	zVid_Sync0();
+	m_skip_swap = 0;
+	m_iopregh = theIOPManager.RegisterRebootCallback(IOPRebootHandler, NULL);
+
+	/* CValve::Set inlined: NETCNF_REQUIRED follows the network's requirement flag. */
+	CValve* netcnf = CValve::Create("NETCNF_REQUIRED", VALVE_TYPE::VTYPE_TEMP);
+	u32 required = theNetwork.m_bNetCnfRequired;
+	u32 change = 0;
+
+	if (netcnf->m_value != required)
+		change = required ? 1 : 2;
+
+	netcnf->m_value = required;
+
+	if (change)
+		netcnf->MakeCallbacks((VALVE_STATE)change);
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("MENU: CMenuState::Init done");
+#endif
 	return true;
 }
 
@@ -154,15 +293,52 @@ void CMenuState::SetSkipMenu(bool)
 /* @socom-skeleton body Tick__10CMenuStateFf */
 bool CMenuState::Tick(f32 dT)
 {
+	/* 0x379240 */
+	m_menu->TickMPEG();
+	CInput::Tick(dT);
+	CSndInstance::PostTick(dT, NULL);
 	m_menu->Tick(dT);
-	
-	// The world has to exist in order for nodes to be rendered
-	if (zdb::CWorld::m_world != NULL && zdb::CWorld::m_world->m_camera)
-		zdb::CWorld::m_world->m_camera->Update(zdb::tag_ZCAM_TYPE::ZCAM_NORMAL);
 
-	/* port: no clear-colour call here: 0x379240 never calls zVid_ClearColor; the clear happens in
-	   CPipe::RenderWorld (0x244780, called at 0x379340), which passes the fog colour as u32[3]. */
-	zVid_Swap(false);
+	/* The backplane goes first, as an orthographic UI node. */
+	thePipe.m_node = m_menu->m_pBackplaneNode;
+	thePipe.m_simpletrans = true;
+	thePipe.RenderUiNode(m_menu->m_pBackplaneNode);
+	thePipe.m_simpletrans = false;
+
+	g_relocDblBuf.PreGetSprPacket(NULL);
+	reinterpret_cast<zdb::CGSTexBuffer*>(zdb::CTexManager::m_texmanager[0])->Load(true); /* port: see doAddBuffer */
+
+	if (zdb::CWorld::m_world)
+	{
+
+		thePipe.FIFO_Signal(reinterpret_cast<zdb::CGSTexBuffer*>(zdb::CTexManager::m_texmanager[zdb::CTexManager::TexPhase[0][0]]), assetWait);
+
+		if (zdb::CWorld::m_world->m_camera)
+			zdb::CWorld::m_world->m_camera->Update(zdb::tag_ZCAM_TYPE::ZCAM_NORMAL);
+
+		/* port: no clear-colour call here: the clear happens in CPipe::RenderWorld
+		   (0x244780), which passes the fog colour as u32[3]. */
+		thePipe.RenderWorld(zdb::CWorld::m_world);
+	}
+
+	m_menu->DrawForeplane();
+
+	g_relocDblBuf.PreGetSprPacket(NULL);
+	reinterpret_cast<zdb::CGSTexBuffer*>(zdb::CTexManager::m_texmanager[0])->Load(true);
+
+	zSysFifoEnd();
+
+	if (m_skip_swap > 0)
+	{
+		m_skip_swap--;
+		zVid_Swap(false);
+	}
+	else
+	{
+		zVid_Swap(true);
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub OnPush__10CMenuStateFi */

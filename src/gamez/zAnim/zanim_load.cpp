@@ -116,8 +116,29 @@ void CZAnimMain::LoadZAR(CZAnimZAR *, const char *)
 }
 
 /* @socom-skeleton stub OpenZAR__10CZAnimMainFPCc */
-CZAnimZAR * CZAnimMain::OpenZAR(const char *)
+CZAnimZAR * CZAnimMain::OpenZAR(const char *name)
 {
+	/* 0x1c0240: a name without "zanim.zar" is a folder holding one. */
+	if (!m_LoadFromZAR)
+		return NULL;
+
+	CZAnimZAR* archive = new CZAnimZAR();
+
+	if (archive == NULL)
+		return NULL;
+
+	char path[128];
+
+	if (strstr(name, "zanim.zar") == NULL)
+		sprintf(path, "%s/%s", name, "zanim.zar");
+	else
+		sprintf(path, "%s", name);
+
+	if (archive->Open(path, 0, 1, 16))
+		return archive;
+
+	delete archive;
+	return NULL;
 }
 
 /* @socom-skeleton stub CloseZAR__10CZAnimMainFP9CZAnimZAR */

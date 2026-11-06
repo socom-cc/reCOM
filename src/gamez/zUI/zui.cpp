@@ -138,7 +138,7 @@ int g_pTtySound;
 
 /* @socom-skeleton stub g_pCurMenu__17@unnamed@zui_cpp@ */
 namespace {
-int g_pCurMenu;
+CGameMenu *g_pCurMenu; /* port: the ctor stores `this` here (0x384118) */
 }
 
 /* @socom-skeleton stub g_pFaderNode__17@unnamed@zui_cpp@ */
@@ -259,9 +259,34 @@ void ActionItem::operator=(const ActionItem &)
 {
 }
 
+void RegisterMenuNode(zdb::CNode *); /* zanim_menu.cpp (0x1d6760) */
+
 /* @socom-skeleton stub __ct__9CGameMenuFv */
 CGameMenu::CGameMenu()
 {
+	/* 0x383df0. The members' own constructors run first. */
+	m_popupnode = NULL;
+	_pFontLib = NULL;
+	m_movieRunning = false;
+	m_has_mpeg_background = false;
+	g_pCurMenu = this;
+	m_MPEGName.reserve(0x40);
+	m_ReaderName.reserve(0x40);
+
+	/* The UI is drawn as two planes under m_nodeTop; the foreplane sits in front. */
+	m_pBackplaneNode = zdb::CNode::Create("CGameMenu backplane");
+	m_pForeplaneNode = zdb::CNode::Create("CGameMenu foreplane");
+	m_nodeTop.AddChild(m_pBackplaneNode);
+	m_nodeTop.AddChild(m_pForeplaneNode);
+	m_pForeplaneNode->SetPosition(0.0f, 0.0f, 16777210.0f); /* 0x4b7ffffa */
+	RegisterMenuNode(&m_nodeTop);
+
+	/* port: not written yet - 0x3841ac-0x38425c also set up the full-screen black fade
+	 * bitmap (_bmpFade: no texture, Load(0, 0, 640, 448), SetColor(0, 0, 0), trans 128),
+	 * zero m_numCommands/m_activeButton, clear g_hasAnims and reserve _vecModelInstances
+	 * (64) and _vecLibs (32); the port's CPlainBmp (C2D, not C2DBitmap) and CGameMenu lack
+	 * those members. */
+	g_hasAnims = false;
 }
 
 /* @socom-skeleton stub __dt__9CGameMenuFv */

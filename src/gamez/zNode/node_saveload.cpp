@@ -352,6 +352,21 @@ CWorld* CSaveLoad::Load(const char* name)
 }
 
 /* @socom-skeleton stub Read__Q23zdb6CWorldFRQ23zdb9CSaveLoad */
-bool zdb::CWorld::Read(zdb::CSaveLoad &)
+bool zdb::CWorld::Read(zdb::CSaveLoad &sload)
 {
+	/* 0x22a080: every node under world_tree becomes a child of the world. */
+	zar::CKey* tree = sload.m_zfile.OpenKey("world_tree");
+
+	if (tree == NULL) /* port: the ELF iterates without this check */
+		return true;
+
+	for (auto i = tree->begin(); i != tree->end(); ++i)
+	{
+		sload.m_zfile.OpenKey(*i);
+		CNode::Read(sload, this);
+		sload.m_zfile.CloseKey(*i);
+	}
+
+	sload.m_zfile.CloseKey(tree);
+	return true;
 }

@@ -32,6 +32,8 @@
 #include "gamez/zNetwork/znet.h"
 #include "gamez/zVideo/zvid.h"
 #include "gamez/zUI/zui.h"
+#include "gamez/zSystem/zsys.h" /* CConsole */
+#include <eekernel.h> /* CreateThread, StartThread, ThreadParam, _gp */
 
 /* @socom-skeleton decl forward */
 class CGameName;
@@ -67,38 +69,107 @@ CGame::~CGame()
 {
 }
 
+void NetTickThreadEntry(void *); /* defined below (0x20b0d0) */
+
 /* @socom-skeleton body Tick__5CGameFf */
 bool CGame::Tick(f32 dT)
 {
-	CGameState* state = NULL;
+	/* 0x20b150: run one queued state change per frame, else tick the top state. */
+	bool network = theNetwork.m_bNetwork;
 
 	theNetwork.zNetUpdate();
 	theVoice.PreTick();
-	// CConsole::m_console->Tick();
-	
-	if (m_CurrentState < 16)
+	((CConsole*)CConsole::m_console)->Tick(); /* m_console__8CConsole is the object (0x49c380) */
+
+	CGameState* state = m_CurrentState < 16 ? m_Stack[m_CurrentState] : NULL;
+
+	if (!m_Active)
+		return false;
+
+	if (m_StateChangeQueue.size() != 0)
 	{
-		state = m_Stack[m_CurrentState];
+		if (network)
+		{
+			/* Keep the network ticking on a thread while the state loads. */
+			ThreadParam param;
+			param.entry = (void*)NetTickThreadEntry;
+			param.stack = net_tick_thread_stack + 0x800; /* port: unproven - 0x20b1f4 passes 0x4c6560 = stack + 0x800 */
+			param.stackSize = 0x10000;
+			param.gpReg = &_gp;
+			param.initPriority = 4;
+			param.option = 0;
+
+			int thread = CreateThread(&param);
+
+			if (thread != 0)
+				StartThread(thread, NULL);
+		}
+
+		CGameStateChangeCmd* cmd = m_StateChangeQueue[0];
+
+		switch (cmd->m_type)
+		{
+		case 1: /* push */
+			if (cmd->m_toState != NULL)
+			{
+				m_Stack[m_CurrentState]->OnPush(cmd->m_toStateIdx);
+
+				if (cmd->m_toState->Init())
+				{
+					m_CurrentState++;
+
+					if (m_CurrentState >= 16)
+						m_CurrentState = 15;
+
+					m_Stack[m_CurrentState] = cmd->m_toState;
+				}
+			}
+			break;
+		case 0: /* pop */
+			if (state != NULL)
+				state->UnInit();
+
+			m_Stack[m_CurrentState] = NULL;
+			m_CurrentState--;
+			m_Stack[m_CurrentState]->OnPop(cmd->m_toStateIdx);
+			break;
+		case 2: /* switch */
+			if (cmd->m_toState != NULL)
+			{
+				if (state != NULL)
+					state->UnInit();
+
+				if (m_CurrentState >= 16)
+					m_CurrentState = 15;
+
+				if (cmd->m_toState->Init())
+					m_Stack[m_CurrentState] = cmd->m_toState;
+				else if (state != NULL)
+					state->Init();
+			}
+			break;
+		}
+
+		m_StateChangeQueue.pop_front();
+		CGameStateChangeCmd::Release(cmd);
+
+		if (network && NetTickThreadRunState)
+		{
+			/* Stop the thread and wait until it has exited. */
+			NetTickThreadRunState = false;
+
+			while (!*(volatile bool*)&NetTickThreadRunState)
+				;
+
+			NetTickThreadRunState = false;
+		}
 	}
-	else
+	else if (state != NULL)
 	{
-		state = NULL;
+		state->Tick(dT);
 	}
 
-	if (m_Active)
-	{
-		//if (m_StateChangeQueue.size() == 0)
-		//{
-		//	if (state != NULL)
-		//	{
-		//		state->Tick(dT);
-		//	}
-		//}
-
-		m_InitialState->Tick(dT);
-
-		theVoice.Tick(dT);
-	}
+	theVoice.Tick(dT);
 
 	return false;
 }

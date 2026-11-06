@@ -35,28 +35,8 @@ CSTable::CSTable(size_t size, size_t count)
 /* @socom-skeleton body __dt__7CSTableFv */
 CSTable::~CSTable()
 {
-	if (m_buffer != NULL)
-	{
-		for (auto it = begin(); it != end(); ++it)
-		{
-			zfree(*it);
-			*it = NULL;
-		}
-	}
-	else
-	{
-		if (!m_owner)
-		{
-			zfree(m_buffer);
-		}
-
-		m_buffer = NULL;
-		m_bytes = 0;
-		m_reserve = 0;
-	}
-
-	m_reserve = 0;
-	clear();
+	/* 0x306670: the same release as Destroy (inlined). */
+	Destroy();
 }
 
 /* @socom-skeleton body LoadTable__7CSTableFPvUib */
@@ -218,7 +198,31 @@ void CSTable::ReleaseBuffer(bool owner)
 /* @socom-skeleton body Destroy__7CSTableFv */
 void CSTable::Destroy()
 {
+	/* 0x3061b0: without a shared buffer every string was allocated on its own; with one,
+	 * the strings point into it and only an owned buffer is freed. */
+	if (m_buffer == NULL)
+	{
+		for (iterator it = begin(); it != end(); ++it)
+		{
+			_free(*it, "util_stable.cpp", 0x25);
+			*it = NULL;
+		}
+	}
+	else
+	{
+		if (m_owner)
+			_free(m_buffer, "util_stable.cpp", 0xc0);
 
+		m_buffer = NULL;
+		m_bytes = 0;
+		m_reserve = 0;
+	}
+
+	m_reserve = 0;
+
+	std::vector<char*> empty;
+	clear();
+	swap(empty);
 }
 
 /* @socom-skeleton stub Clear__7CSTableFv */

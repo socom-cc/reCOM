@@ -76,6 +76,7 @@ namespace zdb
 void zRndrInit();
 
 extern CPipe thePipe;
+extern unsigned int assetWait[17]; /* zrndr_pipe.cpp (0x506320); CMenuState::Tick passes it to FIFO_Signal */
 extern u32 numCharactersRendered;
 extern bool FirstVisDrawn;
 

@@ -165,6 +165,7 @@ public:
 		void Add(CTexHandle* handle, bool check);
 		void Add(CDynTexList* list);
 	private:
+		friend class CGSTexBuffer; /* port: unproven access - CGSTexBuffer::Load (0x2fb610) reads both lists */
 		CTexList m_tex_list;
 		CTexPalList m_pal_list;
 	};
@@ -217,7 +218,7 @@ public:
 	public:
 		static CTexManager m_texmanager; /* object: m_texmanager__Q23zdb11CTexManager is a 28-byte object */
 
-		void doAddBuffer(const char* name, f32 param_2, f32 param_3);
+		u32 doAddBuffer(const char* name, f32 start, f32 end); /* returns the new buffer's index (0x2fb414) */
 
 		u32 m_renderMapNum;
 		u32 m_renderMapNumBytes;

@@ -226,9 +226,9 @@ bool CNode::ReadDataBegin(CSaveLoad& sload)
 		if (visualskey)
 		{
 			ReserveVisuals(visualskey->GetSize());
-			auto it = visualskey->begin();
 
-			while (it != visualskey->end())
+			/* 0x223b00: the loop steps to the next key (it never advanced here before). */
+			for (auto it = visualskey->begin(); it != visualskey->end(); ++it)
 			{
 				zar::CKey* key = sload.m_zfile.OpenKey(*it);
 				
@@ -254,9 +254,7 @@ bool CNode::ReadDataBegin(CSaveLoad& sload)
 		{
 			ReserveDI(dikey->GetSize());
 
-			auto it = dikey->begin();
-
-			while (it != dikey->end())
+			for (auto it = dikey->begin(); it != dikey->end(); ++it) /* 0x223bd0 */
 			{
 				zar::CKey* key = sload.m_zfile.OpenKey(*it);
 
@@ -344,23 +342,23 @@ bool CNode::Read(CSaveLoad& sload)
 
 				sload.m_zfile.CloseKey(di);
 			}
-		}
 
-		// If the node has children
-		if (zar::CKey* children = sload.m_zfile.OpenKey("children"))
-		{
-			ReserveChildren(children->GetSize());
-
-			for (auto i = children->begin(); i != children->end(); ++i)
+			/* 0x223660: each branch reads the children once (they were read twice for version 1). */
+			if (zar::CKey* children = sload.m_zfile.OpenKey("children"))
 			{
-				zar::CKey* key = sload.m_zfile.OpenKey(*i);
-				Read(sload, this);
-				sload.m_zfile.CloseKey(key);
-			}
+				ReserveChildren(children->GetSize());
 
-			sload.m_zfile.CloseKey(children);
+				for (auto i = children->begin(); i != children->end(); ++i)
+				{
+					zar::CKey* key = sload.m_zfile.OpenKey(*i);
+					Read(sload, this);
+					sload.m_zfile.CloseKey(key);
+				}
+
+				sload.m_zfile.CloseKey(children);
+			}
 		}
-		
+
 		return true;
 	}
 }

@@ -259,19 +259,20 @@ public:
 	/* @socom-skeleton end 14CSched_Manager */
 };
 
-class CSaferStr : public std::basic_string<const char*>
+/* A std::string (CMenuState::Init 0x3795e8 calls basic_string<c>::assign/replace on it)
+ * whose assignment from a NULL pointer empties it instead of faulting. */
+class CSaferStr : public std::string
 {
 public:
 	CSaferStr& operator=(const char* str)
 	{
 		if (str == NULL)
 		{
-			replace(0, -1, 0);
+			replace(0, npos, "", 0);
 		}
 		else
 		{
-			size_t len = strlen(str);
-			assign(len, str);
+			assign(str, strlen(str));
 		}
 
 		return *this;

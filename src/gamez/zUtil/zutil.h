@@ -76,7 +76,7 @@ public:
 		bool m_flag_for_deletion;
 		static int m_last_id;
 	};
-	void RegisterRebootCallback(bool (*)(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *), void *);
+	int RegisterRebootCallback(bool (*)(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *), void *); /* returns the registrant id (0x3044cc) */
 	void UnRegisterRebootCallback(int);
 	void RebootIOP(CIOPManager::RebootMode);
 	static bool delflag(CIOPManager::CRegistrant &); /* delflag__11CIOPManagerFRQ211CIOPManager11CRegistrant (0x2f5240) */

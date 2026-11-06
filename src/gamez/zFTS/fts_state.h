@@ -29,20 +29,36 @@ namespace zdb
 	class CWorld;
 }
 
+/* Virtual order from __vt__10CGameState (0x4714d0): dtor, PreInit, Init, Tick, PreUnInit,
+ * UnInit, OnPush(int), OnPop(int). The bodies are inline and emitted in main.cpp
+ * (0x140bc0, 0x141080-0x1410e0, SetName 0x1419b0); their allocation tag is "zgame.h", 84. */
 class CGameState
 {
 public:
-	virtual void PreInit() = 0;
-	virtual bool Init() = 0;
-	virtual void PreUnInit() = 0;
-	virtual void UnInit() = 0;
+	virtual ~CGameState()
+	{
+		/* 0x140bc0 */
+		if (m_name)
+			_free(m_name, "zgame.h", 84);
+		m_name = NULL;
+	}
 
-	virtual bool Tick(f32 dT) = 0;
-
-	virtual void OnPop() = 0;
-	virtual void OnPush() = 0;
+	virtual void PreInit() {}
+	virtual bool Init() { return true; }
+	virtual bool Tick(f32 dT) { return false; }
+	virtual void PreUnInit() {}
+	virtual void UnInit() {}
+	virtual void OnPush(int) {}
+	virtual void OnPop(int) {}
 public:
-	void SetName(const char* name);
+	void SetName(const char* name)
+	{
+		/* 0x1419b0 */
+		if (m_name)
+			_free(m_name, "zgame.h", 84);
+		m_name = NULL;
+		m_name = name ? _strdup(name, "zgame.h", 84) : NULL;
+	}
 protected:
 	char* m_name;
 };
@@ -59,8 +75,6 @@ public:
 
 	bool Tick(f32 dT);
 
-	void OnPop() {}
-	void OnPush() {}
 protected:
 	f32 m_agl;
 	f32 m_posScale;
@@ -101,12 +115,10 @@ public:
 
 	bool Tick(f32 dT);
 
-	void OnPop() {}
-	void OnPush() {}
 
 	void DrawForeplane();
 	friend int main(int argc, char** argv); /* port: unproven access - main (0x140d48) reads m_skip */
-private:
+public: /* port: unproven access - st_menu.cpp's IOPRebootHandler (0x3798e0) and CMenuStateMenu (0x379aa0) use these */
 	CGameMenu* m_menu;
 	s32 m_skip;
 	s32 m_skip_swap;
@@ -141,8 +153,6 @@ public:
 
 	virtual bool Tick(float);
 
-	void OnPop() {}
-	void OnPush() {}
 private:
 	void* m_menu;
 	void* m_e3config;
@@ -174,8 +184,6 @@ public:
 
 	virtual bool Tick(float);
 
-	void OnPop() {}
-	void OnPush() {}
 
 	void SetMovie(const char* moviename);
 private:
@@ -200,8 +208,6 @@ public:
 
 	virtual bool Tick(float);
 
-	void OnPop() {}
-	void OnPush() {}
 private:
 	std::string m_libname;
 	std::string m_texname;
@@ -224,8 +230,6 @@ public:
 
 	virtual bool Tick(float);
 
-	void OnPop() {}
-	void OnPush() {}
 private:
 	std::string m_libname;
 	std::string m_texname;
@@ -249,8 +253,6 @@ public:
 
 	bool Tick(f32 dT);
 
-	void OnPop() {}
-	void OnPush() {}
 };
 
 class CShutdownState : public CGameState
@@ -263,8 +265,6 @@ public:
 
 	bool Tick(f32 dT);
 
-	void OnPop() {}
-	void OnPush() {}
 };
 
 class CGameStateChangeCmd
@@ -272,15 +272,18 @@ class CGameStateChangeCmd
 	friend class CGame;
 	/* port: CreatePool(s32) removed; the ELF has only CreatePool__19CGameStateChangeCmdFUi (decl region) */
 private:
-	bool m_active;
-	u32 m_type;
+	/* Layout from Acquire (0x20c140): +0 target state, +4 index, +8 type (sb), +9 bit 0 =
+	 * pool-owned, bit 1 = in use. Type 0 pops, 1 pushes, 2 switches (CGame::Tick 0x20b150). */
 	CGameState* m_toState;
 	u32 m_toStateIdx;
+	u8 m_type;
+	u8 m_pooled : 1; /* port: unproven name */
+	u8 m_active : 1;
 	/* @socom-skeleton decl 19CGameStateChangeCmd */
 public:
 	~CGameStateChangeCmd();
-	static void Acquire(unsigned int, CGameState *, unsigned int);
-	void Release(CGameStateChangeCmd *);
+	static CGameStateChangeCmd * Acquire(unsigned int, CGameState *, unsigned int); /* returns the command in v0 (PopTo 0x20ba38) */
+	static void Release(CGameStateChangeCmd *); /* Tick 0x20b40c passes only the command */
 	static void CreatePool(unsigned int);
 	static void DestroyPool();
 	/* @socom-skeleton end 19CGameStateChangeCmd */

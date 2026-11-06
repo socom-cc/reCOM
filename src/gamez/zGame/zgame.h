@@ -134,7 +134,7 @@ public:
 	COurGame() { m_InitialState = &m_menuState; }
 	bool StartEngine();
 	friend int main(int argc, char** argv); /* port: unproven access - main (0x140d48) reads m_menuState.m_skip */
-protected:
+public: /* port: unproven access - st_menu.cpp reaches m_menuState (0x3798e0, 0x379aa0) and m_loadState (0x379458) */
 	CMenuState m_menuState;
 	CLoadState m_loadState;
 	CCoreState m_coreState;

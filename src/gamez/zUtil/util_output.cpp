@@ -30,8 +30,18 @@ void zUtilUninit()
 }
 
 /* @socom-skeleton stub RegisterRebootCallback__11CIOPManagerFPFQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv_bPv */
-void CIOPManager::RegisterRebootCallback(bool (*)(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *), void *)
+int CIOPManager::RegisterRebootCallback(bool (*callback)(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *), void *data)
 {
+	/* 0x304480: append a registrant under the next id. */
+	CRegistrant registrant;
+	registrant.m_pcb = callback;
+	registrant.m_userdata = data;
+	registrant.m_id = CRegistrant::m_last_id++;
+	registrant.m_flag_for_deletion = false;
+
+	m_reboot_callback_vec.insert(m_reboot_callback_vec.end(), 1, registrant);
+
+	return registrant.m_id;
 }
 
 /* @socom-skeleton stub UnRegisterRebootCallback__11CIOPManagerFi */

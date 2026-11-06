@@ -679,7 +679,7 @@ bool CVisual::Read(zar::CZAR& archive)
 	{
 		u32 detail_size = 0;
 
-		archive.Fetch("vparams", this, sizeof(tag_VIS_PARAMS));
+		archive.Fetch("vparams", static_cast<tag_VIS_PARAMS*>(this), sizeof(tag_VIS_PARAMS)); /* port: into the base, not over GCC's vptr at `this` */
 
 		if (m_detail_buff == NULL)
 			zfree(m_detail_buff);
