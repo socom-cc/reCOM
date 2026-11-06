@@ -85,9 +85,9 @@ deferred until their real producers and compiler/provider prerequisites exist.
 <!-- SOCOM_PROGRESS_BEGIN -->
 ### Generated progress snapshot
 
-- Tracker revision: `4374`
+- Tracker revision: `4378`
 - Next work item: `socom:work:order-skeleton-prepare`
-- Work items: 1091 total (1 ready, 0 active, 0 awaiting acceptance, 1012 accepted, 78 dependency-blocked)
+- Work items: 1091 total (3 ready, 0 active, 0 awaiting acceptance, 1010 accepted, 78 dependency-blocked)
 - Open blockers: 3
 - Provisional source owners still unverified: 316
 

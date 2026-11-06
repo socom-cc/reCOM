@@ -2546,7 +2546,7 @@
     "sha256": "00c9cee7f75b921fda1e848d04f64881b5a0b7841300591cac91371bb23d4f8a",
     "size": 10765300
   },
-  "revision": 4374,
+  "revision": 4378,
   "schema_version": 6,
   "semantic_spans": [],
   "stage_order": [
@@ -213596,11 +213596,6 @@
       "title": "Plan the definition order of segment 046 (1 units, 257 definitions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-02T06:19:59Z",
-        "by": "socom-skeleton-verifier-v2",
-        "route": "progress accept-order-skeleton"
-      },
       "batch": {
         "batch_number": 46,
         "definitions": 257,
@@ -213634,19 +213629,12 @@
         "order-skeleton-files-sha256:019fbe0e172d14c4130185dae0194731802d51a570b472d395ea1d7a4d983851 count:1",
         "order-skeleton-flags data-type-unproven:69 forward-key-unproven:52 member-unproven:12 provisional-data-replaced:1 return-unproven:127",
         "order-skeleton-manifest-sha256:3fe41f6935aebfa6deb33ace25152039f4713d11541f221ee3f4fb1021dd7f7b",
-        "order-skeleton-record-sha256:33b00cf117961863df21b81ece0c3702ca435bb89f168f84c463ec0190f9b256",
         "order-skeleton-snapshot-sha256:3084d9c8abd6ca839112188210284cee36649770e20f53b965188cb5504d5003",
         "order-skeleton-stage4-baseline-sha256:d29bca437f2c609462745b5013fd4192b9c8c217d6e6b5fc2e63a14358a4c84b",
         "order-skeleton-waiting 2 local-static-owner:2",
-        "order-skeleton-write-sha256:ebbbdd57d09e54ae23c453817610863c3459e8329581cb9285a46917262191ad",
-        "record: 1 file, 247 entries, conflicts 0, waiting 2: shuffle$10712 / shuffle$10787 local-static-owner (all GPREL16 sites inside WEAK std::sort instances 0x330320 and 0x32ff90, no stub of the unit). Decisions none. Init spot-check (anon)::GameListPage {1,0,0,0} = ELF @0x47543c; apply-check ok (determinism 365 files; S1 6103 entries/355 local statics, 0 failed; S2 ok, 6 known conflicts, 5/5 mismatches explained; S3 0 blocks changed, 8918 edges = baseline digest; S4 979 bodies/172 head rewrites, 898 snapshot bodies landed; S5 0 new; S7 ok); git diff: HEAD = record before_sha256 and worktree = after_sha256 (LF) for every file, stage-4 blocks byte-identical, preamble changes are deletions only (each cut line found in a fence, a BD6 head, another unit's render or replaced_data), resources == record files; batch audits: source-trace ok, docblocks ok (8918 edges), guard raw-image only the 3 known zwep_weapon.cpp RVA comments, progress audit --strict ok"
+        "order-skeleton-write-sha256:ebbbdd57d09e54ae23c453817610863c3459e8329581cb9285a46917262191ad"
       ],
-      "handoff": {
-        "owner": "socom-skeleton-worker-w2",
-        "route": "progress handoff-order-skeleton",
-        "submitted_at": "2026-11-02T05:54:35Z",
-        "summary": "Wrote 1 file: src/gamez/zNetwork/zNetMedius.cpp; static checks pass. Decisions: none. Left waiting (local-static-owner): shuffle$10712 (socom:data:0x4767a0) and shuffle$10787 (socom:data:0x4767a8): their only GPREL16 sites are in the WEAK std::sort<MediusLobbyWorldPlayerListResponse*,...> 0x330320 and std::sort<LadderItem**,compare_ladder> 0x32ff90 instances (stage-7 copies; MSL <algorithm> sort's local 'shuffle'), so no out-of-line function of zNetMedius.cpp owns them."
-      },
+      "handoff": null,
       "id": "socom:work:order-segment-046-apply",
       "kind": "order-apply-segment",
       "lease": null,
@@ -213960,9 +213948,351 @@
       "resources": [
         "src/gamez/zNetwork/zNetMedius.cpp"
       ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-02T06:19:59Z",
+            "by": "socom-skeleton-verifier-v2",
+            "route": "progress accept-order-skeleton"
+          },
+          "evidence": [
+            "order-skeleton-render-diff: src/gamez/zNetwork/zNetMedius.cpp ancestor 16cf10a73a06 -> new render adds include region gamez/zTwoD/ztwod.h, drops class C2D; (manifest 7f5c9e27, snapshot 6ff3565c)"
+          ],
+          "handoff": {
+            "owner": "socom-skeleton-worker-w2",
+            "route": "progress handoff-order-skeleton",
+            "submitted_at": "2026-11-02T05:54:35Z",
+            "summary": "Wrote 1 file: src/gamez/zNetwork/zNetMedius.cpp; static checks pass. Decisions: none. Left waiting (local-static-owner): shuffle$10712 (socom:data:0x4767a0) and shuffle$10787 (socom:data:0x4767a8): their only GPREL16 sites are in the WEAK std::sort<MediusLobbyWorldPlayerListResponse*,...> 0x330320 and std::sort<LadderItem**,compare_ladder> 0x32ff90 instances (stage-7 copies; MSL <algorithm> sort's local 'shuffle'), so no out-of-line function of zNetMedius.cpp owns them."
+          },
+          "handoff_evidence": [
+            "order-skeleton-base-sha256:e3f341fd4dea181d98de03583ba08b825eb5adb145fff48fbce6cf4c79dac635",
+            "order-skeleton-conflicts 0",
+            "order-skeleton-file src/gamez/zNetwork/zNetMedius.cpp before:ab7d2df87d638e5970f44b7067e92d7e5a37c939629914a150949558c86259d1 after:16cf10a73a06048cddd07193e70c82e4fbecd5c376d984b1d1f3b887b542d774",
+            "order-skeleton-files-sha256:019fbe0e172d14c4130185dae0194731802d51a570b472d395ea1d7a4d983851 count:1",
+            "order-skeleton-flags data-type-unproven:69 forward-key-unproven:52 member-unproven:12 provisional-data-replaced:1 return-unproven:127",
+            "order-skeleton-manifest-sha256:3fe41f6935aebfa6deb33ace25152039f4713d11541f221ee3f4fb1021dd7f7b",
+            "order-skeleton-record-sha256:33b00cf117961863df21b81ece0c3702ca435bb89f168f84c463ec0190f9b256",
+            "order-skeleton-snapshot-sha256:3084d9c8abd6ca839112188210284cee36649770e20f53b965188cb5504d5003",
+            "order-skeleton-stage4-baseline-sha256:d29bca437f2c609462745b5013fd4192b9c8c217d6e6b5fc2e63a14358a4c84b",
+            "order-skeleton-waiting 2 local-static-owner:2",
+            "order-skeleton-write-sha256:ebbbdd57d09e54ae23c453817610863c3459e8329581cb9285a46917262191ad",
+            "record: 1 file, 247 entries, conflicts 0, waiting 2: shuffle$10712 / shuffle$10787 local-static-owner (all GPREL16 sites inside WEAK std::sort instances 0x330320 and 0x32ff90, no stub of the unit). Decisions none. Init spot-check (anon)::GameListPage {1,0,0,0} = ELF @0x47543c; apply-check ok (determinism 365 files; S1 6103 entries/355 local statics, 0 failed; S2 ok, 6 known conflicts, 5/5 mismatches explained; S3 0 blocks changed, 8918 edges = baseline digest; S4 979 bodies/172 head rewrites, 898 snapshot bodies landed; S5 0 new; S7 ok); git diff: HEAD = record before_sha256 and worktree = after_sha256 (LF) for every file, stage-4 blocks byte-identical, preamble changes are deletions only (each cut line found in a fence, a BD6 head, another unit's render or replaced_data), resources == record files; batch audits: source-trace ok, docblocks ok (8918 edges), guard raw-image only the 3 known zwep_weapon.cpp RVA comments, progress audit --strict ok"
+          ],
+          "order_skeleton": {
+            "applied_at": "2026-11-02T05:54:03Z",
+            "applied_by": "socom-skeleton-worker-w2",
+            "changed": [
+              "src/gamez/zNetwork/zNetMedius.cpp"
+            ],
+            "check": {
+              "determinism": {
+                "files_checked": 365,
+                "ok": true
+              },
+              "failed": [],
+              "ok": true,
+              "s1": {
+                "checked": 6103,
+                "failed": 0,
+                "local_statics_checked": 355,
+                "ok": true
+              },
+              "s2": {
+                "known_conflict_count": 6,
+                "mismatches": 5,
+                "mismatches_explained": 5,
+                "ok": true,
+                "problem_count": 0,
+                "units": 219
+              },
+              "s3": {
+                "blocks_changed": 0,
+                "edge_digest_matches_baseline": true,
+                "edges": 8918,
+                "files_compared": 297,
+                "ok": true
+              },
+              "s4": {
+                "bodies_checked": 979,
+                "head_rewrites": 172,
+                "header_bodies_replaced": 52,
+                "ok": true,
+                "snapshot_bodies_landed": 898
+              },
+              "s5": {
+                "new_findings": 0,
+                "ok": true
+              },
+              "s7": {
+                "classes_checked": 432,
+                "files": 58,
+                "members_checked": 4754,
+                "ok": true,
+                "regions": 692
+              },
+              "write_sha256": "ebbbdd57d09e54ae23c453817610863c3459e8329581cb9285a46917262191ad"
+            },
+            "decisions": null,
+            "entries": 247,
+            "files": [
+              {
+                "action": "unit",
+                "after_sha256": "16cf10a73a06048cddd07193e70c82e4fbecd5c376d984b1d1f3b887b542d774",
+                "after_stage4_blocks_sha256": "736f3834f95ac78d97b06577025bdbac5ecdc0c81a48ba6e4566b677c9a0dc5e",
+                "before_content_sha256": "d33b2048913559879ee4a50115668af0a4fb74e1759a070a11909b7c3fd546d9",
+                "before_sha256": "ab7d2df87d638e5970f44b7067e92d7e5a37c939629914a150949558c86259d1",
+                "path": "src/gamez/zNetwork/zNetMedius.cpp",
+                "stage4_blocks_sha256": "736f3834f95ac78d97b06577025bdbac5ecdc0c81a48ba6e4566b677c9a0dc5e"
+              }
+            ],
+            "files_sha256": "019fbe0e172d14c4130185dae0194731802d51a570b472d395ea1d7a4d983851",
+            "flags": {
+              "data-type-unproven": 69,
+              "forward-key-unproven": 52,
+              "member-unproven": 12,
+              "provisional-data-replaced": 1,
+              "return-unproven": 127
+            },
+            "inputs": {
+              "base_tree_sha256": "e3f341fd4dea181d98de03583ba08b825eb5adb145fff48fbce6cf4c79dac635",
+              "link_plan": {
+                "item": "socom:work:order-link",
+                "path": "build/order-plans/socom-work-order-link.json",
+                "sha256": "1ac47958390367ebf302e2753e62336e89904d29962ae3d13d86e4e6fb90216c"
+              },
+              "manifest_sha256": "3fe41f6935aebfa6deb33ace25152039f4713d11541f221ee3f4fb1021dd7f7b",
+              "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
+              "plans": [
+                {
+                  "item": "socom:work:order-segment-001",
+                  "sha256": "64fbdc69b9c5e84c63e24077fc3f4c1f4b9336717339080277e8810fcce56a18"
+                },
+                {
+                  "item": "socom:work:order-segment-013",
+                  "sha256": "955cc75a53e9895efc6fdc7f0725b7c01676433bbe802136a5bde145cce97ff5"
+                },
+                {
+                  "item": "socom:work:order-segment-014",
+                  "sha256": "8208b5f365b268db77dcb667bb801e2c19c3cf6859573ad5507e2ce5c6533247"
+                },
+                {
+                  "item": "socom:work:order-segment-015",
+                  "sha256": "701278dfd03d8360fe2f29320dc8309b85355e9b91446a3946ea39b5cf400d90"
+                },
+                {
+                  "item": "socom:work:order-segment-016",
+                  "sha256": "228fb8a7278cd27069adfe9f33756cc049df76f9721f04b5e319a77bebb5b97a"
+                },
+                {
+                  "item": "socom:work:order-segment-017",
+                  "sha256": "c9a6c448961a35688b9327efa9b8860ca87343d6be2b75e441a380c4a31c949a"
+                },
+                {
+                  "item": "socom:work:order-segment-018",
+                  "sha256": "c21fb6b42236f61ce59c5c530ae108b08756209aa2e8fffdfd3f7a768f9aa87b"
+                },
+                {
+                  "item": "socom:work:order-segment-019",
+                  "sha256": "9dc33265eb31e2234e889d8278a9a81d1871c35fa3aae1ca8e19fcd86f18c53d"
+                },
+                {
+                  "item": "socom:work:order-segment-020",
+                  "sha256": "c9c09bd014cd405d430785367568197fdb8fbb873a4729b1e28b1094f59a039d"
+                },
+                {
+                  "item": "socom:work:order-segment-021",
+                  "sha256": "35b2871d6ab8891ad719120e6b6aec8acea86568bc98aa37ddaf3234d58ac5b2"
+                },
+                {
+                  "item": "socom:work:order-segment-022",
+                  "sha256": "cb376d92ad266a4c803ec4c5c28106a2eb3ce5b14c11076faa2851c2c66d8a61"
+                },
+                {
+                  "item": "socom:work:order-segment-023",
+                  "sha256": "9b0e47afdc899f4cb4acd6d9c513b7873984a2995f062a962bd0701013efb885"
+                },
+                {
+                  "item": "socom:work:order-segment-024",
+                  "sha256": "0aaa8dad7319a73c54c8cfcbd105f87ae54ce0ecc19bfd3f4502ef91632de3f5"
+                },
+                {
+                  "item": "socom:work:order-segment-025",
+                  "sha256": "9fe87bc6bbd7b4d10b7385a0693b0b999489777bd0922023ef08baf25e760ae4"
+                },
+                {
+                  "item": "socom:work:order-segment-026",
+                  "sha256": "9cf2698254279b4937230963d35730457bb1023a52f57cde3e0eb872d604556e"
+                },
+                {
+                  "item": "socom:work:order-segment-027",
+                  "sha256": "d53b9dd0844a50a25f495eb70563a071afd616ff723880d2175c2631bbbd6f50"
+                },
+                {
+                  "item": "socom:work:order-segment-028",
+                  "sha256": "5f2aefb03ba89fa75c46a87ceec2580d8e5282d5b5881415502c4ffa4721d6f0"
+                },
+                {
+                  "item": "socom:work:order-segment-029",
+                  "sha256": "2da1cf7c7b048daa70e9517b00d906d359afe9702865242b38daf88b71578de1"
+                },
+                {
+                  "item": "socom:work:order-segment-030",
+                  "sha256": "1ff8f779532f2c220946a54fea607171f22ab1df56958d1bf364b21464e0cbb4"
+                },
+                {
+                  "item": "socom:work:order-segment-031",
+                  "sha256": "cd83a04c1cd26394bde20de26dcf81a67a2b653aa85f8c53907e9acaa2208596"
+                },
+                {
+                  "item": "socom:work:order-segment-032",
+                  "sha256": "31e1fb4afb8e6833c4ce6bcd27a0a723d233e90114605b6cb399d014cbc1fd81"
+                },
+                {
+                  "item": "socom:work:order-segment-033",
+                  "sha256": "1210323cc642c78cd8ae039b8244b01c996820ce0f7448c5fb2943c65a4b974a"
+                },
+                {
+                  "item": "socom:work:order-segment-034",
+                  "sha256": "9c0f10fbec92cf23e75b36faf5eeba0d06de6fb5b55d8300fd075e3b3d1d2a75"
+                },
+                {
+                  "item": "socom:work:order-segment-035",
+                  "sha256": "3be4bf0ae78eedc770d9ac98f40321e90214961f88a270c6a43dfaae85de515a"
+                },
+                {
+                  "item": "socom:work:order-segment-036",
+                  "sha256": "df9ee6fe742c893e82f7f1ee2225125a50df7a520204ee99a9ba4098e1442041"
+                },
+                {
+                  "item": "socom:work:order-segment-037",
+                  "sha256": "e4129e0efd6f15a5043882297786b6a448233a84fd0350f938c9d68654453fcd"
+                },
+                {
+                  "item": "socom:work:order-segment-039",
+                  "sha256": "26ab642751b590ee0f9dd2572a15d64ce9049e5cce72ad5c734f52867a1afeae"
+                },
+                {
+                  "item": "socom:work:order-segment-040",
+                  "sha256": "9f136e5e6b4efb29ffe137e41453c67b0594a9a835ccfac04a3a14858812af19"
+                },
+                {
+                  "item": "socom:work:order-segment-041",
+                  "sha256": "44b1026ea4530b6fca9c76955b12d3daac9dcb0dbc1940848a5d953c5ff2d07a"
+                },
+                {
+                  "item": "socom:work:order-segment-042",
+                  "sha256": "04494101b4d99c2303c59adde0e295dbcf99bd1bfcd1de83129ae625350524a5"
+                },
+                {
+                  "item": "socom:work:order-segment-043",
+                  "sha256": "f537c9480d7b04d776f58e0a4b767339a7b306ad9a2c6247c0ccd6d9dbc6784f"
+                },
+                {
+                  "item": "socom:work:order-segment-044",
+                  "sha256": "a067e8236ec5241d0d8fe9a9871e4642b1a457d77c9ebdc8e64e6986e94bee98"
+                },
+                {
+                  "item": "socom:work:order-segment-045",
+                  "sha256": "0ed34a560b213be386b1b9f352f0572641ded4074136abf2f33798b59ed0e674"
+                },
+                {
+                  "item": "socom:work:order-segment-046",
+                  "sha256": "f57cf40b6d87eb1348577f886151fd9b3414e8377ea19c2564d788e7e90ce9cf"
+                },
+                {
+                  "item": "socom:work:order-segment-047",
+                  "sha256": "9b247d403210fb96e4cd5ffa235adeb6ca5529244582317f04a07ec93591bc0d"
+                },
+                {
+                  "item": "socom:work:order-segment-052",
+                  "sha256": "ef97375a86a560eb9d3177d00b5dbcc191515ca6cb5d502cafed986bca3df31f"
+                },
+                {
+                  "item": "socom:work:order-segment-054",
+                  "sha256": "0a9d1afb69ff4597e7d17b034b8e89ff4984b8e35cd0323874d2bd99c40119ff"
+                },
+                {
+                  "item": "socom:work:order-segment-055",
+                  "sha256": "8fd88e27e22977d1b8af31e21b81f2f328da9d2fcd5570f992c40dcec97e3cd5"
+                },
+                {
+                  "item": "socom:work:order-segment-056",
+                  "sha256": "01f0dd5b3587385d2150ebdc91cb45379a77d5c597cf0527a5e07b367e8a5416"
+                },
+                {
+                  "item": "socom:work:order-segment-057",
+                  "sha256": "b7f863332e761cddbb361bc2a2bca65902a36542f429b91a7e71e91ce05d12ba"
+                },
+                {
+                  "item": "socom:work:order-segment-063",
+                  "sha256": "6ae8e2379d7124ec106544b91e130faef400c1bf7e55ceb97dc9fc00e4088c09"
+                },
+                {
+                  "item": "socom:work:order-segment-064",
+                  "sha256": "9d4a913972a2f865657091f91e9f0f0d786cef653b900bfd5d21baab7371131a"
+                },
+                {
+                  "item": "socom:work:order-segment-065",
+                  "sha256": "81536b303c26b2451d422d9b5f3ec31129fc2f73a03ef21aece34fdddf626227"
+                },
+                {
+                  "item": "socom:work:order-segment-068",
+                  "sha256": "e3f0c798ac26efe666dc0b8dabb947370ceff42e716d7d78095e8c31ab2393fe"
+                },
+                {
+                  "item": "socom:work:order-segment-074",
+                  "sha256": "aa2b2255bf48bfa625b95089abc7abc0f3dd9f99c44a1ff024ef27225afaa4e3"
+                },
+                {
+                  "item": "socom:work:order-segment-076",
+                  "sha256": "3be482a5ab68f5c8e3dac55deb160ea1ef7fb144d713b55420c8f76a9631f6ea"
+                }
+              ],
+              "snapshot_sha256": "3084d9c8abd6ca839112188210284cee36649770e20f53b965188cb5504d5003",
+              "src_sha256": "a01e888bf1c5ba394778b5120e527512ac55a38a2dc0a2c94efe76630ac2d84e",
+              "stage4_baseline_sha256": "d29bca437f2c609462745b5013fd4192b9c8c217d6e6b5fc2e63a14358a4c84b"
+            },
+            "item": "socom:work:order-segment-046-apply",
+            "kind": "socom-order-skeleton-apply",
+            "known_conflicts": [],
+            "regions": 1,
+            "route": "progress apply-order-skeleton",
+            "schema_version": 1,
+            "waiting": [
+              {
+                "detail": "no defining function of the unit references it",
+                "item": "socom:work:order-segment-046-apply",
+                "key": "socom:data:0x4767a0",
+                "kind": "local-static-owner",
+                "name": "shuffle$10712",
+                "option": "owner",
+                "segment": 46,
+                "unit": "zNetMedius.cpp"
+              },
+              {
+                "detail": "no defining function of the unit references it",
+                "item": "socom:work:order-segment-046-apply",
+                "key": "socom:data:0x4767a8",
+                "kind": "local-static-owner",
+                "name": "shuffle$10787",
+                "option": "owner",
+                "segment": 46,
+                "unit": "zNetMedius.cpp"
+              }
+            ],
+            "waiting_by_kind": {
+              "local-static-owner": 2
+            },
+            "write_sha256": "ebbbdd57d09e54ae23c453817610863c3459e8329581cb9285a46917262191ad"
+          },
+          "reason": "The user's stage-4 function placements (amendments 008-026, baseline 17256eb1) make C2D's header an include: the new render of zNetMedius.cpp needs #include \"gamez/zTwoD/ztwod.h\" in place of the forward declaration class C2D; the carried apply's file renders differently, so it is re-applied as a merge",
+          "reopened_at": "2026-11-06T11:59:51Z",
+          "reopened_by": "socom-skeleton-reapplier"
+        }
+      ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "accepted",
+      "status": "ready",
       "title": "Write the order skeletons of segment 046 under src/ and check them statically (no compile)"
     },
     {
@@ -218976,11 +219306,6 @@
       "title": "Plan the definition order of segment 074 (1 units, 41 definitions)"
     },
     {
-      "accepted": {
-        "at": "2026-11-02T06:34:00Z",
-        "by": "socom-skeleton-verifier-v3",
-        "route": "progress accept-order-skeleton"
-      },
       "batch": {
         "batch_number": 74,
         "definitions": 41,
@@ -219014,19 +219339,12 @@
         "order-skeleton-files-sha256:da5b871c5d9b72981ea49ef8a3f652ca6a810de02a95e19daf2a9e63a84e90d2 count:1",
         "order-skeleton-flags include-added:5 member-unproven:1 return-unproven:1 type-from-dwarf:3 unplanned-virtual:2",
         "order-skeleton-manifest-sha256:3fe41f6935aebfa6deb33ace25152039f4713d11541f221ee3f4fb1021dd7f7b",
-        "order-skeleton-record-sha256:0410bb83a90a1582828221c959dfb1ee4fbbb81a9d750a60be2e87019af4fbc0",
         "order-skeleton-snapshot-sha256:3084d9c8abd6ca839112188210284cee36649770e20f53b965188cb5504d5003",
         "order-skeleton-stage4-baseline-sha256:d29bca437f2c609462745b5013fd4192b9c8c217d6e6b5fc2e63a14358a4c84b",
         "order-skeleton-waiting 0",
-        "order-skeleton-write-sha256:348d5aa87d6b8940ca3a0fa2c32d92314c6aa9ad3f09d8316e57929856c6e113",
-        "own apply-check ok (determinism 365 files, S1-S5/S7 pass, record 0410bb83a90a1582); git diff vs HEAD: changes only in @socom-skeleton entry fences + generated include/forward region, stage-4 owner blocks byte-identical, remaining preamble = HEAD minus cut definitions, moved bodies match frozen base, no file outside the record changed (all 219 changed src files owned by exactly one skeleton record); functions/data in accepted plan order; stubs canonical; init c_szCornerBoxesTx@0x4690f8 -> \"newweapnbkrnd.tif\" matches ELF; record: 1 files (1 changed), 26 entries, 0 known conflicts, 0 waiting, no decisions file; batch audits: source-trace ok (561 known missing), docblocks ok (8918 edges), raw-image only the 3 known RVA comments in zwep_weapon.cpp, progress audit --strict ok"
+        "order-skeleton-write-sha256:348d5aa87d6b8940ca3a0fa2c32d92314c6aa9ad3f09d8316e57929856c6e113"
       ],
-      "handoff": {
-        "owner": "socom-skeleton-worker-w1",
-        "route": "progress handoff-order-skeleton",
-        "submitted_at": "2026-11-02T06:09:47Z",
-        "summary": "skeleton apply of segment 074: 1 files (1 changed), 26 entries, 12 flags; 0 known conflicts; 0 waiting; S1-S5, S7 pass"
-      },
+      "handoff": null,
       "id": "socom:work:order-segment-074-apply",
       "kind": "order-apply-segment",
       "lease": null,
@@ -219317,9 +219635,328 @@
       "resources": [
         "src/Apps/FTS/hud/hud_scorepopup.cpp"
       ],
+      "review_history": [
+        {
+          "accepted": {
+            "at": "2026-11-02T06:34:00Z",
+            "by": "socom-skeleton-verifier-v3",
+            "route": "progress accept-order-skeleton"
+          },
+          "evidence": [
+            "order-skeleton-render-diff: src/Apps/FTS/hud/hud_scorepopup.cpp ancestor 160793a05aa1 -> new render adds #include gamez/zTwoD/ztwod.h, drops class C2D; (manifest 7f5c9e27, snapshot 6ff3565c)"
+          ],
+          "handoff": {
+            "owner": "socom-skeleton-worker-w1",
+            "route": "progress handoff-order-skeleton",
+            "submitted_at": "2026-11-02T06:09:47Z",
+            "summary": "skeleton apply of segment 074: 1 files (1 changed), 26 entries, 12 flags; 0 known conflicts; 0 waiting; S1-S5, S7 pass"
+          },
+          "handoff_evidence": [
+            "order-skeleton-base-sha256:e3f341fd4dea181d98de03583ba08b825eb5adb145fff48fbce6cf4c79dac635",
+            "order-skeleton-conflicts 0",
+            "order-skeleton-file src/Apps/FTS/hud/hud_scorepopup.cpp before:feaa0af00a10da0f0e5dfa18860b8c8c5d7c99fd15a8e273e58127cff61c73d3 after:160793a05aa176393ead93f1331345b31a66996076877bef149a14d1402e4226",
+            "order-skeleton-files-sha256:da5b871c5d9b72981ea49ef8a3f652ca6a810de02a95e19daf2a9e63a84e90d2 count:1",
+            "order-skeleton-flags include-added:5 member-unproven:1 return-unproven:1 type-from-dwarf:3 unplanned-virtual:2",
+            "order-skeleton-manifest-sha256:3fe41f6935aebfa6deb33ace25152039f4713d11541f221ee3f4fb1021dd7f7b",
+            "order-skeleton-record-sha256:0410bb83a90a1582828221c959dfb1ee4fbbb81a9d750a60be2e87019af4fbc0",
+            "order-skeleton-snapshot-sha256:3084d9c8abd6ca839112188210284cee36649770e20f53b965188cb5504d5003",
+            "order-skeleton-stage4-baseline-sha256:d29bca437f2c609462745b5013fd4192b9c8c217d6e6b5fc2e63a14358a4c84b",
+            "order-skeleton-waiting 0",
+            "order-skeleton-write-sha256:348d5aa87d6b8940ca3a0fa2c32d92314c6aa9ad3f09d8316e57929856c6e113",
+            "own apply-check ok (determinism 365 files, S1-S5/S7 pass, record 0410bb83a90a1582); git diff vs HEAD: changes only in @socom-skeleton entry fences + generated include/forward region, stage-4 owner blocks byte-identical, remaining preamble = HEAD minus cut definitions, moved bodies match frozen base, no file outside the record changed (all 219 changed src files owned by exactly one skeleton record); functions/data in accepted plan order; stubs canonical; init c_szCornerBoxesTx@0x4690f8 -> \"newweapnbkrnd.tif\" matches ELF; record: 1 files (1 changed), 26 entries, 0 known conflicts, 0 waiting, no decisions file; batch audits: source-trace ok (561 known missing), docblocks ok (8918 edges), raw-image only the 3 known RVA comments in zwep_weapon.cpp, progress audit --strict ok"
+          ],
+          "order_skeleton": {
+            "applied_at": "2026-11-02T06:09:15Z",
+            "applied_by": "socom-skeleton-worker-w1",
+            "changed": [
+              "src/Apps/FTS/hud/hud_scorepopup.cpp"
+            ],
+            "check": {
+              "determinism": {
+                "files_checked": 365,
+                "ok": true
+              },
+              "failed": [],
+              "ok": true,
+              "s1": {
+                "checked": 6103,
+                "failed": 0,
+                "local_statics_checked": 355,
+                "ok": true
+              },
+              "s2": {
+                "known_conflict_count": 6,
+                "mismatches": 5,
+                "mismatches_explained": 5,
+                "ok": true,
+                "problem_count": 0,
+                "units": 219
+              },
+              "s3": {
+                "blocks_changed": 0,
+                "edge_digest_matches_baseline": true,
+                "edges": 8918,
+                "files_compared": 297,
+                "ok": true
+              },
+              "s4": {
+                "bodies_checked": 979,
+                "head_rewrites": 172,
+                "header_bodies_replaced": 52,
+                "ok": true,
+                "snapshot_bodies_landed": 898
+              },
+              "s5": {
+                "new_findings": 0,
+                "ok": true
+              },
+              "s7": {
+                "classes_checked": 432,
+                "files": 58,
+                "members_checked": 4754,
+                "ok": true,
+                "regions": 692
+              },
+              "write_sha256": "348d5aa87d6b8940ca3a0fa2c32d92314c6aa9ad3f09d8316e57929856c6e113"
+            },
+            "decisions": null,
+            "entries": 26,
+            "files": [
+              {
+                "action": "unit",
+                "after_sha256": "160793a05aa176393ead93f1331345b31a66996076877bef149a14d1402e4226",
+                "after_stage4_blocks_sha256": "f80cecf1e2004ca7e6c333b25e739627459347e05d66442bba1b4bff49a64de1",
+                "before_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "before_sha256": "feaa0af00a10da0f0e5dfa18860b8c8c5d7c99fd15a8e273e58127cff61c73d3",
+                "path": "src/Apps/FTS/hud/hud_scorepopup.cpp",
+                "stage4_blocks_sha256": "f80cecf1e2004ca7e6c333b25e739627459347e05d66442bba1b4bff49a64de1"
+              }
+            ],
+            "files_sha256": "da5b871c5d9b72981ea49ef8a3f652ca6a810de02a95e19daf2a9e63a84e90d2",
+            "flags": {
+              "include-added": 5,
+              "member-unproven": 1,
+              "return-unproven": 1,
+              "type-from-dwarf": 3,
+              "unplanned-virtual": 2
+            },
+            "inputs": {
+              "base_tree_sha256": "e3f341fd4dea181d98de03583ba08b825eb5adb145fff48fbce6cf4c79dac635",
+              "link_plan": {
+                "item": "socom:work:order-link",
+                "path": "build/order-plans/socom-work-order-link.json",
+                "sha256": "1ac47958390367ebf302e2753e62336e89904d29962ae3d13d86e4e6fb90216c"
+              },
+              "manifest_sha256": "3fe41f6935aebfa6deb33ace25152039f4713d11541f221ee3f4fb1021dd7f7b",
+              "order_sha256": "40d0691b5af94eadc53d415915ac1e8fb93c356ead7679c1cddc2ff437f31123",
+              "plans": [
+                {
+                  "item": "socom:work:order-segment-001",
+                  "sha256": "64fbdc69b9c5e84c63e24077fc3f4c1f4b9336717339080277e8810fcce56a18"
+                },
+                {
+                  "item": "socom:work:order-segment-013",
+                  "sha256": "955cc75a53e9895efc6fdc7f0725b7c01676433bbe802136a5bde145cce97ff5"
+                },
+                {
+                  "item": "socom:work:order-segment-014",
+                  "sha256": "8208b5f365b268db77dcb667bb801e2c19c3cf6859573ad5507e2ce5c6533247"
+                },
+                {
+                  "item": "socom:work:order-segment-015",
+                  "sha256": "701278dfd03d8360fe2f29320dc8309b85355e9b91446a3946ea39b5cf400d90"
+                },
+                {
+                  "item": "socom:work:order-segment-016",
+                  "sha256": "228fb8a7278cd27069adfe9f33756cc049df76f9721f04b5e319a77bebb5b97a"
+                },
+                {
+                  "item": "socom:work:order-segment-017",
+                  "sha256": "c9a6c448961a35688b9327efa9b8860ca87343d6be2b75e441a380c4a31c949a"
+                },
+                {
+                  "item": "socom:work:order-segment-018",
+                  "sha256": "c21fb6b42236f61ce59c5c530ae108b08756209aa2e8fffdfd3f7a768f9aa87b"
+                },
+                {
+                  "item": "socom:work:order-segment-019",
+                  "sha256": "9dc33265eb31e2234e889d8278a9a81d1871c35fa3aae1ca8e19fcd86f18c53d"
+                },
+                {
+                  "item": "socom:work:order-segment-020",
+                  "sha256": "c9c09bd014cd405d430785367568197fdb8fbb873a4729b1e28b1094f59a039d"
+                },
+                {
+                  "item": "socom:work:order-segment-021",
+                  "sha256": "35b2871d6ab8891ad719120e6b6aec8acea86568bc98aa37ddaf3234d58ac5b2"
+                },
+                {
+                  "item": "socom:work:order-segment-022",
+                  "sha256": "cb376d92ad266a4c803ec4c5c28106a2eb3ce5b14c11076faa2851c2c66d8a61"
+                },
+                {
+                  "item": "socom:work:order-segment-023",
+                  "sha256": "9b0e47afdc899f4cb4acd6d9c513b7873984a2995f062a962bd0701013efb885"
+                },
+                {
+                  "item": "socom:work:order-segment-024",
+                  "sha256": "0aaa8dad7319a73c54c8cfcbd105f87ae54ce0ecc19bfd3f4502ef91632de3f5"
+                },
+                {
+                  "item": "socom:work:order-segment-025",
+                  "sha256": "9fe87bc6bbd7b4d10b7385a0693b0b999489777bd0922023ef08baf25e760ae4"
+                },
+                {
+                  "item": "socom:work:order-segment-026",
+                  "sha256": "9cf2698254279b4937230963d35730457bb1023a52f57cde3e0eb872d604556e"
+                },
+                {
+                  "item": "socom:work:order-segment-027",
+                  "sha256": "d53b9dd0844a50a25f495eb70563a071afd616ff723880d2175c2631bbbd6f50"
+                },
+                {
+                  "item": "socom:work:order-segment-028",
+                  "sha256": "5f2aefb03ba89fa75c46a87ceec2580d8e5282d5b5881415502c4ffa4721d6f0"
+                },
+                {
+                  "item": "socom:work:order-segment-029",
+                  "sha256": "2da1cf7c7b048daa70e9517b00d906d359afe9702865242b38daf88b71578de1"
+                },
+                {
+                  "item": "socom:work:order-segment-030",
+                  "sha256": "1ff8f779532f2c220946a54fea607171f22ab1df56958d1bf364b21464e0cbb4"
+                },
+                {
+                  "item": "socom:work:order-segment-031",
+                  "sha256": "cd83a04c1cd26394bde20de26dcf81a67a2b653aa85f8c53907e9acaa2208596"
+                },
+                {
+                  "item": "socom:work:order-segment-032",
+                  "sha256": "31e1fb4afb8e6833c4ce6bcd27a0a723d233e90114605b6cb399d014cbc1fd81"
+                },
+                {
+                  "item": "socom:work:order-segment-033",
+                  "sha256": "1210323cc642c78cd8ae039b8244b01c996820ce0f7448c5fb2943c65a4b974a"
+                },
+                {
+                  "item": "socom:work:order-segment-034",
+                  "sha256": "9c0f10fbec92cf23e75b36faf5eeba0d06de6fb5b55d8300fd075e3b3d1d2a75"
+                },
+                {
+                  "item": "socom:work:order-segment-035",
+                  "sha256": "3be4bf0ae78eedc770d9ac98f40321e90214961f88a270c6a43dfaae85de515a"
+                },
+                {
+                  "item": "socom:work:order-segment-036",
+                  "sha256": "df9ee6fe742c893e82f7f1ee2225125a50df7a520204ee99a9ba4098e1442041"
+                },
+                {
+                  "item": "socom:work:order-segment-037",
+                  "sha256": "e4129e0efd6f15a5043882297786b6a448233a84fd0350f938c9d68654453fcd"
+                },
+                {
+                  "item": "socom:work:order-segment-039",
+                  "sha256": "26ab642751b590ee0f9dd2572a15d64ce9049e5cce72ad5c734f52867a1afeae"
+                },
+                {
+                  "item": "socom:work:order-segment-040",
+                  "sha256": "9f136e5e6b4efb29ffe137e41453c67b0594a9a835ccfac04a3a14858812af19"
+                },
+                {
+                  "item": "socom:work:order-segment-041",
+                  "sha256": "44b1026ea4530b6fca9c76955b12d3daac9dcb0dbc1940848a5d953c5ff2d07a"
+                },
+                {
+                  "item": "socom:work:order-segment-042",
+                  "sha256": "04494101b4d99c2303c59adde0e295dbcf99bd1bfcd1de83129ae625350524a5"
+                },
+                {
+                  "item": "socom:work:order-segment-043",
+                  "sha256": "f537c9480d7b04d776f58e0a4b767339a7b306ad9a2c6247c0ccd6d9dbc6784f"
+                },
+                {
+                  "item": "socom:work:order-segment-044",
+                  "sha256": "a067e8236ec5241d0d8fe9a9871e4642b1a457d77c9ebdc8e64e6986e94bee98"
+                },
+                {
+                  "item": "socom:work:order-segment-045",
+                  "sha256": "0ed34a560b213be386b1b9f352f0572641ded4074136abf2f33798b59ed0e674"
+                },
+                {
+                  "item": "socom:work:order-segment-046",
+                  "sha256": "f57cf40b6d87eb1348577f886151fd9b3414e8377ea19c2564d788e7e90ce9cf"
+                },
+                {
+                  "item": "socom:work:order-segment-047",
+                  "sha256": "9b247d403210fb96e4cd5ffa235adeb6ca5529244582317f04a07ec93591bc0d"
+                },
+                {
+                  "item": "socom:work:order-segment-052",
+                  "sha256": "ef97375a86a560eb9d3177d00b5dbcc191515ca6cb5d502cafed986bca3df31f"
+                },
+                {
+                  "item": "socom:work:order-segment-054",
+                  "sha256": "0a9d1afb69ff4597e7d17b034b8e89ff4984b8e35cd0323874d2bd99c40119ff"
+                },
+                {
+                  "item": "socom:work:order-segment-055",
+                  "sha256": "8fd88e27e22977d1b8af31e21b81f2f328da9d2fcd5570f992c40dcec97e3cd5"
+                },
+                {
+                  "item": "socom:work:order-segment-056",
+                  "sha256": "01f0dd5b3587385d2150ebdc91cb45379a77d5c597cf0527a5e07b367e8a5416"
+                },
+                {
+                  "item": "socom:work:order-segment-057",
+                  "sha256": "b7f863332e761cddbb361bc2a2bca65902a36542f429b91a7e71e91ce05d12ba"
+                },
+                {
+                  "item": "socom:work:order-segment-063",
+                  "sha256": "6ae8e2379d7124ec106544b91e130faef400c1bf7e55ceb97dc9fc00e4088c09"
+                },
+                {
+                  "item": "socom:work:order-segment-064",
+                  "sha256": "9d4a913972a2f865657091f91e9f0f0d786cef653b900bfd5d21baab7371131a"
+                },
+                {
+                  "item": "socom:work:order-segment-065",
+                  "sha256": "81536b303c26b2451d422d9b5f3ec31129fc2f73a03ef21aece34fdddf626227"
+                },
+                {
+                  "item": "socom:work:order-segment-068",
+                  "sha256": "e3f0c798ac26efe666dc0b8dabb947370ceff42e716d7d78095e8c31ab2393fe"
+                },
+                {
+                  "item": "socom:work:order-segment-074",
+                  "sha256": "aa2b2255bf48bfa625b95089abc7abc0f3dd9f99c44a1ff024ef27225afaa4e3"
+                },
+                {
+                  "item": "socom:work:order-segment-076",
+                  "sha256": "3be482a5ab68f5c8e3dac55deb160ea1ef7fb144d713b55420c8f76a9631f6ea"
+                }
+              ],
+              "snapshot_sha256": "3084d9c8abd6ca839112188210284cee36649770e20f53b965188cb5504d5003",
+              "src_sha256": "a01e888bf1c5ba394778b5120e527512ac55a38a2dc0a2c94efe76630ac2d84e",
+              "stage4_baseline_sha256": "d29bca437f2c609462745b5013fd4192b9c8c217d6e6b5fc2e63a14358a4c84b"
+            },
+            "item": "socom:work:order-segment-074-apply",
+            "kind": "socom-order-skeleton-apply",
+            "known_conflicts": [],
+            "regions": 5,
+            "route": "progress apply-order-skeleton",
+            "schema_version": 1,
+            "waiting": [],
+            "waiting_by_kind": {},
+            "write_sha256": "348d5aa87d6b8940ca3a0fa2c32d92314c6aa9ad3f09d8316e57929856c6e113"
+          },
+          "reason": "The user's stage-4 function placements (amendments 008-026, baseline 17256eb1) make C2D's header an include: the new render of hud_scorepopup.cpp needs #include \"gamez/zTwoD/ztwod.h\" in place of the forward declaration class C2D; the carried apply's file renders differently, so it is re-applied as a merge",
+          "reopened_at": "2026-11-06T12:00:00Z",
+          "reopened_by": "socom-skeleton-reapplier"
+        }
+      ],
       "selection": "units",
       "stage": "authored-function-order",
-      "status": "accepted",
+      "status": "ready",
       "title": "Write the order skeletons of segment 074 under src/ and check them statically (no compile)"
     },
     {
