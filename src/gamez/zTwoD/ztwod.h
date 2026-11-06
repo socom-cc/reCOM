@@ -38,6 +38,7 @@
  * @socom-artifact emits main socom:function:0x2fd190
  * @socom-artifact emits main socom:function:0x2fd290
  * @socom-artifact emits main socom:function:0x2fd310
+ * @socom-artifact emits main socom:function:0x2fe8e0
  * @socom-artifact emits main socom:function:0x2ff490
  * @socom-artifact emits main socom:function:0x2ff9a0
  * @socom-artifact emits main socom:function:0x2ffa00

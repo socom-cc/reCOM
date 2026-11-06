@@ -31,6 +31,7 @@
  * @socom-artifact defines main socom:function:0x280e80
  * @socom-artifact defines main socom:function:0x280eb0
  * @socom-artifact defines main socom:function:0x281030
+ * @socom-artifact defines main socom:function:0x281070
  * @socom-artifact defines main socom:data:0x475f90
  * @socom-artifact defines main socom:data:0x475f94
  * @socom-artifact defines main socom:data:0x507b80

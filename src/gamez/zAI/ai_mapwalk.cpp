@@ -25,6 +25,8 @@
  * @socom-artifact emits main socom:function:0x1a9120
  * @socom-artifact emits main socom:function:0x1a9130
  * @socom-artifact emits main socom:function:0x1a9140
+ * @socom-artifact defines main socom:function:0x1a9160
+ * @socom-artifact defines main socom:function:0x1a9170
  * @socom-artifact defines main socom:data:0x4390f0
  * @socom-artifact defines main socom:data:0x4757b4
  * @socom-artifact defines main socom:data:0x4757b8

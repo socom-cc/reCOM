@@ -11,6 +11,7 @@
  * @socom-artifact defines main socom:function:0x2f8db0
  * @socom-artifact defines main socom:function:0x2f8e70
  * @socom-artifact defines main socom:function:0x2f8e90
+ * @socom-artifact defines main socom:function:0x2f90b0
  * @socom-artifact defines main socom:data:0x4753b4
  * socom-owner-annotations end socom:work:source-segment-040 */
 

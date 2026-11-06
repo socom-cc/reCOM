@@ -8,6 +8,9 @@
  * @socom-artifact emits main socom:function:0x1ee3c0
  * @socom-artifact emits main socom:function:0x1f13b0
  * @socom-artifact emits main socom:function:0x1f1410
+ * @socom-artifact emits main socom:function:0x1f1fd0
+ * @socom-artifact emits main socom:function:0x1f1fe0
+ * @socom-artifact emits main socom:function:0x1f1ff0
  * socom-owner-annotations end socom:work:source-segment-022 */
 
 #ifndef ZENTITY_H
