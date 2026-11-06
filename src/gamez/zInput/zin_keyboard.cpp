@@ -89,9 +89,14 @@ void CKeyboard::Tick(float)
 {
 }
 
+void sceUsbKeybdInit(); /* below (0x21ba10) */
+
 /* @socom-skeleton stub InitKeyreadStuff__Fv */
 int InitKeyreadStuff()
 {
+	/* 0x21be90 */
+	sceUsbKeybdInit(); /* port: still a stub - the USB keyboard RPC bind (0x21ba10) is not written */
+	return 0;
 }
 
 /* @socom-skeleton stub GetKeyReadThisFrame__FP8KeyInput */

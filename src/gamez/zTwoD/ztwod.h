@@ -204,6 +204,7 @@ public:
 	void SetPos(s32 x, s32 y);
 	void SetUV(f32 u0, f32 v0, f32 u1, f32 v1);
 	void SetColor(f32 red, f32 green, f32 blue);
+	friend class C2DButton; /* port: C2DButton::DrawBackground (0x393940) reads _bmp.m_iWidth */
 protected: /* port: protected (was private) - CPlainBmp::SetMapOffset reads the size */
 	s32 m_x;
 	s32 m_y;
@@ -593,6 +594,10 @@ public:
 	virtual ~C3StateButton() {}
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual void Tick(float);
+	/* pure in __vt__13C3StateButton (0x4738d0 slots +0x5c..+0x64 are 0) */
+	virtual void SetBackgroundAlpha(float) = 0;
+	virtual void SetPressed() = 0;
+	virtual void DrawBackground(const CMatrix &, zdb::CTextureRelocMgr *) = 0;
 	/* @socom-skeleton end 13C3StateButton */
 };
 
@@ -610,6 +615,15 @@ public:
 		f32 _fGlowTime;
 		CPnt3D _pntTextColor;
 		f32 _fScale;
+
+		/* inline in the C2DButton (0x38fa10) and CButtonSpec (0x397d90) ctors; _fScale
+		 * is left unset */
+		ButtonState() : _Texture(NULL), _iGlowStart(0.0f), _iGlowEnd(0.0f), _bGlowy(false), _fPulseTime(0.0f), _fGlowTime(0.0f)
+		{
+			_pntTextColor.x = 128.0f;
+			_pntTextColor.y = 128.0f;
+			_pntTextColor.z = 128.0f;
+		}
 	};
 
 	ButtonState _PressedState;
@@ -625,20 +639,83 @@ public:
 	C2DFont* m_alternateFont;
 
 	f32 _fPressedTime;
+	/* DWARF ActionItem m_commands[30] (+0x220), the spec's ANIMATIONS: ActionItem is
+	 * declared in zui.h, after this header, so the port keeps its storage here and
+	 * zui_2d.cpp constructs the items in place (ctor 0x38fa10 runs __construct_array) */
+	u32 m_commands[30][4];
+	s32 m_numCommands;   /* +0x400 */
+
+	/* port: no symbol - the ELF inlines this state switch in SetNormal, SetPressed,
+	 * SetActive, Tick and SetCanHandleInput: background image, caption scale, colour,
+	 * glow and the image's pulse */
+	void ShowState(const ButtonState& state)
+	{
+		_bmp.C2DBitmap::Load(0.0f, 0.0f, _fWidth, _fHeight, state._Texture);
+		_strCaption.m_scale = state._fScale;
+		_strCaption.m_color.x = state._pntTextColor.x;
+		_strCaption.m_color.y = state._pntTextColor.y;
+		_strCaption.m_color.z = state._pntTextColor.z;
+		_strCaption.SetTrans(100.0f);
+		_strCaption.m_Type = state._bGlowy ? STRING_GLOWY : STRING_PLAIN;
+		_strCaption.m_fadeTime = state._fGlowTime;   /* SetFadeTimeMaxMin 0x38a870 */
+		_strCaption.m_fadeMax = state._iGlowEnd;
+		_strCaption.m_fadeMin = state._iGlowStart;
+		_strCaption.Update();
+
+		if (state._fPulseTime == 0.0f)                /* CPlainBmp::SetPulse 0x38a810 */
+		{
+			_bmp.SetTrans(128.0f);
+			_bmp.m_pulsing = false;
+		}
+		else
+		{
+			_bmp.m_pulsing = true;
+			_bmp.m_period = state._fPulseTime;
+		}
+	}
 	/* @socom-skeleton decl 9C2DButton */
 public:
 	virtual ~C2DButton();
 	virtual void Tick(float);
 	virtual bool HandlePad(const CPad *, int);
-	virtual void SetCanHandleInput(bool) {} /* port: stub (0x393840) */
+	virtual void SetCanHandleInput(bool enable) /* 0x393840: enabled shows NORMAL, disabled DISABLED */
+	{
+		m_active_and_handling_input = enable;
+
+		if (enable)
+			SetNormal();
+		else
+			ShowState(_DisabledState);
+	}
 	virtual void SetActive();
-	virtual void SetNormal() {} /* port: stub (0x387ad0) */
+	virtual void SetNormal() /* 0x387ad0 */
+	{
+		if (!CanHandleInput())
+			return;
+
+		_fPressedTime = 0.0f;
+		ShowState(_NormalState);
+	}
 	virtual C2DAnimCmdHdr * ParseZAnimCmd(_zrdr *);
 	virtual bool TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *);
 	virtual int GetZAnimCmdType(const char *);
 	virtual void SetBackgroundAlpha(float alpha) { _bmp.SetTrans(128.0f * alpha); } /* 0x393a00 */
-	virtual void SetPressed() {} /* port: stub (0x389d20) */
-	virtual void DrawBackground(const CMatrix &, zdb::CTextureRelocMgr *) {} /* port: stub (0x393940) */
+	virtual void SetPressed() /* 0x389d20: PRESSED for 0.2 s (Tick restores ACTIVE) */
+	{
+		if (!CanHandleInput())
+			return;
+
+		_fPressedTime = 0.2f;
+		ShowState(_PressedState);
+	}
+	virtual void DrawBackground(const CMatrix &transform, zdb::CTextureRelocMgr *reloc) /* 0x393940 */
+	{
+		/* a centred caption centres the image on the node */
+		if (_bCaptionCentered)
+			_bmp.SetPos(-(_bmp.m_iWidth / 2), 0, (s32)(_fWidth / 2.0f), (s32)_fHeight);
+
+		_bmp.Draw(transform, reloc);
+	}
 	C2DButton();
 	void LoadSpec(const CButtonSpec &);
 	/* @socom-skeleton end 9C2DButton */

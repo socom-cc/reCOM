@@ -224,9 +224,25 @@ public:
 	/* @socom-skeleton end 10CImageSpec */
 };
 
+class ActionItem;
+
 class CButtonSpec : public CDlgObjSpec
 {
 public:
+	/* no DWARF (port names); layout from the ctor (0x397d90), dtor (0x395560) and
+	 * C2DButton::LoadSpec (0x38f090) */
+	IPNT2D m_size;                         /* +0x8 XSIZE, YSIZE, SIZE */
+	IPNT2D m_offset;                       /* +0x10 XOFFSET, YOFFSET, OFFSET (the caption's) */
+	f32 m_scale;                           /* +0x18 SCALE (1), every state's default scale */
+	C2DButton::ButtonState m_pressed;      /* +0x1c PRESSED, PRESSEDGLOW, PRESSED_COLOR */
+	C2DButton::ButtonState m_active;       /* +0x48 ACTIVE, ACTIVEGLOW, ACTIVE_COLOR */
+	C2DButton::ButtonState m_normal;       /* +0x74 NORMAL, NORMALGLOW, NORMAL_COLOR */
+	C2DButton::ButtonState m_disabled;     /* +0xa0 DISABLED, DISABLEDGLOW, DISABLED_COLOR */
+	CSaferStr m_caption;                   /* +0xcc CAPTION */
+	bool m_hCentered;                      /* +0xd0 HCENTERED */
+	std::vector<ActionItem> m_animations;  /* +0xd4 ANIMATIONS */
+	bool m_hasFont;                        /* +0xe0 FONT given */
+	CSaferStr m_font;                      /* +0xe4 FONT */
 	/* @socom-skeleton decl 11CButtonSpec */
 public:
 	virtual ~CButtonSpec() {}
@@ -400,6 +416,8 @@ public:
 		u8 PadButton;    /* +0xd PAD_BUTTON (BUTTON) */
 		u8 Event;        /* +0xd EVENT (EVENT) */
 	};
+	/* 0x384280 (emitted from this header): a BUTTON item for no button (16), on FALLING */
+	ActionItem() : Type(ACTION_TYPE_BUTTON), Animation(NULL), Argument(NULL), State(1), PadButton(16) {}
 	void operator=(const ActionItem &);
 	~ActionItem();
 };

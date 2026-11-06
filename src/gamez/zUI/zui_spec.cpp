@@ -86,6 +86,8 @@ class CTextureRelocMgr;
 /* port: zui.cpp functions this file calls (no shared header declares them) */
 zdb::CTexHandle * PrepTexture(const char *, zdb::CTextureRelocMgr *);
 void ParseButtonAnim(_zrdr *, ActionItem *);
+CDlgObjSpec * GetObjectSpec(_zrdr *, const char *); /* below (0x399670) */
+void InitButton(C2DButton *, zdb::CTexHandle *, zdb::CTexHandle *, zdb::CTexHandle *, zdb::CTexHandle *, const char *); /* zui.cpp (0x3846f0) */
 
 /* @socom-skeleton stub GetType__12CCounterSpecFv */
 void CCounterSpec::GetType() /* port: stub, returns a type-name string in the ELF */
@@ -141,10 +143,7 @@ CImageSpec::CImageSpec(_zrdr *reader) : CDlgObjSpec(reader)
 	m_xsize = 0;
 	m_ysize = 0;
 	m_filename = zrdr_findstring(reader, "FILENAME");
-	/* port: unproven spelling - the ELF reads SIZE with zrdr_findIPNT2D (no port body);
-	 * its two integers are read here one by one */
-	zrdr_findint(reader, "SIZE", &m_xsize, 1);
-	zrdr_findint(reader, "SIZE", &m_ysize, 2);
+	zrdr_findIPNT2D(reader, "SIZE", reinterpret_cast<IPNT2D*>(&m_xsize)); /* m_xsize, m_ysize (+0xc, +0x10) */
 	zrdr_findint(reader, "XSIZE", &m_xsize, 1);
 	zrdr_findint(reader, "YSIZE", &m_ysize, 1);
 
@@ -178,17 +177,35 @@ C2D * CImageSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *reloc) cons
 }
 
 /* @socom-skeleton stub GetControlSpec__FP5_zrdrPCc */
-CDlgObjSpec * GetControlSpec(_zrdr *, const char *type)
+CDlgObjSpec * GetControlSpec(_zrdr *reader, const char *type)
 {
-	/* port: not written - 0x39a210 builds BUTTON, SCROLLINGTEXT, HANDLERBUTTON, LISTBOX,
-	 * SLIDERBAR, CHECKBOX, CYCLEBUTTON, RADIOSTRIP and MAPCONTROL specs; no control is
-	 * created yet. */
+	/* 0x39a210: the control types, else an object type (GetObjectSpec: IMAGE, TEXT...).
+	 * port: BUTTON is written; SCROLLINGTEXT, HANDLERBUTTON, LISTBOX, SLIDERBAR,
+	 * CHECKBOX, CYCLEBUTTON, RADIOSTRIP and MAPCONTROL are not (no control). */
+	if (type == NULL)
+		return NULL;
+
+	if (strcmp("BUTTON", type) == 0)
+		return new CButtonSpec(reader);
+
+	static const char* const unwritten[] =
+	{
+		"SCROLLINGTEXT", "HANDLERBUTTON", "LISTBOX", "SLIDERBAR", "CHECKBOX", "CYCLEBUTTON",
+		"RADIOSTRIP", "MAPCONTROL",
+	};
+
+	for (u32 i = 0; i < sizeof(unwritten) / sizeof(unwritten[0]); i++)
+	{
+		if (strcmp(unwritten[i], type) == 0)
+		{
 #ifdef SOCOM_PORT
-	static int traced = 0;
-	if (traced++ < 24)
-		SOCOM_PORT_TRACE("UI: control spec %s not written", type ? type : "(null)");
+			SOCOM_PORT_TRACE("UI: control spec %s not written", type);
 #endif
-	return NULL;
+			return NULL;
+		}
+	}
+
+	return GetObjectSpec(reader, type);
 }
 
 /* @socom-skeleton stub __ct__9CTextSpecFP5_zrdr */
@@ -326,19 +343,157 @@ void CGameDlgDesign::LoadModels(_zrdr *)
 {
 }
 
+namespace {
+/* port: no symbol - CButtonSpec's ctor (0x397d90) repeats this for each state. A state is
+ * either "NAME <image>" with NAMEGLOW (RANGE as integers, TIME) and NAME_COLOR beside it,
+ * or "NAME (IMAGE, TEXT_COLOR, PULSE, SCALE, TEXT_GLOW (RANGE, TIME))". The simple form
+ * of DISABLED reads its image name and drops it (keepImage false), as the ELF does. */
+void LoadButtonState(_zrdr* reader, const char* name, const char* glowName, const char* colorName,
+	C2DButton::ButtonState& state, bool keepImage)
+{
+	_zrdr* tag = zrdr_findtag(reader, name);
+
+	if (tag == NULL || !zrdr_IsComplex(tag))
+	{
+		char* image = zrdr_findstring(reader, name);
+
+		if (keepImage)
+			state._TexName = image;
+
+		_zrdr* glow = zrdr_findtag(reader, glowName);
+
+		if (glow == NULL)
+		{
+			state._bGlowy = false;
+		}
+		else
+		{
+			s32 range[2];
+			state._bGlowy = true;
+			zrdr_findint(glow, "RANGE", range, 2);
+			state._iGlowStart = (f32)range[0];
+			state._iGlowEnd = (f32)range[1];
+			zrdr_findreal(glow, "TIME", &state._fGlowTime, 1);
+		}
+
+		if (zrdr_findtag(reader, colorName) == NULL)
+		{
+			state._pntTextColor.x = 128.0f;
+			state._pntTextColor.y = 128.0f;
+			state._pntTextColor.z = 128.0f;
+		}
+		else
+		{
+			zrdr_findPNT3D(reader, colorName, &state._pntTextColor);
+		}
+	}
+	else
+	{
+		state._TexName = zrdr_findstring(tag, "IMAGE");
+		zrdr_findPNT3D(tag, "TEXT_COLOR", &state._pntTextColor);
+		zrdr_findreal(tag, "PULSE", &state._fPulseTime, 1);
+		zrdr_findreal(tag, "SCALE", &state._fScale, 1);
+		_zrdr* glow = zrdr_findtag(tag, "TEXT_GLOW");
+
+		if (glow == NULL)
+		{
+			state._bGlowy = false;
+		}
+		else
+		{
+			f32 range[2];
+			state._bGlowy = true;
+			zrdr_findreal(glow, "RANGE", range, 2);
+			state._iGlowStart = range[0];
+			state._iGlowEnd = range[1];
+			zrdr_findreal(glow, "TIME", &state._fGlowTime, 1);
+		}
+	}
+}
+}
+
 /* @socom-skeleton stub __ct__11CButtonSpecFP5_zrdr */
 CButtonSpec::CButtonSpec(_zrdr *reader) : CDlgObjSpec(reader) /* port: base constructor needed to compile */
 {
+	/* 0x397d90: size, caption offset and scale, CAPTION, the NORMAL, ACTIVE, PRESSED and
+	 * DISABLED states (each at the button's scale unless it gives its own), HCENTERED,
+	 * FONT, and the ANIMATIONS (button/event items) */
+	m_scale = 1.0f;
+	m_hCentered = false;
+	m_size.x = 0;
+	m_size.y = 0;
+	m_offset.x = 0;
+	m_offset.y = 0;
+	zrdr_findint(reader, "XSIZE", &m_size.x, 1);
+	zrdr_findint(reader, "YSIZE", &m_size.y, 1);
+	zrdr_findIPNT2D(reader, "SIZE", &m_size);
+	zrdr_findint(reader, "XOFFSET", &m_offset.x, 1);
+	zrdr_findint(reader, "YOFFSET", &m_offset.y, 1);
+	zrdr_findIPNT2D(reader, "OFFSET", &m_offset);
+	zrdr_findreal(reader, "SCALE", &m_scale, 1);
+	m_caption = zrdr_findstring(reader, "CAPTION");
+	m_disabled._fScale = m_scale;
+	m_pressed._fScale = m_scale;
+	m_normal._fScale = m_scale;
+	m_active._fScale = m_scale;
+
+	LoadButtonState(reader, "NORMAL", "NORMALGLOW", "NORMAL_COLOR", m_normal, true);
+	LoadButtonState(reader, "ACTIVE", "ACTIVEGLOW", "ACTIVE_COLOR", m_active, true);
+	LoadButtonState(reader, "PRESSED", "PRESSEDGLOW", "PRESSED_COLOR", m_pressed, true);
+	LoadButtonState(reader, "DISABLED", "DISABLEDGLOW", "DISABLED_COLOR", m_disabled, false);
+
+	m_hCentered = zrdr_findtag(reader, "HCENTERED") != NULL;
+	char* font = zrdr_findstring(reader, "FONT");
+
+	if (font == NULL)
+	{
+		m_hasFont = false;
+	}
+	else
+	{
+		m_hasFont = true;
+		m_font = font;
+	}
+
+	_zrdr* anims = zrdr_findtag(reader, "ANIMATIONS");
+
+	for (u32 i = 0; anims != NULL && anims->IsArray() && i < (u32)(anims->array->integer - 1); i++)
+	{
+		m_animations.resize(m_animations.size() + 1);
+		ParseButtonAnim(anims->Get(i), &m_animations.back());
+	}
 }
 
 /* @socom-skeleton stub InitializeButton__11CButtonSpecCFP9C2DButtonPQ23zdb16CTextureRelocMgr */
-void CButtonSpec::InitializeButton(C2DButton *, zdb::CTextureRelocMgr *) const
+void CButtonSpec::InitializeButton(C2DButton *button, zdb::CTextureRelocMgr *reloc) const
 {
+	/* 0x397cb0: the four state images, loaded into the relocator's batch, and the caption */
+	zdb::CTexHandle* normal = PrepTexture(m_normal._TexName.c_str(), reloc);
+	zdb::CTexHandle* active = PrepTexture(m_active._TexName.c_str(), reloc);
+	zdb::CTexHandle* pressed = PrepTexture(m_pressed._TexName.c_str(), reloc);
+	zdb::CTexHandle* disabled = PrepTexture(m_disabled._TexName.c_str(), reloc);
+
+	InitButton(button, normal, active, pressed, disabled, m_caption.c_str());
+	button->SetNormal();
 }
 
 /* @socom-skeleton stub CreateDisplayObj__11CButtonSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-C2D * CButtonSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CButtonSpec::CreateDisplayObj(C2DFont *font, zdb::CTextureRelocMgr *reloc) const
 {
+	/* 0x397b80: a C2DButton in the menu font, loaded from this spec, its state images
+	 * and caption set as InitializeButton does, shown NORMAL */
+	C2DButton* button = new C2DButton();
+	button->_strCaption.SetFont(font);
+	button->LoadSpec(*this);
+
+	zdb::CTexHandle* normal = PrepTexture(m_normal._TexName.c_str(), reloc);
+	zdb::CTexHandle* active = PrepTexture(m_active._TexName.c_str(), reloc);
+	zdb::CTexHandle* pressed = PrepTexture(m_pressed._TexName.c_str(), reloc);
+	zdb::CTexHandle* disabled = PrepTexture(m_disabled._TexName.c_str(), reloc);
+
+	InitButton(button, normal, active, pressed, disabled, m_caption.c_str());
+	button->SetNormal();
+	return button;
 }
 
 /* @socom-skeleton stub __ct__18CHandlerButtonSpecFP5_zrdr */

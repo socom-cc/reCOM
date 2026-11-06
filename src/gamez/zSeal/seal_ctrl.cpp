@@ -35,8 +35,8 @@ void CSealCtrl::StopRumbler()
 
     if (pad)
     {
-        pad->m_ActData = 0;
-        pad->m_IsAnalog = false;
+        pad->m_ActData[1] = 0; /* 0x284294: both actuator bytes (+0xd, +0xc) */
+        pad->m_ActData[0] = 0;
     }
 
     m_highrumbletime = 0.0f;

@@ -20,7 +20,7 @@ class CMouse;
 
 /* pad_dt is file-local in zin_main.cpp (LOCAL symbol) */
 
-enum KEY_STATE
+enum KEY_STATE : unsigned char /* DWARF byte_size 1 (CPad::m_state, UpdateButton 0x219850 stores bytes) */
 {
 	KEY_UP,
 	KEY_FALLING,
@@ -28,7 +28,7 @@ enum KEY_STATE
 	KEY_RISING
 };
 
-enum class PAD_BUTTON
+enum class PAD_BUTTON : unsigned char /* DWARF byte_size 1 */
 {
 	PAD_START,
 	PAD_SELECT,
@@ -113,19 +113,20 @@ public:
 	bool GetTwoButtons(PAD_BUTTON button1, PAD_BUTTON button2);
 	/* IsOpen: the binary has only IsOpen__4CPadCFv (const), declared below */
 
-	s32 m_port;
-	s32 m_slot;
-	s32 m_open;
+	/* DWARF CPad (404 bytes) */
+	s32 m_port;              /* +0x0 */
+	s32 m_slot;              /* +0x4 */
+	s32 m_open;              /* +0x8 scePadPortOpen result */
 
-	u8 m_ActData;
-	bool m_IsAnalog;
+	u8 m_ActData[6];         /* +0xc scePadSetActDirect data */
+	bool m_IsAnalog;         /* +0x12 */
 
-	KEY_STATE m_state[16];
-	u8 m_singleClick[16];
-	u8 m_doubleClick[16];
-	f32 m_click[16];
+	KEY_STATE m_state[16];   /* +0x13 */
+	u8 m_singleClick[16];    /* +0x23 */
+	u8 m_doubleClick[16];    /* +0x33 */
+	f32 m_click[16];         /* +0x44 click timers: -1 single, -2 double, -3 consumed */
 
-	long128* m_DmaBuf;
+	long128* m_DmaBuf;       /* +0x84 256 bytes of m_DmaBufArray per port */
 
 	u8 m_InData[32];
 	u32 m_Data;
@@ -139,16 +140,16 @@ public:
 	s32 m_actuator;
 	s32 m_NumActuators;
 
-	f32 m_LeftStick[2];
-	f32 m_RightStick[2];
-	bool m_swapSticks;
+	f32 m_LeftStick[2];      /* +0xd4 */
+	f32 m_RightStick[2];     /* +0xdc */
+	bool m_swapSticks;       /* +0xe4 */
 
-	f32 m_LeftStickDilated;
-	f32 m_RightStickDilated;
+	f32 m_LeftStickDilated[2];  /* +0xe8 */
+	f32 m_RightStickDilated[2]; /* +0xf0 */
 	
-	bool m_DataIsGood;
+	bool m_DataIsGood;       /* +0xf8 */
 
-	u8 m_ActAlign[6];
+	u8 m_ActAlign[6];        /* +0xf9 */
 
 	s32 m_RotationVibration;
 	s32 m_RotationSpeed;
@@ -158,10 +159,10 @@ public:
 	u8 m_lastStickRaw[4];
 	f32 m_lastStickVal[4];
 	f32 m_maxStick[4];
-	f32 m_minstick[4];
-	f32 m_deadTime[4];
+	f32 m_minStick[4];       /* +0x134 (DWARF m_minStick) */
+	f32 m_deadTime[4];       /* +0x144 */
 
-	CStickType m_stickType[2];
+	CStickType m_stickType[2]; /* +0x154 */
 	/* @socom-skeleton decl 4CPad */
 public:
 	CPad(int, int);
@@ -176,8 +177,8 @@ public:
 	void SetPreset(int, int);
 	void CheckStickVelocity(float &, float &, int);
 	void Dilate(float &, float &, int);
-	void GetSingleClick(PAD_BUTTON);
-	void GetDoubleClick(PAD_BUTTON);
+	bool GetSingleClick(PAD_BUTTON); /* port: bool (0x219a50 returns 0/1) */
+	bool GetDoubleClick(PAD_BUTTON); /* port: bool (0x219a00 returns 0/1) */
 	void UpdateButton(PAD_BUTTON, unsigned int);
 	/* @socom-skeleton end 4CPad */
 };

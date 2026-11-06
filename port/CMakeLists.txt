@@ -53,7 +53,17 @@ target_include_directories(socom_port PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/compa
 target_compile_definitions(socom_port PRIVATE SOCOM_PORT _EE SOCOM_PORT_TRACE_ON)
 target_link_libraries(socom_port PRIVATE
   -Wl,--whole-archive socom_game -Wl,--no-whole-archive
-  -liopreboot -lpatches -lcdvd -ldebug -leedebug -lkernel)
+  -liopreboot -lpatches -lcdvd -lpad -ldebug -leedebug -lkernel)
+
+# Test hook, off by default: a scratch build configured with
+#   -DSOCOM_PORT_FAKE_PAD=<read>:<BUTTON>[,<read>:<BUTTON>...]
+# synthesizes pad port 0 and presses the buttons at those pad reads (compat/libpad.c),
+# so batch emulator runs can drive the menus. Never set it in the default build.
+set(SOCOM_PORT_FAKE_PAD "" CACHE STRING "port test hook: scripted pad 0 presses (empty = off)")
+if(SOCOM_PORT_FAKE_PAD)
+  message(STATUS "socom port: TEST HOOK SOCOM_PORT_FAKE_PAD=${SOCOM_PORT_FAKE_PAD}")
+  target_compile_definitions(socom_port PRIVATE "SOCOM_PORT_FAKE_PAD=${SOCOM_PORT_FAKE_PAD}")
+endif()
 
 # INTERIM allocator (port/interim/zsys_memory_interim.c). The game allocator in
 # src/gamez/zSystem/zsys_memory.cpp is held for the stage-4 amendment wave and still

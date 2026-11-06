@@ -108,8 +108,18 @@ bool CRdrEditor::addSTRING(const char* tag, const char* value)
 }
 
 /* @socom-skeleton stub zrdr_IsComplex__FP5_zrdr */
-void zrdr_IsComplex(_zrdr *)
+bool zrdr_IsComplex(_zrdr *reader)
 {
+	/* 0x240380: any element of the array is itself an array */
+	u32 count = reader->type == ZRDR_ARRAY ? reader->array->integer - 1 : 0;
+
+	for (u32 i = 0; i < count; i++)
+	{
+		if (reader->array[i + 1].type == ZRDR_ARRAY)
+			return true;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton body _NeedQuotes__FP5_zrdr */

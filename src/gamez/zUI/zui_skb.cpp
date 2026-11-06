@@ -491,8 +491,12 @@ void ReadIntPair(_zrdr *, const char *)
 }
 
 /* @socom-skeleton stub SkbHandleInput__FRC4CPadP9CGameMenu */
-void SkbHandleInput(const CPad &, CGameMenu *)
+bool SkbHandleInput(const CPad &, CGameMenu *)
 {
+	/* 0x3a7510: an active soft keyboard takes the pad (CSoftKeyboard::HandleInput
+	 * 0x3a5310) and the menu sees none of it. port: no soft keyboard is ever made active
+	 * (g_pActiveSkb is never set), so the pad goes on to the menu. */
+	return g_pActiveSkb != 0;
 }
 
 /* @socom-skeleton stub StrToSkbKey__21@unnamed@zui_skb_cpp@FPCc */

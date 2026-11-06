@@ -116,6 +116,12 @@ bool zrdr_findbool(const _zrdr* reader, const char* tag, bool* output);
 /// @return Successful if true, failure otherwise.
 bool zrdr_findPNT2D(const _zrdr* reader, const char* tag, PNT2D* output);
 
+/// Finds an integer vector (X, Y) - zrdr_file.cpp (0x23d070).
+bool zrdr_findIPNT2D(const _zrdr* reader, const char* tag, IPNT2D* output);
+
+/// True when the array holds another array (a structured tag) - zrdr_edit.cpp (0x240380).
+bool zrdr_IsComplex(_zrdr* reader);
+
 /// Finds a vector consisting of X, Y, and Z coordinates.
 /// @param reader A zReader array node.
 /// @param tag The name of the tag to find.

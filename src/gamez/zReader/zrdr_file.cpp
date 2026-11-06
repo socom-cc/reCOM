@@ -231,8 +231,25 @@ bool zrdr_findPNT2D(const _zrdr *reader, const char *name, PNT2D *output)
 }
 
 /* @socom-skeleton stub zrdr_findIPNT2D__FPC5_zrdrPCcP6IPNT2D */
-void zrdr_findIPNT2D(const _zrdr *, const char *, IPNT2D *)
+bool zrdr_findIPNT2D(const _zrdr *reader, const char *name, IPNT2D *output)
 {
+	/* 0x23d070: the tag's first two values (reals truncated); other types leave them */
+	_zrdr* tag = zrdr_findtag_startidx(reader, name, 1);
+
+	if (tag == NULL || tag->type != ZRDR_ARRAY || tag->array->integer < 3)
+		return false;
+
+	for (s32 i = 0; i < 2; i++)
+	{
+		_zrdr* node = &tag->array[i + 1];
+
+		if (node->type == ZRDR_REAL)
+			(&output->x)[i] = (s32)node->real;
+		else if (node->type == ZRDR_INTEGER)
+			(&output->x)[i] = node->integer;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton body zrdr_findbool__FPC5_zrdrPCcPb */

@@ -228,8 +228,14 @@ PAD_BUTTON GetButton(const char *name)
 }
 
 /* @socom-skeleton stub GetStickDir__Fv */
-void GetStickDir()
+unsigned char GetStickDir() /* port: returns the direction (0x384820 returns 1..4 in v0) */
 {
+	/* 0x384820: the left stick's octant pair: 1 left, 2 right, 3 up, 4 down (the pad's
+	 * X is positive to the left, Y positive up) */
+	if (g_fStickX < g_fStickY)
+		return g_fStickX < -g_fStickY ? 2 : 3;
+
+	return g_fStickX < -g_fStickY ? 4 : 1;
 }
 
 /* @socom-skeleton body HookupLib__FPQ23zdb9CAssetLib */
@@ -253,13 +259,29 @@ void HookupLib(zdb::CAssetLib *lib)
 }
 
 /* @socom-skeleton stub InitButton__FP9C2DButtonPQ23zdb10CTexHandlePQ23zdb10CTexHandlePQ23zdb10CTexHandlePQ23zdb10CTexHandlePCc */
-void InitButton(C2DButton *, zdb::CTexHandle *, zdb::CTexHandle *, zdb::CTexHandle *, zdb::CTexHandle *, const char *)
+void InitButton(C2DButton *button, zdb::CTexHandle *normal, zdb::CTexHandle *active, zdb::CTexHandle *pressed, zdb::CTexHandle *disabled, const char *caption)
 {
+	/* 0x3846f0: the four state images and the caption */
+	button->_NormalState._Texture = normal;
+	button->_ActiveState._Texture = active;
+	button->_PressedState._Texture = pressed;
+	button->_DisabledState._Texture = disabled;
+	button->_szCaption = const_cast<char*>(caption);
+
+	if (caption != NULL)
+	{
+		button->_strCaption.SetString(caption);
+		button->_strCaption.UpdatePos();
+	}
 }
 
 /* @socom-skeleton stub IsStickNearCenter__Ff */
-void IsStickNearCenter(float)
+bool IsStickNearCenter(float radius) /* port: bool (inlined as a 0/1 test in HandlePad 0x382f00) */
 {
+	/* 0x384670: both axes of the last stick reading within radius */
+	f32 x = g_fStickX < 0.0f ? -g_fStickX : g_fStickX;
+	f32 y = g_fStickY < 0.0f ? -g_fStickY : g_fStickY;
+	return x <= radius && y <= radius;
 }
 
 /* @socom-skeleton stub PlayCountSound__Fv */
@@ -270,6 +292,9 @@ void PlayCountSound()
 /* @socom-skeleton stub PlaySelectionSound__Fv */
 void PlaySelectionSound()
 {
+	/* 0x3845f0 */
+	if (theGame.m_menuState.SelectionSound != NULL)
+		theGame.m_menuState.SelectionSound->PlaySound(true, NULL, 255);
 }
 
 /* @socom-skeleton stub PrepTexture__FPCcPQ23zdb16CTextureRelocMgr */
@@ -299,8 +324,17 @@ CGameMenu * UiGetCurMenu()
 }
 
 /* @socom-skeleton stub UiGetDirStickMoved__Fv */
-void UiGetDirStickMoved()
+unsigned char UiGetDirStickMoved() /* port: returns the direction (0x384380 returns it in v0) */
 {
+	/* 0x384380: 5 when the stick has just come back to the centre, the direction
+	 * (GetStickDir) when it has just left the centre, else 0 */
+	if (!g_bCenterSinceEdge)
+		return IsStickNearCenter(0.2f) ? 5 : 0;
+
+	if (IsStickNearCenter(0.6f))
+		return 0;
+
+	return GetStickDir();
 }
 
 /* @socom-skeleton stub __as__10ActionItemFRC10ActionItem */
@@ -326,6 +360,7 @@ void RegisterMenuNode(zdb::CNode *); /* zanim_menu.cpp (0x1d6760) */
 CRdrFile * FetchMissionFontsRdr(); /* zanim_menu.cpp (0x1d5e40) */
 void Unload_MissionReader(); /* zanim_menu.cpp */
 void TickSkb(float); /* zui_skb.cpp */
+bool SkbHandleInput(const CPad &, CGameMenu *); /* zui_skb.cpp (0x3a7510) */
 void PrepSkbsForDisplay(zdb::CNode *, zdb::CTextureRelocMgr *, C2DFont *); /* zui_skb.cpp */
 void UiSetCounterSpeedFactor(float); /* zui_2d.cpp */
 void UiSetTtySpeedFactor(float); /* zui_2d.cpp */
@@ -499,8 +534,74 @@ void CGameMenu::DrawForeplane()
 }
 
 /* @socom-skeleton stub HandlePad__9CGameMenuFPC4CPad */
-void CGameMenu::HandlePad(const CPad *)
+void CGameMenu::HandlePad(const CPad *pad)
 {
+	/* 0x382f00: track the left stick (centred with hysteresis), then the first taker of
+	 * the pad: a shown pop-up, the soft keyboard, the active control, the design's
+	 * BUTTON anims; else DOWN/RIGHT (or the stick) move to the next control and UP/LEFT
+	 * to the previous one */
+	g_bCenterSinceEdge = IsStickNearCenter(g_bCenterSinceEdge ? 0.6f : 0.2f);
+	g_fStickX = pad->m_LeftStickDilated[0];
+	g_fStickY = pad->m_LeftStickDilated[1];
+
+	if (m_popupnode != NULL && m_popupnode->m_active)
+	{
+		GetMenuStack()->GetPopUp()->HandlePad(pad, 0);
+		return;
+	}
+
+	if (SkbHandleInput(*pad, this))
+		return;
+
+	if (m_ScreenControls.HandlePad(pad, m_activeButton))
+		return;
+
+	for (s32 i = 0; i < m_numCommands; i++)
+	{
+		ActionItem& item = m_commands[i];
+
+		if (item.Type != ActionItem::ACTION_TYPE_BUTTON || item.State != pad->m_state[item.PadButton])
+			continue;
+
+		CZAnim* anim = ZAnim.GetAnim(item.Animation, NULL);
+
+		if (anim == NULL)
+			return;
+
+		if (item.Argument != NULL)
+			anim->ActivateArg(1, 8, item.Argument, 0);
+		else
+			anim->Activate(NULL);
+
+		return;
+	}
+
+	u8 dir;
+
+	if (pad->m_state[(u8)PAD_BUTTON::PAD_DOWN] == KEY_FALLING || pad->m_state[(u8)PAD_BUTTON::PAD_RIGHT] == KEY_FALLING)
+	{
+		MakeNextButtonActive();
+		return;
+	}
+
+	dir = UiGetDirStickMoved();
+
+	if (dir == 2 || dir == 4)
+	{
+		MakeNextButtonActive();
+		return;
+	}
+
+	if (pad->m_state[(u8)PAD_BUTTON::PAD_UP] == KEY_FALLING || pad->m_state[(u8)PAD_BUTTON::PAD_LEFT] == KEY_FALLING)
+	{
+		MakePrevButtonActive();
+		return;
+	}
+
+	dir = UiGetDirStickMoved();
+
+	if (dir == 1 || dir == 3)
+		MakePrevButtonActive();
 }
 
 /* @socom-skeleton body Init__9CGameMenuFPQ23zdb16CTextureRelocMgrP9CZAnimZAR */
@@ -759,16 +860,114 @@ void CGameMenu::RunEventAnim(ActionItem::EVENT event, const char *argument)
 /* @socom-skeleton stub MakeNextButtonActive__9CGameMenuFv */
 void CGameMenu::MakeNextButtonActive()
 {
+	/* 0x381d20: the active control goes NORMAL and the next one (wrapping) ACTIVE with
+	 * the selection sound; one that takes no input is passed over while any control
+	 * still takes input */
+	if (m_ScreenControls.empty())
+		return;
+
+	auto it = m_ScreenControls.begin();
+	std::advance(it, m_activeButton);
+	(*it)->SetNormal();
+	m_activeButton = (m_activeButton + 1) % (s32)m_ScreenControls.size();
+
+	it = m_ScreenControls.begin();
+	std::advance(it, m_activeButton);
+	C2D* control = *it;
+
+	if (control->CanHandleInput())
+	{
+		control->SetActive();
+		PlaySelectionSound();
+		return;
+	}
+
+	for (it = m_ScreenControls.begin(); it != m_ScreenControls.end(); ++it)
+	{
+		if ((*it)->CanHandleInput())
+		{
+			MakeNextButtonActive();
+			return;
+		}
+	}
 }
 
 /* @socom-skeleton stub MakePrevButtonActive__9CGameMenuFv */
 void CGameMenu::MakePrevButtonActive()
 {
+	/* 0x381a10: as MakeNextButtonActive, backwards */
+	if (m_ScreenControls.empty())
+		return;
+
+	auto it = m_ScreenControls.begin();
+	std::advance(it, m_activeButton);
+	(*it)->SetNormal();
+	m_activeButton--;
+
+	if (m_activeButton < 0)
+		m_activeButton = (s32)m_ScreenControls.size() - 1;
+
+	it = m_ScreenControls.begin();
+	std::advance(it, m_activeButton);
+	C2D* control = *it;
+
+	if (control->CanHandleInput())
+	{
+		control->SetActive();
+		PlaySelectionSound();
+		return;
+	}
+
+	for (it = m_ScreenControls.begin(); it != m_ScreenControls.end(); ++it)
+	{
+		if ((*it)->CanHandleInput())
+		{
+			MakePrevButtonActive();
+			return;
+		}
+	}
 }
 
 /* @socom-skeleton stub MakeButtonActive__9CGameMenuFPCc */
-void CGameMenu::MakeButtonActive(const char *)
+void CGameMenu::MakeButtonActive(const char *name)
 {
+	/* 0x3817e0: the active control goes NORMAL; the named node's control goes ACTIVE (with
+	 * the selection sound) and becomes the active index */
+	if (m_ScreenControls.empty())
+		return;
+
+	auto it = m_ScreenControls.begin();
+	std::advance(it, m_activeButton);
+	(*it)->SetNormal();
+
+	C2D* control = NULL; /* port: the ELF leaves its register unset when the node has no 2D visual */
+	zdb::CNode* node = m_nodeTop.FindChild(name, true);
+
+	if (node != NULL)
+	{
+		zdb::CVisual* visual = node->GetFirstVisual();
+		C2DVisual* visual2d = visual ? visual->Get2DVisual() : NULL;
+
+		if (visual2d != NULL)
+			control = visual2d->m_2d;
+
+		if (control != NULL)
+		{
+			control->SetActive();
+			PlaySelectionSound();
+		}
+	}
+
+	s32 index = 0;
+
+	for (it = m_ScreenControls.begin(); it != m_ScreenControls.end(); ++it, ++index)
+	{
+		if (*it == control)
+		{
+			m_activeButton = index;
+			return;
+		}
+	}
 }
 
 /* @socom-skeleton stub HaltBackgroundMPEG__9CGameMenuFv */

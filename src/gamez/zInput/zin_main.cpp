@@ -51,6 +51,9 @@
 /* @socom-skeleton decl include */
 #include "gamez/zUtil/zutil.h"
 /* @socom-skeleton end include */
+#include <libpad.h> /* scePadXxx (Sony EE libpad; port: compat/include/libpad.h) */
+#include <math.h>
+#include <string.h>
 
 /* @socom-skeleton stub m_pads__6CInput */
 CPad *CInput::m_pads[2] = {0};
@@ -71,28 +74,70 @@ CKeyboard *CInput::m_keyboard;
 static float pad_dt;
 
 /* @socom-skeleton stub m_DmaBufArray */
-unsigned char m_DmaBufArray[512];
+unsigned char m_DmaBufArray[512] __attribute__((aligned(64))); /* 0x4d74c0: 256 bytes per port for scePadPortOpen */
 
 /* @socom-skeleton body OpenPadIO__6CInputFv */
 int CInput::OpenPadIO()
 {
-	return 1;
+	/* 0x21b5f0 */
+	scePadInit(0);
+	return 0;
 }
 
 /* @socom-skeleton body ClosePadIO__6CInputFv */
 void CInput::ClosePadIO()
 {
+	/* 0x21b5a0 */
 	for (int i = 0; i < 2; i++)
 	{
 		DeletePad(i);
 	}
+
+	scePadEnd();
 }
 
 /* @socom-skeleton body __ct__4CPadFii */
 CPad::CPad(int port, int slot)
 {
-    m_port = port;
-    m_slot = slot;
+	/* 0x21b3a0: open the port on its half of m_DmaBufArray, reset the stick history,
+	 * read both stick types' defaults, then flush (the ELF inlines Flush). Ports other
+	 * than 0 and 1 are left unopened. */
+	m_port = port;
+	m_slot = slot;
+	m_swapSticks = false;
+
+	if (port != 0 && port != 1)
+		return;
+
+	m_DmaBuf = reinterpret_cast<long128*>(&m_DmaBufArray[port << 8]);
+	m_open = scePadPortOpen(m_port, m_slot, m_DmaBuf);
+
+	if (m_open == 0)
+		return;
+
+	m_port = port;
+	m_slot = slot;
+	m_Phase = 0;
+	m_IsAnalog = false;
+	m_NumActuators = -1;
+	m_actuator = 0;
+	m_Phase = 0;
+
+	for (int i = 0; i < 4; i++)
+	{
+		m_lastStickVal[i] = 0.0f;
+		m_lastStickRaw[i] = 0;
+		m_deadTime[i] = 0.0f;
+		m_maxStick[i] = 1.5626f;
+		m_minStick[i] = -1.5626f;
+	}
+
+	for (int i = 0; i < 2; i++)
+	{
+		m_stickType[i].ReadControlFile(i);
+	}
+
+	Flush();
 }
 
 /* @socom-skeleton body IsOpen__4CPadCFv */
@@ -104,80 +149,552 @@ bool CPad::IsOpen() const
 /* @socom-skeleton body Flush__4CPadFv */
 void CPad::Flush()
 {
-    
+	/* 0x21b2b0: clear the actuators, sticks, data and button states, run one tick at
+	 * 1/30 s, then mark every click consumed. The dilated sticks all take the old
+	 * m_RightStickDilated[1] (the ELF reads +0xf4 and stores it to the other three). */
+	m_DataIsGood = false;
+	m_ActData[5] = 0;
+	m_ActData[4] = 0;
+	m_ActData[3] = 0;
+	m_ActData[2] = 0;
+	m_ActData[1] = 0;
+	m_ActData[0] = 0;
+	m_RightStick[1] = 0.0f;
+	m_RightStick[0] = 0.0f;
+	m_LeftStick[1] = 0.0f;
+	m_LeftStick[0] = 0.0f;
+	m_LeftStickDilated[0] = m_LeftStickDilated[1] = m_RightStickDilated[0] = m_RightStickDilated[1];
+	m_Data = 0;
+	memset(m_InData, 0, sizeof(m_InData));
+	memset(m_state, 0, sizeof(m_state));
+	Tick(1.0f / 30.0f);
+
+	for (int i = 0; i < 16; i++)
+	{
+		m_click[i] = -3.0f;
+	}
 }
 
 /* @socom-skeleton stub __dt__4CPadFv */
 CPad::~CPad()
 {
+	/* 0x21b240 */
+	if (m_open != 0)
+		scePadPortClose(m_port, m_slot);
 }
 
 /* @socom-skeleton stub SetSensitivity__4CPadFif */
-void CPad::SetSensitivity(int, float)
+void CPad::SetSensitivity(int stick, float sensitivity)
 {
+	/* 0x21b210 */
+	m_stickType[stick].m_valueForConstant = min_sensitivity + (1.0f - min_sensitivity) * sensitivity;
 }
 
 /* @socom-skeleton stub GetSensitivity__4CPadFi */
-float CPad::GetSensitivity(int)
+float CPad::GetSensitivity(int stick)
 {
+	/* 0x21b1d0 */
+	return (m_stickType[stick].m_valueForConstant - min_sensitivity) / (1.0f - min_sensitivity);
 }
 
 /* @socom-skeleton stub SetAcceleration__4CPadFif */
-void CPad::SetAcceleration(int, float)
+void CPad::SetAcceleration(int stick, float acceleration)
 {
+	/* 0x21b0f0: the response curve's power */
+	if (!(acceleration < 0.85f))
+		m_stickType[stick].m_valueForN = 5.0f;
+	else if (!(acceleration < 0.75f))
+		m_stickType[stick].m_valueForN = 4.0f;
+	else if (!(acceleration < 0.5f))
+		m_stickType[stick].m_valueForN = 3.0f;
+	else if (!(acceleration < 0.25f))
+		m_stickType[stick].m_valueForN = 2.0f;
+	else
+		m_stickType[stick].m_valueForN = 1.0f;
 }
 
 /* @socom-skeleton stub GetAcceleration__4CPadFi */
-float CPad::GetAcceleration(int)
+float CPad::GetAcceleration(int stick)
 {
+	/* 0x21b020 */
+	f32 n = m_stickType[stick].m_valueForN;
+
+	if (n == 5.0f)
+		return 0.99f;
+
+	if (n == 4.0f)
+		return 0.76f;
+
+	if (n == 3.0f)
+		return 0.51f;
+
+	if (n == 2.0f)
+		return 0.26f;
+
+	return 0.0f;
 }
 
 /* @socom-skeleton stub SetDeadZone__4CPadFif */
-void CPad::SetDeadZone(int, float)
+void CPad::SetDeadZone(int stick, float deadZone)
 {
+	/* 0x21b000 */
+	m_stickType[stick].m_absoluteDeadZone = deadZone / deadZoneScaleFactor;
 }
 
 /* @socom-skeleton stub GetDeadZone__4CPadFi */
-float CPad::GetDeadZone(int)
+float CPad::GetDeadZone(int stick)
 {
+	/* 0x21afe0 */
+	return m_stickType[stick].m_absoluteDeadZone * deadZoneScaleFactor;
 }
 
 /* @socom-skeleton stub SetPreset__4CPadFii */
-void CPad::SetPreset(int, int)
+void CPad::SetPreset(int stick, int preset)
 {
+	/* 0x21af40 */
+	if (preset == 0)
+	{
+		m_stickType[stick].m_valueForConstant = 0.6f;
+		m_stickType[stick].m_valueForN = 1.0f;
+		m_stickType[stick].m_absoluteDeadZone = 0.33f;
+	}
+	else if (preset == 1)
+	{
+		m_stickType[stick].m_valueForConstant = 1.0f;
+		m_stickType[stick].m_valueForN = 1.0f;
+		m_stickType[stick].m_absoluteDeadZone = 0.33f;
+	}
+	else if (preset == 2)
+	{
+		m_stickType[stick].m_valueForConstant = 1.0f;
+		m_stickType[stick].m_valueForN = 2.0f;
+		m_stickType[stick].m_absoluteDeadZone = 0.33f;
+	}
 }
 
 /* @socom-skeleton stub ReadControlFile__10CStickTypeFi */
-void CStickType::ReadControlFile(int)
+void CStickType::ReadControlFile(int stick)
 {
+	/* 0x21ae80: built-in defaults (no file is read); only stick 1 differs */
+	m_minStickVelocity = 0.01640625f;
+	m_velocityDeadZone = 0.01f;
+	m_absoluteDeadZone = 0.33f;
+	m_valueForConstant = 1.0f;
+	m_valueForN = 2.0f;
+
+	if (stick == 0)
+	{
+		m_velocitySeparate = true;
+		m_deadZoneSeparate = true;
+		m_minZeroVelocityTime = 0.2f;
+	}
+	else
+	{
+		m_velocitySeparate = false;
+		m_deadZoneSeparate = true;
+		m_minZeroVelocityTime = 0.4f;
+	}
+
+	m_normalize = true;
+	m_dilate = true;
 }
 
 /* @socom-skeleton stub CheckStickVelocity__4CPadFRfRfi */
-void CPad::CheckStickVelocity(float &, float &, int)
+void CPad::CheckStickVelocity(float &x, float &y, int stick)
 {
+	/* 0x21ac30: an axis resting inside the velocity dead zone that has stopped moving for
+	 * m_minZeroVelocityTime reads as zero (stick drift) */
+	CStickType& type = m_stickType[stick];
+	s32 ix = stick * 2;
+	bool zeroX = false;
+	bool zeroY = false;
+
+	if (x < type.m_velocityDeadZone && -x < type.m_velocityDeadZone)
+	{
+		f32 moved = x - m_lastStickVal[ix];
+
+		if (moved < type.m_minStickVelocity && -moved < type.m_minStickVelocity)
+		{
+			m_deadTime[ix] += pad_dt;
+
+			if (!(m_deadTime[ix] <= type.m_minZeroVelocityTime))
+				zeroX = true;
+		}
+		else
+		{
+			m_deadTime[ix] = 0.0f;
+		}
+	}
+
+	if (y < type.m_velocityDeadZone && -y < type.m_velocityDeadZone)
+	{
+		f32 moved = y - m_lastStickVal[ix + 1];
+
+		if (moved < type.m_minStickVelocity && -moved < type.m_minStickVelocity)
+		{
+			m_deadTime[ix + 1] += pad_dt;
+
+			if (!(m_deadTime[ix + 1] <= type.m_minZeroVelocityTime))
+				zeroY = true;
+		}
+		else
+		{
+			m_deadTime[ix + 1] = 0.0f;
+		}
+	}
+
+	m_lastStickVal[ix] = x;
+	m_lastStickVal[ix + 1] = y;
+
+	/* axes not handled separately: no X zeroing clears both (0x21ae38) */
+	if (!type.m_velocitySeparate && !zeroX)
+	{
+		zeroX = false;
+		zeroY = false;
+	}
+
+	if (zeroX)
+		x = 0.0f;
+
+	if (zeroY)
+		y = 0.0f;
 }
 
 /* @socom-skeleton stub Dilate__4CPadFRfRfi */
-void CPad::Dilate(float &, float &, int)
+void CPad::Dilate(float &x, float &y, int stick)
 {
+	/* 0x21aa50: stretch the stick's square of travel toward the diagonals, then clamp */
 	/* @socom-skeleton stub which_dilation$649 */
-	static int which_dilation;
+	static int which_dilation = 1;
+	f32 scale = 1.0f;
+
+	if (!m_stickType[stick].m_dilate)
+		return;
+
+	if (which_dilation == 0)
+	{
+		f32 s = sinf(2.0f * atan2f(y, x));
+		scale = 1.0f / (1.0f + 0.28f * s * s);
+	}
+	else if (which_dilation == 1)
+	{
+		f32 ratio = scale;
+
+		if (fabs((double)x) > fabs((double)y))
+			ratio = y / x;
+		else if (fabs((double)x) < fabs((double)y))
+			ratio = x / y;
+
+		scale = sqrtf((f32)(fabs((double)ratio) + 1.0));
+	}
+
+	x *= scale;
+	y *= scale;
+	saturate<f32>(x, -1.0f, 1.0f);
+	saturate<f32>(y, -1.0f, 1.0f);
 }
 
 /* @socom-skeleton body Tick__4CPadFf */
 void CPad::Tick(f32 delta)
 {
-    pad_dt = delta;
+	/* 0x219aa0: the Sony pad state machine (detect the pad, switch it to analog and
+	 * locked, read its actuators and pressure mode), then on alternate frames read the
+	 * pad and set the actuators; then the sticks and the button states */
+	static bool init;    /* init$756 */
+	static bool badData; /* badData$755 */
+	s32 oldState = m_State;
+
+	pad_dt = delta;
+	m_State = scePadGetState(m_port, m_slot);
+
+	if (oldState == scePadStateDisconn && m_State != scePadStateDisconn)
+	{
+		m_Phase = 0;
+		m_actuator = 0;
+	}
+
+	switch (m_Phase)
+	{
+	case 0:
+		if (m_State != scePadStateStable && m_State != scePadStateFindCTP1)
+			break;
+
+		m_Id = scePadInfoMode(m_port, m_slot, InfoModeCurID, 0);
+
+		if (m_Id == 0)
+			break;
+
+		m_ExId = scePadInfoMode(m_port, m_slot, InfoModeCurExID, 0);
+
+		if (m_ExId > 0)
+			m_Id = m_ExId;
+
+		if (m_Id == 7)
+			m_Phase = 70;
+		else if (m_Id == 4)
+			m_Phase = 40;
+		else
+			m_Phase = 99;
+
+		if (m_NumActuators != -1)
+			break;
+
+		m_NumActuators = scePadInfoAct(m_port, m_slot, -1, 0);
+
+		for (int i = 0; i < 6; i++)
+			m_ActAlign[i] = 0xff;
+
+		for (int i = 0; i < m_NumActuators; i++)
+			m_ActAlign[i] = i;
+
+		break;
+
+	case 40:
+		if (scePadInfoMode(m_port, m_slot, InfoModeIdTable, -1) == 0)
+		{
+			m_Phase = 99;
+			break;
+		}
+
+		m_Phase++;
+		/* fall through */
+	case 41:
+		if (scePadSetMainMode(m_port, m_slot, 1, 3) == 1)
+			m_Phase++;
+		break;
+
+	case 42:
+		if (scePadGetReqState(m_port, m_slot) == scePadReqStateFaild)
+			m_Phase--;
+
+		if (scePadGetReqState(m_port, m_slot) == scePadReqStateComplete)
+			m_Phase = 0;
+		break;
+
+	case 70:
+		m_Phase = scePadInfoPressMode(m_port, m_slot) == 1 ? 71 : 99;
+		break;
+
+	case 71:
+		if (m_State != scePadStateStable && m_State != scePadStateFindCTP1)
+			break;
+
+		m_RotationVibration = scePadInfoAct(m_port, m_slot, m_actuator, InfoActFunc);
+		m_Phase = m_RotationVibration > 0 ? 72 : 99;
+		break;
+
+	case 72:
+		if (m_State != scePadStateStable && m_State != scePadStateFindCTP1)
+			break;
+
+		m_RotationSpeed = scePadInfoAct(m_port, m_slot, m_actuator, InfoActSub);
+		m_Phase = m_RotationSpeed > 0 ? 73 : 99;
+		break;
+
+	case 73:
+		if (m_State != scePadStateStable && m_State != scePadStateFindCTP1)
+			break;
+
+		m_ControlNum = scePadInfoAct(m_port, m_slot, m_actuator, InfoActSize);
+
+		if (m_ControlNum < 0)
+		{
+			m_Phase = 99;
+			break;
+		}
+
+		m_actuator++;
+		m_Phase = m_actuator < m_NumActuators ? 71 : 74;
+		break;
+
+	case 74:
+		m_Phase = scePadSetActAlign(m_port, m_slot, m_ActAlign) == 1 ? 76 : 99;
+		break;
+
+	case 76:
+		if (scePadEnterPressMode(m_port, m_slot) == 1)
+			m_Phase++;
+		break;
+
+	case 77:
+		if (scePadGetReqState(m_port, m_slot) == scePadReqStateFaild)
+			m_Phase--;
+
+		if (scePadGetReqState(m_port, m_slot) == scePadReqStateComplete)
+			m_Phase = 99;
+		break;
+
+	case 80:
+		if (m_State == scePadStateStable || m_State == scePadStateFindCTP1)
+			scePadSetActDirect(m_port, m_slot, m_ActData);
+
+		m_Phase = 99;
+		break;
+
+	default:
+		if (m_State != scePadStateStable && m_State != scePadStateFindCTP1)
+			break;
+
+		if (scePadRead(m_port, m_slot, m_InData) > 0)
+		{
+			m_Data = 0xffff ^ ((m_InData[2] << 8) | m_InData[3]);
+			m_DataIsGood = true;
+		}
+		else
+		{
+			m_Data = 0;
+		}
+
+		m_Phase = 80;
+		break;
+	}
+
+	if (!init)
+	{
+		badData = false;
+		init = true;
+	}
+
+	if (!m_DataIsGood)
+		badData = true;
+
+	if (!m_DataIsGood)
+		return;
+
+	m_lastStickRaw[0] = m_InData[4];
+	m_lastStickRaw[1] = m_InData[5];
+	m_lastStickRaw[2] = m_InData[6];
+	m_lastStickRaw[3] = m_InData[7];
+
+	/* raw 0..255 (128 centred) -> about +1..-1: right and down are negative */
+	m_LeftStick[0] = (127.0f - (f32)m_InData[6]) * (1.0f / 127.5f);
+	m_LeftStick[1] = (127.0f - (f32)m_InData[7]) * (1.0f / 127.5f);
+	m_RightStick[0] = (127.0f - (f32)m_InData[4]) * (1.0f / 127.5f);
+	m_RightStick[1] = (127.0f - (f32)m_InData[5]) * (1.0f / 127.5f);
+
+	CheckStickVelocity(m_LeftStick[0], m_LeftStick[1], 0);
+	CheckStickVelocity(m_RightStick[0], m_RightStick[1], 1);
+
+	for (int i = 0; i < 2; i++)
+	{
+		f32* stick = i == 0 ? m_LeftStick : m_RightStick;
+		f32 deadZone = m_stickType[i].m_absoluteDeadZone;
+
+		if (stick[0] < deadZone && -stick[0] < deadZone)
+			stick[0] = 0.0f;
+
+		if (stick[1] < deadZone && -stick[1] < deadZone)
+			stick[1] = 0.0f;
+	}
+
+	for (int i = 0; i < 2; i++)
+	{
+		f32* stick = i == 0 ? m_LeftStick : m_RightStick;
+		f32 deadZone = m_stickType[i].m_absoluteDeadZone;
+
+		if (!m_stickType[i].m_normalize)
+			continue;
+
+		/* rescale what is outside the dead zone back to the full range */
+		if (!(stick[0] <= 0.0f))
+			stick[0] -= deadZone;
+
+		if (!(stick[1] <= 0.0f))
+			stick[1] -= deadZone;
+
+		if (stick[0] < 0.0f)
+			stick[0] += deadZone;
+
+		if (stick[1] < 0.0f)
+			stick[1] += deadZone;
+
+		stick[0] *= 1.0f / (1.0f - m_stickType[i].m_absoluteDeadZone);
+		stick[1] *= 1.0f / (1.0f - m_stickType[i].m_absoluteDeadZone);
+		saturate<f32>(stick[0], -1.0f, 1.0f);
+		saturate<f32>(stick[1], -1.0f, 1.0f);
+	}
+
+	Dilate(m_LeftStick[0], m_LeftStick[1], 0);
+	Dilate(m_RightStick[0], m_RightStick[1], 1);
+
+	/* response curve: sign(v) * |C * v^N| */
+	for (int i = 0; i < 4; i++)
+	{
+		f32* axis = i < 2 ? &m_LeftStick[i] : &m_RightStick[i - 2];
+		CStickType& type = m_stickType[i < 2 ? 0 : 1];
+		f32 value = *axis;
+		f32 sign = value < 0.0f ? -1.0f : 1.0f;
+		s32 power = (s32)type.m_valueForN;
+		f32 result = value * type.m_valueForConstant;
+
+		for (s32 n = 1; n < power; n++)
+			result *= value;
+
+		*axis = sign * (f32)fabs((double)result);
+	}
+
+	if (m_swapSticks)
+	{
+		f32 t = m_LeftStick[0];
+		m_LeftStick[0] = m_RightStick[0];
+		m_RightStick[0] = t;
+		t = m_LeftStick[1];
+		m_LeftStick[1] = m_RightStick[1];
+		m_RightStick[1] = t;
+	}
+
+	m_RightStickDilated[0] = m_RightStick[0];
+	m_RightStickDilated[1] = m_RightStick[1];
+	m_LeftStickDilated[0] = m_LeftStick[0];
+	m_LeftStickDilated[1] = m_LeftStick[1];
+
+	m_IsAnalog = m_InData[4] != 0 || m_InData[5] != 0 || m_InData[6] != 0 || m_InData[7] != 0;
+
+	/* m_Data is active high: Sony SCE_PADxxx bits */
+	UpdateButton(PAD_BUTTON::PAD_START, m_Data & 0x800);
+	UpdateButton(PAD_BUTTON::PAD_SELECT, m_Data & 0x100);
+	UpdateButton(PAD_BUTTON::PAD_RIGHT, m_Data & 0x2000);
+	UpdateButton(PAD_BUTTON::PAD_LEFT, m_Data & 0x8000);
+	UpdateButton(PAD_BUTTON::PAD_UP, m_Data & 0x1000);
+	UpdateButton(PAD_BUTTON::PAD_DOWN, m_Data & 0x4000);
+	UpdateButton(PAD_BUTTON::PAD_TRIANGLE, m_Data & 0x10);
+	UpdateButton(PAD_BUTTON::PAD_CIRCLE, m_Data & 0x20);
+	UpdateButton(PAD_BUTTON::PAD_SQUARE, m_Data & 0x80);
+	UpdateButton(PAD_BUTTON::PAD_CROSS, m_Data & 0x40);
+	UpdateButton(PAD_BUTTON::PAD_TRIGGER_R1, m_Data & 0x8);
+	UpdateButton(PAD_BUTTON::PAD_TRIGGER_R2, m_Data & 0x2);
+	UpdateButton(PAD_BUTTON::PAD_TRIGGER_L1, m_Data & 0x4);
+	UpdateButton(PAD_BUTTON::PAD_TRIGGER_L2, m_Data & 0x1);
+	/* the ELF passes these two through a float conversion; R3 (0x200) drives button 15
+	 * and L3 (0x400) button 14 */
+	UpdateButton(PAD_BUTTON::PAD_LEFT_STICK, m_Data & 0x200);
+	UpdateButton(PAD_BUTTON::PAD_RIGHT_STICK, m_Data & 0x400);
 }
 
 /* @socom-skeleton stub GetSingleClick__4CPadF10PAD_BUTTON */
-void CPad::GetSingleClick(PAD_BUTTON)
+bool CPad::GetSingleClick(PAD_BUTTON button)
 {
+	/* 0x219a50: a pending single click is reported once */
+	if (m_click[(u8)button] == -1.0f)
+	{
+		m_click[(u8)button] = -3.0f;
+		return true;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub GetDoubleClick__4CPadF10PAD_BUTTON */
-void CPad::GetDoubleClick(PAD_BUTTON)
+bool CPad::GetDoubleClick(PAD_BUTTON button)
 {
+	/* 0x219a00 */
+	if (m_click[(u8)button] == -2.0f)
+	{
+		m_click[(u8)button] = -3.0f;
+		return true;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton body GetTwoButtons__4CPadF10PAD_BUTTON10PAD_BUTTON */
@@ -186,7 +703,7 @@ bool CPad::GetTwoButtons(PAD_BUTTON button1, PAD_BUTTON button2)
     bool falling = false;
 
     falling = m_state[(u32)button1] == KEY_DOWN;
-    
+
     if (falling)
     {
         falling = m_state[(u32)button2] == KEY_FALLING;
@@ -203,25 +720,104 @@ void CPad::SetButtonState(PAD_BUTTON button, KEY_STATE state)
 }
 
 /* @socom-skeleton stub UpdateButton__4CPadF10PAD_BUTTONUi */
-void CPad::UpdateButton(PAD_BUTTON, unsigned int)
+void CPad::UpdateButton(PAD_BUTTON button, unsigned int down)
 {
+	/* 0x219850: UP -> FALLING -> DOWN while held, -> RISING -> UP when released; a press
+	 * within 1/4 s of the last one is a double click (-2), a click timer running out is
+	 * a single click (-1) */
+	u8 b = (u8)button;
+	KEY_STATE& state = m_state[b];
+
+	if (down == 0)
+	{
+		switch (state)
+		{
+		case KEY_RISING:
+			state = KEY_UP;
+			break;
+		case KEY_FALLING:
+		case KEY_DOWN:
+			state = KEY_RISING;
+			break;
+		case KEY_UP:
+			break;
+		default:
+			state = KEY_UP;
+			break;
+		}
+	}
+	else
+	{
+		switch (state)
+		{
+		case KEY_RISING:
+		case KEY_UP:
+			state = KEY_FALLING;
+			break;
+		case KEY_FALLING:
+			state = KEY_DOWN;
+			break;
+		case KEY_DOWN:
+			break;
+		default:
+			state = KEY_DOWN;
+			break;
+		}
+	}
+
+	if (state == KEY_FALLING)
+	{
+		if (m_click[b] <= 0.0f)
+			m_click[b] = 0.25f;
+		else
+			m_click[b] = -2.0f;
+	}
+	else if (!(m_click[b] <= 0.0f))
+	{
+		m_click[b] -= pad_dt;
+
+		if (m_click[b] < 0.0f)
+			m_click[b] = -1.0f;
+	}
 }
 
 /* @socom-skeleton stub IOPRebootHandler__6CInputFQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv */
-bool CInput::IOPRebootHandler(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *)
+bool CInput::IOPRebootHandler(CIOPManager::RebootPhase phase, CIOPManager::RebootMode, void *)
 {
+	/* 0x219770: close the pads before an IOP reboot, reopen both after (CreatePad inline) */
+	if (phase == CIOPManager::PreReboot)
+	{
+		ClosePadIO();
+		return true;
+	}
+
+	OpenPadIO();
+	CreatePad(0);
+	CreatePad(1);
+	return true;
 }
 
 /* @socom-skeleton body Init__6CInputFv */
 void CInput::Init()
 {
-	m_init = OpenPadIO() != false;
+	/* 0x219700 */
+	m_init = OpenPadIO() == 0;
+	theIOPManager.RegisterRebootCallback(IOPRebootHandler, NULL);
+	InitKeyreadStuff();
+	m_keyboard = new CKeyboard();
 	m_init = true;
 }
 
 /* @socom-skeleton body Uninit__6CInputFv */
 void CInput::Uninit()
 {
+	/* 0x2196c0 */
+	if (m_keyboard != NULL)
+	{
+		delete m_keyboard;
+		m_keyboard = NULL;
+	}
+
 	ClosePadIO();
 	m_init = false;
 }
@@ -229,6 +825,10 @@ void CInput::Uninit()
 /* @socom-skeleton body Tick__6CInputFf */
 void CInput::Tick(f32 dT)
 {
+	/* 0x219640 */
+	if (m_keyboard != NULL)
+		m_keyboard->Tick(dT);
+
 	for (s32 pad = 0; pad < 2; pad++)
 	{
 		if (m_pads[pad] != NULL)
@@ -253,40 +853,32 @@ void CInput::Flush()
 /* @socom-skeleton body CreatePad__6CInputFUi */
 CPad* CInput::CreatePad(u32 slot)
 {
-	CPad* pad;
-
-	if (slot < 2)
-	{
-		pad = m_pads[slot];
-
-		if (pad == NULL)
-		{
-			pad = new CPad(slot, 0);
-		}
-
-		m_pads[slot] = pad;
-		
-		if (!pad->IsOpen() && m_pads[slot] != NULL)
-		{
-			
-		}
-	}
-	else
-	{
+	/* 0x219530: a pad that fails to open deletes pad 0 (the ELF indexes m_pads[0] there,
+	 * whichever slot was asked for) and the result is m_pads[0] */
+	if (slot >= 2)
 		return NULL;
+
+	if (m_pads[slot] != NULL)
+		return m_pads[slot];
+
+	m_pads[slot] = new CPad(slot, 0);
+
+	if (!m_pads[slot]->IsOpen() && m_pads[0] != NULL)
+	{
+		delete m_pads[0];
+		m_pads[0] = NULL;
 	}
 
-	return pad;
+	return m_pads[0];
 }
 
 /* @socom-skeleton body DeletePad__6CInputFUi */
 void CInput::DeletePad(u32 slot)
 {
-	CPad* pad = m_pads[slot];
-
-	if (slot < 2 && pad != NULL)
+	/* 0x2194e0 */
+	if (slot < 2 && m_pads[slot] != NULL)
 	{
-		// delete pad;
+		delete m_pads[slot];
 		m_pads[slot] = NULL;
 	}
 }

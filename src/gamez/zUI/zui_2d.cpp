@@ -216,6 +216,8 @@
 #include "gamez/zTexture/ztex.h"
 #include "gamez/zTwoD/ztwod.h"
 #include "zui.h"
+#include <new> /* port: placement new for C2DButton::m_commands */
+
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class C2DAnimCmdHdr;
@@ -233,6 +235,9 @@ class CUIMapCtrlSpec;
 class ColumnData;
 struct _zanim_cmd_hdr;
 /* @socom-skeleton end forward */
+CZAnimSet * GetLocalAnims();        /* zui.cpp (0x384ee0) */
+unsigned char UiGetDirStickMoved(); /* zui.cpp (0x384380) */
+extern unsigned char g_hasAnims;    /* zui.cpp */
 /* port: CListItemTypeImpl had no declaration. Slot order from __vt__17CListItemTypeImpl @0x473290 (13 slots,
  * zero = pure): ~ 0x385600, DrawPrep, Finish 0x385660 (empty), GetString, PrepListItem, SetFont, SetPos, SetScale,
  * SetColor, SetSequenceTime 0x385650 (returns f12), Tick 0x385500 (empty), VisualGratification, IsEnabled 0x385710
@@ -930,13 +935,49 @@ void CTeleType::Tick(float)
 }
 
 /* @socom-skeleton stub Draw__13C3StateButtonFRC7CMatrixPQ23zdb16CTextureRelocMgr */
-void C3StateButton::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+void C3StateButton::Draw(const CMatrix &transform, zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x38fd30: the background, then the caption at the node's origin (the zero point
+	 * through the matrix, VU0 in the ELF) plus the text offset, in 1/16 pixels */
+	if (!IsOn())
+		return;
+
+	DrawBackground(transform, reloc);
+
+	if (_szCaption == NULL)
+		return;
+
+	f32 x = transform.m_matrix[3][0];
+	f32 y = transform.m_matrix[3][1];
+	f32 z = transform.m_matrix[3][2];
+
+	_strCaption.m_pos.x = (s32)(x + (f32)_iTextX) << 4;
+	_strCaption.m_pos.y = (s32)(y + (f32)_iTextY) << 4;
+	_strCaption.Draw(reloc, NULL, z);
 }
 
 /* @socom-skeleton stub __ct__9C2DButtonFv */
 C2DButton::C2DButton()
 {
+	/* 0x38fa10: the C3StateButton part inline (no caption, text 10, 5 from the corner,
+	 * white at scale 1.5, not centred); the states and the image construct themselves */
+	_szCaption = NULL;
+	_iTextX = 10;
+	_iTextY = 5;
+	_bCaptionCentered = false;
+	_strCaption.m_color.x = 255.0f;
+	_strCaption.m_color.y = 255.0f;
+	_strCaption.m_color.z = 255.0f;
+	_strCaption.m_scale = 1.5f;
+	_fWidth = 0.0f;
+	_fHeight = 0.0f;
+	m_alternateFont = NULL;
+	_fPressedTime = 0.0f;
+
+	for (int i = 0; i < 30; i++)
+		new (m_commands[i]) ActionItem();
+
+	m_numCommands = 0;
 }
 
 /* @socom-skeleton stub __dt__9C2DButtonFv */
@@ -945,13 +986,112 @@ C2DButton::~C2DButton()
 }
 
 /* @socom-skeleton stub HandlePad__9C2DButtonFPC4CPadi */
-bool C2DButton::HandlePad(const CPad *, int)
+bool C2DButton::HandlePad(const CPad *pad, int index)
 {
+	/* 0x38f420: a button holding controls (CGameMenu::m_ScreenControls) passes the pad to
+	 * the one at index; a plain button shows PRESSED on CROSS, then runs the first of its
+	 * ANIMATIONS whose button is in the item's state, or whose direction (UP, DOWN, LEFT,
+	 * RIGHT, on FALLING) the left stick just moved in. Items for button 0 (START) are
+	 * skipped, as in the ELF. */
+	if (!CanHandleInput())
+		return false;
+
+	if (!empty())
+	{
+		s32 i = 0;
+
+		for (auto it = begin(); it != end(); ++it, ++i)
+		{
+			if (i == index && (*it)->HandlePad(pad, 0))
+				return true;
+		}
+
+		return false;
+	}
+
+	if (pad->m_state[(u8)PAD_BUTTON::PAD_CROSS] == KEY_FALLING)
+		SetPressed();
+
+	ActionItem* commands = reinterpret_cast<ActionItem*>(m_commands);
+
+	for (s32 i = 0; i < m_numCommands; i++)
+	{
+		ActionItem& item = commands[i];
+
+		if (item.PadButton == 0)
+			continue;
+
+		bool isUp = item.PadButton == (u8)PAD_BUTTON::PAD_UP;
+		bool isDown = item.PadButton == (u8)PAD_BUTTON::PAD_DOWN;
+		bool isLeft = item.PadButton == (u8)PAD_BUTTON::PAD_LEFT;
+		bool isRight = item.PadButton == (u8)PAD_BUTTON::PAD_RIGHT;
+		bool falling = item.State == KEY_FALLING;
+		bool match = item.State == pad->m_state[item.PadButton];
+		bool stickUp = UiGetDirStickMoved() == 3;
+		bool stickDown = UiGetDirStickMoved() == 4;
+		bool stickLeft = UiGetDirStickMoved() == 1;
+		bool stickRight = UiGetDirStickMoved() == 2;
+
+		if (!match && !(falling && isUp && stickUp) && !(falling && isDown && stickDown) &&
+			!(falling && isLeft && stickLeft) && !(falling && isRight && stickRight))
+			continue;
+
+		CZAnim* anim = NULL;
+
+		if (GetLocalAnims() != NULL)
+			anim = GetLocalAnims()->Anim(item.Animation);
+
+		if (anim == NULL)
+			anim = ZAnim.GetAnim(item.Animation, NULL);
+
+		if (anim != NULL)
+		{
+			if (item.Argument != NULL)
+				anim->ActivateArg(1, 8, item.Argument, 0);
+			else
+				anim->Activate(NULL);
+		}
+
+		return true;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub LoadSpec__9C2DButtonFRC11CButtonSpec */
-void C2DButton::LoadSpec(const CButtonSpec &)
+void C2DButton::LoadSpec(const CButtonSpec &spec)
 {
+	/* 0x38f090: the spec's ANIMATIONS (the menu then has anims), size, caption scale and
+	 * offset, an optional own font, the four states and centring */
+	ActionItem* commands = reinterpret_cast<ActionItem*>(m_commands);
+
+	for (u32 i = 0; i < spec.m_animations.size(); i++)
+	{
+		g_hasAnims = true;
+		m_numCommands++;
+		commands[i] = spec.m_animations[i];
+	}
+
+	_fWidth = (f32)spec.m_size.x;
+	_fHeight = (f32)spec.m_size.y;
+	_strCaption.m_scale = spec.m_scale;
+	_iTextX = spec.m_offset.x;
+	_iTextY = spec.m_offset.y;
+
+	if (spec.m_hasFont)
+	{
+		const char* font = spec.m_font.c_str();
+		m_alternateFont = new C2DFont();
+		m_alternateFont->Load(FetchMissionFontsRdr(), font);
+		_strCaption.SetFont(m_alternateFont);
+	}
+
+	_NormalState = spec.m_normal;
+	_ActiveState = spec.m_active;
+	_PressedState = spec.m_pressed;
+	_DisabledState = spec.m_disabled;
+	_strCaption.m_isCentered = spec.m_hCentered;
+	_bCaptionCentered = spec.m_hCentered;
 }
 
 /* @socom-skeleton stub ParseZAnimCmd__9C2DButtonFP5_zrdr */
@@ -972,6 +1112,37 @@ int C2DButton::GetZAnimCmdType(const char *)
 /* @socom-skeleton stub SetActive__9C2DButtonFv */
 void C2DButton::SetActive()
 {
+	/* 0x38eca0: show ACTIVE and run the ONACTIVATE event anims */
+	if (!CanHandleInput())
+		return;
+
+	ShowState(_ActiveState);
+
+	ActionItem* commands = reinterpret_cast<ActionItem*>(m_commands);
+
+	for (s32 i = 0; i < m_numCommands; i++)
+	{
+		ActionItem& item = commands[i];
+
+		if (item.Type != ActionItem::ACTION_TYPE_EVENT || item.Event != ActionItem::ONACTIVATE)
+			continue;
+
+		CZAnim* anim = NULL;
+
+		if (GetLocalAnims() != NULL)
+			anim = GetLocalAnims()->Anim(item.Animation);
+
+		if (anim == NULL)
+			anim = ZAnim.GetAnim(item.Animation, NULL);
+
+		if (anim == NULL)
+			continue;
+
+		if (item.Argument != NULL)
+			anim->ActivateArg(1, 8, item.Argument, 0);
+		else
+			anim->Activate(NULL);
+	}
 }
 
 /* @socom-skeleton stub LoadSpec__14CHandlerButtonFRC18CHandlerButtonSpec */
@@ -1060,8 +1231,24 @@ void CSliderBar::LoadSpec(const CSliderBarSpec &, zdb::CTexHandle *)
 }
 
 /* @socom-skeleton stub Tick__9C2DButtonFf */
-void C2DButton::Tick(float)
+void C2DButton::Tick(float dT)
 {
+	/* 0x38be50: caption and image tick; a press shows for _fPressedTime, then ACTIVE
+	 * (DISABLED when the button no longer takes input) */
+	_strCaption.Tick(dT);
+	_bmp.Tick(dT);
+
+	if (_fPressedTime <= 0.0f)
+		return;
+
+	if (!(_fPressedTime <= dT))
+	{
+		_fPressedTime -= dT;
+		return;
+	}
+
+	_fPressedTime = 0.0f;
+	ShowState(CanHandleInput() ? _ActiveState : _DisabledState);
 }
 
 /* @socom-skeleton stub Draw__10CSliderBarFRC7CMatrixPQ23zdb16CTextureRelocMgr */
