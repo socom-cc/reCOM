@@ -39,7 +39,8 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "source plan validate",
             "source",
             "Check a source-owner plan: every artifact of its item's slice owned once or unresolved, owner (with "
-            "name_basis for unnamed objects), provider, header-emit, contradiction and annotation rows, provisional "
+            "name_basis for unnamed objects; user decisions cited by digest and heading), provider, header-emit, "
+            "contradiction and annotation rows, provisional "
             "files, no control characters, units agreeing with handed-off and accepted plans, and the graph and slice "
             "digests (--check regenerates the graph from the ELF); reports the other applies sharing each reserved "
             "directory; --output writes the full report under build/ and prints its counts.",

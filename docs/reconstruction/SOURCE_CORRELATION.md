@@ -931,7 +931,17 @@ Schema 2 additions (each optional):
   unproven, one row covers them and a note says so. The object need not
   have a LOCAL cluster in the slice: a proven object with none (an
   unnamed run of functions, a `.vutext` gap) or whose clusters lie outside
-  the slice (its RTTI and vtables in `.rodata`) is owned the same way;
+  the slice (its RTTI and vtables in `.rodata`) is owned the same way.
+  `name_basis: "user"` names a file the user chose in a recorded placement
+  decision (below). The row cites it as `decision`
+  `{file, sha256, heading}`: the repo-relative decision file, the SHA-256 of
+  its bytes with CRLF normalized to LF, and the `##` heading as written.
+  Its confidence is `medium` at most, because the user's knowledge is
+  decision evidence and ranks below binary evidence;
+- an artifact entry's `decision` (same object): the user's placement of
+  that one artifact, for example into a file the graph knows
+  (`zrdr_main.cpp`), or into a header for an inline or template copy. The
+  entry also has its `confidence` (`medium` at most) and `basis`;
 - an unresolved row's `suggest` `{owner, rule, confidence, basis}`: the
   drafter's suggestion for a row it leaves open (`owner` is an owner key of
   the plan). `source plan decide --accept-suggestion` records it as a hand
@@ -998,16 +1008,28 @@ when the apply's reservation is inferred.
   and is not listed twice. An artifact outside the slice must be an
   artifact of the graph, and its `provisional_file` a file this plan's
   authored rows own;
-- `name_basis` (schema 2) is `evidence`, `provisional` or `invented`. An
-  `evidence` authored row of a schema 2 plan names a unit the graph knows
-  (in a schema 1 plan another name is a review note). A `provisional` or
-  `invented` row is authored; its unit is no unit the graph knows; none of
-  its artifacts lies in a cluster that names a unit or library or has a
-  strong or medium unit candidate (when none lies in a cluster at all, a
-  review note says so); `invented` has confidence `low`; `provisional` cites the
-  provisional file it is named after as `provisional_file` and has
-  confidence `medium` or `low`. Its paths, reservation and annotations are
-  checked as for any authored row;
+- `name_basis` (schema 2) is `evidence`, `provisional`, `invented` or
+  `user`. An `evidence` authored row of a schema 2 plan names a unit the
+  graph knows (in a schema 1 plan another name is a review note). A
+  `provisional`, `invented` or `user` row is authored; its unit is no unit
+  the graph knows; none of its artifacts lies in a cluster that names a
+  unit or library or has a strong or medium unit candidate (when none lies
+  in a cluster at all, a review note says so). The ELF outranks a name, a
+  user decision included. `invented` has confidence `low`; `provisional`
+  cites the provisional file it is named after as `provisional_file` and
+  has confidence `medium` or `low`; `user` has confidence `medium` or `low`
+  and a `decision` (no other basis has one). Its paths, reservation and
+  annotations are checked as for any authored row;
+- a `decision` (a `user` row's, or an artifact entry's) names an existing
+  repo-relative file whose LF-normalized SHA-256 is the cited one, and a
+  `##` heading of that file. Each artifact of a `user` row is listed under
+  the heading, except one whose entry cites its own decision. The heading
+  names the row's unit file: its file name is the unit and its path is the
+  `workspace_path`. An entry's decision lists that artifact. Its heading
+  is the row's unit file, or a header that a header-emit row emits the
+  artifact into. A line lists an artifact by its start address, else by
+  its readable declaration; a declaration that names several artifacts
+  lists none and needs its address;
 - an unresolved row's `suggest` (schema 2) has exactly `owner`, `rule`
   and `basis` strings and a `confidence`;
 - a unit (an authored or provider row's `translation_unit`) that another
@@ -1042,8 +1064,8 @@ at a time. It also lists review notes: owned artifacts whose classification
 differs from the graph's candidate or that have no candidate (`unknown`),
 uncertain GNU object ends, provider rows outside a provider plan, owned
 inline (binding 13) or WEAK functions that no header-emit row emits (their
-owner's file defines them), `provisional` or `invented` rows none of
-whose artifacts lies in a cluster, contradictions about artifacts outside
+owner's file defines them), `provisional`, `invented` or `user` rows none
+of whose artifacts lies in a cluster, contradictions about artifacts outside
 the slice, and `contradiction:` notes that a new plan records in
 `contradictions`. A plan with contradictions counts them in
 `summary.contradictions`. The `source plan emit-check` of the plan (above;
@@ -1158,6 +1180,50 @@ ELF name, or, when no ELF symbol has the fence's name, by the same
 qualified name with another signature (`other signature`). A query no
 artifact matches still lists the fences of exactly that name. The cache is
 opened (and rebuilt) as `source sql` opens it.
+
+## User placement decisions (`source placements check`)
+
+```powershell
+python tools/socom.py source placements check --file build/stage4/owner-decisions/my-placements.md [--json]
+```
+
+A decision file is Markdown in which the user places artifacts that the ELF
+does not pin to a file. Each `## <module>/<file>` heading names a
+destination. The module maps case-insensitively onto
+`src/gamez/<Module>/` (`zentity/ent_entity.cpp` becomes
+`src/gamez/zEntity/ent_entity.cpp`). Another top-level `src/` directory maps
+there (`rt/rtlist.h`, `Apps/FTS/...`). A header heading means inline or
+template code in that header: the binary's copy is compiler output. Each
+list line `- [0xADDR  ]<declaration>` names one artifact, and other lines
+(`Note: ...`) record the reasoning. Plan rows cite a heading as a
+`decision` (`name_basis: "user"`, or an artifact entry; see the schema
+and validation above).
+
+The check is read-only and lets a planner or reviewer re-verify the file.
+It reports:
+
+- each line's artifact, plus the lines that are unmatched, ambiguous
+  (several artifacts: give the address), mismatched (the address's
+  artifact has another declaration) or duplicated;
+- list lines outside a heading and headings that name no path;
+- each destination's `src/` path in on-disk letter case (new or existing,
+  header, module found) and whether the graph knows its unit;
+- the stage 4 plan items its artifacts belong to (`artifacts.item`) and
+  each artifact's state in that plan (`unresolved`, `owned by ...`); `items`
+  lists the destinations per plan item, one amendment per plan;
+- for each source destination, contiguity: its `src/` owners (`defines`
+  edges, else source-file `emits` edges) plus the placed functions must form
+  one unbroken run in address order. A function another file owns
+  (annotations, with the file's placements laid over them) must not lie in
+  between. Header placements own nothing and are exempt. `unowned_inside`
+  lists the unowned functions in the run;
+- for a destination whose unit the graph does not know, each placed
+  artifact in a cluster that names a unit or library, or with a strong or
+  medium unit candidate. `source plan validate` would refuse such a
+  `user` row.
+
+The exit status is 0 only when none of these problems remain. The output
+also gives the file's LF-normalized SHA-256 to cite in `decision`.
 
 ## Notes for the apply route
 

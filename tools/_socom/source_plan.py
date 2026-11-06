@@ -44,6 +44,7 @@ from typing import Any, Callable
 
 from .constants import REFERENCE_SHA256
 from .source_graph import SOURCE_GRAPH_KIND, SOURCE_GRAPH_SCHEMA, TU_LIBRARY, path_library
+from .source_placements import DECISION_CONFIDENCES, DecisionCheck
 from .util import SocomError, canonical_json, load_json
 
 SOURCE_STAGE = "source-correlation"
@@ -133,17 +134,22 @@ OWNER_FIELDS = frozenset(
 )
 # Schema 2 only: the rule that fixed the row's identity and paths, the
 # draft's "open" marker on a row whose paths the planner must still decide,
-# and ``name_basis``: where an authored row's unit name comes from.
-OWNER_FIELDS_V2 = OWNER_FIELDS | {"draft_rule", "draft", "name_basis"}
+# ``name_basis``: where an authored row's unit name comes from, and the
+# user ``decision`` a ``name_basis: "user"`` row cites.
+OWNER_FIELDS_V2 = OWNER_FIELDS | {"draft_rule", "draft", "name_basis", "decision"}
 # ``evidence`` (the default): the ELF names the unit (DWARF, __FILE__, sinit,
 # a unit candidate).  For an authored object the ELF does not name (its
 # cluster has no unit; user decision of 2026-10-31): ``provisional``, the one
 # existing provisional file of the module that defines its functions
 # (confidence at most medium), or ``invented``, a descriptive name from its
-# main class (confidence low).
+# main class (confidence low).  ``user``: a file the user named in a recorded
+# decision (``decision`` {file, sha256, heading}; source_placements), at most
+# medium: the user's knowledge is decision evidence, below the binary's.
 NAME_BASIS_DEFAULT = "evidence"
-NAME_BASES = (NAME_BASIS_DEFAULT, "provisional", "invented")
-ARTIFACT_ENTRY_FIELDS = frozenset({"artifact", "confidence", "basis", "draft_rule"})
+NAME_BASIS_USER = "user"
+NAME_BASES = (NAME_BASIS_DEFAULT, "provisional", "invented", NAME_BASIS_USER)
+# An entry's ``decision`` cites the user's placement of that one artifact.
+ARTIFACT_ENTRY_FIELDS = frozenset({"artifact", "confidence", "basis", "draft_rule", "decision"})
 MEMBER_FIELDS = frozenset({"gnu_object", "object"})
 # Schema 2 only: ``linked``, and the archive the member came from by file
 # name (``archive``, e.g. ``liblgaud.a``, never a path) and its ``version``
@@ -1013,16 +1019,89 @@ def _cluster_names(cluster: dict[str, Any]) -> list[str]:
     return sorted(units) + sorted(str(value) for value in cluster.get("libraries") or [])
 
 
+def _decision_destination(block: dict[str, Any], unit: str | None, workspace: Any) -> str | None:
+    """Why a cited decision heading does not place its artifacts in this row's unit file, or ``None``."""
+
+    destination = block["destination"]
+    path = destination["path"]
+    if not destination["source"]:
+        return f"names {path}, not a source file"
+    if not unit or PurePosixPath(path).name.casefold() != unit.casefold():
+        return f"places its artifacts in {path}, not unit {unit}"
+    if isinstance(workspace, str) and workspace.casefold() != path.casefold():
+        return f"places its artifacts in {path}, not workspace_path {workspace}"
+    return None
+
+
+def _check_entry_decisions(
+    owner: dict[str, Any],
+    label: str,
+    classification: Any,
+    unit: str | None,
+    entries: list[Any],
+    header_emits: list[Any],
+    decisions: DecisionCheck,
+    problems: list[str],
+) -> set[str]:
+    """Check each artifact entry's ``decision`` (schema 2) and return the artifacts whose entries cite one.
+
+    The entry cites a heading of a user decision file (as a ``name_basis:
+    "user"`` row does) that lists its artifact; it has its confidence (at most
+    medium) and basis.  The heading is the row's unit file, or a header the
+    plan's header-emit row emits the artifact into (an inline or template
+    copy the compiler emitted in this file).
+    """
+
+    decided: set[str] = set()
+    for entry in entries:
+        if not isinstance(entry, dict) or "decision" not in entry:
+            continue
+        identity = artifact_id(entry)
+        if identity is None:
+            continue
+        decided.add(identity)
+        where = f"{label} entry {identity}"
+        if classification != "authored":
+            problems.append(f"{where} cites a decision: only an authored row's entries cite one")
+            continue
+        if "confidence" not in entry or "basis" not in entry:
+            problems.append(f"{where} cites a decision: it needs its confidence and basis")
+        elif entry["confidence"] not in DECISION_CONFIDENCES:
+            problems.append(f"{where} rests on a user decision: its confidence is at most medium")
+        block = decisions.heading(entry["decision"], where, problems)
+        if block is None:
+            continue
+        if identity not in block["listed"]:
+            problems.append(decisions.not_listed(block, where, identity))
+        destination = block["destination"]
+        if destination["header"]:
+            emitted = {
+                str(row.get("header")).casefold()
+                for row in header_emits
+                if isinstance(row, dict) and row.get("artifact") == identity
+            }
+            if destination["path"].casefold() not in emitted:
+                problems.append(
+                    f"{where} cites header heading {block['heading']!r}: a header-emit row must emit it into {destination['path']}"
+                )
+        elif why := _decision_destination(block, unit, owner.get("workspace_path")):
+            problems.append(f"{where} decision heading {block['heading']!r} {why}")
+    return decided
+
+
 def _check_name_basis(
     owner: dict[str, Any],
     label: str,
     classification: Any,
     unit: str | None,
     artifacts: list[str],
+    entries: list[Any],
     graph_units: set[str],
     clusters: dict[str, dict[str, Any]],
     rows: dict[str, dict[str, Any]],
     v2: bool,
+    header_emits: list[Any],
+    decisions: DecisionCheck,
     problems: list[str],
     review: list[str],
 ) -> None:
@@ -1030,25 +1109,34 @@ def _check_name_basis(
 
     ``evidence`` (the default): an authored row names a unit the graph knows
     (a schema 2 plan that names another records the name's basis; a schema 1
-    plan gets a review note).  ``provisional`` and ``invented`` name an
-    authored object the ELF does not name: the name is no unit the graph
+    plan gets a review note).  ``provisional``, ``invented`` and ``user`` name
+    an authored object the ELF does not name: the name is no unit the graph
     knows, and the row's artifacts lie in no cluster that names a unit or
-    library and have no strong or medium unit candidate.  An object with no
-    LOCAL cluster of its own (or whose clusters lie outside the slice, such
-    as its RTTI in ``.rodata``) is allowed: when none of the row's artifacts
-    lies in a cluster, a review note says so.  ``invented`` is confidence
-    low; ``provisional`` cites the provisional file it is named after and is
-    at most medium.  Paths, reservation and annotations are checked as for
-    any authored row.
+    library and have no strong or medium unit candidate (the ELF outranks a
+    name).  An object with no LOCAL cluster of its own (or whose clusters
+    lie outside the slice, such as its RTTI in ``.rodata``) is allowed: when
+    none of the row's artifacts lies in a cluster, a review note says so.
+    ``invented`` is confidence low; ``provisional`` cites the provisional
+    file it is named after and is at most medium; ``user`` cites the
+    heading of a user decision file that names its unit file and lists its
+    artifacts (``decision``; an artifact whose entry cites its own decision
+    is checked there) and is at most medium.  Any entry may cite a decision
+    (``_check_entry_decisions``).  Paths, reservation and annotations are
+    checked as for any authored row.
     """
 
+    decided = _check_entry_decisions(owner, label, classification, unit, entries, header_emits, decisions, problems)
     basis = owner.get("name_basis", NAME_BASIS_DEFAULT)
     if basis not in NAME_BASES:
         problems.append(f"{label} name_basis must be one of {list(NAME_BASES)}")
         return
+    if "decision" in owner and basis != NAME_BASIS_USER:
+        problems.append(f"{label} records a decision with name_basis {basis}: a row cites one only with name_basis user")
     if basis == NAME_BASIS_DEFAULT:
         if classification == "authored" and unit and unit.casefold() not in graph_units:
-            message = f"{label} names unit {unit}, which the graph does not know: record name_basis provisional or invented"
+            message = (
+                f"{label} names unit {unit}, which the graph does not know: record name_basis provisional, invented or user"
+            )
             (problems if v2 else review).append(message)
         return
     if classification != "authored":
@@ -1062,6 +1150,17 @@ def _check_name_basis(
     if basis == "invented":
         if confidence != "low":
             problems.append(f"{label} has an invented name: its confidence must be low")
+    elif basis == NAME_BASIS_USER:
+        if confidence not in DECISION_CONFIDENCES:
+            problems.append(f"{label} is named by a user decision: its confidence is at most medium")
+        if "decision" not in owner:
+            problems.append(f"{label} name_basis user cites the user's decision: it needs decision {{file, sha256, heading}}")
+        elif (block := decisions.heading(owner["decision"], label, problems)) is not None:
+            if why := _decision_destination(block, unit, owner.get("workspace_path")):
+                problems.append(f"{label} decision heading {block['heading']!r} {why}")
+            for identity in artifacts:
+                if identity not in decided and identity not in block["listed"]:
+                    problems.append(decisions.not_listed(block, label, identity))
     else:
         provisional = owner.get("provisional_file")
         if not isinstance(provisional, str) or PurePosixPath(provisional).name.casefold() != unit.casefold():
@@ -1279,6 +1378,9 @@ def validate_source_plan(
     cited_files: set[str] = set()
     graph_units = {str(unit.get("tu", "")).casefold() for unit in graph["units"]}
     clusters = {row["id"]: row for row in graph.get("clusters") or [] if isinstance(row, dict) and "id" in row}
+    # User decisions the rows cite: each file read once, the name index built on first use.
+    decisions = DecisionCheck(root, graph)
+    header_emits = plan.get("header_emits") if isinstance(plan.get("header_emits"), list) else []
     row_units: list[tuple[dict[str, Any], str, str]] = []
 
     scope = item["batch"]["scope"]
@@ -1465,7 +1567,10 @@ def validate_source_plan(
                 problems.append(
                     f"{label} is compiler-generated output no unit defines: it carries no path, library or archive member"
                 )
-        _check_name_basis(owner, label, classification, unit, artifacts, graph_units, clusters, rows, v2, problems, review)
+        _check_name_basis(
+            owner, label, classification, unit, artifacts, entries, graph_units, clusters, rows, v2, header_emits,
+            decisions, problems, review,
+        )
         if unit and classification in ("authored", "provider"):
             row_units.append((owner, label, unit))
 
