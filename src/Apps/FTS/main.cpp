@@ -188,7 +188,7 @@ bool COurGame::StartEngine()
 		return false;
 
 	// Display loading screen
-	CVideo::RestoreImage("RUN\LOADING.RAW"); /* port: binary has only RestoreImage__6CVideoFPc; 0x140550 passes one string */
+	CVideo::RestoreImage("RUN\\LOADING.RAW"); /* port: binary has only RestoreImage__6CVideoFPc; 0x140550 passes one string (the ELF literal has a real backslash) */
 
 	// After the image is loaded into the back buffer,
 	// bring it to the main one
