@@ -107,7 +107,8 @@ def specs(spec: Any) -> tuple[Any, ...]:
             "writes the manifest (with manifest_sha256) under build/. Once the skeleton route's frozen base "
             "build/stage5/skeleton-route/base exists, every provisional input (headers, bodies, preamble, file-scope data) "
             "is read from its src/, never from the written src/, so a rebuild reproduces the manifest the route applied; "
-            "--refresh-snapshot is then refused.",
+            "--refresh-snapshot is then refused, and a snapshot of the unchanged base that only adds in-class bodies the "
+            "current plans move out of line replaces the stored one (grown).",
         ),
         spec(
             "order skeleton write",
@@ -550,7 +551,8 @@ def _order_skeleton_manifest(arguments: argparse.Namespace) -> int:
         root, tracker, graph_path=_path(root, arguments.graph), receipt_path=receipt, segment=arguments.segment,
         source_root=base,
     )
-    snapshot_state = settle_snapshot(snapshot_path, snapshot, refresh=arguments.refresh_snapshot)
+    snapshot_state = settle_snapshot(snapshot_path, snapshot, refresh=arguments.refresh_snapshot, frozen_base=base is not None,
+                                     manifest=manifest)
     if output is not None:
         atomic_write_json(output, manifest)
     ok = snapshot_state["status"] != "stale"

@@ -764,6 +764,42 @@ def test_structured_contradictions(tmp_path: Path, synthetic: tuple[dict, dict])
     assert report["ok"] and any("1 notes record contradictions as text" in note for note in report["review"])
 
 
+def test_a_contradiction_on_an_orphan_stage_5_deleted_and_stage_4_created_again_is_historical(
+    tmp_path: Path, synthetic: tuple[dict, dict]
+) -> None:
+    from tools._socom.order_skeleton_route import BASE_DIR, _sha
+
+    tracker, graph = synthetic
+    root = _workspace(tmp_path)
+    ids = _ids(graph)
+    plan = segment_plan(graph)
+    plan["schema_version"] = 2
+    path = "src/gamez/zFoo/old.cpp"
+    old = b"// provisional\n\nint a_first(void)\n{\n}\n"
+    # The new unit file stage 4 created at the path: its blocks only, no line 3.
+    (root / path).write_bytes(b"/* blocks */\n")
+    row = {"artifact": ids[0], "provisional_file": path, "line": 3, "kind": "defined-elsewhere", "elf_evidence": ["dwarf-cu"]}
+    plan["contradictions"] = [row]
+    applied = {"moves": [], "created": [path], "retired": [], "recreated": [{"path": path, "sha256": _sha(old), "by": "prepare"}]}
+    problems = validate_source_plan(root, tracker, plan, graph, section_of=MAIN, applied=applied)["problems"]
+    assert any("its frozen base copy is in neither" in problem for problem in problems), problems
+    (root / BASE_DIR / path).parent.mkdir(parents=True)
+    (root / BASE_DIR / path).write_bytes(old)
+    report = validate_source_plan(root, tracker, plan, graph, section_of=MAIN, applied=applied)
+    assert report["ok"], report["problems"]
+    assert any(f"historical, checked against the frozen base copies: {path}:3" in line for line in report["review"])
+    plan["contradictions"] = [{**row, "line": 6}]
+    problems = validate_source_plan(root, tracker, plan, graph, section_of=MAIN, applied=applied)["problems"]
+    assert any(f"the deleted provisional {path} had 5 lines, not 6" in problem for problem in problems), problems
+    # Without the recreated row the same line is checked against the new file (and the base copy by its path).
+    plan["contradictions"] = [row]
+    plain = validate_source_plan(root, tracker, plan, graph, section_of=MAIN, applied={**applied, "recreated": []})
+    assert plain["ok"] and any("frozen skeleton base" in line for line in plain["review"])
+    (root / BASE_DIR / path).write_bytes(b"/* blocks */\n")
+    problems = validate_source_plan(root, tracker, plan, graph, section_of=MAIN, applied={**applied, "recreated": []})["problems"]
+    assert any(f"{path} has 1 lines, not 3" in problem for problem in problems), problems
+
+
 def test_report_lists_shared_reservations_and_unemitted_inline_functions(tmp_path: Path, synthetic: tuple[dict, dict]) -> None:
     tracker, graph = synthetic
     root = _workspace(tmp_path)

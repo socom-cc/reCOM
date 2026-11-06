@@ -1565,7 +1565,12 @@ While it is open its items stay blocked: the ready refresh skips them, and
 changes, the command renders the whole tree from the still-current inputs
 and stores every file whose render is a skeleton record's write in the blob
 store: the merge ancestors of the later re-apply. It refuses when a reopened
-item's ancestor is neither stored nor rendered.
+item's ancestor is neither stored nor rendered. While an order plan is not
+accepted (an earlier reopening holds it) the manifest cannot be read, so
+nothing renders: the report's `capture` says `skipped` (not an error), and
+the ancestors stored by the earlier reopening or by the applies serve.
+`progress rebase-function-order` runs the same capture first; during a
+rebase that absorbs a reopening it is always skipped this way.
 
 `progress apply-source-plan` then may rewrite the files of the items
 reopened for that amendment. It refuses the file of any other skeleton item.
@@ -1600,6 +1605,33 @@ the order target over the new baseline and, in one tracker mutation:
   base's `@socom-artifact` edges must have the stage 4 baseline's edge
   digest. A stage 4 move or retirement after the wave is refused (the body
   snapshot is keyed by the base's paths).
+- releases each path the skeleton route deleted (an orphan) that a stage 4
+  apply created again as a new unit file, as when the user names a new unit
+  after the orphan. The deleting item (the prepare) stops reserving it and
+  the segment apply of the unit reserves it as a new unit file (`released`:
+  path, apply, released_from). The prepare's record keeps the deletion as
+  history: it no longer counts as one of the prepare's files, as a stage 4
+  retired file, or as a skeleton write stage 4 may not rewrite. The base
+  takes the file as its blocks only (the deleted provisional content stays
+  in `base-history`), and the segment's re-apply merges it as a file no
+  skeleton item wrote. A stage 4 contradiction row quoting the deleted file
+  stays historical: `source plan validate` checks its line against the
+  deleted file's frozen copy (found by its digest in the base, `base-history`
+  or the blob store), never against the new file.
+- keeps the deleted file's bodies. The skeleton manifest, writer and checks
+  read a recreated path's authored content from the deleted file's frozen
+  copy (`provisional_overlays`), so its bodies and data keep their snapshot
+  identities (`path:line`) and keep rendering in their units, never as
+  stubs; a missing copy is refused. The new unit file renders its blocks and
+  entries only: the rest of the deleted file is dropped, as for an emptied
+  orphan, and content that would stay in place there is refused.
+- re-seals the frozen body snapshot. The delta adds blocks-only files and
+  rewrites stage 4 blocks, and a recreated path keeps its deleted file's
+  authored content, so no body changes and only `src_sha256` follows the
+  base's file list. The snapshot's old and new `src_sha256` and
+  `snapshot_sha256`, the added files and the reason are recorded under the
+  rebase's `base.snapshot`. A delta that changes authored content, or a
+  snapshot that is not the base's, is refused.
 
 It refuses an open amendment, a baseline that is already stage 5's, stage 5
 work in progress or under review, a new target that gives units to a segment
@@ -1613,7 +1645,17 @@ baseline and evidence digests as a note (`carried`), and
 `order skeleton manifest` and the route accept it. A carried link plan keeps
 its baseline and order digests while its objects are unchanged. Reopened
 plans are re-drafted (the decisions carry over), validated, handed off and
-accepted as in phase A; then the manifest is rebuilt.
+accepted as in phase A; then the manifest is rebuilt. Which in-class bodies
+the snapshot holds depends on the plans: when a re-planned row moves another
+in-class body out of line, the rebuild over the unchanged base (same
+`src_sha256`, every stored body byte for byte) adds it to the snapshot
+(`snapshot.status` `grown`, with the added body IDs). Any other difference
+leaves the snapshot `stale` and the manifest refused.
+
+The re-apply then also finds what the new inputs change outside the reopened
+items: a carried segment apply whose files the new render changes (a type
+that now needs its header, say) is refused by name ("reopen them"), and a
+file the port lane edited where the render changed is a merge conflict.
 
 #### Re-apply as a merge
 

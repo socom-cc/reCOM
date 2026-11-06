@@ -841,7 +841,8 @@ class HeaderWriter:
                     need(unit_name, chain, f"it needs {_readable(chain)} complete")
         result: dict[str, dict[str, str]] = {}
         for path, headers in wanted.items():
-            present = _included(path, self.inputs.scans.get(path))
+            # A recreated path's scan is the deleted provisional file, whose includes the new unit file does not keep.
+            present = _included(path, None if path in getattr(self.inputs, "overlays", {}) else self.inputs.scans.get(path))
             rows = {header: why for header, why in headers.items() if header not in present and header != path}
             if rows:
                 result[path] = rows
@@ -949,7 +950,8 @@ class HeaderWriter:
             lines = sorted({self._include_line(header, path) for header in includes})
             rows.append(self._region(path, INCLUDE, "include", lines, offset=TAIL, sequence=0, flags=flags))
         # The unit's stubs name classes its includes may not declare: declare them ahead (src/'s key), never twice.
-        forward = self._forward_region(path, names, offset=TAIL, sequence=1, visible=set(includes) | _included(path, scan))
+        kept = None if path in getattr(self.inputs, "overlays", {}) else scan
+        forward = self._forward_region(path, names, offset=TAIL, sequence=1, visible=set(includes) | _included(path, kept))
         rows += ([forward] if forward else []) + definitions
         tail = "\n".join(line for row in rows for line in row["text"])
         return {"inserts": inserts, "tail": tail + "\n" if tail else ""}

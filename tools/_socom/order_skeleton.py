@@ -233,26 +233,61 @@ def stage3_facts(root: Path, tracker: dict[str, Any], receipt_path: Path, finger
     }
 
 
-def scan_sources(root: Path) -> tuple[list[FileScan], dict[str, dict[str, Any]]]:
-    """Every source file under src/ (authored content only) and its block facts."""
+def _authored(text: str) -> tuple[dict[str, str], str, str | None]:
+    """(stage 4 blocks, authored content, parse problem) of a source file's text (newlines as LF)."""
 
     from .source_apply import parse_blocks
 
+    try:
+        _bom, blocks, authored = parse_blocks(text)
+        return blocks, authored, None
+    except SocomError as exc:
+        return {}, text.lstrip("\ufeff"), str(exc)
+
+
+def _universal(data: bytes) -> str:
+    """The text ``Path.read_text`` gives (universal newlines) for raw bytes."""
+
+    return data.decode("utf-8", errors="replace").replace("\r\n", "\n").replace("\r", "\n")
+
+
+def source_files(root: Path, overlays: dict[str, bytes] | None = None) -> list[tuple[str, dict[str, str], str, str | None]]:
+    """(path, stage 4 blocks, authored content, problem) of every source file under src/, in path order.
+
+    ``overlays`` ({path: bytes}) supply the authored content of a path in
+    place of the file's own: the provisional file the skeleton route deleted
+    at a path stage 4 then created again as a new unit file
+    (``order_skeleton_route.provisional_overlays``).  The blocks stay the
+    file's own (the new unit file's).
+    """
+
+    overlays = overlays or {}
+    source = root / "src"
+    paths = {path.relative_to(root).as_posix(): path for path in source.rglob("*")
+             if path.is_file() and path.suffix.lower() in SOURCE_SUFFIXES} if source.is_dir() else {}
+    rows = []
+    for relative in sorted(set(paths) | set(overlays)):
+        blocks, authored, problem = _authored(paths[relative].read_text(encoding="utf-8", errors="replace")) \
+            if relative in paths else ({}, "", None)
+        if relative in overlays:
+            _old_blocks, authored, problem = _authored(_universal(overlays[relative]))
+        rows.append((relative, blocks, authored, problem))
+    return rows
+
+
+def source_digest(root: Path, overlays: dict[str, bytes] | None = None) -> str:
+    """The ``src_sha256`` of the body snapshot over ``root``'s src/: every file's authored-content digest."""
+
+    return _digest(sorted((path, hashlib.sha256(authored.encode("utf-8")).hexdigest())
+                          for path, _blocks, authored, _problem in source_files(root, overlays)))
+
+
+def scan_sources(root: Path, overlays: dict[str, bytes] | None = None) -> tuple[list[FileScan], dict[str, dict[str, Any]]]:
+    """Every source file under src/ (authored content only) and its block facts (``overlays``: see ``source_files``)."""
+
     scans: list[FileScan] = []
     files: dict[str, dict[str, Any]] = {}
-    source = root / "src"
-    if not source.is_dir():
-        return scans, files
-    for path in sorted(source.rglob("*"), key=lambda value: value.as_posix()):
-        if not path.is_file() or path.suffix.lower() not in SOURCE_SUFFIXES:
-            continue
-        relative = path.relative_to(root).as_posix()
-        text = path.read_text(encoding="utf-8", errors="replace")
-        try:
-            _bom, blocks, authored = parse_blocks(text)
-            problem = None
-        except SocomError as exc:
-            blocks, authored, problem = {}, text.lstrip("\ufeff"), str(exc)
+    for relative, blocks, authored, problem in source_files(root, overlays):
         scans.append(scan_text(relative, authored))
         files[relative] = {
             "blocks": sorted(blocks),
@@ -686,7 +721,11 @@ class _Builder:
         cache, _rebuilt = ensure_source_cache(root, graph_path=graph_path)
         self.facts = _Facts(root, cache)
         self.dwarf = _Dwarf(self.facts.elf)
-        self.scans, self.files = scan_sources(self.source_root)
+        from .order_skeleton_route import provisional_overlays
+
+        # A recreated path's deleted provisional file stays a body source (by digest, from the base history).
+        self.overlays = provisional_overlays(root, tracker, self.source_root)
+        self.scans, self.files = scan_sources(self.source_root, self.overlays)
         chains: set[tuple[str, ...]] = set()
         self.parsed: dict[str, dict[str, Any]] = {}
         for symbol in self.facts.elf.symbols():
@@ -1602,6 +1641,7 @@ class _Builder:
                 },
                 "empty_after_moves": unit is None and not stays and not data_stays,
                 **({"problem": self.files[scan.path]["problem"]} if self.files[scan.path]["problem"] else {}),
+                **({"recreated": True} if scan.path in self.overlays else {}),
             })
         return bodies, files, snapshot
 
@@ -2103,8 +2143,39 @@ def build_manifest(
     return manifest, snapshot
 
 
-def settle_snapshot(path: Path, fresh: dict[str, Any], *, refresh: bool) -> dict[str, Any]:
-    """Write the snapshot once; afterwards only compare (``refresh`` replaces it)."""
+def grown_bodies(stored: dict[str, Any], fresh: dict[str, Any], manifest: dict[str, Any] | None) -> list[str] | None:
+    """The bodies a fresh snapshot of the unchanged frozen base adds to the stored one, or None when it differs otherwise.
+
+    Which in-class bodies a snapshot holds depends on the plans: an in-class
+    body is a provisional input only once a planned row moves it out of line.
+    A re-planned row (after a stage 5 rebase) may move another one, whose text
+    the frozen base holds unchanged.  The fresh snapshot then grows: the same
+    base (``src_sha256``), every stored body byte for byte, and only such
+    in-class bodies added (``move-out-of-line`` in the manifest).
+    """
+
+    same = ("kind", "schema_version", "coordinates", "src_sha256")
+    if any(stored.get(key) != fresh.get(key) for key in same) or manifest is None:
+        return None
+    rows = {row["id"]: row for row in fresh["bodies"]}
+    if any(rows.get(row.get("id")) != row for row in stored.get("bodies") or []):
+        return None
+    kept = {row["id"] for row in stored.get("bodies") or []}
+    added = sorted(set(rows) - kept)
+    kinds = {row["id"]: (row.get("kind"), row.get("action")) for row in manifest["bodies"]["definitions"]}
+    if not added or any(kinds.get(identity) != ("in-class", "move-out-of-line") for identity in added):
+        return None
+    return added
+
+
+def settle_snapshot(path: Path, fresh: dict[str, Any], *, refresh: bool, frozen_base: bool = False,
+                    manifest: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Write the snapshot once; afterwards only compare (``refresh`` replaces it).
+
+    Over the skeleton route's frozen base (``frozen_base``), a fresh snapshot
+    that only adds in-class bodies the current plans move out of line
+    (``grown_bodies``) replaces the stored one (``grown``).
+    """
 
     from .util import atomic_write_json
 
@@ -2112,6 +2183,10 @@ def settle_snapshot(path: Path, fresh: dict[str, Any], *, refresh: bool) -> dict
         stored = load_json(path)
         if isinstance(stored, dict) and stored.get("snapshot_sha256") == fresh["snapshot_sha256"]:
             return {"status": "current", "snapshot_sha256": fresh["snapshot_sha256"]}
+        if frozen_base and isinstance(stored, dict) and (added := grown_bodies(stored, fresh, manifest)) is not None:
+            atomic_write_json(path, fresh)
+            return {"status": "grown", "stored_sha256": stored.get("snapshot_sha256"), "snapshot_sha256": fresh["snapshot_sha256"],
+                    "added": added, "added_count": len(added)}
         return {"status": "stale", "stored_sha256": (stored or {}).get("snapshot_sha256"), "fresh_sha256": fresh["snapshot_sha256"],
                 **_compare_snapshot(stored if isinstance(stored, dict) else {}, fresh)}
     atomic_write_json(path, fresh)

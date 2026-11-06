@@ -287,7 +287,11 @@ class SkeletonInputs:
         if cited != current or (self.manifest["inputs"].get("link_plan") or {}).get("sha256") != link.get("sha256"):
             raise SocomError("the accepted order plans are not the ones the skeleton manifest cites: rebuild the manifest")
         self.plans = sorted(plans, key=lambda row: row["plan"]["segment_number"])
-        scans, files = scan_sources(self.source_root)
+        from .order_skeleton_route import provisional_overlays
+
+        # Recreated paths: the deleted provisional file is the scan (a body source), the base file the new unit file.
+        self.overlays = provisional_overlays(root, tracker, self.source_root)
+        scans, files = scan_sources(self.source_root, self.overlays)
         src_sha256 = _digest(sorted((path, row["authored_sha256"]) for path, row in files.items()))
         if src_sha256 != self.manifest["inputs"]["src_sha256"]:
             where = "src/" if self.source_root == root else "the frozen base src/"
@@ -900,7 +904,10 @@ class _Writer:
         text, newline = read_source(self.inputs.source_root / path)
         prefix, rest = split_blocks(path, text)
         scan = self.inputs.scans.get(path)
-        if scan is not None and scan.text != rest:
+        recreated = path in self.inputs.overlays
+        if recreated and rest.strip():
+            raise SocomError(f"{path}: a recreated path's new unit file holds more than its stage 4 blocks in the frozen base")
+        if scan is not None and scan.text != rest and not recreated:
             raise SocomError(f"{path}: the authored content differs from the manifest's scan")
         existing = parse_fences(rest)
         if existing or parse_regions(rest)[0]:
@@ -908,6 +915,18 @@ class _Writer:
         additions = (self.headers or {}).get(path) or {}
         cuts = self._cuts(path)
         inserts = sorted(additions.get("inserts") or [])
+        if recreated:
+            # The scan is the provisional file the skeleton route deleted here: its bodies and data move (from the
+            # snapshot) like an emptied orphan's, and the rest of it is dropped; the new unit file starts empty.
+            stays = sorted(body["id"] for body in self.inputs.manifest["bodies"]["definitions"]
+                           if body["path"] == path and body["id"] in self.preamble_bodies)
+            stays += sorted(f"{path}:{row['line']}" for row in (self.inputs.files.get(path) or {}).get("data_definitions") or []
+                            if row["action"] in ("preamble", "judgment"))
+            if stays or inserts:
+                raise SocomError(f"{path}: the deleted provisional file at this recreated path keeps content in place "
+                                 f"({', '.join(stays[:12]) if stays else 'declaration regions in its class bodies'}), which "
+                                 "the new unit file would drop")
+            rest, cuts = "", []
         if inserts:
             # Regions inside the preamble's class bodies: insert, then move each cut past the text inserted before it.
             from .order_skeleton_headers import apply_edits
@@ -1676,6 +1695,9 @@ def render_skeletons(inputs: SkeletonInputs, *, segment: int | None, headers: bo
         for path, record in sorted(inputs.files.items()):
             if not record["orphan"]:
                 continue
+            if path in inputs.overlays:
+                raise SocomError(f"{path}: a recreated path (stage 4 created a new unit file where the skeleton route deleted "
+                                 "an orphan) is no unit file of the accepted plans: rebuild the manifest after the rebase")
             stays = [body for body in inputs.manifest["bodies"]["definitions"] if body["path"] == path and body["id"] in writer.preamble_bodies]
             data_stays = [row for row in record["data_definitions"] if row["action"] in ("preamble", "judgment")]
             text, newline = read_source(inputs.source_root / path)

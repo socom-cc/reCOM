@@ -157,7 +157,9 @@ def applied_state(tracker: dict[str, Any], plan_item_id: str, plan_sha256: str) 
     names ``plan_sha256``, or while an open amendment sends its apply back
     for re-apply: the files it moved, created and retired stay applied, and
     the revised plan is checked against them.  ``source_plan.validate_source_plan``
-    checks these paths in their applied state.
+    checks these paths in their applied state.  Stage 5's skeleton deletions
+    count as retired files, except the paths stage 4 created again as new
+    unit files (``recreated``: the deleted content is history).
     """
 
     moves: list[dict[str, Any]] = []
@@ -176,13 +178,16 @@ def applied_state(tracker: dict[str, Any], plan_item_id: str, plan_sha256: str) 
         moves.extend(row for row in record.get("moves") or [] if isinstance(row, dict))
         created.update(str(path) for path in record.get("created") or [])
         retired.extend(row for row in record.get("retired") or [] if isinstance(row, dict))
-    if found:
-        from .order_skeleton_route import skeleton_deletions
+    if not found:
+        return None
+    from .order_skeleton_route import recreated_paths, skeleton_deletions
 
-        # Stage 5's chain of custody: an orphan file an accepted skeleton item removed (its bodies moved) is retired.
-        known = {str(row.get("path")) for row in retired}
-        retired.extend(row for row in skeleton_deletions(tracker) if row["path"] not in known)
-    return {"moves": moves, "created": sorted(created), "retired": retired} if found else None
+    # Stage 5's chain of custody: an orphan file an accepted skeleton item removed (its bodies moved) is retired.
+    known = {str(row.get("path")) for row in retired}
+    retired.extend(row for row in skeleton_deletions(tracker) if row["path"] not in known)
+    # A deleted orphan path stage 4 created again as a new unit file: the new file is stage 4's, and a row quoting
+    # the deleted provisional file is historical (checked against its frozen base copy).
+    return {"moves": moves, "created": sorted(created), "retired": retired, "recreated": list(recreated_paths(tracker).values())}
 
 
 def content_sha256(data: bytes) -> str:

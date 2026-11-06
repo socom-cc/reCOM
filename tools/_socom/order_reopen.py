@@ -171,6 +171,8 @@ def _stage4_plans(tracker: dict[str, Any], amendment: dict[str, Any]) -> list[st
 def select_items(tracker: dict[str, Any], amendment: dict[str, Any], extra: list[str]) -> dict[str, str]:
     """{stage 5 item: why} built on the amended stage 4 plans, with each apply's plan and each plan's apply."""
 
+    from .order_skeleton_route import current_rows, stage4_created
+
     by_id = _by_id(tracker)
     chosen: dict[str, str] = {}
     plans = set(_stage4_plans(tracker, amendment))
@@ -178,10 +180,12 @@ def select_items(tracker: dict[str, Any], amendment: dict[str, Any], extra: list
         if row.get("kind") == ORDER_SEGMENT_KIND and (row.get("batch") or {}).get("stage4_item") in plans:
             chosen[row["id"]] = f"plans the units of the amended {row['batch']['stage4_item']}"
     files = stage4_files(tracker, amendment)
+    created = stage4_created(tracker)
     for row in tracker.get("work_items") or []:
         record = row.get("order_skeleton")
         if row.get("kind") in ORDER_SKELETON_KINDS and isinstance(record, dict):
-            hit = sorted({str(entry.get("path")) for entry in record.get("files") or []} & files, key=str.casefold)
+            # A deletion stage 4 superseded (a new unit file at that path) is history, not one of the item's files.
+            hit = sorted({str(entry.get("path")) for entry in current_rows(record, created)} & files, key=str.casefold)
             if hit:
                 chosen.setdefault(row["id"], f"its files {_shown(hit)} are files the stage 4 re-apply rewrites")
     for item_id in extra:
@@ -350,7 +354,11 @@ def capture_ancestors(root: Path, tracker: dict[str, Any], *, manifest_path: Pat
     Rendering needs the inputs the records were written from (the accepted
     plans the manifest cites, the frozen base), so it runs before anything is
     reopened; once inputs have changed it fails, and the ancestors stored by
-    an earlier capture (or by the applies themselves) must serve.
+    an earlier capture (or by the applies themselves) must serve.  While an
+    order plan is not accepted (an open reopening holds it, as during every
+    rebase that absorbs one) the manifest cannot be read at all: the capture
+    is skipped, not failed, and the stored ancestors serve (the commands
+    refuse a reopened item whose ancestor is not stored).
     """
 
     from .order_skeleton_merge import put_blob, sha
@@ -360,6 +368,15 @@ def capture_ancestors(root: Path, tracker: dict[str, Any], *, manifest_path: Pat
     records = [item for item in skeleton_items(tracker) if isinstance(item.get("order_skeleton"), dict)]
     if not records:
         return {"captured": 0, "files": 0, "error": None}
+    waiting = sorted(row["id"] for row in tracker.get("work_items") or []
+                     if row.get("kind") in (ORDER_SEGMENT_KIND, ORDER_LINK_KIND) and row.get("status") != "accepted")
+    if waiting:
+        held = held_items(tracker)
+        files = sum(1 for item in records for row in item["order_skeleton"].get("files") or [] if record_ancestor(row))
+        return {"captured": 0, "files": files, "error": None, "skipped": (
+            f"{len(waiting)} order plans are not accepted ({sum(1 for item in waiting if item in held)} held by open "
+            f"reopenings: {_shown(waiting)}), so the inputs cannot render; the ancestors stored when the items were "
+            "reopened (or by their applies) serve")}
     try:
         inputs, base = route_inputs(root, tracker, manifest_path=manifest_path, snapshot_path=snapshot_path)
         rendered = render_skeletons(inputs, segment=None)
@@ -546,6 +563,8 @@ def rebase_function_order(tracker: dict[str, Any], target: dict[str, Any], deriv
                 item["resources"] = list(files)
             else:
                 item["resources"] = list(directories)
+    if prepare is not None:
+        entry["released"] = release_recreated(tracker, applies)
     # The decomposition and every order item cite the new baseline and target.
     decomposition.update(digests, graph_sha256=inputs.get("graph_sha256"), link_order_sha256=spec["link_order_sha256"],
                          unit_count=sum(len(units) for units in by_segment.values()), units_by_neighbour=neighbours)
@@ -596,7 +615,37 @@ def rebase_function_order(tracker: dict[str, Any], target: dict[str, Any], deriv
     if prepare is not None and isinstance(decomposition.get("skeleton_prepare"), dict):
         decomposition["skeleton_prepare"]["resources_sha256"] = skeleton_resources_digest(prepare, applies)
         decomposition["skeleton_prepare"]["apply_file_count"] = sum(len(row.get("resources") or []) for row in applies)
+        decomposition["skeleton_prepare"]["prepare_file_count"] = len(prepare.get("resources") or [])
     return entry
+
+
+def release_recreated(tracker: dict[str, Any], applies: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Release the deleted paths stage 4 created again as unit files from the skeleton items that deleted them.
+
+    The prepare reserved each orphan it deleted.  When an accepted stage 4
+    amendment names a new unit file after the orphan (``recreated_paths``)
+    and the new target gives that file to a segment apply, the file is the
+    apply's new unit file from this rebase on: the deleting item no longer
+    reserves it.  Its record keeps the deletion as history (the old content
+    is the frozen base's), outside its current files.  Returns the released
+    rows ``{path, apply, released_from}``; mutates the items.
+    """
+
+    from .order_skeleton_route import recreated_paths, skeleton_items
+
+    recreated = recreated_paths(tracker)
+    owner = {str(path): row["id"] for row in applies for path in row.get("resources") or []}
+    released: list[dict[str, Any]] = []
+    for item in skeleton_items(tracker):
+        drop = sorted((path for path in item.get("resources") or [] if path in recreated
+                       and owner.get(path) not in (None, item["id"])), key=str.casefold)
+        if not drop:
+            continue
+        kept = [path for path in item.get("resources") or [] if path not in drop]
+        item["resources"] = list(kept)
+        item.setdefault("batch", {})["files"] = list(kept)
+        released.extend({"path": path, "apply": owner[path], "released_from": item["id"]} for path in drop)
+    return sorted(released, key=lambda row: str(row["path"]).casefold())
 
 
 # -- the frozen base after a rebase --------------------------------------------------------------
@@ -607,10 +656,14 @@ def base_changes(root: Path, tracker: dict[str, Any], names: list[str]) -> dict[
 
     The files are those the absorbed amendments' stage 4 applies recorded.
     A stage 4 move or retirement after the base was frozen is refused (the
-    body snapshot is keyed by the base's paths).
+    body snapshot is keyed by the base's paths).  A path the skeleton route
+    deleted that stage 4 created again as a new unit file
+    (``order_skeleton_route.recreated_paths``) is a new file too: its blocks
+    only, never the deleted provisional content the base still holds there
+    (that stays in ``base-history``).
     """
 
-    from .order_skeleton_route import base_root
+    from .order_skeleton_route import base_root, recreated_paths
     from .source_amend import amendments
     from .source_apply import parse_blocks
 
@@ -619,6 +672,7 @@ def base_changes(root: Path, tracker: dict[str, Any], names: list[str]) -> dict[
         return {}
     rows = [row for row in amendments(tracker) if row.get("id") in names]
     by_id = _by_id(tracker)
+    recreated = recreated_paths(tracker)
     paths: set[str] = set()
     problems: list[str] = []
     for amendment in rows:
@@ -640,7 +694,7 @@ def base_changes(root: Path, tracker: dict[str, Any], names: list[str]) -> dict[
             raise SocomError(f"{path}: the file stage 4 recorded is missing")
         _bom, blocks, _rest = parse_blocks(live.read_bytes().replace(b"\r\n", b"\n").decode("utf-8", "surrogateescape"))
         old = (base / path).read_bytes() if (base / path).is_file() else None
-        updated = with_blocks(old, blocks)
+        updated = with_blocks(None if path in recreated else old, blocks)
         if old is None or updated != old:
             changes[path] = updated
     return changes
@@ -659,23 +713,112 @@ def with_blocks(data: bytes | None, blocks: dict[str, str]) -> bytes:
     return body.encode("utf-8", "surrogateescape")
 
 
-def advance_base(root: Path, tracker: dict[str, Any], names: list[str]) -> tuple[dict[str, Any], Callable[[], None]]:
+def snapshot_reseal(root: Path, tracker: dict[str, Any], changes: dict[str, bytes], snapshot_path: Path | None) -> dict[str, Any]:
+    """The frozen body snapshot re-sealed over the advanced base: its ``src_sha256`` before and after ``changes``.
+
+    The snapshot freezes every provisional body, and its ``src_sha256`` digests
+    the authored content (stage 4 blocks set aside) of every file of the
+    frozen base.  A rebase delta that only adds blocks-only files (new stage 4
+    files and recreated paths' new unit files) and rewrites stage 4 blocks
+    changes no authored content: a recreated path's authored content stays
+    the deleted provisional file (``order_skeleton_route.provisional_overlays``),
+    so no snapshot body changes and only the digest of the file list moves.
+    Anything else is refused.  Returns the record (``snapshot`` of the
+    rebase's base delta, with the re-sealed document under ``"document"``),
+    or ``{"resealed": False}`` without a snapshot.
+    """
+
+    import hashlib
+
+    from .order_skeleton import _authored, _digest as snapshot_digest, _universal, source_files
+    from .order_skeleton_route import base_root, deleted_content, provisional_overlays, recreated_paths
+    from .util import load_json
+
+    if snapshot_path is None or not snapshot_path.is_file():
+        return {"resealed": False, "note": "no body snapshot"}
+    snapshot = load_json(snapshot_path)
+    base = base_root(root)
+
+    def digest(text: str) -> str:
+        return hashlib.sha256(_authored(text)[1].encode("utf-8")).hexdigest()
+
+    authored = {path: hashlib.sha256(text.encode("utf-8")).hexdigest()
+                for path, _blocks, text, _problem in source_files(base, provisional_overlays(root, tracker, base))}
+    before = snapshot_digest(sorted(authored.items()))
+    if before != snapshot.get("src_sha256"):
+        raise SocomError(f"the body snapshot ({snapshot.get('src_sha256')}) is not the frozen base's ({before}): the base or the "
+                         "snapshot changed outside the route; restore them before the rebase")
+    recreated = recreated_paths(tracker)
+    after = dict(authored)
+    added: list[str] = []
+    rewritten: list[str] = []
+    kept: list[str] = []
+    problems: list[str] = []
+    empty = hashlib.sha256(b"").hexdigest()
+    for path, data in sorted(changes.items()):
+        if path in recreated:
+            old = deleted_content(root, path, recreated[path]["sha256"])
+            if old is None:
+                problems.append(f"{path}: the deleted provisional file is not stored")
+                continue
+            new = digest(_universal(old))
+            kept.append(path)
+        else:
+            new = digest(_universal(data))
+        if path not in authored:
+            if new != empty:
+                problems.append(f"{path}: a new file with authored content")
+            added.append(path)
+        elif new != authored[path]:
+            problems.append(f"{path}: its authored content changes")
+        elif path not in kept:
+            rewritten.append(path)
+        after[path] = new
+    if problems:
+        raise SocomError("the body snapshot cannot follow the base delta: " + _shown(problems))
+    document = {key: value for key, value in snapshot.items() if key != "snapshot_sha256"}
+    document["src_sha256"] = snapshot_digest(sorted(after.items()))
+    document["snapshot_sha256"] = snapshot_digest(document)
+    return {
+        "resealed": document["snapshot_sha256"] != snapshot.get("snapshot_sha256"),
+        "path": snapshot_path.relative_to(root).as_posix() if snapshot_path.is_relative_to(root) else snapshot_path.name,
+        "src_sha256_before": before,
+        "src_sha256": document["src_sha256"],
+        "snapshot_sha256_before": snapshot.get("snapshot_sha256"),
+        "snapshot_sha256": document["snapshot_sha256"],
+        "bodies": len(snapshot.get("bodies") or []),
+        "added": added,
+        "blocks_rewritten": len(rewritten),
+        "recreated": kept,
+        "why": (f"the base delta adds {len(added)} blocks-only files and rewrites the stage 4 blocks of the rest; no authored "
+                f"content changes ({len(kept)} recreated paths keep their deleted provisional file as their authored "
+                "content), so no snapshot body changes: only src_sha256 follows the base's file list"),
+        "document": document,
+    }
+
+
+def advance_base(root: Path, tracker: dict[str, Any], names: list[str],
+                 snapshot_path: Path | None = None) -> tuple[dict[str, Any], Callable[[], None]]:
     """Write the frozen base's new files (the previous base kept under ``base-history``); returns (summary, undo).
 
     The advanced base's ``@socom-artifact`` edges must have the stage 4
-    baseline's edge digest, or nothing is changed.
+    baseline's edge digest, or nothing is changed.  The body snapshot at
+    ``snapshot_path`` is re-sealed over the advanced base (``snapshot_reseal``).
     """
 
-    from .order_skeleton_route import ROUTE_DIR, base_root, tree_sha256
+    from .order_skeleton import source_digest
+    from .order_skeleton_route import ROUTE_DIR, base_root, provisional_overlays, tree_sha256
     from .source import source_artifacts
     from .source_apply import Overlay
     from .source_gate import BASELINE_KIND, _digest as gate_digest
     from .order_skeleton_merge import sha
+    from .util import atomic_write_json
 
     base = base_root(root)
     if not (base / "src").is_dir():
         return {"files": [], "base_tree_sha256_before": None, "base_tree_sha256": None}, lambda: None
     changes = base_changes(root, tracker, names)
+    reseal = snapshot_reseal(root, tracker, changes, snapshot_path)
     before_tree = tree_sha256(base)
     history = root / ROUTE_DIR / "base-history" / before_tree[:16]
     if not history.exists():
@@ -686,9 +829,12 @@ def advance_base(root: Path, tracker: dict[str, Any], names: list[str]) -> tuple
         rows.append({"path": path, "before_sha256": sha(overlay.disk(path)), "after_sha256": sha(data)})
         overlay.write(path, data)
     backups = overlay.commit()
+    snapshot_before = snapshot_path.read_bytes() if snapshot_path is not None and snapshot_path.is_file() else None
 
     def undo() -> None:
         overlay.rollback(backups)
+        if snapshot_before is not None and snapshot_path is not None:
+            snapshot_path.write_bytes(snapshot_before)
 
     baseline = _stage(tracker, SOURCE_STAGE).get("baseline") or {}
     recorded = ((baseline.get("state") or {}).get("annotations") or {}).get("sha256") if baseline.get("kind") == BASELINE_KIND else None
@@ -697,8 +843,16 @@ def advance_base(root: Path, tracker: dict[str, Any], names: list[str]) -> tuple
         undo()
         raise SocomError("the advanced base's @socom-artifact edges do not have the stage 4 baseline's edge digest "
                          "(src/ does not hold the accepted stage 4 annotations)")
+    document = reseal.pop("document", None)
+    if document is not None:
+        # The advanced base, its recreated paths read from their deleted provisional files, has the re-sealed digest.
+        if source_digest(base, provisional_overlays(root, tracker, base)) != document["src_sha256"]:
+            undo()
+            raise SocomError("the advanced base does not give the re-sealed body snapshot's src_sha256")
+        if reseal["resealed"]:
+            atomic_write_json(snapshot_path, document)
     return {"files": rows, "base_tree_sha256_before": before_tree, "base_tree_sha256": tree_sha256(base),
-            "history": history.relative_to(root).as_posix()}, undo
+            "history": history.relative_to(root).as_posix(), "snapshot": reseal}, undo
 
 
 # -- audit -------------------------------------------------------------------------------------

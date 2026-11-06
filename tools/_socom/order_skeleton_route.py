@@ -528,11 +528,12 @@ def prepare_skeleton_apply(root: Path, tracker: dict[str, Any], item_id: str, ow
     # Another item's applied files must be what the current inputs give (else that item is reopened first).
     source = base if base is not None else root
     drifted = []
+    created = stage4_created(tracker)
     for other in skeleton_items(tracker):
         record = other.get("order_skeleton")
         if other["id"] == item_id or not isinstance(record, dict) or other.get("status") not in ("awaiting_acceptance", "accepted"):
             continue
-        for row in record["files"]:
+        for row in current_rows(record, created):
             wanted = files[row["path"]] if row["path"] in files else _read(source / row["path"])
             if _sha(wanted) != record_ancestor(row):
                 drifted.append(f"{row['path']} ({other['id']})")
@@ -586,16 +587,22 @@ def prepare_skeleton_apply(root: Path, tracker: dict[str, Any], item_id: str, ow
 
 
 def _prior_rows(tracker: dict[str, Any], item: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """{path: the record row of its last skeleton write}: the item's own previous record first, then other items' records."""
+    """{path: the record row of its last skeleton write}: the item's own previous record first, then other items' records.
 
+    A deletion stage 4 superseded (it created a new unit file at the deleted
+    path) is history, not a write: that file's ancestor is the frozen base's
+    content, the stage 4 blocks a rebase put there.
+    """
+
+    created = stage4_created(tracker)
     found: dict[str, dict[str, Any]] = {}
     for other in skeleton_items(tracker):
         record = other.get("order_skeleton")
         if other["id"] != item["id"] and isinstance(record, dict):
-            found.update({str(row["path"]): row for row in record.get("files") or []})
+            found.update({str(row["path"]): row for row in current_rows(record, created)})
     own = item.get("order_skeleton")
     if isinstance(own, dict):
-        found.update({str(row["path"]): row for row in own.get("files") or []})
+        found.update({str(row["path"]): row for row in current_rows(own, created)})
     return found
 
 
@@ -1144,16 +1151,138 @@ def skeleton_custody(root: Path, tracker: dict[str, Any]) -> dict[str, dict[str,
     return found
 
 
+def _deleted_digest(row: dict[str, Any]) -> str | None:
+    """The frozen base digest of the file a record row deleted, or None when the row deleted nothing.
+
+    The base digest: a re-apply finds the orphan deleted already (its before is then absent).
+    """
+
+    base = row.get("base_sha256", row.get("before_sha256"))
+    return base if row.get("after_sha256") is None and base is not None else None
+
+
+def stage4_created(tracker: dict[str, Any]) -> set[str]:
+    """The files the current stage 4 apply records create: new files and move targets."""
+
+    from .source_plan import SOURCE_APPLY_KINDS
+
+    found: set[str] = set()
+    for item in tracker.get("work_items") or []:
+        record = item.get("source_apply")
+        if item.get("kind") not in SOURCE_APPLY_KINDS or not isinstance(record, dict):
+            continue
+        found.update(str(path) for path in record.get("created") or [])
+        found.update(str(move["to"]) for move in record.get("moves") or [] if isinstance(move, dict) and move.get("to"))
+    return found
+
+
+def recreated_paths(tracker: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """{path: {"path", "sha256", "by"}} of the files a skeleton write deleted that a current stage 4 apply record creates.
+
+    The skeleton route deletes orphan provisional files only (no unit owns
+    them), so a stage 4 record that creates such a path came later: a stage 4
+    amendment named a new unit file after the orphan.  From then on the path
+    is a new unit file of the segment that owns the unit.  The deletion stays
+    in the skeleton record (and in its review history) as history; ``sha256``
+    is the frozen base digest of the deleted provisional file, the content
+    stage 4's contradiction rows quote.  Records in the review history count
+    too, so a re-apply that no longer lists the path keeps it recreated.
+    """
+
+    created = stage4_created(tracker)
+    found: dict[str, dict[str, Any]] = {}
+    if not created:
+        return found
+    for item in skeleton_items(tracker):
+        records = [item.get("order_skeleton")] + [entry.get("order_skeleton") for entry in item.get("review_history") or []
+                                                  if isinstance(entry, dict)]
+        for record in records:
+            if not isinstance(record, dict):
+                continue
+            for row in record.get("files") or []:
+                path, digest = str(row.get("path")), _deleted_digest(row)
+                if digest is not None and path in created:
+                    found.setdefault(path, {"path": path, "sha256": digest, "by": item["id"]})
+    return dict(sorted(found.items()))
+
+
+def superseded(row: dict[str, Any], created: set[str]) -> bool:
+    """Whether a record row deleted a file stage 4 has created again: no longer the item's write (history only)."""
+
+    return _deleted_digest(row) is not None and str(row.get("path")) in created
+
+
+def current_rows(record: dict[str, Any], created: set[str]) -> list[dict[str, Any]]:
+    """A record's rows that are still its item's writes: without the deletions stage 4 superseded (``recreated_paths``)."""
+
+    return [row for row in record.get("files") or [] if not superseded(row, created)]
+
+
+def deleted_content(root: Path, path: str, digest: str | None) -> bytes | None:
+    """The provisional file a skeleton item deleted at ``path`` (frozen base digest ``digest``), or None when it is gone.
+
+    The frozen base holds it until a rebase advances the base; then the
+    earlier base under ``base-history`` does; the blob store may hold it too.
+    """
+
+    from .order_skeleton_merge import get_blob
+
+    if not digest:
+        return None
+    history = root / ROUTE_DIR / "base-history"
+    candidates = [base_root(root) / path] + ([folder / path for folder in sorted(history.iterdir()) if folder.is_dir()]
+                                             if history.is_dir() else [])
+    for candidate in candidates:
+        data = _read(candidate)
+        if data is not None and _sha(data) == digest:
+            return data
+    return get_blob(root, digest)
+
+
+def provisional_overlays(root: Path, tracker: dict[str, Any], source_root: Path | None) -> dict[str, bytes]:
+    """{path: the deleted provisional file} the skeleton inputs read at each recreated path the frozen base advanced.
+
+    A rebase puts a recreated path into the frozen base as the new unit
+    file's stage 4 blocks only.  The provisional file the skeleton route
+    deleted there stays a provisional input: its bodies and data keep their
+    snapshot identities (``path:line``) and keep rendering in their units,
+    never as stubs, so the manifest scans it from its frozen copy (by digest:
+    ``base-history`` or the blob store).  The writer drops what is left of it
+    (``order_skeleton_write``): the new unit file holds its blocks and
+    entries only.  Only the frozen base has overlays; a missing copy is
+    refused.
+    """
+
+    if source_root is None or Path(source_root).resolve() != base_root(root).resolve():
+        return {}
+    found: dict[str, bytes] = {}
+    for path, row in recreated_paths(tracker).items():
+        current = _read(Path(source_root) / path)
+        if current is not None and _sha(current) == row["sha256"]:
+            continue  # the base still holds the deleted file (the rebase has not advanced it yet)
+        data = deleted_content(root, path, row["sha256"])
+        if data is None:
+            raise SocomError(f"{path}: the provisional file {row['by']} deleted (sha256 {row['sha256']}) is in neither the "
+                             f"frozen base, its history ({ROUTE_DIR}/base-history) nor the blob store: its bodies have no "
+                             "source, and they are never rendered as stubs")
+        found[path] = data
+    return found
+
+
 def skeleton_deletions(tracker: dict[str, Any]) -> list[dict[str, Any]]:
     """The files ACCEPTED (or reopened) skeleton items removed (orphans whose bodies moved), as stage 4 retired-file rows.
 
-    A skeleton item a reopening sent back after a stage 4 amendment keeps its record until its
-    re-apply replaces it, so its deletions still count: the files stay deleted meanwhile.
+    A skeleton item a reopening sent back after a stage 4 amendment keeps its
+    record until its re-apply replaces it, so its deletions still count: the
+    files stay deleted meanwhile.  A deleted path a stage 4 apply has created
+    again (a new unit file named after the orphan, ``recreated_paths``) is
+    stage 4's file, not retired.
     """
 
     from .order_reopen import reopenings
 
     reopened = {str(item) for row in reopenings(tracker) for item in row.get("items") or []}
+    created = stage4_created(tracker)
     rows = []
     for item in skeleton_items(tracker):
         record = item.get("order_skeleton")
@@ -1161,10 +1290,8 @@ def skeleton_deletions(tracker: dict[str, Any]) -> list[dict[str, Any]]:
             continue
         if item.get("status") != "accepted" and item.get("id") not in reopened:
             continue
-        for row in record.get("files") or []:
-            # The base digest: a re-apply finds the orphan deleted already (its before is then absent).
-            base = row.get("base_sha256", row.get("before_sha256"))
-            if row.get("after_sha256") is None and base is not None:
+        for row in current_rows(record, created):
+            if (base := _deleted_digest(row)) is not None:
                 rows.append({"path": str(row["path"]), "sha256": base, "bytes": None, "by": item["id"]})
     return sorted(rows, key=lambda row: row["path"])
 
@@ -1182,10 +1309,11 @@ def skeleton_written(tracker: dict[str, Any]) -> dict[str, str]:
     """{path: item} of the files skeleton items in review or accepted wrote: stage 4 may not rewrite them."""
 
     found: dict[str, str] = {}
+    created = stage4_created(tracker)
     for item in skeleton_items(tracker):
         record = item.get("order_skeleton")
         if item.get("status") in ("awaiting_acceptance", "accepted") and isinstance(record, dict):
-            for row in record.get("files") or []:
+            for row in current_rows(record, created):
                 if skeleton_changes(row):
                     found[str(row["path"])] = item["id"]
     return found
@@ -1217,11 +1345,12 @@ def refuse_stage4_writes(tracker: dict[str, Any], paths: list[str], amendments: 
     allowed = {str(item) for row in reopenings(tracker) if row.get("status") == "open" and row.get("amendment") in amendments
                for item in row.get("items") or []}
     others: dict[str, str] = {}
+    created = stage4_created(tracker)
     for item in skeleton_items(tracker):
         record = item.get("order_skeleton")
         if item["id"] in allowed or not isinstance(record, dict):
             continue
-        for row in record.get("files") or []:
+        for row in current_rows(record, created):
             if skeleton_changes(row):
                 others[str(row["path"])] = item["id"]
     if blocked := sorted(path for path in paths if path in others):

@@ -1307,6 +1307,8 @@ def validate_source_plan(
     }
     written_by_apply = set(moved_from.values()) | {str(path) for path in (applied or {}).get("created") or []}
     retired_by_apply = {str(row.get("path")) for row in (applied or {}).get("retired") or [] if isinstance(row, dict)}
+    # Orphan files stage 5 deleted that stage 4 then created again as new unit files: {path: the deleted file's digest}.
+    recreated = {str(row.get("path")): row.get("sha256") for row in (applied or {}).get("recreated") or [] if isinstance(row, dict)}
     report: dict[str, Any] = {"problems": problems, "summary": {}, "review": []}
 
     def done() -> dict[str, Any]:
@@ -1733,6 +1735,7 @@ def validate_source_plan(
         graph_ids={row["id"] for row in graph["artifacts"]},
         files=owned_files(plan),
         review=review,
+        recreated=recreated,
     )
     report["shared_units"] = _check_cross_plan(root, tracker, item["id"], row_units, problems, review)
     noted = [value for value in notes if value.strip().casefold().startswith(CONTRADICTION_NOTE)]
@@ -1846,6 +1849,17 @@ def _frozen_base_lines(root: Path, relative: str) -> int | None:
     return _line_count(path) if path.is_file() else None
 
 
+def _deleted_lines(root: Path, relative: str, digest: str | None) -> int | None:
+    """Line count of the provisional file stage 5 deleted at ``relative`` (frozen base digest ``digest``), or None when gone."""
+
+    from .order_skeleton_route import deleted_content
+
+    data = deleted_content(root, relative, digest)
+    if data is None:
+        return None
+    return data.count(b"\n") + (1 if data and not data.endswith(b"\n") else 0)
+
+
 def _check_contradictions(
     root: Path,
     rows: Any,
@@ -1857,6 +1871,7 @@ def _check_contradictions(
     graph_ids: set[str] | None = None,
     files: set[str] | None = None,
     review: list[str] | None = None,
+    recreated: dict[str, str | None] | None = None,
 ) -> int:
     """Check the plan's structured contradictions with provisional source; their count.
 
@@ -1867,7 +1882,11 @@ def _check_contradictions(
     allowed when it is an artifact of the graph and the file is one an
     authored row of this plan owns (``files``: its provisional or workspace
     path), such as an owned file defining a function the ELF places in
-    another segment; the review notes such rows.
+    another segment; the review notes such rows.  A row on a provisional file
+    stage 5 deleted that stage 4 then created again as a new unit file
+    (``recreated``: {path: the deleted file's digest}) quotes the deleted
+    file: it is historical, its line checked against the frozen base copy of
+    that file, never against the new file.
     """
 
     if rows is None:
@@ -1877,6 +1896,8 @@ def _check_contradictions(
         return 0
     seen: set[tuple[Any, ...]] = set()
     elsewhere: list[str] = []
+    historical: list[str] = []
+    old_lines: dict[str, int | None] = {}
     for number, row in enumerate(rows, 1):
         if not isinstance(row, dict) or set(row) != set(CONTRADICTION_FIELDS):
             problems.append(f"contradictions row {number} must be {{{', '.join(CONTRADICTION_FIELDS)}}}")
@@ -1906,6 +1927,18 @@ def _check_contradictions(
             problems.append(f"{label}: provisional_file must be a repo-relative path under src/")
         elif path in retired_by_apply:
             pass  # retired by the apply: the contradiction is historical
+        elif path in (recreated or {}):
+            if path not in old_lines:
+                old_lines[path] = _deleted_lines(root, path, (recreated or {})[path])
+            count = old_lines[path]
+            if count is None:
+                problems.append(f"{label}: {path} quotes the provisional file stage 5 deleted (stage 4 created a new unit "
+                                "file there), but its frozen base copy is in neither the skeleton base, its history nor "
+                                "the blob store")
+            elif line is not None and line > count:
+                problems.append(f"{label}: the deleted provisional {path} had {count} lines, not {line}")
+            else:
+                historical.append(f"{path}:{line}" if line is not None else path)
         else:
             target = moved_from.get(path, path)
             state, actual = _path_state(root, target)
@@ -1930,6 +1963,11 @@ def _check_contradictions(
     if elsewhere and review is not None:
         review.append(
             f"{len(elsewhere)} contradictions concern artifacts outside the slice in files this plan owns: {_shown(elsewhere)}"
+        )
+    if historical and review is not None:
+        review.append(
+            f"{len(historical)} contradictions quote provisional files stage 5 deleted that stage 4 created again as new unit "
+            f"files; they are historical, checked against the frozen base copies: {_shown(historical)}"
         )
     return len(rows)
 

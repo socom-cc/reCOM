@@ -379,6 +379,137 @@ def test_stage_4_retires_the_orphans_an_accepted_or_reopened_skeleton_item_delet
     assert skeleton_deletions(tracker) == []
 
 
+def test_a_deleted_orphan_path_stage_4_creates_again_is_its_new_file_not_retired(tmp_path: Path) -> None:
+    from tools._socom.order_skeleton_merge import put_blob
+    from tools._socom.order_skeleton_route import (
+        BASE_DIR, ROUTE_DIR, _sha, current_rows, deleted_content, recreated_paths, skeleton_written,
+    )
+
+    old = b"// provisional\nint old;\n"
+    gone = {"path": "src/gamez/zAI/ai_main.cpp", "action": "orphan-deleted", "before_sha256": _sha(old), "after_sha256": None}
+    other = {"path": "src/gamez/zAI/zai_old.cpp", "action": "orphan-deleted", "before_sha256": "a" * 64, "after_sha256": None}
+    item = {"id": ORDER_SKELETON_PREPARE_ID, "kind": ORDER_PREPARE_KIND, "status": "accepted",
+            "order_skeleton": _record(ORDER_SKELETON_PREPARE_ID, [gone, other])}
+    stage4 = {"id": "socom:work:source-segment-014-apply", "kind": "source-apply-segment",
+              "source_apply": {"created": [], "moves": [], "files": []}}
+    tracker = {"work_items": [item, stage4], "stages": [{"name": "authored-function-order"}]}
+    assert [row["path"] for row in skeleton_deletions(tracker)] == [gone["path"], other["path"]]
+    assert recreated_paths(tracker) == {} and set(skeleton_written(tracker)) == {gone["path"], other["path"]}
+    # A stage 4 amendment creates a new unit file at the deleted path: stage 4's file, the deletion only history.
+    stage4["source_apply"]["created"] = [gone["path"]]
+    assert [row["path"] for row in skeleton_deletions(tracker)] == [other["path"]]
+    assert recreated_paths(tracker) == {gone["path"]: {"path": gone["path"], "sha256": _sha(old), "by": ORDER_SKELETON_PREPARE_ID}}
+    created = {gone["path"]}
+    assert current_rows(item["order_skeleton"], created) == [other] and set(skeleton_written(tracker)) == {other["path"]}
+    refuse_stage4_writes(tracker, [gone["path"]])
+    with pytest.raises(SocomError, match="reopen those items first"):
+        refuse_stage4_writes(tracker, [other["path"]])
+    # The re-apply's record no longer lists the path: its earlier record in the review history keeps it recreated.
+    item["review_history"] = [{"order_skeleton": item["order_skeleton"]}]
+    item["order_skeleton"] = _record(ORDER_SKELETON_PREPARE_ID, [other])
+    assert list(recreated_paths(tracker)) == [gone["path"]]
+    # The deleted content: the frozen base copy, an earlier base under base-history once a rebase advanced it, the blobs.
+    assert deleted_content(tmp_path, gone["path"], _sha(old)) is None
+    (tmp_path / BASE_DIR / gone["path"]).parent.mkdir(parents=True)
+    (tmp_path / BASE_DIR / gone["path"]).write_bytes(old.replace(b"\n", b"\r\n"))
+    assert deleted_content(tmp_path, gone["path"], _sha(old)) == old.replace(b"\n", b"\r\n")
+    (tmp_path / BASE_DIR / gone["path"]).write_bytes(b"/* the new unit file's blocks */\n")
+    history = tmp_path / ROUTE_DIR / "base-history" / ("0" * 16) / gone["path"]
+    history.parent.mkdir(parents=True)
+    history.write_bytes(old)
+    assert deleted_content(tmp_path, gone["path"], _sha(old)) == old
+    history.unlink()
+    assert deleted_content(tmp_path, gone["path"], _sha(old)) is None
+    put_blob(tmp_path, old)
+    assert deleted_content(tmp_path, gone["path"], _sha(old)) == old
+
+
+RECREATED = "src/gamez/zAI/ai_main.cpp"
+OLD_ORPHAN = b'#include "zai.h"\n\nvoid AI_PARAMS::Parse(_zrdr* reader)\n{\n\treader->Read();\n}\n'
+
+
+def _recreated_tracker(old: bytes) -> dict:
+    """The prepare deleted RECREATED (an orphan); a stage 4 apply then created a new unit file there."""
+
+    from tools._socom.order_skeleton_route import _sha
+
+    gone = {"path": RECREATED, "action": "orphan-deleted", "before_sha256": _sha(old), "after_sha256": None}
+    return {"work_items": [
+        {"id": ORDER_SKELETON_PREPARE_ID, "kind": ORDER_PREPARE_KIND, "status": "blocked",
+         "order_skeleton": _record(ORDER_SKELETON_PREPARE_ID, [gone])},
+        {"id": "socom:work:source-segment-014-apply", "kind": "source-apply-segment",
+         "source_apply": {"created": [RECREATED], "moves": [], "files": []}},
+    ], "stages": [{"name": "authored-function-order"}]}
+
+
+def test_a_recreated_paths_deleted_provisional_file_stays_the_body_source(tmp_path: Path) -> None:
+    from tools._socom.order_skeleton import scan_sources, source_digest
+    from tools._socom.order_skeleton_route import BASE_DIR, ROUTE_DIR, provisional_overlays
+
+    base = tmp_path / BASE_DIR
+    tracker = _recreated_tracker(OLD_ORPHAN)
+    (base / RECREATED).parent.mkdir(parents=True)
+    (base / RECREATED).write_bytes(OLD_ORPHAN.replace(b"\n", b"\r\n"))
+    (base / "src/gamez/zAI/ai_cell.cpp").write_bytes(BLOCK.encode() + b"\nint cell;\n")
+    frozen_scans, frozen_files = scan_sources(base)
+    frozen = source_digest(base)
+    # Before the rebase the base still holds the deleted file: nothing to overlay (and src/ itself never has overlays).
+    assert provisional_overlays(tmp_path, tracker, base) == {} and provisional_overlays(tmp_path, tracker, None) == {}
+    # The rebase put the new unit file (its stage 4 blocks only) into the base and kept the old base under base-history.
+    history = tmp_path / ROUTE_DIR / "base-history" / ("e" * 16)
+    shutil.copytree(base / "src", history / "src")
+    (base / RECREATED).write_bytes(BLOCK.encode())
+    overlays = provisional_overlays(tmp_path, tracker, base)
+    assert overlays == {RECREATED: OLD_ORPHAN.replace(b"\n", b"\r\n")}
+    scans, files = scan_sources(base, overlays)
+    old = next(scan for scan in frozen_scans if scan.path == RECREATED)
+    new = next(scan for scan in scans if scan.path == RECREATED)
+    # The bodies keep their snapshot identities (path:line, text); the blocks are the new unit file's.
+    assert new.text == old.text and [(row.line, row.start, row.end) for row in new.definitions] == \
+        [(row.line, row.start, row.end) for row in old.definitions] and len(new.definitions) == 1
+    assert files[RECREATED]["authored_sha256"] == frozen_files[RECREATED]["authored_sha256"]
+    assert files[RECREATED]["blocks"] == ["socom:work:source-segment-001"] and frozen_files[RECREATED]["blocks"] == []
+    assert source_digest(base, overlays) == frozen and source_digest(base) != frozen
+    # Without its frozen copy the bodies have no source: refused, never stubs.
+    shutil.rmtree(history)
+    with pytest.raises(SocomError, match="never rendered as stubs"):
+        provisional_overlays(tmp_path, tracker, base)
+
+
+def test_the_new_unit_file_at_a_recreated_path_drops_the_deleted_files_remainder(tmp_path: Path, monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    from tools._socom.order_skeleton import scan_sources
+    from tools._socom.order_skeleton_write import _Writer
+
+    (tmp_path / RECREATED).parent.mkdir(parents=True)
+    (tmp_path / RECREATED).write_bytes(BLOCK.encode())
+    overlays = {RECREATED: OLD_ORPHAN}
+    scans, _files = scan_sources(tmp_path, overlays)
+    definition = next(scan for scan in scans if scan.path == RECREATED).definitions[0]
+    text = OLD_ORPHAN.decode()[definition.start:definition.end]
+    body = {"id": f"{RECREATED}:{definition.line}", "path": RECREATED, "kind": "definition", "action": "move-in-place",
+            "span": {"start_line": definition.line}, "sha256": hashlib.sha256(text.encode()).hexdigest()}
+    inputs = SimpleNamespace(source_root=tmp_path, scans={scan.path: scan for scan in scans}, overlays=overlays,
+                             manifest={"bodies": {"definitions": [body]}}, files={RECREATED: {"data_definitions": []}})
+    writer = object.__new__(_Writer)
+    writer.inputs, writer.headers, writer.preamble_bodies, writer.statements = inputs, None, set(), {}
+    entry = f"/* @socom-skeleton body Parse__9AI_PARAMSFP5_zrdr */\n{text}"
+    monkeypatch.setattr(_Writer, "_entries", lambda self, segment, unit: ([entry], []))
+    out, newline, _rows = writer.unit_file(14, {"unit": "ai_main.cpp", "workspace_path": RECREATED})
+    # The stage 4 blocks, then the entries (the body from the deleted file): none of the deleted file's other text.
+    assert out == BLOCK + "\n" + entry + "\n" and '#include "zai.h"' not in out and newline == "\n"
+    # Content the deleted file would keep in place cannot be dropped silently.
+    writer.preamble_bodies = {body["id"]}
+    with pytest.raises(SocomError, match="keeps content in place"):
+        writer.unit_file(14, {"unit": "ai_main.cpp", "workspace_path": RECREATED})
+    # The new unit file holds only its blocks in the base: anything else there is refused.
+    writer.preamble_bodies = set()
+    (tmp_path / RECREATED).write_bytes(BLOCK.encode() + b"\nint stray;\n")
+    with pytest.raises(SocomError, match="more than its stage 4 blocks"):
+        writer.unit_file(14, {"unit": "ai_main.cpp", "workspace_path": RECREATED})
+
+
 def test_provisional_inputs_come_from_the_frozen_base_once_it_exists(tmp_path: Path, tracker: dict) -> None:
     from tools._socom.order_skeleton_route import BASE_DIR
 

@@ -463,7 +463,7 @@ def _progress_rebase(arguments: argparse.Namespace) -> int:
     from .cli import _build_path, _emit, _root
     from .constants import tracker_path
     from .order_plan import order_context
-    from .order_reopen import accepted_plan_files, advance_base, base_changes, rebase_function_order
+    from .order_reopen import accepted_plan_files, advance_base, base_changes, rebase_function_order, snapshot_reseal
     from .order_skeleton_merge import has_blob
     from .snapshot import write_snapshot
     from .tracker import load_tracker, mutate, require_revision
@@ -482,18 +482,21 @@ def _progress_rebase(arguments: argparse.Namespace) -> int:
             current, target, derived or {}, accepted_plan_files(root, current), by=arguments.by, reason=arguments.reason,
             evidence=arguments.evidence, available=lambda digest: has_blob(root, digest))
         if write:
-            summary, undo = advance_base(root, current, entry["amendments"])
+            summary, undo = advance_base(root, current, entry["amendments"], paths["snapshot_path"])
             state["undo"] = undo
             entry["base"] = summary
         else:
-            entry["base"] = {"files": sorted(base_changes(root, current, entry["amendments"]), key=str.casefold)}
+            changes = base_changes(root, current, entry["amendments"])
+            reseal = snapshot_reseal(root, current, changes, paths["snapshot_path"])
+            reseal.pop("document", None)
+            entry["base"] = {"files": sorted(changes, key=str.casefold), "snapshot": reseal}
         state["entry"] = entry
 
     def shown() -> dict[str, Any]:
         entry = state["entry"]
         return {"rebase": {key: entry.get(key) for key in (
             "number", "amendments", "stage4_baseline_sha256", "order_sha256", "segments_changed", "reopened", "carried",
-            "reopenings", "base")}, "previous": entry.get("previous"), "capture": capture}
+            "released", "reopenings", "base")}, "previous": entry.get("previous"), "capture": capture}
 
     if arguments.dry_run:
         _preview, errors = _dry(tracker, arguments.expected_revision, lambda current: operation(current, write=False))

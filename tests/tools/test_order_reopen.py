@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import copy
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -36,7 +37,7 @@ from tools._socom.order_skeleton_merge import (
 from tools._socom.order_skeleton_route import _merge_scope, refuse_stage4_writes, verify_written
 from tools._socom.source_amend import open_source_amendment
 from tools._socom.tracker import audit_tracker, load_tracker, refresh_ready_and_stages
-from tools._socom.util import SocomError
+from tools._socom.util import SocomError, sha256_file
 
 from test_order_plan import _accept, _cited, _decompose, _handoff
 from test_source_amend import (  # noqa: F401 - amendable is a fixture
@@ -450,3 +451,236 @@ def test_stage_5_rebases_onto_the_baseline_of_accepted_amendments(amendable: tup
     broken = _load(root)
     next(row for row in broken["stages"] if row["name"] == ORDER_STAGE)["decomposition"]["rebases"][0]["amendments"] = ["socom:source-amendment:099"]
     assert any("not an accepted source-correlation amendment" in text for text in audit_tracker(broken))
+
+
+# -- a deleted orphan path stage 4 creates again as a new unit file ---------------------------------
+
+
+ORPHAN = "src/gamez/zBar/c.cpp"
+ORPHAN_TEXT = b'#include "zfoo.h"\n\n// provisional: the skeleton wave moved its bodies out\nint c_old(void)\n{\n\treturn 1;\n}\n'
+
+
+def _prepared_route(root: Path) -> None:
+    """The skeleton route as the wave left it: the gate open, the prepare accepted with a record that deleted
+    ORPHAN (an orphan provisional file), the base frozen (src/ before the wave, the orphan with it)."""
+
+    from tools._socom.capabilities import capability_opening
+    from tools._socom.order_plan import ORDER_SKELETON_PREPARE_ID, ORDER_SKELETON_ROUTE_ID, add_skeleton_prepare
+    from tools._socom.order_skeleton_route import (
+        ACCEPT_ROUTE, BASE_DIR, HANDOFF_ROUTE, RECORD_CITATION, RECORD_KIND, _digest, blocks_sha256, record_sha256,
+        record_skeleton,
+    )
+    from tools._socom.source_apply import content_sha256
+    from tools._socom.tracker import open_capability_gate
+
+    from test_source_apply import _save
+
+    tracker = _load(root)
+    commands = set((capability_opening(ORDER_SKELETON_ROUTE_ID) or {}).get("commands") or [])
+    open_capability_gate(tracker, ORDER_SKELETON_ROUTE_ID, commands)
+    refresh_ready_and_stages(tracker)
+    units = {row["id"]: sorted(f"{row['batch']['directories'][0]}/{unit}" for unit in row["batch"]["units"])
+             for row in tracker["work_items"] if row.get("kind") == ORDER_APPLY_KIND}
+    add_skeleton_prepare(tracker, prepare_files=[ORPHAN, "src/gamez/zFoo/zfoo.h"], unit_files=units, manifest_sha256="m" * 64, write_sha256="w" * 64,
+                         counts={"orphan-deleted": 1})
+    prepare = _items(tracker)[ORDER_SKELETON_PREPARE_ID]
+    row = {"path": ORPHAN, "action": "orphan-deleted", "before_sha256": sha(ORPHAN_TEXT),
+           "before_content_sha256": content_sha256(ORPHAN_TEXT), "stage4_blocks_sha256": blocks_sha256(ORPHAN_TEXT),
+           "after_sha256": None, "after_stage4_blocks_sha256": None}
+    record = {"kind": RECORD_KIND, "schema_version": 1, "item": ORDER_SKELETON_PREPARE_ID, "applied_by": "worker-p",
+              "files": [row], "files_sha256": _digest([row]),
+              "inputs": {"manifest_sha256": "m" * 64, "snapshot_sha256": "s" * 64, "base_tree_sha256": "t" * 64,
+                         "stage4_baseline_sha256": "4" * 64},
+              "write_sha256": "w" * 64, "known_conflicts": [], "waiting": [], "waiting_by_kind": {}, "flags": {}, "decisions": None}
+    record_skeleton(prepare, record, "2026-11-02T00:00:00Z")
+    prepare.update(status="accepted", lease=None, handoff={"owner": "worker-p", "summary": "prepared", "route": HANDOFF_ROUTE},
+                   accepted={"by": "verifier-p", "at": "2026-11-02T00:00:00Z", "route": ACCEPT_ROUTE})
+    prepare["evidence"] = sorted(set(prepare["evidence"]) | {f"{RECORD_CITATION}{record_sha256(prepare['order_skeleton'])}"})
+    _save(root, tracker)
+    base = root / BASE_DIR
+    shutil.copytree(root / "src", base / "src")
+    (base / ORPHAN).write_bytes(ORPHAN_TEXT)
+    _write_snapshot(root, [(ORPHAN, 4, "int c_old(void)\n{\n\treturn 1;\n}")])
+
+
+def _write_snapshot(root: Path, bodies: list[tuple[str, int, str]]) -> dict:
+    """A frozen body snapshot over the base (its src_sha256), holding ``bodies`` ((path, line, text))."""
+
+    import hashlib
+
+    from tools._socom.order_skeleton import SNAPSHOT_KIND, SNAPSHOT_SCHEMA, _digest, source_digest
+    from tools._socom.order_skeleton_route import BASE_DIR, SNAPSHOT_PATH
+
+    rows = [{"id": f"{path}:{line}", "path": path, "span": {"start_line": line, "end_line": line + text.count("\n")},
+             "sha256": hashlib.sha256(text.encode()).hexdigest(), "text": text} for path, line, text in bodies]
+    body = {"kind": SNAPSHOT_KIND, "schema_version": SNAPSHOT_SCHEMA, "coordinates": "lines of authored content",
+            "src_sha256": source_digest(root / BASE_DIR), "bodies": rows}
+    body["snapshot_sha256"] = _digest(body)
+    (root / SNAPSHOT_PATH).parent.mkdir(parents=True, exist_ok=True)
+    (root / SNAPSHOT_PATH).write_text(json.dumps(body), encoding="utf-8")
+    return body
+
+
+def test_a_deleted_orphan_path_stage_4_creates_again_becomes_the_segments_new_file(
+    amendable: tuple[Path, dict, str], capsys, monkeypatch
+) -> None:
+    from tools._socom.order_plan import ORDER_SKELETON_PREPARE_ID
+    from tools._socom.order_skeleton_route import (
+        BASE_DIR, ROUTE_DIR, _prior_rows, recreated_paths, refuse_stage4_writes, skeleton_deletions,
+    )
+    from tools._socom.source_apply import applied_state, parse_blocks
+    from tools._socom.source_plan import derive_annotations, plan_path
+
+    root, graph, _gap = amendable
+    assert _decompose(root, capsys)[0] == 0
+    _accept_order_plans(root, capsys)
+    _prepared_route(root)
+    from tools._socom.order_skeleton_route import SNAPSHOT_PATH
+
+    snapshot = json.loads((root / SNAPSHOT_PATH).read_text(encoding="utf-8"))
+    # The stage 4 amendment: the user names a new unit c.cpp after the deleted orphan; a contradiction quotes the
+    # orphan as stage 4 saw it.  The prepare is reopened for it (its deletion is the path's last skeleton write).
+    code, report = _amend(root, capsys, SEGMENT_1)
+    assert code == 0, report
+    reopen = ["--root", str(root), "progress", "reopen-order-skeleton", "--amendment", FIRST, "--item", ORDER_SKELETON_PREPARE_ID,
+              "--by", "socom-reopener-r4", "--reason", "a new unit file at the orphan's path", "--evidence", "amendment 001 opened"]
+    code, report = _run(capsys, *reopen, "--expected-revision", _revision(root))
+    assert code == 0 and ORDER_SKELETON_PREPARE_ID in report["reopening"]["items"], report
+    plan = _plan(root, SEGMENT_1)
+    moved = plan["owners"][0]["artifacts"].pop()  # the data object without a unit candidate
+    plan["schema_version"] = 2
+    plan["owners"].insert(1, {**plan["owners"][0], "translation_unit": "c.cpp", "workspace_path": ORPHAN, "original_path": None,
+                              "provisional_file": None, "confidence": "low", "name_basis": "invented",
+                              "evidence": ["named after the orphan the skeleton wave deleted"], "artifacts": [moved]})
+    contradiction = {"artifact": plan["owners"][0]["artifacts"][0], "provisional_file": ORPHAN, "line": 4,
+                     "kind": "defined-elsewhere", "elf_evidence": ["a_first lies in the range of a.cpp"]}
+    plan["contradictions"] = [contradiction]
+    plan["annotations"] = derive_annotations(plan, graph, MAIN)
+    _revise(root, capsys, SEGMENT_1, plan)
+    _reapply(root, capsys, f"{SEGMENT_1}-apply")
+    assert (root / ORPHAN).is_file()
+    _receipt(monkeypatch, _stage3_receipt(root))
+    code, accepted = _accept_amendment(root, capsys)
+    assert code == 0, accepted
+
+    tracker = _load(root)
+    # Stage 4 created the deleted path again: it is not retired any more, and the contradiction quoting the orphan is
+    # historical, checked against the frozen base copy (never the new file, which has no line 4).
+    assert recreated_paths(tracker) == {ORPHAN: {"path": ORPHAN, "sha256": sha(ORPHAN_TEXT), "by": ORDER_SKELETON_PREPARE_ID}}
+    assert skeleton_deletions(tracker) == []
+    state = applied_state(tracker, SEGMENT_1, sha256_file(root / plan_path(SEGMENT_1)))
+    assert ORPHAN in state["created"] and ORPHAN not in {row["path"] for row in state["retired"]}
+    code, valid = _run(capsys, "--root", str(root), "source", "plan", "validate", "--plan", plan_path(SEGMENT_1))
+    assert code == 0 and valid["ok"] and any("historical" in line and f"{ORPHAN}:4" in line for line in valid["review"]), valid
+    beyond = root / "build" / "beyond.json"
+    beyond.write_text(json.dumps({**plan, "contradictions": [{**contradiction, "line": 99}]}), encoding="utf-8")
+    code, invalid = _run(capsys, "--root", str(root), "source", "plan", "validate", "--plan", "build/beyond.json")
+    assert code == 1 and any(f"the deleted provisional {ORPHAN} had 7 lines, not 99" in line for line in invalid["problems"]), invalid
+
+    rebase = ["--root", str(root), "progress", "rebase-function-order", "--by", "socom-rebaser-r5", "--reason",
+              "absorb the amendment", "--evidence", "accept-source-amendment recorded the baseline"]
+    code, preview = _run(capsys, *rebase, "--expected-revision", _revision(root), "--dry-run")
+    assert code == 0 and preview["errors"] == [], preview
+    released = [{"path": ORPHAN, "apply": APPLY, "released_from": ORDER_SKELETON_PREPARE_ID}]
+    assert preview["rebase"]["released"] == released
+    # The held plan cannot render the tree: the ancestor capture is skipped, not an error.
+    assert preview["capture"]["error"] is None and "held by open reopenings" in preview["capture"]["skipped"], preview
+    code, report = _run(capsys, *rebase, "--expected-revision", _revision(root))
+    assert code == 0, report
+    tracker = _load(root)
+    items = _items(tracker)
+    prepare, apply = items[ORDER_SKELETON_PREPARE_ID], items[APPLY]
+    # The segment apply owns the new unit file; the prepare keeps its deletion as history only.
+    assert ORPHAN in apply["resources"] and apply["resources"] == apply["batch"]["files"]
+    assert prepare["resources"] == prepare["batch"]["files"] == ["src/gamez/zFoo/zfoo.h"]
+    assert [row["path"] for row in prepare["order_skeleton"]["files"]] == [ORPHAN]
+    assert _stage5(root)["decomposition"]["rebases"][0]["released"] == released
+    assert audit_tracker(tracker, strict=True) == []
+    # The body snapshot is re-sealed over the advanced base: the same bodies, the base's new file list; the record says why.
+    from tools._socom.order_skeleton import source_digest
+    from tools._socom.order_skeleton_route import SNAPSHOT_PATH, provisional_overlays
+
+    sealed = report["rebase"]["base"]["snapshot"]
+    stored = json.loads((root / SNAPSHOT_PATH).read_text(encoding="utf-8"))
+    assert preview["rebase"]["base"]["snapshot"]["snapshot_sha256"] == sealed["snapshot_sha256"] == stored["snapshot_sha256"]
+    assert sealed["recreated"] == [ORPHAN] and sealed["added"] == [] and "no snapshot body changes" in sealed["why"]
+    assert stored["bodies"] == snapshot["bodies"] and stored["src_sha256"] == sealed["src_sha256"] == source_digest(
+        root / BASE_DIR, provisional_overlays(root, tracker, root / BASE_DIR))
+    assert _stage5(root)["decomposition"]["rebases"][0]["base"]["snapshot"]["src_sha256_before"] == snapshot["src_sha256"]
+    # The frozen base takes the new file as its stage 4 blocks only; the deleted provisional content stays in base-history.
+    base = (root / BASE_DIR / ORPHAN).read_bytes()
+    _bom, blocks, rest = parse_blocks(base.decode("utf-8"))
+    assert rest == "" and list(blocks) == [SEGMENT_1] and b"c_old" not in base
+    history = report["rebase"]["base"]["history"]
+    assert history.startswith(f"{ROUTE_DIR}/base-history/") and (root / history / ORPHAN).read_bytes() == ORPHAN_TEXT
+    # The contradiction stays historical: the deleted content is found in the base history.
+    code, valid = _run(capsys, "--root", str(root), "source", "plan", "validate", "--plan", plan_path(SEGMENT_1))
+    assert code == 0 and valid["ok"] and any(f"{ORPHAN}:4" in line for line in valid["review"]), valid
+    # The re-applied segment merges the new file as a file no skeleton item wrote: its ancestor is the blocks-only base.
+    assert ORPHAN not in _prior_rows(tracker, apply)
+    render = base + b"\n/* @socom-skeleton stub Get__4CBoxFv */\nint CBox::Get()\n{\n}\n"
+    rendered = {"files": {ORPHAN: render}, "manifest": {"files": [{"path": ORPHAN, "action": "unit"}], "deleted": []}}
+    rows, changes, _blobs = _merge_scope(root, tracker, {**apply, "resources": [ORPHAN]}, rendered, root / BASE_DIR, None)
+    assert rows[0]["merge"] == "render" and rows[0]["ancestor_sha256"] == sha(base) and changes == {ORPHAN: render}
+    # A later stage 4 write of the new file is not refused for the prepare's superseded deletion.
+    refuse_stage4_writes(tracker, [ORPHAN], ["socom:source-amendment:002"])
+
+
+def test_the_body_snapshot_is_re_sealed_only_over_a_blocks_only_base_delta(tmp_path: Path) -> None:
+    from tools._socom.order_reopen import snapshot_reseal
+    from tools._socom.order_skeleton_route import BASE_DIR, SNAPSHOT_PATH
+
+    base = tmp_path / BASE_DIR
+    (base / PATH).parent.mkdir(parents=True)
+    authored = b'#include "demo.h"\r\n\r\nvoid f()\r\n{\r\n}\r\n'
+    (base / PATH).write_bytes(BLOCK.encode().replace(b"\n", b"\r\n") + b"\r\n" + authored)
+    snapshot = _write_snapshot(tmp_path, [(PATH, 3, "void f()\n{\n}")])
+    tracker: dict = {"work_items": [], "stages": []}
+    new_block = BLOCK.replace("0x100000", "0x100008")
+    created = "src/gamez/zDemo/demo_new.cpp"
+    changes = {PATH: with_blocks((base / PATH).read_bytes(), {"socom:work:source-segment-001": new_block}),
+               created: with_blocks(None, {"socom:work:source-segment-001": new_block})}
+    sealed = snapshot_reseal(tmp_path, tracker, changes, tmp_path / SNAPSHOT_PATH)
+    document = sealed.pop("document")
+    assert sealed["resealed"] and sealed["added"] == [created] and sealed["blocks_rewritten"] == 1
+    assert sealed["src_sha256_before"] == snapshot["src_sha256"] != sealed["src_sha256"] == document["src_sha256"]
+    assert document["bodies"] == snapshot["bodies"] and sealed["snapshot_sha256"] == document["snapshot_sha256"]
+    # Only stage 4 blocks may change: new authored content, an edited file, or a snapshot of another base are refused.
+    for change, match in (({created: b"int extra;\n"}, "a new file with authored content"),
+                          ({PATH: changes[PATH].replace(b"void f()", b"void g()")}, "its authored content changes")):
+        with pytest.raises(SocomError, match=match):
+            snapshot_reseal(tmp_path, tracker, change, tmp_path / SNAPSHOT_PATH)
+    (base / PATH).write_bytes(b"// edited outside the route\n")
+    with pytest.raises(SocomError, match="is not the frozen base's"):
+        snapshot_reseal(tmp_path, tracker, changes, tmp_path / SNAPSHOT_PATH)
+    missing = snapshot_reseal(tmp_path, tracker, changes, tmp_path / "build" / "missing.json")
+    assert missing == {"resealed": False, "note": "no body snapshot"}
+
+
+def test_a_re_planned_out_of_line_row_grows_the_snapshot_of_the_unchanged_base(tmp_path: Path) -> None:
+    from tools._socom.order_skeleton import _digest as snapshot_digest, settle_snapshot
+
+    def snapshot(rows: list[dict], src: str = "s" * 64) -> dict:
+        body = {"kind": "socom-provisional-bodies", "schema_version": 1, "coordinates": "c", "src_sha256": src, "bodies": rows}
+        return {**body, "snapshot_sha256": snapshot_digest(body)}
+
+    old = {"id": "src/a.cpp:3", "path": "src/a.cpp", "span": {"start_line": 3, "end_line": 5}, "sha256": "1" * 64, "text": "x"}
+    inline = {"id": "src/a.h:9", "path": "src/a.h", "span": {"start_line": 9, "end_line": 9}, "sha256": "2" * 64, "text": "y"}
+    manifest = {"bodies": {"definitions": [{"id": old["id"], "kind": "definition", "action": "cross-file-move"},
+                                           {"id": inline["id"], "kind": "in-class", "action": "move-out-of-line"}]}}
+    path = tmp_path / "build" / "bodies.json"
+    path.parent.mkdir()
+    stored = snapshot([old])
+    path.write_text(json.dumps(stored), encoding="utf-8")
+    fresh = snapshot([old, inline])
+    # Before the base exists the snapshot only compares; over the frozen base an added in-class body grows it.
+    assert settle_snapshot(path, fresh, refresh=False, manifest=manifest)["status"] == "stale"
+    grown = settle_snapshot(path, fresh, refresh=False, frozen_base=True, manifest=manifest)
+    assert grown["status"] == "grown" and grown["added"] == [inline["id"]]
+    assert json.loads(path.read_text(encoding="utf-8")) == fresh
+    # A changed or missing body, another base, or an added out-of-class definition stays stale.
+    changed = {**old, "sha256": "3" * 64}
+    for other in (snapshot([changed, inline]), snapshot([inline]), snapshot([old, inline, {**inline, "id": "src/a.h:12"}], "t" * 64),
+                  snapshot([old, inline, {**old, "id": "src/a.cpp:9"}])):
+        path.write_text(json.dumps(fresh), encoding="utf-8")
+        assert settle_snapshot(path, other, refresh=False, frozen_base=True, manifest=manifest)["status"] == "stale"
