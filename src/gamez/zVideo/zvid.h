@@ -109,7 +109,7 @@ public:
 class CVideo
 {
 public:
-	static void Clear(u8 r, u8 g, u8 b, u8 a) { }
+	static void Clear(u8 r, u8 g, u8 b, u8 a);
 	static f32 MaxFrameRate(s32 fr);
 
 	static s32 m_defaultFrameRate;
@@ -119,6 +119,7 @@ public:
 	static void RestoreImage(char *);
 	void ReadGsMemory(unsigned int, unsigned __int128 *, unsigned int);
 	void WriteGsMemory(unsigned int, unsigned __int128 *, unsigned int);
+	void Brightness(float);
 	/* @socom-skeleton end 6CVideo */
 };
 #endif

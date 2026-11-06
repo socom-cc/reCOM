@@ -56,6 +56,7 @@ public:
 	CZBodyAnimBlend * PopBlend();
 	void ClearBlendOverlay();
 	void Destroy();
+	void PartInSpace(CZBodyPart *, const CPnt3D *, CPnt3D *, CQuat *) const;
 	/* @socom-skeleton end 5CBody */
 };
 

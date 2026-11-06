@@ -21,17 +21,6 @@ namespace zdb {
 u32 CTexture::m_startAddress = 0;
 }
 
-/* @socom-skeleton body Init__Q23zdb8CTextureFv */
-/* held from src/gamez/zTexture/ztex_main.cpp:57 */
-namespace zdb {
-void CTexture::Init()
-	{
-		m_baseAddress = zVid.textureBaseAddr;
-		m_endAddress = zVid.textureEndAddr;
-		m_startAddress = zVid.textureBaseAddr + 0x200;
-	}
-}
-
 /* @socom-skeleton body AddToBatch__Q23zdb15CBatchRelocatorCFPQ23zdb10CTexHandle */
 /* held from src/gamez/zTexture/ztex_manager.cpp:12 */
 namespace zdb {

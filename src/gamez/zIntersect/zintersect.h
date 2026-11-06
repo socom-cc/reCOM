@@ -123,7 +123,11 @@ public:
     class CDIVector : public std::vector<CDI*>
     {
     public:
-        bool Exists(const CDI* di); /* Exists__Q23zdb9CDIVectorFPCQ23zdb3CDI */
+        /* port: Exists(CDI*) is not declared: the ELF has only Exists__Q23zdb9CDIVectorFPCQ23zdb3CDI (the region below) */
+        /* @socom-skeleton decl Q23zdb9CDIVector */
+public:
+        bool Exists(const zdb::CDI *);
+        /* @socom-skeleton end Q23zdb9CDIVector */
     };
 
     class CDIPoly : public CDI

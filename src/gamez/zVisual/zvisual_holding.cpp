@@ -35,21 +35,6 @@ CVisBase::CVisBase(size_t size)
 }
 #endif
 
-/* @socom-skeleton body Exists__Q23zdb13CVisualVectorFPCQ23zdb7CVisual */
-/* held from src/gamez/zVisual/vis_main.cpp:478 */
-namespace zdb {
-bool CVisualVector::Exists(const CVisual* visual)
-	{
-		for (auto it = begin(); it != end(); it++)
-		{
-			if (*it == visual)
-				return true;
-		}
-
-		return false;
-	}
-}
-
 /* @socom-skeleton body __ct__Q23zdb8CSubMeshFv */
 /* held from src/gamez/zVisual/vis_mesh.cpp:33 */
 /* port: not in the ELF; CVisual::Create calls CSubMesh(CMesh*) with NULL (0x30e1e4) */

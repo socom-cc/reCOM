@@ -496,6 +496,7 @@ public:
 		void Union(const CAiMapLoc &);
 		CAiMapLoc * GetCenter(CAiMapLoc &) const;
 	};
+	void read_scanlines(CFileIO &);
 	static CAiCell * dummy_cell();
 	static void GetDirVec(CAiMap::DIR, CPnt3D &);
 	static CQuat * GetDirQuat(CAiMap::DIR, CQuat &, bool);
@@ -546,6 +547,8 @@ public:
 	unsigned char Tile(const CAiMap::region *, unsigned int, unsigned int);
 	void CountMapVisDir(const CAiMapLoc &, int *, CAiMapLoc *, int);
 	void CountMapTravelDir(const CAiMapLoc &, int *, CAiMapLoc *, int);
+	void FindCoverLoc(const CAiMapLoc &, const CPnt3D *, CAiMapLoc &, CAiMap::DIR &, int);
+	void FindLookLoc(const CAiMapLoc &, const CPnt3D *, CAiMapLoc &, CAiMap::DIR &, int);
 	void CenterRegion(const CAiMapLoc &, CAiMap::region &) const;
 	void UpdateVisibilityMap(CAiVisMap &, int &);
 	static const int version;
@@ -1128,6 +1131,23 @@ class CAiVismap
 {
 
 };
+/* @socom-skeleton decl 3CAi */
+class CAi
+{
+public:
+	void LeadTargetG(const CPnt3D *, const CPnt3D *, float, const CPnt3D *, const CPnt3D *, CPnt3D *);
+	static void Extrapolate(const CPnt3D *, const CPnt3D *, float, CPnt3D *);
+	static void AlignToPoint(const CMatrix *, const CPnt3D *, CMatrix *, float);
+	static float GetToRightXZ(const CPnt3D *, CPnt3D *, bool);
+};
+/* @socom-skeleton end 3CAi */
+/* @socom-skeleton decl 7CAiCell */
+class CAiCell
+{
+public:
+	CAiCell();
+};
+/* @socom-skeleton end 7CAiCell */
 /* @socom-skeleton decl 9CAiEventQ */
 class CAiEventQ : public std::list<CAiEventHandle>
 {

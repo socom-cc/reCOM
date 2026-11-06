@@ -218,6 +218,8 @@ private:
 public:
 	virtual ~C2DBitmap() {}
 	virtual void GetAssetLibs(C2D::CLibList &) {} /* port: stub; 0x1748a0 adds m_pTexHandle->m_texture->m_AssetLib if absent, then walks the children */
+	float GetTrans();
+	void MakePacket(zdb::CCamera *, zdb::CTextureRelocMgr *, const CMatrix *);
 	/* @socom-skeleton end 9C2DBitmap */
 };
 

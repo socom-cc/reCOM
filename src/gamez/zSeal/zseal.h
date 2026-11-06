@@ -242,7 +242,13 @@ namespace sealai
 }
 
 // TODO: Unknown type in std::vector
-class CObjAnims : public std::vector<void*> {};
+class CObjAnims : public std::vector<void*> {
+	/* @socom-skeleton decl 9CObjAnims */
+public:
+	~CObjAnims();
+	void GetObjAnim(int);
+	/* @socom-skeleton end 9CObjAnims */
+};
 
 extern f32 noTurnThreshold;
 extern f32 fineTuneThreshold;
@@ -1108,6 +1114,8 @@ public:
 	float SetVertical();
 	void GetRootPos(float, CPnt3D &);
 	void Post();
+	void SetPartAsGear(CZBodyPart *, CCharacterGear *);
+	void ConfigureAuxPartAnim(CZBodyAnim *);
 	void GetSpeedState();
 	SEAL_STATE GetStance(bool) const;
 	void BodySetState(int);
@@ -1188,6 +1196,9 @@ public:
 	CZBodyAnimBlend * StabBuddy(CZSealBody *);
 	CZBodyAnimBlend * RestrainBuddy(CZSealBody *);
 	void Action(AnimType, bool, int, int, int);
+	CAiDecay * Adrenaline();
+	void FindValidReticleGotoLoc(int *);
+	CharacterDynamics * GetDynamics();
 	CZBodyAnim * GpAnim(CZBodyAnim *, SEAL_ITEM);
 	CZBodyAnim * FirePosAnim(CZBodyAnim *, SEAL_ITEM);
 	SEAL_ITEM BaseFirePose();
@@ -1329,6 +1340,8 @@ public:
 	void CanClimbLadder();
 	void CanClimbWall();
 	void DoHandSignal(SEAL_HANDSIGNAL);
+	void FootInSpace(CZBodyAnim *, CPnt3D *, CPnt3D *, float, float, bool);
+	void TurnSetup(int);
 	void CheckPathProximity(const CAiPath &, int, float) const;
 	void GetWeaponState() const;
 	void WepWaitOff();
@@ -1615,6 +1628,14 @@ public:
 	float GetZoomIncrement();
 	void SetHighRumbleTime(float);
 	void SetLowRumbleTime(float, float);
+	void TickRumbler(float);
+	float GetThrottleFromSpeed(float, int);
+	float GetSpeedFromThrottle(float, int);
+	void UpdateAiVisMap();
+	void SetViewRange(float);
+	void TickMPBomb(float);
+	void InitMPBomb();
+	void MPBomb_TimerAvailable(bool);
 	void _GetTargetPerception(CTarget &);
 	void SensorPreTick(float);
 	void SensorTick(float);
@@ -2180,6 +2201,13 @@ public:
 	static void ResetPathPlan();
 	static bool TickPathPlanner(float, void *);
 	static void PathPlanImmediate(CAiMap *, const CAiMapLoc &, const CAiMapLoc &, CAiPath *);
+	static void is_moving(const CPnt3D *, float);
+	static CPnt3D * MakeNoise(CPnt3D *, const PNT2D &);
+	static CPnt3D * AddNoise(const CPnt3D *, CPnt3D *, const PNT2D &);
+	static CPnt3D * AddNoise(CPnt3D *, const PNT2D &);
+	static void elevate(CPnt3D &, float, float);
+	void quadratic(float, float, float, float &, float &);
+	void get_clock_direction(const CPnt3D *);
 	static void CheckLineOfFire(const CEntity *, const CTarget *, float);
 	static void plot_tick(float, bool);
 	static void PushLineColor(const CPnt3D &);

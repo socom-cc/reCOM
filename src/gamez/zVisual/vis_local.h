@@ -39,14 +39,6 @@ public:
 };
 }
 /* @socom-skeleton end Q23zdb11CLOD_Object */
-/* @socom-skeleton decl Q23zdb15CLightMapVector */
-namespace zdb {
-class CLightMapVector : public std::vector<unsigned int> /* port: element type from MSL pointer storage in DWARF; real element unproven */
-{
-public:
-};
-}
-/* @socom-skeleton end Q23zdb15CLightMapVector */
 /* @socom-skeleton decl Q23zdb16CMaterial_Object */
 namespace zdb {
 class CMaterial_Object : public std::vector<CMaterial_band>

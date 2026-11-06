@@ -154,9 +154,14 @@ namespace zdb
 	class CNodeVector : public std::vector<CNode*>
 	{
 	public:
-		bool Exists(const CNode* node);
+		/* port: Exists(const CNode*) const is not declared: the ELF has only Exists__Q23zdb11CNodeVectorFPCQ23zdb5CNode (the region below) */
 		bool Remove(const CNode* node);
-		CNode* GetNode(const char* name);
+		/* port: GetNode(const char*) const is not declared: the ELF has only GetNode__Q23zdb11CNodeVectorFPCc (the region below) */
+		/* @socom-skeleton decl Q23zdb11CNodeVector */
+public:
+		zdb::CNode * GetNode(const char *);
+		bool Exists(const zdb::CNode *);
+		/* @socom-skeleton end Q23zdb11CNodeVector */
 	};
 
 	class CNode : public tag_NODE_PARAMS

@@ -334,6 +334,14 @@ public:
 	void IsInvalid() const;
 };
 /* @socom-skeleton end 20CMissionObjectiveCam */
+/* @socom-skeleton decl 24CMissionObjectiveCamList */
+class CMissionObjectiveCamList : public std::list
+{
+public:
+	void ClearValves();
+	void Reset();
+};
+/* @socom-skeleton end 24CMissionObjectiveCamList */
 /* @socom-skeleton decl 9CSpawners */
 class CSpawners
 {

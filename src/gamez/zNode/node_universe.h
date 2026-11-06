@@ -16,6 +16,11 @@ namespace zdb
 		u32 GetIndex(CNode* node);
 	public:
 		bool m_locked;
+		/* @socom-skeleton decl Q23zdb13CNodeUniverse */
+public:
+		int GetIndex(zdb::CNode *);
+		zdb::CNode * GetElement(int);
+		/* @socom-skeleton end Q23zdb13CNodeUniverse */
 	};
 }
 #endif

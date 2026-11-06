@@ -47,35 +47,6 @@ bool postinit = false;
 /* held from src/gamez/zSystem/zsys_memory.cpp:11 */
 size_t __HeapSize = 0; /* port: __HeapSize (C name; zsys_FullAllocAndFree stores it at 0x2f4964) */
 
-/* @socom-skeleton body zsys_FullAllocAndFree__Fv */
-/* held from src/gamez/zSystem/zsys_memory.cpp:35 */
-size_t zsys_FullAllocAndFree()
-{
-	void* ptr = NULL;
-	size_t size = 0;
-
-	size = 4096;
-
-	do
-	{
-		ptr = malloc(size);
-
-		if (ptr == NULL)
-		{
-			break;
-		}
-
-		free(ptr);
-
-		size += 4096;
-
-	} while (size < 0x2000001);
-
-	__HeapSize = size - 16;
-
-	return __HeapSize;
-}
-
 /* @socom-skeleton body __malloc__FUiPCci */
 /* held from src/gamez/zSystem/zsys_memory.cpp:88 */
 /* port: duplicate of the gamez/zSystem/zsys_memory.cpp stub _malloc__FUiPCci (this body is its candidate) */

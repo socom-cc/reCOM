@@ -238,6 +238,12 @@ public:
 
 	CEntity* m_entity;
 	f32 m_throttle[3];
+	/* @socom-skeleton decl 11CEntityCtrl */
+public:
+	virtual void GetRemoteControl();
+	virtual void SetThrottle(unsigned int, float);
+	CEntityCtrl(int);
+	/* @socom-skeleton end 11CEntityCtrl */
 };
 
 class CftsPlayer : public CEntity

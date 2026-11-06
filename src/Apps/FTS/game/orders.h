@@ -25,6 +25,13 @@ enum _GSAPI_NOTIFY_TYPE
 	GSAPI_NOTIFY_TSDETECTED = 8
 };
 /* @socom-skeleton end 18_GSAPI_NOTIFY_TYPE */
+/* @socom-skeleton decl 10CBeachBall */
+class CBeachBall
+{
+public:
+	static void Uninit();
+};
+/* @socom-skeleton end 10CBeachBall */
 /* @socom-skeleton decl 9CMD_TABLE */
 class CMD_TABLE
 {

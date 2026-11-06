@@ -138,15 +138,3 @@ void LoadMissionMapVisibilities(_zrdr* start)
 
 }
 #endif
-
-/* @socom-skeleton body ftsNetworkGameInit__Fv */
-/* held from src/gamez/zFTS/fts_net_game.cpp:5 */
-void ftsNetworkGameInit()
-{
-	CZNetGame* netGame = theMission.netGame;
-
-	if (theNetwork.m_bSessionMaster)
-	{
-
-	}
-}

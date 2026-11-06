@@ -211,6 +211,8 @@ struct _zrdr
 	/* @socom-skeleton decl 5_zrdr */
 public:
 	void Clone(_zrdr *, CSTable *);
+	void DeleteChildren();
+	~_zrdr();
 	/* @socom-skeleton end 5_zrdr */
 };
 

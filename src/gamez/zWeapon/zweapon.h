@@ -334,7 +334,18 @@ public:
 	/* @socom-skeleton end 6CZAmmo */
 };
 
-class CZAmmoList : public std::list<CZAmmo*> {};
+class CZAmmoList : public std::list<CZAmmo*> {
+	/* @socom-skeleton decl 10CZAmmoList */
+public:
+	CZAmmoList();
+	~CZAmmoList();
+	void AddAmmo(CZAmmo *);
+	CZAmmo * GetAmmo(const char *);
+	CZAmmo * GetAmmo(int);
+	CZAmmo * GetAmmo(EQUIP_AMMO);
+	EQUIP_AMMO GetAmmoId(const char *);
+	/* @socom-skeleton end 10CZAmmoList */
+};
 
 class CZWeaponStance
 {

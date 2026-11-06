@@ -1171,6 +1171,14 @@ private:
 	f32 m_holdT;
 	f32 m_downT;
 	f32 m_currT;
+	/* @socom-skeleton decl 9CSequence */
+public:
+	void Start(float, float, float);
+	void Clear();
+	float Tick(float);
+	float LinearWeight();
+	float Weight();
+	/* @socom-skeleton end 9CSequence */
 };
 
 _zanim_cmd_hdr* zAnimLoad_If(_zrdr*);

@@ -133,6 +133,25 @@ public:
 	bool m_TickGoal;
 };
 /* @socom-skeleton end 5CWind */
+/* @socom-skeleton decl Q23zdb15CLightMapVector */
+namespace zdb {
+class CLightMapVector : public std::vector<unsigned int> /* port: element type from MSL pointer storage in DWARF; real element unproven */
+{
+public:
+	void Exists(const zdb::CLightMap *);
+};
+}
+/* @socom-skeleton end Q23zdb15CLightMapVector */
+/* @socom-skeleton decl Q23zdb20CProjectedMap_Object */
+namespace zdb {
+class CProjectedMap_Object : public std::vector
+{
+public:
+	CProjectedMap_Object();
+	~CProjectedMap_Object();
+};
+}
+/* @socom-skeleton end Q23zdb20CProjectedMap_Object */
 /* @socom-skeleton decl Q23zdb26CTextureAssetCharacterList */
 namespace zdb {
 class CTextureAssetCharacterList : public std::list<void const*> /* port: element type from MSL pointer storage in DWARF; real element unproven */
