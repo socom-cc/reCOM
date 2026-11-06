@@ -337,48 +337,39 @@ bool zar::CZAR::Fetch(const char *name, int (*callback)(zar::CZAR &, int, void *
 }
 
 /* @socom-skeleton body FetchAll__Q23zar4CZARFPFRQ23zar4CZARPCcPviPv_iPv */
-bool zar::CZAR::FetchAll(int (*callback)(zar::CZAR &, const char *, void *, int, void *), void *buf)
+bool zar::CZAR::FetchAll(int (*callback)(zar::CZAR &, const char *, void *, int, void *), void *context)
+{
+	/* 0x1db880: every key of the open key, each positioned and handed over in place
+	 * (FetchLIP); true when any callback result was in range */
+	s32 count = 0;
+	CKey *dir = GetOpenKey();
+
+	for (auto it = dir->begin(); it != dir->end(); ++it)
 	{
-		s32 count = 0;
+		CKey *key = *it;
 		bool valid = false;
-		CKey* key = GetOpenKey();
 
-		if (!m_pFile)
-			return false;
-
-		if (!m_pFile->IsOpen())
-			return false;
-
-		for (auto i = key->begin(); i != key->end(); i++)
+		if (m_pFile != NULL && m_pFile->IsOpen() && OpenKey(key) != NULL)
 		{
-			CKey* current = *i;
-
-			CKey* bufferKey = OpenKey(current);
-
-			if (!bufferKey)
-			{
-				CloseKey(current);
-				continue;
-			}
-
-			if (m_pFile->fseek(key->m_offset, SEEK_CUR) == -1)
-				continue;
-
-			void* listPointers = NULL;
-			FetchLIP(current, &listPointers);
-			s32 result = callback(*this, current->m_name, listPointers, current->m_size, buf); /* port: callback takes CZAR& */
-
-			if (result > 0)
-				valid = result <= current->m_size;
-
-			CloseKey(current);
+			valid = m_pFile->fseek(key->m_offset, SEEK_SET) != (size_t)-1;
 
 			if (valid)
-				count++;
+			{
+				void *data = NULL;
+				FetchLIP(key, &data);
+				int result = callback(*this, key->m_name, data, key->m_size, context);
+				valid = result > 0 && result <= (int)key->m_size;
+			}
+
+			CloseKey(key);
 		}
 
-		return count != 0;
+		if (valid)
+			count++;
 	}
+
+	return count != 0;
+}
 
 /* @socom-skeleton body Insert__Q23zar4CZARFPCci */
 namespace zar {

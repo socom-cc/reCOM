@@ -26,6 +26,9 @@ class CZSIScript;
 class CZSIScriptCommon;
 class CZSealBody;
 #include <string>
+#include "rt/rtarray.h"
+#include "rt/rtlist.h"
+#include "rt/rtstack.h"
 
 #include "gamez/zNode/znode.h"
 #include "gamez/zParticle/zparticle.h" /* Particle::Source (CZAnim::GetParticleSource) */
@@ -160,9 +163,9 @@ CMenuStack* GetMenuStack(); /* zanim_menu.cpp (0x1d07d0) */
 static bool CmdAddNode(zdb::CNode node);
 static bool CmdRemoveNode(zdb::CNode node);
 
-enum class AnimType
+enum class AnimType : s16 /* 2 bytes (DWARF); animTypeUndefined is -1 (Ghidra enum, AnimId 0x2cca90) */
 {
-	animTypeUndefined,
+	animTypeUndefined = -1,
 	animTypeRef,
 	animTypeStand,
 	animTypeSneak,
@@ -201,7 +204,7 @@ enum class AnimType
 	animTypeStand2Hang,
 	animTypeHang,
 	animTypeHang2Climb,
-	animTypeHandJumpDown,
+	animTypeHangJumpDown,
 	animTypeLedge2HangBw,
 	animTypeHopdownBw,
 	animTypeFalling,
@@ -317,9 +320,34 @@ struct REFPT_INFO
 
 struct ANIM_CALLBACK
 {
+	ANIM_CALLBACK() { m_tfrac = 0.0f; m_func = NULL; m_userdata = NULL; } /* inline (RTArray<CZBodyAnimBlend> 0x1e42d0) */
 	f32 m_tfrac;
 	void(*m_func)();
-	void(*m_userdata)();
+	void* m_userdata; /* DWARF: void* */
+};
+
+class CZBodyAnimBlend;
+
+/* DWARF CHoming (64 bytes) */
+class CHoming
+{
+public:
+	CHoming() /* inline (RTArray<CZBodyAnimBlend> 0x1e42d0) */
+	{
+		m_blend = NULL;
+		m_refpt_m = CPnt3D::zero;
+		m_norm_w = CPnt3D::zero;
+		m_int_w = CPnt3D::zero;
+		m_refvec_m = CPnt3D::zero;
+		m_target_refpt_m = CPnt3D::zero;
+	}
+
+	CPnt3D m_refpt_m;        /* +0x0 */
+	CZBodyAnimBlend* m_blend; /* +0xc */
+	CPnt3D m_norm_w;          /* +0x10 */
+	CPnt3D m_int_w;           /* +0x1c */
+	CPnt3D m_refvec_m;        /* +0x28 */
+	CPnt3D m_target_refpt_m;  /* +0x34 */
 };
 
 struct ANIMSET_PARAMS
@@ -598,16 +626,18 @@ struct ZAnimNetworkPacket
 
 struct AnimSet
 {
-	void AddBlendable();
+	/* inline (AnimSet::Load 0x2ccad0): not ready, no FP table, eight cleared CBlendables */
+	AnimSet();
+
 
 	ANIMSET_PARAMS m_aparams;
 
 	bool m_ready;
 	std::string m_name;
 
-	std::vector<u32> m_animIDs;
-	std::vector<AnimType> m_basetypes;
-	std::vector<CZAnim> m_included;
+	std::vector<s16> m_animIDs;          /* +0x3c: body anim id per AnimType (-1 none); vector_pod<Us> */
+	std::vector<AnimType> m_basetypes;   /* +0x48: rifle type a pistol/FP type derives from */
+	std::vector<std::string> m_included; /* +0x54: names of the sets this one includes */
 
 	CAnimsByFP* m_animgps;
 
@@ -623,27 +653,28 @@ struct AnimSet
 public:
 	static void CloseAll();
 	void Close();
-	static void Load(_zrdr *);
+	static bool Load(_zrdr *); /* bool: 0x2ccad0 returns 1, or 0 without anim_set_name */
 	short AnimId(AnimType) const;
 	void Inherit(AnimSet *);
-	static void Load();
+	static bool Load(); /* bool: 0x2cc3c0 returns whether animset.rdr was read */
 	AnimType BaseAnim(AnimType);
 	void DefineFPAnims();
 	void SetMaxMotion();
 	void AddBlendable(int, float, float);
 	static void ReadDeathAndFlinchAnims();
 	static void InitDeathAndFlinchAnimations();
-	void ReadTeammateDeathAnimations(_zrdr *, const char *, DAMAGE_LOCATION);
-	void ReadDeathAnimations(_zrdr *, const char *, DAMAGE_LOCATION);
-	void ReadFlinchAnimations(_zrdr *, const char *, DAMAGE_LOCATION);
-	static unsigned char damageanim[216];
-	static int deathanim[54];
-	static int list[3];
-	static int m_defuse;
-	static unsigned char pistoldamageanim[216];
-	static unsigned char pistoldeathanim[216];
-	static unsigned char teammatedeathanim[216];
-	static unsigned char teammatepistoldeathanim[216];
+	static void ReadTeammateDeathAnimations(_zrdr *, const char *, DAMAGE_LOCATION); /* static: ReadDeathAndFlinchAnims passes (rdr, tag, location) */
+	static void ReadDeathAnimations(_zrdr *, const char *, DAMAGE_LOCATION); /* static: ReadDeathAndFlinchAnims passes (rdr, tag, location) */
+	static void ReadFlinchAnimations(_zrdr *, const char *, DAMAGE_LOCATION); /* static: ReadDeathAndFlinchAnims passes (rdr, tag, location) */
+	/* [DAMAGE_LOCATION][stand, crouch, prone]: 216 bytes each (6 x 3 vectors of 12) */
+	static std::vector<AnimType> damageanim[6][3];
+	static std::vector<AnimType> deathanim[6][3];
+	static std::vector<AnimSet*> list; /* every set from animset.rdr */
+	static AnimSet* m_defuse; /* the "defusebomb anim set" */
+	static std::vector<AnimType> pistoldamageanim[6][3];
+	static std::vector<AnimType> pistoldeathanim[6][3];
+	static std::vector<AnimType> teammatedeathanim[6][3];
+	static std::vector<AnimType> teammatepistoldeathanim[6][3];
 	/* @socom-skeleton end 7AnimSet */
 };
 
@@ -651,8 +682,8 @@ public:
 
 class CAnimsByFP
 {
-private:
-	ANIMTYPE_GROUP m_animgroups;
+public:
+	ANIMTYPE_GROUP* m_animgroups; /* DWARF +0x0: 300 groups indexed by the rifle AnimType (malloc'd in DefineFPAnims) */
 	/* @socom-skeleton decl 10CAnimsByFP */
 public:
 	void Clear();
@@ -665,19 +696,39 @@ public:
 
 class CBlendable
 {
+public:
+	CBlendable() { Clear(); } /* inline (AnimSet::Load 0x2ccad0: new, then Clear) */
 	BLENDABLE_ANIM m_blendable[4];
 	/* @socom-skeleton decl 10CBlendable */
 public:
 	void Clear();
 	void AddBlendable(float, float, AnimType);
 	float MaxTrans1();
-	void Contains(AnimType);
+	bool Contains(AnimType); /* bool: 0x2cd5f0 returns 1/0 */
 	/* @socom-skeleton end 10CBlendable */
 };
 
-class CActiveAnimList
+inline AnimSet::AnimSet()
 {
+	m_ready = false;
+	m_animgps = NULL;
+	m_move_anims = new CBlendable;
+	m_moveback_anims = new CBlendable;
+	m_strafeL_anims = new CBlendable;
+	m_strafeR_anims = new CBlendable;
+	m_crouchmove_anims = new CBlendable;
+	m_crouchmoveback_anims = new CBlendable;
+	m_crouchstrafeL_anims = new CBlendable;
+	m_crouchstrafeR_anims = new CBlendable;
+}
 
+class ACTIVE_ANIM;
+
+/* DWARF: CActiveAnimList : RTList<ACTIVE_ANIM> (20 bytes) */
+class CActiveAnimList : public RTList<ACTIVE_ANIM>
+{
+public:
+	CActiveAnimList(unsigned int size) : RTList<ACTIVE_ANIM>(size) {}
 };
 
 class CZAnimNameIndexTable
@@ -1083,8 +1134,11 @@ public:
 	static bool ProcExpr(f32* dT);
 };
 
-class CActiveAnimPool
+/* DWARF: CActiveAnimPool : RTArray<ACTIVE_ANIM> (28 bytes) */
+class CActiveAnimPool : public RTArray<ACTIVE_ANIM>
 {
+public:
+	inline CActiveAnimPool(unsigned int size, bool preallocate, bool supportRecycle); /* defined in zbody.h (needs ACTIVE_ANIM) */
 
 	/* @socom-skeleton decl 15CActiveAnimPool */
 public:
@@ -1093,30 +1147,44 @@ public:
 	/* @socom-skeleton end 15CActiveAnimPool */
 };
 
+/* DWARF CZBodyAnimBlend (132 bytes) */
 class CZBodyAnimBlend
 {
 public:
+	/* inline (RTArray<CZBodyAnimBlend> 0x1e42d0): an anim list of 8, a REFPT_INFO, the
+	 * callback cleared again at the end */
+	CZBodyAnimBlend()
+	{
+		m_flags = 0;
+		m_animType = AnimType::animTypeUndefined;
+		m_action_node = NULL;
+		m_result_parent = NULL;
+		m_anims = new CActiveAnimList(8);
+		REFPT_INFO* info = new REFPT_INFO;
+		if (info != NULL)
+			info->m_valid = false;
+		m_refpt_info = info;
+		m_callback.m_func = NULL;
+		m_callback.m_tfrac = 0.0f;
+		m_callback.m_userdata = NULL;
+	}
+
 	void SetFractionalTime(f32 time);
-private:
-	CPnt3D m_dpos;
-	float m_quitT;
-	CPnt3D m_drot;
-	float m_tfrac;
 
-	REFPT_INFO* m_refpt_info;
-
-	// CZBodyPart* m_action_node;
-	// CZBodyPart* m_result_parent;
-
-	char m_flags;
-	char m_ctrl;
-	char m_state;
-
-	AnimType m_animType;
-
-	CActiveAnimList* m_anims;
-	ANIM_CALLBACK m_callback;
-	// CHoming m_homing;
+	CPnt3D m_dpos;              /* +0x0 */
+	float m_quitT;              /* +0xc */
+	CPnt3D m_drot;              /* +0x10 */
+	float m_tfrac;              /* +0x1c */
+	REFPT_INFO* m_refpt_info;   /* +0x20 */
+	class CZBodyPart* m_action_node;   /* +0x24 */
+	class CZBodyPart* m_result_parent; /* +0x28 */
+	u16 m_flags;                /* +0x2c */
+	s8 m_ctrl;                  /* +0x2e */
+	s8 m_state;                 /* +0x2f */
+	AnimType m_animType;        /* +0x30 */
+	CActiveAnimList* m_anims;   /* +0x34 */
+	ANIM_CALLBACK m_callback;   /* +0x38 */
+	CHoming m_homing;           /* +0x44 */
 	/* @socom-skeleton decl 15CZBodyAnimBlend */
 public:
 	void Reset();
@@ -1139,9 +1207,23 @@ public:
 	/* @socom-skeleton end 15CZBodyAnimBlend */
 };
 
+/* DWARF: CBlendPool : RTArray<CZBodyAnimBlend> (28 bytes) */
+class CBlendPool : public RTArray<CZBodyAnimBlend>
+{
+public:
+	CBlendPool(unsigned int size, bool preallocate, bool supportRecycle) : RTArray<CZBodyAnimBlend>(size, preallocate, supportRecycle) {}
+};
+
+/* DWARF: CBodyAnimBlendStack : RTStack<CZBodyAnimBlend> (12 bytes) */
+class CBodyAnimBlendStack : public RTStack<CZBodyAnimBlend>
+{
+public:
+	CBodyAnimBlendStack(unsigned int size) : RTStack<CZBodyAnimBlend>(size) {}
+};
+
 class CZSIObject
 {
-private:
+public: /* port: public (CBody::BodyAddAnim and CZBodyAnim::Setup read these in the ELF) */
 	f32* m_positionData;
 	CQuat* m_rotations;
 	u32 m_inUse : 1;
@@ -1153,22 +1235,22 @@ private:
 	/* @socom-skeleton decl 10CZSIObject */
 public:
 	CZSIObject();
-	void Initalize(CZSIScriptCommon *);
-	void Read(CZSIScript *, zar::CZAR &);
+	bool Initalize(CZSIScriptCommon *); /* bool: 0x1de050 */
+	bool Read(CZSIScript *, zar::CZAR &); /* bool: 0x1dde20 returns 1 */
 	~CZSIObject();
 	CPnt3D * GetVelRaw(CZSIScript *, int, int, CPnt3D *);
 	CPnt3D * GetPosRaw(int, int, float, CPnt3D *);
 	CQuat * GetRotRaw(int, int, float, CQuat *);
 	CPnt3D * GetPosFast(int, int, float, CPnt3D *);
 	CQuat * GetRotFast(int, int, float, CQuat *);
-	void Read(unsigned char *, unsigned int, const char *);
+	int Read(unsigned char *, unsigned int, const char *); /* int: 0x1dd740 returns the bytes used */
 	/* @socom-skeleton end 10CZSIObject */
 };
 
 class CZSIScript
 {
 	friend class CZSIScriptCommon;
-protected:
+public: /* port: public (CBody, CZSealBody and CScriptArchive read these in the ELF) */
 	s32 m_isLoaded : 1;
 	s32 m_looped : 1;
 	f32 m_tf;
@@ -1178,13 +1260,13 @@ protected:
 	/* @socom-skeleton decl 10CZSIScript */
 public:
 	virtual ~CZSIScript();
-	virtual void Read(zar::CZAR &, int);
+	virtual bool Read(zar::CZAR &, int); /* bool: 0x1de600 returns 1, 0 on a version mismatch */
 	virtual short ReadLIP(zar::CZAR &, const char *, void *, int, void *);
 	virtual void SetTimeScale(float scale) { m_tScale = scale; } /* SetTimeScale__10CZSIScriptFf (inline, 0x1de110): DWARF m_tScale +0xc */
 	CZSIScript();
 	CZSIScript(const char *);
-	void Share(CZSIScript *);
-	void Load(const char *, bool);
+	bool Share(CZSIScript *); /* bool: 0x1debf0 */
+	bool Load(const char *, bool); /* bool: 0x1deb80 */
 	static int ReadIt(zar::CZAR &, int, void *);
 	static int CreateAndReadIt(zar::CZAR &, const char *, void *, int, void *);
 	CZSIObject * GetObject(const char *, bool);
@@ -1197,8 +1279,8 @@ public:
 class CZSIScriptCommon
 {
 	friend class CZSIObject;
-private:
-	char* m_name;
+public: /* port: public (read by CZSIScript, CBody, CZSealBody in the ELF) */
+	char* m_pName; /* DWARF m_pName */
 	s16 m_nFrames;
 	s16 m_nObjects;
 	CZSIObject* m_pObjects;
@@ -1215,7 +1297,7 @@ private:
 	/* @socom-skeleton decl 16CZSIScriptCommon */
 public:
 	CZSIScriptCommon();
-	static int list[3];
+	static std::vector<CZSIScriptCommon*> list; /* every script common, by name */
 	/* @socom-skeleton end 16CZSIScriptCommon */
 };
 
@@ -1352,6 +1434,10 @@ bool zAnimSoundTick(_zanim_cmd_hdr*, f32*);
 bool zAnimStopAnimTick(_zanim_cmd_hdr*, f32*);
 bool zAnimStopSequenceTick(_zanim_cmd_hdr*, f32*);
 bool zAnimTimerTick(_zanim_cmd_hdr*, f32*);
+/* anim.cpp */
+AnimType FindAnimType(const char *name);
+int GetAnimTypeMax();
+void InitializeAnimNames();
 bool zAnimUIAppMenuTick(_zanim_cmd_hdr*, f32*);
 bool zAnimUIMenuTick(_zanim_cmd_hdr*, f32*);
 bool zAnimWaitTick(_zanim_cmd_hdr*, f32*);
@@ -1524,7 +1610,9 @@ class CAnimAuxData
 {
 public:
 	void Get(unsigned int);
-	static int list[3];
+	static std::vector<CAnimAuxData*> list; /* one per AnimType (AnimSet::Load) */
+	CAnimAuxData() { m_network_log = false; } /* inline (AnimSet::Load 0x2cc3c0: new, then bit 0 cleared) */
+	u32 m_network_log : 1; /* port: name guessed from the animset.rdr tag 'network_log' that sets it (no DWARF) */
 };
 /* @socom-skeleton end 12CAnimAuxData */
 /* @socom-skeleton decl 12CMenuHistory */

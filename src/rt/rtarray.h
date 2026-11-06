@@ -32,16 +32,51 @@ template<class Object>
 class RTArray
 {
 public:
-	RTArray(Object* instance, size_t size);
+	/* RTArray<CZBodyAnimBlend> 0x1e42d0, RTArray<ACTIVE_ANIM> 0x1e3f50: a pool of size
+	 * objects, made up front when preallocate is set */
+	RTArray(unsigned int size, bool preallocate, bool supportRecycle)
+	{
+		m_size = size;
+		m_pool = new Object*[m_size];
+
+		if (preallocate)
+		{
+			for (unsigned int i = 0; i < m_size; i++)
+				m_pool[i] = new Object;
+
+			m_available = m_size;
+		}
+		else
+		{
+			for (unsigned int i = 0; i < m_size; i++)
+				m_pool[i] = NULL;
+
+			m_available = 0;
+		}
+
+		m_supportRecycle = supportRecycle;
+	}
+
 	~RTArray();
 
 	const Object& GetNext() const;
 	const Object& GetOldestUsed() const;
-	void PutBack(Object* instance);
+	/* RTArray<ACTIVE_ANIM>::PutBack 0x1e3d50: back into the pool while there is room */
+	void PutBack(Object* instance)
+	{
+		if (m_available < m_size)
+		{
+			m_pool[m_available] = instance;
+			m_available++;
 
-	Object** m_pool;
-	std::list<Object> m_inuse;
-	size_t m_size;
-	unsigned int m_available;
-	bool m_supportRecycle;
+			if (m_supportRecycle)
+				m_inuse.remove(instance);
+		}
+	}
+
+	Object** m_pool;                /* DWARF +0x0 */
+	std::list<const void*> m_inuse; /* +0x4 (MW __list_deleter<const void*>) */
+	unsigned int m_size;            /* +0x10 */
+	unsigned int m_available;       /* +0x14 */
+	bool m_supportRecycle;          /* +0x18 */
 };

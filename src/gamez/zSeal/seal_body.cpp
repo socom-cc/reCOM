@@ -256,8 +256,21 @@ void CZSealBody::BodySetState(int)
 }
 
 /* @socom-skeleton stub ClearStack__10CZSealBodyFUib */
-void CZSealBody::ClearStack(unsigned int, bool)
+void CZSealBody::ClearStack(unsigned int depth, bool reset)
 {
+	/* 0x27d1c0: pop down to depth blends; reset clears the last top's ctrl and the peek */
+	CZBodyAnimBlend *blend = m_blends->Top();
+
+	while (depth < (unsigned int)(m_blends->m_top + 1))
+		blend = PopBlend();
+
+	if (reset)
+	{
+		if (blend != NULL)
+			blend->m_ctrl = 0;
+
+		m_desiredPeek = SEAL_PEEK::PEEK_NONE;
+	}
 }
 
 /* @socom-skeleton stub PopBlend__10CZSealBodyFv */

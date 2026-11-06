@@ -84,7 +84,12 @@ bool zBoneClose()
 /* @socom-skeleton body zBoneLoadAll__Fv */
 bool zBoneLoadAll()
 {
-    return true;
+	/* 0x1dd620 (CMission::Init): every motion script, read in place; the archive's data
+	 * buffer is kept for them (pBuffer_MotionRdr) */
+	bool loaded = boneArchive.LoadAll();
+	Sizeof_MotionRdr = boneArchive.m_databuffer_size;
+	pBuffer_MotionRdr = boneArchive.ReleaseDataBuffer();
+	return loaded;
 }
 
 /* @socom-skeleton stub zBoneUnloadAll__Fv */

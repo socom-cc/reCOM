@@ -13,9 +13,43 @@ template<class Object>
 class RTStack
 {
 public:
-    RTStack();
+	/* RTStack<CZBodyAnimBlend> ctor 0x1e3980, Push 0x1e39f0, Pop 0x1e3a30, Top 0x1e3a70 */
+	RTStack(unsigned int size)
+	{
+		m_size = size;
+		m_top = -1;
+		m_stack = new Object*[m_size];
 
-    Object* Pop();
-    void Push(Object* object);
-    Object* Top() const;
+		for (unsigned int i = 0; i < (unsigned int)m_size; i++)
+			m_stack[i] = NULL;
+	}
+
+	/* a full stack drops the push */
+	void Push(Object* object)
+	{
+		if (m_top < m_size - 1)
+			m_stack[++m_top] = object;
+	}
+
+	Object* Pop()
+	{
+		if (m_top < 0)
+			return NULL;
+
+		Object* object = m_stack[m_top];
+		m_stack[m_top--] = NULL;
+		return object;
+	}
+
+	Object* Top()
+	{
+		if (m_top < 0)
+			return NULL;
+
+		return m_stack[m_top];
+	}
+
+	Object** m_stack; /* DWARF +0x0 */
+	int m_size;       /* +0x4 */
+	int m_top;        /* +0x8 */
 };

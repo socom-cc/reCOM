@@ -32,7 +32,13 @@
 /* @socom-skeleton decl include */
 #include "gamez/zAnim/zanim.h"
 #include "gamez/zArchive/zar.h"
+#include "gamez/zBone/zbone.h"
+#include "gamez/zUtil/util_stable.h"
+#include <cstring>
+#include <strings.h>
 /* @socom-skeleton end include */
+
+extern CSTable siStringTable; /* si_object.cpp */
 
 /* @socom-skeleton stub m_version__10CZSIScript */
 int CZSIScript::m_version = 5;
@@ -44,46 +50,176 @@ int numSiScript;
 int numSiCommon;
 
 /* @socom-skeleton stub list__16CZSIScriptCommon */
-int CZSIScriptCommon::list[3];
+std::vector<CZSIScriptCommon*> CZSIScriptCommon::list;
 
 /* @socom-skeleton stub __ct__16CZSIScriptCommonFv */
 CZSIScriptCommon::CZSIScriptCommon()
 {
+	/* 0x1deeb0 */
+	m_pName = NULL;
+	m_nObjects = 0;
+	m_pObjects = NULL;
+	m_nFrames = 0;
+	m_refCount = 0;
+	m_objects_ready = 0;
+	m_distance = -1.0f;
+	m_thr_scale = 1.0f;
+	m_blendtime = -1.0f;
+	m_terrnorm0 = -1.0f;
+	m_terrnorm1 = -1.0f;
+	m_fire_val = -1.0f;
+	m_interrupt_val = -1.0f;
+	m_objects_for_body.reserve(32);
+	numSiCommon++;
 }
 
 /* @socom-skeleton stub __ct__10CZSIScriptFv */
 CZSIScript::CZSIScript()
 {
+	/* 0x1dee40 */
+	m_looped = true;
+	m_isLoaded = false;
+	m_tScale = 1.0f;
+	m_multiplier = 1.0f;
+	m_tf = 0.0f;
+	m_pCommon = NULL;
+	numSiScript++;
 }
 
 /* @socom-skeleton stub __ct__10CZSIScriptFPCc */
-CZSIScript::CZSIScript(const char *)
+/* The common record of this script name (CZSIScriptCommon::list), made when new.
+ * port: no symbol; the ELF inlines this in the named ctor 0x1deca0 and in Read 0x1de600. */
+static CZSIScriptCommon *FindOrAddCommon(const char *name)
 {
+	for (std::vector<CZSIScriptCommon*>::iterator it = CZSIScriptCommon::list.begin(); it != CZSIScriptCommon::list.end(); ++it)
+	{
+		if (strcmp(name, (*it)->m_pName) == 0)
+			return *it;
+	}
+
+	CZSIScriptCommon *common = new CZSIScriptCommon;
+	common->m_pName = siStringTable.CreateString(name);
+	CZSIScriptCommon::list.push_back(common);
+	return common;
+}
+
+CZSIScript::CZSIScript(const char *name)
+{
+	/* 0x1deca0 */
+	m_looped = true;
+	m_isLoaded = false;
+	m_tScale = 1.0f;
+	m_multiplier = 1.0f;
+	m_tf = 0.0f;
+	m_pCommon = NULL;
+	m_pCommon = FindOrAddCommon(name);
+	m_pCommon->m_refCount++;
+	numSiScript++;
 }
 
 /* @socom-skeleton stub Share__10CZSIScriptFP10CZSIScript */
-void CZSIScript::Share(CZSIScript *)
+bool CZSIScript::Share(CZSIScript *other)
 {
+	/* 0x1debf0: use the other script's common data and timing */
+	if (other == NULL)
+		return false;
+
+	m_isLoaded = true;
+	m_pCommon = other->m_pCommon;
+	m_pCommon->m_refCount++;
+
+	if (m_isLoaded && other->m_tf > 0.0f)
+		m_tf = other->m_tf;
+
+	m_tScale = other->m_tScale;
+
+	if (m_pCommon->m_objects_ready == 0)
+		m_pCommon->m_distance = other->m_pCommon->m_distance;
+
+	m_multiplier = other->m_multiplier;
+	return true;
 }
 
 /* @socom-skeleton stub Load__10CZSIScriptFPCcb */
-void CZSIScript::Load(const char *, bool)
+bool CZSIScript::Load(const char *name, bool unique)
 {
+	/* 0x1deb80 */
+	m_isLoaded = boneArchive.Fetch(name, this, unique);
+	return m_isLoaded;
 }
 
 /* @socom-skeleton stub ReadIt__10CZSIScriptFRQ23zar4CZARiPv */
-int CZSIScript::ReadIt(zar::CZAR &, int, void *)
+int CZSIScript::ReadIt(zar::CZAR &archive, int size, void *script)
 {
+	/* 0x1deb50: the CZAR::Fetch callback */
+	return static_cast<CZSIScript *>(script)->Read(archive, size);
 }
 
 /* @socom-skeleton stub CreateAndReadIt__10CZSIScriptFRQ23zar4CZARPCcPviPv */
-int CZSIScript::CreateAndReadIt(zar::CZAR &, const char *, void *, int, void *)
+int CZSIScript::CreateAndReadIt(zar::CZAR &archive, const char *name, void *data, int size, void *context)
 {
+	/* 0x1de920 (CScriptArchive::LoadAll's FetchAll callback): a script per key, read in
+	 * place (the named ctor is inlined), kept in boneArchive's list */
+	if (name == NULL)
+		return 0;
+
+	CZSIScript *script = new CZSIScript(name);
+	int result = script->ReadLIP(archive, name, data, size, context);
+	boneArchive.m_scripts.push_back(script);
+	return result;
 }
 
 /* @socom-skeleton stub Read__10CZSIScriptFRQ23zar4CZARi */
-void CZSIScript::Read(zar::CZAR &, int)
+bool CZSIScript::Read(zar::CZAR &archive, int)
 {
+	/* 0x1de600: a script without common data takes the one named by the key being fetched
+	 * (hackStr). Version, loop time, frames, object count, distance, multiplier, then the
+	 * objects once per common. */
+	if (m_pCommon == NULL)
+	{
+		m_pCommon = FindOrAddCommon(hackStr);
+		m_pCommon->m_refCount++;
+	}
+
+	s32 version;
+	archive.m_pFile->fread(&version, 4);
+
+	if (version != m_version)
+		return false;
+
+	archive.m_pFile->fread(&m_tf, 4);
+	/* ELF quirk: 4 bytes go into the s16 m_nFrames, so m_nObjects takes the high half
+	 * until the count below replaces it */
+	archive.m_pFile->fread(&m_pCommon->m_nFrames, 4);
+	s16 objects[2];
+	archive.m_pFile->fread(objects, 4);
+	m_pCommon->m_nObjects = objects[0];
+
+	if (m_isLoaded && m_tf > 0.0f)
+		m_tf = m_tf; /* the inlined SetLoopTime(m_tf) */
+
+	f32 value;
+	archive.m_pFile->fread(&value, 4);
+
+	if (m_pCommon->m_objects_ready == 0)
+		m_pCommon->m_distance = value;
+
+	archive.m_pFile->fread(&value, 4);
+	m_multiplier = value;
+
+	if (m_pCommon->m_pObjects == NULL)
+	{
+		m_pCommon->m_pObjects = new CZSIObject[m_pCommon->m_nObjects];
+
+		for (s32 i = 0; i < m_pCommon->m_nObjects; i++)
+		{
+			m_pCommon->m_pObjects[i].Initalize(m_pCommon);
+			m_pCommon->m_pObjects[i].Read(this, archive);
+		}
+	}
+
+	m_isLoaded = true;
+	return true;
 }
 
 /* @socom-skeleton stub __dt__10CZSIScriptFv */
@@ -92,21 +228,79 @@ CZSIScript::~CZSIScript()
 }
 
 /* @socom-skeleton stub GetObject__10CZSIScriptFPCcb */
-CZSIObject * CZSIScript::GetObject(const char *, bool)
+CZSIObject * CZSIScript::GetObject(const char *name, bool exact)
 {
+	/* 0x1de320: by name, case-insensitive (a prefix match unless exact); marks it in use */
+	for (s32 i = 0; i < m_pCommon->m_nObjects; i++)
+	{
+		CZSIObject *object = &m_pCommon->m_pObjects[i];
+
+		if (object == NULL)
+			continue;
+
+		s32 cmp = exact ? strcasecmp(object->m_pName, name) : strncasecmp(object->m_pName, name, strlen(name));
+
+		if (cmp == 0)
+		{
+			object->m_inUse = true;
+			return object;
+		}
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub SetLoopTime__10CZSIScriptFf */
-void CZSIScript::SetLoopTime(float)
+void CZSIScript::SetLoopTime(float time)
 {
+	/* 0x1de2e0 */
+	if (m_isLoaded && time > 0.0f)
+		m_tf = time;
 }
 
 /* @socom-skeleton stub SetFrameRate__10CZSIScriptFf */
-void CZSIScript::SetFrameRate(float)
+void CZSIScript::SetFrameRate(float rate)
 {
+	/* 0x1de280 */
+	f32 time = (f32)m_pCommon->m_nFrames / rate;
+
+	if (m_isLoaded && time > 0.0f)
+		m_tf = time;
 }
 
 /* @socom-skeleton stub ReadLIP__10CZSIScriptFRQ23zar4CZARPCcPviPv */
-short CZSIScript::ReadLIP(zar::CZAR &, const char *, void *, int, void *)
+short CZSIScript::ReadLIP(zar::CZAR &, const char *, void *data, int, void *)
 {
+	/* 0x1de120: the key data in place: +0x0 version, +0x4 loop time, +0x8 frames (s16),
+	 * +0xc objects (s16), +0x18 name table offset, +0x1c key data offset, +0x20 the object
+	 * array (16-byte CZSIObject records, used in place). Names are 4-byte aligned.
+	 * ELF quirk: the file's version replaces CZSIScript::m_version. */
+	u8 *base = static_cast<u8 *>(data);
+
+	m_version = *reinterpret_cast<s32 *>(base);
+	f32 time = *reinterpret_cast<f32 *>(base + 4);
+	m_tf = time;
+
+	if (m_isLoaded && time > 0.0f)
+		m_tf = time;
+
+	m_pCommon->m_nFrames = *reinterpret_cast<s16 *>(base + 8);
+	m_pCommon->m_nObjects = *reinterpret_cast<s16 *>(base + 0xc);
+	s16 objects = m_pCommon->m_nObjects;
+	m_pCommon->m_pObjects = reinterpret_cast<CZSIObject *>(base + 0x20);
+	s16 frames = m_pCommon->m_nFrames;
+	const char *name = reinterpret_cast<const char *>(base + *reinterpret_cast<s32 *>(base + 0x18));
+	u8 *keys = base + *reinterpret_cast<s32 *>(base + 0x1c);
+
+	for (s32 i = 0; i < objects; i++)
+	{
+		m_pCommon->m_pObjects[i].Initalize(m_pCommon);
+		s32 used = m_pCommon->m_pObjects[i].Read(keys, frames, name);
+		s32 length = strlen(name);
+		u32 rem = (length + 5) & 3;
+		name += length + 1 + (rem != 0 ? 4 - rem : 0);
+		keys += used;
+	}
+
+	return objects;
 }

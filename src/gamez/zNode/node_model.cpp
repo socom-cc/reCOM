@@ -244,25 +244,20 @@ zdb::CNode * zdb::CNode::Delete(zdb::CNode *node)
 namespace zdb {
 bool CNode::SetModel(CModel* model)
 	{
-		if (m_type != (u32)TYPE::CHILD || m_type != (u32)TYPE::INSTANCE)
-		{
+		/* 0x228f20: only CHILD and INSTANCE nodes take a model; a CHILD node drops its
+		 * children and holds the model as its child */
+		if (m_type != (u32)TYPE::CHILD && m_type != (u32)TYPE::INSTANCE)
 			return false;
+
+		if (m_type == (u32)TYPE::CHILD)
+		{
+			DeleteChildren();
+			if (model != NULL)
+				AddChild(model);
 		}
 
-		if (model)
-			DeleteChildren();
-
-		AddChild(model);
-
-		char* name;
 		m_model = model;
-
-		if (!model)
-			name = NULL;
-		else
-			name = model->m_name;
-
-		SetModelname(name);
+		SetModelname(model != NULL ? model->m_name : NULL);
 		return true;
 	}
 }

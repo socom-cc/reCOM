@@ -92,7 +92,40 @@ void CMatrix::SetRotate(const CPnt3D *)
 /* @socom-skeleton body ToQuat__7CMatrixCFP5CQuat */
 CQuat * CMatrix::ToQuat(CQuat *q) const
 {
-	*q = CQuat::identity;
+	/* 0x222040: rotation part to quaternion (trace, else the largest diagonal; table
+	 * next$563 = {1, 2, 0}) */
+	static const int next[3] = { 1, 2, 0 };
+	f32 trace = m_matrix[0][0] + m_matrix[1][1] + m_matrix[2][2];
+
+	if (trace > 0.0f)
+	{
+		f32 s = sqrtf(trace + 1.0f);
+		q->w = 0.5f * s;
+		s = 0.5f / s;
+		q->vec.x = (m_matrix[1][2] - m_matrix[2][1]) * s;
+		q->vec.y = (m_matrix[2][0] - m_matrix[0][2]) * s;
+		q->vec.z = (m_matrix[0][1] - m_matrix[1][0]) * s;
+	}
+	else
+	{
+		f32 *v = &q->vec.x;
+		int i = m_matrix[1][1] > m_matrix[0][0] ? 1 : 0;
+
+		if (m_matrix[2][2] > m_matrix[i][i])
+			i = 2;
+
+		int j = next[i];
+		int k = next[j];
+		f32 s = sqrtf(m_matrix[i][i] + 1.0f - m_matrix[j][j] - m_matrix[k][k]);
+
+		v[i] = 0.5f * s;
+		s = 0.5f / s;
+		v[j] = (m_matrix[j][i] + m_matrix[i][j]) * s;
+		v[k] = (m_matrix[k][i] + m_matrix[i][k]) * s;
+		q->w = (m_matrix[j][k] - m_matrix[k][j]) * s;
+	}
+
+	return q;
 }
 
 /* @socom-skeleton body Vu0MatrixInverseWithUniformScale__FP7CMatrixP7CMatrix */

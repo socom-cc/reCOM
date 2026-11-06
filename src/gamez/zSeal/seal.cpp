@@ -246,7 +246,7 @@ CSndInstance *CZSealBody::m_heartbeat_sndisnt;
 int CZSealBody::m_heartbeat_curindex;
 
 /* @socom-skeleton stub player___10CZSealBody */
-int CZSealBody::player_;
+CZSealBody* CZSealBody::player_;
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];

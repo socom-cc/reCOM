@@ -103,6 +103,7 @@
 #include "gamez/zMath/zmath.h"
 #include "gamez/zNode/znode.h"
 #include "zbody.h"
+#include <cstring>
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class ACTIVE_ANIM;
@@ -273,23 +274,117 @@ CZBodyPart * CBody::FindPart(const char *name) const
 }
 
 /* @socom-skeleton stub BodyAddAnim__5CBodyFPCcbi */
-CZBodyAnim * CBody::BodyAddAnim(const char *, bool, int)
+CZBodyAnim * CBody::BodyAddAnim(const char *name, bool looped, int id)
 {
+	/* 0x1e2cd0: load the script; map each body part to its SI object by node name (the
+	 * skel_root part is the base part), then the unused objects (not "do_not_use") by
+	 * BodyId. A failed load still takes a NULL slot. The object list is built only while the
+	 * script common is not ready. */
+	CZBodyAnim *anim = new CZBodyAnim(name);
+
+	if (anim == NULL || !anim->m_isLoaded)
+	{
+		AddAnim(NULL, id, -1);
+
+		if (anim != NULL)
+			delete anim;
+
+		return NULL;
+	}
+
+	s16 basepart = -1;
+	anim->m_looped = looped;
+
+	for (std::vector<CZBodyPart*>::iterator it = m_body_parts.begin(); it != m_body_parts.end(); ++it)
+	{
+		CZBodyPart *part = *it;
+
+		if (part == NULL)
+			continue;
+
+		const char *partname = part->m_node != NULL ? part->m_node->m_name : "";
+		CZSIObject *object = anim->GetObject(partname, true);
+		CZSIScriptCommon *common = anim->m_pCommon;
+
+		if (object == NULL)
+		{
+			if (common->m_objects_ready == 0)
+				common->m_objects_for_body.push_back(NULL);
+		}
+		else
+		{
+			s16 partid = part->m_id;
+
+			if (common->m_objects_ready == 0)
+				common->m_objects_for_body.push_back(object);
+
+			if (anim->m_pCommon->m_objects_ready == 0)
+				object->m_body_part_id = part->m_id;
+
+			if (strcmp(partname, "skel_root") == 0)
+				basepart = partid;
+		}
+	}
+
+	CZSIScriptCommon *common = anim->m_pCommon;
+
+	if (common->m_objects_ready == 0)
+	{
+		CZSIObject *object = common->m_pObjects;
+
+		for (s32 i = 0; i < anim->m_pCommon->m_nObjects; i++, object++)
+		{
+			if (object != NULL && !object->m_inUse && strcmp(object->m_pName, "do_not_use") != 0)
+			{
+				if (anim->m_pCommon->m_objects_ready == 0)
+					anim->m_pCommon->m_objects_for_body.push_back(object);
+
+				object->m_body_part_id = BodyId(object->m_pName);
+			}
+		}
+	}
+
+	AddAnim(anim, id, -1);
+	anim->m_basepart = basepart;
+	return anim;
 }
 
 /* @socom-skeleton stub AddAnim__5CBodyFP10CZBodyAnimii */
-void CBody::AddAnim(CZBodyAnim *, int, int)
+void CBody::AddAnim(CZBodyAnim *anim, int id, int type)
 {
+	/* 0x1e2c50 */
+	m_body_anims.push_back(anim);
+
+	if (anim != NULL)
+	{
+		anim->m_id = id;
+		anim->m_animType = type;
+	}
 }
 
 /* @socom-skeleton stub SetBlendPool__5CBodyFi */
-void CBody::SetBlendPool(int)
+void CBody::SetBlendPool(int size)
 {
+	/* 0x1e2ba0: size blends, three active anims per blend, a blend stack of size */
+	m_blend_pool = new CBlendPool(size, true, false);
+	m_active_anim_pool = new CActiveAnimPool(size * 3, true, false);
+	m_blends = new CBodyAnimBlendStack(size);
 }
 
 /* @socom-skeleton stub Snap__5CBodyFv */
 void CBody::Snap()
 {
+	/* 0x1e2b00: every part saves its current pose */
+	for (std::vector<CZBodyPart*>::iterator it = m_body_parts.begin(); it != m_body_parts.end(); ++it)
+	{
+		CZBodyPart *part = *it;
+
+		if (part != NULL)
+		{
+			part->m_saved_pos = part->m_pos;
+			part->m_saved_rot = part->m_rot;
+		}
+	}
 }
 
 /* @socom-skeleton stub SmoothAnims__5CBodyFf */
@@ -298,8 +393,13 @@ void CBody::SmoothAnims(float)
 }
 
 /* @socom-skeleton stub GetAnimById__5CBodyFi */
-CZBodyAnim * CBody::GetAnimById(int)
+CZBodyAnim * CBody::GetAnimById(int id)
 {
+	/* 0x1e29c0 */
+	if (id < 0)
+		return NULL;
+
+	return (u32)id < m_body_anims.size() ? m_body_anims[id] : NULL;
 }
 
 /* @socom-skeleton stub BodySetState__5CBodyFi */
@@ -322,41 +422,213 @@ CZBodyAnimBlend * CBody::PopBlend()
 /* @socom-skeleton stub ClearBlendOverlay__5CBodyFv */
 void CBody::ClearBlendOverlay()
 {
+	/* 0x1e22d0: the overlay's anim goes back to the pool, cleared */
+	ACTIVE_ANIM *anim = m_overlay->m_anim;
+
+	if (anim != NULL)
+	{
+		anim->m_anim = NULL;
+		anim->m_wt = 0.0f;
+		anim->m_overlay = NULL;
+		anim->m_tfrac = 0.0f;
+		anim->m_dfrac = 0.0f;
+		anim->m_playback = 0.0f;
+		anim->m_script_wt = 0.0f;
+		anim->m_a = 0;
+		anim->m_b = 0;
+		m_active_anim_pool->PutBack(anim);
+	}
+
+	m_overlay->m_anim = NULL;
+	m_overlay->m_triggerT = 0.0f;
+	m_overlay->m_ovlyT = 0.0f;
+	m_overlay->m_state = 0;
+	m_overlay->m_event = 0;
+	m_overlay->m_callback.m_func = NULL;
+	m_overlay->m_callback.m_tfrac = 0.0f;
+	m_overlay->m_callback.m_userdata = NULL;
 }
 
 /* @socom-skeleton stub SetCallbackIndex__10CZBodyAnimFii */
-void CZBodyAnim::SetCallbackIndex(int, int)
+void CZBodyAnim::SetCallbackIndex(int slot, int index)
 {
+	/* 0x1e2270: indices past a byte are dropped */
+	if (index >= 0x100)
+		return;
+
+	if (slot == 3)
+		m_callback3_index = index;
+	else if (slot == 2)
+		m_callback2_index = index;
+	else if (slot == 1)
+		m_callback1_index = index;
+	else if (slot == 0)
+		m_callback0_index = index;
 }
 
 /* @socom-skeleton stub GetCallbackIndex__10CZBodyAnimFi */
-void CZBodyAnim::GetCallbackIndex(int)
+int CZBodyAnim::GetCallbackIndex(int slot)
 {
+	/* 0x1e2210 */
+	if (slot == 3)
+		return m_callback3_index;
+	if (slot == 2)
+		return m_callback2_index;
+	if (slot == 1)
+		return m_callback1_index;
+	if (slot == 0)
+		return m_callback0_index;
+
+	return 0;
 }
 
 /* @socom-skeleton stub Setup__10CZBodyAnimFiff */
-void CZBodyAnim::Setup(int, float, float)
+bool CZBodyAnim::Setup(int basepart, float speed, float time)
 {
+	/* 0x1e1f50: the distance the base part travels over the loop (horizontal; vertical for
+	 * flag 0x10, the climb anims), scaled by frames/(frames-1) when looped. Without a base
+	 * part the distance is (f32)(CPnt3D::zero is non-zero), i.e. 0, as in the ELF. */
+	f32 frames = (f32)m_pCommon->m_nFrames;
+	m_basepart = basepart;
+
+	if (basepart < 0)
+	{
+		u32 moved = CPnt3D::zero.x != 0.0f || CPnt3D::zero.y != 0.0f || CPnt3D::zero.z != 0.0f;
+
+		if (m_pCommon->m_objects_ready == 0)
+			m_pCommon->m_distance = (f32)moved;
+	}
+	else
+	{
+		CZSIObject *object = (u32)basepart < m_pCommon->m_objects_for_body.size() ? m_pCommon->m_objects_for_body[basepart] : NULL;
+		CPnt3D first, last, delta;
+		s32 lastframe = object->m_constPos ? 0 : m_pCommon->m_nFrames - 1;
+
+		first.x = object->m_positionData[0];
+		first.y = object->m_positionData[1];
+		first.z = object->m_positionData[2];
+		last.x = object->m_positionData[lastframe * 3 + 0];
+		last.y = object->m_positionData[lastframe * 3 + 1];
+		last.z = object->m_positionData[lastframe * 3 + 2];
+		last.Sub(&first, &delta);
+
+		if (m_looped && frames > 1.0f)
+			delta.Scale(frames / (frames - 1.0f), &delta);
+
+		f32 distance = sqrtf(delta.x * delta.x + delta.z * delta.z);
+
+		if ((m_flags & 0x10) == 0)
+		{
+			if (m_pCommon->m_objects_ready == 0)
+				m_pCommon->m_distance = distance;
+		}
+		else
+		{
+			if (m_pCommon->m_objects_ready == 0)
+				m_pCommon->m_distance = delta.y;
+		}
+	}
+
+	Update(speed, time);
+	return true;
 }
 
 /* @socom-skeleton stub Update__10CZBodyAnimFff */
-void CZBodyAnim::Update(float, float)
+void CZBodyAnim::Update(float speed, float time)
 {
+	/* 0x1e1e20: a negative speed sets flag 0x200 (time is the loop time itself); a looped
+	 * anim's throttle scale is speed/100 (1 when 0); then the loop time and multiplier */
+	if (speed < 0.0f)
+	{
+		speed = 0.0f;
+		m_flags |= 0x200;
+	}
+	else
+	{
+		m_flags &= ~0x200;
+	}
+
+	f32 scale = 1.0f;
+
+	if (m_looped)
+	{
+		scale = speed / 100.0f;
+
+		if (scale == 0.0f)
+			scale = 1.0f;
+	}
+
+	m_pCommon->m_thr_scale = scale;
+
+	if (m_looped && (m_flags & 0x200) == 0)
+		SetLoopTime(m_tf / time);
+	else
+		SetLoopTime(time);
+
+	SetMultiplier(false);
 }
 
 /* @socom-skeleton stub GetMaxVelocity__10CZBodyAnimFv */
 float CZBodyAnim::GetMaxVelocity()
 {
+	/* 0x1e1dc0 */
+	if (m_looped && (m_flags & 0x200) == 0)
+		return 100.0f;
+
+	return 1.0f;
 }
 
 /* @socom-skeleton stub CopyValues__10CZBodyAnimFP10CZBodyAnim */
-void CZBodyAnim::CopyValues(CZBodyAnim *)
+void CZBodyAnim::CopyValues(CZBodyAnim *other)
 {
+	/* 0x1e1d20 */
+	m_id = other->m_id;
+	m_animType = -1;
+	m_basepart = other->m_basepart;
+	m_flags = other->m_flags;
+
+	if ((m_flags & 0x80) != 0)
+		m_flags &= ~0x80;
+
+	m_callback0_index = other->m_callback0_index;
+	m_callback1_index = other->m_callback1_index;
+	m_callback2_index = other->m_callback2_index;
+	m_callback3_index = other->m_callback3_index;
+	SetLoopTime(other->m_tf);
+	SetMultiplier(false);
+	m_tScale = 1.0f;
 }
 
 /* @socom-skeleton stub SetMultiplier__10CZBodyAnimFb */
-void CZBodyAnim::SetMultiplier(bool)
+void CZBodyAnim::SetMultiplier(bool apply)
 {
+	/* 0x1e1bf0: a looped anim plays at loop time (x100 unless flag 0x200) per distance
+	 * unit when it travels more than 0.2; otherwise 1 (-1 for a negative time scale) */
+	f32 multiplier = 1.0f;
+
+	if (m_looped)
+	{
+		f32 distance = m_pCommon->m_distance;
+
+		if (distance > 0.2f)
+		{
+			multiplier = (m_flags & 0x200) == 0 ? m_tf * 100.0f : m_tf;
+			multiplier = multiplier / distance;
+
+			if (apply)
+				SetTimeScale(multiplier * (m_tScale / m_multiplier));
+		}
+
+		m_multiplier = multiplier;
+	}
+	else
+	{
+		if (m_tScale < 0.0f)
+			multiplier = -1.0f;
+
+		m_multiplier = 1.0f;
+		SetTimeScale(multiplier);
+	}
 }
 
 /* @socom-skeleton stub Reset__10CZBodyAnimFv */
@@ -367,16 +639,35 @@ void CZBodyAnim::Reset()
 /* @socom-skeleton stub TrueLoopTime__10CZBodyAnimFv */
 float CZBodyAnim::TrueLoopTime()
 {
+	/* 0x1e1b40: an unlooped anim ends on its last frame */
+	f32 fraction = 1.0f;
+
+	if (!m_looped)
+	{
+		f32 frames = (f32)m_pCommon->m_nFrames;
+
+		if (frames > 1.0f)
+			fraction = (frames - 1.0f) / frames;
+	}
+
+	return m_tf * fraction;
 }
 
 /* @socom-skeleton stub SetTS__10CZBodyAnimFf */
-void CZBodyAnim::SetTS(float)
+void CZBodyAnim::SetTS(float scale)
 {
+	/* 0x1e1b30 */
+	m_tScale = scale;
 }
 
 /* @socom-skeleton stub SetTimeScale__10CZBodyAnimFf */
-void CZBodyAnim::SetTimeScale(float)
+void CZBodyAnim::SetTimeScale(float scale)
 {
+	/* 0x1e1b00: a looped anim scales by its multiplier */
+	if (m_looped)
+		scale *= m_multiplier;
+
+	m_tScale = scale;
 }
 
 /* @socom-skeleton stub GetActiveAnim__15CActiveAnimPoolFP10CZBodyAnim */
@@ -465,8 +756,10 @@ int CZBodyAnimBlend::ThisFoot()
 }
 
 /* @socom-skeleton stub SetRepresentativeWt__15CZBodyAnimBlendFf */
-void CZBodyAnimBlend::SetRepresentativeWt(float)
+void CZBodyAnimBlend::SetRepresentativeWt(float wt)
 {
+	/* 0x1dff50: the first active anim (ELF: no NULL check) */
+	m_anims->Begin()->m_wt = wt;
 }
 
 /* @socom-skeleton stub Representative__15CZBodyAnimBlendFv */
@@ -535,6 +828,43 @@ void CZBodyAnimCallbackList::Clear()
 }
 
 /* @socom-skeleton stub AddCallback__22CZBodyAnimCallbackListFPCcf */
-void CZBodyAnimCallbackList::AddCallback(const char *, float)
+int CZBodyAnimCallbackList::AddCallback(const char *name, float time)
 {
+	/* 0x1df120: the index of the (name, time) entry, appended when new. An empty list
+	 * first gets the "null" entry, so real callbacks start at 1. */
+	if (m_callbacks.size() == 0)
+	{
+		BODYANIM_CALLBACK *entry = new BODYANIM_CALLBACK;
+
+		if (entry != NULL)
+		{
+			entry->m_func = NULL;
+			entry->m_name = "null";
+			entry->m_time = 0.0f;
+			entry->m_valid = true;
+		}
+
+		m_callbacks.push_back(entry);
+	}
+
+	s32 index = 0;
+
+	for (std::vector<BODYANIM_CALLBACK*>::iterator it = m_callbacks.begin(); it != m_callbacks.end(); ++it, index++)
+	{
+		if (time == (*it)->m_time && strcmp((*it)->m_name.c_str(), name) == 0)
+			return index;
+	}
+
+	BODYANIM_CALLBACK *entry = new BODYANIM_CALLBACK;
+
+	if (entry != NULL)
+	{
+		entry->m_func = NULL;
+		entry->m_name = name;
+		entry->m_time = time;
+		entry->m_valid = true;
+	}
+
+	m_callbacks.push_back(entry);
+	return m_callbacks.size() - 1;
 }

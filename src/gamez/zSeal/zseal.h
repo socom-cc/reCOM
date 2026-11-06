@@ -106,6 +106,14 @@ enum AI_AWARE
 /// -------------------------------------------
 /// FORWARD DECLARATIONS
 /// -------------------------------------------
+/* one CZSealBody::m_refpoints entry (16 bytes). port: no DWARF; type and member names
+ * guessed from ReadMotionRdr 0x27eda0 and AnimSetup 0x27eac0 */
+struct SEAL_REFPOINT
+{
+	CPnt3D m_refpt;
+	CZBodyAnim* m_anim;
+};
+
 class CZSealBody;
 class CSealCtrl;
 class CAppCamera;
@@ -926,7 +934,7 @@ public:
 
 	CZProjectile* m_detonation_countdown;
 
-	std::vector<CPnt3D*> m_refpoints;
+	std::vector<SEAL_REFPOINT*> m_refpoints; /* DWARF +0xe60: an anim's refPt (ReadMotionRdr 0x27eda0) */
 
 	f32 m_mass;
 	f32 m_waterdepth;
@@ -1226,7 +1234,7 @@ public:
 	CZBodyAnim * BaseAnim(AnimType);
 	CZBodyAnim * BaseAnim_0(AnimType, SEAL_ITEM);
 	CZBodyAnim * BaseAnim_0(CZBodyAnim *, SEAL_ITEM);
-	void ReadMotionRdr();
+	bool ReadMotionRdr(); /* bool: 0x27eda0 returns 1 (AnimSetup returns it) */
 	bool AnimSetup(); /* bool: the ctor (0x258478) tests it */
 	CZBodyAnim * GetAnimByType(AnimType);
 	void BindAnimSet(const char *);
@@ -1397,7 +1405,7 @@ public:
 	static int m_sealstep;
 	static int m_smallrippleanim[3];
 	static int m_steptexhandles;
-	static int player_;
+	static CZSealBody* player_; /* the first seal, the template AnimSetup copies anims from */
 	static const float stoppedV;
 	/* @socom-skeleton end 10CZSealBody */
 };

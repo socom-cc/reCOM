@@ -230,6 +230,9 @@
  * socom-owner-annotations end socom:work:source-segment-076 */
 
 /* @socom-skeleton decl include */
+#include <cstring>
+#include <map>
+#include <string>
 #include "gamez/zReader/zrdr.h"
 #include "zanim.h"
 /* @socom-skeleton end include */
@@ -706,10 +709,10 @@ short AnimTypes::LadderSlideLand = -1;
 short AnimTypes::PistolLadderSlideLand = -1;
 
 /* @socom-skeleton stub m_defuse__7AnimSet */
-int AnimSet::m_defuse;
+AnimSet* AnimSet::m_defuse;
 
 /* @socom-skeleton stub numAnimTypes */
-static int numAnimTypes;
+static int numAnimTypes; /* 143 built-in types, then the new names animset.rdr adds */
 
 /* @socom-skeleton stub loadCount */
 static int loadCount;
@@ -718,58 +721,245 @@ static int loadCount;
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub deathanim__7AnimSet */
-int AnimSet::deathanim[54];
+std::vector<AnimType> AnimSet::deathanim[6][3];
 
 /* @socom-skeleton stub pistoldeathanim__7AnimSet */
-unsigned char AnimSet::pistoldeathanim[216];
+std::vector<AnimType> AnimSet::pistoldeathanim[6][3];
 
 /* @socom-skeleton stub teammatedeathanim__7AnimSet */
-unsigned char AnimSet::teammatedeathanim[216];
+std::vector<AnimType> AnimSet::teammatedeathanim[6][3];
 
 /* @socom-skeleton stub teammatepistoldeathanim__7AnimSet */
-unsigned char AnimSet::teammatepistoldeathanim[216];
+std::vector<AnimType> AnimSet::teammatepistoldeathanim[6][3];
 
 /* @socom-skeleton stub damageanim__7AnimSet */
-unsigned char AnimSet::damageanim[216];
+std::vector<AnimType> AnimSet::damageanim[6][3];
 
 /* @socom-skeleton stub pistoldamageanim__7AnimSet */
-unsigned char AnimSet::pistoldamageanim[216];
+std::vector<AnimType> AnimSet::pistoldamageanim[6][3];
 
 /* @socom-skeleton stub newNames__18@unnamed@anim_cpp@ */
 namespace {
 int newNames[3];
+
+/* animTypeNames (0x455a50, rodata): the name of each built-in AnimType */
+const char *animTypeNames[143] = {
+	"Reference",
+	"Stand",
+	"Walk",
+	"Jog",
+	"Run",
+	"Walk backwards",
+	"Jog backwards",
+	"Die",
+	"Jump launch",
+	"Jump fall",
+	"Jump land",
+	"Jump land hard",
+	"Strafe right",
+	"Strafe left",
+	"Strafe right fast",
+	"Strafe left fast",
+	"Step",
+	"Stand -> Crouch",
+	"Crouch",
+	"Crouch -> Prone",
+	"Crouch walk",
+	"Crouch step",
+	"Crouch strafe right",
+	"Crouch strafe right fast",
+	"Crouch walk backwards",
+	"Stand -> Prone",
+	"Prone",
+	"Prone crawl",
+	"Prone turn",
+	"Peek left",
+	"Peek right",
+	"Crouch peek left",
+	"Crouch peek right",
+	"Stand -> Peek up",
+	"Crouch -> Peek up",
+	"Stand -> Hang",
+	"Hang",
+	"Hang -> Climb",
+	"Hang jump down",
+	"Ledge -> Hang backwards",
+	"Hop down backwards",
+	"Falling",
+	"Land soft",
+	"Land hanging",
+	"Climb crate",
+	"Hop down forward",
+	"Stand -> Ladder",
+	"Climb ladder",
+	"Climb off ladder",
+	"Fall forward",
+	"Get up forward",
+	"Throw grenade",
+	"Toss grenade",
+	"Flinch right arm",
+	"Flinch right leg",
+	"Right limp",
+	"Rifle -> Pistol",
+	"Crouch rifle -> Pistol",
+	"Prone rifle -> Pistol",
+	"Stand -> Binocular",
+	"Crouch -> Binocular",
+	"Prone -> Binocular",
+	"Apply restraints",
+	"Receive restraints",
+	"Put on ground",
+	"Put on wall",
+	"Open door",
+	"Get from ground",
+	"Get from surface",
+	"Run right",
+	"Run left",
+	"On wall",
+	"On wall smoke",
+	"Stand -> On wall",
+	"Stand stretch",
+	"Slouch",
+	"Slouch smoke",
+	"Stab",
+	"Pistol stab",
+	"Stabbed",
+	"CQB",
+	"Pistol CQB",
+	"CQBVictimFallBackwards",
+	"CQBVictimFallForwards",
+	"Head looks",
+	"Head looks prone",
+	"Pistol stand",
+	"Pistol crouch",
+	"Pistol prone",
+	"Pistol hang",
+	"Pistol climb ladder",
+	"Pistol walk",
+	"Pistol jog",
+	"Pistol run",
+	"Pistol walk backwards",
+	"Pistol jog backwards",
+	"Pistol die",
+	"Pistol strafe right",
+	"Pistol strafe left",
+	"Pistol strafe right fast",
+	"Pistol strafe left fast",
+	"Pistol step",
+	"Pistol stand -> Crouch",
+	"Pistol crouch -> Prone",
+	"Pistol crouch walk",
+	"Pistol crouch step",
+	"Pistol crouch strafe right",
+	"Pistol crouch walk back",
+	"Pistol prone crawl",
+	"Pistol peek left",
+	"Pistol peek right",
+	"Pistol crouch peek left",
+	"Pistol crouch peek right",
+	"Pistol stand -> Peek up",
+	"Pistol crouch -> Peek up",
+	"Pistol stand -> Hang",
+	"Pistol hang -> Climb",
+	"Pistol hang jump down",
+	"Pistol ledge -> Hang backwards",
+	"Pistol hop down backwards",
+	"Pistol falling",
+	"Pistol land soft",
+	"Pistol land hanging",
+	"Pistol climb crate",
+	"Pistol hop down forward",
+	"Pistol stand -> Ladder",
+	"Pistol climb off ladder",
+	"Pistol fall forward",
+	"Pistol get up forward",
+	"Pistol right limp",
+	"Pistol throw grenade",
+	"Pistol toss grenade",
+	"Pistol stand -> Binocular",
+	"Pistol crouch -> Binocular",
+	"Pistol prone -> Binocular",
+	"Pistol apply restraints",
+	"Pistol put on ground",
+	"Pistol put on wall",
+	"Pistol open door",
+	"Pistol get from ground",
+	"Pistol get from surface",
+	"Pistol run right",
+	"Pistol run left",
+};
 }
 
 /* @socom-skeleton stub newNamesMap */
-unsigned char newNamesMap[16];
+std::map<std::string, int> newNamesMap; /* AnimType name -> AnimType */
 
 /* @socom-skeleton stub animNamesMap */
-unsigned char animNamesMap[16];
+std::map<std::string, int> animNamesMap; /* motion.rdr anim_name -> body anim index (during AnimSet::Load) */
 
 /* @socom-skeleton stub list__7AnimSet */
-int AnimSet::list[3];
+std::vector<AnimSet*> AnimSet::list;
 
 /* @socom-skeleton stub list__12CAnimAuxData */
-int CAnimAuxData::list[3];
+std::vector<CAnimAuxData*> CAnimAuxData::list;
 
 /* @socom-skeleton stub Clear__10CBlendableFv */
 void CBlendable::Clear()
 {
+	/* 0x2cd6e0 */
+	memset(this, 0, sizeof(*this));
+
+	for (s32 i = 0; i < 4; i++)
+		m_blendable[i].m_animtype = AnimType::animTypeUndefined;
 }
 
 /* @socom-skeleton stub AddBlendable__10CBlendableFff8AnimType */
-void CBlendable::AddBlendable(float, float, AnimType)
+void CBlendable::AddBlendable(float trans0, float trans1, AnimType type)
 {
+	/* 0x2cd690: the first free slot, unless the type is there already */
+	for (s32 i = 0; i < 4; i++)
+	{
+		if (m_blendable[i].m_animtype == type)
+			return;
+
+		if (m_blendable[i].m_animtype == AnimType::animTypeUndefined)
+		{
+			m_blendable[i].m_trans0 = trans0;
+			m_blendable[i].m_trans1 = trans1;
+			m_blendable[i].m_animtype = type;
+			return;
+		}
+	}
 }
 
 /* @socom-skeleton stub MaxTrans1__10CBlendableFv */
 float CBlendable::MaxTrans1()
 {
+	/* 0x2cd640 */
+	f32 max = 0.0f;
+
+	for (s32 i = 0; i < 4 && m_blendable[i].m_animtype != AnimType::animTypeUndefined; i++)
+	{
+		if (m_blendable[i].m_trans1 > max)
+			max = m_blendable[i].m_trans1;
+	}
+
+	return max;
 }
 
 /* @socom-skeleton stub Contains__10CBlendableF8AnimType */
-void CBlendable::Contains(AnimType)
+bool CBlendable::Contains(AnimType type)
 {
+	/* 0x2cd5f0 */
+	for (s32 i = 0; i < 4; i++)
+	{
+		if (m_blendable[i].m_animtype == AnimType::animTypeUndefined)
+			return false;
+
+		if (m_blendable[i].m_animtype == type)
+			return true;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub CloseAll__7AnimSetFv */
@@ -785,26 +975,178 @@ void AnimSet::Close()
 /* @socom-skeleton stub GetAnimTypeMax__Fv */
 int GetAnimTypeMax()
 {
+	return numAnimTypes;
 }
 
 /* @socom-skeleton stub FindAnimType__FPCc */
-AnimType FindAnimType(const char *)
+AnimType FindAnimType(const char *name)
 {
+	/* 0x2cd240 */
+	if (name != NULL)
+	{
+		std::map<std::string, int>::iterator it = newNamesMap.find(std::string(name));
+
+		if (it != newNamesMap.end())
+			return (AnimType)it->second;
+	}
+
+	return AnimType::animTypeUndefined;
 }
 
 /* @socom-skeleton stub Load__7AnimSetFP5_zrdr */
-void AnimSet::Load(_zrdr *)
+bool AnimSet::Load(_zrdr *rdr)
 {
+	/* 0x2ccad0: one animset.rdr entry. Each anim_set_anims entry maps an AnimType (by
+	 * type_name; an unknown name becomes a new AnimType) to a motion.rdr anim (anim_name).
+	 * ELF quirk: motion.rdr anim 0 reads as "none" (index 0 -> -1). */
+	_zrdr *name = zrdr_findtag(rdr, "anim_set_name");
+
+	if (name == NULL)
+		return false;
+
+	AnimSet *set = new AnimSet;
+	set->m_ready = false;
+	set->m_name = name->array[1].string;
+
+	if (strcmp(set->m_name.c_str(), "defusebomb anim set") == 0)
+		m_defuse = set;
+
+	set->m_animIDs.push_back(-1);
+	set->m_basetypes.push_back(AnimType::animTypeUndefined);
+
+	_zrdr *include = zrdr_flat_findtag_startidx(rdr, "include", 0);
+
+	if (include != NULL && include->IsArray())
+	{
+		for (u32 i = 0; include->Get(i) != NULL; i++)
+		{
+			if (include->Get(i)->type == ZRDR_STRING)
+				set->m_included.push_back(std::string(include->Get(i)->string));
+		}
+	}
+
+	_zrdr *anims = zrdr_findtag(rdr, "anim_set_anims");
+
+	if (anims != NULL)
+	{
+		for (s32 i = 1; i < anims->array->integer; i++)
+		{
+			_zrdr *entry = &anims->array[i];
+			s32 type = 0;
+			_zrdr *type_name = zrdr_findtag(entry, "type_name");
+
+			if (type_name != NULL)
+				type = (s16)FindAnimType(type_name->array[1].string);
+
+			if (type < 0)
+			{
+				type = numAnimTypes++;
+				newNamesMap[std::string(type_name->array[1].string)] = type;
+				CAnimAuxData::list.push_back(new CAnimAuxData);
+			}
+
+			_zrdr *anim_name = zrdr_findtag(entry, "anim_name");
+			s32 index = animNamesMap[std::string(anim_name->array[1].string)];
+			s32 id = index > 0 ? index : -1;
+
+			while (set->m_animIDs.size() <= (u32)type)
+			{
+				set->m_animIDs.push_back(-1);
+				set->m_basetypes.push_back(AnimType::animTypeUndefined);
+			}
+
+			set->m_animIDs[type] = id;
+			set->m_basetypes[type] = (AnimType)type;
+
+			_zrdr *network_log = zrdr_findtag(entry, "network_log");
+
+			if (network_log != NULL)
+				CAnimAuxData::list[type]->m_network_log = network_log != NULL;
+		}
+	}
+
+	list.push_back(set);
+	return true;
 }
 
 /* @socom-skeleton stub AnimId__7AnimSetCF8AnimType */
-short AnimSet::AnimId(AnimType) const
+short AnimSet::AnimId(AnimType type) const
 {
+	/* 0x2cca90 */
+	if ((s32)type < 0)
+		return -1;
+
+	return (u32)(s32)type < m_animIDs.size() ? m_animIDs[(s32)type] : -1;
 }
 
 /* @socom-skeleton stub Inherit__7AnimSetFP7AnimSet */
-void AnimSet::Inherit(AnimSet *)
+void AnimSet::Inherit(AnimSet *other)
 {
+	/* 0x2cc7e0: takes every anim the other set defines, and its FP groups. While this set
+	 * is not ready the other set first inherits its own includes. */
+	if (this == other)
+		return;
+
+	if (!m_ready)
+	{
+		for (std::vector<std::string>::iterator inc = other->m_included.begin(); inc != other->m_included.end(); ++inc)
+		{
+			AnimSet *found = NULL;
+
+			for (std::vector<AnimSet*>::iterator it = list.begin(); it != list.end(); ++it)
+			{
+				if (strcmp(inc->c_str(), (*it)->m_name.c_str()) == 0)
+				{
+					found = *it;
+					break;
+				}
+			}
+
+			if (found != NULL)
+				other->Inherit(found);
+		}
+	}
+
+	for (u32 i = 0; i < other->m_animIDs.size(); i++)
+	{
+		if (other->m_animIDs[i] < 0)
+			continue;
+
+		while (m_animIDs.size() <= i)
+			m_animIDs.push_back(-1);
+
+		while (m_basetypes.size() <= i)
+			m_basetypes.push_back(AnimType::animTypeUndefined);
+
+		m_animIDs[i] = other->m_animIDs[i];
+		m_basetypes[i] = other->m_basetypes[i];
+	}
+
+	ANIMTYPE_GROUP *dst = m_animgps->m_animgroups;
+	ANIMTYPE_GROUP *src = other->m_animgps->m_animgroups;
+
+	for (s32 i = 0; i < 300; i++, src++)
+	{
+		if (src->m_pistol_type > AnimType::animTypeUndefined)
+		{
+			dst[(s32)src->m_rifle_type].m_rifle_type = src->m_rifle_type;
+			dst[(s32)src->m_rifle_type].m_pistol_type = src->m_pistol_type;
+		}
+
+		if (src->m_rifle_fp_type > AnimType::animTypeUndefined)
+		{
+			dst[(s32)src->m_rifle_type].m_rifle_type = src->m_rifle_type;
+			dst[(s32)src->m_rifle_type].m_rifle_fp_type = src->m_rifle_fp_type;
+		}
+
+		if (src->m_pistol_fp_type > AnimType::animTypeUndefined)
+		{
+			dst[(s32)src->m_rifle_type].m_rifle_type = src->m_rifle_type;
+			dst[(s32)src->m_rifle_type].m_pistol_fp_type = src->m_pistol_fp_type;
+		}
+	}
+
+	m_ready = true;
 }
 
 /* @socom-skeleton stub Get__12CAnimAuxDataFUi */
@@ -813,56 +1155,533 @@ void CAnimAuxData::Get(unsigned int)
 }
 
 /* @socom-skeleton stub Load__7AnimSetFv */
-void AnimSet::Load()
+bool AnimSet::Load()
 {
+	/* 0x2cc3c0 (CMission::Init): the AnimType names, the motion.rdr anim indices, every
+	 * animset.rdr set, the AnimTypes:: statics, FP groups, death/flinch lists, includes */
+	numAnimTypes = 143;
+	newNamesMap.clear();
+
+	s32 count = numAnimTypes;
+	loadCount++;
+
+	if (count != 0)
+	{
+		CAnimAuxData::list.reserve(count);
+
+		while (count-- != 0)
+			CAnimAuxData::list.push_back(new CAnimAuxData);
+	}
+
+	for (s32 i = 0; i < numAnimTypes; i++)
+		newNamesMap[std::string(animTypeNames[i])] = i;
+
+	animNamesMap.clear();
+	CRdrFile *motion = zrdr_read("motion.rdr", "data/common", 0);
+	_zrdr *anims = zrdr_findtag(motion, "animations");
+
+	for (s32 i = 1; anims != NULL && i < anims->array->integer; i++)
+	{
+		_zrdr *anim_name = zrdr_findtag(&anims->array[i], "anim_name");
+		animNamesMap[std::string(anim_name->array[1].string)] = i - 1;
+	}
+
+	zrdr_free(motion);
+	list.clear();
+
+	if (list.capacity() < 32)
+		list.reserve(32);
+
+	bool read = false;
+	CRdrFile *sets = zrdr_read("animset.rdr", "data/common", 0);
+
+	if (sets != NULL)
+	{
+		for (_zrdr *set = &sets->array[1]; set < &sets->array[sets->array->integer]; set++)
+			Load(set);
+
+		zrdr_free(sets);
+		read = true;
+	}
+
+	animNamesMap.clear();
+	InitializeAnimNames();
+
+	for (std::vector<AnimSet*>::iterator it = list.begin(); it != list.end(); ++it)
+		(*it)->DefineFPAnims();
+
+	InitDeathAndFlinchAnimations();
+
+	if (deathanim[0][0].size() == 0)
+		ReadDeathAndFlinchAnims();
+
+	for (std::vector<AnimSet*>::iterator it = list.begin(); it != list.end(); ++it)
+	{
+		AnimSet *set = *it;
+
+		for (std::vector<std::string>::iterator inc = set->m_included.begin(); inc != set->m_included.end(); ++inc)
+		{
+			AnimSet *found = NULL;
+
+			for (std::vector<AnimSet*>::iterator s = list.begin(); s != list.end(); ++s)
+			{
+				if (strcmp(inc->c_str(), (*s)->m_name.c_str()) == 0)
+				{
+					found = *s;
+					break;
+				}
+			}
+
+			if (found != NULL)
+				set->Inherit(found);
+		}
+	}
+
+	return read;
 }
 
 /* @socom-skeleton stub InitializeAnimNames__Fv */
 void InitializeAnimNames()
 {
+	/* 0x2c7ef0 (FindAnimType inlined at each line); generated from the ELF's 157 name/static pairs */
+	AnimTypes::FireStand = (short)FindAnimType("Fire stand");
+	AnimTypes::FireCrouch = (short)FindAnimType("Fire crouch");
+	AnimTypes::FireProne = (short)FindAnimType("Fire prone");
+	AnimTypes::FireCrouchWalk = (short)FindAnimType("Fire crouch walk");
+	AnimTypes::FireWalk = (short)FindAnimType("Fire walk");
+	AnimTypes::FireJog = (short)FindAnimType("Fire jog");
+	AnimTypes::FireRun = (short)FindAnimType("Fire run");
+	AnimTypes::FireWalkBackwards = (short)FindAnimType("Fire walk backwards");
+	AnimTypes::FireRunBackwards = (short)FindAnimType("Fire run backwards");
+	AnimTypes::FireCrouchWalkBackwards = (short)FindAnimType("Fire crouch walk backwards");
+	AnimTypes::FireStep = (short)FindAnimType("Fire step");
+	AnimTypes::PistolFireStand = (short)FindAnimType("Pistol fire stand");
+	AnimTypes::PistolFireCrouch = (short)FindAnimType("Pistol fire crouch");
+	AnimTypes::PistolFireProne = (short)FindAnimType("Pistol fire prone");
+	AnimTypes::PistolFireCrouchWalk = (short)FindAnimType("Pistol fire crouch walk");
+	AnimTypes::PistolFireWalk = (short)FindAnimType("Pistol fire walk");
+	AnimTypes::PistolFireJog = (short)FindAnimType("Pistol fire jog");
+	AnimTypes::PistolFireRun = (short)FindAnimType("Pistol fire run");
+	AnimTypes::PistolFireWalkBackwards = (short)FindAnimType("Pistol fire walk backwards");
+	AnimTypes::PistolFireRunBackwards = (short)FindAnimType("Pistol fire run backwards");
+	AnimTypes::PistolFireCrouchWalkBackwards = (short)FindAnimType("Pistol fire crouch walk backwards");
+	AnimTypes::PistolFireStep = (short)FindAnimType("Pistol fire step");
+	AnimTypes::Walk = (short)FindAnimType("Walk");
+	AnimTypes::Rotate180 = (short)FindAnimType("180");
+	AnimTypes::FireCrouchStep = (short)FindAnimType("Fire crouch step");
+	AnimTypes::PistolFireCrouchStep = (short)FindAnimType("Pistol fire crouch step");
+	AnimTypes::Slide = (short)FindAnimType("Slide");
+	AnimTypes::Jump = (short)FindAnimType("Jump");
+	AnimTypes::StandAlert = (short)FindAnimType("Stand alert");
+	AnimTypes::PistolStandAlert = (short)FindAnimType("Pistol stand alert");
+	AnimTypes::PronePeekLeft = (short)FindAnimType("Prone peek left");
+	AnimTypes::PronePeekRight = (short)FindAnimType("Prone peek right");
+	AnimTypes::PistolPronePeekLeft = (short)FindAnimType("Pistol prone peek left");
+	AnimTypes::PistolPronePeekRight = (short)FindAnimType("Pistol prone peek right");
+	AnimTypes::TossGrenadePeekRight = (short)FindAnimType("Peek right toss");
+	AnimTypes::PistolTossGrenadePeekRight = (short)FindAnimType("Pistol peek right toss");
+	AnimTypes::TossGrenadePeekLeft = (short)FindAnimType("Peek left toss");
+	AnimTypes::PistolTossGrenadePeekLeft = (short)FindAnimType("Pistol peek left toss");
+	AnimTypes::KickGrenade = (short)FindAnimType("Kick grenade");
+	AnimTypes::PlaceClaymore = (short)FindAnimType("Place claymore");
+	AnimTypes::PistolPlaceClaymore = (short)FindAnimType("Pistol place claymore");
+	AnimTypes::PistolReload = (short)FindAnimType("Pistol reload");
+	AnimTypes::RifleReload = (short)FindAnimType("Rifle reload");
+	AnimTypes::MovingPistolReload = (short)FindAnimType("Moving pistol reload");
+	AnimTypes::MovingRifleReload = (short)FindAnimType("Moving rifle reload");
+	AnimTypes::PistolCrouchReload = (short)FindAnimType("Pistol crouch reload");
+	AnimTypes::RifleCrouchReload = (short)FindAnimType("Rifle crouch reload");
+	AnimTypes::PistolProneReload = (short)FindAnimType("Pistol prone reload");
+	AnimTypes::RifleProneReload = (short)FindAnimType("Rifle prone reload");
+	AnimTypes::PistolReturnThrowGrenade = (short)FindAnimType("Pistol return throw grenade");
+	AnimTypes::RifleReturnThrowGrenade = (short)FindAnimType("Return throw grenade");
+	AnimTypes::ProneThrowGrenade = (short)FindAnimType("Prone throw grenade");
+	AnimTypes::PistolProneThrowGrenade = (short)FindAnimType("Pistol prone throw grenade");
+	AnimTypes::CrouchThrowGrenade = (short)FindAnimType("Crouch throw grenade");
+	AnimTypes::PistolCrouchThrowGrenade = (short)FindAnimType("Pistol crouch throw grenade");
+	AnimTypes::ThrowGrenade = (short)FindAnimType("Throw grenade");
+	AnimTypes::PistolThrowGrenade = (short)FindAnimType("Pistol throw grenade");
+	AnimTypes::ProneTossGrenade = (short)FindAnimType("Prone toss grenade");
+	AnimTypes::PistolProneTossGrenade = (short)FindAnimType("Pistol prone toss grenade");
+	AnimTypes::TossGrenade = (short)FindAnimType("Toss grenade");
+	AnimTypes::PistolTossGrenade = (short)FindAnimType("Pistol toss grenade");
+	AnimTypes::RifleM203Reload = (short)FindAnimType("Rifle m203 reload");
+	AnimTypes::StandStretch = (short)FindAnimType("Stand stretch");
+	AnimTypes::Slouch = (short)FindAnimType("Slouch");
+	AnimTypes::SlouchSmoke = (short)FindAnimType("Slouch smoke");
+	AnimTypes::RunningJumpLaunch = (short)FindAnimType("Jump launch");
+	AnimTypes::PistolRunningJumpLaunch = (short)FindAnimType("Pistol jump launch");
+	AnimTypes::RunningJumpLand = (short)FindAnimType("Jump land");
+	AnimTypes::PistolRunningJumpLand = (short)FindAnimType("Pistol jump land");
+	AnimTypes::LandHard = (short)FindAnimType("Jump land hard");
+	AnimTypes::PistolLandHard = (short)FindAnimType("Pistol jump land hard");
+	AnimTypes::Stand2Prone = (short)FindAnimType("Stand -> Prone");
+	AnimTypes::PistolStand2Prone = (short)FindAnimType("Pistol stand -> Prone");
+	AnimTypes::ProneTurn = (short)FindAnimType("Prone turn");
+	AnimTypes::PistolProneTurn = (short)FindAnimType("Pistol prone turn");
+	AnimTypes::MovingRifle2Pistol = (short)FindAnimType("Moving rifle -> Pistol");
+	AnimTypes::MovingPistol2Rifle = (short)FindAnimType("Moving rifle -> Pistol");
+	AnimTypes::SwapRifle = (short)FindAnimType("Swap rifle");
+	AnimTypes::StepUp = (short)FindAnimType("Step up");
+	AnimTypes::PistolStepUp = (short)FindAnimType("Pistol step up");
+	AnimTypes::ClimbMedium = (short)FindAnimType("Climb medium");
+	AnimTypes::PistolClimbMedium = (short)FindAnimType("Pistol climb medium");
+	AnimTypes::ClimbOver = (short)FindAnimType("Climb over");
+	AnimTypes::PistolClimbOver = (short)FindAnimType("Pistol climb over");
+	AnimTypes::CrouchStrafeLeft = (short)FindAnimType("Crouch strafe left");
+	AnimTypes::ProneRStrafe = (short)FindAnimType("Prone rstrafe");
+	AnimTypes::PistolProneRStrafe = (short)FindAnimType("Pistol prone rstrafe");
+	AnimTypes::ProneLStrafe = (short)FindAnimType("Prone lstrafe");
+	AnimTypes::PistolProneLStrafe = (short)FindAnimType("Pistol prone lstrafe");
+	AnimTypes::ProneCover = (short)FindAnimType("Prone cover");
+	AnimTypes::PistolProneCover = (short)FindAnimType("Pistol prone cover");
+	AnimTypes::Die = (short)FindAnimType("Die");
+	AnimTypes::PistolDie = (short)FindAnimType("Pistol die");
+	AnimTypes::Death02 = (short)FindAnimType("Death02");
+	AnimTypes::PistolDeath02 = (short)FindAnimType("Pistol death02");
+	AnimTypes::CrawlDeath01 = (short)FindAnimType("Crawl death01");
+	AnimTypes::PistolCrawlDeath01 = (short)FindAnimType("Pistol crawl death01");
+	AnimTypes::CrawlDeath02 = (short)FindAnimType("Crawl death02");
+	AnimTypes::PistolCrawlDeath02 = (short)FindAnimType("Pistol crawl death02");
+	AnimTypes::DeathCrouchBack01 = (short)FindAnimType("Death crouch back01");
+	AnimTypes::PistolDeathCrouchBack01 = (short)FindAnimType("Pistol death crouch back01");
+	AnimTypes::DeathCrouchChest01 = (short)FindAnimType("Death crouch chest01");
+	AnimTypes::PistoDeathCrouchChest01 = (short)FindAnimType("Pistol death crouch chest01");
+	AnimTypes::DeathCrouchChest02 = (short)FindAnimType("Death crouch chest02");
+	AnimTypes::PistolDeathCrouchChest02 = (short)FindAnimType("Pistol death crouch chest02");
+	AnimTypes::DeathCrouchHead01 = (short)FindAnimType("Death crouch head01");
+	AnimTypes::PistolDeathCrouchHead01 = (short)FindAnimType("Pistol death crouch head01");
+	AnimTypes::DeathStandHead01 = (short)FindAnimType("Death stand head01");
+	AnimTypes::PistolDeathStandHead01 = (short)FindAnimType("Pistol death stand head01");
+	AnimTypes::DeathProneChest01 = (short)FindAnimType("Death prone chest01");
+	AnimTypes::PistolDeathProneChest01 = (short)FindAnimType("Pistol death prone chest01");
+	AnimTypes::DeathStandLarm01 = (short)FindAnimType("Death stand larm01");
+	AnimTypes::PistolDeathStandLarm01 = (short)FindAnimType("Pistol death stand larm01");
+	AnimTypes::DeathStandChest03 = (short)FindAnimType("Death stand chest03");
+	AnimTypes::PistolDeathStandChest03 = (short)FindAnimType("Pistol death stand chest03");
+	AnimTypes::Stab = (short)FindAnimType("Stab");
+	AnimTypes::PistolStab = (short)FindAnimType("Pistol stab");
+	AnimTypes::Stabbed = (short)FindAnimType("Stabbed");
+	AnimTypes::CQB = (short)FindAnimType("CQB attack");
+	AnimTypes::PistolCQB = (short)FindAnimType("Pistol CQB attack");
+	AnimTypes::CQBVictimFallBackwards = (short)FindAnimType("Death stand head01");
+	AnimTypes::CQBVictimFallForwards = (short)FindAnimType("Death stand head03");
+	AnimTypes::ReceiveRestraints = (short)FindAnimType("Receive restraints");
+	AnimTypes::ApplyRestraints = (short)FindAnimType("Apply restraints");
+	AnimTypes::PistolApplyRestraints = (short)FindAnimType("Pistol apply restraints");
+	AnimTypes::BuddyCarryStand = (short)FindAnimType("Buddycarry stand");
+	AnimTypes::PistolBuddyCarryStand = (short)FindAnimType("Pistol buddycarry stand");
+	AnimTypes::BuddyCarriedStand = (short)FindAnimType("Buddycarried stand");
+	AnimTypes::BuddyCarryBody = (short)FindAnimType("Buddycarry body");
+	AnimTypes::BuddyCarryWalk = (short)FindAnimType("Buddycarry walk");
+	AnimTypes::PistolBuddyCarryWalk = (short)FindAnimType("Pistol buddycarry walk");
+	AnimTypes::BuddyCarriedWalk = (short)FindAnimType("Buddycarried walk");
+	AnimTypes::BuddyCarryPickup = (short)FindAnimType("Buddycarry pickup");
+	AnimTypes::PistolBuddyCarryPickup = (short)FindAnimType("Pistol buddycarry pickup");
+	AnimTypes::BuddyCarriedPickup = (short)FindAnimType("Buddycarried pickup");
+	AnimTypes::BuddyCarryStep = (short)FindAnimType("Buddycarry step");
+	AnimTypes::PistolBuddyCarryStep = (short)FindAnimType("Pistol buddycarry step");
+	AnimTypes::BuddyCarriedStep = (short)FindAnimType("Buddycarried step");
+	AnimTypes::FallForward01 = (short)FindAnimType("Fall forward");
+	AnimTypes::FallBackward01 = (short)FindAnimType("Fall backwards");
+	AnimTypes::DiveForward01 = (short)FindAnimType("Dive forward");
+	AnimTypes::LandForward01 = (short)FindAnimType("Land forward");
+	AnimTypes::LandBackward01 = (short)FindAnimType("Land backwards");
+	AnimTypes::GetupForward01 = (short)FindAnimType("Get up forward");
+	AnimTypes::GetupBackward01 = (short)FindAnimType("Get up backwards");
+	AnimTypes::DefuseBombBegin = (short)FindAnimType("Defusebomb begin");
+	AnimTypes::PistolDefuseBombBegin = (short)FindAnimType("Pistol defusebomb begin");
+	AnimTypes::DefuseBombLoop = (short)FindAnimType("Defusebomb loop");
+	AnimTypes::PistolDefuseBombLoop = (short)FindAnimType("Pistol defusebomb loop");
+	AnimTypes::DefuseBombEnd = (short)FindAnimType("Defusebomb end");
+	AnimTypes::PistolDefuseBombEnd = (short)FindAnimType("Pistol defusebomb end");
+	AnimTypes::Ladder2Slide = (short)FindAnimType("Ladder -> slide");
+	AnimTypes::PistolLadder2Slide = (short)FindAnimType("Pistol ladder -> slide");
+	AnimTypes::LadderSlide = (short)FindAnimType("Ladderslide");
+	AnimTypes::PistolLadderSlide = (short)FindAnimType("Pistol ladderslide");
+	AnimTypes::LadderSlideLand = (short)FindAnimType("Ladderslide land");
+	AnimTypes::PistolLadderSlideLand = (short)FindAnimType("Pistol ladderslide land");
 }
 
 /* @socom-skeleton stub BaseAnim__7AnimSetF8AnimType */
-AnimType AnimSet::BaseAnim(AnimType)
+AnimType AnimSet::BaseAnim(AnimType type)
 {
+	/* 0x2c7eb0 */
+	if ((s32)type < 0)
+		return AnimType::animTypeUndefined;
+
+	return (u32)(s32)type < m_basetypes.size() ? m_basetypes[(s32)type] : AnimType::animTypeUndefined;
 }
 
 /* @socom-skeleton stub Clear__10CAnimsByFPFv */
 void CAnimsByFP::Clear()
 {
+	/* 0x2c7e70 */
+	ANIMTYPE_GROUP *group = m_animgroups;
+
+	for (s32 i = 0; i < 300; i++, group++)
+	{
+		group->m_rifle_type = AnimType::animTypeUndefined;
+		group->m_pistol_type = AnimType::animTypeUndefined;
+		group->m_rifle_fp_type = AnimType::animTypeUndefined;
+		group->m_pistol_fp_type = AnimType::animTypeUndefined;
+	}
 }
 
 /* @socom-skeleton stub PistolAnim__10CAnimsByFPCF8AnimType */
-AnimType CAnimsByFP::PistolAnim(AnimType) const
+AnimType CAnimsByFP::PistolAnim(AnimType type) const
 {
+	/* 0x2c7e30 */
+	if ((s32)type < 300 && (s32)type >= 0)
+		return m_animgroups[(s32)type].m_pistol_type;
+
+	return AnimType::animTypeUndefined;
 }
 
 /* @socom-skeleton stub RifleFPAnim__10CAnimsByFPCF8AnimType */
-AnimType CAnimsByFP::RifleFPAnim(AnimType) const
+AnimType CAnimsByFP::RifleFPAnim(AnimType type) const
 {
+	/* 0x2c7df0 */
+	if ((s32)type < 300 && (s32)type >= 0)
+		return m_animgroups[(s32)type].m_rifle_fp_type;
+
+	return AnimType::animTypeUndefined;
 }
 
 /* @socom-skeleton stub PistolFPAnim__10CAnimsByFPCF8AnimType */
-AnimType CAnimsByFP::PistolFPAnim(AnimType) const
+AnimType CAnimsByFP::PistolFPAnim(AnimType type) const
 {
+	/* 0x2c7db0 */
+	if ((s32)type < 300 && (s32)type >= 0)
+		return m_animgroups[(s32)type].m_pistol_fp_type;
+
+	return AnimType::animTypeUndefined;
 }
 
 /* @socom-skeleton stub SetPistolAnim__10CAnimsByFPF8AnimType8AnimType */
-void CAnimsByFP::SetPistolAnim(AnimType, AnimType)
+void CAnimsByFP::SetPistolAnim(AnimType rifle, AnimType pistol)
 {
+	/* 0x2c7d80 (no range check) */
+	m_animgroups[(s32)rifle].m_rifle_type = rifle;
+	m_animgroups[(s32)rifle].m_pistol_type = pistol;
 }
 
 /* @socom-skeleton stub DefineFPAnims__7AnimSetFv */
+/* One DefineFPAnims step (inlined 133 times in 0x2c0970). port: no symbol; name guessed.
+ * When the set has both anims, the rifle type's group records the partner in the given
+ * field, and the partner's base type is the rifle type. */
+static void DefineFPAnim(AnimSet *set, AnimType rifle, AnimType other, AnimType ANIMTYPE_GROUP::*field)
+{
+	if (set->AnimId(rifle) < 0 || set->AnimId(other) < 0)
+		return;
+
+	set->m_animgps->m_animgroups[(s32)rifle].m_rifle_type = rifle;
+	set->m_animgps->m_animgroups[(s32)rifle].*field = other;
+
+	while (set->m_basetypes.size() <= (u32)(s32)other)
+		set->m_basetypes.push_back(AnimType::animTypeUndefined);
+
+	set->m_basetypes[(s32)other] = rifle;
+}
+
 void AnimSet::DefineFPAnims()
 {
+	/* 0x2c0970: a 300-group table (malloc, anim.cpp line 1351), then the pistol and FP
+	 * partners of the rifle anims; generated from the ELF's 133 entries */
+	CAnimsByFP *groups = new CAnimsByFP;
+
+	if (groups != NULL)
+	{
+		groups->m_animgroups = (ANIMTYPE_GROUP *)zmalloc(300 * sizeof(ANIMTYPE_GROUP));
+		groups->Clear();
+	}
+
+	m_animgps = groups;
+
+	DefineFPAnim(this, (AnimType)1, (AnimType)86, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)18, (AnimType)87, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)26, (AnimType)88, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)36, (AnimType)89, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)47, (AnimType)90, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)41, (AnimType)120, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)2, (AnimType)91, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)3, (AnimType)92, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)4, (AnimType)93, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)5, (AnimType)94, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)6, (AnimType)95, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)7, (AnimType)96, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)12, (AnimType)97, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)13, (AnimType)98, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)14, (AnimType)97, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)15, (AnimType)98, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)16, (AnimType)101, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)17, (AnimType)102, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)19, (AnimType)103, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)20, (AnimType)104, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)21, (AnimType)105, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)22, (AnimType)106, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)23, (AnimType)106, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)24, (AnimType)107, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)27, (AnimType)108, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)29, (AnimType)109, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)30, (AnimType)110, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)31, (AnimType)111, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)32, (AnimType)112, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)33, (AnimType)113, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)34, (AnimType)114, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::PronePeekLeft, (AnimType)AnimTypes::PistolPronePeekLeft, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::PronePeekRight, (AnimType)AnimTypes::PistolPronePeekRight, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::TossGrenadePeekRight, (AnimType)AnimTypes::PistolTossGrenadePeekRight, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::TossGrenadePeekLeft, (AnimType)AnimTypes::PistolTossGrenadePeekLeft, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)35, (AnimType)115, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)37, (AnimType)116, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)38, (AnimType)117, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)39, (AnimType)118, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)40, (AnimType)119, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)42, (AnimType)121, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)43, (AnimType)122, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)44, (AnimType)123, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)45, (AnimType)124, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)46, (AnimType)125, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)48, (AnimType)126, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)49, (AnimType)127, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)50, (AnimType)128, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)55, (AnimType)129, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)51, (AnimType)130, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)59, (AnimType)132, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)60, (AnimType)133, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)61, (AnimType)134, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)62, (AnimType)135, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)64, (AnimType)136, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)65, (AnimType)137, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)66, (AnimType)138, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)67, (AnimType)139, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)68, (AnimType)140, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)69, (AnimType)141, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)70, (AnimType)142, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::ThrowGrenade, (AnimType)AnimTypes::PistolThrowGrenade, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::CrouchThrowGrenade, (AnimType)AnimTypes::PistolCrouchThrowGrenade, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::ProneThrowGrenade, (AnimType)AnimTypes::PistolProneThrowGrenade, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::TossGrenade, (AnimType)AnimTypes::PistolTossGrenade, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::CrouchThrowGrenade, (AnimType)AnimTypes::PistolCrouchThrowGrenade, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::ProneTossGrenade, (AnimType)AnimTypes::PistolProneTossGrenade, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::RunningJumpLaunch, (AnimType)AnimTypes::PistolRunningJumpLaunch, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::RunningJumpLand, (AnimType)AnimTypes::PistolRunningJumpLand, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::LandHard, (AnimType)AnimTypes::PistolLandHard, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::Stand2Prone, (AnimType)AnimTypes::PistolStand2Prone, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::ProneTurn, (AnimType)AnimTypes::PistolProneTurn, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::Die, (AnimType)AnimTypes::PistolDie, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::Death02, (AnimType)AnimTypes::PistolDeath02, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::CrawlDeath01, (AnimType)AnimTypes::PistolCrawlDeath01, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::CrawlDeath02, (AnimType)AnimTypes::PistolCrawlDeath02, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::DeathCrouchBack01, (AnimType)AnimTypes::PistolDeathCrouchBack01, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::DeathCrouchChest01, (AnimType)AnimTypes::PistoDeathCrouchChest01, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::DeathCrouchChest02, (AnimType)AnimTypes::PistolDeathCrouchChest02, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::DeathCrouchHead01, (AnimType)AnimTypes::PistolDeathCrouchHead01, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::DeathStandHead01, (AnimType)AnimTypes::PistolDeathStandHead01, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::DeathProneChest01, (AnimType)AnimTypes::PistolDeathProneChest01, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::DeathStandLarm01, (AnimType)AnimTypes::PistolDeathStandLarm01, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::DeathStandChest03, (AnimType)AnimTypes::PistolDeathStandChest03, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::Stab, (AnimType)AnimTypes::PistolStab, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::CQB, (AnimType)AnimTypes::PistolCQB, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::PlaceClaymore, (AnimType)AnimTypes::PistolPlaceClaymore, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::RifleReload, (AnimType)AnimTypes::PistolReload, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::RifleCrouchReload, (AnimType)AnimTypes::PistolCrouchReload, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::RifleProneReload, (AnimType)AnimTypes::PistolProneReload, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::RifleReturnThrowGrenade, (AnimType)AnimTypes::PistolReturnThrowGrenade, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::ProneRStrafe, (AnimType)AnimTypes::PistolProneRStrafe, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::ProneLStrafe, (AnimType)AnimTypes::PistolProneLStrafe, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::StepUp, (AnimType)AnimTypes::PistolStepUp, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::ClimbMedium, (AnimType)AnimTypes::PistolClimbMedium, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::ClimbOver, (AnimType)AnimTypes::PistolClimbOver, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::BuddyCarryStand, (AnimType)AnimTypes::PistolBuddyCarryStand, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::BuddyCarryWalk, (AnimType)AnimTypes::PistolBuddyCarryWalk, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::BuddyCarryPickup, (AnimType)AnimTypes::PistolBuddyCarryPickup, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::BuddyCarryStep, (AnimType)AnimTypes::PistolBuddyCarryStep, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::DefuseBombBegin, (AnimType)AnimTypes::PistolDefuseBombBegin, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::DefuseBombLoop, (AnimType)AnimTypes::PistolDefuseBombLoop, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)AnimTypes::DefuseBombEnd, (AnimType)AnimTypes::PistolDefuseBombEnd, &ANIMTYPE_GROUP::m_pistol_type);
+	DefineFPAnim(this, (AnimType)1, (AnimType)AnimTypes::FireStand, &ANIMTYPE_GROUP::m_rifle_fp_type);
+	DefineFPAnim(this, (AnimType)18, (AnimType)AnimTypes::FireCrouch, &ANIMTYPE_GROUP::m_rifle_fp_type);
+	DefineFPAnim(this, (AnimType)26, (AnimType)AnimTypes::FireProne, &ANIMTYPE_GROUP::m_rifle_fp_type);
+	DefineFPAnim(this, (AnimType)2, (AnimType)AnimTypes::FireWalk, &ANIMTYPE_GROUP::m_rifle_fp_type);
+	DefineFPAnim(this, (AnimType)3, (AnimType)AnimTypes::FireJog, &ANIMTYPE_GROUP::m_rifle_fp_type);
+	DefineFPAnim(this, (AnimType)4, (AnimType)AnimTypes::FireRun, &ANIMTYPE_GROUP::m_rifle_fp_type);
+	DefineFPAnim(this, (AnimType)5, (AnimType)AnimTypes::FireWalkBackwards, &ANIMTYPE_GROUP::m_rifle_fp_type);
+	DefineFPAnim(this, (AnimType)6, (AnimType)AnimTypes::FireRunBackwards, &ANIMTYPE_GROUP::m_rifle_fp_type);
+	DefineFPAnim(this, (AnimType)16, (AnimType)AnimTypes::FireStep, &ANIMTYPE_GROUP::m_rifle_fp_type);
+	DefineFPAnim(this, (AnimType)20, (AnimType)AnimTypes::FireCrouchWalk, &ANIMTYPE_GROUP::m_rifle_fp_type);
+	DefineFPAnim(this, (AnimType)24, (AnimType)AnimTypes::FireCrouchWalkBackwards, &ANIMTYPE_GROUP::m_rifle_fp_type);
+	DefineFPAnim(this, (AnimType)21, (AnimType)AnimTypes::FireCrouchStep, &ANIMTYPE_GROUP::m_rifle_fp_type);
+	DefineFPAnim(this, (AnimType)1, (AnimType)AnimTypes::PistolFireStand, &ANIMTYPE_GROUP::m_pistol_fp_type);
+	DefineFPAnim(this, (AnimType)18, (AnimType)AnimTypes::PistolFireCrouch, &ANIMTYPE_GROUP::m_pistol_fp_type);
+	DefineFPAnim(this, (AnimType)26, (AnimType)AnimTypes::PistolFireProne, &ANIMTYPE_GROUP::m_pistol_fp_type);
+	DefineFPAnim(this, (AnimType)2, (AnimType)AnimTypes::PistolFireWalk, &ANIMTYPE_GROUP::m_pistol_fp_type);
+	DefineFPAnim(this, (AnimType)3, (AnimType)AnimTypes::PistolFireJog, &ANIMTYPE_GROUP::m_pistol_fp_type);
+	DefineFPAnim(this, (AnimType)4, (AnimType)AnimTypes::PistolFireRun, &ANIMTYPE_GROUP::m_pistol_fp_type);
+	DefineFPAnim(this, (AnimType)5, (AnimType)AnimTypes::PistolFireWalkBackwards, &ANIMTYPE_GROUP::m_pistol_fp_type);
+	DefineFPAnim(this, (AnimType)6, (AnimType)AnimTypes::PistolFireRunBackwards, &ANIMTYPE_GROUP::m_pistol_fp_type);
+	DefineFPAnim(this, (AnimType)16, (AnimType)AnimTypes::PistolFireStep, &ANIMTYPE_GROUP::m_pistol_fp_type);
+	DefineFPAnim(this, (AnimType)20, (AnimType)AnimTypes::PistolFireCrouchWalk, &ANIMTYPE_GROUP::m_pistol_fp_type);
+	DefineFPAnim(this, (AnimType)24, (AnimType)AnimTypes::PistolFireCrouchWalkBackwards, &ANIMTYPE_GROUP::m_pistol_fp_type);
+	DefineFPAnim(this, (AnimType)21, (AnimType)AnimTypes::PistolFireCrouchStep, &ANIMTYPE_GROUP::m_pistol_fp_type);
+	DefineFPAnim(this, (AnimType)12, (AnimType)97, &ANIMTYPE_GROUP::m_pistol_fp_type);
+	DefineFPAnim(this, (AnimType)13, (AnimType)98, &ANIMTYPE_GROUP::m_pistol_fp_type);
+	DefineFPAnim(this, (AnimType)14, (AnimType)97, &ANIMTYPE_GROUP::m_pistol_fp_type);
+	DefineFPAnim(this, (AnimType)15, (AnimType)98, &ANIMTYPE_GROUP::m_pistol_fp_type);
+	DefineFPAnim(this, (AnimType)69, (AnimType)141, &ANIMTYPE_GROUP::m_pistol_fp_type);
+	DefineFPAnim(this, (AnimType)70, (AnimType)142, &ANIMTYPE_GROUP::m_pistol_fp_type);
 }
 
 /* @socom-skeleton stub SetMaxMotion__7AnimSetFv */
 void AnimSet::SetMaxMotion()
 {
+	/* 0x2c08f0 (rt/left take the strafe left/right maxima, as in the ELF) */
+	m_aparams.m_stand_max_fwd = m_move_anims->MaxTrans1();
+	m_aparams.m_stand_max_back = m_moveback_anims->MaxTrans1();
+	m_aparams.m_stand_max_rt = m_strafeL_anims->MaxTrans1();
+	m_aparams.m_stand_max_left = m_strafeR_anims->MaxTrans1();
+	m_aparams.m_crouch_max_fwd = m_crouchmove_anims->MaxTrans1();
+	m_aparams.m_crouch_max_back = m_crouchmoveback_anims->MaxTrans1();
+	m_aparams.m_crouch_max_rt = m_crouchstrafeL_anims->MaxTrans1();
+	m_aparams.m_crouch_max_left = m_crouchstrafeR_anims->MaxTrans1();
 }
 
 /* @socom-skeleton stub AddBlendable__7AnimSetFiff */
-void AnimSet::AddBlendable(int, float, float)
+void AnimSet::AddBlendable(int id, float trans0, float trans1)
 {
+	/* 0x2c0690: the AnimType whose anim is body anim id joins its movement group
+	 * (speeds x10) */
+	s32 type = 0;
+	std::vector<s16>::iterator it;
+
+	for (it = m_animIDs.begin(); it != m_animIDs.end(); ++it, type++)
+	{
+		if (*it == (s16)id)
+			break;
+	}
+
+	if (it == m_animIDs.end())
+		return;
+
+	AnimType t = (AnimType)type;
+	trans0 *= 10.0f;
+	trans1 *= 10.0f;
+
+	if (t == AnimType::animTypeCrouchWalkBack)
+		m_crouchmoveback_anims->AddBlendable(trans0, trans1, AnimType::animTypeCrouchWalkBack);
+	else if (t == AnimType::animTypeCrouchStrafeRFast || t == AnimType::animTypeCrouchStrafeR)
+		m_crouchstrafeR_anims->AddBlendable(trans0, trans1, t);
+	else if (t == AnimType::animTypeCrouchWalk)
+		m_crouchmove_anims->AddBlendable(trans0, trans1, AnimType::animTypeCrouchWalk);
+	else if (t == AnimType::animTypeRunL || t == AnimType::animTypeStrafeLeftFast || t == AnimType::animTypeStrafeLeft)
+		m_strafeL_anims->AddBlendable(trans0, trans1, t);
+	else if (t == AnimType::animTypeRunR || t == AnimType::animTypeStrafeRightFast || t == AnimType::animTypeStrafeRight)
+		m_strafeR_anims->AddBlendable(trans0, trans1, t);
+	else if (t == AnimType::animTypeSkitterBack || t == AnimType::animTypeSneakBack)
+		m_moveback_anims->AddBlendable(trans0, trans1, t);
+	else if (t == AnimType::animTypeRun || t == AnimType::animTypeSkitter || t == AnimType::animTypeSneak)
+		m_move_anims->AddBlendable(trans0, trans1, t);
+	else if ((s32)t == AnimTypes::CrouchStrafeLeft)
+		m_crouchstrafeL_anims->AddBlendable(trans0, trans1, t);
 }

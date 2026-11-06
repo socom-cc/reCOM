@@ -1002,26 +1002,97 @@ void CZSealBody::ReInitDatabaseHandles()
 /* @socom-skeleton stub ReadDeathAndFlinchAnims__7AnimSetFv */
 void AnimSet::ReadDeathAndFlinchAnims()
 {
+	/* 0x293530 */
+	CRdrFile *rdr = zrdr_read("damanim.rdr", "data/common", 0);
+
+	ReadDeathAnimations(rdr, "HEAD_DEATH_ANIMATIONS", (DAMAGE_LOCATION)0);
+	ReadDeathAnimations(rdr, "RARM_DEATH_ANIMATIONS", (DAMAGE_LOCATION)1);
+	ReadDeathAnimations(rdr, "LARM_DEATH_ANIMATIONS", (DAMAGE_LOCATION)2);
+	ReadDeathAnimations(rdr, "BODY_DEATH_ANIMATIONS", (DAMAGE_LOCATION)3);
+	ReadDeathAnimations(rdr, "RLEG_DEATH_ANIMATIONS", (DAMAGE_LOCATION)4);
+	ReadDeathAnimations(rdr, "LLEG_DEATH_ANIMATIONS", (DAMAGE_LOCATION)5);
+	ReadTeammateDeathAnimations(rdr, "TEAMMATE_HEAD_DEATH_ANIMATIONS", (DAMAGE_LOCATION)0);
+	ReadTeammateDeathAnimations(rdr, "TEAMMATE_RARM_DEATH_ANIMATIONS", (DAMAGE_LOCATION)1);
+	ReadTeammateDeathAnimations(rdr, "TEAMMATE_LARM_DEATH_ANIMATIONS", (DAMAGE_LOCATION)2);
+	ReadTeammateDeathAnimations(rdr, "TEAMMATE_BODY_DEATH_ANIMATIONS", (DAMAGE_LOCATION)3);
+	ReadTeammateDeathAnimations(rdr, "TEAMMATE_RLEG_DEATH_ANIMATIONS", (DAMAGE_LOCATION)4);
+	ReadTeammateDeathAnimations(rdr, "TEAMMATE_LLEG_DEATH_ANIMATIONS", (DAMAGE_LOCATION)5);
+	ReadFlinchAnimations(rdr, "HEAD_FLINCH_ANIMATIONS", (DAMAGE_LOCATION)0);
+	ReadFlinchAnimations(rdr, "RARM_FLINCH_ANIMATIONS", (DAMAGE_LOCATION)1);
+	ReadFlinchAnimations(rdr, "LARM_FLINCH_ANIMATIONS", (DAMAGE_LOCATION)2);
+	ReadFlinchAnimations(rdr, "BODY_FLINCH_ANIMATIONS", (DAMAGE_LOCATION)3);
+	ReadFlinchAnimations(rdr, "RLEG_FLINCH_ANIMATIONS", (DAMAGE_LOCATION)4);
+	ReadFlinchAnimations(rdr, "LLEG_FLINCH_ANIMATIONS", (DAMAGE_LOCATION)5);
+	zrdr_free(rdr);
 }
 
 /* @socom-skeleton stub InitDeathAndFlinchAnimations__7AnimSetFv */
 void AnimSet::InitDeathAndFlinchAnimations()
 {
+	/* 0x293430 */
+	for (s32 loc = 0; loc < 6; loc++)
+	{
+		for (s32 stance = 0; stance < 3; stance++)
+		{
+			deathanim[loc][stance].reserve(8);
+			pistoldeathanim[loc][stance].reserve(8);
+			teammatedeathanim[loc][stance].reserve(8);
+			teammatepistoldeathanim[loc][stance].reserve(8);
+			damageanim[loc][stance].reserve(8);
+			pistoldamageanim[loc][stance].reserve(8);
+		}
+	}
 }
 
 /* @socom-skeleton stub ReadTeammateDeathAnimations__7AnimSetFP5_zrdrPCc15DAMAGE_LOCATION */
-void AnimSet::ReadTeammateDeathAnimations(_zrdr *, const char *, DAMAGE_LOCATION)
+/* The body of ReadFlinchAnimations 0x292380, ReadDeathAnimations 0x2928f0 and
+ * ReadTeammateDeathAnimations 0x292e50 (the same 1376 bytes on different lists).
+ * port: one helper for the three copies. For each of STAND, CROUCH, PRONE under the
+ * location's tag (no NULL check on them in the ELF): append each entry's NAME and
+ * PISTOL_NAME AnimTypes, and pair them in the first anim set's FP table only. */
+static void ReadAnimLists(_zrdr *rdr, const char *name, DAMAGE_LOCATION loc,
+	std::vector<AnimType> (*rifle)[3], std::vector<AnimType> (*pistol)[3])
 {
+	static const char *stances[3] = { "STAND", "CROUCH", "PRONE" };
+	_zrdr *tag = zrdr_findtag(rdr, name);
+	u8 l = (u8)loc;
+
+	if (tag == NULL)
+		return;
+
+	for (s32 stance = 0; stance < 3; stance++)
+	{
+		_zrdr *anims = zrdr_findtag(tag, stances[stance]);
+		s32 count = anims->IsArray() ? anims->array->integer - 1 : 0;
+
+		for (u32 i = 0; (s32)i < count; i++)
+		{
+			_zrdr *entry = anims->Get(i);
+			char *rname = zrdr_findstring(entry, "NAME");
+			char *pname = zrdr_findstring(entry, "PISTOL_NAME");
+
+			rifle[l][stance].push_back(FindAnimType(rname));
+			pistol[l][stance].push_back(FindAnimType(pname));
+			AnimSet::list[0]->m_animgps->SetPistolAnim(rifle[l][stance].back(), pistol[l][stance].back());
+		}
+	}
+}
+
+void AnimSet::ReadTeammateDeathAnimations(_zrdr *rdr, const char *name, DAMAGE_LOCATION loc)
+{
+	ReadAnimLists(rdr, name, loc, teammatedeathanim, teammatepistoldeathanim);
 }
 
 /* @socom-skeleton stub ReadDeathAnimations__7AnimSetFP5_zrdrPCc15DAMAGE_LOCATION */
-void AnimSet::ReadDeathAnimations(_zrdr *, const char *, DAMAGE_LOCATION)
+void AnimSet::ReadDeathAnimations(_zrdr *rdr, const char *name, DAMAGE_LOCATION loc)
 {
+	ReadAnimLists(rdr, name, loc, deathanim, pistoldeathanim);
 }
 
 /* @socom-skeleton stub ReadFlinchAnimations__7AnimSetFP5_zrdrPCc15DAMAGE_LOCATION */
-void AnimSet::ReadFlinchAnimations(_zrdr *, const char *, DAMAGE_LOCATION)
+void AnimSet::ReadFlinchAnimations(_zrdr *rdr, const char *name, DAMAGE_LOCATION loc)
 {
+	ReadAnimLists(rdr, name, loc, damageanim, pistoldamageanim);
 }
 
 /* @socom-skeleton stub UninitDatabaseHandles__10CZSealBodyFv */

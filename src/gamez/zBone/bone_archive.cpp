@@ -16,11 +16,53 @@ CScriptArchive::~CScriptArchive()
 }
 
 /* @socom-skeleton stub Fetch__14CScriptArchiveFPCcP10CZSIScriptb */
-void CScriptArchive::Fetch(const char *, CZSIScript *, bool)
+bool CScriptArchive::Fetch(const char *name, CZSIScript *script, bool unique)
 {
+	/* 0x1dd220: share a script fetched before (unless unique), else read it from the
+	 * archive, set 30 fps and keep it. "null_anim" fetches nothing. */
+	if (name == NULL || strcmp(name, "null_anim") == 0)
+		return false;
+
+	CZSIScript *found = NULL;
+
+	if (!unique)
+	{
+		for (std::list<CZSIScript*>::iterator it = m_scripts.begin(); found == NULL && it != m_scripts.end(); ++it)
+		{
+			CZSIScript *s = *it;
+
+			if (s != NULL && s->m_pCommon->m_pName != NULL && strcmp(s->m_pCommon->m_pName, name) == 0)
+				found = s;
+		}
+	}
+
+	if (found == NULL)
+	{
+		found = new CZSIScript(name);
+
+		if (!zar::CZAR::Fetch(name, CZSIScript::ReadIt, found) || !found->m_isLoaded)
+		{
+			if (found != NULL)
+				delete found;
+
+			found = NULL;
+		}
+		else
+		{
+			found->SetFrameRate(30.0f);
+			m_scripts.push_back(found);
+		}
+	}
+
+	if (found != NULL)
+		script->Share(found);
+
+	return found != NULL;
 }
 
 /* @socom-skeleton stub LoadAll__14CScriptArchiveFv */
-void CScriptArchive::LoadAll()
+bool CScriptArchive::LoadAll()
 {
+	/* 0x1dd1f0 */
+	return FetchAll(CZSIScript::CreateAndReadIt, static_cast<zar::CZAR *>(this));
 }

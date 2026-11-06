@@ -88,6 +88,7 @@
  * socom-owner-annotations end socom:work:source-segment-027 */
 
 #include <algorithm>
+#include <cstring>
 
 #include "znode.h"
 #include "node_model.h"
@@ -104,7 +105,7 @@
 
 namespace zdb
 {
-	static CMesh* last_mesh = NULL;
+	/* last_mesh$1263 is a function-local static of CNode::_Copy */
 
 	
 
@@ -238,158 +239,128 @@ zdb::CNode * zdb::CNode::Copy() const
 /* @socom-skeleton body _Copy__Q23zdb5CNodeCFPQ23zdb5CNode */
 zdb::CNode * zdb::CNode::_Copy(zdb::CNode *other) const
 	{
-		if (!other)
+		/* 0x227e40. A NULL target gets a new CNode and then the same copy as a given one. The
+		 * mesh a run of sub-meshes points at is the last clone made (function-local static
+		 * last_mesh$1263, guard init$1264). AddVisual/AddDI are inlined there. */
+		static CMesh *last_mesh = NULL;
+
+		if (other == NULL)
 			other = new CNode();
-		else
+
+		if (other != NULL)
 		{
 			InitNodeParams(other, this);
 
-			if (other->m_name && other->m_name != UNNAMED_NODE)
+			if (other->m_name != NULL && other->m_name != UNNAMED_NODE)
 				zfree(other->m_name);
-
-			if (!m_name)
-				const_cast<CNode*>(this)->m_name = const_cast<char*>(UNNAMED_NODE); /* port: const_cast - body writes this in a const method as written (unverified) */
-			else
+			if (m_name != NULL)
 				other->m_name = zstrdup(m_name);
+			else
+				other->m_name = const_cast<char *>(UNNAMED_NODE);
 
 			other->m_Opacity = m_Opacity;
 
-			if (other->m_modelname)
+			/* SetModelname, inlined (node_main.cpp lines 2759/2762) */
+			if (other->m_modelname != NULL)
 			{
 				zfree(other->m_modelname);
 				other->m_modelname = NULL;
 			}
+			other->m_modelname = m_modelname != NULL ? zstrdup(m_modelname) : NULL;
 
-			if (other->m_name)
-				const_cast<CNode*>(this)->m_name = zstrdup(other->m_name); /* port: const_cast as above */
-
-			other->m_modelname = m_name;
 			other->SetModel(m_model);
-			other->m_modified = true;
+			other->m_flatten = m_flatten;
 			other->m_region_mask = m_region_mask;
 		}
 
-		other->m_visual.reserve(m_visual.size());
+		other->m_visual.reserve(m_visual.size() + other->m_visual.size());
 
-		for (u32 i = 0; i < m_visual.size(); i++)
+		for (CVisualVector::const_iterator it = m_visual.begin(); it != m_visual.end(); ++it)
 		{
-			CVisual* visual = m_visual[i];
-			CMesh* mesh = static_cast<CMesh*>(visual);
-			CSubMesh* submesh = static_cast<CSubMesh*>(mesh);
+			CVisual *visual = *it;
+			CMesh *mesh = visual->m_vtype == 1 ? static_cast<CMesh *>(visual) : NULL;
+			CSubMesh *submesh = visual->m_vtype == 2 ? static_cast<CSubMesh *>(visual) : NULL;
 
-			if (!visual->m_has_lods)
+			if (mesh != NULL)
 			{
-				mesh = NULL;
-				submesh = NULL;
+				last_mesh = mesh->Clone();
+				other->AddVisual(last_mesh);
 			}
-
-			if (!mesh)
+			else if (submesh != NULL)
 			{
-				if (!submesh)
+				CSubMesh *copy = new CSubMesh(last_mesh);
+
+				if (copy != NULL)
 				{
-					if (visual && !other->m_visual.Exists(visual))
-					{
-						visual->m_instance_cnt++;
-						other->m_visual.insert(other->m_visual.begin(), visual);
-
-						if (visual->m_field1)
-							other->m_hasMesh = true;
-
-						if (visual->m_has_lods)
-							other->m_hasVisuals = true;
-
-						other->SetParentHasVisuals();
-					}
-
-					last_mesh = NULL;
-				}
-				else
-				{
-					CSubMesh* lastSubmesh = new CSubMesh(last_mesh);
-
-					lastSubmesh->m_matrix_id = submesh->m_matrix_id;
-
-					if (!other->m_visual.Exists(lastSubmesh))
-					{
-						lastSubmesh->m_instance_cnt++;
-						other->m_visual.insert(other->m_visual.begin(), lastSubmesh);
-
-						if (lastSubmesh->m_field1)
-							other->m_hasMesh = true;
-
-						if (lastSubmesh->m_has_lods)
-							other->m_hasVisuals = true;
-
-						other->SetParentHasVisuals();
-					}
+					copy->m_matrix_id = submesh->m_matrix_id;
+					other->AddVisual(copy);
 				}
 			}
 			else
 			{
-				// TODO: Clone mesh and add to other visual list
+				other->AddVisual(visual);
+				last_mesh = NULL;
 			}
 		}
 
-		// TODO: DI copying goes here
+		other->m_di.reserve(m_di.size() + other->m_di.size());
+
+		for (CDIVector::const_iterator it = m_di.begin(); it != m_di.end(); ++it)
+			other->AddDI(*it);
 
 		other->ReserveChildren(m_child.size());
 
-		for (u32 i = 0; i < m_child.size(); i++)
+		for (CNodeVector::const_iterator it = m_child.begin(); it != m_child.end(); ++it)
 		{
-			CNode* child = m_child[i];
-			CNode* instance = child;
+			CNode *child = *it;
+			CNode *copy;
 
-			if (child->m_type != static_cast<u32>(TYPE::INSTANCE))
-				instance = NULL;
-
-			if (!instance)
-				instance = child->_Copy(NULL);
-			else
+			if (child->m_type == (u32)TYPE::INSTANCE)
 			{
-				CPnt3D position;
+				/* an instance child becomes a new instance of its model at the same place, then
+				 * takes the child's parameters, name, opacity, model name and flatten bit */
 				CQuat rotation;
+				CPnt3D position;
 
 				child->m_matrix.ToQuat(&rotation);
-
 				position.x = child->m_matrix.m_matrix[3][0];
 				position.y = child->m_matrix.m_matrix[3][1];
 				position.z = child->m_matrix.m_matrix[3][2];
 
-				instance = CreateInstance(m_model, &position, &rotation);
+				copy = CreateInstance(child->m_model, &position, &rotation);
 
-				if (instance)
+				if (copy != NULL)
 				{
-					InitNodeParams(instance, child);
+					InitNodeParams(copy, child);
 
-					if (instance->m_name && instance->m_name != UNNAMED_NODE)
-						zfree(instance->m_name);
-
-					if (!child->m_name)
-						const_cast<CNode*>(this)->m_name = const_cast<char*>(UNNAMED_NODE); /* port: const_cast as above */
+					if (copy->m_name != NULL && copy->m_name != UNNAMED_NODE)
+						zfree(copy->m_name);
+					if (child->m_name != NULL)
+						copy->m_name = zstrdup(child->m_name);
 					else
-						instance->m_name = zstrdup(m_name);
+						copy->m_name = const_cast<char *>(UNNAMED_NODE);
 
-					instance->m_Opacity = m_Opacity;
+					copy->m_Opacity = child->m_Opacity;
 
-					if (instance->m_modelname)
+					if (copy->m_modelname != NULL)
 					{
-						zfree(instance->m_modelname);
-						instance->m_modelname = NULL;
+						zfree(copy->m_modelname);
+						copy->m_modelname = NULL;
 					}
+					copy->m_modelname = child->m_modelname != NULL ? zstrdup(child->m_modelname) : NULL;
 
-					if (instance->m_name)
-						const_cast<CNode*>(this)->m_name = zstrdup(instance->m_name); /* port: const_cast as above */
-
-					instance->m_modelname = m_name;
-					instance->SetModel(m_model);
-					instance->m_modified = true;
-					instance->m_region_mask = m_region_mask;
-
+					copy->SetModel(child->m_model);
+					copy->m_flatten = child->m_flatten;
+					copy->m_region_mask = child->m_region_mask;
 				}
 			}
+			else
+			{
+				copy = child->_Copy(NULL);
+			}
 
-			if (instance)
-				other->AddChild(instance);
+			if (copy != NULL)
+				other->AddChild(copy);
 		}
 
 		return other;
@@ -448,11 +419,24 @@ void zdb::CNode::ReserveVisuals(int size)
 namespace zdb {
 bool CNode::AddVisual(CVisual* visual)
 	{
-		if (visual && !m_visual.Exists(visual))
+		/* 0x227b40: appended (not inserted first); +0x18 m_ref_count is the count CVisual::Release drops */
+		if (visual != NULL && !m_visual.Exists(visual))
 		{
-			visual->m_refcount++;
-			m_visual.insert(m_visual.begin(), visual);
+			visual->m_ref_count++;
+			m_visual.insert(m_visual.end(), visual);
+			m_modified = true;
 
+			/* port: the vparams flag names in zvis.h are provisional; the word is read whole.
+			 * Ghidra tag_VIS_PARAMS: bit 0 m_transparent, bit 8 m_bumpmap */
+			u32 vflags;
+			memcpy(&vflags, static_cast<tag_VIS_PARAMS *>(visual), sizeof(vflags));
+			if ((vflags & 0x1) != 0 && (vflags & 0x100) == 0)
+				m_transparent = true;
+
+			if (visual->m_vtype == 1)
+				m_hasMesh = true;
+
+			m_hasVisuals = true;
 			SetParentHasVisuals();
 
 			return true;
@@ -1043,11 +1027,13 @@ void zdb::CNode::ReserveDI(int size)
 namespace zdb {
 bool CNode::AddDI(CDI* di)
 	{
-		if (di && !m_di.Exists(di))
+		/* 0x2255c0: appended; marks the node modified and as having DI */
+		if (di != NULL && !m_di.Exists(di))
 		{
 			di->m_refcount++;
-			m_di.insert(m_di.begin(), di);
+			m_di.insert(m_di.end(), di);
 			m_modified = true;
+			m_hasDI = true;
 
 			return true;
 		}

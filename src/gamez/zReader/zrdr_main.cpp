@@ -129,8 +129,21 @@ _zrdr::~_zrdr()
 }
 
 /* @socom-skeleton stub zrdr_flat_findtag_startidx__FPC5_zrdrPCci */
-_zrdr * zrdr_flat_findtag_startidx(const _zrdr *, const char *, int)
+_zrdr * zrdr_flat_findtag_startidx(const _zrdr *reader, const char *name, int startidx)
 {
+	/* 0x23de80: like zrdr_findtag_startidx, without descending into sub-arrays */
+	if (reader == NULL || !reader->IsArray())
+		return NULL;
+
+	for (s32 i = startidx; i < reader->array->integer; i++)
+	{
+		_zrdr *node = &reader->array[i];
+
+		if (node->type == ZRDR_STRING && strcmp(node->string, name) == 0)
+			return &node[1];
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub zrdr_flat_nexttag__FPC5_zrdrPCcP5_zrdr */
@@ -174,29 +187,42 @@ _zrdr * zrdr_findtag(const _zrdr *reader, const char *name)
 /* @socom-skeleton body _zrdr_nexttag__FPC5_zrdrPCciP5_zrdr */
 _zrdr * _zrdr_nexttag(const _zrdr *reader, const char *name, int size, _zrdr *other)
 {
-	_zrdr* node = reader->array;
-
-	if (node->integer <= 1)
-		return NULL;
-
-	if (node == other)
-		other = NULL;
-
-	if (node->type == ZRDR_ARRAY)
-		return _zrdr_nexttag(node, name, size, other);
-
-	if (node->type == ZRDR_STRING && !other)
+	/* 0x23db90: the next tag after `other` (the value a find returned), depth first;
+	 * `other` is passed down unchanged, so a match nested deeper does not clear it here */
+	for (s32 i = 1; i < reader->array->integer; i++)
 	{
-		if (strncmp(node->string, name, size) == 0)
+		_zrdr *node = &reader->array[i];
+
+		if (node == other)
+		{
+			other = NULL;
+			continue;
+		}
+
+		if (node->type == ZRDR_ARRAY)
+		{
+			_zrdr *found = _zrdr_nexttag(node, name, size, other);
+
+			if (found != NULL)
+				return found;
+		}
+		else if (node->type == ZRDR_STRING && other == NULL && strncmp(node->string, name, size) == 0)
+		{
 			return &node[1];
+		}
 	}
 
 	return NULL;
 }
 
 /* @socom-skeleton stub zrdr_nexttag__FPC5_zrdrPCcP5_zrdr */
-_zrdr * zrdr_nexttag(const _zrdr *, const char *, _zrdr *)
+_zrdr * zrdr_nexttag(const _zrdr *reader, const char *name, _zrdr *other)
 {
+	/* 0x23db20 */
+	if (reader == NULL || reader->type != ZRDR_ARRAY)
+		return NULL;
+
+	return _zrdr_nexttag(reader, name, strlen(name), other);
 }
 
 /* @socom-skeleton body zrdr_findstring__FPC5_zrdrPCc */

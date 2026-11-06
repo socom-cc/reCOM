@@ -21,27 +21,90 @@
 #include "gamez/zAnim/zanim.h"
 #include "gamez/zArchive/zar.h"
 #include "gamez/zMath/zmath.h"
+#include "gamez/zSystem/zsys.h"
+#include "gamez/zUtil/util_stable.h"
 /* @socom-skeleton end include */
+#include <cstring>
 
 /* @socom-skeleton stub numSiObject */
 int numSiObject;
 
 /* @socom-skeleton stub siStringTable */
-unsigned char siStringTable[28];
+CSTable siStringTable; /* the names of every SI script and object */
 
 /* @socom-skeleton stub __ct__10CZSIObjectFv */
 CZSIObject::CZSIObject()
 {
+	/* 0x1de0b0 */
+	m_positionData = NULL;
+	m_rotations = NULL;
+	m_constPos = false;
+	m_constRot = false;
+	m_pName = NULL;
+	numSiObject++;
 }
 
 /* @socom-skeleton stub Initalize__10CZSIObjectFP16CZSIScriptCommon */
-void CZSIObject::Initalize(CZSIScriptCommon *)
+bool CZSIObject::Initalize(CZSIScriptCommon *common)
 {
+	/* 0x1de050 */
+	if (common != NULL)
+	{
+		m_constPos = false;
+		m_constRot = false;
+		m_positionData = NULL;
+		m_rotations = NULL;
+	}
+
+	return common != NULL;
 }
 
 /* @socom-skeleton stub Read__10CZSIObjectFP10CZSIScriptRQ23zar4CZAR */
-void CZSIObject::Read(CZSIScript *, zar::CZAR &)
+bool CZSIObject::Read(CZSIScript *script, zar::CZAR &archive)
 {
+	/* 0x1dde20: name, flags (0x20 constant position, 0x10 constant rotation, 0x8 position
+	 * data follows, 0x4 rotation data follows), then one key per frame plus one, or a single
+	 * key when constant. ELF quirk: the name goes into a 72-byte buffer without a bound. */
+	char name[72];
+	s32 length = 0;
+	u32 flags;
+
+	if (archive.m_pFile->fread(&length, 4) == 4 && length > 0)
+	{
+		archive.m_pFile->fread(name, length);
+		name[length] = '\0';
+		m_pName = siStringTable.CreateString(name);
+	}
+
+	archive.m_pFile->fread(&flags, 4);
+	m_constPos = (flags & 0x20) != 0;
+	m_constRot = (flags & 0x10) != 0;
+
+	s32 positions = m_constPos ? 1 : script->m_pCommon->m_nFrames + 1;
+	s32 rotations = m_constRot ? 1 : script->m_pCommon->m_nFrames + 1;
+
+	if (m_rotations != NULL)
+	{
+		zfree(m_rotations);
+		m_rotations = NULL;
+	}
+
+	if (m_positionData != NULL)
+	{
+		zfree(m_positionData);
+		m_positionData = NULL;
+	}
+
+	m_positionData = (f32 *)zmalloc(positions * 12);
+	m_rotations = (CQuat *)zmalloc(rotations * 16);
+
+	if ((flags & 0x8) != 0)
+		archive.m_pFile->fread(m_positionData, positions * 12);
+
+	if ((flags & 0x4) != 0)
+		archive.m_pFile->fread(m_rotations, rotations * 16);
+
+	return true;
 }
 
 /* @socom-skeleton stub __dt__10CZSIObjectFv */
@@ -75,6 +138,22 @@ CQuat * CZSIObject::GetRotFast(int, int, float, CQuat *)
 }
 
 /* @socom-skeleton stub Read__10CZSIObjectFPUcUiPCc */
-void CZSIObject::Read(unsigned char *, unsigned int, const char *)
+int CZSIObject::Read(unsigned char *data, unsigned int frames, const char *name)
 {
+	/* 0x1dd740 (ReadLIP): flags word, then the position keys and rotation keys in place
+	 * (one each when constant); returns the bytes used */
+	m_pName = siStringTable.CreateString(name);
+	u32 flags = *reinterpret_cast<u32 *>(data);
+	m_constPos = (flags & 0x20) != 0;
+	m_constRot = (flags & 0x10) != 0;
+	m_inUse = false;
+	m_body_part_id = 0xff;
+
+	s32 positions = m_constPos ? 1 : frames + 1;
+	s32 rotations = m_constRot ? 1 : frames + 1;
+
+	m_positionData = reinterpret_cast<f32 *>(data + 4);
+	/* port: the ELF reads these with single-float loads; they need not be 16-byte aligned */
+	m_rotations = reinterpret_cast<CQuat *>(data + 4 + positions * 12);
+	return positions * 12 + 4 + rotations * 16;
 }

@@ -165,6 +165,8 @@ bool zrdr_tobool(const _zrdr* reader, bool* output);
 /// @param other The other tag to go towards.
 /// @return The tag node of the array. NULL if not found.
 _zrdr* _zrdr_nexttag(const _zrdr* reader, const char* tag, s32 size, _zrdr* other); /* _zrdr_nexttag__FPC5_zrdrPCciP5_zrdr */
+_zrdr* zrdr_nexttag(const _zrdr* reader, const char* tag, _zrdr* other); /* zrdr_nexttag__FPC5_zrdrPCcP5_zrdr */
+_zrdr* zrdr_flat_findtag_startidx(const _zrdr* reader, const char* tag, int startidx); /* zrdr_flat_findtag_startidx__FPC5_zrdrPCci */
 
 struct _zrdr
 {
@@ -193,6 +195,17 @@ struct _zrdr
 			return static_cast<s32>(real);
 
 		return 0;
+	}
+	/* port: no symbol - the inline real getter ReadMotionRdr (0x27f2e8) expands: a real, an
+	 * integer converted, else 0 */
+	f32 GetReal() const
+	{
+		if (type == ZRDR_REAL)
+			return real;
+		else if (type == ZRDR_INTEGER)
+			return static_cast<f32>(integer);
+
+		return 0.0f;
 	}
 	ZRDR_TYPE GetType() const { return static_cast<ZRDR_TYPE>(type); } /* port: unproven - not in the ELF */
 	/* IsArray__5_zrdrCFv (inline, 0x1aba20) */

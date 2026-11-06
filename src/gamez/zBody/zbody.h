@@ -82,9 +82,22 @@ public:
 	/* @socom-skeleton end 13CBlendOverlay */
 };
 
-class CZBodyAnim : protected CZSIScript
+class CZBodyAnim : public CZSIScript /* port: public (protected in the skeleton; the ELF reads the script fields from CBody and CZSealBody) */
 {
-private:
+public:
+	/* inline (CBody::BodyAddAnim 0x1e2cd0): the script loads by name; m_id and m_animType
+	 * are set by the caller */
+	CZBodyAnim(const char *name) : CZSIScript()
+	{
+		Load(name, false);
+		m_flags = 0;
+		m_basepart = -1;
+		m_callback0_index = 0;
+		m_callback1_index = 0;
+		m_callback2_index = 0;
+		m_callback3_index = 0;
+	}
+
 	s16 m_id;
 	s16 m_animType;
 	s16 m_basepart;
@@ -100,8 +113,8 @@ public:
 	virtual void SetTimeScale(float);
 	virtual s32 NullNode() const { return -1; } /* ELF 0x1df110: li v0,-1; return width unproven */
 	void SetCallbackIndex(int, int);
-	void GetCallbackIndex(int);
-	void Setup(int, float, float);
+	int GetCallbackIndex(int); /* int: 0x1e2210 returns the index byte */
+	bool Setup(int, float, float); /* bool: 0x1e1f50 returns 1 */
 	void Update(float, float);
 	float GetMaxVelocity();
 	void CopyValues(CZBodyAnim *);
@@ -115,6 +128,7 @@ public:
 class CZBodyPart
 {
 	friend class CBody;
+	friend class CZSealBody; /* port: BindAnimSet 0x27e7b0 reads m_root->m_parent */
 public:
 	CZBodyPart(zdb::CNode* node);
 	~CZBodyPart();
@@ -134,17 +148,56 @@ private:
 class ACTIVE_ANIM
 {
 public:
+	/* inline (RTArray<ACTIVE_ANIM> 0x1e3f50): all zero */
+	ACTIVE_ANIM()
+	{
+		m_anim = NULL;
+		m_wt = 0.0f;
+		m_overlay = NULL;
+		m_tfrac = 0.0f;
+		m_dfrac = 0.0f;
+		m_playback = 0.0f;
+		m_script_wt = 0.0f;
+		m_a = 0;
+		m_b = 0;
+	}
+
 	void Clear();
 	void ClearOverlays(CBody *);
+
+	CZBodyAnim* m_anim;    /* DWARF +0x0 */
+	f32 m_wt;              /* +0x4 */
+	f32 m_dfrac;           /* +0x8 */
+	ACTIVE_ANIM* m_overlay; /* +0xc */
+	f32 m_tfrac;           /* +0x10 */
+	f32 m_playback;        /* +0x14 */
+	f32 m_script_wt;       /* +0x18 */
+	s16 m_a;               /* +0x1c */
+	s16 m_b;               /* +0x1e */
 };
 /* @socom-skeleton end 11ACTIVE_ANIM */
+
+inline CActiveAnimPool::CActiveAnimPool(unsigned int size, bool preallocate, bool supportRecycle)
+	: RTArray<ACTIVE_ANIM>(size, preallocate, supportRecycle)
+{
+}
 /* @socom-skeleton decl 22CZBodyAnimCallbackList */
+/* one CZBodyAnimCallbackList entry (16 bytes: name, +0x4 zero, +0x8 set, +0xc time).
+ * port: no DWARF; type and member names guessed from AddCallback 0x1df120 */
+struct BODYANIM_CALLBACK
+{
+	std::string m_name;
+	void* m_func;
+	bool m_valid;
+	f32 m_time;
+};
 class CZBodyAnimCallbackList
 {
 public:
 	~CZBodyAnimCallbackList();
 	void Clear();
-	void AddCallback(const char *, float);
+	int AddCallback(const char *, float); /* int: 0x1df120 returns the entry index */
+	std::vector<BODYANIM_CALLBACK*> m_callbacks; /* the 12-byte object: a pointer vector */
 };
 /* @socom-skeleton end 22CZBodyAnimCallbackList */
 extern CZBodyAnimCallbackList BodyAnimCallbackList; /* body.cpp; cleared by CMission::Init 0x1f8ff0 */

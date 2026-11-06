@@ -4,3 +4,152 @@
  * @socom-artifact emits main socom:function:0x1dd130
  * @socom-artifact emits main socom:function:0x1dd170
  * socom-owner-annotations end socom:work:source-segment-020 */
+
+#pragma once
+#include <stddef.h>
+
+/* RTList<Object>: a fixed pool of list items (prev, object, next); an item is free while
+ * its object is NULL. Bodies from RTList<ACTIVE_ANIM> (ctor 0x1e3c80, Begin 0x1dd100, Next
+ * 0x1dd130, Add 0x1dd170, Clear 0x1e3aa0, Remove 0x1e3af0). */
+template<class Object>
+class RTList
+{
+public:
+	struct LIST_ITEM
+	{
+		LIST_ITEM() {} /* 0x1e3d30 (constructed by __construct_new_array, then cleared) */
+		~LIST_ITEM() {}
+		LIST_ITEM* m_prev;
+		Object* m_object;
+		LIST_ITEM* m_next;
+	};
+
+	RTList(unsigned int size)
+	{
+		m_size = size;
+		m_head = NULL;
+		m_tail = NULL;
+		m_curritem = NULL;
+		m_pool = new LIST_ITEM[m_size];
+
+		LIST_ITEM* item = m_pool;
+		for (unsigned int i = 0; i < m_size; i++, item++)
+		{
+			item->m_prev = NULL;
+			item->m_object = NULL;
+			item->m_next = NULL;
+		}
+	}
+
+	~RTList(); /* 0x1e3ba0, not written */
+
+	Object* Begin()
+	{
+		m_curritem = m_head;
+		return m_curritem != NULL ? m_curritem->m_object : NULL;
+	}
+
+	Object* Next()
+	{
+		if (m_curritem == NULL)
+			return NULL;
+
+		m_curritem = m_curritem->m_next;
+		return m_curritem != NULL ? m_curritem->m_object : NULL;
+	}
+
+	/* the first free item after the tail; an empty list takes item 0. NULL when full */
+	Object* Add(Object* object)
+	{
+		LIST_ITEM* tail = m_tail;
+		LIST_ITEM* item = m_pool;
+
+		if (tail == NULL)
+		{
+			item->m_object = object;
+			m_head = item;
+			m_tail = item;
+			return object;
+		}
+
+		for (unsigned int i = 0; i < m_size; i++, item++)
+		{
+			if (item != tail && item->m_object == NULL)
+			{
+				tail->m_next = item;
+				item->m_prev = tail;
+				item->m_object = object;
+				item->m_next = NULL;
+				m_tail = item;
+				return object;
+			}
+		}
+
+		return NULL;
+	}
+
+	void Clear()
+	{
+		m_head = NULL;
+		m_tail = NULL;
+		m_curritem = NULL;
+
+		LIST_ITEM* item = m_pool;
+		for (unsigned int i = 0; i < m_size; i++, item++)
+		{
+			item->m_prev = NULL;
+			item->m_object = NULL;
+			item->m_next = NULL;
+		}
+	}
+
+	Object* Remove(Object* object)
+	{
+		LIST_ITEM* item = m_pool;
+		unsigned int i;
+
+		for (i = 0; i < m_size; i++, item++)
+		{
+			if (item->m_object == object)
+				break;
+		}
+
+		if (i >= m_size)
+			return NULL;
+
+		if (item->m_prev == NULL)
+		{
+			if (item->m_next == NULL)
+			{
+				m_head = NULL;
+				m_tail = NULL;
+			}
+			else
+			{
+				item->m_next->m_prev = NULL;
+				m_head = item->m_next;
+			}
+		}
+		else if (item->m_next == NULL)
+		{
+			item->m_prev->m_next = NULL;
+			m_tail = item->m_prev;
+		}
+		else
+		{
+			item->m_next->m_prev = item->m_prev;
+			item->m_prev->m_next = item->m_next;
+		}
+
+		item->m_prev = NULL;
+		item->m_object = NULL;
+		item->m_next = NULL;
+		return object;
+	}
+
+	unsigned int m_size;   /* DWARF +0x0 */
+	LIST_ITEM* m_head;     /* +0x4 */
+	LIST_ITEM* m_tail;     /* +0x8 */
+	LIST_ITEM* m_curritem; /* +0xc */
+	LIST_ITEM* m_pool;     /* +0x10 */
+};

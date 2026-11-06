@@ -161,18 +161,324 @@ CZBodyAnim * CZSealBody::BaseAnim_0(CZBodyAnim *, SEAL_ITEM)
 }
 
 /* @socom-skeleton stub ReadMotionRdr__10CZSealBodyFv */
-void CZSealBody::ReadMotionRdr()
+/* The value of an optional motion.rdr tag (inlined per tag in ReadMotionRdr 0x27eda0):
+ * missing -> absent, present without a value -> empty, else its first value.
+ * port: no symbol; name guessed. */
+static f32 MotionTagReal(const _zrdr *tag, f32 absent, f32 empty)
 {
+	if (tag == NULL)
+		return absent;
+
+	s32 count = tag->IsArray() ? tag->array->integer - 1 : 0;
+
+	if (count < 1)
+		return empty;
+
+	return const_cast<_zrdr *>(tag)->Get(0)->GetReal();
+}
+
+bool CZSealBody::ReadMotionRdr()
+{
+	/* 0x27eda0 (the first seal; AnimSetup copies from it after): every motion.rdr anim
+	 * becomes a body anim (id = its index), with speed, callbacks, flags, blend and
+	 * per-anim common values set once, movement blendables, ref points; then the
+	 * character's first anim set is bound, flags set per type, the first blend pushed,
+	 * posed and snapped. */
+	const char *setname = m_charType->m_anim_sets[0];
+	AnimSet *set = NULL;
+
+	for (std::vector<AnimSet*>::iterator it = AnimSet::list.begin(); it != AnimSet::list.end(); ++it)
+	{
+		if (strcmp(setname, (*it)->m_name.c_str()) == 0)
+		{
+			set = *it;
+			break;
+		}
+	}
+
+	m_animset = set;
+
+	if (m_motionRdrFile == NULL)
+		m_motionRdrFile = zrdr_read("motion.rdr", "data/common", 0);
+
+	_zrdr *anims = zrdr_findtag(m_motionRdrFile, "animations");
+	s32 count = anims->array->integer - 1;
+	m_body_anims.reserve(count);
+
+	for (s32 i = 0; i < count; i++)
+	{
+		_zrdr *entry = &anims->array[i + 1];
+		char name[64];
+		bool looped = false;
+		f32 max_velocity = 0.0f;
+		f32 playback = 0.0f;
+		f32 transition_a = 0.0f;
+		f32 transition_b = 0.0f;
+		CPnt3D refpt = CPnt3D::zero;
+
+		strcpy(name, "<empty>");
+		strcpy(name, zrdr_findstring(entry, "anim_name"));
+		zrdr_findreal(entry, "max_velocity", &max_velocity, 1);
+		zrdr_findbool(entry, "looped", &looped);
+		zrdr_findreal(entry, "playback", &playback, 1);
+		zrdr_findreal(entry, "transition_speed_A", &transition_a, 1);
+		zrdr_findreal(entry, "transition_speed_B", &transition_b, 1);
+
+		CZBodyAnim *anim = BodyAddAnim(name, looped, i);
+
+		if (anim == NULL)
+			continue;
+
+		if (strcmp(name, "seal_climbladder") == 0 || strcmp(name, "seal_p_climbladder") == 0)
+			anim->m_flags |= 0x10;
+		else
+			anim->m_flags &= ~0x10;
+
+		anim->Setup(anim->m_basepart, 10.0f * max_velocity, playback);
+
+		s32 slot = 0;
+
+		for (_zrdr *callback = zrdr_findtag(entry, "zanim_callback"); callback != NULL; callback = zrdr_nexttag(entry, "zanim_callback", callback), slot++)
+		{
+			char *cbname = zrdr_findstring(callback, "name");
+			f32 time;
+			zrdr_findreal(callback, "time", &time, 1);
+
+			if (time > 1.0f)
+				time = time / anim->TrueLoopTime();
+
+			anim->SetCallbackIndex(slot, BodyAnimCallbackList.AddCallback(cbname, time));
+		}
+
+		if (zrdr_findtag(entry, "NoPitchtwist") != NULL)
+			anim->m_flags &= ~0x1;
+		else
+			anim->m_flags |= 0x1;
+
+		if (zrdr_findtag(entry, "NoHeadlooks") != NULL)
+			anim->m_flags &= ~0x400;
+		else
+			anim->m_flags |= 0x400;
+
+		if (zrdr_findtag(entry, "NoTurn") != NULL)
+			anim->m_flags &= ~0x1000;
+		else
+			anim->m_flags |= 0x1000;
+
+		if (zrdr_findtag(entry, "OverridePlayerControl") != NULL)
+			anim->m_flags |= 0x800;
+
+		if (anim->m_pCommon->m_objects_ready == 0)
+		{
+			anim->m_flags |= 0x2;
+			anim->m_pCommon->m_fire_val = MotionTagReal(zrdr_findtag(entry, "NoFire"), 0.0f, 1.0f);
+			anim->m_flags |= 0x4;
+			anim->m_pCommon->m_interrupt_val = MotionTagReal(zrdr_findtag(entry, "NoInterrupt"), 0.0f, 1.0f);
+			anim->m_pCommon->m_blendtime = MotionTagReal(zrdr_findtag(entry, "BlendTime"), 0.4f, 0.4f);
+
+			_zrdr *normalize = zrdr_findtag(entry, "Normalize");
+
+			if (normalize == NULL)
+			{
+				anim->m_pCommon->m_terrnorm0 = 1.0f;
+				anim->m_pCommon->m_terrnorm1 = 1.0f;
+			}
+			else
+			{
+				s32 values = normalize->IsArray() ? normalize->array->integer - 1 : 0;
+
+				if (values < 1)
+				{
+					anim->m_pCommon->m_terrnorm0 = 0.0f;
+					anim->m_pCommon->m_terrnorm1 = 0.0f;
+				}
+				else
+				{
+					f32 norm0 = normalize->Get(0)->GetReal();
+					f32 norm1 = values < 2 ? 1.0f : normalize->Get(1)->GetReal();
+					anim->m_pCommon->m_terrnorm0 = norm0;
+					anim->m_pCommon->m_terrnorm1 = norm1;
+				}
+			}
+		}
+
+		if (transition_a != 0.0f || transition_b != 0.0f)
+		{
+			for (std::vector<AnimSet*>::iterator it = AnimSet::list.begin(); it != AnimSet::list.end(); ++it)
+				(*it)->AddBlendable(i, transition_a, transition_b);
+		}
+
+		if (zrdr_findPNT3D(entry, "refPt", &refpt) && (refpt.x != 0.0f || refpt.y != 0.0f || refpt.z != 0.0f))
+		{
+			SEAL_REFPOINT *point = new SEAL_REFPOINT;
+
+			if (point != NULL)
+			{
+				point->m_anim = anim;
+				point->m_refpt = refpt;
+			}
+
+			m_refpoints.push_back(point);
+		}
+
+		anim->m_pCommon->m_objects_ready = 1;
+	}
+
+	m_animset = NULL;
+	BindAnimSet(set);
+	m_default_animset = set;
+
+	static const AnimType strafes[] = {
+		AnimType::animTypeStrafeRight, AnimType::animTypeStrafeRightFast, AnimType::animTypeRunR,
+		AnimType::animTypeStrafeLeft, AnimType::animTypeStrafeLeftFast, AnimType::animTypeRunL,
+		AnimType::animTypeCrouchStrafeR, AnimType::animTypeCrouchStrafeRFast };
+
+	for (u32 i = 0; i < sizeof(strafes) / sizeof(strafes[0]); i++)
+	{
+		CZBodyAnim *anim = GetAnimByType(strafes[i]);
+
+		if (anim != NULL)
+			anim->m_flags |= 0x100;
+	}
+
+	CZBodyAnim *anim = GetAnimByType(FindAnimType("Crouch strafe left"));
+
+	if (anim != NULL)
+		anim->m_flags |= 0x100;
+
+	const AnimType moving[] = {
+		(AnimType)AnimTypes::MovingRifleReload, (AnimType)AnimTypes::MovingPistolReload,
+		(AnimType)AnimTypes::MovingPistol2Rifle, (AnimType)AnimTypes::MovingRifle2Pistol };
+
+	for (u32 i = 0; i < sizeof(moving) / sizeof(moving[0]); i++)
+	{
+		anim = GetAnimByType(moving[i]);
+
+		if (anim != NULL)
+			anim->m_flags |= 0x20;
+	}
+
+	const AnimType climbs[] = {
+		AnimType::animTypeClimbOffLadder, AnimType::animTypeClimbOffLadder_P,
+		AnimType::animTypeClimbLadder, AnimType::animTypeClimbLadder_P,
+		AnimType::animTypeStand2Ladder, AnimType::animTypeStand2Ladder_P,
+		(AnimType)AnimTypes::StepUp, (AnimType)AnimTypes::PistolStepUp,
+		(AnimType)AnimTypes::ClimbMedium, (AnimType)AnimTypes::PistolClimbMedium,
+		AnimType::animTypeHang2Climb, AnimType::animTypeHang2Climb_P,
+		AnimType::animTypeClimbCrate, AnimType::animTypeClimbCrate_P,
+		AnimType::animTypeStand2Hang, AnimType::animTypeStand2Hang_P,
+		AnimType::animTypeHang, AnimType::animTypeHang_P,
+		AnimType::animTypeHangJumpDown, AnimType::animTypeHangJumpDown_P,
+		(AnimType)AnimTypes::ClimbOver, (AnimType)AnimTypes::PistolClimbOver,
+		(AnimType)AnimTypes::FallBackward01, (AnimType)AnimTypes::FallForward01,
+		(AnimType)AnimTypes::Ladder2Slide, (AnimType)AnimTypes::PistolLadder2Slide,
+		(AnimType)AnimTypes::LadderSlide, (AnimType)AnimTypes::PistolLadderSlide,
+		(AnimType)AnimTypes::LadderSlideLand, (AnimType)AnimTypes::PistolLadderSlideLand };
+
+	for (u32 i = 0; i < sizeof(climbs) / sizeof(climbs[0]); i++)
+	{
+		anim = GetAnimByType(climbs[i]);
+
+		if (anim != NULL)
+			anim->m_flags |= 0x8;
+	}
+
+	CZBodyAnimBlend *blend = m_blends->Top();
+	ACTIVE_ANIM *active = blend->m_anims->Begin();
+	m_interp1 = 0.0f;
+	m_interp2 = 0.0f;
+	blend->SetRepresentativeWt(1.0f);
+	m_sealanim->AnimPush(this, active);
+	m_sealanim->AnimPop(this);
+	m_take_snapshot = true;
+	Snap();
+	player_ = this;
+	return true;
 }
 
 /* @socom-skeleton stub AnimSetup__10CZSealBodyFv */
 bool CZSealBody::AnimSetup()
 {
+	/* 0x27eac0: the first seal reads motion.rdr; the others copy the template's anims (by
+	 * the same ids) and its ref points, then bind their first anim set and pose */
+	if (player_ == NULL)
+		return ReadMotionRdr();
+
+	const char *setname = m_charType->m_anim_sets[0];
+	AnimSet *set = NULL;
+
+	for (std::vector<AnimSet*>::iterator it = AnimSet::list.begin(); it != AnimSet::list.end(); ++it)
+	{
+		if (strcmp(setname, (*it)->m_name.c_str()) == 0)
+		{
+			set = *it;
+			break;
+		}
+	}
+
+	m_animset = set;
+	s32 count = player_->m_body_anims.size();
+	m_body_anims.reserve(count);
+	std::vector<CZBodyAnim*>::iterator src = player_->m_body_anims.begin();
+
+	for (s32 i = 0; i < count; i++, ++src)
+	{
+		CZBodyAnim *other = *src;
+
+		if (other == NULL)
+		{
+			AddAnim(NULL, i, -1);
+			continue;
+		}
+
+		CZBodyAnim *anim = BodyAddAnim(other->m_pCommon->m_pName, other->m_looped, i);
+
+		if (anim == NULL)
+			continue;
+
+		anim->CopyValues(other);
+
+		for (std::vector<SEAL_REFPOINT*>::iterator rp = player_->m_refpoints.begin(); rp != player_->m_refpoints.end(); ++rp)
+		{
+			if ((*rp)->m_anim->m_id != i)
+				continue;
+
+			SEAL_REFPOINT *point = new SEAL_REFPOINT;
+
+			if (point != NULL)
+			{
+				point->m_anim = anim;
+				point->m_refpt = (*rp)->m_refpt;
+			}
+
+			m_refpoints.push_back(point);
+		}
+	}
+
+	m_animset = NULL;
+	BindAnimSet(set);
+	m_default_animset = set;
+
+	CZBodyAnimBlend *blend = m_blends->Top();
+	ACTIVE_ANIM *active = blend->m_anims->Begin();
+	m_interp1 = 0.0f;
+	m_interp2 = 0.0f;
+	blend->SetRepresentativeWt(1.0f);
+	m_sealanim->AnimPush(this, active);
+	m_sealanim->AnimPop(this);
+	m_take_snapshot = true;
+	Snap();
+	return true;
 }
 
 /* @socom-skeleton stub GetAnimByType__10CZSealBodyF8AnimType */
-CZBodyAnim * CZSealBody::GetAnimByType(AnimType)
+CZBodyAnim * CZSealBody::GetAnimByType(AnimType type)
 {
+	/* 0x27ea80 */
+	if (m_animset == NULL)
+		return NULL;
+
+	return GetAnimById(m_animset->AnimId(type));
 }
 
 /* @socom-skeleton stub BindAnimSet__10CZSealBodyFPCc */
@@ -181,8 +487,75 @@ void CZSealBody::BindAnimSet(const char *)
 }
 
 /* @socom-skeleton stub BindAnimSet__10CZSealBodyFP7AnimSet */
-void CZSealBody::BindAnimSet(AnimSet *)
+void CZSealBody::BindAnimSet(AnimSet *set)
 {
+	/* 0x27e7b0: a new set re-types the body anims (the old set's types are cleared), then
+	 * max motion, no overlay, an empty stack and a stand blend, posed and snapped. A
+	 * carried body (+0xda8) is first returned to base and detached (states 10 / 9). */
+	if (set == NULL || set == m_animset)
+		return;
+
+	if (m_carry != NULL)
+	{
+		if (m_root->m_parent != NULL)
+		{
+			if (m_state == 10)
+			{
+				m_carry->ClearToBase(false);
+				ClearToBase(false);
+			}
+
+			DetachBody();
+		}
+		else
+		{
+			if (m_state == 9)
+			{
+				m_carry->ClearToBase(false);
+				ClearToBase(false);
+			}
+
+			m_carry->DetachBody();
+		}
+	}
+
+	if (m_animset != NULL)
+	{
+		for (s16 type = 0; type < GetAnimTypeMax(); type++)
+		{
+			s16 id = m_animset->AnimId((AnimType)type);
+
+			if (id < 0)
+				continue;
+
+			CZBodyAnim *anim = GetAnimById(id);
+
+			if (anim != NULL)
+				anim->m_animType = -1;
+		}
+	}
+
+	m_animset = set;
+
+	for (s16 type = 0; type < GetAnimTypeMax(); type++)
+	{
+		s16 id = m_animset->AnimId((AnimType)type);
+
+		if (id < 0)
+			continue;
+
+		CZBodyAnim *anim = GetAnimById(id);
+
+		if (anim != NULL)
+			anim->m_animType = type;
+	}
+
+	SetMaxMotion();
+	ClearBlendOverlay();
+	ClearStack(0, true);
+	PushBlend(AnimType::animTypeStand, 0, false);
+	m_blends->Top()->SetRepresentativeWt(1.0f);
+	Snap();
 }
 
 /* @socom-skeleton stub RefPoint__10CZSealBodyFP10CZBodyAnimP6CPnt3D */
@@ -203,6 +576,30 @@ void CZSealBody::MixAnims(CActiveAnimList *, CBlendable *, float, float, bool)
 /* @socom-skeleton stub SetMaxMotion__10CZSealBodyFv */
 void CZSealBody::SetMaxMotion()
 {
+	/* 0x27e010: the set's movement maxima, then prone crawl/strafe and ladder speeds from
+	 * their anims (0 without one). ELF quirk: the prone/ladder writes go through the set
+	 * read at entry even when it is NULL. */
+	m_animset->SetMaxMotion();
+	AnimSet *set = m_animset;
+	CZBodyAnim *anim = GetAnimByType(AnimType::animTypeProneCrawl);
+
+	if (anim == NULL)
+	{
+		set->m_aparams.m_prone_max_fwd = 0.0f;
+		set->m_aparams.m_prone_max_back = 0.0f;
+	}
+	else
+	{
+		set->m_aparams.m_prone_max_fwd = anim->GetMaxVelocity() * anim->m_pCommon->m_thr_scale;
+		set->m_aparams.m_prone_max_back = anim->GetMaxVelocity() * anim->m_pCommon->m_thr_scale;
+	}
+
+	anim = GetAnimByType((AnimType)AnimTypes::ProneRStrafe);
+	set->m_aparams.m_prone_max_rt = anim == NULL ? 0.0f : anim->GetMaxVelocity() * anim->m_pCommon->m_thr_scale;
+	anim = GetAnimByType((AnimType)AnimTypes::ProneLStrafe);
+	set->m_aparams.m_prone_max_left = anim == NULL ? 0.0f : anim->GetMaxVelocity() * anim->m_pCommon->m_thr_scale;
+	anim = GetAnimByType(AnimType::animTypeClimbLadder);
+	set->m_aparams.m_ladder_updn = anim == NULL ? 0.0f : anim->GetMaxVelocity() * anim->m_pCommon->m_thr_scale;
 }
 
 /* @socom-skeleton body GetMaxZMotion__10CZSealBodyFRfRf */
