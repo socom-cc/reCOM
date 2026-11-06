@@ -235,7 +235,7 @@ public:
 	void _RecoverFromNetError(int);
 	static unsigned char RecoverFromNetError(int);
 	void Sample_ExtractionLoc();
-	void LoadVehicles(unsigned int);
+	bool LoadVehicles(unsigned int); /* bool: 0x1fd570 returns 1 */
 	CZSealBody * LoadVehicle(CVehicleRdrEntry *, bool);
 	void InitalizeTeamValves();
 	void RefreshTeamValves();

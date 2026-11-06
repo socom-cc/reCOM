@@ -63,6 +63,11 @@
  * socom-owner-annotations end socom:work:source-segment-076 */
 
 #include "zfts.h"
+#include "gamez/zBody/zbody.h" /* BodyAnimCallbackList */
+#include "gamez/zNetwork/znet.h" /* theNetwork */
+#include "gamez/zNode/znode.h"
+
+extern CAiMaps AiMaps; /* ai_maps.cpp (0x49b190) */
 
 /* @socom-skeleton decl include */
 #include "gamez/zCharacter/zchar.h"
@@ -80,6 +85,20 @@ static bool doSquirm;
 
 /* @socom-skeleton stub ftsPlayer */
 CZSealBody* ftsPlayer; /* port: typed as zfts.h declares it; the ELF object is 8 bytes and ftsGetPlayer loads one word */
+
+/* port: no symbol - the second word of the ELF's 8-byte ftsPlayer object (0x475984): the
+ * player count set by ftsSetPlayerCount (process_arguments only; 0 otherwise) */
+static int ftsPlayerCount;
+
+/* A CSealCtrl that is not the player (vtable __vt__13CSealCtrlCopy 0x471c00: only its
+ * dtor 0x1fe140 and IsPlayer 0x1fe1a0 differ). ftsCreateSeal makes it for
+ * SEAL_CONTROL_TYPE 4 by storing that vtable over a CSealCtrl's. */
+class CSealCtrlCopy : public CSealCtrl
+{
+public:
+	virtual ~CSealCtrlCopy() {}
+	virtual bool IsPlayer() const { return false; } /* 0x1fe1a0: move v0,zero */
+};
 
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
@@ -100,8 +119,45 @@ bool ftsGetSquirm()
 }
 
 /* @socom-skeleton stub ftsCreateSeal__FPC14CCharacterTypePCc17SEAL_CONTROL_TYPE */
-void ftsCreateSeal(const CCharacterType *, const char *, SEAL_CONTROL_TYPE)
+CZSealBody* ftsCreateSeal(const CCharacterType *type, const char *name, SEAL_CONTROL_TYPE ctrltype)
 {
+	/* 0x1fdfc0: a body with the controller for ctrltype; the player-controlled one
+	 * (type 0) becomes ftsPlayer */
+	if (type == NULL)
+		return NULL;
+
+	CSealCtrl* ctrl = NULL;
+
+	switch (ctrltype)
+	{
+	case SEAL_CONTROL_TYPE::CTRL_PLAYER:
+		ctrl = new CSealCtrl();
+		break;
+	case SEAL_CONTROL_TYPE::CTRL_AI:
+		ctrl = new CSealCtrlAi();
+		break;
+	case SEAL_CONTROL_TYPE::CTRL_SQUIRM:
+		ctrl = new CSealCtrlSquirm();
+		break;
+	case SEAL_CONTROL_TYPE::CTRL_MISC:
+		ctrl = new CSealCtrlCopy();
+		break;
+	default:
+		return NULL;
+	}
+
+	if (ctrl == NULL)
+		return NULL;
+
+	CZSealBody* body = CZSealBody::Create(type, name, ctrl);
+
+	if (body == NULL)
+		return NULL;
+
+	if (ctrltype == SEAL_CONTROL_TYPE::CTRL_PLAYER)
+		ftsPlayer = body;
+
+	return body;
 }
 
 /* @socom-skeleton stub IsInside__10CftsPlayerFv */
@@ -161,8 +217,10 @@ CZSealBody* ftsGetPlayer()
 }
 
 /* @socom-skeleton stub ftsSetPlayerCount__Fi */
-void ftsSetPlayerCount(int)
+void ftsSetPlayerCount(int count)
 {
+	/* 0x1fdb50 */
+	ftsPlayerCount = count;
 }
 
 /* @socom-skeleton stub ParseTeamBlock__FP5_zrdr */
@@ -188,13 +246,189 @@ void CMission::CloseVehicleRdr()
 }
 
 /* @socom-skeleton stub LoadVehicles__8CMissionFUi */
-void CMission::LoadVehicles(unsigned int)
+bool CMission::LoadVehicles(unsigned int)
 {
+	/* 0x1fd570: create every vehicle of the vehicle reader in order (the first one is the
+	 * player); recycle entries become spawners. The extra player copies (ftsPlayerCount)
+	 * and the player_grid_count grid of copies around the player follow the first one. */
+	CCharacterModelCache::m_ModelCache.clear();
+
+	if (theNetwork.m_bNetwork && !theNetwork.m_bSessionMaster)
+		return true;
+
+	BodyAnimCallbackList.Clear();
+	CVehicleRdr* vehicles = m_vehicleRdr;
+	SOCOM_PORT_TRACE("LOAD: %u vehicles, load_ai %u", (unsigned)vehicles->size(), (unsigned)m_load_ai);
+	s32 index = 0;
+
+	for (CVehicleRdr::iterator entry = vehicles->begin(); entry != vehicles->end(); ++entry, index++)
+	{
+		bool first = index == 0;
+
+		if (entry->m_recycle)
+		{
+			/* port: not written - the ELF adds { CEntity::CreateRecycler()->m_index,
+			 * entry } to the CSpawners list (spawners 0x4c5610, not declared) */
+			continue;
+		}
+
+		CZSealBody* body = LoadVehicle(&*entry, first);
+
+		if (body != NULL)
+			body->m_vehicle_index = (u32)index;
+
+		if (!first || body == NULL)
+			continue;
+
+		for (s32 i = 1; i < ftsPlayerCount; i++)
+		{
+			CZSealBody* copy = LoadVehicle(&*entry, first);
+			CZSealBody* seal = copy != NULL && copy->m_type == CEntity::ENT_TYPE_SEAL ? copy : NULL;
+			/* port: not written - the ELF stores i at +232 of the copy's controller
+			 * (unnamed in DWARF terms here); ftsPlayerCount is 0 without arguments */
+			(void)seal;
+		}
+
+		s32 count = m_ai_params.player_grid_count;
+
+		if (count == 0)
+			continue;
+
+		/* a near-square grid of copies, player_grid_spacing apart, around the player */
+		s32 side = (s32)floorf(sqrtf((f32)count));
+		s32 rows = 0;
+
+		for (; side <= count; side++)
+		{
+			if (count % side == 0)
+			{
+				rows = count / side;
+				break;
+			}
+		}
+
+		f32 spacing = m_ai_params.player_grid_spacing;
+		CPnt3D origin;
+		origin.x = 0.5f * ((f32)(side - 1) * spacing);
+		origin.y = 0.0f;
+		origin.z = -spacing;
+
+		for (s32 row = 0; row < rows; row++)
+		{
+			for (s32 col = 0; col < side; col++)
+			{
+				CPnt3D pos = origin;
+				pos.x += (f32)col * m_ai_params.player_grid_spacing;
+				pos.z -= (f32)row * m_ai_params.player_grid_spacing;
+				body->m_node->m_matrix.Transform(&pos, 1);
+				CZSealBody* copy = LoadVehicle(&*entry, true);
+				copy->TeleportTo(&pos, &copy->m_quat);
+			}
+		}
+	}
+
+	CEntity::UpdateTargetList(true);
+	CCharacterModelCache::m_ModelCache.clear();
+
+	if (!theNetwork.m_bNetwork)
+		CTurret::LoadTurrets();
+
+	return true;
 }
 
 /* @socom-skeleton stub LoadVehicle__8CMissionFP16CVehicleRdrEntryb */
-CZSealBody * CMission::LoadVehicle(CVehicleRdrEntry *, bool)
+CZSealBody * CMission::LoadVehicle(CVehicleRdrEntry *entry, bool first)
 {
+	/* 0x1fd160: one character of the vehicle reader at its (random) start; the first is
+	 * the player. m_load_ai selects the AI characters: 0 none; bit 1 only team 31,
+	 * bit 2 not team 3, bit 3 not team 2. */
+	if (entry == NULL)
+		return NULL;
+
+	entry->Randomize(false);
+
+	if (entry->m_disabled && (!first || theNetwork.m_bNetwork))
+		return NULL;
+
+	u32 mask = m_load_ai;
+	u32 teams = (u32)entry->m_teamMask;
+	bool load = first;
+
+	if (mask != 0 && !first)
+	{
+		load = true;
+
+		if (mask & 2)
+			load = (teams & 0x80000000) != 0;
+
+		if (load && (mask & 4))
+			load = (teams & 8) == 0;
+
+		if (load && (mask & 8))
+			load = (teams & 4) == 0;
+	}
+
+	/* port: not written - the ELF then drops every non-first character not named
+	 * ai::isolate_character (0x43a370: 32 bytes, zero in the ELF, no source owner yet);
+	 * it is empty, so the test never applies */
+
+	if (!load)
+		return NULL;
+
+	CCharacterType* type = CCharacterType::GetByNameMod(entry->m_character);
+
+	if (type == NULL)
+		return NULL;
+
+	CPnt3D pos = CPnt3D::zero;
+	CQuat rot = CQuat::identity;
+	CAiMapLoc loc;
+
+	if (AiMaps.GetLocation(entry->GetStartPos(), loc))
+	{
+		AiMaps.GetCellCenter(loc, &pos);
+		CAiMap::GetDirQuat((CAiMap::DIR)(u8)entry->GetStartDir(), rot, true);
+	}
+
+	SEAL_CONTROL_TYPE ctrltype = SEAL_CONTROL_TYPE::CTRL_AI;
+
+	if (first)
+	{
+		if (doSquirm)
+			ctrltype = SEAL_CONTROL_TYPE::CTRL_SQUIRM;
+		else if (CEntity::m_list.size() == 0)
+			ctrltype = SEAL_CONTROL_TYPE::CTRL_PLAYER;
+		else
+			ctrltype = SEAL_CONTROL_TYPE::CTRL_MISC;
+	}
+
+	SOCOM_PORT_TRACE("LOAD: vehicle %s character %s control %d", entry->m_name, entry->m_character, (int)ctrltype);
+	CZSealBody* body = ftsCreateSeal(type, entry->m_name, ctrltype);
+
+	if (body == NULL)
+		return NULL;
+
+	body->m_node->SetName(entry->m_name);
+
+	if (entry->m_display_name[0] != '\0')
+		body->SetDisplayName(entry->m_display_name);
+
+	body->TeleportTo(&pos, &rot);
+	body->SetTeamMask(teams);
+	body->m_noshoot = entry->m_noshoot;
+	CSealCtrlAi* ai = ((CSealCtrl*)body->m_control)->GetSealCtrlAi();
+
+	if (ai != NULL)
+	{
+		ai->SetDebug(entry->m_debug);
+		ai->m_nofade = entry->m_nofade;
+		ai->m_nosnooze = entry->m_nosnooze;
+		ai->m_aiParams = entry->m_aiParams;
+		ai->m_aiParams.m_veh = entry;
+		ai->InitAiBrain();
+	}
+
+	return body;
 }
 
 /* @socom-skeleton stub InitalizeTeamValves__8CMissionFv */

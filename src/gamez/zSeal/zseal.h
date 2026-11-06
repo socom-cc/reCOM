@@ -119,7 +119,7 @@ enum class PLAYER_CAM_STATE;
 /// -------------------------------------------
 enum class ZOOMSTATE
 {
-	ZOOMSTATE_UNKNOWN,
+	ZOOMSTATE_UNKNOWN = -1, /* the ctor (0x258e10) stores 0 for the third-person view and -1 for unknown */
 	ZOOMSTATE_3RDPERSON,
 	ZOOMSTATE_1STPERSON,
 	ZOOMSTATE_NVG,
@@ -256,9 +256,26 @@ extern f32 throttleFudge;
 
 void SealInitCharacterDynamics();
 
-class CFire : CSequence {};
-class CLookItem : CSequence {};
-class CLook : CSequence {
+/* DWARF layouts: CFire and CTurnInPlace are a bare CSequence (16 bytes) */
+class CFire : public CSequence {};
+class CLookItem : public CSequence {
+public:
+	CZBodyPart* m_binocs;
+	CZBodyPart* m_nvg;
+	CZBodyPart* m_item;
+};
+class CLook : public CSequence {
+public:
+	CPnt3D m_curr_dir;
+	f32 m_rate;
+	CQuat m_quat0;
+	CQuat m_quat1;
+	CQuat m_dquat;
+	CPnt3D m_goal_dir;
+	f32 m_deltaT;
+	CPnt3D m_cross;
+	f32 m_fracT;
+	bool m_done;
 	/* @socom-skeleton decl 5CLook */
 public:
 	CLook();
@@ -267,7 +284,10 @@ public:
 	void LookTick(float);
 	/* @socom-skeleton end 5CLook */
 };
-class CBlink : CSequence {
+class CBlink : public CLook { /* DWARF: CBlink derives from CLook */
+public:
+	s32 m_org;
+	f32 m_nextT;
 	/* @socom-skeleton decl 6CBlink */
 public:
 	CBlink();
@@ -275,8 +295,11 @@ public:
 	void BlinkTick(float);
 	/* @socom-skeleton end 6CBlink */
 };
-class CTurnInPlace : CSequence {};
-class CCrouchedRun : CSequence {};
+class CTurnInPlace : public CSequence {};
+class CCrouchedRun : public CSequence {
+public:
+	f32 m_wt;
+};
 
 class CZKit
 {
@@ -579,8 +602,6 @@ public:
 
 	CZSealBody(zdb::CNode* node, CCharacterType* chartype);
 
-	static CCharacterType* PreCreateSeal(CCharacterType* charType, const char* name, zdb::CNode** nodes);
-	static CZSealBody* Create(CCharacterType* charType, const char* name, CSealCtrl* controller);
 	static void PostCreateSeal(CZSealBody* seal, CSealCtrl* controller);
 	static bool ReCreate(CZSealBody* seal, const CCharacterType* charType);
 
@@ -747,7 +768,7 @@ public:
 	ZOOMSTATE m_zoomstate_prev;
 	bool m_zoomstate_echo;
 
-	f32 m_zoomrange;
+	f32 m_zoom_range; /* DWARF name */
 
 	s32 m_onMaterial;
 
@@ -767,7 +788,7 @@ public:
 	f32 m_RemoteFireElevation;
 
 	// Throttle
-	f32 pre_thr_l;
+	f32 pre_thr_lr; /* DWARF name */
 	f32 pre_thr_fb;
 	f32 pre_thr_strafe;
 
@@ -788,6 +809,7 @@ public:
 	std::vector<zdb::IntersectStruct*> m_volumetricAltitudes;
 
 	CZBodyPart* m_root;
+	CZBodyPart* m_aimnodes; /* DWARF +0x270, after m_root */
 	CZBodyPart* m_lfoot;
 	CZBodyPart* m_rfoot;
 	CZBodyPart* m_lhand;
@@ -809,7 +831,6 @@ public:
 	CZBodyPart* m_lshoulder_wgt;
 	CZBodyPart* m_rshoulder_wgt;
 	CZBodyPart* m_lcalf;
-	CZBodyPart* m_aimnodes;
 	CZBodyPart* m_ltoe;
 	CZBodyPart* m_rtoe;
 	CZBodyPart* m_weapon;
@@ -961,8 +982,8 @@ public:
 
 	CZProjectile* m_lastprojectile;
 	CZProjectile* m_tempprojectile;
-	s32 m_projectileinserecthandle;
-	zdb::DiIntersect m_projectiledi;
+	s32 m_projectileintersecthandle; /* DWARF name */
+	zdb::DiIntersect* m_projectiledi; /* DWARF: a pointer */
 	u32 m_lastregion;
 
 	u32 m_HudUpdateViewCone : 1;
@@ -1026,7 +1047,7 @@ public:
 	s16 m_prev_throttleQuadrant;
 	f32 m_descent;
 	f32 m_slide_descent;
-	CPnt3D m_ground_normal;
+	CPnt3D m_groundNormal; /* DWARF name */
 	CPnt3D m_inAirHorizVel;
 	f32 m_nextJumpTimer;
 	f32 m_jumpTimer;
@@ -1054,7 +1075,7 @@ public:
 	s16 m_fixed_foot;
 
 	f32 m_TimeSpentDead;
-	s32 m_NumDeathAnimsPlayed;
+	s32 m_numDeathAnimsPlayed; /* DWARF name */
 	/* @socom-skeleton decl 10CZSealBody */
 public:
 	virtual ~CZSealBody();
@@ -1206,7 +1227,7 @@ public:
 	CZBodyAnim * BaseAnim_0(AnimType, SEAL_ITEM);
 	CZBodyAnim * BaseAnim_0(CZBodyAnim *, SEAL_ITEM);
 	void ReadMotionRdr();
-	void AnimSetup();
+	bool AnimSetup(); /* bool: the ctor (0x258478) tests it */
 	CZBodyAnim * GetAnimByType(AnimType);
 	void BindAnimSet(const char *);
 	void BindAnimSet(AnimSet *);
@@ -1459,8 +1480,7 @@ public:
 	static f32 m_bobbing1stperson_amplitude[2];
 	static f32 m_bobbing1stperson_rate[2];
 	
-	u32 m_padid;
-
+	/* data members in DWARF order (CSealCtrl, 0x240 bytes) */
 	f32 m_look_timer;
 	Rfloat m_look_rate;
 	AI_LOOK m_look_mode;
@@ -1480,13 +1500,16 @@ public:
 
 	CAiCone m_view_cone;
 	CAiDecay m_visrange;
+	CAiDecay m_vissens;
 	CAiDecay m_aware;
 
 	u32 m_targetSum;
 	CAiDecay m_targetThreat;
 	CSealUnit* m_unit; /* DWARF: CSealCtrl::m_unit is CSealUnit * */
+	CAiVisMap* m_vismap;
 
 	u32 m_ai_net_state;
+	u32 m_padid;
 	TRIGGER m_trigger;
 	f32 m_trigger_power;
 	s32 m_throwwait;
@@ -1505,6 +1528,7 @@ public:
 	s32 m_HudDoPickup;
 	s32 m_curpickup_ID;
 	s32 m_curpickup_secondary_ID;
+	s32 m_curMPBOMBpickup_ID;
 
 	zdb::CNode* m_bomb_defusal_node;
 	zdb::CNode* m_mpbomb_node;
@@ -1513,22 +1537,22 @@ public:
 	CZSealBody* m_victimbody;
 	CZSealBody* m_corpsebody;
 
-	bool m_goal_pos_valid;
-	bool m_goal_dir_valid;
-	bool m_wasthrowing;
-	bool m_HudUpdateWeapon;
-	bool m_HudUpdateViewCone;
-	bool m_throwing;
-	bool m_justthrew;
-	bool m_update_zoom;
-	bool m_zoomin;
-	bool m_zoomout;
-	bool m_input_enabled;
-	bool m_mpbomb_bTimerAvailable;
-	bool m_mpbomb_bTimerEngaged;
-	bool m_has_respawned;
-	bool m_do_aimap_collide;
-
+	u32 m_goal_pos_valid : 1; /* +0x168: one flag word */
+	u32 m_goal_dir_valid : 1;
+	u32 m_action : 1;
+	u32 m_wasthrowing : 1;
+	u32 m_HudUpdateWeapon : 1;
+	u32 m_HudUpdateViewCone : 1;
+	u32 m_throwing : 1;
+	u32 m_justthrew : 1;
+	u32 m_update_zoom : 1;
+	u32 m_zoomin : 1;
+	u32 m_zoomout : 1;
+	u32 m_input_enabled : 1;
+	u32 m_mpbomb_bTimerAvailable : 1;
+	u32 m_mpbomb_bTimerEngaged : 1;
+	u32 m_has_respawned : 1;
+	u32 m_do_aimap_collide : 1;
 	u32 m_unused : 16;
 
 	CPnt3D m_goal_dir;
@@ -1653,6 +1677,24 @@ public:
 
 	static SEAL_VALVE get_valve(const char* valve);
 	static const char* get_valve(SEAL_VALVE valve);
+
+	/* port: DWARF members (CSealCtrlAi 0x5d0 bytes) are declared as code needs them;
+	 * the rest of the layout is not declared yet */
+	u32 m_debug : 1; /* +0x280 bit 0 */
+	u32 m_navyseal : 1;
+	u32 m_noturn_travel : 1;
+	u32 m_evasive_travel : 1;
+	u32 m_creeping : 1;
+	u32 m_nofade : 1; /* bit 5 (CMission::LoadVehicle 0x1fd478) */
+	u32 m_nobindanimset : 1;
+	u32 m_do_reaction : 1;
+	u32 m_sleeping : 1;
+	u32 m_snoozing : 1;
+	u32 m_nosnooze : 1; /* bit 10 (0x1fd4a8) */
+	u32 m_weapon_ready : 1;
+	u32 m_do_corpse : 1;
+	u32 m_unused : 19;
+	AI_PARAMS m_aiParams; /* +0x524 (0x1fd4a4 copies the vehicle's, then sets m_veh) */
 	/* @socom-skeleton decl 11CSealCtrlAi */
 public:
 	virtual ~CSealCtrlAi();

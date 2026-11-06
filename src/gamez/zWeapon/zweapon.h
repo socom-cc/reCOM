@@ -163,7 +163,7 @@ enum class EQUIP_ITEM : unsigned char /* DWARF byte_size 1; zai.h declares it op
 	EQUIP_END = 254
 };
 
-enum class EQUIP_AMMO
+enum class EQUIP_AMMO : unsigned char /* DWARF byte_size 1 (CCharacterWeap::m_ammoId at +1) */
 {
 	AMMO_NONE = 0xff,
 

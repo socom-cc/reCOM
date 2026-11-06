@@ -527,189 +527,389 @@ void SealInitCharacterDynamics()
 }
 
 /* @socom-skeleton body __ct__10CZSealBodyFPQ23zdb5CNodeP14CCharacterType */
-CZSealBody::CZSealBody(zdb::CNode* node, CCharacterType* chartype) : CEntity(ENT_TYPE_SEAL, node), CBody()
+CZSealBody::CZSealBody(zdb::CNode* node, CCharacterType* chartype) : CEntity(ENT_TYPE_SEAL, node), CBody(), pa_di(8)
 {
-    m_MaxFollowerDistance = 0;
-    m_MaxFollowerDistanceNext = 0;
+	/* 0x2577d0: the seal's state, kit and body parts from the instance's skeleton
+	 * (seal_body or skel_root), its weapons and sequences, the animation setup, then
+	 * (when that succeeds) collision, health and the rest. A node without a skeleton
+	 * ends the program (exit(-1), ELF quirk kept). */
+	m_MaxFollowerDistance = 0;
+	m_MaxFollowerDistanceNext = 0;
+	m_desiredState = SEAL_STATE::stateStand;
+	m_desiredPeek = (SEAL_PEEK)2; /* 0x2578d0 stores 2 */
+	m_recoilParam = 0.0f;
+	m_select = NULL;
+	m_last_altitude.m_poly = NULL;
+	m_last_altitude.m_node = NULL;
+	m_last_reticule.m_poly = NULL;
+	m_last_reticule.m_node = NULL;
+	m_last_reticule_action.m_poly = NULL;
+	m_last_reticule_action.m_node = NULL;
+	m_aiEvent = NULL;
+	m_look_dir = CPnt3D::unit_nz;
+	m_formation_dir = CPnt3D::unit_nz;
+	m_saved_formation_dir = CPnt3D::unit_nz;
+	m_charType = chartype;
+	m_mp_stats.Reset();
+	m_stats.Reset();
+	m_accuracy.Factor = tanf(0.0f) * 0.707f;
+	m_accuracy.FactorX = 0.0f;
+	m_accuracy.FactorY = 0.0f;
+	m_sealEx.m_seal = this;
+	m_camera = NULL;
+	m_advance_camera = false;
+	m_retreat_camera = false;
+	m_needs_respawn = false;
+	m_do_drop_weapons = true;
+	m_inAirHorizVel = CPnt3D::zero;
+	m_aim_dir = CPnt3D::unit_nz;
+	m_aim_goal = CPnt3D::unit_nz;
+	m_action_available_mask = 0;
+	m_action_selection_mask = 0;
+	m_action_display_on = false;
+	m_formation_clock = 0;
+	m_follow_params_are_current = false;
+	m_saved_formation_dir_is_valid = false;
+	pa_diIntersectHandle = -999;
+	numChords = 0;
+	dpos = CPnt3D::zero;
+	m_inAirHorizVel = CPnt3D::zero;
+	m_get_new_altitude = true;
+	CBody::BodySetState(0); /* 0x257bc8 calls CBody's, not CZSealBody's */
+	m_kit.Init();
+	m_kit.SetBody(this);
 
-    pa_di = zdb::DiIntersect();
+	for (s32 i = 0; i < 4; i++)
+		m_threatdir[i] = 0;
 
-    m_desiredState = SEAL_STATE::stateStand;
-    m_desiredPeek = SEAL_PEEK::PEEK_RIGHT;
-    
-    m_stance = SEAL_STANCE::STANCE_STAND;
-    
-    m_recoilParam = 0.0f;
-    m_select = NULL;
+	for (s32 i = 0; i < 8; i++)
+	{
+		m_threatscale[i] = 0.0f;
+		m_threatangle[i] = 0.0f;
+	}
 
-    m_snakePath.m_type_bias = 0.0f;
-    m_snakePath.m_template = NULL;
-    m_snakePath.m_overlay = new CAiPath();
+	CAiDecay* adrenaline = new CAiDecay;
 
-    m_formation_dir = CPnt3D::unit_nz;
-    m_saved_formation_dir = CPnt3D::unit_nz;
+	if (adrenaline != NULL)
+	{
+		adrenaline->m_value = 0.0f;
+		adrenaline->m_goal = 0.0f;
+		adrenaline->m_type = ::TYPE::LINEAR;
+	}
 
-    m_charType = chartype;
+	m_adrenaline = adrenaline;
+	m_adrenaline->m_goal = 0.0f;
+	m_adrenaline->m_value = 1.0f;
 
-    // m_mp_stats.Reset();
-    // m_stats.Reset();
+	zdb::CNode* skeleton = node->FindChild("seal_body", true);
 
-    m_accuracy.Factor = tanf(0.0f) * 0.70f;
-    m_accuracy.FactorX = 0.0f;
-    m_accuracy.FactorY = 0.0f;
+	if (skeleton == NULL)
+		skeleton = node->FindChild("skel_root", true);
 
-    m_sealEx.m_seal = this;
+	if (skeleton == NULL)
+	{
+		SOCOM_PORT_TRACE("SEAL: %s has no seal_body or skel_root node; exit(-1)", node->m_name);
+		exit(-1);
+	}
 
-    m_camera = NULL;
+	m_body_parts.resize(32, NULL);
+	BodySetup(skeleton, NULL);
+	m_root = FindPart("skel_root");
+	m_lfoot = FindPart("lfoot");
+	m_rfoot = FindPart("rfoot");
+	m_lhand = FindPart("lhand");
+	m_spinelo = FindPart("spinelo");
+	m_rhand = FindPart("rhand");
+	m_hips = FindPart("hips");
+	m_head = FindPart("head");
+	m_neck = FindPart("neck");
+	m_spinehi = FindPart("spinehi");
+	m_lthigh = FindPart("lthigh");
+	m_rthigh = FindPart("rthigh");
+	m_rcalf = FindPart("rcalf");
+	m_rbicep = FindPart("rbicep");
+	m_rforearm = FindPart("rforearm");
+	m_lbicep = FindPart("lbicep");
+	m_lforearm = FindPart("lforearm");
+	m_lscap = FindPart("lscap");
+	m_rscap = FindPart("rscap");
+	m_lshoulder_wgt = FindPart("lshoulder_wgt");
+	m_rshoulder_wgt = FindPart("rshoulder_wgt");
+	m_lcalf = FindPart("lcalf");
+	m_aimnodes = FindPart("aimnodes");
+	m_ltoe = FindPart("ltoe");
+	m_rtoe = FindPart("rtoe");
+	m_leyelid = NULL;
+	m_reyelid = NULL;
+	m_leyeball = NULL;
+	m_reyeball = NULL;
 
-    m_advance_camera = false;
-    m_retreat_camera = false;
-    m_needs_respawn = false;
+	m_weapons.resize(6, NULL);
+	m_item = SEAL_ITEM::itemRifle;
+	AddWeapon(SEAL_ITEM::itemRifle);
+	AddWeapon(SEAL_ITEM::itemPistol);
+	AddWeapon(SEAL_ITEM::itemThrowable);
+	m_rifle = FindPart("rifle");
+	m_pistol = FindPart("pistol");
+	m_grenade = FindPart("grenade");
+	m_weapon_state = 2;
 
-    m_inAirHorizVel = CPnt3D::zero;
+	zdb::CNode* weapon = new zdb::CNode();
+	m_deallocList.insert(m_deallocList.end(), weapon);
+	weapon->SetName("weapon");
+	m_weapon = AddBodyPart(weapon, NULL);
+	m_rifle_as_gear = NULL;
+	m_pistol_as_gear = NULL;
+	AddItem("rifle_out");
 
-    m_aim_dir = CPnt3D::unit_nz;
-    m_aim_goal = CPnt3D::unit_nz;
+	m_curr_aimpt = NULL;
+	m_curr_firept = NULL;
+	m_curr_aimpos = CPnt3D::zero;
+	m_curr_firepos = CPnt3D::zero;
+	m_have_aim_norm = false;
+	m_aim_norm = CPnt3D::zero;
+	m_prev_aim_point = CPnt3D::zero;
+	m_prev_aim_norm = CPnt3D::unit_z;
+	m_prev_reticle_pt = CPnt3D::zero;
+	m_prev_have_aim_norm = false;
 
-    m_action_available_mask = 0;
-    m_action_selection_mask = 0;
-    m_action_display_on = false;
-    m_formation_clock = 0;
-    m_follow_params_are_current = false;
-    m_saved_formation_dir_is_valid = false;
-    
-    pa_diIntersectHandle = -999;
+	CCrouchedRun* crouch = new CCrouchedRun;
 
-    numChords = 0;
+	if (crouch != NULL)
+	{
+		crouch->Clear();
+		crouch->m_wt = 0.0f;
+	}
 
-    dpos = CPnt3D::zero;
+	m_crouch = crouch;
+	CFire* fire = new CFire;
 
-    // BodySetState(0);
-    // m_kit.Init();
-    // m_kit.SetBody(this);
+	if (fire != NULL)
+		fire->Clear();
 
-    m_threatdir[0] = 0;
-    m_threatscale[0] = 0.0f;
-    m_threatangle[0] = 0.0f;
-    m_threatscale[1] = 0.0f;
-    m_threatangle[1] = 0.0f;
-    m_threatscale[2] = 0.0f;
-    m_threatangle[2] = 0.0f;
-    m_threatscale[3] = 0.0f;
-    m_threatangle[3] = 0.0f;
-    m_threatscale[4] = 0.0f;
-    m_threatangle[4] = 0.0f;
-    m_threatscale[5] = 0.0f;
-    m_threatangle[5] = 0.0f;
-    m_threatscale[6] = 0.0f;
-    m_threatangle[6] = 0.0f;
-    m_threatscale[7] = 0.0f;
-    m_threatangle[7] = 0.0f;
+	m_fire = fire;
+	m_look = new CLook();
+	m_eyelook = new CLook();
+	m_blink = new CBlink();
+	CLookItem* lookitem = new CLookItem;
 
-    m_adrenaline = new CAiDecay();
+	if (lookitem != NULL)
+	{
+		lookitem->Clear();
+		lookitem->m_binocs = NULL;
+		lookitem->m_nvg = NULL;
+		lookitem->m_item = NULL;
+	}
 
-    zdb::CNode* child = node->FindChild("seal_body", true);
+	m_lookitem = lookitem;
+	CTurnInPlace* turnip = new CTurnInPlace;
 
-    if (!child)
-    {
-        child = node->FindChild("skel_root", true);
-    }
+	if (turnip != NULL)
+		turnip->Clear();
 
-    if (child)
-    {
-        m_body_parts.reserve(32);
+	m_turnip = turnip;
+	WepWaitOn();
+	m_am_stunned = false;
+	m_carry = NULL;
+	m_take_snapshot = true;
+	m_skel_root = CPnt3D::zero;
+	m_was_turning = false;
+	SetBlendPool(8);
+	m_animset = NULL;
 
-        // BodySetup(child, NULL);
+	if (!AnimSetup())
+		return;
 
-        m_root = FindPart("skel_root");
-        m_lfoot = FindPart("lfoot");
-        m_rfoot = FindPart("rfoot");
-        m_lhand = FindPart("lhand");
-        m_spinelo = FindPart("spinelo");
-        m_rhand = FindPart("rhand");
-        m_hips = FindPart("hips");
-        m_head = FindPart("head");
-        m_neck = FindPart("neck");
-        m_spinehi = FindPart("spinehi");
-        m_lthigh = FindPart("lthigh");
-        m_rthigh = FindPart("rthigh");
-        m_rcalf = FindPart("rcalf");
-        m_rbicep = FindPart("rbicep");
-        m_rforearm = FindPart("rforearm");
-        m_lbicep = FindPart("lbicep");
-        m_lforearm = FindPart("lforearm");
-        m_lscap = FindPart("lscap");
-        m_rscap = FindPart("rscap");
-        m_lshoulder_wgt = FindPart("lshoulder_wgt");
-        m_rshoulder_wgt = FindPart("rshoulder_wgt");
-        m_lcalf = FindPart("lcalf");
-        m_aimnodes = FindPart("aimnodes");
-        m_ltoe = FindPart("ltoe");
-        m_rtoe = FindPart("rtoe");
+	m_animate_me = true;
+	AddDIPolys();
+	zdb::CDIBBox::SetCDIBBox();
+	skeleton->SetUseParentBBoxTree(true);
+	skeleton->m_parent->m_use_parent_bbox = false;
+	skeleton->m_parent->m_di.m_bReturnBackFaceIntersections = true;
 
-        m_leyelid = NULL;
-        m_reyelid = NULL;
-        m_leyeball = NULL;
-        m_reyeball = NULL;
+	/* the bounding box the skeleton's parent uses (up to three m_use_parent_bbox hops,
+	 * then GetBBox) is the character's fixed box */
+	zdb::CNode* owner = skeleton->m_parent;
+	CBBox* bbox = &owner->m_bbox;
 
-        m_weapons.resize(6);
+	if (owner->m_use_parent_bbox)
+	{
+		owner = owner->m_parent;
+		bbox = &owner->m_bbox;
 
-        m_item = SEAL_ITEM::itemRifle;
+		if (owner->m_use_parent_bbox)
+		{
+			owner = owner->m_parent;
+			bbox = &owner->m_bbox;
 
-        // AddWeapon(SEAL_ITEM::itemRifle);
-        // AddWeapon(SEAL_ITEM::itemPistol);
-        // AddWeapon(SEAL_ITEM::itemThrowable);
+			if (owner->m_use_parent_bbox)
+				bbox = owner->m_parent->GetBBox();
+		}
+	}
 
-        m_rifle = FindPart("rifle");
-        m_pistol = FindPart("pistol");
-        m_grenade = FindPart("grenade");
+	bbox->m_min.x = -10.0f;
+	bbox->m_min.y = -2.0f;
+	bbox->m_min.z = -10.0f;
+	bbox->m_max.x = 10.0f;
+	bbox->m_max.y = 20.0f;
+	bbox->m_max.z = 10.0f;
+	node->SetDescendantDI(true);
+	node->SetDescendantVisuals(true);
 
-        m_weapon_state = 2;
-        zdb::CNode* weaponnode = new zdb::CNode();
+	for (std::vector<CZWeapon*>::iterator i = m_weapons.begin(); i != m_weapons.end(); i++)
+	{
+		if (*i != NULL)
+			*(u32*)((u8*)*i + 0xc) = 0; /* port: guess - CZWeapon +0xc is not declared; the ELF zeroes it for each weapon */
+	}
 
-        m_deallocList.insert(m_deallocList.begin(), weaponnode);
+	zdb::CHit* fwdhit = new zdb::CHit;
 
-        weaponnode->SetName("weapon");
+	if (fwdhit != NULL)
+	{
+		fwdhit->m_poly = NULL;
+		fwdhit->m_node = NULL;
+		fwdhit->m_hit0 = CPnt3D::zero;
+		fwdhit->m_hit1 = CPnt3D::zero;
+		fwdhit->m_node = NULL;
+	}
 
-        // m_weapon = AddBodyPart(weaponnode);
+	m_fwdhit = fwdhit;
+	zdb::IntersectStruct* wephit = new zdb::IntersectStruct;
 
-        m_rifle_as_gear = NULL;
-        m_pistol_as_gear = NULL;
+	if (wephit != NULL)
+	{
+		wephit->m_poly = NULL;
+		wephit->m_node = NULL;
+	}
 
-        // AddItem("rifle_out");
+	m_wephit = wephit;
+	SetWepHit(NULL);
+	m_health = 1.0f;
 
-        m_curr_aimpt = NULL;
-        m_curr_firept = NULL;
+	for (s32 i = 0; i < 6; i++)
+		m_armor[i] = 0.0f;
 
-        m_curr_aimpos = CPnt3D::zero;
-        m_curr_firepos = CPnt3D::zero;
-        m_aim_norm = CPnt3D::zero;
-        m_prev_aim_point = CPnt3D::zero;
-        m_prev_aim_norm = CPnt3D::zero;
-        m_prev_reticle_pt = CPnt3D::zero;
+	/* 0x2586f0: DAMAGE_LOCATION values 0 head, 3 body, 1 right arm, 2 left arm, 5 left
+	 * leg, 4 right leg (the port's enumerator names do not follow these values) */
+	SetArmor((DAMAGE_LOCATION)0, chartype->m_healthParams.m_armor_head);
+	SetArmor((DAMAGE_LOCATION)3, chartype->m_healthParams.m_armor_body);
+	SetArmor((DAMAGE_LOCATION)1, chartype->m_healthParams.m_armor_rarm);
+	SetArmor((DAMAGE_LOCATION)2, chartype->m_healthParams.m_armor_larm);
+	SetArmor((DAMAGE_LOCATION)5, chartype->m_healthParams.m_armor_lleg);
+	SetArmor((DAMAGE_LOCATION)4, chartype->m_healthParams.m_armor_rleg);
 
-        m_crouch = new CCrouchedRun();
-        m_fire = new CFire();
-        m_look = new CLook();
-        m_eyelook = new CLook();
-        m_blink = new CBlink();
-        m_lookitem = new CLookItem();
-        m_turnip = new CTurnInPlace();
+	for (s32 i = 0; i < 7; i++)
+		m_stunval[i] = 0.0f;
 
-        //WepWaitOn();
+	m_order_flag = false;
+	m_limp = false;
+	m_retmods = 0.0f;
+	m_damagemod = 1.0f;
+	m_encumbmod = 1.0f;
+	m_encumbmod = 1.0f;
+	m_isinsmoke = false;
+	m_isingas = false;
+	m_iszooming = false;
+	m_head_health = chartype->m_healthParams.m_head_health;
+	m_head_healthMax = chartype->m_healthParams.m_head_healthMax;
+	m_body_health = chartype->m_healthParams.m_body_health;
+	m_body_healthMax = chartype->m_healthParams.m_body_healthMax;
+	m_larm_health = chartype->m_healthParams.m_larm_health;
+	m_larm_healthMax = chartype->m_healthParams.m_larm_healthMax;
+	m_rarm_health = chartype->m_healthParams.m_rarm_health;
+	m_rarm_healthMax = chartype->m_healthParams.m_rarm_healthMax;
+	m_lleg_health = chartype->m_healthParams.m_lleg_health;
+	m_lleg_healthMax = chartype->m_healthParams.m_lleg_healthMax;
+	m_rleg_health = chartype->m_healthParams.m_rleg_health;
+	m_rleg_healthMax = chartype->m_healthParams.m_rleg_healthMax;
+	m_lastprojectile = NULL;
+	m_tempprojectile = NULL;
+	m_projectileintersecthandle = -1;
+	m_projectiledi = NULL;
+	m_anim_handled = true;
+	m_stancechanged = true;
+	m_hudwashit = false;
+	m_HudUpdateViewCone = false;
+	m_movespeedmod = 1.0f;
+	m_killer_index = -1;
+	m_lastkiller_id = -1;
+	m_restrainable = false;
+	m_restrained = false;
+	m_invincible = false;
+	m_invisible = false;
+	m_aim_point_valid = false;
+	m_action_climb = false;
+	m_action_jump = false;
+	m_echo_pickup = false;
+	m_is_moving = false;
+	m_is_turning = false;
+	m_infiniteammo = false;
+	m_lastregion = 3;
+	m_alt = 0.0f;
+	m_dT = 0.0f;
+	SetLookDir(&CPnt3D::unit_nz, 0.0f);
+	m_mass = 90.0f;
+	m_waterdepth = 0.0f;
+	RotateHead(0.0f, 0.0f);
+	m_zoomval = 500.0f;
+	CPnt3D toe(1.09f, 0.0f, 0.0f);
+	PartInSpace(m_lfoot, &toe, &m_footL, NULL);
+	PartInSpace(m_rfoot, &toe, &m_footR, NULL);
+	m_last_foot = 2;
+	m_throttleQuadrant = -1;
+	m_prev_throttleQuadrant = -1;
+	m_onMaterial = 0;
+	m_descent = 0.0f;
+	m_airborne = true;
+	m_groundNormal = CPnt3D::unit_y;
+	m_nextJumpTimer = 0.0f;
+	m_jumped = false;
+	m_used_vel_y = false;
+	m_jumpTimer = 0.0f;
+	m_blooddriptimer = 0.0f;
+	m_didrstep = false;
+	m_didlstep = false;
+	m_respawning = false;
+	m_velM = CPnt3D::zero;
+	m_velR = CPnt3D::zero;
+	m_velW = CPnt3D::zero;
+	m_skel_y_w = 0.0f;
+	m_fix_skel_y = false;
+	pre_thr_strafe = 0.0f;
+	pre_thr_fb = 0.0f;
+	pre_thr_lr = 0.0f;
+	m_prev_thr_x = 0.0f;
+	m_prev_thr_z = 0.0f;
+	p0_pos0_w = CPnt3D::zero;
+	p0_pos1_w = CPnt3D::zero;
+	p0_d = 0.0f;
+	p0_run = false;
+	pi_diTail = CPnt3D::zero;
+	m_send_detail = false;
+	m_snake_path = false;
+	m_belowwateranim = NULL;
+	m_inwateranim = NULL;
+	m_wateranimnode.SetName("wateranimnode");
+	m_inwater = false;
+	m_voted_against = false;
+	m_local_voted_against = false;
+	m_vote_tally = 0;
+	m_detonation_countdown = NULL;
+	m_mpbomb_anchor = NULL;
+	m_mpbase_anchor = NULL;
+	m_hostage_anchor = NULL;
+	m_zoomstate = (ZOOMSTATE)0; /* 0x258e10: 0, the third-person view */
+	m_zoomstate_prev = (ZOOMSTATE)-1; /* 0x258e18: -1, unknown */
+	m_zoomstate_echo = false;
+	m_zoom_range = 1.0f;
+	m_prev_nodeaction = NULL;
+	UpdateAimParams();
 
-        m_carry = NULL;
-
-        m_skel_root = CPnt3D::zero;
-        
-        // SetBlendPool(8);
-
-        // bool animSetupSuccess = AnimSetup();
-    }
-
-    // Creation of the CZSealBody instance went terribly wrong.
-    // End the program.
-    zVid_Assert(false, LONG_MAX, __FILE__, __LINE__);
+	if (m_projectiledi != NULL)
+	{
+		delete m_projectiledi;
+		m_projectiledi = NULL;
+	}
 }
 
 /* @socom-skeleton body OnMissionStart__10CZSealBodyFv */
@@ -890,8 +1090,19 @@ void CZSealBody::RetreatPiggyBack()
 }
 
 /* @socom-skeleton stub TeleportTo__10CZSealBodyFPC6CPnt3DPC5CQuat */
-void CZSealBody::TeleportTo(const CPnt3D *, const CQuat *)
+void CZSealBody::TeleportTo(const CPnt3D *pos, const CQuat *rot)
 {
+	/* 0x24efe0: a new position also resets the altitude (looked up again); then the AI
+	 * map location is refreshed */
+	if (pos != NULL)
+	{
+		m_alt = pos->y;
+		m_get_new_altitude = true;
+	}
+
+	CEntity::TeleportTo(pos, rot);
+	bool changed = false;
+	UpdateAiMapLoc(changed);
 }
 
 /* @socom-skeleton stub TeleportTo__10CZSealBodyFPC7CMatrix */

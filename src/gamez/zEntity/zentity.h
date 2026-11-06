@@ -15,6 +15,7 @@
 
 #ifndef ZENTITY_H
 #define ZENTITY_H
+#include "gamez/zAI/zai.h" /* CAiMapLoc (CEntity::m_mapLoc) */
 #include "gamez/zAnim/zanim.h"
 #include "gamez/zNode/znode.h"
 #include "gamez/zSystem/zsys.h"
@@ -54,11 +55,14 @@ enum class DAMAGE_LOCATION
 	RLEG
 };
 
-enum class SEAL_CONTROL_TYPE
+/* not in DWARF; values from ftsCreateSeal 0x1fdfc0 (a byte: andi 0xff): 0 CSealCtrl (the
+ * player), 1 CSealCtrlAi, 2 no controller (nothing is created), 3 CSealCtrlSquirm, 4 a
+ * CSealCtrl with the CSealCtrlCopy vtable. port: names guessed */
+enum class SEAL_CONTROL_TYPE : unsigned char
 {
-	CTRL_NONE,
 	CTRL_PLAYER,
 	CTRL_AI,
+	CTRL_NONE,
 	CTRL_SQUIRM,
 	CTRL_MISC
 };
@@ -154,7 +158,7 @@ public:
 	
 	u32 m_team;
 	
-	f32 m_max_range_target_sq;
+	f32 m_max_target_range_sq; /* DWARF name */
 	
 	CTargetList m_targets;
 	
@@ -173,8 +177,9 @@ public:
 	u32 m_include_in_targetlist : 1;
 	u32 m_isAlive : 1;
 
-	// CAiMapLoc m_mapLoc;
-	// CAiMapLoc m_mapLocValid;
+	CAiMapLoc m_mapLoc; /* DWARF +0xe0 */
+	CAiMapLoc m_mapLocValid; /* DWARF +0xe4 */
+	CSaferStr m_SOPList[10]; /* DWARF +0xe8 (the ctor constructs 10 CSaferStr, 0x1ee870) */
 	/* @socom-skeleton decl 7CEntity */
 public:
 	virtual ~CEntity();
@@ -212,9 +217,9 @@ public:
 	static void UpdateTargetList(bool);
 	static const int invalidId;
 	static int m_recycle[3];
-	static int m_target_add[3];
-	static int m_target_inc[3];
-	static int m_target_rem[3];
+	static std::list<CEntity*> m_target_add; /* MSL lists (SetIncludeInTargetList 0x1f0b60) */
+	static std::list<CEntity*> m_target_inc;
+	static std::list<CEntity*> m_target_rem;
 	static int nextEntityId;
 	static int rrTargetListCount;
 	static int rrTargetListFirst;
@@ -340,7 +345,7 @@ public:
 	/* @socom-skeleton end 7CPickup */
 };
 /* @socom-skeleton decl 11CEntityList */
-class CEntityList : public std::list<void const*> /* port: element type from MSL pointer storage in DWARF; real element unproven */
+class CEntityList : public std::list<CEntity*> /* MSL stores it as list<const void *>; CEntity::CreateEntity (0x1ef670) appends entities */
 {
 public:
 	CEntity * GetEntity(const char *) const;

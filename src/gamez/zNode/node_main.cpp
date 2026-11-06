@@ -414,27 +414,26 @@ short CNode::Release()
 namespace zdb {
 void CNode::SetParentHasVisuals()
 	{
+		/* 0x227c80: mark this node and every ancestor that is not marked yet; a model also
+		 * marks its instances (a copy of its instance list is walked) */
 		m_hasVisuals = true;
 
-		if (m_parent && !m_parent->m_modified)
+		if (m_parent != NULL && !m_parent->m_hasVisuals)
 			m_parent->SetParentHasVisuals();
 
 		CModel* model = dynamic_cast<CModel*>(this);
 
-		if (!model)
+		if (model == NULL)
 			return;
 
-		for (auto i = model->m_list.begin(); i != model->m_list.end(); ++i)
+		CRefList instances(model->m_list);
+
+		for (CRefList::iterator i = instances.begin(); i != instances.end(); ++i)
 		{
-			CAssetLib* assetlib = *i;
+			CNode* node = *i;
 
-			for (auto j = assetlib->m_models.begin(); j != assetlib->m_models.end(); ++j)
-			{
-				CNode* node = *j;
-
-				if (node->m_hasVisuals)
-					node->SetParentHasVisuals();
-			}
+			if (node != NULL && !node->m_hasVisuals)
+				node->SetParentHasVisuals();
 		}
 	}
 }
@@ -700,13 +699,26 @@ void CNode::SetPosition(f32 x, f32 y, f32 z)
 }
 
 /* @socom-skeleton stub SetRotation__Q23zdb5CNodeFRC5CQuat */
-void zdb::CNode::SetRotation(const CQuat &)
+void zdb::CNode::SetRotation(const CQuat &rotation)
 {
+	/* 0x2271a0: the quaternion's rotation into the node matrix (translation kept); the
+	 * node is marked modified and its extension told it moved */
+	rotation.ToMatrix(&m_matrix);
+	m_modified = true;
+
+	if (m_nodeEx != NULL)
+		m_nodeEx->OnMove(this);
 }
 
 /* @socom-skeleton stub SetRotation__Q23zdb5CNodeFPC6CPnt3D */
-void zdb::CNode::SetRotation(const CPnt3D *)
+void zdb::CNode::SetRotation(const CPnt3D *rotation)
 {
+	/* 0x227140: as above from Euler angles (CMatrix::SetRotate) */
+	m_matrix.SetRotate(rotation);
+	m_modified = true;
+
+	if (m_nodeEx != NULL)
+		m_nodeEx->OnMove(this);
 }
 
 /* @socom-skeleton stub SetScale__Q23zdb5CNodeFf */

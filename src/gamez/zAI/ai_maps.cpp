@@ -126,8 +126,22 @@ void CAiMaps::GetLocation(const CPnt3D *, CAiMapLoc &)
 }
 
 /* @socom-skeleton stub GetLocation__7CAiMapsFPCcR9CAiMapLoc */
-void CAiMaps::GetLocation(const char *, CAiMapLoc &)
+bool CAiMaps::GetLocation(const char *name, CAiMapLoc &loc)
 {
+	/* 0x19c8e0: the first map that knows the location name; loc's map id is that map's
+	 * position in the list. False with no maps (ReadMapSet not written yet). */
+	u8 index = 0;
+
+	for (iterator i = begin(); i != end(); ++i, index++)
+	{
+		if (((const CAiMap*)*i)->GetLocation(name, loc))
+		{
+			loc.m_mapid = index;
+			return true;
+		}
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub GetActionById__7CAiMapsFUiR9CAiMapLocPPQ26CAiMap6action */

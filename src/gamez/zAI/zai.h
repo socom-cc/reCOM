@@ -130,6 +130,7 @@ enum class EQUIP_ITEM : unsigned char;
 class CEntity;
 
 class CSealCtrlAi;
+class CVehicleRdrEntry;
 
 enum class ASTAR_STATUS
 {
@@ -365,7 +366,7 @@ struct AI_PARAMS
 	u32 respawn;
 	f32 target_delay;
 	f32 target_discipline;
-	// CVehicleRdrEntry* m_veh;
+	CVehicleRdrEntry* m_veh; /* DWARF +0x38 (60-byte AI_PARAMS of CCharacterType and CVehicleRdrEntry) */
 	/* @socom-skeleton decl 9AI_PARAMS */
 public:
 	void Merge(const AI_PARAMS &, const AI_PARAMS &);
@@ -519,7 +520,7 @@ public:
 	void FreeEx();
 	void GetMapEx(const CAiMapLoc &);
 	CAiMap::name * GetCellName(const CAiMapLoc &);
-	void GetLocation(const char *, CAiMapLoc &) const;
+	bool GetLocation(const char *, CAiMapLoc &) const; /* bool: CAiMaps::GetLocation 0x19c8e0 tests it */
 	void GetCellAction(const CAiMapLoc &);
 	void FindActionLocation(unsigned int, CAiMapLoc &, CAiMap::action **);
 	CAiMap::link * SetCellLink(const CAiMapLoc &, bool);
@@ -557,6 +558,7 @@ public:
 
 class CAiMapLoc
 {
+public: /* port: public - CAiMaps (0x19c8e0) sets m_mapid */
 	u32 m_mapid : 6;
 	u32 m_x : 13;
 	u32 m_y : 13;
@@ -1096,6 +1098,7 @@ class CRestrainedPlanner : public CAiPlanner
 
 class CAiDecay
 {
+public: /* port: public - CSealCtrl's ctor (0x288330) sets the values */
 	f32 m_value;
 	f32 m_goal;
 	TYPE m_type;
@@ -1109,14 +1112,14 @@ class CAiParams
 class CAiTimer
 {
 public:
-	const f32 infinite = 0xBF800000;
-private:
+	static constexpr f32 infinite = -1.0f; /* infinite__8CAiTimer (0x448f10, read-only) is the static -1.0f (0xbf800000); a non-static member here made CAiTimer 16 bytes instead of DWARF's 12 */
 	Rfloat m_period;
 	f32 m_timer;
 };
 
 class CAiCone
 {
+public: /* port: public - CSealCtrl's ctor (0x288330) sets the cone fields */
 	f32 m_dot;
 	CPnt3D m_vec;
 	f32 m_height;
@@ -1187,7 +1190,7 @@ public:
 	void Reset();
 	CAiMap * GetMapByIndex(unsigned int) const;
 	void GetLocation(const CPnt3D *, CAiMapLoc &);
-	void GetLocation(const char *, CAiMapLoc &);
+	bool GetLocation(const char *, CAiMapLoc &); /* bool: 0x19c8e0 returns 0/1 */
 	void GetActionById(unsigned int, CAiMapLoc &, CAiMap::action **);
 	CAiMap::region * GetRegion(const char *, CAiMapLoc &);
 	CAiMap::region * GetRegion(const CAiMapLoc &);

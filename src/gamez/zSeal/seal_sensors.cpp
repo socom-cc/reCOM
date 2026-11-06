@@ -343,8 +343,14 @@ float CSealCtrl::ComputeVisibility(zdb::DiIntersect *, zdb::CNode *)
 }
 
 /* @socom-skeleton stub SetViewFOV__9CSealCtrlFf */
-void CSealCtrl::SetViewFOV(float)
+void CSealCtrl::SetViewFOV(float fov)
 {
+	/* 0x2aff70: the field of view, saturated to [0.01, pi/2], with its half-angle cosine
+	 * and tangent */
+	saturate<f32>(fov, 0.01f, 1.5707964f);
+	m_fov = fov;
+	m_fovcos = cosf(0.5f * fov);
+	m_fovtan = tanf(0.5f * fov);
 }
 
 /* @socom-skeleton stub UpdateViewCone__9CSealCtrlFv */

@@ -9,6 +9,7 @@
 
 #ifndef ZCHARACTER_H
 #define ZCHARACTER_H
+#include "gamez/zAI/zai.h" /* AI_PARAMS (CCharacterType::m_aiParams) */
 #include "gamez/zCamera/zcam.h"
 #include "gamez/zMath/zmath.h"
 #include "gamez/zReader/zrdr.h"
@@ -16,7 +17,7 @@
 #include "gamez/zSystem/zsys.h"
 /* @socom-skeleton decl forward */
 class CCharacterWeapPacked;
-enum CHARACTER_SOUND { }; /* port: unproven: passed by value per the mangled name; kind and enumerators not in DWARF */
+enum CHARACTER_SOUND : signed char { }; /* not in DWARF; a signed byte: GetCharacterSoundType(String) 0x248110/0x248190 sign-extend it from 8 bits and use -1 for none; values 0-65 index the CHRSND_ names */
 /* @socom-skeleton end forward */
 
 struct AnimSet;
@@ -27,6 +28,7 @@ class CVehicleRdrEntry;
 
 /* port: opaque declaration; the definition is in gamez/zWeapon/zweapon.h (DWARF byte_size 1) */
 enum class EQUIP_ITEM : unsigned char;
+enum class EQUIP_AMMO : unsigned char; /* gamez/zWeapon/zweapon.h */
 
 namespace zdb
 {
@@ -81,6 +83,7 @@ public:
 	u32 m_gearid;
 	char* m_name;
 	char* m_model_file;
+	char* m_model_name; /* DWARF +0x14: the model file name without its extension */
 	zdb::CModel* m_model;
 	CPnt3D m_offset;
 	CPnt3D m_rotation;
@@ -92,7 +95,11 @@ public:
 
 class CCharacterWeap
 {
-private:
+public:
+	EQUIP_ITEM m_wepId;
+	EQUIP_AMMO m_ammoId;
+	s32 m_ammoCount;
+	s32 m_magCount;
 
 	/* @socom-skeleton decl 14CCharacterWeap */
 public:
@@ -100,32 +107,43 @@ public:
 	/* @socom-skeleton end 14CCharacterWeap */
 };
 
+/* @socom-skeleton decl 18CCharacterGearList */
+class CCharacterGearList : public std::list<CCharacterGear*> /* MSL stores it as list<const void *>; the elements are CCharacterGear * (CCharacterType::Open 0x24a4c0, Acquire 0x248840) */
+{
+public:
+	CCharacterGear * FindGear(const char *) const;
+};
+/* @socom-skeleton end 18CCharacterGearList */
+/* @socom-skeleton decl 18CCharacterWeapList */
+class CCharacterWeapList : public std::vector<CCharacterWeap>
+{
+public:
+	void AddWeapon(EQUIP_ITEM);
+	void RemoveWeapon(EQUIP_ITEM);
+};
+/* @socom-skeleton end 18CCharacterWeapList */
+/* @socom-skeleton decl 20CCharacterModelCache */
+class CCharacterModelCache
+{
+public:
+	static std::vector<zdb::CModel*> m_ModelCache; /* a zdb::CModelVector (CModelVector::GetModel is called on it, Acquire 0x248840) */
+};
+/* @socom-skeleton end 20CCharacterModelCache */
+
+/* A multiplayer message (CCharacterType::InitMultiplayerMessages; the ctor copies its first
+ * 16 of 20 bytes, 0x249790). port: layout unproven beyond its size */
+struct MultiplayerMsg
+{
+	u32 m_words[5];
+};
+
 class CCharacterType
 {
 public:
-	struct AI_PARAMS
-	{
-		u32 mask;
-		f32 accuracy;
-		f32 courage;
-		f32 surrender;
-		f32 stealth;
-		f32 training;
-		f32 visual_sens;
-		f32 visual_range;
-		f32 visual_fov;
-		f32 aware_decay;
-		f32 thip_range;
-		u32 respawn;
-		f32 target_delay;
-		f32 target_discipline;
-		CVehicleRdrEntry* m_veh;
-	};
-	
 	CCharacterType();
 	CCharacterType(const char*, const CCharacterType*);
 
-	static std::list<CCharacterType*> m_char_list;
+	static std::vector<CCharacterType*> m_char_list; /* __vector_pod (Open 0x24a4c0 inserts at data + size) */
 	static std::list<CCharacterGear*> m_gear_list;
 
 	static bool Open(const char* path);
@@ -148,13 +166,13 @@ public:
 
 	LODVec m_LODs;
 
-	std::vector<AnimSet*> m_anim_sets;
+	std::vector<char*> m_anim_sets; /* anim set names, pooled in m_anim_set_names (Parse 0x2489c0) */
 
 	char* m_texture_asset;
 	zdb::CModel* m_model;
 
-	std::list<CCharacterGear*> m_gear;
-	std::vector<CCharacterWeap*> m_weapons;
+	CCharacterGearList m_gear;
+	CCharacterWeapList m_weapons;
 
 	s32 m_strength;
 	s32 m_recovery_factor;
@@ -164,12 +182,13 @@ public:
 
 	AI_PARAMS m_aiParams;
 	HEALTH_PARAMS m_healthParams;
+	std::vector<MultiplayerMsg*> MultiplayerMessages; /* DWARF CMultiplayerMsgVec */
 	/* @socom-skeleton decl 14CCharacterType */
 public:
 	void KorusGetPackedWeapons(CCharacterWeapPacked *);
 	void UnPack(const CCharacterWeapPacked *, CCharacterType *);
 	~CCharacterType();
-	void Parse(_zrdr *);
+	bool Parse(_zrdr *); /* bool: 0x2489c0 returns 1 */
 	CCharacterType * Acquire() const;
 	void CreateLODs(zdb::CNode *);
 	int Release();
@@ -182,8 +201,8 @@ public:
 	static CCharacterType * RdrFetch_CharacterType(const char *);
 	char * GetBaseName();
 	EQUIP_ITEM GetWeaponByIndex(unsigned int) const;
-	static int m_anim_set_names[3];
-	static int m_rdr_file;
+	static std::list<char*> m_anim_set_names; /* every anim set name, once (Parse 0x2489c0) */
+	static CRdrFile* m_rdr_file; /* the characters reader, kept open (Open 0x24a4c0) */
 	/* @socom-skeleton end 14CCharacterType */
 };
 
@@ -296,26 +315,4 @@ public:
 	void Load(const CRdrFile &);
 	/* @socom-skeleton end 17CharacterDynamics */
 };
-/* @socom-skeleton decl 18CCharacterGearList */
-class CCharacterGearList : public std::list<void const*> /* port: element type from MSL pointer storage in DWARF; real element unproven */
-{
-public:
-	CCharacterGear * FindGear(const char *) const;
-};
-/* @socom-skeleton end 18CCharacterGearList */
-/* @socom-skeleton decl 20CCharacterModelCache */
-class CCharacterModelCache
-{
-public:
-	static int m_ModelCache[3];
-};
-/* @socom-skeleton end 20CCharacterModelCache */
-/* @socom-skeleton decl 18CCharacterWeapList */
-class CCharacterWeapList : public std::vector<CCharacterWeap>
-{
-public:
-	void AddWeapon(EQUIP_ITEM);
-	void RemoveWeapon(EQUIP_ITEM);
-};
-/* @socom-skeleton end 18CCharacterWeapList */
 #endif

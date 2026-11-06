@@ -74,7 +74,7 @@ int CEntity::nextEntityId;
 static int recycler[3];
 
 /* @socom-skeleton stub m_list__7CEntity */
-CEntityList CEntity::m_list;
+CEntityList CEntity::m_list; /* every created entity; MSL list (+0 is its size) */
 
 /* @socom-skeleton stub m_recycle__7CEntity */
 int CEntity::m_recycle[3];
@@ -110,8 +110,19 @@ bool CEntity::EntityIsValid(CEntity* entity)
 }
 
 /* @socom-skeleton stub CreateEntity__7CEntityFP7CEntityb */
-void CEntity::CreateEntity(CEntity *, bool)
+void CEntity::CreateEntity(CEntity *entity, bool include)
 {
+	/* 0x1ef670: outside a recycle the entity gets the next index and joins m_list (and,
+	 * with include, the target lists); a recycled entity takes the recycler's index */
+	if (recycler_index == (unsigned int)-1)
+	{
+		entity->m_index = (u32)m_list.size();
+		m_list.insert(m_list.end(), entity);
+		entity->SetIncludeInTargetList(include);
+		return;
+	}
+
+	entity->m_index = recycler_index;
 }
 
 /* @socom-skeleton stub RecycleEntity__7CEntityFP7CEntity */
@@ -170,7 +181,30 @@ int CEntity::GetEntityIndex(const CEntity *entity) /* port: static (no C qualifi
 /* @socom-skeleton body __ct__7CEntityFQ27CEntity4TYPEPQ23zdb5CNode */
 CEntity::CEntity(TYPE type, zdb::CNode* node)
 {
-	
+	/* 0x1ee870 */
+	m_type = type;
+	m_node = node;
+	sceVu0UnitMatrix(m_next_matrix.m_matrix);
+	m_control = NULL;
+	m_team = 0;
+	memcpy(&m_mapLoc, CAiMapLoc::invalid, sizeof(m_mapLoc));
+	memcpy(&m_mapLocValid, CAiMapLoc::invalid, sizeof(m_mapLocValid));
+	m_quat = CQuat::identity;
+	m_next_quat = CQuat::identity;
+	m_velW = CPnt3D::zero;
+	m_velM = CPnt3D::zero;
+	m_velR = CPnt3D::zero;
+	m_next_velw = CPnt3D::zero;
+	m_UnitsSeenBy = 0;
+	m_id = nextEntityId;
+	nextEntityId++;
+	m_aware_counter = 0;
+	m_display_name = NULL;
+	m_noshoot = false;
+	m_update_targetlist = true;
+	m_include_in_targetlist = false;
+	m_max_target_range_sq = 25000000.0f;
+	m_isAlive = true;
 }
 
 /* @socom-skeleton stub __dt__7CEntityFv */
@@ -185,17 +219,18 @@ zdb::CNode * CEntity::GetNode()
 }
 
 /* @socom-skeleton stub SetTeamMask__7CEntityFUi */
-void CEntity::SetTeamMask(unsigned int)
+void CEntity::SetTeamMask(unsigned int mask)
 {
+	/* 0x1ee790 */
+	m_team = mask;
 }
 
 /* @socom-skeleton body JoinTeam__7CEntityFUi */
 void CEntity::JoinTeam(u32 team)
 {
+	/* 0x1ee760: m_team is a mask of teams */
 	if (team < 32)
-	{
-		m_team = team;
-	}
+		m_team |= 1 << team;
 }
 
 /* @socom-skeleton body SetDisplayName__7CEntityFPCc */
@@ -228,8 +263,32 @@ void CEntity::TeleportTo(const CMatrix *)
 }
 
 /* @socom-skeleton stub TeleportTo__7CEntityFPC6CPnt3DPC5CQuat */
-void CEntity::TeleportTo(const CPnt3D *, const CQuat *)
+void CEntity::TeleportTo(const CPnt3D *pos, const CQuat *rot)
 {
+	/* 0x1ee440: stop, then place the node at pos and/or rot (either may be NULL) */
+	CMatrix matrix;
+	sceVu0CopyMatrix(matrix.m_matrix, m_node->m_matrix.m_matrix);
+	m_velW = CPnt3D::zero;
+	m_velM = CPnt3D::zero;
+	m_velR = CPnt3D::zero;
+	m_next_velw = CPnt3D::zero;
+
+	if (pos != NULL)
+	{
+		matrix.m_matrix[3][2] = pos->z;
+		matrix.m_matrix[3][1] = pos->y;
+		matrix.m_matrix[3][0] = pos->x;
+	}
+
+	if (rot != NULL)
+	{
+		m_next_quat = *rot;
+		m_quat = *rot;
+		rot->ToMatrix(&matrix);
+	}
+
+	sceVu0CopyMatrix(m_next_matrix.m_matrix, matrix.m_matrix);
+	m_node->SetMatrix(&matrix);
 }
 
 /* @socom-skeleton stub GetTargetPosW__7CEntityFP6CPnt3D */

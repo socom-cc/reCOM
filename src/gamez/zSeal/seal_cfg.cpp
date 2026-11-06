@@ -65,12 +65,12 @@ static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub bodyPartNames__22@unnamed@seal_cfg_cpp@ */
 namespace {
-unsigned char bodyPartNames[2048];
+char bodyPartNames[64][32]; /* 2048 bytes: up to 64 names of under 32 characters (BodyId 0x280eb0) */
 }
 
 /* @socom-skeleton stub bodyPartNames_map__22@unnamed@seal_cfg_cpp@ */
 namespace {
-unsigned char bodyPartNames_map[16];
+std::map<std::string, int> bodyPartNames_map; /* name -> body part id (BodyId 0x280eb0) */
 }
 
 /* @socom-skeleton stub GetDynamics__10CZSealBodyFv */
@@ -89,8 +89,35 @@ CRdrFile * CZSealBody::InitMotionRdrFile()
 }
 
 /* @socom-skeleton stub BodyId__FPCc */
-int BodyId(const char *)
+int BodyId(const char *name)
 {
+	/* 0x280eb0: the id of a body part name; a new name gets the next id (up to 64 names
+	 * shorter than 32 characters, else 0). The map is first filled from the names already
+	 * in the table. */
+	if (!BodyPartNamesMap_Inited)
+	{
+		for (int i = 0; i < bodyPartNameCount; i++)
+			bodyPartNames_map[std::string(bodyPartNames[i])] = i;
+
+		BodyPartNamesMap_Inited = true;
+	}
+
+	std::map<std::string, int>::iterator found = bodyPartNames_map.find(std::string(name));
+
+	if (found != bodyPartNames_map.end())
+		return found->second;
+
+	if (bodyPartNameCount >= 64)
+		return 0;
+
+	if (strlen(name) >= 32)
+		return 0;
+
+	int id = bodyPartNameCount;
+	bodyPartNames_map[std::string(name)] = id;
+	strcpy(bodyPartNames[bodyPartNameCount], name);
+	bodyPartNameCount++;
+	return id;
 }
 
 /* @socom-skeleton stub ClearBodyPartNames_Map__Fv */
@@ -139,7 +166,7 @@ void CZSealBody::ReadMotionRdr()
 }
 
 /* @socom-skeleton stub AnimSetup__10CZSealBodyFv */
-void CZSealBody::AnimSetup()
+bool CZSealBody::AnimSetup()
 {
 }
 

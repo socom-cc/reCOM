@@ -245,7 +245,7 @@ public:
 
 		void SetMatrix(const CMatrix* matrix);
 		void SetPosition(f32 x, f32 y, f32 z);
-		void SetRotation(const CQuat* rotation) {};
+		void SetRotation(const CQuat* rotation) { SetRotation(*rotation); } /* port: no symbol - pointer spelling of SetRotation(const CQuat &) (0x2271a0) kept for existing callers */
 		void SetScale(f32 scaleFactor);
 		void SetScale(CPnt3D* scale);
 
@@ -334,16 +334,18 @@ public:
 		/* @socom-skeleton end Q23zdb5CNode */
 	};
 
-	class CNodeEx : public CNode
+	/* A node extension: callbacks only (DWARF CNodeEx is 4 bytes, the vptr; no base). The
+	 * virtuals are in the order of __vt__Q23zdb7CNodeEx (0x471960), which has no dtor slot. */
+	class CNodeEx
 	{
 	public:
-		virtual void OnAction(CNode* node, void* action) {}
-		virtual void OnCopy(CNode* node, CNode* other) {}
-		virtual void OnDelete(CNode* node) {}
-		virtual void OnDoubleClick(CNode* node) {}
-		virtual void OnMove(CNode* node) {}
-		virtual void OnSelect(CNode* node, bool selected) {}
 		virtual void OnWeaponHit(CNode* node, IntersectStruct* intersection, CZProjectile* projectile) {}
+		virtual void OnAction(CNode* node, void* action) {}
+		virtual void OnMove(CNode* node) {}
+		virtual void OnDelete(CNode* node) {}
+		virtual void OnCopy(CNode* node, CNode* other) {}
+		virtual void OnDoubleClick(CNode* node) {}
+		virtual void OnSelect(CNode* node, bool selected) {}
 	};
 }
 #endif

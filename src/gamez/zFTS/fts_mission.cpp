@@ -179,6 +179,7 @@
 #include "gamez/zEntity/zentity.h" /* CEntity::m_list, CPickup::Open */
 
 char* GetDatabase(); /* zanim_menu.cpp (0x1d6770) */
+void UpdateCharWeaponUiVars(int); /* below (0x1fa2b0) */
 void ftsFixupAiMap(CAiMap *); /* below (0x1f47d0) */
 extern CAiMaps AiMaps; /* ai_maps.cpp (0x49b190) */
 
@@ -259,10 +260,35 @@ int g_arrMapVisCounts[10];
 
 /* @socom-skeleton stub CreateCustomCharTypes__25@unnamed@fts_mission_cpp@FP11CVehicleRdrP5_zrdr */
 namespace {
-void CreateCustomCharTypes(CVehicleRdr *, _zrdr *)
+void CreateCustomCharTypes(CVehicleRdr *vehicles, _zrdr *mission)
 {
 	/* @socom-skeleton stub c_arrCustomCharTypeNames$2822 */
 	static char *const c_arrCustomCharTypeNames[32] = {"UiCharType1", "UiCharType2", "UiCharType3", "UiCharType4", "UiCharType5", "UiCharType6", "UiCharType7", "UiCharType8", "UiCharType9", "UiCharType10", "UiCharType11", "UiCharType12", "UiCharType13", "UiCharType14", "UiCharType15", "UiCharType16", "UiCharType17", "UiCharType18", "UiCharType19", "UiCharType20", "UiCharType21", "UiCharType22", "UiCharType23", "UiCharType24", "UiCharType25", "UiCharType26", "UiCharType27", "UiCharType28", "UiCharType29", "UiCharType30", "UiCharType31", "UiCharType32"};
+
+	/* 0x1faa20: each UiVehicles entry (up to 32) gets a temporary copy of its vehicle's
+	 * character type, UiCharTypeN, which the vehicle then uses (the UI's equipment goes
+	 * on the copy); the original type name is kept in g_arrDefCharTypeNames */
+	_zrdr* ui = zrdr_findtag(mission, "UiVehicles");
+	g_iNumUiVehicles = ui != NULL && ui->IsArray() ? ui->array->integer - 1 : 0;
+
+	for (s32 i = 0; i < g_iNumUiVehicles; i++)
+	{
+		char* name = i < 32 ? c_arrCustomCharTypeNames[i] : NULL;
+
+		if (name == NULL)
+			break;
+
+		CVehicleRdrEntry* entry = vehicles->GetEntryByName(zrdr_findstring(ui->Get((u32)i), "Name"));
+
+		if (entry == NULL)
+			continue;
+
+		strcpy((char*)&g_arrDefCharTypeNames[i * 64], entry->m_character);
+		CCharacterType* type = CCharacterType::Create(name, CCharacterType::GetByNameMod(entry->m_character), false);
+		type->m_istemporary = true;
+		entry->SetCharacterName(name);
+		UpdateCharWeaponUiVars(i);
+	}
 }
 }
 
@@ -799,7 +825,7 @@ void CMission::Open(const char *db, int ai)
 	zrdr_free(cams);
 	CNodeAction::Open(world, "actions.rdr");
 	CreateLadderTable();
-	CCharacterModelCache::m_ModelCache[1] = 0;
+	CCharacterModelCache::m_ModelCache.clear(); /* 0x1f8420: the cache vector's size word = 0 */
 	CZWeapon::OpenDecals();
 	/* port: not written - the ELF runs m_pMarklist->Init() when CreateMarkList made one
 	 * (CZWeapon::m_pMarklist, 0x476680, is not declared; CreateMarkList is not written) */

@@ -49,13 +49,13 @@ int CEntity::rrTargetListCount = 2;
 int CEntity::rrTargetListFirst;
 
 /* @socom-skeleton stub m_target_inc__7CEntity */
-int CEntity::m_target_inc[3];
+std::list<CEntity*> CEntity::m_target_inc; /* entities in the target lists */
 
 /* @socom-skeleton stub m_target_add__7CEntity */
-int CEntity::m_target_add[3];
+std::list<CEntity*> CEntity::m_target_add; /* entities to add to them */
 
 /* @socom-skeleton stub m_target_rem__7CEntity */
-int CEntity::m_target_rem[3];
+std::list<CEntity*> CEntity::m_target_rem; /* entities to remove from them */
 
 /* @socom-skeleton stub _sort_target__FRC7CTargetRC7CTarget */
 bool _sort_target(const CTarget &, const CTarget &)
@@ -68,8 +68,32 @@ void CEntity::SetUpdateTargetList(bool)
 }
 
 /* @socom-skeleton stub SetIncludeInTargetList__7CEntityFb */
-void CEntity::SetIncludeInTargetList(bool)
+void CEntity::SetIncludeInTargetList(bool include)
 {
+	/* 0x1f0b60: queue the change for the next target list update */
+	if (include == (bool)m_include_in_targetlist)
+		return;
+
+	CEntity* self = this;
+
+	if (!include)
+	{
+		m_target_rem.insert(m_target_rem.end(), self);
+		m_target_add.remove(self);
+	}
+	else
+	{
+		m_target_rem.remove(self);
+		std::list<CEntity*>::iterator i = m_target_inc.begin();
+
+		while (i != m_target_inc.end() && *i != self)
+			++i;
+
+		if (i == m_target_inc.end())
+			m_target_add.insert(m_target_add.end(), self);
+	}
+
+	self->m_include_in_targetlist = include;
 }
 
 /* @socom-skeleton stub ReplaceTargetList__7CEntityFP7CEntityP7CEntity */

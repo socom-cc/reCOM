@@ -125,7 +125,7 @@ public:
 
 /* `stack` is a file-local CStack (1-byte LOCAL symbol) in zrndr_pipe.cpp, grid_clutter.cpp and grid_di.cpp */
 
-class LODVec : public std::vector<LOD*> {};
+class LODVec : public std::vector<LOD> {}; /* DWARF: __vector_deleter<LOD> of 12-byte elements (CCharacterType::CreateLODs 0x2486f0) */
 
 /// <summary>
 /// Base rendering pipeline for GameZ.

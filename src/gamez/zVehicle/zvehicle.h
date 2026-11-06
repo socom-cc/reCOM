@@ -21,7 +21,6 @@ public:
     bool Open(const char*);
     void Close();
     bool Load(_zrdr*);
-    CVehicleRdrEntry* GetEntryByName(const char*);
     /* @socom-skeleton decl 11CVehicleRdr */
 public:
     CVehicleRdr();

@@ -77,6 +77,13 @@
 #include "zchar.h"
 
 #include "gamez/zReader/zrdr.h"
+#include "gamez/zNode/node_model.h" /* zdb::CModel, CModelVector */
+#include "gamez/zNode/node_world.h" /* zdb::CWorld::GetModel */
+#include "gamez/zSeal/zseal.h" /* CSealCtrlAi::SetAiAccuracyAngle */
+#include "posix/strcasecmp.h"
+
+int BodyId(const char *); /* seal_cfg.cpp (0x280eb0) */
+CHARACTER_SOUND GetCharacterSoundType(const char *); /* below (0x248110) */
 
 /* @socom-skeleton decl include */
 #include "gamez/zMath/zmath.h"
@@ -89,7 +96,7 @@ class CCharacterWeapPacked;
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub m_rdr_file__14CCharacterType */
-int CCharacterType::m_rdr_file;
+CRdrFile* CCharacterType::m_rdr_file;
 
 /* @socom-skeleton stub _angle_units */
 static int _angle_units;
@@ -98,16 +105,40 @@ static int _angle_units;
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub m_char_list__14CCharacterType */
-std::list<CCharacterType *, std::allocator<CCharacterType *> > CCharacterType::m_char_list;
+std::vector<CCharacterType*> CCharacterType::m_char_list;
 
 /* @socom-skeleton stub m_gear_list__14CCharacterType */
-std::list<CCharacterGear *, std::allocator<CCharacterGear *> > CCharacterType::m_gear_list;
+std::list<CCharacterGear*> CCharacterType::m_gear_list;
 
 /* @socom-skeleton stub m_anim_set_names__14CCharacterType */
-int CCharacterType::m_anim_set_names[3];
+std::list<char*> CCharacterType::m_anim_set_names;
 
 /* @socom-skeleton stub m_ModelCache__20CCharacterModelCache */
-int CCharacterModelCache::m_ModelCache[3];
+std::vector<zdb::CModel*> CCharacterModelCache::m_ModelCache;
+
+/* port: no symbol - the inline helper whose zstrdup names char_type.cpp line 93: a copy
+ * of a model file name without its extension */
+namespace {
+char* ModelNameOf(const char* file)
+{
+	if (file == NULL)
+		return NULL;
+
+	char* name = zstrdup(file);
+	char* dot = strchr(name, '.');
+
+	if (dot != NULL)
+		*dot = '\0';
+
+	return name;
+}
+
+/* the model cache is searched as a zdb::CModelVector (CModelVector::GetModel) */
+zdb::CModel* CachedModel(const char* name)
+{
+	return static_cast<zdb::CModelVector&>(CCharacterModelCache::m_ModelCache).GetModel(name);
+}
+}
 
 /* @socom-skeleton stub FindGear__18CCharacterGearListCFPCc */
 CCharacterGear * CCharacterGearList::FindGear(const char *) const
@@ -137,59 +168,217 @@ void CCharacterType::UnPack(const CCharacterWeapPacked *, CCharacterType *)
 /* @socom-skeleton body Open__14CCharacterTypeFPCc */
 bool CCharacterType::Open(const char* path)
 {
-    _zrdr* reader = zrdr_read(path);
+	/* 0x24a4c0: read the characters reader (kept in m_rdr_file): the body part names, the
+	 * angle units, the AI accuracy angle, the shared gear list and the character types.
+	 * The type list is a flat run of: name [':' parent] { definition }. */
+	m_anim_set_names.clear();
+	CRdrFile* rdr = zrdr_read(path, NULL, 0);
 
-    if (reader)
-    {
-        _zrdr* gear = zrdr_findtag(reader, "gear");
+	if (rdr != NULL)
+	{
+		m_rdr_file = rdr;
+		_zrdr* items = zrdr_findtag(rdr, "body_items");
 
-        if (gear)
-        {
-            s32 i = 1;
-            
-            do
-            {
-                _zrdr* cur = &gear->array[i];
-                
-                char* name = zrdr_findstring(cur, "name");
-                char* model_name = zrdr_findstring(cur, "model");
-                _zrdr* ofs = zrdr_findtag(cur, "ofs");
-                i++;
-            }
-            while (i < gear->array->integer);
-        }
-    }
+		if (items != NULL && items->IsArray())
+		{
+			for (u32 i = 0; i < (u32)items->array->integer - 1; i++)
+			{
+				_zrdr* item = items->Get(i);
 
-    return true;
+				if (item->type == ZRDR_STRING)
+					BodyId(item->string);
+			}
+		}
+
+		char* units = zrdr_findstring(rdr, "AngleUnits");
+		_angle_units = units != NULL && strcmp(units, "DEG") == 0 ? 1 : 0;
+
+		if (_zrdr* ai = zrdr_findtag(rdr, "ai_settings"))
+		{
+			f32 angle;
+
+			if (zrdr_findreal(ai, "accuracy_angle", &angle, 1))
+			{
+				if (_angle_units == 1)
+					angle *= 0.017453292f;
+
+				CSealCtrlAi::SetAiAccuracyAngle(angle);
+			}
+		}
+
+		_zrdr* gear = zrdr_findtag(rdr, "gear");
+
+		if (gear != NULL && gear->IsArray())
+		{
+			/* a malformed entry (no model, no 3-element ofs, a non-string part, a bad
+			 * offset or rotation) ends the gear list (ELF quirk kept) */
+			for (u32 i = 0; i < (u32)gear->array->integer - 1; i++)
+			{
+				_zrdr* entry = gear->Get(i);
+				char* name = zrdr_findstring(entry, "name");
+				char* model = zrdr_findstring(entry, "model");
+				_zrdr* ofs = zrdr_findtag(entry, "ofs");
+
+				if (model == NULL || ofs == NULL)
+					break;
+
+				u32 count = ofs->IsArray() ? (u32)ofs->array->integer - 1 : 0;
+
+				if (count != 3)
+					break;
+
+				_zrdr* part = ofs->Get(0);
+				char* partname = part->type == ZRDR_STRING ? part->string : NULL;
+
+				if (partname == NULL)
+					break;
+
+				f32 offset[3];
+				f32 rotation[3];
+
+				if (!zrdr_toREAL(ofs->Get(1), offset, 3))
+					break;
+
+				if (!zrdr_toREAL(ofs->Get(2), rotation, 3))
+					break;
+
+				CCharacterGear* item = new CCharacterGear;
+				item->m_ref_count = 0;
+				item->m_partid = 0;
+				item->m_gearid = 0;
+				item->m_name = NULL;
+				item->m_model_file = NULL;
+				item->m_model_name = NULL;
+				item->m_model = NULL;
+				item->m_model_file = zstrdup(model);
+				item->m_model_name = ModelNameOf(model);
+				item->m_name = name != NULL ? zstrdup(name) : ModelNameOf(model);
+				item->m_offset.x = offset[0];
+				item->m_offset.y = offset[1];
+				item->m_offset.z = offset[2];
+
+				if (_angle_units == 1)
+				{
+					rotation[0] *= 0.017453292f;
+					rotation[1] *= 0.017453292f;
+					rotation[2] *= 0.017453292f;
+				}
+
+				item->m_rotation.x = rotation[0];
+				item->m_rotation.y = rotation[1];
+				item->m_rotation.z = rotation[2];
+				item->m_partid = BodyId(partname);
+				m_gear_list.insert(m_gear_list.end(), item);
+			}
+		}
+
+		_zrdr* types = zrdr_findtag(rdr, "characters");
+
+		if (types != NULL && types->IsArray())
+		{
+			u32 i = 0;
+			s32 state = 0;
+			char* name = NULL;
+			CCharacterType* parent = NULL;
+
+			do
+			{
+				_zrdr* item = types->Get(i);
+
+				if (item == NULL)
+					break;
+
+				if (state == 3)
+				{
+					if (item->type == ZRDR_ARRAY)
+					{
+						CCharacterType* type = new CCharacterType(name, parent);
+
+						if (type->Parse(item))
+							m_char_list.insert(m_char_list.end(), type);
+						else
+							delete type;
+
+						state = 0;
+						i++;
+						name = NULL;
+					}
+					else
+					{
+						state = -3;
+					}
+
+					parent = NULL;
+				}
+				else if (state == 2)
+				{
+					parent = GetByNameMod(item->type == ZRDR_STRING ? item->string : NULL);
+					state = parent != NULL ? 3 : -2;
+					i++;
+				}
+				else if (state == 1)
+				{
+					if (item->type == ZRDR_STRING && strcmp(":", item->string) == 0)
+					{
+						i++;
+						state = 2;
+					}
+					else
+					{
+						state = 3;
+					}
+				}
+				else if (state == 0)
+				{
+					name = item->type == ZRDR_STRING ? item->string : NULL;
+					state = name != NULL ? 1 : 0;
+					i++;
+				}
+			}
+			while (state >= 0);
+		}
+	}
+
+	m_char_list.reserve(m_char_list.size() + 32);
+	SOCOM_PORT_TRACE("CHAR: %s: %u character types, %u gear", path, (unsigned)m_char_list.size(), (unsigned)m_gear_list.size());
+	return true;
 }
 
 /* @socom-skeleton body GetByNameMod__14CCharacterTypeFPCc */
 CCharacterType* CCharacterType::GetByNameMod(const char* name)
 {
-    for (auto i = m_char_list.begin(); i != m_char_list.end(); i++)
-    {
-        CCharacterType* chartype = *i;
+	/* 0x24a440 */
+	for (std::vector<CCharacterType*>::iterator i = m_char_list.begin(); i != m_char_list.end(); i++)
+	{
+		CCharacterType* type = *i;
 
-        if (strcmp(chartype->m_name, name))
-            return chartype;
-    }
+		if (strcmp(type->m_name, name) == 0)
+			return type;
+	}
 
-    return NULL;
+	return NULL;
 }
 
 /* @socom-skeleton body Create__14CCharacterTypeFPCcPC14CCharacterTypeb */
-CCharacterType* CCharacterType::Create(const char* name, const CCharacterType* other, bool destroyCopy)
+CCharacterType* CCharacterType::Create(const char* name, const CCharacterType* other, bool replace)
 {
-    CCharacterType* ctype = GetByNameMod(name);
+	/* 0x24a360: the type of that name; a new one (copying other) when there is none; with
+	 * replace an existing one is rebuilt in place from other */
+	CCharacterType* type = GetByNameMod(name);
 
-    if (!ctype)
-    {
-        ctype = new CCharacterType(name, other);
-        m_char_list.push_back(ctype);
-        return ctype;
-    }
+	if (type != NULL && !replace)
+		return type;
 
-    return ctype;
+	if (type == NULL)
+	{
+		type = new CCharacterType(name, other);
+		m_char_list.insert(m_char_list.end(), type);
+		return type;
+	}
+
+	type->~CCharacterType();
+	new (type) CCharacterType(name, other);
+	return type;
 }
 
 /* @socom-skeleton body DeleteTemporaryCharType__FP14CCharacterType */
@@ -208,7 +397,8 @@ bool DeleteTemporaryCharType(CCharacterType* chartype)
 /* @socom-skeleton body CleanupTemporary__14CCharacterTypeFv */
 void CCharacterType::CleanupTemporary()
 {
-    CCharacterType::m_char_list.remove_if(DeleteTemporaryCharType);
+    /* 0x24a2c0: std::remove_if over the type list, then erase the tail */
+    m_char_list.erase(std::remove_if(m_char_list.begin(), m_char_list.end(), DeleteTemporaryCharType), m_char_list.end());
 }
 
 /* @socom-skeleton body Parse__13HEALTH_PARAMSFP5_zrdr */
@@ -253,52 +443,518 @@ void HEALTH_PARAMS::Parse(_zrdr* reader)
 /* @socom-skeleton body __ct__14CCharacterTypeFPCcPC14CCharacterType */
 CCharacterType::CCharacterType(const char* name, const CCharacterType* other)
 {
+	/* 0x249790: the defaults, then (with other) a copy of other's model, anim sets, gear,
+	 * weapons, AI and health parameters, sounds, multiplayer messages and LODs */
+	m_name = NULL;
+	m_ref_count = 0;
+	m_model_file = NULL;
+	m_model_name = NULL;
+	m_parentID = 0;
+	m_anim_sets.reserve(0);
+	m_texture_asset = NULL;
+	m_model = NULL;
+	m_weapons.reserve(8);
+	m_controller_id = 0;
+	m_aiParams.mask = 0;
+	m_aiParams.accuracy = 0.8f;
+	m_aiParams.courage = 0.6f;
+	m_aiParams.surrender = 0.2f;
+	m_aiParams.stealth = 0.5f;
+	m_aiParams.training = 0.5f;
+	m_aiParams.visual_sens = 0.8f;
+	m_aiParams.visual_range = 400.0f;
+	m_aiParams.visual_fov = 60.0f;
+	m_aiParams.aware_decay = -0.075f;
+	m_aiParams.thip_range = 25.0f;
+	m_aiParams.respawn = 0;
+	m_aiParams.target_delay = 0.75f;
+	m_aiParams.target_discipline = 0.5f;
+	m_aiParams.m_veh = NULL;
+	m_healthParams.m_head_healthMax = 40.0f;
+	m_healthParams.m_head_health = 40.0f;
+	m_healthParams.m_body_healthMax = 80.0f;
+	m_healthParams.m_body_health = 80.0f;
+	m_healthParams.m_larm_healthMax = 50.0f;
+	m_healthParams.m_larm_health = 50.0f;
+	m_healthParams.m_rarm_healthMax = 50.0f;
+	m_healthParams.m_rarm_health = 50.0f;
+	m_healthParams.m_lleg_healthMax = 75.0f;
+	m_healthParams.m_lleg_health = 75.0f;
+	m_healthParams.m_rleg_healthMax = 75.0f;
+	m_healthParams.m_rleg_health = 75.0f;
+	m_healthParams.m_armor_head = 0.0f;
+	m_healthParams.m_armor_body = 0.0f;
+	m_healthParams.m_armor_rarm = 0.0f;
+	m_healthParams.m_armor_larm = 0.0f;
+	m_healthParams.m_armor_rleg = 0.0f;
+	m_healthParams.m_armor_lleg = 0.0f;
+	m_anim_sets.clear();
+	m_strength = 4;
+	m_recovery_factor = 1;
+	memset(m_sounds, 0, sizeof(m_sounds));
+	m_istemporary = false;
+	m_name = zstrdup(name);
 
+	if (other == NULL)
+		return;
+
+	/* the parent's index in the type list, -1 when it is not listed */
+	m_parentID = (u32)-1;
+
+	for (u32 i = 0; i < m_char_list.size(); i++)
+	{
+		if (m_char_list[i] == other)
+		{
+			m_parentID = i;
+			break;
+		}
+	}
+
+	if (other->m_anim_sets.size() == 0)
+		m_anim_sets.clear();
+	else
+		m_anim_sets.insert(m_anim_sets.end(), other->m_anim_sets.begin(), other->m_anim_sets.end());
+
+	m_model_file = other->m_model_file != NULL ? zstrdup(other->m_model_file) : NULL;
+	m_model_name = other->m_model_name != NULL ? zstrdup(other->m_model_name) : NULL;
+	m_texture_asset = other->m_texture_asset != NULL ? zstrdup(other->m_texture_asset) : NULL;
+
+	if (&m_gear != &other->m_gear)
+		m_gear.assign(other->m_gear.begin(), other->m_gear.end());
+
+	if (&m_weapons != &other->m_weapons)
+		m_weapons.assign(other->m_weapons.begin(), other->m_weapons.end());
+
+	m_aiParams = other->m_aiParams;
+	m_strength = other->m_strength;
+	m_recovery_factor = other->m_recovery_factor;
+	m_healthParams = other->m_healthParams;
+	memcpy(m_sounds, other->m_sounds, sizeof(m_sounds));
+
+	for (u32 i = 0; i < 66; i++)
+		m_arrSoundNames[i].assign(other->m_arrSoundNames[i]);
+
+	MultiplayerMessages.reserve(other->MultiplayerMessages.size());
+
+	for (s32 i = 0; i < (s32)other->MultiplayerMessages.size(); i++)
+	{
+		MultiplayerMsg* msg = new MultiplayerMsg;
+		msg->m_words[0] = 0;
+		msg->m_words[3] = 0;
+		msg->m_words[2] = 0;
+		msg->m_words[1] = 0;
+		msg->m_words[4] = 0;
+		const MultiplayerMsg* src = other->MultiplayerMessages[i];
+		msg->m_words[0] = src->m_words[0];
+		msg->m_words[1] = src->m_words[1];
+		msg->m_words[2] = src->m_words[2];
+		msg->m_words[3] = src->m_words[3];
+		MultiplayerMessages.insert(MultiplayerMessages.end(), msg);
+	}
+
+	if (&m_LODs != &other->m_LODs)
+		m_LODs.assign(other->m_LODs.begin(), other->m_LODs.end());
 }
 
 /* @socom-skeleton stub __dt__14CCharacterTypeFv */
 CCharacterType::~CCharacterType()
 {
+	/* 0x249570: the strings, the multiplayer messages; the containers then free themselves */
+	if (m_name != NULL)
+		zfree(m_name);
+
+	m_name = NULL;
+	m_anim_sets.clear();
+
+	if (m_texture_asset != NULL)
+		zfree(m_texture_asset);
+
+	m_texture_asset = NULL;
+
+	if (m_model_name != NULL)
+		zfree(m_model_name);
+
+	m_model_name = NULL;
+
+	if (m_model_file != NULL)
+		zfree(m_model_file);
+
+	m_model_file = NULL;
+
+	if (MultiplayerMessages.size() != 0)
+	{
+		for (std::vector<MultiplayerMsg*>::iterator i = MultiplayerMessages.begin(); i != MultiplayerMessages.end(); i++)
+			delete *i;
+
+		std::vector<MultiplayerMsg*>().swap(MultiplayerMessages);
+	}
 }
 
 /* @socom-skeleton stub Parse__14CCharacterTypeFP5_zrdr */
-void CCharacterType::Parse(_zrdr *)
+bool CCharacterType::Parse(_zrdr* rdr)
 {
+	/* 0x2489c0: one character definition; always succeeds */
+	char* model = zrdr_findstring(rdr, "model_name");
+	char* texture = zrdr_findstring(rdr, "texture_asset");
+	zrdr_findint(rdr, "controller_id", &m_controller_id, 1);
+
+	_zrdr* sets = zrdr_findtag(rdr, "anim_set");
+
+	if (sets != NULL && sets->IsArray())
+	{
+		m_anim_sets.clear();
+
+		for (u32 i = 0; i < (u32)sets->array->integer - 1; i++)
+		{
+			_zrdr* item = sets->Get(i);
+			char* setname = item->type == ZRDR_STRING ? item->string : NULL;
+			char* pooled = NULL;
+
+			/* each set name is stored once in m_anim_set_names */
+			if (m_anim_set_names.size() != 0)
+			{
+				for (std::list<char*>::iterator j = m_anim_set_names.begin(); j != m_anim_set_names.end(); j++)
+				{
+					if (strcmp(setname, *j) == 0)
+					{
+						pooled = *j;
+						break;
+					}
+				}
+			}
+
+			if (pooled == NULL)
+			{
+				pooled = zstrdup(setname);
+				m_anim_set_names.insert(m_anim_set_names.end(), pooled);
+			}
+
+			m_anim_sets.insert(m_anim_sets.end(), pooled);
+		}
+	}
+
+	_zrdr* gear = zrdr_findtag(rdr, "default_gear");
+
+	if (gear != NULL && gear->IsArray())
+	{
+		m_gear.erase(m_gear.begin(), m_gear.end());
+
+		for (u32 i = 0; i < (u32)gear->array->integer - 1; i++)
+		{
+			_zrdr* item = gear->Get(i);
+			char* gearname = item->type == ZRDR_STRING ? item->string : NULL;
+			CCharacterGear* found = NULL;
+
+			if (gearname != NULL)
+			{
+				for (std::list<CCharacterGear*>::iterator j = m_gear_list.begin(); j != m_gear_list.end(); j++)
+				{
+					if (strcmp(gearname, (*j)->m_name) == 0)
+					{
+						found = *j;
+						break;
+					}
+				}
+			}
+
+			if (found != NULL)
+				m_gear.insert(m_gear.end(), found);
+		}
+	}
+
+	_zrdr* weapons = zrdr_findtag(rdr, "default_weapons");
+
+	if (weapons != NULL && weapons->IsArray())
+	{
+		m_weapons.clear();
+
+		for (u32 i = 0; i < (u32)weapons->array->integer - 1; i++)
+		{
+			_zrdr* item = weapons->Get(i);
+			EQUIP_ITEM id = CZWeapon::GetWeaponId(zrdr_findstring(item, "wep_name"));
+
+			if (id != EQUIP_ITEM::EQUIP_NONE)
+			{
+				CCharacterWeap weap;
+				weap.m_ammoId = EQUIP_AMMO::AMMO_NONE;
+				weap.m_ammoCount = 0;
+				weap.m_magCount = 0;
+				weap.m_wepId = id;
+				weap.m_ammoId = CZAmmo::GetAmmoId(zrdr_findstring(item, "ammo_name"));
+				zrdr_findint(item, "ammo_count", &weap.m_ammoCount, 1);
+				zrdr_findint(item, "mag_count", &weap.m_magCount, 1);
+				m_weapons.insert(m_weapons.end(), weap);
+			}
+		}
+	}
+
+	zrdr_findint(rdr, "strength", &m_strength, 1);
+	zrdr_findint(rdr, "recovery_factor", &m_recovery_factor, 1);
+	m_healthParams.Parse(rdr);
+
+	if (_zrdr* lods = zrdr_findtag(rdr, "lods"))
+	{
+		/* each LOD: { file distance }; its name is the file name without ".xsi" */
+		m_LODs.clear();
+		s32 count = lods->IsArray() ? lods->array->integer - 1 : 0;
+		LOD lod;
+		lod.m_dist = 0.0f;
+		std::string file;
+
+		for (s32 i = 0; i < count; i++)
+		{
+			_zrdr* item = lods->Get((u32)i);
+			_zrdr* first = item->Get(0);
+			const char* filename = first->type == ZRDR_STRING ? first->string : NULL;
+			file.assign(filename, strlen(filename));
+			lod.m_name.assign(file.c_str(), strlen(file.c_str()));
+			std::string::size_type xsi = file.find(".xsi", 0, strlen(".xsi"));
+
+			if ((s32)xsi >= 0 && xsi != std::string::npos)
+				file.replace(xsi, std::string::npos, "", 0);
+
+			lod.m_file.assign(file.c_str(), strlen(file.c_str()));
+			_zrdr* dist = item->Get(1);
+
+			if (dist->type == ZRDR_REAL)
+				lod.m_dist = dist->real;
+			else if (dist->type == ZRDR_INTEGER)
+				lod.m_dist = (f32)dist->integer;
+			else
+				lod.m_dist = 0.0f;
+
+			m_LODs.insert(m_LODs.end(), lod);
+		}
+	}
+
+	if (model != NULL)
+	{
+		m_model_file = zstrdup(model);
+		m_model_name = ModelNameOf(model);
+	}
+
+	if (texture != NULL)
+	{
+		if (m_texture_asset != NULL)
+			zfree(m_texture_asset);
+
+		m_texture_asset = NULL;
+		m_texture_asset = zstrdup(texture);
+	}
+
+	m_aiParams.Parse(zrdr_findtag(rdr, "ai_params"));
+
+	/* sounds: pairs of a CHRSND_ name and a { file } */
+	_zrdr* sounds = zrdr_findtag(rdr, "sounds");
+	s32 count = sounds != NULL && sounds->IsArray() ? sounds->array->integer - 1 : 0;
+
+	for (s32 i = 0; i < count; i += 2)
+	{
+		_zrdr* key = sounds->Get((u32)i);
+		_zrdr* value = sounds->Get((u32)i + 1);
+		const char* keyname = key == NULL ? NULL : key->type == ZRDR_STRING ? key->string : NULL;
+		s8 type = (s8)GetCharacterSoundType(keyname);
+
+		if (type != -1)
+		{
+			_zrdr* first = value->Get(0);
+			const char* file = first->type == ZRDR_STRING ? first->string : NULL;
+
+			if (file == NULL)
+				m_arrSoundNames[type].replace(0, std::string::npos, "", 0);
+			else
+				m_arrSoundNames[type].assign(file, strlen(file));
+		}
+	}
+
+	if (sounds != NULL)
+		InitMultiplayerMessages(sounds);
+
+	return true;
 }
 
 /* @socom-skeleton stub Acquire__14CCharacterTypeCFv */
 CCharacterType * CCharacterType::Acquire() const
 {
+	/* 0x248840: the first reference finds the model and the gear models (cached in
+	 * CCharacterModelCache); the type is referenced only when its model exists */
+	CCharacterType* self = const_cast<CCharacterType*>(this);
+
+	if (m_ref_count == 0)
+	{
+		self->m_model = zdb::CWorld::GetModel(m_model_name);
+
+		for (CCharacterGearList::iterator i = self->m_gear.begin(); i != self->m_gear.end(); i++)
+		{
+			CCharacterGear* gear = *i;
+
+			if (gear->m_model == NULL)
+			{
+				gear->m_model = CachedModel(gear->m_model_name);
+
+				if (gear->m_model == NULL)
+				{
+					gear->m_model = zdb::CWorld::GetModel(gear->m_model_name);
+
+					if (gear->m_model != NULL)
+						CCharacterModelCache::m_ModelCache.push_back(gear->m_model);
+				}
+			}
+
+			if (gear->m_model != NULL)
+				gear->m_ref_count++;
+		}
+	}
+
+	if (m_model == NULL)
+		return NULL;
+
+	self->m_ref_count++;
+	return self;
 }
 
 /* @socom-skeleton stub CreateLODs__14CCharacterTypeFPQ23zdb5CNode */
-void CCharacterType::CreateLODs(zdb::CNode *)
+void CCharacterType::CreateLODs(zdb::CNode *node)
 {
+	/* 0x2486f0: hook each LOD model's single mesh to the instance's single mesh */
+	for (LODVec::iterator lod = m_LODs.begin(); lod != m_LODs.end(); lod++)
+	{
+		zdb::CModel* model = CachedModel(lod->m_file.c_str());
+
+		if (model == NULL)
+		{
+			model = zdb::CWorld::GetModel(lod->m_file.c_str());
+
+			if (model != NULL)
+				CCharacterModelCache::m_ModelCache.insert(CCharacterModelCache::m_ModelCache.end(), model);
+		}
+
+		if (model == NULL)
+			continue;
+
+		f32 dist = lod->m_dist;
+
+		if (model->m_visual.size() != 1 || node->m_visual.size() != 1)
+			continue;
+
+		zdb::CMesh* lodmesh = (zdb::CMesh*)model->m_visual[0];
+		zdb::CMesh* mesh = (zdb::CMesh*)node->m_visual[0];
+
+		if (lodmesh != NULL && lodmesh->m_vtype == 1 && mesh != NULL && mesh->m_vtype == 1)
+			mesh->AddLOD(lodmesh, dist);
+	}
 }
 
 /* @socom-skeleton stub Release__14CCharacterTypeFv */
 int CCharacterType::Release()
 {
+	/* 0x2485f0: the last release drops the gear and model references and the sounds */
+	m_ref_count--;
+
+	if (m_ref_count <= 0)
+	{
+		for (CCharacterGearList::iterator i = m_gear.begin(); i != m_gear.end(); i++)
+		{
+			CCharacterGear* gear = *i;
+			gear->m_ref_count--;
+
+			if (gear->m_ref_count <= 0)
+			{
+				gear->m_ref_count = 0;
+
+				if (gear->m_model != NULL)
+					gear->m_model = NULL;
+			}
+		}
+
+		if (m_model != NULL)
+			m_model = NULL;
+
+		memset(m_sounds, 0, sizeof(m_sounds));
+	}
+
+	return m_ref_count;
 }
 
 /* @socom-skeleton stub CreateInstance__14CCharacterTypeFPCc */
-zdb::CNode * CCharacterType::CreateInstance(const char *)
+zdb::CNode * CCharacterType::CreateInstance(const char *name)
 {
+	/* 0x248560: an instance of the type's model, named; the model is marked for export */
+	zdb::CNode* node = m_model != NULL ? zdb::CNode::CreateInstance(m_model, NULL, NULL) : NULL;
+
+	if (node == NULL || m_model == NULL)
+		return NULL;
+
+	m_model->m_bForceExport = true;
+	node->SetName(name);
+	return node;
 }
 
 /* @socom-skeleton stub CreateInstance__14CCharacterGearCFPCc */
-zdb::CNode * CCharacterGear::CreateInstance(const char *) const
+zdb::CNode * CCharacterGear::CreateInstance(const char *name) const
 {
+	/* 0x2484f0: an instance of the gear model, named when a name is given */
+	zdb::CNode* node = m_model != NULL ? zdb::CNode::CreateInstance(m_model, NULL, NULL) : NULL;
+
+	if (node != NULL && name != NULL)
+		node->SetName(name);
+
+	return node;
 }
 
 /* @socom-skeleton stub GetCharacterSoundTypeString__F15CHARACTER_SOUND */
-void GetCharacterSoundTypeString(CHARACTER_SOUND)
+const char* GetCharacterSoundTypeString(CHARACTER_SOUND type)
 {
+	/* 0x248190: the reader name of a character sound (a 66-entry switch); CHRSND_NONE
+	 * outside it. The two CHRNSD_ spellings are the ELF's. */
+	static const char* const names[66] = {
+		"CHRSND_ABORT_PLAYER_TOO_FAR", "CHRSND_WAITING_FOR_PLAYER", "CHRSND_PLAYER_WARN_TOO_FAR",
+		"CHRSND_AREA_CLEARED", "CHRSND_BREACH_COMPLETE", "CHRSND_DROP_YOUR_WEAPONS_SHOUT",
+		"CHRSND_GET_DOWN_SHOUT", "CHRSND_CLAYMORE_PLACED", "CHRSND_CLEARING_BABBLE",
+		"CHRSND_PLACE_C4_COMPLETE", "CHRSND_GOTO_COMPLETE", "CHRSND_DEPLOY_GENERIC_COMPLETE",
+		"CHRSND_CLAYMORE_ERROR", "CHRSND_LASE_STARTED", "CHRSND_LASE_COMPLETE",
+		"CHRSND_MOVING_OUT", "CHRSND_SATCHEL_PLACED", "CHRSND_UNDER_FIRE",
+		"CHRSND_TANGO_DOWN", "CHRSND_ENEMY_AWARE", "CHRSND_ENEMY_SUSPICIOUS",
+		"CHRSND_TANGO_ONE_OCLOCK", "CHRSND_TANGO_TWO_OCLOCK", "CHRSND_TANGO_THREE_OCLOCK",
+		"CHRSND_TANGO_FOUR_OCLOCK", "CHRNSD_TANGO_FIVE_OCLOCK", "CHRSND_TANGO_SIX_OCLOCK",
+		"CHRSND_TANGO_SEVEN_OCLOCK", "CHRSND_TANGO_EIGHT_OCLOCK", "CHRSND_TANGO_NINE_OCLOCK",
+		"CHRSND_TANGO_TEN_OCLOCK", "CHRSND_TANGO_ELEVEN_OCLOCK", "CHRSND_TANGO_TWELVE_OCLOCK",
+		"CHRSND_TANGO_ONE_OCLOCK_HIGH", "CHRSND_TANGO_TWO_OCLOCK_HIGH", "CHRSND_TANGO_THREE_OCLOCK_HIGH",
+		"CHRSND_TANGO_FOUR_OCLOCK_HIGH", "CHRNSD_TANGO_FIVE_OCLOCK_HIGH", "CHRSND_TANGO_SIX_OCLOCK_HIGH",
+		"CHRSND_TANGO_SEVEN_OCLOCK_HIGH", "CHRSND_TANGO_EIGHT_OCLOCK_HIGH", "CHRSND_TANGO_NINE_OCLOCK_HIGH",
+		"CHRSND_TANGO_TEN_OCLOCK_HIGH", "CHRSND_TANGO_ELEVEN_OCLOCK_HIGH", "CHRSND_TANGO_TWELVE_OCLOCK_HIGH",
+		"CHRSND_TANGO_MOVING", "CHRSND_DUMB_ESCORTEE", "CHRSND_WAIT_UP",
+		"CHRSND_DEPLOY_TOO_FAR", "CHRSND_GRENADE_ALERT", "CHRSND_GRENADE_I_GOT_IT",
+		"CHRSND_GRENADE_OH_HECK", "CHRSND_COVER_CANT_SEE", "CHRSND_YES",
+		"CHRSND_NO", "CHRSND_TANGO_SIGHTED", "CHRSND_TEAMMATE_DOWN",
+		"CHRSND_DAMAGE", "CHRSND_DEATH", "CHRSND_DEATH_QUIET",
+		"CHRSND_NOAMMO", "CHRSND_RELOAD", "CHRSND_SUSPICIOUS",
+		"CHRSND_SURPRISED", "CHRSND_BATTLE_CRY", "CHRSND_PANIC_CRY"
+	};
+	u32 index = (u32)(s32)(s8)type;
+
+	if (index >= 66)
+		return "CHRSND_NONE";
+
+	return names[index];
 }
 
 /* @socom-skeleton stub GetCharacterSoundType__FPCc */
-void GetCharacterSoundType(const char *)
+CHARACTER_SOUND GetCharacterSoundType(const char *name)
 {
+	/* 0x248110: the sound whose name matches (case-insensitive), -1 when none does */
+	if (name != NULL)
+	{
+		for (s32 i = 0; i < 66; i++)
+		{
+			CHARACTER_SOUND type = (CHARACTER_SOUND)(s8)i;
+
+			if (strcasecmp(name, GetCharacterSoundTypeString(type)) == 0)
+				return type;
+		}
+	}
+
+	return (CHARACTER_SOUND)-1;
 }
 
 /* @socom-skeleton stub AcquireSoundHandles__14CCharacterTypeFv */

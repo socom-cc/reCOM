@@ -143,7 +143,113 @@ unsigned char RumbleIsOn = 1;
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton body __ct__9CSealCtrlFv */
-CSealCtrl::CSealCtrl() : CEntityCtrl(3) {} /* ELF 0x288348: __ct__11CEntityCtrlFi(this, 3) */
+/* port: no symbol - the CAiTimer reset inlined three times into the ctor (0x288330): a
+ * zero period, then a timer drawn from it (min, or min + range * rand() / 2^31) */
+static void SealCtrlResetTimer(CAiTimer& timer)
+{
+	timer.m_period.m_min = 0.0f;
+	timer.m_period.m_range = 0.0f;
+	timer.m_timer = 0.0f;
+
+	if (timer.m_period.m_range == 0.0f)
+		timer.m_timer = timer.m_period.m_min;
+	else
+		timer.m_timer = timer.m_period.m_min + timer.m_period.m_range * (f32)rand() * 4.656613e-10f;
+}
+
+CSealCtrl::CSealCtrl() : CEntityCtrl(3)
+{
+	/* 0x288330 */
+	m_look_rate.m_min = 0.0f;
+	m_look_rate.m_range = 0.0f;
+	m_scan_angle.m_min = 0.0f;
+	m_scan_angle.m_range = 0.0f;
+	SealCtrlResetTimer(m_scan_timer);
+	m_view_cone.m_height = 1.0f;
+	m_view_cone.m_radius = 1.0f;
+	m_view_cone.m_point_radius = 0.0f;
+	m_view_cone.m_inv_height = 1.0f;
+	m_visrange.m_value = 0.0f;
+	m_visrange.m_goal = 0.0f;
+	m_visrange.m_type = TYPE::LINEAR;
+	m_vissens.m_value = 0.0f;
+	m_vissens.m_goal = 0.0f;
+	m_vissens.m_type = TYPE::LINEAR;
+	m_aware.m_value = 0.0f;
+	m_aware.m_goal = 0.0f;
+	m_aware.m_type = TYPE::LINEAR;
+	m_targetThreat.m_value = 0.0f;
+	m_targetThreat.m_goal = 0.0f;
+	m_targetThreat.m_type = TYPE::LINEAR;
+	m_ai_net_state = 0;
+	SealCtrlResetTimer(m_goal_timer);
+	SealCtrlResetTimer(m_wep_state);
+	m_unit = NULL;
+	m_vismap = NULL;
+	m_do_aimap_collide = false;
+	m_goal_pos_valid = false;
+	m_goal_dir_valid = false;
+	m_goal_pos_tolerance = 1.0f;
+	m_speed = 1.0f;
+	m_goal_type = GOAL_NONE;
+	m_trigger = TRIGGER::TRIGGER_UP;
+	m_throwing = false;
+	m_justthrew = false;
+	m_padid = 0;
+	m_firstreading = 0;
+	m_lastreading = 0;
+	memset(m_buttonreading, 0, sizeof(m_buttonreading));
+	m_wasthrowing = false;
+	m_zoomincrement = 0.0f;
+	m_zoomlevel = 0.0f;
+	m_update_zoom = false;
+	m_zoomin = false;
+	m_zoomout = false;
+	m_HudUpdateWeapon = true;
+	m_HudDoPickup = 0xff;
+	m_curpickup_ID = -1;
+	m_curpickup_secondary_ID = -1;
+	m_curMPBOMBpickup_ID = -1;
+	m_aimPitch = theCharacterDynamics.m_initAimPitch;
+	m_action = false;
+	m_highrumbletime = 0.0f;
+	m_rumbletime = 0.0f;
+	m_rumblestr = 0.0f;
+	m_menustate = (MENU_STATE)0; /* stateNone */
+	m_input_enabled = true;
+	m_zoomin = false;
+	m_zoomout = false;
+	m_hotswapL1 = 0.0f;
+	m_hotswapL2 = 1.0f;
+	m_scan_limits = 0.34906584f;
+	ClearGoal(GOAL_NONE);
+	ClearLook((AI_LOOK)-1); /* 0x2887e0: li a1,-1 (all) */
+	m_victimbody = NULL;
+	SetViewFOV(1.3962634f);
+	m_visrange.m_value = 1000.0f;
+	m_visrange.m_goal = 1000.0f;
+	m_vissens.m_value = 1.0f;
+	m_vissens.m_goal = 1.0f;
+	m_aware.m_value = 1.0f;
+	m_aware.m_goal = 1.0f;
+	m_targetSum = 0;
+	m_targetThreat.m_value = 0.0f;
+	m_targetThreat.m_goal = 0.0f;
+	m_wep_state.m_period.m_min = 5.0f;
+	m_wep_state.m_period.m_range = 0.0f;
+	m_bombpickuptimer = 0.0f;
+	m_weapon_pickup_timer = 0.0f;
+	memset(m_event_time, 0, sizeof(m_event_time));
+	m_fudge_velR = CPnt3D::zero;
+	m_fudge_velM = CPnt3D::zero;
+	m_fudge_velW = CPnt3D::zero;
+	m_mpbomb_node = NULL;
+	m_bomb_defusal_node = NULL;
+	m_mpbomb_timer = 0.0f;
+	m_mpbomb_bTimerAvailable = false;
+	m_mpbomb_bTimerEngaged = false;
+	m_has_respawned = false;
+}
 
 /* @socom-skeleton stub __dt__9CSealCtrlFv */
 CSealCtrl::~CSealCtrl()

@@ -5,7 +5,10 @@
 namespace zdb
 {
 	class CAssetLib;
+	class CNode;
 }
 
-class CRefList : public std::list<zdb::CAssetLib*> {};
+/* CModel::m_list: the model's instances (CNode::CreateInstance 0x229360 appends them;
+ * SetParentHasVisuals 0x227c80 walks them) */
+class CRefList : public std::list<zdb::CNode*> {};
 #endif

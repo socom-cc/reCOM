@@ -482,30 +482,54 @@ static unsigned char decaldata[288];
 /* @socom-skeleton stub Init__Q23zdb7CVisualFv */
 void zdb::CVisual::Init()
 {
+	/* 0x30e250: push visual ids 0-31 and pop them again (grows the deque), size the light-,
+	 * shadow- and projected-map lists (16, 4, 8 zero entries), then CMesh::Init */
+	for (u32 i = 0; i < 32; i++)
+		m_stack_vid.push_back(i);
+
+	for (s32 i = 0; i < 32; i++)
+		m_stack_vid.pop_back();
+
+	m_lightMapList.resize(16, 0);
+	m_shadowMapList.resize(4, 0);
+	m_projectedMapList.resize(8, NULL);
+
+	CMesh::Init();
 }
 
 /* @socom-skeleton body Create__Q23zdb7CVisualFRQ23zar4CZAR */
 namespace zdb {
 CVisual* CVisual::Create(zar::CZAR& archive)
 	{
+		/* 0x30e100: the visual class from "vtype" (default -1); a visual whose Read fails
+		 * is deleted */
 		CVisual* visual = NULL;
-		u32 vtype = 0;
+		s32 vtype = -1;
 
 		archive.Fetch("vtype", &vtype);
 
 		switch (vtype)
 		{
 		case 2:
-			visual = new CSubMesh(NULL); /* port: 0x30e1e4 passes a1 = 0 */
+			visual = new CSubMesh(NULL); /* 0x30e1e4 passes a1 = 0 */
+			break;
 		case 1:
 			visual = new CMesh();
+			break;
 		case 0:
-		case (u32)-1: /* port: cast - vtype is u32 */
+		case -1:
 			visual = new CVisual();
+			break;
 		}
 
-		if (visual)
-			visual->Read(archive);
+		if (visual == NULL)
+			return NULL;
+
+		if (!visual->Read(archive))
+		{
+			delete visual;
+			return NULL;
+		}
 
 		return visual;
 	}
@@ -517,6 +541,16 @@ CVisual::CVisual()
 	{
 		m_lodIndex = 0;
 		m_chainPtr = NULL;
+		m_detail_buff = NULL; /* 0x30e0d0/0x30e0c8: +96 and +100 (detail buffer and count) */
+		m_detail_cnt = 0;
+		/* 0x30df68-0x30e0b8 (the vparams fields after the flag word) */
+		m_vtype = -1;
+		m_lod_band = 0;
+		m_unk06 = 0;
+		m_unk07 = 0;
+		m_unk08[0] = 0;
+		m_unk08[1] = 0;
+		m_centroid = CPnt3D::zero;
 	}
 }
 
@@ -711,7 +745,8 @@ bool CVisual::Read(zar::CZAR& archive)
 
 		archive.Fetch("vparams", static_cast<tag_VIS_PARAMS*>(this), sizeof(tag_VIS_PARAMS)); /* port: into the base, not over GCC's vptr at `this` */
 
-		if (m_detail_buff == NULL)
+		/* 0x30d160: +28 (port: not declared) is -2 when vparams bit 10 is set, else 3 */
+		if (m_detail_buff != NULL)
 			zfree(m_detail_buff);
 
 		m_detail_buff = NULL;
@@ -720,7 +755,7 @@ bool CVisual::Read(zar::CZAR& archive)
 		archive.Fetch("detail_cnt", &m_detail_cnt);
 
 		if (!m_detail_cnt)
-			return false;
+			return true; /* 0x30d1c4: no details is not a failure; Read always returns true */
 
 		archive.Fetch("detail_size", &detail_size);
 		m_detail_buff = static_cast<zdb::CVisual*>(zmalloc(detail_size));
@@ -907,7 +942,7 @@ void hookupVisuals(zar::CZAR *archive, zar::CKey *key, zdb::CNode *node, zdb::CM
 
 	for (auto i = model->m_list.begin(); i != model->m_list.end(); i++)
 	{
-		zdb::CNode* n = static_cast<zdb::CModel*>((*i)->m_model_buffer);
+		zdb::CNode* n = *i; /* 0x30a444: the model's instance list holds the instance nodes */
 		zdb::CNode* child = n->FindChild(node->m_name, true);
 
 		if (!child)

@@ -125,8 +125,10 @@ CNode* CNode::CreateInstance(CModel* model, const CPnt3D* position, const CQuat*
 		if (rotation)
 			instance->SetRotation(rotation);
 
-		model->m_child.insert(model->m_child.begin(), instance);
-		model->m_parent = instance;
+		/* 0x2293d4: the model lists the instance (CModel::m_list, not its children); its
+		 * m_parent is the instance only while that is the single one */
+		model->m_list.insert(model->m_list.end(), instance);
+		model->m_parent = model->m_list.size() == 1 ? instance : NULL;
 		instance->m_model = model;
 		instance->SetModelname(model->m_name);
 		instance->m_type = (u32)TYPE::INSTANCE;
@@ -158,8 +160,10 @@ CNode* CNode::CreateInstance(const char* name, const CPnt3D* position, const CQu
 		if (rotation)
 			instance->SetRotation(rotation);
 
-		model->m_child.insert(model->m_child.begin(), instance);
-		model->m_parent = instance;
+		/* 0x2293d4: the model lists the instance (CModel::m_list, not its children); its
+		 * m_parent is the instance only while that is the single one */
+		model->m_list.insert(model->m_list.end(), instance);
+		model->m_parent = model->m_list.size() == 1 ? instance : NULL;
 		instance->m_model = model;
 		instance->SetModelname(model->m_name);
 		instance->m_type = (u32)TYPE::INSTANCE;

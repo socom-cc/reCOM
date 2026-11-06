@@ -108,6 +108,8 @@
 class ACTIVE_ANIM;
 /* @socom-skeleton end forward */
 
+int BodyId(const char *); /* seal_cfg.cpp (0x280eb0) */
+
 /* @socom-skeleton stub BodyAnimCallbackList */
 CZBodyAnimCallbackList BodyAnimCallbackList; /* port: unproven layout; the ELF object is 12 bytes, a pointer vector (Clear 0x1df300) */
 
@@ -144,21 +146,90 @@ CZBodyPart::~CZBodyPart()
 /* @socom-skeleton stub __ct__5CBodyFv */
 CBody::CBody()
 {
+	/* 0x1e3740: no parts yet, and a fresh blend overlay */
+	m_take_snapshot = true;
+	m_interp1 = 0.0f;
+	m_interp2 = 0.0f;
+	m_maxid = -1;
+	m_blend_pool = NULL;
+	m_blends = NULL;
+	CBlendOverlay* overlay = new CBlendOverlay;
+
+	if (overlay != NULL)
+	{
+		overlay->m_callback.m_func = NULL;
+		overlay->m_callback.m_tfrac = 0.0f;
+		overlay->m_callback.m_userdata = NULL;
+		overlay->m_anim = NULL;
+		overlay->m_triggerT = 0.0f;
+		overlay->m_ovlyT = 0.0f;
+		overlay->m_state = 0;
+		overlay->m_event = 0;
+	}
+
+	m_overlay = overlay;
 }
 
 /* @socom-skeleton stub BodySetup__5CBodyFPQ23zdb5CNodeP10CZBodyPart */
-CZBodyPart * CBody::BodySetup(zdb::CNode *, CZBodyPart *)
+CZBodyPart * CBody::BodySetup(zdb::CNode *node, CZBodyPart *parent)
 {
+	/* 0x1e35a0: a part for node (when its name is a body part) and, below it, a part for
+	 * each named child and the subtree under each of those; parts are stored by id */
+	CZBodyPart* part = NewBodyPart(node, parent);
+
+	if (part == NULL)
+		return NULL;
+
+	m_body_parts[part->m_id] = part;
+
+	for (std::vector<zdb::CNode*>::iterator i = node->m_child.begin(); i != node->m_child.end(); i++)
+	{
+		zdb::CNode* child = *i;
+		CZBodyPart* childpart = NewBodyPart(child, part);
+
+		if (childpart == NULL)
+			continue;
+
+		m_body_parts[childpart->m_id] = childpart;
+
+		for (std::vector<zdb::CNode*>::iterator j = child->m_child.begin(); j != child->m_child.end(); j++)
+			BodySetup(*j, childpart);
+	}
+
+	return part;
 }
 
 /* @socom-skeleton stub NewBodyPart__5CBodyFPQ23zdb5CNodeP10CZBodyPart */
-CZBodyPart * CBody::NewBodyPart(zdb::CNode *, CZBodyPart *)
+CZBodyPart * CBody::NewBodyPart(zdb::CNode *node, CZBodyPart *parent)
 {
+	/* 0x1e34b0: a part for a node named as a body part (BodyId >= 0; a NULL node takes
+	 * NullNode's id) */
+	s32 id = NullNode();
+
+	if (node != NULL)
+	{
+		id = BodyId(node->m_name);
+
+		if (id < 0)
+			return NULL;
+	}
+
+	CZBodyPart* part = new CZBodyPart(node);
+	part->m_parent = parent;
+	part->m_id = (s16)id;
+	return part;
 }
 
 /* @socom-skeleton stub AddBodyPart__5CBodyFPQ23zdb5CNodeP10CZBodyPart */
-CZBodyPart * CBody::AddBodyPart(zdb::CNode *, CZBodyPart *)
+CZBodyPart * CBody::AddBodyPart(zdb::CNode *node, CZBodyPart *parent)
 {
+	/* 0x1e33e0: one part (as NewBodyPart), stored by id */
+	CZBodyPart* part = NewBodyPart(node, parent);
+
+	if (part != NULL)
+		m_body_parts[part->m_id] = part;
+
+	return part;
 }
 
 /* @socom-skeleton stub AttachAuxNode__5CBodyFPQ23zdb5CNodeP10CZBodyPartPC6CPnt3DPC6CPnt3D */
@@ -184,14 +255,18 @@ CZBodyPart * CBody::FindBodyPart(int)
 /* @socom-skeleton body FindPart__5CBodyCFPCc */
 CZBodyPart * CBody::FindPart(const char *name) const
 {
-	for (auto it = m_body_parts.begin(); it != m_body_parts.end(); it++)
+	/* 0x1e3070: the part whose node has that name (a part without a node is "") */
+	for (std::vector<CZBodyPart*>::const_iterator it = m_body_parts.begin(); it != m_body_parts.end(); it++)
 	{
 		CZBodyPart* part = *it;
 
-		if (strcmp(part->m_node->m_name, name) == 0)
-		{
+		if (part == NULL)
+			continue;
+
+		const char* partname = part->m_node != NULL ? part->m_node->m_name : "";
+
+		if (strcmp(partname, name) == 0)
 			return part;
-		}
 	}
 
 	return NULL;
@@ -228,8 +303,10 @@ CZBodyAnim * CBody::GetAnimById(int)
 }
 
 /* @socom-skeleton stub BodySetState__5CBodyFi */
-void CBody::BodySetState(int)
+void CBody::BodySetState(int state)
 {
+	/* 0x1e29b0 */
+	m_state = (s8)state;
 }
 
 /* @socom-skeleton stub PushBlend__5CBodyFiiib */

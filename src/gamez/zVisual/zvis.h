@@ -110,7 +110,14 @@ namespace zdb
 		u32 m_bilinear : 1;
 		u32 m_ui : 1;
 		u32 m_unused : 27;
-		CPnt4D m_field2;
+		/* +4 on, from the Ghidra tag_VIS_PARAMS (24 bytes: the "vparams" record that
+		 * CVisual::Read 0x30d130 fetches whole) */
+		s8 m_vtype; /* -1 CVisual, 1 CMesh, 2 CSubMesh (set by their ctors, then by vparams) */
+		u8 m_lod_band;
+		u8 m_unk06;
+		u8 m_unk07;
+		u16 m_unk08[2];
+		CPnt3D m_centroid;
 	};
 
 	struct tag_DETAIL_PARAMS
@@ -169,8 +176,8 @@ public:
 		static CVisual* Create(zar::CZAR& archive);
 		static void LandmarkEnable(bool enableLandmarks);
 		static void NodeSetup(CNode* node, CNode* other, CMatrix* matrix, s32 status);
-		
-		void Init();
+
+		static void Init(); /* zRndrInit 0x241850 calls it with no object */
 
 		bool Read(zar::CZAR& archive);
 
@@ -231,8 +238,6 @@ public:
 		bool m_lodIndex;
 		bool m_has_lods;
 
-		CPnt3D m_centroid;
-		
 		std::vector<CVisual*> m_vis_child;
 
 		u32 m_refcount;

@@ -87,7 +87,7 @@ void CAiMap::names::SortByNames()
 }
 
 /* @socom-skeleton stub GetLocation__6CAiMapCFPCcR9CAiMapLoc */
-void CAiMap::GetLocation(const char *, CAiMapLoc &) const
+bool CAiMap::GetLocation(const char *, CAiMapLoc &) const
 {
 }
 

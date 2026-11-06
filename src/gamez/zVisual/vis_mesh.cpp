@@ -71,7 +71,7 @@ void zdb::CMesh::Init()
 namespace zdb {
 CMesh::CMesh()
     {
-
+        m_vtype = 1; /* 0x30fa04 */
     }
 }
 
@@ -161,6 +161,7 @@ namespace zdb {
 CSubMesh::CSubMesh(CMesh* mesh)
     {
         field4_0x4 = true;
+        m_vtype = 2; /* 0x30ef6c */
         field14_0x1c = 3;
         m_matrix_id = 0xabcd;
         m_mesh = mesh;

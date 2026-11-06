@@ -36,6 +36,8 @@
 
 #include "posix/strcasecmp.h"
 
+extern CAiMaps AiMaps; /* ai_maps.cpp (0x49b190) */
+
 /* @socom-skeleton decl include */
 #include "gamez/zAI/zai.h"
 /* @socom-skeleton end include */
@@ -43,7 +45,51 @@
 /* @socom-skeleton body Parse__9AI_PARAMSFP5_zrdr */
 void AI_PARAMS::Parse(_zrdr* reader)
 {
+	/* 0x1a3bf0: each value found sets its mask bit */
+	if (reader == NULL)
+		return;
 
+	if (zrdr_findreal(reader, "accuracy", &accuracy, 1))
+		mask |= 0x1;
+
+	if (zrdr_findreal(reader, "courage", &courage, 1))
+		mask |= 0x2;
+
+	if (zrdr_findreal(reader, "surrender", &surrender, 1))
+		mask |= 0x4;
+
+	if (zrdr_findreal(reader, "stealth", &stealth, 1))
+		mask |= 0x8;
+
+	if (zrdr_findreal(reader, "training", &training, 1))
+		mask |= 0x100;
+
+	if (zrdr_findreal(reader, "target_delay", &target_delay, 1))
+		mask |= 0x800;
+
+	if (zrdr_findreal(reader, "target_discipline", &target_discipline, 1))
+		mask |= 0x1000;
+
+	if (_zrdr* sensors = zrdr_findtag(reader, "sensors"))
+	{
+		if (zrdr_findreal(sensors, "visual_range", &visual_range, 1))
+			mask |= 0x20;
+
+		if (zrdr_findreal(sensors, "visual_fov", &visual_fov, 1))
+			mask |= 0x40;
+
+		if (zrdr_findreal(sensors, "visual_sens", &visual_sens, 1))
+			mask |= 0x10;
+
+		if (zrdr_findreal(sensors, "aware_decay", &aware_decay, 1))
+			mask |= 0x80;
+
+		if (zrdr_findreal(sensors, "thip_range", &thip_range, 1))
+			mask |= 0x200;
+	}
+
+	if (zrdr_finduint(reader, "respawn", &respawn, 1))
+		mask |= 0x400;
 }
 
 /* @socom-skeleton stub Merge__9AI_PARAMSFRC9AI_PARAMSRC9AI_PARAMS */
@@ -74,14 +120,14 @@ bool CVehicleRdr::Open(const char* name)
 /* @socom-skeleton body GetEntryByName__11CVehicleRdrCFPCc */
 CVehicleRdrEntry * CVehicleRdr::GetEntryByName(const char *name) const
 {
-	if (!name)
+	/* 0x1a3720: the entry of that name (case-insensitive) */
+	if (name == NULL)
 		return NULL;
 
-	for (auto i = begin(); i != end(); i++)
+	for (const_iterator i = begin(); i != end(); i++)
 	{
-		CVehicleRdrEntry entry = *i;
-		if (strcasecmp(entry.m_name, name) == 0)
-			return &entry;
+		if (strcasecmp(i->m_name, name) == 0)
+			return const_cast<CVehicleRdrEntry*>(&*i);
 	}
 
 	return NULL;
@@ -90,31 +136,59 @@ CVehicleRdrEntry * CVehicleRdr::GetEntryByName(const char *name) const
 /* @socom-skeleton body Load__11CVehicleRdrFP5_zrdr */
 bool CVehicleRdr::Load(_zrdr* file)
 {
-	_zrdr* node = NULL;
-	FIRETEAM team = FIRETEAM::FT_MP_PLAYER;
+	/* 0x1a2e80: one entry per element of the reader's first array */
+	_zrdr* list = NULL;
 
-	bool debug, disabled, nofade, noshoot, recycle, nosnooze = false;
+	if (file != NULL)
+		list = file->Get(0);
 
-	if (!file)
+	if (list == NULL)
 		return false;
 
-	resize(file->array->integer - 1);
+	s32 count = list->IsArray() ? list->array->integer - 1 : 0;
+	resize(count);
 
-	for (u32 i = 1; node = &file->array[i], i < file->array->integer - 1; i++)
+	for (u32 i = 0; (s32)i < count; i++)
 	{
-		_dest = &data()[i];
-
+		CVehicleRdrEntry* dest = &data()[i];
+		bool debug = false;
+		bool disabled = false;
+		bool nofade = false;
+		bool noshoot = false;
+		bool recycle = false;
+		bool nosnooze = false;
+		_zrdr* node = list->Get(i);
 		char* name = zrdr_findstring(node, "name");
 		char* display = zrdr_findstring(node, "display");
+		_zrdr* team = zrdr_findtag(node, "team");
+		u32 mask = 0;
 
-		_zrdr* type_node = NULL;
-
-		if (_zrdr* team_tag = zrdr_findtag(node, "team"))
+		/* team: a mask of the listed teams; a team outside 0-31 ends the list and becomes
+		 * the mask itself (ELF quirk kept) */
+		if (team != NULL && team->IsArray())
 		{
-			for (u32 j = 1; type_node = &team_tag->array[j], j < team_tag->array->integer - 1; j++)
+			u32 bits = 0;
+			mask = bits;
+
+			for (u32 j = 0; j < (u32)team->array->integer - 1; j++)
 			{
-				team = (FIRETEAM)type_node->integer;
-				_dest->m_teamMask = 1 << ((u8)team & 31);
+				_zrdr* item = team->Get(j);
+				s32 value;
+
+				if (item->type == ZRDR_INTEGER)
+					value = item->integer;
+				else if (item->type == ZRDR_REAL)
+					value = (s32)item->real;
+				else
+					value = 0;
+
+				mask = (u32)value;
+
+				if (value < 0 || value > 31)
+					break;
+
+				bits |= 1 << (value & 31);
+				mask = bits;
 			}
 		}
 
@@ -124,68 +198,101 @@ bool CVehicleRdr::Load(_zrdr* file)
 		zrdr_findbool(node, "noshoot", &noshoot);
 		zrdr_findbool(node, "recycle", &recycle);
 		zrdr_findbool(node, "nosnooze", &nosnooze);
-
 		char* character = zrdr_findstring(node, "character");
-		_dest->m_aiParams.Parse(zrdr_findtag(node, "ai_params"));
+		dest->m_aiParams.Parse(zrdr_findtag(node, "ai_params"));
 
-		strncpy(_dest->m_name, name, 32);
-		strncpy(_dest->m_display_name, display, 32);
-		strncpy(_dest->m_character, character, 48);
+		if (name == NULL)
+			dest->m_name[0] = '\0';
+		else
+			strncpy(dest->m_name, name, 32);
 
-		_dest->m_debug = debug;
-		_dest->m_disabled = disabled;
-		_dest->m_nofade = nofade;
-		_dest->m_noshoot = noshoot;
-		_dest->m_recycle = recycle;
-		_dest->m_nosnooze = nosnooze;
+		if (display == NULL)
+			dest->m_display_name[0] = '\0';
+		else
+			strncpy(dest->m_display_name, display, 32);
 
-		if (!_dest->m_display_name)
+		if (character == NULL)
+			dest->m_character[0] = '\0';
+		else
+			strncpy(dest->m_character, character, 48);
+
+		dest->m_teamMask = (s32)mask;
+		dest->m_debug = debug;
+		dest->m_disabled = disabled;
+		dest->m_nofade = nofade;
+		dest->m_noshoot = noshoot;
+		dest->m_recycle = recycle;
+		dest->m_nosnooze = nosnooze;
+
+		/* the squad's call signs when no display name is given */
+		if (dest->m_display_name[0] == '\0')
 		{
 			if (strcasecmp(name, "player") == 0)
-				strncpy(_dest->m_display_name, "Kahuna", 32);
-
-			if (strcasecmp(name, "Hutchins") == 0)
-				strncpy(_dest->m_display_name, "Boomer", 32);
-
-			if (strcasecmp(name, "Dimone") == 0)
-				strncpy(_dest->m_display_name, "Spectre", 32);
+				strncpy(dest->m_display_name, "Kahuna", 32);
+			else if (strcasecmp(name, "Hutchins") == 0)
+				strncpy(dest->m_display_name, "Boomer", 32);
+			else if (strcasecmp(name, "Dimone") == 0)
+				strncpy(dest->m_display_name, "Spectre", 32);
 
 			if (strcasecmp(name, "Bailey") == 0)
-				strncpy(_dest->m_display_name, "Jester", 32);
+				strncpy(dest->m_display_name, "Jester", 32);
 		}
 
-		if (_zrdr* start = zrdr_findtag(node, "start"))
+		startvec* starts = &dest->m_start;
+		_zrdr* start = zrdr_findtag(node, "start");
+
+		if (start != NULL)
 		{
-			char* start_name = NULL;
-			s32 direction = 0;
+			/* start <name>, with dir on the entry: one start */
+			u32 len = start->IsArray() ? (u32)start->array->integer - 1 : 0;
 
-			if (start->array->integer > 2)
-				start = &start->array[2];
+			if (len > 1)
+			{
+				s32 dir = 0;
+				_zrdr* item = start->Get(1);
+				char* startname = item->type == ZRDR_STRING ? item->string : NULL;
+				zrdr_findint(node, "dir", &dir, 1);
+				starts->m_count = 1;
+				saturate<u32>(starts->m_count, 0, 4);
 
-			if (start->type == ZRDR_STRING)
-				start_name = start->string;
+				if (startname == NULL)
+					starts->m_start[0].m_name[0] = '\0';
+				else
+					strncpy(starts->m_start[0].m_name, startname, 16);
 
-			zrdr_findint(start, "dir", &direction, 1);
-			_dest->m_start.m_count = 1;
-			saturate<u32>(_dest->m_start.m_count, 0, 4);
-
-			strncpy(_dest->m_start.m_start->m_name, start_name, 16);
-			_dest->m_start.m_start[0].m_dir = direction;
+				starts->m_start[0].m_dir = dir;
+			}
 		}
 		else if (_zrdr* setup = zrdr_findtag(node, "setup"))
 		{
-			_zrdr* setup_node = NULL;
-			for (u32 j = 0; setup_node = &setup->array[j], j != setup->array->integer - 1; j++)
+			/* setup { { name dir } ... }: the count is saturated to 4, the loop is not
+			 * (ELF quirk kept) */
+			s32 len = setup->IsArray() ? setup->array->integer - 1 : 0;
+			starts->m_count = (u32)len;
+			saturate<u32>(starts->m_count, 0, 4);
+
+			for (u32 j = 0; (s32)j < len; j++)
 			{
-				s32 direction = 0;
+				_zrdr* item = setup->Get(j);
+				_zrdr* dirnode = item->Get(1);
+				s32 dir;
 
-				if (setup_node->type == ZRDR_INTEGER)
-					direction = setup_node->integer;
+				if (dirnode->type == ZRDR_INTEGER)
+					dir = dirnode->integer;
+				else if (dirnode->type == ZRDR_REAL)
+					dir = (s32)dirnode->real;
+				else
+					dir = 0;
 
-				if (setup_node->type == ZRDR_STRING)
-					strncpy(_dest->m_start.m_start->m_name, setup_node->string, 16);
+				_zrdr* namenode = item->Get(0);
+				char* startname = namenode->type == ZRDR_STRING ? namenode->string : NULL;
 
-				_dest->m_start.m_start[j].m_dir = direction;
+				if (startname == NULL)
+					starts->m_start[j].m_name[0] = '\0';
+				else
+					strncpy(starts->m_start[j].m_name, startname, 16);
+
+				starts->m_start[j].m_dir = dir;
 			}
 		}
 	}
@@ -203,26 +310,92 @@ void CVehicleRdrEntry::SetCharacterName(const char* name)
 }
 
 /* @socom-skeleton stub Randomize__16CVehicleRdrEntryFb */
-void CVehicleRdrEntry::Randomize(bool)
+void CVehicleRdrEntry::Randomize(bool first)
 {
+	/* 0x1a2dd0: pick one of the starts at random, the first one when asked, when there
+	 * are none, or for a respawning character */
+	if (first || m_start.m_count == 0 || m_aiParams.respawn != 0)
+	{
+		m_startIndex = 0;
+		return;
+	}
+
+	u32 last = m_start.m_count - 1;
+	m_startIndex = last == 0 ? 0 : rand() % (s32)(last + 1);
 }
 
 /* @socom-skeleton stub GetStart__16CVehicleRdrEntryCFUiRPCcRi */
-void CVehicleRdrEntry::GetStart(unsigned int, const char *&, int &) const
+void CVehicleRdrEntry::GetStart(unsigned int index, const char *&name, int &dir) const
 {
+	/* 0x1a2d90: start index's name and direction; nothing is written past the count */
+	if (index < m_start.m_count)
+	{
+		name = m_start.m_start[index].m_name;
+		dir = m_start.m_start[index].m_dir;
+	}
 }
 
 /* @socom-skeleton stub GetStartPos__16CVehicleRdrEntryCFv */
 char * CVehicleRdrEntry::GetStartPos() const
 {
+	/* 0x1a2d60: the chosen start's name (an AI map location), NULL past the count */
+	if ((u32)m_startIndex >= m_start.m_count)
+		return NULL;
+
+	return const_cast<char*>(m_start.m_start[m_startIndex].m_name);
 }
 
 /* @socom-skeleton stub GetStartDir__16CVehicleRdrEntryCFv */
 int CVehicleRdrEntry::GetStartDir() const
 {
+	/* 0x1a2d20: the chosen start's direction, 0 past the count */
+	if ((u32)m_startIndex >= m_start.m_count)
+		return 0;
+
+	return m_start.m_start[m_startIndex].m_dir;
 }
 
 /* @socom-skeleton stub GetStartMatrix__16CVehicleRdrEntryFR7CMatrixUi */
-unsigned char CVehicleRdrEntry::GetStartMatrix(CMatrix &, unsigned int)
+unsigned char CVehicleRdrEntry::GetStartMatrix(CMatrix &matrix, unsigned int index)
 {
+	/* 0x1a2bd0: the start's matrix from its AI map cell (index -1: pick one as Randomize
+	 * does); false when the start or its cell is not found */
+	if (index == (unsigned int)-1)
+	{
+		if (m_start.m_count == 0 || m_aiParams.respawn != 0)
+		{
+			m_startIndex = 0;
+		}
+		else
+		{
+			u32 last = m_start.m_count - 1;
+			m_startIndex = last == 0 ? 0 : rand() % (s32)(last + 1);
+		}
+	}
+	else
+	{
+		m_startIndex = (s32)index;
+	}
+
+	if ((u32)m_startIndex >= m_start.m_count)
+		return false;
+
+	s32 dir = m_start.m_start[m_startIndex].m_dir;
+	CAiMapLoc loc;
+
+	if (!AiMaps.GetLocation(m_start.m_start[m_startIndex].m_name, loc))
+		return false;
+
+	CPnt3D pos;
+
+	if (!AiMaps.GetCellCenter(loc, &pos))
+		return false;
+
+	CQuat quat;
+	CAiMap::GetDirQuat((CAiMap::DIR)(u8)dir, quat, true);
+	quat.ToMatrix(&matrix);
+	matrix.m_matrix[3][0] = pos.x;
+	matrix.m_matrix[3][1] = pos.y;
+	matrix.m_matrix[3][2] = pos.z;
+	return true;
 }

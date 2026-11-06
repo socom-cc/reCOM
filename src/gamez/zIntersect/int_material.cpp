@@ -42,49 +42,344 @@
 #include "gamez/zReader/zrdr.h"
 #include "zintersect.h"
 /* @socom-skeleton end include */
+#include "gamez/zSound/zsnd.h" /* CSnd::GetSoundByName */
+
+/* port: no symbol - helpers inlined into ReadMaterials, CreateDefaultMaterials,
+ * SetDefaultMaterial and UnInit (their zfree/zstrdup calls name int_material.cpp lines
+ * 51-52, 58-59 and 64-65) */
+namespace {
+void MaterialRelease(CMaterialEx* mat)
+{
+	mat->m_step_sound = NULL;
+	mat->m_stealth_step_sound = NULL;
+	mat->m_crawl_sound = NULL;
+	mat->m_land_sound = NULL;
+
+	if (mat->m_name != NULL)
+		zfree(mat->m_name);
+
+	mat->m_name = NULL;
+
+	if (mat->m_decal != NULL)
+		zfree(mat->m_decal);
+
+	mat->m_decal = NULL;
+}
+
+void MaterialSetName(CMaterialEx* mat, const char* name)
+{
+	if (mat->m_name != NULL)
+		zfree(mat->m_name);
+
+	mat->m_name = NULL;
+	mat->m_name = name != NULL ? zstrdup(name) : NULL;
+}
+
+void MaterialSetDecal(CMaterialEx* mat, const char* decal)
+{
+	if (mat->m_decal != NULL)
+		zfree(mat->m_decal);
+
+	mat->m_decal = NULL;
+	mat->m_decal = decal != NULL ? zstrdup(decal) : NULL;
+}
+
+/* the index of a new material is the list size before it is appended */
+void MaterialAdd(CMaterialEx* mat)
+{
+	int index = (int)CMaterialExArray::m_materialex_list.size();
+	CMaterialExArray::m_materialex_map[std::string(mat->m_name)] = index;
+	CMaterialExArray::m_materialex_list.insert(CMaterialExArray::m_materialex_list.end(), 1, mat);
+}
+}
 
 /* @socom-skeleton stub m_materialex_map__16CMaterialExArray */
-unsigned char CMaterialExArray::m_materialex_map[16];
+std::map<std::string, int> CMaterialExArray::m_materialex_map;
 
 /* @socom-skeleton stub m_materialex_list__16CMaterialExArray */
-int CMaterialExArray::m_materialex_list[3];
+std::vector<CMaterialEx*> CMaterialExArray::m_materialex_list;
 
 /* @socom-skeleton stub __ct__11CMaterialExFv */
 CMaterialEx::CMaterialEx()
 {
+	/* 0x21f350. Bits 5-31 of the flag word are left as they are (ELF quirk kept). */
+	m_name = NULL;
+	m_decal = NULL;
+	m_opacity = 1.0f;
+	m_penetration = 0.0f;
+	m_ricochet = 0.0f;
+	m_elasticity_coeff = 0.0f;
+	m_stealth_factor = 0.5f;
+	m_foot_step_offset = 0.0f;
+	m_volumetric = false;
+	m_liquid = false;
+	m_particle_system = false;
+	m_underwater = false;
+	m_pickup = false;
+	m_weapon_anim = 0;
+	m_step_sound = NULL;
+	m_stealth_step_sound = NULL;
+	m_crawl_sound = NULL;
+	m_land_sound = NULL;
+	m_impact_radius_mod = 1.0f;
 }
 
 /* @socom-skeleton stub ResolveMaterialIndex__16CMaterialExArrayFPCc */
-int CMaterialExArray::ResolveMaterialIndex(const char *)
+int CMaterialExArray::ResolveMaterialIndex(const char *name)
 {
+	/* 0x21f2c0: the material's list index, 0 (UNKNOWN) when it has no entry */
+	if (name == NULL)
+		return 0;
+
+	std::map<std::string, int>::iterator it = m_materialex_map.find(std::string(name));
+
+	if (it == m_materialex_map.end())
+		return 0;
+
+	return it->second;
 }
 
 /* @socom-skeleton stub ResolveDecalMaterialIndex__16CMaterialExArrayFPCci */
-int CMaterialExArray::ResolveDecalMaterialIndex(const char *, int)
+int CMaterialExArray::ResolveDecalMaterialIndex(const char *name, int)
 {
+	/* 0x21f230: the same lookup as ResolveMaterialIndex; the second argument is unused */
+	if (name == NULL)
+		return 0;
+
+	std::map<std::string, int>::iterator it = m_materialex_map.find(std::string(name));
+
+	if (it == m_materialex_map.end())
+		return 0;
+
+	return it->second;
 }
 
 /* @socom-skeleton stub UnInit__16CMaterialExArrayFv */
-void CMaterialExArray::UnInit()
+bool CMaterialExArray::UnInit()
 {
+	/* 0x21f070: free every material from the back, release the list storage, clear the
+	 * name map; false when there was nothing to free (the map is then left as it is) */
+	if (m_materialex_list.size() == 0)
+	{
+		std::vector<CMaterialEx*>().swap(m_materialex_list);
+		return false;
+	}
+
+	while (m_materialex_list.size() != 0)
+	{
+		CMaterialEx* mat = m_materialex_list.back();
+		m_materialex_list.pop_back();
+
+		if (mat != NULL)
+		{
+			MaterialRelease(mat);
+			delete mat;
+		}
+	}
+
+	std::vector<CMaterialEx*>().swap(m_materialex_list);
+	m_materialex_map.clear();
+	return true;
 }
 
 /* @socom-skeleton stub CreateDefaultMaterials__16CMaterialExArrayFv */
 void CMaterialExArray::CreateDefaultMaterials()
 {
+	/* 0x21ede0: materials 0 (UNKNOWN) and 1 (PARTICLE_SYSTEM) */
+	CMaterialEx* mat = new CMaterialEx();
+	MaterialSetName(mat, "UNKNOWN");
+	mat->m_opacity = 1.0f;
+	mat->m_penetration = 0.0f;
+	mat->m_ricochet = 0.0f;
+	mat->m_elasticity_coeff = 0.3f;
+	mat->m_volumetric = false;
+	mat->m_liquid = false;
+	mat->m_pickup = false;
+	MaterialAdd(mat);
+
+	mat = new CMaterialEx();
+	MaterialSetName(mat, "PARTICLE_SYSTEM");
+	mat->m_opacity = 0.0f;
+	mat->m_penetration = 1.0f;
+	mat->m_ricochet = 0.0f;
+	mat->m_elasticity_coeff = 0.0f;
+	mat->m_volumetric = true;
+	mat->m_particle_system = true;
+	mat->m_liquid = false;
+	mat->m_pickup = false;
+	mat->m_underwater = false;
+	mat->m_step_sound = NULL;
+	mat->m_stealth_step_sound = NULL;
+	mat->m_crawl_sound = NULL;
+	mat->m_land_sound = NULL;
+	MaterialAdd(mat);
 }
 
 /* @socom-skeleton stub GetWeaponAnimMaterialEx__16CMaterialExArrayFUi */
-void CMaterialExArray::GetWeaponAnimMaterialEx(unsigned int)
+CMaterialEx* CMaterialExArray::GetWeaponAnimMaterialEx(unsigned int index)
 {
+	/* 0x21ed50: the material a weapon animation uses for material index (out of range -> 0):
+	 * its WEAPONANIM material, or itself when it names none */
+	u32 count = m_materialex_list.size();
+
+	if (index >= count)
+		index = 0;
+
+	CMaterialEx* mat = m_materialex_list[index];
+
+	if (mat == NULL)
+		return NULL;
+
+	u32 anim = (u32)mat->m_weapon_anim;
+
+	if (anim == 0)
+		return mat;
+
+	if (anim >= count)
+		anim = 0;
+
+	return m_materialex_list[anim];
 }
 
 /* @socom-skeleton stub ReadMaterials__16CMaterialExArrayFP8CRdrFile */
-void CMaterialExArray::ReadMaterials(CRdrFile *)
+bool CMaterialExArray::ReadMaterials(CRdrFile *rdr)
 {
+	/* 0x21e730: the two defaults, then one material per SOILS element; an element without
+	 * a NAME is dropped. The name map gives each material's list index. */
+	if (rdr == NULL)
+		return false;
+
+	_zrdr* soils = zrdr_findtag(rdr, "SOILS");
+
+	if (soils == NULL)
+		return false;
+
+	u32 count = soils->IsArray() ? (u32)soils->array->integer - 1 : 0;
+	m_materialex_list.reserve(count + 2);
+	CreateDefaultMaterials();
+
+	for (u32 i = 0; i < count; i++)
+	{
+		_zrdr* soil = soils->Get(i);
+		CMaterialEx* mat = new CMaterialEx();
+		f32 value = 0.0f;
+		const char* name = NULL;
+
+		if (!zrdr_findSTRING(soil, "NAME", &name))
+		{
+			if (mat != NULL)
+			{
+				MaterialRelease(mat);
+				delete mat;
+			}
+
+			continue;
+		}
+
+		MaterialSetName(mat, name);
+
+		if (zrdr_findreal(soil, "OPACITY", &value, 1))
+			mat->m_opacity = value;
+
+		const char* sound = NULL;
+
+		if (zrdr_findSTRING(soil, "STEPSOUND", &sound))
+			mat->m_step_sound = CSnd::GetSoundByName(sound);
+
+		sound = NULL;
+
+		if (zrdr_findSTRING(soil, "STEALTH_STEPSOUND", &sound))
+			mat->m_stealth_step_sound = CSnd::GetSoundByName(sound);
+
+		sound = NULL;
+
+		if (zrdr_findSTRING(soil, "CRAWLSOUND", &sound))
+			mat->m_crawl_sound = CSnd::GetSoundByName(sound);
+
+		sound = NULL;
+
+		if (zrdr_findSTRING(soil, "LANDSOUND", &sound))
+			mat->m_land_sound = CSnd::GetSoundByName(sound);
+
+		if (zrdr_findreal(soil, "PENETRATION", &value, 1))
+			mat->m_penetration = value;
+
+		if (zrdr_findreal(soil, "RICOCHET", &value, 1))
+			mat->m_ricochet = value;
+
+		if (zrdr_findreal(soil, "ELASTICITY_COEFF", &value, 1))
+			mat->m_elasticity_coeff = value;
+
+		if (zrdr_findreal(soil, "STEALTH_FACTOR", &value, 1))
+			mat->m_stealth_factor = value;
+
+		if (zrdr_findreal(soil, "FOOT_STEP_OFFSET", &value, 1))
+			mat->m_foot_step_offset = value;
+
+		if (zrdr_findtag(soil, "VOLUMETRIC") != NULL)
+			mat->m_volumetric = true;
+
+		if (zrdr_findreal(soil, "IMPACT_RADIUS_MOD", &value, 1))
+			mat->m_impact_radius_mod = value;
+
+		if (zrdr_findtag(soil, "LIQUID") != NULL)
+			mat->m_liquid = true;
+
+		if (zrdr_findtag(soil, "UNDERWATER") != NULL)
+			mat->m_underwater = true;
+
+		if (zrdr_findtag(soil, "PICKUP") != NULL)
+			mat->m_pickup = true;
+
+		const char* anim = NULL;
+
+		if (zrdr_findSTRING(soil, "WEAPONANIM", &anim) && anim != NULL)
+			mat->m_weapon_anim = ResolveMaterialIndex(anim);
+
+		const char* decal = NULL;
+
+		if (zrdr_findSTRING(soil, "DECAL", &decal))
+			MaterialSetDecal(mat, decal);
+
+		MaterialAdd(mat);
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub SetDefaultMaterial__16CMaterialExArrayFi */
-void CMaterialExArray::SetDefaultMaterial(int)
+void CMaterialExArray::SetDefaultMaterial(int index)
 {
+	/* 0x21e4d0: copy material index (out of range -> 0) over material 0, the material
+	 * anything unresolved gets. IMPACT_RADIUS_MOD (+0x2c) is not copied (ELF quirk kept). */
+	u32 i = (u32)index;
+
+	if (i >= m_materialex_list.size())
+		i = 0;
+
+	CMaterialEx* src = m_materialex_list[i];
+	CMaterialEx* dst = m_materialex_list[0];
+
+	if (src == dst)
+		return;
+
+	MaterialSetName(dst, src->m_name);
+	MaterialSetDecal(dst, src->m_decal);
+	dst->m_weapon_anim = src->m_weapon_anim;
+	dst->m_opacity = src->m_opacity;
+	dst->m_penetration = src->m_penetration;
+	dst->m_ricochet = src->m_ricochet;
+	dst->m_elasticity_coeff = src->m_elasticity_coeff;
+	dst->m_stealth_factor = src->m_stealth_factor;
+	dst->m_foot_step_offset = src->m_foot_step_offset;
+	dst->m_volumetric = src->m_volumetric;
+	dst->m_liquid = src->m_liquid;
+	dst->m_underwater = src->m_underwater;
+	dst->m_particle_system = src->m_particle_system;
+	dst->m_pickup = src->m_pickup;
+	dst->m_reserved = src->m_reserved;
+	dst->m_step_sound = src->m_step_sound;
+	dst->m_stealth_step_sound = src->m_stealth_step_sound;
+	dst->m_crawl_sound = src->m_crawl_sound;
+	dst->m_land_sound = src->m_land_sound;
 }

@@ -55,18 +55,36 @@ void CBBox::GetIntersect(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, bool)
 }
 
 /* @socom-skeleton stub MakeXRot__5CQuatFf */
-void CQuat::MakeXRot(float)
+void CQuat::MakeXRot(float angle)
 {
+	/* 0x221820: rotation by angle about x */
+	f32 half = 0.5f * angle;
+	vec.x = sinf(half);
+	w = cosf(half);
+	vec.y = 0.0f;
+	vec.z = 0.0f;
 }
 
 /* @socom-skeleton stub MakeYRot__5CQuatFf */
-void CQuat::MakeYRot(float)
+void CQuat::MakeYRot(float angle)
 {
+	/* 0x2217c0: rotation by angle about y */
+	f32 half = 0.5f * angle;
+	vec.y = sinf(half);
+	w = cosf(half);
+	vec.x = 0.0f;
+	vec.z = 0.0f;
 }
 
 /* @socom-skeleton stub MakeZRot__5CQuatFf */
-void CQuat::MakeZRot(float)
+void CQuat::MakeZRot(float angle)
 {
+	/* 0x221760: rotation by angle about z */
+	f32 half = 0.5f * angle;
+	vec.z = sinf(half);
+	w = cosf(half);
+	vec.x = 0.0f;
+	vec.y = 0.0f;
 }
 
 /* @socom-skeleton stub MakeYXRot__5CQuatFff */
@@ -80,31 +98,82 @@ void CQuat::MakeYXZRot(float, float, float)
 }
 
 /* @socom-skeleton body Normalize__5CQuatCFP5CQuat */
-void CQuat::Normalize(CQuat *) const
+void CQuat::Normalize(CQuat *out) const
 {
-	const CQuat& quat = *this; /* port: binds the pre-skeleton body's name; body unverified */
-	f32 length = sqrtf(quat.w * quat.w + quat.vec.z * quat.vec.z * quat.vec.y + quat.vec.y * quat.vec.x + quat.vec.x);
-	/* port: `return quat;` dropped (function returns void) */
+	/* 0x221540: out = this scaled to unit length (sceVu0InnerProduct of the vector part
+	 * + w*w, then sceVu0ScaleVector of all four components) */
+	f32 scale = 1.0f / sqrtf(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z + w * w);
+	out->vec.x = vec.x * scale;
+	out->vec.y = vec.y * scale;
+	out->vec.z = vec.z * scale;
+	out->w = w * scale;
 }
 
 /* @socom-skeleton stub Normalize__5CQuatFv */
 CQuat * CQuat::Normalize()
 {
+	/* 0x2214e0: in place */
+	Normalize(this);
+	return this;
 }
 
 /* @socom-skeleton body ToMatrix__5CQuatCFP7CMatrix */
-void CQuat::ToMatrix(CMatrix *) const
+void CQuat::ToMatrix(CMatrix *matrix) const
 {
-	// TODO:
-	// Port matrix quaternion to matrix conversion function
+	/* 0x2213f0: the rotation part (rows 0-2, columns 0-2) only; the rest of the matrix is
+	 * left as it is */
+	f32 x2 = vec.x + vec.x;
+	f32 y2 = vec.y + vec.y;
+	f32 z2 = vec.z + vec.z;
+	f32 xx = vec.x * x2, xy = vec.x * y2, xz = vec.z * x2;
+	f32 yy = vec.y * y2, yz = vec.y * z2, zz = vec.z * z2;
+	f32 wx = w * x2, wy = w * y2, wz = w * z2;
+
+	matrix->m_matrix[0][0] = 1.0f - yy - zz;
+	matrix->m_matrix[0][1] = xy + wz;
+	matrix->m_matrix[0][2] = xz - wy;
+	matrix->m_matrix[1][0] = xy - wz;
+	matrix->m_matrix[1][1] = 1.0f - zz - xx;
+	matrix->m_matrix[1][2] = yz + wx;
+	matrix->m_matrix[2][0] = xz + wy;
+	matrix->m_matrix[2][1] = yz - wx;
+	matrix->m_matrix[2][2] = 1.0f - xx - yy;
 }
 
 /* @socom-skeleton body Mul__5CQuatCFPC5CQuatP5CQuat */
-CQuat CQuat::Mul(const CQuat *left, CQuat *right) const
+void CQuat::Mul(const CQuat *other, CQuat *out) const
 {
-	// TODO:
-	// This will remain empty until I replace the proprietary VU calls with my own
-	return CQuat();
+	/* 0x221340: out = this * other, in the ELF's order of VU0 library steps (out may alias
+	 * either operand, as there): the cross product (w 0), += this * other.w,
+	 * += other * this.w, then w -= this.vec . other.vec + this.w * other.w (the last
+	 * scaled vector's w) */
+	f32 cx = vec.y * other->vec.z - vec.z * other->vec.y;
+	f32 cy = vec.z * other->vec.x - vec.x * other->vec.z;
+	f32 cz = vec.x * other->vec.y - vec.y * other->vec.x;
+	out->vec.x = cx;
+	out->vec.y = cy;
+	out->vec.z = cz;
+	out->w = 0.0f;
+
+	f32 s = other->w;
+	f32 tx = vec.x * s, ty = vec.y * s, tz = vec.z * s, tw = w * s;
+	out->vec.x += tx;
+	out->vec.y += ty;
+	out->vec.z += tz;
+	out->w += tw;
+
+	s = w;
+	tx = other->vec.x * s;
+	ty = other->vec.y * s;
+	tz = other->vec.z * s;
+	tw = other->w * s;
+	out->vec.x += tx;
+	out->vec.y += ty;
+	out->vec.z += tz;
+	out->w += tw;
+
+	f32 dot = vec.x * other->vec.x + vec.y * other->vec.y + vec.z * other->vec.z;
+	out->w = out->w - (dot + tw);
 }
 
 /* @socom-skeleton stub ToEuler__5CQuatCFP6CPnt3D */
@@ -113,12 +182,23 @@ void CQuat::ToEuler(CPnt3D *) const
 }
 
 /* @socom-skeleton body Apply__5CQuatCFPC6CPnt3DP6CPnt3Di */
-CQuat CQuat::Apply(const CPnt3D *, CPnt3D *, int) const
+void CQuat::Apply(const CPnt3D *in, CPnt3D *out, int count) const
 {
-	// TODO:
-	// what does THIS do?
-	// the RE source has a bunch of inserted assembly instructions
-	return CQuat();
+	/* 0x221240: rotate count points by this quaternion. The ELF loads the quaternion and
+	 * each point (w 0) into VU0 and runs the VU0 micro subroutine at 0x60 (vcallms).
+	 * port: guess - the micro subroutine is not reconstructed; this is the standard
+	 * rotation q p q* it is used for (unproven) */
+	for (; count != 0; count--, in++, out++)
+	{
+		f32 px = in->x, py = in->y, pz = in->z;
+		/* t = 2 (v x p) */
+		f32 tx = 2.0f * (vec.y * pz - vec.z * py);
+		f32 ty = 2.0f * (vec.z * px - vec.x * pz);
+		f32 tz = 2.0f * (vec.x * py - vec.y * px);
+		out->x = px + w * tx + (vec.y * tz - vec.z * ty);
+		out->y = py + w * ty + (vec.z * tx - vec.x * tz);
+		out->z = pz + w * tz + (vec.x * ty - vec.y * tx);
+	}
 }
 
 /* @socom-skeleton stub Align__5CQuatFRC6CPnt3DRC6CPnt3D */

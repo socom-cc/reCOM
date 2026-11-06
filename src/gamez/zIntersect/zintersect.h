@@ -3,6 +3,9 @@
 
 /* port: forward declarations for names this header uses */
 class CRdrFile;
+class CSnd;
+#include <map>
+#include <string>
 #include <vector>
 
 #include "gamez/zMath/zmath.h"
@@ -16,6 +19,8 @@ namespace zdb
 
 namespace zdb
 {
+    class CDI;
+
     struct DI_PARAMS
     {
         CPnt4D m_nrm;
@@ -34,6 +39,7 @@ namespace zdb
     struct IntersectStruct
     {
         CPnt3D m_pos;
+        CDI* m_poly; /* DWARF +0xc */
         CPnt3D m_norm;
         CNode* m_node;
         /* @socom-skeleton decl Q23zdb15IntersectStruct */
@@ -124,6 +130,7 @@ public:
     {
     public:
         /* port: Exists(CDI*) is not declared: the ELF has only Exists__Q23zdb9CDIVectorFPCQ23zdb3CDI (the region below) */
+        bool m_bReturnBackFaceIntersections = false; /* DWARF +0xc (CDIVector is 16 bytes); the seal ctor (0x2584cc) sets it. port: guess - false until set (the owner's ctor value is not checked) */
         /* @socom-skeleton decl Q23zdb9CDIVector */
 public:
         bool Exists(const zdb::CDI *);
@@ -143,10 +150,34 @@ public:
     };
 }
 /* @socom-skeleton decl 11CMaterialEx */
+/* A soil/material record from the mission's materials reader (SOILS). No DWARF record:
+ * the 60-byte layout is from the constructor 0x21f350, ReadMaterials 0x21e730 and
+ * SetDefaultMaterial 0x21e4d0; member names follow the reader tags (port: names guessed). */
 class CMaterialEx
 {
 public:
 	CMaterialEx();
+
+	char* m_name; /* +0x00 NAME (zstrdup) */
+	char* m_decal; /* +0x04 DECAL (zstrdup) */
+	CSnd* m_step_sound; /* +0x08 STEPSOUND */
+	CSnd* m_stealth_step_sound; /* +0x0c STEALTH_STEPSOUND */
+	CSnd* m_crawl_sound; /* +0x10 CRAWLSOUND */
+	CSnd* m_land_sound; /* +0x14 LANDSOUND */
+	int m_weapon_anim; /* +0x18 WEAPONANIM: index of another material */
+	float m_opacity; /* +0x1c OPACITY, 1.0 */
+	float m_penetration; /* +0x20 PENETRATION */
+	float m_ricochet; /* +0x24 RICOCHET */
+	float m_elasticity_coeff; /* +0x28 ELASTICITY_COEFF */
+	float m_impact_radius_mod; /* +0x2c IMPACT_RADIUS_MOD, 1.0 */
+	float m_stealth_factor; /* +0x30 STEALTH_FACTOR, 0.5 */
+	float m_foot_step_offset; /* +0x34 FOOT_STEP_OFFSET */
+	unsigned int m_volumetric : 1; /* +0x38 bit 0 VOLUMETRIC */
+	unsigned int m_liquid : 1; /* bit 1 LIQUID */
+	unsigned int m_underwater : 1; /* bit 2 UNDERWATER */
+	unsigned int m_particle_system : 1; /* bit 3: set only on the PARTICLE_SYSTEM default */
+	unsigned int m_pickup : 1; /* bit 4 PICKUP */
+	unsigned int m_reserved : 27; /* bits 5-31: copied by SetDefaultMaterial, never read here */
 };
 /* @socom-skeleton end 11CMaterialEx */
 /* @socom-skeleton decl 16CMaterialExArray */
@@ -155,13 +186,13 @@ class CMaterialExArray
 public:
 	static int ResolveMaterialIndex(const char *);
 	static int ResolveDecalMaterialIndex(const char *, int);
-	void UnInit();
+	static bool UnInit(); /* static bool: 0x21f070 reads no this and returns 0/1 */
 	static void CreateDefaultMaterials();
-	void GetWeaponAnimMaterialEx(unsigned int);
-	static void ReadMaterials(CRdrFile *);
+	static CMaterialEx* GetWeaponAnimMaterialEx(unsigned int); /* static: a0 is the index (0x21ed50) */
+	static bool ReadMaterials(CRdrFile *); /* bool: 0x21e730 returns 0/1 */
 	static void SetDefaultMaterial(int);
-	static int m_materialex_list[3];
-	static unsigned char m_materialex_map[16];
+	static std::vector<CMaterialEx*> m_materialex_list; /* vector<P11CMaterialEx> (dtor 0x21f1a0) */
+	static std::map<std::string, int> m_materialex_map; /* map<string, i> (find 0x21f720, find_or_insert 0x21f410) */
 };
 /* @socom-skeleton end 16CMaterialExArray */
 /* @socom-skeleton decl Q23zdb7CDIBBox */

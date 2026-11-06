@@ -18,7 +18,7 @@ public:
 	void SmoothAnims(f32 scale);
 	/* port: provisional non-const FindPart removed; the ELF one is FindPart(const char *) const */
 	CZBodyPart* NewBodyPart(zdb::CNode* node, CZBodyPart* part); /* port: returns CZBodyPart* (Ghidra 0x1e34b0, skeleton stub) */
-	zdb::CNode& NullNode() const;
+	virtual s32 NullNode() const { return -1; } /* ELF 0x1e34a0 (CBody vtable +0xc): li v0,-1 - the body part id of a NULL node */
 protected:
 	bool m_take_snapshot;
 
@@ -31,6 +31,8 @@ protected:
 	f32 m_interp2;
 
 	CActiveAnimPool* m_active_anim_pool;
+	class CBlendPool* m_blend_pool; /* DWARF +0x1c */
+	class CBodyAnimBlendStack* m_blends; /* DWARF +0x20 */
 
 	std::vector<CZBodyAnim*> m_body_anims;
 	std::vector<CZBodyPart*> m_body_parts;
@@ -62,6 +64,13 @@ public:
 
 class CBlendOverlay
 {
+public:
+	ACTIVE_ANIM* m_anim; /* DWARF layout (28 bytes) */
+	f32 m_triggerT;
+	f32 m_ovlyT;
+	s16 m_state;
+	s16 m_event;
+	ANIM_CALLBACK m_callback;
 
 	/* @socom-skeleton decl 13CBlendOverlay */
 public:

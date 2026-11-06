@@ -304,9 +304,9 @@ public:
 	void Normalize(CQuat *) const;
 	CQuat * Normalize();
 	void ToMatrix(CMatrix *) const;
-	CQuat Mul(const CQuat *, CQuat *) const;
+	void Mul(const CQuat *, CQuat *) const; /* void: 0x221340 leaves v0 unset */
 	void ToEuler(CPnt3D *) const;
-	CQuat Apply(const CPnt3D *, CPnt3D *, int) const;
+	void Apply(const CPnt3D *, CPnt3D *, int) const; /* void: 0x221240 leaves v0 unset */
 	void Align(const CPnt3D &, const CPnt3D &);
 	void Div(const CQuat *, CQuat *) const;
 	void Slerp(const CQuat *, float, CQuat *) const;

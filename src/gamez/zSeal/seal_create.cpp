@@ -24,6 +24,9 @@
 
 #include "zseal.h"
 
+#include "gamez/zNode/node_world.h" /* zdb::CWorld (PreCreateSeal) */
+#include "zseal.h"
+
 /* @socom-skeleton decl include */
 #include "gamez/zCharacter/zchar.h"
 #include "gamez/zNode/znode.h"
@@ -38,8 +41,28 @@ CZSealBody * CZSealBody::GetSeal(zdb::CNode *)
 }
 
 /* @socom-skeleton stub PreCreateSeal__10CZSealBodyFPC14CCharacterTypePCcPPQ23zdb5CNode */
-CCharacterType * CZSealBody::PreCreateSeal(const CCharacterType *, const char *, zdb::CNode **)
+CCharacterType * CZSealBody::PreCreateSeal(const CCharacterType *type, const char *name, zdb::CNode **node)
 {
+	/* 0x28a440: reference the type and make the character's node: a named, dynamic
+	 * instance of its model with its LODs, in the world, marked as a character and
+	 * given the character texture library ("clib") */
+	CCharacterType* acquired = type->Acquire();
+
+	if (acquired == NULL)
+		return NULL;
+
+	*node = acquired->CreateInstance(name);
+	zdb::CNode* instance = *node;
+
+	if (instance == NULL)
+		return NULL;
+
+	instance->SetDynamic(true, true);
+	acquired->CreateLODs(instance);
+	zdb::CWorld::m_world->AddChild(instance);
+	instance->m_character = true;
+	zdb::CWorld::m_world->AddTextureAssetCharacter((char*)"clib", instance);
+	return acquired;
 }
 
 /* @socom-skeleton body FindGear__10CZSealBodyFPCc */
@@ -70,8 +93,38 @@ bool CZSealBody::ReCreate(CZSealBody *, const CCharacterType *)
 }
 
 /* @socom-skeleton stub Create__10CZSealBodyFPC14CCharacterTypePCcP9CSealCtrl */
-CZSealBody * CZSealBody::Create(const CCharacterType *, const char *, CSealCtrl *)
+CZSealBody * CZSealBody::Create(const CCharacterType *type, const char *name, CSealCtrl *ctrl)
 {
+	/* 0x2899c0: node, body, entity, then the controller and gear (PostCreateSeal); the
+	 * player's node gets a "camera_effects" child */
+	if (type == NULL)
+		return NULL;
+
+	zdb::CNode* node = NULL;
+	CCharacterType* acquired = PreCreateSeal(type, name, &node);
+
+	if (acquired == NULL)
+		return NULL;
+
+	CZSealBody* body = new CZSealBody(node, acquired);
+	CEntity::CreateEntity(body, true);
+	PostCreateSeal(body, ctrl);
+	bool player = body->m_control != NULL && ((CSealCtrl*)body->m_control)->IsPlayer();
+
+	if (player)
+	{
+		zdb::CNode* effects = new zdb::CNode();
+
+		if (effects == NULL)
+			return body;
+
+		effects->SetName("camera_effects");
+		effects->m_hasDI = false;
+		effects->m_hasVisuals = false;
+		body->GetNode()->AddChild(effects);
+	}
+
+	return body;
 }
 
 /* @socom-skeleton stub Destroy__10CZSealBodyFP10CZSealBody */
