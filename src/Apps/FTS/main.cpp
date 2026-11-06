@@ -58,6 +58,11 @@
 #include "gamez/zNetwork/znet.h" /* theLobby */
 #include "gamez/zNode/node_assetlib.h" /* zdb::CAssetMgr, zdb::CAssetLib */
 #include "gamez/zVideo/zvid.h" /* CVideo, zVid_Swap */
+#include "gamez/zUtil/zutil.h" /* COutput, zUtilInit */
+#include <eekernel.h> /* DIntr, EIntr, ChangeThreadPriority, GetThreadId */
+#include <mwUtils.h> /* mwInit */
+#include <libcdvd.h> /* sceCdReadClock */
+
 
 bool LoadWorld(const char* name);
 char* SetDatabase(const char* db);
@@ -82,75 +87,125 @@ COurGame theGame;
 /* @socom-skeleton body __nw__FUi */
 void* operator new(size_t size)
 {
-	return __malloc(size, __FILE__, __LINE__);
+	/* 0x140ef0: twelve_pool, then four_pool (acquire inlined), then the general heap. */
+	void* p = twelve_pool.acquire(size);
+
+	if (p == NULL)
+	{
+		p = four_pool.acquire(size);
+
+		if (p == NULL)
+		{
+			p = _new(size, "unknown", 0);
+		}
+	}
+
+	return p;
 }
 
 /* @socom-skeleton stub __nwa__FUi */
-void * operator new[](unsigned int)
+void * operator new[](unsigned int size)
 {
+	/* 0x140ee0 */
+	return _new_vec(size, "unknown", 0);
 }
 
 /* @socom-skeleton stub __dl__FPv */
-void operator delete(void *)
+void operator delete(void * p)
 {
+	/* 0x140e10: back to the pool that owns the address, else the general heap. */
+	if (p == NULL)
+		return;
+
+	if (twelve_pool.release((twelve*)p))
+		return;
+
+	if (four_pool.release((four*)p))
+		return;
+
+	_delete(p, "unknown", 0);
 }
 
 /* @socom-skeleton stub __dla__FPv */
-void operator delete[](void *)
+void operator delete[](void * p)
 {
+	/* 0x140de0 */
+	if (p != NULL)
+	{
+		_delete_vec(p, "unknown", 0);
+	}
 }
 
 /* @socom-skeleton body main */
 int main(int argc, char** argv)
 {
+	/* 0x140d00 */
+	mwInit();
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("M1: main entered (argc=%d)", argc);
+#endif
 	process_arguments(argc, argv);
+	ChangeThreadPriority(GetThreadId(), 5);
 	zSysInit();
-	zSysPostInit();
 
-	if (dumpLog)
-		COutput::DumpLog("ftslog.txt");
-
-	char* log = NULL;
-
-	if (gopt.doLog)
+	if (theGame.m_menuState.m_skip)
 	{
-		log = "ftslog.txt";
+		CSnd::Close();
+		zSysPostInit();
+		CSnd::UIOpen();
 	}
 
-	zUtilInit(log);
-	
-	theGame.StartEngine();
-	theGame.StartPlay();
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("M2: zSysInit done");
+#endif
 
-	while (true) theGame.Tick(0);
+	if (gopt.dumpLog)
+		COutput::DumpLog("ftslog.txt");
+
+	zUtilInit(gopt.doLog ? "ftslog.txt" : NULL);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("M3: zUtilInit done");
+#endif
+
+	/* 0x140dac/0x140db8/0x140dcc call these directly (no virtual dispatch). */
+	theGame.COurGame::StartEngine();
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("M5: StartEngine done");
+#endif
+	theGame.CGame::StartPlay();
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("M6: StartPlay done, entering the main loop");
+#endif
+
+	while (true) theGame.CGame::Tick(zVid.frameTime);
 }
 
 /* @socom-skeleton body StartEngine__8COurGameFv */
 bool COurGame::StartEngine()
 {
+	/* 0x140550 */
 	if (!CGame::StartEngine())
 		return false;
 
 	// Display loading screen
-	CVideo::RestoreImage("RUN\\LOADING.RAW"); /* port: binary has only RestoreImage__6CVideoFPc; 0x140550 passes one string */
+	CVideo::RestoreImage("RUN\LOADING.RAW"); /* port: binary has only RestoreImage__6CVideoFPc; 0x140550 passes one string */
 
 	// After the image is loaded into the back buffer,
 	// bring it to the main one
 	zVid_Swap(true);
 
-	zdb::CTexManager::m_texmanager.doAddBuffer("default", 0.0f, 0.0f);
+	zdb::CTexManager::m_texmanager.doAddBuffer("default", 0.0f, 1.0f);
 
 	theMission.Init();
+	InitSystemTuners();
 
-	char* db = GetDatabase();
+	sceCdCLOCK clock;
 
-	if (db)
-	{
-		size_t dblen = strlen(db);
+	if (sceCdReadClock(&clock))
+		srand(clock.second + clock.minute * 10000 + clock.hour * 100 + clock.day + clock.month + clock.year);
 
-		if (dblen != 0)
-			theMission.PreOpen(db);
-	}
+	if (GetDatabase() != NULL && strlen(GetDatabase()) != 0)
+		theMission.PreOpen(GetDatabase());
 
 	zdb::CAssetLib* fontLib = zdb::CAssetMgr::GetLoadedLibRef("common/assetlib/font");
 	fontLib->m_autoload = false;

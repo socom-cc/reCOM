@@ -22,6 +22,18 @@
 #include "gamez/zNode/node_assetlib.h"
 
 #include "gamez/zVideo/zvid.h"
+#include "gamez/zSystem/zsys.h" /* zTaskScheduler, zSysReset */
+#include "gamez/zTexture/ztex.h" /* zdb::CRipple, zdb::CTextureFX */
+#include "gamez/zNode/znode.h" /* zdb::CTexture */
+#include "gamez/zTwoD/ztwod.h" /* C2D */
+#include "gamez/zValve/zvalve.h" /* CValve */
+#include "gamez/zInput/zinput.h" /* CInput */
+#include "gamez/zRender/zrender.h" /* zRndrInit, thePipe */
+#include "gamez/zSound/zsnd.h" /* CSndInstance */
+#include "gamez/zMath/zmath.h" /* zMath_Init */
+#include "gamez/zSeal/zseal.h" /* CZSealBody::m_sealanim */
+#include "gamez/zAnim/zanim.h" /* CSealAnim */
+#include "gamez/zFTS/fts_state.h" /* CGameStateChangeCmd */
 
 char* GetDatabase();
 
@@ -51,9 +63,10 @@ void CGame::StopPlay()
 /* @socom-skeleton body StartEngine__5CGameFv */
 bool CGame::StartEngine()
 {
-	// zTaskScheduler.Clear();
-	// zdb::CRipple::Init();
-	// zdb::CTextureFX::Init();
+	/* 0x20e6b0 */
+	zTaskScheduler.Clear();
+	zdb::CRipple::Init();
+	zdb::CTextureFX::Init();
 	CValve::Init();
 	zVid_Init(ZVID_MODE_NTSC);
 	zdb::CTexture::Init();
@@ -63,15 +76,17 @@ bool CGame::StartEngine()
 	zVid_Open();
 	C2D::Open();
 	CInput::Init();
-	// zRndrInit();
-	// CSndInstance::InitInstancePool(48);
+	zRndrInit();
+	CSndInstance::InitInstancePool(0x30);
 	CInput::CreatePad(0);
 	CInput::CreatePad(1);
-	// zMath_Init();
-	// CPipe::Init();
-	// CGameStateChangeCmd::CreatePool(16);
-	// CSealAnim* sealAnim = new CSealAnim();
-	// CZSealBody::m_sealanim = sealAnim;
+	zMath_Init();
+	thePipe.Init();
+	CZSealBody::m_sealanim = new CSealAnim();
+	CGameStateChangeCmd::CreatePool(0x10);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("M5: CGame::StartEngine done");
+#endif
 	return true;
 }
 

@@ -20,48 +20,103 @@
 /* port: removed #include "Apps/FTS/gamever.h" (header deleted with the PC-only code in 5b05af1; nothing here uses it) */
 #include "gamez/zReader/zrdr.h"
 #include "gamez/zVideo/zvid.h"
+#include <malloc.h> /* memalign */
+#include <eekernel.h> /* DIntr, EIntr */
 
 /* @socom-skeleton stub __HeapSizePS2 */
 int __HeapSizePS2;
 
 /* @socom-skeleton stub _new__FUiPCci */
-void * _new(unsigned int, const char *, int)
+void * _new(unsigned int size, const char *, int)
 {
+	/* 0x2f4830 */
+	DIntr();
+	void* p = malloc(size);
+	EIntr();
+	zVid_Assert(size == 0 || p != NULL, 0x800000ff, (char*)__FILE__, 0x20c);
+	return p;
 }
 
 /* @socom-skeleton stub _delete_vec__FPvPCci */
-void _delete_vec(void *, const char *, int)
+void _delete_vec(void *block, const char *, int)
 {
+	/* 0x2f47f0 */
+	if (block != NULL)
+	{
+		DIntr();
+		free(block);
+		EIntr();
+	}
 }
 
 /* @socom-skeleton stub _new_vec__FUiPCci */
-void * _new_vec(unsigned int, const char *, int)
+void * _new_vec(unsigned int size, const char *, int)
 {
+	/* 0x2f4780 */
+	DIntr();
+	void* p = malloc(size);
+	EIntr();
+	zVid_Assert(size == 0 || p != NULL, 0x800000ff, (char*)__FILE__, 0x231);
+	return p;
 }
 
 /* @socom-skeleton stub _malloc__FUiPCci */
-void * _malloc(unsigned int, const char *, int)
+void * _malloc(unsigned int size, const char *, int)
 {
+	/* 0x2f4710 */
+	DIntr();
+	void* p = malloc(size);
+	EIntr();
+	zVid_Assert(size == 0 || p != NULL, 0x800000ff, (char*)__FILE__, 0x243);
+	return p;
 }
 
 /* @socom-skeleton stub _memalign__FUiUiPCci */
-void * _memalign(unsigned int, unsigned int, const char *, int)
+void * _memalign(unsigned int alignment, unsigned int size, const char *, int)
 {
+	/* 0x2f46a0 */
+	DIntr();
+	void* p = memalign(alignment, size);
+	EIntr();
+	zVid_Assert(size == 0 || p != NULL, 0x800000ff, (char*)__FILE__, 0x255);
+	return p;
 }
 
 /* @socom-skeleton stub _realloc__FPvUiPCci */
-void * _realloc(void *, unsigned int, const char *, int)
+void * _realloc(void *block, unsigned int size, const char *, int)
 {
+	/* 0x2f4630 */
+	DIntr();
+	void* p = realloc(block, size);
+	EIntr();
+	zVid_Assert(size == 0 || p != NULL, 0x800000ff, (char*)__FILE__, 0x26b);
+	return p;
 }
 
 /* @socom-skeleton stub _calloc__FUiUiPCci */
-void * _calloc(unsigned int, unsigned int, const char *, int)
+void * _calloc(unsigned int count, unsigned int size, const char *, int)
 {
+	/* 0x2f45b0: malloc of count * size, cleared outside DIntr */
+	unsigned int total = count * size;
+	DIntr();
+	void* p = malloc(total);
+	EIntr();
+	memset(p, 0, total);
+	zVid_Assert(total == 0 || p != NULL, 0x800000ff, (char*)__FILE__, 0x281);
+	return p;
 }
 
 /* @socom-skeleton stub _strdup__FPCcPCci */
-char * _strdup(const char *, const char *, int)
+char * _strdup(const char *str, const char *, int)
 {
+	/* 0x2f4520 */
+	unsigned int size = strlen(str) + 1;
+	DIntr();
+	char* p = (char*)malloc(size);
+	strcpy(p, str);
+	EIntr();
+	zVid_Assert(size == 0 || p != NULL, 0x800000ff, (char*)__FILE__, 0x294);
+	return p;
 }
 
 /* @socom-skeleton stub zsys_MemoryReport__Fv */

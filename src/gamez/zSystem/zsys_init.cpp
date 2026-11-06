@@ -48,12 +48,48 @@
 /* @socom-skeleton decl forward */
 class CIOPManager;
 /* @socom-skeleton end forward */
+#include <stdio.h>
+#include <algorithm>
+#include <eekernel.h> /* AddDmacHandler, EnableIntc */
+#include <sifrpc.h> /* sceSifInitRpc (ps2sdk declares the Sony name) */
+#include <sifdev.h> /* sceSifRebootIop, sceSifLoadModule ... */
+#include <libcdvd.h> /* sceCdInit, sceCdGetDiskType, sceCdMmode */
+#include <libdma.h> /* sceDmaReset, sceDmaGetChan */
+#include <libgraph.h> /* sceGsResetPath */
+#include <eeregs.h> /* VIF0_FBRST, VIF1_ERR, T0_MODE, D_CTRL */
+
+void zsys_MemoryReport(); /* zsys_MemoryReport__Fv (zsys_memory.cpp) */
+void recoGrabMemory(); /* recoGrabMemory__Fv (Apps/FTS/game/reco.cpp) */
+extern "C" void TRC_PreparePowerOff(unsigned char hddStatus); /* zsys_trc.cpp; 0x2f5204 passes 2 */
 
 /* @socom-skeleton stub usbdargs */
 static unsigned char usbdargs[43] = {104, 117, 98, 61, 49, 0, 100, 101, 118, 61, 49, 49, 0, 101, 100, 61, 51, 50, 0, 103, 116, 100, 61, 54, 52, 0, 105, 116, 100, 61, 54, 52, 0, 105, 111, 114, 101, 113, 61, 49, 50, 56, 0};
 
 /* @socom-skeleton stub sndargs */
 static unsigned char sndargs[20] = {115, 116, 114, 101, 97, 109, 95, 112, 114, 105, 111, 114, 105, 116, 121, 61, 49, 56, 0, 0};
+
+/* @socom-skeleton stub IrxFiles */
+/* port: no DWARF type; 9 x 16 bytes {module id, path, arg length, args} read by RebootIOP
+ * (0x2f50c0); paths and arguments from the initialised data at 0x43a750 */
+struct IrxFile
+{
+	int id;
+	const char* name;
+	int argc;
+	const char* args;
+};
+
+static IrxFile IrxFiles[9] = {
+	{-1, "RUN\\IRX\\SIO2MAN.IRX", 0, NULL},
+	{-1, "RUN\\IRX\\PADMAN.IRX", 0, NULL},
+	{-1, "RUN\\IRX\\LIBSD.IRX", 0, NULL},
+	{-1, "RUN\\IRX\\SDRDRV.IRX", 0, NULL},
+	{-1, "RUN\\IRX\\USB\\USBD.IRX", 43, (const char*)usbdargs},
+	{-1, "RUN\\IRX\\USB\\USBKB.IRX", 0, NULL},
+	{-1, "RUN\\IRX\\DEV9.IRX", 0, NULL},
+	{-1, "RUN\\IRX\\SOUND\\989SND.IRX", 19, (const char*)sndargs},
+	{-1, "RUN\\IRX\\SOUND\\989DSTRM.IRX", 0, NULL},
+};
 
 /* @socom-skeleton stub postinited */
 static bool postinited; /* 1-byte flag (set true by zSysPostInit) */
@@ -73,18 +109,157 @@ int InterruptDmacBusError(int)
 }
 
 /* @socom-skeleton stub RebootIOP__11CIOPManagerFQ211CIOPManager10RebootMode */
-void CIOPManager::RebootIOP(CIOPManager::RebootMode)
+void CIOPManager::RebootIOP(CIOPManager::RebootMode mode)
 {
+	/* 0x2f4e90: run the PreReboot callbacks (last to first), reboot the IOP with the
+	 * disc's IOPRP250 image, reload the nine game modules (and MCMAN/MCSERV on the first
+	 * boot), then run the PostReboot callbacks; failed callbacks are dropped. */
+	char image[256];
+	char imagePath[256];
+	char modulePath[256];
+	char mcmanPath[256];
+	char mcservPath[256];
+
+	if (mode != FirstBoot)
+	{
+		CRegistrant* it = m_reboot_callback_vec.data() + m_reboot_callback_vec.size();
+
+		while (it != m_reboot_callback_vec.data())
+		{
+			it--;
+			it->m_flag_for_deletion = !it->m_pcb(PreReboot, mode, it->m_userdata);
+		}
+
+		m_reboot_callback_vec.erase(
+			std::remove_if(m_reboot_callback_vec.begin(), m_reboot_callback_vec.end(), delflag),
+			m_reboot_callback_vec.end());
+	}
+
+	sprintf(image, "%s%s", "RUN\\IRX\\", "IOPRP250.IMG");
+	sceSifInitRpc(0);
+	sceCdInit(SCECdINIT);
+
+	bool notCd;
+	int diskType = sceCdGetDiskType();
+
+	if (diskType == SCECdPS2DVD)
+	{
+		sceCdMmode(SCECdDVD);
+		notCd = false;
+	}
+	else if (diskType == SCECdPS2CD)
+	{
+		printf("=== MEDIA IS A CD ===\n");
+		sceCdMmode(SCECdCD);
+		notCd = false;
+	}
+	else
+	{
+		notCd = true;
+	}
+
+	zSys.isCdBoot = !notCd;
+
+	if (zSys.isCdBoot)
+		CFileIO::SetRootPath("cdrom0:\\");
+
+	CFileIO::PS2FileName(image, imagePath, false);
+
+	while (!sceSifRebootIop(imagePath))
+		;
+
+	while (!sceSifSyncIop())
+		;
+
+	sceSifInitRpc(0);
+	sceSifInitIopHeap();
+	sceSifLoadFileReset();
+	sceCdInit(SCECdINIT);
+	diskType = sceCdGetDiskType();
+
+	if (diskType == SCECdPS2DVD)
+	{
+		sceCdMmode(SCECdDVD);
+	}
+	else if (diskType == SCECdPS2CD)
+	{
+		printf("=== MEDIA IS A CD ===\n");
+		sceCdMmode(SCECdCD);
+	}
+
+	sceFsReset();
+
+	for (u32 i = 0; i < 9; i++)
+	{
+		IrxFile& irx = IrxFiles[i];
+		const char* args = irx.args;
+		int argc = irx.argc;
+		CFileIO::PS2FileName(irx.name, modulePath, false);
+		int id;
+
+		do
+		{
+			id = sceSifLoadModule(modulePath, argc, args);
+		} while (id < 0);
+
+		irx.id = id;
+	}
+
+	if (mode == FirstBoot)
+	{
+		CFileIO::PS2FileName("RUN\\IRX\\MCMAN.IRX", mcmanPath, false);
+
+		while (sceSifLoadModule(mcmanPath, 0, NULL) < 0)
+			;
+
+		CFileIO::PS2FileName("RUN\\IRX\\MCSERV.IRX", mcservPath, false);
+
+		while (sceSifLoadModule(mcservPath, 0, NULL) < 0)
+			;
+
+		zSys.memIrxLoaded = true;
+	}
+	else
+	{
+		zSys.memIrxLoaded = false;
+	}
+
+	zsys_MemoryReport();
+
+	for (CRegistrant* it = m_reboot_callback_vec.data(); it != m_reboot_callback_vec.data() + m_reboot_callback_vec.size(); it++)
+		it->m_flag_for_deletion = !it->m_pcb(PostReboot, mode, it->m_userdata);
+
+	m_reboot_callback_vec.erase(
+		std::remove_if(m_reboot_callback_vec.begin(), m_reboot_callback_vec.end(), delflag),
+		m_reboot_callback_vec.end());
+
+	TRC_PreparePowerOff(2);
+	postinited = false;
+}
+
+/* @socom-skeleton stub delflag__11CIOPManagerFRQ211CIOPManager11CRegistrant */
+bool CIOPManager::delflag(CIOPManager::CRegistrant& reg)
+{
+	/* 0x2f5240 */
+	return reg.m_flag_for_deletion;
 }
 
 /* @socom-skeleton body zSysInit__Fv */
 void zSysInit()
 {
-	/* port: 0x2f4df0 calls zsys_FullAllocAndFree and sets isT10K from it; zsys_AllocScratchpad is not in the ELF */
+	/* 0x2f4df0 */
 	size_t allocsize = zsys_FullAllocAndFree();
 	zSys.isT10K = 0x1ffffff < allocsize;
-
 	zSys.isCdBoot = false;
+
+	theIOPManager.RebootIOP(CIOPManager::FirstBoot);
+
+	if (zSys.isCdBoot || zSys.cdSounds)
+		CFileCD::BuildTOC();
+
+	recoGrabMemory();
+	AddDmacHandler(0xf, InterruptDmacBusError, 0);
+	EnableIntc(0xf);
 }
 
 /* @socom-skeleton body zSysPostInit__Fv */
@@ -109,8 +284,43 @@ void zSysUnloadIRX(int)
 /* @socom-skeleton body zSysReset__Fv */
 void zSysReset()
 {
-	zSys.timerTicksPerSecond = static_cast<u32>(zVid.hblnkRate);
-	zSys.timerScale = 1.0f / zSys.timerTicksPerSecond;
+	/* 0x2f49d0: reset the GS paths and the DMAC, start timer 0 on H-blank, set up the
+	 * four DMA channels the engine uses and the scratchpad packet halves. */
+	sceGsResetPath();
+	sceDmaReset(1);
+	sceSifInitRpc(0);
+	*VIF0_FBRST = 1;
+	*VIF1_ERR = 6;
+	zSys.timerTicksPerSecond = (u32)zVid.hblnkRate;
+	zSys.timerScale = 1.0f / (f32)zSys.timerTicksPerSecond;
+	*T0_MODE = 0x83; /* CLKS H-blank, CUE */
+	zSys.DmaToVif0 = sceDmaGetChan(SCE_DMA_VIF0);
+	zSys.DmaToVif1 = sceDmaGetChan(SCE_DMA_VIF1);
+	zSys.DmaToGif = sceDmaGetChan(SCE_DMA_GIF);
+	zSys.DmaFromSPR = sceDmaGetChan(SCE_DMA_fromSPR);
+
+	sceDmaChan* toChannels[3] = {zSys.DmaToVif0, zSys.DmaToVif1, zSys.DmaToGif};
+
+	for (int i = 0; i < 3; i++)
+	{
+		toChannels[i]->chcr.DIR = 1;
+		toChannels[i]->chcr.MOD = 1;
+		toChannels[i]->chcr.ASP = 0;
+		toChannels[i]->chcr.TTE = 1;
+		toChannels[i]->chcr.TIE = 0;
+	}
+
+	zSys.DmaFromSPR->chcr.DIR = 0;
+	zSys.DmaFromSPR->chcr.MOD = 1;
+	zSys.DmaFromSPR->chcr.ASP = 0;
+	zSys.DmaFromSPR->chcr.TTE = 1;
+	zSys.DmaFromSPR->chcr.TIE = 0;
+	*D_CTRL = 1;
+	zSys.sprPacketEnd[0] = (long128*)0x70001f20;
+	zSys.sprPacketEnd[1] = (long128*)0x70003e50;
+	zSys.sprPx = 0;
+	__asm__ volatile("sync.l"); /* port: unproven Metrowerks spelling */
+	zSysFifoInit();
 }
 
 /* @socom-skeleton stub SleepAlarmCB__FiUsPv */

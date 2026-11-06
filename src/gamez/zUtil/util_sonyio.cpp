@@ -47,6 +47,12 @@
 /* @socom-skeleton decl include */
 #include "util_systemio.h"
 /* @socom-skeleton end include */
+#include <ctype.h>
+#include <stdio.h>
+#include <string.h>
+#include <sifdev.h> /* sceOpen, sceRead, sceLseek ... */
+#include <libcdvd.h> /* sceCdRMode */
+#include <989snd.h> /* snd_StreamSafeCdRead/Sync/GetError */
 
 /* @socom-skeleton stub m_root_path__7CFileIO */
 char CFileIO::m_root_path[256] = {104, 111, 115, 116, 48, 58, 46, 92, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -75,19 +81,28 @@ static unsigned char alignedBuffer[8192];
 /* @socom-skeleton body fread__7CFileIOFiPPv */
 size_t CFileIO::fread(int offset, void** buf)
 {
+	/* 0x305e30 */
 	*buf = NULL;
 	return 0;
 }
 
 /* @socom-skeleton stub SetRootPath__7CFileIOFPCc */
-void CFileIO::SetRootPath(const char *)
+void CFileIO::SetRootPath(const char *path)
 {
+	/* 0x305d30: a CD root also selects the ";1" ISO 9660 version suffix. */
+	if (strstr(path, "cdrom") == NULL)
+		strcpy((char*)m_file_version, "");
+	else
+		strcpy((char*)m_file_version, ";1");
+
+	strcpy(m_root_path, path);
 }
 
 /* @socom-skeleton body __ct__7CFileIOFv */
 CFileIO::CFileIO()
 {
-	m_file = NULL;
+	/* 0x305d00 */
+	m_file = -1;
 	m_mode = 0;
 	m_filesize = 0;
 	m_cd = NULL;
@@ -96,17 +111,23 @@ CFileIO::CFileIO()
 /* @socom-skeleton body __ct__7CFileIOFRC7CFileIO */
 CFileIO::CFileIO(const CFileIO& other)
 {
-	m_file = NULL;
+	/* 0x305cc0 */
+	m_file = -1;
 	m_filesize = other.m_filesize;
 	m_file = other.m_file;
+	m_cd = other.m_cd; /* port: m_file and m_cd share one word in the binary (union at +4) */
 	m_mode = other.m_mode;
-	m_cd = NULL;
 }
 
 /* @socom-skeleton body IsOpen__7CFileIOCFv */
 bool CFileIO::IsOpen() const
 {
-	return -1 < m_file;
+	/* 0x305c70: a host file is open for a descriptor >= 0; a CD file while the handle word
+	 * (m_cd, shared with m_file in the binary) is neither -1 nor NULL. */
+	if (!zSys.isCdBoot)
+		return -1 < m_file;
+
+	return m_file != -1 && m_file != 0;
 }
 
 /* @socom-skeleton body IsOpen__9CBufferIOCFv */
@@ -115,102 +136,543 @@ bool CBufferIO::IsOpen() const { return m_buffer != NULL; }
 /* @socom-skeleton body Release__7CFileIOFv */
 void CFileIO::Release()
 {
-	m_file = NULL;
+	/* 0x305c50 */
+	m_file = -1;
+	m_cd = NULL;
 }
 
 /* @socom-skeleton stub PS2FileName__7CFileIOFPCcPcb */
-void CFileIO::PS2FileName(const char *, char *, bool)
+void CFileIO::PS2FileName(const char *name, char *out, bool useTOC)
 {
+	/* 0x305ae0: normalise separators to '\', prefix the root path (unless the CD TOC is
+	 * used), upper-case everything after the root and add the ";1" version on a CD root. */
+	char path[512];
+	char work[512];
+
+	strcpy(work, name);
+	strcpy(path, "");
+
+	char* token = strtok(work, "/\\");
+
+	while (token != NULL)
+	{
+		strcat(path, token);
+		token = strtok(NULL, "/\\");
+
+		if (token != NULL)
+			strcat(path, "\\");
+	}
+
+	u32 i;
+
+	if (useTOC && CFileCD::m_TOC != NULL)
+	{
+		strcpy(out, path);
+		i = 0;
+	}
+	else
+	{
+		sprintf(out, "%s%s", m_root_path, path);
+		i = strlen(m_root_path);
+	}
+
+	u32 len = strlen(out);
+
+	for (; i < len; i++)
+		out[i] = toupper(out[i]);
+
+	if (strstr(m_root_path, "cdrom") != NULL)
+		strcat(out, ";1");
 }
 
 /* @socom-skeleton body Open__7CFileIOFPCcUi */
-unsigned char CFileIO::Open(const char *file, unsigned int)
+unsigned char CFileIO::Open(const char *file, unsigned int mode)
 {
-	m_file = (s64)std::fopen(file, "rb");
+	/* 0x305880 */
+	char name[1024];
 
-	if (m_file != NULL)
+	PS2FileName(file, name, true);
+	m_mode = mode;
+
+	if (!zSys.isCdBoot)
 	{
-		std::fseek((FILE*)m_file, 0, SEEK_END);
-		m_filesize = std::ftell((FILE*)m_file);
-		std::fseek((FILE*)m_file, 0, SEEK_SET);
+		int flags = (mode & 1) != 0 ? SCE_RDONLY : 0;
+
+		if (mode & 2)
+			flags |= SCE_WRONLY;
+
+		if (mode & 0x10)
+			flags |= SCE_TRUNC;
+
+		if (mode & 8)
+			flags |= SCE_CREAT;
+
+		m_file = sceOpen(name, flags);
+
+		if (-1 < m_file && (mode & 1) != 0)
+		{
+			m_filesize = sceLseek((int)m_file, 0, SCE_SEEK_END);
+			sceLseek((int)m_file, 0, SCE_SEEK_SET);
+		}
+	}
+	else
+	{
+		CFileCD* cd = new CFileCD;
+
+		if (cd != NULL)
+		{
+			cd->m_headSector = -1;
+			cd->m_toc = NULL;
+			cd->m_pos = 0;
+			cd->m_buf = NULL;
+			cd->m_sector = (char*)zmemalign(0x40, 0x800);
+		}
+
+		m_cd = cd;
+		m_file = (s64)(u32)cd; /* port: the binary's m_file/m_cd union */
+
+		cd->m_toc = CFileCD::Find(name);
+
+		if (cd->m_toc != NULL)
+		{
+			cd->m_pos = 0;
+
+			if (cd->m_headSector != (int)cd->m_toc->startSector)
+			{
+				cd->m_headSector = cd->m_toc->startSector;
+				cd->m_buf = NULL;
+			}
+		}
+
+		if (cd->m_toc == NULL)
+		{
+#ifdef SOCOM_PORT
+			SOCOM_PORT_TRACE("FILE: %s is not in the disc TOC", name);
+#endif
+			if (m_cd != NULL)
+			{
+				if (m_cd->m_sector != NULL)
+					zfree(m_cd->m_sector);
+
+				m_cd->m_sector = NULL;
+				delete m_cd;
+			}
+
+			m_file = 0;
+			m_cd = NULL;
+		}
+		else
+		{
+			m_filesize = m_cd->m_toc->sectorSize;
+		}
 	}
 
-	return m_file != NULL;
+	if (!zSys.isCdBoot)
+		return -1 < m_file;
+
+	return m_file != -1 && m_file != 0;
 }
 
 /* @socom-skeleton body Close__7CFileIOFv */
 void CFileIO::Close()
 {
-	bool open = m_file != NULL;
+	/* 0x3057b0 */
+	bool open;
+
+	if (!zSys.isCdBoot)
+		open = -1 < m_file;
+	else
+		open = m_file != -1 && m_file != 0;
 
 	if (open)
 	{
-		std::fclose((FILE*)m_file);
-		m_file = NULL;
+		if (!zSys.isCdBoot || m_cd == NULL)
+		{
+			sceClose((int)m_file);
+		}
+		else
+		{
+			if (m_cd->m_sector != NULL)
+				zfree(m_cd->m_sector);
+
+			m_cd->m_sector = NULL;
+			delete m_cd;
+		}
+
+		m_file = -1;
+		m_cd = NULL;
 	}
 }
 
 /* @socom-skeleton body fseek__7CFileIOFii */
 size_t CFileIO::fseek(int offset, int origin)
 {
-	if (origin != SEEK_SET && origin == SEEK_END)
+	/* 0x3056d0 */
+	if (!zSys.isCdBoot)
 	{
-		offset += m_filesize;
+		int whence = SCE_SEEK_CUR;
+
+		if (origin != 1)
+		{
+			whence = SCE_SEEK_SET;
+
+			if (origin == 2)
+				offset += m_filesize;
+		}
+
+		return sceLseek((int)m_file, offset, whence);
 	}
-	
-	return std::fseek((FILE*)m_file, offset, SEEK_SET);
+
+	CFileCD* cd = m_cd;
+
+	if (origin == 2)
+		cd->m_pos = offset + cd->m_toc->sectorSize;
+	else if (origin == 1)
+		cd->m_pos = cd->m_pos + offset;
+	else if (origin == 0)
+		cd->m_pos = offset;
+
+	int sector = (cd->m_pos >> 11) + cd->m_toc->startSector;
+
+	if (cd->m_headSector != sector)
+	{
+		cd->m_headSector = sector;
+		cd->m_buf = NULL;
+	}
+
+	return cd->m_pos;
 }
 
 /* @socom-skeleton body fread__7CFileIOFPvi */
 unsigned int CFileIO::fread(void *buf, int size)
 {
+	/* 0x305680 */
 	if (size == 0)
-	{
 		return 0;
-	}
-	
-	return std::fread(buf, 1, size, (FILE*)m_file);
+
+	if (!zSys.isCdBoot)
+		return sceRead((int)m_file, buf, size);
+
+	return m_cd->Read((char*)buf, size);
 }
 
 /* @socom-skeleton body fwrite__7CFileIOFPCvi */
 unsigned int CFileIO::fwrite(const void *buf, int count)
 {
-	return std::fwrite(buf, count, sizeof(u32), (FILE*)m_file);
+	/* 0x305650: host files only; the return value is whatever sceWrite left in v0. */
+	if (!zSys.isCdBoot)
+		return sceWrite((int)m_file, buf, count);
+
+	return 0; /* port: unproven - the binary leaves v0 unset on a CD boot */
 }
 
 /* @socom-skeleton body ftell__7CFileIOCFv */
 int CFileIO::ftell() const
 {
+	/* 0x305640 */
 	return 0;
 }
 
 /* @socom-skeleton body fflush__7CFileIOFv */
 void CFileIO::fflush()
 {
-
+	/* 0x305630 */
 }
 
 /* @socom-skeleton stub CreatePath__7CFileCDFPcPc */
-char * CFileCD::CreatePath(char *, char *)
+char * CFileCD::CreatePath(char *name, char *path)
 {
+	/* 0x305520: "." keeps the path, ".." drops its last component, anything else is appended. */
+	if (strcmp(name, ".") != 0)
+	{
+		if (strcmp(name, "..") == 0)
+		{
+			char* p = path + strlen(path) - 1;
+
+			while (*p != '\\' && p != path)
+			{
+				*p = '\0';
+				p--;
+			}
+
+			if (strcmp(path, "\\") != 0)
+				*p = '\0';
+		}
+		else
+		{
+			if (strlen(path) != 0)
+				strcpy(path + strlen(path), "\\");
+
+			strcpy(path + strlen(path), name);
+		}
+	}
+
+	return path;
 }
 
 /* @socom-skeleton stub BuildTOC__7CFileCDFv */
 void CFileCD::BuildTOC()
 {
+	/* 0x305010: walk the ISO 9660 tree breadth-first from the primary volume descriptor
+	 * (sector 16) and record every file as {path, extent, -, byte size}. Directory work
+	 * entries share the record layout: {path, extent, -, sector count}. */
+	struct DirEntry
+	{
+		char* name;
+		int sector;
+		int unused;
+		int sectors;
+	};
+
+	DirEntry dirs[256];
+	char path[512];
+	CFileCD cd;
+
+	m_CDmode[0] = 0x14; /* sceCdRMode: trycount 20, spindlctrl 1 (normal), datapattern 0 (2048) */
+	m_CDmode[1] = 1;
+	path[0] = '\0';
+	int done = 0;
+	m_CDmode[2] = 0;
+	m_TOC = (_FILECD*)zmalloc(0x4000);
+	m_TOCNum = 0;
+
+	char* buf = (char*)zmemalign(0x40, 0x810);
+	memset(buf + 0x800, 0, 0x10); /* port: unproven - the binary leaves the 16 guard bytes uninitialised */
+
+	cd.m_headSector = -1;
+	cd.m_toc = NULL;
+	cd.m_pos = 0;
+	cd.m_buf = NULL;
+	cd.m_sector = (char*)zmemalign(0x40, 0x800);
+
+	if (cd.m_headSector != 0x10)
+	{
+		cd.m_headSector = 0x10;
+		cd.m_buf = NULL;
+	}
+
+	cd.Read(buf, 0x800);
+
+	u8* pvd = (u8*)buf;
+	int rootSize = pvd[0xa6] + (pvd[0xa7] << 8) + (pvd[0xa8] << 16) + (pvd[0xa9] << 24);
+	int rootSector = pvd[0x9e] + (pvd[0x9f] << 8) + (pvd[0xa0] << 16) + (pvd[0xa1] << 24);
+
+	if (rootSize > 0 && rootSize < 0x800)
+		rootSize = 0x800;
+
+	dirs[0].sector = rootSector;
+	dirs[0].sectors = rootSize / 0x800;
+	dirs[0].name = (char*)zmalloc(1);
+	strcpy(dirs[0].name, "");
+
+	int count = 1;
+
+	do
+	{
+		DirEntry& dir = dirs[done];
+		done++;
+		int first = dir.sector;
+		int sectors = dir.sectors;
+		strcpy(path, dir.name);
+
+		for (int s = 0; s < sectors; s++)
+		{
+			int offset = 0;
+
+			if (cd.m_headSector != first + s)
+			{
+				cd.m_headSector = first + s;
+				cd.m_buf = NULL;
+			}
+
+			cd.Read(buf, 0x800);
+
+			u8* rec;
+
+			while (*(rec = (u8*)buf + offset) != 0)
+			{
+				int extent = rec[2] + (rec[3] << 8) + (rec[4] << 16) + (rec[5] << 24);
+				u32 size = rec[10] + (rec[11] << 8) + (rec[12] << 16) + (rec[13] << 24);
+
+				/* skip the "." (name byte 0) and ".." (name byte 1) records */
+				if (!(rec[0x20] == 1 && rec[0x21] == 0) && !(rec[0x20] == 1 && rec[0x21] == 1))
+				{
+					char* recName = (char*)rec + 0x21;
+
+					if ((rec[0x19] & 2) == 0)
+					{
+						_FILECD* toc = &m_TOC[m_TOCNum++];
+						toc->startSector = extent;
+						toc->sectorSize = size;
+						size_t nameLen = strlen(recName);
+						toc->name = (char*)zmalloc(strlen(path) + 3 + nameLen);
+						toc->name[0] = '\0';
+
+						if (strlen(path) != 0)
+						{
+							strcpy(toc->name, path);
+							strcat(toc->name, "\\");
+						}
+
+						strcat(toc->name, recName);
+					}
+					else
+					{
+						if (size != 0 && size < 0x800)
+							size = 0x800;
+
+						DirEntry& sub = dirs[count];
+						sub.sector = extent;
+						sub.sectors = size >> 11;
+						sub.name = zstrdup(CreatePath(recName, path));
+						CreatePath((char*)"..", path);
+						count++;
+					}
+				}
+
+				offset += rec[0];
+			}
+		}
+	} while (done != count);
+
+	for (int i = 0; i < done; i++)
+		zfree(dirs[i].name);
+
+	if (cd.m_sector != NULL)
+		zfree(cd.m_sector);
+
+	cd.m_sector = NULL;
 }
 
 /* @socom-skeleton stub Find__7CFileCDFPCc */
-_FILECD * CFileCD::Find(const char *)
+_FILECD * CFileCD::Find(const char *name)
 {
+	/* 0x304f70: linear search of the TOC by exact (upper-case, ";1") path. */
+	_FILECD* found = NULL;
+
+	if (m_TOC == NULL)
+		return NULL;
+
+	for (int i = 0; i < m_TOCNum && found == NULL; i++)
+	{
+		if (strcmp(name, m_TOC[i].name) == 0)
+			found = &m_TOC[i];
+	}
+
+	return found;
 }
 
 /* @socom-skeleton stub XferSectorsToCaller__7CFileCDFPci */
-int CFileCD::XferSectorsToCaller(char *, int)
+int CFileCD::XferSectorsToCaller(char *buf, int count)
 {
+	/* 0x304e60: whole sectors straight into a 16-byte aligned buffer, else one by one
+	 * through alignedBuffer. */
+	snd_StreamSafeCdSync(0);
+
+	if (((u32)buf & 0xf) == 0)
+	{
+		snd_StreamSafeCdRead(m_headSector, count, buf, (sceCdRMode*)m_CDmode);
+		snd_StreamSafeCdGetError();
+		m_headSector += count;
+	}
+	else
+	{
+		for (int i = 0; i < count; i++)
+		{
+			int sector = m_headSector;
+			m_headSector = sector + 1;
+			snd_StreamSafeCdRead(sector, 1, alignedBuffer, (sceCdRMode*)m_CDmode);
+			snd_StreamSafeCdGetError();
+			snd_StreamSafeCdSync(0);
+			memcpy(buf, alignedBuffer, 0x800);
+			buf += 0x800;
+		}
+	}
+
+	m_pos += count * 0x800;
+	snd_StreamSafeCdSync(0);
+	return count * 0x800;
 }
 
 /* @socom-skeleton stub Read__7CFileCDFPci */
-int CFileCD::Read(char *, int)
+/* Read the head sector into m_sector and point m_buf at the current position in it
+ * (the binary repeats this sequence inline in Read). */
+static void cd_read_sector(CFileCD* cd)
 {
+	snd_StreamSafeCdSync(0);
+	int sector = cd->m_headSector;
+	cd->m_headSector = sector + 1;
+	snd_StreamSafeCdRead(sector, 1, cd->m_sector, (sceCdRMode*)m_CDmode);
+	snd_StreamSafeCdGetError();
+	cd->m_buf = cd->m_sector + (cd->m_pos & 0x7ff);
+	snd_StreamSafeCdSync(0);
+}
+
+int CFileCD::Read(char *buf, int count)
+{
+	/* 0x304b60: sector-buffered reads; whole sectors go through XferSectorsToCaller. */
+	int sectors = count >> 11;
+
+	if ((m_pos & 0x7ff) == 0)
+	{
+		if ((count & 0x7ff) == 0)
+			return XferSectorsToCaller(buf, sectors);
+
+		if (count < 0x800)
+		{
+			cd_read_sector(this);
+			memcpy(buf, m_buf, count);
+			m_buf += count;
+			m_pos += count;
+			return count;
+		}
+
+		int done = XferSectorsToCaller(buf, sectors);
+		cd_read_sector(this);
+		u32 rest = count - sectors * 0x800;
+		memcpy(buf + done, m_buf, rest);
+		m_buf += rest;
+		m_pos += rest;
+		return done + rest;
+	}
+
+	if (m_buf == NULL || m_buf == m_sector + 0x800)
+		cd_read_sector(this);
+
+	int avail = (m_sector + 0x800) - m_buf;
+
+	if (count <= avail)
+	{
+		memcpy(buf, m_buf, count);
+		m_buf += count;
+		m_pos += count;
+		return count;
+	}
+
+	memcpy(buf, m_buf, avail);
+	u32 rest = count - avail;
+	char* dst = buf + avail;
+	m_buf += avail;
+	m_pos += avail;
+	int total = avail;
+
+	if ((int)rest > 0x7ff)
+	{
+		int done = XferSectorsToCaller(dst, (int)rest >> 11);
+		dst += done;
+		rest -= done;
+		total = avail + done;
+	}
+
+	if (rest == 0)
+	{
+		m_buf = NULL;
+		return total;
+	}
+
+	cd_read_sector(this);
+	memcpy(dst, m_buf, rest);
+	m_buf += rest;
+	m_pos += rest;
+	return total + rest;
 }

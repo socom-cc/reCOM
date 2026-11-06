@@ -54,6 +54,7 @@ class CTTY;
 class CSched_Manager;
 
 #include <eetypes.h> /* long128: 128-bit (DWARF _word128::u128 is 16 bytes) */
+#include <libdma.h> /* sceDmaChan */
 typedef bool(*ScheduledTask)(float, void*);
 
 void zVid_Assert(bool condition, unsigned int mask, char* source, int line); /* zVid_Assert__FbUiPci */
@@ -65,13 +66,17 @@ void* _realloc(void* ptr, size_t new_size, const char* file, int line);
 void* _memalign(size_t alignment, size_t size, const char* file, int line);
 char* _strdup(const char* str, const char* file, int line);
 void _free(void* block, const char* file, int line);
+void* _new(size_t size, const char* file, int line); /* _new__FUiPCci (0x2f4830) */
+void* _new_vec(size_t size, const char* file, int line); /* _new_vec__FUiPCci (0x2f4780) */
+void _delete(void* block, const char* file, int line); /* _delete__FPvPCci (0x2f48a0; no owning unit yet) */
+void _delete_vec(void* block, const char* file, int line); /* _delete_vec__FPvPCci (0x2f47f0) */
 /* port: transitional - Apps/FTS/main.cpp operator new still calls __malloc; remove once it calls _malloc */
 inline void* __malloc(size_t size, const char* file, int line) { return _malloc(size, file, line); }
 
 extern CSched_Manager zTaskScheduler;
 extern size_t __HeapSize; /* C name __HeapSize */
 extern _zsys_public zSys;
-extern CTTY theTerminal;
+extern CTTY* theTerminal; /* zVid_Init (0x308690) allocates it */
 /* postinited is file-local in zsys_init.cpp (LOCAL symbol) */
 extern char gamez_GameRoot[256];
 extern char gamez_GameRunPath[256];
@@ -94,8 +99,12 @@ void zSysPostInit();
 void zSysMain();
 void zSysReset();
 
-void zSysFifoKick(_word128* packet, u32 qwc);
+void zSysFifoKick(unsigned __int128* packet, u32 qwc); /* zSysFifoKick__FP1Ui */
 void zSysFifoEnd();
+void zSysFifoInit();
+void zSysFifoEnable(u32 mode);
+void zSysFifoDisable();
+unsigned __int128* zSysSprGetPacket(unsigned __int128** end); /* zSysSprGetPacket__FPP1 */
 
 size_t zsys_FullAllocAndFree();
 
@@ -125,9 +134,58 @@ public:
 		init_page();
 	}
 
-	void init_page() {} /* port: stub (init_page__15_zmalloc<4four>Fv) */
-	T* acquire(size_t size);
-	bool release(T* page);
+	/* init_page (0x141870 four / 0x141930 twelve): one page of m_size records, chained into the free list. */
+	void init_page()
+	{
+		T* p = (T*)_calloc(sizeof(T), m_size, "main.cpp", 0x4c);
+		m_page = p;
+		m_head = p;
+
+		for (u32 i = 0; i < m_size - 1; i++)
+		{
+			p->next = p + 1;
+			p++;
+		}
+
+		p->next = NULL;
+		m_tail = p + 1;
+	}
+
+	/* acquire (0x141710 four / 0x1417a0 twelve; inlined into operator new): pop a record of exactly
+	 * m_bytes; when the page is exhausted, count the overflow and fall back to the heap. */
+	T* acquire(size_t size)
+	{
+		if (size != m_bytes)
+			return NULL;
+
+		if (m_head == NULL)
+		{
+			m_overflow++;
+			return (T*)_malloc(sizeof(T), "main.cpp", 0x5f);
+		}
+
+		m_count++;
+
+		if (m_peak < m_count)
+			m_peak = m_count;
+
+		T* p = m_head;
+		m_head = m_head->next;
+		return p;
+	}
+
+	/* release (0x140460 four / 0x1404b0 twelve; inlined into operator delete): only addresses inside
+	 * the page go back on the free list. */
+	bool release(T* page)
+	{
+		if (page < m_page || page >= m_tail)
+			return false;
+
+		m_count--;
+		page->next = m_head;
+		m_head = page;
+		return true;
+	}
 private:
 	T* m_page;
 	T* m_head;
@@ -143,10 +201,10 @@ private:
 class _zsys_public
 {
 public:
-	void* DmaToVif0;
-	void* DmaToVif1;
-	void* DmaToGif;
-	void* DmaFromSPR;
+	sceDmaChan* DmaToVif0; /* DWARF sceDmaChan * */
+	sceDmaChan* DmaToVif1;
+	sceDmaChan* DmaToGif;
+	sceDmaChan* DmaFromSPR;
 
 	long128* sprPacketBegin;
 	long128* sprPacketEnd[2];

@@ -69,11 +69,17 @@ public:
 	class CRegistrant
 	{
 	public:
+		/* 16 bytes (RebootIOP 0x2f4ee4/0x2f51ac, RegisterRebootCallback 0x304480) */
+		bool (*m_pcb)(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *);
+		void* m_userdata;
+		int m_id;
+		bool m_flag_for_deletion;
 		static int m_last_id;
 	};
 	void RegisterRebootCallback(bool (*)(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *), void *);
 	void UnRegisterRebootCallback(int);
 	void RebootIOP(CIOPManager::RebootMode);
+	static bool delflag(CIOPManager::CRegistrant &); /* delflag__11CIOPManagerFRQ211CIOPManager11CRegistrant (0x2f5240) */
 };
 /* @socom-skeleton end 11CIOPManager */
 /* @socom-skeleton decl 8CMemCard */

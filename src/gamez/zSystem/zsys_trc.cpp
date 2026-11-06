@@ -44,6 +44,6 @@ bool _UnPreparePowerOff(CIOPManager::RebootPhase, CIOPManager::RebootMode, void 
 }
 
 /* @socom-skeleton stub TRC_PreparePowerOff */
-extern "C" void TRC_PreparePowerOff(void)
+extern "C" void TRC_PreparePowerOff(unsigned char) /* port: 0x402ca0 takes the HDD status byte (RebootIOP passes 2) */
 {
 }

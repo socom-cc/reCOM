@@ -36,6 +36,31 @@ void uninitPssAudio();
 
 extern bool doAudio;
 extern _zvid_public zVid;
+
+#include <libgraph.h> /* sceGsDBuff */
+
+/* port: no DWARF type for zvid (624 bytes at 0x511040); layout from its accesses in
+ * zvid_SetVideoMode (0x3087e0), zVid_Init (0x308690), zVid_Open (0x308590) and
+ * zVid_Swap (0x307bc0). Member names are invented. */
+struct _zvid_private
+{
+	sceGsDBuff db;                /* 0x000: sceGsSetDefDBuff target */
+	u32 vsync_odd;                /* 0x230: !sceGsSyncV() of the last swap */
+	u16* frame_fbp;               /* 0x234: framecode FBP field (framecode + 0x30) */
+	u16* frame_fbmsk;             /* 0x238: framecode + 0x44, set to 0x7200 each swap */
+	u32 pad_23c[2];
+	u16* frame_restore;           /* 0x244: framecode + 0x80 */
+	u32 interlace;                /* 0x248: sceGsResetGraph inter */
+	u32 field_mode;               /* 0x24c: sceGsResetGraph ffmode (SMODE2.FFMD) */
+	u32 output_mode;              /* 0x250: sceGsResetGraph omode */
+	u32 draw_psm;                 /* 0x254: sceGsSetDefDBuff psm */
+	u32 disp_psm;                 /* 0x258: DISPFB PSM */
+	u32 display_height;           /* 0x25c */
+	u32 bgcolor;                  /* 0x260: RGBA; alpha 0xff selects PMODE 0x62 */
+	u32 pad_264[3];
+};
+
+extern _zvid_private zvid;
 extern CWindow* theWindow;
 
 extern CValve* lodLevel;
@@ -55,8 +80,8 @@ public:
 	f32 procTime;
 
 	f32 aspect[2];
-	void* displayBuf;
-	void* renderBuf;
+	u32 displayBuf; /* DWARF uint: GS frame buffer page (FBP) */
+	u32 renderBuf;
 	u32 renderWidth;
 	u32 renderHeight;
 	f32 minZ;
@@ -75,8 +100,8 @@ public:
 	bool pcrtcDo;
 	IPNT2D pcrtcOffset;
 
-	s64 ztest_on;
-	s64 ztest_off;
+	u16* ztest_on; /* DWARF uint16 * (VIF packets ztest_on_vif / ztest_off_vif) */
+	u16* ztest_off;
 
 	s64 dmaFrameRestore;
 };

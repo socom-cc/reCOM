@@ -49,33 +49,38 @@
 #include "gamez/zValve/zvalve.h"
 #include "zvid.h"
 /* @socom-skeleton end include */
+#include "gamez/zMPEG/zmpeg.h" /* CMPEG::IdleTick */
+#include <eekernel.h> /* FlushCache */
+#include <eeregs.h> /* GS_PMODE, T0_COUNT ... */
+#include <libgraph.h>
+#include <libdma.h>
 
 /* @socom-skeleton stub initcode */
-unsigned char initcode[256] = {15, 128, 0, 0, 0, 0, 0, 16, 14, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 26, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 70, 0, 0, 0, 0, 0, 0, 0, 100, 100, 100, 0, 0, 0, 0, 0, 61, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 73, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 59, 0, 0, 0, 0, 0, 0, 0, 96, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 68, 0, 0, 0, 0, 0, 0, 0, 66, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 74, 0, 0, 0, 0, 0, 0, 0, 13, 0, 5, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 24, 1, 0, 58, 0, 0, 0, 0, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0, 127, 2, 0, 0, 191, 1, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 76, 0, 0, 0, 0, 0, 0, 0, 0, 108, 0, 0, 0, 114, 0, 0, 24, 0, 0, 0, 0, 0, 0, 0};
+unsigned char initcode[256] __attribute__((aligned(16))) = {15, 128, 0, 0, 0, 0, 0, 16, 14, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 26, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 70, 0, 0, 0, 0, 0, 0, 0, 100, 100, 100, 0, 0, 0, 0, 0, 61, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 73, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 59, 0, 0, 0, 0, 0, 0, 0, 96, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 68, 0, 0, 0, 0, 0, 0, 0, 66, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 74, 0, 0, 0, 0, 0, 0, 0, 13, 0, 5, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 24, 1, 0, 58, 0, 0, 0, 0, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0, 127, 2, 0, 0, 191, 1, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 76, 0, 0, 0, 0, 0, 0, 0, 0, 108, 0, 0, 0, 114, 0, 0, 24, 0, 0, 0, 0, 0, 0, 0};
 
 /* @socom-skeleton stub framecode */
-unsigned char framecode[192] = {11, 128, 0, 0, 0, 0, 0, 16, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 36, 53, 96, 113, 53, 36, 113, 96, 68, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 76, 0, 0, 0, 0, 0, 0, 0, 0, 108, 0, 0, 0, 114, 0, 0, 24, 0, 0, 0, 0, 0, 0, 0, 0, 0, 127, 2, 0, 0, 191, 1, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 108, 0, 114, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 148, 0, 142, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 13, 0, 5, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0};
+unsigned char framecode[192] __attribute__((aligned(16))) = {11, 128, 0, 0, 0, 0, 0, 16, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 36, 53, 96, 113, 53, 36, 113, 96, 68, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 76, 0, 0, 0, 0, 0, 0, 0, 0, 108, 0, 0, 0, 114, 0, 0, 24, 0, 0, 0, 0, 0, 0, 0, 0, 0, 127, 2, 0, 0, 191, 1, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 108, 0, 114, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 148, 0, 142, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 13, 0, 5, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0};
 
 /* @socom-skeleton stub brightnesscode */
-unsigned char brightnesscode[128] = {7, 128, 0, 0, 0, 0, 0, 16, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 73, 0, 0, 0, 0, 0, 0, 0, 66, 0, 0, 0, 0, 0, 0, 0, 70, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 108, 0, 114, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 148, 0, 142, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 13, 0, 5, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0};
+unsigned char brightnesscode[128] __attribute__((aligned(16))) = {7, 128, 0, 0, 0, 0, 0, 16, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 73, 0, 0, 0, 0, 0, 0, 0, 66, 0, 0, 0, 0, 0, 0, 0, 70, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 108, 0, 114, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 148, 0, 142, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 13, 0, 5, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0};
 
 /* @socom-skeleton stub finalcode */
-s64 finalcode[32] = {1152921504606879759, 14, 655360, 76, 125344325594112, 24, 125819314631540736, 64, 28588544384, 6, 0, 20, 1, 69, 6949375511963383076, 68, 196608, 71, 278, 0, 2155905152, 1, 0, 3, 1912630272, 4, 469772288, 3, 2382402560, 4, 327693, 71};
+s64 finalcode[32] __attribute__((aligned(16))) = {1152921504606879759, 14, 655360, 76, 125344325594112, 24, 125819314631540736, 64, 28588544384, 6, 0, 20, 1, 69, 6949375511963383076, 68, 196608, 71, 278, 0, 2155905152, 1, 0, 3, 1912630272, 4, 469772288, 3, 2382402560, 4, 327693, 71};
 
 /* @socom-skeleton stub mpegcode */
-s64 mpegcode[26] = {1152921504606879756, 14, 655360, 76, 655360, 77, 133040906988544, 24, 133040906988544, 25, 62768919848353792, 64, 62768919848353792, 65, 131072, 71, 6, 0, 549755813888, 1, 2030070784, 4, 2264962048, 4, 327693, 71};
+s64 mpegcode[26] __attribute__((aligned(16))) = {1152921504606879756, 14, 655360, 76, 655360, 77, 133040906988544, 24, 133040906988544, 25, 62768919848353792, 64, 62768919848353792, 65, 131072, 71, 6, 0, 549755813888, 1, 2030070784, 4, 2264962048, 4, 327693, 71};
 
 /* @socom-skeleton stub zon_writeon */
-unsigned char zon_writeon[80] = {4, 128, 0, 0, 0, 0, 0, 16, 14, 0, 0, 0, 0, 0, 0, 0, 13, 0, 5, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 13, 0, 5, 0, 0, 0, 0, 0, 72, 0, 0, 0, 0, 0, 0, 0, 24, 1, 0, 10, 0, 0, 0, 0, 78, 0, 0, 0, 0, 0, 0, 0, 24, 1, 0, 10, 0, 0, 0, 0, 79, 0, 0, 0, 0, 0, 0, 0};
+unsigned char zon_writeon[80] __attribute__((aligned(16))) = {4, 128, 0, 0, 0, 0, 0, 16, 14, 0, 0, 0, 0, 0, 0, 0, 13, 0, 5, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 13, 0, 5, 0, 0, 0, 0, 0, 72, 0, 0, 0, 0, 0, 0, 0, 24, 1, 0, 10, 0, 0, 0, 0, 78, 0, 0, 0, 0, 0, 0, 0, 24, 1, 0, 10, 0, 0, 0, 0, 79, 0, 0, 0, 0, 0, 0, 0};
 
 /* @socom-skeleton stub vramcode */
-s64 vramcode[20] = {1152921504606879753, 14, 1, 26, 1048576, 76, 0, 24, 288230376218820608, 64, 0, 71, 6, 0, 4575657221408423936, 1, 0, 5, 1073758208, 5};
+s64 vramcode[20] __attribute__((aligned(16))) = {1152921504606879753, 14, 1, 26, 1048576, 76, 0, 24, 288230376218820608, 64, 0, 71, 6, 0, 4575657221408423936, 1, 0, 5, 1073758208, 5};
 
 /* @socom-skeleton stub ztest_off_vif */
-unsigned char ztest_off_vif[80] = {4, 128, 0, 0, 0, 0, 0, 16, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 72, 0, 0, 0, 0, 0, 0, 0, 24, 1, 0, 10, 1, 0, 0, 0, 78, 0, 0, 0, 0, 0, 0, 0, 24, 1, 0, 10, 1, 0, 0, 0, 79, 0, 0, 0, 0, 0, 0, 0};
+unsigned char ztest_off_vif[80] __attribute__((aligned(16))) = {4, 128, 0, 0, 0, 0, 0, 16, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 72, 0, 0, 0, 0, 0, 0, 0, 24, 1, 0, 10, 1, 0, 0, 0, 78, 0, 0, 0, 0, 0, 0, 0, 24, 1, 0, 10, 1, 0, 0, 0, 79, 0, 0, 0, 0, 0, 0, 0};
 
 /* @socom-skeleton stub ztest_on_vif */
-unsigned char ztest_on_vif[80] = {4, 128, 0, 0, 0, 0, 0, 16, 14, 0, 0, 0, 0, 0, 0, 0, 13, 0, 5, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 13, 0, 5, 0, 0, 0, 0, 0, 72, 0, 0, 0, 0, 0, 0, 0, 24, 1, 0, 10, 0, 0, 0, 0, 78, 0, 0, 0, 0, 0, 0, 0, 24, 1, 0, 10, 0, 0, 0, 0, 79, 0, 0, 0, 0, 0, 0, 0};
+unsigned char ztest_on_vif[80] __attribute__((aligned(16))) = {4, 128, 0, 0, 0, 0, 0, 16, 14, 0, 0, 0, 0, 0, 0, 0, 13, 0, 5, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 13, 0, 5, 0, 0, 0, 0, 0, 72, 0, 0, 0, 0, 0, 0, 0, 24, 1, 0, 10, 0, 0, 0, 0, 78, 0, 0, 0, 0, 0, 0, 0, 24, 1, 0, 10, 0, 0, 0, 0, 79, 0, 0, 0, 0, 0, 0, 0};
 
 /* @socom-skeleton stub frameRateLimits */
 static int frameRateLimits[5] = {40, 38, 36, 34, 32};
@@ -90,7 +95,7 @@ static unsigned char spawnRateLimits[20] = {1, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 
 static unsigned char ageRateLimits[20] = {0, 0, 128, 63, 0, 0, 192, 63, 0, 0, 0, 64, 0, 0, 32, 64, 0, 0, 64, 64};
 
 /* @socom-skeleton stub picframecode */
-s64 picframecode[86] = {1152921504606879786, 14, 1, 26, 655360, 76, 0, 24, 288230376218820608, 64, 0, 71, 4575657221408423936, 1, 129, 0, 105906176, 4, 105916416, 4, 106954752, 4, 106964992, 4, 108003328, 4, 108013568, 4, 118489088, 4, 118499328, 4, 119537664, 4, 119547904, 4, 120586240, 4, 120596480, 4, 4575657221408423936, 1, 109051904, 4, 109062144, 4, 110100480, 4, 110110720, 4, 111149056, 4, 111159296, 4, 112197632, 4, 112207872, 4, 113246208, 4, 113256448, 4, 114294784, 4, 114305024, 4, 115343360, 4, 115353600, 4, 116391936, 4, 116402176, 4, 117440512, 4, 117450752, 4, 327693, 71, 125344325594112, 24, 125819314631540736, 64, 0, 0};
+s64 picframecode[86] __attribute__((aligned(16))) = {1152921504606879786, 14, 1, 26, 655360, 76, 0, 24, 288230376218820608, 64, 0, 71, 4575657221408423936, 1, 129, 0, 105906176, 4, 105916416, 4, 106954752, 4, 106964992, 4, 108003328, 4, 108013568, 4, 118489088, 4, 118499328, 4, 119537664, 4, 119547904, 4, 120586240, 4, 120596480, 4, 4575657221408423936, 1, 109051904, 4, 109062144, 4, 110100480, 4, 110110720, 4, 111149056, 4, 111159296, 4, 112197632, 4, 112207872, 4, 113246208, 4, 113256448, 4, 114294784, 4, 114305024, 4, 115343360, 4, 115353600, 4, 116391936, 4, 116402176, 4, 117440512, 4, 117450752, 4, 327693, 71, 125344325594112, 24, 125819314631540736, 64, 0, 0};
 
 #ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
@@ -101,46 +106,109 @@ std::__wInit std::__msl_ios_base_winit;
 #endif
 
 /* @socom-skeleton stub theTerminal */
-CTTY theTerminal; /* port: declared extern CTTY in zsys.h */
+CTTY* theTerminal; /* zVid_Init (0x308690) stores the new CTTY here */
 
 /* @socom-skeleton stub lodLevel */
 CValve *lodLevel;
 
 /* @socom-skeleton stub zvid */
-unsigned char zvid[624];
+_zvid_private zvid;
 
 /* @socom-skeleton stub zVid */
 _zvid_public zVid;
 
 /* @socom-skeleton body zvid_SetVideoMode__F10_zvid_modeb */
-void zvid_SetVideoMode(_zvid_mode mode, bool)
+void zvid_SetVideoMode(_zvid_mode mode, bool sync)
 {
+	/* 0x3087e0 */
+	if (mode == ZVID_MODE_DTV480P)
+	{
+		zVid.pcrtcOffset.x = 2;
+		zvid.output_mode = SCE_GS_DTV480P;
+		zvid.interlace = SCE_GS_NOINTERLACE;
+		zvid.display_height = 0x1c0;
+		zVid.hblnkRate = 28800.0f;
+		zvid.field_mode = SCE_GS_FRAME;
+	}
+	else if (mode == ZVID_MODE_PAL)
+	{
+		zvid.interlace = SCE_GS_INTERLACE;
+		zvid.output_mode = SCE_GS_PAL;
+		zvid.display_height = 0x200;
+		zVid.hblnkRate = 15625.0f;
+		zVid.pcrtcOffset.x = 4;
+		zvid.field_mode = SCE_GS_FIELD;
+	}
+	else if (mode == ZVID_MODE_NTSC)
+	{
+		zvid.output_mode = SCE_GS_NTSC;
+		zvid.display_height = 0x1c0;
+		zvid.interlace = SCE_GS_INTERLACE;
+		zVid.hblnkRate = 15750.0f;
+		zVid.pcrtcOffset.x = 4;
+		zvid.field_mode = SCE_GS_FIELD;
+	}
+
+	if (mode == ZVID_MODE_DTV480P || mode == ZVID_MODE_PAL || mode == ZVID_MODE_NTSC)
+	{
+		zVid.pcrtcOffset.y = 1;
+		zvid.disp_psm = 0;
+	}
+
 	zVid.vidMode = mode;
-	zVid.videoMode = mode;
+	sceGsSyncV(sync);
+	*GS_PMODE = 0;
+	__asm__ volatile("sync.l"); /* SYNC.L (0x308930); port: unproven Metrowerks spelling */
+	sceGsResetGraph(0, zvid.interlace, zvid.output_mode, zvid.field_mode);
+	*GS_PMODE = 0;
+	__asm__ volatile("sync.l");
+	sceGsSetDefDBuff(&zvid.db, zvid.draw_psm, zVid.renderWidth, zVid.renderHeight, 2, 0x3a, 1);
+
+	if (zVid.vidMode == ZVID_MODE_DTV480P)
+	{
+		/* DISPLAY.DY += 0x12 on both display environments */
+		for (int i = 0; i < 2; i++)
+		{
+			u32 display = (u32)zvid.db.disp[i].display;
+			display = (display & 0xff800fff) | ((((display >> 12) & 0x7ff) + 0x12) & 0x7ff) << 12;
+			zvid.db.disp[i].display = (zvid.db.disp[i].display & ~0xffffffffull) | display;
+		}
+	}
 }
 
 /* @socom-skeleton body zVid_Init__F10_zvid_mode */
 void zVid_Init(_zvid_mode mode)
 {
+	/* 0x308690 */
+	CTTY* tty = new CTTY;
 	zVid.runTime = 0.0f;
-	zVid.renderBuf = NULL;
+	zVid.renderWidth = 0x280;
+	zVid.renderHeight = 0x1c0;
+	zVid.renderBuf = 0x8c;
+	zVid.ztest_on = (u16*)ztest_on_vif;
+	zVid.ztest_off = (u16*)ztest_off_vif;
 	zVid.doMpeg224 = false;
 	zVid.minZ = 10.0f;
 	zVid.pcrtcDo = false;
 	zVid.maxZ = 65535.0f;
+	zVid.textureBaseAddr = 0x2bc0;
+	zVid.textureEndAddr = 0x4000;
 	zVid.aspect[0] = 1.0f;
 	zVid.aspect[1] = 1.0f;
-	zVid.displayBuf = NULL;
-	zVid.frameRate = 144.0f;
-	zVid.hblnkRate = 15750.0f;
-	zvid_SetVideoMode(mode, false); /* port: call site 0x30878c passes a1 = 0 */
+	zVid.displayBuf = 0;
+	zvid.draw_psm = 0;
+	zvid.bgcolor = 0xff000000;
+	theTerminal = tty;
+	sceGsResetPath();
+	zvid_SetVideoMode(mode, false);
+	*GS_EXTWRITE = 0;
+	zVid.videoMode = mode;
 
 	if (lodLevel == NULL)
-	{
-		lodLevel = CValve::Create("lodLevel", VALVE_TYPE::VTYPE_PERM);
-	}
-
-	// zgl_enable_ztest();
+		lodLevel = CValve::Create("lodLevel", 1, VALVE_TYPE::VTYPE_PERM); /* port: 0x3087a8 passes (name, 1, 1) */
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("M4: zVid_Init done (mode %d, GS %ux%u)", mode, zVid.renderWidth, zVid.renderHeight);
+#endif
 }
 
 /* @socom-skeleton stub zVid_Uninit__Fv */
@@ -151,7 +219,17 @@ void zVid_Uninit()
 /* @socom-skeleton body zVid_Open__Fv */
 void zVid_Open()
 {
-	
+	/* 0x308590: clear VRAM (vramcode), then the GS start-up registers (initcode). */
+	vramcode[14] = 0x3f800000ff008000LL;
+	FlushCache(0);
+	sceDmaSendN(zSys.DmaToGif, vramcode, 10);
+	sceDmaSync(zSys.DmaToGif, 0, 0);
+	zvid.frame_fbp = (u16*)(framecode + 0x30);
+	zvid.frame_fbmsk = (u16*)(framecode + 0x44);
+	zvid.frame_restore = (u16*)(framecode + 0x80);
+	FlushCache(0);
+	sceDmaSendN(zSys.DmaToGif, initcode, 0x10);
+	sceGsSyncPath(0, 0);
 }
 
 /* @socom-skeleton stub SetGSReg__FsUl */
@@ -165,8 +243,23 @@ void zVid_Scissor(int, int, int, int)
 }
 
 /* @socom-skeleton stub zvid_KickPacket__FPUlib */
-void zvid_KickPacket(unsigned long *, int, bool)
+void zvid_KickPacket(unsigned long long *packet, int qwc, bool fifo)
 {
+	/* 0x308390: through the scratchpad MFIFO as a VIF1 DIRECT reference, or by plain GIF DMA. */
+	if (fifo)
+	{
+		u32* tag = (u32*)zSysSprGetPacket(NULL);
+		tag[0] = qwc | 0x30000000;      /* DMAtag REF, qwc */
+		tag[1] = (u32)packet;
+		tag[2] = 0x13000000;            /* VIF FLUSHA */
+		tag[3] = qwc | 0x50000000;      /* VIF DIRECT qwc */
+		zSysFifoKick((unsigned __int128*)tag, 1);
+	}
+	else
+	{
+		sceDmaSendN(zSys.DmaToGif, packet, qwc);
+		sceGsSyncPath(0, 0);
+	}
 }
 
 /* @socom-skeleton stub zvid_MpegReset__Fv */
@@ -194,13 +287,98 @@ void SetDynamicLOD(int)
 /* @socom-skeleton body zVid_Swap__Fb */
 void zVid_Swap(bool doSwap)
 {
-	f32 lastRenderTime = 0.0f; /* port: unproven, undeclared in the existing body */
-	f32 curRenderTime = 0.0f;
+	/* 0x307bc0: wait for the frame, swap display/render buffers, program the CRTC and
+	 * kick the next frame's set-up packet. */
+	static u32 t0Count;
 
-	// zVid.frameTime = (curRenderTime - lastRenderTime) * zSys.timerScale;
-	// zVid.frameRate = 1.0f / zVid.frameTime + 0.5f;
-	// zVid.runTime += zVid.frameTime;
-	// zVid.frameNumber++;
+	theTerminal->Render();
+	sceGsSyncPath(0, 0);
+	CMPEG::IdleTick();
+
+	f32 procTime = (f32)*T0_COUNT * zSys.timerScale;
+	zVid.procTime = procTime;
+
+	/* port: interim - the binary waits whole fields here while procTime + 1/60 is below
+	 * 1 / CVideo::m_maxFrameRate (unless it is -1); m_maxFrameRate__6CVideo (.sdata 0x4753dc,
+	 * initially 30) has no src definition yet (stage-4 deferred), so the limiter is left out. */
+	(void)procTime;
+
+	SetDynamicLOD((int)(1.0f / zVid.procTime));
+
+	if (zVid.vidMode != zVid.videoMode)
+	{
+		zvid_SetVideoMode(zVid.videoMode, true);
+		sceDmaSendN(zSys.DmaToGif, initcode, 0x10);
+		sceGsSyncPath(0, 0);
+	}
+
+	zvid.vsync_odd = sceGsSyncV(0) == 0;
+	t0Count = *T0_COUNT;
+	*T0_COUNT = 0;
+	zVid.frameTime = (f32)t0Count * zSys.timerScale;
+	zVid.frameRate = (u32)(int)(1.0f / zVid.frameTime + 0.5f);
+	u32 shown = zVid.displayBuf;
+	zVid.runTime += zVid.frameTime;
+	zVid.frameNumber++;
+
+	if (doSwap)
+	{
+		if (zVid.vidMode != ZVID_MODE_DTV480P || !zVid.doMpeg224)
+		{
+			zVid.displayBuf = zVid.renderBuf;
+			zVid.renderBuf = shown;
+		}
+
+		if (!zVid.doMpeg224)
+			*GS_SMODE2 = (u64)zvid.interlace | (u64)zvid.field_mode << 1;
+		else
+			*GS_SMODE2 = (u64)zvid.interlace | 2;
+
+		u32 display = (u32)zvid.db.disp[1].display;
+		*GS_DISPFB1 = (u64)zVid.displayBuf | 0x1400 | (u64)zvid.disp_psm << 15;
+		*GS_DISPFB2 = (u64)zVid.displayBuf | 0x1400 | (u64)zvid.disp_psm << 15;
+		*GS_DISPLAY2 = zvid.db.disp[1].display;
+
+		if ((u8)(zvid.bgcolor >> 24) == 0xff)
+		{
+			if (!zVid.pcrtcDo)
+			{
+				*GS_PMODE = 0x62;
+			}
+			else
+			{
+				/* circuit 1 shows the same buffer, offset by pcrtcOffset (DX 12 bits, DY 11 bits) */
+				u32 d = (display & 0xfffff000) | (((display & 0xfff) + zVid.pcrtcOffset.x) & 0xfff);
+				d = (d & 0xff800fff) | ((((d >> 12) & 0x7ff) + zVid.pcrtcOffset.y) & 0x7ff) << 12;
+				*GS_DISPLAY1 = (zvid.db.disp[1].display & ~0xffffffffull) | d;
+				*GS_PMODE = 0x7f23;
+			}
+		}
+		else
+		{
+			*GS_BGCOLOR = zvid.bgcolor;
+			*GS_DISPLAY1 = zvid.db.disp[1].display;
+			*GS_PMODE = (u64)(zvid.bgcolor >> 24) << 8 | 0xe1;
+		}
+
+		__asm__ volatile("sync.l");
+	}
+
+	zSysFifoEnable(1);
+
+	if (!zVid.doMpeg224)
+	{
+		*zvid.frame_fbp = (u16)zVid.renderBuf;
+		*zvid.frame_fbmsk = 0x7200;
+		FlushCache(0);
+		zvid_KickPacket((unsigned long long*)framecode, 0xc, true);
+	}
+	else
+	{
+		zvid_MpegReset();
+		zSysFifoEnd();
+		sceGsSyncPath(0, 0);
+	}
 }
 
 /* @socom-skeleton body zVid_FrameRestore__Fv */
@@ -217,8 +395,8 @@ void zVid_Assert(bool condition, unsigned int mask, char *file, int line)
 		// zSysFifoEnd();
 		char buffer[256];
 		snprintf(buffer, 256, "A S S E R T: %s : %d", file, line); /* port: was MSVC sprintf_s */
-		theTerminal.Print(buffer, 256);
-		theTerminal.Render();
+		theTerminal->Print(buffer, 256);
+		theTerminal->Render();
 		// abort();
 	}
 }

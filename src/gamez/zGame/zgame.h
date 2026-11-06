@@ -130,6 +130,7 @@ class COurGame : public CGame
 {
 public:
 	bool StartEngine();
+	friend int main(int argc, char** argv); /* port: unproven access - main (0x140d48) reads m_menuState.m_skip */
 protected:
 	CMenuState m_menuState;
 	CLoadState m_loadState;

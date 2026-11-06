@@ -105,6 +105,7 @@ public:
 	void OnPush() {}
 
 	void DrawForeplane();
+	friend int main(int argc, char** argv); /* port: unproven access - main (0x140d48) reads m_skip */
 private:
 	CGameMenu* m_menu;
 	s32 m_skip;
@@ -269,8 +270,7 @@ public:
 class CGameStateChangeCmd
 {
 	friend class CGame;
-public:
-	static void CreatePool(s32 size);
+	/* port: CreatePool(s32) removed; the ELF has only CreatePool__19CGameStateChangeCmdFUi (decl region) */
 private:
 	bool m_active;
 	u32 m_type;

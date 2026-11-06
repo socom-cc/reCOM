@@ -35,9 +35,13 @@
 /* @socom-skeleton decl include */
 #include "zsys.h"
 /* @socom-skeleton end include */
+#include <eeregs.h> /* D_CTRL, D_RBOR, D8_*, D1/D2 channel registers */
+#include <libgraph.h> /* sceGsSyncPath */
 
 /* @socom-skeleton stub mfifoBase */
-static unsigned char mfifoBase[262144] = {0};
+/* The 256 KB MFIFO ring (D_RBOR/D_RBSR); the DMAC needs it aligned to its size. The
+ * original linker placed it at 0x100000, ahead of .text. */
+static unsigned char mfifoBase[262144] __attribute__((aligned(0x40000))) = {0};
 
 /* @socom-skeleton stub mfifoDrainTADR */
 static int mfifoDrainTADR;
@@ -76,33 +80,152 @@ unsigned __int128 * zSysAddDMA(unsigned __int128 *, unsigned __int128 *)
 /* @socom-skeleton stub zSysFifoInit__Fv */
 void zSysFifoInit()
 {
+	/* 0x2f5cf0 */
+	*D_RBOR = (u32)mfifoBase;
+	*D_RBSR = 0x3fff0;
+	__asm__ volatile("sync.l"); /* port: unproven Metrowerks spelling */
 }
 
 /* @socom-skeleton stub zSysFifoDisable__Fv */
 void zSysFifoDisable()
 {
+	/* 0x2f5ca0 */
+	sceGsSyncPath(0, 0);
+	*D_CTRL = *D_CTRL & ~0xc;
+	__asm__ volatile("sync.l");
 }
 
 /* @socom-skeleton stub zSysFifoEnable__FUi */
-void zSysFifoEnable(unsigned int)
+void zSysFifoEnable(unsigned int mode)
 {
+	/* 0x2f5b50: fromSPR fills the ring; the GIF (mode 2) or VIF1 (mode 1) channel drains
+	 * it as a source chain; any other mode turns the MFIFO off. */
+	*D_RBOR = (u32)mfifoBase;
+	*D_RBSR = 0x3fff0;
+
+	if (mode == 2)
+	{
+		while (*D2_CHCR & 0x100)
+			;
+
+		*D_CTRL = (*D_CTRL & ~0xc) | 0xc;
+		*D8_MADR = (u32)mfifoBase;
+		*D2_TADR = (u32)mfifoBase;
+		*D2_CHCR = 0x144;
+		mfifoDrainTADR = (int)D2_TADR;
+	}
+	else if (mode == 1)
+	{
+		while (*D1_CHCR & 0x100)
+			;
+
+		*D_CTRL = (*D_CTRL & ~0xc) | 8;
+		*D8_MADR = (u32)mfifoBase;
+		*D1_TADR = (u32)mfifoBase;
+		*D1_CHCR = 0x145;
+		mfifoDrainTADR = (int)D1_TADR;
+	}
+	else
+	{
+		sceGsSyncPath(0, 0);
+		*D_CTRL = *D_CTRL & ~0xc;
+		__asm__ volatile("sync.l");
+	}
+
+	__asm__ volatile("sync.l");
 }
 
 /* @socom-skeleton stub zSysSprGetPacket__FPP1 */
-void zSysSprGetPacket(unsigned __int128 **)
+unsigned __int128 * zSysSprGetPacket(unsigned __int128 **end)
 {
+	/* 0x2f5ab0: the scratchpad half (0x1f30 bytes each) not being kicked; flips sprPx. */
+	sprBeingWritten = (_word128*)(zSys.sprPx * 0x1f30 + 0x70000000);
+
+	if (sprBeingWritten == sprBeingKicked)
+	{
+		sprBeingWritten = (_word128*)((zSys.sprPx ^ 1) * 0x1f30 + 0x70000000);
+		zSys.sprPx ^= 1;
+	}
+
+	if (end != NULL)
+		*end = (unsigned __int128*)zSys.sprPacketEnd[zSys.sprPx] - 1;
+
+	zSys.sprPx ^= 1;
+	return (unsigned __int128*)sprBeingWritten;
 }
 
 /* @socom-skeleton body zSysFifoEnd__Fv */
 void zSysFifoEnd()
 {
+	/* 0x2f5a20: kick a DMAtag END + VIF FLUSH through the MFIFO. */
+	sprBeingWritten = (_word128*)(zSys.sprPx * 0x1f30 + 0x70000000);
 
+	if (sprBeingWritten == sprBeingKicked)
+	{
+		zSys.sprPx ^= 1;
+		sprBeingWritten = (_word128*)(zSys.sprPx * 0x1f30 + 0x70000000);
+	}
+
+	u32* p = (u32*)sprBeingWritten;
+	zSys.sprPx ^= 1;
+	p[0] = 0x70000000;
+	p[1] = 0;
+	p[2] = 0x11000000;
+	p[3] = 0x11000000;
+	zSysFifoKick((unsigned __int128*)p, 1);
 }
 
 /* @socom-skeleton body zSysFifoKick__FP1Ui */
 void zSysFifoKick(unsigned __int128 *packet, unsigned int qwc)
 {
+	/* 0x2f5900: copy a scratchpad packet into the MFIFO ring with fromSPR once the ring
+	 * has room; a packet whose last DMAtag is not an end tag gets a CNT tag appended. */
+	sprBeingKicked = (_word128*)packet;
 
+	if ((u32)packet < 0x70003e60)
+	{
+		u32* last = (u32*)(packet + qwc - 1);
+
+		if ((last[0] & 0x30000000) != 0)
+		{
+			u32* tail = (u32*)(packet + qwc);
+			qwc++;
+			tail[0] = 0x10000000;
+			tail[1] = 0x11111111;
+			tail[2] = 0;
+			tail[3] = 0;
+		}
+	}
+
+	while (*D9_CHCR & 0x100)
+		;
+
+	while (*D8_CHCR & 0x100)
+		;
+
+	*D8_SADR = (u32)packet;
+	*D8_QWC = qwc;
+
+	u32 remain;
+
+	do
+	{
+		u32 tadr;
+
+		do
+		{
+			tadr = *(volatile u32*)mfifoDrainTADR;
+		} while (tadr == 0);
+
+		u32 madr = *D8_MADR;
+
+		if (tadr == madr)
+			remain = 0x40000;
+		else
+			remain = (tadr + 0x40000 - madr) & 0x3fff0;
+	} while (remain <= qwc << 4);
+
+	*(volatile u8*)((u32)D8_CHCR + 1) = (*(volatile u8*)((u32)D8_CHCR + 1) & 0xfe) | 1; /* STR */
 }
 
 /* @socom-skeleton stub m_sprPacket__4CSPR */

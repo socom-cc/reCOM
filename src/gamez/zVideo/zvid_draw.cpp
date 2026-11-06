@@ -18,6 +18,9 @@
 /* @socom-skeleton decl include */
 #include "gamez/zSystem/zsys.h"
 /* @socom-skeleton end include */
+#include <eekernel.h> /* FlushCache */
+#include <libgraph.h>
+#include <libdma.h>
 
 /* @socom-skeleton stub __ct__4CTTYFv */
 CTTY::CTTY()
@@ -55,14 +58,30 @@ void CVideo::Fade(float, unsigned char, unsigned char, unsigned char)
 /* @socom-skeleton body RestoreImage__6CVideoFPc */
 void CVideo::RestoreImage(char *img)
 {
-	/* port: dropped the raw-flag early return; the binary has only RestoreImage(char *) and its one caller passed raw = true */
-	void* buf = NULL;
+	/* 0x308c20: load a raw 640x448 frame into the render buffer in four GS image
+	 * transfers (128, 128, 128 and 64 rows). */
 	CFileIO file;
+
 	if (file.Open(img))
 	{
-		buf = zmalloc(file.m_filesize);
+		void* buf = zmemalign(0x80, file.m_filesize);
 		file.fread(buf, file.m_filesize);
 		file.Close();
+
+		short dbp = (short)zVid.renderBuf * 0x20;
+		short dbw = (short)(zVid.renderWidth >> 6);
+		sceGsLoadImage load[4];
+		static const int rows[4] = {0x80, 0x80, 0x80, 0x40};
+
+		for (int i = 0; i < 4; i++)
+		{
+			sceGsSetDefLoadImage(&load[i], dbp + i * 0x500, dbw, zvid.draw_psm, 0, 0, (short)zVid.renderWidth, rows[i]);
+			FlushCache(0);
+			sceDmaSync(zSys.DmaToGif, 0, 0);
+			sceGsExecLoadImage(&load[i], (unsigned __int128*)((u8*)buf + i * 0x50000));
+			sceGsSyncPath(0, 0);
+		}
+
 		zfree(buf);
 	}
 }
