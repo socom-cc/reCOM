@@ -822,19 +822,37 @@ def record_apply(item: dict[str, Any], record: dict[str, Any], applied_at: str) 
 
 
 def verify_source_apply(root: Path, tracker: dict[str, Any], item: dict[str, Any]) -> list[str]:
-    """``source apply-check``: an applied item still matches its accepted plan and record."""
+    """``source apply-check``: an applied item still matches its accepted plan and record (the problems only)."""
+
+    return check_source_apply(root, tracker, item)[0]
+
+
+def check_source_apply(root: Path, tracker: dict[str, Any], item: dict[str, Any]) -> tuple[list[str], list[str]]:
+    """(problems, drift) of an applied item against its accepted plan and record.
+
+    Stage 4 owns the generated annotation blocks and the file layout, not the
+    authored content: later stages edit bodies, signatures and declarations
+    on purpose (stage 5 skeletons, the functional port lane, which keeps the
+    blocks intact).  A recorded file whose content changed outside the blocks
+    is therefore **drift**, listed by path and never a failure, while its
+    blocks parse and the plan's annotations (``annotation_changes``: every
+    block the plan generates, at the top of its file, byte for byte) hold.
+    A changed or missing block, a missing recorded or created file, an
+    undone move or a retired file that reappears still fail.
+    """
 
     problems: list[str] = []
+    drift: list[str] = []
     record = item.get("source_apply")
     if item.get("kind") not in SOURCE_APPLY_KINDS:
-        return [f"{item.get('id')} is not a source apply item"]
+        return [f"{item.get('id')} is not a source apply item"], drift
     if not isinstance(record, dict):
-        return [f"{item['id']} has no source_apply record: run progress apply-source-plan first"]
+        return [f"{item['id']} has no source_apply record: run progress apply-source-plan first"], drift
     plan_item_id = str(item["id"]).removesuffix("-apply")
     try:
         plan, relative, sha = cited_plan(root, tracker, plan_item_id)
     except SocomError as failure:
-        return [str(failure)]
+        return [str(failure)], drift
     if record.get("plan_sha256") != sha or record.get("plan") != relative:
         problems.append(f"the record applied plan {record.get('plan_sha256')}, the accepted plan is {sha}")
     if record.get("owner_map_sha256") != owner_map_sha256(plan):
@@ -855,9 +873,15 @@ def verify_source_apply(root: Path, tracker: dict[str, Any], item: dict[str, Any
             continue
         data = path.read_bytes()
         # Another plan's apply may add its own generated block to a shared
-        # unit file: the authored content must still be the applied one.
+        # unit file: its authored content is then still the applied one.
         if _sha256(data) != row.get("sha256") and content_sha256(data) != row.get("content_sha256"):
-            problems.append(f"{row.get('path')} changed after the apply")
+            try:
+                parse_blocks(_text(data))
+            except SocomError as failure:
+                problems.append(f"{row.get('path')}: its stage 4 blocks are malformed after the apply: {failure}")
+                continue
+            # Edited outside the blocks after the apply; the plan's own blocks are checked below.
+            drift.append(str(row.get("path")))
     for path in record.get("removed") or []:
         if (root / str(path)).exists():
             problems.append(f"{path} was removed by the apply but exists")
@@ -866,7 +890,7 @@ def verify_source_apply(root: Path, tracker: dict[str, Any], item: dict[str, Any
             problems.append(f"{item['id']} is a provider apply: it records files")
         if record.get("members") != provider_members(plan):
             problems.append("the recorded archive members differ from the plan's provider rows")
-        return problems
+        return problems, drift
     directories = sorted(item.get("resources") or [], key=str.casefold)
     if (record.get("reservation") or {}).get("directories") != directories:
         problems.append(f"the record's reservation differs from {item['id']}'s resources {directories}")
@@ -885,7 +909,7 @@ def verify_source_apply(root: Path, tracker: dict[str, Any], item: dict[str, Any
             problems.append(
                 "generated annotations drifted: " + _shown([f"{row['path']} ({row['state']})" for row in result["drift"]])
             )
-    return problems
+    return problems, sorted(set(drift), key=str.casefold)
 
 
 # -- completeness under the lean model ---------------------------------------------------------

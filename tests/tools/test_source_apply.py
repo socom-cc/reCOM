@@ -394,14 +394,19 @@ def test_segment_and_provider_applies_record_their_files_and_hand_off(ready: tup
     accept = ["--root", str(root), "progress", "work", "accept", "--item", apply, "--evidence", "apply-check ok"]
     code, report = _run(capsys, *accept, "--accepter", "worker", "--expected-revision", _revision(root))
     assert code == 2 and "self-accepted" in report["error"]
-    # A file changed after the apply blocks acceptance.
+    # A changed generated block blocks acceptance; an edit outside the blocks (a later stage, the port lane) is drift.
     target = root / "src" / "gamez" / "zBar" / "a.cpp"
-    target.write_bytes(moved + b"// edit\n")
+    target.write_bytes(moved.replace(b"socom:data:0x426480", b"socom:data:0x426484"))
     code, report = _run(capsys, *accept, "--accepter", "verifier", "--expected-revision", _revision(root))
-    assert code == 2 and "changed after the apply" in report["error"]
+    assert code == 2 and "generated annotations drifted" in report["error"]
+    target.write_bytes(moved + b"// a later port edit\n")
+    code, report = _run(capsys, "--root", str(root), "source", "apply-check", "--item", apply)
+    assert code == 0 and report["problems"] == [] and report["drift"] == ["src/gamez/zBar/a.cpp"], report
     target.write_bytes(moved)
     code, report = _run(capsys, *accept, "--accepter", "verifier", "--expected-revision", _revision(root))
     assert code == 0 and report["work_item"]["status"] == "accepted", report
+    code, report = _run(capsys, "--root", str(root), "source", "apply-check", "--item", apply)
+    assert code == 0 and report["drift"] == [] and report["drift_count"] == 0, report
 
     # A provider apply writes no file: tracker evidence only.
     provider = f"{PROVIDER}-apply"
@@ -629,3 +634,70 @@ def test_the_plan_validates_unchanged_before_its_apply(workspace: tuple[Path, di
     # An applied record of another plan SHA-256 changes nothing.
     report = validate_source_plan(root, copy.deepcopy(tracker), moved_segment_plan(graph), graph, section_of=MAIN, applied=None)
     assert report["ok"]
+
+
+def test_apply_check_reports_later_edits_as_drift_and_layout_changes_as_failures(ready: tuple[Path, dict], capsys) -> None:
+    root, _graph = ready
+    apply = f"{SEGMENT_1}-apply"
+    _claim(root, capsys, apply)
+    assert _apply(root, capsys, apply)[0] == 0
+    check = ["--root", str(root), "source", "apply-check", "--item", apply]
+    moved, header = root / "src" / "gamez" / "zBar" / "a.cpp", root / "src" / "gamez" / "zFoo" / "zfoo.h"
+    original, original_header = moved.read_bytes(), header.read_bytes()
+    # Edits outside the stage 4 blocks (later stages, the functional port lane): drift, listed by path, not failing.
+    moved.write_bytes(original + b"int port_only;\n")
+    # (A file that held only its blocks keeps stage 4's form: one blank line, then the content.)
+    header.write_bytes(original_header + b"\n// port edit\n")
+    code, report = _run(capsys, *check)
+    assert code == 0 and report["problems"] == [], report["problems"]
+    assert report["drift"] == ["src/gamez/zBar/a.cpp", "src/gamez/zFoo/zfoo.h"] and report["drift_count"] == 2
+    header.write_bytes(original_header)
+    # A block moved below the authored content, or a malformed block, fails.
+    _bom, blocks, rest = parse_blocks(original.decode("utf-8"))
+    moved.write_bytes((rest + "".join(blocks.values())).encode("utf-8"))
+    code, report = _run(capsys, *check)
+    assert code == 1 and any("generated annotations drifted" in text for text in report["problems"]), report
+    moved.write_bytes(original.replace(b"socom-owner-annotations end", b"socom-owner-annotations stop"))
+    code, report = _run(capsys, *check)
+    assert code == 1 and any("malformed" in text or "not terminated" in text for text in report["problems"]), report
+    moved.write_bytes(original)
+    # A missing recorded file, an undone move and a retired file that reappears fail.
+    header.unlink()
+    code, report = _run(capsys, *check)
+    assert code == 1 and "src/gamez/zFoo/zfoo.h is missing" in report["problems"], report
+    header.write_bytes(original_header)
+    for back in ("a.cpp", "stale.cpp"):
+        (root / "src" / "gamez" / "zFoo" / back).write_bytes(b"int provisional;\n")
+        code, report = _run(capsys, *check)
+        assert code == 1 and f"src/gamez/zFoo/{back} was removed by the apply but exists" in report["problems"], report
+        (root / "src" / "gamez" / "zFoo" / back).unlink()
+    code, report = _run(capsys, *check)
+    assert code == 0 and report["drift"] == [], report
+
+
+def test_a_contradiction_line_may_lie_in_the_frozen_skeleton_base(tmp_path: Path) -> None:
+    from tools._socom.order_skeleton_route import BASE_DIR
+    from tools._socom.source_plan import _check_contradictions
+
+    path = "src/gamez/zFoo/a.cpp"
+    (tmp_path / path).parent.mkdir(parents=True)
+    (tmp_path / path).write_bytes(b"/* skeleton */\nvoid f() { }\n")
+    row = {"artifact": "socom:function:0x100000", "provisional_file": path, "line": 12, "kind": "defined-elsewhere",
+           "elf_evidence": ["the ELF places it in another unit"]}
+
+    def problems_of() -> tuple[list[str], list[str]]:
+        problems: list[str] = []
+        review: list[str] = []
+        _check_contradictions(tmp_path, [row], {row["artifact"]}, {}, set(), problems, review=review)
+        return problems, review
+
+    # The provisional file was rewritten (a skeleton, port edits): without the frozen base the bound fails.
+    problems, _review = problems_of()
+    assert problems == [f"contradiction 1 (socom:function:0x100000): {path} has 2 lines, not 12"]
+    # The frozen base holds the provisional file the line quotes.
+    (tmp_path / BASE_DIR / path).parent.mkdir(parents=True)
+    (tmp_path / BASE_DIR / path).write_bytes(b"".join(b"int line%d;\n" % number for number in range(20)))
+    problems, review = problems_of()
+    assert problems == [] and any("frozen skeleton base" in text for text in review)
+    row["line"] = 30
+    assert problems_of()[0] == [f"contradiction 1 (socom:function:0x100000): {path} has 2 lines, not 30"]

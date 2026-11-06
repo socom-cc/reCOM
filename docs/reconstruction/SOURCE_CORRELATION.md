@@ -1007,7 +1007,11 @@ when the apply's reservation is inferred.
 - a `contradictions` row (schema 2) has exactly its five fields as above,
   and is not listed twice. An artifact outside the slice must be an
   artifact of the graph, and its `provisional_file` a file this plan's
-  authored rows own;
+  authored rows own. Its `line` quotes the provisional file as stage 4 saw
+  it: once a later stage rewrote the file (stage 5 skeletons, port-lane
+  edits), the line may lie in the stage 5 skeleton route's frozen base copy
+  of that file instead (`build/stage5/skeleton-route/base`), which the
+  review notes;
 - `name_basis` (schema 2) is `evidence`, `provisional`, `invented` or
   `user`. An `evidence` authored row of a schema 2 plan names a unit the
   graph knows (in a schema 1 plan another name is a review note). A
@@ -1381,10 +1385,29 @@ python tools/socom.py audit source-trace
 
 It then accepts with `progress work accept`. `source apply-check` is
 read-only. It checks that the accepted plan is unchanged, the owner-map
-digest matches, every recorded file still has its SHA-256, moved-from and
+digest matches, every recorded and created file exists, moved-from and
 retired files are gone, every recorded path lies in the reservation, and
 the annotations have not drifted. For a provider apply it checks that no
 file is recorded and that the archive members match the plan.
+
+**Later edits are drift.** Stage 4 owns the generated annotation blocks and
+the file layout, not the authored content. Later stages edit recorded files
+on purpose: stage 5 writes skeletons, and the functional port lane
+([AGENTS.md](../../AGENTS.md#functional-port-lane)) fixes signatures,
+declarations and bodies while it keeps the stage 4 blocks intact. A recorded
+file whose content changed outside its blocks after the apply is therefore
+reported as `drift` (listed by path, with `drift_count`) and never fails,
+provided its blocks still parse and the plan's annotations hold: every block
+the plan generates is at the top of its file, byte for byte, in stage 4's
+form (blocks, one blank line, then the content). A changed, missing,
+malformed or moved block, a missing recorded or created file, an undone move
+(the moved-from file reappears) and a retired file that reappears still
+fail. The gate checks, `progress handoff-source-gate`,
+`progress accept-source-gate`, `progress accept-source-amendment` and the
+generic handoff and acceptance of an apply run the same check and list the
+drifted files under `apply_drift`. `audit source-baseline` stays truthful
+about them: `apply_files_unchanged` is false once a file was edited, and that
+is never an error.
 
 ### The stage gate
 
@@ -1436,7 +1459,7 @@ checks and refuse while any of them fails. The checks are:
 4. every accepted plan: it is unchanged (its SHA-256 is cited), it passes
    `source plan validate` in its applied state, and its apply (segment or
    provider) is accepted with a record of that plan and its owner map and
-   passes `source apply-check`. A segment plan must also pass
+   passes `source apply-check` (its drift is listed, never a problem). A segment plan must also pass
    `source annotate --check` with no drift;
 5. no blocking conflicts: across plans, a translation unit keeps one
    workspace path and one classification, and so does a workspace path. Two

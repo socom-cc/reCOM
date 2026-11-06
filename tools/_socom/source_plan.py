@@ -1832,6 +1832,20 @@ def _instance_bindings(row: dict[str, Any]) -> set[Any]:
     return {item.get("binding") for item in row.get("names") or []} | {row.get("binding")}
 
 
+def _line_count(path: Path) -> int:
+    with open(path, "rb") as handle:
+        return sum(1 for _line in handle)
+
+
+def _frozen_base_lines(root: Path, relative: str) -> int | None:
+    """Line count of ``relative`` in the stage 5 skeleton route's frozen base (the pre-skeleton src/), or None."""
+
+    from .order_skeleton_route import base_root
+
+    path = base_root(root) / relative
+    return _line_count(path) if path.is_file() else None
+
+
 def _check_contradictions(
     root: Path,
     rows: Any,
@@ -1900,10 +1914,15 @@ def _check_contradictions(
                     f"{label}: provisional_file {path} must name an existing file exactly" + (f" (on disk: {actual})" if actual else "")
                 )
             elif line is not None:
-                with open(root / target, "rb") as handle:
-                    count = sum(1 for _line in handle)
-                if line > count:
+                count = _line_count(root / target)
+                # The line quotes the provisional file as stage 4 saw it. Once a later stage rewrote the file
+                # (stage 5 skeletons, the functional port lane), that content is the skeleton route's frozen base.
+                frozen = _frozen_base_lines(root, target) if line > count else None
+                if line > count and (frozen is None or line > frozen):
                     problems.append(f"{label}: {path} has {count} lines, not {line}")
+                elif line > count and review is not None:
+                    review.append(f"{label}: line {line} is in the frozen skeleton base's {target} ({frozen} lines); "
+                                  f"src/ has {count} lines after later stages")
         key = (repr(identity), repr(path), line, repr(kind))
         if key in seen:
             problems.append(f"{label} is listed twice")

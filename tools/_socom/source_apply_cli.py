@@ -33,9 +33,11 @@ def specs(spec: Any) -> tuple[Any, ...]:
         spec(
             "source apply-check",
             "source",
-            "Verify an applied source apply item read-only: the accepted plan is unchanged, every recorded file "
-            "still has its SHA-256, moved-from and retired files are gone, paths lie in the reservation and the "
-            "generated annotations have not drifted.",
+            "Verify an applied source apply item read-only: the accepted plan is unchanged, every recorded and created "
+            "file exists, moved-from and retired files are gone, paths lie in the reservation and the generated "
+            "annotations have not drifted (each block at the top of its file, byte for byte); a recorded file edited "
+            "outside its stage 4 blocks after the apply (later stages, the functional port lane) is listed as drift, "
+            "not a failure.",
         ),
         spec(
             "progress apply-source-plan",
@@ -139,7 +141,7 @@ def _source_annotate(arguments: argparse.Namespace) -> int:
 def _source_apply_check(arguments: argparse.Namespace) -> int:
     from .cli import _emit, _root
     from .constants import tracker_path
-    from .source_apply import verify_source_apply
+    from .source_apply import check_source_apply
     from .tracker import load_tracker
     from .util import SocomError
 
@@ -148,7 +150,8 @@ def _source_apply_check(arguments: argparse.Namespace) -> int:
     item = next((row for row in tracker["work_items"] if row["id"] == arguments.item), None)
     if item is None:
         raise SocomError(f"unknown work item: {arguments.item}")
-    problems = verify_source_apply(root, tracker, item)
+    # Files edited outside their stage 4 blocks after the apply (later stages, the port lane) are drift, not problems.
+    problems, drift = check_source_apply(root, tracker, item)
     record = item.get("source_apply") or {}
     _emit(
         {
@@ -162,6 +165,8 @@ def _source_apply_check(arguments: argparse.Namespace) -> int:
             "file_count": len(record.get("files") or []),
             "removed_count": len(record.get("removed") or []),
             "member_count": len(record.get("members") or []),
+            "drift": drift,
+            "drift_count": len(drift),
             "problems": problems,
         }
     )

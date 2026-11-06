@@ -45,7 +45,7 @@ from .source_apply import (
     applied_state,
     cited_plan,
     owner_map_sha256,
-    verify_source_apply,
+    check_source_apply,
 )
 from .source_plan import (
     CAPABILITY_GATE_KIND,
@@ -474,6 +474,7 @@ def review_gate(
     rows: list[dict[str, Any]] = []
     plans: list[tuple[str, dict[str, Any]]] = []
     unresolved: list[dict[str, Any]] = []
+    apply_drift: list[str] = []
     for item in _stage_items(tracker):
         if item.get("kind") not in SOURCE_PLAN_KINDS or item.get("status") != "accepted":
             continue
@@ -515,7 +516,10 @@ def review_gate(
             elif record.get("owner_map_sha256") != owner_map:
                 problems.append(f"{item['id']}-apply recorded owner map {record.get('owner_map_sha256')}, the plan's is {owner_map}")
             else:
-                problems.extend(f"source apply-check {apply['id']}: {problem}" for problem in verify_source_apply(root, tracker, apply))
+                found, drift = check_source_apply(root, tracker, apply)
+                problems.extend(f"source apply-check {apply['id']}: {problem}" for problem in found)
+                # Later edits outside the stage 4 blocks are reported, never a gate problem.
+                apply_drift.extend(drift)
             row["annotations_sha256"] = record.get("annotations_sha256")
             row["annotation_count"] = record.get("annotation_count", 0)
             if item.get("kind") == SEGMENT_PLAN_KIND:
@@ -587,7 +591,9 @@ def review_gate(
         ],
         "deferrals": deferrals,
         "receipt": receipt,
+        "apply_drift": sorted(set(apply_drift), key=str.casefold),
         "counts": {
+            "apply_drift": len(set(apply_drift)),
             "problems": len(problems),
             "plans": len(rows),
             "unresolved": len(unresolved),
