@@ -1,9 +1,10 @@
 """Stage 5 after a stage 4 amendment: reopen, rebase onto the new baseline, re-apply as a merge, apply-check drift.
 
 The merge and apply-check tests use small files under tmp_path; the reopen
-tests use in-memory copies of the live tracker (an amendment opened in
-memory); the rebase test runs the whole route on the synthetic stage 4
-workspace (``amendable``).  Nothing writes the real tracker or src/.
+tests use in-memory copies of the live tracker (settled: the governed work in
+flight undone, then an amendment opened in memory); the rebase test runs the
+whole route on the synthetic stage 4 workspace (``amendable``).  Nothing
+writes the real tracker or src/.
 """
 
 from __future__ import annotations
@@ -50,6 +51,7 @@ from test_source_amend import (  # noqa: F401 - amendable is a fixture
 from test_source_apply import DATA, SEGMENT_1, _claim, _generated, _load, _revision, _run, stage3_tracker, workspace  # noqa: F401
 from test_source_gate import _receipt, _stage3_receipt, closing  # noqa: F401
 from test_source_plan import MAIN
+from live_state import settled
 
 ROOT = Path(__file__).resolve().parents[2]
 TRACKER = ROOT / ".agent" / "RECONSTRUCTION_PROGRESS.json"
@@ -240,7 +242,10 @@ def test_the_frozen_base_takes_the_current_stage_4_blocks_over_its_authored_cont
 
 @pytest.fixture(scope="module")
 def live() -> dict:
-    tracker = load_tracker(TRACKER)
+    """The live tracker without the stage 4 amendments and stage 5 reopenings in flight: these tests open their own."""
+
+    tracker = settled(load_tracker(TRACKER))
+    assert audit_tracker(tracker) == []
     if not any(row.get("kind") == ORDER_APPLY_KIND and isinstance(row.get("order_skeleton"), dict) for row in tracker["work_items"]):
         pytest.skip("the skeleton route has not written src/ yet")
     return tracker

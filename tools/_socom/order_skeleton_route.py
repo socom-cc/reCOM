@@ -1145,12 +1145,21 @@ def skeleton_custody(root: Path, tracker: dict[str, Any]) -> dict[str, dict[str,
 
 
 def skeleton_deletions(tracker: dict[str, Any]) -> list[dict[str, Any]]:
-    """The files ACCEPTED skeleton items removed (orphans whose bodies moved), as stage 4 retired-file rows."""
+    """The files ACCEPTED (or reopened) skeleton items removed (orphans whose bodies moved), as stage 4 retired-file rows.
 
+    A skeleton item a reopening sent back after a stage 4 amendment keeps its record until its
+    re-apply replaces it, so its deletions still count: the files stay deleted meanwhile.
+    """
+
+    from .order_reopen import reopenings
+
+    reopened = {str(item) for row in reopenings(tracker) for item in row.get("items") or []}
     rows = []
     for item in skeleton_items(tracker):
         record = item.get("order_skeleton")
-        if item.get("status") != "accepted" or not isinstance(record, dict):
+        if not isinstance(record, dict):
+            continue
+        if item.get("status") != "accepted" and item.get("id") not in reopened:
             continue
         for row in record.get("files") or []:
             # The base digest: a re-apply finds the orphan deleted already (its before is then absent).

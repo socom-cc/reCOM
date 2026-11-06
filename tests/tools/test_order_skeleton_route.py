@@ -20,6 +20,7 @@ from tools._socom import order_skeleton_write
 from tools._socom.capabilities import capability_opening
 from tools._socom.order_plan import (
     ORDER_APPLY_KIND,
+    ORDER_PREPARE_KIND,
     ORDER_SKELETON_PREPARE_ID,
     ORDER_SKELETON_ROUTE_ID,
     add_skeleton_prepare,
@@ -38,6 +39,7 @@ from tools._socom.order_skeleton_route import (
     record_skeleton,
     refuse_stage4_writes,
     skeleton_custody,
+    skeleton_deletions,
     started,
 )
 from tools._socom.tracker import (
@@ -50,6 +52,8 @@ from tools._socom.tracker import (
     reopen_work,
 )
 from tools._socom.util import SocomError
+
+from live_state import settled
 
 ROOT = Path(__file__).resolve().parents[2]
 TRACKER = ROOT / ".agent" / "RECONSTRUCTION_PROGRESS.json"
@@ -74,7 +78,8 @@ def _unprepared(tracker: dict) -> dict:
     start from the earlier state: the gate blocked, no prepare item, and each apply as the
     decomposition left it (blocked on its plan and the route, its directories reserved, never
     applied or reviewed).  The plans and their acceptances are the live ones, so the state follows
-    later plan changes.
+    later plan changes; ``tracker`` is already ``settled`` (no stage 4 amendment or stage 5
+    reopening in flight holds a plan back).
     """
 
     tracker = copy.deepcopy(tracker)
@@ -98,7 +103,11 @@ def _unprepared(tracker: dict) -> dict:
 
 @pytest.fixture(scope="module")
 def live() -> dict:
-    return load_tracker(TRACKER)
+    """The live tracker without the stage 4 amendments and stage 5 reopenings in flight (``live_state.settled``)."""
+
+    tracker = settled(load_tracker(TRACKER))
+    assert audit_tracker(tracker) == []
+    return tracker
 
 
 @pytest.fixture(scope="module")
@@ -335,6 +344,39 @@ def test_stage_4_custody_counts_an_accepted_skeleton_write_as_its_stage_4_conten
     prepare["status"] = "accepted"
     (tmp_path / path).write_bytes(after.replace(b"defines main", b"defines other"))
     assert skeleton_custody(tmp_path, updated) == {}
+
+
+def test_stage_4_retires_the_orphans_an_accepted_or_reopened_skeleton_item_deleted() -> None:
+    gone = {"path": "src/gamez/zAI/zai_old.cpp", "action": "orphan-deleted", "before_sha256": "a" * 64, "after_sha256": None}
+    # A merge re-apply finds the orphan deleted already: no before, the frozen base's digest kept.
+    merged = {"path": "src/gamez/zAI/zai_older.cpp", "action": "orphan-deleted", "before_sha256": None, "base_sha256": "b" * 64,
+              "after_sha256": None}
+    written = {"path": "src/gamez/zAI/zai.h", "action": "header", "before_sha256": "c" * 64, "after_sha256": "d" * 64}
+    item = {"id": ORDER_SKELETON_PREPARE_ID, "kind": ORDER_PREPARE_KIND, "status": "accepted",
+            "order_skeleton": _record(ORDER_SKELETON_PREPARE_ID, [gone, merged, written])}
+    stage: dict = {"name": "authored-function-order"}
+    tracker = {"work_items": [item], "stages": [stage]}
+    retired = [{"path": gone["path"], "sha256": "a" * 64, "bytes": None, "by": ORDER_SKELETON_PREPARE_ID},
+               {"path": merged["path"], "sha256": "b" * 64, "bytes": None, "by": ORDER_SKELETON_PREPARE_ID}]
+    assert skeleton_deletions(tracker) == retired
+    # Never reviewed, under review or rejected: its deletions are not stage 4's.
+    for status in ("blocked", "ready", "in_progress", "awaiting_acceptance"):
+        item["status"] = status
+        assert skeleton_deletions(tracker) == [], status
+    # Sent back by a reopening for a stage 4 amendment: it keeps its record until the re-apply replaces it, and the
+    # files stay deleted meanwhile (held, then re-planned once the reopening is absorbed).
+    reopening = {"id": "socom:order-reopening:001", "status": "open", "items": [ORDER_SKELETON_PREPARE_ID]}
+    stage["reopenings"] = [reopening]
+    for state, status in (("open", "blocked"), ("absorbed", "ready"), ("absorbed", "in_progress")):
+        reopening["status"], item["status"] = state, status
+        assert skeleton_deletions(tracker) == retired, (state, status)
+    # A reopening of other items leaves this one's deletions out.
+    reopening["items"] = ["socom:work:order-segment-001-apply"]
+    assert skeleton_deletions(tracker) == []
+    # Without a record nothing is retired.
+    reopening["items"] = [ORDER_SKELETON_PREPARE_ID]
+    item.pop("order_skeleton")
+    assert skeleton_deletions(tracker) == []
 
 
 def test_provisional_inputs_come_from_the_frozen_base_once_it_exists(tmp_path: Path, tracker: dict) -> None:

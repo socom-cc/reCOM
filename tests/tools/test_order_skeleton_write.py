@@ -307,6 +307,8 @@ def rendered(root: Path) -> dict:
     from tools._socom.order_skeleton_write import SkeletonInputs, render_skeletons
     from tools._socom.tracker import load_tracker
 
+    from live_state import settled
+
     tracker_path = root / ".agent" / "RECONSTRUCTION_PROGRESS.json"
     try:
         # The src/ the manifest was built on: the skeleton route's frozen base once it exists.
@@ -315,7 +317,8 @@ def rendered(root: Path) -> dict:
         pytest.skip(str(exc))
 
     def load() -> SkeletonInputs:
-        return SkeletonInputs(root, load_tracker(tracker_path), manifest_path=INPUTS[0], snapshot_path=INPUTS[1],
+        # The accepted plans without the stage 4 amendments and stage 5 reopenings in flight.
+        return SkeletonInputs(root, settled(load_tracker(tracker_path)), manifest_path=INPUTS[0], snapshot_path=INPUTS[1],
                               source_root=source_root)
 
     inputs = load()
@@ -470,18 +473,23 @@ def test_segment_writes_leave_headers_to_the_whole_tree_write(rendered: dict) ->
 
 
 @needs_inputs
-def test_the_cli_writes_a_preview_that_checks(root: Path) -> None:
+def test_the_cli_writes_a_preview_that_checks(root: Path, capsys: pytest.CaptureFixture, monkeypatch: pytest.MonkeyPatch) -> None:
+    from live_state import settled
+
+    from tools._socom import cli, tracker as tracker_module
+
+    # The commands run in process on the live tracker without the stage 4 amendments and stage 5 reopenings in flight
+    # (they read accepted plans only, and the in-flight wave holds some back).
+    load = tracker_module.load_tracker
+    monkeypatch.setattr(tracker_module, "load_tracker", lambda path: settled(load(path)))
     preview = root / "build" / "test-skeleton-preview"
     if preview.exists():
         shutil.rmtree(preview)
     try:
         for command in (["write", "--segment", "1"], ["check"]):
-            completed = subprocess.run(
-                [sys.executable, "tools/socom.py", "order", "skeleton", *command, "--root", "build/test-skeleton-preview"],
-                cwd=root, text=True, encoding="utf-8", capture_output=True, check=False,
-            )
-            report = json.loads(completed.stdout)
-            assert completed.returncode == 0, report
+            code = cli.main(["--root", str(root), "order", "skeleton", *command, "--root", "build/test-skeleton-preview"])
+            report = json.loads(capsys.readouterr().out)
+            assert code == 0, report
         assert report["ok"] and not report["failed"]
         assert report["s1"]["failed"] == 0 and report["s4"]["bodies_checked"] > 0
         # Once the skeleton route froze its base, the preview reads its provisional inputs from there.

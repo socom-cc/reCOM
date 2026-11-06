@@ -157,7 +157,10 @@ def undecomposed(tracker: dict) -> dict:
                 dependencies=[SOURCE_SEED_ID], resources=[], selection=None, batch=None, lease=None, handoff=None, evidence=[])
     for key in ("accepted", "review_history"):
         seed.pop(key, None)
-    next(row for row in tracker["stages"] if row["name"] == "authored-function-order").pop("decomposition", None)
+    order_stage = next(row for row in tracker["stages"] if row["name"] == "authored-function-order")
+    # Its decomposition and the reopenings (open or absorbed) of its items for stage 4 amendments.
+    for key in ("decomposition", "reopenings"):
+        order_stage.pop(key, None)
     for blocker in tracker.get("blockers", []):
         if blocker["id"] == "socom:blocker:metrowerks-flexlm-license":
             blocker["blocks"] = [name for name in blocker.get("blocks", []) if name != "authored-function-order"]
