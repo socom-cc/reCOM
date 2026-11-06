@@ -96,21 +96,25 @@ bool zAnimQuadAlignTick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton stub zAnimDestructorTick__FP14_zanim_cmd_hdrPf */
 bool zAnimDestructorTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimTimerTick__FP14_zanim_cmd_hdrPf */
 bool zAnimTimerTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimMessageTick__FP14_zanim_cmd_hdrPf */
 bool zAnimMessageTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimParticleSourceTick__FP14_zanim_cmd_hdrPf */
 bool zAnimParticleSourceTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimCameraBegin__FP14_zanim_cmd_hdr */
@@ -121,36 +125,52 @@ void zAnimCameraBegin(_zanim_cmd_hdr *)
 /* @socom-skeleton stub zAnimCameraTick__FP14_zanim_cmd_hdrPf */
 bool zAnimCameraTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimSoundTick__FP14_zanim_cmd_hdrPf */
 bool zAnimSoundTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimLightTick__FP14_zanim_cmd_hdrPf */
 bool zAnimLightTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimObjectBlendModeTick__FP14_zanim_cmd_hdrPf */
 bool zAnimObjectBlendModeTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimObjectActiveStateTick__FP14_zanim_cmd_hdrPf */
-bool zAnimObjectActiveStateTick(_zanim_cmd_hdr *, float *)
+bool zAnimObjectActiveStateTick(_zanim_cmd_hdr *header, float *)
 {
+	/* 0x1bd510: record { header; u16 active (+0x4); u16 node ref (+0x6) } - shows or
+	 * hides the node (CNode::SetActive) */
+	u16 active = reinterpret_cast<u16*>(header + 1)[0];
+	u16 ref = reinterpret_cast<u16*>(header + 1)[1];
+	zdb::CNode* node = ZAnim.m_CurAnim->GetNode(ref, false);
+
+	if (node != NULL)
+		node->SetActive(active == 1);
+
+	return true;
 }
 
 /* @socom-skeleton stub zAnimObjectTranslateStateTick__FP14_zanim_cmd_hdrPf */
 bool zAnimObjectTranslateStateTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimObjectRotateStateTick__FP14_zanim_cmd_hdrPf */
 bool zAnimObjectRotateStateTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimObjectMotionBegin__FP14_zanim_cmd_hdr */
@@ -161,6 +181,7 @@ void zAnimObjectMotionBegin(_zanim_cmd_hdr *)
 /* @socom-skeleton stub zAnimObjectMotionTick__FP14_zanim_cmd_hdrPf */
 bool zAnimObjectMotionTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub ComputeRunTime__15CZAnimFromToAccFP6CPnt3DP6CPnt3D */
@@ -181,16 +202,46 @@ void zAnimObjectMotionFromToBegin(_zanim_cmd_hdr *)
 /* @socom-skeleton stub zAnimObjectMotionFromToTick__FP14_zanim_cmd_hdrPf */
 bool zAnimObjectMotionFromToTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimObjectOpacityFromToBegin__FP14_zanim_cmd_hdr */
-void zAnimObjectOpacityFromToBegin(_zanim_cmd_hdr *)
+void zAnimObjectOpacityFromToBegin(_zanim_cmd_hdr *header)
 {
+	/* 0x1ba280: start the node at the "from" opacity */
+	_zanim_cmd_opacity* cmd = reinterpret_cast<_zanim_cmd_opacity*>(header);
+	zdb::CNode* node = ZAnim.m_CurAnim->GetNode(cmd->node_ref, false);
+
+	if (node != NULL)
+		node->m_Opacity = cmd->from;
 }
 
 /* @socom-skeleton stub zAnimObjectOpacityFromToTick__FP14_zanim_cmd_hdrPf */
-bool zAnimObjectOpacityFromToTick(_zanim_cmd_hdr *, float *)
+bool zAnimObjectOpacityFromToTick(_zanim_cmd_hdr *header, float *dT)
 {
+	/* 0x1ba1c0: fade at the given rate; at the end of the duration land on "to" and give
+	 * back the unused time */
+	_zanim_cmd_opacity* cmd = reinterpret_cast<_zanim_cmd_opacity*>(header);
+	zdb::CNode* node = ZAnim.m_CurAnim->GetNode(cmd->node_ref, false);
+
+	if (node == NULL)
+		return true;
+
+	f32 step = *dT;
+	bool done = cmd->duration < step + ZAnim.m_CurSeq->cmd_timer;
+
+	if (done)
+	{
+		*dT -= cmd->duration - ZAnim.m_CurSeq->cmd_timer;
+		node->m_Opacity = cmd->to;
+	}
+	else
+	{
+		*dT = 0.0f;
+		node->m_Opacity += cmd->rate * step;
+	}
+
+	return done;
 }
 
 /* @socom-skeleton stub apply_script_frame__FP27_zanim_object_motion_scriptP16_zanim_si_scriptPQ23zdb5CNodeP25zanim_script_frame_headerfPf */
@@ -201,6 +252,7 @@ void apply_script_frame(_zanim_object_motion_script *, _zanim_si_script *, zdb::
 /* @socom-skeleton stub zAnimObjectMotionScriptTick__FP14_zanim_cmd_hdrPf */
 bool zAnimObjectMotionScriptTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimMultiObjectMotionScriptBegin__FP14_zanim_cmd_hdr */
@@ -211,94 +263,110 @@ void zAnimMultiObjectMotionScriptBegin(_zanim_cmd_hdr *)
 /* @socom-skeleton stub zAnimMultiObjectMotionScriptTick__FP14_zanim_cmd_hdrPf */
 bool zAnimMultiObjectMotionScriptTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimObjectAddChildTick__FP14_zanim_cmd_hdrPf */
 bool zAnimObjectAddChildTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimObjectDeleteChildTick__FP14_zanim_cmd_hdrPf */
 bool zAnimObjectDeleteChildTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton body zAnimLoopTick__FP14_zanim_cmd_hdrPf */
 bool zAnimLoopTick(_zanim_cmd_hdr* header, f32* dT)
 {
-    ZAnim.m_CurSeq->loop_counter++;
-    ZAnim.m_CurSeq->loop_timer += *dT + ZAnim.m_CurSeq->seq_timer;
+	/* 0x1b9750: record { header; u32 flags (+0x4: 1 counted, 2 timed); count or time
+	 * (+0x8, -1 forever) } - ends the sequence's loop, else restarts it (state 3) */
+	u32 flags = *reinterpret_cast<u32*>(header + 1);
+	ZAnim.m_CurSeq->loop_counter++;
+	ZAnim.m_CurSeq->loop_timer += *dT + ZAnim.m_CurSeq->seq_timer;
 
-    if ((header->data_type & 1) == 0)
-    {
-        if ((header->data_type & 2) != 0
-            && ((f32)header->data_size >= 0.0f)
-            && (f32)header->data_size <= ZAnim.m_CurSeq->loop_timer)
-        {
-            return true;
-        }
-    }
-    else if (header->data_size != -1 && header->data_size == ZAnim.m_CurSeq->loop_counter)
-    {
-        return true;
-    }
+	if ((flags & 1) == 0)
+	{
+		f32 time = *reinterpret_cast<f32*>(reinterpret_cast<u32*>(header + 1) + 1);
 
-    // ZAnim.SeqSetState(3);
-    
-    return false;
+		if ((flags & 2) != 0 && 0.0f <= time && time <= ZAnim.m_CurSeq->loop_timer)
+			return true;
+	}
+	else
+	{
+		s32 count = *reinterpret_cast<s32*>(reinterpret_cast<u32*>(header + 1) + 1);
+
+		if (count != -1 && count == ZAnim.m_CurSeq->loop_counter)
+			return true;
+	}
+
+	ZAnim.SeqSetState(3);
+	return false;
 }
 
 /* @socom-skeleton stub zAnimWaitBegin__FP14_zanim_cmd_hdr */
-void zAnimWaitBegin(_zanim_cmd_hdr *)
+void zAnimWaitBegin(_zanim_cmd_hdr *header)
 {
+	/* 0x1b96c0: reset the count; a random wait picks base + range * rand() / 2^31 */
+	_zanim_cmd_wait* cmd = reinterpret_cast<_zanim_cmd_wait*>(header);
+
+	if (cmd->flags & 0x10)
+		cmd->counter = 0;
+
+	if (cmd->flags & 0x20)
+	{
+		int base = (cmd->flags & 0x10) ? 2 : 1;
+		cmd->value[0] = cmd->value[base] + cmd->value[base + 1] * (f32)rand() * 4.656613e-10f;
+	}
 }
 
 /* @socom-skeleton body zAnimWaitTick__FP14_zanim_cmd_hdrPf */
 bool zAnimWaitTick(_zanim_cmd_hdr* header, f32* dT)
 {
-    bool status = false;
-    f32 timer = 0.0f;
-    
-    if ((header->data_type & 8) != 0)
-    {
-        if ((header->data_type & 4) == 0)
-        {
-            if ((header->data_type & 2) == 0)
-            {
-                timer = ZAnim.m_CurSeq->cmd_timer;
-            }
-            else
-            {
-                timer = ZAnim.m_CurSeq->seq_timer;
-            }
-        }
-        else
-        {
-            timer = ZAnim.m_CurAnim->m_timer;
-        }
+	/* 0x1b95c0: a timed wait ends when its clock passes the time (giving back the rest of
+	 * the frame); a counted wait also needs its count of passes */
+	_zanim_cmd_wait* cmd = reinterpret_cast<_zanim_cmd_wait*>(header);
+	bool done = true;
 
-        if ((f32)header->data_size < timer + *dT)
-        {
-            timer = (f32)header->data_size - timer;
+	if (cmd->flags & 0x8)
+	{
+		f32 timer;
 
-            if (timer < 0.0f)
-            {
-                timer = 0.0f;
-            }
+		if (cmd->flags & 0x4)
+			timer = ZAnim.m_CurAnim->m_timer;
+		else if (cmd->flags & 0x2)
+			timer = ZAnim.m_CurSeq->seq_timer;
+		else
+			timer = ZAnim.m_CurSeq->cmd_timer;
 
-            status = true;
-            *dT -= timer;
-        }
-        else
-        {
-            *dT = 0.0f;
-            status = false;
-        }
-    }
-    
-    // TODO: add fucked bitfield header if check or whatever
-    
-    return status;
+		if (cmd->value[0] < timer + *dT)
+		{
+			f32 used = cmd->value[0] - timer;
+
+			if (used < 0.0f)
+				used = 0.0f;
+
+			*dT -= used;
+			done = true;
+		}
+		else
+		{
+			*dT = 0.0f;
+			done = false;
+		}
+	}
+
+	if (cmd->flags & 0x10)
+	{
+		cmd->counter++;
+
+		if (done && (int)cmd->counter <= (int)reinterpret_cast<s32*>(cmd->value)[(cmd->flags & 0x8) ? 1 : 0])
+			done = false;
+	}
+
+	return done;
 }
 
 /* @socom-skeleton body IsOperator__16CZAnimExpressionFPCc */
@@ -321,24 +389,114 @@ bool CZAnimExpression::IsOperator(const char* operation)
 /* @socom-skeleton body ProcExpr__16CZAnimExpressionFPf */
 bool CZAnimExpression::ProcExpr(f32* dT)
 {
-    s8* program_counter = NULL;
-    
-    if (!ZAnim.m_CurSeq)
-    {
-        return false;
-    }
-    else
-    {
-        program_counter = ZAnim.m_CurSeq->cmd_pc;
-    }
+	/* 0x1b9230: evaluate the expression at the program counter - operand commands (their
+	 * tick result is the value) joined by EXPRESSION operators: 1 not, 2 and, 3 or,
+	 * 4 "(" (recursive), 5 ")". It ends at ")" or at the first operand that follows a
+	 * complete value without an operator; the counter is then left on the last command
+	 * of the expression, for the caller's CmdNext. */
+	s8* last = ZAnim.m_CurSeq ? ZAnim.m_CurSeq->cmd_pc : NULL;
+	bool negate = false;
+	bool have = false;
+	s8 op = 0;
+	bool result = false;
 
-    do
-    {
-        
-    }
-    while (true);
+	while (true)
+	{
+		_zanim_cmd_hdr* header = reinterpret_cast<_zanim_cmd_hdr*>(ZAnim.m_CurSeq ? ZAnim.m_CurSeq->cmd_pc : NULL);
+		s8 pending = op;
+		s8 next = op;
 
-    return true;
+		if (header->data_type == ZAnim.m_cmd_ExprOperator.data_type)
+		{
+			s8 c = reinterpret_cast<_zanim_cmd_expression*>(header)->op;
+			next = c;
+
+			if (c == 4)
+			{
+				ZAnim.CmdNext();
+				bool value = ProcExpr(dT);
+
+				if (negate)
+				{
+					negate = false;
+					value = !value;
+				}
+
+				if (have)
+				{
+					if (pending == 3)
+						result = result || value;
+					else if (pending == 2)
+						result = result && value;
+					else if (pending == 1)
+						result = !value;
+					else
+						result = false;
+
+					next = 0;
+				}
+				else
+				{
+					next = pending;
+					result = value;
+				}
+
+				have = true;
+			}
+			else if (c == 5)
+			{
+				return result;
+			}
+			else if (c == 1)
+			{
+				negate = true;
+				next = pending;
+			}
+		}
+		else if (pending == 0)
+		{
+			if (have)
+			{
+				ZAnim.m_CurSeq->cmd_pc = last;
+				return result;
+			}
+
+			result = ZAnim.CmdTick(dT);
+			have = true;
+
+			if (negate)
+			{
+				negate = false;
+				result = !result;
+			}
+		}
+		else
+		{
+			bool value = ZAnim.CmdTick(dT);
+
+			if (negate)
+			{
+				value = !value;
+				negate = false;
+			}
+
+			if (pending == 3)
+				result = result || value;
+			else if (pending == 2)
+				result = result && value;
+			else if (pending == 1)
+				result = !value;
+			else
+				result = false;
+
+			have = true;
+			next = 0;
+		}
+
+		last = ZAnim.m_CurSeq ? ZAnim.m_CurSeq->cmd_pc : NULL;
+		ZAnim.CmdNext();
+		op = next;
+	}
 }
 
 /* @socom-skeleton body NewCmd__16CZAnimExpressionFPCc */
@@ -355,167 +513,276 @@ _zanim_cmd_hdr* CZAnimExpression::NewCmd(const char* operation)
 /* @socom-skeleton body zAnimIfTick__FP14_zanim_cmd_hdrPf */
 bool zAnimIfTick(_zanim_cmd_hdr* header, f32* dT)
 {
-    ZAnim.m_CurSeq->m_IF_NestLevel++;
+	/* 0x1b8f20: test the condition after the IF (then ELSEIF) record; on false skip to
+	 * this level's next ELSEIF (test again), ELSE or ENDIF (leaving the level) */
+	ZAnim.m_CurSeq->m_IF_NestLevel++;
 
-    while (!CZAnimExpression::ProcExpr(dT))
-    {
-        _zanim_cmd_hdr* header = NULL;
-        bool evaluated = false;
+	while (true)
+	{
+		ZAnim.CmdNext(8);
 
-        while (!evaluated)
-        {
-            if (!ZAnim.CmdValid())
-            {
-                evaluated = true;
-                break;
-            }
+		if (CZAnimExpression::ProcExpr(dT))
+			return true;
 
-            if (ZAnim.m_CurSeq)
-                header = reinterpret_cast<_zanim_cmd_hdr*>(ZAnim.m_CurSeq->cmd_pc);
+		bool found = false;
 
-            if (header->data_type != ZAnim.m_cmd_else.data_type)
-                if (header->data_type != ZAnim.m_cmd_elseif.data_type)
-                    if (header->data_type != ZAnim.m_cmd_endif.data_type)
-                        continue;
+		do
+		{
+			ZAnim.CmdNext();
 
-            if (header->data_size == ZAnim.m_CurSeq->m_IF_NestLevel)
-            {
-                evaluated = true;
-                if (header->data_type == ZAnim.m_cmd_endif.data_type)
-                    ZAnim.m_CurSeq->m_IF_NestLevel--;
-            }
-        }
+			if (!ZAnim.CmdValid())
+			{
+				found = true;
+			}
+			else
+			{
+				_zanim_cmd_if* cmd = reinterpret_cast<_zanim_cmd_if*>(ZAnim.m_CurSeq->cmd_pc);
+				u16 type = cmd->header.data_type;
 
-        if (!ZAnim.m_CurSeq)
-            header = NULL;
-        else
-            header = reinterpret_cast<_zanim_cmd_hdr*>(ZAnim.m_CurSeq->cmd_pc);
+				if ((type == ZAnim.m_cmd_else.data_type || type == ZAnim.m_cmd_elseif.data_type || type == ZAnim.m_cmd_endif.data_type)
+					&& cmd->nest_level == ZAnim.m_CurSeq->m_IF_NestLevel)
+				{
+					found = true;
 
-        if (header->data_type != ZAnim.m_cmd_elseif.data_type)
-            evaluated = true;
-    }
+					if (type == ZAnim.m_cmd_endif.data_type)
+						ZAnim.m_CurSeq->m_IF_NestLevel--;
+				}
+			}
+		} while (!found);
 
-    return true;
+		if (reinterpret_cast<_zanim_cmd_hdr*>(ZAnim.m_CurSeq->cmd_pc)->data_type != ZAnim.m_cmd_elseif.data_type)
+			return true;
+	}
 }
 
 /* @socom-skeleton body zAnimGoToEndIf__FP14_zanim_cmd_hdrPf */
 bool zAnimGoToEndIf(_zanim_cmd_hdr* header, f32* dT)
 {
-    return true;
+	/* 0x1b8e70: ELSE/ELSEIF reached from a taken branch: skip to this level's ENDIF */
+	bool found = false;
+
+	do
+	{
+		ZAnim.CmdNext();
+
+		if (!ZAnim.CmdValid())
+		{
+			found = true;
+		}
+		else
+		{
+			_zanim_cmd_if* cmd = reinterpret_cast<_zanim_cmd_if*>(ZAnim.m_CurSeq->cmd_pc);
+
+			if (cmd->header.data_type == ZAnim.m_cmd_endif.data_type && cmd->nest_level == ZAnim.m_CurSeq->m_IF_NestLevel)
+			{
+				found = true;
+				ZAnim.m_CurSeq->m_IF_NestLevel--;
+			}
+		}
+	} while (!found);
+
+	return true;
 }
 
 /* @socom-skeleton body zAnimEndIfTick__FP14_zanim_cmd_hdrPf */
 bool zAnimEndIfTick(_zanim_cmd_hdr* header, f32* dT)
 {
-    ZAnim.m_CurSeq->m_IF_NestLevel--;
-    return true;
+	/* 0x1b8e50 */
+	ZAnim.m_CurSeq->m_IF_NestLevel--;
+	return true;
 }
 
 /* @socom-skeleton body zAnimWhileTick__FP14_zanim_cmd_hdrPf */
 bool zAnimWhileTick(_zanim_cmd_hdr* header, f32* dT)
 {
-    // what does this even mean
-    if (header[1].data_type == 0)
-    {
-        ZAnim.CmdNext(8);
-        if (CZAnimExpression::ProcExpr(dT))
-            ZAnim.CmdSet(header[1].data_size);
-    }
+	/* 0x1b8de0: a false condition jumps to the END_WHILE (stepped over next) */
+	_zanim_cmd_while* cmd = reinterpret_cast<_zanim_cmd_while*>(header);
 
-    return true;
+	if (cmd->skip_test == 0)
+	{
+		ZAnim.CmdNext(8);
+
+		if (!CZAnimExpression::ProcExpr(dT))
+			ZAnim.CmdSet(cmd->jump);
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub zAnimEndWhileTick__FP14_zanim_cmd_hdrPf */
-bool zAnimEndWhileTick(_zanim_cmd_hdr *, float *)
+bool zAnimEndWhileTick(_zanim_cmd_hdr *header, float *)
 {
+	/* 0x1b8db0: back to the WHILE; not done, so the loop yields until the next frame */
+	ZAnim.CmdSet(reinterpret_cast<_zanim_cmd_while*>(header)->jump);
+	return false;
 }
 
 /* @socom-skeleton stub zAnimBreakTick__FP14_zanim_cmd_hdrPf */
 bool zAnimBreakTick(_zanim_cmd_hdr *, float *)
 {
+	/* 0x1b8ce0: skip to the END_WHILE (stepped over next), closing the IF levels passed */
+	while (true)
+	{
+		ZAnim.CmdNext();
+
+		if (ZAnim.CmdValid())
+		{
+			_zanim_cmd_if* cmd = reinterpret_cast<_zanim_cmd_if*>(ZAnim.m_CurSeq->cmd_pc);
+
+			if (cmd->header.data_type == ZAnim.m_cmd_endif.data_type && cmd->nest_level == ZAnim.m_CurSeq->m_IF_NestLevel)
+				ZAnim.m_CurSeq->m_IF_NestLevel--;
+		}
+
+		if (!ZAnim.CmdValid())
+			return true;
+
+		if (reinterpret_cast<_zanim_cmd_hdr*>(ZAnim.m_CurSeq->cmd_pc)->data_type == ZAnim.m_cmd_endwhile.data_type)
+			return true;
+	}
 }
 
 /* @socom-skeleton stub zAnimNodeActiveTick__FP14_zanim_cmd_hdrPf */
 bool zAnimNodeActiveTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimNodeRenderedTick__FP14_zanim_cmd_hdrPf */
 bool zAnimNodeRenderedTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimRangeTestTick__FP14_zanim_cmd_hdrPf */
 bool zAnimRangeTestTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimHealthTestTick__FP14_zanim_cmd_hdrPf */
 bool zAnimHealthTestTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimLODTestTick__FP14_zanim_cmd_hdrPf */
 bool zAnimLODTestTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimRandomWeightTick__FP14_zanim_cmd_hdrPf */
 bool zAnimRandomWeightTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimFailTick__FP14_zanim_cmd_hdrPf */
 bool zAnimFailTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimCallAnimBegin__FP14_zanim_cmd_hdr */
-void zAnimCallAnimBegin(_zanim_cmd_hdr *)
+void zAnimCallAnimBegin(_zanim_cmd_hdr *header)
 {
+	/* 0x1b8380: activate the called anim, remembering it for the tick and StopAnims */
+	_zanim_cmd_call_anim* cmd = reinterpret_cast<_zanim_cmd_call_anim*>(header);
+	CZAnim* anim = ZAnim.m_CurAnim;
+	_zanim_call_anim_ref* ref = anim->GetCallAnimRef(cmd->name_index, cmd->local_name_index);
+
+	if (ref == NULL || ref->base_anim == NULL)
+		return;
+
+	/* port: not written - flags 0x1/0x2/0x4/0x8/0x20 build an argument list (this anim's
+	 * args, node and position args) passed with ActivateArg (0x1b83f4-0x1b8640); the
+	 * port activates without arguments */
+	ref->executing_anim = ref->base_anim->Activate(NULL);
+	ref->stop_on_exit = (cmd->flags & 0x40) != 0;
 }
 
 /* @socom-skeleton stub zAnimCallAnimTick__FP14_zanim_cmd_hdrPf */
-bool zAnimCallAnimTick(_zanim_cmd_hdr *, float *)
+bool zAnimCallAnimTick(_zanim_cmd_hdr *header, float *)
 {
+	/* 0x1b8310: done at once, or (flag 0x80) when the called anim has finished */
+	_zanim_cmd_call_anim* cmd = reinterpret_cast<_zanim_cmd_call_anim*>(header);
+
+	if ((cmd->flags & 0x80) == 0)
+		return true;
+
+	_zanim_call_anim_ref* ref = ZAnim.m_CurAnim->GetCallAnimRef(cmd->name_index, cmd->local_name_index);
+
+	if (ref == NULL || ref->executing_anim == NULL || !ref->executing_anim->Running())
+		return true;
+
+	return false;
 }
 
 /* @socom-skeleton stub zAnimStopAnimTick__FP14_zanim_cmd_hdrPf */
-bool zAnimStopAnimTick(_zanim_cmd_hdr *, float *)
+bool zAnimStopAnimTick(_zanim_cmd_hdr *header, float *)
 {
+	/* 0x1b8280 */
+	_zanim_call_anim_ref* ref = ZAnim.m_CurAnim->GetCallAnimRef(reinterpret_cast<_zanim_cmd_index8*>(header)->name_index);
+
+	if (ref != NULL)
+	{
+		if (ref->executing_anim == NULL)
+		{
+			if (ref->base_anim != NULL && ref->base_anim->Running())
+				ref->base_anim->Stop();
+		}
+		else
+		{
+			if (ref->executing_anim->Running())
+				ref->executing_anim->Stop();
+
+			ref->executing_anim = NULL;
+		}
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub zAnimPauseAnimTick__FP14_zanim_cmd_hdrPf */
 bool zAnimPauseAnimTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimResumeAnimTick__FP14_zanim_cmd_hdrPf */
 bool zAnimResumeAnimTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimInvalidateAnimTick__FP14_zanim_cmd_hdrPf */
 bool zAnimInvalidateAnimTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimCallSequenceTick__FP14_zanim_cmd_hdrPf */
-bool zAnimCallSequenceTick(_zanim_cmd_hdr *, float *)
+bool zAnimCallSequenceTick(_zanim_cmd_hdr *header, float *)
 {
+	/* 0x1b8080 */
+	ZAnim.ActivateSequence(ZAnim.m_CurAnim->GetName(reinterpret_cast<_zanim_cmd_index8*>(header)->name_index));
+	return true;
 }
 
 /* @socom-skeleton stub zAnimStopSequenceTick__FP14_zanim_cmd_hdrPf */
 bool zAnimStopSequenceTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimFireWeaponTick__FP14_zanim_cmd_hdrPf */
 bool zAnimFireWeaponTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }
 
 /* @socom-skeleton stub zAnimDebugTick__FP14_zanim_cmd_hdrPf */
 bool zAnimDebugTick(_zanim_cmd_hdr *, float *)
 {
+	return true; /* port: stub - not written (command tick) */
 }

@@ -197,8 +197,13 @@ void CTextSpec::Copy()
 }
 
 /* @socom-skeleton stub CreateDisplayObj__9CTextSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-C2D * CTextSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CTextSpec::CreateDisplayObj(C2DFont *font, zdb::CTextureRelocMgr *) const
 {
+	/* 0x3a0a20: a CRenderableString in the menu's font, then the spec */
+	CRenderableString* text = new CRenderableString();
+	text->SetFont(font);
+	text->LoadSpec(*this);
+	return text;
 }
 
 /* @socom-skeleton stub Copy__8CTtySpecFv */

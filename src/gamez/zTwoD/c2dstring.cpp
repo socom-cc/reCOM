@@ -51,22 +51,36 @@ static int delta1Y;
 /* @socom-skeleton body __ct__9C2DStringFv */
 C2DString::C2DString()
 {
-    m_string = (char*)zmalloc(17);
-    m_stringlen_max = 16;
-    m_numChars = 0;
-    m_Ustring = (char*)zmalloc(17);
-    *m_Ustring = '\0';
-    m_Ustringlen_max = 16;
-    m_numUChars = 0;
-    m_font = NULL;
-    m_scale = 1.0f;
-    m_revnum = 0;
-    m_color.x = 255.0f;
-    m_color.y = 255.0f;
-    m_color.z = 255.0f;
-    m_color.w = 128.0f;
-    m_firstCharPos = 0;
-    m_elapsedTime = 0.0f;
+	/* 0x302ed0: the C2D flags inline (on, textured, opaque), 16-character buffers, white
+	 * at alpha 128, not centred */
+	m_on = 1;
+	first = 1;
+	m_isAA = 0;
+	m_isTrans = 0;
+	m_hasTexture = 1;
+	m_isFrameAlpha = 0;
+	m_uivar = NULL;
+	m_active_and_handling_input = true;
+	m_string = static_cast<char*>(_malloc(17, "c2dstring.cpp", 0x1c));
+	m_stringlen_max = 16;
+	m_numChars = 0;
+	m_Ustring = static_cast<char*>(_malloc(17, "c2dstring.cpp", 0x20));
+	*m_Ustring = '\0';
+	m_Ustringlen_max = 16;
+	m_numUChars = 0;
+	m_pos.x = 0;
+	m_pos.y = 0;
+	m_font = NULL;
+	m_scale = 1.0f;
+	m_Type = STRING_PLAIN;
+	m_revnum = 0;
+	m_color.z = 255.0f;
+	m_color.y = 255.0f;
+	m_color.x = 255.0f;
+	m_color.w = 128.0f;
+	m_isCentered = false;
+	m_firstCharPos = 0;
+	m_elapsedTime = 0.0f;
 }
 
 /* @socom-skeleton stub __dt__9C2DStringFv */
@@ -82,26 +96,170 @@ void C2DString::ClearAndWipe()
 /* @socom-skeleton stub Off__9C2DStringFv */
 void C2DString::Off()
 {
+	/* 0x302dc0 */
+	m_on = 0;
 }
 
 /* @socom-skeleton stub On__9C2DStringFv */
 void C2DString::On()
 {
+	/* 0x302db0 */
+	m_on = 1;
 }
 
 /* @socom-skeleton stub Tick__9C2DStringFf */
-void C2DString::Tick(float)
+void C2DString::Tick(float dT)
 {
+	/* 0x302cf0: a glowing string pulses its alpha between m_fadeMin and m_fadeMax */
+	if (m_Type != STRING_GLOWY)
+		return;
+
+	f32 t = m_elapsedTime + dT / 2.0f;
+	m_elapsedTime = t;
+
+	if (m_fadeTime < t)
+		m_elapsedTime = t - m_fadeTime;
+
+	f32 s = sinf((m_elapsedTime / m_fadeTime) * 3.14f);
+	SetTrans((m_fadeMin + s * (m_fadeMax - m_fadeMin)) * 128.0f);
 }
 
 /* @socom-skeleton stub Draw__9C2DStringFPQ23zdb16CTextureRelocMgrPQ23zdb7CCameraf */
-void C2DString::Draw(zdb::CTextureRelocMgr *, zdb::CCamera *, float)
+void C2DString::Draw(zdb::CTextureRelocMgr *reloc, zdb::CCamera *camera, float z)
 {
+	/* 0x302c50: an "on" string with characters and a font texture makes its packets at
+	 * depth z, then its children draw */
+	if (IsOn() && m_numChars != 0 && m_font != NULL && m_font->m_pTexHandle != NULL)
+	{
+		MakePacket(reloc, (int)z);
+		C2D::Draw(camera);
+	}
 }
 
 /* @socom-skeleton stub MakePacket__9C2DStringFPQ23zdb16CTextureRelocMgri */
-void C2DString::MakePacket(zdb::CTextureRelocMgr *, int)
+void C2DString::MakePacket(zdb::CTextureRelocMgr *reloc, int z)
 {
+	/* 0x302780: one GS SPRITE per glyph, as many glyphs per scratchpad packet as fit:
+	 *   [REF -> font texture select block]   first packet only
+	 *   CNT n (VIF NOP, DIRECT n)
+	 *   GIFtag NLOOP 2/glyph EOP PRE, PRIM SPRITE|IIP|ABE|FST (|TME when textured),
+	 *          PACKED NREG 3: RGBAQ UV XYZ2
+	 *   per glyph: RGBAQ, UV (offset, bottom), XYZ2 (x, y + baseline);
+	 *              RGBAQ, UV (offset + width, top), XYZ2 (x + w, y + baseline + h, z)
+	 * Font metrics and UVs are in 1/16 pixels; positions start at m_pos (1/16 pixels)
+	 * plus the GS window offset (1727.5, 1823.5). A centred string shifts each packet's
+	 * glyphs left by half its width. */
+	if (m_string == NULL || strlen(m_string) == 0)
+		return;
+
+	u32 prim = m_hasTexture ? 0x15e : 0x14e;
+	zdb::CTexHandle* handle = m_font->m_pTexHandle;
+	bool first = handle != NULL;
+
+	if (first)
+		reloc->PreGetSprPacket(handle);
+
+	s32 x = m_pos.x + 0x6bf8;
+	s32 y = m_pos.y + 0x71f8;
+	u32 r = (u32)(s32)m_color.x;
+	u32 g = (u32)(s32)m_color.y;
+	u32 b = (u32)(s32)m_color.z;
+	u32 a = (u32)(s32)m_color.w;
+	s32 i = m_firstCharPos;
+	s32 lineStart = x;
+
+	while (i < m_numChars)
+	{
+		unsigned __int128* end;
+		u32* packet = reinterpret_cast<u32*>(zSysSprGetPacket(&end));
+		u32* tag = packet;
+
+		if (first)
+		{
+			const u32* ref = reinterpret_cast<const u32*>(&handle->m_texture->m_dmaRef);
+			tag[0] = ref[0];
+			tag[1] = ref[1];
+			tag[2] = ref[2];
+			tag[3] = ref[3];
+			tag += 4;
+			first = false;
+		}
+
+		s32 nloop = 0;
+		u32* v = tag + 8;
+
+		if (m_isCentered)
+			lineStart = x;
+
+		const char* c = m_string + i;
+
+		while (i < m_numChars && v + 0x18 < reinterpret_cast<u32*>(end))
+		{
+			if (*c == '\n')
+			{
+				x = m_pos.x + 0x6c00;
+				y += (s32)GetSpacing() * 16;
+
+				if (c[1] == ' ')
+				{
+					i++;
+					c++;
+				}
+			}
+			else
+			{
+				C2DFontEntry* entry = m_font->GetEntry(*c);
+
+				if (entry != NULL)
+				{
+					f32 scale = m_scale;
+					f32 factor = m_font->m_scale_factor;
+					s32 w = (s32)(scale * (f32)(entry->m_width - 1) * factor + 0.5f);
+					s32 h = (s32)(scale * factor * (f32)(entry->m_bottom - entry->m_top) + 0.5f);
+					s32 base = (s32)(scale * (f32)entry->m_baseline * factor + 0.5f);
+					nloop += 2;
+
+					v[0] = r; v[1] = g; v[2] = b; v[3] = a;
+					v[4] = delta0X + entry->m_offset;
+					v[5] = delta0Y + entry->m_bottom;
+					v[6] = 0; v[7] = 0; /* port: the ELF leaves these words as they were */
+					v[8] = (u16)x;
+					v[9] = (u16)(y + base);
+					v[10] = 0; v[11] = 0; /* port: as above (first corner: Z and ADC unused) */
+					v[12] = r; v[13] = g; v[14] = b; v[15] = a;
+					v[16] = delta1X + entry->m_offset + entry->m_width - 16;
+					v[17] = delta1Y + entry->m_top;
+					v[18] = 0; v[19] = 0;
+					v[20] = (u16)(x + w);
+					v[21] = (u16)(base + y + h);
+					v[22] = z << 4;
+					v[23] = 0;
+					v += 0x18;
+					x += w + entry->m_xspacing;
+					m_shortLength = (x - 0x6c00) >> 4;
+				}
+			}
+
+			i++;
+			c++;
+		}
+
+		if (m_isCentered)
+		{
+			for (u32* xy = tag + 0x10; xy < v; xy += 0xc)
+				*xy = (u32)((s32)*xy - ((x - lineStart) >> 1 & 0xfff0));
+		}
+
+		u32 qwc = (u32)((reinterpret_cast<char*>(v) - reinterpret_cast<char*>(tag + 4)) >> 4);
+		tag[0] = qwc | 0x10000000; /* DMAtag CNT */
+		tag[1] = 0;
+		tag[2] = 0;                /* VIF NOP */
+		tag[3] = qwc | 0x50000000; /* VIF DIRECT */
+		*reinterpret_cast<u64*>(tag + 4) = (u64)nloop | 0x8000ull | (1ull << 46) | ((u64)prim << 47) | (3ull << 60);
+		tag[6] = 0x531; /* RGBAQ, UV, XYZ2 */
+		tag[7] = 0;
+		reloc->TakeDrawPacket(reinterpret_cast<unsigned __int128*>(packet), (u32)((reinterpret_cast<char*>(v) - reinterpret_cast<char*>(packet)) >> 4));
+	}
 }
 
 /* @socom-skeleton body Draw__9C2DStringFPQ23zdb7CCamera */
@@ -118,7 +276,36 @@ void C2DString::Format(const char *, ...)
 /* @socom-skeleton body SetString__9C2DStringFPCc */
 void C2DString::SetString(const char* string)
 {
-    m_string = zstrdup(string);
+	/* 0x3024a0: copy the string (unchanged text, case-insensitive, is kept) */
+	if (string != NULL && m_string != NULL && strcasecmp(string, m_string) == 0)
+		return;
+
+	if (m_string == NULL && string != NULL)
+	{
+		m_string = static_cast<char*>(_malloc(17, "c2dstring.cpp", 0x1d2));
+		m_stringlen_max = 16;
+	}
+
+	if (string == NULL)
+	{
+		if (m_string != NULL)
+			_free(m_string, "c2dstring.cpp", 0x1e6);
+
+		m_string = NULL;
+		m_stringlen_max = 0;
+		m_numChars = 0;
+		return;
+	}
+
+	m_numChars = strlen(string);
+
+	if (m_stringlen_max < m_numChars)
+	{
+		m_string = static_cast<char*>(_realloc(m_string, m_numChars + 1, "c2dstring.cpp", 0x1db));
+		m_stringlen_max = m_numChars;
+	}
+
+	strcpy(m_string, string);
 }
 
 /* @socom-skeleton body Load__9C2DStringFfPCcP7C2DFontii */
@@ -211,9 +398,44 @@ void C2DString::NewLine()
 /* @socom-skeleton stub UpdatePos__9C2DStringFv */
 void C2DString::UpdatePos()
 {
+	/* 0x302020: the string's length and height from the font metrics (1/16 pixels);
+	 * leading spaces on a line do not count */
+	s32 line = 0;
+	m_length = 0.0f;
+	m_numLines = 0;
+	m_shortLength = 0;
+
+	for (s32 i = 0; i < m_numChars; i++)
+	{
+		char c = m_string[i];
+
+		if (c == '\n')
+		{
+			m_numLines++;
+			m_length += (f32)(line >> 4) * m_scale * m_font->m_scale_factor;
+			line = 0;
+		}
+		else if (line != 0 || c != ' ')
+		{
+			C2DFontEntry* entry = m_font->GetEntry(c);
+
+			if (entry != NULL)
+				line += entry->m_width + entry->m_xspacing + entry->m_rKerning;
+		}
+	}
+
+	f32 last = (f32)(line >> 4);
+	m_length += last * m_scale * m_font->m_scale_factor;
+	m_shortLength = (s32)(last * m_scale * m_font->m_scale_factor);
+	m_height = m_charheight * m_scale * m_font->m_scale_factor;
 }
 
 /* @socom-skeleton stub SetFont__9C2DStringFP7C2DFont */
-void C2DString::SetFont(C2DFont *)
+void C2DString::SetFont(C2DFont *font)
 {
+	/* 0x301fd0: an untouched (alpha 128) string takes the font's opacity */
+	m_font = font;
+
+	if (m_color.w == 128.0f)
+		SetTrans(m_font->m_opacity * 128.0f);
 }

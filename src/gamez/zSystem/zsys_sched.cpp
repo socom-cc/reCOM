@@ -48,10 +48,11 @@ CSched_Task* CSched_Manager::GetTask(u32 id)
 /* @socom-skeleton body AddTask__14CSched_ManagerFPCcPFfPv_bfPv */
 void CSched_Manager::AddTask(const char* name, bool(*func)(f32, void*), f32 priority, void* registrar)
 {
-	CSched_Task* task = NULL;
+	/* 0x2f3e90: reuse the newest task on the free list (else a new one), then insert it
+	 * before the first task of higher priority value, so the list runs in ascending order. */
+	CSched_Task* task;
 
-	// Create a new task if pool is empty
-	if (size() == 0)
+	if (m_FreeList.empty())
 	{
 		task = new CSched_Task();
 		task->m_name = NULL;
@@ -62,55 +63,77 @@ void CSched_Manager::AddTask(const char* name, bool(*func)(f32, void*), f32 prio
 	}
 	else
 	{
-		// Otherwise, retrieve an available task from the pool
-		task = front();
-		pop_front();
+		task = m_FreeList.back();
+		m_FreeList.pop_back();
 	}
 
 	if (task->m_name)
-		zfree(task->m_name);
+		_free(task->m_name, "zsys_sched.cpp", 375);
 
 	task->m_name = NULL;
 
-	if (!name)
-		task->m_name = NULL;
-	else
-		task->m_name = zstrdup(name);
+	if (name)
+		task->m_name = _strdup(name, "zsys_sched.cpp", 376);
 
 	task->m_removed = false;
 	task->m_priority = priority;
 	task->m_func = func;
 	task->m_registrar = registrar;
 
-	insert(begin(), task);
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		if (priority < (*it)->m_priority)
+		{
+			insert(it, task);
+			return;
+		}
+	}
+
+	push_back(task);
 }
 
 /* @socom-skeleton body RemoveTask__14CSched_ManagerFPCcb */
 bool CSched_Manager::RemoveTask(const char* name, bool child)
 {
-	for (auto i = begin(); i != end(); ++i)
+	/* port: unproven - not re-read from 0x2f3db0; mirrors RemoveTask(void *, bool) by name */
+	bool removed = false;
+
+	for (iterator it = begin(); it != end(); ++it)
 	{
-		if (!strcmp((*i)->m_name, name))
+		if ((*it)->m_name != NULL && name != NULL && !strcmp((*it)->m_name, name))
 		{
-			(*i)->m_removed = true;
-			return true;
+			(*it)->m_removed = true;
+
+			if (!child)
+				return true;
+
+			removed = true;
 		}
 	}
+
+	return removed;
 }
 
 /* @socom-skeleton body RemoveTask__14CSched_ManagerFPvb */
-bool CSched_Manager::RemoveTask(void *task, bool child)
+bool CSched_Manager::RemoveTask(void *registrar, bool all)
 {
-	for (auto i = begin(); i != end(); ++i)
+	/* 0x2f3ce0: mark the task(s) registered by `registrar` removed; the next Tick frees them */
+	bool removed = false;
+
+	for (iterator it = begin(); it != end(); ++it)
 	{
-		if (task == *i)
+		if ((*it)->m_registrar == registrar)
 		{
-			static_cast<CSched_Task*>(task)->m_removed = true; /* port: parameter is void* (RemoveTask__14CSched_ManagerFPvb) */
-			return true;
+			(*it)->m_removed = true;
+
+			if (!all)
+				return true;
+
+			removed = true;
 		}
 	}
 
-	return true;
+	return removed;
 }
 
 /* @socom-skeleton stub Clear__14CSched_ManagerFv */
@@ -131,24 +154,41 @@ void CSched_Manager::ClearFreeList(bool)
 /* @socom-skeleton body Tick__14CSched_ManagerFf */
 bool CSched_Manager::Tick(f32 dT)
 {
+	/* 0x2f3840: run each task in order; a removed task, or one whose function returns
+	 * true (done), leaves the list for the free list. The ELF also stamps RCNT0 into the
+	 * task before and after its call (start/stop time; not modelled in the port). */
 	m_inTick = true;
-	for (auto i = begin(); i != end(); ++i)
+	bool any = !empty();
+
+	if (any)
 	{
-		CSched_Task* task = *i;
-		bool ran = false;
+		iterator it = begin();
 
-		if (!task->m_removed)
+		while (it != end())
 		{
-			m_priority = task->m_priority;
+			CSched_Task* task = *it;
+			bool done = task->m_removed;
 
-			if (!task->m_func)
-				ran = true;
+			if (!done)
+			{
+				m_priority = task->m_priority;
+				done = task->m_func ? task->m_func(dT, task->m_registrar) : true;
+			}
+
+			if (done)
+			{
+				it = erase(it);
+				m_FreeList.push_back(task);
+			}
 			else
-				ran = task->m_func(dT, task->m_registrar);
+			{
+				++it;
+			}
 		}
 	}
+
 	m_inTick = false;
-	return true;
+	return any;
 }
 
 /* @socom-skeleton stub __dt__11CSched_TaskFv */

@@ -95,6 +95,7 @@
 #include "gamez/zTexture/ztex.h"
 #include "gamez/zTwoD/ztwod.h"
 #include "gamez/zVideo/zvid.h" /* zVid (CGameMenu::Init) */
+#include "gamez/zMPEG/zmpeg.h" /* CMPEG::End (CGameMenu::Clear) */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class ActionItem;
@@ -115,7 +116,7 @@ std::__wInit std::__msl_ios_base_winit;
 
 /* @socom-skeleton stub glocal_anims__17@unnamed@zui_cpp@ */
 namespace {
-int glocal_anims;
+CZAnimSet *glocal_anims; /* the menu's own anim set (LoadFromDesign 0x382bc0) */
 }
 
 /* @socom-skeleton stub LoadDialogsFromReader */
@@ -156,12 +157,14 @@ zdb::CBatchRelocator g_relocBatch; /* CGameMenu::Init's relocator when none is g
 
 /* @socom-skeleton stub zUIScheduler__17@unnamed@zui_cpp@ */
 namespace {
-unsigned char zUIScheduler[32];
+CSched_Manager zUIScheduler; /* the menu anims' scheduler (32 bytes in the ELF), ticked by CGameMenu::Tick */
 }
 
 /* @socom-skeleton stub GetLocalAnims__Fv */
 CZAnimSet * GetLocalAnims()
 {
+	/* 0x384ee0 */
+	return glocal_anims;
 }
 
 /* @socom-skeleton stub zUISchedulerClear__Fv */
@@ -191,8 +194,37 @@ void DidStickMovePrev()
 }
 
 /* @socom-skeleton stub GetButton__FPCc */
-void GetButton(const char *)
+PAD_BUTTON GetButton(const char *name)
 {
+	/* 0x384880: a design BUTTON name -> pad button (unknown names: START) */
+	static const struct { const char* name; PAD_BUTTON button; } buttons[] =
+	{
+		{ "START", PAD_BUTTON::PAD_START },
+		{ "SELECT", PAD_BUTTON::PAD_SELECT },
+		{ "TRIANGLE", PAD_BUTTON::PAD_TRIANGLE },
+		{ "CROSS", PAD_BUTTON::PAD_CROSS },
+		{ "SQUARE", PAD_BUTTON::PAD_SQUARE },
+		{ "CIRCLE", PAD_BUTTON::PAD_CIRCLE },
+		{ "UP", PAD_BUTTON::PAD_UP },
+		{ "DOWN", PAD_BUTTON::PAD_DOWN },
+		{ "LEFT", PAD_BUTTON::PAD_LEFT },
+		{ "RIGHT", PAD_BUTTON::PAD_RIGHT },
+		{ "TRIGGER_L1", PAD_BUTTON::PAD_TRIGGER_L1 },
+		{ "TRIGGER_L2", PAD_BUTTON::PAD_TRIGGER_L2 },
+		{ "TRIGGER_R1", PAD_BUTTON::PAD_TRIGGER_R1 },
+		{ "TRIGGER_R2", PAD_BUTTON::PAD_TRIGGER_R2 },
+	};
+
+	if (name == NULL)
+		return PAD_BUTTON::PAD_START;
+
+	for (u32 i = 0; i < sizeof(buttons) / sizeof(buttons[0]); i++)
+	{
+		if (strcmp(name, buttons[i].name) == 0)
+			return buttons[i].button;
+	}
+
+	return PAD_BUTTON::PAD_START;
 }
 
 /* @socom-skeleton stub GetStickDir__Fv */
@@ -272,12 +304,31 @@ void UiGetDirStickMoved()
 }
 
 /* @socom-skeleton stub __as__10ActionItemFRC10ActionItem */
-void ActionItem::operator=(const ActionItem &)
+void ActionItem::operator=(const ActionItem &other)
 {
+	/* 0x3842b0 (inlined in LoadFromDesign 0x382408): copies, duplicating the strings */
+	Type = other.Type;
+
+	if (Animation != NULL)
+		_free(Animation, "zui.cpp", 0x194);
+
+	Animation = other.Animation ? _strdup(other.Animation, "zui.cpp", 0x195) : NULL;
+
+	if (Argument != NULL)
+		_free(Argument, "zui.cpp", 0x196);
+
+	Argument = other.Argument ? _strdup(other.Argument, "zui.cpp", 0x197) : NULL;
+	PadButton = other.PadButton;
+	State = other.State;
 }
 
 void RegisterMenuNode(zdb::CNode *); /* zanim_menu.cpp (0x1d6760) */
 CRdrFile * FetchMissionFontsRdr(); /* zanim_menu.cpp (0x1d5e40) */
+void Unload_MissionReader(); /* zanim_menu.cpp */
+void TickSkb(float); /* zui_skb.cpp */
+void PrepSkbsForDisplay(zdb::CNode *, zdb::CTextureRelocMgr *, C2DFont *); /* zui_skb.cpp */
+void UiSetCounterSpeedFactor(float); /* zui_2d.cpp */
+void UiSetTtySpeedFactor(float); /* zui_2d.cpp */
 
 /* @socom-skeleton stub __ct__9CGameMenuFv */
 CGameMenu::CGameMenu()
@@ -323,7 +374,112 @@ zdb::CNode * CGameMenu::AddNode(C2D *, zdb::CTextureRelocMgr *)
 /* @socom-skeleton body Clear__9CGameMenuFv */
 void CGameMenu::Clear()
 {
+	/* 0x3835a0: tear the current menu down - planes, pop-up, the UI texture buffer's
+	 * lists, font, libraries, the menu's anim set, controls and objects, commands */
+	if (m_popupnode != NULL)
+	{
+		m_popupnode->SetActive(false);
+		m_popupnode = NULL;
+	}
 
+	GetMenuStack()->CleanPopup();
+
+	m_nodeTop.DeleteChild(m_pBackplaneNode);
+
+	if (m_pBackplaneNode != NULL)
+		delete m_pBackplaneNode;
+
+	m_pBackplaneNode = NULL;
+	m_nodeTop.DeleteChild(m_pForeplaneNode);
+	g_pFaderNode = NULL;
+	/* port: not written - InvalidateSkbsDisplay() (0x383700) */
+
+	if (m_pForeplaneNode != NULL)
+		delete m_pForeplaneNode;
+
+	m_pForeplaneNode = NULL;
+	m_pBackplaneNode = zdb::CNode::Create("CGameMenu backplane");
+	m_pForeplaneNode = zdb::CNode::Create("CGameMenu foreplane");
+	m_nodeTop.AddChild(m_pBackplaneNode);
+	m_nodeTop.AddChild(m_pForeplaneNode);
+	m_pForeplaneNode->SetPosition(0.0f, 0.0f, 16777210.0f);
+
+	/* texture buffer 0 forgets its textures and chain */
+	zdb::CGSTexBuffer* buffer = reinterpret_cast<zdb::CGSTexBuffer*>(zdb::CTexManager::m_texmanager[0]); /* port: see doAddBuffer */
+	buffer->m_dyntex_list.m_tex_list.clear();
+	buffer->m_dyntex_list.m_pal_list.clear();
+	buffer->m_chainp = NULL;
+	/* port: not written - the buffer's +0x1c vector is emptied too (0x383728) */
+
+	_font.m_charlist.clear();
+	_font.m_pTexHandle = NULL;
+	_font.m_displaytop = 0;
+	_font.m_displaybottom = 0;
+	_font.XPadding = 0;
+	_font.m_avgWidth = 0.0f;
+
+	if (_pFontLib != NULL)
+		zdb::CAssetMgr::ReleaseLibRef(_pFontLib);
+
+	_pFontLib = NULL;
+
+	for (int i = (int)_vecLibs.size() - 1; i >= 0; i--)
+		zdb::CAssetMgr::ReleaseLibRef(_vecLibs[i]);
+
+	_vecLibs.clear();
+
+	if (g_hasAnims)
+	{
+		g_hasAnims = false;
+
+		if (glocal_anims != NULL)
+		{
+			CZAnimSet* set = glocal_anims;
+			set->Stop();
+			set->Unload();
+		}
+	}
+
+	while (!m_ScreenControls.empty())
+	{
+		C2D* item = m_ScreenControls.front();
+		m_ScreenControls.pop_front();
+		delete item;
+	}
+
+	while (!m_ScreenElements.empty())
+	{
+		C2D* item = m_ScreenElements.front();
+		m_ScreenElements.pop_front();
+		delete item;
+	}
+
+	/* the ELF frees the strings of the first 10 commands only */
+	for (u32 i = 0; i < 10; i++)
+	{
+		if (m_commands[i].Animation != NULL)
+			_free(m_commands[i].Animation, "zui.cpp", 0x2b4);
+
+		m_commands[i].Animation = NULL;
+
+		if (m_commands[i].Argument != NULL)
+			_free(m_commands[i].Argument, "zui.cpp", 0x2b5);
+
+		m_commands[i].Argument = NULL;
+	}
+
+	m_numCommands = 0;
+	m_activeButton = 0;
+
+	if (m_has_mpeg_background && m_movieRunning)
+		CMPEG::End();
+
+	m_movieRunning = false;
+	/* port: not written - _vecModelInstances are deleted (not modelled, see the ctor) */
+	g_pTtySound = NULL;
+	zUIScheduler.ClearFreeList(true);
+	/* port: not written - theUIVarManager.CollectGarbage() (0x383ac0) */
+	m_has_mpeg_background = false;
 }
 
 /* @socom-skeleton stub Draw2dOnly__9CGameMenuFv */
@@ -394,7 +550,8 @@ void CGameMenu::LoadFromDesign(const CGameDlgDesign &design, CZAnimZAR *animfile
 {
 	/* 0x382180 */
 	Clear();
-	/* port: not written - UiSetCounterSpeedFactor(1.0f) and UiSetTtySpeedFactor(1.0f) */
+	UiSetCounterSpeedFactor(1.0f);
+	UiSetTtySpeedFactor(1.0f);
 
 	for (u32 i = 0; i < design.m_libs.size(); i++)
 	{
@@ -448,9 +605,19 @@ void CGameMenu::LoadFromDesign(const CGameDlgDesign &design, CZAnimZAR *animfile
 		}
 	}
 
-	/* port: not written - 0x382408-0x3824c0 copy design.m_animations into m_commands
-	 * (Type, strdup'd Animation and Argument, State, flags), count m_numCommands and set
-	 * g_hasAnims; without them the menu runs no event animations. */
+	/* 0x382408: the design's ANIMATIONS become the menu's event/button commands */
+	for (u32 i = 0; i < design.m_animations.size(); i++)
+	{
+		m_commands[m_numCommands] = design.m_animations[i];
+		g_hasAnims = true;
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("UI: command %u: %s %u anim '%s' arg '%s'", (u32)m_numCommands,
+			m_commands[m_numCommands].Type ? "event" : "button", (u32)m_commands[m_numCommands].Event,
+			m_commands[m_numCommands].Animation ? m_commands[m_numCommands].Animation : "",
+			m_commands[m_numCommands].Argument ? m_commands[m_numCommands].Argument : "");
+#endif
+		m_numCommands++;
+	}
 
 	g_pFaderNode = Add2dNode(&_bmpFade, m_Reloc, m_pForeplaneNode);
 	g_pFaderNode->SetName("MENUFADER");
@@ -496,22 +663,97 @@ void CGameMenu::LoadFromDesign(const CGameDlgDesign &design, CZAnimZAR *animfile
 	/* the fader moves to the end of the foreplane, in front of everything */
 	m_pForeplaneNode->DeleteChild(g_pFaderNode);
 	m_pForeplaneNode->AddChild(g_pFaderNode);
+	PrepSkbsForDisplay(m_pForeplaneNode, m_Reloc, &_font);
 
-	/* port: not written - PrepSkbsForDisplay(m_pForeplaneNode, m_Reloc, &_font), the
-	 * pop-up dialog node (CMenuStack::GetPopUp, CPopUpDialog::Load, "POPUP", hidden),
-	 * the ZAnim script path when g_hasAnims, the first active button, and the MPEG
-	 * background (CMPEG::Run) when design.m_useMpeg. */
+	/* port: not written - the pop-up dialog: GetMenuStack()->GetPopUp() gets the font and
+	 * CPopUpDialog::Load, then a hidden "POPUP" node in the foreplane (0x382a00-0x382b30);
+	 * CPopUpDialog has no port body, so there is no pop-up node */
 
 	if (!g_hasAnims)
+	{
 		_bmpFade.SetTrans(0.0f);
+	}
+	else
+	{
+		/* the dialog's ZAnim script: its anim set from the UI ZAR, started on the menu's
+		 * scheduler, then the ONSTART anims */
+		const char* script = design.m_script.c_str();
+		char path[520];
 
+		if (animfile != NULL)
+			ZAnim.LoadZAR(animfile, script);
+
+		sprintf(path, "data/common/dialog/%s", script);
+		ZAnim.Load(path, script);
+		glocal_anims = ZAnim.GetAnimSet(script);
+
+		if (glocal_anims != NULL)
+		{
+			glocal_anims->m_task_scheduler = &zUIScheduler;
+			glocal_anims->Start();
+		}
+
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("UI: anim set %s %p: %d anims, %d commands", script, glocal_anims,
+			glocal_anims ? glocal_anims->m_anim_count : 0, (int)m_numCommands);
+#endif
+		RunEventAnim(ActionItem::ONSTART, NULL);
+	}
+
+	if (!m_ScreenControls.empty())
+	{
+		C2D* first = m_ScreenControls.front();
+		m_activeButton = 0;
+
+		if (first == NULL || !first->CanHandleInput())
+			MakeNextButtonActive();
+		else
+			first->SetActive();
+	}
+
+	if (design.m_useMpeg)
+	{
+		m_MPEGName = background ? background : "";
+		m_has_mpeg_background = true;
+		/* port: stub - no MPEG playback in the port: the ELF ends the FIFO, runs
+		 * CMPEG::Run(background, true, false) and re-enables the FIFO (0x382c84); here the
+		 * movie does not run, as when Run fails */
+		m_movieRunning = false;
+	}
+
+	if (m_has_mpeg_background && !m_movieRunning)
+		RunEventAnim(ActionItem::ONMPEGEND, NULL);
 
 	g_pTtySound = CSnd::GetSoundByName(theGame.m_menuState.TtySoundString.c_str());
 }
 
 /* @socom-skeleton stub RunEventAnim__9CGameMenuFQ210ActionItem5EVENTPCc */
-void CGameMenu::RunEventAnim(ActionItem::EVENT, const char *)
+void CGameMenu::RunEventAnim(ActionItem::EVENT event, const char *argument)
 {
+	/* 0x382030: activate the design's anims for that event, from the menu's own set
+	 * first; the given argument (else the design's) goes to the anim as a string */
+	for (s32 i = 0; i < m_numCommands; i++)
+	{
+		ActionItem& item = m_commands[i];
+
+		if (item.Type != ActionItem::ACTION_TYPE_EVENT || item.Event != event)
+			continue;
+
+		CZAnim* anim = glocal_anims ? glocal_anims->Anim(item.Animation) : NULL;
+
+		if (anim == NULL)
+			anim = ZAnim.GetAnim(item.Animation, NULL);
+
+		if (anim == NULL)
+			continue;
+
+		if (argument != NULL)
+			anim->ActivateArg(1, 8, argument, 0);
+		else if (item.Argument != NULL)
+			anim->ActivateArg(1, 8, item.Argument, 0);
+		else
+			anim->Activate(NULL);
+	}
 }
 
 /* @socom-skeleton stub MakeNextButtonActive__9CGameMenuFv */
@@ -550,17 +792,214 @@ void CGameMenu::PrepModels(const CGameDlgDesign &)
 }
 
 /* @socom-skeleton stub ParseButtonAnim__FP5_zrdrP10ActionItem */
-void ParseButtonAnim(_zrdr *, ActionItem *)
+void ParseButtonAnim(_zrdr *reader, ActionItem *item)
 {
+	/* 0x380f50: an ANIMATIONS entry: BUTTON <pad button> [STATE UP|FALLING|DOWN|RISING]
+	 * or EVENT <event>, with the ANIMATION to run and its ARGUMENT */
+	static const struct { const char* name; ActionItem::EVENT event; } events[] =
+	{
+		/* in the ELF's compare order */
+		{ "ONSTART", ActionItem::ONSTART },
+		{ "ONEXIT", ActionItem::ONEXIT },
+		{ "ONACTIVATE", ActionItem::ONACTIVATE },
+		{ "ONMPEGEND", ActionItem::ONMPEGEND },
+		{ "MP_JOIN_ROOM", ActionItem::MP_JOIN_ROOM },
+		{ "ON_SKB_APPLY", ActionItem::ON_SKB_APPLY },
+		{ "ON_STATE_POP", ActionItem::ON_STATE_POP },
+		{ "ON_SKB_CLOSE", ActionItem::ON_SKB_CLOSE },
+		{ "MP_PLAYER_NOT_FOUND", ActionItem::MP_PLAYER_NOT_FOUND },
+		{ "MP_SUCCESS", ActionItem::MP_SUCCESS },
+		{ "MP_CREATE_CLAN_SUCCESS", ActionItem::MP_CREATE_CLAN_SUCCESS },
+		{ "MP_CREATE_CLAN_FAILURE", ActionItem::MP_CREATE_CLAN_FAILURE },
+		{ "MP_DISBAND_CLAN_SUCCESS", ActionItem::MP_DISBAND_CLAN_SUCCESS },
+		{ "MP_DISBAND_CLAN_FAILURE", ActionItem::MP_DISBAND_CLAN_FAILURE },
+		{ "MP_MEDIUS_ERROR", ActionItem::MP_MEDIUS_ERROR },
+		{ "MP_MEDIUS_HAS_INVITES", ActionItem::MP_MEDIUS_HAS_INVITES },
+		{ "ON_LOAD_COMPLETE", ActionItem::ON_LOAD_COMPLETE },
+		{ "ON_CLIENT_CONNECT", ActionItem::ON_CLIENT_CONNECT },
+		{ "ON_FORCE_NEW_DB", ActionItem::ON_FORCE_NEW_DB },
+		{ "ON_LADDER_REFRESH", ActionItem::ON_LADDER_REFRESH },
+		{ "ON_TTY_DONE", ActionItem::ON_TTY_DONE },
+		{ "MP_MEDIUS_JOIN_GAME_FAILURE", ActionItem::MP_MEDIUS_JOIN_GAME_FAILURE },
+		{ "MP_MEDIUS_READY_TO_CONNECT", ActionItem::MP_MEDIUS_READY_TO_CONNECT },
+		{ "MP_PLAYER_ALREADY_MEMBER", ActionItem::MP_PLAYER_ALREADY_MEMBER },
+		{ "MP_VERSION_NUMBER_ERROR", ActionItem::MP_VERSION_NUMBER_ERROR },
+		{ "MP_LEADERSHIP_TRANSFER_SUCCESS", ActionItem::MP_LEADERSHIP_TRANSFER_SUCCESS },
+		{ "MEMCARD_ERROR", ActionItem::MEMCARD_ERROR },
+		{ "MP_MEDIUS_BECAME_LEADER", ActionItem::MP_MEDIUS_BECAME_LEADER },
+		{ "ON_SKB_CANCEL", ActionItem::ON_SKB_CANCEL },
+		{ "NETCNF_ERROR", ActionItem::NETCNF_ERROR },
+		{ "MP_MEDIUS_JOIN_ROOM_FAILURE", ActionItem::MP_MEDIUS_JOIN_ROOM_FAILURE },
+		{ "MP_PLAYER_IS_LEADER", ActionItem::MP_PLAYER_IS_LEADER },
+		{ "MP_CLAN_DISBANDED", ActionItem::MP_CLAN_DISBANDED },
+	};
+
+	char* animation = zrdr_findstring(reader, "ANIMATION");
+	char* argument = zrdr_findstring(reader, "ARGUMENT");
+	char* state = zrdr_findstring(reader, "STATE");
+
+	if (zrdr_findtag(reader, "BUTTON") != NULL)
+	{
+		item->Type = ActionItem::ACTION_TYPE_BUTTON;
+		item->PadButton = (u8)GetButton(zrdr_findstring(reader, "BUTTON"));
+
+		if (state == NULL)
+			item->State = KEY_FALLING;
+		else if (strcmp(state, "UP") == 0)
+			item->State = KEY_UP;
+		else if (strcmp(state, "FALLING") == 0)
+			item->State = KEY_FALLING;
+		else if (strcmp(state, "DOWN") == 0)
+			item->State = KEY_DOWN;
+		else if (strcmp(state, "RISING") == 0)
+			item->State = KEY_RISING;
+		else
+			item->State = KEY_FALLING;
+	}
+	else if (zrdr_findtag(reader, "EVENT") != NULL)
+	{
+		char* name = zrdr_findstring(reader, "EVENT");
+		item->Type = ActionItem::ACTION_TYPE_EVENT;
+		item->Event = ActionItem::ONSTART;
+
+		for (u32 i = 0; i < sizeof(events) / sizeof(events[0]); i++)
+		{
+			if (strcmp(name, events[i].name) == 0)
+			{
+				item->Event = events[i].event;
+				break;
+			}
+		}
+	}
+	else
+	{
+		return;
+	}
+
+	if (animation != NULL)
+		item->Animation = _strdup(animation, "zui.cpp", 0x62d);
+
+	if (argument != NULL)
+		item->Argument = _strdup(argument, "zui.cpp", 0x62f);
 }
 
 /* @socom-skeleton stub SwitchMenu__9CGameMenuFPc */
-void CGameMenu::SwitchMenu(char *)
+void CGameMenu::SwitchMenu(char *name)
 {
+	/* 0x380af0: tear down and build the named dialog, in one relocation batch (the ELF
+	 * also printf()s for dlgHype and dlgNetLogin) */
+	Clear();
+	zdb::CTexManager::WipePktBuf();
+	Unload_MissionReader();
+
+	_bmpFade.m_hasTexture = false;
+	_bmpFade.C2DBitmap::Load(0.0f, 0.0f, 640.0f, 448.0f, NULL);
+	_bmpFade.SetColor(0.0f, 0.0f, 0.0f);
+	_bmpFade.SetTrans(128.0f);
+	m_Reloc->StartBatchReloc();
+
+	if (animfile != NULL)
+	{
+		CGameDlgDesign design;
+		CRdrFile* rdr = zrdr_read(name, "data/common/dialog", LoadDialogsFromReader);
+
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("UI: SwitchMenu %s (%s)", name ? name : "(null)", rdr ? "read" : "missing");
+#endif
+		if (rdr == NULL)
+		{
+			m_Reloc->EndBatchReloc();
+			return;
+		}
+
+		design.LoadFromRdr(rdr);
+		zrdr_free(rdr);
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("UI: design %s: %u libs (%s), font '%s', background '%s' (%s), %u controls, %u objects, %u animations, script '%s'",
+			name, (u32)design.m_libs.size(), design.m_libs.size() ? design.m_libs[0].c_str() : "",
+			design.m_font.c_str(), design.m_background.c_str(), design.m_useMpeg ? "mpeg" : "image",
+			(u32)design.m_controls.size(), (u32)design.m_objects.size(), (u32)design.m_animations.size(), design.m_script.c_str());
+#endif
+
+		if (name == NULL)
+			m_ReaderName = "";
+		else
+			m_ReaderName = name;
+
+		LoadFromDesign(design, animfile);
+	}
+
+	m_Reloc->EndBatchReloc();
 }
 
 /* @socom-skeleton body Tick__9CGameMenuFf */
-void CGameMenu::Tick(float dT) {}
+void CGameMenu::Tick(float dT)
+{
+	/* 0x380700: pad, the menu anims (at most 1/20 s a frame), the queued menu-stack
+	 * commands, then the pop-up, objects and controls, the soft keyboards, MyTick */
+	HandlePad(CInput::m_pads[0]);
+
+	if (dT > 0.05f)
+		dT = 0.05f;
+
+	if (g_hasAnims)
+		zUIScheduler.Tick(dT);
+
+	CMenuStack* stack = GetMenuStack();
+
+	while (stack->m_count != 0)
+	{
+		CMenuStack::Command* cmd = &stack->m_cmds[stack->m_top];
+
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("UI: menu command %d '%s'", (int)cmd->type, cmd->arg);
+#endif
+		if (cmd->type == 8 || cmd->type == 7)
+		{
+			zdb::CNode* node = m_nodeTop.FindChild(cmd->arg, true);
+
+			if (node != NULL)
+			{
+				C2D* object = NULL;
+				zdb::CVisual* visual = node->GetFirstVisual();
+				C2DVisual* visual2d = visual ? visual->Get2DVisual() : NULL;
+
+				if (visual2d != NULL)
+					object = visual2d->m_2d;
+
+				if (object != NULL) /* port: the ELF calls through an unset register when there is none */
+					object->SetCanHandleInput(cmd->type == 7);
+			}
+		}
+		else if (cmd->type == 6)
+		{
+			MakeButtonActive(cmd->arg);
+		}
+		else if (cmd->type == 5)
+		{
+			SwitchMenu(cmd->arg);
+		}
+		else if (cmd->type == 2)
+		{
+			stack->AddToHistory(m_ReaderName.c_str());
+			SwitchMenu(cmd->arg);
+		}
+
+		stack->HandleCommand(m_ReaderName.c_str());
+	}
+
+	if (C2D* popup = stack->GetPopUp())
+		popup->Tick(dT);
+
+	for (auto it = m_ScreenElements.begin(); it != m_ScreenElements.end(); ++it)
+		(*it)->Tick(dT);
+
+	for (auto it = m_ScreenControls.begin(); it != m_ScreenControls.end(); ++it)
+		(*it)->Tick(dT);
+
+	TickSkb(dT);
+	MyTick(dT);
+}
 
 /* @socom-skeleton stub PreGetSprPacket__23CDblBufTextureRelocatorFPQ23zdb10CTexHandle */
 void CDblBufTextureRelocator::PreGetSprPacket(zdb::CTexHandle *handle)

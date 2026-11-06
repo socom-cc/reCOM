@@ -127,6 +127,9 @@ class CZAnimHealth;
 class CBlendable;
 class CAnimsByFP;
 class CZAnimSetSave;
+class CZAnimArgList;
+class CZAnimSet;
+class C2D;
 
 class CSched_Manager;
 
@@ -143,6 +146,13 @@ namespace zdb
 }
 
 extern CZAnimMain ZAnim;
+
+zdb::CNode* GetMenuNode(); /* zanim_menu.cpp (0x1d6740) */
+int GetUICommandType(const char *); /* zanim_menu.cpp (0x1d0710) */
+class CRdrFile;
+CRdrFile * FetchMissionFontsRdr(); /* zanim_menu.cpp (0x1d5e40) */
+class CMenuStack;
+CMenuStack* GetMenuStack(); /* zanim_menu.cpp (0x1d07d0) */
 
 /* seq_offset_stack, seq_offset_stack_size (zanim_cmd_parse.cpp) and _local_wildcard_str,
    _input_str_ptr, _digit_count (anim_main.cpp) are file-local (LOCAL symbols) */
@@ -377,6 +387,75 @@ struct _zanim_cmd_hdr
 	u32 data_size : 14;
 };
 
+/* Per-command records. No DWARF describes them (the command units carry no type
+ * records for them); the layouts come from the handlers that read them, and the
+ * names are the port's. Each starts with the 4-byte header; data_size covers the
+ * whole record, including any inline expression commands that follow it. */
+struct _zanim_cmd_if          /* IF, ELSEIF, ELSE, ENDIF (zAnimIfTick 0x1b8f20, zAnimGoToEndIf 0x1b8e70) */
+{
+	_zanim_cmd_hdr header;
+	u8 nest_level;            /* +0x4: the IF level this command closes or continues */
+	/* IF and ELSEIF: the condition's expression commands follow at +0x8 */
+};
+
+struct _zanim_cmd_expression  /* EXPRESSION (CZAnimExpression::ProcExpr 0x1b9230) */
+{
+	_zanim_cmd_hdr header;
+	s8 op;                    /* +0x4: 1 not, 2 and, 3 or, 4 open, 5 close (from ProcExpr's use) */
+};
+
+struct _zanim_cmd_while       /* WHILE, END_WHILE (zAnimWhileTick 0x1b8de0, zAnimEndWhileTick 0x1b8db0) */
+{
+	_zanim_cmd_hdr header;
+	u16 skip_test;            /* +0x4: WHILE: nonzero skips the test (no expression) */
+	s16 jump;                 /* +0x6: WHILE: offset of its END_WHILE; END_WHILE: offset of its WHILE (from the sequence start) */
+	/* WHILE: the condition's expression commands follow at +0x8 */
+};
+
+struct _zanim_cmd_index8      /* CALL_SEQUENCE, STOP_SEQUENCE, STOP_ANIMATION (0x1b8080, 0x1b8280) */
+{
+	_zanim_cmd_hdr header;
+	u8 name_index;            /* +0x4: the anim's local name index */
+};
+
+struct _zanim_cmd_call_anim   /* CALL_ANIMATION (zAnimCallAnimBegin 0x1b8380, zAnimCallAnimTick 0x1b8310) */
+{
+	_zanim_cmd_hdr header;
+	u16 flags;                /* +0x4: 1 pass the args on, 2/4/8 pass node args, 0x10 offset, 0x20 add position, 0x40 stop on exit, 0x80 wait for it */
+	u8 local_name_index;      /* +0x6 */
+	u8 name_index;            /* +0x7 */
+	u8 node[3];               /* +0x8: node refs passed as args 2, 3, and the position node */
+	u8 pad;
+	f32 position[3];          /* +0xc */
+};
+
+struct _zanim_cmd_wait        /* WAIT (zAnimWaitBegin 0x1b96c0, zAnimWaitTick 0x1b95c0) */
+{
+	_zanim_cmd_hdr header;
+	u16 flags;                /* +0x4: 2 sequence time, 4 anim time (else command time), 8 timed, 0x10 counted, 0x20 random */
+	u16 counter;              /* +0x6 */
+	f32 value[4];             /* +0x8: the time (or count), then base/range for the random time */
+};
+
+struct _zanim_cmd_opacity     /* OBJECT_OPACITY_FROM_TO (0x1ba280, 0x1ba1c0) */
+{
+	_zanim_cmd_hdr header;
+	u16 node_ref;             /* +0x4 */
+	f32 from;                 /* +0x8 */
+	f32 to;                   /* +0xc */
+	f32 rate;                 /* +0x10: change per second */
+	f32 duration;             /* +0x14 */
+};
+
+class C2DAnimCmdHdr           /* DWARF (8 bytes): UI_COMMAND / UI_APP_COMMAND, and the 2D objects' own commands */
+{
+public:
+	_zanim_cmd_hdr header;
+	u16 node_ref_index;       /* +0x4: 0, or the node whose 2D object handles the command */
+	u8 m_command_type;        /* +0x6: UICommandTable id (or the object's command type) */
+	u8 m_argument_index;      /* +0x7: the anim's local name index of the argument */
+};
+
 struct _zanim_cmd_set
 {
 	char* name;
@@ -446,20 +525,20 @@ struct _zanim_call_anim_ref
 
 struct _zanim_node_ref
 {
+	/* DWARF: one 32-bit word of bitfields, then the node (8 bytes, loaded raw from Node_Ref_List) */
 	u32 parent_index : 8;
 	u32 name_index : 11;
 	u32 node_search : 3;
-
-	bool is_light;
-	bool created_here;
-	bool stop_on_exit;
-	bool on_world_lightlist;
-	bool save_translation;
-	bool save_rotation;
-	bool save_active;
-	bool save_parent;
-	bool is_local_light;
-	bool set_inactive;
+	u32 is_light : 1;
+	u32 created_here : 1;
+	u32 stop_on_exit : 1;
+	u32 on_world_lightlist : 1;
+	u32 save_translation : 1;
+	u32 save_rotation : 1;
+	u32 save_active : 1;
+	u32 save_parent : 1;
+	u32 is_local_light : 1;
+	u32 set_inactive : 1;
 
 	zdb::CNode* node_ptr;
 };
@@ -601,15 +680,27 @@ class CActiveAnimList
 
 };
 
+class CZAnimNameIndexTable
+{
+public:
+	u16* m_index; /* DWARF +0x0: indices into the set's name table */
+	s32 m_count;   /* DWARF +0x4 */
+	/* @socom-skeleton decl 20CZAnimNameIndexTable */
+public:
+	char * GetName(CZAnimSet *, int);
+	int AddName(CZAnimSet *, const char *);
+	void Unload();
+	bool Load(zar::CZAR &);
+	/* @socom-skeleton end 20CZAnimNameIndexTable */
+};
+
 class CZAnim : public _zanim_anim_params
 {
 public:
-	void AddNewNodeRef();
 	void OnWeaponHitInit();
-	void GetNode();
 
-	// CZAnimArgList* m_arg_list;
-	// CZAnimNameIndexTable m_nameindex_table;
+	CZAnimArgList* m_arg_list;                 /* DWARF +0x18 */
+	CZAnimNameIndexTable m_nameindex_table;    /* DWARF +0x1c */
 
 	/// <summary>
 	/// Extension class for debugging animations.
@@ -691,7 +782,7 @@ public:
 	CZAnim * Activate(CZAnim *);
 	void ActivateEx(int, ...);
 	CZAnim * ActivateArgV(char *);
-	void ActivateArg(int, ...);
+	CZAnim * ActivateArg(int, ...);
 	void ActivateSequence(const char *);
 	void StopSequence(const char *);
 	void PauseSequence(const char *);
@@ -738,14 +829,14 @@ public:
 	_zanim_sound * GetSoundRef(int);
 	_zanim_call_anim_ref * GetCallAnimRef(int, int);
 	_zanim_call_anim_ref * GetCallAnimRef(int);
-	void AddNewNodeRef(int, int, int);
+	int AddNewNodeRef(int, int, int);
 	char * GetNodeRefName(int);
 	int LoadNodeNames(_zrdr *, const char *, int, int);
 	void LoadSaveNodeStates(_zrdr *);
 	CZAnim * Copy();
-	void ExecuteSpecialSequence(int);
+	bool ExecuteSpecialSequence(int);
 	void Unload();
-	void Load(zar::CZAR &);
+	bool Load(zar::CZAR &);
 	/* @socom-skeleton end 6CZAnim */
 };
 
@@ -795,7 +886,7 @@ public:
 	char * GetName(int);
 	int AddName(const char *);
 	void Unload();
-	void Load(zar::CZAR &);
+	bool Load(zar::CZAR &);
 	/* @socom-skeleton end 15CZAnimNameTable */
 };
 
@@ -844,8 +935,8 @@ public:
 	void Stop();
 	void Unload();
 	void GarbageCollect();
-	void Load(zar::CZAR &);
-	void LoadSIScript(zar::CZAR &);
+	bool Load(zar::CZAR &);
+	bool LoadSIScript(zar::CZAR &);
 	/* @socom-skeleton end 9CZAnimSet */
 };
 
@@ -861,23 +952,9 @@ public:
 	/* @socom-skeleton end 13CZAnimSetSave */
 };
 
-class CZAnimNameIndexTable
-{
-public:
-	void GetName();
-	/* @socom-skeleton decl 20CZAnimNameIndexTable */
-public:
-	char * GetName(CZAnimSet *, int);
-	int AddName(CZAnimSet *, const char *);
-	void Unload();
-	void Load(zar::CZAR &);
-	/* @socom-skeleton end 20CZAnimNameIndexTable */
-};
-
 class CZAnimMain : public _zanim_main_params
 {
 public:
-	char* SplitName(char* name, char** splitname);
 
 	void Open();
 	bool Close();
@@ -888,19 +965,12 @@ public:
 	void CmdNext(s32 program_counter);
 	void CmdSet(s32 program_counter);
 
-	bool CmdValid() const;
 	
-	_zanim_cmd_hdr* AddCmd(const char* name, _zanim_cmd_hdr*(*parser)(_zrdr*), void(*begin)(_zanim_cmd_hdr*), bool(*tick)(_zanim_cmd_hdr*, f32*), void(*end)(_zanim_cmd_hdr*));
+	u16 AddCmd(const char* name, _zanim_cmd_hdr*(*parser)(_zrdr*), void(*begin)(_zanim_cmd_hdr*), bool(*tick)(_zanim_cmd_hdr*, f32*), void(*end)(_zanim_cmd_hdr*));
 	_zanim_cmd_hdr* AnimParseExpression(_zanim_cmd_hdr* header, _zrdr* reader);
 
-	bool NewAnimSet(u32 index);
-
-	u32 GetCmd(u32 index, char* name, bool alloc);
-	_zanim_cmd_set* GetCmdEntry(char* name, bool param_2);
-	_zanim_cmd_set* GetCmdSet(char* name, bool param_2);
-
-	u32 GetAnimSetIndex(const char* animName, bool searchList);
-	CZAnimSet* GetAnimSet(u32 i);
+	int GetCmdSet(char* name, bool create);              /* GetCmdSet__10CZAnimMainFPcb */
+	int GetAnimSetIndex(const char* name, bool create);  /* GetAnimSetIndex__10CZAnimMainFPCcb */
 	
 	static bool m_LoadFromZAR;
 
@@ -973,9 +1043,9 @@ public:
 	void SeqTick(float);
 	void SeqFirst();
 	void SeqNext();
-	void SeqValid();
-	void StateRunning(int);
-	void SeqRunning();
+	bool SeqValid();
+	bool StateRunning(int);
+	bool SeqRunning();
 	void ActivateSequence(const char *);
 	void StopSequence(const char *);
 	void PauseSequence(const char *);
@@ -990,7 +1060,7 @@ public:
 	int NetworkReceive(void *);
 	void UnloadSIScript(_zanim_si_script *);
 	void UnloadCmdSet(int);
-	void Load(const char *, const char *);
+	bool Load(const char *, const char *);
 	void AnimLoadZRDFile(const char *, const char *);
 	void AnimLoadAnimList(const char *, _zrdr *);
 	void AnimLoadNameZRDR(_zrdr *, _zrdr *);
@@ -998,7 +1068,7 @@ public:
 	void AnimLoadSeq(_zrdr *);
 	void AnimLoadQuadAlignCmd(const char *, int);
 	_zanim_cmd_hdr * AnimParseCmd(const char *, _zrdr *);
-	void LoadZAR(CZAnimZAR *, const char *);
+	bool LoadZAR(CZAnimZAR *, const char *);
 	CZAnimZAR * OpenZAR(const char *);
 	void CloseZAR(CZAnimZAR *);
 	void LoadZAR(const char *, const char *);
@@ -1461,17 +1531,35 @@ public:
 class CMenuHistory
 {
 public:
+	/* no DWARF; layout from the ctor (0x1d5b10), AddToHistory (0x1d6440) and UISwitchMenu */
 	CMenuHistory();
+	std::vector<char*> m_list;   /* +0x0: the screens visited, newest last */
+	char m_pool[32][0x30];       /* +0xc: the name buffers */
+	std::vector<char*> m_free;   /* +0x60c: the free buffers ("POOL") */
 };
 /* @socom-skeleton end 12CMenuHistory */
 /* @socom-skeleton decl 10CMenuStack */
 class CMenuStack
 {
 public:
+	/* no DWARF; layout from HandleCommand (0x1d64c0), UISwitchMenu (0x1d5620) and
+	 * CGameMenu::Tick (0x380700): a stack of queued menu commands, the history, and the
+	 * pop-up dialog. Command types seen: 2 switch (adding to the history), 5 switch,
+	 * 6 make a button active, 7/8 enable/disable a control's input. */
+	struct Command
+	{
+		s32 type;
+		char arg[0x30];
+	};
+	Command m_cmds[20];          /* +0x0 */
+	s32 m_count;                 /* +0x410: commands queued */
+	s32 m_top;                   /* +0x414: the current command (pushes pre-increment) */
+	CMenuHistory m_history;      /* +0x418 */
+	C2D* m_popup;                /* +0xa30: the CPopUpDialog, made by GetPopUp */
 	~CMenuStack();
 	void HandleCommand(const char *);
 	void AddToHistory(const char *);
-	void GetPopUp();
+	C2D * GetPopUp();
 	void PopUpDialog(const char *);
 	void CleanPopup();
 	void FlushHistory(bool);
@@ -1487,11 +1575,15 @@ public:
 	enum TYPE {}; /* port: unproven - enumerators and width unknown */
 	virtual ~CZAnimArg() {} /* __dt__9CZAnimArgFv (inline, 0x1cd910): empty body */
 	virtual void Copy() = 0; /* port: __vt__9CZAnimArg slot 1 is empty (pure); return type unproven (derived Copy stubs are void) */
+	/* no DWARF; from ActivateArgV (0x1ce750) and CZAnimArgList::GetCharP (0x1ce120) */
+	u8 m_type;      /* +0x4: 1 cmd, 2/3 node, 4 valve, 5-7 point, 8 string */
+	u32 m_reserved; /* +0x8: set 0 */
 };
 /* @socom-skeleton decl 14CZAnimArgCharP */
 class CZAnimArgCharP : public CZAnimArg
 {
 public:
+	char* m_value; /* +0xc: a copy of the string */
 	virtual ~CZAnimArgCharP();
 	virtual void Copy();
 };

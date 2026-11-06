@@ -151,8 +151,13 @@ public:
 class VALVE_CMD_DATA
 {
 public:
-	void GetValue();
-	void Compare();
+	/* no DWARF; layout from CValve::CmdTickCmp (0x2f8160) and GetValue (0x2f8600) */
+	u32 m_valve;  /* +0x0 the valve: a CValve *, an anim name index (flag 0x2) or an argument index (flag 0x1) */
+	u32 m_value;  /* +0x4 the operand: a constant, or a valve as above (flag 0x10; 0x8 name index, 0x4 argument) */
+	u8 m_op;      /* +0x8 OP_TYPE-like: 0 none, 1 !=, 2 ==, 3 >, 4 <, 5 >=, 6 <=, 7 =, 8 +=, 9 -=, 10 *= */
+	u8 m_flags;   /* +0x9 */
+	u16 GetValue();
+	bool Compare();
 	static void ParseValveName(const char *, int &);
 };
 /* @socom-skeleton end 14VALVE_CMD_DATA */

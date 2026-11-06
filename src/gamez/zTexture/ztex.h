@@ -18,6 +18,7 @@
 /* port: forward declarations for names this header uses */
 class CPipe;
 class CDblBufTextureRelocator;
+class CGameMenu;
 namespace zdb { class CAssetLib; }
 void HookupLib(zdb::CAssetLib *); /* zui.cpp (0x384750) */
 namespace zdb { class CNode; }
@@ -181,6 +182,7 @@ public:
 		friend class ::CPipe; /* port: unproven access - CPipe::RenderWorld (0x245744) clears both lists */
 		friend class ::CDblBufTextureRelocator; /* port: unproven access - PreGetSprPacket (0x380600) clears both lists */
 		friend void ::HookupLib(zdb::CAssetLib *); /* port: unproven access - 0x384750 fills a stack buffer's lists */
+		friend class ::CGameMenu; /* port: unproven access - CGameMenu::Clear (0x3835a0) clears buffer 0's lists */
 		CTexList m_tex_list;
 		CTexPalList m_pal_list;
 	};

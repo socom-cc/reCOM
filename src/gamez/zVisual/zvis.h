@@ -23,6 +23,7 @@
 #include "gamez/zTexture/ztex.h"
 /* @socom-skeleton decl forward */
 class CVisBase;
+class C2DVisual; /* port: Get2DVisual return type */
 namespace zdb {
 class AddonPoint;
 class CLightMapVector;
@@ -264,7 +265,7 @@ public:
 		virtual void ComputeBBox(CBBox *);
 		virtual void UpdateCentroid();
 		virtual void Write(zar::CZAR &);
-		virtual void Get2DVisual() {} /* Get2DVisual__Q23zdb7CVisualFv (inline, 0x1d0320) returns 0 (a C2DVisual *); void kept until zui.h's C2DVisual override changes */
+		virtual ::C2DVisual * Get2DVisual() { return NULL; } /* Get2DVisual__Q23zdb7CVisualFv (inline, 0x1d0320): 0 */
 		static void Flush();
 		static _word128 * GetTextureSelectBlock(unsigned int, _word128 **, _word128 *, _word128 *);
 		static _word128 * GetTextureSelectBlock_ver2(unsigned int, _word128 **, _word128 *, _word128 *);

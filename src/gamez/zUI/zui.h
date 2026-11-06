@@ -389,6 +389,17 @@ public:
 		MP_PLAYER_IS_LEADER = 31,
 		MP_CLAN_DISBANDED = 32
 	};
+	enum ACTION_TYPE { ACTION_TYPE_BUTTON = 0, ACTION_TYPE_EVENT = 1 }; /* DWARF: 1-byte enum */
+	/* DWARF ActionItem (16 bytes) */
+	u8 Type;             /* +0x0 ACTION_TYPE */
+	char* Animation;     /* +0x4 */
+	char* Argument;      /* +0x8 */
+	u8 State;            /* +0xc KEY_STATE (BUTTON) */
+	union
+	{
+		u8 PadButton;    /* +0xd PAD_BUTTON (BUTTON) */
+		u8 Event;        /* +0xd EVENT (EVENT) */
+	};
 	void operator=(const ActionItem &);
 	~ActionItem();
 };
@@ -406,6 +417,10 @@ public:
 class CRenderableString : public C2DString, public UIVarMixin
 {
 public:
+	/* no DWARF; layout from the ctor (0x391d50), LoadSpec (0x390fb0) and Draw (0x391b20) */
+	C2DFont* m_alternateFont;   /* +0x90: the spec's own FONT */
+	CPnt3D m_offset;            /* +0x94: drawn at the node matrix applied to this point */
+	CPnt3D m_specColor;         /* +0xa0: the spec COLOR */
 	virtual ~CRenderableString();
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual void Tick(float);
@@ -444,7 +459,7 @@ class C2DVisual : public zdb::CVisual
 public:
 	virtual ~C2DVisual();
 	virtual void Render(CMatrix *);
-	virtual void Get2DVisual();
+	virtual C2DVisual * Get2DVisual();
 	C2DVisual(C2D *, zdb::CTextureRelocMgr *);
 	C2D* m_2d;                        /* +0x68 (0x388f14); no DWARF for this class */
 	zdb::CTextureRelocMgr* m_reloc;   /* +0x6c */

@@ -248,6 +248,8 @@
 #include "zanim.h"
 /* @socom-skeleton end include */
 #include "gamez/zFTS/zfts.h" /* theMission (FetchMissionFontsRdr) */
+#include "gamez/zGame/zgame.h" /* theGame (UISwitchMenu) */
+#include "gamez/zUI/zui.h" /* C2DVisual (zAnimUIMenuTick) */
 /* @socom-skeleton decl forward */
 class C2DAnimCmdHdr;
 namespace {
@@ -295,6 +297,7 @@ void ChooseEquipmentForCharacter(const CSelectedCharsItr &, EQUIP_ITEM)
 namespace {
 unsigned char ExecuteChooseDefaultEquipment(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 }
 
@@ -302,6 +305,7 @@ unsigned char ExecuteChooseDefaultEquipment(C2DAnimCmdHdr *, float *)
 namespace {
 unsigned char ExecuteChooseEquipment(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 }
 
@@ -309,6 +313,7 @@ unsigned char ExecuteChooseEquipment(C2DAnimCmdHdr *, float *)
 namespace {
 unsigned char OnCloseAndSwitch(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 }
 
@@ -316,6 +321,7 @@ unsigned char OnCloseAndSwitch(C2DAnimCmdHdr *, float *)
 namespace {
 unsigned char OnGetTextFromUser(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 }
 
@@ -323,6 +329,7 @@ unsigned char OnGetTextFromUser(C2DAnimCmdHdr *, float *)
 namespace {
 unsigned char OnIsEquipmentSelected(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 }
 
@@ -330,6 +337,7 @@ unsigned char OnIsEquipmentSelected(C2DAnimCmdHdr *, float *)
 namespace {
 unsigned char OnIsMissionSuccessful(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 }
 
@@ -343,12 +351,13 @@ unsigned char OnListSavedGames(C2DAnimCmdHdr *, float *)
 }
 
 /* @socom-skeleton stub g_MenuStack */
-int g_MenuStack[653];
+CMenuStack g_MenuStack; /* 0x49b5d0 (2612 bytes) */
 
 /* @socom-skeleton stub OnRemoveEquipment__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf */
 namespace {
 unsigned char OnRemoveEquipment(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 }
 
@@ -356,6 +365,7 @@ unsigned char OnRemoveEquipment(C2DAnimCmdHdr *, float *)
 namespace {
 unsigned char OnReplayMission(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 }
 
@@ -363,6 +373,7 @@ unsigned char OnReplayMission(C2DAnimCmdHdr *, float *)
 namespace {
 unsigned char OnSetCounterSpeedFactor(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 }
 
@@ -370,6 +381,7 @@ unsigned char OnSetCounterSpeedFactor(C2DAnimCmdHdr *, float *)
 namespace {
 unsigned char OnSetSkbPurpose(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 }
 
@@ -377,6 +389,7 @@ unsigned char OnSetSkbPurpose(C2DAnimCmdHdr *, float *)
 namespace {
 unsigned char OnSetTtySpeedFactor(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 }
 
@@ -384,6 +397,7 @@ unsigned char OnSetTtySpeedFactor(C2DAnimCmdHdr *, float *)
 namespace {
 unsigned char UISetControllerConfig(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 }
 
@@ -391,6 +405,7 @@ unsigned char UISetControllerConfig(C2DAnimCmdHdr *, float *)
 namespace {
 unsigned char _LoadSavedGame(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 }
 
@@ -398,6 +413,7 @@ unsigned char _LoadSavedGame(C2DAnimCmdHdr *, float *)
 namespace {
 unsigned char _SaveSavedGame(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 }
 
@@ -414,18 +430,24 @@ extern char* GetDatabase()
 }
 
 /* @socom-skeleton stub RegisterMenuNode__FPQ23zdb5CNode */
-void RegisterMenuNode(zdb::CNode *)
+void RegisterMenuNode(zdb::CNode *node)
 {
+	/* 0x1d6760: the menu's top node, searched by MENU-scope anim node refs */
+	g_menuRootNode = node;
 }
 
 /* @socom-skeleton stub UnRegisterMenuNode__Fv */
 void UnRegisterMenuNode()
 {
+	/* 0x1d6750 */
+	g_menuRootNode = NULL;
 }
 
 /* @socom-skeleton stub GetMenuNode__Fv */
 zdb::CNode * GetMenuNode()
 {
+	/* 0x1d6740 */
+	return g_menuRootNode;
 }
 
 /* @socom-skeleton stub __dt__10CMenuStackFv */
@@ -436,16 +458,50 @@ CMenuStack::~CMenuStack()
 /* @socom-skeleton stub HandleCommand__10CMenuStackFPCc */
 void CMenuStack::HandleCommand(const char *)
 {
+	/* 0x1d64c0: the current command is done - clear its argument and pop it */
+	strcpy(m_cmds[m_top].arg, DEFAULT_ARGNAME);
+	Command* cmd = &m_cmds[m_top];
+
+	switch (cmd->type)
+	{
+	case 0:
+		cmd->type = -1;
+		break;
+	case 1:
+		m_top--;
+		break;
+	case 2:
+	case 3:
+	case 4:
+	case 5:
+	case 6:
+	case 7:
+	case 8:
+		cmd->type = -1;
+		m_top--;
+		break;
+	}
+
+	m_count--;
 }
 
 /* @socom-skeleton stub AddToHistory__10CMenuStackFPCc */
-void CMenuStack::AddToHistory(const char *)
+void CMenuStack::AddToHistory(const char *name)
 {
+	/* 0x1d6440: take a free name buffer for the history */
+	char* buffer = m_history.m_free.back();
+	m_history.m_free.pop_back();
+	m_history.m_list.push_back(buffer);
+	strcpy(buffer, name);
 }
 
 /* @socom-skeleton stub GetPopUp__10CMenuStackFv */
-void CMenuStack::GetPopUp()
+C2D * CMenuStack::GetPopUp()
 {
+	/* 0x1d6080: the pop-up dialog, made on first use (a CPopUpDialog: a CPlainBmp with a
+	 * wrapped-text string and two buttons).
+	 * port: not written - CPopUpDialog has no port body yet; no pop-up is made */
+	return m_popup;
 }
 
 /* @socom-skeleton stub PopUpDialog__10CMenuStackFPCc */
@@ -468,6 +524,12 @@ CRdrFile * FetchMissionFontsRdr()
 /* @socom-skeleton stub CleanPopup__10CMenuStackFv */
 void CMenuStack::CleanPopup()
 {
+	/* 0x1d5df0 */
+	if (m_popup != NULL)
+	{
+		delete m_popup;
+		m_popup = NULL;
+	}
 }
 
 /* @socom-skeleton stub FlushHistory__10CMenuStackFb */
@@ -483,31 +545,98 @@ void CMenuStack::KillPopUp()
 /* @socom-skeleton stub __ct__12CMenuHistoryFv */
 CMenuHistory::CMenuHistory()
 {
+	/* 0x1d5b10: 32 name buffers, all free */
+	m_list.reserve(0x20);
+	m_free.reserve(0x20);
+
+	for (u32 i = 0; i < 0x20; i++)
+	{
+		strcpy(m_pool[i], MENUHISTORY_STRPOOL);
+		m_free.push_back(m_pool[i]);
+	}
 }
 
 /* @socom-skeleton stub UISetMission__FP13C2DAnimCmdHdrPf */
 unsigned char UISetMission(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIPopUpDialog__FP13C2DAnimCmdHdrPf */
 unsigned char UIPopUpDialog(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UISwitchMenu__FP13C2DAnimCmdHdrPf */
-unsigned char UISwitchMenu(C2DAnimCmdHdr *, float *)
+unsigned char UISwitchMenu(C2DAnimCmdHdr *cmd, float *)
 {
+	/* 0x1d5620: SwitchMenu <dialog>: queue a switch for CGameMenu::Tick. LOAD_SCREEN and
+	 * MENU_SCREEN switch game states; PREVIOUS_SCREEN (or the newest history entry)
+	 * goes back. INPUT_STRING takes the name from the anim's first argument. */
+	CMenuStack* stack = &g_MenuStack;
+	char* name = ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+
+	if (name != NULL && strcmp(name, "INPUT_STRING") == 0)
+		name = ZAnim.m_CurAnim->m_arg_list ? ZAnim.m_CurAnim->m_arg_list->GetCharP(0) : NULL;
+
+	if (name == NULL)
+		return true; /* port: the ELF strcmps NULL here */
+
+	if (strcmp(name, "LOAD_SCREEN") == 0)
+	{
+		theGame.Switch(&theGame.m_loadState, 0);
+		return true;
+	}
+
+	bool back = strcmp(name, "PREVIOUS_SCREEN") == 0;
+
+	if (!back && strcmp(name, "MENU_SCREEN") == 0)
+	{
+		theGame.Switch(&theGame.m_menuState, 0);
+		return true;
+	}
+
+	if (!back && !stack->m_history.m_list.empty() && strcasecmp(name, stack->m_history.m_list.back()) == 0)
+		back = true;
+
+	if (back)
+	{
+		if (!stack->m_history.m_list.empty())
+		{
+			stack->m_top++;
+			stack->m_cmds[stack->m_top].type = 5;
+			strcpy(stack->m_cmds[stack->m_top].arg, stack->m_history.m_list.back());
+			char* buffer = stack->m_history.m_list.back();
+			stack->m_history.m_list.pop_back();
+			stack->m_history.m_free.push_back(buffer);
+			strcpy(buffer, MENUHISTORY_STRPOOL);
+			stack->m_count++;
+		}
+
+		/* port: not written - PREVIOUS_SCREEN plays the menu's back sound (offline) */
+		return true;
+	}
+
+	char arg[136];
+	sprintf(arg, "%s", name);
+	stack->m_top++;
+	stack->m_cmds[stack->m_top].type = 2;
+	strcpy(stack->m_cmds[stack->m_top].arg, arg);
+	stack->m_count++;
+	return true;
 }
 
 /* @socom-skeleton stub UIIsSessionMaster__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsSessionMaster(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIIsNetwork__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsNetwork(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UILobbyEventHandler__FPCcPCc */
@@ -518,26 +647,31 @@ unsigned char UILobbyEventHandler(const char *, const char *)
 /* @socom-skeleton stub UIInitNetwork__FP13C2DAnimCmdHdrPf */
 unsigned char UIInitNetwork(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIUnInitNetwork__FP13C2DAnimCmdHdrPf */
 unsigned char UIUnInitNetwork(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIConnectToGameServer__FP13C2DAnimCmdHdrPf */
 unsigned char UIConnectToGameServer(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIDisconnectFromGameServer__FP13C2DAnimCmdHdrPf */
 unsigned char UIDisconnectFromGameServer(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIJoinGameServer__FP13C2DAnimCmdHdrPf */
 unsigned char UIJoinGameServer(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UICheckJoinMP__FP13C2DAnimCmdHdrPf */
@@ -556,271 +690,373 @@ static int g_can_use_ready;
 /* @socom-skeleton stub UIIsMemCardInserted__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsMemCardInserted(C2DAnimCmdHdr *, float *)
 {
+	/* 0x1d5300: CMemCard::IsInserted on the current port/slot.
+	 * port: stub - the port has no memory-card layer; it reports no card */
+	return false;
 }
 
 /* @socom-skeleton stub UIIsMemCardFormatted__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsMemCardFormatted(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIFormatMemCard__FP13C2DAnimCmdHdrPf */
 unsigned char UIFormatMemCard(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIDoesSlotHaveGame__FP13C2DAnimCmdHdrPf */
 unsigned char UIDoesSlotHaveGame(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIGetNumSavedGames__FP13C2DAnimCmdHdrPf */
 unsigned char UIGetNumSavedGames(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UILobbyRegister__FP13C2DAnimCmdHdrPf */
 unsigned char UILobbyRegister(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UILobbyLogin__FP13C2DAnimCmdHdrPf */
 unsigned char UILobbyLogin(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UILobbyLogout__FP13C2DAnimCmdHdrPf */
 unsigned char UILobbyLogout(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UILobbyBailout__FP13C2DAnimCmdHdrPf */
 unsigned char UILobbyBailout(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIGetAcctInfo__FP13C2DAnimCmdHdrPf */
 unsigned char UIGetAcctInfo(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIRefreshGameList__FP13C2DAnimCmdHdrPf */
 unsigned char UIRefreshGameList(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIRefreshRoomList__FP13C2DAnimCmdHdrPf */
 unsigned char UIRefreshRoomList(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIRefreshRoomPlayerList__FP13C2DAnimCmdHdrPf */
 unsigned char UIRefreshRoomPlayerList(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIRefreshGamePlayerList__FP13C2DAnimCmdHdrPf */
 unsigned char UIRefreshGamePlayerList(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UICreateMPGame__FP13C2DAnimCmdHdrPf */
 unsigned char UICreateMPGame(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIJoinMPGame__FP13C2DAnimCmdHdrPf */
 unsigned char UIJoinMPGame(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIGameHasPassword__FP13C2DAnimCmdHdrPf */
 unsigned char UIGameHasPassword(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIStoreSOP__FP13C2DAnimCmdHdrPf */
 unsigned char UIStoreSOP(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIJoinMPRoom__FP13C2DAnimCmdHdrPf */
 unsigned char UIJoinMPRoom(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UISendMediusChat__FP13C2DAnimCmdHdrPf */
 unsigned char UISendMediusChat(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIGetMediusAnnouncements__FP13C2DAnimCmdHdrPf */
 unsigned char UIGetMediusAnnouncements(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIKillPopUp__FP13C2DAnimCmdHdrPf */
 unsigned char UIKillPopUp(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIIsTerrorist__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsTerrorist(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UISwitchSides__FP13C2DAnimCmdHdrPf */
 unsigned char UISwitchSides(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIForceMPLaunch__FP13C2DAnimCmdHdrPf */
 unsigned char UIForceMPLaunch(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UICheckForcedLaunch__FP13C2DAnimCmdHdrPf */
 unsigned char UICheckForcedLaunch(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UISendChatText__FP13C2DAnimCmdHdrPf */
 unsigned char UISendChatText(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIReadyToLoad__FP13C2DAnimCmdHdrPf */
 unsigned char UIReadyToLoad(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UISetMenuState__FP13C2DAnimCmdHdrPf */
 unsigned char UISetMenuState(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIFlushMenuHistory__FP13C2DAnimCmdHdrPf */
 unsigned char UIFlushMenuHistory(C2DAnimCmdHdr *, float *)
 {
+	/* 0x1d3fd0: reset the command arguments and empty the history into the free pool */
+	for (u32 i = 0; i < 20; i++)
+		strcpy(g_MenuStack.m_cmds[i].arg, DEFAULT_ARGNAME);
+
+	while (!g_MenuStack.m_history.m_list.empty())
+	{
+		g_MenuStack.m_history.m_free.push_back(g_MenuStack.m_history.m_list.back());
+		strcpy(g_MenuStack.m_history.m_free.back(), MENUHISTORY_STRPOOL);
+		g_MenuStack.m_history.m_list.pop_back();
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub UIClearGameState__FP13C2DAnimCmdHdrPf */
 unsigned char UIClearGameState(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIToggleAutoMessages__FP13C2DAnimCmdHdrPf */
 unsigned char UIToggleAutoMessages(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UISetFilters__FP13C2DAnimCmdHdrPf */
 unsigned char UISetFilters(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIActivateButton__FP13C2DAnimCmdHdrPf */
-unsigned char UIActivateButton(C2DAnimCmdHdr *, float *)
+unsigned char UIActivateButton(C2DAnimCmdHdr *cmd, float *)
 {
+	/* 0x1d3b70: queue menu command 6 (make active) for the named control (INPUT_STRING: the first argument) */
+	char* name = ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+
+	if (name != NULL && strcmp(name, "INPUT_STRING") == 0)
+		name = ZAnim.m_CurAnim->m_arg_list ? ZAnim.m_CurAnim->m_arg_list->GetCharP(0) : NULL;
+
+	g_MenuStack.m_top++;
+	g_MenuStack.m_cmds[g_MenuStack.m_top].type = 6;
+	strcpy(g_MenuStack.m_cmds[g_MenuStack.m_top].arg, name ? name : ""); /* port: the ELF strcpys NULL as is */
+	g_MenuStack.m_count++;
+	return true;
 }
 
 /* @socom-skeleton stub UIEnableButton__FP13C2DAnimCmdHdrPf */
-unsigned char UIEnableButton(C2DAnimCmdHdr *, float *)
+unsigned char UIEnableButton(C2DAnimCmdHdr *cmd, float *)
 {
+	/* 0x1d3a70: queue menu command 7 (input on) for the named control (INPUT_STRING: the first argument) */
+	char* name = ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+
+	if (name != NULL && strcmp(name, "INPUT_STRING") == 0)
+		name = ZAnim.m_CurAnim->m_arg_list ? ZAnim.m_CurAnim->m_arg_list->GetCharP(0) : NULL;
+
+	g_MenuStack.m_top++;
+	g_MenuStack.m_cmds[g_MenuStack.m_top].type = 7;
+	strcpy(g_MenuStack.m_cmds[g_MenuStack.m_top].arg, name ? name : ""); /* port: the ELF strcpys NULL as is */
+	g_MenuStack.m_count++;
+	return true;
 }
 
 /* @socom-skeleton stub UIDisableButton__FP13C2DAnimCmdHdrPf */
-unsigned char UIDisableButton(C2DAnimCmdHdr *, float *)
+unsigned char UIDisableButton(C2DAnimCmdHdr *cmd, float *)
 {
+	/* 0x1d3970: queue menu command 8 (input off) for the named control (INPUT_STRING: the first argument) */
+	char* name = ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+
+	if (name != NULL && strcmp(name, "INPUT_STRING") == 0)
+		name = ZAnim.m_CurAnim->m_arg_list ? ZAnim.m_CurAnim->m_arg_list->GetCharP(0) : NULL;
+
+	g_MenuStack.m_top++;
+	g_MenuStack.m_cmds[g_MenuStack.m_top].type = 8;
+	strcpy(g_MenuStack.m_cmds[g_MenuStack.m_top].arg, name ? name : ""); /* port: the ELF strcpys NULL as is */
+	g_MenuStack.m_count++;
+	return true;
 }
 
 /* @socom-skeleton stub UICheckVideoMode__FP13C2DAnimCmdHdrPf */
 unsigned char UICheckVideoMode(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UISwitchProgressiveVideo__FP13C2DAnimCmdHdrPf */
 unsigned char UISwitchProgressiveVideo(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIStoreOptions__FP13C2DAnimCmdHdrPf */
 unsigned char UIStoreOptions(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UISetStickPreset__FP13C2DAnimCmdHdrPf */
 unsigned char UISetStickPreset(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIInitializeOptions__FP13C2DAnimCmdHdrPf */
 unsigned char UIInitializeOptions(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIIsSpaceForSaveGameFile__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsSpaceForSaveGameFile(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIMC_Init__FP13C2DAnimCmdHdrPf */
 unsigned char UIMC_Init(C2DAnimCmdHdr *, float *)
 {
+	/* 0x1d2f80: CMemCard::Init. port: stub - no memory-card layer in the port */
+	return true;
 }
 
 /* @socom-skeleton stub UIMC_Uninit__FP13C2DAnimCmdHdrPf */
 unsigned char UIMC_Uninit(C2DAnimCmdHdr *, float *)
 {
+	/* 0x1d2f60: CMemCard::Uninit. port: stub - no memory-card layer in the port */
+	return true;
 }
 
 /* @socom-skeleton stub UIMC_ChDir__FP13C2DAnimCmdHdrPf */
 unsigned char UIMC_ChDir(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIMC_MkDir__FP13C2DAnimCmdHdrPf */
 unsigned char UIMC_MkDir(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIMC_ChPort__FP13C2DAnimCmdHdrPf */
-unsigned char UIMC_ChPort(C2DAnimCmdHdr *, float *)
+unsigned char UIMC_ChPort(C2DAnimCmdHdr *cmd, float *)
 {
+	/* 0x1d2ea0: the memory-card port from the argument (stored at 0x4bc5e0 in the ELF).
+	 * port: stub - no memory-card layer; the number is parsed and dropped */
+	(void)atoi(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
+	return true;
 }
 
 /* @socom-skeleton stub UIMC_ChSlot__FP13C2DAnimCmdHdrPf */
 unsigned char UIMC_ChSlot(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIMC_Exists__FP13C2DAnimCmdHdrPf */
 unsigned char UIMC_Exists(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIMC_CreateIconFiles__FP13C2DAnimCmdHdrPf */
 unsigned char UIMC_CreateIconFiles(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UILoadConfig__FP13C2DAnimCmdHdrPf */
 unsigned char UILoadConfig(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UISaveConfig__FP13C2DAnimCmdHdrPf */
 unsigned char UISaveConfig(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UICoopMissionExists__FP13C2DAnimCmdHdrPf */
 unsigned char UICoopMissionExists(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIMediusEnabled__FP13C2DAnimCmdHdrPf */
 unsigned char UIMediusEnabled(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIPlayMPEG__FP13C2DAnimCmdHdrPf */
@@ -836,171 +1072,205 @@ static int HCnf;
 /* @socom-skeleton stub UIGetClan__FP13C2DAnimCmdHdrPf */
 unsigned char UIGetClan(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UICreateClan__FP13C2DAnimCmdHdrPf */
 unsigned char UICreateClan(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIDisbandClan__FP13C2DAnimCmdHdrPf */
 unsigned char UIDisbandClan(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIIsMemberOfClan__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsMemberOfClan(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIIsLeaderOfClan__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsLeaderOfClan(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIRemovePlayerFromClan__FP13C2DAnimCmdHdrPf */
 unsigned char UIRemovePlayerFromClan(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIInvitePlayerToClan__FP13C2DAnimCmdHdrPf */
 unsigned char UIInvitePlayerToClan(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIInvitePlayerToClanWithArg__FP13C2DAnimCmdHdrPf */
 unsigned char UIInvitePlayerToClanWithArg(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIVagStreaming__FP13C2DAnimCmdHdrPf */
 unsigned char UIVagStreaming(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIGetInvitedPlayers__FP13C2DAnimCmdHdrPf */
 unsigned char UIGetInvitedPlayers(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UICheckClanInvites__FP13C2DAnimCmdHdrPf */
 unsigned char UICheckClanInvites(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIGetClanRoster__FP13C2DAnimCmdHdrPf */
 unsigned char UIGetClanRoster(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIRevokeInvite__FP13C2DAnimCmdHdrPf */
 unsigned char UIRevokeInvite(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UISendClanMessage__FP13C2DAnimCmdHdrPf */
 unsigned char UISendClanMessage(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIChangeCharacterType__FP13C2DAnimCmdHdrPf */
 unsigned char UIChangeCharacterType(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIIsClanChallengeGame__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsClanChallengeGame(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIAdvanceMPMission__FP13C2DAnimCmdHdrPf */
 unsigned char UIAdvanceMPMission(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UISetMPMissionSeq__FP13C2DAnimCmdHdrPf */
 unsigned char UISetMPMissionSeq(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIHaveBeenBannedFromGame__FP13C2DAnimCmdHdrPf */
 unsigned char UIHaveBeenBannedFromGame(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIGameStatePopCommand__FP13C2DAnimCmdHdrPf */
 unsigned char UIGameStatePopCommand(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UISetDefaultMenuScreen__FP13C2DAnimCmdHdrPf */
 unsigned char UISetDefaultMenuScreen(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIBanSelfFromGame__FP13C2DAnimCmdHdrPf */
 unsigned char UIBanSelfFromGame(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIQuitClan__FP13C2DAnimCmdHdrPf */
 unsigned char UIQuitClan(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIGetLadderInfo__FP13C2DAnimCmdHdrPf */
 unsigned char UIGetLadderInfo(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UITestUIVar__FP13C2DAnimCmdHdrPf */
 unsigned char UITestUIVar(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIAbortLoad__FP13C2DAnimCmdHdrPf */
 unsigned char UIAbortLoad(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UINetCnfInit__FP13C2DAnimCmdHdrPf */
 unsigned char UINetCnfInit(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UINetCnfUninit__FP13C2DAnimCmdHdrPf */
 unsigned char UINetCnfUninit(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UINetCnfOpen__FP13C2DAnimCmdHdrPf */
 unsigned char UINetCnfOpen(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UINetCnfClose__FP13C2DAnimCmdHdrPf */
 unsigned char UINetCnfClose(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UINetCnfCount__FP13C2DAnimCmdHdrPf */
 unsigned char UINetCnfCount(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UINetCnfCurrCombo__FP13C2DAnimCmdHdrPf */
 unsigned char UINetCnfCurrCombo(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UINetCnfSelectCombo__FP13C2DAnimCmdHdrPf */
 unsigned char UINetCnfSelectCombo(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UINetCnfGetDispNames__FP13C2DAnimCmdHdrPf */
 unsigned char UINetCnfGetDispNames(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UINetGetInterfaceList__FP13C2DAnimCmdHdrPf */
@@ -1041,6 +1311,7 @@ unsigned char UINetSaveDev(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UINetGetDevIndex__FP13C2DAnimCmdHdrPf */
 unsigned char UINetGetDevIndex(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UINetSaveIfc__FP13C2DAnimCmdHdrPf */
@@ -1059,21 +1330,25 @@ int pIFCInfo;
 /* @socom-skeleton stub UIClanHasInvitations__FP13C2DAnimCmdHdrPf */
 unsigned char UIClanHasInvitations(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UINetUpdateIFCVars__FP13C2DAnimCmdHdrPf */
 unsigned char UINetUpdateIFCVars(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UINetGetDevInfo__FP13C2DAnimCmdHdrPf */
 unsigned char UINetGetDevInfo(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UINetGetIFCInfo__FP13C2DAnimCmdHdrPf */
 unsigned char UINetGetIFCInfo(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UINetSaveCombo__FP13C2DAnimCmdHdrPf */
@@ -1093,16 +1368,19 @@ unsigned char UINetCnfDeleteAll(C2DAnimCmdHdr *, float *)
 /* @socom-skeleton stub UIHasClanInvitations__FP13C2DAnimCmdHdrPf */
 unsigned char UIHasClanInvitations(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIStopAllSounds__FP13C2DAnimCmdHdrPf */
 unsigned char UIStopAllSounds(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIRebootIOP__FP13C2DAnimCmdHdrPf */
 unsigned char UIRebootIOP(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub AuxNetCensorText__FPCcPv */
@@ -1113,91 +1391,284 @@ void AuxNetCensorText(const char *, void *)
 /* @socom-skeleton stub UINetCensorText__FP13C2DAnimCmdHdrPf */
 unsigned char UINetCensorText(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIForceMediusStatusReport__FP13C2DAnimCmdHdrPf */
 unsigned char UIForceMediusStatusReport(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UISetPlayerDescription__FP13C2DAnimCmdHdrPf */
 unsigned char UISetPlayerDescription(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UILadderUp__FP13C2DAnimCmdHdrPf */
 unsigned char UILadderUp(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UILadderDown__FP13C2DAnimCmdHdrPf */
 unsigned char UILadderDown(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UICanLadderPressUp__FP13C2DAnimCmdHdrPf */
 unsigned char UICanLadderPressUp(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UICanLadderPressDown__FP13C2DAnimCmdHdrPf */
 unsigned char UICanLadderPressDown(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIUpdateClanStats__FP13C2DAnimCmdHdrPf */
 unsigned char UIUpdateClanStats(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UINotOnCorrectClanTeam__FP13C2DAnimCmdHdrPf */
 unsigned char UINotOnCorrectClanTeam(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIAcceptInvitation__FP13C2DAnimCmdHdrPf */
 unsigned char UIAcceptInvitation(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIDeclineInvitation__FP13C2DAnimCmdHdrPf */
 unsigned char UIDeclineInvitation(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UITransferLeadership__FP13C2DAnimCmdHdrPf */
 unsigned char UITransferLeadership(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIIsTeamGame__FP13C2DAnimCmdHdrPf */
 unsigned char UIIsTeamGame(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UIPasswordSecurity__FP13C2DAnimCmdHdrPf */
 unsigned char UIPasswordSecurity(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UISysPostInit__FP13C2DAnimCmdHdrPf */
 unsigned char UISysPostInit(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub UISysLoadIRX__FP13C2DAnimCmdHdrPf */
 unsigned char UISysLoadIRX(C2DAnimCmdHdr *, float *)
 {
+	return true; /* port: stub - not written (UI_COMMAND function) */
 }
 
 /* @socom-skeleton stub GetMenuStack__Fv */
-void GetMenuStack()
+CMenuStack * GetMenuStack()
 {
+	/* 0x1d07d0 */
+	return &g_MenuStack;
 }
 
 /* @socom-skeleton stub GetUICommandType__FPCc */
-void GetUICommandType(const char *)
+/* 0x439540: the UI_COMMAND functions by id (id, name, function), ended by id 0 */
+struct UI_COMMAND_ENTRY
 {
+	u32 id;
+	const char* name;
+	unsigned char (*func)(C2DAnimCmdHdr*, float*);
+};
+
+UI_COMMAND_ENTRY UICommandTable[] =
+{
+	{ 0x01, "SetMission", UISetMission },
+	{ 0x02, "IsMissionSuccessful", OnIsMissionSuccessful },
+	{ 0x03, "ChooseEquipment", ExecuteChooseEquipment },
+	{ 0x04, "ChooseDefaultEquipment", ExecuteChooseDefaultEquipment },
+	{ 0x05, "RemoveEquipment", OnRemoveEquipment },
+	{ 0x06, "IsEquipmentSelected", OnIsEquipmentSelected },
+	{ 0x07, "SwitchMenu", UISwitchMenu },
+	{ 0x08, "PopUpDialog", UIPopUpDialog },
+	{ 0x09, "KillPopUp", UIKillPopUp },
+	{ 0x0a, "ActivateButton", UIActivateButton },
+	{ 0x0b, "ClearGameState", UIClearGameState },
+	{ 0x0c, "GetTextInput", OnGetTextFromUser },
+	{ 0x0d, "SetSkbPurpose", OnSetSkbPurpose },
+	{ 0x0e, "EnableButton", UIEnableButton },
+	{ 0x0f, "DisableButton", UIDisableButton },
+	{ 0x10, "StoreOptions", UIStoreOptions },
+	{ 0x11, "InitOptions", UIInitializeOptions },
+	{ 0x12, "PlayMPEG", UIPlayMPEG },
+	{ 0x13, "IsTerrorist", UIIsTerrorist },
+	{ 0x14, "SwitchSides", UISwitchSides },
+	{ 0x1a, "SendChatText", UISendChatText },
+	{ 0x15, "ToggleAutoMessages", UIToggleAutoMessages },
+	{ 0x16, "SetFilters", UISetFilters },
+	{ 0x17, "ReadyToLoad", UIReadyToLoad },
+	{ 0x18, "SetMenuState", UISetMenuState },
+	{ 0x19, "StoreSOP", UIStoreSOP },
+	{ 0x1c, "IsSessionMaster", UIIsSessionMaster },
+	{ 0x1d, "InitNetwork", UIInitNetwork },
+	{ 0x1e, "UnInitNetwork", UIUnInitNetwork },
+	{ 0x1f, "ConnectToGameServer", UIConnectToGameServer },
+	{ 0x46, "JoinGameServer", UIJoinGameServer },
+	{ 0x20, "DisconnectFromGameServer", UIDisconnectFromGameServer },
+	{ 0x21, "LobbyRegister", UILobbyRegister },
+	{ 0x22, "GetAcctInfo", UIGetAcctInfo },
+	{ 0x23, "LobbyLogin", UILobbyLogin },
+	{ 0x25, "RefreshGameList", UIRefreshGameList },
+	{ 0x26, "RefreshRoomList", UIRefreshRoomList },
+	{ 0x27, "RefreshRoomPlayerList", UIRefreshRoomPlayerList },
+	{ 0x28, "CreateMPGame", UICreateMPGame },
+	{ 0x29, "JoinMPGame", UIJoinMPGame },
+	{ 0x47, "CheckJoinMP", UICheckJoinMP },
+	{ 0x2a, "MediusEnabled", UIMediusEnabled },
+	{ 0x24, "LobbyLogout", UILobbyLogout },
+	{ 0x50, "LobbyBailout", UILobbyBailout },
+	{ 0x2b, "JoinMPRoom", UIJoinMPRoom },
+	{ 0x2c, "SendMediusChat", UISendMediusChat },
+	{ 0x2d, "GetMediusAnnouncements", UIGetMediusAnnouncements },
+	{ 0x2e, "CreateClan", UICreateClan },
+	{ 0x2f, "DisbandClan", UIDisbandClan },
+	{ 0x30, "IsMemberOfClan", UIIsMemberOfClan },
+	{ 0x31, "IsLeaderOfClan", UIIsLeaderOfClan },
+	{ 0x32, "GetClan", UIGetClan },
+	{ 0x33, "IsMemCardInserted", UIIsMemCardInserted },
+	{ 0x34, "IsMemCardFormatted", UIIsMemCardFormatted },
+	{ 0x35, "IsSpaceForSaveGameFile", UIIsSpaceForSaveGameFile },
+	{ 0x36, "FormatMemCard", UIFormatMemCard },
+	{ 0x37, "DoesSlotHaveGame", UIDoesSlotHaveGame },
+	{ 0x38, "LoadSavedGame", _LoadSavedGame },
+	{ 0x39, "SaveSavedGame", _SaveSavedGame },
+	{ 0x3a, "ListSavedGames", OnListSavedGames },
+	{ 0x3b, "LoadConfig", UILoadConfig },
+	{ 0x3c, "SaveConfig", UISaveConfig },
+	{ 0x3d, "MC_ChDir", UIMC_ChDir },
+	{ 0x3e, "MC_ChPort", UIMC_ChPort },
+	{ 0x3f, "MC_ChSlot", UIMC_ChSlot },
+	{ 0x40, "MC_Exists", UIMC_Exists },
+	{ 0x41, "MC_MkDir", UIMC_MkDir },
+	{ 0x42, "MC_CreateIconFiles", UIMC_CreateIconFiles },
+	{ 0x43, "CoopMissionExists", UICoopMissionExists },
+	{ 0x44, "ReplayMission", OnReplayMission },
+	{ 0x45, "CloseAndSwitch", OnCloseAndSwitch },
+	{ 0x48, "InvitePlayerToClan", UIInvitePlayerToClan },
+	{ 0x49, "RevokeInvite", UIRevokeInvite },
+	{ 0x4a, "RemovePlayerFromClan", UIRemovePlayerFromClan },
+	{ 0x4b, "GetInvitedPlayers", UIGetInvitedPlayers },
+	{ 0x4c, "GetClanRoster", UIGetClanRoster },
+	{ 0x4d, "SendClanMessage", UISendClanMessage },
+	{ 0x4e, "IsClanChallengeGame", UIIsClanChallengeGame },
+	{ 0x4f, "AdvanceMPMission", UIAdvanceMPMission },
+	{ 0x51, "CheckMyInvites", UICheckClanInvites },
+	{ 0x52, "HaveBeenBannedFromGame", UIHaveBeenBannedFromGame },
+	{ 0x53, "GameStatePopCommand", UIGameStatePopCommand },
+	{ 0x54, "SetDefaultMenuScreen", UISetDefaultMenuScreen },
+	{ 0x55, "BanSelfFromGame", UIBanSelfFromGame },
+	{ 0x56, "ChangeCharacterType", UIChangeCharacterType },
+	{ 0x59, "GetNumSavedGames", UIGetNumSavedGames },
+	{ 0x5a, "RefreshGamePlayerList", UIRefreshGamePlayerList },
+	{ 0x57, "QuitClan", UIQuitClan },
+	{ 0x58, "GetLadderInfo", UIGetLadderInfo },
+	{ 0x5b, "TestUIVar", UITestUIVar },
+	{ 0x5c, "SetControllerConfig", UISetControllerConfig },
+	{ 0x5d, "AbortLoad", UIAbortLoad },
+	{ 0x5e, "MC_Init", UIMC_Init },
+	{ 0x5f, "MC_Uninit", UIMC_Uninit },
+	{ 0x60, "ForceMPLaunch", UIForceMPLaunch },
+	{ 0x61, "CheckForcedLaunch", UICheckForcedLaunch },
+	{ 0x62, "IsNetwork", UIIsNetwork },
+	{ 0x63, "SetPlayerDescription", UISetPlayerDescription },
+	{ 0x64, "LadderUp", UILadderUp },
+	{ 0x65, "LadderDown", UILadderDown },
+	{ 0x66, "CanLadderPressUp", UICanLadderPressUp },
+	{ 0x67, "CanLadderPressDown", UICanLadderPressDown },
+	{ 0x68, "UpdateClanStats", UIUpdateClanStats },
+	{ 0x69, "NotOnCorrectClanTeam", UINotOnCorrectClanTeam },
+	{ 0x6a, "IsTeamGame", UIIsTeamGame },
+	{ 0x6b, "NetCnfInit", UINetCnfInit },
+	{ 0x6c, "NetCnfUninit", UINetCnfUninit },
+	{ 0x6d, "NetCnfOpen", UINetCnfOpen },
+	{ 0x6e, "NetCnfClose", UINetCnfClose },
+	{ 0x6f, "NetCnfCount", UINetCnfCount },
+	{ 0x70, "NetCnfCurrCombo", UINetCnfCurrCombo },
+	{ 0x71, "NetCnfGetDispNames", UINetCnfGetDispNames },
+	{ 0x72, "NetGetInterfaceList", UINetGetInterfaceList },
+	{ 0x73, "NetAddDev", UINetAddDev },
+	{ 0x74, "NetAddIfc", UINetAddIfc },
+	{ 0x75, "NetAddCombo", UINetAddCombo },
+	{ 0x76, "NetSaveDev", UINetSaveDev },
+	{ 0x77, "NetSaveIfc", UINetSaveIfc },
+	{ 0x78, "NetSaveCombo", UINetSaveCombo },
+	{ 0x79, "NetUpdateIFCVars", UINetUpdateIFCVars },
+	{ 0x7a, "NetGetDevInfo", UINetGetDevInfo },
+	{ 0x7b, "NetGetIFCInfo", UINetGetIFCInfo },
+	{ 0x7c, "NetGetDevIndex", UINetGetDevIndex },
+	{ 0x7d, "NetCnfSelectCombo", UINetCnfSelectCombo },
+	{ 0x7e, "ForceMediusStatusReport", UIForceMediusStatusReport },
+	{ 0x7f, "AcceptInvitation", UIAcceptInvitation },
+	{ 0x80, "DeclineInvitation", UIDeclineInvitation },
+	{ 0x81, "TransferLeadership", UITransferLeadership },
+	{ 0x82, "PasswordSecurity", UIPasswordSecurity },
+	{ 0x83, "SetTtySpeedFactor", OnSetTtySpeedFactor },
+	{ 0x84, "SetCounterSpeedFactor", OnSetCounterSpeedFactor },
+	{ 0x85, "SetMPMissionSeq", UISetMPMissionSeq },
+	{ 0x86, "SetStickPreset", UISetStickPreset },
+	{ 0x87, "RebootIOP", UIRebootIOP },
+	{ 0x88, "GameHasPassword", UIGameHasPassword },
+	{ 0x89, "NetCnfDeleteAll", UINetCnfDeleteAll },
+	{ 0x8a, "NetCensorText", UINetCensorText },
+	{ 0x8b, "ClanHasInvitations", UIClanHasInvitations },
+	{ 0x8c, "SwitchProgressiveVideo", UISwitchProgressiveVideo },
+	{ 0x8d, "CheckVideoMode", UICheckVideoMode },
+	{ 0x8e, "StopAllSounds", UIStopAllSounds },
+	{ 0x8f, "SysPostInit", UISysPostInit },
+	{ 0x90, "HasClanInvitations", UIHasClanInvitations },
+	{ 0x91, "SysLoadIRX", UISysLoadIRX },
+	{ 0x92, "FlushMenuHistory", UIFlushMenuHistory },
+	{ 0x93, "InvitePlayerToClanWithArg", UIInvitePlayerToClanWithArg },
+	{ 0x94, "VagStreaming", UIVagStreaming },
+	{ 0, NULL, NULL }
+};
+
+int GetUICommandType(const char *name)
+{
+	/* 0x1d0710: a UI_COMMAND function's id by name (case-insensitive); NULL gives 0x95,
+	 * the first id after the table, where the 2D objects' own command types start */
+	if (name == NULL)
+		return 0x95;
+
+	if (*name == ' ')
+		return 0;
+
+	for (u32 i = 0; UICommandTable[i].id != 0; i++)
+	{
+		if (strcasecmp(UICommandTable[i].name, name) == 0)
+			return UICommandTable[i].id;
+	}
+
+	return 0;
 }
 
 /* @socom-skeleton stub zAnimLoadUIMenu__FP5_zrdr */
@@ -1211,13 +1682,71 @@ _zanim_cmd_hdr * zAnimLoadUIAppMenu(_zrdr *)
 }
 
 /* @socom-skeleton stub zAnimUIMenuTick__FP14_zanim_cmd_hdrPf */
-bool zAnimUIMenuTick(_zanim_cmd_hdr *, float *)
+bool zAnimUIMenuTick(_zanim_cmd_hdr *header, float *dT)
 {
+	/* 0x1d0140: a command for a node's 2D object goes to its TickZAnimCmd; else the UI
+	 * function of that id (looked up directly, then by search) runs. */
+	C2DAnimCmdHdr* cmd = reinterpret_cast<C2DAnimCmdHdr*>(header);
+	CZAnim* anim = ZAnim.m_CurAnim;
+	bool handled = false;
+	bool result = true;
+
+	if (cmd->node_ref_index != 0)
+	{
+		C2D* object = NULL;
+		anim->Refresh(false);
+		zdb::CNode* node = anim->GetNode(cmd->node_ref_index, false);
+
+		if (node != NULL)
+		{
+			zdb::CVisual* visual = node->GetFirstVisual();
+			C2DVisual* visual2d = visual ? visual->Get2DVisual() : NULL;
+
+			if (visual2d != NULL)
+				object = visual2d->m_2d;
+		}
+
+		if (object != NULL)
+			handled = object->TickZAnimCmd(header, dT, &result);
+	}
+
+	if (handled)
+		return result;
+
+	anim->GetName(cmd->m_argument_index);
+	u32 id = cmd->m_command_type;
+#ifdef SOCOM_PORT
+	{
+		static u32 portCalls = 0;
+
+		if (portCalls++ < 40)
+			SOCOM_PORT_TRACE("UI: UI_COMMAND 0x%x (%s) arg '%s'", id, id < 0x95 && UICommandTable[id ? id - 1 : 0].id == id ? UICommandTable[id - 1].name : "?",
+				anim->GetName(cmd->m_argument_index) ? anim->GetName(cmd->m_argument_index) : "");
+	}
+#endif
+
+	if (UICommandTable[id].id == id)
+	{
+		if (UICommandTable[id].func != NULL)
+			return UICommandTable[id].func(cmd, dT);
+	}
+	else
+	{
+		for (u32 i = 0; UICommandTable[i].id != 0; i++)
+		{
+			if (UICommandTable[i].id == id && UICommandTable[i].func != NULL)
+				return UICommandTable[i].func(cmd, dT);
+		}
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub zAnimUIAppMenuTick__FP14_zanim_cmd_hdrPf */
 bool zAnimUIAppMenuTick(_zanim_cmd_hdr *, float *)
 {
+	/* 0x1d0130 */
+	return true;
 }
 
 /* @socom-skeleton stub Advance__Q224@unnamed@zanim_menu_cpp@17CSelectedCharsItrFv */

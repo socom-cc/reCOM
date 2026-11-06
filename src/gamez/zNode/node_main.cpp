@@ -523,28 +523,33 @@ void zdb::CNode::ReserveChildren(int size)
 namespace zdb {
 void CNode::AddChild(CNode* node)
 	{
-		CNode* parent = node->m_parent;
-		if (node && parent != this)
+		/* 0x227720: appended last (the port had inserted children first, which reversed
+		 * the drawing order of UI planes); a cell parent (type 3) does not re-parent */
+		if (node == NULL || node->m_parent == this)
+			return;
+
+		/* port: not written - a type-7 child of a type-3 parent copies its
+		 * m_char_common flag first (0x227740) */
+		CNode* child = node;
+
+		if (m_type != (u32)TYPE::CHILD)
 		{
-			CNode* child = node;
-			if (m_type != (u32)TYPE::CHILD)
-			{
-				if (parent)
-				{
-					parent->DeleteChild(node);
-				}
+			if (node->m_parent)
+				node->m_parent->DeleteChild(node);
 
-				child->m_parent = this;
-				child->m_count++;
-			}
-
-			if (m_count == m_child.size() && 1000 < m_count)
-			{
-				m_child.reserve(m_count + 100);
-			}
-
-			m_child.insert(m_child.begin(), child);
+			child->m_parent = this;
+			child->m_count++;
 		}
+
+		if (m_child.size() == m_child.capacity() && 1000 < (int)m_child.size())
+			m_child.reserve(m_child.size() + 100);
+
+		m_child.push_back(child);
+
+		if (child->m_hasVisuals)
+			m_hasVisuals = true;
+
+		m_modified = true;
 	}
 }
 
@@ -589,35 +594,29 @@ s32 CNode::DeleteChild(CNode* child)
 namespace zdb {
 CNode* CNode::FindChild(const char* name, bool nested)
 	{
+		/* 0x227510: a direct child of that name, else (nested) the first match found by
+		 * each child's own search, in order (the earlier port body never recursed) */
 		if (!name)
 			return NULL;
 
-		zdb::CNode* child = NULL;
+		zdb::CNode* found = NULL;
 		size_t length = strlen(name);
 
-		for (auto i = m_child.begin(); i != m_child.end(); ++i)
+		for (auto i = m_child.begin(); found == NULL && i != m_child.end(); ++i)
 		{
-			child = *i;
+			zdb::CNode* child = *i;
 
-			size_t childStringLength = strlen(child->m_name);
-
-			if (length == childStringLength && strcmp(child->m_name, name) == 0)
-				return *i;
+			if (length == strlen(child->m_name) && strcmp(child->m_name, name) == 0)
+				found = child;
 		}
 
-		if (nested)
+		if (found == NULL && nested)
 		{
-			for (auto i = m_child.begin(); i != m_child.end(); i++)
-			{
-				child = *i;
-				size_t childStringLength = strlen(child->m_name);
-
-				if (length == childStringLength && strcmp(child->m_name, name) == 0)
-					return child->FindChild(name, nested);
-			}
+			for (auto i = m_child.begin(); found == NULL && i != m_child.end(); ++i)
+				found = (*i)->FindChild(name, true);
 		}
 
-		return NULL;
+		return found;
 	}
 }
 

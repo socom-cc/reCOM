@@ -492,8 +492,10 @@ CTickerTapeText::~CTickerTapeText()
 }
 
 /* @socom-skeleton stub Get2DVisual__9C2DVisualFv */
-void C2DVisual::Get2DVisual() /* port: 0x393690 returns this; void is the skeleton placeholder */
+C2DVisual * C2DVisual::Get2DVisual()
 {
+	/* 0x393690 */
+	return this;
 }
 
 /* @socom-skeleton stub __dt__9C2DVisualFv */
@@ -723,6 +725,13 @@ void CListItemStringTypeImpl::DrawPrep(const CUIListBox &, int, int, int)
 /* @socom-skeleton stub __ct__17CRenderableStringFv */
 CRenderableString::CRenderableString()
 {
+	/* 0x391d50: twice the font size, white, at the node origin */
+	m_alternateFont = NULL;
+	m_scale = 2.0f;
+	m_color.x = 255.0f;
+	m_color.y = 255.0f;
+	m_color.z = 255.0f;
+	m_offset = CPnt3D::zero;
 }
 
 /* @socom-skeleton stub __dt__17CRenderableStringFv */
@@ -733,11 +742,26 @@ CRenderableString::~CRenderableString()
 /* @socom-skeleton stub Update__17CRenderableStringFv */
 void CRenderableString::Update()
 {
+	/* 0x391c70 */
 }
 
 /* @socom-skeleton stub Draw__17CRenderableStringFRC7CMatrixPQ23zdb16CTextureRelocMgr */
-void CRenderableString::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+void CRenderableString::Draw(const CMatrix &transform, zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x391b20: the offset point through the node matrix (VU0 in the ELF) gives the
+	 * string's position (1/16 pixels) and depth */
+	f32 x = transform.m_matrix[0][0] * m_offset.x + transform.m_matrix[1][0] * m_offset.y + transform.m_matrix[2][0] * m_offset.z + transform.m_matrix[3][0];
+	f32 y = transform.m_matrix[0][1] * m_offset.x + transform.m_matrix[1][1] * m_offset.y + transform.m_matrix[2][1] * m_offset.z + transform.m_matrix[3][1];
+	f32 z = transform.m_matrix[0][2] * m_offset.x + transform.m_matrix[1][2] * m_offset.y + transform.m_matrix[2][2] * m_offset.z + transform.m_matrix[3][2];
+
+	if (x != (f32)m_pos.x || y != (f32)m_pos.y)
+	{
+		m_pos.x = (s32)x << 4;
+		m_pos.y = (s32)y << 4;
+		Update();
+	}
+
+	C2DString::Draw(reloc, NULL, z);
 }
 
 /* @socom-skeleton stub LoadSpec__12CWrappedTextFRC9CWrapSpec */
@@ -761,8 +785,31 @@ void CWrappedText::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
 }
 
 /* @socom-skeleton stub LoadSpec__17CRenderableStringFRC9CTextSpec */
-void CRenderableString::LoadSpec(const CTextSpec &)
+void CRenderableString::LoadSpec(const CTextSpec &spec)
 {
+	/* 0x390fb0: caption, scale, centring and colour from the spec; a spec FONT loads the
+	 * string's own font from the mission fonts reader. Text takes no input. */
+	m_scale = spec.m_scale;
+	SetString(spec.m_caption.c_str());
+	m_isCentered = spec.m_hCentered;
+	m_specColor.x = spec.m_color.x;
+	m_specColor.y = spec.m_color.y;
+	m_specColor.z = spec.m_color.z;
+	m_color.x = m_specColor.x;
+	m_color.y = m_specColor.y;
+	m_color.z = m_specColor.z;
+
+	if (spec.m_hasFont)
+	{
+		m_alternateFont = new C2DFont();
+		m_alternateFont->Load(FetchMissionFontsRdr(), spec.m_font.c_str());
+		SetFont(m_alternateFont);
+	}
+
+	SetCanHandleInput(false);
+
+	/* port: not written - a spec UIVAR attaches the string to its UI variable
+	 * (theUIVarManager.Add, AttachUIVar, UpdateUIVar) */
 }
 
 /* @socom-skeleton stub UpdateUIVar__17CRenderableStringFP11CUIVariable */
@@ -1202,8 +1249,22 @@ C2DAnimCmdHdr * CRenderableString::ParseZAnimCmd(_zrdr *)
 }
 
 /* @socom-skeleton stub TickZAnimCmd__17CRenderableStringFP14_zanim_cmd_hdrPfPb */
-bool CRenderableString::TickZAnimCmd(_zanim_cmd_hdr *, float *, bool *)
+bool CRenderableString::TickZAnimCmd(_zanim_cmd_hdr *header, float *, bool *result)
 {
+	/* 0x388d60: the string's one command (type GetUICommandType(NULL) + 1) sets its text
+	 * to the command's argument */
+	C2DAnimCmdHdr* cmd = reinterpret_cast<C2DAnimCmdHdr*>(header);
+	CZAnim* anim = ZAnim.m_CurAnim;
+	bool mine = cmd->m_command_type - GetUICommandType(NULL) == 1;
+
+	if (mine)
+	{
+		SetString(anim->GetName(cmd->m_argument_index));
+		Update();
+		*result = true;
+	}
+
+	return mine;
 }
 
 /* @socom-skeleton stub GetZAnimCmdType__17CRenderableStringFPCc */

@@ -79,6 +79,7 @@ static f32 _x;
 #include "gamez/zArchive/zar.h"
 #include "gamez/zMath/zmath.h"
 #include "gamez/zNode/znode.h"
+#include "gamez/zNode/node_world.h" /* zdb::CWorld (GetDatabaseNode) */
 #include "gamez/zReader/zrdr.h"
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
@@ -106,18 +107,14 @@ static int _digit_val[5];
 /* @socom-skeleton body Open__10CZAnimMainFv */
 void CZAnimMain::Open()
 {
+	/* 0x1c53b0 */
 	if (m_IsOpen)
-	{
-		Unload();
-		Close();
-	}
+		Close(); /* the ELF inlines Unload and the rest of Close */
 
 	m_version = 0x1e;
 	m_gravity = -9.8f;
-	_x = 0.0f;
-	m_Lod = 2;
+	m_Lod = 2; /* HIGH */
 	m_search_external_nodes = false;
-	m_unused = 0;
 	m_animset_count = 0;
 	m_animset_list = NULL;
 	m_cmdset_count = 0;
@@ -125,17 +122,19 @@ void CZAnimMain::Open()
 	m_UserActionAnimIndex = 0;
 	m_block_activation_callback = false;
 
+	f32 x = 0.0f;
+
 	for (u32 i = 0; i < 41; i++)
 	{
-		m_inv_exp[i] = 1.0f - expf(_x) / (expf(10.0f) - 1.0f);
-		_x += 0.25f;
-		m_exp[i] = expf(_x) / (expf(10.0f) - 1.0f);
+		m_inv_exp[i] = 1.0f - (expf(x) - 1.0f) / (expf(10.0f) - 1.0f);
+		m_exp[i] = (expf(x) - 1.0f) / (expf(10.0f) - 1.0f);
+		x += 0.25f;
 	}
 
 	InitCommands();
 	NewAnimSet(2);
 
-	m_animset_list->m_IsAvailable = true;
+	m_animset_list[0].m_IsAvailable = true;
 	m_animset_list[1].m_IsAvailable = true;
 	m_animset_list[2].m_IsAvailable = true;
 
@@ -197,85 +196,118 @@ __sFILE * CZAnimMain::OpenFile(const char *, const char *)
 }
 
 /* @socom-skeleton stub ActivateBegin__10CZAnimMainFP6CZAnim */
-void CZAnimMain::ActivateBegin(CZAnim *)
+void CZAnimMain::ActivateBegin(CZAnim *anim)
 {
+	/* 0x1c5030: the anim starts: each live sequence is armed - the activation-1 ones
+	 * start (state 2), the others wait to be called (state 1). */
+	m_CurAnim = anim;
+	m_CurSeq = NULL;
+	anim->State(2);
+	m_CurAnim->m_timer = 0.0f;
+
+	for (m_CurSeq = reinterpret_cast<_zsequence*>(m_CurAnim->m_seq_data);
+		reinterpret_cast<char*>(m_CurSeq) < m_CurAnim->m_seq_data + m_CurAnim->m_seq_data_size;
+		m_CurSeq = reinterpret_cast<_zsequence*>(reinterpret_cast<char*>(m_CurSeq) + m_CurSeq->seq_data_size))
+	{
+		if (m_CurSeq->state != 0)
+			SeqSetState(m_CurSeq->activation == 1 ? 2 : 1);
+	}
+
+	anim->State(4);
 }
 
 /* @socom-skeleton body SplitName__10CZAnimMainFPCcPPc */
 char * CZAnimMain::SplitName(const char *name, char **splitname)
 {
+	/* 0x1c4f90: "set::cmd" - returns a copy of the set name (freed by the caller) */
 	char* haystack = NULL;
 
 	if (!name)
 	{
 		*splitname = NULL;
-		haystack = NULL;
+	}
+	else if (!strstr(name, "::"))
+	{
+		*splitname = const_cast<char*>(name); /* port: const_cast for GCC */
 	}
 	else
 	{
-		char* separator = strstr(name, "::");
-
-		if (!separator)
-		{
-			*splitname = const_cast<char*>(name); /* port: const_cast for GCC */
-		}
-		else
-		{
-			haystack = zstrdup(name);
-			separator = strstr(haystack, "::");
-			*separator = '\0';
-			*splitname = separator + 2;
-		}
+		haystack = _strdup(name, "anim_main.cpp", 0x157);
+		char* separator = strstr(haystack, "::");
+		*separator = '\0';
+		*splitname = separator + 2;
 	}
 
 	return haystack;
 }
 
 /* @socom-skeleton body GetCmdSet__10CZAnimMainFPcb */
-_zanim_cmd_set* CZAnimMain::GetCmdSet(char* name, bool param_2)
+int CZAnimMain::GetCmdSet(char* name, bool create)
 {
-	_zanim_cmd_set* current_set = NULL;
-	u32 i = 0;
-	
-	while (true)
+	/* 0x1c4e20: the command set of that name (NULL = the unnamed set 0); a new set gets
+	 * the "Reserved" command at index 0, so data type 0 never names a command. */
+	for (int i = 0; i < m_cmdset_count; i++)
 	{
-		current_set = &m_cmdset_list[i];
-		if (m_cmdset_count <= current_set->count)
+		char* setname = m_cmdset_list[i].name;
+
+		if (name == NULL)
 		{
-			if (param_2)
-			{
-				current_set = (_zanim_cmd_set*)zrealloc(m_cmdset_list, m_cmdset_count + 1);
-				m_cmdset_list = current_set;
-				memset(m_cmdset_list + m_cmdset_count, 0, sizeof(_zanim_cmd_set));
-				
-				if (name)
-				{
-					m_cmdset_list[m_cmdset_count].name = zstrdup(name);
-				}
-			}
+			if (setname == NULL)
+				return i;
+		}
+		else if (setname != NULL && strcmp(name, setname) == 0)
+		{
+			return i;
 		}
 	}
+
+	if (!create)
+		return 0;
+
+	m_cmdset_list = static_cast<_zanim_cmd_set*>(_realloc(m_cmdset_list, (m_cmdset_count + 1) * sizeof(_zanim_cmd_set), "anim_main.cpp", 0x17c));
+	memset(&m_cmdset_list[m_cmdset_count], 0, sizeof(_zanim_cmd_set));
+
+	if (name != NULL)
+		m_cmdset_list[m_cmdset_count].name = _strdup(name, "anim_main.cpp", 0x181);
+
+	int set = m_cmdset_count++;
+	GetCmd(set, const_cast<char*>("Reserved"), true);
+	return set;
 }
 
 /* @socom-skeleton body GetCmd__10CZAnimMainFiPcb */
-int CZAnimMain::GetCmd(int index, char *name, bool alloc)
+int CZAnimMain::GetCmd(int set, char *name, bool create)
 {
-	for (u32 i = 0; i < m_cmdset_list[index].count; i++)
-	{
-		if (alloc)
-		{
-			zanim_cmd* command = static_cast<zanim_cmd*>(zrealloc(m_cmdset_list[index].cmd_list, m_cmdset_list[index].count + 1));
-			m_cmdset_list[index].cmd_list = command;
-			zanim_cmd* buf = (zanim_cmd*)m_cmdset_list[index].cmd_list->name + m_cmdset_list[index].count * 6;
-			memset(buf, 0, sizeof(zanim_cmd));
-			buf->name = zstrdup(name);
-			buf->cmd_val.index.set = index;
-			buf->cmd_val.index.cmd = m_cmdset_list[index].count;
-			m_cmdset_list[index].count++;
-		}
-		else
-		{
+	/* 0x1c4c50: the command's index in the set; added at the end when create is set,
+	 * otherwise looked up in the other sets too (0 when not found). */
+	_zanim_cmd_set* cmdset = &m_cmdset_list[set];
 
+	for (int i = 0; i < cmdset->count; i++)
+	{
+		if (cmdset->cmd_list[i].name != NULL && strcmp(name, cmdset->cmd_list[i].name) == 0)
+			return i;
+	}
+
+	if (create)
+	{
+		cmdset->cmd_list = static_cast<zanim_cmd*>(_realloc(cmdset->cmd_list, (cmdset->count + 1) * sizeof(zanim_cmd), "anim_main.cpp", 0x1a2));
+		zanim_cmd* cmd = &cmdset->cmd_list[cmdset->count];
+		memset(cmd, 0, sizeof(zanim_cmd));
+		cmd->name = _strdup(name, "anim_main.cpp", 0x1a8);
+		cmd->cmd_val.index.set = set;
+		cmd->cmd_val.index.cmd = cmdset->count;
+		return cmdset->count++;
+	}
+
+	for (int s = 0; s < m_cmdset_count; s++)
+	{
+		if (s == set)
+			continue;
+
+		for (int i = 0; i < m_cmdset_list[s].count; i++)
+		{
+			if (strcmp(name, m_cmdset_list[s].cmd_list[i].name) == 0)
+				return i;
 		}
 	}
 
@@ -283,114 +315,184 @@ int CZAnimMain::GetCmd(int index, char *name, bool alloc)
 }
 
 /* @socom-skeleton stub GetCmdEntry__10CZAnimMainFUs */
-zanim_cmd * CZAnimMain::GetCmdEntry(unsigned short)
+zanim_cmd * CZAnimMain::GetCmdEntry(unsigned short type)
 {
+	/* 0x1c4c10: data type = set << 8 | command */
+	return &m_cmdset_list[type >> 8].cmd_list[type & 0xff];
 }
 
 /* @socom-skeleton body GetCmdEntry__10CZAnimMainFPCcb */
-zanim_cmd * CZAnimMain::GetCmdEntry(const char *name, bool param_2)
+zanim_cmd * CZAnimMain::GetCmdEntry(const char *name, bool create)
 {
-	char* buf = NULL;
-	char* splitname = SplitName(name, &buf);
+	/* 0x1c4b50 */
+	char* cmdname;
+	char* setname = SplitName(name, &cmdname);
+	int set = GetCmdSet(setname, create) & 0xff;
+	int cmd = GetCmd(set, cmdname, create) & 0xff;
 
-	return NULL;
+	if (setname != NULL)
+		_free(setname, "anim_main.cpp", 0x1e0);
+
+	return &m_cmdset_list[set].cmd_list[cmd];
 }
 
 /* @socom-skeleton body AddCmd__10CZAnimMainFPCcPFP5_zrdr_P14_zanim_cmd_hdrPFP14_zanim_cmd_hdr_vPFP14_zanim_cmd_hdrPf_bPFP14_zanim_cmd_hdr_v */
-_zanim_cmd_hdr* CZAnimMain::AddCmd(const char* name,
+u16 CZAnimMain::AddCmd(const char* name,
 	_zanim_cmd_hdr* (*parser)(_zrdr*),
 	void(*begin)(_zanim_cmd_hdr*),
 	bool(*tick)(_zanim_cmd_hdr*, float*),
 	void(*end)(_zanim_cmd_hdr*))
 {
-	return 0;
+	/* 0x1c4a50: register (or re-register) a command; returns its data type,
+	 * set << 8 | index. The compiled ZAR data names commands by these values, so the
+	 * registration order is part of the data format. */
+	char* cmdname;
+	char* setname = SplitName(name, &cmdname);
+	u32 set = GetCmdSet(setname, true) & 0xff;
+	u32 cmd = GetCmd(set, cmdname, true) & 0xff;
+
+	if (setname != NULL)
+		_free(setname, "anim_main.cpp", 0x1e0);
+
+	zanim_cmd* entry = &m_cmdset_list[set].cmd_list[cmd];
+	entry->parser = reinterpret_cast<void*(*)()>(parser);
+	entry->begin = reinterpret_cast<void*(*)()>(begin);
+	entry->tick = reinterpret_cast<void*(*)()>(tick);
+	entry->end = reinterpret_cast<void*(*)()>(end);
+	return (u16)(set << 8 | cmd);
 }
 
 /* @socom-skeleton body CmdNext__10CZAnimMainFv */
 void CZAnimMain::CmdNext()
 {
-	m_CurSeq->cmd_pc += *m_CurSeq->cmd_pc;
+	/* 0x1c4a20: step over the current command (its header's data_size) */
+	_zanim_cmd_hdr* header = reinterpret_cast<_zanim_cmd_hdr*>(m_CurSeq->cmd_pc);
+	m_CurSeq->cmd_pc += header->data_size;
 	m_CurSeq->cmd_state = 2;
 }
 
 /* @socom-skeleton body CmdNext__10CZAnimMainFi */
-void CZAnimMain::CmdNext(s32 program_counter)
+void CZAnimMain::CmdNext(s32 bytes)
 {
-	m_CurSeq->cmd_pc += program_counter;
+	/* 0x1c4a00 */
+	m_CurSeq->cmd_pc += bytes;
 	m_CurSeq->cmd_state = 2;
 }
 
 /* @socom-skeleton body CmdSet__10CZAnimMainFi */
-void CZAnimMain::CmdSet(s32 program_counter)
+void CZAnimMain::CmdSet(s32 offset)
 {
-	m_CurSeq->cmd_pc = (s8*)m_CurSeq->loop_counter + program_counter;
+	/* 0x1c49e0: jump to an offset from the start of the sequence */
+	m_CurSeq->cmd_pc = reinterpret_cast<s8*>(m_CurSeq) + offset;
 	m_CurSeq->cmd_state = 2;
 }
 
 /* @socom-skeleton body CmdValid__10CZAnimMainFv */
 bool CZAnimMain::CmdValid()
 {
-	_zsequence* sequence = m_CurSeq;
-	return *sequence->cmd_pc < sequence->name_index + sequence->seq_data_size;
+	/* 0x1c49c0 */
+	return reinterpret_cast<char*>(m_CurSeq->cmd_pc) < reinterpret_cast<char*>(m_CurSeq) + m_CurSeq->seq_data_size;
 }
 
 /* @socom-skeleton stub CmdTick__10CZAnimMainFPf */
-unsigned char CZAnimMain::CmdTick(float *)
+unsigned char CZAnimMain::CmdTick(float *dT)
 {
+	/* 0x1c4870: begin the command once (cmd_state 2 -> 4), tick it while it runs, end it
+	 * when the tick reports done; the time the tick used is added to cmd_timer. */
+	_zsequence* seq = m_CurSeq;
+	bool done = true;
+	_zanim_cmd_hdr* header = reinterpret_cast<_zanim_cmd_hdr*>(seq->cmd_pc);
+	u16 type = header->data_type;
+	zanim_cmd* cmd = &m_cmdset_list[type >> 8].cmd_list[type & 0xff];
+
+	if (seq->cmd_state == 2)
+	{
+		seq->cmd_timer = 0.0f;
+
+		if (cmd->begin)
+			reinterpret_cast<void(*)(_zanim_cmd_hdr*)>(cmd->begin)(header);
+
+		m_CurSeq->cmd_state = 4;
+	}
+
+	if (m_CurSeq->cmd_state == 4 && cmd->tick)
+	{
+		f32 before = *dT;
+		done = reinterpret_cast<bool(*)(_zanim_cmd_hdr*, float*)>(cmd->tick)(header, dT);
+
+		if (m_CurSeq->state == 5)
+			return false;
+
+		m_CurSeq->cmd_timer += before - *dT;
+	}
+
+	if (done && cmd->end)
+		reinterpret_cast<void(*)(_zanim_cmd_hdr*)>(cmd->end)(header);
+
+	return done;
 }
 
 /* @socom-skeleton body GetAnimSetIndex__10CZAnimMainFPCcb */
-u32 CZAnimMain::GetAnimSetIndex(const char* animName, bool searchList)
+int CZAnimMain::GetAnimSetIndex(const char* name, bool create)
 {
-	for (u32 i = 0; i < m_animset_count; i++)
-	{
-		if (!animName)
-		{
-			if (!m_animset_list[i].m_name)
-				return i;
+	/* 0x1c46f0: by name (case-insensitive; NULL finds an unnamed or "None" set); with
+	 * create, a free set (else a new one) is taken and named. -1 when not found. */
+	int count = m_animset_count;
 
-			if (!strcasecmp(m_animset_list[i].m_name, "None"))
+	for (int i = 0; i < count; i++)
+	{
+		char* setname = m_animset_list[i].m_name;
+
+		if (name == NULL)
+		{
+			if (setname == NULL || strcasecmp(setname, "None") == 0)
 				return i;
 		}
-		else if (m_animset_list[i].m_name)
+		else if (setname != NULL && strcasecmp(name, setname) == 0)
 		{
-			if (!strcasecmp(m_animset_list[i].m_name, animName))
-				return i;
+			return i;
 		}
 	}
 
-	u32 i = 0;
-	if (searchList)
+	if (!create)
+		return -1;
+
+	int index;
+
+	for (index = 0; index < count; index++)
 	{
-		for (i = 0; i < m_animset_count; i++)
-		{
-			if (&m_animset_list[i].m_IsAvailable)
-			{
-				// wtf??
-				m_animset_list[i * 6].m_IsAvailable = false;
-				goto setname;
-			}
-		}
-
-		NewAnimSet(m_animset_count);
-
-	setname:
-		if (animName)
-			m_animset_list[i * 6].Name(animName);
+		if (m_animset_list[index].m_IsAvailable)
+			break;
 	}
 
-	return 0;
+	if (index < count)
+	{
+		m_animset_list[index].m_IsAvailable = false;
+	}
+	else
+	{
+		NewAnimSet(count);
+		m_animset_list[count].m_IsAvailable = false;
+		index = count;
+	}
+
+	if (name != NULL)
+		m_animset_list[index].Name(name);
+
+	return index;
 }
 
 /* @socom-skeleton body NewAnimSet__10CZAnimMainFi */
 bool CZAnimMain::NewAnimSet(int index)
 {
+	/* 0x1c4620: grow the set list up to index; new sets are named "None" */
 	while (m_animset_count <= index)
 	{
-		m_animset_list = static_cast<CZAnimSet*>(zrealloc(m_animset_list, m_animset_count + 1 * sizeof(CZAnimSet)));
-		memset(&m_animset_list[m_animset_count], 0, sizeof(CZAnimSet));
-		m_animset_list[m_animset_count].Init();
-		m_animset_list[m_animset_count].Name("None");
+		m_animset_list = static_cast<CZAnimSet*>(_realloc(m_animset_list, (m_animset_count + 1) * sizeof(CZAnimSet), "anim_main.cpp", 0x2d7));
+		CZAnimSet* set = &m_animset_list[m_animset_count];
+		memset(set, 0, sizeof(CZAnimSet));
+		set->Init();
+		set->Name("None");
 		m_animset_count++;
 	}
 
@@ -408,8 +510,53 @@ CZAnim * CZAnimMain::GetAnim(int, int)
 }
 
 /* @socom-skeleton stub GetAnim__10CZAnimMainFPCcPCc */
-CZAnim * CZAnimMain::GetAnim(const char *, const char *)
+CZAnim * CZAnimMain::GetAnim(const char *name, const char *setname)
 {
+	/* 0x1c4340: "set::anim", or the anim in the named set, else in the current set;
+	 * failing that, the first other set that has it. */
+	int set;
+	char* animname;
+
+	if (setname == NULL)
+	{
+		char* split = SplitName(name, &animname);
+
+		if (split == NULL)
+		{
+			set = m_CurAnimSet ? (int)(m_CurAnimSet - m_animset_list) : 0;
+		}
+		else
+		{
+			set = GetAnimSetIndex(split, true);
+			_free(split, "anim_main.cpp", 0x311);
+		}
+	}
+	else
+	{
+		set = GetAnimSetIndex(setname, true);
+		animname = const_cast<char*>(name);
+	}
+
+	CZAnim* anim = NULL;
+
+	if (animname != NULL)
+		anim = m_animset_list[set].Anim(animname);
+
+	if (anim == NULL)
+	{
+		for (int i = 0; i < m_animset_count; i++)
+		{
+			if (i == set)
+				continue;
+
+			anim = animname ? m_animset_list[i].Anim(animname) : NULL;
+
+			if (anim != NULL)
+				return anim;
+		}
+	}
+
+	return anim;
 }
 
 /* @socom-skeleton stub GetAnimIndex__10CZAnimMainFP6CZAnimPiPi */
@@ -420,17 +567,23 @@ void CZAnimMain::GetAnimIndex(CZAnim *, int *, int *)
 /* @socom-skeleton body GetAnimSet__10CZAnimMainFi */
 CZAnimSet * CZAnimMain::GetAnimSet(int i)
 {
-	if (i < 0 || m_animset_count <= 1)
+	/* 0x1c4270 */
+	if (i < 0 || i >= m_animset_count)
 		return NULL;
-	else
-		return &m_animset_list[i];
 
-	return NULL;
+	return &m_animset_list[i];
 }
 
 /* @socom-skeleton stub GetAnimSet__10CZAnimMainFPCc */
-CZAnimSet * CZAnimMain::GetAnimSet(const char *)
+CZAnimSet * CZAnimMain::GetAnimSet(const char *name)
 {
+	/* 0x1c4210 */
+	int i = GetAnimSetIndex(name, false);
+
+	if (i < 0 || i >= m_animset_count)
+		return NULL;
+
+	return &m_animset_list[i];
 }
 
 /* @socom-skeleton stub NewSeq__10CZAnimMainFPCc */
@@ -444,8 +597,16 @@ void CZAnimMain::SeqSetName(const char *)
 }
 
 /* @socom-skeleton stub SeqSetState__10CZAnimMainFi */
-void CZAnimMain::SeqSetState(int)
+void CZAnimMain::SeqSetState(int state)
 {
+	/* 0x1c4050: states 1, 2 and 5 clear the pause flag */
+	if (m_CurSeq == NULL)
+		return;
+
+	m_CurSeq->state = state;
+
+	if (m_CurSeq->state == 5 || m_CurSeq->state == 2 || m_CurSeq->state == 1)
+		m_CurSeq->paused = 0;
 }
 
 /* @socom-skeleton stub SeqAppendCmd__10CZAnimMainFP14_zanim_cmd_hdr */
@@ -454,38 +615,130 @@ void CZAnimMain::SeqAppendCmd(_zanim_cmd_hdr *)
 }
 
 /* @socom-skeleton stub SeqTick__10CZAnimMainFf */
-void CZAnimMain::SeqTick(float)
+void CZAnimMain::SeqTick(float dT)
 {
+	/* 0x1c3ca0: states 1 waiting, 2 starting, 3 restarting, 4 running, 5 done. A starting
+	 * sequence resets its timers and points at its first command; then commands run
+	 * until one is still busy, the time is used up (only timeless commands run at no
+	 * time), or the sequence ends. (The ELF returns the state; no caller reads it.) */
+	u8 state = m_CurSeq->state;
+
+	if (state == 5)
+		return;
+
+	if (state != 4)
+	{
+		if (state != 3)
+		{
+			if (state != 2)
+				return;
+
+			m_CurSeq->loop_timer = 0.0f;
+			m_CurSeq->loop_counter = 0;
+			m_CurSeq->m_IF_NestLevel = 0;
+		}
+
+		m_CurSeq->seq_timer = 0.0f;
+		SeqSetState(4);
+		m_CurSeq->cmd_pc = reinterpret_cast<s8*>(m_CurSeq + 1);
+		m_CurSeq->cmd_state = 2;
+
+		if (!CmdValid())
+		{
+			m_CurSeq->state = 5;
+			return;
+		}
+	}
+
+	if (m_CurSeq->paused)
+		return;
+
+	f32 left = dT;
+
+	while (true)
+	{
+		f32 before = left;
+
+		if (left <= 0.0f && !reinterpret_cast<_zanim_cmd_hdr*>(m_CurSeq->cmd_pc)->timeless)
+			return;
+
+		if (m_CurAnim->m_state == 5 || m_CurAnim->m_paused)
+			return;
+
+		bool done = CmdTick(&left);
+		m_CurSeq->seq_timer += before - left;
+
+		if (!done)
+			return;
+
+		CmdNext();
+
+		if (!CmdValid())
+			break;
+	}
+
+	m_CurSeq->state = 5;
 }
 
 /* @socom-skeleton stub SeqFirst__10CZAnimMainFv */
 void CZAnimMain::SeqFirst()
 {
+	/* 0x1c3c90 */
+	m_CurSeq = reinterpret_cast<_zsequence*>(m_CurAnim->m_seq_data);
 }
 
 /* @socom-skeleton stub SeqNext__10CZAnimMainFv */
 void CZAnimMain::SeqNext()
 {
+	/* 0x1c3c70 */
+	m_CurSeq = reinterpret_cast<_zsequence*>(reinterpret_cast<char*>(m_CurSeq) + m_CurSeq->seq_data_size);
 }
 
 /* @socom-skeleton stub SeqValid__10CZAnimMainFv */
-void CZAnimMain::SeqValid()
+bool CZAnimMain::SeqValid()
 {
+	/* 0x1c3c50 */
+	return reinterpret_cast<char*>(m_CurSeq) < m_CurAnim->m_seq_data + m_CurAnim->m_seq_data_size;
 }
 
 /* @socom-skeleton stub StateRunning__10CZAnimMainFi */
-void CZAnimMain::StateRunning(int)
+bool CZAnimMain::StateRunning(int state)
 {
+	/* 0x1c3c10 */
+	return state == 3 || state == 4 || state == 2;
 }
 
 /* @socom-skeleton stub SeqRunning__10CZAnimMainFv */
-void CZAnimMain::SeqRunning()
+bool CZAnimMain::SeqRunning()
 {
+	/* 0x1c3bd0 */
+	return StateRunning(m_CurSeq->state);
 }
 
 /* @socom-skeleton stub ActivateSequence__10CZAnimMainFPCc */
-void CZAnimMain::ActivateSequence(const char *)
+void CZAnimMain::ActivateSequence(const char *name)
 {
+	/* 0x1c3a40: start the current anim's sequence of that name unless it runs already */
+	if (name == NULL)
+		return;
+
+	_zsequence* saved = m_CurSeq;
+
+	for (m_CurSeq = reinterpret_cast<_zsequence*>(m_CurAnim->m_seq_data);
+		reinterpret_cast<char*>(m_CurSeq) < m_CurAnim->m_seq_data + m_CurAnim->m_seq_data_size;
+		m_CurSeq = reinterpret_cast<_zsequence*>(reinterpret_cast<char*>(m_CurSeq) + m_CurSeq->seq_data_size))
+	{
+		char* seqname = m_CurAnim->GetName(m_CurSeq->name_index);
+
+		if (seqname != NULL && strcmp(seqname, name) == 0 && !StateRunning(m_CurSeq->state))
+		{
+			SeqSetState(2);
+			m_anim_complete = false;
+			break;
+		}
+	}
+
+	m_CurSeq = saved;
 }
 
 /* @socom-skeleton stub StopSequence__10CZAnimMainFPCc */
@@ -519,8 +772,31 @@ void CZAnimMain::GetNodeSearchScope(const char *, int *)
 }
 
 /* @socom-skeleton stub GetDatabaseNode__10CZAnimMainFPCci */
-zdb::CNode * CZAnimMain::GetDatabaseNode(const char *, int)
+zdb::CNode * CZAnimMain::GetDatabaseNode(const char *name, int scope)
 {
+	/* 0x1c3230: scope 0 GLOBAL (all), 1 LOCAL, 2 MODEL, 3 WORLD, 4 MENU */
+	zdb::CWorld* world = zdb::CWorld::m_world;
+	zdb::CNode* node = NULL;
+
+	if (world != NULL && (scope == 3 || scope == 0))
+	{
+		if (world->m_name != NULL && strcmp(world->m_name, name) == 0)
+			node = world;
+
+		if (node == NULL)
+			node = world->FindChild(name, true);
+
+		/* port: not written - the world's landmark list is searched next (0x1c32c8) */
+	}
+
+	if (node == NULL && world != NULL && (scope == 2 || scope == 0))
+		node = zdb::CWorld::GetModel(name);
+
+	if (node == NULL && scope == 4 && GetMenuNode() != NULL)
+		node = GetMenuNode()->FindChild(name, true);
+
+	/* port: not written - scope 0 finally searches zdb::NodeUniverse (0x1c33d4) */
+	return node;
 }
 
 /* @socom-skeleton stub GetDirectionRelativeToNode__10CZAnimMainFP6CPnt3DPQ23zdb5CNode */
@@ -529,48 +805,185 @@ void CZAnimMain::GetDirectionRelativeToNode(CPnt3D *, zdb::CNode *)
 }
 
 /* @socom-skeleton stub GetName__15CZAnimNameTableFi */
-char * CZAnimNameTable::GetName(int)
+char * CZAnimNameTable::GetName(int index)
 {
+	/* 0x1c3060 */
+	if (index < 0 || index >= (int)m_count)
+		return NULL;
+
+	return m_name[index];
 }
 
 /* @socom-skeleton stub AddName__15CZAnimNameTableFPCc */
-int CZAnimNameTable::AddName(const char *)
+int CZAnimNameTable::AddName(const char *name)
 {
+	/* 0x1c2ec0: index of the name, added if new; entry 0 is always "NA" */
+	if (name == NULL)
+		return 0;
+
+	if (m_count == 0)
+	{
+		m_name = static_cast<char**>(_realloc(m_name, sizeof(char*), "anim_main.cpp", 0x5c5));
+		m_name[m_count] = static_cast<char*>(_malloc(strlen("NA") + 1, "anim_main.cpp", 0x5c6));
+		strcpy(m_name[m_count], "NA");
+		m_count++;
+	}
+
+	for (u32 i = 0; i < m_count; i++)
+	{
+		if (strcmp(m_name[i], name) == 0)
+			return i;
+	}
+
+	m_name = static_cast<char**>(_realloc(m_name, (m_count + 1) * sizeof(char*), "anim_main.cpp", 0x5c5));
+	m_name[m_count] = static_cast<char*>(_malloc(strlen(name) + 1, "anim_main.cpp", 0x5c6));
+	strcpy(m_name[m_count], name);
+	m_count++;
+	return m_count - 1;
 }
 
 /* @socom-skeleton stub Unload__15CZAnimNameTableFv */
 void CZAnimNameTable::Unload()
 {
+	/* 0x1c2e20 (port: re-read as the free loop of Load 0x1c2b20) */
+	if (m_name != NULL)
+	{
+		for (u32 i = 0; i < m_count; i++)
+		{
+			if (m_name[i] != NULL)
+				_free(m_name[i], "anim_main.cpp", 0x5d7);
+		}
+
+		_free(m_name, "anim_main.cpp", 0x5d9);
+	}
+
+	m_name = NULL;
+	m_count = 0;
 }
 
 /* @socom-skeleton stub Load__15CZAnimNameTableFRQ23zar4CZAR */
-void CZAnimNameTable::Load(zar::CZAR &)
+bool CZAnimNameTable::Load(zar::CZAR &archive)
 {
+	/* 0x1c2b20: the names are the child keys of Name_Table (AddName inlined) */
+	zar::CKey* key = archive.GetOpenKey();
+	s32 count = 0;
+	archive.Fetch("Name_Table_Count", &count, sizeof(count));
+
+	if (count <= 0)
+		return true;
+
+	if (m_name != NULL)
+	{
+		for (u32 i = 0; i < m_count; i++)
+		{
+			if (m_name[i] != NULL)
+				_free(m_name[i], "anim_main.cpp", 0x5d7);
+		}
+
+		_free(m_name, "anim_main.cpp", 0x5d9);
+	}
+
+	m_name = NULL;
+	m_count = 0;
+	key = key->FindKey("Name_Table");
+
+	if (key != NULL)
+	{
+		for (zar::CKey::iterator it = key->begin(); it != key->end(); ++it)
+		{
+			if (archive.OpenKey(*it) != NULL)
+			{
+				if ((*it)->GetName() != NULL)
+					AddName((*it)->GetName());
+
+				archive.CloseKey(*it);
+			}
+		}
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub GetName__20CZAnimNameIndexTableFP9CZAnimSeti */
-char * CZAnimNameIndexTable::GetName(CZAnimSet *, int)
+char * CZAnimNameIndexTable::GetName(CZAnimSet *set, int index)
 {
+	/* 0x1c2ad0: an anim's local name index -> the set's name */
+	if (index < 0 || index >= m_count)
+		return NULL;
+
+	return set->GetName(m_index[index]);
 }
 
 /* @socom-skeleton stub AddName__20CZAnimNameIndexTableFP9CZAnimSetPCc */
-int CZAnimNameIndexTable::AddName(CZAnimSet *, const char *)
+int CZAnimNameIndexTable::AddName(CZAnimSet *set, const char *name)
 {
+	/* 0x1c2990: the local index of a set name (added to both tables if new); local
+	 * index 0 is the set's "NA" */
+	if (name == NULL)
+		return 0;
+
+	u16 global = set->AddName(name);
+
+	if (m_count == 0)
+	{
+		u16 na = set->AddName("NA");
+		m_index = static_cast<u16*>(_realloc(m_index, (m_count + 1) * sizeof(u16), "anim_main.cpp", 0x64b));
+		m_index[m_count++] = na;
+	}
+
+	for (int i = 0; i < m_count; i++)
+	{
+		if (m_index[i] == global)
+			return i;
+	}
+
+	m_index = static_cast<u16*>(_realloc(m_index, (m_count + 1) * sizeof(u16), "anim_main.cpp", 0x64b));
+	m_index[m_count++] = global;
+	return m_count - 1;
 }
 
 /* @socom-skeleton stub Unload__20CZAnimNameIndexTableFv */
 void CZAnimNameIndexTable::Unload()
 {
+	/* 0x1c2950 */
+	if (m_index != NULL)
+		_free(m_index, "anim_main.cpp", 0x657);
+
+	m_index = NULL;
+	m_count = 0;
 }
 
 /* @socom-skeleton stub Load__20CZAnimNameIndexTableFRQ23zar4CZAR */
-void CZAnimNameIndexTable::Load(zar::CZAR &)
+bool CZAnimNameIndexTable::Load(zar::CZAR &archive)
 {
+	/* 0x1c2890 */
+	archive.GetOpenKey();
+	s32 count = 0;
+	archive.Fetch("Name_Index_Table_Count", &count, sizeof(count));
+
+	if (count > 0)
+	{
+		if (m_index != NULL)
+			_free(m_index, "anim_main.cpp", 0x657);
+
+		m_index = NULL;
+		m_count = 0;
+		m_index = static_cast<u16*>(_realloc(m_index, count * sizeof(u16), "anim_main.cpp", 0x678));
+		archive.Fetch("Name_Index_Table", m_index, count * sizeof(u16));
+		m_count = count;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub AnimSchedulerTick__10CZAnimMainFfPv */
-bool CZAnimMain::AnimSchedulerTick(float, void *)
+bool CZAnimMain::AnimSchedulerTick(float dT, void *anim)
 {
+	/* 0x1c2860: the scheduler task of a running anim; true (done) ends the task */
+	if (anim == NULL)
+		return true;
+
+	return static_cast<CZAnim*>(anim)->Tick(dT);
 }
 
 /* @socom-skeleton stub ZAnimWildcardInit__FPc */

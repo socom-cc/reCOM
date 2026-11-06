@@ -20,7 +20,7 @@
 
 #include "zvalve.h"
 
-// #include "gamez/zAnim/zanim.h"
+#include "gamez/zAnim/zanim.h" /* port: ZAnim (VALVE command) */
 
 /* @socom-skeleton decl include */
 #include "gamez/zReader/zrdr.h"
@@ -37,17 +37,82 @@ void debugValve(CValve *, bool)
 /* @socom-skeleton body RegisterCommands__6CValveFv */
 void CValve::RegisterCommands()
 {
-	// ZAnim.AddCmd("VALVE", CmdParseCmp, NULL, CmdTickCmp, NULL);
+	/* 0x2f8700 */
+	ZAnim.AddCmd("VALVE", CmdParseCmp, NULL, CmdTickCmp, NULL);
 }
 
 /* @socom-skeleton stub GetValue__14VALVE_CMD_DATAFv */
-void VALVE_CMD_DATA::GetValue()
+u16 VALVE_CMD_DATA::GetValue()
 {
+	/* 0x2f8600: the operand, or the current value of the valve it names. The ELF also
+	 * walks a debug valve-watch table here (no effect). */
+	if ((m_flags & 0x10) == 0)
+		return (u16)m_value;
+
+	CValve* valve;
+
+	if (m_flags & 0x4)
+		valve = ZAnim.m_CurAnim->m_arg_list ? ZAnim.m_CurAnim->m_arg_list->GetValve(m_value) : NULL;
+	else if (m_flags & 0x8)
+		valve = ZAnim.m_CurAnim->GetValve(m_value);
+	else
+		valve = reinterpret_cast<CValve*>(m_value);
+
+	return valve ? (u16)valve->m_value : 0;
 }
 
 /* @socom-skeleton stub Compare__14VALVE_CMD_DATAFv */
-void VALVE_CMD_DATA::Compare()
+bool VALVE_CMD_DATA::Compare()
 {
+	/* 0x2f8310: compare the valve with the operand, or assign/add/subtract/multiply it
+	 * (making the valve's callbacks when the value changes). */
+	CValve* valve;
+
+	if (m_flags & 0x1)
+		valve = ZAnim.m_CurAnim->m_arg_list ? ZAnim.m_CurAnim->m_arg_list->GetValve(m_valve) : NULL;
+	else if (m_flags & 0x2)
+		valve = ZAnim.m_CurAnim->GetValve(m_valve);
+	else
+		valve = reinterpret_cast<CValve*>(m_valve);
+
+	debugValve(valve, false);
+
+	if (valve == NULL)
+		return false;
+
+	u32 current = valve->m_value;
+	u16 operand16 = GetValue();
+	u32 operand = operand16;
+	u32 result;
+
+	switch (m_op)
+	{
+	case 0: return true;
+	case 1: return current != operand;
+	case 2: return current == operand;
+	case 3: return operand < current;
+	case 4: return current < operand;
+	case 5: return operand <= current;
+	case 6: return current <= operand;
+	case 7: result = operand; break;
+	case 8: result = current + operand; break;
+	case 9: result = current < operand ? 0 : current - operand; break;
+	case 10: result = current * operand; break;
+	default: return false;
+	}
+
+	/* the assignments: Set's change test, then the callbacks (1 set, 2 cleared) */
+	u32 change = 0;
+
+	if (valve->m_value != (result & 0xffff))
+		change = (result & 0xffff) ? 1 : 2;
+
+	valve->m_value = result;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+
+	return true;
 }
 
 /* @socom-skeleton body ParseOperator__6CValveFPCc */
@@ -100,8 +165,10 @@ OP_TYPE CValve::ParseOperator(const char* op)
 }
 
 /* @socom-skeleton stub CmdTickCmp__6CValveFP14_zanim_cmd_hdrPf */
-bool CValve::CmdTickCmp(_zanim_cmd_hdr *, float *)
+bool CValve::CmdTickCmp(_zanim_cmd_hdr *header, float *)
 {
+	/* 0x2f8160: the command data follows the header (Compare inlined in the ELF) */
+	return reinterpret_cast<VALVE_CMD_DATA*>(header + 1)->Compare();
 }
 
 /* @socom-skeleton stub ParseValveName__14VALVE_CMD_DATAFPCcRi */

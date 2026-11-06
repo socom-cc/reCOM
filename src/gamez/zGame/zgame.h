@@ -185,6 +185,7 @@ public:
 	s32 m_activeButton;                      /* DWARF +0x660 */
 	C2D m_ScreenElements;                    /* DWARF +0x664: the OBJECTS' display objects */
 	std::vector<zdb::CAssetLib*> _vecLibs;   /* DWARF +0x680 */
+	ActionItem m_commands[30];               /* DWARF +0x68c: the design's ANIMATIONS */
 	s32 m_numCommands;                       /* DWARF +0x86c */
 
 	zdb::CTextureRelocMgr* m_Reloc;

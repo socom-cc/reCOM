@@ -61,8 +61,13 @@ bool CZAnimMain::Unload()
 }
 
 /* @socom-skeleton stub UnloadSIScript__10CZAnimMainFP16_zanim_si_script */
-void CZAnimMain::UnloadSIScript(_zanim_si_script *)
+void CZAnimMain::UnloadSIScript(_zanim_si_script *script)
 {
+	/* 0x1c2370 (port: unproven - not re-read): free the script data */
+	if (script->script_data != NULL)
+		_free(script->script_data, "anim_main.cpp", 0);
+
+	script->script_data = NULL;
 }
 
 /* @socom-skeleton stub UnloadCmdSet__10CZAnimMainFi */
@@ -71,8 +76,22 @@ void CZAnimMain::UnloadCmdSet(int)
 }
 
 /* @socom-skeleton stub Load__10CZAnimMainFPCcPCc */
-void CZAnimMain::Load(const char *, const char *)
+bool CZAnimMain::Load(const char *path, const char *setname)
 {
+	/* 0x1c2200: the reader (.rdr) path; with ZAR loading on, LoadZAR has done the work */
+	if (!m_LoadFromZAR)
+	{
+		if (setname != NULL)
+		{
+			m_CurAnimSet = GetAnimSet(GetAnimSetIndex(setname, true));
+			m_CurAnim = NULL;
+			m_CurSeq = NULL;
+		}
+
+		AnimLoadZRDFile(NULL, path);
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub AnimLoadZRDFile__10CZAnimMainFPCcPCc */
@@ -111,8 +130,56 @@ _zanim_cmd_hdr * CZAnimMain::AnimParseCmd(const char *, _zrdr *)
 }
 
 /* @socom-skeleton stub LoadZAR__10CZAnimMainFP9CZAnimZARPCc */
-void CZAnimMain::LoadZAR(CZAnimZAR *, const char *)
+bool CZAnimMain::LoadZAR(CZAnimZAR *archive, const char *setname)
 {
+	/* 0x1c0340: the main parameters and name table, then each anim set under Anim_Sets
+	 * (only the named one when setname is given) */
+	if (!m_LoadFromZAR)
+		return true;
+
+	if (archive->m_pFile == NULL || !archive->m_pFile->IsOpen())
+		return false;
+
+	_zanim_main_params params;
+	bool ok = archive->Fetch("Anim_Main_Params", &params, sizeof(params));
+
+	if (ok && params.m_version != 0x1e)
+		ok = false;
+
+	if (!ok)
+		return true;
+
+	archive->Fetch("Anim_Main_Params", static_cast<_zanim_main_params*>(this), sizeof(_zanim_main_params));
+	m_name_table.Load(*archive);
+
+	s32 count;
+	archive->Fetch("Anim_Set_Count", &count, sizeof(count));
+	archive->GetOpenKey();
+	zar::CKey* sets = archive->OpenKey("Anim_Sets");
+
+	if (sets != NULL)
+	{
+		for (zar::CKey::iterator it = sets->begin(); it != sets->end(); ++it)
+		{
+			if (archive->OpenKey(*it) == NULL)
+				continue;
+
+			if (setname == NULL || strcasecmp((*it)->GetName(), setname) == 0)
+			{
+				CZAnimSet* set = GetAnimSet(GetAnimSetIndex((*it)->GetName(), true));
+				m_CurAnimSet = set;
+				m_CurAnim = NULL;
+				m_CurSeq = NULL;
+				set->Load(*archive);
+			}
+
+			archive->CloseKey(*it);
+		}
+
+		archive->CloseKey(sets);
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub OpenZAR__10CZAnimMainFPCc */

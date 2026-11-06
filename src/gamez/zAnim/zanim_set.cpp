@@ -50,11 +50,44 @@ class zanim_script_frame_header;
 /* @socom-skeleton stub TaskScheduler__9CZAnimSetFv */
 CSched_Manager * CZAnimSet::TaskScheduler()
 {
+	/* 0x1c7fd0: the set's own scheduler (the menu's zUIScheduler), else the game's */
+	return m_task_scheduler ? m_task_scheduler : &zTaskScheduler;
 }
 
 /* @socom-skeleton stub NewAnim__9CZAnimSetFPCc */
-CZAnim * CZAnimSet::NewAnim(const char *)
+CZAnim * CZAnimSet::NewAnim(const char *name)
 {
+	/* 0x1c7e00: the next anim slot (the list grows by 25), cleared and made current */
+	if (m_anim_count >= m_anim_max)
+	{
+		int max = m_anim_count + 25;
+
+		if (m_anim_max < max)
+		{
+			m_anim_max = max;
+			m_anim_list = static_cast<CZAnim*>(_realloc(m_anim_list, m_anim_max * sizeof(CZAnim), "zanim_set.cpp", 0x2a));
+
+			if (m_anim_list == NULL)
+				return NULL;
+		}
+	}
+
+	ZAnim.m_CurSeq = NULL;
+	CZAnim* anim = &m_anim_list[m_anim_count];
+	ZAnim.m_CurAnim = anim;
+	memset(anim, 0, sizeof(CZAnim));
+	anim->m_root_node_index = 0;
+	anim->node_search_scope = ZAnim.m_search_external_nodes ? 0 : 1;
+	anim->m_animset_index = ZAnim.m_CurAnimSet ? (u32)(ZAnim.m_CurAnimSet - ZAnim.m_animset_list) : 0;
+	anim->Name(name);
+	anim->State(1);
+	anim->Priority(3.0f);
+	anim->m_damage_seq_offset = 0;
+	anim->m_activation_seq_offset = 0;
+	anim->m_execution_seq_offset = 0;
+	anim->m_cleanup_seq_offset = 0;
+	m_anim_count++;
+	return anim;
 }
 
 /* @socom-skeleton stub GetAnimIndex__9CZAnimSetFP6CZAnim */
@@ -72,23 +105,45 @@ void CZAnimSet::Name(const char* name)
 }
 
 /* @socom-skeleton stub Anim__9CZAnimSetFi */
-CZAnim * CZAnimSet::Anim(int)
+CZAnim * CZAnimSet::Anim(int index)
 {
+	/* 0x1c7d10 */
+	if (index < 0 || index >= m_anim_count)
+		return NULL;
+
+	return &m_anim_list[index];
 }
 
 /* @socom-skeleton stub Anim__9CZAnimSetFPCc */
-CZAnim * CZAnimSet::Anim(const char *)
+CZAnim * CZAnimSet::Anim(const char *name)
 {
+	/* 0x1c7c70: by name, case-insensitive */
+	if (name == NULL)
+		return NULL;
+
+	for (int i = 0; i < m_anim_count; i++)
+	{
+		char* animname = m_anim_list[i].GetName();
+
+		if (animname != NULL && strcasecmp(name, animname) == 0)
+			return &m_anim_list[i];
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetName__9CZAnimSetFi */
-char * CZAnimSet::GetName(int)
+char * CZAnimSet::GetName(int index)
 {
+	/* 0x1c7c60: tail call into the set's name table */
+	return m_name_table.GetName(index);
 }
 
 /* @socom-skeleton stub AddName__9CZAnimSetFPCc */
-int CZAnimSet::AddName(const char *)
+int CZAnimSet::AddName(const char *name)
 {
+	/* 0x1c7c50: tail call into the set's name table */
+	return m_name_table.AddName(name);
 }
 
 /* @socom-skeleton stub AddAnimEx__9CZAnimSetFP8CZAnimEx */
@@ -136,7 +191,43 @@ void CZAnimSet::Init()
 /* @socom-skeleton body Start__9CZAnimSetFv */
 bool CZAnimSet::Start()
 {
-    return false;
+	/* 0x1c6530: a loaded (not available) set that is not started yet: clear each anim's
+	 * (and copy's) invalid flag, then start them - clone anims make or restart their
+	 * clones instead. */
+	if (m_IsAvailable || m_IsStarted)
+		return false;
+
+	m_IsStarted = true;
+	ZAnim.m_CurAnim = NULL;
+	ZAnim.m_CurSeq = NULL;
+	ZAnim.m_CurAnimSet = this;
+
+	for (int i = 0; i < m_anim_count; i++)
+	{
+		for (CZAnim* anim = Anim(i); anim != NULL; anim = anim->m_sibling_anim)
+			anim->m_invalid = 0;
+	}
+
+	for (int i = 0; i < m_anim_count; i++)
+	{
+		CZAnim* anim = Anim(i);
+
+		if (anim->m_clone_anim)
+		{
+			if (!m_WasStarted)
+				anim->MakeClones();
+			else
+				anim->RestartClones();
+		}
+		else
+		{
+			for (; anim != NULL; anim = anim->m_sibling_anim)
+				anim->Start();
+		}
+	}
+
+	m_WasStarted = true;
+	return true;
 }
 
 /* @socom-skeleton stub Reset__9CZAnimSetFv */
@@ -157,11 +248,57 @@ void CZAnimSet::SaveNodeStates(_zanim_node_ref *)
 /* @socom-skeleton stub Stop__9CZAnimSetFv */
 void CZAnimSet::Stop()
 {
+	/* 0x1c6210: stop every anim and its copies (lights off, particle sources deleted) */
+	for (int i = 0; i < m_anim_count; i++)
+	{
+		for (CZAnim* anim = Anim(i); anim != NULL; anim = anim->m_sibling_anim)
+		{
+			anim->Stop();
+			anim->StopLights(true);
+			anim->DeleteParticleSources();
+		}
+	}
+
+	m_IsStarted = false;
 }
 
 /* @socom-skeleton stub Unload__9CZAnimSetFv */
 void CZAnimSet::Unload()
 {
+	/* 0x1c5ee0: free the names, scripts and anims; the set becomes available again */
+	m_name_table.Unload();
+
+	if (m_si_script != NULL)
+	{
+		for (int i = 0; i < m_si_script_count; i++)
+			ZAnim.UnloadSIScript(&m_si_script[i]);
+
+		_free(m_si_script, "zanim_set.cpp", 0x468);
+		m_si_script = NULL;
+		m_si_script_count = 0;
+	}
+
+	/* port: not written - the CZAnimEx list (0x1c5f6c) and the saved node states
+	 * (0x1c6008); the UI sets have neither */
+
+	if (m_anim_list != NULL)
+	{
+		for (int i = 0; i < m_anim_count; i++)
+			m_anim_list[i].Unload();
+
+		_free(m_anim_list, "zanim_set.cpp", 0x478);
+		m_anim_list = NULL;
+		m_anim_count = 0;
+		m_anim_max = 0;
+	}
+
+	if (m_name != NULL)
+		_free(m_name, "zanim_set.cpp", 0x487);
+
+	m_name = NULL;
+	m_task_scheduler = NULL;
+	m_IsAvailable = true;
+	m_WasStarted = false;
 }
 
 /* @socom-skeleton stub GarbageCollect__9CZAnimSetFv */
@@ -170,13 +307,69 @@ void CZAnimSet::GarbageCollect()
 }
 
 /* @socom-skeleton stub Load__9CZAnimSetFRQ23zar4CZAR */
-void CZAnimSet::Load(zar::CZAR &)
+bool CZAnimSet::Load(zar::CZAR &archive)
 {
+	/* 0x1c5ce0: the set's name table and SoftImage scripts, then one anim per key under
+	 * Animation_List */
+	zar::CKey* key = archive.GetOpenKey();
+	m_name_table.Load(archive);
+	LoadSIScript(archive);
+
+	s32 count = 0;
+	archive.Fetch("Animation_List_Count", &count, sizeof(count));
+
+	if (m_anim_max < count)
+	{
+		m_anim_max = count;
+		m_anim_list = static_cast<CZAnim*>(_realloc(m_anim_list, m_anim_max * sizeof(CZAnim), "zanim_set.cpp", 0x2a));
+
+		if (m_anim_list == NULL)
+			return false;
+	}
+
+	key = key->FindKey("Animation_List");
+
+	if (key != NULL)
+	{
+		for (zar::CKey::iterator it = key->begin(); it != key->end(); ++it)
+		{
+			if (archive.OpenKey(*it) != NULL)
+			{
+				NewAnim(NULL)->Load(archive);
+				archive.CloseKey(*it);
+			}
+		}
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub LoadSIScript__9CZAnimSetFRQ23zar4CZAR */
-void CZAnimSet::LoadSIScript(zar::CZAR &)
+bool CZAnimSet::LoadSIScript(zar::CZAR &archive)
 {
+	/* 0x1c5b30: each SoftImage script: its 20-byte parameters, then its data */
+	zar::CKey* key = archive.GetOpenKey();
+	s32 count;
+	archive.Fetch("SoftImage_Script_Count", &count, sizeof(count));
+	key = key->FindKey("SoftImage_Script_List");
+
+	if (key != NULL)
+	{
+		for (zar::CKey::iterator it = key->begin(); it != key->end(); ++it)
+		{
+			if (archive.OpenKey(*it) == NULL)
+				continue;
+
+			m_si_script = static_cast<_zanim_si_script*>(_realloc(m_si_script, (m_si_script_count + 1) * sizeof(_zanim_si_script), "zanim_set.cpp", 0x514));
+			_zanim_si_script* script = &m_si_script[m_si_script_count++];
+			archive.Fetch("Script_Params", script, 0x14);
+			script->script_data = static_cast<char*>(_malloc(script->script_data_size, "zanim_set.cpp", 0x51c));
+			archive.Fetch("Script_Data", script->script_data, script->script_data_size);
+			archive.CloseKey(*it);
+		}
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub Add__13CZAnimSetSaveFP15_zanim_node_ref */

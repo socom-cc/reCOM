@@ -192,17 +192,51 @@ CDlgObjSpec * GetControlSpec(_zrdr *, const char *type)
 }
 
 /* @socom-skeleton stub __ct__9CTextSpecFP5_zrdr */
-CTextSpec::CTextSpec(_zrdr* reader) : CDlgObjSpec(reader) /* port: stub; the field reads after the inlined base are not written */
+CTextSpec::CTextSpec(_zrdr* reader) : CDlgObjSpec(reader)
 {
+	/* 0x399fe0: CAPTION, SCALE (1), HCENTERED, COLOR (128 grey) and an optional FONT */
+	m_scale = 1.0f;
+	m_hCentered = false;
+	char* caption = zrdr_findstring(reader, "CAPTION");
+	m_caption = caption ? caption : "";
+	zrdr_findreal(reader, "SCALE", &m_scale, 1);
+	char* font = zrdr_findstring(reader, "FONT");
+
+	if (zrdr_findtag(reader, "HCENTERED") != NULL)
+		m_hCentered = true;
+
+	if (zrdr_findtag(reader, "COLOR") == NULL)
+	{
+		m_color.x = 128.0f;
+		m_color.y = 128.0f;
+		m_color.z = 128.0f;
+	}
+	else
+	{
+		zrdr_findPNT3D(reader, "COLOR", &m_color);
+	}
+
+	if (font == NULL)
+	{
+		m_hasFont = false;
+	}
+	else
+	{
+		m_hasFont = true;
+		m_font = font;
+	}
 }
 
 /* @socom-skeleton body GetObjectSpec__FP5_zrdrPCc */
 CDlgObjSpec * GetObjectSpec(_zrdr *reader, const char *type)
 {
 	/* 0x399670: TEXT, IMAGE, TELETYPE, WRAPPEDTEXT, TICKERTAPETEXT, PROGRESSBAR, COUNTER,
-	 * CLOCK. port: only IMAGE is written; the other types are skipped (NULL). */
+	 * CLOCK. port: TEXT and IMAGE are written; the other types are skipped (NULL). */
 	if (type == NULL)
 		return NULL;
+
+	if (strcmp("TEXT", type) == 0)
+		return new CTextSpec(reader);
 
 	if (strcmp("IMAGE", type) == 0)
 		return new CImageSpec(reader);
