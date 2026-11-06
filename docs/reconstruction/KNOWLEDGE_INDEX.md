@@ -13,6 +13,7 @@ without becoming a second progress system.
 | Stage 3 groups, plans, and applies | [RECONSTRUCTION.md](RECONSTRUCTION.md) |
 | Compiler identity and readiness | [TOOLCHAIN.md](TOOLCHAIN.md) |
 | Functional-port ps2dev toolchain (not a matching compiler) | [PORT_TOOLCHAIN.md](PORT_TOOLCHAIN.md) |
+| User decisions the binary does not settle (stage-4 function placements) | [decisions/README.md](decisions/README.md) |
 | Final ELF catalog and acceptance boundary | [FINAL_ELF.md](FINAL_ELF.md) |
 | Agent/role launch protocol | [AGENT_LAUNCH_CHECKLIST.md](AGENT_LAUNCH_CHECKLIST.md) |
 | Source-to-artifact evidence | [SOURCE_TRACEABILITY.md](SOURCE_TRACEABILITY.md) |
