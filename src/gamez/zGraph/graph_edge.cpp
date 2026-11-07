@@ -10,17 +10,37 @@
 #include "graph_node.h"
 /* @socom-skeleton end include */
 
-/* @socom-skeleton stub __ct__6CGEdgeFP6CGNodeP6CGNodef */
-CGEdge::CGEdge(CGNode *, CGNode *, float)
+/* @socom-skeleton body __ct__6CGEdgeFP6CGNodeP6CGNodef */
+CGEdge::CGEdge(CGNode *first, CGNode *second, float weight)
 {
+	/* 0x20fa30: m_length and +0x18 are left unset */
+	m_weight = weight;
+	m_edgeEx = NULL;
+	m_first = first;
+	m_second = second;
 }
 
-/* @socom-skeleton stub Delete__6CGEdgeFP6CGEdge */
-void CGEdge::Delete(CGEdge *)
+/* @socom-skeleton body Delete__6CGEdgeFP6CGEdge */
+bool CGEdge::Delete(CGEdge *edge)
 {
+	/* 0x20f990: off both nodes' lists, then deleted */
+	if (edge->m_first != NULL)
+		edge->m_first->m_edges.remove(edge);
+
+	if (edge->m_second != NULL)
+		edge->m_second->m_edges.remove(edge);
+
+	edge->m_second = NULL;
+	edge->m_first = NULL;
+
+	if (edge != NULL)
+		delete edge;
+
+	return false;
 }
 
-/* @socom-skeleton stub __dt__6CGEdgeFv */
+/* @socom-skeleton body __dt__6CGEdgeFv */
 CGEdge::~CGEdge()
 {
+	/* 0x20f940: nothing to release */
 }

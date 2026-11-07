@@ -100,27 +100,220 @@
 /* @socom-skeleton stub version__6CAiMap */
 const int CAiMap::version = 19;
 
-/* @socom-skeleton stub read_lines__6CAiMapFR7CFileIO */
-void CAiMap::read_lines(CFileIO &)
+/* ReadCellTable<V, T> (0x18a4a0 CAiMapLocVec, 0x18a540 readers, 0x18a5e0 names, 0x18a690 links,
+ * 0x18a730 spores, 0x18a7e0 regions, 0x18a890 actions): a count, then count raw records.
+ * True for a non-positive count; false when the count is short or the records are short. */
+template <class V, class T> bool ReadCellTable(CFileIO &io, V &table)
 {
+	int count = 0;
+
+	if (io.fread(&count, 4) != 4)
+		return false;
+
+	if (count <= 0)
+		return true;
+
+	table.resize(count);
+	u32 bytes = count * sizeof(T);
+	return io.fread(&table[0], bytes) == bytes;
 }
 
-/* @socom-skeleton stub read_routes__6CAiMapFR7CFileIO */
-void CAiMap::read_routes(CFileIO &)
+/* instantiated for CAiMaps::ReadMapSet (ai_maps.cpp) */
+template bool ReadCellTable<CAiMap::spores, CAiMap::spore>(CFileIO &, CAiMap::spores &);
+
+/* @socom-skeleton body read_lines__6CAiMapFR7CFileIO */
+bool CAiMap::read_lines(CFileIO &io)
 {
+	/* 0x18a3c0: a count, then per line its locations and (version 10 on) its line_data word */
+	u32 count = 0;
+
+	if (io.fread(&count, 4) == 4 && count != 0)
+	{
+		m_lineTable.resize(count);
+
+		for (lines::iterator i = m_lineTable.begin(); i != m_lineTable.end(); ++i)
+		{
+			ReadCellTable<CAiMapLocVec, CAiMapLoc>(io, *i);
+
+			if (m_version >= 10)
+				io.fread(static_cast<line_data*>(&*i), 4);
+		}
+	}
+
+	return true;
 }
 
-/* @socom-skeleton stub read_readers__6CAiMapFR7CFileIO */
-void CAiMap::read_readers(CFileIO &)
+/* @socom-skeleton body read_routes__6CAiMapFR7CFileIO */
+bool CAiMap::read_routes(CFileIO &io)
 {
+	/* 0x18a2d0: a count, then per route its two region locations, flags, waypoints and path */
+	u32 count = 0;
+
+	if (io.fread(&count, 4) == 4 && count != 0)
+	{
+		m_routeTable.resize(count);
+
+		for (routes::iterator i = m_routeTable.begin(); i != m_routeTable.end(); ++i)
+		{
+			io.fread(i->m_region, 8);
+			io.fread(&i->m_flags, 4);
+			ReadCellTable<CAiMapLocVec, CAiMapLoc>(io, i->m_waypts);
+			ReadCellTable<CAiMapLocVec, CAiMapLoc>(io, i->m_path);
+		}
+	}
+
+	return true;
 }
 
-/* @socom-skeleton stub Read__6CAiMapFR7CFileIO */
-void CAiMap::Read(CFileIO &)
+/* @socom-skeleton body read_readers__6CAiMapFR7CFileIO */
+bool CAiMap::read_readers(CFileIO &io)
 {
+	/* 0x18a200: the reader records, then each record's packed reader (m_bytes long); a reader
+	 * that does not unpack is freed and the record keeps none */
+	ReadCellTable<readers, reader>(io, m_readerTable);
+
+	if (m_readerTable.size() != 0)
+	{
+		for (readers::iterator i = m_readerTable.begin(); i != m_readerTable.end(); ++i)
+		{
+			i->m_reader = NULL; /* the file's pointer word */
+			CRdrFile* rdr = new CRdrFile();
+
+			if (rdr->ReadPacked(io, i->m_bytes))
+				i->SetReader(rdr);
+			else
+				zrdr_free(rdr);
+		}
+	}
+
+	return true;
 }
 
-/* @socom-skeleton stub read_cells__6CAiMapFR7CFileIO */
-void CAiMap::read_cells(CFileIO &)
+/* @socom-skeleton body Read__6CAiMapFR7CFileIO */
+bool CAiMap::Read(CFileIO &io)
 {
+	/* 0x189390: a version word, then a version-specific layout (jump table 0x449380, versions
+	 * 0-19; 0, 1 and 20 on fail). The disc's map sets are all version 19 (checked on the m8
+	 * set); versions 17-19 are written, 2-16 (52/84/88-byte headers, converted cell, action and
+	 * region records) are not. After the layout: version fixups (< 12 links, < 15 scanlines,
+	 * < 17 action offsets), then ValidateCells, ValidateRoutes and the map's own graph. */
+	u32 ver;
+	bool ok;
+
+	io.fread(&ver, 4);
+	m_version = ver;
+
+	switch (ver)
+	{
+	case 17:
+	case 18:
+#ifdef SOCOM_PORT
+		/* port: not written - versions 17 and 18 read their actions through
+		 * ReadCellTableCvt<actions_v18> (0x18ad00), 17 has no routes */
+		SOCOM_PORT_TRACE("AIMAP: map version %u not written (converted actions)", ver);
+#endif
+		ok = false;
+		break;
+
+	case 19:
+		io.fread(static_cast<AIMAP_PARAMS*>(this), sizeof(AIMAP_PARAMS));
+		read_cells(io);
+		read_scanlines(io);
+		ReadCellTable<names, name>(io, m_namesTable);
+		ReadCellTable<actions, action>(io, m_actionTable);
+		ReadCellTable<links, link>(io, m_linksTable);
+		ReadCellTable<regions, region>(io, m_regionTable);
+		ReadCellTable<spores, spore>(io, m_sporeTable);
+		read_lines(io);
+		read_readers(io);
+		read_routes(io);
+
+		if (m_mapex_bytes != 0)
+		{
+			char* ex = AllocEx(m_mapex_bytes);
+			io.fread(ex, m_mapex_bytes * m_cellcount);
+		}
+
+		ok = true;
+		break;
+
+	default:
+#ifdef SOCOM_PORT
+		if (ver >= 2 && ver < 17)
+			SOCOM_PORT_TRACE("AIMAP: map version %u not written (old layout)", ver); /* port: not written */
+#endif
+		ok = false;
+		break;
+	}
+
+	if (m_version < 12)
+	{
+		while (m_linksTable.size() != 0)
+		{
+			CAiMapLoc loc = CAiMapLoc(m_linksTable[0].m_loc.x, m_linksTable[0].m_loc.y, m_linksTable[0].m_loc.m_mapid);
+			SetCellLink(loc, false);
+		}
+	}
+
+	if (m_version < 15)
+	{
+		/* one full-width scanline per row */
+		m_scanlines.resize(m_ny);
+
+		for (u32 y = 0; y < m_ny; y++)
+		{
+			scanline &row = m_scanlines[y];
+			row.m_start = 0;
+			row.m_end = m_nx;
+			row.m_cell = &m_cell[y * m_nx];
+			row.m_mapEx = m_mapex != NULL ? m_mapex + m_mapex_bytes * (y * m_nx) : NULL;
+		}
+
+		m_cellcount = m_nx * m_ny;
+	}
+
+	if (m_version < 17)
+	{
+		for (actions::iterator i = m_actionTable.begin(); i != m_actionTable.end(); ++i)
+			i->m_offset = 8;
+	}
+
+	if (!ok)
+		return false;
+
+	ValidateCells();
+	ValidateRoutes(false);
+	CreateGraph(false);
+	return ok;
+}
+
+/* @socom-skeleton body read_cells__6CAiMapFR7CFileIO */
+bool CAiMap::read_cells(CFileIO &io)
+{
+	/* 0x188f60: before version 15 the cell count is nx * ny (no compression); the cells are
+	 * zeroed, then read: raw 8-byte cells from version 17, 12- or 8-byte older records
+	 * converted before (jump table 0x449330) */
+	if (m_version < 15)
+	{
+		m_cellcount = m_nx * m_ny;
+		m_compressed = 0;
+	}
+
+	u32 bytes = m_cellcount * sizeof(CAiCell);
+	m_cell = static_cast<CAiCell*>(_malloc(bytes, "ai_mapio.cpp", 597));
+	memset(m_cell, 0, bytes);
+
+	if (m_version >= 17)
+	{
+		io.fread(m_cell, bytes);
+	}
+	else
+	{
+#ifdef SOCOM_PORT
+		/* port: not written - the 12-byte (versions 2-?) and 8-byte older cell conversions */
+		SOCOM_PORT_TRACE("AIMAP: cell format of version %u not written", m_version);
+#endif
+	}
+
+	return true;
 }

@@ -9,21 +9,15 @@ class CGRoute;
 
 #include "gamez/zUtil/util_systemio.h"
 
-class CGraph
+class CGraph /* no DWARF definition: layout from the ctor 0x20ef20 (28 bytes, CGraph::Create) */
 {
 public:
 	CGraph(const char* name);
 	~CGraph();
 
-	CGraph* Create(const char* name);
-	CGraph* Create(CFileIO& io,
-		void(*)(CGraph*, CGNode*, bool, u32&, void*),
-		void(*)(CGraph*, CGEdge*, bool, u32&, void*));
-	void Destroy();
-
-	CGraph* Read(CFileIO& io,
-		void(*)(CGraph*, CGNode*, bool, u32&, void*),
-		void(*)(CGraph*, CGEdge*, bool, u32&, void*));
+	/* port: the 3-argument Create/Read, member Destroy(), DestroyNode and GetNodeByNodeEx(const
+	 * CGNodeEx *) were removed (never defined); the ELF's forms are below */
+	static CGraph* Create(const char* name); /* 0x20f1f0 */
 
 	void PopulateTree(CGTree* tree);
 
@@ -31,16 +25,14 @@ public:
 	CGEdge* FindEdge(CGNode* first, CGNode* second);
 
 	CGNode* CreateNode(const char* name);
-	void DestroyNode(CGNode* node);
 	CGNode* GetNodeByIndex(u32 index);
-	CGNode* GetNodeByNodeEx(const CGNodeEx* node);
 	/* @socom-skeleton decl 6CGraph */
 public:
-	void Create(CFileIO &, void (*)(CGraph *, CGNode *, bool, unsigned int &, void *), void (*)(CGraph *, CGEdge *, bool, unsigned int &, void *), void *);
-	void Read(CFileIO &, void (*)(CGraph *, CGNode *, bool, unsigned int &, void *), void (*)(CGraph *, CGEdge *, bool, unsigned int &, void *), void *);
+	static CGraph * Create(CFileIO &, void (*)(CGraph *, CGNode *, bool, unsigned int &, void *), void (*)(CGraph *, CGEdge *, bool, unsigned int &, void *), void *); /* 0x20f4b0: NULL when Read fails */
+	bool Read(CFileIO &, void (*)(CGraph *, CGNode *, bool, unsigned int &, void *), void (*)(CGraph *, CGEdge *, bool, unsigned int &, void *), void *); /* 0x20f2a0 */
 	static void Destroy(CGraph *);
 	void DeleteNode(CGNode *);
-	void GetNodeByNodeEx(const void *);
+	CGNode * GetNodeByNodeEx(const void *); /* 0x20e8b0 */
 	void BuildTree(CGNode *, float);
 	void BuildRoute(CGNode *, CGNode *, CGRoute *);
 	static int m_leafTree;
@@ -48,5 +40,9 @@ public:
 	static int m_treeNode;
 	static const int version;
 	/* @socom-skeleton end 6CGraph */
+
+	char* m_name;
+	std::list<CGNode*> m_nodes; /* +0x4 */
+	std::list<CGEdge*> m_edges; /* +0x10 */
 };
 #endif

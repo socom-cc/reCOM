@@ -434,17 +434,99 @@ public:
 	/* @socom-skeleton end 8CAiEvent */
 };
 
+class CAiMapLoc /* DWARF: byte_size 4; defined ahead of CAiMap, whose records hold it */
+{
+public: /* port: public - CAiMaps (0x19c8e0) sets m_mapid */
+	u32 m_mapid : 6;
+	u32 x : 13;
+	u32 y : 13;
+	CAiMapLoc() { } /* port: the ELF leaves a default CAiMapLoc unset (ReadMapSet/LoadVehicle locals) */
+	CAiMapLoc(u32 mx, u32 my, u32 id); /* 0x1863c0 (x, y, map id) */
+	/* @socom-skeleton decl 9CAiMapLoc */
+public:
+	static const unsigned char invalid[4];
+	static const int max_value;
+	/* @socom-skeleton end 9CAiMapLoc */
+};
+
 class CAiMapVec : std::vector<CAiMap> { };
-class CAiMapLocVec : public std::vector<CAiMapLoc> { }; /* port: public (CAiPathStats::reset 0x1968e0 clears it) */
+class CAiMapLocVec : public std::vector<CAiMapLoc> /* port: public (CAiPathStats::reset 0x1968e0 clears it) */
+{
+public:
+	float ComputeLength() const; /* 0x19dea0 */
+};
 class points : std::vector<CPnt3D> { };
 
-class CAiMap
+struct AIMAP_PARAMS /* DWARF: byte_size 164; read whole from the map file (CAiMap::Read 0x189390) */
+{
+	CBBox m_bbox;
+	u32 m_nx;
+	u32 m_ny;
+	f32 m_dx;
+	f32 m_dy;
+	f32 m_idx;
+	f32 m_idy;
+	s32 m_floor;
+	char m_name[32];
+	f32 m_resolution;
+	u32 m_flags;
+	f32 m_slope_threshold;
+	u32 m_mapex_bytes;
+	u32 m_light[2];
+	u32 m_compressed;
+	u32 m_cellcount;
+	u32 m_revision;
+	u32 m_date[1];
+	u32 m_reserved[10];
+};
+
+/* @socom-skeleton decl 7CAiCell */
+class CAiCell /* DWARF: byte_size 8 (MW bitfields LSB-first, as GCC); moved ahead of CAiMap */
+{
+public:
+	u32 m_soil : 5;
+	u32 m_occupied : 1;
+	u32 m_name : 1;
+	u32 m_action : 1;
+	u32 m_link : 1;
+	u32 m_altitude : 10;
+	u32 m_boundary : 2;
+	u32 m_mes : 1;
+	u32 m_shadow : 2;
+	u32 m_inside : 1;
+	u32 m_badalt : 1;
+	u32 m_rtflag : 1;
+	u32 m_bilinear : 1;
+	u32 m_astar_dir : 4;
+	s16 m_astar_f;
+	s16 m_astar_g;
+	CAiCell();
+};
+/* @socom-skeleton end 7CAiCell */
+
+class CAiMap : public AIMAP_PARAMS /* DWARF: byte_size 300 */
 {
 
 	/* @socom-skeleton decl 6CAiMap */
 public:
-	class link;
+	class link /* DWARF: byte_size 8 */
+	{
+	public:
+		CAiMapLoc m_loc;
+		CAiMapLoc m_link;
+	};
 	class route;
+	class links : public std::vector<link> { }; /* DWARF: CAiMap::links */
+	class scanline /* DWARF: byte_size 12 (read raw from the map file; m_cell/m_mapEx fixed up after) */
+	{
+	public:
+		u16 m_start;
+		u16 m_end;
+		CAiCell *m_cell;
+		char *m_mapEx;
+		CAiCell * GetCell(unsigned int) const; /* 0x197660 */
+	};
+	class scanlines : public std::vector<scanline> { }; /* DWARF: scanlines */
 	enum DIR
 	{
 		N = 0,
@@ -457,15 +539,32 @@ public:
 		NW = 7,
 		DIR_COUNT = 8
 	};
-	class action
+	class action /* DWARF: byte_size 40 */
 	{
 	public:
+		CAiMapLoc m_loc;
+		u32 m_direction : 4;
+		u32 m_actionId : 16;
+		u32 m_state : 3;
+		u32 m_type : 5;
+		u32 m_locExValid : 1;
+		u32 : 3;
+		u32 m_offset : 4; /* +0x8 */
+		u32 m_type_invalid : 1;
+		u32 : 27;
+		CAiMapLoc m_locEx[6];
+		CAiMapLoc m_region;
 		static const unsigned short invalid[2];
 		static const float offset_length;
 	};
-	class name
+	class actions : public std::vector<action> { }; /* DWARF: CAiMap::actions */
+	class name /* DWARF: byte_size 24 */
 	{
 	public:
+		CAiMapLoc m_loc;
+		f32 m_altitude;
+		char m_name[15];
+		u8 m_type;
 		void ValidateName();
 	};
 	class names : public std::vector<name>
@@ -473,9 +572,13 @@ public:
 	public:
 		void SortByNames();
 	};
-	class reader
+	class reader /* DWARF: byte_size 16 (read raw; m_reader replaced by the packed reader that follows) */
 	{
 	public:
+		CAiMapLoc m_loc;
+		CRdrFile *m_reader;
+		u32 m_flags;
+		u32 m_bytes;
 		reader();
 		void SetReader(CRdrFile *);
 	};
@@ -489,17 +592,36 @@ public:
 	class spores : public std::vector<spore> /* DWARF: CAiMap::spores, byte_size 12 */
 	{
 	};
-	class region
+	class region /* DWARF: byte_size 28 */
 	{
 	public:
 		enum TYPE { }; /* port: unproven: named by the mangled CAiMap::region::TYPE parameters; enumerators not in DWARF (m_type is a 5-bit field) */
+		CAiMapLoc m_loc;
+		u32 m_dx : 16;
+		u32 m_dy : 16;
+		u32 m_type : 5;
+		u32 m_nodisplay : 1;
+		u32 m_flags : 16;
+		u32 m_unused : 10;
+		char m_name[16];
 		void InflateRegion(int, int, int, int, const CAiMap *);
 		void Union(const CAiMapLoc &);
 		CAiMapLoc * GetCenter(CAiMapLoc &) const;
 	};
-	void read_scanlines(CFileIO &);
+	class regions : public std::vector<region> { }; /* DWARF: CAiMap::regions */
+	class route /* DWARF: byte_size 36 */
+	{
+	public:
+		u32 m_flags;
+		CAiMapLoc m_region[2];
+		CAiMapLocVec m_waypts;
+		CAiMapLocVec m_path;
+	};
+	class routes : public std::vector<route> { }; /* DWARF: routes */
+	class lines : public std::vector<line> { }; /* DWARF: lines */
+	bool read_scanlines(CFileIO &); /* 0x188e90 returns 1 */
 	static CAiCell * dummy_cell();
-	static void GetDirVec(CAiMap::DIR, CPnt3D &);
+	static CPnt3D * GetDirVec(CAiMap::DIR, CPnt3D &); /* 0x187d90 returns the vector */
 	static CQuat * GetDirQuat(CAiMap::DIR, CQuat &, bool);
 	static CAiMap::DIR GetDirByName(const char *);
 	void GetDirDelta(CAiMap::DIR, CAiMap::DIR);
@@ -510,8 +632,8 @@ public:
 	CAiMap();
 	~CAiMap();
 	void _reset_rtflag(const MAP_FOREACH_STRUCT &, void *);
-	void _validate_cell(const MAP_FOREACH_STRUCT &, void *);
-	void ValidateCells();
+	static bool _validate_cell(const MAP_FOREACH_STRUCT &, void *); /* 0x186a30: callback, returns 1 */
+	unsigned int ValidateCells(); /* 0x186430 returns the count of links on unwalkable cells */
 	void ResetCells();
 	void GetMapRegion(CAiMap::region &) const;
 	unsigned char TransformTo(const CAiMapLoc &, CAiMap *, CAiMapLoc &);
@@ -521,7 +643,7 @@ public:
 	void GetMapEx(const CAiMapLoc &);
 	CAiMap::name * GetCellName(const CAiMapLoc &);
 	bool GetLocation(const char *, CAiMapLoc &) const; /* bool: CAiMaps::GetLocation 0x19c8e0 tests it */
-	void GetCellAction(const CAiMapLoc &);
+	CAiMap::action * GetCellAction(const CAiMapLoc &); /* 0x19f030 */
 	void FindActionLocation(unsigned int, CAiMapLoc &, CAiMap::action **);
 	CAiMap::link * SetCellLink(const CAiMapLoc &, bool);
 	CAiMap::link * GetCellLink(const CAiMapLoc &);
@@ -532,11 +654,11 @@ public:
 	void ValidateRoutes(bool);
 	void CreateGraph(bool);
 	void DestroyGraph();
-	void read_lines(CFileIO &);
-	void read_routes(CFileIO &);
-	void read_readers(CFileIO &);
-	void Read(CFileIO &);
-	void read_cells(CFileIO &);
+	bool read_lines(CFileIO &);
+	bool read_routes(CFileIO &);
+	bool read_readers(CFileIO &);
+	bool Read(CFileIO &); /* 0x189390: false for an unknown version */
+	bool read_cells(CFileIO &);
 	int GetLocationWidth(const CAiMapLoc &, int);
 	unsigned char CanTravelLine(const CAiMapLoc &, const CAiMapLoc &, CAiMapLoc *);
 	unsigned char CanSeeLine(const CAiMapLoc &, const CAiMapLoc &, CAiMapLoc *);
@@ -554,19 +676,43 @@ public:
 	void UpdateVisibilityMap(CAiVisMap &, int &);
 	static const int version;
 	/* @socom-skeleton end 6CAiMap */
+	/* port: inline in the ELF (ValidateCells, SetCellLink, GetCellCenter, CAiMaps::GetCell): the
+	 * cell of a location, the dummy cell outside its row's span, NULL off the map */
+	CAiCell * GetCell(const CAiMapLoc &loc) const
+	{
+		int y = (u16)loc.y;
+
+		if (y >= 0 && (u32)y < m_ny && loc.x < m_nx)
+			return m_scanlines[y].GetCell(loc.x);
+
+		return NULL;
+	}
+
+	u32 m_version;
+	CAiCell *m_cell;
+	char *m_mapex;
+	s32 m_mapid;
+	f32 m_alt_quant;
+	CAiMap::names m_namesTable;
+	CAiMap::actions m_actionTable;
+	CAiMap::links m_linksTable;
+	CAiMap::regions m_regionTable;
+	CAiMap::spores m_sporeTable;
+	CAiMap::lines m_lineTable;
+	CAiMap::readers m_readerTable;
+	CAiMap::routes m_routeTable;
+	CAiMap::scanlines m_scanlines;
+	class CAiOverlay *m_overlay; /* port: CAiOverlay has no DWARF definition */
+	CGraph *m_graph;
 };
 
-class CAiMapLoc
+class MAP_FOREACH_STRUCT /* port: no DWARF definition; layout from ValidateCells 0x186430 / _validate_cell 0x186a30 (names unproven) */
 {
-public: /* port: public - CAiMaps (0x19c8e0) sets m_mapid */
-	u32 m_mapid : 6;
-	u32 m_x : 13;
-	u32 m_y : 13;
-	/* @socom-skeleton decl 9CAiMapLoc */
 public:
-	static const unsigned char invalid[4];
-	static const int max_value;
-	/* @socom-skeleton end 9CAiMapLoc */
+	CAiMap *m_map;
+	CAiCell *m_cell;
+	const CAiMap::region *m_region;
+	CAiMapLoc m_loc;
 };
 
 struct line_data /* DWARF: line_data, byte_size 4 */
@@ -1144,13 +1290,6 @@ public:
 	static float GetToRightXZ(const CPnt3D *, CPnt3D *, bool);
 };
 /* @socom-skeleton end 3CAi */
-/* @socom-skeleton decl 7CAiCell */
-class CAiCell
-{
-public:
-	CAiCell();
-};
-/* @socom-skeleton end 7CAiCell */
 /* @socom-skeleton decl 9CAiEventQ */
 class CAiEventQ : public std::list<CAiEventHandle>
 {
@@ -1211,7 +1350,7 @@ public:
 	void UpdateActionTables();
 	void UpdateNameTables();
 	void GetSporeLocation(unsigned int, unsigned int, CPnt3D *, CPnt3D *);
-	void ReadMapSet(const char *, const char *);
+	bool ReadMapSet(const char *, const char *); /* 0x198680: true when the file opened */
 	void ValidateLinks();
 	void CreateGraph(bool);
 	CAiMap::name * GetCellName(const CAiMapLoc &) const;

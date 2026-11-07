@@ -85,26 +85,122 @@ class MAP_FOREACH_STRUCT;
 const unsigned short CAiMap::action::invalid[2] = {65535, 0};
 
 /* @socom-skeleton stub _dummy_cell */
-static unsigned char _dummy_cell[8];
+static unsigned char _dummy_cell[8]; /* a CAiCell (8 bytes); the CAiMap ctor sets its soil to 10 */
 
-/* @socom-skeleton stub read_scanlines__6CAiMapFR7CFileIO */
-void CAiMap::read_scanlines(CFileIO &)
+/* port: file-local helpers of this unit (ai::_max<unsigned short> 0x187ea0, ai::_min<unsigned
+ * short> 0x187ec0, _saturate<int> 0x187ee0) */
+namespace ai
 {
+template <class T> static inline const T &_max(const T &a, const T &b) { return a < b ? b : a; }
+template <class T> static inline const T &_min(const T &a, const T &b) { return b < a ? b : a; }
 }
 
-/* @socom-skeleton stub dummy_cell__6CAiMapFv */
+template <class T> static inline bool _saturate(T *value, const T &lo, const T &hi)
+{
+	if (hi < *value)
+	{
+		*value = hi;
+		return true;
+	}
+
+	if (*value < lo)
+	{
+		*value = lo;
+		return true;
+	}
+
+	return false;
+}
+
+static const int _saturate_zero_y0 = 0; /* 0x474d40 */
+static const int _saturate_zero_y1 = 0; /* 0x474d44 */
+
+/* 0x1863c0 */
+CAiMapLoc::CAiMapLoc(u32 mx, u32 my, u32 id)
+{
+	m_mapid = id;
+	x = mx;
+	y = my;
+}
+
+/* @socom-skeleton body read_scanlines__6CAiMapFR7CFileIO */
+bool CAiMap::read_scanlines(CFileIO &io)
+{
+	/* 0x188e90: one 12-byte record per row, read raw; each row's cells follow the previous
+	 * row's in m_cell, and the map-ex pointers are cleared */
+	m_scanlines.resize(m_ny);
+	io.fread(&m_scanlines[0], m_ny * sizeof(scanline));
+
+	u32 cell = 0;
+
+	for (scanlines::iterator i = m_scanlines.begin(); i != m_scanlines.end(); ++i)
+	{
+		i->m_cell = &m_cell[cell];
+		i->m_mapEx = NULL;
+		cell += i->m_end - i->m_start;
+	}
+
+	return true;
+}
+
+/* @socom-skeleton body dummy_cell__6CAiMapFv */
 CAiCell * CAiMap::dummy_cell()
 {
+	/* 0x187e90 */
+	return reinterpret_cast<CAiCell*>(_dummy_cell);
 }
 
-/* @socom-skeleton stub GetDirVec__6CAiMapFQ26CAiMap3DIRR6CPnt3D */
-void CAiMap::GetDirVec(CAiMap::DIR, CPnt3D &)
+/* @socom-skeleton body GetDirVec__6CAiMapFQ26CAiMap3DIRR6CPnt3D */
+CPnt3D * CAiMap::GetDirVec(CAiMap::DIR dir, CPnt3D &vec)
 {
+	/* 0x187d90: unit xz vectors (N = -z); others as N */
+	switch ((u8)dir)
+	{
+	case N: vec.x = 0.0f; vec.y = 0.0f; vec.z = -1.0f; break;
+	case NE: vec.x = 0.707f; vec.y = 0.0f; vec.z = -0.707f; break;
+	case E: vec.x = 1.0f; vec.y = 0.0f; vec.z = 0.0f; break;
+	case SE: vec.x = 0.707f; vec.y = 0.0f; vec.z = 0.707f; break;
+	case S: vec.x = 0.0f; vec.y = 0.0f; vec.z = 1.0f; break;
+	case SW: vec.x = -0.707f; vec.y = 0.0f; vec.z = 0.707f; break;
+	case W: vec.x = -1.0f; vec.y = 0.0f; vec.z = 0.0f; break;
+	case NW: vec.x = -0.707f; vec.y = 0.0f; vec.z = -0.707f; break;
+	default: vec.x = 0.0f; vec.y = 0.0f; vec.z = -1.0f; break;
+	}
+
+	return &vec;
 }
 
-/* @socom-skeleton stub GetDirQuat__6CAiMapFQ26CAiMap3DIRR5CQuatb */
-CQuat * CAiMap::GetDirQuat(CAiMap::DIR, CQuat &, bool)
+/* @socom-skeleton body GetDirQuat__6CAiMapFQ26CAiMap3DIRR5CQuatb */
+CQuat * CAiMap::GetDirQuat(CAiMap::DIR dir, CQuat &quat, bool flip)
 {
+	/* 0x187bd0: a y rotation per direction (N = pi, S = 0); flip turns it a further pi
+	 * (quat * yrot(pi), normalized) */
+	switch ((u8)dir)
+	{
+	case N: quat.MakeYRot(3.1415927f); break;
+	case NE: quat.MakeYRot(2.3561945f); break;
+	case E: quat.MakeYRot(1.5707964f); break;
+	case SE: quat.MakeYRot(0.7853982f); break;
+	case S: quat.MakeYRot(0.0f); break;
+	case SW: quat.MakeYRot(5.4977875f); break;
+	case W: quat.MakeYRot(4.712389f); break;
+	case NW: quat.MakeYRot(3.926991f); break;
+	default: quat.MakeYRot(3.1415927f); break;
+	}
+
+	if (!flip)
+		return &quat;
+
+	CQuat turn;
+	CQuat out;
+	turn.MakeYRot(3.1415927f);
+	quat.Mul(&turn, &out);
+	quat.vec.x = out.vec.x;
+	quat.vec.y = out.vec.y;
+	quat.vec.z = out.vec.z;
+	quat.w = out.w;
+	quat.Normalize();
+	return &quat;
 }
 
 /* @socom-skeleton stub GetDirByName__6CAiMapFPCc */
@@ -137,9 +233,35 @@ unsigned char CAiMap::GetSoilByName(const char *)
 {
 }
 
-/* @socom-skeleton stub __ct__6CAiMapFv */
+/* @socom-skeleton body __ct__6CAiMapFv */
 CAiMap::CAiMap()
 {
+	/* 0x186e40: the tables construct empty; the dummy cell's soil becomes 10. m_idx/m_idy,
+	 * m_light... are left to Read */
+	dummy_cell()->m_soil = 10;
+	m_bbox.m_min = CPnt3D::zero;
+	m_bbox.m_max = CPnt3D::zero;
+	m_ny = 0;
+	m_nx = 0;
+	m_dy = 0.0f; /* port: the ELF stores integer 0 to these float words (same bits) */
+	m_dx = 0.0f;
+	m_cell = NULL;
+	m_mapid = 0;
+	m_floor = -1;
+	m_name[0] = '\0';
+	m_resolution = 0.5f;
+	m_slope_threshold = 0.7853982f;
+	m_flags = 0;
+	m_version = version;
+	m_mapex = NULL;
+	m_mapex_bytes = 0;
+	m_compressed = 0;
+	m_cellcount = 0;
+	m_light[1] = 0;
+	m_light[0] = 0;
+	m_alt_quant = 1.0f;
+	m_graph = NULL;
+	m_overlay = NULL;
 }
 
 /* @socom-skeleton stub __dt__6CAiMapFv */
@@ -152,14 +274,132 @@ void CAiMap::_reset_rtflag(const MAP_FOREACH_STRUCT &, void *)
 {
 }
 
-/* @socom-skeleton stub _validate_cell__6CAiMapFRC18MAP_FOREACH_STRUCTPv */
-void CAiMap::_validate_cell(const MAP_FOREACH_STRUCT &, void *)
+/* @socom-skeleton body _validate_cell__6CAiMapFRC18MAP_FOREACH_STRUCTPv */
+bool CAiMap::_validate_cell(const MAP_FOREACH_STRUCT &fe, void *)
 {
+	/* 0x186a30: resets the cell's search state and occupancy (and its action's state), and
+	 * clears the name/action/link flags that have no table entry */
+	CAiCell* cell = fe.m_cell;
+	cell->m_astar_dir = 8;
+	cell->m_astar_f = -1;
+	cell->m_astar_g = -1;
+	cell->m_rtflag = 0;
+
+	if (cell->m_action)
+	{
+		CAiMap::action* action = fe.m_map->GetCellAction(fe.m_loc);
+
+		if (action != NULL)
+		{
+			action->m_type_invalid = 0;
+			action->m_state = 0;
+		}
+	}
+
+	cell->m_occupied = 0;
+
+	if (cell->m_name && fe.m_map->GetCellName(fe.m_loc) == NULL)
+		cell->m_name = 0;
+
+	if (cell->m_action && fe.m_map->GetCellAction(fe.m_loc) == NULL)
+		cell->m_action = 0;
+
+	if (cell->m_link && fe.m_map->GetCellLink(fe.m_loc) == NULL)
+		cell->m_link = 0;
+
+	return true;
 }
 
-/* @socom-skeleton stub ValidateCells__6CAiMapFv */
-void CAiMap::ValidateCells()
+/* @socom-skeleton body ValidateCells__6CAiMapFv */
+unsigned int CAiMap::ValidateCells()
 {
+	/* 0x186430: flags the cells under names, counts the links on missing or unwalkable cells
+	 * (soil 0, 8, 9, 10), then runs _validate_cell over the whole map (the ForEach of the map
+	 * region inlined: rows clamped to the scanlines, columns to each row's span) */
+	unsigned int bad = 0;
+
+	for (names::iterator i = m_namesTable.begin(); i != m_namesTable.end(); ++i)
+	{
+		i->ValidateName();
+		int y = (u16)i->m_loc.y;
+		bool inside = false;
+
+		if (y >= 0 && (u32)y < m_ny)
+		{
+			const scanline &row = m_scanlines[y];
+			inside = i->m_loc.x >= row.m_start && i->m_loc.x < row.m_end;
+		}
+
+		if (!inside)
+			continue;
+
+		CAiCell* cell = GetCell(i->m_loc);
+
+		if (cell != NULL && !cell->m_name)
+			cell->m_name = 1;
+	}
+
+	/* the ELF walks m_actionTable here with an empty body */
+
+	for (links::iterator i = m_linksTable.begin(); i != m_linksTable.end(); ++i)
+	{
+		CAiCell* cell = GetCell(i->m_loc);
+		bool walkable = false;
+
+		if (cell != NULL)
+		{
+			u32 soil = cell->m_soil;
+			walkable = !(soil == 0 || soil == 10 || soil == 8 || soil == 9);
+		}
+
+		if (!walkable)
+			bad++;
+	}
+
+	region whole;
+	whole.m_dx = 0;
+	whole.m_dy = 0;
+	whole.m_type = 0;
+	whole.m_nodisplay = 0;
+	whole.m_flags = 0;
+	whole.m_unused = 0;
+	whole.m_name[0] = '\0';
+	whole.m_loc = CAiMapLoc(0, 0, 0);
+	whole.m_dx = m_nx;
+	whole.m_dy = m_ny;
+
+	MAP_FOREACH_STRUCT fe;
+	fe.m_map = this;
+	fe.m_region = &whole;
+	fe.m_loc.m_mapid = m_mapid;
+
+	int y0 = whole.m_loc.y;
+	int y1 = whole.m_loc.y + whole.m_dy;
+	int rows0 = (int)m_scanlines.size();
+	_saturate(&y0, _saturate_zero_y0, rows0);
+	int rows1 = (int)m_scanlines.size();
+	_saturate(&y1, _saturate_zero_y1, rows1);
+
+	for (int y = y0; y < y1; y++)
+	{
+		fe.m_loc.y = y;
+		const scanline &row = m_scanlines[y];
+		u16 left = whole.m_loc.x;
+		u16 right = whole.m_loc.x + whole.m_dx;
+		int x0 = ai::_max(row.m_start, left);
+		int x1 = ai::_min(row.m_end, right);
+
+		for (int x = x0; x < x1; x++)
+		{
+			fe.m_loc.x = x;
+			fe.m_cell = &row.m_cell[x - row.m_start];
+
+			if (!_validate_cell(fe, NULL))
+				return bad;
+		}
+	}
+
+	return bad;
 }
 
 /* @socom-skeleton stub ResetCells__6CAiMapFv */

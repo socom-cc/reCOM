@@ -25,29 +25,131 @@
 /* @socom-skeleton stub version__6CGraph */
 const int CGraph::version = 1;
 
-/* @socom-skeleton stub Create__6CGraphFR7CFileIOPFP6CGraphP6CGNodebRUiPv_vPFP6CGraphP6CGEdgebRUiPv_vPv */
-void CGraph::Create(CFileIO &, void (*)(CGraph *, CGNode *, bool, unsigned int &, void *), void (*)(CGraph *, CGEdge *, bool, unsigned int &, void *), void *)
+/* @socom-skeleton body Create__6CGraphFR7CFileIOPFP6CGraphP6CGNodebRUiPv_vPFP6CGraphP6CGEdgebRUiPv_vPv */
+CGraph * CGraph::Create(CFileIO &io, void (*fixupNode)(CGraph *, CGNode *, bool, unsigned int &, void *), void (*fixupEdge)(CGraph *, CGEdge *, bool, unsigned int &, void *), void *user)
 {
+	/* 0x20f4b0: a new unnamed graph read from io; deleted (NULL) when Read fails */
+	CGraph* graph = new CGraph(NULL);
+
+	if (!graph->Read(io, fixupNode, fixupEdge, user))
+	{
+		delete graph;
+		graph = NULL;
+	}
+
+	return graph;
 }
 
-/* @socom-skeleton stub Read__6CGraphFR7CFileIOPFP6CGraphP6CGNodebRUiPv_vPFP6CGraphP6CGEdgebRUiPv_vPv */
-void CGraph::Read(CFileIO &, void (*)(CGraph *, CGNode *, bool, unsigned int &, void *), void (*)(CGraph *, CGEdge *, bool, unsigned int &, void *), void *)
+/* @socom-skeleton body Read__6CGraphFR7CFileIOPFP6CGraphP6CGNodebRUiPv_vPFP6CGraphP6CGEdgebRUiPv_vPv */
+bool CGraph::Read(CFileIO &io, void (*fixupNode)(CGraph *, CGNode *, bool, unsigned int &, void *), void (*fixupEdge)(CGraph *, CGEdge *, bool, unsigned int &, void *), void *user)
 {
+	/* 0x20f2a0: a 16-byte header {version, bytes, nodes, edges}; another version skips the block
+	 * (fseek from the current position). Then one u32 per node (handed to fixupNode) and a
+	 * 16-byte record per edge {node index, node index, length, data (handed to fixupEdge)} */
+	struct header
+	{
+		u32 version;
+		u32 bytes;
+		u32 nodes;
+		u32 edges;
+	} hdr = { 0, 0, 0, 0 }; /* the ELF copies a 16-byte zero constant (0x4d6dd0) */
+
+	struct edge_rec
+	{
+		u32 first;
+		u32 second;
+		f32 length;
+		u32 data;
+	};
+
+	io.fread(&hdr, sizeof(hdr));
+
+	if (hdr.version != (u32)version)
+	{
+		io.fseek(1, hdr.bytes - sizeof(hdr));
+		return false;
+	}
+
+	u32* nodes = new u32[hdr.nodes];
+	edge_rec* edges = new edge_rec[hdr.edges];
+	io.fread(nodes, hdr.nodes * sizeof(u32));
+	io.fread(edges, hdr.edges * sizeof(edge_rec));
+
+	for (u32 i = 0; i < hdr.nodes; i++)
+	{
+		CGNode* node = CreateNode(NULL);
+
+		if (fixupNode != NULL)
+			fixupNode(this, node, true, nodes[i], user);
+	}
+
+	for (u32 i = 0; i < hdr.edges; i++)
+	{
+		edge_rec* rec = &edges[i];
+		CGNode* first = GetNodeByIndex(rec->first);
+		CGEdge* edge = CreateEdge(first, GetNodeByIndex(rec->second));
+		edge->m_length = rec->length; /* ELF quirk kept: no NULL test (CreateEdge is NULL for equal or missing nodes) */
+
+		if (fixupEdge != NULL)
+			fixupEdge(this, edge, true, rec->data, user);
+	}
+
+	delete[] nodes;
+	delete[] edges;
+	return true;
 }
 
-/* @socom-skeleton stub Create__6CGraphFPCc */
-CGraph * CGraph::Create(const char *)
+/* @socom-skeleton body Create__6CGraphFPCc */
+CGraph * CGraph::Create(const char *name)
 {
+	/* 0x20f1f0: the ctor inlined */
+	return new CGraph(name);
 }
 
-/* @socom-skeleton stub Destroy__6CGraphFP6CGraph */
-void CGraph::Destroy(CGraph *)
+/* @socom-skeleton body Destroy__6CGraphFP6CGraph */
+void CGraph::Destroy(CGraph *graph)
 {
+	/* 0x20efc0: NULL is ignored; frees the name, deletes every node and edge (virtual
+	 * destructors), empties both lists and frees the graph (the lists' destructors inline) */
+	if (graph == NULL)
+		return;
+
+	if (graph->m_name != NULL)
+		_free(graph->m_name, "graph_graph.cpp", 52);
+
+	graph->m_name = NULL;
+
+	for (std::list<CGNode*>::iterator i = graph->m_nodes.begin(); i != graph->m_nodes.end(); ++i)
+	{
+		if (*i != NULL)
+			delete *i;
+
+		*i = NULL;
+	}
+
+	for (std::list<CGEdge*>::iterator i = graph->m_edges.begin(); i != graph->m_edges.end(); ++i)
+	{
+		if (*i != NULL)
+			delete *i;
+
+		*i = NULL;
+	}
+
+	graph->m_nodes.clear();
+	graph->m_edges.clear();
+	delete graph; /* port: ~CGraph (stub) frees nothing more; the ELF destroys the lists inline */
 }
 
-/* @socom-skeleton stub __ct__6CGraphFPCc */
-CGraph::CGraph(const char *)
+/* @socom-skeleton body __ct__6CGraphFPCc */
+CGraph::CGraph(const char *name)
 {
+	/* 0x20ef20: the name is a tracked strdup */
+	m_name = NULL;
+
+	if (m_name != NULL)
+		_free(m_name, "graph_graph.cpp", 61);
+
+	m_name = name != NULL ? _strdup(name, "graph_graph.cpp", 62) : NULL;
 }
 
 /* @socom-skeleton stub __dt__6CGraphFv */
@@ -55,9 +157,13 @@ CGraph::~CGraph()
 {
 }
 
-/* @socom-skeleton stub CreateNode__6CGraphFPCc */
-CGNode * CGraph::CreateNode(const char *)
+/* @socom-skeleton body CreateNode__6CGraphFPCc */
+CGNode * CGraph::CreateNode(const char *name)
 {
+	/* 0x20eca0: appended to the node list */
+	CGNode* node = new CGNode(name);
+	m_nodes.push_back(node);
+	return node;
 }
 
 /* @socom-skeleton stub DeleteNode__6CGraphFP6CGNode */
@@ -65,19 +171,50 @@ void CGraph::DeleteNode(CGNode *)
 {
 }
 
-/* @socom-skeleton stub CreateEdge__6CGraphFP6CGNodeP6CGNode */
-CGEdge * CGraph::CreateEdge(CGNode *, CGNode *)
+/* @socom-skeleton body CreateEdge__6CGraphFP6CGNodeP6CGNode */
+CGEdge * CGraph::CreateEdge(CGNode *first, CGNode *second)
 {
+	/* 0x20ea10: NULL for a missing or repeated node; an existing edge between the two is
+	 * returned as is; a new edge (weight 1) goes on both nodes' lists and the graph's */
+	if (first == NULL || second == NULL || first == second)
+		return NULL;
+
+	CGEdge* edge = first->FindEdge(second);
+
+	if (edge == NULL)
+	{
+		edge = new CGEdge(first, second, 1.0f);
+		first->m_edges.push_back(edge);
+		second->m_edges.push_back(edge);
+		m_edges.push_back(edge);
+	}
+
+	return edge;
 }
 
-/* @socom-skeleton stub GetNodeByIndex__6CGraphFUi */
-CGNode * CGraph::GetNodeByIndex(unsigned int)
+/* @socom-skeleton body GetNodeByIndex__6CGraphFUi */
+CGNode * CGraph::GetNodeByIndex(unsigned int index)
 {
+	/* 0x20e960: NULL past the end */
+	std::list<CGNode*>::iterator i = m_nodes.begin();
+
+	while (index-- != 0 && i != m_nodes.end())
+		++i;
+
+	return i != m_nodes.end() ? *i : NULL;
 }
 
-/* @socom-skeleton stub GetNodeByNodeEx__6CGraphFPCv */
-void CGraph::GetNodeByNodeEx(const void *)
+/* @socom-skeleton body GetNodeByNodeEx__6CGraphFPCv */
+CGNode * CGraph::GetNodeByNodeEx(const void *nodeEx)
 {
+	/* 0x20e8b0: the first node whose record is nodeEx */
+	for (std::list<CGNode*>::iterator i = m_nodes.begin(); i != m_nodes.end(); ++i)
+	{
+		if ((*i)->m_nodeEx == nodeEx)
+			return *i;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub FindEdge__6CGraphFP6CGNodeP6CGNode */

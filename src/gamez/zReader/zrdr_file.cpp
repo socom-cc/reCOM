@@ -470,7 +470,36 @@ zar::CKey * CRdrFile::Insert(zar::CZAR *, zar::CKey *)
 {
 }
 
-/* @socom-skeleton stub ReadPacked__8CRdrFileFR7CFileIOUi */
-unsigned char CRdrFile::ReadPacked(CFileIO &, unsigned int)
+/* @socom-skeleton body ReadPacked__8CRdrFileFR7CFileIOUi */
+unsigned char CRdrFile::ReadPacked(CFileIO &io, unsigned int bytes)
 {
+	/* 0x23c040: a packed reader image of `bytes` bytes read into one tracked buffer and resolved
+	 * in place as Resolve(false) does ({string table bytes, root offset}, strings from +8);
+	 * no bytes reads nothing */
+	bool ok = false;
+
+	if (bytes == 0)
+		return ok;
+
+	m_buffer = static_cast<char*>(_malloc(bytes, "zrdr_file.cpp", 293));
+	io.fread(m_buffer, bytes);
+	m_size = bytes;
+	type = ZRDR_ARRAY;
+	array = NULL;
+
+	if (m_buffer != NULL)
+	{
+		char* start = m_buffer;
+		_resolveB(this, reinterpret_cast<_zrdr*>(start + reinterpret_cast<u32*>(start)[1]), start + 8);
+		m_strings.LoadTable(start != NULL ? start + 8 : NULL, *reinterpret_cast<u32*>(start), false);
+		ok = true;
+	}
+
+	if (!ok)
+	{
+		type = ZRDR_NULL;
+		array = NULL;
+	}
+
+	return ok;
 }

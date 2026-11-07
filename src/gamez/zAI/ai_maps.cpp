@@ -90,6 +90,18 @@ class CAiMaps;
 /* @socom-skeleton stub default_mapset__7CAiMaps */
 const char *CAiMaps::default_mapset = "aimaps.mps";
 
+template <class V, class T> bool ReadCellTable(CFileIO &io, V &table); /* ai_mapio.cpp */
+
+/* @socom-skeleton body GetCell__Q26CAiMap8scanlineCFUi */
+CAiCell * CAiMap::scanline::GetCell(unsigned int x) const
+{
+	/* 0x197660: the dummy cell outside the row's span */
+	if (x >= m_start && x < m_end)
+		return &m_cell[x - m_start];
+
+	return CAiMap::dummy_cell();
+}
+
 /* @socom-skeleton stub AiMaps */
 CAiMaps AiMaps;
 
@@ -113,9 +125,19 @@ void CAiMaps::Reset()
 {
 }
 
-/* @socom-skeleton stub GetMapByIndex__7CAiMapsCFUi */
-CAiMap * CAiMaps::GetMapByIndex(unsigned int) const
+/* @socom-skeleton body GetMapByIndex__7CAiMapsCFUi */
+CAiMap * CAiMaps::GetMapByIndex(unsigned int index) const
 {
+	/* 0x19d3c0 (inlined by the map-id lookups below): NULL past the end */
+	if (index >= size())
+		return NULL;
+
+	const_iterator i = begin();
+
+	while (index-- != 0)
+		++i;
+
+	return (CAiMap*)*i;
 }
 
 /* @socom-skeleton stub GetLocation__7CAiMapsFPC6CPnt3DR9CAiMapLoc */
@@ -169,14 +191,51 @@ unsigned int CAiMaps::GetBoundary(const CAiMapLoc &)
 {
 }
 
-/* @socom-skeleton stub GetCell__7CAiMapsFRC9CAiMapLoc */
-CAiCell * CAiMaps::GetCell(const CAiMapLoc &)
+/* @socom-skeleton body GetCell__7CAiMapsFRC9CAiMapLoc */
+CAiCell * CAiMaps::GetCell(const CAiMapLoc &loc)
 {
+	/* 0x19bfc0 */
+	CAiMap* map = GetMapByIndex(loc.m_mapid);
+	return map != NULL ? map->GetCell(loc) : NULL;
 }
 
-/* @socom-skeleton stub GetCellCenter__7CAiMapsFRC9CAiMapLocP6CPnt3D */
-CPnt3D * CAiMaps::GetCellCenter(const CAiMapLoc &, CPnt3D *)
+/* @socom-skeleton body GetCellCenter__7CAiMapsFRC9CAiMapLocP6CPnt3D */
+CPnt3D * CAiMaps::GetCellCenter(const CAiMapLoc &loc, CPnt3D *out)
 {
+	/* 0x19bc60: the cell's centre in x/z, its quantized altitude in y (the map's y range over
+	 * 1024 steps), moved offset_length along an action's offset direction (offset 8 = none).
+	 * NULL for an unknown map or a location off it */
+	CAiMap* map = GetMapByIndex(loc.m_mapid);
+
+	if (map == NULL)
+		return NULL;
+
+	if (!((u32)(u16)loc.y < map->m_ny && loc.x < map->m_nx))
+		return NULL;
+
+	CAiCell* cell = map->GetCell(loc);
+	out->x = map->m_bbox.m_min.x + ((f32)loc.x * map->m_dx + 0.5f * map->m_dx);
+	out->z = map->m_bbox.m_min.z + ((f32)loc.y * map->m_dy + 0.5f * map->m_dy);
+
+	if (cell != NULL)
+		out->y = map->m_bbox.m_min.y + ((map->m_bbox.m_max.y - map->m_bbox.m_min.y) * 0.00097656297f) * (f32)cell->m_altitude;
+	else
+		out->y = 0.0f;
+
+	if (cell->m_action)
+	{
+		CAiMap::action* action = map->GetCellAction(loc);
+
+		if (action->m_offset != 8) /* ELF quirk kept: no NULL test of the action */
+		{
+			CPnt3D offset;
+			CAiMap::GetDirVec((CAiMap::DIR)action->m_offset, offset);
+			offset.Scale(CAiMap::action::offset_length, &offset);
+			out->Add(&offset, out);
+		}
+	}
+
+	return out;
 }
 
 /* @socom-skeleton stub GetInterpolatedShadow__7CAiMapsFRC9CAiMapLocPC6CPnt3Db */
@@ -229,14 +288,85 @@ void CAiMaps::ExtendPath(CAiPath &, const CAiMapLoc &)
 {
 }
 
-/* @socom-skeleton stub UpdateActionTables__7CAiMapsFv */
+/* @socom-skeleton body UpdateActionTables__7CAiMapsFv */
 void CAiMaps::UpdateActionTables()
 {
+	/* 0x199010: per map (index = map id): every action's id is reset to invalid and its ex
+	 * locations take the map id; every region takes the map id and, for types 0-6, is listed
+	 * in m_regions[type] */
+	u32 index = 0;
+
+	for (iterator m = begin(); m != end(); ++m, index++)
+	{
+		CAiMap* map = (CAiMap*)*m;
+
+		for (CAiMap::actions::iterator a = map->m_actionTable.begin(); a != map->m_actionTable.end(); ++a)
+		{
+			a->m_actionId = CAiMap::action::invalid[0];
+
+			if (a->m_locExValid)
+			{
+				for (int i = 0; i < 6; i++)
+					a->m_locEx[i].m_mapid = index;
+			}
+		}
+
+		for (CAiMap::regions::iterator r = map->m_regionTable.begin(); r != map->m_regionTable.end(); ++r)
+		{
+			r->m_loc.m_mapid = index;
+			u32 type = r->m_type;
+
+			if (type < 7)
+				m_regions[type].push_back(r->m_loc);
+		}
+	}
 }
 
-/* @socom-skeleton stub UpdateNameTables__7CAiMapsFv */
+/* @socom-skeleton body UpdateNameTables__7CAiMapsFv */
 void CAiMaps::UpdateNameTables()
 {
+	/* 0x198d10: m_names[type] (types 1-5; 0 is unused) collects every map's names of that
+	 * type, their map id set to the map's index, sorted by name */
+	for (int type = 1; type < 6; type++)
+	{
+		CAiMap::names &table = m_names[type];
+		table.clear();
+		int count = 0;
+
+		for (iterator m = begin(); m != end(); ++m)
+		{
+			CAiMap* map = (CAiMap*)*m;
+
+			for (CAiMap::names::iterator n = map->m_namesTable.begin(); n != map->m_namesTable.end(); ++n)
+			{
+				if (n->m_type == type)
+					count++;
+			}
+		}
+
+		if (count > 0)
+		{
+			table.reserve(count);
+			u32 index = 0;
+
+			for (iterator m = begin(); m != end(); ++m, index++)
+			{
+				CAiMap* map = (CAiMap*)*m;
+
+				for (CAiMap::names::iterator n = map->m_namesTable.begin(); n != map->m_namesTable.end(); ++n)
+				{
+					if (n->m_type == type)
+					{
+						CAiMap::name copy = *n;
+						copy.m_loc.m_mapid = index;
+						table.push_back(copy);
+					}
+				}
+			}
+		}
+
+		table.SortByNames();
+	}
 }
 
 /* @socom-skeleton stub GetSporeLocation__7CAiMapsFUiUiP6CPnt3DP6CPnt3D */
@@ -244,29 +374,137 @@ void CAiMaps::GetSporeLocation(unsigned int, unsigned int, CPnt3D *, CPnt3D *)
 {
 }
 
-/* @socom-skeleton stub _fixupNode__FP6CGraphP6CGNodebRUiPv */
-void _fixupNode(CGraph *, CGNode *, bool, unsigned int &, void *)
+/* @socom-skeleton body _fixupNode__FP6CGraphP6CGNodebRUiPv */
+void _fixupNode(CGraph *, CGNode *node, bool reading, unsigned int &data, void *user)
 {
+	/* 0x198870: a map-set graph node is a cell link, stored packed (map id << 26 | x << 13 | y) */
+	CAiMaps* maps = (CAiMaps*)user;
+
+	if (reading)
+	{
+		CAiMapLoc loc;
+		loc.m_mapid = data >> 26;
+		loc.x = (data >> 13) & 0x1fff;
+		loc.y = data & 0x1fff;
+		CAiMap* map = maps->GetMapByIndex(loc.m_mapid);
+		node->m_nodeEx = map != NULL ? map->GetCellLink(loc) : NULL;
+	}
+	else
+	{
+		const CAiMapLoc &loc = ((const CAiMap::link*)node->m_nodeEx)->m_loc;
+		data = (loc.m_mapid << 26) | (loc.x << 13) | loc.y;
+	}
 }
 
-/* @socom-skeleton stub _fixupEdge__FP6CGraphP6CGEdgebRUiPv */
-void _fixupEdge(CGraph *, CGEdge *, bool, unsigned int &, void *)
+/* @socom-skeleton body _fixupEdge__FP6CGraphP6CGEdgebRUiPv */
+void _fixupEdge(CGraph *, CGEdge *edge, bool reading, unsigned int &data, void *)
 {
+	/* 0x198850: no edge data */
+	if (reading)
+		edge->m_edgeEx = NULL;
+	else
+		data = 0;
 }
 
-/* @socom-skeleton stub ReadMapSet__7CAiMapsFPCcPCc */
-void CAiMaps::ReadMapSet(const char *, const char *)
+/* @socom-skeleton body ReadMapSet__7CAiMapsFPCcPCc */
+bool CAiMaps::ReadMapSet(const char *name, const char *dir)
 {
+	/* 0x198680: <dir><name>: a 4-byte header (unused), the AIMAPS_PARAMS, the maps (each a new
+	 * CAiMap; one that fails to read is dropped, ELF quirk kept: not deleted), the set's graph
+	 * (links between maps), the spore table; then the name/action tables, link check and
+	 * graph. False when the file does not open */
+	CFileIO io;
+	char path[2048];
+	bool opened = false;
+
+	if (dir != NULL)
+	{
+		strcpy(path, dir);
+		strcat(path, name);
+	}
+	else
+	{
+		strcpy(path, name);
+	}
+
+	if (io.Open(path, 1))
+	{
+		u32 header = 0;
+		io.fread(&header, 4);
+		opened = true;
+		io.fread(static_cast<AIMAPS_PARAMS*>(this), sizeof(AIMAPS_PARAMS));
+
+		for (u32 i = 0; i < m_map_count; i++)
+		{
+			CAiMap* map = new CAiMap();
+
+			if (map->Read(io))
+			{
+				push_back(map);
+				map->m_mapid = size() - 1;
+			}
+		}
+
+		m_graph = CGraph::Create(io, _fixupNode, _fixupEdge, this);
+		ReadCellTable<CAiMap::spores, CAiMap::spore>(io, m_spores);
+		UpdateActionTables();
+		UpdateNameTables();
+		ValidateLinks();
+		CreateGraph(false);
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("AIMAP: %s%s opened %d maps %u graph %p", dir != NULL ? dir : "", name, opened, (u32)size(), m_graph);
+#endif
+	/* io closes in its inline destructor (vtable Close, as the ELF) */
+	return opened;
 }
 
-/* @socom-skeleton stub ValidateLinks__7CAiMapsFv */
+/* @socom-skeleton body ValidateLinks__7CAiMapsFv */
 void CAiMaps::ValidateLinks()
 {
+	/* 0x198420: per map, a link is kept only when its target map has a link back to it
+	 * (same x and y); the others are cleared. Each link takes its map's id */
+	for (iterator m = begin(); m != end(); ++m)
+	{
+		CAiMap* map = (CAiMap*)*m;
+		CAiMapLocVec bad;
+
+		for (CAiMap::links::iterator l = map->m_linksTable.begin(); l != map->m_linksTable.end(); ++l)
+		{
+			l->m_loc.m_mapid = map->m_mapid;
+			CAiMap* other = GetMapByIndex(l->m_link.m_mapid);
+			bool ok = false;
+
+			if (other != NULL)
+			{
+				CAiMap::link* back = other->GetCellLink(l->m_link);
+
+				if (back != NULL && back->m_link.x == l->m_loc.x && back->m_link.y == l->m_loc.y)
+					ok = true;
+			}
+
+			if (!ok)
+				bad.push_back(l->m_loc);
+		}
+
+		for (CAiMapLocVec::iterator b = bad.begin(); b != bad.end(); ++b)
+			map->SetCellLink(*b, false);
+	}
 }
 
-/* @socom-skeleton stub CreateGraph__7CAiMapsFb */
-void CAiMaps::CreateGraph(bool)
+/* @socom-skeleton body CreateGraph__7CAiMapsFb */
+void CAiMaps::CreateGraph(bool rebuild)
 {
+	/* 0x1981a0: keeps the graph read with the set unless asked to rebuild */
+	if (!rebuild && m_graph != NULL)
+		return;
+
+#ifdef SOCOM_PORT
+	/* port: not written - building the set graph from the links needs ai::PathPlanImmediate
+	 * (0x180ae0) and CAiPath; the disc's map sets carry their graph */
+	SOCOM_PORT_TRACE("AIMAP: CAiMaps::CreateGraph(%d) rebuild not written", rebuild);
+#endif
 }
 
 /* @socom-skeleton stub GetCellName__7CAiMapsCFRC9CAiMapLoc */

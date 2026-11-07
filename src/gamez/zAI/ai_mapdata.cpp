@@ -49,6 +49,8 @@
  * socom-owner-annotations end socom:work:source-segment-016 */
 
 /* @socom-skeleton decl include */
+#include <algorithm>
+#include "gamez/zGraph/graph_graph.h"
 #include "gamez/zReader/zrdr.h"
 #include "zai.h"
 /* @socom-skeleton end include */
@@ -56,9 +58,84 @@
 /* @socom-skeleton stub offset_length__Q26CAiMap6action */
 const float CAiMap::action::offset_length = 0.75f;
 
-/* @socom-skeleton stub AllocEx__6CAiMapFUi */
-char * CAiMap::AllocEx(unsigned int)
+/* FindByLocation<V, T> (0x19df80 regions, 0x19eea0 links) and FindIteratorByLocation<links>
+ * (0x19ef30): the first record at the location's x and y (the map id is not compared) */
+template <class V, class T> static T *FindByLocation(V &table, const CAiMapLoc &loc)
 {
+	for (typename V::iterator i = table.begin(); i != table.end(); ++i)
+	{
+		if (i->m_loc.x == loc.x && i->m_loc.y == loc.y)
+			return &*i;
+	}
+
+	return NULL;
+}
+
+template <class V, class T> static typename V::iterator FindIteratorByLocation(V &table, const CAiMapLoc &loc)
+{
+	typename V::iterator i = table.begin();
+
+	for (; i != table.end(); ++i)
+	{
+		if (i->m_loc.x == loc.x && i->m_loc.y == loc.y)
+			break;
+	}
+
+	return i;
+}
+
+/* @socom-skeleton body ComputeLength__12CAiMapLocVecCFv */
+float CAiMapLocVec::ComputeLength() const
+{
+	/* 0x19dea0: the summed cell distances between consecutive locations */
+	float length = 0.0f;
+
+	if (size() == 0)
+		return length;
+
+	const_iterator i = begin();
+	CAiMapLoc prev = *i;
+
+	for (++i; i != end(); ++i)
+	{
+		CAiMapLoc cur = *i;
+		int dx = (int)prev.x - (int)cur.x;
+		int dy = (int)prev.y - (int)cur.y;
+		length += sqrtf((float)(dx * dx + dy * dy));
+		prev = cur;
+	}
+
+	return length;
+}
+
+/* @socom-skeleton body AllocEx__6CAiMapFUi */
+char * CAiMap::AllocEx(unsigned int bytes)
+{
+	/* 0x19f390: replaces the per-cell extra data (bytes per cell, zeroed), each row pointing at
+	 * its cells' part */
+	delete[] m_mapex;
+	m_mapex = NULL;
+	m_mapex_bytes = 0;
+
+	for (scanlines::iterator i = m_scanlines.begin(); i != m_scanlines.end(); ++i)
+		i->m_mapEx = NULL;
+
+	if (bytes != 0)
+	{
+		m_mapex_bytes = bytes;
+		u32 size = m_mapex_bytes * m_cellcount;
+		m_mapex = new char[size];
+		memset(m_mapex, 0, size);
+		u32 offset = 0;
+
+		for (scanlines::iterator i = m_scanlines.begin(); i != m_scanlines.end(); ++i)
+		{
+			i->m_mapEx = m_mapex + offset;
+			offset += bytes * (i->m_end - i->m_start);
+		}
+	}
+
+	return m_mapex;
 }
 
 /* @socom-skeleton stub FreeEx__6CAiMapFv */
@@ -71,29 +148,57 @@ void CAiMap::GetMapEx(const CAiMapLoc &)
 {
 }
 
-/* @socom-skeleton stub ValidateName__Q26CAiMap4nameFv */
+/* @socom-skeleton body ValidateName__Q26CAiMap4nameFv */
 void CAiMap::name::ValidateName()
 {
+	/* 0x19f260: terminates the 15-byte name */
+	m_name[14] = '\0';
 }
 
-/* @socom-skeleton stub GetCellName__6CAiMapFRC9CAiMapLoc */
-CAiMap::name * CAiMap::GetCellName(const CAiMapLoc &)
+/* @socom-skeleton body GetCellName__6CAiMapFRC9CAiMapLoc */
+CAiMap::name * CAiMap::GetCellName(const CAiMapLoc &loc)
 {
+	/* 0x19f1c0 */
+	return FindByLocation<names, name>(m_namesTable, loc);
 }
 
-/* @socom-skeleton stub SortByNames__Q26CAiMap5namesFv */
+/* CompareT<CAiMap::name> 0x19f4a0: names ordered case-blind on their first 14 characters */
+template <class T> static bool CompareT(const T &a, const T &b)
+{
+	return strncasecmp(a.m_name, b.m_name, 14) < 0;
+}
+
+/* @socom-skeleton body SortByNames__Q26CAiMap5namesFv */
 void CAiMap::names::SortByNames()
 {
+	/* 0x19f190 */
+	std::sort(begin(), end(), CompareT<name>);
 }
 
-/* @socom-skeleton stub GetLocation__6CAiMapCFPCcR9CAiMapLoc */
-bool CAiMap::GetLocation(const char *, CAiMapLoc &) const
+/* @socom-skeleton body GetLocation__6CAiMapCFPCcR9CAiMapLoc */
+bool CAiMap::GetLocation(const char *str, CAiMapLoc &loc) const
 {
+	/* 0x19f0d0: the location of the first name matching str (case-blind, 14 characters) */
+	if (str == NULL)
+		return false;
+
+	for (names::const_iterator i = m_namesTable.begin(); i != m_namesTable.end(); ++i)
+	{
+		if (strncasecmp(i->m_name, str, 14) == 0)
+		{
+			loc = i->m_loc;
+			return true;
+		}
+	}
+
+	return false;
 }
 
-/* @socom-skeleton stub GetCellAction__6CAiMapFRC9CAiMapLoc */
-void CAiMap::GetCellAction(const CAiMapLoc &)
+/* @socom-skeleton body GetCellAction__6CAiMapFRC9CAiMapLoc */
+CAiMap::action * CAiMap::GetCellAction(const CAiMapLoc &loc)
 {
+	/* 0x19f030 */
+	return FindByLocation<actions, action>(m_actionTable, loc);
 }
 
 /* @socom-skeleton stub FindActionLocation__6CAiMapFUiR9CAiMapLocPPQ26CAiMap6action */
@@ -101,14 +206,54 @@ void CAiMap::FindActionLocation(unsigned int, CAiMapLoc &, CAiMap::action **)
 {
 }
 
-/* @socom-skeleton stub SetCellLink__6CAiMapFRC9CAiMapLocb */
-CAiMap::link * CAiMap::SetCellLink(const CAiMapLoc &, bool)
+/* @socom-skeleton body SetCellLink__6CAiMapFRC9CAiMapLocb */
+CAiMap::link * CAiMap::SetCellLink(const CAiMapLoc &loc, bool set)
 {
+	/* 0x19ec60: clearing drops the location's link record and the cell's link flag; setting
+	 * finds or appends a record (its target left unset) and flags the cell, making an
+	 * unwalkable (0, 8, 9, 10) cell soil 1. ELF quirk kept: no NULL test of the cell (a
+	 * location off the map) */
+	CAiCell* cell = GetCell(loc);
+
+	if (!set)
+	{
+		links::iterator i = FindIteratorByLocation<links, link>(m_linksTable, loc);
+
+		if (i != m_linksTable.end())
+			m_linksTable.erase(i);
+
+		cell->m_link = 0;
+		return NULL;
+	}
+
+	link* rec = FindByLocation<links, link>(m_linksTable, loc);
+
+	if (rec == NULL)
+	{
+		link added;
+		added.m_loc = loc;
+		m_linksTable.push_back(added);
+		rec = &m_linksTable.back();
+	}
+
+	if (rec != NULL)
+	{
+		u32 soil = cell->m_soil;
+
+		if (soil == 0 || soil == 10 || soil == 8 || soil == 9)
+			cell->m_soil = 1;
+
+		cell->m_link = 1;
+	}
+
+	return rec;
 }
 
-/* @socom-skeleton stub GetCellLink__6CAiMapFRC9CAiMapLoc */
-CAiMap::link * CAiMap::GetCellLink(const CAiMapLoc &)
+/* @socom-skeleton body GetCellLink__6CAiMapFRC9CAiMapLoc */
+CAiMap::link * CAiMap::GetCellLink(const CAiMapLoc &loc)
 {
+	/* 0x19ebd0 */
+	return FindByLocation<links, link>(m_linksTable, loc);
 }
 
 /* @socom-skeleton stub GetRegion__6CAiMapFRC9CAiMapLoc */
@@ -141,9 +286,13 @@ CAiMapLoc * CAiMap::region::GetCenter(CAiMapLoc &) const
 {
 }
 
-/* @socom-skeleton stub __ct__Q26CAiMap6readerFv */
+/* @socom-skeleton body __ct__Q26CAiMap6readerFv */
 CAiMap::reader::reader()
 {
+	/* 0x19e670: m_loc is left unset */
+	m_reader = NULL;
+	m_flags = 0;
+	m_bytes = 0;
 }
 
 /* @socom-skeleton stub __dt__Q26CAiMap7readersFv */
@@ -151,29 +300,133 @@ CAiMap::readers::~readers()
 {
 }
 
-/* @socom-skeleton stub SetReader__Q26CAiMap6readerFP8CRdrFile */
-void CAiMap::reader::SetReader(CRdrFile *)
+/* @socom-skeleton body SetReader__Q26CAiMap6readerFP8CRdrFile */
+void CAiMap::reader::SetReader(CRdrFile *rdr)
 {
+	/* 0x19e570: the old reader is freed (zrdr_free ignores NULL) */
+	if (rdr != m_reader)
+	{
+		zrdr_free(m_reader);
+		m_reader = rdr;
+	}
 }
 
 /* @socom-skeleton stub ReRoute__6CAiMapFPQ26CAiMap5route */
 void CAiMap::ReRoute(CAiMap::route *)
 {
+	/* port: not written (0x19e320, 532 B: path planning); only ValidateRoutes(true) calls it */
 }
 
-/* @socom-skeleton stub _invalid_route__FRQ26CAiMap5route */
-bool _invalid_route(CAiMap::route &)
+/* @socom-skeleton body _invalid_route__FRQ26CAiMap5route */
+bool _invalid_route(CAiMap::route &route)
 {
+	/* 0x19e300: flag bit 0 marks an invalid route */
+	return (route.m_flags & 1) != 0;
 }
 
-/* @socom-skeleton stub ValidateRoutes__6CAiMapFb */
-void CAiMap::ValidateRoutes(bool)
+/* port: inline in the ELF (ValidateRoutes): the location lies in the region's rectangle */
+static inline bool _in_region(const CAiMap::region *r, const CAiMapLoc &loc)
 {
+	int dx = (int)loc.x - (int)r->m_loc.x;
+	int dy = (int)loc.y - (int)r->m_loc.y;
+
+	if (dx < 0 || dx >= (int)r->m_dx)
+		return false;
+
+	if (dy < 0 || dy >= (int)r->m_dy)
+		return false;
+
+	return true;
 }
 
-/* @socom-skeleton stub CreateGraph__6CAiMapFb */
-void CAiMap::CreateGraph(bool)
+/* @socom-skeleton body ValidateRoutes__6CAiMapFb */
+void CAiMap::ValidateRoutes(bool reroute)
 {
+	/* 0x19e0a0: a route is invalid unless both its regions exist, its first waypoint lies in
+	 * the first and its last in the second, and both are type 4; valid routes are re-planned
+	 * when asked; invalid ones are removed */
+	for (routes::iterator i = m_routeTable.begin(); i != m_routeTable.end(); ++i)
+	{
+		if (i->m_flags & 1)
+			continue;
+
+		region* from = FindByLocation<regions, region>(m_regionTable, i->m_region[0]);
+		region* to = FindByLocation<regions, region>(m_regionTable, i->m_region[1]);
+
+		if (from == NULL || to == NULL)
+		{
+			i->m_flags |= 1;
+			continue;
+		}
+
+		if (!_in_region(from, i->m_waypts[0]) || from->m_type != 4)
+		{
+			i->m_flags |= 1;
+			continue;
+		}
+
+		if (!_in_region(to, i->m_waypts[i->m_waypts.size() - 1]) || to->m_type != 4)
+		{
+			i->m_flags |= 1;
+			continue;
+		}
+
+		if (reroute)
+			ReRoute(&*i);
+	}
+
+	m_routeTable.erase(std::remove_if(m_routeTable.begin(), m_routeTable.end(), _invalid_route), m_routeTable.end());
+}
+
+/* @socom-skeleton body CreateGraph__6CAiMapFb */
+void CAiMap::CreateGraph(bool rebuild)
+{
+	/* 0x19dce0: a node per type-4 region (named after it) and an edge per valid route (its
+	 * path length); no routes leaves the map without a graph. Flag bit 0 = has a graph */
+	if (rebuild)
+	{
+		CGraph::Destroy(m_graph);
+		m_graph = NULL;
+		m_flags &= ~1u;
+	}
+
+	if (m_routeTable.size() == 0)
+	{
+		CGraph::Destroy(m_graph);
+		m_graph = NULL;
+		m_flags &= ~1u;
+		return;
+	}
+
+	CGraph* graph = CGraph::Create("AiMap Graph");
+
+	for (regions::iterator i = m_regionTable.begin(); i != m_regionTable.end(); ++i)
+	{
+		if (i->m_type == 4)
+		{
+			CGNode* node = graph->CreateNode(NULL);
+			node->m_nodeEx = &*i;
+			node->SetName(i->m_name);
+		}
+	}
+
+	for (routes::iterator i = m_routeTable.begin(); i != m_routeTable.end(); ++i)
+	{
+		if (i->m_flags & 1)
+			continue;
+
+		region* from = FindByLocation<regions, region>(m_regionTable, i->m_region[0]);
+		region* to = FindByLocation<regions, region>(m_regionTable, i->m_region[1]);
+		CGNode* first = graph->GetNodeByNodeEx(from);
+		CGEdge* edge = graph->CreateEdge(first, graph->GetNodeByNodeEx(to));
+		edge->m_length = i->m_path.ComputeLength(); /* ELF quirk kept: no NULL test */
+		edge->m_edgeEx = &*i;
+	}
+
+	m_graph = graph;
+
+	if (m_graph != NULL)
+		m_flags |= 1;
 }
 
 /* @socom-skeleton stub DestroyGraph__6CAiMapFv */

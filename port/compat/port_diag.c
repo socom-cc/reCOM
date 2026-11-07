@@ -8,6 +8,7 @@
 #include <sio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <malloc.h>
 
 void socom_port_trace(const char *fmt, ...)
 {
@@ -18,9 +19,10 @@ void socom_port_trace(const char *fmt, ...)
     va_start(ap, fmt);
     n += vsnprintf(line + n, sizeof(line) - n, fmt, ap);
     va_end(ap);
-    if (n < (int)sizeof(line) - 32) {
+    if (n < (int)sizeof(line) - 40) {
         void *probe = malloc(16);
-        snprintf(line + n, sizeof(line) - n, " [brk %p%s]", sbrk(0), probe ? "" : " HEAP BROKEN");
+        struct mallinfo mi = mallinfo(); /* in use: the heap the game holds (brk is only the high-water mark) */
+        snprintf(line + n, sizeof(line) - n, " [brk %p use %u%s]", sbrk(0), (unsigned int)mi.uordblks, probe ? "" : " HEAP BROKEN");
         free(probe);
     }
     sio_puts(line);

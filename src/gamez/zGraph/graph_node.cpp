@@ -7,26 +7,59 @@
  * socom-owner-annotations end socom:work:source-segment-025 */
 
 /* @socom-skeleton decl include */
+#include "gamez/zSystem/zsys.h"
 #include "graph_edge.h"
 #include "graph_node.h"
 /* @socom-skeleton end include */
 
-/* @socom-skeleton stub __ct__6CGNodeFPCc */
+/* @socom-skeleton body __ct__6CGNodeFPCc */
 CGNode::CGNode(const char *)
 {
+	/* 0x20f780: ELF quirk kept - the name argument is ignored (callers use SetName) */
+	m_name = NULL;
+	m_unk_08 = 0;
+	m_nodeEx = NULL;
+	m_unk_1c = 0;
+	m_unk_20 = 0;
 }
 
-/* @socom-skeleton stub __dt__6CGNodeFv */
+/* @socom-skeleton body __dt__6CGNodeFv */
 CGNode::~CGNode()
 {
+	/* 0x20f6c0 */
+	if (m_name != NULL)
+		_free(m_name, "graph_node.cpp", 38);
+
+	m_name = NULL;
+	m_edges.clear();
 }
 
-/* @socom-skeleton stub SetName__6CGNodeFPCc */
-void CGNode::SetName(const char *)
+/* @socom-skeleton body SetName__6CGNodeFPCc */
+void CGNode::SetName(const char *name)
 {
+	/* 0x20f650: a tracked strdup */
+	if (m_name != NULL)
+		_free(m_name, "graph_node.cpp", 51);
+
+	m_name = NULL;
+	m_name = name != NULL ? _strdup(name, "graph_node.cpp", 52) : NULL;
 }
 
-/* @socom-skeleton stub FindEdge__6CGNodeFP6CGNode */
-CGEdge * CGNode::FindEdge(CGNode *)
+/* @socom-skeleton body FindEdge__6CGNodeFP6CGNode */
+CGEdge * CGNode::FindEdge(CGNode *other)
 {
+	/* 0x20f550: the edge of this node's list joining it to other (either direction) */
+	if (other == NULL)
+		return NULL;
+
+	for (std::list<CGEdge*>::iterator i = m_edges.begin(); i != m_edges.end(); ++i)
+	{
+		CGEdge* edge = *i;
+
+		if ((edge->m_first == this || edge->m_second == this) &&
+			(edge->m_first == other || edge->m_second == other))
+			return edge;
+	}
+
+	return NULL;
 }

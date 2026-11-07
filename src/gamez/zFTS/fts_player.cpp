@@ -402,7 +402,10 @@ CZSealBody * CMission::LoadVehicle(CVehicleRdrEntry *entry, bool first)
 			ctrltype = SEAL_CONTROL_TYPE::CTRL_MISC;
 	}
 
-	SOCOM_PORT_TRACE("LOAD: vehicle %s character %s control %d", entry->m_name, entry->m_character, (int)ctrltype);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("LOAD: vehicle %s character %s control %d start %s at %d %d %d", entry->m_name, entry->m_character, (int)ctrltype,
+		entry->GetStartPos() != NULL ? entry->GetStartPos() : "-", (int)pos.x, (int)pos.y, (int)pos.z);
+#endif
 	CZSealBody* body = ftsCreateSeal(type, entry->m_name, ctrltype);
 
 	if (body == NULL)
