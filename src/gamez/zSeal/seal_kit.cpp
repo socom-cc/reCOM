@@ -152,6 +152,7 @@
 #include "gamez/zMath/zmath.h"
 #include "gamez/zCamera/zcam.h" /* CCamera::m_screenOffset (the ctor) */
 #include "gamez/zNode/node_world.h" /* CWorld::m_world */
+#include "gamez/zVisual/zvis.h" /* CVisual lens tint and fog statics (Apply_LensEffects) */
 #include "gamez/zTexture/ztex.h"
 #include "gamez/zWeapon/zweapon.h"
 /* @socom-skeleton end include */
@@ -337,13 +338,25 @@ CZKit::~CZKit()
 }
 
 /* @socom-skeleton stub NVG_Enabled__5CZKitCFv */
-void CZKit::NVG_Enabled() const
+bool CZKit::NVG_Enabled() const
 {
+	/* 0x2aed30: the seal is in the night-vision zoom state */
+	return m_body->m_zoomstate == ZOOMSTATE::ZOOMSTATE_NVG;
 }
 
 /* @socom-skeleton stub NVG_Enabled__5CZKitFb */
-void CZKit::NVG_Enabled(bool)
+void CZKit::NVG_Enabled(bool enable)
 {
+	/* 0x2aecd0: night vision goes on only in a night mission */
+	if (enable)
+	{
+		if (zdb::CWorld::m_world != NULL && zdb::CWorld::m_world->m_night_mission)
+			m_nvg_enabled = 1;
+	}
+	else
+	{
+		m_nvg_enabled = 0;
+	}
 }
 
 /* @socom-skeleton stub GetCurItemIDType__5CZKitFv */
@@ -560,6 +573,8 @@ FIREMODE CZKit::GetCurFireMode()
 /* @socom-skeleton stub GetCurItem__5CZKitCFv */
 CZFTSWeapon * CZKit::GetCurItem() const
 {
+	/* 0x2abd40: the selected item slot (no range test) */
+	return m_item[m_selected_item];
 }
 
 /* @socom-skeleton stub GetItemByIndex__5CZKitFi */
@@ -607,8 +622,40 @@ void CZKit::TickFlashlight(float)
 }
 
 /* @socom-skeleton stub Apply_LensEffects__5CZKitFbP6CPnt3D */
-void CZKit::Apply_LensEffects(bool, CPnt3D *)
+void CZKit::Apply_LensEffects(bool enable, CPnt3D *tint)
 {
+	/* 0x2aa310: a lens tint (NVG, starlight scope) scales every visual's colour and the
+	   level's fog colour (no fog alpha); off restores white and the level's fog colour.
+	   On without a tint only marks the effect on. */
+	zdb::CCamera *camera = zdb::CWorld::m_world->m_camera;
+
+	if (!enable)
+	{
+		CPnt3D white(1.0f, 1.0f, 1.0f);
+		zdb::CVisual::m_applyScaleColor = false;
+		zdb::CVisual::m_scaleColor[0] = white.x;
+		zdb::CVisual::m_scaleColor[1] = white.y;
+		zdb::CVisual::m_scaleColor[2] = white.z;
+		camera->m_fog_color = zdb::CVisual::m_basefog_color;
+		m_lensfx_enable = 0;
+		return;
+	}
+
+	if (tint != NULL)
+	{
+		zdb::CVisual::m_applyScaleColor = true;
+		zdb::CVisual::m_scaleColor[0] = tint->x;
+		zdb::CVisual::m_scaleColor[1] = tint->y;
+		zdb::CVisual::m_scaleColor[2] = tint->z;
+
+		CPnt4D base = zdb::CVisual::m_basefog_color;
+		camera->m_fog_color.x = tint->x * base.x;
+		camera->m_fog_color.y = tint->y * base.y;
+		camera->m_fog_color.z = tint->z * base.z;
+		camera->m_fog_color.w = 0.0f;
+	}
+
+	m_lensfx_enable = 1;
 }
 
 /* @socom-skeleton stub PreTick__5CZKitFf */
@@ -1037,8 +1084,10 @@ void CZKit::InitializeSniperKick()
 }
 
 /* @socom-skeleton stub Binocs_Enabled__5CZKitFb */
-void CZKit::Binocs_Enabled(bool)
+void CZKit::Binocs_Enabled(bool enable)
 {
+	/* 0x2a4ff0 */
+	m_binocs_enabled = enable;
 }
 
 /* @socom-skeleton stub IsUsingBinocs__5CZKitFv */

@@ -79,9 +79,10 @@ void sceVu0ApplyMatrix(sceVu0FVECTOR v0, sceVu0FMATRIX m0, sceVu0FVECTOR v1)
         v0[k] = m0[0][k] * x + m0[1][k] * y + m0[2][k] * z + m0[3][k] * w;
 }
 
-/* 0x152360: rows 0..2 of m0 = columns 0..2 of m1 with w = 0; row 3 = (-(r0.t), -(r1.t),
- * -(r2.t), m1[3].w) where r is the transposed row and t = m1[3].xyz. All of m1 is read
- * before m0 is written, so m0 may alias m1. */
+/* 0x152360: rows 0..2 of m0 = columns 0..2 of m1 with w = 0; row 3 = (-(m1[0].t),
+ * -(m1[1].t), -(m1[2].t), m1[3].w) with t = m1[3].xyz (the translation through the
+ * transposed rows: vmulax/vmadday/vmaddz scale whole rows of m0 by t.x, t.y, t.z). All of
+ * m1 is read before m0 is written, so m0 may alias m1. */
 void sceVu0InversMatrix(sceVu0FMATRIX m0, sceVu0FMATRIX m1)
 {
     float r[3][3];
@@ -96,10 +97,13 @@ void sceVu0InversMatrix(sceVu0FMATRIX m0, sceVu0FMATRIX m1)
         m0[i][2] = r[i][2];
         m0[i][3] = 0.0f;
     }
-    /* vmulax/vmadday/vmaddz: x = r00*tx + r01*ty + r02*tz, with r the rows written above */
-    m0[3][0] = 0.0f - (r[0][0] * tx + r[0][1] * ty + r[0][2] * tz);
-    m0[3][1] = 0.0f - (r[1][0] * tx + r[1][1] * ty + r[1][2] * tz);
-    m0[3][2] = 0.0f - (r[2][0] * tx + r[2][1] * ty + r[2][2] * tz);
+    /* vmulax/vmadday/vmaddz: ACC.xyz = r[0].xyz*tx + r[1].xyz*ty + r[2].xyz*tz, with r the
+     * rows written above, so component j = r0j*tx + r1j*ty + r2j*tz (an earlier version
+     * summed along the rows instead, which only agrees for a symmetric rotation such as a
+     * level camera's) */
+    m0[3][0] = 0.0f - (r[0][0] * tx + r[1][0] * ty + r[2][0] * tz);
+    m0[3][1] = 0.0f - (r[0][1] * tx + r[1][1] * ty + r[2][1] * tz);
+    m0[3][2] = 0.0f - (r[0][2] * tx + r[1][2] * ty + r[2][2] * tz);
     m0[3][3] = tw;
 }
 

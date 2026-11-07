@@ -68,7 +68,8 @@
 
 #include <libvu0.h> /* sceVu0OuterProduct, sceVu0UnitMatrix (LookAt, AttachTo) */
 #include <eeregs.h> /* T0_COUNT (Tick) */
-#include <math.h> /* expf (Tick) */
+#include <math.h> /* expf (Tick), atan2f (the transitions) */
+#include "gamez/zMath/zmath_vu.h" /* Vu0MatrixInverseWithUniformScale (the transitions) */
 
 /* @socom-skeleton decl include */
 #include "gamez/zIntersect/zintersect.h"
@@ -430,11 +431,35 @@ void CAppCamera::FTSTick(f32 dT)
 		m_camera_mode = PLAYER_CAM_STATE::cam_mode_FP;
 	else
 		m_camera_mode = PLAYER_CAM_STATE::cam_mode_tether;
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("CAM: view %d, camera mode %d", (int)m_ctrl_view, (int)m_camera_mode);
+#endif
 }
 
 /* @socom-skeleton stub GetFirstPersonCamPos__FP10CAppCamera */
-void GetFirstPersonCamPos(CAppCamera *)
+CPnt3D GetFirstPersonCamPos(CAppCamera *camera)
 {
+	/* 0x1eafc0 (returns the eye by value, MW hidden pointer in a0, the camera in a1): the
+	   first-person eye in body space - the seal's skel_root (origin without one) raised
+	   Y_FP_OFFSET, at z 3, shifted by the peek (3.3 left, 4.35 right per unit). */
+	CPnt3D p;
+
+	if (camera->m_entity != NULL && camera->m_skel_root != NULL)
+		camera->m_entity->PartInSpace(camera->m_skel_root, NULL, &p, NULL);
+	else
+		p = CPnt3D::zero;
+
+	f32 peek = 0.0f;
+
+	if (peekCur < 0.0f)
+		peek += 3.3f * peekCur;
+	else if (!(peekCur <= 0.0f))
+		peek += 4.35f * peekCur;
+
+	p.z = 3.0f;
+	p.y += Y_FP_OFFSET;
+	p.x += peek;
+	return p;
 }
 
 /* @socom-skeleton stub GetThirdPersonCamPos__10CAppCameraFP6CPnt3DPf */
@@ -488,16 +513,93 @@ CPnt3D CAppCamera::GetThirdPersonCamPos(CPnt3D *aim, float *dist)
 	return p;
 }
 
+/* port: file-local helper, not an ELF function - the [0, 2pi] wrap both transitions repeat
+   inline (0x1eac50 / 0x1ea9c8, each angle's two loops): up while below 0, down while above
+   2pi. ELF quirk kept: a NaN never leaves the second loop. */
+static inline f32 WrapTwoPi(f32 a)
+{
+	while (a < 0.0f)
+		a += 6.2831855f; /* 0x40c90fdb */
+
+	while (!(a <= 6.2831855f))
+		a -= 6.2831855f;
+
+	return a;
+}
+
 /* @socom-skeleton body ThirdToFirstPersonTransition__FP10CAppCamera */
 void ThirdToFirstPersonTransition(CAppCamera* camera)
 {
-	
+	/* 0x1eaae0 (CAppCamera::Tick, entering first person): keep the view on the player's aim
+	   point. In body space, the pitch (atan2 of y over z) of the look line from the
+	   first-person eye and the pitch of the aim point from it, both wrapped to [0, 2pi]:
+	   the aim pitch moves by their difference and the head (the forward look) follows. */
+#ifdef SOCOM_PORT
+	/* port: m_aim_point is only set by CheckDIShoot -> SetAimPointW (not written), which the
+	   ELF runs every camera tick, so the player always has one by now. Without one the aim
+	   pitch is left as it is (the never-written member is heap garbage and a NaN would
+	   never leave WrapTwoPi). */
+	if (!ftsGetPlayer()->m_aim_point_valid)
+	{
+		SOCOM_PORT_TRACE("CAM: into first person without an aim point: aim pitch %.3f kept",
+			static_cast<CSealCtrl*>(camera->m_entity->m_control)->m_aimPitch);
+		return;
+	}
+#endif
+	CPnt3D eye = GetFirstPersonCamPos(camera);
+	CPnt3D ahead(0.0f, 0.0f, -1.0f);
+	CPnt3D look;
+	camera->m_entity->m_fwdlook.Apply(&ahead, &look, 1);
+	look.Add(&eye, &look);
+	f32 view = atan2f(look.y - eye.y, look.z - eye.z);
+
+	CPnt3D aim = ftsGetPlayer()->m_aim_point;
+	CMatrix inverse;
+	sceVu0UnitMatrix(inverse.m_matrix);
+	Vu0MatrixInverseWithUniformScale(&inverse, &camera->m_entity->m_node->m_matrix);
+	inverse.Transform(&aim, 1);
+	f32 target = atan2f(aim.y - eye.y, aim.z - eye.z);
+
+	view = WrapTwoPi(view);
+	target = WrapTwoPi(target);
+
+	CSealCtrl* control = static_cast<CSealCtrl*>(camera->m_entity->m_control);
+	control->m_aimPitch += view - target;
+	ftsGetPlayer()->RotateHead(control->m_aimPitch, 0.0f);
 }
 
 /* @socom-skeleton body FirstToThirdPersonTransition__FP10CAppCamera */
 void FirstToThirdPersonTransition(CAppCamera* camera)
 {
-	
+	/* 0x1ea850 (CAppCamera::Tick, leaving first person): as ThirdToFirstPersonTransition,
+	   from the third-person aim point (GetThirdPersonCamPos) and a look line 1000 long. */
+#ifdef SOCOM_PORT
+	/* port: see ThirdToFirstPersonTransition (no aim point without CheckDIShoot) */
+	if (!ftsGetPlayer()->m_aim_point_valid)
+		return;
+#endif
+	CPnt3D from;
+	f32 dist;
+	camera->GetThirdPersonCamPos(&from, &dist); /* the eye is unused */
+	CPnt3D ahead(0.0f, 0.0f, -1000.0f);
+	CPnt3D look;
+	camera->m_entity->m_fwdlook.Apply(&ahead, &look, 1);
+	look.Add(&from, &look);
+	f32 view = atan2f(look.y - from.y, look.z - from.z);
+
+	CPnt3D aim = ftsGetPlayer()->m_aim_point;
+	CMatrix inverse;
+	sceVu0UnitMatrix(inverse.m_matrix);
+	Vu0MatrixInverseWithUniformScale(&inverse, &camera->m_entity->m_node->m_matrix);
+	inverse.Transform(&aim, 1);
+	f32 target = atan2f(aim.y - from.y, aim.z - from.z);
+
+	view = WrapTwoPi(view);
+	target = WrapTwoPi(target);
+
+	CSealCtrl* control = static_cast<CSealCtrl*>(camera->m_entity->m_control);
+	control->m_aimPitch += view - target;
+	ftsGetPlayer()->RotateHead(control->m_aimPitch, 0.0f);
 }
 
 /* @socom-skeleton body TickCameraWiggle__10CAppCameraFfPQ23zdb7CCamera */
@@ -785,5 +887,30 @@ void CAppCamera::APTeatherCam(CMatrix& transform, float dT)
 /* @socom-skeleton body APFirstPersonCam__10CAppCameraFR7CMatrix */
 void CAppCamera::APFirstPersonCam(CMatrix& matrix)
 {
-	
+	/* 0x1e8860: the first-person camera looks from the first-person eye along the seal's
+	   forward look (one unit ahead), both taken to world space; then the ground under the
+	   camera gives its region mask, material and indoor flag (unlike the tether camera,
+	   also when standing on a seal, and without the poly test). */
+	CPnt3D local = GetFirstPersonCamPos(this);
+	CPnt3D eye = local;
+	m_entity->m_node->m_matrix.Transform(&eye, 1);
+
+	CPnt3D ahead(0.0f, 0.0f, -1.0f);
+	CPnt3D look;
+	m_entity->m_fwdlook.Apply(&ahead, &look, 1);
+	look.Add(&local, &look);
+	m_entity->m_node->m_matrix.Transform(&look, 1);
+
+	LookAt(&eye, &look, matrix);
+
+	CPnt3D camPos(0.0f, 0.0f, 0.0f);
+	m_camera->TransformToWorld(camPos);
+	zdb::IntersectStruct* ground = zdb::CWorld::m_world->GetAltitude(&camPos, 0.0f);
+
+	if (ground != NULL)
+	{
+		m_camera->SetCameraCanSeeRegions(ground->GetRegion());
+		m_camera->m_AboveMaterial = ground->GetMaterial();
+		m_camera->m_IsInside = ground->IsInside();
+	}
 }

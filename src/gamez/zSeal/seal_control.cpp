@@ -972,8 +972,71 @@ bool CSealCtrl::PreTick(float dT)
 }
 
 /* @socom-skeleton stub TickAimPitch__9CSealCtrlFff */
-void CSealCtrl::TickAimPitch(float, float)
+void CSealCtrl::TickAimPitch(float dT, float pitch)
 {
+	/* 0x285960: the stick pitch moves the aim pitch at m_pitchRate x 500 / the seal's
+	 * m_zoomval radians per second, up to the dynamics' max (stick up) or down to the min
+	 * (stick down; prone: the prone limits); a pitch left outside them (a stance change)
+	 * eases back in at 1 radian per second. The head (the forward look the camera follows)
+	 * takes the result. */
+	CZSealBody *body = static_cast<CZSealBody *>(m_entity);
+	CharacterDynamics *dyn = body->GetDynamics();
+	f32 max = dyn->m_maxAimPitch;
+	f32 min = dyn->m_minAimPitch;
+
+	if (body->m_state == 2) /* prone */
+	{
+		min = dyn->m_proneMinAimPitch;
+		max = dyn->m_proneMaxAimPitch;
+	}
+
+	if (pitch != 0.0f)
+	{
+		f32 step = pitch * (dT * (500.0f * dyn->m_pitchRate / body->m_zoomval));
+
+		if (!(pitch <= 0.0f))
+		{
+			if (m_aimPitch < max)
+			{
+				m_aimPitch += step;
+
+				if (!(m_aimPitch <= max))
+					m_aimPitch = max;
+			}
+		}
+		else if (pitch < 0.0f && !(m_aimPitch <= min))
+		{
+			m_aimPitch += step;
+
+			if (m_aimPitch < min)
+				m_aimPitch = min;
+		}
+	}
+
+	if (!(m_aimPitch <= max))
+	{
+		m_aimPitch -= dT;
+
+		if (m_aimPitch < max)
+			m_aimPitch = max;
+	}
+	else if (m_aimPitch < min)
+	{
+		m_aimPitch += dT;
+
+		if (!(m_aimPitch <= min))
+			m_aimPitch = min;
+	}
+
+	body->RotateHead(m_aimPitch, 0.0f);
+#ifdef SOCOM_PORT
+	{
+		static s32 traced;
+
+		if (pitch != 0.0f && traced++ % 30 == 0)
+			SOCOM_PORT_TRACE("AIM: stick pitch %.3f, aim pitch %.3f (%.3f..%.3f)", pitch, m_aimPitch, min, max);
+	}
+#endif
 }
 
 /* @socom-skeleton stub CanPlaceBomb__9CSealCtrlFP11CNodeAction */
@@ -1062,11 +1125,20 @@ float CSealCtrl::GetThrowAverage()
 /* @socom-skeleton stub TriggerPowerReset__9CSealCtrlFv */
 void CSealCtrl::TriggerPowerReset()
 {
+	/* 0x284420: the throw power and its ten pressure readings back to 0 */
+	m_trigger_power = 0.0f;
+
+	for (s32 i = 0; i < 10; i++)
+		m_buttonreading[i] = 0.0f;
 }
 
 /* @socom-skeleton stub SetCameraZoom__9CSealCtrlFff */
-void CSealCtrl::SetCameraZoom(float, float)
+void CSealCtrl::SetCameraZoom(float level, float increment)
 {
+	/* 0x2843f0: a zoom request for CameraZoom::HandleNewZoom */
+	m_zoomlevel = level;
+	m_zoomincrement = increment;
+	m_update_zoom = 1;
 }
 
 /* @socom-skeleton stub UpdateHudWeapon__9CSealCtrlFv */
@@ -1077,11 +1149,17 @@ void CSealCtrl::UpdateHudWeapon()
 /* @socom-skeleton stub GetZoomLevel__9CSealCtrlFv */
 float CSealCtrl::GetZoomLevel()
 {
+	/* 0x284390: takes the zoom request */
+	m_update_zoom = 0;
+	return m_zoomlevel;
 }
 
 /* @socom-skeleton stub GetZoomIncrement__9CSealCtrlFv */
 float CSealCtrl::GetZoomIncrement()
 {
+	/* 0x284370: takes the zoom request */
+	m_update_zoom = 0;
+	return m_zoomincrement;
 }
 
 /* @socom-skeleton stub SetRumbleOn__Fb */

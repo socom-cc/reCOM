@@ -98,9 +98,38 @@ void CharacterDynamics::Load(const CRdrFile &reader_ref)
             m_maxAimPitch = fval * RAD_TO_DEG;
         }
 
+        if (zrdr_findreal(reader, "min_aim_pitch", &fval, 1))
+        {
+            m_minAimPitch = fval * RAD_TO_DEG;
+        }
+
         if (zrdr_findreal(reader, "max_aim_yaw", &fval, 1))
         {
             m_maxAimYaw = fval * RAD_TO_DEG;
+        }
+
+        m_cosMaxAimPitch = cosf(m_maxAimPitch);
+        m_cosMinAimPitch = cosf(m_minAimPitch);
+        m_cosMaxAimYaw = cosf(m_maxAimYaw);
+
+        if (zrdr_findreal(reader, "prone_max_aim_pitch", &fval, 1))
+        {
+            m_proneMaxAimPitch = fval * RAD_TO_DEG;
+        }
+
+        if (zrdr_findreal(reader, "prone_min_aim_pitch", &fval, 1))
+        {
+            m_proneMinAimPitch = fval * RAD_TO_DEG;
+        }
+
+        if (zrdr_findreal(reader, "prone_max_aim_yaw", &fval, 1))
+        {
+            m_proneMaxAimYaw = fval * RAD_TO_DEG;
+        }
+
+        if (zrdr_findreal(reader, "prone_zoom_delta_yaw", &fval, 1))
+        {
+            m_proneZoomDeltaYaw = fval * RAD_TO_DEG;
         }
 
         m_cosProneMaxAimPitch = cosf(m_proneMaxAimPitch);
@@ -133,7 +162,7 @@ void CharacterDynamics::Load(const CRdrFile &reader_ref)
 
         if (zrdr_findreal(reader, "prone_min_zoom_aim_pitch", &fval, 1))
         {
-            m_cosProneMinZoomAimPitch = fval * RAD_TO_DEG;
+            m_proneMinZoomAimPitch = fval * RAD_TO_DEG; /* 0x28ac08: +0xd4 */
         }
 
         if (zrdr_findreal(reader, "prone_max_zoom_aim_yaw", &fval, 1))
@@ -312,7 +341,7 @@ void CharacterDynamics::Load(const CRdrFile &reader_ref)
             back.m_cam_aimpoint.z = 0.0f;
         }
 
-        m_cam_params.insert(m_cam_params.begin(), back);
+        m_cam_params.insert(m_cam_params.end(), back); /* 0x28b284: at the end (data + size) */
 
         if (zrdr_findreal(reader, "cam_side_side", &fval, 1))
         {
@@ -336,7 +365,7 @@ void CharacterDynamics::Load(const CRdrFile &reader_ref)
             side.m_cam_aimpoint.z = 0.0f;
         }
 
-        m_cam_params.insert(m_cam_params.begin(), side);
+        m_cam_params.insert(m_cam_params.end(), side);
 
         if (zrdr_findreal(reader, "cam_first_side", &fval, 1))
         {
@@ -360,7 +389,7 @@ void CharacterDynamics::Load(const CRdrFile &reader_ref)
             first.m_cam_aimpoint.z = 0.0f;
         }
 
-        m_cam_params.insert(m_cam_params.begin(), first);
+        m_cam_params.insert(m_cam_params.end(), first);
 
         if (zrdr_findreal(reader, "cam_peekl_side", &fval, 1))
         {
@@ -384,7 +413,7 @@ void CharacterDynamics::Load(const CRdrFile &reader_ref)
             peekl.m_cam_aimpoint.z = 0.0f;
         }
 
-        m_cam_params.insert(m_cam_params.begin(), peekl);
+        m_cam_params.insert(m_cam_params.end(), peekl);
 
         if (zrdr_findreal(reader, "cam_peekr_side", &fval, 1))
         {
@@ -408,7 +437,7 @@ void CharacterDynamics::Load(const CRdrFile &reader_ref)
             peekr.m_cam_aimpoint.z = 0.0f;
         }
 
-        m_cam_params.insert(m_cam_params.begin(), peekr);
+        m_cam_params.insert(m_cam_params.end(), peekr);
 
         if (zrdr_findreal(reader, "cam_tether_stiff", &fval, 1))
         {

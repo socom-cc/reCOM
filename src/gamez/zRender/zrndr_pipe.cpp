@@ -199,7 +199,17 @@ int InterruptFromVIF1(int cause)
 			*cmd->pWaitTime = *T0_COUNT;
 			sceDmaSync(zSys.DmaToGif, 0, 0);
 
-			if (cmd->pTexAsset->m_pktbuf.size() != 0)
+			if (cmd->pTexAsset->m_pktbuf.size() != 0
+#ifdef SOCOM_PORT
+				/* port: Load returns early for an empty buffer, leaving m_chainp NULL (from
+				   SetDynTexList) but the last chain's m_pktbuf: the ELF would start the
+				   GIF channel at address 0 (path 3 then waits forever). It never happens
+				   there because the decal textures (CZMarkList, not written) keep the alpha
+				   buffer from emptying; in the port it did once the player's hidden body
+				   textures left it (zoom back to third person). */
+				&& cmd->pTexAsset->m_chainp != NULL
+#endif
+				)
 			{
 				*D2_QWC = 0;
 				*D2_TADR = reinterpret_cast<u32>(cmd->pTexAsset->m_chainp) & 0x0fffffff;

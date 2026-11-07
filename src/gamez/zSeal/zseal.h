@@ -476,7 +476,7 @@ public:
 	void HasSniperRifle();
 	CZKit();
 	~CZKit();
-	void NVG_Enabled() const;
+	bool NVG_Enabled() const; /* 0x2aed30: sltiu (0/1) */
 	EQUIP_ITEM GetCurItemIDType(); /* 0x2aec90: lbu of the item id, 0xfe without one */
 	SEAL_ITEM GetCurItemType();
 	void Init();

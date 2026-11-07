@@ -76,6 +76,8 @@ std::map<std::string, int> bodyPartNames_map; /* name -> body part id (BodyId 0x
 /* @socom-skeleton stub GetDynamics__10CZSealBodyFv */
 CharacterDynamics * CZSealBody::GetDynamics()
 {
+	/* 0x281070 */
+	return &theCharacterDynamics;
 }
 
 /* @socom-skeleton stub InitMotionRdrFile__10CZSealBodyFv */

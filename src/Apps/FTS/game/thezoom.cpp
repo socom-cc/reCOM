@@ -25,6 +25,11 @@
  * @socom-artifact defines main socom:data:0x511e20
  * socom-owner-annotations end socom:work:source-segment-076 */
 
+#include "gamez/zFTS/zfts.h" /* theMission (HandleNewZoom) */
+#include "gamez/zGame/zgame.h" /* gopt */
+#include "gamez/zNode/node_world.h" /* CWorld::m_world (SeeFarther, HandleNewZoom) */
+#include "gamez/zVisual/zvis.h" /* CVisual::m_basefog_near, m_basefog_color (SeeFarther) */
+
 /* @socom-skeleton decl include */
 #include "Apps/FTS/hud/hud.h"
 #include "gamez/zCamera/zcam.h"
@@ -81,28 +86,275 @@ void CameraZoom::AttachHud(CHUD* hud)
 }
 
 /* @socom-skeleton stub SetGoal__10CameraZoomFf */
-void CameraZoom::SetGoal(float)
+void CameraZoom::SetGoal(float goal)
 {
+	/* 0x320590 */
+	m_goal = goal;
+	m_isGoalHit = true;
 }
 
 /* @socom-skeleton stub HandleZoomIn__10CameraZoomFff */
-void CameraZoom::HandleZoomIn(float, float)
+void CameraZoom::HandleZoomIn(float range, float)
 {
+	/* 0x320430: a zoom in toward range at 3 x range per second (the rate argument is
+	   unused; a range of 0 does nothing). The first-person step (1.5) tells the HUD only
+	   with night vision on, any other range always. Starting from no zoom, the app camera
+	   switches to the first-person view (Tick -> FTSTick) and the old view is kept in
+	   m_oldview. */
+	if (range == 0.0f)
+		return;
+
+	if (range == 1.5f)
+	{
+		m_isGoalHit = true;
+		m_goal = range;
+		m_increment = 3.0f * range;
+
+		if (gopt.doHud && m_seal->m_kit.NVG_Enabled())
+			m_hud->ZoomIn();
+	}
+	else
+	{
+		m_isGoalHit = true;
+		m_goal = range;
+		m_increment = 3.0f * range;
+
+		if (gopt.doHud)
+			m_hud->ZoomIn();
+	}
+
+	if (!m_iszoom && m_current == 1.0f)
+	{
+		m_iszoom = true;
+		m_oldview = appCamera->m_ctrl_view;
+		appCamera->m_ctrl_view = CAMVIEW::cam_view_first;
+	}
 }
 
 /* @socom-skeleton stub SeeFarther__Fbf */
-void SeeFarther(bool, float)
+void SeeFarther(bool on, float dist)
 {
+	/* 0x3202c0: binoculars and scopes see dist farther: the mid and far clip planes and
+	   the fog range move out by dist (the old planes and fog far are kept). Off restores
+	   them (taking the camera's own the first time) and the level's fog near and colour. */
+	zdb::CCamera* camera = zdb::CWorld::m_world->m_camera;
+
+	if (!on)
+	{
+		if (BaseMidClip == 0.0f)
+			BaseMidClip = camera->m_mid_plane;
+
+		if (BaseFarClip == 0.0f)
+			BaseFarClip = camera->m_far_plane;
+
+		camera->SetMidClip(BaseMidClip);
+		camera->SetFarClip(BaseFarClip);
+		camera->Update(zdb::ZCAM_NORMAL);
+
+		if (BaseFogFar == 0.0f)
+			BaseFogFar = camera->m_fog_far;
+
+		camera->m_fog_near = zdb::CVisual::m_basefog_near;
+		camera->m_fog_far = BaseFogFar;
+		camera->m_fog_color = zdb::CVisual::m_basefog_color;
+		return;
+	}
+
+	f32 fogFar = camera->m_fog_far;
+	BaseFogFar = fogFar;
+	camera->m_fog_near = dist + camera->m_fog_near;
+	camera->m_fog_far = fogFar + dist;
+
+	BaseFarClip = camera->m_far_plane;
+	camera->SetFarClip(BaseFarClip + dist);
+	BaseMidClip = camera->m_mid_plane;
+	camera->SetMidClip(BaseMidClip + dist);
+	camera->Update(zdb::ZCAM_NORMAL);
 }
 
 /* @socom-skeleton stub HandleNewZoom__10CameraZoomFv */
 void CameraZoom::HandleNewZoom()
 {
+	/* 0x31fee0: a zoom step of the seal (its zoom-state echo: in or out by the state order)
+	   or a controller request (CSealCtrl::SetCameraZoom: a level and a rate; in when above
+	   the current zoom) becomes the camera's goal. A dead seal goes straight back to 1.
+	   In: HandleZoomIn. Out (unless already heading to 1): back to the state's range (1 for
+	   none) at no less than the current rate, by default 3 x the old goal per second. On any
+	   step the night vision, binoculars, see-farther and lens tint are reset and set again
+	   for the state the seal was in on entry: NVG tint; binoculars (starlight tint at
+	   night, the mission's binocular see-farther); a weapon zoom (starlight tint at night,
+	   the weapon see-farther); otherwise no tint. ELF quirk kept: the controller request
+	   is read without a NULL test of the controller. */
+	CZSealBody* seal = m_seal;
+	zdb::CWorld* world = zdb::CWorld::m_world;
+	bool zoomIn = false;
+	bool zoomOut = false;
+	f32 range = seal->m_zoom_range;
+	f32 rate = 0.0f;
+	CSealCtrl* ctrl = static_cast<CSealCtrl*>(seal->m_control);
+	CZKit* kit = &seal->m_kit;
+	ZOOMSTATE zoom = seal->m_zoomstate;
+
+	if (seal->m_zoomstate_echo)
+	{
+		s8 prev = (s8)seal->m_zoomstate_prev;
+		seal->m_zoomstate_echo = false;
+		zoomIn = prev < (s8)zoom;
+		zoomOut = (s8)zoom < prev;
+	}
+
+	if (ctrl->m_update_zoom)
+	{
+		range = ctrl->GetZoomLevel();
+		rate = ctrl->GetZoomIncrement();
+
+		if (range <= m_current)
+		{
+			zoomIn = false;
+			zoomOut = true;
+		}
+		else
+		{
+			zoomIn = true;
+			zoomOut = false;
+		}
+
+		if (m_seal->m_control != NULL && static_cast<CSealCtrl*>(m_seal->m_control)->IsPlayer())
+			m_seal->m_iszooming = 1;
+	}
+
+	if (!m_seal->m_isAlive)
+	{
+		if (gopt.doHud)
+			m_hud->ZoomOut();
+
+		m_goal = 1.0f;
+		m_isGoalHit = true;
+		m_increment = 1e8f; /* 0x4cbebc20 */
+		return;
+	}
+
+	if (zoomIn)
+	{
+		HandleZoomIn(range, rate);
+	}
+	else if (zoomOut && m_goal != 1.0f)
+	{
+		if (rate == 0.0f)
+			rate = 3.0f * m_goal;
+
+		if (!(m_increment <= rate))
+			rate = m_increment;
+
+		m_increment = rate;
+
+		if (range == 0.0f)
+		{
+			m_goal = 1.0f;
+			m_isGoalHit = true;
+		}
+		else
+		{
+			m_goal = range;
+			m_isGoalHit = true;
+		}
+	}
+
+	if (!zoomIn && !zoomOut)
+		return;
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("ZOOM: zoom state %d (%s), camera zoom %.2f -> %.2f at %.2f/s, view %d",
+		(int)zoom, zoomIn ? "in" : "out", m_current, m_goal, m_increment, (int)appCamera->m_ctrl_view);
+#endif
+	if (m_seal->m_control != NULL && static_cast<CSealCtrl*>(m_seal->m_control)->IsPlayer())
+		m_seal->m_iszooming = 1;
+
+	kit->NVG_Enabled(false);
+	kit->Binocs_Enabled(false);
+	SeeFarther(false, 0.0f);
+
+	switch (zoom) /* jump table @2834 0x45a3c0 */
+	{
+	case ZOOMSTATE::ZOOMSTATE_NVG:
+	{
+		CPnt3D tint = world->m_lensfx_nvg;
+		kit->Apply_LensEffects(true, &tint);
+		kit->NVG_Enabled(true);
+		break;
+	}
+	case ZOOMSTATE::ZOOMSTATE_BINOCS:
+		if (world->m_night_mission)
+		{
+			CPnt3D tint = world->m_lensfx_starlightscope;
+			kit->Apply_LensEffects(true, &tint);
+		}
+
+		kit->Binocs_Enabled(true);
+		SeeFarther(true, theMission.m_seefarther_binocs);
+		break;
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF1:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF2:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF3:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF4:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF5:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF6:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF7:
+	case ZOOMSTATE::ZOOMSTATE_WEAPONDEF8:
+		if (world->m_night_mission)
+		{
+			CPnt3D tint = world->m_lensfx_starlightscope;
+			kit->Apply_LensEffects(true, &tint);
+		}
+
+		SeeFarther(true, theMission.m_seefarther_weapzoom);
+		break;
+	default: /* third and first person (and anything outside 0..11) */
+		kit->Apply_LensEffects(false, NULL);
+		break;
+	}
 }
 
 /* @socom-skeleton stub OnGoal__10CameraZoomFv */
 void CameraZoom::OnGoal()
 {
+	/* 0x31fde0: the camera zoom reached its goal. The reticule follows the item. Back at 1
+	   the HUD zooms out and the app camera returns to the third-person view; at the
+	   first-person 1.5 the HUD zooms out (and in again with night vision); at a binocular /
+	   scope range the HUD zooms in unless night vision is on. ELF quirks kept: at 1.5
+	   ZoomOut runs even with the HUD off; m_oldview is never restored (always third). */
+	if (!m_iszoom)
+		return;
+
+	m_seal->m_kit.SetCurReticule();
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("ZOOM: camera zoom %.2f reached", m_goal);
+#endif
+
+	if (m_goal == 1.0f)
+	{
+		if (gopt.doHud)
+			m_hud->ZoomOut();
+
+		appCamera->m_ctrl_view = CAMVIEW::cam_view_third;
+		m_iszoom = false;
+	}
+	else if (m_goal == 1.5f)
+	{
+		if (gopt.doHud && m_seal->m_kit.NVG_Enabled())
+		{
+			m_hud->ZoomOut();
+			m_hud->ZoomIn();
+		}
+		else
+		{
+			m_hud->ZoomOut();
+		}
+	}
+	else if (gopt.doHud && !m_seal->m_kit.NVG_Enabled())
+	{
+		m_hud->ZoomIn();
+	}
 }
 
 /* @socom-skeleton stub Tick__10CameraZoomFf */
