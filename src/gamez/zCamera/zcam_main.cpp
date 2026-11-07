@@ -274,7 +274,9 @@ _zanim_cmd_hdr* CCamera::CmdParseIndoorsTest(_zrdr* reader)
 namespace zdb {
 bool CCamera::CmdTickIndoorsTest(_zanim_cmd_hdr* header, f32* dT)
 	{
-		return true;
+		/* 0x1e73f0: the world camera is inside (was: always true, which turned the m8
+		   snow_falling particles off) */
+		return CWorld::m_world->m_camera->m_IsInside != 0;
 	}
 }
 

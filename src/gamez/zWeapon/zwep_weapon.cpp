@@ -990,13 +990,42 @@ void CZMarkList::ReadBloodDecals(_zrdr *)
 }
 
 /* @socom-skeleton stub GetDecalNode__FPQ23zdb5CNode */
-zdb::CNode * GetDecalNode(zdb::CNode *)
+zdb::CNode * GetDecalNode(zdb::CNode *node)
 {
+	/* 0x31d7b0: the node or its nearest ancestor of type 2 (below the world), else NULL */
+	while (node != NULL)
+	{
+		if ((u16)node->m_type == 2)
+			return node;
+
+		node = node->m_parent;
+
+		if (node == zdb::CWorld::m_world)
+			return NULL;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetVisualNode__FPQ23zdb5CNode */
-zdb::CNode * GetVisualNode(zdb::CNode *)
+zdb::CNode * GetVisualNode(zdb::CNode *node)
 {
+	/* 0x31d770: the node or its nearest ancestor with visuals; the world's child when none
+	   has them (NULL off the world) */
+	while (node != NULL)
+	{
+		if (node->m_hasVisuals)
+			return node;
+
+		zdb::CNode* parent = node->m_parent;
+
+		if (parent == zdb::CWorld::m_world)
+			return node;
+
+		node = parent;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub AddNewMark__10CZMarkListFPQ23zdb15IntersectStructP12CZProjectilef */

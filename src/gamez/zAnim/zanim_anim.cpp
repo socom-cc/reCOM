@@ -132,6 +132,52 @@ std::__nInit std::__msl_ios_base_ninit;
 std::__wInit std::__msl_ios_base_winit;
 #endif
 
+/* port: helpers for the world add / remove the ELF repeats inline (Activate 0x1cf1e0 and its
+ * stop paths 0x1cf2e8, Stop, Tick, State, Load): an auto-add anim hangs its instance node (else
+ * its root) on the world unless that node's topmost parent is already the world; it leaves when
+ * the anim stops */
+static void AddAnimToWorld(CZAnim* anim)
+{
+	if (!anim->m_auto_add_to_world || anim->m_added_to_world_internally)
+		return;
+
+	zdb::CNode* node = anim->m_instance_node;
+
+	if (node == NULL)
+		node = anim->m_root_node_index ? anim->m_node_ref_list[anim->m_root_node_index].node_ptr : NULL;
+
+	if (node == NULL)
+		return;
+
+	zdb::CNode* top = node;
+
+	while (top->m_parent != NULL)
+		top = top->m_parent;
+
+	if (top == zdb::CWorld::m_world)
+		return;
+
+	zdb::CWorld::m_world->AddChild(node);
+	anim->m_added_to_world_internally = 1;
+}
+
+static void RemoveAnimFromWorld(CZAnim* anim)
+{
+	if (!anim->m_added_to_world_internally)
+		return;
+
+	zdb::CNode* node = anim->m_instance_node;
+
+	if (node == NULL)
+		node = anim->m_root_node_index ? anim->m_node_ref_list[anim->m_root_node_index].node_ptr : NULL;
+
+	if (node == NULL)
+		return;
+
+	zdb::CWorld::m_world->DeleteChild(node);
+	anim->m_added_to_world_internally = 0;
+}
+
 /* @socom-skeleton stub OnWeaponHitInit__6CZAnimFv */
 void CZAnim::OnWeaponHitInit()
 {
@@ -175,6 +221,11 @@ void CZAnim::HealthInit()
 /* @socom-skeleton stub GetHealth__6CZAnimFv */
 float CZAnim::GetHealth()
 {
+	/* 0x1cf5a0: the health record's +4, 0 without one */
+	if (m_health == NULL)
+		return 0.0f;
+
+	return reinterpret_cast<f32*>(m_health)[1]; /* port: CZAnimHealth has no layout here (24 raw bytes) */
 }
 
 /* @socom-skeleton stub NetworkPacketSize__10CZAnimMainFPv */
@@ -210,7 +261,7 @@ CZAnim * CZAnim::Activate(CZAnim *source)
 			anim->StopSounds();
 			anim->StopLights(false);
 			anim->StopAnims();
-			/* port: not written - an anim added to the world internally leaves it here (0x1cf1c0) */
+			RemoveAnimFromWorld(anim); /* 0x1cf2e8 */
 			anim->m_paused = false;
 
 			if (running)
@@ -224,7 +275,7 @@ CZAnim * CZAnim::Activate(CZAnim *source)
 			CZAnimSet* set = ZAnim.GetAnimSet(anim->m_animset_index);
 			char* name = anim->m_nameindex_table.GetName(ZAnim.GetAnimSet(anim->m_animset_index), anim->m_name_index);
 			set->TaskScheduler()->AddTask(name, CZAnimMain::AnimSchedulerTick, anim->m_priority, anim);
-			/* port: not written - m_auto_add_to_world adds the root node to the world (0x1cf2b8) */
+			AddAnimToWorld(anim); /* 0x1cf1e0 */
 		}
 	}
 
@@ -233,24 +284,40 @@ CZAnim * CZAnim::Activate(CZAnim *source)
 	return anim;
 }
 
+/* port: helper for the re-root ActivateArgV repeats inline for root-node arguments (0x1ce8c0,
+ * 0x1ceb24): a node other than the current root becomes the root; the nodes are found afresh
+ * and the instance node is made again */
+static void ReRootAnim(CZAnim* anim, zdb::CNode* node)
+{
+	if (node == NULL || anim->m_root_node_index == 0 || anim->m_node_ref_list[anim->m_root_node_index].node_ptr == node)
+		return;
+
+	anim->ClearNodePtrs();
+	anim->m_node_ref_list[anim->m_root_node_index].node_ptr = node;
+	anim->GetNodes();
+
+	if (anim->m_instance_node != NULL)
+	{
+		delete anim->m_instance_node;
+		anim->m_instance_node = NULL;
+	}
+
+	anim->CreateInstanceNode();
+}
+
 /* @socom-skeleton stub ActivateEx__6CZAnimFie */
 void CZAnim::ActivateEx(int, ...)
 {
 }
 
 /* @socom-skeleton stub ActivateArgV__6CZAnimFPc */
-CZAnim * CZAnim::ActivateArgV(char *)
+CZAnim * CZAnim::ActivateArgV(char *args)
 {
-}
-
-/* @socom-skeleton stub ActivateArg__6CZAnimFie */
-CZAnim * CZAnim::ActivateArg(int count, ...)
-{
-	/* 0x1ce6d0: no arguments -> Activate; else (ActivateArgV 0x1ce750, inlined here) the
-	 * (type, value) pairs up to a 0 type become the anim's argument list */
-	if (count == 0)
-		return Activate(NULL);
-
+	/* 0x1ce750: the (type, value) pairs, in 8-byte argument slots (the type is the slot's
+	 * low byte, the value its low word), up to a 0 type become the available copy's argument
+	 * list (the old list is deleted), then that copy is activated. Type 9 copies another
+	 * list's arguments; a root-node argument (2) re-roots the anim on that node. Unknown
+	 * types are skipped. */
 	CZAnim* anim = GetAvailable();
 
 	if (anim == NULL)
@@ -260,40 +327,135 @@ CZAnim * CZAnim::ActivateArg(int count, ...)
 		delete anim->m_arg_list;
 
 	anim->m_arg_list = NULL;
+	u8 type;
 
-	va_list args;
-	va_start(args, count);
-
-	for (int type = va_arg(args, int); type != 0; type = va_arg(args, int))
+	do
 	{
-		if (type == 8)
-		{
-			const char* value = va_arg(args, const char*);
-			CZAnimArgCharP* arg = new CZAnimArgCharP();
-			arg->m_reserved = 0;
-			arg->m_value = _strdup(value, "zanim_anim.cpp", 0x29d);
-			arg->m_type = 8;
+		s8 raw = *reinterpret_cast<s8*>(args);
+		type = (u8)raw;
+		args += 8;
+		CZAnimArg* arg = NULL;
+		zdb::CNode* root = NULL;
 
+		switch (type)
+		{
+		case CZAnimArg::ARG_LIST:
+		{
+			CZAnimArgList* list = *reinterpret_cast<CZAnimArgList**>(args);
+			args += 8;
+
+			for (CZAnimArgList::iterator it = list->begin(); it != list->end(); ++it)
+			{
+				CZAnimArg* copy = (*it)->Copy();
+
+				if (anim->m_arg_list == NULL)
+					anim->m_arg_list = new CZAnimArgList();
+
+				anim->m_arg_list->push_back(copy);
+
+				if (copy->m_type == CZAnimArg::ARG_ROOT_NODE)
+					ReRootAnim(anim, static_cast<CZAnimArgNode*>(copy)->m_node);
+			}
+
+			break;
+		}
+		case CZAnimArg::ARG_CHARP:
+		{
+			const char* value = *reinterpret_cast<const char**>(args);
+			args += 8;
+			CZAnimArgCharP* charp = new CZAnimArgCharP();
+			charp->m_type = 0;
+			charp->m_reserved = 0;
+			charp->m_value = _strdup(value, "zanim_anim.cpp", 0x29d);
+			charp->m_type = CZAnimArg::ARG_CHARP;
+			arg = charp;
+			break;
+		}
+		case CZAnimArg::ARG_ROOT_NODE:
+		case CZAnimArg::ARG_NODE:
+		{
+			zdb::CNode* node = *reinterpret_cast<zdb::CNode**>(args);
+			args += 8;
+			arg = new CZAnimArgNode(static_cast<CZAnimArg::TYPE>(type), node);
+
+			if (type == CZAnimArg::ARG_ROOT_NODE)
+				root = node;
+
+			break;
+		}
+		case CZAnimArg::ARG_VALVE:
+		{
+			CZAnimArgValve* valve = new CZAnimArgValve();
+			valve->m_reserved = 0;
+			valve->m_valve = *reinterpret_cast<CValve**>(args);
+			valve->m_type = CZAnimArg::ARG_VALVE;
+			args += 8;
+			arg = valve;
+			break;
+		}
+		case CZAnimArg::ARG_CMD:
+		{
+			CZAnimArgCmd* cmd = new CZAnimArgCmd();
+			cmd->m_reserved = 0;
+			cmd->m_cmd = *reinterpret_cast<_zanim_cmd_hdr**>(args);
+			cmd->m_type = CZAnimArg::ARG_CMD;
+			args += 8;
+			arg = cmd;
+			break;
+		}
+		case CZAnimArg::ARG_POSITION:
+		case CZAnimArg::ARG_VELOCITY:
+		case CZAnimArg::ARG_NORMAL:
+		{
+			const CPnt3D* pnt = *reinterpret_cast<const CPnt3D**>(args);
+			args += 8;
+			arg = new CZAnimArgPnt3D(static_cast<CZAnimArg::TYPE>(raw), pnt);
+			break;
+		}
+		default:
+			break;
+		}
+
+		if (arg != NULL)
+		{
 			if (anim->m_arg_list == NULL)
 				anim->m_arg_list = new CZAnimArgList();
 
 			anim->m_arg_list->push_back(arg);
 		}
-		else
-		{
-			/* port: not written - argument types 1 (cmd), 2/3 (node; 2 re-roots the anim),
-			 * 4 (valve), 5-7 (point) and 9 (an argument list to copy); the value is skipped */
-			(void)va_arg(args, void*);
-		}
-	}
 
-	va_end(args);
+		if (root != NULL)
+			ReRootAnim(anim, root);
+	} while (type != 0);
+
 	return anim->Activate(this);
 }
 
-/* @socom-skeleton stub Copy__14CZAnimArgCharPFv */
-void CZAnimArgCharP::Copy()
+/* @socom-skeleton stub ActivateArg__6CZAnimFie */
+CZAnim * CZAnim::ActivateArg(int count, ...)
 {
+	/* 0x1ce6d0: no arguments -> Activate; else the variable arguments (8-byte slots under
+	 * both the R5900 Metrowerks and the n32 GCC conventions) go to ActivateArgV */
+	if (count == 0)
+		return Activate(NULL);
+
+	va_list args;
+	va_start(args, count);
+	CZAnim* anim = ActivateArgV(static_cast<char*>(args)); /* port: GCC's n32 va_list is a pointer to the slots */
+	va_end(args);
+	return anim;
+}
+
+/* @socom-skeleton stub Copy__14CZAnimArgCharPFv */
+CZAnimArg* CZAnimArgCharP::Copy()
+{
+	/* 0x1ce630 */
+	CZAnimArgCharP* copy = new CZAnimArgCharP();
+	copy->m_type = 0;
+	copy->m_reserved = 0;
+	copy->m_value = _strdup(m_value, "zanim_anim.cpp", 0x29d);
+	copy->m_type = m_type;
+	return copy;
 }
 
 /* @socom-skeleton stub __dt__14CZAnimArgCharPFv */
@@ -307,38 +469,72 @@ CZAnimArgCharP::~CZAnimArgCharP()
 }
 
 /* @socom-skeleton stub __ct__13CZAnimArgNodeFQ29CZAnimArg4TYPEPQ23zdb5CNode */
-CZAnimArgNode::CZAnimArgNode(CZAnimArg::TYPE, zdb::CNode *)
+CZAnimArgNode::CZAnimArgNode(CZAnimArg::TYPE type, zdb::CNode *node)
 {
+	/* 0x1ce570 */
+	m_type = type;
+	m_reserved = 0;
+	m_node = node;
 }
 
 /* @socom-skeleton stub Copy__13CZAnimArgNodeFv */
-void CZAnimArgNode::Copy()
+CZAnimArg* CZAnimArgNode::Copy()
 {
+	/* 0x1ce510 */
+	return new CZAnimArgNode(static_cast<CZAnimArg::TYPE>(m_type), m_node);
 }
 
 /* @socom-skeleton stub Copy__14CZAnimArgValveFv */
-void CZAnimArgValve::Copy()
+CZAnimArg* CZAnimArgValve::Copy()
 {
+	/* 0x1ce4a0 */
+	CZAnimArgValve* copy = new CZAnimArgValve();
+	copy->m_reserved = 0;
+	copy->m_valve = m_valve;
+	copy->m_type = m_type;
+	return copy;
 }
 
 /* @socom-skeleton stub Copy__12CZAnimArgCmdFv */
-void CZAnimArgCmd::Copy()
+CZAnimArg* CZAnimArgCmd::Copy()
 {
+	/* 0x1ce430 */
+	CZAnimArgCmd* copy = new CZAnimArgCmd();
+	copy->m_reserved = 0;
+	copy->m_cmd = m_cmd;
+	copy->m_type = m_type;
+	return copy;
 }
 
 /* @socom-skeleton stub __ct__14CZAnimArgPnt3DFQ29CZAnimArg4TYPEPC6CPnt3D */
-CZAnimArgPnt3D::CZAnimArgPnt3D(CZAnimArg::TYPE, const CPnt3D *)
+CZAnimArgPnt3D::CZAnimArgPnt3D(CZAnimArg::TYPE type, const CPnt3D *pnt)
 {
+	/* 0x1ce3e0 */
+	m_type = type;
+	m_reserved = 0;
+	m_pnt.x = pnt->x;
+	m_pnt.y = pnt->y;
+	m_pnt.z = pnt->z;
 }
 
 /* @socom-skeleton stub Copy__14CZAnimArgPnt3DFv */
-void CZAnimArgPnt3D::Copy()
+CZAnimArg* CZAnimArgPnt3D::Copy()
 {
+	/* 0x1ce370 */
+	return new CZAnimArgPnt3D(static_cast<CZAnimArg::TYPE>(m_type), &m_pnt);
 }
 
 /* @socom-skeleton stub GetPnt3D__13CZAnimArgListFQ29CZAnimArg4TYPE */
-void CZAnimArgList::GetPnt3D(CZAnimArg::TYPE)
+const CPnt3D * CZAnimArgList::GetPnt3D(CZAnimArg::TYPE type)
 {
+	/* 0x1ce250: the first argument of that type (CZAnimArgFind index 0) */
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		if ((*it)->m_type == (u8)type)
+			return &static_cast<CZAnimArgPnt3D*>(*it)->m_pnt;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetCharP__13CZAnimArgListFi */
@@ -362,14 +558,43 @@ char * CZAnimArgList::GetCharP(int index)
 }
 
 /* @socom-skeleton stub GetValve__13CZAnimArgListFi */
-CValve * CZAnimArgList::GetValve(int)
+CValve * CZAnimArgList::GetValve(int index)
 {
-	return NULL; /* port: stub - activation arguments (ActivateArgV 0x1ce750) are not written */
+	/* 0x1cdff0: the index-th valve argument */
+	int n = 0;
+
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		if ((*it)->m_type == CZAnimArg::ARG_VALVE)
+		{
+			if (n == index)
+				return static_cast<CZAnimArgValve*>(*it)->m_valve;
+
+			n++;
+		}
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetCmd__13CZAnimArgListFi */
-void CZAnimArgList::GetCmd(int)
+_zanim_cmd_hdr * CZAnimArgList::GetCmd(int index)
 {
+	/* 0x1cdec0: the index-th command argument */
+	int n = 0;
+
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		if ((*it)->m_type == CZAnimArg::ARG_CMD)
+		{
+			if (n == index)
+				return static_cast<CZAnimArgCmd*>(*it)->m_cmd;
+
+			n++;
+		}
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub AddNetworkPacketArgs__13CZAnimArgListFP6CZAnimP18ZAnimNetworkPacket */
@@ -495,20 +720,26 @@ CZAnim * CZAnim::GetAvailable()
 	if (max != 0 && (u32)copies >= max)
 		return NULL;
 
-	/* port: not written - Copy (0x1c8fd0) makes the new copy here
-	 * (anim->m_sibling_anim = anim->Copy(); return it); the port runs one copy */
-	return NULL;
+	/* 0x1ccc30: a new copy, chained as the last one's sibling */
+	anim->m_sibling_anim = anim->Copy();
+	return anim->m_sibling_anim;
 }
 
 /* @socom-skeleton stub Running__6CZAnimFv */
 unsigned char CZAnim::Running()
 {
-	/* 0x1cc9c0: a running state, or a particle source still live */
+	/* 0x1cc9c0: a running state, or a particle source still on or shutting off */
 	if (ZAnim.StateRunning(m_state))
 		return true;
 
-	/* port: not written - a particle source still active or shutting off (Source +0x0,
-	 * +0x128) also counts as running; the port's anim particles are not modelled */
+	for (s32 i = 0; i < (s32)m_particle_count; i++)
+	{
+		Particle::Source* source = m_particle_list[i].particle;
+
+		if (source != NULL && (source->m_active || source->m_shuttingoff))
+			return true;
+	}
+
 	return false;
 }
 
@@ -539,7 +770,7 @@ void CZAnim::Stop()
 		StopSounds();
 		StopLights(false);
 		StopAnims();
-		/* port: not written - an anim added to the world internally leaves it here */
+		RemoveAnimFromWorld(this);
 		m_paused = false;
 
 		if (running)
@@ -606,7 +837,7 @@ unsigned char CZAnim::Tick(float dT)
 				StopSounds();
 				StopLights(false);
 				StopAnims();
-				/* port: not written - an anim added to the world internally leaves it here */
+				RemoveAnimFromWorld(this);
 				m_paused = false;
 
 				if (running)
@@ -626,11 +857,18 @@ unsigned char CZAnim::Tick(float dT)
 /* @socom-skeleton stub State__6CZAnimFi */
 void CZAnim::State(int state)
 {
-	/* 0x1cc080: entering 1 (idle), 2 (activating) or 5 (stopped) resets particles, sounds,
-	 * lights and called anims; stopping a running anim runs its cleanup sequence. */
+	/* 0x1cc080: entering 1 (idle) or 5 (stopped) resets particles, sounds, lights, called
+	 * anims and a world-added node; stopping a running anim runs its cleanup sequence.
+	 * Entering 2 (activating, ActivateBegin) only unpauses (0x1cc0ac branches straight to
+	 * the m_paused store; the port reset everything here, which took an Activate's
+	 * world-added instance node, e.g. a muzzle flash, off the world on its first tick). */
 	bool cleanup = false;
 
-	if (state == 2 || state == 1 || state == 5)
+	if (state == 2)
+	{
+		m_paused = false;
+	}
+	else if (state == 1 || state == 5)
 	{
 		if (state == 5)
 			cleanup = Running();
@@ -657,7 +895,7 @@ void CZAnim::State(int state)
 			}
 		}
 
-		/* port: not written - an anim added to the world internally leaves it here */
+		RemoveAnimFromWorld(this);
 		m_paused = false;
 	}
 
@@ -670,14 +908,29 @@ void CZAnim::State(int state)
 /* @socom-skeleton stub StopParticleSources__6CZAnimFv */
 void CZAnim::StopParticleSources()
 {
-	/* 0x1cbfe0: resets each live particle source.
-	 * port: not written - anim particle sources are not modelled (the UI anims have none) */
+	/* 0x1cbfe0: each source that is on (or shutting off) shuts off once its instances are
+	   gone (Reset) */
+	for (s32 i = 0; i < (s32)m_particle_count; i++)
+	{
+		Particle::Source* source = m_particle_list[i].particle;
+
+		if (source != NULL && (source->m_active || source->m_shuttingoff))
+			source->Reset();
+	}
 }
 
 /* @socom-skeleton stub DeleteParticleSources__6CZAnimFv */
 void CZAnim::DeleteParticleSources()
 {
-	/* 0x1cbf60: port: not written - anim particle sources are not modelled */
+	/* 0x1cbf60 */
+	for (s32 i = 0; i < (s32)m_particle_count; i++)
+	{
+		if (m_particle_list[i].particle != NULL)
+		{
+			delete m_particle_list[i].particle;
+			m_particle_list[i].particle = NULL;
+		}
+	}
 }
 
 /* @socom-skeleton stub StopSounds__6CZAnimFv */
@@ -774,7 +1027,19 @@ zdb::CNode * CZAnim::GetNode(int index, bool find)
 		return NULL;
 
 	if (index == 0xfa)
-		return NULL; /* port: not written - the anim's node argument (CZAnimArgFind type 3) */
+	{
+		/* the first node argument (CZAnimArgFind type 3, index 0) */
+		if (m_arg_list == NULL)
+			return NULL;
+
+		for (CZAnimArgList::iterator it = m_arg_list->begin(); it != m_arg_list->end(); ++it)
+		{
+			if ((*it)->m_type == CZAnimArg::ARG_NODE)
+				return static_cast<CZAnimArgNode*>(*it)->m_node;
+		}
+
+		return NULL;
+	}
 
 	if (index == 0xf9)
 	{
@@ -918,8 +1183,37 @@ void CZAnim::CreateInstanceNode()
 	if (!m_create_instance || m_instance_node != NULL)
 		return;
 
-	/* port: not written - the CModel xref/instance path (0x1cacf4); the UI anims do not
-	 * create instances */
+	zdb::CNode* root = m_root_node_index ? m_node_ref_list[m_root_node_index].node_ptr : NULL;
+
+	if (root == NULL)
+		return;
+
+	zdb::CModel* model = dynamic_cast<zdb::CModel*>(root);
+
+	if (model == NULL)
+		return;
+
+	if (!m_copy_instance)
+	{
+		/* an xref of the model, named "<model>:zanim_instance" (muzzle flashes: the flash
+		   model drawn where the anim puts it) */
+		m_instance_node = zdb::CNode::CreateXRef(model, NULL, NULL);
+
+		if (m_instance_node != NULL)
+		{
+			char* name = static_cast<char*>(_malloc(strlen(model->m_name) + 0x12, "zanim_anim.cpp", 0x800));
+			sprintf(name, "%s:zanim_instance", model->m_name);
+			m_instance_node->SetName(name);
+			_free(name, "zanim_anim.cpp", 0x803);
+		}
+	}
+	else
+	{
+		/* port: not written - m_copy_instance: a full CModel instance becomes the root (the
+		   node pointers found afresh, the root ref flagged created_here, 0x1cad70) */
+	}
+
+	m_auto_add_to_world = 1; /* 0x1cafb8: the instance is hung on the world when the anim starts */
 }
 
 /* @socom-skeleton stub ClearNodePtrs__6CZAnimFv */
@@ -1009,13 +1303,67 @@ CValve * CZAnim::GetValve(int name_index)
 }
 
 /* @socom-skeleton stub GetParticleSource__6CZAnimFi */
-Particle::Source * CZAnim::GetParticleSource(int)
+Particle::Source * CZAnim::GetParticleSource(int name_index)
 {
+	/* 0x1ca780: the anim's source of that name, the entry added (realloc) on first use and
+	   the source created on demand */
+	_zanim_particle* ref = NULL;
+
+	for (s32 i = 0; i < (s32)m_particle_count; i++)
+	{
+		if (m_particle_list[i].name_index == name_index)
+		{
+			ref = &m_particle_list[i];
+			break;
+		}
+	}
+
+	if (ref == NULL)
+	{
+		m_particle_list = static_cast<_zanim_particle*>(_realloc(m_particle_list, (m_particle_count + 1) * sizeof(_zanim_particle), "zanim_anim.cpp", 0x8a7));
+		ref = &m_particle_list[m_particle_count];
+		memset(ref, 0, sizeof(_zanim_particle));
+		ref->name_index = name_index;
+		ref->particle = NULL;
+		m_particle_count++;
+	}
+
+	if (ref == NULL)
+		return NULL;
+
+	if (ref->particle == NULL)
+		ref->particle = Particle::Source::Create();
+
+	return ref->particle;
 }
 
 /* @socom-skeleton stub GetTexture__6CZAnimFi */
-zdb::CTexHandle * CZAnim::GetTexture(int)
+zdb::CTexHandle * CZAnim::GetTexture(int name_index)
 {
+	/* 0x1ca620: the anim's texture of that name (the last matching entry), the entry added
+	   on first use and the handle looked up by name on demand */
+	_zanim_tex_ref* ref = NULL;
+
+	for (s32 i = 0; i < (s32)m_tex_ref_count; i++)
+	{
+		if (m_tex_ref_list[i].name_index == name_index)
+			ref = &m_tex_ref_list[i];
+	}
+
+	if (ref == NULL)
+	{
+		m_tex_ref_list = static_cast<_zanim_tex_ref*>(_realloc(m_tex_ref_list, (m_tex_ref_count + 1) * sizeof(_zanim_tex_ref), "zanim_anim.cpp", 0x8cf));
+		ref = &m_tex_ref_list[m_tex_ref_count];
+		memset(ref, 0, sizeof(_zanim_tex_ref));
+		ref->name_index = name_index;
+		ref->texh = NULL;
+		m_tex_ref_count++;
+	}
+
+	if (ref != NULL && ref->texh == NULL)
+		ref->texh = zdb::CWorld::GetTexHandle(m_nameindex_table.GetName(ZAnim.GetAnimSet(m_animset_index), name_index));
+
+	return ref->texh;
 }
 
 /* @socom-skeleton stub GetSoundRef__6CZAnimFi */
@@ -1170,6 +1518,141 @@ void CZAnim::LoadSaveNodeStates(_zrdr *)
 /* @socom-skeleton stub Copy__6CZAnimFv */
 CZAnim * CZAnim::Copy()
 {
+	/* 0x1c8fd0: a new copy of the anim (calloc'd, outside the set's list) for auto-copy anims
+	 * that are busy: the parameters, names, node refs (nodes made here are not shared: their
+	 * pointers are cleared, a light's world-list flag too), its own created root, sound refs
+	 * (no instances), texture and call refs, user commands and sequence data; idle (state 1),
+	 * with its instance node made and its health at the maxima. */
+	CZAnim* copy = static_cast<CZAnim*>(_calloc(sizeof(CZAnim), 1, "zanim_anim.cpp", 0xa5b));
+	memcpy(static_cast<_zanim_anim_params*>(copy), static_cast<_zanim_anim_params*>(this), sizeof(_zanim_anim_params));
+	copy->m_animset_index = m_animset_index;
+	copy->m_instance_node = NULL;
+	copy->m_added_to_world_internally = 0;
+	copy->StopParticleSources();
+	copy->StopSounds();
+	copy->StopLights(false);
+	copy->StopAnims();
+	RemoveAnimFromWorld(copy);
+	copy->m_paused = false;
+	copy->m_state = 1;
+
+	for (s32 i = 0; i < m_nameindex_table.m_count; i++)
+	{
+		char* name = m_nameindex_table.GetName(ZAnim.GetAnimSet(m_animset_index), i);
+		copy->m_nameindex_table.AddName(ZAnim.GetAnimSet(copy->m_animset_index), name);
+	}
+
+	if (m_node_ref_count != 0)
+	{
+		copy->m_node_ref_list = static_cast<_zanim_node_ref*>(_calloc(sizeof(_zanim_node_ref), m_node_ref_count, "zanim_anim.cpp", 0xa77));
+		memcpy(copy->m_node_ref_list, m_node_ref_list, m_node_ref_count * sizeof(_zanim_node_ref));
+		copy->m_node_ref_count = m_node_ref_count;
+
+		for (u32 i = 0; i < copy->m_node_ref_count; i++)
+		{
+			_zanim_node_ref* ref = &copy->m_node_ref_list[i];
+
+			if (ref->created_here)
+			{
+				ref->created_here = 0;
+				ref->node_ptr = NULL;
+			}
+
+			if (ref->is_light)
+				ref->on_world_lightlist = 0;
+		}
+	}
+
+	copy->CreateRootNode();
+
+	if (m_sound_ref_count != 0)
+	{
+		copy->m_sound_ref_list = static_cast<_zanim_sound*>(_calloc(sizeof(_zanim_sound), m_sound_ref_count, "zanim_anim.cpp", 0xa91));
+		memcpy(copy->m_sound_ref_list, m_sound_ref_list, m_sound_ref_count * sizeof(_zanim_sound));
+		copy->m_sound_ref_count = m_sound_ref_count;
+
+		for (s32 i = 0; i < (s32)copy->m_sound_ref_count; i++)
+		{
+			copy->m_sound_ref_list[i].sound_instance = NULL;
+			copy->m_sound_ref_list[i].stop_on_exit = false;
+		}
+	}
+
+	if (m_tex_ref_count != 0)
+	{
+		copy->m_tex_ref_list = static_cast<_zanim_tex_ref*>(_calloc(sizeof(_zanim_tex_ref), m_tex_ref_count, "zanim_anim.cpp", 0xaa4));
+		memcpy(copy->m_tex_ref_list, m_tex_ref_list, m_tex_ref_count * sizeof(_zanim_tex_ref));
+		copy->m_tex_ref_count = m_tex_ref_count;
+	}
+
+	if (m_call_anim_ref_count != 0)
+	{
+		copy->m_call_anim_ref_list = static_cast<_zanim_call_anim_ref*>(_calloc(sizeof(_zanim_call_anim_ref), m_call_anim_ref_count, "zanim_anim.cpp", 0xaae));
+		memcpy(copy->m_call_anim_ref_list, m_call_anim_ref_list, m_call_anim_ref_count * sizeof(_zanim_call_anim_ref));
+		copy->m_call_anim_ref_count = m_call_anim_ref_count;
+	}
+
+	copy->m_particle_list = NULL;
+	copy->m_particle_count = 0;
+	copy->m_user_cmd = NULL;
+
+	if (m_user_cmd != NULL)
+	{
+		s32 count = 0;
+
+		do
+			count++;
+		while (m_user_cmd[count - 1] != NULL);
+
+		copy->m_user_cmd = static_cast<_zanim_cmd_hdr**>(_realloc(copy->m_user_cmd, count * sizeof(_zanim_cmd_hdr*), "zanim_anim.cpp", 0xac9));
+
+		if (copy->m_user_cmd != NULL)
+			memcpy(copy->m_user_cmd, m_user_cmd, count * sizeof(_zanim_cmd_hdr*));
+	}
+
+	if (m_seq_data_size < 1)
+	{
+		copy->m_seq_data = NULL;
+		copy->m_seq_data_size = 0;
+	}
+	else
+	{
+		copy->m_seq_data = static_cast<char*>(_malloc(m_seq_data_size, "zanim_anim.cpp", 0xad1));
+		memcpy(copy->m_seq_data, m_seq_data, m_seq_data_size);
+		copy->m_seq_data_size = m_seq_data_size;
+	}
+
+	copy->m_sibling_anim = NULL;
+	copy->StopParticleSources();
+	copy->StopSounds();
+	copy->StopLights(false);
+	copy->StopAnims();
+	RemoveAnimFromWorld(copy);
+	copy->m_paused = false;
+	copy->m_state = 1;
+	copy->CreateInstanceNode();
+
+	if (m_health != NULL)
+	{
+		/* CZAnimHealth (24 bytes): +0 node index, +4 health, +8 max, +0xc armor, +0x10 max
+		   armor, +0x14 shield */
+		u8* from = reinterpret_cast<u8*>(m_health);
+		u8* to = static_cast<u8*>(operator new(0x18));
+		f32* f = reinterpret_cast<f32*>(from);
+		f32* t = reinterpret_cast<f32*>(to);
+		to[0] = from[0];
+		t[2] = f[2];
+		t[1] = f[2];
+		t[4] = f[4];
+		t[3] = f[4];
+		t[5] = f[5];
+		copy->m_health = reinterpret_cast<CZAnimHealth*>(to);
+	}
+
+	if (m_animEx != NULL)
+		copy->OnWeaponHitInit();
+
+	return copy;
 }
 
 /* @socom-skeleton stub ExecuteSpecialSequence__6CZAnimFi */
@@ -1241,7 +1724,7 @@ bool CZAnim::Load(zar::CZAR &archive)
 	StopSounds();
 	StopLights(false);
 	StopAnims();
-	/* port: not written - an anim added to the world internally leaves it here */
+	RemoveAnimFromWorld(this);
 	m_paused = false;
 	m_state = 1;
 

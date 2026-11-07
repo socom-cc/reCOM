@@ -38,6 +38,8 @@
 #include "gamez/zTexture/ztex.h"
 #include "zparticle.h"
 /* @socom-skeleton end include */
+#include "gamez/zCamera/zcam.h" /* the camera position (Tick) */
+#include <stdio.h> /* sprintf (pool node names) */
 
 #ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
@@ -51,7 +53,7 @@ std::__wInit std::__msl_ios_base_winit;
 int Particle::particle_node_count;
 
 /* @socom-skeleton stub particle_node_free_list__8Particle */
-int Particle::particle_node_free_list[3];
+std::vector<zdb::CNode*> Particle::particle_node_free_list;
 
 /* @socom-skeleton stub m_dyntexlist__8Particle */
 zdb::CDynTexList Particle::m_dyntexlist;
@@ -59,16 +61,47 @@ zdb::CDynTexList Particle::m_dyntexlist;
 /* @socom-skeleton stub Init__8ParticleFv */
 void Particle::Init()
 {
+	/* 0x2343e0: room for 160 pool nodes */
+	if (particle_node_free_list.capacity() < 160)
+		particle_node_free_list.reserve(160);
 }
 
 /* @socom-skeleton stub Open__8ParticleFv */
 void Particle::Open()
 {
+	/* 0x234310: the LOD factors at 1, the "ParticleTick" task (priority 0.2) and the 160
+	   pool nodes "PNODE0".."PNODE159" */
+	Instance::spawnFactor = 1;
+	Instance::fadeFactor = 1.0f;
+	Instance::ageFactor = 1.0f;
+	Source::distanceFactor = 1.0f;
+	Source::frequencyFactor = 1.0f;
+	zTaskScheduler.AddTask("ParticleTick", Particle::Tick, 0.2f, NULL);
+	particle_node_count = 0;
+
+	for (s32 i = 0; i < 160; i++)
+	{
+		char name[28];
+		sprintf(name, "PNODE%d", i);
+		particle_node_free_list.push_back(zdb::CNode::Create(name));
+	}
 }
 
 /* @socom-skeleton stub Tick__8ParticleFfPv */
-bool Particle::Tick(float, void *)
+bool Particle::Tick(float dT, void *)
 {
+	/* 0x234240: the scheduler task - the camera position is the reference for the sources'
+	   range; instances tick, then sources (they spawn the next ones); never done */
+	zdb::CCamera* camera = zdb::CWorld::m_world->m_camera;
+	Source::referencePositionW[0] = camera->m_matrix.m_matrix[3][0];
+	Source::referencePositionW[1] = camera->m_matrix.m_matrix[3][1];
+	Source::referencePositionW[2] = camera->m_matrix.m_matrix[3][2];
+	Instance::list.Tick(dT);
+
+	for (Source::List::iterator it = Source::list.begin(); it != Source::list.end(); ++it)
+		(*it)->Tick(dT);
+
+	return false;
 }
 
 /* @socom-skeleton stub GetDynTexList__8ParticleFv */
@@ -79,28 +112,60 @@ zdb::CDynTexList * Particle::GetDynTexList()
 }
 
 /* @socom-skeleton stub AddDynTexture__8ParticleFPQ23zdb10CTexHandle */
-void Particle::AddDynTexture(zdb::CTexHandle *)
+void Particle::AddDynTexture(zdb::CTexHandle *texture)
 {
+	/* 0x2341e0: the texture (and its palette) go on the particles' load list */
+	m_dyntexlist.Add(texture, true);
+
+	if (texture->m_texture->m_palette != NULL)
+		m_dyntexlist.Add(texture->m_texture->m_palette, true);
 }
 
 /* @socom-skeleton stub ReserveNodePool__8ParticleFv */
 void Particle::ReserveNodePool()
 {
+	/* 0x2341a0 */
+	if (particle_node_free_list.capacity() < 160)
+		particle_node_free_list.reserve(160);
 }
 
 /* @socom-skeleton stub FreeNodePool__8ParticleFv */
 void Particle::FreeNodePool()
 {
+	/* 0x2340f0: delete the free pool nodes and release the pool's storage */
+	for (std::vector<zdb::CNode*>::iterator it = particle_node_free_list.begin(); it != particle_node_free_list.end(); ++it)
+		zdb::CNode::Delete(*it);
+
+	std::vector<zdb::CNode*>().swap(particle_node_free_list);
 }
 
 /* @socom-skeleton stub Close__8ParticleFv */
 void Particle::Close()
 {
+	/* 0x233f60: empty the texture lists, delete the sources and live instances, the pooled
+	   instances, the task and the free pool nodes */
+	FlushDynTexList();
+	Source::list.Uninit();
+	Instance::list.Uninit();
+
+	while (Instance::m_instance_pool != NULL)
+	{
+		Instance* instance = Instance::m_instance_pool;
+		Instance::m_instance_pool = reinterpret_cast<Instance*>(instance->m_source);
+		instance->m_source = NULL;
+		delete instance;
+	}
+
+	zTaskScheduler.RemoveTask("ParticleTick", false);
+	FreeNodePool();
 }
 
 /* @socom-skeleton stub FlushDynTexList__8ParticleFv */
 void Particle::FlushDynTexList()
 {
+	/* 0x233ed0: both lists emptied and their storage released */
+	std::vector<zdb::CTexHandle*>().swap(m_dyntexlist.m_tex_list);
+	std::vector<zdb::CTexPalette*>().swap(m_dyntexlist.m_pal_list);
 }
 
 /* @socom-skeleton stub PullVisuals__8ParticleFPQ23zdb5CNodePQ23zdb9CDIVector */
@@ -126,9 +191,30 @@ void Particle::DestructionManager(zdb::CNode *, char *, CPnt4D *, float, CPnt3D 
 /* @socom-skeleton stub GetFreeInstance__8ParticleFv */
 zdb::CNode * Particle::GetFreeInstance()
 {
+	/* 0x232700: a pool node (a new one when the pool is empty: the ELF's sprintf has no
+	   argument for its %d), hung on the world and made active */
+	if (particle_node_free_list.empty())
+	{
+		char name[28];
+		sprintf(name, "PNODE%d", 0); /* port: the ELF passes no number (whatever a2 holds) */
+		particle_node_free_list.push_back(zdb::CNode::Create(name));
+	}
+
+	zdb::CNode* node = particle_node_free_list.back();
+	particle_node_free_list.pop_back();
+	zdb::CWorld::m_world->AddChild(node);
+	node->SetActive(true);
+	particle_node_count++;
+	return node;
 }
 
 /* @socom-skeleton stub ReleaseInstance__8ParticleFPQ23zdb5CNode */
-void Particle::ReleaseInstance(zdb::CNode *)
+void Particle::ReleaseInstance(zdb::CNode *node)
 {
+	/* 0x232630: back to the pool, inactive, without visuals, off the world (the ELF leaves
+	   particle_node_count alone) */
+	particle_node_free_list.push_back(node);
+	node->SetActive(false);
+	node->DeleteVisuals();
+	zdb::CWorld::m_world->DeleteChild(node);
 }

@@ -449,6 +449,107 @@ struct _zanim_cmd_index8      /* CALL_SEQUENCE, STOP_SEQUENCE, STOP_ANIMATION (0
 	u8 name_index;            /* +0x4: the anim's local name index */
 };
 
+struct _zanim_cmd_particle    /* PARTICLE_SOURCE (zAnimParticleSourceTick 0x1bee80); 268-284 bytes in the
+                               * mission anims, with the optional tables after the fixed part */
+{
+	_zanim_cmd_hdr header;
+	u32 flags;                /* +0x4: 1 set active (2: on, else off), 4 offset, 8 the position
+	                           * argument, 0x10 the node, 0x20 the node's origin, 0x40 local velocity,
+	                           * 0x80 world velocity, 0x100/0x200/0x400 velocity perturbation x/y/z,
+	                           * 0x800/0x1000/0x2000 position perturbation x/y/z, 0x4000 time period,
+	                           * 0x8000 distance period, 0x10000 number, 0x20000 acceleration,
+	                           * 0x40000 friction, 0x80000 wind factor, 0x100000 radius,
+	                           * 0x200000 initial age, 0x400000 lifespan, 0x800000 near fade,
+	                           * 0x1000000 far fade, 0x2000000 priority, 0x4000000 random textures,
+	                           * 0x8000000 texture sequence, 0x10000000 colour sequence,
+	                           * 0x20000000 scale sequence, 0x40000000 box (density, cloud type),
+	                           * 0x80000000 model and rotation ranges */
+	u32 flags2;               /* +0x8: 1 period count, 2 local velocity = normal argument * speed,
+	                           * 4 world velocity = normal argument * speed, 8 random position offset,
+	                           * 0x10 inherit velocity (0x20: on), 0x40 / 0x80 local / world velocity
+	                           * from the velocity argument, 0x100 / 0x200 the same reflected off the
+	                           * normal argument, 0x400 / 0x800 normalized first, 0x1000 range,
+	                           * 0x2000 landmark (0x4000: on), 0x8000 age LOD (0x10000: on),
+	                           * 0x20000 spawn LOD (0x40000: on) */
+	u8 particle;              /* +0xc: the anim's local name index of the source */
+	u8 node_ref;              /* +0xd */
+	u8 number;                /* +0xe */
+	u8 model;                 /* +0xf: the model's name index */
+	u8 texture_count;         /* +0x10 */
+	u8 color_count;           /* +0x11 */
+	u8 scale_count;           /* +0x12 */
+	u8 types;                 /* +0x13: draw type (low 4 bits, 4 = keep) and cloud type (high 4) */
+	f32 offset[3];            /* +0x14 */
+	f32 local_velocity[3];    /* +0x20: [0] is also the speed for the argument velocities */
+	f32 world_velocity[3];    /* +0x2c: [0] is also the speed for the argument velocities */
+	Range perturb_velocity[3]; /* +0x38 */
+	Range perturb_position[3]; /* +0x50 */
+	Range rotation[3];        /* +0x68 */
+	f32 period;               /* +0x80 */
+	f32 accel[3];             /* +0x84 */
+	f32 friction;             /* +0x90 */
+	f32 wind_factor;          /* +0x94 */
+	f32 priority;             /* +0x98 */
+	Range radius;             /* +0x9c */
+	Range age;                /* +0xa4 */
+	Range lifespan;           /* +0xac */
+	Range near_fade;          /* +0xb4 */
+	Range far_fade;           /* +0xbc */
+	u16 random_offset;        /* +0xc4: offset of 6 floats (base xyz, range xyz) */
+	s16 periods;              /* +0xc6 */
+	u16 textures;             /* +0xc8: offset of the texture entries (s16 name index, f32 fraction) */
+	u16 colors;               /* +0xca: offset of the colour entries (fraction, r, g, b, a) */
+	u16 scales;               /* +0xcc: offset of the scale entries (fraction, scale) */
+	u16 rotate;               /* +0xce: offset of the rotated draw's 4 floats (rotation, spin ranges) */
+	u16 streak;               /* +0xd0: offset of the streaked draw's length and fade */
+	u16 pad;
+	f32 density;              /* +0xd4 */
+	f32 distance;             /* +0xd8 */
+};
+
+struct _zanim_cmd_range_test  /* RANGE_TEST (zAnimRangeTestTick 0x1b88d0) */
+{
+	_zanim_cmd_hdr header;
+	u32 flags;                /* +0x4: point A: 1 at node_a, 2 offset_a, 4 the position argument;
+	                           * point B: 8 at node_b, 0x10 offset_b, 0x20 the position argument;
+	                           * the squared distance is 0x40 <, 0x80 <=, 0x100 >, 0x200 >=, 0x400 ==,
+	                           * 0x800 != the value */
+	u8 node_a;                /* +0x8 */
+	u8 node_b;                /* +0x9 */
+	u8 pad[2];
+	f32 offset_a[3];          /* +0xc */
+	f32 offset_b[3];          /* +0x18 */
+	f32 value;                /* +0x24: compared with the squared distance */
+};
+
+struct _zanim_cmd_health_test /* HEALTH_TEST (zAnimHealthTestTick 0x1b8840) */
+{
+	_zanim_cmd_hdr header;
+	u32 flags;                /* +0x4: 1 a range (min..max), else health <= min */
+	f32 min;                  /* +0x8 */
+	f32 max;                  /* +0xc */
+};
+
+struct _zanim_cmd_lod_test    /* LOD_TEST (zAnimLODTestTick 0x1b8790) */
+{
+	_zanim_cmd_hdr header;
+	u8 flags;                 /* +0x4: the LOD is 1 ==, 2 <, 4 <=, 8 >, 0x10 >= the value */
+	u8 lod;                   /* +0x5 */
+};
+
+struct _zanim_cmd_weight      /* RANDOM_WEIGHT (zAnimRandomWeightTick 0x1b8730) */
+{
+	_zanim_cmd_hdr header;
+	f32 weight;               /* +0x4: true with this probability */
+};
+
+struct _zanim_cmd_node_test   /* NODE_RENDERED (0x1b8c00: node +0x4), NODE_ACTIVE (0x1b8c50) */
+{
+	_zanim_cmd_hdr header;
+	u16 arg;                  /* +0x4: NODE_RENDERED: the node ref; NODE_ACTIVE: 1 active, 2 inactive */
+	u16 node_ref;             /* +0x6: NODE_ACTIVE's node ref */
+};
+
 struct _zanim_cmd_call_anim   /* CALL_ANIMATION (zAnimCallAnimBegin 0x1b8380, zAnimCallAnimTick 0x1b8310) */
 {
 	_zanim_cmd_hdr header;
@@ -626,7 +727,7 @@ struct _zanim_node_ref
 struct _zanim_particle
 {
 	s32 name_index;
-	Particle* particle;
+	Particle::Source* particle; /* GetParticleSource 0x1ca780: Source::Create */
 };
 
 struct _zanim_tex_ref
@@ -1744,9 +1845,13 @@ public:
 class CZAnimArg
 {
 public:
-	enum TYPE {}; /* port: unproven - enumerators and width unknown */
+	/* the values ActivateArgV (0x1ce750) dispatches on (one byte, lb -8(arg)); the names are
+	   the port's (port: guess) */
+	enum TYPE { ARG_END = 0, ARG_CMD = 1, ARG_ROOT_NODE = 2, ARG_NODE = 3, ARG_VALVE = 4,
+		ARG_POSITION = 5, ARG_VELOCITY = 6, ARG_NORMAL = 7, ARG_CHARP = 8, ARG_LIST = 9 };
 	virtual ~CZAnimArg() {} /* __dt__9CZAnimArgFv (inline, 0x1cd910): empty body */
-	virtual void Copy() = 0; /* port: __vt__9CZAnimArg slot 1 is empty (pure); return type unproven (derived Copy stubs are void) */
+	virtual CZAnimArg* Copy() = 0; /* __vt__9CZAnimArg slot 1 is empty (pure); ActivateArgV's type 9
+	                                  inserts the returned copy (0x1ce830) */
 	/* no DWARF; from ActivateArgV (0x1ce750) and CZAnimArgList::GetCharP (0x1ce120) */
 	u8 m_type;      /* +0x4: 1 cmd, 2/3 node, 4 valve, 5-7 point, 8 string */
 	u32 m_reserved; /* +0x8: set 0 */
@@ -1757,15 +1862,16 @@ class CZAnimArgCharP : public CZAnimArg
 public:
 	char* m_value; /* +0xc: a copy of the string */
 	virtual ~CZAnimArgCharP();
-	virtual void Copy();
+	virtual CZAnimArg* Copy();
 };
 /* @socom-skeleton end 14CZAnimArgCharP */
 /* @socom-skeleton decl 12CZAnimArgCmd */
 class CZAnimArgCmd : public CZAnimArg
 {
 public:
-	virtual ~CZAnimArgCmd();
-	virtual void Copy();
+	_zanim_cmd_hdr* m_cmd; /* +0xc (ActivateArgV type 1, Copy 0x1ce430); port: pointee type unproven */
+	virtual ~CZAnimArgCmd() {} /* inline (__dt__12CZAnimArgCmdFv 0x1cff70, emitted in zanim_anim.cpp) */
+	virtual CZAnimArg* Copy();
 };
 /* @socom-skeleton end 12CZAnimArgCmd */
 /* @socom-skeleton decl 13CZAnimArgList */
@@ -1773,10 +1879,10 @@ class CZAnimArgList : public std::list<CZAnimArg *, std::allocator<CZAnimArg *> 
 {
 public:
 	virtual ~CZAnimArgList();
-	void GetPnt3D(CZAnimArg::TYPE);
+	const CPnt3D * GetPnt3D(CZAnimArg::TYPE); /* 0x1ce250: the first point of that type (its +0xc), or NULL */
 	char * GetCharP(int);
 	CValve * GetValve(int);
-	void GetCmd(int);
+	_zanim_cmd_hdr * GetCmd(int); /* 0x1cdec0: the index-th type-1 argument's +0xc */
 	ZAnimNetworkPacket * AddNetworkPacketArgs(CZAnim *, ZAnimNetworkPacket *);
 	void ParseNetworkPacketArgs(CZAnim *, ZAnimNetworkPacket *);
 };
@@ -1785,8 +1891,9 @@ public:
 class CZAnimArgNode : public CZAnimArg
 {
 public:
+	zdb::CNode* m_node; /* +0xc */
 	virtual ~CZAnimArgNode() {} /* port: stub (inline __dt__13CZAnimArgNodeFv) */
-	virtual void Copy();
+	virtual CZAnimArg* Copy();
 	CZAnimArgNode(CZAnimArg::TYPE, zdb::CNode *);
 };
 /* @socom-skeleton end 13CZAnimArgNode */
@@ -1794,8 +1901,9 @@ public:
 class CZAnimArgPnt3D : public CZAnimArg
 {
 public:
+	CPnt3D m_pnt; /* +0xc (24-byte object) */
 	virtual ~CZAnimArgPnt3D() {} /* port: stub (inline __dt__14CZAnimArgPnt3DFv) */
-	virtual void Copy();
+	virtual CZAnimArg* Copy();
 	CZAnimArgPnt3D(CZAnimArg::TYPE, const CPnt3D *);
 };
 /* @socom-skeleton end 14CZAnimArgPnt3D */
@@ -1803,8 +1911,9 @@ public:
 class CZAnimArgValve : public CZAnimArg
 {
 public:
-	virtual ~CZAnimArgValve();
-	virtual void Copy();
+	CValve* m_valve; /* +0xc (ActivateArgV type 4, Copy 0x1ce4a0) */
+	virtual ~CZAnimArgValve() {} /* inline (__dt__14CZAnimArgValveFv 0x1cffd0, emitted in zanim_anim.cpp) */
+	virtual CZAnimArg* Copy();
 };
 /* @socom-skeleton end 14CZAnimArgValve */
 /* @socom-skeleton decl 15CZAnimBlendMode */

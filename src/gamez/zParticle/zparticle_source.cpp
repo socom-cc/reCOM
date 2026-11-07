@@ -48,6 +48,10 @@
 #include "gamez/zTexture/ztex.h"
 #include "zparticle.h"
 /* @socom-skeleton end include */
+#include "gamez/zCamera/zcam.h" /* CCamera::m_far_plane (Default) */
+#include <math.h> /* sqrtf */
+#include <stdlib.h> /* rand */
+#include <new> /* placement new (pooled instances, Tick) */
 
 #ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
@@ -72,86 +76,511 @@ Particle::Source::List Particle::Source::list;
 /* @socom-skeleton stub Uninit__Q38Particle6Source4ListFv */
 void Particle::Source::List::Uninit()
 {
+	/* 0x23aa70: every listed source is deleted (its destructor unlists it: the walk takes the
+	   next node first), then the list is emptied */
+	for (iterator it = begin(); it != end();)
+	{
+		Source* source = *it;
+		++it;
+		delete source;
+	}
+
+	clear();
 }
 
 /* @socom-skeleton stub Create__Q28Particle6SourceFv */
 Particle::Source * Particle::Source::Create()
 {
+	/* 0x23aa10: a new source, listed at the tail */
+	Source* source = new Source;
+	list.push_back(source);
+	return source;
 }
 
 /* @socom-skeleton stub TexturesClear__Q28Particle6SourceFv */
 void Particle::Source::TexturesClear()
 {
+	/* 0x23aa00 */
+	m_textures.clear();
 }
 
 /* @socom-skeleton stub Default__Q28Particle6SourceFv */
 void Particle::Source::Default()
 {
+	/* 0x23a860: an active source goes off (its box DI node too); then every setting returns
+	 * to its default: standard draw, streak 1 / 0.3, period 1 (time), endless, one particle per
+	 * period, the camera's far plane as range, no node, no position, velocity or perturbation,
+	 * radius 1, lifespan 1, age 0, a new Props (the old one is not released: Tick does that
+	 * first), lit, fogged, LOD and freezable, in-FOV testing on (flag 1 = skip). */
+	if (m_active)
+	{
+		m_active = false;
+
+		if (m_hasbbox && m_diNode != NULL) /* port: m_diNode NULL (no box node, see the constructor) */
+			m_diNode->SetActive(false);
+
+		m_goodPos = false;
+	}
+
+	m_drawType = PARTICLE_STANDARD;
+	m_streakLen = 1.0f;
+	m_streakFade = 0.3f;
+	m_shuttingoff = false;
+	m_goodPos = false;
+	m_distInterval = false;
+	m_period = 1.0f;
+	m_invPeriod = 1.0f;
+	m_numPeriods = -1;
+	m_phase = 0.0f;
+	m_number = 1;
+	m_distance = zdb::CWorld::m_world->m_camera->m_far_plane;
+	m_node = NULL;
+	m_perturbPositionX.m_min = 0.0f;
+	m_perturbPositionX.m_max = 0.0f;
+	m_perturbPositionY.m_min = 0.0f;
+	m_perturbPositionY.m_max = 0.0f;
+	m_perturbPositionZ.m_min = 0.0f;
+	m_perturbPositionZ.m_max = 0.0f;
+	m_perturbVelocityX.m_min = 0.0f;
+	m_perturbVelocityX.m_max = 0.0f;
+	m_perturbVelocityY.m_min = 0.0f;
+	m_perturbVelocityY.m_max = 0.0f;
+	m_perturbVelocityZ.m_min = 0.0f;
+	m_perturbVelocityZ.m_max = 0.0f;
+	m_radiusRange.m_min = 1.0f;
+	m_radiusRange.m_max = 1.0f;
+	m_lifespanRange.m_min = 1.0f;
+	m_lifespanRange.m_max = 1.0f;
+	m_initialAgeRange.m_min = 0.0f;
+	m_initialAgeRange.m_max = 0.0f;
+	m_offset.x = 0.0f;
+	m_offset.y = 0.0f;
+	m_offset.z = 0.0f;
+	m_localVelocity.x = 0.0f;
+	m_localVelocity.y = 0.0f;
+	m_localVelocity.z = 0.0f;
+	m_worldVelocity.x = 0.0f;
+	m_worldVelocity.y = 0.0f;
+	m_worldVelocity.z = 0.0f;
+	m_inheritVelocity = false;
+	m_props = Props::Create();
+	m_refcount = 0;
+	m_cloudtype = 0;
+	m_fovFlag = 1;
+	m_landmark = false;
+	m_applyGlobalLighting = true;
+	m_applyLocalLighting = true;
+	m_applyFog = true;
+	m_doAgeLOD = true;
+	m_doSpawnLOD = true;
+	m_freezable = true;
+	m_frozen = false;
 }
 
 /* @socom-skeleton stub TexturesAdd__Q28Particle6SourceFPQ23zdb10CTexHandle */
-void Particle::Source::TexturesAdd(zdb::CTexHandle *)
+void Particle::Source::TexturesAdd(zdb::CTexHandle *texture)
 {
+	/* 0x23a800: one more random texture (the handle's texture is loaded with the particles') */
+	m_textures.push_back(texture);
+	AddDynTexture(texture);
 }
 
 /* @socom-skeleton stub TextureSequenceClear__Q28Particle6SourceFv */
 void Particle::Source::TextureSequenceClear()
 {
+	/* 0x23a7c0 */
+	m_props = m_props->Branch();
+	m_props->m_textureSeq.clear();
 }
 
 /* @socom-skeleton stub TextureSequenceAdd__Q28Particle6SourceFfPQ23zdb10CTexHandle */
-void Particle::Source::TextureSequenceAdd(float, zdb::CTexHandle *)
+void Particle::Source::TextureSequenceAdd(float fraction, zdb::CTexHandle *texture)
 {
+	/* 0x23a740 */
+	m_props = m_props->Branch();
+	SequenceEntry<zdb::CTexHandle*> entry;
+	entry.m_fraction = fraction;
+	entry.m_data = texture;
+	m_props->m_textureSeq.push_back(entry);
+	AddDynTexture(texture);
 }
 
 /* @socom-skeleton stub ColorSequenceClear__Q28Particle6SourceFv */
 void Particle::Source::ColorSequenceClear()
 {
+	/* 0x23a700 */
+	m_props = m_props->Branch();
+	m_props->m_colorSeq.clear();
 }
 
 /* @socom-skeleton stub ColorSequenceAdd__Q28Particle6SourceFfffff */
-void Particle::Source::ColorSequenceAdd(float, float, float, float, float)
+void Particle::Source::ColorSequenceAdd(float fraction, float r, float g, float b, float a)
 {
+	/* 0x23a630 */
+	m_props = m_props->Branch();
+	SequenceEntry<CPnt4D> entry;
+	entry.m_fraction = fraction;
+	entry.m_data.x = r;
+	entry.m_data.y = g;
+	entry.m_data.z = b;
+	entry.m_data.w = a;
+	m_props->m_colorSeq.push_back(entry);
 }
 
 /* @socom-skeleton stub ScaleSequenceClear__Q28Particle6SourceFv */
 void Particle::Source::ScaleSequenceClear()
 {
+	/* 0x23a5f0 */
+	m_props = m_props->Branch();
+	m_props->m_scaleSeq.clear();
 }
 
 /* @socom-skeleton stub ScaleSequenceAdd__Q28Particle6SourceFff */
-void Particle::Source::ScaleSequenceAdd(float, float)
+void Particle::Source::ScaleSequenceAdd(float fraction, float scale)
 {
+	/* 0x23a580 */
+	m_props = m_props->Branch();
+	SequenceEntry<f32> entry;
+	entry.m_fraction = fraction;
+	entry.m_data = scale;
+	m_props->m_scaleSeq.push_back(entry);
 }
 
 /* @socom-skeleton stub __ct__Q28Particle6SourceFv */
 Particle::Source::Source()
 {
+	/* 0x23a0d0: the ELF also builds the source's box DI node here: six CDIPolys (4 vertices
+	 * each, material bits) in a "PARTICLE DI NODE" node added to the world, with a CParticleEx
+	 * (vtable 0x4720d0) pointing back at the source; it is active only for sources with a box
+	 * (smoke clouds, flag 0x40000000 of the PARTICLE_SOURCE command).
+	 * port: not written - no box DI node (CDIPoly's constructor is a stub and nothing reads
+	 * the box polys yet); m_diNode, m_diPolies and m_particleEx stay NULL and the users test
+	 * m_diNode */
+	m_diNode = NULL;
+
+	for (s32 i = 0; i < 6; i++)
+		m_diPolies[i] = NULL;
+
+	m_particleEx = NULL;
+	m_hasbbox = false;
+	m_active = false; /* port: the ELF's operator new leaves it to Default's test (0 from its heap) */
+	Default();
 }
 
 /* @socom-skeleton stub __dt__Q28Particle6SourceFv */
 Particle::Source::~Source()
 {
+	/* 0x239eb0: unlist the source; its live instances expire into the pool; release the Props
+	   (and, in the ELF, the box DI node and the CParticleEx) */
+	for (List::iterator it = list.begin(); it != list.end(); ++it)
+	{
+		if (*it == this)
+		{
+			list.erase(it);
+			break;
+		}
+	}
+
+	for (Instance::List::iterator it = Instance::list.begin(); it != Instance::list.end();)
+	{
+		Instance* instance = *it;
+
+		if (instance->m_source == this)
+		{
+			instance->Expire();
+			instance->m_source = reinterpret_cast<Source*>(Instance::m_instance_pool); /* the pool link */
+			Instance::m_instance_pool = instance;
+			it = Instance::list.erase(it);
+		}
+		else
+		{
+			++it;
+		}
+	}
+
+	if (m_props != NULL)
+		m_props->DecRefCount(1);
+
+	if (m_diNode != NULL) /* port: always NULL (see the constructor) */
+	{
+		zdb::CWorld::m_world->DeleteChild(m_diNode);
+		delete m_diNode;
+	}
 }
 
 /* @socom-skeleton stub Tick__Q28Particle6SourceFf */
-void Particle::Source::Tick(float)
+void Particle::Source::Tick(float dT)
 {
+	/* 0x239480: an active source - one shutting off returns to its defaults once its last
+	 * instance is gone. Its position is the offset (in its node's world space when it has
+	 * one); the box starts there. With a good last position: the phase advances by time (or,
+	 * by distance, by the distance moved under 200) times frequencyFactor; each whole period
+	 * spawns m_number instances (a counted source stops after its periods). Out of range
+	 * (beyond distanceFactor * min(distance, Props far fade) from the camera) it spawns
+	 * nothing (freezable ones freeze). Each instance: lifespan and initial age (times
+	 * ageFactor, plus its spawn time within the frame) drawn from their ranges (skipped if
+	 * already dead), velocity = local (node space) + world velocity + Props acceleration over
+	 * its age + perturbation, position = last position + perturbation + age * (velocity +
+	 * the source's motion), inherit velocity adds the source's motion, rotation and radius
+	 * from their ranges, a random texture of the source's list; from the instance pool (else
+	 * new), appended to the instance list. */
+	if (!m_active)
+		return;
+
+	if (m_shuttingoff)
+	{
+		if (0 < m_refcount)
+			return;
+
+		m_textures.clear();
+
+		if (m_props != NULL)
+			m_props->DecRefCount(1);
+
+		Default();
+		return;
+	}
+
+	CMatrix world;
+	m_filled_volume = 0.0f;
+	CPnt3D pos;
+
+	if (m_node == NULL)
+	{
+		pos = m_offset;
+	}
+	else
+	{
+		m_node->BuildMTW(world);
+		pos.x = world.m_matrix[0][0] * m_offset.x + world.m_matrix[1][0] * m_offset.y + world.m_matrix[2][0] * m_offset.z + world.m_matrix[3][0];
+		pos.y = world.m_matrix[0][1] * m_offset.x + world.m_matrix[1][1] * m_offset.y + world.m_matrix[2][1] * m_offset.z + world.m_matrix[3][1];
+		pos.z = world.m_matrix[0][2] * m_offset.x + world.m_matrix[1][2] * m_offset.y + world.m_matrix[2][2] * m_offset.z + world.m_matrix[3][2];
+	}
+
+	m_bbox.m_max.x = m_oldPosW.x;
+	m_bbox.m_min.x = m_oldPosW.x;
+	m_bbox.m_max.y = m_oldPosW.y;
+	m_bbox.m_min.y = m_oldPosW.y;
+	m_bbox.m_max.z = m_oldPosW.z;
+	m_bbox.m_min.z = m_oldPosW.z;
+
+	if (m_goodPos)
+	{
+		CPnt3D moved;
+		moved.x = pos.x - m_oldPosW.x;
+		moved.y = pos.y - m_oldPosW.y;
+		moved.z = pos.z - m_oldPosW.z;
+		f32 oldPhase = m_phase;
+
+		if (m_numPeriods == 0)
+		{
+			m_phase = 0.0f;
+		}
+		else if (!m_distInterval)
+		{
+			m_phase += dT * frequencyFactor;
+		}
+		else
+		{
+			f32 d2 = moved.z * moved.z + moved.x * moved.x + moved.y * moved.y;
+
+			if (d2 < 40000.0f)
+				m_phase += sqrtf(d2) * frequencyFactor;
+		}
+
+		f32 periods = m_phase * m_invPeriod;
+		s32 whole = (s32)periods;
+		m_phase -= m_period * (f32)whole;
+		s32 count = whole;
+
+		if (whole != 0 && m_numPeriods != -1)
+		{
+			if (m_numPeriods < whole)
+			{
+				count = m_numPeriods;
+				m_numPeriods = 0;
+				m_phase = 0.0f;
+			}
+			else
+			{
+				m_numPeriods -= whole;
+			}
+		}
+
+		m_frozen = false;
+		m_outOfRange = false;
+		bool spawn = true;
+		f32 range = m_distance;
+
+		if (range != 3.4028235e+38f)
+		{
+			if (m_props->m_farFade2 <= range)
+				range = m_props->m_farFade2;
+
+			f32 dx = m_oldPosW.x - referencePositionW[0];
+			f32 dy = m_oldPosW.y - referencePositionW[1];
+			f32 dz = m_oldPosW.z - referencePositionW[2];
+
+			if (distanceFactor * range * distanceFactor * range <= dz * dz + dx * dx + dy * dy)
+			{
+				if (m_freezable)
+					m_frozen = true;
+
+				m_outOfRange = true;
+				spawn = false;
+			}
+		}
+
+		if (spawn && whole != 0)
+		{
+			CPnt3D local;
+
+			if (m_node == NULL)
+			{
+				local = m_localVelocity;
+			}
+			else
+			{
+				local.x = world.m_matrix[0][0] * m_localVelocity.x + world.m_matrix[1][0] * m_localVelocity.y + world.m_matrix[2][0] * m_localVelocity.z;
+				local.y = world.m_matrix[0][1] * m_localVelocity.x + world.m_matrix[1][1] * m_localVelocity.y + world.m_matrix[2][1] * m_localVelocity.z;
+				local.z = world.m_matrix[0][2] * m_localVelocity.x + world.m_matrix[1][2] * m_localVelocity.y + world.m_matrix[2][2] * m_localVelocity.z;
+			}
+
+			f32 interval = dT / periods;
+			local.x += m_worldVelocity.x;
+			local.y += m_worldVelocity.y;
+			local.z += m_worldVelocity.z;
+			f32 inv = 1.0f / dT;
+			moved.x *= inv;
+			moved.y *= inv;
+			moved.z *= inv;
+			f32 first = interval * (1.0f - oldPhase * m_invPeriod);
+			zdb::CTexHandle* texture = NULL;
+
+			for (s32 i = 0; i < count; i++)
+			{
+				if (m_textures.size() != 0)
+					texture = m_textures[rand() % (s32)m_textures.size()];
+
+				f32 age = (dT - first) - (f32)i * interval;
+				CPnt3D base;
+				base.x = local.x + age * m_props->m_accelW.x;
+				base.y = local.y + age * m_props->m_accelW.y;
+				base.z = local.z + age * m_props->m_accelW.z;
+
+				for (s32 n = 0; n < m_number; n++)
+				{
+					f32 lifespan = m_lifespanRange.m_min + (m_lifespanRange.m_max - m_lifespanRange.m_min) * (f32)rand() * 4.656613e-10f;
+					f32 start = Instance::ageFactor * (age + m_initialAgeRange.m_min + (m_initialAgeRange.m_max - m_initialAgeRange.m_min) * (f32)rand() * 4.656613e-10f);
+
+					if (!(start < lifespan))
+						continue;
+
+					CPnt4D vel;
+					CPnt4D at;
+					vel.x = base.x + m_perturbVelocityX.m_min + (m_perturbVelocityX.m_max - m_perturbVelocityX.m_min) * (f32)rand() * 4.656613e-10f;
+					vel.y = base.y + m_perturbVelocityY.m_min + (m_perturbVelocityY.m_max - m_perturbVelocityY.m_min) * (f32)rand() * 4.656613e-10f;
+					vel.z = base.z + m_perturbVelocityZ.m_min + (m_perturbVelocityZ.m_max - m_perturbVelocityZ.m_min) * (f32)rand() * 4.656613e-10f;
+					at.x = m_oldPosW.x + m_perturbPositionX.m_min + (m_perturbPositionX.m_max - m_perturbPositionX.m_min) * (f32)rand() * 4.656613e-10f;
+					at.y = m_oldPosW.y + m_perturbPositionY.m_min + (m_perturbPositionY.m_max - m_perturbPositionY.m_min) * (f32)rand() * 4.656613e-10f;
+					f32 pz = m_perturbPositionZ.m_min + (m_perturbPositionZ.m_max - m_perturbPositionZ.m_min) * (f32)rand() * 4.656613e-10f;
+					CPnt4D total;
+					total.x = moved.x + vel.x;
+					total.y = moved.y + vel.y;
+					total.z = moved.z + vel.z;
+					at.x += age * total.x;
+					at.y += age * total.y;
+					at.z = m_oldPosW.z + pz + age * total.z;
+
+					if (m_inheritVelocity)
+					{
+						vel.x = total.x;
+						vel.y = total.y;
+						vel.z = total.z;
+					}
+
+					CPnt3D spin;
+					spin.x = m_rotationX.m_min + (m_rotationX.m_max - m_rotationX.m_min) * (f32)rand() * 4.656613e-10f;
+					spin.y = m_rotationY.m_min + (m_rotationY.m_max - m_rotationY.m_min) * (f32)rand() * 4.656613e-10f;
+					spin.z = m_rotationZ.m_min + (m_rotationZ.m_max - m_rotationZ.m_min) * (f32)rand() * 4.656613e-10f;
+					f32 radius = m_radiusRange.m_min + (m_radiusRange.m_max - m_radiusRange.m_min) * (f32)rand() * 4.656613e-10f;
+					Instance* instance = Instance::m_instance_pool;
+
+					if (instance != NULL)
+					{
+						Instance::m_instance_pool = reinterpret_cast<Instance*>(instance->m_source);
+						instance->m_source = NULL;
+						new (instance) Instance(at, vel, spin, radius, lifespan, start, texture, m_props, this);
+					}
+					else
+					{
+						instance = new Instance(at, vel, spin, radius, lifespan, start, texture, m_props, this);
+					}
+
+					Instance::list.push_back(instance);
+					m_refcount++;
+				}
+			}
+		}
+	}
+
+	m_oldPosW = pos;
+	m_goodPos = true;
 }
 
 /* @socom-skeleton stub SetActive__Q28Particle6SourceFb */
-void Particle::Source::SetActive(bool)
+void Particle::Source::SetActive(bool active)
 {
+	/* 0x239410: a change of state (the box DI node follows); on: no longer shutting off;
+	   off: the last position is forgotten */
+	if (m_active == active)
+		return;
+
+	m_active = active;
+
+	if (m_hasbbox && m_diNode != NULL) /* port: m_diNode NULL (see the constructor) */
+		m_diNode->SetActive(active);
+
+	if (active)
+		m_shuttingoff = false;
+	else
+		m_goodPos = false;
 }
 
 /* @socom-skeleton stub Reset__Q28Particle6SourceFv */
 void Particle::Source::Reset()
 {
+	/* 0x239400: shut off once the live instances are gone (Tick) */
+	m_shuttingoff = true;
 }
 
 /* @socom-skeleton stub CheckExtents__Q28Particle6SourceF6CPnt4Df */
-void Particle::Source::CheckExtents(CPnt4D, float)
+void Particle::Source::CheckExtents(CPnt4D pos, float size)
 {
+	/* 0x2392d0: a source with a box grows it over the point (the size only sets the filled
+	   volume, size squared) */
+	if (!m_hasbbox)
+		return;
+
+	if (!(m_bbox.m_min.x < pos.x))
+		m_bbox.m_min.x = pos.x;
+
+	if (!(m_bbox.m_min.y < pos.y))
+		m_bbox.m_min.y = pos.y;
+
+	if (!(m_bbox.m_min.z < pos.z))
+		m_bbox.m_min.z = pos.z;
+
+	if (!(pos.x < m_bbox.m_max.x))
+		m_bbox.m_max.x = pos.x;
+
+	if (!(pos.y < m_bbox.m_max.y))
+		m_bbox.m_max.y = pos.y;
+
+	if (m_bbox.m_max.z <= pos.z)
+		m_bbox.m_max.z = pos.z;
+
+	m_filled_volume = size * size;
 }
 
 /* @socom-skeleton stub GetBBox__Q28Particle6SourceFP5CBBox */

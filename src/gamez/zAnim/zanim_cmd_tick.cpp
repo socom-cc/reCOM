@@ -115,9 +115,408 @@ bool zAnimMessageTick(_zanim_cmd_hdr *, float *)
 }
 
 /* @socom-skeleton stub zAnimParticleSourceTick__FP14_zanim_cmd_hdrPf */
-bool zAnimParticleSourceTick(_zanim_cmd_hdr *, float *)
+bool zAnimParticleSourceTick(_zanim_cmd_hdr *header, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1bee80: set up the anim's particle source from the record (the flags say which
+	 * settings it carries; a Props setting branches the shared Props first). Positions and
+	 * velocities may come from the anim's position (5), velocity (6) and normal (7)
+	 * arguments. Done at once. */
+	_zanim_cmd_particle* cmd = reinterpret_cast<_zanim_cmd_particle*>(header);
+	CZAnim* anim = ZAnim.m_CurAnim;
+	Particle::Source* source = anim->GetParticleSource(cmd->particle);
+	CZAnimArgList* args = anim->m_arg_list;
+
+	if (source == NULL)
+		return true;
+
+	if (cmd->flags & 0x1)
+		source->SetActive((cmd->flags & 0x2) != 0);
+
+	u8 type = cmd->types & 0xf;
+
+	if (type != 4)
+	{
+		source->m_drawType = type;
+
+		if (type == PARTICLE_STREAKED)
+		{
+			if (cmd->streak > 0)
+			{
+				const f32* streak = reinterpret_cast<const f32*>(reinterpret_cast<const char*>(cmd) + cmd->streak);
+				source->m_streakLen = streak[0];
+				source->m_streakFade = streak[1];
+			}
+		}
+		else if (type == PARTICLE_ROTATED)
+		{
+			if (cmd->rotate > 0)
+			{
+				const f32* rotate = reinterpret_cast<const f32*>(reinterpret_cast<const char*>(cmd) + cmd->rotate);
+				source->m_minRot = rotate[0];
+				source->m_maxRot = rotate[1];
+				source->m_minRotAcc = rotate[2];
+				source->m_maxRotAcc = rotate[3];
+			}
+			else
+			{
+				source->m_minRot = 0.0f;
+				source->m_maxRot = 0.0f;
+				source->m_minRotAcc = 0.0f;
+				source->m_maxRotAcc = 0.0f;
+			}
+		}
+	}
+
+	if (cmd->flags & 0x10)
+	{
+		source->m_node = anim->GetNode(cmd->node_ref, false);
+		source->m_goodPos = false;
+	}
+
+	CPnt3D pos;
+	pos.x = 0.0f;
+	pos.y = 0.0f;
+	pos.z = 0.0f;
+	bool positioned = false;
+
+	if (cmd->flags & 0x8)
+	{
+		const CPnt3D* input = args != NULL ? args->GetPnt3D(CZAnimArg::ARG_POSITION) : NULL;
+
+		if (input != NULL)
+		{
+			pos.Add(input, &pos);
+			positioned = true;
+		}
+	}
+
+	if (cmd->flags & 0x4)
+	{
+		pos.Add(reinterpret_cast<const CPnt3D*>(cmd->offset), &pos);
+		positioned = true;
+	}
+
+	if (cmd->flags & 0x20)
+	{
+		CPnt3D origin;
+		origin.x = 0.0f;
+		origin.y = 0.0f;
+		origin.z = 0.0f;
+		anim->GetNode(cmd->node_ref, false)->TransformToWorld(origin);
+		pos.Add(&origin, &pos);
+		positioned = true;
+	}
+
+	if (positioned && (cmd->flags2 & 0x8) && cmd->random_offset > 0)
+	{
+		const f32* random = reinterpret_cast<const f32*>(reinterpret_cast<const char*>(cmd) + cmd->random_offset);
+		pos.x += random[0] + random[3] * ((f32)rand() * 4.656613e-10f);
+		pos.y += random[1] + random[4] * ((f32)rand() * 4.656613e-10f);
+		pos.z += random[2] + random[5] * ((f32)rand() * 4.656613e-10f);
+	}
+
+	if (positioned)
+	{
+		source->m_offset = pos;
+		source->m_goodPos = false;
+	}
+
+	/* local velocity: the normal argument, the velocity argument (normalized, reflected off
+	   the normal), each times the speed, or the record's */
+	if (cmd->flags2 & 0x2)
+	{
+		const CPnt3D* normal = args != NULL ? args->GetPnt3D(CZAnimArg::ARG_NORMAL) : NULL;
+
+		if (normal != NULL)
+		{
+			CPnt3D v = *normal;
+			v.Scale(cmd->local_velocity[0], &v);
+			source->m_localVelocity = v;
+		}
+	}
+	else if (cmd->flags2 & 0x40)
+	{
+		const CPnt3D* velocity = args != NULL ? args->GetPnt3D(CZAnimArg::ARG_VELOCITY) : NULL;
+
+		if (velocity != NULL)
+		{
+			CPnt3D v = *velocity;
+
+			if (cmd->flags2 & 0x400)
+				v.Normalize();
+
+			if (cmd->flags2 & 0x100)
+			{
+				const CPnt3D* normal = args != NULL ? args->GetPnt3D(CZAnimArg::ARG_NORMAL) : NULL;
+
+				if (normal != NULL)
+					v = v.Reflect(normal);
+			}
+
+			v.Scale(cmd->local_velocity[0], &v);
+			source->m_localVelocity = v;
+		}
+	}
+	else if (cmd->flags2 & 0x100)
+	{
+		const CPnt3D* normal = args != NULL ? args->GetPnt3D(CZAnimArg::ARG_NORMAL) : NULL;
+		const CPnt3D* velocity = args != NULL ? args->GetPnt3D(CZAnimArg::ARG_VELOCITY) : NULL;
+
+		if (velocity != NULL)
+		{
+			CPnt3D v = *velocity;
+
+			if (cmd->flags2 & 0x400)
+				v.Normalize();
+
+			v.Scale(cmd->local_velocity[0], &v);
+
+			if (normal != NULL)
+				v = v.Reflect(normal);
+
+			source->m_localVelocity = v;
+		}
+	}
+	else if (cmd->flags & 0x40)
+	{
+		source->m_localVelocity.x = cmd->local_velocity[0];
+		source->m_localVelocity.y = cmd->local_velocity[1];
+		source->m_localVelocity.z = cmd->local_velocity[2];
+	}
+
+	/* world velocity: the same with flags2 4 / 0x80 / 0x200 / 0x800 and flags 0x80 */
+	if (cmd->flags2 & 0x4)
+	{
+		const CPnt3D* normal = args != NULL ? args->GetPnt3D(CZAnimArg::ARG_NORMAL) : NULL;
+
+		if (normal != NULL)
+		{
+			CPnt3D v = *normal;
+			v.Scale(cmd->world_velocity[0], &v);
+			source->m_worldVelocity = v;
+		}
+	}
+	else if (cmd->flags2 & 0x80)
+	{
+		const CPnt3D* velocity = args != NULL ? args->GetPnt3D(CZAnimArg::ARG_VELOCITY) : NULL;
+
+		if (velocity != NULL)
+		{
+			CPnt3D v = *velocity;
+
+			if (cmd->flags2 & 0x800)
+				v.Normalize();
+
+			v.Scale(cmd->world_velocity[0], &v);
+			source->m_worldVelocity = v;
+		}
+	}
+	else if (cmd->flags2 & 0x200)
+	{
+		const CPnt3D* normal = args != NULL ? args->GetPnt3D(CZAnimArg::ARG_NORMAL) : NULL;
+		const CPnt3D* velocity = args != NULL ? args->GetPnt3D(CZAnimArg::ARG_VELOCITY) : NULL;
+
+		if (velocity != NULL)
+		{
+			CPnt3D v = *velocity;
+
+			if (cmd->flags2 & 0x800)
+				v.Normalize();
+
+			v.Scale(cmd->world_velocity[0], &v);
+
+			if (normal != NULL)
+				v = v.Reflect(normal);
+
+			source->m_worldVelocity = v;
+		}
+	}
+	else if (cmd->flags & 0x80)
+	{
+		source->m_worldVelocity.x = cmd->world_velocity[0];
+		source->m_worldVelocity.y = cmd->world_velocity[1];
+		source->m_worldVelocity.z = cmd->world_velocity[2];
+	}
+
+	if (cmd->flags2 & 0x10)
+		source->m_inheritVelocity = (cmd->flags2 & 0x20) != 0;
+
+	if (cmd->flags & 0x100)
+		source->m_perturbVelocityX = cmd->perturb_velocity[0];
+
+	if (cmd->flags & 0x200)
+		source->m_perturbVelocityY = cmd->perturb_velocity[1];
+
+	if (cmd->flags & 0x400)
+		source->m_perturbVelocityZ = cmd->perturb_velocity[2];
+
+	if (cmd->flags & 0x800)
+		source->m_perturbPositionX = cmd->perturb_position[0];
+
+	if (cmd->flags & 0x1000)
+		source->m_perturbPositionY = cmd->perturb_position[1];
+
+	if (cmd->flags & 0x2000)
+		source->m_perturbPositionZ = cmd->perturb_position[2];
+
+	if (cmd->flags & 0x4000)
+	{
+		source->m_distInterval = true;
+		source->m_period = cmd->period;
+		source->m_invPeriod = 1.0f / cmd->period;
+	}
+
+	if (cmd->flags & 0x8000)
+	{
+		source->m_distInterval = false;
+		source->m_period = cmd->period;
+		source->m_invPeriod = 1.0f / cmd->period;
+	}
+
+	if (cmd->flags2 & 0x1)
+	{
+		source->m_numPeriods = cmd->periods;
+		source->m_freezable = cmd->periods == -1;
+	}
+
+	if (cmd->flags & 0x10000)
+		source->m_number = cmd->number;
+
+	if (cmd->flags & 0x20000)
+	{
+		source->m_props = source->m_props->Branch();
+		source->m_props->m_accelW.x = cmd->accel[0];
+		source->m_props->m_accelW.y = cmd->accel[1];
+		source->m_props->m_accelW.z = cmd->accel[2];
+	}
+
+	if (cmd->flags & 0x40000)
+	{
+		source->m_props = source->m_props->Branch();
+		source->m_props->m_friction = cmd->friction;
+	}
+
+	if (cmd->flags & 0x80000)
+	{
+		source->m_props = source->m_props->Branch();
+		source->m_props->m_windFactor = cmd->wind_factor;
+	}
+
+	if (cmd->flags & 0x100000)
+		source->m_radiusRange = cmd->radius;
+
+	if (cmd->flags & 0x200000)
+		source->m_initialAgeRange = cmd->age;
+
+	if (cmd->flags & 0x400000)
+		source->m_lifespanRange = cmd->lifespan;
+
+	if (cmd->flags & 0x800000)
+	{
+		source->m_props = source->m_props->Branch();
+		Particle::Props* props = source->m_props;
+		props->m_nearFade1 = cmd->near_fade.m_min;
+		props->m_nearFade2 = cmd->near_fade.m_max;
+		props->m_invNearFade = cmd->near_fade.m_min == cmd->near_fade.m_max ? 0.0f : 1.0f / (cmd->near_fade.m_max - cmd->near_fade.m_min);
+		props->m_checkFade = true;
+	}
+
+	if (cmd->flags & 0x1000000)
+	{
+		source->m_props = source->m_props->Branch();
+		Particle::Props* props = source->m_props;
+		props->m_farFade1 = cmd->far_fade.m_min;
+		props->m_farFade2 = cmd->far_fade.m_max;
+		props->m_invFarFade = cmd->far_fade.m_min == cmd->far_fade.m_max ? 0.0f : 1.0f / (cmd->far_fade.m_max - cmd->far_fade.m_min);
+		props->m_checkFade = true;
+	}
+
+	if (cmd->flags2 & 0x1000)
+		source->m_distance = cmd->distance;
+
+	if (cmd->flags2 & 0x2000)
+		source->m_landmark = (cmd->flags2 & 0x4000) != 0;
+
+	if (cmd->flags2 & 0x8000)
+		source->m_doAgeLOD = (cmd->flags2 & 0x10000) != 0;
+
+	if (cmd->flags2 & 0x20000)
+		source->m_doSpawnLOD = (cmd->flags2 & 0x40000) != 0;
+
+	if (cmd->flags & 0x40000000)
+	{
+		source->m_hasbbox = true;
+
+		if (source->m_diNode != NULL) /* port: no box DI node (Source constructor) */
+			source->m_diNode->SetActive(source->m_hasbbox);
+
+		source->m_props = source->m_props->Branch();
+		source->m_props->m_visualDensity = cmd->density;
+		source->m_cloudtype = cmd->types >> 4;
+	}
+
+	if (cmd->flags & 0x2000000)
+	{
+		source->m_props = source->m_props->Branch();
+		source->m_props->m_priority = cmd->priority;
+	}
+
+	if (cmd->flags & (0x4000000 | 0x8000000))
+	{
+		const char* table = reinterpret_cast<const char*>(cmd) + cmd->textures;
+
+		if (cmd->flags & 0x4000000)
+			source->TexturesClear();
+		else
+			source->TextureSequenceClear();
+
+		for (s32 i = 0; i < cmd->texture_count; i++)
+		{
+			const char* entry = table + i * 8;
+			zdb::CTexHandle* texture = anim->GetTexture(*reinterpret_cast<const s16*>(entry));
+
+			if (texture == NULL)
+				continue;
+
+			if (cmd->flags & 0x4000000)
+				source->TexturesAdd(texture);
+			else
+				source->TextureSequenceAdd(*reinterpret_cast<const f32*>(entry + 4), texture);
+		}
+	}
+
+	if (cmd->flags & 0x10000000)
+	{
+		const f32* table = reinterpret_cast<const f32*>(reinterpret_cast<const char*>(cmd) + cmd->colors);
+		source->ColorSequenceClear();
+
+		for (s32 i = 0; i < cmd->color_count; i++)
+		{
+			const f32* entry = table + i * 5;
+			source->ColorSequenceAdd(entry[0], entry[1], entry[2], entry[3], entry[4]);
+		}
+	}
+
+	if (cmd->flags & 0x80000000)
+	{
+		zdb::CModel* model = zdb::CWorld::GetModel(anim->GetName(cmd->model));
+		source->m_props = source->m_props->Branch();
+		source->m_props->m_model = model;
+		source->m_rotationX = cmd->rotation[0];
+		source->m_rotationY = cmd->rotation[1];
+		source->m_rotationZ = cmd->rotation[2];
+	}
+
+	if (cmd->flags & 0x20000000)
+	{
+		const f32* table = reinterpret_cast<const f32*>(reinterpret_cast<const char*>(cmd) + cmd->scales);
+		source->ScaleSequenceClear();
+
+		for (s32 i = 0; i < cmd->scale_count; i++)
+			source->ScaleSequenceAdd(table[i * 2], table[i * 2 + 1]);
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub zAnimCameraBegin__FP14_zanim_cmd_hdr */
@@ -190,9 +589,17 @@ bool zAnimSoundTick(_zanim_cmd_hdr *header, float *)
 			positioned = true;
 		}
 
-		/* port: not written - flag 0x8 adds anim->m_arg_list->GetPnt3D(5) (0x1be29c) when
-		 * there is one; the port's GetPnt3D is a void stub, so the argument is taken as
-		 * absent */
+		if (cmd->flags & 0x8)
+		{
+			/* the anim's position argument (0x1be29c), when it has one */
+			const CPnt3D* input = anim->m_arg_list != NULL ? anim->m_arg_list->GetPnt3D(CZAnimArg::ARG_POSITION) : NULL;
+
+			if (input != NULL)
+			{
+				pos.Add(input, &pos);
+				positioned = true;
+			}
+		}
 
 		if (cmd->flags & 0x2)
 		{
@@ -249,7 +656,17 @@ bool zAnimSoundTick(_zanim_cmd_hdr *header, float *)
 			positioned = true;
 		}
 
-		/* port: not written - flag 0x8 as above (0x1be4a8) */
+		if (cmd->flags & 0x8)
+		{
+			/* 0x1be4a8 */
+			const CPnt3D* input = anim->m_arg_list != NULL ? anim->m_arg_list->GetPnt3D(CZAnimArg::ARG_POSITION) : NULL;
+
+			if (input != NULL)
+			{
+				pos.Add(input, &pos);
+				positioned = true;
+			}
+		}
 
 		if (cmd->flags & 0x2)
 		{
@@ -350,8 +767,17 @@ bool zAnimObjectTranslateStateTick(_zanim_cmd_hdr *header, float *)
 		have = true;
 	}
 
-	/* port: not written - flag 2 adds anim->m_arg_list->GetPnt3D(5) (0x1ce250) when there is
-	 * one; the port's GetPnt3D is a void stub, so the argument is taken as absent */
+	if (cmd->flags & 0x2)
+	{
+		/* the anim's position argument (0x1bd408), when it has one */
+		const CPnt3D* input = anim->m_arg_list != NULL ? anim->m_arg_list->GetPnt3D(CZAnimArg::ARG_POSITION) : NULL;
+
+		if (input != NULL)
+		{
+			point.Add(input, &point);
+			have = true;
+		}
+	}
 
 	if (!have && at == NULL)
 		return true;
@@ -367,9 +793,50 @@ bool zAnimObjectTranslateStateTick(_zanim_cmd_hdr *header, float *)
 }
 
 /* @socom-skeleton stub zAnimObjectRotateStateTick__FP14_zanim_cmd_hdrPf */
-bool zAnimObjectRotateStateTick(_zanim_cmd_hdr *, float *)
+bool zAnimObjectRotateStateTick(_zanim_cmd_hdr *header, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1bd1f0: record { header; u16 flags (+0x4); u8 node (+0x6), at node (+0x7); f32
+	 * rotation[3] (+0x8) } - the node takes the AT node's world matrix (if any), then the
+	 * rotation (1) or its own rotation plus the rotation (2); its position is kept */
+	u8* cmd = reinterpret_cast<u8*>(header);
+	u16 flags = *reinterpret_cast<u16*>(cmd + 4);
+	CZAnim* anim = ZAnim.m_CurAnim;
+	zdb::CNode* node = anim->GetNode(cmd[6], false);
+	zdb::CNode* at = anim->GetNode(cmd[7], false);
+
+	if (node == NULL)
+		return true;
+
+	CPnt3D rotation;
+	rotation.x = 0.0f;
+	rotation.y = 0.0f;
+	rotation.z = 0.0f;
+	f32 x = node->m_matrix.m_matrix[3][0];
+	f32 y = node->m_matrix.m_matrix[3][1];
+	f32 z = node->m_matrix.m_matrix[3][2];
+
+	if (at != NULL)
+	{
+		CMatrix world;
+		at->BuildMTW(world);
+		node->SetMatrix(&world);
+	}
+
+	if (flags & 0x1)
+	{
+		rotation.Add(reinterpret_cast<const CPnt3D*>(cmd + 8), &rotation);
+		node->SetRotation(&rotation);
+	}
+
+	if (flags & 0x2)
+	{
+		node->GetRotation(&rotation);
+		rotation.Add(reinterpret_cast<const CPnt3D*>(cmd + 8), &rotation);
+		node->SetRotation(&rotation);
+	}
+
+	node->SetPosition(x, y, z);
+	return true;
 }
 
 /* @socom-skeleton stub zAnimObjectMotionBegin__FP14_zanim_cmd_hdr */
@@ -426,8 +893,15 @@ void zAnimObjectMotionFromToBegin(_zanim_cmd_hdr *header)
 		}
 		else if (flags & 0x8)
 		{
-			/* port: not written - the anim's point argument (CZAnimArgList::GetPnt3D 0x1ce250,
-			 * a void stub in the port) is taken as absent */
+			/* the anim's position argument (0x1ba718), when it has one */
+			const CPnt3D* input = anim->m_arg_list != NULL ? anim->m_arg_list->GetPnt3D(CZAnimArg::ARG_POSITION) : NULL;
+
+			if (input != NULL)
+			{
+				cmd->from[0] = input->x;
+				cmd->from[1] = input->y;
+				cmd->from[2] = input->z;
+			}
 		}
 		else if (!(flags & 0x2))
 		{
@@ -453,7 +927,15 @@ void zAnimObjectMotionFromToBegin(_zanim_cmd_hdr *header)
 		}
 		else if (flags & 0x40)
 		{
-			/* port: not written - the anim's point argument, as for "from" */
+			/* the anim's position argument (0x1ba7f4), as for "from" */
+			const CPnt3D* input = anim->m_arg_list != NULL ? anim->m_arg_list->GetPnt3D(CZAnimArg::ARG_POSITION) : NULL;
+
+			if (input != NULL)
+			{
+				cmd->to[0] = input->x;
+				cmd->to[1] = input->y;
+				cmd->to[2] = input->z;
+			}
 		}
 		else if (flags & 0x1000)
 		{
@@ -1071,7 +1553,7 @@ bool zAnimWhileTick(_zanim_cmd_hdr* header, f32* dT)
 /* @socom-skeleton stub zAnimEndWhileTick__FP14_zanim_cmd_hdrPf */
 bool zAnimEndWhileTick(_zanim_cmd_hdr *header, float *)
 {
-	/* 0x1b8db0: back to the WHILE; not done, so the loop yields until the next frame */
+	/* 0x1b8db0: back to the WHILE (not done: the WHILE runs next, without CmdNext) */
 	ZAnim.CmdSet(reinterpret_cast<_zanim_cmd_while*>(header)->jump);
 	return false;
 }
@@ -1079,84 +1561,278 @@ bool zAnimEndWhileTick(_zanim_cmd_hdr *header, float *)
 /* @socom-skeleton stub zAnimBreakTick__FP14_zanim_cmd_hdrPf */
 bool zAnimBreakTick(_zanim_cmd_hdr *, float *)
 {
-	/* 0x1b8ce0: skip to the END_WHILE (stepped over next), closing the IF levels passed */
-	while (true)
+	/* 0x1b8ce0: step to the END_WHILE (the caller's CmdNext steps over it); an ENDIF of the
+	 * current IF level on the way leaves that level */
+	do
 	{
 		ZAnim.CmdNext();
 
 		if (ZAnim.CmdValid())
 		{
-			_zanim_cmd_if* cmd = reinterpret_cast<_zanim_cmd_if*>(ZAnim.m_CurSeq->cmd_pc);
+			_zanim_cmd_hdr* next = reinterpret_cast<_zanim_cmd_hdr*>(ZAnim.m_CurSeq != NULL ? ZAnim.m_CurSeq->cmd_pc : NULL);
 
-			if (cmd->header.data_type == ZAnim.m_cmd_endif.data_type && cmd->nest_level == ZAnim.m_CurSeq->m_IF_NestLevel)
+			if (next->data_type == ZAnim.m_cmd_endif.data_type
+				&& reinterpret_cast<_zanim_cmd_if*>(next)->nest_level == ZAnim.m_CurSeq->m_IF_NestLevel)
 				ZAnim.m_CurSeq->m_IF_NestLevel--;
 		}
+	} while (ZAnim.CmdValid()
+		&& reinterpret_cast<_zanim_cmd_hdr*>(ZAnim.m_CurSeq != NULL ? ZAnim.m_CurSeq->cmd_pc : NULL)->data_type != ZAnim.m_cmd_endwhile.data_type);
 
-		if (!ZAnim.CmdValid())
-			return true;
-
-		if (reinterpret_cast<_zanim_cmd_hdr*>(ZAnim.m_CurSeq->cmd_pc)->data_type == ZAnim.m_cmd_endwhile.data_type)
-			return true;
-	}
+	return true;
 }
 
 /* @socom-skeleton stub zAnimNodeActiveTick__FP14_zanim_cmd_hdrPf */
-bool zAnimNodeActiveTick(_zanim_cmd_hdr *, float *)
+bool zAnimNodeActiveTick(_zanim_cmd_hdr *header, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1b8c50: the node is active (1) / inactive (2) */
+	_zanim_cmd_node_test* cmd = reinterpret_cast<_zanim_cmd_node_test*>(header);
+	zdb::CNode* node = ZAnim.m_CurAnim->GetNode(cmd->node_ref, false);
+
+	if (node == NULL)
+		return false;
+
+	if (cmd->arg == 1)
+		return node->m_active != 0;
+
+	if (cmd->arg == 2)
+		return node->m_active == 0;
+
+	return false;
 }
 
 /* @socom-skeleton stub zAnimNodeRenderedTick__FP14_zanim_cmd_hdrPf */
-bool zAnimNodeRenderedTick(_zanim_cmd_hdr *, float *)
+bool zAnimNodeRenderedTick(_zanim_cmd_hdr *header, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1b8c00: the node was drawn */
+	zdb::CNode* node = ZAnim.m_CurAnim->GetNode(reinterpret_cast<_zanim_cmd_node_test*>(header)->arg, false);
+	return node != NULL && node->Rendered();
 }
 
 /* @socom-skeleton stub zAnimRangeTestTick__FP14_zanim_cmd_hdrPf */
-bool zAnimRangeTestTick(_zanim_cmd_hdr *, float *)
+bool zAnimRangeTestTick(_zanim_cmd_hdr *header, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1b88d0: the squared distance between two points (each an offset, plus the
+	 * position argument, in a node's space or the world) against the record's value */
+	_zanim_cmd_range_test* cmd = reinterpret_cast<_zanim_cmd_range_test*>(header);
+	CZAnim* anim = ZAnim.m_CurAnim;
+	CPnt3D a;
+	CPnt3D b;
+	a.x = 0.0f;
+	a.y = 0.0f;
+	a.z = 0.0f;
+	b.x = 0.0f;
+	b.y = 0.0f;
+	b.z = 0.0f;
+
+	if (cmd->flags & 0x2)
+		a.Add(reinterpret_cast<const CPnt3D*>(cmd->offset_a), &a);
+
+	if (cmd->flags & 0x4)
+	{
+		const CPnt3D* input = anim->m_arg_list != NULL ? anim->m_arg_list->GetPnt3D(CZAnimArg::ARG_POSITION) : NULL;
+
+		if (input != NULL)
+			a.Add(input, &a);
+	}
+
+	if (cmd->flags & 0x1)
+	{
+		zdb::CNode* node = anim->GetNode(cmd->node_a, false);
+
+		if (node != NULL)
+			node->TransformToWorld(a);
+	}
+
+	if (cmd->flags & 0x10)
+		b.Add(reinterpret_cast<const CPnt3D*>(cmd->offset_b), &b);
+
+	if (cmd->flags & 0x20)
+	{
+		const CPnt3D* input = anim->m_arg_list != NULL ? anim->m_arg_list->GetPnt3D(CZAnimArg::ARG_POSITION) : NULL;
+
+		if (input != NULL)
+			b.Add(input, &b);
+	}
+
+	if (cmd->flags & 0x8)
+	{
+		zdb::CNode* node = anim->GetNode(cmd->node_b, false);
+
+		if (node != NULL)
+			node->TransformToWorld(b);
+	}
+
+	a.Sub(&b, &a);
+	f32 d2 = a.x * a.x + a.y * a.y + a.z * a.z;
+
+	if (cmd->flags & 0x40)
+		return d2 < cmd->value;
+
+	if (cmd->flags & 0x80)
+		return d2 <= cmd->value;
+
+	if (cmd->flags & 0x100)
+		return !(d2 <= cmd->value);
+
+	if (cmd->flags & 0x200)
+		return !(d2 < cmd->value);
+
+	if (cmd->flags & 0x400)
+		return d2 == cmd->value;
+
+	if (cmd->flags & 0x800)
+		return d2 != cmd->value;
+
+	return false;
 }
 
 /* @socom-skeleton stub zAnimHealthTestTick__FP14_zanim_cmd_hdrPf */
-bool zAnimHealthTestTick(_zanim_cmd_hdr *, float *)
+bool zAnimHealthTestTick(_zanim_cmd_hdr *header, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1b8840: the current anim's health in min..max (flag 1), else at most min */
+	_zanim_cmd_health_test* cmd = reinterpret_cast<_zanim_cmd_health_test*>(header);
+	f32 health = ZAnim.m_CurAnim->GetHealth();
+
+	if (cmd->flags & 0x1)
+	{
+		if (health < cmd->min)
+			return false;
+
+		return health <= cmd->max;
+	}
+
+	return health <= cmd->min;
 }
 
 /* @socom-skeleton stub zAnimLODTestTick__FP14_zanim_cmd_hdrPf */
-bool zAnimLODTestTick(_zanim_cmd_hdr *, float *)
+bool zAnimLODTestTick(_zanim_cmd_hdr *header, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1b8790: the current LOD (ZAnim.m_Lod) against the record's */
+	_zanim_cmd_lod_test* cmd = reinterpret_cast<_zanim_cmd_lod_test*>(header);
+	s32 lod = (u8)ZAnim.m_Lod;
+	s32 value = cmd->lod;
+
+	if (cmd->flags & 0x1)
+		return lod == value;
+
+	if (cmd->flags & 0x2)
+		return lod < value;
+
+	if (cmd->flags & 0x4)
+		return lod <= value;
+
+	if (cmd->flags & 0x8)
+		return lod > value;
+
+	if (cmd->flags & 0x10)
+		return lod >= value;
+
+	return false;
 }
 
 /* @socom-skeleton stub zAnimRandomWeightTick__FP14_zanim_cmd_hdrPf */
-bool zAnimRandomWeightTick(_zanim_cmd_hdr *, float *)
+bool zAnimRandomWeightTick(_zanim_cmd_hdr *header, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1b8730: true with the record's probability (rand() * 2^-31 <= weight) */
+	f32 r = (f32)rand() * 4.656613e-10f;
+	return r <= reinterpret_cast<_zanim_cmd_weight*>(header)->weight;
 }
 
 /* @socom-skeleton stub zAnimFailTick__FP14_zanim_cmd_hdrPf */
 bool zAnimFailTick(_zanim_cmd_hdr *, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1b8720: never done (a special sequence that reaches it keeps running: refused) */
+	return false;
 }
 
 /* @socom-skeleton stub zAnimCallAnimBegin__FP14_zanim_cmd_hdr */
 void zAnimCallAnimBegin(_zanim_cmd_hdr *header)
 {
-	/* 0x1b8380: activate the called anim, remembering it for the tick and StopAnims */
+	/* 0x1b8380: activate the called anim, remembering it for the tick and StopAnims. Flag 1
+	 * passes copies of this anim's arguments, 2 / 4 a root-node / node argument (node refs
+	 * +0x8 / +0x9), 8 the world position of node +0xa (plus the offset with 0x10), 0x20 adds
+	 * the offset; any arguments go as one list (ActivateArg type 9). */
 	_zanim_cmd_call_anim* cmd = reinterpret_cast<_zanim_cmd_call_anim*>(header);
 	CZAnim* anim = ZAnim.m_CurAnim;
+	CZAnimArgList args;
+	s32 count = 0;
 	_zanim_call_anim_ref* ref = anim->GetCallAnimRef(cmd->name_index, cmd->local_name_index);
 
 	if (ref == NULL || ref->base_anim == NULL)
 		return;
 
-	/* port: not written - flags 0x1/0x2/0x4/0x8/0x20 build an argument list (this anim's
-	 * args, node and position args) passed with ActivateArg (0x1b83f4-0x1b8640); the
-	 * port activates without arguments */
-	ref->executing_anim = ref->base_anim->Activate(NULL);
+	if ((cmd->flags & 0x1) && anim->m_arg_list != NULL)
+	{
+		for (CZAnimArgList::iterator it = anim->m_arg_list->begin(); it != anim->m_arg_list->end(); ++it)
+		{
+			args.push_back((*it)->Copy());
+			count++;
+		}
+	}
+
+	if (cmd->flags & 0x2)
+	{
+		zdb::CNode* node = anim->GetNode(cmd->node[0], false);
+
+		if (node != NULL)
+		{
+			args.push_back(new CZAnimArgNode(CZAnimArg::ARG_ROOT_NODE, node));
+			count++;
+		}
+	}
+
+	if (cmd->flags & 0x4)
+	{
+		zdb::CNode* node = anim->GetNode(cmd->node[1], false);
+
+		if (node != NULL)
+		{
+			args.push_back(new CZAnimArgNode(CZAnimArg::ARG_NODE, node));
+			count++;
+		}
+	}
+
+	CPnt3D pos;
+	pos.x = 0.0f;
+	pos.y = 0.0f;
+	pos.z = 0.0f;
+	bool positioned = false;
+
+	if (cmd->flags & 0x8)
+	{
+		zdb::CNode* node = anim->GetNode(cmd->node[2], false);
+
+		if (node != NULL)
+		{
+			if (cmd->flags & 0x10)
+			{
+				pos.x = cmd->position[0];
+				pos.y = cmd->position[1];
+				pos.z = cmd->position[2];
+			}
+
+			node->TransformToWorld(pos);
+			positioned = true;
+		}
+	}
+
+	if (cmd->flags & 0x20)
+	{
+		pos.Add(reinterpret_cast<const CPnt3D*>(cmd->position), &pos);
+		positioned = true;
+	}
+
+	if (positioned)
+	{
+		args.push_back(new CZAnimArgPnt3D(CZAnimArg::ARG_POSITION, &pos));
+		count++;
+	}
+
+	if (count > 0)
+		ref->executing_anim = ref->base_anim->ActivateArg(count, CZAnimArg::ARG_LIST, &args, 0);
+	else
+		ref->executing_anim = ref->base_anim->Activate(NULL);
+
 	ref->stop_on_exit = (cmd->flags & 0x40) != 0;
 }
 
@@ -1229,9 +1905,11 @@ bool zAnimCallSequenceTick(_zanim_cmd_hdr *header, float *)
 }
 
 /* @socom-skeleton stub zAnimStopSequenceTick__FP14_zanim_cmd_hdrPf */
-bool zAnimStopSequenceTick(_zanim_cmd_hdr *, float *)
+bool zAnimStopSequenceTick(_zanim_cmd_hdr *header, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1b8040 */
+	ZAnim.StopSequence(ZAnim.m_CurAnim->GetName(reinterpret_cast<_zanim_cmd_index8*>(header)->name_index));
+	return true;
 }
 
 /* @socom-skeleton stub zAnimFireWeaponTick__FP14_zanim_cmd_hdrPf */

@@ -246,6 +246,7 @@ CNode* CNode::CreateXRef(CModel* model, const CPnt3D* position, const CQuat* rot
 		xref->m_type = static_cast<u32>(TYPE::CHILD);
 		xref->SetName("XRef");
 		xref->AddChild(model);
+		return xref; /* 0x229208 (was missing: fell off the end) */
 	}
 }
 

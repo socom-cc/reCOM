@@ -42,6 +42,7 @@
 
 #include "gamez/zRender/zrender.h" /* thePipe */
 #include "gamez/zCamera/zcam.h"    /* tag_FrameSetup */
+#include "gamez/zSystem/zsys_spr.h" /* CSPR (BufferElement::Draw) */
 
 /* @socom-skeleton stub clipLimScreen__8Particle */
 int Particle::clipLimScreen = 40000;
@@ -275,8 +276,100 @@ void Particle::BufferElement::DrawRotated(float (&)[4][4])
 }
 
 /* @socom-skeleton stub Draw__Q28Particle13BufferElementFRA4_A4_f */
-void Particle::BufferElement::Draw(float (&)[4][4])
+void Particle::BufferElement::Draw(float (&matrix)[4][4])
 {
+	/* 0x234850: a screen-aligned GS sprite of half size m_size * 256 / w scaled by the
+	 * view-to-screen x/y scale (rounded), at the projected position (sceVu0RotTransPers:
+	 * x, y, z, w in 12.4; z >> 4), drawn only in front of maxZ and wholly inside 0..
+	 * clipLimScreen. Into a scratchpad packet: [the texture's DMA REF when it changes]
+	 * [CNT tag / VIF FLUSH + DIRECT] then the GIF tag (NLOOP 2, EOP, PRE, PRIM SPRITE | ABE |
+	 * AA1 (| TME with a texture), PACKED): untextured RGBAQ XYZ2 per corner; textured ST
+	 * RGBAQ XYZ2 with ST (0, 0, 0) and (q, q, q), q = 1 / z, then kicked (CSPR::Kick). */
+	_word128* start = reinterpret_cast<_word128*>(zSysSprGetPacket(reinterpret_cast<unsigned __int128**>(&CSPR::m_sprPacketEnd)));
+	m_spr = reinterpret_cast<s32>(start);
+	CSPR::m_sprPacket = start;
+	f32 at[4] = { m_instance->m_pos.x, m_instance->m_pos.y, m_instance->m_pos.z, 1.0f };
+	s32 screen[4];
+	sceVu0RotTransPers(screen, matrix, at, 0);
+	zdb::tag_ZCAM_MTX_SET* set = &thePipe.m_camera->m_mtxSet;
+	s32 z = screen[2] >> 4;
+	f32 f = (m_size * 256.0f) / (f32)screen[3];
+	s32 hw = (s32)(f * set->mtxViewToScreen[0][0] + 0.5f);
+	s32 hh = (s32)(f * set->mtxViewToScreen[1][1] + 0.5f);
+
+	if (z < maxZ || screen[0] - hw < 0 || !(screen[0] + hw < clipLimScreen) || screen[1] - hh < 0 || !(screen[1] + hh < clipLimScreen))
+		return;
+
+	_word128* cnt = start;
+	_word128* p;
+
+	if (m_texture == NULL)
+	{
+		p = cnt + 1;
+		p->u64[0] = 0x2063400000008002ull; /* NLOOP 2, EOP, PRE, PRIM SPRITE|ABE|AA1, NREG 2 */
+		p->u64[1] = 0x51;                  /* RGBAQ, XYZ2 */
+		p++;
+		sceVu0FTOI0Vector(reinterpret_cast<s32*>(p->u32), reinterpret_cast<f32*>(&m_color));
+		p++;
+		p->u32[0] = screen[0] - hw;
+		p->u32[1] = screen[1] - hh;
+		p->u32[2] = z;
+		p->f32[3] = 0.0f;
+		p++;
+		sceVu0FTOI0Vector(reinterpret_cast<s32*>(p->u32), reinterpret_cast<f32*>(&m_color));
+		p++;
+		p->u32[0] = screen[0] + hw;
+		p->u32[1] = screen[1] + hh;
+		p->u32[2] = z;
+		p->f32[3] = 0.0f;
+	}
+	else
+	{
+		if (reinterpret_cast<s32>(m_texture) != m_lastTexture)
+		{
+			m_lastTexture = reinterpret_cast<s32>(m_texture);
+			*cnt = m_texture->m_dmaRef;
+			cnt++;
+		}
+
+		p = cnt + 1;
+		p->u64[0] = 0x306b400000008002ull; /* NLOOP 2, EOP, PRE, PRIM SPRITE|TME|ABE|AA1, NREG 3 */
+		p->u64[1] = 0x512;                 /* ST, RGBAQ, XYZ2 */
+		p++;
+		f32 q = 1.0f / (f32)z;
+		p->f32[0] = 0.0f;
+		p->f32[1] = 0.0f;
+		p->f32[2] = 0.0f;
+		p->f32[3] = 0.0f;
+		p++;
+		sceVu0FTOI0Vector(reinterpret_cast<s32*>(p->u32), reinterpret_cast<f32*>(&m_color));
+		p++;
+		p->u32[0] = screen[0] - hw;
+		p->u32[1] = screen[1] - hh;
+		p->u32[2] = z;
+		p->f32[3] = 0.0f;
+		p++;
+		p->f32[0] = q;
+		p->f32[1] = q;
+		p->f32[2] = q;
+		p->f32[3] = 0.0f;
+		p++;
+		sceVu0FTOI0Vector(reinterpret_cast<s32*>(p->u32), reinterpret_cast<f32*>(&m_color));
+		p++;
+		p->u32[0] = screen[0] + hw;
+		p->u32[1] = screen[1] + hh;
+		p->u32[2] = z;
+		p->f32[3] = 0.0f;
+	}
+
+	p++;
+	u32 qwc = (u32)(p - cnt) - 1;
+	cnt->u32[0] = qwc | 0x10000000; /* DMAtag CNT */
+	cnt->u32[1] = 0;
+	cnt->u32[2] = 0x11000000;       /* VIF FLUSH */
+	cnt->u32[3] = qwc | 0x50000000; /* VIF DIRECT */
+	m_spr = reinterpret_cast<s32>(p);
+	CSPR::Kick(p, false);
 }
 
 /* @socom-skeleton stub DrawOne__8ParticleFv */

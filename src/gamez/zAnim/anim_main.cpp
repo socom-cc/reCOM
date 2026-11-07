@@ -742,8 +742,33 @@ void CZAnimMain::ActivateSequence(const char *name)
 }
 
 /* @socom-skeleton stub StopSequence__10CZAnimMainFPCc */
-void CZAnimMain::StopSequence(const char *)
+void CZAnimMain::StopSequence(const char *name)
 {
+	/* 0x1c3890: the current anim's running sequence of that name stops (state 5) */
+	if (name == NULL)
+		return;
+
+	_zsequence* saved = m_CurSeq;
+
+	for (m_CurSeq = reinterpret_cast<_zsequence*>(m_CurAnim->m_seq_data);
+		reinterpret_cast<char*>(m_CurSeq) < m_CurAnim->m_seq_data + m_CurAnim->m_seq_data_size;
+		m_CurSeq = reinterpret_cast<_zsequence*>(reinterpret_cast<char*>(m_CurSeq) + m_CurSeq->seq_data_size))
+	{
+		char* seqname = m_CurAnim->GetName(m_CurSeq->name_index);
+
+		if (seqname == NULL || strcmp(seqname, name) != 0) /* port: the ELF strcmps a NULL name as is */
+			continue;
+
+		m_CurSeq->paused = 0;
+
+		if (StateRunning(m_CurSeq->state))
+		{
+			SeqSetState(5);
+			break;
+		}
+	}
+
+	m_CurSeq = saved;
 }
 
 /* @socom-skeleton stub PauseSequence__10CZAnimMainFPCc */

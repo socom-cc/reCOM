@@ -610,7 +610,7 @@ public:
 	/* @socom-skeleton decl 8CZWeapon */
 public:
 	virtual void Fire(zdb::CNode *, CZAmmo *, const CPnt3D *, const CPnt3D *, const CPnt3D *, CZProjectile *, int, zdb::CModel *, float, float);
-	void AddWeaponEventCallback(void (*)(CZProjectile *, unsigned int, void *), unsigned int, void *);
+	static void AddWeaponEventCallback(void (*)(CZProjectile *, unsigned int, void *), unsigned int, void *); /* static: 0x2936e0 passes the callback in a0 */
 	void RemoveWeaponEventCallback(void (*)(CZProjectile *, unsigned int, void *));
 	static void MakeWeaponEventCallbacks(unsigned int, CZProjectile *);
 	static bool CreateProjectileList(int); /* 0x31f5f0: 0/1 */
@@ -919,4 +919,8 @@ public:
 	void RemoteDetonate();
 };
 /* @socom-skeleton end 15PlacedExplosive */
+
+/* zwep_weapon.cpp: the decal targets of a hit node (CZMarkList, CZSealBody::HandleSealStep) */
+zdb::CNode* GetVisualNode(zdb::CNode*); /* 0x31d770 */
+zdb::CNode* GetDecalNode(zdb::CNode*); /* 0x31d7b0 */
 #endif

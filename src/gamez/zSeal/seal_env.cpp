@@ -345,19 +345,19 @@ std::__wInit std::__msl_ios_base_winit;
 #endif
 
 /* @socom-skeleton stub m_dropanim__10CZSealBody */
-int CZSealBody::m_dropanim;
+CZAnim* CZSealBody::m_dropanim;
 
 /* @socom-skeleton stub m_sealstep__10CZSealBody */
-int CZSealBody::m_sealstep;
+CZAnim** CZSealBody::m_sealstep;
 
 /* @socom-skeleton stub m_steptexhandles__10CZSealBody */
-int CZSealBody::m_steptexhandles;
+zdb::CTexHandle** CZSealBody::m_steptexhandles;
 
 /* @socom-skeleton stub m_motionRdrFile__10CZSealBody */
 CRdrFile *CZSealBody::m_motionRdrFile;
 
 /* @socom-skeleton stub m_cqb_sound__10CZSealBody */
-int CZSealBody::m_cqb_sound;
+CSnd* CZSealBody::m_cqb_sound;
 
 /* @socom-skeleton stub m_body_fall_sound__10CZSealBody */
 CSnd *CZSealBody::m_body_fall_sound;
@@ -369,10 +369,10 @@ static unsigned char _stack;
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub m_bigrippleanim__10CZSealBody */
-int CZSealBody::m_bigrippleanim[3];
+CZAnim* CZSealBody::m_bigrippleanim[3];
 
 /* @socom-skeleton stub m_smallrippleanim__10CZSealBody */
-int CZSealBody::m_smallrippleanim[3];
+CZAnim* CZSealBody::m_smallrippleanim[3];
 
 /* @socom-skeleton stub m_blooddriptexhandles__10CZSealBody */
 int CZSealBody::m_blooddriptexhandles[3];
@@ -4186,16 +4186,72 @@ void CZSealBody::HandleWeaponEvent(CZProjectile *, unsigned int, void *)
 /* @socom-skeleton stub InitDecalHandles__10CZSealBodyFv */
 void CZSealBody::InitDecalHandles()
 {
+	/* 0x293910: the footstep decal texture of each material (decals.rdr FOOTSTEP_DECALS:
+	 * MATERIALNAME, TEXTURENAME), in a calloc'd table by material index.
+	 * port: not written - BLOOD_DRIP_DECALS (TEXTURENAME, MIN_SIZE, MAX_SIZE) fill the
+	 * vector<CZDecalDef> m_blooddriptexhandles (0x5086b0) for HandleBloodDrip (unwritten) */
+	CRdrFile* rdr = theMission.m_decalsRdr;
+	m_steptexhandles = static_cast<zdb::CTexHandle**>(_calloc(4, CMaterialExArray::m_materialex_list.size(), "seal_env.cpp", 0x2089));
+	_zrdr* decals = zrdr_findtag(rdr, "FOOTSTEP_DECALS");
+
+	if (decals == NULL)
+		return;
+
+	s32 count = decals->IsArray() ? decals->array->integer - 1 : 0;
+
+	for (s32 i = 0; i < count; i++)
+	{
+		_zrdr* entry = decals->Get(i);
+		char* material = zrdr_findstring(entry, "MATERIALNAME");
+		char* texture = zrdr_findstring(entry, "TEXTURENAME");
+		s32 index = CMaterialExArray::ResolveMaterialIndex(material);
+		m_steptexhandles[index] = zdb::CWorld::GetTexHandle(texture);
+	}
 }
 
 /* @socom-skeleton stub InitDatabaseHandles__10CZSealBodyFv */
 void CZSealBody::InitDatabaseHandles()
 {
+	/* 0x293900: a tail call */
+	ReInitDatabaseHandles();
 }
 
 /* @socom-skeleton stub ReInitDatabaseHandles__10CZSealBodyFv */
 void CZSealBody::ReInitDatabaseHandles()
 {
+	/* 0x2936e0: hand signals, the weapon event callback, the ripple and drop anims, the
+	   footfall anim of each material (seal_footfall_<name>, calloc'd by material index),
+	   the rifle-butt and body-fall sounds, the heartbeat sounds reopened */
+	char name[64];
+	u32 size = CMaterialExArray::m_materialex_list.size();
+	InitHandSignals();
+	CZWeapon::AddWeaponEventCallback(HandleWeaponEvent, 1, NULL);
+	m_bigrippleanim[0] = ZAnim.GetAnim("big_ripple_anim", NULL);
+	m_bigrippleanim[1] = ZAnim.GetAnim("big_ripple_anim_walk", NULL);
+	m_bigrippleanim[2] = ZAnim.GetAnim("big_ripple_anim_run", NULL);
+	m_smallrippleanim[0] = ZAnim.GetAnim("small_ripple_anim", NULL);
+	m_smallrippleanim[1] = ZAnim.GetAnim("small_ripple_anim_walk", NULL);
+	m_smallrippleanim[2] = ZAnim.GetAnim("small_ripple_anim_run", NULL);
+	m_dropanim = ZAnim.GetAnim("drop_item", NULL);
+	m_sealstep = static_cast<CZAnim**>(_calloc(4, size, "seal_env.cpp", 0x20e3));
+
+	for (u32 i = 0; (s32)i < (s32)size; i++)
+	{
+		m_sealstep[i] = NULL;
+		u32 index = i < CMaterialExArray::m_materialex_list.size() ? i : 0;
+		CMaterialEx* material = CMaterialExArray::m_materialex_list[index];
+
+		if (material != NULL)
+		{
+			sprintf(name, "seal_footfall_%s", material->m_name);
+			m_sealstep[i] = ZAnim.GetAnim(name, NULL);
+		}
+	}
+
+	m_cqb_sound = CSnd::GetSoundByName("SND_RIFLE_BUTT");
+	m_body_fall_sound = CSnd::GetSoundByName("SND_BONE_BREAK_CRUNCH_01");
+	CloseHeartbeatSounds();
+	OpenHeartbeatSounds();
 }
 
 /* @socom-skeleton stub ReadDeathAndFlinchAnims__7AnimSetFv */
@@ -4305,13 +4361,111 @@ void CZSealBody::Uninit_ReInitDatabaseHandles()
 }
 
 /* @socom-skeleton stub HandleFootfallSound__10CZSealBodyFP6CPnt3D */
-void CZSealBody::HandleFootfallSound(CPnt3D *)
+void CZSealBody::HandleFootfallSound(CPnt3D *pos)
 {
+	/* 0x2920c0: the ground material's crawl sound (prone), step sound (a throttle above
+	   0.5) or stealth step sound, played 3D at the foot */
+	u32 index = (u32)m_onMaterial;
+
+	if (!((s32)index < (s32)CMaterialExArray::m_materialex_list.size()))
+		return;
+
+	if (CMaterialExArray::m_materialex_list.size() <= index)
+		index = 0;
+
+	CMaterialEx* material = CMaterialExArray::m_materialex_list[index];
+
+	if (material == NULL)
+		return;
+
+	CSnd* sound;
+
+	if (GetStance(false) == SEAL_STATE::stateProne)
+		sound = material->m_crawl_sound;
+	else if (0.5f < m_control->m_throttle[0] || 0.5f < m_control->m_throttle[1])
+		sound = material->m_step_sound;
+	else
+		sound = material->m_stealth_step_sound;
+
+	if (sound != NULL)
+		sound->PlaySound3D(pos, 1.0f, 0, NULL, 0xff);
 }
 
 /* @socom-skeleton stub HandleSealStep__10CZSealBodyFv */
 void CZSealBody::HandleSealStep()
 {
+	/* 0x291b60: with footstep animation on, moving (standing at speed state 2+, crouched or
+	 * prone above 0.5) and a top blend flagged 0x40 (a stepping anim): its cycle fraction
+	 * (frac of m_tfrac) in (0, 0.5) puts the left foot down once, (0.5, 1) the right (not in
+	 * the air). A footfall: the foot's world point, the material's footfall anim there (its
+	 * position argument), the footfall sound, and on ground with visuals (not a character's
+	 * decal node) the material's footprint decal along the ground normal. */
+	if (!m_animate_footsteps)
+		return;
+
+	bool moving = false;
+
+	if (m_state == 0 && 1 < GetSpeedState())
+		moving = true;
+	else if ((m_state == 1 || m_state == 2) && 0.5f < sqrtf(m_velM.z * m_velM.z + m_velM.x * m_velM.x + m_velM.y * m_velM.y))
+		moving = true;
+
+	if (!moving || (m_blends->Top()->m_flags & 0x40) == 0)
+		return;
+
+	f32 t = m_blends->Top()->m_tfrac;
+	t = (f32)((double)t - floor((double)t));
+
+	for (s32 side = 0; side < 2; side++)
+	{
+		bool down = side == 0 ? (0.0f < t && t < 0.5f) : (0.5f < t && t < 1.0f && !m_airborne);
+		bool& did = side == 0 ? m_didlstep : m_didrstep;
+
+		if (!down)
+		{
+			if (did)
+				did = false;
+
+			continue;
+		}
+
+		if (did || (side == 0 && m_airborne))
+			continue;
+
+		CPnt3D foot;
+		PartInSpace(side == 0 ? m_lfoot : m_rfoot, NULL, &foot, NULL);
+		m_quat.Apply(&foot, &foot, 1);
+		foot.Add(GetPosW(), &foot);
+		did = true;
+
+		if (m_onMaterial < (s32)CMaterialExArray::m_materialex_list.size() && m_sealstep != NULL && m_sealstep[m_onMaterial] != NULL) /* port: guard - the table is NULL before the mission opens */
+			m_sealstep[m_onMaterial]->ActivateArg(1, 5, &foot, 0);
+
+		HandleFootfallSound(&foot);
+
+		if (m_last_altitude.m_poly != NULL)
+		{
+			zdb::CNode* visual = GetVisualNode(m_last_altitude.m_node);
+
+			if (visual != NULL)
+			{
+				zdb::CNode* decal = GetDecalNode(m_last_altitude.m_node);
+
+				if (decal == NULL || !decal->m_character)
+				{
+					u32 material = m_last_altitude.GetMaterial();
+
+					if (m_steptexhandles != NULL && m_steptexhandles[material] != NULL) /* port: guard, as above */
+					{
+						CPnt3D normal;
+						m_last_altitude.m_norm.Scale(-1.0f, &normal);
+						visual->ApplyDecal(decal, 100.0f, &foot, &normal, reinterpret_cast<CPnt3D*>(projDirDown),
+							m_steptexhandles[material], 3.5f, reinterpret_cast<CPnt3D*>(m_node->m_matrix.m_matrix[2]));
+					}
+				}
+			}
+		}
+	}
 }
 
 /* @socom-skeleton stub HandleBloodDrip__10CZSealBodyFf */

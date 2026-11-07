@@ -1450,19 +1450,19 @@ public:
 	bool CanAttainAim(CPnt3D &); /* 0x2befc0: UpdateAimDir tests v0 */
 	static int m_aim_anims[3];
 	static unsigned char m_allow_friendly_fire;
-	static int m_bigrippleanim[3];
+	static CZAnim* m_bigrippleanim[3]; /* 0x508680: big_ripple_anim, _walk, _run (ReInitDatabaseHandles) */
 	static int m_blooddriptexhandles[3];
 	static CSnd *m_body_fall_sound; /* 0x476064: ReInitDatabaseHandles stores CSnd::GetSoundByName, HandleFallingDamage plays it (was int) */
 	static CCompass m_compass;
-	static int m_cqb_sound;
+	static CSnd* m_cqb_sound; /* SND_RIFLE_BUTT (ReInitDatabaseHandles) */
 	static unsigned char m_delayed_footbomb_creation;
 	static float m_delayed_footbomb_creation_pos[3];
-	static int m_dropanim;
+	static CZAnim* m_dropanim; /* drop_item (ReInitDatabaseHandles) */
 	static int m_heartbeat_sound[3];
 	static unsigned char m_renderShadow;
-	static int m_sealstep;
-	static int m_smallrippleanim[3];
-	static int m_steptexhandles;
+	static CZAnim** m_sealstep; /* per material: seal_footfall_<material> (calloc, ReInitDatabaseHandles) */
+	static CZAnim* m_smallrippleanim[3]; /* 0x508690: small_ripple_anim, _walk, _run */
+	static zdb::CTexHandle** m_steptexhandles; /* per material: FOOTSTEP_DECALS (calloc, InitDecalHandles) */
 	static CZSealBody* player_; /* the first seal, the template AnimSetup copies anims from */
 	static const float stoppedV;
 	static const float turnV; /* 0x450d20 (0.025): InStateStand's turn dead zone; port: no stage-4 owner, defined in seal.cpp beside stoppedV */

@@ -19,6 +19,7 @@
 class CPipe;
 class CDblBufTextureRelocator;
 class CGameMenu;
+class Particle; /* zparticle.h (friend of CDynTexList) */
 namespace zdb { class CAssetLib; }
 void HookupLib(zdb::CAssetLib *); /* zui.cpp (0x384750) */
 namespace zdb { class CNode; }
@@ -186,6 +187,7 @@ public:
 		friend void ::HookupLib(zdb::CAssetLib *); /* port: unproven access - 0x384750 fills a stack buffer's lists */
 		friend class ::CGameMenu; /* port: unproven access - CGameMenu::Clear (0x3835a0) clears buffer 0's lists */
 		friend class CWorld; /* port: unproven access - CWorld::AddTextureAssetCharacter (0x22e418) reads the texture count */
+		friend class ::Particle; /* port: unproven access - Particle::FlushDynTexList (0x233ed0) / Close empty both lists */
 		CTexList m_tex_list;
 		CTexPalList m_pal_list;
 	};

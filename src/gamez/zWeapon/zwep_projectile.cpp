@@ -794,8 +794,9 @@ bool CZProjectile::HandleImpact(zdb::IntersectStruct *hit, float, float dist, CP
 	if (index < CMaterialExArray::m_materialex_list.size())
 		anim = m_weapon->GetHitAnim(index);
 
+	/* 0x3184ec: position, normal, velocity and the hit node, 0-terminated */
 	if (anim != NULL && CZWeapon::m_allowImpactAnimations)
-		anim->ActivateArg(1, 5, pos, 7, &hit->m_norm, 6, &m_vel);
+		anim->ActivateArg(1, 5, pos, 7, &hit->m_norm, 6, &m_vel, 3, hit->m_node, 0);
 
 	anim = m_ammo->m_hitanim;
 

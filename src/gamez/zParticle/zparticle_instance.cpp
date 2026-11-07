@@ -77,6 +77,9 @@
 #include "gamez/zVisual/zvis.h"
 #include "zparticle.h"
 /* @socom-skeleton end include */
+#include "gamez/zCamera/zcam.h" /* CCamera::TestFOV, the camera matrices (Render) */
+#include "gamez/zRender/zrender.h" /* thePipe (Particle::Render) */
+#include <stdlib.h> /* rand */
 
 #ifndef SOCOM_PORT /* port: MSL <iostream> per-unit init objects; libstdc++ has no std::__msl_ios_base_* */
 /* @socom-skeleton stub __msl_ios_base_ninit__3std */
@@ -87,7 +90,7 @@ std::__wInit std::__msl_ios_base_winit;
 #endif
 
 /* @socom-skeleton stub fadeFactor__Q28Particle8Instance */
-int Particle::Instance::fadeFactor;
+float Particle::Instance::fadeFactor;
 
 /* @socom-skeleton stub ageFactor__Q28Particle8Instance */
 float Particle::Instance::ageFactor;
@@ -99,81 +102,455 @@ int Particle::Instance::spawnFactor;
 float Particle::Instance::m_dT;
 
 /* @socom-skeleton stub m_instance_pool__Q28Particle8Instance */
-int Particle::Instance::m_instance_pool;
+Particle::Instance* Particle::Instance::m_instance_pool;
 
 /* @socom-skeleton stub list__Q28Particle8Instance */
-unsigned char Particle::Instance::list[12];
+Particle::Instance::List Particle::Instance::list;
 
 /* @socom-skeleton stub Create__Q28Particle5PropsFv */
 Particle::Props * Particle::Props::Create()
 {
+	/* 0x238370: one reference, empty sequences, no model or friction, wind factor 1, no
+	   near fade, the far fade at FLT_MAX */
+	Props* props = new Props;
+
+	if (props == NULL)
+		return NULL;
+
+	props->m_refCount = 1;
+	props->m_model = NULL;
+	props->m_friction = 0.0f;
+	props->m_windFactor = 1.0f;
+	props->m_priority = 0.0f;
+	props->m_nearFade1 = 0.0f;
+	props->m_nearFade2 = 0.0f;
+	props->m_farFade1 = 3.4028235e+38f;
+	props->m_farFade2 = 3.4028235e+38f;
+	props->m_invNearFade = 0.0f;
+	props->m_invFarFade = 0.0f;
+	props->m_visualDensity = 0.0f;
+	props->m_checkFade = false;
+	props->m_accelW.x = 0.0f;
+	props->m_accelW.y = 0.0f;
+	props->m_accelW.z = 0.0f;
+	props->m_accelW.w = 0.0f;
+	return props;
 }
 
 /* @socom-skeleton stub Branch__Q28Particle5PropsFv */
 Particle::Props * Particle::Props::Branch()
 {
+	/* 0x237ed0: copy on write - a shared Props gives up this reference and returns a copy
+	   with one reference; an unshared one is returned as is */
+	if (m_refCount <= 1)
+		return this;
+
+	m_refCount--;
+
+	if (m_refCount < 1) /* ELF: dead (the count was above 1) */
+	{
+		delete this;
+		return NULL;
+	}
+
+	Props* props = new Props;
+
+	if (props == NULL)
+		return NULL;
+
+	props->m_refCount = 1;
+	props->m_textureSeq = m_textureSeq;
+	props->m_colorSeq = m_colorSeq;
+	props->m_scaleSeq = m_scaleSeq;
+	props->m_model = m_model;
+	props->m_friction = m_friction;
+	props->m_accelW = m_accelW;
+	props->m_windFactor = m_windFactor;
+	props->m_priority = m_priority;
+	props->m_nearFade1 = m_nearFade1;
+	props->m_nearFade2 = m_nearFade2;
+	props->m_farFade1 = m_farFade1;
+	props->m_farFade2 = m_farFade2;
+	props->m_invNearFade = m_invNearFade;
+	props->m_invFarFade = m_invFarFade;
+	props->m_visualDensity = m_visualDensity;
+	props->m_checkFade = m_checkFade;
+	return props;
 }
 
 /* @socom-skeleton stub DecRefCount__Q28Particle5PropsFi */
-void Particle::Props::DecRefCount(int)
+void Particle::Props::DecRefCount(int count)
 {
+	/* 0x237d10: the last reference deletes the Props */
+	m_refCount -= count;
+
+	if (m_refCount < 1)
+		delete this;
 }
 
 /* @socom-skeleton stub GetTexture__Q28Particle5PropsCFfRPQ23zdb10CTexHandle */
-void Particle::Props::GetTexture(float, zdb::CTexHandle *&) const
+void Particle::Props::GetTexture(float t, zdb::CTexHandle *&texture) const
 {
+	/* 0x237c80: the texture of the last entry at or before t (the first one before it) */
+	s32 count = (s32)m_textureSeq.size();
+
+	if (count == 0)
+	{
+		texture = NULL;
+		return;
+	}
+
+	s32 i = 0;
+
+	while (i < count && m_textureSeq[i].m_fraction <= t)
+		i++;
+
+	s32 index = i - 1;
+
+	if (index < 0)
+		index = 0;
+	else if (count <= index)
+		index = count - 1;
+
+	texture = m_textureSeq[index].m_data;
 }
 
 /* @socom-skeleton stub GetColor__Q28Particle5PropsCFfR6CPnt4D */
-void Particle::Props::GetColor(float, CPnt4D &) const
+void Particle::Props::GetColor(float t, CPnt4D &color) const
 {
+	/* 0x237ab0: the colour sequence interpolated at t (sceVu0InterVector), clamped to its
+	   ends; without one, white fading out over the life */
+	s32 count = (s32)m_colorSeq.size();
+
+	if (count == 0)
+	{
+		color.x = 1.0f;
+		color.y = 1.0f;
+		color.z = 1.0f;
+
+		if (t <= 0.0f)
+			color.w = 1.0f;
+		else if (1.0f <= t)
+			color.w = 0.0f;
+		else
+			color.w = 1.0f - t;
+
+		return;
+	}
+
+	s32 i = 0;
+
+	while (i < count && m_colorSeq[i].m_fraction <= t)
+		i++;
+
+	s32 prev = i - 1;
+
+	if (prev < 0)
+	{
+		color = m_colorSeq[0].m_data;
+	}
+	else if (prev < count - 1)
+	{
+		const SequenceEntry<CPnt4D>& a = m_colorSeq[prev];
+		const SequenceEntry<CPnt4D>& b = m_colorSeq[i];
+		f32 f = (t - a.m_fraction) / (b.m_fraction - a.m_fraction);
+		color.x = b.m_data.x * f + a.m_data.x * (1.0f - f);
+		color.y = b.m_data.y * f + a.m_data.y * (1.0f - f);
+		color.z = b.m_data.z * f + a.m_data.z * (1.0f - f);
+		color.w = b.m_data.w * f + a.m_data.w * (1.0f - f);
+	}
+	else
+	{
+		color = m_colorSeq[count - 1].m_data;
+	}
 }
 
 /* @socom-skeleton stub GetScale__Q28Particle5PropsCFfRf */
-void Particle::Props::GetScale(float, float &) const
+void Particle::Props::GetScale(float t, float &scale) const
 {
+	/* 0x2379c0: the scale sequence interpolated at t, clamped to its ends; 1 without one */
+	s32 count = (s32)m_scaleSeq.size();
+
+	if (count == 0)
+	{
+		scale = 1.0f;
+		return;
+	}
+
+	s32 i = 0;
+
+	while (i < count && m_scaleSeq[i].m_fraction <= t)
+		i++;
+
+	s32 prev = i - 1;
+
+	if (prev < 0)
+	{
+		scale = m_scaleSeq[0].m_data;
+	}
+	else if (prev < count - 1)
+	{
+		const SequenceEntry<f32>& a = m_scaleSeq[prev];
+		const SequenceEntry<f32>& b = m_scaleSeq[i];
+		scale = a.m_data + ((t - a.m_fraction) / (b.m_fraction - a.m_fraction)) * (b.m_data - a.m_data);
+	}
+	else
+	{
+		scale = m_scaleSeq[count - 1].m_data;
+	}
 }
 
 /* @socom-skeleton stub GetOpacity__Q28Particle5PropsCFf */
-float Particle::Props::GetOpacity(float) const
+float Particle::Props::GetOpacity(float depth) const
 {
+	/* 0x237930: the near and far fades by view depth */
+	if (m_farFade2 <= depth || depth <= m_nearFade1)
+		return 0.0f;
+
+	if (m_farFade1 < depth)
+		return m_invFarFade * (m_farFade2 - depth);
+
+	if (depth < m_nearFade2)
+		return m_invNearFade * (depth - m_nearFade1);
+
+	return 1.0f;
 }
 
 /* @socom-skeleton stub Uninit__Q38Particle8Instance4ListFv */
 void Particle::Instance::List::Uninit()
 {
+	/* 0x237720: every live instance is deleted */
+	for (iterator it = begin(); it != end(); ++it)
+		delete *it;
+
+	clear();
 }
 
 /* @socom-skeleton stub Tick__Q38Particle8Instance4ListFf */
-void Particle::Instance::List::Tick(float)
+void Particle::Instance::List::Tick(float dT)
 {
+	/* 0x2371f0: expired instances go back to the pool; the others tick (sources with age LOD
+	   by dT * ageFactor) */
+	m_dT = dT;
+
+	for (iterator it = begin(); it != end();)
+	{
+		Instance* instance = *it;
+
+		if (instance->m_lifespan <= instance->m_age)
+		{
+			instance->Expire();
+			instance->m_source = reinterpret_cast<Source*>(m_instance_pool); /* the pool link */
+			m_instance_pool = instance;
+			it = erase(it);
+		}
+		else
+		{
+			if (instance->m_source != NULL && instance->m_source->m_doAgeLOD)
+				instance->Tick(dT * ageFactor);
+			else
+				instance->Tick(dT);
+
+			++it;
+		}
+	}
 }
 
 /* @socom-skeleton stub Render__8ParticleFv */
 void Particle::Render()
 {
+	/* 0x237130: queue the live instances with the camera's world-to-view matrix */
+	numParticles = 0;
+	const CMatrix* view = reinterpret_cast<const CMatrix*>(&thePipe.m_camera->m_mtxSet);
+
+	for (Instance::List::iterator it = Instance::list.begin(); it != Instance::list.end(); ++it)
+		(*it)->Render(*view);
 }
 
 /* @socom-skeleton stub __ct__Q28Particle8InstanceFRC6CPnt4DRC6CPnt4DRC6CPnt3DfffPQ23zdb10CTexHandlePQ28Particle5PropsPQ28Particle6Source */
-Particle::Instance::Instance(const CPnt4D &, const CPnt4D &, const CPnt3D &, float, float, float, zdb::CTexHandle *, Particle::Props *, Particle::Source *)
+Particle::Instance::Instance(const CPnt4D &pos, const CPnt4D &vel, const CPnt3D &spin, float radius, float lifespan, float age, zdb::CTexHandle *texture, Particle::Props *props, Particle::Source *source)
 {
+	/* 0x236f20: a rotated source's instance draws its angle and spin from the source's
+	   ranges; a streaked one starts its last position here; a Props model gets a pool node */
+	m_source = source;
+	m_texture = texture;
+	m_age = age;
+	m_props = props;
+	m_radius = radius;
+	m_lifespan = lifespan;
+	m_invLifespan = 1.0f / lifespan;
+	m_pos = pos;
+	m_vel = vel;
+
+	if (m_source->m_drawType == PARTICLE_ROTATED)
+	{
+		f32 base = m_source->m_minRot;
+		m_prev.y = base + (m_source->m_maxRot - base) * (f32)rand() * 4.656613e-10f;
+		base = m_source->m_minRotAcc;
+		m_prev.z = base + (m_source->m_maxRotAcc - base) * (f32)rand() * 4.656613e-10f;
+	}
+	else if (m_source->m_drawType == PARTICLE_STREAKED)
+	{
+		m_prev = pos;
+	}
+
+	m_scale = CPnt3D::zero;
+	m_spin = CPnt3D::zero;
+	m_props->m_refCount++;
+	zdb::CModel* model = m_props->m_model;
+
+	if (model == NULL)
+	{
+		m_node = NULL;
+	}
+	else
+	{
+		m_node = GetFreeInstance();
+		m_node->SetActive(true);
+		m_node->SetModel(model);
+		m_spin = spin;
+	}
 }
 
 /* @socom-skeleton stub __dt__Q28Particle8InstanceFv */
 Particle::Instance::~Instance()
 {
+	/* 0x236e70: as Expire */
+	Expire();
 }
 
 /* @socom-skeleton stub Expire__Q28Particle8InstanceFv */
 void Particle::Instance::Expire()
 {
+	/* 0x236e00: release the Props, the model node and the source's count */
+	if (m_props != NULL)
+	{
+		m_props->DecRefCount(1);
+		m_props = NULL;
+	}
+
+	if (m_node != NULL)
+	{
+		ReleaseInstance(m_node);
+		m_node = NULL;
+	}
+
+	if (m_source != NULL)
+	{
+		m_source->m_refcount--;
+		m_source = NULL;
+	}
 }
 
 /* @socom-skeleton stub Render__Q28Particle8InstanceFRC7CMatrix */
-void Particle::Instance::Render(const CMatrix &)
+void Particle::Instance::Render(const CMatrix &view)
 {
 	/* @socom-skeleton stub OutputOnceOnly$1584 */
 	static unsigned char OutputOnceOnly;
+	/* 0x236a90: a live instance of a running source: size = radius * Props scale at its age
+	 * (the source's box grows over it); a model node is placed; else, faded by view depth
+	 * (Props opacity) and in view (the source's FOV flag 1 skips the box test, 2 never
+	 * draws), it is queued in the draw buffer (5000 at most): the Props colour at its age with
+	 * alpha * opacity, * 128, its texture (else the Props texture at its age), size and
+	 * view depth. The overflow message the ELF prints once is empty here. */
+	if (m_source->m_frozen || !(m_age < m_lifespan))
+		return;
+
+	f32 t = m_age * m_invLifespan;
+	f32 depth = view.m_matrix[3][2] + m_pos.z * view.m_matrix[2][2] + m_pos.x * view.m_matrix[0][2] + m_pos.y * view.m_matrix[1][2];
+	f32 size;
+
+	if (m_props == NULL)
+	{
+		size = m_radius;
+	}
+	else
+	{
+		f32 scale;
+		m_props->GetScale(t, scale);
+		size = scale * m_radius;
+	}
+
+	if (m_source != NULL)
+		m_source->CheckExtents(m_pos, size);
+
+	if (m_node != NULL)
+	{
+		m_node->SetPosition(m_pos.x, m_pos.y, m_pos.z);
+		return;
+	}
+
+	f32 opacity = m_props->GetOpacity(depth);
+
+	if (!(0.01f < opacity) || m_source->m_outOfRange)
+		return;
+
+	bool test = true;
+
+	if (m_source != NULL)
+	{
+		if (m_source->m_fovFlag == 2)
+			return;
+
+		if (m_source->m_fovFlag == 1)
+			test = false;
+	}
+
+	if (test)
+	{
+		/* the instance's box, corners (x-,y-,z+) (x-,y-,z-) (x+,y-,z-) (x+,y-,z+) and the same
+		   at y+ (the table 0x43a210 gives w = 1) */
+		PNT4D corners[8];
+		f32 x0 = m_pos.x - size, y0 = m_pos.y - size, z0 = m_pos.z - size;
+		f32 x1 = m_pos.x + size, y1 = m_pos.y + size, z1 = m_pos.z + size;
+		const f32 box[8][3] = {
+			{ x0, y0, z1 }, { x0, y0, z0 }, { x1, y0, z0 }, { x1, y0, z1 },
+			{ x0, y1, z1 }, { x0, y1, z0 }, { x1, y1, z0 }, { x1, y1, z1 } };
+
+		for (s32 i = 0; i < 8; i++)
+		{
+			corners[i].x = box[i][0];
+			corners[i].y = box[i][1];
+			corners[i].z = box[i][2];
+			corners[i].w = 1.0f;
+		}
+
+		if (zdb::CWorld::m_world->m_camera->TestFOV(corners, NULL, true) == zdb::tag_ZVIS_FOV::ZVIS_FOV_ALL_OUT)
+			return;
+	}
+
+	OutputOnceOnly = 1;
+
+	if (numParticles >= 5000)
+	{
+		OutputOnceOnly = 0;
+		return;
+	}
+
+	BufferElement* element = &buffer[numParticles];
+	numParticles++;
+	m_props->GetColor(t, element->m_color);
+
+	if (element->m_color.w <= 0.01f)
+	{
+		numParticles--;
+		return;
+	}
+
+	element->m_color.w *= opacity;
+	element->m_color.x *= 128.0f;
+	element->m_color.y *= 128.0f;
+	element->m_color.z *= 128.0f;
+	element->m_color.w *= 128.0f;
+	zdb::CTexHandle* texture = m_texture;
+
+	if (texture == NULL)
+		m_props->GetTexture(t, texture);
+
+	element->m_texture = texture != NULL ? texture->m_texture : NULL;
+	element->m_instance = this;
+	element->m_size = size;
+	element->m_depth = depth;
 }
 
 /* @socom-skeleton stub __ct__Q28Particle20Destruction_InstanceFRC6CPnt4DRC6CPnt4DRC6CPnt3DfffPQ23zdb7CVisual6CPnt3DPQ28Particle5Props */

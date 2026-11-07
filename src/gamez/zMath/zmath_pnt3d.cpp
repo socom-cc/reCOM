@@ -147,8 +147,15 @@ void CPnt3D::Interp(const CPnt3D *from, float step, CPnt3D *to) const
 }
 
 /* @socom-skeleton stub Reflect__6CPnt3DFPC6CPnt3D */
-void CPnt3D::Reflect(const CPnt3D *)
+CPnt3D CPnt3D::Reflect(const CPnt3D *normal)
 {
+	/* 0x222b10: this mirrored about the plane of the (unit) normal: this - 2 (this . n) n */
+	f32 d = -2.0f * (x * normal->x + y * normal->y + z * normal->z);
+	CPnt3D result;
+	result.x = normal->x * d + x;
+	result.y = normal->y * d + y;
+	result.z = normal->z * d + z;
+	return result;
 }
 
 /* @socom-skeleton stub DistToVector__6CPnt3DCFPC6CPnt3DPC6CPnt3DP6CPnt3DPf */

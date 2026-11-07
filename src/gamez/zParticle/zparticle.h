@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "gamez/zNode/znode.h"
+#include "gamez/zNode/node_world.h" /* zdb::CWorld::m_world (the wind, Instance::Tick) */
 
 class CParticleEx; /* DWARF (st_core.cpp): 8 bytes, base zdb::CNodeEx, m_emitter Particle::Source* */
 
@@ -188,32 +189,46 @@ public:
 		/* inline default constructor: Destruction_Instance's constructor (0x2368a0) sets the
 		   Instance vtable itself and calls no Instance constructor */
 		Instance() {} /* port: unproven body (the inlined code also zeroes +0x4 and +0x40) */
-		Instance(CPnt4D* param_1, CPnt4D* param_2, CPnt4D* param_3, f32 param_4,
-			     f32 param_5, f32 param_6, zdb::CTexHandle*, Props* properties, Source* source);
 
 		void Expire();
 
-		/* port: partial layout (no DWARF): the constructor 0x236f20 stores its Source* at +4 and
-		   its CTexHandle* at +8 (and its Props* at +64, not declared yet); the GCC vptr is at +0 */
-		Source* m_source;           /* +4: DrawOne reads m_source->m_drawType */
-		zdb::CTexHandle* m_texture; /* +8: Render uses it, else the Props texture sequence */
+		/* no DWARF: the 108-byte layout (operator new 0x6c in Source::Tick 0x239480) is from the
+		   constructor 0x236f20, Tick 0x237380 and Render 0x236a90; the GCC vptr is at +0 as the
+		   ELF's. Names are the port's. */
+		Source* m_source;           /* +0x4: DrawOne reads m_source->m_drawType; the pool's link
+		                               while the instance is free (m_instance_pool) */
+		zdb::CTexHandle* m_texture; /* +0x8: Render uses it, else the Props texture sequence */
+		f32 m_age;                  /* +0xc */
+		CPnt4D m_prev;              /* +0x10: streaked: the last position; rotated: .y angle,
+		                               .z spin, .w spin acceleration */
+		CPnt4D m_pos;               /* +0x20 */
+		CPnt4D m_vel;               /* +0x30 */
+		Props* m_props;             /* +0x40 */
+		zdb::CNode* m_node;         /* +0x44: a pool node (Props m_model) */
+		CPnt3D m_spin;              /* +0x48: the model node's rotation per second */
+		CPnt3D m_scale;             /* +0x54: the model node's scale (zero from the constructor) */
+		f32 m_radius;               /* +0x60 */
+		f32 m_lifespan;             /* +0x64 */
+		f32 m_invLifespan;          /* +0x68 */
 		/* @socom-skeleton decl Q28Particle8Instance */
 public:
-		class List
+		/* the live instances (0x505630, 12 bytes: a list of Instance*; Source::Tick inserts at
+		   the tail) */
+		class List : public std::list<Particle::Instance*>
 		{
 		public:
 			void Uninit();
 			void Tick(float);
 		};
-		virtual void Tick(float) {} /* port: stub (Tick__Q28Particle8InstanceFf, emitted via zparticle.h) */
+		virtual void Tick(float); /* 0x237380: inline in this header (see below) */
 		virtual void Render(const CMatrix &); /* port: virtual - __vt__Q28Particle8Instance slot 1 */
 		Instance(const CPnt4D &, const CPnt4D &, const CPnt3D &, float, float, float, zdb::CTexHandle *, Particle::Props *, Particle::Source *);
 		~Instance();
 		static float ageFactor;
-		static int fadeFactor;
-		static unsigned char list[12];
+		static float fadeFactor; /* Open stores 1.0f (0x3f800000) */
+		static Particle::Instance::List list;
 		static float m_dT;
-		static int m_instance_pool;
+		static Particle::Instance* m_instance_pool; /* freed instances, linked through m_source */
 		static int spawnFactor;
 		/* @socom-skeleton end Q28Particle8Instance */
 	};
@@ -232,7 +247,7 @@ public:
 		CPnt4D m_color;             /* +0: Props::GetColor at the instance's age, alpha * opacity,
 		                               then * 128 (sceVu0ScaleVector) */
 		Instance* m_instance;       /* +16 */
-		f32 m_unk14;                /* +20: Render's f22 (not traced) */
+		f32 m_size;                 /* +20: the instance's radius * Props scale (Render 0x236a90) */
 		zdb::CTexture* m_texture;   /* +24: the instance's texture handle's +12 */
 		f32 m_depth;                /* +28: sort key (bufferPtrCompare); DrawPrep / DrawOne return it squared */
 		void DrawStreaked(float (&)[4][4]);
@@ -277,7 +292,104 @@ public:
 	static int numParticles;
 	static Particle::BufferElement** pParticleBuf; /* the draw cursor into bufferPtr, from the last (farthest) down */
 	static int particle_node_count;
-	static int particle_node_free_list[3];
+	static std::vector<zdb::CNode*> particle_node_free_list; /* vector_pod<CNode*>: the pool of "PNODE%d" nodes */
 	/* @socom-skeleton end 8Particle */
 };
+
+/* 0x237380 (Tick__Q28Particle8InstanceFf, emitted from this header): unless its source is
+ * frozen the instance ages by dT; alive, a rotated one turns (its spin slows by the spin
+ * acceleration and stops when it changes sign), a streaked one keeps its last position, it
+ * moves by its velocity (all with the list's m_dT), the velocity gains the Props acceleration
+ * and, with friction, relaxes towards the wind (times the wind factor) by exp(-friction * dT)
+ * (the ELF's series); a model node spins and is placed. Expired, its model node is hidden
+ * (the list frees it). */
+inline void Particle::Instance::Tick(float dT)
+{
+	if (m_source->m_frozen)
+		return;
+
+	m_age += dT;
+	f32 step = m_dT;
+
+	if (m_lifespan <= m_age)
+	{
+		if (m_node != NULL)
+			m_node->SetActive(false);
+
+		return;
+	}
+
+	if (m_source->m_drawType == PARTICLE_ROTATED)
+	{
+		m_prev.x += m_dT * m_prev.y;
+		f32 spin = m_prev.y;
+		m_prev.y = spin + step * m_prev.z;
+
+		if ((0.0f < spin || 0.0f < m_prev.y) && (spin < 0.0f || m_prev.y < 0.0f))
+		{
+			m_prev.y = 0.0f;
+			m_prev.z = 0.0f;
+		}
+	}
+	else if (m_source->m_drawType == PARTICLE_STREAKED)
+	{
+		m_prev = m_pos;
+	}
+
+	m_pos.x += m_vel.x * m_dT;
+	m_pos.y += m_vel.y * m_dT;
+	m_pos.z += m_vel.z * m_dT;
+	m_pos.w += m_vel.w * m_dT;
+	m_vel.x += m_props->m_accelW.x * m_dT;
+	m_vel.y += m_props->m_accelW.y * m_dT;
+	m_vel.z += m_props->m_accelW.z * m_dT;
+	m_vel.w += m_props->m_accelW.w * m_dT;
+
+	if (m_props->m_friction != 0.0f)
+	{
+		/* exp(-friction * dT): the series 1 + x(1/2 + x(1/3 + x(1/4 + x(1/5 + x(x + 1/6))))) on
+		   |x| halved below 0.5, squared back, inverted for a negative x (ELF constants) */
+		f32 x = -m_props->m_friction * m_dT;
+		bool negative = x < 0.0f;
+
+		if (negative)
+			x = -x;
+
+		s32 halvings = 0;
+
+		for (; 0.5f < x; x *= 0.5f)
+			halvings++;
+
+		x = x * (x * (x * (x * ((x + 0.166666f) * x + 0.2f) + 0.25f) + 0.333333f) + 0.5f) + 1.0f;
+
+		for (; halvings != 0; halvings--)
+			x *= x;
+
+		if (negative)
+			x = 1.0f / x;
+
+		const CPnt4D& wind = zdb::CWorld::m_world->m_Wind.m_Wind;
+		f32 factor = m_props->m_windFactor;
+		m_vel.x = wind.x * factor + (m_vel.x - wind.x * factor) * x;
+		m_vel.y = wind.y * factor + (m_vel.y - wind.y * factor) * x;
+		m_vel.z = wind.z * factor + (m_vel.z - wind.z * factor) * x;
+		m_vel.w = wind.w * factor + (m_vel.w - wind.w * factor) * x;
+	}
+
+	if (m_node != NULL)
+	{
+		CMatrix matrix;
+		CPnt3D rotation;
+		CPnt3D turn;
+		m_node->GetRotation(&rotation);
+		m_spin.Scale(m_dT, &turn);
+		rotation.Add(&turn, &rotation);
+		m_node->SetRotation(&rotation);
+		matrix.m_matrix[0][0] = m_scale.x;
+		matrix.m_matrix[1][1] = m_scale.y;
+		matrix.m_matrix[2][2] = m_scale.z;
+		sceVu0MulMatrix(matrix.m_matrix, m_node->m_matrix.m_matrix, matrix.m_matrix);
+		m_node->SetMatrix(&matrix);
+	}
+}
 #endif
