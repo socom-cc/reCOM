@@ -896,8 +896,10 @@ void CZKit::ItemHasAmmo(int)
 }
 
 /* @socom-skeleton stub CurWeaponIsM203Mode__5CZKitFv */
-void CZKit::CurWeaponIsM203Mode()
+bool CZKit::CurWeaponIsM203Mode()
 {
+	/* port: not written (0x2a7b50: the current weapon slot's M203 weapon in a launcher
+	   fire mode, mode >= 4); reached only with a weapon whose part has no aim point */
 }
 
 /* @socom-skeleton stub WeaponIsGrenadeLauncherMode__5CZKitFi */

@@ -220,7 +220,7 @@ public:
 		CNode* FindChild(CNode* child, bool nested);
 		CNode* FindChild(const char* child, bool nested);
 
-		CMatrix& BuildMTW(CMatrix& mat);
+		CMatrix* BuildMTW(CMatrix& mat); /* 0x223230 returns the matrix, NULL off the grid (was CMatrix&) */
 
 		void ReserveDI(size_t size);
 		void ReserveVisuals(size_t size);

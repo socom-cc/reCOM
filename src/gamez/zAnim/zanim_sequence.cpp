@@ -219,8 +219,12 @@ float LineIntersectPlane(float, const CPnt3D &, const CPnt3D &, const CPnt3D &)
 }
 
 /* @socom-skeleton stub PointAlongLine__FRC6CPnt3DRC6CPnt3DfR6CPnt3D */
-void PointAlongLine(const CPnt3D &, const CPnt3D &, float, CPnt3D &)
+void PointAlongLine(const CPnt3D &from, const CPnt3D &to, float t, CPnt3D &out)
 {
+	/* 0x1dc950: from + t (to - from) */
+	out.x = from.x + t * (to.x - from.x);
+	out.y = from.y + t * (to.y - from.y);
+	out.z = from.z + t * (to.z - from.z);
 }
 
 /* @socom-skeleton stub Start__9CSequenceFfff */

@@ -273,6 +273,9 @@
 #include "gamez/zWeapon/zweapon.h"
 #include "gamez/zNode/node_world.h" /* zdb::CWorld::m_world (altitude, regions) */
 #include "gamez/zAI/zai.h" /* CAiMaps (shadow) */
+#include "gamez/zGrid/zgrid.h" /* CGrid's bbox hit nodes, SetCameraCollideFlagRequired (CheckDIShoot) */
+#include "gamez/zNetwork/znet.h" /* theNetwork (CheckDIShoot) */
+#include "gamez/zCamera/zcam.h" /* the world-to-screen matrix (auto aim) */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 /* port: AckUnion is declared in gamez/zSeal/zseal.h */
@@ -281,6 +284,8 @@ class CMaterialEx;
 class CZAmmoPickupInstance;
 class MPSealStats;
 class STUN_TYPE;
+void Draw2DLine(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *); /* port: c2dline.cpp (no header declares it) */
+void PointAlongLine(const CPnt3D &, const CPnt3D &, float, CPnt3D &); /* port: zanim_sequence.cpp (no header declares it) */
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub qlookspinelo */
@@ -416,8 +421,52 @@ void CZSealBody::UpdateAiMapLoc(bool &)
 }
 
 /* @socom-skeleton stub SealGetIntersect__10CZSealBodyFPC6CPnt3DPC6CPnt3D */
-zdb::IntersectStruct * CZSealBody::SealGetIntersect(const CPnt3D *, const CPnt3D *)
+zdb::IntersectStruct * CZSealBody::SealGetIntersect(const CPnt3D *from, const CPnt3D *to)
 {
+	/* 0x2a3040: the world's hits on from -> to (this seal inactive): the nearest one a shot
+	   would stop at (the shootable test of CheckDIShoot), NULL if none */
+	zdb::CWorld *world = zdb::CWorld::m_world;
+	zdb::CNode *node = GetNode();
+	bool active = node->SetActive(false);
+	zdb::DiIntersect *hits = world->GetIntersects(from, to);
+	node->SetActive(active);
+	s32 count = hits != NULL ? hits->m_Cnt : 0;
+	zdb::IntersectStruct *nearest = NULL;
+	f32 best = 0.0f;
+
+	for (int i = 0; i < count; i++)
+	{
+		zdb::IntersectStruct *hit = &hits->m_Intersects[i];
+		CMaterialEx *ex = NULL;
+
+		if (hit != NULL)
+		{
+			u32 material = hit->GetMaterial();
+
+			if (material >= CMaterialExArray::m_materialex_list.size())
+				material = 0;
+
+			ex = CMaterialExArray::m_materialex_list[material];
+		}
+
+		bool shootable = ex != NULL && hit != NULL && !(hit->m_poly != NULL && hit->m_poly->m_cameratype == 1)
+			&& !ex->m_volumetric && !ex->m_liquid && (ex->m_penetration < 0.99f || ex->m_pickup);
+
+		if (!shootable)
+			continue;
+
+		CPnt3D d;
+		hit->m_pos.Sub(from, &d);
+		f32 dist = d.z * d.z + d.x * d.x + d.y * d.y;
+
+		if (nearest == NULL || dist < best)
+		{
+			nearest = hit;
+			best = dist;
+		}
+	}
+
+	return nearest;
 }
 
 /* @socom-skeleton stub SealProcessAltitude__10CZSealBodyFPQ23zdb11DiIntersectPC6CPnt3Df */
@@ -707,8 +756,113 @@ void CZSealBody::HomingTick()
 }
 
 /* @socom-skeleton stub ImpactFront__10CZSealBodyFPQ23zdb15IntersectStructP6CPnt3D */
-float CZSealBody::ImpactFront(zdb::IntersectStruct *, CPnt3D *)
+float CZSealBody::ImpactFront(zdb::IntersectStruct *hit, CPnt3D *pos)
 {
+	/* 0x2a0a40 (CheckDIFwd1, the action button at a wall): pos = the probe tail
+	   (pi_diTail). Facing the wall (the level line back to the tail against its normal)
+	   under 0.65: that value. With every climb anim, the wall polygon's top and bottom
+	   above/below the hit and its sides at the hit's height: by the DI's app flags a
+	   climb (1; 3: 30 high; 4: a step of 5..32), a ladder (2: down when the edge is
+	   within 15 of the hit's bottom, not while turning around) or a climb over (5), each
+	   placed beside the wall first and aligned to it; -99 then, or for other walls.
+	   0 without the anims; the facing when the polygon edges are not found. ELF quirk
+	   kept: the cross product of the line and the normal is computed and unused. */
+	CPnt3D away = hit->m_pos;
+	CPnt3D at = hit->m_pos;
+	away.Sub(&pi_diTail, &away);
+	away.y = 0.0f;
+	away.Scale(-1.0f, &away);
+	f32 line[4] = { away.x, away.y, away.z, 1.0f };
+	f32 normal[4] = { hit->m_norm.x, hit->m_norm.y, hit->m_norm.z, 1.0f };
+	f32 cross[4];
+	sceVu0OuterProduct(cross, line, normal);
+	*pos = pi_diTail;
+	f32 facing = (away.z * hit->m_norm.z + away.x * hit->m_norm.x + away.y * hit->m_norm.y)
+		/ sqrtf(away.z * away.z + away.x * away.x + away.y * away.y);
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("SEAL: impact front: facing %.2f, app flags %d", facing, (int)hit->m_poly->m_appflags);
+#endif
+	if (facing < 0.65f)
+		return facing;
+
+	if (GetAnimByType(AnimType::animTypeStand2Hang) == NULL || GetAnimByType(AnimType::animTypeStand2Ladder) == NULL
+		|| GetAnimByType(AnimType::animTypeClimbOffLadder) == NULL || GetAnimByType((AnimType)AnimTypes::ClimbMedium) == NULL
+		|| GetAnimByType(AnimType::animTypeClimbCrate) == NULL || GetAnimByType((AnimType)AnimTypes::StepUp) == NULL)
+		return 0.0f;
+
+	CPnt3D top;
+	CPnt3D bottom;
+	CPnt3D sides[2];
+
+	if (!hit->GetIntersectedEdgePoints(&top, &bottom) || !hit->GetIntersectedEdgePointsY(sides))
+		return facing;
+
+	u32 material = hit->GetMaterial();
+
+	if (material >= CMaterialExArray::m_materialex_list.size())
+		material = 0;
+
+	f32 offset = CMaterialExArray::m_materialex_list[material]->m_foot_step_offset;
+	f32 height = (top.y + offset) - GetPosW()->y;
+	u32 flags = hit->m_poly->m_appflags;
+	bool down = false;
+
+	switch (flags)
+	{
+	case 3:
+		PlaceLaterally(sides, &at, pos, false);
+		Climb(30.0f);
+		break;
+
+	case 2:
+		PlaceLaterally(sides, &at, pos, true);
+
+		if (top.y - bottom.y <= 15.0f)
+		{
+			if (IsCurrentBlend((AnimType)AnimTypes::Rotate180))
+				return -99.0f;
+
+			at.y = bottom.y;
+			ClimbLadderDown();
+			down = true;
+		}
+		else
+		{
+			ClimbLadder();
+		}
+
+		break;
+
+	case 5:
+		PlaceLaterally(sides, &at, pos, false);
+		ClimbOver(height);
+		break;
+
+	case 1:
+		PlaceLaterally(sides, &at, pos, true);
+		Climb(height);
+		break;
+
+	case 4:
+		PlaceLaterally(sides, &at, pos, false);
+
+		if (5.0f < height)
+		{
+			if (32.0f < height)
+				return -99.0f;
+
+			Climb(height);
+		}
+
+		break;
+
+	default:
+		return -99.0f;
+	}
+
+	AlignForClimb(flags == 2 && down, at, top, &hit->m_norm);
+	return -99.0f;
 }
 
 /* @socom-skeleton stub AlignForClimb__10CZSealBodyFbR6CPnt3DR6CPnt3DP6CPnt3D */
@@ -1440,28 +1594,366 @@ void CZSealBody::SetMoveWeaponEncumbMod()
 }
 
 /* @socom-skeleton stub DrawAutoReticle__FP6CPnt3D */
-void DrawAutoReticle(CPnt3D *)
+void DrawAutoReticle(CPnt3D *point)
 {
+	/* 0x29b650: four red ticks (alpha 0.2 at the inner ends) distOff from the point's
+	   screen position, retLen long, up, down, right, left. ELF quirk kept: no test of the
+	   projected w */
+	const f32 (&screen)[4][4] = zdb::CWorld::m_world->m_camera->m_mtxSet.m_vu->mtxWorldToScreen;
+	f32 s[4];
+
+	for (int k = 0; k < 4; k++)
+		s[k] = screen[0][k] * point->x + screen[1][k] * point->y + screen[2][k] * point->z + screen[3][k];
+
+	CPnt4D inner;
+	inner.x = 1.0f;
+	inner.y = 0.0f;
+	inner.z = 0.0f;
+	inner.w = 0.2f;
+	CPnt4D outer;
+	outer.x = 1.0f;
+	outer.y = 0.0f;
+	outer.z = 0.0f;
+	outer.w = 1.0f;
+	f32 x = (s[0] * (1.0f / s[3]) - 2048.0f) + 320.0f;
+	f32 y = (s[1] * (1.0f / s[3]) - 2048.0f) + 224.0f;
+	CPnt4D a;
+	a.x = x;
+	a.y = y + distOff;
+	a.z = 0.0f;
+	a.w = 1.0f;
+	CPnt4D b;
+	b.x = x;
+	b.y = y + distOff + retLen;
+	b.z = 0.0f;
+	b.w = 1.0f;
+	Draw2DLine(&a, &b, &inner, &outer);
+	a.y -= distOff * 2.0f;
+	b.y -= (distOff + retLen) * 2.0f;
+	Draw2DLine(&a, &b, &inner, &outer);
+	a.x += distOff;
+	b.x += distOff + retLen;
+	a.y = y;
+	b.y = y;
+	Draw2DLine(&a, &b, &inner, &outer);
+	a.x -= distOff * 2.0f;
+	b.x -= (distOff + retLen) * 2.0f;
+	Draw2DLine(&a, &b, &inner, &outer);
 }
 
 /* @socom-skeleton stub GetCharacterHit__FP10CZSealBodyP6CPnt3DPQ23zdb15IntersectStruct */
-CZSealBody * GetCharacterHit(CZSealBody *, CPnt3D *, zdb::IntersectStruct *)
+CZSealBody * GetCharacterHit(CZSealBody *body, CPnt3D *point, zdb::IntersectStruct *hit)
 {
+	/* 0x29b340 (auto aim, not with a scope): of the characters whose bbox the aim ray hit
+	   (CGrid::m_BBoxHitNodes), a live one of no common team (and not team bit 17) whose
+	   target point projects within sqrt(AutoAimDistSqd) of the screen centre, farther
+	   than AutoAimMinDist and not behind the solid hit: the nearest to the centre (its
+	   target point in point) */
+	if (body->m_kit.IsUsingScope())
+		return NULL;
+
+	CZSealBody *found = NULL;
+	f32 best = 1e8f;
+	zdb::CCamera *camera = zdb::CWorld::m_world->m_camera;
+
+	for (int i = 0; i < zdb::CGrid::m_BBoxIntersectNodeCnt; i++)
+	{
+		CZSealBody *seal = CZSealBody::GetSeal(zdb::CGrid::m_BBoxHitNodes[i]);
+
+		if (seal == NULL || !seal->m_isAlive || (seal->m_team & body->m_team) != 0 || (seal->m_team & 0x20000) != 0)
+			continue;
+
+		CPnt3D target;
+		seal->GetTargetPosW(&target);
+		const f32 (&screen)[4][4] = camera->m_mtxSet.m_vu->mtxWorldToScreen;
+		f32 s[4];
+
+		for (int k = 0; k < 4; k++)
+			s[k] = screen[0][k] * target.x + screen[1][k] * target.y + screen[2][k] * target.z + screen[3][k];
+
+		if (!(1e-5f < s[3]))
+			continue;
+
+		f32 x = s[0] * (1.0f / s[3]) - 2048.0f;
+		f32 y = s[1] * (1.0f / s[3]) - 2048.0f;
+		f32 d = y * y + x * x;
+
+		if (!(d < AutoAimDistSqd))
+			continue;
+
+		f32 depth = camera->GetZ(&target);
+
+		if (!(AutoAimMinDist < depth))
+			continue;
+
+		bool behind = hit != NULL && camera->GetZ(&hit->m_pos) < depth;
+
+		if (!behind && d < best)
+		{
+			*point = target;
+			best = d;
+			found = seal;
+		}
+	}
+
+	return found;
 }
 
 /* @socom-skeleton stub CheckDIShoot__10CZSealBodyFP6CPnt3DP7CMatrix */
-void CZSealBody::CheckDIShoot(CPnt3D *, CMatrix *)
+void CZSealBody::CheckDIShoot(CPnt3D *eye, CMatrix *mat)
 {
+	/* 0x29a850 (CAppCamera::Tick, every FTS camera tick; not for AI or remote seals): the
+	   aim ray from the eye along the camera's -z, as far as the current item's range
+	   (at least 600) and the camera's mid plane allow, through the world (camera collide
+	   DIs, this seal inactive, character bbox hits kept for the auto aim). The nearest
+	   shootable hit (a material that is not volumetric or liquid and does not let shots
+	   through, penetration 0.99 unless bit 4; not a camera-only DI) is the aim point;
+	   the nearest action node (door, switch...) before it the action reticule. With the
+	   auto aim on (single player) a character near the screen centre takes the aim
+	   instead (and its reticle). Without a hit the ray's end is the aim point. Then,
+	   with a raised weapon (not binoculars), a shot from the weapon's aim point to the
+	   aim point that is blocked elsewhere moves the aim point there (the reticle stays)
+	   and marks the reticle blocked at the block's screen position. */
+	CSealCtrl *control = static_cast<CSealCtrl *>(m_control);
+
+	if (control != NULL && control->IsAi())
+		return;
+
+	if (control != NULL && control->IsRemote())
+		return;
+
+	m_kit.GetCurItemType(); /* ELF quirk kept: called for nothing */
+	CZFTSWeapon *item = m_kit.GetCurItem();
+	f32 range = item != NULL ? item->GetMaxRange() : 0.0f;
+
+	if (range <= 600.0f)
+		range = 600.0f;
+
+	f32 reach = zdb::CWorld::m_world->m_camera->m_mid_plane;
+
+	if (range <= reach)
+		reach = range;
+
+	CPnt3D local(0.0f, 0.0f, -reach);
+	CPnt3D end;
+	mat->Transform(&local, &end, 1);
+	bool aimed = false;
+	zdb::CGrid::m_BBoxIntersectNodeCnt = 0;
+	zdb::CGrid::m_doBBoxIntersectNodes = 1;
+	zdb::IntersectStruct *solid = NULL;
+	zdb::SetCameraCollideFlagRequired(true);
+	zdb::CWorld *world = zdb::CWorld::m_world;
+	zdb::CNode *node = GetNode();
+	bool active = node->SetActive(false);
+	zdb::DiIntersect *hits = world->GetIntersects(eye, &end);
+	node->SetActive(active);
+	zdb::SetCameraCollideFlagRequired(false);
+	zdb::CGrid::m_doBBoxIntersectNodes = 0;
+
+	/* the shootable test (inline in the ELF, as in SealGetIntersect) */
+	auto shootable = [](zdb::IntersectStruct *hit) {
+		CMaterialEx *ex = NULL;
+
+		if (hit != NULL)
+		{
+			u32 material = hit->GetMaterial();
+
+			if (material >= CMaterialExArray::m_materialex_list.size())
+				material = 0;
+
+			ex = CMaterialExArray::m_materialex_list[material];
+		}
+
+		if (ex == NULL || hit == NULL)
+			return false;
+
+		if (hit->m_poly != NULL && hit->m_poly->m_cameratype == 1)
+			return false;
+
+		return !ex->m_volumetric && !ex->m_liquid && (ex->m_penetration < 0.99f || ex->m_pickup);
+	};
+	/* CNodeAction::GetAction(node, true) 0x29a6b0 (its first two levels inline here): the
+	   node's or an ancestor's action. port: a loop; the port declares no such member */
+	auto action_of = [](zdb::CNode *at) {
+		CNodeAction *found = NULL;
+
+		for (; at != NULL && found == NULL; at = at->m_parent)
+			found = dynamic_cast<CNodeAction *>(at->m_nodeEx);
+
+		return found;
+	};
+
+	s32 count = hits->m_Cnt;
+	f32 limit = (reach + 1.0f) * (reach + 1.0f);
+	f32 solid_dist = limit;
+	f32 action_dist = limit;
+	zdb::IntersectStruct *action = NULL;
+
+	for (int i = 0; i < count; i++)
+	{
+		zdb::IntersectStruct *hit = &hits->m_Intersects[i];
+
+		if (shootable(hit))
+		{
+			CPnt3D d;
+			hit->m_pos.Sub(eye, &d);
+			f32 dist = d.x * d.x + d.y * d.y + d.z * d.z;
+
+			if (solid == NULL || dist < solid_dist)
+			{
+				solid = hit;
+				solid_dist = dist;
+
+				if (dist < action_dist)
+					action = NULL;
+
+				action_dist = solid_dist; /* ELF quirk kept: also when the action is nearer */
+			}
+		}
+		else if (action_of(hit->m_node) != NULL)
+		{
+			CPnt3D d;
+			hit->m_pos.Sub(eye, &d);
+			f32 dist = d.x * d.x + d.y * d.y + d.z * d.z;
+
+			if (dist < solid_dist && dist < action_dist)
+			{
+				action = hit;
+				action_dist = dist;
+			}
+		}
+	}
+
+	bool autoaim = false;
+	CPnt3D aimed_at;
+	CPnt3D target;
+
+	if (!theNetwork.m_bNetwork && _AutoAim && GetCharacterHit(this, &target, solid) != NULL)
+	{
+		SetAimPointW(&target, NULL, false);
+		aimed = true;
+		aimed_at = target;
+		DrawAutoReticle(&target);
+		autoaim = true;
+		solid = NULL;
+	}
+
+	if (solid == NULL)
+	{
+		if (!aimed)
+		{
+			SetAimPointW(&end, NULL, false);
+			m_last_reticule.m_pos = CPnt3D::zero;
+			m_last_reticule.m_norm = CPnt3D::zero;
+			m_last_reticule.m_poly = NULL;
+			m_last_reticule.m_node = NULL;
+		}
+	}
+	else
+	{
+		SetAimPointW(&solid->m_pos, &solid->m_norm, false);
+		aimed = true;
+		m_last_reticule.m_pos = solid->m_pos;
+		m_last_reticule.m_poly = solid->m_poly;
+		m_last_reticule.m_norm = solid->m_norm;
+		m_last_reticule.m_node = solid->m_node;
+		aimed_at = solid->m_pos;
+	}
+
+	if (action == NULL)
+	{
+		m_last_reticule_action.m_pos = CPnt3D::zero;
+		m_last_reticule_action.m_norm = CPnt3D::zero;
+		m_last_reticule_action.m_poly = NULL;
+		m_last_reticule_action.m_node = NULL;
+	}
+	else
+	{
+		m_last_reticule_action.m_pos = action->m_pos;
+		m_last_reticule_action.m_poly = action->m_poly;
+		m_last_reticule_action.m_norm = action->m_norm;
+		m_last_reticule_action.m_node = action->m_node;
+	}
+
+	m_kit.m_retposx = 0.0f;
+	m_kit.m_retposy = 0.0f;
+#ifdef SOCOM_PORT
+	static s32 traced;
+
+	if (traced++ % 120 == 0)
+		SOCOM_PORT_TRACE("AIM: %d hits, solid %s at %.1f %.1f %.1f (node %s), action %d, aim %.1f %.1f %.1f valid %d norm %d",
+			count, solid != NULL ? "yes" : "no", m_last_reticule.m_pos.x, m_last_reticule.m_pos.y, m_last_reticule.m_pos.z,
+			m_last_reticule.m_node != NULL && m_last_reticule.m_node->m_name != NULL ? m_last_reticule.m_node->m_name : "-",
+			action != NULL, m_aim_point.x, m_aim_point.y, m_aim_point.z, (int)m_aim_point_valid, (int)m_have_aim_norm);
+#endif
+	CPnt3D ap;
+
+	if (!GetAP(ap))
+		return;
+
+	CPnt3D aim = m_aim_point;
+
+	if (GetStance(false) == SEAL_STATE::stateProne && m_aim_dir.y < 0.03f)
+	{
+		CPnt3D d;
+		aim.Sub(&ap, &d);
+		f32 len = sqrtf(d.z * d.z + d.x * d.x + d.y * d.y);
+		CPnt3D lifted;
+		PointAlongLine(ap, aim, -10.0f / len, lifted);
+		ap = lifted;
+	}
+
+	zdb::IntersectStruct *blocked = SealGetIntersect(&ap, &aim);
+	CZFTSWeapon *weapon;
+	m_kit.GetCurWeapon(&weapon, NULL);
+
+	if (!autoaim && blocked != NULL && weapon != NULL && weapon->m_ID != EQUIP_ITEM::BINOCULARS
+		&& ((int)GetWeaponState() == 1 || m_weapon_state == 0x12))
+	{
+		bool same = aimed && !(0.008f < fabsf(blocked->m_pos.x - aimed_at.x))
+			&& !(0.008f < fabsf(blocked->m_pos.y - aimed_at.y)) && !(0.008f < fabsf(blocked->m_pos.z - aimed_at.z));
+
+		if (!same)
+		{
+			m_kit.m_retblocked = 1;
+			SetAimPointW(&blocked->m_pos, &blocked->m_norm, true);
+			const f32 (&screen)[4][4] = zdb::CWorld::m_world->m_camera->m_mtxSet.m_vu->mtxWorldToScreen;
+			const CPnt3D &p = blocked->m_pos;
+			f32 s[4];
+
+			for (int k = 0; k < 4; k++)
+				s[k] = screen[0][k] * p.x + screen[1][k] * p.y + screen[2][k] * p.z + screen[3][k];
+
+			if (s[3] <= 0.0001f)
+				return;
+
+			f32 x = s[0] * (1.0f / s[3]) - 2048.0f;
+			f32 y = s[1] * (1.0f / s[3]) - 2048.0f;
+			m_kit.m_retblockedX = x;
+			m_kit.m_retblockedY = y;
+			m_kit.m_retblockedsize = x < y ? y : x;
+			return;
+		}
+	}
+
+	m_kit.m_retblocked = 0;
 }
 
 /* @socom-skeleton stub GetReticuleDi__10CZSealBodyFv */
 zdb::IntersectStruct * CZSealBody::GetReticuleDi()
 {
+	/* 0x29a840: CheckDIShoot's aim hit (zeroed without one) */
+	return &m_last_reticule;
 }
 
 /* @socom-skeleton stub GetReticuleSeal__10CZSealBodyFv */
 CZSealBody * CZSealBody::GetReticuleSeal()
 {
+	/* 0x29a800: the cached reticule seal while caching, else the seal of the aim hit's node */
+	if (m_useCachedReticuleSeal)
+		return m_cachedReticuleSeal;
+
+	return GetSeal(m_last_reticule.m_node);
 }
 
 /* @socom-skeleton stub CacheReticuleSeal__10CZSealBodyFb */
@@ -2001,8 +2493,12 @@ void CZSealBody::HandleBloodDrip(float)
 }
 
 /* @socom-skeleton stub GetTargetPosW__10CZSealBodyFP6CPnt3D */
-CPnt3D * CZSealBody::GetTargetPosW(CPnt3D *)
+CPnt3D * CZSealBody::GetTargetPosW(CPnt3D *pos)
 {
+	/* 0x2918d0: the upper spine's origin in world space */
+	PartInSpace(m_spinehi, NULL, pos, NULL);
+	m_node->m_matrix.Transform(pos, 1);
+	return pos;
 }
 
 /* @socom-skeleton stub GetHeadParams__10CZSealBodyFP6CPnt3DP6CPnt3D */

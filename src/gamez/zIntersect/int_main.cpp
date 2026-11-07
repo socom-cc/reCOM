@@ -34,6 +34,7 @@ namespace zdb
 
 /* @socom-skeleton decl include */
 #include "gamez/zMath/zmath.h"
+#include "gamez/zMath/zmath_vu.h" /* Vu0MatrixInverseWithUniformScale (edge points) */
 /* @socom-skeleton end include */
 
 /* @socom-skeleton body __ct__Q23zdb11DiIntersectFi */
@@ -191,11 +192,60 @@ unsigned char zdb::IntersectStruct::IsInside()
 }
 
 /* @socom-skeleton stub GetIntersectedEdgePointsY__Q23zdb15IntersectStructFP6CPnt3D */
-void zdb::IntersectStruct::GetIntersectedEdgePointsY(CPnt3D *)
+bool zdb::IntersectStruct::GetIntersectedEdgePointsY(CPnt3D *points)
 {
+	/* 0x21c130: where the hit polygon's edges cross the level of the hit (node space,
+	   CDI::GetEdgeIntersectsY), back in world space; false off the grid or with fewer
+	   than two crossings. ELF quirk kept: every crossing is written (the caller's array
+	   holds two; a convex polygon has no more) */
+	CMatrix mtw;
+	sceVu0UnitMatrix(mtw.m_matrix);
+	CMatrix unused; /* ELF quirk kept: a second unit matrix, never read */
+	sceVu0UnitMatrix(unused.m_matrix);
+
+	if (m_node->BuildMTW(mtw) == NULL)
+		return false;
+
+	CMatrix wtm;
+	sceVu0UnitMatrix(wtm.m_matrix);
+	Vu0MatrixInverseWithUniformScale(&wtm, &mtw);
+	CPnt3D local = m_pos;
+	wtm.Transform(&local, 1);
+	int count = m_poly->GetEdgeIntersectsY(&local, points);
+
+	if (count < 2)
+		return false;
+
+	for (int i = 0; i < count; i++)
+		mtw.Transform(&points[i], 1);
+
+	return true;
 }
 
 /* @socom-skeleton stub GetIntersectedEdgePoints__Q23zdb15IntersectStructFP6CPnt3DP6CPnt3D */
-void zdb::IntersectStruct::GetIntersectedEdgePoints(CPnt3D *, CPnt3D *)
+bool zdb::IntersectStruct::GetIntersectedEdgePoints(CPnt3D *top, CPnt3D *bottom)
 {
+	/* 0x21bf20: the highest and lowest points of the hit polygon's edges straight above
+	   and below the hit (node space, CDI::GetEdgeIntersects), back in world space; false
+	   off the grid or without any */
+	CMatrix mtw;
+	sceVu0UnitMatrix(mtw.m_matrix);
+	CMatrix unused; /* ELF quirk kept: a second unit matrix, never read */
+	sceVu0UnitMatrix(unused.m_matrix);
+
+	if (m_node->BuildMTW(mtw) == NULL)
+		return false;
+
+	CMatrix wtm;
+	sceVu0UnitMatrix(wtm.m_matrix);
+	Vu0MatrixInverseWithUniformScale(&wtm, &mtw);
+	CPnt3D local = m_pos;
+	wtm.Transform(&local, 1);
+
+	if (m_poly->GetEdgeIntersects(&local, top, bottom) == 0)
+		return false;
+
+	mtw.Transform(top, 1);
+	mtw.Transform(bottom, 1);
+	return true;
 }

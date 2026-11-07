@@ -542,7 +542,7 @@ public:
 	unsigned char CurItemHasAmmo();
 	void ItemHasAmmo(int, FIREMODE);
 	void ItemHasAmmo(int);
-	void CurWeaponIsM203Mode();
+	bool CurWeaponIsM203Mode(); /* 0x2a7b50 returns 0/1 */
 	void WeaponIsGrenadeLauncherMode(int);
 	void CurMagHasAmmo();
 	void SetCurAccuracy();
@@ -1420,19 +1420,19 @@ public:
 	void WepWaitOn();
 	void SetWeaponState(WEAPON_STATE);
 	void WeaponsTick(float);
-	void GetFirepointPos(CPnt3D &, const char *);
+	bool GetFirepointPos(CPnt3D &, const char *); /* 0x2c0140 returns 0/1 */
 	zdb::CNode * GetFirepointNode(const char *);
 	bool GetNodePos(const zdb::CNode *, CPnt3D &, bool); /* bool: 0x2bfed0 */
 	unsigned char SetAimDirR(const CPnt3D *, bool);
 	unsigned char CalcAimGoal(const CPnt3D *, const CPnt3D *, CPnt3D *);
 	void SetAimPointW(const CPnt3D *, const CPnt3D *, bool);
 	void UpdateAimParams();
-	void GetAP(CPnt3D &);
+	bool GetAP(CPnt3D &); /* 0x2bf8a0 returns 0/1 */
 	void GetFP(CPnt3D &);
 	unsigned char UpdateAimDir(bool);
 	void CanProneAim();
 	float GetAimDot();
-	void CanAttainAim(CPnt3D &);
+	bool CanAttainAim(CPnt3D &); /* 0x2befc0: UpdateAimDir tests v0 */
 	static int m_aim_anims[3];
 	static unsigned char m_allow_friendly_fire;
 	static int m_bigrippleanim[3];

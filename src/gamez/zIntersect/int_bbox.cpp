@@ -48,6 +48,8 @@ zdb::CDIPoly::~CDIPoly()
 /* @socom-skeleton stub __ct__Q23zdb7CDIBBoxFv */
 zdb::CDIBBox::CDIBBox()
 {
+	/* 0x21e3d0 */
+	m_box = NULL;
 }
 
 /* @socom-skeleton stub __dt__Q23zdb7CDIBBoxFv */
@@ -95,18 +97,120 @@ bool zdb::CDIPoly::GetAltitude(zdb::DiIntersect *di)
 }
 
 /* @socom-skeleton stub intersect2d__FPC6CPnt3DPC6CPnt3DPC6CPnt3DP6CPnt3D */
-void intersect2d(const CPnt3D *, const CPnt3D *, const CPnt3D *, CPnt3D *)
+bool intersect2d(const CPnt3D *p, const CPnt3D *a, const CPnt3D *b, CPnt3D *out)
 {
+	/* 0x21dfb0: p projected (in xz) onto the segment a -> b; true strictly inside it
+	   (out = the point on the segment). At an end (within -1e-5) out = that end and
+	   false; beyond, false and out untouched. ELF quirk kept: a zero-length segment ends
+	   at a */
+	CPnt3D ab;
+	b->Sub(a, &ab);
+	CPnt3D ap;
+	p->Sub(a, &ap);
+	f32 along = ab.z * ap.z + ab.x * ap.x;
+
+	if (along < -1e-5f)
+		return false;
+
+	if (along <= 0.0f)
+	{
+		*out = *a;
+		return false;
+	}
+
+	CPnt3D bp;
+	p->Sub(b, &bp);
+	f32 rest = -(ab.z * bp.z + ab.x * bp.x);
+
+	if (rest < -1e-5f)
+		return false;
+
+	if (rest <= 0.0f)
+	{
+		*out = *b;
+		return false;
+	}
+
+	CPnt3D step;
+	ab.Scale(along / (rest + along), &step);
+	a->Add(&step, out);
+	return true;
 }
 
 /* @socom-skeleton stub GetEdgeIntersects__Q23zdb3CDIFP6CPnt3DP6CPnt3DP6CPnt3D */
-int zdb::CDI::GetEdgeIntersects(CPnt3D *, CPnt3D *, CPnt3D *)
+int zdb::CDI::GetEdgeIntersects(CPnt3D *point, CPnt3D *top, CPnt3D *bottom)
 {
+	/* 0x21ddf0: the points of the edges straight above or below point (xz projection,
+	   intersect2d); top = the highest, bottom = the lowest; their count (0 for fewer
+	   than three points). port: the ELF collects them in a 4-entry stack array (more
+	   crossings write past it; a wall polygon has two); 32 entries here, the rest
+	   dropped */
+	if (m_ptcount < 3)
+		return 0;
+
+	CPnt3D found[32];
+	int count = 0;
+
+	for (int i = 0, prev = (int)m_ptcount - 1; i < (int)m_ptcount; prev = i, i++)
+	{
+		if (count < 32 && intersect2d(point, reinterpret_cast<const CPnt3D *>(&m_pts[prev]), reinterpret_cast<const CPnt3D *>(&m_pts[i]), &found[count]))
+			count++;
+	}
+
+	if (count == 0)
+		return 0;
+
+	*top = found[0];
+	*bottom = found[0];
+
+	for (int i = 1; i < count; i++)
+	{
+		if (top->y < found[i].y)
+			*top = found[i];
+
+		if (found[i].y < bottom->y)
+			*bottom = found[i];
+	}
+
+	return count;
 }
 
 /* @socom-skeleton stub GetEdgeIntersectsY__Q23zdb3CDIFP6CPnt3DP6CPnt3D */
-int zdb::CDI::GetEdgeIntersectsY(CPnt3D *, CPnt3D *)
+int zdb::CDI::GetEdgeIntersectsY(CPnt3D *point, CPnt3D *out)
 {
+	/* 0x21dbb0: the points where the edges cross point's height (half-open in y); their
+	   count (0 for fewer than three points). ELF quirk kept: every crossing is written */
+	if (m_ptcount < 3)
+		return 0;
+
+	int count = 0;
+	f32 y = point->y;
+
+	for (int i = 0, prev = (int)m_ptcount - 1; i < (int)m_ptcount; prev = i, i++)
+	{
+		const CPnt3D *a = reinterpret_cast<const CPnt3D *>(&m_pts[prev]);
+		const CPnt3D *b = reinterpret_cast<const CPnt3D *>(&m_pts[i]);
+
+		if (!((a->y < y && y <= b->y) || (b->y <= y && y < a->y)))
+			continue;
+
+		f32 rise = b->y - a->y;
+
+		if (rise == 0.0f)
+		{
+			out[count++] = *a;
+		}
+		else
+		{
+			CPnt3D ab;
+			b->Sub(a, &ab);
+			CPnt3D step;
+			ab.Scale((y - a->y) / rise, &step);
+			a->Add(&step, &out[count++]);
+		}
+	}
+
+	return count;
 }
 
 /* @socom-skeleton stub LoadTipAndTail__Q23zdb11DiIntersectFv */
@@ -130,8 +234,101 @@ void zdb::DiIntersect::LoadTipAndTail()
 }
 
 /* @socom-skeleton stub GetIntersect__Q23zdb7CDIPolyFPQ23zdb11DiIntersect */
-bool zdb::CDIPoly::GetIntersect(zdb::DiIntersect *)
+bool zdb::CDIPoly::GetIntersect(zdb::DiIntersect *di)
 {
+	/* 0x21d980: the node-space segment (LoadTipAndTail) against this polygon in the VU0
+	   microcode (zrndr_vu0.vsm). The DI's next record is the work area: its normal qword
+	   = the plane normal with w = the point count; slot 2 (vu0IntersectPlaneTest, vf4 =
+	   the last point, vf5 = the first) gives the plane crossing in vf29 (w 1.0, or 0 for
+	   no crossing or a culled back face); then slot 4 (vu0IntersectWithEdges) per edge,
+	   vf4 = the previous point, vf5 = the next, until an edge rejects the point (w 0).
+	   Each pass stores vf29 to the record's position qword and vf3 (the normal, negated
+	   for a back-face hit) to its normal qword. A hit keeps this DI in the record.
+	   ELF quirks kept: the last pass loads the point after the array (the edge it sets up
+	   is never tested); the record's node word is the point count until the caller sets
+	   it. port: GCC inline-asm spelling; the record, normal and points go through 16-byte
+	   aligned locals (the ELF loads and stores them in place: its heap is 16-aligned). */
+	s32 index = di->m_Cnt;
+	u32 count = m_ptcount;
+	IntersectStruct* hit = &di->m_Intersects[index];
+	f32 nrm[4] __attribute__((aligned(16)));
+	f32 pts[2][4] __attribute__((aligned(16)));
+	f32 out[4] __attribute__((aligned(16)));
+	const CPnt4D* pt = m_pts;
+
+	hit->m_norm.x = m_nrm.x;
+	hit->m_norm.y = m_nrm.y;
+	hit->m_norm.z = m_nrm.z;
+	nrm[0] = m_nrm.x;
+	nrm[1] = m_nrm.y;
+	nrm[2] = m_nrm.z;
+	reinterpret_cast<u32*>(nrm)[3] = count;
+	hit->m_node = reinterpret_cast<CNode*>(count);
+	memcpy(pts[0], &pt[count - 1], sizeof(pts[0]));
+	memcpy(pts[1], &pt[0], sizeof(pts[1]));
+
+	__asm__ volatile(
+		"qmtc2.i $0, $vf0\n\t"
+		"lqc2 $vf3, 0(%0)\n\t"
+		"lqc2 $vf4, 0(%1)\n\t"
+		"lqc2 $vf5, 16(%1)\n\t"
+		"vcallms 0x10\n\t"
+		"vnop\n\t"
+		"vnop\n\t"
+		"qmtc2.i $0, $vf0\n\t"
+		"sqc2 $vf29, 0(%2)\n\t"
+		"qmtc2.i $0, $vf0\n\t"
+		:
+		: "r"(nrm), "r"(pts), "r"(out)
+		: "memory");
+
+	hit->m_pos.x = out[0];
+	hit->m_pos.y = out[1];
+	hit->m_pos.z = out[2];
+	memcpy(&hit->m_poly, &out[3], sizeof(f32));
+
+	if (out[3] == 0.0f)
+		return false;
+
+	do
+	{
+		pt++;
+		memcpy(pts[1], pt, sizeof(pts[1]));
+
+		__asm__ volatile(
+			"qmtc2.i $0, $vf0\n\t"
+			"vadd.xyz $vf4, $vf5, $vf0\n\t"
+			"lqc2 $vf5, 16(%0)\n\t"
+			"vcallms 0x20\n\t"
+			"vnop\n\t"
+			"vnop\n\t"
+			"qmtc2.i $0, $vf0\n\t"
+			"sqc2 $vf29, 0(%1)\n\t"
+			"sqc2 $vf3, 0(%2)\n\t"
+			"qmtc2.i $0, $vf0\n\t"
+			:
+			: "r"(pts), "r"(out), "r"(nrm)
+			: "memory");
+
+		hit->m_pos.x = out[0];
+		hit->m_pos.y = out[1];
+		hit->m_pos.z = out[2];
+		memcpy(&hit->m_poly, &out[3], sizeof(f32));
+		hit->m_norm.x = nrm[0];
+		hit->m_norm.y = nrm[1];
+		hit->m_norm.z = nrm[2];
+		memcpy(&hit->m_node, &nrm[3], sizeof(f32));
+
+		if (--count == 0)
+			break;
+	}
+	while (out[3] != 0.0f);
+
+	if (out[3] == 0.0f)
+		return false;
+
+	di->m_Intersects[index].m_poly = this;
+	return true;
 }
 
 /* @socom-skeleton stub SetEdgeVecsAndNorm__Q23zdb3CDIFv */
@@ -147,8 +344,70 @@ bool zdb::CDIBBox::GetAltitude(zdb::DiIntersect *)
 }
 
 /* @socom-skeleton stub GetIntersect__Q23zdb7CDIBBoxFPQ23zdb11DiIntersect */
-bool zdb::CDIBBox::GetIntersect(zdb::DiIntersect *)
+bool zdb::CDIBBox::GetIntersect(zdb::DiIntersect *di)
 {
+	/* 0x21d580: a node-space segment wholly outside the box on one axis misses; else the
+	   box faces in the VU0 microcode (slot 8, vu0IntersectBBox: the tip and tail are VU0
+	   qwords 0 and 1 from LoadTipAndTail): vf3 = m_min, vf4 = m_max with w the face mask
+	   (0 with back faces, CDI::m_backface_mask 0x30; else 224). vf10 (the hit point, w
+	   + 1 on a hit) goes to the DI's next record's position qword (its DI word cleared
+	   first), vf30 (the face normal) to its normal qword; a hit when that w is 1.0.
+	   port: GCC inline-asm spelling; aligned locals as in CBBox::GetIntersect. */
+	const CBBox* box = m_box;
+	const CPnt3D& tail = di->m_MTail;
+	const CPnt3D& tip = di->m_MTip;
+
+	if ((tail.x < box->m_min.x && tip.x < box->m_min.x)
+		|| (!(tail.x <= box->m_max.x) && !(tip.x <= box->m_max.x))
+		|| (tail.y < box->m_min.y && tip.y < box->m_min.y)
+		|| (!(tail.y <= box->m_max.y) && !(tip.y <= box->m_max.y))
+		|| (tail.z < box->m_min.z && tip.z < box->m_min.z)
+		|| (!(tail.z <= box->m_max.z) && !(tip.z <= box->m_max.z)))
+		return false;
+
+	f32 corners[2][4] __attribute__((aligned(16)));
+	f32 out[2][4] __attribute__((aligned(16)));
+	corners[0][0] = m_box->m_min.x;
+	corners[0][1] = m_box->m_min.y;
+	corners[0][2] = m_box->m_min.z;
+	corners[1][0] = m_box->m_max.x;
+	corners[1][1] = m_box->m_max.y;
+	corners[1][2] = m_box->m_max.z;
+	reinterpret_cast<u32*>(corners[1])[3] = m_backface_mask == 48 ? 0 : 224;
+
+	s32 index = di->m_Cnt;
+	IntersectStruct* hit = &di->m_Intersects[index];
+	hit->m_poly = NULL;
+
+	__asm__ volatile(
+		"qmtc2.i $0, $vf0\n\t"
+		"lqc2 $vf3, 0(%0)\n\t"
+		"lqc2 $vf4, 16(%0)\n\t"
+		"vcallms 0x40\n\t"
+		"vnop\n\t"
+		"vnop\n\t"
+		"qmtc2.i $0, $vf0\n\t"
+		"sqc2 $vf10, 0(%1)\n\t"
+		"sqc2 $vf30, 16(%1)\n\t"
+		"qmtc2.i $0, $vf0\n\t"
+		:
+		: "r"(corners), "r"(out)
+		: "memory");
+
+	hit->m_pos.x = out[0][0];
+	hit->m_pos.y = out[0][1];
+	hit->m_pos.z = out[0][2];
+	memcpy(&hit->m_poly, &out[0][3], sizeof(f32));
+	hit->m_norm.x = out[1][0];
+	hit->m_norm.y = out[1][1];
+	hit->m_norm.z = out[1][2];
+	memcpy(&hit->m_node, &out[1][3], sizeof(f32));
+
+	if (out[0][3] != 1.0f)
+		return false;
+
+	di->m_Intersects[index].m_poly = this;
+	return true;
 }
 
 /* @socom-skeleton stub SetCDIBBox__Q23zdb7CDIBBoxFv */

@@ -29,6 +29,8 @@
 #include "gamez/zMath/zmath.h"
 #include "gamez/zNode/znode.h"
 #include "zseal.h"
+#include "gamez/zNode/node_world.h" /* zdb::CWorld::m_world (UpdateAimDir: the camera) */
+#include "gamez/zCamera/zcam.h"
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 /* port: WEAPON_STATE is declared in gamez/zSeal/zseal.h */
@@ -73,8 +75,39 @@ void CZSealBody::WeaponsTick(float)
 }
 
 /* @socom-skeleton stub GetFirepointPos__10CZSealBodyFR6CPnt3DPCc */
-void CZSealBody::GetFirepointPos(CPnt3D &, const char *)
+bool CZSealBody::GetFirepointPos(CPnt3D &pos, const char *name)
 {
+	/* 0x2c0140: the current weapon part's named child (its origin; the part origin without
+	   a name or such a child) in world space; false without a weapon part or its node */
+	SEAL_ITEM item = m_kit.GetCurItemType();
+	bool found = false;
+	CPnt3D local;
+
+	if (m_weapons[(s8)item] != NULL)
+	{
+		CZBodyPart *part = BodyWepPart(this, (SEAL_ITEM)(u8)item);
+		found = part != NULL && part->m_node != NULL;
+
+		if (found)
+		{
+			const CPnt3D *offset = NULL;
+
+			if (name != NULL)
+			{
+				zdb::CNode *child = part->m_node->FindChild(name, false);
+
+				if (child != NULL)
+					offset = reinterpret_cast<const CPnt3D *>(&child->m_matrix.m_matrix[3][0]);
+			}
+
+			PartInSpace(part, offset, &local, NULL);
+		}
+	}
+
+	if (found)
+		m_node->m_matrix.Transform(&local, &pos, 1);
+
+	return found;
 }
 
 /* @socom-skeleton stub GetFirepointNode__10CZSealBodyFPCc */
@@ -187,8 +220,38 @@ unsigned char CZSealBody::CalcAimGoal(const CPnt3D *curr, const CPnt3D *dir, CPn
 }
 
 /* @socom-skeleton stub SetAimPointW__10CZSealBodyFPC6CPnt3DPC6CPnt3Db */
-void CZSealBody::SetAimPointW(const CPnt3D *, const CPnt3D *, bool)
+void CZSealBody::SetAimPointW(const CPnt3D *point, const CPnt3D *norm, bool keep_reticle)
 {
+	/* 0x2bfa80: the world aim point (and the reticle point too, unless keep_reticle: a
+	   blocked shot keeps the reticle where the player looks) and its normal, then the aim
+	   direction (UpdateAimDir); without a point, no aim point and the aim straight ahead.
+	   port: the ELF returns UpdateAimDir's result (0 without a point); every caller drops
+	   it and the port declaration is void */
+	if (point == NULL)
+	{
+		m_have_aim_norm = 0;
+		m_aim_point_valid = 0;
+		CalcAimGoal(&m_aim_dir, &CPnt3D::unit_nz, &m_aim_goal);
+		return;
+	}
+
+	m_aim_point = *point;
+	m_aim_point_valid = 1;
+
+	if (!keep_reticle)
+		m_reticle_pt = *point;
+
+	if (norm != NULL)
+	{
+		m_aim_norm = *norm;
+		m_have_aim_norm = 1;
+	}
+	else
+	{
+		m_have_aim_norm = 0;
+	}
+
+	UpdateAimDir(keep_reticle);
 }
 
 /* @socom-skeleton stub UpdateAimParams__10CZSealBodyFv */
@@ -223,8 +286,16 @@ void CZSealBody::UpdateAimParams()
 }
 
 /* @socom-skeleton stub GetAP__10CZSealBodyFR6CPnt3D */
-void CZSealBody::GetAP(CPnt3D &)
+bool CZSealBody::GetAP(CPnt3D &pos)
 {
+	/* 0x2bf8a0: the weapon's aim point in world space (the cached "aimpoint" node's
+	   position plus the body's, else looked up by name) */
+	if (m_curr_aimpt == NULL)
+		return GetFirepointPos(pos, "aimpoint");
+
+	pos = m_curr_aimpos;
+	pos.Add(GetPosW(), &pos);
+	return true;
 }
 
 /* @socom-skeleton stub GetFP__10CZSealBodyFR6CPnt3D */
@@ -235,6 +306,110 @@ void CZSealBody::GetFP(CPnt3D &)
 /* @socom-skeleton stub UpdateAimDir__10CZSealBodyFb */
 unsigned char CZSealBody::UpdateAimDir(bool)
 {
+	/* 0x2bf340: with an aim point, the aim goal toward the reticle point in body space,
+	   from the weapon's aim point (else its fire point, the M203 one in launcher mode;
+	   straight ahead without a weapon or either). Prone, a still body looking along a
+	   slope steeper than 50 degrees crouches; otherwise an unattainable aim restores
+	   the previous aim and reticle points. Returns CalcAimGoal's attainable flag (0
+	   without an aim point). The argument is unused. */
+	SEAL_ITEM item = m_kit.GetCurItemType();
+
+	if (!m_aim_point_valid)
+		return 0;
+
+	if (m_weapons[(s8)item] == NULL)
+		return CalcAimGoal(&m_aim_dir, &CPnt3D::unit_nz, &m_aim_goal);
+
+	CPnt3D from;
+	bool found;
+
+	if (m_curr_aimpt == NULL)
+	{
+		found = GetFirepointPos(from, "aimpoint");
+	}
+	else
+	{
+		from = m_curr_aimpos;
+		from.Add(GetPosW(), &from);
+		found = true;
+	}
+
+	if (!found)
+	{
+		CPnt3D fire;
+
+		if (!m_kit.CurWeaponIsM203Mode())
+		{
+			if (m_curr_firept == NULL)
+			{
+				found = GetFirepointPos(fire, "firepoint");
+			}
+			else
+			{
+				fire = m_curr_firepos;
+				fire.Add(GetPosW(), &fire);
+				found = true;
+			}
+		}
+		else
+		{
+			found = GetFirepointPos(fire, "firepoint_203");
+		}
+
+		if (!found)
+			return CalcAimGoal(&m_aim_dir, &CPnt3D::unit_nz, &m_aim_goal);
+
+		from = fire;
+	}
+
+	CQuat inverse;
+	inverse.w = m_quat.w;
+	inverse.vec.x = -m_quat.vec.x;
+	inverse.vec.y = -m_quat.vec.y;
+	inverse.vec.z = -m_quat.vec.z;
+	CPnt3D dir;
+	m_reticle_pt.Sub(&from, &dir);
+	inverse.Apply(&dir, &dir, 1);
+	dir.Normalize();
+
+	if (m_state == 2)
+	{
+		bool level = true;
+
+		if (m_velM.z * m_velM.z + m_velM.x * m_velM.x + m_velM.y * m_velM.y == 0.0f)
+		{
+			zdb::CCamera *camera = zdb::CWorld::m_world->m_camera;
+			CPnt3D look;
+			look.x = camera->m_matrix.m_matrix[2][0];
+			look.y = camera->m_matrix.m_matrix[2][1];
+			look.z = camera->m_matrix.m_matrix[2][2];
+			look.Scale(-1.0f, &look);
+			f32 d = look.z * m_groundNormal.z + look.x * m_groundNormal.x + look.y * m_groundNormal.y;
+			level = !(d < -0.642f) && !(0.642f < d);
+		}
+
+		if (!level)
+		{
+			Crouch();
+			m_desiredState = SEAL_STATE::stateCrouch;
+		}
+
+		m_reticle_pt.Sub(&from, &dir);
+		inverse.Apply(&dir, &dir, 1);
+		dir.Normalize();
+	}
+	else if (!CanAttainAim(dir))
+	{
+		m_aim_point = m_prev_aim_point;
+		m_aim_norm = m_prev_aim_norm;
+		m_reticle_pt = m_prev_reticle_pt;
+		m_have_aim_norm = m_prev_have_aim_norm;
+		m_reticle_pt.Sub(&from, &dir);
+		inverse.Apply(&dir, &dir, 1);
+		dir.Normalize();
+	}
+
+	return CalcAimGoal(&m_aim_dir, &dir, &m_aim_goal);
 }
 
 /* @socom-skeleton stub CanProneAim__10CZSealBodyFv */
@@ -248,6 +423,7 @@ float CZSealBody::GetAimDot()
 }
 
 /* @socom-skeleton stub CanAttainAim__10CZSealBodyFR6CPnt3D */
-void CZSealBody::CanAttainAim(CPnt3D &)
+bool CZSealBody::CanAttainAim(CPnt3D &)
 {
+	/* port: not written (0x2befc0, 584 B); reached only with a weapon (UpdateAimDir) */
 }

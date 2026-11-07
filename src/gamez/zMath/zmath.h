@@ -401,7 +401,7 @@ public:
 	CPnt3D m_max;
 	/* @socom-skeleton decl 5CBBox */
 public:
-	void GetIntersect(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, bool);
+	bool GetIntersect(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, bool); /* 0x221880 returns 0/1 (hit) */
 	/* @socom-skeleton end 5CBBox */
 };
 

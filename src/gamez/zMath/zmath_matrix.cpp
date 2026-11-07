@@ -131,47 +131,59 @@ CQuat * CMatrix::ToQuat(CQuat *q) const
 /* @socom-skeleton body Vu0MatrixInverseWithUniformScale__FP7CMatrixP7CMatrix */
 void Vu0MatrixInverseWithUniformScale(CMatrix* dst, CMatrix* src)
 {
-	f32 s0 = src->m_matrix[0][0] * src->m_matrix[1][1] - src->m_matrix[1][0] * src->m_matrix[0][1];
-	f32 s1 = src->m_matrix[0][0] * src->m_matrix[1][2] - src->m_matrix[1][0] * src->m_matrix[0][2];
-	f32 s2 = src->m_matrix[0][0] * src->m_matrix[1][3] - src->m_matrix[1][0] * src->m_matrix[0][3];
-	f32 s3 = src->m_matrix[0][1] * src->m_matrix[1][2] - src->m_matrix[1][1] * src->m_matrix[0][2];
-	f32 s4 = src->m_matrix[0][1] * src->m_matrix[1][3] - src->m_matrix[1][1] * src->m_matrix[0][3];
-	f32 s5 = src->m_matrix[0][2] * src->m_matrix[1][3] - src->m_matrix[1][2] * src->m_matrix[0][3];
+	/* 0x221f90 (VU0 macro code): the inverse of a rotation with a uniform scale plus a
+	   translation: the 3x3 transposed and divided by the squared length of row 0, the
+	   translation -(t.x row 0 + t.y row 1 + t.z row 2) of the new rows; the w column
+	   0, 0, 0, 1. No determinant test (port fix: the provisional general 4x4 inverse
+	   left dst unchanged for mirrored or small-scale matrices). Kept on VU0 because the
+	   callers rely on its register side effect: vf10.w = 0 (vmuly.w by vf0.y) before the
+	   CBBox/CDIBBox::GetIntersect microcode, which adds 1 to vf10.w on a hit. port: GCC
+	   inline-asm spelling; src and dst go through 16-byte aligned locals (GCC does not
+	   align CMatrix, the ELF loads and stores it with lqc2/sqc2); dst may be src. */
+	f32 in[4][4] __attribute__((aligned(16)));
+	f32 out[4][4] __attribute__((aligned(16)));
+	memcpy(in, src->m_matrix, sizeof(in));
 
-	f32 c5 = src->m_matrix[2][2] * src->m_matrix[3][3] - src->m_matrix[3][2] * src->m_matrix[2][3];
-	f32 c4 = src->m_matrix[2][1] * src->m_matrix[3][3] - src->m_matrix[3][1] * src->m_matrix[2][3];
-	f32 c3 = src->m_matrix[2][1] * src->m_matrix[3][2] - src->m_matrix[3][1] * src->m_matrix[2][2];
-	f32 c2 = src->m_matrix[2][0] * src->m_matrix[3][3] - src->m_matrix[3][0] * src->m_matrix[2][3];
-	f32 c1 = src->m_matrix[2][0] * src->m_matrix[3][2] - src->m_matrix[3][0] * src->m_matrix[2][2];
-	f32 c0 = src->m_matrix[2][0] * src->m_matrix[3][1] - src->m_matrix[3][0] * src->m_matrix[2][1];
+	__asm__ volatile(
+		"lqc2 $vf4, 0(%0)\n\t"
+		"vmul.xyz $vf8, $vf4, $vf4\n\t"
+		"vaddy.x $vf8, $vf8, $vf8y\n\t"
+		"vaddz.x $vf8, $vf8, $vf8z\n\t"
+		"vdiv $Q, $vf0w, $vf8x\n\t"
+		"lqc2 $vf5, 16(%0)\n\t"
+		"lqc2 $vf6, 32(%0)\n\t"
+		"lqc2 $vf7, 48(%0)\n\t"
+		"vaddy.x $vf20, $vf0, $vf4y\n\t"
+		"vaddz.x $vf21, $vf0, $vf4z\n\t"
+		"vaddz.y $vf22, $vf0, $vf5z\n\t"
+		"vaddx.w $vf13, $vf0, $vf0x\n\t"
+		"vwaitq\n\t"
+		"vmulq.xyz $vf10, $vf4, $Q\n\t"
+		"vmulq.xyz $vf11, $vf5, $Q\n\t"
+		"vmulq.xyz $vf12, $vf6, $Q\n\t"
+		"vaddx.y $vf10, $vf0, $vf11x\n\t"
+		"vaddx.z $vf10, $vf0, $vf12x\n\t"
+		"vaddy.z $vf11, $vf0, $vf12y\n\t"
+		"vmulq.x $vf11, $vf20, $Q\n\t"
+		"vmulq.x $vf12, $vf21, $Q\n\t"
+		"vmulq.y $vf12, $vf22, $Q\n\t"
+		"vmuly.w $vf10, $vf10, $vf0y\n\t"
+		"vmuly.w $vf11, $vf11, $vf0y\n\t"
+		"vmuly.w $vf12, $vf12, $vf0y\n\t"
+		"vaddy.w $vf13, $vf0, $vf0y\n\t"
+		"vmulax.xyz $ACC, $vf10, $vf7x\n\t"
+		"vmadday.xyz $ACC, $vf11, $vf7y\n\t"
+		"vmaddz.xyz $vf13, $vf12, $vf7z\n\t"
+		"vsub.xyz $vf13, $vf0, $vf13\n\t"
+		"sqc2 $vf10, 0(%1)\n\t"
+		"sqc2 $vf11, 16(%1)\n\t"
+		"sqc2 $vf12, 32(%1)\n\t"
+		"sqc2 $vf13, 48(%1)\n\t"
+		:
+		: "r"(in), "r"(out)
+		: "memory");
 
-	f32 div = (s0 * c5 - s1 * c4 + s2 * c3 + s3 * c2 - s4 * c1 + s5 * c0);
-
-	// Check against divide by zero
-	if (div <= 0.0000000125f)
-		return;
-
-	f32 invdet = 1.0f / div;
-
-	dst->m_matrix[0][0] = (src->m_matrix[1][1] * c5 - src->m_matrix[1][2] * c4 + src->m_matrix[1][3] * c3) * invdet;
-	dst->m_matrix[0][1] = (-src->m_matrix[0][1] * c5 + src->m_matrix[0][2] * c4 - src->m_matrix[0][3] * c3) * invdet;
-	dst->m_matrix[0][2] = (src->m_matrix[3][1] * s5 - src->m_matrix[3][2] * s4 + src->m_matrix[3][3] * s3) * invdet;
-	dst->m_matrix[0][3] = (src->m_matrix[2][1] * s5 - src->m_matrix[2][2] * s4 + src->m_matrix[2][3] * s3) * invdet;
-
-	dst->m_matrix[1][0] = (-src->m_matrix[1][0] * c5 + src->m_matrix[1][2] * c2 - src->m_matrix[1][3] * c1) * invdet;
-	dst->m_matrix[1][1] = (src->m_matrix[0][0] * c5 - src->m_matrix[0][2] * c2 + src->m_matrix[0][3] * c1) * invdet;
-	dst->m_matrix[1][2] = (-src->m_matrix[3][0] * s5 + src->m_matrix[3][2] * s2 - src->m_matrix[3][3] * s1) * invdet;
-	dst->m_matrix[1][3] = (src->m_matrix[2][0] * s5 - src->m_matrix[2][2] * s2 + src->m_matrix[2][3] * s1) * invdet;
-
-	dst->m_matrix[2][0] = (src->m_matrix[1][0] * c4 - src->m_matrix[1][1] * c2 + src->m_matrix[1][3] * c0) * invdet;
-	dst->m_matrix[2][1] = (-src->m_matrix[0][0] * c4 + src->m_matrix[0][1] * c2 - src->m_matrix[0][3] * c0) * invdet;
-	dst->m_matrix[2][2] = (src->m_matrix[3][0] * s4 - src->m_matrix[3][1] * s2 + src->m_matrix[3][3] * s0) * invdet;
-	dst->m_matrix[2][3] = (-src->m_matrix[2][0] * s4 + src->m_matrix[2][1] * s2 - src->m_matrix[2][3] * s0) * invdet;
-
-	dst->m_matrix[3][0] = (-src->m_matrix[1][0] * c3 + src->m_matrix[1][1] * c1 - src->m_matrix[1][2] * c0) * invdet;
-	dst->m_matrix[3][1] = (src->m_matrix[0][0] * c3 - src->m_matrix[0][1] * c1 + src->m_matrix[0][2] * c0) * invdet;
-	dst->m_matrix[3][2] = (-src->m_matrix[3][0] * s3 + src->m_matrix[3][1] * s1 - src->m_matrix[3][2] * s0) * invdet;
-	dst->m_matrix[3][3] = (src->m_matrix[2][0] * s3 - src->m_matrix[2][1] * s1 + src->m_matrix[2][2] * s0) * invdet;
+	memcpy(dst->m_matrix, out, sizeof(out));
 }
 
 /* @socom-skeleton body SetZero__7CMatrixFv */

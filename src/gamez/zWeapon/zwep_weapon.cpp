@@ -396,6 +396,8 @@ ENCUMBRANCE CZWeapon::GetEncumbrance()
 /* @socom-skeleton stub GetMaxRange__8CZWeaponFv */
 float CZWeapon::GetMaxRange()
 {
+	/* 0x31ec80 */
+	return m_maxrange;
 }
 
 /* @socom-skeleton stub GetEffectiveRange__8CZWeaponFv */

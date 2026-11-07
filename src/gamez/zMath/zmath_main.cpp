@@ -56,8 +56,65 @@ void CBits::Resize(unsigned int)
 }
 
 /* @socom-skeleton stub GetIntersect__5CBBoxFP6CPnt4DP6CPnt4DP6CPnt4DP6CPnt4Db */
-void CBBox::GetIntersect(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, bool)
+bool CBBox::GetIntersect(CPnt4D *tip, CPnt4D *tail, CPnt4D *hit, CPnt4D *norm, bool all)
 {
+	/* 0x221880: the segment (tip and tail into VU0 data qwords 0 and 1, between qmtc2.i
+	   interlocks) against the box faces in the VU0 microcode (slot 8, vu0IntersectBBox in
+	   zrndr_vu0.vsm): vf3 = m_min, vf4 = m_max with w the face mask (0: every face; 224:
+	   only the faces the tail is outside of); vf10 (the hit point, w + 1 on a hit) goes to
+	   hit, vf30 (the face normal) to norm. A hit when hit->w is 1 (the microcode adds 1 to
+	   vf10.w, which Vu0MatrixInverseWithUniformScale leaves 0 before the callers' tests).
+	   ELF quirk kept: vf3.w is the uninitialised stack word (the microcode ignores it).
+	   port: GCC inline-asm spelling; the box and results go through 16-byte aligned locals
+	   (the ELF's stack slots and callers' CPnt4D are aligned, GCC's are not). */
+	volatile f32* vu = reinterpret_cast<volatile f32*>(0x11004000);
+	f32 box[2][4] __attribute__((aligned(16)));
+	f32 out[2][4] __attribute__((aligned(16)));
+
+	__asm__ volatile("qmtc2.i $0, $vf0");
+	vu[0] = tip->x;
+	vu[1] = tip->y;
+	vu[2] = tip->z;
+	vu[3] = tip->w;
+	vu[4] = tail->x;
+	vu[5] = tail->y;
+	vu[6] = tail->z;
+	vu[7] = tail->w;
+	__asm__ volatile("sync.l\n\tqmtc2.i $0, $vf0");
+
+	box[0][0] = m_min.x;
+	box[0][1] = m_min.y;
+	box[0][2] = m_min.z;
+	box[1][0] = m_max.x;
+	box[1][1] = m_max.y;
+	box[1][2] = m_max.z;
+	reinterpret_cast<u32*>(box[1])[3] = all ? 0 : 224;
+	hit->w = 0.0f;
+
+	__asm__ volatile(
+		"qmtc2.i $0, $vf0\n\t"
+		"lqc2 $vf3, 0(%0)\n\t"
+		"lqc2 $vf4, 16(%0)\n\t"
+		"vcallms 0x40\n\t"
+		"vnop\n\t"
+		"vnop\n\t"
+		"qmtc2.i $0, $vf0\n\t"
+		"sqc2 $vf10, 0(%1)\n\t"
+		"sqc2 $vf30, 16(%1)\n\t"
+		"qmtc2.i $0, $vf0\n\t"
+		:
+		: "r"(box), "r"(out)
+		: "memory");
+
+	hit->x = out[0][0];
+	hit->y = out[0][1];
+	hit->z = out[0][2];
+	hit->w = out[0][3];
+	norm->x = out[1][0];
+	norm->y = out[1][1];
+	norm->z = out[1][2];
+	norm->w = out[1][3];
+	return hit->w == 1.0f;
 }
 
 /* @socom-skeleton stub MakeXRot__5CQuatFf */

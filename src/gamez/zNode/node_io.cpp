@@ -425,14 +425,26 @@ bool CLight::Read(CSaveLoad& sload)
 
 /* @socom-skeleton body BuildMTW__Q23zdb5CNodeFR7CMatrix */
 namespace zdb {
-CMatrix& CNode::BuildMTW(CMatrix& mat)
+CMatrix* CNode::BuildMTW(CMatrix& mat)
 	{
+		/* 0x223230 (recursion inlined three levels): mat times this node's matrix and its
+		   ancestors' up to the grid (a grid node itself: identity); NULL when the chain ends
+		   without reaching the grid */
 		if (m_type == (u32)TYPE::GRID)
 		{
-			// set identity matrix
+			sceVu0UnitMatrix(mat.m_matrix);
+			return &mat;
 		}
 
-		return mat; /* port: was `return CMatrix();` (a reference to a temporary) */
+		sceVu0MulMatrix(mat.m_matrix, m_matrix.m_matrix, mat.m_matrix);
+
+		if (m_parent == NULL)
+			return NULL;
+
+		if (m_parent->m_type == (u32)TYPE::GRID)
+			return &mat;
+
+		return m_parent->BuildMTW(mat);
 	}
 }
 

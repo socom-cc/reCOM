@@ -46,7 +46,7 @@
 
 /* @socom-skeleton stub m_BBoxHitNodes__Q23zdb5CGrid */
 namespace zdb {
-unsigned char CGrid::m_BBoxHitNodes[32] = {0};
+CNode* CGrid::m_BBoxHitNodes[8] = {0};
 }
 
 /* @socom-skeleton stub m_doIntersect__Q23zdb5CGrid */
@@ -98,23 +98,78 @@ int CGrid::m_BBoxIntersectNodeCnt;
 unsigned char CellCheck[1600];
 
 /* @socom-skeleton stub SetCameraCollideFlagRequired__3zdbFb */
-void zdb::SetCameraCollideFlagRequired(bool)
+void zdb::SetCameraCollideFlagRequired(bool required)
 {
+	/* 0x2148c0: the node walks then filter DIs by camera type (see NodeGetIntersect) */
+	cameraCollideFlagRequired = required;
 }
 
 /* @socom-skeleton stub _cmpdi__FPCvPCv */
-int _cmpdi(const void *, const void *)
+int _cmpdi(const void *a, const void *b)
 {
+	/* 0x214860: qsort order of hit indices by the distances in _cmpdi_rs */
+	const f32* dist = reinterpret_cast<const f32*>(_cmpdi_rs);
+	f32 da = dist[*static_cast<const int*>(a)];
+	f32 db = dist[*static_cast<const int*>(b)];
+
+	if (da < db)
+		return -1;
+
+	return da == db ? 0 : 1;
 }
 
 /* @socom-skeleton stub SortNearToFar__Q23zdb11DiIntersectFPiPf */
-void zdb::DiIntersect::SortNearToFar(int *, float *)
+void zdb::DiIntersect::SortNearToFar(int *order, float *dist)
 {
+	/* 0x214750: order = the hit indices, dist = their squared distances from the tail;
+	   order sorted near to far (qsort with _cmpdi) when there are two or more. The two
+	   file statics hold the DI and the distances during the sort. */
+	if (m_Cnt <= 0)
+		return;
+
+	for (int i = 0; i < m_Cnt; i++)
+	{
+		order[i] = i;
+		CPnt3D d;
+		m_Intersects[i].m_pos.Sub(&m_Tail, &d);
+		dist[i] = d.x * d.x + d.y * d.y + d.z * d.z;
+	}
+
+	if (m_Cnt < 2)
+		return;
+
+	_cmpdi_rs = reinterpret_cast<int>(dist);
+	_cmpdi_di = reinterpret_cast<int>(this);
+	qsort(order, m_Cnt, sizeof(int), _cmpdi);
+	_cmpdi_di = 0;
+	_cmpdi_rs = 0;
 }
 
 /* @socom-skeleton stub GetNearestIntersect__Q23zdb11DiIntersectFv */
 zdb::IntersectStruct * zdb::DiIntersect::GetNearestIntersect()
 {
+	/* 0x214620: the hit nearest the tail (NULL without hits; a later hit wins a tie) */
+	if (m_Cnt <= 0)
+		return NULL;
+
+	CPnt3D d;
+	m_Intersects[0].m_pos.Sub(&m_Tail, &d);
+	f32 best = d.x * d.x + d.y * d.y + d.z * d.z;
+	int nearest = 0;
+
+	for (int i = 1; i < m_Cnt; i++)
+	{
+		m_Intersects[i].m_pos.Sub(&m_Tail, &d);
+		f32 dist = d.x * d.x + d.y * d.y + d.z * d.z;
+
+		if (dist <= best)
+		{
+			best = dist;
+			nearest = i;
+		}
+	}
+
+	return &m_Intersects[nearest];
 }
 
 /* @socom-skeleton stub GetHighestAltitude__Q23zdb11DiIntersectFPC6CPnt3Df */
@@ -175,18 +230,514 @@ bool zdb::CGrid::GetAltitude(zdb::DiIntersect *di)
 }
 
 /* @socom-skeleton stub GetIntersect__Q23zdb5CGridFPQ23zdb11DiIntersect */
-void zdb::CGrid::GetIntersect(zdb::DiIntersect *)
+bool zdb::CGrid::GetIntersect(zdb::DiIntersect *di)
 {
+	/* 0x2141f0: the segment tail -> tip as a two-point line walk over the grid; every
+	   grid atom under it (identity on the matrix stack) through NodeGetIntersect */
+	if (!m_doIntersect)
+		return false;
+
+	di->m_Cnt = 0;
+	CPnt3D line[2];
+	line[0] = di->m_Tail;
+	line[1] = di->m_Tip;
+	SetTraversalBoundary(line, 2, true);
+	CGridAtom* atom = StartTraversal();
+
+	CStack::m_top++;
+	CStack::m_pointer++;
+	sceVu0CopyMatrix(CStack::m_top->m_matrix, const_cast<CMatrix&>(CMatrix::identity).m_matrix);
+
+	for (; atom != NULL; atom = GetNextAtom())
+	{
+		/* port: not written - a cell atom first walks its clutter (0x2142a4-0x214334:
+		   each CClutter's matrix pushed, NodeGetIntersect of the clutter's node), as in
+		   GetAltitude: the port never fills CClutterList */
+		::m_node = atom->Ent;
+		NodeGetIntersect(atom->Ent, di);
+	}
+
+	CStack::m_pointer--;
+	CStack::m_top--;
+	return true;
 }
 
 /* @socom-skeleton stub GetIntersectBatch__Q23zdb5CGridFPPQ23zdb11DiIntersecti */
-void zdb::CGrid::GetIntersectBatch(zdb::DiIntersect **, int)
+bool zdb::CGrid::GetIntersectBatch(zdb::DiIntersect **dis, int count)
 {
+	/* 0x213830 (CWorld::diTick): the frame's delayed DIs in one grid pass. The cells
+	   under any of them are marked in CellCheck, relative to the x/z extents of all of
+	   them (altitude probes 1 by their tail, proximity spheres 4 by tail +- radius, the
+	   radius in m_Tip.x, chords 2 by both ends), each DI's hits and done mark cleared on
+	   the way; then every active atom of a marked cell, once per grid tick (the node's
+	   m_TickNum), goes through NodeGetIntersectBatch with every DI (their done marks
+	   cleared again first). ELF quirk kept: the extents start from the first DI's tail
+	   whatever its type. */
+	if (count == 0 || !m_doIntersect)
+		return false;
+
+	CPnt3D extents[2];
+	extents[0].x = dis[0]->m_Tail.x;
+	extents[0].z = dis[0]->m_Tail.z;
+	extents[1].x = dis[0]->m_Tail.x;
+	extents[1].z = dis[0]->m_Tail.z;
+
+	for (int i = 0; i < count; i++)
+	{
+		DiIntersect* di = dis[i];
+		di->m_Cnt = 0;
+		u32 type = di->m_Type & 0x7fff;
+
+		if (type == 1)
+		{
+			if (di->m_Tail.x <= extents[0].x)
+				extents[0].x = di->m_Tail.x;
+
+			if (di->m_Tail.z <= extents[0].z)
+				extents[0].z = di->m_Tail.z;
+
+			if (extents[1].x <= di->m_Tail.x)
+				extents[1].x = di->m_Tail.x;
+
+			if (extents[1].z <= di->m_Tail.z)
+				extents[1].z = di->m_Tail.z;
+		}
+		else if (type == 4)
+		{
+			f32 r = di->m_Tip.x;
+
+			if (di->m_Tail.x - r <= extents[0].x)
+				extents[0].x = di->m_Tail.x - r;
+
+			if (di->m_Tail.z - r <= extents[0].z)
+				extents[0].z = di->m_Tail.z - r;
+
+			if (extents[1].x <= di->m_Tail.x + r)
+				extents[1].x = di->m_Tail.x + r;
+
+			if (extents[1].z <= di->m_Tail.z + r)
+				extents[1].z = di->m_Tail.z + r;
+		}
+		else if (type == 2)
+		{
+			if (di->m_Tail.x <= extents[0].x)
+				extents[0].x = di->m_Tail.x;
+
+			if (di->m_Tail.z <= extents[0].z)
+				extents[0].z = di->m_Tail.z;
+
+			if (extents[1].x <= di->m_Tail.x)
+				extents[1].x = di->m_Tail.x;
+
+			if (extents[1].z <= di->m_Tail.z)
+				extents[1].z = di->m_Tail.z;
+
+			if (di->m_Tip.x <= extents[0].x)
+				extents[0].x = di->m_Tip.x;
+
+			if (di->m_Tip.z <= extents[0].z)
+				extents[0].z = di->m_Tip.z;
+
+			if (extents[1].x <= di->m_Tip.x)
+				extents[1].x = di->m_Tip.x;
+
+			if (extents[1].z <= di->m_Tip.z)
+				extents[1].z = di->m_Tip.z;
+		}
+	}
+
+	SetTraversalExtents(extents, 2, false);
+	s32 x0 = m_ix;
+	s32 z0 = m_iz;
+	s32 width = m_ixb - x0;
+	s32 cells = width * (m_izb - z0);
+
+	for (int i = 0; i < cells; i++)
+		CellCheck[i] = 0;
+
+	for (int i = 0; i < count; i++)
+	{
+		DiIntersect* di = dis[i];
+		di->m_TreeDoneNode = NULL;
+		di->m_Type &= 0x7fff;
+		u32 type = di->m_Type & 0x7fff;
+		CPnt3D bound[2];
+
+		if (type == 1)
+		{
+			bound[0].x = di->m_Tail.x;
+			bound[0].z = di->m_Tail.z;
+			SetTraversalBoundary(bound, 1, false);
+		}
+		else if (type == 4)
+		{
+			f32 r = di->m_Tip.x;
+			bound[0].x = di->m_Tail.x - r;
+			bound[0].z = di->m_Tail.z - r;
+			bound[1].x = di->m_Tail.x + r;
+			bound[1].z = di->m_Tail.z + r;
+			SetTraversalBoundary(bound, 2, false);
+		}
+		else if (type == 2)
+		{
+			bound[0] = di->m_Tail;
+			bound[1] = di->m_Tip;
+			SetTraversalBoundary(bound, 2, true);
+		}
+
+		m_xx = m_ix;
+		m_zz = m_iz - 1;
+
+		while (gridGetNextIndex())
+		{
+			if (!gridCellOut(m_xx, m_zz))
+				CellCheck[width * (m_zz - z0) + (m_xx - x0)] = 1;
+		}
+	}
+
+	SetTraversalExtents(extents, 2, false);
+	CStack::m_top++;
+	CStack::m_pointer++;
+	sceVu0CopyMatrix(CStack::m_top->m_matrix, const_cast<CMatrix&>(CMatrix::identity).m_matrix);
+
+	for (m_zz = m_iz; m_zz < m_izb; m_zz++)
+	{
+		for (m_xx = m_ix; m_xx < m_ixb; m_xx++)
+		{
+			NodeCheck = CellCheck[(m_xx - x0) + width * (m_zz - z0)];
+
+			if (!NodeCheck)
+				continue;
+
+			for (m_NextAtom = *gridGetAtomBasePtr(m_xx, m_zz); m_NextAtom != NULL; m_NextAtom = m_NextAtom->Next)
+			{
+				CNode* node = m_NextAtom->Ent;
+
+				if (!node->m_active || !(node->m_TickNum < m_TickNum))
+					continue;
+
+				node->m_TickNum = m_TickNum;
+
+				for (int i = 0; i < count; i++)
+				{
+					dis[i]->m_TreeDoneNode = NULL;
+					dis[i]->m_Type &= 0x7fff;
+				}
+
+				/* port: not written - a cell atom first walks its clutter (0x214078-0x214104,
+				   NodeGetIntersectBatch of each clutter node under its matrix): the port
+				   never fills CClutterList (see GetAltitude) */
+				::m_node = m_NextAtom->Ent;
+				NodeGetIntersectBatch(m_NextAtom->Ent, dis, count);
+			}
+		}
+	}
+
+	CStack::m_pointer--;
+	CStack::m_top--;
+	return true;
 }
 
 /* @socom-skeleton stub NodeGetIntersectBatch__Q23zdb5CGridFPQ23zdb5CNodePPQ23zdb11DiIntersecti */
-void zdb::CGrid::NodeGetIntersectBatch(zdb::CNode *, zdb::DiIntersect **, int)
+void zdb::CGrid::NodeGetIntersectBatch(zdb::CNode *node, zdb::DiIntersect **dis, int count)
 {
+	/* 0x212310: an active node with DI, on the matrix stack. A DI is done for this node's
+	   tree (m_TreeDoneNode = node, m_Type bit 15) when the node is its own, or, under a
+	   character atom, for a chord that skips characters or misses the character root's
+	   bbox (model space, CBBox::GetIntersect with every face). With a DI left: the node's
+	   DIs per remaining DI, in node space. An altitude probe (1) is a vertical segment
+	   +-500000 through the tail, a chord (2) the segment; either is done when it cannot
+	   cross the node's bbox, else the DIs (floor type bit 0 for probes, wall bit 1 for
+	   chords, the camera filter of NodeGetIntersect) are tested while there is room, the
+	   hits back in world space (a probe stops at its first, a chord when the vector says
+	   so). A proximity sphere (4, radius m_Tip.x) whose bbox-centre box test passes
+	   records the node (and its first DI); probes and spheres that skip characters are
+	   done under a character, and so is a recorded sphere. Then the children; at the end
+	   the DIs done here are cleared again. */
+	if (node == NULL || !node->m_active || !node->m_hasDI)
+		return;
+
+	stack.Multiply(&node->m_matrix, true);
+	bool done = true;
+
+	auto finish = [node](DiIntersect* di) {
+		di->m_TreeDoneNode = node;
+		di->m_Type |= 0x8000;
+	};
+	auto rejects = [node](const DiIntersect* di) {
+		const CPnt3D& tail = di->m_MTail;
+		const CPnt3D& tip = di->m_MTip;
+		const CBBox& box = node->m_bbox;
+
+		return (tip.x < box.m_min.x && tail.x < box.m_min.x)
+			|| (!(tip.x <= box.m_max.x) && !(tail.x <= box.m_max.x))
+			|| (tip.y < box.m_min.y && tail.y < box.m_min.y)
+			|| (!(tip.y <= box.m_max.y) && !(tail.y <= box.m_max.y))
+			|| (tip.z < box.m_min.z && tail.z < box.m_min.z)
+			|| (!(tip.z <= box.m_max.z) && !(tail.z <= box.m_max.z));
+	};
+
+	for (int i = 0; i < count; i++)
+	{
+		DiIntersect* di = dis[i];
+
+		if (node == di->m_Node)
+		{
+			finish(di);
+		}
+		else if (::m_node->m_character && (di->m_Type & 0x7fff) == 2)
+		{
+			if (!di->m_IntersectCharacters)
+			{
+				finish(di);
+			}
+			else if (node == ::m_node)
+			{
+				CBBox* box = node->GetBBox(); /* inline in the ELF (two parent levels) */
+				CMatrix inverse;
+				sceVu0UnitMatrix(inverse.m_matrix);
+				Vu0MatrixInverseWithUniformScale(&inverse, CStack::m_top);
+				di->m_MTail = di->m_Tail;
+				inverse.Transform(&di->m_MTail, 1);
+				di->m_MTip = di->m_Tip;
+				inverse.Transform(&di->m_MTip, 1);
+
+				if (!node->m_use_parent_bbox && rejects(di))
+				{
+					finish(di);
+				}
+				else
+				{
+					CPnt4D tip;
+					tip.x = di->m_MTip.x;
+					tip.y = di->m_MTip.y;
+					tip.z = di->m_MTip.z;
+					tip.w = 1.0f;
+					CPnt4D tail;
+					tail.x = di->m_MTail.x;
+					tail.y = di->m_MTail.y;
+					tail.z = di->m_MTail.z;
+					tail.w = 1.0f;
+					CPnt4D hit;
+					CPnt4D norm;
+
+					if (!box->GetIntersect(&tip, &tail, &hit, &norm, true))
+						finish(di);
+				}
+			}
+		}
+
+		if (done && !(di->m_Type & 0x8000))
+			done = false;
+	}
+
+	if (!done)
+	{
+		if (node->m_di.size() != 0)
+		{
+			CMatrix inverse;
+			sceVu0UnitMatrix(inverse.m_matrix);
+			Vu0MatrixInverseWithUniformScale(&inverse, CStack::m_top);
+			bool stop_first = false;
+
+			for (int i = 0; i < count; i++)
+			{
+				DiIntersect* di = dis[i];
+
+				if (::m_node->m_character)
+				{
+					u32 type = di->m_Type & 0x7fff;
+
+					if (type == 4)
+					{
+						if (!di->m_ProximityCharacters)
+							finish(di);
+					}
+					else if (type == 1 && !di->m_AltitudeCharacters)
+					{
+						finish(di);
+					}
+				}
+
+				if (di->m_Type & 0x8000)
+					continue;
+
+				u32 type = di->m_Type & 0x7fff;
+
+				if (type == 1)
+				{
+					di->m_MTail.x = di->m_Tail.x;
+					di->m_MTail.y = 500000.0f;
+					di->m_MTail.z = di->m_Tail.z;
+					inverse.Transform(&di->m_MTail, 1);
+					di->m_MTip.x = di->m_Tail.x;
+					di->m_MTip.y = -500000.0f;
+					di->m_MTip.z = di->m_Tail.z;
+					inverse.Transform(&di->m_MTip, 1);
+
+					if (!node->m_use_parent_bbox && rejects(di))
+					{
+						finish(di);
+					}
+					else
+					{
+						stop_first = node->m_di.m_bStopAtFirstIntersection;
+						CDI::m_backface_mask = node->m_di.m_bReturnBackFaceIntersections ? 0x30 : 0x20;
+						di->LoadTipAndTail();
+					}
+				}
+				else if (type == 4)
+				{
+					di->m_MTail = di->m_Tail;
+					inverse.Transform(&di->m_MTail, 1);
+					f32 r = di->m_Tip.x;
+					bool inside = true;
+
+					if (!node->m_use_parent_bbox)
+					{
+						CPnt3D half;
+						node->m_bbox.m_max.Sub(&node->m_bbox.m_min, &half);
+						half.Scale(0.5f, &half);
+						CPnt3D centre;
+						node->m_bbox.m_min.Add(&half, &centre);
+						const CPnt3D& p = di->m_MTail;
+
+						inside = centre.x <= p.x + r && p.x - r <= centre.x
+							&& centre.y <= p.y + r && p.y - r <= centre.y
+							&& centre.z <= p.z + r && p.z - r <= centre.z;
+					}
+
+					if (!inside)
+					{
+						finish(di);
+					}
+					else if (di->m_Cnt < di->m_BufCnt)
+					{
+						s32 index = di->m_Cnt;
+
+						if (::m_node->m_character)
+							finish(di);
+
+						if (node->m_di.size() != 0)
+							di->m_Intersects[di->m_Cnt].m_poly = node->m_di[0];
+
+						di->m_Intersects[index].m_node = node;
+						di->m_Cnt++;
+					}
+				}
+				else if (type == 2)
+				{
+					di->m_MTail = di->m_Tail;
+					inverse.Transform(&di->m_MTail, 1);
+					di->m_MTip = di->m_Tip;
+					inverse.Transform(&di->m_MTip, 1);
+
+					if (!node->m_use_parent_bbox && rejects(di))
+					{
+						finish(di);
+					}
+					else
+					{
+						stop_first = node->m_di.m_bStopAtFirstIntersection;
+						CDI::m_backface_mask = node->m_di.m_bReturnBackFaceIntersections ? 0x30 : 0x20;
+						di->LoadTipAndTail();
+					}
+				}
+
+				if (di->m_Type & 0x8000)
+					continue;
+
+				bool stop = false;
+
+				for (CDIVector::iterator it = node->m_di.begin(); !stop && it != node->m_di.end(); ++it)
+				{
+					CDI* poly = *it;
+					bool pass;
+
+					if (!cameraCollideFlagRequired)
+					{
+						pass = !(poly->m_cameratype & 1);
+					}
+					else if (!(poly->m_cameratype & 2))
+					{
+						u32 material = poly->m_material;
+
+						if (material >= CMaterialExArray::m_materialex_list.size())
+							material = 0;
+
+						CMaterialEx* ex = CMaterialExArray::m_materialex_list[material];
+						pass = ex == NULL || !ex->m_volumetric;
+					}
+					else
+					{
+						pass = false;
+					}
+
+					if (!pass)
+						continue;
+
+					u32 kind = di->m_Type & 0x7fff;
+
+					if (kind == 1)
+					{
+						if (!(poly->m_ditype & 1) || !(di->m_Cnt < di->m_BufCnt))
+							continue;
+
+						s32 index = di->m_Cnt;
+						stop = poly->GetIntersect(di);
+
+						if (stop)
+						{
+							IntersectStruct* rec = &di->m_Intersects[index];
+							rec->m_node = node;
+							CStack::m_top->Transform(&rec->m_pos, 1);
+							CStack::m_top->Rotate(&rec->m_norm, &rec->m_norm, 1);
+							di->m_Cnt++;
+						}
+					}
+					else if (kind == 2)
+					{
+						if (!(poly->m_ditype & 2) || !(di->m_Cnt < di->m_BufCnt))
+							continue;
+
+						s32 index = di->m_Cnt;
+						stop = poly->GetIntersect(di);
+
+						if (stop)
+						{
+							IntersectStruct* rec = &di->m_Intersects[index];
+							rec->m_node = node;
+							CStack::m_top->Transform(&rec->m_pos, 1);
+							CStack::m_top->Rotate(&rec->m_norm, &rec->m_norm, 1);
+							di->m_Cnt++;
+							stop = stop_first;
+						}
+					}
+					else
+					{
+						stop = true;
+					}
+				}
+			}
+		}
+
+		for (CNodeVector::iterator it = node->m_child.begin(); it != node->m_child.end(); ++it)
+			NodeGetIntersectBatch(*it, dis, count);
+	}
+
+	for (int i = 0; i < count; i++)
+	{
+		DiIntersect* di = dis[i];
+
+		if (node == di->m_TreeDoneNode)
+		{
+			di->m_TreeDoneNode = NULL;
+			di->m_Type &= 0x7fff;
+		}
+	}
+
+	CStack::m_pointer--;
+	CStack::m_top--;
 }
 
 /* @socom-skeleton stub InitDescendantsDI__Q23zdb5CGridFv */
@@ -200,8 +751,163 @@ void zdb::CGrid::InitDescendantsVisuals()
 }
 
 /* @socom-skeleton stub NodeGetIntersect__Q23zdb5CGridFPQ23zdb5CNodePQ23zdb11DiIntersect */
-void zdb::CGrid::NodeGetIntersect(zdb::CNode *, zdb::DiIntersect *)
+void zdb::CGrid::NodeGetIntersect(zdb::CNode *node, zdb::DiIntersect *di)
 {
+	/* 0x2115f0: an active node with DI (under a character atom only when the ray takes
+	   characters; not the ray's own node) on the matrix stack. The root node of a
+	   character atom must be hit in its bbox first (model space, CBBox::GetIntersect with
+	   every face); the hit is kept in m_BBoxHitNodes (up to 8) while
+	   m_doBBoxIntersectNodes (CheckDIShoot's auto aim). Then, with DIs: the ray in node
+	   space; when it can cross the node's bbox (always with m_use_parent_bbox) the wall
+	   DIs (type bit 1) passing the camera filter are tested until one hits and the vector
+	   stops at its first (the hit back in world space while there is room); then the
+	   children, unless the bbox rejected the ray. Camera filter: without the camera
+	   collide flag, DIs of camera type bit 0 are skipped; with it, those of bit 1 and
+	   those of a volumetric material. */
+	if (node == NULL || !node->m_active || !node->m_hasDI)
+		return;
+
+	if (!di->m_IntersectCharacters && ::m_node->m_character) /* the walk's atom node, not `node` */
+		return;
+
+	if (node == di->m_Node)
+		return;
+
+	bool outside = false;
+	stack.Multiply(&node->m_matrix, true);
+
+	auto rejects = [node](const DiIntersect* ray) {
+		const CPnt3D& tail = ray->m_MTail;
+		const CPnt3D& tip = ray->m_MTip;
+		const CBBox& box = node->m_bbox;
+
+		return (tip.x < box.m_min.x && tail.x < box.m_min.x)
+			|| (!(tip.x <= box.m_max.x) && !(tail.x <= box.m_max.x))
+			|| (tip.y < box.m_min.y && tail.y < box.m_min.y)
+			|| (!(tip.y <= box.m_max.y) && !(tail.y <= box.m_max.y))
+			|| (tip.z < box.m_min.z && tail.z < box.m_min.z)
+			|| (!(tip.z <= box.m_max.z) && !(tail.z <= box.m_max.z));
+	};
+
+	if (::m_node->m_character && node == ::m_node)
+	{
+		CMatrix inverse;
+		sceVu0UnitMatrix(inverse.m_matrix);
+		Vu0MatrixInverseWithUniformScale(&inverse, CStack::m_top);
+		di->m_MTail = di->m_Tail;
+		inverse.Transform(&di->m_MTail, 1);
+		di->m_MTip = di->m_Tip;
+		inverse.Transform(&di->m_MTip, 1);
+
+		if (!node->m_use_parent_bbox && rejects(di))
+		{
+			CStack::m_pointer--;
+			CStack::m_top--;
+			return;
+		}
+
+		CBBox* box = node->GetBBox(); /* inline in the ELF (two parent levels) */
+		CPnt4D tip;
+		tip.x = di->m_MTip.x;
+		tip.y = di->m_MTip.y;
+		tip.z = di->m_MTip.z;
+		tip.w = 1.0f;
+		CPnt4D tail;
+		tail.x = di->m_MTail.x;
+		tail.y = di->m_MTail.y;
+		tail.z = di->m_MTail.z;
+		tail.w = 1.0f;
+		CPnt4D hit;
+		CPnt4D norm;
+
+		if (!box->GetIntersect(&tip, &tail, &hit, &norm, true))
+		{
+			CStack::m_pointer--;
+			CStack::m_top--;
+			return;
+		}
+
+		if (m_doBBoxIntersectNodes && m_BBoxIntersectNodeCnt < 8)
+			m_BBoxHitNodes[m_BBoxIntersectNodeCnt++] = node;
+	}
+
+	if (node->m_di.size() != 0)
+	{
+		CMatrix inverse;
+		sceVu0UnitMatrix(inverse.m_matrix);
+		Vu0MatrixInverseWithUniformScale(&inverse, CStack::m_top);
+		di->m_MTail = di->m_Tail;
+		inverse.Transform(&di->m_MTail, 1);
+		di->m_MTip = di->m_Tip;
+		inverse.Transform(&di->m_MTip, 1);
+		outside = !node->m_use_parent_bbox && rejects(di);
+
+		if (!outside)
+		{
+			bool stop_first = node->m_di.m_bStopAtFirstIntersection;
+			bool stop = false;
+			CDI::m_backface_mask = node->m_di.m_bReturnBackFaceIntersections ? 0x30 : 0x20;
+			di->LoadTipAndTail();
+
+			for (CDIVector::iterator it = node->m_di.begin(); !stop && it != node->m_di.end(); ++it)
+			{
+				CDI* poly = *it;
+
+				if (!(poly->m_ditype & 2))
+					continue;
+
+				bool pass;
+
+				if (!cameraCollideFlagRequired)
+				{
+					pass = !(poly->m_cameratype & 1);
+				}
+				else if (!(poly->m_cameratype & 2))
+				{
+					u32 material = poly->m_material;
+
+					if (material >= CMaterialExArray::m_materialex_list.size())
+						material = 0;
+
+					CMaterialEx* ex = CMaterialExArray::m_materialex_list[material];
+					pass = ex == NULL || !ex->m_volumetric;
+				}
+				else
+				{
+					pass = false;
+				}
+
+				if (!pass)
+					continue;
+
+				stop = poly->GetIntersect(di);
+
+				if (!stop)
+					continue;
+
+				s32 index = di->m_Cnt;
+				stop = stop_first;
+
+				if (index < di->m_BufCnt - 1)
+				{
+					IntersectStruct* rec = &di->m_Intersects[index];
+					rec->m_node = node;
+					CStack::m_top->Transform(&rec->m_pos, 1);
+					CStack::m_top->Rotate(&rec->m_norm, &rec->m_norm, 1);
+					di->m_Cnt++;
+				}
+			}
+		}
+	}
+
+	if (!outside)
+	{
+		for (CNodeVector::iterator it = node->m_child.begin(); it != node->m_child.end(); ++it)
+			NodeGetIntersect(*it, di);
+	}
+
+	CStack::m_pointer--;
+	CStack::m_top--;
 }
 
 /* @socom-skeleton stub NodeGetAltitude__Q23zdb5CGridFPQ23zdb5CNodePQ23zdb11DiIntersect */

@@ -143,8 +143,8 @@ public:
 		/* @socom-skeleton decl Q23zdb5CGrid */
 public:
 		bool GetAltitude(zdb::DiIntersect *); /* 0x2143b0 returns 0 (altitude off) or 1 */
-		void GetIntersect(zdb::DiIntersect *);
-		void GetIntersectBatch(zdb::DiIntersect **, int);
+		bool GetIntersect(zdb::DiIntersect *); /* 0x2141f0 returns 0 (intersect off) or 1 */
+		bool GetIntersectBatch(zdb::DiIntersect **, int); /* 0x213830 returns 0 (none or off) or 1 */
 		void NodeGetIntersectBatch(zdb::CNode *, zdb::DiIntersect **, int);
 		void InitDescendantsDI();
 		void InitDescendantsVisuals();
@@ -158,7 +158,7 @@ public:
 		void AddClutter(zdb::CClutter *);
 		void DeleteClutter();
 		void ReadClutter(const char *, const char *);
-		static unsigned char m_BBoxHitNodes[32];
+		static zdb::CNode* m_BBoxHitNodes[8]; /* 32 bytes: NodeGetIntersect stores node pointers (was uchar[32]) */
 		static int m_BBoxIntersectNodeCnt;
 		static unsigned char m_doAltitude;
 		static unsigned char m_doBBoxIntersectNodes;

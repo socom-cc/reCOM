@@ -47,8 +47,8 @@ public:
         unsigned int GetMaterial();
         unsigned int GetRegion();
         unsigned char IsInside();
-        void GetIntersectedEdgePointsY(CPnt3D *);
-        void GetIntersectedEdgePoints(CPnt3D *, CPnt3D *);
+        bool GetIntersectedEdgePointsY(CPnt3D *); /* 0x21c130 returns 0/1 */
+        bool GetIntersectedEdgePoints(CPnt3D *, CPnt3D *); /* 0x21bf20 returns 0/1 */
         /* @socom-skeleton end Q23zdb15IntersectStruct */
     };
 
@@ -137,7 +137,11 @@ public:
     {
     public:
         /* port: Exists(CDI*) is not declared: the ELF has only Exists__Q23zdb9CDIVectorFPCQ23zdb3CDI (the region below) */
-        bool m_bReturnBackFaceIntersections = false; /* DWARF +0xc (CDIVector is 16 bytes); the seal ctor (0x2584cc) sets it. port: guess - false until set (the owner's ctor value is not checked) */
+        /* inline in CNode's ctor (0x22862c): stop at the first hit, no back faces */
+        CDIVector() : m_bStopAtFirstIntersection(1), m_bReturnBackFaceIntersections(0), m_padding(0) {}
+        u8 m_bStopAtFirstIntersection : 1; /* DWARF +0xc bit 0: CGrid::NodeGetIntersect(Batch) end a node's DI loop at its first hit */
+        u8 m_bReturnBackFaceIntersections : 1; /* DWARF +0xc bit 1: CDI::m_backface_mask 0x30 instead of 0x20 (the seal ctor 0x2584cc sets it on its skeleton) */
+        u8 m_padding : 6;
         /* @socom-skeleton decl Q23zdb9CDIVector */
 public:
         bool Exists(const zdb::CDI *);
@@ -207,6 +211,7 @@ namespace zdb {
 class CDIBBox : public zdb::CDI
 {
 public:
+	CBBox* m_box; /* +0x24 (CDIBBox is 40 bytes, SetDIBBox 0x22c420): the owner node's bbox (no DWARF record; port: name guessed) */
 	virtual ~CDIBBox();
 	virtual bool GetIntersect(zdb::DiIntersect *);
 	virtual bool GetAltitude(zdb::DiIntersect *);

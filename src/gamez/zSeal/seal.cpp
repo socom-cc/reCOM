@@ -286,256 +286,267 @@ CCompass CZSealBody::m_compass;
 
 /* @socom-skeleton stub dilr00__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr00[72];
+zdb::DiIntersect dilr00(16); /* the seal chords (__sinit_seal.cpp: DiIntersect(16) each; was uchar[72]) */
 }
 
 /* @socom-skeleton stub dilr01__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr01[72];
+zdb::DiIntersect dilr01(16);
 }
 
 /* @socom-skeleton stub dilr02__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr02[72];
+zdb::DiIntersect dilr02(16);
 }
 
 /* @socom-skeleton stub dilr03__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr03[72];
+zdb::DiIntersect dilr03(16);
 }
 
 /* @socom-skeleton stub dilr04__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr04[72];
+zdb::DiIntersect dilr04(16);
 }
 
 /* @socom-skeleton stub dilr05__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr05[72];
+zdb::DiIntersect dilr05(16);
 }
 
 /* @socom-skeleton stub dilr06__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr06[72];
+zdb::DiIntersect dilr06(16);
 }
 
 /* @socom-skeleton stub dilr07__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr07[72];
+zdb::DiIntersect dilr07(16);
 }
 
 /* @socom-skeleton stub dilr08__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr08[72];
+zdb::DiIntersect dilr08(16);
 }
 
 /* @socom-skeleton stub dilr09__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr09[72];
+zdb::DiIntersect dilr09(16);
 }
 
 /* @socom-skeleton stub dilr10__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr10[72];
+zdb::DiIntersect dilr10(16);
 }
 
 /* @socom-skeleton stub dilr11__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr11[72];
+zdb::DiIntersect dilr11(16);
 }
 
 /* @socom-skeleton stub dilr12__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr12[72];
+zdb::DiIntersect dilr12(16);
 }
 
 /* @socom-skeleton stub dilr13__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr13[72];
+zdb::DiIntersect dilr13(16);
 }
 
 /* @socom-skeleton stub dilr14__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr14[72];
+zdb::DiIntersect dilr14(16);
 }
 
 /* @socom-skeleton stub dilr15__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr15[72];
+zdb::DiIntersect dilr15(16);
 }
 
 /* @socom-skeleton stub dilr16__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr16[72];
+zdb::DiIntersect dilr16(16);
 }
 
 /* @socom-skeleton stub dilr17__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr17[72];
+zdb::DiIntersect dilr17(16);
 }
 
 /* @socom-skeleton stub dilr18__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr18[72];
+zdb::DiIntersect dilr18(16);
 }
 
 /* @socom-skeleton stub dilr19__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr19[72];
+zdb::DiIntersect dilr19(16);
 }
 
 /* @socom-skeleton stub dilr20__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr20[72];
+zdb::DiIntersect dilr20(16);
 }
 
 /* @socom-skeleton stub dilr21__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr21[72];
+zdb::DiIntersect dilr21(16);
 }
 
 /* @socom-skeleton stub dilr22__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr22[72];
+zdb::DiIntersect dilr22(16);
 }
 
 /* @socom-skeleton stub dilr23__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr23[72];
+zdb::DiIntersect dilr23(16);
 }
 
 /* @socom-skeleton stub dilr24__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr24[72];
+zdb::DiIntersect dilr24(16);
 }
 
 /* @socom-skeleton stub dilr25__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr25[72];
+zdb::DiIntersect dilr25(16);
 }
 
 /* @socom-skeleton stub dilr26__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr26[72];
+zdb::DiIntersect dilr26(16);
 }
 
 /* @socom-skeleton stub dilr27__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr27[72];
+zdb::DiIntersect dilr27(16);
 }
 
 /* @socom-skeleton stub dilr28__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr28[72];
+zdb::DiIntersect dilr28(16);
 }
 
 /* @socom-skeleton stub dilr29__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr29[72];
+zdb::DiIntersect dilr29(16);
 }
 
 /* @socom-skeleton stub dilr30__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr30[72];
+zdb::DiIntersect dilr30(16);
 }
 
 /* @socom-skeleton stub dilr31__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr31[72];
+zdb::DiIntersect dilr31(16);
 }
 
 /* @socom-skeleton stub dilr32__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr32[72];
+zdb::DiIntersect dilr32(16);
 }
 
 /* @socom-skeleton stub dilr33__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr33[72];
+zdb::DiIntersect dilr33(16);
 }
 
 /* @socom-skeleton stub dilr34__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr34[72];
+zdb::DiIntersect dilr34(16);
 }
 
 /* @socom-skeleton stub dilr35__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr35[72];
+zdb::DiIntersect dilr35(16);
 }
 
 /* @socom-skeleton stub dilr36__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr36[72];
+zdb::DiIntersect dilr36(16);
 }
 
 /* @socom-skeleton stub dilr37__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr37[72];
+zdb::DiIntersect dilr37(16);
 }
 
 /* @socom-skeleton stub dilr38__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr38[72];
+zdb::DiIntersect dilr38(16);
 }
 
 /* @socom-skeleton stub dilr39__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr39[72];
+zdb::DiIntersect dilr39(16);
 }
 
 /* @socom-skeleton stub dilr40__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr40[72];
+zdb::DiIntersect dilr40(16);
 }
 
 /* @socom-skeleton stub dilr41__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr41[72];
+zdb::DiIntersect dilr41(16);
 }
 
 /* @socom-skeleton stub dilr42__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr42[72];
+zdb::DiIntersect dilr42(16);
 }
 
 /* @socom-skeleton stub dilr43__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr43[72];
+zdb::DiIntersect dilr43(16);
 }
 
 /* @socom-skeleton stub dilr44__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr44[72];
+zdb::DiIntersect dilr44(16);
 }
 
 /* @socom-skeleton stub dilr45__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr45[72];
+zdb::DiIntersect dilr45(16);
 }
 
 /* @socom-skeleton stub dilr46__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr46[72];
+zdb::DiIntersect dilr46(16);
 }
 
 /* @socom-skeleton stub dilr47__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr47[72];
+zdb::DiIntersect dilr47(16);
 }
 
 /* @socom-skeleton stub dilr48__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr48[72];
+zdb::DiIntersect dilr48(16);
 }
 
 /* @socom-skeleton stub dilr49__18@unnamed@seal_cpp@ */
 namespace {
-unsigned char dilr49[72];
+zdb::DiIntersect dilr49(16);
+}
+
+/* port: no skeleton stub - dilr 0x43a2a0 (.data): the 50 chord DIs by index */
+namespace {
+zdb::DiIntersect* dilr[50] = {
+	&dilr00, &dilr01, &dilr02, &dilr03, &dilr04, &dilr05, &dilr06, &dilr07, &dilr08, &dilr09,
+	&dilr10, &dilr11, &dilr12, &dilr13, &dilr14, &dilr15, &dilr16, &dilr17, &dilr18, &dilr19,
+	&dilr20, &dilr21, &dilr22, &dilr23, &dilr24, &dilr25, &dilr26, &dilr27, &dilr28, &dilr29,
+	&dilr30, &dilr31, &dilr32, &dilr33, &dilr34, &dilr35, &dilr36, &dilr37, &dilr38, &dilr39,
+	&dilr40, &dilr41, &dilr42, &dilr43, &dilr44, &dilr45, &dilr46, &dilr47, &dilr48, &dilr49
+};
 }
 
 /* @socom-skeleton stub l_int */
-static int l_int[128];
+static struct { zdb::IntersectStruct* hit; int chord; } l_int[64]; /* 512 bytes: PostComputeNextPosition's wall hits with their chord (was int[128]) */
 
 /* @socom-skeleton body SealInitCharacterDynamics__Fv */
 void SealInitCharacterDynamics()
@@ -1549,7 +1560,7 @@ void CZSealBody::HandleSliding(float)
 void CZSealBody::ComputeNextPosition(float dT)
 {
 	/* @socom-skeleton stub MoveAwayFromWallFactor$3232 */
-	static float MoveAwayFromWallFactor;
+	static float MoveAwayFromWallFactor = 1.75f; /* init$3233 */
 	/* 0x250f40: the frame's motion. The blend's pending offsets and the controller's fudge
 	 * velocities go into the model velocity (anim root motion) and the turn rate; vertical
 	 * anim motion is dropped unless the anim uses it; the next rotation is the current one
@@ -1557,13 +1568,14 @@ void CZSealBody::ComputeNextPosition(float dT)
 	 * jumps move by the descent only; the world velocity is the model velocity in the next
 	 * rotation, and the move dpos is it times dT (in the air, plus the in-air horizontal
 	 * velocity, which bleeds off at 150/s once landed). Sliding and player collisions adjust
-	 * the move; a still body (no move, turn or fire) does not query a new altitude. port:
-	 * not written - the ELF then registers the delayed wall probe chords (up to 50, through
-	 * CWorld::RegIntersectDelayed, 0x251880-0x2540b8: stance-sized fans at the spine, head,
-	 * hips and feet) that PostComputeNextPosition reads the next frame. The grid's batch
-	 * intersect (CGrid::GetIntersectBatch 0x213830) that answers them is not written, so no
-	 * chords are registered: the body does not collide with walls. */
-	(void)MoveAwayFromWallFactor;
+	 * the move; a still body (no move, turn or fire) does not query a new altitude. A moving
+	 * body then registers its wall probe chords (0x251880-0x2540b8, the file's 50 DIs
+	 * through CWorld::RegIntersectDelayed; this frame's diTick batch answers them and
+	 * PostComputeNextPosition reads them): a falling body from the low spine to the head,
+	 * hands and feet (and along the move), a dying one the same without the move chord,
+	 * the player five stance-sized chords (step height ahead, chest ahead or along the
+	 * fire point, aim point to fire point, and the two sides), any other body one ahead
+	 * at step height. Each chord skips its own node and characters. */
 	CZBodyAnimBlend *top = m_blends->Top();
 
 	if (IsCurrentBlend(AnimType::animTypeCrouch2Prone))
@@ -1688,10 +1700,329 @@ void CZSealBody::ComputeNextPosition(float dT)
 	}
 	else if (!(UseVelY() && !air))
 	{
-		/* the chord fan setup (0x2517a0-0x251870) and registration are not written: see above */
+		/* the chord fan: radius and height by stance (a prone body flat: 8 and 6), the
+		 * direction of the move (still: the body's forward), its normal in xz for the side
+		 * chords, the step height (prone: half the height) */
+		bool prone_strafe = IsCurrentBlend((AnimType)AnimTypes::ProneRStrafe) || IsCurrentBlend((AnimType)AnimTypes::ProneLStrafe);
+		bool prone = IsCurrentBlend(AnimType::animTypeProne) || IsCurrentBlend(AnimType::animTypeProneCrawl)
+			|| IsCurrentBlend(AnimType::animTypeProneTurn) || prone_strafe;
+		SEAL_STATE stance = GetStance(true);
+		f32 radius = 3.5f;
+		f32 height = 19.1f;
+
+		if (stance == SEAL_STATE::stateProne)
+		{
+			if (prone)
+			{
+				radius = 8.0f;
+				height = 6.0f;
+			}
+		}
+		else if (stance == SEAL_STATE::stateCrouch)
+		{
+			height = 15.0f;
+		}
+
+		CPnt3D dir;
+
+		if (still)
+		{
+			dir.x = m_node->m_matrix.m_matrix[2][0];
+			dir.y = m_node->m_matrix.m_matrix[2][1];
+			dir.z = m_node->m_matrix.m_matrix[2][2];
+			dir.Scale(-1.0f, &dir);
+		}
+		else
+		{
+			dir = dpos;
+		}
+
+		dir.Normalize();
+		CPnt3D unit_dir = dir;
+		dir.Scale(radius * 1.4f, &dir);
+		f32 step = theCharacterDynamics.m_stepHeight;
+		CPnt3D firepos = m_curr_firepos;
+		CPnt3D side;
+
+		if (still)
+		{
+			side.z = dir.x;
+			side.x = dir.z;
+		}
+		else
+		{
+			side.x = dpos.z;
+			side.z = dpos.x;
+		}
+
+		side.x = -side.x;
+		side.y = 0.0f;
+		side.Normalize();
+		CPnt3D side_in;
+		CPnt3D side_out;
+
+		if (prone_strafe)
+		{
+			dir.Scale(0.5f, &dir);
+			side.Scale(9.55f, &side);
+		}
+		else
+		{
+			side.Scale(radius, &side);
+			side.Scale(0.3f, &side_in);
+			side.Scale(1.2f, &side_out);
+		}
+
+		if (prone)
+		{
+			step = height * 0.5f;
+			side_out.Scale(0.5f, &side_out);
+		}
+
 		chordStart = curChord;
 		numChords = 0;
 		m_get_new_altitude = 1;
+		CZBodyAnimBlend *blend = m_blends->Top();
+		zdb::CNode *node = m_node;
+		const CPnt3D *pos = reinterpret_cast<const CPnt3D *>(&node->m_matrix.m_matrix[3][0]);
+
+		/* queue one chord (false when the 50 are taken: the ELF then returns at once) */
+		auto chord = [this](const CPnt3D *tail, const CPnt3D *tip) {
+			if (curChord >= 50)
+				return false;
+
+			dilr[curChord]->m_Type = 2;
+			zdb::CWorld::m_world->RegIntersectDelayed(dilr[curChord], tail, tip);
+			dilr[curChord]->m_Node = GetNode();
+			dilr[curChord]->m_IntersectCharacters = 0;
+			curChord++;
+			return true;
+		};
+		/* prone: the chord's rise along the root bone's tilt */
+		CPnt3D move_dir;
+		auto lift = [this, &move_dir](const CPnt3D &tail, const CPnt3D &tip) {
+			const CMatrix &root = GetRootPart()->m_node->m_matrix;
+			CPnt3D d;
+			tip.Sub(&tail, &d);
+			CPnt3D v;
+			move_dir.Scale(sqrtf(d.z * d.z + d.x * d.x + d.y * d.y), &v);
+			root.Rotate(&v, &v, 1);
+			return v.y;
+		};
+
+		if (falling || blend->m_state == 8)
+		{
+			/* falling: from the low spine along the move and to the head (front, left,
+			 * right), hands and feet; dying (blend state 8): to the head front, hands and
+			 * feet. Carried bodies register none. */
+			if (m_carry == NULL)
+			{
+				CPnt3D move = dpos;
+
+				if (move.y < 0.0f)
+				{
+					move.y += m_dT * theCharacterDynamics.m_gravity * m_dT;
+
+					if (move.y > 0.0f)
+						move.y = 0.0f;
+				}
+
+				CPnt3D tail;
+				CPnt3D tip;
+				PartInSpace(m_spinelo, NULL, &tail, NULL);
+				node->m_matrix.Transform(&tail, 1);
+
+				if (falling)
+				{
+					tail.Add(&move, &tip);
+
+					if (!chord(&tail, &tip))
+						return;
+				}
+
+				struct
+				{
+					CZBodyPart *part;
+					f32 x, z;
+					bool falling_only;
+				} const ends[] = {
+					{ m_head, 2.25f, 0.0f, false },
+					{ m_head, 2.25f, -4.0f, true },
+					{ m_head, 2.25f, 4.0f, true },
+					{ m_lhand, 2.0f, 0.0f, false },
+					{ m_rhand, 2.0f, 0.0f, false },
+					{ m_lfoot, 1.1f, 0.0f, false },
+					{ m_rfoot, 1.1f, 0.0f, false },
+				};
+
+				for (const auto &end : ends)
+				{
+					if (end.falling_only && !falling)
+						continue;
+
+					CPnt3D offset(end.x, 0.0f, end.z);
+					PartInSpace(end.part, &offset, &tip, NULL);
+					node->m_matrix.Transform(&tip, 1);
+					tip.Add(&move, &tip);
+
+					if (!chord(&tail, &tip))
+						return;
+				}
+			}
+		}
+		else if (player_no_map)
+		{
+			if (prone)
+			{
+				CQuat inverse;
+				inverse.vec.x = -m_quat.vec.x;
+				inverse.vec.y = -m_quat.vec.y;
+				inverse.vec.z = -m_quat.vec.z;
+				inverse.w = m_quat.w;
+				inverse.Apply(&dpos, &move_dir, 1);
+				move_dir.y = 0.0f;
+				move_dir.Normalize();
+			}
+
+			CPnt3D ahead;
+			dir.Scale(1.1f, &ahead);
+
+			if ((m_state == 1 || m_state == 0) && m_velM.z > 0.0f)
+				ahead.Scale(MoveAwayFromWallFactor, &ahead);
+
+			/* 1: at step height, ahead */
+			CPnt3D tail = *pos;
+			CPnt3D tip;
+			tail.Add(&ahead, &tip);
+			tip.Add(&dpos, &tip);
+			tail.y += step;
+			tip.y += step;
+
+			if (prone)
+				tip.y += lift(tail, tip);
+
+			if (!chord(&tail, &tip))
+				return;
+
+			/* 2: at the body height, ahead; with a fire point and a move against the
+			 * facing (or none), along the facing by the fire point's reach unless the
+			 * body is free to turn (no fire overlay, not standing up or going down) */
+			tail = *pos;
+			tail.y += height;
+
+			if (m_curr_firept == NULL)
+			{
+				tail.Add(&dir, &tip);
+			}
+			else
+			{
+				CPnt3D facing;
+				facing.x = m_node->m_matrix.m_matrix[2][0];
+				facing.y = m_node->m_matrix.m_matrix[2][1];
+				facing.z = m_node->m_matrix.m_matrix[2][2];
+				f32 limit = prone_strafe ? -0.2f : 0.0f;
+
+				if (facing.z * unit_dir.z + facing.x * unit_dir.x + facing.y * unit_dir.y < limit || still)
+				{
+					CPnt3D reach;
+					firepos.Scale(1.1f, &reach);
+					CZBodyAnimBlend *current = m_blends->Top();
+
+					if (((current->m_flags & 0x40) == 0 || m_fire->LinearWeight() <= 0.0f || m_state == 5) && m_state != 2
+						&& !IsCurrentBlend(AnimType::animTypeStand2Crouch) && !IsCurrentBlend(AnimType::animTypeCrouch2Prone)
+						&& !IsCurrentBlend(AnimType::animTypeStand2Prone))
+					{
+						tail.Add(&dir, &tip);
+					}
+					else
+					{
+						facing.Scale(facing.z * reach.z + facing.x * reach.x + facing.y * reach.y, &facing);
+						tail.Add(&facing, &tip);
+					}
+				}
+				else
+				{
+					tail.Add(&dir, &tip);
+				}
+			}
+
+			tip.Add(&dpos, &tip);
+
+			if (prone)
+				tip.y += lift(tail, tip);
+
+			if (!chord(&tail, &tip))
+				return;
+
+			/* 3: aim point to fire point (and the move), level at their mean height */
+			pos->Add(&m_curr_aimpos, &tail);
+			pos->Add(&m_curr_firepos, &tip);
+			tip.Add(&dpos, &tip);
+			tail.y = (tail.y + tip.y) * 0.5f;
+			tip.y = tail.y;
+
+			if (curChord >= 50)
+				return;
+
+			dilr[curChord]->m_Type = 2;
+
+			if (!chord(&tail, &tip))
+				return;
+
+			/* 4, 5: the sides at step height (a prone strafe: from ahead to the far sides) */
+			CPnt3D ahead_low;
+			dir.Scale(0.6f, &ahead_low);
+
+			for (int right = 0; right < 2; right++)
+			{
+				if (prone_strafe)
+				{
+					pos->Add(&ahead_low, &tail);
+
+					if (right == 0)
+						pos->Sub(&side, &tip);
+					else
+						pos->Add(&side, &tip);
+				}
+				else if (right == 0)
+				{
+					pos->Add(&side_in, &tail);
+					pos->Add(&side_out, &tip);
+				}
+				else
+				{
+					pos->Sub(&side_in, &tail);
+					pos->Sub(&side_out, &tip);
+				}
+
+				tip.Add(&dir, &tip);
+				tip.Add(&dpos, &tip);
+
+				tail.y += step;
+				tip.y += step;
+
+				if (prone)
+					tip.y += lift(tail, tip);
+
+				if (!chord(&tail, &tip))
+					return;
+			}
+		}
+		else
+		{
+			/* any other body: one chord ahead at step height */
+			CPnt3D tail = *pos;
+			CPnt3D tip;
+			tail.Add(&dpos, &tip);
+			tip.Add(&dir, &tip);
+			tail.y += step;
+			tip.y += step;
+
+			if (!chord(&tail, &tip))
+				return;
+		}
+
+		numChords = curChord - chordStart;
 	}
 
 	if (UseVelY())
@@ -1701,6 +2032,8 @@ void CZSealBody::ComputeNextPosition(float dT)
 /* @socom-skeleton stub PostPreTick__10CZSealBodyFf */
 void CZSealBody::PostPreTick(float)
 {
+	/* 0x250f30 (once per frame, CEntity::TickAll): the seal chords start over */
+	curChord = 0;
 }
 
 /* @socom-skeleton stub PrePostTick__10CZSealBodyFf */
@@ -1718,18 +2051,241 @@ void CZSealBody::PostComputeNextPosition(float)
 {
 	/* @socom-skeleton stub radius$3465 */
 	static float radius = 5.0f; /* init$3466 */
-	/* 0x24fc10: the frame's move lands. port: not written - with probe chords
-	 * (numChords != 0) the ELF first slides the move along the walls they hit, steps up
-	 * low ones and records the wall hit (0x24fc3c-0x250790); ComputeNextPosition registers
-	 * no chords in the port (the grid's batch intersect is not written), so numChords is 0
-	 * and that part never runs. Then: the weapon intersect while firing, the next position
+	/* 0x24fc10: the frame's move lands. With probe chords (ComputeNextPosition, answered by
+	 * this frame's diTick batch) the wall hits of all chords are collected (floor-like
+	 * ones dropped: a normal steeper than the max slope, or a volumetric material); the
+	 * move is pushed out along the hit normals (levelled for steep walls, the largest push
+	 * per axis) and the in-air velocity loses its part into the walls. When the move is
+	 * still longer than 0.1, a side probe at step height (from the body, or after a turn
+	 * in place from the first hit, offset 3.5 to the side the move turned to, 5.25 ahead,
+	 * prone 11.46; this seal inactive) slides the move along a wall it meets (an axis
+	 * that would reverse stops), or, prone or crouch-walking while turning, stops the move
+	 * and the turn. The nearest hit of the first three chords becomes the wall hit (none
+	 * when moving without one). Then: the weapon intersect while firing, the next position
 	 * (with the AI map's cell repel when enabled), its height (SetVertical), the terrain
 	 * tilt, and the node's matrix from the next rotation; the rotation and world velocity
-	 * become current. */
+	 * become current. ELF quirk kept: the 64-hit limit of l_int is tested per chord, so a
+	 * chord with many hits can run past it. */
 	CZBodyAnimBlend *top = m_blends->Top();
 
 	if (numChords != 0)
-		SOCOM_PORT_TRACE("SEAL: %d probe chords not processed (port: not written)", numChords);
+	{
+		int hits = 0;
+
+		for (int c = chordStart; c < chordStart + numChords && hits < 64; c++)
+		{
+			zdb::DiIntersect *di = dilr[c];
+
+			for (int i = 0; i < di->m_Cnt; i++)
+			{
+				l_int[hits].hit = &di->m_Intersects[i];
+				l_int[hits].chord = c;
+				hits++;
+			}
+		}
+
+		auto floorlike = [](zdb::IntersectStruct *hit) {
+			u32 material = hit->GetMaterial();
+
+			if (material >= CMaterialExArray::m_materialex_list.size())
+				material = 0;
+
+			CMaterialEx *ex = CMaterialExArray::m_materialex_list[material];
+			return theCharacterDynamics.m_maxSlopeCos < hit->m_norm.y || (ex != NULL && ex->m_volumetric);
+		};
+
+		for (int i = hits - 1; i >= 0; i--)
+		{
+			if (floorlike(l_int[i].hit))
+			{
+				if (i != hits - 1)
+					l_int[i] = l_int[hits - 1];
+
+				hits--;
+			}
+		}
+
+		bool moved = 0.0002f < dpos.z * dpos.z + dpos.x * dpos.x + dpos.y * dpos.y;
+		f32 turn = fabsf(pre_thr_lr);
+		f32 move_x = dpos.x;
+		f32 move_z = dpos.z;
+
+		if (hits == 0)
+		{
+			if (moved)
+				m_fwdhit->m_node = NULL;
+		}
+		else
+		{
+			CPnt3D from;
+			from.x = m_node->m_matrix.m_matrix[3][0];
+			from.y = m_node->m_matrix.m_matrix[3][1];
+			from.z = m_node->m_matrix.m_matrix[3][2];
+			CPnt3D to;
+			from.Add(&dpos, &to);
+			CPnt3D push(0.0f, 0.0f, 0.0f);
+
+			for (int i = 0; i < hits; i++)
+			{
+				CPnt3D normal = l_int[i].hit->m_norm;
+
+				if (normal.y < theCharacterDynamics.m_maxSlopeCos)
+					normal.y = 0.0f;
+
+				normal.Normalize();
+				CPnt3D d;
+				dilr[l_int[i].chord]->m_Tip.Sub(&l_int[i].hit->m_pos, &d);
+				f32 depth = normal.z * d.z + normal.x * d.x + normal.y * d.y;
+
+				if (depth < 0.0f)
+				{
+					CPnt3D out;
+					normal.Scale(-depth, &out);
+
+					if (fabsf(push.x) < fabsf(out.x))
+						push.x = out.x;
+
+					if (fabsf(push.y) < fabsf(out.y))
+						push.y = out.y;
+
+					if (fabsf(push.z) < fabsf(out.z))
+						push.z = out.z;
+				}
+
+				f32 into = m_inAirHorizVel.z * normal.z + m_inAirHorizVel.x * normal.x + m_inAirHorizVel.y * normal.y;
+
+				if (into < 0.0f)
+				{
+					CPnt3D lost;
+					normal.Scale(into, &lost);
+					m_inAirHorizVel.Sub(&lost, &m_inAirHorizVel);
+				}
+			}
+
+			dpos.Add(&push, &dpos);
+			CPnt3D ahead = dpos;
+
+			if (0.01f < ahead.z * ahead.z + ahead.x * ahead.x + ahead.y * ahead.y)
+			{
+				CPnt3D side(-move_z, 0.0f, move_x);
+				side.Normalize();
+				side.Scale(3.5f, &side);
+				ahead.Normalize();
+				bool prone = IsCurrentBlend(AnimType::animTypeProne) || IsCurrentBlend(AnimType::animTypeProneCrawl)
+					|| IsCurrentBlend(AnimType::animTypeProneTurn) || IsCurrentBlend((AnimType)AnimTypes::ProneRStrafe)
+					|| IsCurrentBlend((AnimType)AnimTypes::ProneLStrafe);
+				ahead.Scale(prone ? 11.460001f : 5.25f, &ahead);
+				f32 reach = 1.0f;
+				CPnt3D probe;
+
+				if (turn <= 0.001f || moved)
+				{
+					probe.x = m_node->m_matrix.m_matrix[3][0];
+					probe.y = m_node->m_matrix.m_matrix[3][1];
+					probe.z = m_node->m_matrix.m_matrix[3][2];
+				}
+				else
+				{
+					reach = 2.0f;
+					probe.x = l_int[0].hit->m_pos.x;
+					probe.z = l_int[0].hit->m_pos.z;
+					probe.y = m_node->m_matrix.m_matrix[3][1];
+				}
+
+				if (0.0f < side.z * ahead.z + side.x * ahead.x + side.y * ahead.y)
+					probe.Add(&side, &probe);
+				else
+					probe.Sub(&side, &probe);
+
+				CPnt3D extent;
+				ahead.Scale(reach, &extent);
+				CPnt3D end;
+				probe.Add(&extent, &end);
+				probe.y += theCharacterDynamics.m_stepHeight;
+				end.y += theCharacterDynamics.m_stepHeight;
+				bool active = GetNode()->SetActive(false);
+				zdb::IntersectStruct *wall = zdb::CWorld::m_world->GetIntersect(&probe, &end);
+				GetNode()->SetActive(active);
+
+				if (wall != NULL && !floorlike(wall))
+				{
+					if ((!prone && m_state != 1) || turn <= 0.001f)
+					{
+						CPnt3D normal = wall->m_norm;
+
+						if (normal.y < theCharacterDynamics.m_maxSlopeCos)
+							normal.y = 0.0f;
+
+						normal.Normalize();
+						CPnt3D d;
+						end.Sub(&wall->m_pos, &d);
+						f32 depth = normal.z * d.z + normal.x * d.x + normal.y * d.y;
+
+						if (depth < 0.0f)
+						{
+							CPnt3D out;
+							normal.Scale(-depth, &out);
+							CPnt3D slid;
+							dpos.Add(&out, &slid);
+							dpos.x = (dpos.x < 0.0f) == (slid.x < 0.0f) ? slid.x : 0.0f;
+							dpos.y = slid.y;
+							dpos.z = (dpos.z < 0.0f) == (slid.z < 0.0f) ? slid.z : 0.0f;
+						}
+					}
+					else
+					{
+						dpos = CPnt3D::zero;
+						m_next_quat = m_quat;
+					}
+				}
+			}
+
+			int nearest = -1;
+			f32 best = 0.0f;
+
+			for (int i = 0; i < hits; i++)
+			{
+				int c = l_int[i].chord;
+
+				if (chordStart <= c && c < chordStart + 3)
+				{
+					CPnt3D d;
+					l_int[i].hit->m_pos.Sub(&dilr[c]->m_Tail, &d);
+					f32 dist = d.z * d.z + d.x * d.x + d.y * d.y;
+
+					if (nearest < 0 || dist < best)
+					{
+						best = dist;
+						nearest = i;
+					}
+				}
+			}
+
+			if (nearest < 0)
+			{
+				if (moved)
+					SetWallHit(NULL, NULL, NULL);
+			}
+			else
+			{
+				SetWallHit(l_int[nearest].hit, &from, &to);
+			}
+
+			pi_diTail = from;
+#ifdef SOCOM_PORT
+			if (m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsPlayer())
+			{
+				static s32 traced;
+
+				if (traced++ % 30 == 0)
+					SOCOM_PORT_TRACE("SEAL: %d wall hits (chords %d..%d) move %.2f %.2f -> %.2f %.2f push %.2f %.2f wall %s",
+						hits, chordStart, chordStart + numChords - 1, move_x, move_z, dpos.x, dpos.z, push.x, push.z,
+						nearest >= 0 && l_int[nearest].hit->m_node != NULL && l_int[nearest].hit->m_node->m_name != NULL
+							? l_int[nearest].hit->m_node->m_name : "-");
+			}
+#endif
+		}
+	}
 
 	top = m_blends->Top();
 

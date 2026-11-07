@@ -533,19 +533,9 @@ void ThirdToFirstPersonTransition(CAppCamera* camera)
 	/* 0x1eaae0 (CAppCamera::Tick, entering first person): keep the view on the player's aim
 	   point. In body space, the pitch (atan2 of y over z) of the look line from the
 	   first-person eye and the pitch of the aim point from it, both wrapped to [0, 2pi]:
-	   the aim pitch moves by their difference and the head (the forward look) follows. */
-#ifdef SOCOM_PORT
-	/* port: m_aim_point is only set by CheckDIShoot -> SetAimPointW (not written), which the
-	   ELF runs every camera tick, so the player always has one by now. Without one the aim
-	   pitch is left as it is (the never-written member is heap garbage and a NaN would
-	   never leave WrapTwoPi). */
-	if (!ftsGetPlayer()->m_aim_point_valid)
-	{
-		SOCOM_PORT_TRACE("CAM: into first person without an aim point: aim pitch %.3f kept",
-			static_cast<CSealCtrl*>(camera->m_entity->m_control)->m_aimPitch);
-		return;
-	}
-#endif
+	   the aim pitch moves by their difference and the head (the forward look) follows.
+	   The aim point is CheckDIShoot's (SetAimPointW), set at the end of every FTS camera
+	   tick, so the player has one by the first toggle. */
 	CPnt3D eye = GetFirstPersonCamPos(camera);
 	CPnt3D ahead(0.0f, 0.0f, -1.0f);
 	CPnt3D look;
@@ -564,6 +554,11 @@ void ThirdToFirstPersonTransition(CAppCamera* camera)
 	target = WrapTwoPi(target);
 
 	CSealCtrl* control = static_cast<CSealCtrl*>(camera->m_entity->m_control);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("CAM: into first person: aim point %.1f %.1f %.1f, aim pitch %.3f -> %.3f",
+		ftsGetPlayer()->m_aim_point.x, ftsGetPlayer()->m_aim_point.y, ftsGetPlayer()->m_aim_point.z,
+		control->m_aimPitch, control->m_aimPitch + (view - target));
+#endif
 	control->m_aimPitch += view - target;
 	ftsGetPlayer()->RotateHead(control->m_aimPitch, 0.0f);
 }
@@ -573,11 +568,6 @@ void FirstToThirdPersonTransition(CAppCamera* camera)
 {
 	/* 0x1ea850 (CAppCamera::Tick, leaving first person): as ThirdToFirstPersonTransition,
 	   from the third-person aim point (GetThirdPersonCamPos) and a look line 1000 long. */
-#ifdef SOCOM_PORT
-	/* port: see ThirdToFirstPersonTransition (no aim point without CheckDIShoot) */
-	if (!ftsGetPlayer()->m_aim_point_valid)
-		return;
-#endif
 	CPnt3D from;
 	f32 dist;
 	camera->GetThirdPersonCamPos(&from, &dist); /* the eye is unused */
@@ -598,6 +588,11 @@ void FirstToThirdPersonTransition(CAppCamera* camera)
 	target = WrapTwoPi(target);
 
 	CSealCtrl* control = static_cast<CSealCtrl*>(camera->m_entity->m_control);
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("CAM: into third person: aim point %.1f %.1f %.1f, aim pitch %.3f -> %.3f",
+		ftsGetPlayer()->m_aim_point.x, ftsGetPlayer()->m_aim_point.y, ftsGetPlayer()->m_aim_point.z,
+		control->m_aimPitch, control->m_aimPitch + (view - target));
+#endif
 	control->m_aimPitch += view - target;
 	ftsGetPlayer()->RotateHead(control->m_aimPitch, 0.0f);
 }

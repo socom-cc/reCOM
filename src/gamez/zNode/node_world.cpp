@@ -701,13 +701,28 @@ zdb::CNode * zdb::CWorld::FindLandmark(const char *)
 }
 
 /* @socom-skeleton stub GetIntersect__Q23zdb6CWorldFPC6CPnt3DPC6CPnt3D */
-zdb::IntersectStruct * zdb::CWorld::GetIntersect(const CPnt3D *, const CPnt3D *)
+zdb::IntersectStruct * zdb::CWorld::GetIntersect(const CPnt3D *tail, const CPnt3D *tip)
 {
+	/* 0x22eb70: the world's DI ray tail -> tip through the grid; the hit nearest the
+	   tail (NULL if none) */
+	m_diInt->m_Tail = *tail;
+	m_diInt->m_Tip = *tip;
+	m_grid->GetIntersect(m_diInt);
+
+	if (m_diInt->m_Cnt == 0)
+		return NULL;
+
+	return m_diInt->GetNearestIntersect();
 }
 
 /* @socom-skeleton stub GetIntersects__Q23zdb6CWorldFPC6CPnt3DPC6CPnt3D */
-zdb::DiIntersect * zdb::CWorld::GetIntersects(const CPnt3D *, const CPnt3D *)
+zdb::DiIntersect * zdb::CWorld::GetIntersects(const CPnt3D *tail, const CPnt3D *tip)
 {
+	/* 0x22eb00: as GetIntersect; every hit stays in m_diInt */
+	m_diInt->m_Tail = *tail;
+	m_diInt->m_Tip = *tip;
+	m_grid->GetIntersect(m_diInt);
+	return m_diInt;
 }
 
 /* @socom-skeleton stub GetAltitude__Q23zdb6CWorldFPC6CPnt3Df */
@@ -740,8 +755,10 @@ zdb::DiIntersect * zdb::CWorld::GetAltitudes(const CPnt3D *pos, float)
 }
 
 /* @socom-skeleton stub GetIntersectBatch__Q23zdb6CWorldFPPQ23zdb11DiIntersecti */
-void zdb::CWorld::GetIntersectBatch(zdb::DiIntersect **, int)
+void zdb::CWorld::GetIntersectBatch(zdb::DiIntersect **dis, int count)
 {
+	/* 0x22ea20: the world's grid batch at once (tail call; m_world's, not this one's) */
+	m_world->m_grid->GetIntersectBatch(dis, count);
 }
 
 /* @socom-skeleton stub InitDescendantsDI__Q23zdb6CWorldFv */
@@ -765,23 +782,68 @@ bool zdb::CWorld::diTick(float, void *)
 }
 
 /* @socom-skeleton stub RegIntersectDelayed__Q23zdb6CWorldFPQ23zdb11DiIntersectPC6CPnt3DPC6CPnt3D */
-int zdb::CWorld::RegIntersectDelayed(zdb::DiIntersect *, const CPnt3D *, const CPnt3D *)
+int zdb::CWorld::RegIntersectDelayed(zdb::DiIntersect *di, const CPnt3D *tail, const CPnt3D *tip)
 {
+	/* 0x22e940: queue a chord (type 2) for this frame's diTick batch (up to 256); -1
+	   without a DI or with the queue full, else its queue slot */
+	if (di == NULL)
+		return -1;
+
+	s32 slot = m_diIntDelayCnt;
+
+	if (slot >= 256)
+		return -1;
+
+	m_diIntDelayCnt = slot + 1;
+	m_diIntDelay[slot] = di;
+	di->m_Type = 2;
+	di->m_Tail = *tail;
+	di->m_Tip = *tip;
+	return slot;
 }
 
 /* @socom-skeleton stub RegIgnoreNodeDelayed__Q23zdb6CWorldFPQ23zdb11DiIntersectPQ23zdb5CNode */
-void zdb::CWorld::RegIgnoreNodeDelayed(zdb::DiIntersect *, zdb::CNode *)
+void zdb::CWorld::RegIgnoreNodeDelayed(zdb::DiIntersect *di, zdb::CNode *node)
 {
+	/* 0x22e910: the node (and its tree) the delayed DI skips. port: the ELF returns -1
+	   without a DI or node, else 1; the port declaration is void */
+	if (di == NULL || node == NULL)
+		return;
+
+	di->m_Node = node;
 }
 
 /* @socom-skeleton stub ClearIgnoreNodeDelayed__Q23zdb6CWorldFPQ23zdb11DiIntersect */
-void zdb::CWorld::ClearIgnoreNodeDelayed(zdb::DiIntersect *)
+void zdb::CWorld::ClearIgnoreNodeDelayed(zdb::DiIntersect *di)
 {
+	/* 0x22e8f0. port: the ELF returns -1 without a DI, else 1; the port declaration is void */
+	if (di == NULL)
+		return;
+
+	di->m_Node = NULL;
 }
 
 /* @socom-skeleton stub RegProximityDelayed__Q23zdb6CWorldFPQ23zdb11DiIntersectPC6CPnt3Df */
-int zdb::CWorld::RegProximityDelayed(zdb::DiIntersect *, const CPnt3D *, float)
+int zdb::CWorld::RegProximityDelayed(zdb::DiIntersect *di, const CPnt3D *pos, float radius)
 {
+	/* 0x22e880: queue a proximity sphere (type 4: centre in m_Tail, radius in m_Tip.x)
+	   as RegIntersectDelayed */
+	if (di == NULL)
+		return -1;
+
+	s32 slot = m_diIntDelayCnt;
+
+	if (slot >= 256)
+		return -1;
+
+	m_diIntDelayCnt = slot + 1;
+	m_diIntDelay[slot] = di;
+	di->m_Type = 4;
+	di->m_Tail = *pos;
+	di->m_Tip.x = radius;
+	di->m_Tip.y = 0.0f;
+	di->m_Tip.z = 0.0f;
+	return slot;
 }
 
 /* @socom-skeleton stub Segregate_CCells__Q23zdb6CWorldFPQ23zdb5CNodeRQ23zdb11CNodeVectorRQ23zdb11CNodeVector */
