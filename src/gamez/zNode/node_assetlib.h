@@ -137,10 +137,11 @@ public:
 namespace zdb { class CLightMap; }
 /* @socom-skeleton decl Q23zdb15CLightMapVector */
 namespace zdb {
-class CLightMapVector : public std::vector<unsigned int> /* port: element type from MSL pointer storage in DWARF; real element unproven */
+class CLightMapVector : public std::vector<zdb::CLightMap*> /* DWARF: MSL pointer storage; the elements are the
+                                                              CLightMap* CWorld::AddLightMap and CPipe::BuildLightMapList insert */
 {
 public:
-	void Exists(const zdb::CLightMap *);
+	bool Exists(const zdb::CLightMap *); /* 0x224700 returns the find result (v0) */
 };
 }
 /* @socom-skeleton end Q23zdb15CLightMapVector */

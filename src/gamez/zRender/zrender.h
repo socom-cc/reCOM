@@ -227,7 +227,8 @@ public:
 
 	CAlpha m_alpha;
 
-	std::vector<zdb::CNode*> m_DelayedNodes;
+	std::vector<tag_DelayedNode> m_DelayedNodes; /* DWARF +0x684; SaveDelayedNode grows it by 8 (resize of
+	                                                __vector_imp<15tag_DelayedNode>, 112-byte records) */
 	u32 m_delayedNodeNum;
 	/* @socom-skeleton decl 5CPipe */
 public:
@@ -241,6 +242,15 @@ public:
 	void RenderNodeShadow(zdb::CNode *);
 	void RenderMeshShadow(zdb::CNode *, zdb::CMesh *, CMatrix *);
 	/* @socom-skeleton end 5CPipe */
+};
+
+/* the 8 corners of a box (Build__6CBBox8FRC5CBBox 0x244220, zrndr_pipe.cpp; no DWARF): the
+   corner order of the asm, the same one CPipe::RenderNode builds inline */
+class CBBox8
+{
+public:
+	CPnt3D m_pnt[8];
+	void Build(const CBBox&);
 };
 
 /* CFilterPlaneObj: DWARF class, 12 bytes, base std::list (MSL __list_imp<void const*>) */

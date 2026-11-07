@@ -26,8 +26,16 @@
 #include <algorithm> /* port: std::remove_copy (bodies moved from znode_holding.cpp) */
 
 /* @socom-skeleton stub Exists__Q23zdb15CLightMapVectorFPCQ23zdb9CLightMap */
-void zdb::CLightMapVector::Exists(const zdb::CLightMap *)
+bool zdb::CLightMapVector::Exists(const zdb::CLightMap *map)
 {
+	/* 0x224700: std::find != end */
+	for (iterator i = begin(); i != end(); ++i)
+	{
+		if (*i == map)
+			return true;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton body AddNode__Q23zdb13CNodeUniverseFPQ23zdb5CNode */

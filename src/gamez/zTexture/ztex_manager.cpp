@@ -115,7 +115,8 @@ int CTexManager::TexPhase[17][3];
 /* @socom-skeleton body TakeDrawPacket__Q23zdb15CBatchRelocatorFP1Ui */
 void zdb::CBatchRelocator::TakeDrawPacket(unsigned __int128 *spr, unsigned int qwc)
 	{
-		// zSysFifoKick(spr, qwc);
+		/* 0x2fcb40: tail call (move a0,a1; j zSysFifoKick; move a1,a2) */
+		zSysFifoKick(spr, qwc);
 	}
 
 /* @socom-skeleton body __ct__Q23zdb12CGSTexBufferFv */

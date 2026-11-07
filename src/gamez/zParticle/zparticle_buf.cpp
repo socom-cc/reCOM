@@ -38,6 +38,11 @@
 #include "zparticle.h"
 /* @socom-skeleton end include */
 
+#include <string.h> /* memcpy */
+
+#include "gamez/zRender/zrender.h" /* thePipe */
+#include "gamez/zCamera/zcam.h"    /* tag_FrameSetup */
+
 /* @socom-skeleton stub clipLimScreen__8Particle */
 int Particle::clipLimScreen = 40000;
 
@@ -62,17 +67,192 @@ int Particle::numParticles;
 int Particle::m_lastTexture;
 
 /* @socom-skeleton stub pParticleBuf__8Particle */
-int Particle::pParticleBuf;
+Particle::BufferElement** Particle::pParticleBuf;
 
 /* @socom-skeleton stub buffer__8Particle */
-unsigned char Particle::buffer[160000];
+Particle::BufferElement Particle::buffer[5000];
 
 /* @socom-skeleton stub bufferPtr__8Particle */
-unsigned char Particle::bufferPtr[20000];
+Particle::BufferElement* Particle::bufferPtr[5000];
+
+/* zqsort<Particle::BufferElement*> 0x2360a0 (the only instance in the ELF; no skeleton entry):
+   an iterative quicksort - median of three (lo, mid, hi ordered), partition around the middle
+   value, the smaller part handled first with the larger pushed on a local stack of {lo, hi}
+   pairs - that leaves runs of up to 9 entries, then one insertion sort over the whole array.
+   cmp < 0 orders a before b. ELF quirk kept: the stack (151 pairs) is not bounds-checked. */
+template <class T>
+void zqsort(T* a, int n, int (*cmp)(const T&, const T&))
+{
+	struct { int lo, hi; } stack[151];
+	int sp = 0;
+	int lo = 0;
+	int hi = n - 1;
+
+	for (;;)
+	{
+		if (lo + 8 < hi)
+		{
+			int sum = lo + hi;
+			T* first = &a[lo];
+			T* mid = &a[sum >> 1];
+			T* last = &a[hi];
+			T tmp;
+
+			if (cmp(*first, *mid) > 0) { tmp = *first; *first = *mid; *mid = tmp; }
+			if (cmp(*first, *last) > 0) { tmp = *first; *first = *last; *last = tmp; }
+			if (cmp(*mid, *last) > 0) { tmp = *mid; *mid = *last; *last = tmp; }
+
+			T pivot = *mid;
+			int i = lo + 1;
+			int j = hi - 1;
+
+			do
+			{
+				while (cmp(a[i], pivot) < 0)
+					i++;
+
+				while (cmp(a[j], pivot) > 0)
+					j--;
+
+				if (j < i)
+					break;
+
+				tmp = a[i];
+				a[i] = a[j];
+				a[j] = tmp;
+				i++;
+				j--;
+			} while (!(j < i));
+
+			if (sum < i + j)
+			{
+				/* the right part [i, hi] is the smaller: push the left one */
+				stack[sp].lo = lo;
+				stack[sp].hi = j;
+				lo = i;
+			}
+			else
+			{
+				stack[sp].lo = i;
+				stack[sp].hi = hi;
+				hi = j;
+			}
+
+			sp++;
+		}
+		else if (sp > 0)
+		{
+			sp--;
+			hi = stack[sp].hi;
+			lo = stack[sp].lo;
+		}
+		else
+			break;
+	}
+
+	for (int i = 1; i < n; i++)
+	{
+		T tmp = a[i];
+		int j = i;
+
+		while (cmp(a[j - 1], tmp) > 0)
+		{
+			a[j] = a[j - 1];
+
+			if (--j == 0)
+				break;
+		}
+
+		a[j] = tmp;
+	}
+}
+
+/* bufferPtrCompare__8ParticleFRCPQ28Particle13BufferElementRCPQ28Particle13BufferElement
+   0x234680 (no skeleton entry). ELF quirk kept: it returns the bits of the float difference
+   a - b as the int (so -0.0 compares as negative). */
+int Particle::bufferPtrCompare(Particle::BufferElement* const& a, Particle::BufferElement* const& b)
+{
+	f32 diff = a->m_depth - b->m_depth;
+	int bits;
+
+	memcpy(&bits, &diff, sizeof(bits));
+	return bits;
+}
+
+/* ELF quirk kept: the draw loops stop on a NULL entry *pParticleBuf, and DrawPrep / DrawOne /
+   DrawRange step the cursor one below bufferPtr[0] without a bound check. In the ELF that
+   word is the last word of buffer (0x4d96e0 + 160000 = bufferPtr 0x5007e0): element 4999's
+   depth, zero (NULL, range -1) until all 5000 elements are used. port: GCC does not keep the
+   two arrays adjacent, so the cursor's entry is read through this helper. */
+static Particle::BufferElement* CursorEntry(Particle::BufferElement** cursor)
+{
+	if (cursor < Particle::bufferPtr)
+	{
+		Particle::BufferElement* last;
+		memcpy(&last, &Particle::buffer[4999].m_depth, sizeof(last));
+		return last;
+	}
+
+	return *cursor;
+}
+
+/* the cursor element's depth squared, or -1 past the sorted entries */
+static f32 CursorRange()
+{
+	Particle::BufferElement* element = CursorEntry(Particle::pParticleBuf);
+
+	if (element == NULL)
+		return -1.0f;
+
+	return element->m_depth * element->m_depth;
+}
+
+/* draw the cursor element by its source's draw type (the switch inlined in DrawRange, DrawOne
+   and DrawFlush) with the camera's world-to-screen matrix (VU frame setup, VU 4-7) */
+static void DrawCursorElement()
+{
+	Particle::BufferElement* element = CursorEntry(Particle::pParticleBuf);
+	f32 (&matrix)[4][4] = thePipe.m_camera->m_mtxSet.m_vu->mtxWorldToScreen;
+
+	switch (element->m_instance->m_source->m_drawType)
+	{
+	case PARTICLE_STANDARD:
+		element->Draw(matrix);
+		break;
+	case PARTICLE_ROTATED:
+		element->DrawRotated(matrix);
+		break;
+	case PARTICLE_XZ:
+		element->DrawXZ(matrix);
+		break;
+	case PARTICLE_STREAKED:
+		element->DrawStreaked(matrix);
+		break;
+	default:
+		break;
+	}
+}
+
+/* point bufferPtr[i] at buffer[i] for the queued particles and sort them nearest first (the
+   loop inlined at the top of DrawPrep 0x235f50 and Draw 0x234530) */
+static void SortBuffer()
+{
+	Particle::Source::RenderBBox();
+
+	for (s32 i = 0; i < Particle::numParticles; i++)
+		Particle::bufferPtr[i] = &Particle::buffer[i];
+
+	zqsort(Particle::bufferPtr, Particle::numParticles, Particle::bufferPtrCompare);
+	Particle::pParticleBuf = &Particle::bufferPtr[Particle::numParticles - 1];
+}
 
 /* @socom-skeleton stub DrawPrep__8ParticleFv */
 float Particle::DrawPrep()
 {
+	/* 0x235f50: sort the queued particles; the cursor starts at the farthest one, and the
+	   result is its depth squared (or -1 when there is none) */
+	SortBuffer();
+	return CursorRange();
 }
 
 /* @socom-skeleton stub DrawStreaked__Q28Particle13BufferElementFRA4_A4_f */
@@ -100,21 +280,56 @@ void Particle::BufferElement::Draw(float (&)[4][4])
 }
 
 /* @socom-skeleton stub DrawOne__8ParticleFv */
-void Particle::DrawOne()
+float Particle::DrawOne()
 {
+	/* 0x234780: draw the cursor element, step down, return the next range */
+	DrawCursorElement();
+	pParticleBuf--;
+	return CursorRange();
 }
 
 /* @socom-skeleton stub DrawFlush__8ParticleFv */
 void Particle::DrawFlush()
 {
+	/* 0x2346b0: draw the elements still under the cursor */
+	m_lastTexture = 0;
+
+	while (!(pParticleBuf < bufferPtr))
+	{
+		DrawCursorElement();
+		pParticleBuf--;
+	}
+
+	m_lastTexture = 0;
 }
 
 /* @socom-skeleton stub Draw__8ParticleFv */
 void Particle::Draw()
 {
+	/* 0x234530: no transparent visuals: sort and draw every queued particle */
+	SortBuffer();
+	m_lastTexture = 0;
+
+	while (!(pParticleBuf < bufferPtr))
+		DrawOne();
+
+	m_lastTexture = 0;
 }
 
 /* @socom-skeleton stub DrawRange__8ParticleFff */
-float Particle::DrawRange(float, float)
+float Particle::DrawRange(float range, float limit)
 {
+	/* 0x234420: draw from the cursor down while the range (squared depth) is beyond limit;
+	   returns the range left at the cursor */
+	m_lastTexture = 0;
+
+	while (!(range <= limit))
+	{
+		DrawCursorElement();
+		pParticleBuf--;
+		range = CursorRange();
+	}
+
+	m_lastTexture = 0;
+	return range;
 }

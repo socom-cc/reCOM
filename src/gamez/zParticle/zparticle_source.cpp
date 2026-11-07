@@ -67,7 +67,7 @@ float Particle::Source::frequencyFactor;
 float Particle::Source::referencePositionW[3];
 
 /* @socom-skeleton stub list__Q28Particle6Source */
-unsigned char Particle::Source::list[12];
+Particle::Source::List Particle::Source::list;
 
 /* @socom-skeleton stub Uninit__Q38Particle6Source4ListFv */
 void Particle::Source::List::Uninit()
@@ -162,4 +162,10 @@ void Particle::Source::GetBBox(CBBox *)
 /* @socom-skeleton stub RenderBBox__Q28Particle6SourceFv */
 void Particle::Source::RenderBBox()
 {
+	/* 0x238a70: each listed source computes its box (into a local; the result is unused) */
+	for (List::iterator i = list.begin(); i != list.end(); ++i)
+	{
+		CBBox box;
+		(*i)->GetBBox(&box);
+	}
 }

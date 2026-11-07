@@ -222,13 +222,53 @@ void CGrid::gridRemoveNodeFromGrids(CNode* node)
 }
 
 /* @socom-skeleton stub SetCellBoundary__Q23zdb5CGridF6CPnt3D6CPnt3D */
-void zdb::CGrid::SetCellBoundary(CPnt3D, CPnt3D)
+/* the cell node at (x, z) of the clamped grid, as SetCellBoundary and GetNextCell inline it:
+   the first atom of the cell's slot (gridGetAtomBasePtr) when its node is a cell (the asm
+   compares the low half of m_type with 10) */
+static zdb::CCell* GridCellAt(zdb::CGrid* grid, s32 x, s32 z)
 {
+	zdb::CGridAtom** base = grid->gridGetAtomBasePtr(x, z);
+
+	if (base == NULL || *base == NULL)
+		return NULL;
+
+	zdb::CNode* node = (*base)->Ent;
+
+	if (static_cast<u16>(node->m_type) != 10)
+		return NULL;
+
+	return static_cast<zdb::CCell*>(node);
+}
+
+zdb::CCell * zdb::CGrid::SetCellBoundary(CPnt3D lo, CPnt3D hi)
+{
+	/* 0x216880: the cells under the box (x and z of its corners) for GetNextCell; returns the
+	   first one */
+	gridGetGridXandZIndex(&xMinCell, &zMinCell, lo.x, lo.z);
+	gridGetGridXandZIndex(&xMaxCell, &zMaxCell, hi.x, hi.z);
+	xCurCell = xMinCell;
+	zCurCell = zMinCell;
+	return GridCellAt(this, xCurCell, zCurCell);
 }
 
 /* @socom-skeleton stub GetNextCell__Q23zdb5CGridFv */
 zdb::CCell * zdb::CGrid::GetNextCell()
 {
+	/* 0x216700: the next cell of the SetCellBoundary range, row by row (x fastest); NULL past
+	   the range. ELF quirk kept: a slot without a cell node also returns NULL, which ends the
+	   callers' walks early. */
+	xCurCell++;
+
+	if (!(xMaxCell < xCurCell))
+		return GridCellAt(this, xCurCell, zCurCell);
+
+	xCurCell = xMinCell;
+	zCurCell++;
+
+	if (zMaxCell < zCurCell)
+		return NULL;
+
+	return GridCellAt(this, xCurCell, zCurCell);
 }
 
 /* @socom-skeleton body addOrderedCellAtom__Q23zdb5CGridFiib */

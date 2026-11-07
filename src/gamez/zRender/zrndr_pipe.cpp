@@ -721,16 +721,176 @@ u32 CPipe::RenderWorld(zdb::CWorld* world)
 }
 
 /* @socom-skeleton stub BuildLightMapList__5CPipeFPQ23zdb5CNode */
-void CPipe::BuildLightMapList(zdb::CNode *)
+/* the light-map / shadow-map sphere test of BuildLightMapList (inlined twice in the ELF): the
+   node's box centre in world space against the map's position, within the box half-diagonal
+   plus the map's range */
+static bool LightMapTouches(zdb::CNode* node, zdb::CLightMap* map)
 {
+	const CBBox* bbox = node->GetBBox();
+	CPnt3D size;
+	static_cast<const CPnt3D&>(node->GetBBox()->m_max).Sub(&bbox->m_min, &size);
+
+	CPnt3D half;
+	static_cast<const CPnt3D&>(size).Scale(0.5f, &half);
+	CPnt3D halfSize = half;
+
+	CPnt3D centre;
+	static_cast<const CPnt3D&>(node->GetBBox()->m_min).Add(&halfSize, &centre);
+	CPnt3D world = centre;
+	node->m_matrix.Transform(&world, 1);
+
+	CPnt3D offset;
+	static_cast<const CPnt3D&>(world).Sub(reinterpret_cast<const CPnt3D*>(map->m_matrix.GetTranslate()), &offset);
+
+	f32 range = map->m_maxRange + sqrtf(halfSize.x * halfSize.x + halfSize.y * halfSize.y + halfSize.z * halfSize.z);
+	return offset.x * offset.x + offset.y * offset.y + offset.z * offset.z < range * range;
+}
+
+void CPipe::BuildLightMapList(zdb::CNode *node)
+{
+	/* 0x2442f0: the world's light maps that reach the node go to CVisual::m_lightMapList, its
+	   shadow maps (m_isShadow; only while m_applyShadow, never the instance's own shadow) to
+	   m_shadowMapList; both lists restart empty (their sizes are zeroed in place). The ELF
+	   also takes fabsf of the node's six box coordinates first and drops the results. */
+	zdb::CVisual::m_lightMapList.clear();
+	zdb::CVisual::m_shadowMapList.clear();
+
+	zdb::CLightMapVector& maps = m_world->m_lightMaps;
+
+	if (maps.size() == 0)
+		return;
+
+	for (zdb::CLightMapVector::iterator i = maps.begin(); i != maps.end(); ++i)
+	{
+		zdb::CLightMap* map = *i;
+
+		if (map->m_isShadow)
+		{
+			if (!zdb::CVisual::m_applyShadow)
+				continue;
+
+			zdb::CNode* instance = node->m_type == (u32)zdb::CNode::TYPE::INSTANCE ? node : NULL;
+
+			if (instance != NULL && map->m_instance == instance)
+				continue;
+
+			if (LightMapTouches(node, map) && !zdb::CVisual::m_shadowMapList.Exists(map))
+				zdb::CVisual::m_shadowMapList.insert(zdb::CVisual::m_shadowMapList.end(), 1, map);
+		}
+		else if (LightMapTouches(node, map) && !zdb::CVisual::m_lightMapList.Exists(map))
+			zdb::CVisual::m_lightMapList.insert(zdb::CVisual::m_lightMapList.end(), 1, map);
+	}
 }
 
 /* @socom-skeleton body BuildNodeLocalLightList__FPQ23zdb5CNodePQ23zdb5CNode */
-void BuildNodeLocalLightList(zdb::CNode* node, zdb::CNode* light)
+void BuildNodeLocalLightList(zdb::CNode* atom, zdb::CNode* node)
 {
-	// TODO: Implement this function.
-	// It should gather up a list of local lights
-	// and add them to the visual instances list.
+	/* 0x243c10: the node's box corners in world space (CVisual::m_ModelToWorld) give a world
+	   box; each grid cell under it lists its lights. Up to 10 active lights, each once per
+	   call (m_appliedToNode = the call counter), outside the node's region mask and whose
+	   range box overlaps the world box, go to CVisual::AddLocalLight at their model-space
+	   position (CVisual::m_WorldToModel). The atom (a0) is not read. ELF quirks kept: a light
+	   sharing a region bit with the node is skipped; the cell walk ends at the first missing
+	   cell (CGrid::GetNextCell returns NULL). */
+	(void)atom;
+	zdb::CVisual::m_local_light_cnt = 0;
+	AppliedToNodeNum++;
+
+	CBBox8 corners;
+	corners.Build(*node->GetBBox());
+
+	CPnt3D world[8];
+
+	for (s32 i = 0; i < 8; i++)
+	{
+		f32 in[4] = { corners.m_pnt[i].x, corners.m_pnt[i].y, corners.m_pnt[i].z, 1.0f };
+		f32 out[4];
+
+		sceVu0ApplyMatrix(out, zdb::CVisual::m_ModelToWorld->m_matrix, in); /* vmulax..vmaddw with w = 1 */
+		world[i].x = out[0];
+		world[i].y = out[1];
+		world[i].z = out[2];
+	}
+
+	CPnt3D lo = world[0];
+	CPnt3D hi = world[0];
+
+	for (s32 i = 1; i < 8; i++)
+	{
+		if (world[i].x <= lo.x) lo.x = world[i].x;
+		if (world[i].y <= lo.y) lo.y = world[i].y;
+		if (world[i].z <= lo.z) lo.z = world[i].z;
+		if (!(world[i].x < hi.x)) hi.x = world[i].x;
+		if (!(world[i].y < hi.y)) hi.y = world[i].y;
+		if (!(world[i].z < hi.z)) hi.z = world[i].z;
+	}
+
+	zdb::CGrid* grid = zdb::CWorld::m_world->m_grid; /* port: the ELF's CWorld holds the CGrid by value (+0x670) */
+
+	for (zdb::CCell* cell = grid->SetCellBoundary(lo, hi); cell != NULL; cell = grid->GetNextCell())
+	{
+		zdb::CLightList* lights = &cell->m_lightList;
+
+		if (lights->size() == 0)
+			continue;
+
+		for (zdb::CLightList::iterator i = lights->begin(); i != lights->end(); ++i)
+		{
+			if (zdb::CVisual::m_local_light_cnt >= 10)
+				continue;
+
+			zdb::CLight* light = *i;
+
+			if (!light->m_active)
+				continue;
+
+			if (light->m_appliedToNode == (u32)AppliedToNodeNum)
+				continue;
+
+			light->m_appliedToNode = AppliedToNodeNum;
+
+			if ((light->m_region_mask & node->m_region_mask) != 0)
+				continue;
+
+			f32 r = light->m_maxRange;
+			CPnt3D* p = &light->m_WorldPosition;
+
+			if (p->x + r < lo.x || !(p->x - r <= hi.x))
+				continue;
+			if (p->y + r < lo.y || !(p->y - r <= hi.y))
+				continue;
+			if (p->z + r < lo.z || !(p->z - r <= hi.z))
+				continue;
+
+			f32 in[4] = { p->x, p->y, p->z, 1.0f };
+			f32 out[4];
+
+			sceVu0ApplyMatrix(out, zdb::CVisual::m_WorldToModel.m_matrix, in);
+
+			CPnt3D local;
+			local.x = out[0];
+			local.y = out[1];
+			local.z = out[2];
+			zdb::CVisual::AddLocalLight(light, &local);
+		}
+	}
+}
+
+/* (no skeleton entry) */
+void CBBox8::Build(const CBBox& box)
+{
+	/* 0x244220 */
+	const CPnt3D& lo = box.m_min;
+	const CPnt3D& hi = box.m_max;
+
+	m_pnt[0].x = lo.x; m_pnt[0].y = lo.y; m_pnt[0].z = hi.z;
+	m_pnt[1].x = lo.x; m_pnt[1].y = lo.y; m_pnt[1].z = lo.z;
+	m_pnt[2].x = hi.x; m_pnt[2].y = lo.y; m_pnt[2].z = lo.z;
+	m_pnt[3].x = hi.x; m_pnt[3].y = lo.y; m_pnt[3].z = hi.z;
+	m_pnt[4].x = lo.x; m_pnt[4].y = hi.y; m_pnt[4].z = hi.z;
+	m_pnt[5].x = lo.x; m_pnt[5].y = hi.y; m_pnt[5].z = lo.z;
+	m_pnt[6].x = hi.x; m_pnt[6].y = hi.y; m_pnt[6].z = lo.z;
+	m_pnt[7].x = hi.x; m_pnt[7].y = hi.y; m_pnt[7].z = hi.z;
 }
 
 /* @socom-skeleton body RenderNode__5CPipeFPQ23zdb5CNodeQ23zdb12tag_ZVIS_FOV */
@@ -844,13 +1004,6 @@ void CPipe::RenderNode(zdb::CNode* node, zdb::tag_ZVIS_FOV fov)
 }
 
 /* @socom-skeleton body RenderMesh__5CPipeFPQ23zdb5CNodePQ23zdb5CMeshP7CMatrixQ23zdb12tag_ZVIS_FOV */
-/* port: GetSubMesh__Q23zdb5CNodeFv is still a void stub (node_model.cpp); the const inline
-   declared beside it returns NULL, so no sub-mesh matrices are written yet */
-static inline zdb::CSubMesh* RenderMeshSubMesh(zdb::CNode* node)
-{
-	return static_cast<const zdb::CNode*>(node)->GetSubMesh();
-}
-
 void CPipe::RenderMesh(zdb::CNode *node, zdb::CMesh *mesh, CMatrix *mvp, zdb::tag_ZVIS_FOV fov)
 {
 	/* 0x2431a0: a skinned mesh node: FOV test and LOD as RenderNode, then its sub-mesh nodes
@@ -939,7 +1092,7 @@ void CPipe::RenderMesh(zdb::CNode *node, zdb::CMesh *mesh, CMatrix *mvp, zdb::ta
 	}
 
 	node->GetFirstVisual(); /* result unused in the ELF */
-	zdb::CSubMesh* sub = RenderMeshSubMesh(node);
+	zdb::CSubMesh* sub = node->GetSubMesh();
 
 	if (own == NULL && sub == NULL)
 		SaveDelayedNode(mvp, node, fov);
@@ -951,7 +1104,7 @@ void CPipe::RenderMesh(zdb::CNode *node, zdb::CMesh *mesh, CMatrix *mvp, zdb::ta
 	{
 		zdb::CNode* child = node->m_child[i];
 
-		if (RenderMeshSubMesh(child) == NULL && child->GetMesh() == NULL)
+		if (child->GetSubMesh() == NULL && child->GetMesh() == NULL)
 			SaveDelayedNode(mvp, child, fov);
 		else
 			RenderMesh(child, mesh, mvp, fov);
@@ -973,13 +1126,100 @@ void CPipe::RenderMesh(zdb::CNode *node, zdb::CMesh *mesh, CMatrix *mvp, zdb::ta
 }
 
 /* @socom-skeleton stub SaveDelayedNode__5CPipeFP7CMatrixPQ23zdb5CNodeQ23zdb12tag_ZVIS_FOV */
-void CPipe::SaveDelayedNode(CMatrix *, zdb::CNode *, zdb::tag_ZVIS_FOV)
+void CPipe::SaveDelayedNode(CMatrix *mvp, zdb::CNode *node, zdb::tag_ZVIS_FOV fov)
 {
+	/* 0x242f50: record a node to draw after the grid pass (RenderDelayedNodes): its matrix
+	   mvp * CStack::m_top, the current atom, FOV, opacity, add colour, global light scale and
+	   fog. A translucent one (opacity < 0.99) adds the textures of its visuals and of its
+	   active children's visuals to the alpha pass list. */
+	if (!(m_delayedNodeNum < m_DelayedNodes.size()))
+		m_DelayedNodes.resize(m_DelayedNodes.size() + 8);
+
+	tag_DelayedNode* entry = &m_DelayedNodes[m_delayedNodeNum++];
+
+	sceVu0MulMatrix(entry->m_matrix.m_matrix, mvp->m_matrix, CStack::m_top->m_matrix);
+	entry->m_atom = m_node;
+	entry->m_node = node;
+	entry->m_fov = static_cast<u8>(fov);
+	entry->m_opacity = m_opacity_stack[m_opacity_stack_index];
+	entry->m_addColor[0] = zdb::CVisual::m_addColor[0];
+	entry->m_addColor[1] = zdb::CVisual::m_addColor[1];
+	entry->m_addColor[2] = zdb::CVisual::m_addColor[2];
+	entry->m_globalLightScale = zdb::CVisual::m_GlobalLightScale;
+	entry->m_fog = m_doFog;
+
+	if (!(entry->m_opacity < 0.99f))
+		return;
+
+	for (u32 i = 0; i < node->m_visual.size(); i++)
+		m_alpha.m_dyntexlist.Add(&node->m_visual[i]->m_dyn_tex_list);
+
+	for (u32 c = 0; c < node->m_child.size(); c++)
+	{
+		zdb::CNode* child = node->m_child[c];
+
+		if (!child->m_active || !child->m_hasVisuals)
+			continue;
+
+		for (u32 i = 0; i < child->m_visual.size(); i++)
+			m_alpha.m_dyntexlist.Add(&child->m_visual[i]->m_dyn_tex_list);
+	}
 }
 
 /* @socom-skeleton stub RenderDelayedNodes__5CPipeFv */
 void CPipe::RenderDelayedNodes()
 {
+	/* 0x242d40: draw the saved nodes with their saved state; the light maps are rebuilt when
+	   the atom changes. A character atom (m_character) takes its global light scale from
+	   m_customGlobalLight (negative: 1, else n / 127). */
+	m_node = NULL;
+
+	tag_DelayedNode* entry = m_DelayedNodes.size() != 0 ? &m_DelayedNodes[0] : NULL;
+
+	for (u32 i = 0; i < m_delayedNodeNum; i++, entry++)
+	{
+		if (m_node != entry->m_atom)
+		{
+			m_node = entry->m_atom;
+			BuildLightMapList(m_node);
+		}
+
+		CStack::m_top++;
+		CStack::m_pointer++;
+		sceVu0CopyMatrix(CStack::m_top->m_matrix, entry->m_matrix.m_matrix);
+
+		f32 opacity = entry->m_opacity;
+		m_opacity_stack_index++;
+
+		if (m_opacity_stack_index == m_opacity_stack_size)
+		{
+			m_opacity_stack = static_cast<f32*>(_realloc(m_opacity_stack, (m_opacity_stack_size + 1) * 4, "zrndr_pipe.cpp", 2840));
+			m_opacity_stack_size++;
+		}
+
+		m_opacity_stack[m_opacity_stack_index] = opacity * m_opacity_stack[m_opacity_stack_index - 1];
+
+		zdb::CVisual::m_addColor[0] = entry->m_addColor[0];
+		zdb::CVisual::m_addColor[1] = entry->m_addColor[1];
+		zdb::CVisual::m_addColor[2] = entry->m_addColor[2];
+		m_doFog = entry->m_fog != 0;
+
+		if (m_node->m_character)
+		{
+			if (m_node->m_customGlobalLight < 0)
+				zdb::CVisual::m_GlobalLightScale = 1.0f;
+			else
+				zdb::CVisual::m_GlobalLightScale = 0.007874016f * m_node->m_customGlobalLight; /* 0x3c010204 = 1/127 */
+		}
+		else
+			zdb::CVisual::m_GlobalLightScale = entry->m_globalLightScale;
+
+		RenderNode(entry->m_node, static_cast<zdb::tag_ZVIS_FOV>(static_cast<s8>(entry->m_fov)));
+		zdb::CVisual::m_GlobalLightScale = 1.0f;
+		m_opacity_stack_index--;
+		CStack::m_pointer--;
+		CStack::m_top--;
+	}
 }
 
 /* @socom-skeleton stub RenderNodeShadow__5CPipeFPQ23zdb5CNode */

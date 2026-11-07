@@ -422,37 +422,64 @@ zdb::tag_ZVIS_FOV zdb::CCamera::TestFOV(PNT4D *corners, unsigned int *clipWord, 
 }
 
 /* @socom-skeleton stub SetCameraCanSeeRegions__Q23zdb7CCameraFUi */
-void zdb::CCamera::SetCameraCanSeeRegions(unsigned int)
+void zdb::CCamera::SetCameraCanSeeRegions(unsigned int regions)
 {
+	/* 0x1e4cf0: a nonzero mask replaces the camera's regions */
+	if (regions == 0)
+		return;
+
+	m_CameraCanSeeRegions = regions;
+	m_SeeRegions = (m_PlayerCanSeeRegions | 1) | m_CameraCanSeeRegions;
 }
 
 /* @socom-skeleton stub SetPlayerCanSeeRegions__Q23zdb7CCameraFUi */
-void zdb::CCamera::SetPlayerCanSeeRegions(unsigned int)
+void zdb::CCamera::SetPlayerCanSeeRegions(unsigned int regions)
 {
+	/* 0x1e4cc0: a nonzero mask replaces the player's regions; region bit 0 is always seen */
+	if (regions == 0)
+		return;
+
+	m_PlayerCanSeeRegions = regions;
+	m_SeeRegions = (m_PlayerCanSeeRegions | 1) | m_CameraCanSeeRegions;
 }
 
 /* @socom-skeleton body CanSeeRegion__Q23zdb7CCameraFUi */
 namespace zdb {
 bool CCamera::CanSeeRegion(u32 mask)
 	{
+		/* 0x1e4c80: true without the region test (the earlier port returned false there),
+		   else whether the seen regions meet the mask (0 means bit 0) */
 		if (!mask)
 			mask = 1;
 
-		if (m_do_region_test && (m_SeeRegions & mask) != 0)
+		if (!m_do_region_test)
 			return true;
 
-		return false;
+		return (m_SeeRegions & mask) != 0;
 	}
 }
 
 /* @socom-skeleton stub PlayerCanSeeRegion__Q23zdb7CCameraFUi */
-unsigned char zdb::CCamera::PlayerCanSeeRegion(unsigned int)
+unsigned char zdb::CCamera::PlayerCanSeeRegion(unsigned int mask)
 {
+	/* 0x1e4c40: true without the region test, else whether the player's regions (bit 0
+	   always set) meet the mask (0 means bit 0) */
+	if (mask == 0)
+		mask = 1;
+
+	u32 regions = m_PlayerCanSeeRegions | 1;
+
+	if (!m_do_region_test)
+		return true;
+
+	return (regions & mask) != 0;
 }
 
 /* @socom-skeleton stub GetPlayerCanSeeRegion__Q23zdb7CCameraFv */
 unsigned int zdb::CCamera::GetPlayerCanSeeRegion()
 {
+	/* 0x1e4c30 */
+	return m_PlayerCanSeeRegions | 1;
 }
 
 /* @socom-skeleton stub GetScaledRangeSquared__Q23zdb7CCameraFP6CPnt3D */
@@ -510,8 +537,13 @@ unsigned char zdb::CCamera::InsideMidPlane(zdb::CNode *node)
 }
 
 /* @socom-skeleton stub GetZ__Q23zdb7CCameraFP6CPnt3D */
-float zdb::CCamera::GetZ(CPnt3D *)
+float zdb::CCamera::GetZ(CPnt3D *point)
 {
+	/* 0x1e48a0: the view depth (position - point) . z axis (VU0 vsub/vmul and a w sum; the
+	   unsquared GetScaledZSquared) */
+	return (m_matrix.m_matrix[3][0] - point->x) * m_matrix.m_matrix[2][0]
+	     + (m_matrix.m_matrix[3][1] - point->y) * m_matrix.m_matrix[2][1]
+	     + (m_matrix.m_matrix[3][2] - point->z) * m_matrix.m_matrix[2][2];
 }
 
 /* @socom-skeleton stub GetScaledZSquared__Q23zdb7CCameraFP6CPnt3D */

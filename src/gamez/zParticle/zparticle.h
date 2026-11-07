@@ -6,9 +6,19 @@
 
 #ifndef ZPARTICLE_H
 #define ZPARTICLE_H
+#include <list>
 #include <vector>
 
 #include "gamez/zNode/znode.h"
+
+class CParticleEx; /* DWARF (st_core.cpp): 8 bytes, base zdb::CNodeEx, m_emitter Particle::Source* */
+
+/* DWARF Range (st_core.cpp, 8 bytes) */
+struct Range
+{
+	f32 m_min;
+	f32 m_max;
+};
 
 enum PARTICLE_TYPE
 {
@@ -79,7 +89,7 @@ public:
 
 		static Source* Create();
 
-		void RenderBBox();
+		static void RenderBBox(); /* 0x238a70 never reads a0; DrawPrep / Draw call it with no object */
 		
 		void GetBBox(CBBox* box);
 		void Default();
@@ -90,9 +100,70 @@ public:
 
 		void Tick(f32 dT);
 		void Reset();
+
+		/* DWARF Particle::Source (st_core.cpp, 308 bytes); GCC adds no vptr (no virtuals) */
+		bool m_active;                   /* +0x0 */
+		bool m_goodPos;                  /* +0x1 */
+		bool m_frozen;                   /* +0x2 */
+		bool m_outOfRange;               /* +0x3 */
+		CPnt3D m_oldPosW;                /* +0x4 */
+		bool m_applyGlobalLighting;      /* +0x10 */
+		bool m_applyLocalLighting;       /* +0x11 */
+		bool m_applyFog;                 /* +0x12 */
+		bool m_freezable;                /* +0x13 */
+		bool m_landmark;                 /* +0x14 */
+		bool m_doAgeLOD;                 /* +0x15 */
+		bool m_doSpawnLOD;               /* +0x16 */
+		bool m_distInterval;             /* +0x17 */
+		f32 m_period;                    /* +0x18 */
+		f32 m_invPeriod;                 /* +0x1c */
+		f32 m_streakLen;                 /* +0x20 */
+		f32 m_streakFade;                /* +0x24 */
+		f32 m_minRot;                    /* +0x28 */
+		f32 m_maxRot;                    /* +0x2c */
+		f32 m_minRotAcc;                 /* +0x30 */
+		f32 m_maxRotAcc;                 /* +0x34 */
+		u8 m_drawType;                   /* +0x38: PARTICLE_TYPE (DWARF enum; the draw code reads one
+		                                    byte: lbu 56 in DrawOne 0x234780) */
+		s32 m_numPeriods;                /* +0x3c */
+		f32 m_phase;                     /* +0x40 */
+		s32 m_number;                    /* +0x44 */
+		f32 m_distance;                  /* +0x48 */
+		zdb::CNode* m_node;              /* +0x4c */
+		CPnt3D m_offset;                 /* +0x50 */
+		Range m_perturbPositionX;        /* +0x5c */
+		Range m_perturbPositionY;        /* +0x64 */
+		Range m_perturbPositionZ;        /* +0x6c */
+		Range m_rotationX;               /* +0x74 */
+		Range m_rotationY;               /* +0x7c */
+		Range m_rotationZ;               /* +0x84 */
+		CPnt3D m_localVelocity;          /* +0x8c */
+		CPnt3D m_worldVelocity;          /* +0x98 */
+		bool m_inheritVelocity;          /* +0xa4 */
+		Range m_perturbVelocityX;        /* +0xa8 */
+		Range m_perturbVelocityY;        /* +0xb0 */
+		Range m_perturbVelocityZ;        /* +0xb8 */
+		Range m_radiusRange;             /* +0xc0 */
+		Range m_lifespanRange;           /* +0xc8 */
+		Range m_initialAgeRange;         /* +0xd0 */
+		std::vector<zdb::CTexHandle*> m_textures; /* +0xd8 (DWARF vector; element type from TexturesAdd's
+		                                    CTexHandle* argument - port: unproven) */
+		Props* m_props;                  /* +0xe4 */
+		CBBox m_bbox;                    /* +0xe8 */
+		zdb::CNode* m_diNode;            /* +0x100 */
+		zdb::CDIPoly* m_diPolies[6];     /* +0x104 (DWARF array 0..5 of 4-byte entries) */
+		bool m_hasbbox;                  /* +0x11c */
+		f32 m_filled_volume;             /* +0x120 */
+		CParticleEx* m_particleEx;       /* +0x124 */
+		bool m_shuttingoff;              /* +0x128 */
+		u8 m_fovFlag;                    /* +0x129: zdb::tag_ZVIS_FOV (DWARF enum; one byte in the ELF layout) */
+		s32 m_refcount;                  /* +0x12c */
+		s32 m_cloudtype;                 /* +0x130 */
 		/* @socom-skeleton decl Q28Particle6Source */
 public:
-		class List
+		/* the source list (0x505680, 12 bytes): RenderBBox walks it as a std::list of Source*
+		   (node +8 = the source). port: guess - std::list base (the ELF type may hold it) */
+		class List : public std::list<Particle::Source*>
 		{
 		public:
 			void Uninit();
@@ -106,7 +177,7 @@ public:
 		void SetActive(bool);
 		static float distanceFactor;
 		static float frequencyFactor;
-		static unsigned char list[12];
+		static Particle::Source::List list;
 		static float referencePositionW[3];
 		/* @socom-skeleton end Q28Particle6Source */
 	};
@@ -121,6 +192,11 @@ public:
 			     f32 param_5, f32 param_6, zdb::CTexHandle*, Props* properties, Source* source);
 
 		void Expire();
+
+		/* port: partial layout (no DWARF): the constructor 0x236f20 stores its Source* at +4 and
+		   its CTexHandle* at +8 (and its Props* at +64, not declared yet); the GCC vptr is at +0 */
+		Source* m_source;           /* +4: DrawOne reads m_source->m_drawType */
+		zdb::CTexHandle* m_texture; /* +8: Render uses it, else the Props texture sequence */
 		/* @socom-skeleton decl Q28Particle8Instance */
 public:
 		class List
@@ -149,9 +225,16 @@ public:
 	
 	/* @socom-skeleton decl 8Particle */
 public:
+	/* one queued particle (32 bytes; buffer stride and Instance::Render 0x236a90) */
 	class BufferElement
 	{
 	public:
+		CPnt4D m_color;             /* +0: Props::GetColor at the instance's age, alpha * opacity,
+		                               then * 128 (sceVu0ScaleVector) */
+		Instance* m_instance;       /* +16 */
+		f32 m_unk14;                /* +20: Render's f22 (not traced) */
+		zdb::CTexture* m_texture;   /* +24: the instance's texture handle's +12 */
+		f32 m_depth;                /* +28: sort key (bufferPtrCompare); DrawPrep / DrawOne return it squared */
 		void DrawStreaked(float (&)[4][4]);
 		void DrawXZ(float (&)[4][4]);
 		void DrawRotated(float (&)[4][4]);
@@ -179,19 +262,20 @@ public:
 	static zdb::CNode * GetFreeInstance();
 	static void ReleaseInstance(zdb::CNode *);
 	static float DrawPrep();
-	void DrawOne();
+	static float DrawOne(); /* 0x234780: no a0; returns the next element's depth squared (Draw ignores it) */
+	static int bufferPtrCompare(Particle::BufferElement* const&, Particle::BufferElement* const&); /* 0x234680 */
 	static void DrawFlush();
 	static void Draw();
 	static float DrawRange(float, float);
 	static void Render(); /* static: Render__8ParticleFv (0x237130) never reads a0; CPipe::RenderWorld calls it with no object */
-	static unsigned char bufferPtr[20000];
-	static unsigned char buffer[160000];
+	static Particle::BufferElement* bufferPtr[5000]; /* 20000 bytes: DrawPrep points entry i at buffer[i], then sorts */
+	static Particle::BufferElement buffer[5000];     /* 160000 bytes */
 	static int clipLimScreen;
 	static zdb::CDynTexList m_dyntexlist;
 	static int m_lastTexture;
 	static int maxZ;
 	static int numParticles;
-	static int pParticleBuf;
+	static Particle::BufferElement** pParticleBuf; /* the draw cursor into bufferPtr, from the last (farthest) down */
 	static int particle_node_count;
 	static int particle_node_free_list[3];
 	/* @socom-skeleton end 8Particle */

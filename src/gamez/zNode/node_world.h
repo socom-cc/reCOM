@@ -78,10 +78,8 @@ namespace zdb
 
 		CLightList m_lights;
 
-		// TODO:
-		// implement these two container types
 		CRenderMapVector m_shadows;
-		// CLightMapVector m_lightMaps;
+		CLightMapVector m_lightMaps; /* DWARF +0x55c: AddLightMap 0x22fb20 appends, CPipe::BuildLightMapList reads */
 
 		CLOD_Object m_LOD_Object;
 		CMaterial_Object m_Material_Object;

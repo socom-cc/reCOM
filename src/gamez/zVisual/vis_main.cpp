@@ -656,9 +656,6 @@ CVisual::CVisual()
 		m_centroid = CPnt3D::zero;
 		m_detail_cnt = 0;
 		m_detail_params = NULL;
-
-		m_has_lods = false; /* port: legacy members (zvis.h) */
-		m_instance_cnt = 0;
 	}
 }
 
@@ -900,8 +897,9 @@ void zdb::CVisual::CopyBuffer(::CVisBase **, unsigned int)
 namespace zdb {
 u32 CVisual::Release()
 	{
-		m_instance_cnt--;
-		return m_instance_cnt;
+		/* 0x30d290 */
+		m_ref_count--;
+		return m_ref_count;
 	}
 }
 
@@ -1034,8 +1032,23 @@ void CVisual::Render(CMatrix* transform)
 }
 
 /* @socom-skeleton stub AddLocalLight__Q23zdb7CVisualFPQ23zdb6CLightP6CPnt3D */
-void zdb::CVisual::AddLocalLight(zdb::CLight *, CPnt3D *)
+void zdb::CVisual::AddLocalLight(zdb::CLight *light, CPnt3D *position)
 {
+	/* 0x30c8f0: two qwords per light in localLightBuf - {model-space position, max range
+	   squared}, {diffuse colour, 1 / (max range squared - min range squared)} - and the
+	   light in localLightPtr. No bound check (BuildNodeLocalLightList stops at 10). */
+	CPnt4D* buf = &localLightBuf[m_local_light_cnt * 2];
+
+	buf[0].x = position->x;
+	buf[0].y = position->y;
+	buf[0].z = position->z;
+	buf[0].w = light->m_maxRangeSq;
+	buf[1].x = light->m_diffuse.x;
+	buf[1].y = light->m_diffuse.y;
+	buf[1].z = light->m_diffuse.z;
+	buf[1].w = 1.0f / (light->m_maxRangeSq - light->m_minRange * light->m_minRange);
+	localLightPtr[m_local_light_cnt] = light;
+	m_local_light_cnt++;
 }
 
 /* @socom-skeleton body GetChainData__Q23zdb7CVisualFv */

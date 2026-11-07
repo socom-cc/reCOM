@@ -80,24 +80,34 @@ void CNode::ComputeFacadeMatrix(const CMatrix* matrix, CMatrix* model)
 /* @socom-skeleton body GetMesh__Q23zdb5CNodeFv */
 zdb::CMesh * zdb::CNode::GetMesh()
 	{
+		/* 0x229510: the first visual when it is a CMesh (vtype 1), else NULL. (The earlier
+		   port tested a legacy m_has_lods flag nothing set, so hookupVisuals never reached
+		   hookupMesh and every mesh model kept a NULL LOD 0 chain.) */
 		CVisual* mesh = NULL;
 
-		if (!m_visual.empty())
-		{
-			mesh = *m_visual.data();
-		}
+		if (m_visual.size() != 0)
+			mesh = m_visual[0];
 
-		if (!mesh || !mesh->m_has_lods)
-		{
-			mesh = NULL;
-		}
+		if (mesh != NULL && mesh->m_vtype == 1)
+			return static_cast<CMesh*>(mesh);
 
-		return static_cast<CMesh*>(mesh);
+		return NULL;
 	}
 
 /* @socom-skeleton stub GetSubMesh__Q23zdb5CNodeFv */
-void zdb::CNode::GetSubMesh()
+zdb::CSubMesh * zdb::CNode::GetSubMesh()
 {
+	/* 0x229490: the first visual when it is a CSubMesh (vtype 2; __dynamic_cast from
+	   CVisual), else NULL */
+	CVisual* visual = NULL;
+
+	if (m_visual.size() != 0)
+		visual = m_visual[0];
+
+	if (visual == NULL || visual->m_vtype != 2)
+		return NULL;
+
+	return dynamic_cast<CSubMesh*>(visual);
 }
 
 /* @socom-skeleton stub GetFirstVisual__Q23zdb5CNodeFv */

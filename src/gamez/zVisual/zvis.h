@@ -334,12 +334,6 @@ public:
 		CDynTexList m_dyn_tex_list;            /* +72: textures the chains use */
 		tag_DETAIL_PARAMS* m_detail_params;    /* +96: "detail_buff" (Read) */
 		u32 m_detail_cnt;                      /* +100 */
-
-		/* port: legacy members of the earlier port, not in the ELF layout. CNode::_Copy
-		   (node_main.cpp) and CModel (node_model.cpp) still name them; nothing in this unit
-		   sets them. */
-		bool m_has_lods;
-		u32 m_instance_cnt;
 		/* @socom-skeleton decl Q23zdb7CVisual */
 public:
 		virtual ~CVisual();
@@ -434,12 +428,11 @@ public:
 		/* @socom-skeleton end Q23zdb5CMesh */
 	};
 
-	/* vtype 2: a part of a CMesh drawn with one of its matrices. The ELF class derives from
-	 * CVisual (constructor 0x30ef40 calls __ct__Q23zdb7CVisualFv, vtable __vt__Q23zdb8CSubMesh
-	 * has no InitMatrices slot, Ghidra CSubMesh is 112 bytes). port: deviation - the base stays
-	 * CMesh while CNode::_Copy (node_main.cpp) static_casts a CMesh* to CSubMesh*; the CMesh
-	 * part is unused (its constructor's LOD entry is the only cost). */
-	class CSubMesh : public CMesh
+	/* vtype 2: a part of a CMesh drawn with one of its matrices (CPipe::RenderMesh copies the
+	 * node's stack matrix into m_mesh's palette entry m_matrix_id). Base CVisual as in the ELF:
+	 * constructor 0x30ef40 calls __ct__Q23zdb7CVisualFv, vtable __vt__Q23zdb8CSubMesh has no
+	 * InitMatrices slot, Ghidra CSubMesh is 112 bytes. */
+	class CSubMesh : public CVisual
 	{
 	public:
 		CSubMesh(CMesh* mesh);

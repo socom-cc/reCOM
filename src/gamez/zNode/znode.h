@@ -260,7 +260,6 @@ public:
 		CBBox* GetBBox() const;
 		
 		CMesh* GetMesh() const;
-		CSubMesh* GetSubMesh() const { return NULL; }
 
 		bool SetActive(bool active);
 		void SetName(const char* name);
@@ -274,7 +273,7 @@ public:
 		char* m_name;
 		CNodeEx* m_nodeEx;
 		s8 m_customGlobalLight;
-		bool m_frameRendered;
+		u8 m_frameRendered; /* DWARF uchar: the low byte of the frame it was drawn in (Rendered 0x226f30); was bool */
 		u16 m_flatten : 1;
 		u16 m_modified : 1;
 		u16 m_character : 1;
@@ -322,12 +321,12 @@ public:
 		void ApplyDecal(zdb::CNode *, float, CPnt3D *, CPnt3D *, CPnt3D *, zdb::CTexHandle *, float, CPnt3D *);
 		void RemoveDecals();
 		void ScrollTexture(zdb::CNode *, float, float, bool);
-		void SetDescendantDI(bool);
-		void SetDescendantVisuals(bool);
+		bool SetDescendantDI(bool); /* bool: 0x224f30 */
+		bool SetDescendantVisuals(bool); /* bool: 0x224df0 */
 		void FindMeshTextures();
 		void SetBlendMode(const zdb::BLENDMODE &, bool, bool, bool);
 		zdb::CMesh * GetMesh();
-		void GetSubMesh();
+		zdb::CSubMesh * GetSubMesh();
 		zdb::CVisual * GetFirstVisual();
 		static zdb::CNode * Delete(zdb::CNode *);
 		float GetClosestNode(const CPnt3D *, const CPnt3D *, float, float, float, float);

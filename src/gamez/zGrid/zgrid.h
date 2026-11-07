@@ -37,7 +37,7 @@ namespace zdb
 			s32 z;
 		};
 
-	private:
+	public: /* port: BuildNodeLocalLightList (zrndr_pipe.cpp) walks m_lightList */
 		CLightList m_lightList;
 		CClutterList m_clutterList;
 		CDynTexList m_dyntexlist;
@@ -150,7 +150,7 @@ public:
 		void InitDescendantsVisuals();
 		void NodeGetIntersect(zdb::CNode *, zdb::DiIntersect *);
 		void NodeGetAltitude(zdb::CNode *, zdb::DiIntersect *);
-		void SetCellBoundary(CPnt3D, CPnt3D);
+		zdb::CCell * SetCellBoundary(CPnt3D, CPnt3D); /* 0x216880 returns the first cell (v0) */
 		zdb::CCell * GetNextCell();
 		void gridGetGridXandZIndex(int *, int *, float, float);
 		void Remove(zdb::CNode *);

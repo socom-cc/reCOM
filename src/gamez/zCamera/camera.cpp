@@ -64,6 +64,8 @@
 #include "gamez/zSeal/zseal.h"
 #include "gamez/zSystem/zsys.h"
 
+#include <libvu0.h> /* sceVu0OuterProduct, sceVu0UnitMatrix (LookAt, AttachTo) */
+
 /* @socom-skeleton decl include */
 #include "gamez/zIntersect/zintersect.h"
 #include "gamez/zMath/zmath.h"
@@ -133,9 +135,44 @@ void CAppCamera::ClipCameraChord(float, CPnt3D *, CPnt3D *, CPnt3D *)
 }
 
 /* @socom-skeleton body LookAt__10CAppCameraFPC6CPnt3DPC6CPnt3DR7CMatrix */
-void CAppCamera::LookAt(const CPnt3D *center, const CPnt3D *eye, CMatrix &mat)
+void CAppCamera::LookAt(const CPnt3D *eye, const CPnt3D *target, CMatrix &mat)
 {
+	/* 0x1eba40: a camera matrix at eye looking at target: row 0 the level right vector
+	   (-flat.z, 0, flat.x) of the horizontal view direction, row 1 right x forward
+	   (sceVu0OuterProduct), row 2 -forward, row 3 the eye; the w column is left as passed
+	   (callers pass a unit matrix). The eye is kept in m_wPos. */
+	CPnt3D d;
+	target->Sub(eye, &d);
 
+	CPnt3D forward = d;
+	forward.Normalize();
+
+	CPnt3D flat = forward;
+	flat.y = 0.0f;
+	flat.Normalize();
+
+	f32 right[4] = { -flat.z, 0.0f, flat.x, 1.0f };
+	f32 dir[4] = { forward.x, forward.y, forward.z, 1.0f };
+	f32 up[4];
+
+	sceVu0OuterProduct(up, right, dir);
+
+	mat.m_matrix[0][0] = right[0];
+	mat.m_matrix[0][1] = 0.0f;
+	mat.m_matrix[0][2] = right[2];
+	mat.m_matrix[1][0] = up[0];
+	mat.m_matrix[1][1] = up[1];
+	mat.m_matrix[1][2] = up[2];
+	mat.m_matrix[2][0] = -forward.x;
+	mat.m_matrix[2][1] = -forward.y;
+	mat.m_matrix[2][2] = -forward.z;
+	mat.m_matrix[3][0] = eye->x;
+	mat.m_matrix[3][1] = eye->y;
+	mat.m_matrix[3][2] = eye->z;
+
+	m_wPos.x = eye->x;
+	m_wPos.y = eye->y;
+	m_wPos.z = eye->z;
 }
 
 /* @socom-skeleton body RegisterAnimCommands__10CAppCameraFv */
@@ -267,12 +304,56 @@ CAppCamera::~CAppCamera()
 /* @socom-skeleton stub AttachTo__10CAppCameraFP10CZSealBody */
 unsigned char CAppCamera::AttachTo(CZSealBody *seal)
 {
-	/* 0x1eb420: without a seal nothing changes */
+	/* 0x1eb420 (virtual; testLoad calls it with the player): follow the seal from the
+	   third-person view - its camera params (theCharacterDynamics), the player's pad, the
+	   seal's "camera_effects" node and "skel_root" part - and place the camera behind it.
+	   ELF quirk kept: m_z_nominal is stored twice, the second store (m_screenAspect.y) wins. */
 	if (seal == NULL)
 		return false;
 
-	/* port: not written - following a seal (camera params from theCharacterDynamics,
-	 * the seal's first-person/third-person setup); reaching here stops the port */
+	m_save_view = static_cast<CAMVIEW>(0);
+	m_ctrl_view = static_cast<CAMVIEW>(0);
+	m_save_peek = static_cast<SEAL_PEEK>(2); /* port: SEAL_PEEK value 2 unnamed here */
+
+	CCameraParams* params = &theCharacterDynamics.m_cam_params[static_cast<u8>(m_ctrl_view)];
+	m_camGoalPos = params->m_cam_offset;
+	params = &theCharacterDynamics.m_cam_params[static_cast<u8>(m_ctrl_view)];
+	m_cameraAim = params->m_cam_aimpoint;
+	m_goal_t_len = sqrtf(m_camGoalPos.x * m_camGoalPos.x + m_camGoalPos.y * m_camGoalPos.y + m_camGoalPos.z * m_camGoalPos.z);
+	m_cameraTie = m_cameraAim;
+
+	CEntityCtrl* control = seal->m_control;
+
+	if (control != NULL && static_cast<CSealCtrl*>(control)->IsPlayer())
+		m_padid = static_cast<CSealCtrl*>(control)->m_padid;
+
+	m_entity = seal;
+
+	if (m_entity != NULL)
+	{
+		m_camera_effects = m_entity->GetNode()->FindChild("camera_effects", true);
+		m_skel_root = m_entity->FindPart("skel_root");
+	}
+	else
+	{
+		m_camera_effects = NULL;
+		m_skel_root = NULL;
+	}
+
+	CPnt3D eye = m_camGoalPos;
+	m_entity->m_node->m_matrix.Transform(&eye, 1);
+
+	CPnt3D aim = m_cameraAim;
+	m_entity->m_node->m_matrix.Transform(&aim, 1);
+
+	CMatrix matrix;
+	sceVu0UnitMatrix(matrix.m_matrix);
+	LookAt(&eye, &aim, matrix);
+	m_camera->SetMatrix(&matrix);
+
+	m_z_nominal = m_camera->m_screenAspect.x;
+	m_z_nominal = m_camera->m_screenAspect.y;
+	return true;
 }
 
 /* @socom-skeleton body SetZoom__10CAppCameraFf */
