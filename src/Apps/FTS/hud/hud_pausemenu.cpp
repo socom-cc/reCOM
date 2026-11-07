@@ -61,6 +61,11 @@ CZPauseTest::CZPauseTest()
     m_selectsound = NULL;
     m_scrollupsound = NULL;
     m_scrolldownsound = NULL;
+    /* port: guard - the ELF never initialises m_on (+0x358): neither this ctor (0x3bf5b0)
+       nor CHUD's (0x3bc180) nor Init/ReInit store it, only On/Off (0x3be7c0/0x3be7b0).
+       CHUD is a plain new (CCoreState::Init 0x17d314), so in a reused heap block m_on was
+       nonzero and CHUD::PauseGame (0x3ba068) stopped zTaskScheduler every frame. */
+    m_on = false;
 }
 
 /* @socom-skeleton stub ClosePauseMenu__11CZPauseTestFv */
