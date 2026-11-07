@@ -472,7 +472,7 @@ public:
 	int GetItemIndex(EQUIP_ITEM) const;
 	void GetAmmoIndex(EQUIP_AMMO, int);
 	int GetItemIndex(SEAL_ITEM);
-	void HasItem(EQUIP_ITEM) const;
+	bool HasItem(EQUIP_ITEM) const; /* 0x2af310: 0/1 */
 	void HasSniperRifle();
 	CZKit();
 	~CZKit();
@@ -495,10 +495,10 @@ public:
 	void ChangeItemModel(int, int, int, bool);
 	bool CanChangeItem(); /* 0x2acc00: 0/1 */
 	void SetCurItemByIndex(int);
-	void GetCurNumMags();
+	int GetCurNumMags();
 	int GetNumMags(int);
 	void CycleFireMode();
-	void FindNextGrenadeLauncherAmmo(int);
+	int FindNextGrenadeLauncherAmmo(int); /* 0x2ac4a0: a fire mode */
 	int GetMaxAmmoCount(int);
 	int GetCurMaxAmmoCount();
 	void EmptyAmmoCountTotal(int);
@@ -508,24 +508,24 @@ public:
 	FIREMODE GetCurFireMode();
 	CZFTSWeapon * GetItemByIndex(int);
 	void Recoil(CZFTSWeapon *);
-	void Reload();
+	bool Reload(); /* 0x2ab530: 0/1 */
 	void TickReticule(float);
-	void TickExplosives(float);
+	bool TickExplosives(float); /* 0x2aa7a0: 0/1 */
 	void TickFlashlight(float);
 	void Apply_LensEffects(bool, CPnt3D *);
 	void PreTick(float);
 	void Tick(float);
-	void WillFireWeapon();
+	bool WillFireWeapon(); /* 0x2a98a0: 0/1 */
 	float GetFireDelay();
 	void DetonateRemoteExplosives();
 	void HandlePlacingExlosive(EQUIP_ITEM, float, float);
-	void FetchLaseTarget();
+	bool FetchLaseTarget(); /* 0x2a9360: HandleFireWeapon tests v0 */
 	void TickLaserDesignator(float);
 	void HandleFireWeapon(int, float, float);
 	bool IsZoomed(); /* 0x2a89d0: 0/1 */
 	float GetCurZoom();
 	int UpdateCurItemReticule();
-	void CurReticuleTypeChanged();
+	bool CurReticuleTypeChanged();
 	void SetCurReticule();
 	int GetReticuleByIndex(int);
 	char * GetItemName(int);
@@ -535,23 +535,23 @@ public:
 	int GetSelectedItemNum();
 	void SetBody(CZSealBody *);
 	bool SetItem(unsigned int, EQUIP_ITEM); /* bool: PostCreateSeal 0x289f94 tests v0 */
-	void SetItemAmmo(unsigned int, CZAmmo *, int, int);
-	unsigned char SetItemAmmo(unsigned int, CZAmmo *);
+	bool SetItemAmmo(unsigned int, CZAmmo *, int, int); /* 0x2a8130: 0/1 */
+	bool SetItemAmmo(unsigned int, CZAmmo *); /* 0x2a80a0: 0/1 */
 	void isSelectableItem(int);
 	void ItemHasAmmo(EQUIP_ITEM);
-	unsigned char CurItemHasAmmo();
-	void ItemHasAmmo(int, FIREMODE);
-	void ItemHasAmmo(int);
+	bool CurItemHasAmmo(); /* 0x2a7db0: 0/1 */
+	bool ItemHasAmmo(int, FIREMODE); /* 0x2a7c50: 0/1 */
+	bool ItemHasAmmo(int); /* 0x2a7bf0: 0/1 */
 	bool CurWeaponIsM203Mode(); /* 0x2a7b50 returns 0/1 */
-	void WeaponIsGrenadeLauncherMode(int);
-	void CurMagHasAmmo();
+	bool WeaponIsGrenadeLauncherMode(int); /* 0x2a7a50: 0/1 */
+	bool CurMagHasAmmo(); /* 0x2a7880: 0/1 */
 	void SetCurAccuracy();
 	int GetTotalEnc();
 	CZProjectile * FireGrenade(const CPnt3D *, const CPnt3D *);
 	PlacedExplosive * HandleRemotePlaceExplosive(const CPnt3D *, const CQuat *);
 	void FillWeaponEnum(int, CZFTSWeapon **);
-	void CurItemHasFiremodeGraphic();
-	void WeaponInfoChanged();
+	bool CurItemHasFiremodeGraphic();
+	bool WeaponInfoChanged();
 	void HandlePlaceMPBomb(const CPnt3D *);
 	void PickupMPBomb();
 	void PickupAmmo(CPickup *);
@@ -1238,7 +1238,7 @@ public:
 	CZBodyAnimBlend * Climb(float);
 	void ClimbOver(float);
 	bool PostFall(); /* 0x275170: 0 for a fall, 1 otherwise */
-	void BeginThrowItem(float, float &);
+	bool BeginThrowItem(float, float &); /* 0x2750d0: HandleFireWeapon tests v0 */
 	void GetThrowAnim(float, AnimType &, float &, float &, CPnt3D &);
 	void GetPutativeFirePointW(bool, bool, CPnt3D &);
 	CZBodyAnimBlend * ClimbLadder();
@@ -1357,7 +1357,7 @@ public:
 	bool IsChangingWeapons(); /* 0x298870: 0/1 */
 	void ChangeToPistolMode(bool);
 	void ChangeToRifleMode(bool);
-	void ChangeWeapon(SEAL_ITEM, SEAL_ITEM);
+	bool ChangeWeapon(SEAL_ITEM, SEAL_ITEM); /* 0x297060: 0/1 */
 	void PostChangeWeapon(SEAL_ITEM);
 	void UpdateHealth(DAMAGE_LOCATION, SEAL_DEATH_TYPE);
 	void GetHudHitFlag();
@@ -1458,6 +1458,7 @@ class CSealUnit
 {
 public:
 	static bool TickAll(f32 dT, void* buf);
+	u32 m_unit_num; /* DWARF +0x38 (GetUnitByTeam 0x2d7590) */
 	CSealUnit* m_parent; /* DWARF +0x3c (the other members are not declared yet) */
 	/* @socom-skeleton decl 9CSealUnit */
 public:
@@ -1700,7 +1701,7 @@ public:
 	float GetThrowAverage();
 	void TriggerPowerReset();
 	void SetCameraZoom(float, float);
-	void UpdateHudWeapon();
+	bool UpdateHudWeapon();
 	float GetZoomLevel();
 	float GetZoomIncrement();
 	void SetHighRumbleTime(float);

@@ -516,13 +516,10 @@ void BitmapReticule::HudTick(float dT)
 
 	ThreatDirTick(seal);
 
-	/* port: CZWeapon::TimerCleared 0x31c9a0 and TimerRegistered 0x31c9d0 are one load of
-	 * these flags each; their zwep_weapon.cpp bodies are unwritten non-void stubs (they
-	 * would STOP the game), so the flags are read here */
-	if (CZWeapon::m_timer_bTimerCleared)
+	if (CZWeapon::TimerCleared())
 		m_pCurval = NULL;
 
-	if (CZWeapon::m_timer_bTimerRegistered)
+	if (CZWeapon::TimerRegistered())
 	{
 		CZWeapon::RetrieveTimerRegistration(&m_pCurval, &m_maxval, &m_bIncrTimer);
 
@@ -548,10 +545,8 @@ void BitmapReticule::HudTick(float dT)
 
 		if (!hud->m_usehudret || !hud->m_hudretchanged)
 		{
-			/* port: CZKit::CurReticuleTypeChanged is declared void (zseal.h; the ELF
-			 * returns and clears the changed flag, then takes UpdateCurItemReticule's
-			 * type): the reticule type does not follow the kit */
-			seal->m_kit.CurReticuleTypeChanged();
+			if (seal->m_kit.CurReticuleTypeChanged())
+				ChangeReticule(seal->m_kit.UpdateCurItemReticule());
 		}
 		else
 		{

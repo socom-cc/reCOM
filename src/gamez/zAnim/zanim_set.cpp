@@ -238,6 +238,19 @@ void CZAnimSet::Reset()
 /* @socom-skeleton stub SaveNodeStates__9CZAnimSetFv */
 void CZAnimSet::SaveNodeStates()
 {
+	/* 0x1c63b0: every anim of the set (and its sibling chain) resolves its nodes and saves
+	 * their states */
+	ZAnim.m_CurAnim = NULL;
+	ZAnim.m_CurSeq = NULL;
+	ZAnim.m_CurAnimSet = this;
+
+	for (s32 i = 0; i < m_anim_count; i++)
+	{
+		CZAnim *anim = (i < 0 || m_anim_count <= i) ? NULL : &m_anim_list[i];
+
+		for (; anim != NULL; anim = anim->m_sibling_anim)
+			anim->SaveNodeStates(true);
+	}
 }
 
 /* @socom-skeleton stub SaveNodeStates__9CZAnimSetFP15_zanim_node_ref */

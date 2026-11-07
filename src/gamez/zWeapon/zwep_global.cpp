@@ -23,6 +23,7 @@
  * socom-owner-annotations end socom:work:source-segment-043 */
 
 #include "zweapon.h"
+#include <list>
 
 namespace zwep
 {
@@ -36,20 +37,55 @@ namespace zwep
 #include "gamez/zNode/znode.h"
 /* @socom-skeleton end include */
 
+/* port: the list node payload (MSL list<WEAPON_CALLBACK_STRUCT> at 0x511cf0; no DWARF record):
+ * MakeWeaponEventCallbacks 0x315f40 reads the function, event mask and data at node +8/+0xc/+0x10 */
+struct WEAPON_CALLBACK_STRUCT
+{
+	void (*m_func)(CZProjectile *, unsigned int, void *);
+	unsigned int m_events;
+	void *m_data;
+};
+
 /* @socom-skeleton stub m_callbacks */
-static int m_callbacks[3];
+static std::list<WEAPON_CALLBACK_STRUCT> m_callbacks;
 
 /* @socom-skeleton stub AddWeaponEventCallback__8CZWeaponFPFP12CZProjectileUiPv_vUiPv */
-void CZWeapon::AddWeaponEventCallback(void (*)(CZProjectile *, unsigned int, void *), unsigned int, void *)
+void CZWeapon::AddWeaponEventCallback(void (*func)(CZProjectile *, unsigned int, void *), unsigned int events, void *data)
 {
+	/* 0x3160b0 (CZSealBody::ReInitDatabaseHandles): appended */
+	WEAPON_CALLBACK_STRUCT callback;
+	callback.m_func = func;
+	callback.m_events = events;
+	callback.m_data = data;
+	m_callbacks.insert(m_callbacks.end(), callback);
 }
 
 /* @socom-skeleton stub RemoveWeaponEventCallback__8CZWeaponFPFP12CZProjectileUiPv_v */
-void CZWeapon::RemoveWeaponEventCallback(void (*)(CZProjectile *, unsigned int, void *))
+void CZWeapon::RemoveWeaponEventCallback(void (*func)(CZProjectile *, unsigned int, void *))
 {
+	/* 0x315ff0: every callback of func (NULL: all) */
+	if (func == NULL)
+	{
+		m_callbacks.clear();
+		return;
+	}
+
+	for (std::list<WEAPON_CALLBACK_STRUCT>::iterator it = m_callbacks.begin(); it != m_callbacks.end();)
+	{
+		if (it->m_func == func)
+			it = m_callbacks.erase(it);
+		else
+			++it;
+	}
 }
 
 /* @socom-skeleton stub MakeWeaponEventCallbacks__8CZWeaponFUiP12CZProjectile */
-void CZWeapon::MakeWeaponEventCallbacks(unsigned int, CZProjectile *)
+void CZWeapon::MakeWeaponEventCallbacks(unsigned int events, CZProjectile *projectile)
 {
+	/* 0x315f40 (HandleIntersections): the callbacks listening for any of the events */
+	for (std::list<WEAPON_CALLBACK_STRUCT>::iterator it = m_callbacks.begin(); it != m_callbacks.end(); ++it)
+	{
+		if ((it->m_events & events) != 0)
+			it->m_func(projectile, events, it->m_data);
+	}
 }

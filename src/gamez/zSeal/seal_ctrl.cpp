@@ -78,8 +78,29 @@ void CSealCtrl::SetViewRange(float)
 }
 
 /* @socom-skeleton stub PerturbAimVector__9CSealCtrlFP6CPnt3D */
-void CSealCtrl::PerturbAimVector(CPnt3D *)
+void CSealCtrl::PerturbAimVector(CPnt3D *dir)
 {
+	/* 0x283c00 (HandleFireWeapon): the shot direction spread by the body's accuracy: its
+	 * right and up axes scaled by the x / y factor plus the size factor times a signed square
+	 * of a random -1..1 each */
+	CAccuracy *accuracy = &static_cast<CZSealBody *>(m_entity)->m_accuracy;
+	CPnt3D up;
+	up.x = 0.0f;
+	up.y = 1.0f;
+	up.z = 0.0f;
+	CPnt3D right;
+	CPnt3D top;
+	dir->Cross(&up, &right, false);
+	right.Cross(dir, &top, false);
+	f32 r = (f32)(rand() - 0x3fffffff) * 9.313226e-10f;
+	r = r < 0.0f ? -(r * r) : r * r;
+	right.Scale(accuracy->FactorX + accuracy->Factor * r, &right);
+	r = (f32)(rand() - 0x3fffffff) * 9.313226e-10f;
+	r = r < 0.0f ? -(r * r) : r * r;
+	top.Scale(accuracy->FactorY + accuracy->Factor * r, &top);
+	CPnt3D out;
+	dir->Add(&right, &out);
+	out.Add(&top, dir);
 }
 
 /* @socom-skeleton stub TickMPBomb__9CSealCtrlFf */

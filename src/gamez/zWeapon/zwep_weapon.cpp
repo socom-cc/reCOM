@@ -122,6 +122,10 @@
 #include "gamez/zNetwork/znet.h" /* CZNetGame::m_game_type */
 
 #include "gamez/zNode/node_world.h"
+#include "gamez/zArchive/zar.h" /* CZAR (Init) */
+#include "gamez/zSystem/zsys.h" /* _malloc, _free, _strdup */
+#include <string.h>
+#include <strings.h> /* strcasecmp */
 
 // 	RVA: 0x339A60 -> SCUS_971.34
 
@@ -150,80 +154,63 @@ static unsigned char MultiplayerMsgStrings[28];
 CZWeaponList CZWeapon::m_listWeapons;
 
 /* @socom-skeleton stub m_flyout_machine__8CZWeapon */
-unsigned char CZWeapon::m_flyout_machine[28];
+CFlyoutMachine CZWeapon::m_flyout_machine;
 
 /* @socom-skeleton stub m_decalsets__10CZDecalSet */
-int CZDecalSet::m_decalsets[3];
+std::vector<CZDecalSet*> CZDecalSet::m_decalsets;
 
 /* @socom-skeleton body __ct__8CZWeaponFv */
 CZWeapon::CZWeapon()
 {
-	// AI parameter setup
+	/* 0x31f850: AI ranges 50..1000 (version current, not custom), every name and anim
+	 * cleared, fire wait 0.1, single shot (safety) only. ELF: the id starts 0 (EQUIP_PISTOL),
+	 * not EQUIP_NONE; m_firewait is the only nonzero float. */
 	m_ai_params.m_min_range = 50.0f;
 	m_ai_params.m_max_range = 1000.0f;
 	m_ai_params.m_version = AI_PARAMS::version;
 	m_ai_params.m_custom = false;
 	m_ai_params.m_hard_min = false;
 
-	m_name = 0;
-	m_description = 0;
-
+	m_name = NULL;
+	m_description = NULL;
 	m_maxfiremode = FIREMODE::SAFETY;
-
 	m_ammocap = 0;
-
 	m_soundradius = 0.0f;
 	m_soundradiusSq = 0.0f;
-
 	m_encumb = ENCUMBRANCE::LIGHTLY_ENCUMBERED;
-
 	m_effectiverange = 0.0f;
 	m_maxrange = 0.0f;
-	
-	m_texname = 0;
-	m_icontexname = 0;
-	m_associatedgearname = 0;
-	m_modelname = 0;
-	
+	m_texname = NULL;
+	m_icontexname = NULL;
+	m_associatedgearname = NULL;
+	m_modelname = NULL;
 	m_icontex = NULL;
-
-	m_ID = EQUIP_ITEM::EQUIP_NONE;
-
+	m_ID = EQUIP_ITEM::EQUIP_PISTOL;
 	m_nummags = 0;
-
-	m_specialmaterialanimname = 0;
-	m_defaultspecialanimname = 0;
-	m_fireanimname = 0;
-	m_hitanimname = 0;
-
+	m_specialmaterialanimname = NULL;
+	m_defaultspecialanimname = NULL;
+	m_fireanimname = NULL;
+	m_hitanimname = NULL;
 	m_hitanim = NULL;
 	m_specialmaterialanim = NULL;
 	m_defaultspecialanim = NULL;
 	m_zoomedfireanim = NULL;
 	m_fireanim = NULL;
-
 	m_texture = NULL;
-
 	m_firewait = 0.1f;
-
-	m_decalsetname = 0;
-	// TODO: Implement CZDecalSet
-	// m_decalset = NULL;
-
+	m_decalsetname = NULL;
+	m_decalset = NULL;
 	m_muzzlevel = 0.0f;
 	m_impactradius = 0.0f;
-
-	m_reloadsoundname = 0;
+	m_reloadsoundname = NULL;
 	m_reloadsound = NULL;
 	m_reloadtime = 0.0f;
-
 	m_reloadAfterShot = false;
-
-	m_hasFiremodes[0] = true;
-	m_hasFiremodes[1] = false;
-	m_hasFiremodes[2] = false;
-	m_hasFiremodes[3] = false;
-	m_hasFiremodes[4] = false;
+	m_hasFireModes[0] = true;
+	m_hasFireModes[1] = false;
+	m_hasFireModes[2] = false;
+	m_hasFireModes[3] = false;
+	m_hasFireModes[4] = false;
 }
 
 /* @socom-skeleton stub __dt__8CZWeaponFv */
@@ -232,23 +219,38 @@ CZWeapon::~CZWeapon()
 }
 
 /* @socom-skeleton stub CreateProjectileList__8CZWeaponFi */
-void CZWeapon::CreateProjectileList(int)
+bool CZWeapon::CreateProjectileList(int count)
 {
+	/* 0x31f5f0 (testLoad: 100) */
+	m_pProjectilelist = new CZProjectileList(count);
+	return m_pProjectilelist != NULL;
 }
 
 /* @socom-skeleton stub DestroyProjectileList__8CZWeaponFv */
-void CZWeapon::DestroyProjectileList()
+bool CZWeapon::DestroyProjectileList()
 {
+	/* 0x31f5b0 */
+	if (m_pProjectilelist == NULL)
+		return false;
+
+	delete m_pProjectilelist;
+	m_pProjectilelist = NULL;
+	return true;
 }
 
 /* @socom-skeleton stub CreateMarkList__8CZWeaponFv */
-void CZWeapon::CreateMarkList()
+bool CZWeapon::CreateMarkList()
 {
+	/* 0x31f530: the mark (decal) list, a 52-byte CZMarkList. port: not written (decals are
+	 * out of scope; CZMarkList has no members yet), so no list: false */
+	return false;
 }
 
 /* @socom-skeleton stub DestroyMarkList__8CZWeaponFv */
-void CZWeapon::DestroyMarkList()
+bool CZWeapon::DestroyMarkList()
 {
+	/* 0x31f440: false without a mark list (port: CreateMarkList makes none) */
+	return false;
 }
 
 /* @socom-skeleton stub CreateWeaponList__8CZWeaponFv */
@@ -261,115 +263,209 @@ bool CZWeapon::CreateWeaponList()
 /* @socom-skeleton stub GetBulletPassSound__8CZWeaponFv */
 CSnd * CZWeapon::GetBulletPassSound()
 {
+	/* 0x31f420 */
+	return m_bulletPassSound;
 }
 
 /* @socom-skeleton stub SetBulletPassSound__8CZWeaponFP4CSnd */
-void CZWeapon::SetBulletPassSound(CSnd *)
+void CZWeapon::SetBulletPassSound(CSnd *sound)
 {
+	/* 0x31f410 */
+	m_bulletPassSound = sound;
 }
 
 /* @socom-skeleton stub Fire__8CZWeaponFPQ23zdb5CNodeP6CZAmmoPC6CPnt3DPC6CPnt3DPC6CPnt3DP12CZProjectileiPQ23zdb6CModelff */
-void CZWeapon::Fire(zdb::CNode *, CZAmmo *, const CPnt3D *, const CPnt3D *, const CPnt3D *, CZProjectile *, int, zdb::CModel *, float, float)
+void CZWeapon::Fire(zdb::CNode *owner, CZAmmo *ammo, const CPnt3D *from, const CPnt3D *dir, const CPnt3D *vel, CZProjectile *projectile, int id, zdb::CModel *model, float time, float removal)
 {
+	/* 0x31f2b0 (virtual, CZKit::Fire): the projectile set up (a refused one is freed); a
+	 * direct-fire weapon with a sound radius over 1 makes an AI noise event */
+	if (!projectile->SetProjectile(owner, this, ammo, from, dir, vel, id, model, time, removal))
+	{
+		m_pProjectilelist->RemoveProjectile(projectile);
+		return;
+	}
+
+	if (IsDirectFire() && m_soundradius > 1.0f)
+	{
+		/* port: not written - an AIE_WEPFIRE AI event (CAiEvent::Acquire/Create, the AI event
+		 * pool, are unwritten) at from, range the sound radius, 0.1 s, owner id */
+	}
 }
 
 /* @socom-skeleton stub Fire__8CZWeaponFPQ23zdb5CNodeP8CZWeaponP6CZAmmoPC6CPnt3DPC6CPnt3DPC6CPnt3DPQ23zdb6CModelP12CZProjectileUiff */
-void CZWeapon::Fire(zdb::CNode *, CZWeapon *, CZAmmo *, const CPnt3D *, const CPnt3D *, const CPnt3D *, zdb::CModel *, CZProjectile *, unsigned int, float, float)
+void CZWeapon::Fire(zdb::CNode *owner, CZWeapon *weapon, CZAmmo *ammo, const CPnt3D *from, const CPnt3D *dir, const CPnt3D *vel, zdb::CModel *model, CZProjectile *projectile, unsigned int id, float time, float removal)
 {
+	/* 0x31f100 (remote seals): the projectile's instance takes the model and joins the world,
+	 * then as the virtual Fire (the sound event of weapon) */
+	if (model != NULL && projectile != NULL)
+	{
+		zdb::CNode *instance = projectile->GetInstance();
+
+		if (instance != NULL)
+		{
+			instance->SetModel(model);
+
+			if (instance->m_parent != zdb::CWorld::m_world)
+				zdb::CWorld::m_world->AddChild(instance);
+		}
+	}
+
+	if (!projectile->SetProjectile(owner, weapon, ammo, from, dir, vel, id, model, time, removal))
+	{
+		m_pProjectilelist->RemoveProjectile(projectile);
+		return;
+	}
+
+	if (weapon->m_soundradius > 1.0f)
+	{
+		/* port: not written - the AIE_WEPFIRE AI event (CAiEvent pool unwritten) */
+	}
 }
 
 /* @socom-skeleton body Fire__8CZWeaponFR12CZProjectile */
 void CZWeapon::Fire(CZProjectile& projectile)
 {
-	zdb::CNode* instance = projectile.GetInstance();
+	/* 0x31eff0 (network): the instance joins the world, the projectile takes its DI; a
+	 * refused one is freed, a loud weapon makes an AI noise event */
+	zdb::CNode *instance = projectile.GetInstance();
 
-	if (instance && instance->m_parent != zdb::CWorld::m_world)
+	if (instance != NULL && instance->m_parent != zdb::CWorld::m_world)
 		zdb::CWorld::m_world->AddChild(instance);
 
 	projectile.PreFireProjectile();
 
-	// if (!projectile.FireValidityCheck())
-		// m_pProjectileList.RemoveProjectile(projectile);
+	if (!projectile.FireValidityCheck())
+	{
+		m_pProjectilelist->RemoveProjectile(&projectile);
+		return;
+	}
+
+	if (projectile.m_weapon->m_soundradius > 1.0f)
+	{
+		/* port: not written - the AIE_WEPFIRE AI event (CAiEvent pool unwritten) */
+	}
 }
 
 /* @socom-skeleton stub SetName__8CZWeaponFPCc */
-void CZWeapon::SetName(const char *)
+void CZWeapon::SetName(const char *name)
 {
+	/* 0x31ef80 */
+	if (m_name != NULL)
+		_free(m_name, "zwep_weapon.cpp", 459);
+
+	m_name = NULL;
+	m_name = name != NULL ? _strdup(name, "zwep_weapon.cpp", 460) : NULL;
 }
 
 /* @socom-skeleton stub SetDescription__8CZWeaponFPCc */
-void CZWeapon::SetDescription(const char *)
+void CZWeapon::SetDescription(const char *description)
 {
+	/* 0x31ef10 */
+	if (m_description != NULL)
+		_free(m_description, "zwep_weapon.cpp", 465);
+
+	m_description = NULL;
+	m_description = description != NULL ? _strdup(description, "zwep_weapon.cpp", 466) : NULL;
 }
 
 /* @socom-skeleton body HasFireMode__8CZWeaponCFi */
 bool CZWeapon::HasFireMode(s32 id) const
 {
-	return id >= 5 || m_hasFiremodes[id];
+	/* 0x31eee0 */
+	return id >= 5 || m_hasFireModes[id];
 }
 
 /* @socom-skeleton body SetHasFireMode__8CZWeaponF8FIREMODE */
-void CZWeapon::SetHasFireMode(FIREMODE newMode)
+void CZWeapon::SetHasFireMode(FIREMODE mode)
 {
-	m_hasFiremodes[static_cast<s32>(newMode)] = true;
-	
-	if (m_maxfiremode < newMode)
-		m_maxfiremode = newMode;
+	/* 0x31eeb0 */
+	m_hasFireModes[(u8)mode] = true;
+
+	if ((u8)m_maxfiremode < (u8)mode)
+		m_maxfiremode = mode;
 }
 
 /* @socom-skeleton stub SetAmmoCapacity__8CZWeaponFi */
-void CZWeapon::SetAmmoCapacity(int)
+void CZWeapon::SetAmmoCapacity(int capacity)
 {
+	m_ammocap = capacity;
 }
 
 /* @socom-skeleton stub SetNumMags__8CZWeaponFi */
-void CZWeapon::SetNumMags(int)
+void CZWeapon::SetNumMags(int mags)
 {
+	m_nummags = mags;
 }
 
 /* @socom-skeleton stub SetSoundRadius__8CZWeaponFf */
-void CZWeapon::SetSoundRadius(float)
+void CZWeapon::SetSoundRadius(float radius)
 {
+	/* 0x31ee80: and its square */
+	m_soundradius = radius;
+	m_soundradiusSq = radius * radius;
 }
 
 /* @socom-skeleton stub SetEncumbrance__8CZWeaponF11ENCUMBRANCE */
-void CZWeapon::SetEncumbrance(ENCUMBRANCE)
+void CZWeapon::SetEncumbrance(ENCUMBRANCE encumb)
 {
+	m_encumb = encumb;
 }
 
 /* @socom-skeleton stub SetMaxRange__8CZWeaponFf */
-void CZWeapon::SetMaxRange(float)
+void CZWeapon::SetMaxRange(float range)
 {
+	m_maxrange = range;
 }
 
 /* @socom-skeleton stub SetEffectiveRange__8CZWeaponFf */
-void CZWeapon::SetEffectiveRange(float)
+void CZWeapon::SetEffectiveRange(float range)
 {
+	m_effectiverange = range;
 }
 
 /* @socom-skeleton stub SetImpactRadius__8CZWeaponFf */
-void CZWeapon::SetImpactRadius(float)
+void CZWeapon::SetImpactRadius(float radius)
 {
+	m_impactradius = radius;
 }
 
 /* @socom-skeleton stub SetMuzzleVelocity__8CZWeaponFf */
-void CZWeapon::SetMuzzleVelocity(float)
+void CZWeapon::SetMuzzleVelocity(float velocity)
 {
+	m_muzzlevel = velocity;
 }
 
 /* @socom-skeleton stub SetAssociatedGearName__8CZWeaponFPCc */
-void CZWeapon::SetAssociatedGearName(const char *)
+void CZWeapon::SetAssociatedGearName(const char *name)
 {
+	/* 0x31edc0 */
+	if (m_associatedgearname != NULL)
+		_free(m_associatedgearname, "zwep_weapon.cpp", 539);
+
+	m_associatedgearname = NULL;
+	m_associatedgearname = name != NULL ? _strdup(name, "zwep_weapon.cpp", 540) : NULL;
 }
 
 /* @socom-skeleton stub SetModelName__8CZWeaponFPCc */
-void CZWeapon::SetModelName(const char *)
+void CZWeapon::SetModelName(const char *name)
 {
+	/* 0x31ed50 */
+	if (m_modelname != NULL)
+		_free(m_modelname, "zwep_weapon.cpp", 544);
+
+	m_modelname = NULL;
+	m_modelname = name != NULL ? _strdup(name, "zwep_weapon.cpp", 545) : NULL;
 }
 
 /* @socom-skeleton stub SetIconTextureName__8CZWeaponFPCc */
-void CZWeapon::SetIconTextureName(const char *)
+void CZWeapon::SetIconTextureName(const char *name)
 {
+	/* 0x31ece0 */
+	if (m_icontexname != NULL)
+		_free(m_icontexname, "zwep_weapon.cpp", 550);
+
+	m_icontexname = NULL;
+	m_icontexname = name != NULL ? _strdup(name, "zwep_weapon.cpp", 551) : NULL;
 }
 
 /* @socom-skeleton body GetName__8CZWeaponCFv */
@@ -381,16 +477,20 @@ char * CZWeapon::GetDescription() const { return m_description; }
 /* @socom-skeleton stub GetAmmoCapacity__8CZWeaponFv */
 int CZWeapon::GetAmmoCapacity()
 {
+	return m_ammocap;
 }
 
 /* @socom-skeleton stub GetNumMags__8CZWeaponFv */
 int CZWeapon::GetNumMags()
 {
+	return m_nummags;
 }
 
 /* @socom-skeleton stub GetEncumbrance__8CZWeaponFv */
 ENCUMBRANCE CZWeapon::GetEncumbrance()
 {
+	/* 0x31ec90: lb */
+	return m_encumb;
 }
 
 /* @socom-skeleton stub GetMaxRange__8CZWeaponFv */
@@ -403,6 +503,7 @@ float CZWeapon::GetMaxRange()
 /* @socom-skeleton stub GetEffectiveRange__8CZWeaponFv */
 float CZWeapon::GetEffectiveRange()
 {
+	return m_effectiverange;
 }
 
 /* @socom-skeleton body GetImpactRadius__8CZWeaponCFv */
@@ -411,17 +512,20 @@ float CZWeapon::GetImpactRadius() const { return m_impactradius; }
 /* @socom-skeleton stub GetMuzzleVelocity__8CZWeaponFv */
 float CZWeapon::GetMuzzleVelocity()
 {
+	return m_muzzlevel;
 }
 
 /* @socom-skeleton body AddLegalAmmo__8CZWeaponFP6CZAmmo */
 void CZWeapon::AddLegalAmmo(CZAmmo* ammo)
 {
-
+	/* 0x31ec00: appended (also NULL) */
+	m_LegalAmmoList.insert(m_LegalAmmoList.end(), ammo);
 }
 
 /* @socom-skeleton stub GetAssociatedGearName__8CZWeaponFv */
 char * CZWeapon::GetAssociatedGearName()
 {
+	return m_associatedgearname;
 }
 
 /* @socom-skeleton body GetModelName__8CZWeaponCFv */
@@ -431,121 +535,186 @@ char * CZWeapon::GetModelName() const { return m_modelname; }
 char * CZWeapon::GetIconTextureName() const { return m_icontexname; }
 
 /* @socom-skeleton stub IsLegalAmmo__8CZWeaponFP6CZAmmo */
-void CZWeapon::IsLegalAmmo(CZAmmo *)
+bool CZWeapon::IsLegalAmmo(CZAmmo *ammo)
 {
+	/* 0x31eaf0: a legal ammo of the same name */
+	for (CZAmmoList::iterator it = m_LegalAmmoList.begin(); it != m_LegalAmmoList.end(); ++it)
+	{
+		if (strcmp(ammo->GetName(), (*it)->GetName()) == 0)
+			return true;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub SetHitAnimName__8CZWeaponFPCc */
-void CZWeapon::SetHitAnimName(const char *)
+void CZWeapon::SetHitAnimName(const char *name)
 {
+	/* 0x31ea80 */
+	if (m_hitanimname != NULL)
+		_free(m_hitanimname, "zwep_weapon.cpp", 652);
+
+	m_hitanimname = NULL;
+	m_hitanimname = name != NULL ? _strdup(name, "zwep_weapon.cpp", 653) : NULL;
 }
 
 /* @socom-skeleton stub SetFireAnimName__8CZWeaponFPCc */
-void CZWeapon::SetFireAnimName(const char *)
+void CZWeapon::SetFireAnimName(const char *name)
 {
+	/* 0x31ea10 */
+	if (m_fireanimname != NULL)
+		_free(m_fireanimname, "zwep_weapon.cpp", 657);
+
+	m_fireanimname = NULL;
+	m_fireanimname = name != NULL ? _strdup(name, "zwep_weapon.cpp", 658) : NULL;
 }
 
 /* @socom-skeleton stub SetDefaultSpecialAnimName__8CZWeaponFPCc */
-void CZWeapon::SetDefaultSpecialAnimName(const char *)
+void CZWeapon::SetDefaultSpecialAnimName(const char *name)
 {
+	/* 0x31e9a0 */
+	if (m_defaultspecialanimname != NULL)
+		_free(m_defaultspecialanimname, "zwep_weapon.cpp", 662);
+
+	m_defaultspecialanimname = NULL;
+	m_defaultspecialanimname = name != NULL ? _strdup(name, "zwep_weapon.cpp", 663) : NULL;
 }
 
 /* @socom-skeleton stub SetSpecialMaterialAnimName__8CZWeaponFPCc */
-void CZWeapon::SetSpecialMaterialAnimName(const char *)
+void CZWeapon::SetSpecialMaterialAnimName(const char *name)
 {
+	/* 0x31e930 */
+	if (m_specialmaterialanimname != NULL)
+		_free(m_specialmaterialanimname, "zwep_weapon.cpp", 667);
+
+	m_specialmaterialanimname = NULL;
+	m_specialmaterialanimname = name != NULL ? _strdup(name, "zwep_weapon.cpp", 668) : NULL;
 }
 
 /* @socom-skeleton stub AllocateSpecialMaterialAnimMem__8CZWeaponFv */
 bool CZWeapon::AllocateSpecialMaterialAnimMem()
 {
+	/* 0x31e8e0: one anim per material (not cleared) */
+	m_specialmaterialanim = (CZAnim **)_malloc(CMaterialExArray::m_materialex_list.size() * 4, "zwep_weapon.cpp", 673);
+	return m_specialmaterialanim != NULL;
 }
 
 /* @socom-skeleton stub AllocateHitAnimMem__8CZWeaponFv */
 bool CZWeapon::AllocateHitAnimMem()
 {
+	/* 0x31e890: one anim per material (not cleared) */
+	m_hitanim = (CZAnim **)_malloc(CMaterialExArray::m_materialex_list.size() * 4, "zwep_weapon.cpp", 679);
+	return m_hitanim != NULL;
 }
 
 /* @socom-skeleton stub GetHitAnimName__8CZWeaponFv */
 char * CZWeapon::GetHitAnimName()
 {
+	return m_hitanimname;
 }
 
 /* @socom-skeleton stub GetDefaultSpecialAnimName__8CZWeaponFv */
 char * CZWeapon::GetDefaultSpecialAnimName()
 {
+	return m_defaultspecialanimname;
 }
 
 /* @socom-skeleton stub GetSpecialMaterialAnimName__8CZWeaponFv */
 char * CZWeapon::GetSpecialMaterialAnimName()
 {
+	return m_specialmaterialanimname;
 }
 
 /* @socom-skeleton stub SetHitAnim__8CZWeaponFiP6CZAnim */
-void CZWeapon::SetHitAnim(int, CZAnim *)
+void CZWeapon::SetHitAnim(int material, CZAnim *anim)
 {
+	/* 0x31e830: ELF returns 1 inside the material range (callers drop it) */
+	if (material < (s32)CMaterialExArray::m_materialex_list.size())
+		m_hitanim[material] = anim;
 }
 
 /* @socom-skeleton stub SetFireAnim__8CZWeaponFP6CZAnim */
-void CZWeapon::SetFireAnim(CZAnim *)
+void CZWeapon::SetFireAnim(CZAnim *anim)
 {
+	m_fireanim = anim;
 }
 
 /* @socom-skeleton stub SetDefaultSpecialAnim__8CZWeaponFP6CZAnim */
-void CZWeapon::SetDefaultSpecialAnim(CZAnim *)
+void CZWeapon::SetDefaultSpecialAnim(CZAnim *anim)
 {
+	m_defaultspecialanim = anim;
 }
 
 /* @socom-skeleton stub SetSpecialMaterialAnim__8CZWeaponFiP6CZAnim */
-void CZWeapon::SetSpecialMaterialAnim(int, CZAnim *)
+void CZWeapon::SetSpecialMaterialAnim(int material, CZAnim *anim)
 {
+	/* 0x31e7e0: ELF returns 1 inside the material range (callers drop it) */
+	if (material < (s32)CMaterialExArray::m_materialex_list.size())
+		m_specialmaterialanim[material] = anim;
 }
 
 /* @socom-skeleton stub GetSpecialMaterialAnim__8CZWeaponFi */
-CZAnim * CZWeapon::GetSpecialMaterialAnim(int)
+CZAnim * CZWeapon::GetSpecialMaterialAnim(int material)
 {
+	/* 0x31e7b0 */
+	if (material < (s32)CMaterialExArray::m_materialex_list.size())
+		return m_specialmaterialanim[material];
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetFireAnimName__8CZWeaponFv */
 char * CZWeapon::GetFireAnimName()
 {
+	return m_fireanimname;
 }
 
 /* @socom-skeleton stub GetHitAnim__8CZWeaponFi */
-CZAnim * CZWeapon::GetHitAnim(int)
+CZAnim * CZWeapon::GetHitAnim(int material)
 {
+	/* 0x31e770 */
+	if (material < (s32)CMaterialExArray::m_materialex_list.size())
+		return m_hitanim[material];
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetDefaultSpecialAnim__8CZWeaponFv */
 CZAnim * CZWeapon::GetDefaultSpecialAnim()
 {
+	return m_defaultspecialanim;
 }
 
 /* @socom-skeleton stub GetFireAnim__8CZWeaponFb */
-CZAnim * CZWeapon::GetFireAnim(bool)
+CZAnim * CZWeapon::GetFireAnim(bool zoomed)
 {
+	/* 0x31e740 */
+	return zoomed ? m_zoomedfireanim : m_fireanim;
 }
 
 /* @socom-skeleton stub SetZoomedFireAnim__8CZWeaponFP6CZAnim */
-void CZWeapon::SetZoomedFireAnim(CZAnim *)
+void CZWeapon::SetZoomedFireAnim(CZAnim *anim)
 {
+	m_zoomedfireanim = anim;
 }
 
 /* @socom-skeleton body ClearAnims__8CZWeaponFv */
 void CZWeapon::ClearAnims()
 {
+	/* 0x31e6c0 */
 	if (m_hitanim != NULL)
 	{
-		zfree(m_hitanim);
+		_free(m_hitanim, "zwep_weapon.cpp", 784);
 		m_hitanim = NULL;
 	}
 
 	m_fireanim = NULL;
 	m_zoomedfireanim = NULL;
 	m_defaultspecialanim = NULL;
-	
+
 	if (m_specialmaterialanim != NULL)
 	{
-		zfree(m_specialmaterialanim);
+		_free(m_specialmaterialanim, "zwep_weapon.cpp", 792);
 		m_specialmaterialanim = NULL;
 	}
 }
@@ -553,16 +722,31 @@ void CZWeapon::ClearAnims()
 /* @socom-skeleton stub GetDecalSetName__8CZWeaponFv */
 char * CZWeapon::GetDecalSetName()
 {
+	return m_decalsetname;
 }
 
 /* @socom-skeleton stub SetDecalSetName__8CZWeaponFPCc */
-void CZWeapon::SetDecalSetName(const char *)
+void CZWeapon::SetDecalSetName(const char *name)
 {
+	/* 0x31e640: ELF quirk: no NULL test before the strdup */
+	if (m_decalsetname != NULL)
+		_free(m_decalsetname, "zwep_weapon.cpp", 803);
+
+	m_decalsetname = NULL;
+	m_decalsetname = _strdup(name, "zwep_weapon.cpp", 805);
 }
 
 /* @socom-skeleton stub SetReloadSoundName__8CZWeaponFPc */
-void CZWeapon::SetReloadSoundName(char *)
+void CZWeapon::SetReloadSoundName(char *name)
 {
+	/* 0x31e5d0 */
+	if (m_reloadsoundname != NULL)
+		_free(m_reloadsoundname, "zwep_weapon.cpp", 809);
+
+	m_reloadsoundname = NULL;
+
+	if (name != NULL)
+		m_reloadsoundname = _strdup(name, "zwep_weapon.cpp", 812);
 }
 
 /* @socom-skeleton stub PreTick__8CZWeaponFfPv */
@@ -573,7 +757,7 @@ bool CZWeapon::PreTick(float dT, void *)
 	if (m_weaponTickDisabled)
 		return false;
 
-	m_pProjectilelist->PreTick(dT); /* port: NULL until CreateProjectileList is written (its PreTick is a stub) */
+	m_pProjectilelist->PreTick(dT);
 
 	if (theMission.m_pNetGame != NULL && theMission.m_pNetGame->m_game_type == MP_GAME_TYPE::MP_GAME_FOOTBOMB)
 		CZBombState::UpdateLocalBomb();
@@ -588,41 +772,36 @@ bool CZWeapon::PostTick(float dT, void *)
 	if (m_weaponTickDisabled)
 		return false;
 
-	m_pProjectilelist->PostTick(dT); /* port: NULL until CreateProjectileList is written (its PostTick is a stub) */
+	m_pProjectilelist->PostTick(dT);
 	return false;
 }
 
 /* @socom-skeleton stub GetDefaultAmmo__8CZWeaponFv */
 CZAmmo * CZWeapon::GetDefaultAmmo()
 {
+	/* 0x31e4f0: the first legal ammo */
+	if (m_LegalAmmoList.size() <= 0)
+		return NULL;
+
+	return m_LegalAmmoList.GetAmmo(0);
 }
 
 /* @socom-skeleton stub GetDefaultAmmoId__8CZWeaponFv */
 EQUIP_AMMO CZWeapon::GetDefaultAmmoId()
 {
+	/* 0x31e480 */
+	CZAmmo *ammo = m_LegalAmmoList.size() > 0 ? m_LegalAmmoList.GetAmmo(0) : NULL;
+	return ammo != NULL ? ammo->m_ID : EQUIP_AMMO::AMMO_NONE;
 }
 
 /* @socom-skeleton body IsDirectFire__8CZWeaponFv */
 bool CZWeapon::IsDirectFire()
 {
+	/* 0x31e420: not launched grenades, grenades, explosives or equipment */
 	EQUIP_ITEM type = GetIDType(m_ID);
 
-	if (type == EQUIP_ITEM::EQUIP_LAUNCHED_GRENADE)
-	{
-		return false;
-	}
-
-	if (type == EQUIP_ITEM::GRENADE)
-	{
-		return false;
-	}
-
-	if (type == EQUIP_ITEM::EQUIP_EXPLOSIVE)
-	{
-		return false;
-	}
-
-	if (type == EQUIP_ITEM::EQUIP_EQUIPMENT)
+	if (type == EQUIP_ITEM::EQUIP_LAUNCHED_GRENADE || type == EQUIP_ITEM::EQUIP_GRENADE
+		|| type == EQUIP_ITEM::EQUIP_EXPLOSIVE || type == EQUIP_ITEM::EQUIP_EQUIPMENT)
 	{
 		return false;
 	}
@@ -631,149 +810,158 @@ bool CZWeapon::IsDirectFire()
 }
 
 /* @socom-skeleton body GetIDType__8CZWeaponFv */
-EQUIP_ITEM CZWeapon::GetIDType() { return EQUIP_ITEM::EQUIP_NONE; }
+EQUIP_ITEM CZWeapon::GetIDType()
+{
+	/* 0x31e410 (was a provisional EQUIP_NONE) */
+	return GetIDType(m_ID);
+}
 
 /* @socom-skeleton body IsPrimary__8CZWeaponF10EQUIP_ITEM */
 bool CZWeapon::IsPrimary(EQUIP_ITEM item)
 {
-	EQUIP_ITEM item_id = GetIDType(item);
-
-	if (item_id == EQUIP_ITEM::EQUIP_SMG)
-	{
-		return true;
-	}
-
-	if (item_id == EQUIP_ITEM::EQUIP_ASSAULT_RIFLE)
-	{
-		return true;
-	}
-
-	if (item_id == EQUIP_ITEM::EQUIP_SHOTGUN)
-	{
-		return true;
-	}
-
-	if (item_id == (EQUIP_ITEM::MARK46MOD0 | EQUIP_ITEM::MARK23))
-	{
-		return true;
-	}
-
-	if (item_id == EQUIP_ITEM::EQUIP_HEAVYWEAPON)
-	{
-		return true;
-	}
-
-	if (item_id == EQUIP_ITEM::EQUIP_SNIPER_RIFLE)
-	{
-		return true;
-	}
-
-	return false;
+	/* 0x31e3a0: SMGs, rifles, shotguns, machine guns, heavy weapons, sniper rifles */
+	EQUIP_ITEM type = GetIDType(item);
+	return type == EQUIP_ITEM::EQUIP_SMG || type == EQUIP_ITEM::EQUIP_ASSAULT_RIFLE
+		|| type == EQUIP_ITEM::EQUIP_SHOTGUN || type == EQUIP_ITEM::EQUIP_MACHINEGUN
+		|| type == EQUIP_ITEM::EQUIP_HEAVYWEAPON || type == EQUIP_ITEM::EQUIP_SNIPER_RIFLE;
 }
 
 /* @socom-skeleton body IsSecondary__8CZWeaponF10EQUIP_ITEM */
 bool CZWeapon::IsSecondary(EQUIP_ITEM item)
 {
+	/* 0x31e370 */
 	return GetIDType(item) == EQUIP_ITEM::EQUIP_PISTOL;
 }
 
 /* @socom-skeleton stub UnpackItemAndAmmoEnums__8CZWeaponFUsP10EQUIP_ITEMP10EQUIP_AMMO */
-void CZWeapon::UnpackItemAndAmmoEnums(unsigned short, EQUIP_ITEM *, EQUIP_AMMO *)
+void CZWeapon::UnpackItemAndAmmoEnums(unsigned short packed, EQUIP_ITEM *item, EQUIP_AMMO *ammo)
 {
+	/* 0x31e350 */
+	*item = (EQUIP_ITEM)(packed >> 8);
+	*ammo = (EQUIP_AMMO)(packed & 0xff);
 }
 
 /* @socom-skeleton stub PackItemAndAmmoEnums__8CZWeaponF10EQUIP_ITEM10EQUIP_AMMO */
-unsigned short CZWeapon::PackItemAndAmmoEnums(EQUIP_ITEM, EQUIP_AMMO)
+unsigned short CZWeapon::PackItemAndAmmoEnums(EQUIP_ITEM item, EQUIP_AMMO ammo)
 {
+	/* 0x31e320 */
+	return (unsigned short)(((u8)item << 8) | (u8)ammo);
 }
 
 /* @socom-skeleton body GetIDType__8CZWeaponF10EQUIP_ITEM */
 EQUIP_ITEM CZWeapon::GetIDType(EQUIP_ITEM id)
 {
-	if (id > EQUIP_ITEM::EQUIP_PISTOL && id < EQUIP_ITEM::EQUIP_SMG)
-	{
+	/* 0x31e1c0: the id's category (the range base); 180..253 (equipment and armor) give
+	 * EQUIP_EQUIPMENT, 254 and up EQUIP_END (was a provisional body: armor 200, 0 none) */
+	u8 v = (u8)id;
+
+	if (v < 30)
 		return EQUIP_ITEM::EQUIP_PISTOL;
-	}
 
-	if (id > EQUIP_ITEM::EQUIP_SMG && id < EQUIP_ITEM::EQUIP_ASSAULT_RIFLE)
-	{
+	if (v < 50)
 		return EQUIP_ITEM::EQUIP_SMG;
-	}
 
-	if (id > EQUIP_ITEM::EQUIP_ASSAULT_RIFLE && id < EQUIP_ITEM::EQUIP_SHOTGUN)
-	{
+	if (v < 80)
 		return EQUIP_ITEM::EQUIP_ASSAULT_RIFLE;
-	}
 
-	if (id > EQUIP_ITEM::EQUIP_SHOTGUN && id < EQUIP_ITEM::EQUIP_MACHINEGUN)
-	{
+	if (v < 90)
 		return EQUIP_ITEM::EQUIP_SHOTGUN;
-	}
 
-	if (id > EQUIP_ITEM::EQUIP_MACHINEGUN && id < EQUIP_ITEM::EQUIP_SNIPER_RIFLE)
-	{
+	if (v < 100)
 		return EQUIP_ITEM::EQUIP_MACHINEGUN;
-	}
 
-	if (id > EQUIP_ITEM::EQUIP_SNIPER_RIFLE && id < EQUIP_ITEM::GRENADE)
-	{
+	if (v < 120)
 		return EQUIP_ITEM::EQUIP_SNIPER_RIFLE;
-	}
 
-	if (id > EQUIP_ITEM::EQUIP_HEAVYWEAPON && id < EQUIP_ITEM::EQUIP_EXPLOSIVE)
-	{
+	if (v < 140)
+		return EQUIP_ITEM::EQUIP_GRENADE;
+
+	if (v < 150)
 		return EQUIP_ITEM::EQUIP_HEAVYWEAPON;
-	}
 
-	if (id > EQUIP_ITEM::EQUIP_EXPLOSIVE && id < EQUIP_ITEM::EQUIP_MELEE)
-	{
+	if (v < 160)
 		return EQUIP_ITEM::EQUIP_EXPLOSIVE;
-	}
 
-	if (id > EQUIP_ITEM::EQUIP_MELEE && id < EQUIP_ITEM::EQUIP_LAUNCHED_GRENADE)
-	{
+	if (v < 170)
 		return EQUIP_ITEM::EQUIP_MELEE;
-	}
 
-	if (id > EQUIP_ITEM::EQUIP_LAUNCHED_GRENADE && id < EQUIP_ITEM::EQUIP_EQUIPMENT)
-	{
+	if (v < 180)
 		return EQUIP_ITEM::EQUIP_LAUNCHED_GRENADE;
-	}
 
-	if (id > EQUIP_ITEM::EQUIP_EQUIPMENT && id < EQUIP_ITEM::EQUIP_ARMOR)
-	{
+	if (v < 254)
 		return EQUIP_ITEM::EQUIP_EQUIPMENT;
-	}
 
-	if (id > EQUIP_ITEM::EQUIP_ARMOR && id < EQUIP_ITEM::EQUIP_END)
-	{
-		return EQUIP_ITEM::EQUIP_ARMOR;
-	}
-
-	if (id >= EQUIP_ITEM::EQUIP_END)
-	{
-		return EQUIP_ITEM::EQUIP_NONE;
-	}
-	
-	return EQUIP_ITEM::EQUIP_NONE;
+	return EQUIP_ITEM::EQUIP_END;
 }
 
 /* @socom-skeleton body GetWeaponId__8CZWeaponFPCc */
-EQUIP_ITEM CZWeapon::GetWeaponId(const char *name) { return EQUIP_ITEM::EQUIP_NONE; }
+EQUIP_ITEM CZWeapon::GetWeaponId(const char *name)
+{
+	/* 0x31e150: NVG and BINOCULARS by name (case-insensitive), else the weapon list's id
+	 * (was a provisional EQUIP_NONE: every character's default weapons were dropped) */
+	if (name == NULL)
+		return EQUIP_ITEM::EQUIP_NONE;
+
+	if (strcasecmp(name, "NVG") == 0)
+		return EQUIP_ITEM::OLD_NVG_ID;
+
+	if (strcasecmp(name, "BINOCULARS") == 0)
+		return EQUIP_ITEM::BINOCULARS;
+
+	return m_listWeapons.GetWeaponId(name);
+}
 
 /* @socom-skeleton stub GetWeaponName__8CZWeaponF10EQUIP_ITEM */
-char * CZWeapon::GetWeaponName(EQUIP_ITEM)
+char * CZWeapon::GetWeaponName(EQUIP_ITEM id)
 {
+	/* 0x31e140 */
+	return m_listWeapons.GetWeaponName(id);
 }
 
 /* @socom-skeleton stub GetWeaponUIName__8CZWeaponF10EQUIP_ITEM */
-char * CZWeapon::GetWeaponUIName(EQUIP_ITEM)
+char * CZWeapon::GetWeaponUIName(EQUIP_ITEM id)
 {
+	/* 0x31e020: the throwables' and explosives' HUD names */
+	switch ((u8)id)
+	{
+	case 121: return (char *)"Frag";
+	case 126: return (char *)"HE";
+	case 122: return (char *)"Smoke";
+	case 123: return (char *)"Bang";
+	case 124: return (char *)"Willie Pete";
+	case 125: return (char *)"Gas";
+	case 171: return (char *)"Frag II";
+	case 172: return (char *)"Illum";
+	case 173: return (char *)"Smoke II";
+	case 174: return (char *)"Gas II";
+	case 151: return (char *)"C4";
+	case 152: return (char *)"Satchel Charge";
+	case 153: return (char *)"Claymore";
+	default: return (char *)"error";
+	}
 }
 
 /* @socom-skeleton stub GetWeaponVUIName__8CZWeaponF10EQUIP_ITEM */
-char * CZWeapon::GetWeaponVUIName(EQUIP_ITEM)
+char * CZWeapon::GetWeaponVUIName(EQUIP_ITEM id)
 {
+	/* 0x31df00: the voice names (as GetWeaponUIName but spelled out) */
+	switch ((u8)id)
+	{
+	case 121: return (char *)"Frag";
+	case 126: return (char *)"HE";
+	case 122: return (char *)"Smoke";
+	case 123: return (char *)"Bang";
+	case 124: return (char *)"WILLIE PETE";
+	case 125: return (char *)"Gas";
+	case 171: return (char *)"Frag Two";
+	case 172: return (char *)"Illum";
+	case 173: return (char *)"Smoke Two";
+	case 174: return (char *)"Gas Two";
+	case 151: return (char *)"Sea For";
+	case 152: return (char *)"Satchel Charge";
+	case 153: return (char *)"Claymore";
+	default: return (char *)"error";
+	}
 }
 
 /* @socom-skeleton stub Init__10CZMarkListFv */
@@ -822,8 +1010,16 @@ void CZDecalSet::DestroyDecalSet()
 }
 
 /* @socom-skeleton stub GetDecalSetByName__10CZDecalSetFPCc */
-CZDecalSet * CZDecalSet::GetDecalSetByName(const char *)
+CZDecalSet * CZDecalSet::GetDecalSetByName(const char *name)
 {
+	/* 0x31d150: by name (strcmp); none until OpenDecals reads DECAL_SETS */
+	for (u32 i = 0; i < m_decalsets.size(); i++)
+	{
+		if (strcmp(m_decalsets[i]->m_name, name) == 0)
+			return m_decalsets[i];
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub ReadDecalSet__10CZDecalSetFP5_zrdr */
@@ -837,13 +1033,31 @@ void CZDecalSet::ReadDecalEntry(_zrdr *)
 }
 
 /* @socom-skeleton stub Init__8CZWeaponFv */
-void CZWeapon::Init()
+bool CZWeapon::Init()
 {
+	/* 0x31ccd0 (CMission::Init): run/zweapon.zar (world version, 16-byte alignment) read
+	 * into the weapon and ammo lists, then 100 flyouts (tracers) */
+	zar::CZAR archive(NULL, NULL);
+	bool open = archive.Open("run/zweapon.zar", zdb::CWorld::GetVersion(), 1, 16);
+
+	if (!open)
+		return open;
+
+	ZWepReader reader;
+	reader.Read(archive, &m_listWeapons, &CZAmmo::m_ammolist);
+	m_flyout_machine.Init(100);
+	return open;
 }
 
 /* @socom-skeleton stub Open__8CZWeaponFv */
-void CZWeapon::Open()
+bool CZWeapon::Open()
 {
+	/* 0x31cc90 (CMission::Open): the weapons' anims, sounds and icons, the tracer models,
+	 * the person material */
+	m_listWeapons.InitializeWeapons();
+	m_flyout_machine.HookupReset();
+	zwep::personMaterialId = CMaterialExArray::ResolveMaterialIndex("PERSON");
+	return true;
 }
 
 /* @socom-skeleton stub OpenDecals__8CZWeaponFv */
@@ -852,47 +1066,116 @@ void CZWeapon::OpenDecals()
 }
 
 /* @socom-skeleton body Close__8CZWeaponFv */
-void CZWeapon::Close()
+bool CZWeapon::Close()
 {
-	// m_flyout_machine->ReleaseAllActive()
+	/* 0x31cb60: the tracers back, the projectiles cleared, the anims dropped */
+	m_flyout_machine.ReleaseAllActive();
+
+	if (m_pProjectilelist != NULL)
+		m_pProjectilelist->Clear();
+
+	m_listWeapons.ClearAnimations();
+	zwep::personMaterialId = 0xffffffff;
+	return true;
 }
 
 /* @socom-skeleton stub GetAccuracy__Q28CZWeapon9AI_PARAMSCFf */
 float CZWeapon::AI_PARAMS::GetAccuracy(float) const
 {
+	/* 0x31cb50 */
+	return 1.0f;
 }
 
 /* @socom-skeleton stub SetDefaults__Q28CZWeapon9AI_PARAMSF10EQUIP_ITEM */
-void CZWeapon::AI_PARAMS::SetDefaults(EQUIP_ITEM)
+void CZWeapon::AI_PARAMS::SetDefaults(EQUIP_ITEM id)
 {
+	/* 0x31ca20: an old version is reset (custom and hard-min off); without custom
+	 * values the ranges come from the category: pistols 0..300, SMGs / rifles / machine guns
+	 * 50..1000, sniper rifles 150..1000, grenades 150..550 with a hard minimum */
+	if (m_version != (u8)version)
+	{
+		m_version = (u8)version;
+		m_custom = 0;
+		m_hard_min = 0;
+	}
+	else
+	{
+		m_version = (u8)version;
+	}
+
+	if (m_custom)
+		return;
+
+	switch (CZWeapon::GetIDType(id))
+	{
+	case EQUIP_ITEM::EQUIP_PISTOL:
+		m_min_range = 0.0f;
+		m_max_range = 300.0f;
+		break;
+
+	case EQUIP_ITEM::EQUIP_SMG:
+	case EQUIP_ITEM::EQUIP_ASSAULT_RIFLE:
+	case EQUIP_ITEM::EQUIP_MACHINEGUN:
+		m_min_range = 50.0f;
+		m_max_range = 1000.0f;
+		break;
+
+	case EQUIP_ITEM::EQUIP_SNIPER_RIFLE:
+		m_min_range = 150.0f;
+		m_max_range = 1000.0f;
+		break;
+
+	case EQUIP_ITEM::EQUIP_GRENADE:
+		m_min_range = 150.0f;
+		m_max_range = 550.0f;
+		m_hard_min = 1;
+		break;
+
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub RegisterTimer__8CZWeaponFPffb */
-void CZWeapon::RegisterTimer(float *, float, bool)
+void CZWeapon::RegisterTimer(float *value, float max, bool incr)
 {
+	/* 0x31ca00 */
+	m_timer_pCurval = value;
+	m_timer_maxval = max;
+	m_timer_bTimerRegistered = true;
+	m_timer_bIncrTimer = incr;
+	m_timer_bTimerCleared = false;
 }
 
 /* @socom-skeleton stub RetrieveTimerRegistration__8CZWeaponFPPfPfPb */
-void CZWeapon::RetrieveTimerRegistration(float **, float *, bool *)
+void CZWeapon::RetrieveTimerRegistration(float **value, float *max, bool *incr)
 {
+	/* 0x31c9e0: hands the timer over (registered off) */
+	*max = m_timer_maxval;
+	*incr = m_timer_bIncrTimer;
+	*value = m_timer_pCurval;
+	m_timer_bTimerRegistered = false;
 }
 
 /* @socom-skeleton stub TimerRegistered__8CZWeaponFv */
 unsigned char CZWeapon::TimerRegistered()
 {
+	return m_timer_bTimerRegistered;
 }
 
 /* @socom-skeleton body ClearTimer__8CZWeaponFv */
 void CZWeapon::ClearTimer()
 {
-	m_timer_pCurval = 0;
+	/* 0x31c9b0 */
+	m_timer_pCurval = NULL;
 	m_timer_bTimerRegistered = false;
 	m_timer_bTimerCleared = true;
 	m_timer_maxval = -1.0f;
-	m_timer_bIncrTimer = 1;
+	m_timer_bIncrTimer = true;
 }
 
 /* @socom-skeleton stub TimerCleared__8CZWeaponFv */
 unsigned char CZWeapon::TimerCleared()
 {
+	return m_timer_bTimerCleared;
 }

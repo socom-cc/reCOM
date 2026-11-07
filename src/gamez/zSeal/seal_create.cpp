@@ -156,6 +156,12 @@ void CZSealBody::PostCreateSeal(CZSealBody *seal, CSealCtrl *controller)
 		}
 
 		kit->SetCurReticule();
+#ifdef SOCOM_PORT
+		CZFTSWeapon *first = kit->m_item[0];
+		SOCOM_PORT_TRACE("WEP: seal kit %d items (type weapons %d), slot 0 %s model %s type %d", kit->m_num_items,
+			(int)type->m_weapons.size(), first != NULL ? first->GetName() : "-", first != NULL ? first->GetModelName() : "-",
+			first != NULL ? (int)first->m_type : -1);
+#endif
 	}
 
 	seal->m_TriggerCount = false;

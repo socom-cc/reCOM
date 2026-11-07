@@ -147,11 +147,12 @@ bool zrdr_findSTRING(const _zrdr *reader, const char *name, const char **list)
 	if (!list)
 		return false;
 
-	if (tag->type )
-
+	/* 0x23d328: a value in parentheses is its first element - the array's element count is
+	 * its first node's integer (lw 4(array)); was the header's 16-bit length field, which a
+	 * parsed array leaves 0, so NAME ("x") never matched (materials.rdr's soils) */
 	if (tag->type == ZRDR_ARRAY)
 	{
-		if (tag->array->length > 1)
+		if (tag->array->integer > 1)
 			tag = &tag->array[1];
 	}
 

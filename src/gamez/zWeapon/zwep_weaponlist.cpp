@@ -14,48 +14,201 @@
 /* @socom-skeleton decl include */
 #include "zweapon.h"
 /* @socom-skeleton end include */
+#include "gamez/zIntersect/zintersect.h" /* CMaterialExArray (InitializeWeapons) */
+#include "gamez/zNode/node_world.h" /* CWorld::GetTexHandle */
+#include "gamez/zSound/zsnd.h" /* CSnd::GetSoundByName */
+#include <stdio.h>
+#include <string.h>
 
 /* @socom-skeleton stub __ct__12CZWeaponListFv */
 CZWeaponList::CZWeaponList()
 {
+	/* 0x314f20: an empty list */
 }
 
 /* @socom-skeleton stub __dt__12CZWeaponListFv */
 CZWeaponList::~CZWeaponList()
 {
+	/* 0x314dc0: deletes every weapon (virtual deleting dtor), then the nodes */
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		if (*it != NULL)
+			delete *it;
+	}
+
+	clear();
 }
 
 /* @socom-skeleton stub GetWeapon__12CZWeaponListFPCc */
-CZWeapon * CZWeaponList::GetWeapon(const char *)
+CZWeapon * CZWeaponList::GetWeapon(const char *name)
 {
+	/* 0x314d00: by name (strcmp) */
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		if (strcmp(name, (*it)->GetName()) == 0)
+			return *it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetWeaponId__12CZWeaponListFPCc */
-EQUIP_ITEM CZWeaponList::GetWeaponId(const char *)
+EQUIP_ITEM CZWeaponList::GetWeaponId(const char *name)
 {
+	/* 0x314c30: the named weapon's id (strcmp), EQUIP_NONE when unknown */
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		if (strcmp(name, (*it)->GetName()) == 0)
+			return (*it)->m_ID;
+	}
+
+	return EQUIP_ITEM::EQUIP_NONE;
 }
 
 /* @socom-skeleton stub GetWeaponName__12CZWeaponListF10EQUIP_ITEM */
-char * CZWeaponList::GetWeaponName(EQUIP_ITEM)
+char * CZWeaponList::GetWeaponName(EQUIP_ITEM id)
 {
+	/* 0x314b70 */
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		if ((*it)->m_ID == id)
+			return (*it)->GetName();
+	}
+
+	return (char *)"Unknown Weapon";
 }
 
 /* @socom-skeleton stub GetWeapon__12CZWeaponListF10EQUIP_ITEM */
-CZWeapon * CZWeaponList::GetWeapon(EQUIP_ITEM)
+CZWeapon * CZWeaponList::GetWeapon(EQUIP_ITEM id)
 {
+	/* 0x314ae0 */
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		if ((*it)->m_ID == id)
+			return *it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetWeaponByIndex__12CZWeaponListFi */
-CZWeapon * CZWeaponList::GetWeaponByIndex(int)
+CZWeapon * CZWeaponList::GetWeaponByIndex(int index)
 {
+	/* 0x314a40 */
+	s32 i = 0;
+
+	for (iterator it = begin(); it != end(); ++it, i++)
+	{
+		if (i == index)
+			return *it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub InitializeWeapons__12CZWeaponListFv */
 void CZWeaponList::InitializeWeapons()
 {
+	/* 0x314710 (CZWeapon::Open): the bullet-pass sound, then per weapon its decal set,
+	 * reload sound, icon texture (kept only with a texture), the per-material hit and
+	 * special-material anim tables, the fire anim and its "_zoom" variant, the hit anims
+	 * "<name>_<material>" and the default special anim. */
+	CZWeapon::SetBulletPassSound(CSnd::GetSoundByName("THIP_SOUNDS"));
+
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		CZWeapon *weapon = *it;
+		weapon->m_decalset = CZDecalSet::GetDecalSetByName(weapon->GetDecalSetName());
+
+		if (weapon->m_reloadsoundname != NULL)
+			weapon->m_reloadsound = CSnd::GetSoundByName(weapon->m_reloadsoundname);
+
+		if (weapon->GetIconTextureName() != NULL)
+		{
+			zdb::CTexHandle *handle = zdb::CWorld::GetTexHandle(weapon->GetIconTextureName());
+
+			if (handle != NULL && handle->m_texture != NULL)
+				weapon->m_icontex = handle;
+		}
+
+		weapon->AllocateHitAnimMem();
+		weapon->AllocateSpecialMaterialAnimMem();
+
+		char *fire = weapon->GetFireAnimName();
+		CZAnim *anim = NULL;
+
+		if (fire != NULL)
+			anim = ZAnim.GetAnim(fire, NULL);
+
+		if (anim != NULL)
+			weapon->SetFireAnim(anim);
+
+		if (fire != NULL)
+		{
+			char name[32];
+			sprintf(name, "%s_zoom", fire);
+			anim = ZAnim.GetAnim(name, NULL);
+
+			if (anim != NULL)
+				weapon->SetZoomedFireAnim(anim);
+		}
+
+		char *hit = weapon->GetHitAnimName();
+
+		if (hit != NULL)
+		{
+			u32 count = CMaterialExArray::m_materialex_list.size();
+
+			for (u32 i = 0; i < count; i++)
+			{
+				CMaterialEx *material = CMaterialExArray::GetWeaponAnimMaterialEx(i);
+
+				if (material != NULL)
+				{
+					char name[32];
+					sprintf(name, "%s_%s", hit, material->m_name);
+					anim = ZAnim.GetAnim(name, NULL);
+					weapon->SetHitAnim(i, anim != NULL ? anim : NULL);
+				}
+			}
+		}
+
+		char *special = weapon->GetDefaultSpecialAnimName();
+		anim = NULL;
+
+		if (special != NULL)
+			anim = ZAnim.GetAnim(special, NULL);
+
+		if (anim != NULL)
+			weapon->SetDefaultSpecialAnim(anim);
+
+
+		special = weapon->GetSpecialMaterialAnimName();
+
+		if (special != NULL)
+		{
+			u32 count = CMaterialExArray::m_materialex_list.size();
+
+			for (u32 i = 0; i < count; i++)
+			{
+				CMaterialEx *material = CMaterialExArray::GetWeaponAnimMaterialEx(i);
+
+				if (material != NULL)
+				{
+					char name[32];
+					sprintf(name, "%s_%s", special, material->m_name);
+					anim = ZAnim.GetAnim(name, NULL);
+					weapon->SetSpecialMaterialAnim(i, anim != NULL ? anim : NULL);
+				}
+			}
+		}
+	}
 }
 
 /* @socom-skeleton stub ClearAnimations__12CZWeaponListFv */
 void CZWeaponList::ClearAnimations()
 {
+	/* 0x314690 (CZWeapon::Close) */
+	for (iterator it = begin(); it != end(); ++it)
+		(*it)->ClearAnims();
 }

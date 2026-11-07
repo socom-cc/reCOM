@@ -34,11 +34,11 @@ void PlacedExplosive::RemoteDetonate()
 }
 
 /* @socom-skeleton stub PostTick__15PlacedExplosiveFf */
-void PlacedExplosive::PostTick(float)
+bool PlacedExplosive::PostTick(float)
 {
 }
 
 /* @socom-skeleton stub PreTick__15PlacedExplosiveFf */
-void PlacedExplosive::PreTick(float)
+bool PlacedExplosive::PreTick(float)
 {
 }

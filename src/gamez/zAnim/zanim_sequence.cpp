@@ -209,13 +209,19 @@ int ClipToBox(const CPnt3D &from, const CPnt3D &to, CPnt3D &out, float ymax, flo
 }
 
 /* @socom-skeleton stub PlaneConstant__FRC6CPnt3DRC6CPnt3D */
-float PlaneConstant(const CPnt3D &, const CPnt3D &)
+float PlaneConstant(const CPnt3D &normal, const CPnt3D &point)
 {
+	/* 0x1dca10: -(n . p) */
+	return -(normal.x * point.x + normal.y * point.y + normal.z * point.z);
 }
 
 /* @socom-skeleton stub LineIntersectPlane__FfRC6CPnt3DRC6CPnt3DRC6CPnt3D */
-float LineIntersectPlane(float, const CPnt3D &, const CPnt3D &, const CPnt3D &)
+float LineIntersectPlane(float d, const CPnt3D &normal, const CPnt3D &a, const CPnt3D &b)
 {
+	/* 0x1dc9a0: the fraction t along a..b where n . p + d = 0 */
+	f32 nb = normal.x * (b.x - a.x) + normal.y * (b.y - a.y) + normal.z * (b.z - a.z);
+	f32 na = normal.x * a.x + normal.y * a.y + normal.z * a.z;
+	return (-d - na) / nb;
 }
 
 /* @socom-skeleton stub PointAlongLine__FRC6CPnt3DRC6CPnt3DfR6CPnt3D */
@@ -248,8 +254,15 @@ void CSequence::Clear()
 }
 
 /* @socom-skeleton stub Tick__9CSequenceFf */
-float CSequence::Tick(float)
+float CSequence::Tick(float dT)
 {
+	/* 0x1dc8e0: counts down to 0 */
+	m_currT -= dT;
+
+	if (m_currT < 0.0f)
+		m_currT = 0.0f;
+
+	return m_currT;
 }
 
 /* @socom-skeleton stub LinearWeight__9CSequenceFv */

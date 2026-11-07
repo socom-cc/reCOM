@@ -12,38 +12,96 @@
 /* @socom-skeleton decl include */
 #include "zweapon.h"
 /* @socom-skeleton end include */
+#include <string.h>
 
 /* @socom-skeleton stub __ct__10CZAmmoListFv */
 CZAmmoList::CZAmmoList()
 {
+	/* 0x3153f0: an empty list */
 }
 
 /* @socom-skeleton stub __dt__10CZAmmoListFv */
 CZAmmoList::~CZAmmoList()
 {
+	/* 0x3152a0: deletes every ammo, then the nodes */
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		if (*it != NULL)
+			delete *it;
+	}
+
+	clear();
 }
 
 /* @socom-skeleton stub AddAmmo__10CZAmmoListFP6CZAmmo */
-void CZAmmoList::AddAmmo(CZAmmo *)
+void CZAmmoList::AddAmmo(CZAmmo *ammo)
 {
+	/* 0x315250: appended unless NULL */
+	if (ammo != NULL)
+		insert(end(), ammo);
 }
 
 /* @socom-skeleton stub GetAmmo__10CZAmmoListFPCc */
-CZAmmo * CZAmmoList::GetAmmo(const char *)
+CZAmmo * CZAmmoList::GetAmmo(const char *name)
 {
+	/* 0x315180: by name (strcmp); NULL for a NULL name */
+	if (name == NULL)
+		return NULL;
+
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		if (strcmp(name, (*it)->GetName()) == 0)
+			return *it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetAmmo__10CZAmmoListFi */
-CZAmmo * CZAmmoList::GetAmmo(int)
+CZAmmo * CZAmmoList::GetAmmo(int index)
 {
+	/* 0x3150e0 */
+	s32 i = 0;
+
+	for (iterator it = begin(); it != end(); ++it, i++)
+	{
+		if (index == i)
+			return *it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetAmmo__10CZAmmoListF10EQUIP_AMMO */
-CZAmmo * CZAmmoList::GetAmmo(EQUIP_AMMO)
+CZAmmo * CZAmmoList::GetAmmo(EQUIP_AMMO id)
 {
+	/* 0x315030 */
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		if ((*it)->m_ID == id)
+			return *it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetAmmoId__10CZAmmoListFPCc */
-EQUIP_AMMO CZAmmoList::GetAmmoId(const char *)
+EQUIP_AMMO CZAmmoList::GetAmmoId(const char *name)
 {
+	/* 0x314f50: by name; AMMO_NONE for a NULL or unknown name */
+	CZAmmo *ammo = NULL;
+
+	if (name != NULL)
+	{
+		for (iterator it = begin(); it != end(); ++it)
+		{
+			if (strcmp(name, (*it)->GetName()) == 0)
+			{
+				ammo = *it;
+				break;
+			}
+		}
+	}
+
+	return ammo != NULL ? ammo->m_ID : EQUIP_AMMO::AMMO_NONE;
 }

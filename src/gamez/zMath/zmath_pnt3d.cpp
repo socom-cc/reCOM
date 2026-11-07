@@ -101,15 +101,19 @@ float CPnt3D::Normalize()
 /* @socom-skeleton body Normalize__6CPnt3DCFP6CPnt3D */
 float CPnt3D::Normalize(CPnt3D *other) const
 {
-	f32 sqrMagnitude = sqrtf(z * z + x * x + y * y);
+	/* 0x222cb0: the unit vector into other (left alone for a zero vector); returns the
+	 * length (f0 still holds sqrtf's result; was a STOPping non-void stub) */
+	f32 length = sqrtf(x * x + y * y + z * z);
 
-	if (sqrMagnitude != 0.0f)
+	if (length != 0.0f)
 	{
-		sqrMagnitude = 1.0f / sqrMagnitude;
-		other->x = x * sqrMagnitude;
-		other->y = y * sqrMagnitude;
-		other->z = z * sqrMagnitude;
+		f32 inv = 1.0f / length;
+		other->x = x * inv;
+		other->y = y * inv;
+		other->z = z * inv;
 	}
+
+	return length;
 }
 
 /* @socom-skeleton body Interp__6CPnt3DCFPC6CPnt3DfP6CPnt3D */

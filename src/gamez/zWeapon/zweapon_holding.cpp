@@ -11,6 +11,7 @@ u32 personMaterialId = 0xffffffff;
    (.sbss; the weapon pre/post-tick tasks read them) */
 bool CZWeapon::m_weaponTickDisabled;
 CZProjectileList* CZWeapon::m_pProjectilelist;
+CZMarkList* CZWeapon::m_pMarklist; /* 0x476680 (.sbss) */
 
 /* @socom-skeleton body m_timer_bTimerRegistered__8CZWeapon */
 /* held from src/gamez/zWeapon/zwep_global.cpp:8 */
@@ -22,11 +23,11 @@ bool CZWeapon::m_timer_bTimerCleared = false;
 
 /* @socom-skeleton body m_timer_bIncrTimer__8CZWeapon */
 /* held from src/gamez/zWeapon/zwep_global.cpp:10 */
-bool CZWeapon::m_timer_bIncrTimer = false;
+bool CZWeapon::m_timer_bIncrTimer = true; /* .sdata: 1 */
 
 /* @socom-skeleton body m_timer_pCurval__8CZWeapon */
 /* held from src/gamez/zWeapon/zwep_global.cpp:11 */
-f32 CZWeapon::m_timer_pCurval = 0.0f;
+f32* CZWeapon::m_timer_pCurval = NULL;
 
 /* @socom-skeleton body m_timer_maxval__8CZWeapon */
 /* held from src/gamez/zWeapon/zwep_global.cpp:12 */
@@ -34,15 +35,15 @@ f32 CZWeapon::m_timer_maxval = 0.0f;
 
 /* @socom-skeleton body m_allowFireAnimations__8CZWeapon */
 /* held from src/gamez/zWeapon/zwep_global.cpp:14 */
-bool CZWeapon::m_allowFireAnimations = false;
+bool CZWeapon::m_allowFireAnimations = true; /* .sdata: 1 */
 
 /* @socom-skeleton body m_allowImpactAnimations__8CZWeapon */
 /* held from src/gamez/zWeapon/zwep_global.cpp:15 */
-bool CZWeapon::m_allowImpactAnimations = false;
+bool CZWeapon::m_allowImpactAnimations = true; /* .sdata: 1 */
 
 /* @socom-skeleton body m_allowWeaponIntersection__8CZWeapon */
 /* held from src/gamez/zWeapon/zwep_global.cpp:16 */
-bool CZWeapon::m_allowWeaponIntersection = false;
+bool CZWeapon::m_allowWeaponIntersection = true; /* .sdata: 1 */
 
 /* @socom-skeleton body version__Q28CZWeapon9AI_PARAMS */
 /* held from src/gamez/zWeapon/zwep_global.cpp:18 */

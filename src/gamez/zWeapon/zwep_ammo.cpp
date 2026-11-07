@@ -24,90 +24,135 @@
  * socom-owner-annotations end socom:work:source-segment-044 */
 
 #include "zweapon.h"
+#include "gamez/zSystem/zsys.h" /* _free, _strdup */
 
 /* @socom-skeleton stub m_ammolist__6CZAmmo */
-unsigned char CZAmmo::m_ammolist[12];
+CZAmmoList CZAmmo::m_ammolist;
 
 /* @socom-skeleton body __ct__6CZAmmoFv */
-CZAmmo::CZAmmo() {}
+CZAmmo::CZAmmo()
+{
+	/* 0x31fcd0: name, description and hit anim cleared, no id; the damage values are not
+	 * set (ZWepReader reads them) */
+	m_name = NULL;
+	m_description = NULL;
+	m_hitanim = NULL;
+	m_ID = EQUIP_AMMO::AMMO_NONE;
+}
 
 /* @socom-skeleton stub __dt__6CZAmmoFv */
 CZAmmo::~CZAmmo()
 {
+	/* 0x31fc40 */
+	if (m_name != NULL)
+		_free(m_name, "zwep_ammo.cpp", 27);
+
+	m_name = NULL;
+
+	if (m_description != NULL)
+		_free(m_description, "zwep_ammo.cpp", 28);
+
+	m_description = NULL;
 }
 
 /* @socom-skeleton body SetName__6CZAmmoFPc */
 void CZAmmo::SetName(char *name)
 {
-    
+	/* 0x31fbe0 */
+	if (m_name != NULL)
+		_free(m_name, "zwep_ammo.cpp", 33);
+
+	m_name = NULL;
+	m_name = _strdup(name, "zwep_ammo.cpp", 34);
 }
 
 /* @socom-skeleton stub SetDescription__6CZAmmoFPc */
-void CZAmmo::SetDescription(char *)
+void CZAmmo::SetDescription(char *description)
 {
+	/* 0x31fb80 */
+	if (m_description != NULL)
+		_free(m_description, "zwep_ammo.cpp", 40);
+
+	m_description = _strdup(description, "zwep_ammo.cpp", 42);
 }
 
 /* @socom-skeleton stub SetHitAnim__6CZAmmoFPCc */
-void CZAmmo::SetHitAnim(const char *)
+void CZAmmo::SetHitAnim(const char *name)
 {
+	/* 0x31fb40 */
+	m_hitanim = ZAnim.GetAnim(name, NULL);
 }
 
 /* @socom-skeleton stub SetImpactDamage__6CZAmmoFf */
-void CZAmmo::SetImpactDamage(float)
+void CZAmmo::SetImpactDamage(float damage)
 {
+	m_impactDamage = damage;
 }
 
 /* @socom-skeleton stub SetStun__6CZAmmoFf */
-void CZAmmo::SetStun(float)
+void CZAmmo::SetStun(float stun)
 {
+	m_stun = stun;
 }
 
 /* @socom-skeleton stub SetArmorPierce__6CZAmmoFf */
-void CZAmmo::SetArmorPierce(float)
+void CZAmmo::SetArmorPierce(float pierce)
 {
+	m_pierce = pierce;
 }
 
 /* @socom-skeleton stub SetExplosionDamage__6CZAmmoFf */
-void CZAmmo::SetExplosionDamage(float)
+void CZAmmo::SetExplosionDamage(float damage)
 {
+	m_explosionDamage = damage;
 }
 
 /* @socom-skeleton stub SetExplosionRadius__6CZAmmoFf */
-void CZAmmo::SetExplosionRadius(float)
+void CZAmmo::SetExplosionRadius(float radius)
 {
+	m_explosionRadius = radius;
 }
 
 /* @socom-skeleton stub GetName__6CZAmmoFv */
 char * CZAmmo::GetName()
 {
+	return m_name;
 }
 
 /* @socom-skeleton stub GetImpactDamage__6CZAmmoFv */
 float CZAmmo::GetImpactDamage()
 {
+	return m_impactDamage;
 }
 
 /* @socom-skeleton stub GetArmorPierce__6CZAmmoFv */
 float CZAmmo::GetArmorPierce()
 {
+	return m_pierce;
 }
 
 /* @socom-skeleton stub GetExplosionDamage__6CZAmmoFv */
 float CZAmmo::GetExplosionDamage()
 {
+	return m_explosionDamage;
 }
 
 /* @socom-skeleton stub GetExplosionRadius__6CZAmmoFv */
 float CZAmmo::GetExplosionRadius()
 {
+	return m_explosionRadius;
 }
 
 /* @socom-skeleton stub GetAmmo__6CZAmmoF10EQUIP_AMMO */
-CZAmmo * CZAmmo::GetAmmo(EQUIP_AMMO)
+CZAmmo * CZAmmo::GetAmmo(EQUIP_AMMO id)
 {
+	/* 0x31fa90 */
+	return m_ammolist.GetAmmo(id);
 }
 
 /* @socom-skeleton stub GetAmmoId__6CZAmmoFPCc */
-EQUIP_AMMO CZAmmo::GetAmmoId(const char *)
+EQUIP_AMMO CZAmmo::GetAmmoId(const char *name)
 {
+	/* 0x31fa80 */
+	return m_ammolist.GetAmmoId(name);
 }

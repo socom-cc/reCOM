@@ -31,6 +31,8 @@
 #include "zseal.h"
 #include "gamez/zNode/node_world.h" /* zdb::CWorld::m_world (UpdateAimDir: the camera) */
 #include "gamez/zCamera/zcam.h"
+#include "gamez/zAI/zai.h" /* ai::do_aimap_collide (CanAttainAim) */
+void PointAlongLine(const CPnt3D &, const CPnt3D &, float, CPnt3D &); /* port: zanim_sequence.cpp (no header declares it) */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 /* port: WEAPON_STATE is declared in gamez/zSeal/zseal.h */
@@ -52,6 +54,11 @@ WEAPON_STATE CZSealBody::GetWeaponState() const
 /* @socom-skeleton stub WepWaitOff__10CZSealBodyFv */
 void CZSealBody::WepWaitOff()
 {
+	/* 0x2c0650: no raise/wait/lower timing (throwables) */
+	m_wep_upT = 0.0f;
+	m_wep_waitT = 0.0f;
+	m_wep_downT = 0.0f;
+	m_wep_sumT = 0.0f;
 }
 
 /* @socom-skeleton stub WepWaitOn__10CZSealBodyFv */
@@ -65,13 +72,110 @@ void CZSealBody::WepWaitOn()
 }
 
 /* @socom-skeleton stub SetWeaponState__10CZSealBodyF12WEAPON_STATE */
-void CZSealBody::SetWeaponState(WEAPON_STATE)
+void CZSealBody::SetWeaponState(WEAPON_STATE state)
 {
+	/* 0x2c0490: a new state (bit 4 = in transition): 2 lowers (the fire sequence restarts
+	 * its lowering from the current weight, at most 0.99, of m_wep_downT), 1 raises (from
+	 * rest starts the up/wait/down sequence unless the item is binoculars; already within
+	 * the hold just drops the transition bit). The remaining time is measured from the
+	 * sequence's end. */
+	u32 s = (u8)state;
+
+	if (s == (m_weapon_state & ~0x10u))
+		return;
+
+	f32 t = m_fire->m_currT;
+
+	if (t > 0.0f)
+		t = m_wep_sumT - t;
+
+	if (s == 2)
+	{
+		f32 w = m_fire->LinearWeight() > 0.99f ? 0.99f : m_fire->LinearWeight();
+		m_fire->m_currT = w * m_wep_downT;
+		m_weapon_state = 0x12;
+	}
+	else if (s == 1)
+	{
+		m_weapon_state = 0x11;
+
+		if (t == 0.0f)
+		{
+			if (m_kit.GetCurItem() != NULL && m_kit.GetCurItem()->m_ID != EQUIP_ITEM::BINOCULARS)
+				m_fire->Start(m_wep_upT, m_wep_waitT, m_wep_downT);
+		}
+		else if (m_wep_upT <= t && t < m_wep_upT + m_wep_waitT)
+		{
+			m_weapon_state &= ~0x10u;
+		}
+	}
 }
 
 /* @socom-skeleton stub WeaponsTick__10CZSealBodyFf */
-void CZSealBody::WeaponsTick(float)
+void CZSealBody::WeaponsTick(float dT)
 {
+	/* 0x2c02c0 (PreTick): the weapon raise/lower transition on the fire sequence; settled
+	 * states follow the sequence (raised once it has weight, lowered once it dropped below
+	 * full). Then the aim direction, the weapon's aim and the kit's pre-tick (model and
+	 * weapon changes). A pure transition flag (0x10) stops here. */
+	u32 state = m_weapon_state;
+
+	if ((state & 0x10) == 0)
+	{
+		if ((state & 0xef) == 2)
+		{
+			if (m_fire->Weight() != 0.0f)
+			{
+				m_weapon_state = 1;
+				SetWeaponState((WEAPON_STATE)2);
+			}
+		}
+		else if ((state & 0xef) == 1)
+		{
+			if (m_fire->Weight() != 1.0f)
+			{
+				m_weapon_state = 2;
+				SetWeaponState((WEAPON_STATE)1);
+			}
+		}
+	}
+	else
+	{
+		state &= 0xef;
+
+		if (state == 2)
+		{
+			m_fire->Tick(dT);
+
+			if (m_fire->m_currT <= 0.0f)
+			{
+				m_weapon_state &= ~0x10u;
+				m_fire->Clear();
+			}
+		}
+		else if (state == 1)
+		{
+			f32 hold = m_wep_downT + m_wep_waitT;
+
+			if (m_fire->m_currT <= hold)
+			{
+				m_fire->m_currT = hold;
+				m_weapon_state &= ~0x10u;
+			}
+			else
+			{
+				m_fire->Tick(dT);
+			}
+		}
+		else if (state != 4 && state == 0x10)
+		{
+			return;
+		}
+	}
+
+	UpdateAimDir(false);
+	AimWeapon();
+	m_kit.PreTick(dT);
 }
 
 /* @socom-skeleton stub GetFirepointPos__10CZSealBodyFR6CPnt3DPCc */
@@ -111,8 +215,23 @@ bool CZSealBody::GetFirepointPos(CPnt3D &pos, const char *name)
 }
 
 /* @socom-skeleton stub GetFirepointNode__10CZSealBodyFPCc */
-zdb::CNode * CZSealBody::GetFirepointNode(const char *)
+zdb::CNode * CZSealBody::GetFirepointNode(const char *name)
 {
+	/* 0x2c00a0: the current weapon part's node, or its named child (none: the node) */
+	SEAL_ITEM item = m_kit.GetCurItemType();
+
+	if (m_weapons[(s8)item] == NULL)
+		return NULL;
+
+	CZBodyPart *part = BodyWepPart(this, (SEAL_ITEM)(u8)item);
+
+	if (part == NULL)
+		return NULL;
+
+	if (name == NULL || part->m_node == NULL)
+		return part->m_node;
+
+	return part->m_node->FindChild(name, false);
 }
 
 /* @socom-skeleton stub GetNodePos__10CZSealBodyFPCQ23zdb5CNodeR6CPnt3Db */
@@ -423,7 +542,41 @@ float CZSealBody::GetAimDot()
 }
 
 /* @socom-skeleton stub CanAttainAim__10CZSealBodyFR6CPnt3D */
-bool CZSealBody::CanAttainAim(CPnt3D &)
+bool CZSealBody::CanAttainAim(CPnt3D &dir)
 {
-	/* port: not written (0x2befc0, 584 B); reached only with a weapon (UpdateAimDir) */
+	/* 0x2befc0 (UpdateAimDir): with an aim normal (and AI-map collision off), a rifle or
+	 * pistol whose aim point lies in front of the aimed surface can aim there unless the
+	 * point 1.1 barrel lengths along dir (body space, rotated by the node) stays in front.
+	 * Not standing still with no fire blend, or other items: attainable. */
+	if (!m_have_aim_norm || ai::do_aimap_collide)
+		return true;
+
+	if (m_state != 2 && m_fire->LinearWeight() == 0.0f)
+		return true;
+
+	if (m_item != SEAL_ITEM::itemRifle && m_item != SEAL_ITEM::itemPistol)
+		return true;
+
+	CPnt3D base;
+	CPnt3D d;
+	m_curr_aimpos.Add(GetPosW(), &base);
+	m_aim_point.Sub(&base, &d);
+
+	if (!(m_aim_norm.z * d.z + m_aim_norm.x * d.x + m_aim_norm.y * d.y < 0.0f))
+		return false;
+
+	/* the node matrix rotates dir (VU0 vmulax/vmadday/vmaddz.xyz, no translation) */
+	const CMatrix &m = GetNode()->m_matrix;
+	CPnt3D rot;
+	rot.x = m.m_matrix[0][0] * dir.x + m.m_matrix[1][0] * dir.y + m.m_matrix[2][0] * dir.z;
+	rot.y = m.m_matrix[0][1] * dir.x + m.m_matrix[1][1] * dir.y + m.m_matrix[2][1] * dir.z;
+	rot.z = m.m_matrix[0][2] * dir.x + m.m_matrix[1][2] * dir.y + m.m_matrix[2][2] * dir.z;
+	CPnt3D tip;
+	base.Add(&rot, &tip);
+	m_curr_firepos.Sub(&m_curr_aimpos, &d);
+	f32 len = sqrtf(d.z * d.z + d.x * d.x + d.y * d.y);
+	CPnt3D out;
+	PointAlongLine(base, tip, len * 1.1f, out);
+	out.Sub(&m_aim_point, &d);
+	return m_aim_norm.z * d.z + m_aim_norm.x * d.x + m_aim_norm.y * d.y > 0.0f;
 }

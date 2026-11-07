@@ -10,6 +10,8 @@
 
 class CZBodyPart;
 class CBlendOverlay;
+void ParentPistolToRHandCallback(void *, void *);
+void ParentPistolToRThighAsGearCallback(void *, void *);
 class CZBodyAnim;
 
 class CBody
@@ -20,6 +22,8 @@ class CBody
 	friend class CAppCamera; /* port: CAppCamera::Tick 0x1ea4c4 reads the seal's m_state */
 	friend class CSealCtrl; /* port: CSealCtrl::PreTick 0x285af0 / Tick 0x2872e0 read the seal's m_state */
 	friend class CBlendOverlay; /* port: CBlendOverlay::Tick 0x1e1210 / Trigger 0x1e1700 set the blend interpolation */
+	friend void ParentPistolToRHandCallback(void *, void *); /* port: seal_env.cpp 0x2987b0 sets the pistol's body part */
+	friend void ParentPistolToRThighAsGearCallback(void *, void *); /* port: seal_env.cpp 0x2986e0 */
 public:
 	virtual CZBodyPart* GetRootPart() const = 0; /* __vt__5CBody +0x10 is 0 (pure); CZSealBody's override 0x257710; CallbackTick 0x1e08d0 calls it through the CBody vtable */
 	void SmoothAnims(f32 scale);
@@ -140,6 +144,8 @@ class CZBodyPart
 	friend class CObjAnims; /* port: GetObjAnim 0x27d510 reads m_id */
 	friend class CZKit; /* port: InitItemModel 0x2ae340 sets the grenade part's node */
 	friend class CZBodyAnimBlend; /* port: CallbackTick 0x1e08d0 reads the root part's node */
+	friend void ParentPistolToRHandCallback(void *, void *); /* port: seal_env.cpp 0x2987b0 moves the pistol part */
+	friend void ParentPistolToRThighAsGearCallback(void *, void *); /* port: seal_env.cpp 0x2986e0 */
 public:
 	CZBodyPart(zdb::CNode* node);
 	~CZBodyPart();

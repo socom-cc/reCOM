@@ -188,6 +188,8 @@ CZBodyAnim * CZSealBody::FirePosAnim(CZBodyAnim *anim, SEAL_ITEM item)
 /* @socom-skeleton stub BaseFirePose__10CZSealBodyFv */
 SEAL_ITEM CZSealBody::BaseFirePose()
 {
+	/* 0x280c90: the bottom blend's anim type 1 is a rifle pose, anything else a pistol pose */
+	return m_blends->m_stack[0]->m_animType == (AnimType)1 ? SEAL_ITEM::itemRifle : SEAL_ITEM::itemPistol;
 }
 
 /* @socom-skeleton stub BaseAnim__10CZSealBodyF8AnimType */

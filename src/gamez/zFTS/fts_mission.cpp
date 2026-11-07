@@ -891,6 +891,50 @@ void CMission::ReOpen_Load()
 /* @socom-skeleton stub ZAnimLoad__8CMissionFv */
 void CMission::ZAnimLoad()
 {
+	/* 0x1f7730 (Open): the anim search paths (data/, data/common/, data/<db>/), the mission's
+	 * anims (run/sp|mp/<db>/mzanim.zar, run/<db>/mzanim.zar otherwise) plus the common
+	 * archive (run/czanim.zar), or without the mission archive its zanim.zar; then the common
+	 * and mission readers (only without ZAR loading) and their node states saved. ELF
+	 * returns 1. */
+	char path[1024];
+	char archive[1024];
+	char reader[1024];
+	sprintf(path, "data/");
+	ZAnim.AddPath(path);
+	sprintf(path, "data/common/");
+	ZAnim.AddPath(path);
+	sprintf(path, "data/%s/", m_database);
+	ZAnim.AddPath(path);
+
+	if (strncmp(m_database, "mp", 2) == 0)
+		sprintf(archive, "/run/mp/%s/mzanim.zar", m_database);
+	else if (strncmp(m_database, "m", 1) == 0)
+		sprintf(archive, "/run/sp/%s/mzanim.zar", m_database);
+	else
+		sprintf(archive, "/run/%s/mzanim.zar", m_database);
+
+	if (!ZAnim.LoadZAR(archive, NULL))
+	{
+		if (strncmp(m_database, "mp", 2) == 0)
+			sprintf(archive, "/run/mp/%s/zanim.zar", m_database);
+		else if (strncmp(m_database, "m", 1) == 0)
+			sprintf(archive, "/run/sp/%s/zanim.zar", m_database);
+		else
+			sprintf(archive, "/run/%s/zanim.zar", m_database);
+
+		ZAnim.LoadZAR(archive, NULL);
+	}
+	else
+	{
+		sprintf(archive, "run/czanim.zar");
+		ZAnim.LoadZAR(archive, NULL);
+	}
+
+	ZAnim.Load("data/common/czanim.rdr", "common");
+	sprintf(reader, "data/%s/zanim.rdr", m_database);
+	ZAnim.Load(reader, "mission");
+	ZAnim.GetAnimSet("common")->SaveNodeStates();
+	ZAnim.GetAnimSet("mission")->SaveNodeStates();
 }
 
 /* @socom-skeleton stub Close__8CMissionFv */

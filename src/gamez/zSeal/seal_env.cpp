@@ -261,6 +261,8 @@
 
 #include "zseal.h"
 
+#include <libvu0.h> /* sceVu0OuterProduct (PitchAnim) */
+
 /* @socom-skeleton decl include */
 #include "gamez/zAnim/zanim.h"
 #include "gamez/zBody/zbody.h"
@@ -1860,8 +1862,139 @@ bool CZSealBody::DestroyAimAnims()
 }
 
 /* @socom-skeleton stub PitchAnim__10CZSealBodyFP6CPnt3DP6CPnt3D */
-void CZSealBody::PitchAnim(CPnt3D *, CPnt3D *)
+void CZSealBody::PitchAnim(CPnt3D *, CPnt3D *aim_goal)
 {
+	/* 0x29c620 (CZSealBody::Tick, after the anims): while the fire overlay is weighted in
+	 * (and not in body state 2) the lower and upper spine bend toward the aim goal - each
+	 * by its forward (-z) crossed with the goal in the part's frame, scaled by the fire
+	 * weight (0.1 lower, 0.4 upper), on top of the animated rotation. A local seal with an
+	 * attainable aim point whose reticle is within 30 of it then re-aims the goal from the
+	 * aim point to the reticle, up to five more times, until the fire point lines up with
+	 * the goal (dot above 0.999). The first argument (the aim direction) is unused. */
+	if (m_state == 2)
+		return;
+
+	f32 weight = m_fire->Weight();
+
+	if (weight <= 0.0f)
+		return;
+
+	CPnt3D goal = *aim_goal;
+	CQuat inverse;
+	inverse.w = m_quat.w;
+	inverse.vec.x = -m_quat.vec.x;
+	inverse.vec.y = -m_quat.vec.y;
+	inverse.vec.z = -m_quat.vec.z;
+	CQuat lo;
+	PartInSpace(m_spinelo, NULL, NULL, &lo);
+	lo.vec.x = -lo.vec.x;
+	lo.vec.y = -lo.vec.y;
+	lo.vec.z = -lo.vec.z;
+	CQuat hi;
+	PartInSpace(m_spinehi, NULL, NULL, &hi);
+	hi.vec.x = -hi.vec.x;
+	hi.vec.y = -hi.vec.y;
+	hi.vec.z = -hi.vec.z;
+	CPnt3D lo_forward;
+	CPnt3D hi_forward;
+	lo.Apply(&CPnt3D::unit_nz, &lo_forward, 1);
+	hi.Apply(&CPnt3D::unit_nz, &hi_forward, 1);
+	CQuat lo_rot = m_spinelo->m_rot;
+	CQuat hi_rot = m_spinehi->m_rot;
+	CPnt3D reticle = m_reticle_pt;
+	bool near = false;
+
+	if (m_curr_aimpt != NULL)
+	{
+		bool remote = m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsRemote();
+
+		if (!remote)
+		{
+			CPnt3D aimpos;
+			CPnt3D offset;
+			m_curr_aimpos.Add(GetPosW(), &aimpos);
+			reticle.Sub(&aimpos, &offset);
+			near = offset.z * offset.z + offset.x * offset.x + offset.y * offset.y < 900.0f;
+		}
+	}
+
+	for (s32 pass = 0;;)
+	{
+		CPnt3D local;
+		CPnt3D axis;
+		CPnt3D scaled;
+		CQuat turn;
+		CQuat result;
+		sceVu0FVECTOR a;
+		sceVu0FVECTOR b;
+		sceVu0FVECTOR cross;
+
+		lo.Apply(&goal, &local, 1);
+		a[0] = lo_forward.x;
+		a[1] = lo_forward.y;
+		a[2] = lo_forward.z;
+		a[3] = 1.0f;
+		b[0] = local.x;
+		b[1] = local.y;
+		b[2] = local.z;
+		b[3] = 1.0f;
+		sceVu0OuterProduct(cross, a, b);
+		axis.x = cross[0];
+		axis.y = cross[1];
+		axis.z = cross[2];
+		axis.Scale(weight * 0.1f, &scaled);
+		turn.Exp(&scaled);
+		lo_rot.Mul(&turn, &result);
+		m_spinelo->m_rot = result;
+
+		hi.Apply(&goal, &local, 1);
+		a[0] = hi_forward.x;
+		a[1] = hi_forward.y;
+		a[2] = hi_forward.z;
+		a[3] = 1.0f;
+		b[0] = local.x;
+		b[1] = local.y;
+		b[2] = local.z;
+		b[3] = 1.0f;
+		sceVu0OuterProduct(cross, a, b);
+		axis.x = cross[0];
+		axis.y = cross[1];
+		axis.z = cross[2];
+		axis.Scale(weight * 0.4f, &scaled);
+		turn.Exp(&scaled);
+		hi_rot.Mul(&turn, &result);
+		m_spinehi->m_rot = result;
+
+		if (m_curr_aimpt == NULL)
+			break;
+
+		if (m_control != NULL && static_cast<CSealCtrl *>(m_control)->IsRemote())
+			return;
+
+		if (!m_aimpt_attainable || !near)
+			return;
+
+		CPnt3D aimpt;
+		CPnt3D dir;
+		CPnt3D fire;
+		GetNodePos(m_curr_aimpt, aimpt, false);
+		reticle.Sub(GetPosW(), &dir);
+		dir.Sub(&aimpt, &dir);
+		inverse.Apply(&dir, &dir, 1);
+		dir.Normalize();
+		GetNodePos(m_curr_firept, fire, false);
+		fire.Sub(&aimpt, &fire);
+		inverse.Apply(&fire, &fire, 1);
+		fire.Normalize();
+
+		if (fire.z * aim_goal->z + fire.x * aim_goal->x + fire.y * aim_goal->y > 0.999f)
+			return;
+
+		goal = dir;
+
+		if (++pass > 5)
+			return;
+	}
 }
 
 /* @socom-skeleton body OnWeaponHit__10CZSealBodyFPQ23zdb15IntersectStructP12CZProjectile */
@@ -1981,6 +2114,12 @@ void CZSealBody::HandleDamage(CZProjectile *)
 /* @socom-skeleton stub SetMoveWeaponEncumbMod__10CZSealBodyFv */
 void CZSealBody::SetMoveWeaponEncumbMod()
 {
+	/* 0x29b8d0: 1% slower per encumbrance point, with the damage factor, at most 1 */
+	m_encumbmod = 1.0f - (f32)m_kit.GetTotalEnc() * 0.01f;
+	m_movespeedmod = m_encumbmod * m_damagemod;
+
+	if (m_movespeedmod > 1.0f)
+		m_movespeedmod = 1.0f;
 }
 
 /* @socom-skeleton stub DrawAutoReticle__FP6CPnt3D */
@@ -2444,11 +2583,92 @@ void CZSealBody::CanUseBodyCarry(CZSealBody *)
 /* @socom-skeleton stub AimWeapon__10CZSealBodyFv */
 void CZSealBody::AimWeapon()
 {
+	/* 0x2990a0: the aim direction is the held weapon part's x axis (forward without one) */
+	CPnt3D pos;
+	CQuat rot;
+
+	if (m_item == SEAL_ITEM::itemPistol)
+	{
+		PartInSpace(m_pistol, NULL, &pos, &rot);
+		rot.Apply(&CPnt3D::unit_x, &m_aim_dir, 1);
+	}
+	else if (m_item == SEAL_ITEM::itemRifle)
+	{
+		PartInSpace(m_rifle, NULL, &pos, &rot);
+		rot.Apply(&CPnt3D::unit_x, &m_aim_dir, 1);
+	}
+	else
+	{
+		m_aim_dir = CPnt3D::unit_nz;
+	}
 }
 
 /* @socom-skeleton stub Reload__10CZSealBodyFv */
 CZBodyAnimBlend * CZSealBody::Reload()
 {
+	/* 0x298de0 (CZKit::Reload, bolt actions after a shot): unless changing weapons,
+	 * reloading, in close combat or stunned, the stance's reload anim for the held item
+	 * (prone, crouch, stand; moving faster than 20 or peeking: the moving reload), played at
+	 * the weapon's reload time. Returns the pushed blend (the top one when nothing played;
+	 * NULL for an undefined anim). */
+	CZBodyAnimBlend *top = m_blends->Top();
+	bool pistol = m_item != SEAL_ITEM::itemRifle;
+
+	if (IsChangingWeapons() || IsReloading())
+		return top;
+
+	CZBodyAnimBlend *current = m_blends->Top();
+
+	if (current->m_animType == (AnimType)AnimTypes::CQB || current->m_animType == (AnimType)AnimTypes::PistolCQB)
+		return top;
+
+	if (m_am_stunned)
+		return top;
+
+	bool still = m_velM.z * m_velM.z + m_velM.x * m_velM.x + m_velM.y * m_velM.y <= 400.0f;
+	u8 state = (u8)m_state;
+	SEAL_STATE base = PeekBaseState();
+	AnimType type;
+
+	if (base == SEAL_STATE::stateProne)
+	{
+		type = (AnimType)(pistol ? AnimTypes::PistolProneReload : AnimTypes::RifleProneReload);
+	}
+	else if (base == SEAL_STATE::stateCrouch)
+	{
+		if (pistol)
+			type = (AnimType)(m_state != 3 && still ? AnimTypes::PistolCrouchReload : AnimTypes::MovingPistolReload);
+		else
+			type = (AnimType)(m_state != 3 && still ? AnimTypes::RifleCrouchReload : AnimTypes::MovingRifleReload);
+	}
+	else if (base == SEAL_STATE::stateStand)
+	{
+		if (pistol)
+			type = (AnimType)(m_state != 3 && still ? AnimTypes::PistolReload : AnimTypes::MovingPistolReload);
+		else
+			type = (AnimType)(m_state != 3 && still ? AnimTypes::RifleReload : AnimTypes::MovingRifleReload);
+	}
+	else
+	{
+		return top;
+	}
+
+	if (type == AnimType::animTypeUndefined)
+		return NULL;
+
+	CZBodyAnimBlend *blend = PushBlend(type, state, false);
+
+	if (type != (AnimType)AnimTypes::MovingRifleReload && type != (AnimType)AnimTypes::MovingPistolReload)
+	{
+		CZBodyAnim *rep = blend->Representative();
+		ACTIVE_ANIM *active = blend->m_anims->Begin();
+		f32 time = m_kit.GetCurItem()->m_reloadtime;
+
+		if (time > 0.0f)
+			active->m_playback = rep->m_tf / time;
+	}
+
+	return blend;
 }
 
 /* @socom-skeleton stub CanFire__10CZSealBodyFv */
@@ -2555,33 +2775,419 @@ bool CZSealBody::IsChangingWeapons()
 }
 
 /* @socom-skeleton stub ParentPistolToRHandCallback__FPvPv */
-void ParentPistolToRHandCallback(void *, void *)
+void ParentPistolToRHandCallback(void *seal, void *)
 {
+	/* 0x2987b0 (the rifle-to-pistol swap's blend callback, PushBlend / BlendOverlayPreTick):
+	 * the pistol model to the right hand, an animated part */
+	CZSealBody *body = static_cast<CZSealBody *>(seal);
+	CZBodyPart *pistol = body->m_pistol;
+
+	if (pistol->m_node == NULL)
+		return;
+
+	pistol->m_parent->m_node->DeleteChild(pistol->m_node);
+	pistol->m_parent = body->m_rhand;
+	pistol->m_parent->m_node->AddChild(pistol->m_node);
+
+	if ((u16)pistol->m_id < (u16)body->m_body_parts.size())
+		body->m_body_parts[(u16)pistol->m_id] = pistol;
+
+	pistol->m_blendme = 0;
 }
 
 /* @socom-skeleton stub ParentPistolToRThighAsGearCallback__FPvPv */
-void ParentPistolToRThighAsGearCallback(void *, void *)
+void ParentPistolToRThighAsGearCallback(void *seal, void *)
 {
+	/* 0x2986e0 (the pistol-to-rifle swap's blend callback): the pistol back to the right
+	 * thigh, holstered as gear */
+	CZSealBody *body = static_cast<CZSealBody *>(seal);
+	CZBodyPart *pistol = body->m_pistol;
+
+	if (pistol->m_node != NULL)
+	{
+		pistol->m_parent->m_node->DeleteChild(pistol->m_node);
+		pistol->m_parent = body->m_rthigh;
+		pistol->m_parent->m_node->AddChild(pistol->m_node);
+
+		if ((u16)pistol->m_id < (u16)body->m_body_parts.size())
+			body->m_body_parts[(u16)pistol->m_id] = NULL;
+
+		pistol->m_blendme = 0;
+	}
+
+	body->SetPartAsGear(body->m_pistol, body->m_pistol_as_gear);
 }
 
 /* @socom-skeleton stub ChangeToPistolMode__10CZSealBodyFb */
-void CZSealBody::ChangeToPistolMode(bool)
+void CZSealBody::ChangeToPistolMode(bool draw)
 {
+	/* 0x298540: with draw the pistol to the right hand (animated); the rifle to the lower
+	 * spine (animated); the weapon part is not animated */
+	m_kit.ReParentToPistol();
+
+	if (draw && m_pistol->m_node != NULL)
+	{
+		m_pistol->m_parent->m_node->DeleteChild(m_pistol->m_node);
+		m_pistol->m_parent = m_rhand;
+		m_pistol->m_parent->m_node->AddChild(m_pistol->m_node);
+
+		if ((u16)m_pistol->m_id < (u16)m_body_parts.size())
+			m_body_parts[(u16)m_pistol->m_id] = m_pistol;
+
+		m_pistol->m_blendme = 0;
+	}
+
+	if (m_rifle->m_node != NULL)
+	{
+		m_rifle->m_parent->m_node->DeleteChild(m_rifle->m_node);
+		m_rifle->m_parent = m_spinelo;
+		m_rifle->m_parent->m_node->AddChild(m_rifle->m_node);
+
+		if ((u32)(s32)m_rifle->m_id < m_body_parts.size())
+			m_body_parts[m_rifle->m_id] = m_rifle;
+
+		m_rifle->m_blendme = 0;
+	}
+
+	if ((u32)(s32)m_weapon->m_id < m_body_parts.size())
+		m_body_parts[m_weapon->m_id] = NULL;
+
+	m_item = SEAL_ITEM::itemPistol;
 }
 
 /* @socom-skeleton stub ChangeToRifleMode__10CZSealBodyFb */
-void CZSealBody::ChangeToRifleMode(bool)
+void CZSealBody::ChangeToRifleMode(bool holster)
 {
+	/* 0x298390: the rifle model to the right hand (an animated part); with holster the
+	 * pistol to the right thigh as gear (not animated); the weapon part is not animated */
+	m_kit.ReParentToRifle();
+
+	if (m_rifle->m_node != NULL)
+	{
+		m_rifle->m_parent->m_node->DeleteChild(m_rifle->m_node);
+		m_rifle->m_parent = m_rhand;
+		m_rifle->m_parent->m_node->AddChild(m_rifle->m_node);
+
+		if ((u32)(s32)m_rifle->m_id < m_body_parts.size())
+			m_body_parts[m_rifle->m_id] = m_rifle;
+
+		m_rifle->m_blendme = 0;
+	}
+
+	if (holster)
+	{
+		if (m_pistol->m_node != NULL)
+		{
+			m_pistol->m_parent->m_node->DeleteChild(m_pistol->m_node);
+			m_pistol->m_parent = m_rthigh;
+			m_pistol->m_parent->m_node->AddChild(m_pistol->m_node);
+
+			if ((u16)m_pistol->m_id < (u16)m_body_parts.size())
+				m_body_parts[(u16)m_pistol->m_id] = NULL;
+
+			m_pistol->m_blendme = 0;
+		}
+
+		SetPartAsGear(m_pistol, m_pistol_as_gear);
+	}
+
+	if ((u32)(s32)m_weapon->m_id < m_body_parts.size())
+		m_body_parts[m_weapon->m_id] = NULL;
+
+	m_item = SEAL_ITEM::itemRifle;
 }
 
 /* @socom-skeleton stub ChangeWeapon__10CZSealBodyF9SEAL_ITEM9SEAL_ITEM */
-void CZSealBody::ChangeWeapon(SEAL_ITEM, SEAL_ITEM)
+bool CZSealBody::ChangeWeapon(SEAL_ITEM from, SEAL_ITEM to)
 {
+	/* 0x297060 (CZKit::PreTick on a requested item): not while dying, dead, carrying or
+	 * carried, stunned, climbing, airborne, changing or reloading, or in close combat.
+	 * Rifle <-> pistol standing still / crouched / prone plays the (reversed for pistol to
+	 * rifle) Rifle2Pistol swap with the rifle slung and the item switched at the swap point
+	 * (PostChangeWeapon); on the move the moving swap; other states and from throwables swap
+	 * the models at once. The aim and fire points follow the item. The ELF inlines the part
+	 * moves below (one copy per case). */
+	auto attach = [this](CZBodyPart *part, CZBodyPart *parent)
+	{
+		part->m_parent->m_node->DeleteChild(part->m_node);
+		part->m_parent = parent;
+		part->m_parent->m_node->AddChild(part->m_node);
+	};
+	auto drawRifle = [this, &attach]()
+	{
+		if (m_rifle->m_node != NULL)
+		{
+			attach(m_rifle, m_rhand);
+
+			if ((u16)m_rifle->m_id < (u16)m_body_parts.size())
+				m_body_parts[(u16)m_rifle->m_id] = m_rifle;
+
+			m_rifle->m_blendme = 0;
+		}
+	};
+	auto slingRifle = [this, &attach](bool animate)
+	{
+		if (m_rifle->m_node != NULL)
+		{
+			attach(m_rifle, m_spinelo);
+
+			if (animate && (u16)m_rifle->m_id < (u16)m_body_parts.size())
+				m_body_parts[(u16)m_rifle->m_id] = m_rifle;
+
+			m_rifle->m_blendme = 0;
+		}
+	};
+	auto drawPistol = [this, &attach]()
+	{
+		if (m_pistol->m_node != NULL)
+		{
+			attach(m_pistol, m_rhand);
+
+			if ((u16)m_pistol->m_id < (u16)m_body_parts.size())
+				m_body_parts[(u16)m_pistol->m_id] = m_pistol;
+
+			m_pistol->m_blendme = 0;
+		}
+	};
+	auto holsterPistol = [this, &attach]()
+	{
+		if (m_pistol->m_node != NULL)
+		{
+			attach(m_pistol, m_rthigh);
+
+			if ((u16)m_pistol->m_id < (u16)m_body_parts.size())
+				m_body_parts[(u16)m_pistol->m_id] = NULL;
+
+			m_pistol->m_blendme = 0;
+		}
+	};
+	auto weaponOff = [this]()
+	{
+		if ((u16)m_weapon->m_id < (u16)m_body_parts.size())
+			m_body_parts[(u16)m_weapon->m_id] = NULL;
+	};
+	auto aimNodes = [this]()
+	{
+		m_curr_aimpt = GetFirepointNode("aimpoint");
+		m_curr_firept = GetFirepointNode("firepoint");
+	};
+	/* pistol in hand, rifle slung as gear */
+	auto toPistol = [&]()
+	{
+		m_kit.ReParentToPistol();
+		drawPistol();
+		slingRifle(true);
+		weaponOff();
+		m_item = SEAL_ITEM::itemPistol;
+	};
+	/* rifle in hand, pistol holstered as gear */
+	auto toRifle = [&]()
+	{
+		m_kit.ReParentToRifle();
+		drawRifle();
+		holsterPistol();
+		SetPartAsGear(m_pistol, m_pistol_as_gear);
+		weaponOff();
+		m_item = SEAL_ITEM::itemRifle;
+		ChangeToRifleMode(false);
+		RePose(SEAL_ITEM::itemRifle);
+		SetPartAsGear(m_pistol, m_pistol_as_gear);
+		aimNodes();
+	};
+	/* the swap anim: rifle slung, the item a pistol until the swap point */
+	auto swap = [&]()
+	{
+		m_kit.ReParentToPistol();
+		slingRifle(true);
+		weaponOff();
+		m_item = SEAL_ITEM::itemPistol;
+	};
+
+	CZBodyAnimBlend *top = m_blends->Top();
+	s8 state = m_state;
+
+	if (state == 8 || top->m_state == 8)
+		return false;
+
+	if (state == 9 || state == 10)
+		return false;
+
+	if (m_carry != NULL || m_am_stunned)
+		return false;
+
+	if (state == 3)
+		return false;
+
+	if (m_airborne || state == 6)
+		return false;
+
+	if (IsChangingWeapons() || IsReloading())
+		return false;
+
+	top = m_blends->Top();
+
+	if (top->m_animType == (AnimType)AnimTypes::CQB || top->m_animType == (AnimType)AnimTypes::PistolCQB)
+		return false;
+
+	bool still = m_velM.z * m_velM.z + m_velM.x * m_velM.x + m_velM.y * m_velM.y <= 400.0f;
+
+	if (to == SEAL_ITEM::itemPistol)
+	{
+		if (from == SEAL_ITEM::itemPistol || from == SEAL_ITEM::itemThrowable)
+		{
+			toPistol();
+			slingRifle(false);
+			SetPartAsGear(m_rifle, m_rifle_as_gear);
+			aimNodes();
+		}
+		else if (m_state == 2)
+		{
+			swap();
+			RePose(SEAL_ITEM::itemPistol);
+			PushBlend(AnimType::animTypeProneRifle2Pistol, 2, false);
+		}
+		else if (m_state == 1)
+		{
+			if (still)
+			{
+				swap();
+				RePose(SEAL_ITEM::itemPistol);
+				PushBlend(AnimType::animTypeCrouchRifle2Pistol, 1, false);
+			}
+			else
+			{
+				PushBlend((AnimType)AnimTypes::MovingRifle2Pistol, 1, false);
+			}
+		}
+		else if (m_state == 0)
+		{
+			if (still)
+			{
+				swap();
+				RePose(SEAL_ITEM::itemPistol);
+				PushBlend(AnimType::animTypeRifle2Pistol, 0, false);
+			}
+			else
+			{
+				PushBlend((AnimType)AnimTypes::MovingRifle2Pistol, 0, false);
+			}
+		}
+		else
+		{
+			toPistol();
+			RePose(SEAL_ITEM::itemPistol);
+			slingRifle(false);
+			SetPartAsGear(m_rifle, m_rifle_as_gear);
+			aimNodes();
+		}
+	}
+	else if (to == SEAL_ITEM::itemRifle)
+	{
+		if (from == SEAL_ITEM::itemRifle || from == SEAL_ITEM::itemThrowable)
+		{
+			toRifle();
+		}
+		else if (m_state == 2)
+		{
+			swap();
+			PushBlend(AnimType::animTypeProneRifle2Pistol, 2, true);
+		}
+		else if (m_state == 1)
+		{
+			if (still)
+			{
+				swap();
+				PushBlend(AnimType::animTypeCrouchRifle2Pistol, 1, true);
+			}
+			else
+			{
+				PushBlend((AnimType)AnimTypes::MovingRifle2Pistol, 1, false);
+			}
+		}
+		else if (m_state == 0)
+		{
+			if (still)
+			{
+				swap();
+				PushBlend(AnimType::animTypeRifle2Pistol, 0, true);
+			}
+			else
+			{
+				PushBlend((AnimType)AnimTypes::MovingRifle2Pistol, 0, false);
+			}
+		}
+		else
+		{
+			toRifle();
+		}
+	}
+	else
+	{
+		if (from == SEAL_ITEM::itemRifle)
+		{
+			toRifle();
+		}
+		else if (from == SEAL_ITEM::itemPistol)
+		{
+			toPistol();
+			RePose(SEAL_ITEM::itemPistol);
+			slingRifle(false);
+			SetPartAsGear(m_rifle, m_rifle_as_gear);
+			aimNodes();
+		}
+
+		m_item = to;
+	}
+
+	aimNodes();
+	return true;
 }
 
 /* @socom-skeleton stub PostChangeWeapon__10CZSealBodyF9SEAL_ITEM */
-void CZSealBody::PostChangeWeapon(SEAL_ITEM)
+void CZSealBody::PostChangeWeapon(SEAL_ITEM item)
 {
+	/* 0x296e70 (the swap anim's swap point, Tick_0 / CheckAnim): to a pistol the rifle goes
+	 * to the spine as gear; to a rifle it comes to the hand (animated) and the pistol is
+	 * holstered as gear. The aim and fire points follow. */
+	if (item == SEAL_ITEM::itemPistol)
+	{
+		if (m_rifle->m_node != NULL)
+		{
+			m_rifle->m_parent->m_node->DeleteChild(m_rifle->m_node);
+			m_rifle->m_parent = m_spinelo;
+			m_rifle->m_parent->m_node->AddChild(m_rifle->m_node);
+			m_rifle->m_blendme = 0;
+		}
+
+		SetPartAsGear(m_rifle, m_rifle_as_gear);
+	}
+
+	if (item == SEAL_ITEM::itemRifle)
+	{
+		m_kit.ReParentToRifle();
+
+		if (m_rifle->m_node != NULL)
+		{
+			m_rifle->m_parent->m_node->DeleteChild(m_rifle->m_node);
+			m_rifle->m_parent = m_rhand;
+			m_rifle->m_parent->m_node->AddChild(m_rifle->m_node);
+
+			if ((u16)m_rifle->m_id < (u16)m_body_parts.size())
+				m_body_parts[(u16)m_rifle->m_id] = m_rifle;
+
+			m_rifle->m_blendme = 0;
+		}
+
+		if ((u16)m_weapon->m_id < (u16)m_body_parts.size())
+			m_body_parts[(u16)m_weapon->m_id] = NULL;
+
+		m_item = SEAL_ITEM::itemRifle;
+		RePose(SEAL_ITEM::itemRifle);
+		SetPartAsGear(m_pistol, m_pistol_as_gear);
+	}
+
+	m_curr_aimpt = GetFirepointNode("aimpoint");
+	m_curr_firept = GetFirepointNode("firepoint");
 }
 
 /* @socom-skeleton stub DamageRArm__10CZSealBodyFP12CZProjectile */
@@ -2984,16 +3590,38 @@ void CZSealBody::DamageRandomLocation(CZProjectile *)
 /* @socom-skeleton stub SetupKevlarInsertArmor__10CZSealBodyFv */
 void CZSealBody::SetupKevlarInsertArmor()
 {
+	/* 0x28f3c0: the chest (3) at least 60 */
+	for (s32 i = 0; i < 6; i++)
+	{
+		f32 min = i == 3 ? 60.0f : 0.0f;
+
+		if (m_armor[i] < min)
+			m_armor[i] = min;
+	}
 }
 
 /* @socom-skeleton stub SetupKevlarArmor__10CZSealBodyFv */
 void CZSealBody::SetupKevlarArmor()
 {
+	/* 0x28f2f0: the chest (3) at least 30 */
+	for (s32 i = 0; i < 6; i++)
+	{
+		f32 min = i == 3 ? 30.0f : 0.0f;
+
+		if (m_armor[i] < min)
+			m_armor[i] = min;
+	}
 }
 
 /* @socom-skeleton stub SetupDefaultArmor__10CZSealBodyFv */
 void CZSealBody::SetupDefaultArmor()
 {
+	/* 0x28f220: no negative armor */
+	for (s32 i = 0; i < 6; i++)
+	{
+		if (m_armor[i] < 0.0f)
+			m_armor[i] = 0.0f;
+	}
 }
 
 /* @socom-skeleton stub SetArmor__10CZSealBodyF15DAMAGE_LOCATIONf */

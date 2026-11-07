@@ -57,6 +57,13 @@
 #include "zweapon.h"
 #include "zwep_projectilelist.h"
 #include "gamez/zNetwork/znet.h"
+#include "gamez/zNode/node_world.h" /* CWorld (projectile intersections) */
+#include "gamez/zNode/node_assetlib.h" /* CAssetMgr::m_assets (tracer models) */
+#include "gamez/zFTS/zfts.h" /* CZGrenadeState */
+#include "gamez/zEntity/zentity.h" /* CPickup */
+#include "gamez/zMath/zmath_vu.h" /* sceVu0 matrix helpers */
+#include <stdlib.h>
+#include <string.h>
 
 /* @socom-skeleton decl include */
 #include "gamez/zAnim/zanim.h"
@@ -72,152 +79,783 @@ class CFlyout;
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static unsigned char MultiplayerMsgStrings[28];
 
+/* port: no stage-4 owner for the tracer model statics (.sbss 0x47666c..0x476678) */
+zdb::CModel* CFlyoutMachine::pFlyout_Model_Registered;
+zdb::CModel* CFlyoutMachine::pFlyout_Model_Standard;
+zdb::CModel* CFlyoutMachine::pFlyout_Model_Enemy;
+zdb::CModel* CFlyoutMachine::pFlyout_Model_Ally;
+
 /* @socom-skeleton stub m_tracerpool__12CZTracerPool */
 int CZTracerPool::m_tracerpool[3];
 
 /* @socom-skeleton stub __ct__12CZProjectileFv */
 CZProjectile::CZProjectile()
 {
+	/* 0x31a3a0 */
+	m_owner = NULL;
+	m_roll = 0.0f;
+	m_pitch = 0.0f;
+	m_heading = 0.0f;
+	m_time = 9999999.0f;
+	m_pickup = NULL;
+	m_done = 0;
+	m_intersecthandle = -1;
+	m_di = NULL;
+	m_animinstance = NULL;
+	m_shottype = PROJECTILE_TYPE::NORMAL;
+	m_state = PROJECTILE_STATE::PROJECTILE_EXPIRED;
+	m_currange = 0.0f;
+	m_shooterID = 0;
+	m_isfirsthit = 1;
+	m_isplayer = 0;
+	m_lastHitWasPerson = 0;
+	m_lastHitWasVolumetric = 0;
+	m_weapon = NULL;
+	m_ammo = NULL;
+	m_useflyout = 0;
+	m_flyout_idx = 1;
+	m_tracer_count = 0;
+	m_echo = 0;
+	m_remove_ASAP = false;
+	m_di_handle = -1;
 }
 
 /* @socom-skeleton stub __dt__12CZProjectileFv */
 CZProjectile::~CZProjectile()
 {
+	/* 0x31a2e0 */
+	Cleanup();
+
+	if (m_instance != NULL)
+		m_instance = zdb::CNode::Delete(m_instance);
+
+	m_di = NULL;
+	m_weapon = NULL;
+	m_ammo = NULL;
+	m_owner = NULL;
+
+	if (m_animinstance != NULL)
+	{
+		m_animinstance->Stop();
+		m_animinstance = NULL;
+	}
+
+	if (m_pickup != NULL)
+	{
+		CPickup::Destroy(m_pickup);
+		m_pickup = NULL;
+	}
 }
 
 /* @socom-skeleton body SetProjectile__12CZProjectileFPQ23zdb5CNodeP8CZWeaponP6CZAmmoPC6CPnt3DPC6CPnt3DPC6CPnt3DiPQ23zdb6CModelff */
 bool CZProjectile::SetProjectile(zdb::CNode *owner, CZWeapon *weapon, CZAmmo *ammo, const CPnt3D *startpos, const CPnt3D *velscale, const CPnt3D *vel, int id, zdb::CModel *model, float time, float removal_time)
 {
+	/* 0x319ff0: flies from startpos at the muzzle velocity along velscale plus vel; direct
+	 * fire is one-frame (shotguns: the shotgun spread) and takes a direct-fire DI, others an
+	 * indirect one. In a network game a thrown grenade of the player needs a grenade slot.
+	 * (Was a provisional body.) */
 	m_weapon = weapon;
 
-	if (m_weapon)
-	{
+	if (m_weapon != NULL)
 		m_currange = m_weapon->GetMaxRange();
-	}
 
-	if (m_weapon->m_ID < EQUIP_ITEM::EQUIP_SMG)
-	{
-		m_useflyout = false;
-	}
-	else
-	{
-		m_useflyout = true;
-	}
-
+	m_useflyout = (u8)m_weapon->m_ID >= 0x1e;
 	m_ammo = ammo;
-
-	m_framestartpos = *startpos; /* port: the parameters are const CPnt3D * (mangled PC6CPnt3D) */
+	m_framestartpos = *startpos;
 	m_frameendpos = *startpos;
-
 	m_intersecthandle = -1;
-
-	velscale->Scale(m_weapon->GetMuzzleVelocity(), &m_vel);
+	velscale->Scale(weapon->GetMuzzleVelocity(), &m_vel);
 	m_vel.Add(vel, &m_vel);
 
-	if (model)
-	{
+	if (model != NULL)
 		m_instance->SetModel(model);
-	}
 
 	m_owner = owner;
 	m_time = time;
 	m_removaltime = removal_time;
 	m_pickup = NULL;
+	m_done = 0;
+	m_animinstance = NULL;
+	m_shottype = PROJECTILE_TYPE::NORMAL;
+	m_state = PROJECTILE_STATE::PROJECTILE_FLYOUT;
+	m_shooterID = id;
+	m_isfirsthit = 1;
+	m_lastHitWasPerson = 0;
+	m_lastHitWasVolumetric = 0;
 
-	m_done = false;
+	if (m_weapon->IsDirectFire())
+	{
+		if (m_weapon->GetIDType() == EQUIP_ITEM::EQUIP_SHOTGUN)
+			m_shottype = PROJECTILE_TYPE::ONE_FRAME_SHOTGUN;
+		else
+			m_shottype = PROJECTILE_TYPE::ONE_FRAME;
+	}
 
-	return true;
+	PreFireProjectile();
+	return FireValidityCheck();
 }
 
 /* @socom-skeleton body PreFireProjectile__12CZProjectileFv */
 void CZProjectile::PreFireProjectile()
 {
+	/* 0x319f90: one-frame shots take a direct-fire DI, the rest an indirect one */
 	if (m_shottype == PROJECTILE_TYPE::ONE_FRAME)
 	{
-		// CZWeapon::m_pProjectileList.GetNextDirectFireDI(&m_di, &m_di_handle);
-		m_removeASAP = false;
+		CZWeapon::m_pProjectilelist->GetNextDirectFireDI(&m_di, &m_di_handle);
+		m_remove_ASAP = false;
 	}
 	else
 	{
-		// CZWeapon::m_pProjectileList.GetNextIndirectFireDI(&m_di, &m_di_handle);
-		m_removeASAP = false;
+		CZWeapon::m_pProjectilelist->GetNextIndirectFireDI(&m_di, &m_di_handle);
+		m_remove_ASAP = false;
 	}
 }
 
 /* @socom-skeleton body FireValidityCheck__12CZProjectileFv */
 bool CZProjectile::FireValidityCheck()
 {
-	// Created projectiles are validated by the server only.
-	if (theNetwork.m_bNetwork)
-		return false;
-	
-	if (!m_weapon)
+	/* 0x319ee0: true, except a network player's thrown grenade without a free grenade slot
+	 * (CZGrenadeState) */
+	if (m_weapon == NULL || m_weapon->IsDirectFire() || !theNetwork.m_bNetwork || !m_isplayer)
+		return true;
+
+	m_object_index = CZGrenadeState::CreateLocalGrenade(this);
+
+	if (m_object_index < 0)
 		return false;
 
-	if (!m_weapon->IsDirectFire())
-		return false;
-
+	m_grenadestate = GRENADE_STATE::CREATE;
+	CZGrenadeState::UpdateLocalGrenade(this);
 	return true;
 }
 
 /* @socom-skeleton stub SetVelW__12CZProjectileFPC6CPnt3D */
-void CZProjectile::SetVelW(const CPnt3D *)
+void CZProjectile::SetVelW(const CPnt3D *vel)
 {
+	/* 0x319e60: no velocity: at rest; else flying again */
+	if (vel == NULL)
+	{
+		m_state = PROJECTILE_STATE::PROJECTILE_AT_REST;
+		m_vel = CPnt3D::zero;
+	}
+	else
+	{
+		m_state = PROJECTILE_STATE::PROJECTILE_FLYOUT;
+		m_vel = *vel;
+		m_done = 0;
+		m_intersecthandle = -1;
+	}
 }
 
 /* @socom-skeleton stub SetModelOrientation__12CZProjectileFbPC6CPnt3D */
-void CZProjectile::SetModelOrientation(bool, const CPnt3D *)
+void CZProjectile::SetModelOrientation(bool oneframe, const CPnt3D *)
 {
+	/* 0x319b60 (PostTick): the instance is shown, turned along the frame segment (its x axis);
+	 * a one-frame shot's instance is stretched to a tenth of the segment and every fourth
+	 * tracer round of a rifle (m_useflyout) launches a tracer flyout (1500 units/s, ally /
+	 * enemy model by m_flyout_idx) scaled 7.5 with a box from the instance's box min to
+	 * (tenth of the segment, 0.1, 0.1); a flying direct-fire projectile takes the turn only.
+	 * The instance stands at the segment start. ELF: the instance's first 64 bytes are copied
+	 * to a dead local (not kept). */
+	m_instance->SetActive(true);
+
+	if (m_instance == NULL)
+		return;
+
+	CPnt3D dir;
+	m_frameendpos.Sub(&m_framestartpos, &dir);
+	f32 len = sqrtf(dir.z * dir.z + dir.x * dir.x + dir.y * dir.y);
+	dir.Normalize();
+	CMatrix scaled;
+	CMatrix stretched;
+	sceVu0UnitMatrix(scaled.m_matrix);
+	sceVu0UnitMatrix(stretched.m_matrix);
+
+	if (oneframe)
+	{
+		len *= 0.1f;
+		sceVu0UnitMatrix(scaled.m_matrix);
+		sceVu0CopyMatrix(stretched.m_matrix, scaled.m_matrix);
+		stretched.m_matrix[0][0] = len;
+		scaled.m_matrix[0][0] = 7.5f;
+		stretched.m_matrix[1][1] = len;
+		scaled.m_matrix[1][1] = 7.5f;
+		stretched.m_matrix[2][2] = len;
+		scaled.m_matrix[2][2] = 7.5f;
+	}
+
+	CMatrix rotation;
+	sceVu0UnitMatrix(rotation.m_matrix);
+	CPnt3D axis;
+	axis.x = 1.0f;
+	axis.y = 0.0f;
+	axis.z = 0.0f;
+	CQuat quat;
+	quat.Align(axis, dir);
+	quat.ToMatrix(&rotation);
+	CBBox box;
+
+	if (oneframe)
+	{
+		sceVu0MulMatrix(scaled.m_matrix, rotation.m_matrix, scaled.m_matrix);
+		sceVu0MulMatrix(stretched.m_matrix, rotation.m_matrix, stretched.m_matrix);
+		m_instance->SetMatrix(&stretched);
+		zdb::CNode *node = m_instance;
+		CBBox *bbox = &node->m_bbox;
+
+		if (node->m_use_parent_bbox)
+		{
+			node = node->m_parent;
+			bbox = &node->m_bbox;
+
+			if (node->m_use_parent_bbox)
+			{
+				node = node->m_parent;
+				bbox = &node->m_bbox;
+
+				if (node->m_use_parent_bbox)
+					bbox = node->m_parent->GetBBox();
+			}
+		}
+
+		box.m_min = bbox->m_min;
+		box.m_max.x = len;
+		box.m_max.y = 0.1f;
+		box.m_max.z = 0.1f;
+	}
+
+	if (oneframe && m_useflyout)
+	{
+		s32 count = m_tracer_count;
+
+		if (count != 0 && count % 4 == 0)
+		{
+			if (m_flyout_idx == 0)
+				CFlyoutMachine::pFlyout_Model_Registered = CFlyoutMachine::pFlyout_Model_Ally;
+			else if (m_flyout_idx == 1)
+				CFlyoutMachine::pFlyout_Model_Registered = CFlyoutMachine::pFlyout_Model_Enemy;
+
+			CZWeapon::m_flyout_machine.AcquireFlyout(m_framestartpos, m_frameendpos, NULL, m_weapon, 1500.0f, &scaled, &box);
+			CFlyoutMachine::pFlyout_Model_Registered = CFlyoutMachine::pFlyout_Model_Standard;
+			m_tracer_count = 0;
+		}
+	}
+	else if (m_weapon->IsDirectFire())
+	{
+		m_instance->SetMatrix(&rotation);
+	}
+
+	m_instance->SetPosition(m_framestartpos.x, m_framestartpos.y, m_framestartpos.z);
 }
 
 /* @socom-skeleton stub PreTick__12CZProjectileFf */
-void CZProjectile::PreTick(float)
+bool CZProjectile::PreTick(float dT)
 {
+	/* 0x319850 (CZProjectileList::PreTick): the frame segment: thrown / launched projectiles
+	 * fall under gravity (9.8 x world scale); one-frame shots reach 1.1 x the weapon's max
+	 * range at once (the velocity then 300 along the shot); shotguns register a proximity
+	 * test, a detonating projectile its blast. Then the segment's intersection (ignoring the
+	 * shooter). */
+	if (m_state == PROJECTILE_STATE::PROJECTILE_TO_BE_REMOVED)
+		return true;
+
+	m_intersecthandle = -1;
+	m_framestartpos = m_frameendpos;
+	zdb::CWorld *world = zdb::CWorld::m_world;
+	PROJECTILE_TYPE type = m_shottype;
+
+	if (type == PROJECTILE_TYPE::NORMAL
+		&& (m_state == PROJECTILE_STATE::PROJECTILE_FLYOUT || m_state == PROJECTILE_STATE::PROJECTILE_WAS_DETONATED))
+	{
+		CPnt3D gravity;
+		gravity.x = 0.0f;
+		gravity.z = 0.0f;
+		gravity.y = -(zdb::CWorld::m_scale * 9.8f);
+		CPnt3D step;
+		gravity.Scale(dT, &step);
+		m_vel.Add(&step, &m_vel);
+		m_vel.Scale(dT, &step);
+		m_framestartpos.Add(&step, &m_frameendpos);
+	}
+	else if (type == PROJECTILE_TYPE::ONE_FRAME)
+	{
+		m_vel.Normalize();
+		CPnt3D reach;
+		m_vel.Scale(m_weapon->GetMaxRange() * 1.1f, &reach);
+		m_framestartpos.Add(&reach, &m_frameendpos);
+		m_vel.Scale(300.0f, &m_vel);
+	}
+	else if (type == PROJECTILE_TYPE::ONE_FRAME_SHOTGUN && CZWeapon::m_allowWeaponIntersection)
+	{
+		m_intersecthandle = world->RegProximityDelayed(m_di, &m_framestartpos, m_ammo->GetExplosionRadius());
+		zdb::CWorld::m_world->RegIgnoreNodeDelayed(m_di, m_owner);
+	}
+	else if (m_state == PROJECTILE_STATE::PROJECTILE_TO_BE_DETONATED)
+	{
+		m_intersecthandle = world->RegProximityDelayed(m_di, &m_framestartpos, m_ammo->GetExplosionRadius());
+		m_state = PROJECTILE_STATE::PROJECTILE_DETONATION_TO_BE_HANDLED;
+	}
+
+	if (CZWeapon::m_allowWeaponIntersection && m_shottype != PROJECTILE_TYPE::ONE_FRAME_SHOTGUN
+		&& m_state != PROJECTILE_STATE::PROJECTILE_DETONATION_TO_BE_HANDLED)
+	{
+		m_intersecthandle = zdb::CWorld::m_world->RegIntersectDelayed(m_di, &m_framestartpos, &m_frameendpos);
+		zdb::CWorld::m_world->RegIgnoreNodeDelayed(m_di, m_owner);
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub PostTick__12CZProjectileFf */
-void CZProjectile::PostTick(float)
+bool CZProjectile::PostTick(float dT)
 {
+	/* 0x319540 (CZProjectileList::PostTick): after the intersection pass: hits (shotgun:
+	 * every pellet), the model and tracer orientation, one-frame shots and finished hits are
+	 * removed; the timers. True when the slot can be freed. */
+	if (m_state == PROJECTILE_STATE::PROJECTILE_TO_BE_REMOVED)
+	{
+		if (theNetwork.m_bNetwork)
+		{
+			m_grenadestate = GRENADE_STATE::REMOVE;
+
+			if (m_isplayer && m_shottype != PROJECTILE_TYPE::ONE_FRAME && m_shottype != PROJECTILE_TYPE::ONE_FRAME_SHOTGUN)
+				CZGrenadeState::UpdateLocalGrenade(this);
+		}
+
+		return true;
+	}
+
+	if (m_state == PROJECTILE_STATE::PROJECTILE_DETONATION_TO_BE_HANDLED)
+	{
+		HandleDelayedDetonate();
+
+		if (m_remove_ASAP)
+			m_state = PROJECTILE_STATE::PROJECTILE_TO_BE_REMOVED;
+
+		return false;
+	}
+
+	m_grenadestate = GRENADE_STATE::NEWPOS;
+	bool done = false;
+	zdb::CWorld::m_world->ClearIgnoreNodeDelayed(m_di);
+
+	if (m_intersecthandle == -1)
+		return false;
+
+	if (m_time != 9999999.0f)
+		m_time -= dT;
+
+	if (m_removaltime != 9999999.0f)
+		m_removaltime -= dT;
+
+	if (m_shottype == PROJECTILE_TYPE::ONE_FRAME_SHOTGUN)
+	{
+		s32 count = m_di->m_Cnt;
+
+		for (s32 i = 0; i < count; i++)
+		{
+			zdb::IntersectStruct *hit = &m_di->m_Intersects[i];
+			CPnt3D dist;
+			hit->m_pos.Sub(&m_framestartpos, &dist);
+			DoHit(hit, dT, 0.0f, &dist);
+		}
+	}
+	else
+	{
+		done = HandleIntersections(dT);
+	}
+
+	if (m_shottype == PROJECTILE_TYPE::ONE_FRAME_SHOTGUN || m_shottype == PROJECTILE_TYPE::ONE_FRAME)
+		SetModelOrientation(true, &m_frameendpos);
+	else
+		SetModelOrientation(false, &m_frameendpos);
+
+	PROJECTILE_TYPE type = m_shottype;
+	PROJECTILE_STATE state = m_state;
+
+	if (type == PROJECTILE_TYPE::ONE_FRAME || type == PROJECTILE_TYPE::ONE_FRAME_SHOTGUN
+		|| (done && state != PROJECTILE_STATE::PROJECTILE_TO_BE_DETONATED
+			&& state != PROJECTILE_STATE::PROJECTILE_DETONATION_TO_BE_HANDLED
+			&& state != PROJECTILE_STATE::PROJECTILE_WAS_DETONATED))
+	{
+		m_state = PROJECTILE_STATE::PROJECTILE_TO_BE_REMOVED;
+	}
+
+	bool result = HandleTimers();
+
+	if (theNetwork.m_bNetwork)
+	{
+		u32 t = (u32)m_shottype;
+
+		if (t != 1 && t != 2 && m_isplayer && (t - 1) > 1)
+			CZGrenadeState::UpdateLocalGrenade(this);
+	}
+
+	if (m_state == PROJECTILE_STATE::PROJECTILE_TO_BE_REMOVED)
+		result = false;
+
+	return result;
 }
 
 /* @socom-skeleton stub HandleIntersections__12CZProjectileFf */
-void CZProjectile::HandleIntersections(float)
+bool CZProjectile::HandleIntersections(float dT)
 {
+	/* 0x319190: the nearest intersection along the segment beyond the previous one that is
+	 * not the shooter (or a child of it) and within the current range; none: a miss (removal
+	 * past the max range). A fully penetrable material (penetration 1) is passed; bouncing
+	 * ammo (grenades, explosives, M203 illum / smoke) bounces, shotguns spread, the rest
+	 * impact. One-frame shots keep going after a penetrated hit. The segment ends at the hit. */
+	bool result = false;
+	bool stop = false;
+	zdb::IntersectStruct *nearest = NULL;
+	s32 count = m_di->m_Cnt;
+	CPnt3D end;
+
+	do
+	{
+		f32 dist = 0.0f;
+		f32 range = m_currange * m_currange;
+		f32 from;
+
+		if (nearest == NULL)
+		{
+			from = 0.0f;
+		}
+		else
+		{
+			CPnt3D d;
+			nearest->m_pos.Sub(&m_di->m_Tail, &d);
+			from = d.z * d.z + d.x * d.x + d.y * d.y;
+		}
+
+		nearest = NULL;
+
+		for (s32 i = 0; i < count; i++)
+		{
+			zdb::IntersectStruct *hit = &m_di->m_Intersects[i];
+
+			if (hit->m_node != NULL)
+			{
+				bool own = false;
+
+				for (zdb::CNode *p = hit->m_node->m_parent; p != NULL && !own; p = p->m_parent)
+				{
+					if (p == m_owner)
+						own = true;
+				}
+
+				if (own)
+					continue;
+			}
+
+			CPnt3D d;
+			hit->m_pos.Sub(&m_di->m_Tail, &d);
+			f32 sq = d.z * d.z + d.x * d.x + d.y * d.y;
+
+			if (from < sq && (nearest == NULL || sq < dist) && !(range <= sq))
+			{
+				dist = sq;
+				nearest = hit;
+			}
+		}
+
+		if (nearest == NULL)
+		{
+			result = DoMiss(dT, &end);
+			stop = true;
+		}
+		else
+		{
+			u32 index = nearest->GetMaterial();
+
+			if (index >= CMaterialExArray::m_materialex_list.size())
+				index = 0;
+
+			CMaterialEx *material = CMaterialExArray::m_materialex_list[index];
+			f32 penetration = material != NULL ? material->m_penetration : 0.0f;
+
+			if (penetration != 1.0f)
+			{
+				CZFTSWeapon *weapon = dynamic_cast<CZFTSWeapon *>(m_weapon);
+
+				if (weapon == NULL
+					|| (weapon->GetIDType() != EQUIP_ITEM::EQUIP_GRENADE && weapon->GetIDType() != EQUIP_ITEM::EQUIP_EXPLOSIVE
+						&& weapon->m_ID != EQUIP_ITEM::M203_IL && weapon->m_ID != EQUIP_ITEM::M203_SMOKE))
+				{
+					if (weapon->GetIDType() == EQUIP_ITEM::EQUIP_SHOTGUN)
+						result = HandleShotgunImpact(nearest, dT, dist, &end);
+					else
+						result = HandleImpact(nearest, dT, dist, &end);
+				}
+				else
+				{
+					result = HandleBounce(nearest, dT, &end);
+				}
+
+				stop = result;
+
+				if (m_shottype != PROJECTILE_TYPE::ONE_FRAME && m_shottype != PROJECTILE_TYPE::ONE_FRAME_SHOTGUN)
+					stop = true;
+			}
+		}
+	} while (!stop);
+
+	m_frameendpos = end;
+	CZWeapon::MakeWeaponEventCallbacks(1, this);
+	return result;
 }
 
 /* @socom-skeleton stub HandleTimers__12CZProjectileFv */
-void CZProjectile::HandleTimers()
+bool CZProjectile::HandleTimers()
 {
+	/* 0x318f90: a fuse run out detonates (M203 illum: hidden and removed at once; others
+	 * removed with the removal time already out); true when a finished projectile's removal
+	 * time runs out */
+	if (!(m_time > 0.0f) && m_time != 9999999.0f && !m_done)
+	{
+		m_state = PROJECTILE_STATE::PROJECTILE_TO_BE_DETONATED;
+
+		if (m_weapon->m_ID == EQUIP_ITEM::M203_IL)
+		{
+			m_done = 1;
+			m_instance->SetActive(false);
+			m_grenadestate = GRENADE_STATE::DETONATE;
+
+			if (!theNetwork.m_bNetwork || m_isplayer || m_shooterID == 0)
+				m_state = PROJECTILE_STATE::PROJECTILE_TO_BE_REMOVED;
+
+			return false;
+		}
+
+		m_grenadestate = GRENADE_STATE::DETONATE;
+
+		if (m_removaltime > 0.0f || m_removaltime == 9999999.0f)
+		{
+			m_done = 1;
+			return false;
+		}
+
+		m_done = 1;
+
+		if (!theNetwork.m_bNetwork || m_isplayer || m_shooterID == 0)
+			m_remove_ASAP = true;
+
+		return false;
+	}
+
+	if (m_done && m_removaltime <= 0.0f && m_removaltime != 9999999.0f)
+	{
+		m_done = 0;
+		m_grenadestate = GRENADE_STATE::REMOVE;
+		return true;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub DoMiss__12CZProjectileFfP6CPnt3D */
-void CZProjectile::DoMiss(float, CPnt3D *)
+bool CZProjectile::DoMiss(float dT, CPnt3D *end)
 {
+	/* 0x318d70: a flying throwable spins; the segment end stands; past the max range the
+	 * projectile is done (network: removed) */
+	CZFTSWeapon *weapon = dynamic_cast<CZFTSWeapon *>(m_weapon);
+
+	if (weapon != NULL && weapon->m_type == SEAL_ITEM::itemThrowable && m_state != PROJECTILE_STATE::PROJECTILE_AT_REST)
+	{
+		f32 spin = dT * 1.5707964f;
+		m_roll += spin;
+
+		if (m_roll > 6.2831855f)
+			m_roll -= 6.2831855f;
+
+		m_pitch += spin;
+
+		if (m_pitch > 6.2831855f)
+			m_pitch -= 6.2831855f;
+
+		m_heading += spin;
+
+		if (m_heading > 6.2831855f)
+			m_heading -= 6.2831855f;
+
+		CQuat rot;
+		rot.MakeYXZRot(m_heading, m_pitch, m_roll);
+
+		if (m_instance != NULL)
+			m_instance->SetRotation(rot);
+	}
+
+	CPnt3D d;
+	m_frameendpos.Sub(&m_framestartpos, &d);
+	f32 len = sqrtf(d.z * d.z + d.x * d.x + d.y * d.y);
+	*end = m_frameendpos;
+
+	if (!(m_weapon->GetMaxRange() < len))
+		return false;
+
+	if (!theNetwork.m_bNetwork)
+		return true;
+
+	if (!theNetwork.m_bNetwork || m_isplayer || m_shooterID == 0)
+		m_state = PROJECTILE_STATE::PROJECTILE_TO_BE_REMOVED;
+
+	return false;
 }
 
 /* @socom-skeleton stub DoHit__12CZProjectileFPQ23zdb15IntersectStructffP6CPnt3D */
-void CZProjectile::DoHit(zdb::IntersectStruct *, float, float, CPnt3D *)
+void CZProjectile::DoHit(zdb::IntersectStruct *hit, float dT, float dist, CPnt3D *end)
 {
+	/* 0x318c30: as HandleIntersections picks the handler */
+	CZFTSWeapon *weapon = dynamic_cast<CZFTSWeapon *>(m_weapon);
+
+	if (weapon == NULL
+		|| (weapon->GetIDType() != EQUIP_ITEM::EQUIP_GRENADE && weapon->GetIDType() != EQUIP_ITEM::EQUIP_EXPLOSIVE
+			&& weapon->m_ID != EQUIP_ITEM::M203_IL && weapon->m_ID != EQUIP_ITEM::M203_SMOKE))
+	{
+		if (weapon->GetIDType() == EQUIP_ITEM::EQUIP_SHOTGUN)
+			HandleShotgunImpact(hit, dT, dist, end);
+		else
+			HandleImpact(hit, dT, dist, end);
+	}
+	else
+	{
+		HandleBounce(hit, dT, end);
+	}
 }
 
 /* @socom-skeleton stub HandleBounce__12CZProjectileFPQ23zdb15IntersectStructfP6CPnt3D */
-void CZProjectile::HandleBounce(zdb::IntersectStruct *, float, CPnt3D *)
+bool CZProjectile::HandleBounce(zdb::IntersectStruct *, float, CPnt3D *)
 {
 }
 
 /* @socom-skeleton stub HandleShotgunImpact__12CZProjectileFPQ23zdb15IntersectStructffP6CPnt3D */
-void CZProjectile::HandleShotgunImpact(zdb::IntersectStruct *, float, float, CPnt3D *)
+bool CZProjectile::HandleShotgunImpact(zdb::IntersectStruct *, float, float, CPnt3D *)
 {
 }
 
 /* @socom-skeleton stub HandleImpact__12CZProjectileFPQ23zdb15IntersectStructffP6CPnt3D */
-void CZProjectile::HandleImpact(zdb::IntersectStruct *, float, float, CPnt3D *)
+bool CZProjectile::HandleImpact(zdb::IntersectStruct *hit, float, float dist, CPnt3D *end)
 {
+	/* 0x318230: the segment ends at the hit. Within the current range the hit node's
+	 * extension hears it (OnWeaponHit), a mark is left, a loud impact makes an AI event;
+	 * explosive ammo on a solid, non-pickup material detonates; the material's hit anim and
+	 * the ammo's hit anim play at the hit; the range shrinks by the material's penetration
+	 * (the ammo's armor pierce helps). True when the hit lies past the remaining range. */
+	*end = hit->m_pos;
+	u32 index = hit->GetMaterial();
+	u32 slot = index < CMaterialExArray::m_materialex_list.size() ? index : 0;
+	CMaterialEx *material = CMaterialExArray::m_materialex_list[slot];
+
+	if (index == zwep::personMaterialId)
+	{
+		m_lastHitWasPerson = 1;
+		m_lastPlayerHitPos = hit->m_pos;
+	}
+
+	if (!(dist <= m_currange * m_currange))
+		return true;
+
+	zdb::CNode *node = hit->m_node;
+
+	if (node != NULL && node->m_nodeEx != NULL)
+		node->m_nodeEx->OnWeaponHit(node, hit, this);
+
+	CZWeapon::m_pMarklist->AddNewMark(hit, this, 1.0f);
+	f32 pos[3] = { hit->m_pos.x, hit->m_pos.y, hit->m_pos.z };
+
+	if (m_weapon != NULL)
+	{
+		f32 radius = m_weapon->GetImpactRadius() * material->m_impact_radius_mod;
+
+		if (radius > 1.0f && !m_lastHitWasPerson)
+		{
+			/* port: not written - an AIE_WEPHIT AI event (CAiEvent::Acquire/Create, the AI
+			 * event pool, are unwritten) at the hit, range radius, 0.1 s, owner the shooter */
+		}
+	}
+
+	f32 penetration = material != NULL ? material->m_penetration : 0.0f;
+
+	if (m_ammo->GetExplosionRadius() != 0.0f && material != NULL && !material->m_liquid && !material->m_pickup)
+	{
+		m_state = PROJECTILE_STATE::PROJECTILE_TO_BE_DETONATED;
+		m_grenadestate = GRENADE_STATE::DETONATE;
+		m_currange = 0.0f;
+	}
+
+	if (m_animinstance != NULL)
+	{
+		m_animinstance->Stop();
+		m_animinstance = NULL;
+	}
+
+	CZAnim *anim = NULL;
+
+	if (index < CMaterialExArray::m_materialex_list.size())
+		anim = m_weapon->GetHitAnim(index);
+
+	if (anim != NULL && CZWeapon::m_allowImpactAnimations)
+		anim->ActivateArg(1, 5, pos, 7, &hit->m_norm, 6, &m_vel);
+
+	anim = m_ammo->m_hitanim;
+
+	if (anim != NULL && CZWeapon::m_allowImpactAnimations)
+		anim->ActivateArg(1, 5, pos, 0);
+
+	f32 range = m_currange;
+	f32 reach = (range + range * m_ammo->GetArmorPierce() * 0.1f) * penetration;
+
+	if (reach < range)
+		m_currange = reach;
+
+	return m_currange * m_currange < dist;
 }
 
 /* @socom-skeleton stub Cleanup__12CZProjectileFv */
 void CZProjectile::Cleanup()
 {
+	/* 0x3180d0: the weapon timer it drives is cleared; its DI released; the instance hidden,
+	 * out of the world and the common character textures (thrown items), emptied of children
+	 * and model; pickup and anim dropped */
+	if (&m_time == CZWeapon::m_timer_pCurval)
+		CZWeapon::ClearTimer();
+
+	if (m_di != NULL)
+	{
+		if (m_shottype == PROJECTILE_TYPE::ONE_FRAME)
+			CZWeapon::m_pProjectilelist->ReleaseDirectFireDI(&m_di, &m_di_handle);
+		else
+			CZWeapon::m_pProjectilelist->ReleaseIndirectFireDI(&m_di, &m_di_handle);
+
+		m_di = NULL;
+		m_di_handle = -1;
+	}
+
+	if (m_instance != NULL)
+	{
+		m_instance->SetActive(false);
+
+		if (m_weapon != NULL && !m_weapon->IsDirectFire())
+			zdb::CWorld::m_world->DeleteTextureAssetCharacter(zdb::_RenderPhase::CHARSETCOMMON, m_instance);
+
+		if (m_instance->m_parent != NULL)
+			m_instance->m_parent->DeleteChild(m_instance);
+
+		std::vector<zdb::CNode*>().swap(m_instance->m_child);
+		m_instance->SetModel(NULL);
+	}
+
+	if (m_pickup != NULL)
+	{
+		CPickup::Destroy(m_pickup);
+		m_pickup = NULL;
+	}
+
+	if (m_animinstance != NULL)
+	{
+		m_animinstance->Stop();
+		m_animinstance = NULL;
+	}
 }
 
 /* @socom-skeleton stub Detonate__12CZProjectileFv */
@@ -242,8 +880,10 @@ zdb::CNode * CZProjectile::GetInstance()
 }
 
 /* @socom-skeleton stub SetInstance__12CZProjectileFPQ23zdb5CNode */
-void CZProjectile::SetInstance(zdb::CNode *)
+void CZProjectile::SetInstance(zdb::CNode *node)
 {
+	/* 0x317cb0 */
+	m_instance = node;
 }
 
 /* @socom-skeleton stub GetExplosionDamage__12CZProjectileFv */
@@ -289,8 +929,10 @@ f32 CZProjectile::ResolveDamage(f32* health, f32* armor, f32 damage, f32 multipl
 }
 
 /* @socom-skeleton stub SetAnimInstance__12CZProjectileFP6CZAnim */
-void CZProjectile::SetAnimInstance(CZAnim *)
+void CZProjectile::SetAnimInstance(CZAnim *anim)
 {
+	/* 0x317610 */
+	m_animinstance = anim;
 }
 
 /* @socom-skeleton stub IsInRange__12CZProjectileFPC6CPnt3Df */
@@ -309,8 +951,11 @@ void CZProjectile::UpdateGrenade(CPnt3D *, CPnt3D *, GRENADE_STATE)
 }
 
 /* @socom-skeleton stub SetProjectileState__12CZProjectileF16PROJECTILE_STATEb */
-void CZProjectile::SetProjectileState(PROJECTILE_STATE, bool)
+void CZProjectile::SetProjectileState(PROJECTILE_STATE state, bool force)
 {
+	/* 0x317360: a network remote projectile changes state only when forced */
+	if (!theNetwork.m_bNetwork || force || m_isplayer || m_shooterID == 0)
+		m_state = state;
 }
 
 /* @socom-skeleton stub WasDetonated__12CZProjectileFv */
@@ -321,107 +966,289 @@ void CZProjectile::WasDetonated()
 /* @socom-skeleton body Reset__12CZProjectileFv */
 void CZProjectile::Reset()
 {
+	/* 0x317190: back to an unfired projectile of the same weapon and ammo (one-frame for
+	 * direct fire). (Was a provisional body.) */
 	if (m_pickup != NULL)
 	{
-		// m_pickup->Destroy();
+		CPickup::Destroy(m_pickup);
 		m_pickup = NULL;
 	}
 
 	m_heading = 0.0f;
 	m_pitch = 0.0f;
 	m_roll = 0.0f;
-
-	m_done = false;
-	m_isfirsthit = true;
-	m_isfirsthit = true;
-	m_useflyout = true;
-	m_lastHitWasPerson = true;
-	m_lastHitWasVolumetric = true;
-	m_echo = true;
-
+	m_done = 0;
 	m_intersecthandle = -1;
 	m_animinstance = NULL;
 	m_shottype = PROJECTILE_TYPE::NORMAL;
 	m_state = PROJECTILE_STATE::PROJECTILE_EXPIRED;
-
 	m_currange = 0.0f;
 	m_shooterID = 0;
-
+	m_isfirsthit = 1;
+	m_isplayer = 0;
+	m_lastHitWasPerson = 0;
+	m_lastHitWasVolumetric = 0;
 	m_time = 9999999.0f;
 	m_removaltime = 9999999.0f;
-
 	m_framestartpos = CPnt3D::zero;
 	m_frameendpos = CPnt3D::zero;
 	m_startpos = CPnt3D::zero;
-
 	m_instance->SetModel(NULL);
 
 	if (m_weapon != NULL)
 	{
-		// m_currange = m_weapon->GetMaxRange();
+		m_currange = m_weapon->GetMaxRange();
 
-		if (m_currange == 0.0f)
-		{
-			m_shottype = m_shottype;
-		}
-		else
-		{
+		if (m_weapon->IsDirectFire())
 			m_shottype = PROJECTILE_TYPE::ONE_FRAME;
-		}
-	}
-
-	if (m_ammo != NULL)
-	{
-		m_ammo = m_ammo;
 	}
 }
 
 /* @socom-skeleton stub __ct__7CFlyoutFv */
 CFlyout::CFlyout()
 {
+	/* 0x3170b0: a unit-boxed "FlyoutXRef" node at rest */
+	m_node = zdb::CNode::CreateXRef();
+	m_node->SetName("FlyoutXRef");
+	CPnt3D one;
+	one.x = 1.0f;
+	one.y = 1.0f;
+	one.z = 1.0f;
+	m_node->m_bbox.m_min = one;
+	m_node->m_bbox.m_max = one;
+	m_pos = CPnt3D::zero;
+	m_end = CPnt3D::zero;
+	m_speed = 0.0f;
+	m_dist = 0.0f;
+	m_done = false;
 }
 
 /* @socom-skeleton stub __dt__7CFlyoutFv */
 CFlyout::~CFlyout()
 {
+	/* 0x317050 */
+	zdb::CNode::Delete(m_node);
 }
 
 /* @socom-skeleton stub __ct__14CFlyoutMachineFv */
 CFlyoutMachine::CFlyoutMachine()
 {
+	/* 0x317010 */
+	m_flyouts = NULL;
 }
 
 /* @socom-skeleton stub __dt__14CFlyoutMachineFv */
 CFlyoutMachine::~CFlyoutMachine()
 {
+	/* 0x316f50 */
+	delete[] m_flyouts;
+	m_flyouts = NULL;
 }
 
 /* @socom-skeleton stub Init__14CFlyoutMachineFUi */
-void CFlyoutMachine::Init(unsigned int)
+void CFlyoutMachine::Init(unsigned int count)
 {
+	/* 0x316e60 (CZWeapon::Init, 100): the pool, all free */
+	m_flyouts = new CFlyout[count];
+	m_free.reserve(count);
+	m_active.reserve(count);
+
+	for (u32 i = 0; i < count; i++)
+	{
+		CFlyout *flyout = &m_flyouts[i];
+		m_free.insert(m_free.end(), flyout);
+	}
 }
 
 /* @socom-skeleton stub HookupReset__14CFlyoutMachineFv */
 void CFlyoutMachine::HookupReset()
 {
+	/* 0x316de0 (CZWeapon::Open): the tracer models of the mission's assets (CWorld::GetAssetList
+	 * 0x316e50 is &CAssetMgr::m_assets) */
+	pFlyout_Model_Standard = zdb::CAssetMgr::m_assets.GetModel("tracer");
+	pFlyout_Model_Enemy = zdb::CAssetMgr::m_assets.GetModel("tracer_enemy");
+	pFlyout_Model_Ally = zdb::CAssetMgr::m_assets.GetModel("tracer_ally");
+	pFlyout_Model_Registered = pFlyout_Model_Standard;
 }
 
 /* @socom-skeleton stub ReleaseAllActive__14CFlyoutMachineFv */
 void CFlyoutMachine::ReleaseAllActive()
 {
+	/* 0x316c90 (CZWeapon::Close): every active flyout back to the free list, out of the world
+	 * and hidden, without model; the free nodes drop their children */
+	while (m_active.size() != 0)
+	{
+		CFlyout *flyout = m_active[m_active.size() - 1];
+		m_active.pop_back();
+		m_free.insert(m_free.end(), flyout);
+		flyout->m_node->RemoveFromParent();
+		flyout->m_node->SetActive(false);
+		flyout->m_node->SetModel(NULL);
+	}
+
+	u32 count = m_free.size();
+
+	for (u32 i = 0; i < count; i++)
+	{
+		CFlyout *flyout = m_free[i];
+
+		if (flyout != NULL && flyout->m_node != NULL)
+			std::vector<zdb::CNode*>().swap(flyout->m_node->m_child);
+	}
 }
 
 /* @socom-skeleton stub AcquireFlyout__14CFlyoutMachineFR6CPnt3DR6CPnt3DP6CZAnimP8CZWeaponfP7CMatrixP5CBBox */
-void CFlyoutMachine::AcquireFlyout(CPnt3D &, CPnt3D &, CZAnim *, CZWeapon *, float, CMatrix *, CBBox *)
+void CFlyoutMachine::AcquireFlyout(CPnt3D &start, CPnt3D &end, CZAnim *anim, CZWeapon *weapon, float speed, CMatrix *matrix, CBBox *box)
 {
+	/* 0x316990: a free flyout (the last) for a shot of 70 units or more: the registered
+	 * model, from a random 0.1..99.0 units along the shot to its end at speed, out to the
+	 * weapon's max range (300 without one), the given box and matrix; into the world and
+	 * shown. ELF returns 0/1 (callers drop it). */
+	if (m_free.size() == 0)
+		return;
+
+	CPnt3D d;
+	end.Sub(&start, &d);
+	f32 len = sqrtf(d.z * d.z + d.x * d.x + d.y * d.y);
+
+	if (!(70.0f <= len))
+		return;
+
+	CFlyout *flyout = m_free[m_free.size() - 1];
+	flyout->m_node->SetModel(pFlyout_Model_Registered);
+	f32 offset = ((f32)(rand() % 990) + 1.0f) / 10.0f;
+	CPnt3D dir;
+	end.Sub(&start, &dir);
+	dir.Normalize();
+	dir.Scale(offset, &dir);
+	dir.Add(&start, &dir);
+	flyout->m_pos = dir;
+	flyout->m_anim = NULL;
+	flyout->m_end = end;
+	flyout->m_speed = speed;
+	flyout->m_done = false;
+	flyout->m_dist = 0.0f;
+	flyout->m_maxdist = weapon != NULL ? weapon->GetMaxRange() : 300.0f;
+	flyout->m_vel = CPnt3D::zero;
+
+	if (box != NULL)
+	{
+		flyout->m_node->m_bbox.m_min = box->m_min;
+		flyout->m_node->m_bbox.m_max = box->m_max;
+	}
+
+	if (matrix != NULL)
+		flyout->m_node->SetMatrix(matrix);
+
+	flyout->m_node->SetPosition(flyout->m_pos.x, flyout->m_pos.y, flyout->m_pos.z);
+	m_free.pop_back();
+	m_active.insert(m_active.end(), flyout);
+	zdb::CWorld::m_world->AddChild(flyout->m_node);
+	flyout->m_node->SetActive(true);
 }
 
 /* @socom-skeleton stub ReleaseFlyout__14CFlyoutMachineFP7CFlyouti */
-void CFlyoutMachine::ReleaseFlyout(CFlyout *, int)
+void CFlyoutMachine::ReleaseFlyout(CFlyout *flyout, int index)
 {
+	/* 0x316800: an active flyout (index -1: found by pointer) swapped to the end and back to
+	 * the free list; its anim stopped, out of the world, hidden, no model. ELF returns 0/1
+	 * (Tick tests it). */
+	u32 count = m_active.size();
+
+	if (count == 0)
+		return;
+
+	if (index == -1)
+	{
+		index = 0;
+
+		for (; (u32)index < count; index++)
+		{
+			if (m_active[index] == flyout)
+				break;
+		}
+
+		if ((u32)index >= count)
+			index = -1;
+	}
+
+	if (flyout->m_anim != NULL)
+	{
+		flyout->m_anim->Stop();
+		flyout->m_anim = NULL;
+	}
+
+	flyout->m_speed = 0.0f;
+	u32 last = m_active.size() - 1;
+
+	if ((u32)index != last)
+	{
+		CFlyout *swap = m_active[index];
+		m_active[index] = m_active[last];
+		m_active[last] = swap;
+	}
+
+	m_active.pop_back();
+	m_free.insert(m_free.end(), flyout);
+	flyout->m_node->RemoveFromParent();
+	flyout->m_node->SetActive(false);
+	flyout->m_node->SetModel(NULL);
 }
 
 /* @socom-skeleton stub Tick__14CFlyoutMachineFf */
-void CFlyoutMachine::Tick(float)
+void CFlyoutMachine::Tick(float dT)
 {
+	/* 0x316550 (CZProjectileList::PreTick): finished flyouts are released; the rest advance
+	 * toward their end by their travelled distance + 1 (ELF: the step grows each frame),
+	 * finishing at the end or past their max range. ELF returns 0 with none active, else 1. */
+	s32 count = m_active.size();
+
+	if (count == 0)
+		return;
+
+	for (s32 i = 0; i < count; i++)
+	{
+		CFlyout *flyout = m_active[i];
+
+		if (flyout->m_done)
+		{
+			ReleaseFlyout(flyout, i);
+			i--;
+			count--;
+		}
+	}
+
+	count = m_active.size();
+
+	for (s32 i = 0; i < count; i++)
+	{
+		CFlyout *flyout = m_active[i];
+		CPnt3D left;
+		flyout->m_end.Sub(&flyout->m_pos, &left);
+		CPnt3D step = CPnt3D::zero;
+		flyout->m_dist += dT * flyout->m_speed;
+
+		if (flyout->m_maxdist < flyout->m_dist)
+		{
+			flyout->m_done = true;
+			continue;
+		}
+
+		static_cast<const CPnt3D &>(left).Normalize(&step); /* Normalize__6CPnt3DCFP6CPnt3D */
+		step.Scale(flyout->m_dist + 1.0f, &step);
+
+		if (left.z * left.z + left.x * left.x + left.y * left.y < step.z * step.z + step.x * step.x + step.y * step.y)
+		{
+			flyout->m_node->SetPosition(flyout->m_end.x, flyout->m_end.y, flyout->m_end.z);
+			flyout->m_pos = flyout->m_end;
+			flyout->m_done = true;
+		}
+		else
+		{
+			CPnt3D pos;
+			flyout->m_pos.Add(&step, &pos);
+			flyout->m_node->SetPosition(pos.x, pos.y, pos.z);
+			flyout->m_pos = pos;
+		}
+	}
 }

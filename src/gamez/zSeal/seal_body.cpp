@@ -226,15 +226,17 @@ static CActiveAnimList newanims(12); /* __sinit_seal_body.cpp 0x46c69c: RTList<A
 /* @socom-skeleton stub SetPartAsGear__10CZSealBodyFP10CZBodyPartP14CCharacterGear */
 void CZSealBody::SetPartAsGear(CZBodyPart *part, CCharacterGear *gear)
 {
-	/* 0x27d9b0: the part takes the gear's offset and rotation, and leaves the animated parts */
+	/* 0x27d9b0: the gear's offset and rotation as the part's pose; the part is no longer
+	 * animated */
 	part->m_pos = gear->m_offset;
-	CQuat rot;
-	part->m_rot = *QFromRot(&rot, &gear->m_rotation);
+	CQuat q;
+	CQuat *rot = QFromRot(&q, &gear->m_rotation);
+	part->m_rot = *rot;
 
 	if (part->m_node != NULL)
 		part->Orient();
 
-	if (part->m_id < (s32)m_body_parts.size())
+	if ((u32)(s32)part->m_id < m_body_parts.size())
 		m_body_parts[part->m_id] = NULL;
 }
 
@@ -1842,7 +1844,7 @@ bool CZSealBody::PostFall()
 }
 
 /* @socom-skeleton stub BeginThrowItem__10CZSealBodyFfRf */
-void CZSealBody::BeginThrowItem(float, float &)
+bool CZSealBody::BeginThrowItem(float, float &)
 {
 }
 
@@ -2084,8 +2086,43 @@ void CZSealBody::UpdatePeek()
 }
 
 /* @socom-skeleton stub RePose__10CZSealBodyF9SEAL_ITEM */
-void CZSealBody::RePose(SEAL_ITEM)
+void CZSealBody::RePose(SEAL_ITEM item)
 {
+	/* 0x272e60: unless swapping rifles or already in the item's pose, the blend stack (up to
+	 * 8) is rebuilt with each blend's base anim for the item, keeping the top's time; a
+	 * stance change is reported to the controller and the old stance kept. ELF: the time is
+	 * written through the last pushed blend (unset with an empty stack). */
+	if (m_CurrentBlendAnimType == m_animset->BaseAnim((AnimType)AnimTypes::SwapRifle))
+		return;
+
+	if (item == BaseFirePose())
+		return;
+
+	CZBodyAnimBlend *top = m_blends->Top();
+	f32 tfrac = top->m_tfrac;
+	s8 state = m_state;
+	AnimType types[8];
+	s32 states[8];
+	s32 n = 0;
+
+	for (; top != NULL && n < 8; n++)
+	{
+		types[n] = (AnimType)BaseAnim_0((AnimType)top->Representative()->m_animType, item)->m_animType;
+		states[n] = top->m_state;
+		top = PopBlend();
+	}
+
+	CZBodyAnimBlend *blend = NULL;
+
+	for (n--; n >= 0; n--)
+		blend = CBody::PushBlend(m_animset->AnimId(types[n]), (s32)types[n], states[n], false);
+
+	blend->m_tfrac = tfrac;
+
+	if (state != m_state)
+		((CSealCtrl *)m_control)->OnStateChange((SEAL_STATE)m_state, (SEAL_STATE)state);
+
+	CBody::BodySetState(state);
 }
 
 /* @socom-skeleton stub PerformAction__10CZSealBodyF8AnimType10SEAL_STATE */

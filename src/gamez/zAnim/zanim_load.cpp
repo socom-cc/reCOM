@@ -220,6 +220,17 @@ void CZAnimMain::CloseZAR(CZAnimZAR *archive)
 }
 
 /* @socom-skeleton stub LoadZAR__10CZAnimMainFPCcPCc */
-void CZAnimMain::LoadZAR(const char *, const char *)
+bool CZAnimMain::LoadZAR(const char *name, const char *setname)
 {
+	/* 0x1bfe90 (CMission::ZAnimLoad): the archive (a folder name gets "zanim.zar"), its
+	 * version-30 main parameters, name table and anim sets (only setname's when given).
+	 * True when the archive opened (false without ZAR loading or the archive). */
+	CZAnimZAR *archive = OpenZAR(name);
+
+	if (archive == NULL)
+		return false;
+
+	LoadZAR(archive, setname);
+	CloseZAR(archive);
+	return true;
 }

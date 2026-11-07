@@ -457,14 +457,6 @@ unsigned char CHUD::PauseGame()
 	return pause;
 }
 
-/* port: file-local helper, not an ELF function - CZKit::GetCurItem 0x2abd40 inlined (lw
-   m_selected_item, m_item[]): its seal_kit.cpp body is still an unwritten non-void stub,
-   which would STOP the game; call CZKit::GetCurItem again once it is written */
-static CZFTSWeapon* hud_curitem(CZKit* kit)
-{
-	return kit->m_item[kit->m_selected_item];
-}
-
 /* @socom-skeleton stub Tick__4CHUDFf */
 void CHUD::Tick(float dT)
 {
@@ -542,17 +534,18 @@ void CHUD::Tick(float dT)
 	if (!theNetwork.m_bNetwork)
 		m_teamnames.Tick(dT);
 
-	/* port: CSealCtrl::UpdateHudWeapon is declared void (zseal.h): the ELF clears the
-	 * controller's weapon-changed bit and, when it was set, updates the map's explosives
-	 * (m_newmap.UpdateExplosives) and turns the weapon bitmap off */
-	static_cast<CSealCtrl*>(seal->m_control)->UpdateHudWeapon();
+	if (static_cast<CSealCtrl*>(seal->m_control)->UpdateHudWeapon())
+	{
+		m_newmap.UpdateExplosives();
+		weapon.Off();
+	}
 
 	CZKit* kit = &seal->m_kit;
 
 	/* ELF quirk: the item id is compared as a byte (< 400 is always true), so every
 	 * throwable drives the grenade bar */
 	if (kit->GetCurItemType() == SEAL_ITEM::itemThrowable &&
-		((u8)hud_curitem(kit)->m_ID < 400 || (u8)hud_curitem(kit)->m_ID >= 450)) /* CZKit::GetCurItem */
+		((u8)kit->GetCurItem()->m_ID < 400 || (u8)kit->GetCurItem()->m_ID >= 450))
 	{
 		f32 power = static_cast<CSealCtrl*>(seal->m_control)->m_trigger_power;
 
@@ -585,11 +578,11 @@ void CHUD::Tick(float dT)
 	theMission.m_ammoMessenger.Tick(dT);
 	theMission.m_Subtitles.Tick(dT);
 
-	/* port: CZKit::WeaponInfoChanged is declared void (zseal.h): the ELF clears the kit's
-	 * weapon-info bit and, when it was set and there is an item, calls SetupAmmoCount and
-	 * SetupFiremode */
-	if (hud_curitem(kit) != NULL) /* CZKit::GetCurItem */
-		kit->WeaponInfoChanged();
+	if (kit->GetCurItem() != NULL && kit->WeaponInfoChanged())
+	{
+		SetupAmmoCount(seal);
+		SetupFiremode(seal);
+	}
 
 	/* port: CMission::GetGameTime is declared void (zfts.h): the ELF prints the mission
 	 * clock "%02d:%02d" (minutes, seconds) into m_timertext when the second changes, and
@@ -798,7 +791,7 @@ void CHUD::ZoomOut()
 	/* @socom-skeleton stub zoomtext$2973 */
 	static unsigned char zoomtext[10];
 	CZSealBody* seal = appCamera->m_entity;
-	CZFTSWeapon* item = hud_curitem(&seal->m_kit); /* CZKit::GetCurItem; ELF: before the NULL test of seal */
+	CZFTSWeapon* item = seal->m_kit.GetCurItem(); /* ELF: before the NULL test of seal */
 
 	if (m_newmap.m_isFullScreen)
 		return;
@@ -885,7 +878,7 @@ void CHUD::ZoomIn()
 		return;
 
 	seal->m_kit.SetCurReticule();
-	CZFTSWeapon* item = hud_curitem(&seal->m_kit); /* CZKit::GetCurItem */
+	CZFTSWeapon* item = seal->m_kit.GetCurItem();
 
 	if (item != NULL && item->m_ID == EQUIP_ITEM::DESIGNATOR)
 	{
@@ -1023,20 +1016,140 @@ void CHUD::Add2D(C2D *element, int phase, bool append)
 }
 
 /* @socom-skeleton stub SetupFiremode__4CHUDFP10CZSealBody */
-void CHUD::SetupFiremode(CZSealBody *)
+void CHUD::SetupFiremode(CZSealBody *seal)
 {
-	/* port: not written (0x3b7ce0, 1372 bytes): the current weapon's fire mode text
-	 * ("NONE", "SINGLE", "BURST", "AUTO") and firemode.tif bitmap; reached only with an
-	 * item in the kit (no weapons load yet) */
+	/* 0x3b7ce0: the fire mode bitmap (a strip of firemode.tif: one, three or all rounds)
+	 * and its name ("NONE", "SINGLE", "BURST", "AUTO"); a launcher grenade mode shows the
+	 * grenade's icon and name. Off for items without a fire mode graphic and zoomed past
+	 * 1.5x; the designator hides it. */
+	if (!theHUD->m_ison || theHUD->m_newmap.m_isFullScreen)
+		return;
+
+	CZKit *kit = &seal->m_kit;
+
+	if (kit == NULL || kit->GetCurItem() == NULL)
+		return;
+
+	if (!kit->CurItemHasFiremodeGraphic() || kit->GetCurZoom() > 1.5f)
+	{
+		m_firemode.SetUV(0.0f, 0.0f, 0.0f, 0.0f);
+		m_firemode.Load(0.0f, 0.0f, 0.0f, 0.0f, m_firemodetex);
+		m_firemodename.Off();
+	}
+	else
+	{
+		f32 top = m_weapontopy + 23.0f;
+		f32 left = m_weapontopx + 130.0f;
+		f32 textx = m_weapontopx + 90.0f;
+		f32 texty = m_weapontopy + 24.0f;
+		f32 right = left + 32.0f;
+		m_firemode.On();
+		FIREMODE mode = kit->GetCurFireMode();
+
+		if (mode == FIREMODE::SAFETY)
+		{
+			m_firemode.SetUV(0.0f, 0.0f, 0.0f, 0.0f);
+			m_firemode.Load(0.0f, 0.0f, 0.0f, 0.0f, m_firemodetex);
+			m_firemodename.Load(0.8f, "NONE", m_myfont, (s32)textx, (s32)texty);
+			m_firemodename.On();
+		}
+		else if (mode == FIREMODE::SINGLE)
+		{
+			m_firemode.SetUV(0.0f, 0.75f, 1.0f, 1.0f);
+			m_firemode.Load(left, top + 24.0f, right, top + 32.0f, m_firemodetex);
+			m_firemodename.Load(0.8f, "SINGLE", m_myfont, (s32)textx, (s32)texty);
+			m_firemodename.On();
+		}
+		else if (mode == FIREMODE::BURST)
+		{
+			m_firemode.SetUV(0.0f, 0.25f, 1.0f, 1.0f);
+			m_firemode.Load(left, top + 8.0f, right, top + 32.0f, m_firemodetex);
+			m_firemodename.Load(0.8f, "BURST", m_myfont, (s32)textx, (s32)texty);
+			m_firemodename.On();
+		}
+		else if (mode == FIREMODE::AUTOFIRE)
+		{
+			m_firemode.SetUV(0.0f, 0.0f, 1.0f, 1.0f);
+			m_firemode.Load(left, top, right, top + 32.0f, m_firemodetex);
+			m_firemodename.Load(0.8f, "AUTO", m_myfont, (s32)textx, (s32)texty);
+			m_firemodename.On();
+		}
+		else if (mode > FIREMODE::AUTOFIRE)
+		{
+			zdb::CTexHandle *icon = kit->GetFiremodeGraphic((int)mode - 3);
+			m_firemode.SetUV(0.05f, 0.0f, 1.0f, 1.0f);
+			m_firemode.Load(left, top + 16.0f, icon);
+			const char *name = kit->GetFiremodeName((int)mode - 3);
+
+			if (name != NULL)
+				m_firemodename.Load(0.8f, name, m_myfont, (s32)(textx + 0.5f), (s32)texty);
+		}
+	}
+
+	CZFTSWeapon *item = kit->GetCurItem();
+
+	if (item != NULL && item->m_ID == EQUIP_ITEM::DESIGNATOR)
+		m_firemode.Off();
 }
 
 /* @socom-skeleton stub SetupAmmoCount__4CHUDFP10CZSealBody */
-void CHUD::SetupAmmoCount(CZSealBody *)
+void CHUD::SetupAmmoCount(CZSealBody *seal)
 {
-	/* port: not written (0x3b79d0, 776 bytes): "%d/%d" rounds and "%d MAGS" for the
-	 * current item; reached only with an item in the kit (no weapons load yet) */
+	/* 0x3b79d0: the weapon box texts: the item's name, then "<rounds>/<capacity>" and
+	 * "<n> MAGS" (spare mags; none: off) below it - both off without a capacity or zoomed
+	 * past 1.5x. The designator shows no ammo or fire mode. */
 	/* @socom-skeleton stub newstr$3014 */
 	static char newstr[80];
+
+	if (!theHUD->m_ison || theHUD->m_newmap.m_isFullScreen)
+		return;
+
+	CZKit *kit = &seal->m_kit;
+	CZFTSWeapon *item = kit->GetCurItem();
+	f32 x = m_weapontopx;
+	f32 y = m_weapontopy + 24.0f;
+	s32 rounds = kit->GetCurAmmoCount();
+	s32 capacity = kit->GetCurMaxAmmoCount();
+	strcpy(newstr, kit->GetItemName(seal->m_kit.m_selected_item));
+	s32 textx = (s32)(x + 60.0f);
+	m_weaponname.Load(0.8f, newstr, m_myfont, textx, (s32)(y - 3.0f));
+	m_ammotype.Off();
+	y += 18.0f;
+
+	if (capacity < 1 || kit->GetCurZoom() > 1.5f)
+	{
+		m_ammocount.Off();
+		m_magscount.Off();
+	}
+	else
+	{
+		m_ammocount.On();
+		sprintf(newstr, "%d/%d", rounds, capacity);
+		m_ammocount.Load(0.8f, newstr, m_myfont, textx, (s32)y);
+		s32 mags = kit->GetCurNumMags();
+
+		if (rounds != 0 && mags != 0)
+			mags--;
+
+		if (mags == 0)
+		{
+			m_magscount.Off();
+		}
+		else
+		{
+			m_magscount.On();
+			sprintf(newstr, "%d MAGS", mags);
+			m_magscount.Load(0.8f, newstr, m_myfont, textx, (s32)(y + 21.0f));
+		}
+	}
+
+	if (item != NULL && item->m_ID == EQUIP_ITEM::DESIGNATOR)
+	{
+		m_ammotype.Off();
+		m_magscount.Off();
+		m_ammocount.Off();
+		m_firemode.Off();
+	}
 }
 
 /* @socom-skeleton stub DoRangeText__4CHUDFP10CZSealBody10MENU_STATE */

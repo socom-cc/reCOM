@@ -836,8 +836,27 @@ void CZAnim::GetNodes()
 }
 
 /* @socom-skeleton stub SaveNodeStates__6CZAnimFb */
-void CZAnim::SaveNodeStates(bool)
+void CZAnim::SaveNodeStates(bool resolve)
 {
+	/* 0x1cb170: with resolve the node pointers are found afresh and the valve pointers
+	 * cleared; each found node whose active state, parent, rotation or translation is to be
+	 * saved goes to the anim's set */
+	if (resolve)
+	{
+		ClearNodePtrs();
+		GetNodes();
+
+		for (u32 i = 0; i < m_valve_ref_count; i++)
+			m_valve_ref_list[i].valve = NULL;
+	}
+
+	_zanim_node_ref *ref = m_node_ref_list;
+
+	for (u32 i = 0; i < m_node_ref_count; i++, ref++)
+	{
+		if ((ref->save_active || ref->save_parent || ref->save_rotation || ref->save_translation) && ref->node_ptr != NULL)
+			ZAnim.GetAnimSet(m_animset_index)->SaveNodeStates(ref);
+	}
 }
 
 /* @socom-skeleton stub CreateRootNode__6CZAnimFv */

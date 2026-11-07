@@ -130,8 +130,16 @@ CSealUnit * CSealUnit::Create(unsigned int)
 }
 
 /* @socom-skeleton stub GetUnitByTeam__9CSealUnitFUi */
-CSealUnit * CSealUnit::GetUnitByTeam(unsigned int)
+CSealUnit * CSealUnit::GetUnitByTeam(unsigned int team)
 {
+	/* 0x2d7590: the unit with that number */
+	for (std::list<CSealUnit*>::iterator it = m_list.begin(); it != m_list.end(); ++it)
+	{
+		if ((*it)->m_unit_num == team)
+			return *it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub GetMyLookDir__9CSealUnitFP6CPnt3DP6CPnt3DP10CZSealBody */

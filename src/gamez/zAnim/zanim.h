@@ -1158,7 +1158,7 @@ public:
 	bool LoadZAR(CZAnimZAR *, const char *);
 	CZAnimZAR * OpenZAR(const char *);
 	void CloseZAR(CZAnimZAR *);
-	void LoadZAR(const char *, const char *);
+	bool LoadZAR(const char *, const char *); /* 0x1bfe90: 1 when the archive opened (CMission::ZAnimLoad tests it) */
 	/* @socom-skeleton end 10CZAnimMain */
 };
 

@@ -71,266 +71,363 @@ class CTargetMods;
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton body __ct__11CZFTSWeaponFv */
-CZFTSWeapon::CZFTSWeapon() {}
+CZFTSWeapon::CZFTSWeapon()
+{
+	/* 0x315e90: three target mods, the rumbles off, burst counts 0xffffff, accuracy scalars 1,
+	 * slope 0. ELF: m_type is not set here (ZWepReader reads 'Type'). */
+	m_rumblehigh_enable = false;
+	m_rumblehigh_time = 0.0f;
+	m_rumblelow_enable = false;
+	m_rumblelow_time = 0.0f;
+	m_rumblelow_power = 0.0f;
+	m_accuracy_burstcnt_min = 0xffffff;
+	m_accuracy_burstcnt_max = 0xffffff;
+	m_accuracy_scalar_min = 1.0f;
+	m_accuracy_scalar_max = 1.0f;
+	m_accuracy_slope = 0.0f;
+}
 
 /* @socom-skeleton stub AccuracyBurstCnt_Min__11CZFTSWeaponCFv */
 int CZFTSWeapon::AccuracyBurstCnt_Min() const
 {
+	/* 0x315e80 */
+	return m_accuracy_burstcnt_min;
 }
 
 /* @socom-skeleton stub AccuracyBurstCnt_Max__11CZFTSWeaponCFv */
 int CZFTSWeapon::AccuracyBurstCnt_Max() const
 {
+	/* 0x315e70 */
+	return m_accuracy_burstcnt_max;
 }
 
 /* @socom-skeleton stub AccuracyBurstCnt_Min__11CZFTSWeaponFi */
-void CZFTSWeapon::AccuracyBurstCnt_Min(int)
+void CZFTSWeapon::AccuracyBurstCnt_Min(int count)
 {
+	/* 0x315e10: the scalar slope over the burst count span (0 for an empty span) */
+	m_accuracy_burstcnt_min = count;
+	f32 span = (f32)(m_accuracy_burstcnt_max - m_accuracy_burstcnt_min);
+	m_accuracy_slope = span == 0.0f ? 0.0f : (m_accuracy_scalar_max - m_accuracy_scalar_min) / span;
 }
 
 /* @socom-skeleton stub AccuracyBurstCnt_Max__11CZFTSWeaponFi */
-void CZFTSWeapon::AccuracyBurstCnt_Max(int)
+void CZFTSWeapon::AccuracyBurstCnt_Max(int count)
 {
+	/* 0x315db0 */
+	m_accuracy_burstcnt_max = count;
+	f32 span = (f32)(m_accuracy_burstcnt_max - m_accuracy_burstcnt_min);
+	m_accuracy_slope = span == 0.0f ? 0.0f : (m_accuracy_scalar_max - m_accuracy_scalar_min) / span;
 }
 
 /* @socom-skeleton stub AccuracyScalar_Min__11CZFTSWeaponFf */
-void CZFTSWeapon::AccuracyScalar_Min(float)
+void CZFTSWeapon::AccuracyScalar_Min(float scalar)
 {
+	/* 0x315d50 */
+	m_accuracy_scalar_min = scalar;
+	f32 span = (f32)(m_accuracy_burstcnt_max - m_accuracy_burstcnt_min);
+	m_accuracy_slope = span == 0.0f ? 0.0f : (m_accuracy_scalar_max - m_accuracy_scalar_min) / span;
 }
 
 /* @socom-skeleton stub AccuracyScalar_Max__11CZFTSWeaponFf */
-void CZFTSWeapon::AccuracyScalar_Max(float)
+void CZFTSWeapon::AccuracyScalar_Max(float scalar)
 {
+	/* 0x315cf0 */
+	m_accuracy_scalar_max = scalar;
+	f32 span = (f32)(m_accuracy_burstcnt_max - m_accuracy_burstcnt_min);
+	m_accuracy_slope = span == 0.0f ? 0.0f : (m_accuracy_scalar_max - m_accuracy_scalar_min) / span;
 }
 
 /* @socom-skeleton stub Recoil__11CZFTSWeaponFv */
 void CZFTSWeapon::Recoil()
 {
+	/* 0x315ce0: empty */
 }
 
 /* @socom-skeleton stub SetReticuleKnock__11CTargetModsFf */
-void CTargetMods::SetReticuleKnock(float)
+void CTargetMods::SetReticuleKnock(float v)
 {
+	m_reticuleknock = v;
 }
 
 /* @socom-skeleton stub SetReticuleKnock_Return__11CTargetModsFf */
-void CTargetMods::SetReticuleKnock_Return(float)
+void CTargetMods::SetReticuleKnock_Return(float v)
 {
+	m_reticuleknock_return = v;
 }
 
 /* @socom-skeleton stub SetReticuleKnock_Max__11CTargetModsFf */
-void CTargetMods::SetReticuleKnock_Max(float)
+void CTargetMods::SetReticuleKnock_Max(float v)
 {
+	m_reticuleknock_max = v;
 }
 
 /* @socom-skeleton stub GetReticuleKnock__11CTargetModsCFv */
 float CTargetMods::GetReticuleKnock() const
 {
+	return m_reticuleknock;
 }
 
 /* @socom-skeleton stub GetReticuleKnock_Return__11CTargetModsCFv */
 float CTargetMods::GetReticuleKnock_Return() const
 {
+	return m_reticuleknock_return;
 }
 
 /* @socom-skeleton stub GetReticuleKnock_Max__11CTargetModsCFv */
 float CTargetMods::GetReticuleKnock_Max() const
 {
+	return m_reticuleknock_max;
 }
 
 /* @socom-skeleton stub SetTarget_DilateUponFire__11CTargetModsFf */
-void CTargetMods::SetTarget_DilateUponFire(float)
+void CTargetMods::SetTarget_DilateUponFire(float v)
 {
+	m_target_dilateuponfire = v;
 }
 
 /* @socom-skeleton stub SetTarget_DilateUponMovement__11CTargetModsFf */
-void CTargetMods::SetTarget_DilateUponMovement(float)
+void CTargetMods::SetTarget_DilateUponMovement(float v)
 {
+	/* 0x315c40: and its square root */
+	m_target_dilateuponmovement = v;
+	m_target_dilateuponmovementSqrt = sqrtf(v);
 }
 
 /* @socom-skeleton stub SetTarget_Constrict__11CTargetModsFf */
-void CTargetMods::SetTarget_Constrict(float)
+void CTargetMods::SetTarget_Constrict(float v)
 {
+	m_target_constrict = v;
 }
 
 /* @socom-skeleton stub SetTarget_Min__11CTargetModsFf */
-void CTargetMods::SetTarget_Min(float)
+void CTargetMods::SetTarget_Min(float v)
 {
+	m_target_min = v;
 }
 
 /* @socom-skeleton stub SetTarget_Max__11CTargetModsFf */
-void CTargetMods::SetTarget_Max(float)
+void CTargetMods::SetTarget_Max(float v)
 {
+	m_target_max = v;
 }
 
 /* @socom-skeleton stub GetTarget_DilateUponMovement__11CTargetModsCFv */
 float CTargetMods::GetTarget_DilateUponMovement() const
 {
+	return m_target_dilateuponmovement;
 }
 
 /* @socom-skeleton stub GetTarget_DilateUponMovementSqrt__11CTargetModsCFv */
 float CTargetMods::GetTarget_DilateUponMovementSqrt() const
 {
+	return m_target_dilateuponmovementSqrt;
 }
 
 /* @socom-skeleton stub GetTarget_Constrict__11CTargetModsCFv */
 float CTargetMods::GetTarget_Constrict() const
 {
+	return m_target_constrict;
 }
 
 /* @socom-skeleton stub GetTarget_Min__11CTargetModsCFv */
 float CTargetMods::GetTarget_Min() const
 {
+	return m_target_min;
 }
 
 /* @socom-skeleton stub GetTarget_Max__11CTargetModsCFv */
 float CTargetMods::GetTarget_Max() const
 {
+	return m_target_max;
 }
 
 /* @socom-skeleton stub SetSniper_DistPPFrame_PosX__11CTargetModsFf */
-void CTargetMods::SetSniper_DistPPFrame_PosX(float)
+void CTargetMods::SetSniper_DistPPFrame_PosX(float v)
 {
+	m_distppframe_posx = v;
 }
 
 /* @socom-skeleton stub SetSniper_DistPPFrame_PosY__11CTargetModsFf */
-void CTargetMods::SetSniper_DistPPFrame_PosY(float)
+void CTargetMods::SetSniper_DistPPFrame_PosY(float v)
 {
+	m_distppframe_posy = v;
 }
 
 /* @socom-skeleton stub GetSniper_DistPPFrame_PosX__11CTargetModsCFv */
 float CTargetMods::GetSniper_DistPPFrame_PosX() const
 {
+	return m_distppframe_posx;
 }
 
 /* @socom-skeleton stub GetSniper_DistPPFrame_PosY__11CTargetModsCFv */
 float CTargetMods::GetSniper_DistPPFrame_PosY() const
 {
+	return m_distppframe_posy;
 }
 
 /* @socom-skeleton stub SetSniper_DistLimit_PosX__11CTargetModsFf */
-void CTargetMods::SetSniper_DistLimit_PosX(float)
+void CTargetMods::SetSniper_DistLimit_PosX(float v)
 {
+	m_distlimit_posx = v;
 }
 
 /* @socom-skeleton stub SetSniper_DistLimit_PosY__11CTargetModsFf */
-void CTargetMods::SetSniper_DistLimit_PosY(float)
+void CTargetMods::SetSniper_DistLimit_PosY(float v)
 {
+	m_distlimit_posy = v;
 }
 
 /* @socom-skeleton stub GetSniper_DistLimit_PosX__11CTargetModsCFv */
 float CTargetMods::GetSniper_DistLimit_PosX() const
 {
+	return m_distlimit_posx;
 }
 
 /* @socom-skeleton stub GetSniper_DistLimit_PosY__11CTargetModsCFv */
 float CTargetMods::GetSniper_DistLimit_PosY() const
 {
+	return m_distlimit_posy;
 }
 
 /* @socom-skeleton stub SetSniper_DecayRate__11CTargetModsFf */
-void CTargetMods::SetSniper_DecayRate(float)
+void CTargetMods::SetSniper_DecayRate(float v)
 {
+	m_sniper_decayrate = v;
 }
 
 /* @socom-skeleton stub GetSniper_DecayRate__11CTargetModsCFv */
 float CTargetMods::GetSniper_DecayRate() const
 {
+	return m_sniper_decayrate;
 }
 
 /* @socom-skeleton stub SetFireRifle_KickRate__11CTargetModsFf */
-void CTargetMods::SetFireRifle_KickRate(float)
+void CTargetMods::SetFireRifle_KickRate(float v)
 {
+	m_firerifle_kickrate = v;
 }
 
 /* @socom-skeleton stub SetFireRifle_KickReturnRate__11CTargetModsFf */
-void CTargetMods::SetFireRifle_KickReturnRate(float)
+void CTargetMods::SetFireRifle_KickReturnRate(float v)
 {
+	m_firerifle_kickreturnrate = v;
 }
 
 /* @socom-skeleton stub SetFireRifle_KickBaseDist__11CTargetModsFf */
-void CTargetMods::SetFireRifle_KickBaseDist(float)
+void CTargetMods::SetFireRifle_KickBaseDist(float v)
 {
+	m_firerifle_kickbasedist = v;
 }
 
 /* @socom-skeleton stub SetFireRifle_KickRandomDist__11CTargetModsFf */
-void CTargetMods::SetFireRifle_KickRandomDist(float)
+void CTargetMods::SetFireRifle_KickRandomDist(float v)
 {
+	m_firerifle_kickrandomdist = v;
 }
 
 /* @socom-skeleton stub GetFireRifle_KickRate__11CTargetModsCFv */
 float CTargetMods::GetFireRifle_KickRate() const
 {
+	return m_firerifle_kickrate;
 }
 
 /* @socom-skeleton stub GetFireRifle_KickReturnRate__11CTargetModsCFv */
 float CTargetMods::GetFireRifle_KickReturnRate() const
 {
+	return m_firerifle_kickreturnrate;
 }
 
 /* @socom-skeleton stub GetFireRifle_KickBaseDist__11CTargetModsCFv */
 float CTargetMods::GetFireRifle_KickBaseDist() const
 {
+	return m_firerifle_kickbasedist;
 }
 
 /* @socom-skeleton stub GetFireRifle_KickRandomDist__11CTargetModsCFv */
 float CTargetMods::GetFireRifle_KickRandomDist() const
 {
+	return m_firerifle_kickrandomdist;
 }
 
 /* @socom-skeleton stub SetRumbleHigh_Time__11CZFTSWeaponFf */
-void CZFTSWeapon::SetRumbleHigh_Time(float)
+void CZFTSWeapon::SetRumbleHigh_Time(float time)
 {
+	/* 0x315a70: enabled by a positive time */
+	m_rumblehigh_time = time;
+	m_rumblehigh_enable = time > 0.0f;
 }
 
 /* @socom-skeleton stub GetRumbleHigh_Enable__11CZFTSWeaponCFv */
 unsigned char CZFTSWeapon::GetRumbleHigh_Enable() const
 {
+	return m_rumblehigh_enable;
 }
 
 /* @socom-skeleton stub GetRumbleHigh_Time__11CZFTSWeaponCFv */
 float CZFTSWeapon::GetRumbleHigh_Time() const
 {
+	return m_rumblehigh_time;
 }
 
 /* @socom-skeleton stub SetRumbleLow_Time__11CZFTSWeaponFf */
-void CZFTSWeapon::SetRumbleLow_Time(float)
+void CZFTSWeapon::SetRumbleLow_Time(float time)
 {
+	/* 0x315a20 */
+	m_rumblelow_time = time;
+	m_rumblelow_enable = time > 0.0f;
 }
 
 /* @socom-skeleton stub SetRumbleLow_Power__11CZFTSWeaponFf */
-void CZFTSWeapon::SetRumbleLow_Power(float)
+void CZFTSWeapon::SetRumbleLow_Power(float power)
 {
+	/* 0x3159f0: ELF: the power also sets the low rumble's enable */
+	m_rumblelow_power = power;
+	m_rumblelow_enable = power > 0.0f;
 }
 
 /* @socom-skeleton stub GetRumbleLow_Enable__11CZFTSWeaponCFv */
 unsigned char CZFTSWeapon::GetRumbleLow_Enable() const
 {
+	return m_rumblelow_enable;
 }
 
 /* @socom-skeleton stub GetRumbleLow_Time__11CZFTSWeaponCFv */
 float CZFTSWeapon::GetRumbleLow_Time() const
 {
+	return m_rumblelow_time;
 }
 
 /* @socom-skeleton stub GetRumbleLow_Power__11CZFTSWeaponCFv */
 float CZFTSWeapon::GetRumbleLow_Power() const
 {
+	return m_rumblelow_power;
 }
 
 /* @socom-skeleton stub GetZoommode__11CZFTSWeaponFi */
-float CZFTSWeapon::GetZoommode(int)
+float CZFTSWeapon::GetZoommode(int index)
 {
+	/* 0x315950: zoom index-1 for 1 <= index <= count, else 0 */
+	if ((u32)m_zoommode.size() < (u32)index || index < 0)
+		return 0.0f;
+
+	if (index - 1 < 0)
+		return 0.0f;
+
+	return m_zoommode[index - 1];
 }
 
 /* @socom-skeleton stub AddZoommode__11CZFTSWeaponFf */
-void CZFTSWeapon::AddZoommode(float)
+void CZFTSWeapon::AddZoommode(float range)
 {
+	/* 0x315900 */
+	m_zoommode.insert(m_zoommode.end(), range);
 }
 
 /* @socom-skeleton stub ResolveFTSDamage__11CZFTSWeaponFf */
-float CZFTSWeapon::ResolveFTSDamage(float)
+float CZFTSWeapon::ResolveFTSDamage(float damage)
 {
+	/* 0x3158f0 */
+	return 14.0f * damage;
 }
 
 /* @socom-skeleton stub IsM203Weapon__11CZFTSWeaponFv */
@@ -349,28 +446,57 @@ bool CZFTSWeapon::IsGrenadeLauncherWeapon()
 }
 
 /* @socom-skeleton stub IsGrenadeLauncherAmmo__11CZFTSWeaponFv */
-void CZFTSWeapon::IsGrenadeLauncherAmmo()
+bool CZFTSWeapon::IsGrenadeLauncherAmmo()
 {
+	/* 0x315850: a launched grenade */
+	return GetIDType() == EQUIP_ITEM::EQUIP_LAUNCHED_GRENADE;
 }
 
 /* @socom-skeleton stub GetWiggleReport__11CTargetModsFv */
 float CTargetMods::GetWiggleReport()
 {
+	return m_wiggle_report;
 }
 
 /* @socom-skeleton stub SetWiggleReport__11CTargetModsFf */
-void CTargetMods::SetWiggleReport(float)
+void CTargetMods::SetWiggleReport(float v)
 {
+	m_wiggle_report = v;
 }
 
 /* @socom-skeleton stub TargetMods__11CZFTSWeaponFi */
-CTargetMods * CZFTSWeapon::TargetMods(int)
+CTargetMods * CZFTSWeapon::TargetMods(int stance)
 {
+	/* 0x315800: 0 past the three */
+	if (stance >= 3)
+		stance = 0;
+
+	return &targetmods[stance];
 }
 
 /* @socom-skeleton stub __ct__11CTargetModsFv */
 CTargetMods::CTargetMods()
 {
+	/* 0x3157a0: all zero, the wiggle report 0.03. ELF quirk: m_firerifle_kickreturnrate (+0x3c)
+	 * is not cleared. */
+	m_reticuleknock = 0.0f;
+	m_reticuleknock_return = 0.0f;
+	m_reticuleknock_max = 0.0f;
+	m_distppframe_posx = 0.0f;
+	m_distppframe_posy = 0.0f;
+	m_distlimit_posx = 0.0f;
+	m_distlimit_posy = 0.0f;
+	m_sniper_decayrate = 0.0f;
+	m_target_dilateuponfire = 0.0f;
+	m_target_dilateuponmovement = 0.0f;
+	m_target_dilateuponmovementSqrt = 0.0f;
+	m_target_constrict = 0.0f;
+	m_target_min = 0.0f;
+	m_target_max = 0.0f;
+	m_firerifle_kickrate = 0.0f;
+	m_firerifle_kickbasedist = 0.0f;
+	m_firerifle_kickrandomdist = 0.0f;
+	m_wiggle_report = 0.03f;
 }
 
 /* @socom-skeleton body GetZoomRange__11CZFTSWeaponFUi */

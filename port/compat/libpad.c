@@ -48,7 +48,7 @@ static const struct
     unsigned short bit; /* the button's bit in the active-low rdata[2] << 8 | rdata[3] */
 } socom_fake_buttons[] =
 {
-    { "SELECT", 0x0100 }, { "START", 0x0800 }, { "UP", 0x1000 }, { "RIGHT", 0x2000 },
+    { "SELECT", 0x0100 }, { "L3", 0x0200 }, { "R3", 0x0400 }, { "START", 0x0800 }, { "UP", 0x1000 }, { "RIGHT", 0x2000 },
     { "DOWN", 0x4000 }, { "LEFT", 0x8000 }, { "L2", 0x0001 }, { "R2", 0x0002 },
     { "L1", 0x0004 }, { "R1", 0x0008 }, { "TRIANGLE", 0x0010 }, { "CIRCLE", 0x0020 },
     { "CROSS", 0x0040 }, { "SQUARE", 0x0080 },

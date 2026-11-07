@@ -214,6 +214,12 @@
 #include "gamez/zValve/zvalve.h"
 #include "gamez/zNode/node_world.h" /* zdb::CWorld::m_world (zoom states) */
 #include "Apps/FTS/hud/hud.h" /* CCompassAnchor (PostTick) */
+#include "gamez/zFTS/zfts.h" /* ftsGetPlayer, theMission (fire path) */
+#include "gamez/zNetwork/znet.h" /* theNetwork (CSealStats::Shot) */
+/* port: zanim_sequence.cpp (no header declares them) */
+void PointAlongLine(const CPnt3D &, const CPnt3D &, float, CPnt3D &);
+float PlaneConstant(const CPnt3D &, const CPnt3D &);
+float LineIntersectPlane(float, const CPnt3D &, const CPnt3D &, const CPnt3D &);
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class CCompass;
@@ -2137,6 +2143,89 @@ void CZSealBody::PrePostTick(float)
 /* @socom-skeleton stub HandleWeaponIntersect__10CZSealBodyFv */
 bool CZSealBody::HandleWeaponIntersect()
 {
+	/* 0x250a80 (PostComputeNextPosition, weapon raised): the barrel 1.1 lengths out from
+	 * the aim point against the aimed surface. Moving into a steep surface strips the motion
+	 * (and air velocity) into it; a barrel through the surface pushes the body back along
+	 * the motion (still: along its z axis). Returns 1 when handled. */
+	if (!m_have_aim_norm || ai::do_aimap_collide)
+		return false;
+
+	bool moved = dpos.z * dpos.z + dpos.x * dpos.x + dpos.y * dpos.y > 0.0002f;
+
+	if (moved && !(m_aim_norm.y < theCharacterDynamics.m_maxSlopeCos))
+		return true;
+
+	CPnt3D fire;
+	CPnt3D aim;
+	CPnt3D tip;
+	CPnt3D d;
+	m_curr_firepos.Add(GetPosW(), &fire);
+	m_curr_aimpos.Add(GetPosW(), &aim);
+	PointAlongLine(aim, fire, 1.1f, tip);
+	tip.Sub(&m_aim_point, &d);
+
+	if (!(m_aim_norm.z * d.z + m_aim_norm.x * d.x + m_aim_norm.y * d.y < 0.0f))
+		return false;
+
+	f32 t = LineIntersectPlane(PlaneConstant(m_aim_norm, m_aim_point), m_aim_norm, aim, tip);
+
+	if (t <= 1.0f && !(t <= 0.0f))
+	{
+		if (moved)
+		{
+			CPnt3D flat;
+			flat.x = m_aim_norm.x;
+			flat.y = 0.0f;
+			flat.z = m_aim_norm.z;
+			flat.Normalize();
+			f32 into = dpos.z * flat.z + dpos.x * flat.x + dpos.y * flat.y;
+
+			if (into < 0.0f)
+			{
+				CPnt3D strip;
+				flat.Scale(into, &strip);
+				dpos.Sub(&strip, &dpos);
+				moved = dpos.z * dpos.z + dpos.x * dpos.x + dpos.y * dpos.y > 0.0002f;
+			}
+
+			into = m_inAirHorizVel.z * flat.z + m_inAirHorizVel.x * flat.x + m_inAirHorizVel.y * flat.y;
+
+			if (into < 0.0f)
+			{
+				CPnt3D strip;
+				flat.Scale(into, &strip);
+				m_inAirHorizVel.Sub(&strip, &m_inAirHorizVel);
+			}
+		}
+
+		CPnt3D barrel;
+		m_curr_firepos.Sub(&m_curr_aimpos, &barrel);
+		CPnt3D dir;
+		f32 push;
+
+		if (moved)
+		{
+			dpos.Scale(-1.0f, &dir);
+			push = (t - 1.0f) * (barrel.z * dir.z + barrel.x * dir.x + barrel.y * dir.y);
+		}
+		else
+		{
+			zdb::CNode *node = GetNode();
+			dir.x = node->m_matrix.m_matrix[2][0];
+			dir.y = node->m_matrix.m_matrix[2][1];
+			dir.z = node->m_matrix.m_matrix[2][2];
+			push = -((t - 1.0f) * (barrel.z * dir.z + barrel.x * dir.x + barrel.y * dir.y));
+		}
+
+		if (m_aim_norm.z * dir.z + m_aim_norm.x * dir.x + m_aim_norm.y * dir.y > 0.2f && push < 0.0f)
+		{
+			CPnt3D back;
+			dir.Scale(push, &back);
+			dpos.Sub(&back, &dpos);
+		}
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub PostComputeNextPosition__10CZSealBodyFf */
@@ -2649,18 +2738,24 @@ void CSealStats::IncrTimesSeen(int)
 }
 
 /* @socom-skeleton stub IncrGrenadesUsed__10CSealStatsFi */
-void CSealStats::IncrGrenadesUsed(int)
+void CSealStats::IncrGrenadesUsed(int count)
 {
+	/* 0x24e880 */
+	m_num_grenades_used += count;
 }
 
 /* @socom-skeleton stub IncrPrimaryRoundsFired__10CSealStatsFi */
-void CSealStats::IncrPrimaryRoundsFired(int)
+void CSealStats::IncrPrimaryRoundsFired(int count)
 {
+	/* 0x24e870 */
+	m_primary_rounds_fired += count;
 }
 
 /* @socom-skeleton stub IncrSecondaryRoundsFired__10CSealStatsFi */
-void CSealStats::IncrSecondaryRoundsFired(int)
+void CSealStats::IncrSecondaryRoundsFired(int count)
 {
+	/* 0x24e860 */
+	m_secondary_rounds_fired += count;
 }
 
 /* @socom-skeleton stub GetPointsEarned__10CSealStatsCFiiif */
@@ -2669,8 +2764,24 @@ int CSealStats::GetPointsEarned(int, int, int, float) const
 }
 
 /* @socom-skeleton stub Shot__10CSealStatsFRC10CZSealBody */
-void CSealStats::Shot(const CZSealBody &)
+void CSealStats::Shot(const CZSealBody &body)
 {
+	/* 0x24e6c0: a shot counted; the hit percentage (single player, or the network player)
+	 * and the MVP score: 256 x (kills + rounds tied + 2 x rounds won) + 256 x hits / shots,
+	 * each from the low halves of the counters (lh) */
+	m_shots++;
+
+	if (theNetwork.m_bNetwork && &body != ftsGetPlayer())
+		return;
+
+	m_hit_percent = (f32)m_hits / (f32)m_shots;
+
+	if (theNetwork.m_bNetwork && &body != ftsGetPlayer())
+		return;
+
+	s16 rounds = (s16)((s16)m_kills + (s16)m_iRoundsTied + 2 * (s16)m_iRoundsWon);
+	s32 ratio = m_shots != 0 ? (m_hits << 8) / m_shots : 0;
+	m_sMvpScore = (s16)((rounds << 8) + ratio);
 }
 
 /* @socom-skeleton stub UpdateMvpScore__10CSealStatsFRC10CZSealBody */

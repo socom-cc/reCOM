@@ -156,6 +156,10 @@
 #include "gamez/zTexture/ztex.h"
 #include "gamez/zWeapon/zweapon.h"
 /* @socom-skeleton end include */
+#include "gamez/zNetwork/znet.h" /* theNetwork (PostSetupItems) */
+#include "gamez/zFTS/zfts.h" /* ftsGetPlayer, theMission (fire path) */
+#include "gamez/zSound/zsnd.h" /* CSnd::GetSoundByName (Init) */
+#include "gamez/zCharacter/zchar.h" /* CCharacterType::m_gear_list */
 /* @socom-skeleton decl forward */
 class CTargetMods;
 class CZAmmoPickupInstance;
@@ -206,8 +210,32 @@ void sealSaveFireModes()
 }
 
 /* @socom-skeleton stub SetCurItemState__5CZKitFUi */
-void CZKit::SetCurItemState(unsigned int)
+void CZKit::SetCurItemState(unsigned int state)
 {
+	/* 0x2af990: raising (bit 3) the binoculars raises them, dropping it lowers them; a lit
+	 * flashlight's light map goes, a newly lit one comes. ELF returns 1 (callers drop it). */
+	s32 sel = m_selected_item;
+	EQUIP_ITEM id = m_item[sel]->m_ID;
+
+	if (id == EQUIP_ITEM::BINOCULARS && (m_itemstate[sel] & 8) == 0 && (state & 8) != 0)
+	{
+		m_body->RaiseBinoculars();
+	}
+	else if (id == EQUIP_ITEM::BINOCULARS && (m_itemstate[sel] & 8) != 0 && (state & 8) == 0)
+	{
+		m_body->LowerBinoculars();
+	}
+	else if (id == EQUIP_ITEM::FLASHLIGHT && (m_itemstate[sel] & 8) != 0)
+	{
+		zdb::CWorld::m_world->DeleteLightMap(m_lightMap);
+	}
+
+	m_itemstate[m_selected_item] = state;
+
+	if (m_item[m_selected_item]->m_ID == EQUIP_ITEM::FLASHLIGHT && (state & 8) != 0)
+		zdb::CWorld::m_world->AddLightMap(m_lightMap);
+
+	m_weaponinfoChanged = 1;
 }
 
 /* @socom-skeleton stub SetCurItemEnum__5CZKitF10EQUIP_ITEM */
@@ -218,6 +246,13 @@ void CZKit::SetCurItemEnum(EQUIP_ITEM)
 /* @socom-skeleton stub GetCurItemEnum__5CZKitCFv */
 EQUIP_ITEM CZKit::GetCurItemEnum() const
 {
+	/* 0x2af580: the selected item's id (its grenade slot's in a launcher grenade mode) */
+	CZFTSWeapon *weapon = m_item[m_selected_item];
+
+	if (weapon != NULL && weapon->IsGrenadeLauncherWeapon() && m_firemode[m_selected_item] > 3)
+		weapon = m_item[m_firemode[m_selected_item] - 3];
+
+	return weapon != NULL ? weapon->m_ID : EQUIP_ITEM::EQUIP_NONE;
 }
 
 /* @socom-skeleton stub GetItemIndex__5CZKitCF10EQUIP_ITEM */
@@ -236,8 +271,16 @@ int CZKit::GetItemIndex(SEAL_ITEM)
 }
 
 /* @socom-skeleton stub HasItem__5CZKitCF10EQUIP_ITEM */
-void CZKit::HasItem(EQUIP_ITEM) const
+bool CZKit::HasItem(EQUIP_ITEM item) const
 {
+	/* 0x2af310: an item slot with that id */
+	for (s32 i = 0; i < m_num_items; i++)
+	{
+		if (m_item[i] != NULL && m_item[i]->m_ID == item)
+			return true;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub HasSniperRifle__5CZKitFv */
@@ -382,6 +425,51 @@ SEAL_ITEM CZKit::GetCurItemType()
 /* @socom-skeleton stub Init__5CZKitFv */
 void CZKit::Init()
 {
+	/* 0x2ae9e0 (CZSealBody ctor): the reload / click / lase sounds and the flashlight light
+	 * map; the player's view tint and fog reset (lens effects and NVG off); sniper drift,
+	 * rifle kick, heartbeat and laser designator cleared; the weapon timer cleared (twice). */
+	m_rldsnd = CSnd::GetSoundByName("SND_M4_A1_RELOAD");
+	m_clicksnd = CSnd::GetSoundByName("SND_GUN_EMPTY");
+	m_lasesnd_start = CSnd::GetSoundByName("SND_BONE_BREAK_CRUNCH_01");
+	m_lasesnd_fin = CSnd::GetSoundByName("SND_MAGNETIC_LOCK_DISENGAGE");
+	/* port: the flashlight light map ("flash_lightmap": new zdb::CLightMap 0x2268e0, ranges
+	 * 20..100, opacity 256, blend 0x49) is not created: the CLightMap ctor is unwritten and
+	 * nothing in the port reads m_lightMap yet */
+	m_lightMap = NULL;
+
+	if (m_body != NULL)
+	{
+		CEntityCtrl *ctrl = m_body->m_control;
+		bool player = ctrl != NULL && ((CSealCtrl *)ctrl)->IsPlayer();
+
+		if (player)
+		{
+			zdb::CCamera *camera = zdb::CWorld::m_world->m_camera;
+			zdb::CVisual::m_applyScaleColor = false;
+			zdb::CVisual::m_scaleColor[0] = 1.0f;
+			zdb::CVisual::m_scaleColor[1] = 1.0f;
+			zdb::CVisual::m_scaleColor[2] = 1.0f;
+			camera->m_fog_color = zdb::CVisual::m_basefog_color;
+			m_lensfx_enable = 0;
+			m_nvg_enabled = 0;
+		}
+	}
+
+	m_chill_parabola = 0.0f;
+	m_heartbeat_state = 0;
+	m_sniper_posx = 0.0f;
+	m_sniper_posy = 0.0f;
+	m_sniper_prev_posx = 0.0f;
+	m_sniper_prev_posx = 0.0f; /* ELF quirk: prev_posx twice, prev_posy kept */
+	m_firerifle_kick_movedist = 0.0f;
+	m_firerifle_kick_accum = 0.0f;
+	m_firerifle_kick_state = 0;
+	m_lase_mapname = NULL;
+	m_lase_anim = NULL;
+	m_lase_timer = 0.0f;
+	m_lase_echo = 0;
+	CZWeapon::ClearTimer();
+	CZWeapon::ClearTimer();
 }
 
 /* @socom-skeleton stub UnInit__5CZKitFv */
@@ -392,11 +480,97 @@ void CZKit::UnInit()
 /* @socom-skeleton stub PostSetupItems__5CZKitFv */
 void CZKit::PostSetupItems()
 {
+	/* 0x2ae730 (CZSealBody::OnMissionStart): armor from the kevlar items; a human seal (not
+	 * AI, not team bit 17) with claymores but no detonator gets one, and in single player one
+	 * the unit allows the claymore command; then the double ammo load, encumbrance, HUD
+	 * refresh. */
+	if (HasItem(EQUIP_ITEM::KEVLAR_INSERT_ARMOR))
+		m_body->SetupKevlarInsertArmor();
+	else if (HasItem(EQUIP_ITEM::KEVLAR_ARMOR))
+		m_body->SetupKevlarArmor();
+	else
+		m_body->SetupDefaultArmor();
+
+	CEntityCtrl *ctrl = m_body->m_control;
+	bool ai = ctrl != NULL && ((CSealCtrl *)ctrl)->IsAi();
+
+	if (!ai && (m_body->m_team & 0x20000) == 0)
+	{
+		if (m_body->m_kit.HasItem(EQUIP_ITEM::CLAYMORE) && !HasItem(EQUIP_ITEM::DETONATOR))
+		{
+			u32 slot = m_num_items;
+			CZWeapon *detonator = CZWeapon::m_listWeapons.GetWeapon(EQUIP_ITEM::DETONATOR);
+
+			if (detonator != NULL && slot < 30)
+				SetItemByIndex(slot, detonator);
+		}
+		else if (!theNetwork.m_bNetwork)
+		{
+			CSealUnit *unit = CSealUnit::GetUnitByTeam(1);
+
+			/* port: no units yet (CSealUnit::CreateSinglePlayerUnits unwritten), so unit is
+			 * NULL. The ELF calls unit->AllowCommand(m_body, 2, CLAYMORE) (vtable +0xc, a bool;
+			 * void in the port) without a NULL test and on true adds the detonator as above. */
+			(void)unit;
+		}
+	}
+
+	ctrl = m_body->m_control;
+
+	if (ctrl != NULL)
+		((CSealCtrl *)ctrl)->IsAi(); /* ELF: called, result dropped */
+
+	Setup2XAmmo();
+	m_body->SetMoveWeaponEncumbMod();
+	m_weaponinfoChanged = 1;
 }
 
 /* @socom-skeleton stub Setup2XAmmo__5CZKitFv */
 void CZKit::Setup2XAmmo()
 {
+	/* 0x2ae5a0: with the double ammo load item, every gun's loaded mags are doubled
+	 * (copies of the first, up to 10) */
+	bool doubled = false;
+
+	for (s32 i = 0; i < m_num_items; i++)
+	{
+		if (m_item[i] != NULL && m_item[i]->m_ID == EQUIP_ITEM::DOUBLE_AMMO_LOAD)
+		{
+			doubled = true;
+			break;
+		}
+	}
+
+	if (!doubled)
+		return;
+
+	for (s32 i = 0; i < m_num_items; i++)
+	{
+		CZFTSWeapon *weapon = m_item[i];
+
+		if (weapon == NULL)
+			continue;
+
+		EQUIP_ITEM type = weapon->GetIDType();
+
+		if (type == EQUIP_ITEM::EQUIP_PISTOL || type == EQUIP_ITEM::EQUIP_SMG || type == EQUIP_ITEM::EQUIP_ASSAULT_RIFLE
+			|| type == EQUIP_ITEM::EQUIP_SHOTGUN || type == EQUIP_ITEM::EQUIP_MACHINEGUN || type == EQUIP_ITEM::EQUIP_SNIPER_RIFLE)
+		{
+			s32 mags = 0;
+
+			for (s32 j = 0; j < 10; j++)
+			{
+				if (m_reloads[i][j] > 0)
+					mags++;
+			}
+
+			for (s32 j = mags; j < mags * 2; j++)
+			{
+				if (j < 10)
+					m_reloads[i][j] = m_reloads[i][0];
+			}
+		}
+	}
 }
 
 /* @socom-skeleton stub SetupBinocular__5CZKitFv */
@@ -445,16 +619,80 @@ void CZKit::InitItemModel(const char *model, const char *name)
 /* @socom-skeleton stub ReParentToPistol__5CZKitFv */
 void CZKit::ReParentToPistol()
 {
+	/* 0x2ae250: as ReParentToRifle; when the first item is a pistol its model (slot 1) is
+	 * the pistol part's node and the rifle part gets none */
+	SEAL_ITEM first = m_item[0] != NULL ? m_item[0]->m_type : SEAL_ITEM::itemNone;
+	zdb::CNode *a = m_items_avail.size() > 1 ? m_items_avail[1] : NULL;
+	zdb::CNode *b = m_items_avail.size() > 2 ? m_items_avail[2] : NULL;
+	CZBodyPart *rpart = m_body->m_rifle;
+	CZBodyPart *ppart = m_body->m_pistol;
+	zdb::CNode *rifle = a;
+	zdb::CNode *pistol = b;
+
+	if (first == SEAL_ITEM::itemPistol)
+	{
+		rpart = NULL;
+		rifle = NULL;
+		ppart = m_body->m_rifle;
+		pistol = a;
+	}
+
+	if (rifle != NULL)
+	{
+		rifle->SetActive(true);
+		rpart->m_node = rifle;
+	}
+
+	if (pistol != NULL)
+	{
+		pistol->SetActive(true);
+		ppart->m_node = pistol;
+	}
 }
 
 /* @socom-skeleton stub ReParentToRifle__5CZKitFv */
 void CZKit::ReParentToRifle()
 {
+	/* 0x2ae190: the first two item models (m_items_avail[1] / [2]) shown as the rifle and
+	 * pistol parts' nodes */
+	zdb::CNode *rifle = m_items_avail.size() > 1 ? m_items_avail[1] : NULL;
+	zdb::CNode *pistol = m_items_avail.size() > 2 ? m_items_avail[2] : NULL;
+	CZBodyPart *rpart = m_body->m_rifle;
+	CZBodyPart *ppart = m_body->m_pistol;
+
+	if (rifle != NULL)
+	{
+		rifle->SetActive(true);
+		rpart->m_node = rifle;
+	}
+
+	if (pistol != NULL)
+	{
+		pistol->SetActive(true);
+		ppart->m_node = pistol;
+	}
 }
 
 /* @socom-skeleton stub UseItemModel__5CZKitFiPCc */
-void CZKit::UseItemModel(int, const char *)
+void CZKit::UseItemModel(int type, const char *name)
 {
+	/* 0x2ae0a0: the selected item's model (m_items_avail[selected + 1], after "null")
+	 * hidden under the named part's node, as the type's weapon part's node */
+	CZBodyPart *weapon = m_body->m_weapons[(u8)type];
+
+	if (weapon == NULL)
+		return;
+
+	s32 index = m_selected_item + 1;
+	zdb::CNode *model = index < (s32)m_items_avail.size() ? m_items_avail[index] : NULL;
+	zdb::CNode *node = m_body->FindPart(name)->m_node;
+
+	if (node != NULL && model != NULL)
+	{
+		model->SetActive(false);
+		node->AddChild(model);
+		weapon->m_node = model;
+	}
 }
 
 /* @socom-skeleton stub GetCurWeapon__5CZKitFPP11CZFTSWeaponPP6CZAmmo */
@@ -480,8 +718,24 @@ void CZKit::GetCurWeapon(CZFTSWeapon **weapon, CZAmmo **ammo)
 }
 
 /* @socom-skeleton stub GetWeapon__5CZKitFiPP11CZFTSWeaponPP6CZAmmo */
-void CZKit::GetWeapon(int, CZFTSWeapon **, CZAmmo **)
+void CZKit::GetWeapon(int index, CZFTSWeapon **weapon, CZAmmo **ammo)
 {
+	/* 0x2adec0: the slot's weapon and ammo (wrapped); a launcher in a grenade mode gives the
+	 * grenade slot's (ELF: read through m_itemstate / m_item past their ends, which lands on
+	 * m_item / m_ammo) */
+	s32 slot = unwrap(index, m_num_items);
+	*weapon = slot != -1 ? m_item[slot] : NULL;
+
+	if (ammo != NULL)
+		*ammo = m_ammo[index];
+
+	if (*weapon != NULL && (*weapon)->IsGrenadeLauncherWeapon() && m_firemode[index] > 3)
+	{
+		*weapon = m_item[m_firemode[index] - 3];
+
+		if (ammo != NULL)
+			*ammo = m_ammo[m_firemode[index] - 3];
+	}
 }
 
 /* @socom-skeleton stub FireCur__5CZKitFPC6CPnt3DPC6CPnt3DPC6CPnt3D */
@@ -490,13 +744,379 @@ CZProjectile * CZKit::FireCur(const CPnt3D *, const CPnt3D *, const CPnt3D *)
 }
 
 /* @socom-skeleton stub Fire__5CZKitFiPC6CPnt3DPC6CPnt3DPC6CPnt3D */
-CZProjectile * CZKit::Fire(int, const CPnt3D *, const CPnt3D *, const CPnt3D *)
+CZProjectile * CZKit::Fire(int index, const CPnt3D *from, const CPnt3D *dir, const CPnt3D *vel)
 {
+	/* 0x2acd70 (HandleFireWeapon, TickExplosives): one round of the slot's weapon (its grenade
+	 * slot in a launcher grenade mode). The player's unit hears it; an enemy shot within 550
+	 * units and the weapon's sound radius of the player sets the HUD threat arcs; the
+	 * player's gun wiggles the camera. Launched grenades and the taser get their round
+	 * model, throwables their own model; rifle-class guns count tracer rounds. Bolt-action
+	 * weapons reload after the shot. The projectile turns along the shot, takes the model
+	 * (and the fire anim for grenades / launchers), and is added to the world. A scoped shot
+	 * kicks the sniper view (a burst of more than one drops to first person). Thrown grenades
+	 * get a pickup and a fuse (5 s single player, 3 s network), launched ones their fuses;
+	 * the M203 plays its reload, other guns their fire anim (the muzzle flash) at the fire
+	 * point; the weapon fires the projectile; stats, recoil. */
+	CEntityCtrl *ctrl = m_body->m_control;
+	bool player = ctrl != NULL && ((CSealCtrl *)ctrl)->IsPlayer();
+
+	if (player && !theNetwork.m_bNetwork)
+	{
+		CSealUnit *unit = CSealUnit::GetUnitByTeam(1);
+
+		if (unit != NULL)
+			unit->Notify(ftsGetPlayer(), (UNIT_MESSAGE)3, NULL);
+	}
+
+	zdb::CWorld *world = zdb::CWorld::m_world;
+	CZSealBody *seal = ftsGetPlayer();
+
+	if ((seal->m_team & m_body->m_team) == 0 && seal->m_isAlive)
+	{
+		const CPnt3D *at = (const CPnt3D *)&seal->m_node->m_matrix.m_matrix[3][0];
+		CPnt3D d;
+		from->Sub(at, &d);
+		f32 sq = d.z * d.z + d.x * d.x + d.y * d.y;
+
+		if (sq < 302500.0f)
+		{
+			s32 slot = unwrap(m_selected_item, m_num_items);
+			CZFTSWeapon *weapon = slot != -1 ? m_item[slot] : NULL;
+
+			if (weapon != NULL && sq < weapon->m_soundradiusSq)
+			{
+				zdb::CNode *node = seal->m_node;
+				f32 fwd[4] = { node->m_matrix.m_matrix[2][0], node->m_matrix.m_matrix[2][1], node->m_matrix.m_matrix[2][2], 1.0f };
+				f32 up[4] = { CPnt3D::unit_y.x, CPnt3D::unit_y.y, CPnt3D::unit_y.z, 1.0f };
+				f32 side[4];
+				sceVu0OuterProduct(side, fwd, up);
+				CPnt3D to;
+				from->Sub(at, &to);
+				f32 scale = 1.0f - sq * 3.3057852e-06f;
+				f32 back = to.z * -fwd[2] + to.x * -fwd[0] + 0.0f;
+
+				if (back < 0.0f)
+				{
+					seal->m_threatdir[3] = 1;
+					seal->m_threatscale[6] = fabsf(scale);
+					seal->m_threatangle[6] = fabsf(back);
+					seal->m_threatscale[2] = 0.0f;
+					seal->m_threatangle[2] = 0.0f;
+				}
+				else
+				{
+					seal->m_threatdir[1] = 1;
+					seal->m_threatscale[2] = fabsf(scale);
+					seal->m_threatangle[2] = fabsf(back);
+					seal->m_threatscale[6] = 0.0f;
+					seal->m_threatangle[6] = 0.0f;
+				}
+
+				f32 lateral = to.z * side[2] + to.x * side[0] + 0.0f * 0.0f;
+
+				if (lateral < 0.0f)
+				{
+					seal->m_threatdir[0] = 1;
+					seal->m_threatscale[0] = fabsf(scale);
+					seal->m_threatangle[0] = fabsf(lateral);
+					seal->m_threatscale[4] = 0.0f;
+					seal->m_threatangle[4] = 0.0f;
+				}
+				else
+				{
+					seal->m_threatdir[2] = 1;
+					seal->m_threatscale[4] = fabsf(scale);
+					seal->m_threatangle[4] = fabsf(lateral);
+					seal->m_threatscale[0] = 0.0f;
+					seal->m_threatangle[0] = 0.0f;
+				}
+			}
+		}
+	}
+
+	s32 slot = unwrap(index, m_num_items);
+	CZFTSWeapon *weapon = slot != -1 ? m_item[slot] : NULL;
+	CZAmmo *ammo = m_ammo[index];
+
+	if (weapon != NULL && weapon->IsGrenadeLauncherWeapon() && m_firemode[index] > 3)
+	{
+		weapon = m_item[m_firemode[index] - 3];
+		ammo = m_ammo[m_firemode[index] - 3];
+	}
+
+	if (weapon == NULL)
+		return NULL;
+
+	CZSealBody *body = m_body;
+	EQUIP_ITEM id = weapon->m_ID;
+
+	if (theNetwork.m_bNetwork)
+	{
+		/* port: not written - network fire messages (PlayRemoteMsg 0x3f MP bomb, 0x23 grenade
+		 * warning to the player's team) */
+		(void)body;
+	}
+
+	zdb::CModel *model = NULL;
+	SEAL_ITEM type = m_item[index]->m_type;
+	CZAnim *anim = NULL;
+
+	if (seal == m_body && (type == SEAL_ITEM::itemRifle || type == SEAL_ITEM::itemPistol) && id != EQUIP_ITEM::DESIGNATOR)
+	{
+		f32 wiggle = weapon->TargetMods((s32)m_body->GetStance(false))->GetWiggleReport();
+
+		if (wiggle != 0.0f)
+		{
+			appCamera->WiggleScalar(wiggle);
+			appCamera->WiggleEcho(true);
+		}
+	}
+
+	u32 v = (u8)id;
+
+	if (weapon->m_type != SEAL_ITEM::itemThrowable)
+	{
+		if (v == 0xab || v - 0xac < 3 || v - 0xb0 < 2 || v == 0xb2)
+			model = zdb::CWorld::GetModel("M203");
+		else if (v == 0xa1)
+			model = zdb::CWorld::GetModel("taser_bolt");
+		else if ((u8)id > 0x1d)
+			m_tracercount++;
+	}
+	else
+	{
+		model = zdb::CWorld::GetModel(weapon->GetModelName());
+	}
+
+	if (weapon->m_reloadAfterShot)
+		m_body->Reload();
+
+	if (v == 0xb5 || v == 0xb)
+		return NULL;
+
+	if (ammo == NULL)
+		ammo = weapon->GetDefaultAmmo();
+
+	CQuat align;
+	align.Align(CPnt3D::unit_x, *dir);
+	CQuat rot;
+	m_body->m_quat.Mul(&align, &rot);
+	CZProjectile *projectile = CZWeapon::m_pProjectilelist->GetNextFreeProjectile();
+	seal = ftsGetPlayer();
+
+	if (projectile == NULL)
+		return NULL;
+
+	projectile->m_flyout_idx = (seal->m_team & m_body->m_team) == 0 ? 1 : 0;
+	projectile->m_tracer_count = m_tracercount;
+	projectile->m_isplayer = m_body == seal;
+
+	if (model != NULL)
+	{
+		projectile->GetInstance()->SetModel(model);
+		projectile->GetInstance()->SetActive(false);
+		projectile->GetInstance()->SetRotation(rot);
+
+		if (from != NULL)
+			projectile->GetInstance()->SetPosition(from->x, from->y, from->z);
+
+		if (!weapon->IsDirectFire())
+		{
+			projectile->GetInstance()->m_character = 1;
+			zdb::CWorld::m_world->AddTextureAssetCharacter(zdb::_RenderPhase::CHARSETCOMMON, projectile->GetInstance());
+		}
+
+		world->AddChild(projectile->GetInstance());
+
+		if (weapon->GetIDType() == EQUIP_ITEM::EQUIP_GRENADE || weapon->GetIDType() == EQUIP_ITEM::EQUIP_LAUNCHED_GRENADE)
+		{
+			ZOOMSTATE zoom = m_body->m_zoomstate;
+			bool zoomed = !((int)zoom < (int)ZOOMSTATE::ZOOMSTATE_WEAPONDEF1 && zoom != ZOOMSTATE::ZOOMSTATE_BINOCS);
+			CZAnim *fire = weapon->GetFireAnim(zoomed);
+
+			if (fire != NULL && CZWeapon::m_allowFireAnimations)
+				anim = (CZAnim *)fire->ActivateArg(1, 3, projectile->GetInstance(), 0);
+		}
+	}
+
+	if ((int)m_body->m_zoomstate > (int)ZOOMSTATE::ZOOMSTATE_BINOCS && weapon != NULL)
+	{
+		if (m_burst_count > 1)
+		{
+			m_body->SetCurZoomState(ZOOMSTATE::ZOOMSTATE_1STPERSON);
+		}
+		else
+		{
+			CZFTSWeapon *current;
+			GetWeapon(m_selected_item, &current, NULL);
+			CTargetMods *mods = current->TargetMods((s32)m_body->GetStance(false));
+
+			if (m_firerifle_kick_movedist == 0.0f && m_body->m_control != NULL)
+				m_firerifle_kick_baseline = ((CSealCtrl *)m_body->m_control)->m_aimPitch;
+
+			f32 random = mods->GetFireRifle_KickRandomDist();
+			m_firerifle_kick_movedist = mods->GetFireRifle_KickBaseDist() + random * (f32)rand() * 4.656613e-10f;
+			m_firerifle_kick_state = 1;
+			m_firerifle_kick_accum = 0.0f;
+		}
+	}
+
+	m_body->AdrenalineIncr(0.35f);
+	f32 time = 0.0f;
+	f32 removal = 0.0f;
+	CPickup *pickup = NULL;
+
+	/* port: not written - thrown and launched grenade fuses / pickups (CPickup::Create is
+	 * unwritten): frag / HE 5 s (network 3), smoke 3 / 40, M203 HE 10, illum 1.5 / 40,
+	 * flashbang 3 / 3.5, gas and WP 3 / 40 etc.; the fuse times decide the Fire branch below */
+	if (v == 0x79 || v == 0x7e)
+	{
+		time = theNetwork.m_bNetwork ? 3.0f : 5.0f;
+		removal = theNetwork.m_bNetwork ? 3.5f : 5.5f;
+	}
+	else if (v == 0x7a || v == 0xad || v == 0xb2 || v == 0x7d)
+	{
+		time = 3.0f;
+		removal = 40.0f;
+	}
+	else if (v == 0xac || v == 0xb1)
+	{
+		time = 1.5f;
+		removal = 40.0f;
+	}
+	else if (v == 0xab)
+	{
+		time = 10.0f;
+	}
+	else if (v == 0xb0)
+	{
+		time = 10.0f;
+		removal = 11.0f;
+	}
+	else if (v == 0x7b || v == 0x7c)
+	{
+		time = 3.0f;
+		removal = 3.5f;
+	}
+
+	CZAnim *fire = NULL;
+
+	if (v - 0xab < 3 || v == 0xae)
+	{
+		CZWeapon *m203 = CZWeapon::m_listWeapons.GetWeapon(EQUIP_ITEM::M203);
+
+		if (m203 != NULL)
+		{
+			ZOOMSTATE zoom = m_body->m_zoomstate;
+			bool zoomed = !((int)zoom < (int)ZOOMSTATE::ZOOMSTATE_WEAPONDEF1 && zoom != ZOOMSTATE::ZOOMSTATE_BINOCS);
+			fire = m203->GetFireAnim(zoomed);
+			s32 sel = unwrap(m_selected_item, m_num_items);
+			s32 left;
+
+			if (!WeaponIsGrenadeLauncherMode(m_selected_item))
+			{
+				left = m_reloads[sel][m_currentmag[sel]];
+			}
+			else
+			{
+				s32 g = m_firemode[sel] - 3;
+				left = m_reloads[g][m_currentmag[g]];
+			}
+
+			if (left > 0 && AnimTypes::RifleM203Reload != (short)AnimType::animTypeUndefined)
+				m_body->PushBlend((AnimType)AnimTypes::RifleM203Reload, (s32)m_body->GetStance(false), false);
+		}
+	}
+	else if (time == 0.0f)
+	{
+		if ((v - 0xb0 < 2 || v == 0xb2) && m_item[index]->m_ID != EQUIP_ITEM::MULTI_GRENADE_LAUNCHER
+			&& AnimTypes::RifleM203Reload != (short)AnimType::animTypeUndefined)
+		{
+			m_body->PushBlend((AnimType)AnimTypes::RifleM203Reload, (s32)m_body->GetStance(false), false);
+		}
+
+		fire = weapon->GetFireAnim(m_body->m_zoomstate != ZOOMSTATE::ZOOMSTATE_3RDPERSON);
+	}
+
+	if (fire != NULL)
+	{
+		zdb::CNode *part = m_body->GetFirepointNode(NULL);
+		zdb::CNode *point = weapon->IsGrenadeLauncherAmmo() ? m_body->GetFirepointNode("firepoint_203") : m_body->GetFirepointNode("firepoint");
+
+		if (part != NULL && point != NULL && CZWeapon::m_allowFireAnimations)
+			fire->ActivateArg(3, 3, part, 5, &point->m_matrix.m_matrix[3][0], 6, vel);
+	}
+
+	if (time == 0.0f)
+	{
+		weapon->Fire(m_body->GetNode(), ammo, from, dir, vel, projectile, m_body->m_id, model, 9999999.0f, 9999999.0f);
+
+		if (weapon->IsDirectFire())
+			m_body->m_stats.Shot(*m_body);
+
+		if (theNetwork.m_bNetwork)
+		{
+			/* port: not written - SaveFireMessage (network) */
+		}
+	}
+	else
+	{
+		weapon->Fire(m_body->GetNode(), ammo, from, dir, vel, projectile, m_body->m_id, model, time, removal);
+
+		/* port: not written - an AI thrower in the grenade state keeps the projectile
+		 * (CSealCtrlAi::GetAiState, AI) */
+		if (weapon->IsDirectFire())
+			m_body->m_stats.Shot(*m_body);
+	}
+
+	EQUIP_ITEM category = weapon->GetIDType();
+
+	if (CZWeapon::IsPrimary(category))
+		m_body->m_stats.IncrPrimaryRoundsFired(1);
+	else if (CZWeapon::IsSecondary(category))
+		m_body->m_stats.IncrSecondaryRoundsFired(1);
+	else if (category == EQUIP_ITEM::EQUIP_GRENADE)
+		m_body->m_stats.IncrGrenadesUsed(1);
+
+	projectile->SetAnimInstance(anim);
+	projectile->m_pickup = pickup;
+	Recoil(weapon);
+	return projectile;
 }
 
 /* @socom-skeleton stub ChangeItemModel__5CZKitFiiib */
-void CZKit::ChangeItemModel(int, int, int, bool)
+void CZKit::ChangeItemModel(int, int type, int, bool first)
 {
+	/* 0x2acc70: first: the first item's mode (rifle in hand and the pistol holstered as
+	 * gear, or the pistol drawn and the rifle slung as gear); a later rifle or pistol
+	 * requests the change; other items go to the "aimnodes" part */
+	if (first)
+	{
+		if (m_item[0]->m_type == SEAL_ITEM::itemRifle)
+		{
+			m_body->ChangeToRifleMode(true);
+			m_body->SetPartAsGear(m_body->m_pistol, m_body->m_pistol_as_gear);
+		}
+		else
+		{
+			m_body->ChangeToPistolMode(true);
+			m_body->SetPartAsGear(m_body->m_rifle, m_body->m_rifle_as_gear);
+		}
+	}
+	else if (type == 2)
+	{
+		if (m_body->m_item != SEAL_ITEM::itemPistol)
+			m_requested_item = 1;
+	}
+	else if (type == 1)
+	{
+		if (m_body->m_item != SEAL_ITEM::itemRifle)
+			m_requested_item = 1;
+	}
+	else
+	{
+		UseItemModel(type, "aimnodes");
+	}
 }
 
 /* @socom-skeleton stub CanChangeItem__5CZKitFv */
@@ -511,28 +1131,195 @@ bool CZKit::CanChangeItem()
 }
 
 /* @socom-skeleton stub SetCurItemByIndex__5CZKitFi */
-void CZKit::SetCurItemByIndex(int)
+void CZKit::SetCurItemByIndex(int index)
 {
+	/* 0x2ac8c0 (Swap1/Swap2, the weapon menu): select another item (wrapped): the flashlight
+	 * goes out / lights, throwables have no raise timing; a rifle or pistol requests the
+	 * weapon change (other items use the "aimnodes" part); encumbrance, a magnifying zoom
+	 * dropped, a fire mode chosen, the trigger power cleared, HUD and reticule refreshed. */
+	index = unwrap(index, m_num_items);
+
+	if (index == -1 || index == m_selected_item)
+		return;
+
+	m_cur_zoom = 0;
+
+	if (m_item[m_selected_item]->m_ID == EQUIP_ITEM::FLASHLIGHT && (m_itemstate[m_selected_item] & 8) != 0)
+		SetCurItemState(0);
+
+	m_selected_item = index;
+
+	if (m_selected_item >= m_num_items)
+		m_selected_item = 0;
+
+	if (m_item[m_selected_item]->m_ID == EQUIP_ITEM::FLASHLIGHT)
+		SetCurItemState(8);
+
+	if (m_item[m_selected_item]->m_type == SEAL_ITEM::itemThrowable)
+		m_body->WepWaitOff();
+	else
+		m_body->WepWaitOn();
+
+	s32 type = (s32)m_item[m_selected_item]->m_type;
+
+	if (type == 2)
+	{
+		if (m_body->m_item != SEAL_ITEM::itemPistol)
+			m_requested_item = 1;
+	}
+	else if (type == 1)
+	{
+		if (m_body->m_item != SEAL_ITEM::itemRifle)
+			m_requested_item = 1;
+	}
+	else
+	{
+		UseItemModel(type, "aimnodes");
+	}
+
+	m_body->SetMoveWeaponEncumbMod();
+	f32 range = 1.0f;
+	m_weaponinfoChanged = 1;
+	CZFTSWeapon *current = m_item[m_selected_item];
+
+	if (current != NULL)
+	{
+		u32 level = (u32)((s32)(s8)m_body->m_zoomstate - 3);
+
+		if (level < current->m_zoommode.size())
+			range = current->GetZoomRange(level);
+	}
+
+	if (range > 1.5f)
+		((CSealCtrl *)m_body->m_control)->SetCameraZoom(1.0f, 0.5f);
+
+	m_cur_zoom = 0;
+
+	if (m_firemode[m_selected_item] == 0)
+		CycleFireMode();
+
+	CSealCtrl *ctrl = (CSealCtrl *)m_body->m_control;
+	ctrl->m_trigger_power = 0.0f;
+	ctrl->m_HudUpdateWeapon = 1;
+	m_reticuletypeChanged = 1;
+	m_curitemreticule = GetReticuleByIndex(m_selected_item);
 }
 
 /* @socom-skeleton stub GetCurNumMags__5CZKitFv */
-void CZKit::GetCurNumMags()
+int CZKit::GetCurNumMags()
 {
+	/* 0x2ac7b0 (CHUD::SetupAmmoCount): the loaded mags of the selected item (of the grenade
+	 * slot in a launcher grenade mode) */
+	s32 index = m_selected_item;
+	s32 slot = unwrap(index, m_num_items);
+	s32 wrapped = unwrap(slot, m_num_items);
+	CZFTSWeapon *weapon = wrapped != -1 ? m_item[wrapped] : NULL;
+
+	if (weapon != NULL && weapon->IsGrenadeLauncherWeapon() && m_firemode[slot] >= 4)
+		index = m_firemode[m_selected_item] - 3;
+
+	s32 mags = 0;
+
+	for (s32 i = 0; i < 10; i++)
+	{
+		if (m_reloads[index][i] > 0)
+			mags++;
+	}
+
+	return mags;
 }
 
 /* @socom-skeleton stub GetNumMags__5CZKitFi */
-int CZKit::GetNumMags(int)
+int CZKit::GetNumMags(int item)
 {
+	/* 0x2ac760: the item's loaded mags (no range test) */
+	s32 mags = 0;
+
+	for (s32 i = 0; i < 10; i++)
+	{
+		if (m_reloads[item][i] > 0)
+			mags++;
+	}
+
+	return mags;
 }
 
 /* @socom-skeleton stub CycleFireMode__5CZKitFv */
 void CZKit::CycleFireMode()
 {
+	/* 0x2ac590 (L3, the first tick, a new item without a mode): the next fire mode the
+	 * weapon has; past the last back to single (none for safety-only); a grenade launcher
+	 * then steps through its launched-grenade slots (modes 4+). HUD and reticule refresh. */
+	s32 sel = m_selected_item;
+
+	if (m_item[sel] == NULL)
+		return;
+
+	m_firemode[sel]++;
+
+	if ((s32)(u8)m_item[m_selected_item]->m_maxfiremode < m_firemode[m_selected_item])
+	{
+		if (!m_item[m_selected_item]->IsGrenadeLauncherWeapon())
+		{
+			if (m_item[m_selected_item]->m_maxfiremode != FIREMODE::SAFETY)
+				m_firemode[m_selected_item] = 1;
+		}
+		else
+		{
+			s32 from = m_firemode[m_selected_item] > 3 ? m_firemode[m_selected_item] - 3 : 0;
+			m_firemode[m_selected_item] = FindNextGrenadeLauncherAmmo(from);
+
+			if (m_firemode[m_selected_item] == 0)
+			{
+				bool loaded = false;
+
+				for (s32 i = 0; i < m_num_items; i++)
+				{
+					if (m_item[i]->IsGrenadeLauncherAmmo() && ItemHasAmmo(i))
+					{
+						loaded = true;
+						break;
+					}
+				}
+
+				if (loaded)
+					CycleFireMode();
+			}
+		}
+	}
+
+	sel = m_selected_item;
+
+	if (!m_item[sel]->HasFireMode(m_firemode[sel]))
+	{
+		CycleFireMode();
+	}
+	else
+	{
+		m_weaponinfoChanged = 1;
+		m_reticuletypeChanged = 1;
+		m_curitemreticule = GetReticuleByIndex(m_selected_item);
+	}
 }
 
 /* @socom-skeleton stub FindNextGrenadeLauncherAmmo__5CZKitFi */
-void CZKit::FindNextGrenadeLauncherAmmo(int)
+int CZKit::FindNextGrenadeLauncherAmmo(int index)
 {
+	/* 0x2ac4a0: the fire mode (slot + 3) of the next launched-grenade slot from index with
+	 * loaded mags; none: 1 (0 for a weapon without fire modes) */
+	for (; index < m_num_items; index++)
+	{
+		if (m_item[index]->IsGrenadeLauncherAmmo())
+		{
+			for (s32 j = 0; j < 10; j++)
+			{
+				if (m_reloads[index][j] > 0)
+					return index + 3;
+			}
+		}
+	}
+
+	return m_item[m_selected_item]->m_maxfiremode != FIREMODE::SAFETY;
 }
 
 /* @socom-skeleton stub GetMaxAmmoCount__5CZKitFi */
@@ -543,6 +1330,20 @@ int CZKit::GetMaxAmmoCount(int)
 /* @socom-skeleton stub GetCurMaxAmmoCount__5CZKitFv */
 int CZKit::GetCurMaxAmmoCount()
 {
+	/* 0x2ac1f0 (CHUD::SetupAmmoCount): the selected item's mag capacity (the grenade slot's
+	 * in a launcher grenade mode); 0 without an item */
+	s32 index = unwrap(m_selected_item, m_num_items);
+	s32 slot = unwrap(index, m_num_items);
+	s32 wrapped = unwrap(slot, m_num_items);
+	CZFTSWeapon *weapon = wrapped != -1 ? m_item[wrapped] : NULL;
+
+	if (weapon != NULL && weapon->IsGrenadeLauncherWeapon() && m_firemode[slot] >= 4)
+	{
+		CZFTSWeapon *grenade = m_item[m_firemode[index] - 3];
+		return grenade != NULL ? grenade->GetAmmoCapacity() : 0;
+	}
+
+	return m_item[index] != NULL ? m_item[index]->GetAmmoCapacity() : 0;
 }
 
 /* @socom-skeleton stub EmptyAmmoCountTotal__5CZKitFi */
@@ -551,13 +1352,53 @@ void CZKit::EmptyAmmoCountTotal(int)
 }
 
 /* @socom-skeleton stub GetAmmoCount__5CZKitFi */
-int CZKit::GetAmmoCount(int)
+int CZKit::GetAmmoCount(int item)
 {
+	/* 0x2abf80: the rounds in the item's current mag (wrapped over the items). ELF quirk
+	 * kept: the launcher test is the selected item's, and then the item's fire mode picks
+	 * the grenade slot. */
+	s32 count = m_num_items;
+
+	if (item == count || count == 0)
+	{
+		item = -1;
+	}
+	else
+	{
+		while (item >= count)
+			item -= count;
+
+		while (item < 0)
+			item += count;
+	}
+
+	s32 slot = unwrap(m_selected_item, count);
+	s32 wrapped = unwrap(slot, m_num_items);
+	CZFTSWeapon *weapon = wrapped != -1 ? m_item[wrapped] : NULL;
+
+	if (weapon != NULL && weapon->IsGrenadeLauncherWeapon() && m_firemode[slot] >= 4)
+	{
+		s32 g = m_firemode[item] - 3;
+		return m_reloads[g][m_currentmag[g]];
+	}
+
+	return m_reloads[item][m_currentmag[item]];
 }
 
 /* @socom-skeleton stub GetCurAmmoCount__5CZKitFv */
 int CZKit::GetCurAmmoCount()
 {
+	/* 0x2abed0: the rounds in the selected item's current mag (the grenade slot's in a
+	 * launcher grenade mode) */
+	s32 slot = unwrap(m_selected_item, m_num_items);
+
+	if (WeaponIsGrenadeLauncherMode(m_selected_item))
+	{
+		s32 g = m_firemode[slot] - 3;
+		return m_reloads[g][m_currentmag[g]];
+	}
+
+	return m_reloads[slot][m_currentmag[slot]];
 }
 
 /* @socom-skeleton stub SetCurFireMode__5CZKitF8FIREMODE */
@@ -568,6 +1409,8 @@ void CZKit::SetCurFireMode(FIREMODE)
 /* @socom-skeleton stub GetCurFireMode__5CZKitFv */
 FIREMODE CZKit::GetCurFireMode()
 {
+	/* 0x2abd60 */
+	return (FIREMODE)m_firemode[m_selected_item];
 }
 
 /* @socom-skeleton stub GetCurItem__5CZKitCFv */
@@ -578,13 +1421,19 @@ CZFTSWeapon * CZKit::GetCurItem() const
 }
 
 /* @socom-skeleton stub GetItemByIndex__5CZKitFi */
-CZFTSWeapon * CZKit::GetItemByIndex(int)
+CZFTSWeapon * CZKit::GetItemByIndex(int index)
 {
+	/* 0x2abca0: the item at index wrapped over the items (unwrap inline) */
+	s32 slot = unwrap(index, m_num_items);
+	return slot != -1 ? m_item[slot] : NULL;
 }
 
 /* @socom-skeleton stub Recoil__5CZKitFP11CZFTSWeapon */
-void CZKit::Recoil(CZFTSWeapon *)
+void CZKit::Recoil(CZFTSWeapon *weapon)
 {
+	/* 0x2ab910 (Fire): the player's pad rumbles; unscoped, a burst past two rounds kicks the
+	 * reticule up, the knock offset is held within the stance's max (y scaled by the aim
+	 * depth), the reticule grows by the knock within the size limits and the body recoils */
 	/* @socom-skeleton stub basebump_y$3108 */
 	static int basebump_y;
 	/* @socom-skeleton stub randbump_y$3111 */
@@ -593,27 +1442,342 @@ void CZKit::Recoil(CZFTSWeapon *)
 	static int basebump_x;
 	/* @socom-skeleton stub randbump_x$3117 */
 	static int randbump_x;
+	CEntityCtrl *ctrl = m_body->m_control;
+	bool player = ctrl != NULL && ((CSealCtrl *)ctrl)->IsPlayer();
+
+	if (!player)
+		return;
+
+	CTargetMods *mods = weapon->TargetMods((s32)m_body->GetStance(false));
+	f32 knock = mods->GetReticuleKnock();
+	f32 most = mods->GetReticuleKnock_Max();
+	f32 min = mods->GetTarget_Min();
+	f32 max = mods->GetTarget_Max();
+
+	if (weapon->GetRumbleHigh_Enable())
+		((CSealCtrl *)m_body->m_control)->SetHighRumbleTime(weapon->GetRumbleHigh_Time());
+
+	if (weapon->GetRumbleLow_Enable())
+		((CSealCtrl *)m_body->m_control)->SetLowRumbleTime(weapon->GetRumbleLow_Time(), weapon->GetRumbleLow_Power());
+
+	ZOOMSTATE zoom = m_body->m_zoomstate;
+
+	if (!((int)zoom < (int)ZOOMSTATE::ZOOMSTATE_WEAPONDEF1 && zoom != ZOOMSTATE::ZOOMSTATE_BINOCS))
+		return;
+
+	if (m_burst_count > 2)
+		m_retoffsety -= knock;
+
+	zdb::CCamera *camera = zdb::CWorld::m_world->m_camera;
+	f32 aspecty = camera->m_screenAspect.y;
+	f32 aspectx = camera->m_screenAspect.x;
+	CZSealBody *seal = ftsGetPlayer();
+	CPnt3D aim = seal->m_aim_point;
+	CPnt3D fire;
+	seal->m_curr_firepos.Add(seal->GetPosW(), &fire);
+	f32 za = camera->GetZ(&aim);
+	f32 zf = camera->GetZ(&fire);
+
+	if (za - zf != 0.0f)
+		aspecty = (aspecty * (za - zf)) / za;
+
+	f32 limitx = most * aspectx;
+	f32 limity = most * aspecty;
+
+	/* ELF: the bump statics are set once (10, 20, 15, 10) and never read */
+	basebump_y = 0x41200000;
+	randbump_y = 0x41a00000;
+	basebump_x = 0x41700000;
+	randbump_x = 0x41200000;
+	*(f32 *)&recoil_constscl = aspecty;
+
+	if (limity < m_retoffsety)
+		m_retoffsety = limity;
+	else if (m_retoffsety < -limity)
+		m_retoffsety = -limity;
+
+	if (limitx < m_retoffsetx)
+		m_retoffsetx = limitx;
+	else if (m_retoffsetx < -limitx)
+		m_retoffsetx = -limitx;
+
+	m_prev_retsize = m_retsize;
+	m_retsize += knock;
+
+	if (m_retsize < min)
+		m_retsize = min;
+	else if (max < m_retsize)
+		m_retsize = max;
+
+	m_body->m_recoilParam += 1.0f;
+
+	if (m_body->m_recoilParam > 1.0f)
+		m_body->m_recoilParam = 1.0f;
 }
 
 /* @socom-skeleton stub Reload__5CZKitFv */
-void CZKit::Reload()
+bool CZKit::Reload()
 {
+	/* 0x2ab530 (R3, an empty trigger): not airborne, dead, throwing or reloading. The next
+	 * loaded mag (the grenade slot's in a launcher grenade mode) after the current one is
+	 * put in with the reload anim and sound; none left: in a network game a pistol gets a
+	 * full mag. The HUD refreshes; true when reloading. */
+	CZSealBody *body = m_body;
+
+	if (body == NULL || body->m_airborne || !body->m_isAlive || body->IsThrowing(false) || m_body->IsReloading())
+		return false;
+
+	s32 index = m_selected_item;
+	s32 slot = unwrap(index, m_num_items);
+	s32 wrapped = unwrap(slot, m_num_items);
+	CZFTSWeapon *weapon = wrapped != -1 ? m_item[wrapped] : NULL;
+
+	if (weapon != NULL && weapon->IsGrenadeLauncherWeapon() && m_firemode[slot] >= 4)
+		index = m_firemode[m_selected_item] - 3;
+
+	bool loaded = false;
+
+	if (index < m_num_items)
+	{
+		for (s32 j = 0; j < 10; j++)
+		{
+			if (m_reloads[index][j] > 0)
+			{
+				loaded = true;
+				break;
+			}
+		}
+	}
+
+	if (!loaded)
+	{
+		if (!theNetwork.m_bNetwork || m_item[index]->GetIDType() != EQUIP_ITEM::EQUIP_PISTOL)
+			return false;
+
+		m_reloads[index][m_currentmag[index]] = m_item[index]->GetAmmoCapacity();
+
+		if (m_body->Reload() == NULL)
+			return false;
+
+		if (m_item[index]->m_reloadsound != NULL)
+			m_item[index]->m_reloadsound->PlaySound(NULL, 0xff);
+
+		m_weaponinfoChanged = 1;
+		return true;
+	}
+
+	s32 mag = m_currentmag[index] + 1;
+
+	if (mag > 9)
+		mag = 0;
+
+	bool found = false;
+
+	while (mag != m_currentmag[index] && !found)
+	{
+		if (m_reloads[index][mag] < 1)
+		{
+			mag++;
+
+			if (mag > 9)
+				mag = 0;
+		}
+		else
+		{
+			found = true;
+		}
+	}
+
+	if (found)
+	{
+		if (m_body->Reload() == NULL)
+			return false;
+
+		m_currentmag[index] = mag;
+
+		if (m_item[index]->m_reloadsound != NULL)
+			m_item[index]->m_reloadsound->PlaySound(NULL, 0xff);
+	}
+	else if (theNetwork.m_bNetwork && m_item[index]->GetIDType() == EQUIP_ITEM::EQUIP_PISTOL)
+	{
+		m_reloads[index][m_currentmag[index]] = m_item[index]->GetAmmoCapacity();
+
+		if (m_body->Reload() == NULL)
+			return false;
+
+		if (m_item[index]->m_reloadsound != NULL)
+			m_item[index]->m_reloadsound->PlaySound(NULL, 0xff);
+	}
+
+	m_weaponinfoChanged = 1;
+	return true;
 }
 
 /* @socom-skeleton stub TickReticule__5CZKitFf */
-void CZKit::TickReticule(float)
+void CZKit::TickReticule(float dT)
 {
+	/* 0x2ab220: the player's reticule knock returns toward the centre; its size goal grows
+	 * with speed (velM^2 / 65, turn rate^2 x 5.29 x 30, air speed^2 / 65) between the size
+	 * limits and the size follows it at the stance's constrict rate */
+	CEntityCtrl *ctrl = m_body->m_control;
+	bool player = ctrl != NULL && ((CSealCtrl *)ctrl)->IsPlayer();
+	CZFTSWeapon *weapon = player ? dynamic_cast<CZFTSWeapon *>((CZWeapon *)m_item[m_selected_item]) : NULL;
+
+	if (weapon == NULL)
+		return;
+
+	CTargetMods *mods = weapon->TargetMods((s32)m_body->GetStance(false));
+	f32 back = mods->GetReticuleKnock_Return() * dT;
+
+	if (m_retoffsetx > 0.0f)
+	{
+		m_retoffsetx -= back;
+
+		if (m_retoffsetx < 0.0f)
+			m_retoffsetx = 0.0f;
+	}
+
+	if (m_retoffsetx < 0.0f)
+	{
+		m_retoffsetx += back;
+
+		if (m_retoffsetx > 0.0f)
+			m_retoffsetx = 0.0f;
+	}
+
+	if (m_retoffsety > 0.0f)
+	{
+		m_retoffsety -= back;
+
+		if (m_retoffsety < 0.0f)
+			m_retoffsety = 0.0f;
+	}
+
+	if (m_retoffsety < 0.0f)
+	{
+		m_retoffsety += back;
+
+		if (m_retoffsety > 0.0f)
+			m_retoffsety = 0.0f;
+	}
+
+	CZSealBody *body = m_body;
+	f32 goal = (body->m_velM.z * body->m_velM.z + body->m_velM.x * body->m_velM.x + body->m_velM.y * body->m_velM.y) * 0.015384615f
+		+ (body->m_velR.z * body->m_velR.z + body->m_velR.x * body->m_velR.x + body->m_velR.y * body->m_velR.y) * 5.29f * 30.0f;
+
+	if (body->m_airborne)
+	{
+		goal += (body->m_inAirHorizVel.z * body->m_inAirHorizVel.z + body->m_inAirHorizVel.x * body->m_inAirHorizVel.x
+			+ body->m_inAirHorizVel.y * body->m_inAirHorizVel.y) * 0.015384615f;
+	}
+
+	if (goal < m_retmin)
+		m_retsizegoal = m_retmin;
+	else if (m_retmax < goal)
+		m_retsizegoal = m_retmax;
+	else
+		m_retsizegoal = goal;
+
+	if (m_item[m_selected_item] == NULL)
+		return;
+
+	f32 rate = mods->GetTarget_Constrict();
+	m_prev_retsize = m_retsize;
+	f32 size = m_retsize;
+
+	if (size < m_retsizegoal)
+	{
+		m_retsize = size + rate * dT;
+
+		if (m_retsizegoal < m_retsize)
+			m_retsize = m_retsizegoal;
+	}
+	else if (m_retsizegoal < size)
+	{
+		m_retsize = size - rate * dT;
+
+		if (m_retsize < m_retsizegoal)
+			m_retsize = m_retsizegoal;
+	}
 }
 
 /* @socom-skeleton stub TickExplosives__5CZKitFf */
-void CZKit::TickExplosives(float)
+bool CZKit::TickExplosives(float dT)
 {
+	/* 0x2aa7a0 (Tick): a remote seal goes on (1). A local one with an item: a pending
+	 * placement / throw counts down its fire time; when it runs out C4, claymores, satchels
+	 * and the MP bomb are placed (false: nothing else this frame) and a throwable's round is
+	 * thrown. Otherwise true; no item: false. */
 	/* @socom-skeleton stub r_offset$3288 */
 	static float r_offset[3];
 	/* @socom-skeleton stub l_offset$3291 */
 	static int l_offset[3];
 	/* @socom-skeleton stub can_fire$3296 */
 	static unsigned char can_fire;
+	CEntityCtrl *ctrl = m_body->m_control;
+
+	if (ctrl != NULL && ((CSealCtrl *)ctrl)->IsRemote())
+		return true;
+
+	if (m_item[m_selected_item] == NULL)
+		return false;
+
+	bool c4 = false;
+	bool placed = false;
+	bool thrown = false;
+
+	if (m_waiting_to_fire && m_firetime >= 0.0f)
+		m_firetime -= dT;
+
+	if (m_waiting_to_fire && m_firetime <= 0.0f)
+	{
+		EQUIP_ITEM id = m_item[m_selected_item]->m_ID;
+
+		if (id == EQUIP_ITEM::CLAYMORE || id == EQUIP_ITEM::SATCHEL_CHARGE || id == EQUIP_ITEM::MPBOMB)
+			placed = true;
+		else if (id == EQUIP_ITEM::C4)
+			c4 = true;
+		else
+			thrown = true;
+
+		m_waiting_to_fire = 0;
+		m_firetime = 0.0f;
+	}
+
+	if (c4 || placed)
+	{
+		/* port: not written - the C4 wall placement (a 16-unit probe along the aim from the
+		 * right hand, the material checks, HandleRemotePlaceExplosive) and the claymore /
+		 * satchel / MP bomb ground placement (GetAltitude below the hand, then
+		 * HandleRemotePlaceExplosive); both restore the last selected item. The ELF returns
+		 * false for C4 and for a placement on the ground (true without ground). */
+		(void)r_offset;
+		(void)l_offset;
+		return false;
+	}
+
+	if (thrown)
+	{
+		m_burst_count++;
+
+		if (!m_body->m_infiniteammo)
+		{
+			s32 slot = unwrap(m_selected_item, m_num_items);
+			m_weaponinfoChanged = 1;
+
+			if (m_reloads[slot][m_currentmag[slot]] > 0)
+				m_reloads[slot][m_currentmag[slot]]--;
+		}
+
+		m_fire_delay = 0.0f;
+		can_fire = 1;
+		/* port: not written - the throw itself (the hand's release point, the grenade's
+		 * velocity from the trigger power (CDynGrenade::ComputeMaxVel / ComputeElevOfs, the
+		 * aim elevation, ai::quadratic / elevate), CZKit::Fire with it; AI throwers use their
+		 * fire params) and the last selected item restored. Grenades are out of scope. */
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub TickFlashlight__5CZKitFf */
@@ -661,21 +1825,291 @@ void CZKit::Apply_LensEffects(bool enable, CPnt3D *tint)
 /* @socom-skeleton stub PreTick__5CZKitFf */
 void CZKit::PreTick(float)
 {
+	/* 0x2aa190 (WeaponsTick): the first tick puts the first item's model in hand (rifle or
+	 * pistol mode, the other holstered as gear) and selects a fire mode (network players get
+	 * their saved modes); later a requested item change plays the weapon change. */
+	if (!m_first)
+	{
+		if (m_requested_item)
+		{
+			m_body->ChangeWeapon(m_body->m_item, m_item[m_selected_item]->m_type);
+			m_reticuletypeChanged = 1;
+			m_curitemreticule = GetReticuleByIndex(m_selected_item);
+		}
+	}
+	else
+	{
+		if (m_item[0] != NULL)
+		{
+			s32 type = (s32)m_item[0]->m_type;
+			ChangeItemModel(type, type, 0, true);
+		}
+
+		CycleFireMode();
+		CEntityCtrl *ctrl = m_body->m_control;
+		bool player = ctrl != NULL && ((CSealCtrl *)ctrl)->IsPlayer();
+#ifdef SOCOM_PORT
+		if (player)
+		{
+			zdb::CNode *rifle = m_body->m_rifle->m_node;
+			zdb::CNode *pistol = m_body->m_pistol->m_node;
+			SOCOM_PORT_TRACE("WEP: player first kit tick: %d items, selected %d mode %d, rifle %s under %s, pistol %s under %s",
+				m_num_items, m_selected_item, m_firemode[m_selected_item],
+				rifle != NULL && rifle->m_name != NULL ? rifle->m_name : "-",
+				rifle != NULL && rifle->m_parent != NULL && rifle->m_parent->m_name != NULL ? rifle->m_parent->m_name : "-",
+				pistol != NULL && pistol->m_name != NULL ? pistol->m_name : "-",
+				pistol != NULL && pistol->m_parent != NULL && pistol->m_parent->m_name != NULL ? pistol->m_parent->m_name : "-");
+		}
+#endif
+
+		if (player && theNetwork.m_bNetwork)
+		{
+			/* g_arrSavedFireModeInfo: 8-byte entries (fire mode, item id) */
+			for (s32 i = 0; i < g_iNumSavedFireModes; i++)
+			{
+				CZFTSWeapon *weapon = m_item[i];
+
+				if (weapon != NULL && g_arrSavedFireModeInfo[i * 8 + 4] == (u8)weapon->m_ID)
+					m_firemode[i] = *(s32 *)&g_arrSavedFireModeInfo[i * 8];
+			}
+		}
+
+		m_first = 0;
+	}
+
+	m_requested_item = 0;
 }
 
 /* @socom-skeleton stub Tick__5CZKitFf */
-void CZKit::Tick(float)
+void CZKit::Tick(float dT)
 {
+	/* 0x2a9c20 (CZSealBody::PostTick): the reticule, flashlight and laser designator; the
+	 * pickup request timer; placed / thrown explosives (false: nothing else this frame);
+	 * then a ready trigger fires the weapon (a pending raise is dropped), or an empty
+	 * direct-fire weapon on a pulled trigger clicks and reloads (or counts the empty
+	 * round). The fire delay runs down; an empty launcher grenade mode cycles on; a weapon
+	 * without a fire mode gets one. */
+	TickReticule(dT);
+	TickFlashlight(dT);
+	TickLaserDesignator(dT);
+
+	if (m_pickupRequestWait > 0.0f)
+		m_pickupRequestWait -= dT;
+
+	if (!TickExplosives(dT))
+		return;
+
+	bool fire = WillFireWeapon();
+	f32 power = ((CSealCtrl *)m_body->m_control)->m_trigger_power;
+	f32 delay = GetFireDelay();
+	s32 burst = 1;
+
+	if (ItemHasAmmo(m_selected_item, (FIREMODE)m_firemode[m_selected_item]))
+	{
+		s32 mode = m_firemode[m_selected_item];
+
+		if (mode == 0)
+			burst = 0;
+		else if (mode == 1 || mode >= 4)
+			burst = 1;
+		else if (mode == 2)
+			burst = 3;
+		else if (mode == 3)
+			burst = 10000;
+		else
+			burst = 0;
+	}
+
+	f32 left = m_fire_delay;
+
+	if (!fire)
+	{
+		if (m_item[m_selected_item] != NULL)
+		{
+			bool rounds;
+
+			if (m_body->m_infiniteammo)
+			{
+				rounds = true;
+			}
+			else if (!WeaponIsGrenadeLauncherMode(m_selected_item))
+			{
+				EQUIP_ITEM id = GetCurItemEnum();
+
+				if (id == EQUIP_ITEM::KNIFE || id == EQUIP_ITEM::RESTRAINTS)
+					rounds = true;
+				else
+					rounds = m_reloads[m_selected_item][m_currentmag[m_selected_item]] > 0;
+			}
+			else
+			{
+				s32 g = m_firemode[m_selected_item] - 3;
+				rounds = m_reloads[g][m_currentmag[g]] > 0;
+			}
+
+			if (!rounds)
+			{
+				u32 id = (u8)m_item[m_selected_item]->m_ID;
+				bool empty = !(id == 0xb6 || id - 0xba < 2 || id == 0xb7 || id == 0xb);
+				u8 trigger = (u8)((CSealCtrl *)m_body->m_control)->m_trigger;
+
+				if (empty && m_item[m_selected_item]->IsDirectFire() && m_burst_count < burst && (trigger == 2 || trigger == 1))
+				{
+					if (m_clicksnd != NULL && m_burst_count < 2)
+						m_clicksnd->PlaySound(NULL, 0xff); /* vtable +0xc */
+
+					if (ItemHasAmmo(m_selected_item, (FIREMODE)m_firemode[m_selected_item])
+						|| (theNetwork.m_bNetwork && m_item[m_selected_item]->GetIDType() == EQUIP_ITEM::EQUIP_PISTOL))
+					{
+						Reload();
+					}
+					else
+					{
+						m_burst_count++;
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		HandleFireWeapon(m_selected_item, power, delay);
+
+		if (m_waiting_to_raise)
+			m_waiting_to_raise = 0;
+	}
+
+	left = m_fire_delay;
+	m_fire_delay = left - dT;
+
+	if (left - dT <= 0.0f)
+		m_fire_delay = 0.0f;
+
+	if (!CurItemHasAmmo())
+	{
+		s32 index = unwrap(m_selected_item, m_num_items);
+		s32 slot = unwrap(index, m_num_items);
+		CZFTSWeapon *weapon = slot != -1 ? m_item[slot] : NULL;
+		bool grenades = weapon != NULL && weapon->IsGrenadeLauncherWeapon() && m_firemode[index] >= 4;
+
+		if (!grenades && m_item[m_selected_item] != NULL && m_item[m_selected_item]->IsGrenadeLauncherWeapon())
+			CycleFireMode();
+	}
+
+	if ((s8)m_firemode[m_selected_item] == 0)
+		CycleFireMode();
 }
 
 /* @socom-skeleton stub WillFireWeapon__5CZKitFv */
-void CZKit::WillFireWeapon()
+bool CZKit::WillFireWeapon()
 {
+	/* 0x2a98a0 (Tick): the trigger is down (falling / down; up or rising end the burst), the
+	 * burst allows another round (single 1, burst 3, auto 10000, launcher 1; no ammo: 1), the
+	 * weapon is raised (a direct-fire weapon not fully up waits to raise), the body can fire,
+	 * the fire delay is over and the mag has rounds (infinite ammo, the knife and restraints
+	 * always; binoculars, the restraints/knife ids 0xb7/0xba/0xbb and the designator also
+	 * without). ELF: prints an empty string first. */
+	printf("");
+	u8 trigger = (u8)((CSealCtrl *)m_body->m_control)->m_trigger;
+
+	if (trigger == 0 || trigger == 3)
+	{
+		m_burst_count = 0;
+		return false;
+	}
+
+	s32 burst = 1;
+
+	if (ItemHasAmmo(m_selected_item, (FIREMODE)m_firemode[m_selected_item]))
+	{
+		s32 mode = m_firemode[m_selected_item];
+
+		if (mode == 0)
+			burst = 0;
+		else if (mode == 1 || mode >= 4)
+			burst = 1;
+		else if (mode == 2)
+			burst = 3;
+		else if (mode == 3)
+			burst = 10000;
+		else
+			burst = 0;
+	}
+
+	GetFireDelay();
+	bool down = trigger - 1 <= 1 || m_waiting_to_raise;
+
+	if (down && !m_waiting_to_raise && m_body->m_fire->Weight() < 1.0f && m_item[m_selected_item]->IsDirectFire())
+	{
+		m_waiting_to_raise = 1;
+		return false;
+	}
+
+	if (!down)
+		return false;
+
+	if (m_item[m_selected_item]->IsDirectFire() && m_body->m_fire->Weight() < 1.0f)
+		return false;
+
+	if (burst <= m_burst_count)
+		return false;
+
+	if (!m_body->CanFire())
+		return false;
+
+	if (m_fire_delay > 0.0f)
+		return false;
+
+	bool rounds = true;
+
+	if (!m_body->m_infiniteammo)
+	{
+		if (!WeaponIsGrenadeLauncherMode(m_selected_item))
+		{
+			EQUIP_ITEM id = GetCurItemEnum();
+
+			if (id == EQUIP_ITEM::KNIFE || id == EQUIP_ITEM::RESTRAINTS)
+				rounds = true;
+			else
+				rounds = m_reloads[m_selected_item][m_currentmag[m_selected_item]] > 0;
+		}
+		else
+		{
+			s32 g = m_firemode[m_selected_item] - 3;
+			rounds = m_reloads[g][m_currentmag[g]] > 0;
+		}
+	}
+
+	if (!rounds)
+	{
+		u32 id = (u8)m_item[m_selected_item]->m_ID;
+		bool empty = !(id == 0xb6 || id - 0xba < 2 || id == 0xb7 || id == 0xb);
+
+		if (empty)
+			return false;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub GetFireDelay__5CZKitFv */
 float CZKit::GetFireDelay()
 {
+	/* 0x2a97d0: the weapon's fire wait (0.1 without one); safety 1 s, burst and auto 0.8x,
+	 * launcher modes 0.2x */
+	f32 wait = m_item[m_selected_item] != NULL ? m_item[m_selected_item]->m_firewait : 0.1f;
+	s32 mode = m_firemode[m_selected_item];
+
+	if (mode == 0)
+		return 1.0f;
+
+	if (mode == 1 || mode >= 4)
+		return wait;
+
+	if (mode == 2 || mode == 3)
+		return wait * 0.8f;
+
+	return wait * 0.2f;
 }
 
 /* @socom-skeleton stub DetonateRemoteExplosives__5CZKitFv */
@@ -689,7 +2123,7 @@ void CZKit::HandlePlacingExlosive(EQUIP_ITEM, float, float)
 }
 
 /* @socom-skeleton stub FetchLaseTarget__5CZKitFv */
-void CZKit::FetchLaseTarget()
+bool CZKit::FetchLaseTarget()
 {
 }
 
@@ -704,8 +2138,154 @@ void CZKit::TickLaserDesignator(float)
 }
 
 /* @socom-skeleton stub HandleFireWeapon__5CZKitFiff */
-void CZKit::HandleFireWeapon(int, float, float)
+void CZKit::HandleFireWeapon(int index, float power, float delay)
 {
+	/* 0x2a8a00 (Tick on a ready trigger): the designator lases; scoped through binoculars
+	 * nothing; claymores (at most 4 placed), satchels and the MP bomb are placed (anim, then
+	 * TickExplosives), C4 goes on a wall, the detonator detonates; throwables are thrown with
+	 * enough trigger power. Guns: a round counted and taken from the mag (the grenade slot's
+	 * in a launcher grenade mode), the fire delay set, and the shot fired from the weapon's
+	 * fire point (launcher: "firepoint_203") along the aim goal (the player's launcher aims
+	 * 0.15 higher), spread by the controller and turned into world space. */
+	EQUIP_ITEM id = m_item[index]->m_ID;
+
+	if (id == EQUIP_ITEM::DESIGNATOR)
+	{
+		if (m_lase_mapname == NULL || m_lase_anim == NULL)
+		{
+			if (!FetchLaseTarget())
+			{
+				m_lase_mapname = NULL;
+				m_lase_anim = NULL;
+				m_lase_timer = 0.0f;
+				m_lase_echo = 0;
+				CZWeapon::ClearTimer();
+			}
+
+			if (m_lasesnd_start != NULL)
+				m_lasesnd_start->PlaySound(NULL, 0xff);
+		}
+
+		return;
+	}
+
+	CZSealBody *body = m_body;
+
+	if (body->m_zoomstate == ZOOMSTATE::ZOOMSTATE_BINOCS)
+		return;
+
+	if (id == EQUIP_ITEM::CLAYMORE)
+	{
+		if (CZWeapon::m_pProjectilelist->GetNumRemoteExplosives(body->m_id) < 4)
+		{
+			m_body->PerformAction((AnimType)AnimTypes::PlaceClaymore, SEAL_STATE::stateStand);
+			m_waiting_to_fire = 1;
+			m_firetime = 1.3f;
+			m_burst_count++;
+		}
+		else
+		{
+			theMission.m_messenger.Add_Message("Max Remote Explosives Placed [4]", 0);
+		}
+	}
+	else if (id == EQUIP_ITEM::SATCHEL_CHARGE)
+	{
+		body->PerformAction((AnimType)AnimTypes::PlaceClaymore, SEAL_STATE::stateStand);
+		m_waiting_to_fire = 1;
+		m_firetime = 1.3f;
+		m_burst_count++;
+	}
+	else if (id == EQUIP_ITEM::C4)
+	{
+		/* port: not written - C4 (PerformAction(animTypePutOnWall) with the Timer_PlaceC4
+		 * callback at 0.45 driving m_firetime); C4 is not in the single-player kits here */
+		m_waiting_to_fire = 1;
+		m_firetime = 99.0f;
+		m_burst_count++;
+	}
+	else if (id == EQUIP_ITEM::DETONATOR)
+	{
+		DetonateRemoteExplosives();
+	}
+	else if (id == EQUIP_ITEM::MPBOMB)
+	{
+		body->PerformAction((AnimType)AnimTypes::PlaceClaymore, SEAL_STATE::stateStand);
+		m_waiting_to_fire = 1;
+		m_firetime = 2.25f;
+		m_burst_count++;
+	}
+	else if (m_item[index]->m_type == SEAL_ITEM::itemThrowable)
+	{
+		if (power < body->GetDynamics()->m_throw_params.m_abort_threshold || m_body->IsThrowing(false))
+		{
+			((CSealCtrl *)m_body->m_control)->TriggerPowerReset();
+		}
+		else if (!m_body->BeginThrowItem(power, m_firetime))
+		{
+			m_waiting_to_fire = 0;
+			m_firetime = 0.0f;
+		}
+		else
+		{
+			m_waiting_to_fire = 1;
+		}
+	}
+	else
+	{
+		m_burst_count++;
+		s32 slot = unwrap(index, m_num_items);
+		s32 wrapped = unwrap(slot, m_num_items);
+		CZFTSWeapon *weapon = wrapped != -1 ? m_item[wrapped] : NULL;
+		bool launcher = weapon != NULL && weapon->IsGrenadeLauncherWeapon() && m_firemode[slot] >= 4;
+
+		if (launcher)
+		{
+			if (!m_body->m_infiniteammo)
+			{
+				s32 g = unwrap(m_firemode[index] - 3, m_num_items);
+				m_weaponinfoChanged = 1;
+
+				if (m_reloads[g][m_currentmag[g]] > 0)
+					m_reloads[g][m_currentmag[g]]--;
+			}
+		}
+		else if (!m_body->m_infiniteammo)
+		{
+			s32 g = unwrap(index, m_num_items);
+			m_weaponinfoChanged = 1;
+
+			if (m_reloads[g][m_currentmag[g]] > 0)
+				m_reloads[g][m_currentmag[g]]--;
+		}
+
+		m_fire_delay = delay;
+		slot = unwrap(m_selected_item, m_num_items);
+		wrapped = unwrap(slot, m_num_items);
+		weapon = wrapped != -1 ? m_item[wrapped] : NULL;
+		launcher = weapon != NULL && weapon->IsGrenadeLauncherWeapon() && m_firemode[slot] >= 4;
+		CPnt3D from;
+		bool found = launcher ? m_body->GetFirepointPos(from, "firepoint_203") : m_body->GetFirepointPos(from, "firepoint");
+
+		if (!found)
+			return;
+
+		CPnt3D dir = m_body->m_aim_goal;
+
+		if (launcher)
+		{
+			CEntityCtrl *ctrl = m_body->m_control;
+
+			if (ctrl != NULL && ((CSealCtrl *)ctrl)->IsPlayer())
+			{
+				dir.y += 0.15f;
+				dir.Normalize();
+			}
+		}
+
+		((CSealCtrl *)m_body->m_control)->PerturbAimVector(&dir);
+		m_body->m_quat.Apply(&dir, &dir, 1);
+		CZProjectile *shot = Fire(index, &from, &dir, &m_body->m_velW);
+	}
 }
 
 /* @socom-skeleton stub IsZoomed__5CZKitFv */
@@ -737,11 +2317,48 @@ float CZKit::GetCurZoom()
 /* @socom-skeleton stub UpdateCurItemReticule__5CZKitFv */
 int CZKit::UpdateCurItemReticule()
 {
+	/* 0x2a8890 (BitmapReticule::HudTick): the reticule's spread limits from the selected
+	 * weapon's target mods for the stance (none: 0); returns the current reticule. ELF
+	 * quirk kept: the explosive category (150) counts as a firearm here. */
+	EQUIP_ITEM type = EQUIP_ITEM::EQUIP_END;
+
+	if (m_item[m_selected_item] != NULL)
+		type = m_item[m_selected_item]->GetIDType();
+
+	if ((u8)type < 151 && type != EQUIP_ITEM::EQUIP_GRENADE)
+	{
+		/* ELF: __dynamic_cast of the item to CZFTSWeapon; every kit item is one */
+		CZFTSWeapon *weapon = m_item[m_selected_item];
+
+		if (weapon != NULL)
+		{
+			CTargetMods *mods = weapon->TargetMods((int)m_body->GetStance(false));
+			m_retmin = mods->GetTarget_Min();
+			m_retmax = mods->GetTarget_Max();
+		}
+	}
+	else
+	{
+		m_retmin = 0.0f;
+		m_retmax = 0.0f;
+	}
+
+	return m_curitemreticule;
 }
 
 /* @socom-skeleton stub CurReticuleTypeChanged__5CZKitFv */
-void CZKit::CurReticuleTypeChanged()
+bool CZKit::CurReticuleTypeChanged()
 {
+	/* 0x2a8830: read and clear the reticule-changed bit; a change is a little adrenaline */
+	bool changed = m_reticuletypeChanged;
+
+	if (changed)
+	{
+		m_reticuletypeChanged = 0;
+		m_body->AdrenalineIncr(0.5f);
+	}
+
+	return changed;
 }
 
 /* @socom-skeleton stub SetCurReticule__5CZKitFv */
@@ -819,18 +2436,78 @@ int CZKit::GetReticuleByIndex(int index)
 }
 
 /* @socom-skeleton stub GetItemName__5CZKitFi */
-char * CZKit::GetItemName(int)
+char * CZKit::GetItemName(int item)
 {
+	/* 0x2a8510: the item's name (wrapped over the items; none: NULL) */
+	s32 count = m_num_items;
+
+	if (item == count || count == 0)
+	{
+		item = -1;
+	}
+	else
+	{
+		while (item >= count)
+			item -= count;
+
+		while (item < 0)
+			item += count;
+	}
+
+	if (item == -1)
+		return NULL;
+
+	return m_item[item]->GetName();
 }
 
 /* @socom-skeleton stub GetFiremodeGraphic__5CZKitFi */
-zdb::CTexHandle * CZKit::GetFiremodeGraphic(int)
+zdb::CTexHandle * CZKit::GetFiremodeGraphic(int item)
 {
+	/* 0x2a8440: a launcher grenade's icon (the HUD fire mode bitmap). ELF quirk kept: the
+	 * wrapped index is only tested, the item is read at the given one. */
+	s32 count = m_num_items;
+	s32 wrapped = -1;
+
+	if (item != count && count != 0)
+	{
+		wrapped = item;
+
+		while (wrapped >= count)
+			wrapped -= count;
+
+		while (wrapped < 0)
+			wrapped += count;
+	}
+
+	if (wrapped == -1 || !m_item[item]->IsGrenadeLauncherAmmo())
+		return NULL;
+
+	return m_item[item]->m_icontex;
 }
 
 /* @socom-skeleton stub GetFiremodeName__5CZKitFi */
-char * CZKit::GetFiremodeName(int)
+char * CZKit::GetFiremodeName(int item)
 {
+	/* 0x2a8370: a launcher grenade's name (the HUD fire mode text); same quirk as
+	 * GetFiremodeGraphic */
+	s32 count = m_num_items;
+	s32 wrapped = -1;
+
+	if (item != count && count != 0)
+	{
+		wrapped = item;
+
+		while (wrapped >= count)
+			wrapped -= count;
+
+		while (wrapped < 0)
+			wrapped += count;
+	}
+
+	if (wrapped == -1 || !m_item[item]->IsGrenadeLauncherAmmo())
+		return NULL;
+
+	return m_item[item]->GetName();
 }
 
 /* @socom-skeleton stub GetIcon__5CZKitFi */
@@ -844,8 +2521,10 @@ int CZKit::GetSelectedItemNum()
 }
 
 /* @socom-skeleton stub GetNumItems__5CZKitCFv */
-int CZKit::GetNumItems() const
+s32 CZKit::GetNumItems() const
 {
+	/* 0x2a82a0 */
+	return m_num_items;
 }
 
 /* @socom-skeleton stub SetBody__5CZKitFP10CZSealBody */
@@ -856,18 +2535,44 @@ void CZKit::SetBody(CZSealBody *body)
 }
 
 /* @socom-skeleton stub SetItem__5CZKitFUi10EQUIP_ITEM */
-bool CZKit::SetItem(unsigned int, EQUIP_ITEM)
+bool CZKit::SetItem(unsigned int index, EQUIP_ITEM id)
 {
+	/* 0x2a8220: the weapon list's item into a slot below 30 */
+	CZWeapon *weapon = CZWeapon::m_listWeapons.GetWeapon(id);
+
+	if (weapon == NULL || index >= 30)
+		return false;
+
+	SetItemByIndex(index, weapon);
+	return true;
 }
 
 /* @socom-skeleton stub SetItemAmmo__5CZKitFUiP6CZAmmoii */
-void CZKit::SetItemAmmo(unsigned int, CZAmmo *, int, int)
+bool CZKit::SetItemAmmo(unsigned int index, CZAmmo *ammo, int count, int mags)
 {
+	/* 0x2a8130: the ammo (the weapon's default without one) and up to 10 mags of count.
+	 * ELF quirk: the default-ammo lookup indexes m_item before the range test. */
+	if (ammo == NULL && m_item[index] != NULL)
+		ammo = m_item[index]->GetDefaultAmmo();
+
+	if (ammo == NULL || index >= 30 || m_item[index] == NULL)
+		return false;
+
+	for (s32 i = 0; i < mags && i < 10; i++)
+		m_reloads[index][i] = count;
+
+	m_ammo[index] = ammo;
+	return true;
 }
 
 /* @socom-skeleton stub SetItemAmmo__5CZKitFUiP6CZAmmo */
-unsigned char CZKit::SetItemAmmo(unsigned int, CZAmmo *)
+bool CZKit::SetItemAmmo(unsigned int index, CZAmmo *ammo)
 {
+	/* 0x2a80a0: full mags (the weapon's capacity and mag count) */
+	if (index >= 30 || m_item[index] == NULL)
+		return false;
+
+	return SetItemAmmo(index, ammo, m_item[index]->GetAmmoCapacity(), m_item[index]->GetNumMags());
 }
 
 /* @socom-skeleton stub isSelectableItem__5CZKitFi */
@@ -881,45 +2586,221 @@ void CZKit::ItemHasAmmo(EQUIP_ITEM)
 }
 
 /* @socom-skeleton stub CurItemHasAmmo__5CZKitFv */
-unsigned char CZKit::CurItemHasAmmo()
+bool CZKit::CurItemHasAmmo()
 {
+	/* 0x2a7db0: the selected item (its grenade slot in a launcher grenade mode) has a
+	 * loaded mag */
+	s32 index = m_selected_item;
+	u8 mode = (u8)m_firemode[index];
+
+	if (index >= m_num_items)
+		return false;
+
+	s32 slot = unwrap(index, m_num_items);
+	CZFTSWeapon *weapon = slot != -1 ? m_item[slot] : NULL;
+
+	if (weapon == NULL || (!weapon->IsM203Weapon() && !weapon->IsGrenadeLauncherWeapon()) || mode < 4)
+		return ItemHasAmmo(index);
+
+	return ItemHasAmmo(mode - 3);
 }
 
 /* @socom-skeleton stub ItemHasAmmo__5CZKitFi8FIREMODE */
-void CZKit::ItemHasAmmo(int, FIREMODE)
+bool CZKit::ItemHasAmmo(int index, FIREMODE mode)
 {
+	/* 0x2a7c50: a launcher in a grenade mode checks that grenade slot (mode - 3), else the
+	 * slot's own mags */
+	if (index >= m_num_items)
+		return false;
+
+	s32 slot = unwrap(index, m_num_items);
+	CZFTSWeapon *weapon = slot != -1 ? m_item[slot] : NULL;
+
+	if (weapon != NULL && (weapon->IsM203Weapon() || weapon->IsGrenadeLauncherWeapon()) && (u8)mode > 3)
+	{
+		if ((s32)(u8)mode - 3 >= m_num_items)
+			return false;
+
+		for (s32 j = 0; j < 10; j++)
+		{
+			if (m_reloads[(u8)mode - 3][j] > 0)
+				return true;
+		}
+
+		return false;
+	}
+
+	for (s32 j = 0; j < 10; j++)
+	{
+		if (m_reloads[index][j] > 0)
+			return true;
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub ItemHasAmmo__5CZKitFi */
-void CZKit::ItemHasAmmo(int)
+bool CZKit::ItemHasAmmo(int index)
 {
+	/* 0x2a7bf0: a loaded mag */
+	if (index < m_num_items)
+	{
+		for (s32 j = 0; j < 10; j++)
+		{
+			if (m_reloads[index][j] > 0)
+				return true;
+		}
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub CurWeaponIsM203Mode__5CZKitFv */
 bool CZKit::CurWeaponIsM203Mode()
 {
-	/* port: not written (0x2a7b50: the current weapon slot's M203 weapon in a launcher
-	   fire mode, mode >= 4); reached only with a weapon whose part has no aim point */
+	/* 0x2a7b50: the selected slot's M203 weapon in a launcher fire mode (4 and up). ELF:
+	 * the selection is wrapped twice, the fire mode read at the once-wrapped index. */
+	s32 index = unwrap(m_selected_item, m_num_items);
+	s32 slot = unwrap(index, m_num_items);
+	CZFTSWeapon *weapon = slot != -1 ? m_item[slot] : NULL;
+
+	if (weapon == NULL || !weapon->IsM203Weapon() || m_firemode[index] < 4)
+		return false;
+
+	return true;
 }
 
 /* @socom-skeleton stub WeaponIsGrenadeLauncherMode__5CZKitFi */
-void CZKit::WeaponIsGrenadeLauncherMode(int)
+bool CZKit::WeaponIsGrenadeLauncherMode(int index)
 {
+	/* 0x2a7a50: the slot's grenade launcher in a launcher fire mode (4 and up); the index is
+	 * wrapped (inline, then once more) */
+	index = unwrap(index, m_num_items);
+	s32 slot = unwrap(index, m_num_items);
+	CZFTSWeapon *weapon = slot != -1 ? m_item[slot] : NULL;
+
+	if (weapon == NULL || !weapon->IsGrenadeLauncherWeapon() || m_firemode[index] < 4)
+		return false;
+
+	return true;
 }
 
 /* @socom-skeleton stub CurMagHasAmmo__5CZKitFv */
-void CZKit::CurMagHasAmmo()
+bool CZKit::CurMagHasAmmo()
 {
+	/* 0x2a7880: infinite ammo, or rounds in the current mag (the grenade slot's in a launcher
+	 * grenade mode); the knife and restraints always */
+	if (m_body->m_infiniteammo)
+		return true;
+
+	s32 index = unwrap(m_selected_item, m_num_items);
+	s32 slot = unwrap(index, m_num_items);
+	CZFTSWeapon *weapon = slot != -1 ? m_item[slot] : NULL;
+	bool launcher = weapon != NULL && weapon->IsGrenadeLauncherWeapon() && m_firemode[index] >= 4;
+
+	if (launcher)
+	{
+		s32 g = m_firemode[m_selected_item] - 3;
+		return m_reloads[g][m_currentmag[g]] > 0;
+	}
+
+	CZFTSWeapon *current = m_item[m_selected_item];
+
+	if (current != NULL && current->IsGrenadeLauncherWeapon() && m_firemode[m_selected_item] > 3)
+		current = m_item[m_firemode[m_selected_item] - 3];
+
+	EQUIP_ITEM id = current != NULL ? current->m_ID : EQUIP_ITEM::EQUIP_NONE;
+
+	if (id == EQUIP_ITEM::KNIFE || id == EQUIP_ITEM::RESTRAINTS)
+		return true;
+
+	return m_reloads[m_selected_item][m_currentmag[m_selected_item]] > 0;
 }
 
 /* @socom-skeleton stub SetCurAccuracy__5CZKitFv */
 void CZKit::SetCurAccuracy()
 {
+	/* 0x2a75a0 (CSealCtrl::PreTick): the body's aim spread from the reticule: the knock
+	 * offset (x, -y) and size (x5; scoped: the sniper drift, no size) as tangents of the
+	 * camera's FOV per screen pixel, scaled by the aim point's depth past the fire point; the
+	 * size grows past the weapon's burst count minimum by its accuracy slope */
+	f32 offx = m_retoffsetx;
+	zdb::CCamera *camera = zdb::CWorld::m_world->m_camera;
+	f32 offy = m_retoffsety * -1.0f;
+	ZOOMSTATE zoom = m_body->m_zoomstate;
+	f32 size = m_retsize * 5.0f;
+	f32 fovx = 640.0f / camera->m_scrZ;
+	f32 fovy = (fovx * 448.0f) / 640.0f;
+
+	if ((int)zoom > (int)ZOOMSTATE::ZOOMSTATE_BINOCS || zoom == ZOOMSTATE::ZOOMSTATE_BINOCS)
+	{
+		size = 0.0f;
+		m_screenoffset_x += m_sniper_posx;
+		m_retoffsetx = -m_sniper_posx;
+		m_screenoffset_y += -m_sniper_posy;
+		m_retoffsety = -m_sniper_posy;
+		offx = m_retoffsetx;
+		offy = m_retoffsety;
+	}
+
+	f32 aspect = camera->m_screenAspect.y;
+	CZSealBody *player = ftsGetPlayer();
+	CPnt3D aim = player->m_aim_point;
+	CPnt3D fire;
+	player->m_curr_firepos.Add(player->GetPosW(), &fire);
+	f32 za = camera->GetZ(&aim);
+	f32 zf = camera->GetZ(&fire);
+	f32 depth = 1.0f;
+
+	if (za - zf != 0.0f)
+		depth = za / (aspect * (za - zf));
+
+	CZFTSWeapon *weapon;
+	GetWeapon(m_selected_item, &weapon, NULL);
+
+	if (weapon != NULL)
+	{
+		s32 over = (m_burst_count + 1) - weapon->AccuracyBurstCnt_Min();
+
+		if (over > 0)
+		{
+			if (weapon->AccuracyBurstCnt_Max() < over)
+				over = weapon->AccuracyBurstCnt_Max();
+
+			size = size + size * (f32)over * weapon->m_accuracy_slope;
+		}
+	}
+
+	CZSealBody *body = m_body;
+	body->m_accuracy.FactorX = offx * depth * (tanf(fovx * 0.5f) / 320.0f);
+	body->m_accuracy.FactorY = offy * depth * (tanf(fovy * 0.5f) / 224.0f);
+	m_body->m_accuracy.Factor = size * (tanf(fovy * 0.5f) / 224.0f) * 0.707f;
 }
 
 /* @socom-skeleton stub GetTotalEnc__5CZKitFv */
-int CZKit::GetTotalEnc()
+s32 CZKit::GetTotalEnc()
 {
+	/* 0x2a74d0: per item 1..4 by its encumbrance class (light 1 .. very heavy 4) */
+	s32 total = 0;
+
+	for (s32 i = 0; i < m_num_items; i++)
+	{
+		if (m_item[i] == NULL)
+			continue;
+
+		u8 enc = (u8)m_item[i]->GetEncumbrance();
+
+		if (enc == 0)
+			total += 1;
+		else if (enc == 1)
+			total += 2;
+		else if (enc == 2)
+			total += 3;
+		else if (enc == 3)
+			total += 4;
+	}
+
+	return total;
 }
 
 /* @socom-skeleton stub FireGrenade__5CZKitFPC6CPnt3DPC6CPnt3D */
@@ -938,18 +2819,73 @@ void CZKit::FillWeaponEnum(int, CZFTSWeapon **)
 }
 
 /* @socom-skeleton stub SetItemByIndex__5CZKitFiP8CZWeapon */
-void CZKit::SetItemByIndex(int, CZWeapon *)
+void CZKit::SetItemByIndex(int index, CZWeapon *weapon)
 {
+	/* 0x2a6cd0: the weapon into a slot (index < 31: ELF quirk, slot 30 is past m_item),
+	 * fire mode 0, its associated gear; encumbrance and HUD refresh; replacing the selected
+	 * item drops a magnifying zoom; the controller's trigger power is cleared and its HUD
+	 * weapon update requested. */
+	if (weapon == NULL || index >= 31)
+		return;
+
+	if (index >= m_num_items)
+		m_num_items = index + 1;
+
+	m_item[index] = (CZFTSWeapon *)weapon;
+	m_firemode[index] = 0;
+	m_associatedgear[index] = ((CCharacterGearList &)CCharacterType::m_gear_list).FindGear(weapon->GetAssociatedGearName());
+	m_body->SetMoveWeaponEncumbMod();
+	m_weaponinfoChanged = 1;
+
+	if (m_selected_item == index)
+	{
+		f32 range = 1.0f;
+		CZFTSWeapon *current = m_item[m_selected_item];
+
+		if (current != NULL)
+		{
+			u32 level = (u32)((s32)(s8)m_body->m_zoomstate - 3);
+
+			if (level < current->m_zoommode.size())
+				range = current->GetZoomRange(level);
+		}
+
+		if (range > 1.5f)
+			((CSealCtrl *)m_body->m_control)->SetCameraZoom(1.0f, 0.5f);
+
+		m_cur_zoom = 0;
+	}
+
+	CSealCtrl *ctrl = (CSealCtrl *)m_body->m_control;
+	ctrl->m_trigger_power = 0.0f;
+	ctrl->m_HudUpdateWeapon = 1;
 }
 
 /* @socom-skeleton stub CurItemHasFiremodeGraphic__5CZKitFv */
-void CZKit::CurItemHasFiremodeGraphic()
+bool CZKit::CurItemHasFiremodeGraphic()
 {
+	/* 0x2a6c40: an item that is not thrown, binoculars, the knife or restraints (the
+	 * unwrap's result is unused in the ELF) */
+	unwrap(m_selected_item, m_num_items);
+	CZFTSWeapon *item = m_item[m_selected_item];
+
+	if (item == NULL || item->m_type == SEAL_ITEM::itemThrowable)
+		return false;
+
+	EQUIP_ITEM id = item->m_ID;
+	return id != EQUIP_ITEM::BINOCULARS && id != EQUIP_ITEM::KNIFE && id != EQUIP_ITEM::RESTRAINTS;
 }
 
 /* @socom-skeleton stub WeaponInfoChanged__5CZKitFv */
-void CZKit::WeaponInfoChanged()
+bool CZKit::WeaponInfoChanged()
 {
+	/* 0x2a6c00: read and clear the weapon-info bit (the HUD's ammo / fire mode refresh) */
+	bool changed = m_weaponinfoChanged;
+
+	if (changed)
+		m_weaponinfoChanged = 0;
+
+	return changed;
 }
 
 /* @socom-skeleton stub HandlePlaceMPBomb__5CZKitFPC6CPnt3D */
@@ -1000,6 +2936,22 @@ void CZKit::RemoveItemAndAmmo(int)
 /* @socom-skeleton stub UpdateNumItems__5CZKitFv */
 void CZKit::UpdateNumItems()
 {
+	/* 0x2a57b0: past the last used slot; an empty or out-of-range selection goes to 0 */
+	s32 last = -1;
+
+	for (s32 i = 0; i < 30; i++)
+	{
+		if (m_item[i] != NULL)
+			last = i;
+	}
+
+	m_num_items = last + 1;
+
+	if (m_num_items < m_selected_item || m_item[m_selected_item] == NULL)
+	{
+		m_selected_item = 0;
+		m_weaponinfoChanged = 1;
+	}
 }
 
 /* @socom-skeleton stub PendingPickupHandled__5CZKitFv */
@@ -1010,6 +2962,8 @@ void CZKit::PendingPickupHandled()
 /* @socom-skeleton stub SetWeaponInfoChanged__5CZKitFv */
 void CZKit::SetWeaponInfoChanged()
 {
+	/* 0x2a5760 */
+	m_weaponinfoChanged = 1;
 }
 
 /* @socom-skeleton stub IsUsingScope__5CZKitFv */

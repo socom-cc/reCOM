@@ -1142,8 +1142,15 @@ void CSealCtrl::SetCameraZoom(float level, float increment)
 }
 
 /* @socom-skeleton stub UpdateHudWeapon__9CSealCtrlFv */
-void CSealCtrl::UpdateHudWeapon()
+bool CSealCtrl::UpdateHudWeapon()
 {
+	/* 0x2843b0 (CHUD::Tick): read and clear the weapon-changed bit */
+	bool changed = m_HudUpdateWeapon;
+
+	if (changed)
+		m_HudUpdateWeapon = 0;
+
+	return changed;
 }
 
 /* @socom-skeleton stub GetZoomLevel__9CSealCtrlFv */
@@ -1173,11 +1180,24 @@ unsigned char IsRumbleOn()
 }
 
 /* @socom-skeleton stub SetHighRumbleTime__9CSealCtrlFf */
-void CSealCtrl::SetHighRumbleTime(float)
+void CSealCtrl::SetHighRumbleTime(float time)
 {
+	/* 0x284320 */
+	if (RumbleIsOn && m_highrumbletime < time)
+		m_highrumbletime = time;
 }
 
 /* @socom-skeleton stub SetLowRumbleTime__9CSealCtrlFff */
-void CSealCtrl::SetLowRumbleTime(float, float)
+void CSealCtrl::SetLowRumbleTime(float time, float strength)
 {
+	/* 0x2842c0: with rumble on, a stronger (or a new, the old one out) low rumble and a
+	 * longer time win */
+	if (!RumbleIsOn)
+		return;
+
+	if (m_rumblestr < strength || m_rumbletime <= 0.0f)
+		m_rumblestr = strength;
+
+	if (m_rumbletime < time)
+		m_rumbletime = time;
 }

@@ -141,8 +141,19 @@ zdb::CModel* CachedModel(const char* name)
 }
 
 /* @socom-skeleton stub FindGear__18CCharacterGearListCFPCc */
-CCharacterGear * CCharacterGearList::FindGear(const char *) const
+CCharacterGear * CCharacterGearList::FindGear(const char *name) const
 {
+	/* 0x24b0c0: by name (strcmp); NULL for a NULL name */
+	if (name == NULL)
+		return NULL;
+
+	for (const_iterator it = begin(); it != end(); ++it)
+	{
+		if (strcmp(name, (*it)->m_name) == 0)
+			return *it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub AddWeapon__18CCharacterWeapListF10EQUIP_ITEM */

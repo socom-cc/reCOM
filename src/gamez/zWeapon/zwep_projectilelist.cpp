@@ -31,6 +31,11 @@
 #include "zweapon.h"
 #include "zwep_projectilelist.h"
 /* @socom-skeleton end include */
+#include "gamez/zNode/node_world.h" /* CWorld::m_scale (ZWepReader::Read) */
+#include "gamez/zNetwork/znet.h" /* theNetwork (Clear) */
+#include "gamez/zEntity/zentity.h" /* CPickup::Destroy */
+#include <string.h>
+#include <stdio.h>
 /* @socom-skeleton decl forward */
 class PlacedExplosive;
 /* @socom-skeleton end forward */
@@ -48,105 +53,455 @@ ZWepReader::~ZWepReader()
 /* @socom-skeleton body Read__10ZWepReaderFRQ23zar4CZARP12CZWeaponListP10CZAmmoList */
 bool ZWepReader::Read(zar::CZAR &archive, CZWeaponList *weapons, CZAmmoList *ammo)
 {
-	u32 version = 0;
-
+	/* 0x31b920 (CZWeapon::Init, run/zweapon.zar): version 1, then the Ammunition key (AMMO%d
+	 * entries) and the Weapons key (WEP%d entries: a CZFTSWeapon each, appended to the list).
+	 * Distances are scaled by the world scale. ELF quirks kept: an ammo is added only when it
+	 * has an ExplosionRadius (others leak); a weapon's NumMags is set only when its ID was
+	 * found; ReloadAfterShot sets the flag on a positive value only. Was a provisional body
+	 * (version 0, ammo setters commented out, no weapons). */
+	s32 count = 0;
+	s32 version = 0;
 	archive.Fetch("WEAPON_ZAR_VERSION", &version);
-	
-	if (version != 0)
-	{
+
+	if (version != 1)
 		return false;
-	}
 
-	char key_name_buf[256];
-	char str_val[256];
-	s32 int_val;
-	f32 f_val;
-	
-	auto ammunition_key = archive.OpenKey("Ammunition");
-	snprintf(key_name_buf, 256, "AMMO:NumEntries"); /* port: was MSVC sprintf_s (twice in this body) */
-	u32 num_ammo_entries = 0;
-	
-	if (archive.Fetch(key_name_buf, &num_ammo_entries))
+	char key[256];
+	char str[256];
+	char mod[128];
+	s32 ival;
+	f32 fval;
+	zar::CKey *section = archive.OpenKey("Ammunition");
+	sprintf(key, "AMMO:NumEntries");
+
+	if (archive.Fetch(key, &count))
 	{
-		for (u32 i = 0; i < num_ammo_entries; i++)
+		for (s32 i = 0; i < count; i++)
 		{
-			snprintf(key_name_buf, 256, "AMMO%d", i);
-			auto key = archive.OpenKey(key_name_buf);
+			sprintf(key, "AMMO%d", i);
+			zar::CKey *entry = archive.OpenKey(key);
+			CZAmmo *zammo = new CZAmmo();
 
-			CZAmmo zammo;
+			if (archive.FetchString("Name", str, 255) > 0)
+				zammo->SetName(str);
 
-			if (archive.FetchString("Name", str_val, 255))
-			{
-				// zammo.SetName(str_val);
-			}
+			if (archive.Fetch("ID", &ival))
+				zammo->m_ID = (EQUIP_AMMO)ival;
 
-			if (archive.Fetch("ID", &int_val))
-			{
-				// zammo.SetID(int_val);
-			}
+			if (archive.FetchString("DESCRIPTION", str, 255) > 0)
+				zammo->SetDescription(str);
 
-			if (archive.FetchString("DESCRIPTION", str_val, 255))
-			{
-				// zammo.SetDescription(str_val);
-			}
+			if (archive.FetchString("HitAnimName", str, 255) > 0)
+				zammo->SetHitAnim(str);
 
-			if (archive.FetchString("HitAnimName", str_val, 255))
-			{
-				// zammo.SetHitAnimName(str_val);
-			}
+			if (archive.Fetch("ImpactDamage", &fval))
+				zammo->SetImpactDamage(fval);
 
-			if (archive.Fetch("ImpactDamage", &f_val))
-			{
-				// zammo.SetImpactDamage(f_val);
-			}
+			if (archive.Fetch("Stun", &fval))
+				zammo->SetStun(fval);
 
-			if (archive.Fetch("Stun", &f_val))
-			{
-				// zammo.SetStun(f_val);
-			}
+			if (archive.Fetch("ArmorPierce", &fval))
+				zammo->SetArmorPierce(fval);
 
-			if (archive.Fetch("ArmorPierce", &f_val))
-			{
-				// zAmmo.SetArmorPierce(f_val);
-			}
+			if (archive.Fetch("ExplosionDamage", &fval))
+				zammo->SetExplosionDamage(fval);
 
-			if (archive.Fetch("ExplosionDamage", &f_val))
-			{
-				// zammo.SetExplosionDamage(f_val);
-			}
+			bool radius = archive.Fetch("ExplosionRadius", &fval);
 
-			if (archive.Fetch("ExplosionRadius", &f_val))
-			{
-				// zammo.SetExplosionRadius(f_val);
-			}
+			if (radius)
+				zammo->SetExplosionRadius(fval * zdb::CWorld::m_scale);
 
-			// ammo.AddAmmo(&ammo);
+			if (radius)
+				ammo->AddAmmo(zammo);
 
-			archive.CloseKey(key);
+			if (entry != NULL)
+				archive.CloseKey(entry);
 		}
 	}
 
+	if (section != NULL)
+		archive.CloseKey(section);
+
+	section = archive.OpenKey("Weapons");
+	count = 0;
+	sprintf(key, "WEP:NumEntries");
+
+	if (archive.Fetch(key, &count))
+	{
+		for (s32 i = 0; i < count; i++)
+		{
+			sprintf(key, "WEP%d", i);
+			zar::CKey *entry = archive.OpenKey(key);
+			CZFTSWeapon *weapon = new CZFTSWeapon();
+
+			if (archive.FetchString("Name", str, 255) > 0)
+				weapon->SetName(str);
+			else
+				weapon->SetName(NULL);
+
+			if (archive.FetchString("Description", str, 255) > 0)
+				weapon->SetDescription(str);
+
+			if (archive.Fetch("BurstMode", &ival))
+				weapon->SetHasFireMode(FIREMODE::BURST);
+
+			if (archive.Fetch("SingleMode", &ival))
+				weapon->SetHasFireMode(FIREMODE::SINGLE);
+
+			if (archive.Fetch("AutoMode", &ival))
+				weapon->SetHasFireMode(FIREMODE::AUTOFIRE);
+
+			if (archive.Fetch("AmmoCapacity", &ival))
+				weapon->SetAmmoCapacity(ival);
+
+			if (archive.Fetch("SoundRadius", &fval))
+				weapon->SetSoundRadius(fval * zdb::CWorld::m_scale);
+
+			if (archive.Fetch("ImpactRadius", &fval))
+				weapon->SetImpactRadius(fval * zdb::CWorld::m_scale);
+
+			if (archive.Fetch("Encumbrance", &ival))
+				weapon->SetEncumbrance((ENCUMBRANCE)(u8)ival);
+
+			if (archive.Fetch("MaxRange", &fval))
+				weapon->SetMaxRange(fval * zdb::CWorld::m_scale);
+
+			bool id = archive.Fetch("ID", &ival);
+
+			if (id)
+				weapon->m_ID = (EQUIP_ITEM)ival;
+
+			archive.Fetch("ai_params", &weapon->m_ai_params, 12);
+			weapon->m_ai_params.SetDefaults(weapon->m_ID);
+			archive.Fetch("NumMags", &ival);
+
+			if (id)
+				weapon->SetNumMags(ival);
+
+			if (archive.Fetch("EffectiveRange", &fval))
+				weapon->SetEffectiveRange(fval * zdb::CWorld::m_scale);
+
+			if (archive.Fetch("MuzzleVelocity", &fval))
+				weapon->SetMuzzleVelocity(fval * zdb::CWorld::m_scale);
+
+			weapon->SetFireAnimName(archive.FetchString("FireAnimName", str, 255) > 0 ? str : NULL);
+			weapon->SetHitAnimName(archive.FetchString("HitAnimName", str, 255) > 0 ? str : NULL);
+			weapon->SetDefaultSpecialAnimName(archive.FetchString("DefaultSpecialAnimName", str, 255) > 0 ? str : NULL);
+			weapon->SetSpecialMaterialAnimName(archive.FetchString("SpecialMaterialAnimName", str, 255) > 0 ? str : NULL);
+
+			if (archive.FetchString("DecalSetName", str, 255) <= 0)
+				sprintf(str, "NODECAL");
+
+			weapon->SetDecalSetName(str);
+
+			if (archive.FetchString("IconTextureName", str, 255) > 0)
+				weapon->SetIconTextureName(str);
+
+			if (archive.FetchString("AssociatedGearName", str, 255) > 0)
+				weapon->SetAssociatedGearName(str);
+
+			if (archive.FetchString("ModelName", str, 255) > 0)
+				weapon->SetModelName(str);
+
+			weapon->SetReloadSoundName(archive.FetchString("ReloadSound", str, 255) > 0 ? str : NULL);
+
+			if (archive.Fetch("ReloadTime", &fval))
+				weapon->m_reloadtime = fval;
+
+			s32 after = 0;
+			archive.Fetch("ReloadAfterShot", &after);
+
+			if (after > 0)
+				weapon->m_reloadAfterShot = true;
+
+			s32 legal = 0; /* port: the ELF's slot (sp+796) is not initialised */
+			archive.Fetch("LegAmmoLen", &legal);
+
+			for (s32 j = 0; j < legal; j++)
+			{
+				sprintf(key, "LegAmmo%d", j);
+
+				if (archive.FetchString(key, str, 255) > 0)
+				{
+					CZAmmo *found = ammo->GetAmmo(str);
+
+					if (found != NULL)
+						weapon->AddLegalAmmo(found);
+				}
+			}
+
+			if (archive.Fetch("RumbleHighTime", &fval))
+				weapon->SetRumbleHigh_Time(fval);
+
+			if (archive.Fetch("RumbleLowTime", &fval))
+				weapon->SetRumbleLow_Time(fval);
+
+			if (archive.Fetch("RumbleLowPower", &fval))
+				weapon->SetRumbleLow_Power(fval);
+
+			for (s32 stance = 0; stance < 3; stance++)
+			{
+				CTargetMods *mods = weapon->TargetMods(stance);
+				sprintf(mod, "RK(%d)", stance);
+
+				if (archive.Fetch(mod, &fval))
+					mods->SetReticuleKnock(fval);
+
+				sprintf(mod, "RKR(%d)", stance);
+
+				if (archive.Fetch(mod, &fval))
+					mods->SetReticuleKnock_Return(fval);
+
+				sprintf(mod, "RKMax(%d)", stance);
+
+				if (archive.Fetch(mod, &fval))
+					mods->SetReticuleKnock_Max(fval);
+
+				sprintf(mod, "TDUF(%d)", stance);
+
+				if (archive.Fetch(mod, &fval))
+					mods->SetTarget_DilateUponFire(fval);
+
+				sprintf(mod, "TDUM(%d)", stance);
+
+				if (archive.Fetch(mod, &fval))
+					mods->SetTarget_DilateUponMovement(fval);
+
+				sprintf(mod, "TC(%d)", stance);
+
+				if (archive.Fetch(mod, &fval))
+					mods->SetTarget_Constrict(fval);
+
+				sprintf(mod, "TMin(%d)", stance);
+
+				if (archive.Fetch(mod, &fval))
+					mods->SetTarget_Min(fval);
+
+				sprintf(mod, "TMax(%d)", stance);
+
+				if (archive.Fetch(mod, &fval))
+					mods->SetTarget_Max(fval);
+
+				sprintf(mod, "SDPPFrameX(%d)", stance);
+
+				if (archive.Fetch(mod, &fval))
+					mods->SetSniper_DistPPFrame_PosX(fval);
+
+				sprintf(mod, "SDLimitX(%d)", stance);
+
+				if (archive.Fetch(mod, &fval))
+					mods->SetSniper_DistLimit_PosX(fval);
+
+				sprintf(mod, "SDPPFrameY(%d)", stance);
+
+				if (archive.Fetch(mod, &fval))
+					mods->SetSniper_DistPPFrame_PosY(fval);
+
+				sprintf(mod, "SDLimitY(%d)", stance);
+
+				if (archive.Fetch(mod, &fval))
+					mods->SetSniper_DistLimit_PosY(fval);
+
+				sprintf(mod, "SDR(%d)", stance);
+
+				if (archive.Fetch(mod, &fval))
+					mods->SetSniper_DecayRate(fval);
+
+				sprintf(mod, "FRKR(%d)", stance);
+
+				if (archive.Fetch(mod, &fval))
+					mods->SetFireRifle_KickRate(fval);
+
+				sprintf(mod, "FRKRR(%d)", stance);
+
+				if (archive.Fetch(mod, &fval))
+					mods->SetFireRifle_KickReturnRate(fval);
+
+				sprintf(mod, "FRKBD(%d)", stance);
+
+				if (archive.Fetch(mod, &fval))
+					mods->SetFireRifle_KickBaseDist(fval);
+
+				sprintf(mod, "FRKRD(%d)", stance);
+
+				if (archive.Fetch(mod, &fval))
+					mods->SetFireRifle_KickRandomDist(fval);
+
+				sprintf(mod, "WR(%d)", stance);
+
+				if (archive.Fetch(mod, &fval))
+					mods->SetWiggleReport(fval);
+			}
+
+			if (archive.Fetch("FireWait", &fval))
+				weapon->m_firewait = fval;
+
+			if (archive.Fetch("Type", &ival))
+				weapon->m_type = (SEAL_ITEM)(u8)ival;
+
+			archive.Fetch("NumZoomModes", &ival); /* ELF: the shared int slot (Type's value without the key) */
+			s32 zooms = ival;
+
+			for (s32 j = 0; j < zooms; j++)
+			{
+				sprintf(key, "ZoomMode%d", j);
+
+				if (archive.Fetch(key, &fval))
+					weapon->AddZoommode(fval);
+			}
+
+			if (archive.Fetch("AccBurstCnt_Min", &ival))
+				weapon->AccuracyBurstCnt_Min(ival);
+
+			if (archive.Fetch("AccBurstCnt_Max", &ival))
+				weapon->AccuracyBurstCnt_Max(ival);
+
+			if (archive.Fetch("AccScalar_Min", &fval))
+				weapon->AccuracyScalar_Min(fval);
+
+			if (archive.Fetch("AccScalar_Max", &fval))
+				weapon->AccuracyScalar_Max(fval);
+
+			CZWeapon *base = weapon;
+			weapons->insert(weapons->end(), base);
+
+			if (entry != NULL)
+				archive.CloseKey(entry);
+		}
+	}
+
+	if (section != NULL)
+		archive.CloseKey(section);
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("WEP: zweapon.zar: %d ammo, %d weapons", (int)ammo->size(), (int)weapons->size());
+#endif
 	return true;
 }
 
 /* @socom-skeleton stub __ct__16CZProjectileListFi */
-CZProjectileList::CZProjectileList(int)
+CZProjectileList::CZProjectileList(int size)
 {
+	/* 0x31b750 (CZWeapon::CreateProjectileList): no projectiles or DIs yet, then Init */
+	m_size = size;
+	m_used = NULL;
+	m_projectiles = NULL;
+
+	for (s32 i = 0; i < 60; i++)
+		m_directFireDI[i] = NULL;
+
+	for (s32 i = 0; i < 30; i++)
+		m_indirectFireDI[i] = NULL;
+
+	m_firstfree = 0;
+	m_lastused = -1;
+	Init();
 }
 
 /* @socom-skeleton stub __dt__16CZProjectileListFv */
 CZProjectileList::~CZProjectileList()
 {
+	/* 0x31b6e0 */
+	UnInit();
 }
 
 /* @socom-skeleton stub Init__16CZProjectileListFv */
 void CZProjectileList::Init()
 {
+	/* 0x31b480: the projectiles (each with an inactive XRef node as its instance), 60 direct
+	 * fire DIs (40 intersections) and 30 indirect (128), all free */
+	UnInit();
+
+	if (m_size < 0)
+		m_size = 0;
+
+	if (m_size > 0)
+	{
+		m_used = new u8[m_size];
+		m_projectiles = new CZProjectile[m_size];
+
+		for (s32 i = 0; i < 60; i++)
+			m_directFireDI[i] = new zdb::DiIntersect(0x28);
+
+		for (s32 i = 0; i < 30; i++)
+			m_indirectFireDI[i] = new zdb::DiIntersect(0x80);
+
+		for (s32 i = 0; i < 60; i++)
+			m_directFireDIUsed[i] = 0;
+
+		m_direct_firstfree = 0;
+
+		/* ELF quirk: only 30 of the 60 indirect flags are cleared */
+		for (s32 i = 0; i < 30; i++)
+			m_indirectFireDIUsed[i] = 0;
+
+		m_indirect_firstfree = 0;
+	}
+
+	m_firstfree = 0;
+	m_lastused = -1;
+	memset(m_used, 0, m_size);
+
+	for (s32 i = 0; i < m_size; i++)
+	{
+		zdb::CNode *node = zdb::CNode::CreateXRef();
+		m_projectiles[i].SetInstance(node);
+		node->SetActive(false);
+	}
 }
 
 /* @socom-skeleton stub Clear__16CZProjectileListFv */
 void CZProjectileList::Clear()
 {
+	/* 0x31b2a0 (CZWeapon::Close): the placed explosives (in a network game only the local
+	 * ones) and the live projectiles are reported removed and cleaned up */
+	if (m_used == NULL)
+		return;
+
+	for (std::vector<CZProjectile*>::iterator it = m_explosives.begin(); it != m_explosives.end();)
+	{
+		CZProjectile *explosive = *it;
+
+		if (!theNetwork.m_bNetwork || explosive->m_isplayer)
+		{
+			explosive->m_grenadestate = GRENADE_STATE::REMOVE;
+			explosive->ReportGrenadeStatus();
+			CPickup::Destroy(explosive->m_pickup);
+			delete (PlacedExplosive *)explosive;
+			it = m_explosives.erase(it);
+		}
+		else
+		{
+			++it;
+		}
+	}
+
+	std::vector<CZProjectile*>().swap(m_explosives);
+	s32 last = m_lastused;
+
+	if (last == -1 || m_projectiles == NULL)
+		return;
+
+	for (s32 i = 0; i <= last; i++)
+	{
+		if (m_used[i] == 1 && (!theNetwork.m_bNetwork || m_projectiles[i].m_isplayer))
+		{
+			m_projectiles[i].m_grenadestate = GRENADE_STATE::REMOVE;
+			m_projectiles[i].ReportGrenadeStatus();
+
+			if (m_used != NULL)
+			{
+				m_projectiles[i].Cleanup();
+				m_used[i] = 0;
+
+				if (i < m_firstfree)
+					m_firstfree = i;
+
+				if (i == m_lastused)
+					FindLastUsed();
+			}
+		}
+	}
 }
 
 /* @socom-skeleton stub Clear__16CZProjectileListFi */
@@ -157,31 +512,159 @@ void CZProjectileList::Clear(int)
 /* @socom-skeleton stub UnInit__16CZProjectileListFv */
 void CZProjectileList::UnInit()
 {
+	/* 0x31b020 */
+	Clear();
+
+	if (m_projectiles != NULL)
+	{
+		delete[] m_projectiles;
+		m_projectiles = NULL;
+	}
+
+	for (s32 i = 0; i < 60; i++)
+	{
+		delete m_directFireDI[i];
+		m_directFireDI[i] = NULL;
+	}
+
+	for (s32 i = 0; i < 30; i++)
+	{
+		delete m_indirectFireDI[i];
+		m_indirectFireDI[i] = NULL;
+	}
+
+	if (m_used != NULL)
+	{
+		delete[] m_used;
+		m_used = NULL;
+	}
+
+	m_explosives.clear();
 }
 
 /* @socom-skeleton stub GetNextFreeProjectile__16CZProjectileListFv */
 CZProjectile * CZProjectileList::GetNextFreeProjectile()
 {
+	/* 0x31af20: the first free projectile, its instance shown; the free index advances */
+	s32 index = m_firstfree;
+
+	if (index == -1 || index >= m_size)
+		return NULL;
+
+	if (m_lastused < index)
+		m_lastused = index;
+
+	m_used[index] = 1;
+	s32 next = m_firstfree;
+
+	for (;;)
+	{
+		next++;
+
+		if (next >= m_size)
+		{
+			m_firstfree = -1;
+			break;
+		}
+
+		if (m_used[next] == 0)
+		{
+			m_firstfree = next;
+			break;
+		}
+	}
+
+	m_projectiles[index].GetInstance()->SetActive(true);
+	return &m_projectiles[index];
 }
 
 /* @socom-skeleton stub FreeIdx__16CZProjectileListFi */
-void CZProjectileList::FreeIdx(int)
+void CZProjectileList::FreeIdx(int index)
 {
+	/* 0x31aea0 */
+	m_used[index] = 0;
+
+	if (index < m_firstfree)
+		m_firstfree = index;
+
+	if (index == m_lastused)
+		FindLastUsed();
 }
 
 /* @socom-skeleton stub FindLastUsed__16CZProjectileListFv */
 void CZProjectileList::FindLastUsed()
 {
+	/* 0x31ae50 */
+	s32 last = -1;
+
+	for (s32 i = 0; i < m_size; i++)
+	{
+		if (m_used[i] == 1)
+			last = i;
+	}
+
+	m_lastused = last;
 }
 
 /* @socom-skeleton stub PreTick__16CZProjectileListFf */
-void CZProjectileList::PreTick(float)
+void CZProjectileList::PreTick(float dT)
 {
+	/* 0x31ad80 (CZWeapon::PreTick): the tracers move, the placed explosives and every
+	 * projectile slot up to the last used one register their intersections (ELF: unused slots
+	 * too) */
+	CZWeapon::m_flyout_machine.Tick(dT);
+
+	for (std::vector<CZProjectile*>::iterator it = m_explosives.begin(); it != m_explosives.end(); ++it)
+		(*it)->PreTick(dT);
+
+	s32 last = m_lastused;
+
+	if (last == -1)
+		return;
+
+	for (s32 i = 0; i <= last; i++)
+		m_projectiles[i].PreTick(dT);
 }
 
 /* @socom-skeleton stub PostTick__16CZProjectileListFf */
-void CZProjectileList::PostTick(float)
+void CZProjectileList::PostTick(float dT)
 {
+	/* 0x31ac00 (CZWeapon::PostTick): finished placed explosives are destroyed; projectiles
+	 * whose post-tick reports done are cleaned up and freed */
+	for (std::vector<CZProjectile*>::iterator it = m_explosives.begin(); it != m_explosives.end();)
+	{
+		if (!(*it)->PostTick(dT))
+		{
+			++it;
+		}
+		else
+		{
+			PlacedExplosive *explosive = (PlacedExplosive *)*it;
+			CPickup::Destroy(explosive->m_pickup);
+			delete explosive;
+			it = m_explosives.erase(it);
+		}
+	}
+
+	s32 last = m_lastused;
+
+	if (last == -1)
+		return;
+
+	for (s32 i = 0; i <= last; i++)
+	{
+		if (m_used[i] == 1 && m_projectiles[i].PostTick(dT) == 1 && m_used != NULL)
+		{
+			m_projectiles[i].Cleanup();
+			m_used[i] = 0;
+
+			if (i < m_firstfree)
+				m_firstfree = i;
+
+			if (i == m_lastused)
+				FindLastUsed();
+		}
+	}
 }
 
 /* @socom-skeleton stub NetRemoveProjectile__16CZProjectileListFP12CZProjectile */
@@ -190,8 +673,43 @@ void CZProjectileList::NetRemoveProjectile(CZProjectile *)
 }
 
 /* @socom-skeleton stub RemoveProjectile__16CZProjectileListFP12CZProjectile */
-void CZProjectileList::RemoveProjectile(CZProjectile *)
+void CZProjectileList::RemoveProjectile(CZProjectile *projectile)
 {
+	/* 0x31a950: the projectile's slot cleaned up and freed; a placed explosive is also
+	 * destroyed and dropped from the explosives */
+	if (projectile == NULL || m_used == NULL)
+		return;
+
+	for (s32 i = 0; i < m_size; i++)
+	{
+		if (m_used[i] != 0 && &m_projectiles[i] == projectile && m_used != NULL)
+		{
+			m_projectiles[i].Cleanup();
+			m_used[i] = 0;
+
+			if (i < m_firstfree)
+				m_firstfree = i;
+
+			if (i == m_lastused)
+				FindLastUsed();
+		}
+	}
+
+	PlacedExplosive *explosive = dynamic_cast<PlacedExplosive *>(projectile);
+
+	if (explosive == NULL)
+		return;
+
+	for (std::vector<CZProjectile*>::iterator it = m_explosives.begin(); it != m_explosives.end(); ++it)
+	{
+		if (*it == explosive)
+		{
+			CPickup::Destroy(explosive->m_pickup);
+			delete explosive;
+			m_explosives.erase(it);
+			return;
+		}
+	}
 }
 
 /* @socom-skeleton stub RemoveExplosive__16CZProjectileListFP15PlacedExplosive */
@@ -200,62 +718,87 @@ void CZProjectileList::RemoveExplosive(PlacedExplosive *)
 }
 
 /* @socom-skeleton stub GetNumRemoteExplosives__16CZProjectileListFi */
-int CZProjectileList::GetNumRemoteExplosives(int)
+int CZProjectileList::GetNumRemoteExplosives(int shooter)
 {
+	/* 0x31a810: the shooter's placed explosives that are remote (PlacedExplosive +0xa9) and
+	 * shown */
+	s32 count = 0;
+
+	for (std::vector<CZProjectile*>::iterator it = m_explosives.begin(); it != m_explosives.end(); ++it)
+	{
+		PlacedExplosive *explosive = (PlacedExplosive *)*it;
+
+		if (explosive->m_remote && shooter == explosive->m_shooterID && explosive->GetInstance()->m_active)
+			count++;
+	}
+
+	return count;
 }
 
 /* @socom-skeleton body GetNextDirectFireDI__16CZProjectileListFPPQ23zdb11DiIntersectPi */
 bool CZProjectileList::GetNextDirectFireDI(zdb::DiIntersect** di, s32* free_handle)
 {
-	if (m_directFireDI[0])
-	{
-		if (m_direct_firstfree < 60)
-		{
-			*di = m_directFireDI[m_direct_firstfree];
-			*free_handle = m_direct_firstfree;
+	/* 0x31a770: the first free direct-fire DI (false with none left or none allocated) */
+	if (m_directFireDI[0] == NULL)
+		return false;
 
-			m_directFireDIUsed[m_direct_firstfree] = true;
+	if (m_direct_firstfree >= 60)
+		return false;
 
-			while (m_direct_firstfree < 60 && m_directFireDIUsed[m_direct_firstfree])
-				m_direct_firstfree++;
-		}
+	*di = m_directFireDI[m_direct_firstfree];
+	*free_handle = m_direct_firstfree;
+	m_directFireDIUsed[m_direct_firstfree] = 1;
 
-		return true;
-	}
+	while (m_direct_firstfree < 60 && m_directFireDIUsed[m_direct_firstfree] == 1)
+		m_direct_firstfree++;
 
-	return false;
+	return true;
 }
 
 /* @socom-skeleton stub ReleaseDirectFireDI__16CZProjectileListFPPQ23zdb11DiIntersectPi */
-void CZProjectileList::ReleaseDirectFireDI(zdb::DiIntersect **, int *)
+void CZProjectileList::ReleaseDirectFireDI(zdb::DiIntersect **, int *handle)
 {
+	/* 0x31a730 */
+	if (m_directFireDI[0] == NULL)
+		return;
+
+	m_directFireDIUsed[*handle] = 0;
+
+	if (*handle < m_direct_firstfree)
+		m_direct_firstfree = *handle;
 }
 
 /* @socom-skeleton body GetNextIndirectFireDI__16CZProjectileListFPPQ23zdb11DiIntersectPi */
 bool CZProjectileList::GetNextIndirectFireDI(zdb::DiIntersect** di, s32* free_handle)
 {
-	if (m_indirectFireDI[0])
-	{
-		if (m_indirect_firstfree < 60)
-		{
-			*di = m_indirectFireDI[m_indirect_firstfree];
-			*free_handle = m_indirect_firstfree;
+	/* 0x31a690 */
+	if (m_indirectFireDI[0] == NULL)
+		return false;
 
-			m_indirectFireDIUsed[m_indirect_firstfree] = true;
+	if (m_indirect_firstfree >= 30)
+		return false;
 
-			while (m_indirect_firstfree < 60 && m_indirectFireDIUsed[m_indirect_firstfree])
-				m_indirect_firstfree++;
-		}
+	*di = m_indirectFireDI[m_indirect_firstfree];
+	*free_handle = m_indirect_firstfree;
+	m_indirectFireDIUsed[m_indirect_firstfree] = 1;
 
-		return true;
-	}
+	while (m_indirect_firstfree < 30 && m_indirectFireDIUsed[m_indirect_firstfree] == 1)
+		m_indirect_firstfree++;
 
-	return false;
+	return true;
 }
 
 /* @socom-skeleton stub ReleaseIndirectFireDI__16CZProjectileListFPPQ23zdb11DiIntersectPi */
-void CZProjectileList::ReleaseIndirectFireDI(zdb::DiIntersect **, int *)
+void CZProjectileList::ReleaseIndirectFireDI(zdb::DiIntersect **, int *handle)
 {
+	/* 0x31a650 */
+	if (m_indirectFireDI[0] == NULL)
+		return;
+
+	m_indirectFireDIUsed[*handle] = 0;
+
+	if (*handle < m_indirect_firstfree)
+		m_indirect_firstfree = *handle;
 }
 
 /* @socom-skeleton stub AcquireProjectile__16CZProjectileListFR8CZWeaponR6CZAmmo */
