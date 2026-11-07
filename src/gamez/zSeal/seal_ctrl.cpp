@@ -18,6 +18,8 @@
 #include "zseal.h"
 /* @socom-skeleton end include */
 #include "gamez/zInput/zinput.h" /* port: CInput/CPad for StopRumbler (moved from zseal_holding.cpp) */
+#include "gamez/zNetwork/znet.h" /* theNetwork (PostMortemPreTick) */
+#include "gamez/zGame/zgame.h" /* MENU_STATE (PostMortemPreTick) */
 
 /* @socom-skeleton body StopRumbler__9CSealCtrlFv */
 void CSealCtrl::StopRumbler()
@@ -63,8 +65,27 @@ float CSealCtrl::GetSpeedFromThrottle(float, int)
 }
 
 /* @socom-skeleton stub PostMortemPreTick__9CSealCtrlFf */
-void CSealCtrl::PostMortemPreTick(float)
+void CSealCtrl::PostMortemPreTick(float dT)
 {
+	/* 0x283f20 (CZSealBody::PreTick while dead; ELF returns 1): the pad still drives the
+	 * throttles (the death camera's rotate stick), right / left (rising, outside the
+	 * weapon menu) ask to move the spectator camera on / back; single player: SELECT+X asks
+	 * for a respawn (CZSealBody::PostMortemPreTick). ELF: the pad is not NULL-tested. */
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+	CPad *pad = m_padid < 2 ? CInput::m_pads[m_padid] : NULL;
+	ThrottlesPreTick(pad, dT);
+	MENU_STATE menu = m_menustate;
+	seal->m_advance_camera = pad->m_state[static_cast<u8>(PAD_BUTTON::PAD_RIGHT)] == KEY_RISING && menu != stateWeaponSel;
+	seal->m_retreat_camera = pad->m_state[static_cast<u8>(PAD_BUTTON::PAD_LEFT)] == KEY_RISING && menu != stateWeaponSel;
+
+	if (theNetwork.m_bNetwork)
+	{
+		/* port: not written - theVoice +0x11 = 1 (0x283fd0); the port has no network play */
+	}
+	else if (pad->GetTwoButtons(PAD_BUTTON::PAD_SELECT, PAD_BUTTON::PAD_CROSS))
+	{
+		seal->m_needs_respawn = true;
+	}
 }
 
 /* @socom-skeleton stub UpdateAiVisMap__9CSealCtrlFv */

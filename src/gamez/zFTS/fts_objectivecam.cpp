@@ -44,8 +44,10 @@ void CMissionObjectiveCam::Set(const char *, const char *, const char *, const c
 }
 
 /* @socom-skeleton stub IsComplete__20CMissionObjectiveCamCFv */
-void CMissionObjectiveCam::IsComplete() const
+unsigned char CMissionObjectiveCam::IsComplete() const
 {
+	/* 0x20a930: the objective's valve is set (none: not complete) */
+	return m_valve != NULL ? m_valve->m_value != 0 : false;
 }
 
 /* @socom-skeleton stub IsDisplayOn__20CMissionObjectiveCamCFv */

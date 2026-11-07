@@ -128,10 +128,12 @@ class CValvePool : public std::vector<CValve*>
 public:
 	CValve* Acquire(const char* name, VALVE_TYPE type);
 
-	bool m_has_name;
-	char* m_pool_name;
-	u32 m_pool_length;
-	u32 m_max_char_len;
+	/* no DWARF; from Acquire (0x2f6c90) and Open (0x2f6650): the names of temporary valves
+	 * are copied into one 4096-byte buffer made by the first Open */
+	bool m_has_name;     /* +0xc the name buffer exists */
+	s32 m_pool_length;   /* +0x10 its size */
+	char* m_pool_base;   /* +0x14 its start */
+	char* m_pool_name;   /* +0x18 the next free byte */
 	/* @socom-skeleton decl 10CValvePool */
 public:
 	void FlushNames(bool);

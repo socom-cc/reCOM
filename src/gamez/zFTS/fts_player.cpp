@@ -66,6 +66,8 @@
 #include "gamez/zBody/zbody.h" /* BodyAnimCallbackList */
 #include "gamez/zNetwork/znet.h" /* theNetwork */
 #include "gamez/zNode/znode.h"
+#include "gamez/zValve/zvalve.h" /* CValve (the team valves) */
+#include <stdio.h> /* sprintf (InitalizeTeamValves) */
 
 extern CAiMaps AiMaps; /* ai_maps.cpp (0x49b190) */
 
@@ -182,6 +184,11 @@ _zanim_cmd_hdr * CftsPlayer::CmdParseIndoorsTest(_zrdr *)
 /* @socom-skeleton stub CmdTickIndoorsTest__10CftsPlayerFP14_zanim_cmd_hdrPf */
 bool CftsPlayer::CmdTickIndoorsTest(_zanim_cmd_hdr *, float *)
 {
+	/* 0x1fde50: the player is inside */
+	if (ftsPlayer == NULL)
+		return false;
+
+	return ftsPlayer->m_inside != 0;
 }
 
 /* @socom-skeleton stub CmdParseControls__10CftsPlayerFP5_zrdr */
@@ -190,8 +197,20 @@ _zanim_cmd_hdr * CftsPlayer::CmdParseControls(_zrdr *)
 }
 
 /* @socom-skeleton stub CmdTickControls__10CftsPlayerFP14_zanim_cmd_hdrPf */
-bool CftsPlayer::CmdTickControls(_zanim_cmd_hdr *, float *)
+bool CftsPlayer::CmdTickControls(_zanim_cmd_hdr *header, float *)
 {
+	/* 0x1fdd10: the record's bit 0 (+0x4) turns the player's input off, else on */
+	if (ftsPlayer != NULL && ftsPlayer->m_control != NULL)
+	{
+		CSealCtrl* control = static_cast<CSealCtrl*>(ftsPlayer->m_control);
+
+		if (reinterpret_cast<u8*>(header)[4] & 0x1)
+			control->m_input_enabled = 0;
+		else
+			control->m_input_enabled = 1;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub CmdParseIsPlayerNode__10CftsPlayerFP5_zrdr */
@@ -200,8 +219,25 @@ _zanim_cmd_hdr * CftsPlayer::CmdParseIsPlayerNode(_zrdr *)
 }
 
 /* @socom-skeleton stub CmdTickIsPlayerNode__10CftsPlayerFP14_zanim_cmd_hdrPf */
-bool CftsPlayer::CmdTickIsPlayerNode(_zanim_cmd_hdr *, float *)
+bool CftsPlayer::CmdTickIsPlayerNode(_zanim_cmd_hdr *header, float *)
 {
+	/* 0x1fdb80: the anim's node (ref +0x4) is the player's node, or (bit 0 of +0x5) one of
+	 * its descendants */
+	u8* cmd = reinterpret_cast<u8*>(header);
+	zdb::CNode* node = ZAnim.m_CurAnim->GetNode(cmd[4], false);
+
+	if (node == NULL)
+		return false;
+
+	zdb::CNode* player = ftsPlayer->GetNode();
+
+	if (player == node)
+		return true;
+
+	if ((cmd[5] & 0x1) && player->FindChild(node, true) != NULL)
+		return true;
+
+	return false;
 }
 
 /* @socom-skeleton body ftsSetPlayer__FP10CZSealBody */
@@ -437,16 +473,106 @@ CZSealBody * CMission::LoadVehicle(CVehicleRdrEntry *entry, bool first)
 /* @socom-skeleton stub InitalizeTeamValves__8CMissionFv */
 void CMission::InitalizeTeamValves()
 {
+	/* 0x1fd0d0: aiteam_00..31 (the living members of each team bit, for the mission
+	 * scripts) and player_valve_alive, all temporary and 0 until RefreshTeamValves */
+	char name[32];
+
+	for (s32 i = 0; i < 32; i++)
+	{
+		sprintf(name, "aiteam_%02d", i);
+		m_teamValve[i] = CValve::Create(name, 0, VALVE_TYPE::VTYPE_TEMP);
+	}
+
+	m_player_valve = CValve::Create("player_valve_alive", 0, VALVE_TYPE::VTYPE_TEMP);
 }
 
 /* @socom-skeleton stub RefreshTeamValves__8CMissionFv */
 void CMission::RefreshTeamValves()
 {
+	/* 0x1fcd90: recount from the entities: every team valve to 0, then each living
+	 * entity adds 1 to the valve of every team bit it has; the player's seal sets
+	 * player_valve_alive to its alive state. The callbacks run on each change (1 set,
+	 * 2 cleared). */
+	for (s32 i = 0; i < 32; i++)
+	{
+		CValve* valve = m_teamValve[i];
+		bool changed = valve->m_value != 0;
+		valve->m_value = 0;
+
+		if (changed)
+			valve->MakeCallbacks((VALVE_STATE)2);
+	}
+
+	for (CEntityList::iterator it = CEntity::m_list.begin(); it != CEntity::m_list.end(); ++it)
+	{
+		CEntity* entity = *it;
+		CEntity* seal = entity != NULL && entity->m_type == CEntity::ENT_TYPE_SEAL ? entity : NULL;
+
+		if (seal != NULL)
+		{
+			bool player = seal->m_control != NULL && static_cast<CSealCtrl*>(seal->m_control)->IsPlayer();
+
+			if (player && m_player_valve != NULL)
+			{
+				u32 alive = entity->m_isAlive ? 1 : 0;
+				u32 change = m_player_valve->m_value != alive ? (alive != 0 ? 1 : 2) : 0;
+				m_player_valve->m_value = alive;
+
+				if (change)
+					m_player_valve->MakeCallbacks((VALVE_STATE)change);
+			}
+		}
+
+		if (!entity->m_isAlive)
+			continue;
+
+		for (u32 bit = 0; (s32)bit < 32; bit++)
+		{
+			if (!((1 << bit) & entity->m_team))
+				continue;
+
+			CValve* valve = m_teamValve[bit];
+			u32 count = valve->m_value + 1;
+			u32 change = valve->m_value != count ? (count != 0 ? 1 : 2) : 0;
+			valve->m_value = count;
+
+			if (change)
+				valve->MakeCallbacks((VALVE_STATE)change);
+		}
+	}
+
+	/* port: not written - the spawners' entities (CSpawners' spawn_map list at 0x4c561c,
+	 * +0xc of each entry) add their team bits the same way; CSpawners has no list modelled */
 }
 
 /* @socom-skeleton stub DecrementTeamValves__8CMissionFP7CEntity */
-void CMission::DecrementTeamValves(CEntity *)
+void CMission::DecrementTeamValves(CEntity *entity)
 {
+	/* 0x1fccb0 (a seal's death): the player's death clears player_valve_alive; each of
+	 * the entity's team valves drops by one (not below 0); callbacks on each change */
+	if (entity == ftsPlayer)
+	{
+		bool changed = m_player_valve->m_value != 0;
+		m_player_valve->m_value = 0;
+
+		if (changed)
+			m_player_valve->MakeCallbacks((VALVE_STATE)2);
+	}
+
+	for (s32 bit = 0; bit < 32; bit++)
+	{
+		if (!((1 << bit) & entity->m_team))
+			continue;
+
+		CValve* valve = m_teamValve[bit];
+		u32 old = valve->m_value;
+		u32 count = old != 0 ? old - 1 : old;
+		u32 change = old != count ? (count != 0 ? 1 : 2) : 0;
+		valve->m_value = count;
+
+		if (change)
+			valve->MakeCallbacks((VALVE_STATE)change);
+	}
 }
 
 /* @socom-skeleton stub RecycleEntity__8CMissionFP7CEntity */

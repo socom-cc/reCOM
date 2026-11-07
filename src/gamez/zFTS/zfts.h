@@ -212,7 +212,7 @@ public:
 	CSaferStr m_strLoadingScrLib;
 	// 
 	// CMissionCamList m_missioncams;
-	// CMissionObjectiveCamList m_objectivecams;
+	std::list<void const*> m_objectivecams; /* +0x5c0 DWARF CMissionObjectiveCamList (declared later in this header: its list base here; CExitState::Init, SetRoundStatUiVars) */
 
 	f32 m_fighttimer;
 	f32 m_satcheltimer;
@@ -241,7 +241,7 @@ public:
 	CZNetGame * CreateNetGame();
 	void DestroyNetGame();
 	bool FadeToEndMissionTick(float);
-	bool fadeToEndMissionTick(float, void *);
+	static bool fadeToEndMissionTick(float, void *); /* static: the MissionFadeToEnd task function (AddTask a2 0x1f6090, the mission as registrar in a3) */
 	void FadeToEndMission(float, int);
 	void CreateLadderTable();
 	void GetGameTime();
@@ -340,12 +340,26 @@ public:
 /* @socom-skeleton decl 20CMissionObjectiveCam */
 class CMissionObjectiveCam : public CMissionCam
 {
+public: /* DWARF CMissionObjectiveCam (80 bytes) after the CMissionCam part; port: m_vecLines (+0x44, a vector of unproven element type) left out */
+	char* m_maptext;               /* +0x1c */
+	char* m_valvename;             /* +0x20 */
+	char* m_invalidvalvename;      /* +0x24 */
+	char* m_szDisplayValveName;    /* +0x28 */
+	CValve* m_valve;               /* +0x2c: complete while its value is not 0 (IsComplete) */
+	CValve* m_invalidvalve;        /* +0x30 */
+	CValve* m_pDisplayValve;       /* +0x34 */
+	PNT2D m_pos;                   /* +0x38 */
+	u32 m_isSecondary : 1;         /* +0x40 bit 0 (CExitState::Init, SetRoundStatUiVars) */
+	u32 m_isSubObjective : 1;
+	u32 m_isCompass : 1;
+	u32 m_bExtraction : 1;
+	u32 m_unused : 28;
 public:
 	CMissionObjectiveCam();
 	~CMissionObjectiveCam();
 	unsigned char IsAvailable() const;
 	void Set(const char *, const char *, const char *, const char *, const char *, const char *, const char *, const char *, const char *, const char *, const PNT2D *);
-	void IsComplete() const;
+	unsigned char IsComplete() const; /* 0x20a930: result in v0 (was void) */
 	unsigned char IsDisplayOn() const;
 	void IsInvalid() const;
 };

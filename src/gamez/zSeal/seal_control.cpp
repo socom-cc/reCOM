@@ -115,6 +115,7 @@
 #include "gamez/zWeapon/zweapon.h"
 #include "gamez/zFTS/zfts.h" /* CCtrlrConfigs, PadBtnFunc, CZSealState (PreTick, Tick) */
 #include "gamez/zNode/node_world.h" /* zdb::CWorld::m_world (PreTick) */
+#include "gamez/zNetwork/znet.h" /* theNetwork (OnDeath) */
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 /* port: CHARACTER_SOUND is declared in gamez/zCharacter/zchar.h */
@@ -313,6 +314,29 @@ void CSealCtrl::OnSetHealth(float, float)
 /* @socom-skeleton stub OnDeath__9CSealCtrlFv */
 void CSealCtrl::OnDeath()
 {
+	/* 0x287c40 (CEntity::OnDeath): the unit hears of the death (message 1); the death cry
+	 * by the death type (none for type 6, 59 for types 1-3, else 58), the body is no longer
+	 * restrained; a network game also tells the team-24 unit (message 31). */
+	m_unit->Notify(static_cast<CZSealBody *>(m_entity), (UNIT_MESSAGE)1, NULL);
+	CZSealBody *seal = static_cast<CZSealBody *>(m_entity);
+	u8 type = static_cast<u8>(seal->m_deathType);
+
+	if (type != 6)
+	{
+		if (type == 3 || type == 2 || type == 1)
+			PlayAiSound((CHARACTER_SOUND)59);
+		else
+			PlayAiSound((CHARACTER_SOUND)58);
+	}
+
+	seal = static_cast<CZSealBody *>(m_entity);
+	seal->m_restrained = 0;
+
+	if (theNetwork.m_bNetwork)
+	{
+		/* port: not written - CSealUnit::GetUnitByTeam(24)'s virtual message 31 for the
+		   body (0x287cf8); the port has no network play */
+	}
 }
 
 /* @socom-skeleton stub PlayAiSound__9CSealCtrlF15CHARACTER_SOUND */

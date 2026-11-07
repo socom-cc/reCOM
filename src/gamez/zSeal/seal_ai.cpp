@@ -656,18 +656,25 @@ SEAL_VALVE CSealCtrlAi::get_valve(const char* valve)
 			SEAL_VALVE seal_valve = static_cast<SEAL_VALVE>(i);
 			const char* name = "";
 
+			/* 0x26ba50: get_valve(SEAL_VALVE) inlined (the port lacked the breaks, so every
+			 * name read "error" and no valve name matched) */
 			switch (seal_valve)
 			{
 			case SEAL_VALVE::VALVE_HOLDFIRE:
 				name = "valve_holdfire";
+				break;
 			case SEAL_VALVE::VALVE_SHOTAT:
 				name = "valve_shotat";
+				break;
 			case SEAL_VALVE::VALVE_ALIVE:
 				name = "valve_alive";
+				break;
 			case SEAL_VALVE::VALVE_AWARE:
 				name = "valve_aware";
+				break;
 			default:
 				name = "error";
+				break;
 			}
 
 			if (!strcmp(name, valve))
@@ -723,6 +730,33 @@ void CSealCtrlAi::Initalize()
 {
 	/* @socom-skeleton stub string$2639 */
 	static unsigned char string[64];
+
+	/* 0x26aed0: the AI's script valves, "<node name>_valve_holdfire", "_valve_shotat",
+	 * "_valve_alive" and "_valve_aware" (temporary, 0); the alive one is set (callbacks 1
+	 * when it changes). Mission scripts test them (m8: Snow3_valve_alive == 0 fails the
+	 * mission). */
+	CEntity* entity = m_entity;
+	const char* name = entity->m_node->m_name;
+
+	for (s32 i = 0; i < 4; i++)
+	{
+		sprintf(reinterpret_cast<char*>(string), "%s_%s", name, get_valve((SEAL_VALVE)i));
+		m_valve[i] = CValve::Create(reinterpret_cast<char*>(string), 0, VALVE_TYPE::VTYPE_TEMP);
+	}
+
+	CValve* alive = m_valve[(u32)SEAL_VALVE::VALVE_ALIVE];
+
+	if (alive != NULL)
+	{
+		bool changed = alive->m_value != 1;
+		alive->m_value = 1;
+
+		if (changed)
+			alive->MakeCallbacks((VALVE_STATE)1);
+	}
+
+	/* port: not written - m_mode (+0x30c, AI_MODE byte) = 1 (AIM_IDLE); CSealCtrlAi's
+	 * m_mode is not declared in the port */
 }
 
 /* @socom-skeleton stub OnMissionStart__11CSealCtrlAiFv */
@@ -1112,8 +1146,22 @@ void CSealCtrlAi::SetTarget(CTarget *)
 }
 
 /* @socom-skeleton stub SetValve__11CSealCtrlAiF10SEAL_VALVEUi */
-void CSealCtrlAi::SetValve(SEAL_VALVE, unsigned int)
+bool CSealCtrlAi::SetValve(SEAL_VALVE which, unsigned int value)
 {
+	/* 0x264050: one of the AI's script valves takes the value (callbacks 1 set, 2 cleared
+	 * when it changes); true when it changed */
+	CValve* valve = (u32)which < 4 ? m_valve[(u32)which] : NULL;
+
+	if (valve == NULL)
+		return false;
+
+	u32 change = valve->m_value != value ? (value != 0 ? 1 : 2) : 0;
+	valve->m_value = value;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+
+	return change != 0;
 }
 
 /* @socom-skeleton stub SelectFireParams__11CSealCtrlAiFv */

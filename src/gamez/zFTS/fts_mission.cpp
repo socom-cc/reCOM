@@ -330,13 +330,23 @@ void ftsIsMapInVisibleList(unsigned int, unsigned int)
 }
 
 /* @socom-skeleton stub GetCustomCharTypeName__Fi */
-char * GetCustomCharTypeName(int)
+char * GetCustomCharTypeName(int index)
 {
+	/* 0x1fa790: UiCharType1..32 (NULL past them). The ELF has one table,
+	 * c_arrCustomCharTypeNames$2822 (0x44d0d0), read here, by CreateCustomCharTypes and by
+	 * UpdateCharWeaponUiVars. port: C++ can't share CreateCustomCharTypes' function-local
+	 * static, so this keeps an identical copy. */
+	static char *const names[32] = {"UiCharType1", "UiCharType2", "UiCharType3", "UiCharType4", "UiCharType5", "UiCharType6", "UiCharType7", "UiCharType8", "UiCharType9", "UiCharType10", "UiCharType11", "UiCharType12", "UiCharType13", "UiCharType14", "UiCharType15", "UiCharType16", "UiCharType17", "UiCharType18", "UiCharType19", "UiCharType20", "UiCharType21", "UiCharType22", "UiCharType23", "UiCharType24", "UiCharType25", "UiCharType26", "UiCharType27", "UiCharType28", "UiCharType29", "UiCharType30", "UiCharType31", "UiCharType32"};
+
+	return index < 32 ? names[index] : NULL;
 }
 
 /* @socom-skeleton stub GetDefCharTypeName__Fi */
-char * GetDefCharTypeName(int)
+char * GetDefCharTypeName(int index)
 {
+	/* 0x1fa770: the character type the UI character's vehicle had before CreateCustomCharTypes
+	 * gave it UiCharTypeN (64 bytes a name) */
+	return reinterpret_cast<char*>(&g_arrDefCharTypeNames[index * 64]);
 }
 
 /* @socom-skeleton stub LoadMissionMapVisibilities__25@unnamed@fts_mission_cpp@FP8CRdrFile */
@@ -349,7 +359,51 @@ void LoadMissionMapVisibilities(CRdrFile *)
 /* @socom-skeleton body UpdateCharWeaponUiVars__Fi */
 void UpdateCharWeaponUiVars(int index)
 {
+	/* 0x1fa2b0: the armory's text for UI character index (0..7): CharNPrimaryWeaponDescr,
+	 * CharNSecondaryWeaponDescr and CharNEquip1..4Descr get each weapon's description in
+	 * list order; a double ammo load or a satchel fills the next slot with "---"; the rest
+	 * read "(empty)". The name table is a local array copied from data (0x439c30). */
+	const char* names[8][6] = {
+		{"Char1PrimaryWeaponDescr", "Char1SecondaryWeaponDescr", "Char1Equip1Descr", "Char1Equip2Descr", "Char1Equip3Descr", "Char1Equip4Descr"},
+		{"Char2PrimaryWeaponDescr", "Char2SecondaryWeaponDescr", "Char2Equip1Descr", "Char2Equip2Descr", "Char2Equip3Descr", "Char2Equip4Descr"},
+		{"Char3PrimaryWeaponDescr", "Char3SecondaryWeaponDescr", "Char3Equip1Descr", "Char3Equip2Descr", "Char3Equip3Descr", "Char3Equip4Descr"},
+		{"Char4PrimaryWeaponDescr", "Char4SecondaryWeaponDescr", "Char4Equip1Descr", "Char4Equip2Descr", "Char4Equip3Descr", "Char4Equip4Descr"},
+		{"Char5PrimaryWeaponDescr", "Char5SecondaryWeaponDescr", "Char5Equip1Descr", "Char5Equip2Descr", "Char5Equip3Descr", "Char5Equip4Descr"},
+		{"Char6PrimaryWeaponDescr", "Char6SecondaryWeaponDescr", "Char6Equip1Descr", "Char6Equip2Descr", "Char6Equip3Descr", "Char6Equip4Descr"},
+		{"Char7PrimaryWeaponDescr", "Char7SecondaryWeaponDescr", "Char7Equip1Descr", "Char7Equip2Descr", "Char7Equip3Descr", "Char7Equip4Descr"},
+		{"Char8PrimaryWeaponDescr", "Char8SecondaryWeaponDescr", "Char8Equip1Descr", "Char8Equip2Descr", "Char8Equip3Descr", "Char8Equip4Descr"},
+	};
 
+	if (index >= 8)
+		return;
+
+	CCharacterType* type = CCharacterType::GetByNameMod(GetCustomCharTypeName(index)); /* inlined in the ELF */
+
+	if (type == NULL)
+		return;
+
+	s32 slot = 0;
+
+	for (std::vector<CCharacterWeap>::iterator weap = type->m_weapons.begin(); weap != type->m_weapons.end() && slot < 6; weap++, slot++)
+	{
+		EQUIP_ITEM item = weap->m_wepId;
+		CZWeapon* weapon = CZWeapon::m_listWeapons.GetWeapon(item);
+		const char* text = weapon != NULL ? weapon->GetDescription() : "(empty)";
+		*theUIVarManager.Add(names[index][slot], NULL, (UIVAR_LONGEVITY)1) = text;
+
+		s32 slots = item == EQUIP_ITEM::DOUBLE_AMMO_LOAD ? 2 : item == EQUIP_ITEM::SATCHEL_CHARGE ? 2 : 1;
+
+		if (slots != 1)
+		{
+			slot++;
+
+			if (slot < 6)
+				*theUIVarManager.Add(names[index][slot], NULL, (UIVAR_LONGEVITY)1) = "---";
+		}
+	}
+
+	for (; slot < 6; slot++)
+		*theUIVarManager.Add(names[index][slot], NULL, (UIVAR_LONGEVITY)1) = "(empty)";
 }
 
 /* @socom-skeleton stub UpdateMissionArchive__25@unnamed@fts_mission_cpp@FPCcPCc */
@@ -468,6 +522,11 @@ void HUDTriggerMissionCamBegin(_zanim_cmd_hdr *)
 /* @socom-skeleton stub HUDTriggerMissionCamTick__FP14_zanim_cmd_hdrPf */
 bool HUDTriggerMissionCamTick(_zanim_cmd_hdr *, float *)
 {
+	/* 0x1f98d0: done unless the HUD's mission camera is still playing */
+	if (theHUD == NULL)
+		return true;
+
+	return !theHUD->m_missioncams.IsPlaying();
 }
 
 /* @socom-skeleton stub HUDStartDefuseTimerParse__FP5_zrdr */
@@ -979,6 +1038,46 @@ bool CMission::tick(float dT, void *registrar)
 /* @socom-skeleton stub _OnMissionComplete__Fv */
 void _OnMissionComplete()
 {
+	/* 0x1f6dd0 (the mission's end, before the exit state): silence every sound, close the
+	 * sound banks and the jukebox, stop the player's rumble and the "common" and "mission"
+	 * anim sets, flush the input; a network game also clears the player's projectiles and
+	 * closes the pickups. Then every entity's OnMissionEnd, the camera zoom back to 1 and
+	 * the third-person view (m_ctrl_view 0). */
+	CSndInstance::StopAllSounds();
+	CSnd::Close();
+	CSndJukebox::Stop();
+
+	CZSealBody *player = ftsGetPlayer();
+	CSealCtrl *control = player != NULL ? static_cast<CSealCtrl *>(player->m_control) : NULL;
+
+	if (control != NULL)
+		control->StopRumbler();
+
+	CZAnimSet *set = ZAnim.GetAnimSet("common");
+
+	if (set != NULL)
+		set->Stop();
+
+	set = ZAnim.GetAnimSet("mission");
+
+	if (set != NULL)
+		set->Stop();
+
+	CInput::Flush();
+
+	if (theNetwork.m_bNetwork)
+	{
+		CZProjectileList *projectiles = CZWeapon::m_pProjectilelist;
+		player = ftsGetPlayer();
+		projectiles->Clear(player != NULL ? player->m_id : 0);
+		CPickup::Close(false);
+	}
+
+	for (CEntityList::iterator it = CEntity::m_list.begin(); it != CEntity::m_list.end(); ++it)
+		(*it)->OnMissionEnd();
+
+	appCamera->SetZoom(1.0f);
+	appCamera->m_ctrl_view = static_cast<CAMVIEW>(0);
 }
 
 /* @socom-skeleton body Tick__8CMissionFf */
@@ -1045,84 +1144,165 @@ void CMission::DestroyNetGame()
 /* @socom-skeleton body OnMissionComplete__8CMissionF13MISSION_STATE */
 void CMission::OnMissionComplete(MISSION_STATE state)
 {
-	if (state != m_state)
-	{
+	/* 0x1f6200 (CMission::Tick's end valves): the new state is kept; single player acts
+	 * only on a change, and only for an abort or while the player lives (a dead player's
+	 * end comes from the death camera). With the "nofade" valve at 1 the mission ends at
+	 * once (as FadeToEndMissionTick's end: _OnMissionComplete, black screen, flashes
+	 * deleted, death camera reset, the exit state pushed); else the end fade starts (task
+	 * MissionFadeToEnd, 1 s, then the long black flash) or, already fading, is cut to at
+	 * most 1 s with no more short flashes. Was a guess (inverted alive test, nothing
+	 * pushed). ELF: m_valve_nofade is not NULL-tested; the single-player branch tests
+	 * the network flag a second time. */
+	MISSION_STATE old = m_state;
+
+	if (static_cast<u8>(state) != static_cast<u8>(old))
 		m_state = state;
+
+	if (theNetwork.m_bNetwork)
+	{
+		/* port: not written - the network round's end (0x1f6240-0x1f6450: CZBombState::
+		   UninitBomb, the abort dialog dlgNetAbort.rdr after a 3 s delay, the mp_score00/08
+		   and mp_winner valves, the round counter valve, CZGameState::UpdateLocalGame,
+		   NetSendObjectFullUpdate, _OnMissionComplete, theGame.Push(&m_MPexitState)); the
+		   port has no network play */
+		return;
 	}
 
-	if (!theNetwork.m_bNetwork)
-	{
-		if (m_state == MISSION_ABORTED || !ftsPlayer->m_isAlive)
-		{
-			if (m_valve_nofade)
-			{
-				m_DelayEndMission = false;
+	if (static_cast<u8>(old) == static_cast<u8>(m_state))
+		return;
 
-				// _OnMissionComplete();
-				CVideo::Clear(0, 0, 0, 0);
-				// CFlashFXVector::Reset();
-				theMission.m_DelayEndMission = false;
-				m_FadingToEndMission = false;
-				appCamera->ResetDeathCam();
-				// theGame.Push(&m_exitState, 0);
-			}
-			else if (!m_FadingToEndMission)
-			{
-				m_FadingToEndMission = true;
-				theMission.m_FadingToEndMission = true;
-				m_fade_counter = 0;
+	if (m_state != MISSION_ABORTED && !ftsGetPlayer()->m_isAlive)
+		return;
+
+	if (m_valve_nofade->m_value == 1)
+	{
+		m_DelayEndMission = false;
+
+		if (m_DelayEndMission)
+			return;
+
+		_OnMissionComplete();
+		CVideo::Clear(0, 0, 0, 0);
+		theHUD->m_FlashFXVector.Reset();
+		theMission.m_DelayEndMission = false;
+		m_FadingToEndMission = false;
+		appCamera->ResetDeathCam();
+		theGame.Push(&theGame.m_exitState, 0);
+	}
+	else if (!theNetwork.m_bNetwork)
+	{
+		if (!m_FadingToEndMission)
+		{
+			m_FadingToEndMission = true;
+			theMission.m_DelayEndMission = true;
+			m_fade_counter = 0;
+			m_next_fade_time = 1.0f;
+			zTaskScheduler.AddTask("MissionFadeToEnd", fadeToEndMissionTick, 0.98f, this);
+		}
+		else
+		{
+			if (1.0f < m_next_fade_time)
 				m_next_fade_time = 1.0f;
 
-				// zTaskScheduler.AddTask("MissionFader", MissionFadeToEnd, fadeToEndMissionTick, 0.98f, this);
-			}
-			else
-			{
-				if (m_next_fade_time > 1.0f)
-				{
-					m_next_fade_time = 1.0f;
-				}
-
-				if (m_fade_counter > 0)
-				{
-					m_fade_counter = 0;
-				}
-			}
+			if (0 < m_fade_counter)
+				m_fade_counter = 0;
 		}
 	}
-	else
-	{
-		if (m_pNetGame)
-		{
-			// CZBombState::UninitBomb;
-
-			if (state == MISSION_ABORTED)
-			{
-				if (m_delay <= 1.0f)
-				{
-					m_delay = m_timer + 3.0f;
-				}
-				else if (m_delay < m_timer)
-				{
-					
-				}
-			}
-		}
-	}
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("MISSION: complete, state %d (was %d), fading %d", (int)m_state, (int)old, (int)m_FadingToEndMission);
+#endif
 }
 
 /* @socom-skeleton stub FadeToEndMissionTick__8CMissionFf */
-bool CMission::FadeToEndMissionTick(float)
+bool CMission::FadeToEndMissionTick(float dT)
 {
+	/* 0x1f60a0 (task MissionFadeToEnd): count the delay down; at 0, with short flashes
+	 * left (m_fade_counter > 0) a black 0.5/0.5/0.5 flash and 5 s more; at the last one
+	 * (0) the long black flash (0.8 out, 5 held, 0.8 in) and 1.1 s more; after it the
+	 * mission ends: _OnMissionComplete, a black screen, the flashes deleted, the death
+	 * camera reset and the exit state pushed (the task ends: true). ELF quirk kept:
+	 * m_DelayEndMission is cleared and then tested. */
+	if (!(m_next_fade_time <= 0.0f))
+	{
+		m_next_fade_time -= dT;
+
+		if (m_next_fade_time <= 0.0f)
+		{
+			CPnt3D black(0.0f, 0.0f, 0.0f);
+
+			if (m_fade_counter > 0)
+			{
+				theHUD->Flash(0.0f, black, 0.5f, 0.5f, 0.5f);
+				m_next_fade_time = 5.0f;
+			}
+			else if (m_fade_counter == 0)
+			{
+				theHUD->Flash(0.0f, black, 0.8f, 5.0f, 0.8f);
+				m_next_fade_time = 1.1f;
+			}
+			else
+			{
+				m_DelayEndMission = false;
+
+				if (m_DelayEndMission)
+					return true;
+
+#ifdef SOCOM_PORT
+				SOCOM_PORT_TRACE("MISSION: faded to the end, exit state");
+#endif
+				_OnMissionComplete();
+				CVideo::Clear(0, 0, 0, 0);
+				theHUD->m_FlashFXVector.Reset();
+				theMission.m_DelayEndMission = false;
+				m_FadingToEndMission = false;
+				appCamera->ResetDeathCam();
+				theGame.Push(&theGame.m_exitState, 0);
+				return true;
+			}
+
+			m_fade_counter--;
+		}
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub fadeToEndMissionTick__8CMissionFfPv */
-bool CMission::fadeToEndMissionTick(float, void *)
+bool CMission::fadeToEndMissionTick(float dT, void *registrar)
 {
+	/* 0x1f6090 (task MissionFadeToEnd): tail jump, the registrar is the mission */
+	return static_cast<CMission *>(registrar)->FadeToEndMissionTick(dT);
 }
 
 /* @socom-skeleton stub FadeToEndMission__8CMissionFfi */
-void CMission::FadeToEndMission(float, int)
+void CMission::FadeToEndMission(float delay, int flashes)
 {
+	/* 0x1f5ff0 (the death camera): single player only. The first call starts the end fade
+	 * (task MissionFadeToEnd at 0.98, theMission.m_DelayEndMission set) after delay
+	 * seconds with that many short flashes first; later calls only shorten the delay and
+	 * the flash count. */
+	if (theNetwork.m_bNetwork)
+		return;
+
+	if (!m_FadingToEndMission)
+	{
+		m_FadingToEndMission = true;
+		theMission.m_DelayEndMission = true;
+		m_fade_counter = flashes;
+		m_next_fade_time = delay;
+		zTaskScheduler.AddTask("MissionFadeToEnd", fadeToEndMissionTick, 0.98f, this);
+#ifdef SOCOM_PORT
+		SOCOM_PORT_TRACE("MISSION: fade to the end in %.2f s (%d flashes)", delay, flashes);
+#endif
+	}
+	else
+	{
+		if (delay < m_next_fade_time)
+			m_next_fade_time = delay;
+
+		if (flashes < m_fade_counter)
+			m_fade_counter = flashes;
+	}
 }
 
 /* @socom-skeleton stub CreateLadderTable__8CMissionFv */
@@ -1204,8 +1384,10 @@ void CMission::OnMissionStart()
 
 	CInput::Flush();
 
-	CZAnimSet* common = NULL; // ZAnim.GetAnimSet("common");
-	CZAnimSet* mission = NULL;
+	/* 0x1f4618: the common and mission anim sets start (their anims can be activated from
+	 * now on; on-start anims run) */
+	CZAnimSet* common = ZAnim.GetAnimSet("common");
+	CZAnimSet* mission = ZAnim.GetAnimSet("mission");
 
 	if (common)
 		common->Start();

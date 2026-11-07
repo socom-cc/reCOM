@@ -184,20 +184,16 @@ _zanim_cmd_hdr * CValve::CmdParseCmp(_zrdr *)
 /* @socom-skeleton body __ct__6CValveFPCcUi10VALVE_TYPE */
 CValve::CValve(const char* name, u32 value, VALVE_TYPE type)
 {
-	m_list.clear();
-	
+	/* 0x2f77e0: a heap copy of the name (not pooled), the value and the type (was
+	 * VTYPE_NONE). The ELF also walks a debug valve-watch table (no effect). */
 	m_name = NULL;
+	m_value = value;
+	m_type = (u32)type;
 	m_name_pooled = false;
 	m_pooled = false;
-	m_value = value;
-	m_type = (u32)VALVE_TYPE::VTYPE_NONE;
-
 	FreeName();
-
-	if (name)
-	{
-		m_name = zstrdup(name);
-	}
+	m_name = name != NULL ? zstrdup(name) : NULL;
+	m_name_pooled = false;
 }
 
 /* @socom-skeleton stub __dt__6CValveFv */
@@ -208,31 +204,29 @@ CValve::~CValve()
 /* @socom-skeleton body AssignName__6CValveFPc */
 void CValve::AssignName(char *name)
 {
-
+	/* 0x2f7600: the name becomes a pointer into the pool's name buffer (not freed) */
+	FreeName(); /* inlined in the ELF */
+	m_name = name;
+	m_name_pooled = true;
 }
 
 /* @socom-skeleton stub SetName__6CValveFPCc */
-void CValve::SetName(const char *)
+void CValve::SetName(const char *name)
 {
+	/* 0x2f7540: the name becomes a heap copy */
+	FreeName(); /* inlined in the ELF */
+	m_name = name != NULL ? zstrdup(name) : NULL;
+	m_name_pooled = false;
 }
 
 /* @socom-skeleton body FreeName__6CValveFv */
 void CValve::FreeName()
 {
-	if (m_name_pooled)
-	{
-		if (m_name)
-		{
-			zfree(m_name);
-		}
+	/* 0x2f74d0: a heap name is freed, a pooled one only dropped (was the other way round) */
+	if (!m_name_pooled && m_name != NULL)
+		zfree(m_name);
 
-		m_name = NULL;
-	}
-	else
-	{
-		m_name = NULL;
-	}
-
+	m_name = NULL;
 	m_name_pooled = false;
 }
 

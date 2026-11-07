@@ -189,6 +189,7 @@ public:
 	s32 m_numCommands;                       /* DWARF +0x86c */
 
 	zdb::CTextureRelocMgr* m_Reloc;
+	std::vector<zdb::CNode*> _vecModelInstances; /* DWARF +0x878: the design's MODELS, instanced in the world (PrepModels) */
 	/* @socom-skeleton decl 9CGameMenu */
 public:
 	virtual ~CGameMenu();

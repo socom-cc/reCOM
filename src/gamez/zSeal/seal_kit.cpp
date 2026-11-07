@@ -1043,8 +1043,9 @@ CZProjectile * CZKit::Fire(int index, const CPnt3D *from, const CPnt3D *dir, con
 		zdb::CNode *part = m_body->GetFirepointNode(NULL);
 		zdb::CNode *point = weapon->IsGrenadeLauncherAmmo() ? m_body->GetFirepointNode("firepoint_203") : m_body->GetFirepointNode("firepoint");
 
+		/* 0x2adc24: node, fire point position and velocity, 0-terminated */
 		if (part != NULL && point != NULL && CZWeapon::m_allowFireAnimations)
-			fire->ActivateArg(3, 3, part, 5, &point->m_matrix.m_matrix[3][0], 6, vel);
+			fire->ActivateArg(3, 3, part, 5, &point->m_matrix.m_matrix[3][0], 6, vel, 0);
 	}
 
 	if (time == 0.0f)
@@ -1323,8 +1324,37 @@ int CZKit::FindNextGrenadeLauncherAmmo(int index)
 }
 
 /* @socom-skeleton stub GetMaxAmmoCount__5CZKitFi */
-int CZKit::GetMaxAmmoCount(int)
+int CZKit::GetMaxAmmoCount(int item)
 {
+	/* 0x2ac320: the item's magazine size (wrapped over the items); for a launcher in a
+	 * grenade fire mode the grenade's. ELF quirk kept: the grenade is m_item[fire mode - 3],
+	 * as in GetAmmoCount. */
+	s32 count = m_num_items;
+
+	if (item == count || count == 0)
+	{
+		item = -1;
+	}
+	else
+	{
+		while (item >= count)
+			item -= count;
+
+		while (item < 0)
+			item += count;
+	}
+
+	s32 slot = unwrap(item, count);
+	s32 wrapped = unwrap(slot, m_num_items);
+	CZFTSWeapon *weapon = wrapped != -1 ? m_item[wrapped] : NULL;
+
+	if (weapon != NULL && weapon->IsGrenadeLauncherWeapon() && m_firemode[slot] >= 4)
+	{
+		CZFTSWeapon *grenade = m_item[m_firemode[item] - 3];
+		return grenade != NULL ? grenade->GetAmmoCapacity() : 0;
+	}
+
+	return m_item[item] != NULL ? m_item[item]->GetAmmoCapacity() : 0;
 }
 
 /* @socom-skeleton stub GetCurMaxAmmoCount__5CZKitFv */
@@ -2511,13 +2541,22 @@ char * CZKit::GetFiremodeName(int item)
 }
 
 /* @socom-skeleton stub GetIcon__5CZKitFi */
-zdb::CTexHandle * CZKit::GetIcon(int)
+zdb::CTexHandle * CZKit::GetIcon(int index)
 {
+	/* 0x2a82c0: the item's HUD icon (index wrapped over the items; NULL for none) */
+	s32 item = unwrap(index, m_num_items);
+
+	if (item == -1)
+		return NULL;
+
+	return m_item[item] != NULL ? m_item[item]->m_icontex : NULL;
 }
 
 /* @socom-skeleton stub GetSelectedItemNum__5CZKitFv */
 int CZKit::GetSelectedItemNum()
 {
+	/* 0x2a82b0 */
+	return m_selected_item;
 }
 
 /* @socom-skeleton stub GetNumItems__5CZKitCFv */
@@ -2576,8 +2615,38 @@ bool CZKit::SetItemAmmo(unsigned int index, CZAmmo *ammo)
 }
 
 /* @socom-skeleton stub isSelectableItem__5CZKitFi */
-void CZKit::isSelectableItem(int)
+bool CZKit::isSelectableItem(int index)
 {
+	/* 0x2a7f40: whether the weapon menu offers the item: not launcher grenades, armour
+	 * (ids 201 and up), satchels, the MP bomb, restraints, the knife or the double ammo
+	 * load; the detonator only while the seal has remote explosives placed */
+	s32 item = unwrap(index, m_num_items);
+
+	if (item == -1)
+		return false;
+
+	CZFTSWeapon* weapon = m_item[item];
+	u8 id = (u8)weapon->m_ID;
+
+	if (weapon->IsGrenadeLauncherAmmo())
+		return false;
+
+	if (id >= 201)
+		return false;
+
+	switch ((EQUIP_ITEM)id)
+	{
+	case EQUIP_ITEM::DETONATOR:
+		return CZWeapon::m_pProjectilelist->GetNumRemoteExplosives(m_body->m_id) != 0;
+	case EQUIP_ITEM::SATCHEL_CHARGE:
+	case EQUIP_ITEM::RESTRAINTS:
+	case EQUIP_ITEM::KNIFE:
+	case EQUIP_ITEM::MPBOMB:
+	case EQUIP_ITEM::DOUBLE_AMMO_LOAD:
+		return false;
+	default:
+		return true;
+	}
 }
 
 /* @socom-skeleton stub ItemHasAmmo__5CZKitF10EQUIP_ITEM */

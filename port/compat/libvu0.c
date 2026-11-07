@@ -202,3 +202,52 @@ void sceVu0LightColorMatrix(sceVu0FMATRIX m, sceVu0FVECTOR c0, sceVu0FVECTOR c1,
     sceVu0CopyVector(m[2], c2);
     sceVu0CopyVector(m[3], a);
 }
+
+/* 0x152730: the rotation rows are (c,0,-s,0) (0,1,0,0) (s,0,c,0) (0,0,0,1) with
+ * c = cos(ry), s = sin(ry) (_sceVu0ecossin 0x152568: a VU0 polynomial for sin(pi/2 -/+ ry)
+ * and s = +/-sqrt(1 - c*c) by the sign of ry; port: cosf/sinf). Each row r of m1 becomes
+ * r.x*row0 + r.y*row1 + r.z*row2 + r.w*row3 (vmulax/vmadday/vmaddaz/vmaddw), row by
+ * row, so m0 may alias m1. */
+void sceVu0RotMatrixY(sceVu0FMATRIX m0, sceVu0FMATRIX m1, float ry)
+{
+    const float c = cosf(ry), s = sinf(ry);
+    int i;
+    for (i = 0; i < 4; i++) {
+        const float x = m1[i][0], y = m1[i][1], z = m1[i][2], w = m1[i][3];
+        m0[i][0] = x * c + z * s;
+        m0[i][1] = y;
+        m0[i][2] = -x * s + z * c;
+        m0[i][3] = w;
+    }
+}
+
+/* 0x152d18: rows of m0 weighted by v1.xyzw (vmulax/vmadday/vmaddaz/vmaddw), x, y, z times
+ * 1 / w (vdiv, vmulq.xyz), all four converted by vftoi4 (x16, truncated), then z and w by
+ * vftoi0 when mode is nonzero. */
+void sceVu0RotTransPers(sceVu0IVECTOR v0, sceVu0FMATRIX m0, sceVu0FVECTOR v1, int mode)
+{
+    float r[4];
+    int i;
+    for (i = 0; i < 4; i++)
+        r[i] = m0[0][i] * v1[0] + m0[1][i] * v1[1] + m0[2][i] * v1[2] + m0[3][i] * v1[3];
+    {
+        const float q = 1.0f / r[3];
+        r[0] *= q;
+        r[1] *= q;
+        r[2] *= q;
+    }
+    for (i = 0; i < 4; i++)
+        v0[i] = (int)(r[i] * 16.0f);
+    if (mode) {
+        v0[2] = (int)r[2];
+        v0[3] = (int)r[3];
+    }
+}
+
+/* 0x152510: vftoi0.xyzw */
+void sceVu0FTOI0Vector(sceVu0IVECTOR v0, sceVu0FVECTOR v1)
+{
+    int i;
+    for (i = 0; i < 4; i++)
+        v0[i] = (int)v1[i];
+}

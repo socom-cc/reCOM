@@ -159,11 +159,30 @@ CCharacterGear * CCharacterGearList::FindGear(const char *name) const
 /* @socom-skeleton stub AddWeapon__18CCharacterWeapListF10EQUIP_ITEM */
 void CCharacterWeapList::AddWeapon(EQUIP_ITEM)
 {
+	/* 0x24b060: appends an empty entry (no item, no ammo). ELF quirk: the item argument is
+	 * not used - the new entry stays EQUIP_NONE. */
+	CCharacterWeap weap;
+	weap.m_wepId = EQUIP_ITEM::EQUIP_NONE;
+	weap.m_ammoId = (EQUIP_AMMO)0xff;
+	weap.m_ammoCount = 0;
+	weap.m_magCount = 0;
+	insert(end(), 1, weap);
 }
 
 /* @socom-skeleton stub SetupCharacterWeapon__14CCharacterWeapF10EQUIP_ITEM */
-void CCharacterWeap::SetupCharacterWeapon(EQUIP_ITEM)
+void CCharacterWeap::SetupCharacterWeapon(EQUIP_ITEM item)
 {
+	/* 0x24aff0: the item, with its weapon's full load (magazine size, magazines, default
+	 * ammo); an unknown item keeps the old ammo */
+	m_wepId = item;
+	CZWeapon* weapon = CZWeapon::m_listWeapons.GetWeapon(item);
+
+	if (weapon != NULL)
+	{
+		m_ammoCount = weapon->GetAmmoCapacity();
+		m_magCount = weapon->GetNumMags();
+		m_ammoId = weapon->GetDefaultAmmoId();
+	}
 }
 
 /* @socom-skeleton stub KorusGetPackedWeapons__14CCharacterTypeFP20CCharacterWeapPacked */
@@ -1004,11 +1023,31 @@ char * CCharacterType::GetBaseName()
 }
 
 /* @socom-skeleton stub GetWeaponByIndex__14CCharacterTypeCFUi */
-EQUIP_ITEM CCharacterType::GetWeaponByIndex(unsigned int) const
+EQUIP_ITEM CCharacterType::GetWeaponByIndex(unsigned int index) const
 {
+	/* 0x2477a0 */
+	if (index >= m_weapons.size())
+		return EQUIP_ITEM::EQUIP_NONE;
+
+	return m_weapons[index].m_wepId;
 }
 
 /* @socom-skeleton stub RemoveWeapon__18CCharacterWeapListF10EQUIP_ITEM */
-void CCharacterWeapList::RemoveWeapon(EQUIP_ITEM)
+bool CCharacterWeapList::RemoveWeapon(EQUIP_ITEM item)
 {
+	/* 0x247720: drops every entry of the item (remove_if with a compare_item functor, then
+	 * erase); true when any was there */
+	struct compare_item
+	{
+		EQUIP_ITEM m_item;
+		bool operator()(const CCharacterWeap& weap) const { return weap.m_wepId == m_item; }
+	};
+
+	compare_item cmp;
+	cmp.m_item = item;
+	iterator last = end();
+	iterator first = std::remove_if(begin(), last, cmp);
+	bool removed = first != last;
+	erase(first, last);
+	return removed;
 }

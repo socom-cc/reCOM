@@ -165,13 +165,18 @@ public:
 	/* @socom-skeleton end 13CUIVarManager */
 };
 
+/* One MODELS entry of a dialog design: a model shown in the menu's 3D world. No DWARF;
+ * 36 bytes from LoadModels (0x398c90) and PrepModels (0x3814d0). */
 class CDlgDesignModel
 {
 public:
-	char* m_name;
-	f32 m_elevation;
-	f32 m_distance;
-	bool m_usemodeluivar;
+	std::string m_name;    /* +0x0 NAME: the instance node's name (zAnim scripts find it by it) */
+	std::string m_model;   /* +0x4 MODEL: the model (with USEMODELUIVAR: the UI variable naming it) */
+	f32 m_azimuth;         /* +0x8 AZIMUTH: x offset from the menu camera's 320 */
+	f32 m_elevation;       /* +0xc ELEV: y */
+	f32 m_distance;        /* +0x10 DISTANCE (20 by default): z is 320 less it */
+	f32 m_rotation[3];     /* +0x14 ROTX/ROTY/ROTZ (ELF quirk: LoadModels stores all three to +0x14) */
+	bool m_usemodeluivar;  /* +0x20 USEMODELUIVAR */
 };
 
 class CDlgObjSpec;

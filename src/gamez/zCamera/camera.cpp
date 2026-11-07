@@ -71,6 +71,8 @@
 #include <math.h> /* expf (Tick), atan2f (the transitions) */
 #include "gamez/zMath/zmath_vu.h" /* Vu0MatrixInverseWithUniformScale (the transitions) */
 #include "gamez/zGrid/zgrid.h" /* zdb::SetCameraCollideFlagRequired (ClipCameraChord) */
+#include "gamez/zNetwork/znet.h" /* theNetwork (UpdateDeathCamState) */
+#include "gamez/zInput/zinput.h" /* CInput::m_pads, KEY_STATE (UpdateDeathCamState) */
 
 /* @socom-skeleton decl include */
 #include "gamez/zIntersect/zintersect.h"
@@ -998,14 +1000,422 @@ void CAppCamera::ResetDeathCam()
 }
 
 /* @socom-skeleton body UpdateDeathCamState__10CAppCameraFf */
-void CAppCamera::UpdateDeathCamState(float)
+void CAppCamera::UpdateDeathCamState(float dT)
 {
-	
+	/* 0x1e9620 (GetDeadCamPoints, every death-camera frame): the death sequence.
+	   Start (init_dying): the rumble settings, the dead seal is m_killed, the killer the
+	   seal of its m_lastkiller_id. Single player: 2.5 s of the plain tether
+	   (tether_initial_dying, theMission.m_DelayEndMission set); then with a killer a short
+	   black flash, the camera follows the killer for ~3.2 s (tether_killer), flashes again
+	   and comes back to the body; the body then orbits (auto_rotate_body) through two more
+	   flash pairs (the negative fade-in ones stay dark at 0.8 and 0.4 brightness), and
+	   after them the mission fades to its end (FadeToEndMission 0.01). X (the Action
+	   button, with the seal's input enabled) ends it at once (0.2); the right stick
+	   (throttle 2) takes the orbit over (user_rotate_body) and ends the mission after 5 s.
+	   Meanwhile the dead player's aim pitch is pulled to look down at the body and each
+	   flash sets off a rumble (two pulses each, the second weaker). Multiplayer: view the
+	   killer at once (or orbit), no flashes, no end. The three camera re-targets are the
+	   same inline code as in AttachTo (port: a local lambda). ELF quirks kept: the
+	   tether_killer re-target before the user takeover only runs with a dead m_entity
+	   (the killer is followed alive, so never); the network pick reads m_killed->m_control
+	   without a NULL test. */
+	auto follow = [this](CZSealBody *seal)
+	{
+		if (seal != NULL)
+		{
+			CEntityCtrl *control = seal->m_control;
+			bool player = control != NULL ? static_cast<CSealCtrl *>(control)->IsPlayer() : false;
+
+			if (player && seal->m_control != NULL)
+				m_padid = static_cast<CSealCtrl *>(seal->m_control)->m_padid;
+		}
+
+		m_entity = seal;
+
+		if (m_entity != NULL)
+		{
+			m_camera_effects = m_entity->GetNode()->FindChild("camera_effects", true);
+			m_skel_root = m_entity->FindPart("skel_root");
+		}
+		else
+		{
+			m_camera_effects = NULL;
+			m_skel_root = NULL;
+		}
+	};
+	auto isPlayer = [](CZSealBody *seal)
+	{
+		CEntityCtrl *control = seal->m_control;
+		return control != NULL ? static_cast<CSealCtrl *>(control)->IsPlayer() : false;
+	};
+
+	if (m_cam_death_state == CAM_DEATH_STATE::init_dying)
+	{
+		m_rumble_counter = 0;
+		m_rumble_timer = -1.0f;
+		m_next_rumble_time = -1.0f;
+		m_next_rumble_time_scaler = 1.15f;
+		m_rumble_time = 0.2f;
+		m_rumble_time_scaler = 1.075f;
+		m_rumble_power = 180.0f;
+		m_rumble_power_scaler = 0.9f;
+		m_allow_player_death_cam_control = true;
+		m_flashcounter = 0;
+		m_killed = m_entity;
+		m_killer = SealOfEntity(CEntity::GetEntityList().GetEntityById(m_entity->m_lastkiller_id));
+
+		if (theNetwork.m_bNetwork)
+		{
+			if (m_killer == NULL || m_killer == m_killed)
+				m_cam_death_state = CAM_DEATH_STATE::auto_rotate_body;
+			else
+				m_cam_death_state = CAM_DEATH_STATE::view_killer;
+		}
+		else
+		{
+			m_flashcounter = 0;
+			m_next_rumble_time = 1.0f;
+			m_cam_death_state = CAM_DEATH_STATE::tether_initial_dying;
+			m_death_state_timer = 2.5f;
+			theMission.m_DelayEndMission = true;
+		}
+	}
+
+	if (theNetwork.m_bNetwork && !isPlayer(m_entity))
+		m_cam_death_state = CAM_DEATH_STATE::user_rotate_body;
+
+	if (!(m_death_state_timer <= 0.0f))
+	{
+		m_death_state_timer -= dT;
+
+		if (m_death_state_timer <= 0.0f)
+		{
+			CPnt3D black(0.0f, 0.0f, 0.0f);
+
+			switch (m_cam_death_state)
+			{
+			case CAM_DEATH_STATE::tether_initial_dying:
+				if (m_killer == NULL)
+				{
+					m_death_state_timer = 5.0f;
+					m_cam_death_state = CAM_DEATH_STATE::auto_rotate_body;
+				}
+				else if (m_flashcounter == 1)
+				{
+					m_flashcounter = 0;
+					m_death_state_timer = 3.0f + m_death_fade_in_time;
+					m_cam_death_state = CAM_DEATH_STATE::tether_killer;
+					follow(m_killer);
+				}
+				else if (m_flashcounter == 0)
+				{
+					m_flashcounter++;
+					m_death_fade_out_time = 0.2f;
+					m_death_faded_time = 0.2f;
+					m_death_fade_in_time = 0.2f;
+					m_death_state_timer = m_death_fade_out_time + 0.5f * m_death_faded_time;
+					theHUD->Flash(0.0f, black, m_death_fade_out_time, m_death_faded_time, m_death_fade_in_time);
+					m_rumble_timer = 0.5f * m_death_fade_out_time;
+				}
+				break;
+
+			case CAM_DEATH_STATE::tether_killer:
+				if (m_flashcounter == 1)
+				{
+					m_flashcounter = 0;
+					m_death_state_timer = 2.8f + (0.5f * m_death_faded_time + m_death_fade_in_time);
+					m_cam_death_state = CAM_DEATH_STATE::auto_rotate_body;
+					follow(m_killed);
+				}
+				else if (m_flashcounter == 0)
+				{
+					m_flashcounter++;
+					m_death_fade_out_time = 0.3f;
+					m_death_faded_time = 0.2f;
+					m_death_fade_in_time = 0.2f;
+					m_death_state_timer = m_death_fade_out_time + 0.5f * m_death_faded_time;
+					theHUD->Flash(0.0f, black, m_death_fade_out_time, m_death_faded_time, m_death_fade_in_time);
+					m_rumble_timer = 0.5f * m_death_fade_out_time;
+				}
+				break;
+
+			case CAM_DEATH_STATE::auto_rotate_body:
+				if (theNetwork.m_bNetwork)
+					break;
+
+				switch (m_flashcounter)
+				{
+				case 0:
+					m_flashcounter++;
+					m_death_fade_out_time = 0.9f;
+					m_death_faded_time = 0.1f;
+					m_death_fade_in_time = 0.5f;
+					m_death_state_timer = m_death_fade_out_time + 0.5f * m_death_faded_time;
+					theHUD->Flash(0.0f, black, m_death_fade_out_time, m_death_faded_time, m_death_fade_in_time);
+					m_rumble_timer = 0.5f * m_death_fade_out_time;
+					break;
+
+				case 1:
+					m_flashcounter++;
+					m_death_state_timer = 3.0f + (0.5f * m_death_faded_time + m_death_fade_in_time);
+					theHUD->Flash(0.8f, black, 0.01f, 0.2f, -0.1f);
+					break;
+
+				case 2:
+					m_flashcounter++;
+					m_death_fade_out_time = 1.1f;
+					m_death_faded_time = 0.2f;
+					m_death_fade_in_time = 0.5f;
+					m_death_state_timer = m_death_fade_out_time + 0.5f * m_death_faded_time;
+					theHUD->Flash(0.0f, black, m_death_fade_out_time, m_death_faded_time, m_death_fade_in_time);
+					m_rumble_timer = 0.7f * m_death_fade_out_time;
+					break;
+
+				case 3:
+					m_flashcounter++;
+					m_death_state_timer = 3.0f + (0.5f * m_death_faded_time + m_death_fade_in_time);
+					theHUD->Flash(0.4f, black, 0.01f, 0.2f, -0.1f);
+					m_rumble_timer = m_death_state_timer;
+					break;
+
+				case 4:
+					theMission.FadeToEndMission(0.01f, 0);
+					m_allow_player_death_cam_control = false;
+					break;
+
+				default:
+					break;
+				}
+				break;
+
+			default:
+				break;
+			}
+#ifdef SOCOM_PORT
+			SOCOM_PORT_TRACE("CAM: death state %d flash %d timer %.2f entity %p killed %p killer %p", (int)m_cam_death_state,
+				(int)m_flashcounter, m_death_state_timer, (void *)m_entity, (void *)m_killed, (void *)m_killer);
+#endif
+		}
+	}
+
+	CSealCtrl *control = NULL;
+
+	if (theNetwork.m_bNetwork)
+	{
+		if (isPlayer(m_entity))
+			control = static_cast<CSealCtrl *>(m_entity->m_control);
+		else if (m_killed != NULL)
+			control = static_cast<CSealCtrl *>(m_killed->m_control);
+	}
+	else if (m_killed != NULL)
+	{
+		control = static_cast<CSealCtrl *>(m_killed->m_control);
+
+		if (control != NULL && control->m_input_enabled)
+		{
+			CPad *pad = control->m_padid < 2 ? CInput::m_pads[control->m_padid] : NULL;
+
+			if (pad != NULL && CCtrlrConfigs::GetButtonState(PadBtnFunc::Action, *pad) == KEY_FALLING)
+				theMission.FadeToEndMission(0.2f, 0);
+		}
+	}
+
+	if (control != NULL && !(m_rumble_timer <= 0.0f))
+	{
+		m_rumble_timer -= dT;
+
+		if (m_rumble_timer <= 0.0f)
+		{
+			control->SetLowRumbleTime(m_rumble_time, m_rumble_power);
+
+			if (m_rumble_counter == 1)
+			{
+				m_rumble_counter = 0;
+				m_rumble_power = m_rumble_power * m_rumble_power_scaler;
+			}
+			else if (m_rumble_counter == 0)
+			{
+				m_rumble_timer = 2.0f * m_rumble_time;
+				m_rumble_counter = 1;
+			}
+		}
+	}
+
+	if (!theNetwork.m_bNetwork && m_entity == m_killed && control != NULL
+		&& (m_cam_death_state == CAM_DEATH_STATE::auto_rotate_body || m_cam_death_state == CAM_DEATH_STATE::tether_initial_dying))
+	{
+		f32 look = m_killed->m_fwdlook.vec.x;
+
+		if (!(look <= -0.2f))
+			control->TickAimPitch(dT, -0.5f);
+		else if (look < -0.3f)
+			control->TickAimPitch(dT, 0.5f);
+	}
+
+	if (m_allow_player_death_cam_control && m_cam_death_state != CAM_DEATH_STATE::user_rotate_body)
+	{
+		CEntityCtrl *ctrl = NULL;
+
+		if (theNetwork.m_bNetwork)
+			ctrl = m_killed->m_control;
+		else if (isPlayer(m_entity))
+			ctrl = m_entity->m_control;
+
+		f32 rotate = ctrl != NULL ? ctrl->m_throttle[2] : 0.0f;
+
+		if (!(fabsf(rotate) < 0.01f) && m_entity->m_state == static_cast<s8>(SEAL_STATE::stateDead))
+		{
+			if (m_cam_death_state == CAM_DEATH_STATE::tether_killer)
+				follow(m_killed);
+
+			m_auto_death_cam = false;
+			m_cam_death_state = CAM_DEATH_STATE::user_rotate_body;
+			theMission.m_DelayEndMission = false;
+
+			if (!theNetwork.m_bNetwork)
+				theMission.FadeToEndMission(5.0f, 0);
+
+			m_death_state_timer = -1.0f;
+			m_next_rumble_time = -1.0f;
+			m_rumble_timer = -1.0f;
+#ifdef SOCOM_PORT
+			SOCOM_PORT_TRACE("CAM: death camera under the player's control (rotate %.2f)", rotate);
+#endif
+		}
+	}
 }
 
 /* @socom-skeleton stub GetDeadCamPoints__10CAppCameraFP6CPnt3DP6CPnt3DP7CMatrixf */
-unsigned char CAppCamera::GetDeadCamPoints(CPnt3D *, CPnt3D *, CMatrix *, float)
+unsigned char CAppCamera::GetDeadCamPoints(CPnt3D *eye, CPnt3D *tie, CMatrix *mtx, float dT)
 {
+	/* 0x1e8fc0 (GetTetherCamPoints while the death camera runs): advance the death state,
+	   then turn the tether eye (still in body space) about the body's y axis by DeltaRot:
+	   the orbit grows 0.8725 rad/s on its own (auto_rotate_body) or 6.2925 rad/s times
+	   the dead player's (or the killed seal's) rotate throttle (user_rotate_body). Viewing
+	   the killer (view_killer, multiplayer only): the eye swings round the body until the
+	   killer stands behind it (DeltaRot doubles up to 1.31 for big angles, else 1.31 rad/s
+	   toward 0), rises toward y 20 with DeltaAim and is pushed out (x/z * 2.05) while
+	   within 56 of the body; the tie point is the killer's position, and only then is the
+	   result true. DeltaRot is kept in [-pi, pi]. The matrix comes in as a unit matrix and
+	   leaves as the y rotation. ELF quirk kept: acosf of an unclamped dot product. */
+	bool placed = false;
+	UpdateDeathCamState(dT);
+
+	CEntityCtrl *control = NULL;
+	f32 rotate = 0.0f;
+	CEntityCtrl *own = m_entity->m_control;
+	bool isPlayer = own != NULL ? static_cast<CSealCtrl *>(own)->IsPlayer() : false;
+
+	if (isPlayer)
+		control = m_entity->m_control;
+	else if (m_killed != NULL)
+		control = m_killed->m_control;
+
+	if (control != NULL)
+		rotate = control->m_throttle[2];
+
+	switch (m_cam_death_state)
+	{
+	case CAM_DEATH_STATE::view_killer:
+	{
+		f32 limit = 1.5f;
+		CPnt3D eyeW = *eye;
+		sceVu0RotMatrixY(mtx->m_matrix, mtx->m_matrix, DeltaRot);
+		mtx->Rotate(&eyeW, &eyeW, 1);
+		sceVu0UnitMatrix(mtx->m_matrix);
+
+		CPnt3D killed = *m_killed->GetPosW();
+		CPnt3D killer = *m_killer->GetPosW();
+		m_killed->m_node->m_matrix.Transform(&eyeW, 1);
+
+		CPnt3D d;
+		eyeW.Sub(&killed, &d);
+		CPnt3D toEye(d.x, 0.0f, d.z);
+		killed.Sub(&killer, &d);
+		CPnt3D fromKiller(d.x, 0.0f, d.z);
+		CPnt3D side(toEye.z, 0.0f, -toEye.x);
+		killer.Sub(&eyeW, &d);
+		CPnt3D toKiller(d.x, 0.0f, d.z);
+		bool left = !(side.x * toKiller.x + side.z * toKiller.z <= 0.0f);
+
+		toEye.Normalize();
+		fromKiller.Normalize();
+		f32 angle = acosf(toEye.x * fromKiller.x + toEye.z * fromKiller.z);
+
+		if (left)
+			angle = -angle;
+
+		if (fabsf(angle) < 0.8725f)
+		{
+			if (fabsf(angle) <= 0.01f)
+				angle = 0.0f;
+			else
+				angle = 1.1461318f * angle;
+		}
+		else if (angle <= 0.0f)
+		{
+			angle = -1.0f;
+		}
+		else
+		{
+			angle = 1.0f;
+		}
+
+		limit = 0.8725f * limit;
+		*tie = killer;
+		placed = true;
+		f32 current = fabsf(DeltaRot);
+
+		if (!(fabsf(angle) <= 0.99f) && current < limit)
+		{
+			if (current < 0.1f)
+				DeltaRot = 0.1f * angle;
+			else
+				DeltaRot = DeltaRot * 1.5f;
+		}
+		else
+		{
+			DeltaRot = DeltaRot + dT * (limit * angle);
+		}
+		break;
+	}
+
+	case CAM_DEATH_STATE::auto_rotate_body:
+		DeltaRot = DeltaRot + 0.8725f * dT;
+		break;
+
+	case CAM_DEATH_STATE::user_rotate_body:
+		DeltaRot = DeltaRot + 6.2925f * rotate * dT;
+		break;
+
+	default:
+		break;
+	}
+
+	f32 r = DeltaRot;
+
+	while (r < -3.1415927f)
+		r += 6.2831855f;
+
+	while (!(r <= 3.1415927f))
+		r -= 6.2831855f;
+
+	DeltaRot = r;
+	sceVu0RotMatrixY(mtx->m_matrix, mtx->m_matrix, DeltaRot);
+	mtx->Rotate(eye, eye, 1);
+
+	if (m_cam_death_state == CAM_DEATH_STATE::view_killer)
+	{
+		eye->y = eye->y + (20.0f - eye->y) * DeltaAim;
+
+		if (sqrtf(eye->z * eye->z + eye->x * eye->x) < 56.0f)
+		{
+			eye->x = eye->x + 1.05f * eye->x;
+			eye->z = eye->z + 1.05f * eye->z;
+		}
+	}
+
+	return placed;
 }
 
 /* @socom-skeleton stub GetTetherCamPoints__10CAppCameraFP6CPnt3DP6CPnt3DP6CPnt3Df */

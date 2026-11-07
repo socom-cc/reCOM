@@ -5,6 +5,7 @@
 
 typedef float sceVu0FVECTOR[4] __attribute__((aligned(16)));
 typedef float sceVu0FMATRIX[4][4] __attribute__((aligned(16)));
+typedef int sceVu0IVECTOR[4] __attribute__((aligned(16)));
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,6 +40,15 @@ void sceVu0TransposeMatrix(sceVu0FMATRIX m0, sceVu0FMATRIX m1);
 void sceVu0NormalLightMatrix(sceVu0FMATRIX m, sceVu0FVECTOR l0, sceVu0FVECTOR l1, sceVu0FVECTOR l2);
 /* light colour matrix, rows c0, c1, c2, a (0x1529c0; CWorld::Update 0x22f34c) */
 void sceVu0LightColorMatrix(sceVu0FMATRIX m, sceVu0FVECTOR c0, sceVu0FVECTOR c1, sceVu0FVECTOR c2, sceVu0FVECTOR a);
+/* m0 = m1 turned about y by ry: each row r of m1 -> r.x*(c,0,-s,0) + r.y*(0,1,0,0) + r.z*(s,0,c,0) + r.w*(0,0,0,1)
+ * (0x152730; GetDeadCamPoints 0x1e8fc0; m0 may alias m1) */
+void sceVu0RotMatrixY(sceVu0FMATRIX m0, sceVu0FMATRIX m1, float ry);
+
+/* v0 = ftoi4 of (m0 * v1 with x, y, z divided by its w; w kept), z and w as ftoi0 when mode
+ * is nonzero (0x152d18; Particle::BufferElement::Draw 0x2348c4) */
+void sceVu0RotTransPers(sceVu0IVECTOR v0, sceVu0FMATRIX m0, sceVu0FVECTOR v1, int mode);
+/* v0 = v1 truncated to integers (vftoi0, 0x152510) */
+void sceVu0FTOI0Vector(sceVu0IVECTOR v0, sceVu0FVECTOR v1);
 
 #ifdef __cplusplus
 }

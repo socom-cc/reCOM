@@ -2937,6 +2937,27 @@ void CZSealBody::PickupObject(CPickup *)
 /* @socom-skeleton stub PostMortemPreTick__10CZSealBodyFf */
 void CZSealBody::PostMortemPreTick(float)
 {
+	/* 0x24f2a0 (PreTick while dead, after the controller's): network: a requested respawn
+	 * (RemoteRespawn), else the spectator camera on / back; single player: a requested
+	 * respawn (DoRespawn). */
+	if (theNetwork.m_bNetwork)
+	{
+		if (m_needs_respawn)
+			RemoteRespawn(true);
+
+		if (m_advance_camera)
+		{
+			AdvancePiggyBack();
+			return;
+		}
+
+		if (m_retreat_camera)
+			RetreatPiggyBack();
+	}
+	else if (m_needs_respawn)
+	{
+		DoRespawn();
+	}
 }
 
 /* @socom-skeleton stub AdvancePiggyBack__10CZSealBodyFv */

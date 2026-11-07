@@ -105,8 +105,14 @@ void C2DPoly::SetColor(f32 r, f32 g, f32 b)
 }
 
 /* @socom-skeleton stub GetColor__7C2DPolyFv */
-void C2DPoly::GetColor()
+PNT3D C2DPoly::GetColor()
 {
+	/* 0x301660: the first vertex's colour */
+	PNT3D color;
+	color.x = m_RGB[0][0];
+	color.y = m_RGB[0][1];
+	color.z = m_RGB[0][2];
+	return color;
 }
 
 /* @socom-skeleton body SetTrans__7C2DPolyFf */

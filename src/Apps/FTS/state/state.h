@@ -44,4 +44,13 @@ public:
 	virtual void PrepControls(zdb::CTextureRelocMgr *);
 };
 /* @socom-skeleton end 9CLoadMenu */
+/* port: no DWARF type. CExitState::Init (0x3208ec) news 2192 bytes (sizeof CGameMenu, its
+ * vptr at +0x884) and sets the CExitMenu vtable (0x472fa0): the dtor 0x320670,
+ * CGameMenu's MyTick and PrepControls, its own GetReaderFileName 0x321310. */
+class CExitMenu : public CGameMenu
+{
+public:
+	virtual ~CExitMenu() {} /* 0x320670: only ~CGameMenu */
+	virtual char * GetReaderFileName();
+};
 #endif

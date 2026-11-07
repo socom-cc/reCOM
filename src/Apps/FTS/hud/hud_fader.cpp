@@ -116,18 +116,122 @@ void CFader::SetBrightness(float brightness)
 }
 
 /* @socom-skeleton stub Flash__8CFlashFXFfff */
-void CFlashFX::Flash(float, float, float)
+void CFlashFX::Flash(float fadeout, float duration, float fadein)
 {
+	/* 0x403490 (CHUD::Flash): darken from full brightness to the minimum over fadeout
+	 * seconds, hold for duration, then brighten back over fadein (a phase with a time of
+	 * 0 or less is skipped; without a fade-in the flash stays dark until Reset) */
+	m_fadeout_time = fadeout;
+	m_fade_duration_time = duration;
+	m_fadein_time = fadein;
+	m_fadedir = OUT;
+	m_timer = m_fadeout_time;
+	CFader::m_fadedir = OUT;
+	m_fadetime = m_timer;
+	m_fadetotal = m_timer;
+	m_brightness = 1.0f;
+	m_faderate = (1.0f - m_min_brightness) / m_fadetotal;
 }
 
 /* @socom-skeleton stub Reset__8CFlashFXFv */
 void CFlashFX::Reset()
 {
+	/* 0x403440 (virtual): all times 0, fading in from the minimum (ELF: the rate divides
+	 * by the zero total, an infinity nothing uses before the next Flash) */
+	m_fadeout_time = 0.0f;
+	m_fade_duration_time = 0.0f;
+	m_fadein_time = 0.0f;
+	m_fadedir = IN;
+	m_timer = 0.0f;
+	CFader::m_fadedir = IN;
+	m_fadetime = 0.0f;
+	m_fadetotal = 0.0f;
+	m_brightness = m_min_brightness;
+	m_faderate = (1.0f - m_min_brightness) / m_fadetotal;
 }
 
 /* @socom-skeleton stub Tick__8CFlashFXFf */
-void CFlashFX::Tick(float)
+void CFlashFX::Tick(float dT)
 {
+	/* 0x4031a0 (virtual; CFlashFXVector::Tick): CFader::Tick's brightness step (dT capped
+	 * at 0.1 s; inline here), then the flash phases on m_timer: fading out -> hold (if it
+	 * has a duration) -> fading in (if it has a fade-in time; the fader restarts from the
+	 * minimum brightness). A finished fade-in turns the bitmap off. */
+	f32 step = 0.1f;
+
+	if (dT < 0.1f)
+		step = dT;
+
+	f32 fade = 0.1f;
+
+	if (step < 0.1f)
+		fade = step;
+
+	if (!(m_fadetime <= 0.0f))
+	{
+		On();
+
+		if (CFader::m_fadedir == IN)
+		{
+			m_brightness = m_brightness + m_faderate * fade;
+			SetBrightness(m_brightness);
+		}
+		else
+		{
+			m_brightness = m_brightness + -(m_faderate * fade);
+			SetBrightness(m_brightness);
+		}
+	}
+	else if (CFader::m_fadedir == IN)
+	{
+		Off();
+	}
+	else
+	{
+		On();
+		m_brightness = m_brightness + -(m_faderate * fade);
+		SetBrightness(m_brightness);
+	}
+
+	m_fadetime -= fade;
+	m_timer -= step;
+
+	auto fadeIn = [this]()
+	{
+		m_timer = m_fadein_time;
+		m_fadedir = IN;
+		CFader::m_fadedir = IN;
+		m_fadetime = m_timer;
+		m_fadetotal = m_timer;
+		m_brightness = m_min_brightness;
+		m_faderate = (1.0f - m_min_brightness) / m_fadetotal;
+	};
+
+	switch (m_fadedir)
+	{
+	case OUT:
+		if (m_timer < 0.0f)
+		{
+			if (!(m_fade_duration_time <= 0.0f))
+			{
+				m_timer = m_fade_duration_time;
+				m_fadedir = FADE;
+			}
+			else if (!(m_fadein_time <= 0.0f))
+			{
+				fadeIn();
+			}
+		}
+		break;
+
+	case FADE:
+		if (m_timer < 0.0f && !(m_fadein_time <= 0.0f))
+			fadeIn();
+		break;
+
+	default:
+		break;
+	}
 }
 
 /* @socom-skeleton stub Tick__14CFlashFXVectorFf */

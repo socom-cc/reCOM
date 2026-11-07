@@ -247,7 +247,7 @@ public:
 public:
 	virtual ~C2DPoly() {}
 	virtual void GetAssetLibs(C2D::CLibList &); /* 0x3019d0 */
-	void GetColor();
+	PNT3D GetColor(); /* PNT3D: 0x301660 returns it through a0 */
 	float GetTrans();
 	void SetPos(float, float, float, float, float, float);
 	/* @socom-skeleton end 7C2DPoly */

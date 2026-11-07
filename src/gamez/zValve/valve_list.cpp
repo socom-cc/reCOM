@@ -47,82 +47,117 @@ void CValvePool::FlushNames(bool)
 /* @socom-skeleton body Acquire__10CValvePoolFPCc10VALVE_TYPE */
 CValve* CValvePool::Acquire(const char* name, VALVE_TYPE type)
 {
-    CValve* valve = NULL;
-    char* vname = NULL;
-    
-    if (m_has_name && name && type == VALVE_TYPE::VTYPE_TEMP)
-    {
-        size_t length = strlen(name);
-        char* dest = m_pool_name;
+	/* 0x2f6c90: a temporary valve's name goes into the name buffer while it has room; the
+	 * valve is the pool's last one (renamed, retyped) or a new one when the pool is empty.
+	 * Its value starts at 0 (callbacks 2 when it was set). (The port took front() without
+	 * removing it, so every pooled valve was the same object, and never named it.) */
+	char* vname = NULL;
 
-        if (length + 1 <= m_pool_length - (s32)(dest - m_max_char_len))
-        {
-            m_pool_name = dest + length + 1;
-            strcpy(dest, name);
-            vname = dest;
-        }
-    }
+	if (m_has_name && name != NULL && type == VALVE_TYPE::VTYPE_TEMP)
+	{
+		s32 length = (s32)strlen(name) + 1;
 
-    if (empty())
-    {
-        valve = new CValve(name, 0, type);
+		if (!(m_pool_length - (m_pool_name - m_pool_base) < length))
+		{
+			vname = m_pool_name;
+			m_pool_name += length;
+			strcpy(vname, name);
+		}
+	}
 
-        if (vname)
-        {
-            valve->AssignName(vname);
-        }
-    }
-    else
-    {
-        // Valve already exists in the pool.
-        // Get the first valve and assign it a name.
-        valve = front();
+	CValve* valve;
 
-        // No name assigned from the pool?
-        if (!vname)
-        {
-            // Use what we defined.
-            // valve->SetName(name);
-        }
-        else
-        {
-            // A name was assigned from the pool
-            // Use it.
-            valve->AssignName(vname);
-            valve->m_type = (u32)type;
-        }
-    }
+	if (empty())
+	{
+		valve = new CValve(vname != NULL ? NULL : name, 0, type);
 
-    // Valve successfully retrieved from pool?
-    if (valve)
-    {
-        VALVE_STATE vtype = VALVE_STATE::VSTATE_DORMANT;
+		if (vname != NULL)
+			valve->AssignName(vname);
+	}
+	else
+	{
+		valve = back();
+		pop_back();
 
-        if (valve->m_value != 0)
-        {
-            vtype = VALVE_STATE::VSTATE_TEMPORARY;
-        }
+		if (vname != NULL)
+			valve->AssignName(vname);
+		else
+			valve->SetName(name);
 
-        valve->m_value = 0;
+		valve->m_type = (u32)type;
+	}
 
-        if (vtype != VALVE_STATE::VSTATE_DORMANT)
-        {
-            // valve->MakeCallbacks(vtype);
-        }
-    }
+	if (valve != NULL)
+	{
+		bool cleared = valve->m_value != 0;
+		valve->m_value = 0;
 
-    return valve;
+		if (cleared)
+			valve->MakeCallbacks((VALVE_STATE)2);
+	}
+
+	return valve;
 }
 
 /* @socom-skeleton stub Release__10CValvePoolFP6CValve */
-void CValvePool::Release(CValve *)
+void CValvePool::Release(CValve *valve)
 {
+	/* 0x2f6c10: a pooled valve goes back to the pool's end, any other is deleted */
+	valve->FreeName();
+
+	if (valve->m_pooled)
+		insert(end(), 1, valve);
+	else
+		delete valve;
 }
 
 /* @socom-skeleton body Create__6CValveFPCcUi10VALVE_TYPE */
 CValve * CValve::Create(const char *name, unsigned int count, VALVE_TYPE type)
 {
-	return NULL;
+	/* 0x2f6a20: as Create(name, type), and the valve takes the value (its callbacks run
+	 * when the value changes: 1 set, 2 cleared). A new valve goes at the list's end. ELF
+	 * quirk: a NULL name skips the search and acquires a nameless valve. (Was a NULL stub:
+	 * mission.rdr's Valves, e.g. the armory's Enable_* weapons, were never made.) */
+	CValve* valve = NULL;
+
+	if (name != NULL)
+	{
+		for (std::list<CValve*>::iterator it = m_list.begin(); it != m_list.end(); ++it)
+		{
+			if ((*it)->m_name != NULL && strcmp((*it)->m_name, name) == 0)
+			{
+				valve = *it;
+				break;
+			}
+		}
+	}
+
+	if (valve == NULL)
+	{
+		valve = valvePool.Acquire(name, type);
+		u32 change = valve->m_value != count ? (count != 0 ? 1 : 2) : 0;
+		valve->m_value = count;
+
+		if (change)
+			valve->MakeCallbacks((VALVE_STATE)change);
+
+		m_list.insert(m_list.end(), valve);
+		return valve;
+	}
+
+	u32 change = valve->m_value != count ? (count != 0 ? 1 : 2) : 0;
+	valve->m_value = count;
+
+	if (change)
+		valve->MakeCallbacks((VALVE_STATE)change);
+
+	if (type == VALVE_TYPE::VTYPE_PERM && valve->m_type != (u32)VALVE_TYPE::VTYPE_PERSIST)
+		valve->m_type = (u32)VALVE_TYPE::VTYPE_PERM;
+
+	if (type == VALVE_TYPE::VTYPE_PERSIST)
+		valve->m_type = (u32)VALVE_TYPE::VTYPE_PERSIST;
+
+	return valve;
 }
 
 /* @socom-skeleton body Create__6CValveFPCc10VALVE_TYPE */
@@ -135,6 +170,7 @@ CValve* CValve::Create(const char* name, VALVE_TYPE type)
 		return NULL;
 	}
 
+	/* 0x2f68a0: the first valve of that name; a new one goes at the list's end */
 	for (auto it = m_list.begin(); it != m_list.end(); ++it)
 	{
 		CValve* curValve = *it;
@@ -143,13 +179,15 @@ CValve* CValve::Create(const char* name, VALVE_TYPE type)
 		if (valveName != NULL && strcmp(valveName, name) == 0)
 		{
 			valve = curValve;
+			break;
 		}
 	}
 	
 	if (valve == NULL)
 	{
 		valve = valvePool.Acquire(name, type);
-		m_list.insert(m_list.begin(), valve);
+		m_list.insert(m_list.end(), valve);
+		return valve;
 	}
 	else
 	{
@@ -212,19 +250,23 @@ bool CValve::Open(const char* name, VALVE_TYPE type)
 		zrdr_free(file);
 	}
 
-	if (valvePool.empty())
+	/* 0x2f668c: the first Open makes the pool: 256 pooled temporary valves and the
+	 * 4096-byte name buffer */
+	if (!valvePool.m_has_name)
 	{
 		valvePool.reserve(256);
 
 		for (u32 i = 0; i < 256; i++)
 		{
 			CValve* valve = new CValve(NULL, 0, VALVE_TYPE::VTYPE_TEMP);
-			valve->m_name_pooled = true;
 			valve->m_pooled = true;
-			valve->m_type = (u32)VALVE_TYPE::VTYPE_PERM;
-			valve->m_value = 1;
-			valvePool.insert(valvePool.end(), valve);
+			valvePool.insert(valvePool.end(), 1, valve);
 		}
+
+		valvePool.m_pool_length = 4096;
+		valvePool.m_pool_base = new char[4096];
+		valvePool.m_has_name = true;
+		valvePool.m_pool_name = valvePool.m_pool_base;
 	}
 	
 	return true;

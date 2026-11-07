@@ -91,6 +91,7 @@
 #include "gamez/zInput/zinput.h"
 #include "gamez/zNode/node_assetlib.h"
 #include "gamez/zNode/znode.h"
+#include "gamez/zNode/node_world.h" /* zdb::CWorld (PrepModels) */
 #include "gamez/zReader/zrdr.h"
 #include "gamez/zTexture/ztex.h"
 #include "gamez/zTwoD/ztwod.h"
@@ -399,7 +400,8 @@ CGameMenu::CGameMenu()
 	m_numCommands = 0;
 	m_activeButton = 0;
 	g_hasAnims = false;
-	_vecLibs.reserve(0x20); /* port: _vecModelInstances (reserve 0x40) is not modelled */
+	_vecModelInstances.reserve(0x40);
+	_vecLibs.reserve(0x20);
 }
 
 /* @socom-skeleton stub __dt__9CGameMenuFv */
@@ -525,7 +527,11 @@ void CGameMenu::Clear()
 		CMPEG::End();
 
 	m_movieRunning = false;
-	/* port: not written - _vecModelInstances are deleted (not modelled, see the ctor) */
+	/* 0x383a50: the MODELS instances are deleted (the vector keeps its storage) */
+	for (u32 i = 0; i < _vecModelInstances.size(); i++)
+		zdb::CNode::Delete(_vecModelInstances[i]);
+
+	_vecModelInstances.clear();
 	g_pTtySound = NULL;
 	zUIScheduler.ClearFreeList(true);
 	/* port: not written - theUIVarManager.CollectGarbage() (0x383ac0) */
@@ -1007,8 +1013,55 @@ void CGameMenu::TickMPEG()
 }
 
 /* @socom-skeleton stub PrepModels__9CGameMenuFRC14CGameDlgDesign */
-void CGameMenu::PrepModels(const CGameDlgDesign &)
+void CGameMenu::PrepModels(const CGameDlgDesign &design)
 {
+	/* 0x3814d0: with a world loaded (the menu's "ui" world), each MODELS entry is
+	 * instanced at (320 + azimuth, elevation, 320 - distance) in front of the menu camera
+	 * (CMenuState::Init puts it at 320, 0, 320), dynamically lit, named, added to the
+	 * world, made visible and turned; the instances are kept for Clear. With
+	 * USEMODELUIVAR the model name is the UI variable's string (NULL if it holds another
+	 * type, "" if there is no such variable). */
+	if (zdb::CWorld::m_world == NULL)
+		return;
+
+	for (s32 i = 0; i < (s32)design.m_models.size(); i++)
+	{
+		const CDlgDesignModel& model = design.m_models[i];
+		CPnt3D pos;
+		pos.x = 320.0f + model.m_azimuth;
+		pos.y = model.m_elevation;
+		pos.z = 320.0f - model.m_distance;
+		const char* name;
+
+		if (model.m_usemodeluivar)
+		{
+			name = "";
+			CUIVariable* var = theUIVarManager.Find(model.m_model.c_str());
+
+			if (var != NULL)
+				name = var->type == ZRDR_STRING ? var->string : NULL;
+		}
+		else
+		{
+			name = model.m_model.c_str();
+		}
+
+		zdb::CNode* node = zdb::CNode::CreateInstance(name, &pos, NULL);
+
+		if (node == NULL)
+			continue;
+
+		node->SetDynamicLight(true, true);
+		node->SetName(model.m_name.c_str());
+		zdb::CWorld::m_world->AddChild(node);
+		node->SetDescendantVisuals(true);
+		CPnt3D rotation;
+		rotation.x = model.m_rotation[0];
+		rotation.y = model.m_rotation[1];
+		rotation.z = model.m_rotation[2];
+		node->SetRotation(&rotation);
+		_vecModelInstances.insert(_vecModelInstances.end(), 1, node);
+	}
 }
 
 /* @socom-skeleton stub ParseButtonAnim__FP5_zrdrP10ActionItem */

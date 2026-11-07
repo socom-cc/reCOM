@@ -38,6 +38,19 @@
 #include "gamez/zUtil/util_stable.h"
 #include "state.h"
 /* @socom-skeleton end include */
+#include "gamez/zAnim/zanim.h" /* ZAnim, GetMenuStack (CExitState) */
+#include "gamez/zFTS/zfts.h" /* theMission, CMissionObjectiveCam */
+#include "gamez/zGame/zgame.h" /* theGame */
+#include "gamez/zInput/zinput.h" /* CInput::Tick */
+#include "gamez/zNode/node_assetlib.h" /* zdb::EmptyAssetRecycleBin */
+#include "gamez/zReader/zrdr.h" /* CRdrArchive */
+#include "gamez/zSound/zsnd.h" /* CSnd, CSndInstance */
+#include "gamez/zSystem/zsys.h" /* zSysFifoEnd */
+#include "gamez/zUI/zui.h" /* theUIVarManager */
+#include "gamez/zValve/zvalve.h" /* CValve::Create */
+#include "gamez/zVideo/zvid.h" /* CVideo::Clear, zVid_Swap, zVid_Sync0 */
+#include <libgraph.h> /* sceGsSyncPath */
+#include <stdio.h> /* sprintf */
 /* @socom-skeleton decl forward */
 class CZAnimZAR;
 /* @socom-skeleton end forward */
@@ -60,8 +73,100 @@ static CSTable MultiplayerMsgStrings;
 
 /* @socom-skeleton stub SetRoundStatUiVars__21@unnamed@st_exit_cpp@Fii */
 namespace {
-void SetRoundStatUiVars(int, int)
+void SetRoundStatUiVars(int primaryDone, int secondaryDone)
 {
+	/* 0x320b60 (CExitState::Init): the debrief's UI variables. For each of the first
+	 * four entity-list places that hold seals (the walk counts every entity it passes,
+	 * skipping non-seals and team bit 0x20000, as CEntityItr::Advance), eleven
+	 * CSealStats counters (the member pointers at 0x43b548) go to their per-seal
+	 * variables as "#P100000000 %d" strings and are summed; the sums go to the *Tot
+	 * variables as integers. Then the objectives: completed (the arguments) and total
+	 * primary / secondary counts, and StatObjectivesPct = 100 * (0.6 * primary share +
+	 * 0.4 * secondary share), also made a valve. ELF quirks kept: the first list entry
+	 * is used without the seal test (NULL + 0x4c0 when it is no seal); a mission without
+	 * objectives divides 0 by 0 (port: always - CMission::LoadObjectiveCams is
+	 * unwritten, so the list is empty and the percentage is a NaN conversion). */
+	struct StatRow
+	{
+		const char *names[5]; /* seal 1-4, total */
+		s32 total;
+		int (CSealStats::*get)() const;
+	};
+	StatRow rows[11] = {
+		{ { "StatKillsSeal1", "StatKillsSeal2", "StatKillsSeal3", "StatKillsSeal4", "StatKillsTot" }, 0, &CSealStats::GetKills },
+		{ { "StatHeadShotsSeal1", "StatHeadShotsSeal2", "StatHeadShotsSeal3", "StatHeadShotsSeal4", "StatHeadShotsTot" }, 0, &CSealStats::GetHeadShots },
+		{ { "StatStealthSeal1", "StatStealthSeal2", "StatStealthSeal3", "StatStealthSeal4", "StatStealthTot" }, 0, &CSealStats::NumStealthKills },
+		{ { "StatRestrainedSeal1", "StatRestrainedSeal2", "StatRestrainedSeal3", "StatRestrainedSeal4", "StatRestrainedTot" }, 0, &CSealStats::NumRestrained },
+		{ { "StatSeenSeal1", "StatSeenSeal2", "StatSeenSeal3", "StatSeenSeal4", "StatSeenTot" }, 0, &CSealStats::NumTimesSeen },
+		{ { "StatPrimarySeal1", "StatPrimarySeal2", "StatPrimarySeal3", "StatPrimarySeal4", "StatPrimaryTot" }, 0, &CSealStats::NumPrimaryRoundsFired },
+		{ { "StatSecondarySeal1", "StatSecondarySeal2", "StatSecondarySeal3", "StatSecondarySeal4", "StatSecondaryTot" }, 0, &CSealStats::NumSecondaryRoundsFired },
+		{ { "StatGrenadesSeal1", "StatGrenadesSeal2", "StatGrenadesSeal3", "StatGrenadesSeal4", "StatGrenadesTot" }, 0, &CSealStats::NumGrenadesUsed },
+		{ { "StatButtsSeal1", "StatButtsSeal2", "StatButtsSeal3", "StatButtsSeal4", "StatButtsTot" }, 0, &CSealStats::NumCQBUsed },
+		{ { "StatHitsTakenSeal1", "StatHitsTakenSeal2", "StatHitsTakenSeal3", "StatHitsTakenSeal4", "StatHitsTakenTot" }, 0, &CSealStats::GetTimesWasHit },
+		{ { "StatDiedSeal1", "StatDiedSeal2", "StatDiedSeal3", "StatDiedSeal4", "StatDiedTot" }, 0, &CSealStats::GetDeaths },
+	};
+	char text[36];
+	CEntityList::iterator it = CEntity::m_list.begin();
+	s32 index = 0;
+
+	while (it != CEntity::m_list.end() && index < 4)
+	{
+		CZSealBody *seal = SealOfEntity(*it);
+		const CSealStats *stats = &seal->m_stats; /* ELF: seal + 0x4c0 without a NULL test */
+
+		for (u32 i = 0; i < 11; i++)
+		{
+			s32 value = (stats->*rows[i].get)();
+			sprintf(text, "#P100000000 %d", value);
+			*theUIVarManager.Add(rows[i].names[index], NULL, (UIVAR_LONGEVITY)1) = text;
+			rows[i].total += value;
+		}
+
+		do
+		{
+			++it;
+			index++;
+
+			if (it == CEntity::GetEntityList().end())
+				break;
+
+			seal = SealOfEntity(*it);
+		} while (seal == NULL || (seal->m_team & 0x20000) != 0);
+	}
+
+	auto setInt = [](const char *name, s32 value)
+	{
+		CUIVariable *var = theUIVarManager.Add(name, NULL, (UIVAR_LONGEVITY)1);
+		var->DeleteChildren();
+		var->type = ZRDR_INTEGER;
+		var->integer = value;
+		var->UpdateDependents();
+	};
+
+	for (u32 i = 0; i < 11; i++)
+		setInt(rows[i].names[4], rows[i].total);
+
+	s32 primaryTotal = 0;
+	s32 secondaryTotal = 0;
+
+	for (CMissionObjectiveCamList::iterator cam = theMission.m_objectivecams.begin(); cam != theMission.m_objectivecams.end(); ++cam)
+	{
+		if (static_cast<const CMissionObjectiveCam *>(*cam)->m_isSecondary)
+			secondaryTotal++;
+		else
+			primaryTotal++;
+	}
+
+	setInt("StatPrimaryObjectivesComplete", primaryDone);
+	setInt("StatPrimaryObjectivesTotal", primaryTotal);
+	setInt("StatSecondaryObjectivesComplete", secondaryDone);
+	setInt("StatSecondaryObjectivesTotal", secondaryTotal);
+
+	f32 primary = (f32)primaryDone / (f32)primaryTotal;
+	f32 secondary = (f32)secondaryDone / (f32)secondaryTotal;
+	s32 pct = (s32)(100.0f * (0.6f * primary + 0.4f * secondary));
+	setInt("StatObjectivesPct", pct);
+	CValve::Create("StatObjectivesPct", (u32)pct, (VALVE_TYPE)1);
 }
 }
 
@@ -78,13 +183,128 @@ CZSealBody * CEntityItr::GetSeal() const
 /* @socom-skeleton stub __ct__10CExitStateFv */
 CExitState::CExitState()
 {
+	/* 0x320980: named ExitState; the debrief's library is the splash one; no menu yet
+	   (m_plib is not set) */
+	SetName("ExitState");
+	m_libname = "common/assetlib/splash";
+	m_menu = NULL;
 }
 
 /* @socom-skeleton body Init__10CExitStateFv */
-bool CExitState::Init() { return true; }
+bool CExitState::Init()
+{
+	/* 0x320740 (pushed by the mission's end): the UI sounds; the completed primary and
+	 * secondary objectives are counted, the mission is unloaded for a reopen around the
+	 * debrief variables (SetRoundStatUiVars). An aborted mission (abort valve 2) pops
+	 * straight back to the core state; with the menu skipped (m_skip) it pops and goes to
+	 * the load state; else the debrief (dlgExitState.rdr from run/ui/readerx.zar, anims
+	 * run/extzanim.zar) opens on a black screen. */
+	CSnd::UIOpen();
+	s32 primary = 0;
+	s32 secondary = 0;
+
+	for (CMissionObjectiveCamList::iterator it = theMission.m_objectivecams.begin(); it != theMission.m_objectivecams.end(); ++it)
+	{
+		const CMissionObjectiveCam *cam = static_cast<const CMissionObjectiveCam *>(*it);
+
+		if (cam->IsComplete())
+		{
+			if (cam->m_isSecondary)
+				secondary++;
+			else
+				primary++;
+		}
+	}
+
+	theMission.ReOpen_Unload1();
+	SetRoundStatUiVars(primary, secondary);
+	theMission.ReOpen_Unload2();
+
+	if (theMission.m_valve_abort->m_value == 2)
+	{
+		theGame.Pop(1);
+		return true;
+	}
+
+	if (theGame.m_menuState.m_skip != 0)
+	{
+		theGame.Pop(0);
+		theGame.Switch(&theGame.m_loadState, 0);
+		return true;
+	}
+
+	CRdrArchive::AddArchive("readerx.zar", "run/ui");
+	CRdrArchive::OpenAll();
+
+	if (m_menu == NULL)
+		m_menu = new CExitMenu;
+
+	animfile = ZAnim.OpenZAR("run/extzanim.zar");
+	m_menu->Init(NULL, animfile);
+	CVideo::Clear(0, 0, 0, 0);
+	zVid_Sync0();
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("EXIT: debrief open (objectives %d/%d, menu %p, anims %p)", (int)primary, (int)secondary, (void *)m_menu, (void *)animfile);
+#endif
+	return true;
+}
 
 /* @socom-skeleton body Tick__10CExitStateFf */
-bool CExitState::Tick(float dT) {}
+bool CExitState::Tick(float dT)
+{
+	/* 0x3206d0: sounds, input, the debrief menu's tick and 2D draw, then the frame */
+	CSndInstance::PostTick(dT, NULL);
+	CInput::Tick(dT);
+	m_menu->Tick(dT);
+	m_menu->Draw2dOnly();
+	zSysFifoEnd();
+	zVid_Swap(true);
+	return false;
+}
 
 /* @socom-skeleton body UnInit__10CExitStateFv */
-void CExitState::UnInit() {}
+void CExitState::UnInit()
+{
+	/* 0x3205c0: close the sounds, finish the frame, close the anims and the menu (virtual
+	 * deleting dtor), empty the asset bin, reset the UI variables, drop readerx.zar and
+	 * the menu history */
+	CSnd::Close();
+	zSysFifoEnd();
+	sceGsSyncPath(0, 0);
+
+	if (animfile != NULL)
+	{
+		ZAnim.CloseZAR(animfile);
+		animfile = NULL;
+	}
+
+	if (m_menu != NULL)
+		delete m_menu;
+
+	m_menu = NULL;
+	zdb::EmptyAssetRecycleBin();
+	theUIVarManager.Reset();
+	CRdrArchive::RemoveArchive("readerx.zar", "run/ui");
+	GetMenuStack()->FlushHistory(true);
+}
+
+/* port: the CExitMenu and CSealStats members emitted here (stage-4 owner st_exit.cpp) have no
+ * skeleton fence */
+char * CExitMenu::GetReaderFileName()
+{
+	/* 0x321310: the debrief design */
+	return const_cast<char *>("dlgExitState.rdr");
+}
+
+/* 0x321260..0x321300: one load each (the debrief's SetRoundStatUiVars member pointers) */
+int CSealStats::GetDeaths() const { return m_deaths; }
+int CSealStats::GetTimesWasHit() const { return m_washit; }
+int CSealStats::NumCQBUsed() const { return m_num_cqb_used; }
+int CSealStats::NumGrenadesUsed() const { return m_num_grenades_used; }
+int CSealStats::NumSecondaryRoundsFired() const { return m_secondary_rounds_fired; }
+int CSealStats::NumPrimaryRoundsFired() const { return m_primary_rounds_fired; }
+int CSealStats::NumTimesSeen() const { return m_num_times_seen; }
+int CSealStats::NumRestrained() const { return m_num_restrained; }
+int CSealStats::NumStealthKills() const { return m_num_stealthkills; }
+int CSealStats::GetHeadShots() const { return m_headshots; }
+int CSealStats::GetKills() const { return m_kills; }

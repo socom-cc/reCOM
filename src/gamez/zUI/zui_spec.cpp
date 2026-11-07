@@ -347,8 +347,55 @@ void CGameDlgDesign::LoadFromRdr(_zrdr* reader)
 }
 
 /* @socom-skeleton stub LoadModels__14CGameDlgDesignFP5_zrdr */
-void CGameDlgDesign::LoadModels(_zrdr *)
+void CGameDlgDesign::LoadModels(_zrdr *reader)
 {
+	/* 0x398c90: one CDlgDesignModel per MODELS entry: NAME, MODEL, AZIMUTH, ELEV,
+	 * DISTANCE (default 20), the rotations and USEMODELUIVAR. ELF quirk: ROTX, ROTY and
+	 * ROTZ are all stored to the first rotation, so it ends up ROTZ (0 when absent). */
+	_zrdr* models = zrdr_findtag(reader, "MODELS");
+
+	for (u32 i = 0; (s32)i < (s32)(models != NULL && models->IsArray() ? models->array->integer - 1 : 0); i++)
+	{
+		m_models.resize(m_models.size() + 1);
+		CDlgDesignModel& model = m_models[m_models.size() - 1];
+		_zrdr* entry = models->Get(i);
+
+		char* name = zrdr_findstring(entry, "NAME");
+
+		if (name != NULL)
+			model.m_name.assign(name, strlen(name));
+		else
+			model.m_name.clear();
+
+		char* file = zrdr_findstring(entry, "MODEL");
+
+		if (file != NULL)
+			model.m_model.assign(file, strlen(file));
+		else
+			model.m_model.clear();
+
+		f32 value = 0.0f;
+		zrdr_findreal(entry, "AZIMUTH", &value, 1);
+		model.m_azimuth = value;
+		value = 0.0f;
+		zrdr_findreal(entry, "ELEV", &value, 1);
+		model.m_elevation = value;
+		value = 20.0f;
+		zrdr_findreal(entry, "DISTANCE", &value, 1);
+		model.m_distance = value;
+		value = 0.0f;
+		zrdr_findreal(entry, "ROTX", &value, 1);
+		model.m_rotation[0] = value;
+		value = 0.0f;
+		zrdr_findreal(entry, "ROTY", &value, 1);
+		model.m_rotation[0] = value;
+		value = 0.0f;
+		zrdr_findreal(entry, "ROTZ", &value, 1);
+		model.m_rotation[0] = value;
+
+		if (zrdr_findtag(entry, "USEMODELUIVAR") != NULL)
+			model.m_usemodeluivar = true;
+	}
 }
 
 namespace {

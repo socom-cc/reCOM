@@ -101,6 +101,18 @@ C2DString::~C2DString()
 /* @socom-skeleton stub ClearAndWipe__9C2DStringFv */
 void C2DString::ClearAndWipe()
 {
+	/* 0x302dd0: both string buffers are freed and forgotten */
+	if (m_string != NULL)
+		_free(m_string, "c2dstring.cpp", 72);
+
+	m_string = NULL;
+	m_stringlen_max = 0;
+
+	if (m_Ustring != NULL)
+		_free(m_Ustring, "c2dstring.cpp", 74);
+
+	m_Ustring = NULL;
+	m_Ustringlen_max = 0;
 }
 
 /* @socom-skeleton stub Off__9C2DStringFv */

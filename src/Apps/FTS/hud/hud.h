@@ -398,7 +398,7 @@ public: /* port: public (DWARF has no access; CHUD and the HUD units set these) 
 	CHUD* m_parent;
 
 	C2DBitmap m_weaponicon[4];
-	s32 m_weaponnum;
+	s32 m_weaponnum[4]; /* DWARF +0x220: the kit item each slot shows (0 above, 1 current, 2 below, 3 scrolling in) */
 	C2DBitmap m_weaponselbkrnd;
 	C2DBitmap m_selectionback[4];
 	C2DBitmapPoly m_arrow[2];
@@ -414,7 +414,7 @@ public: /* port: public (DWARF has no access; CHUD and the HUD units set these) 
 
 	zdb::CTexHandle* m_weaponselbkrndtex;
 	zdb::CTexHandle* m_weapontex[4];
-	zdb::CTexHandle* m_selectionbacktex;
+	zdb::CTexHandle* m_selectionbacktex[4]; /* DWARF +0xc5c: one per slot */
 	zdb::CTexture* m_arrowtex;
 
 	C2DFont* m_myfont;
@@ -927,6 +927,12 @@ public:
 /* @socom-skeleton decl 8CFlashFX */
 class CFlashFX : public CFader
 {
+public: /* DWARF CFlashFX (192 bytes): its own phase (1 fading out, 2 holding, 0 fading in) and times */
+	FADE_DIRECTION m_fadedir;   /* +0xa0 (byte in the ELF) */
+	f32 m_fadeout_time;         /* +0xa4 */
+	f32 m_fade_duration_time;   /* +0xa8 */
+	f32 m_fadein_time;          /* +0xac */
+	f32 m_timer;                /* +0xb0 */
 public:
 	virtual ~CFlashFX();
 	virtual void Tick(float);

@@ -22,6 +22,7 @@ class CHUD;
 class CSnd;
 class CGameMenu;
 class CLoadMenu;
+class CExitMenu;
 class CE3Config;
 
 namespace zdb
@@ -217,7 +218,7 @@ private:
 	std::string m_libname;
 	std::string m_texname;
 	zdb::CAssetLib* m_plib;
-	void* m_menu;
+	CExitMenu* m_menu; /* DWARF CExitMenu* (was void*) */
 	/* @socom-skeleton decl 10CExitState */
 public:
 	virtual ~CExitState() {}

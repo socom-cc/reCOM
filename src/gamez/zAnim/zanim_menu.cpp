@@ -255,6 +255,22 @@
 #include "gamez/zUtil/util_systemio.h" /* CFileCD (UISysPostInit) */
 
 void UiSetTtySpeedFactor(float); /* zui_2d.cpp (0x393260) */
+void UiSetCounterSpeedFactor(float); /* zui_2d.cpp (0x393270; OnSetCounterSpeedFactor) */
+#include "gamez/zNetwork/znet.h" /* theNetwork (OnReplayMission, OnCloseAndSwitch) */
+#include "gamez/zCharacter/zchar.h" /* CCharacterType, CCharacterWeapList (equipment commands) */
+#include "gamez/zValve/zvalve.h" /* CValve (UiCharSet) */
+char* GetCustomCharTypeName(int); /* fts_mission.cpp (0x1fa790) */
+char* GetDefCharTypeName(int); /* fts_mission.cpp (0x1fa770) */
+void UpdateCharWeaponUiVars(int); /* fts_mission.cpp (0x1fa2b0) */
+namespace {
+/* port: no symbol - each equipment command reads the UiCharSet valve inline (the selected
+ * UI characters, one bit each; 0 when the valve is missing) */
+u32 UiCharSetMask()
+{
+	CValve* valve = CValve::GetByName("UiCharSet");
+	return valve != NULL ? valve->m_value : 0;
+}
+}
 /* @socom-skeleton decl forward */
 class C2DAnimCmdHdr;
 namespace {
@@ -266,6 +282,12 @@ namespace {
 class CSelectedCharsItr
 {
 public:
+	/* no DWARF; layout from Advance (0x1d0090). The ELF inlines the ctor in each equipment
+	 * UI command: the UiCharSet mask, no index or list, then Advance to the first one. */
+	CSelectedCharsItr(u32 mask) : m_mask(mask), m_index(-1), m_list(NULL) { Advance(); }
+	u32 m_mask;                 /* +0x0 bit n: UI character n is selected */
+	s32 m_index;                /* +0x4 the UI character (32: done) */
+	CCharacterWeapList* m_list; /* +0x8 its custom character type's weapons */
 	void Advance();
 };
 }
@@ -293,8 +315,62 @@ static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub ChooseEquipmentForCharacter__24@unnamed@zanim_menu_cpp@FRCQ224@unnamed@zanim_menu_cpp@17CSelectedCharsItr10EQUIP_ITEM */
 namespace {
-void ChooseEquipmentForCharacter(const CSelectedCharsItr &, EQUIP_ITEM)
+void ChooseEquipmentForCharacter(const CSelectedCharsItr &it, EQUIP_ITEM item)
 {
+	/* 0x1d74b0: a primary or secondary replaces slot 0 or 1 (with a full load); any other
+	 * item is appended while the equipment slots (a double ammo load and a satchel take
+	 * two) stay under 4. An item the character already has, or a list without both weapon
+	 * slots, is left alone. */
+	CCharacterWeapList* list = it.m_list;
+	CCharacterWeapList::iterator weap;
+
+	for (weap = list->begin(); weap != list->end(); weap++)
+	{
+		if (weap->m_wepId == item)
+			break;
+	}
+
+	if (weap != list->end())
+		return;
+
+	if (list->size() < 2)
+		return;
+
+	if (CZWeapon::IsPrimary(item))
+	{
+		(*list)[0].SetupCharacterWeapon(item);
+		UpdateCharWeaponUiVars(it.m_index);
+		return;
+	}
+
+	if (CZWeapon::IsSecondary(item))
+	{
+		(*list)[1].SetupCharacterWeapon(item);
+		UpdateCharWeaponUiVars(it.m_index);
+		return;
+	}
+
+	s32 used = 0;
+
+	for (u32 i = 2; i < list->size(); i++)
+	{
+		EQUIP_ITEM id = (*list)[i].m_wepId;
+		used += id == EQUIP_ITEM::DOUBLE_AMMO_LOAD || id == EQUIP_ITEM::SATCHEL_CHARGE ? 2 : 1;
+	}
+
+	s32 need = item == EQUIP_ITEM::DOUBLE_AMMO_LOAD ? 2 : item == EQUIP_ITEM::SATCHEL_CHARGE ? 2 : 1;
+
+	if (used + need >= 4)
+		return;
+
+	CCharacterWeap weap2;
+	weap2.m_wepId = EQUIP_ITEM::EQUIP_NONE;
+	weap2.m_ammoId = (EQUIP_AMMO)0xff;
+	weap2.m_ammoCount = 0;
+	weap2.m_magCount = 0;
+	weap2.SetupCharacterWeapon(item);
+	list->insert(list->end(), 1, weap2);
+	UpdateCharWeaponUiVars(it.m_index);
 }
 }
 
@@ -302,23 +378,67 @@ void ChooseEquipmentForCharacter(const CSelectedCharsItr &, EQUIP_ITEM)
 namespace {
 unsigned char ExecuteChooseDefaultEquipment(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d7300: each selected UI character gets its original character type's weapons
+	 * back (none when that type is gone) */
+	for (CSelectedCharsItr it(UiCharSetMask()); it.m_index < 32; it.Advance())
+	{
+		CCharacterType* def = CCharacterType::GetByNameMod(GetDefCharTypeName(it.m_index));
+		CCharacterWeapList* src = def != NULL ? &def->m_weapons : NULL;
+
+		if (src != NULL)
+		{
+			if (it.m_list != src)
+				it.m_list->assign(src->begin(), src->end());
+		}
+		else
+		{
+			it.m_list->clear();
+		}
+
+		UpdateCharWeaponUiVars(it.m_index);
+	}
+
+	return true;
 }
 }
 
 /* @socom-skeleton stub ExecuteChooseEquipment__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf */
 namespace {
-unsigned char ExecuteChooseEquipment(C2DAnimCmdHdr *, float *)
+unsigned char ExecuteChooseEquipment(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d71d0: the argument names a weapon or item; every selected UI character takes it */
+	EQUIP_ITEM item = CZWeapon::GetWeaponId(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
+
+	for (CSelectedCharsItr it(UiCharSetMask()); it.m_index < 32; it.Advance())
+		ChooseEquipmentForCharacter(it, item);
+
+	return true;
 }
 }
 
 /* @socom-skeleton stub OnCloseAndSwitch__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf */
 namespace {
-unsigned char OnCloseAndSwitch(C2DAnimCmdHdr *, float *)
+unsigned char OnCloseAndSwitch(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d70a0 (the debrief's TRIANGLE / X): the named design (INPUT_STRING: the anim's
+	 * first argument) becomes the front end's default menu (theGame.m_menuState
+	 * m_DefaultMenu, 64 chars), the exit state pops (index 0) and the game switches to the
+	 * menu state. Network: the session master's game ended flag picks the same or major
+	 * state 5 with UpdateLocalGame (port: not written - no network play). */
+	const char* name = ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+
+	if (name != NULL && strcmp(name, "INPUT_STRING") == 0)
+		name = ZAnim.m_CurAnim->m_arg_list->GetCharP(0);
+
+	strncpy(theGame.m_menuState.m_DefaultMenu, name, 64);
+
+	if (!theNetwork.m_bNetwork)
+	{
+		theGame.Pop(0);
+		theGame.Switch(&theGame.m_menuState, 0);
+	}
+
+	return true;
 }
 }
 
@@ -332,9 +452,21 @@ unsigned char OnGetTextFromUser(C2DAnimCmdHdr *, float *)
 
 /* @socom-skeleton stub OnIsEquipmentSelected__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf */
 namespace {
-unsigned char OnIsEquipmentSelected(C2DAnimCmdHdr *, float *)
+unsigned char OnIsEquipmentSelected(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d6f20: whether any selected UI character carries the named item */
+	EQUIP_ITEM item = CZWeapon::GetWeaponId(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
+
+	for (CSelectedCharsItr it(UiCharSetMask()); it.m_index < 32; it.Advance())
+	{
+		for (CCharacterWeapList::iterator weap = it.m_list->begin(); weap != it.m_list->end(); weap++)
+		{
+			if (weap->m_wepId == item)
+				return true;
+		}
+	}
+
+	return false;
 }
 }
 
@@ -342,7 +474,9 @@ unsigned char OnIsEquipmentSelected(C2DAnimCmdHdr *, float *)
 namespace {
 unsigned char OnIsMissionSuccessful(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d6f00 (the debrief's IF): the mission state is MISSION_SUCCESS (2); a dead
+	 * player's mission stays running, so it is a failure. Was a stub returning true. */
+	return static_cast<u8>(theMission.m_state) == MISSION_SUCCESS;
 }
 }
 
@@ -360,9 +494,22 @@ CMenuStack g_MenuStack; /* 0x49b5d0 (2612 bytes) */
 
 /* @socom-skeleton stub OnRemoveEquipment__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf */
 namespace {
-unsigned char OnRemoveEquipment(C2DAnimCmdHdr *, float *)
+unsigned char OnRemoveEquipment(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d6c10: takes the named item from every selected UI character; primary and
+	 * secondary weapons can't be removed */
+	EQUIP_ITEM item = CZWeapon::GetWeaponId(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
+
+	if (CZWeapon::IsPrimary(item) || CZWeapon::IsSecondary(item))
+		return true;
+
+	for (CSelectedCharsItr it(UiCharSetMask()); it.m_index < 32; it.Advance())
+	{
+		if (it.m_list->RemoveWeapon(item))
+			UpdateCharWeaponUiVars(it.m_index);
+	}
+
+	return true;
 }
 }
 
@@ -370,15 +517,29 @@ unsigned char OnRemoveEquipment(C2DAnimCmdHdr *, float *)
 namespace {
 unsigned char OnReplayMission(C2DAnimCmdHdr *, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d6ba0 (the failed debrief's X): single player pops the exit state (index 1: the
+	 * core state's OnPop reloads the mission). Network: the session master moves the game
+	 * to major state 5 (port: not written - no network play). */
+	if (!theNetwork.m_bNetwork)
+		theGame.Pop(1);
+
+	return true;
 }
 }
 
 /* @socom-skeleton stub OnSetCounterSpeedFactor__24@unnamed@zanim_menu_cpp@FP13C2DAnimCmdHdrPf */
 namespace {
-unsigned char OnSetCounterSpeedFactor(C2DAnimCmdHdr *, float *)
+unsigned char OnSetCounterSpeedFactor(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d6b00: the counters' speed factor from the argument (INPUT_STRING: the anim's
+	 * first argument), as OnSetTtySpeedFactor. The ELF passes a NULL name to atof. */
+	const char* name = ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+
+	if (name != NULL && strcmp(name, "INPUT_STRING") == 0)
+		name = ZAnim.m_CurAnim->m_arg_list->GetCharP(0);
+
+	UiSetCounterSpeedFactor((f32)atof(name));
+	return true;
 }
 }
 
@@ -1103,10 +1264,27 @@ unsigned char UIMediusEnabled(C2DAnimCmdHdr *, float *)
 }
 
 /* @socom-skeleton stub UIPlayMPEG__FP13C2DAnimCmdHdrPf */
-unsigned char UIPlayMPEG(C2DAnimCmdHdr *, float *)
+unsigned char UIPlayMPEG(C2DAnimCmdHdr *cmd, float *)
 {
 	/* @socom-skeleton stub alt$3357 */
 	static unsigned char alt;
+
+	/* 0x1d2c50: every other call (the first one) hands the argument's movie to the
+	 * cinematic state and pushes it onto the game, and the command waits; the next call
+	 * finishes it. (Reached at mission start: m8's objectives anim plays
+	 * run/movies/0122.pss while ReplayMissionMusic is 0.) */
+	unsigned char was = alt;
+	alt = was == 0 ? 1 : 0;
+
+	if (!was)
+	{
+		theGame.m_cinematicSubState.SetMovie(ZAnim.m_CurAnim->GetName(cmd->m_argument_index));
+		/* port: not written - theGame.Push(&theGame.m_cinematicSubState, 0): the port has no
+		 * MPEG player (CMPEG and CCinematicState::Init/Tick are unwritten), so the movie is
+		 * skipped and the anim goes on next frame */
+	}
+
+	return was;
 }
 
 /* @socom-skeleton stub HCnf */
@@ -1843,5 +2021,18 @@ bool zAnimUIAppMenuTick(_zanim_cmd_hdr *, float *)
 namespace {
 void CSelectedCharsItr::Advance()
 {
+	/* 0x1d0090: on to the next selected UI character (bit of m_mask) whose custom character
+	 * type exists; m_list is its weapon list. 32 = past the end. */
+	for (m_index++; m_index < 32; m_index++)
+	{
+		if (!(m_mask & (1 << m_index)))
+			continue;
+
+		CCharacterType* type = CCharacterType::GetByNameMod(GetCustomCharTypeName(m_index));
+		m_list = type != NULL ? &type->m_weapons : NULL;
+
+		if (m_list != NULL)
+			break;
+	}
 }
 }

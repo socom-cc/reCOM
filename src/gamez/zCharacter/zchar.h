@@ -119,7 +119,7 @@ class CCharacterWeapList : public std::vector<CCharacterWeap>
 {
 public:
 	void AddWeapon(EQUIP_ITEM);
-	void RemoveWeapon(EQUIP_ITEM);
+	bool RemoveWeapon(EQUIP_ITEM); /* bool: 0x247720 returns whether any entry was removed */
 };
 /* @socom-skeleton end 18CCharacterWeapList */
 /* @socom-skeleton decl 20CCharacterModelCache */

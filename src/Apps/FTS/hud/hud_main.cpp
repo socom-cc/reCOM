@@ -661,8 +661,17 @@ void CHUD::Tick(float dT)
 }
 
 /* @socom-skeleton stub Flash__4CHUDFfRC6CPnt3Dfff */
-void CHUD::Flash(float, const CPnt3D &, float, float, float)
+void CHUD::Flash(float brightness, const CPnt3D &color, float fadeout, float duration, float fadein)
 {
+	/* 0x3b9380 (the death camera, the mission's end fade, stun damage): a new full-screen
+	 * flash (a CFader with the CFlashFX vtable) darkening down to brightness in the given
+	 * colour, appended to m_FlashFXVector (CCoreState::Tick ticks and draws it; Reset in
+	 * the mission end deletes them). ELF: the new is not NULL-tested past the ctor. */
+	CFlashFX *flash = new CFlashFX;
+	flash->SetMinBrightness(brightness);
+	flash->SetColor(color.x, color.y, color.z);
+	flash->Flash(fadeout, duration, fadein);
+	m_FlashFXVector.m_FlashFX.push_back(flash);
 }
 
 /* @socom-skeleton stub PreDITick__4CHUDFf */

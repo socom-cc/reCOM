@@ -95,6 +95,7 @@ struct TASK_HDR
 	u32 m_seal_index;
 };
 class CSealCtrlAi;
+class CValve;
 class CZSealBody;
 struct TASK_SELECT : public TASK_HDR
 {
@@ -539,7 +540,7 @@ public:
 	bool SetItem(unsigned int, EQUIP_ITEM); /* bool: PostCreateSeal 0x289f94 tests v0 */
 	bool SetItemAmmo(unsigned int, CZAmmo *, int, int); /* 0x2a8130: 0/1 */
 	bool SetItemAmmo(unsigned int, CZAmmo *); /* 0x2a80a0: 0/1 */
-	void isSelectableItem(int);
+	bool isSelectableItem(int); /* bool: 0x2a7f40 returns 0/1 */
 	void ItemHasAmmo(EQUIP_ITEM);
 	bool CurItemHasAmmo(); /* 0x2a7db0: 0/1 */
 	bool ItemHasAmmo(int, FIREMODE); /* 0x2a7c50: 0/1 */
@@ -616,6 +617,18 @@ public:
 	int GetBasesDestroyed() const;
 	int GetRescues() const;
 	int GetHitPct() const;
+	/* port: the single-player debrief's getters (st_exit.cpp; SetRoundStatUiVars calls them through
+	 * the member pointers at 0x43b548): GetDeaths 0x321260 = m_deaths, NumCQBUsed 0x321280,
+	 * NumGrenadesUsed 0x321290, NumSecondaryRoundsFired 0x3212a0, NumPrimaryRoundsFired 0x3212b0,
+	 * NumTimesSeen 0x3212c0, NumRestrained 0x3212d0, NumStealthKills 0x3212e0 (one load each) */
+	int GetDeaths() const;
+	int NumCQBUsed() const;
+	int NumGrenadesUsed() const;
+	int NumSecondaryRoundsFired() const;
+	int NumPrimaryRoundsFired() const;
+	int NumTimesSeen() const;
+	int NumRestrained() const;
+	int NumStealthKills() const;
 	/* @socom-skeleton decl 10CSealStats */
 public:
 	void Death(const CZSealBody &);
@@ -673,7 +686,7 @@ public:
 
 	static void InitDatabaseHandles(); /* static: CMission::Open (0x1f8480) passes no this */
 	static void InitDecalHandles(); /* static: CMission::Open (0x1f843c) passes no this */
-	void InitHandSignals();
+	static void InitHandSignals(); /* static: ReInitDatabaseHandles (0x2936f0) passes no this */
 	static CRdrFile* InitMotionRdrFile(); /* static: CMission::Init 0x1f90f8 calls it with no receiver */
 
 	void SetupGear();
@@ -791,7 +804,7 @@ public:
 	void HandleStunFromHit(EQUIP_ITEM itemType, const CPnt3D* position);
 	void HandleStunRecovery(u8 stunType); // TODO: Create the STUN_TYPE enum
 	void HandleWater(zdb::IntersectStruct* intersection, const void* material, const CPnt3D* position); // TODO: Create the CMaterialEx type
-	void HandleWeaponEvent(CZProjectile* projectile, u32 eventIdx, void* eventData);
+	static void HandleWeaponEvent(CZProjectile* projectile, u32 eventIdx, void* eventData); /* static: the weapon event callback ReInitDatabaseHandles registers (0x293bc0) */
 	bool HandleWeaponIntersect();
 	void HandleWeaponInterp();
 
@@ -1437,19 +1450,19 @@ public:
 	bool CanAttainAim(CPnt3D &); /* 0x2befc0: UpdateAimDir tests v0 */
 	static int m_aim_anims[3];
 	static unsigned char m_allow_friendly_fire;
-	static int m_bigrippleanim[3];
+	static CZAnim* m_bigrippleanim[3]; /* 0x508680: big_ripple_anim, _walk, _run (ReInitDatabaseHandles) */
 	static int m_blooddriptexhandles[3];
 	static CSnd *m_body_fall_sound; /* 0x476064: ReInitDatabaseHandles stores CSnd::GetSoundByName, HandleFallingDamage plays it (was int) */
 	static CCompass m_compass;
-	static int m_cqb_sound;
+	static CSnd* m_cqb_sound; /* SND_RIFLE_BUTT (ReInitDatabaseHandles) */
 	static unsigned char m_delayed_footbomb_creation;
 	static float m_delayed_footbomb_creation_pos[3];
-	static int m_dropanim;
+	static CZAnim* m_dropanim; /* drop_item (ReInitDatabaseHandles) */
 	static int m_heartbeat_sound[3];
 	static unsigned char m_renderShadow;
-	static int m_sealstep;
-	static int m_smallrippleanim[3];
-	static int m_steptexhandles;
+	static CZAnim** m_sealstep; /* per material: seal_footfall_<material> (calloc, ReInitDatabaseHandles) */
+	static CZAnim* m_smallrippleanim[3]; /* 0x508690: small_ripple_anim, _walk, _run */
+	static zdb::CTexHandle** m_steptexhandles; /* per material: FOOTSTEP_DECALS (calloc, InitDecalHandles) */
 	static CZSealBody* player_; /* the first seal, the template AnimSetup copies anims from */
 	static const float stoppedV;
 	static const float turnV; /* 0x450d20 (0.025): InStateStand's turn dead zone; port: no stage-4 owner, defined in seal.cpp beside stoppedV */
@@ -1757,6 +1770,7 @@ public:
 	u32 m_weapon_ready : 1;
 	u32 m_do_corpse : 1;
 	u32 m_unused : 19;
+	CValve* m_valve[4]; /* DWARF +0x5bc: the AI's script valves "<node>_valve_holdfire/shotat/alive/aware" (SEAL_VALVE order; Initalize) */
 	AI_PARAMS m_aiParams; /* +0x524 (0x1fd4a4 copies the vehicle's, then sets m_veh) */
 	/* @socom-skeleton decl 11CSealCtrlAi */
 public:
@@ -1825,7 +1839,7 @@ public:
 	void PutAiLog(unsigned int, unsigned int, const void *);
 	void Debug(const char *, ...);
 	void Output(const char *, ...);
-	void SetValve(SEAL_VALVE, unsigned int);
+	bool SetValve(SEAL_VALVE, unsigned int); /* bool: 0x264050 returns whether the value changed */
 	void SelectFireParams();
 	unsigned char CanAttack(CEntity *);
 	void SetSprayTimer(float);
