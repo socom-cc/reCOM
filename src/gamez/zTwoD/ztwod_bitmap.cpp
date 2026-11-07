@@ -296,6 +296,31 @@ void C2DBitmap::MakePacket(zdb::CCamera *camera, zdb::CTextureRelocMgr *reloc, c
 	reloc->TakeDrawPacket(reinterpret_cast<unsigned __int128*>(packet), (u32)(p - packet));
 }
 
+/* port: 0x1748a0 is inline in ztwod.h (its copy is emitted in orders.cpp's unit) */
+void C2DBitmap::GetAssetLibs(C2D::CLibList& libs)
+{
+	/* 0x1748a0: the texture's asset library, then the children's. ELF quirk: the
+	 * library is added only when the search result is a NULL pointer, i.e. only into a
+	 * list that has never held an element (a miss in a non-empty list returns end) */
+	zdb::CTexture* texture = m_pTexHandle != NULL ? m_pTexHandle->m_texture : NULL;
+
+	if (texture != NULL && texture->m_AssetLib != NULL)
+	{
+		zdb::CAssetLib* lib = texture->m_AssetLib;
+		zdb::CAssetLib** i = libs.data();
+		zdb::CAssetLib** end = i + libs.size();
+
+		while (i != end && *i != lib)
+			i++;
+
+		if (i == NULL)
+			libs.insert(libs.end(), lib);
+	}
+
+	for (auto c = begin(); c != end(); ++c)
+		(*c)->GetAssetLibs(libs);
+}
+
 /* @socom-skeleton body Reset__9C2DBitmapFv */
 void C2DBitmap::Reset()
 {

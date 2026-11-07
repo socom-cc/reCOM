@@ -5,17 +5,46 @@
  * @socom-artifact defines main socom:function:0x3079e0
  * socom-owner-annotations end socom:work:source-segment-042 */
 
+#include "zvid.h"
+#include "gamez/zSystem/zsys.h"
+
+extern unsigned char zon_writeon[80]; /* zvid_init.cpp: GIF A+D TEST_1/2 = 0x5000d, ZBUF_1/2 = 0x0a000118 */
+
+/* port: file-local helper, not an ELF function - each z-test switch kicks one scratchpad
+   qword into the MFIFO: a DMA REF of 5 qwc to the GIF A+D packet, VIF FLUSH, VIF DIRECT 5 */
+static void zvid_kick_ref5(const void* packet)
+{
+	_word128* p = reinterpret_cast<_word128*>(zSysSprGetPacket(NULL));
+	p->u32[0] = 0x30000005;                                   /* DMAtag REF 5 qwc */
+	p->u32[1] = (u32)reinterpret_cast<uintptr_t>(packet);
+	p->u32[2] = 0x11000000;                                   /* VIF FLUSH */
+	p->u32[3] = 0x50000005;                                   /* VIF DIRECT 5 */
+	zSysFifoKick(reinterpret_cast<unsigned __int128*>(p), 1);
+}
+
 /* @socom-skeleton stub zVid_ZTestOff__Fv */
 void zVid_ZTestOff()
 {
+	/* 0x3079e0: REF zVid.ztest_off (ztest_off_vif: TEST_1/2 = 0, ZBUF_1/2 with ZMSK -
+	 * no depth test, no depth write) */
+	zvid_kick_ref5(zVid.ztest_off);
 }
 
 /* @socom-skeleton stub zVid_ZTestOn__Fv */
 void zVid_ZTestOn()
 {
+	/* 0x307980: REF zVid.ztest_on (ztest_on_vif: TEST_1/2 = 0x5000d - alpha test, depth
+	 * GEQUAL; ZBUF_1/2 writing) */
+	zvid_kick_ref5(zVid.ztest_on);
 }
 
 /* @socom-skeleton stub zVid_ZTestOnWriteSet__Fb */
-void zVid_ZTestOnWriteSet(bool)
+void zVid_ZTestOnWriteSet(bool write)
 {
+	/* 0x307920: ELF quirk: both branches load zon_writeon_dmaref (0x43b0c0: REF 5 ->
+	 * zon_writeon, FLUSH, DIRECT 5), so depth writes stay on whatever write asks for.
+	 * port: zon_writeon_dmaref has no definition in the port, so the same qword is built
+	 * here (zvid_kick_ref5) */
+	(void)write;
+	zvid_kick_ref5(zon_writeon);
 }

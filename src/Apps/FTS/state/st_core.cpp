@@ -331,9 +331,10 @@ bool CCoreState::Tick(f32 dT)
 		hud->m_mapcompass.Draw(camera);
 		CBench::postCompassTick = CoreTickBenchTime();
 
-		/* port: not called - the ELF ticks (unless paused) and draws hud->m_FlashFXVector
-		   (+0x14450) here, but CHUD has no such member: CFlashFXVector is declared after
-		   CHUD in hud.h, and both its Tick 0x403120 and Draw 0x403080 are unwritten */
+		if (!hud->PauseGame())
+			hud->m_FlashFXVector.Tick(dT);
+
+		hud->m_FlashFXVector.Draw(camera);
 		hud->m_pausetest.Draw(camera); /* virtual in the ELF (vptr +12 of m_pausetest, slot 1) */
 		zVid_ZTestOn();
 	}

@@ -67,6 +67,7 @@ protected:
 
 class CCoreState : public CGameState
 {
+	friend class CZHudMissionCams; /* port: unproven access - CZHudMissionCams::HudTick (0x403fb0) sets m_skip_swap */
 public:
 	CCoreState();
 

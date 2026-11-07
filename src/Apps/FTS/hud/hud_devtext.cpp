@@ -69,6 +69,8 @@
  * @socom-artifact defines main socom:data:0x561e10
  * socom-owner-annotations end socom:work:source-segment-076 */
 
+#include "gamez/zVideo/zvid.h"
+
 /* @socom-skeleton decl include */
 #include "gamez/zMath/zmath.h"
 #include "gamez/zUtil/util_stable.h"
@@ -192,4 +194,39 @@ void CHUD::StatusLine()
 	static int alphaTime;
 	/* @socom-skeleton stub miscTime$2759 */
 	static int miscTime;
+
+	/* 0x3d9820: the debug readouts. Every perf line goes off; then, by the gopt flags
+	 * (all off in the ELF's defaults), up to 30 lines are printed at x 10 every 13 px
+	 * from y 20 and turned on. */
+	char lines[30][128];
+	u32 count = 0;
+
+	for (u32 i = 0; i < 30; i++)
+		m_perfstats[i].Off();
+
+	f32 rate = 1.0f / zVid.procTime;
+
+	if (gopt.doStatusLine || gopt.doStatusLineSmall || gopt.doAssetReport || gopt.doTaskReport || gopt.doRenderReport)
+	{
+		/* port: not written (0x3d98a8 on): the timing, small status (fps, AI counts,
+		 * position, map cell), asset, scheduler-task and render reports with their
+		 * SELECT+SQUARE / SELECT+TRIANGLE toggles */
+	}
+	else if (gopt.doFPS)
+	{
+		count = 1;
+		sprintf(lines[0], "%d", (s32)rate);
+	}
+
+	for (u32 i = 0; i < count && i < 30; i++)
+	{
+		m_perfstats[i].Load(0.9f, lines[i], m_myfont, 10, (s32)(i * 13) + 20);
+		m_perfstats[i].On();
+	}
+
+	(void)reportTime; (void)showTriCnt; (void)showTimers; (void)printTime; (void)accumRate;
+	(void)avgRate; (void)numSamples; (void)numSecs; (void)accumPTTTime; (void)avgPTTTime;
+	(void)fpsMax; (void)fpsMin; (void)fpsCount; (void)fpsSum; (void)shadowTime;
+	(void)shadowRingTime; (void)shadowNoRingTime; (void)landmarkTime; (void)particleTime;
+	(void)characterTime; (void)charCommonTime; (void)alphaTime; (void)miscTime;
 }

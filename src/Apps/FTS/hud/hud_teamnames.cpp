@@ -24,6 +24,8 @@
  * @socom-artifact defines main socom:data:0x561bb0
  * socom-owner-annotations end socom:work:source-segment-076 */
 
+#include "gamez/zNode/node_assetlib.h"
+
 /* @socom-skeleton decl include */
 #include "gamez/zMath/zmath.h"
 #include "gamez/zSeal/zseal.h"
@@ -56,23 +58,125 @@ C2DBitmap g_lnDivider;
 /* @socom-skeleton stub __ct__10CTeamNamesFv */
 CTeamNames::CTeamNames()
 {
+	/* 0x3d91a0 */
+	memset(m_ally, 0, sizeof(m_ally));
+	m_arrOrderFadeTimes[0] = -1.0f;
+	m_arrOrderFadeTimes[1] = -1.0f;
+	m_arrOrderFadeTimes[2] = -1.0f;
+	m_arrOrderFadeTimes[3] = -1.0f;
 }
 
 /* @socom-skeleton stub SetOpacity__10CTeamNamesFf */
-void CTeamNames::SetOpacity(float)
+void CTeamNames::SetOpacity(float opacity)
 {
+	/* 0x3d9020: the box and divider at 0.6 of opacity, names and dots fully, the order
+	 * texts get the raw opacity (ELF: SetTrans(opacity), not * 128), the brackets 0.3 */
 	/* @socom-skeleton stub c_fBracketTrans$2557 */
-	static const float c_fBracketTrans = 0;
+	static const float c_fBracketTrans = 76.8f;
+	f32 box = opacity * 76.8f;
+
+	m_background.SetTrans(box);
+	g_lnDivider.C2DBitmap::SetTrans(box);
+
+	for (u32 i = 0; i < 4; i++)
+	{
+		m_teamname[i].SetTrans(opacity * 128.0f);
+		m_healthdot[i].SetTrans(opacity * 128.0f);
+		m_order[i].SetTrans(opacity);
+		m_healthdot[i].SetTrans(opacity * 128.0f);
+	}
+
+	g_strAlphaBracket.m_color.w = opacity * 0.3f * c_fBracketTrans;
+	g_strBravoBracket.m_color.w = g_strAlphaBracket.m_color.w;
 }
 
 /* @socom-skeleton stub SetupTeamNameEntry__10CTeamNamesFiP10CZSealBody */
-void CTeamNames::SetupTeamNameEntry(int, CZSealBody *)
+void CTeamNames::SetupTeamNameEntry(int index, CZSealBody *seal)
 {
+	/* 0x3d8dc0: the teammate's display name in capitals, right-aligned at x 510 on its
+	 * row (rows 15 apart from 382, Bravo 5 lower), its health dot green, both texts
+	 * children */
+	if (seal == NULL)
+		return;
+
+	m_ally[index] = seal;
+	C2DString* name = &m_teamname[index];
+	char text[32] = { 0 }; /* @2570 0x561da0: 32 zero bytes */
+
+	if (seal->m_display_name != NULL)
+	{
+		strncpy(text, seal->m_display_name, 31);
+		CHUD::HudText_to_upper(text);
+	}
+
+	name->Load(0.76f, text, m_myfont, 0, 0);
+	name->UpdatePos();
+	s32 bravo = index < 2 ? 0 : 5;
+	name->m_pos.x = (s32)(510.0f - name->m_length) << 4;
+	name->m_pos.y = (s32)((f32)index * 15.0f + 382.0f + (f32)bravo) << 4;
+	m_allycolorgoal[index].x = 0.0f;
+	m_allycolorgoal[index].y = 255.0f;
+	m_allycolorgoal[index].z = 0.0f;
+	m_healthdot[index].SetColor(0.0f, 127.5f, 0.0f);
+	m_allycolor[index].x = 0.0f;
+	m_allycolor[index].y = 255.0f;
+	m_allycolor[index].z = 0.0f;
+	name->m_color = CHUD::m_hud_textcolor;
+	push_back(name);
+	push_back(&m_order[index]);
+	m_order[index].m_color = CHUD::m_hud_textcolor;
+	m_order[index].Off();
 }
 
 /* @socom-skeleton stub Init__10CTeamNamesFv */
 void CTeamNames::Init()
 {
+	/* 0x3d8a00: the box (newweapnbkrnd.tif mirrored) at the bottom right with its
+	 * divider, the four health dots, then Able (team 2) and Bravo (team 3) members 0-1,
+	 * and the "[" brackets */
+	m_increment = 500.0f;
+	zdb::CTexHandle* boxes = zdb::CAssetMgr::m_assets.GetTexHandle(c_szCornerBoxesTx);
+
+	m_background.Load(435.0f, 364.0f, 640.0f, 438.0f, boxes);
+	m_background.SetUV(1.0f, 0.0f, 0.0f, 1.0f);
+	push_back(&m_background);
+	g_lnDivider.Load(437.0f, 399.0f, 640.0f, 403.0f, boxes);
+	g_lnDivider.SetUV(1.0f, 0.0f, 0.0f, 0.01f);
+	push_back(&g_lnDivider);
+
+	zdb::CTexHandle* dot = zdb::CAssetMgr::m_assets.GetTexHandle("teammate_health.tif");
+
+	for (int i = 0; i < 4; i++)
+	{
+		s32 bravo = i < 2 ? 0 : 5;
+		f32 y = ((f32)i * 15.0f + 382.0f + (f32)bravo) - 9.0f;
+		m_healthdot[i].Load(519.0f, y, 528.0f, y + 8.0f, dot);
+		push_back(&m_healthdot[i]);
+	}
+
+	/* port: not called - CSealUnit::GetUnitByTeam 0x2d7590 (seal_unit.cpp: the unit of
+	 * that team in CSealUnit::m_list) is an unwritten non-void stub that would STOP the
+	 * game, and the port creates no units yet: no Able (team 2) or Bravo (team 3) names */
+	CSealUnit* unit = NULL;
+
+	if (unit != NULL)
+	{
+		SetupTeamNameEntry(0, unit->GetSealByIndex(0));
+		SetupTeamNameEntry(1, unit->GetSealByIndex(1));
+	}
+
+	unit = NULL; /* port: as above, CSealUnit::GetUnitByTeam(3) */
+
+	if (unit != NULL)
+	{
+		SetupTeamNameEntry(2, unit->GetSealByIndex(0));
+		SetupTeamNameEntry(3, unit->GetSealByIndex(1));
+	}
+
+	g_strAlphaBracket.Load(1.2f, "[", m_myfont, 435, (s32)392.0f);
+	g_strBravoBracket.Load(1.2f, "[", m_myfont, 435, (s32)427.0f);
+	g_strAlphaBracket.m_color = CHUD::m_hud_textcolor;
+	g_strBravoBracket.m_color = CHUD::m_hud_textcolor;
 }
 
 /* @socom-skeleton stub Clear__10CTeamNamesFv */
@@ -81,8 +185,81 @@ void CTeamNames::Clear()
 }
 
 /* @socom-skeleton stub Tick__10CTeamNamesFf */
-void CTeamNames::Tick(float)
+void CTeamNames::Tick(float dT)
 {
+	/* 0x3d83d0: per teammate the health dot eases (500/s) towards its goal colour; a hit
+	 * flashes it (yellow, then a green that fades with health below 100%); a dead one
+	 * goes grey with a dark red name and its order text off. A pending order shows the AI
+	 * controller's status text. */
 	/* @socom-skeleton stub deadColor$2617 */
-	static CPnt3D deadColor;
+	static CPnt3D deadColor(30.0f, 30.0f, 30.0f);
+
+	for (int i = 0; i < 4; i++)
+	{
+		CZSealBody* seal = m_ally[i];
+
+		if (seal == NULL)
+			continue;
+
+		/* port: CZSealBody::GetHudHitFlag is declared void (zseal.h; the ELF returns and
+		 * clears the HUD hit flag), so the dot only eases: the no-hit path */
+		seal->GetHudHitFlag();
+
+		f32* colour[3] = { &m_allycolor[i].x, &m_allycolor[i].y, &m_allycolor[i].z };
+		f32 goal[3] = { m_allycolorgoal[i].x, m_allycolorgoal[i].y, m_allycolorgoal[i].z };
+
+		for (int c = 0; c < 3; c++)
+		{
+			f32 value = *colour[c];
+			f32 step = dT * m_increment;
+
+			if (value < goal[c])
+			{
+				value += step;
+
+				if (value > goal[c])
+					value = goal[c];
+			}
+			else if (goal[c] < value)
+			{
+				value -= step;
+
+				if (value < goal[c])
+					value = goal[c];
+			}
+
+			*colour[c] = value;
+		}
+
+		m_healthdot[i].SetColor(*colour[0] * 0.5f, *colour[1] * 0.5f, *colour[2] * 0.5f);
+
+		if (seal->m_isAlive)
+		{
+			bool order = seal->m_order_flag;
+			seal->m_order_flag = 0; /* test and clear */
+
+			if (order && seal->m_control != NULL && static_cast<CSealCtrl*>(seal->m_control)->IsAi())
+			{
+				CSealCtrlAi* ai = static_cast<CSealCtrl*>(seal->m_control)->GetSealCtrlAi();
+				char* status = ai->GetStatusString();
+
+				if (status != NULL)
+				{
+					s32 bravo = i < 2 ? 0 : 5;
+					C2DString* text = &m_order[i];
+					text->Load(0.76f, status, m_myfont, 535, (s32)((f32)i * 15.0f + 382.0f + (f32)bravo));
+					text->Update();
+					text->On();
+					text->SetTrans(128.0f);
+					m_arrOrderFadeTimes[i] = 0.0f;
+				}
+			}
+		}
+		else
+		{
+			m_order[i].Off();
+		}
+	}
+
+	(void)deadColor; /* port: the hit and death colours are on the GetHudHitFlag path */
 }

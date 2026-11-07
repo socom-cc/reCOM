@@ -69,6 +69,9 @@
 #include "hud.h"
 
 #include "gamez/zNetwork/znet.h"
+#include "gamez/zFTS/zfts.h"
+#include "gamez/zIntersect/zintersect.h"
+#include <ctype.h>
 
 /* @socom-skeleton decl include */
 #include "gamez/zCamera/zcam.h"
@@ -104,7 +107,7 @@ CHUD *theHUD;
 static CSTable MultiplayerMsgStrings;
 
 /* @socom-skeleton stub m_hud_textcolor__4CHUD */
-CPnt4D CHUD::m_hud_textcolor;
+CPnt4D CHUD::m_hud_textcolor(86.0f, 63.0f, 27.0f, 128.0f); /* __sinit_hud_main.cpp 0x46f764 */
 
 /* @socom-skeleton stub X_WeaponBackground */
 static C2DBitmap X_WeaponBackground;
@@ -177,7 +180,15 @@ s32 hudInit()
 /* @socom-skeleton body __ct__4CHUDFv */
 CHUD::CHUD()
 {
-
+	/* 0x3bc180: the members construct in order (m_WeaponBackground is a CPlainBmp, the
+	 * three bright texts SetTrans 128, m_phase three plain C2Ds); the scalars below are
+	 * the ctor's own stores. theHUD is set here too. */
+	m_hudrettype = 0;
+	m_usehudret = false;
+	m_hudretchanged = false;
+	m_firemodetex = NULL;
+	m_messageTime = 0.0f;
+	theHUD = this;
 }
 
 /* @socom-skeleton body GetHUDOwner__4CHUDFv */
@@ -187,8 +198,13 @@ CZSealBody* CHUD::GetHUDOwner()
 }
 
 /* @socom-skeleton stub HudText_to_upper__4CHUDFPc */
-void CHUD::HudText_to_upper(char *)
+void CHUD::HudText_to_upper(char *text)
 {
+	/* 0x3bc100 */
+	s32 len = strlen(text);
+
+	for (s32 i = 0; i < len; i++)
+		text[i] = toupper(text[i]);
 }
 
 /* @socom-skeleton stub ReleaseHUD__4CHUDFPP4CHUD */
@@ -202,13 +218,19 @@ CHUD::~CHUD()
 }
 
 /* @socom-skeleton stub DrawPhase__4CHUDFQ23zdb12_RenderPhasePQ23zdb7CCamera */
-void CHUD::DrawPhase(zdb::_RenderPhase, zdb::CCamera *)
+void CHUD::DrawPhase(zdb::_RenderPhase phase, zdb::CCamera *camera)
 {
+	/* 0x3bb3e0: the phase's C2D container (HUDSET1 12 -> m_phase[0] ... HUDSETSMALL 14 ->
+	 * m_phase[2]) draws its elements through its virtual Draw; ELF quirk: no range test */
+	m_phase[(phase & 0xff) - zdb::HUDSET1].Draw(camera);
 }
 
 /* @socom-skeleton stub GetTextureByName__FPQ23zdb6CWorldPCc */
-zdb::CTexture * GetTextureByName(zdb::CWorld *, const char *)
+zdb::CTexture * GetTextureByName(zdb::CWorld *, const char *name)
 {
+	/* 0x3bb3a0: the loaded asset libraries' texture of that name (the world is unused) */
+	zdb::CTexHandle* handle = zdb::CAssetMgr::m_assets.GetTexHandle(name);
+	return handle != NULL ? handle->m_texture : NULL;
 }
 
 /* @socom-skeleton body ReInit_Uninit__4CHUDFv */
@@ -226,7 +248,196 @@ void CHUD::ReInit_Init()
 /* @socom-skeleton body Init__4CHUDFPQ23zdb6CWorld */
 void CHUD::Init(zdb::CWorld* world)
 {
+	/* 0x3ba0b0: the HUD font and elements, each added to a draw phase (-1: by its
+	 * textures' render phase, strings to HUDSETSMALL), then the zoomed-out layout */
+	m_hudmode = ZOOMOUT;
+	m_ison = true;
 
+	zdb::CTexHandle* rethandle = zdb::CAssetMgr::m_assets.GetTexHandle("reticuletex.tif");
+	zdb::CTexHandle* handle = zdb::CAssetMgr::m_assets.GetTexHandle("reticuletex.tif");
+	reticuletexture = handle != NULL ? handle->m_texture : NULL;
+	m_curweapon = 0;
+	m_curseal = 0;
+
+	m_myfont = new C2DFont();
+	m_myfont->Load(theMission.m_fontsRdr, "arialblack");
+	m_myfont->SetXSpacing(2.0f);
+
+	zdb::CTexHandle* boxes = zdb::CAssetMgr::m_assets.GetTexHandle(c_szCornerBoxesTx);
+	m_weapontopx = -10.0f;
+	m_weapontopy = 364.0f;
+	m_weaponbotx = m_weapontopx + 173.0f;
+	m_weaponboty = 438.0f;
+
+	X_WeaponBackground.Load(m_weapontopx, m_weapontopy, m_weaponbotx, m_weaponboty, boxes);
+	X_WeaponBackground.C2DBitmap::SetTrans(0.0f);
+	X_WeaponBackground.SetUV(0.03f, 0.0f, 0.96f, 1.0f);
+	X_WeaponBackground.C2D::On();
+	Add2D(&X_WeaponBackground, 0, true); /* the same bitmap in all three phases */
+	Add2D(&X_WeaponBackground, 1, true);
+	Add2D(&X_WeaponBackground, 2, true);
+
+	m_bitmapReticule.m_parent = this;
+	m_bitmapReticule.Init(world, m_myfont);
+	Add2D(&m_bitmapReticule, 0, true);
+	Add2D(&m_letterbox, 2, true);
+
+	m_piggyback_text1.Load(0.8f, "YOU HAVE DIED", m_myfont, 52, 25);
+	m_piggyback_text2.Load(0.8f, "Use the directional buttons to cycle through teammates", m_myfont, 52, 45);
+	m_piggyback_text3.Load(0.8f, "Press the R2 button to select weapons for the next round", m_myfont, 52, 65);
+	m_piggyback_text1.Off();
+	m_piggyback_text2.Off();
+	m_piggyback_text3.Off();
+	Add2D(&m_piggyback_text1, -1, true);
+	Add2D(&m_piggyback_text2, -1, true);
+	Add2D(&m_piggyback_text3, -1, true);
+
+	m_WeaponBackground.C2DBitmap::Load(m_weapontopx, m_weapontopy, m_weaponbotx, m_weaponboty, boxes);
+	m_WeaponBackground.SetUV(0.01f, 0.01f, 1.0f, 1.01f);
+	Add2D(&m_WeaponBackground, 0, true);
+
+	weapon.Load(530.0f, 395.0f, rethandle);
+	weapon.SetTrans(100.0f);
+	Add2D(&weapon, 0, true);
+
+	C2DString* texts[5] = { &m_ammocount, &m_magscount, &m_ammotype, &m_weaponname, &m_zoomleveltext };
+
+	for (int i = 0; i < 5; i++)
+	{
+		texts[i]->Load(0.8f, "00", m_myfont, 150, 150);
+		texts[i]->m_color = m_hud_textcolor;
+		texts[i]->Off();
+		Add2D(texts[i], -1, true);
+	}
+
+	m_firemodetex = zdb::CAssetMgr::m_assets.GetTexHandle("firemode.tif");
+	m_firemode.Load(10.0f, 385.0f, m_firemodetex);
+	Add2D(&m_firemode, -1, true);
+	m_firemodename.m_color = m_hud_textcolor;
+	m_firemodename.Off(); /* ELF: not added to a phase */
+
+	m_message.Load(0.9f, "00", m_myfont, 100, 200);
+	m_message.m_color = m_hud_textcolor;
+	Add2D(&m_message, -1, true);
+	m_message.Off();
+
+	for (int i = 0; i < 30; i++)
+	{
+		m_perfstats[i].Load(0.9f, "00", m_myfont, 10, 30);
+		m_perfstats[i].m_color = m_hud_textcolor;
+		Add2D(&m_perfstats[i], -1, true);
+		m_perfstats[i].Off();
+	}
+
+	handle = zdb::CAssetMgr::m_assets.GetTexHandle("compass_lo.tif");
+	m_mapcompass.SetTexture(handle != NULL ? handle->m_texture : NULL);
+	m_mapcompass.InitHUD_Compass(world);
+	m_mapcompass.SetPos(486.0f, 2.0f, 614.0f, 130.0f);
+	m_mapcompass.SetTrans(76.8f);
+	m_mapcompass.SetScale(1.0f);
+
+	m_newmap.InitMap(world);
+	m_newmap.m_parent = this;
+	m_newmap.m_viewer = appCamera->m_entity;
+	m_newmap.SetMapScreenPos(486.0f, 2.0f, 614.0f, 130.0f);
+	m_newmap.SetWorldWidth(1200.0f);
+	m_newmap.m_scale = 1.0f;
+	Add2D(&m_newmap, -1, true);
+
+	m_missioncams.Init();
+	Add2D(&m_missioncams, -1, true);
+
+	if (!theNetwork.m_bNetwork)
+	{
+		m_teamnames.m_myfont = m_myfont;
+		m_teamnames.Init();
+		Add2D(&m_teamnames, -1, true);
+	}
+	else
+	{
+		m_teamnames.Off();
+	}
+
+	if (!theNetwork.m_bNetwork)
+		m_timertext.Load(0.8f, "", m_myfont, 530, 337);
+	else
+		m_timertext.Load(0.8f, "00:00", m_myfont, 530, 437);
+
+	m_timertext.m_color = m_hud_textcolor;
+	Add2D(&m_timertext, -1, true);
+
+	if (!theNetwork.m_bNetwork)
+		m_timertext.Off();
+
+	m_rangetext.Load(0.8f, "0000", m_myfont, 475, 425);
+	m_rangetext.m_color.x = 80.0f;
+	m_rangetext.m_color.y = 80.0f;
+	m_rangetext.m_color.z = 80.0f;
+	m_rangetext.Off();
+	Add2D(&m_rangetext, -1, true);
+
+	m_poseBitmap.m_myfont = m_myfont;
+	m_poseBitmap.Init(world);
+	Add2D(&m_poseBitmap, -1, true);
+
+	m_actionbitmap.Init(this, m_myfont);
+	Add2D(&m_actionbitmap, -1, true);
+	m_static_radio_bitmap.Init(this);
+	m_dynamic_radio_bitmap.Init(this);
+	Add2D(&m_static_radio_bitmap, -1, true);
+	Add2D(&m_dynamic_radio_bitmap, -1, true);
+
+	theMission.m_messenger.Init(m_myfont, theMission.m_messagesRdr);
+	theMission.m_ammoMessenger.Init(m_myfont, theMission.m_smallmessagesRdr);
+	theMission.m_Subtitles.Init(m_myfont, theMission.m_subtitlesRdr);
+	Add2D(&theMission.m_messenger, 0, true);
+	Add2D(&theMission.m_ammoMessenger, 0, true);
+	Add2D(&theMission.m_Subtitles, 0, true);
+
+	m_weaponsel.Init(world, m_myfont);
+	Add2D(&m_weaponsel, 0, true);
+	m_weaponsel.m_parent = this;
+	m_ingameweaponsel.Init(world, m_myfont);
+	Add2D(&m_ingameweaponsel, 0, true);
+	m_ingameweaponsel.m_parent = this;
+
+	m_ordermenu.Load(0.0f, 0.0f, 640.0f, 448.0f);
+	m_ordermenu.LoadTextures(world, m_myfont);
+
+	m_pausetest.m_font = m_myfont;
+	m_pausetest.Init();
+
+	if (!theNetwork.m_bNetwork)
+	{
+		m_num_connected.Off();
+	}
+	else
+	{
+		/* port: multiplayer only, not written (0x3bae50: "00m" at 587,437 and the
+		 * connected-client count, "%dm" for the session master) */
+	}
+
+	m_bmpFade.FadeIn(0.5f);
+	Add2D(&m_bmpFade, -1, true);
+
+	if (!theNetwork.m_bNetwork)
+		m_teamMateNames.Off();
+	else
+		m_teamMateNames.Init(m_myfont);
+
+	Add2D(&m_teamMateNames, -1, true);
+	Add2D(hudGetScorePopupPtr(), 0, true);
+	m_LensFlareFade.Init();
+	ZoomOut();
+	g_fElemsFadeInTime = 0.0f;
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("HUD: Init done: phases %d %d %d elements; font tex %p; compass tex %p; reticule tex %p; boxes %p",
+		(int)m_phase[0].size(), (int)m_phase[1].size(), (int)m_phase[2].size(),
+		m_myfont->m_pTexHandle, m_mapcompass.m_newcompasstex, m_bitmapReticule.m_reticuleTex[0], boxes);
+	SOCOM_PORT_TRACE("HUD: world camera screen %d %d %d %d",
+		(int)world->m_camera->m_screen.left, (int)world->m_camera->m_screen.top,
+		(int)world->m_camera->m_screen.right, (int)world->m_camera->m_screen.bottom);
+#endif
 }
 
 /* @socom-skeleton stub PauseGame__4CHUDFv */
@@ -246,15 +457,214 @@ unsigned char CHUD::PauseGame()
 	return pause;
 }
 
-/* @socom-skeleton stub Tick__4CHUDFf */
-void CHUD::Tick(float)
+/* port: file-local helper, not an ELF function - CZKit::GetCurItem 0x2abd40 inlined (lw
+   m_selected_item, m_item[]): its seal_kit.cpp body is still an unwritten non-void stub,
+   which would STOP the game; call CZKit::GetCurItem again once it is written */
+static CZFTSWeapon* hud_curitem(CZKit* kit)
 {
+	return kit->m_item[kit->m_selected_item];
+}
+
+/* @socom-skeleton stub Tick__4CHUDFf */
+void CHUD::Tick(float dT)
+{
+	/* 0x3b94e0: death and spectator handling, then every element's HUD tick for the
+	 * camera's seal (pad = the player's), the mission clock, the elements' fade-in */
 	/* @socom-skeleton stub wasalive$2787 */
 	static unsigned char wasalive;
 	/* @socom-skeleton stub tempstr$3048 */
 	static unsigned char tempstr[120];
 	/* @socom-skeleton stub seconds$3049 */
 	static int seconds;
+	CZSealBody* seal = appCamera->m_entity;
+	CZSealBody* player = ftsGetPlayer();
+	MENU_STATE menustate = static_cast<CSealCtrl*>(seal->m_control)->GetMenuState();
+
+	if (seal == player || player->m_isAlive || menustate != stateNone || !theNetwork.m_bNetwork)
+	{
+		if (seal == player && !player->m_isAlive && menustate == stateNone && theNetwork.m_bNetwork)
+		{
+			/* port: multiplayer only, not written (0x3b95e0: the HUD back on, the
+			 * letterbox out, the piggy-back texts on, the messengers off) */
+		}
+		else if (!player->m_isAlive && menustate == stateNone && !theNetwork.m_bNetwork)
+		{
+			CEntity* killer = CEntity::m_list.GetEntityById(player->m_lastkiller_id);
+
+			if (killer == NULL)
+			{
+				m_piggyback_text1.Off();
+				m_piggyback_text2.Off();
+			}
+			else
+			{
+				CEntity* sealkiller = killer->m_type == CEntity::ENT_TYPE_SEAL ? killer : NULL;
+
+				m_piggyback_text1.On();
+				m_piggyback_text1.Load(0.8f, "KILLED BY:", m_myfont, 302, 25);
+				m_piggyback_text2.On();
+				m_piggyback_text2.Load(0.8f, sealkiller->m_display_name, m_myfont, 302, 45); /* ELF: no NULL test */
+			}
+
+			m_piggyback_text3.Off();
+			theHUD->Off();
+			theHUD->m_letterbox.AddLetterbox();
+		}
+	}
+	else
+	{
+		/* port: multiplayer only, not written (0x3b9578: spectating a teammate) */
+	}
+
+	if (seal == NULL)
+		return;
+
+	if (wasalive && !seal->m_isAlive)
+	{
+		m_weaponsel.OnClose();
+		m_weaponsel.AfterCloseFirst();
+		m_weaponsel.AfterClose();
+		theMission.m_messenger.Off();
+		theMission.m_ammoMessenger.Off();
+	}
+
+	u32 padid = static_cast<CSealCtrl*>(player->m_control)->m_padid;
+	CPad* pad = padid < 2 ? CInput::m_pads[padid] : NULL;
+
+	if ((pad != NULL && menustate == stateNone) || menustate == stateWeaponSel)
+	{
+		if (seal->m_isAlive)
+			m_weaponsel.HudTick(pad, dT);
+		else if (theNetwork.m_bNetwork && seal == player)
+			m_ingameweaponsel.HudTick(pad, dT);
+	}
+
+	if (!theNetwork.m_bNetwork)
+		m_teamnames.Tick(dT);
+
+	/* port: CSealCtrl::UpdateHudWeapon is declared void (zseal.h): the ELF clears the
+	 * controller's weapon-changed bit and, when it was set, updates the map's explosives
+	 * (m_newmap.UpdateExplosives) and turns the weapon bitmap off */
+	static_cast<CSealCtrl*>(seal->m_control)->UpdateHudWeapon();
+
+	CZKit* kit = &seal->m_kit;
+
+	/* ELF quirk: the item id is compared as a byte (< 400 is always true), so every
+	 * throwable drives the grenade bar */
+	if (kit->GetCurItemType() == SEAL_ITEM::itemThrowable &&
+		((u8)hud_curitem(kit)->m_ID < 400 || (u8)hud_curitem(kit)->m_ID >= 450)) /* CZKit::GetCurItem */
+	{
+		f32 power = static_cast<CSealCtrl*>(seal->m_control)->m_trigger_power;
+
+		if (appCamera->m_entity != NULL)
+		{
+			if (appCamera->m_entity->m_kit.GetCurAmmoCount() <= 0)
+				m_bitmapReticule.SetGBarVal(0.0f);
+			else
+				m_bitmapReticule.SetGBarVal(power);
+		}
+	}
+
+	/* port: not called - OrdersMenu::HandlePad 0x175ff0 (orders.cpp, the radio command menu,
+	   3312 bytes) is an unwritten non-void stub that would STOP the game; the ELF calls it
+	   here when menustate is stateNone or stateOrders and discards its result */
+
+	m_mapcompass.Tick(seal);
+	m_bitmapReticule.HudTick(dT);
+	m_poseBitmap.Tick(dT);
+	m_actionbitmap.HudTick(menustate);
+	m_static_radio_bitmap.HudTick(menustate);
+	m_dynamic_radio_bitmap.HudTick(menustate);
+
+	if (pad != NULL)
+		m_pausetest.HudTick(pad, dT);
+
+	m_missioncams.HudTick(pad, dT);
+	m_newmap.HudTick(pad, dT);
+	theMission.m_messenger.Tick(dT);
+	theMission.m_ammoMessenger.Tick(dT);
+	theMission.m_Subtitles.Tick(dT);
+
+	/* port: CZKit::WeaponInfoChanged is declared void (zseal.h): the ELF clears the kit's
+	 * weapon-info bit and, when it was set and there is an item, calls SetupAmmoCount and
+	 * SetupFiremode */
+	if (hud_curitem(kit) != NULL) /* CZKit::GetCurItem */
+		kit->WeaponInfoChanged();
+
+	/* port: CMission::GetGameTime is declared void (zfts.h): the ELF prints the mission
+	 * clock "%02d:%02d" (minutes, seconds) into m_timertext when the second changes, and
+	 * clears it for a negative time in single player (where the timer text is off) */
+	(void)tempstr;
+	(void)seconds;
+
+	DoRangeText(seal, menustate);
+
+	if (theNetwork.m_bNetwork)
+	{
+		/* port: multiplayer only, not written (0x3b9c90: the connected-client count) */
+	}
+
+	m_letterbox.Tick(dT);
+	m_bmpFade.Tick(dT);
+
+	if (m_messageTime > 0.0f)
+	{
+		m_messageTime -= dT;
+
+		if (m_messageTime <= 0.0f)
+		{
+			m_messageTime = 0.0f;
+			m_message.Off();
+		}
+	}
+
+	wasalive = seal->m_isAlive;
+
+	if (theNetwork.m_bNetwork)
+	{
+		m_teamMateNames.xMargin = m_letterbox.m_curpos;
+		m_teamMateNames.Tick(dT);
+	}
+
+	if (g_fElemsFadeInTime >= 0.0f)
+	{
+		CHUD* hud = theHUD;
+		g_fElemsFadeInTime += dT;
+
+		if (g_fElemsFadeInTime <= 1.0f)
+		{
+			hud->m_WeaponBackground.SetTrans(0.0f);
+			hud->m_firemode.SetTrans(0.0f);
+			hud->m_weaponname.SetTrans(0.0f);
+			hud->m_ammocount.SetTrans(0.0f);
+			hud->m_magscount.SetTrans(0.0f);
+			hud->m_teamnames.SetOpacity(0.0f);
+		}
+		else if (g_fElemsFadeInTime < 1.5f)
+		{
+			f32 opacity = (g_fElemsFadeInTime - 1.0f) * 2.0f;
+			hud->m_WeaponBackground.SetTrans(opacity * 76.8f);
+			hud->m_firemode.SetTrans(opacity * 128.0f);
+			hud->m_weaponname.SetTrans(opacity * 128.0f);
+			hud->m_ammocount.SetTrans(opacity * 128.0f);
+			hud->m_magscount.SetTrans(opacity * 128.0f);
+			hud->m_teamnames.SetOpacity(opacity);
+		}
+		else
+		{
+			hud->m_WeaponBackground.SetTrans(76.8f);
+			hud->m_firemode.SetTrans(128.0f);
+			hud->m_weaponname.SetTrans(128.0f);
+			hud->m_ammocount.SetTrans(128.0f);
+			hud->m_magscount.SetTrans(128.0f);
+			hud->m_teamnames.SetOpacity(1.0f);
+		}
+
+		if (g_fElemsFadeInTime > 1.5f)
+			g_fElemsFadeInTime = -1.0f;
+	}
+
+	hudTickScorePopup(*pad); /* ELF: the pad pointer as the reference, NULL included (read only in a network game) */
 }
 
 /* @socom-skeleton stub Flash__4CHUDFfRC6CPnt3Dfff */
@@ -277,58 +687,392 @@ void CHUD::PostDITick(float dT)
 }
 
 /* @socom-skeleton body On__4CHUDFv */
-void CHUD::On() {}
+void CHUD::On()
+{
+	/* 0x3b90f0: every element on, then the zoom layout and the full-screen map again */
+	m_ison = true;
+
+	if (theNetwork.m_bNetwork)
+		m_num_connected.On();
+
+	m_timertext.On();
+	m_actionbitmap.On();
+	m_static_radio_bitmap.On();
+	m_dynamic_radio_bitmap.On();
+	m_teamnames.On();
+	m_bitmapReticule.On();
+	m_poseBitmap.On();
+	m_newmap.On();
+	m_rangetext.On();
+	m_weaponsel.On();
+	m_ingameweaponsel.On();
+	m_zoomleveltext.On();
+	m_weaponname.On();
+	m_magscount.On();
+	m_ammocount.On();
+	m_WeaponBackground.On();
+	m_firemode.On();
+	theMission.m_messenger.On();
+	theMission.m_ammoMessenger.On();
+
+	if (m_hudmode == ZOOMOUT)
+		ZoomOut();
+	else
+		ZoomIn();
+
+	if (m_newmap.m_isFullScreen)
+		SwitchToFullScreenMap();
+
+	if (theNetwork.m_bNetwork)
+		m_teamMateNames.On();
+}
 
 /* @socom-skeleton body Off__4CHUDFv */
-void CHUD::Off() {}
+void CHUD::Off()
+{
+	/* 0x3b8ed0 */
+	if (theNetwork.m_bNetwork)
+		m_num_connected.Off();
+
+	m_timertext.Off();
+	m_actionbitmap.Off();
+	m_static_radio_bitmap.Off();
+	m_dynamic_radio_bitmap.Off();
+	m_teamnames.Off();
+	m_bitmapReticule.Off();
+	m_poseBitmap.Off();
+	m_newmap.Off();
+	m_rangetext.Off();
+	m_weaponsel.Off();
+	m_ingameweaponsel.Off();
+	m_zoomleveltext.Off();
+	m_weaponname.Off();
+	m_ammotype.Off();
+	m_magscount.Off();
+	m_ammocount.Off();
+	m_WeaponBackground.Off();
+	m_firemode.Off();
+
+	if (theNetwork.m_bNetwork)
+		m_teamMateNames.Off();
+
+	m_ison = false;
+	theMission.m_messenger.Off();
+	theMission.m_ammoMessenger.Off();
+}
 
 /* @socom-skeleton stub IsOn__4CHUDFv */
 unsigned char CHUD::IsOn()
 {
+	/* 0x3b8ec0 */
+	return m_ison;
+}
+
+/* port: file-local helper, not an ELF function - ZoomOut 0x3b8a50 and ZoomIn 0x3b86a0
+   both end with this zoom-level text (a zoom above 1.5x as "ZOOM: %0.1fX" at 512,430,
+   printed into ZoomOut's zoomtext$2973) */
+static void hud_zoomtext(CHUD* hud, char* zoomtext)
+{
+	if (appCamera->m_entity == NULL)
+		return;
+
+	f32 zoom = appCamera->m_entity->m_kit.GetCurZoom();
+
+	if (zoom <= 1.5f)
+	{
+		hud->m_zoomleveltext.Off();
+	}
+	else
+	{
+		sprintf(zoomtext, "ZOOM: %0.1fX", (double)zoom);
+		hud->m_zoomleveltext.On();
+		hud->m_zoomleveltext.Load(0.8f, zoomtext, hud->m_myfont, 512, 430);
+	}
 }
 
 /* @socom-skeleton stub ZoomOut__4CHUDFv */
 void CHUD::ZoomOut()
 {
+	/* 0x3b8a50: the normal (not scoped) layout: compass, weapon box and texts in the HUD
+	 * text colour, team names, pose, map, zoom text, action and radio bitmaps */
 	/* @socom-skeleton stub zoomtext$2973 */
 	static unsigned char zoomtext[10];
+	CZSealBody* seal = appCamera->m_entity;
+	CZFTSWeapon* item = hud_curitem(&seal->m_kit); /* CZKit::GetCurItem; ELF: before the NULL test of seal */
+
+	if (m_newmap.m_isFullScreen)
+		return;
+
+	m_hudmode = ZOOMOUT;
+
+	if (!m_ison)
+		return;
+
+	m_mapcompass.On();
+	m_timertext.On();
+	weapon.On();
+
+	if (seal == NULL)
+		return;
+
+	seal->m_kit.SetCurReticule();
+
+	if (item != NULL)
+	{
+		SetupAmmoCount(seal);
+		SetupFiremode(seal);
+	}
+
+	m_firemode.On();
+	m_firemodename.On();
+	m_ammotype.Off();
+	m_weaponname.On();
+	m_WeaponBackground.On();
+	m_WeaponBackground.SetColor(128.0f, 128.0f, 128.0f);
+	m_firemode.SetColor(80.0f, 80.0f, 80.0f);
+	m_firemodename.m_color = m_hud_textcolor;
+	m_ammocount.m_color = m_hud_textcolor;
+	m_magscount.m_color = m_hud_textcolor;
+	m_ammotype.m_color = m_hud_textcolor;
+	m_weaponname.m_color = m_hud_textcolor;
+	theMission.m_messenger.SetBkgColor(80.0f, 80.0f, 80.0f);
+	theMission.m_ammoMessenger.SetBkgColor(80.0f, 80.0f, 80.0f);
+
+	if (item != NULL && item->m_ID == EQUIP_ITEM::DESIGNATOR)
+	{
+		m_ammotype.Off();
+		m_magscount.Off();
+		m_ammocount.Off();
+		m_firemode.Off();
+	}
+
+	if (!theNetwork.m_bNetwork)
+		m_teamnames.On();
+
+	m_poseBitmap.On();
+	m_newmap.On();
+	hud_zoomtext(this, reinterpret_cast<char*>(zoomtext));
+	m_actionbitmap.On();
+	m_static_radio_bitmap.On();
+	m_dynamic_radio_bitmap.On();
+
+	if (theNetwork.m_bNetwork)
+		m_teamMateNames.On();
 }
 
 /* @socom-skeleton stub ZoomIn__4CHUDFv */
 void CHUD::ZoomIn()
 {
+	/* 0x3b86a0: the scoped layout: compass, timer and weapon off; with night vision the
+	 * weapon box and texts turn green, otherwise they go off */
+	static char zoomtext[10]; /* port: a buffer of its own (the ELF prints into ZoomOut's zoomtext$2973) */
+
+	if (m_newmap.m_isFullScreen)
+		return;
+
+	m_hudmode = ZOOMIN;
+
+	if (!m_ison)
+		return;
+
+	m_mapcompass.Off();
+	m_timertext.Off();
+	weapon.Off();
+
+	CZSealBody* seal = appCamera->m_entity;
+
+	if (seal == NULL)
+		return;
+
+	seal->m_kit.SetCurReticule();
+	CZFTSWeapon* item = hud_curitem(&seal->m_kit); /* CZKit::GetCurItem */
+
+	if (item != NULL && item->m_ID == EQUIP_ITEM::DESIGNATOR)
+	{
+		m_ammotype.Off();
+		m_magscount.Off();
+		m_ammocount.Off();
+		m_firemode.Off();
+	}
+
+	if (!seal->m_kit.NVG_Enabled())
+	{
+		m_firemode.Off();
+		m_firemodename.Off();
+		m_ammocount.Off();
+		m_magscount.Off();
+		m_ammotype.Off();
+		m_weaponname.Off();
+		m_WeaponBackground.Off();
+	}
+	else
+	{
+		/* night vision: the weapon box and texts in green */
+		m_WeaponBackground.SetColor(0.0f, 127.0f, 0.0f);
+		m_firemode.SetColor(0.0f, 127.0f, 0.0f);
+		C2DString* texts[5] = { &m_firemodename, &m_ammocount, &m_magscount, &m_ammotype, &m_weaponname };
+
+		for (int i = 0; i < 5; i++)
+		{
+			texts[i]->m_color.x = 0.0f;
+			texts[i]->m_color.y = 127.0f;
+			texts[i]->m_color.z = 0.0f;
+		}
+
+		theMission.m_messenger.SetBkgColor(0.0f, 127.0f, 0.0f);
+		theMission.m_ammoMessenger.SetBkgColor(0.0f, 127.0f, 0.0f);
+	}
+
+	if (!theNetwork.m_bNetwork)
+		m_teamnames.Off();
+
+	m_poseBitmap.Off();
+	m_newmap.Off();
+	hud_zoomtext(this, zoomtext);
+	m_actionbitmap.Off();
+	m_static_radio_bitmap.Off();
+	m_dynamic_radio_bitmap.Off();
+
+	if (theNetwork.m_bNetwork)
+		m_teamMateNames.Off();
 }
 
 /* @socom-skeleton stub SwitchToFullScreenMap__4CHUDFv */
 void CHUD::SwitchToFullScreenMap()
 {
+	/* 0x3b84f0 */
+	m_bitmapReticule.Off();
+	m_teamnames.Off();
+	m_firemode.Off();
+	m_firemodename.Off();
+	m_ammocount.Off();
+	m_magscount.Off();
+	m_ammotype.Off();
+	m_weaponname.Off();
+	m_WeaponBackground.Off();
+	m_poseBitmap.Off();
+	m_newmap.On();
+	m_zoomleveltext.Off();
+	theMission.m_messenger.Off();
+	theMission.m_Subtitles.Off();
+	m_actionbitmap.Off();
+	m_static_radio_bitmap.Off();
+	m_dynamic_radio_bitmap.Off();
+
+	if (theNetwork.m_bNetwork)
+		m_teamMateNames.Off();
 }
 
 /* @socom-skeleton stub SwitchToCompassMap__4CHUDFv */
 void CHUD::SwitchToCompassMap()
 {
+	/* 0x3b83a0 */
+	m_bitmapReticule.On();
+	m_teamnames.On();
+	m_firemode.On();
+	SetupAmmoCount(appCamera->m_entity);
+	m_weaponname.On();
+	m_WeaponBackground.On();
+	m_poseBitmap.On();
+	m_zoomleveltext.On();
+	theMission.m_messenger.On();
+	theMission.m_Subtitles.On();
+
+	if (m_hudmode == ZOOMOUT)
+		ZoomOut();
+	else
+		ZoomIn();
+
+	if (theNetwork.m_bNetwork)
+		m_teamMateNames.On();
+
+	g_fElemsFadeInTime = 0.0f;
 }
 
 /* @socom-skeleton stub Add2D__4CHUDFP3C2Dib */
-void CHUD::Add2D(C2D *, int, bool)
+void CHUD::Add2D(C2D *element, int phase, bool append)
 {
+	/* 0x3b8240: phase -1 takes the render phase of the element's first textured asset
+	 * library: HUDSET1/HUDSET2/HUDSETSMALL -> 0/1/2, anything else (or none, e.g. a
+	 * string) 2. Appended (true) or put first in the phase's draw list. */
+	if (phase == -1)
+	{
+		C2D::CLibList libs;
+		u8 renderphase = 0;
+
+		element->GetAssetLibs(libs);
+
+		for (auto i = libs.begin(); i != libs.end(); ++i)
+		{
+			if (renderphase == 0)
+				renderphase = (u8)(s8)(*i)->m_renderphase;
+		}
+
+		if (renderphase < zdb::HUDSET1)
+			phase = 2;
+		else if (renderphase <= zdb::HUDSETSMALL)
+			phase = renderphase - zdb::HUDSET1;
+		else
+			phase = 2;
+	}
+
+	if (append)
+		m_phase[phase].push_back(element);
+	else
+		m_phase[phase].push_front(element);
 }
 
 /* @socom-skeleton stub SetupFiremode__4CHUDFP10CZSealBody */
 void CHUD::SetupFiremode(CZSealBody *)
 {
+	/* port: not written (0x3b7ce0, 1372 bytes): the current weapon's fire mode text
+	 * ("NONE", "SINGLE", "BURST", "AUTO") and firemode.tif bitmap; reached only with an
+	 * item in the kit (no weapons load yet) */
 }
 
 /* @socom-skeleton stub SetupAmmoCount__4CHUDFP10CZSealBody */
 void CHUD::SetupAmmoCount(CZSealBody *)
 {
+	/* port: not written (0x3b79d0, 776 bytes): "%d/%d" rounds and "%d MAGS" for the
+	 * current item; reached only with an item in the kit (no weapons load yet) */
 	/* @socom-skeleton stub newstr$3014 */
 	static char newstr[80];
 }
 
 /* @socom-skeleton stub DoRangeText__4CHUDFP10CZSealBody10MENU_STATE */
-void CHUD::DoRangeText(CZSealBody *, MENU_STATE)
+void CHUD::DoRangeText(CZSealBody *seal, MENU_STATE menustate)
 {
+	/* 0x3b7820: with night vision (and no full-screen map), the range to the reticule's
+	 * DI point ("%5.1fM", world units / 10) in green at 523,429; otherwise off. Off also
+	 * while the HUD is off. */
 	/* @socom-skeleton stub tempstr$3031 */
 	static char tempstr[120];
+
+	if (!seal->m_kit.NVG_Enabled() || menustate == stateFullScreenMapMenu || menustate == stateFullScreenMapAnim)
+	{
+		m_rangetext.Off();
+	}
+	else
+	{
+		zdb::IntersectStruct* di = seal->GetReticuleDi();
+
+		if (di == NULL)
+		{
+			m_rangetext.Off();
+		}
+		else
+		{
+			CPnt3D d;
+			di->m_pos.Sub(seal->GetPosW(), &d);
+			sprintf(tempstr, "%5.1fM", (double)(sqrtf(d.z * d.z + d.x * d.x + d.y * d.y) * 0.1f));
+			m_rangetext.Load(0.8f, tempstr, m_myfont, 523, 429);
+			m_rangetext.m_color.x = 25.0f;
+			m_rangetext.m_color.y = 127.0f;
+			m_rangetext.m_color.z = 25.0f;
+			m_rangetext.On();
+		}
+	}
+
+	if (!theHUD->m_ison)
+		m_rangetext.Off();
 }

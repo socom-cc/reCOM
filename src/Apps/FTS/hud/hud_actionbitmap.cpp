@@ -70,6 +70,9 @@
  * @socom-artifact defines main socom:data:0x560710
  * socom-owner-annotations end socom:work:source-segment-076 */
 
+#include "gamez/zNetwork/znet.h"
+#include "gamez/zNode/node_assetlib.h"
+
 /* @socom-skeleton decl include */
 #include "gamez/zGame/zgame.h"
 #include "gamez/zMath/zmath.h"
@@ -222,23 +225,61 @@ void CZActionBitmap::HudTick(MENU_STATE)
 }
 
 /* @socom-skeleton stub Init__19CZStaticRadioBitmapFP4CHUD */
-void CZStaticRadioBitmap::Init(CHUD *)
+void CZStaticRadioBitmap::Init(CHUD *parent)
 {
+	/* 0x3d5770: off and clear, fading in up to 64 by 2 a tick, in the HUD colour; the
+	 * radio channel icons */
+	Off();
+	SetTrans(0.0f);
+	m_fade_limit = 64.0f;
+	m_fade_dx = 2.0f;
+	m_fade_enable = true;
+	SetColor(color_base.x, color_base.y, color_base.z);
+	m_pRadioOffTexture = zdb::CAssetMgr::m_assets.GetTexHandle("action_no_talk2.tif");
+	m_pRadioChannelTeamTexture = zdb::CAssetMgr::m_assets.GetTexHandle("action_tune_team.tif");
+	m_pRadioChannelOffenseTexture = zdb::CAssetMgr::m_assets.GetTexHandle("action_tune_offense.tif");
+	m_pRadioChannelDefenseTexture = zdb::CAssetMgr::m_assets.GetTexHandle("action_tune_defense.tif");
+	m_pRadioChannelDeadTexture = zdb::CAssetMgr::m_assets.GetTexHandle("action_dead_zone.tif");
+	m_pParent = parent;
 }
 
 /* @socom-skeleton stub HudTick__19CZStaticRadioBitmapF10MENU_STATE */
 void CZStaticRadioBitmap::HudTick(MENU_STATE)
 {
+	/* 0x3d55f0: network games only (with the HUD on and the compass map) */
+	if (!theNetwork.m_bNetwork || !theHUD->IsOn() || theHUD->m_newmap.m_isFullScreen)
+		return;
+
+	/* port: multiplayer only, not written (0x3d5640: the voice channel's icon at the net
+	 * game's static radio location, fading in) */
 }
 
 /* @socom-skeleton stub Init__20CZDynamicRadioBitmapFP4CHUD */
-void CZDynamicRadioBitmap::Init(CHUD *)
+void CZDynamicRadioBitmap::Init(CHUD *parent)
 {
+	/* 0x3d5530 */
+	Off();
+	SetTrans(0.0f);
+	m_fade_limit = 64.0f;
+	m_fade_dx = 2.0f;
+	m_fade_enable = true;
+	SetColor(color_base.x, color_base.y, color_base.z);
+	m_pRadioChannelInUseTexture = zdb::CAssetMgr::m_assets.GetTexHandle("action_channel_busy.tif");
+	m_pRadioChannelCanTalkTexture = zdb::CAssetMgr::m_assets.GetTexHandle("action_ok_talk2.tif");
+	m_pParent = parent;
 }
 
 /* @socom-skeleton stub HudTick__20CZDynamicRadioBitmapF10MENU_STATE */
 void CZDynamicRadioBitmap::HudTick(MENU_STATE)
 {
+	/* 0x3d5340: network games only (with the HUD on and the compass map) */
 	/* @socom-skeleton stub off_time$2914 */
-	static float off_time;
+	static float off_time = 0.0f; /* init$2915 */
+
+	if (!theNetwork.m_bNetwork || !theHUD->IsOn() || theHUD->m_newmap.m_isFullScreen)
+		return;
+
+	/* port: multiplayer only, not written (0x3d5390: the talking / receiving icon at the
+	 * net game's dynamic radio location) */
+	(void)off_time;
 }

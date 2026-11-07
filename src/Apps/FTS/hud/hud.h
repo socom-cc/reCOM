@@ -85,6 +85,9 @@ enum HUD_MODE
 };
 
 s32 hudInit();
+C2D* hudGetScorePopupPtr(); /* hud_scorepopup.cpp */
+zdb::CTexture* GetTextureByName(zdb::CWorld* world, const char* name); /* hud_main.cpp */
+void hudTickScorePopup(const CPad& pad);
 bool hudAddPolyType(_zrdr* node);
 bool hudAddLineType(_zrdr* node);
 
@@ -100,7 +103,7 @@ struct tacmap_line
 	
 };
 
-class CLetterBox : C2D
+class CLetterBox : public C2D /* port: public (DWARF base access unproven): CHUD::Init adds it as a C2D */
 {
 public:
 	CLetterBox();
@@ -126,7 +129,7 @@ public:
 	/* @socom-skeleton end 10CLetterBox */
 };
 
-class CFader : C2DBitmap
+class CFader : public C2DBitmap /* port: public (DWARF base access unproven): CHUD::Init adds it as a C2D */
 {
 public:
 	enum FADE_DIRECTION
@@ -135,7 +138,7 @@ public:
 		OUT,
 		FADE
 	};
-private:
+public: /* port: public (DWARF has no access; CHUD and the HUD units set these) */
 	FADE_DIRECTION m_fadedir;
 	f32 m_fadetime;
 	f32 m_fadetotal;
@@ -155,7 +158,7 @@ public:
 
 class CLensFlareSaturate : public C2DBitmap
 {
-private:
+public: /* port: public (DWARF has no access; CHUD and the HUD units set these) */
 	bool m_Active;
 
 	f32 m_MinDot;
@@ -193,11 +196,19 @@ public:
 	/* @socom-skeleton end 18CLensFlareSaturate */
 };
 
-class CHudBrightText : public C2DString {};
+class CHudBrightText : public C2DString
+{
+public:
+	/* inline ctor (CHUD::CHUD 0x3bc180): C2DString, then the virtual SetTrans(128) */
+	CHudBrightText() { SetTrans(128.0f); }
+};
 
 class CHudCompassAnchor
 {
-private:
+public: /* port: public (DWARF has no access; CHUD and the HUD units set these) */
+	/* inline ctor 0x3cc1d0 (emitted in hud_mapcompass.cpp's unit) */
+	CHudCompassAnchor() : m_width(0.0f), m_height(0.0f), m_htex(NULL), m_texture(NULL) {}
+
 	C2DBitmapPoly m_icon;
 	C2DString m_string;
 
@@ -233,7 +244,7 @@ public:
 	C2D m_anchor_head;
 
 	C2DBitmap m_fov;
-	zdb::CTexture m_fovtex;
+	zdb::CTexture* m_fovtex; /* DWARF zdb::CTexture* @0x4d0 */
 
 	CHudCompassAnchor m_compass_anchors[33];
 	CHudCompassAnchor m_compass_arrows[33];
@@ -252,6 +263,58 @@ public:
 	void Tick(CZSealBody *);
 	/* @socom-skeleton end 10MapCompass */
 };
+
+/* port: CZObjectiveList is declared before CZNewHudMap (CZNewHudMap::m_objectivelist is a value) */
+/* @socom-skeleton decl 15CZObjectiveList */
+class CZObjectiveList : public C2D
+{
+public:
+	/* DWARF members (2512 bytes) */
+	std::vector<C2DString*> m_objectivenames;
+	std::vector<C2DBitmap*> m_objectivecompletedbitmap;
+	std::vector<bool> m_vecSelectable;
+	C2DString m_heading;
+	C2DString m_strMapHeading;
+	C2DBitmap m_textbackground;
+	C2DBitmap m_mapbackground;
+	C2DBitmap m_backgrounddivider;
+	C2DString m_strAnalogL;
+	C2DString m_strAnalogR;
+	C2DString m_strCircleLabel;
+	C2DString m_strSquareLabel;
+	C2DString m_strTriLabel;
+	C2DString m_strXLabel;
+	C2DString m_arrAnchorStrings[7];
+	s32 m_selected_objective;
+	CMissionObjectiveCam* m_cur_selected_objective;
+	zdb::CTexHandle* m_background_tex;
+	zdb::CTexHandle* m_unfinished_tex;
+	zdb::CTexHandle* m_completed_tex;
+	bool m_increment;
+	virtual ~CZObjectiveList();
+	virtual void Draw(zdb::CCamera *);
+	virtual void Tick(float);
+	CZObjectiveList();
+	unsigned char AddObjective(const CMissionObjectiveCam &, float);
+	void Init();
+	void RefreshList();
+	void RefreshStatics();
+	void FreeList(bool);
+	unsigned char ResolveIndex(int, int *) const;
+	unsigned char IsAnySelectable() const;
+	void SetCurColor(int);
+	void NextObjective();
+	void SelectNextObjective();
+	void PreviousObjective();
+	void SelectPreviousObjective();
+	void SelectObjective();
+	CMissionObjectiveCam * GetCurrentObjective() const;
+	CMissionObjectiveCam * GetCurrentObjectiveRetainer() const;
+	CMissionObjectiveCam * GetObjective(int) const;
+	void MissionEndCleanup();
+	unsigned char IsPlayingAnimation();
+};
+/* @socom-skeleton end 15CZObjectiveList */
 
 class CZNewHudMap : public C2D
 {
@@ -289,16 +352,16 @@ public:
 
 	zdb::CTexture* m_backtex;
 	zdb::CTexture* m_oldbacktex;
-	// CCircleClip* m_circleclipper;
+	zdb::CCircleClip* m_circleclipper; /* DWARF @0x4b8 */
 
 	f32 m_centerx;
-	f32 m_centery;
+	f32 m_centerz; /* DWARF m_centerz @0x4c0 */
 
 	bool m_isFullScreen;
 
 	MENU_STATE m_oldmenustate;
 
-	// CZObjectiveList m_objectivelist;
+	CZObjectiveList m_objectivelist; /* DWARF @0x4d0 */
 	CHUD* m_parent;
 
 	CSnd* m_zoominsound;
@@ -331,7 +394,7 @@ public:
 
 class CWeaponSel : public C2D
 {
-private:
+public: /* port: public (DWARF has no access; CHUD and the HUD units set these) */
 	CHUD* m_parent;
 
 	C2DBitmap m_weaponicon[4];
@@ -424,7 +487,7 @@ public:
 	void SelectWeapon();
 	void SelectEquipment();
 	bool CanSelectWeapon(s32 index) const;
-private:
+public: /* port: public (DWARF has no access; CHUD and the HUD units set these) */
 	CHUD* m_parent;
 
 	C2DBitmap m_weaponicon[4];
@@ -516,7 +579,7 @@ public:
 
 class CTeamNames : public C2D
 {
-private:
+public: /* port: public (DWARF has no access; CHUD and the HUD units set these) */
 	PNT3D m_allycolor[4];
 	PNT3D m_allycolorgoal[4];
 	CZSealBody* m_ally[4];
@@ -544,7 +607,7 @@ public:
 
 class OrdersMenu
 {
-private:
+public: /* port: public (DWARF has no access; CHUD and the HUD units set these) */
 	bool m_no_menu;
 	bool m_was_PTT;
 
@@ -637,7 +700,7 @@ public:
 
 class CTeamMateNames : public C2D
 {
-private:
+public: /* port: public (DWARF has no access; CHUD and the HUD units set these) */
 	C2DString m_teamMateNames[15];
 	f32 xMargin;
 	/* @socom-skeleton decl 14CTeamMateNames */
@@ -677,7 +740,7 @@ public:
 
 	MENU_STATE m_oldmenustate;
 
-	s32 m_numselections;
+	s32 m_num_selections; /* DWARF m_num_selections */
 
 	CSnd* m_selectsound;
 	CSnd* m_scrollupsound;
@@ -778,7 +841,7 @@ public:
 
 class CZActionBitmap : public C2DBitmap
 {
-private:
+public: /* port: public (DWARF has no access; CHUD and the HUD units set these) */
 	zdb::CTexHandle* m_canClimbTexture;
 	zdb::CTexHandle* m_pttTexture;
 	zdb::CTexHandle* m_canDropMPBomb;
@@ -800,7 +863,7 @@ public:
 
 class CZStaticRadioBitmap : public C2DBitmap
 {
-private:
+public: /* port: public (DWARF has no access; CHUD and the HUD units set these) */
 	zdb::CTexHandle* m_pRadioOffTexture;
 	zdb::CTexHandle* m_pRadioChannelTeamTexture;
 	zdb::CTexHandle* m_pRadioChannelOffenseTexture;
@@ -817,7 +880,7 @@ public:
 
 class CZDynamicRadioBitmap : public C2DBitmap
 {
-private:
+public: /* port: public (DWARF has no access; CHUD and the HUD units set these) */
 	zdb::CTexHandle* m_pRadioChannelInUseTexture;
 	zdb::CTexHandle* m_pRadioChannelCanTalkTexture;
 	CHUD* m_pParent;
@@ -831,7 +894,7 @@ public:
 
 class CZHudMissionCams : public C2D
 {
-private:
+public: /* port: public (DWARF has no access; CHUD and the HUD units set these) */
 	CMissionCam* m_currentcam;
 
 	CZAnim* m_animhandle;
@@ -860,6 +923,28 @@ public:
 	/* @socom-skeleton end 16CZHudMissionCams */
 };
 
+/* port: CFlashFX and CFlashFXVector are declared before CHUD (CHUD::m_FlashFXVector is a value) */
+/* @socom-skeleton decl 8CFlashFX */
+class CFlashFX : public CFader
+{
+public:
+	virtual ~CFlashFX();
+	virtual void Tick(float);
+	virtual void Reset();
+	void Flash(float, float, float);
+};
+/* @socom-skeleton end 8CFlashFX */
+/* @socom-skeleton decl 14CFlashFXVector */
+class CFlashFXVector
+{
+public:
+	std::vector<CFlashFX*> m_FlashFX; /* DWARF @0 (12 bytes) */
+	void Tick(float);
+	void Draw(zdb::CCamera *);
+	void Reset();
+};
+/* @socom-skeleton end 14CFlashFXVector */
+
 /// <summary>
 /// HUD class that displays your health, squad, ammo, etc.
 /// </summary>
@@ -879,7 +964,7 @@ public:
 	void ReInit_Init();
 	void ReInit_Uninit();
 
-	// CDynTexList m_dyntexlist;
+	zdb::CDynTexList m_dyntexlist; /* DWARF @0 */
 
 	s32 m_hudrettype;
 	bool m_usehudret;
@@ -941,14 +1026,14 @@ public:
 	CZDynamicRadioBitmap m_dynamic_radio_bitmap;
 	CZPauseTest m_pausetest;
 
-	C2DString m_num_connect;
+	C2DString m_num_connected; /* DWARF m_num_connected */
 	C2DString m_piggyback_text1;
 	C2DString m_piggyback_text2;
 	C2DString m_piggyback_text3;
 	CLetterBox m_letterbox;
 	CFader m_bmpFade;
 
-	// std::vector<CFlashFX*> m_FlashFXVector;
+	CFlashFXVector m_FlashFXVector; /* DWARF @0x14450 */
 	CLensFlareSaturate m_LensFlareFade;
 
 	CZHudMissionCams m_missioncams;
@@ -1071,25 +1156,6 @@ public:
 	unsigned char Render_ver_2(CZActionBitmap &);
 };
 /* @socom-skeleton end 18CActionTxtrMachine */
-/* @socom-skeleton decl 8CFlashFX */
-class CFlashFX : public CFader
-{
-public:
-	virtual ~CFlashFX();
-	virtual void Tick(float);
-	virtual void Reset();
-	void Flash(float, float, float);
-};
-/* @socom-skeleton end 8CFlashFX */
-/* @socom-skeleton decl 14CFlashFXVector */
-class CFlashFXVector
-{
-public:
-	void Tick(float);
-	void Draw(zdb::CCamera *);
-	void Reset();
-};
-/* @socom-skeleton end 14CFlashFXVector */
 /* port: CZMapItem had no declaration; DWARF class_type size 4 (vptr only). Virtual order from
  * __vt__9CZMapItem @0x4745a0; inline bodies emitted from this header: Tick 0x3c34a0 returns 0,
  * Draw 0x3c34b0, PostDraw 0x3c3080, Clip 0x3c3090 are empty, ~CZMapItem 0x3c3450. */
@@ -1167,34 +1233,6 @@ public:
 	static zdb::CTexture *m_mpbombtex;
 };
 /* @socom-skeleton end 15CZMPBombMapItem */
-/* @socom-skeleton decl 15CZObjectiveList */
-class CZObjectiveList : public C2D
-{
-public:
-	virtual ~CZObjectiveList();
-	virtual void Draw(zdb::CCamera *);
-	virtual void Tick(float);
-	CZObjectiveList();
-	unsigned char AddObjective(const CMissionObjectiveCam &, float);
-	void Init();
-	void RefreshList();
-	void RefreshStatics();
-	void FreeList(bool);
-	unsigned char ResolveIndex(int, int *) const;
-	unsigned char IsAnySelectable() const;
-	void SetCurColor(int);
-	void NextObjective();
-	void SelectNextObjective();
-	void PreviousObjective();
-	void SelectPreviousObjective();
-	void SelectObjective();
-	CMissionObjectiveCam * GetCurrentObjective() const;
-	CMissionObjectiveCam * GetCurrentObjectiveRetainer() const;
-	CMissionObjectiveCam * GetObjective(int) const;
-	void MissionEndCleanup();
-	unsigned char IsPlayingAnimation();
-};
-/* @socom-skeleton end 15CZObjectiveList */
 /* @socom-skeleton decl 15CZPlayerMapItem */
 class CZPlayerMapItem : public CZMapItem
 {

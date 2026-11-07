@@ -37,61 +37,54 @@
 /* @socom-skeleton body __ct__7C2DPolyFv */
 C2DPoly::C2DPoly()
 {
-	m_vertex[0][1] = -0.000006f;
-	m_vertex[0][2] = -0.000004f;
-	m_vertex[0][3] = 0.0001f;
-	m_vertex[1][0] = 1.0f;
-	m_vertex[1][1] = -0.000003f;
-	m_vertex[1][2] = -0.000002f;
-	m_vertex[1][3] = 0.0001f;
-	m_vertex[2][0] = 1.0f;
-	m_vertex[2][1] = -0.000003f;
-	m_vertex[2][2] = -0.000002f;
-	m_vertex[2][3] = 0.0001f;
+	/* 0x3016d0: the C2D defaults, placeholder vertices (w 1), UVs (Q 1), white at alpha
+	 * 100, then grey 128 and (virtual) SetTrans 128 */
+	m_vertex[0][0] = -6.3e-05f;
+	m_vertex[0][1] = -4.6e-05f;
+	m_vertex[0][2] = 0.0001f;
+	m_vertex[0][3] = 1.0f;
+	m_vertex[1][0] = -3e-05f;
+	m_vertex[1][1] = -2e-05f;
+	m_vertex[1][2] = 0.0001f;
+	m_vertex[1][3] = 1.0f;
+	m_vertex[2][0] = -3e-05f;
+	m_vertex[2][1] = -2e-05f;
+	m_vertex[2][2] = 0.0001f;
+	m_vertex[2][3] = 1.0f;
 
 	m_x = 0;
 	m_y = 0;
 
+	m_NewUV[0][0] = 0.0f;
 	m_NewUV[0][1] = 0.0f;
-	m_NewUV[0][2] = 0.0f;
-	m_NewUV[0][3] = 1.0f;
+	m_NewUV[0][2] = 1.0f;
+	m_NewUV[0][3] = 0.0f;
+	m_NewUV[1][0] = 1.0f;
 	m_NewUV[1][1] = 1.0f;
 	m_NewUV[1][2] = 1.0f;
-	m_NewUV[1][3] = 1.0f;
+	m_NewUV[1][3] = 0.0f;
 	m_NewUV[2][0] = 1.0f;
 	m_NewUV[2][1] = 1.0f;
 	m_NewUV[2][2] = 1.0f;
-	m_NewUV[2][3] = 1.0f;
+	m_NewUV[2][3] = 0.0f;
 
-	m_vertex[0][0] = 0.0f;
-
-	m_RGB[0][1] = 255.0;
-	m_RGB[0][2] = 255.0;
-	m_RGB[0][3] = 255.0;
-	m_RGB[1][0] = 100.0;
-	m_RGB[1][1] = 100.0;
-	m_RGB[1][2] = 100.0;
-	m_RGB[1][3] = 100.0;
-	m_RGB[2][0] = 100.0;
-	m_RGB[2][1] = 100.0;
-	m_RGB[2][2] = 100.0;
-	m_RGB[2][3] = 100.0;
-
-	m_NewUV[0][0] = 100.0f;
+	for (int i = 0; i < 3; i++)
+	{
+		m_RGB[i][0] = 255.0f;
+		m_RGB[i][1] = 255.0f;
+		m_RGB[i][2] = 255.0f;
+		m_RGB[i][3] = 100.0f;
+	}
 
 	m_texture = NULL;
+	m_isTrans = true;
 
-	m_on = false;
-
-	m_RGB[0][1] = 128.0f;
-	m_RGB[0][2] = 128.0f;
-	m_RGB[0][3] = 128.0f;
-	m_RGB[1][1] = 128.0f;
-	m_RGB[1][2] = 128.0f;
-	m_RGB[1][3] = 128.0f;
-	m_RGB[2][1] = 128.0f;
-	m_RGB[2][2] = 128.0f;
-	m_RGB[2][3] = 128.0f;
+	for (int i = 0; i < 3; i++)
+	{
+		m_RGB[i][0] = 128.0f;
+		m_RGB[i][1] = 128.0f;
+		m_RGB[i][2] = 128.0f;
+	}
 
 	SetTrans(128.0f);
 }
@@ -99,6 +92,7 @@ C2DPoly::C2DPoly()
 /* @socom-skeleton body SetColor__7C2DPolyFfff */
 void C2DPoly::SetColor(f32 r, f32 g, f32 b)
 {
+	/* 0x3016a0 */
 	m_RGB[0][0] = r;
 	m_RGB[0][1] = g;
 	m_RGB[0][2] = b;
@@ -118,6 +112,7 @@ void C2DPoly::GetColor()
 /* @socom-skeleton body SetTrans__7C2DPolyFf */
 void C2DPoly::SetTrans(f32 transparency)
 {
+	/* 0x301630 */
 	m_RGB[0][3] = transparency;
 	m_RGB[1][3] = transparency;
 	m_RGB[2][3] = transparency;
@@ -127,33 +122,34 @@ void C2DPoly::SetTrans(f32 transparency)
 /* @socom-skeleton stub GetTrans__7C2DPolyFv */
 float C2DPoly::GetTrans()
 {
+	/* 0x301620 */
+	return m_RGB[0][3];
 }
 
 /* @socom-skeleton body Load__7C2DPolyFffffffPQ23zdb8CTexture */
 void C2DPoly::Load(f32 v0x, f32 v0y, f32 v1x, f32 v1y, f32 v2x, f32 v2y, zdb::CTexture* texture)
 {
+	/* 0x301510: ELF quirk: the vertices are set only with a texture (a NULL texture keeps
+	 * the old ones). Screen pixels map to GS window coordinates through m_topx/m_topy. */
 	m_texture = texture;
 
-	if (m_texture)
-	{
-		const u8* data = static_cast<u8*>(m_texture->m_buffer);
-		u32 tex = 0;
-	}
+	if (m_texture == NULL)
+		return;
 
-	m_x = static_cast<s32>(v0x);
-	m_y = static_cast<s32>(v0y);
-
-	m_vertex[0][0] = v0x * C2D::m_fXPixel;
-	m_vertex[0][1] = v0y * C2D::m_fYPixel;
-	m_vertex[1][0] = v1x * C2D::m_fXPixel;
-	m_vertex[1][1] = v1y * C2D::m_fYPixel;
-	m_vertex[2][0] = v2x * C2D::m_fXPixel;
-	m_vertex[2][1] = v2y * C2D::m_fYPixel;
+	m_x = (s32)v0x;
+	m_y = (s32)v0y;
+	m_vertex[0][0] = C2D::m_topx + v0x * C2D::m_fXPixel;
+	m_vertex[0][1] = C2D::m_topy + v0y * C2D::m_fYPixel;
+	m_vertex[1][0] = C2D::m_topx + v1x * C2D::m_fXPixel;
+	m_vertex[1][1] = C2D::m_topy + v1y * C2D::m_fYPixel;
+	m_vertex[2][0] = C2D::m_topx + v2x * C2D::m_fXPixel;
+	m_vertex[2][1] = C2D::m_topy + v2y * C2D::m_fYPixel;
 }
 
 /* @socom-skeleton body SetUV__7C2DPolyFffffff */
 void C2DPoly::SetUV(f32 v0u, f32 v0v, f32 v1u, f32 v1v, f32 v2u, f32 v2v)
 {
+	/* 0x3014e0: T is stored negated */
 	m_NewUV[0][0] = v0u;
 	m_NewUV[0][1] = -v0v;
 	m_NewUV[1][0] = v1u;
@@ -163,13 +159,26 @@ void C2DPoly::SetUV(f32 v0u, f32 v0v, f32 v1u, f32 v1v, f32 v2u, f32 v2v)
 }
 
 /* @socom-skeleton stub SetPos__7C2DPolyFffffff */
-void C2DPoly::SetPos(float, float, float, float, float, float)
+void C2DPoly::SetPos(float v0x, float v0y, float v1x, float v1y, float v2x, float v2y)
 {
+	/* 0x3013e0: as Load without the texture */
+	m_x = (s32)v0x;
+	m_y = (s32)v0y;
+	m_vertex[0][0] = C2D::m_topx + v0x * C2D::m_fXPixel;
+	m_vertex[0][1] = C2D::m_topy + v0y * C2D::m_fYPixel;
+	m_vertex[1][0] = C2D::m_topx + v1x * C2D::m_fXPixel;
+	m_vertex[1][1] = C2D::m_topy + v1y * C2D::m_fYPixel;
+	m_vertex[2][0] = C2D::m_topx + v2x * C2D::m_fXPixel;
+	m_vertex[2][1] = C2D::m_topy + v2y * C2D::m_fYPixel;
 }
 
 /* @socom-skeleton body Draw__7C2DPolyFPQ23zdb7CCamera */
 void C2DPoly::Draw(zdb::CCamera* camera)
 {
+	/* 0x301390 */
+	if (!IsOn())
+		return;
+
 	MakePacket(camera);
 	C2D::Draw(camera);
 }
@@ -177,7 +186,110 @@ void C2DPoly::Draw(zdb::CCamera* camera)
 /* @socom-skeleton body MakePacket__7C2DPolyFPQ23zdb7CCamera */
 void C2DPoly::MakePacket(zdb::CCamera* camera)
 {
+	/* 0x3010e0: one GS TRIANGLE kicked straight into the MFIFO (the texture must be
+	 * resident: no relocator):
+	 *   [the texture's REF tag to its select block]                   if m_texture
+	 *   CNT n (VIF NOP, DIRECT n)
+	 *   [GIFtag NLOOP 1 A+D: ALPHA_1 = 0x54 (Cs-Cd)*Ad+Cd]            if m_isFrameAlpha
+	 *   GIFtag NLOOP 3 PRE (EOP unless frame alpha), PRIM TRIANGLE | TME (m_hasTexture
+	 *          and a texture) | ABE (m_isTrans) | AA1 (m_isAA), PACKED NREG 3 ST RGBAQ XYZ2
+	 *   per vertex: ST m_NewUV[i], RGBAQ ftoi0(m_RGB[i]),
+	 *               XYZ2 ((int)(x + 0.5) << 4, (int)(y + 0.5) << 4, 1000, (int)w)
+	 *   [GIFtag NLOOP 1 EOP A+D: ALPHA_1 = 0x44 (Cs-Cd)*As+Cd]        if m_isFrameAlpha */
+	static bool doPolyKick = true; /* doPolyKick$1402 / init$1403 */
+	_word128* packet = reinterpret_cast<_word128*>(zSysSprGetPacket(NULL));
+	_word128* cnt = packet;
 
+	if (m_texture != NULL)
+	{
+		*cnt = m_texture->m_dmaRef;
+		cnt++;
+	}
+
+	_word128* p = cnt + 1;
+
+	if (m_isFrameAlpha)
+	{
+		p->u64[0] = 1 | (1ull << 60); /* NLOOP 1, NREG 1 */
+		p->u64[1] = 0xe;              /* A+D */
+		p++;
+		p->u64[0] = 0x54;
+		p->u64[1] = 0x42;             /* ALPHA_1 */
+		p++;
+	}
+
+	u64 prim = 3; /* TRIANGLE */
+
+	if (m_hasTexture && m_texture != NULL)
+		prim = 0x13;
+	if (m_isTrans)
+		prim |= 0x40;
+	if (m_isAA)
+		prim |= 0x80;
+
+	p->u64[0] = ((u64)!m_isFrameAlpha << 15) | 0x400000000003ull | (prim << 47) | 0x3000000000000000ull;
+	p->u64[1] = 0x412; /* ST, RGBAQ, XYZ2 */
+	p++;
+
+	for (int i = 0; i < 3; i++)
+	{
+		p->f32[0] = m_NewUV[i][0];
+		p->f32[1] = m_NewUV[i][1];
+		p->f32[2] = m_NewUV[i][2];
+		p->f32[3] = m_NewUV[i][3];
+		p++;
+
+		for (int c = 0; c < 4; c++)
+			p->u32[c] = (u32)(s32)m_RGB[i][c]; /* sceVu0FTOI0Vector */
+		p++;
+
+		p->u32[0] = (u32)((s32)(m_vertex[i][0] + 0.5f) << 4);
+		p->u32[1] = (u32)((s32)(m_vertex[i][1] + 0.5f) << 4);
+		p->u32[2] = 1000;
+		p->u32[3] = (u32)(s32)m_vertex[i][3];
+		p++;
+	}
+
+	if (m_isFrameAlpha)
+	{
+		p->u64[0] = 0x8001 | (1ull << 60); /* NLOOP 1, EOP, NREG 1 */
+		p->u64[1] = 0xe;
+		p++;
+		p->u64[0] = 0x44;
+		p->u64[1] = 0x42;
+		p++;
+	}
+
+	u32 qwc = (u32)(p - cnt) - 1;
+	cnt->u32[0] = qwc | 0x10000000; /* DMAtag CNT */
+	cnt->u32[1] = 0;
+	cnt->u32[2] = 0;                /* VIF NOP */
+	cnt->u32[3] = qwc | 0x50000000; /* VIF DIRECT */
+
+	if (doPolyKick)
+		zSysFifoKick(reinterpret_cast<unsigned __int128*>(packet), (u32)(p - packet));
+}
+
+/* port: 0x3019d0 (declared in ztwod.h) */
+void C2DPoly::GetAssetLibs(C2D::CLibList& libs)
+{
+	/* 0x3019d0: the texture's asset library (ELF quirk: added only when the search result
+	 * is a NULL pointer, see C2DBitmap::GetAssetLibs), then the children's */
+	if (m_texture != NULL && m_texture->m_AssetLib != NULL)
+	{
+		zdb::CAssetLib* lib = m_texture->m_AssetLib;
+		zdb::CAssetLib** i = libs.data();
+		zdb::CAssetLib** last = i + libs.size();
+
+		while (i != last && *i != lib)
+			i++;
+
+		if (i == NULL)
+			libs.insert(libs.end(), lib);
+	}
+
+	for (auto c = begin(); c != end(); ++c)
+		(*c)->GetAssetLibs(libs);
 }
 
 /* @socom-skeleton stub __ct__9C2DTriFanFv */

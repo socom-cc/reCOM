@@ -429,6 +429,12 @@ namespace zdb {
 class CCircleClip
 {
 public:
+	/* DWARF members (20 bytes); port: declared for CZNewHudMap (hud_newhudmap.cpp) */
+	f32 m_Cx;
+	f32 m_Cy;
+	f32 m_rCx;
+	f32 m_rCy;
+	f32 m_Radius;
 	void CircleSegmentClip(CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *, CPnt4D *);
 };
 }

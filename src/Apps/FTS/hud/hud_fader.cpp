@@ -30,26 +30,89 @@ static CSTable MultiplayerMsgStrings;
 /* @socom-skeleton stub __ct__6CFaderFv */
 CFader::CFader()
 {
+	/* 0x403710: an untextured black full-screen bitmap, opaque, off */
+	m_fadedir = IN;
+	m_fadetime = 0.0f;
+	m_fadetotal = 0.0f;
+	m_faderate = 0.0f;
+	m_min_brightness = 0.0f;
+	m_hasTexture = false;
+	C2DBitmap::Load(0.0f, 0.0f, 640.0f, 448.0f, NULL);
+	C2DBitmap::SetColor(0.0f, 0.0f, 0.0f);
+	SetTrans(128.0f);
+	m_isTrans = true;
+	Off();
 }
 
 /* @socom-skeleton stub Tick__6CFaderFf */
-void CFader::Tick(float)
+void CFader::Tick(float dT)
 {
+	/* 0x4035d0: while the fade runs the bitmap is on and the brightness moves by the rate
+	 * (up fading in, down otherwise); a finished fade-in turns it off, a finished fade out
+	 * keeps darkening to the minimum. dT is capped at 0.1 s. */
+	if (dT >= 0.1f)
+		dT = 0.1f;
+
+	if (m_fadetime > 0.0f)
+	{
+		On();
+
+		if (m_fadedir == IN)
+		{
+			m_brightness = m_brightness + m_faderate * dT;
+			SetBrightness(m_brightness);
+		}
+		else
+		{
+			m_brightness = m_brightness - m_faderate * dT;
+			SetBrightness(m_brightness);
+		}
+	}
+	else if (m_fadedir == IN)
+	{
+		Off();
+	}
+	else
+	{
+		On();
+		m_brightness = m_brightness - m_faderate * dT;
+		SetBrightness(m_brightness);
+	}
+
+	m_fadetime -= dT;
 }
 
 /* @socom-skeleton stub FadeIn__6CFaderFf */
-void CFader::FadeIn(float)
+void CFader::FadeIn(float time)
 {
+	/* 0x403590: from the minimum brightness up to 1 in time seconds */
+	m_fadedir = IN;
+	m_fadetime = time;
+	m_fadetotal = time;
+	m_brightness = m_min_brightness;
+	m_faderate = (1.0f - m_min_brightness) / m_fadetotal;
 }
 
 /* @socom-skeleton stub SetMinBrightness__6CFaderFf */
-void CFader::SetMinBrightness(float)
+void CFader::SetMinBrightness(float brightness)
 {
+	/* 0x403560 */
+	m_min_brightness = brightness;
+	m_faderate = (1.0f - brightness) / m_fadetotal;
 }
 
 /* @socom-skeleton stub SetBrightness__6CFaderFf */
-void CFader::SetBrightness(float)
+void CFader::SetBrightness(float brightness)
 {
+	/* 0x4034f0: clamped to [minimum, 1]; the black bitmap's alpha is the darkness */
+	m_brightness = brightness;
+
+	if (brightness > 1.0f)
+		m_brightness = 1.0f;
+	else if (brightness < m_min_brightness)
+		m_brightness = m_min_brightness;
+
+	SetTrans((1.0f - m_brightness) * 128.0f);
 }
 
 /* @socom-skeleton stub Flash__8CFlashFXFfff */
@@ -68,18 +131,43 @@ void CFlashFX::Tick(float)
 }
 
 /* @socom-skeleton stub Tick__14CFlashFXVectorFf */
-void CFlashFXVector::Tick(float)
+void CFlashFXVector::Tick(float dT)
 {
+	/* 0x403120: every flash's virtual Tick */
+	s32 count = (s32)m_FlashFX.size();
+
+	for (s32 i = 0; i < count; i++)
+		m_FlashFX[i]->Tick(dT);
 }
 
 /* @socom-skeleton stub Draw__14CFlashFXVectorFPQ23zdb7CCamera */
-void CFlashFXVector::Draw(zdb::CCamera *)
+void CFlashFXVector::Draw(zdb::CCamera *camera)
 {
+	/* 0x403080: every flash that is on, through its virtual Draw */
+	s32 count = (s32)m_FlashFX.size();
+
+	for (s32 i = 0; i < count; i++)
+	{
+		if (m_FlashFX[i]->IsOn())
+			m_FlashFX[i]->Draw(camera);
+	}
 }
 
 /* @socom-skeleton stub Reset__14CFlashFXVectorFv */
 void CFlashFXVector::Reset()
 {
+	/* 0x402fe0: deletes every flash (virtual deleting dtor), then empties the vector by
+	 * swapping with an empty one */
+	s32 count = (s32)m_FlashFX.size();
+
+	for (s32 i = 0; i < count; i++)
+	{
+		if (m_FlashFX[i] != NULL)
+			delete m_FlashFX[i];
+	}
+
+	std::vector<CFlashFX*> empty;
+	m_FlashFX.swap(empty);
 }
 
 /* @socom-skeleton stub __dt__8CFlashFXFv */

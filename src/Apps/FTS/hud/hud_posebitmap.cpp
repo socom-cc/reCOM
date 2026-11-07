@@ -11,6 +11,9 @@
  * @socom-artifact defines main socom:data:0x561de0
  * socom-owner-annotations end socom:work:source-segment-076 */
 
+#include "hud.h" /* CHUD, GetTextureByName */
+#include "gamez/zSeal/zseal.h"
+
 /* @socom-skeleton decl include */
 #include "gamez/zCamera/zcam.h"
 #include "gamez/zNode/node_world.h"
@@ -24,24 +27,76 @@ static CSTable MultiplayerMsgStrings;
 /* @socom-skeleton stub __ct__10PoseBitmapFv */
 PoseBitmap::PoseBitmap()
 {
+	/* 0x3d9790 */
+	m_curpose = 0;
+	m_posx = 0.0f;
+	m_posy = 0.0f;
+	m_error = false;
+	m_posetex[0] = NULL;
+	m_posetex[1] = NULL;
+	m_posetex[2] = NULL;
+	m_trans = 127.0f;
 }
 
 /* @socom-skeleton stub Init__10PoseBitmapFPQ23zdb6CWorld */
-void PoseBitmap::Init(zdb::CWorld *)
+void PoseBitmap::Init(zdb::CWorld *world)
 {
+	/* 0x3d9610: the stance textures (unused by the draw), and the stance word as a child
+	 * string at 535,382 in the HUD text colour. ELF quirk: the string first loads at the
+	 * never-set m_textposx/m_textposy, then moves. */
+	m_posetex[0] = GetTextureByName(world, "stance_stand.tif");
+	m_posetex[1] = GetTextureByName(world, "stance_crouch.tif");
+	m_posetex[2] = GetTextureByName(world, "stance_prone.tif");
+	m_posx = 535.0f;
+	m_posy = 382.0f;
+	m_text.Load(0.68f, "stand", m_myfont, (s32)m_textposx, (s32)m_textposy);
+	m_text.m_color = CHUD::m_hud_textcolor;
+	push_back(&m_text);
+	m_trans = 127.0f;
+	m_text.SetString("stand");
+	m_text.m_pos.x = (s32)m_posx << 4;
+	m_text.m_pos.y = (s32)m_posy << 4;
+	SetTrans(128.0f);
 }
 
 /* @socom-skeleton stub Clear__10PoseBitmapFv */
 void PoseBitmap::Clear()
 {
+	/* 0x3d95b0: wipe the string, drop the children */
+	m_text.ClearAndWipe();
+	erase(begin(), end());
 }
 
 /* @socom-skeleton stub Draw__10PoseBitmapFPQ23zdb7CCamera */
-void PoseBitmap::Draw(zdb::CCamera *)
+void PoseBitmap::Draw(zdb::CCamera *camera)
 {
+	/* 0x3d9560: only the stance string (virtual Draw); the bitmap itself never draws */
+	if (IsOn())
+		m_text.Draw(camera);
 }
 
 /* @socom-skeleton stub Tick__10PoseBitmapFf */
-void PoseBitmap::Tick(float)
+void PoseBitmap::Tick(float dT)
 {
+	/* 0x3d93a0: on a stance change of a local seal the word changes ("stand", "crouch",
+	 * "prone") at full alpha 127; otherwise it fades out at 64 alpha per second */
+	CZSealBody* seal = CHUD::GetHUDOwner();
+
+	if (seal == NULL)
+		return;
+
+	/* port: CZSealBody::StanceChanged is declared void (zseal.h; the ELF returns and
+	 * clears the stance-changed flag) and CEntityCtrl::IsRemote is not virtual in the
+	 * port, so the stance word does not change: only its fade-out runs */
+	seal->StanceChanged();
+
+	if (m_trans > 0.0f)
+	{
+		m_trans = m_trans - dT * 64.0f;
+
+		if (m_trans < 0.0f)
+			m_trans = 0.0f;
+
+		m_text.SetTrans(m_trans);
+	}
 }

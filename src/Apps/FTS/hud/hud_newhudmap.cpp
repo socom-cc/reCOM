@@ -57,6 +57,8 @@
 
 #include "hud.h"
 
+#include "gamez/zNetwork/znet.h"
+
 /* @socom-skeleton decl include */
 #include "gamez/zCamera/zcam.h"
 #include "gamez/zGame/zgame.h"
@@ -177,6 +179,43 @@ void SetupNorthIndicator(CZSealBody *)
 /* @socom-skeleton stub __ct__11CZNewHudMapFv */
 CZNewHudMap::CZNewHudMap()
 {
+	/* 0x3c6790: identity matrix, the circle clipper, the full-screen north indicator and
+	 * grid line alphas */
+	sceVu0UnitMatrix(reinterpret_cast<sceVu0FVECTOR*>(m_matrix.m_matrix));
+	m_viewer = NULL;
+	m_radar_distance = 100.0f;
+	m_screeny2 = 0.0f;
+	m_screenx2 = 0.0f;
+	m_screeny1 = 0.0f;
+	m_screenx1 = 0.0f;
+	m_worldcentery = 0.0f;
+	m_worldcenterx = 0.0f;
+	m_width = 0.0f;
+	m_screencentery = 0.0f;
+	m_screencenterx = 0.0f;
+	m_scale = 1.0f;
+
+	zdb::CCircleClip* clip = new zdb::CCircleClip;
+
+	if (clip != NULL)
+	{
+		clip->m_Cx = 0.0f;
+		clip->m_Cy = 0.0f;
+		clip->m_Radius = 0.0f;
+	}
+
+	m_circleclipper = clip;
+	m_centerx = 0.0f;
+	m_centerz = 0.0f;
+	m_isFullScreen = false;
+	m_zoomoutsound = NULL;
+	m_zoominsound = NULL;
+	g_strNorthIndN.m_color.x = 64.0f;
+	g_strNorthIndN.m_color.y = 192.0f;
+	g_strNorthIndN.m_color.z = 255.0f;
+	/* port: the C2DLine::SetTrans calls on the north-indicator and grid lines (full-screen
+	 * map only) are not made: C2DLine has no SetTrans in the port yet */
+	g_strNorthIndN.m_color.w = 128.0f;
 }
 
 /* @socom-skeleton stub __dt__11CZNewHudMapFv */
@@ -213,18 +252,38 @@ void CZNewHudMap::RefreshBackground(zdb::CWorld *)
 }
 
 /* @socom-skeleton stub SetMapScreenPos__11CZNewHudMapFffff */
-void CZNewHudMap::SetMapScreenPos(float, float, float, float)
+void CZNewHudMap::SetMapScreenPos(float x1, float y1, float x2, float y2)
 {
+	/* 0x3c5700: the map rectangle and centre; in compass mode the circle clipper is the
+	 * inscribed circle (GS window coordinates) */
+	m_screenx1 = x1;
+	m_screeny1 = y1;
+	m_screenx2 = x2;
+	m_screeny2 = y2;
+	m_screencenterx = x1 + (x2 - x1) / 2.0f;
+	m_screencentery = y1 + (y2 - y1) / 2.0f;
+
+	if (!m_isFullScreen)
+	{
+		zdb::CCircleClip* clip = m_circleclipper;
+		clip->m_Cx = C2D::m_topx + m_screencenterx;
+		clip->m_Cy = C2D::m_topy + m_screencentery;
+		clip->m_Radius = m_screencentery - m_screeny1;
+	}
 }
 
 /* @socom-skeleton stub SetWorldWidth__11CZNewHudMapFf */
-void CZNewHudMap::SetWorldWidth(float)
+void CZNewHudMap::SetWorldWidth(float width)
 {
+	/* 0x3c56e0 (the centre stores back unchanged) */
+	m_width = width;
 }
 
 /* @socom-skeleton stub CalcDrawPos__11CZNewHudMapCFf */
-float CZNewHudMap::CalcDrawPos(float) const
+float CZNewHudMap::CalcDrawPos(float y) const
 {
+	/* 0x3c56c0 */
+	return m_screencentery + m_scale * (y - m_screencentery);
 }
 
 /* @socom-skeleton stub CalcNewMatrix__11CZNewHudMapFv */
@@ -253,8 +312,20 @@ void CZNewHudMap::HandleScrolling(float, float)
 }
 
 /* @socom-skeleton stub TickCompassMap__11CZNewHudMapFP4CPad10MENU_STATE */
-void CZNewHudMap::TickCompassMap(CPad *, MENU_STATE)
+void CZNewHudMap::TickCompassMap(CPad *pad, MENU_STATE menustate)
 {
+	/* 0x3c48b0: SELECT (state 1) falling in single player opens the full-screen map for a
+	 * seal with input enabled and no menu up */
+	CZSealBody* seal = CHUD::GetHUDOwner();
+	CSealCtrl* control = seal != NULL ? static_cast<CSealCtrl*>(seal->m_control) : NULL;
+
+	if (pad->m_state[1] == KEY_FALLING && !theNetwork.m_bNetwork)
+	{
+		bool input = control != NULL && control->m_input_enabled;
+
+		if (input && menustate == stateNone)
+			SwitchMapToFullScreen();
+	}
 }
 
 /* @socom-skeleton stub TickFullScreenMap__11CZNewHudMapFP4CPad10MENU_STATE */
@@ -263,13 +334,47 @@ void CZNewHudMap::TickFullScreenMap(CPad *, MENU_STATE)
 }
 
 /* @socom-skeleton stub HudTick__11CZNewHudMapFP4CPadf */
-void CZNewHudMap::HudTick(CPad *, float)
+void CZNewHudMap::HudTick(CPad *pad, float dT)
 {
+	/* 0x3c3fc0: compass mode watches for SELECT; the full-screen map ticks its menu. The
+	 * rest runs only for the full-screen map or with gopt.doRadar (off in the ELF's
+	 * defaults, so the compass-mode radar never ticks or draws). */
+	CZSealBody* seal = CHUD::GetHUDOwner();
+	MENU_STATE menustate = static_cast<CSealCtrl*>(seal->m_control)->GetMenuState();
+
+	if (!m_isFullScreen)
+		TickCompassMap(pad, menustate);
+	else if (menustate == stateFullScreenMapMenu || menustate == stateFullScreenMapAnim)
+		TickFullScreenMap(pad, menustate);
+
+	if (!m_isFullScreen)
+	{
+		if (!gopt.doRadar)
+			return;
+	}
+	else
+	{
+		m_objectivelist.Tick(dT);
+		TickFullScreenAnims(dT);
+	}
+
+	/* port: not written (0x3c4040 on, full-screen map / radar only): RefreshBackground,
+	 * CalcNewMatrix, the map items' Tick (finished ones deleted), and a CZPlayerMapItem
+	 * for every seal whose CZSealBody::HudUpdateViewCone says so */
 }
 
 /* @socom-skeleton stub Draw__11CZNewHudMapFPQ23zdb7CCamera */
-void CZNewHudMap::Draw(zdb::CCamera *)
+void CZNewHudMap::Draw(zdb::CCamera *camera)
 {
+	/* 0x3c3c60: only the full-screen map, or the radar with gopt.doRadar (off in the
+	 * ELF's defaults): nothing in compass mode */
+	if (!IsOn() || (!m_isFullScreen && !gopt.doRadar))
+		return;
+
+	/* port: not written (0x3c3c94 on): the objective list, the scissored background and
+	 * children, the map items (Clip, Draw, PostDraw), DrawAlphaBravo, and in full screen
+	 * the north indicator, scroll arrows and grid lines */
+	(void)camera;
 }
 
 /* @socom-skeleton stub TickFullScreenAnims__11CZNewHudMapCFf */

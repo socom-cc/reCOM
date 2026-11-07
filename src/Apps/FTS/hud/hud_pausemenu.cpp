@@ -27,6 +27,11 @@
 #include "hud.h"
 #include "gamez/zSeal/zseal.h"
 #include "gamez/zVideo/zvid.h"
+#include "gamez/zFTS/zfts.h"
+#include "gamez/zNetwork/znet.h"
+#include "gamez/zNode/node_world.h"
+#include "gamez/zSound/zsnd.h"
+#include "gamez/zValve/zvalve.h"
 
 /* @socom-skeleton decl include */
 #include "gamez/zCamera/zcam.h"
@@ -47,145 +52,433 @@ namespace {
 float g_fTimeInPauseMenu;
 }
 
+extern float hackPitchFactor; /* seal_control.cpp */
+extern unsigned char _AutoAim; /* seal_env.cpp */
+
 /* @socom-skeleton stub MultiplayerMsgStrings */
 static CSTable MultiplayerMsgStrings;
 
 /* @socom-skeleton body __ct__11CZPauseTestFv */
 CZPauseTest::CZPauseTest()
 {
-    m_numselections = 0;
-    m_curcolor = 0.0f;
-    m_inc = 50.0f;
-    m_font = NULL;
-    m_oldmenustate = stateNone;
-    m_selectsound = NULL;
-    m_scrollupsound = NULL;
-    m_scrolldownsound = NULL;
-    /* port: guard - the ELF never initialises m_on (+0x358): neither this ctor (0x3bf5b0)
-       nor CHUD's (0x3bc180) nor Init/ReInit store it, only On/Off (0x3be7c0/0x3be7b0).
-       CHUD is a plain new (CCoreState::Init 0x17d314), so in a reused heap block m_on was
-       nonzero and CHUD::PauseGame (0x3ba068) stopped zTaskScheduler every frame. */
-    m_on = false;
+	/* 0x3bf5b0: the selections, background, then the (virtual) Off and the scalars */
+	m_num_selections = 0;
+	Off();
+	m_curcolor = 0.0f;
+	m_inc = 50.0f;
+	m_font = NULL;
+	m_oldmenustate = stateNone;
+	m_selectsound = NULL;
+	m_scrollupsound = NULL;
+	m_scrolldownsound = NULL;
+	/* port: guard - CHUD is a plain new (CCoreState::Init 0x17d314), so in a reused heap
+	   block a nonzero m_on (+0x358) made CHUD::PauseGame (0x3ba068) stop zTaskScheduler
+	   every frame. The ELF ctor clears it through its virtual Off() (vptr +0x18 =
+	   CZPauseTest::Off 0x3be7b0) above; this store keeps that guarantee explicit. */
+	m_on = false;
 }
 
 /* @socom-skeleton stub ClosePauseMenu__11CZPauseTestFv */
 void CZPauseTest::ClosePauseMenu()
 {
+	/* 0x3bf400: sounds resume, the face buttons are released, the old menu state and
+	 * the letterbox out; at night the lens effect of the seal's zoom state returns; off,
+	 * and the fade-out starts (m_wason turns the HUD back on once the letterbox is out) */
+	if (!m_on)
+		return;
+
+	CSndInstance::ResumeAllSounds();
+	CZSealBody* seal = CHUD::GetHUDOwner();
+	CSealCtrl* control = static_cast<CSealCtrl*>(seal->m_control);
+	CPad* pad = control->m_padid < 2 ? CInput::m_pads[control->m_padid] : NULL;
+
+	pad->SetButtonState(PAD_BUTTON::PAD_CROSS, KEY_UP);
+	pad->SetButtonState(PAD_BUTTON::PAD_SQUARE, KEY_UP);
+	pad->SetButtonState(PAD_BUTTON::PAD_TRIANGLE, KEY_UP);
+	pad->SetButtonState(PAD_BUTTON::PAD_CIRCLE, KEY_UP);
+	control->SetMenuState(m_oldmenustate);
+	theHUD->m_letterbox.RemoveLetterbox();
+
+	zdb::CWorld* world = zdb::CWorld::m_world;
+	ZOOMSTATE zoom = seal->m_zoomstate;
+
+	if (world->m_night_mission && control->IsPlayer())
+	{
+		if (zoom == ZOOMSTATE::ZOOMSTATE_NVG)
+		{
+			CPnt3D lens = world->m_lensfx_nvg;
+			seal->m_kit.Apply_LensEffects(true, &lens);
+		}
+		else if (zoom > ZOOMSTATE::ZOOMSTATE_NVG)
+		{
+			CPnt3D lens = world->m_lensfx_starlightscope;
+			seal->m_kit.Apply_LensEffects(true, &lens);
+		}
+	}
+
+	Off();
+	m_wason = true;
+	g_fFadeoutTime = 0.0f;
 }
 
 /* @socom-skeleton body OpenPauseMenu__11CZPauseTestFv */
 void CZPauseTest::OpenPauseMenu()
 {
-    CZSealBody* owner = CHUD::GetHUDOwner();
-    CSealCtrl* control = NULL;
-    CPad* player_pad = NULL;
-    
-    if (owner)
-    {
-        control = static_cast<CSealCtrl*>(owner->m_control);
-    }
-    
-    control->StopRumbler();
+	/* 0x3bf210: rumble off, START held, sounds paused, the menu on over the letterbox
+	 * (the full-screen map back to the compass), the HUD off, the menu state
+	 * statePauseTestMenu, the player's lens effects off; the selections at full alpha */
+	CZSealBody* owner = CHUD::GetHUDOwner();
+	CSealCtrl* control = owner != NULL ? static_cast<CSealCtrl*>(owner->m_control) : NULL;
 
-    if (control->m_padid < 2)
-    {
-        player_pad = CInput::m_pads[control->m_padid];
-    }
+	control->StopRumbler();
 
-    player_pad->SetButtonState(PAD_BUTTON::PAD_START, KEY_DOWN);
-    CSndInstance::PauseAllSounds();
-    CSnd::PostTick(0.0f, NULL);
+	CPad* pad = control->m_padid < 2 ? CInput::m_pads[control->m_padid] : NULL;
 
-    On();
+	pad->SetButtonState(PAD_BUTTON::PAD_START, KEY_DOWN);
+	CSndInstance::PauseAllSounds();
+	CSnd::PostTick(0.0f, NULL);
+	On();
+	theHUD->m_letterbox.AddLetterbox();
 
-    theHUD->m_letterbox.AddLetterbox();
+	if (theHUD->m_newmap.m_isFullScreen)
+		theHUD->m_newmap.SwitchToCompassMap();
 
-    if (theHUD->m_newmap.m_isFullScreen)
-    {
-        theHUD->m_newmap.SwitchToCompassMap();
-    }
+	theHUD->Off();
+	m_background.On();
+	m_oldmenustate = control->GetMenuState();
+	control->SetMenuState(statePauseTestMenu);
 
-    theHUD->Off();
+	if (owner->m_control != NULL && static_cast<CSealCtrl*>(owner->m_control)->IsPlayer())
+		owner->m_kit.Apply_LensEffects(false, NULL);
 
-    m_oldmenustate = control->GetMenuState();
-    control->SetMenuState(statePauseTestMenu);
+	for (s32 i = 0; i < m_num_selections; i++)
+		m_selections[i].SetTrans(128.0f);
+
+	m_background.SetTrans(40.0f);
+	g_fTimeInPauseMenu = 0.0f;
+
+	for (int i = 0; i < 5; i++)
+	{
+		m_selections[i].m_color.x = 86.0f;
+		m_selections[i].m_color.y = 63.0f;
+		m_selections[i].m_color.z = 27.0f;
+	}
+
+	m_curcolor = 1.0f;
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("HUD: pause menu open (%d selections)", (int)m_num_selections);
+#endif
 }
 
 /* @socom-skeleton stub HandleSelectionInput__11CZPauseTestFRC4CPad */
-void CZPauseTest::HandleSelectionInput(const CPad &)
+void CZPauseTest::HandleSelectionInput(const CPad &pad)
 {
+	/* 0x3bef50: input 0 = pad state 9 rising, 1 = state 0 falling, 2 = state 3 or 2
+	 * falling; the table gives the action for the selection (abort, invert pitch,
+	 * replay, auto aim, or none) and whether the menu closes */
 	/* @socom-skeleton stub c_arrInputsToActions$2591 */
 	static const Action c_arrInputsToActions[5][3] = {{{(Selection)5, 1}, {(Selection)5, 1}, {(Selection)5, 0}}, {{(Selection)1, 1}, {(Selection)5, 1}, {(Selection)5, 0}}, {{(Selection)2, 0}, {(Selection)5, 1}, {(Selection)2, 0}}, {{(Selection)3, 1}, {(Selection)5, 1}, {(Selection)5, 0}}, {{(Selection)4, 0}, {(Selection)5, 1}, {(Selection)4, 0}}};
+	s32 input;
+
+	if (pad.m_state[9] == KEY_RISING)
+		input = 0;
+	else if (pad.m_state[0] == KEY_FALLING)
+		input = 1;
+	else if (pad.m_state[3] == KEY_FALLING || pad.m_state[2] == KEY_FALLING)
+		input = 2;
+	else
+		input = 3;
+
+	if (input != 3 && m_selectsound != NULL)
+		m_selectsound->PlaySound(NULL, 0xff);
+
+	if (input == 3)
+		return;
+
+	const Action& action = c_arrInputsToActions[m_curselection][input];
+
+	if (action.sel == SEL_REPLAY)
+	{
+		CValve* abort = theMission.m_valve_abort; /* CValve::Set(2) inlined */
+		u32 old = abort->m_value;
+		abort->m_value = 2;
+
+		if (old != 2)
+			abort->MakeCallbacks((VALVE_STATE)1);
+	}
+	else if (action.sel == SEL_AUTOAIM)
+	{
+		_AutoAim = !_AutoAim;
+		CValve* valve = CValve::Create("AUTO_AIM_CONTROLLER", (VALVE_TYPE)2);
+		u32 change = valve->m_value != _AutoAim ? (_AutoAim ? 1 : 2) : 0;
+		valve->m_value = _AutoAim;
+
+		if (change)
+			valve->MakeCallbacks((VALVE_STATE)change);
+
+		m_selections[4].SetString(_AutoAim ? "AUTO AIM: ON" : "AUTO AIM: OFF");
+	}
+	else if (action.sel == SEL_INVERT)
+	{
+		hackPitchFactor = hackPitchFactor * -1.0f;
+		CValve* valve = CValve::Create("INVERT_PITCH_CONTROLLER", (VALVE_TYPE)2);
+		u32 value = (u32)hackPitchFactor; /* ELF: fptoui (-1 gives 0) */
+		u32 change = valve->m_value != value ? (value ? 1 : 2) : 0;
+		valve->m_value = value;
+
+		if (change)
+			valve->MakeCallbacks((VALVE_STATE)change);
+
+		m_selections[2].SetString(hackPitchFactor < 0.0f ? "INVERT PITCH: ON" : "INVERT PITCH: OFF");
+	}
+	else if (action.sel == SEL_ABORT)
+	{
+		CValve* abort = theMission.m_valve_abort; /* CValve::Set(1) inlined */
+		u32 old = abort->m_value;
+		abort->m_value = 1;
+
+		if (old != 1)
+			abort->MakeCallbacks((VALVE_STATE)1);
+	}
+
+	if (action.bClose)
+		ClosePauseMenu();
 }
 
 /* @socom-skeleton stub Init__11CZPauseTestFv */
 void CZPauseTest::Init()
 {
+	/* 0x3bef20 */
+	ReInit();
+	m_wason = false;
 }
 
 /* @socom-skeleton body ReInit__11CZPauseTestFv */
 void CZPauseTest::ReInit()
 {
-    m_numselections = 5;
-    
-    m_selections[0].Load(1.2f, "RESUME", m_ttf_font, 240, 200);
-    m_selections[0].m_color.x = 86.0f;
-    m_selections[0].m_color.y = 63.0f;
-    m_selections[0].m_color.z = 27.0f;
+	/* 0x3bec30: RESUME, ABORT, the pitch line, then (single player) the auto-aim line
+	 * and REPLAY, at x 240 every 32 from 200 in the HUD text colour; the dark background
+	 * (off) and the select/scroll sounds */
+	bool network = theNetwork.m_bNetwork;
 
-    m_selections[1].Load(1.2f, "ABORT", m_ttf_font, 240, 232);
-    m_selections[1].m_color.x = 86.0f;
-    m_selections[1].m_color.y = 63.0f;
-    m_selections[1].m_color.z = 27.0f;
+	m_selections[0].Load(1.2f, "RESUME", m_font, 240, 200);
+	m_selections[0].m_color.x = 86.0f;
+	m_selections[0].m_color.y = 63.0f;
+	m_selections[0].m_color.z = 27.0f;
+	m_selections[1].Load(1.2f, "ABORT", m_font, 240, 232);
+	m_selections[1].m_color.x = 86.0f;
+	m_selections[1].m_color.y = 63.0f;
+	m_selections[1].m_color.z = 27.0f;
+	m_selections[2].Load(1.2f, "", m_font, 240, 264);
+	m_selections[2].SetString(hackPitchFactor < 0.0f ? "INVERT PITCH: ON" : "INVERT PITCH: OFF");
+	m_selections[2].m_color.x = 86.0f;
+	m_selections[2].m_color.y = 63.0f;
+	m_selections[2].m_color.z = 27.0f;
 
-    m_selections[2].Load(1.2f, "INVERT PITCH: OFF", m_ttf_font, 240, 264);
-    m_selections[2].m_color.x = 86.0f;
-    m_selections[2].m_color.y = 63.0f;
-    m_selections[2].m_color.z = 27.0f;
+	if (!network)
+	{
+		m_selections[4].Load(1.2f, "", m_font, 240, 328);
+		m_selections[4].SetString(_AutoAim ? "AUTO AIM: ON" : "AUTO AIM: OFF");
+		m_selections[4].m_color.x = 86.0f;
+		m_selections[4].m_color.y = 63.0f;
+		m_selections[4].m_color.z = 27.0f;
+		m_selections[3].Load(1.2f, "REPLAY", m_font, 240, 296);
+		m_selections[3].m_color.x = 86.0f;
+		m_selections[3].m_color.y = 63.0f;
+		m_selections[3].m_color.z = 27.0f;
+	}
 
-    m_selections[3].Load(1.2f, "AUTO AIM: OFF", m_ttf_font, 240, 296);
-    m_selections[3].m_color.x = 86.0f;
-    m_selections[3].m_color.y = 63.0f;
-    m_selections[3].m_color.z = 27.0f;
-
-    m_selections[4].Load(1.2f, "REPLAY", m_ttf_font, 240, 328);
-    m_selections[4].m_color.x = 86.0f;
-    m_selections[4].m_color.y = 63.0f;
-    m_selections[4].m_color.z = 27.0f;
+	m_num_selections = network ? 4 : 5;
+	m_curselection = 0;
+	m_background.m_hasTexture = false;
+	m_background.Load(0.0f, 0.0f, 640.0f, 480.0f, NULL);
+	m_background.SetColor(0.0f, 0.0f, 0.0f);
+	m_background.SetTrans(40.0f);
+	m_background.m_isTrans = true;
+	m_background.Off();
+	m_selectsound = CSnd::GetSoundByName("SND_THUNK");
+	m_scrollupsound = CSnd::GetSoundByName("SND_SLIDE");
+	m_scrolldownsound = CSnd::GetSoundByName("SND_SLIDE");
 }
 
 /* @socom-skeleton stub Clear__11CZPauseTestFv */
 void CZPauseTest::Clear()
 {
+	/* 0x3beba0 */
+	g_fFadeoutTime = -1.0f;
+
+	for (int i = 0; i < 5; i++)
+		m_selections[i].ClearAndWipe();
+
+	erase(begin(), end());
 }
 
 /* @socom-skeleton stub HudTick__11CZPauseTestFP4CPadf */
-void CZPauseTest::HudTick(CPad *, float)
+void CZPauseTest::HudTick(CPad *pad, float dT)
 {
+	/* 0x3be880: off, it watches for START (TickOffState); on, it keeps sound ticking, the
+	 * cheats, up/down move the pulsing selection, and the selection input (only with the
+	 * seal's input enabled; a network game closes after 3 s) */
+	if (!m_on)
+	{
+		TickOffState(*pad, dT);
+		return;
+	}
+
+	CSnd::PostTick(0.0f, NULL);
+	CZSealBody* seal = CHUD::GetHUDOwner();
+	CSealCtrl* control = seal != NULL ? static_cast<CSealCtrl*>(seal->m_control) : NULL;
+	bool input = control != NULL && control->m_input_enabled;
+
+	CCheat::TickAll(dT, pad);
+
+	KEY_STATE up = pad->m_state[4];
+
+	if (up == KEY_FALLING || pad->m_state[5] == KEY_FALLING)
+	{
+		if (pad->m_state[5] == KEY_FALLING)
+		{
+			if (m_scrolldownsound != NULL)
+				m_scrolldownsound->PlaySound(NULL, 0xff);
+
+			m_curselection++;
+
+			if (m_num_selections <= m_curselection)
+				m_curselection = 0;
+		}
+
+		if (up == KEY_FALLING)
+		{
+			if (m_scrollupsound != NULL)
+				m_scrollupsound->PlaySound(NULL, 0xff);
+
+			m_curselection--;
+
+			if (m_curselection < 0)
+				m_curselection = m_num_selections - 1;
+		}
+
+		for (int i = 0; i < 5; i++)
+		{
+			m_selections[i].m_color.x = 86.0f;
+			m_selections[i].m_color.y = 63.0f;
+			m_selections[i].m_color.z = 27.0f;
+		}
+
+		m_selections[m_curselection].m_color.x = 17.2f;
+		m_selections[m_curselection].m_color.y = 12.6f;
+		m_selections[m_curselection].m_color.z = 5.4f;
+		m_curcolor = 0.2f;
+		m_inc = -0.7f;
+	}
+
+	g_fTimeInPauseMenu += dT;
+
+	if (g_fTimeInPauseMenu < 3.0f || !theNetwork.m_bNetwork)
+	{
+		if (input)
+			HandleSelectionInput(*pad);
+	}
+	else
+	{
+		ClosePauseMenu();
+	}
+
+	C2DString& selected = m_selections[m_curselection];
+	selected.m_color.x = m_curcolor * 86.0f;
+	selected.m_color.y = m_curcolor * 63.0f;
+	selected.m_color.z = m_curcolor * 27.0f;
+	m_curcolor = m_curcolor + m_inc * dT;
+
+	if (m_curcolor >= 0.8f)
+	{
+		m_curcolor = 0.8f;
+		m_inc = -0.7f;
+	}
+
+	if (m_curcolor <= 0.2f)
+	{
+		m_curcolor = 0.2f;
+		m_inc = 0.7f;
+	}
 }
 
 /* @socom-skeleton body Draw__11CZPauseTestFPQ23zdb7CCamera */
 void CZPauseTest::Draw(zdb::CCamera* camera)
 {
-    for (u32 i = 0; i < m_numselections; i++)
-    {
-        m_selections[i].Draw(NULL);
-    }
+	/* 0x3be7d0: while on or fading out: the selections, then the background (virtual) */
+	if (!m_on && g_fFadeoutTime < 0.0f)
+		return;
+
+	for (s32 i = 0; i < m_num_selections; i++)
+		m_selections[i].Draw(camera);
+
+	m_background.Draw(camera);
 }
 
 /* @socom-skeleton stub On__11CZPauseTestFv */
 void CZPauseTest::On()
 {
+	/* 0x3be7c0 */
+	m_on = true;
+	C2D::On();
 }
 
 /* @socom-skeleton stub Off__11CZPauseTestFv */
 void CZPauseTest::Off()
 {
+	/* 0x3be7b0 */
+	m_on = false;
+	C2D::Off(); /* ELF: the C2D flag stored inline */
 }
 
 /* @socom-skeleton stub TickOffState__11CZPauseTestFRC4CPadf */
-void CZPauseTest::TickOffState(const CPad &, float)
+void CZPauseTest::TickOffState(const CPad &pad, float dT)
 {
+	/* 0x3be590: START falling (or, in single player, the pad disconnecting) opens the
+	 * menu for a seal with input enabled, unless the full-screen map is animating;
+	 * otherwise the 0.5 s fade-out runs; once the letterbox has left, the HUD comes
+	 * back on */
 	/* @socom-skeleton stub bConnected$2697 */
-	static unsigned char bConnected;
+	static unsigned char bConnected = true; /* init$2698 */
+	CZSealBody* seal = CHUD::GetHUDOwner();
+	CSealCtrl* control = seal != NULL ? static_cast<CSealCtrl*>(seal->m_control) : NULL;
+	bool input = control != NULL && control->m_input_enabled;
+	bool start = pad.m_state[0] == KEY_FALLING;
+	unsigned char connected = bConnected;
+
+	if (!theNetwork.m_bNetwork)
+	{
+		connected = pad.m_State != 0;
+
+		if (!start)
+			start = bConnected && !connected;
+	}
+
+	bConnected = connected;
+
+	if (start && input && control->GetMenuState() != stateFullScreenMapAnim)
+	{
+		OpenPauseMenu();
+	}
+	else if (g_fFadeoutTime >= 0.0f)
+	{
+		f32 time = g_fFadeoutTime + dT;
+		f32 alpha = time >= 0.5f ? 0.0f : 1.0f - time * 2.0f;
+		g_fFadeoutTime = time;
+
+		for (s32 i = 0; i < m_num_selections; i++)
+			m_selections[i].SetTrans(alpha * 128.0f);
+
+		m_background.SetTrans(alpha * 40.0f);
+
+		if (time >= 0.5f)
+			g_fFadeoutTime = -1.0f;
+	}
+
+	if (m_wason && theHUD->m_letterbox.m_slidedir == CLetterBox::SLIDE_NONE)
+	{
+		m_wason = false;
+		theHUD->On();
+	}
 }

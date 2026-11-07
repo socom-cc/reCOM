@@ -218,7 +218,7 @@ protected: /* port: protected (was private) - CPlainBmp::SetMapOffset reads the 
 	/* @socom-skeleton decl 9C2DBitmap */
 public:
 	virtual ~C2DBitmap() {}
-	virtual void GetAssetLibs(C2D::CLibList &) {} /* port: stub; 0x1748a0 adds m_pTexHandle->m_texture->m_AssetLib if absent, then walks the children */
+	virtual void GetAssetLibs(C2D::CLibList &); /* 0x1748a0 (inline, emitted in orders.cpp's unit); port: defined in ztwod_bitmap.cpp */
 	float GetTrans();
 	void MakePacket(zdb::CCamera *, zdb::CTextureRelocMgr *, const CMatrix *);
 	/* @socom-skeleton end 9C2DBitmap */
@@ -246,7 +246,7 @@ public:
 	/* @socom-skeleton decl 7C2DPoly */
 public:
 	virtual ~C2DPoly() {}
-	virtual void GetAssetLibs(C2D::CLibList &) {} /* port: stub; 0x3019d0 adds m_texture->m_AssetLib if absent, then walks the children */
+	virtual void GetAssetLibs(C2D::CLibList &); /* 0x3019d0 */
 	void GetColor();
 	float GetTrans();
 	void SetPos(float, float, float, float, float, float);
@@ -274,7 +274,7 @@ public:
 public:
 	virtual ~C2DBitmapPoly() {}
 	virtual void SetUseFrameBufferAlpha(bool);
-	virtual void GetAssetLibs(C2D::CLibList &) {} /* port: stub; 0x2fd190 adds m_texture->m_AssetLib if absent, then walks the children */
+	virtual void GetAssetLibs(C2D::CLibList &); /* 0x2fd190 */
 	C2DBitmapPoly();
 	void SetPos(float, float, float, float, float, float, float, float);
 	void SetCenterPos(PNT2D, float, float);
@@ -452,6 +452,7 @@ public:
 
 class PoseBitmap : public C2DBitmap
 {
+public: /* port: public - CHUD::Init sets m_myfont */
 	s32 m_curpose;
 
 	zdb::CTexture* m_posetex[3];

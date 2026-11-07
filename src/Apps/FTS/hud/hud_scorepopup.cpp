@@ -194,13 +194,36 @@ int GetTeamMembers(CZSealBody **, int *, bool)
 /* @socom-skeleton stub hudGetScorePopupPtr__Fv */
 C2D * hudGetScorePopupPtr()
 {
+	/* 0x4220d0: the popup is a guarded local static (init$2639) */
 	/* @socom-skeleton stub popup$2637 */
 	static CScorePopup popup;
+	return &popup;
 }
 
 /* @socom-skeleton stub hudTickScorePopup__FRC4CPad */
-void hudTickScorePopup(const CPad &)
+void hudTickScorePopup(const CPad &pad)
 {
+	/* 0x421df0: in a network game SELECT (state 1) falling opens the team score box,
+	 * rising closes it and clears the 2 x 27 score strings. Single player does nothing. */
+	if (!g_bOn)
+	{
+		if (theNetwork.m_bNetwork && pad.m_state[1] == KEY_FALLING)
+		{
+			/* port: multiplayer only, not written (0x421e10: the box from the messenger's
+			 * margins, SetupBackgroundBox, the SEALs and terrorists CTeamDisplay::SetupTeam
+			 * rows, the newweapnbkrnd.tif team divider) */
+		}
+	}
+	else if (pad.m_state[1] == KEY_RISING)
+	{
+		g_bOn = false;
+
+		for (u32 i = 0; i < 27; i++)
+			g_oSeals2Ds._arrStrs[i].ClearAndWipe();
+
+		for (u32 i = 0; i < 27; i++)
+			g_oTerrs2Ds._arrStrs[i].ClearAndWipe();
+	}
 }
 
 /* @socom-skeleton stub hudTurnOffScorePopup__Fv */

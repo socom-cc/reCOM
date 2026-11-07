@@ -25,75 +25,86 @@ static CSTable MultiplayerMsgStrings;
 /* @socom-skeleton body __ct__10CLetterBoxFv */
 CLetterBox::CLetterBox()
 {
-    for (u32 i = 0; i < 2; i++)
-    {
-        m_bitmap[i].m_hasTexture = false;
-        m_bitmap[i].Load(0.0f, 0.0f, 1.0f, 1.0f, NULL);
-        m_bitmap[i].SetColor(0.0f, 0.0f, 0.0f);
-        m_bitmap[i].SetTrans(128.0f);
-        m_bitmap[i].m_isTrans = true;
-        m_bitmap[i].On();
-        insert(begin(), &m_bitmap[i]);
-    }
+	/* 0x3bd410: two untextured black bars (alpha 127, off), appended as children.
+	 * ELF quirk: m_slidedir is left uninitialised. */
+	for (u32 i = 0; i < 2; i++)
+	{
+		m_bitmap[i].m_hasTexture = false;
+		m_bitmap[i].Load(0.0f, 0.0f, 1.0f, 1.0f, NULL);
+		m_bitmap[i].SetColor(0.0f, 0.0f, 0.0f);
+		m_bitmap[i].SetTrans(127.0f);
+		m_bitmap[i].m_isTrans = true;
+		m_bitmap[i].Off();
+		push_back(&m_bitmap[i]);
+	}
 
-    m_curpos = 0.0f;
+	m_curpos = 0.0f;
 }
 
 /* @socom-skeleton body Draw__10CLetterBoxFPQ23zdb7CCamera */
 void CLetterBox::Draw(zdb::CCamera* camera)
 {
-    m_bitmap[0].Draw(camera);
-    m_bitmap[1].Draw(camera);
+	/* 0x3bd3c0: both bars through their virtual Draw */
+	m_bitmap[0].Draw(camera);
+	m_bitmap[1].Draw(camera);
 }
 
 /* @socom-skeleton body Tick__10CLetterBoxFf */
 void CLetterBox::Tick(f32 dT)
 {
-    if (m_slidedir == SLIDE_OUT)
-    {
-        if (m_curpos == 0.0f)
-        {
-            m_slidedir = SLIDE_NONE;
-        }
-        else
-        {
-            f32 pos = m_curpos - dT * 128.0f;
-            m_curpos = pos;
+	/* 0x3bd220: the bars slide 128 px/s between 0 and 64 px from the top and bottom
+	 * edges; fully out turns them off */
+	if (m_slidedir == SLIDE_OUT)
+	{
+		if (m_curpos == 0.0f)
+		{
+			m_slidedir = SLIDE_NONE;
+		}
+		else
+		{
+			m_curpos = m_curpos - dT * 128.0f;
 
-            if (pos <= 0.0f)
-            {
-                m_curpos = 0.0f;
-                m_slidedir = SLIDE_NONE;
+			if (m_curpos <= 0.0f)
+			{
+				m_curpos = 0.0f;
+				m_slidedir = SLIDE_NONE;
+				m_bitmap[0].Off();
+				m_bitmap[1].Off();
+			}
 
-                // m_bitmap[0].TickFade();
-                // m_bitmap[1].TickFade();
-            }
-        }
-    }
-    else if (m_slidedir == SLIDE_IN)
-    {
-        if (m_curpos >= 64.0f)
-        {
-            m_slidedir = SLIDE_NONE;
-        }
-        else
-        {
-            f32 pos = m_curpos + dT * 128.0f;
-            m_curpos = pos;
+			m_bitmap[0].Load(0.0f, 0.0f, 640.0f, m_curpos, NULL);
+			m_bitmap[1].Load(0.0f, 448.0f, 640.0f, 448.0f - m_curpos, NULL);
+		}
+	}
+	else if (m_slidedir == SLIDE_IN)
+	{
+		if (m_curpos == 64.0f)
+		{
+			m_slidedir = SLIDE_NONE;
+		}
+		else
+		{
+			m_curpos = m_curpos + dT * 128.0f;
 
-            if (64.0f <= pos)
-            {
-                m_curpos = 64.0f;
-                m_slidedir = SLIDE_NONE;
-            }
-        }
-    }
+			if (m_curpos >= 64.0f)
+			{
+				m_curpos = 64.0f;
+				m_slidedir = SLIDE_NONE;
+			}
+
+			m_bitmap[0].Load(0.0f, 0.0f, 640.0f, m_curpos, NULL);
+			m_bitmap[1].Load(0.0f, 448.0f, 640.0f, 448.0f - m_curpos, NULL);
+		}
+	}
 }
 
 /* @socom-skeleton body AddLetterbox__10CLetterBoxFv */
 void CLetterBox::AddLetterbox()
 {
-    m_slidedir = SLIDE_IN;
+	/* 0x3bd1d0: slide in with both bars on (virtual On) */
+	m_slidedir = SLIDE_IN;
+	m_bitmap[0].On();
+	m_bitmap[1].On();
 }
 
 /* @socom-skeleton body RemoveLetterbox__10CLetterBoxFv */

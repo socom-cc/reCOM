@@ -36,16 +36,26 @@ class CPtItr;
 /* @socom-skeleton end forward */
 
 /* @socom-skeleton stub r */
-static float r[4] = {1.0f, 0.0f, 0.0f, 1.0f};
+static float r[4] = {1.0f, 0.0f, 0.0f, 1.0f}; /* the last rotation: cos, -sin, sin, cos */
 
 /* @socom-skeleton stub __ct__13C2DBitmapPolyFv */
 C2DBitmapPoly::C2DBitmapPoly()
 {
+	/* 0x2fe6f0: two triangles (v0 v1 v2) and (v0 v2 v3) of a quad, UVs for the corners
+	 * (0,0) (0,1) (1,1) (1,0), grey, (virtual) SetTrans 128 */
+	m_texture = NULL;
+	m_tris[0].SetUV(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f);
+	m_tris[1].SetUV(0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f);
+	m_tris[0].SetColor(128.0f, 128.0f, 128.0f);
+	m_tris[1].SetColor(128.0f, 128.0f, 128.0f);
+	SetTrans(128.0f);
 }
 
 /* @socom-skeleton body Load__13C2DBitmapPolyFffffffffPQ23zdb8CTexture */
 void C2DBitmapPoly::Load(f32 v0x, f32 v0y, f32 v1x, f32 v1y, f32 v2x, f32 v2y, f32 v3x, f32 v3y, zdb::CTexture* texture)
 {
+	/* 0x2fe640 */
+	m_texture = texture;
 	m_tris[0].Load(v0x, v0y, v1x, v1y, v2x, v2y, texture);
 	m_tris[1].Load(v0x, v0y, v2x, v2y, v3x, v3y, texture);
 }
@@ -53,35 +63,56 @@ void C2DBitmapPoly::Load(f32 v0x, f32 v0y, f32 v1x, f32 v1y, f32 v2x, f32 v2y, f
 /* @socom-skeleton body Draw__13C2DBitmapPolyFPQ23zdb7CCamera */
 void C2DBitmapPoly::Draw(zdb::CCamera* camera)
 {
+	/* 0x2fe5e0: both triangles through their virtual Draw; no children */
+	if (!IsOn())
+		return;
+
 	m_tris[0].Draw(camera);
 	m_tris[1].Draw(camera);
 }
 
 /* @socom-skeleton stub SetPos__13C2DBitmapPolyFffffffff */
-void C2DBitmapPoly::SetPos(float, float, float, float, float, float, float, float)
+void C2DBitmapPoly::SetPos(float v0x, float v0y, float v1x, float v1y, float v2x, float v2y, float v3x, float v3y)
 {
+	/* 0x2fe550 */
+	m_tris[0].SetPos(v0x, v0y, v1x, v1y, v2x, v2y);
+	m_tris[1].SetPos(v0x, v0y, v2x, v2y, v3x, v3y);
 }
 
 /* @socom-skeleton stub SetCenterPos__13C2DBitmapPolyF5PNT2Dff */
-void C2DBitmapPoly::SetCenterPos(PNT2D, float, float)
+void C2DBitmapPoly::SetCenterPos(PNT2D center, float width, float height)
 {
+	/* 0x2fe4a0: the quad width x height around center: (left, top) (left, bottom)
+	 * (right, bottom) (right, top) */
+	f32 left = center.x - width * 0.5f;
+	f32 right = center.x + width * 0.5f;
+	f32 top = center.y - height * 0.5f;
+	f32 bottom = center.y + height * 0.5f;
+
+	m_tris[0].SetPos(left, top, left, bottom, right, bottom);
+	m_tris[1].SetPos(left, top, right, bottom, right, top);
 }
 
 /* @socom-skeleton stub SetUV__13C2DBitmapPolyFffff */
-void C2DBitmapPoly::SetUV(float, float, float, float)
+void C2DBitmapPoly::SetUV(float u0, float v0, float u1, float v1)
 {
+	/* 0x2fe410: the rectangle (u0, v0)-(u1, v1) on the quad's corners */
+	m_tris[0].SetUV(u0, v0, u0, v1, u1, v1);
+	m_tris[1].SetUV(u0, v0, u1, v1, u1, v0);
 }
 
 /* @socom-skeleton body SetUV__13C2DBitmapPolyFffffffff */
-void C2DBitmapPoly::SetUV(float v0u, float v0v, float v1u, float v1v, float v2u, float v2v, float, float) /* port: names for the existing 6-value body */
+void C2DBitmapPoly::SetUV(float v0u, float v0v, float v1u, float v1v, float v2u, float v2v, float v3u, float v3v)
 {
+	/* 0x2fe380 */
 	m_tris[0].SetUV(v0u, v0v, v1u, v1v, v2u, v2v);
-	m_tris[1].SetUV(v0u, v0v, v1u, v1v, v2u, v2v);
+	m_tris[1].SetUV(v0u, v0v, v2u, v2v, v3u, v3v);
 }
 
 /* @socom-skeleton body SetColor__13C2DBitmapPolyFfff */
 void C2DBitmapPoly::SetColor(f32 r, f32 g, f32 b)
 {
+	/* 0x2fe320 */
 	m_tris[0].SetColor(r, g, b);
 	m_tris[1].SetColor(r, g, b);
 }
@@ -89,6 +120,7 @@ void C2DBitmapPoly::SetColor(f32 r, f32 g, f32 b)
 /* @socom-skeleton body SetTrans__13C2DBitmapPolyFf */
 void C2DBitmapPoly::SetTrans(f32 transparency)
 {
+	/* 0x2fe2d0: virtual on both triangles */
 	m_tris[0].SetTrans(transparency);
 	m_tris[1].SetTrans(transparency);
 }
@@ -96,36 +128,157 @@ void C2DBitmapPoly::SetTrans(f32 transparency)
 /* @socom-skeleton stub GetTrans__13C2DBitmapPolyFv */
 float C2DBitmapPoly::GetTrans()
 {
+	/* 0x2fe2c0 */
+	return m_tris[0].m_RGB[0][3];
 }
 
 /* @socom-skeleton stub SetUseFrameBufferAlpha__13C2DBitmapPolyFb */
-void C2DBitmapPoly::SetUseFrameBufferAlpha(bool)
+void C2DBitmapPoly::SetUseFrameBufferAlpha(bool enable)
 {
+	/* 0x2fe250 */
+	m_isFrameAlpha = enable;
+	m_tris[0].SetUseFrameBufferAlpha(enable);
+	m_tris[1].SetUseFrameBufferAlpha(enable);
+}
+
+/* port: file-local helper - the flips copy whole vertices (x, y, z, w) in sequence */
+static inline void c2dbitmappoly_copy(f32* to, const f32* from)
+{
+	to[0] = from[0];
+	to[1] = from[1];
+	to[2] = from[2];
+	to[3] = from[3];
 }
 
 /* @socom-skeleton stub FlipImage_Xaxis__13C2DBitmapPolyFv */
 void C2DBitmapPoly::FlipImage_Xaxis()
 {
+	/* 0x2fe180: the quad's corner order mirrored (the image flips), as these copies */
+	f32 (*a)[4] = m_tris[0].m_vertex;
+	f32 (*b)[4] = m_tris[1].m_vertex;
+
+	c2dbitmappoly_copy(a[0], a[1]);
+	c2dbitmappoly_copy(a[1], b[0]);
+	c2dbitmappoly_copy(b[0], a[0]);
+	c2dbitmappoly_copy(b[1], b[2]);
+	c2dbitmappoly_copy(b[2], a[2]);
+	c2dbitmappoly_copy(a[2], b[1]);
 }
 
 /* @socom-skeleton stub FlipImage_Yaxis__13C2DBitmapPolyFv */
 void C2DBitmapPoly::FlipImage_Yaxis()
 {
+	/* 0x2fe0b0 */
+	f32 (*a)[4] = m_tris[0].m_vertex;
+	f32 (*b)[4] = m_tris[1].m_vertex;
+
+	c2dbitmappoly_copy(b[0], b[2]);
+	c2dbitmappoly_copy(b[2], a[0]);
+	c2dbitmappoly_copy(a[0], b[0]);
+	c2dbitmappoly_copy(a[2], a[1]);
+	c2dbitmappoly_copy(a[1], b[1]);
+	c2dbitmappoly_copy(b[1], a[2]);
 }
 
 /* @socom-skeleton stub FlipImage_XYaxis__13C2DBitmapPolyFv */
 void C2DBitmapPoly::FlipImage_XYaxis()
 {
+	/* 0x2fe020 */
+	f32 (*a)[4] = m_tris[0].m_vertex;
+	f32 (*b)[4] = m_tris[1].m_vertex;
+
+	c2dbitmappoly_copy(a[0], a[2]);
+	c2dbitmappoly_copy(a[2], b[0]);
+	c2dbitmappoly_copy(b[1], b[0]);
+	c2dbitmappoly_copy(b[0], a[0]);
+}
+
+/* port: file-local helper for both Rotate_Zaxis overloads (the ELF inlines the same body
+ * into each): rotates the quad's four distinct vertices about its centre by the matrix r. */
+static void c2dbitmappoly_rotate(C2DPoly* tris)
+{
+	f32 (*v0)[4] = tris[0].m_vertex;
+	f32 (*v1)[4] = tris[1].m_vertex;
+
+	/* ELF quirk: the centre is (a - b) / 2 + max(a, b) of the tri-0 vertices 1/2 (x) and
+	 * 0/1 (y): the midpoint only while vertex 1 is left of 2 and vertex 0 above 1 */
+	f32 cx = (v0[1][0] - v0[2][0]) * 0.5f + (v0[1][0] <= v0[2][0] ? v0[2][0] : v0[1][0]);
+	f32 cy = (v0[0][1] - v0[1][1]) * 0.5f + (v0[0][1] <= v0[1][1] ? v0[1][1] : v0[0][1]);
+	f32* pts[4] = { v0[0], v0[1], v0[2], v1[2] };
+
+	for (int i = 0; i < 4; i++)
+	{
+		pts[i][0] -= cx;
+		pts[i][1] -= cy;
+	}
+
+	for (int i = 0; i < 4; i++)
+	{
+		f32 x = pts[i][0];
+		f32 y = pts[i][1];
+		pts[i][0] = y * r[1] + x * r[0];
+		pts[i][1] = y * r[3] + x * r[2];
+	}
+
+	for (int i = 0; i < 4; i++)
+	{
+		pts[i][0] += cx;
+		pts[i][1] += cy;
+	}
+
+	/* triangle 1 shares vertices 0 and 2 */
+	for (int c = 0; c < 4; c++)
+	{
+		v1[0][c] = v0[0][c];
+		v1[1][c] = v0[2][c];
+	}
 }
 
 /* @socom-skeleton stub Rotate_Zaxis__13C2DBitmapPolyFf */
-void C2DBitmapPoly::Rotate_Zaxis(float)
+void C2DBitmapPoly::Rotate_Zaxis(float degrees)
 {
+	/* 0x2fdd30: rotate about the quad's centre by degrees (r keeps the matrix) */
+	f32 s = sinf(degrees * 0.017453292f);
+	f32 c = cosf(degrees * 0.017453292f);
+
+	r[2] = s;
+	r[1] = -s;
+	r[0] = c;
+	r[3] = c;
+	c2dbitmappoly_rotate(m_tris);
 }
 
 /* @socom-skeleton stub Rotate_Zaxis__13C2DBitmapPolyFff */
-void C2DBitmapPoly::Rotate_Zaxis(float, float)
+void C2DBitmapPoly::Rotate_Zaxis(float sine, float cosine)
 {
+	/* 0x2fda90: as Rotate_Zaxis(degrees) with the sine and cosine given */
+	r[1] = -sine;
+	r[0] = cosine;
+	r[2] = sine;
+	r[3] = cosine;
+	c2dbitmappoly_rotate(m_tris);
+}
+
+/* port: 0x2fd190 (declared in ztwod.h) */
+void C2DBitmapPoly::GetAssetLibs(C2D::CLibList& libs)
+{
+	/* 0x2fd190: the texture's asset library (ELF quirk: added only when the search result
+	 * is a NULL pointer, see C2DBitmap::GetAssetLibs), then the children's */
+	if (m_texture != NULL && m_texture->m_AssetLib != NULL)
+	{
+		zdb::CAssetLib* lib = m_texture->m_AssetLib;
+		zdb::CAssetLib** i = libs.data();
+		zdb::CAssetLib** last = i + libs.size();
+
+		while (i != last && *i != lib)
+			i++;
+
+		if (i == NULL)
+			libs.insert(libs.end(), lib);
+	}
+
+	for (auto c = begin(); c != end(); ++c)
+		(*c)->GetAssetLibs(libs);
 }
 
 /* @socom-skeleton stub SetSegments__15C2DWidePolylineFP6CPtItrf */

@@ -50,6 +50,8 @@
  * @socom-artifact defines main socom:data:0x560610
  * socom-owner-annotations end socom:work:source-segment-076 */
 
+#include "gamez/zVideo/zvid.h"
+
 /* @socom-skeleton decl include */
 #include "gamez/zCamera/zcam.h"
 #include "gamez/zMath/zmath.h"
@@ -90,11 +92,93 @@ std::vector<nav_package> navpoint_vec;
 /* @socom-skeleton stub InitHUD_Compass__10MapCompassFPQ23zdb6CWorld */
 void MapCompass::InitHUD_Compass(zdb::CWorld *)
 {
+	/* 0x3cc220: the anchor icons per anchor type (0 triangle, 1 bomb, 2/3 base,
+	 * 4 hostage, 5 extraction, 6/7 objective, 8 bravo, 9-32 nav 1-24) and their colours
+	 * (9-32 green 32,62,32); every anchor and arrow slot takes the type-0 icon and size,
+	 * and with a texture both become children of m_anchor_head (arrows coloured as 0) */
+	static const char* const images[33] =
+	{
+		"ret_triangle.tif", "ret_bomb.tif", "ret_base.tif", "ret_base.tif", "ret_hostage.tif",
+		"ret_extraction.tif", "ret_objective.tif", "ret_objective.tif", "ret_bravo.tif",
+		"ret_nav_01.tif", "ret_nav_02.tif", "ret_nav_03.tif", "ret_nav_04.tif", "ret_nav_05.tif",
+		"ret_nav_06.tif", "ret_nav_07.tif", "ret_nav_08.tif", "ret_nav_09.tif", "ret_nav_10.tif",
+		"ret_nav_11.tif", "ret_nav_12.tif", "ret_nav_13.tif", "ret_nav_14.tif", "ret_nav_15.tif",
+		"ret_nav_16.tif", "ret_nav_17.tif", "ret_nav_18.tif", "ret_nav_19.tif", "ret_nav_20.tif",
+		"ret_nav_21.tif", "ret_nav_22.tif", "ret_nav_23.tif", "ret_nav_24.tif",
+	};
+	static const f32 colours[9][3] =
+	{
+		{ 86.0f, 63.0f, 27.0f }, { 62.0f, 62.0f, 32.0f }, { 40.0f, 62.0f, 36.0f },
+		{ 62.0f, 37.0f, 36.0f }, { 62.0f, 49.0f, 36.0f }, { 36.0f, 40.0f, 62.0f },
+		{ 76.0f, 70.0f, 32.0f }, { 70.0f, 76.0f, 76.0f }, { 32.0f, 62.0f, 62.0f },
+	};
+
+	for (int i = 0; i < 33; i++)
+		m_anchor_img[i] = zdb::CAssetMgr::m_assets.GetTexHandle(images[i]);
+
+	for (int i = 0; i < 9; i++)
+	{
+		m_anchor_clr[i].x = colours[i][0];
+		m_anchor_clr[i].y = colours[i][1];
+		m_anchor_clr[i].z = colours[i][2];
+	}
+
+	for (int i = 9; i < 33; i++)
+	{
+		m_anchor_clr[i].x = 32.0f;
+		m_anchor_clr[i].y = 62.0f;
+		m_anchor_clr[i].z = 32.0f;
+	}
+
+	for (u32 i = 0; i < 33; i++)
+	{
+		CHudCompassAnchor& anchor = m_compass_anchors[i];
+		CHudCompassAnchor& arrow = m_compass_arrows[i];
+
+		anchor.m_texture = m_anchor_img[0] != NULL ? m_anchor_img[0]->m_texture : NULL;
+
+		if (anchor.m_texture != NULL)
+		{
+			anchor.m_width = (f32)anchor.m_texture->m_width;
+			anchor.m_height = (f32)anchor.m_texture->m_height;
+		}
+
+		arrow.m_texture = m_anchor_img[0] != NULL ? m_anchor_img[0]->m_texture : NULL;
+
+		if (arrow.m_texture != NULL)
+		{
+			arrow.m_width = (f32)arrow.m_texture->m_width;
+			arrow.m_height = (f32)arrow.m_texture->m_height;
+		}
+
+		zdb::CTexture* texture = anchor.m_texture;
+
+		if (texture != NULL)
+		{
+			anchor.m_icon.Load(0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, texture);
+			m_anchor_head.push_back(&anchor.m_icon);
+			arrow.m_icon.Load(0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, texture);
+			arrow.m_icon.SetColor(m_anchor_clr[0].x, m_anchor_clr[0].y, m_anchor_clr[0].z);
+			m_anchor_head.push_back(&arrow.m_icon);
+		}
+	}
 }
 
 /* @socom-skeleton stub __ct__10MapCompassFv */
 MapCompass::MapCompass()
 {
+	/* 0x3cc000: the members construct; then room for 48 nav packages in navpoint_vec */
+	m_newcompasstex = NULL;
+	m_compasstopx = 0.0f;
+	m_compasstopy = 0.0f;
+	m_compassbotx = 0.0f;
+	m_compassboty = 0.0f;
+	m_compasscenterx = 0.0f;
+	m_compasscentery = 0.0f;
+	m_scale = 0.0f;
+	m_tex_width = 0.0f;
+	m_tex_height = 0.0f;
+	navpoint_vec.reserve(48);
 }
 
 /* @socom-skeleton stub __dt__10MapCompassFv */
@@ -103,51 +187,283 @@ MapCompass::~MapCompass()
 }
 
 /* @socom-skeleton stub SetScale__10MapCompassFf */
-void MapCompass::SetScale(float)
+void MapCompass::SetScale(float scale)
 {
+	/* 0x3cbd70 */
+	m_scale = scale;
 }
 
 /* @socom-skeleton stub On__10MapCompassFv */
 void MapCompass::On()
 {
+	/* 0x3cbd30 */
+	m_poly.On();
+	m_anchor_head.On();
 }
 
 /* @socom-skeleton stub Off__10MapCompassFv */
 void MapCompass::Off()
 {
+	/* 0x3cbcf0 */
+	m_poly.Off();
+	m_anchor_head.Off();
 }
 
 /* @socom-skeleton stub SetPos__10MapCompassFffff */
-void MapCompass::SetPos(float, float, float, float)
+void MapCompass::SetPos(float topx, float topy, float botx, float boty)
 {
+	/* 0x3cbc60: the compass quad over the rectangle, its height scaled about the centre */
+	m_compasstopx = topx;
+	m_compasstopy = topy;
+	m_compassbotx = botx;
+	m_compassboty = boty;
+	m_compasscenterx = (m_compasstopx + m_compassbotx) / 2.0f;
+	m_compasscentery = (m_compasstopy + m_compassboty) / 2.0f;
+
+	f32 top = m_compasscentery + m_scale * (m_compasstopy - m_compasscentery);
+	f32 bottom = m_compasscentery + m_scale * (m_compassboty - m_compasscentery);
+	m_poly.Load(m_compasstopx, top, m_compasstopx, bottom, m_compassbotx, bottom, m_compassbotx, top, m_newcompasstex);
 }
 
 /* @socom-skeleton stub SetTexture__10MapCompassFPQ23zdb8CTexture */
-void MapCompass::SetTexture(zdb::CTexture *)
+void MapCompass::SetTexture(zdb::CTexture *texture)
 {
+	/* 0x3cbc20 */
+	m_newcompasstex = texture;
+	m_tex_width = texture != NULL ? (f32)texture->m_width : 0.0f;
+	m_tex_height = texture != NULL ? (f32)texture->m_height : 0.0f;
 }
 
 /* @socom-skeleton stub SetTrans__10MapCompassFf */
-void MapCompass::SetTrans(float)
+void MapCompass::SetTrans(float trans)
 {
+	/* 0x3cbc00: tail call to the quad's virtual SetTrans */
+	m_poly.SetTrans(trans);
 }
 
 /* @socom-skeleton stub Draw__10MapCompassFPQ23zdb7CCamera */
-void MapCompass::Draw(zdb::CCamera *)
+void MapCompass::Draw(zdb::CCamera *camera)
 {
+	/* 0x3cbb90: with the HUD on, the compass quad then the anchors (virtual Draw) */
+	if (theHUD->IsOn())
+	{
+		m_poly.Draw(camera);
+		m_anchor_head.Draw(camera);
+	}
 }
 
 /* @socom-skeleton stub Tick__10MapCompassFP10CZSealBody */
-void MapCompass::Tick(CZSealBody *)
+void MapCompass::Tick(CZSealBody *seal)
 {
+	/* 0x3cb160: the compass quad turns with the seal's heading (its node's z axis on the
+	 * ground plane) about center_pt; each of the 33 CZSealBody::m_compass anchors becomes
+	 * an icon on the compass ring in its direction (inside the ring when nearer than 150,
+	 * off beyond 900 except bases/objectives/bravo), with an arrow; of the nav points
+	 * (types 9-32) only the nearest by AI-map distance stays shown */
 	/* @socom-skeleton stub dist_reject$2621 */
-	static float dist_reject;
+	static float dist_reject = 900.0f;
 	/* @socom-skeleton stub anchor_dist_scalar_outside$2639 */
-	static float anchor_dist_scalar_outside;
+	static float anchor_dist_scalar_outside = 65.0f;
 	/* @socom-skeleton stub anchor_dist_scalar_inside$2642 */
-	static float anchor_dist_scalar_inside;
+	static float anchor_dist_scalar_inside = 65.0f;
 	/* @socom-skeleton stub anchor_dist_scalar_arrow$2645 */
-	static float anchor_dist_scalar_arrow;
+	static float anchor_dist_scalar_arrow = 50.0f;
 	/* @socom-skeleton stub base_trans$2650 */
-	static float base_trans;
+	static float base_trans = 0.4f;
+
+	if (seal == NULL)
+		return;
+
+	zdb::CNode* node = seal->m_node;
+	CPnt3D heading(node->m_matrix.m_matrix[2][0], node->m_matrix.m_matrix[2][1], node->m_matrix.m_matrix[2][2]);
+
+	if (heading.y != 0.0f)
+	{
+		heading.y = 0.0f;
+		heading.Normalize();
+	}
+
+	m_poly.SetCenterPos(center_pt, m_tex_width * 0.75f, m_tex_height * 0.75f);
+	m_poly.Rotate_Zaxis(heading.x, heading.z);
+
+	u32 count = CZSealBody::m_compass.size();
+	node = seal->m_node;
+
+	if (!g_anchor_fading)
+	{
+		g_anchor_trans += g_anchor_faderate * zVid.frameTime;
+
+		if (g_anchor_fademax < g_anchor_trans)
+		{
+			g_anchor_trans = g_anchor_fademax;
+			g_anchor_fading = true;
+		}
+	}
+	else
+	{
+		g_anchor_trans -= g_anchor_faderate * zVid.frameTime;
+
+		if (g_anchor_trans < g_anchor_fademin)
+		{
+			g_anchor_trans = g_anchor_fademin;
+			g_anchor_fading = false;
+		}
+	}
+
+	CAiMapLoc loc = seal->m_mapLocValid;
+	navpoint_vec.clear();
+
+	for (u32 i = 0; i < 33; i++)
+	{
+		C2DBitmapPoly* icon = &m_compass_anchors[i].m_icon;
+		C2DBitmapPoly* arrow = &m_compass_arrows[i].m_icon;
+
+		if (i >= count)
+		{
+			icon->Off();
+			arrow->Off();
+			continue;
+		}
+
+		CCompassAnchor* anchor = CZSealBody::m_compass[i];
+
+		if (anchor == NULL)
+		{
+			icon->Off();
+			arrow->Off();
+			continue;
+		}
+
+		u32 type = anchor->m_type;
+		nav_package* nav = NULL;
+
+		if (type > 8 && type < 33 && anchor->m_aiMapLoc != NULL)
+		{
+			const CAiMapLoc& at = *anchor->m_aiMapLoc;
+			nav_package package;
+			s32 dx = loc.x < at.x ? (s32)at.x - (s32)loc.x : (s32)loc.x - (s32)at.x;
+			s32 dy = loc.y < at.y ? (s32)at.y - (s32)loc.y : (s32)loc.y - (s32)at.y;
+
+			package.m_dist = dx + dy;
+			package.m_this_anchor = anchor;
+			package.m_hud_anchor = &m_compass_anchors[i];
+			package.m_hud_arrow = &m_compass_arrows[i];
+			package.m_show_arrow = false;
+			package.m_override_showme = false;
+			navpoint_vec.push_back(package);
+			nav = &navpoint_vec.back();
+		}
+
+		if (type == 0 || type > 8)
+			icon->SetTrans(g_anchor_fademax);
+		else
+			icon->SetTrans(g_anchor_trans);
+
+		icon->On();
+
+		CPnt3D d;
+		anchor->m_posW.Sub(reinterpret_cast<const CPnt3D*>(node->m_matrix.m_matrix[3]), &d);
+		d.y = 0.0f;
+
+		/* port: CPnt3D::Normalize() is void in the port; the ELF uses its result (the
+		 * length before normalising) */
+		f32 dist = sqrtf(d.z * d.z + d.x * d.x + d.y * d.y);
+		d.Normalize();
+
+		if (type != 6 && type != 7 && type != 8 && type != 2 && type != 3 && dist_reject < dist)
+		{
+			icon->Off();
+			arrow->Off();
+			continue;
+		}
+
+		d.x = -d.x;
+		d.y = -d.y;
+		d.z = -d.z;
+
+		f32 cosine = d.z * heading.z + d.x * heading.x + d.y * heading.y;
+		f32 angle = acosf(cosine);
+		CPnt3D side;
+		heading.Cross(&CPnt3D::unit_y, &side, false);
+		f32 sine = sinf(angle * (d.z * side.z + d.x * side.x + d.y * side.y < 0.0f ? -1.0f : 1.0f));
+		PNT2D p = center_pt;
+		u32 image = type > 32 ? 0 : type;
+
+		if (m_anchor_img[image] != NULL)
+		{
+			icon->SetColor(m_anchor_clr[image].x, m_anchor_clr[image].y, m_anchor_clr[image].z);
+			icon->Load(0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, m_anchor_img[image]->m_texture);
+		}
+
+		dist = fabsf(dist);
+		f32 near = dist < 150.0f ? dist * 0.006666667f : 1.0f;
+		f32 w = m_compass_anchors[i].m_width;
+		f32 h = m_compass_anchors[i].m_height;
+
+		if (near < 1.0f)
+		{
+			scalar_def = 0.8f;
+			p.y = p.y - cosine * anchor_dist_scalar_inside * near;
+			p.x = p.x + sine * anchor_dist_scalar_inside * near;
+			icon->SetCenterPos(p, w * 0.8f, h * 0.8f);
+			icon->SetTrans(icon->GetTrans() * ((1.0f - near) + base_trans));
+			arrow->Off();
+
+			if (nav != NULL)
+				nav->m_override_showme = true;
+		}
+		else
+		{
+			PNT2D centre = p;
+
+			if (arrow != NULL)
+			{
+				p.y = centre.y - anchor_dist_scalar_arrow * cosine;
+				p.x = centre.x + anchor_dist_scalar_arrow * sine;
+				scalar_def = 0.6f;
+				arrow->SetCenterPos(p, w * 0.6f, h * 0.6f);
+				arrow->Rotate_Zaxis(sine, cosine);
+				arrow->On();
+
+				if (nav != NULL)
+					nav->m_show_arrow = true;
+			}
+
+			scalar_def = 1.0f;
+			p.y = centre.y - anchor_dist_scalar_outside * cosine;
+			p.x = centre.x + anchor_dist_scalar_outside * sine;
+			icon->SetCenterPos(p, w * 1.0f, h * 1.0f);
+		}
+	}
+
+	if (navpoint_vec.size() != 0)
+	{
+		s32 best = 1000;
+		u32 nearest = 0xffffffff;
+
+		for (u32 i = 0; i < navpoint_vec.size(); i++)
+		{
+			nav_package& nav = navpoint_vec[i];
+
+			if (nav.m_dist < best)
+			{
+				nearest = i;
+				best = nav.m_dist;
+			}
+
+			if (!nav.m_override_showme)
+			{
+				nav.m_hud_anchor->m_icon.Off();
+				nav.m_hud_arrow->m_icon.Off();
+			}
+		}
+
+		if (nearest != 0xffffffff)
+		{
+			navpoint_vec[nearest].m_hud_anchor->m_icon.On();
+
+			if (navpoint_vec[nearest].m_show_arrow)
+				navpoint_vec[nearest].m_hud_arrow->m_icon.On();
+		}
+	}
 }

@@ -18,6 +18,9 @@
  * @socom-artifact defines main socom:data:0x586000
  * socom-owner-annotations end socom:work:source-segment-076 */
 
+#include "gamez/zNode/node_world.h"
+#include "gamez/zFTS/fts_state.h"
+
 /* @socom-skeleton decl include */
 #include "gamez/zCamera/zcam.h"
 #include "gamez/zFTS/zfts.h"
@@ -39,6 +42,10 @@ static CSTable MultiplayerMsgStrings;
 /* @socom-skeleton stub __ct__16CZHudMissionCamsFv */
 CZHudMissionCams::CZHudMissionCams()
 {
+	/* 0x404380 */
+	m_currentcam = NULL;
+	m_animhandle = NULL;
+	m_pause_for_frame = 0;
 }
 
 /* @socom-skeleton stub __dt__16CZHudMissionCamsFv */
@@ -49,6 +56,22 @@ CZHudMissionCams::~CZHudMissionCams()
 /* @socom-skeleton stub Init__16CZHudMissionCamsFv */
 void CZHudMissionCams::Init()
 {
+	/* 0x404170: the objective name, three description lines, the cross bitmap
+	 * (action_x.tif) and its text as children, all off */
+	push_back(&m_letterboxobjectivename);
+	m_letterboxobjectivename.Off();
+
+	for (int i = 0; i < 3; i++)
+	{
+		push_back(&m_letterboxobjectivedescription[i]);
+		m_letterboxobjectivedescription[i].Off();
+	}
+
+	m_crosstexture = zdb::CWorld::GetTexHandle("action_x.tif");
+	push_back(&m_crossbitmap);
+	m_crossbitmap.Off();
+	push_back(&m_crosstext);
+	m_crosstext.Off();
 }
 
 /* @socom-skeleton stub UnInit__16CZHudMissionCamsFv */
@@ -57,8 +80,55 @@ void CZHudMissionCams::UnInit()
 }
 
 /* @socom-skeleton stub HudTick__16CZHudMissionCamsFP4CPadf */
-void CZHudMissionCams::HudTick(CPad *, float)
+void CZHudMissionCams::HudTick(CPad *pad, float dT)
 {
+	/* 0x403f20: while a mission camera plays: SELECT or state 9 falling skips it (three
+	 * frames without a buffer swap); when the animation ends the camera is cleaned up;
+	 * otherwise, once the letterbox has settled, the texts with content come on */
+	(void)dT;
+
+	if (m_animhandle == NULL)
+		return;
+
+	CZSealBody* seal = CHUD::GetHUDOwner();
+	CSealCtrl* control = seal != NULL ? static_cast<CSealCtrl*>(seal->m_control) : NULL;
+	bool input = control != NULL && control->m_input_enabled;
+
+	if ((pad->m_state[1] == KEY_FALLING || pad->m_state[9] == KEY_FALLING) && input)
+	{
+		if (m_animhandle != NULL)
+			m_animhandle->Stop();
+
+		theGame.m_coreState.m_skip_swap = 3;
+		m_pause_for_frame = 3;
+	}
+
+	if (m_pause_for_frame >= 1)
+	{
+		m_pause_for_frame--;
+		return;
+	}
+
+	if (!m_animhandle->Running())
+	{
+		CleanupCamera(pad);
+		return;
+	}
+
+	if (!m_letterboxobjectivename.IsOn() && theHUD->m_letterbox.m_slidedir == CLetterBox::SLIDE_NONE)
+	{
+		if (m_letterboxobjectivename.GetString() != NULL)
+			m_letterboxobjectivename.On();
+
+		for (int i = 0; i < 3; i++)
+		{
+			if (m_letterboxobjectivedescription[i].GetString() != NULL)
+				m_letterboxobjectivedescription[i].On();
+		}
+
+		m_crosstext.On();
+		m_crossbitmap.On();
+	}
 }
 
 /* @socom-skeleton stub CleanupCamera__16CZHudMissionCamsFP4CPad */
@@ -67,8 +137,19 @@ void CZHudMissionCams::CleanupCamera(CPad *)
 }
 
 /* @socom-skeleton stub Draw__16CZHudMissionCamsFPQ23zdb7CCamera */
-void CZHudMissionCams::Draw(zdb::CCamera *)
+void CZHudMissionCams::Draw(zdb::CCamera *camera)
 {
+	/* 0x403c50: the texts and cross while a camera plays */
+	if (m_animhandle == NULL)
+		return;
+
+	m_letterboxobjectivename.Draw(camera);
+
+	for (int i = 0; i < 3; i++)
+		m_letterboxobjectivedescription[i].Draw(camera);
+
+	m_crosstext.Draw(camera);
+	m_crossbitmap.Draw(camera);
 }
 
 /* @socom-skeleton stub PlayCamera__16CZHudMissionCamsFPCc */
@@ -84,4 +165,6 @@ void CZHudMissionCams::PlayCamera(CMissionCam *, bool)
 /* @socom-skeleton stub IsPlaying__16CZHudMissionCamsFv */
 unsigned char CZHudMissionCams::IsPlaying()
 {
+	/* 0x403820 */
+	return m_animhandle != NULL;
 }
