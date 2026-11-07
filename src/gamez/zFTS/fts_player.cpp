@@ -104,7 +104,7 @@ public:
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub spawners */
-int spawners[8];
+CSpawners spawners; /* 0x4c5610 (32 B in the ELF; CSpawners has no members yet; was int[8]) */
 
 /* @socom-skeleton body ftsSetSquirm__Fb */
 void ftsSetSquirm(bool squirm)

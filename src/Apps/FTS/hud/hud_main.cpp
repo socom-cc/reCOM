@@ -232,6 +232,18 @@ void CHUD::Init(zdb::CWorld* world)
 /* @socom-skeleton stub PauseGame__4CHUDFv */
 unsigned char CHUD::PauseGame()
 {
+	/* 0x3ba040: the game pauses while the pause menu is on or the camera's seal has the
+	   full-screen map menu up, but never in a network game */
+	MENU_STATE state = static_cast<CSealCtrl*>(appCamera->m_entity->m_control)->GetMenuState();
+	bool pause = m_pausetest.m_on;
+
+	if (!pause)
+		pause = state == stateFullScreenMapMenu;
+
+	if (pause)
+		pause = !theNetwork.m_bNetwork;
+
+	return pause;
 }
 
 /* @socom-skeleton stub Tick__4CHUDFf */
@@ -251,13 +263,17 @@ void CHUD::Flash(float, const CPnt3D &, float, float, float)
 }
 
 /* @socom-skeleton stub PreDITick__4CHUDFf */
-void CHUD::PreDITick(float)
+void CHUD::PreDITick(float dT)
 {
+	/* 0x3b9370: tail call */
+	m_LensFlareFade.PreDITick(dT);
 }
 
 /* @socom-skeleton stub PostDITick__4CHUDFf */
-void CHUD::PostDITick(float)
+void CHUD::PostDITick(float dT)
 {
+	/* 0x3b9350: virtual tail call (vptr +12, slot 7 = CLensFlareSaturate::Tick) */
+	m_LensFlareFade.Tick(dT);
 }
 
 /* @socom-skeleton body On__4CHUDFv */

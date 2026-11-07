@@ -16,6 +16,7 @@ class CBody
 {
 	friend class CZBodyAnimBlend; /* port: SetBlendAnims 0x1dfd00 returns anims to m_active_anim_pool */
 	friend class CSealAnim; /* port: AnimPop 0x26ddc0 writes the parts' poses */
+	friend class CAppCamera; /* port: CAppCamera::Tick 0x1ea4c4 reads the seal's m_state */
 public:
 	void SmoothAnims(f32 scale);
 	/* port: provisional non-const FindPart removed; the ELF one is FindPart(const char *) const */

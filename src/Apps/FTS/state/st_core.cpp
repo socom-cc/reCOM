@@ -44,12 +44,22 @@
 #include "gamez/zVideo/zvid.h"
 #include "gamez/zNetwork/znet.h" /* theNetwork (CCoreState::Load) */
 #include "gamez/zTexture/ztex.h" /* CTexManager (CCoreState::Load) */
+#include "gamez/zAI/zai.h" /* CAiEvent::Tick (CCoreState::Init) */
+#include "gamez/zGrid/zgrid.h" /* port: boot trace of the grid (Init) */
+#include "gamez/zCamera/zcam.h" /* appCamera, CameraZoom */
+#include "gamez/zInput/zinput.h" /* CInput::Tick */
+#include "gamez/zSound/zsnd.h" /* CSnd::PostTick */
+#include "gamez/zSystem/zsys_bench.h" /* CBench frame stamps */
+#include "gamez/zWeapon/zweapon.h" /* CZWeapon::PreTick/PostTick */
+#include <eeregs.h> /* T0_COUNT, GIF_MODE */
 #include <eekernel.h> /* CreateThread, StartThread, ExitDeleteThread, ThreadParam, _gp */
 #include <stdlib.h> /* exit */
 #include <string.h> /* memset */
 
 bool testLoad(); /* database.cpp (0x173610) */
 char* GetDatabase(); /* zanim_menu.cpp (0x1d6770) */
+void recoTick(); /* reco.cpp (0x336440) */
+int recoIsRecognizing(); /* reco.cpp (0x336da0) */
 
 /* @socom-skeleton decl include */
 #include "gamez/zFTS/fts_state.h"
@@ -126,46 +136,218 @@ CCoreState::~CCoreState()
 }
 
 /* @socom-skeleton body Init__10CCoreStateFv */
+/* @socom-skeleton body Init__10CCoreStateFv */
 bool CCoreState::Init()
 {
-	CZSealBody* seal = NULL;
-
+	/* 0x17d2e0: the world's camera for the pipe and the visuals, the HUD, the scheduler
+	   tasks of a game frame (ascending priority runs first), the landmark far plane, room
+	   for 300 more world children, the two HUD texture buffers, then the mission starts */
 	m_world = zdb::CWorld::m_world;
 
+	thePipe.m_camera = m_world->m_camera;
 	zdb::CVisual::m_camera = m_world->m_camera;
-	thePipe.m_camera = zdb::CVisual::m_camera;
 
 	m_hud = new CHUD();
 	theHUD = m_hud;
 
-	if (gopt.doHud != false)
+	if (gopt.doHud)
 	{
 		m_hud->Init(m_world);
 		CameraZoom::AttachHud(m_hud);
 	}
 
-	seal = ftsGetPlayer();
-	CameraZoom::AttachSeal(seal);
+	CameraZoom::AttachSeal(ftsGetPlayer());
 	CRdrArchive::CloseAll();
-	CRdrArchive::RemoveArchive("readerm.zar", "database");
+	CRdrArchive::RemoveArchive("readerm.zar", GetDatabase());
 
 	zTaskScheduler.AddTask("UnitTick", CSealUnit::TickAll, 0.8f, NULL);
-	// zTaskScheduler.AddTask("ai_pre_tick", CSealCtrlAi::PreTick, 0.9, NULL);
+	zTaskScheduler.AddTask("ai_pre_tick", CSealCtrlAi::PreTick, 0.9f, NULL);
+	zTaskScheduler.AddTask("entity_pre_tick", CEntity::PreTickAll, 1.0f, NULL);
+	zTaskScheduler.AddTask("weapon_pre_tick", CZWeapon::PreTick, 3.0f, NULL);
+	zTaskScheduler.AddTask("CAiEventTick", CAiEvent::Tick, 4.5f, NULL);
+	zTaskScheduler.AddTask("entity_tick", CEntity::TickAll, 4.6f, NULL);
+	zTaskScheduler.AddTask("ai_direg_tick", CSealCtrlAi::PrePostTick, 4.7f, NULL);
+	zTaskScheduler.AddTask("entity_post_tick", CEntity::PostTickAll, 6.0f, NULL);
+	zTaskScheduler.AddTask("weapon_post_tick", CZWeapon::PostTick, 8.0f, NULL);
+	zTaskScheduler.AddTask("ai_route_planner", ai::TickPathPlanner, 10.5f, NULL);
+	zTaskScheduler.AddTask("ai_post_tick", CSealCtrlAi::PostTick, 10.6f, NULL);
+	zTaskScheduler.AddTask("sound_post_tick", CSnd::PostTick, 11.0f, NULL);
+
+	appCamera->m_camera->GetLandmarkFarPlane(m_world);
+	m_world->m_child.reserve(m_world->m_child.size() + 300);
+
+	reinterpret_cast<zdb::CGSTexBuffer*>(zdb::CTexManager::m_texmanager[zdb::CTexManager::TexPhase[zdb::HUDSET1][0]])->Load(true);
+	reinterpret_cast<zdb::CGSTexBuffer*>(zdb::CTexManager::m_texmanager[zdb::CTexManager::TexPhase[zdb::HUDSET2][1]])->Load(true);
 
 	theMission.OnMissionStart();
 	theMission.m_winlosstimer = -1.0f;
 
+	*GIF_MODE |= 4; /* IMT: intermittent PATH3 transfers */
 	zSysFifoEnd();
 	CVideo::MaxFrameRate(CVideo::m_defaultFrameRate);
 	zVid_Sync0();
-
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("CORE: Init done (world %p, camera %p, hud %p)", m_world, m_world->m_camera, m_hud);
+	{
+		zdb::CGrid* grid = m_world->m_grid;
+		CZSealBody* player = ftsGetPlayer();
+		CPnt3D* pos = player != NULL ? player->GetPosW() : NULL;
+		SOCOM_PORT_TRACE("CORE: %d world children, %d grid atoms in use", (int)m_world->m_child.size(), grid->m_AtomFreeCnt - 1 - grid->m_AtomFreePtr);
+		SOCOM_PORT_TRACE("CORE: player at %d %d %d; grid origin %d %d %d; extents %d %d %d %d; far %d landmark far %d",
+			pos ? (int)pos->x : 0, pos ? (int)pos->y : 0, pos ? (int)pos->z : 0,
+			(int)grid->m_origin.x, (int)grid->m_origin.y, (int)grid->m_origin.z,
+			(int)grid->m_extents.top, (int)grid->m_extents.bottom, (int)grid->m_extents.left, (int)grid->m_extents.right,
+			(int)m_world->m_camera->m_far_plane, (int)m_world->m_camera->m_landmark_far_plane);
+	}
+#endif
 	return true;
 }
 
 /* @socom-skeleton body Tick__10CCoreStateFf */
+/* @socom-skeleton body Tick__10CCoreStateFf */
+/* port: file-local helper, not an ELF function - 0x17ccd0 stamps each phase inline as
+   RCNT0 (unsigned) * zSys.timerScale into a CBench static */
+static inline f32 CoreTickBenchTime()
+{
+	return (f32)*T0_COUNT * zSys.timerScale;
+}
+
+#ifdef SOCOM_PORT
+unsigned socom_port_core_frame; /* port: boot trace - game frames run (CSched_Manager::Tick names the tasks of the first two) */
+#endif
+
 bool CCoreState::Tick(f32 dT)
 {
-	zVid_Swap(true);
+	/* 0x17ccd0: one game frame. Input, the voice recogniser and the HUD's pre-DI tick,
+	   then (unless recognising or paused) the task scheduler: units, AI, entities,
+	   weapons, the mission, DI and sound. Then the camera owner and the zoom, the VU
+	   camera matrices, the post-DI HUD tick, the DMA end and the buffer swap; the world
+	   render (the player's own body hidden in first person) and, with the HUD on, its
+	   2D phases between the texture-buffer signals. Each phase stamps a CBench time. */
+	static s32 oddeven = 0; /* oddeven$2781 / init$2782: guarded local static; holds RenderWorld's result */
+	zdb::CCamera* camera = thePipe.m_camera;
+#ifdef SOCOM_PORT
+	socom_port_core_frame++;
+	bool portTrace = socom_port_core_frame <= 3 || socom_port_core_frame % 300 == 0;
+
+	if (portTrace)
+		SOCOM_PORT_TRACE("CORE: frame %u start (camera %p, world camera %p)", socom_port_core_frame, camera, m_world->m_camera);
+#endif
+
+	CInput::Tick(dT);
+	recoTick();
+	m_hud->PreDITick(dT);
+	CBench::preTask = CoreTickBenchTime();
+
+	if (!recoIsRecognizing() && !m_hud->PauseGame())
+		zTaskScheduler.Tick(dT);
+
+	CBench::postTask = CoreTickBenchTime();
+#ifdef SOCOM_PORT
+	if (portTrace)
+		SOCOM_PORT_TRACE("CORE: frame %u tasks done", socom_port_core_frame);
+#endif
+	appCamera->Tick(dT);
+	CBench::postAppCamTick = CoreTickBenchTime();
+
+	if (OurGameName.m_game_name == nameFTS)
+		CameraZoom::Tick(dT);
+
+	camera->Update(zdb::ZCAM_NORMAL);
+	CBench::postCamUpdate = CoreTickBenchTime();
+	m_hud->PostDITick(dT);
+	CBench::inputTime = CoreTickBenchTime();
+	zSysFifoEnd();
+
+	if (m_skip_swap > 0)
+	{
+		m_skip_swap--;
+		zVid_Swap(false);
+	}
+	else
+	{
+		zVid_Swap(true);
+	}
+
+	CBench::swapTime = CoreTickBenchTime();
+
+	if (gopt.doHud)
+		m_hud->GetAssetReport();
+
+	CBench::Reset();
+
+	zdb::CNode* node = appCamera->m_entity->GetNode();
+	bool active = false;
+
+	if (appCamera->m_camera_mode == PLAYER_CAM_STATE::cam_mode_FP)
+	{
+		active = node->m_active;
+		node->SetActive(false);
+	}
+
+#ifdef SOCOM_PORT
+	if (portTrace)
+		SOCOM_PORT_TRACE("CORE: frame %u RenderWorld", socom_port_core_frame);
+#endif
+	oddeven = thePipe.RenderWorld(m_world);
+#ifdef SOCOM_PORT
+	if (portTrace)
+		{
+			extern unsigned socom_port_pipe_stats[8]; /* zrndr_pipe.cpp boot trace */
+			const unsigned* s = socom_port_pipe_stats;
+			SOCOM_PORT_TRACE("CORE: frame %u pipe: %u node atoms, %u cells (%u with a visual), %u atoms without visuals, %u region-culled, %u FOV-culled, %u RenderVisual, %u CVisual::Render",
+				socom_port_core_frame, s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7]);
+		}
+		SOCOM_PORT_TRACE("CORE: frame %u RenderWorld returned %d (nodes %u render %u visuals %u alpha %u; frustum %d; eye %d %d %d)",
+			socom_port_core_frame, oddeven, CBench::countNodes, CBench::countRenderNodes, CBench::countVisuals,
+			CBench::countAlphaNodes, camera->m_fullfrustum_points, (int)camera->m_matrix.m_matrix[3][0],
+			(int)camera->m_matrix.m_matrix[3][1], (int)camera->m_matrix.m_matrix[3][2]);
+#endif
+
+	if (appCamera->m_camera_mode == PLAYER_CAM_STATE::cam_mode_FP)
+		node->SetActive(active);
+
+	CBench::drawTime = CoreTickBenchTime();
+
+	if (gopt.doHud)
+	{
+		CHUD* hud = m_hud;
+
+		m_hud->StatusLine();
+		ftsGetPlayer(); /* the ELF discards the result */
+		zVid_ZTestOff();
+		hud->Tick(dT);
+
+		thePipe.m_assetHUDX = reinterpret_cast<zdb::CGSTexBuffer*>(zdb::CTexManager::m_texmanager[zdb::CTexManager::TexPhase[zdb::HUDSETSMALL][0]]);
+		thePipe.FIFO_Signal(thePipe.m_assetHUDX, &assetWait[zdb::HUDSETSMALL]);
+		thePipe.FIFO_Signal(thePipe.m_assetHUD1);
+		theHUD->DrawPhase(zdb::HUDSET1, camera);
+
+		thePipe.FIFO_Signal(reinterpret_cast<zdb::CGSTexBuffer*>(zdb::CTexManager::m_texmanager[zdb::CTexManager::TexPhase[zdb::WORLD][0]]), &assetWait[zdb::WORLD]);
+		thePipe.FIFO_Signal(thePipe.m_assetHUDX);
+		theHUD->DrawPhase(zdb::HUDSETSMALL, camera);
+		CBench::postHUDTick = CoreTickBenchTime();
+
+		hud->m_mapcompass.Draw(camera);
+		CBench::postCompassTick = CoreTickBenchTime();
+
+		/* port: not called - the ELF ticks (unless paused) and draws hud->m_FlashFXVector
+		   (+0x14450) here, but CHUD has no such member: CFlashFXVector is declared after
+		   CHUD in hud.h, and both its Tick 0x403120 and Draw 0x403080 are unwritten */
+		hud->m_pausetest.Draw(camera); /* virtual in the ELF (vptr +12 of m_pausetest, slot 1) */
+		zVid_ZTestOn();
+	}
+	else
+	{
+		thePipe.FIFO_Signal(reinterpret_cast<zdb::CGSTexBuffer*>(zdb::CTexManager::m_texmanager[zdb::CTexManager::TexPhase[zdb::WORLD][0]]), &assetWait[zdb::WORLD]);
+	}
+
+	CBench::twoDTime = CoreTickBenchTime();
+#ifdef SOCOM_PORT
+	if (portTrace)
+		SOCOM_PORT_TRACE("CORE: frame %u done", socom_port_core_frame);
+#endif
+	return false;
 }
 
 /* @socom-skeleton body UnInit__10CCoreStateFv */

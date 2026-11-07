@@ -104,12 +104,16 @@ namespace zdb
 #include "Apps/FTS/hud/hud.h"
 #include "gamez/zIntersect/zintersect.h"
 #include "gamez/zMath/zmath.h"
+#include <libvu0.h> /* sceVu0Normalize (CWorld ctor) */
 #include "gamez/zReader/zrdr.h"
 #include "gamez/zRender/zrender.h"
 #include "node_light.h"
 #include "node_model.h"
 #include "znode.h"
 /* @socom-skeleton end include */
+#ifdef SOCOM_PORT
+extern unsigned socom_port_node_reads[12]; /* port: node_io.cpp boot trace (DismemberWorldModel) */
+#endif
 /* @socom-skeleton decl forward */
 struct _zanim_cmd_hdr;
 namespace zdb {
@@ -158,12 +162,15 @@ void zdb::CWorld::Uninit() {}
 namespace zdb {
 CWorld::CWorld(const char* name)
 	{
+		/* 0x230030: a world is a grid node (type 6: CNode::UpdateGrid puts the children of
+		   a type-6 parent into the grid - without it no cell or node ever reached the grid,
+		   so nothing could be drawn or stood on), the current world, with a 256-hit DI ray,
+		   one default sun (normalised (0.5, -0.8, 0.5), colour 0.8, ambient 0.2), the lens
+		   colours and the shadow direction. The binary holds the CGrid by value (+0x670). */
 		m_camera = NULL;
 		m_diInt = NULL;
 		m_Wind.Reset();
-
 		m_cellData = NULL;
-
 		m_maxOverlap = 2;
 
 		m_grid = new CGrid();
@@ -173,12 +180,69 @@ CWorld::CWorld(const char* name)
 		m_scale = 10.0f;
 		m_invscale = 0.1f;
 		m_world = this;
+		m_type = 6;
 
-		m_diInt = new DiIntersect(1024);
-		m_diIntDelayCnt = 0.0f;
+		m_diInt = new DiIntersect(256);
+		m_diIntDelayCnt = 0;
 
+		sceVu0FVECTOR sun = { 0.5f, -0.8f, 0.5f, 1.0f };
+		sceVu0Normalize(sun, sun);
+		m_gLight.dir[0].x = sun[0];
+		m_gLight.dir[0].y = sun[1];
+		m_gLight.dir[0].z = sun[2];
+		m_gLight.dir[0].w = sun[3];
 		m_gLightDirUpdate = true;
+		m_gLight.dir[1].x = 0.0f;
+		m_gLight.dir[1].y = 0.0f;
+		m_gLight.dir[1].z = 0.0f;
+		m_gLight.dir[1].w = 0.0f;
+		m_gLightDirUpdate = true;
+		m_gLight.dir[2].x = 0.0f;
+		m_gLight.dir[2].y = 0.0f;
+		m_gLight.dir[2].z = 0.0f;
+		m_gLight.dir[2].w = 0.0f;
+		m_gLightDirUpdate = true;
+
+		m_gLight.col[0].x = 0.8f;
+		m_gLight.col[0].y = 0.8f;
+		m_gLight.col[0].z = 0.8f;
+		m_gLight.col[0].w = 1.0f;
 		m_gLightColUpdate = true;
+		m_gLight.col[1].x = 0.0f;
+		m_gLight.col[1].y = 0.0f;
+		m_gLight.col[1].z = 0.0f;
+		m_gLight.col[1].w = 1.0f;
+		m_gLightColUpdate = true;
+		m_gLight.col[2].x = 0.0f;
+		m_gLight.col[2].y = 0.0f;
+		m_gLight.col[2].z = 0.0f;
+		m_gLight.col[2].w = 1.0f;
+		m_gLightColUpdate = true;
+		m_gLight.ambient.x = 0.2f;
+		m_gLight.ambient.y = 0.2f;
+		m_gLight.ambient.z = 0.2f;
+		m_gLight.ambient.w = 1.0f;
+		m_gLightColUpdate = true;
+
+		m_night_mission = false;
+		m_lensfx_nvg.x = 0.2f;
+		m_lensfx_nvg.y = 0.9f;
+		m_lensfx_nvg.z = 0.2f;
+		m_lensfx_starlightscope.x = 0.3f;
+		m_lensfx_starlightscope.y = 0.5f;
+		m_lensfx_starlightscope.z = 0.95f;
+
+		/* port: not written - the four 256x256 shadow textures "ShadowX_%d" (new CTexture,
+		   CTexture::LoadGS at zVid+0x48 | 0x80000000, 0x2303c8-0x230448); the shadow maps
+		   (CRenderMap) are unwritten and LoadGS 0x2f9510 is a stub */
+		for (s32 i = 0; i < 4; i++)
+			m_shadowTex[i] = NULL;
+
+		m_shadowTexH = NULL;
+		m_shadow_vector.x = 1.0f;
+		m_shadow_vector.y = -1.0f;
+		m_shadow_vector.z = 1.0f;
+		m_shadow_vector.Normalize();
 
 		m_default_soiltype = 0;
 		m_default_soiltype_name = NULL;
@@ -258,7 +322,7 @@ void CWorld::GarbageCollect()
 namespace zdb {
 void CWorld::ReserveChildren(s32 count)
 	{
-		m_child.reserve(count + m_child.capacity());
+		m_child.reserve(count + m_child.size()); /* 0x22f920: size (+0x6c), not capacity */
 	}
 }
 
@@ -266,42 +330,41 @@ void CWorld::ReserveChildren(s32 count)
 namespace zdb {
 void CWorld::AddChild(CNode* child)
 	{
-		CWorld* parent = static_cast<CWorld*>(child->m_parent);
+		/* 0x22f6f0: leave the old parent, enter the grid, append to the children; a
+		   type-2 node that casts a shadow or reflects gets a render map; a character-common
+		   node goes dynamic, is marked a character and joins the common character texture
+		   set. Was: no grid insert (cells never reached the grid), inserted at the front. */
+		CNode* parent = child->m_parent;
 
-		if (parent != this)
+		if (parent == this)
+			return;
+
+		if (parent != NULL && parent != this)
+			parent->DeleteChild(child);
+
+		m_grid->Insert(child);
+		child->m_parent = this;
+
+		if (m_child.size() == m_child.capacity())
+			m_child.reserve(m_child.size() + 100);
+
+		m_child.push_back(child);
+
+		CNode* mapped = child->m_type == 2 ? child : NULL;
+
+		if (mapped != NULL)
 		{
-			CNode* node = child;
+			/* port: not written - the render maps (0x22f7c8-0x22f894): m_shadow -> new
+			   CRenderMap(node, shadow, m_shadowTex[m_shadows.size()]), m_reflective -> a
+			   reflection map, each appended to m_shadows. CRenderMap's constructor is a
+			   stub and the shadow textures are not created. */
+		}
 
-			if (parent != NULL && parent != this)
-			{
-				parent->DeleteChild(node);
-			}
-
-			// m_grid->Insert(node);
-
-			node->m_parent = static_cast<CNode*>(this);
-
-			if (m_child.capacity() == m_child.size())
-			{
-				m_child.reserve(m_child.capacity() + 100);
-			}
-
-			m_child.insert(m_child.begin(), node);
-
-			CNode* temp = node;
-			if (node->m_type != 2)
-			{
-				temp = NULL;
-			}
-
-			if (temp != NULL)
-			{
-
-			}
-
-			// TODO:
-			// Finish the part of this function that inserts "render maps", so the world can
-			// dispatch them to the zRenderer.
+		if (child->m_char_common)
+		{
+			child->SetDynamic(true, true);
+			child->m_character = true;
+			m_world->AddTextureAssetCharacter(CAssetMgr::m_assets.FindLib(CHARSETCOMMON), child);
 		}
 	}
 }
@@ -458,8 +521,19 @@ zdb::DiIntersect * zdb::CWorld::GetIntersects(const CPnt3D *, const CPnt3D *)
 }
 
 /* @socom-skeleton stub GetAltitude__Q23zdb6CWorldFPC6CPnt3Df */
-zdb::IntersectStruct * zdb::CWorld::GetAltitude(const CPnt3D *, float)
+zdb::IntersectStruct * zdb::CWorld::GetAltitude(const CPnt3D *pos, float height)
 {
+	/* 0x22ea80: a vertical probe through pos's x/z with the world's DI ray; the highest
+	   hit no more than `height` above pos (NULL if none) */
+	m_diInt->m_Tail.x = pos->x;
+	m_diInt->m_Tail.y = 0.0f;
+	m_diInt->m_Tail.z = pos->z;
+	m_grid->GetAltitude(m_diInt);
+
+	if (m_diInt->m_Cnt == 0)
+		return NULL;
+
+	return m_diInt->GetHighestAltitude(pos, height);
 }
 
 /* @socom-skeleton stub GetAltitudes__Q23zdb6CWorldFPC6CPnt3Df */
@@ -485,6 +559,11 @@ void zdb::CWorld::InitDescendantsVisuals()
 /* @socom-skeleton stub diTick__Q23zdb6CWorldFfPv */
 bool zdb::CWorld::diTick(float, void *)
 {
+	/* 0x22e9c0 (task diTick 5.0, CMission::Open): run the intersections queued this frame
+	   as one grid batch */
+	m_world->m_grid->GetIntersectBatch(m_world->m_diIntDelay, m_world->m_diIntDelayCnt);
+	m_world->m_diIntDelayCnt = 0;
+	return false;
 }
 
 /* @socom-skeleton stub RegIntersectDelayed__Q23zdb6CWorldFPQ23zdb11DiIntersectPC6CPnt3DPC6CPnt3D */
@@ -516,26 +595,37 @@ void zdb::CWorld::Segregate_CCells(zdb::CNode *, zdb::CNodeVector &, zdb::CNodeV
 namespace zdb {
 bool CWorld::DismemberWorldModel()
 	{
+		/* 0x22e640 (LoadWorld): the "worldmodel" model's children become world children,
+		   appended, each entering the grid (was: front insert, no grid update - the
+		   world geometry never reached the grid) */
 		CModel* worldmodel = CAssetMgr::m_assets.GetModel("worldmodel");
+#ifdef SOCOM_PORT
+		{
+			const unsigned* r = socom_port_node_reads;
+			SOCOM_PORT_TRACE("WORLD: worldmodel %p (%d children); world has %d children; nodes read by type 0-9: %u %u %u %u %u %u %u %u %u %u, instances %u, version-0 %u",
+				worldmodel, worldmodel != NULL ? (int)worldmodel->m_child.size() : -1, (int)m_child.size(),
+				r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10], r[11]);
+		}
+#endif
 
 		if (!worldmodel)
-		{
 			return false;
-		}
 
-		// ReserveChildren(worldmodel->m_reflist.size());
+		ReserveChildren(worldmodel->m_child.size());
 
-		auto it = worldmodel->m_child.begin();
-
-		while (it != worldmodel->m_child.end())
+		for (CNodeVector::iterator it = worldmodel->m_child.begin(); it != worldmodel->m_child.end(); ++it)
 		{
 			CNode* child = *it;
-			m_child.insert(m_child.begin(), child);
+			m_child.push_back(child);
 			child->m_parent = this;
-			// m_grid->Update();
-			++it;
+			m_grid->Update(child);
 		}
 
+		worldmodel->m_child.clear();
+
+		/* port: not done - the ELF then deletes the emptied model (virtual deleting
+		   destructor, 0x22e720); ~CModel/~CNode are unwritten here and the model is still
+		   listed in its asset library, so it is kept */
 		return true;
 	}
 }

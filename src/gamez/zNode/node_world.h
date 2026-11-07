@@ -67,7 +67,7 @@ namespace zdb
 		char* m_default_soiltype_name;
 
 		DiIntersect* m_diInt;
-		DiIntersect* m_diIntDelay;
+		DiIntersect* m_diIntDelay[256]; /* DWARF +0xd0 array [0..255] (was one pointer); diTick batches them */
 		s32 m_diIntDelayCnt;
 
 		CWind m_Wind;

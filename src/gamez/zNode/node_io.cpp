@@ -34,6 +34,8 @@ namespace zdb
 /* @socom-skeleton decl include */
 #include "gamez/zMath/zmath.h"
 #include "node_assetlib.h"
+#include <libvu0.h> /* sceVu0UnitMatrix, sceVu0CopyMatrix (Read, CreateInstance) */
+#include <string.h> /* memcpy (ReadCopyNodeFlags) */
 /* @socom-skeleton end include */
 
 /* @socom-skeleton stub _Write__Q23zdb6CLightFRQ23zdb9CSaveLoad */
@@ -95,121 +97,120 @@ bool CModel::Read(CSaveLoad& sload)
 }
 
 /* @socom-skeleton body Read__Q23zdb5CNodeFRQ23zdb9CSaveLoadPQ23zdb5CNode */
+/* @socom-skeleton body Read__Q23zdb5CNodeFRQ23zdb9CSaveLoadPQ23zdb5CNode */
+/* port: file-local helper, not an ELF function - 0x223e40 / 0x223618 copy the node-params
+   flag word (+0x5c, the 32 bitfields after m_type) as one word */
+static inline void ReadCopyNodeFlags(zdb::tag_NODE_PARAMS* dst, const zdb::tag_NODE_PARAMS* src)
+{
+	memcpy(reinterpret_cast<char*>(&dst->m_type) + sizeof(dst->m_type),
+		reinterpret_cast<const char*>(&src->m_type) + sizeof(src->m_type), sizeof(u32));
+}
+
+#ifdef SOCOM_PORT
+unsigned socom_port_node_reads[12]; /* port: boot trace - nodes read by type 0..9, [10] instances made, [11] version-0 nodes */
+#endif
+
 namespace zdb {
 CNode* CNode::Read(CSaveLoad& sload, CNode* parent)
 	{
-		tag_NODE_PARAMS nparams;
-		CNode* node = NULL;
+		/* 0x223c30: a node without a "NodeType" key (version 1) carries its params: types
+		   1/5 make a CNode, 8 a CLight, 9 a CLensFlare - each takes the params and reads
+		   its data, then joins `parent` - and type 2 is an instance of a model (it joins
+		   `parent`, or the world without one). A node with "NodeType" (version 0) is a
+		   plain CNode that reads itself. Was inverted (a found "NodeType" took the params
+		   path), and the params were copied from the new node instead of to it. ELF quirk
+		   kept: an instance is not returned (NULL). */
 		u32 nodetype = 0;
 		u32 regionmask = 0;
+		CNode* node = NULL;
+		bool instance = false;
 
-		bool isChild = false;
-
-		if (sload.m_zfile.Fetch("NodeType", &nodetype))
+		if (!sload.m_zfile.Fetch("NodeType", (s32*)&nodetype))
 		{
 			sload.m_version = 1;
 
-			nparams.m_matrix = CMatrix::identity;
+			tag_NODE_PARAMS nparams;
+			sceVu0UnitMatrix(nparams.m_matrix.m_matrix);
+			nparams.m_facade = 0;
 			InitNodeParams(&nparams, NULL);
-
 			sload.m_zfile.Fetch("nparams", &nparams, sizeof(tag_NODE_PARAMS));
-			sload.m_zfile.Fetch("regionmask", &regionmask);
+			sload.m_zfile.Fetch("regionmask", &regionmask, sizeof(u32));
 
-			switch ((CNode::TYPE)nparams.m_type)
+#ifdef SOCOM_PORT
+			socom_port_node_reads[nparams.m_type < 10 ? nparams.m_type : 0]++;
+#endif
+			switch (nparams.m_type)
 			{
-			case TYPE::INSTANCE:
-				isChild = true;
-				break;
-			case TYPE::GENERIC:
-			case TYPE::UNK5:
-				node = new CNode();
-				break;
-			case TYPE::LIGHT:
-				node = new CLight();
-				break;
-			case TYPE::LENSFLARE:
+			case 9:
 				node = new CLensFlare();
 				break;
+			case 8:
+				node = new CLight();
+				break;
+			case 1:
+			case 5:
+				node = new CNode();
+				break;
+			case 2:
+				instance = true;
+				break;
 			}
 
-			if (isChild)
+			if (instance)
 			{
-				CNode* instance = CreateInstance(sload);
+				CNode* inst = CreateInstance(sload);
 
-				if (instance)
-				{
-					if (!node)
-					{
-						CWorld::m_world->AddChild(instance);
-					}
-					else
-					{
-						parent->AddChild(instance);
-					}
-				}
+				if (inst == NULL)
+					return node;
+#ifdef SOCOM_PORT
+				socom_port_node_reads[10]++;
+#endif
+
+				if (parent != NULL)
+					parent->AddChild(inst);
+				else
+					CWorld::m_world->AddChild(inst);
+
+				return node;
 			}
-			else if (node)
-			{
-				nparams.m_matrix = node->m_matrix;
-				nparams.m_bbox.m_min = node->m_bbox.m_min;
-				nparams.m_bbox.m_max = node->m_bbox.m_max;
-				nparams.m_type = node->m_type;
-				nparams.m_active = node->m_active;
-				nparams.m_dynamic_motion = node->m_dynamic_motion;
-				nparams.m_dynamic_light = node->m_dynamic_light;
-				nparams.m_landmark = node->m_landmark;
-				nparams.m_light = node->m_light;
-				nparams.m_prelight = node->m_prelight;
-				nparams.m_fog = node->m_fog;
-				nparams.m_transparent = node->m_transparent;
-				nparams.m_facade = node->m_facade;
-				nparams.m_reflective = node->m_reflective;
-				nparams.m_bumpmap = node->m_bumpmap;
-				nparams.m_hasDI = node->m_hasDI;
-				nparams.m_region_shift = node->m_region_shift;
-				nparams.m_has_visuals_prior_to_export = node->m_has_visuals_prior_to_export;
-				nparams.m_shadow = node->m_shadow;
-				nparams.m_worldchild = node->m_worldchild;
-				nparams.m_char_common = node->m_char_common;
-				nparams.m_NOTUSED = node->m_NOTUSED;
-				nparams.m_hasVisuals = node->m_hasVisuals;
-				nparams.m_hasMesh = node->m_hasMesh;
-				nparams.m_scrolling_texture = node->m_scrolling_texture;
-				nparams.m_light_dynamic = node->m_light_dynamic;
-				nparams.m_light_static = node->m_light_static;
-				nparams.m_clutter = node->m_clutter;
-				nparams.m_mtx_is_identity = node->m_mtx_is_identity;
-				nparams.m_use_parent_bbox = node->m_use_parent_bbox;
-				nparams.m_apply_clip = node->m_apply_clip;
-				node->m_region_mask = regionmask;
 
-				if (!node->Read(sload))
-				{
-					if (node)
-						delete node;
-					
-					node = NULL;
-				}
-				else if (parent)
+			if (node == NULL)
+				return NULL;
+
+			sceVu0CopyMatrix(node->m_matrix.m_matrix, nparams.m_matrix.m_matrix);
+			node->m_bbox.m_min = nparams.m_bbox.m_min;
+			node->m_bbox.m_max = nparams.m_bbox.m_max;
+			node->m_type = nparams.m_type;
+			ReadCopyNodeFlags(node, &nparams);
+			node->m_region_mask = regionmask;
+
+			if (node->Read(sload))
+			{
+				if (parent != NULL)
 					parent->AddChild(node);
 			}
-		}
-		else
-		{
-			sload.m_version = 0;
+			else
+			{
+				delete node;
+				node = NULL;
+			}
 
-			zar::CKey* key = sload.m_zfile.GetOpenKey();
-			sload.m_zfile.OpenKey(key);
-			sload.m_zfile.Fetch("NodeType", &nodetype);
-
-			node = new CNode();
-
-			if (node->Read(sload) && parent)
-				parent->AddChild(node);
-
-			sload.m_zfile.CloseKey(key);
+			return node;
 		}
 
+		sload.m_version = 0;
+#ifdef SOCOM_PORT
+		socom_port_node_reads[11]++;
+#endif
+		zar::CKey* key = sload.m_zfile.GetOpenKey();
+		sload.m_zfile.OpenKey(key);
+		sload.m_zfile.Fetch("NodeType", (s32*)&nodetype);
+		node = new CNode();
+
+		if (node != NULL && node->Read(sload) && parent != NULL)
+			parent->AddChild(node);
+
+		sload.m_zfile.CloseKey(key);
 		return node;
 	}
 }
@@ -364,48 +365,52 @@ bool CNode::Read(CSaveLoad& sload)
 }
 
 /* @socom-skeleton body CreateInstance__Q23zdb5CNodeFRQ23zdb9CSaveLoad */
+/* @socom-skeleton body CreateInstance__Q23zdb5CNodeFRQ23zdb9CSaveLoad */
 namespace zdb {
 CNode* CNode::CreateInstance(CSaveLoad& sload)
 	{
+		/* 0x2234c0: an instance node of the named model, with the stored matrix, bbox,
+		   flags and region mask, typed 2 (instance), then its own visuals/DI data. Was:
+		   no flags or region mask, the read type kept, and the name freed only when NULL. */
 		tag_NODE_PARAMS nparams;
-		CNode* node = NULL;
-		char* modelname = NULL;
 		u32 regionmask = 0;
+		char* modelname = NULL;
+		CWorld* world = CWorld::m_world;
 
-		if (!CWorld::m_world)
-			return NULL;
+		sceVu0UnitMatrix(nparams.m_matrix.m_matrix);
+		nparams.m_facade = 0;
 
-		if (!&sload.m_zfile)
+		if (world == NULL)
 			return NULL;
 
 		InitNodeParams(&nparams, NULL);
 
-		nparams.m_matrix = CMatrix::identity;
-
 		sload.m_zfile.Fetch("model_name", &modelname);
 		sload.m_zfile.Fetch("nparams", &nparams, sizeof(tag_NODE_PARAMS));
-		sload.m_zfile.Fetch("regionmask", &regionmask);
+		sload.m_zfile.Fetch("regionmask", &regionmask, sizeof(u32));
 
-		if (!modelname)
+		if (modelname == NULL)
 			return NULL;
 
 		CModel* model = CWorld::GetModel(modelname);
 
-		if (!model)
-			return NULL;
-
-		if (!modelname)
+		if (modelname != NULL)
 			zfree(modelname);
 
 		modelname = NULL;
 
-		node = CreateInstance(model, NULL, NULL);
-		node->m_matrix = nparams.m_matrix;
+		if (model == NULL)
+			return NULL;
+
+		CNode* node = CreateInstance(model, NULL, NULL);
+		sceVu0CopyMatrix(node->m_matrix.m_matrix, nparams.m_matrix.m_matrix);
 		node->m_bbox.m_min = nparams.m_bbox.m_min;
 		node->m_bbox.m_max = nparams.m_bbox.m_max;
 		node->m_type = nparams.m_type;
+		ReadCopyNodeFlags(node, &nparams);
+		node->m_region_mask = regionmask;
+		node->m_type = 2;
 		node->ReadDataBegin(sload);
-
 		return node;
 	}
 }

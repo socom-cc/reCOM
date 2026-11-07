@@ -182,7 +182,7 @@ enum class SEAL_STATE
 
 enum class SEAL_PEEK
 {
-	PEEK_LEFT,
+	PEEK_LEFT = -1, /* DWARF element_list: LEFT -1, UP 0, RIGHT 1, NONE 2 (was 0..3) */
 	PEEK_UP,
 	PEEK_RIGHT,
 	PEEK_NONE
@@ -1459,6 +1459,7 @@ class CSealUnit
 {
 public:
 	static bool TickAll(f32 dT, void* buf);
+	CSealUnit* m_parent; /* DWARF +0x3c (the other members are not declared yet) */
 	/* @socom-skeleton decl 9CSealUnit */
 public:
 	virtual void IssueCommand(CZSealBody *, FT_COMMAND, void *, bool);
@@ -1499,7 +1500,7 @@ public:
 	void GetMyPointOutAnimStart(CZSealBody *);
 	void CheckPathProximity(const CAiPath &, int, float) const;
 	static unsigned char m_created_units_test;
-	static int m_list[3];
+	static std::list<CSealUnit*> m_list; /* 0x5097b0, MSL list (was int[3]); TickAll walks it */
 	/* @socom-skeleton end 9CSealUnit */
 };
 

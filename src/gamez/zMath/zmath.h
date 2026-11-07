@@ -199,7 +199,7 @@ public:
 
 	void Normalize();
 	void Normalize(CPnt3D* other);
-	void Add(CPnt3D* other, CPnt3D* out);
+	/* port: the non-const Add(CPnt3D*, CPnt3D*) was removed (never defined); the ELF has only Add__6CPnt3DCFPC6CPnt3DP6CPnt3D (below) */
 	/* port: Sub(CPnt3D*, CPnt3D*) is not declared: the ELF has only Sub__6CPnt3DCFPC6CPnt3DP6CPnt3D (below) */
 	/* port: the non-const Scale(f32, CPnt3D*) was removed; the ELF has only Scale__6CPnt3DCFfP6CPnt3D (below) */
 	/* Cross__6CPnt3DCFPC6CPnt3DP6CPnt3Db (inline, 0x201650): w = 1 copies, sceVu0OuterProduct,

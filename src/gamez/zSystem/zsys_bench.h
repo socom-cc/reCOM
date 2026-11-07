@@ -5,7 +5,20 @@
 class CBench
 {
 public:
-	void Reset();
+	static void Reset(); /* 0x2f3730 uses no object: CCoreState::Tick calls it with a stale a0 */
+
+	/* frame timing stamps, RCNT0 * zSys.timerScale (CCoreState::Tick 0x17ccd0) */
+	static f32 preTask;
+	static f32 postTask;
+	static f32 inputTime;
+	static f32 postCamUpdate;
+	static f32 postAppCamTick;
+	static f32 postCompassTick;
+	static f32 postHUDTick;
+	static f32 swapTime;
+	static f32 drawTime;
+	static f32 twoDTime;
+	static f32 dmaTime;
 
 	static u32 countNodes;
 	static u32 countRenderNodes;

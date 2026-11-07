@@ -216,7 +216,7 @@ public:
 	void RefreshAwareCounters();
 	static void UpdateTargetList(bool);
 	static const int invalidId;
-	static int m_recycle[3];
+	static std::list<CEntity*> m_recycle; /* 0x4bc440, 12 B MSL list (was int[3]); PreTickAll recycles its front */
 	static std::list<CEntity*> m_target_add; /* MSL lists (SetIncludeInTargetList 0x1f0b60) */
 	static std::list<CEntity*> m_target_inc;
 	static std::list<CEntity*> m_target_rem;

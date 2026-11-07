@@ -122,7 +122,7 @@ unsigned char CSealUnit::m_created_units_test;
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub m_list__9CSealUnit */
-int CSealUnit::m_list[3];
+std::list<CSealUnit*> CSealUnit::m_list;
 
 /* @socom-skeleton stub Create__9CSealUnitFUi */
 CSealUnit * CSealUnit::Create(unsigned int)
@@ -326,6 +326,17 @@ void CSealUnit::Tick(float, void *)
 /* @socom-skeleton body TickAll__9CSealUnitFfPv */
 bool CSealUnit::TickAll(f32 dT, void* buf)
 {
+	/* 0x2cf740 (task UnitTick 0.8): until the units are created the task is done; else
+	   tick every top-level unit (no parent) */
+	if (!m_created_units_test)
+		return true;
+
+	for (std::list<CSealUnit*>::iterator it = m_list.begin(); it != m_list.end(); ++it)
+	{
+		if ((*it)->m_parent == NULL)
+			(*it)->Tick(dT, buf);
+	}
+
 	return false;
 }
 

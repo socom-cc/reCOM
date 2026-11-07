@@ -308,7 +308,7 @@ public:
 		static void Uninit();
 		static void Clear(bool);
 		static void InTexfxpool(zdb::CVisual *);
-		void Tick(float);
+		static void Tick(float); /* static: 0x314010 walks m_texfxpool */
 		void ScrollTexture(float);
 		static int m_texfxfreepool;
 		static int m_texfxpool[3];

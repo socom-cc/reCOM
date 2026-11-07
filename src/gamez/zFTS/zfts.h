@@ -282,7 +282,7 @@ public:
 	static void RemoteBombPostUpdateCallback(int, int, int);
 	static void RemoteBombDeletionCallback(int, int);
 	static int CreateLocalBomb();
-	void UpdateLocalBomb();
+	static void UpdateLocalBomb(); /* static: CZWeapon::PreTick 0x31e5b4 passes no object */
 	static void RequestNewBombState(int, CZBombState::EnumBombState, const CPnt3D *);
 	static void HandleBombStateRequest(int, unsigned char, CPnt3D *);
 	static void ChangeBombState();
@@ -350,6 +350,7 @@ public:
 	void Clear();
 };
 /* @socom-skeleton end 9CSpawners */
+extern CSpawners spawners; /* fts_player.cpp; CMission::Tick ticks it */
 /* @socom-skeleton decl 11CZGameState */
 class CZGameState
 {

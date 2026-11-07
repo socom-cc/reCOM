@@ -536,7 +536,7 @@ CZSealBody::CZSealBody(zdb::CNode* node, CCharacterType* chartype) : CEntity(ENT
 	m_MaxFollowerDistance = 0;
 	m_MaxFollowerDistanceNext = 0;
 	m_desiredState = SEAL_STATE::stateStand;
-	m_desiredPeek = (SEAL_PEEK)2; /* 0x2578d0 stores 2 */
+	m_desiredPeek = SEAL_PEEK::PEEK_NONE; /* 0x2578d0 stores 2 */
 	m_recoilParam = 0.0f;
 	m_select = NULL;
 	m_last_altitude.m_poly = NULL;

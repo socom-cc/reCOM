@@ -7,6 +7,11 @@ namespace zwep {
 u32 personMaterialId = 0xffffffff;
 }
 
+/* port: no stage-4 owner - m_weaponTickDisabled 0x476688 and m_pProjectilelist 0x47667c
+   (.sbss; the weapon pre/post-tick tasks read them) */
+bool CZWeapon::m_weaponTickDisabled;
+CZProjectileList* CZWeapon::m_pProjectilelist;
+
 /* @socom-skeleton body m_timer_bTimerRegistered__8CZWeapon */
 /* held from src/gamez/zWeapon/zwep_global.cpp:8 */
 bool CZWeapon::m_timer_bTimerRegistered = false;

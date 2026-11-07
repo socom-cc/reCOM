@@ -77,7 +77,7 @@ static int recycler[3];
 CEntityList CEntity::m_list; /* every created entity; MSL list (+0 is its size) */
 
 /* @socom-skeleton stub m_recycle__7CEntity */
-int CEntity::m_recycle[3];
+std::list<CEntity*> CEntity::m_recycle;
 
 /* @socom-skeleton body OpenRecycler__7CEntityFUi */
 void CEntity::OpenRecycler(u32 index)
@@ -151,18 +151,65 @@ void CEntity::RemoveAll()
 }
 
 /* @socom-skeleton stub PreTickAll__7CEntityFfPv */
-bool CEntity::PreTickAll(float, void *)
+bool CEntity::PreTickAll(float dT, void *)
 {
+	/* 0x1eeef0 (task entity_pre_tick 1.0): recycle one pending entity, refresh the
+	   target lists, then every entity's PreTick */
+	if (!m_recycle.empty())
+		DoRecycleEntity(m_recycle.front());
+
+	UpdateTargetList(false);
+
+	for (CEntityList::iterator it = m_list.begin(); it != m_list.end(); ++it)
+		(*it)->PreTick(dT);
+
+	return false;
 }
 
 /* @socom-skeleton stub TickAll__7CEntityFfPv */
-bool CEntity::TickAll(float, void *)
+bool CEntity::TickAll(float dT, void *)
 {
+	/* 0x1eedb0 (task entity_tick 4.6): every entity's Tick. ELF quirk kept: PostPreTick
+	   runs once per frame, on the first entity of the list only. */
+	bool first = false;
+
+	for (CEntityList::iterator it = m_list.begin(); it != m_list.end(); ++it)
+	{
+		CEntity* entity = *it;
+
+		if (!first)
+		{
+			entity->PostPreTick(dT);
+			first = true;
+		}
+
+		entity->Tick(dT);
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub PostTickAll__7CEntityFfPv */
-bool CEntity::PostTickAll(float, void *)
+bool CEntity::PostTickAll(float dT, void *)
 {
+	/* 0x1eec70 (task entity_post_tick 6.0): every entity's PostTick. ELF quirk kept:
+	   PrePostTick runs once per frame, on the first entity of the list only. */
+	bool first = false;
+
+	for (CEntityList::iterator it = m_list.begin(); it != m_list.end(); ++it)
+	{
+		CEntity* entity = *it;
+
+		if (!first)
+		{
+			entity->PrePostTick(dT);
+			first = true;
+		}
+
+		entity->PostTick(dT);
+	}
+
+	return false;
 }
 
 /* @socom-skeleton body GetEntityIndex__7CEntityFPC7CEntity */

@@ -211,16 +211,26 @@ bool CSealCtrlAi::PreTick(float, void *)
 	static int active_limit;
 	/* @socom-skeleton stub debug_snoozer$2490 */
 	static int debug_snoozer;
+
+	/* port: stub - AI behaviour (0x2b3880, 1464 B: snoozer radii, active limit, per-AI
+	   pre-ticks) is not written; the ELF task ends returning false (keep the task) */
+	return false;
 }
 
 /* @socom-skeleton stub PrePostTick__11CSealCtrlAiFfPv */
 bool CSealCtrlAi::PrePostTick(float, void *)
 {
+	/* port: stub - AI DI registration (0x2b3600, 640 B) is not written; the ELF task
+	   returns false (keep the task) */
+	return false;
 }
 
 /* @socom-skeleton stub PostTick__11CSealCtrlAiFfPv */
 bool CSealCtrlAi::PostTick(float, void *)
 {
+	/* port: stub - AI post-tick (0x2b33b0, 532 B) is not written; the ELF task returns
+	   false (keep the task) */
+	return false;
 }
 
 /* @socom-skeleton stub CleanupDiPool__FP10CZSealBody */

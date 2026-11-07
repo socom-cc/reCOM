@@ -39,6 +39,9 @@
 #include "gamez/zMath/zmath.h"
 #include "gamez/zNode/znode.h"
 #include "zgrid.h"
+#include "gamez/zMath/zmath_vu.h" /* Vu0MatrixInverseWithUniformScale (NodeGetAltitude) */
+#include "gamez/zRender/zrender.h" /* CStack */
+#include <libvu0.h> /* sceVu0CopyMatrix, sceVu0UnitMatrix */
 /* @socom-skeleton end include */
 
 /* @socom-skeleton stub m_BBoxHitNodes__Q23zdb5CGrid */
@@ -57,7 +60,12 @@ unsigned char CGrid::m_doAltitude = 1;
 }
 
 /* @socom-skeleton stub m_node */
-int m_node;
+zdb::CNode* m_node; /* the node the grid DI walk is in (was int) */
+
+/* port: no stage-4 owner - CDI::m_backface_mask 0x474e68 (.sdata, 32) */
+namespace zdb {
+u32 CDI::m_backface_mask = 32;
+}
 
 /* @socom-skeleton stub stack */
 static CStack stack; /* 1-byte LOCAL object: CStack has only static data */
@@ -110,13 +118,60 @@ zdb::IntersectStruct * zdb::DiIntersect::GetNearestIntersect()
 }
 
 /* @socom-skeleton stub GetHighestAltitude__Q23zdb11DiIntersectFPC6CPnt3Df */
-zdb::IntersectStruct * zdb::DiIntersect::GetHighestAltitude(const CPnt3D *, float)
+zdb::IntersectStruct * zdb::DiIntersect::GetHighestAltitude(const CPnt3D *pos, float height)
 {
+	/* 0x214580: of the hits at most `height` above pos, the highest (NULL if none) */
+	IntersectStruct* best = NULL;
+
+	if (m_Cnt <= 0)
+		return NULL;
+
+	f32 top = pos->y + height;
+
+	for (int i = 0; i < m_Cnt; i++)
+	{
+		IntersectStruct* hit = &m_Intersects[i];
+
+		if (hit->m_pos.y <= top && (best == NULL || !(hit->m_pos.y <= best->m_pos.y)))
+			best = hit;
+	}
+
+	return best;
 }
 
 /* @socom-skeleton stub GetAltitude__Q23zdb5CGridFPQ23zdb11DiIntersect */
-void zdb::CGrid::GetAltitude(zdb::DiIntersect *)
+bool zdb::CGrid::GetAltitude(zdb::DiIntersect *di)
 {
+	/* 0x2143b0: a vertical ray from y +500000 to -500000 through the tail's x/z, every
+	   grid atom under it (identity on the matrix stack) through NodeGetAltitude */
+	if (!m_doAltitude)
+		return false;
+
+	di->m_Cnt = 0;
+	di->m_Tail.y = 500000.0f;
+	di->m_Tip.x = di->m_Tail.x;
+	di->m_Tip.y = -500000.0f;
+	di->m_Tip.z = di->m_Tail.z;
+	CDI::m_backface_mask = 32;
+
+	CStack::m_top++;
+	CStack::m_pointer++;
+	sceVu0CopyMatrix(CStack::m_top->m_matrix, const_cast<CMatrix&>(CMatrix::identity).m_matrix);
+
+	SetTraversalBoundary(&di->m_Tail, 1, false);
+
+	for (CGridAtom* atom = StartTraversal(); atom != NULL; atom = GetNextAtom())
+	{
+		/* port: not written - a cell atom first walks its clutter (0x214484-0x214504:
+		   each CClutter's matrix pushed, NodeGetAltitude of the clutter's node); the port
+		   never fills CClutterList and CClutter::GetMatrix 0x218df0 is unwritten */
+		::m_node = atom->Ent;
+		NodeGetAltitude(atom->Ent, di);
+	}
+
+	CStack::m_pointer--;
+	CStack::m_top--;
+	return true;
 }
 
 /* @socom-skeleton stub GetIntersect__Q23zdb5CGridFPQ23zdb11DiIntersect */
@@ -150,6 +205,81 @@ void zdb::CGrid::NodeGetIntersect(zdb::CNode *, zdb::DiIntersect *)
 }
 
 /* @socom-skeleton stub NodeGetAltitude__Q23zdb5CGridFPQ23zdb5CNodePQ23zdb11DiIntersect */
-void zdb::CGrid::NodeGetAltitude(zdb::CNode *, zdb::DiIntersect *)
+void zdb::CGrid::NodeGetAltitude(zdb::CNode *node, zdb::DiIntersect *di)
 {
+	/* 0x211070: an active node with DI (not the ray's own node, and no character unless
+	   the ray takes them) is pushed on the matrix stack; the ray goes into its space; when
+	   it can cross the node's bbox (always with m_use_parent_bbox) the node's floor DIs
+	   (type bit 0) are tested until one hits, the hit back in world space; then the
+	   children, unless the bbox rejected the ray */
+	if (node == NULL || !node->m_active || !node->m_hasDI)
+		return;
+
+	if (node == di->m_Node)
+		return;
+
+	if (!di->m_AltitudeCharacters && ::m_node->m_character) /* the walk's current atom node, not `node` */
+		return;
+
+	stack.Multiply(&node->m_matrix, true);
+	bool outside = false;
+
+	if (node->m_di.size() != 0)
+	{
+		CMatrix inverse;
+		sceVu0UnitMatrix(inverse.m_matrix);
+		Vu0MatrixInverseWithUniformScale(&inverse, CStack::m_top);
+		di->m_MTail = di->m_Tail;
+		inverse.Transform(&di->m_MTail, 1);
+		di->m_MTip = di->m_Tip;
+		inverse.Transform(&di->m_MTip, 1);
+
+		if (!node->m_use_parent_bbox)
+		{
+			const CPnt3D& tail = di->m_MTail;
+			const CPnt3D& tip = di->m_MTip;
+			const CBBox& box = node->m_bbox;
+
+			outside = (tip.x < box.m_min.x && tail.x < box.m_min.x)
+				|| (!(tip.x <= box.m_max.x) && !(tail.x <= box.m_max.x))
+				|| (tip.y < box.m_min.y && tail.y < box.m_min.y)
+				|| (!(tip.y <= box.m_max.y) && !(tail.y <= box.m_max.y))
+				|| (tip.z < box.m_min.z && tail.z < box.m_min.z)
+				|| (!(tip.z <= box.m_max.z) && !(tail.z <= box.m_max.z));
+		}
+
+		if (!outside)
+		{
+			di->LoadTipAndTail();
+			bool hit = false;
+
+			for (CDIVector::iterator it = node->m_di.begin(); !hit && it != node->m_di.end(); ++it)
+			{
+				CDI* poly = *it;
+
+				if (!(poly->m_ditype & 1))
+					continue;
+
+				hit = poly->GetAltitude(di);
+
+				if (hit && di->m_Cnt < di->m_BufCnt - 1)
+				{
+					IntersectStruct* rec = &di->m_Intersects[di->m_Cnt];
+					rec->m_node = node;
+					CStack::m_top->Transform(&rec->m_pos, 1);
+					CStack::m_top->Rotate(&rec->m_norm, &rec->m_norm, 1);
+					di->m_Cnt++;
+				}
+			}
+		}
+	}
+
+	if (!outside)
+	{
+		for (CNodeVector::iterator it = node->m_child.begin(); it != node->m_child.end(); ++it)
+			NodeGetAltitude(*it, di);
+	}
+
+	CStack::m_pointer--;
+	CStack::m_top--;
 }

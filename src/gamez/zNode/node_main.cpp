@@ -806,8 +806,36 @@ bool zdb::CNode::Rendered()
 }
 
 /* @socom-skeleton stub _Copy__Q23zdb6CLightCFPQ23zdb5CNode */
-zdb::CNode * zdb::CLight::_Copy(zdb::CNode *) const
+zdb::CNode * zdb::CLight::_Copy(zdb::CNode *other) const
 {
+	/* 0x226e20: into `other` (a new light without one): the node copy, then the light
+	   ranges, opacity and colour; the copy is not applied to a node yet. The ELF inlines
+	   the light constructor for the new one. */
+	CLight* light;
+
+	if (other == NULL)
+	{
+		light = new CLight();
+		other = light;
+	}
+	else
+	{
+		light = dynamic_cast<CLight*>(other);
+	}
+
+	CNode::_Copy(other);
+
+	light->m_minRange = m_minRange;
+	light->m_maxRange = m_maxRange;
+	light->m_maxRangeSq = m_maxRangeSq;
+	light->m_invMaxRange = m_invMaxRange;
+	light->m_invDeltaRange = m_invDeltaRange;
+	light->m_diffuse.x = m_diffuse.x;
+	light->m_diffuse.y = m_diffuse.y;
+	light->m_diffuse.z = m_diffuse.z;
+	light->m_opacity = m_opacity;
+	light->m_appliedToNode = 0;
+	return other;
 }
 
 /* @socom-skeleton stub _Copy__Q23zdb9CLightMapCFPQ23zdb5CNode */
@@ -819,9 +847,11 @@ zdb::CNode * zdb::CLightMap::_Copy(zdb::CNode *) const
 namespace zdb {
 CLight::CLight()
     {
+        /* 0x226b40: +0xc0 m_maxRangeSq and +0xc8 m_minRange are cleared (was m_invMaxRange
+           and m_maxRange) */
         m_type = (u32)TYPE::LIGHT;
-        m_invMaxRange = 0.0f;
-        m_maxRange = 0.0f;
+        m_maxRangeSq = 0.0f;
+        m_minRange = 0.0f;
         m_diffuse.x = 128.0f;
         m_diffuse.y = 128.0f;
         m_diffuse.z = 128.0f;
@@ -898,17 +928,14 @@ void CNode::DeleteChildren()
 namespace zdb {
 void CNode::AllocateAtomBasePtrs(s32 x, s32 y)
 	{
-		u16 allocCnt = 0;
+		/* 0x226260: a moving, dynamically lit node reserves one more row and column
+		   (was keyed on m_mtx_is_identity / m_clutter) */
+		s16 allocCnt;
 
-		if (m_mtx_is_identity)
-		{
-			if (m_clutter)
-				allocCnt = (x + 1) * (y + 1);
-			else
-				allocCnt = (x * y);
-		}
+		if (m_dynamic_motion && m_dynamic_light)
+			allocCnt = (x + 1) * (y + 1);
 		else
-			allocCnt = (x * y);
+			allocCnt = x * y;
 
 		if (!m_Atom)
 		{
@@ -956,9 +983,8 @@ void CNode::FreeAtom()
 namespace zdb {
 void CNode::InsertAtom(CGridAtom* atom)
 	{
-		s16 index = 0;
-		m_AtomCnt = index + 1;
-		m_Atom[index] = atom;
+		/* 0x226160: append (was: always slot 0, count 1) */
+		m_Atom[m_AtomCnt++] = atom;
 	}
 }
 
@@ -982,8 +1008,25 @@ void zdb::CNode::SetAtomCnt(int count)
 	}
 
 /* @socom-skeleton stub SetDynamic__Q23zdb5CNodeFbb */
-void zdb::CNode::SetDynamic(bool, bool)
+void zdb::CNode::SetDynamic(bool dynamic, bool children)
 {
+	/* 0x225fb0: dynamic motion and dynamic light on the node and, with `children`, on
+	   its children, whose children recurse */
+	m_dynamic_motion = dynamic;
+	m_dynamic_light = dynamic;
+
+	if (!children)
+		return;
+
+	for (CNodeVector::iterator it = m_child.begin(); it != m_child.end(); ++it)
+	{
+		CNode* child = *it;
+		child->m_dynamic_motion = dynamic;
+		child->m_dynamic_light = dynamic;
+
+		for (CNodeVector::iterator gc = child->m_child.begin(); gc != child->m_child.end(); ++gc)
+			(*gc)->SetDynamic(dynamic, children);
+	}
 }
 
 /* @socom-skeleton stub SetDynamicMotion__Q23zdb5CNodeFbb */
@@ -1064,8 +1107,13 @@ bool CNode::AddDI(CDI* di)
 }
 
 /* @socom-skeleton stub VisualEffectsTick__Q23zdb5CNodeFfPv */
-bool zdb::CNode::VisualEffectsTick(float, void *)
+bool zdb::CNode::VisualEffectsTick(float dT, void *)
 {
+	/* 0x225580 (task "Update visual effects" 0.5): decals, ripples, texture effects */
+	CDecal::Tick(dT);
+	CRipple::Tick(dT);
+	CTextureFX::Tick(dT);
+	return false;
 }
 
 /* @socom-skeleton stub ApplyDecal__Q23zdb5CNodeFPQ23zdb5CNodefP6CPnt3DP6CPnt3DP6CPnt3DPQ23zdb10CTexHandlefP6CPnt3D */

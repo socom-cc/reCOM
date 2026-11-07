@@ -106,6 +106,45 @@ void CameraZoom::OnGoal()
 }
 
 /* @socom-skeleton stub Tick__10CameraZoomFf */
-unsigned char CameraZoom::Tick(float)
+unsigned char CameraZoom::Tick(float dT)
 {
+	/* 0x31fcf0: take a new zoom request, then step the camera zoom (its screen aspect)
+	   toward the goal at m_increment per second; reaching it once ends the zoom */
+	HandleNewZoom();
+	f32 goal = m_goal;
+
+	if (goal == m_current && m_isGoalHit)
+	{
+		OnGoal();
+		m_isGoalHit = false;
+		m_seal->m_iszooming = false;
+		return true;
+	}
+
+	f32 step = dT * m_increment;
+	m_current = appCamera->m_camera->m_screenAspect.y;
+
+	if (goal < m_current)
+	{
+		m_current -= step;
+
+		if (m_current < goal)
+		{
+			m_current = goal;
+			m_increment = 0.0f;
+		}
+	}
+	else
+	{
+		m_current += step;
+
+		if (!(m_current <= goal))
+		{
+			m_current = goal;
+			m_increment = 0.0f;
+		}
+	}
+
+	appCamera->SetZoom(m_current);
+	return false;
 }

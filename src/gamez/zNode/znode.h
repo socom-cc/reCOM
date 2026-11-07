@@ -202,7 +202,7 @@ public:
 		bool ReadDataBegin(CSaveLoad& sload);
 		bool Delete();
 		
-		void AddChild(CNode* child);
+		virtual void AddChild(CNode* child); /* virtual: __vt__Q23zdb5CNode +0x18 (CWorld overrides; CNode::Read adds through it) */
 		s32 DeleteChild(CNode* child);
 		void DeleteChildren();
 		void RemoveFromParent();

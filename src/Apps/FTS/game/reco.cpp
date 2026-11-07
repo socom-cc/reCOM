@@ -60,6 +60,10 @@
 /* @socom-skeleton decl include */
 #include "gamez/zUtil/util_stable.h"
 #include "orders.h"
+
+/* voice recognition provider (gsapi, not linked: port/compat/gsapi_offline.c); called
+   with a NULL argument */
+extern "C" int gsapi_ExecServer(void *);
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
 class InternalAGCParams;
@@ -129,6 +133,8 @@ int recoUnInit()
 /* @socom-skeleton stub recoIsRecognizing__Fv */
 int recoIsRecognizing()
 {
+	/* 0x336da0 */
+	return recoInited ? recoRecognizing : 0;
 }
 
 /* @socom-skeleton stub recoInit__Fv */
@@ -182,6 +188,10 @@ int recoThresholdDown()
 /* @socom-skeleton stub recoTick__Fv */
 void recoTick()
 {
+	/* 0x336440: run the recogniser server (voice provider; offline in the port, where
+	   recoInit2 never sets recoInited) */
+	if (recoInited)
+		gsapi_ExecServer(0);
 }
 
 /* @socom-skeleton stub recoStartRecognizing__Fv */

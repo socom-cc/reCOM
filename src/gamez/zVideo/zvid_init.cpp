@@ -233,8 +233,22 @@ void zVid_Open()
 }
 
 /* @socom-skeleton stub SetGSReg__FsUl */
-void SetGSReg(short, u64) /* port: MW `unsigned long` is 64-bit; 0x308500 stores a1 with sd */
+void SetGSReg(short reg, u64 value) /* port: MW `unsigned long` is 64-bit; 0x308500 stores a1 with sd */
 {
+	/* 0x308500: one GS register through PATH2 - a scratchpad packet of DMA CNT 2, VIF
+	   FLUSH + DIRECT 2, a GIF A+D tag (NLOOP 1, EOP) and the register data - kicked into
+	   the MFIFO */
+	u64* p = reinterpret_cast<u64*>(zSysSprGetPacket(NULL));
+	u32* w = reinterpret_cast<u32*>(p);
+	w[0] = 0x10000002;
+	w[1] = 0;
+	w[2] = 0x11000000;
+	w[3] = 0x50000002;
+	p[2] = 0x1000000000008001ULL;
+	p[3] = 14;
+	p[4] = value;
+	p[5] = (u64)(s64)reg;
+	zSysFifoKick(reinterpret_cast<unsigned __int128*>(p), 3);
 }
 
 /* @socom-skeleton stub zVid_Scissor__Fiiii */
@@ -281,9 +295,12 @@ void zvid_MpegReset()
 }
 
 /* @socom-skeleton body zVid_ClearColor__FPUi */
-void zVid_ClearColor(unsigned int *)
+void zVid_ClearColor(unsigned int *color)
 {
-	
+	/* 0x3081d0: the RGBAQ of the frame packet's clear (zvid.frame_restore, framecode +
+	   0x80): the colour with alpha 0x80 and Q 1.0 */
+	*reinterpret_cast<u64*>(zvid.frame_restore) = (u64)color[0] | ((u64)color[1] << 8) | ((u64)color[2] << 16)
+		| (0x80ULL << 24) | (0x3f800000ULL << 32);
 }
 
 /* @socom-skeleton body zVid_Sync0__Fv */

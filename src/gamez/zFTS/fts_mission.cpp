@@ -925,8 +925,11 @@ void CMission::Read(_zrdr* reader)
 }
 
 /* @socom-skeleton stub tick__8CMissionFfPv */
-bool CMission::tick(float, void *)
+bool CMission::tick(float dT, void *registrar)
 {
+	/* 0x1f6fa0 (task Mission 0.98): the registrar is the mission */
+	static_cast<CMission*>(registrar)->Tick(dT);
+	return false;
 }
 
 /* @socom-skeleton stub _OnMissionComplete__Fv */
@@ -937,55 +940,46 @@ void _OnMissionComplete()
 /* @socom-skeleton body Tick__8CMissionFf */
 void CMission::Tick(f32 dT)
 {
+	/* 0x1f6b40 (via the Mission task): the mission clocks, the objectives (single player)
+	   or the network game, then the end valves - complete, failure, abort, timeout, in
+	   that order, a set valve ends the mission (only abort when objectives are ignored) -
+	   the spawners and the firefight state. Was a guess that ended the mission whenever
+	   a valve was clear. */
 	m_timer += dT;
 
-	if (m_wait_before_falling > 0.0f)
-	{
+	if (!(m_wait_before_falling <= 0.0f))
 		m_wait_before_falling -= dT;
-	}
 
 	m_winlosstimer += m_winlossinc * dT;
 
-	if (!theNetwork.m_bNetwork)
+	if (theNetwork.m_bNetwork && m_pNetGame != NULL)
 	{
-		if (m_pNetGame == NULL)
-		{
-			// TickObjectives(dT);
-		}
+		/* port: not written - the network game (0x1f6bb8-0x1f6cd4: CNetClock::Tick, the
+		   game timer valve, CZGameState::UpdateLocalGame, the client's game-over push of
+		   theGame+0x1d8); the port has no network play */
 	}
 	else
 	{
-		// CNetClock::Tick();
+		TickObjectives(dT);
 	}
 
 	if (!m_ignore_objectives)
 	{
-		if (!m_valve_timeout->m_value)
-		{
-			OnMissionComplete(MISSION_TIMEOUT);
-		}
-
-		if (!m_valve_abort->m_value)
-		{
-			OnMissionComplete(MISSION_ABORTED);
-		}
-
-		if (!m_valve_failure->m_value)
-		{
-			OnMissionComplete(MISSION_FAILURE);
-		}
-
-		if (!m_valve_complete->m_value)
-		{
+		if (m_valve_complete->m_value)
 			OnMissionComplete(MISSION_SUCCESS);
-		}
+		else if (m_valve_failure->m_value)
+			OnMissionComplete(MISSION_FAILURE);
+		else if (m_valve_abort->m_value)
+			OnMissionComplete(MISSION_ABORTED);
+		else if (m_valve_timeout->m_value)
+			OnMissionComplete(MISSION_TIMEOUT);
 	}
 	else if (m_valve_abort->m_value)
 	{
 		OnMissionComplete(MISSION_ABORTED);
 	}
 
-	// spawners.Tick(dT);
+	spawners.Tick(dT);
 	TickInFirefight(dT);
 }
 

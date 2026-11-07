@@ -61,10 +61,14 @@
 #include "gamez/zCharacter/zchar.h"
 #include "gamez/zEntity/zentity.h"
 #include "gamez/zFTS/zfts.h"
+#include "gamez/zGame/zgame.h" /* OurGameName (Tick) */
+#include "Apps/FTS/hud/hud.h" /* theHUD (GetTetherCamPoints) */
 #include "gamez/zSeal/zseal.h"
 #include "gamez/zSystem/zsys.h"
 
 #include <libvu0.h> /* sceVu0OuterProduct, sceVu0UnitMatrix (LookAt, AttachTo) */
+#include <eeregs.h> /* T0_COUNT (Tick) */
+#include <math.h> /* expf (Tick) */
 
 /* @socom-skeleton decl include */
 #include "gamez/zIntersect/zintersect.h"
@@ -233,7 +237,7 @@ CAppCamera::CAppCamera(zdb::CWorld* world, zdb::CCamera* camera)
 	m_camera_mode = PLAYER_CAM_STATE::cam_mode_tether;
 	m_camera_last_mode = PLAYER_CAM_STATE::cam_mode_tether;
 
-	m_death_state_timer = 0;
+	m_cam_death_state = CAM_DEATH_STATE::none; /* 0x1eb818: sb zero,+0x94 (was m_death_state_timer) */
 
 	f32 goalX = m_camGoalPos.x;
 	f32 goalY = m_camGoalPos.y;
@@ -313,7 +317,7 @@ unsigned char CAppCamera::AttachTo(CZSealBody *seal)
 
 	m_save_view = static_cast<CAMVIEW>(0);
 	m_ctrl_view = static_cast<CAMVIEW>(0);
-	m_save_peek = static_cast<SEAL_PEEK>(2); /* port: SEAL_PEEK value 2 unnamed here */
+	m_save_peek = SEAL_PEEK::PEEK_NONE; /* 2 */
 
 	CCameraParams* params = &theCharacterDynamics.m_cam_params[static_cast<u8>(m_ctrl_view)];
 	m_camGoalPos = params->m_cam_offset;
@@ -359,83 +363,73 @@ unsigned char CAppCamera::AttachTo(CZSealBody *seal)
 /* @socom-skeleton body SetZoom__10CAppCameraFf */
 void CAppCamera::SetZoom(f32 zoom)
 {
-	m_camera->m_Zmin = zoom;
-	m_camera->m_Zmax = zoom;
+	/* 0x1eb3f0: the zoom scales the screen aspect (camera +0x440/+0x444, DWARF
+	   m_screenAspect; was m_Zmin/m_Zmax) and the range scale is its inverse */
+	m_camera->m_screenAspect.x = zoom;
+	m_camera->m_screenAspect.y = zoom;
 	m_camera->m_RangeScale = 1.0f / zoom;
 }
 
 /* @socom-skeleton body FTSTick__10CAppCameraFf */
+/* @socom-skeleton body FTSTick__10CAppCameraFf */
 void CAppCamera::FTSTick(f32 dT)
 {
-	bool isPlayer = false;
-	
-	if (m_entity)
+	/* 0x1eb0d0: the FTS view. The controlling pad (the player's, else pad 0) cycles the
+	   view on SELECT+DOWN - skipping side, first person and the peeks, so with the shipped
+	   camera params it stays on third person; a view change loads that view's offset and
+	   aim point, places the camera behind the seal and picks tether or first person. */
+	if (m_entity == NULL)
+		return;
+
+	CSealCtrl* control = static_cast<CSealCtrl*>(m_entity->m_control);
+	bool isPlayer = control != NULL ? control->IsPlayer() : false;
+
+	if (isPlayer)
+		m_padid = control->m_padid;
+
+	CPad* pad = m_padid < 2 ? CInput::m_pads[m_padid] : NULL;
+
+	if (pad == NULL)
+		pad = CInput::m_pads[0];
+
+	if (pad != NULL && pad->GetTwoButtons(PAD_BUTTON::PAD_SELECT, PAD_BUTTON::PAD_DOWN))
 	{
-		if (!m_entity->m_control)
+		u8 view = static_cast<u8>(m_ctrl_view);
+
+		do
 		{
-			isPlayer = false;
-		}
-		else
-		{
-			isPlayer = ((CSealCtrl*)m_entity->m_control)->IsPlayer();
-		}
+			view = (view + 1) % theCharacterDynamics.m_cam_params.size();
+		} while (view == 3 || view == 4 || static_cast<u8>(view - 1) < 2);
 
-		if (isPlayer)
-		{
-			m_padid = ((CSealCtrl*)m_entity->m_control)->m_padid;
-		}
-
-		CPad* pad = NULL;
-		
-		if (m_padid < 2)
-		{
-			pad = CInput::m_pads[m_padid];
-		}
-
-		if (!pad)
-		{
-			pad = CInput::m_pads[0];
-		}
-
-		bool isButtonsDown = pad->GetTwoButtons(PAD_BUTTON::PAD_SELECT, PAD_BUTTON::PAD_DOWN);
-
-		if (pad && isButtonsDown)
-		{
-			// m_ctrl_view = m_ctrl_view % (CAMVIEW)theCharacterDynamics.m_cam_params.size();
-		}
-
-		if (m_ctrl_view != m_save_view)
-		{
-			m_camGoalPos = theCharacterDynamics.m_cam_params.front().m_cam_offset;
-			m_cameraAim = theCharacterDynamics.m_cam_params.front().m_cam_aimpoint;
-
-			f32 x = m_camGoalPos.x;
-			f32 y = m_camGoalPos.y;
-			f32 z = m_camGoalPos.z;
-
-			m_goal_t_len = sqrtf(z * z + y * y + x * x);
-
-			if (m_entity)
-			{
-				CMatrix lookat = CMatrix::identity;
-				m_entity->m_node->m_matrix.Transform(&m_camGoalPos, 1);
-				m_entity->m_node->m_matrix.Transform(&m_cameraAim, 1);
-				LookAt(&m_camGoalPos, &m_cameraAim, lookat);
-				m_camera->SetMatrix(&lookat);
-			}
-
-			m_save_view = m_ctrl_view;
-
-			if (m_ctrl_view == CAMVIEW::cam_view_first)
-			{
-				m_camera_mode = PLAYER_CAM_STATE::cam_mode_FP;
-			}
-			else
-			{
-				m_camera_mode = PLAYER_CAM_STATE::cam_mode_tether;
-			}
-		}
+		m_ctrl_view = static_cast<CAMVIEW>(view);
 	}
+
+	if (m_ctrl_view == m_save_view)
+		return;
+
+	m_camGoalPos = theCharacterDynamics.m_cam_params[static_cast<u8>(m_ctrl_view)].m_cam_offset;
+	m_cameraAim = theCharacterDynamics.m_cam_params[static_cast<u8>(m_ctrl_view)].m_cam_aimpoint;
+	m_goal_t_len = sqrtf(m_camGoalPos.x * m_camGoalPos.x + m_camGoalPos.y * m_camGoalPos.y + m_camGoalPos.z * m_camGoalPos.z);
+	m_cameraTie = m_cameraAim;
+
+	if (m_entity != NULL)
+	{
+		CMatrix mat;
+		sceVu0UnitMatrix(mat.m_matrix);
+		CPnt3D eye = m_camGoalPos;
+		m_entity->m_node->m_matrix.Transform(&eye, 1);
+		CPnt3D aim = m_cameraAim;
+		m_entity->m_node->m_matrix.Transform(&aim, 1);
+		LookAt(&eye, &aim, mat);
+		m_camera->SetMatrix(&mat);
+	}
+
+	m_save_view = m_ctrl_view;
+
+	if (m_ctrl_view == CAMVIEW::cam_view_first)
+		m_camera_mode = PLAYER_CAM_STATE::cam_mode_FP;
+	else
+		m_camera_mode = PLAYER_CAM_STATE::cam_mode_tether;
 }
 
 /* @socom-skeleton stub GetFirstPersonCamPos__FP10CAppCamera */
@@ -444,8 +438,54 @@ void GetFirstPersonCamPos(CAppCamera *)
 }
 
 /* @socom-skeleton stub GetThirdPersonCamPos__10CAppCameraFP6CPnt3DPf */
-void CAppCamera::GetThirdPersonCamPos(CPnt3D *, float *)
+/* @socom-skeleton stub GetThirdPersonCamPos__10CAppCameraFP6CPnt3DPf */
+CPnt3D CAppCamera::GetThirdPersonCamPos(CPnt3D *aim, float *dist)
 {
+	/* 0x1ead60 (returns the eye by value, MW hidden pointer in a0): from the seal's
+	   skel_root (body space; origin without one) raised 10 and shifted by the peek
+	   (2.5 left, 2.8 right per unit), 28 behind: the aim gets that x/y and, in z, the
+	   pitch term (CamRotZ_up/down times the look direction's y); the eye lies along the
+	   seal's look quaternion from it, at the flat offset length eased toward 14 as the
+	   look tilts. */
+	CPnt3D p;
+
+	if (m_entity != NULL && m_skel_root != NULL)
+		m_entity->PartInSpace(m_skel_root, NULL, &p, NULL);
+	else
+		p = CPnt3D::zero;
+
+	p.y += 10.0f;
+
+	if (peekCur < 0.0f)
+		p.x += 2.5f * peekCur;
+	else
+		p.x += 2.8f * peekCur;
+
+	p.z += 28.0f;
+
+	aim->x = p.x;
+	aim->y = p.y;
+	p.y = 0.0f;
+	*dist = sqrtf(p.x * p.x + p.y * p.y + p.z * p.z);
+
+	m_entity->m_fwdlook.Apply(&p, &p, 1);
+
+	CPnt3D dir = p;
+	dir.Normalize();
+
+	if (dir.y < 0.0f)
+		aim->z = dir.y * CamRotZ_up;
+	else
+		aim->z = dir.y * CamRotZ_down;
+
+	f32 d = *dist;
+	*dist = d + fabsf(dir.y) * (14.0f - d);
+
+	CPnt3D scaled;
+	dir.Scale(*dist, &scaled);
+	p = scaled;
+	p.Add(aim, &p);
+	return p;
 }
 
 /* @socom-skeleton body ThirdToFirstPersonTransition__FP10CAppCamera */
@@ -498,53 +538,92 @@ void CAppCamera::TickCameraWiggle(f32 dT, zdb::CCamera* camera)
 }
 
 /* @socom-skeleton body Tick__10CAppCameraFf */
+/* @socom-skeleton body Tick__10CAppCameraFf */
 void CAppCamera::Tick(f32 dT)
 {
-	if (!zdb::CCamera::m_dynamics_controlled)
-	{
+	/* 0x1ea480 (virtual, the camera owner's frame tick from CCoreState::Tick): unless the
+	   camera is under animation control, run the FTS view logic, ease the peek toward
+	   the seal's desired peek (exponential decay at m_cameraPeekDecayRate), build this
+	   frame's camera matrix for the current mode (tether / first person / look-at),
+	   apply the "camera_effects" node, set it on the camera, test the aim line for the
+	   FTS game, and run the wiggle. ELF quirk kept: the decay time is RCNT0 in seconds
+	   (RCNT0 * zSys.timerScale), not dT. */
+	if (!zdb::CCamera::GetDynamicsControl())
 		return;
+
+	CMatrix mat;
+	sceVu0UnitMatrix(mat.m_matrix);
+	FTSTick(dT);
+
+	f32 peekGoal;
+	s8 state = m_entity->m_state;
+
+	if (state == static_cast<s8>(SEAL_STATE::stateDead) || state == static_cast<s8>(SEAL_STATE::stateProne))
+	{
+		peekGoal = 0.0f;
+	}
+	else if (m_entity->m_desiredPeek == SEAL_PEEK::PEEK_LEFT)
+	{
+		peekGoal = -1.0f;
+	}
+	else if (m_entity->m_desiredPeek == SEAL_PEEK::PEEK_RIGHT)
+	{
+		peekGoal = 1.0f;
+	}
+	else
+	{
+		peekGoal = 0.0f;
 	}
 
-	CMatrix firstperson = CMatrix::identity;
-	FTSTick(dT);
-	
-	if (m_camera_mode != PLAYER_CAM_STATE::cam_mode_net)
-	{
-		if (m_camera_mode == PLAYER_CAM_STATE::cam_mode_apLook)
-		{
-			// APLookAt();
-		}
-		else if (m_camera_mode == PLAYER_CAM_STATE::cam_mode_FP)
-		{
-			if (m_camera_last_mode == PLAYER_CAM_STATE::cam_mode_tether)
-			{
-				ThirdToFirstPersonTransition(this);
-			}
+	f32 seconds = (f32)*T0_COUNT * zSys.timerScale;
+	f32 decay = expf(-theCharacterDynamics.m_cameraPeekDecayRate * seconds);
+	peekCur = peekGoal + (peekCur - peekGoal) * decay;
 
-			APFirstPersonCam(firstperson);
-		}
-		else
-		{
-			if (m_camera_mode == PLAYER_CAM_STATE::cam_mode_tether)
-			{
-				if (m_camera_last_mode == PLAYER_CAM_STATE::cam_mode_FP)
-				{
-					FirstToThirdPersonTransition(this);
-				}
-				
-				APTeatherCam(firstperson, dT);
-			}
-			
-			APTeatherCam(firstperson, dT);
-		}
+	switch (m_camera_mode)
+	{
+	case PLAYER_CAM_STATE::cam_mode_net:
+		break;
+
+	case PLAYER_CAM_STATE::cam_mode_apLook:
+		APLookAt(dT, m_track, mat);
+		break;
+
+	case PLAYER_CAM_STATE::cam_mode_FP:
+		if (m_camera_last_mode == PLAYER_CAM_STATE::cam_mode_tether)
+			ThirdToFirstPersonTransition(this);
+
+		APFirstPersonCam(mat);
+		break;
+
+	case PLAYER_CAM_STATE::cam_mode_tether:
+		if (m_camera_last_mode == PLAYER_CAM_STATE::cam_mode_FP)
+			FirstToThirdPersonTransition(this);
+
+		APTeatherCam(mat, dT);
+		break;
+
+	default:
+		APTeatherCam(mat, dT);
+		break;
 	}
 
 	m_camera_last_mode = m_camera_mode;
 
-	if (m_camera_effects)
+	if (m_camera_effects != NULL)
 	{
-		
+		CMatrix effects;
+		sceVu0UnitMatrix(effects.m_matrix);
+		sceVu0MulMatrix(effects.m_matrix, mat.m_matrix, m_camera_effects->m_matrix.m_matrix);
+		sceVu0CopyMatrix(mat.m_matrix, effects.m_matrix);
 	}
+
+	m_camera->SetMatrix(&mat);
+
+	if (OurGameName.m_game_name == nameFTS)
+		m_entity->CheckDIShoot(&m_wPos, &mat);
+
+	if (m_wiggle_echo)
+		TickCameraWiggle(dT, m_camera);
 }
 
 /* @socom-skeleton body WiggleScalar__10CAppCameraFf */
@@ -580,8 +659,10 @@ void CAppCamera::APLookAt(f32 dT, CEntity* entity, CMatrix& matrix)
 /* @socom-skeleton body ResetDeathCam__10CAppCameraFv */
 void CAppCamera::ResetDeathCam()
 {
-	m_death_state_timer = 0;
-	m_allow_player_death_cam_control = true;
+	/* 0x1ea1d0: +0x94 m_cam_death_state and +0x92 m_auto_death_cam (the body set
+	   m_death_state_timer and m_allow_player_death_cam_control) */
+	m_cam_death_state = CAM_DEATH_STATE::none;
+	m_auto_death_cam = true;
 	save_short_tether_length = 10000.0f;
 	DeltaRot = 0.0f;
 	DeltaAim = 0.0f;
@@ -599,14 +680,106 @@ unsigned char CAppCamera::GetDeadCamPoints(CPnt3D *, CPnt3D *, CMatrix *, float)
 }
 
 /* @socom-skeleton stub GetTetherCamPoints__10CAppCameraFP6CPnt3DP6CPnt3DP6CPnt3Df */
-unsigned char CAppCamera::GetTetherCamPoints(CPnt3D *, CPnt3D *, CPnt3D *, float)
+/* @socom-skeleton stub GetTetherCamPoints__10CAppCameraFP6CPnt3DP6CPnt3DP6CPnt3Df */
+unsigned char CAppCamera::GetTetherCamPoints(CPnt3D *eye, CPnt3D *aim, CPnt3D *tie, float dT)
 {
+	/* 0x1e8cb0: start the death camera once the seal (or its top blend) is dead; else
+	   the eye goes to world space and the tie point is 1000 ahead along the look
+	   quaternion from the aim, in world space. A dead camera eases the tie toward it
+	   (DeltaAim, up to 1 after a second). Returns whether the death camera placed it. */
+	CMatrix deadMtx;
+	sceVu0UnitMatrix(deadMtx.m_matrix);
+	bool dead = false;
+
+	if (m_cam_death_state == CAM_DEATH_STATE::none)
+	{
+		if (m_entity->m_blends->Top()->m_state == static_cast<s8>(SEAL_STATE::stateDead) || m_entity->m_state == static_cast<s8>(SEAL_STATE::stateDead))
+			m_cam_death_state = CAM_DEATH_STATE::init_dying;
+	}
+
+	if (m_cam_death_state != CAM_DEATH_STATE::none && !theHUD->PauseGame())
+		dead = GetDeadCamPoints(eye, tie, &deadMtx, dT);
+
+	m_entity->m_node->m_matrix.Transform(eye, 1);
+
+	CPnt3D ahead(0.0f, 0.0f, -1000.0f);
+	CPnt3D look;
+	m_entity->m_fwdlook.Apply(&ahead, &look, 1);
+	look.Add(aim, &look);
+	m_entity->m_node->m_matrix.Transform(&look, 1);
+
+	if (dead)
+	{
+		DeltaAim += dT;
+
+		if (!(DeltaAim <= 1.0f))
+			DeltaAim = 1.0f;
+
+		CPnt3D d;
+		tie->Sub(&look, &d);
+		CPnt3D step;
+		d.Scale(DeltaAim, &step);
+		CPnt3D r;
+		look.Add(&step, &r);
+		*tie = r;
+	}
+	else
+	{
+		*tie = look;
+	}
+
+	return dead;
 }
 
 /* @socom-skeleton body APTeatherCam__10CAppCameraFR7CMatrixf */
-void CAppCamera::APTeatherCam(CMatrix& transform, float offset)
+/* @socom-skeleton body APTeatherCam__10CAppCameraFR7CMatrixf */
+void CAppCamera::APTeatherCam(CMatrix& transform, float dT)
 {
-	
+	/* 0x1e8a90: the third-person camera. The eye and the tie point come from
+	   GetThirdPersonCamPos / GetTetherCamPoints; the tie is pulled to the eye's distance
+	   along the view line (or, for the death camera, the chord starts at the seal's
+	   position + 10) and the chord is clipped against the world; then the camera looks
+	   from eye to tie, and the ground under the camera gives its region mask, material
+	   and indoor flag (not when standing on a seal). */
+	CPnt3D aim;
+	f32 dist;
+	CPnt3D eye = GetThirdPersonCamPos(&aim, &dist);
+	CPnt3D tie;
+
+	if (GetTetherCamPoints(&eye, &aim, &tie, dT))
+	{
+		CPnt3D start = *m_entity->GetPosW();
+		start.y += 10.0f;
+		ClipCameraChord(dT, &start, &eye, &eye);
+	}
+	else
+	{
+		CPnt3D d;
+		tie.Sub(&eye, &d);
+		CPnt3D dir = d;
+		dir.Normalize();
+		CPnt3D scaled;
+		dir.Scale(dist, &scaled);
+		CPnt3D r;
+		eye.Add(&scaled, &r);
+		tie = r;
+		ClipCameraChord(dT, &tie, &eye, &eye);
+	}
+
+	LookAt(&eye, &tie, transform);
+
+	CPnt3D camPos(0.0f, 0.0f, 0.0f);
+	m_camera->TransformToWorld(camPos);
+	zdb::IntersectStruct* ground = zdb::CWorld::m_world->GetAltitude(&camPos, 0.0f);
+
+	if (ground != NULL && CZSealBody::GetSeal(ground->m_node) == NULL)
+	{
+		m_camera->SetCameraCanSeeRegions(ground->GetRegion());
+		m_camera->m_AboveMaterial = ground->GetMaterial();
+
+		if (ground->m_poly != NULL)
+			m_camera->m_IsInside = ground->IsInside();
+	}
 }
 
 /* @socom-skeleton body APFirstPersonCam__10CAppCameraFR7CMatrix */

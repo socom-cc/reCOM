@@ -139,50 +139,125 @@ CGridAtom** CGrid::gridGetAtomBasePtr(s32 x, s32 y)
 }
 
 /* @socom-skeleton body gridAddNodeToGrids__Q23zdb5CGridFPQ23zdb5CNode */
+/* @socom-skeleton body gridAddNodeToGrids__Q23zdb5CGridFPQ23zdb5CNode */
 namespace zdb {
 void CGrid::gridAddNodeToGrids(CNode* node)
     {
-        if (!node)
+        /* 0x216a90: the node's bbox (its parent's with m_use_parent_bbox, the grandparent's
+           when the parent also uses its parent's) in world space, shrunk by 1/10000 of its
+           size per side, gives the cells it overlaps; one free atom per cell goes to the
+           node and into that cell's list (head kept, new atoms after it). Was a TODO that
+           inserted nothing. ELF quirk kept: an empty free list hands out a NULL atom. */
+        if (node == NULL)
             return;
 
-        CBBox* bbox = NULL;
+        const CBBox* bbox;
 
-        if (node->m_use_parent_bbox)
+        if (!node->m_use_parent_bbox)
         {
-            bbox = &node->m_parent->m_bbox;
-
-            if (node->m_parent->m_use_parent_bbox)
-                bbox = node->m_parent->GetBBox();
+            bbox = &node->m_bbox;
         }
         else
-            bbox = &node->m_bbox;
-
-        CPnt3D worldToCell;
-        f32 x = 0.0f;
-        f32 y = 0.0f;
-        f32 z = 0.0f;
-        // TODO: Write a function that translates two points
-        // node->m_matrix.Transform();
-
-        if (x < worldToCell.x)
         {
-            worldToCell.x = x;
-            x = worldToCell.x;
+            CNode* parent = node->m_parent;
+
+            if (parent->m_use_parent_bbox)
+                bbox = parent->m_parent->GetBBox();
+            else
+                bbox = &parent->m_bbox;
         }
 
-        if (y < worldToCell.y)
+        CPnt3D pts[2];
+        node->m_matrix.Transform(&bbox->m_min, pts, 2);
+
+        if (!(pts[0].x <= pts[1].x))
         {
-            worldToCell.y = y;
-            y = worldToCell.y;
+            f32 swap = pts[0].x;
+            pts[0].x = pts[1].x;
+            pts[1].x = swap;
         }
 
-        if (z < worldToCell.z)
+        if (!(pts[0].y <= pts[1].y))
         {
-            worldToCell.z = z;
-            z = worldToCell.z;
+            f32 swap = pts[0].y;
+            pts[0].y = pts[1].y;
+            pts[1].y = swap;
         }
 
+        if (!(pts[0].z <= pts[1].z))
+        {
+            f32 swap = pts[0].z;
+            pts[0].z = pts[1].z;
+            pts[1].z = swap;
+        }
 
+        f32 shrinkZ = 0.0001f * (pts[1].z - pts[0].z);
+        f32 shrinkX = 0.0001f * (pts[1].x - pts[0].x);
+
+        s32 x0 = (s32)(m_InvCellDim * (shrinkX + (pts[0].x - m_origin.x)));
+        if (x0 < 0)
+            x0 = 0;
+        if (m_CellCount.cx - 1 < x0)
+            x0 = m_CellCount.cx - 1;
+
+        s32 z0 = (s32)(m_InvCellDim * (shrinkZ + (pts[0].z - m_origin.z)));
+        if (z0 < 0)
+            z0 = 0;
+        if (m_CellCount.cy - 1 < z0)
+            z0 = m_CellCount.cy - 1;
+
+        s32 x1 = (s32)(m_InvCellDim * (-shrinkX + (pts[1].x - m_origin.x)));
+        if (x1 < 0)
+            x1 = 0;
+        if (m_CellCount.cx - 1 < x1)
+            x1 = m_CellCount.cx - 1;
+        x1++;
+
+        s32 z1 = (s32)(m_InvCellDim * (-shrinkZ + (pts[1].z - m_origin.z)));
+        if (z1 < 0)
+            z1 = 0;
+        if (m_CellCount.cy - 1 < z1)
+            z1 = m_CellCount.cy - 1;
+        z1++;
+
+        node->AllocateAtomBasePtrs(x1 - x0, z1 - z0);
+
+        for (s32 x = x0; x < x1; x++)
+        {
+            for (s32 z = z0; z < z1; z++)
+            {
+                CGridAtom* atom = NULL;
+
+                if (m_AtomFreePtr != 0)
+                    atom = m_FreeAtoms[m_AtomFreePtr--];
+
+                atom->Ent = node;
+                atom->Ent->InsertAtom(atom);
+
+                CGridAtom** base = gridGetAtomBasePtr(x, z);
+                CGridAtom* head = *base;
+
+                if (head == NULL)
+                {
+                    atom->Prev = NULL;
+                    *base = atom;
+                    atom->Next = NULL;
+                }
+                else if (head->Next == NULL)
+                {
+                    atom->Prev = head;
+                    head->Next = atom;
+                    atom->Next = NULL;
+                }
+                else
+                {
+                    atom->Next = head->Next;
+                    atom->Prev = head;
+                    head->Next->Prev = atom;
+                    head->Next = atom;
+                }
+            }
+        }
     }
 }
 
@@ -209,11 +284,7 @@ void CGrid::gridRemoveNodeFromGrids(CNode* node)
                 atom->Ent = NULL;
                 atom->Next = NULL;
                 atom->Prev = NULL;
-
-                u32 ptr = m_AtomFreePtr;
-
-                m_AtomFreePtr = ptr + 1;
-                m_FreeAtoms[ptr] = atom;
+                m_FreeAtoms[++m_AtomFreePtr] = atom; /* pre-increment (0x2156f4, 0x216a34; was stored at the old top) */
             }
         }
 
@@ -518,8 +589,6 @@ void CGrid::SetTraversalBoundaryOrdered(const CPnt3D* point, const CPnt3D* bound
 namespace zdb {
 void CGrid::SetTraversalBoundary(const CPnt3D* point, s32 tick, bool lineWalk)
     {
-        // TODO: Implement this function
-
         SetTraversalExtents(point, tick, lineWalk);
 
         if (tick == 1)
@@ -528,9 +597,22 @@ void CGrid::SetTraversalBoundary(const CPnt3D* point, s32 tick, bool lineWalk)
             return;
         }
 
-        for (u32 i = 0; i < m_PntCnt; i++)
+        /* 0x215e80: unit edge normals in xz of the boundary polygon (was an empty loop) */
+        for (s32 i = 0; i < m_PntCnt; i++)
         {
+            s32 j = (i + 1) % m_PntCnt;
 
+            m_Edge[i].z = m_Pnts[i].x - m_Pnts[j].x;
+            m_Edge[i].x = m_Pnts[j].z - m_Pnts[i].z;
+
+            f32 len = sqrtf(m_Edge[i].x * m_Edge[i].x + m_Edge[i].z * m_Edge[i].z);
+
+            if (len != 0.0f)
+            {
+                f32 inv = 1.0f / len;
+                m_Edge[i].z *= inv;
+                m_Edge[i].x *= inv;
+            }
         }
 
         m_TickNum++;
@@ -707,8 +789,37 @@ void zdb::CGrid::gridGetGridXandZIndex(int *x, int *z, float px, float pz)
 namespace zdb {
 CGridAtom* CGrid::GetNextAtom()
     {
-        // TODO: Implement this function
-        return m_NextAtom;
+        /* 0x215910: the next atom of the current cell's chain, else the first atom of the
+           next cell (gridGetNextIndex) that the boundary does not cull; only active nodes
+           not yet visited this tick are returned, and are marked visited. Was a TODO. */
+        for (;;)
+        {
+            if (m_NextAtom == NULL)
+            {
+                if (!gridGetNextIndex())
+                    return NULL;
+
+                if (gridCellOut(m_xx, m_zz))
+                    m_NextAtom = NULL;
+                else
+                    m_NextAtom = *gridGetAtomBasePtr(m_xx, m_zz);
+            }
+            else
+            {
+                m_NextAtom = m_NextAtom->Next;
+            }
+
+            if (m_NextAtom == NULL)
+                continue;
+
+            CNode* node = m_NextAtom->Ent;
+
+            if (!node->m_active || !(node->m_TickNum < m_TickNum))
+                continue;
+
+            node->m_TickNum = m_TickNum;
+            return m_NextAtom;
+        }
     }
 }
 
@@ -754,8 +865,10 @@ CGridAtom* CGrid::GetNextAtomOrdered()
 }
 
 /* @socom-skeleton stub Insert__Q23zdb5CGridFPQ23zdb5CNode */
-void zdb::CGrid::Insert(zdb::CNode *)
+void zdb::CGrid::Insert(zdb::CNode *node)
 {
+	/* 0x215850: tail call */
+	gridAddNodeToGrids(node);
 }
 
 /* @socom-skeleton stub Remove__Q23zdb5CGridFPQ23zdb5CNode */
@@ -786,11 +899,7 @@ void CGrid::Update(CNode* node)
                 atom->Ent = NULL;
                 atom->Next = NULL;
                 atom->Prev = NULL;
-
-                u32 ptr = m_AtomFreePtr;
-
-                m_AtomFreePtr = ptr + 1;
-                m_FreeAtoms[ptr] = atom;
+                m_FreeAtoms[++m_AtomFreePtr] = atom; /* pre-increment (0x2156f4, 0x216a34; was stored at the old top) */
             }
         }
 
@@ -834,7 +943,8 @@ bool CGrid::Create(CWorld* world, const tag_GRID_PARAMS* params)
         m_extents.right = m_CellDim * m_CellCount.cx;
         m_extents.bottom = m_CellDim * m_CellCount.cy;
         
-        m_GridCellTol = sqrtf(m_CellDim * m_CellDim * 2.0f);
+        m_GridCellTol = 0.5f * sqrtf(2.0f * (m_CellDim * m_CellDim)); /* 0x2153e4: half the cell diagonal (the 0.5 was missing) */
+        m_ClutterTol = 0.0f;
         m_InvCellDim = 1.0f / m_CellDim;
         
         m_TickNum = -1;
@@ -844,17 +954,11 @@ bool CGrid::Create(CWorld* world, const tag_GRID_PARAMS* params)
         m_AtomBuf = static_cast<CGridAtom*>(zmalloc(m_AtomCnt * 12));
         m_FreeAtoms = static_cast<CGridAtom**>(zmalloc(m_AtomCnt << 2));
 
-        u32 ex = 0;
-        u32 ey = 0;
-
-        for (u32 i = 0; i < m_AtomCnt; i++)
-        {
-            // TODO: clean this up
-            u32 count = (u32)&m_AtomBuf->Ent + ey;
-            ey += 12;
-            *(u32*)(m_FreeAtoms + ex) = count;
-            ex += 4;
-        }
+        /* 0x21545c: the free list holds every atom of the buffer. Was `m_FreeAtoms + ex`
+           with ex stepping by 4 - pointer arithmetic on CGridAtom** - which filled every
+           fourth slot, wrote 3/4 of the list past its end and left the rest garbage. */
+        for (s32 i = 0; i < m_AtomCnt; i++)
+            m_FreeAtoms[i] = &m_AtomBuf[i];
 
         m_AtomFreePtr = m_AtomCnt - 1;
 
@@ -947,17 +1051,19 @@ CNode* CGridAtom::GetCell()
 namespace zdb {
 bool CGrid::Read(CSaveLoad& sload)
     {
-        s32 posts = 16;
-        f32 dimensions = 640.0f;
-        s32 cx = 8;
-        s32 cy = 8;
+        /* 0x214d50: the world's "grid_params" (defaults N_ATOMS, 16 posts, 640, 8 x 8),
+           then the grid. ELF quirk kept: a missing key still creates the default grid
+           (the Fetch result is folded to 1 either way). Was: no grid without the key, and
+           the key fetched over this CGrid. */
+        tag_GRID_PARAMS params;
+        params.m_AtomCnt = N_ATOMS;
+        params.m_posts = 16;
+        params.m_CellDim = 640.0f;
+        params.m_CellCount.cx = 8;
+        params.m_CellCount.cy = 8;
 
-        if (!sload.m_zfile.Fetch("grid_params", this, sizeof(tag_GRID_PARAMS)))
-            return false;
-        else
-            return Create(sload.m_world, this);
-
-        return false;
+        sload.m_zfile.Fetch("grid_params", &params, sizeof(tag_GRID_PARAMS));
+        return Create(sload.m_world, &params);
     }
 }
 

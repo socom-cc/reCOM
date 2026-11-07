@@ -156,6 +156,9 @@ void CAiEvent::Release(CAiEvent *)
 /* @socom-skeleton stub Tick__8CAiEventFfPv */
 bool CAiEvent::Tick(float, void *)
 {
+	/* port: stub - AI events (0x17f780: CAiVisMap::TickVisMaps, then remove_if/erase of
+	   the events whose _tick is done) are not written; the ELF task returns false */
+	return false;
 }
 
 /* @socom-skeleton stub GetFirstEvent__8CAiEventFQ28CAiEvent11EVENT_CLASS */

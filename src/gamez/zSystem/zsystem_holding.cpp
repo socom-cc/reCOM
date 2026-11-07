@@ -32,6 +32,20 @@ u32 CBench::countAlphaVisuals = 0;
 /* held from src/gamez/zSystem/zsys_bench.cpp:9 */
 f32 CBench::drawTimeX[10];
 
+/* port: no stage-4 owner - the frame timing statics 0x4764c8-0x4764f0 (CCoreState::Tick
+   writes them, CBench::Reset clears dmaTime); held here with the other CBench statics */
+f32 CBench::preTask;
+f32 CBench::postTask;
+f32 CBench::inputTime;
+f32 CBench::postCamUpdate;
+f32 CBench::postAppCamTick;
+f32 CBench::postCompassTick;
+f32 CBench::postHUDTick;
+f32 CBench::swapTime;
+f32 CBench::drawTime;
+f32 CBench::twoDTime;
+f32 CBench::dmaTime;
+
 /* @socom-skeleton body zSys */
 /* held from src/gamez/zSystem/zsys_main.cpp:3 */
 _zsys_public zSys;

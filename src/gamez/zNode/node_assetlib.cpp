@@ -344,8 +344,16 @@ CAssetLib* CAssetList::FindLib(const char* name)
 }
 
 /* @socom-skeleton stub FindLib__Q23zdb10CAssetListFQ23zdb12_RenderPhase */
-zdb::CAssetLib * zdb::CAssetList::FindLib(zdb::_RenderPhase)
+zdb::CAssetLib * zdb::CAssetList::FindLib(zdb::_RenderPhase phase)
 {
+	/* 0x230c40: the first library of that render phase (byte +0x2b), else NULL */
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		if ((u8)(*it)->m_renderphase == (u8)phase)
+			return *it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton body GetModel__Q23zdb10CAssetListFPCc */

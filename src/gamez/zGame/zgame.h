@@ -215,7 +215,9 @@ public:
 class CGameName
 {
 public:
+	CGameName() { m_game_name = nameFTS; } /* __sinit_game_main.cpp 0x46b0d0 stores 1 (nameFTS) into OurGameName */
 	GAME_NAME m_game_name;
 };
 /* @socom-skeleton end 9CGameName */
+extern CGameName OurGameName; /* game_main.cpp; nameFTS selects CameraZoom::Tick and CheckDIShoot */
 #endif

@@ -54,8 +54,40 @@ zdb::CDIBBox::~CDIBBox()
 }
 
 /* @socom-skeleton stub GetAltitude__Q23zdb7CDIPolyFPQ23zdb11DiIntersect */
-void zdb::CDIPoly::GetAltitude(zdb::DiIntersect *)
+bool zdb::CDIPoly::GetAltitude(zdb::DiIntersect *di)
 {
+	/* 0x21e200: a vertical probe at the ray tail's x/z (node space) hits the polygon when
+	   it lies inside every edge (cross >= -1e-5, either winding sign as the ELF tests)
+	   and the plane is not vertical; the hit goes into the DI's next record: the point
+	   on the plane under the probe, the plane normal and this DI (the caller takes it) */
+	u32 count = m_ptcount;
+	f32 ny = m_nrm.y;
+	f32 px = di->m_MTail.x;
+	f32 pz = di->m_MTail.z;
+
+	if (ny == 0.0f)
+		return false;
+
+	for (int i = 0, j = (int)count - 1; j >= 0; i = j, j--)
+	{
+		const CPnt4D& a = m_pts[j];
+		const CPnt4D& b = m_pts[i];
+		f32 cross = (b.z - a.z) * (px - a.x) + (a.x - b.x) * (pz - a.z);
+
+		if (cross <= -1e-5f)
+			return false;
+	}
+
+	f32 inv = 1.0f / ny;
+	IntersectStruct* hit = &di->m_Intersects[di->m_Cnt];
+	hit->m_norm.x = m_nrm.x;
+	hit->m_norm.y = ny;
+	hit->m_norm.z = m_nrm.z;
+	hit->m_pos.x = px;
+	hit->m_pos.y = m_pts[0].y + (inv * -m_nrm.x) * (px - m_pts[0].x) + (inv * -m_nrm.z) * (pz - m_pts[0].z);
+	hit->m_pos.z = pz;
+	hit->m_poly = this;
+	return true;
 }
 
 /* @socom-skeleton stub intersect2d__FPC6CPnt3DPC6CPnt3DPC6CPnt3DP6CPnt3D */
@@ -76,10 +108,25 @@ int zdb::CDI::GetEdgeIntersectsY(CPnt3D *, CPnt3D *)
 /* @socom-skeleton stub LoadTipAndTail__Q23zdb11DiIntersectFv */
 void zdb::DiIntersect::LoadTipAndTail()
 {
+	/* 0x21dac0: the node-space ray for the VU0 intersect microcode - VU0 data memory
+	   qword 0 = tip (w 1), qword 1 = tail (w = CDI::m_backface_mask) - between two
+	   qmtc2.i interlocks (wait for VU0) */
+	volatile f32* vu = reinterpret_cast<volatile f32*>(0x11004000);
+
+	__asm__ volatile("qmtc2.i $0, $vf0"); /* port: GCC inline-asm spelling */
+	vu[0] = m_MTip.x;
+	vu[1] = m_MTip.y;
+	vu[2] = m_MTip.z;
+	vu[3] = 1.0f;
+	vu[4] = m_MTail.x;
+	vu[5] = m_MTail.y;
+	vu[6] = m_MTail.z;
+	reinterpret_cast<volatile u32*>(vu)[7] = CDI::m_backface_mask;
+	__asm__ volatile("sync.l\n\tqmtc2.i $0, $vf0");
 }
 
 /* @socom-skeleton stub GetIntersect__Q23zdb7CDIPolyFPQ23zdb11DiIntersect */
-void zdb::CDIPoly::GetIntersect(zdb::DiIntersect *)
+bool zdb::CDIPoly::GetIntersect(zdb::DiIntersect *)
 {
 }
 
@@ -89,12 +136,14 @@ void zdb::CDI::SetEdgeVecsAndNorm()
 }
 
 /* @socom-skeleton stub GetAltitude__Q23zdb7CDIBBoxFPQ23zdb11DiIntersect */
-void zdb::CDIBBox::GetAltitude(zdb::DiIntersect *)
+bool zdb::CDIBBox::GetAltitude(zdb::DiIntersect *)
 {
+	/* 0x21d830: boxes have no altitude */
+	return false;
 }
 
 /* @socom-skeleton stub GetIntersect__Q23zdb7CDIBBoxFPQ23zdb11DiIntersect */
-void zdb::CDIBBox::GetIntersect(zdb::DiIntersect *)
+bool zdb::CDIBBox::GetIntersect(zdb::DiIntersect *)
 {
 }
 

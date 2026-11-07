@@ -351,47 +351,159 @@ void CCamera::SetHalfHorizontalFOVRadians(f32 radians)
 		m_cos.x = cosf(radians);
 		m_tan.x = m_sin.x / m_cos.x;
 		m_cot.x = 1.0f / m_tan.x;
-		m_scrZ = m_farCorner[0][2] * m_cot.x;
+		m_scrZ = m_vecClipVolume[0] * m_cot.x; /* 0x1e5548: +0x4a0 (was m_farCorner[0][2], 0: every point projected to the centre) */
 	}
 }
 
 /* @socom-skeleton stub SetHalfVerticalFOVRadians__Q23zdb7CCameraFf */
 void zdb::CCamera::SetHalfVerticalFOVRadians(float)
 {
+	/* 0x1e5460. ELF quirk kept: the argument is ignored - the vertical half angle is the
+	   horizontal one scaled to the 448/640 screen */
+	m_vfov = (448.0f * m_hfov) / 640.0f;
+	m_sin.y = sinf(m_vfov);
+	m_cos.y = cosf(m_vfov);
+	m_tan.y = m_sin.y / m_cos.y;
+	m_cot.y = 1.0f / m_tan.y;
 }
 
 /* @socom-skeleton body SetFarClip__Q23zdb7CCameraFf */
 namespace zdb {
 void CCamera::SetFarClip(f32 farclip)
 	{
+		/* 0x1e5450: the far plane and the guard band's far limit (+0x49c; was m_farCorner[0][1]) */
 		m_far_plane = farclip;
-		m_farCorner[0][1] = farclip;
+		m_guardBand_max[3] = farclip;
 	}
 }
 
 /* @socom-skeleton stub SetMidClip__Q23zdb7CCameraFf */
-void zdb::CCamera::SetMidClip(float)
+void zdb::CCamera::SetMidClip(float mid)
 {
+	/* 0x1e5420: a mid plane beyond the far plane pushes the far plane (and the guard band) out */
+	m_mid_plane = mid;
+
+	if (!(mid <= m_far_plane))
+	{
+		m_far_plane = mid;
+		m_guardBand_max[3] = mid;
+	}
 }
 
 /* @socom-skeleton stub SetNearClip__Q23zdb7CCameraFf */
-void zdb::CCamera::SetNearClip(float)
+void zdb::CCamera::SetNearClip(float nearclip)
 {
+	/* 0x1e5410 */
+	m_near_plane = nearclip;
+	m_guardBand_min[3] = nearclip;
 }
 
 /* @socom-skeleton stub UpdateFrustum__Q23zdb7CCameraFv */
+/* @socom-skeleton stub UpdateFrustum__Q23zdb7CCameraFv */
 void zdb::CCamera::UpdateFrustum()
 {
+	/* 0x1e5180: the view pyramid out to the far plane in world space - m_frustum is the
+	   eye and the two far corners on the horizon, m_fullfrustum the eye and the four far
+	   corners - then the full one reduced to its convex hull in x/z (the grid walks it) */
+	f32 halfX = m_far_plane * m_tan.x;
+	CPnt3D* eye = reinterpret_cast<CPnt3D*>(m_matrix.m_matrix[3]);
+
+	m_frustum[0] = *eye;
+	m_frustum[1] = CPnt3D(halfX, 0.0f, -m_far_plane);
+	m_frustum[2] = CPnt3D(-halfX, 0.0f, -m_far_plane);
+	m_matrix.Transform(&m_frustum[1], 2);
+
+	f32 halfY = m_far_plane * m_tan.y;
+
+	m_fullfrustum[0] = *eye;
+	m_fullfrustum[1] = CPnt3D(halfX, -halfY, -m_far_plane);
+	m_fullfrustum[2] = CPnt3D(-halfX, -halfY, -m_far_plane);
+	m_fullfrustum[3] = CPnt3D(halfX, halfY, -m_far_plane);
+	m_fullfrustum[4] = CPnt3D(-halfX, halfY, -m_far_plane);
+	m_matrix.Transform(&m_fullfrustum[1], 4);
+
+	m_fullfrustum_points = 5;
+	m_fullfrustum_points = find_convex_hull_xz(m_fullfrustum, m_fullfrustum_points);
 }
 
 /* @socom-skeleton stub find_convex_hull_xz__Q23zdb7CCameraFP6CPnt3Di */
-int zdb::CCamera::find_convex_hull_xz(CPnt3D *, int)
+/* @socom-skeleton stub find_convex_hull_xz__Q23zdb7CCameraFP6CPnt3Di */
+int zdb::CCamera::find_convex_hull_xz(CPnt3D *points, int count)
 {
+	/* 0x1e4f00: gift wrapping in x/z with theta_x_z's pseudo-angle. Starts from the point
+	   of greatest z (ties: least x), uses points[count] as the closing sentinel (so the
+	   array holds count + 1 points), sorts the hull to the front and returns its size
+	   (0 if it never closes). */
+	int next = 0;
+
+	for (int i = 1; i < count; i++)
+	{
+		if (!(points[i].z <= points[next].z) || (points[i].z == points[next].z && points[i].x < points[next].x))
+			next = i;
+	}
+
+	points[count] = points[next];
+	f32 angle = 0.0f;
+
+	for (int m = 0; m < count; m++)
+	{
+		CPnt3D swap = points[m];
+		points[m] = points[next];
+		points[next] = swap;
+
+		next = count;
+		f32 minAngle = angle;
+		f32 best = 4.0f;
+		f32 bestDist = 0.0f;
+
+		for (int i = m + 1; i <= count; i++)
+		{
+			f32 theta;
+			f32 dist;
+			theta_x_z(&points[m], &points[i], &theta, &dist);
+
+			if (theta < minAngle || dist <= 0.0f)
+				continue;
+
+			if (theta < best || (theta == best && !(dist <= bestDist)))
+			{
+				next = i;
+				best = theta;
+				bestDist = dist;
+			}
+		}
+
+		if (next == count)
+			return m + 1;
+
+		angle = best;
+	}
+
+	return 0;
 }
 
 /* @socom-skeleton stub theta_x_z__Q23zdb7CCameraFP6CPnt3DP6CPnt3DPfPf */
-void zdb::CCamera::theta_x_z(CPnt3D *, CPnt3D *, float *, float *)
+/* @socom-skeleton stub theta_x_z__Q23zdb7CCameraFP6CPnt3DP6CPnt3DPfPf */
+void zdb::CCamera::theta_x_z(CPnt3D *from, CPnt3D *to, float *theta, float *dist)
 {
+	/* 0x1e4e00: a pseudo-angle 0..4 of the x/z direction from -> to (with z negated) and
+	   its taxicab length. ELF quirk kept: the length is summed in double (fabs). */
+	f32 dx = to->x - from->x;
+	f32 dz = from->z - to->z;
+	f32 d = (f32)(fabs((double)dx) + fabs((double)dz));
+	*dist = d;
+
+	f32 t = d;
+
+	if (d != 0.0f)
+		t = dz / d;
+
+	if (dx < 0.0f)
+		t = 2.0f - t;
+	else if (dz < 0.0f)
+		t = 4.0f + t;
+
+	*theta = t;
 }
 
 /* @socom-skeleton stub TestFOV__Q23zdb7CCameraFP5PNT4DPUib */
@@ -559,8 +671,34 @@ float zdb::CCamera::GetScaledZSquared(CPnt3D *point)
 }
 
 /* @socom-skeleton stub GetLandmarkFarPlane__Q23zdb7CCameraFPQ23zdb6CWorld */
-void zdb::CCamera::GetLandmarkFarPlane(zdb::CWorld *)
+/* @socom-skeleton stub GetLandmarkFarPlane__Q23zdb7CCameraFPQ23zdb6CWorld */
+void zdb::CCamera::GetLandmarkFarPlane(zdb::CWorld *world)
 {
+	/* 0x1e4710 (CCoreState::Init): the landmark far plane reaches twice the largest
+	   landmark radius, at least the grid's extent diagonal, and is 4 x the far plane
+	   when that is farther */
+	f32 maxRadiusSq = 0.0f;
+
+	for (CNodeVector::iterator it = world->m_landmarks.begin(); it != world->m_landmarks.end(); ++it)
+	{
+		f32 radiusSq = (*it)->GetRadiusSq();
+
+		if (!(radiusSq <= maxRadiusSq))
+			maxRadiusSq = radiusSq;
+	}
+
+	m_landmark_far_plane = 2.0f * sqrtf(maxRadiusSq);
+
+	CFRect& extents = world->m_grid->m_extents;
+	f32 dx = extents.left - extents.right;
+	f32 dz = extents.top - extents.bottom;
+	f32 diagonal = sqrtf(dx * dx + dz * dz);
+
+	if (!(diagonal <= m_landmark_far_plane))
+		m_landmark_far_plane = diagonal;
+
+	if (!(m_far_plane <= m_landmark_far_plane))
+		m_landmark_far_plane = 4.0f * m_far_plane;
 }
 
 /* @socom-skeleton stub TestFOG__Q23zdb7CCameraFPC6CPnt3Df */

@@ -313,7 +313,7 @@ CWorld* CSaveLoad::Load(const char* name)
 
 		if (zar::CKey* key = m_zfile.OpenKey("cameras"))
 		{
-			m_zfile.Fetch("camera", m_world->m_camera, sizeof(tag_CAMERA_PARAMS));
+			m_zfile.Fetch("camera", static_cast<tag_CAMERA_PARAMS*>(m_world->m_camera), sizeof(tag_CAMERA_PARAMS)); /* 0x22a424: the params base (+0xc0 in the ELF), not the node */
 			CVisual::m_basefog_color = m_world->m_camera->m_fog_color;
 			m_world->m_camera->SetHalfHorizontalFOVRadians(0.61008652f);
 			m_zfile.CloseKey(key);

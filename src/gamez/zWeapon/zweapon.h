@@ -533,6 +533,7 @@ public:
 	/// STATIC MEMBERS
 	/// -------------------------------------------
 	static bool m_weaponTickDisabled;
+	static CZProjectileList* m_pProjectilelist; /* 0x47667c (CreateProjectileList) */
 	
 	static bool m_timer_bTimerRegistered;
 	static bool m_timer_bTimerCleared;

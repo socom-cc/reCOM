@@ -161,6 +161,10 @@ void ai::ResetPathPlan()
 /* @socom-skeleton stub TickPathPlanner__2aiFfPv */
 bool ai::TickPathPlanner(float, void *)
 {
+	/* port: stub - the A* route planner (0x180c00: path_queue within timerlimit RCNT0
+	   counts, CAiPath::CreatePlanner / CAiStar::find_path) is not written; the ELF task
+	   returns false */
+	return false;
 }
 
 /* @socom-skeleton stub PathPlanImmediate__2aiFP6CAiMapRC9CAiMapLocRC9CAiMapLocP7CAiPath */

@@ -169,6 +169,9 @@ namespace zdb
 #include "gamez/zTexture/ztex.h"
 #include "vis_local.h"
 /* @socom-skeleton end include */
+#ifdef SOCOM_PORT
+extern unsigned socom_port_pipe_stats[8]; /* port: zrndr_pipe.cpp boot trace (Render) */
+#endif
 /* @socom-skeleton decl forward */
 class CVisBase;
 union _word128;
@@ -1026,6 +1029,9 @@ namespace zdb {
 void CVisual::Render(CMatrix* transform)
 	{
 		/* 0x30c990: only a visual with instance chains draws */
+#ifdef SOCOM_PORT
+		socom_port_pipe_stats[7]++;
+#endif
 		if (m_buffers.size() != 0)
 			VuUpdate(1.0f);
 	}

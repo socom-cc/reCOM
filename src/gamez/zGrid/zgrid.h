@@ -142,7 +142,7 @@ public:
 		COrderedCell m_orderedCells;
 		/* @socom-skeleton decl Q23zdb5CGrid */
 public:
-		void GetAltitude(zdb::DiIntersect *);
+		bool GetAltitude(zdb::DiIntersect *); /* 0x2143b0 returns 0 (altitude off) or 1 */
 		void GetIntersect(zdb::DiIntersect *);
 		void GetIntersectBatch(zdb::DiIntersect **, int);
 		void NodeGetIntersectBatch(zdb::CNode *, zdb::DiIntersect **, int);

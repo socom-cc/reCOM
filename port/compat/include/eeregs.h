@@ -102,4 +102,9 @@
 #define D2_QWC ((volatile unsigned int *)0x1000a020)
 #endif
 
+/* GIF (CCoreState::Init 0x17d620 sets MODE bit 2, IMT) */
+#ifndef GIF_MODE
+#define GIF_MODE ((volatile unsigned int *)0x10003010)
+#endif
+
 #endif /* SOCOM_COMPAT_EEREGS_H */

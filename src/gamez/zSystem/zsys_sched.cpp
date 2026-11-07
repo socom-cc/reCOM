@@ -171,6 +171,12 @@ bool CSched_Manager::Tick(f32 dT)
 
 			if (!done)
 			{
+#ifdef SOCOM_PORT
+				extern unsigned socom_port_core_frame; /* st_core.cpp boot trace */
+
+				if (socom_port_core_frame >= 1 && socom_port_core_frame <= 2 && this == &zTaskScheduler)
+					SOCOM_PORT_TRACE("TASK: frame %u %s", socom_port_core_frame, task->m_name ? task->m_name : "?");
+#endif
 				m_priority = task->m_priority;
 				done = task->m_func ? task->m_func(dT, task->m_registrar) : true;
 			}

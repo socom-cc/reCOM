@@ -166,16 +166,22 @@ bool CDI::Read(CSaveLoad& sload)
 /* @socom-skeleton stub GetMaterial__Q23zdb15IntersectStructFv */
 unsigned int zdb::IntersectStruct::GetMaterial()
 {
+	/* 0x21c310: the hit DI's material (0 without one) */
+	return m_poly != NULL ? m_poly->m_material : 0;
 }
 
 /* @socom-skeleton stub GetRegion__Q23zdb15IntersectStructFv */
 unsigned int zdb::IntersectStruct::GetRegion()
 {
+	/* 0x21c2f0: the hit DI's region mask (0 without one) */
+	return m_poly != NULL ? m_poly->m_region : 0;
 }
 
 /* @socom-skeleton stub IsInside__Q23zdb15IntersectStructFv */
 unsigned char zdb::IntersectStruct::IsInside()
 {
+	/* 0x21c2c0 */
+	return m_poly != NULL && m_poly->m_inside;
 }
 
 /* @socom-skeleton stub GetIntersectedEdgePointsY__Q23zdb15IntersectStructFP6CPnt3D */

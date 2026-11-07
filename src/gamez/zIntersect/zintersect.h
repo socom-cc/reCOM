@@ -113,7 +113,14 @@ public:
 
         s32 GetEdgeIntersects(CPnt3D* firstPoint, CPnt3D* secondPoint, CPnt3D* edge) const;
         s32 GetEdgeIntersectsY(CPnt3D* firstPoint, CPnt3D* secondPoint) const;
-    private:
+
+        /* pure in __vt__Q23zdb3CDI (slots +0x14/+0x18 are 0); CDIPoly/CDIBBox/CDIDummy
+           define them. Both return whether the DI was hit. */
+        virtual bool GetIntersect(DiIntersect* di) = 0;
+        virtual bool GetAltitude(DiIntersect* di) = 0;
+
+        static u32 m_backface_mask; /* 0x474e68 (.sdata, 32); CGrid::GetAltitude sets 32 */
+    protected: /* CDIPoly::GetAltitude 0x21e23c reads the points */
         CPnt4D* m_pts;
         /* @socom-skeleton decl Q23zdb3CDI */
 public:
@@ -143,8 +150,8 @@ public:
 	/* @socom-skeleton decl Q23zdb7CDIPoly */
 public:
 	virtual ~CDIPoly();
-	virtual void GetIntersect(zdb::DiIntersect *);
-	virtual void GetAltitude(zdb::DiIntersect *);
+	virtual bool GetIntersect(zdb::DiIntersect *);
+	virtual bool GetAltitude(zdb::DiIntersect *);
 	CDIPoly();
 	/* @socom-skeleton end Q23zdb7CDIPoly */
     };
@@ -201,8 +208,8 @@ class CDIBBox : public zdb::CDI
 {
 public:
 	virtual ~CDIBBox();
-	virtual void GetIntersect(zdb::DiIntersect *);
-	virtual void GetAltitude(zdb::DiIntersect *);
+	virtual bool GetIntersect(zdb::DiIntersect *);
+	virtual bool GetAltitude(zdb::DiIntersect *);
 	CDIBBox();
 	static void SetCDIBBox();
 };

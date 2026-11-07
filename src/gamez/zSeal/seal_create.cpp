@@ -37,8 +37,14 @@
 static unsigned char MultiplayerMsgStrings[28];
 
 /* @socom-skeleton stub GetSeal__10CZSealBodyFPQ23zdb5CNode */
-CZSealBody * CZSealBody::GetSeal(zdb::CNode *)
+CZSealBody * CZSealBody::GetSeal(zdb::CNode *node)
 {
+	/* 0x28a510: the seal whose CSealEx extends the node */
+	if (node == NULL)
+		return NULL;
+
+	CSealEx* ex = dynamic_cast<CSealEx*>(node->m_nodeEx);
+	return ex != NULL ? ex->m_seal : NULL;
 }
 
 /* @socom-skeleton stub PreCreateSeal__10CZSealBodyFPC14CCharacterTypePCcPPQ23zdb5CNode */

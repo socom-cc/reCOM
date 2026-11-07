@@ -23,20 +23,18 @@
 /* @socom-skeleton body __ct__Q23zdb5CCellFPC6CPnt3Df */
 zdb::CCell::CCell(const CPnt3D *origin, float offset)
     {
+        /* 0x217380: the bbox runs from the origin to origin + (size - 0.001, 0, size -
+           0.001). Was: the sum went into the extents and the bbox stayed a point. */
         CPnt3D boxextents;
-        
+
         m_bbox.m_max = *origin;
+        m_bbox.m_min = m_bbox.m_max;
 
         boxextents.x = offset - 0.001f;
         boxextents.y = 0.0f;
         boxextents.z = boxextents.x;
+        m_bbox.m_max.Add(&boxextents, &m_bbox.m_max);
 
-        m_bbox.m_min = m_bbox.m_max;
-
-        CPnt3D max = m_bbox.m_max;
-
-        max.Add(origin, &boxextents);
-        
         m_type = (u32)TYPE::CELL;
 
         m_lightList.erase(m_lightList.begin(), m_lightList.end());

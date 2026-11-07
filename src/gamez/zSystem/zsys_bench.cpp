@@ -10,4 +10,17 @@
 /* @socom-skeleton stub Reset__6CBenchFv */
 void CBench::Reset()
 {
+	/* 0x2f3730: clear the DMA time, the ten draw-time slots and the node/visual counters
+	   (the particle counters are left alone) */
+	dmaTime = 0.0f;
+
+	for (int i = 0; i < 10; i++)
+		drawTimeX[i] = 0.0f;
+
+	countNodes = 0;
+	countRenderNodes = 0;
+	countAlphaNodes = 0;
+	countClutterNodes = 0;
+	countVisuals = 0;
+	countAlphaVisuals = 0;
 }

@@ -153,7 +153,7 @@ public:
 	static void SetReverbSeconds(const float *); /* static: as SetReverbDepth (0x1f8dc0) */
 	static void SetGroupVol(int, float);
 	static void SetGroupVolTemp(float, float, int, int, int, int, int, int, int);
-	void ResetGroupVolTemp();
+	static void ResetGroupVolTemp(); /* static: PostTick 0x2ec178 passes no object */
 	static unsigned char m_DisplaySounds;
 	static int m_curID;
 	static int m_curbank;
@@ -162,7 +162,7 @@ public:
 	static unsigned char m_fade_oldvol[28];
 	static int m_fadegroup[7];
 	static float m_fadepct;
-	static unsigned char m_listenermatrix[64];
+	static CMatrix m_listenermatrix; /* 0x50e860, 64 B (was uchar[64]): the inverse listener matrix (PostTick) */
 	static int m_num_sounds_playing;
 	static int m_num_streams_used;
 	/* @socom-skeleton end 4CSnd */

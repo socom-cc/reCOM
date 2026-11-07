@@ -104,6 +104,9 @@
 #include "gamez/zMath/zmath.h"
 #include "gamez/zTexture/ztex.h"
 /* @socom-skeleton end include */
+#ifdef SOCOM_PORT
+extern unsigned socom_port_pipe_stats[8]; /* port: boot trace counters (defined before RenderWorld) */
+#endif
 
 /* @socom-skeleton stub FirstVisDrawn */
 bool FirstVisDrawn = 1;
@@ -300,10 +303,20 @@ void CPipe::RenderAtom(zdb::CNode* atomNode)
 	m_node = atomNode;
 
 	if (!atomNode->m_hasVisuals)
+	{
+#ifdef SOCOM_PORT
+		socom_port_pipe_stats[3]++;
+#endif
 		return;
+	}
 
 	if (atomNode->m_apply_clip && !m_camera->CanSeeRegion(1 << atomNode->m_region_shift))
+	{
+#ifdef SOCOM_PORT
+		socom_port_pipe_stats[4]++;
+#endif
 		return;
+	}
 
 	m_camera->m_fovMask = atomNode->m_apply_clip ? 0x3f3f : 0x3f2f;
 	BuildLightMapList(atomNode);
@@ -353,8 +366,19 @@ static inline zdb::CGSTexBuffer* RenderWorldTexBuffer(s32 index)
 	return reinterpret_cast<zdb::CGSTexBuffer*>(zdb::CTexManager::m_texmanager[index]); /* port: see doAddBuffer */
 }
 
+#ifdef SOCOM_PORT
+/* port: boot trace counters of the last RenderWorld: [0] node atoms walked, [1] cells walked,
+   [2] cells with a visual, [3] RenderAtom without visuals, [4] RenderAtom region-culled,
+   [5] RenderNode FOV-culled, [6] RenderVisual calls, [7] CVisual::Render calls */
+unsigned socom_port_pipe_stats[8];
+#endif
+
 u32 CPipe::RenderWorld(zdb::CWorld* world)
 {
+#ifdef SOCOM_PORT
+	for (int portI = 0; portI < 8; portI++)
+		socom_port_pipe_stats[portI] = 0;
+#endif
 	/* 0x244780: clear and fog colour, shadow maps, the grid in two passes (rings 0-1,
 	   then the rest, with the texture-buffer chain for the character sets between),
 	   landmarks, particles, the character sets, the alpha pass; returns the alpha
@@ -436,6 +460,21 @@ u32 CPipe::RenderWorld(zdb::CWorld* world)
 	grid->SetTraversalBoundaryOrdered((CPnt3D*)camera->m_matrix.m_matrix[3], camera->m_fullfrustum, camera->m_fullfrustum_points, false);
 	zdb::CGridAtom* atom = grid->StartTraversalOrdered();
 	CBench::drawTimeX[1] = RenderWorldBenchTime();
+#ifdef SOCOM_PORT
+	{
+		static int portTraced = 0; /* port: boot trace of the first walks */
+
+		if (portTraced < 3)
+		{
+			portTraced++;
+			SOCOM_PORT_TRACE("PIPE: walk from %d %d %d, %d hull points (%d %d / %d %d / %d %d), first atom %p ordered cells %d",
+				(int)camera->m_matrix.m_matrix[3][0], (int)camera->m_matrix.m_matrix[3][1], (int)camera->m_matrix.m_matrix[3][2],
+				camera->m_fullfrustum_points, (int)camera->m_fullfrustum[0].x, (int)camera->m_fullfrustum[0].z,
+				(int)camera->m_fullfrustum[1].x, (int)camera->m_fullfrustum[1].z, (int)camera->m_fullfrustum[2].x,
+				(int)camera->m_fullfrustum[2].z, atom, grid->m_orderedCells.m_gridCellAtomCnt);
+		}
+	}
+#endif
 
 	/* rings 0 and 1 */
 	while (atom != NULL && grid->m_ring < 2)
@@ -453,6 +492,10 @@ u32 CPipe::RenderWorld(zdb::CWorld* world)
 			m_doFog = m_camera->TestFOG(&centre, zdb::CWorld::m_world->m_grid->m_ClutterTol + zdb::CWorld::m_world->m_grid->m_GridCellTol);
 
 			zdb::CVisual* first = cell->GetFirstVisual();
+#ifdef SOCOM_PORT
+			socom_port_pipe_stats[1]++;
+			socom_port_pipe_stats[2] += first != NULL;
+#endif
 
 			if (first != NULL)
 			{
@@ -471,6 +514,9 @@ u32 CPipe::RenderWorld(zdb::CWorld* world)
 				shadowed = true;
 
 			zdb::CVisual::m_applyShadow = !shadowed;
+#ifdef SOCOM_PORT
+			socom_port_pipe_stats[0]++;
+#endif
 			RenderAtom(m_node);
 		}
 
@@ -531,6 +577,10 @@ u32 CPipe::RenderWorld(zdb::CWorld* world)
 				m_doFog = m_camera->TestFOG(&centre, zdb::CWorld::m_world->m_grid->m_ClutterTol + zdb::CWorld::m_world->m_grid->m_GridCellTol);
 
 				zdb::CVisual* first = cell->GetFirstVisual();
+#ifdef SOCOM_PORT
+				socom_port_pipe_stats[1]++;
+				socom_port_pipe_stats[2] += first != NULL;
+#endif
 
 				if (first != NULL)
 				{
@@ -545,6 +595,9 @@ u32 CPipe::RenderWorld(zdb::CWorld* world)
 		{
 			m_node = atom->Ent;
 
+#ifdef SOCOM_PORT
+			socom_port_pipe_stats[0]++;
+#endif
 			if (!farClip || m_camera->InsideMidPlane(m_node) || !m_node->m_apply_clip)
 				RenderAtom(m_node);
 		}
@@ -931,6 +984,9 @@ void CPipe::RenderNode(zdb::CNode* node, zdb::tag_ZVIS_FOV fov)
 
 		if (fov == zdb::tag_ZVIS_FOV::ZVIS_FOV_ALL_OUT)
 		{
+#ifdef SOCOM_PORT
+			socom_port_pipe_stats[5]++;
+#endif
 			CStack::m_pointer--;
 			CStack::m_top--;
 			return;
@@ -1237,6 +1293,9 @@ void CPipe::RenderMeshShadow(zdb::CNode *, zdb::CMesh *, CMatrix *)
 /* @socom-skeleton body RenderVisual__5CPipeFPQ23zdb5CNodeQ23zdb12tag_ZVIS_FOV */
 bool CPipe::RenderVisual(zdb::CNode* node, zdb::tag_ZVIS_FOV fov)
 {
+#ifdef SOCOM_PORT
+	socom_port_pipe_stats[6]++;
+#endif
 	/* 0x2424f0: draw (or queue for the alpha pass) each visual of the node with the matrix on
 	   top of CStack. A LOD-banded visual outside its band is skipped (false with m_LODFilter).
 	   Fog, detail range and the bilinear distance are set per visual first. */

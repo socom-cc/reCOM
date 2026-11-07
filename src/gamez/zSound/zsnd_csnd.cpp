@@ -116,6 +116,8 @@
 
 /* @socom-skeleton decl include */
 #include "gamez/zMath/zmath.h"
+#include "gamez/zMath/zmath_vu.h" /* Vu0MatrixInverseWithUniformScale (PostTick) */
+#include <libvu0.h> /* sceVu0CopyMatrix (PostTick) */
 #include "gamez/zNode/znode.h"
 #include "gamez/zUtil/zutil.h"
 /* @socom-skeleton end include */
@@ -224,7 +226,7 @@ zar::CZAR CSnd::m_vagArchive;
 zar::CZAR CSnd::m_bnkArchive;
 
 /* @socom-skeleton stub m_listenermatrix__4CSnd */
-unsigned char CSnd::m_listenermatrix[64];
+CMatrix CSnd::m_listenermatrix;
 
 /* @socom-skeleton stub m_fadegroup__4CSnd */
 int CSnd::m_fadegroup[7];
@@ -533,51 +535,51 @@ void CSnd::UnloadAllSounds()
 /* @socom-skeleton body PostTick__4CSndFfPv */
 bool CSnd::PostTick(f32 dT, void* buf)
 {
+	/* 0x2ec080 (task sound_post_tick 11.0): indoor reverb on/off, the inverse listener
+	   matrix, the group volume fade, the sound instances, the jukebox and (offline) the
+	   headset. The port body called itself here instead of CSndInstance::PostTick. */
 	if (!m_listenerIsValid)
-	{
 		m_listenerIsValid = true;
-	}
 
-	if (m_listener)
+	if (m_listener != NULL)
 	{
-		if (zdb::CWorld::m_world->m_camera->m_IsInside || ftsPlayer->m_inside)
+		bool inside = zdb::CWorld::m_world->m_camera->m_IsInside;
+
+		if (!inside)
+			inside = ftsPlayer != NULL && ftsPlayer->m_inside; /* CftsPlayer::IsInside 0x1fdf90 (the port's ftsPlayer is the seal itself) */
+
+		if (inside)
 		{
 			if (!m_hasreverb)
 			{
-				// TODO: Handle reverb using some audio engine
-				// snd_AutoReverb(3, g_iReverbDepth, 3);
+				snd_AutoReverb(3, g_iReverbDepth, g_iReverbTime, 3);
 				m_hasreverb = true;
 			}
 		}
 		else if (m_hasreverb)
 		{
-			// snd_AutoReverb(3, 0, g_iReverbTime, 3);
+			snd_AutoReverb(3, 0, g_iReverbTime, 3);
 			m_hasreverb = false;
 		}
 
-		// CSnd::m_listener = CSnd::m_listenermatrix;
-		// TODO: Do inverse matrix transform on listener
+		sceVu0CopyMatrix(m_listenermatrix.m_matrix, m_listener->m_matrix.m_matrix);
+		Vu0MatrixInverseWithUniformScale(&m_listenermatrix, &m_listenermatrix);
 	}
 
-	if (m_fadetime > 0.0f)
+	if (!(m_fadetime <= 0.0f))
 	{
-		f32 time = m_fadetime - dT;
+		m_fadetime -= dT;
 
-		if (time <= 0.0f)
-		{
-			// ResetGroupVolTemp();
-		}
+		if (m_fadetime <= 0.0f)
+			ResetGroupVolTemp();
 	}
 
-	PostTick(dT, buf);
+	CSndInstance::PostTick(dT, buf);
 	CSndJukebox::Tick(dT);
 
 	if (!theNetwork.m_bNetwork)
-	{
-		// Headset::ftsGetHeadset();
-		// Headset::Tick(dT);
-	}
-	
+		static_cast<Headset*>(Headset::ftsGetHeadset())->Tick(dT);
+
 	return false;
 }
 

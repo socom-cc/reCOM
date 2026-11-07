@@ -117,6 +117,9 @@
  * socom-owner-annotations end socom:work:source-segment-076 */
 
 #include "zweapon.h"
+#include "zwep_projectilelist.h" /* CZProjectileList::PreTick/PostTick (the weapon tasks) */
+#include "gamez/zFTS/zfts.h" /* theMission, CZBombState */
+#include "gamez/zNetwork/znet.h" /* CZNetGame::m_game_type */
 
 #include "gamez/zNode/node_world.h"
 
@@ -561,13 +564,30 @@ void CZWeapon::SetReloadSoundName(char *)
 }
 
 /* @socom-skeleton stub PreTick__8CZWeaponFfPv */
-bool CZWeapon::PreTick(float, void *)
+bool CZWeapon::PreTick(float dT, void *)
 {
+	/* 0x31e570 (task weapon_pre_tick 3.0): the projectiles, and the bomb in a footbomb
+	   network game */
+	if (m_weaponTickDisabled)
+		return false;
+
+	m_pProjectilelist->PreTick(dT); /* port: NULL until CreateProjectileList is written (its PreTick is a stub) */
+
+	if (theMission.m_pNetGame != NULL && theMission.m_pNetGame->m_game_type == MP_GAME_TYPE::MP_GAME_FOOTBOMB)
+		CZBombState::UpdateLocalBomb();
+
+	return false;
 }
 
 /* @socom-skeleton stub PostTick__8CZWeaponFfPv */
-bool CZWeapon::PostTick(float, void *)
+bool CZWeapon::PostTick(float dT, void *)
 {
+	/* 0x31e530 (task weapon_post_tick 8.0) */
+	if (m_weaponTickDisabled)
+		return false;
+
+	m_pProjectilelist->PostTick(dT); /* port: NULL until CreateProjectileList is written (its PostTick is a stub) */
+	return false;
 }
 
 /* @socom-skeleton stub GetDefaultAmmo__8CZWeaponFv */

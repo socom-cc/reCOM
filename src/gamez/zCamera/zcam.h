@@ -186,6 +186,7 @@ namespace zdb
 		void SetFarClip(f32 farclip);
 		
 		static bool m_dynamics_controlled;
+		static bool GetDynamicsControl() { return m_dynamics_controlled; } /* inline 0x1ea700 (emitted from zcamera.h) */
 		static bool m_do_region_test;
 		
 		f32 m_Zmin;
@@ -289,7 +290,7 @@ public:
 	
 
 	void FTSTick(f32 delta);
-	void Tick(f32 dT);
+	virtual void Tick(f32 dT); /* __vt__10CAppCamera +8: Tick, then AttachTo (both virtual, this order) */
 
 	void UpdateDeathCamState();
 	void ResetDeathCam();
@@ -366,7 +367,7 @@ public:
 	virtual unsigned char AttachTo(CZSealBody *);
 	void ClipCameraChord(float, CPnt3D *, CPnt3D *, CPnt3D *);
 	void LookAt(const CPnt3D *, const CPnt3D *, CMatrix &);
-	void GetThirdPersonCamPos(CPnt3D *, float *);
+	CPnt3D GetThirdPersonCamPos(CPnt3D *, float *); /* returns the eye by value (0x1ead60: MW hidden result pointer) */
 	void UpdateDeathCamState(float);
 	unsigned char GetDeadCamPoints(CPnt3D *, CPnt3D *, CMatrix *, float);
 	unsigned char GetTetherCamPoints(CPnt3D *, CPnt3D *, CPnt3D *, float);
