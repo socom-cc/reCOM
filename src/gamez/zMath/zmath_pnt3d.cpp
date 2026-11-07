@@ -65,8 +65,12 @@ void CPnt3D::SubXZ(const CPnt3D *other, CPnt3D *out) const
 }
 
 /* @socom-skeleton stub ToRightXZ__6CPnt3DCFP6CPnt3D */
-void CPnt3D::ToRightXZ(CPnt3D *) const
+void CPnt3D::ToRightXZ(CPnt3D *out) const
 {
+	/* 0x222e00: the level right vector (-z, 0, x), not normalized */
+	out->x = -z;
+	out->z = x;
+	out->y = 0.0f;
 }
 
 /* @socom-skeleton body Scale__6CPnt3DCFfP6CPnt3D */
@@ -78,17 +82,20 @@ void CPnt3D::Scale(float scaleFactor, CPnt3D *out) const
 }
 
 /* @socom-skeleton body Normalize__6CPnt3DFv */
-void CPnt3D::Normalize()
+float CPnt3D::Normalize()
 {
-	f32 sqrMagnitude = sqrtf(z * z + x * x + y * y);
+	/* 0x222d40: returns the length before normalizing (the sqrtf result stays in f0) */
+	f32 length = sqrtf(x * x + y * y + z * z);
 
-	if (sqrMagnitude != 0.0f)
+	if (length != 0.0f)
 	{
-		sqrMagnitude = 1.0f / sqrMagnitude;
-		x *= sqrMagnitude;
-		y *= sqrMagnitude;
-		z *= sqrMagnitude;
+		f32 inv = 1.0f / length;
+		x *= inv;
+		y *= inv;
+		z *= inv;
 	}
+
+	return length;
 }
 
 /* @socom-skeleton body Normalize__6CPnt3DCFP6CPnt3D */

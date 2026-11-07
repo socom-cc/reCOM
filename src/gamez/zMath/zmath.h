@@ -197,7 +197,7 @@ public:
 	static const CPnt3D zero;
 	static const CPnt3D unit_nz;
 
-	void Normalize();
+	float Normalize(); /* 0x222d40 returns the length (f0: ClipCameraChord uses it; was void) */
 	void Normalize(CPnt3D* other);
 	/* port: the non-const Add(CPnt3D*, CPnt3D*) was removed (never defined); the ELF has only Add__6CPnt3DCFPC6CPnt3DP6CPnt3D (below) */
 	/* port: Sub(CPnt3D*, CPnt3D*) is not declared: the ELF has only Sub__6CPnt3DCFPC6CPnt3DP6CPnt3D (below) */

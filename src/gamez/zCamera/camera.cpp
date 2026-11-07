@@ -70,6 +70,7 @@
 #include <eeregs.h> /* T0_COUNT (Tick) */
 #include <math.h> /* expf (Tick), atan2f (the transitions) */
 #include "gamez/zMath/zmath_vu.h" /* Vu0MatrixInverseWithUniformScale (the transitions) */
+#include "gamez/zGrid/zgrid.h" /* zdb::SetCameraCollideFlagRequired (ClipCameraChord) */
 
 /* @socom-skeleton decl include */
 #include "gamez/zIntersect/zintersect.h"
@@ -115,28 +116,259 @@ static float DeltaAim;
 static CSTable MultiplayerMsgStrings;
 
 /* @socom-skeleton stub dilr0 */
-static zdb::DiIntersect dilr0;
+static zdb::DiIntersect dilr0(16); /* ClipCameraChord's side/up/down probes: __sinit_camera.cpp DiIntersect(16) each (was the empty ctor: no hit buffer) */
 
 /* @socom-skeleton stub dilr1 */
-static zdb::DiIntersect dilr1;
+static zdb::DiIntersect dilr1(16);
 
 /* @socom-skeleton stub dilr2 */
-static zdb::DiIntersect dilr2;
+static zdb::DiIntersect dilr2(16);
 
 /* @socom-skeleton stub dilr3 */
-static zdb::DiIntersect dilr3;
+static zdb::DiIntersect dilr3(16);
 
 /* @socom-skeleton stub tetherPos */
-static CPnt3D tetherPos;
+static CPnt3D tetherPos(0.0f, 8.0f, 40.0f); /* __sinit_camera.cpp; no code reads it */
 
 /* @socom-skeleton stub GetNearestIntersectCamPoint__FPQ23zdb11DiIntersectP6CPnt3D */
-zdb::IntersectStruct * GetNearestIntersectCamPoint(zdb::DiIntersect *, CPnt3D *)
+zdb::IntersectStruct * GetNearestIntersectCamPoint(zdb::DiIntersect *di, CPnt3D *from)
 {
+	/* 0x1ec580 (ClipCameraChord): the hit nearest the chord's tail, skipping camera-type 1
+	   surfaces within 5 of `from`; any hit at all raises camera_tether_intersects_something
+	   (NULL without hits; a later hit wins a tie). ELF: m_poly is not NULL-checked (chord
+	   hits always carry their DI). */
+	zdb::IntersectStruct* nearest = NULL;
+
+	if (di->m_Cnt <= 0)
+		return NULL;
+
+	camera_tether_intersects_something = true;
+	f32 best = 1.0e9f; /* 0x4e6e6b28 */
+
+	for (int i = 0; i < di->m_Cnt; i++)
+	{
+		zdb::IntersectStruct* hit = &di->m_Intersects[i];
+		CPnt3D d = hit->m_pos;
+		d.Sub(from, &d);
+		f32 dist = d.Normalize();
+
+		if (hit->m_poly->m_cameratype == 1 && dist <= 5.0f)
+			continue;
+
+		CPnt3D e;
+		hit->m_pos.Sub(&di->m_Tail, &e);
+		f32 sq = e.x * e.x + e.y * e.y + e.z * e.z;
+
+		if (sq <= best)
+		{
+			nearest = hit;
+			best = sq;
+		}
+	}
+
+	return nearest;
 }
 
 /* @socom-skeleton stub ClipCameraChord__10CAppCameraFfP6CPnt3DP6CPnt3DP6CPnt3D */
-void CAppCamera::ClipCameraChord(float, CPnt3D *, CPnt3D *, CPnt3D *)
+void CAppCamera::ClipCameraChord(float dT, CPnt3D *start, CPnt3D *end, CPnt3D *out)
 {
+	/* 0x1ebbb0 (APTeatherCam: start = the pivot ahead of the eye, end = out = the eye; the
+	   death camera: start = the seal + 10 up): keep the camera on the near side of the world.
+	   The chord is lengthened 3 past `end` and cast with the seal (and what it carries)
+	   switched off. A hit pulls the eye to 3 short of it (at least 3 from start, at most the
+	   remembered short tether length, which the hit shortens); with none the eye sits at that
+	   length, which eases back out by 3% a frame (held while m_short_tether_timer runs, unless
+	   save_short_tether_length is under 6 or the chord hit anything). Then four 3-unit probes
+	   from the eye (level right/left, up, down; one grid batch) push it off nearby surfaces:
+	   between two opposite hits it is centred, else moved back by the probe's overshoot.
+	   Any clip restarts the 1.5 s timer. Finally the eye is kept 3 from start.
+	   ELF quirk kept: SetCameraCollideFlagRequired(true) and (false) back to back when the peek
+	   is 0, so the chord never asks for camera-collide surfaces. */
+	CPnt3D dir;
+	start->Sub(end, &dir);
+	f32 len = dir.Normalize() + 3.0f;
+	CPnt3D scaled;
+	dir.Scale(len, &scaled);
+	dir = scaled;
+	CPnt3D pushed;
+	start->Sub(&dir, &pushed);
+	*end = pushed;
+
+	bool active = m_entity->GetNode()->SetActive(false);
+
+	if (peekCur == 0.0f)
+	{
+		zdb::SetCameraCollideFlagRequired(true);
+		zdb::SetCameraCollideFlagRequired(false);
+	}
+
+	CZSealBody* carry = m_entity->m_carry;
+	bool carryActive = false;
+
+	if (carry != NULL)
+		carryActive = carry->GetNode()->SetActive(false);
+
+	camera_tether_intersects_something = false;
+	zdb::IntersectStruct* hit = GetNearestIntersectCamPoint(zdb::CWorld::m_world->GetIntersects(start, end), start);
+
+	if (!(m_short_tether_timer <= 0.0f))
+		m_short_tether_timer -= dT;
+
+	if (len <= save_short_tether_length)
+		save_short_tether_length = len;
+	else if (m_short_tether_timer <= 0.0f || save_short_tether_length < 6.0f || camera_tether_intersects_something)
+		save_short_tether_length += 0.03f * (len - save_short_tether_length);
+
+	if (hit != NULL)
+	{
+		CPnt3D d = hit->m_pos;
+		d.Sub(start, &d);
+		f32 dist = d.Normalize() - 3.0f;
+
+		if (dist < 3.0f)
+			dist = 3.0f;
+
+		if (dist < save_short_tether_length)
+			save_short_tether_length = dist;
+		else
+			dist = save_short_tether_length;
+
+		d.Scale(dist, &d);
+		d.Add(start, out);
+		m_short_tether_timer = 1.5f;
+	}
+	else
+	{
+		dir.Normalize();
+		CPnt3D s;
+		dir.Scale(save_short_tether_length, &s);
+		dir = s;
+		CPnt3D e;
+		start->Sub(&dir, &e);
+		*end = e;
+		*out = *end;
+	}
+
+	CPnt3D right;
+	dir.ToRightXZ(&right);
+	f32 flat = sqrtf(right.x * right.x + right.z * right.z);
+
+	if (flat != 0.0f)
+	{
+		f32 inv = 1.0f / flat;
+		right.x *= inv;
+		right.z *= inv;
+	}
+
+	CPnt3D r3;
+	right.Scale(3.0f, &r3);
+	right = r3;
+
+	CPnt3D tipRight;
+	out->Add(&right, &tipRight);
+	CPnt3D tipLeft;
+	out->Sub(&right, &tipLeft);
+	CPnt3D eye = *out;
+	CPnt3D tipUp = eye;
+	tipUp.y += 3.0f;
+	CPnt3D tipDown = eye;
+	tipDown.y -= 3.0f;
+
+	zdb::DiIntersect* probes[4] = { &dilr0, &dilr1, &dilr2, &dilr3 };
+	dilr0.m_Type = 2;
+	dilr0.m_Tail = *out;
+	dilr0.m_Tip = tipRight;
+	dilr1.m_Type = 2;
+	dilr1.m_Tail = *out;
+	dilr1.m_Tip = tipLeft;
+	dilr2.m_Type = 2;
+	dilr2.m_Tail = *out;
+	dilr2.m_Tip = tipUp;
+	dilr3.m_Type = 2;
+	dilr3.m_Tail = *out;
+	dilr3.m_Tip = tipDown;
+	zdb::CWorld::m_world->GetIntersectBatch(probes, 4);
+
+	zdb::IntersectStruct* hitRight = dilr0.GetNearestIntersect();
+	zdb::IntersectStruct* hitLeft = dilr1.GetNearestIntersect();
+
+	if (hitRight != NULL && hitLeft != NULL)
+	{
+		CPnt3D across;
+		hitLeft->m_pos.Sub(&hitRight->m_pos, &across);
+		CPnt3D half;
+		across.Scale(0.5f, &half);
+		CPnt3D mid;
+		hitRight->m_pos.Add(&half, &mid);
+		*out = mid;
+		m_short_tether_timer = 1.5f;
+	}
+	else if (hitRight != NULL)
+	{
+		out->x += hitRight->m_pos.x - tipRight.x;
+		out->z += hitRight->m_pos.z - tipRight.z;
+		m_short_tether_timer = 1.5f;
+	}
+	else if (hitLeft != NULL)
+	{
+		out->x += hitLeft->m_pos.x - tipLeft.x;
+		out->z += hitLeft->m_pos.z - tipLeft.z;
+		m_short_tether_timer = 1.5f;
+	}
+
+	zdb::IntersectStruct* hitUp = dilr2.GetNearestIntersect();
+	zdb::IntersectStruct* hitDown = dilr3.GetNearestIntersect();
+
+	if (hitUp != NULL && hitDown != NULL)
+	{
+		out->y = hitUp->m_pos.y + 0.5f * (hitDown->m_pos.y - hitUp->m_pos.y);
+		m_short_tether_timer = 1.5f;
+	}
+	else if (hitUp != NULL)
+	{
+		out->y = hitUp->m_pos.y - 3.0f;
+		m_short_tether_timer = 1.5f;
+	}
+	else if (hitDown != NULL)
+	{
+		out->y = hitDown->m_pos.y + 3.0f;
+		m_short_tether_timer = 1.5f;
+	}
+
+	out->Sub(start, &dir);
+
+	if (dir.Normalize() < 3.0f)
+	{
+		CPnt3D s;
+		dir.Scale(3.0f, &s);
+		start->Add(&s, out);
+	}
+
+#ifdef SOCOM_PORT
+	{
+		/* port trace: the clip state (chord hit, side probe, up/down probe) on each change, capped */
+		static int traces;
+		static int last = -1;
+		int state = (hit != NULL ? 4 : 0) | (hitRight != NULL || hitLeft != NULL ? 2 : 0) | (hitUp != NULL || hitDown != NULL ? 1 : 0);
+
+		if (state != last && traces < 120)
+		{
+			traces++;
+			last = state;
+			CPnt3D d;
+			out->Sub(start, &d);
+			SOCOM_PORT_TRACE("CAM: clip chord/side/vert %d%d%d: eye %.1f %.1f %.1f, %.1f from the pivot (tether %.1f)%s%s",
+				state >> 2, (state >> 1) & 1, state & 1, out->x, out->y, out->z, sqrtf(d.x * d.x + d.y * d.y + d.z * d.z),
+				save_short_tether_length, hit != NULL && hit->m_node != NULL && hit->m_node->m_name != NULL ? ", chord hit " : "",
+				hit != NULL && hit->m_node != NULL && hit->m_node->m_name != NULL ? hit->m_node->m_name : "");
+		}
+	}
+#endif
+
+	m_entity->GetNode()->SetActive(active);
+
+	if (carry != NULL)
+		carry->GetNode()->SetActive(carryActive);
 }
 
 /* @socom-skeleton body LookAt__10CAppCameraFPC6CPnt3DPC6CPnt3DR7CMatrix */
