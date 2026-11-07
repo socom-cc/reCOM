@@ -136,13 +136,56 @@ CGSTexBuffer::CGSTexBuffer()
 /* @socom-skeleton stub __dt__Q23zdb12CGSTexBufferFv */
 zdb::CGSTexBuffer::~CGSTexBuffer()
 {
+	/* 0x2fc990: the name (ztex_manager.cpp line 80), both lists and the chain buffer */
+	if (m_name != NULL)
+		_free(m_name, "ztex_manager.cpp", 80);
+
+	m_name = NULL;
+	m_dyntex_list.m_tex_list.clear();
+	m_dyntex_list.m_pal_list.clear();
+	m_pktbuf.clear();
 }
 
 /* @socom-skeleton body Add__Q23zdb11CDynTexListFPQ23zdb11CDynTexList */
 namespace zdb {
+/* port: file-local helper, not an ELF function - the texture-list adds below repeat it
+   inline: a full vector grows by exactly one slot (reserve(size + 1)) before the append */
+template <class T>
+static inline void PushTight(std::vector<T>& v, const T& value)
+{
+	if (v.capacity() == v.size())
+		v.reserve(v.size() + 1);
+
+	v.push_back(value);
+}
+
 void CDynTexList::Add(CDynTexList* list)
 	{
+		/* 0x2fc760: merge another list: each handle whose texture is not listed yet (with its
+		   palette unless listed), then each of its palettes not listed yet */
+		if (list == NULL)
+			return;
 
+		for (CTexList::iterator i = list->m_tex_list.begin(); i != list->m_tex_list.end(); ++i)
+		{
+			CTexHandle* handle = *i;
+
+			if (m_tex_list.GetHandle(handle->m_texture) != NULL)
+				continue;
+
+			PushTight<CTexHandle*>(m_tex_list, handle);
+
+			CTexPalette* palette = handle->m_texture->m_palette;
+
+			if (palette != NULL && std::find(m_pal_list.begin(), m_pal_list.end(), palette) == m_pal_list.end())
+				PushTight<CTexPalette*>(m_pal_list, palette);
+		}
+
+		for (CTexPalList::iterator i = list->m_pal_list.begin(); i != list->m_pal_list.end(); ++i)
+		{
+			if (std::find(m_pal_list.begin(), m_pal_list.end(), *i) == m_pal_list.end())
+				PushTight<CTexPalette*>(m_pal_list, *i);
+		}
 	}
 }
 
@@ -194,13 +237,56 @@ void CDynTexList::Add(CTexPalette* palette, bool check)
 }
 
 /* @socom-skeleton stub SetDynTexList__Q23zdb12CGSTexBufferFPQ23zdb11CDynTexList */
-void zdb::CGSTexBuffer::SetDynTexList(zdb::CDynTexList *)
+void zdb::CGSTexBuffer::SetDynTexList(zdb::CDynTexList *list)
 {
+	/* 0x2fc3b0: the buffer holds exactly the list's textures (checked adds) and the list's
+	   palettes not yet held; the chain must be rebuilt */
+	m_dyntex_list.m_tex_list.clear();
+	m_dyntex_list.m_pal_list.clear();
+
+	if (list != NULL)
+	{
+		for (CTexList::iterator i = list->m_tex_list.begin(); i != list->m_tex_list.end(); ++i)
+			m_dyntex_list.Add(*i, true);
+
+		CTexPalList& pals = m_dyntex_list.m_pal_list;
+
+		for (CTexPalList::iterator i = list->m_pal_list.begin(); i != list->m_pal_list.end(); ++i)
+		{
+			if (std::find(pals.begin(), pals.end(), *i) == pals.end())
+				zdb::PushTight<CTexPalette*>(pals, *i);
+		}
+	}
+
+	m_chainp = NULL;
 }
 
 /* @socom-skeleton stub Add__Q23zdb12CGSTexBufferFPQ23zdb8CTexListb */
-void zdb::CGSTexBuffer::Add(zdb::CTexList *, bool)
+void zdb::CGSTexBuffer::Add(zdb::CTexList *list, bool check)
 {
+	/* 0x2fc260: add each handle of the list (checked as asked) and its texture's palette
+	   (unless check finds it held); every add drops the chain */
+	u32 count = list->size();
+
+	for (u32 i = 0; i < count; i++)
+	{
+		CTexHandle* handle = (*list)[i];
+
+		m_dyntex_list.Add(handle, check);
+		m_chainp = NULL;
+
+		CTexPalette* palette = handle->m_texture->m_palette;
+
+		if (palette == NULL)
+			continue;
+
+		CTexPalList& pals = m_dyntex_list.m_pal_list;
+
+		if (!check || std::find(pals.begin(), pals.end(), palette) == pals.end())
+			zdb::PushTight<CTexPalette*>(pals, palette);
+
+		m_chainp = NULL;
+	}
 }
 
 /* @socom-skeleton stub Setup__Q23zdb12CGSTexBufferFff */
@@ -524,8 +610,29 @@ unsigned __int128 * zdb::CGSTexBuffer::Load(bool upload)
 }
 
 /* @socom-skeleton stub Add__Q23zdb12CGSTexBufferFPQ23zdb9CAssetLibb */
-void zdb::CGSTexBuffer::Add(zdb::CAssetLib *, bool)
+void zdb::CGSTexBuffer::Add(zdb::CAssetLib *lib, bool check)
 {
+	/* 0x2fb420: the buffer takes the library (Load's Hookup uses it), every texture handle
+	   of it (checked adds) and, from a copy of its palette list, every palette (unless check
+	   finds it held); every add drops the chain */
+	m_assetLib = lib;
+
+	for (CTexList::iterator i = lib->m_textures.begin(); i != lib->m_textures.end(); ++i)
+	{
+		m_dyntex_list.Add(*i, check);
+		m_chainp = NULL;
+	}
+
+	CTexPalList palettes = lib->m_palettes;
+	CTexPalList& pals = m_dyntex_list.m_pal_list;
+
+	for (CTexPalList::iterator i = palettes.begin(); i != palettes.end(); ++i)
+	{
+		if (!check || std::find(pals.begin(), pals.end(), *i) == pals.end())
+			zdb::PushTight<CTexPalette*>(pals, *i);
+
+		m_chainp = NULL;
+	}
 }
 
 /* @socom-skeleton body doAddBuffer__Q23zdb11CTexManagerFPCcff */
@@ -636,8 +743,29 @@ void zdb::CTexManager::doSetupBuffers(const char *)
 }
 
 /* @socom-skeleton stub DestroyBuffers__Q23zdb11CTexManagerFRQ23zdb11CTexManagerb */
-void zdb::CTexManager::DestroyBuffers(zdb::CTexManager &, bool)
+void zdb::CTexManager::DestroyBuffers(zdb::CTexManager &manager, bool all)
 {
+	/* 0x2fa270: delete the buffers from the last one down (all of them, or all but the
+	   first, the UI's buffer), then forget every phase's buffer index. The ELF returns 1
+	   (port: the skeleton declares void; no caller reads it). */
+	u32 keep = all ? 0 : 1;
+
+	while (keep < manager.size())
+	{
+		CGSTexBuffer* buffer = reinterpret_cast<CGSTexBuffer*>(manager.back()); /* port: see doAddBuffer */
+
+		if (buffer != NULL)
+			delete buffer;
+
+		manager.pop_back();
+	}
+
+	for (s32 phase = 0; phase < 17; phase++)
+	{
+		TexPhase[phase][0] = 0;
+		TexPhase[phase][1] = 0;
+		TexPhase[phase][2] = 0;
+	}
 }
 
 /* @socom-skeleton stub ClearPktBufs__Q23zdb11CTexManagerFRQ23zdb11CTexManagerb */
@@ -669,13 +797,16 @@ void zdb::CGSTexBuffer::UpdateTextureSelects()
 
 		handle->m_gsAddr = addr;
 
-		volatile u16* tbp = reinterpret_cast<u16*>(tex->m_TEX0);
+		/* port: 64-bit accesses throughout (the ELF stores TBP0 as a halfword); the same bits
+		   change, and GCC's strict aliasing cannot reorder a u16 store against the u64 CBP
+		   read-modify-write below */
+		volatile u64* tex0 = tex->m_TEX0;
+		volatile u64* tex0u = reinterpret_cast<u64*>((u32)tex->m_TEX0 | 0x20000000);
 
-		if ((*tbp & 0x3fff) != addr)
+		if ((*tex0 & 0x3fff) != addr)
 		{
-			*tbp = (*tbp & ~0x3fff) | (addr & 0x3fff);
-			volatile u16* uncached = reinterpret_cast<u16*>((u32)tex->m_TEX0 | 0x20000000);
-			*uncached = (*uncached & ~0x3fff) | (addr & 0x3fff);
+			*tex0 = (*tex0 & ~0x3fffull) | (addr & 0x3fff);
+			*tex0u = (*tex0u & ~0x3fffull) | (addr & 0x3fff);
 		}
 
 		for (std::vector<CTexture*>::iterator m = tex->m_reverse_miplist.begin(); m != tex->m_reverse_miplist.end(); ++m)
@@ -685,9 +816,8 @@ void zdb::CGSTexBuffer::UpdateTextureSelects()
 		{
 			const u64 keep = 0xfff8001fffffffffull;
 			u64 cbp = (u64)(tex->m_palette->m_gsaddr & 0x3fff) << 37;
-			*tex->m_TEX0 = (*tex->m_TEX0 & keep) | cbp;
-			volatile u64* uncached = reinterpret_cast<u64*>((u32)tex->m_TEX0 | 0x20000000);
-			*uncached = (*uncached & keep) | cbp;
+			*tex0 = (*tex0 & keep) | cbp;
+			*tex0u = (*tex0u & keep) | cbp;
 		}
 
 		m_nextAddress = addr + tex->m_gsWords;
@@ -695,6 +825,45 @@ void zdb::CGSTexBuffer::UpdateTextureSelects()
 }
 
 /* @socom-skeleton stub MIPUpdateTextureSelects__Q23zdb8CTextureFUiUi */
-void zdb::CTexture::MIPUpdateTextureSelects(unsigned int, unsigned int)
+/* port: file-local helper, not an ELF function - 0x2f9d00 writes this inline for MIPTBP1 and
+   MIPTBP2: each of TBP1 (bits 0-13), TBP2 (bits 20-33) and TBP3 (bits 40-53) naming the old
+   block moves to the new one, through the cached word and its uncached alias (| 0x20000000) */
+static void MIPUpdateTBP(u64* mip, u32 oldAddr, u32 newAddr)
 {
+	/* port: 64-bit accesses throughout (the ELF stores TBP1 as a halfword); the same bits
+	   change, and GCC's strict aliasing cannot reorder a u16 store against the u64 reads */
+	volatile u64* cached = mip;
+	volatile u64* uncached = reinterpret_cast<u64*>((u32)mip | 0x20000000);
+	u64 addr = newAddr & 0x3fff;
+
+	if ((*cached & 0x3fff) == oldAddr)
+	{
+		*cached = (*cached & ~0x3fffull) | addr;
+		*uncached = (*uncached & ~0x3fffull) | addr;
+	}
+
+	if (((*cached >> 20) & 0x3fff) == oldAddr)
+	{
+		const u64 keep = 0xfffffffc000fffffull;
+		*cached = (*cached & keep) | (addr << 20);
+		*uncached = (*uncached & keep) | (addr << 20);
+	}
+
+	if (((*cached >> 40) & 0x3fff) == oldAddr)
+	{
+		const u64 keep = 0xffc000ffffffffffull;
+		*cached = (*cached & keep) | (addr << 40);
+		*uncached = (*uncached & keep) | (addr << 40);
+	}
+}
+
+void zdb::CTexture::MIPUpdateTextureSelects(unsigned int oldAddr, unsigned int newAddr)
+{
+	/* 0x2f9d00: a mip child moved from oldAddr to newAddr: re-point this parent's
+	   MIPTBP1/MIPTBP2 entries that named it */
+	if (m_MIP1 != NULL)
+		MIPUpdateTBP(m_MIP1, oldAddr, newAddr);
+
+	if (m_MIP2 != NULL)
+		MIPUpdateTBP(m_MIP2, oldAddr, newAddr);
 }

@@ -1187,8 +1187,40 @@ bool zdb::CNode::SetDescendantVisuals(bool enable)
 }
 
 /* @socom-skeleton stub FindMeshTextures__Q23zdb5CNodeFv */
-void zdb::CNode::FindMeshTextures()
+zdb::CDynTexList * zdb::CNode::FindMeshTextures()
 {
+	/* 0x224c20: the texture list of the node's first mesh visual (vtype 1). Without one
+	   each child is searched the same way (its own first mesh, else its children,
+	   recursively), but the ELF drops what that search finds and returns NULL (ELF quirk
+	   kept). */
+	for (CVisualVector::iterator v = m_visual.begin(); v != m_visual.end(); ++v)
+	{
+		if ((*v)->m_vtype == 1)
+			return &(*v)->m_dyn_tex_list;
+	}
+
+	for (CNodeVector::iterator c = m_child.begin(); c != m_child.end(); ++c)
+	{
+		CNode* child = *c;
+		CDynTexList* found = NULL;
+
+		for (CVisualVector::iterator v = child->m_visual.begin(); v != child->m_visual.end(); ++v)
+		{
+			if ((*v)->m_vtype == 1)
+			{
+				found = &(*v)->m_dyn_tex_list;
+				break;
+			}
+		}
+
+		if (found == NULL)
+		{
+			for (CNodeVector::iterator g = child->m_child.begin(); g != child->m_child.end(); ++g)
+				(*g)->FindMeshTextures();
+		}
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton body Create__Q23zdb5CNodeFPCc */

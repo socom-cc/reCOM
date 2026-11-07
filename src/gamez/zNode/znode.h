@@ -323,7 +323,7 @@ public:
 		void ScrollTexture(zdb::CNode *, float, float, bool);
 		bool SetDescendantDI(bool); /* bool: 0x224f30 */
 		bool SetDescendantVisuals(bool); /* bool: 0x224df0 */
-		void FindMeshTextures();
+		zdb::CDynTexList * FindMeshTextures(); /* 0x224c20 returns the first mesh visual's texture list (v0) */
 		void SetBlendMode(const zdb::BLENDMODE &, bool, bool, bool);
 		zdb::CMesh * GetMesh();
 		zdb::CSubMesh * GetSubMesh();

@@ -308,32 +308,25 @@ CAssetLib* CAssetList::FindLib(const char* name)
 		if (lib)
 			return lib;
 
-		// If the library doesn't have a proper name -
-		// search any subdirectories
+		/* 0x230d80: else the first library whose root name (after its last '/' or '\', as
+		   RootName, inline) is the name. Was: the scan never stopped at the last slash and
+		   was then overwritten, so the whole path was compared ("clib" never matched
+		   "//sp/m8/clib"). */
 		for (auto i = begin(); i != end(); i++)
 		{
 			CAssetLib* alib = *i;
+			char* libname = alib->m_name;
 
-			size_t length = strlen(alib->m_name);
-			s32 idx = length - 1;
-			char* libname = NULL;
-
-			if (idx > -1)
+			for (s32 idx = (s32)strlen(alib->m_name) - 1; idx >= 0; idx--)
 			{
-				do
+				char c = alib->m_name[idx];
+
+				if (c == '/' || c == '\\')
 				{
-					char c = alib->m_name[idx];
-
-					if (c == '/' || c == '\\')
-					{
-						libname = alib->m_name + idx + 1;
-					}
-
-					idx--;
-				} while (idx > -1);
+					libname = alib->m_name + idx + 1;
+					break;
+				}
 			}
-
-			libname = alib->m_name + idx + 1;
 
 			if (strcmp(libname, name) == 0)
 				return *i;

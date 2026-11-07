@@ -172,11 +172,19 @@ bool zdb::CSaveLoad::LoadAssetLib_PS2(zdb::CWorld *world, zdb::CAssetLib *librar
 namespace zdb {
 bool CSaveLoad::LoadTextures_PS2(CAssetLib* library)
 	{
+		/* 0x22aa70: the library's render phase from "renderphase" (kept unless the key
+		   exists; CHARSET1..CHARSET8 become CHARSETCUSTOM), then every texture not yet loaded
+		   by any library */
 		CTexture* texture = NULL;
-		s32 renderphase;
+		s32 renderphase = -1;
 
-		// TODO: fix renderphase enum
-		m_zfile.Fetch("renderphase", &renderphase);
+		if (m_zfile.Fetch("renderphase", &renderphase))
+		{
+			if (renderphase >= CHARSET1 && renderphase < ALPHA)
+				renderphase = CHARSETCUSTOM;
+
+			library->m_renderphase = (_RenderPhase)(u8)renderphase; /* the ELF stores the low byte */
+		}
 
 		if (zar::CKey* key = m_zfile.OpenKey("textures"))
 		{

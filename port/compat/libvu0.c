@@ -157,3 +157,44 @@ void sceVu0ViewScreenMatrix(sceVu0FMATRIX m, float scrz, float ax, float ay, flo
 
     sceVu0MulMatrix(m, s, m);
 }
+
+/* 0x152318: m0 = transpose of m1 (the four rows are read before any is written, so m0 may
+ * alias m1). */
+void sceVu0TransposeMatrix(sceVu0FMATRIX m0, sceVu0FMATRIX m1)
+{
+    float t[4][4];
+    int i, j;
+    for (i = 0; i < 4; i++)
+        for (j = 0; j < 4; j++)
+            t[i][j] = m1[j][i];
+    for (i = 0; i < 4; i++)
+        for (j = 0; j < 4; j++)
+            m0[i][j] = t[i][j];
+}
+
+/* 0x152900: rows 0..2 = sceVu0Normalize(-l0), (-l1), (-l2) (w = 0), row 3 = (0,0,0,1),
+ * then the matrix is transposed in place. */
+void sceVu0NormalLightMatrix(sceVu0FMATRIX m, sceVu0FVECTOR l0, sceVu0FVECTOR l1, sceVu0FVECTOR l2)
+{
+    sceVu0FVECTOR t;
+    sceVu0ScaleVector(t, l0, -1.0f);
+    sceVu0Normalize(m[0], t);
+    sceVu0ScaleVector(t, l1, -1.0f);
+    sceVu0Normalize(m[1], t);
+    sceVu0ScaleVector(t, l2, -1.0f);
+    sceVu0Normalize(m[2], t);
+    m[3][0] = 0.0f;
+    m[3][3] = 1.0f;
+    m[3][2] = 0.0f;
+    m[3][1] = 0.0f;
+    sceVu0TransposeMatrix(m, m);
+}
+
+/* 0x1529c0: rows c0, c1, c2, a. */
+void sceVu0LightColorMatrix(sceVu0FMATRIX m, sceVu0FVECTOR c0, sceVu0FVECTOR c1, sceVu0FVECTOR c2, sceVu0FVECTOR a)
+{
+    sceVu0CopyVector(m[0], c0);
+    sceVu0CopyVector(m[1], c1);
+    sceVu0CopyVector(m[2], c2);
+    sceVu0CopyVector(m[3], a);
+}

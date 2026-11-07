@@ -55,6 +55,7 @@
 #include "gamez/zSeal/zseal.h" /* CZSealBody */
 #include "gamez/zSound/zsnd.h" /* CSnd::m_listener */
 #include "gamez/zWeapon/zweapon.h" /* CZWeapon lists */
+#include <eekernel.h> /* FlushCache (LoadWorld) */
 
 char* GetDatabase(); /* zanim_menu.cpp (0x1d6770) */
 extern bool LoadWorld(const char* name); /* below (0x172b60) */
@@ -167,6 +168,98 @@ extern bool LoadWorld(const char* name)
 	}
 	
 	appCamera = new CAppCamera(theWorld, theWorld->m_camera);
+	FlushCache(0);
+
+	/* 0x172c48-0x17324c: every library's textures go to the GS texture buffers of its render
+	   phase (TexPhase): fonts to the world, small-HUD and both HUD1 buffers; other autoload
+	   libraries by m_renderphase (jump table 0x448510); each Add is followed by a Hookup of
+	   the same buffer, except the fonts' HUD1 adds. The custom character-set buffers do not
+	   check for overflow. Then the special textures are found by name. */
+	for (auto i = zdb::CAssetMgr::m_assets.begin(); i != zdb::CAssetMgr::m_assets.end(); ++i)
+	{
+		zdb::CAssetLib* library = *i;
+		zdb::CTexManager& texmanager = zdb::CTexManager::m_texmanager;
+		/* port: the ELF vector holds CGSTexBuffer * (see CTexManager::doAddBuffer) */
+		auto buffer = [&texmanager](s32 phase, s32 slot) {
+			return reinterpret_cast<zdb::CGSTexBuffer*>(texmanager[zdb::CTexManager::TexPhase[phase][slot]]);
+		};
+
+		if (strstr(library->m_name, "font") != NULL)
+		{
+			buffer(zdb::WORLD, 0)->Add(library, true);
+			buffer(zdb::WORLD, 0)->Hookup(library);
+			buffer(zdb::HUDSETSMALL, 0)->Add(library, true);
+			buffer(zdb::HUDSETSMALL, 0)->Hookup(library);
+			buffer(zdb::HUDSET1, 0)->Add(library, true);
+			buffer(zdb::HUDSET1, 1)->Add(library, true);
+			continue;
+		}
+
+		if (!library->m_autoload)
+			continue;
+
+		u8 phase = (u8)library->m_renderphase;
+
+		switch (phase)
+		{
+		case zdb::WORLD:
+		case zdb::HUD_OBSOLETE:
+		case zdb::HUDSETSMALL:
+			buffer(phase, 0)->Add(library, true);
+			buffer(phase, 0)->Hookup(library);
+			break;
+
+		case zdb::CHARSETCOMMON:
+		case zdb::ALPHA:
+		case zdb::HUDSET1:
+		case zdb::HUDSET2:
+			buffer(phase, 0)->Add(library, true);
+			buffer(phase, 1)->Add(library, true);
+			buffer(phase, 0)->Hookup(library);
+			buffer(phase, 1)->Hookup(library);
+			break;
+
+		case zdb::SHADOW:
+			break;
+
+		case zdb::CHARSET1: case zdb::CHARSET2: case zdb::CHARSET3: case zdb::CHARSET4:
+		case zdb::CHARSET5: case zdb::CHARSET6: case zdb::CHARSET7: case zdb::CHARSET8:
+		case zdb::CHARSETCUSTOM:
+			for (s32 slot = 0; slot < 3; slot++)
+			{
+				buffer(zdb::CHARSETCUSTOM, slot)->Add(library, true);
+				buffer(zdb::CHARSETCUSTOM, slot)->m_checkForOverflow = false;
+			}
+
+			for (s32 slot = 0; slot < 3; slot++)
+				buffer(zdb::CHARSETCUSTOM, slot)->Hookup(library);
+			break;
+
+		default:
+			break;
+		}
+
+		for (auto h = library->m_textures.begin(); h != library->m_textures.end(); ++h)
+		{
+			zdb::CTexHandle* handle = *h;
+
+			if (handle == NULL || strstr(handle->m_name, "map") == NULL)
+				continue;
+
+			if (strstr(handle->m_name, "light_map") != NULL)
+				zdb::CVisual::m_lightMapTexture = handle;
+
+			if (strstr(handle->m_name, "specular_map") != NULL)
+				zdb::CVisual::m_specMapTexture = handle;
+
+			if (strstr(handle->m_name, "env_front_map") != NULL)
+				zdb::CVisual::m_envFrontMapTexture = handle;
+
+			if (strstr(handle->m_name, "env_back_map") != NULL)
+				zdb::CVisual::m_envBackMapTexture = handle;
+		}
+	}
+
 	char pathbuf[128];
 		 
 	for (auto i = zdb::CAssetMgr::m_assets.begin(); i != zdb::CAssetMgr::m_assets.end(); ++i)
@@ -205,9 +298,23 @@ extern bool LoadWorld(const char* name)
 	theWorld->GenerateLandmarkList();
 	theWorld->InheritRegionMasks(0, 0);
 	theWorld->GenerateLightList();
+	zdb::CLight::m_tick_list.reserve(5);
 
-	// TODO: Add lightmap texture code here
-	// End texture code
+	/* 0x1733d0: the light-map texture joins both common character-set buffers and every
+	   character set */
+	if (zdb::CVisual::m_lightMapTexture != NULL)
+	{
+		zdb::CTexManager& texmanager = zdb::CTexManager::m_texmanager;
+
+		for (s32 slot = 0; slot < 2; slot++)
+		{
+			zdb::CGSTexBuffer* common = reinterpret_cast<zdb::CGSTexBuffer*>(texmanager[zdb::CTexManager::TexPhase[zdb::CHARSETCOMMON][slot]]);
+			common->m_dyntex_list.Add(zdb::CVisual::m_lightMapTexture, true);
+			common->m_chainp = NULL;
+		}
+
+		zdb::CWorld::m_world->AddTextureAssetCharacterAll(zdb::CVisual::m_lightMapTexture);
+	}
 
 	if (theWorld->m_numNoFarClipNodes == 0)
 	{

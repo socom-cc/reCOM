@@ -104,7 +104,8 @@ namespace zdb
 #include "Apps/FTS/hud/hud.h"
 #include "gamez/zIntersect/zintersect.h"
 #include "gamez/zMath/zmath.h"
-#include <libvu0.h> /* sceVu0Normalize (CWorld ctor) */
+#include <libvu0.h> /* sceVu0Normalize (CWorld ctor), light matrices (Update) */
+#include "gamez/zVideo/zvid.h" /* zVid.frameTime (Update) */
 #include "gamez/zReader/zrdr.h"
 #include "gamez/zRender/zrender.h"
 #include "node_light.h"
@@ -380,7 +381,28 @@ void zdb::CWorld::DeleteChildren()
 }
 
 /* @socom-skeleton body Update__Q23zdb6CWorldFv */
-void zdb::CWorld::Update() {}
+void zdb::CWorld::Update()
+{
+	/* 0x22f2e0: tick the wind by the frame time, then, when changed, put the global light
+	   directions and colours into the camera's VU1 frame packet (VU 16-19 normals,
+	   20-23 colours: what the microcode lights dynamic objects such as characters with) */
+	m_Wind.Tick(zVid.frameTime);
+	tag_FrameSetup* vu = m_camera->m_mtxSet.m_vu;
+
+	if (m_gLightDirUpdate)
+	{
+		sceVu0NormalLightMatrix(vu->mtxLightNormal, (f32*)&m_gLight.dir[0], (f32*)&m_gLight.dir[1], (f32*)&m_gLight.dir[2]);
+		vu->mtxLightNormal[3][3] = 1.0f;
+		m_gLightDirUpdate = false;
+	}
+
+	if (m_gLightColUpdate)
+	{
+		sceVu0LightColorMatrix(vu->mtxLightColor, (f32*)&m_gLight.col[0], (f32*)&m_gLight.col[1], (f32*)&m_gLight.col[2],
+			(f32*)&m_gLight.ambient);
+		m_gLightColUpdate = false;
+	}
+}
 
 /* @socom-skeleton body LandmarkList_Search__Q23zdb6CWorldFPQ23zdb5CNodeR6CStackRQ23zdb11CNodeVector */
 namespace zdb {
@@ -631,28 +653,96 @@ bool CWorld::DismemberWorldModel()
 }
 
 /* @socom-skeleton stub AddTextureAssetCharacter__Q23zdb6CWorldFQ23zdb12_RenderPhasePQ23zdb5CNode */
-void zdb::CWorld::AddTextureAssetCharacter(zdb::_RenderPhase, zdb::CNode *)
+void zdb::CWorld::AddTextureAssetCharacter(zdb::_RenderPhase phase, zdb::CNode *node)
 {
+	/* 0x22e5f0: the first library of that render phase */
+	AddTextureAssetCharacter(CAssetMgr::m_assets.FindLib(phase), node);
 }
 
 /* @socom-skeleton stub AddTextureAssetCharacter__Q23zdb6CWorldFPcPQ23zdb5CNode */
-void zdb::CWorld::AddTextureAssetCharacter(char *, zdb::CNode *)
+void zdb::CWorld::AddTextureAssetCharacter(char *name, zdb::CNode *node)
 {
+	/* 0x22e5a0: the library of that name */
+	AddTextureAssetCharacter(CAssetMgr::m_assets.FindLib(name), node);
 }
 
 /* @socom-skeleton stub AddTextureAssetCharacter__Q23zdb6CWorldFPQ23zdb9CAssetLibPQ23zdb5CNode */
-void zdb::CWorld::AddTextureAssetCharacter(zdb::CAssetLib *, zdb::CNode *)
+void zdb::CWorld::AddTextureAssetCharacter(zdb::CAssetLib *lib, zdb::CNode *node)
 {
+	/* 0x22e350: a character node joins a texture set. The first call creates the common
+	   set (the CHARSETCOMMON library, no node). A node whose mesh uses only part of a
+	   non-common library gets a set of its own holding that mesh's textures plus every
+	   texture of m_TextureCharacterCommon; otherwise the node joins the set of its library,
+	   or a new set for the library. */
+	if (m_TextureAssetCharacters.empty())
+	{
+		CTextureAssetCharacters* common = new CTextureAssetCharacters(CAssetMgr::m_assets.FindLib(CHARSETCOMMON), NULL, NULL);
+		m_TextureAssetCharacters.push_back(common);
+	}
+
+	bool search = true;
+	bool found = false;
+	CDynTexList* textures = NULL;
+
+	if ((u8)lib->m_renderphase != CHARSETCOMMON)
+	{
+		textures = node->FindMeshTextures();
+
+		if (textures != NULL)
+		{
+			if (textures->m_tex_list.size() == lib->m_textures.size())
+				textures = NULL;
+			else
+				search = false;
+		}
+	}
+
+	if (search)
+	{
+		for (CTextureAssetCharacterList::iterator i = m_TextureAssetCharacters.begin(); i != m_TextureAssetCharacters.end(); ++i)
+		{
+			CTextureAssetCharacters* set = (CTextureAssetCharacters*)*i;
+
+			if (set->m_assetLib == lib)
+			{
+				set->m_nodes.push_back(node);
+				found = true;
+				break;
+			}
+		}
+	}
+
+	if (found)
+		return;
+
+	if (textures != NULL)
+	{
+		/* ELF quirk kept: the add loop runs once per listed handle (0x22e4d0-0x22e524);
+		   the checked adds make the repeats no-ops */
+		for (u32 n = 0; n < m_TextureCharacterCommon.size(); n++)
+		{
+			for (CTexList::iterator h = m_TextureCharacterCommon.begin(); h != m_TextureCharacterCommon.end(); ++h)
+				textures->Add(*h, true);
+		}
+	}
+
+	CTextureAssetCharacters* set = new CTextureAssetCharacters(lib, node, textures);
+	m_TextureAssetCharacters.push_back(set);
 }
 
 /* @socom-skeleton stub AddTextureAssetCharacterAll__Q23zdb6CWorldFPQ23zdb10CTexHandle */
-void zdb::CWorld::AddTextureAssetCharacterAll(zdb::CTexHandle *)
+void zdb::CWorld::AddTextureAssetCharacterAll(zdb::CTexHandle *handle)
 {
+	/* 0x22e300: a texture every character set carries (LoadWorld: the light map) */
+	m_TextureCharacterCommon.push_back(handle);
 }
 
 /* @socom-skeleton stub AddTextureAssetDecals__Q23zdb6CWorldFPQ23zdb10CTexHandle */
-void zdb::CWorld::AddTextureAssetDecals(zdb::CTexHandle *)
+void zdb::CWorld::AddTextureAssetDecals(zdb::CTexHandle *handle)
 {
+	/* 0x22e290: a decal texture for the alpha buffer, once per texture */
+	if (m_TextureDecals.GetHandle(handle->m_texture) == NULL)
+		m_TextureDecals.push_back(handle);
 }
 
 /* @socom-skeleton stub DeleteTextureAssetCharacter__Q23zdb6CWorldFPcPQ23zdb5CNode */
@@ -726,15 +816,85 @@ zdb::CTextureAssetCharacterList::iterator zdb::CTextureAssetCharacterList::TestF
 }
 
 /* @socom-skeleton stub TestFOV__Q23zdb23CTextureAssetCharactersFPQ23zdb7CCamera */
-int zdb::CTextureAssetCharacters::TestFOV(zdb::CCamera *)
+int zdb::CTextureAssetCharacters::TestFOV(zdb::CCamera *camera)
 {
-	/* port: stub - 0x22d880 sets m_character_infov per node from CCamera::TestFOV on its
-	   bbox corners and returns the in-view count; not written yet */
+	/* 0x22d880: each active node's box (its parent's when m_use_parent_bbox), its 8
+	   corners through the node matrix, against the camera: m_character_infov is set unless
+	   all out. Returns the in-view active count, also left in m_numInFOV. */
+	m_numInFOV = 0;
+
+	for (CNodeVector::iterator i = m_nodes.begin(); i != m_nodes.end(); ++i)
+	{
+		CNode* node = *i;
+
+		if (!node->m_active)
+			continue;
+
+		CBBox* box = node->m_use_parent_bbox ? node->m_parent->GetBBox() : &node->m_bbox;
+		PNT3D lo = box->m_min;
+		PNT3D hi = box->m_max;
+		PNT4D corner[8];
+
+		/* corner order of the asm (as CPipe::RenderNode) */
+		const f32 cx[8] = { lo.x, lo.x, hi.x, hi.x, lo.x, lo.x, hi.x, hi.x };
+		const f32 cy[8] = { lo.y, lo.y, lo.y, lo.y, hi.y, hi.y, hi.y, hi.y };
+		const f32 cz[8] = { hi.z, lo.z, lo.z, hi.z, hi.z, lo.z, lo.z, hi.z };
+		const f32 (*m)[4] = node->m_matrix.m_matrix;
+
+		for (u32 c = 0; c < 8; c++)
+		{
+			/* the ELF's VU0 macro: x*row0 + y*row1 + z*row2 + 1*row3 */
+			corner[c].x = cx[c] * m[0][0] + cy[c] * m[1][0] + cz[c] * m[2][0] + m[3][0];
+			corner[c].y = cx[c] * m[0][1] + cy[c] * m[1][1] + cz[c] * m[2][1] + m[3][1];
+			corner[c].z = cx[c] * m[0][2] + cy[c] * m[1][2] + cz[c] * m[2][2] + m[3][2];
+			corner[c].w = cx[c] * m[0][3] + cy[c] * m[1][3] + cz[c] * m[2][3] + m[3][3];
+		}
+
+		node->m_character_infov = camera->TestFOV(corner, NULL, true) != tag_ZVIS_FOV::ZVIS_FOV_ALL_OUT;
+
+		if (node->m_character_infov && node->m_active)
+			m_numInFOV++;
+	}
+
+	return m_numInFOV;
 }
 
 /* @socom-skeleton stub __ct__Q23zdb23CTextureAssetCharactersFPQ23zdb9CAssetLibPQ23zdb5CNodePQ23zdb11CDynTexList */
-zdb::CTextureAssetCharacters::CTextureAssetCharacters(zdb::CAssetLib *, zdb::CNode *, zdb::CDynTexList *)
+zdb::CTextureAssetCharacters::CTextureAssetCharacters(zdb::CAssetLib *lib, zdb::CNode *node, zdb::CDynTexList *textures)
 {
+	/* 0x22d6d0: a set of the library holding the node, with its own GS buffer
+	   "Tex<name>" over [P0, P1) (RenderWorld re-ranges it each frame): the given texture
+	   list (named after the node), else the library's textures (named after its root
+	   name). Without a node the set stays empty and bufferless (the common set). */
+	m_numInFOV = 0;
+	m_assetLib = lib;
+	m_texBuffer = NULL;
+
+	if (node == NULL)
+		return;
+
+	m_nodes.Exists(node); /* ELF: the result is not used */
+	m_nodes.push_back(node);
+
+	char name[256];
+	CTexManager& texmanager = CTexManager::m_texmanager;
+
+	if (textures != NULL)
+	{
+		sprintf(name, "Tex%s", node->m_name);
+		u32 index = texmanager.doAddBuffer(name, CTexManager::TexBufParams[0], CTexManager::TexBufParams[1]);
+		m_texBuffer = reinterpret_cast<CGSTexBuffer*>(texmanager[index]); /* port: see doAddBuffer */
+		m_texBuffer->SetDynTexList(textures);
+		return;
+	}
+
+	if (m_texBuffer == NULL)
+	{
+		sprintf(name, "Tex%s", lib->RootName());
+		u32 index = texmanager.doAddBuffer(name, CTexManager::TexBufParams[0], CTexManager::TexBufParams[1]);
+		m_texBuffer = reinterpret_cast<CGSTexBuffer*>(texmanager[index]); /* port: see doAddBuffer */
+		m_texBuffer->Add(lib, true);
+	}
 }
 
 /* @socom-skeleton stub RegisterAnimCommands__5CWindFv */

@@ -33,6 +33,12 @@ void sceVu0CopyVector(sceVu0FVECTOR v0, sceVu0FVECTOR v1);
 /* view-to-screen projection (0x152a28; CCamera::Update 0x1e8020) */
 void sceVu0ViewScreenMatrix(sceVu0FMATRIX m, float scrz, float ax, float ay, float cx, float cy,
                             float zmin, float zmax, float nearz, float farz);
+/* m0 = transpose of m1 (0x152318; m0 may alias m1) */
+void sceVu0TransposeMatrix(sceVu0FMATRIX m0, sceVu0FMATRIX m1);
+/* light direction matrix from three light vectors (0x152900; CWorld::Update 0x22f320) */
+void sceVu0NormalLightMatrix(sceVu0FMATRIX m, sceVu0FVECTOR l0, sceVu0FVECTOR l1, sceVu0FVECTOR l2);
+/* light colour matrix, rows c0, c1, c2, a (0x1529c0; CWorld::Update 0x22f34c) */
+void sceVu0LightColorMatrix(sceVu0FMATRIX m, sceVu0FVECTOR c0, sceVu0FVECTOR c1, sceVu0FVECTOR c2, sceVu0FVECTOR a);
 
 #ifdef __cplusplus
 }
