@@ -75,6 +75,7 @@
 #include "gamez/zNode/znode.h"
 /* @socom-skeleton end include */
 #include "gamez/zValve/zvalve.h" /* CValve::Create (OBJECT_MOTION_FROM_TO valve targets) */
+#include "gamez/zFTS/zfts.h" /* Headset (zAnimSoundTick STOP) */
 #include <math.h> /* sqrtf */
 /* @socom-skeleton decl forward */
 class _zanim_object_motion_script;
@@ -131,9 +132,158 @@ bool zAnimCameraTick(_zanim_cmd_hdr *, float *)
 }
 
 /* @socom-skeleton stub zAnimSoundTick__FP14_zanim_cmd_hdrPf */
-bool zAnimSoundTick(_zanim_cmd_hdr *, float *)
+bool zAnimSoundTick(_zanim_cmd_hdr *header, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1be170: START plays the anim's sound (3D at the TRANSLATION / AT_NODE point, or
+	 * 2D with VOLUME, PAN, PITCH; MUSIC_LOCAL / MUSIC_EVENT hand it to the jukebox),
+	 * a command without START updates the playing instance, STOP stops it. */
+	_zanim_cmd_sound* cmd = reinterpret_cast<_zanim_cmd_sound*>(header);
+	CZAnim* anim = ZAnim.m_CurAnim;
+	_zanim_sound* ref = NULL;
+	bool positioned = false;
+	CPnt3D pos;
+
+	pos.x = 0.0f;
+	pos.y = 0.0f;
+	pos.z = 0.0f;
+
+	if (cmd->flags & 0x1)
+		anim->GetNode(cmd->node_ref, false); /* ELF: the node is looked up and not used; no sound */
+	else
+		ref = anim->GetSoundRef(cmd->sound_ref);
+
+	if ((cmd->flags & 0x200) && ref != NULL)
+		ref->stop_on_exit = true;
+
+#ifdef SOCOM_PORT
+	{
+		static int traced;
+
+		if ((cmd->flags & 0x80) && traced < 24)
+		{
+			traced++;
+			SOCOM_PORT_TRACE("SND: anim %s SOUND %s (flags 0x%x): %s", anim->GetName() ? anim->GetName() : "?",
+				(cmd->flags & 0x1) ? "(node)" : anim->GetName(cmd->sound_ref) ? anim->GetName(cmd->sound_ref) : "?",
+				cmd->flags, ref != NULL ? "playing" : "no such sound loaded");
+		}
+	}
+#endif
+
+	if (cmd->flags & 0x80)
+	{
+		f32 volume = 1.0f;
+		s32 pan = -1;
+		s32 pitch = 0;
+
+		if (cmd->flags & 0x10)
+			volume = cmd->volume;
+
+		if (cmd->flags & 0x20)
+			pan = cmd->pan;
+
+		if (cmd->flags & 0x40)
+			pitch = cmd->pitch;
+
+		if (cmd->flags & 0x4)
+		{
+			pos.Add(reinterpret_cast<const CPnt3D*>(cmd->translation), &pos);
+			positioned = true;
+		}
+
+		/* port: not written - flag 0x8 adds anim->m_arg_list->GetPnt3D(5) (0x1be29c) when
+		 * there is one; the port's GetPnt3D is a void stub, so the argument is taken as
+		 * absent */
+
+		if (cmd->flags & 0x2)
+		{
+			zdb::CNode* node = anim->GetNode(cmd->at_node, false);
+
+			if (node != NULL)
+			{
+				node->TransformToWorld(pos);
+				positioned = true;
+			}
+		}
+
+		if (ref != NULL && ref->sound_instance != NULL)
+		{
+			ref->sound_instance->Stop();
+			CSndInstance::ReleaseSoundInstance(ref->sound_instance);
+			ref->sound_instance = NULL;
+		}
+
+		if ((cmd->flags & 0x400) || (cmd->flags & 0x800))
+		{
+			if (ref != NULL)
+			{
+				if (cmd->flags & 0x400)
+					CSndJukebox::Play(MODE_2, ref->sound_handle);
+				else if (cmd->flags & 0x800)
+					CSndJukebox::Play(MODE_3, ref->sound_handle);
+			}
+		}
+		else if (positioned)
+		{
+			if (ref != NULL)
+				ref->sound_instance = ref->sound_handle->PlaySound3D(&pos, volume, pitch, NULL, 255);
+		}
+		else if (ref != NULL)
+		{
+			ref->sound_instance = ref->sound_handle->PlaySoundVolPanPitch(volume, pan, pitch, NULL, 255);
+		}
+	}
+	else if (ref != NULL && ref->sound_instance != NULL)
+	{
+		if (cmd->flags & 0x10)
+			ref->sound_instance->SetVol(cmd->volume);
+
+		if (cmd->flags & 0x20)
+			ref->sound_instance->SetPan(cmd->pan);
+
+		if (cmd->flags & 0x40)
+			ref->sound_instance->SetPitch(cmd->pitch);
+
+		if (cmd->flags & 0x4)
+		{
+			pos.Add(reinterpret_cast<const CPnt3D*>(cmd->translation), &pos);
+			positioned = true;
+		}
+
+		/* port: not written - flag 0x8 as above (0x1be4a8) */
+
+		if (cmd->flags & 0x2)
+		{
+			zdb::CNode* node = anim->GetNode(cmd->at_node, false);
+
+			if (node != NULL)
+			{
+				node->TransformToWorld(pos);
+				positioned = true;
+			}
+		}
+
+		if (positioned)
+			ref->sound_instance->SetPos(&pos);
+	}
+
+	if (cmd->flags & 0x100)
+	{
+		if (ref != NULL && ref->sound_instance != NULL)
+		{
+			ref->sound_instance->Stop();
+			CSndInstance::ReleaseSoundInstance(ref->sound_instance);
+			ref->sound_instance = NULL;
+		}
+		else if (ref != NULL)
+		{
+			Headset* headset = static_cast<Headset*>(Headset::ftsGetHeadset());
+
+			if (headset != NULL) /* port: the headset is offline (NULL) */
+				headset->StopSound(0, ref->sound_handle);
+		}
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub zAnimLightTick__FP14_zanim_cmd_hdrPf */

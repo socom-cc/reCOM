@@ -1161,9 +1161,26 @@ unsigned char UIInvitePlayerToClanWithArg(C2DAnimCmdHdr *, float *)
 }
 
 /* @socom-skeleton stub UIVagStreaming__FP13C2DAnimCmdHdrPf */
-unsigned char UIVagStreaming(C2DAnimCmdHdr *, float *)
+unsigned char UIVagStreaming(C2DAnimCmdHdr *cmd, float *)
 {
-	return true; /* port: stub - not written (UI_COMMAND function) */
+	/* 0x1d2830: ON enables VAG streaming in the front end (CSnd::UIOpen starts it), OFF
+	 * only clears the flag. INPUT_STRING takes the word from the anim's first argument. */
+	const char* name = ZAnim.m_CurAnim->GetName(cmd->m_argument_index);
+
+	if (name != NULL && strcmp(name, "INPUT_STRING") == 0)
+		name = ZAnim.m_CurAnim->m_arg_list->GetCharP(0);
+
+	if (strcmp(name, "ON") == 0)
+	{
+		CSnd::m_vagEnabled = true;
+		CSnd::UIOpen();
+	}
+	else if (strcmp(name, "OFF") == 0)
+	{
+		CSnd::m_vagEnabled = false;
+	}
+
+	return true;
 }
 
 /* @socom-skeleton stub UIGetInvitedPlayers__FP13C2DAnimCmdHdrPf */

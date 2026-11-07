@@ -37,15 +37,16 @@
 /* @socom-skeleton decl include */
 #include "gamez/zReader/zrdr.h"
 /* @socom-skeleton end include */
+#include <stdlib.h> /* rand */
 
 /* @socom-skeleton stub m_jukebox_stopped__11CSndJukebox */
 unsigned char CSndJukebox::m_jukebox_stopped = 1;
 
 /* @socom-skeleton stub m_cursound__11CSndJukebox */
-int CSndJukebox::m_cursound;
+CSndInstance* CSndJukebox::m_cursound;
 
 /* @socom-skeleton stub m_cursequence__11CSndJukebox */
-int CSndJukebox::m_cursequence;
+CSndSequence* CSndJukebox::m_cursequence;
 
 /* @socom-skeleton stub m_currentmode__11CSndJukebox */
 signed char CSndJukebox::m_currentmode;
@@ -57,67 +58,335 @@ unsigned char CSndJukebox::m_playlists_loaded;
 bool CSndJukebox::m_isinfight;
 
 /* @socom-skeleton stub m_queue__11CSndJukebox */
-unsigned char CSndJukebox::m_queue[8];
+CSndJukebox::Queued CSndJukebox::m_queue;
 
 /* @socom-skeleton stub m_playlist__11CSndJukebox */
-unsigned char CSndJukebox::m_playlist[24];
+std::vector<CSndSequence*> CSndJukebox::m_playlist[2];
 
 /* @socom-skeleton stub m_weights__11CSndJukebox */
-unsigned char CSndJukebox::m_weights[24];
+std::vector<float> CSndJukebox::m_weights[2];
 
 /* @socom-skeleton stub Cleanup__11CSndJukeboxFv */
 void CSndJukebox::Cleanup()
 {
+	/* 0x2f1b70: delete both playlists */
+	for (int mode = 0; mode < 2; mode++)
+	{
+		if (m_playlist[mode].size() != 0)
+		{
+			for (std::vector<CSndSequence*>::iterator it = m_playlist[mode].begin(); it != m_playlist[mode].end(); ++it)
+				delete *it;
+
+			std::vector<CSndSequence*>().swap(m_playlist[mode]);
+		}
+
+		std::vector<float>().swap(m_weights[mode]);
+	}
+
+	m_cursound = NULL;
+	m_currentmode = -1;
+	m_cursequence = NULL;
+	m_jukebox_stopped = 1;
+	m_playlists_loaded = 0;
 }
 
 /* @socom-skeleton stub LoadPlaylists__11CSndJukeboxFPCc */
-void CSndJukebox::LoadPlaylists(const char *)
+void CSndJukebox::LoadPlaylists(const char *name)
 {
+	/* 0x2f1ab0: JUKEBOX (STEALTH_MUSIC (sequences) FIGHT_MUSIC (sequences)) */
+	if (m_playlists_loaded == 1)
+		Cleanup();
+
+	CRdrFile* rdr = zrdr_read(name, NULL, 0);
+
+	if (rdr != NULL)
+	{
+		_zrdr* jukebox = zrdr_findtag(rdr, "JUKEBOX");
+
+		if (jukebox != NULL)
+		{
+			_zrdr* fight = zrdr_findtag(jukebox, "FIGHT_MUSIC");
+			LoadMusicLists(zrdr_findtag(jukebox, "STEALTH_MUSIC"), 0);
+			LoadMusicLists(fight, 1);
+		}
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("SND: jukebox %s: %s, %d stealth and %d fight sequences", name, rdr != NULL ? "read" : "missing",
+		(int)m_playlist[0].size(), (int)m_playlist[1].size());
+#endif
+
+	if (rdr != NULL)
+		zrdr_free(rdr);
 }
 
 /* @socom-skeleton stub LoadMusicLists__11CSndJukeboxFP5_zrdri */
-void CSndJukebox::LoadMusicLists(_zrdr *, int)
+void CSndJukebox::LoadMusicLists(_zrdr *list, int mode)
 {
+	/* 0x2f18b0: one CSndSequence per entry, equal weights (ELF quirk: m_playlists_loaded
+	 * is never set, so LoadPlaylists never cleans up and each mission appends) */
+	if (list == NULL || mode >= 2)
+		return;
+
+	for (s32 i = 0; i < (s32)(list->IsArray() ? list->array->integer - 1 : 0); i++)
+	{
+		CSndSequence* sequence = new CSndSequence();
+		sequence->CreateSequence(list->Get(i));
+		m_playlist[mode].insert(m_playlist[mode].end(), sequence);
+	}
+
+	for (u32 i = 0; i < m_playlist[mode].size(); i++)
+	{
+		f32 weight = 1.0f / (f32)m_playlist[mode].size();
+		m_weights[mode].insert(m_weights[mode].end(), weight);
+	}
+}
+
+/* port: Tick's repeated "play the queued request, else the stealth or fight music"
+ * (0x2f1674, 0x2f1700, 0x2f1764, 0x2f17d8, 0x2f184c) */
+static void snd_jukebox_next()
+{
+	if (CSndJukebox::m_queue.mode >= 2)
+	{
+		CSndJukebox::Play((MUSIC_MODE)CSndJukebox::m_queue.mode, CSndJukebox::m_queue.sound);
+		CSndJukebox::m_queue.sound = NULL;
+		CSndJukebox::m_queue.mode = -1;
+	}
+	else if (CSndJukebox::m_isinfight)
+	{
+		CSndJukebox::Play(MODE_1, NULL);
+	}
+	else
+	{
+		CSndJukebox::Play(MODE_0, NULL);
+	}
 }
 
 /* @socom-skeleton body Tick__11CSndJukeboxFf */
-void CSndJukebox::Tick(float delta) {}
+void CSndJukebox::Tick(float delta)
+{
+	/* 0x2f1640: next sequence or queued sound when the current one ends; switch between
+	 * stealth and fight music when the fight state changes */
+	if (m_jukebox_stopped)
+		return;
+
+	if (m_cursequence != NULL)
+	{
+		if (m_cursequence->Tick(delta))
+		{
+			m_cursequence = NULL;
+			m_currentmode = -1;
+			snd_jukebox_next();
+		}
+	}
+	else if (m_cursound != NULL && !m_cursound->IsPlaying())
+	{
+		m_currentmode = -1;
+		CSndInstance::ReleaseSoundInstance(m_cursound);
+		m_cursound = NULL;
+		snd_jukebox_next();
+	}
+	else if (m_cursound == NULL)
+	{
+		m_currentmode = -1;
+		snd_jukebox_next();
+	}
+
+	if ((m_currentmode == 0 || m_currentmode == -1) && m_isinfight)
+	{
+		snd_jukebox_next();
+		return;
+	}
+
+	if ((m_currentmode == 1 || m_currentmode == -1) && !m_isinfight)
+		snd_jukebox_next();
+}
 
 /* @socom-skeleton stub FadeOut__11CSndJukeboxFv */
 void CSndJukebox::FadeOut()
 {
+	/* 0x2f15d0: the sequence, else the sound, over 5.5 s */
+	if (m_cursequence != NULL)
+	{
+		if (!m_cursequence->IsFading())
+			m_cursequence->FadeOut();
+	}
+	else if (m_cursound != NULL && !m_cursound->IsFading())
+	{
+		m_cursound->FadeOut(5.5f);
+	}
 }
 
 /* @socom-skeleton stub ClearQueue__11CSndJukeboxFv */
 void CSndJukebox::ClearQueue()
 {
+	/* 0x2f15c0 */
+	m_queue.sound = NULL;
+	m_queue.mode = -1;
 }
 
 /* @socom-skeleton stub Play__11CSndJukeboxF10MUSIC_MODEP4CSnd */
-void CSndJukebox::Play(MUSIC_MODE, CSnd *)
+void CSndJukebox::Play(MUSIC_MODE mode, CSnd *sound)
 {
+	/* 0x2f1380: while something plays it fades out and the request is queued (a lower
+	 * mode never replaces a queued sound, ELF: the queued mode is always replaced);
+	 * otherwise 0/1 start a random stealth/fight sequence, 2/3 play the given sound. */
+	if (m_cursequence != NULL)
+	{
+		if (!m_cursequence->IsFading())
+			m_cursequence->FadeOut();
+	}
+	else if (m_cursound != NULL && !m_cursound->IsFading())
+	{
+		m_cursound->FadeOut(5.5f);
+	}
+
+	if (m_cursequence != NULL)
+	{
+		if (!m_cursequence->IsFading())
+			m_cursequence->FadeOut();
+
+		signed char queued = m_queue.mode;
+		m_queue.mode = (signed char)mode;
+
+		if (!((signed char)mode < queued))
+			m_queue.sound = sound;
+
+		return;
+	}
+
+	if (m_cursound != NULL)
+	{
+		if (!m_cursound->IsFading())
+			m_cursound->FadeOut(5.5f);
+
+		signed char queued = m_queue.mode;
+		m_queue.mode = (signed char)mode;
+
+		if (!((signed char)mode < queued))
+			m_queue.sound = sound;
+
+		return;
+	}
+
+	switch ((signed char)mode)
+	{
+	case 0:
+		if (m_currentmode < 0)
+			PlayRandom(MODE_0);
+		break;
+	case 1:
+		if (m_currentmode <= 0)
+			PlayRandom(MODE_1);
+		break;
+	case 2:
+		if (m_currentmode >= 2)
+			break;
+		/* fall through */
+	case 3:
+		if (m_cursequence != NULL)
+		{
+			m_cursequence->Stop();
+			m_cursequence = NULL;
+		}
+
+		if (m_cursound != NULL)
+			CSndInstance::ReleaseSoundInstance(m_cursound);
+
+		m_cursound = sound->PlaySound(false, NULL, 255);
+		m_currentmode = (signed char)mode;
+		break;
+	}
 }
 
 /* @socom-skeleton body IsInFight__11CSndJukeboxFb */
 void CSndJukebox::IsInFight(bool inFight) { m_isinfight = inFight; }
 
 /* @socom-skeleton stub PlayRandom__11CSndJukeboxF10MUSIC_MODE */
-void CSndJukebox::PlayRandom(MUSIC_MODE)
+void CSndJukebox::PlayRandom(MUSIC_MODE mode)
 {
+	/* 0x2f1220: a weighted random sequence of the mode; its weight drops to a tenth */
+	f32 r = 4.656613e-10f * (f32)rand();
+	f32 sum = 0.0f;
+	std::vector<float>& weights = m_weights[(signed char)mode];
+
+	for (u32 i = 0; i < weights.size(); i++)
+	{
+		sum += weights[i];
+
+		if (sum <= r)
+			continue;
+
+		weights[i] = weights[i] * 0.1f;
+		NormalizeWeights(mode);
+
+		if (i >= m_playlist[(signed char)mode].size())
+			continue; /* 0x2f12c0: on to the next weight */
+
+		m_playlist[(signed char)mode][i]->Play();
+
+		if (m_cursound != NULL)
+			CSndInstance::ReleaseSoundInstance(m_cursound);
+
+		m_cursound = NULL;
+		m_cursequence = m_playlist[(signed char)mode][i];
+		m_currentmode = (signed char)mode;
+		return;
+	}
 }
 
 /* @socom-skeleton stub NormalizeWeights__11CSndJukeboxF10MUSIC_MODE */
-void CSndJukebox::NormalizeWeights(MUSIC_MODE)
+void CSndJukebox::NormalizeWeights(MUSIC_MODE mode)
 {
+	/* 0x2f1040: as CSndGroup::NormalizeWeights */
+	std::vector<float>& weights = m_weights[(signed char)mode];
+	u32 count = weights.size();
+	f32 sum = 0.0f;
+
+	for (u32 i = 0; i < count; i++)
+		sum += weights[i];
+
+	if (sum == 0.0f)
+	{
+		f32 each = 1.0f / (f32)count;
+
+		for (u32 i = 0; i < weights.size(); i++)
+			weights[i] = each;
+	}
+	else
+	{
+		f32 scale = 1.0f / sum;
+
+		for (u32 i = 0; i < weights.size(); i++)
+			weights[i] = weights[i] * scale;
+	}
 }
 
 /* @socom-skeleton body Start__11CSndJukeboxFv */
 void CSndJukebox::Start()
 {
-
+	/* 0x2f1020 */
+	m_queue.sound = NULL;
+	m_jukebox_stopped = 0;
+	m_queue.mode = -1;
 }
 
 /* @socom-skeleton stub Stop__11CSndJukeboxFv */
 void CSndJukebox::Stop()
 {
+	/* 0x2f0fc0 */
+	m_jukebox_stopped = 1;
+
+	if (m_cursequence != NULL)
+		m_cursequence->Stop();
+
+	if (m_cursound != NULL)
+	{
+		m_cursound->Stop();
+		CSndInstance::ReleaseSoundInstance(m_cursound);
+		m_cursound = NULL;
+	}
+
+	m_queue.sound = NULL;
+	m_queue.mode = -1;
 }

@@ -112,7 +112,9 @@
 #include "gamez/zReader/zrdr.h"
 #include "gamez/zSeal/zseal.h"
 #include "gamez/zSystem/zsys.h"
-#include <989snd.h> /* snd_StartSoundSystem, snd_SetReverbType, snd_AutoReverb, snd_InitVAGStreamingEx */
+#include <989snd.h> /* the 989snd EE client (port/compat/snd989.c) */
+#include <ctype.h> /* toupper */
+#include <string.h>
 
 /* @socom-skeleton decl include */
 #include "gamez/zMath/zmath.h"
@@ -123,7 +125,7 @@
 /* @socom-skeleton end include */
 
 /* @socom-skeleton stub cur_mission_name */
-static unsigned char cur_mission_name[128] = {78, 111, 110, 101, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static char cur_mission_name[128] = "None"; /* the mission set _sound_mission_rdr belongs to */
 
 /* @socom-skeleton stub g_iReverbDepth__23@unnamed@zsnd_csnd_cpp@ */
 namespace {
@@ -175,7 +177,7 @@ int CSnd::m_num_streams_used;
 int CSnd::m_num_sounds_playing;
 
 /* @socom-skeleton stub m_errorsound__4CSnd */
-int CSnd::m_errorsound;
+CSnd* CSnd::m_errorsound;
 
 /* @socom-skeleton stub m_max_num_vags__4CSnd */
 int CSnd::m_max_num_vags;
@@ -199,22 +201,22 @@ static bool bnkArchiveIsOpen;
 static _zrdr* _sound_rdr; /* port: 4-byte LOCAL object; NetOpen stores zrdr_read's result in it (0x2ee168) */
 
 /* @socom-skeleton stub _sound_sets_rdr */
-static int _sound_sets_rdr;
+static _zrdr* _sound_sets_rdr; /* sounds.rdr SETS */
 
 /* @socom-skeleton stub _sound_mission_rdr */
-static int _sound_mission_rdr;
+static _zrdr* _sound_mission_rdr; /* the SETS entry of cur_mission_name (or SETS itself) */
 
 /* @socom-skeleton stub snd_system_initialized */
 static bool snd_system_initialized;
 
 /* @socom-skeleton stub sound_map */
-static unsigned char sound_map[16]; /* port: unproven type (16-byte LOCAL object; no body uses it) */
+static std::map<std::string, CSnd*> sound_map; /* 16-byte LOCAL object: MSL map<string, CSnd *> (find_or_insert 0x2ee560) */
 
 /* @socom-skeleton stub m_soundbank__4CSnd */
-std::vector<CSnd *, std::allocator<CSnd *> > CSnd::m_soundbank;
+std::vector<u32> CSnd::m_soundbank;
 
 /* @socom-skeleton stub m_bankloaded__4CSnd */
-std::vector<CSnd *, std::allocator<CSnd *> > CSnd::m_bankloaded;
+std::vector<u32> CSnd::m_bankloaded;
 
 /* @socom-skeleton stub m_soundlist__4CSnd */
 std::vector<CSnd *, std::allocator<CSnd *> > CSnd::m_soundlist;
@@ -232,31 +234,103 @@ CMatrix CSnd::m_listenermatrix;
 int CSnd::m_fadegroup[7];
 
 /* @socom-skeleton stub m_fade_oldvol__4CSnd */
-unsigned char CSnd::m_fade_oldvol[28];
+int CSnd::m_fade_oldvol[7];
 
 /* @socom-skeleton stub GetSoundRdrFile__Fv */
-void GetSoundRdrFile()
+_zrdr* GetSoundRdrFile()
 {
+	/* 0x2ee550 */
+	return _sound_rdr;
+}
+
+/* port: the inline element count of a reader array (lbu type; array[0].integer - 1) */
+static u32 snd_count(const _zrdr* reader)
+{
+	return reader->IsArray() ? reader->array->integer - 1 : 0;
+}
+
+/* port: copy of a name upper-cased into buf (at most 127 characters), as the loops in
+ * LoadSounds (0x2edc68, 0x2edd1c) do */
+static void snd_upper(const char* name, char* buf)
+{
+	int len = strlen(name);
+	int i;
+
+	for (i = 0; i < len && i < 127; i++)
+		buf[i] = toupper(name[i]);
+
+	buf[i] = '\0';
 }
 
 /* @socom-skeleton body __ct__4CSndFv */
 CSnd::CSnd()
 {
-	if (!m_isDisabled)
-	{
-		
-	}
+	/* 0x2ee490 */
+	if (m_isDisabled)
+		return;
+
+	m_vol = 1.0f;
+	m_name = NULL;
+	m_range.x = 160.0f;
+	m_range.y = 430.0f;
+	m_bank = -1;
+	m_ID = -1;
+	m_isStreamed = false;
+	m_stream1name = NULL;
+	m_stream2name = NULL;
+	m_headsetstreamname = NULL;
+	m_isHeadsetStream = false;
+	m_subtitle = NULL;
+	m_subtitle_time = 0.0f;
+	m_subtitle_translator = NULL;
+	m_offset1 = 0;
+	m_offset2 = 0;
+	m_isOneShot = false;
+	m_type = SND_NONE;
+	m_soundmode = SND_MODE_UNKNOWN;
+	/* ELF quirk: every sound reserves the instance pool and ends up SND_CONVERSATIONAL */
+	CSndInstance::m_sound_instance_pool.reserve(48);
+	m_type = SND_CONVERSATIONAL;
 }
 
 /* @socom-skeleton stub __dt__4CSndFv */
 CSnd::~CSnd()
 {
+	/* 0x2ee3a0 */
+	if (m_isDisabled)
+		return;
+
+	if (m_name != NULL)
+		_free(m_name, "zsnd_csnd.cpp", 163);
+	m_name = NULL;
+
+	if (m_stream1name != NULL)
+		_free(m_stream1name, "zsnd_csnd.cpp", 165);
+	m_stream1name = NULL;
+
+	if (m_stream2name != NULL)
+		_free(m_stream2name, "zsnd_csnd.cpp", 166);
+	m_stream2name = NULL;
+
+	if (m_headsetstreamname != NULL)
+		_free(m_headsetstreamname, "zsnd_csnd.cpp", 167);
+	m_headsetstreamname = NULL;
+
+	if (m_subtitle != NULL)
+		_free(m_subtitle, "zsnd_csnd.cpp", 168);
+	m_subtitle = NULL;
 }
 
 /* @socom-skeleton stub IOPRebootHandler__FQ211CIOPManager11RebootPhaseQ211CIOPManager10RebootModePv */
-static bool IOPRebootHandler(CIOPManager::RebootPhase, CIOPManager::RebootMode, void *) /* port: LOCAL in the ELF */
+static bool IOPRebootHandler(CIOPManager::RebootPhase phase, CIOPManager::RebootMode, void *) /* port: LOCAL in the ELF */
 {
-	return false; /* port: stub */
+	/* 0x2ee360: the sound system stops before an IOP reboot and starts again after it */
+	if (phase == CIOPManager::PreReboot)
+		snd_StopSoundSystem();
+	else
+		snd_StartSoundSystem();
+
+	return true;
 }
 
 /* @socom-skeleton body Init__4CSndFv */
@@ -311,26 +385,34 @@ void CSnd::Init()
 
 	theIOPManager.RegisterRebootCallback(IOPRebootHandler, NULL);
 	snd_system_initialized = true;
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("SND: CSnd::Init: VAGSTORE at sector %d, BNKSTORE at sector %d, sounds.rdr %s",
+		m_vagoffset, m_bnkoffset, _sound_rdr != NULL ? "read" : "missing");
+#endif
 }
 
 /* @socom-skeleton stub Uninit__4CSndFv */
 void CSnd::Uninit()
 {
+	/* 0x2ee1b0 */
+	zrdr_free(static_cast<CRdrFile*>(_sound_rdr));
+	_sound_rdr = NULL;
 }
 
 /* @socom-skeleton body NetOpen__4CSndFv */
 void CSnd::NetOpen()
 {
-	if (!_sound_rdr)
+	/* 0x2ee140 */
+	if (_sound_rdr == NULL)
 		_sound_rdr = zrdr_read("sounds.rdr", NULL, 0);
 
-	// snd_SetMasterVolume(8, 0x400);
+	snd_SetMasterVolume(8, 1024);
 
 	if (m_vagEnabled)
 	{
 		CFileCD::m_streamingSndActive = true;
 		m_max_num_vags = 4;
-		// snd_InitVagStreamingEx(4, 0xf000, 1, 1);
+		snd_InitVAGStreamingEx(4, 0xf000, 1, 1);
 	}
 }
 
@@ -352,94 +434,390 @@ void CSnd::UIOpen()
 /* @socom-skeleton body Open__4CSndFv */
 void CSnd::Open()
 {
+	/* 0x2ee080: mission sounds always stream (six VAG streams) */
 	CFileCD::m_streamingSndActive = true;
 
-	if (!_sound_rdr)
+	if (_sound_rdr == NULL)
 		_sound_rdr = zrdr_read("sounds.rdr", NULL, 0);
 
 	m_max_num_vags = 6;
-	// TODO: Write wrapper for the 989snd library
-	// snd_InitVAGStreamingEx(6, 0xf000, 1, 1);
+	snd_InitVAGStreamingEx(6, 0xf000, 1, 1);
 }
 
 /* @socom-skeleton body Close__4CSndFv */
 void CSnd::Close()
 {
+	/* 0x2ee050 */
 	m_max_num_vags = 0;
-	// Headset::ftsDeleteHeadset();
+	Headset::ftsDeleteHeadset();
+	snd_CloseVAGStreaming();
+	CFileCD::m_streamingSndActive = false;
 }
 
 /* @socom-skeleton stub CleanupLoading__4CSndFv */
 void CSnd::CleanupLoading()
 {
+	/* 0x2ee040: reads m_isDisabled and does nothing */
 }
 
 /* @socom-skeleton body GetSoundByName__4CSndFPCc */
 CSnd* CSnd::GetSoundByName(const char* name)
 {
+	/* 0x2edfc0 */
 	if (m_isDisabled)
-	{
 		return NULL;
-	}
 
-	auto sound = m_soundmap.find(name);
+	std::map<std::string, CSnd*>::iterator it = sound_map.find(std::string(name));
 
-	if (sound == m_soundmap.end())
-	{
+	if (it == sound_map.end())
 		return NULL;
-	}
-	else
-	{
-		return sound->second;
-	}
 
-	return NULL;
+	return it->second;
 }
 
 /* @socom-skeleton stub SetupSoundGroups__4CSndFv */
 void CSnd::SetupSoundGroups()
 {
+	/* 0x2edf90 */
+	if (!m_isDisabled)
+		CSndGroup::LoadSoundGroups();
 }
 
 /* @socom-skeleton stub SetupJukebox__4CSndFPCc */
-void CSnd::SetupJukebox(const char *)
+void CSnd::SetupJukebox(const char *name)
 {
+	/* 0x2edf80 */
+	CSndJukebox::LoadPlaylists(name);
 }
 
 /* @socom-skeleton stub LoadSounds__4CSndFPCc */
-void CSnd::LoadSounds(const char *)
+int CSnd::LoadSounds(const char *name)
 {
+	/* 0x2edf50: a bank that is its own set */
+	if (m_isDisabled)
+		return 0;
+
+	return LoadSounds(name, name);
 }
 
 /* @socom-skeleton stub LoadSounds__4CSndFPCcPCc */
-void CSnd::LoadSounds(const char *, const char *)
+int CSnd::LoadSounds(const char *mission, const char *bank)
 {
+	/* 0x2edba0: load the bank, then make a CSnd of every entry of its set in sounds.rdr
+	 * (SETS -> <MISSION> -> <BANK>, or SETS -> <BANK> when the mission has no set);
+	 * the sounds get IDs 0.. in that order. Returns the bank's index. */
+	char upper[128];
+
+	if (m_isDisabled)
+		return 0;
+
+	LoadBank(bank);
+	int index = m_curbank;
+	m_curID = 0;
+
+	if (_sound_rdr == NULL)
+	{
+		m_curbank++;
+		return index;
+	}
+
+	if (_sound_sets_rdr == NULL)
+	{
+		_sound_sets_rdr = zrdr_findtag(_sound_rdr, "SETS");
+
+		if (_sound_sets_rdr == NULL)
+		{
+			m_curbank++;
+			return index;
+		}
+	}
+
+	if (_sound_mission_rdr == NULL || strcmp(mission, cur_mission_name) != 0)
+	{
+		strcpy(cur_mission_name, mission);
+		snd_upper(mission, upper);
+		_sound_mission_rdr = zrdr_findtag(_sound_sets_rdr, upper);
+
+		if (_sound_mission_rdr == NULL)
+		{
+			if (strcmp(mission, bank) == 0)
+			{
+				m_curbank++;
+				return index;
+			}
+
+			_sound_mission_rdr = _sound_sets_rdr;
+		}
+	}
+
+	_zrdr* set = _sound_mission_rdr;
+
+	if (bank != NULL && strcmp(bank, mission) != 0)
+	{
+		snd_upper(bank, upper);
+		set = zrdr_findtag(_sound_mission_rdr, upper);
+
+		if (set == NULL)
+		{
+			m_curbank++;
+			return index;
+		}
+	}
+
+	for (u32 i = 0; (s32)i < (s32)snd_count(set); i++)
+	{
+		CSnd* sound = new CSnd();
+		sound->LoadCSnd(i < snd_count(set) ? &set->array[i + 1] : NULL);
+
+		if (!m_isDisabled)
+		{
+			sound_map[std::string(sound->m_name)] = sound;
+			m_soundlist.insert(m_soundlist.end(), sound);
+		}
+	}
+
+	m_curbank++;
+
+	if (m_isDisabled)
+	{
+		m_errorsound = NULL;
+	}
+	else
+	{
+		std::map<std::string, CSnd*>::iterator it = sound_map.find(std::string("SND_NEG"));
+		m_errorsound = it == sound_map.end() ? NULL : it->second;
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("SND: LoadSounds(%s, %s): bank index %d, %d sounds in the set (%d known)",
+		mission, bank, index, (int)snd_count(set), (int)sound_map.size());
+#endif
+	return index;
 }
 
 /* @socom-skeleton body AddNewCSnd__4CSndFP4CSnd */
 void CSnd::AddNewCSnd(CSnd* sound)
 {
+	/* 0x2edb10 */
 	if (!m_isDisabled)
 	{
-		m_soundmap[sound->m_name] = sound;
+		sound_map[std::string(sound->m_name)] = sound;
 		m_soundlist.insert(m_soundlist.begin(), sound);
 	}
 }
 
 /* @socom-skeleton stub LoadBank__4CSndFPCc */
-void CSnd::LoadBank(const char *)
+bool CSnd::LoadBank(const char *name)
 {
+	/* 0x2ed910: <name>.BNK from BNKSTORE.ZAR by its CD location on a disc boot, else by
+	 * path; the 989snd handle (0 = failed) and whether it loaded are appended by index. */
+	char path[1024];
+	u32 handle = 0;
+	bool loaded = false;
+
+	if (m_isDisabled)
+		return false;
+
+	sprintf(path, "%sRUN\\SOUNDS\\%s.BNK%s", CFileIO::m_root_path, name, CFileIO::m_file_version);
+
+	if (zSys.isCdBoot)
+	{
+		u32 offset = 0;
+		bool found = false;
+
+		sprintf(path, "%s.BNK", name);
+
+		if (!m_isDisabled)
+		{
+			zar::CKey* key = m_bnkArchive.FindKey(path);
+			found = key != NULL;
+
+			if (key != NULL)
+			{
+				offset = key->GetOffset();
+				m_bnkArchive.CloseKey(key);
+			}
+		}
+
+		if (found)
+		{
+			int sector = m_bnkoffset + (offset >> 11);
+
+			snd_StreamSafeCdSync(0);
+
+			while (snd_StreamSafeCdSync(1) == 1)
+				;
+
+			handle = snd_BankLoadByLoc(sector, offset & 0x7ff);
+		}
+		else
+		{
+			handle = 0;
+		}
+	}
+	else
+	{
+		handle = snd_BankLoad(path, 0);
+	}
+
+	if (handle == 0)
+	{
+		m_bankloaded.insert(m_bankloaded.end(), 0u);
+	}
+	else
+	{
+		loaded = true;
+		m_bankloaded.insert(m_bankloaded.end(), 1u);
+	}
+
+	m_soundbank.insert(m_soundbank.end(), handle);
+	snd_ResolveBankXREFS();
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("SND: LoadBank(%s) -> handle 0x%x (bank index %d)", name, handle, (int)m_soundbank.size() - 1);
+#endif
+	return loaded;
+}
+
+/* port: the upper-cased copy of a stream name LoadCSnd makes (N1, N2, HN); len is the
+ * length the ELF upper-cases (ELF quirk: N2 uses N1's length, 0x2ed650) */
+static void snd_upper_in_place(char* name, int len)
+{
+	for (int i = 0; i < len; i++)
+		name[i] = toupper(name[i]);
 }
 
 /* @socom-skeleton body LoadCSnd__4CSndFP5_zrdr */
 void CSnd::LoadCSnd(_zrdr* reader)
 {
+	/* 0x2ed2d0: ('NAME' [DUP] [ONESHOT] [TYPE_*] [STREAMING_EFX] [MUS]
+	 * [ST (N1 (name) N2 (name) HN (name) OFFSET1 n OFFSET2 n)] [RANGE (min max)]
+	 * [VOLUME v] [SUBTITLE s] [SUBTITLE_TIME t] [SUBTITLE_VALVE v]) */
+	bool dup = false;
 
+	if (m_isDisabled)
+		return;
+
+	m_soundmode = SND_MODE_BANK_DEFINED;
+	m_isOneShot = false;
+
+	/* port: a reader without elements is guarded (the ELF reads the type at address 0) */
+	_zrdr* first = snd_count(reader) > 0 ? &reader->array[1] : NULL;
+	char* name = first != NULL && first->type == ZRDR_STRING ? first->string : NULL;
+
+	if (name != NULL)
+		m_name = _strdup(name, "zsnd_csnd.cpp", 620);
+
+	if (zrdr_findtag(reader, "DUP") != NULL)
+		dup = true;
+
+	if (zrdr_findtag(reader, "ONESHOT") != NULL)
+		m_isOneShot = true;
+
+	if (zrdr_findtag(reader, "TYPE_CONVERSATIONAL") != NULL)
+		m_type = SND_CONVERSATIONAL;
+
+	if (zrdr_findtag(reader, "TYPE_SITREP") != NULL)
+		m_type = SND_SITREP;
+
+	if (zrdr_findtag(reader, "TYPE_DEATH_DAMAGE") != NULL)
+		m_type = SND_DEATH_DAMAGE;
+
+	if (zrdr_findtag(reader, "ONESHOT") != NULL)
+		m_isOneShot = true;
+
+	if (zrdr_findtag(reader, "STREAMING_EFX") != NULL)
+		m_soundmode = SND_MODE_EFX;
+
+	if (zrdr_findtag(reader, "MUS") != NULL)
+		m_soundmode = SND_MODE_MUSIC;
+
+	_zrdr* stream = zrdr_findtag(reader, "ST");
+
+	if (stream != NULL)
+	{
+		if (m_soundmode != SND_MODE_EFX && m_soundmode != SND_MODE_MUSIC)
+			m_soundmode = SND_MODE_DIALOG;
+
+		m_isStreamed = true;
+
+		char** names[3] = {&m_stream1name, &m_stream2name, &m_headsetstreamname};
+		const char* tags[3] = {"N1", "N2", "HN"};
+		static const int lines[3][2] = {{672, 673}, {702, 703}, {732, 733}};
+
+		for (int n = 0; n < 3; n++)
+		{
+			_zrdr* tag = zrdr_findtag(stream, tags[n]);
+
+			if (tag == NULL)
+				continue;
+
+			if (n == 2)
+				m_isHeadsetStream = true;
+
+			_zrdr* value = snd_count(tag) > 0 ? &tag->array[1] : NULL;
+			char* text = value != NULL && value->type == ZRDR_STRING ? value->string : NULL;
+
+			if (text == NULL)
+				continue;
+
+			if (*names[n] != NULL)
+				_free(*names[n], "zsnd_csnd.cpp", lines[n][0]);
+
+			*names[n] = NULL;
+			*names[n] = (char*)_malloc(120, "zsnd_csnd.cpp", lines[n][1]);
+
+			if (*names[n] == NULL)
+				continue;
+
+			sprintf(*names[n], "%s", text);
+			/* ELF quirk: N2 is upper-cased over N1's length (port: guarded for no N1) */
+			const char* measured = n == 1 ? m_stream1name : *names[n];
+			snd_upper_in_place(*names[n], measured != NULL ? strlen(measured) : 0);
+		}
+
+		zrdr_findint(stream, "OFFSET1", &m_offset1, 1);
+		zrdr_findint(stream, "OFFSET2", &m_offset2, 1);
+	}
+
+	zrdr_findPNT2D(reader, "RANGE", &m_range);
+	zrdr_findreal(reader, "VOLUME", &m_vol, 1);
+
+	char* subtitle = zrdr_findstring(reader, "SUBTITLE");
+
+	if (subtitle != NULL)
+	{
+		m_subtitle = _strdup(subtitle, "zsnd_csnd.cpp", 760);
+		int len = strlen(m_subtitle);
+		int n = strlen(m_subtitle);
+		int i;
+
+		for (i = 0; i < n && i < len; i++)
+			m_subtitle[i] = toupper(m_subtitle[i]);
+
+		m_subtitle[i] = '\0';
+	}
+
+	zrdr_findreal(reader, "SUBTITLE_TIME", &m_subtitle_time, 1);
+
+	char* valve = zrdr_findstring(reader, "SUBTITLE_VALVE");
+
+	if (valve != NULL)
+		m_subtitle_translator = CValve::Create(valve, (VALVE_TYPE)2);
+
+	if (!dup)
+	{
+		m_ID = m_curID;
+		m_curID++;
+	}
+
+	m_bank = m_curbank;
 }
 
 /* @socom-skeleton stub SetSubtitles__4CSndFb */
-void CSnd::SetSubtitles(bool)
+void CSnd::SetSubtitles(bool show)
 {
+	/* 0x2ed2a0 */
+	m_bShowSubtitles = show;
 }
 
 /* @socom-skeleton body GetSubtitles__4CSndFv */
@@ -449,61 +827,382 @@ bool CSnd::GetSubtitles()
 }
 
 /* @socom-skeleton stub PlaySound__4CSndFP12CSndInstanceUi */
-CSndInstance * CSnd::PlaySound(CSndInstance *, unsigned int)
+CSndInstance * CSnd::PlaySound(CSndInstance *instance, unsigned int entity)
 {
+	/* 0x2ed240 */
+	if (m_isDisabled)
+		return NULL;
+
+	return PlaySoundVolPanPitch(1.0f, -1, 0, instance, entity);
 }
 
 /* @socom-skeleton stub PlaySoundVol__4CSndFfP12CSndInstanceUi */
-CSndInstance * CSnd::PlaySoundVol(float, CSndInstance *, unsigned int)
+CSndInstance * CSnd::PlaySoundVol(float volume, CSndInstance *instance, unsigned int entity)
 {
+	/* 0x2ed200 */
+	if (m_isDisabled)
+		return NULL;
+
+	return PlaySoundVolPanPitch(volume, -1, 0, instance, entity);
+}
+
+/* port: the subtitle a sound shows when it plays (inline in PlaySound3D 0x2ecc64 and
+ * PlaySoundVolPanPitch 0x2ecf5c) */
+static void snd_show_subtitle(CSnd* sound)
+{
+	if (sound->m_subtitle != NULL && CSnd::m_bShowSubtitles
+		&& (sound->m_subtitle_translator == NULL || sound->m_subtitle_translator->m_value != 0))
+		theMission.m_Subtitles.Add_Message(sound->m_subtitle, (int)sound->m_subtitle_time);
 }
 
 /* @socom-skeleton stub PlaySoundVolPanPitch__4CSndFfiiP12CSndInstanceUi */
-CSndInstance * CSnd::PlaySoundVolPanPitch(float, int, int, CSndInstance *, unsigned int)
+CSndInstance * CSnd::PlaySoundVolPanPitch(float volume, int pan, int pitch, CSndInstance *instance, unsigned int entity)
 {
+	/* 0x2ecef0: a one-shot bank sound plays without an instance; others get one (the
+	 * given one or a pool one) whose handle the IOP's answer fills in. */
+	if (m_isDisabled)
+		return NULL;
+
+	if (m_num_sounds_playing >= 30)
+	{
+		CSndInstance::DebugSoundList();
+		return NULL;
+	}
+
+	snd_show_subtitle(this);
+
+	if (m_bank >= (s32)m_soundbank.size())
+		return NULL;
+
+	if (m_bankloaded[m_bank] != 1 && !m_isStreamed)
+		return NULL;
+
+	if (m_type == SND_DEATH_DAMAGE)
+		CSndInstance::Remove(entity, true, true);
+
+	if (m_isHeadsetStream && m_headsetstreamname != NULL && !theNetwork.m_bNetwork)
+	{
+		/* port: the headset is offline (voice); its Queue is a stub */
+		static_cast<Headset*>(Headset::ftsGetHeadset())->Queue(entity, this, (int)(1024.0f * volume));
+		return NULL;
+	}
+
+	if (m_isOneShot && !m_isStreamed)
+	{
+		snd_PlaySoundVolPanPMPB_A(m_soundbank[m_bank], m_ID, (int)(1024.0f * volume * m_vol * CSndInstance::m_mastervol),
+			pan, pitch, 0);
+		return NULL;
+	}
+
+	if (instance == NULL)
+		instance = CSndInstance::AcquireSoundInstance(0xffffffff, this);
+	else
+		instance->m_parent = this;
+
+	if (instance == NULL)
+		return NULL;
+
+	instance->m_entityID = entity;
+
+	if (m_isStreamed)
+	{
+		if (StreamSoundVolPan((int)(1024.0f * volume * m_vol * CSndInstance::m_mastervol), pan, instance) == 0)
+		{
+			if (instance != NULL)
+			{
+				instance->m_handle = 0;
+				CSndInstance::ReleaseSoundInstance(instance);
+				return NULL;
+			}
+		}
+
+		return instance;
+	}
+
+	snd_PlaySoundVolPanPMPB_CB(m_soundbank[m_bank], m_ID, (int)(1024.0f * volume * m_vol * CSndInstance::m_mastervol),
+		pan, pitch, 0, CSndInstance::PlaySoundCallback, (unsigned long)instance);
+	return instance;
 }
 
 /* @socom-skeleton stub PlaySound3D__4CSndFPC6CPnt3DfiP12CSndInstanceUi */
-CSndInstance * CSnd::PlaySound3D(const CPnt3D *, float, int, CSndInstance *, unsigned int)
+CSndInstance * CSnd::PlaySound3D(const CPnt3D *pos, float volume, int pitch, CSndInstance *instance, unsigned int entity)
 {
+	/* 0x2ecaf0: volume from the distance to the listener (CalcVol over m_range), pan from
+	 * the direction in listener space; caches the commands until the next PostTick. */
+	if (m_isDisabled)
+		return NULL;
+
+	if (m_num_sounds_playing >= 30)
+	{
+		CSndInstance::DebugSoundList();
+		return NULL;
+	}
+
+	if (m_bank >= (s32)m_soundbank.size())
+		return NULL;
+
+	if (m_bankloaded[m_bank] != 1 && !m_isStreamed)
+		return NULL;
+
+	f32 scaled = volume * m_vol;
+	int vol = 1;
+	int pan = -1;
+
+	if (!m_isDisabled)
+	{
+		if (!m_listenerIsValid)
+		{
+			vol = 0;
+			pan = 0;
+		}
+		else
+		{
+			CPnt3D local;
+			m_listenermatrix.Transform(pos, &local, 1);
+			vol = CalcVol(sqrtf(local.x * local.x + local.y * local.y + local.z * local.z), scaled);
+			pan = (int)(57.29578f * atan2f(local.x, local.z * -1.0f));
+
+			if (pan < 0)
+				pan += 360;
+		}
+	}
+
+	if (vol != 0)
+		snd_show_subtitle(this);
+
+	if (m_isOneShot && vol == 0)
+		return NULL;
+
+	snd_StartCaching();
+
+	if (m_type == SND_DEATH_DAMAGE)
+		CSndInstance::Remove(entity, true, true);
+
+	if (m_isHeadsetStream && m_headsetstreamname != NULL && !theNetwork.m_bNetwork)
+	{
+		/* port: the headset is offline (voice); its Queue is a stub */
+		static_cast<Headset*>(Headset::ftsGetHeadset())->Queue(entity, this, vol << 10);
+		return NULL;
+	}
+
+	/* ELF quirk: the distance volume already holds m_vol and the master volume, and
+	 * both are applied again here */
+	if (m_isOneShot && !m_isStreamed)
+	{
+		snd_PlaySoundVolPanPMPB_A(m_soundbank[m_bank], m_ID, (int)((f32)vol * m_vol * CSndInstance::m_mastervol), pan, pitch, 0);
+		return NULL;
+	}
+
+	if (instance == NULL)
+		instance = CSndInstance::AcquireSoundInstance(0xffffffff, this);
+	else
+		instance->m_parent = this;
+
+	if (instance == NULL)
+		return NULL;
+
+	instance->Set3D(volume);
+	instance->SetPos(pos);
+	instance->m_entityID = entity;
+
+	if (m_isStreamed)
+	{
+		if (StreamSoundVolPan((int)((f32)vol * m_vol * CSndInstance::m_mastervol), pan, instance) == 0)
+		{
+			if (instance != NULL)
+			{
+				instance->m_handle = 0;
+				CSndInstance::ReleaseSoundInstance(instance);
+				return NULL;
+			}
+		}
+
+		return instance;
+	}
+
+	snd_PlaySoundVolPanPMPB_CB(m_soundbank[m_bank], m_ID, (int)((f32)vol * m_vol * CSndInstance::m_mastervol), pan, pitch, 0,
+		CSndInstance::PlaySoundCallback, (unsigned long)instance);
+	return instance;
 }
 
 /* @socom-skeleton stub PlaySound__4CSndFbP12CSndInstanceUi */
-CSndInstance * CSnd::PlaySound(bool, CSndInstance *, unsigned int)
+CSndInstance * CSnd::PlaySound(bool oneshot, CSndInstance *instance, unsigned int entity)
 {
+	/* 0x2ecaa0: the virtual PlaySound with m_isOneShot set for this call */
+	bool saved = m_isOneShot;
+	m_isOneShot = oneshot;
+	CSndInstance* result = PlaySound(instance, entity);
+	m_isOneShot = saved;
+	return result;
 }
 
 /* @socom-skeleton stub PlaySoundVol__4CSndFfbP12CSndInstanceUi */
-CSndInstance * CSnd::PlaySoundVol(float, bool, CSndInstance *, unsigned int)
+CSndInstance * CSnd::PlaySoundVol(float volume, bool oneshot, CSndInstance *instance, unsigned int entity)
 {
+	/* 0x2eca50 */
+	bool saved = m_isOneShot;
+	m_isOneShot = oneshot;
+	CSndInstance* result = PlaySoundVol(volume, instance, entity);
+	m_isOneShot = saved;
+	return result;
 }
 
 /* @socom-skeleton stub PlaySound3D__4CSndFPC6CPnt3DbfiP12CSndInstanceUi */
-CSndInstance * CSnd::PlaySound3D(const CPnt3D *, bool, float, int, CSndInstance *, unsigned int)
+CSndInstance * CSnd::PlaySound3D(const CPnt3D *pos, bool oneshot, float volume, int pitch, CSndInstance *instance, unsigned int entity)
 {
+	/* 0x2eca00 */
+	bool saved = m_isOneShot;
+	m_isOneShot = oneshot;
+	CSndInstance* result = PlaySound3D(pos, volume, pitch, instance, entity);
+	m_isOneShot = saved;
+	return result;
 }
 
 /* @socom-skeleton stub PlaySoundVolPanPitch__4CSndFfiibP12CSndInstanceUi */
-CSndInstance * CSnd::PlaySoundVolPanPitch(float, int, int, bool, CSndInstance *, unsigned int)
+CSndInstance * CSnd::PlaySoundVolPanPitch(float volume, int pan, int pitch, bool oneshot, CSndInstance *instance, unsigned int entity)
 {
+	/* 0x2ec9b0 */
+	bool saved = m_isOneShot;
+	m_isOneShot = oneshot;
+	CSndInstance* result = PlaySoundVolPanPitch(volume, pan, pitch, instance, entity);
+	m_isOneShot = saved;
+	return result;
 }
 
 /* @socom-skeleton stub CalcVolPan__4CSndFPC6CPnt3DfPiPi */
-void CSnd::CalcVolPan(const CPnt3D *, float, int *, int *)
+void CSnd::CalcVolPan(const CPnt3D *pos, float volume, int *vol, int *pan)
 {
+	/* 0x2ec7f0: as PlaySound3D's distance volume and pan (CalcVol inline) */
+	if (m_isDisabled)
+		return;
+
+	if (!m_listenerIsValid)
+	{
+		*vol = 0;
+		*pan = 0;
+		return;
+	}
+
+	CPnt3D local;
+	m_listenermatrix.Transform(pos, &local, 1);
+	f32 dist = sqrtf(local.x * local.x + local.y * local.y + local.z * local.z);
+	f32 att;
+
+	if (dist <= m_range.x)
+		att = 1.0f;
+	else if (dist <= m_range.y)
+		att = 1.0f - (dist - m_range.x) / (m_range.y - m_range.x);
+	else
+		att = 0.0f;
+
+	*vol = (int)(volume * (1024.0f * att * CSndInstance::m_mastervol));
+	int angle = (int)(57.29578f * atan2f(local.x, local.z * -1.0f));
+
+	if (angle < 0)
+		angle += 360;
+
+	*pan = angle;
 }
 
 /* @socom-skeleton body CalcVol__4CSndFff */
-float CSnd::CalcVol(f32 volume, f32 masterVolume)
+int CSnd::CalcVol(f32 dist, f32 volume)
 {
-	return 0.0f;
+	/* 0x2ec780: 1024 inside m_range.x, falling linearly to 0 at m_range.y */
+	f32 att;
+
+	if (dist <= m_range.x)
+		att = 1.0f;
+	else if (dist <= m_range.y)
+		att = 1.0f - (dist - m_range.x) / (m_range.y - m_range.x);
+	else
+		att = 0.0f;
+
+	return (int)(volume * (1024.0f * att * CSndInstance::m_mastervol));
 }
 
 /* @socom-skeleton stub StreamSoundVolPan__4CSndFiiP12CSndInstance */
-void CSnd::StreamSoundVolPan(int, int, CSndInstance *)
+int CSnd::StreamSoundVolPan(int volume, int pan, CSndInstance *instance)
 {
+	/* 0x2ec4f0: the N1/N2 VAGs (VPK for music) by their CD location in VAGSTORE.ZAR;
+	 * -1 when the stream was started, 0 when no stream was free or no VAG was found */
 	/* @socom-skeleton stub soundname$1876 */
-	static unsigned char soundname[60];
+	static char soundname[60];
+	int loc1 = 0;
+	int loc2 = 0;
+	u32 offset1 = 0; /* port: never initialised in the ELF (s0) when N1 is missing */
+	u32 offset2 = 0; /* port: never initialised in the ELF (s1) when N2 is missing */
+	bool found1 = false;
+	bool found2 = false;
+
+	if (m_isDisabled)
+		return 0;
+
+	if (m_isOneShot)
+		instance->TerminateOnFinish();
+
+	if (m_num_streams_used >= m_max_num_vags)
+		return 0;
+
+	if (m_stream1name != NULL)
+	{
+		sprintf(soundname, m_soundmode == SND_MODE_MUSIC ? "%s.VPK" : "%s.VAG", m_stream1name);
+
+		if (!m_isDisabled)
+		{
+			zar::CKey* key = m_vagArchive.FindKey(soundname);
+			found1 = key != NULL;
+
+			if (key != NULL)
+			{
+				offset1 = key->GetOffset();
+				m_vagArchive.CloseKey(key);
+			}
+		}
+
+		if (found1)
+		{
+			loc1 = m_vagoffset + (offset1 >> 11);
+			offset1 &= 0x7ff;
+		}
+	}
+
+	if (m_stream2name != NULL)
+	{
+		sprintf(soundname, m_soundmode == SND_MODE_MUSIC ? "%s.vpk" : "%s.vag", m_stream2name);
+
+		if (!m_isDisabled)
+		{
+			zar::CKey* key = m_vagArchive.FindKey(soundname);
+			found2 = key != NULL;
+
+			if (key != NULL)
+			{
+				offset2 = key->GetOffset();
+				m_vagArchive.CloseKey(key);
+			}
+		}
+
+		if (found2)
+		{
+			loc2 = m_vagoffset + (offset2 >> 11);
+			offset2 &= 0x7ff;
+		}
+	}
+
+	if (!found1 && !found2)
+		return 0;
+
+	m_num_streams_used++;
+	int group = 0;
+
+	if (m_soundmode == SND_MODE_MUSIC)
+		group = 1;
+	else if (m_soundmode == SND_MODE_DIALOG)
+		group = 2;
+
+	snd_PlayVAGStreamByLoc_CB(loc1, loc2, offset1, offset2, volume, pan, group, 0, 0,
+		CSndInstance::PlaySoundCallback, (unsigned long)instance);
+	return -1;
 }
 
 /* @socom-skeleton body vagReadOffset__4CSndFPCcRUiRUi */
@@ -515,7 +1214,7 @@ bool CSnd::vagReadOffset(const char* name, u32& offset, u32& size)
 	}
 
 	zar::CKey* key = m_vagArchive.FindKey(name);
-	
+
 	if (key)
 	{
 		offset = key->GetOffset();
@@ -523,13 +1222,40 @@ bool CSnd::vagReadOffset(const char* name, u32& offset, u32& size)
 		m_vagArchive.CloseKey(key);
 		return true;
 	}
-	
+
 	return false;
 }
 
 /* @socom-skeleton stub UnloadAllSounds__4CSndFv */
 void CSnd::UnloadAllSounds()
 {
+	/* 0x2ec1d0: stop everything, unload the loaded banks, delete every CSnd */
+	if (m_isDisabled)
+		return;
+
+	CSndInstance::StopAllSounds();
+
+	for (u32 i = 0; i < m_bankloaded.size(); i++)
+	{
+		if (m_bankloaded[i] == 1)
+			snd_UnloadBank(m_soundbank[i]);
+	}
+
+	std::vector<u32>().swap(m_soundbank);
+	std::vector<u32>().swap(m_bankloaded);
+
+	for (u32 i = 0; i < m_soundlist.size(); i++)
+	{
+		if (m_soundlist[i] != NULL)
+			delete m_soundlist[i];
+	}
+
+	std::vector<CSnd*>().swap(m_soundlist);
+	sound_map.clear();
+	snd_ResolveBankXREFS();
+	m_curbank = 0;
+	CSndInstance::Cleanup();
+	m_curID = 0;
 }
 
 /* @socom-skeleton body PostTick__4CSndFfPv */
@@ -586,39 +1312,102 @@ bool CSnd::PostTick(f32 dT, void* buf)
 /* @socom-skeleton stub OnListenerDeath__4CSndFv */
 void CSnd::OnListenerDeath()
 {
+	/* 0x2ec050 */
+	CSndJukebox::FadeOut();
+	CSndInstance::StopAllSounds(SND_MODE_DIALOG);
 }
 
 /* @socom-skeleton stub PlayErrorSound__4CSndFv */
 void CSnd::PlayErrorSound()
 {
+	/* 0x2ec010: SND_NEG */
+	if (m_errorsound != NULL)
+		m_errorsound->PlaySound(NULL, 255);
 }
 
 /* @socom-skeleton stub WaitForCDRead__4CSndFv */
 void CSnd::WaitForCDRead()
 {
+	/* 0x2ebf90: stop the streams and wait until the IOP has released the CD */
+	if (m_max_num_vags == 0 || !snd_system_initialized)
+		return;
+
+	snd_StopAllStreams();
+
+	while (snd_FlushSoundCommands())
+		;
+
+	while (snd_StreamSafeCheckCDIdle(1) == 0)
+		;
 }
 
 /* @socom-skeleton stub SetReverbDepth__4CSndFPCf */
-void CSnd::SetReverbDepth(const float *)
+void CSnd::SetReverbDepth(const float *depth)
 {
+	/* 0x2ebf40: 0..1 of 0x7fff; default 10922 (1/3) */
+	g_iReverbDepth = (int)(depth != NULL ? 32767.0f * *depth : 10922.0f);
 }
 
 /* @socom-skeleton stub SetReverbSeconds__4CSndFPCf */
-void CSnd::SetReverbSeconds(const float *)
+void CSnd::SetReverbSeconds(const float *seconds)
 {
+	/* 0x2ebf00: in 1/240 s; default 1 s */
+	g_iReverbTime = (int)(seconds != NULL ? 240.0f * *seconds : 240.0f);
 }
 
 /* @socom-skeleton stub SetGroupVol__4CSndFif */
-void CSnd::SetGroupVol(int, float)
+void CSnd::SetGroupVol(int group, float volume)
 {
+	/* 0x2ebec0 */
+	snd_SetMasterVolume(group, (int)(1024.0f * volume));
 }
 
 /* @socom-skeleton stub SetGroupVolTemp__4CSndFffiiiiiii */
-void CSnd::SetGroupVolTemp(float, float, int, int, int, int, int, int, int)
+void CSnd::SetGroupVolTemp(float time, float pct, int g0, int g1, int g2, int g3, int g4, int g5, int g6)
 {
+	/* 0x2ebdb0: scale up to seven volume groups (-1 = unused) for a time; a call during
+	 * a fade only extends it */
+	if (!(m_fadetime <= 0.0f))
+	{
+		if (!(time <= m_fadetime))
+			m_fadetime = time;
+
+		return;
+	}
+
+	m_fadegroup[0] = g0;
+	m_fadepct = pct;
+	m_fadegroup[1] = g1;
+	m_fadetime = time;
+	m_fadegroup[2] = g2;
+	m_fadegroup[3] = g3;
+	m_fadegroup[4] = g4;
+	m_fadegroup[5] = g5;
+	m_fadegroup[6] = g6;
+
+	for (int i = 0; i < 7; i++)
+	{
+		if (m_fadegroup[i] == -1)
+			continue;
+
+		m_fade_oldvol[i] = snd_GetMasterVolume(m_fadegroup[i]);
+		snd_SetMasterVolume(m_fadegroup[i], (int)((f32)m_fade_oldvol[i] * m_fadepct));
+	}
 }
 
 /* @socom-skeleton stub ResetGroupVolTemp__4CSndFv */
 void CSnd::ResetGroupVolTemp()
 {
+	/* 0x2ebd20 */
+	for (int i = 0; i < 7; i++)
+	{
+		if (m_fadegroup[i] != -1)
+		{
+			snd_SetMasterVolume(m_fadegroup[i], m_fade_oldvol[i]);
+			m_fadegroup[i] = -1;
+		}
+	}
+
+	m_fadepct = 0.0f;
+	m_fadetime = 0.0f;
 }

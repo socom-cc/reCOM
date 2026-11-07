@@ -16,38 +16,199 @@
 #include "gamez/zReader/zrdr.h"
 #include "zsnd.h"
 /* @socom-skeleton end include */
+#include <stdlib.h> /* rand */
+
+_zrdr* GetSoundRdrFile(); /* GetSoundRdrFile__Fv (zsnd_csnd.cpp) */
+
+/* port: the inline weighted pick of the four Play functions (0x2f0a78, 0x2f0bf8, 0x2f0d64,
+ * 0x2f0ec0): rand() / 2^31 against the running sum of the weights; the picked entry's
+ * weight is scaled by m_dynamic_weights and the weights normalized again. */
+static CSnd* snd_group_pick(CSndGroup* group)
+{
+	f32 r = 4.656613e-10f * (f32)rand();
+	f32 sum = 0.0f;
+
+	for (u32 i = 0; i < group->m_sounds.size(); i++)
+	{
+		sum += group->m_weights[i];
+
+		if (!(sum <= r))
+		{
+			group->m_weights[i] = group->m_weights[i] * group->m_dynamic_weights;
+			group->NormalizeWeights();
+			return group->m_sounds[i];
+		}
+	}
+
+	return NULL;
+}
+
+/* port: no skeleton fence; __dt__9CSndGroupFv (0x2f0350): the two vectors, then CSnd's destructor */
+CSndGroup::~CSndGroup()
+{
+}
 
 /* @socom-skeleton stub PlaySound__9CSndGroupFP12CSndInstanceUi */
-CSndInstance* CSndGroup::PlaySound(CSndInstance *, unsigned int)
+CSndInstance* CSndGroup::PlaySound(CSndInstance *instance, unsigned int entity)
 {
+	/* 0x2f0e70 */
+	if (m_isDisabled)
+		return NULL;
+
+	CSnd* sound = m_isDisabled ? NULL : snd_group_pick(this);
+
+	if (sound == NULL)
+		return NULL;
+
+	return sound->PlaySound(instance, entity);
 }
 
 /* @socom-skeleton stub PlaySoundVol__9CSndGroupFfP12CSndInstanceUi */
-CSndInstance* CSndGroup::PlaySoundVol(float, CSndInstance *, unsigned int)
+CSndInstance* CSndGroup::PlaySoundVol(float volume, CSndInstance *instance, unsigned int entity)
 {
+	/* 0x2f0d10 */
+	if (m_isDisabled)
+		return NULL;
+
+	CSnd* sound = m_isDisabled ? NULL : snd_group_pick(this);
+
+	if (sound == NULL)
+		return NULL;
+
+	return sound->PlaySoundVol(volume, instance, entity);
 }
 
 /* @socom-skeleton stub PlaySound3D__9CSndGroupFPC6CPnt3DfiP12CSndInstanceUi */
-CSndInstance* CSndGroup::PlaySound3D(const CPnt3D *, float, int, CSndInstance *, unsigned int)
+CSndInstance* CSndGroup::PlaySound3D(const CPnt3D *pos, float volume, int pitch, CSndInstance *instance, unsigned int entity)
 {
+	/* 0x2f0b90 */
+	if (m_isDisabled)
+		return NULL;
+
+	CSnd* sound = m_isDisabled ? NULL : snd_group_pick(this);
+
+	if (sound == NULL)
+		return NULL;
+
+	return sound->PlaySound3D(pos, volume, pitch, instance, entity);
 }
 
 /* @socom-skeleton stub PlaySoundVolPanPitch__9CSndGroupFfiiP12CSndInstanceUi */
-CSndInstance* CSndGroup::PlaySoundVolPanPitch(float, int, int, CSndInstance *, unsigned int)
+CSndInstance* CSndGroup::PlaySoundVolPanPitch(float volume, int pan, int pitch, CSndInstance *instance, unsigned int entity)
 {
+	/* 0x2f0a10 */
+	if (m_isDisabled)
+		return NULL;
+
+	CSnd* sound = m_isDisabled ? NULL : snd_group_pick(this);
+
+	if (sound == NULL)
+		return NULL;
+
+	return sound->PlaySoundVolPanPitch(volume, pan, pitch, instance, entity);
 }
 
 /* @socom-skeleton stub LoadSoundGroups__9CSndGroupFv */
 void CSndGroup::LoadSoundGroups()
 {
+	/* 0x2f0830: sounds.rdr GROUPS, one CSndGroup per entry */
+	if (m_isDisabled)
+		return;
+
+	_zrdr* rdr = GetSoundRdrFile();
+
+	if (rdr == NULL)
+		return;
+
+	_zrdr* groups = zrdr_findtag(rdr, "GROUPS");
+
+	if (groups == NULL)
+		return;
+
+	for (u32 i = 0; i < (u32)(groups->IsArray() ? groups->array->integer - 1 : 0); i++)
+	{
+		CSndGroup* group = new CSndGroup();
+		group->LoadCSndGroup(groups->Get(i));
+		AddNewCSnd(group);
+	}
+
+#ifdef SOCOM_PORT
+	SOCOM_PORT_TRACE("SND: %d sound groups loaded", groups->IsArray() ? groups->array->integer - 1 : 0);
+#endif
 }
 
 /* @socom-skeleton stub LoadCSndGroup__9CSndGroupFP5_zrdr */
-void CSndGroup::LoadCSndGroup(_zrdr *)
+void CSndGroup::LoadCSndGroup(_zrdr *reader)
 {
+	/* 0x2f05a0: ('NAME' DYNAMIC_WEIGHTS (w) ENTRIES (('SND_X' [WEIGHT (w)]) ...)) */
+	f32 dynamic = 0.0f;
+
+	if (m_isDisabled || reader == NULL)
+		return;
+
+	_zrdr* first = reader->Get(0);
+	char* name = first != NULL && first->type == ZRDR_STRING ? first->string : NULL; /* port: NULL guarded */
+
+	if (name != NULL)
+		m_name = _strdup(name, "zsnd_csndgroup.cpp", 141);
+
+	zrdr_findreal(reader, "DYNAMIC_WEIGHTS", &dynamic, 1);
+	m_dynamic_weights = dynamic;
+
+	_zrdr* entries = zrdr_findtag(reader, "ENTRIES");
+
+	for (s32 i = 0; i < (s32)(entries->IsArray() ? entries->array->integer - 1 : 0); i++)
+	{
+		_zrdr* entry = entries->Get(i);
+
+		if (m_isDisabled || entry == NULL)
+			continue;
+
+		CSnd* sound = NULL;
+		f32 weight = 0.0f;
+		_zrdr* label = entry->Get(0);
+		char* soundname = label != NULL && label->type == ZRDR_STRING ? label->string : NULL; /* port: NULL guarded */
+
+		zrdr_findreal(entry, "WEIGHT", &weight, 1);
+
+		if (soundname != NULL)
+			sound = GetSoundByName(soundname);
+
+		if (sound != NULL)
+		{
+			m_sounds.insert(m_sounds.end(), sound);
+			m_weights.insert(m_weights.end(), weight);
+		}
+	}
+
+	NormalizeWeights();
 }
 
 /* @socom-skeleton stub NormalizeWeights__9CSndGroupFv */
 void CSndGroup::NormalizeWeights()
 {
+	/* 0x2f03f0: weights summing to 1; all equal when they sum to 0 */
+	if (m_isDisabled)
+		return;
+
+	u32 count = m_weights.size();
+	f32 sum = 0.0f;
+
+	for (u32 i = 0; i < count; i++)
+		sum += m_weights[i];
+
+	if (sum == 0.0f)
+	{
+		f32 each = 1.0f / (f32)count;
+
+		for (u32 i = 0; i < m_weights.size(); i++)
+			m_weights[i] = each;
+	}
+	else
+	{
+		f32 scale = 1.0f / sum;
+
+		for (u32 i = 0; i < m_weights.size(); i++)
+			m_weights[i] = m_weights[i] * scale;
+	}
 }

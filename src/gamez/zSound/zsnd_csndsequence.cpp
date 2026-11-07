@@ -29,69 +29,224 @@
 /* @socom-skeleton stub __ct__12CSndSequenceFv */
 CSndSequence::CSndSequence()
 {
+	/* 0x2f2410 */
+	m_current = -1;
+	m_name = NULL;
+	m_fading = false;
+	m_done = false; /* port: never initialised in the ELF; Play sets it before any Tick */
 }
 
 /* @socom-skeleton stub __dt__12CSndSequenceFv */
 CSndSequence::~CSndSequence()
 {
+	/* 0x2f2380 */
+	if (m_name != NULL)
+		_free(m_name, "zsnd_csndsequence.cpp", 29);
+
+	m_name = NULL;
 }
 
 /* @socom-skeleton stub CreateSequence__12CSndSequenceFP5_zrdr */
-void CSndSequence::CreateSequence(_zrdr *)
+void CSndSequence::CreateSequence(_zrdr *reader)
 {
+	/* 0x2f21d0: (SEQ_NAME "name" [PAUSETIME t] (SNDNAME "SND_X" PAUSETIME t) ...): the
+	 * entries from the third element on */
+	if (reader == NULL)
+		return;
+
+	char* name = zrdr_findstring(reader, "SEQ_NAME");
+
+	if (name != NULL)
+	{
+		if (m_name != NULL)
+			_free(m_name, "zsnd_csndsequence.cpp", 42);
+
+		m_name = NULL;
+		m_name = _strdup(name, "zsnd_csndsequence.cpp", 43);
+	}
+
+	f32 pause = 0.0f;
+	zrdr_findreal(reader, "PAUSETIME", &pause, 1); /* read and unused */
+
+	for (s32 i = 2; i < (s32)(reader->IsArray() ? reader->array->integer - 1 : 0); i++)
+	{
+		_zrdr* entry = reader->Get(i);
+		f32 time = 0.0f;
+		CSnd* sound = NULL;
+
+		zrdr_findreal(entry, "PAUSETIME", &time, 1);
+		char* soundname = zrdr_findstring(entry, "SNDNAME");
+
+		if (soundname != NULL)
+			sound = CSnd::GetSoundByName(soundname);
+
+		CSndSequenceEntry element(sound, time);
+		m_entries.insert(m_entries.end(), element);
+	}
 }
 
 /* @socom-skeleton stub Tick__12CSndSequenceFf */
-void CSndSequence::Tick(float)
+bool CSndSequence::Tick(float dT)
 {
+	/* 0x2f2100: play the entries one after the other; true once done */
+	if (m_done)
+		return true;
+
+	s32 count = m_entries.size();
+
+	if (!(m_current < count))
+	{
+		m_current = 0;
+		m_done = true;
+		return true;
+	}
+
+	bool next = true;
+
+	if (m_current != -1)
+		next = m_entries[m_current].Tick(dT);
+
+	if (!next)
+		return false;
+
+	m_current++;
+
+	if (!(m_current < count) || m_fading)
+	{
+		m_done = true;
+		return true;
+	}
+
+	m_entries[m_current].Play();
+	return false;
 }
 
 /* @socom-skeleton stub Play__12CSndSequenceFv */
 void CSndSequence::Play()
 {
+	/* 0x2f20e0: Tick starts the first entry */
+	m_current = -1;
+	m_done = false;
+	m_fading = false;
 }
 
 /* @socom-skeleton stub Stop__12CSndSequenceFv */
 void CSndSequence::Stop()
 {
+	/* 0x2f2080 */
+	if (m_current != -1)
+		m_entries[m_current].Stop();
+
+	m_current = -1;
+	m_done = true;
+	m_fading = false;
 }
 
 /* @socom-skeleton stub IsFading__12CSndSequenceFv */
-void CSndSequence::IsFading()
+bool CSndSequence::IsFading()
 {
+	/* 0x2f2040 */
+	if (m_current == -1)
+		return false;
+
+	return m_entries[m_current].IsFading();
 }
 
 /* @socom-skeleton stub FadeOut__12CSndSequenceFv */
 void CSndSequence::FadeOut()
 {
+	/* 0x2f1fc0: fade the playing entry and end after it; before the first entry it
+	 * stops */
+	if (m_current != -1)
+	{
+		m_entries[m_current].FadeOut();
+		m_fading = true;
+		return;
+	}
+
+	m_current = -1;
+	m_done = true;
+	m_fading = false;
 }
 
 /* @socom-skeleton stub __ct__17CSndSequenceEntryFP4CSndf */
-CSndSequenceEntry::CSndSequenceEntry(CSnd *, float)
+CSndSequenceEntry::CSndSequenceEntry(CSnd *sound, float pausetime)
 {
+	/* 0x2f1fa0 */
+	m_sound = sound;
+	m_pausetime = pausetime;
+	m_timer = 0.0f;
+	/* port: the ELF never sets m_instance here (stack garbage reaches the vector in
+	 * CreateSequence, and FadeOut/Stop of a pause entry would use it) */
+	m_instance = NULL;
 }
 
 /* @socom-skeleton stub Tick__17CSndSequenceEntryFf */
-void CSndSequenceEntry::Tick(float)
+bool CSndSequenceEntry::Tick(float dT)
 {
+	/* 0x2f1ef0: a sound entry ends when its sound does, a pause entry after its time */
+	if (m_sound != NULL)
+	{
+		if (m_instance != NULL && m_instance->IsPlaying())
+			return false;
+
+		if (m_instance != NULL)
+			CSndInstance::ReleaseSoundInstance(m_instance);
+
+		/* ELF quirk: released twice (the second call finds it in the pool) */
+		if (m_instance != NULL)
+			CSndInstance::ReleaseSoundInstance(m_instance);
+
+		m_instance = NULL;
+		return true;
+	}
+
+	m_timer += dT;
+
+	if (m_timer <= m_pausetime)
+		return false;
+
+	m_timer = 0.0f;
+	return true;
 }
 
 /* @socom-skeleton stub Play__17CSndSequenceEntryFv */
 void CSndSequenceEntry::Play()
 {
+	/* 0x2f1ea0 */
+	if (m_sound != NULL)
+		m_instance = m_sound->PlaySound(false, NULL, 255);
 }
 
 /* @socom-skeleton stub Stop__17CSndSequenceEntryFv */
 void CSndSequenceEntry::Stop()
 {
+	/* 0x2f1e60 */
+	if (m_instance != NULL)
+	{
+		m_instance->Stop();
+		CSndInstance::ReleaseSoundInstance(m_instance);
+	}
+
+	m_instance = NULL;
 }
 
 /* @socom-skeleton stub FadeOut__17CSndSequenceEntryFv */
 void CSndSequenceEntry::FadeOut()
 {
+	/* 0x2f1e20: a pause entry just ends */
+	if (m_instance != NULL)
+		m_instance->FadeOut(5.5f);
+	else
+		m_timer = m_pausetime;
 }
 
 /* @socom-skeleton stub IsFading__17CSndSequenceEntryFv */
-void CSndSequenceEntry::IsFading()
+bool CSndSequenceEntry::IsFading()
 {
+	/* 0x2f1df0 */
+	if (m_instance == NULL)
+		return false;
+
+	return m_instance->IsFading();
 }

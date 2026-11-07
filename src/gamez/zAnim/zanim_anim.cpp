@@ -109,6 +109,7 @@
 #include "zanim.h"
 
 #include <stdarg.h> /* port: CZAnim::ActivateArg */
+#include <string.h> /* memset (GetSoundRef) */
 
 /* @socom-skeleton decl include */
 #include "gamez/zArchive/zar.h"
@@ -682,12 +683,32 @@ void CZAnim::DeleteParticleSources()
 /* @socom-skeleton stub StopSounds__6CZAnimFv */
 void CZAnim::StopSounds()
 {
-	/* 0x1cbe70: stops or lets finish each sound instance, then releases it.
-	 * port: not written - sound playback is offline in the port */
-	for (u32 i = 0; i < m_sound_ref_count; i++)
+	/* 0x1cbe70: a STOP_ON_EXIT sound stops; another is released when it has ended or
+	 * left to end on its own */
+	for (s32 i = 0; i < (s32)m_sound_ref_count; i++)
 	{
-		m_sound_ref_list[i].sound_instance = NULL;
-		m_sound_ref_list[i].stop_on_exit = false;
+		_zanim_sound* ref = &m_sound_ref_list[i];
+
+		if (ref->sound_instance != NULL)
+		{
+			if (ref->stop_on_exit)
+			{
+				ref->sound_instance->Stop();
+				CSndInstance::ReleaseSoundInstance(ref->sound_instance);
+			}
+			else if (!ref->sound_instance->IsPlaying())
+			{
+				CSndInstance::ReleaseSoundInstance(ref->sound_instance);
+			}
+			else
+			{
+				ref->sound_instance->TerminateOnFinish();
+			}
+
+			ref->sound_instance = NULL;
+		}
+
+		ref->stop_on_exit = false;
 	}
 }
 
@@ -998,8 +1019,33 @@ zdb::CTexHandle * CZAnim::GetTexture(int)
 }
 
 /* @socom-skeleton stub GetSoundRef__6CZAnimFi */
-_zanim_sound * CZAnim::GetSoundRef(int)
+_zanim_sound * CZAnim::GetSoundRef(int index)
 {
+	/* 0x1ca4f0: the anim's reference to a sound by local name index (the last match),
+	 * made on first use with the CSnd of that name; NULL when there is no such sound */
+	_zanim_sound* ref = NULL;
+
+	for (s32 i = 0; i < (s32)m_sound_ref_count; i++)
+	{
+		if (index == m_sound_ref_list[i].name_index)
+			ref = &m_sound_ref_list[i];
+	}
+
+	if (ref == NULL)
+	{
+		m_sound_ref_list = (_zanim_sound*)_realloc(m_sound_ref_list, (m_sound_ref_count + 1) * sizeof(_zanim_sound),
+			"zanim_anim.cpp", 2294);
+		ref = &m_sound_ref_list[m_sound_ref_count];
+		memset(ref, 0, sizeof(_zanim_sound));
+		ref->name_index = index;
+		ref->sound_handle = CSnd::GetSoundByName(m_nameindex_table.GetName(ZAnim.GetAnimSet(m_animset_index), index));
+		m_sound_ref_count++;
+	}
+
+	if (ref->sound_handle == NULL)
+		return NULL;
+
+	return ref;
 }
 
 /* @socom-skeleton stub GetCallAnimRef__6CZAnimFii */

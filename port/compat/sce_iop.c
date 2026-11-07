@@ -15,9 +15,11 @@
  *   sceFsReset           -> fioExit (fio rebinds on next use)
  *   sceSifLoadModule     -> SifLoadModule; when the game's module cannot be loaded, the
  *                           BIOS copy of the same Sony module (rom0:) is used; modules of
- *                           the offline subsystems (sound, USB, network, voice) are
- *                           reported unavailable and given a pseudo id so the game's
- *                           retry loops end.
+ *                           the offline subsystems (USB, network, voice) are reported
+ *                           unavailable and given a pseudo id so the game's retry loops
+ *                           end. The sound modules (SDRDRV, 989SND, 989DSTRM) are not
+ *                           offline: 989snd's EE client (snd989.c) needs their RPC
+ *                           servers, so a failed load is retried as the game does.
  *   sceOpen/Close/Read/Write/Lseek -> newlib open/close/read/write/lseek (ps2sdk routes
  *                           device paths through fio; SCE flags translated to O_*) */
 /* fioExit only: unbinds the fileio RPC client across an IOP reboot. */
@@ -130,9 +132,10 @@ static const char *const bios_modules[][2] = {
     {"LIBSD.IRX", "rom0:LIBSD"},
 };
 
-/* Offline in the port (user decisions: silent sound, no online, no voice; no USB keyboard). */
+/* Offline in the port (user decisions: no online, no voice; no USB keyboard). The game
+ * never loads the 989snd debug/error variants; they stay listed. */
 static const char *const offline_modules[] = {
-    "SDRDRV.IRX", "989SND.IRX", "989DSTRM.IRX", "989ERR.IRX", "989SND_D.IRX", "SNDBGET.IRX",
+    "989ERR.IRX", "989SND_D.IRX", "SNDBGET.IRX",
     "USBD.IRX", "USBKB.IRX", "LGAUD.IRX", "HEADSETO.IRX",
     "DEV9.IRX", "SMAP.IRX", "AN986.IRX", "INET.IRX", "INETCTL.IRX", "INETLOG.IRX", "PPP.IRX",
     "PPPOE.IRX", "NETCNF.IRX", "NETCNFIF.IRX", "IFNETCNF.IRX", "EZNETCNF.IRX", "EZNETCTL.IRX",

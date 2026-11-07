@@ -47,7 +47,7 @@
 #include "zsnd.h"
 
 #include "gamez/zSeal/zseal.h"
-#include <989snd.h> /* snd_StopSound */
+#include <989snd.h> /* the 989snd EE client (port/compat/snd989.c) */
 
 /* @socom-skeleton decl include */
 #include "gamez/zMath/zmath.h"
@@ -66,115 +66,410 @@ int numSoundInstances;
 std::list<CSndInstance *, std::allocator<CSndInstance *> > CSndInstance::m_instancelist;
 
 /* @socom-skeleton stub m_sound_instance_pool__12CSndInstance */
-std::vector<CSnd *, std::allocator<CSnd *> > CSndInstance::m_sound_instance_pool;
+std::vector<CSndInstance *> CSndInstance::m_sound_instance_pool;
 
 /* @socom-skeleton stub m_removallist__12CSndInstance */
-int CSndInstance::m_removallist[3];
+std::vector<CSndInstance *> CSndInstance::m_removallist;
+
+/* Pending: the play or query command has not been answered yet (0x2ef730). */
+#define SND_HANDLE_PENDING 0xffffffff
+
+/* port: ELF quirk in Remove (0x2efbbc) and AwarenessUpgrade (0x2efad4): the parent type
+ * test is inverted - false for any instance with a parent, and for one without a parent
+ * it reads the type at address 0x20. So neither function stops a sound; the port answers
+ * false for a missing parent too. */
+static bool snd_parent_is(const CSndInstance* instance, u8 type)
+{
+	(void)type;
+
+	if (instance->m_parent != NULL)
+		return false;
+
+	return false;
+}
 
 /* @socom-skeleton stub Cleanup__12CSndInstanceFv */
 void CSndInstance::Cleanup()
 {
+	/* 0x2f0240 */
+	m_removallist.clear();
 }
 
 /* @socom-skeleton stub AcquireSoundInstance__12CSndInstanceFUiP4CSnd */
-CSndInstance * CSndInstance::AcquireSoundInstance(unsigned int, CSnd *)
+CSndInstance * CSndInstance::AcquireSoundInstance(unsigned int handle, CSnd *parent)
 {
+	/* 0x2f0170: the last pool instance, or a new one when the pool is empty */
+	CSndInstance* instance;
+
+	if (m_sound_instance_pool.size() == 0)
+	{
+		instance = static_cast<CSndInstance*>(operator new(sizeof(CSndInstance)));
+
+		if (instance != NULL && !CSnd::m_isDisabled)
+			instance->InitInstance(handle, parent);
+
+		numSoundInstances++;
+	}
+	else
+	{
+		instance = m_sound_instance_pool[m_sound_instance_pool.size() - 1];
+		instance->InitInstance(handle, parent);
+		m_sound_instance_pool.pop_back();
+	}
+
+	CSnd::m_num_sounds_playing++;
+	return instance;
 }
 
 /* @socom-skeleton body ReleaseSoundInstance__12CSndInstanceFP12CSndInstance */
 void CSndInstance::ReleaseSoundInstance(CSndInstance* instance)
 {
-    
+	/* 0x2effa0: back to the pool and off the instance list; one still waiting for its
+	 * handle is only marked to end */
+	if (instance->m_handle == SND_HANDLE_PENDING)
+	{
+		instance->m_terminateASAP = true;
+		instance->m_terminateOnFinish = true;
+		return;
+	}
+
+	for (u32 i = 0; i < m_sound_instance_pool.size(); i++)
+	{
+		if (m_sound_instance_pool[i] == instance)
+			return;
+	}
+
+	if (instance->m_parent->m_isStreamed)
+		CSnd::m_num_streams_used--;
+
+	CSnd::m_num_sounds_playing--;
+
+	if (m_sound_instance_pool.size() == m_sound_instance_pool.capacity())
+		m_sound_instance_pool.reserve(m_sound_instance_pool.size() + 16);
+
+	m_sound_instance_pool.insert(m_sound_instance_pool.end(), instance);
+
+	for (std::list<CSndInstance*>::iterator it = m_instancelist.begin(); it != m_instancelist.end(); ++it)
+	{
+		if (*it == instance)
+		{
+			m_instancelist.erase(it);
+			return;
+		}
+	}
 }
 
 /* @socom-skeleton stub InitInstance__12CSndInstanceFUiP4CSnd */
-void CSndInstance::InitInstance(unsigned int, CSnd *)
+void CSndInstance::InitInstance(unsigned int handle, CSnd *parent)
 {
+	/* 0x2efeb0: reset and append to the instance list */
 	/* @socom-skeleton stub pushcounter$1052 */
 	static int pushcounter;
+
+	m_parent = parent;
+	m_handle = handle;
+	m_paused = false;
+	m_instancelist.insert(m_instancelist.end(), this);
+	pushcounter++;
+	m_vol = 1.0f;
+	m_pos = CPnt3D::zero;
+	m_is3D = false;
+	m_forcedLoop = false;
+	m_fadeTime = 0.0f;
+	m_terminateOnFinish = false;
+	m_terminateASAP = false;
+	m_pauseASAP = false;
+	m_continueASAP = false;
 }
 
 /* @socom-skeleton body Stop__12CSndInstanceFv */
 void CSndInstance::Stop()
 {
-    if (!m_isDisabled)
-    {
-        if (m_handle == 0xffffffff)
-        {
-            m_terminateASAP = true;
-            m_terminateOnFinish = true;
-        }
-        else
-        {
-            // TODO: Wrappers for 989snd
-            // snd_StopSound(m_handle);
-        }
-    }
+	/* 0x2efe60 */
+	if (CSnd::m_isDisabled)
+		return;
+
+	if (m_handle == SND_HANDLE_PENDING)
+	{
+		m_terminateASAP = true;
+		m_terminateOnFinish = true;
+	}
+	else
+	{
+		snd_StopSound(m_handle);
+	}
 }
 
 /* @socom-skeleton stub SetVol__12CSndInstanceFf */
-void CSndInstance::SetVol(float)
+void CSndInstance::SetVol(float volume)
 {
+	/* 0x2efdb0: 2D sounds only; ELF quirk: the volume is applied twice */
+	if (CSnd::m_isDisabled)
+		return;
+
+	m_vol = volume;
+
+	if (m_is3D)
+		return;
+
+	while (m_handle == SND_HANDLE_PENDING)
+		snd_FlushSoundCommands();
+
+	snd_SetSoundVolPan(m_handle, (int)(m_vol * (1024.0f * volume * m_mastervol)), -2);
 }
 
 /* @socom-skeleton stub SetPan__12CSndInstanceFi */
-void CSndInstance::SetPan(int)
+void CSndInstance::SetPan(int pan)
 {
+	/* 0x2efd40 */
+	if (CSnd::m_isDisabled)
+		return;
+
+	while (m_handle == SND_HANDLE_PENDING)
+		snd_FlushSoundCommands();
+
+	snd_SetSoundVolPan(m_handle, 0x7fffffff, pan);
 }
 
 /* @socom-skeleton stub SetPitch__12CSndInstanceFi */
-void CSndInstance::SetPitch(int)
+void CSndInstance::SetPitch(int pitch)
 {
+	/* 0x2efcd0 */
+	if (CSnd::m_isDisabled)
+		return;
+
+	while (m_handle == SND_HANDLE_PENDING)
+		snd_FlushSoundCommands();
+
+	snd_SetSoundPitch(m_handle, pitch);
 }
 
 /* @socom-skeleton stub SetPos__12CSndInstanceFPC6CPnt3D */
-void CSndInstance::SetPos(const CPnt3D *)
+void CSndInstance::SetPos(const CPnt3D *pos)
 {
+	/* 0x2efca0 */
+	if (CSnd::m_isDisabled)
+		return;
+
+	m_pos.x = pos->x;
+	m_pos.y = pos->y;
+	m_pos.z = pos->z;
 }
 
 /* @socom-skeleton stub Remove__12CSndInstanceFUibb */
-void CSndInstance::Remove(unsigned int, bool, bool)
+void CSndInstance::Remove(unsigned int entity, bool conversational, bool sitrep)
 {
+	/* 0x2efb60: stop the entity's conversational / sitrep sounds (see snd_parent_is:
+	 * the ELF's type test never matches) */
+	if (CSnd::m_isDisabled)
+		return;
+
+	for (std::list<CSndInstance*>::iterator it = m_instancelist.begin(); it != m_instancelist.end(); ++it)
+	{
+		CSndInstance* instance = *it;
+
+		if (instance->m_entityID != entity)
+			continue;
+
+		if ((snd_parent_is(instance, SND_CONVERSATIONAL) && conversational)
+			|| (snd_parent_is(instance, SND_SITREP) && sitrep))
+		{
+			if (CSnd::m_isDisabled)
+				continue;
+
+			if (instance->m_handle == SND_HANDLE_PENDING)
+			{
+				instance->m_terminateASAP = true;
+				instance->m_terminateOnFinish = true;
+			}
+			else
+			{
+				snd_StopSound(instance->m_handle);
+			}
+		}
+	}
 }
 
 /* @socom-skeleton stub AwarenessUpgrade__12CSndInstanceFUi */
-void CSndInstance::AwarenessUpgrade(unsigned int)
+void CSndInstance::AwarenessUpgrade(unsigned int entity)
 {
+	/* 0x2efa80: stop the entity's conversational sounds (never matches, see snd_parent_is) */
+	if (CSnd::m_isDisabled)
+		return;
+
+	for (std::list<CSndInstance*>::iterator it = m_instancelist.begin(); it != m_instancelist.end(); ++it)
+	{
+		CSndInstance* instance = *it;
+
+		if (instance->m_entityID == entity && snd_parent_is(instance, SND_CONVERSATIONAL))
+			instance->Stop();
+	}
 }
 
 /* @socom-skeleton stub PostTick__12CSndInstanceFfPv */
-void CSndInstance::PostTick(float, void *)
+bool CSndInstance::PostTick(float dT, void *)
 {
+	/* 0x2ef890: tick every instance with the commands cached, send them, release the
+	 * finished ones that were marked to end */
+	if (CSnd::m_isDisabled)
+		return false;
+
+	m_removallist.clear();
+	std::list<CSndInstance*>::iterator it = m_instancelist.begin();
+	snd_StartCaching();
+
+	while (it != m_instancelist.end())
+	{
+		CSndInstance* instance = *it;
+
+		if (instance == NULL)
+		{
+			++it;
+			continue;
+		}
+
+		bool fading = !(instance->m_fadeTime <= 0.0f);
+		bool ended = instance->Tick(dT);
+
+		if (ended && instance->m_forcedLoop && !fading)
+		{
+			/* ELF quirk: this branch does not advance the iterator (0x2ef9c8); nothing
+			 * ever sets m_forcedLoop, so it is never taken */
+			CSndInstance* again = instance->m_parent->PlaySoundVol(instance->m_vol, NULL, 255);
+
+			if (again != NULL && instance->m_is3D)
+			{
+				again->m_vol = instance->m_vol;
+				again->m_is3D = true;
+
+				if (!CSnd::m_isDisabled)
+					again->m_pos = instance->m_pos;
+			}
+
+			m_removallist.insert(m_removallist.end(), instance);
+			continue;
+		}
+
+		if (ended && instance->m_terminateOnFinish)
+			m_removallist.insert(m_removallist.end(), instance);
+
+		++it;
+	}
+
+	snd_SendCache();
+	RemoveFromList();
+	snd_FlushSoundCommands();
+	return false;
 }
 
 /* @socom-skeleton stub Tick__12CSndInstanceFf */
-void CSndInstance::Tick(float)
+bool CSndInstance::Tick(float dT)
 {
+	/* 0x2ef700: act on the pending stop/pause/continue and the fade, then ask the IOP
+	 * again (new volume and pan for a 3D sound); the answer's handle is 0 once the
+	 * sound has ended. Returns true when it has ended. */
+	if (CSnd::m_isDisabled)
+		return false;
+
+	if (m_handle == SND_HANDLE_PENDING)
+		return false;
+
+	if (m_handle == 0)
+		return true;
+
+	if (m_terminateASAP)
+	{
+		snd_StopSound(m_handle);
+		m_handle = 0;
+		return true;
+	}
+
+	if (m_pauseASAP)
+	{
+		snd_PauseSound(m_handle);
+		m_pauseASAP = false;
+		return false;
+	}
+
+	if (m_continueASAP)
+	{
+		snd_ContinueSound(m_handle);
+		m_continueASAP = false;
+	}
+
+	if (!(m_fadeTime <= 0.0f))
+	{
+		m_fadeTime -= dT;
+
+		if (m_fadeTime <= 0.0f)
+		{
+			snd_StopSound(m_handle);
+			m_handle = 0;
+			return true;
+		}
+	}
+
+	u32 handle = m_handle;
+	m_handle = SND_HANDLE_PENDING;
+
+	if (m_is3D)
+	{
+		int vol = 1;
+		int pan = -1;
+		m_parent->CalcVolPan(&m_pos, m_vol, &vol, &pan);
+		snd_SetSoundParams_CB(handle, 1, vol, pan, 0, 0, PlaySoundCallback, (unsigned long)this);
+	}
+	else
+	{
+		snd_SoundIsStillPlaying_CB(handle, PlaySoundCallback, (unsigned long)this);
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub FadeOut__12CSndInstanceFf */
-void CSndInstance::FadeOut(float)
+void CSndInstance::FadeOut(float time)
 {
+	/* 0x2ef650: to silence over time (989snd time in 1/240 s); Tick stops it at the end */
+	m_fadeTime = time;
+
+	if (CSnd::m_isDisabled)
+		return;
+
+	while (m_handle == SND_HANDLE_PENDING)
+		snd_FlushSoundCommands();
+
+	m_vol = 0.0f;
+	snd_AutoVol(m_handle, (int)(m_vol * (0.0f * m_mastervol)), (int)(240.0f * time), 2);
 }
 
 /* @socom-skeleton stub IsFading__12CSndInstanceFv */
-void CSndInstance::IsFading()
+bool CSndInstance::IsFading()
 {
+	/* 0x2ef620 */
+	return !(m_fadeTime <= 0.0f);
 }
 
 /* @socom-skeleton stub IsPlaying__12CSndInstanceFv */
-void CSndInstance::IsPlaying()
+bool CSndInstance::IsPlaying()
 {
+	/* 0x2ef610: a handle or a pending answer */
+	return m_handle != 0;
 }
 
 /* @socom-skeleton stub Set3D__12CSndInstanceFf */
-void CSndInstance::Set3D(float)
+void CSndInstance::Set3D(float volume)
 {
+	/* 0x2ef600 */
+	m_vol = volume;
+	m_is3D = true;
 }
 
 /* @socom-skeleton stub TerminateOnFinish__12CSndInstanceFv */
 void CSndInstance::TerminateOnFinish()
 {
+	/* 0x2ef5f0 */
+	m_terminateOnFinish = true;
 }
 
 /* @socom-skeleton stub UIStopAllSounds__12CSndInstanceFv */
@@ -182,14 +477,14 @@ void CSndInstance::UIStopAllSounds()
 {
 	/* 0x2ef540: stop every live instance; one without a sound handle yet is marked to
 	 * end as soon as it starts */
-	if (m_isDisabled)
+	if (CSnd::m_isDisabled)
 		return;
 
 	for (std::list<CSndInstance*>::iterator it = m_instancelist.begin(); it != m_instancelist.end(); ++it)
 	{
 		CSndInstance* instance = *it;
 
-		if (instance == NULL || m_isDisabled)
+		if (instance == NULL || CSnd::m_isDisabled)
 			continue;
 
 		if (instance->m_handle == 0xffffffff)
@@ -207,77 +502,226 @@ void CSndInstance::UIStopAllSounds()
 /* @socom-skeleton stub StopAllSounds__12CSndInstanceFv */
 void CSndInstance::StopAllSounds()
 {
+	/* 0x2ef400: stop everything, release the answered instances, tick once and empty
+	 * the list (ELF quirk: instances still waiting for an answer are dropped from the
+	 * list without going back to the pool) */
+	if (CSnd::m_isDisabled)
+		return;
+
+	m_removallist.clear();
+
+	for (std::list<CSndInstance*>::iterator it = m_instancelist.begin(); it != m_instancelist.end(); ++it)
+	{
+		CSndInstance* instance = *it;
+
+		if (instance == NULL)
+			continue;
+
+		if (!CSnd::m_isDisabled)
+		{
+			if (instance->m_handle == SND_HANDLE_PENDING)
+			{
+				instance->m_terminateASAP = true;
+				instance->m_terminateOnFinish = true;
+			}
+			else
+			{
+				snd_StopSound(instance->m_handle);
+			}
+		}
+
+		if (instance->m_handle != SND_HANDLE_PENDING)
+			m_removallist.insert(m_removallist.end(), instance);
+	}
+
+	RemoveFromList();
+	PostTick(0.0f, NULL);
+	m_instancelist.erase(m_instancelist.begin(), m_instancelist.end());
 }
 
 /* @socom-skeleton stub StopAllSounds__12CSndInstanceF10SOUND_MODE */
-void CSndInstance::StopAllSounds(SOUND_MODE)
+void CSndInstance::StopAllSounds(SOUND_MODE mode)
 {
+	/* 0x2ef330: the instances of one sound mode */
+	if (CSnd::m_isDisabled)
+		return;
+
+	for (std::list<CSndInstance*>::iterator it = m_instancelist.begin(); it != m_instancelist.end(); ++it)
+	{
+		CSndInstance* instance = *it;
+
+		if (instance == NULL || instance->m_parent->m_soundmode != (u8)mode || CSnd::m_isDisabled)
+			continue;
+
+		if (instance->m_handle == SND_HANDLE_PENDING)
+		{
+			instance->m_terminateASAP = true;
+			instance->m_terminateOnFinish = true;
+		}
+		else
+		{
+			snd_StopSound(instance->m_handle);
+		}
+	}
 }
 
 /* @socom-skeleton body PauseAllSounds__12CSndInstanceFv */
 void CSndInstance::PauseAllSounds()
 {
-    if (!m_isDisabled)
-    {
-        m_allpaused = true;
+	/* 0x2ef260 (the port body tested m_handle = 0xffffffff, an assignment) */
+	if (CSnd::m_isDisabled)
+		return;
 
-        auto it = m_instancelist.begin();
+	m_allpaused = true;
 
-        while (it != m_instancelist.end())
-        {
-            CSndInstance* instance = *it;
+	for (std::list<CSndInstance*>::iterator it = m_instancelist.begin(); it != m_instancelist.end(); ++it)
+	{
+		if (CSnd::m_isDisabled)
+			continue;
 
-            if (!m_isDisabled)
-            {
-                instance->m_paused = true;
+		CSndInstance* instance = *it;
+		instance->m_paused = true;
 
-                if (instance->m_handle = 0xffffffff)
-                {
-                    if (instance->m_continueASAP)
-                    {
-                        instance->m_continueASAP = false;
-                    }
+		if (instance->m_handle == SND_HANDLE_PENDING)
+		{
+			if (instance->m_continueASAP)
+				instance->m_continueASAP = false;
 
-                    instance->m_pauseASAP = true;
-                }
-                else
-                {
-                    // TODO: Wrapper for 989snd
-                    // snd_PauseSound(instance->m_handle);
-                }
-            }
-            
-            ++it;
-        }
-    }
+			instance->m_pauseASAP = true;
+		}
+		else
+		{
+			snd_PauseSound(instance->m_handle);
+		}
+	}
 }
 
 /* @socom-skeleton stub ResumeAllSounds__12CSndInstanceFv */
 void CSndInstance::ResumeAllSounds()
 {
+	/* 0x2ef190: continue the paused instances (ELF: m_paused and m_allpaused stay set) */
+	if (CSnd::m_isDisabled)
+		return;
+
+	for (std::list<CSndInstance*>::iterator it = m_instancelist.begin(); it != m_instancelist.end(); ++it)
+	{
+		if (CSnd::m_isDisabled)
+			continue;
+
+		CSndInstance* instance = *it;
+
+		if (!instance->m_paused)
+			continue;
+
+		if (instance->m_handle == SND_HANDLE_PENDING)
+		{
+			if (instance->m_pauseASAP)
+				instance->m_pauseASAP = false;
+			else
+				instance->m_continueASAP = true;
+		}
+		else
+		{
+			snd_ContinueSound(instance->m_handle);
+		}
+	}
 }
 
 /* @socom-skeleton stub Init__12CSndInstanceFv */
 void CSndInstance::Init()
 {
+	/* 0x2ef170 */
+	if (CSnd::m_isDisabled)
+		return;
+
+	m_allpaused = false;
+	m_mastervol = 1.0f;
 }
 
 /* @socom-skeleton stub DebugSoundList__12CSndInstanceFv */
 void CSndInstance::DebugSoundList()
 {
+	/* 0x2ef100: walks the instance list; the listing itself is compiled out */
+#ifdef SOCOM_PORT
+	static int reported;
+
+	if (reported < 4)
+	{
+		reported++;
+		SOCOM_PORT_TRACE("SND: %d sounds playing (limit 30): play refused, %d instances listed",
+			CSnd::m_num_sounds_playing, (int)m_instancelist.size());
+	}
+#endif
 }
 
 /* @socom-skeleton stub RemoveFromList__12CSndInstanceFv */
 void CSndInstance::RemoveFromList()
 {
+	/* 0x2ef010: release the instances collected in m_removallist */
+	for (std::vector<CSndInstance*>::iterator r = m_removallist.begin(); r != m_removallist.end(); ++r)
+	{
+		CSndInstance* instance = *r;
+
+		if (instance == NULL)
+			continue;
+
+		ReleaseSoundInstance(instance);
+
+		for (std::list<CSndInstance*>::iterator it = m_instancelist.begin(); it != m_instancelist.end(); ++it)
+		{
+			if (*it == instance)
+			{
+				m_instancelist.erase(it);
+				break;
+			}
+		}
+	}
 }
 
 /* @socom-skeleton stub InitInstancePool__12CSndInstanceFi */
-void CSndInstance::InitInstancePool(int)
+void CSndInstance::InitInstancePool(int count)
 {
+	/* 0x2eee90: count pool instances (ELF quirk: when the removal list has to grow too,
+	 * the number made is count minus its old capacity) */
+	int make = count;
+
+	if (m_sound_instance_pool.capacity() < (u32)count)
+	{
+		make = count - m_sound_instance_pool.capacity();
+		m_sound_instance_pool.reserve(count);
+	}
+
+	if (m_removallist.capacity() < (u32)count)
+	{
+		make = count - m_removallist.capacity();
+		m_removallist.reserve(count);
+	}
+
+	for (int i = 0; i < make; i++)
+	{
+		CSndInstance* instance = static_cast<CSndInstance*>(operator new(sizeof(CSndInstance)));
+
+		if (instance != NULL && !CSnd::m_isDisabled)
+		{
+			instance->m_handle = 0;
+			instance->m_parent = NULL;
+			instance->m_is3D = false;
+			instance->m_forcedLoop = false;
+			instance->m_paused = false;
+			instance->m_terminateOnFinish = false;
+			instance->m_terminateASAP = false;
+			instance->m_pauseASAP = false;
+			instance->m_continueASAP = false;
+		}
+
+		numSoundInstances++;
+		m_sound_instance_pool.insert(m_sound_instance_pool.end(), instance);
+	}
 }
 
 /* @socom-skeleton stub PlaySoundCallback__12CSndInstanceFUiUl */
-void CSndInstance::PlaySoundCallback(unsigned int, unsigned long)
+void CSndInstance::PlaySoundCallback(unsigned int handle, unsigned long instance)
 {
+	/* 0x2eedf0: the IOP's answer (a handle, 0 = ended) into the instance */
+	reinterpret_cast<CSndInstance*>(instance)->m_handle = handle;
 }

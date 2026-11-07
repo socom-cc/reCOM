@@ -511,6 +511,22 @@ struct _zanim_cmd_motion_from_to /* OBJECT_MOTION_FROM_TO (0x1ba630 begin, 0x1ba
 	/* +0x80: a CZAnimFromToAcc follows when accelerated (0x2000/0x4000) */
 };
 
+struct _zanim_cmd_sound       /* SOUND (zAnimLoadSound 0x1b4920, zAnimSoundTick 0x1be170); 32 bytes */
+{
+	_zanim_cmd_hdr header;
+	u16 flags;                /* +0x4: 0x1 node sound (ref unused), 0x2 AT_NODE, 0x4 TRANSLATION, 0x8 INPUT_TRANSLATION,
+	                           * 0x10 VOLUME, 0x20 PAN, 0x40 PITCH, 0x80 START, 0x100 STOP, 0x200 STOP_ON_EXIT,
+	                           * 0x400 MUSIC_LOCAL, 0x800 MUSIC_EVENT */
+	u8 sound_ref;             /* +0x6: the anim's local name index of the sound (GetSoundRef) */
+	u8 node_ref;              /* +0x7: flag 0x1's node */
+	f32 volume;               /* +0x8 */
+	s16 pan;                  /* +0xc: degrees 0..359 */
+	s16 pitch;                /* +0xe: PITCH * 65535 - 32767 */
+	u8 at_node;               /* +0x10: AT_NODE node reference */
+	u8 pad[3];
+	f32 translation[3];       /* +0x14 */
+};
+
 class C2DAnimCmdHdr           /* DWARF (8 bytes): UI_COMMAND / UI_APP_COMMAND, and the 2D objects' own commands */
 {
 public:
