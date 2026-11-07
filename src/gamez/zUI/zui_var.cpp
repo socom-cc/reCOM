@@ -27,36 +27,145 @@
 #include "gamez/zUtil/util_stable.h"
 #include "zui.h"
 /* @socom-skeleton end include */
+#include <algorithm> /* std::find (the ELF instantiates find<PP10UIVarMixin,P10UIVarMixin> 0x39e3f0) */
+#include <cstdio>
+#include <cstring>
+#include "posix/strcasecmp.h"
 
 /* @socom-skeleton stub Destroy__11CUIVariableFv */
 void CUIVariable::Destroy()
 {
+	/* 0x39ebc0: detach every object (from the front again after each one that was
+	 * attached), drop the list, free a cloned value and become a free (dormant) slot. The
+	 * value word itself is left as it was. */
+	for (std::vector<UIVarMixin*>::iterator it = m_attached_items.begin(); !m_attached_items.empty() && it != m_attached_items.end(); )
+	{
+		UIVarMixin* item = *it;
+		bool attached = item->m_uivar == this
+			&& std::find(m_attached_items.begin(), m_attached_items.end(), item) != m_attached_items.end();
+
+		item->DetachUIVar(this);
+		it = attached ? m_attached_items.begin() : it + 1;
+	}
+
+	std::vector<UIVarMixin*>().swap(m_attached_items);
+
+	if (!packed)
+		DeleteChildren();
+
+	m_varname = NULL;
+	type = ZRDR_INTEGER;
+	isclone = false;
+	packed = false;
+	m_longevity = UIVL_DORMANT;
 }
 
 /* @socom-skeleton stub DetachAll__11CUIVariableFv */
 void CUIVariable::DetachAll()
 {
+	/* 0x39ea70: as Destroy's first half (UIVarMixin::DetachUIVar inline), then the list's
+	 * storage is released */
+	for (std::vector<UIVarMixin*>::iterator it = m_attached_items.begin(); !m_attached_items.empty() && it != m_attached_items.end(); )
+	{
+		UIVarMixin* item = *it;
+		bool attached = item->m_uivar == this
+			&& std::find(m_attached_items.begin(), m_attached_items.end(), item) != m_attached_items.end();
+
+		item->DetachUIVar(this);
+		it = attached ? m_attached_items.begin() : it + 1;
+	}
+
+	std::vector<UIVarMixin*>().swap(m_attached_items);
 }
 
 /* @socom-skeleton body Set__11CUIVariableFP5_zrdr */
 void CUIVariable::Set(_zrdr* reader)
 {
-    
+	/* 0x39e940: the value becomes a clone of the reader (its strings in the manager's
+	 * current table; a cloned array starts unpacked), then every attached object updates */
+	if (!packed)
+		DeleteChildren();
+
+	_zrdr* copy = new _zrdr(reader, theUIVarManager.CurrentTable());
+	type = copy->type;
+	isclone = copy->isclone;
+	packed = copy->packed;
+	unused = copy->unused;
+	length = copy->length;
+	integer = copy->integer;
+
+	if (type == ZRDR_ARRAY)
+		packed = false;
+
+	delete copy; /* the node only: its children now belong to this variable */
+
+	for (std::vector<UIVarMixin*>::iterator it = m_attached_items.begin(); it != m_attached_items.end(); ++it)
+		(*it)->UpdateUIVar(this);
 }
 
 /* @socom-skeleton stub UpdateDependents__11CUIVariableFv */
 void CUIVariable::UpdateDependents()
 {
+	/* 0x39e8d0 */
+	for (std::vector<UIVarMixin*>::iterator it = m_attached_items.begin(); it != m_attached_items.end(); ++it)
+		(*it)->UpdateUIVar(this);
 }
 
 /* @socom-skeleton stub __as__11CUIVariableFPCc */
-CUIVariable * CUIVariable::operator=(const char *)
+CUIVariable * CUIVariable::operator=(const char *value)
 {
+	/* 0x39e7e0: the value becomes that string (in the manager's current table) */
+	if (!packed)
+		DeleteChildren();
+
+	type = ZRDR_STRING;
+	string = theUIVarManager.CurrentTable()->CreateString(value);
+
+	for (std::vector<UIVarMixin*>::iterator it = m_attached_items.begin(); it != m_attached_items.end(); ++it)
+		(*it)->UpdateUIVar(this);
+
+	return this;
 }
 
 /* @socom-skeleton stub Format__11CUIVariableFP5_zrdrPci */
-char * CUIVariable::Format(_zrdr *, char *, int)
+char * CUIVariable::Format(_zrdr *value, char *buffer, int size)
 {
+	/* 0x39e610: a value as text - an integer "%d" and a real "%f" (each needs 16 bytes), a
+	 * string when it fits, an array element by element, each followed by " \n". Other
+	 * types leave the buffer as it is. */
+	switch (value->type)
+	{
+	case ZRDR_INTEGER:
+		if (size >= 16)
+			sprintf(buffer, "%d", value->integer);
+		break;
+
+	case ZRDR_REAL:
+		if (size >= 16)
+			sprintf(buffer, "%f", (double)value->real);
+		break;
+
+	case ZRDR_STRING:
+		if (value->string == NULL)
+			sprintf(buffer, "");
+		else if (strlen(value->string) + 2 < (u32)size)
+			sprintf(buffer, "%s", value->string);
+		break;
+
+	case ZRDR_ARRAY:
+		if (size >= 6)
+		{
+			for (u32 i = 0; i < (u32)(value->array->integer - 1); i++)
+			{
+				s32 used = strlen(buffer);
+				Format(value->Get(i), buffer + used, size - used);
+				strcat(buffer, " \n");
+			}
+		}
+		break;
+	}
+
+	return buffer;
 }
 
 /* @socom-skeleton stub _Refresh__FP5_zrdrP7CSTable */
@@ -65,44 +174,156 @@ void _Refresh(_zrdr *, CSTable *)
 }
 
 /* @socom-skeleton stub AttachUIVar__10UIVarMixinFP11CUIVariable */
-void UIVarMixin::AttachUIVar(CUIVariable *)
+void UIVarMixin::AttachUIVar(CUIVariable *var)
 {
+	/* 0x39e1e0: leave the old variable's list, then join the new one's (once). The ELF
+	 * repeats the attach inline after this; m_uivar is already var there, so it ends. */
+	if (m_uivar == var)
+		return;
+
+	if (m_uivar != NULL)
+	{
+		CUIVariable* old = m_uivar;
+		m_uivar = NULL;
+		std::vector<UIVarMixin*>::iterator it = std::find(old->m_attached_items.begin(), old->m_attached_items.end(), this);
+
+		if (it != old->m_attached_items.end())
+		{
+			(*it)->DetachUIVar(old);
+			old->m_attached_items.erase(it);
+		}
+	}
+
+	m_uivar = var;
+
+	if (m_uivar != NULL)
+	{
+		std::vector<UIVarMixin*>& items = m_uivar->m_attached_items;
+
+		if (std::find(items.begin(), items.end(), this) == items.end())
+			items.insert(items.end(), this);
+	}
 }
 
 /* @socom-skeleton stub DetachUIVar__10UIVarMixinFP11CUIVariable */
-void UIVarMixin::DetachUIVar(CUIVariable *)
+void UIVarMixin::DetachUIVar(CUIVariable *var)
 {
+	/* 0x39e100: from that variable (NULL: the attached one), if attached to it */
+	if (var == NULL)
+		var = m_uivar;
+
+	if (var == NULL || m_uivar != var)
+		return;
+
+	m_uivar = NULL;
+	std::vector<UIVarMixin*>::iterator it = std::find(var->m_attached_items.begin(), var->m_attached_items.end(), this);
+
+	if (it != var->m_attached_items.end())
+	{
+		(*it)->DetachUIVar(var); /* already detached: does nothing */
+		var->m_attached_items.erase(it);
+	}
 }
 
 /* @socom-skeleton stub __dt__13CUIVarManagerFv */
 CUIVarManager::~CUIVarManager()
 {
+	/* 0x39e050: the variables, the two string tables and the CSaveModule part go with the
+	 * members and bases */
 }
 
 /* @socom-skeleton stub Reset__13CUIVarManagerFv */
 void CUIVarManager::Reset()
 {
+	/* 0x39df70: every TEMPORARY variable is detached, freed and made dormant (the others
+	 * survive), then the string tables are compacted */
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		if (it->m_longevity != UIVL_TEMPORARY)
+			continue;
+
+		it->DetachAll();
+
+		if (!it->packed)
+			it->DeleteChildren();
+
+		it->m_varname = NULL;
+		it->type = ZRDR_INTEGER;
+		it->isclone = false;
+		it->packed = false;
+		it->m_longevity = UIVL_DORMANT;
+	}
+
+	CollectGarbage();
 }
 
 /* @socom-skeleton stub CollectGarbage__13CUIVarManagerFv */
 void CUIVarManager::CollectGarbage()
 {
+	/* port: not written - 0x39ddf0 switches m_currtab, re-creates every name and value
+	 * string in the new table (_Refresh), clears the old one (CSTable::Clear, a port stub)
+	 * and packs the array values into m_packbuf (zrdr_pack, a port stub). Without it the
+	 * strings stay in the current table. */
 }
 
 /* @socom-skeleton stub FindDormantVar__13CUIVarManagerFPCcP5_zrdr15UIVAR_LONGEVITY */
-CUIVariable * CUIVarManager::FindDormantVar(const char *, _zrdr *, UIVAR_LONGEVITY)
+CUIVariable * CUIVarManager::FindDormantVar(const char *name, _zrdr *reader, UIVAR_LONGEVITY longevity)
 {
+	/* 0x39dd30: the first free slot takes the name, longevity and value */
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		if (it->m_longevity != UIVL_DORMANT)
+			continue;
+
+		it->m_varname = CurrentTable()->CreateString(name);
+		it->m_longevity = longevity;
+
+		if (reader != NULL)
+			it->Set(reader);
+
+		return &*it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton stub Find__13CUIVarManagerFPCc */
-CUIVariable * CUIVarManager::Find(const char *)
+CUIVariable * CUIVarManager::Find(const char *name)
 {
+	/* 0x39dc90: a live variable of that name (case-insensitive) */
+	for (iterator it = begin(); it != end(); ++it)
+	{
+		if (it->m_longevity != UIVL_DORMANT && strcasecmp(name, it->m_varname) == 0)
+			return &*it;
+	}
+
+	return NULL;
 }
 
 /* @socom-skeleton body Add__13CUIVarManagerFPCcP5_zrdr15UIVAR_LONGEVITY */
 CUIVariable* CUIVarManager::Add(const char* name, _zrdr* reader, UIVAR_LONGEVITY longevity)
 {
-    return NULL;
+	/* 0x39da20: the live variable of that name (a TEMPORARY one takes the new value; a
+	 * PERMANENT or PERSISTENT one keeps its own), else a free slot as FindDormantVar
+	 * (inline). The longevity only ever rises. */
+	CUIVariable* var = Find(name);
+
+	if (var == NULL)
+	{
+		var = FindDormantVar(name, reader, longevity);
+
+		if (var == NULL)
+			return NULL; /* port: the ELF reads and may write +0x18 of NULL when all 256 slots are live */
+	}
+	else if (reader != NULL && var->m_longevity != UIVL_PERSISTENT && var->m_longevity != UIVL_PERMANENT)
+	{
+		var->Set(reader);
+	}
+
+	if (var->m_longevity < longevity)
+		var->m_longevity = longevity;
+
+	return var;
 }
 
 /* @socom-skeleton stub Serialize__13CUIVarManagerFi */

@@ -66,6 +66,7 @@ class CUIVariable;
 class CUIVariableSpec;
 class CUIVarManager;
 class CSnd;
+class UIVarMixin;
 
 s32 ZuiInit();
 
@@ -82,14 +83,21 @@ class CZUI
 
 };
 
+/* DWARF (28 bytes): the value is the _zrdr part (+0x0); the manager keeps 256 of these by
+ * value and reuses dormant ones. */
 class CUIVariable : public _zrdr
 {
 public:
+	/* port: no out-of-line ctor in the ELF - the slots are made by the manager's
+	 * vector resize (__sinit_fts_mission.cpp 0x46abec) */
+	CUIVariable() : m_varname(NULL), m_longevity(UIVL_DORMANT) {}
+	~CUIVariable() { Destroy(); } /* 0x1fbc60 (inline; emitted in fts_mission.cpp) */
+
 	void Set(_zrdr* reader);
 
-	char* m_varname;
-	std::vector<void*> m_attached_items;
-	UIVAR_LONGEVITY m_longevity;
+	char* m_varname;                           /* +0x8: in the manager's current string table */
+	std::vector<UIVarMixin*> m_attached_items; /* +0xc: the objects showing this variable */
+	UIVAR_LONGEVITY m_longevity;               /* +0x18: one byte in the ELF; DORMANT is a free slot */
 	/* @socom-skeleton decl 11CUIVariable */
 public:
 	void Destroy();
@@ -105,10 +113,11 @@ class CUIVariableSpec
 public:
 	CUIVariableSpec(_zrdr* reader);
 
-	char* m_name;
-	_zrdr* m_array;
-	CSTable m_stable;
-	u32 m_type;
+	/* layout from the ctors (0x39ef40, 0x39ee90) and the dtor (0x39edf0) */
+	char* m_name;      /* +0x0 NAME (_strdup) */
+	_zrdr* m_array;    /* +0x4 VALUE: a clone (its strings in m_stable), or NULL */
+	CSTable m_stable;  /* +0x8 */
+	u32 m_type;        /* +0x24 LONGEVITY (one byte in the ELF): TEMPORARY 1 (default), PERMANENT 2, PERSISTENT 3 */
 	/* @socom-skeleton decl 15CUIVariableSpec */
 public:
 	CUIVariableSpec(CUIVariableSpec *);
@@ -116,10 +125,34 @@ public:
 	/* @socom-skeleton end 15CUIVariableSpec */
 };
 
-class CUIVarManager
+/* no out-of-line symbol; the ctor and dtor are emitted in fts_mission.cpp (0x1fbe80, 0x1fbe20):
+ * a string table of 0xffff bytes for 1024 strings */
+class CUIVarSTable : public CSTable
 {
 public:
+	CUIVarSTable() : CSTable(0xffff, 1024) {}
+};
+
+/* DWARF (32868 bytes): the variables by value (+0x0), a CSaveModule part (+0xc), the
+ * current string table (+0x28), two string tables (+0x2c) and two 16 KB pack buffers
+ * (+0x64) that CollectGarbage alternates between. */
+class CUIVarManager : public std::vector<CUIVariable>
+{
+public:
+	/* inline in __sinit_fts_mission.cpp (0x46ab70): table 0 current, 256 dormant variables.
+	 * port: the CSaveModule part (CSaveModule("CUIVarManager", theMemCard's manager) and its
+	 * vtables) is not modelled - the save/load of variables is not written. */
+	CUIVarManager() : m_currtab(0)
+	{
+		resize(256);
+	}
+
 	CUIVariable* Add(const char* name, _zrdr* reader, UIVAR_LONGEVITY longevity);
+	CSTable* CurrentTable() { return &m_stab[m_currtab]; } /* port: no symbol - the inline &m_stab[m_currtab] (Add 0x39dae0) */
+
+	s32 m_currtab;               /* +0x28 */
+	CUIVarSTable m_stab[2];      /* +0x2c */
+	char m_packbuf[2][0x4000];   /* +0x64 */
 	/* @socom-skeleton decl 13CUIVarManager */
 public:
 	virtual ~CUIVarManager();
@@ -323,8 +356,15 @@ public:
 class CHProgressBarSpec : public CImageSpec
 {
 public:
-	bool m_filenameIsUiVar;
-	std::string m_leadingEdgeNode;
+	/* port: no out-of-line symbol; inlined in GetObjectSpec (0x399d68, 36 bytes) */
+	CHProgressBarSpec(_zrdr* reader) : CImageSpec(reader)
+	{
+		m_filenameIsUiVar = zrdr_findtag(reader, "FILENAME_IS_UIVAR") != NULL;
+		char* edge = zrdr_findstring(reader, "LEADING_EDGE_NODE");
+		m_leadingEdgeNode = edge ? edge : "";
+	}
+	bool m_filenameIsUiVar;         /* +0x1c FILENAME_IS_UIVAR: FILENAME names a string UI variable */
+	std::string m_leadingEdgeNode;  /* +0x20 LEADING_EDGE_NODE: a menu node kept at the fill's end */
 	/* @socom-skeleton decl 17CHProgressBarSpec */
 public:
 	virtual ~CHProgressBarSpec() {}
@@ -444,9 +484,13 @@ public:
 class UIVarMixin
 {
 public:
+	UIVarMixin() : m_uivar(NULL) {} /* port: no symbol - the derived ctors clear +0x4 inline */
 	virtual ~UIVarMixin() { DetachUIVar(NULL); } /* 0x1d63e0 (inline; owner zanim_menu.cpp) */
+	/* __vt__10UIVarMixin (0x471a20) slot +0xc is 0: pure; the variable calls it on a change */
+	virtual void UpdateUIVar(CUIVariable *) = 0;
 	void AttachUIVar(CUIVariable *);
-	void DetachUIVar(CUIVariable *);
+	void DetachUIVar(CUIVariable *); /* port: void - 0x39e100 returns whether it was attached (v0) */
+	CUIVariable* m_uivar; /* DWARF +0x4 */
 };
 /* @socom-skeleton end 10UIVarMixin */
 /* @socom-skeleton decl 17CRenderableString */
@@ -562,6 +606,13 @@ public:
 class CHProgressBar : public CPlainBmp
 {
 public:
+	/* no DWARF; layout (176 bytes) from CHProgressBarSpec::CreateDisplayObj (0x396160, which
+	 * constructs it inline), LoadSpec (0x38b890), Tick (0x38b850) and Draw (0x38b5d0) */
+	CHProgressBar() : m_progress(0.0f), m_duration(0.0f) {}
+	f32 m_progress;              /* +0xa0: filled fraction, 0..1 */
+	s32 m_width;                 /* +0xa4: the spec XSIZE (the full fill) */
+	f32 m_duration;              /* +0xa8: seconds to fill, from the UI variable (0 until set) */
+	std::string m_leadingEdge;   /* +0xac: LEADING_EDGE_NODE */
 	virtual ~CHProgressBar();
 	virtual void Draw(const CMatrix &, zdb::CTextureRelocMgr *);
 	virtual void Tick(float);

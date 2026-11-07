@@ -404,8 +404,10 @@ CGameMenu::~CGameMenu()
 }
 
 /* @socom-skeleton stub AddNode__9CGameMenuFP3C2DPQ23zdb16CTextureRelocMgr */
-zdb::CNode * CGameMenu::AddNode(C2D *, zdb::CTextureRelocMgr *)
+zdb::CNode * CGameMenu::AddNode(C2D *object, zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x383b40: Add2dNode inline, under the backplane */
+	return Add2dNode(object, reloc, m_pBackplaneNode);
 }
 
 /* @socom-skeleton body Clear__9CGameMenuFv */

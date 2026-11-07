@@ -74,6 +74,8 @@
 #include "gamez/zMath/zmath.h"
 #include "gamez/zNode/znode.h"
 /* @socom-skeleton end include */
+#include "gamez/zValve/zvalve.h" /* CValve::Create (OBJECT_MOTION_FROM_TO valve targets) */
+#include <math.h> /* sqrtf */
 /* @socom-skeleton decl forward */
 class _zanim_object_motion_script;
 class zanim_script_frame_header;
@@ -162,9 +164,56 @@ bool zAnimObjectActiveStateTick(_zanim_cmd_hdr *header, float *)
 }
 
 /* @socom-skeleton stub zAnimObjectTranslateStateTick__FP14_zanim_cmd_hdrPf */
-bool zAnimObjectTranslateStateTick(_zanim_cmd_hdr *, float *)
+bool zAnimObjectTranslateStateTick(_zanim_cmd_hdr *header, float *)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1bd320: put the node at a point: the offset (1), or the offset from the node's own
+	 * position (4), plus the anim's point argument (2); with AT_NODE the point (else the
+	 * origin) is taken through that node's world transform. Flags 8/0x10/0x20 keep the
+	 * node's own x/y/z. Nothing moves when there is neither a point nor an AT_NODE. */
+	_zanim_cmd_translate_state* cmd = reinterpret_cast<_zanim_cmd_translate_state*>(header);
+	CZAnim* anim = ZAnim.m_CurAnim;
+	zdb::CNode* node = anim->GetNode(cmd->node_ref, false);
+	zdb::CNode* at = anim->GetNode(cmd->at_node_ref, false);
+
+	if (node == NULL)
+		return true;
+
+	const f32* pos = node->m_matrix.m_matrix[3];
+	CPnt3D point;
+	point.x = 0.0f;
+	point.y = 0.0f;
+	point.z = 0.0f;
+	bool have = false;
+
+	if (cmd->flags & 0x4)
+	{
+		point.x = pos[0] + cmd->offset[0];
+		point.y = pos[1] + cmd->offset[1];
+		point.z = pos[2] + cmd->offset[2];
+		have = true;
+	}
+	else if (cmd->flags & 0x1)
+	{
+		point.x += cmd->offset[0];
+		point.y += cmd->offset[1];
+		point.z += cmd->offset[2];
+		have = true;
+	}
+
+	/* port: not written - flag 2 adds anim->m_arg_list->GetPnt3D(5) (0x1ce250) when there is
+	 * one; the port's GetPnt3D is a void stub, so the argument is taken as absent */
+
+	if (!have && at == NULL)
+		return true;
+
+	if (at != NULL)
+		at->TransformToWorld(point);
+
+	f32 x = (cmd->flags & 0x8) ? pos[0] : point.x;
+	f32 y = (cmd->flags & 0x10) ? pos[1] : point.y;
+	f32 z = (cmd->flags & 0x20) ? pos[2] : point.z;
+	node->SetPosition(x, y, z);
+	return true;
 }
 
 /* @socom-skeleton stub zAnimObjectRotateStateTick__FP14_zanim_cmd_hdrPf */
@@ -195,14 +244,274 @@ void CZAnimFromToAcc::Tick(float, CPnt3D *)
 }
 
 /* @socom-skeleton stub zAnimObjectMotionFromToBegin__FP14_zanim_cmd_hdr */
-void zAnimObjectMotionFromToBegin(_zanim_cmd_hdr *)
+void zAnimObjectMotionFromToBegin(_zanim_cmd_hdr *header)
 {
+	/* 0x1ba630: the start of the move. Translation: the "from" point (given, a node's world
+	 * position, the anim's point argument, or the node's own) is applied, then "to" (given,
+	 * a node, the argument, or three valves); SPEED turns the distance into the duration,
+	 * and the velocity is (to - from) / duration unless the data has it already (from given,
+	 * no SPEED). Rotation and scale take their start from the data or the node, and their
+	 * rates the same way. */
+	_zanim_cmd_motion_from_to* cmd = reinterpret_cast<_zanim_cmd_motion_from_to*>(header);
+	CZAnim* anim = ZAnim.m_CurAnim;
+	zdb::CNode* node = anim->GetNode(cmd->node_ref, false);
+
+	if (node == NULL)
+		return;
+
+	u16 flags = cmd->flags;
+
+	if (flags & 0x1070)
+	{
+		if (flags & 0x4)
+		{
+			if (zdb::CNode* from = anim->GetNode(cmd->from_node_ref, false))
+			{
+				CPnt3D p = CPnt3D::zero;
+				from->TransformToWorld(p);
+				cmd->from[0] = p.x;
+				cmd->from[1] = p.y;
+				cmd->from[2] = p.z;
+			}
+		}
+		else if (flags & 0x8)
+		{
+			/* port: not written - the anim's point argument (CZAnimArgList::GetPnt3D 0x1ce250,
+			 * a void stub in the port) is taken as absent */
+		}
+		else if (!(flags & 0x2))
+		{
+			const f32* pos = node->m_matrix.m_matrix[3];
+			cmd->from[0] = pos[0];
+			cmd->from[1] = pos[1];
+			cmd->from[2] = pos[2];
+		}
+
+		node->SetPosition(cmd->from[0], cmd->from[1], cmd->from[2]);
+		flags = cmd->flags;
+
+		if (flags & 0x20)
+		{
+			if (zdb::CNode* to = anim->GetNode(cmd->to_node_ref, false))
+			{
+				CPnt3D p = CPnt3D::zero;
+				to->TransformToWorld(p);
+				cmd->to[0] = p.x;
+				cmd->to[1] = p.y;
+				cmd->to[2] = p.z;
+			}
+		}
+		else if (flags & 0x40)
+		{
+			/* port: not written - the anim's point argument, as for "from" */
+		}
+		else if (flags & 0x1000)
+		{
+			for (s32 i = 0; i < 3; i++)
+				cmd->to[i] = (f32)CValve::Create(anim->GetName(cmd->to_valve[i]), VALVE_TYPE::VTYPE_PERM)->m_value;
+		}
+
+		flags = cmd->flags;
+		f32 to[3];
+
+		for (s32 i = 0; i < 3; i++)
+			to[i] = (flags & 0x1) ? cmd->from[i] + cmd->to[i] : cmd->to[i];
+
+		if (flags & 0x80)
+		{
+			f32 dx = to[0] - cmd->from[0];
+			f32 dy = to[1] - cmd->from[1];
+			f32 dz = to[2] - cmd->from[2];
+			cmd->duration = sqrtf(dx * dx + dy * dy + dz * dz) / cmd->speed;
+		}
+
+		if (!(flags & 0x2) || (flags & 0x80))
+		{
+			f32 inverse = 1.0f / cmd->duration;
+
+			for (s32 i = 0; i < 3; i++)
+				cmd->velocity[i] = (to[i] - cmd->from[i]) * inverse;
+		}
+
+		/* port: not written - accelerated moves (0x2000/0x4000): the duration from
+		 * CZAnimFromToAcc::ComputeRunTime (0x1bb100) and the accelerator's set-up (+0x80) */
+	}
+
+	flags = cmd->flags;
+
+	if (flags & 0x200)
+	{
+		CPnt3D rot;
+
+		if (flags & 0x100)
+		{
+			rot.x = cmd->rot_from[0];
+			rot.y = cmd->rot_from[1];
+			rot.z = cmd->rot_from[2];
+			node->SetRotation(&rot);
+		}
+		else
+		{
+			node->GetRotation(&rot);
+			cmd->rot_from[0] = rot.x;
+			cmd->rot_from[1] = rot.y;
+			cmd->rot_from[2] = rot.z;
+
+			f32 inverse = 1.0f / cmd->duration;
+
+			for (s32 i = 0; i < 3; i++)
+			{
+				f32 to = (cmd->flags & 0x1) ? cmd->rot_from[i] + cmd->rot_to[i] : cmd->rot_to[i];
+				cmd->rot_rate[i] = (to - cmd->rot_from[i]) * inverse;
+			}
+		}
+	}
+
+	flags = cmd->flags;
+
+	if (flags & 0x800)
+	{
+		CPnt3D scale;
+
+		if (flags & 0x400)
+		{
+			scale.x = cmd->scale_from[0];
+			scale.y = cmd->scale_from[1];
+			scale.z = cmd->scale_from[2];
+			node->SetScale(&scale);
+		}
+		else
+		{
+			node->GetScale(&scale);
+			cmd->scale_from[0] = scale.x;
+			cmd->scale_from[1] = scale.y;
+			cmd->scale_from[2] = scale.z;
+
+			f32 inverse = 1.0f / cmd->duration;
+
+			for (s32 i = 0; i < 3; i++)
+			{
+				f32 to = (flags & 0x1) ? cmd->scale_from[i] * cmd->scale_to[i] : cmd->scale_to[i];
+				cmd->scale_rate[i] = (to - cmd->scale_from[i]) * inverse;
+			}
+		}
+	}
 }
 
 /* @socom-skeleton stub zAnimObjectMotionFromToTick__FP14_zanim_cmd_hdrPf */
-bool zAnimObjectMotionFromToTick(_zanim_cmd_hdr *, float *)
+bool zAnimObjectMotionFromToTick(_zanim_cmd_hdr *header, float *dT)
 {
-	return true; /* port: stub - not written (command tick) */
+	/* 0x1ba2d0: step the move by the frame (the velocity, the rotation rate from the start,
+	 * the scale rate); on the step that passes the duration land exactly on "to" and give
+	 * back the unused time */
+	_zanim_cmd_motion_from_to* cmd = reinterpret_cast<_zanim_cmd_motion_from_to*>(header);
+	zdb::CNode* node = ZAnim.m_CurAnim->GetNode(cmd->node_ref, false);
+
+	if (node == NULL)
+		return true;
+
+	f32 step = *dT;
+	f32 timer = ZAnim.m_CurSeq->cmd_timer;
+	bool done;
+
+	if (!(step + timer <= cmd->duration))
+	{
+		done = true;
+		step = cmd->duration - timer;
+		*dT -= step;
+	}
+	else
+	{
+		*dT = 0.0f;
+		done = false;
+	}
+
+	f32 elapsed = step + timer;
+	u16 flags = cmd->flags;
+
+	if (done)
+	{
+		if (flags & 0x800)
+		{
+			CPnt3D scale;
+			scale.x = (flags & 0x1) ? cmd->scale_from[0] * cmd->scale_to[0] : cmd->scale_to[0];
+			scale.y = (flags & 0x1) ? cmd->scale_from[1] * cmd->scale_to[1] : cmd->scale_to[1];
+			scale.z = (flags & 0x1) ? cmd->scale_from[2] * cmd->scale_to[2] : cmd->scale_to[2];
+			node->SetScale(&scale);
+		}
+
+		if (cmd->flags & 0x200)
+		{
+			CPnt3D rot;
+			rot.x = cmd->rot_to[0];
+			rot.y = cmd->rot_to[1];
+			rot.z = cmd->rot_to[2];
+
+			if (cmd->flags & 0x1)
+			{
+				rot.x += cmd->rot_from[0];
+				rot.y += cmd->rot_from[1];
+				rot.z += cmd->rot_from[2];
+			}
+
+			node->SetRotation(&rot);
+		}
+
+		flags = cmd->flags;
+
+		if (flags & 0x1070)
+		{
+			if (flags & 0x1)
+				node->SetPosition(cmd->from[0] + cmd->to[0], cmd->from[1] + cmd->to[1], cmd->from[2] + cmd->to[2]);
+			else
+				node->SetPosition(cmd->to[0], cmd->to[1], cmd->to[2]);
+		}
+
+		return true;
+	}
+
+	if (flags & 0x70)
+	{
+		const f32* pos = node->m_matrix.m_matrix[3];
+		CPnt3D p;
+		p.x = pos[0];
+		p.y = pos[1];
+		p.z = pos[2];
+
+		if ((cmd->flags & 0x2000) || (cmd->flags & 0x4000))
+		{
+			reinterpret_cast<CZAnimFromToAcc*>(cmd + 1)->Tick(step, &p); /* port: CZAnimFromToAcc::Tick is a stub */
+		}
+		else
+		{
+			p.x += cmd->velocity[0] * step;
+			p.y += cmd->velocity[1] * step;
+			p.z += cmd->velocity[2] * step;
+		}
+
+		node->SetPosition(p.x, p.y, p.z);
+	}
+
+	if (cmd->flags & 0x200)
+	{
+		CPnt3D rot;
+		rot.x = cmd->rot_from[0] + cmd->rot_rate[0] * elapsed;
+		rot.y = cmd->rot_from[1] + cmd->rot_rate[1] * elapsed;
+		rot.z = cmd->rot_from[2] + cmd->rot_rate[2] * elapsed;
+		node->SetRotation(&rot);
+	}
+
+	if (cmd->flags & 0x800)
+	{
+		CPnt3D scale;
+		node->GetScale(&scale);
+		scale.x += cmd->scale_rate[0] * step;
+		scale.y += cmd->scale_rate[1] * step;
+		scale.z += cmd->scale_rate[2] * step;
+		node->SetScale(&scale);
+	}
+
+	return false;
 }
 
 /* @socom-skeleton stub zAnimObjectOpacityFromToBegin__FP14_zanim_cmd_hdr */

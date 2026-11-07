@@ -86,6 +86,10 @@ void zrdr_freearray(_zrdr* reader)
 /* @socom-skeleton body Clone__5_zrdrFP5_zrdrP7CSTable */
 void _zrdr::Clone(_zrdr *other, CSTable *table)
 {
+	/* 0x23e190: a deep copy. Strings go into the table when one is given (else they are
+	 * shared, and the ELF clears warnonce where a debug build warned once); an array is a
+	 * new[] block, its count element included, each element cloned and unpacked. The copy
+	 * is marked as a clone, so DeleteChildren frees what was allocated here. */
 	static bool warnonce; /* local static warnonce$734 */
 	static bool init; /* local static init$735 */
 	if (!init)
@@ -98,12 +102,47 @@ void _zrdr::Clone(_zrdr *other, CSTable *table)
 	{
 		return;
 	}
-	
-	type = other->type;
-	if (type == ZRDR_ARRAY)
-	{
 
+	type = other->type;
+	length = other->length;
+
+	switch (type)
+	{
+	case ZRDR_INTEGER:
+		integer = other->integer;
+		break;
+
+	case ZRDR_REAL:
+		real = other->real;
+		break;
+
+	case ZRDR_STRING:
+		if (table == NULL && warnonce)
+			warnonce = false;
+
+		string = table != NULL ? table->CreateString(other->string) : other->string;
+		break;
+
+	case ZRDR_ARRAY:
+	{
+		s32 count = (other->IsArray() ? other->array->integer - 1 : 0) + 1;
+		array = new _zrdr[count];
+
+		for (s32 i = 0; i < count; i++)
+		{
+			array[i].Clone(&other->array[i], table);
+			array[i].packed = false;
+		}
+
+		packed = false;
+		break;
 	}
+
+	default:
+		break;
+	}
+
+	isclone = true;
 }
 
 /* @socom-skeleton body __ct__5_zrdrFP5_zrdrP7CSTable */
@@ -121,6 +160,19 @@ _zrdr::_zrdr(_zrdr* other, CSTable* stable)
 /* @socom-skeleton stub DeleteChildren__5_zrdrFv */
 void _zrdr::DeleteChildren()
 {
+	/* 0x23df90: a cloned array frees its elements' cloned arrays (the ELF unrolls one level
+	 * of this recursion), then its own block, and becomes the integer 0 */
+	if (!isclone || type != ZRDR_ARRAY)
+		return;
+
+	s32 count = array->integer - 1;
+
+	for (s32 i = 0; i < count; i++)
+		Get(i)->DeleteChildren();
+
+	delete[] array;
+	array = NULL;
+	type = ZRDR_INTEGER;
 }
 
 /* @socom-skeleton stub __dt__5_zrdrFv */

@@ -56,6 +56,7 @@
 #include <libgraph.h> /* sceGsSyncPath */
 
 int recoInit(); /* reco.cpp (0x336d90) */
+zdb::CTexHandle * PrepTexture(const char *, zdb::CTextureRelocMgr *); /* zui.cpp (0x384560) */
 /* @socom-skeleton decl forward */
 namespace zdb {
 class CTextureRelocMgr;
@@ -88,8 +89,49 @@ char * CLoadMenu::GetReaderFileName() /* 0x37fdd0 returns the literal at 0x460a2
 }
 
 /* @socom-skeleton stub PrepControls__9CLoadMenuFPQ23zdb16CTextureRelocMgr */
-void CLoadMenu::PrepControls(zdb::CTextureRelocMgr *)
+void CLoadMenu::PrepControls(zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x37fa30: the five bitmaps (loading and launch, each with a glow; the multiplayer
+	 * waiting glow), named textures from the loaded libraries, and the three multiplayer
+	 * text lines in the menu font, hidden. Each gets its own backplane node. CLoadState::
+	 * Tick shows bitmaps 0 and 1; MyTick pulses 1, 3 and 4. */
+	static const char* const names[5] =
+	{
+		"Menu220_loading_loadingnormal.tif",
+		"Menu210_Loading_LoadingGlow.tif",
+		"Menu214_loadingnormal.tif",
+		"Menu215_loading_launchglow.tif",
+		"Menu213_LoadingMP_WaitingGlow.tif",
+	};
+
+	m_pulseTime = 0.0f;
+
+	for (s32 i = 0; i < 5; i++)
+	{
+		zdb::CTexHandle* handle = PrepTexture(names[i], reloc);
+		m_bitmaps[i].C2DBitmap::Load(0.0f, 0.0f, i < 2 ? 256.0f : 128.0f, 60.0f, handle);
+
+		if (i < 2)
+			AddNode(&m_bitmaps[i], reloc)->SetPosition(189.0f, 370.53f, 0.0f);
+		else
+			AddNode(&m_bitmaps[i], reloc)->SetPosition(282.0f, 369.6f, 0.0f);
+	}
+
+	static const f32 lines[3][3] = /* scale, x, y */
+	{
+		{ 1.5f, 10.0f, 10.0f },
+		{ 1.5f, 150.0f, 320.0f },
+		{ 1.0f, 150.0f, 340.0f },
+	};
+
+	for (s32 i = 0; i < 3; i++)
+	{
+		m_text[i].SetFont(&_font);
+		m_text[i].m_scale = lines[i][0];
+		m_text[i].SetString("XXX");
+		AddNode(&m_text[i], reloc)->SetPosition(lines[i][1], lines[i][2], 0.0f);
+		m_text[i].Off();
+	}
 }
 
 /* @socom-skeleton stub MyTick__9CLoadMenuFf */

@@ -219,6 +219,7 @@
 #include "gamez/zGame/zgame.h" /* theGame (CTeleType::LoadSpec) */
 #include "gamez/zSound/zsnd.h" /* CSnd (CTeleType) */
 #include <new> /* port: placement new for C2DButton::m_commands */
+void zVid_Scissor(int, int, int, int); /* zvid_init.cpp (0x308420); no header declares it */
 
 /* @socom-skeleton end include */
 /* @socom-skeleton decl forward */
@@ -817,13 +818,31 @@ void CRenderableString::LoadSpec(const CTextSpec &spec)
 
 	SetCanHandleInput(false);
 
-	/* port: not written - a spec UIVAR attaches the string to its UI variable
-	 * (theUIVarManager.Add, AttachUIVar, UpdateUIVar) */
+	/* a spec UIVAR attaches the string to that UI variable, which sets its text now */
+	CUIVariable* var = NULL;
+
+	if (spec.m_uivar != NULL)
+		var = theUIVarManager.Add(spec.m_uivar->m_name, spec.m_uivar->m_array, (UIVAR_LONGEVITY)spec.m_uivar->m_type);
+
+	if (var != NULL)
+	{
+		AttachUIVar(var);
+		UpdateUIVar(var);
+	}
 }
 
 /* @socom-skeleton stub UpdateUIVar__17CRenderableStringFP11CUIVariable */
-void CRenderableString::UpdateUIVar(CUIVariable *)
+void CRenderableString::UpdateUIVar(CUIVariable *var)
 {
+	/* 0x390f10: the attached variable's value as text (CUIVariable::Format into a zeroed
+	 * 768-byte buffer, copied from a template at 0x53b5e0) becomes the string */
+	char buffer[768] = "";
+
+	if (UIVarMixin::m_uivar != NULL && UIVarMixin::m_uivar == var) /* the mixin part (+0x8c), not C2D::m_uivar */
+	{
+		SetString(CUIVariable::Format(var, buffer, sizeof(buffer)));
+		Update();
+	}
 }
 
 /* @socom-skeleton stub Draw__9CPlainBmpFRC7CMatrixPQ23zdb16CTextureRelocMgr */
@@ -1000,8 +1019,17 @@ void CTeleType::LoadSpec(const CTtySpec &spec)
 
 	SetCanHandleInput(false);
 
-	/* port: not written - a spec UIVAR attaches the string to its UI variable
-	 * (theUIVarManager.Add, AttachUIVar, UpdateUIVar), as in CRenderableString::LoadSpec */
+	/* a spec UIVAR attaches the string to that UI variable, as in CRenderableString::LoadSpec */
+	CUIVariable* var = NULL;
+
+	if (spec.m_uivar != NULL)
+		var = theUIVarManager.Add(spec.m_uivar->m_name, spec.m_uivar->m_array, (UIVAR_LONGEVITY)spec.m_uivar->m_type);
+
+	if (var != NULL)
+	{
+		AttachUIVar(var);
+		UpdateUIVar(var);
+	}
 
 	m_interval = spec.m_interval;
 	m_advance = 0.0f;
@@ -1559,23 +1587,100 @@ void CSliderBar::UpdateUIVar(CUIVariable *)
 }
 
 /* @socom-skeleton stub UpdateUIVar__13CHProgressBarFP11CUIVariable */
-void CHProgressBar::UpdateUIVar(CUIVariable *)
+void CHProgressBar::UpdateUIVar(CUIVariable *var)
 {
+	/* 0x38ba00: a number is the time to fill, in seconds; the fill starts again */
+	if (var->type == ZRDR_REAL)
+		m_duration = var->GetReal();
+	else if (var->type == ZRDR_INTEGER)
+		m_duration = (f32)var->GetInt();
+
+	m_progress = 0.0f;
 }
 
 /* @socom-skeleton stub LoadSpec__13CHProgressBarFRC17CHProgressBarSpecPQ23zdb10CTexHandle */
-void CHProgressBar::LoadSpec(const CHProgressBarSpec &, zdb::CTexHandle *)
+void CHProgressBar::LoadSpec(const CHProgressBarSpec &spec, zdb::CTexHandle *handle)
 {
+	/* 0x38b890: CPlainBmp::LoadSpec inline (pulse, UI variable, the XSIZE x YSIZE image),
+	 * then the UI variable once more, the full width and the leading-edge node's name */
+	CPlainBmp::LoadSpec(spec, handle);
+	CUIVariable* var = NULL;
+
+	if (spec.m_uivar != NULL)
+		var = theUIVarManager.Add(spec.m_uivar->m_name, spec.m_uivar->m_array, (UIVAR_LONGEVITY)spec.m_uivar->m_type);
+
+	if (var != NULL)
+	{
+		/* port: unproven model - as CPlainBmp::LoadSpec, m_mixin_uivar stands for the
+		 * UIVarMixin part the ELF attaches through */
+		m_mixin_uivar = var;
+		UpdateUIVar(var);
+	}
+
+	m_width = spec.m_xsize;
+	m_progress = 0.0f;
+	m_leadingEdge = spec.m_leadingEdgeNode;
 }
 
 /* @socom-skeleton stub Tick__13CHProgressBarFf */
-void CHProgressBar::Tick(float)
+void CHProgressBar::Tick(float dT)
 {
+	/* 0x38b850: the fill grows by dT / duration, up to full (no pulse: CPlainBmp::Tick is
+	 * not called) */
+	m_progress += dT / m_duration;
+
+	if (!(m_progress <= 1.0f))
+		m_progress = 1.0f;
 }
 
 /* @socom-skeleton stub Draw__13CHProgressBarFRC7CMatrixPQ23zdb16CTextureRelocMgr */
-void CHProgressBar::Draw(const CMatrix &, zdb::CTextureRelocMgr *)
+void CHProgressBar::Draw(const CMatrix &transform, zdb::CTextureRelocMgr *reloc)
 {
+	/* 0x38b5d0: the image is drawn clipped (GS scissor) to its filled part, from the node
+	 * origin to (progress * width, height) through the node matrix (VU0 in the ELF); a
+	 * string UI variable may swap the texture as in CPlainBmp::Draw. The leading-edge node
+	 * then sits at the fill's end, at the top. */
+	CPnt3D corner[2];
+	corner[0].x = 0.0f;
+	corner[0].y = 0.0f;
+	corner[0].z = 0.0f;
+	corner[1].x = m_progress * (f32)m_width;
+	corner[1].y = (f32)m_iHeight;
+	corner[1].z = 0.0f;
+
+	for (s32 i = 0; i < 2; i++)
+	{
+		CPnt3D p = corner[i];
+		corner[i].x = transform.m_matrix[0][0] * p.x + transform.m_matrix[1][0] * p.y + transform.m_matrix[2][0] * p.z + transform.m_matrix[3][0];
+		corner[i].y = transform.m_matrix[0][1] * p.x + transform.m_matrix[1][1] * p.y + transform.m_matrix[2][1] * p.z + transform.m_matrix[3][1];
+		corner[i].z = transform.m_matrix[0][2] * p.x + transform.m_matrix[1][2] * p.y + transform.m_matrix[2][2] * p.z + transform.m_matrix[3][2];
+	}
+
+	reloc->PreGetSprPacket(NULL);
+	zVid_Scissor((s32)corner[0].x, (s32)corner[0].y, (s32)corner[1].x, (s32)corner[1].y);
+	CUIVariable* var = m_mixin_uivar;
+
+	if (var != NULL && var->type == ZRDR_STRING)
+	{
+		const char* name = var->string;
+		const char* current = m_pTexHandle ? m_pTexHandle->m_name : "";
+
+		if (strcasecmp(name, current) != 0)
+		{
+			zdb::CTexHandle* handle = PrepTexture(name, reloc);
+
+			if (handle != NULL)
+				C2DBitmap::Load((f32)m_x, (f32)m_y, (f32)(m_x + m_iWidth), (f32)(m_y + m_iHeight), handle);
+		}
+	}
+
+	C2DBitmap::Draw(transform, reloc);
+	reloc->PreGetSprPacket(NULL);
+	zVid_Scissor(0, 0, 640, 448);
+	zdb::CNode* edge = UiGetCurMenu()->m_nodeTop.FindChild(m_leadingEdge.c_str(), true);
+
+	if (edge != NULL)
+		edge->SetPosition(corner[1].x, corner[0].y, 0.0f);
 }
 
 /* @socom-skeleton stub HandlePad__9CCheckBoxFPC4CPadi */

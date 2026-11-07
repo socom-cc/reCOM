@@ -248,7 +248,8 @@ CTextSpec::CTextSpec(_zrdr* reader) : CDlgObjSpec(reader)
 CDlgObjSpec * GetObjectSpec(_zrdr *reader, const char *type)
 {
 	/* 0x399670: TEXT, IMAGE, TELETYPE, WRAPPEDTEXT, TICKERTAPETEXT, PROGRESSBAR, COUNTER,
-	 * CLOCK. port: TEXT, IMAGE and TELETYPE are written; the other types are skipped (NULL). */
+	 * CLOCK. port: TEXT, IMAGE, TELETYPE and PROGRESSBAR are written; the other types are
+	 * skipped (NULL). */
 	if (type == NULL)
 		return NULL;
 
@@ -260,6 +261,10 @@ CDlgObjSpec * GetObjectSpec(_zrdr *reader, const char *type)
 
 	if (strcmp("TELETYPE", type) == 0)
 		return new CTtySpec(reader);
+
+	/* port: WRAPPEDTEXT and TICKERTAPETEXT are tested here in the ELF (not written) */
+	if (strcmp("PROGRESSBAR", type) == 0)
+		return new CHProgressBarSpec(reader);
 
 #ifdef SOCOM_PORT
 	static int traced = 0;
@@ -520,8 +525,21 @@ C2D * CSliderBarSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
 }
 
 /* @socom-skeleton stub CreateDisplayObj__17CHProgressBarSpecCFP7C2DFontPQ23zdb16CTextureRelocMgr */
-C2D * CHProgressBarSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *) const
+C2D * CHProgressBarSpec::CreateDisplayObj(C2DFont *, zdb::CTextureRelocMgr *reloc) const
 {
+	/* 0x396160: a CHProgressBar of the FILENAME texture; with FILENAME_IS_UIVAR the
+	 * FILENAME names a live string UI variable holding the texture name (else no texture) */
+	CHProgressBar* bar = new CHProgressBar();
+	const char* name = m_filename.c_str();
+
+	if (m_filenameIsUiVar)
+	{
+		if (CUIVariable* var = theUIVarManager.Find(name))
+			name = var->type == ZRDR_STRING ? var->string : NULL;
+	}
+
+	bar->LoadSpec(*this, PrepTexture(name, reloc));
+	return bar;
 }
 
 /* @socom-skeleton stub __ct__13CCheckBoxSpecFP5_zrdr */

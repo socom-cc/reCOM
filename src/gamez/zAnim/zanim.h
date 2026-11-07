@@ -311,6 +311,9 @@ enum class AnimType : s16 /* 2 bytes (DWARF); animTypeUndefined is -1 (Ghidra en
 	animTypeRunL_P
 };
 
+CQuat * QFromRot(CQuat *, const CPnt3D *); /* zanim_sequence.cpp 0x1dd080 */
+int ClipToBox(const CPnt3D &, const CPnt3D &, CPnt3D &, float, float, float, float); /* zanim_sequence.cpp 0x1dca40 */
+
 struct REFPT_INFO
 {
 	CPnt3D m_goal_pos;
@@ -473,6 +476,39 @@ struct _zanim_cmd_opacity     /* OBJECT_OPACITY_FROM_TO (0x1ba280, 0x1ba1c0) */
 	f32 to;                   /* +0xc */
 	f32 rate;                 /* +0x10: change per second */
 	f32 duration;             /* +0x14 */
+};
+
+struct _zanim_cmd_translate_state /* OBJECT_TRANSLATE_STATE (zAnimObjectTranslateStateTick 0x1bd320) */
+{
+	_zanim_cmd_hdr header;
+	u16 flags;                /* +0x4: 1 offset, 2 add the anim's point arg, 4 relative to the node, 8/0x10/0x20 keep x/y/z */
+	u8 node_ref;              /* +0x6 */
+	u8 at_node_ref;           /* +0x7: AT_NODE, the point is taken through its world transform */
+	f32 offset[3];            /* +0x8 */
+};
+
+struct _zanim_cmd_motion_from_to /* OBJECT_MOTION_FROM_TO (0x1ba630 begin, 0x1ba2d0 tick); 0x80 bytes */
+{
+	_zanim_cmd_hdr header;
+	u16 flags;                /* +0x4: 1 relative "to"; translation 0x10 given 0x20 node 0x40 arg 0x1000 valves,
+	                             from 2 given 4 node 8 arg (else the node's own); 0x80 SPEED; 0x200 rotate
+	                             (0x100 given); 0x800 scale (0x400 given); 0x2000/0x4000 accelerated */
+	u8 node_ref;              /* +0x6 */
+	u8 from_node_ref;         /* +0x7 */
+	u8 to_node_ref;           /* +0x8 */
+	u8 to_valve[3];           /* +0x9: valve name indexes for "to" x, y, z */
+	f32 rot_from[3];          /* +0xc */
+	f32 rot_to[3];            /* +0x18 */
+	f32 rot_rate[3];          /* +0x24: per second */
+	f32 from[3];              /* +0x30 */
+	f32 to[3];                /* +0x3c */
+	f32 velocity[3];          /* +0x48: per second */
+	f32 speed;                /* +0x54: SPEED, gives the duration */
+	f32 scale_from[3];        /* +0x58 */
+	f32 scale_to[3];          /* +0x64 */
+	f32 scale_rate[3];        /* +0x70: per second */
+	f32 duration;             /* +0x7c */
+	/* +0x80: a CZAnimFromToAcc follows when accelerated (0x2000/0x4000) */
 };
 
 class C2DAnimCmdHdr           /* DWARF (8 bytes): UI_COMMAND / UI_APP_COMMAND, and the 2D objects' own commands */
@@ -1301,15 +1337,41 @@ public:
 	/* @socom-skeleton end 16CZSIScriptCommon */
 };
 
+/* CSealAnim's pose stack (no DWARF; layout from the ctor 0x26e5e0 and AnimPush 0x26deb0,
+ * port: guess for every type and member name). One malloc'd block of 8464 bytes: a 16-byte
+ * header, then 8 frames of 1056 bytes, each one pose per body part id (32). */
+struct SEALANIM_PART
+{
+	CPnt3D m_pos;  /* +0x0 */
+	s16 m_id;      /* +0xc: the body part id, -1 for none */
+	s16 m_keep;    /* +0xe: 1 = take the node's position instead of the script's */
+	CQuat m_rot;   /* +0x10 */
+};
+
+struct SEALANIM_FRAME
+{
+	f32 m_wt;                    /* +0x0: the active anim's weight */
+	SEALANIM_PART m_parts[32];   /* +0x10 */
+	CZBodyAnim* m_anim;          /* +0x410 */
+};
+
+struct SEALANIM_STACK
+{
+	s32 m_depth;                 /* +0x0 */
+	class CZSealBody* m_body;    /* +0x4: the last body pushed */
+	SEALANIM_FRAME m_frames[8];  /* +0x10 */
+};
+
 class CSealAnim
 {
 public:
 	CSealAnim();
 	~CSealAnim();
+	SEALANIM_STACK* m_stack; /* +0x0 (port: guess name) */
 	/* @socom-skeleton decl 9CSealAnim */
 public:
-	void AnimPush(CZSealBody *, ACTIVE_ANIM *);
-	void AnimPop(CBody *);
+	int AnimPush(CZSealBody *, ACTIVE_ANIM *); /* int: 0x26deb0 returns the new depth */
+	int AnimPop(CBody *); /* int: 0x26ddc0 returns the new depth */
 	void AnimBlend(int);
 	void CombineRotations(int, int);
 	void AnimOverlay(float);

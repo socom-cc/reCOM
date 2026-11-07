@@ -238,8 +238,21 @@ void SetGSReg(short, u64) /* port: MW `unsigned long` is 64-bit; 0x308500 stores
 }
 
 /* @socom-skeleton stub zVid_Scissor__Fiiii */
-void zVid_Scissor(int, int, int, int)
+void zVid_Scissor(int x0, int y0, int x1, int y1)
 {
+	/* 0x308420: SCISSOR_1 = [x0, x1) x [y0, y1) through the MFIFO: DMA CNT 2 (VIF FLUSH,
+	 * DIRECT 2), GIFtag NLOOP 1 EOP A+D, then the register */
+	u32* packet = (u32*)zSysSprGetPacket(NULL);
+	packet[0] = 0x10000002; /* CNT, qwc 2 */
+	packet[1] = 0;
+	packet[2] = 0x11000000; /* VIF FLUSH */
+	packet[3] = 0x50000002; /* VIF DIRECT 2 */
+	u64* data = (u64*)(packet + 4);
+	data[0] = 0x8001 | (1ULL << 60); /* NLOOP 1, EOP, NREG 1 */
+	data[1] = 0xe;                   /* A+D */
+	data[2] = (u64)(s64)x0 | ((u64)(s64)(x1 - 1) << 16) | ((u64)(s64)y0 << 32) | ((u64)(s64)(y1 - 1) << 48);
+	data[3] = 0x40;                  /* SCISSOR_1 */
+	zSysFifoKick((unsigned __int128*)packet, 3);
 }
 
 /* @socom-skeleton stub zvid_KickPacket__FPUlib */

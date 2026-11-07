@@ -75,6 +75,8 @@
 #include "gamez/zTwoD/ztwod.h"
 #include "zui.h"
 /* @socom-skeleton end include */
+#include "gamez/zSystem/zsys.h" /* _strdup, _free (CUIVariableSpec) */
+#include "posix/strcasecmp.h"
 /* @socom-skeleton decl forward */
 namespace zdb {
 class CTextureRelocMgr;
@@ -322,40 +324,58 @@ void CUIMapCtrlSpec::Copy()
 }
 
 /* @socom-skeleton body __ct__15CUIVariableSpecFP5_zrdr */
-CUIVariableSpec::CUIVariableSpec(_zrdr* reader)
+CUIVariableSpec::CUIVariableSpec(_zrdr* reader) : m_array(NULL), m_stable(0, 1024)
 {
-    m_name = zrdr_findstring(reader, "NAME");
-    m_array = NULL;
-    m_stable = CSTable(0, 1024);
+	/* 0x39ef40: { NAME VALUE LONGEVITY }. A one-element VALUE array stands for its element;
+	 * the value is cloned with its strings in the spec's own table. */
+	m_name = _strdup(zrdr_findstring(reader, "NAME"), "zui_cleanup.cpp", 254);
+	_zrdr* value = zrdr_findtag(reader, "VALUE");
 
-    _zrdr* var_value = zrdr_findtag(reader, "VALUE");
+	if (value != NULL && value->IsArray() && value->array->integer - 1 == 1)
+		value = value->Get(0);
 
-    if (var_value && var_value->type == ZRDR_ARRAY && var_value->array->integer == 2)
-    {
-        if (var_value->array->integer == 1)
-        {
-            var_value = NULL;
-        }
-        else
-        {
-            var_value = &var_value[1];
-        }
-    }
+	if (value != NULL)
+		m_array = new _zrdr(value, &m_stable);
 
-    if (var_value)
-    {
-        // m_array = new _zrdr(var_value, m_stable);
-    }
+	m_type = UIVL_TEMPORARY;
+
+	if (char* longevity = zrdr_findstring(reader, "LONGEVITY"))
+	{
+		if (strcasecmp(longevity, "PERSISTENT") == 0)
+			m_type = UIVL_PERSISTENT;
+		else if (strcasecmp(longevity, "PERMANENT") == 0)
+			m_type = UIVL_PERMANENT;
+		else if (strcasecmp(longevity, "TEMPORARY") == 0)
+			m_type = UIVL_TEMPORARY;
+	}
 }
 
 /* @socom-skeleton stub __ct__15CUIVariableSpecFP15CUIVariableSpec */
-CUIVariableSpec::CUIVariableSpec(CUIVariableSpec *)
+CUIVariableSpec::CUIVariableSpec(CUIVariableSpec *other) : m_name(NULL), m_array(NULL), m_stable(0, 1024)
 {
+	/* 0x39ee90 */
+	m_name = _strdup(other->m_name, "zui_cleanup.cpp", 285);
+
+	if (other->m_array != NULL)
+		m_array = new _zrdr(other->m_array, &m_stable);
+
+	m_type = other->m_type;
 }
 
 /* @socom-skeleton stub __dt__15CUIVariableSpecFv */
 CUIVariableSpec::~CUIVariableSpec()
 {
+	/* 0x39edf0 */
+	if (m_name != NULL)
+		_free(m_name, "zui_cleanup.cpp", 302);
+
+	m_name = NULL;
+
+	if (m_array != NULL)
+	{
+		m_array->DeleteChildren();
+		delete m_array;
+	}
 }
 
 /* @socom-skeleton stub GetType__14CUIMapCtrlSpecFv */

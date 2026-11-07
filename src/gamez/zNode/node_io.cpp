@@ -434,6 +434,8 @@ CMatrix& CNode::BuildMTW(CMatrix& mat)
 /* @socom-skeleton body TransformToWorld__Q23zdb5CNodeCFR6CPnt3D */
 void zdb::CNode::TransformToWorld(CPnt3D &point) const
 	{
-		// TODO:
-		// Implement this function
+		/* 0x223180: through this node's matrix and each parent's (VU0 in the ELF:
+		 * p.x row0 + p.y row1 + p.z row2 + row3), up to but not through a grid node */
+		for (const CNode* node = this; node != NULL && node->m_type != (u32)TYPE::GRID; node = node->m_parent)
+			node->m_matrix.Transform(&point, 1);
 	}
